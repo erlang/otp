@@ -2217,37 +2217,19 @@ lookup_enum_value(S, Id, NNL) when is_atom(Id) ->
 	    asn1_error(S, S#state.value, {undefined,Id})
     end.
 
-normalize_choice(S,{'CHOICE',{C,V}},CType,NameList) when is_atom(C) ->
-    case catch lists:keysearch(C,#'ComponentType'.name,CType) of
-	{value,#'ComponentType'{typespec=CT,name=Name}} ->
-	    {C,normalize_value(S,CT,{'DEFAULT',V},
-			       [Name|NameList])};
-	Other ->
-	    asn1ct:warning("Wrong format of type/value ~p/~p~n",[Other,V],S,
-			   "Wrong format of type/value"),
-	    {C,V}
+normalize_choice(S, {'CHOICE',{C,V}}, CType, NameList)
+  when is_atom(C) ->
+    case lists:keyfind(C, #'ComponentType'.name, CType) of
+	#'ComponentType'{typespec=CT,name=Name} ->
+	    {C,normalize_value(S, CT, {'DEFAULT',V}, [Name|NameList])};
+	false ->
+	    asn1_error(S, {illegal_choice_id,C})
     end;
-normalize_choice(S,{'DEFAULT',ValueList},CType,NameList) when is_list(ValueList) ->
-    lists:map(fun(X)-> normalize_choice(S,X,CType,NameList) end, ValueList);
-normalize_choice(S,Val=#'Externalvaluereference'{},CType,NameList) ->
-    {M,#valuedef{value=V}}=get_referenced_type(S,Val),
-    normalize_choice(update_state(S,M),{'CHOICE',V},CType,NameList);
-%    get_normalized_value(S,Val,CType,fun normalize_choice/4,[NameList]);
-normalize_choice(S,CV={Name,_ChoiceVal},CType,NameList) 
+normalize_choice(S,CV={Name,_ChoiceVal},CType,NameList)
   when is_atom(Name) ->
-%    normalize_choice(S,ChoiceVal,CType,NameList).
     normalize_choice(S,{'CHOICE',CV},CType,NameList);
-normalize_choice(_S,V,_CType,_NameList) ->
-    exit({error,{bad_choice_value,V}}).
-
-%% normalize_choice(NameList,S,CVal = {'CHOICE',{_,_}},CType,_) ->
-%%     normalize_choice(S,CVal,CType,NameList);
-%% normalize_choice(NameList,S,CVal={'DEFAULT',VL},CType,_) when is_list(VL)->
-%%     normalize_choice(S,CVal,CType,NameList);
-%% normalize_choice(NameList,S,CV={Name,_CV},CType,_) when is_atom(Name)->
-%%     normalize_choice(S,{'CHOICE',CV},CType,NameList);
-%% normalize_choice(_,_S,V,_,_) ->
-%%     V.
+normalize_choice(S, V, _CType, _NameList) ->
+    asn1_error(S, {illegal_choice_id, error_value(V)}).
 
 normalize_sequence(S,Value,Components,NameList) 
   when is_tuple(Components) ->
@@ -4724,31 +4706,40 @@ check_selectiontype(S,Name,#type{def=Eref})
 		   tname=get_datastr_name(TypeDef)},
     check_selectiontype2(NewS,Name,TypeDef);
 check_selectiontype(S,Name,Type=#type{def={pt,_,_}}) ->
-    TName =
-	case S#state.recordtopname of
-	    [] ->
-		S#state.tname;
-	    N -> N
-	end,
+    TName = case S#state.recordtopname of
+		[] -> S#state.tname;
+		N -> N
+	    end,
     TDef = #typedef{name=TName,typespec=Type},
     check_selectiontype2(S,Name,TDef);
-check_selectiontype(S,Name,Type) ->
-    Msg = lists:flatten(io_lib:format("SelectionType error: ~w < ~w must be a reference to a CHOICE.",[Name,Type])),
-    error({type,Msg,S}).
+check_selectiontype(S, _Name, Type) ->
+    asn1_error(S, {illegal_choice_type, error_value(Type)}).
 
 check_selectiontype2(S,Name,TypeDef) ->
     NewS = S#state{recordtopname=get_datastr_name(TypeDef)},
-    CheckedType = check_type(NewS,TypeDef,TypeDef#typedef.typespec),
-    Components = get_choice_components(S,CheckedType#type.def),
-    case lists:keysearch(Name,#'ComponentType'.name,Components) of
-	{value,C} -> 
-	    %% The selected type will have the tag of the selected type.
-	    _T = C#'ComponentType'.typespec;
-%	    T#type{tag=def_to_tag(NewS,T#type.def)};
-	_ -> 
-	    Msg = lists:flatten(io_lib:format("error checking SelectionType: ~w~n",[Name])),
-	    error({type,Msg,S})
+    Components =
+	try
+	    CheckedType = check_type(NewS,TypeDef,TypeDef#typedef.typespec),
+	    get_choice_components(S,CheckedType#type.def)
+	catch error:_ ->
+		asn1_error(S, {illegal_choice_type, error_value(TypeDef)})
+	end,
+    case lists:keyfind(Name, #'ComponentType'.name, Components) of
+	#'ComponentType'{typespec=TS} -> TS;
+	false -> asn1_error(S, {illegal_choice_id, error_value(Name)})
     end.
+
+
+get_choice_components(_S,{'CHOICE',Components}) when is_list(Components)->
+    Components;
+get_choice_components(_S,{'CHOICE',{C1,C2}}) when is_list(C1),is_list(C2) ->
+    C1++C2;
+get_choice_components(S,ERef=#'Externaltypereference'{}) ->
+    {_RefMod,TypeDef}=get_referenced_type(S,ERef),
+    #typedef{typespec=TS} = TypeDef,
+    get_choice_components(S,TS#type.def).
+
+
 	    
 check_restrictedstring(_S,_Def,_Constr) ->
     ok.
@@ -5318,15 +5309,6 @@ tuple2complist({R1,E,R2}) ->
 tuple2complist(List) when is_list(List) ->
     List.
 
-get_choice_components(_S,{'CHOICE',Components}) when is_list(Components)->
-    Components;
-get_choice_components(_S,{'CHOICE',{C1,C2}}) when is_list(C1),is_list(C2) ->
-    C1++C2;
-get_choice_components(S,ERef=#'Externaltypereference'{}) ->
-    {_RefMod,TypeDef}=get_referenced_type(S,ERef),
-    #typedef{typespec=TS} = TypeDef,
-    get_choice_components(S,TS#type.def).
-
 extract_at_notation([{Level,ValueRefs}]) ->
     {Level,[Name || #'Externalvaluereference'{value=Name} <- ValueRefs]}.
     
@@ -5840,6 +5822,10 @@ format_error({enum_not_ascending,Id,N,Prev}) ->
 format_error({enum_reused_value,Id,Val}) ->
     io_lib:format("'~s' has the value '~p' which is used more than once",
 		  [Id,Val]);
+format_error({illegal_choice_id, Id}) ->
+    io_lib:format("illegal CHOICE identifier: ~p", [Id]);
+format_error({illegal_choice_type, Ref}) ->
+    io_lib:format("expecting a CHOICE type: ~p", [Ref]);
 format_error({illegal_class_name,Class}) ->
     io_lib:format("the class name '~s' is illegal (it must start with an uppercase letter and only contain uppercase letters, digits, or hyphens)", [Class]);
 format_error(illegal_external_value) ->
@@ -6235,6 +6221,20 @@ check_fold(S0, [H|T], Check) ->
 	    [Error|check_fold(S, T, Check)]
     end;
 check_fold(_, [], Check) when is_function(Check, 3) -> [].
+
+error_value(Value) when is_integer(Value) -> Value;
+error_value(Value) when is_atom(Value) -> Value;
+error_value(#type{def=Value}) when is_atom(Value) -> Value;
+error_value(#type{def=Value}) -> error_value(Value);
+error_value(RefOrType) ->
+    try name_of_def(RefOrType) of
+	Name -> Name
+    catch _:_ ->
+	    case get_datastr_name(RefOrType) of
+		undefined -> RefOrType;
+		Name -> Name
+	    end
+    end.
 
 name_of_def(#'Externaltypereference'{type=N}) -> N;
 name_of_def(#'Externalvaluereference'{value=N}) -> N.

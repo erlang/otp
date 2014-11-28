@@ -792,6 +792,15 @@ values(Config) ->
 	   "  ext-1 EXTERNAL ::= {identification bad:{1 2 3}, data-value '123'H}\n"
 	   "  ext-2 EXTERNAL ::= {identification syntax:{1 2 3}, data '123'H}\n"
 
+	   "  CH ::= CHOICE { a INTEGER, b BOOLEAN }\n"
+	   "  ch1 CH ::= 2344\n"
+	   "  ch2 CH ::= zz:34\n"
+
+	   "  st1 an < Seq ::= 42\n"
+	   "  st2 zz < CH ::= 42\n"
+	   "  st3 a < HOLDER ::= 42\n"
+	   "  st4 a < INTEGER ::= 42\n"
+
 	   "  int INTEGER ::= 42\n"
 	   "END\n">>},
     {error,
@@ -841,7 +850,19 @@ values(Config) ->
       {structured_error,{M,33},asn1ct_check,
        illegal_external_value},
       {structured_error,{M,34},asn1ct_check,
-       illegal_external_value}
+       illegal_external_value},
+      {structured_error,{M,36},asn1ct_check,
+       {illegal_choice_id, 2344}},
+      {structured_error,{M,37},asn1ct_check,
+       {illegal_choice_id, zz}},
+      {structured_error,{M,38},asn1ct_check,
+       {illegal_choice_type, 'Seq'}},
+      {structured_error,{M,39},asn1ct_check,
+       {illegal_choice_id, zz}},
+      {structured_error,{M,40},asn1ct_check,
+       {illegal_choice_type, 'HOLDER'}},
+      {structured_error,{M,41},asn1ct_check,
+       {illegal_choice_type, 'INTEGER'}}
      ]
     } = run(P, Config),
     ok.
