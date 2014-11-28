@@ -3154,8 +3154,8 @@ match_args(S,FA = [FormArg|Ft], AA = [ActArg|At], Acc) ->
     end;
 match_args(_S,[], [], Acc) ->
     lists:reverse(Acc);
-match_args(_,_, _, _) ->
-    throw({error,{asn1,{wrong_number_of_arguments}}}).
+match_args(S, _, _, _) ->
+    asn1_error(S, param_wrong_number_of_arguments).
 
 %%%%%%%%%%%%%%%%%
 %% categorize_arg(S,FormalArg,ActualArg) -> {FormalArg,CatgorizedActualArg}
@@ -5877,6 +5877,8 @@ format_error(multiple_uniqs) ->
     "implementation limitation: only one UNIQUE field is allowed in CLASS";
 format_error({namelist_redefinition,Name}) ->
     io_lib:format("the name '~s' can not be redefined", [Name]);
+format_error(param_wrong_number_of_arguments) ->
+    "wrong number of arguments";
 format_error(reversed_range) ->
     "ranges must be given in increasing order";
 format_error({syntax_duplicated_fields,Fields}) ->

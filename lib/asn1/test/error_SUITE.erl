@@ -459,12 +459,19 @@ parameterization(Config) ->
     P = {M,
 	 <<"Parameterization DEFINITIONS AUTOMATIC TAGS ::= BEGIN\n"
 	   "  NotUppercase{lowercase} ::= INTEGER (lowercase)\n"
+
+	   "  P{T1,T2} ::= SEQUENCE { a T1, b T2 }\n"
+	   "  S ::= P{OCTET STRING}\n"
+
 	   "END\n">>},
     {error,
-     [{structured_error,{'Parameterization',2},asn1ct_check,
-       {illegal_typereference,lowercase}}
-      ]
-     } = run(P, Config),
+     [{structured_error,{M,2},asn1ct_check,
+       {illegal_typereference,lowercase}},
+      {structured_error,
+       {M,4},
+       asn1ct_check,param_wrong_number_of_arguments}
+     ]
+    } = run(P, Config),
     ok.
 
 syntax(Config) ->
