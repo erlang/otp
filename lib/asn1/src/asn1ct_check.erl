@@ -23,8 +23,6 @@
 %% Main Module for ASN.1 compile time functions
 
 %-compile(export_all).
-%% Avoid warning for local function error/1 clashing with autoimported BIF.
--compile({no_auto_import,[error/1]}).
 -export([check/2,storeindb/2,format_error/1]).
 %-define(debug,1).
 -include("asn1_records.hrl").
@@ -299,7 +297,7 @@ do_checkt(S, Name, #typedef{typespec=TypeSpec}=Type0) ->
 	    end
     catch
 	{error,Reason} ->
-	    error({type,Reason,NewS});
+	    Reason;
 	{asn1_class,_ClassDef} ->
 	    {asn1_class,Name};
 	pobjectsetdef ->
@@ -347,7 +345,7 @@ do_checkv(S, Name, Value)
 	    ok
     catch
 	{error,Reason} ->
-	    error({value,Reason,NewS});
+	    Reason;
 	{pobjectsetdef} ->
 	    {pobjectsetdef,Name};
 	{objectsetdef} ->
@@ -376,7 +374,7 @@ do_checkp(S0, Name, #ptypedef{typespec=TypeSpec}=Type0) ->
 	    ok
     catch
 	{error,Reason} ->
-	    error({type,Reason,S});
+	    Reason;
 	{asn1_class,_ClassDef} ->
 	    {asn1_class,Name};
 	{asn1_param_class,_} ->
@@ -388,38 +386,31 @@ checkc(S, Names) ->
     check_fold(S, Names, fun do_checkc/3).
 
 do_checkc(S, Name, Class) ->
-    case is_classname(Name) of
-	false ->
-	    return_asn1_error(S, {illegal_class_name,Name});
-	true ->
-	    do_checkc_1(S, Name, Class)
+    try
+	case is_classname(Name) of
+	    false ->
+		asn1_error(S, {illegal_class_name,Name});
+	    true ->
+		do_checkc_1(S, Name, Class)
+	end
+    catch {error,Reason} -> Reason
     end.
 
 do_checkc_1(S, Name, #classdef{}=Class) ->
-    try check_class(S, Class) of
-	C ->
-	    store_class(S, true, Class#classdef{typespec=C}, Name),
-	    ok
-    catch
-	{error,Reason} ->
-	    error({class,Reason,S})
-    end;
+    C = check_class(S, Class),
+    store_class(S, true, Class#classdef{typespec=C}, Name),
+    ok;
 do_checkc_1(S, Name, #typedef{typespec=#type{def=Def}=TS}) ->
-    try check_class(S, TS) of
-	C ->
-	    {Mod,Pos} = case Def of
-			    #'Externaltypereference'{module=M, pos=P} ->
-				{M,P};
-			    {pt, #'Externaltypereference'{module=M, pos=P}, _} ->
-				{M,P}
-			end,
-	    Class = #classdef{name=Name, typespec=C, pos=Pos, module=Mod},
-	    store_class(S, true, Class, Name),
-	    ok
-    catch
-	{error,Reason} ->
-	    error({class,Reason,S})
-    end.
+    C = check_class(S, TS),
+    {Mod,Pos} = case Def of
+		    #'Externaltypereference'{module=M, pos=P} ->
+			{M,P};
+		    {pt, #'Externaltypereference'{module=M, pos=P}, _} ->
+			{M,P}
+		end,
+    Class = #classdef{name=Name, typespec=C, pos=Pos, module=Mod},
+    store_class(S, true, Class, Name),
+    ok.
 
 %% is_classname(Atom) -> true|false.
 is_classname(Name) when is_atom(Name) ->
@@ -432,70 +423,42 @@ is_classname(Name) when is_atom(Name) ->
 checko(S0,[Name|Os],Acc,ExclO,ExclOS) ->
     Item = asn1_db:dbget(S0#state.mname, Name),
     S = S0#state{error_context=Item},
-    Result = 
-	case Item of
-	    Object when is_record(Object,typedef) ->
-		NewS = S#state{type=Object,tname=Name},
-		case catch(check_object(NewS,Object,Object#typedef.typespec)) of
-		    {error,Reason} ->
-			error({type,Reason,NewS});
-		    {'EXIT',Reason} ->
-			error({type,{internal_error,Reason},NewS});
-		    O ->
-			NewObj = Object#typedef{checked=true,typespec=O},
-			asn1_db:dbput(NewS#state.mname,Name,NewObj),
-			if
-			    is_record(O,'Object') ->
-				case O#'Object'.gen of
-				    true ->
-					{ok,ExclO,ExclOS};
-				    false ->
-					{ok,[Name|ExclO],ExclOS}
-				end;
-			    is_record(O,'ObjectSet') ->
-				case O#'ObjectSet'.gen of
-				    true ->
-					{ok,ExclO,ExclOS};
-				    false ->
-					{ok,ExclO,[Name|ExclOS]}
-				end
-			end
-		end;
-	    PObject when is_record(PObject,pobjectdef) ->
-		NewS = S#state{type=PObject,tname=Name},
-		case (catch check_pobject(NewS,PObject)) of
-		    {error,Reason} ->
-			error({type,Reason,NewS});
-		    {'EXIT',Reason} ->
-			error({type,{internal_error,Reason},NewS});
-		    PO ->
-			NewPObj = PObject#pobjectdef{def=PO},
-			asn1_db:dbput(NewS#state.mname,Name,NewPObj),
-			{ok,[Name|ExclO],ExclOS}
-		end;
-	    PObjSet when is_record(PObjSet,pvaluesetdef) ->
-		%% this is a parameterized object set. Might be a parameterized
-		%% value set, couldn't it?
-		NewS = S#state{type=PObjSet,tname=Name},
-		case (catch check_pobjectset(NewS,PObjSet)) of
-		    {error,Reason} ->
-			error({type,Reason,NewS});
-		    {'EXIT',Reason} ->
-			error({type,{internal_error,Reason},NewS});
-		    POS ->
-			%%NewPObjSet = PObjSet#pvaluesetdef{valueset=POS},
-			asn1_db:dbput(NewS#state.mname,Name,POS),
-			{ok,ExclO,[Name|ExclOS]}
-		end
-	end,
-    case Result of
-	{ok,NewExclO,NewExclOS} ->
-	    checko(S,Os,Acc,NewExclO,NewExclOS);
-	_ ->
-	    checko(S,Os,[Result|Acc],ExclO,ExclOS)
+    try checko_1(S, Item, Name, ExclO, ExclOS) of
+	{NewExclO,NewExclOS} ->
+	    checko(S, Os, Acc, NewExclO, NewExclOS)
+    catch
+	throw:{error, Error} ->
+	    checko(S, Os, [Error|Acc], ExclO, ExclOS)
     end;
 checko(_S,[],Acc,ExclO,ExclOS) ->
     {lists:reverse(Acc),lists:reverse(ExclO),lists:reverse(ExclOS)}.
+
+checko_1(S, #typedef{typespec=TS}=Object, Name, ExclO, ExclOS) ->
+    NewS = S#state{type=Object,tname=Name},
+    O = check_object(NewS, Object, TS),
+    NewObj = Object#typedef{checked=true,typespec=O},
+    asn1_db:dbput(NewS#state.mname, Name, NewObj),
+    case O of
+	#'Object'{gen=true} ->
+	    {ExclO,ExclOS};
+	#'Object'{gen=false} ->
+	    {[Name|ExclO],ExclOS};
+	#'ObjectSet'{gen=true} ->
+	    {ExclO,ExclOS};
+	#'ObjectSet'{gen=false} ->
+	    {ExclO,[Name|ExclOS]}
+    end;
+checko_1(S, #pobjectdef{}=PObject, Name, ExclO, ExclOS) ->
+    NewS = S#state{type=PObject,tname=Name},
+    PO = check_pobject(NewS, PObject),
+    NewPObj = PObject#pobjectdef{def=PO},
+    asn1_db:dbput(NewS#state.mname, Name, NewPObj),
+    {[Name|ExclO],ExclOS};
+checko_1(S, #pvaluesetdef{}=PObjSet, Name, ExclO, ExclOS) ->
+    NewS = S#state{type=PObjSet,tname=Name},
+    POS = check_pobjectset(NewS, PObjSet),
+    asn1_db:dbput(NewS#state.mname, Name, POS),
+    {ExclO,[Name|ExclOS]}.
 
 check_class(S,CDef=#classdef{checked=Ch,name=Name,typespec=TS}) ->
     case Ch of
@@ -5914,49 +5877,6 @@ format_elements([H1,H2|T]) ->
     [io_lib:format("~p, ", [H1])|format_elements([H2|T])];
 format_elements([H]) ->
     io_lib:format("~p", [H]).
-
-error({_,{structured_error,_,_,_}=SE,_}) ->
-    SE;
-error({type,Msg,#state{mname=Mname,type=Type,tname=Typename}}) 
-  when is_record(Type,type) ->
-    io:format("asn1error:~p:~p~n~p~n",
-	      [Mname,Typename,Msg]),
-    {error,{type,Mname,Typename,Msg}};
-error({type,Msg,#state{mname=Mname,type=Type,tname=Typename}}) 
-  when is_record(Type,typedef) ->
-    io:format("asn1error:~p:~p:~p~n~p~n",
-	      [Type#typedef.pos,Mname,Typename,Msg]),
-    {error,{type,Type#typedef.pos,Mname,Typename,Msg}};
-error({type,Msg,#state{mname=Mname,type=Type,tname=Typename}}) 
-  when is_record(Type,ptypedef) ->
-    io:format("asn1error:~p:~p:~p~n~p~n",
-	      [Type#ptypedef.pos,Mname,Typename,Msg]),
-    {error,{type,Type#ptypedef.pos,Mname,Typename,Msg}};
-error({type,Msg,#state{mname=Mname,value=Value,vname=Valuename}})
-  when is_record(Value,valuedef) ->
-    io:format("asn1error:~p:~p:~p~n~p~n",[Value#valuedef.pos,Mname,Valuename,Msg]),
-    {error,{type,Value#valuedef.pos,Mname,Valuename,Msg}};
-error({type,Msg,#state{mname=Mname,type=Type,tname=Typename}}) 
-  when is_record(Type,pobjectdef) ->
-    io:format("asn1error:~p:~p:~p~n~p~n",
-	      [Type#pobjectdef.pos,Mname,Typename,Msg]),
-    {error,{type,Type#pobjectdef.pos,Mname,Typename,Msg}};
-error({value,Msg,#state{mname=Mname,value=Value,vname=Valuename}}) 
-  when is_record(Value,valuedef) ->
-    io:format("asn1error:~p:~p:~p~n~p~n",[Value#valuedef.pos,Mname,Valuename,Msg]),
-    {error,{value,Value#valuedef.pos,Mname,Valuename,Msg}};
-error({Other,Msg,#state{mname=Mname,value=#valuedef{pos=Pos},vname=Valuename}}) ->
-    io:format("asn1error:~p:~p:~p~n~p~n",[Pos,Mname,Valuename,Msg]),
-    {error,{Other,Pos,Mname,Valuename,Msg}};
-error({Other,Msg,#state{mname=Mname,type=#typedef{pos=Pos},tname=Typename}}) ->
-    io:format("asn1error:~p:~p:~p~n~p~n",[Pos,Mname,Typename,Msg]),
-    {error,{Other,Pos,Mname,Typename,Msg}};
-error({Other,Msg,#state{mname=Mname,type=#classdef{pos=Pos},tname=Typename}}) ->
-    io:format("asn1error:~p:~p:~p~n~p~n",[Pos,Mname,Typename,Msg]),
-    {error,{Other,Pos,Mname,Typename,Msg}};
-error({Other,Msg,#state{mname=Mname,type=Type,tname=Typename}}) ->
-    io:format("asn1error:~p:~p:~p~n~p~n",[asn1ct:get_pos_of_def(Type),Mname,Typename,Msg]),
-    {error,{Other,asn1ct:get_pos_of_def(Type),Mname,Typename,Msg}}.
 
 include_default_type(Module) ->
     NameAbsList = default_type_list(),
