@@ -121,7 +121,7 @@
           <c><anno>Dict</anno></c> together with an extra argument <c>Acc</c>
           (short for accumulator). <c><anno>Fun</anno></c> must return a new
           accumulator which is passed to the next call. <c><anno>Acc0</anno></c> is
-          returned if the list is empty. The evaluation order is
+          returned if the dict is empty. The evaluation order is
           undefined.</p>
       </desc>
     </func>
