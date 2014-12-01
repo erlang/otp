@@ -161,7 +161,7 @@ get_timeout() ->
 	    get_timeout(os:type())
     end.
 
-get_timeout(_)       -> 3500.
+get_timeout(_)       -> 10000. % Trying to improve test results % 3500.
 
 %%----------------------------------------------------------------------
 %% Receives a trap from the agent.
