@@ -278,8 +278,7 @@ emit_enc_enumerated_cases(L, Tags) ->
     emit_enc_enumerated_cases(L, Tags, noext).
 
 emit_enc_enumerated_cases([{EnumName,EnumVal}|T], Tags, Ext) ->
-    Bytes = encode_pos_integer(EnumVal, []),
-    Len = length(Bytes),
+    {Bytes,Len} = encode_integer(EnumVal),
     emit([{asis,EnumName}," -> ",
 	  {call,ber,encode_tags,[Tags,{asis,Bytes},Len]},";",nl]),
     emit_enc_enumerated_cases(T, Tags, Ext);
@@ -288,10 +287,25 @@ emit_enc_enumerated_cases([], _Tags, _Ext) ->
     emit([{curr,enumval}," -> exit({error,{asn1, {enumerated_not_in_range,",{curr, enumval},"}}})"]),
     emit([nl,"end"]).
 
-encode_pos_integer(0, [B|_Acc] = L) when B < 128 ->
+encode_integer(Val) ->
+    Bytes =
+	if
+	    Val >= 0 ->
+		encode_integer_pos(Val, []);
+	    true ->
+		encode_integer_neg(Val, [])
+	end,
+    {Bytes,length(Bytes)}.
+
+encode_integer_pos(0, [B|_Acc]=L) when B < 128 ->
     L;
-encode_pos_integer(N, Acc) ->
-    encode_pos_integer(N bsr 8, [N band 255|Acc]).
+encode_integer_pos(N, Acc) ->
+    encode_integer_pos((N bsr 8), [N band 16#ff| Acc]).
+
+encode_integer_neg(-1, [B1|_T]=L) when B1 > 127 ->
+    L;
+encode_integer_neg(N, Acc) ->
+    encode_integer_neg(N bsr 8, [N band 16#ff|Acc]).
 
 %%===============================================================================
 %%===============================================================================
