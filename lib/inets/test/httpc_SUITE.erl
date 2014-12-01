@@ -106,7 +106,7 @@ only_simulated() ->
      empty_response_header,
      remote_socket_close,
      remote_socket_close_async,
-     process_leak_on_keepalive%,
+     process_leak_on_keepalive,
      transfer_encoding,
      transfer_encoding_identity,
      redirect_loop,
