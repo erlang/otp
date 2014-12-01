@@ -2068,8 +2068,8 @@ normalize_boolean(_,false,_) ->
     false;
 normalize_boolean(S,Bool=#'Externalvaluereference'{},CType) ->
     get_normalized_value(S,Bool,CType,fun normalize_boolean/3,[]);
-normalize_boolean(_,Other,_) ->
-    throw({error,{asn1,{'invalid default value',Other}}}).
+normalize_boolean(S, _, _) ->
+    asn1_error(S, {illegal_value, "BOOLEAN"}).
 
 normalize_integer(_S, Int, _) when is_integer(Int) ->
     Int;
@@ -2116,7 +2116,7 @@ normalize_bitstring(S, Value, Type)->
 		#valuedef{value=Val} ->
 		    normalize_bitstring(S, Val, Type);
 		_ ->
-		    asn1_error(S, illegal_bitstring_value)
+		    asn1_error(S, {illegal_value, "BIT STRING"})
 	    end;
 	RecList when is_list(RecList) ->
 	    [normalize_bs_item(S, Item, Type) || Item <- RecList];
@@ -2124,18 +2124,18 @@ normalize_bitstring(S, Value, Type)->
 	    %% Already normalized.
 	    Bs;
 	_ ->
-	    asn1_error(S, illegal_bitstring_value)
+	    asn1_error(S, {illegal_value, "BIT STRING"})
     end.
 
 normalize_bs_item(S, #'Externalvaluereference'{value=Name}, Type) ->
     case lists:keymember(Name, 1, Type) of
 	true -> Name;
-	false -> asn1_error(S, illegal_bitstring_value)
+	false -> asn1_error(S, {illegal_value, "BIT STRING"})
     end;
 normalize_bs_item(_, Atom, _) when is_atom(Atom) ->
     Atom;
 normalize_bs_item(S, _, _) ->
-    asn1_error(S, illegal_bitstring_value).
+    asn1_error(S, {illegal_value, "BIT STRING"}).
 
 hstring_to_binary(L) ->
     byte_align(hstring_to_bitstring(L)).
@@ -5840,8 +5840,6 @@ format_error({enum_not_ascending,Id,N,Prev}) ->
 format_error({enum_reused_value,Id,Val}) ->
     io_lib:format("'~s' has the value '~p' which is used more than once",
 		  [Id,Val]);
-format_error(illegal_bitstring_value) ->
-    "expecting a BIT STRING value";
 format_error({illegal_class_name,Class}) ->
     io_lib:format("the class name '~s' is illegal (it must start with an uppercase letter and only contain uppercase letters, digits, or hyphens)", [Class]);
 format_error(illegal_external_value) ->
@@ -5865,7 +5863,9 @@ format_error({illegal_typereference,Name}) ->
 format_error(illegal_table_constraint) ->
     "table constraints may only be applied to CLASS.&field constructs";
 format_error(illegal_value) ->
-    "expected a value";
+    "expecting a value";
+format_error({illegal_value, TYPE}) ->
+    io_lib:format("expecting a ~s value", [TYPE]);
 format_error({invalid_fields,Fields,Obj}) ->
     io_lib:format("invalid ~s in ~p", [format_fields(Fields),Obj]);
 format_error({invalid_bit_number,Bit}) ->

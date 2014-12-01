@@ -778,6 +778,9 @@ values(Config) ->
 	   "  bs5 BIT STRING ::= holder-2.&str\n"
 	   "  bs6 BIT STRING ::= holder-2.&obj\n"
 
+	   "  b1 BOOLEAN ::= 42\n"
+	   "  b2 BOOLEAN ::= {a,b}\n"
+
 	   "  HOLDER ::= CLASS {\n"
 	   "    &str IA5String,\n"
 	   "    &obj HOLDER OPTIONAL\n"
@@ -820,20 +823,24 @@ values(Config) ->
       {structured_error,{M,18},asn1ct_check,
        {undefined_field,'UndefinedField'}},
       {structured_error,{M,19},asn1ct_check,
-       illegal_bitstring_value},
+       {illegal_value, "BIT STRING"}},
       {structured_error,{M,20},asn1ct_check,
-       illegal_bitstring_value},
+       {illegal_value, "BIT STRING"}},
       {structured_error,{M,21},asn1ct_check,
-       illegal_bitstring_value},
+       {illegal_value, "BIT STRING"}},
       {structured_error,{M,22},asn1ct_check,
-       illegal_bitstring_value},
+       {illegal_value, "BIT STRING"}},
       {structured_error,{M,23},asn1ct_check,
-       illegal_bitstring_value},
+       {illegal_value, "BIT STRING"}},
       {structured_error,{M,24},asn1ct_check,
-       illegal_bitstring_value},
-      {structured_error,{M,31},asn1ct_check,
+       {illegal_value, "BIT STRING"}},
+      {structured_error,{M,25},asn1ct_check,
+       {illegal_value, "BOOLEAN"}},
+      {structured_error,{M,26},asn1ct_check,
+       {illegal_value, "BOOLEAN"}},
+      {structured_error,{M,33},asn1ct_check,
        illegal_external_value},
-      {structured_error,{M,32},asn1ct_check,
+      {structured_error,{M,34},asn1ct_check,
        illegal_external_value}
      ]
     } = run(P, Config),
