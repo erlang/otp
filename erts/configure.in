@@ -3970,6 +3970,7 @@ if test "$enable_dtrace_test" = "yes" ; then
                         DTRACE_ENABLED_2STEP=yes
 		     fi],
                     [])
+		$RM -f foo-dtrace.h
 		AS_IF([test "x$DTRACE_ENABLED_2STEP" = "xyes"],
 		      [AC_MSG_RESULT([yes])],
                       [AC_MSG_RESULT([no])])
