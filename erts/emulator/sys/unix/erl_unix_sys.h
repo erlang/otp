@@ -229,7 +229,7 @@ extern void sys_stop_cat(void);
 #ifdef USE_ISINF_ISNAN		/* simulate finite() */
 #  define isfinite(f) (!isinf(f) && !isnan(f))
 #  define HAVE_ISFINITE
-#elif defined(__GNUC__) && defined(HAVE_FINITE)
+#elif (defined(__GNUC__) && !defined(__llvm__)) && defined(HAVE_FINITE)
 /* We use finite in gcc as it emits assembler instead of
    the function call that isfinite emits. The assembler is
    significantly faster. */
