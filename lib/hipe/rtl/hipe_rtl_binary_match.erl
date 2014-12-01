@@ -990,19 +990,19 @@ unsigned_bignum(Dst1, Src, TrueLblName) ->
    hipe_tagscheme:unsafe_mk_big(Dst1, Src, unsigned),
    hipe_rtl:mk_goto(TrueLblName)].
 
-load_bytes(Dst, Base, Offset, {Signedness, _Endianess},1) ->
+load_bytes(Dst, Base, Offset, {Signedness, _Endianness},1) ->
   [hipe_rtl:mk_load(Dst, Base, Offset, byte, Signedness),
    hipe_rtl:mk_alu(Offset, Offset, add, hipe_rtl:mk_imm(1))];
-load_bytes(Dst, Base, Offset, {Signedness, Endianess},2) ->
-  case Endianess of
+load_bytes(Dst, Base, Offset, {Signedness, Endianness},2) ->
+  case Endianness of
     big ->
       hipe_rtl_arch:load_big_2(Dst, Base, Offset, Signedness);
     little ->
       hipe_rtl_arch:load_little_2(Dst, Base, Offset, Signedness)
   end;
-load_bytes(Dst, Base, Offset, {Signedness, Endianess},3) ->
+load_bytes(Dst, Base, Offset, {Signedness, Endianness},3) ->
   Tmp1 = hipe_rtl:mk_new_reg(),
-  case Endianess of
+  case Endianness of
     big ->
       [hipe_rtl:mk_load(Dst, Base, Offset, byte, Signedness),
        hipe_rtl:mk_alu(Offset, Offset, add, hipe_rtl:mk_imm(1)),
@@ -1026,18 +1026,18 @@ load_bytes(Dst, Base, Offset, {Signedness, Endianess},3) ->
        hipe_rtl:mk_alu(Dst, Dst, 'or', Tmp1),
        hipe_rtl:mk_alu(Offset, Offset, add, hipe_rtl:mk_imm(1))]
   end; 
-load_bytes(Dst, Base, Offset, {Signedness, Endianess}, 4) ->
-  case Endianess of
+load_bytes(Dst, Base, Offset, {Signedness, Endianness}, 4) ->
+  case Endianness of
     big ->
       hipe_rtl_arch:load_big_4(Dst, Base, Offset, Signedness);
     little ->
       hipe_rtl_arch:load_little_4(Dst, Base, Offset, Signedness)
   end;
 
-load_bytes(Dst, Base, Offset, {Signedness, Endianess}, X) when X > 1 ->
+load_bytes(Dst, Base, Offset, {Signedness, Endianness}, X) when X > 1 ->
   [LoopLbl, EndLbl] = create_lbls(2),
   [Tmp1, Limit, TmpOffset] = create_regs(3),
-  case Endianess of
+  case Endianness of
     big ->
       [hipe_rtl:mk_alu(Limit, Offset, add, hipe_rtl:mk_imm(X)),
        hipe_rtl:mk_load(Dst, Base, Offset, byte, Signedness),
