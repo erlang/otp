@@ -69,6 +69,18 @@
 	  mode
 	 }).
 
+-record(bufinf,
+	{
+	  mode,			 % read | write  (=from or to buffer by user)
+	  crypto_state,
+	  crypto_fun,            % For encode or decode depending on the mode field
+	  size = 0,		 % # bytes "before" the current buffer for the postion call
+
+	  chunksize,		 % The size of the chunks to be sent or received
+	  enc_text_buf = <<>>,	 % Encrypted text
+	  plain_text_buf = <<>>	 % Decrypted text
+	}).
+	  
 -define(FILEOP_TIMEOUT, infinity).
 
 -define(NEXT_REQID(S),
@@ -164,24 +176,73 @@ open(Pid, File, Mode, FileOpTimeout) ->
 
 open_tar(Pid, File, Mode) ->
     open_tar(Pid, File, Mode, ?FILEOP_TIMEOUT).
-open_tar(Pid, File, Mode=[write], FileOpTimeout) ->
-    {ok,R} = open(Pid, File, Mode, FileOpTimeout),
-    erl_tar:init({Pid,R,FileOpTimeout}, write,
-		 fun(write, {{P,H,T},Data}) ->
-			 Bin = if is_list(Data) -> list_to_binary(Data);
-				  is_binary(Data) -> Data
-			       end,
-			 {ok,{_Window,Packet}} = send_window(P, T),
-			 write_file_loop(P, H, 0, Bin, size(Bin), Packet, T);
-		    (position, {{P,H,T},Pos}) -> 
-			 position(P, H, Pos, T);
-		    (close, {P,H,T}) -> 
-			 close(P, H, T)
-		 end);
-open_tar(_Pid, _File, Mode, _FileOpTimeout) ->
-    {error,{illegal_mode,Mode}}.
-
-
+open_tar(Pid, File, Mode, FileOpTimeout) ->
+    case {lists:member(write,Mode),
+	  lists:member(read,Mode),
+	  Mode -- [read,write]} of
+	{true,false,[]} ->
+	    {ok,Handle} = open(Pid, File, [write], FileOpTimeout),
+	    erl_tar:init(Pid, write,
+			 fun(write, {_,Data}) ->
+				 write_to_remote_tar(Pid, Handle, to_bin(Data), FileOpTimeout);
+			    (position, {_,Pos}) -> 
+				 position(Pid, Handle, Pos, FileOpTimeout);
+			    (close, _) -> 
+				 close(Pid, Handle, FileOpTimeout)
+			 end);
+	{true,false,[{crypto,{CryptoInitFun,CryptoEncryptFun,CryptoEndFun}}]} ->
+	    {ok,SftpHandle} = open(Pid, File, [write], FileOpTimeout),
+	    BI = #bufinf{mode = write,
+			 crypto_fun = CryptoEncryptFun},
+	    {ok,BufHandle} = open_buf(Pid, CryptoInitFun, BI, FileOpTimeout),
+	    erl_tar:init(Pid, write,
+			 fun(write, {_,Data}) ->
+				 write_buf(Pid, SftpHandle, BufHandle,  to_bin(Data), FileOpTimeout);
+			    (position, {_,Pos}) ->
+				 position_buf(Pid, SftpHandle, BufHandle, Pos, FileOpTimeout);
+			    (close, _) ->
+				 {ok,#bufinf{
+					plain_text_buf = PlainBuf0,
+					enc_text_buf = EncBuf0,
+					crypto_state = CState0
+				       }}  = call(Pid, {get_bufinf,BufHandle}, FileOpTimeout),
+				 {ok,EncTextTail} = CryptoEndFun(PlainBuf0, CState0),
+				 EncTextBuf = <<EncBuf0/binary, EncTextTail/binary>>,
+				 case write(Pid, SftpHandle, EncTextBuf, FileOpTimeout) of
+				     ok ->
+					 call(Pid, {erase_bufinf,BufHandle}, FileOpTimeout),
+					 close(Pid, SftpHandle, FileOpTimeout);
+				     Other ->
+					 Other
+				 end
+			 end);
+	{false,true,[]} ->
+	    {ok,Handle} = open(Pid, File, [read,binary], FileOpTimeout),
+	    erl_tar:init(Pid, read,
+			 fun(read2, {_,Len}) ->
+				 read_repeat(Pid, Handle, Len, FileOpTimeout);
+			    (position, {_,Pos}) -> 
+				 position(Pid, Handle, Pos, FileOpTimeout);
+			    (close, _) -> 
+				 close(Pid, Handle, FileOpTimeout)
+			 end);
+	{false,true,[{crypto,{CryptoInitFun,CryptoDecryptFun}}]} ->
+	    {ok,SftpHandle} = open(Pid, File, [read,binary], FileOpTimeout),
+	    BI = #bufinf{mode = read,
+			 crypto_fun = CryptoDecryptFun},
+	    {ok,BufHandle} = open_buf(Pid, CryptoInitFun, BI, FileOpTimeout),
+	    erl_tar:init(Pid, read,
+			 fun(read2, {_,Len}) ->
+				 read_buf(Pid, SftpHandle, BufHandle, Len, FileOpTimeout);
+			    (position, {_,Pos}) -> 
+				 position_buf(Pid, SftpHandle, BufHandle, Pos, FileOpTimeout);
+			    (close, _) -> 
+				 call(Pid, {erase_bufinf,BufHandle}, FileOpTimeout),
+				 close(Pid, SftpHandle, FileOpTimeout)
+                         end);
+	_ ->
+	    {error,{illegal_mode,Mode}}
+    end.
 
 
 opendir(Pid, Path) ->
@@ -469,6 +530,15 @@ handle_cast(_,State) ->
 code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
 
+do_handle_call({get_bufinf,BufHandle}, _From, S=#state{inf=I0}) ->
+    {reply, dict:find(BufHandle,I0), S};
+
+do_handle_call({put_bufinf,BufHandle,B}, _From, S=#state{inf=I0}) ->
+    {reply, ok, S#state{inf=dict:store(BufHandle,B,I0)}};
+
+do_handle_call({erase_bufinf,BufHandle}, _From, S=#state{inf=I0}) ->
+    {reply, ok, S#state{inf=dict:erase(BufHandle,I0)}};
+
 do_handle_call({open, Async,FileName,Mode}, From, #state{xf = XF} = State) ->
     {Access,Flags,Attrs} = open_mode(XF#ssh_xfer.vsn, Mode),
     ReqID = State#state.req_id,
@@ -573,12 +643,7 @@ do_handle_call({read,Async,Handle,Length}, From, State) ->
 do_handle_call({pwrite,Async,Handle,At,Data0}, From, State) ->
     case lseek_position(Handle, At, State) of
 	{ok,Offset} ->
-	    Data = if 
-		       is_binary(Data0) -> 
-			   Data0;
-		       is_list(Data0) -> 
-			   list_to_binary(Data0)
-		   end,
+	    Data = to_bin(Data0),
 	    ReqID = State#state.req_id,
 	    Size = size(Data),
 	    ssh_xfer:write(?XF(State),ReqID,Handle,Offset,Data),
@@ -591,12 +656,7 @@ do_handle_call({pwrite,Async,Handle,At,Data0}, From, State) ->
 do_handle_call({write,Async,Handle,Data0}, From, State) ->
     case lseek_position(Handle, cur, State) of
 	{ok,Offset} ->
-	    Data = if 
-		       is_binary(Data0) ->
-			   Data0;
-		       is_list(Data0) ->
-			   list_to_binary(Data0)
-		   end,
+	    Data = to_bin(Data0),
 	    ReqID = State#state.req_id,
 	    Size = size(Data),
 	    ssh_xfer:write(?XF(State),ReqID,Handle,Offset,Data),
@@ -1148,5 +1208,207 @@ lseek_pos({eof, Offset}, _CurOffset, CurSize)
     end;
 lseek_pos(_, _, _) ->
     {error, einval}. 
- 
 
+%%%================================================================
+%%%
+to_bin(Data) when is_list(Data) -> list_to_binary(Data);
+to_bin(Data) when is_binary(Data) -> Data.
+
+
+read_repeat(Pid, Handle, Len, FileOpTimeout) ->
+    {ok,{_WindowSz,PacketSz}} = recv_window(Pid, FileOpTimeout),
+    read_rpt(Pid, Handle, Len, PacketSz, FileOpTimeout, <<>>).
+
+read_rpt(Pid, Handle, WantedLen, PacketSz, FileOpTimeout, Acc) when WantedLen > 0 ->
+    case read(Pid, Handle, min(WantedLen,PacketSz), FileOpTimeout) of
+	{ok, Data}  ->
+	    read_rpt(Pid, Handle, WantedLen-size(Data), PacketSz, FileOpTimeout, <<Acc/binary, Data/binary>>);
+	eof ->
+	    {ok, Acc};
+	Error ->
+	    Error
+    end;
+read_rpt(_Pid, _Handle, WantedLen, _PacketSz, _FileOpTimeout, Acc) when WantedLen >= 0 ->
+    {ok,Acc}.
+
+
+write_to_remote_tar(_Pid, _SftpHandle, <<>>, _FileOpTimeout) ->
+    ok;
+write_to_remote_tar(Pid, SftpHandle, Bin, FileOpTimeout) ->
+    {ok,{_Window,Packet}} = send_window(Pid, FileOpTimeout),
+    write_file_loop(Pid, SftpHandle, 0, Bin, size(Bin), Packet, FileOpTimeout).
+
+position_buf(Pid, SftpHandle, BufHandle, Pos, FileOpTimeout) ->
+    {ok,#bufinf{mode = Mode,
+		plain_text_buf = Buf0,
+		size = Size}} = call(Pid, {get_bufinf,BufHandle}, FileOpTimeout),
+    case Pos of
+	{cur,0} when Mode==write ->
+	    {ok,Size+size(Buf0)};
+	
+	{cur,0} when Mode==read ->
+	    {ok,Size};
+	
+	_ when Mode==read, is_integer(Pos) ->
+	    Skip = Pos-Size,
+	    if 
+		Skip < 0 ->
+		    {error, cannot_rewind};
+		Skip == 0 ->
+		    %% Optimization
+		    {ok,Pos};
+		Skip > 0 ->
+		    case read_buf(Pid, SftpHandle, BufHandle, Skip, FileOpTimeout) of
+			%% A bit innefficient to fetch the bufinf again, but there are lots of
+			%% other more important optimizations waiting....
+			{ok,_} ->
+			    {ok,Pos};
+			 Other ->
+			    Other
+		    end
+	    end;
+
+	_ ->
+	    {error,{not_yet_implemented,{pos,Pos}}}
+      end.
+
+read_buf(Pid, SftpHandle, BufHandle, WantedLen, FileOpTimeout) ->
+    {ok,{_Window,Packet}} = send_window(Pid, FileOpTimeout),
+    {ok,B0}  = call(Pid, {get_bufinf,BufHandle}, FileOpTimeout),
+    case do_the_read_buf(Pid, SftpHandle, WantedLen, Packet, FileOpTimeout, B0) of
+	{ok,ResultBin,B} ->
+	    call(Pid, {put_bufinf,BufHandle,B}, FileOpTimeout),
+	    {ok,ResultBin};
+	{error,Error} ->
+	    {error,Error};
+	{eof,B} ->
+	    call(Pid, {put_bufinf,BufHandle,B}, FileOpTimeout),
+	    eof
+      end.
+
+do_the_read_buf(_Pid, _SftpHandle, WantedLen, _Packet, _FileOpTimeout, 
+		B=#bufinf{plain_text_buf=PlainBuf0,
+			  size = Size})
+    when size(PlainBuf0) >= WantedLen ->
+    %% We already have the wanted number of bytes decoded and ready!
+    <<ResultBin:WantedLen/binary, PlainBuf/binary>> = PlainBuf0,
+    {ok,ResultBin,B#bufinf{plain_text_buf=PlainBuf,
+			   size = Size + WantedLen}};
+
+do_the_read_buf(Pid, SftpHandle, WantedLen, Packet, FileOpTimeout, 
+		B0=#bufinf{plain_text_buf = PlainBuf0,
+			   enc_text_buf = EncBuf0,
+			   chunksize = undefined
+			  })
+  when size(EncBuf0) > 0 ->
+    %% We have (at least) one decodable byte waiting for decodeing.
+    {ok,DecodedBin,B} = apply_crypto(EncBuf0, B0),
+    do_the_read_buf(Pid, SftpHandle, WantedLen, Packet, FileOpTimeout, 
+		    B#bufinf{plain_text_buf = <<PlainBuf0/binary, DecodedBin/binary>>,
+			     enc_text_buf = <<>>
+			    });
+    
+do_the_read_buf(Pid, SftpHandle, WantedLen, Packet, FileOpTimeout, 
+		B0=#bufinf{plain_text_buf = PlainBuf0,
+			   enc_text_buf = EncBuf0,
+			   chunksize = ChunkSize0
+			  })
+  when size(EncBuf0) >= ChunkSize0 ->
+    %% We have (at least) one chunk of decodable bytes waiting for decodeing.
+    <<ToDecode:ChunkSize0/binary, EncBuf/binary>> = EncBuf0,
+    {ok,DecodedBin,B} = apply_crypto(ToDecode, B0),
+    do_the_read_buf(Pid, SftpHandle, WantedLen, Packet, FileOpTimeout, 
+		    B#bufinf{plain_text_buf = <<PlainBuf0/binary, DecodedBin/binary>>,
+			     enc_text_buf = EncBuf
+			    });
+    
+do_the_read_buf(Pid, SftpHandle, WantedLen, Packet, FileOpTimeout, B=#bufinf{enc_text_buf = EncBuf0}) ->
+    %% We must read more bytes and append to the buffer of encoded bytes.
+    case read(Pid, SftpHandle, Packet, FileOpTimeout) of
+	{ok,EncryptedBin} ->
+	    do_the_read_buf(Pid, SftpHandle, WantedLen, Packet, FileOpTimeout,
+			    B#bufinf{enc_text_buf = <<EncBuf0/binary, EncryptedBin/binary>>});
+	eof ->
+	    {eof,B};
+	Other ->
+	    Other
+    end.
+
+
+write_buf(Pid, SftpHandle, BufHandle, PlainBin, FileOpTimeout) ->
+    {ok,{_Window,Packet}} = send_window(Pid, FileOpTimeout),
+    {ok,B0=#bufinf{plain_text_buf=PTB}}  = call(Pid, {get_bufinf,BufHandle}, FileOpTimeout),
+    case do_the_write_buf(Pid, SftpHandle, Packet, FileOpTimeout, 
+			  B0#bufinf{plain_text_buf = <<PTB/binary,PlainBin/binary>>}) of
+	{ok, B} ->
+	    call(Pid, {put_bufinf,BufHandle,B}, FileOpTimeout),
+	    ok;
+	{error,Error} ->
+	    {error,Error}
+    end.
+
+do_the_write_buf(Pid, SftpHandle, Packet, FileOpTimeout, 
+		 B=#bufinf{enc_text_buf = EncBuf0,
+			   size = Size})
+  when size(EncBuf0) >= Packet ->
+    <<BinToWrite:Packet/binary, EncBuf/binary>> = EncBuf0,
+    case write(Pid, SftpHandle, BinToWrite, FileOpTimeout) of
+	ok ->
+	    do_the_write_buf(Pid, SftpHandle, Packet, FileOpTimeout,
+			     B#bufinf{enc_text_buf = EncBuf,
+				      size = Size + Packet});
+	Other ->
+	    Other
+    end;
+
+do_the_write_buf(Pid, SftpHandle, Packet, FileOpTimeout,
+		 B0=#bufinf{plain_text_buf = PlainBuf0,
+			    enc_text_buf = EncBuf0,
+			    chunksize = undefined})
+  when size(PlainBuf0) > 0 ->
+     {ok,EncodedBin,B} = apply_crypto(PlainBuf0, B0),
+     do_the_write_buf(Pid, SftpHandle, Packet, FileOpTimeout,
+		     B#bufinf{plain_text_buf = <<>>,
+			      enc_text_buf = <<EncBuf0/binary, EncodedBin/binary>>});
+
+do_the_write_buf(Pid, SftpHandle, Packet, FileOpTimeout,
+		 B0=#bufinf{plain_text_buf = PlainBuf0,
+			    enc_text_buf = EncBuf0,
+			    chunksize = ChunkSize0
+			   })
+  when size(PlainBuf0) >= ChunkSize0 ->
+    <<ToEncode:ChunkSize0/binary, PlainBuf/binary>> = PlainBuf0,
+    {ok,EncodedBin,B} = apply_crypto(ToEncode, B0),
+    do_the_write_buf(Pid, SftpHandle, Packet, FileOpTimeout,
+		     B#bufinf{plain_text_buf = PlainBuf,
+			      enc_text_buf = <<EncBuf0/binary, EncodedBin/binary>>});
+
+do_the_write_buf(_Pid, _SftpHandle, _Packet, _FileOpTimeout, B) ->
+    {ok,B}.
+
+apply_crypto(In, B=#bufinf{crypto_state = CState0,
+			   crypto_fun = F}) ->
+    case F(In,CState0) of
+	{ok,EncodedBin,CState} -> 
+	    {ok, EncodedBin, B#bufinf{crypto_state=CState}};
+	{ok,EncodedBin,CState,ChunkSize} -> 
+	    {ok, EncodedBin, B#bufinf{crypto_state=CState,
+				      chunksize=ChunkSize}}
+    end.
+
+open_buf(Pid, CryptoInitFun, BufInfo0, FileOpTimeout) ->
+    case CryptoInitFun() of
+	{ok,CryptoState} ->
+	    open_buf1(Pid, BufInfo0, FileOpTimeout, CryptoState, undefined);
+	{ok,CryptoState,ChunkSize} ->
+	    open_buf1(Pid, BufInfo0, FileOpTimeout, CryptoState, ChunkSize);
+	Other ->
+	    Other
+    end.
+
+open_buf1(Pid, BufInfo0, FileOpTimeout, CryptoState, ChunkSize) ->
+    BufInfo = BufInfo0#bufinf{crypto_state = CryptoState,
+			      chunksize = ChunkSize},
+    BufHandle = make_ref(),
+    call(Pid, {put_bufinf,BufHandle,BufInfo}, FileOpTimeout),
+    {ok,BufHandle}.
