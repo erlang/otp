@@ -194,7 +194,7 @@ reconnect({connect, Ref}) ->
     true = diameter:subscribe(SvcName),
     ok = start_service(SvcName),
     [{{_, _, LRef}, Pid}] = diameter_reg:wait({?MODULE, Ref, '_'}),
-    CRef = ?util:connect(SvcName, tcp, LRef, [{reconnect_timer, 2000},
+    CRef = ?util:connect(SvcName, tcp, LRef, [{connect_timer, 2000},
                                               {watchdog_timer, 6000}]),
 
     %% Tell partner to kill transport after seeing that there are no

@@ -157,7 +157,7 @@
          {length_errors,
           [[exit], [handle], [discard]],
           [[x]]},
-         {reconnect_timer,
+         {connect_timer,
           [[3000]],
           [[infinity]]},
          {watchdog_timer,

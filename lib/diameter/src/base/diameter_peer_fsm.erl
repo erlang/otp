@@ -225,8 +225,8 @@ start_transport(Addrs0, T) ->
             erlang:monitor(process, TPid),
             q_next(TPid, Addrs0, Tmo, Data),
             {TPid, Addrs};
-        No ->
-            exit({shutdown, No})
+        {error, No} ->
+            exit({shutdown, {no_connection, No}})
     end.
 
 svc(#diameter_service{capabilities = LCaps0} = Svc, Addrs) ->
@@ -368,11 +368,8 @@ transition({diameter, {TPid, connected}},
 %% message. This may be followed by an incoming message which arrived
 %% before the transport was killed and this can't be distinguished
 %% from one from the transport that's been started to replace it.
-transition({diameter, {_, connected}}, _) ->
-    {stop, connection_timeout};
-transition({diameter, {_, connected, _}}, _) ->
-    {stop, connection_timeout};
-transition({diameter, {_, connected, _, _}}, _) ->
+transition({diameter, T}, _)
+  when tuple_size(T) < 5, connected == element(2,T) ->
     {stop, connection_timeout};
 
 %% Connection has timed out: start an alternate.
