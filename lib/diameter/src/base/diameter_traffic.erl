@@ -1632,12 +1632,23 @@ send_request(TPid, #diameter_packet{} = Pkt, Req, SvcName, Timeout) ->
 
 %% send/1
 
-send({TPid, Pkt, #request{handler = Pid} = Req, SvcName, Timeout, TRef}) ->
-    Ref = send_request(TPid,
-                       Pkt,
-                       Req#request{handler = self()},
-                       SvcName,
-                       Timeout),
+send({TPid, Pkt, #request{handler = Pid} = Req0, SvcName, Timeout, TRef}) ->
+    Seqs = diameter_codec:sequence_numbers(Pkt),
+    Req = Req0#request{handler = self()},
+    Ref = send_request(TPid, Pkt, Req, SvcName, Timeout),
+
+    try
+        recv(TPid, Pid, TRef, Ref)
+    after
+        %% Remove only the entry for this specific send since a resend
+        %% from the originating node can pick another transport on
+        %% this one.
+        ets:delete_object(?REQUEST_TABLE, {Seqs, Req, Ref})
+    end.
+
+%% recv/4
+
+recv(TPid, Pid, TRef, Ref) ->        
     receive
         {answer, _, _, _, _} = A ->
             Pid ! A;
