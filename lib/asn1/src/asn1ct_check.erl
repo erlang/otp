@@ -616,18 +616,14 @@ check_class_fields(S,[F|Fields],Acc) ->
 	    objectset_or_fixedtypevalueset_field ->
 		{_,Name,Type,OSpec} = F,
 		RefType =
-		    case (catch check_type(S,#typedef{typespec=Type},Type)) of
-			{asn1_class,_ClassDef} ->
+		    try check_type(S,#typedef{typespec=Type},Type) of
+			#type{} = CheckedType ->
+			    CheckedType
+		    catch {asn1_class,_ClassDef} ->
 			    case if_current_checked_type(S,Type) of
-				true ->
-				    Type#type.def;
-				_ ->
-				    check_class(S,Type)
-			    end;
-			CheckedType when is_record(CheckedType,type) ->
-			    CheckedType;
-			_ ->
-			    error({class,"internal error, check_class_fields",S})
+				true -> Type#type.def;
+				_ ->    check_class(S,Type)
+			    end
 		    end,
 		if
 		    is_record(RefType,'Externaltypereference') ->
@@ -2873,9 +2869,7 @@ check_type(S=#state{recordtopname=TopName},Type,Ts) when is_record(Ts,type) ->
 		TempNewDef#newt{tag=merge_tags(Tag,CheckedT#type.tag),
 				type=CheckedT#type.def};
 	    'ASN1_OPEN_TYPE' ->
-		TempNewDef;
-	    Other ->
-		exit({'cant check' ,Other})
+		TempNewDef
 	end,
     #newt{type=TDef,tag=NewTags,constraint=NewConstr,inlined=Inlined} = NewDef,
     Ts#type{def=TDef,
@@ -2884,9 +2878,7 @@ check_type(S=#state{recordtopname=TopName},Type,Ts) when is_record(Ts,type) ->
 	    tag=lists:map(fun(#tag{type={default,TTx}}=TempTag) ->
 				  TempTag#tag{type=TTx};
 			     (Other) -> Other
-			  end, NewTags)};
-check_type(_S,Type,Ts) ->
-    exit({error,{asn1,internal_error,Type,Ts}}).
+			  end, NewTags)}.
 
 
 %%
@@ -4004,13 +3996,9 @@ update_state(S,ModuleName) ->
 	    S;
 	_ ->
 	    parse_and_save(S,ModuleName),
-	    case asn1_db:dbget(ModuleName,'MODULE') of
-		RefedMod when is_record(RefedMod,module) ->
-		    S#state{mname=ModuleName,module=RefedMod};
-		_ -> throw({error,{asn1,{module_does_not_exist,ModuleName}}})
-	    end
+	    Mod = #module{} = asn1_db:dbget(ModuleName,'MODULE'),
+	    S#state{mname=ModuleName,module=Mod}
     end.
-
 
 get_renamed_reference(S,Name,Module) ->
     case renamed_reference(S,Name,Module) of
