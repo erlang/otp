@@ -258,11 +258,14 @@ integers(Config) ->
 	   "  Int1 ::= INTEGER {a(1), a(1)}\n"
 	   "  Int2 ::= INTEGER {a(1), b(2), a(3)}\n"
 	   "  Int3 ::= INTEGER {x(1), y(1)}\n"
+	   "  i0 INTEGER ::= 1\n"
+	   "  Int4 ::= INTEGER {x(i0), y(undef) }\n"
 	   "END\n">>},
     {error,
      [{structured_error,{M,2},asn1ct_check,{namelist_redefinition,a}},
       {structured_error,{M,3},asn1ct_check,{namelist_redefinition,a}},
-      {structured_error,{M,4},asn1ct_check,{value_reused,1}}
+      {structured_error,{M,4},asn1ct_check,{value_reused,1}},
+      {structured_error,{M,6},asn1ct_check,{undefined,undef}}
      ]} = run(P, Config),
     ok.
 

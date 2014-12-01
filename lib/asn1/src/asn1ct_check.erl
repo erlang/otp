@@ -4019,7 +4019,7 @@ update_state(S,ModuleName) ->
 get_renamed_reference(S,Name,Module) ->
     case renamed_reference(S,Name,Module) of
 	undefined ->
-	    throw({error,{asn1,{undefined_type,Name}}});
+	    asn1_error(S, {undefined, Name});
 	NewTypeName when NewTypeName =/= Name ->
 	    get_referenced1(S,Module,NewTypeName,undefined)
     end.
@@ -4179,8 +4179,8 @@ check_named_number_list(S, NNL0) ->
 	    asn1_error(S, {namelist_redefinition,H})
     end.
 
-resolve_valueref(S, #'Externalvaluereference'{module=Mod,value=Name}) ->
-    dbget_ex(S, Mod, Name);
+resolve_valueref(S, #'Externalvaluereference'{} = T) ->
+    get_referenced_value(S, T);
 resolve_valueref(_, Val) when is_integer(Val) ->
     Val.
 
@@ -5730,15 +5730,6 @@ get_taglist1(_S,[]) ->
 %% tag_number('UniversalString') -> 28;
 %% tag_number('CHARACTER STRING') -> 29;
 %% tag_number('BMPString') -> 30.
-
-
-dbget_ex(_S,Module,Key) ->
-    case asn1_db:dbget(Module,Key) of
-	undefined ->
-	    
-	    throw({error,{asn1,{undefined,{Module,Key}}}}); % this is catched on toplevel type or value
-	T -> T
-    end.
 
 merge_tags(T1, T2) when is_list(T2) ->
     merge_tags2(T1 ++ T2, []);
