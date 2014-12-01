@@ -36,7 +36,7 @@
 %% Opens a tar archive.
 
 init(UsrHandle, AccessMode, Fun) when is_function(Fun,2) ->   
-    {ok, {AccessMode,{UsrHandle,Fun}}}.
+    {ok, {AccessMode,{tar_descriptor,UsrHandle,Fun}}}.
 
 %%%================================================================		   
 %%% The open function with friends is to keep the file and binary api of this module
@@ -532,25 +532,34 @@ read_opts([_|Rest], Opts) ->
 read_opts([], Opts) ->
     Opts.
 
+foldl_read({AccessMode,TD={tar_descriptor,_UsrHandle,_AccessFun}}, Fun, Accu, Opts) ->
+    case AccessMode of
+	read ->
+	    foldl_read0(TD, Fun, Accu, Opts);
+	_ ->
+	    {error,{read_mode_expected,AccessMode}}
+    end;
 foldl_read(TarName, Fun, Accu, Opts) ->
     case open(TarName, [read|Opts#read_opts.open_mode]) of
 	{ok, {read, File}} ->
-	    Result = 
-		case catch foldl_read1(Fun, Accu, File, Opts) of
-		    {'EXIT', Reason} ->
-			exit(Reason);
-		    {error, {Reason, Format, Args}} ->
-			read_verbose(Opts, Format, Args),
-			{error, Reason};
-		    {error, Reason} ->
-			{error, Reason};
-		    Ok ->
-			Ok
-		end,
+	    Result = foldl_read0(File, Fun, Accu, Opts),
 	    ok = do_close(File),
 	    Result;
 	Error ->
 	    Error
+    end.
+
+foldl_read0(File, Fun, Accu, Opts) ->
+    case catch foldl_read1(Fun, Accu, File, Opts) of
+	{'EXIT', Reason} ->
+	    exit(Reason);
+	{error, {Reason, Format, Args}} ->
+	    read_verbose(Opts, Format, Args),
+	    {error, Reason};
+	{error, Reason} ->
+	    {error, Reason};
+	Ok ->
+	    Ok
     end.
 
 foldl_read1(Fun, Accu0, File, Opts) ->
@@ -1014,10 +1023,10 @@ open_mode(_, _, _, _) ->
     {error, einval}.
 
 %%%================================================================
-do_write({UsrHandle,Fun}, Data) -> Fun(write,{UsrHandle,Data}).
+do_write({tar_descriptor,UsrHandle,Fun}, Data) -> Fun(write,{UsrHandle,Data}).
 
-do_position({UsrHandle,Fun}, Pos) -> Fun(position,{UsrHandle,Pos}).
+do_position({tar_descriptor,UsrHandle,Fun}, Pos) -> Fun(position,{UsrHandle,Pos}).
 
-do_read({UsrHandle,Fun}, Len) -> Fun(read2,{UsrHandle,Len}).
+do_read({tar_descriptor,UsrHandle,Fun}, Len) -> Fun(read2,{UsrHandle,Len}).
 
-do_close({UsrHandle,Fun}) -> Fun(close,UsrHandle).
+do_close({tar_descriptor,UsrHandle,Fun}) -> Fun(close,UsrHandle).

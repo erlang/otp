@@ -65,19 +65,25 @@ end_per_suite(Config) ->
 %%--------------------------------------------------------------------
 groups() -> 
     [{erlang_server, [], [open_close_file, open_close_dir, read_file, read_dir,
-			  write_file, write_big_file, rename_file, mk_rm_dir, remove_file, links,
+			  write_file, write_big_file, sftp_read_big_file,
+			  rename_file, mk_rm_dir, remove_file, links,
 			  retrieve_attributes, set_attributes, async_read,
 			  async_write, position, pos_read, pos_write, version_option,
-			  {group,remote_tar_write}
-			 ]},
+			  {group,remote_tar}]},
+
      {openssh_server, [], [open_close_file, open_close_dir, read_file, read_dir,
-			   write_file, write_big_file, rename_file, mk_rm_dir, remove_file, links,
+			   write_file, write_big_file, sftp_read_big_file,
+			   rename_file, mk_rm_dir, remove_file, links,
 			   retrieve_attributes, set_attributes, async_read,
 			   async_write, position, pos_read, pos_write,
-			   {group,remote_tar_write}]},
+			   {group,remote_tar}]},
 
-     {remote_tar_write, [], [create_empty_tar, files_to_tar, big_file_to_tar, files_chunked_to_tar,
-			     directory_to_tar, binaries_to_tar]}
+     {remote_tar, [], [create_empty_tar, files_to_tar, big_file_to_tar, files_chunked_to_tar,
+		       directory_to_tar, binaries_to_tar, null_crypto_tar, 
+		       simple_crypto_tar_small, simple_crypto_tar_big,
+		       read_tar, read_null_crypto_tar, read_crypto_tar, 
+		       aes_cbc256_crypto_tar, aes_ctr_stream_crypto_tar
+		      ]}
     ].
      
 
@@ -104,7 +110,7 @@ init_per_group(openssh_server, Config) ->
 	    {skip, "No openssh server"} 
     end;
 
-init_per_group(remote_tar_write, Config) ->
+init_per_group(remote_tar, Config) ->
     {Host,Port} =  ?config(peer, Config),
     ct:log("Server (~p) at ~p:~p",[?config(group,Config),Host,Port]),
     {ok, Connection} =
@@ -120,7 +126,7 @@ init_per_group(remote_tar_write, Config) ->
 			    [{user_interaction, false},
 			     {silently_accept_hosts, true}])
 	end,
-    [{remote_tar_write, true}, 
+    [{remote_tar, true}, 
      {connection, Connection} | Config].
 
 end_per_group(erlang_server, Config) ->
@@ -187,16 +193,12 @@ init_per_testcase(Case, Config0) ->
 		[{sftp, Sftp}, {watchdog, Dog} | Config2]
 	end,
 
-    case catch ?config(remote_tar_write,Config) of
+    case catch ?config(remote_tar,Config) of
 	%% The 'catch' is for the case of Config={skip,...}
 	true ->
-	    %% Provide a tar Handle *independent* of the sftp-channel already opened!
-	    %% This Handle will be closed (as well as ChannelPid2) in the testcase
-	    {ok,ChannelPid2} = 
-		ssh_sftp:start_channel(?config(connection,Config)),
-	    {ok,Handle} =
-		ssh_sftp:open_tar(ChannelPid2, fnp(?tar_file_name,Config), [write]),
-	    [{handle,Handle} | Config];
+	    %% Provide a ChannelPid independent of the sftp-channel already opened.
+	    {ok,ChPid2} = ssh_sftp:start_channel(?config(connection,Config)),
+	    [{channel_pid2,ChPid2} | Config];
 	_ ->
 	    Config
     end.
@@ -214,6 +216,7 @@ end_per_testcase(_, Config) ->
 end_per_testcase(Config) ->
     {Sftp, Connection} = ?config(sftp, Config),
     ssh_sftp:stop_channel(Sftp),
+    catch ssh_sftp:stop_channel(?config(channel_pid2, Config)),
     ssh:close(Connection).
 
 %%--------------------------------------------------------------------
@@ -258,6 +261,7 @@ read_file(Config) when is_list(Config) ->
     FileName = filename:join(PrivDir, "sftp.txt"),
     {Sftp, _} = ?config(sftp, Config),
     {ok, Data} = ssh_sftp:read_file(Sftp, FileName),
+    {ok, Data} = ssh_sftp:read_file(Sftp, FileName),
     {ok, Data} = file:read_file(FileName).
 
 %%--------------------------------------------------------------------
@@ -292,6 +296,19 @@ write_big_file(Config) when is_list(Config) ->
     Data = list_to_binary(lists:duplicate(750000,"a")),
     ssh_sftp:write_file(Sftp, FileName, [Data]),
     {ok, Data} = file:read_file(FileName).
+
+%%--------------------------------------------------------------------
+sftp_read_big_file() ->
+    [{doc, "Test API function read_file/2 with big data"}].
+sftp_read_big_file(Config) when is_list(Config) ->
+    PrivDir =  ?config(priv_dir, Config),
+    FileName = filename:join(PrivDir, "sftp.txt"),
+    {Sftp, _} = ?config(sftp, Config),
+
+    Data = list_to_binary(lists:duplicate(750000,"a")),
+    ct:log("Data size to write is ~p bytes",[size(Data)]),
+    ssh_sftp:write_file(Sftp, FileName, [Data]),
+    {ok, Data} = ssh_sftp:read_file(Sftp, FileName).
 
 %%--------------------------------------------------------------------
 remove_file() ->
@@ -527,51 +544,245 @@ version_option(Config) when is_list(Config) ->
 
 %%--------------------------------------------------------------------
 create_empty_tar(Config) ->
-    {ChPid,_} = ?config(sftp,Config),
-    Handle = ?config(handle,Config),
+    ChPid2 = ?config(channel_pid2, Config),
+    {ok,Handle} = ssh_sftp:open_tar(ChPid2, fnp(?tar_file_name,Config), [write]),
     erl_tar:close(Handle),
+    {ChPid,_} = ?config(sftp,Config),
     {ok, #file_info{type=regular}} =
 	ssh_sftp:read_file_info(ChPid,fnp(?tar_file_name,Config)).
-    
+
 %%--------------------------------------------------------------------
 files_to_tar(Config) ->
-    Handle = ?config(handle,Config),
-    ok = erl_tar:add(Handle, fn("f1.txt",Config), "f1.txt", []),
-    ok = erl_tar:add(Handle, fn("f2.txt",Config), "f2.txt", []),
+    ChPid2 = ?config(channel_pid2, Config),
+    {ok,Handle} = ssh_sftp:open_tar(ChPid2, fnp(?tar_file_name,Config), [write]),
+    ok = erl_tar:add(Handle, fn("f1.txt",Config), "f1.txt", [verbose]),
+    ok = erl_tar:add(Handle, fn("f2.txt",Config), "f2.txt", [verbose]),
     ok = erl_tar:close(Handle),
     chk_tar(["f1.txt", "f2.txt"], Config).
 
-
 %%--------------------------------------------------------------------
 big_file_to_tar(Config) ->
-    Handle = ?config(handle,Config),
-    ok = erl_tar:add(Handle, fn("big.txt",Config), "big.txt", []),
+    ChPid2 = ?config(channel_pid2, Config),
+    {ok,Handle} = ssh_sftp:open_tar(ChPid2, fnp(?tar_file_name,Config), [write]), 
+    ok = erl_tar:add(Handle, fn("big.txt",Config), "big.txt", [verbose]),
     ok = erl_tar:close(Handle),
     chk_tar(["big.txt"], Config).
 
 
 %%--------------------------------------------------------------------
 files_chunked_to_tar(Config) ->
-    Handle = ?config(handle,Config),
-    ok = erl_tar:add(Handle, fn("f1.txt",Config), "f1.txt", [{chunks,2}]),
-    ok = erl_tar:add(Handle, fn("big.txt",Config), "big.txt", [{chunks,15000}]),
+    ChPid2 = ?config(channel_pid2, Config),
+    {ok,Handle} = ssh_sftp:open_tar(ChPid2, fnp(?tar_file_name,Config), [write]),
+    ok = erl_tar:add(Handle, fn("f1.txt",Config), "f1.txt", [verbose,{chunks,2}]),
     ok = erl_tar:close(Handle),
-    chk_tar(["f1.txt", "big.txt"], Config).
+    chk_tar(["f1.txt"], Config).
 
 %%--------------------------------------------------------------------
 directory_to_tar(Config) ->
-    Handle = ?config(handle,Config),
-    ok = erl_tar:add(Handle, fn("d1",Config), "d1", []),
+    ChPid2 = ?config(channel_pid2, Config),
+    {ok,Handle} = ssh_sftp:open_tar(ChPid2, fnp(?tar_file_name,Config), [write]),
+    ok = erl_tar:add(Handle, fn("d1",Config), "d1", [verbose]),
     ok = erl_tar:close(Handle),
-    chk_tar(["d1/f1", "d1/f2"], Config).
+    chk_tar(["d1"], Config).
     
 %%--------------------------------------------------------------------
 binaries_to_tar(Config) ->
-    Handle = ?config(handle,Config),
+    ChPid2 = ?config(channel_pid2, Config),
+    {ok,Handle} = ssh_sftp:open_tar(ChPid2, fnp(?tar_file_name,Config), [write]),
     Bin = <<"A binary">>,
-    ok = erl_tar:add(Handle, Bin, "b1", []),
+    ok = erl_tar:add(Handle, Bin, "b1", [verbose]),
     ok = erl_tar:close(Handle),
     chk_tar([{"b1",Bin}], Config).
+
+%%--------------------------------------------------------------------
+null_crypto_tar(Config) ->
+    ChPid2 = ?config(channel_pid2, Config),
+    Cinit = fun() -> {ok, no_state, _SendSize=5} end,
+    Cenc = fun(Bin,CState) -> {ok,Bin,CState,_SendSize=5} end,
+    Cend = fun(Bin,_CState) -> {ok,Bin} end,
+    C = {Cinit,Cenc,Cend},
+    {ok,Handle} = ssh_sftp:open_tar(ChPid2, fnp(?tar_file_name,Config), [write,{crypto,C}]),
+    Bin = <<"A binary">>,
+    ok = erl_tar:add(Handle, Bin, "b1", [verbose]),
+    ok = erl_tar:add(Handle, fn("f1.txt",Config), "f1.txt", [verbose,{chunks,2}]),
+    ok = erl_tar:add(Handle, fn("big.txt",Config), "big.txt", [verbose,{chunks,15000}]),
+    ok = erl_tar:close(Handle),
+    chk_tar([{"b1",Bin}, "f1.txt", "big.txt"], Config).
+
+%%--------------------------------------------------------------------
+simple_crypto_tar_small(Config) ->
+    ChPid2 = ?config(channel_pid2, Config),
+    Cinit = fun() -> {ok, no_state, _Size=6} end,
+    Cenc = fun(Bin,CState) -> {ok,stuff(Bin),CState,_SendSize=5} end,
+    Cdec = fun(Bin,CState) -> {ok,unstuff(Bin),CState,_Size=4} end,
+    Cend = fun(Bin,_CState) -> {ok,stuff(Bin)} end,
+    C = {Cinit,Cenc,Cend},
+    {ok,Handle} = ssh_sftp:open_tar(ChPid2, fnp(?tar_file_name,Config), [write,{crypto,C}]),
+    Bin = <<"A binary">>,
+    ok = erl_tar:add(Handle, Bin, "b1", [verbose]),
+    ok = erl_tar:add(Handle, fn("f1.txt",Config), "f1.txt", [verbose,{chunks,2}]),
+    ok = erl_tar:close(Handle),
+    chk_tar([{"b1",Bin}, "f1.txt"], Config, [{crypto,{Cinit,Cdec}}]).
+
+%%--------------------------------------------------------------------
+simple_crypto_tar_big(Config) ->
+    ChPid2 = ?config(channel_pid2, Config),
+    Cinit = fun() -> {ok, no_state, _SendSize=6} end,
+    Cenc = fun(Bin,CState) -> {ok,stuff(Bin),CState,_SendSize=5} end,
+    Cdec = fun(Bin,CState) -> {ok,unstuff(Bin),CState,_SendSize=4} end,
+    Cend = fun(Bin,_CState) -> {ok,stuff(Bin)} end,
+    C = {Cinit,Cenc,Cend},
+    {ok,Handle} = ssh_sftp:open_tar(ChPid2, fnp(?tar_file_name,Config), [write,{crypto,C}]),
+    Bin = <<"A binary">>,
+    ok = erl_tar:add(Handle, Bin, "b1", [verbose]),
+    ok = erl_tar:add(Handle, fn("f1.txt",Config), "f1.txt", [verbose,{chunks,2}]),
+    ok = erl_tar:add(Handle, fn("big.txt",Config), "big.txt", [verbose,{chunks,15000}]),
+    ok = erl_tar:close(Handle),
+    chk_tar([{"b1",Bin}, "f1.txt", "big.txt"], Config, [{crypto,{Cinit,Cdec}}]).
+
+stuff(Bin) -> << <<C,C>> || <<C>> <= Bin >>.
+    
+unstuff(Bin) -> << <<C>> || <<C,C>> <= Bin >>.
+     
+%%--------------------------------------------------------------------
+read_tar(Config) ->
+    ChPid2 = ?config(channel_pid2, Config),
+    NameBins = lists:sort(
+		 [{"b1",<<"A binary">>},
+		  {"b2",list_to_binary(lists:duplicate(750000,"a"))}
+		 ]),
+    {ok,HandleWrite} = ssh_sftp:open_tar(ChPid2, fnp(?tar_file_name,Config), [write]),
+    [ok = erl_tar:add(HandleWrite, Bin, Name, [verbose])
+     ||	{Name,Bin} <- NameBins],
+    ok = erl_tar:close(HandleWrite),
+
+    chk_tar(NameBins, Config).
+
+%%--------------------------------------------------------------------
+read_null_crypto_tar(Config) ->
+    ChPid2 = ?config(channel_pid2, Config),
+    NameBins = lists:sort(
+		 [{"b1",<<"A binary">>},
+		  {"b2",list_to_binary(lists:duplicate(750000,"a"))}
+		 ]),
+    Cinitw = fun() -> {ok, no_state, _SendSize=5} end,
+    Cinitr = fun() -> {ok, no_state, _FetchSize=42} end,
+    Cenc = fun(Bin,CState) -> {ok,Bin,CState,_SendSize=42*42} end,
+    Cdec = fun(Bin,CState) -> {ok,Bin,CState,_FetchSize=19} end,
+    Cendw = fun(Bin,_CState) -> {ok,Bin} end,
+    Cw = {Cinitw,Cenc,Cendw},
+    Cr = {Cinitr,Cdec},
+
+    {ok,HandleWrite} = ssh_sftp:open_tar(ChPid2, fnp(?tar_file_name,Config), [write,{crypto,Cw}]),
+    [ok = erl_tar:add(HandleWrite, Bin, Name, [verbose])
+     ||	{Name,Bin} <- NameBins],
+    ok = erl_tar:close(HandleWrite),
+
+    chk_tar(NameBins, Config, [{crypto,Cr}]).
+
+%%--------------------------------------------------------------------
+read_crypto_tar(Config) ->
+    ChPid2 = ?config(channel_pid2, Config),
+    NameBins = lists:sort(
+		 [{"b1",<<"A binary">>},
+		  {"b2",list_to_binary(lists:duplicate(750000,"a"))}
+		 ]),
+    Cinitw = fun() -> {ok, no_state, _SendSize=5} end,
+    Cinitr = fun() -> {ok, no_state, _FetchSize=42} end,
+
+    Cenc = fun(Bin,CState) -> {ok,stuff(Bin),CState,_SendSize=42*42} end,
+    Cdec = fun(Bin,CState) -> {ok,unstuff(Bin),CState,_FetchSize=120} end,
+    Cendw = fun(Bin,_CState) -> {ok,stuff(Bin)} end,
+    Cw = {Cinitw,Cenc,Cendw},
+    Cr = {Cinitr,Cdec},
+
+    {ok,HandleWrite} = ssh_sftp:open_tar(ChPid2, fnp(?tar_file_name,Config), [write,{crypto,Cw}]),
+    [ok = erl_tar:add(HandleWrite, Bin, Name, [verbose])
+     ||	{Name,Bin} <- NameBins],
+    ok = erl_tar:close(HandleWrite),
+
+    chk_tar(NameBins, Config, [{crypto,Cr}]).
+
+%%--------------------------------------------------------------------
+aes_cbc256_crypto_tar(Config) ->
+    ChPid2 = ?config(channel_pid2, Config),
+    NameBins = lists:sort(
+		 [{"b1",<<"A binary">>},
+		  {"b2",list_to_binary(lists:duplicate(750000,"a"))},
+		  {"d1",fn("d1",Config)}  % Dir
+		 ]),
+    Key = <<"This is a 256 bit key. Boring...">>,
+    Ivec0 = crypto:rand_bytes(16),
+    DataSize = 1024,  % data_size rem 16 = 0 for aes_cbc
+
+    Cinitw = fun() -> {ok, Ivec0, DataSize} end,
+    Cinitr = fun() -> {ok, Ivec0, DataSize} end,
+
+    Cenc = fun(PlainBin,Ivec) -> 
+		   CipherBin = crypto:block_encrypt(aes_cbc256, Key, Ivec, PlainBin),
+		   {ok, CipherBin, crypto:next_iv(aes_cbc,CipherBin), DataSize}
+	   end,
+    Cdec = fun(CipherBin,Ivec) ->
+		   PlainBin = crypto:block_decrypt(aes_cbc256, Key, Ivec, CipherBin),
+		   {ok, PlainBin, crypto:next_iv(aes_cbc,CipherBin), DataSize}
+	   end,
+
+    Cendw = fun(PlainBin, _) when PlainBin == <<>> -> {ok, <<>>};
+	       (PlainBin, Ivec) ->
+		    CipherBin = crypto:block_encrypt(aes_cbc256, Key, Ivec, 
+						     pad(16,PlainBin)), %% Last chunk
+		    {ok, CipherBin} 
+	    end,
+
+    Cw = {Cinitw,Cenc,Cendw},
+    {ok,HandleWrite} = ssh_sftp:open_tar(ChPid2, fnp(?tar_file_name,Config), [write,{crypto,Cw}]),
+    [ok = erl_tar:add(HandleWrite, Bin, Name, [verbose]) || {Name,Bin} <- NameBins],
+    ok = erl_tar:close(HandleWrite),
+
+    Cr = {Cinitr,Cdec},
+    chk_tar(NameBins, Config, [{crypto,Cr}]).
+
+
+pad(BlockSize, Bin) ->
+    PadSize = (BlockSize - (size(Bin) rem BlockSize)) rem BlockSize,
+    list_to_binary( lists:duplicate(PadSize,0) ).
+
+%%--------------------------------------------------------------------
+aes_ctr_stream_crypto_tar(Config) ->
+    ChPid2 = ?config(channel_pid2, Config),
+    NameBins = lists:sort(
+		 [{"b1",<<"A binary">>},
+		  {"b2",list_to_binary(lists:duplicate(750000,"a"))},
+		  {"d1",fn("d1",Config)}  % Dir
+		 ]),
+    Key = <<"This is a 256 bit key. Boring...">>,
+    Ivec0 = crypto:rand_bytes(16),
+
+    Cinitw = Cinitr = fun() -> {ok, crypto:stream_init(aes_ctr,Key,Ivec0)} end,
+
+    Cenc = fun(PlainBin,State) -> 
+		   {NewState,CipherBin} = crypto:stream_encrypt(State, PlainBin),
+		   {ok, CipherBin, NewState}
+	   end,
+    Cdec = fun(CipherBin,State) ->
+		   {NewState,PlainBin} = crypto:stream_decrypt(State, CipherBin),
+		   {ok, PlainBin, NewState}
+	   end,
+
+    Cendw = fun(PlainBin, _) when PlainBin == <<>> -> {ok, <<>>};
+	       (PlainBin, Ivec) ->
+		    CipherBin = crypto:block_encrypt(aes_cbc256, Key, Ivec, 
+						     pad(16,PlainBin)), %% Last chunk
+		    {ok, CipherBin} 
+	    end,
+
+    Cw = {Cinitw,Cenc,Cendw},
+    {ok,HandleWrite} = ssh_sftp:open_tar(ChPid2, fnp(?tar_file_name,Config), [write,{crypto,Cw}]),
+    [ok = erl_tar:add(HandleWrite, Bin, Name, [verbose]) || {Name,Bin} <- NameBins],
+    ok = erl_tar:close(HandleWrite),
+
+    Cr = {Cinitr,Cdec},
+    chk_tar(NameBins, Config, [{crypto,Cr}]).
 
 %%--------------------------------------------------------------------
 %% Internal functions ------------------------------------------------
@@ -597,34 +808,82 @@ prep(Config) ->
 			      FileInfo#file_info{mode = Mode}).
 
 
+
 chk_tar(Items, Config) ->
-    %% FIXME: ought to check that no more than expected is present...
+    chk_tar(Items, Config, []).
+
+chk_tar(Items, Config, Opts) ->
+    chk_tar(Items, fnp(?tar_file_name,Config), Config, Opts).
+
+chk_tar(Items, TarFileName, Config, Opts)  when is_list(Opts) ->
+    tar_size(TarFileName, Config),
     {ChPid,_} = ?config(sftp,Config),
-    ok = file:set_cwd(?config(priv_dir,Config)),
-    file:make_dir("tar_chk"), % May already exist
-    ok = file:set_cwd("tar_chk"),
-    {ok,Data} = ssh_sftp:read_file(ChPid, fnp(?tar_file_name,Config)),
-    ok = file:write_file(?tar_file_name, Data),
-    os:cmd("tar xf "++?tar_file_name),
-    lists:foreach(fun(Item) -> chk_contents(Item,Config) end,
-		  Items).
+    {ok,HandleRead} = ssh_sftp:open_tar(ChPid, TarFileName, [read|Opts]),
+    {ok,NameValueList} = erl_tar:extract(HandleRead,[memory,verbose]),
+    ok = erl_tar:close(HandleRead),
+    case {lists:sort(expand_items(Items,Config)), lists:sort(NameValueList)} of
+	{L,L} -> 
+	    true;
+	{Expect,Actual} -> 
+	    ct:log("Expect: ~p",[Expect]), ct:log("Actual: ~p",[Actual]),
+	    case erl_tar:table(TarFileName) of
+		{ok,Names} -> ct:log("names: ~p",[Names]);
+		Other -> ct:log("~p",[Other])
+	    end,
+	    ct:log("~s",[analyze_report(Expect, Actual)]),
+	    ct:fail(bad_tar_contents)
+    end.
 
-	      
-chk_contents({Name,ExpectBin}, _Config) -> 
-    case file:read_file(Name) of
-	{ok,ExpectBin} ->
-	    ok;
-	{ok,OtherBin} ->
-	    ct:log("File: ~p~n   Got: ~p~nExpect: ~p",[Name,OtherBin,ExpectBin]),
-	    ct:fail("Bad contents in file ~p",[Name]);
-	Other ->
-	    ct:log("File: ~p~nOther: ~p",[Name,Other]),
-	    ct:fail("Error reading of file ~p",[Name])
+analyze_report([E={NameE,BinE}|Es], [A={NameA,BinA}|As]) ->
+    if
+	NameE == NameA,
+	BinE =/= BinA-> 
+	    [["Component ",NameE," differs. \n  Expected: ",BinE,"\n  Actual: ",BinA,"\n\n"]
+	     | analyze_report(Es,As)];
+
+	NameE < NameA ->
+	    [["Component ",NameE," is missing.\n\n"]
+	     | analyze_report(Es,[A|As])];
+	
+	NameE > NameA ->
+	    [["Component ",NameA," is not expected.\n\n"]
+	     | analyze_report([E|Es],As)];
+	true ->
+	    analyze_report(Es, As)
     end;
-chk_contents(Name, Config) -> 
-    {ok,Bin} = file:read_file(fn(Name,Config)),
-    chk_contents({Name,Bin}, Config).
+analyze_report([{NameE,_BinE}|Es], []) ->
+    [["Component ",NameE," missing.\n\n"] | analyze_report(Es,[])];
+analyze_report([], [{NameA,_BinA}|As]) ->
+    [["Component ",NameA," not expected.\n\n"] | analyze_report([],As)];
+analyze_report([], []) ->
+    "".
+	
+tar_size(TarFileName, Config) ->
+    {ChPid,_} = ?config(sftp,Config),
+    {ok,Data} = ssh_sftp:read_file(ChPid, TarFileName),
+    io:format('Tar file ~p is~n ~p bytes.~n',[TarFileName, size(Data)]).
 
+expand_items(Items, Config) ->    
+    lists:flatten(
+      [case Item of
+	   {_Name,Bin} when is_binary(Bin) -> 
+	       Item;
+	   {Name,FileName} when is_list(FileName) ->
+	       read_item_contents(Name, fn(FileName,Config));
+	   FileName  when is_list(FileName) ->
+	       read_item_contents(FileName, fn(FileName,Config))
+       end || Item <- Items]).
+
+read_item_contents(ItemName, FileName) ->
+    case file:read_file(FileName) of
+	{ok,Bin} ->
+	    {ItemName, Bin};
+	{error,eisdir} ->
+	    {ok,FileNames} = file:list_dir(FileName),
+	    [read_item_contents(filename:join(ItemName,Name),
+				filename:join(FileName,Name)) 
+	     || Name<-FileNames]
+    end.
 
 fn(Name, Config) ->
     Dir = ?config(data_dir, Config),
