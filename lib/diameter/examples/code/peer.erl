@@ -74,7 +74,7 @@ start(Name, Opts)
     | {error, term()}.
 
 connect(Name, T) ->
-    diameter:add_transport(Name, {connect, [{reconnect_timer, 5000}
+    diameter:add_transport(Name, {connect, [{connect_timer, 5000}
                                             | client(T)]}).
 
 %% listen/2
