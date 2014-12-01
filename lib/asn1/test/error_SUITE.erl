@@ -160,13 +160,29 @@ enumerated(Config) ->
 	   "  S2 ::= SEQUENCE {\n"
 	   "    e2 EnumExt DEFAULT xyz\n"
 	   "  }\n"
+
+	   "  BadEnum1 ::= ENUMERATED {a, b, c, b }\n"
+	   "  BadEnum2 ::= ENUMERATED {a(1), b(2), b(3) }\n"
+	   "  BadEnum3 ::= ENUMERATED {a(1), b(1) }\n"
+	   "  BadEnum4 ::= ENUMERATED {a, b, ..., c(0) }\n"
+	   "  BadEnum5 ::= ENUMERATED {a, b, ..., c(10), d(5) }\n"
 	   "END\n">>},
     {error,
      [
-      {structured_error,{'Enumerated',3},asn1ct_check,{undefined,d}},
-      {structured_error,{'Enumerated',5},asn1ct_check,{undefined,z}},
-      {structured_error,{'Enumerated',10},asn1ct_check,{undefined,aa}},
-      {structured_error,{'Enumerated',13},asn1ct_check,{undefined,xyz}}
+      {structured_error,{M,3},asn1ct_check,{undefined,d}},
+      {structured_error,{M,5},asn1ct_check,{undefined,z}},
+      {structured_error,{M,10},asn1ct_check,{undefined,aa}},
+      {structured_error,{M,13},asn1ct_check,{undefined,xyz}},
+      {structured_error,{M,15},asn1ct_check,
+       {enum_illegal_redefinition,b}},
+      {structured_error,{M,16},asn1ct_check,
+       {enum_illegal_redefinition,b}},
+      {structured_error,{M,17},asn1ct_check,
+       {enum_reused_value,b,1}},
+      {structured_error,{M,18},asn1ct_check,
+       {enum_reused_value,c,0}},
+      {structured_error,{M,19},asn1ct_check,
+       {enum_not_ascending,d,5,10}}
      ]
     } = run(P, Config),
     ok.

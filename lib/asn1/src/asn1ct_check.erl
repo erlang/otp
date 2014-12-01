@@ -2697,7 +2697,7 @@ check_type(S=#state{recordtopname=TopName},Type,Ts) when is_record(Ts,type) ->
 	    {'ENUMERATED',NamedNumberList} ->
 		TempNewDef#newt{type=
 				{'ENUMERATED',
-				 check_enumerated(S,NamedNumberList,Constr)},
+				 check_enumerated(S, NamedNumberList)},
 				tag=
 				merge_tags(Tag,?TAG_PRIMITIVE(?N_ENUMERATED)),
 				constraint=[]};
@@ -3723,19 +3723,19 @@ resolve_value1(S, _HostType, #valuedef{}=VDef) ->
 resolve_value1(_, _, V) ->
     V.
 
-resolve_namednumber(S, #type{def=Def}=Type, Name) ->
+resolve_namednumber(S, #type{def=Def}, Name) ->
     case Def of
 	{'ENUMERATED',NameList} ->
-	    resolve_namednumber_1(S, Name, NameList, Type);
+	    resolve_namednumber_1(S, Name, NameList);
 	{'INTEGER',NameList} ->
-	    resolve_namednumber_1(S, Name, NameList, Type);
+	    resolve_namednumber_1(S, Name, NameList);
 	_ ->
 	    not_named
     end.
 
-resolve_namednumber_1(S, Name, NameList, Type) ->
+resolve_namednumber_1(S, Name, NameList) ->
     try
-	NamedNumberList = check_enumerated(S, NameList, Type#type.constraint),
+	NamedNumberList = check_enumerated(S, NameList),
 	{_,N} = lookup_enum_value(S, Name, NamedNumberList),
 	N
     catch _:_ ->
@@ -4318,93 +4318,100 @@ instance_of_constraints_1(S, Type) ->
 				     valueindex=[]},
     {TableCInf,[{simpletable,Name}],CRel,[{objfun,ObjectSetRef}]}.
 
-%% Check ENUMERATED
-%% ****************************************
-%% Check that all values are unique
-%% assign values to un-numbered identifiers
-%% check that the constraints are allowed and correct
-%% put the updated info back into database
-check_enumerated(_S,[{Name,Number}|_Rest]= NNList,_Constr) when is_atom(Name), is_integer(Number)->
-    %% already checked , just return the same list
-    NNList;
-check_enumerated(_S,{[{Name,Number}|_Rest],L}= NNList,_Constr) when is_atom(Name), is_integer(Number), is_list(L)->
-    %% already checked , contains extension marker, just return the same lists
-    NNList;
-check_enumerated(S,NamedNumberList,_Constr) ->
-    check_enum(S,NamedNumberList,[],[],[]).
+%%%
+%%% Check ENUMERATED.
+%%%
 
-%% identifiers are put in Acc2
-%% returns either [{Name,Number}] or {[{Name,Number}],[{ExtName,ExtNumber}]}
-%% the latter is returned if the ENUMERATION contains EXTENSIONMARK
-check_enum(S,[{'NamedNumber',Id,Num}|T],Acc1,Acc2,Root) when is_integer(Num) ->
-    check_enum(S,T,[{Id,Num}|Acc1],Acc2,Root);
-check_enum(S,['EXTENSIONMARK'|T],Acc1,Acc2,_Root) ->
-    NewAcc2 = lists:keysort(2,Acc1),
-    NewList = enum_number(lists:reverse(Acc2),NewAcc2,0,[],[]),
-    { NewList, check_enum(S,T,[],[],enum_counts(NewList))};
-check_enum(S,[Id|T],Acc1,Acc2,Root) when is_atom(Id) ->
-    check_enum(S,T,Acc1,[Id|Acc2],Root);
-check_enum(_S,[],Acc1,Acc2,Root) ->
-    NewAcc2 = lists:keysort(2,Acc1),
-    enum_number(lists:reverse(Acc2),NewAcc2,0,[],Root).
+check_enumerated(_S, [{Name,Number}|_]=NNL)
+  when is_atom(Name), is_integer(Number) ->
+    %% Already checked.
+    NNL;
+check_enumerated(_S, {[{Name,Number}|_],L}=NNL)
+  when is_atom(Name), is_integer(Number), is_list(L) ->
+    %% Already checked (with extension).
+    NNL;
+check_enumerated(S, NNL) ->
+    check_enum_ids(S, NNL, gb_sets:empty()),
+    check_enum(S, NNL, gb_sets:empty(), []).
 
+check_enum_ids(S, [{'NamedNumber',Id,_}|T], Ids0) ->
+    Ids = check_enum_update_ids(S, Id, Ids0),
+    check_enum_ids(S, T, Ids);
+check_enum_ids(S, ['EXTENSIONMARK'|T], Ids) ->
+    check_enum_ids(S, T, Ids);
+check_enum_ids(S, [Id|T], Ids0) when is_atom(Id) ->
+    Ids = check_enum_update_ids(S, Id, Ids0),
+    check_enum_ids(S, T, Ids);
+check_enum_ids(_, [], _) ->
+    ok.
 
-% assign numbers to identifiers , numbers from 0 ... but must not
-% be the same as already assigned to NamedNumbers
-enum_number(Identifiers,NamedNumbers,Cnt,Acc,[]) ->
-    enum_number(Identifiers,NamedNumbers,Cnt,Acc);
-enum_number(Identifiers,NamedNumbers,_Cnt,Acc,CountL) ->
-    enum_extnumber(Identifiers,NamedNumbers,Acc,CountL).
+check_enum(S, [{'NamedNumber',Id,N}|T], Used0, Acc) ->
+    Used = check_enum_update_used(S, Id, N, Used0),
+    check_enum(S, T, Used, [{Id,N}|Acc]);
+check_enum(S, ['EXTENSIONMARK'|Ext0], Used0, Acc0) ->
+    Acc = lists:reverse(Acc0),
+    {Root,Used,Cnt} = check_enum_number_root(Acc, Used0, 0, []),
+    Ext = check_enum_ext(S, Ext0, Used, Cnt, []),
+    {Root,Ext};
+check_enum(S, [Id|T], Used, Acc) when is_atom(Id) ->
+    check_enum(S, T, Used, [Id|Acc]);
+check_enum(_, [], Used, Acc0) ->
+    Acc = lists:reverse(Acc0),
+    {Root,_,_} = check_enum_number_root(Acc, Used, 0, []),
+    lists:keysort(2, Root).
 
-enum_number([H|T],[{Id,Num}|T2],Cnt,Acc) when Num > Cnt ->
-    enum_number(T,[{Id,Num}|T2],Cnt+1,[{H,Cnt}|Acc]);
-enum_number([H|T],[{Id,Num}|T2],Cnt,Acc) when Num < Cnt -> % negative Num
-    enum_number(T,T2,Cnt+1,[{H,Cnt},{Id,Num}|Acc]);
-enum_number([],L2,_Cnt,Acc) ->
-    lists:append([lists:reverse(Acc),L2]);
-enum_number(L,[{Id,Num}|T2],Cnt,Acc) -> % Num == Cnt
-    enum_number(L,T2,Cnt+1,[{Id,Num}|Acc]);
-enum_number([H|T],[],Cnt,Acc) ->
-    enum_number(T,[],Cnt+1,[{H,Cnt}|Acc]).
-    
-enum_extnumber(Identifiers,NamedNumbers,Acc,[C]) ->
-    check_add_enum_numbers(NamedNumbers,[C]),
-    enum_number(Identifiers,NamedNumbers,C,Acc);
-enum_extnumber([H|T],[{Id,Num}|T2],Acc,[C|Counts]) when Num > C ->
-    enum_extnumber(T,[{Id,Num}|T2],[{H,C}|Acc],Counts);
-enum_extnumber([],L2,Acc,Cnt) ->
-    check_add_enum_numbers(L2, Cnt),
-    lists:concat([lists:reverse(Acc),L2]);
-enum_extnumber(_Identifiers,[{Id,Num}|_T2],_Acc,[C|_]) when Num < C ->
-%%    enum_extnumber(Identifiers,T2,[{Id,Num}|Acc],Counts);
-    exit({error,{asn1,"AdditionalEnumeration element with same number as root element",{Id,Num}}});
-enum_extnumber(Identifiers,[{Id,Num}|T2],Acc,[_C|Counts]) -> % Num =:= C
-    enum_extnumber(Identifiers,T2,[{Id,Num}|Acc],Counts);
-enum_extnumber([H|T],[],Acc,[C|Counts]) ->
-    enum_extnumber(T,[],[{H,C}|Acc],Counts).
+check_enum_number_root([Id|T]=T0, Used0, Cnt, Acc) when is_atom(Id) ->
+    case gb_sets:is_element(Cnt, Used0) of
+	false ->
+	    Used = gb_sets:insert(Cnt, Used0),
+	    check_enum_number_root(T, Used, Cnt+1, [{Id,Cnt}|Acc]);
+	true ->
+	    check_enum_number_root(T0, Used0, Cnt+1, Acc)
+    end;
+check_enum_number_root([H|T], Used, Cnt, Acc) ->
+    check_enum_number_root(T, Used, Cnt, [H|Acc]);
+check_enum_number_root([], Used, Cnt, Acc) ->
+    {lists:keysort(2, Acc),Used,Cnt}.
 
-enum_counts([]) ->
-    [0];
-enum_counts(L) ->
-    Used=[I||{_,I}<-L],
-    AddEnumLb = lists:max(Used) + 1,
-    lists:foldl(fun(El,AccIn)->lists:delete(El,AccIn) end, 
-		lists:seq(0,AddEnumLb),
-		Used).
-check_add_enum_numbers(L, Cnt) ->
-    Max = lists:max(Cnt),
-    Fun = fun({_,N}=El) when N < Max ->
-		  case lists:member(N,Cnt) of
-		      false ->
-			  exit({error,{asn1,"AdditionalEnumeration element with same number as root element",El}});
-		      _ ->
-			  ok
-		  end;
-	     (_) ->
-		  ok
-	  end,
-    lists:foreach(Fun,L).
+check_enum_ext(S, [{'NamedNumber',Id,N}|T], Used0, C, Acc) ->
+    Used = check_enum_update_used(S, Id, N, Used0),
+    if
+	N < C ->
+	    asn1_error(S, {enum_not_ascending,Id,N,C-1});
+	true ->
+	    ok
+    end,
+    check_enum_ext(S, T, Used, N+1, [{Id,N}|Acc]);
+check_enum_ext(S, [Id|T]=T0, Used0, C, Acc) when is_atom(Id) ->
+    case gb_sets:is_element(C, Used0) of
+	true ->
+	    check_enum_ext(S, T0, Used0, C+1, Acc);
+	false ->
+	    Used = gb_sets:insert(C, Used0),
+	    check_enum_ext(S, T, Used, C+1, [{Id,C}|Acc])
+    end;
+check_enum_ext(_, [], _, _, Acc) ->
+    lists:keysort(2, Acc).
 
+check_enum_update_ids(S, Id, Ids) ->
+    case gb_sets:is_element(Id, Ids) of
+	false ->
+	    gb_sets:insert(Id, Ids);
+	true ->
+	    asn1_error(S, {enum_illegal_redefinition,Id})
+    end.
+
+check_enum_update_used(S, Id, N, Used) ->
+    case gb_sets:is_element(N, Used) of
+	false ->
+	    gb_sets:insert(N, Used);
+	true ->
+	    asn1_error(S, {enum_reused_value,Id,N})
+    end.
+
+%%%
+%%% End of ENUMERATED checking.
+%%%
 
 check_boolean(_S,_Constr) ->
     ok.
@@ -5833,6 +5840,15 @@ format_error({already_defined,Name,PrevLine}) ->
 format_error({duplicate_tags,Elements}) ->
     io_lib:format("duplicate tags in the elements: ~s",
 		  [format_elements(Elements)]);
+format_error({enum_illegal_redefinition,Id}) ->
+    io_lib:format("'~s' must not be redefined", [Id]);
+format_error({enum_not_ascending,Id,N,Prev}) ->
+    io_lib:format("the values for enumerations which follow '...' must "
+		  "be in ascending order, but '~p(~p)' is less than the "
+		  "previous value '~p'", [Id,N,Prev]);
+format_error({enum_reused_value,Id,Val}) ->
+    io_lib:format("'~s' has the value '~p' which is used more than once",
+		  [Id,Val]);
 format_error(illegal_bitstring_value) ->
     "expecting a BIT STRING value";
 format_error({illegal_class_name,Class}) ->
