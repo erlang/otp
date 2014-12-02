@@ -789,7 +789,7 @@ create_file_slow(FD, M, N) ->
       function was first unsuspended and then garbage
       collected. Otherwise the printout would show
       <c>garbage_collect</c> being called from <c>suspend</c> but not
-      not which function that might have caused the garbage
+      which function that might have caused the garbage
       collection. 
       </p>
     <p>Let us now get back to the test code:</p>
