@@ -33,6 +33,69 @@
   </header>
 
 
+  <section>
+    <title>SNMP Development Toolkit 5.1.1</title>
+    <p>Version 5.1.1 supports code replacement in runtime from/to
+    version 5.1. </p>
+
+    <section>
+      <title>Improvements and new features</title>
+<!--
+      <p>-</p>
+-->
+
+      <list type="bulleted">
+        <item>
+          <p>[compiler] Refinement of type Opaque was not allowed. </p>
+          <p>MIB constructs such as '<c>SYNTAX Opaque (SIZE(0..65535))</c>' 
+	  was previously not allowed, 
+	  see the standard <c>ALARM-MIB</c> for eaxmple. </p>
+          <p>Own Id: OTP-12066</p>
+          <p>Aux Id: Seq 12669</p>
+        </item>
+
+      </list>
+
+    </section>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <p>-</p>
+
+<!--
+      <list type="bulleted">
+        <item>
+          <p>[agent] 
+	  see <seealso marker="snmpa#load_mibs">load_mibs</seealso> and 
+	  <seealso marker="snmpa#unload_mibs">unload_mibs</seealso>. </p>
+          <p>Own Id: OTP-11216</p>
+        </item>
+
+      </list>
+-->
+
+    </section>
+
+    <section>
+      <title>Incompatibilities</title>
+      <p>-</p>
+
+<!--
+      <list type="bulleted">
+        <item>
+          <p>[manager] The old Addr-and-Port based API functions, previously
+	  long deprecated and marked for deletion in R16B, has now been
+	  removed. </p>
+          <p>Own Id: OTP-10027</p>
+        </item>
+
+      </list>
+-->
+    </section>
+  </section> <!-- 5.1.1 -->
+
+
+
   <section><title>SNMP 5.1</title>
 
     <section><title>Improvements and New Features</title>
