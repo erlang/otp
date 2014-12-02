@@ -2890,6 +2890,9 @@ static ErlDrvTermData   am_sctp_rtoinfo, /* Option names */
     
     /* For #sctp_paddrinfo{}: */
     am_active,                         am_inactive,
+#    if HAVE_DECL_SCTP_UNCONFIRMED
+    am_unconfirmed,
+#    endif
     
     /* For #sctp_status{}: */
 #    if HAVE_DECL_SCTP_EMPTY
@@ -3919,7 +3922,10 @@ static void inet_init_sctp(void) {
     /* For #sctp_paddrinfo{}: */
     INIT_ATOM(active);
     INIT_ATOM(inactive);
-    
+#    if HAVE_DECL_SCTP_UNCONFIRMED
+    INIT_ATOM(unconfirmed);
+#    endif
+
     /* For #sctp_status{}: */
 #    if HAVE_DECL_SCTP_EMPTY
     INIT_ATOM(empty);
@@ -7338,8 +7344,13 @@ static int load_paddrinfo (ErlDrvTermData * spec, int i,
     case SCTP_INACTIVE:
 	i = LOAD_ATOM	(spec, i, am_inactive);
 	break;
+#   if HAVE_DECL_SCTP_UNCONFIRMED
+    case SCTP_UNCONFIRMED:
+      i = LOAD_ATOM	(spec, i, am_unconfirmed);
+      break;
+#   endif
     default:
-	ASSERT(0);	/* NB: SCTP_UNCONFIRMED modifier not yet supported */
+      i = LOAD_ATOM	(spec, i, am_undefined);
     }
     i = LOAD_INT	(spec, i, pai->spinfo_cwnd);
     i = LOAD_INT	(spec, i, pai->spinfo_srtt);
