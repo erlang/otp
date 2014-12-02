@@ -35,7 +35,7 @@
       used. The profiling is done using the Erlang trace BIFs. Tracing of
       local function calls for a specified set of processes is enabled when
       profiling is begun, and disabled when profiling is stopped.</p>
-    <p>When using Eprof expect a slowdown in program execution.</p>
+    <p>When using Eprof, expect a slowdown in program execution.</p>
   </description>
   <funcs>
     <func>
