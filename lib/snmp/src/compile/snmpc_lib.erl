@@ -139,6 +139,7 @@ allow_size_rfc1902('Integer32') -> true;
 allow_size_rfc1902('Unsigned32') -> true;
 allow_size_rfc1902('OCTET STRING') -> true;
 allow_size_rfc1902('Gauge32') -> true;
+allow_size_rfc1902('Opaque') -> true;
 allow_size_rfc1902(_) -> false.
 
 guess_integer_type() ->
