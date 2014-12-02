@@ -24,6 +24,8 @@
 
 -include_lib("public_key/include/public_key.hrl"). 
 
+-define(SECRET_PRINTOUT, "***").
+
 -type reason()            :: term().
 -type reply()             :: term().
 -type msg()               :: term().
@@ -36,6 +38,7 @@
 -type issuer()            :: tuple().
 -type serialnumber()      :: integer().
 -type cert_key()          :: {reference(), integer(), issuer()}.
+-type secret_printout()   :: list().
 
 %% basic binary constructors
 -define(BOOLEAN(X),  X:8/unsigned-big-integer).
@@ -81,16 +84,16 @@
 	  validate_extensions_fun, 
 	  depth                :: integer(),
 	  certfile             :: binary(),
-	  cert                 :: public_key:der_encoded(),
+	  cert                 :: public_key:der_encoded() | secret_printout(),
 	  keyfile              :: binary(),
-	  key	               :: {'RSAPrivateKey' | 'DSAPrivateKey' | 'ECPrivateKey' | 'PrivateKeyInfo', public_key:der_encoded()},
-	  password	       :: string(),
-	  cacerts              :: [public_key:der_encoded()],
+	  key	               :: {'RSAPrivateKey' | 'DSAPrivateKey' | 'ECPrivateKey' | 'PrivateKeyInfo', public_key:der_encoded()} | secret_printout(),
+	  password	       :: string() | secret_printout(),
+	  cacerts              :: [public_key:der_encoded()] | secret_printout(),
 	  cacertfile           :: binary(),
-	  dh                   :: public_key:der_encoded(),
-	  dhfile               :: binary(),
+	  dh                   :: public_key:der_encoded() | secret_printout(),
+	  dhfile               :: binary() | secret_printout(),
 	  user_lookup_fun,  % server option, fun to lookup the user
-	  psk_identity         :: binary(),
+	  psk_identity         :: binary() | secret_printout() ,
 	  srp_identity,  % client option {User, Password}
 	  ciphers,    % 
 	  %% Local policy for the server if it want's to reuse the session
