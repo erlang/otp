@@ -2138,19 +2138,18 @@ void process_main(void)
      NextPF(0, next);
  }
 
-
  {
      Eterm select_val2;
 
- OpCase(i_select_tuple_arity2_yfAfAf):
+ OpCase(i_select_tuple_arity2_yfAAff):
      select_val2 = yb(Arg(0));
      goto do_select_tuple_arity2;
 
- OpCase(i_select_tuple_arity2_xfAfAf):
+ OpCase(i_select_tuple_arity2_xfAAff):
      select_val2 = xb(Arg(0));
      goto do_select_tuple_arity2;
 
- OpCase(i_select_tuple_arity2_rfAfAf):
+ OpCase(i_select_tuple_arity2_rfAAff):
      select_val2 = r(0);
      I--;
 
@@ -2161,22 +2160,22 @@ void process_main(void)
      select_val2 = *tuple_val(select_val2);
      goto do_select_val2;
 
- OpCase(i_select_val2_yfcfcf):
+ OpCase(i_select_val2_yfccff):
      select_val2 = yb(Arg(0));
      goto do_select_val2;
 
- OpCase(i_select_val2_xfcfcf):
+ OpCase(i_select_val2_xfccff):
      select_val2 = xb(Arg(0));
      goto do_select_val2;
 
- OpCase(i_select_val2_rfcfcf):
+ OpCase(i_select_val2_rfccff):
      select_val2 = r(0);
      I--;
 
  do_select_val2:
      if (select_val2 == Arg(2)) {
-	 I += 2;
-     } else if (select_val2 == Arg(4)) {
+	 I += 3;
+     } else if (select_val2 == Arg(3)) {
 	 I += 4;
      }
 
@@ -2203,20 +2202,50 @@ void process_main(void)
  do_select_tuple_arity:
      if (is_tuple(select_val)) {
 	 select_val = *tuple_val(select_val);
-	 goto do_binary_search;
+	 goto do_linear_search;
      }
      SET_I((BeamInstr *) Arg(1));
      Goto(*I);
 
- OpCase(i_select_val_xfI):
+ OpCase(i_select_val_lins_xfI):
+     select_val = xb(Arg(0));
+     goto do_linear_search;
+
+ OpCase(i_select_val_lins_yfI):
+     select_val = yb(Arg(0));
+     goto do_linear_search;
+
+ OpCase(i_select_val_lins_rfI):
+     select_val = r(0);
+     I--;
+
+ do_linear_search: {
+     BeamInstr *vs = &Arg(3);
+     int ix = 0;
+
+     for(;;) {
+	 if (vs[ix+0] >= select_val) { ix += 0; break; }
+	 if (vs[ix+1] >= select_val) { ix += 1; break; }
+	 ix += 2;
+     }
+
+     if (vs[ix] == select_val) {
+	 I += ix + Arg(2) + 2;
+     }
+
+     SET_I((BeamInstr *) Arg(1));
+     Goto(*I);
+   }
+
+ OpCase(i_select_val_bins_xfI):
      select_val = xb(Arg(0));
      goto do_binary_search;
 
- OpCase(i_select_val_yfI):
+ OpCase(i_select_val_bins_yfI):
      select_val = yb(Arg(0));
      goto do_binary_search;
      
- OpCase(i_select_val_rfI):
+ OpCase(i_select_val_bins_rfI):
      select_val = r(0);
      I--;
 

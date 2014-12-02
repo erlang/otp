@@ -3321,9 +3321,10 @@ gen_select_tuple_arity(LoaderState* stp, GenOpArg S, GenOpArg Fail,
 
 {
     GenOp* op;
+    GenOpArg *tmp;
     int arity = Size.val + 3;
     int size = Size.val / 2;
-    int i;
+    int i, j, align = 0;
 
     /*
      * Verify the validity of the list.
@@ -3338,8 +3339,36 @@ gen_select_tuple_arity(LoaderState* stp, GenOpArg S, GenOpArg Fail,
     }
 
     /*
-     * Generate the generic instruction.
+     * Use a special-cased instruction if there are only two values.
      */
+    if (size == 2) {
+	NEW_GENOP(stp, op);
+	op->next = NULL;
+	op->op = genop_i_select_tuple_arity2_6;
+	GENOP_ARITY(op, arity - 1);
+	op->a[0] = S;
+	op->a[1] = Fail;
+	op->a[2].type = TAG_u;
+	op->a[2].val  = Rest[0].val;
+	op->a[3].type = TAG_u;
+	op->a[3].val  = Rest[2].val;
+	op->a[4] = Rest[1];
+	op->a[5] = Rest[3];
+
+	return op;
+    }
+
+    /*
+     * Generate the generic instruction.
+     * Assumption:
+     *   Few different tuple arities to select on (fewer than 20).
+     *   Use linear scan approach.
+     */
+
+    align = 1;
+
+    arity += 2*align;
+    size  += align;
 
     NEW_GENOP(stp, op);
     op->next = NULL;
@@ -3348,38 +3377,35 @@ gen_select_tuple_arity(LoaderState* stp, GenOpArg S, GenOpArg Fail,
     op->a[0] = S;
     op->a[1] = Fail;
     op->a[2].type = TAG_u;
-    op->a[2].val = Size.val / 2;
-    for (i = 0; i < Size.val; i += 2) {
-	op->a[i+3].type = TAG_v;
-	op->a[i+3].val = make_arityval(Rest[i].val);
-	op->a[i+4] = Rest[i+1];
+    op->a[2].val = size;
+
+    tmp = (GenOpArg *) erts_alloc(ERTS_ALC_T_LOADER_TMP, sizeof(GenOpArg)*(arity-2*align));
+
+    for (i = 3; i < arity - 2*align; i+=2) {
+	tmp[i-3].type = TAG_v;
+	tmp[i-3].val  = make_arityval(Rest[i-3].val);
+	tmp[i-2]      = Rest[i-2];
     }
 
     /*
-     * Sort the values to make them useful for a binary search.
+     * Sort the values to make them useful for a sentinel search
      */
 
-    qsort(op->a+3, size, 2*sizeof(GenOpArg), 
-	   (int (*)(const void *, const void *)) genopargcompare);
-#ifdef DEBUG
-    for (i = 3; i < arity-2; i += 2) {
-	ASSERT(op->a[i].val < op->a[i+2].val);
-    }
-#endif
+    qsort(tmp, size - align, 2*sizeof(GenOpArg),
+	    (int (*)(const void *, const void *)) genopargcompare);
 
-    /*
-     * Use a special-cased instruction if there are only two values.
-     */
-    if (size == 2) {
-	op->op = genop_i_select_tuple_arity2_6;
-	op->arity--;
-	op->a[2].type = TAG_u;
-	op->a[2].val = arityval(op->a[3].val);
-	op->a[3] = op->a[4];
-	op->a[4].type = TAG_u;
-	op->a[4].val = arityval(op->a[5].val);
-	op->a[5] = op->a[6];
+    j = 3;
+    for (i = 3; i < arity - 2*align; i += 2) {
+	op->a[j]        = tmp[i-3];
+	op->a[j + size] = tmp[i-2];
+	j++;
     }
+
+    erts_free(ERTS_ALC_T_LOADER_TMP, (void *) tmp);
+
+    op->a[j].type = TAG_u;
+    op->a[j].val  = ~((BeamInstr)0);
+    op->a[j+size] = Fail;
 
     return op;
 }
@@ -3602,45 +3628,109 @@ gen_select_val(LoaderState* stp, GenOpArg S, GenOpArg Fail,
 	       GenOpArg Size, GenOpArg* Rest)
 {
     GenOp* op;
+    GenOpArg *tmp;
     int arity = Size.val + 3;
     int size = Size.val / 2;
-    int i;
+    int i, j, align = 0;
+
+    if (size == 2) {
+
+	/*
+	 * Use a special-cased instruction if there are only two values.
+	 */
+
+	NEW_GENOP(stp, op);
+	op->next = NULL;
+	op->op = genop_i_select_val2_6;
+	GENOP_ARITY(op, arity - 1);
+	op->a[0] = S;
+	op->a[1] = Fail;
+	op->a[2] = Rest[0];
+	op->a[3] = Rest[2];
+	op->a[4] = Rest[1];
+	op->a[5] = Rest[3];
+
+	return op;
+
+    } else if (size > 10) {
+
+	/* binary search instruction */
+
+	NEW_GENOP(stp, op);
+	op->next = NULL;
+	op->op = genop_i_select_val_bins_3;
+	GENOP_ARITY(op, arity);
+	op->a[0] = S;
+	op->a[1] = Fail;
+	op->a[2].type = TAG_u;
+	op->a[2].val = size;
+	for (i = 3; i < arity; i++) {
+	    op->a[i] = Rest[i-3];
+	}
+
+	/*
+	 * Sort the values to make them useful for a binary search.
+	 */
+
+	qsort(op->a+3, size, 2*sizeof(GenOpArg),
+		(int (*)(const void *, const void *)) genopargcompare);
+#ifdef DEBUG
+	for (i = 3; i < arity-2; i += 2) {
+	    ASSERT(op->a[i].val < op->a[i+2].val);
+	}
+#endif
+	return op;
+    }
+
+    /* linear search instruction */
+
+    align = 1;
+
+    arity += 2*align;
+    size  += align;
 
     NEW_GENOP(stp, op);
     op->next = NULL;
-    op->op = genop_i_select_val_3;
+    op->op = genop_i_select_val_lins_3;
     GENOP_ARITY(op, arity);
     op->a[0] = S;
     op->a[1] = Fail;
     op->a[2].type = TAG_u;
     op->a[2].val = size;
-    for (i = 3; i < arity; i++) {
-	op->a[i] = Rest[i-3];
+
+    tmp = (GenOpArg *) erts_alloc(ERTS_ALC_T_LOADER_TMP, sizeof(GenOpArg)*(arity-2*align));
+
+    for (i = 3; i < arity - 2*align; i++) {
+	tmp[i-3] = Rest[i-3];
     }
 
     /*
-     * Sort the values to make them useful for a binary search.
+     * Sort the values to make them useful for a sentinel search
      */
 
-    qsort(op->a+3, size, 2*sizeof(GenOpArg), 
-	  (int (*)(const void *, const void *)) genopargcompare);
+    qsort(tmp, size - align, 2*sizeof(GenOpArg),
+	    (int (*)(const void *, const void *)) genopargcompare);
+
+    j = 3;
+    for (i = 3; i < arity - 2*align; i += 2) {
+	op->a[j]      = tmp[i-3];
+	op->a[j+size] = tmp[i-2];
+	j++;
+    }
+
+    erts_free(ERTS_ALC_T_LOADER_TMP, (void *) tmp);
+
+    /* add sentinel */
+
+    op->a[j].type = TAG_u;
+    op->a[j].val  = ~((BeamInstr)0);
+    op->a[j+size] = Fail;
+
 #ifdef DEBUG
-    for (i = 3; i < arity-2; i += 2) {
-	ASSERT(op->a[i].val < op->a[i+2].val);
+    for (i = 0; i < size; i++) {
+	ASSERT(op->a[i+3].val <= op->a[i+4].val);
     }
 #endif
-
-    /*
-     * Use a special-cased instruction if there are only two values.
-     */
-    if (size == 2) {
-	op->op = genop_i_select_val2_6;
-	op->arity--;
-	op->a[2] = op->a[3];
-	op->a[3] = op->a[4];
-	op->a[4] = op->a[5];
-	op->a[5] = op->a[6];
-    }
 
     return op;
 }
