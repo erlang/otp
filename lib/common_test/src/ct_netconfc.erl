@@ -1895,7 +1895,9 @@ ssh_open(#options{host=Host,timeout=Timeout,port=Port,ssh=SshOpts,name=Name}) ->
 					     name = Name}};
 			failure ->
 			    ssh:close(CM),
-			    {error,{ssh,could_not_execute_netconf_subsystem}}
+			    {error,{ssh,could_not_execute_netconf_subsystem}};
+			{error,timeout} ->
+			    {error,{ssh,could_not_execute_netconf_subsystem,timeout}}
 		    end;
 		{error, Reason} ->
 		    ssh:close(CM),

@@ -250,7 +250,13 @@ wait(false, _) -> infinity.
 send(Data, Sock, ConnName) ->
     case Data of
 	[?IAC|_] = Cmd ->
-	    cmd_dbg(Cmd);
+	    cmd_dbg("Sending",Cmd),
+	    try io_lib:format("[~w] ~w", [?MODULE,Data]) of
+		Str ->
+		    ct_telnet:log(ConnName, general_io, Str, [])
+	    catch
+		_:_ -> ok
+	    end;
 	_ ->
 	    dbg("Sending: ~tp\n", [Data]),
 	    try io_lib:format("[~w] ~ts", [?MODULE,Data]) of
@@ -271,8 +277,7 @@ check_msg(Sock, [?IAC,?IAC | T], Acc) ->
 check_msg(Sock, [?IAC | Cs], Acc) ->
     case get_cmd(Cs) of
 	{Cmd,Cs1} ->
-	    dbg("Got ", []), 
-	    cmd_dbg(Cmd),
+	    cmd_dbg("Got",Cmd),
 	    respond_cmd(Cmd, Sock),
 	    check_msg(Sock, Cs1, Acc); 
 	error ->
@@ -291,12 +296,12 @@ check_msg(_Sock, [], Acc) ->
 
 respond_cmd([?WILL,?ECHO], Sock) ->
     R = [?IAC,?DO,?ECHO],
-    cmd_dbg(R),
+    cmd_dbg("Responding",R),
     gen_tcp:send(Sock, R);
 
 respond_cmd([?DO,?ECHO], Sock) ->
     R = [?IAC,?WILL,?ECHO],
-    cmd_dbg(R),
+    cmd_dbg("Responding",R),
     gen_tcp:send(Sock, R);
 
 %% Answers from server
@@ -316,12 +321,12 @@ respond_cmd([?WONT | _Opt], _Sock) ->		% server ack?
 
 respond_cmd([?WILL,Opt], Sock) ->
     R = [?IAC,?DONT,Opt],
-    cmd_dbg(R),
+    cmd_dbg("Responding",R),
     gen_tcp:send(Sock, R);
 
 respond_cmd([?DO | Opt], Sock) ->
     R = [?IAC,?WONT | Opt],
-    cmd_dbg(R),
+    cmd_dbg("Responding",R),
     gen_tcp:send(Sock, R);
 
 %% Commands without options (which we ignore)
@@ -357,13 +362,14 @@ get_subcmd([Opt | Rest], Acc) ->
     get_subcmd(Rest, [Opt | Acc]).
 
 -ifdef(debug).
-dbg(_Str,_Args) ->
-    io:format(_Str,_Args).
+dbg(Str,Args) ->
+    TS = timestamp(),
+    io:format("[~p ct_telnet_client, ~s]\n" ++ Str,[self(),TS|Args]).
 
-cmd_dbg(_Cmd) ->
-    case _Cmd of
+cmd_dbg(Prefix,Cmd) ->
+    case Cmd of
 	[?IAC|Cmd1] ->
-	    cmd_dbg(Cmd1);
+	    cmd_dbg(Prefix,Cmd1);
 	[Ctrl|Opts] ->
 	    CtrlStr =
 		case Ctrl of
@@ -379,15 +385,23 @@ cmd_dbg(_Cmd) ->
 		    [Opt] -> Opt;
 		    _ -> Opts
 		end,
-	    io:format("~ts(~w): ~w\n", [CtrlStr,Ctrl,Opts1]);
+	    dbg("~ts: ~ts(~w): ~w\n", [Prefix,CtrlStr,Ctrl,Opts1]);
 	Any  ->
-	    io:format("Unexpected in cmd_dbg:~n~w~n",[Any])
+	    dbg("Unexpected in cmd_dbg:~n~w~n",[Any])
     end.
 
+timestamp() ->
+    {MS,S,US} = now(),
+    {{Year,Month,Day}, {Hour,Min,Sec}} =
+        calendar:now_to_local_time({MS,S,US}),
+    MilliSec = trunc(US/1000),
+    lists:flatten(io_lib:format("~4.10.0B-~2.10.0B-~2.10.0B "
+                                "~2.10.0B:~2.10.0B:~2.10.0B.~3.10.0B",
+                                [Year,Month,Day,Hour,Min,Sec,MilliSec])).
 -else.
 dbg(_Str,_Args) ->
     ok.
 
-cmd_dbg(_Cmd) ->
+cmd_dbg(_Prefix,_Cmd) ->
     ok.
 -endif.
