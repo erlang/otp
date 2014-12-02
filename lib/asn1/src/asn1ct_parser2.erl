@@ -393,22 +393,13 @@ parse_Type(Tokens) ->
 		      Result ->
 			  Result
 		  end,
-    case hd(Rest5) of
-	{'(',_} ->
+    case Rest5 of
+	[{'(',_}|_] ->
 	    {Constraints,Rest6} = parse_Constraints(Rest5),
-	    if is_record(Type,type) ->
-		    {Type#type{constraint=merge_constraints(Constraints),
-			       tag=Tag2},Rest6};
-	       true ->
-		    {#type{def=Type,constraint=merge_constraints(Constraints),
-			   tag=Tag2},Rest6}
-	    end;
-	_ ->
-	    if is_record(Type,type) ->
-		    {Type#type{tag=Tag2},Rest5};
-	       true ->
-		    {#type{def=Type,tag=Tag2},Rest5}
-	    end
+	    {Type#type{tag=Tag2,
+		       constraint=merge_constraints(Constraints)},Rest6};
+	[_|_] ->
+	    {Type#type{tag=Tag2},Rest5}
     end.
 
 parse_BuiltinType([{'BIT',_},{'STRING',_}|Rest]) ->
@@ -423,7 +414,7 @@ parse_BuiltinType([{'BIT',_},{'STRING',_}|Rest]) ->
 				       [got,get_token(hd(Rest3)),expected,'}']}})
 	    end;
 	 _ ->
-	    {{'BIT STRING',[]},Rest}
+	    {#type{def={'BIT STRING',[]}},Rest}
     end;
 parse_BuiltinType([{'BOOLEAN',_}|Rest]) ->
     {#type{def='BOOLEAN'},Rest};
@@ -558,7 +549,7 @@ parse_BuiltinType([{'SEQUENCE',_},{'{',_}|Rest]) ->
 parse_BuiltinType([{'SEQUENCE',_},{'OF',_},Id={identifier,_,_},Lt={'<',_}|Rest]) ->
 %% TODO: take care of the identifier for something useful
     {Type,Rest2} = parse_SelectionType([Id,Lt|Rest]),
-    {#type{def={'SEQUENCE OF',#type{def=Type,tag=[]}}},Rest2};
+    {#type{def={'SEQUENCE OF',Type}},Rest2};
 
 parse_BuiltinType([{'SEQUENCE',_},{'OF',_},{identifier,_,_} |Rest]) ->
 %% TODO: take care of the identifier for something useful
@@ -604,8 +595,7 @@ parse_BuiltinType([{'SET',_},{'{',_}|Rest]) ->
 parse_BuiltinType([{'SET',_},{'OF',_},Id={identifier,_,_},Lt={'<',_}|Rest]) ->
 %% TODO: take care of the identifier for something useful
     {Type,Rest2} = parse_SelectionType([Id,Lt|Rest]),
-    {#type{def={'SET OF',#type{def=Type,tag=[]}}},Rest2};
-
+    {#type{def={'SET OF',Type}},Rest2};
 
 parse_BuiltinType([{'SET',_},{'OF',_},{identifier,_,_}|Rest]) ->
 %%TODO: take care of the identifier for something useful
@@ -763,7 +753,7 @@ parse_DefinedType(Tokens) ->
 
 parse_SelectionType([{identifier,_,Name},{'<',_}|Rest]) ->    
     {Type,Rest2} = parse_Type(Rest),
-    {{'SelectionType',Name,Type},Rest2};
+    {#type{def={'SelectionType',Name,Type}},Rest2};
 parse_SelectionType(Tokens) ->
     throw({asn1_error,{get_line(hd(Tokens)),get(asn1_module),
 		       [got,get_token(hd(Tokens)),expected,'identifier <']}}).
@@ -1700,7 +1690,7 @@ parse_TypeFromObject(Tokens) ->
 	    {Name,Rest3} = parse_FieldName(Rest2),
 	    case lists:last(Name) of
 		{typefieldreference,_FieldName} ->
-		    {{'TypeFromObject',Objects,Name},Rest3};
+		    {#type{def={'TypeFromObject',Objects,Name}},Rest3};
 		_ ->
 		    throw({asn1_error,{get_line(hd(Rest2)),get(asn1_module),
 				       [got,get_token(hd(Rest2)),expected,
@@ -2169,7 +2159,7 @@ parse_SimpleDefinedValue(Tokens) ->
 parse_ParameterizedType(Tokens) ->
     {Type,Rest} = parse_SimpleDefinedType(Tokens),
     {Params,Rest2} = parse_ActualParameterList(Rest),
-    {{pt,Type,Params},Rest2}.
+    {#type{def={pt,Type,Params}},Rest2}.
 
 parse_ParameterizedValue(Tokens) ->
     {Value,Rest} = parse_SimpleDefinedValue(Tokens),
