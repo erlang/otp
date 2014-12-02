@@ -1,24 +1,12 @@
 %% -*- erlang -*-
 {"%VSN%",
  [
-  {"5.3.6", [{load_module, ssl_handshake, soft_purge, soft_purge, [ssl_connection]}]},
-  {"5.3.5", [{load_module, ssl, soft_purge, soft_purge, [ssl_connection]},
-		     {load_module, ssl_handshake, soft_purge, soft_purge, [ssl_certificate]},
-		     {load_module, ssl_certificate, soft_purge, soft_purge, []},
-		     {load_module, ssl_connection, soft_purge, soft_purge, [tls_connection]},
-		     {update, tls_connection, {advanced, {up, "5.3.5", "5.3.6"}}, [ssl_handshake]}]},
   {<<"5\\.3\\.[1-4]($|\\..*)">>, [{restart_application, ssl}]},
   {<<"5\\.[0-2]($|\\..*)">>, [{restart_application, ssl}]},
   {<<"4\\..*">>, [{restart_application, ssl}]},
   {<<"3\\..*">>, [{restart_application, ssl}]}
  ], 
  [
-  {"5.3.6", [{load_module, ssl_handshake, soft_purge, soft_purge, [ssl_connection]}]},
-  {"5.3.5", [{load_module, ssl, soft_purge, soft_purge,[ssl_certificate]},
-		     {load_module, ssl_handshake, soft_purge, soft_purge,[ssl_certificate]},
-		     {load_module, ssl_certificate, soft_purge, soft_purge,[]},
-		     {load_module, ssl_connection, soft_purge, soft_purge,[tls_connection]},
-		     {update, tls_connection, {advanced, {down, "5.3.6", "5.3.5"}}, [ssl_handshake]}]},
   {<<"5\\.3\\.[1-4]($|\\..*)">>, [{restart_application, ssl}]},
   {<<"5\\.[0-2]($|\\..*)">>, [{restart_application, ssl}]},
   {<<"4\\..*">>, [{restart_application, ssl}]},

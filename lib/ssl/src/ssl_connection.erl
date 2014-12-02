@@ -937,27 +937,27 @@ terminate(_Reason, _StateName, #state{transport_cb = Transport,
     Transport:close(Socket).
 
 format_status(normal, [_, State]) ->
-    [{data, [{"StateData", State}]}]; 
+    [{data, [{"StateData", State}]}];  
 format_status(terminate, [_, State]) ->
     SslOptions = (State#state.ssl_options),
-    NewOptions = SslOptions#ssl_options{password = "***",
-					cert = "***",
-					cacerts = "***",
-					key = "***",			      
-					dh = "***",
-					psk_identity = "***",
-					srp_identity = "***"},
-    [{data, [{"StateData", State#state{connection_states = "***",
-				       protocol_buffers =  "***",
-				       user_data_buffer = "***",
-				       tls_handshake_history =  "***",
-				       session =  "***",
-				       private_key =  "***",
-				       diffie_hellman_params = "***",
-				       diffie_hellman_keys =  "***",
-				       srp_params = "***",
-				       srp_keys =  "***",
-				       premaster_secret =  "***",
+    NewOptions = SslOptions#ssl_options{password = ?SECRET_PRINTOUT,
+					cert = ?SECRET_PRINTOUT,
+					cacerts = ?SECRET_PRINTOUT,
+					key = ?SECRET_PRINTOUT,			      
+					dh = ?SECRET_PRINTOUT,
+					psk_identity = ?SECRET_PRINTOUT,
+					srp_identity = ?SECRET_PRINTOUT},
+    [{data, [{"StateData", State#state{connection_states = ?SECRET_PRINTOUT,
+				       protocol_buffers =  ?SECRET_PRINTOUT,
+				       user_data_buffer = ?SECRET_PRINTOUT,
+				       tls_handshake_history =  ?SECRET_PRINTOUT,
+				       session =  ?SECRET_PRINTOUT,
+				       private_key =  ?SECRET_PRINTOUT,
+				       diffie_hellman_params = ?SECRET_PRINTOUT,
+				       diffie_hellman_keys =  ?SECRET_PRINTOUT,
+				       srp_params = ?SECRET_PRINTOUT,
+				       srp_keys =  ?SECRET_PRINTOUT,
+				       premaster_secret =  ?SECRET_PRINTOUT,
 				       ssl_options = NewOptions
 				      }}]}].
 %%--------------------------------------------------------------------
