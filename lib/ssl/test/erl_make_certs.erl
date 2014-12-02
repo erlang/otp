@@ -204,7 +204,7 @@ issuer_der(Issuer) ->
     Subject.
 
 subject(undefined, IsRootCA) ->
-    User = if IsRootCA -> "RootCA"; true -> user() end,
+    User = if IsRootCA -> "RootCA"; true -> os:getenv("USER", "test_user") end,
     Opts = [{email, User ++ "@erlang.org"},
 	    {name, User},
 	    {city, "Stockholm"},
@@ -214,14 +214,6 @@ subject(undefined, IsRootCA) ->
     subject(Opts);
 subject(Opts, _) ->
     subject(Opts).
-
-user() ->
-    case os:getenv("USER") of
-	false ->
-	    "test_user";
-	User ->
-	    User
-    end.
 
 subject(SubjectOpts) when is_list(SubjectOpts) ->
     Encode = fun(Opt) ->

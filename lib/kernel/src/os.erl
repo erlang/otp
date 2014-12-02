@@ -98,10 +98,7 @@ version() ->
       Name :: string(),
       Filename :: string().
 find_executable(Name) ->
-    case os:getenv("PATH") of
-	false -> find_executable(Name, []);
-	Path  -> find_executable(Name, Path)
-    end.
+    find_executable(Name, os:getenv("PATH", "")).
 
 -spec find_executable(Name, Path) -> Filename | 'false' when
       Name :: string(),

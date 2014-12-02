@@ -112,12 +112,6 @@ get_vars([], name, [], Result) ->
 get_vars(_, _, _, _) ->
     {error, fatal_bad_conf_vars}.
 
-config_flags() ->
-    case os:getenv("CONFIG_FLAGS") of
-	false -> [];
-	CF -> string:tokens(CF, " \t\n")
-    end.
-
 unix_autoconf(XConf) ->
     Configure = filename:absname("configure"),
     Flags = proplists:get_value(crossflags,XConf,[]),
@@ -128,7 +122,7 @@ unix_autoconf(XConf) ->
 		  erlang:system_info(threads) /= false],
     Debug = [" --enable-debug-mode" ||
 		string:str(erlang:system_info(system_version),"debug") > 0],
-    MXX_Build = [Y || Y <- config_flags(),
+    MXX_Build = [Y || Y <- string:tokens(os:getenv("CONFIG_FLAGS", ""), " \t\n"),
 		      Y == "--enable-m64-build"
 			  orelse Y == "--enable-m32-build"],
     Args = Host ++ Build ++ Threads ++ Debug ++ " " ++ MXX_Build,
@@ -234,7 +228,7 @@ add_vars(Vars0, Opts0) ->
     {Opts, [{longnames, LongNames},
 	    {platform_id, PlatformId},
 	    {platform_filename, PlatformFilename},
-	    {rsh_name, get_rsh_name()},
+	    {rsh_name, os:getenv("ERL_RSH", "rsh")},
 	    {platform_label, PlatformLabel},
 	    {ts_net_dir, Mounted},
 	    {erl_flags, []},
@@ -253,12 +247,6 @@ get_testcase_callback() ->
 		{ok,[[Mod,Func]]} -> Mod ++ " " ++ Func;
 		_ -> ""
 	    end
-    end.
-
-get_rsh_name() ->
-    case os:getenv("ERL_RSH") of
-	false -> "rsh";
-	Str -> Str
     end.
 
 platform_id(Vars) ->
