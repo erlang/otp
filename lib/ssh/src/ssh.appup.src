@@ -19,7 +19,7 @@
 
 {"%VSN%",	
  [
-  {"3.1", [{load_module, ssh_sftp,  soft_purge, soft_purge, [erl_tar,ssh_xfer]},
+  {"3.0.8", [{load_module, ssh_sftp,  soft_purge, soft_purge, [erl_tar,ssh_xfer]},
 	   {load_module, ssh_connection_handler,  soft_purge, soft_purge, []},
 	   {load_module, ssh,  soft_purge, soft_purge, [ssh_connection_handler]},
 	   {load_module, ssh_xfer,  soft_purge, soft_purge, []}
@@ -47,7 +47,7 @@
   {<<".*">>, [{restart_application, ssh}]}
  ],
  [
-  {"3.1", [{load_module, ssh_sftp,  soft_purge, soft_purge, []},
+  {"3.0.8", [{load_module, ssh_sftp,  soft_purge, soft_purge, []},
 	   {load_module, ssh_connection_handler,  soft_purge, soft_purge, []},
 	   {load_module, ssh,  soft_purge, soft_purge, []},
 	   {load_module, ssh_xfer,  soft_purge, soft_purge, []}
