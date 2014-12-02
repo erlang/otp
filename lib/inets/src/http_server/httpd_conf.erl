@@ -44,7 +44,7 @@
 %%	FilePath = string()
 %%      Result = {ok,Directory} | {error,Reason}
 %%      Directory = string()
-%%      Reason = string() | enoent | eaccess | enotdir | FileInfo
+%%      Reason = string() | enoent | eacces | enotdir | FileInfo
 %%      FileInfo = File info record
 %%
 %% Description: Checks if FilePath is a directory in which case it is
@@ -71,7 +71,7 @@ is_directory(_Type,_Access,FileInfo,_Directory) ->
 %%	FilePath = string()
 %%      Result = {ok,File} | {error,Reason}
 %%      File = string()
-%%      Reason = string() | enoent | eaccess | enotdir | FileInfo
+%%      Reason = string() | enoent | eacces | enotdir | FileInfo
 %%      FileInfo = File info record
 %%
 %% Description: Checks if FilePath is a regular file in which case it

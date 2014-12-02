@@ -424,7 +424,7 @@ make_del_dir(Config) when is_list(Config) ->
     ?line ok = ?FILE_MODULE:del_dir(NewDir),
     ?line {error, enoent} = ?FILE_MODULE:del_dir(NewDir),
     % Make sure we are not in a directory directly under test_server
-    % as that would result in eacess errors when trying to delere '..',
+    % as that would result in eacces errors when trying to delete '..',
     % because there are processes having that directory as current.
     ?line ok = ?FILE_MODULE:make_dir(NewDir),
     ?line {ok,CurrentDir} = file:get_cwd(),

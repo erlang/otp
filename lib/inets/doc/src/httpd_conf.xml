@@ -97,7 +97,7 @@
         <v>FilePath = string()</v>
         <v>Result = {ok,Directory} | {error,Reason}</v>
         <v>Directory = string()</v>
-        <v>Reason = string() | enoent | eaccess | enotdir | FileInfo</v>
+        <v>Reason = string() | enoent | eacces | enotdir | FileInfo</v>
         <v>FileInfo = File info record</v>
       </type>
       <desc>
@@ -105,7 +105,7 @@
         <p><c>is_directory/1</c> checks if <c>FilePath</c> is a
 	directory in which case it is returned. Please read
 	<c>file(3)</c> for a description of <c>enoent</c>,
-	<c>eaccess</c> and <c>enotdir</c>. The definition of 
+	<c>eacces</c> and <c>enotdir</c>. The definition of 
 	the file info record can be found by including <c>file.hrl</c> 
 	from the kernel application, see file(3).</p>
 
@@ -120,14 +120,14 @@
         <v>FilePath = string()</v>
         <v>Result = {ok,File} | {error,Reason}</v>
         <v>File = string()</v>
-        <v>Reason = string() | enoent | eaccess | enotdir | FileInfo</v>
+        <v>Reason = string() | enoent | eacces | enotdir | FileInfo</v>
         <v>FileInfo = File info record</v>
       </type>
       <desc>
         <marker id="is_file"></marker>
         <p><c>is_file/1</c> checks if <c>FilePath</c> is a regular
 	file in which case it is returned. Read <c>file(3)</c> for a
-	description of <c>enoent</c>, <c>eaccess</c> and
+	description of <c>enoent</c>, <c>eacces</c> and
 	<c>enotdir</c>. The definition of the file info record can be 
 	found by including <c>file.hrl</c> from the kernel application, 
 	see file(3).</p>
