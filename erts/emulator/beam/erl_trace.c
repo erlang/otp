@@ -2225,7 +2225,7 @@ trace_gc(Process *p, Eterm what)
     Eterm* limit;
 #endif
 
-    ASSERT(sizeof(values)/sizeof(*values) == sizeof(tags)/sizeof(Eterm));
+    ERTS_CT_ASSERT(sizeof(values)/sizeof(*values) == sizeof(tags)/sizeof(Eterm));
 
     UseTmpHeap(LOCAL_HEAP_SIZE,p);
 

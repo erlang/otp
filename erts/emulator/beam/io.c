@@ -391,7 +391,7 @@ static Port *create_port(char *name,
     /* Set default tracing */
     erts_get_default_tracing(&ERTS_TRACE_FLAGS(prt), &ERTS_TRACER_PROC(prt));
 
-    ASSERT(((char *) prt) == ((char *) &prt->common));
+    ERTS_CT_ASSERT(offsetof(Port,common) == 0);
 
 #if !ERTS_PORT_INIT_INSTR_NEED_ID
     /*
@@ -6698,7 +6698,7 @@ static void ref_to_driver_monitor(Eterm ref, ErlDrvMonitor *mon)
 {
     RefThing *refp;
     ASSERT(is_internal_ref(ref));
-    ASSERT(sizeof(RefThing) <= sizeof(ErlDrvMonitor));
+    ERTS_CT_ASSERT(sizeof(RefThing) <= sizeof(ErlDrvMonitor));
     refp = ref_thing_ptr(ref);
     memset(mon,0,sizeof(ErlDrvMonitor));
     memcpy(mon,refp,sizeof(RefThing));

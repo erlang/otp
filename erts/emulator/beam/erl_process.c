@@ -2366,7 +2366,6 @@ erts_active_schedulers(void)
 
     ERTS_ATOMIC_FOREACH_RUNQ(rq, as -= abs(rq->waiting));
 
-    ASSERT(as >= 0);
     return as;
 }
 
@@ -10484,7 +10483,7 @@ alloc_process(ErtsRunQueue *rq, erts_aint32_t state)
     init_arg.run_queue = rq;
     init_arg.state = state;
 
-    ASSERT(((char *) p) == ((char *) &p->common));
+    ERTS_CT_ASSERT(offsetof(Process,common) == 0);
 
     if (!erts_ptab_new_element(&erts_proc,
 			       &p->common,

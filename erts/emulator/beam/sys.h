@@ -189,6 +189,22 @@ __decl_noreturn void __noreturn erl_assert_error(const char* expr, const char *f
 #endif
 
 /*
+ * Compile time assert
+ * (the actual compiler error msg can be a bit confusing)
+ */
+#if ERTS_AT_LEAST_GCC_VSN__(3,1,1)
+# define ERTS_CT_ASSERT(e) \
+    do { \
+	enum { compile_time_assert__ = __builtin_choose_expr((e),0,(void)0) }; \
+    } while(0)
+#else
+# define ERTS_CT_ASSERT(e) \
+    do { \
+        enum { compile_time_assert__ = 1/(e) }; \
+    } while (0)
+#endif
+
+/*
  * Microsoft C/C++: We certainly want to use stdarg.h and prototypes.
  * But MSC doesn't define __STDC__, unless we compile with the -Za
  * flag (strict ANSI C, no Microsoft extension).  Compiling with -Za
