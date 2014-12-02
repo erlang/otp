@@ -786,23 +786,42 @@ is_valid_map_src(_)         -> false.
 map_pair_list(Es, St) ->
     foldr(fun
 	    ({map_field_assoc,L,K0,V0}, {Ces,Esp,St0}) ->
-		{K,Ep0,St1} = safe(K0, St0),
-		ok = ensure_valid_map_key(K),
+		{K1,Ep0,St1} = safe(K0, St0),
+		K = ensure_valid_map_key(K1),
 		{V,Ep1,St2} = safe(V0, St1),
 		A = lineno_anno(L, St2),
 		Pair = #c_map_pair{op=#c_literal{val=assoc},anno=A,key=K,val=V},
 		{[Pair|Ces],Ep0 ++ Ep1 ++ Esp,St2};
 	    ({map_field_exact,L,K0,V0}, {Ces,Esp,St0}) ->
-		{K,Ep0,St1} = safe(K0, St0),
-		ok = ensure_valid_map_key(K),
+		{K1,Ep0,St1} = safe(K0, St0),
+		K = ensure_valid_map_key(K1),
 		{V,Ep1,St2} = safe(V0, St1),
 		A = lineno_anno(L, St2),
 		Pair = #c_map_pair{op=#c_literal{val=exact},anno=A,key=K,val=V},
 		{[Pair|Ces],Ep0 ++ Ep1 ++ Esp,St2}
 	end, {[],[],St}, Es).
 
-ensure_valid_map_key(#c_literal{}) -> ok;
-ensure_valid_map_key(_) -> throw({bad_map,bad_map_key}).
+ensure_valid_map_key(K0) ->
+    case coalesced_map_key(K0) of
+	{ok,K1} -> K1;
+	error   -> throw({bad_map,bad_map_key})
+    end.
+
+coalesced_map_key(#c_literal{}=K) -> {ok,K};
+%% Dialyzer hack redux
+%% DO coalesce tuples and list in maps for dialyzer
+%% Dialyzer tries to break this apart, don't let it
+coalesced_map_key(#c_tuple{}=K) ->
+    case core_lib:is_literal(K) of
+	true  -> {ok,cerl:fold_literal(K)};
+	false -> error
+    end;
+coalesced_map_key(#c_cons{}=K) ->
+    case core_lib:is_literal(K) of
+	true  -> {ok,cerl:fold_literal(K)};
+	false -> error
+    end;
+coalesced_map_key(_) -> error.
 
 %% try_exception([ExcpClause], St) -> {[ExcpVar],Handler,St}.
 
@@ -1606,17 +1625,23 @@ pattern_alias_map_pair_patterns([Cv]) -> Cv;
 pattern_alias_map_pair_patterns([Cv1,Cv2|Cvs]) ->
     pattern_alias_map_pair_patterns([pat_alias(Cv1,Cv2)|Cvs]).
 
-pattern_map_pair({map_field_exact,L,K,V}, St) ->
+pattern_map_pair({map_field_exact,L,K,V},St) ->
+    #c_map_pair{anno=lineno_anno(L, St),
+		op=#c_literal{val=exact},
+		key=pattern_map_key(K,St),
+		val=pattern(V, St)}.
+
+pattern_map_key(K,St) ->
+    %% Throws 'nomatch' if the key can't be a literal
+    %% this will be a cryptic error message but it is better than nothing
     case expr(K,St) of
-	{#c_literal{}=Key,_,_} ->
-	    #c_map_pair{anno=lineno_anno(L, St),
-			op=#c_literal{val=exact},
-			key=Key,
-			val=pattern(V, St)};
-	_ ->
-	    %% this will throw a cryptic error message
-	    %% but it is better than nothing
-	    throw(nomatch)
+	{Key0,[],_} ->
+	    %% Dialyzer hack redux
+	    case coalesced_map_key(Key0) of
+		{ok,Key1} -> Key1;
+		error     -> throw(nomatch)
+	    end;
+	_ -> throw(nomatch)
     end.
 
 %% pat_bin([BinElement], State) -> [BinSeg].
