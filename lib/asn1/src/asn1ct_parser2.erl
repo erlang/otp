@@ -719,8 +719,7 @@ parse_TypeWithConstraint(Tokens) ->
 parse_ReferencedType(Tokens) ->
     Flist = [fun parse_DefinedType/1,
 	     fun parse_SelectionType/1,
-	     fun parse_TypeFromObject/1,
-	     fun parse_ValueSetFromObjects/1],
+	     fun parse_TypeFromObject/1],
     case (catch parse_or(Tokens,Flist)) of
 	{'EXIT',Reason} ->
 	    exit(Reason);
@@ -1686,26 +1685,6 @@ parse_ValueFromObject(Tokens) ->
 		    throw({asn1_error,{get_line(hd(Tokens)),get(asn1_module),
 				       [got,typefieldreference,expected,
 					valuefieldreference]}})
-	    end;
-	[H|_T] ->
-	    throw({asn1_error,{get_line(H),get(asn1_module),
-			       [got,get_token(H),expected,'.']}})
-%%%	Other ->
-%%%	    throw({asn1_error,{got,Other,expected,'.'}})
-    end.
-
-parse_ValueSetFromObjects(Tokens) ->
-    {Objects,Rest} = parse_ReferencedObjects(Tokens),
-    case Rest of
-	[{'.',_}|Rest2] ->
-	    {Name,Rest3} = parse_FieldName(Rest2),
-	    case lists:last(Name) of
-		{typefieldreference,_FieldName} ->
-		    {{'ValueSetFromObjects',Objects,Name},Rest3};
-		_ ->
-		    throw({asn1_error,{get_line(hd(Rest2)),get(asn1_module),
-				       [got,get_token(hd(Rest2)),expected,
-					typefieldreference]}})
 	    end;
 	[H|_T] ->
 	    throw({asn1_error,{get_line(H),get(asn1_module),
