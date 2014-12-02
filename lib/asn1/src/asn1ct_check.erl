@@ -3058,23 +3058,8 @@ instantiate_ptype(S,Ptypedef,ParaList) ->
 %%    NewS = S#state{type=NewType,parameters=MatchedArgs,abscomppath=[]},
     check_type(NewS, Ptypedef#ptypedef{typespec=NewType}, NewType).
 
-get_datastr_name(#typedef{name=N}) ->
-    N;
-get_datastr_name(#classdef{name=N}) ->
-    N;
-get_datastr_name(#valuedef{name=N}) ->
-    N;
-get_datastr_name(#ptypedef{name=N}) ->
-    N;
-get_datastr_name(#pvaluedef{name=N}) ->
-    N;
-get_datastr_name(#pvaluesetdef{name=N}) ->
-    N;
-get_datastr_name(#pobjectdef{name=N}) ->
-    N;
-get_datastr_name(#pobjectsetdef{name=N}) ->
-    N.
-
+get_datastr_name(Type) ->
+    asn1ct:get_name_of_def(Type).
 
 get_pt_args(#ptypedef{args=Args}) ->
     Args;
