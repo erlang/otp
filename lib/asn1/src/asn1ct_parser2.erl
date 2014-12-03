@@ -1392,7 +1392,10 @@ parse_FieldSetting(Tokens) ->
     {{PrimFieldName,Setting},Rest2}.
 
 parse_DefinedSyntax([{'{',_}|Rest]) ->
-    parse_DefinedSyntax(Rest,[]).
+    parse_DefinedSyntax(Rest, []);
+parse_DefinedSyntax([H|_]) ->
+    throw({asn1_error,{get_line(H),get(asn1_module),
+		       [got,get_token(H),expected,['{']]}}).
 
 parse_DefinedSyntax(Tokens,Acc) ->
     case Tokens of
@@ -2498,7 +2501,11 @@ parse_ComponentTypeLists([{',',L1},{'...',_},{'!',_}|Rest02],Clist0) when Clist0
 parse_ComponentTypeLists([{'...',L1}|Rest02],Clist0) ->
     parse_ComponentTypeLists2(Rest02,Clist0++[#'EXTENSIONMARK'{pos=L1}]);
 parse_ComponentTypeLists(Tokens = [{'}',_L1}|_Rest02],Clist0) ->
-    {Clist0,Tokens}.
+    {Clist0,Tokens};
+parse_ComponentTypeLists(Tokens, _) ->
+    throw({asn1_error,{get_line(hd(Tokens)),get(asn1_module),
+		       [got,get_token(hd(Tokens)),expected,
+			identifier]}}).
 
 parse_ComponentTypeLists2(Tokens,Clist) ->
     {ExtAdd,Rest} = parse_ExtensionAdditions(Tokens,Clist),
@@ -2916,7 +2923,7 @@ parse_SubtypeElements([{'PATTERN',_}|Tokens]) ->
 parse_SubtypeElements(Tokens) ->
     Flist = [fun parse_ContainedSubtype/1,
 	     fun parse_Value/1, 
-	     fun([{'MIN',_}|T]) -> {'MIN',T} end,
+	     fun parse_MIN/1,
 	     fun parse_Type/1],
     case (catch parse_or(Tokens,Flist)) of
 	{'EXIT',Reason} ->
@@ -2952,8 +2959,8 @@ parse_UpperEndpoint(Tokens) ->
     parse_UpperEndpoint(false,Tokens).
 
 parse_UpperEndpoint(Lt,Tokens) ->
-    Flist = [ fun([{'MAX',_}|T]) -> {'MAX',T} end,
-	      fun parse_Value/1],
+    Flist = [fun parse_MAX/1,
+	     fun parse_Value/1],
     case (catch parse_or(Tokens,Flist)) of
 	{'EXIT',Reason} ->
 	    exit(Reason);
@@ -2964,6 +2971,18 @@ parse_UpperEndpoint(Lt,Tokens) ->
 	{Value,Rest2} ->
 	    {Value,Rest2}
     end.
+
+parse_MIN([{'MIN',_}|T]) ->
+    {'MIN',T};
+parse_MIN([H|_]) ->
+    throw({asn1_error,{get_line(H),get(asn1_module),
+		       [got,get_token(H),expected,'MIN']}}).
+
+parse_MAX([{'MAX',_}|T]) ->
+    {'MAX',T};
+parse_MAX([H|_]) ->
+    throw({asn1_error,{get_line(H),get(asn1_module),
+		       [got,get_token(H),expected,'MAX']}}).
 
 parse_TypeConstraints(Tokens) ->
     parse_TypeConstraints(Tokens,[]).
