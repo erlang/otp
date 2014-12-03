@@ -268,6 +268,8 @@ free_drv_select_data(ErtsDrvSelectDataState *dsp)
     erts_free(ERTS_ALC_T_DRV_SEL_D_STATE, dsp);   
 }
 
+#if ERTS_CIO_HAVE_DRV_EVENT
+
 static ERTS_INLINE ErtsDrvEventDataState *
 alloc_drv_event_data(void)
 {
@@ -289,6 +291,8 @@ free_drv_event_data(ErtsDrvEventDataState *dep)
     ASSERT(!erts_port_task_is_scheduled(&dep->iotask.task));
     erts_free(ERTS_ALC_T_DRV_EV_D_STATE, dep);   
 }
+
+#endif /* ERTS_CIO_HAVE_DRV_EVENT */
 
 static ERTS_INLINE void
 remember_removed(ErtsDrvEventState *state, struct pollset_info* psi)
