@@ -88,11 +88,7 @@ typedef struct {
 } ErtsPTabListData;
 
 typedef struct {
-#ifdef ARCH_32
-    erts_smp_dw_atomic_t last_data;
-#else
-    erts_smp_atomic_t last_data;
-#endif
+    erts_smp_atomic64_t last_data;
     erts_smp_atomic32_t count;
     erts_smp_atomic32_t aid_ix;
     erts_smp_atomic32_t fid_ix;
