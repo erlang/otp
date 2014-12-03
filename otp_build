@@ -260,62 +260,32 @@ create_lib_configure_in()
     }
 }
 
-find_sum()
+distribute_config_helpers ()
 {
-    candidates="sum cksum md5sum sha1sum"
-    SUM_CMD="wc"
-    for x in $candidates; do
-	if (echo foo | $x > /dev/null 2>&1); then
-	    SUM_CMD=$x
-	    break
-	fi
-    done
-}
-
-chk_eq()
-{
-    master=$1
-    shift
-    slaves="$@"
-    master_sum=`$SUM_CMD $master | awk '{print $1}'`
-    for x in $slaves; do
-	s=`$SUM_CMD $x | awk '{print $1}'`
-	if test "$s" != "$master_sum"; then
-	    echo "Error: $master and $x are not equal, make sure they are!" >&2
-	    echo "Maybe you would want to:" >&2
-	    echo "for x in $slaves; do cp $master \$x; done" >&2
-	    echo "? Or something else is wrong." 2>&1
-	    exit 2
-	fi
-    done
-}
-
-check_config_helpers ()
-{
-
-    aclocals="./aclocal.m4 ./lib/erl_interface/aclocal.m4 ./lib/odbc/aclocal.m4 ./lib/wx/aclocal.m4 ./lib/megaco/aclocal.m4"
-    install_shs="./lib/common_test/priv/auxdir/install-sh ./lib/erl_interface/src/auxdir/install-sh ./lib/test_server/src/install-sh"
-    config_guesses="./lib/common_test/priv/auxdir/config.guess ./lib/erl_interface/src/auxdir/config.guess ./lib/test_server/src/config.guess"
-    config_subs="./lib/common_test/priv/auxdir/config.sub ./lib/erl_interface/src/auxdir/config.sub ./lib/test_server/src/config.sub"
+    aclocal_dirs=". ./lib/erl_interface ./lib/odbc ./lib/wx ./lib/megaco"
+    autoconf_aux_dirs="./lib/common_test/priv/auxdir ./lib/erl_interface/src/auxdir ./lib/test_server/src ./lib/wx/autoconf"
 
     aclocal_master="./erts/aclocal.m4"
     install_sh_master="./erts/autoconf/install-sh"
     config_guess_master="./erts/autoconf/config.guess"
     config_sub_master="./erts/autoconf/config.sub"
 
-    find_sum
+    for dir in $aclocal_dirs; do
+	$install_sh_master -m 644 -t "$dir" "$aclocal_master"
+    done
 
-    chk_eq $aclocal_master $aclocals
-    chk_eq $install_sh_master $install_shs
-    chk_eq $config_guess_master $config_guesses
-    chk_eq $config_sub_master $config_subs
-
+    for dir in $autoconf_aux_dirs; do
+	$install_sh_master -d "$dir"
+	$install_sh_master -t "$dir" "$install_sh_master"
+	$install_sh_master -t "$dir" "$config_guess_master"
+	$install_sh_master -t "$dir" "$config_sub_master"
+    done
 }
 
 do_autoconf ()		
 {
         create_lib_configure_in
-	check_config_helpers
+	distribute_config_helpers
 
         if target_contains win32; then
 	    # Select the correct autoconf on cygwin
