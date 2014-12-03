@@ -180,10 +180,11 @@ parse_SymbolsFromModuleList(Tokens) ->
 
 parse_SymbolsFromModuleList(Tokens,Acc) ->
     {SymbolsFromModule,Rest} = parse_SymbolsFromModule(Tokens),
-    case (catch parse_SymbolsFromModule(Rest)) of 
+    try parse_SymbolsFromModule(Rest) of
 	{Sl,_Rest2} when is_record(Sl,'SymbolsFromModule') ->
-	    parse_SymbolsFromModuleList(Rest,[SymbolsFromModule|Acc]);
-	_  ->
+	    parse_SymbolsFromModuleList(Rest,[SymbolsFromModule|Acc])
+    catch
+	throw:{asn1_error,_} ->
 	    {lists:reverse([SymbolsFromModule|Acc]),Rest}
     end.
     
@@ -284,15 +285,12 @@ parse_Assignment(Tokens) ->
 	     fun parse_ObjectSetAssignment/1,
 	     fun parse_ParameterizedAssignment/1,
 	     fun parse_ValueSetTypeAssignment/1],
-    case (catch parse_or(Tokens,Flist)) of
-	{'EXIT',Reason} ->
-	    exit(Reason);
-	AsnErr = {asn1_error,_} ->
-	    throw(AsnErr);
-	{asn1_assignment_error,Reason} ->
-	    throw({asn1_error,Reason});
-	Result ->
+    try parse_or(Tokens, Flist) of
+	{_,_}=Result ->
 	    Result
+    catch
+	throw:{asn1_assignment_error,Reason} ->
+	    throw({asn1_error,Reason})
     end.
 
 
@@ -361,14 +359,7 @@ parse_Type(Tokens) ->
 			   {Tag,Rest31}
 		   end,
     Flist = [fun parse_BuiltinType/1,fun parse_ReferencedType/1,fun parse_TypeWithConstraint/1],
-    {Type,Rest5} = case (catch parse_or(Rest4,Flist)) of
-		      {'EXIT',Reason} ->
-			  exit(Reason);
-			AsnErr = {asn1_error,_Reason} ->
-			 throw(AsnErr);
-		      Result ->
-			  Result
-		  end,
+    {Type,Rest5} = parse_or(Rest4, Flist),
     case Rest5 of
 	[{'(',_}|_] ->
 	    {Constraints,Rest6} = parse_Constraints(Rest5),
@@ -686,32 +677,21 @@ parse_ReferencedType(Tokens) ->
     Flist = [fun parse_DefinedType/1,
 	     fun parse_SelectionType/1,
 	     fun parse_TypeFromObject/1],
-    case (catch parse_or(Tokens,Flist)) of
-	{'EXIT',Reason} ->
-	    exit(Reason);
-	AsnErr = {asn1_error,_} ->
-	    throw(AsnErr);
-	Result ->
-	    Result
-    end.
+    parse_or(Tokens, Flist).
     
 parse_DefinedType(Tokens=[{typereference,_,_},{'{',_}|_Rest]) ->
     parse_ParameterizedType(Tokens);
 parse_DefinedType(Tokens=[{typereference,L1,TypeName},
 			  T2={typereference,_,_},T3={'{',_}|Rest]) ->
-    case (catch parse_ParameterizedType(Tokens)) of
-	{'EXIT',_Reason} ->
-	    Rest2 = [T2,T3|Rest],
-	    {#type{def = #'Externaltypereference'{pos=L1,
-						  module=resolve_module(TypeName),
-						  type=TypeName}},Rest2};
-	{asn1_error,_} ->
-	    Rest2 = [T2,T3|Rest],
-	    {#type{def = #'Externaltypereference'{pos=L1,
-						  module=resolve_module(TypeName),
-						  type=TypeName}},Rest2};
-	Result ->
+    try parse_ParameterizedType(Tokens) of
+	{_,_}=Result ->
 	    Result
+    catch
+	throw:{asn1_error,_} ->
+	    Rest2 = [T2,T3|Rest],
+	    {#type{def = #'Externaltypereference'{pos=L1,
+						  module=resolve_module(TypeName),
+						  type=TypeName}},Rest2}
     end;
 parse_DefinedType(Tokens=[{typereference,_L1,_Module},{'.',_},
 			  {typereference,_,_TypeName},{'{',_}|_Rest]) ->
@@ -799,14 +779,7 @@ parse_Constraint(Tokens) ->
 parse_ConstraintSpec(Tokens) ->
     Flist = [fun parse_GeneralConstraint/1,
 	     fun parse_SubtypeConstraint/1],
-    case (catch parse_or(Tokens,Flist)) of
-	{'EXIT',Reason} ->
-	    exit(Reason);
-	{asn1_error,Reason2} ->
-	    throw({asn1_error,Reason2});
-	Result ->
-	    Result
-    end.
+    parse_or(Tokens, Flist).
 
 parse_ExceptionSpec([LPar={')',_}|Rest]) ->
     {undefined,[LPar|Rest]};
@@ -820,14 +793,7 @@ parse_ExceptionIdentification(Tokens) ->
     Flist = [fun parse_SignedNumber/1,
 	     fun parse_DefinedValue/1,
 	     fun parse_TypeColonValue/1],
-    case (catch parse_or(Tokens,Flist)) of
-	{'EXIT',Reason} ->
-	    exit(Reason);
-	{asn1_error,Reason2} ->
-	    throw({asn1_error,Reason2});
-	Result ->
-	    Result
-    end.
+    parse_or(Tokens, Flist).
 
 parse_TypeColonValue(Tokens) ->
     {Type,Rest} = parse_Type(Tokens),
@@ -952,19 +918,7 @@ parse_Elements(Tokens) ->
 %	     fun parse_Type/1,
 	     fun parse_Object/1,
 	     fun parse_DefinedObjectSet/1],
-    case (catch parse_or(Tokens,Flist)) of
-	{'EXIT',Reason} ->
-	    exit(Reason);
-	Err = {asn1_error,_} ->
-	    throw(Err);
-	Result = {Val,_} when is_record(Val,type) ->
-	    Result;
-
-	Result ->
-	    Result
-    end.
-    
-
+    parse_or(Tokens, Flist).
     
 
 %% --------------------------
@@ -997,14 +951,7 @@ parse_ObjectClass(Tokens) ->
     Flist = [fun parse_DefinedObjectClass/1,
 	     fun parse_ObjectClassDefn/1,
 	     fun parse_ParameterizedObjectClass/1],
-    case (catch parse_or(Tokens,Flist)) of
-	{'EXIT',Reason} ->
-	    exit(Reason);
-	{asn1_error,Reason2} ->
-	    throw({asn1_error,Reason2});
-	Result ->
-	    Result
-    end.
+    parse_or(Tokens, Flist).
 
 parse_ObjectClassDefn([{'CLASS',_},{'{',_}|Rest]) ->
     {Type,Rest2} = parse_FieldSpec(Rest),
@@ -1025,11 +972,7 @@ parse_FieldSpec(Tokens,Acc) ->
 	     fun parse_VariableTypeValueSetFieldSpec/1,
 	     fun parse_TypeFieldSpec/1,
 	     fun parse_ObjectSetFieldSpec/1],
-    case (catch parse_or(Tokens,Flist)) of
-	{'EXIT',Reason} ->
-	    exit(Reason);
-	AsnErr = {asn1_error,_} ->
-	    throw(AsnErr);
+    case parse_or(Tokens, Flist) of
 	{Type,[{'}',_}|Rest]} ->
 	    {lists:reverse([Type|Acc]),Rest};
 	{Type,[{',',_}|Rest2]} ->
@@ -1052,16 +995,10 @@ parse_FieldName(Tokens) ->
     {Field,Rest} = parse_PrimitiveFieldName(Tokens),
     parse_FieldName(Rest,[Field]).
 
-parse_FieldName([{'.',_}|Rest],Acc) ->
-    case (catch parse_PrimitiveFieldName(Rest)) of
-	{'EXIT',Reason} ->
-	    exit(Reason);
-	AsnErr = {asn1_error,_} ->
-	    throw(AsnErr);
-	{FieldName,Rest2} ->
-	    parse_FieldName(Rest2,[FieldName|Acc])
-    end;
-parse_FieldName(Tokens,Acc) ->
+parse_FieldName([{'.',_}|Rest0],Acc) ->
+    {FieldName,Rest1} = parse_PrimitiveFieldName(Rest0),
+    parse_FieldName(Rest1, [FieldName|Acc]);
+parse_FieldName(Tokens, Acc) ->
     {lists:reverse(Acc),Tokens}.
     
 parse_FixedTypeValueFieldSpec([{valuefieldreference,L1,VFieldName}|Rest]) ->
@@ -1243,14 +1180,7 @@ parse_SyntaxList(Tokens,Acc) ->
 parse_TokenOrGroupSpec(Tokens) ->
     Flist = [fun parse_RequiredToken/1,
 	     fun parse_OptionalGroup/1],
-    case (catch parse_or(Tokens,Flist)) of
-	{'EXIT',Reason} ->
-	    exit(Reason);
-	AsnErr = {asn1_error,_} ->
-	    throw(AsnErr);
-	Result ->
-	    Result
-    end.
+    parse_or(Tokens, Flist).
 
 parse_RequiredToken([{typereference,L1,WordName}|Rest]) ->
     case is_word(WordName) of
@@ -1321,26 +1251,12 @@ parse_Object(Tokens) ->
 	   fun parse_ObjectFromObject/1,
 	   fun parse_ParameterizedObject/1,
 	   fun parse_DefinedObject/1],
-    case (catch parse_or(Tokens,Flist)) of
-	{'EXIT',Reason} ->
-	    exit(Reason);
-	AsnErr = {asn1_error,_} ->
-	    throw(AsnErr);
-	Result ->
-	    Result
-    end.
+    parse_or(Tokens, Flist).
 
 parse_ObjectDefn(Tokens) ->
     Flist=[fun parse_DefaultSyntax/1,
 	   fun parse_DefinedSyntax/1],
-    case (catch parse_or(Tokens,Flist)) of
-	{'EXIT',Reason} ->
-	    exit(Reason);
-	AsnErr = {asn1_error,_} ->
-	    throw(AsnErr);
-	Result ->
-	    Result
-    end.
+    parse_or(Tokens, Flist).
 
 parse_DefaultSyntax([{'{',_},{'}',_}|Rest]) ->
     {{object,defaultsyntax,[]},Rest};
@@ -1393,17 +1309,9 @@ parse_DefinedSyntaxToken([{',',L1}|Rest]) ->
 %% Should also be able to parse a parameterized type. It may be
 %% impossible to distinguish between a parameterized type and a Literal
 %% followed by an object set.
-parse_DefinedSyntaxToken(Tokens=[{typereference,L1,_Name},{T,_}|_Rest]) 
-  when T == '.'; T == '(' ->
-    case catch parse_Setting(Tokens) of
-	{asn1_error,_} ->
-	    throw({asn1_error,{L1,get(asn1_module),
-			       [got,hd(Tokens), expected,['Word',setting]]}});
-	{'EXIT',Reason} ->
-	    exit(Reason);
-	Result ->
-	    Result
-    end;
+parse_DefinedSyntaxToken([{typereference,_,_Name},{T,_}|_]=Tokens)
+  when T =:= '.'; T =:= '(' ->
+    parse_Setting(Tokens);
 parse_DefinedSyntaxToken(Tokens=[TRef={typereference,L1,Name}|Rest]) ->
     case is_word(Name) of
 	false ->
@@ -1418,13 +1326,12 @@ parse_DefinedSyntaxToken(Tokens=[TRef={typereference,L1,Name}|Rest]) ->
 	    {{word_or_setting,L1,tref2Exttref(TRef)},Rest}
     end;
 parse_DefinedSyntaxToken(Tokens) ->
-    case catch parse_Setting(Tokens) of
-	{asn1_error,_} ->
-	    parse_Word(Tokens);
-	{'EXIT',Reason} ->
-	    exit(Reason);
-	Result ->
+    try parse_Setting(Tokens) of
+	{_,_}=Result ->
 	    Result
+    catch
+	throw:{asn1_error,_} ->
+	    parse_Word(Tokens)
     end.
 
 lookahead_definedsyntax([{typereference,_,Name}|_Rest]) ->
@@ -1451,14 +1358,12 @@ parse_Setting(Tokens) ->
 	     {value_tag,fun parse_Value/1},
 	     {object_tag,fun parse_Object/1},
 	     {objectset_tag,fun parse_ObjectSet/1}],
-    case (catch parse_or_tag(Tokens,Flist)) of
-	{'EXIT',Reason} ->
-	    exit(Reason);
-	AsnErr = {asn1_error,_} ->
-	    throw(AsnErr);
-	Result = {{value_tag,_},_} ->
+    case parse_or_tag(Tokens, Flist) of
+	{{value_tag,_},_}=Result ->
+	    %% Keep the value_tag.
 	    Result;
 	{{Tag,Setting},Rest} when is_atom(Tag) ->
+	    %% Remove all other tags.
 	    {Setting,Rest}
     end.
 
@@ -1552,14 +1457,7 @@ parse_ObjectSetElements(Tokens) ->
 	     %fun parse_DefinedObjectSet/1,
 	     fun parse_ObjectSetFromObjects/1,
 	     fun parse_ParameterizedObjectSet/1],
-    case (catch parse_or(Tokens,Flist)) of
-	{'EXIT',Reason} ->
-	    exit(Reason);
-	AsnErr = {asn1_error,_} ->
-	    throw(AsnErr);
-	Result ->
-	    Result
-    end.
+    parse_or(Tokens, Flist).
 
 parse_ObjectClassFieldType(Tokens) ->
     {Class,Rest} = parse_DefinedObjectClass(Tokens),
@@ -1633,14 +1531,7 @@ parse_ReferencedObjects(Tokens) ->
 	     fun parse_DefinedObjectSet/1,
 	     fun parse_ParameterizedObject/1,
 	     fun parse_ParameterizedObjectSet/1],
-        case (catch parse_or(Tokens,Flist)) of
-	{'EXIT',Reason} ->
-	    exit(Reason);
-	AsnErr = {asn1_error,_} ->
-	    throw(AsnErr);
-	Result ->
-	    Result
-    end.
+    parse_or(Tokens, Flist).
 
 parse_ValueFromObject(Tokens) ->
     {Objects,Rest} = parse_ReferencedObjects(Tokens),
@@ -1732,14 +1623,7 @@ parse_GeneralConstraint(Tokens) ->
     Flist = [fun parse_UserDefinedConstraint/1,
 	     fun parse_TableConstraint/1,
 	     fun parse_ContentsConstraint/1],
-    case (catch parse_or(Tokens,Flist)) of
-	{'EXIT',Reason} ->
-	    exit(Reason);
-	AsnErr = {asn1_error,_} ->
-	    throw(AsnErr);
-	Result ->
-	    Result
-    end.
+    parse_or(Tokens, Flist).
 
 parse_UserDefinedConstraint([{'CONSTRAINED',_},{'BY',_},{'{',_},{'}',_}|Rest])->
     {{constrained_by,[]},Rest};
@@ -1764,11 +1648,7 @@ parse_UserDefinedConstraintParameter(Tokens) ->
 parse_UserDefinedConstraintParameter(Tokens,Acc) ->
     Flist = [fun parse_GovernorAndActualParameter/1,
 	     fun parse_ActualParameter/1],
-    case (catch parse_or(Tokens,Flist)) of
-	{'EXIT',Reason} ->
-	    exit(Reason);
-	AsnErr = {asn1_error,_} ->
-	    throw(AsnErr);
+    case parse_or(Tokens, Flist) of
 	{Result,Rest} ->
 	    case Rest of
 		[{',',_}|_Rest2] ->
@@ -1792,14 +1672,7 @@ parse_GovernorAndActualParameter(Tokens) ->
 parse_TableConstraint(Tokens) ->
     Flist = [fun parse_ComponentRelationConstraint/1,
 	     fun parse_SimpleTableConstraint/1],
-    case (catch parse_or(Tokens,Flist)) of
-	{'EXIT',Reason} ->
-	    exit(Reason);
-	AsnErr = {asn1_error,_} ->
-	    throw(AsnErr);
-	Result ->
-	    Result
-    end.
+    parse_or(Tokens, Flist).
 
 parse_SimpleTableConstraint(Tokens) ->
     {ObjectSet,Rest} = parse_ObjectSet(Tokens),
@@ -1885,14 +1758,7 @@ parse_ContentsConstraint(Tokens) ->
 parse_Governor(Tokens) ->
     Flist = [fun parse_Type/1,
 	     fun parse_DefinedObjectClass/1],
-    case (catch parse_or(Tokens,Flist)) of
-	{'EXIT',Reason} ->
-	    exit(Reason);
-	AsnErr = {asn1_error,_} ->
-	    throw(AsnErr);
-	Result ->
-	    Result
-    end.
+    parse_or(Tokens, Flist).
 
 parse_ActualParameter(Tokens) ->
     Flist = [fun parse_Type/1,
@@ -1901,14 +1767,7 @@ parse_ActualParameter(Tokens) ->
 	     fun parse_DefinedObjectClass/1,
 	     fun parse_Object/1,
 	     fun parse_ObjectSet/1],
-    case (catch parse_or(Tokens,Flist)) of
-	{'EXIT',Reason} ->
-	    exit(Reason);
-	AsnErr = {asn1_error,_} ->
-	    throw(AsnErr);
-	Result ->
-	    Result
-    end.
+    parse_or(Tokens, Flist).
 
 parse_ParameterizedAssignment(Tokens) ->
     Flist = [fun parse_ParameterizedTypeAssignment/1,
@@ -1917,16 +1776,7 @@ parse_ParameterizedAssignment(Tokens) ->
 	     fun parse_ParameterizedObjectClassAssignment/1,
 	     fun parse_ParameterizedObjectAssignment/1,
 	     fun parse_ParameterizedObjectSetAssignment/1],
-    case (catch parse_or(Tokens,Flist)) of
-	{'EXIT',Reason} ->
-	    exit(Reason);
-	AsnErr = {asn1_error,_} ->
-	    throw(AsnErr);
-	AsnAssErr = {asn1_assignment_error,_} ->
-	    throw(AsnAssErr);
-	Result ->
-	    Result
-    end.
+    parse_or(Tokens, Flist).
 
 %% parse_ParameterizedTypeAssignment(Tokens) -> Result
 %% Result = {#ptypedef{},Rest} | throw()
@@ -2070,14 +1920,7 @@ parse_ParameterList(Tokens,Acc) ->
 parse_Parameter(Tokens) ->
     Flist = [fun parse_ParamGovAndRef/1,
 	     fun parse_Reference/1],
-    case (catch parse_or(Tokens,Flist)) of
-	{'EXIT',Reason} ->
-	    exit(Reason);
-	AsnErr = {asn1_error,_} ->
-	    throw(AsnErr);
-	Result ->
-	    Result
-    end.
+    parse_or(Tokens, Flist).
 
 parse_ParamGovAndRef(Tokens) ->
     {ParamGov,Rest} = parse_ParamGovernor(Tokens),
@@ -2093,14 +1936,7 @@ parse_ParamGovAndRef(Tokens) ->
 parse_ParamGovernor(Tokens) ->
     Flist = [fun parse_Governor/1,
 	     fun parse_Reference/1],
-    case (catch parse_or(Tokens,Flist)) of
-	{'EXIT',Reason} ->
-	    exit(Reason);
-	AsnErr = {asn1_error,_} ->
-	    throw(AsnErr);
-	Result ->
-	    Result
-    end.
+    parse_or(Tokens, Flist).
 
 % parse_ParameterizedReference(Tokens) ->
 %     {Ref,Rest} = parse_Reference(Tokens),
@@ -2648,11 +2484,7 @@ parse_NamedNumberList(Tokens,Acc) ->
 parse_NamedNumber([{identifier,_,Name},{'(',_}|Rest]) ->
     Flist = [fun parse_SignedNumber/1,
 	     fun parse_DefinedValue/1],
-    case (catch parse_or(Rest,Flist)) of
-	{'EXIT',Reason} ->
-	    exit(Reason);
-	AsnErr = {asn1_error,_} ->
-	    throw(AsnErr);
+    case parse_or(Rest, Flist) of
 	{NamedNum,[{')',_}|Rest2]} ->
 	    {{'NamedNumber',Name,NamedNum},Rest2};
 	_ ->
@@ -2701,15 +2533,7 @@ parse_Value(Tokens) ->
     Flist = [fun parse_BuiltinValue/1,
 	     fun parse_ValueFromObject/1,
 	     fun parse_DefinedValue/1],
-
-    case (catch parse_or(Tokens,Flist)) of
-	{'EXIT',Reason} ->
-	    exit(Reason);
-	AsnErr = {asn1_error,_} ->
-	    throw(AsnErr);
-	Result ->
-	    Result
-    end.
+    parse_or(Tokens, Flist).
 
 parse_BuiltinValue([{bstring,_,Bstr}|Rest]) ->
     {{bstring,Bstr},Rest};
@@ -2722,14 +2546,7 @@ parse_BuiltinValue(Tokens = [{'{',_}|_Rest]) ->
 	     fun parse_SequenceOfValue/1, 
 	     fun parse_SequenceValue/1, 
 	     fun parse_ObjectIdentifierValue/1],
-    case (catch parse_or(Tokens,Flist)) of
-	{'EXIT',Reason} ->
-	    exit(Reason);
-	AsnErr = {asn1_error,_} ->
-	    throw(AsnErr);
-	Result ->
-	    Result
-    end;
+    parse_or(Tokens, Flist);
 parse_BuiltinValue([{identifier,_,IdName},{':',_}|Rest]) ->
     {Value,Rest2} = parse_Value(Rest),
     {{'CHOICE',{IdName,Value}},Rest2};
@@ -2841,15 +2658,9 @@ parse_ValueAssignment([{identifier,L1,IdName}|Rest]) ->
     case Rest2 of
 	[{'::=',_}|Rest3] ->
 	    {Value,Rest4} = parse_Value(Rest3),
-	    case catch lookahead_assignment(Rest4) of
-		ok ->
-		    {#valuedef{pos=L1,name=IdName,type=Type,value=Value,
-			       module=get(asn1_module)},Rest4};
-		Error ->
-		    throw(Error)
-%% 		    throw({asn1_error,{get_line(hd(Rest2)),get(asn1_module),
-%% 				       [got,get_token(hd(Rest2)),expected,'::=']}})
-	    end;
+	    lookahead_assignment(Rest4),
+	    {#valuedef{pos=L1,name=IdName,type=Type,value=Value,
+		       module=get(asn1_module)},Rest4};
 	_ ->
 	    throw({asn1_error,{get_line(hd(Rest2)),get(asn1_module),
 			       [got,get_token(hd(Rest2)),expected,'::=']}})
@@ -2901,12 +2712,8 @@ parse_SubtypeElements(Tokens) ->
 	     fun parse_Value/1, 
 	     fun parse_MIN/1,
 	     fun parse_Type/1],
-    case (catch parse_or(Tokens,Flist)) of
-	{'EXIT',Reason} ->
-	    exit(Reason);
-	{asn1_error,Reason} ->
-	    throw(Reason);
-	Result = {Val,_} when is_record(Val,type) ->
+    case parse_or(Tokens, Flist) of
+	{#type{},_}=Result ->
 	    Result;
 	{Lower,[{'..',_}|Rest]} ->
 	    {Upper,Rest2} = parse_UpperEndpoint(Rest),
@@ -2937,12 +2744,8 @@ parse_UpperEndpoint(Tokens) ->
 parse_UpperEndpoint(Lt,Tokens) ->
     Flist = [fun parse_MAX/1,
 	     fun parse_Value/1],
-    case (catch parse_or(Tokens,Flist)) of
-	{'EXIT',Reason} ->
-	    exit(Reason);
-	AsnErr = {asn1_error,_} ->
-	    throw(AsnErr);
-	{Value,Rest2} when Lt == lt ->
+    case parse_or(Tokens, Flist) of
+	{Value,Rest2} when Lt =:= lt ->
 	    {{lt,Value},Rest2};
 	{Value,Rest2} ->
 	    {Value,Rest2}
@@ -3083,5 +2886,5 @@ identifier2Extvalueref(#identifier{pos=Pos,val=Name}) ->
 lookahead_assignment([{'END',_}|_Rest]) ->
     ok;
 lookahead_assignment(Tokens) ->
-    parse_Assignment(Tokens),
+    {_,_} = parse_Assignment(Tokens),
     ok.
