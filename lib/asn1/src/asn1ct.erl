@@ -167,46 +167,26 @@ set_scan_parse_pass(#st{files=Files}=St) ->
 	    {error,St#st{error=Error}}
     end.
 
-set_scan_parse_pass_1([F|Fs], St) ->
+set_scan_parse_pass_1([F|Fs], #st{file=File}=St) ->
     case asn1ct_tok:file(F) of
 	{error,Error} ->
 	    throw(Error);
 	Tokens when is_list(Tokens) ->
-	    case catch asn1ct_parser2:parse(Tokens) of
+	    case asn1ct_parser2:parse(File, Tokens) of
 		{ok,M} ->
 		    [M|set_scan_parse_pass_1(Fs, St)];
-		{error,ErrorTerm} ->
-		    throw(handle_parse_error(ErrorTerm, St))
+		{error,Errors} ->
+		    throw(Errors)
 	    end
     end;
 set_scan_parse_pass_1([], _) -> [].
 
-parse_pass(#st{code=Tokens}=St) ->
-    case catch asn1ct_parser2:parse(Tokens) of
+parse_pass(#st{file=File,code=Tokens}=St) ->
+    case asn1ct_parser2:parse(File, Tokens) of
 	{ok,M} ->
 	    {ok,St#st{code=M}};
-	{error,ErrorTerm} ->
-	    {error,St#st{error=handle_parse_error(ErrorTerm, St)}}
-    end.
-
-handle_parse_error(ErrorTerm, #st{file=File,opts=Opts}) ->
-    case ErrorTerm of
-	{{Line,_Mod,Message},_TokTup} ->
-	    if
-		is_integer(Line) ->
-		    BaseName = filename:basename(File),
-		    error("syntax error at line ~p in module ~s:~n",
-			  [Line,BaseName], Opts);
-		true ->
-		    error("syntax error in module ~p:~n",
-			  [File], Opts)
-	    end,
-	    print_error_message(Message),
-	    Message;
-	{Line,_Mod,[Message,Token]} ->
-	    error("syntax error: ~p ~p at line ~p~n",
-		  [Message,Token,Line], Opts),
-	    {Line,[Message,Token]}
+	{error,Errors} ->
+	    {error,St#st{error=Errors}}
     end.
 
 merge_pass(#st{file=Base,code=Code}=St) ->
@@ -1409,33 +1389,6 @@ prepare_bytes(Bytes) -> list_to_binary(Bytes).
 
 vsn() ->
     ?vsn.
-
-
-
-print_error_message([got,H|T]) when is_list(H) ->
-    io:format(" got:"),
-    print_listing(H,"and"),
-    print_error_message(T);
-print_error_message([expected,H|T]) when is_list(H) ->
-    io:format(" expected one of:"),
-    print_listing(H,"or"),
-    print_error_message(T);
-print_error_message([H|T])  ->
-    io:format(" ~p",[H]),
-    print_error_message(T);
-print_error_message([]) ->
-    io:format("~n").
-
-print_listing([H1,H2|[]],AndOr) ->
-    io:format(" ~p ~s ~p",[H1,AndOr,H2]);
-print_listing([H1,H2|T],AndOr) ->
-    io:format(" ~p,",[H1]),
-    print_listing([H2|T],AndOr);
-print_listing([H],_AndOr) ->
-    io:format(" ~p",[H]);
-print_listing([],_) ->
-    ok.
-
 
 specialized_decode_prepare(Erule,M,TsAndVs,Options) ->
     case lists:member(asn1config,Options) of

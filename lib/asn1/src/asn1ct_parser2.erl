@@ -20,7 +20,7 @@
 %%
 -module(asn1ct_parser2).
 
--export([parse/1]).
+-export([parse/2,format_error/1]).
 -include("asn1_records.hrl").
 
 %% Only used internally within this module.
@@ -28,26 +28,29 @@
 -record(constraint, {c,e}).
 -record(identifier, {pos,val}).
 
-%% parse all types in module
-parse(Tokens) ->
-    case catch parse_ModuleDefinition(Tokens) of
-	{'EXIT',Reason} ->
-	    {error,{{undefined,get(asn1_module),
-		    [internal,error,'when',parsing,module,definition,Reason]},
-		    hd(Tokens)}};
-	{asn1_error,Reason} ->
-	    {error,{Reason,hd(Tokens)}};
-	{ModuleDefinition,Rest1} ->
-	    {Types,Rest2} = parse_AssignmentList(Rest1),
-	    clean_process_dictionary(),
-	    case Rest2 of
-		[{'END',_}|_Rest3] ->
-		    {ok,ModuleDefinition#module{typeorval = Types}};
-		_  ->
-		    {error,{{get_line(hd(Rest2)),get(asn1_module),
-			     [got,get_token(hd(Rest2)),expected,'END']},
-			    hd(Rest2)}}
-	    end
+parse(File0, Tokens) ->
+    try do_parse(Tokens) of
+	{ok,#module{}}=Result ->
+	    Result
+    catch
+	throw:{asn1_error,{Line,_Mod,Message}} ->
+	    File = filename:basename(File0),
+	    Error = {structured_error,{File,Line},?MODULE,Message},
+	    {error,[Error]}
+    after
+	clean_process_dictionary()
+    end.
+
+do_parse(Tokens0) ->
+    {ModuleDefinition,Tokens1} = parse_ModuleDefinition(Tokens0),
+    {Types,Tokens2} = parse_AssignmentList(Tokens1),
+    case Tokens2 of
+	[{'END',_}|_Rest3] ->
+	    {ok,ModuleDefinition#module{typeorval=Types}};
+	_  ->
+	    throw({asn1_error,
+		   {get_line(hd(Tokens2)),get(asn1_module),
+		    [got,get_token(hd(Tokens2)),expected,'END']}})
     end.
 
 clean_process_dictionary() ->
@@ -56,6 +59,32 @@ clean_process_dictionary() ->
     _ = erase(tagdefault),
     _ = erase(extensiondefault),
     ok.
+
+format_error(List) when is_list(List) ->
+    ["syntax error:"|print_error_message(List)].
+
+print_error_message([got,H|T]) when is_list(H) ->
+    [" got:",print_listing(H, "and"),
+     print_error_message(T)];
+print_error_message([expected,H|T]) when is_list(H) ->
+    [" expected one of:",
+     print_listing(H, "or"),
+     print_error_message(T)];
+print_error_message([H|T])  ->
+    [io_lib:format(" ~p", [H]),
+     print_error_message(T)];
+print_error_message([]) ->
+    "\n".
+
+print_listing([H1,H2|[]], AndOr) ->
+    io_lib:format(" ~p ~s ~p",[H1,AndOr,H2]);
+print_listing([H1,H2|T], AndOr) ->
+    [io_lib:format(" ~p,",[H1])|print_listing([H2|T], AndOr)];
+print_listing([H], _AndOr) ->
+    io_lib:format(" ~p", [H]);
+print_listing([],_) ->
+    [].
+
 
 parse_ModuleDefinition([{typereference,L1,ModuleIdentifier}|Rest0]) ->
     put(asn1_module,ModuleIdentifier),
@@ -266,16 +295,9 @@ parse_AssignmentList(Tokens= [{'END',_}|_Rest],Acc) ->
     {lists:reverse(Acc),Tokens};
 parse_AssignmentList(Tokens= [{'$end',_}|_Rest],Acc) ->
     {lists:reverse(Acc),Tokens};
-parse_AssignmentList(Tokens,Acc) ->
-    case (catch parse_Assignment(Tokens)) of
-	{'EXIT',Reason} ->
-	    exit(Reason);
-	{asn1_error,R} ->
-%	    [H|T] = Tokens,
-	    throw({error,{R,hd(Tokens)}});
-	{Assignment,Rest} ->
-	    parse_AssignmentList(Rest,[Assignment|Acc])
-    end.
+parse_AssignmentList(Tokens0, Acc) ->
+    {Assignment,Tokens} = parse_Assignment(Tokens0),
+    parse_AssignmentList(Tokens, [Assignment|Acc]).
 
 parse_Assignment(Tokens) ->
     Flist = [fun parse_TypeAssignment/1,
