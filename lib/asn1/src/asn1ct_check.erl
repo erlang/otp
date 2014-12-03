@@ -2223,13 +2223,13 @@ normalize_choice(S, {'CHOICE',{C,V}}, CType, NameList)
 	#'ComponentType'{typespec=CT,name=Name} ->
 	    {C,normalize_value(S, CT, {'DEFAULT',V}, [Name|NameList])};
 	false ->
-	    asn1_error(S, {illegal_choice_id,C})
+	    asn1_error(S, {illegal_id,C})
     end;
 normalize_choice(S,CV={Name,_ChoiceVal},CType,NameList)
   when is_atom(Name) ->
     normalize_choice(S,{'CHOICE',CV},CType,NameList);
 normalize_choice(S, V, _CType, _NameList) ->
-    asn1_error(S, {illegal_choice_id, error_value(V)}).
+    asn1_error(S, {illegal_id, error_value(V)}).
 
 normalize_sequence(S,Value,Components,NameList) 
   when is_tuple(Components) ->
@@ -2284,12 +2284,9 @@ normalized_record(SorS,S,Value,Components,NameList) ->
 	    Value;
 	_ ->
 	    NoComps = length(Components),
-	    case normalize_seq_or_set(SorS,S,Value,Components,NameList,[]) of
-		ListOfVals when length(ListOfVals) == NoComps ->
-		    list_to_tuple([NewName|ListOfVals]);
-		_ ->
-		    error({type,{illegal,default,value,Value},S})
-	    end
+	    ListOfVals = normalize_seq_or_set(SorS,S,Value,Components,NameList,[]),
+	    NoComps = length(ListOfVals), %% Assert
+	    list_to_tuple([NewName|ListOfVals])
     end.
 is_record_normalized(S,Name,V = #'Externalvaluereference'{},NumComps) ->
     case get_referenced_type(S,V) of
@@ -2302,10 +2299,11 @@ is_record_normalized(_S,Name,Value,NumComps) when is_tuple(Value) ->
 is_record_normalized(_,_,_,_) ->
     false.
 
-normalize_seq_or_set(SorS, S, [{#seqtag{val=Cname},V}|Vs],
+normalize_seq_or_set(SorS, S,
+		     [{#seqtag{val=Cname},V}|Vs],
 		     [#'ComponentType'{name=Cname,typespec=TS}|Cs],
 		     NameList, Acc) ->
-    NewNameList = 
+    NewNameList =
 	case TS#type.def of
 	    #'Externaltypereference'{type=TName} ->
 		[TName];
@@ -2313,24 +2311,26 @@ normalize_seq_or_set(SorS, S, [{#seqtag{val=Cname},V}|Vs],
 	end,
     NVal = normalize_value(S,TS,{'DEFAULT',V},NewNameList),
     normalize_seq_or_set(SorS,S,Vs,Cs,NameList,[NVal|Acc]);
-normalize_seq_or_set(SorS,S,Values=[{_Cname1,_V}|_Vs],
+normalize_seq_or_set(SorS, S,
+		     Values=[{#seqtag{val=Cname0},_V}|_Vs],
 		     [#'ComponentType'{prop='OPTIONAL'}|Cs],
-		     NameList,Acc) ->
+		     NameList, Acc) ->
+    verify_valid_component(S, Cname0, Cs),
     normalize_seq_or_set(SorS,S,Values,Cs,NameList,[asn1_NOVALUE|Acc]);
-normalize_seq_or_set(SorS,S,Values=[{_Cname1,_V}|_Vs],
-		    [#'ComponentType'{name=Cname2,typespec=TS,
-				      prop={'DEFAULT',Value}}|Cs],
-		    NameList,Acc) ->
-    NewNameList = 
+normalize_seq_or_set(SorS, S,
+		     Values=[{#seqtag{val=Cname0},_V}|_Vs],
+		     [#'ComponentType'{name=Cname,typespec=TS,
+				       prop={'DEFAULT',Value}}|Cs],
+		    NameList, Acc) ->
+    verify_valid_component(S, Cname0, Cs),
+    NewNameList =
 	case TS#type.def of
 	    #'Externaltypereference'{type=TName} ->
 		[TName];
-	    _ -> [Cname2|NameList]
+	    _ -> [Cname|NameList]
 	end,
     NVal =  normalize_value(S,TS,{'DEFAULT',Value},NewNameList),
     normalize_seq_or_set(SorS,S,Values,Cs,NameList,[NVal|Acc]);
-normalize_seq_or_set(_SorS,_S,[],[],_,Acc) ->
-    lists:reverse(Acc);
 %% If default value is {} ComponentTypes in SEQUENCE are marked DEFAULT 
 %% or OPTIONAL (or the type is defined SEQUENCE{}, which is handled by
 %% the previous case).
@@ -2353,9 +2353,23 @@ normalize_seq_or_set(SorS,S,Value=#'Externalvaluereference'{},
 		     Cs,NameList,Acc) ->
     get_normalized_value(S,Value,Cs,fun normalize_seq_or_set/6,
 			 [SorS,NameList,Acc]);
-normalize_seq_or_set(_SorS,S,V,_,_,_) ->
-    error({type,{illegal,default,value,V},S}).
-	
+normalize_seq_or_set(_SorS, _S, [], [], _, Acc) ->
+    lists:reverse(Acc);
+normalize_seq_or_set(_SorS, S, V, Cs, _, _) ->
+    case V of
+	[{#seqtag{val=Name},_}|_] ->
+	    asn1_error(S, {illegal_id,error_value(Name)});
+	[] ->
+	    [#'ComponentType'{name=Name}|_] = Cs,
+	    asn1_error(S, {missing_id,error_value(Name)})
+    end.
+
+verify_valid_component(S, Name, Cs) ->
+    case lists:keyfind(Name, #'ComponentType'.name, Cs) of
+	false -> asn1_error(S, {illegal_id,error_value(Name)});
+	#'ComponentType'{} -> ok
+    end.
+
 normalize_seqof(S,Value,Type,NameList) ->
     normalize_s_of('SEQUENCE OF',S,Value,Type,NameList).
 
@@ -4438,7 +4452,7 @@ check_sequence(S,Type,Comps)  ->
 	    CompListTuple = complist_as_tuple(NewComps4),
 	    {CRelInf,CompListTuple};
 	Dupl ->
-	    throw({error,{asn1,{duplicate_components,Dupl}}})
+	    asn1_error(S, {duplicate_identifier, error_value(hd(Dupl))})
     end.
 
 complist_as_tuple(CompList) ->
@@ -4448,8 +4462,6 @@ complist_as_tuple([#'EXTENSIONMARK'{}|T], Acc, Ext, Acc2, root) ->
     complist_as_tuple(T, Acc, Ext, Acc2, ext);
 complist_as_tuple([#'EXTENSIONMARK'{}|T], Acc, Ext, Acc2, ext) ->
     complist_as_tuple(T, Acc, Ext, Acc2, root2);
-complist_as_tuple([#'EXTENSIONMARK'{}|_T], _Acc, _Ext, _Acc2, root2) ->
-    throw({error,{asn1,{too_many_extension_marks}}});
 complist_as_tuple([C|T], Acc, Ext, Acc2, root) ->
     complist_as_tuple(T, [C|Acc], Ext, Acc2, root);
 complist_as_tuple([C|T], Acc, Ext, Acc2, ext) ->
@@ -4495,8 +4507,8 @@ expand_components2(S,{_,OCFT = #'ObjectClassFieldType'{}}) ->
     expand_components2(S, {undefined,ocft_def(Type)});
 expand_components2(S,{_,ERef}) when is_record(ERef,'Externaltypereference') ->
     expand_components2(S,get_referenced_type(S,ERef));
-expand_components2(_S,Err) ->
-    throw({error,{asn1,{illegal_COMPONENTS_OF,Err}}}).
+expand_components2(S,{_, What}) ->
+    asn1_error(S, {illegal_COMPONENTS_OF, error_value(What)}).
 
 take_only_rootset([])->
     [];
@@ -4726,7 +4738,7 @@ check_selectiontype2(S,Name,TypeDef) ->
 	end,
     case lists:keyfind(Name, #'ComponentType'.name, Components) of
 	#'ComponentType'{typespec=TS} -> TS;
-	false -> asn1_error(S, {illegal_choice_id, error_value(Name)})
+	false -> asn1_error(S, {illegal_id, error_value(Name)})
     end.
 
 
@@ -4772,7 +4784,7 @@ check_choice(S,Type,Components) when is_list(Components) ->
 	    check_unique_tags(S, NewComps3),
 	    complist_as_tuple(NewComps3);
 	Dupl ->
-	    throw({error,{asn1,{duplicate_choice_alternatives,Dupl}}})
+	    asn1_error(S, {duplicate_identifier,error_value(hd(Dupl))})
     end;
 check_choice(_S,_,[]) -> 
     [].
@@ -5631,7 +5643,7 @@ get_OCFType(S,Fields,[PrimFieldName|Rest]) ->
 	{value,Other} ->
 	    {element(1,Other),PrimFieldName};
 	_  ->
-	    throw({error,lists:flatten(io_lib:format("undefined FieldName in ObjectClassFieldType: ~w",[PrimFieldName]))})
+	    asn1_error(S, {illegal_object_field, PrimFieldName})
     end.
 
 get_taglist(S,Ext) when is_record(Ext,'Externaltypereference') ->
@@ -5810,6 +5822,8 @@ asn1_error(S, Item, Error) ->
 format_error({already_defined,Name,PrevLine}) ->
     io_lib:format("the name ~p has already been defined at line ~p",
 		  [Name,PrevLine]);
+format_error({duplicate_identifier,Ids}) ->
+    io_lib:format("the identifier '~p' has already been used", [Ids]);
 format_error({duplicate_tags,Elements}) ->
     io_lib:format("duplicate tags in the elements: ~s",
 		  [format_elements(Elements)]);
@@ -5822,12 +5836,14 @@ format_error({enum_not_ascending,Id,N,Prev}) ->
 format_error({enum_reused_value,Id,Val}) ->
     io_lib:format("'~s' has the value '~p' which is used more than once",
 		  [Id,Val]);
-format_error({illegal_choice_id, Id}) ->
-    io_lib:format("illegal CHOICE identifier: ~p", [Id]);
+format_error({illegal_id, Id}) ->
+    io_lib:format("illegal identifier: ~p", [Id]);
 format_error({illegal_choice_type, Ref}) ->
     io_lib:format("expecting a CHOICE type: ~p", [Ref]);
 format_error({illegal_class_name,Class}) ->
     io_lib:format("the class name '~s' is illegal (it must start with an uppercase letter and only contain uppercase letters, digits, or hyphens)", [Class]);
+format_error({illegal_COMPONENTS_OF, Ref}) ->
+    io_lib:format("expected a SEQUENCE or SET got: ~p", [Ref]);
 format_error(illegal_external_value) ->
     "illegal value in EXTERNAL type";
 format_error({illegal_instance_of,Class}) ->
@@ -5838,6 +5854,8 @@ format_error(illegal_integer_value) ->
     "expecting an integer value";
 format_error(illegal_object) ->
     "expecting an object";
+format_error({illegal_object_field, Id}) ->
+    io_lib:format("expecting a class field: ~p",[Id]);
 format_error({illegal_oid,o_id}) ->
     "illegal OBJECT IDENTIFIER";
 format_error({illegal_oid,rel_oid}) ->
@@ -5870,6 +5888,8 @@ format_error({missing_mandatory_fields,Fields,Obj}) ->
 format_error({missing_table_constraint,Component}) ->
     io_lib:format("the component '~s' is referenced by a component relation constraint using the '@field-name' notation, but does not have a table constraint",
 		  [Component]);
+format_error({missing_id,Id}) ->
+    io_lib:format("expected the mandatory component '~p'", [Id]);
 format_error({missing_ocft,Component}) ->
     io_lib:format("the component '~s' must be an ObjectClassFieldType (CLASSNAME.&field-name)", [Component]);
 format_error(multiple_uniqs) ->

@@ -20,7 +20,7 @@
 -module(error_SUITE).
 -export([suite/0,all/0,groups/0,
 	 already_defined/1,bitstrings/1,
-	 classes/1,constraints/1,enumerated/1,
+	 classes/1,constraints/1,constructed/1,enumerated/1,
 	 imports_exports/1,instance_of/1,integers/1,objects/1,
 	 object_field_extraction/1,oids/1,rel_oids/1,
 	 object_sets/1,parameterization/1,
@@ -39,6 +39,7 @@ groups() ->
        bitstrings,
        classes,
        constraints,
+       constructed,
        enumerated,
        imports_exports,
        instance_of,
@@ -493,6 +494,42 @@ parameterization(Config) ->
     } = run(P, Config),
     ok.
 
+
+constructed(Config) ->
+    M = 'Const',
+    P = {M,
+	 <<"Const DEFINITIONS AUTOMATIC TAGS ::= BEGIN\n"
+	   "  Seq1 ::= SEQUENCE {a INTEGER, b BIT STRING, a BOOLEAN}\n"
+	   "  Ch   ::= CHOICE {a INTEGER, b BIT STRING, a BOOLEAN}\n"
+	   "  Seq2 ::= SEQUENCE {COMPONENTS OF Ch}\n"
+	   "  CL   ::= CLASS { &id INTEGER UNIQUE, &Type }\n"
+	   "  Seq3 ::= SEQUENCE { id CL.&id, d CL.&foo }\n"
+
+	   "  Seq4 ::= SEQUENCE { a INTEGER, z INTEGER OPTIONAL, b Set1 }\n"
+	   "  Set1 ::= SET { c BOOLEAN, d INTEGER }\n"
+	   "  s1 Seq4 ::= {a 42, b {c TRUE, zz 4711}}\n"
+	   "  s2 Seq4 ::= {a 42, b {c TRUE, d FALSE}}\n"
+	   "  s3 Seq4 ::= {a 42, b {c TRUE}}\n"
+	   "  s4 Seq4 ::= {a 42, b {c TRUE, d 4711}, zz 4712}\n"
+	   "  s5 Seq4 ::= {a 42}\n"
+	   "  s6 Seq4 ::= {a 42, zz 4712, b {c TRUE, d 4711}}\n"
+	   "END\n">>},
+    {error,
+     [{structured_error,{M,2},asn1ct_check,{duplicate_identifier,a}},
+      {structured_error,{M,3},asn1ct_check,{duplicate_identifier,a}},
+      {structured_error,{M,4},asn1ct_check,{illegal_COMPONENTS_OF,'Ch'}},
+      {structured_error,{M,6},asn1ct_check,{illegal_object_field,foo}},
+
+      {structured_error,{M,9},asn1ct_check,{illegal_id,zz}},
+      {structured_error,{M,10},asn1ct_check,illegal_integer_value},
+      {structured_error,{M,11},asn1ct_check,{missing_id,d}},
+      {structured_error,{M,12},asn1ct_check,{illegal_id,zz}},
+      {structured_error,{M,13},asn1ct_check,{missing_id,b}},
+      {structured_error,{M,14},asn1ct_check,{illegal_id,zz}}
+     ]
+    } = run(P, Config),
+    ok.
+
 syntax(Config) ->
     M = 'Syntax',
     P = {M,
@@ -852,13 +889,13 @@ values(Config) ->
       {structured_error,{M,34},asn1ct_check,
        illegal_external_value},
       {structured_error,{M,36},asn1ct_check,
-       {illegal_choice_id, 2344}},
+       {illegal_id, 2344}},
       {structured_error,{M,37},asn1ct_check,
-       {illegal_choice_id, zz}},
+       {illegal_id, zz}},
       {structured_error,{M,38},asn1ct_check,
        {illegal_choice_type, 'Seq'}},
       {structured_error,{M,39},asn1ct_check,
-       {illegal_choice_id, zz}},
+       {illegal_id, zz}},
       {structured_error,{M,40},asn1ct_check,
        {illegal_choice_type, 'HOLDER'}},
       {structured_error,{M,41},asn1ct_check,
