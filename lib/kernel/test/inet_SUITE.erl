@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -38,7 +38,7 @@
 	 gethostnative_debug_level/0, gethostnative_debug_level/1,
 	 getif/1,
 	 getif_ifr_name_overflow/1,getservbyname_overflow/1, getifaddrs/1,
-	 parse_strict_address/1, simple_netns/1]).
+	 parse_strict_address/1, simple_netns/1, simple_netns_open/1]).
 
 -export([get_hosts/1, get_ipv6_hosts/1, parse_hosts/1, parse_address/1,
 	 kill_gethost/0, parallell_gethost/0, test_netns/0]).
@@ -53,7 +53,7 @@ all() ->
      t_gethostnative, gethostnative_parallell, cname_loop,
      gethostnative_debug_level, gethostnative_soft_restart,
      getif, getif_ifr_name_overflow, getservbyname_overflow,
-     getifaddrs, parse_strict_address, simple_netns].
+     getifaddrs, parse_strict_address, simple_netns, simple_netns_open].
 
 groups() -> 
     [{parse, [], [parse_hosts, parse_address]}].
@@ -1126,6 +1126,32 @@ jog_netns_opt(S) ->
     ok = inet:setopts(S, [{netns,"/proc/self/ns/net"}]),
     {ok,[{netns,"/proc/self/ns/net"}]} = inet:getopts(S, [netns]),
     ok.
+
+
+simple_netns_open(Config) when is_list(Config) ->
+    case gen_udp:open(0, [binary,{netns,"/"},inet]) of
+	{ok,U} ->
+	    ok = gen_udp:close(U);
+	{error,E1} when E1 =:= einval; E1 =:= eperm ->
+	    ok
+    end,
+    case gen_tcp:listen(0, [binary,{netns,"/"},inet]) of
+	{ok,T} ->
+	    ok = gen_tcp:close(T);
+	{error,E2} when E2 =:= einval; E2 =:= eperm ->
+	    ok
+    end,
+    try gen_sctp:open(0, [binary,{netns,"/"},inet]) of
+	{ok,S} ->
+	    ok = gen_sctp:close(S);
+	{error,E3}
+	  when E3 =:= einval; E3 =:= eperm; E3 =:= eprotonosupport ->
+	    ok
+    catch
+	error:badarg ->
+	    %% Some older platforms does not allow netns for sctp
+	    ok
+    end.
 
 
 %% Manual test to be run outside test_server in an emulator

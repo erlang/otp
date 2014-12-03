@@ -695,9 +695,9 @@ connect_options(Opts, Family) ->
 	Error -> Error	    
     end.
 
-con_opt([{raw,A,B,C}|Opts],R,As) ->
+con_opt([{raw,A,B,C}|Opts],#connect_opts{} = R,As) ->
     con_opt([{raw,{A,B,C}}|Opts],R,As);
-con_opt([Opt | Opts], R, As) ->
+con_opt([Opt | Opts], #connect_opts{} = R, As) ->
     case Opt of
 	{ip,IP}     -> con_opt(Opts, R#connect_opts { ifaddr = IP }, As);
 	{ifaddr,IP} -> con_opt(Opts, R#connect_opts { ifaddr = IP }, As);
@@ -722,10 +722,10 @@ con_opt([Opt | Opts], R, As) ->
 	{Name,Val} when is_atom(Name) -> con_add(Name, Val, R, Opts, As);
 	_ -> {error, badarg}
     end;
-con_opt([], R, _) ->
+con_opt([], #connect_opts{} = R, _) ->
     {ok, R}.
 
-con_add(Name, Val, R, Opts, AllOpts) ->
+con_add(Name, Val, #connect_opts{} = R, Opts, AllOpts) ->
     case add_opt(Name, Val, R#connect_opts.opts, AllOpts) of
 	{ok, SOpts} ->
 	    con_opt(Opts, R#connect_opts { opts = SOpts }, AllOpts);
@@ -763,9 +763,9 @@ listen_options(Opts, Family) ->
 	Error -> Error
     end.
 	
-list_opt([{raw,A,B,C}|Opts], R, As) ->
+list_opt([{raw,A,B,C}|Opts], #listen_opts{} = R, As) ->
     list_opt([{raw,{A,B,C}}|Opts], R, As);
-list_opt([Opt | Opts], R, As) ->
+list_opt([Opt | Opts], #listen_opts{} = R, As) ->
     case Opt of
 	{ip,IP}      ->  list_opt(Opts, R#listen_opts { ifaddr = IP }, As);
 	{ifaddr,IP}  ->  list_opt(Opts, R#listen_opts { ifaddr = IP }, As);
@@ -791,10 +791,10 @@ list_opt([Opt | Opts], R, As) ->
 	{Name,Val} when is_atom(Name) -> list_add(Name, Val, R, Opts, As);
 	_ -> {error, badarg}
     end;
-list_opt([], R, _SockOpts) ->
+list_opt([], #listen_opts{} = R, _SockOpts) ->
     {ok, R}.
 
-list_add(Name, Val, R, Opts, As) ->
+list_add(Name, Val, #listen_opts{} = R, Opts, As) ->
     case add_opt(Name, Val, R#listen_opts.opts, As) of
 	{ok, SOpts} ->
 	    list_opt(Opts, R#listen_opts { opts = SOpts }, As);
@@ -821,9 +821,9 @@ udp_options(Opts, Family) ->
 	Error -> Error
     end.
 
-udp_opt([{raw,A,B,C}|Opts], R, As) ->
+udp_opt([{raw,A,B,C}|Opts], #udp_opts{} = R, As) ->
     udp_opt([{raw,{A,B,C}}|Opts], R, As);
-udp_opt([Opt | Opts], R, As) ->
+udp_opt([Opt | Opts], #udp_opts{} = R, As) ->
     case Opt of
 	{ip,IP}     ->  udp_opt(Opts, R#udp_opts { ifaddr = IP }, As);
 	{ifaddr,IP} ->  udp_opt(Opts, R#udp_opts { ifaddr = IP }, As);
@@ -838,7 +838,7 @@ udp_opt([Opt | Opts], R, As) ->
 	    BinNS = filename2binary(NS),
 	    case prim_inet:is_sockopt_val(netns, BinNS) of
 		true ->
-		    list_opt(Opts, R#udp_opts { fd = [{netns,BinNS}] }, As);
+		    udp_opt(Opts, R#udp_opts { fd = [{netns,BinNS}] }, As);
 		false ->
 		    {error, badarg}
 	    end;
@@ -848,10 +848,10 @@ udp_opt([Opt | Opts], R, As) ->
 	{Name,Val} when is_atom(Name) -> udp_add(Name, Val, R, Opts, As);
 	_ -> {error, badarg}
     end;
-udp_opt([], R, _SockOpts) ->
+udp_opt([], #udp_opts{} = R, _SockOpts) ->
     {ok, R}.
 
-udp_add(Name, Val, R, Opts, As) ->
+udp_add(Name, Val, #udp_opts{} = R, Opts, As) ->
     case add_opt(Name, Val, R#udp_opts.opts, As) of
 	{ok, SOpts} ->
 	    udp_opt(Opts, R#udp_opts { opts = SOpts }, As);
@@ -895,7 +895,7 @@ sctp_options(Opts, Mod)  ->
 	Error -> Error
     end.
 
-sctp_opt([Opt|Opts], Mod, R, As) ->
+sctp_opt([Opt|Opts], Mod, #sctp_opts{} = R, As) ->
     case Opt of
 	{ip,IP} ->
 	    sctp_opt_ifaddr(Opts, Mod, R, As, IP);
@@ -938,7 +938,7 @@ sctp_opt([], _Mod, #sctp_opts{ifaddr=IfAddr}=R, _SockOpts) ->
 	    {ok, R}
     end.
 
-sctp_opt(Opts, Mod, R, As, Name, Val) ->
+sctp_opt(Opts, Mod, #sctp_opts{} = R, As, Name, Val) ->
     case add_opt(Name, Val, R#sctp_opts.opts, As) of
 	{ok,SocketOpts} ->
 	    sctp_opt(Opts, Mod, R#sctp_opts{opts=SocketOpts}, As);
