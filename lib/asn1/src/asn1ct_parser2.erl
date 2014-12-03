@@ -299,56 +299,32 @@ parse_Assignment(Tokens) ->
 parse_or(Tokens,Flist) ->
 	parse_or(Tokens,Flist,[]).
 
-parse_or(_Tokens,[],ErrList) ->
-    case ErrList of
-	[] ->
-	    throw({asn1_error,{parse_or,ErrList}});
-	L when is_list(L) ->
-	    %% chose to throw 1) the error with the highest line no,
-	    %% 2) the last error which is not a asn1_assignment_error or
-	    %% 3) the last error.
-	    throw(prioritize_error(ErrList))
+parse_or(Tokens, [Fun|Funs], ErrList) when is_function(Fun, 1) ->
+    try Fun(Tokens) of
+	{_,Rest}=Result when is_list(Rest) ->
+	    Result
+    catch
+	throw:{asn1_error,_}=AsnErr ->
+	    parse_or(Tokens, Funs, [AsnErr|ErrList]);
+	  throw:{asn1_assignment_error,_}=AsnErr ->
+	    parse_or(Tokens, Funs, [AsnErr|ErrList])
     end;
-parse_or(Tokens,[Fun|Frest],ErrList) ->
-    case (catch Fun(Tokens)) of
-	Exit = {'EXIT',_Reason} ->
-	    parse_or(Tokens,Frest,[Exit|ErrList]);
-	AsnErr = {asn1_error,_} ->
-	    parse_or(Tokens,Frest,[AsnErr|ErrList]);
-	AsnAssErr = {asn1_assignment_error,_} ->
-	    parse_or(Tokens,Frest,[AsnAssErr|ErrList]);
-	Result = {_,L} when is_list(L) ->
-	    Result;
-	Error  ->
-	    parse_or(Tokens,Frest,[Error|ErrList])
-    end.
+parse_or(_Tokens, [], ErrList) ->
+    throw(prioritize_error(ErrList)).
 
-parse_or_tag(Tokens,Flist) ->
-	parse_or_tag(Tokens,Flist,[]).
+parse_or_tag(Tokens, Flist) ->
+    parse_or_tag(Tokens, Flist, []).
 
-parse_or_tag(_Tokens,[],ErrList) ->
-    case ErrList of
-	[] ->
-	    throw({asn1_error,{parse_or_tag,ErrList}});
-	L when is_list(L) ->
-	    %% chose to throw 1) the error with the highest line no,
-	    %% 2) the last error which is not a asn1_assignment_error or
-	    %% 3) the last error.
-	    throw(prioritize_error(ErrList))
+parse_or_tag(Tokens, [{Tag,Fun}|Funs], ErrList) when is_function(Fun, 1) ->
+    try Fun(Tokens) of
+	{Parsed,Rest} when is_list(Rest) ->
+	    {{Tag,Parsed},Rest}
+    catch
+	throw:{asn1_error,_}=AsnErr ->
+	    parse_or_tag(Tokens, Funs, [AsnErr|ErrList])
     end;
-parse_or_tag(Tokens,[{Tag,Fun}|Frest],ErrList) when is_function(Fun) ->
-    case (catch Fun(Tokens)) of
-	Exit = {'EXIT',_Reason} ->
-	    parse_or_tag(Tokens,Frest,[Exit|ErrList]);
-	AsnErr = {asn1_error,_} ->
-	    parse_or_tag(Tokens,Frest,[AsnErr|ErrList]);
-	AsnAssErr = {asn1_assignment_error,_} ->
-	    parse_or_tag(Tokens,Frest,[AsnAssErr|ErrList]);
-	{ParseRes,Rest} when is_list(Rest) ->
-	    {{Tag,ParseRes},Rest};
-	Error  ->
-	    parse_or_tag(Tokens,Frest,[Error|ErrList])
-    end.
+parse_or_tag(_Tokens, [], ErrList) ->
+    throw(prioritize_error(ErrList)).
 
 parse_TypeAssignment([{typereference,L1,Tref},{'::=',_}|Rest]) ->	
     {Type,Rest2} = parse_Type(Rest),
@@ -3048,7 +3024,11 @@ get_token({Token,Pos}) when is_integer(Pos),is_atom(Token) ->
 get_token(_) ->
     undefined.
 
-prioritize_error(ErrList) ->
+%% Choose the "best" error:
+%% 1) the error with the highest line number,
+%% 2) the last error which is not an asn1_assignment_error, or
+%% 3) the last error.
+prioritize_error([_|_]=ErrList) ->
     case lists:keymember(asn1_error,1,ErrList) of
 	false -> % only asn1_assignment_error -> take the last
 	    lists:last(ErrList);
