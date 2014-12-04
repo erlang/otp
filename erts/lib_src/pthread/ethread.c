@@ -600,6 +600,17 @@ int ethr_sigwait(const sigset_t *set, int *sig)
     return 0;
 }
 
+int ethr_kill(const ethr_tid tid, const int sig)
+{
+#if ETHR_XCHK
+    if (ethr_not_inited__) {
+	ETHR_ASSERT(0);
+	return EACCES;
+    }
+#endif
+    return pthread_kill((const pthread_t)tid, sig);
+}
+
 #endif /* #if ETHR_HAVE_ETHR_SIG_FUNCS */
 
 ETHR_IMPL_NORETURN__

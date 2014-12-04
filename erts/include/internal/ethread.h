@@ -537,6 +537,7 @@ void *ethr_tsd_get(ethr_tsd_key);
 #include <signal.h>
 int ethr_sigmask(int how, const sigset_t *set, sigset_t *oset);
 int ethr_sigwait(const sigset_t *set, int *sig);
+int ethr_kill(const ethr_tid tid, const int sig);
 #endif
 
 void ethr_compiler_barrier(void);

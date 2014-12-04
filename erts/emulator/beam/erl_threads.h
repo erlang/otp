@@ -621,11 +621,17 @@ ERTS_GLB_INLINE void erts_thr_set_main_status(int, int);
 ERTS_GLB_INLINE int erts_thr_get_main_status(void);
 ERTS_GLB_INLINE void erts_thr_yield(void);
 
+
 #ifdef ETHR_HAVE_ETHR_SIG_FUNCS
 #define ERTS_THR_HAVE_SIG_FUNCS 1
 ERTS_GLB_INLINE void erts_thr_sigmask(int how, const sigset_t *set,
 				      sigset_t *oset);
 ERTS_GLB_INLINE void erts_thr_sigwait(const sigset_t *set, int *sig);
+
+#ifdef USE_THREADS
+ERTS_GLB_INLINE void erts_thr_kill(erts_tid_t tid, int sig);
+#endif
+
 #endif /* #ifdef HAVE_ETHR_SIG_FUNCS */
 
 #ifdef USE_THREADS
@@ -2847,6 +2853,15 @@ ERTS_GLB_INLINE void erts_thr_yield(void)
 
 
 #ifdef ETHR_HAVE_ETHR_SIG_FUNCS
+
+ERTS_GLB_INLINE void
+erts_thr_kill(erts_tid_t tid, int sig) {
+#ifdef USE_THREADS
+  int res = ethr_kill((ethr_tid)tid, sig);
+  if (res)
+    erts_thr_fatal_error(res, "killing thread");
+#endif
+}
 
 ERTS_GLB_INLINE void
 erts_thr_sigmask(int how, const sigset_t *set, sigset_t *oset)

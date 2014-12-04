@@ -216,6 +216,9 @@ static erts_smp_atomic_t sys_misc_mem_sz;
 #if defined(ERTS_SMP)
 static void smp_sig_notify(char c);
 static int sig_notify_fds[2] = {-1, -1};
+
+static int sig_suspend_fds[2] = {-1, -1};
+#define ERTS_SYS_SUSPEND_SIGNAL SIGUSR2
 #elif defined(USE_THREADS)
 static int async_fd[2];
 #endif
@@ -789,6 +792,9 @@ prepare_crash_dump(int secs)
 	/* We don't want to close the signal notification pipe... */
 	if (i == sig_notify_fds[0] || i == sig_notify_fds[1])
 	    continue;
+	/* We don't want to close the signal syspend pipe... */
+	if (i == sig_suspend_fds[0] || i == sig_suspend_fds[1])
+	    continue;
 #elif defined(USE_THREADS)
 	/* We don't want to close the async notification pipe... */
 	if (i == async_fd[0] || i == async_fd[1])
@@ -877,9 +883,23 @@ sigusr1_exit(void)
 
 #ifdef ETHR_UNUSABLE_SIGUSRX
 #warning "Unusable SIGUSR1 & SIGUSR2. Disabling use of these signals"
-#endif
 
-#ifndef ETHR_UNUSABLE_SIGUSRX
+#else
+
+#ifdef ERTS_SMP
+void
+sys_thr_suspend(erts_tid_t tid) {
+    erts_thr_kill(tid, ERTS_SYS_SUSPEND_SIGNAL);
+}
+
+void
+sys_thr_resume(erts_tid_t tid) {
+    int i = 0, res;
+    do {
+        res = write(sig_suspend_fds[1],&i,sizeof(i));
+    } while (res < 0 && errno == EAGAIN);
+}
+#endif
 
 #if (defined(SIG_SIGSET) || defined(SIG_SIGNAL))
 static RETSIGTYPE user_signal1(void)
@@ -893,6 +913,21 @@ static RETSIGTYPE user_signal1(int signum)
    sigusr1_exit();
 #endif
 }
+
+#ifdef ERTS_SMP
+#if (defined(SIG_SIGSET) || defined(SIG_SIGNAL))
+static RETSIGTYPE suspend_signal(void)
+#else
+static RETSIGTYPE suspend_signal(int signum)
+#endif
+{
+   int res;
+   int buf[1];
+   do {
+     res = read(sig_suspend_fds[0], buf, sizeof(int));
+   } while (res < 0 && errno == EINTR);
+}
+#endif /* #ifdef ERTS_SMP */
 
 #endif /* #ifndef ETHR_UNUSABLE_SIGUSRX */
 
@@ -944,7 +979,10 @@ void init_break_handler(void)
 {
    sys_sigset(SIGINT, request_break);
 #ifndef ETHR_UNUSABLE_SIGUSRX
-   sys_sigset(SIGUSR1, user_signal1);
+   sys_signal(SIGUSR1, user_signal1);
+#ifdef ERTS_SMP
+   sys_signal(ERTS_SYS_SUSPEND_SIGNAL, suspend_signal);
+#endif /* #ifdef ERTS_SMP */
 #endif /* #ifndef ETHR_UNUSABLE_SIGUSRX */
    sys_sigset(SIGQUIT, do_quit);
 }
@@ -963,8 +1001,13 @@ static void block_signals(void)
    sys_sigblock(SIGINT);
 #ifndef ETHR_UNUSABLE_SIGUSRX
    sys_sigblock(SIGUSR1);
+#endif /* #ifndef ETHR_UNUSABLE_SIGUSRX */
+#endif /* #ifndef ERTS_SMP */
+
+#if defined(ERTS_SMP) && !defined(ETHR_UNUSABLE_SIGUSRX)
+   sys_sigblock(ERTS_SYS_SUSPEND_SIGNAL);
 #endif
-#endif
+
 }
 
 static void unblock_signals(void)
@@ -978,8 +1021,14 @@ static void unblock_signals(void)
 #ifndef ETHR_UNUSABLE_SIGUSRX
    sys_sigrelease(SIGUSR1);
 #endif /* #ifndef ETHR_UNUSABLE_SIGUSRX */
+#endif /* #ifndef ERTS_SMP */
+
+#if defined(ERTS_SMP) && !defined(ETHR_UNUSABLE_SIGUSRX)
+   sys_sigrelease(ERTS_SYS_SUSPEND_SIGNAL);
 #endif
+
 }
+
 /************************** Time stuff **************************/
 #ifdef HAVE_GETHRTIME
 #ifdef GETHRTIME_WITH_CLOCK_GETTIME
@@ -3221,6 +3270,17 @@ init_smp_sig_notify(void)
 			NULL,
 			&thr_opts);
 }
+
+static void
+init_smp_sig_suspend(void) {
+  if (pipe(sig_suspend_fds) < 0) {
+    erl_exit(ERTS_ABORT_EXIT,
+	     "Failed to create sig_suspend pipe: %s (%d)\n",
+	     erl_errno_id(errno),
+	     errno);
+  }
+}
+
 #ifdef __DARWIN__
 
 int erts_darwin_main_thread_pipe[2];
@@ -3371,6 +3431,7 @@ erl_sys_args(int* argc, char** argv)
 
 #ifdef ERTS_SMP
     init_smp_sig_notify();
+    init_smp_sig_suspend();
 #endif
 
     /* Handled arguments have been marked with NULL. Slide arguments
