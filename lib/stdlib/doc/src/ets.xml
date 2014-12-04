@@ -456,6 +456,12 @@ Error: fun containing local Erlang function calls
           <item><c>{type, <seealso marker="#type-type">type()</seealso>}</c>          <br></br>
 
            The table type.</item>
+          <item><c>{read_concurrency, boolean()}</c>          <br></br>
+
+           Indicates whether the table uses read_concurrency or not.</item>
+          <item><c>{write_concurrency, boolean()}</c>          <br></br>
+
+           Indicates whether the table uses write_concurrency or not.</item>
         </list>
       </desc>
     </func>
