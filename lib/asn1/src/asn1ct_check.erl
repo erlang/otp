@@ -527,8 +527,6 @@ check_class(S = #state{mname=M,tname=T},ClassSpec)
     end;
 check_class(S, #objectclass{}=C) ->
     check_objectclass(S, C);
-check_class(_S,{poc,_ObjSet,_Params}) ->
-    'fix this later';
 check_class(S,ClassName) ->
     {RefMod,Def} = get_referenced_type(S,ClassName),
     case Def of

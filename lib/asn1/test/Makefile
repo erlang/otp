@@ -110,11 +110,13 @@ MODULES= \
 	testValueTest \
 	testUniqueObjectSets \
 	testRfcs \
+	testImporting \
 	asn1_test_lib \
 	asn1_app_test \
 	asn1_appup_test \
 	asn1_SUITE \
-	error_SUITE
+	error_SUITE \
+	syntax_SUITE
 
 ERL_FILES= $(MODULES:%=%.erl)
 

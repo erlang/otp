@@ -52,8 +52,7 @@ all() ->
 groups() ->
     Parallel = asn1_test_lib:parallel(),
     [{compile, Parallel,
-      [c_syntax,
-       c_string,
+      [c_string,
        constraint_equivalence]},
 
      {ber, Parallel,
@@ -563,24 +562,6 @@ testSetOfCho(Config, Rule, Opts) ->
     asn1_test_lib:compile("SetOfCho", Config, [Rule|Opts]),
     testSetOfCho:main(Rule).
 
-c_syntax(Config) ->
-    DataDir = ?config(data_dir, Config),
-    [{error, _} = asn1ct:compile(filename:join(DataDir, F))
-     || F <-["Syntax",
-             "BadTypeEnding",
-             "BadValueAssignment1",
-             "BadValueAssignment2",
-             "BadValueSet",
-             "ChoiceBadExtension",
-             "EnumerationBadExtension",
-             "Example",
-             "Export1",
-             "MissingEnd",
-             "SequenceBadComma",
-             "SequenceBadComponentName",
-             "SequenceBadComponentType",
-             "SeqBadComma"]].
-
 c_string(Config) ->
     test(Config, fun c_string/3).
 c_string(Config, Rule, Opts) ->
@@ -819,9 +800,11 @@ testDeepTConstr(Config, Rule, Opts) ->
 testImport(Config) ->
     test(Config, fun testImport/3).
 testImport(Config, Rule, Opts) ->
-    Files = ["ImportsFrom","ImportsFrom2","ImportsFrom3"],
+    Files = ["ImportsFrom","ImportsFrom2","ImportsFrom3",
+	     "Importing","Exporting"],
     asn1_test_lib:compile_all(Files, Config, [Rule|Opts]),
     42 = 'ImportsFrom':i(),
+    testImporting:main(),
     ok.
 
 testMegaco(Config) -> test(Config, fun testMegaco/3).
@@ -1095,6 +1078,7 @@ test_modules() ->
      "CommonDataTypes",
      "Constraints",
      "ContextSwitchingTypes",
+     "CoverParser",
      "DS-EquipmentUser-CommonFunctionOrig-TransmissionPath",
      "Enum",
      "From",

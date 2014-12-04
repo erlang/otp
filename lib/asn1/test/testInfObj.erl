@@ -166,6 +166,9 @@ main(_Erule) ->
 	      {'ContentInfo',{2,7,8,9},"string"}),
     {2,7,8,9} = 'InfObj':'id-content-type'(),
 
+    <<2#1011:4>> = 'InfObj':'tricky-bit-string'(),
+    <<16#CAFE:16>> = 'InfObj':'tricky-octet-string'(),
+
     ok.
 
 test_objset(Type, Keys) ->
