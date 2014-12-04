@@ -3032,7 +3032,7 @@ merge_constraints([], Cacc, []) ->
 merge_constraints([], Cacc, Eacc) ->
     lists:reverse(Cacc) ++ [{element_set,{'Errors',Eacc},none}].
 
-get_line({_,Pos,Token}) when is_integer(Pos),is_atom(Token) ->
+get_line({Token,Pos,_}) when is_integer(Pos), is_atom(Token) ->
     Pos;
 get_line({Token,Pos}) when is_integer(Pos),is_atom(Token) ->
     Pos;
