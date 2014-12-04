@@ -1183,19 +1183,13 @@ instantiate_po(S=#state{parameters=_OldArgs},_ClassDef,Object,ArgsList) when is_
 %% on the right side of the assignment,
 %% ArgsList is the list of actual parameters, i.e. real objects
 instantiate_pos(S=#state{parameters=_OldArgs},ClassRef,ObjectSetDef,ArgsList) ->
-%    ClassName = ClassDef#classdef.name,
     FormalParams = get_pt_args(ObjectSetDef),
     OSet = case get_pt_spec(ObjectSetDef) of
-	      {valueset,Set} -> 
-% 		   #'ObjectSet'{class=name2Extref(S#state.mname,
-% 						  ClassName),set=Set};
-		   #'ObjectSet'{class=ClassRef,set=Set};
-	      Set when is_record(Set,'ObjectSet') -> Set;
-	       _ ->
-		   error({type,"parameterized object set failure",S})
+	       {valueset,Set} -> #'ObjectSet'{class=ClassRef,set=Set};
+	       Set when is_record(Set,'ObjectSet') -> Set;
+	       _ -> asn1_error(S, invalid_objectset)
 	   end,
     MatchedArgs = match_args(S,FormalParams,ArgsList,[]),
-%    NewS = S#state{type=ObjectSetDef,parameters=MatchedArgs++OldArgs},
     NewS = S#state{type=ObjectSetDef,parameters=MatchedArgs},
     check_object(NewS,ObjectSetDef,OSet).
 
@@ -3050,9 +3044,9 @@ notify_if_not_ptype(S,#pobjectsetdef{class=Cl}) ->
 	_ ->
 	    throw(pobjectsetdef)
     end;
-notify_if_not_ptype(_S,PT) ->
-    throw({error,{"supposed to be a parameterized type",PT}}).
-% fix me
+notify_if_not_ptype(S, PT) ->
+    asn1_error(S, {param_bad_type, error_value(PT)}).
+
 instantiate_ptype(S,Ptypedef,ParaList) ->
     #ptypedef{args=Args,typespec=Type} = Ptypedef,
     NewType = check_ptype(S,Ptypedef,Type#type{inlined=yes}),    
@@ -4082,9 +4076,10 @@ match_parameter(_S, {valueset,#type{def=#'Externaltypereference'{type=Name}}},
 %% When a parameter is a parameterized element it has to be
 %% instantiated now!
 match_parameter(S, {valueset,T=#type{def={pt,_,_Args}}}, _Ps) ->
-    case catch check_type(S,#typedef{name=S#state.tname,typespec=T},T) of
-	pobjectsetdef ->
-
+    try check_type(S,#typedef{name=S#state.tname,typespec=T},T) of
+	#type{def=Ts} ->
+	    Ts
+    catch pobjectsetdef ->
  	    {_,ObjRef,_Params} = T#type.def,
  	    {_,ObjDef}=get_referenced_type(S,ObjRef),
 	    %%ObjDef is a pvaluesetdef where the type field holds the class
@@ -4102,11 +4097,9 @@ match_parameter(S, {valueset,T=#type{def={pt,_,_Args}}}, _Ps) ->
 	    ObjectSet = #'ObjectSet'{class=RightClassRef,set=T},
  	    ObjSpec = check_object(S,#typedef{typespec=ObjectSet},ObjectSet),
 	    Name = list_to_atom(asn1ct_gen:list2name([get_datastr_name(ObjDef)|S#state.recordtopname])),	 
-	    save_object_set_instance(S,Name,ObjSpec);
-	pvaluesetdef -> error({pvaluesetdef,"parameterized valueset",S});
-	{error,_Reason} -> error({type,"error in parameter",S});
-	Ts when is_record(Ts,type) -> Ts#type.def
+	    save_object_set_instance(S,Name,ObjSpec)
     end;
+
 %% same as previous, only depends on order of parsing
 match_parameter(S, {valueset,{pos,{objectset,_,POSref},Args}}, Ps) ->
     match_parameter(S, {valueset,#type{def={pt,POSref,Args}}}, Ps);
@@ -5853,6 +5846,8 @@ format_error({invalid_bit_number,Bit}) ->
     io_lib:format("the bit number '~p' is invalid", [Bit]);
 format_error(invalid_table_constraint) ->
     "the table constraint is not an object set";
+format_error(invalid_objectset) ->
+    "expecting an object set";
 format_error({implicit_tag_before,Kind}) ->
     "illegal implicit tag before " ++
 	case Kind of
@@ -5873,6 +5868,8 @@ format_error(multiple_uniqs) ->
     "implementation limitation: only one UNIQUE field is allowed in CLASS";
 format_error({namelist_redefinition,Name}) ->
     io_lib:format("the name '~s' can not be redefined", [Name]);
+format_error({param_bad_type, Ref}) ->
+    io_lib:format("'~p' is not a parameterized type", [Ref]);
 format_error(param_wrong_number_of_arguments) ->
     "wrong number of arguments";
 format_error(reversed_range) ->

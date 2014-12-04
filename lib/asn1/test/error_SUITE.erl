@@ -284,6 +284,7 @@ objects(Config) ->
 	   "  obj4 SMALL ::= { &code 42 }\n"
 	   "  InvalidSet CL ::= { obj1 }\n"
 	   "  obj5 CL ::= {}\n"
+	   "  ErrSet ::= PT{ {PT{inst}}}\n"
 
 	   "  CL ::= CLASS {\n"
 	   "    &code INTEGER UNIQUE,\n"
@@ -299,6 +300,9 @@ objects(Config) ->
 	   "    &code INTEGER UNIQUE,\n"
            "    &i INTEGER\n"
            "  }\n"
+
+	   "  PT{SMALL:Small} ::= SEQUENCE { a SMALL.&code ({Small}) }\n"
+	   "  inst SMALL ::= {&code 42, &i 4711}\n"
 	   "END\n">>},
     {error,
      [
@@ -316,7 +320,8 @@ objects(Config) ->
       {structured_error,{M,7},asn1ct_check,
        {missing_mandatory_fields,
 	['Data','Set','VarTypeValue',code,enum,object,
-	 vartypevalue],obj5}}
+	 vartypevalue],obj5}},
+      {structured_error,{M,8},asn1ct_check,invalid_objectset}
      ]
     } = run(P, Config),
     ok.
@@ -486,13 +491,17 @@ parameterization(Config) ->
 	   "  P{T1,T2} ::= SEQUENCE { a T1, b T2 }\n"
 	   "  S ::= P{OCTET STRING}\n"
 
+	   "  Seq ::= SEQUENCE { a INTEGER }\n"
+	   "  Sbad ::= Seq{INTEGER}\n"
+
 	   "END\n">>},
     {error,
      [{structured_error,{M,2},asn1ct_check,
        {illegal_typereference,lowercase}},
-      {structured_error,
-       {M,4},
-       asn1ct_check,param_wrong_number_of_arguments}
+      {structured_error,{M,4},asn1ct_check,
+       param_wrong_number_of_arguments},
+      {structured_error,{M,6},asn1ct_check,
+       {param_bad_type, 'Seq'}}
      ]
     } = run(P, Config),
     ok.
