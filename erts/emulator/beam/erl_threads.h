@@ -463,6 +463,7 @@ ERTS_GLB_INLINE void erts_thr_detach(erts_tid_t tid);
 ERTS_GLB_INLINE void erts_thr_exit(void *res);
 ERTS_GLB_INLINE void erts_thr_install_exit_handler(void (*exit_handler)(void));
 ERTS_GLB_INLINE erts_tid_t erts_thr_self(void);
+ERTS_GLB_INLINE int erts_thr_getname(erts_tid_t tid, char *buf, size_t len);
 ERTS_GLB_INLINE int erts_equal_tids(erts_tid_t x, erts_tid_t y);
 ERTS_GLB_INLINE void erts_mtx_init_x(erts_mtx_t *mtx, char *name, Eterm extra,
 				     int enable_lcnt);
@@ -1545,6 +1546,16 @@ erts_thr_self(void)
     return ethr_self();
 #else
     return 0;
+#endif
+}
+
+ERTS_GLB_INLINE int
+erts_thr_getname(erts_tid_t tid, char *buf, size_t len)
+{
+#ifdef USE_THREADS
+    return ethr_getname(tid, buf, len);
+#else
+    return -1;
 #endif
 }
 

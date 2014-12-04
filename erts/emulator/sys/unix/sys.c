@@ -1327,6 +1327,7 @@ static int spawn_init()
 
    thr_opts.detached = 0;
    thr_opts.suggested_stack_size = 0; /* Smallest possible */
+   thr_opts.name = "child_waiter";
 #endif
 
    sys_sigset(SIGPIPE, SIG_IGN); /* Ignore - we'll handle the write failure */
@@ -3230,6 +3231,7 @@ init_smp_sig_notify(void)
 {
     erts_smp_thr_opts_t thr_opts = ERTS_SMP_THR_OPTS_DEFAULT_INITER;
     thr_opts.detached = 1;
+    thr_opts.name = "sys_sig_dispatcher";
 
     if (pipe(sig_notify_fds) < 0) {
 	erl_exit(ERTS_ABORT_EXIT,

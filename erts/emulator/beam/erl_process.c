@@ -7883,23 +7883,17 @@ erts_start_schedulers(void)
     Uint actual;
     Uint wanted = erts_no_schedulers;
     Uint wanted_no_schedulers = erts_no_schedulers;
+    char name[16];
     ethr_thr_opts opts = ETHR_THR_OPTS_DEFAULT_INITER;
 
     opts.detached = 1;
 
-#ifdef ETHR_HAVE_THREAD_NAMES
-    opts.name = malloc(80);
-    if (!opts.name) {
-        ERTS_INTERNAL_ERROR("malloc failed to allocate memory!");
-    }
-#endif
+    opts.name = name;
 
 #ifdef ERTS_SMP
     if (erts_runq_supervision_interval) {
 	opts.suggested_stack_size = 16;
-#ifdef ETHR_HAVE_THREAD_NAMES
-        sprintf(opts.name, "runq_supervisor");
-#endif
+        erts_snprintf(opts.name, 16, "runq_supervisor");
 	erts_atomic_init_nob(&runq_supervisor_sleeping, 0);
 	if (0 != ethr_event_init(&runq_supervision_event))
 	    erl_exit(1, "Failed to create run-queue supervision event\n");
@@ -7926,9 +7920,7 @@ erts_start_schedulers(void)
 
 	ASSERT(actual == esdp->no - 1);
 
-#ifdef ETHR_HAVE_THREAD_NAMES
-	sprintf(opts.name, "scheduler_%d", actual + 1);
-#endif
+	erts_snprintf(opts.name, 16, "%lu_scheduler", actual + 1);
 
 #ifdef __OSE__
         /* This should be done in the bind strategy */
@@ -7950,18 +7942,14 @@ erts_start_schedulers(void)
 	int ix;
 	for (ix = 0; ix < erts_no_dirty_cpu_schedulers; ix++) {
 	    ErtsSchedulerData *esdp = ERTS_DIRTY_CPU_SCHEDULER_IX(ix);
-#ifdef ETHR_HAVE_THREAD_NAMES
-            sprintf(opts.name,"dirty_cpu_scheduler_%d", ix + 1);
-#endif
+	    erts_snprintf(opts.name, 16, "%d_dirty_cpu_scheduler", ix + 1);
 	    res = ethr_thr_create(&esdp->tid,sched_dirty_cpu_thread_func,(void*)esdp,&opts);
 	    if (res != 0)
 		erl_exit(1, "Failed to create dirty cpu scheduler thread %d\n", ix);
 	}
 	for (ix = 0; ix < erts_no_dirty_io_schedulers; ix++) {
 	    ErtsSchedulerData *esdp = ERTS_DIRTY_IO_SCHEDULER_IX(ix);
-#ifdef ETHR_HAVE_THREAD_NAMES
-            sprintf(opts.name,"dirty_io_scheduler_%d", ix + 1);
-#endif
+	    erts_snprintf(opts.name, 16, "%d_dirty_io_scheduler", ix + 1);
 	    res = ethr_thr_create(&esdp->tid,sched_dirty_io_thread_func,(void*)esdp,&opts);
 	    if (res != 0)
 		erl_exit(1, "Failed to create dirty io scheduler thread %d\n", ix);
@@ -7972,9 +7960,7 @@ erts_start_schedulers(void)
 
     ERTS_THR_MEMORY_BARRIER;
 
-#ifdef ETHR_HAVE_THREAD_NAMES
-    sprintf(opts.name, "aux");
-#endif
+    erts_snprintf(opts.name, 16, "aux");
 
 #ifdef __OSE__
     opts.coreNo = 0;
@@ -8000,9 +7986,6 @@ erts_start_schedulers(void)
 	erts_send_error_to_logger_nogl(dsbufp);
     }
 
-#ifdef ETHR_HAVE_THREAD_NAMES
-    free(opts.name);
-#endif
 }
 
 #endif /* ERTS_SMP */
