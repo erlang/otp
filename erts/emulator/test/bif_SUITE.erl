@@ -20,6 +20,7 @@
 -module(bif_SUITE).
 
 -include_lib("test_server/include/test_server.hrl").
+-include_lib("kernel/include/file.hrl").
 
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2,
@@ -681,8 +682,38 @@ erlang_halt(Config) when is_list(Config) ->
     {badrpc,nodedown} = rpc:call(N2, erlang, halt, [0]),
     {ok,N3} = slave:start(H, halt_node3),
     {badrpc,nodedown} = rpc:call(N3, erlang, halt, [0,[]]),
-    ok.
 
+    % This test triggers a segfault when dumping a crash dump
+    % to make sure that we can handle it properly.
+    {ok,N4} = slave:start(H, halt_node4),
+    CrashDump = filename:join(proplists:get_value(priv_dir,Config),
+                              "segfault_erl_crash.dump"),
+    true = rpc:call(N4, os, putenv, ["ERL_CRASH_DUMP",CrashDump]),
+    false = rpc:call(N4, erts_debug, set_internal_state,
+                     [available_internal_state, true]),
+    {badrpc,nodedown} = rpc:call(N4, erts_debug, set_internal_state,
+                                 [broken_halt, "Validate correct crash dump"]),
+    ok = wait_until_stable_size(CrashDump,-1),
+    {ok, Bin} = file:read_file(CrashDump),
+    case {string:str(binary_to_list(Bin),"\n=end\n"),
+          string:str(binary_to_list(Bin),"\r\n=end\r\n")} of
+        {0,0} -> ct:fail("Could not find end marker in crash dump");
+        _ -> ok
+    end.
+
+wait_until_stable_size(_File,-10) ->
+    {error,enoent};
+wait_until_stable_size(File,PrevSz) ->
+    timer:sleep(250),
+    case file:read_file_info(File) of
+        {error,enoent} ->
+            wait_until_stable_size(File,PrevSz-1);
+        {ok,#file_info{size = PrevSz }} when PrevSz /= -1 ->
+            io:format("Crashdump file size was: ~p (~s)~n",[PrevSz,File]),
+            ok;
+        {ok,#file_info{size = NewSz }} ->
+            wait_until_stable_size(File,NewSz)
+    end.
 
 
 %% Helpers

@@ -756,6 +756,8 @@ typedef struct {
 } ErtsCheckIoDebugInfo;
 int erts_check_io_debug(ErtsCheckIoDebugInfo *ip);
 
+int erts_sys_is_area_readable(char *start, char *stop);
+
 /* xxxP */
 #define SYS_DEFAULT_FLOAT_DECIMALS 20
 void init_sys_float(void);

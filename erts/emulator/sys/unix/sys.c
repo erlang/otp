@@ -223,6 +223,8 @@ static int sig_suspend_fds[2] = {-1, -1};
 static int async_fd[2];
 #endif
 
+jmp_buf erts_sys_sigsegv_jmp;
+
 #if CHLDWTHR || defined(ERTS_SMP)
 erts_mtx_t chld_stat_mtx;
 #endif
@@ -681,6 +683,35 @@ void sys_sigrelease(int sig)
     sigemptyset(&mask);
     sigaddset(&mask, sig);
     sigprocmask(SIG_UNBLOCK, &mask, (sigset_t *)NULL);
+}
+
+void erts_sys_sigsegv_handler(int signo) {
+    if (signo == SIGSEGV) {
+        longjmp(erts_sys_sigsegv_jmp, 1);
+    }
+}
+
+/*
+ * Function returns 1 if we can read from all values in between
+ * start and stop.
+ */
+int
+erts_sys_is_area_readable(char *start, char *stop) {
+    int fds[2];
+    if (!pipe(fds)) {
+        /* We let write try to figure out if the pointers are readable */
+        int res = write(fds[1], start, (char*)stop - (char*)start);
+        if (res == -1) {
+            close(fds[0]);
+            close(fds[1]);
+            return 0;
+        }
+        close(fds[0]);
+        close(fds[1]);
+        return 1;
+    }
+    return 0;
+
 }
 
 static ERTS_INLINE int

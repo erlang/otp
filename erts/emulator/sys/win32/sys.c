@@ -247,6 +247,27 @@ void erl_sys_args(int* argc, char** argv)
 #endif
 }
 
+/*
+ * Function returns 1 if we can read from all values in between
+ * start and stop.
+ */
+int
+erts_sys_is_area_readable(char *start, char *stop) {
+    volatile char tmp;
+    __try
+    {
+        while(start < stop) {
+            tmp = *start;
+            start++;
+        }
+    }
+    __except(EXCEPTION_EXECUTE_HANDLER)
+    {
+        return 0;
+    }
+    return 1;
+}
+
 int erts_sys_prepare_crash_dump(int secs)
 {
     Port *heart_port;

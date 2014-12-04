@@ -457,8 +457,7 @@ do {									\
 
 static void exec_misc_ops(ErtsRunQueue *);
 static void print_function_from_pc(int to, void *to_arg, BeamInstr* x);
-static int stack_element_dump(int to, void *to_arg, Process* p, Eterm* sp,
-			      int yreg);
+static int stack_element_dump(int to, void *to_arg, Eterm* sp, int yreg);
 
 static void aux_work_timeout(void *unused);
 static void aux_work_timeout_early_init(int no_schedulers);
@@ -12186,7 +12185,7 @@ erts_stack_dump(int to, void *to_arg, Process *p)
     }
     erts_program_counter_info(to, to_arg, p);
     for (sp = p->stop; sp < STACK_START(p); sp++) {
-        yreg = stack_element_dump(to, to_arg, p, sp, yreg);
+        yreg = stack_element_dump(to, to_arg, sp, yreg);
     }
 }
 
@@ -12243,7 +12242,7 @@ print_function_from_pc(int to, void *to_arg, BeamInstr* x)
 }
 
 static int
-stack_element_dump(int to, void *to_arg, Process* p, Eterm* sp, int yreg)
+stack_element_dump(int to, void *to_arg, Eterm* sp, int yreg)
 {
     Eterm x = *sp;
 
@@ -12269,6 +12268,214 @@ stack_element_dump(int to, void *to_arg, Process* p, Eterm* sp, int yreg)
 	erts_print(to, to_arg, "%T\n", x);
     }
     return yreg;
+}
+
+/*
+ * Print scheduler information
+ */
+void
+erts_print_scheduler_info(int to, void *to_arg, ErtsSchedulerData *esdp) {
+    int i;
+    erts_aint32_t flg;
+    Process *p;
+
+    erts_print(to, to_arg, "=scheduler:%u\n", esdp->no);
+
+#ifdef ERTS_SMP
+    flg = erts_smp_atomic32_read_dirty(&esdp->ssi->flags);
+    erts_print(to, to_arg, "Scheduler Sleep Info Flags: ");
+    for (i = 0; i < ERTS_SSI_FLGS_MAX && flg; i++) {
+        erts_aint32_t chk = (1 << i);
+        if (flg & chk) {
+            switch (chk) {
+            case ERTS_SSI_FLG_SLEEPING:
+                erts_print(to, to_arg, "SLEEPING"); break;
+            case ERTS_SSI_FLG_POLL_SLEEPING:
+                erts_print(to, to_arg, "POLL_SLEEPING"); break;
+            case ERTS_SSI_FLG_TSE_SLEEPING:
+                erts_print(to, to_arg, "TSE_SLEEPING"); break;
+            case ERTS_SSI_FLG_WAITING:
+                erts_print(to, to_arg, "WAITING"); break;
+            case ERTS_SSI_FLG_SUSPENDED:
+                erts_print(to, to_arg, "SUSPENDED"); break;
+            default:
+                erts_print(to, to_arg, "UNKNOWN(%d)", flg); break;
+            }
+            if (flg > chk)
+                erts_print(to, to_arg, " | ");
+            flg -= chk;
+        }
+    }
+    erts_print(to, to_arg, "\n");
+#endif
+
+    flg = erts_atomic32_read_dirty(&esdp->ssi->aux_work);
+    erts_print(to, to_arg, "Scheduler Sleep Info Aux Work: ");
+    for (i = 0; i < ERTS_SSI_AUX_WORK_MAX && flg; i++) {
+        erts_aint32_t chk = (1 << i);
+        if (flg & chk) {
+            switch (chk) {
+            case ERTS_SSI_AUX_WORK_DELAYED_AW_WAKEUP:
+                erts_print(to, to_arg, "DELAYED_AW_WAKEUP"); break;
+            case ERTS_SSI_AUX_WORK_DD:
+                erts_print(to, to_arg, "DELAYED_DEALLOC"); break;
+            case ERTS_SSI_AUX_WORK_DD_THR_PRGR:
+                erts_print(to, to_arg, "DELAYED_DEALLOC_THR_PRGR"); break;
+            case ERTS_SSI_AUX_WORK_FIX_ALLOC_DEALLOC:
+                erts_print(to, to_arg, "FIX_ALLOC_DEALLOC"); break;
+            case ERTS_SSI_AUX_WORK_FIX_ALLOC_LOWER_LIM:
+                erts_print(to, to_arg, "FIX_ALLOC_LOWER_LIM"); break;
+            case ERTS_SSI_AUX_WORK_THR_PRGR_LATER_OP:
+                erts_print(to, to_arg, "THR_PRGR_LATER_OP"); break;
+            case ERTS_SSI_AUX_WORK_ASYNC_READY:
+                erts_print(to, to_arg, "ASYNC_READY"); break;
+            case ERTS_SSI_AUX_WORK_ASYNC_READY_CLEAN:
+                erts_print(to, to_arg, "ASYNC_READY_CLEAN"); break;
+            case ERTS_SSI_AUX_WORK_MISC_THR_PRGR:
+                erts_print(to, to_arg, "MISC_THR_PRGR"); break;
+            case ERTS_SSI_AUX_WORK_MISC:
+                erts_print(to, to_arg, "MISC"); break;
+            case ERTS_SSI_AUX_WORK_CHECK_CHILDREN:
+                erts_print(to, to_arg, "CHECK_CHILDREN"); break;
+            case ERTS_SSI_AUX_WORK_SET_TMO:
+                erts_print(to, to_arg, "SET_TMO"); break;
+            case ERTS_SSI_AUX_WORK_MSEG_CACHE_CHECK:
+                erts_print(to, to_arg, "MSEG_CACHE_CHECK"); break;
+            case ERTS_SSI_AUX_WORK_REAP_PORTS:
+                erts_print(to, to_arg, "REAP_PORTS"); break;
+            default:
+                erts_print(to, to_arg, "UNKNOWN(%d)", flg); break;
+            }
+            if (flg > chk)
+                erts_print(to, to_arg, " | ");
+            flg -= chk;
+        }
+    }
+    erts_print(to, to_arg, "\n");
+
+    erts_print(to, to_arg, "Current Port: ");
+    if (esdp->current_port)
+        erts_print(to, to_arg, "%T", esdp->current_port->common.id);
+    erts_print(to, to_arg, "\n");
+
+    p = esdp->current_process;
+    erts_print(to, to_arg, "Current Process: ");
+    if (esdp->current_process && !(ERTS_TRACE_FLAGS(p) & F_SENSITIVE)) {
+      flg = erts_smp_atomic32_read_dirty(&p->state);
+      erts_print(to, to_arg, "%T\n", p->common.id);
+      
+      erts_print(to, to_arg, "Current Process State: ");
+      erts_dump_process_state(to, to_arg, flg);
+      
+      erts_print(to, to_arg, "Current Process Internal State: ");
+      erts_dump_extended_process_state(to, to_arg, flg);
+      
+      erts_print(to, to_arg, "Current Process Program counter: %p (", p->i);
+      print_function_from_pc(to, to_arg, p->i);
+      erts_print(to, to_arg, ")\n");
+      erts_print(to, to_arg, "Current Process CP: %p (", p->cp);
+      print_function_from_pc(to, to_arg, p->cp);
+      erts_print(to, to_arg, ")\n");
+      
+      /* Getting this stacktrace can segfault if we are very very
+	 unlucky if called while a process is being garbage collected.
+	 Therefore we only call this on other schedulers if we either
+	 have protection against segfaults, or we know that the process
+	 is not garbage collecting. It *should* always be safe to call
+	 on a process owned by us, even if it is currently being garbage
+	 collected.
+      */
+      erts_print(to, to_arg, "Current Process Limited Stack Trace:\n");
+      erts_limited_stack_trace(to, to_arg, p);
+    } else
+      erts_print(to, to_arg, "\n");
+
+    for (i = 0; i < ERTS_NO_PROC_PRIO_LEVELS; i++) {
+        erts_print(to, to_arg, "Run Queue ");
+        switch (i) {
+        case PRIORITY_MAX:
+            erts_print(to, to_arg, "Max ");
+            break;
+        case PRIORITY_HIGH:
+            erts_print(to, to_arg, "High ");
+            break;
+        case PRIORITY_NORMAL:
+            erts_print(to, to_arg, "Normal ");
+            break;
+        case PRIORITY_LOW:
+            erts_print(to, to_arg, "Low ");
+            break;
+        default:
+            erts_print(to, to_arg, "Unknown ");
+            break;
+        }
+        erts_print(to, to_arg, "Length: %d\n",
+                   erts_smp_atomic32_read_dirty(&esdp->run_queue->procs.prio_info[i].len));
+    }
+    erts_print(to, to_arg, "Run Queue Port Length: %d\n",
+               erts_smp_atomic32_read_dirty(&esdp->run_queue->ports.info.len));
+
+    flg = erts_smp_atomic32_read_dirty(&esdp->run_queue->flags);
+    erts_print(to, to_arg, "Run Queue Flags: ");
+    for (i = 0; i < ERTS_RUNQ_FLG_MAX && flg; i++) {
+        erts_aint32_t chk = (1 << i);
+        if (flg & chk) {
+            switch (chk) {
+            case (1 << PRIORITY_MAX):
+                erts_print(to, to_arg, "NONEMPTY_MAX"); break;
+            case (1 << PRIORITY_HIGH):
+                erts_print(to, to_arg, "NONEMPTY_HIGH"); break;
+            case (1 << PRIORITY_NORMAL):
+                erts_print(to, to_arg, "NONEMPTY_NORMAL"); break;
+            case (1 << PRIORITY_LOW):
+                erts_print(to, to_arg, "NONEMPTY_LOW"); break;
+            case (1 << (PRIORITY_MAX + ERTS_RUNQ_FLGS_EMIGRATE_SHFT)):
+                erts_print(to, to_arg, "EMIGRATE_MAX"); break;
+            case (1 << (PRIORITY_HIGH + ERTS_RUNQ_FLGS_EMIGRATE_SHFT)):
+                erts_print(to, to_arg, "EMIGRATE_HIGH"); break;
+            case (1 << (PRIORITY_NORMAL + ERTS_RUNQ_FLGS_EMIGRATE_SHFT)):
+                erts_print(to, to_arg, "EMIGRATE_NORMAL"); break;
+            case (1 << (PRIORITY_LOW + ERTS_RUNQ_FLGS_EMIGRATE_SHFT)):
+                erts_print(to, to_arg, "EMIGRATE_LOW"); break;
+            case (1 << (PRIORITY_MAX + ERTS_RUNQ_FLGS_IMMIGRATE_SHFT)):
+                erts_print(to, to_arg, "IMMIGRATE_MAX"); break;
+            case (1 << (PRIORITY_HIGH + ERTS_RUNQ_FLGS_IMMIGRATE_SHFT)):
+                erts_print(to, to_arg, "IMMIGRATE_HIGH"); break;
+            case (1 << (PRIORITY_NORMAL + ERTS_RUNQ_FLGS_IMMIGRATE_SHFT)):
+                erts_print(to, to_arg, "IMMIGRATE_NORMAL"); break;
+            case (1 << (PRIORITY_LOW + ERTS_RUNQ_FLGS_IMMIGRATE_SHFT)):
+                erts_print(to, to_arg, "IMMIGRATE_LOW"); break;
+            case (1 << (PRIORITY_MAX + ERTS_RUNQ_FLGS_EVACUATE_SHFT)):
+                erts_print(to, to_arg, "EVACUATE_MAX"); break;
+            case (1 << (PRIORITY_HIGH + ERTS_RUNQ_FLGS_EVACUATE_SHFT)):
+                erts_print(to, to_arg, "EVACUATE_HIGH"); break;
+            case (1 << (PRIORITY_NORMAL + ERTS_RUNQ_FLGS_EVACUATE_SHFT)):
+                erts_print(to, to_arg, "EVACUATE_NORMAL"); break;
+            case (1 << (PRIORITY_LOW + ERTS_RUNQ_FLGS_EVACUATE_SHFT)):
+                erts_print(to, to_arg, "EVACUATE_LOW"); break;
+            case ERTS_RUNQ_FLG_OUT_OF_WORK:
+                erts_print(to, to_arg, "OUT_OF_WORK"); break;
+            case ERTS_RUNQ_FLG_HALFTIME_OUT_OF_WORK:
+                erts_print(to, to_arg, "HALFTIME_OUT_OF_WORK"); break;
+            case ERTS_RUNQ_FLG_SUSPENDED:
+                erts_print(to, to_arg, "SUSPENDED"); break;
+            case ERTS_RUNQ_FLG_CHK_CPU_BIND:
+                erts_print(to, to_arg, "CHK_CPU_BIND"); break;
+            case ERTS_RUNQ_FLG_INACTIVE:
+                erts_print(to, to_arg, "INACTIVE"); break;
+            case ERTS_RUNQ_FLG_NONEMPTY:
+                erts_print(to, to_arg, "NONEMPTY"); break;
+            case ERTS_RUNQ_FLG_PROTECTED:
+                erts_print(to, to_arg, "PROTECTED"); break;
+            default:
+                erts_print(to, to_arg, "UNKNOWN(%d)", flg); break;
+            }
+            if (flg > chk)
+                erts_print(to, to_arg, " | ");
+            flg -= chk;
+        }
+    }
+    erts_print(to, to_arg, "\n");
 }
 
 /*
