@@ -107,7 +107,8 @@ getopts(Handle, OptNames) when is_pid(Handle), is_list(OptNames) ->
 %%% --------------------------------------------------------------------
 
 close(Handle) when is_pid(Handle) ->
-    send(Handle, close).
+    send(Handle, close),
+    ok.
 
 %%% --------------------------------------------------------------------
 %%% Set who we should link ourselves to
