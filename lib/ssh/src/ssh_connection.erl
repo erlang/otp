@@ -107,15 +107,9 @@ shell(ConnectionHandler, ChannelId) ->
 %% Description: Executes a predefined subsystem.
 %%--------------------------------------------------------------------
 subsystem(ConnectionHandler, ChannelId, SubSystem, TimeOut) ->
-    case ssh_connection_handler:request(ConnectionHandler, self(),
-					ChannelId, "subsystem", 
-					true, [?string(SubSystem)], TimeOut) of
-	success -> success;
-	failure -> failure;
-	{error,timeout} -> {error,timeout};
-	_ -> failure
-    end.
-	    
+     ssh_connection_handler:request(ConnectionHandler, self(),
+				    ChannelId, "subsystem", 
+				    true, [?string(SubSystem)], TimeOut).
 %%--------------------------------------------------------------------
 -spec send(pid(), channel_id(), iodata()) ->
 		  ok | {error, closed}.
