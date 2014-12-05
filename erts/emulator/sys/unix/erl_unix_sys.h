@@ -211,13 +211,8 @@ int sys_stop_hrvtime(void);
 #define SYS_CLOCK_RESOLUTION 1
 
 /* These are defined in sys.c */
-#if defined(SIG_SIGSET)		/* Old SysV */
-RETSIGTYPE (*sys_sigset())();
-#elif defined(SIG_SIGNAL)	/* Old BSD */
-RETSIGTYPE (*sys_sigset())();
-#else
-RETSIGTYPE (*sys_sigset(int, RETSIGTYPE (*func)(int)))(int);
-#endif
+typedef void (*SIGFUNC)(int);
+extern SIGFUNC sys_signal(int, SIGFUNC);
 extern void sys_sigrelease(int);
 extern void sys_sigblock(int);
 extern void sys_stop_cat(void);

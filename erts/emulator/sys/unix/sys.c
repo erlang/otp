@@ -649,39 +649,7 @@ erl_sys_init(void)
 
 /* signal handling */
 
-#ifdef SIG_SIGSET		/* Old SysV */
-RETSIGTYPE (*sys_sigset(sig, func))()
-int sig;
-RETSIGTYPE (*func)();
-{
-    return(sigset(sig, func));
-}
-void sys_sigblock(int sig)
-{
-    sighold(sig);
-}
-void sys_sigrelease(int sig)
-{
-    sigrelse(sig);
-}
-#else /* !SIG_SIGSET */
-#ifdef SIG_SIGNAL		/* Old BSD */
-RETSIGTYPE (*sys_sigset(sig, func))(int, int)
-int sig;
-RETSIGTYPE (*func)();
-{
-    return(signal(sig, func));
-}
-sys_sigblock(int sig)
-{
-    sigblock(sig);
-}
-sys_sigrelease(int sig)
-{
-    sigsetmask(sigblock(0) & ~sigmask(sig));
-}
-#else /* !SIG_SIGNAL */	/* The True Way - POSIX!:-) */
-RETSIGTYPE (*sys_sigset(int sig, RETSIGTYPE (*func)(int)))(int)
+SIGFUNC sys_signal(int sig, SIGFUNC func)
 {
     struct sigaction act, oact;
 
@@ -714,23 +682,6 @@ void sys_sigrelease(int sig)
     sigaddset(&mask, sig);
     sigprocmask(SIG_UNBLOCK, &mask, (sigset_t *)NULL);
 }
-#endif /* !SIG_SIGNAL */
-#endif /* !SIG_SIGSET */
-
-#if (0) /* not used? -- gordon */
-static void (*break_func)();
-static RETSIGTYPE break_handler(int sig)
-{
-#ifdef QNX
-    /* Turn off SIGCHLD during break processing */
-    sys_sigblock(SIGCHLD);
-#endif
-    (*break_func)();
-#ifdef QNX
-    sys_sigrelease(SIGCHLD);
-#endif
-}
-#endif /* 0 */
 
 static ERTS_INLINE int
 prepare_crash_dump(int secs)
@@ -952,9 +903,9 @@ static RETSIGTYPE do_quit(int signum)
 
 /* Disable break */
 void erts_set_ignore_break(void) {
-    sys_sigset(SIGINT,  SIG_IGN);
-    sys_sigset(SIGQUIT, SIG_IGN);
-    sys_sigset(SIGTSTP, SIG_IGN);
+    sys_signal(SIGINT,  SIG_IGN);
+    sys_signal(SIGQUIT, SIG_IGN);
+    sys_signal(SIGTSTP, SIG_IGN);
 }
 
 /* Don't use ctrl-c for break handler but let it be 
@@ -977,14 +928,14 @@ void erts_replace_intr(void) {
 
 void init_break_handler(void)
 {
-   sys_sigset(SIGINT, request_break);
+   sys_signal(SIGINT, request_break);
 #ifndef ETHR_UNUSABLE_SIGUSRX
    sys_signal(SIGUSR1, user_signal1);
 #ifdef ERTS_SMP
    sys_signal(ERTS_SYS_SUSPEND_SIGNAL, suspend_signal);
 #endif /* #ifdef ERTS_SMP */
 #endif /* #ifndef ETHR_UNUSABLE_SIGUSRX */
-   sys_sigset(SIGQUIT, do_quit);
+   sys_signal(SIGQUIT, do_quit);
 }
 
 int sys_max_files(void)
@@ -1361,7 +1312,7 @@ static int spawn_init()
    thr_opts.name = "child_waiter";
 #endif
 
-   sys_sigset(SIGPIPE, SIG_IGN); /* Ignore - we'll handle the write failure */
+   sys_signal(SIGPIPE, SIG_IGN); /* Ignore - we'll handle the write failure */
    driver_data = (struct driver_data *)
        erts_alloc(ERTS_ALC_T_DRV_TAB, max_files * sizeof(struct driver_data));
    erts_smp_atomic_add_nob(&sys_misc_mem_sz,
@@ -1374,7 +1325,7 @@ static int spawn_init()
    sys_sigblock(SIGCHLD);
 #endif
 
-   sys_sigset(SIGCHLD, onchld); /* Reap children */
+   sys_signal(SIGCHLD, onchld); /* Reap children */
 
 #if CHLDWTHR
    erts_thr_create(&child_waiter_tid, child_waiter, NULL, &thr_opts);
