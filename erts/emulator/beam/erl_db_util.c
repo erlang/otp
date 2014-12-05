@@ -3254,34 +3254,38 @@ int db_is_variable(Eterm obj)
 /* return 1 if obj contains a variable or underscore */
 /* return 0 if obj is fully ground                   */
 
-int db_has_variable(Eterm obj)
-{
-    switch(obj & _TAG_PRIMARY_MASK) {
-    case TAG_PRIMARY_LIST: {
-	while (is_list(obj)) {
-	    if (db_has_variable(CAR(list_val(obj))))
-		return 1;
-	    obj = CDR(list_val(obj));
-	}
-	return(db_has_variable(obj));  /* Non wellformed list or [] */
-    }
-    case TAG_PRIMARY_BOXED: 
-	if (!is_tuple(obj)) {
-	    return 0;
-	} else {
-	    Eterm *tuple = tuple_val(obj);
-	    int arity = arityval(*tuple++);
-	    while(arity--) {
-		if (db_has_variable(*tuple))
-		    return 1;
-		tuple++;
+int db_has_variable(Eterm node) {
+    DECLARE_ESTACK(s);
+
+    ESTACK_PUSH(s,node);
+    while (!ESTACK_ISEMPTY(s)) {
+	node = ESTACK_POP(s);
+	switch(node & _TAG_PRIMARY_MASK) {
+	case TAG_PRIMARY_LIST:
+	    while (is_list(node)) {
+		ESTACK_PUSH(s,CAR(list_val(node)));
+		node = CDR(list_val(node));
 	    }
-	    return(0);
+	    ESTACK_PUSH(s,node);    /* Non wellformed list or [] */
+	    break;
+	case TAG_PRIMARY_BOXED:
+	    if (is_tuple(node)) {
+		Eterm *tuple = tuple_val(node);
+		int arity = arityval(*tuple);
+		while(arity--) {
+		    ESTACK_PUSH(s,*(++tuple));
+		}
+	    }
+	    break;
+	case TAG_PRIMARY_IMMED1:
+	    if (node == am_Underscore || db_is_variable(node) >= 0) {
+		DESTROY_ESTACK(s);
+		return 1;
+	    }
+	    break;
 	}
-    case TAG_PRIMARY_IMMED1:
-	if (obj == am_Underscore || db_is_variable(obj) >= 0)
-	    return 1;
     }
+    DESTROY_ESTACK(s);
     return 0;
 }
 
