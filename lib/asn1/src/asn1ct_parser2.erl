@@ -1111,14 +1111,8 @@ parse_FixedTypeValueFieldSpec([{valuefieldreference,L1,VFieldName}|Rest]) ->
     {OptionalitySpec,Rest5} = parse_ValueOptionalitySpec(Rest3),
     case {Unique,Rest5} of
 	{'UNIQUE',[{Del,_}|_]} when Del =:= ','; Del =:= '}' ->
-	    case OptionalitySpec of 
-		{'DEFAULT',_} ->
-		    throw({asn1_error,
-			   {L1,get(asn1_module),
-			    ['UNIQUE and DEFAULT in same field',VFieldName]}});
-		_ ->
-		    {{fixedtypevaluefield,VFieldName,Type,Unique,OptionalitySpec},Rest5}
-	    end;
+	    {{fixedtypevaluefield,VFieldName,Type,Unique,
+	      OptionalitySpec},Rest5};
 	{_,[{Del,_}|_]} when Del =:= ','; Del =:= '}'  ->
 	    {{object_or_fixedtypevalue_field,VFieldName,Type,Unique,OptionalitySpec},Rest5};
 	_ ->

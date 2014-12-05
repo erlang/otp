@@ -585,6 +585,12 @@ check_class_fields(S,[F|Fields],Acc) ->
 	case element(1,F) of
 	    fixedtypevaluefield ->
 		{_,Name,Type,Unique,OSpec} = F,
+		case {Unique,OSpec} of
+		    {'UNIQUE',{'DEFAULT',_}} ->
+			asn1_error(S, {unique_and_default,Name});
+		    {_,_} ->
+			ok
+		end,
 		RefType = check_type(S,#typedef{typespec=Type},Type),
 		{fixedtypevaluefield,Name,RefType,Unique,OSpec};
 	    object_or_fixedtypevalue_field ->
@@ -5898,6 +5904,9 @@ format_error({undefined_field,FieldName}) ->
     io_lib:format("the field '&~s' is undefined", [FieldName]);
 format_error({undefined_import,Ref,Module}) ->
     io_lib:format("'~s' is not exported from ~s", [Ref,Module]);
+format_error({unique_and_default,Field}) ->
+    io_lib:format("the field '&~s' must not have both 'UNIQUE' and 'DEFAULT'",
+		  [Field]);
 format_error({value_reused,Val}) ->
     io_lib:format("the value '~p' is used more than once", [Val]);
 format_error({non_unique_object,Id}) ->

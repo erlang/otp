@@ -112,10 +112,13 @@ classes(Config) ->
     P = {M,
 	 <<"Classes DEFINITIONS AUTOMATIC TAGS ::= BEGIN\n"
 	   "  LowerCase ::= CLASS { &id INTEGER UNIQUE }\n"
+	   "  CL ::= CLASS { &id INTEGER UNIQUE DEFAULT 42}\n"
 	   "END\n">>},
     {error,
-     [{structured_error,{M,2},asn1ct_check,{illegal_class_name,
-					    'LowerCase'}}
+     [{structured_error,{M,2},asn1ct_check,
+       {illegal_class_name,'LowerCase'}},
+      {structured_error,{M,3},asn1ct_check,
+       {unique_and_default,id}}
      ]} = run(P, Config),
     ok.
 
