@@ -2133,7 +2133,6 @@ parse_ValueAssignment([#identifier{pos=L1,val=IdName}|Rest]) ->
     case Rest2 of
 	[{'::=',_}|Rest3] ->
 	    {Value,Rest4} = parse_Value(Rest3),
-	    lookahead_assignment(Rest4),
 	    {#valuedef{pos=L1,name=IdName,type=Type,value=Value,
 		       module=get(asn1_module)},Rest4};
 	_ ->
@@ -2299,15 +2298,6 @@ identifier2Extvalueref(#identifier{pos=Pos,val=Name}) ->
     #'Externalvaluereference'{pos=Pos,
 			      module=resolve_module(Name),
 			      value=Name}.
-
-%% lookahead_assignment/1 checks that the next sequence of tokens
-%% in Token contain a valid assignment or the
-%% 'END' token. Otherwise an exception is thrown.
-lookahead_assignment([{'END',_}|_Rest]) ->
-    ok;
-lookahead_assignment(Tokens) ->
-    {_,_} = parse_Assignment(Tokens),
-    ok.
 
 parse_error(Tokens) ->
     throw({asn1_error,{parse_error,Tokens}}).
