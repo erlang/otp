@@ -142,5 +142,7 @@ typedef void* erts_cond;
 #define THR_JOIN(T)		((void)		ALC_TEST1(0xf11, (T)))
 #define THR_EXIT(R)		((void)		ALC_TEST1(0xf12, (R)))
 #define IS_SMP_ENABLED		((int)		ALC_TEST0(0xf13))
+#define ALLOC_TEST(S)		((void*)	ALC_TEST1(0xf14, (S)))
+#define FREE_TEST(P)		((void)		ALC_TEST1(0xf15, (P)))
 
 #endif
