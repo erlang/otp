@@ -64,33 +64,16 @@ groups() ->
     ].
 
 init_per_suite(Config) ->
-    SSL_started =
-	try ssl:start()
-	of
-	    ok -> true;
-	    {error,{already_started,ssl}} -> true
-	catch
-	    Error:Reason ->
-		ct:comment("ssl failed to start"),
-		ct:log("init_per_suite failed to start ssl Error=~p Reason=~p", [Error, Reason]),
-		false
-	end,
-
-    case SSL_started of
-	true -> make_certs:all("/dev/null", 
-			       filename:join(?config(data_dir,Config), "certs"));
-	false -> ok
-    end,
-
+    SSL_available = init_ssl_certs_et_al(Config),
     LDAP_server =  find_first_server(false, [{config,eldap_server}, {config,ldap_server}, {"localhost",9876}]),
     LDAPS_server = 
-	case SSL_started of
+	case SSL_available of
 	    true ->
 		find_first_server(true,  [{config,ldaps_server}, {"localhost",9877}]);
 	    false ->
 		undefined
 	end,
-    [{ssl_available, SSL_started},
+    [{ssl_available, SSL_available},
      {ldap_server,   LDAP_server},
      {ldaps_server,  LDAPS_server} | Config].
 
@@ -633,5 +616,33 @@ supported_extension(OID, Config) ->
 				SE<-SEs]);
 	_ ->
 	    _Ok = eldap:close(H),
+	    false
+    end.
+
+%%%----------------------------------------------------------------
+init_ssl_certs_et_al(Config) ->
+    try ssl:start()
+    of
+	R when R==ok ; R=={error,{already_started,ssl}} ->
+	    try make_certs:all("/dev/null", 
+			       filename:join(?config(data_dir,Config), "certs"))
+	    of
+		{ok,_} -> true;
+		Other -> 
+		    ct:comment("make_certs failed"),
+		    ct:log("make_certs failed ~p", [Other]),
+		    false
+	    catch
+		C:E -> 
+		    ct:comment("make_certs crashed"),
+		    ct:log("make_certs failed ~p:~p", [C,E]),
+		    false
+	    end;
+	_ ->
+	    false
+    catch
+	Error:Reason ->
+	    ct:comment("ssl failed to start"),
+	    ct:log("init_per_suite failed to start ssl Error=~p Reason=~p", [Error, Reason]),
 	    false
     end.
