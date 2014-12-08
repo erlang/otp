@@ -2230,21 +2230,22 @@ ensure_present([{Key, _Val} = Elem|Ensure], Config) ->
     
 %% Retrieve user info for this agent.
 %% If this is an unknown agent, then use the default user
-handle_snmp_trap(
-  #trappdu{enterprise    = Enteprise, 
-	   generic_trap  = Generic, 
-	   specific_trap = Spec,
-	   time_stamp    = Timestamp, 
-	   varbinds      = Varbinds} = Trap, Domain, Addr, State) ->
+handle_snmp_trap(#trappdu{enterprise = Enteprise,
+                agent_addr    = AgentAddr,
+                generic_trap  = Generic,
+                specific_trap = Spec,
+                time_stamp    = Timestamp,
+                varbinds      = Varbinds} = Trap,
+            Addr, Port, State) ->
 
-    ?vtrace("handle_snmp_trap [trappdu] -> entry with~n"
-	    "   Domain:  ~p~n"
-	    "   Addr:    ~p~n"
-	    "   Trap:    ~p", [Domain, Addr, Trap]),
+    ?vtrace("handle_snmp_trap [trappdu] -> entry with"
+	    "~n   Addr: ~p"
+	    "~n   Port: ~p"
+	    "~n   Trap: ~p", [Addr, Port, Trap]),
 
-    Varbinds2 = fix_vbs_BITS(Varbinds), 
-    SnmpTrapInfo = {Enteprise, Generic, Spec, Timestamp, Varbinds2},
-    do_handle_snmp_trap(SnmpTrapInfo, Domain, Addr, State);
+    Varbinds2 = fix_vbs_BITS(Varbinds),
+    SnmpTrapInfo = {Enteprise, AgentAddr, Generic, Spec, Timestamp, Varbinds2},
+    do_handle_snmp_trap(SnmpTrapInfo, Addr, Port, State);
 
 handle_snmp_trap(#pdu{error_status = EStatus, 
 		      error_index  = EIndex, 

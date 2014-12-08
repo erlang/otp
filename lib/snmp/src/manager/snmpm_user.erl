@@ -20,18 +20,19 @@
 -module(snmpm_user).
 
 -export_type([
-	      snmp_gen_info/0, 
-	      snmp_v1_trap_info/0 
+	      snmp_gen_info/0,
+	      snmp_v1_trap_info/0
 	     ]).
 
--type snmp_gen_info() :: {ErrorStatus :: atom(), 
-			  ErrorIndex :: pos_integer(), 
+-type snmp_gen_info() :: {ErrorStatus :: atom(),
+			  ErrorIndex :: pos_integer(),
 			  Varbinds :: [snmp:varbind()]}.
--type snmp_v1_trap_info() :: {Enteprise :: snmp:oid(), 
-			      Generic   :: integer(), 
-			      Spec      :: integer(), 
-			      Timestamp :: integer(), 
-			      Varbinds  :: [snmp:varbind()]}.
+-type snmp_v1_trap_info() :: {Enteprise :: snmp:oid(),
+                    AgentAddr :: ip_address(),
+                    Generic   :: integer(),
+                    Spec      :: integer(),
+                    Timestamp :: integer(),
+                    Varbinds  :: [snmp:varbind()]}.
 -type ip_address()  :: inet:ip_address().
 -type port_number() :: inet:port_number().
 

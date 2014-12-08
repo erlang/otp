@@ -82,6 +82,7 @@ snmp_gen_info() = {ErrorStatus :: atom(),
                    ErrorIndex  :: pos_integer(), 
                    Varbinds    :: [snmp:varbind()]}
 snmp_v1_trap_info() :: {Enteprise :: snmp:oid(), 
+                        AgentAddr :: ip_address(),
                         Generic   :: integer(), 
                         Spec      :: integer(), 
                         Timestamp :: integer(), 
