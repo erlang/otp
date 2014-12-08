@@ -3865,7 +3865,7 @@ get_referenced(S,Emod,Ename,Pos) ->
 	    %% May be an imported entity in module Emod or Emod may not exist
 	    case asn1_db:dbget(Emod,'MODULE') of
 		undefined ->
-		    throw({error,{asn1,{module_not_found,Emod}}});
+		    asn1_error(S, {undefined_import, Ename, Emod});
 		_ ->
 		    NewS = update_state(S,Emod),
 		    get_imported(NewS,Ename,Emod,Pos)
@@ -3895,12 +3895,11 @@ get_imported(S,Name,Module,Pos) ->
 	    parse_and_save(S,Imodule),
 	    case asn1_db:dbget(Imodule,'MODULE') of
 		undefined ->
-		    throw({error,{asn1,{module_not_found,Imodule}}});
+		    asn1_error(S, {undefined_import, Name, Module});
 		Im when is_record(Im,module) ->
 		    case is_exported(Im,Name) of
 			false ->
-			    throw({error,
-				   {asn1,{not_exported,{Im,Name}}}});
+			    asn1_error(S, {undefined_export, Name});
 			_ ->
 			    ?dbg("get_imported, is_exported ~p, ~p~n",[Imodule,Name]),
 			    get_referenced_type(S,
@@ -5252,9 +5251,7 @@ evaluate_atpath(S=#state{abscomppath=TopPath},NamePath,Cnames,{outermost,AtPath=
 	{_,[H|_T]} ->
 	    case lists:member(H,Cnames) of
 		true -> [AtPathBelowTop];
-		_ -> 
-		 %% error({type,{asn1,"failed to analyze at-path",AtPath},S})
-		    throw({type,{asn1,"failed to analyze at-path",AtPath},S})
+		_ -> asn1_error(S, {invalid_at_path, AtPath})
 	    end
     end;
 evaluate_atpath(_,_,_,_) ->
@@ -5477,8 +5474,7 @@ value_match(S,#'ComponentType'{typespec=Type},Name,[At|Ats],Acc) ->
     InnerType = asn1ct_gen:get_inner(Type#type.def),
     Components =
 	case get_atlist_components(Type#type.def) of
-	    [] -> error({type,{asn1,"element in at list must be a "
-			       "SEQUENCE, SET or CHOICE.",Name},S});
+	    [] -> asn1_error(S, {invalid_element, Name});
 	    Comps -> Comps
 	end,
     {Index,ValueIndex} = component_value_index(S,InnerType,At,Components),
@@ -5498,8 +5494,7 @@ component_index1(_S,Name,[#'ComponentType'{name=Name}|_Cs],N) ->
 component_index1(S,Name,[_C|Cs],N) ->
     component_index1(S,Name,Cs,N+1);
 component_index1(S,Name,[],_) ->
-    error({type,{asn1,"component of at-list was not"
-		 " found in substructure",Name},S}).
+    asn1_error(S, {invalid_at_list, Name}).
 
 get_unique_fieldname(S, #classdef{typespec=TS}) ->
     Fields = TS#objectclass.fields,
