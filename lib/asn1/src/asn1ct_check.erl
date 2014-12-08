@@ -2017,8 +2017,6 @@ normalize_value(S0, Type, {'DEFAULT',Value}, NameList) ->
 normalize_value(S,Type,Val,NameList) ->
     normalize_value(S,Type,{'DEFAULT',Val},NameList).
 
-normalize_boolean(S,{Name,Bool},CType) when is_atom(Name) ->
-    normalize_boolean(S,Bool,CType);
 normalize_boolean(_,true,_) ->
     true;
 normalize_boolean(_,false,_) ->
@@ -2382,10 +2380,7 @@ normalize_restrictedstring(_S,CString,_) when is_list(CString) ->
 %% definedvalue case or argument in a parameterized type
 normalize_restrictedstring(S,ERef,CType) when is_record(ERef,'Externalvaluereference') ->
     get_normalized_value(S,ERef,CType,
-			 fun normalize_restrictedstring/3,[]);
-%% 
-normalize_restrictedstring(S,{Name,Val},CType) when is_atom(Name) ->
-    normalize_restrictedstring(S,Val,CType).
+			 fun normalize_restrictedstring/3,[]).
 
 normalize_objectclassfieldvalue(S,{opentypefieldvalue,Type,Value},NameList) ->
     %% An open type has per definition no type. Thus should the type
