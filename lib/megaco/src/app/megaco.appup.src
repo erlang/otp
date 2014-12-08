@@ -180,11 +180,15 @@
 %%      |
 %%      v
 %%   3.17.2
+%%      |
+%%      v
+%%   3.17.3
 %%
 %%
 
 {"%VSN%",
  [
+  {"3.17.2", []},
   {"3.17.1", [{restart_application,megaco}]},
   {"3.17.0.3", [{restart_application,megaco}]},
   {"3.17.0.2", []},
@@ -198,6 +202,7 @@
   }
  ],
  [
+  {"3.17.2", []},
   {"3.17.1", [{restart_application,megaco}]},
   {"3.17.0.3", [{restart_application,megaco}]},
   {"3.17.0.2", []},
