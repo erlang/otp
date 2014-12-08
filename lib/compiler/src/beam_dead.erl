@@ -215,15 +215,13 @@ forward([{test,is_eq_exact,_,[Dst,Src]}=I,{move,Src,Dst}|Is], D, Lc, Acc) ->
     forward([I|Is], D, Lc, Acc);
 forward([{test,is_nil,_,[Dst]}=I,{move,nil,Dst}|Is], D, Lc, Acc) ->
     forward([I|Is], D, Lc, Acc);
-forward([{test,is_eq_exact,_,_}=I|Is], D, Lc, Acc) ->
-    case Is of
-	[{label,_}|_] -> forward(Is, D, Lc, [I|Acc]);
-	_ -> forward(Is, D, Lc+1, [{label,Lc},I|Acc])
-    end;
-forward([{test,is_ne_exact,_,_}=I|Is], D, Lc, Acc) ->
-    case Is of
-	[{label,_}|_] -> forward(Is, D, Lc, [I|Acc]);
-	_ -> forward(Is, D, Lc+1, [{label,Lc},I|Acc])
+forward([{test,_,_,_}=I|Is]=Is0, D, Lc, Acc) ->
+    %% Help the second, backward pass to by inserting labels after
+    %% relational operators so that they can be skipped if they are
+    %% known to be true.
+    case useful_to_insert_label(Is0) of
+	false -> forward(Is, D, Lc, [I|Acc]);
+	true -> forward(Is, D, Lc+1, [{label,Lc},I|Acc])
     end;
 forward([I|Is], D, Lc, Acc) ->
     forward(Is, D, Lc, [I|Acc]);
@@ -238,6 +236,17 @@ update_value_dict([Lit,{f,Lbl}|T], Reg, D0) ->
 	end,
     update_value_dict(T, Reg, D);
 update_value_dict([], _, D) -> D.
+
+useful_to_insert_label([_,{label,_}|_]) ->
+    false;
+useful_to_insert_label([{test,Op,_,_}|_]) ->
+    case Op of
+	is_lt -> true;
+	is_ge -> true;
+	is_eq_exact -> true;
+	is_ne_exact -> true;
+	_ -> false
+    end.
 
 %%%
 %%% Scan instructions in reverse execution order and remove dead code.
@@ -309,20 +318,22 @@ backward([{test,is_eq_exact,{f,To0},[Reg,{atom,Val}]=Ops}|Is], D, Acc) ->
 backward([{test,Op,{f,To0},Ops0}|Is], D, Acc) ->
     To1 = shortcut_bs_test(To0, Is, D),
     To2 = shortcut_label(To1, D),
+    To3 = shortcut_rel_op(To2, Op, Ops0, D),
+
     %% Try to shortcut a repeated test:
     %%
     %%        test Op {f,Fail1} Operands	test Op {f,Fail2} Operands
     %%        . . .		          ==>   ...
     %% Fail1: test Op {f,Fail2} Operands        Fail1: test Op {f,Fail2} Operands
     %%
-    To = case beam_utils:code_at(To2, D) of
-	     [{test,Op,{f,To3},Ops}|_] ->
+    To = case beam_utils:code_at(To3, D) of
+	     [{test,Op,{f,To4},Ops}|_] ->
 		 case equal_ops(Ops0, Ops) of
-		     true -> To3;
-		     false -> To2
+		     true -> To4;
+		     false -> To3
 		 end;
 	     _Code ->
-		 To2
+		 To3
 	 end,
     I = case Op of
 	    is_eq_exact -> combine_eqs(To, Ops0, D, Acc);
@@ -562,3 +573,313 @@ shortcut_bs_start_match_2([{test,bs_start_match2,{f,To},_,[Reg|_],_}|_], Reg, _)
     To;
 shortcut_bs_start_match_2(_Is, _Reg, To) ->
     To.
+
+%% shortcut_rel_op(FailLabel, Operator, [Operand], D) -> FailLabel'
+%%  Try to shortcut the given test instruction. Example:
+%%
+%%           is_ge L1 {x,0} 48
+%%     .
+%%     .
+%%     .
+%%     L1:   is_ge L2 {x,0} 65
+%%
+%%  The first test instruction can be rewritten to "is_ge L2 {x,0} 48"
+%%  since the instruction at L1 will also fail.
+%%
+%%  If there are instructions between L1 and the other test instruction
+%%  it may still be possible to do the shortcut. For example:
+%%
+%%     L1:   is_eq_exact L3 {x,0} 92
+%%           is_ge L2 {x,0} 65
+%%
+%%  Since the first test instruction failed, we know that {x,0} must
+%%  be less than 48; therefore, we know that {x,0} cannot be equal to
+%%  92 and the jump to L3 cannot happen.
+
+shortcut_rel_op(To, Op, Ops, D) ->
+    case normalize_op({test,Op,{f,To},Ops}) of
+	{{NormOp,A,B},_} ->
+	    Normalized = {negate_op(NormOp),A,B},
+	    shortcut_rel_op_fp(To, Normalized, D);
+	{_,_} ->
+	    To;
+	error ->
+	    To
+    end.
+
+shortcut_rel_op_fp(To0, Normalized, D) ->
+    Code = beam_utils:code_at(To0, D),
+    case shortcut_any_label(Code, Normalized) of
+	error ->
+	    To0;
+	To ->
+	    shortcut_rel_op_fp(To, Normalized, D)
+    end.
+
+%% shortcut_any_label([Instruction], PrevCondition) -> FailLabel | error
+%%  Using PrevCondition (a previous condition known to be true),
+%%  try to shortcut to another failure label.
+
+shortcut_any_label([{jump,{f,Lbl}}|_], _Prev) ->
+    Lbl;
+shortcut_any_label([{label,Lbl}|_], _Prev) ->
+    Lbl;
+shortcut_any_label([{select,select_val,R,{f,Fail},L}|_], Prev) ->
+    shortcut_selectval(L, R, Fail, Prev);
+shortcut_any_label([I|Is], Prev) ->
+    case normalize_op(I) of
+	error ->
+	    error;
+	{Normalized,Fail} ->
+	    %% We have a relational operator.
+	    case will_succeed(Prev, Normalized) of
+		no ->
+		    %% This test instruction will always branch
+		    %% to Fail.
+		    Fail;
+		yes ->
+		    %% This test instruction will never branch,
+		    %% so we will look at the next instruction.
+		    shortcut_any_label(Is, Prev);
+		maybe ->
+		    %% May or may not branch. From now on, we can only
+		    %% shortcut to the this specific failure label
+		    %% Fail.
+		    shortcut_specific_label(Is, Fail, Prev)
+	    end
+    end.
+
+%% shortcut_specific_label([Instruction], FailLabel, PrevCondition) ->
+%%    FailLabel | error
+%%  We have previously encountered a test instruction that may or
+%%  may not branch to FailLabel. Therefore we are only allowed
+%%  to do the shortcut to the same fail label (FailLabel).
+
+shortcut_specific_label([{label,_}|Is], Fail, Prev) ->
+    shortcut_specific_label(Is, Fail, Prev);
+shortcut_specific_label([{select,select_val,R,{f,F},L}|_], Fail, Prev) ->
+    case shortcut_selectval(L, R, F, Prev) of
+	Fail -> Fail;
+	_ -> error
+    end;
+shortcut_specific_label([I|Is], Fail, Prev) ->
+    case normalize_op(I) of
+	error ->
+	    error;
+	{Normalized,Fail} ->
+	    case will_succeed(Prev, Normalized) of
+		no ->
+		    %% Will branch to FailLabel.
+		    Fail;
+		yes ->
+		    %% Will definitely never branch.
+		    shortcut_specific_label(Is, Fail, Prev);
+		maybe ->
+		    %% May branch, but still OK since it will branch
+		    %% to FailLabel.
+		    shortcut_specific_label(Is, Fail, Prev)
+	    end;
+	{Normalized,_} ->
+	    %% This test instruction will branch to a different
+	    %% fail label, if it branches at all.
+	    case will_succeed(Prev, Normalized) of
+		yes ->
+		    %% Still OK, since the branch will never be
+		    %% taken.
+		    shortcut_specific_label(Is, Fail, Prev);
+		no ->
+		    %% Give up. The branch will definitely be taken
+		    %% to a different fail label.
+		    error;
+		maybe ->
+		    %% Give up. If the branch is taken, it will be
+		    %% to a different fail label.
+		    error
+	    end
+    end.
+
+
+%% shortcut_selectval(List, Reg, Fail, PrevCond) -> FailLabel | error
+%%  Try to shortcut a selectval instruction. A selectval instruction
+%%  is equivalent to the following instruction sequence:
+%%
+%%      is_ne_exact L1 Reg Value1
+%%              .
+%%              .
+%%              .
+%%      is_ne_exact LN Reg ValueN
+%%      jump DefaultFailLabel
+%%
+shortcut_selectval([Val,{f,Lbl}|T], R, Fail, Prev) ->
+    case will_succeed(Prev, {'=/=',R,get_literal(Val)}) of
+	yes -> shortcut_selectval(T, R, Fail, Prev);
+	no -> Lbl;
+	maybe -> error
+    end;
+shortcut_selectval([], _, Fail, _) -> Fail.
+
+%% will_succeed(PrevCondition, Condition) -> yes | no | maybe
+%%  PrevCondition is a condition known to be true. This function
+%%  will tell whether Condition will succeed.
+
+will_succeed({Op1,Reg,A}, {Op2,Reg,B}) ->
+    will_succeed_1(Op1, A, Op2, B);
+will_succeed({'=:=',Reg,{literal,A}}, {TypeTest,Reg}) ->
+    case erlang:TypeTest(A) of
+	false -> no;
+	true -> yes
+    end;
+will_succeed({_,_,_}, maybe) ->
+    maybe;
+will_succeed({_,_,_}, Test) when is_tuple(Test) ->
+    maybe.
+
+will_succeed_1('=:=', A, '<', B) ->
+    if
+	B =< A -> no;
+	true -> yes
+    end;
+will_succeed_1('=:=', A, '=<', B) ->
+    if
+	B < A -> no;
+	true -> yes
+    end;
+will_succeed_1('=:=', A, '=:=', B) ->
+    if
+	A =:= B -> yes;
+	true -> no
+    end;
+will_succeed_1('=:=', A, '=/=', B) ->
+    if
+	A =:= B -> no;
+	true -> yes
+    end;
+will_succeed_1('=:=', A, '>=', B) ->
+    if
+	B > A -> no;
+	true -> yes
+    end;
+will_succeed_1('=:=', A, '>', B) ->
+    if
+	B >= A -> no;
+	true -> yes
+    end;
+
+will_succeed_1('=/=', A, '=/=', B) when A =:= B -> yes;
+will_succeed_1('=/=', A, '=:=', B) when A =:= B -> no;
+
+will_succeed_1('<', A, '=:=', B)  when B >= A -> no;
+will_succeed_1('<', A, '=/=', B)  when B >= A -> yes;
+will_succeed_1('<', A, '<',   B)  when B >= A -> yes;
+will_succeed_1('<', A, '=<',  B)  when B > A  -> yes;
+will_succeed_1('<', A, '>=',  B)  when B > A  -> no;
+will_succeed_1('<', A, '>',   B)  when B >= A -> no;
+
+will_succeed_1('=<', A, '=:=', B) when B > A  -> no;
+will_succeed_1('=<', A, '=/=', B) when B > A  -> yes;
+will_succeed_1('=<', A, '<',   B) when B > A  -> yes;
+will_succeed_1('=<', A, '=<',  B) when B >= A -> yes;
+will_succeed_1('=<', A, '>=',  B) when B > A  -> no;
+will_succeed_1('=<', A, '>',   B) when B >= A -> no;
+
+will_succeed_1('>=', A, '=:=', B) when B < A  -> no;
+will_succeed_1('>=', A, '=/=', B) when B < A  -> yes;
+will_succeed_1('>=', A, '<',   B) when B =< A -> no;
+will_succeed_1('>=', A, '=<',  B) when B < A  -> no;
+will_succeed_1('>=', A, '>=',  B) when B =< A -> yes;
+will_succeed_1('>=', A, '>',   B) when B < A  -> yes;
+
+will_succeed_1('>', A, '=:=', B)  when B =< A -> no;
+will_succeed_1('>', A, '=/=', B)  when B =< A -> yes;
+will_succeed_1('>', A, '<',   B)  when B =< A -> no;
+will_succeed_1('>', A, '=<',  B)  when B < A  -> no;
+will_succeed_1('>', A, '>=',  B)  when B =< A -> yes;
+will_succeed_1('>', A, '>',   B)  when B < A  -> yes;
+
+will_succeed_1(_, _, _, _) -> maybe.
+
+%% normalize_op(Instruction) -> {Normalized,FailLabel} | error
+%%    Normalized = {Operator,Register,Literal} |
+%%                 {TypeTest,Register} |
+%%                 maybe
+%%    Operation = '<' | '=<' | '=:=' | '=/=' | '>=' | '>'
+%%    TypeTest = is_atom | is_integer ...
+%%    Literal = {literal,Term}
+%%
+%%  Normalize a relational operator to facilitate further
+%%  comparisons between operators. Always make the register
+%%  operand the first operand. Thus the following instruction:
+%%
+%%    {test,is_ge,{f,99},{integer,13},{x,0}}
+%%
+%%  will be normalized to:
+%%
+%%    {'=<',{x,0},{literal,13}}
+%%
+%%  NOTE: Bit syntax test instructions are scary. They may change the
+%%  state of match contexts and update registers, so we don't dare
+%%  mess with them.
+
+normalize_op({test,is_ge,{f,Fail},Ops}) ->
+    normalize_op_1('>=', Ops, Fail);
+normalize_op({test,is_lt,{f,Fail},Ops}) ->
+    normalize_op_1('<', Ops, Fail);
+normalize_op({test,is_eq_exact,{f,Fail},Ops}) ->
+    normalize_op_1('=:=', Ops, Fail);
+normalize_op({test,is_ne_exact,{f,Fail},Ops}) ->
+    normalize_op_1('=/=', Ops, Fail);
+normalize_op({test,is_nil,{f,Fail},[R]}) ->
+    normalize_op_1('=:=', [R,nil], Fail);
+normalize_op({test,Op,{f,Fail},[R]}) ->
+    case erl_internal:new_type_test(Op, 1) of
+	true -> {{Op,R},Fail};
+	false -> {maybe,Fail}
+    end;
+normalize_op({test,_,{f,Fail},_}=I) ->
+    case beam_utils:is_pure_test(I) of
+	true -> {maybe,Fail};
+	false -> error
+    end;
+normalize_op(_) ->
+    error.
+
+normalize_op_1(Op, [Op1,Op2], Fail) ->
+    case {get_literal(Op1),get_literal(Op2)} of
+	{error,error} ->
+	    %% Both operands are registers.
+	    {maybe,Fail};
+	{error,Lit} ->
+	    {{Op,Op1,Lit},Fail};
+	{Lit,error} ->
+	    {{turn_op(Op),Op2,Lit},Fail};
+	{_,_} ->
+	    %% Both operands are literals. Can probably only
+	    %% happen if the Core Erlang optimizations passes were
+	    %% turned off, so don't bother trying to do something
+	    %% smart here.
+	    {maybe,Fail}
+    end.
+
+turn_op('<') -> '>';
+turn_op('>=') -> '=<';
+turn_op('=:='=Op) -> Op;
+turn_op('=/='=Op) -> Op.
+
+negate_op('>=') -> '<';
+negate_op('<') -> '>=';
+negate_op('=<') -> '>';
+negate_op('>') -> '=<';
+negate_op('=:=') -> '=/=';
+negate_op('=/=') -> '=:='.
+
+get_literal({atom,Val}) ->
+    {literal,Val};
+get_literal({integer,Val}) ->
+    {literal,Val};
+get_literal({float,Val}) ->
+    {literal,Val};
+get_literal(nil) ->
+    {literal,[]};
+get_literal({literal,_}=Lit) ->
+    Lit;
+get_literal({_,_}) -> error.

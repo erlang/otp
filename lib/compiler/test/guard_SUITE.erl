@@ -30,7 +30,7 @@
 	 old_guard_tests/1,
 	 build_in_guard/1,gbif/1,
 	 t_is_boolean/1,is_function_2/1,
-	 tricky/1,rel_ops/1,literal_type_tests/1,
+	 tricky/1,rel_ops/1,rel_op_combinations/1,literal_type_tests/1,
 	 basic_andalso_orelse/1,traverse_dcd/1,
 	 check_qlc_hrl/1,andalso_semi/1,t_tuple_size/1,binary_part/1,
 	 bad_constants/1,bad_guards/1]).
@@ -47,7 +47,8 @@ groups() ->
        semicolon,complex_semicolon,comma,or_guard,
        more_or_guards,complex_or_guards,and_guard,xor_guard,
        more_xor_guards,build_in_guard,old_guard_tests,gbif,
-       t_is_boolean,is_function_2,tricky,rel_ops,
+       t_is_boolean,is_function_2,tricky,
+       rel_ops,rel_op_combinations,
        literal_type_tests,basic_andalso_orelse,traverse_dcd,
        check_qlc_hrl,andalso_semi,t_tuple_size,binary_part,
        bad_constants,bad_guards]}].
@@ -1122,6 +1123,231 @@ rel_ops(Config) when is_list(Config) ->
 
 -undef(TestOp).
 
+rel_op_combinations(Config) when is_list(Config) ->
+    Digits0 = lists:seq(16#0030, 16#0039) ++
+	lists:seq(16#0660, 16#0669) ++
+	lists:seq(16#06F0, 16#06F9),
+    Digits = gb_sets:from_list(Digits0),
+    rel_op_combinations_1(16#0700, Digits),
+
+    BrokenRange0 = lists:seq(3, 5) ++
+	lists:seq(10, 12) ++ lists:seq(14, 20),
+    BrokenRange = gb_sets:from_list(BrokenRange0),
+    rel_op_combinations_2(30, BrokenRange),
+
+    Red0 = [{I,2*I} || I <- lists:seq(0, 50)] ++
+	[{I,5*I} || I <- lists:seq(51, 80)],
+    Red = gb_trees:from_orddict(Red0),
+    rel_op_combinations_3(100, Red).
+
+rel_op_combinations_1(0, _) ->
+    ok;
+rel_op_combinations_1(N, Digits) ->
+    Bool = gb_sets:is_member(N, Digits),
+    Bool = is_digit_1(N),
+    Bool = is_digit_2(N),
+    Bool = is_digit_3(N),
+    Bool = is_digit_4(N),
+    Bool = is_digit_5(N),
+    Bool = is_digit_6(N),
+    Bool = is_digit_7(N),
+    Bool = is_digit_8(N),
+    rel_op_combinations_1(N-1, Digits).
+
+is_digit_1(X) when 16#0660 =< X, X =< 16#0669 -> true;
+is_digit_1(X) when 16#0030 =< X, X =< 16#0039 -> true;
+is_digit_1(X) when 16#06F0 =< X, X =< 16#06F9 -> true;
+is_digit_1(_) -> false.
+
+is_digit_2(X) when (16#0030-1) < X, X =< 16#0039 -> true;
+is_digit_2(X) when (16#0660-1) < X, X =< 16#0669 -> true;
+is_digit_2(X) when (16#06F0-1) < X, X =< 16#06F9 -> true;
+is_digit_2(_) -> false.
+
+is_digit_3(X) when 16#0660 =< X, X < (16#0669+1) -> true;
+is_digit_3(X) when 16#0030 =< X, X < (16#0039+1) -> true;
+is_digit_3(X) when 16#06F0 =< X, X < (16#06F9+1) -> true;
+is_digit_3(_) -> false.
+
+is_digit_4(X) when (16#0660-1) < X, X < (16#0669+1) -> true;
+is_digit_4(X) when (16#0030-1) < X, X < (16#0039+1) -> true;
+is_digit_4(X) when (16#06F0-1) < X, X < (16#06F9+1) -> true;
+is_digit_4(_) -> false.
+
+is_digit_5(X) when X >= 16#0660, X =< 16#0669 -> true;
+is_digit_5(X) when X >= 16#0030, X =< 16#0039 -> true;
+is_digit_5(X) when X >= 16#06F0, X =< 16#06F9 -> true;
+is_digit_5(_) -> false.
+
+is_digit_6(X) when X > (16#0660-1), X =< 16#0669 -> true;
+is_digit_6(X) when X > (16#0030-1), X =< 16#0039 -> true;
+is_digit_6(X) when X > (16#06F0-1), X =< 16#06F9 -> true;
+is_digit_6(_) -> false.
+
+is_digit_7(X) when 16#0660 =< X, X =< 16#0669 -> true;
+is_digit_7(X) when 16#0030 =< X, X =< 16#003A, X =/= 16#003A -> true;
+is_digit_7(X) when 16#06F0 =< X, X =< 16#06F9 -> true;
+is_digit_7(_) -> false.
+
+is_digit_8(X) when X =< 16#0039, X > (16#0030-1) -> true;
+is_digit_8(X) when X =< 16#06F9, X > (16#06F0-1) -> true;
+is_digit_8(X) when X =< 16#0669, X > (16#0660-1) -> true;
+is_digit_8(16#0670) -> false;
+is_digit_8(_) -> false.
+
+rel_op_combinations_2(0, _) ->
+    ok;
+rel_op_combinations_2(N, Range) ->
+    Bool = gb_sets:is_member(N, Range),
+    Bool = broken_range_1(N),
+    Bool = broken_range_2(N),
+    Bool = broken_range_3(N),
+    Bool = broken_range_4(N),
+    Bool = broken_range_5(N),
+    Bool = broken_range_6(N),
+    Bool = broken_range_7(N),
+    Bool = broken_range_8(N),
+    Bool = broken_range_9(N),
+    Bool = broken_range_10(N),
+    Bool = broken_range_11(N),
+    Bool = broken_range_12(N),
+    Bool = broken_range_13(N),
+    rel_op_combinations_2(N-1, Range).
+
+broken_range_1(X) when X >= 10, X =< 20, X =/= 13 -> true;
+broken_range_1(X) when X >= 3, X =< 5 -> true;
+broken_range_1(_) -> false.
+
+broken_range_2(X) when X >= 10, X =< 12 -> true;
+broken_range_2(X) when X >= 14, X =< 20 -> true;
+broken_range_2(X) when X >= 3, X =< 5 -> true;
+broken_range_2(_) -> false.
+
+broken_range_3(X) when X >= 10, X =< 12 -> true;
+broken_range_3(X) when X >= 14, X < 21 -> true;
+broken_range_3(3) -> true;
+broken_range_3(4) -> true;
+broken_range_3(5) -> true;
+broken_range_3(_) -> false.
+
+broken_range_4(X) when X =< 5, X >= 3 -> true;
+broken_range_4(X) when X >= 10, X =< 20, X =/= 13 -> true;
+broken_range_4(X) when X =< 100 -> false;
+broken_range_4(_) -> false.
+
+broken_range_5(X) when X >= 10, X =< 20, X =/= 13 -> true;
+broken_range_5(X) when X > 2, X =< 5 -> true;
+broken_range_5(_) -> false.
+
+broken_range_6(X) when X >= 10, X =< 20, X =/= 13 -> true;
+broken_range_6(X) when X > 2, X < 6 -> true;
+broken_range_6(_) -> false.
+
+broken_range_7(X) when X > 2, X < 6 -> true;
+broken_range_7(X) when X >= 10, X =< 20, X =/= 13 -> true;
+broken_range_7(X) when X > 30 -> false;
+broken_range_7(_) -> false.
+
+broken_range_8(X) when X >= 10, X =< 20, X =/= 13 -> true;
+broken_range_8(X) when X =:= 3 -> true;
+broken_range_8(X) when X >= 3, X =< 5 -> true;
+broken_range_8(_) -> false.
+
+broken_range_9(X) when X >= 10, X =< 20, X =/= 13 -> true;
+broken_range_9(X) when X =:= 13 -> false;
+broken_range_9(X) when X >= 3, X =< 5 -> true;
+broken_range_9(_) -> false.
+
+broken_range_10(X) when X >= 3, X =< 5 -> true;
+broken_range_10(X) when X >= 10, X =< 20, X =/= 13 -> true;
+broken_range_10(X) when X =/= 13 -> false;
+broken_range_10(_) -> false.
+
+broken_range_11(X) when X >= 10, X =< 20, X =/= 13 -> true;
+broken_range_11(X) when is_tuple(X), X =:= 10 -> true;
+broken_range_11(X) when X >= 3, X =< 5 -> true;
+broken_range_11(_) -> false.
+
+broken_range_12(X) when X >= 3, X =< 5 -> true;
+broken_range_12(X) when X >= 10, X =< 20, X =/= 13 -> true;
+broken_range_12(X) when X < 30, X > 20 -> false;
+broken_range_12(_) -> false.
+
+broken_range_13(X) when X >= 10, X =< 20, 13 =/= X -> true;
+broken_range_13(X) when X >= 3, X =< 5 -> true;
+broken_range_13(_) -> false.
+
+rel_op_combinations_3(0, _) ->
+    ok;
+rel_op_combinations_3(N, Red) ->
+    Val = case gb_trees:lookup(N, Red) of
+	      none -> none;
+	      {value,V} -> V
+	  end,
+    Val = redundant_1(N),
+    Val = redundant_2(N),
+    Val = redundant_3(N),
+    Val = redundant_4(N),
+    Val = redundant_5(N),
+    Val = redundant_6(N),
+    Val = redundant_7(N),
+    Val = redundant_8(N),
+    Val = redundant_9(N),
+    Val = redundant_10(N),
+    Val = redundant_11(N),
+    rel_op_combinations_3(N-1, Red).
+
+redundant_1(X) when X >= 51, X =< 80 -> 5*X;
+redundant_1(X) when X < 51 -> 2*X;
+redundant_1(_) -> none.
+
+redundant_2(X) when X < 51 -> 2*X;
+redundant_2(X) when X >= 51, X =< 80 -> 5*X;
+redundant_2(_) -> none.
+
+redundant_3(X) when X < 51 -> 2*X;
+redundant_3(X) when X =< 80, X >= 51 -> 5*X;
+redundant_3(X) when X =/= 100 -> none;
+redundant_3(_) -> none.
+
+redundant_4(X) when X < 51 -> 2*X;
+redundant_4(X) when X =< 80, X > 50 -> 5*X;
+redundant_4(X) when X =/= 100 -> none;
+redundant_4(_) -> none.
+
+redundant_5(X) when X < 51 -> 2*X;
+redundant_5(X) when X > 50, X < 81 -> 5*X;
+redundant_5(X) when X =< 10 -> none;
+redundant_5(_) -> none.
+
+redundant_6(X) when X > 50, X =< 80 -> 5*X;
+redundant_6(X) when X < 51 -> 2*X;
+redundant_6(_) -> none.
+
+redundant_7(X) when is_integer(X), X >= 51, X =< 80 -> 5*X;
+redundant_7(X) when is_integer(X), X < 51 -> 2*X;
+redundant_7(_) -> none.
+
+redundant_8(X) when X >= 51, X =< 80 -> 5*X;
+redundant_8(X) when X < 51 -> 2*X;
+redundant_8(_) -> none.
+
+redundant_9(X) when X >= 51, X =< 80 -> 5*X;
+redundant_9(X) when X < 51 -> 2*X;
+redundant_9(90) -> none;
+redundant_9(X) when X =/= 90 -> none;
+redundant_9(_) -> none.
+
+redundant_10(X) when X >= 51, X =< 80 -> 5*X;
+redundant_10(X) when X < 51 -> 2*X;
+redundant_10(90) -> none;
+redundant_10(X) when X =:= 90 -> none;
+redundant_10(_) -> none.
+
+redundant_11(X) when X < 51 -> 2*X;
+redundant_11(X) when X =:= 10 -> 2*X;
+redundant_11(X) when X >= 51, X =< 80 -> 5*X;
+redundant_11(_) -> none.
 
 %% Test type tests on literal values. (From emulator test suites.)
 literal_type_tests(Config) when is_list(Config) ->
