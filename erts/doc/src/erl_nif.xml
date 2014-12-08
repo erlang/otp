@@ -791,6 +791,10 @@ typedef enum {
       and return true, or return false if <c>term</c> is not an unsigned integer or is
       outside the bounds of type <c>unsigned long</c>.</p></desc>
     </func>
+    <func><name><ret>int</ret><nametext>enif_getenv(const char* key, char* value, size_t *value_size)</nametext></name>
+      <fsummary>Get the value of an environment variable</fsummary>
+      <desc><p>Same as <seealso marker="erl_driver#erl_drv_getenv">erl_drv_getenv</seealso>.</p></desc>
+    </func>
     <func><name><ret>int</ret><nametext>enif_has_pending_exception(ErlNifEnv* env, ERL_NIF_TERM* reason)</nametext></name>
       <fsummary>Check if an exception has been raised</fsummary>
       <desc><p>Return true if a pending exception is associated
