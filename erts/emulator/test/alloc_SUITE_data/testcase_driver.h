@@ -37,6 +37,7 @@ typedef struct {
 void testcase_printf(TestCaseState_t *tcs, char *frmt, ...);
 void testcase_succeeded(TestCaseState_t *tcs, char *frmt, ...);
 void testcase_skipped(TestCaseState_t *tcs, char *frmt, ...);
+void testcase_continue(TestCaseState_t *tcs);
 void testcase_failed(TestCaseState_t *tcs, char *frmt, ...);
 int testcase_assertion_failed(TestCaseState_t *tcs, char *file, int line,
 			      char *assertion);

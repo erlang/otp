@@ -6074,6 +6074,16 @@ erts_alcu_test(UWord op, UWord a1, UWord a2)
     case 0x023: return (UWord) 0;
     case 0x024: return (UWord) 0;
 #endif
+    case 0x025: /* UMEM2BLK_TEST*/
+#ifdef DEBUG
+# ifdef HARD_DEBUG
+	return (UWord)UMEM2BLK(a1-3*sizeof(UWord));
+# else
+	return (UWord)UMEM2BLK(a1-2*sizeof(UWord));
+# endif
+#else
+	return (UWord)UMEM2BLK(a1);
+#endif
 
     default:	ASSERT(0); return ~((UWord) 0);
     }

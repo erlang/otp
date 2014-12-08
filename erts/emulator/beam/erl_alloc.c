@@ -3615,6 +3615,33 @@ UWord erts_alc_test(UWord op, UWord a1, UWord a2, UWord a3)
 
 	case 0xf15: erts_free(ERTS_ALC_T_TEST, (void*)a1); return 0;
 
+	case 0xf16: {
+            Uint extra_hdr_sz = UNIT_CEILING((Uint)a1);
+	    ErtsAllocatorThrSpec_t* ts = &erts_allctr_thr_spec[ERTS_ALC_A_TEST];
+	    Uint offset = ts->allctr[0]->mbc_header_size;
+	    void* orig_creating_mbc = ts->allctr[0]->creating_mbc;
+	    void* orig_destroying_mbc = ts->allctr[0]->destroying_mbc;
+	    void* new_creating_mbc = *(void**)a2; /* inout arg */
+	    void* new_destroying_mbc = *(void**)a3; /* inout arg */
+	    int i;
+
+	    for (i=0; i < ts->size; i++) {
+		Allctr_t* ap = ts->allctr[i];
+		if (ap->mbc_header_size != offset
+		    || ap->creating_mbc != orig_creating_mbc
+		    || ap->destroying_mbc != orig_destroying_mbc
+		    || ap->mbc_list.first != NULL)
+		    return -1;
+	    }
+	    for (i=0; i < ts->size; i++) {
+		ts->allctr[i]->mbc_header_size += extra_hdr_sz;
+		ts->allctr[i]->creating_mbc = new_creating_mbc;
+		ts->allctr[i]->destroying_mbc = new_destroying_mbc;
+	    }
+	    *(void**)a2 = orig_creating_mbc;
+	    *(void**)a3 = orig_destroying_mbc;
+	    return offset;
+	}
 	default:
 	    break;
 	}

@@ -39,6 +39,7 @@
 #define TESTCASE_FAILED		0
 #define TESTCASE_SKIPPED	1
 #define TESTCASE_SUCCEEDED	2
+#define TESTCASE_CONTINUE	3
 
 typedef struct {
     TestCaseState_t visible;
@@ -129,6 +130,12 @@ testcase_drv_run(ErlDrvData drv_data, char *buf, ErlDrvSizeT len)
     }
 
     switch (itcs->result) {
+    case TESTCASE_CONTINUE:
+	msg[0] = ERL_DRV_ATOM;
+	msg[1] = driver_mk_atom("continue");
+	erl_drv_output_term(itcs->port_id, msg, 2);
+	return;
+
     case TESTCASE_SUCCEEDED:
 	result_atom = driver_mk_atom("succeeded");
 	break;
@@ -236,6 +243,13 @@ void testcase_skipped(TestCaseState_t *tcs, char *frmt, ...)
     itcs->result = TESTCASE_SKIPPED;
     itcs->comment = itcs->comment_buf;
 
+    longjmp(itcs->done_jmp_buf, 1);
+}
+
+void testcase_continue(TestCaseState_t *tcs)
+{
+    InternalTestCaseState_t *itcs = (InternalTestCaseState_t *) tcs;
+    itcs->result = TESTCASE_CONTINUE;
     longjmp(itcs->done_jmp_buf, 1);
 }
 

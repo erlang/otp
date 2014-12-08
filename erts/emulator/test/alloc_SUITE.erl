@@ -31,7 +31,8 @@
 	 rbtree/1,
 	 mseg_clear_cache/1,
 	 erts_mmap/1,
-	 cpool/1]).
+	 cpool/1,
+	 migration/1]).
 
 -export([init_per_testcase/2, end_per_testcase/2]).
 
@@ -43,7 +44,7 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [basic, coalesce, threads, realloc_copy, bucket_index,
-     bucket_mask, rbtree, mseg_clear_cache, erts_mmap, cpool].
+     bucket_mask, rbtree, mseg_clear_cache, erts_mmap, cpool, migration].
 
 groups() -> 
     [].
@@ -112,6 +113,8 @@ cpool(suite) -> [];
 cpool(doc) ->   [];
 cpool(Cfg) -> ?line drv_case(Cfg).
 
+migration(Cfg) -> drv_case(Cfg, concurrent, "+MZe true").
+
 erts_mmap(Config) when is_list(Config) ->
     case {?t:os_type(), is_halfword_vm()} of
 	{{unix, _}, false} ->
@@ -176,18 +179,17 @@ erts_mmap_do(Config, SCO, SCRPM, SCRFSD) ->
 %%                                                                        %%
 
 drv_case(Config) ->
-    drv_case(Config, "").
+    drv_case(Config, one_shot, "").
 
-drv_case(Config, Command) when is_list(Config),
-			       is_list(Command) ->
+drv_case(Config, Mode, NodeOpts) when is_list(Config) ->
     case ?t:os_type() of
 	{Family, _} when Family == unix; Family == win32 ->
-	    ?line {ok, Node} = start_node(Config),
+	    ?line {ok, Node} = start_node(Config, NodeOpts),
 	    ?line Self = self(),
 	    ?line Ref = make_ref(),
 	    ?line spawn_link(Node,
 			     fun () ->
-				     Res = run_drv_case(Config, Command),
+				     Res = run_drv_case(Config, Mode),
 				     Self ! {Ref, Res}
 			     end),
 	    ?line Result = receive {Ref, Rslt} -> Rslt end,
@@ -199,7 +201,7 @@ drv_case(Config, Command) when is_list(Config),
 				  | io_lib:format("~p",[SkipOs])])}
     end.
 
-run_drv_case(Config, Command) ->
+run_drv_case(Config, Mode) ->
     ?line DataDir = ?config(data_dir,Config),
     ?line CaseName = ?config(testcase,Config),
     case erl_ddll:load_driver(DataDir, CaseName) of
@@ -208,6 +210,19 @@ run_drv_case(Config, Command) ->
 	    io:format("~s\n", [erl_ddll:format_error(Error)]),
 	    ?line ?t:fail()
     end,
+
+    case Mode of
+	one_shot ->
+	    Result = one_shot(CaseName, "");
+
+	concurrent ->
+	    Result = concurrent(CaseName)
+    end,
+
+    ?line ok = erl_ddll:unload_driver(CaseName),
+    ?line Result.
+
+one_shot(CaseName, Command) ->
     ?line Port = open_port({spawn, atom_to_list(CaseName)}, []),
     ?line true = is_port(Port),
     ?line Port ! {self(), {command, Command}},
@@ -217,8 +232,45 @@ run_drv_case(Config, Command) ->
 	      {Port, closed} ->
 		  ok
 	  end,
-    ?line ok = erl_ddll:unload_driver(CaseName),
-    ?line Result.
+    Result.
+
+
+many_shot(CaseName, Command) ->
+    ?line Port = open_port({spawn, atom_to_list(CaseName)}, []),
+    ?line true = is_port(Port),
+    Result = repeat_while(fun() ->
+				  ?line Port ! {self(), {command, Command}},
+				  receive_drv_result(Port, CaseName) =:= continue
+			  end),
+    ?line Port ! {self(), close},
+    ?line receive
+	      {Port, closed} ->
+		  ok
+	  end,
+    Result.
+
+concurrent(CaseName) ->
+    one_shot(CaseName, "init"),
+    PRs = lists:map(fun(I) -> spawn_opt(fun() ->
+						many_shot(CaseName, "")
+					end,
+				       [monitor, {scheduler,I}])
+		    end,
+		    lists:seq(1, erlang:system_info(schedulers))),
+    lists:foreach(fun({Pid,Ref}) ->
+			  receive {'DOWN', Ref, process, Pid, Reason} ->
+				  Reason
+			  end
+		  end,
+		  PRs),
+    ok.
+
+repeat_while(Fun) ->
+    io:format("~p calls fun\n", [self()]),
+    case Fun() of
+	true -> repeat_while(Fun);
+	false -> ok
+    end.
 
 receive_drv_result(Port, CaseName) ->
     ?line receive
@@ -236,11 +288,11 @@ receive_drv_result(Port, CaseName) ->
 	      {succeeded, Port, CaseName, ""} ->
 		  ?line succeeded;
 	      {succeeded, Port, CaseName, Comment} ->
-		  ?line {comment, Comment}
+		  ?line {comment, Comment};
+	      continue ->
+		  continue
 	  end.
 
-start_node(Config) ->
-    start_node(Config, []).
 start_node(Config, Opts) when is_list(Config), is_list(Opts) ->
     Pa = filename:dirname(code:which(?MODULE)),
     Name = list_to_atom(atom_to_list(?MODULE)

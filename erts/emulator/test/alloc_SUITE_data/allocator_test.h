@@ -85,6 +85,7 @@ typedef void* erts_cond;
 #define CPOOL_DELETE(A,B)	((Carrier_t *)	ALC_TEST2(0x022, (A), (B)))
 #define CPOOL_IS_EMPTY(A)	((int)		ALC_TEST1(0x023, (A)))
 #define CPOOL_IS_IN_POOL(A,B)	((int)		ALC_TEST2(0x024, (A), (B)))
+#define UMEM2BLK_TEST(P)	((Block_t*)	ALC_TEST1(0x025, (P)))
 
 /* From erl_goodfit_alloc.c */
 #define BKT_IX(A, S)		((Ulong)	ALC_TEST2(0x100, (A), (S)))
@@ -144,5 +145,6 @@ typedef void* erts_cond;
 #define IS_SMP_ENABLED		((int)		ALC_TEST0(0xf13))
 #define ALLOC_TEST(S)		((void*)	ALC_TEST1(0xf14, (S)))
 #define FREE_TEST(P)		((void)		ALC_TEST1(0xf15, (P)))
+#define SET_TEST_MBC_USER_HEADER(SZ,CMBC,DMBC) ((int)ALC_TEST3(0xf16, (SZ), (CMBC), (DMBC)))
 
 #endif
