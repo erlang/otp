@@ -37,9 +37,12 @@ VSN=$(JINTERFACE_VSN)
 EBINDIR=$(ERL_TOP)/lib/jinterface/ebin
 
 APP_FILE= jinterface.app
-
 APP_SRC= $(APP_FILE).src
 APP_TARGET= $(EBINDIR)/$(APP_FILE)
+
+APPUP_FILE= jinterface.appup
+APPUP_SRC= $(APPUP_FILE).src
+APPUP_TARGET= $(EBINDIR)/$(APPUP_FILE)
 
 # ----------------------------------------------------
 # Release directory specification
@@ -54,7 +57,7 @@ RELSYSDIR = $(RELEASE_PATH)/lib/jinterface-$(VSN)
 # all java sourcefiles listed in common include file
 include $(ERL_TOP)/lib/jinterface/java_src/$(JAVA_CLASS_SUBDIR)/java_files
 
-TARGET_FILES= $(JAVA_FILES:%=$(JAVA_DEST_ROOT)$(JAVA_CLASS_SUBDIR)%.class) $(APP_TARGET)
+TARGET_FILES= $(JAVA_FILES:%=$(JAVA_DEST_ROOT)$(JAVA_CLASS_SUBDIR)%.class) $(APP_TARGET) $(APPUP_TARGET)
 JAVA_SRC= $(JAVA_FILES:%=%.java)
 
 JARFILE= OtpErlang.jar
@@ -90,6 +93,8 @@ endif
 
 $(APP_TARGET): $(APP_SRC) $(ERL_TOP)/lib/jinterface/vsn.mk
 	$(vsn_verbose)sed -e 's;%VSN%;$(JINTERFACE_VSN);' $< > $@
+$(APPUP_TARGET): $(APPUP_SRC) $(ERL_TOP)/lib/jinterface/vsn.mk
+	$(vsn_verbose)sed -e 's;%VSN%;$(JINTERFACE_VSN);' $< > $@
 
 debug opt: make_dirs $(JAVA_DEST_ROOT)$(JARFILE)
 
@@ -120,6 +125,7 @@ release_spec: opt
 	$(V_at)$(INSTALL_DATA) $(JAVA_DEST_ROOT)$(JARFILE) "$(RELSYSDIR)/priv"
 	$(V_at)$(INSTALL_DIR) "$(RELSYSDIR)/ebin"
 	$(V_at)$(INSTALL_DATA) $(APP_TARGET) "$(RELSYSDIR)/ebin/$(APP_FILE)"
+	$(V_at)$(INSTALL_DATA) $(APPUP_TARGET) "$(RELSYSDIR)/ebin/$(APPUP_FILE)"
 
 release_docs_spec:
 

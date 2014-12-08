@@ -43,9 +43,12 @@ include $(ERL_TOP)/make/output.mk
 EBINDIR=../ebin
 
 APP_FILE= erl_interface.app
-
 APP_SRC= $(APP_FILE).src
 APP_TARGET= $(EBINDIR)/$(APP_FILE)
+
+APPUP_FILE= erl_interface.appup
+APPUP_SRC= $(APPUP_FILE).src
+APPUP_TARGET= $(EBINDIR)/$(APPUP_FILE)
 
 USING_MINGW=@MIXED_CYGWIN_MINGW@
 USING_MSYS_VC==@MIXED_MSYS_VC@
@@ -220,7 +223,8 @@ ifeq ($(USING_VC),yes)
 TARGETS = \
 	$(OBJ_TARGETS) \
 	$(EXE_TARGETS) \
-	$(APP_TARGET)
+	$(APP_TARGET)  \
+	$(APPUP_TARGET)
 
 OBJ_TARGETS = \
 	$(MT_EILIB) \
@@ -250,7 +254,8 @@ ifeq ($USING_MINGW,yes)
 TARGETS = \
 	$(OBJ_TARGETS) \
 	$(EXE_TARGETS) \
-	$(APP_TARGET)
+	$(APP_TARGET)  \
+	$(APPUP_TARGET)
 
 OBJ_TARGETS = \
 	$(MD_EILIB) \
@@ -269,7 +274,8 @@ ifdef THR_DEFS
 TARGETS = \
 	$(OBJ_TARGETS) \
 	$(EXE_TARGETS) \
-	$(APP_TARGET)
+	$(APP_TARGET)  \
+	$(APPUP_TARGET)
 
 OBJ_TARGETS = \
 	$(ST_EILIB) \
@@ -292,7 +298,8 @@ else
 TARGETS = \
 	$(OBJ_TARGETS) \
 	$(EXE_TARGETS) \
-	$(APP_TARGET)
+	$(APP_TARGET)  \
+	$(APPUP_TARGET)
 
 OBJ_TARGETS = \
 	$(ST_EILIB) \
@@ -558,6 +565,8 @@ clean:
 	rm -f $(MDD_EIOBJECTS) $(MDD_ERLOBJECTS) $(MDD_EILIB) $(MDD_ERLLIB)
 	rm -f $(ERL_CALL)
 	rm -f $(FAKE_TARGETS)
+	rm -f $(APP_TARGET)
+	rm -f $(APPUP_TARGET)
 
 distclean: clean
 	rm -f config.h config.log config.status configure
@@ -615,6 +624,8 @@ _create_dirs := $(shell mkdir -p $(EBINDIR) $(BINDIR) $(OBJDIR) $(ST_OBJDIR) $(M
 ###########################################################################
 
 $(APP_TARGET): $(APP_SRC) ../vsn.mk
+	$(vsn_verbose)sed -e 's;%VSN%;$(ERL_INTERFACE_VSN);' $< > $@
+$(APPUP_TARGET): $(APPUP_SRC) ../vsn.mk
 	$(vsn_verbose)sed -e 's;%VSN%;$(ERL_INTERFACE_VSN);' $< > $@
 
 ifeq ($(TARGET),win32)
@@ -884,6 +895,7 @@ release: opt
 	$(INSTALL_DIR) "$(RELEASE_PATH)/usr/include"
 	$(INSTALL_DIR) "$(RELEASE_PATH)/usr/lib"
 	$(INSTALL_DATA) $(APP_TARGET)  "$(RELSYSDIR)/ebin/$(APP_FILE)"
+	$(INSTALL_DATA) $(APPUP_TARGET)  "$(RELSYSDIR)/ebin/$(APPUP_FILE)"
 	$(INSTALL_DATA) $(HEADERS)     "$(RELSYSDIR)/include"
 	$(INSTALL_DATA) $(HEADERS)     "$(RELEASE_PATH)/usr/include"
 	$(INSTALL_DATA) $(OBJ_TARGETS) "$(RELSYSDIR)/lib"
