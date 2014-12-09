@@ -31,6 +31,35 @@
   <p>This document describes the changes made to the Compiler
     application.</p>
 
+<section><title>Compiler 5.0.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Named funs with the same name and arity could get mixed
+	    up with each other.</p>
+          <p>
+	    Own Id: OTP-12262</p>
+        </item>
+        <item>
+          <p>
+	    Coalesce map keys in dialyzer mode</p>
+          <p>
+	    This fixes a regression introduced in commit
+	    805f9c89fc01220bc1bb0f27e1b68fd4eca688ba The problem
+	    occurred with compounded map keys compiled with dialyzer
+	    option turned on, '+dialyzer'.</p>
+          <p>
+	    Reported by: Ivan Uemlianin</p>
+          <p>
+	    Own Id: OTP-12347</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Compiler 5.0.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

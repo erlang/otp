@@ -32,6 +32,47 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Test_Server 3.7.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The source code to html code generator in Test Server
+	    (and Common Test) would fail to generate anchors in the
+	    html code for functions with non-expandable macros,
+	    resulting in bad html links to such functions. This
+	    correction lets the code generator ignore macros that
+	    can't be expanded (i.e. not pre-process them), so that
+	    correct anchors will always be produced.</p>
+          <p>
+	    Own Id: OTP-11766 Aux Id: seq12556 </p>
+        </item>
+        <item>
+          <p>
+	    Make sure to install .hrl files when needed</p>
+          <p>
+	    Own Id: OTP-12197</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Distribute <c>autoconf</c> helpers to applications at
+	    build time instead of having multiple identical copies
+	    committed in the repository.</p>
+          <p>
+	    Own Id: OTP-12348</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Test_Server 3.7.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

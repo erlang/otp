@@ -30,6 +30,24 @@
   </header>
   <p>This document describes the changes made to the Parsetools application.</p>
 
+<section><title>Parsetools 2.0.12</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The line counter becomes invalid when rules with linewrap
+	    are used. This issue appears because the parsing FSM does
+	    not roll back the line counter after attempting such a
+	    rule.</p>
+          <p>
+	    Own Id: OTP-12238</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Parsetools 2.0.11</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

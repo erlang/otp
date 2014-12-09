@@ -30,6 +30,40 @@
   </header>
   <p>This document describes the changes made to the Jinterface application.</p>
 
+<section><title>Jinterface 1.5.12</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    handle empty .erlang.cookie without crashing and
+	    OtpErlangList.clone must not return null</p>
+          <p>
+	    Own Id: OTP-12210</p>
+        </item>
+        <item>
+          <p>
+	    This fixes all the compilation warnings in the Java code</p>
+          <p>
+	    Own Id: OTP-12211</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Added an .appup file for the application.</p>
+          <p>
+	    Own Id: OTP-12358 Aux Id: OTP-12178 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Jinterface 1.5.11</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

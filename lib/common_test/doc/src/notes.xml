@@ -32,6 +32,94 @@
     <file>notes.xml</file>
     </header>
 
+<section><title>Common_Test 1.9</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The source code to html code generator in Test Server
+	    (and Common Test) would fail to generate anchors in the
+	    html code for functions with non-expandable macros,
+	    resulting in bad html links to such functions. This
+	    correction lets the code generator ignore macros that
+	    can't be expanded (i.e. not pre-process them), so that
+	    correct anchors will always be produced.</p>
+          <p>
+	    Own Id: OTP-11766 Aux Id: seq12556 </p>
+        </item>
+        <item>
+          <p>
+	    OTP-11971 erroneously changed the handling of relative
+	    paths (import/export files) specified in the cover spec
+	    file. This is now corrected so these are expected to be
+	    relative to the directory where the cover spec file
+	    itself is stored.</p>
+          <p>
+	    Own Id: OTP-12031</p>
+        </item>
+        <item>
+          <p>
+	    Common Test would sometimes crash while trying to print
+	    large amounts of SASL reports to log on a computer with a
+	    slow file system. This problem (due to an error in IO
+	    message buffering in ct_logs) has been fixed.</p>
+          <p>
+	    Own Id: OTP-12159</p>
+        </item>
+        <item>
+          <p>
+	    The common_test telnet client, ct_telnet and friends, had
+	    some unstable test cases. Some of these were caused by
+	    the unix_telnet callback sending an extra newline after
+	    sending the password. This caused the sever to send an
+	    extra prompt back which confused the tests. The extra
+	    newline is no longer sent.</p>
+          <p>
+	    Also, debug printouts and logging from the telnet client
+	    is improved, and some test cases are slightly modified in
+	    order to stabilize the test.</p>
+          <p>
+	    Own Id: OTP-12329</p>
+        </item>
+        <item>
+          <p>
+	    ct_netconfc did not expect the return value
+	    {error,timeout} from ssh_connection:subsystem/4. This has
+	    been corrected.</p>
+          <p>
+	    Own Id: OTP-12334</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    A new option, <c>{newline,boolean()}</c> is added to all
+	    functions in <c>ct_telnet</c> that send data (command
+	    strings) to the telnet server. By default,
+	    <c>ct_telnet</c> adds a newline to all command strings,
+	    and by setting the new option to <c>false</c> this
+	    behavior is turned off.</p>
+          <p>
+	    Own Id: OTP-12252 Aux Id: seq12730 </p>
+        </item>
+        <item>
+          <p>
+	    Distribute <c>autoconf</c> helpers to applications at
+	    build time instead of having multiple identical copies
+	    committed in the repository.</p>
+          <p>
+	    Own Id: OTP-12348</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Common_Test 1.8.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

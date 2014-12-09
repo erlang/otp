@@ -31,6 +31,23 @@
   <p>This document describes the changes made to the Runtime_Tools
     application.</p>
 
+<section><title>Runtime_Tools 1.8.15</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Add <c>nif_version</c> to <c>erlang:system_info/1</c> in
+	    order to get the NIF API version of the runtime system in
+	    a way similar to <c>driver_version</c>.</p>
+          <p>
+	    Own Id: OTP-12298</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Runtime_Tools 1.8.14</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

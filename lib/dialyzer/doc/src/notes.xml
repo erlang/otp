@@ -31,6 +31,44 @@
   <p>This document describes the changes made to the Dialyzer
     application.</p>
 
+<section><title>Dialyzer 2.7.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> When compiling Erlang source, Dialyzer now ignores
+	    the environment variable ERL_COMPILER_OPTIONS as well as
+	    skips the Erlang Compiler option
+	    <c>warnings_as_errors</c>. </p>
+          <p>
+	    Own Id: OTP-12225</p>
+        </item>
+        <item>
+	    <p> Dialyzer did not check the type of record elements
+	    when updating them. The bug, introduced in Erlang/OTP
+	    17.1, has been corrected. (Thanks to Nicolas Dudebout for
+	    pointing it out.) </p>
+          <p>
+	    Own Id: OTP-12319</p>
+        </item>
+        <item>
+          <p>
+	    Coalesce map keys in dialyzer mode</p>
+          <p>
+	    This fixes a regression introduced in commit
+	    805f9c89fc01220bc1bb0f27e1b68fd4eca688ba The problem
+	    occurred with compounded map keys compiled with dialyzer
+	    option turned on, '+dialyzer'.</p>
+          <p>
+	    Reported by: Ivan Uemlianin</p>
+          <p>
+	    Own Id: OTP-12347</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Dialyzer 2.7.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

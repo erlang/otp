@@ -30,6 +30,31 @@
   </header>
   <p>This document describes the changes made to the Crypto application.</p>
 
+<section><title>Crypto 3.4.2</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Add configure option --with-ssl-incl=PATH to support
+	    OpenSSL installations with headers and libraries at
+	    different places.</p>
+          <p>
+	    Own Id: OTP-12215 Aux Id: seq12700 </p>
+        </item>
+        <item>
+          <p>
+	    Add configure option --with-ssl-rpath to control which
+	    runtime library path to use for dynamic linkage toward
+	    OpenSSL.</p>
+          <p>
+	    Own Id: OTP-12316 Aux Id: seq12753 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Crypto 3.4.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

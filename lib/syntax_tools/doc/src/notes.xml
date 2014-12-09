@@ -31,6 +31,27 @@
   <p>This document describes the changes made to the Syntax_Tools
     application.</p>
 
+<section><title>Syntax_Tools 1.6.17</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Teach Maps to erl_syntax</p>
+          <p>
+	    Affected functions: <list>
+	    <item>erl_syntax:abstract/1</item>
+	    <item>erl_syntax:concrete/1</item>
+	    <item>erl_syntax:is_leaf/1</item>
+	    <item>erl_syntax:is_literal/1</item> </list></p>
+          <p>
+	    Own Id: OTP-12265</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Syntax_Tools 1.6.16</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

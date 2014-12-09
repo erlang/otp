@@ -31,7 +31,46 @@
   <p>This document describes the changes made to the odbc application.
   </p>
 
-  <section><title>ODBC 2.10.21</title>
+  <section><title>ODBC 2.10.22</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    OS X Mavericks is based on Darwin version 13.x, and
+	    Yosemite on 14.x. Change the ODBC configure.in script to
+	    recognize these versions.</p>
+          <p>
+	    Own Id: OTP-12260</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    The commands longer than 127 chars sent to odbc server
+	    crashed it, e.g. a connection string with driver path and
+	    some additional parameters.</p>
+          <p>
+	    Own Id: OTP-12346</p>
+        </item>
+        <item>
+          <p>
+	    Distribute <c>autoconf</c> helpers to applications at
+	    build time instead of having multiple identical copies
+	    committed in the repository.</p>
+          <p>
+	    Own Id: OTP-12348</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>ODBC 2.10.21</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>

@@ -25,7 +25,36 @@
     <file>notes.xml</file>
   </header>
   <p>This document describes the changes made to the SSL application.</p>
-  <section><title>SSL 5.3.7</title>
+  <section><title>SSL 5.3.8</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Make sure the clean rule for ssh, ssl, eunit and otp_mibs
+	    actually removes generated files.</p>
+          <p>
+	    Own Id: OTP-12200</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Change code to reflect that state data may be secret to
+	    avoid breaking dialyzer contracts.</p>
+          <p>
+	    Own Id: OTP-12341</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SSL 5.3.7</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>

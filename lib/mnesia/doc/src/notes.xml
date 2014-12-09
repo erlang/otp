@@ -38,7 +38,30 @@
     thus constitutes one section in this document. The title of each
     section is the version number of Mnesia.</p>
 
-  <section><title>Mnesia 4.12.3</title>
+  <section><title>Mnesia 4.12.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed a spelling mistake in mnesia documentation.</p>
+          <p>
+	    Own Id: OTP-12278</p>
+        </item>
+        <item>
+          <p>
+	    Matching data with <c>mnesia:match_object/1</c> did not
+	    work as expected in some cases, when data was written in
+	    the same transaction before the matching was invoked.</p>
+          <p>
+	    Own Id: OTP-12304 Aux Id: Seq12745 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Mnesia 4.12.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>

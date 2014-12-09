@@ -32,6 +32,21 @@
   </header>
   <p>This document describes the changes made to the Percept application.</p>
 
+<section><title>Percept 0.8.10</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Make sure to install .hrl files when needed</p>
+          <p>
+	    Own Id: OTP-12197</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Percept 0.8.9</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

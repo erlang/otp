@@ -36,7 +36,24 @@
   section is the version number of Megaco.</p>
   
   
-  <section><title>Megaco 3.17.2</title>
+  <section><title>Megaco 3.17.3</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Distribute <c>autoconf</c> helpers to applications at
+	    build time instead of having multiple identical copies
+	    committed in the repository.</p>
+          <p>
+	    Own Id: OTP-12348</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Megaco 3.17.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>
