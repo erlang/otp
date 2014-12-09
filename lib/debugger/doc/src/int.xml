@@ -49,7 +49,7 @@
       execution. This is done by sending and receiving information
       to/from the process via a third process, called the meta process.
       It is possible to implement your own attached process. See
-      <c>int.erl</c> for available functions and <c>dbg_ui_trace.erl</c>
+      <c>int.erl</c> for available functions and <c>dbg_wx_trace.erl</c>
       for possible messages.</p>
 
     <p>The interpreter depends on the Kernel, STDLIB and GS
