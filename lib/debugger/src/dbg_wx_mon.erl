@@ -414,7 +414,7 @@ gui_cmd({'Trace Window', TraceWin}, State) ->
     State2 = State#state{tracewin=TraceWin},
     case State#state.attach of
 	false -> ignore;
-	{Flags, {dbg_ui_trace, start, StartFlags}} ->
+	{Flags, {dbg_wx_trace, start, StartFlags}} ->
 	    case trace_function(State2) of
 		{_, _, StartFlags} -> ignore;
 		NewFunction -> % {_, _, NewStartFlags}
