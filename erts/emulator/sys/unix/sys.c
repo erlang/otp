@@ -894,21 +894,6 @@ static RETSIGTYPE user_signal1(int signum)
 #endif
 }
 
-#ifdef QUANTIFY
-#if (defined(SIG_SIGSET) || defined(SIG_SIGNAL))
-static RETSIGTYPE user_signal2(void)
-#else
-static RETSIGTYPE user_signal2(int signum)
-#endif
-{
-#ifdef ERTS_SMP
-   smp_sig_notify('2');
-#else
-   quantify_save_data();
-#endif
-}
-#endif
-
 #endif /* #ifndef ETHR_UNUSABLE_SIGUSRX */
 
 static void
@@ -960,9 +945,6 @@ void init_break_handler(void)
    sys_sigset(SIGINT, request_break);
 #ifndef ETHR_UNUSABLE_SIGUSRX
    sys_sigset(SIGUSR1, user_signal1);
-#ifdef QUANTIFY
-   sys_sigset(SIGUSR2, user_signal2);
-#endif
 #endif /* #ifndef ETHR_UNUSABLE_SIGUSRX */
    sys_sigset(SIGQUIT, do_quit);
 }
@@ -3207,13 +3189,6 @@ signal_dispatcher_thread_func(void *unused)
 	    case '1': /* SIGUSR1 */
 		sigusr1_exit();
 		break;
-#ifdef QUANTIFY
-	    case '2': /* SIGUSR2 */
-		quantify_save_data(); /* Might take a substantial amount of
-					 time, but this is a test/debug
-					 build */
-		break;
-#endif
 	    default:
 		erl_exit(ERTS_ABORT_EXIT,
 			 "signal-dispatcher thread received unknown "
