@@ -211,7 +211,7 @@
 	  the result of calling the shell function <c>pid(X,Y,Z)</c>.
 	  An attached process is expected to call the unofficial
 	  <c>int:attached(Pid)</c> function and to be able to handle
-	  messages from the interpreter, see <c>dbg_ui_trace.erl</c> for
+	  messages from the interpreter, see <c>dbg_wx_trace.erl</c> for
 	  an example.</p>
       </desc>
     </func>

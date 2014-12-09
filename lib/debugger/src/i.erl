@@ -250,7 +250,7 @@ ist(Flag) ->
 %% -------------------------------------------
 
 iaa(Flag) ->
-    iaa(Flag,{dbg_ui_trace,start,[]}).
+    iaa(Flag,{dbg_wx_trace,start,[]}).
 
 %% -------------------------------------------
 %% Set the automatic attachment flag.
@@ -271,7 +271,7 @@ iaa(Flag,Fnk) ->
 %% -------------------------------------------
 
 ia(Pid) ->
-    ia(Pid,{dbg_ui_trace,start}).
+    ia(Pid,{dbg_wx_trace,start}).
 
 %% -------------------------------------------
 %% Attach to process.
