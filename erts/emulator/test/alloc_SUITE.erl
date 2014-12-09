@@ -204,55 +204,43 @@ drv_case(Config, Mode, NodeOpts) when is_list(Config) ->
 run_drv_case(Config, Mode) ->
     ?line DataDir = ?config(data_dir,Config),
     ?line CaseName = ?config(testcase,Config),
-    case erl_ddll:load_driver(DataDir, CaseName) of
-	ok -> ok;
-	{error, Error} ->
-	    io:format("~s\n", [erl_ddll:format_error(Error)]),
-	    ?line ?t:fail()
-    end,
+    File = filename:join(DataDir, CaseName),
+    {ok,CaseName,Bin} = compile:file(File, [binary,return_errors]),
+    ?line {module,CaseName} = erlang:load_module(CaseName,Bin),
+    ok = CaseName:init(File),
 
     case Mode of
 	one_shot ->
-	    Result = one_shot(CaseName, "");
+	    Result = one_shot(CaseName);
 
 	concurrent ->
 	    Result = concurrent(CaseName)
     end,
 
-    ?line ok = erl_ddll:unload_driver(CaseName),
+    ?line true = erlang:delete_module(CaseName),
     ?line Result.
 
-one_shot(CaseName, Command) ->
-    ?line Port = open_port({spawn, atom_to_list(CaseName)}, []),
-    ?line true = is_port(Port),
-    ?line Port ! {self(), {command, Command}},
-    ?line Result = receive_drv_result(Port, CaseName),
-    ?line Port ! {self(), close},
-    ?line receive 
-	      {Port, closed} ->
-		  ok
-	  end,
-    Result.
+one_shot(CaseName) ->
+    State = CaseName:start(1),
+    Result0 = CaseName:run(State),
+    false = (Result0 =:= continue),
+    Result1 = handle_result(State, Result0),
+    CaseName:stop(State),
+    Result1.
 
 
-many_shot(CaseName, Command) ->
-    ?line Port = open_port({spawn, atom_to_list(CaseName)}, []),
-    ?line true = is_port(Port),
-    Result = repeat_while(fun() ->
-				  ?line Port ! {self(), {command, Command}},
-				  receive_drv_result(Port, CaseName) =:= continue
-			  end),
-    ?line Port ! {self(), close},
-    ?line receive
-	      {Port, closed} ->
-		  ok
-	  end,
-    Result.
+many_shot(CaseName, I) ->
+    State = CaseName:start(I),
+    Result1 = repeat_while(fun() ->
+				   Result0 = CaseName:run(State),
+				   handle_result(State, Result0)
+			   end),
+    CaseName:stop(State),
+    Result1.
 
 concurrent(CaseName) ->
-    one_shot(CaseName, "init"),
     PRs = lists:map(fun(I) -> spawn_opt(fun() ->
-						many_shot(CaseName, "")
+						many_shot(CaseName, I)
 					end,
 				       [monitor, {scheduler,I}])
 		    end,
@@ -266,32 +254,39 @@ concurrent(CaseName) ->
     ok.
 
 repeat_while(Fun) ->
-    io:format("~p calls fun\n", [self()]),
+    %%io:format("~p calls fun\n", [self()]),
     case Fun() of
-	true -> repeat_while(Fun);
-	false -> ok
+	continue -> repeat_while(Fun);
+	R -> R
     end.
 
-receive_drv_result(Port, CaseName) ->
-    ?line receive
-	      {print, Port, CaseName, Str} ->
-		  ?line ?t:format("~s", [Str]),
-		  ?line receive_drv_result(Port, CaseName);
-	      {'EXIT', Port, Error} ->
-		  ?line ?t:fail(Error);
-	      {'EXIT', error, Error} ->
-		  ?line ?t:fail(Error);
-	      {failed, Port, CaseName, Comment} ->
-		  ?line ?t:fail(Comment);
-	      {skipped, Port, CaseName, Comment} ->
-		  ?line {skipped, Comment};
-	      {succeeded, Port, CaseName, ""} ->
-		  ?line succeeded;
-	      {succeeded, Port, CaseName, Comment} ->
-		  ?line {comment, Comment};
-	      continue ->
-		  continue
-	  end.
+flush_log() ->
+    receive
+	{print, Str} ->
+	    ?t:format("~s", [Str]),
+	    flush_log()
+    after 0 ->
+	    ok
+    end.
+
+handle_result(_State, Result0) ->
+    flush_log(),
+    case Result0 of
+	{'EXIT', Error} ->
+	    ?line ?t:fail(Error);
+	{'EXIT', error, Error} ->
+	    ?line ?t:fail(Error);
+	{failed, Comment} ->
+	    ?line ?t:fail(Comment);
+	{skipped, Comment} ->
+	    ?line {skipped, Comment};
+	{succeeded, ""} ->
+	    ?line succeeded;
+	{succeeded, Comment} ->
+	    ?line {comment, Comment};
+	continue ->
+	    continue
+    end.
 
 start_node(Config, Opts) when is_list(Config), is_list(Opts) ->
     Pa = filename:dirname(code:which(?MODULE)),

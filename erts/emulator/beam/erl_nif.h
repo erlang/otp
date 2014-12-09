@@ -232,6 +232,7 @@ typedef enum {
 #  define ERL_NIF_API_FUNC_DECL(RET_TYPE, NAME, ARGS) RET_TYPE (*NAME) ARGS
 typedef struct {
 #  include "erl_nif_api_funcs.h"
+   void* erts_alc_test;
 } TWinDynNifCallbacks;
 extern TWinDynNifCallbacks WinDynNifCallbacks;
 #  undef ERL_NIF_API_FUNC_DECL

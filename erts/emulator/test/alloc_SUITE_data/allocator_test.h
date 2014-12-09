@@ -20,9 +20,20 @@
 #ifndef ALLOCATOR_TEST_H__
 #define ALLOCATOR_TEST_H__
 
-typedef ErlDrvUInt Ulong;
+#if SIZEOF_VOID_P == SIZEOF_INT
+typedef unsigned int Ulong;
+#elif SIZEOF_VOID_P == SIZEOF_LONG
+typedef unsigned long Ulong;
+#elif SIZEOF_VOID_P == SIZEOF_LONG_LONG
+typedef unsigned long long Ulong;
+#else
+# error No pointer sized integer type found ???
+#endif
 
-#ifndef __WIN32__
+#ifdef __WIN32__
+typedef Ulong erts_alc_test_Fn(Ulong, Ulong, Ulong, Ulong);
+#  define erts_alc_test ((erts_alc_test_Fn*)WinDynNifCallbacks.erts_alc_test)
+#else
 Ulong erts_alc_test(Ulong, Ulong, Ulong, Ulong);
 #endif
 

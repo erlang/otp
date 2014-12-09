@@ -577,3 +577,6 @@ testcase_run(TestCaseState_t *tcs)
     testcase_printf(tcs, "aoffcaobf test succeeded!\n");
 
 }
+
+ERL_NIF_INIT(rbtree, testcase_nif_funcs, testcase_nif_init,
+	     NULL, NULL, NULL);

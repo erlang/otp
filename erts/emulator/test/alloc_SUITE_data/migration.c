@@ -60,6 +60,8 @@ testcase_name(void)
 void
 testcase_cleanup(TestCaseState_t *tcs)
 {
+    enif_free(tcs->extra);
+    tcs->extra = NULL;
 }
 
 #define MAX_BLOCK_PER_THR 100
@@ -78,7 +80,7 @@ typedef struct {
 } MigrationState;
 
 typedef struct {
-    ErlDrvMutex* mtx;
+    ErlNifMutex* mtx;
     int nblocks;
     MyBlock* first;
 } MyCrrInfo;
@@ -94,7 +96,7 @@ static void my_creating_mbc(Allctr_t *allctr, Carrier_t *carrier)
     if (orig_create_mbc_fn)
 	orig_create_mbc_fn(allctr, carrier);
 
-    mci->mtx = erl_drv_mutex_create("alloc_SUITE.migration");
+    mci->mtx = enif_mutex_create("alloc_SUITE.migration");
     mci->nblocks = 0;
     mci->first = NULL;
 }
@@ -105,49 +107,54 @@ static void my_destroying_mbc(Allctr_t *allctr, Carrier_t *carrier)
 
     FATAL_ASSERT(mci->nblocks == 0);
     FATAL_ASSERT(mci->first == NULL);
-    erl_drv_mutex_destroy(mci->mtx);
+    enif_mutex_destroy(mci->mtx);
 
     if (orig_destroying_mbc_fn)
 	orig_destroying_mbc_fn(allctr, carrier);
 }
 
-
-static void setup(TestCaseState_t* tcs)
+static int migration_init(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
 {
     void* creating_mbc_arg = (void*)my_creating_mbc;
     void* destroying_mbc_arg = (void*)my_destroying_mbc;
+
+    if (testcase_nif_init(env, priv_data, load_info))
+	return -1;
+
     crr_info_offset = SET_TEST_MBC_USER_HEADER(sizeof(MyCrrInfo),
 					       &creating_mbc_arg,
 					       &destroying_mbc_arg);
-    ASSERT(tcs, crr_info_offset >= 0);
+    FATAL_ASSERT(crr_info_offset >= 0);
     orig_create_mbc_fn = creating_mbc_arg;
     orig_destroying_mbc_fn = destroying_mbc_arg;
+
+    return 0;
 }
 
 static void add_block(MyBlock* p)
 {
     MyCrrInfo* mci = (MyCrrInfo*)((char*)BLK_TO_MBC(UMEM2BLK_TEST(p)) + crr_info_offset);
 
-    erl_drv_mutex_lock(mci->mtx);
+    enif_mutex_lock(mci->mtx);
     mci->nblocks++;
     p->next = mci->first;
     p->prevp = &mci->first;
     mci->first = p;
     if (p->next)
 	p->next->prevp = &p->next;
-    erl_drv_mutex_unlock(mci->mtx);
+    enif_mutex_unlock(mci->mtx);
 }
 
 static void remove_block(MyBlock* p)
 {
     MyCrrInfo* mci = (MyCrrInfo*)((char*)BLK_TO_MBC(UMEM2BLK_TEST(p)) + crr_info_offset);
 
-    erl_drv_mutex_lock(mci->mtx);
+    enif_mutex_lock(mci->mtx);
     mci->nblocks--;
     if (p->next)
 	p->next->prevp = p->prevp;
     *p->prevp = p->next;
-    erl_drv_mutex_unlock(mci->mtx);
+    enif_mutex_unlock(mci->mtx);
 }
 
 void
@@ -155,17 +162,11 @@ testcase_run(TestCaseState_t *tcs)
 {
     MigrationState* state = (MigrationState*) tcs->extra;
 
-    if (tcs->command_len == 4
-	&& memcmp(tcs->command, "init", tcs->command_len) == 0) {
-	setup(tcs);
-	return;
-    }
-
     if (!tcs->extra) {
 	if (!IS_SMP_ENABLED)
 	    testcase_skipped(tcs, "No SMP support");
 
-	tcs->extra = driver_alloc(sizeof(MigrationState));
+	tcs->extra = enif_alloc(sizeof(MigrationState));
 	state = (MigrationState*) tcs->extra;
 	memset(state->blockv, 0, sizeof(state->blockv));
 	state->phase = GROWING;
@@ -220,10 +221,9 @@ testcase_run(TestCaseState_t *tcs)
 	FATAL_ASSERT(!"Invalid phase");
     }
 
-    if (state->phase == DONE) {
-	driver_free(tcs->extra);
-	tcs->extra = NULL;
-    }
-    else
+    if (state->phase != DONE)
 	testcase_continue(tcs);
 }
+
+ERL_NIF_INIT(migration, testcase_nif_funcs, migration_init,
+	     NULL, NULL, NULL);

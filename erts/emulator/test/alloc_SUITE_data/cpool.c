@@ -86,13 +86,13 @@ thread_func(void *arg)
     for (i = 0; i < (TEST_NO_CARRIERS_PER_THREAD+TEST_CARRIERS_OFFSET); i++) {
 	int d;
 	if (i < TEST_NO_CARRIERS_PER_THREAD) {
-	    CPOOL_INSERT(alloc, crr[i]);
+	    (void) CPOOL_INSERT(alloc, crr[i]);
 	    if ((i & 0x7) == 0)
 		FATAL_ASSERT(CPOOL_IS_IN_POOL(alloc, crr[i]));
 	}
 	d = i-TEST_CARRIERS_OFFSET;
 	if (d >= 0) {
-	    CPOOL_DELETE(alloc, crr[d]);
+	    (void) CPOOL_DELETE(alloc, crr[d]);
 	    if ((d & 0x7) == 0)
 		FATAL_ASSERT(!CPOOL_IS_IN_POOL(alloc, crr[d]));
 	}
@@ -129,7 +129,7 @@ testcase_run(TestCaseState_t *tcs)
 	for (c = 0; c < TEST_NO_CARRIERS_PER_THREAD; c++) {
 	    Carrier_t *crr = (Carrier_t *) p;
 	    p += zcrr_sz;
-	    ZERO_CRR_INIT(alloc, crr);
+	    (void) ZERO_CRR_INIT(alloc, crr);
 	    threads[t].crr[c] = crr;
 	}
     }
@@ -156,3 +156,6 @@ testcase_run(TestCaseState_t *tcs)
 
     ASSERT(tcs, no_threads == TEST_NO_THREADS);
 }
+
+ERL_NIF_INIT(cpool, testcase_nif_funcs, testcase_nif_init,
+	     NULL, NULL, NULL);

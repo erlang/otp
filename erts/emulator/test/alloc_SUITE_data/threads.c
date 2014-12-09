@@ -86,7 +86,7 @@ static void fail(int t_no, char *frmt, ...)
 
     tc_failed = 1;
 
-    if (erl_drv_getenv("ERL_ABORT_ON_FAILURE", buf, &bufsz) == 0
+    if (enif_getenv("ERL_ABORT_ON_FAILURE", buf, &bufsz) == 0
 	&& strcmp("true", buf) == 0) {
 	fprintf(stderr, "Testcase \"%s\" failed: %s\n",
 		testcase_name(), err_buf);
@@ -187,7 +187,6 @@ testcase_run(TestCaseState_t *tcs)
 
     for(i = 1; i <= NO_OF_THREADS; i++) {
 	char *alc;
-	int res;
 
 	threads[i].arg.no_ops_per_bl = NO_OF_OPS_PER_BL;
 
@@ -446,3 +445,6 @@ thread_func(void *arg)
     exit_thread(td->t_no, 1);
     return NULL;
 }
+
+ERL_NIF_INIT(threads, testcase_nif_funcs, testcase_nif_init,
+	     NULL, NULL, NULL);
