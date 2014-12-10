@@ -45,7 +45,7 @@ typedef struct {
     TestCaseState_t visible;
     ErlNifEnv* curr_env;
     int result;
-    jmp_buf done_jmp_buf;
+    jmp_buf* done_jmp_buf;
     char *comment;
     char comment_buf[COMMENT_BUF_SZ];
 } InternalTestCaseState_t;
@@ -110,13 +110,20 @@ testcase_nif_run(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
     InternalTestCaseState_t *itcs;
     const char* result_atom;
+    jmp_buf the_jmp_buf;
 
     if (!enif_get_resource(env, argv[0], testcase_rt, (void**)&itcs))
 	return enif_make_badarg(env);
 
     itcs->curr_env = env;
 
-    if (setjmp(itcs->done_jmp_buf) == 0) {
+    /* For some unknown reason, first call to setjmp crashes on win64
+     * when jmp_buf is allocated as part of the resource. But it works when
+     * allocated on stack. It used to work when this was a driver.
+     */
+    itcs->done_jmp_buf = &the_jmp_buf;
+
+    if (setjmp(the_jmp_buf) == 0) {
 	testcase_run(&itcs->visible);
 	itcs->result = TESTCASE_SUCCEEDED;
     }
@@ -184,7 +191,7 @@ void testcase_succeeded(TestCaseState_t *tcs, char *frmt, ...)
     itcs->result = TESTCASE_SUCCEEDED;
     itcs->comment = itcs->comment_buf;
 
-    longjmp(itcs->done_jmp_buf, 1);
+    longjmp(*itcs->done_jmp_buf, 1);
 }
 
 void testcase_skipped(TestCaseState_t *tcs, char *frmt, ...)
@@ -202,14 +209,14 @@ void testcase_skipped(TestCaseState_t *tcs, char *frmt, ...)
     itcs->result = TESTCASE_SKIPPED;
     itcs->comment = itcs->comment_buf;
 
-    longjmp(itcs->done_jmp_buf, 1);
+    longjmp(*itcs->done_jmp_buf, 1);
 }
 
 void testcase_continue(TestCaseState_t *tcs)
 {
     InternalTestCaseState_t *itcs = (InternalTestCaseState_t *) tcs;
     itcs->result = TESTCASE_CONTINUE;
-    longjmp(itcs->done_jmp_buf, 1);
+    longjmp(*itcs->done_jmp_buf, 1);
 }
 
 void testcase_failed(TestCaseState_t *tcs, char *frmt, ...)
@@ -236,7 +243,7 @@ void testcase_failed(TestCaseState_t *tcs, char *frmt, ...)
 	abort();
     }
 
-    longjmp(itcs->done_jmp_buf, 1);
+    longjmp(*itcs->done_jmp_buf, 1);
 }
 
 void *testcase_alloc(size_t size)
