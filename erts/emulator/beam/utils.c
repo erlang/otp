@@ -4214,19 +4214,7 @@ void erts_silence_warn_unused_result(long unused)
 void
 erts_interval_init(erts_interval_t *icp)
 {
-#ifdef ARCH_64
-    erts_atomic_init_nob(&icp->counter.atomic, 0);
-#else
-    erts_dw_aint_t dw;
-#ifdef ETHR_SU_DW_NAINT_T__
-    dw.dw_sint = 0;
-#else
-    dw.sint[ERTS_DW_AINT_HIGH_WORD] = 0;
-    dw.sint[ERTS_DW_AINT_LOW_WORD] = 0;
-#endif
-    erts_dw_atomic_init_nob(&icp->counter.atomic, &dw);
-
-#endif
+    erts_atomic64_init_nob(&icp->counter.atomic, 0);
 #ifdef DEBUG
     icp->smp_api = 0;
 #endif
@@ -4248,55 +4236,13 @@ erts_smp_interval_init(erts_interval_t *icp)
 static ERTS_INLINE Uint64
 step_interval_nob(erts_interval_t *icp)
 {
-#ifdef ARCH_64
-    return (Uint64) erts_atomic_inc_read_nob(&icp->counter.atomic);
-#else
-    erts_dw_aint_t exp;
-
-    erts_dw_atomic_read_nob(&icp->counter.atomic, &exp);
-    while (1) {
-	erts_dw_aint_t new = exp;
-
-#ifdef ETHR_SU_DW_NAINT_T__
-	new.dw_sint++;
-#else
-	new.sint[ERTS_DW_AINT_LOW_WORD]++;
-	if (new.sint[ERTS_DW_AINT_LOW_WORD] == 0)
-	    new.sint[ERTS_DW_AINT_HIGH_WORD]++;
-#endif
-
-	if (erts_dw_atomic_cmpxchg_nob(&icp->counter.atomic, &new, &exp))
-	    return erts_interval_dw_aint_to_val__(&new);
-
-    }
-#endif
+    return (Uint64) erts_atomic64_inc_read_nob(&icp->counter.atomic);
 }
 
 static ERTS_INLINE Uint64
 step_interval_relb(erts_interval_t *icp)
 {
-#ifdef ARCH_64
-    return (Uint64) erts_atomic_inc_read_relb(&icp->counter.atomic);
-#else
-    erts_dw_aint_t exp;
-
-    erts_dw_atomic_read_nob(&icp->counter.atomic, &exp);
-    while (1) {
-	erts_dw_aint_t new = exp;
-
-#ifdef ETHR_SU_DW_NAINT_T__
-	new.dw_sint++;
-#else
-	new.sint[ERTS_DW_AINT_LOW_WORD]++;
-	if (new.sint[ERTS_DW_AINT_LOW_WORD] == 0)
-	    new.sint[ERTS_DW_AINT_HIGH_WORD]++;
-#endif
-
-	if (erts_dw_atomic_cmpxchg_relb(&icp->counter.atomic, &new, &exp))
-	    return erts_interval_dw_aint_to_val__(&new);
-
-    }
-#endif
+    return (Uint64) erts_atomic64_inc_read_relb(&icp->counter.atomic);
 }
 
 
@@ -4304,38 +4250,10 @@ static ERTS_INLINE Uint64
 ensure_later_interval_nob(erts_interval_t *icp, Uint64 ic)
 {
     Uint64 curr_ic;
-#ifdef ARCH_64
-    curr_ic = (Uint64) erts_atomic_read_nob(&icp->counter.atomic);
+    curr_ic = (Uint64) erts_atomic64_read_nob(&icp->counter.atomic);
     if (curr_ic > ic)
 	return curr_ic;
-    return (Uint64) erts_atomic_inc_read_nob(&icp->counter.atomic);
-#else
-    erts_dw_aint_t exp;
-
-    erts_dw_atomic_read_nob(&icp->counter.atomic, &exp);
-    curr_ic = erts_interval_dw_aint_to_val__(&exp);
-    if (curr_ic > ic)
-	return curr_ic;
-
-    while (1) {
-	erts_dw_aint_t new = exp;
-
-#ifdef ETHR_SU_DW_NAINT_T__
-	new.dw_sint++;
-#else
-	new.sint[ERTS_DW_AINT_LOW_WORD]++;
-	if (new.sint[ERTS_DW_AINT_LOW_WORD] == 0)
-	    new.sint[ERTS_DW_AINT_HIGH_WORD]++;
-#endif
-
-	if (erts_dw_atomic_cmpxchg_nob(&icp->counter.atomic, &new, &exp))
-	    return erts_interval_dw_aint_to_val__(&new);
-
-	curr_ic = erts_interval_dw_aint_to_val__(&exp);
-	if (curr_ic > ic)
-	    return curr_ic;
-    }
-#endif
+    return (Uint64) erts_atomic64_inc_read_nob(&icp->counter.atomic);
 }
 
 
@@ -4343,38 +4261,10 @@ static ERTS_INLINE Uint64
 ensure_later_interval_acqb(erts_interval_t *icp, Uint64 ic)
 {
     Uint64 curr_ic;
-#ifdef ARCH_64
-    curr_ic = (Uint64) erts_atomic_read_acqb(&icp->counter.atomic);
+    curr_ic = (Uint64) erts_atomic64_read_acqb(&icp->counter.atomic);
     if (curr_ic > ic)
 	return curr_ic;
-    return (Uint64) erts_atomic_inc_read_acqb(&icp->counter.atomic);
-#else
-    erts_dw_aint_t exp;
-
-    erts_dw_atomic_read_acqb(&icp->counter.atomic, &exp);
-    curr_ic = erts_interval_dw_aint_to_val__(&exp);
-    if (curr_ic > ic)
-	return curr_ic;
-
-    while (1) {
-	erts_dw_aint_t new = exp;
-
-#ifdef ETHR_SU_DW_NAINT_T__
-	new.dw_sint++;
-#else
-	new.sint[ERTS_DW_AINT_LOW_WORD]++;
-	if (new.sint[ERTS_DW_AINT_LOW_WORD] == 0)
-	    new.sint[ERTS_DW_AINT_HIGH_WORD]++;
-#endif
-
-	if (erts_dw_atomic_cmpxchg_acqb(&icp->counter.atomic, &new, &exp))
-	    return erts_interval_dw_aint_to_val__(&new);
-
-	curr_ic = erts_interval_dw_aint_to_val__(&exp);
-	if (curr_ic > ic)
-	    return curr_ic;
-    }
-#endif
+    return (Uint64) erts_atomic64_inc_read_acqb(&icp->counter.atomic);
 }
 
 Uint64

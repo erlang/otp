@@ -352,13 +352,7 @@ typedef struct {
 #undef ERTS_HAVE_SCHED_UTIL_BALANCING_SUPPORT
 #define ERTS_HAVE_SCHED_UTIL_BALANCING_SUPPORT ERTS_HAVE_SCHED_UTIL_BALANCING_SUPPORT_OPT
 
-#ifdef ARCH_64
-typedef erts_atomic_t ErtsAtomicSchedTime;
-#elif defined(ARCH_32)
-typedef erts_dw_atomic_t ErtsAtomicSchedTime;
-#else
-# error :-/
-#endif
+typedef erts_atomic64_t ErtsAtomicSchedTime;
 
 #if ERTS_HAVE_SCHED_UTIL_BALANCING_SUPPORT
 typedef struct {

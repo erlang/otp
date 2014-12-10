@@ -280,123 +280,37 @@ struct ErtsPTabListBifData_ {
 
 };
 
-#ifdef ARCH_32
-
-static ERTS_INLINE Uint64
-dw_aint_to_uint64(erts_dw_aint_t *dw)
-{
-#ifdef ETHR_SU_DW_NAINT_T__
-    return (Uint64) dw->dw_sint;
-#else
-    Uint64 res;
-    res = (Uint64) ((Uint32) dw->sint[ERTS_DW_AINT_HIGH_WORD]);
-    res <<= 32;
-    res |= (Uint64) ((Uint32) dw->sint[ERTS_DW_AINT_LOW_WORD]);
-    return res;
-#endif
-}
-
-static void
-unint64_to_dw_aint(erts_dw_aint_t *dw, Uint64 val)
-{
-#ifdef ETHR_SU_DW_NAINT_T__
-    dw->dw_sint = (ETHR_SU_DW_NAINT_T__) val;
-#else
-    dw->sint[ERTS_DW_AINT_LOW_WORD] = (erts_aint_t) (val & 0xffffffff);
-    dw->sint[ERTS_DW_AINT_HIGH_WORD] = (erts_aint_t) ((val >> 32) & 0xffffffff);
-#endif
-}
-
 static ERTS_INLINE void
 last_data_init_nob(ErtsPTab *ptab, Uint64 val)
 {
-    erts_dw_aint_t dw;
-    unint64_to_dw_aint(&dw, val);
-    erts_smp_dw_atomic_init_nob(&ptab->vola.tile.last_data, &dw);
+    erts_smp_atomic64_init_nob(&ptab->vola.tile.last_data, (erts_aint64_t) val);
 }
 
 static ERTS_INLINE void
 last_data_set_relb(ErtsPTab *ptab, Uint64 val)
 {
-    erts_dw_aint_t dw;
-    unint64_to_dw_aint(&dw, val);
-    erts_smp_dw_atomic_set_relb(&ptab->vola.tile.last_data, &dw);
+    erts_smp_atomic64_set_relb(&ptab->vola.tile.last_data, (erts_aint64_t) val);
 }
 
 static ERTS_INLINE Uint64
 last_data_read_nob(ErtsPTab *ptab)
 {
-    erts_dw_aint_t dw;
-    erts_smp_dw_atomic_read_nob(&ptab->vola.tile.last_data, &dw);
-    return dw_aint_to_uint64(&dw);
+    return (Uint64) erts_smp_atomic64_read_nob(&ptab->vola.tile.last_data);
 }
 
 static ERTS_INLINE Uint64
 last_data_read_acqb(ErtsPTab *ptab)
 {
-    erts_dw_aint_t dw;
-    erts_smp_dw_atomic_read_acqb(&ptab->vola.tile.last_data, &dw);
-    return dw_aint_to_uint64(&dw);
+    return (Uint64) erts_smp_atomic64_read_acqb(&ptab->vola.tile.last_data);
 }
 
 static ERTS_INLINE Uint64
 last_data_cmpxchg_relb(ErtsPTab *ptab, Uint64 new, Uint64 exp)
 {
-    erts_dw_aint_t dw_new, dw_xchg;
-
-    unint64_to_dw_aint(&dw_new, new);
-    unint64_to_dw_aint(&dw_xchg, exp);
-
-    if (erts_smp_dw_atomic_cmpxchg_relb(&ptab->vola.tile.last_data,
-					&dw_new,
-					&dw_xchg))
-	return exp;
-    else
-	return dw_aint_to_uint64(&dw_xchg);
+    return (Uint64) erts_smp_atomic64_cmpxchg_relb(&ptab->vola.tile.last_data,
+						   (erts_aint64_t) new,
+						   (erts_aint64_t) exp);
 }
-
-#elif defined(ARCH_64)
-
-union {
-    erts_smp_atomic_t pid_data;
-    char align[ERTS_CACHE_LINE_SIZE];
-} last erts_align_attribute(ERTS_CACHE_LINE_SIZE);
-
-static ERTS_INLINE void
-last_data_init_nob(ErtsPTab *ptab, Uint64 val)
-{
-    erts_smp_atomic_init_nob(&ptab->vola.tile.last_data, (erts_aint_t) val);
-}
-
-static ERTS_INLINE void
-last_data_set_relb(ErtsPTab *ptab, Uint64 val)
-{
-    erts_smp_atomic_set_relb(&ptab->vola.tile.last_data, (erts_aint_t) val);
-}
-
-static ERTS_INLINE Uint64
-last_data_read_nob(ErtsPTab *ptab)
-{
-    return (Uint64) erts_smp_atomic_read_nob(&ptab->vola.tile.last_data);
-}
-
-static ERTS_INLINE Uint64
-last_data_read_acqb(ErtsPTab *ptab)
-{
-    return (Uint64) erts_smp_atomic_read_acqb(&ptab->vola.tile.last_data);
-}
-
-static ERTS_INLINE Uint64
-last_data_cmpxchg_relb(ErtsPTab *ptab, Uint64 new, Uint64 exp)
-{
-    return (Uint64) erts_smp_atomic_cmpxchg_relb(&ptab->vola.tile.last_data,
-						 (erts_aint_t) new,
-						 (erts_aint_t) exp);
-}
-
-#else
-#  error "Not 64-bit, nor 32-bit architecture..."
-#endif
 
 static ERTS_INLINE int
 last_data_cmp(Uint64 ld1, Uint64 ld2)

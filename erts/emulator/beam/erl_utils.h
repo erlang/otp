@@ -32,11 +32,7 @@ typedef struct {
 #endif
     union {
 	Uint64 not_atomic;
-#ifdef ARCH_64
-	erts_atomic_t atomic;
-#else
-	erts_dw_atomic_t atomic;
-#endif
+	erts_atomic64_t atomic;
     } counter;
 } erts_interval_t;
 
@@ -50,9 +46,6 @@ Uint64 erts_ensure_later_interval_nob(erts_interval_t *, Uint64);
 Uint64 erts_ensure_later_interval_acqb(erts_interval_t *, Uint64);
 Uint64 erts_smp_ensure_later_interval_nob(erts_interval_t *, Uint64);
 Uint64 erts_smp_ensure_later_interval_acqb(erts_interval_t *, Uint64);
-#ifdef ARCH_32
-ERTS_GLB_INLINE Uint64 erts_interval_dw_aint_to_val__(erts_dw_aint_t *);
-#endif
 ERTS_GLB_INLINE Uint64 erts_current_interval_nob__(erts_interval_t *);
 ERTS_GLB_INLINE Uint64 erts_current_interval_acqb__(erts_interval_t *);
 ERTS_GLB_INLINE Uint64 erts_current_interval_nob(erts_interval_t *);
@@ -62,46 +55,16 @@ ERTS_GLB_INLINE Uint64 erts_smp_current_interval_acqb(erts_interval_t *);
 
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
 
-#ifdef ARCH_32
-
-ERTS_GLB_INLINE Uint64
-erts_interval_dw_aint_to_val__(erts_dw_aint_t *dw)
-{
-#ifdef ETHR_SU_DW_NAINT_T__
-    return (Uint64) dw->dw_sint;
-#else
-    Uint64 res;
-    res = (Uint64) ((Uint32) dw->sint[ERTS_DW_AINT_HIGH_WORD]);
-    res <<= 32;
-    res |= (Uint64) ((Uint32) dw->sint[ERTS_DW_AINT_LOW_WORD]);
-    return res;
-#endif
-}
-
-#endif
-
 ERTS_GLB_INLINE Uint64
 erts_current_interval_nob__(erts_interval_t *icp)
 {
-#ifdef ARCH_64
-    return (Uint64) erts_atomic_read_nob(&icp->counter.atomic);
-#else
-    erts_dw_aint_t dw;
-    erts_dw_atomic_read_nob(&icp->counter.atomic, &dw);
-    return erts_interval_dw_aint_to_val__(&dw);
-#endif
+    return (Uint64) erts_atomic64_read_nob(&icp->counter.atomic);
 }
 
 ERTS_GLB_INLINE Uint64
 erts_current_interval_acqb__(erts_interval_t *icp)
 {
-#ifdef ARCH_64
-    return (Uint64) erts_atomic_read_acqb(&icp->counter.atomic);
-#else
-    erts_dw_aint_t dw;
-    erts_dw_atomic_read_acqb(&icp->counter.atomic, &dw);
-    return erts_interval_dw_aint_to_val__(&dw);
-#endif
+    return (Uint64) erts_atomic64_read_acqb(&icp->counter.atomic);
 }
 
 ERTS_GLB_INLINE Uint64
