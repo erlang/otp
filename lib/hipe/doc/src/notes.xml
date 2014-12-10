@@ -30,6 +30,22 @@
   </header>
   <p>This document describes the changes made to HiPE.</p>
 
+<section><title>Hipe 3.11.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed internal elf_format hrl file to contain valid
+	    erlang</p>
+          <p>
+	    Own Id: OTP-12322</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Hipe 3.11.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

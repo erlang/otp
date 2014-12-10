@@ -30,6 +30,41 @@
   </header>
   <p>This document describes the changes made to the Tools application.</p>
 
+<section><title>Tools 2.7.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed a typo in erlang-mode comment.</p>
+          <p>
+	    Own Id: OTP-12214</p>
+        </item>
+        <item>
+          <p>
+	    Add a skeleton for -spec in Erlang mode for Emacs</p>
+          <p>
+	    Own Id: OTP-12283</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Cover no longer crashes when compiling <c>receive</c> and
+	    the like with just an <c>after</c> clause. Thanks to
+	    José Valim for providing a fix.</p>
+          <p>
+	    Own Id: OTP-12328</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Tools 2.7</title>
 
     <section><title>Improvements and New Features</title>

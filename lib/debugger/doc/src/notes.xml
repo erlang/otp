@@ -32,6 +32,29 @@
   <p>This document describes the changes made to the Debugger
     application.</p>
 
+<section><title>Debugger 4.0.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Make sure to install .hrl files when needed</p>
+          <p>
+	    Own Id: OTP-12197</p>
+        </item>
+        <item>
+          <p>
+	    Invoking debugger functions <c>ia/1</c> and <c>iaa/1</c>
+	    crashed, when it tried to invoke the old and removed gs
+	    based gui functions.</p>
+          <p>
+	    Own Id: OTP-12357</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Debugger 4.0.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

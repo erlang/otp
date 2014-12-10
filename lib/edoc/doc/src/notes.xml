@@ -31,6 +31,22 @@
   <p>This document describes the changes made to the EDoc
     application.</p>
 
+<section><title>Edoc 0.7.16</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Maps: Properly align union typed assoc values in
+	    documentation</p>
+          <p>
+	    Own Id: OTP-12190</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Edoc 0.7.15</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

@@ -42,6 +42,68 @@ first.</p>
 
 <!-- ===================================================================== -->
 
+<section><title>diameter 1.8</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix remote diameter_request table leak.</p>
+          <p>
+	    An outgoing request whose pick_peer callback selected a
+	    transport on another node resulted in an orphaned table
+	    entry on that node.</p>
+          <p>
+	    Own Id: OTP-12196</p>
+        </item>
+        <item>
+          <p>
+	    Fix handling of 3xxx Result-Code without E-bit.</p>
+          <p>
+	    OTP-12233 broke the population of the errors field of the
+	    diameter_packet record when an incoming request with an
+	    E-bit/Result-Code mismatch was detected, causing a
+	    4-tuple to be inserted as Result-Code in a diameter_avp
+	    record.</p>
+          <p>
+	    Own Id: OTP-12233</p>
+        </item>
+        <item>
+          <p>
+	    Fix ignored connect timer.</p>
+          <p>
+	    There are two timers governing the establishment of peer
+	    connections: connect_timer and watchdog_timer. The former
+	    is the RFC 6733 Tc timer, and is used at initial
+	    connection establishment. The latter is RFC 3539 TwInit,
+	    and is used for connection reestablishment. A connecting
+	    transport erroneously used watchdog_timer in both cases.</p>
+          <p>
+	    Own Id: OTP-12281 Aux Id: seq12728 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Order candidate peers in pick_peer callbacks.</p>
+          <p>
+	    The order of candidate peers presented to a
+	    diameter_app(3) pick_peer callback has previously not
+	    been documented, but there are use cases that are
+	    simplified by an ordering. The order is now determined by
+	    the filter.</p>
+          <p>
+	    Own Id: OTP-12308</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>diameter 1.7.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

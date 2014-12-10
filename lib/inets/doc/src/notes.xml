@@ -32,7 +32,37 @@
     <file>notes.xml</file>
   </header>
   
-  <section><title>Inets 5.10.3</title>
+  <section><title>Inets 5.10.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed a spelling mistake in httpc documentation.</p>
+          <p>
+	    Own Id: OTP-12221</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Add option {ftp_extension, boolean} to enable use of
+	    extended commands EPSV and EPRT, as specified in RFC
+	    2428, for IPv4 instead of using the legacy commands. Ipv6
+	    can not be supported without the extended commands.</p>
+          <p>
+	    Own Id: OTP-12255</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Inets 5.10.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>

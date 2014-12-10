@@ -31,6 +31,22 @@
   <p>This document describes the changes made to the OTP_Mibs
     application.</p>
 
+<section><title>Otp_Mibs 1.0.10</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Make sure the clean rule for ssh, ssl, eunit and otp_mibs
+	    actually removes generated files.</p>
+          <p>
+	    Own Id: OTP-12200</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Otp_Mibs 1.0.9</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

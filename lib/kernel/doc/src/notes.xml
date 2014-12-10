@@ -30,6 +30,59 @@
   </header>
   <p>This document describes the changes made to the Kernel application.</p>
 
+<section><title>Kernel 3.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Make sure to install .hrl files when needed</p>
+          <p>
+	    Own Id: OTP-12197</p>
+        </item>
+        <item>
+          <p>
+	    Removed the undocumented application environment variable
+	    'raw_files' from the kernel application. This variable
+	    was checked (by call to application:get_env/2) each time
+	    a raw file was to be opened in the file module.</p>
+          <p>
+	    Own Id: OTP-12276</p>
+        </item>
+        <item>
+          <p>
+	    A bug has been fixed when using the netns option to
+	    gen_udp, which accidentally only worked if it was the
+	    last option.</p>
+          <p>
+	    Own Id: OTP-12314</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Updated documentation for inet buffer size options.</p>
+          <p>
+	    Own Id: OTP-12296</p>
+        </item>
+        <item>
+          <p>
+	    Introduce new option 'raw' in file_info and link_info
+	    functions. This option allows the caller not to go
+	    through the file server for information about files
+	    guaranteed to be local.</p>
+          <p>
+	    Own Id: OTP-12325</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Kernel 3.0.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

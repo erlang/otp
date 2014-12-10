@@ -31,6 +31,38 @@
   <p>This document describes the changes made to the asn1 application.</p>
 
 
+<section><title>Asn1 3.0.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    When decoding BER, primitives with an indefinite length
+	    will be immediately rejected. (Thanks to Simon Cornish
+	    for reporting this bug.)</p>
+          <p>
+	    Own Id: OTP-12205</p>
+        </item>
+        <item>
+          <p>
+	    BER: A bug with compliance to X.680 (200811) s31.2.7 has
+	    been fixed. Basically, when TagDefault is AUTOMATIC then
+	    tags are IMPLICIT unless EXPLICIT is given.</p>
+          <p>
+	    Own Id: OTP-12318</p>
+        </item>
+        <item>
+          <p>
+	    Usage of the <c>EXTERNAL</c> 1994 variant type was
+	    broken.</p>
+          <p>
+	    Own Id: OTP-12326</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Asn1 3.0.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

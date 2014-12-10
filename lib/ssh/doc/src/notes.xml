@@ -29,6 +29,100 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Ssh 3.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Make sure the clean rule for ssh, ssl, eunit and otp_mibs
+	    actually removes generated files.</p>
+          <p>
+	    Own Id: OTP-12200</p>
+        </item>
+        <item>
+          <p>
+	    Improved Property Tests (Thanks to Thomas, John and
+	    Tobias at QuviQ)</p>
+          <p>
+	    Own Id: OTP-12256</p>
+        </item>
+        <item>
+          <p>
+	    Correct typo of renegotiate that could cause rekeying to
+	    fail</p>
+          <p>
+	    Own Id: OTP-12277 Aux Id: seq12736 </p>
+        </item>
+        <item>
+          <p>
+	    The {timeout, Timeout} option passed to
+	    ssh_sftp:start_channel was not applied to the early
+	    phases of the SSH protocol. This patch passes the Timeout
+	    through to ssh:connect. In case the timeout occurs during
+	    these phases, {error, timeout} is returned. (Thanks to
+	    Simon Cornish)</p>
+          <p>
+	    Own Id: OTP-12306</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Added API functions ptty_alloc/3 and ptty_alloc/4, to
+	    allocate a pseudo tty.</p>
+          <p>
+	    Own Id: OTP-11542 Aux Id: seq12493, OTP-11631 </p>
+        </item>
+        <item>
+          <p>
+	    Supports tar file creation on other media than file
+	    systems mounted on the local machine.</p>
+          <p>
+	    The <c>erl_tar</c> api is extended with
+	    <c>erl_tar:init/3</c> that enables usage of user provided
+	    media storage routines. A ssh-specific set of such
+	    routines is hidden in the new function
+	    <c>ssh_sftp:open_tar/3</c> to simplify creating a tar
+	    archive on a remote ssh server.</p>
+          <p>
+	    A chunked file reading option is added to
+	    <c>erl_tar:add/3,4</c> to save memory on e.g small
+	    embedded systems. The size of the slices read from a file
+	    in that case can be specified.</p>
+          <p>
+	    Own Id: OTP-12180 Aux Id: seq12715 </p>
+        </item>
+        <item>
+          <p>
+	    Always send SSH_DISCONNECT protocol messages when peer
+	    sends corrupt messages.</p>
+          <p>
+	    Own Id: OTP-12185</p>
+        </item>
+        <item>
+          <p>
+	    Hooks for funs that can change binaries sent to remote
+	    sites from erl_tar for renote tar file creation are
+	    added. See <c>ssh_sftp:open_tar/3,4</c> for details. The
+	    hooks could also be used to read remote tar files that
+	    need transformation before file extraction.</p>
+          <p>
+	    Those hooks are intended for encryption and decryption of
+	    tar files. Effort is put into memory, disk and network
+	    resource economy.</p>
+          <p>
+	    Own Id: OTP-12312 Aux Id: OTP-12180 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Ssh 3.0.8</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

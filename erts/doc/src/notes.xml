@@ -30,6 +30,258 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 6.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix HiPE debug lock checking on OS X 64bit</p>
+          <p>
+	    Position-independent code is mandatory on OS X. We use
+	    r11 as an intermediate register to fill
+	    BIF_P-&gt;hipe.bif_callee. This fixes the following error
+	    when doing `make debug FLAVOR=smp`:</p>
+          <p>
+	    clang -cc1as: fatal error: error in backend: 32-bit
+	    absolute addressing is not supported in 64-bit mode</p>
+          <p>
+	    Own Id: OTP-12188</p>
+        </item>
+        <item>
+          <p>
+	    Fix race bug that could cause VM crash in
+	    <c>erlang:port_get_data/1</c> if the port was closed by a
+	    concurrent process. Also fix fatal bug if
+	    <c>port_set_data/2</c> is called with a non-immediate
+	    data term. Both bugs exist since R16B01.</p>
+          <p>
+	    Own Id: OTP-12208</p>
+        </item>
+        <item>
+          <p>
+	    Correct make variable SSL_DED_LD_RUNTIME_LIBRARY_PATH
+	    when erl_xcomp_sysroot ends with a slash.</p>
+          <p>
+	    Own Id: OTP-12216 Aux Id: seq12700 </p>
+        </item>
+        <item>
+          <p>
+	    Fix two cases of unreachable code caused by false use of
+	    assigment operators.</p>
+          <p>
+	    Own Id: OTP-12222</p>
+        </item>
+        <item>
+          <p>
+	    Fix bug when hipe compiled code makes tail call to a BIF
+	    that disables GC while trapping (sush as binary_to_list,
+	    list_to_binary, binary_to_term, term_to_binary).</p>
+          <p>
+	    Own Id: OTP-12231</p>
+        </item>
+        <item>
+          <p>
+	    Fix bug when a migrated empty memory carrier is reused
+	    just before it should be destroyed by the thread that
+	    created it.</p>
+          <p>
+	    Own Id: OTP-12249</p>
+        </item>
+        <item>
+          <p>
+	    Prevents compile-time errors in NIFs, when the compiler
+	    is instructed to treat missing field initializers as
+	    errors, by adding an initializer for the new options
+	    field which was added to ErlNifEntry for 17.3.</p>
+          <p>
+	    Own Id: OTP-12266</p>
+        </item>
+        <item>
+          <p>
+	    Fixed CPU topology detection on FreeBSD systems where
+	    Erlang/OTP is compiled by new C compilers (including, but
+	    possibly not limited to, gcc 4.9 and clang).</p>
+          <p>
+	    Own Id: OTP-12267</p>
+        </item>
+        <item>
+          <p>
+	    Use C99 function isfinite() instead of finite() when
+	    available on non GCC compilers.</p>
+          <p>
+	    Own Id: OTP-12268</p>
+        </item>
+        <item>
+          <p>
+	    Fix bug on windows where an incorrect number of links
+	    could be returned when doing file:read_file_info on a
+	    directory.</p>
+          <p>
+	    Own Id: OTP-12269</p>
+        </item>
+        <item>
+          <p>
+	    Fix rare bug when purging module on VM started with
+	    +Meamin.</p>
+          <p>
+	    Own Id: OTP-12273</p>
+        </item>
+        <item>
+          <p>
+	    Repair run_erl terminal window size adjustment sent from
+	    to_erl. This was broken in OTP 17.0 which could lead to
+	    strange cursor behaviour in the to_erl shell.</p>
+          <p>
+	    Own Id: OTP-12275 Aux Id: seq12739 </p>
+        </item>
+        <item>
+          <p>
+	    Fixed bug on windows causing gen_tcp/udp to return an
+	    error when given an fd to work with.</p>
+          <p>
+	    Own Id: OTP-12289</p>
+        </item>
+        <item>
+          <p>
+	    Fix various internal erts issues where negating a signed
+	    integer in C would trigger undefined behavior. This fixes
+	    issues when dividing with bignums and list_to_integer.</p>
+          <p>
+	    Own Id: OTP-12290</p>
+        </item>
+        <item>
+          <p>
+	    When flushing output to stdout on windows, the emulator
+	    could sometimes hang indefinitely waiting for the flush
+	    to complete. This has been fixed.</p>
+          <p>
+	    Own Id: OTP-12291</p>
+        </item>
+        <item>
+          <p>
+	    Fix so that non-smp emulators with dirty scheduler
+	    support shows the correct number of dirty schedulers when
+	    calling erlang:system_info(system_version).</p>
+          <p>
+	    Own Id: OTP-12295</p>
+        </item>
+        <item>
+          <p>
+	    Add <c>nif_version</c> to <c>erlang:system_info/1</c> in
+	    order to get the NIF API version of the runtime system in
+	    a way similar to <c>driver_version</c>.</p>
+          <p>
+	    Own Id: OTP-12298</p>
+        </item>
+        <item>
+          <p>
+	    Fix bug that could cause the return value from dirty NIF
+	    with zero arity to be treated as garbage, leading to VM
+	    crash.</p>
+          <p>
+	    Own Id: OTP-12300</p>
+        </item>
+        <item>
+          <p>
+	    Improve allocation carrier migration search logic. This
+	    will reduce the risk of failed migrations that could lead
+	    to excess memory consumption. It will also improve smp
+	    performance due to reduced memory contention on the
+	    migration pool.</p>
+          <p>
+	    Own Id: OTP-12323</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>Introduced support for eager check I/O.</p>
+	    <p>By default eager check I/O will be disabled, but this
+	    will most likely be changed in OTP 18. When eager check
+	    I/O is enabled, schedulers will more frequently check for
+	    I/O work. Outstanding I/O operations will however not be
+	    prioritized to the same extent as when eager check I/O is
+	    disabled.</p>
+	    <p>Eager check I/O can be enabled using the <c>erl</c>
+	    command line argument: <seealso
+	    marker="erl#+secio"><c>+secio true</c></seealso></p>
+	    <p>Characteristics impact when enabled:</p> <list>
+	    <item>Lower latency and smoother management of externally
+	    triggered I/O operations.</item> <item>A slightly reduced
+	    priority of externally triggered I/O operations.</item>
+	    </list>
+          <p>
+	    Own Id: OTP-12117</p>
+        </item>
+        <item>
+          <p>
+	    Fix erts .app-file</p>
+          <p>
+	    Own Id: OTP-12189</p>
+        </item>
+        <item>
+          <p>
+	    Add configure option --with-ssl-incl=PATH to support
+	    OpenSSL installations with headers and libraries at
+	    different places.</p>
+          <p>
+	    Own Id: OTP-12215 Aux Id: seq12700 </p>
+        </item>
+        <item>
+          <p>
+	    Optimization of atomic memory operations with release
+	    barrier semantics on 32-bit PowerPC when using the
+	    implementation included in OTP.</p>
+          <p>
+	    Own Id: OTP-12250</p>
+        </item>
+        <item>
+          <p>
+	    Minor adjustment of scheduler activation code making sure
+	    that an activation of a scheduler is not prevented by its
+	    run-queue being non-empty. (Thanks to Songlu Cai)</p>
+          <p>
+	    Own Id: OTP-12287</p>
+        </item>
+        <item>
+          <p>
+	    Improved support for atomic memory operations provided by
+	    the <url
+	    href="https://github.com/ivmai/libatomic_ops/"><c>libatomic_ops</c></url>
+	    library. Most importantly support for use of native
+	    double word atomics when implemented by
+	    <c>libatomic_ops</c> (for example, implemented for ARM).</p>
+          <p>
+	    The <seealso
+	    marker="doc/installation_guide:INSTALL#Advanced-configuration-and-build-of-ErlangOTP_Configuring_Atomic-Memory-Operations-and-the-VM"><c>$ERL_TOP/HOWTO/INSTALL.md</c></seealso>
+	    document now also more clearly describes when you want to
+	    build together with a <c>libatomic_ops</c> installation.</p>
+          <p>
+	    Own Id: OTP-12302</p>
+        </item>
+        <item>
+          <p>
+	    Add configure option --with-ssl-rpath to control which
+	    runtime library path to use for dynamic linkage toward
+	    OpenSSL.</p>
+          <p>
+	    Own Id: OTP-12316 Aux Id: seq12753 </p>
+        </item>
+        <item>
+          <p>
+	    Added systemd notify support to epmd</p>
+          <p>
+	    Own Id: OTP-12321</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 6.2.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
