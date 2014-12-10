@@ -86,6 +86,14 @@ static erts_smp_rwmtx_t environ_rwmtx;
 #define DISABLE_VFORK 0
 #endif
 
+#if defined IOV_MAX
+#define MAXIOV IOV_MAX
+#elif defined UIO_MAXIOV
+#define MAXIOV UIO_MAXIOV
+#else
+#define MAXIOV 16
+#endif
+
 #ifdef USE_THREADS
 #  ifdef ENABLE_CHILD_WAITER_THREAD
 #    define CHLDWTHR ENABLE_CHILD_WAITER_THREAD
@@ -2524,32 +2532,28 @@ fd_async(void *async_data)
     SysIOVec      *iov0;
     SysIOVec      *iov;
     int            iovlen;
-    int            iovcnt;
-    int            p;
+    int            err;
     /* much of this code is stolen from efile_drv:invoke_writev */
     driver_pdl_lock(dd->blocking->pdl);
     iov0 = driver_peekq(dd->port_num, &iovlen);
-    /* Calculate iovcnt */
-    for (p = 0, iovcnt = 0; iovcnt < iovlen;
-         p += iov0[iovcnt++].iov_len)
-        ;
+    iovlen = iovlen < MAXIOV ? iovlen : MAXIOV;
     iov = erts_alloc_fnf(ERTS_ALC_T_SYS_WRITE_BUF,
-                         sizeof(SysIOVec)*iovcnt);
+                         sizeof(SysIOVec)*iovlen);
     if (!iov) {
         res = -1;
-        errno = ENOMEM;
-        erts_free(ERTS_ALC_T_SYS_WRITE_BUF, iov);
+        err = ENOMEM;
         driver_pdl_unlock(dd->blocking->pdl);
     } else {
-        memcpy(iov,iov0,iovcnt*sizeof(SysIOVec));
+        memcpy(iov,iov0,iovlen*sizeof(SysIOVec));
         driver_pdl_unlock(dd->blocking->pdl);
 
         res = writev(dd->ofd, iov, iovlen);
+        err = errno;
 
         erts_free(ERTS_ALC_T_SYS_WRITE_BUF, iov);
     }
     dd->blocking->res = res;
-    dd->blocking->err = errno;
+    dd->blocking->err = err;
 }
 
 void fd_ready_async(ErlDrvData drv_data,
