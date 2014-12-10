@@ -716,71 +716,23 @@ sched_wall_time_ts(void)
 
 #if ERTS_HAVE_SCHED_UTIL_BALANCING_SUPPORT
 
-#ifdef ARCH_64
-
 static ERTS_INLINE Uint64
 aschedtime_read(ErtsAtomicSchedTime *var)
 {
-    return (Uint64) erts_atomic_read_nob((erts_atomic_t *) var);
+    return (Uint64) erts_atomic64_read_nob((erts_atomic64_t *) var);
 }
 
 static ERTS_INLINE void
 aschedtime_set(ErtsAtomicSchedTime *var, Uint64 val)
 {
-    erts_atomic_set_nob((erts_atomic_t *) var, (erts_aint_t) val);
+    erts_atomic64_set_nob((erts_atomic64_t *) var, (erts_aint64_t) val);
 }
 
 static ERTS_INLINE void
 aschedtime_init(ErtsAtomicSchedTime *var)
 {
-    erts_atomic_init_nob((erts_atomic_t *) var, (erts_aint_t) 0);
+    erts_atomic64_init_nob((erts_atomic64_t *) var, (erts_aint64_t) 0);
 }
-
-#elif defined(ARCH_32)
-
-static ERTS_INLINE Uint64
-aschedtime_read(ErtsAtomicSchedTime *var)
-{
-    erts_dw_aint_t dw;
-    erts_dw_atomic_read_nob((erts_dw_atomic_t *) var, &dw);
-#ifdef ETHR_SU_DW_NAINT_T__
-    return (Uint64) dw.dw_sint;
-#else
-    {
-	Uint64 res;
-	res = (Uint64) ((Uint32) dw.sint[ERTS_DW_AINT_HIGH_WORD]);
-	res <<= 32;
-	res |= (Uint64) ((Uint32) dw.sint[ERTS_DW_AINT_LOW_WORD]);
-	return res;
-    }
-#endif    
-}
-
-static ERTS_INLINE void
-aschedtime_set(ErtsAtomicSchedTime *var, Uint64 val)
-{
-    erts_dw_aint_t dw;
-#ifdef ETHR_SU_DW_NAINT_T__
-    dw.dw_sint = (ETHR_SU_DW_NAINT_T__) val;
-#else
-    dw.sint[ERTS_DW_AINT_LOW_WORD] = (erts_aint_t) (val & 0xffffffff);
-    dw.sint[ERTS_DW_AINT_HIGH_WORD] = (erts_aint_t) ((val >> 32) & 0xffffffff);
-#endif
-    erts_dw_atomic_set_nob((erts_dw_atomic_t *) var, &dw);
-}
-
-static ERTS_INLINE void
-aschedtime_init(ErtsAtomicSchedTime *var)
-{
-    erts_dw_aint_t dw;
-    dw.sint[ERTS_DW_AINT_LOW_WORD] = (erts_aint_t) 0;
-    dw.sint[ERTS_DW_AINT_HIGH_WORD] = (erts_aint_t) 0;
-    erts_dw_atomic_init_nob((erts_dw_atomic_t *) var, &dw);
-}
-
-#else
-#  error :-/
-#endif
 
 #define ERTS_GET_AVG_MAX_UNLOCKED_TRY 50
 #define ERTS_SCHED_AVG_UTIL_WRITE_MARKER (~((Uint64) 0))

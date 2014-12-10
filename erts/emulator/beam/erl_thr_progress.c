@@ -115,69 +115,23 @@
 #undef read_nob
 #define read_nob erts_thr_prgr_read_nob__
 
-#ifdef ARCH_64
-
 static ERTS_INLINE void
 set_mb(ERTS_THR_PRGR_ATOMIC *atmc, ErtsThrPrgrVal val)
 {
-    erts_atomic_set_mb(atmc, val);
+    erts_atomic64_set_mb(atmc, (erts_aint64_t) val);
 }
 
 static ERTS_INLINE void
 set_nob(ERTS_THR_PRGR_ATOMIC *atmc, ErtsThrPrgrVal val)
 {
-    erts_atomic_set_nob(atmc, val);
+    erts_atomic64_set_nob(atmc, (erts_aint64_t) val);
 }
 
 static ERTS_INLINE void
 init_nob(ERTS_THR_PRGR_ATOMIC *atmc, ErtsThrPrgrVal val)
 {
-    erts_atomic_init_nob(atmc, val);
+    erts_atomic64_init_nob(atmc, (erts_aint64_t) val);
 }
-
-#else
-
-#undef dw_aint_to_val
-#define dw_aint_to_val erts_thr_prgr_dw_aint_to_val__
-
-static void
-val_to_dw_aint(erts_dw_aint_t *dw_aint, ErtsThrPrgrVal val)
-{
-#ifdef ETHR_SU_DW_NAINT_T__
-    dw_aint->dw_sint = (ETHR_SU_DW_NAINT_T__) val;
-#else
-    dw_aint->sint[ERTS_DW_AINT_LOW_WORD]
-	= (erts_aint_t) (val & 0xffffffff);
-    dw_aint->sint[ERTS_DW_AINT_HIGH_WORD]
-	= (erts_aint_t) ((val >> 32) & 0xffffffff);
-#endif
-}
-
-static ERTS_INLINE void
-set_mb(ERTS_THR_PRGR_ATOMIC *atmc, ErtsThrPrgrVal val)
-{
-    erts_dw_aint_t dw_aint;
-    val_to_dw_aint(&dw_aint, val);
-    erts_dw_atomic_set_mb(atmc, &dw_aint);
-}
-
-static ERTS_INLINE void
-set_nob(ERTS_THR_PRGR_ATOMIC *atmc, ErtsThrPrgrVal val)
-{
-    erts_dw_aint_t dw_aint;
-    val_to_dw_aint(&dw_aint, val);
-    erts_dw_atomic_set_nob(atmc, &dw_aint);
-}
-
-static ERTS_INLINE void
-init_nob(ERTS_THR_PRGR_ATOMIC *atmc, ErtsThrPrgrVal val)
-{
-    erts_dw_aint_t dw_aint;
-    val_to_dw_aint(&dw_aint, val);
-    erts_dw_atomic_init_nob(atmc, &dw_aint);
-}
-
-#endif
 
 /* #define ERTS_THR_PROGRESS_STATE_DEBUG */
 
