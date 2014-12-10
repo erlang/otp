@@ -127,6 +127,9 @@ typedef struct hashmap_head_s {
 #define MAP_HEADER_HAMT_HEAD_BITMAP(Bmp) \
     MAKE_MAP_HEADER(MAP_HEADER_TAG_HAMT_HEAD_BITMAP,0x1,Bmp)
 
+#define MAP_HEADER_HAMT_NODE_ARRAY \
+    make_arityval(16)
+
 #define MAP_HEADER_HAMT_NODE_BITMAP(Bmp) \
     MAKE_MAP_HEADER(MAP_HEADER_TAG_HAMT_NODE_BITMAP,0x0,Bmp)
 
