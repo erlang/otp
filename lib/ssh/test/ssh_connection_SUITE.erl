@@ -37,7 +37,6 @@
 all() ->
     [
      {group, openssh},
-     {group, openssh_payload},
      interrupted_send,
      start_shell,
      start_shell_exec,
