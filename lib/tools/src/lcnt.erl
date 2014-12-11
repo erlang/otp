@@ -356,8 +356,7 @@ handle_call({histogram, Lockname, InOpts}, _From, #state{ duration=Duration, loc
 			{thresholds, [{tries, -1}, {colls, -1}, {time, -1}]}], Opts),
 		Prints = locks2print([L], Duration),
 		print_lock_information(Prints, proplists:get_value(print, Opts1)),
-		print_full_histogram(SumStats#stats.hist),
-		io:format("~n")
+		print_full_histogram(SumStats#stats.hist)
 	end, Combos),
 
     {reply, ok, State};
@@ -649,15 +648,19 @@ format_histogram(Tup) when is_tuple(Tup) ->
 	_ -> string_histogram([case V of 0 -> 0; _ -> V/Max end || V <- Vs])
     end.
 
-string_histogram([0|Vs]) ->
-    [$\s|string_histogram(Vs)];
-string_histogram([V|Vs]) when V > 0.66 ->
-    [$X|string_histogram(Vs)];
-string_histogram([V|Vs]) when V > 0.33 ->
-    [$x|string_histogram(Vs)];
-string_histogram([_|Vs]) ->
-    [$.|string_histogram(Vs)];
-string_histogram([]) -> [].
+string_histogram(Vs) ->
+    [$||histogram_values_to_string(Vs,$|)].
+
+histogram_values_to_string([0|Vs],End) ->
+    [$\s|histogram_values_to_string(Vs,End)];
+histogram_values_to_string([V|Vs],End) when V > 0.66 ->
+    [$X|histogram_values_to_string(Vs,End)];
+histogram_values_to_string([V|Vs],End) when V > 0.33 ->
+    [$x|histogram_values_to_string(Vs,End)];
+histogram_values_to_string([_|Vs],End) ->
+    [$.|histogram_values_to_string(Vs,End)];
+histogram_values_to_string([],End) ->
+    [End].
 
 %% state making
 
@@ -780,7 +783,7 @@ auto_print_width(Locks, Print) ->
 		    ({print,print}, Out) -> [print|Out];
 		    ({Str, Len}, Out)    -> [erlang:min(erlang:max(length(s(Str))+1,Len),80)|Out]
 		end, [], lists:zip(tuple_to_list(L), tuple_to_list(Max)))))
-	end, #print{ id = 4, type = 5, entry = 5, name = 6, tries = 8, colls = 13, cr = 16, time = 11, dtr = 14, hist=20 },
+	end, #print{ id=4, type=5, entry=5, name=6, tries=8, colls=13, cr=16, time=11, dtr=14, hist=20 },
 	Locks),
     % Setup the offsets for later pruning
     Offsets = [
@@ -822,7 +825,7 @@ print_header(Opts) ->
 	cr    = "collisions [%]",
 	time  = "time [us]",
 	dtr   = "duration [%]",
-	hist  = "histogram"
+	hist  = "histogram [log2(us)]"
     },
     Divider = #print{
 	name  = lists:duplicate(1 + length(Header#print.name),  45),
@@ -865,9 +868,9 @@ format_lock(L, [Opt|Opts]) ->
 	{time, W}      -> [{space,  W, s(L#print.time) } | format_lock(L, Opts)];
 	duration       -> [{space, 20, s(L#print.dtr)  } | format_lock(L, Opts)];
 	{duration, W}  -> [{space,  W, s(L#print.dtr)  } | format_lock(L, Opts)];
-	histogram      -> [{space,  0, s(L#print.hist) } | format_lock(L, Opts)];
-	{histogram, W} -> [{space,  W, s(L#print.hist) } | format_lock(L, Opts)];
-	_              ->                                  format_lock(L, Opts)
+	histogram      -> [{space, 20, s(L#print.hist) } | format_lock(L, Opts)];
+	{histogram, W} -> [{left,  W - length(s(L#print.hist)) - 1, s(L#print.hist)} | format_lock(L, Opts)];
+	_              -> format_lock(L, Opts)
     end.
 
 print_state_information(#state{locks = Locks} = State) ->
@@ -928,6 +931,7 @@ s(T)                  -> term2string(T).
 strings(Strings) -> strings(Strings, []).
 strings([], Out) -> Out;
 strings([{space,  N,      S} | Ss], Out) -> strings(Ss, Out ++ term2string(term2string("~~~ws", [N]), [S]));
+strings([{left,   N,      S} | Ss], Out) -> strings(Ss, Out ++ term2string(term2string(" ~~s~~~ws", [N]), [S,""]));
 strings([{format, Format, S} | Ss], Out) -> strings(Ss, Out ++ term2string(Format, [S]));
 strings([S|Ss], Out) -> strings(Ss, Out ++ term2string("~ts", [S])).
 
