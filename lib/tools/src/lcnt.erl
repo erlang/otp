@@ -305,7 +305,7 @@ handle_call({inspect, Lockname, InOpts}, _From, #state{ duration=Duration, locks
 	{true, true} -> locks_ids(Filtered);
 	_            -> []
     end,
-    Combos =  combine_classes(Filtered, proplists:get_value(combine, Opts)),
+    Combos = combine_classes(Filtered, proplists:get_value(combine, Opts)),
     case proplists:get_value(locations, Opts) of
 	true ->
 	    lists:foreach(fun
@@ -329,9 +329,8 @@ handle_call({inspect, Lockname, InOpts}, _From, #state{ duration=Duration, locks
 			end
 		end, Combos);
 	_ ->
-	    Print1 = locks2print(Combos, Duration),
-	    Print2 = filter_print(Print1, Opts),
-	    print_lock_information(Print2, proplists:get_value(print, Opts))
+	    Print = filter_print(locks2print(Combos, Duration), Opts),
+	    print_lock_information(Print, proplists:get_value(print, Opts))
     end,
     {reply, ok, State};
 
@@ -509,19 +508,22 @@ filter_locks(Locks, Lockname) ->
 % 4. max length of locks
 
 filter_print(PLs, Opts) ->
-    TLs = threshold_locks(PLs, proplists:get_value(thresholds, Opts, [])),
-    SLs =      sort_locks(TLs, proplists:get_value(sort,       Opts, time)),
-    CLs =       cut_locks(SLs, proplists:get_value(max_locks,  Opts, none)),
-	    reverse_locks(CLs, not proplists:get_value(reverse,Opts, false)).
+    TLs = threshold_locks(PLs, proplists:get_value(thresholds,  Opts, [])),
+    SLs =      sort_locks(TLs, proplists:get_value(sort,        Opts, time)),
+    CLs =       cut_locks(SLs, proplists:get_value(max_locks,   Opts, none)),
+	    reverse_locks(CLs, proplists:get_value(reverse, Opts, false)).
 
-sort_locks(Locks, name)  -> lists:keysort(#print.name, Locks);
-sort_locks(Locks, id)    -> lists:keysort(#print.id, Locks);
-sort_locks(Locks, type)  -> lists:keysort(#print.type, Locks);
-sort_locks(Locks, tries) -> lists:keysort(#print.tries, Locks);
-sort_locks(Locks, colls) -> lists:keysort(#print.colls, Locks);
-sort_locks(Locks, ratio) -> lists:keysort(#print.cr, Locks);
-sort_locks(Locks, time)  -> lists:keysort(#print.time, Locks);
+sort_locks(Locks, name)  -> reverse_sort_locks(#print.name,  Locks);
+sort_locks(Locks, id)    -> reverse_sort_locks(#print.id,    Locks);
+sort_locks(Locks, type)  -> reverse_sort_locks(#print.type,  Locks);
+sort_locks(Locks, tries) -> reverse_sort_locks(#print.tries, Locks);
+sort_locks(Locks, colls) -> reverse_sort_locks(#print.colls, Locks);
+sort_locks(Locks, ratio) -> reverse_sort_locks(#print.cr,    Locks);
+sort_locks(Locks, time)  -> reverse_sort_locks(#print.time,  Locks);
 sort_locks(Locks, _)     -> sort_locks(Locks, time).
+
+reverse_sort_locks(Ix, Locks) ->
+    lists:reverse(lists:keysort(Ix, Locks)).
 
 % cut locks not above certain thresholds
 threshold_locks(Locks, Thresholds) ->
