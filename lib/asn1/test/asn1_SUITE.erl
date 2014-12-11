@@ -87,6 +87,7 @@ groups() ->
                     ber_other,
 		    der,
                     h323test]},
+       testExtensibilityImplied,
        testChoPrim,
        testChoExtension,
        testChoOptional,
@@ -375,6 +376,12 @@ testExternal(Config, Rule, Opts) ->
     testSetOfTag:main(Rule),
     testSetTag:main(Rule).
 
+testExtensibilityImplied(Config) ->
+    test(Config, fun testExtensibilityImplied/3).
+testExtensibilityImplied(Config, Rule, Opts) ->
+    asn1_test_lib:compile("ExtensibilityImplied", Config,
+			  [Rule,no_ok_wrapper|Opts]),
+    testExtensibilityImplied:main().
 
 testChoPrim(Config) -> test(Config, fun testChoPrim/3).
 testChoPrim(Config, Rule, Opts) ->
