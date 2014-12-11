@@ -28,6 +28,7 @@
 	 objects/1,
 	 sequence/1,
 	 syntax/1,
+	 tokenizer/1,
 	 types/1,
 	 values/1]).
 
@@ -49,6 +50,7 @@ groups() ->
        objects,
        sequence,
        syntax,
+       tokenizer,
        types,
        values]}].
 
@@ -228,6 +230,20 @@ syntax(Config) ->
     run(L, "Syntax", Config),
     ok.
 
+tokenizer(Config) ->
+    Head = "Tokenize DEFINITIONS AUTOMATIC TAGS ::=\n"
+	"BEGIN\n",
+    End = "\nEND\n",
+    L0 = [{"'",3,eol_in_token},
+	  {"'42'B",3,{invalid_binary_number,"42"}},
+	  {"'ZZZ'H",3,{invalid_hex_number,"ZZZ"}},
+	  {"\"abc",3,missing_quote_at_eof},
+	  {"/*",3,eof_in_comment}
+	 ],
+    L = [{Head++S++End,Line,E} || {S,Line,E} <- L0],
+    run(L, "Tokenizer", Config, asn1ct_tok),
+    ok.
+
 types(Config) ->
     Head = "Types DEFINITIONS AUTOMATIC TAGS ::=\n"
 	"BEGIN\n"
@@ -283,40 +299,42 @@ values(Config) ->
     run(L, "Values", Config),
     ok.
 
-run(List, File0, Config) ->
+run(List, File, Config) ->
+    run(List, File, Config, asn1ct_parser2).
+
+run(List, File0, Config, Module) ->
     Base = File0 ++ ".asn1",
     File = filename:join(?config(priv_dir, Config), Base),
-    case run_1(List, Base, File, 0) of
+    case run_1(List, Base, File, Module, 0) of
 	0 -> ok;
 	Errors -> ?t:fail(Errors)
     end.
 
-run_1([{Source,Line,Error}=Exp|T], Base, File, N) ->
-    M = asn1ct_parser2,
+run_1([{Source,Line,Error}=Exp|T], Base, File, Module, N) ->
     ok = file:write_file(File, Source),
     io:format("~s", [Source]),
     case asn1ct:compile(File) of
-	{error,[{structured_error,{Base,L},M,E}]} ->
+	{error,[{structured_error,{Base,L},Module,E}]} ->
 	    case {L,E} of
 		{Line,Error} ->
-		    run_1(T, Base, File, N);
+		    run_1(T, Base, File, Module, N);
 		{Line,OtherError} ->
 		    io:format("*** Wrong error: ~p, expected ~p ***\n",
 			      [OtherError,Error]),
-		    run_1(T, Base, File, N+1);
+		    run_1(T, Base, File, Module, N+1);
 		{OtherLine,Error} ->
 		    io:format("*** Wrong line: ~p, expected ~p ***\n",
 			      [OtherLine,Line]),
-		    run_1(T, Base, File, N+1);
+		    run_1(T, Base, File, Module, N+1);
 		{_,_} ->
 		    io:format("*** Wrong line: ~p, expected ~p ***",
 			      [L,Line]),
 		    io:format("*** Wrong error: ~p, expected ~p ***\n",
 			      [E,Error]),
-		    run_1(T, Base, File, N+1)
+		    run_1(T, Base, File, Module, N+1)
 	    end;
 	Other ->
 	    io:format("~p\nGOT: ~p", [Exp,Other])
     end;
-run_1([], _, _, N) ->
+run_1([], _, _, _, N) ->
     N.
