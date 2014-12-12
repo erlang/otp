@@ -1881,38 +1881,30 @@ case $erl_gethrvtime in
 	    exit(0); return 0;
 	  }
 	],
-	erl_clock_gettime=yes,
-	erl_clock_gettime=no,
+	erl_clock_gettime_cpu_time=yes,
+	erl_clock_gettime_cpu_time=no,
 	[
 	case X$erl_xcomp_clock_gettime_cpu_time in
-	    X) erl_clock_gettime=cross;;
-	    Xyes|Xno) erl_clock_gettime=$erl_xcomp_clock_gettime_cpu_time;;
+	    X) erl_clock_gettime_cpu_time=cross;;
+	    Xyes|Xno) erl_clock_gettime_cpu_time=$erl_xcomp_clock_gettime_cpu_time;;
 	    *) AC_MSG_ERROR([Bad erl_xcomp_clock_gettime_cpu_time value: $erl_xcomp_clock_gettime_cpu_time]);;
 	esac
 	])
 	LIBS=$save_libs
-	case $host_os in
-		linux*)
-			AC_MSG_RESULT([no; not stable])
+	AC_MSG_RESULT($erl_clock_gettime_cpu_time)
+	case $erl_clock_gettime_cpu_time in
+		yes)
+			AC_DEFINE(HAVE_CLOCK_GETTIME_CPU_TIME,[],
+				  [define if clock_gettime() works for getting process time])
+			LIBRT=-lrt
+			;;
+		cross)
+			erl_clock_gettime_cpu_time=no
+			AC_MSG_WARN([result no guessed because of cross compilation])
 			LIBRT=$xrtlib
 			;;
 		*)
-			AC_MSG_RESULT($erl_clock_gettime)
-			case $erl_clock_gettime in
-	  			yes)
-					AC_DEFINE(HAVE_CLOCK_GETTIME,[],
-						  [define if clock_gettime() works for getting process time])
-					LIBRT=-lrt
-					;;
-	  			cross)
-					erl_clock_gettime=no
-					AC_MSG_WARN([result no guessed because of cross compilation])
-					LIBRT=$xrtlib
-					;;
-	  			*)
-					LIBRT=$xrtlib
-					;;
-			esac
+			LIBRT=$xrtlib
 			;;
 	esac
 	AC_SUBST(LIBRT)

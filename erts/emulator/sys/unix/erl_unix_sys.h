@@ -188,7 +188,7 @@ typedef hrtime_t SysHrTime;
 #endif /* GETHRTIME_WITH_CLOCK_GETTIME */
 #endif /* HAVE_GETHRTIME */
 
-#if (defined(HAVE_GETHRVTIME) || defined(HAVE_CLOCK_GETTIME))
+#if (defined(HAVE_GETHRVTIME) || defined(HAVE_CLOCK_GETTIME_CPU_TIME))
 typedef long long SysCpuTime;
 typedef struct timespec SysTimespec;
 
@@ -200,7 +200,7 @@ typedef struct timespec SysTimespec;
 int sys_start_hrvtime(void);
 int sys_stop_hrvtime(void);
 
-#elif defined(HAVE_CLOCK_GETTIME)
+#elif defined(HAVE_CLOCK_GETTIME_CPU_TIME)
 #define sys_clock_gettime(cid,tp) clock_gettime((cid),&(tp))
 #define sys_get_proc_cputime(t,tp) sys_clock_gettime(CLOCK_PROCESS_CPUTIME_ID,(tp))
 
