@@ -512,31 +512,82 @@ hipe_compile(Files, #options{erlang_mode = ErlangMode} = Options) ->
 		  dialyzer_worker],
 	  report_native_comp(Options),
 	  {T1, _} = statistics(wall_clock),
-	  native_compile(Mods),
+	  Cache = (get(dialyzer_options_native_cache) =/= false),
+	  native_compile(Mods, Cache),
 	  {T2, _} = statistics(wall_clock),
 	  report_elapsed_time(T1, T2, Options)
       end
   end.
 
-native_compile(Mods) ->
+native_compile(Mods, Cache) ->
   case dialyzer_utils:parallelism() > ?MIN_PARALLELISM of
     true ->
       Parent = self(),
-      Pids = [spawn(fun () -> Parent ! {self(), hc(M)} end) || M <- Mods],
+      Pids = [spawn(fun () -> Parent ! {self(), hc(M, Cache)} end) || M <- Mods],
       lists:foreach(fun (Pid) -> receive {Pid, Res} -> Res end end, Pids);
     false ->
-      lists:foreach(fun (Mod) -> hc(Mod) end, Mods)
+      lists:foreach(fun (Mod) -> hc(Mod, Cache) end, Mods)
   end.
 
-hc(Mod) ->
+hc(Mod, Cache) ->
   {module, Mod} = code:ensure_loaded(Mod),
   case code:is_module_native(Mod) of
     true -> ok;
     false ->
       %% io:format(" ~w", [Mod]),
-      {ok, Mod} = hipe:c(Mod),
-      ok
+      case Cache of
+	false ->
+	  {ok, Mod} = hipe:c(Mod),
+	  ok;
+	true ->
+	  hc_cache(Mod)
+      end
   end.
+
+hc_cache(Mod) ->
+  CacheBase = cache_base_dir(),
+  %% Use HiPE architecture and version in directory name, to avoid
+  %% clashes between incompatible binaries.
+  HipeArchVersion =
+    lists:concat(
+      [erlang:system_info(hipe_architecture), "-",
+       hipe:version(), "-",
+       hipe_bifs:system_crc()]),
+  CacheDir = filename:join(CacheBase, HipeArchVersion),
+  OrigBeamFile = code:which(Mod),
+  {ok, {Mod, <<Checksum:128>>}} = beam_lib:md5(OrigBeamFile),
+  CachedBeamFile = filename:join(CacheDir, lists:concat([Mod, "-", Checksum, ".beam"])),
+  ok = filelib:ensure_dir(CachedBeamFile),
+  ModBin =
+    case filelib:is_file(CachedBeamFile) of
+      true ->
+	{ok, BinFromFile} = file:read_file(CachedBeamFile),
+	BinFromFile;
+      false ->
+	io:format("Caching ~p as '~s'...~n", [Mod, CachedBeamFile]),
+	{ok, Mod, CompiledBin} = compile:file(OrigBeamFile, [from_beam, native, binary]),
+	ok = file:write_file(CachedBeamFile, CompiledBin),
+	CompiledBin
+    end,
+  code:unstick_dir(filename:dirname(OrigBeamFile)),
+  {module, Mod} = code:load_binary(Mod, CachedBeamFile, ModBin),
+  true = code:is_module_native(Mod),
+  ok.
+
+cache_base_dir() ->
+  %% http://standards.freedesktop.org/basedir-spec/basedir-spec-0.7.html
+  %% If XDG_CACHE_HOME is set to an absolute path, use it as base.
+  XdgCacheHome = os:getenv("XDG_CACHE_HOME"),
+  CacheHome =
+    case is_list(XdgCacheHome) andalso filename:pathtype(XdgCacheHome) =:= absolute of
+      true ->
+	XdgCacheHome;
+      false ->
+	%% Otherwise, the default is $HOME/.cache.
+	{ok, [[Home]]} = init:get_argument(home),
+	filename:join(Home, ".cache")
+    end,
+  filename:join([CacheHome, "dialyzer_hipe_cache"]).
 
 new_state() ->
   #cl_state{}.

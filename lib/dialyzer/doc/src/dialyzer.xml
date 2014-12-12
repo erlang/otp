@@ -70,7 +70,7 @@
 		[--build_plt] [--add_to_plt] [--remove_from_plt]
 		[--check_plt] [--no_check_plt] [--plt_info] [--get_warnings]
                 [--dump_callgraph file] [--no_native] [--fullpath]
-                [--statistics]</code>
+                [--statistics] [--no_native_cache]</code>
     <p>Options:</p>
     <taglist>
       <tag><c><![CDATA[files_or_dirs]]></c> (for backwards compatibility also
@@ -198,6 +198,11 @@
          heuristically performs when dialyzing many files; this avoids the
          compilation time but it may result in (much) longer analysis
          time.</item>
+       <tag><c><![CDATA[--no_native_cache]]></c></tag>
+       <item>By default, Dialyzer caches the results of native compilation in the
+         <c>$XDG_CACHE_HOME/erlang/dialyzer_hipe_cache</c> directory.
+         <c>XDG_CACHE_HOME</c> defaults to <c>$HOME/.cache</c>.
+         Use this option to disable caching.</item>
        <tag><c><![CDATA[--fullpath]]></c></tag>
        <item>Display the full path names of files for which warnings are emitted.</item>
        <tag><c><![CDATA[--gui]]></c></tag>
