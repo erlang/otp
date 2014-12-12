@@ -30,6 +30,35 @@
   </header>
   <p>This document describes the changes made to the Eldap application.</p>
 
+<section><title>Eldap 1.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed that eldap:open did not use the Timeout parameter
+	    when calling ssl:connect. (Thanks Wiesław Bieniek for
+	    reporting)</p>
+          <p>
+	    Own Id: OTP-12311</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Added the LDAP filter <c>extensibleMatch</c>.</p>
+          <p>
+	    Own Id: OTP-12174</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
   <section><title>Eldap 1.0.4</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
