@@ -3290,9 +3290,11 @@ erts_sys_main_thread(void)
 #endif
 
     smp_sig_notify(0); /* Notify initialized */
-    while (1) {
-	/* Wait for a signal to arrive... */
+
+    /* Wait for a signal to arrive... */
+
 #ifdef __DARWIN__
+    while (1) {
 	/*
 	 * The wx driver needs to be able to steal the main thread for Cocoa to
 	 * work properly.
@@ -3307,12 +3309,24 @@ erts_sys_main_thread(void)
 	    void* (*func)(void*);
 	    void* arg;
 	    void *resp;
-	    read(erts_darwin_main_thread_pipe[0],&func,sizeof(void* (*)(void*)));
-	    read(erts_darwin_main_thread_pipe[0],&arg, sizeof(void*));
+            res = read(erts_darwin_main_thread_pipe[0],&func,sizeof(void* (*)(void*)));
+            if (res != sizeof(void* (*)(void*)))
+                break;
+            res = read(erts_darwin_main_thread_pipe[0],&arg,sizeof(void*));
+            if (res != sizeof(void*))
+                break;
 	    resp = (*func)(arg);
 	    write(erts_darwin_main_thread_result_pipe[1],&resp,sizeof(void *));
 	}
-#else
+
+        if (res == -1 && errno != EINTR)
+            break;
+    }
+    /* Something broke with the main thread pipe, so we ignore it for now.
+       Most probably erts has closed this pipe and is about to exit. */
+#endif /* #ifdef __DARWIN__ */
+
+    while (1) {
 #ifdef DEBUG
 	int res =
 #else
@@ -3321,7 +3335,6 @@ erts_sys_main_thread(void)
 	    select(0, NULL, NULL, NULL, NULL);
 	ASSERT(res < 0);
 	ASSERT(errno == EINTR);
-#endif
     }
 }
 
