@@ -107,19 +107,23 @@ filter()    See present/1, substrings/2,
       </type>
       <desc>
         <p>Upgrade the connection associated with <c>Handle</c> to a tls connection if possible.</p>
-	<p>The upgrade is done in two phases: first the server is asked for permission to upgrade. Second, if the request is acknowledged, the upgrade is performed.</p>
-	<p>Error responese from phase one will not affect the current encryption state of the connection. Those responses are:</p>
+	<p>The upgrade is done in two phases: first the server is asked for permission to upgrade. Second, if the request is acknowledged, the upgrade to tls is performed.</p>
+	<p>Error responses from phase one will not affect the current encryption state of the connection. Those responses are:</p>
 	<taglist>
 	  <tag><c>tls_already_started</c></tag>
 	  <item>The connection is already encrypted.  The connection is not affected.</item>
 	  <tag><c>{response,ResponseFromServer}</c></tag>
 	  <item>The upgrade was refused by the LDAP server.  The <c>ResponseFromServer</c> is an atom delivered byt the LDAP server explained in section 2.3 of rfc 2830. The connection is not affected, so it is still un-encrypted.</item>
 	</taglist>
-	<p>Errors in the seconde phase will however end the connection:</p>
+	<p>Errors in the second phase will however end the connection:</p>
 	<taglist>
 	  <tag><c>Error</c></tag>
 	  <item>Any error responded from ssl:connect/3</item>
 	</taglist>
+	<p>The <c>Timeout</c> parameter is for the actual tls upgrade (phase 2) while the timeout in
+	<seealso marker="#open/2">erl_tar:open/2</seealso> is used for the initial negotiation about
+	upgrade (phase 1).
+	</p>
       </desc>
     </func>
     <func>
@@ -224,9 +228,9 @@ filter()    See present/1, substrings/2,
       </type>
       <desc>
 	<p> Modify the DN of an entry. <c>DeleteOldRDN</c> indicates
-	whether the current RDN should be removed after operation.
-	<c>NewSupDN</c> should be "" if the RDN should not be moved or the new parent which
-	the RDN will be moved to.</p>
+	whether the current RDN should be removed from the attribute list after the after operation.
+	<c>NewSupDN</c> is the new parent that the RDN shall be moved to.  If the old parent should
+	remain as parent, <c>NewSupDN</c> shall be "".</p>
 	<pre>
   modify_dn(Handle, "cn=Bill Valentine, ou=people, o=Example Org, dc=example, dc=com ",
             "cn=Bill Jr Valentine", true, "")
@@ -253,6 +257,10 @@ filter()    See present/1, substrings/2,
   Filter = eldap:substrings("cn", [{any,"V"}]),
   search(Handle, [{base, "dc=example, dc=com"}, {filter, Filter}, {attributes, ["cn"]}]),
 	</pre>
+	<p>The <c>timeout</c> option in the <c>SearchOptions</c> is for the ldap server, while
+	the timeout in <seealso marker="#open/2">erl_tar:open/2</seealso> is used for each
+	individual request in the search operation.
+	</p>
       </desc>
     </func>
 
