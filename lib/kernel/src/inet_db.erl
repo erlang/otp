@@ -853,6 +853,7 @@ init([]) ->
     HostsByaddr = ets:new(inet_hosts_byaddr, ByaddrOpts),
     HostsFileByname = ets:new(inet_hosts_file_byname, BynameOpts),
     HostsFileByaddr = ets:new(inet_hosts_file_byaddr, ByaddrOpts),
+    random:seed(os:timestamp()),
     {ok, #state{db = Db,
 		cache = Cache,
 		hosts_byname = HostsByname,
@@ -956,7 +957,12 @@ handle_call(Request, From, #state{db=Db}=State) ->
 	    {reply, ok, State};
 
 	{lookup_rr, Domain, Class, Type} ->
-	    {reply, do_lookup_rr(Domain, Class, Type), State};
+	    Rr = do_lookup_rr(Domain, Class, Type),
+	    Rr2 = case ets:lookup(Db, cache_return_random) of
+	        [{cache_return_random, true}] -> shuffle(Rr);
+	        _ -> Rr
+            end,
+	    {reply, Rr2, State};	
 
 	{listop, Opt, Op, E} ->
 	    El = [E],
@@ -1119,6 +1125,10 @@ handle_call(Request, From, #state{db=Db}=State) ->
 	    ets:insert(Db, {cache_refresh_interval, Time1}),
 	    _ = stop_timer(State#state.cache_timer),
 	    {reply, ok, State#state{cache_timer = init_timer()}};
+
+	{set_cache_return_random, Bool} when is_boolean(Bool) ->
+	    ets:insert(Db, {cache_return_random, Bool}),
+	    {reply, ok, State};
 
 	clear_hosts ->
 	    ets:delete_all_objects(State#state.hosts_byname),
@@ -1331,6 +1341,7 @@ rc_reqname(cache_size) -> set_cache_size;
 rc_reqname(udp) -> set_udp_module;
 rc_reqname(sctp) -> set_sctp_module;
 rc_reqname(tcp) -> set_tcp_module;
+rc_reqname(cache_return_random) -> set_cache_return_random;
 rc_reqname(_) -> undefined.
 %%
 is_res_set(domain) -> true;
@@ -1565,3 +1576,7 @@ lists_keydelete(K, N, [T|Ts]) when element(N, T) =:= K ->
     lists_keydelete(K, N, Ts);
 lists_keydelete(K, N, [X|Ts]) ->
     [X|lists_keydelete(K, N, Ts)].
+
+shuffle(L) ->
+    [E || {_, E} <- lists:keysort(1, [{random:uniform(), E} || E <- L])].
+

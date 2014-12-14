@@ -259,6 +259,15 @@
           Default is 1 h.</p>
         <p></p>
       </item>
+      <tag><em><c><![CDATA[{cache_return_random, Bool}.]]></c></em></tag>
+      <item>
+        <p></p>
+        <p><c><![CDATA[Bool = boolean()]]></c></p>
+        <p></p>
+        <p>Tells the cache to return the resource records 
+          in random order. Default is false.</p>
+        <p></p>
+      </item>
       <tag><em><c><![CDATA[{timeout, Time}.]]></c></em></tag>
       <item>
         <p></p>
