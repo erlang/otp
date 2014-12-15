@@ -26,6 +26,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
+#include <math.h>
 
 #include "ei_locking.h"
 #include "ei_resolve.h"
@@ -124,6 +125,15 @@ ETERM *erl_mk_ulonglong (unsigned long long i)
 ETERM *erl_mk_float (double d)
 {
     ETERM *ep;
+
+    /* Erlang does not handle Inf and NaN, so we return an error
+     * rather than letting the Erlang VM complain about a bad external
+     * term. */
+    switch(fpclassify(d)) {
+        case FP_NAN:
+        case FP_INFINITE:
+            return NULL;
+    }
 
     ep = erl_alloc_eterm(ERL_FLOAT);
     ERL_COUNT(ep) = 1;
