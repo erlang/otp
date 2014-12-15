@@ -30,6 +30,8 @@
 all() ->
     [app,
      appup,
+     {group, v4_connections},
+     {group, v6_connections},
      {group, plain_api},
      {group, ssl_api},
      {group, start_tls_api}
@@ -60,8 +62,22 @@ groups() ->
 		      modify,
 		      delete,
 		      modify_dn_delete_old,
-		      modify_dn_keep_old]}
+		      modify_dn_keep_old]},
+     {v4_connections, [], connection_tests()},
+     {v6_connections, [], connection_tests()}
     ].
+
+connection_tests() ->
+    [tcp_connection, 
+     tcp_connection_option, 
+     ssl_connection,
+     client_side_start_tls_timeout, 
+     client_side_bind_timeout, 
+     client_side_add_timeout,
+     client_side_search_timeout
+    ].
+
+
 
 init_per_suite(Config) ->
     SSL_available = init_ssl_certs_et_al(Config),
@@ -108,8 +124,24 @@ init_per_group(start_tls_api, Config0) ->
 	    Config = [{server,Server}, {ssl_flag,false} | Config0],
 	    case supported_extension("1.3.6.1.4.1.1466.20037", Config) of
 		true -> initialize_db([{start_tls,true} | Config]);
-		false -> {skip, "start_tls not supported by server"}
+		false -> {skip, "start_tls not supported according to the server"}
 	    end
+    end;
+init_per_group(v4_connections, Config) ->
+    [{listen_opts,  [{reuseaddr, true}]},
+     {listen_host,  "localhost"},
+     {connect_opts, []}
+     |  Config];
+init_per_group(v6_connections, Config) ->
+    {ok, Hostname} = inet:gethostname(),
+    case lists:member(list_to_atom(Hostname), ct:get_config(ipv6_hosts,[])) of
+	true -> 
+	    [{listen_opts,  [inet6]},
+	     {listen_host,  "::"},
+	     {connect_opts, [{tcpopts,[inet6]}]}
+	     |  Config];
+	false -> 
+	    {skip, io_lib:format("~p is not an ipv6_host",[Hostname])}
     end;
 init_per_group(_, Config) -> 
     Config.
@@ -120,28 +152,83 @@ end_per_group(start_tls_api, Config) -> clear_db(Config);
 end_per_group(_Group, Config) -> Config.
 
 
-init_per_testcase(_, Config) ->
-    case proplists:get_value(name,?config(tc_group_properties, Config)) of
-	api_not_bound ->
-	    {ok,H} = open(Config),
-	    [{handle,H} | Config];
-	api_bound ->
-	    {ok,H} = open(Config),
-	    ok = eldap:simple_bind(H,
-				   "cn=Manager,dc=ericsson,dc=se",
-				   "hejsan"),
-	    [{handle,H} | Config];
-	_Name ->
-	    Config
+init_per_testcase(ssl_connection, Config) ->
+    case ?config(ssl_available,Config) of
+	true ->
+	    SSL_Port = 9999,
+	    CertFile = filename:join(?config(data_dir,Config), "certs/server/cert.pem"),
+	    KeyFile = filename:join(?config(data_dir,Config), "certs/server/key.pem"),
+
+	    Parent = self(),
+	    Listener = spawn_link(
+			 fun() ->
+				 case ssl:listen(SSL_Port, [{certfile, CertFile},
+							    {keyfile, KeyFile},
+							    {reuseaddr, true}]) of
+				     {ok,SSL_LSock} ->
+					 Parent ! {ok,self()},
+					 (fun L() ->
+						ct:log("ssl server waiting for connections...",[]),
+						{ok, S} = ssl:transport_accept(SSL_LSock),
+						ct:log("ssl:transport_accept/1 ok",[]),
+						ok = ssl:ssl_accept(S),
+						ct:log("ssl:ssl_accept/1 ok",[]),
+						L()
+				          end)();
+				     Other ->
+					 Parent ! {not_ok,Other,self()}
+				 end
+			 end),
+	    receive
+		{ok,Listener} ->
+		    ct:log("SSL listening to port ~p (process ~p)",[SSL_Port, Listener]),
+		    [{ssl_listener,Listener},
+		     {ssl_listen_port,SSL_Port},
+		     {ssl_connect_opts,[]}
+		     | Config];
+		{no_ok,SSL_Other,Listener} ->
+		    ct:log("ssl:listen on port ~p failed: ~p",[SSL_Port,SSL_Other]),
+		    {fail, "ssl:listen/2 failed"}
+	    after 5000 ->
+		    {fail, "Waiting for ssl:listen timeout"}
+	    end;
+	false ->
+	    {skip, "ssl not available"}
+    end;
+
+init_per_testcase(TC, Config) ->
+    case lists:member(TC,connection_tests()) of
+	true ->
+	    case gen_tcp:listen(0, proplists:get_value(listen_opts,Config)) of
+		{ok,LSock} ->
+		    {ok,{_,Port}} = inet:sockname(LSock),
+		    [{listen_socket,LSock},
+		     {listen_port,Port}
+		     | Config];
+		Other ->
+		    {fail, Other}
+	    end;
+	
+	false ->
+	    case proplists:get_value(name,?config(tc_group_properties, Config)) of
+		api_not_bound ->
+		    {ok,H} = open(Config),
+		    [{handle,H} | Config];
+		api_bound ->
+		    {ok,H} = open(Config),
+		    ok = eldap:simple_bind(H,
+					   "cn=Manager,dc=ericsson,dc=se",
+					   "hejsan"),
+		    [{handle,H} | Config];
+		_Name ->
+		    Config
+	    end
     end.
 
 end_per_testcase(_, Config) ->
-    case ?config(handle,Config) of
-	undefined ->
-	    Config;
-	H ->
-	    eldap:close(H)
-    end.
+    catch gen_tcp:close( proplists:get_value(listen_socket, Config) ),
+    catch eldap:close( proplists:get_value(handle,Config) ).
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%
@@ -157,6 +244,115 @@ app(Config) when is_list(Config) ->
 %%% Test that the eldap appup file is ok
 appup(Config) when is_list(Config) ->
     ok = test_server:appup_test(eldap).
+
+%%%----------------------------------------------------------------
+tcp_connection(Config) ->
+    Host = proplists:get_value(listen_host, Config),
+    Port = proplists:get_value(listen_port, Config),
+    Opts = proplists:get_value(connect_opts, Config),
+    case eldap:open([Host], [{port,Port}|Opts]) of
+	{ok,_H} ->
+	    Sl = proplists:get_value(listen_socket, Config),
+	    case gen_tcp:accept(Sl,1000) of
+		{ok,_S} -> ok;
+		{error,timeout} -> ct:fail("server side accept timeout",[]);
+		Other -> ct:fail("gen_tdp:accept failed: ~p",[Other])
+	    end;
+	Other -> ct:fail("eldap:open failed: ~p",[Other])
+    end.
+
+%%%----------------------------------------------------------------
+ssl_connection(Config) ->
+    Host = proplists:get_value(listen_host, Config),
+    Port = proplists:get_value(ssl_listen_port, Config),
+    Opts = proplists:get_value(connect_opts, Config),
+    SSLOpts = proplists:get_value(ssl_connect_opts, Config),
+    case eldap:open([Host], [{port,Port},{ssl,true},
+			     {timeout,5000},
+			     {sslopts,SSLOpts}|Opts]) of
+	{ok,_H} -> ok;
+	Other -> ct:fail("eldap:open failed: ~p",[Other])
+    end.
+
+%%%----------------------------------------------------------------
+client_side_add_timeout(Config) ->
+    client_timeout(
+      fun(H) ->
+	      eldap:add(H, "cn=Foo Bar,dc=host,dc=ericsson,dc=se",
+			[{"objectclass", ["person"]},
+			 {"cn", ["Foo Bar"]}, 
+			 {"sn", ["Bar"]}, 
+			 {"telephoneNumber", ["555-1232", "555-5432"]}])
+      end, Config).
+
+%%%----------------------------------------------------------------
+client_side_bind_timeout(Config) ->
+    client_timeout(
+      fun(H) ->
+	      eldap:simple_bind(H, anon, anon)
+      end, Config).
+
+%%%----------------------------------------------------------------
+client_side_search_timeout(Config) ->
+    client_timeout(
+      fun(H) ->
+	      eldap:search(H, [{base,"dc=host,dc=ericsson,dc=se"},
+			       {filter, eldap:present("objectclass")},
+			       {scope,  eldap:wholeSubtree()}])
+      end, Config).
+
+%%%----------------------------------------------------------------
+client_side_start_tls_timeout(Config) ->
+    client_timeout(
+      fun(H) ->
+	      eldap:start_tls(H, [])
+      end, Config).
+
+%%%----------------------------------------------------------------
+tcp_connection_option(Config) -> 
+    Host = proplists:get_value(listen_host, Config),
+    Port = proplists:get_value(listen_port, Config),
+    Opts = proplists:get_value(connect_opts, Config),
+    Sl = proplists:get_value(listen_socket, Config),
+
+    %% Make an option value to test.  The option must be implemented on all
+    %% platforms that we test on.  Must check what the default value is
+    %% so we don't happen to choose that particular value.
+    {ok,[{linger,DefaultLinger}]} = inet:getopts(Sl, [linger]),
+    TestLinger = case DefaultLinger of
+		     {false,_} -> {true,5};
+		     {true,_} -> {false,0}
+		 end,
+
+    case catch eldap:open([Host], 
+			  [{port,Port},{tcpopts,[{linger,TestLinger}]}|Opts]) of
+	{ok,H} ->
+	    case gen_tcp:accept(Sl,1000) of
+		{ok,_} -> 
+		    case eldap:getopts(H, [{tcpopts,[linger]}]) of
+			{ok,[{tcpopts,[{linger,ActualLinger}]}]} ->
+			    case ActualLinger of
+				TestLinger -> 
+				    ok;
+				DefaultLinger ->
+				    ct:fail("eldap:getopts: 'linger' didn't change,"
+					    " got ~p (=default) expected ~p",
+					    [ActualLinger,TestLinger]);
+				_ ->
+				    ct:fail("eldap:getopts: bad 'linger', got ~p expected ~p",
+					    [ActualLinger,TestLinger])
+			    end;
+			Other ->
+			    ct:fail("eldap:getopts: bad result ~p",[Other])
+		    end;
+		{error,timeout} -> 
+		    ct:fail("server side accept timeout",[])
+	    end;
+
+	Other ->
+	    ct:fail("eldap:open failed: ~p",[Other])
+    end.
+
 
 %%%----------------------------------------------------------------
 %%% Basic test that all api functions works as expected
@@ -503,8 +699,10 @@ restore_original_object(H, DN, Attrs) ->
 find_first_server(UseSSL, [{config,Key}|Ss]) ->
     case ct:get_config(Key) of
 	{Host,Port} ->
+	    ct:log("find_first_server config ~p -> ~p",[Key,{Host,Port}]),
 	    find_first_server(UseSSL, [{Host,Port}|Ss]);
 	undefined ->
+	    ct:log("find_first_server config ~p is undefined",[Key]),
 	    find_first_server(UseSSL, Ss)
     end;
 find_first_server(UseSSL, [{Host,Port}|Ss]) ->
@@ -512,19 +710,27 @@ find_first_server(UseSSL, [{Host,Port}|Ss]) ->
 	{ok,H} when UseSSL==false, Ss=/=[] ->
 	    case eldap:start_tls(H,[]) of
 		ok -> 
+		    ct:log("find_first_server ~p UseSSL=~p -> ok",[{Host,Port},UseSSL]),
 		    _Ok = eldap:close(H),
 		    {Host,Port};
-		_ ->
+		Res ->
+		    ct:log("find_first_server ~p UseSSL=~p failed with~n~p~nSave as spare host.",[{Host,Port},UseSSL,Res]),
 		    _Ok = eldap:close(H),
-		    find_first_server(UseSSL, Ss++[{Host,Port}])
+		    find_first_server(UseSSL, Ss++[{spare_host,Host,Port}])
 	    end;
 	{ok,H} ->
+	    ct:log("find_first_server ~p UseSSL=~p -> ok",[{Host,Port},UseSSL]),
 	    _Ok = eldap:close(H),
 	    {Host,Port};
-	_ ->
+	Res ->
+	    ct:log("find_first_server ~p UseSSL=~p failed with~n~p",[{Host,Port},UseSSL,Res]),
 	    find_first_server(UseSSL, Ss)
     end;
+find_first_server(false, [{spare_host,Host,Port}|_]) ->
+    ct:log("find_first_server can't find start_tls host, use the spare non-start_tls host for plain ldap: ~p",[{Host,Port}]),
+    {Host,Port};
 find_first_server(_, []) ->
+    ct:log("find_first_server, nothing left to try",[]),
     undefined.
 
 initialize_db(Config) ->
@@ -558,15 +764,19 @@ delete_old_contents(H, Path) ->
     end.
 
 add_new_contents(H, Path, MyHost) ->
-    eldap:add(H,"dc=ericsson,dc=se",
-	      [{"objectclass", ["dcObject", "organization"]},
-	       {"dc", ["ericsson"]}, 
-	       {"o", ["Testing"]}]),
-    eldap:add(H,Path,
-	      [{"objectclass", ["dcObject", "organization"]},
-	       {"dc", [MyHost]}, 
-	       {"o", ["Test machine"]}]).
+    ok(eldap:add(H,"dc=ericsson,dc=se",
+		 [{"objectclass", ["dcObject", "organization"]},
+		  {"dc", ["ericsson"]}, 
+		  {"o", ["Testing"]}])),
+    ok(eldap:add(H,Path,
+		 [{"objectclass", ["dcObject", "organization"]},
+		  {"dc", [MyHost]}, 
+		  {"o", ["Test machine"]}])).
+    
 
+ok({error,entryAlreadyExists}) -> ok;
+ok(X) -> ok=X.
+    
 
 
 cond_start_tls(H, Config) ->
@@ -618,6 +828,31 @@ supported_extension(OID, Config) ->
 	    _Ok = eldap:close(H),
 	    false
     end.
+
+%%%----------------------------------------------------------------
+client_timeout(Fun, Config) ->
+    Host = proplists:get_value(listen_host, Config),
+    Port = proplists:get_value(listen_port, Config),
+    Opts = proplists:get_value(connect_opts, Config),
+    T = 1000,
+    case eldap:open([Host], [{timeout,T},{port,Port}|Opts]) of
+	{ok,H} -> 
+	    T0 = now(),
+	    {error,{gen_tcp_error,timeout}} = Fun(H),
+	    T_op = diff(T0,now()),
+	    ct:log("Time = ~p, Timeout spec = ~p",[T_op,T]),
+	    if 
+		T_op < T -> 
+		    {fail, "Timeout too early"};
+		true ->
+		    ok
+	    end;
+		    
+	Other -> ct:fail("eldap:open failed: ~p",[Other])
+    end.
+
+diff({M1,S1,U1},{M2,S2,U2}) ->
+    ( ((M2-M1)*1000 + (S2-S1))*1000 + (U2-U1) ).
 
 %%%----------------------------------------------------------------
 init_ssl_certs_et_al(Config) ->

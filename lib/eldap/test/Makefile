@@ -28,7 +28,6 @@ INCLUDES= -I. -I ../include
 # ----------------------------------------------------
 
 MODULES= \
-	eldap_connections_SUITE \
 	eldap_basic_SUITE \
 	make_certs
 
