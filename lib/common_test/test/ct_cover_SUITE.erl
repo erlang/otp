@@ -77,7 +77,8 @@ all() ->
      ct_cover_add_remove_nodes,
      otp_9956,
      cross,
-     export_import
+     export_import,
+     relative_incl_dirs
     ].
 
 %%--------------------------------------------------------------------
@@ -215,6 +216,16 @@ export_import(Config) ->
     check_calls(Events2,2),
     ok.
 
+relative_incl_dirs(Config) ->
+    false = check_cover(Config),
+    RelDir = rel_path(?config(priv_dir, Config), ?config(data_dir, Config)),
+    CoverSpec = [{incl_dirs, [RelDir]}],
+    CoverFile = create_cover_file(rel_incl_dirs, CoverSpec, Config),
+    Opts = [{cover, CoverFile}],
+    {ok, Events} = run_test(rel_incl_dirs, default, Opts, Config),
+    check_calls(Events, 1),
+    ok.
+
 %%%-----------------------------------------------------------------
 %%% HELP FUNCTIONS
 %%%-----------------------------------------------------------------
@@ -333,3 +344,12 @@ start_slave(Name,Args) ->
 		    {boot_timeout,10}, % extending some timers for slow test hosts
 		    {init_timeout,10},
 		    {startup_timeout,10}]).
+
+rel_path(From, To) ->
+    Segments = do_rel_path(filename:split(From), filename:split(To)),
+    filename:join(Segments).
+
+do_rel_path([Seg|RestA], [Seg|RestB]) ->
+    do_rel_path(RestA, RestB);
+do_rel_path(PathA, PathB) ->
+    lists:duplicate(length(PathA), "..") ++ PathB.
