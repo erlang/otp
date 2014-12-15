@@ -93,10 +93,12 @@ void (*erts_printf_unblock_fpe)(int) = NULL;
 static int
 printf_putc(int c, FILE *stream) {
     if ((FILE*)stream == stdout || (FILE*)stream == stderr) {
-        int fd = stream == stdout ? fileno(stdout) : fileno(stdin);
+        int fd = stream == stdout ? fileno(stdout) : fileno(stderr);
+        /* cast to a char here, because write expects bytes. */
+        unsigned char buf[1] = { c };
         int res;
         do {
-            res = write(fd,&c,1);
+            res = write(fd, buf, 1);
         } while (res == -1 && (errno == EAGAIN || errno == EINTR));
         if (res == -1) return EOF;
         return res;
@@ -109,7 +111,7 @@ static size_t
 printf_fwrite(const void *ptr, size_t size, size_t nitems,
           FILE *stream) {
     if ((FILE*)stream == stdout || (FILE*)stream == stderr) {
-        int fd = stream == stdout ? fileno(stdout) : fileno(stdin);
+        int fd = stream == stdout ? fileno(stdout) : fileno(stderr);
         int res;
         do {
             res = write(fd, ptr, size*nitems);
