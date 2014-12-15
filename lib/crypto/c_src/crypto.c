@@ -242,6 +242,7 @@ static ERL_NIF_TERM aes_cfb_8_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM
 static ERL_NIF_TERM aes_cfb_128_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM aes_ctr_encrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM aes_ctr_stream_encrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM aes_ecb_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM rand_bytes_1(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM strong_rand_bytes_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM rand_bytes_3(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
@@ -379,6 +380,7 @@ static ErlNifFunc nif_funcs[] = {
     {"aes_ctr_decrypt", 3, aes_ctr_encrypt},
     {"aes_ctr_stream_encrypt", 2, aes_ctr_stream_encrypt},
     {"aes_ctr_stream_decrypt", 2, aes_ctr_stream_encrypt},
+    {"aes_ecb_crypt", 3, aes_ecb_crypt},
     {"rand_bytes", 1, rand_bytes_1},
     {"strong_rand_bytes_nif", 1, strong_rand_bytes_nif},
     {"rand_bytes", 3, rand_bytes_3},
@@ -2030,6 +2032,38 @@ static ERL_NIF_TERM chacha20_poly1305_decrypt(ErlNifEnv* env, int argc, const ER
 #else
     return atom_notsup;
 #endif
+}
+
+static ERL_NIF_TERM aes_ecb_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{/* (Key, Data, IsEncrypt) */    
+    ErlNifBinary key_bin, data_bin;
+    AES_KEY aes_key;
+    int i;
+    unsigned char* ret_ptr;
+    ERL_NIF_TERM ret;    
+
+    CHECK_OSE_CRYPTO();
+
+    if (!enif_inspect_iolist_as_binary(env, argv[0], &key_bin)
+    || (key_bin.size != 16 && key_bin.size != 32)
+    || !enif_inspect_iolist_as_binary(env, argv[1], &data_bin)
+    || data_bin.size % 16 != 0) {
+    return enif_make_badarg(env);
+    }
+
+    if (argv[2] == atom_true) {
+        i = AES_ENCRYPT;
+        AES_set_encrypt_key(key_bin.data, key_bin.size*8, &aes_key);
+    }
+    else {
+        i = AES_DECRYPT;
+        AES_set_decrypt_key(key_bin.data, key_bin.size*8, &aes_key);
+    }
+
+    ret_ptr = enif_make_new_binary(env, data_bin.size, &ret);
+    AES_ecb_encrypt(data_bin.data, ret_ptr, &aes_key, i);
+    CONSUME_REDS(env,data_bin);
+    return ret;
 }
 
 static ERL_NIF_TERM rand_bytes_1(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])

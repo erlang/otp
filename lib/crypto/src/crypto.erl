@@ -154,6 +154,10 @@
 -deprecated({aes_ctr_decrypt, 3, next_major_release}).
 -deprecated({rc4_encrypt, 2, next_major_release}).
 
+%aes enc/dec
+-export([aes_ecb_crypt/3,aes_ecb_encrypt/2,aes_ecb_decrypt/2]).
+-deprecated({aes_ecb_crypt, 3}).
+
 %% Replace by public/private_encrypt/decrypt
 -export([rsa_public_encrypt/3, rsa_private_decrypt/3]).
 -export([rsa_private_encrypt/3, rsa_public_decrypt/3]).
@@ -1393,6 +1397,21 @@ aes_ctr_encrypt(_Key, _IVec, _Data) -> ?nif_stub.
 aes_ctr_decrypt(_Key, _IVec, _Cipher) -> ?nif_stub.
 
 %%
+%% AES - in electronic codebook mode (ECB)
+%%
+-spec aes_ecb_crypt(iodata(), iodata(), integer()) ->
+                 binary().
+
+aes_ecb_encrypt(Key, Data) ->
+    aes_ecb_crypt(Key, Data, true).
+
+aes_ecb_decrypt(Key, Data) ->
+    aes_ecb_crypt(Key, Data, false).
+
+aes_ecb_crypt(_Key, __Data, _IsEncrypt) -> ?nif_stub.
+
+
+%%
 %% AES - in counter mode (CTR) with state maintained for multi-call streaming 
 %%
 -type ctr_state() :: { iodata(), binary(), binary(), integer() }.
@@ -1850,6 +1869,7 @@ mod_exp_nif(_Base,_Exp,_Mod,_bin_hdr) -> ?nif_stub.
 		    aes_ctr_encrypt, aes_ctr_decrypt,
                     aes_ctr_stream_init, aes_ctr_stream_encrypt, aes_ctr_stream_decrypt,
 		    %%
+            aes_ecb_encrypt, aes_decrypt,
 		    next_iv,
 		    %% deprecated
 		    aes_cbc_ivec,
