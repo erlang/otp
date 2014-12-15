@@ -174,7 +174,7 @@ test_ei_encode_ulonglong(Config) when is_list(Config) ->
 
 
 %% ######################################################################## %%
-%% A "character" for us is an 8 bit integer, alwasy positive, i.e.
+%% A "character" for us is an 8 bit integer, always positive, i.e.
 %% it is unsigned.
 %% FIXME maybe the API should change to use "unsigned char" to be clear?!
 
