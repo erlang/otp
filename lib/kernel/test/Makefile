@@ -77,7 +77,8 @@ MODULES= \
 	ignore_cores \
 	zlib_SUITE \
 	loose_node \
-	sendfile_SUITE
+	sendfile_SUITE \
+	standard_error_SUITE
 
 APP_FILES = \
 	appinc.app \
