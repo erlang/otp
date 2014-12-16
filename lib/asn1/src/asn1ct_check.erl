@@ -5651,32 +5651,46 @@ merge_tags2([H|T],Acc) ->
 merge_tags2([], Acc) ->
     lists:reverse(Acc).
 
-storeindb(S,M) when is_record(M,module) ->
-    TVlist = M#module.typeorval,
-    NewM = M#module{typeorval=findtypes_and_values(TVlist)},
-    asn1_db:dbnew(NewM#module.name, S#state.erule),
-    asn1_db:dbput(NewM#module.name,'MODULE',  NewM),
-    Res = storeindb(#state{mname=NewM#module.name}, TVlist, []),
-    include_default_class(S,NewM#module.name),
+storeindb(S0, #module{name=ModName,typeorval=TVlist0}=M) ->
+    S = S0#state{mname=ModName},
+    TVlist1 = [{asn1ct:get_name_of_def(Def),Def} || Def <- TVlist0],
+    case check_duplicate_defs(S, TVlist1) of
+	ok ->
+	    storeindb_1(S, M, TVlist0, TVlist1);
+	{error,_}=Error ->
+	    Error
+    end.
+
+storeindb_1(S, #module{name=ModName}=M, TVlist0, TVlist) ->
+    NewM = M#module{typeorval=findtypes_and_values(TVlist0)},
+    asn1_db:dbnew(ModName, S#state.erule),
+    asn1_db:dbput(ModName, 'MODULE',  NewM),
+    asn1_db:dbput(ModName, TVlist),
+    include_default_class(S, NewM#module.name),
     include_default_type(NewM#module.name),
-    Res.
+    ok.
 
-storeindb(#state{mname=Module}=S, [H|T], Errors) ->
-    Name = asn1ct:get_name_of_def(H),
-    case asn1_db:dbget(Module, Name) of
-	undefined ->
-	    asn1_db:dbput(Module, Name, H),
-	    storeindb(S, T, Errors);
-	Prev ->
-	    PrevLine = asn1ct:get_pos_of_def(Prev),
-	    Error = return_asn1_error(S, H, {already_defined,Name,PrevLine}),
-	    storeindb(S, T, [Error|Errors])
-    end;
-storeindb(_, [], []) ->
-    ok;
-storeindb(_, [], [_|_]=Errors) ->
-    {error,Errors}.
+check_duplicate_defs(S, Defs) ->
+    Set0 = sofs:relation(Defs),
+    Set1 = sofs:relation_to_family(Set0),
+    Set = sofs:to_external(Set1),
+    case [duplicate_def(S, N, Dup) || {N,[_,_|_]=Dup} <- Set] of
+	[] ->
+	    ok;
+	[_|_]=E ->
+	    {error,lists:append(E)}
+    end.
 
+duplicate_def(S, Name, Dups0) ->
+    Dups1 = [{asn1ct:get_pos_of_def(Def),Def} || Def <- Dups0],
+    [{Prev,_}|Dups] = lists:sort(Dups1),
+    duplicate_def_1(S, Dups, Name, Prev).
+
+duplicate_def_1(S, [{_,Def}|T], Name, Prev) ->
+    E = return_asn1_error(S, Def, {already_defined,Name,Prev}),
+    [E|duplicate_def_1(S, T, Name, Prev)];
+duplicate_def_1(_, [], _, _) ->
+    [].
 
 findtypes_and_values(TVList) ->
     findtypes_and_values(TVList,[],[],[],[],[],[]).%% Types,Values,
