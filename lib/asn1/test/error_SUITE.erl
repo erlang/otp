@@ -175,8 +175,8 @@ enumerated(Config) ->
      [
       {structured_error,{M,3},asn1ct_check,{undefined,d}},
       {structured_error,{M,5},asn1ct_check,{undefined,z}},
-      {structured_error,{M,10},asn1ct_check,{undefined,aa}},
-      {structured_error,{M,13},asn1ct_check,{undefined,xyz}},
+      {structured_error,{M,6},asn1ct_check,{undefined,aa}},
+      {structured_error,{M,12},asn1ct_check,{undefined,xyz}},
       {structured_error,{M,15},asn1ct_check,
        {enum_illegal_redefinition,b}},
       {structured_error,{M,16},asn1ct_check,

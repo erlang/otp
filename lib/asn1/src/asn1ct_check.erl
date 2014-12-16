@@ -282,7 +282,7 @@ checkt(S0, Names) ->
     check_fold(S0, lists:reverse(CtxtSwitch), Check) ++ Types.
 
 do_checkt(S, Name, #typedef{typespec=TypeSpec}=Type0) ->
-    NewS = S#state{type=Type0,tname=Name},
+    NewS = S#state{tname=Name},
     try check_type(NewS, Type0, TypeSpec) of
 	#type{}=Ts ->
 	    case Type0#typedef.checked of
@@ -331,17 +331,16 @@ do_checkv(S, Name, Value)
        is_record(Value, typedef); %Value set may be parsed as object set.
        is_record(Value, pvaluedef);
        is_record(Value, pvaluesetdef) ->
-    NewS = S#state{value=Value},
-    try check_value(NewS, Value) of
+    try check_value(S, Value) of
 	{valueset,VSet} ->
 	    Pos = asn1ct:get_pos_of_def(Value),
 	    CheckedVSDef = #typedef{checked=true,pos=Pos,
 				    name=Name,typespec=VSet},
-	    asn1_db:dbput(NewS#state.mname, Name, CheckedVSDef),
+	    asn1_db:dbput(S#state.mname, Name, CheckedVSDef),
 	    {valueset,Name};
 	V ->
 	    %% update the valuedef
-	    asn1_db:dbput(NewS#state.mname, Name, V),
+	    asn1_db:dbput(S#state.mname, Name, V),
 	    ok
     catch
 	{error,Reason} ->
@@ -357,7 +356,7 @@ do_checkv(S, Name, Value)
 	    ClassName = Type#type.def,
 	    NewSpec = #'Object'{classname=ClassName,def=Def},
 	    NewDef = #typedef{checked=C,pos=Pos,name=N,typespec=NewSpec},
-	    asn1_db:dbput(NewS#state.mname, Name, NewDef),
+	    asn1_db:dbput(S#state.mname, Name, NewDef),
 	    {objectdef,Name}
     end.
 
@@ -366,7 +365,7 @@ checkp(S, Names) ->
     check_fold(S, Names, fun do_checkp/3).
 
 do_checkp(S0, Name, #ptypedef{typespec=TypeSpec}=Type0) ->
-    S = S0#state{type=Type0,tname=Name},
+    S = S0#state{tname=Name},
     try check_ptype(S, Type0, TypeSpec) of
 	#type{}=Ts ->
 	    Type = Type0#ptypedef{checked=true,typespec=Ts},
@@ -434,7 +433,7 @@ checko(_S,[],Acc,ExclO,ExclOS) ->
     {lists:reverse(Acc),lists:reverse(ExclO),lists:reverse(ExclOS)}.
 
 checko_1(S, #typedef{typespec=TS}=Object, Name, ExclO, ExclOS) ->
-    NewS = S#state{type=Object,tname=Name},
+    NewS = S#state{tname=Name},
     O = check_object(NewS, Object, TS),
     NewObj = Object#typedef{checked=true,typespec=O},
     asn1_db:dbput(NewS#state.mname, Name, NewObj),
@@ -449,13 +448,13 @@ checko_1(S, #typedef{typespec=TS}=Object, Name, ExclO, ExclOS) ->
 	    {ExclO,[Name|ExclOS]}
     end;
 checko_1(S, #pobjectdef{}=PObject, Name, ExclO, ExclOS) ->
-    NewS = S#state{type=PObject,tname=Name},
+    NewS = S#state{tname=Name},
     PO = check_pobject(NewS, PObject),
     NewPObj = PObject#pobjectdef{def=PO},
     asn1_db:dbput(NewS#state.mname, Name, NewPObj),
     {[Name|ExclO],ExclOS};
 checko_1(S, #pvaluesetdef{}=PObjSet, Name, ExclO, ExclOS) ->
-    NewS = S#state{type=PObjSet,tname=Name},
+    NewS = S#state{tname=Name},
     POS = check_pobjectset(NewS, PObjSet),
     asn1_db:dbput(NewS#state.mname, Name, POS),
     {ExclO,[Name|ExclOS]}.
@@ -479,8 +478,7 @@ check_class(S = #state{mname=M,tname=T},ClassSpec)
 	Tref = #'Externaltypereference'{type=TName} ->
 	    {MName,RefType} = get_referenced_type(S,Tref),
 	    #classdef{} = CD = get_class_def(S, RefType),
-	    NewState = update_state(S#state{type=RefType,
-					    tname=TName}, MName),
+	    NewState = update_state(S#state{tname=TName}, MName),
 	    check_class(NewState, CD);
 	{pt,ClassRef,Params} ->
 	    %% parameterized class
@@ -502,8 +500,7 @@ check_class(S,ClassName) ->
 		false ->
 		    Name=ClassName#'Externaltypereference'.type,
 		    store_class(S,idle,ClassDef,Name),
-%		    NewS = S#state{mname=RefMod,type=Def,tname=Name},
-		    NewS = update_state(S#state{type=Def,tname=Name},RefMod),
+		    NewS = update_state(S#state{tname=Name}, RefMod),
 		    CheckedTS = check_class(NewS,ClassDef#classdef.typespec),
 		    store_class(S,true,ClassDef#classdef{typespec=CheckedTS},Name),
 		    CheckedTS
@@ -530,8 +527,7 @@ check_objectclass(S, #objectclass{fields=Fs0,syntax=Syntax0}=C) ->
 instantiate_pclass(S=#state{parameters=_OldArgs},PClassDef,Params) ->
     #ptypedef{args=Args,typespec=Type} = PClassDef,
     MatchedArgs = match_args(S,Args, Params, []),
-%    NewS = S#state{type=Type,parameters=MatchedArgs++OldArgs,abscomppath=[]},
-    NewS = S#state{type=Type,parameters=MatchedArgs,abscomppath=[]},
+    NewS = S#state{parameters=MatchedArgs,abscomppath=[]},
     check_class(NewS,#classdef{name=S#state.tname,typespec=Type}).
 
 store_class(S,Mode,ClassDef,ClassName) ->
@@ -684,7 +680,7 @@ check_object(S,_ObjDef,#'Object'{classname=ClassRef,def=ObjectDef}) ->
 	case get_referenced_type(S, ClassRef, true) of
 	    {MName,#classdef{checked=false, name=CLName}=ClDef} ->
 		Type = ClassRef#'Externaltypereference'.type,
-		NewState = update_state(S#state{type=ClDef, tname=Type}, MName),
+		NewState = update_state(S#state{tname=Type}, MName),
 		ObjClass = check_class(NewState, ClDef),
 		{ClDef#classdef{checked=true, typespec=ObjClass},
 		 #'Externaltypereference'{module=MName, type=CLName}};
@@ -903,7 +899,7 @@ remove_duplicate_objects_1(S, [{Id,[_|_]=Objs}|T]) ->
 	[{_,Obj}] ->
 	    [Obj|remove_duplicate_objects_1(S, T)];
 	[_|_] ->
-	    asn1_error(S, S#state.type, {non_unique_object,Id})
+	    asn1_error(S, {non_unique_object,Id})
     end;
 remove_duplicate_objects_1(_, []) ->
     [].
@@ -1135,8 +1131,7 @@ check_fieldname_element_1(S, Eref)
 instantiate_po(S=#state{parameters=_OldArgs},_ClassDef,Object,ArgsList) when is_record(Object,pobjectdef) ->
     FormalParams = get_pt_args(Object),
     MatchedArgs = match_args(S,FormalParams,ArgsList,[]),
-%    NewS = S#state{type=Object,parameters=MatchedArgs++OldArgs},
-    NewS = S#state{type=Object,parameters=MatchedArgs},
+    NewS = S#state{parameters=MatchedArgs},
     check_object(NewS,Object,#'Object'{classname=Object#pobjectdef.class,
 				    def=Object#pobjectdef.def}).
 
@@ -1153,7 +1148,7 @@ instantiate_pos(S=#state{parameters=_OldArgs},ClassRef,ObjectSetDef,ArgsList) ->
 	       _ -> asn1_error(S, invalid_objectset)
 	   end,
     MatchedArgs = match_args(S,FormalParams,ArgsList,[]),
-    NewS = S#state{type=ObjectSetDef,parameters=MatchedArgs},
+    NewS = S#state{parameters=MatchedArgs},
     check_object(NewS,ObjectSetDef,OSet).
 
     
@@ -1475,8 +1470,7 @@ match_syntax_type(_S, _Type, _Actual) ->
 
 match_syntax_params(S0, #ptypedef{name=Name}=PtDef,
 		    #'Externaltypereference'{module=M,type=N}=ERef0, Args) ->
-    S = S0#state{mname=M,module=load_asn1_module(S0, M),
-		 type=PtDef,tname=Name},
+    S = S0#state{mname=M,module=load_asn1_module(S0, M),tname=Name},
     Type = check_type(S, PtDef, #type{def={pt,ERef0,Args}}),
     ERefName = new_reference_name(N),
     ERef = #'Externaltypereference'{type=ERefName,module=S0#state.mname},
@@ -1495,7 +1489,7 @@ match_syntax_external(#state{mname=Mname}=S0, Name, Ref0) ->
 	    %% This typedef is an imported type (or maybe a set.asn
 	    %% compilation).
 	    S = S0#state{mname=M,module=load_asn1_module(S0, M),
-			 type=TDef0,tname=get_datastr_name(TDef0)},
+			 tname=get_datastr_name(TDef0)},
 	    Type = check_type(S, TDef0, TDef0#typedef.typespec),
 	    TDef = TDef0#typedef{checked=true,typespec=Type},
 	    asn1_db:dbput(M, get_datastr_name(TDef), TDef),
@@ -1720,7 +1714,7 @@ check_valuedef(#state{recordtopname=TopName}=S0, V0) ->
     V = V0#valuedef{checked=true},
     Vtype = check_type(S0, #typedef{name=Name,typespec=Vtype0},Vtype0),
     Def = Vtype#type.def,
-    S1 = S0#state{type=Vtype,tname=Def,value=V0,vname=Name},
+    S1 = S0#state{tname=Def},
     SVal = update_state(S1, ModName),
     case Def of
 	#'Externaltypereference'{type=RecName}=Ext ->
@@ -1758,7 +1752,7 @@ check_valuedef(#state{recordtopname=TopName}=S0, V0) ->
 	{'INTEGER',_NamedNumberList} ->
 	    V#valuedef{value=normalize_value(SVal, Vtype, Value, [])};
 	#'SEQUENCE'{} ->
-	    {ok,SeqVal} = convert_external(SVal, Value),
+	    {ok,SeqVal} = convert_external(SVal, Vtype, Value),
 	    V#valuedef{value=normalize_value(SVal, Vtype, SeqVal, TopName)};
 	_ ->
 	    V#valuedef{value=normalize_value(SVal, Vtype, Value, TopName)}
@@ -1928,7 +1922,7 @@ validate_oid_path(S, o_id=OidType, _) ->
 %%% End of OBJECT IDENTFIER/RELATIVE-OID validation.
 %%%
 
-convert_external(S=#state{type=Vtype}, Value) ->
+convert_external(S, Vtype, Value) ->
     case Vtype of
 	#type{tag=[{tag,'UNIVERSAL',8,'IMPLICIT',32}]} ->
 	    %% this is an 'EXTERNAL' (or INSTANCE OF)
@@ -1971,17 +1965,16 @@ normalize_value(_,_,mandatory,_) ->
     mandatory;
 normalize_value(_,_,'OPTIONAL',_) ->
     'OPTIONAL';
-normalize_value(S0, Type, {'DEFAULT',Value}, NameList) ->
-    S = S0#state{value=Value},
+normalize_value(S, Type, {'DEFAULT',Value}, NameList) ->
     case catch get_canonic_type(S,Type,NameList) of
 	{'BOOLEAN',CType,_} ->
 	    normalize_boolean(S,Value,CType);
 	{'INTEGER',CType,_} ->
-	    normalize_integer(S0, Value, CType);
+	    normalize_integer(S, Value, CType);
 	{'BIT STRING',CType,_} ->
 	    normalize_bitstring(S,Value,CType);
 	{'OCTET STRING',_,_} ->
-	    normalize_octetstring(S0, Value);
+	    normalize_octetstring(S, Value);
 	{'NULL',_CType,_} ->
 	    %%normalize_null(Value);
 	    'NULL';
@@ -2043,8 +2036,7 @@ normalize_integer(S, #'Externalvaluereference'{value=Name}=Ref, NNL) ->
 		    asn1_error(S, illegal_integer_value)
 	    end
     end;
-normalize_integer(S0, {'ValueFromObject',{object,Obj},FieldNames}, _) ->
-    S = S0#state{type=S0#state.value},
+normalize_integer(S, {'ValueFromObject',{object,Obj},FieldNames}, _) ->
     case extract_field(S, Obj, FieldNames) of
 	#valuedef{value=Val} when is_integer(Val) ->
 	    Val;
@@ -2169,7 +2161,7 @@ lookup_enum_value(S, Id, NNL) when is_atom(Id) ->
 	{_,_}=Ret ->
 	    Ret;
 	false ->
-	    asn1_error(S, S#state.value, {undefined,Id})
+	    asn1_error(S, {undefined,Id})
     end.
 
 normalize_choice(S, {'CHOICE',{C,V}}, CType, NameList)
@@ -2551,7 +2543,6 @@ check_type(S=#state{recordtopname=TopName},Type,Ts) when is_record(Ts,type) ->
 			    NewS = S#state{mname=RefMod,
 					   module=load_asn1_module(S,RefMod),
 					   tname=get_datastr_name(NewRefTypeDef1),
-					   type=NewRefTypeDef1,
 					   abscomppath=[],recordtopname=[]},
 			    RefType1 = 
 				check_type(NewS,RefTypeDef,RefTypeDef#typedef.typespec),
@@ -3010,8 +3001,7 @@ instantiate_ptype(S,Ptypedef,ParaList) ->
     NewType = check_ptype(S,Ptypedef,Type#type{inlined=yes}),    
     MatchedArgs = match_args(S,Args, ParaList, []),
     OldArgs = S#state.parameters,
-    NewS = S#state{type=NewType,parameters=MatchedArgs++OldArgs,abscomppath=[]},
-%%    NewS = S#state{type=NewType,parameters=MatchedArgs,abscomppath=[]},
+    NewS = S#state{parameters=MatchedArgs++OldArgs,abscomppath=[]},
     check_type(NewS, Ptypedef#ptypedef{typespec=NewType}, NewType).
 
 get_datastr_name(Type) ->
@@ -4641,7 +4631,6 @@ check_selectiontype(S,Name,#type{def=Eref})
     {RefMod,TypeDef} = get_referenced_type(S,Eref),
     NewS = S#state{module=load_asn1_module(S,RefMod),
 		   mname=RefMod,
-		   type=TypeDef,
 		   tname=get_datastr_name(TypeDef)},
     check_selectiontype2(NewS,Name,TypeDef);
 check_selectiontype(S,Name,Type=#type{def={pt,_,_}}) ->
@@ -5550,15 +5539,13 @@ get_OCFType(S,Fields,[PrimFieldName|Rest]) ->
 	    {fixedtypevaluefield,PrimFieldName,Type};
 	{value,{objectfield,_,ClassRef,_Unique,_OptSpec}} ->
 	    {MName,ClassDef} = get_referenced_type(S,ClassRef),
-	    NewS = update_state(S#state{type=ClassDef,
-					tname=get_datastr_name(ClassDef)},
+	    NewS = update_state(S#state{tname=get_datastr_name(ClassDef)},
 				MName),
 	    CheckedCDef = check_class(NewS,ClassDef),
 	    get_OCFType(S,CheckedCDef#objectclass.fields,Rest);
 	{value,{objectsetfield,_,Type,_OptSpec}} ->
 	    {MName,ClassDef} = get_referenced_type(S,Type#type.def),
-	    NewS = update_state(S#state{type=ClassDef,
-					tname=get_datastr_name(ClassDef)},
+	    NewS = update_state(S#state{tname=get_datastr_name(ClassDef)},
 				MName),
 	    CheckedCDef = check_class(NewS,ClassDef),
 	    get_OCFType(S,CheckedCDef#objectclass.fields,Rest);
@@ -5738,9 +5725,6 @@ return_asn1_error(#state{mname=Where}, Item, Error) ->
 
 asn1_error(S, Error) ->
     throw({error,return_asn1_error(S, Error)}).
-
-asn1_error(S, Item, Error) ->
-    throw({error,return_asn1_error(S, Item, Error)}).
 
 format_error({already_defined,Name,PrevLine}) ->
     io_lib:format("the name ~p has already been defined at line ~p",
