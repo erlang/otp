@@ -1587,6 +1587,21 @@ true</pre>
       </desc>
     </func>
     <func>
+      <name name="take" arity="2"/>
+      <fsummary>Return and remove all objects with a given key from an ETS
+        table.</fsummary>
+      <desc>
+        <p>Returns a list of all objects with the key <c><anno>Key</anno></c> in
+          the table <c><anno>Tab</anno></c> and removes.</p>
+        <p>The given <c><anno>Key</anno></c> is used to identify the object by
+          either <em>comparing equal</em> the key of an object in an
+          <c>ordered_set</c> table, or <em>matching</em> in other types of
+          tables (see <seealso marker="#lookup/2">lookup/2</seealso> and
+          <seealso marker="#new/2">new/2</seealso> for details on the
+          difference).</p>
+      </desc>
+    </func>
+    <func>
       <name name="to_dets" arity="2"/>
       <fsummary>Fill a Dets table with objects from an ETS table.</fsummary>
       <desc>
