@@ -1442,7 +1442,7 @@ get_pref_allctr(void *extra)
 
     pref_ix = ERTS_ALC_GET_THR_IX();
 
-    ASSERT(sizeof(UWord) == sizeof(Allctr_t *));
+    ERTS_CT_ASSERT(sizeof(UWord) == sizeof(Allctr_t *));
     ASSERT(0 <= pref_ix && pref_ix < tspec->size);
 
     return tspec->allctr[pref_ix];
@@ -1861,7 +1861,7 @@ handle_delayed_dealloc(Allctr_t *allctr,
 	      * if this carrier is pulled from dc_list by cpool_fetch()
 	      */
 	    ERTS_ALC_CPOOL_ASSERT(FBLK_TO_MBC(blk) != crr);
-	    ERTS_ALC_CPOOL_ASSERT(sizeof(ErtsAllctrDDBlock_t) == sizeof(void*));
+	    ERTS_CT_ASSERT(sizeof(ErtsAllctrDDBlock_t) == sizeof(void*));
 #ifdef MBC_ABLK_OFFSET_BITS
 	    blk->u.carrier = crr;
 #else
@@ -5942,7 +5942,7 @@ erts_alcu_init(AlcUInit_t *init)
 	erts_atomic_init_nob(&sentinel->prev, (erts_aint_t) sentinel);
     }
 #endif
-    ASSERT(SBC_BLK_SZ_MASK == MBC_FBLK_SZ_MASK); /* see BLK_SZ */
+    ERTS_CT_ASSERT(SBC_BLK_SZ_MASK == MBC_FBLK_SZ_MASK); /* see BLK_SZ */
 #if HAVE_ERTS_MSEG
     ASSERT(erts_mseg_unit_size() == ERTS_SACRR_UNIT_SZ);
     max_mseg_carriers = init->mmc;

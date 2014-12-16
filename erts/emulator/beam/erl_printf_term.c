@@ -594,7 +594,7 @@ erts_printf_term(fmtfn_t fn, void* arg, ErlPfEterm term, long precision,
 		 ErlPfEterm* term_base)
 {
     int res;
-    ASSERT(sizeof(ErlPfEterm) == sizeof(Eterm));
+    ERTS_CT_ASSERT(sizeof(ErlPfEterm) == sizeof(Eterm));
 
     res = print_term(fn, arg, (Eterm)term, &precision, (Eterm*)term_base);
     if (res < 0)

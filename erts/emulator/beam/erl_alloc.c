@@ -3939,7 +3939,7 @@ static Uint
 install_debug_functions(void)
 {
     int i;
-    ASSERT(sizeof(erts_allctrs) == sizeof(real_allctrs));
+    ERTS_CT_ASSERT(sizeof(erts_allctrs) == sizeof(real_allctrs));
 
     sys_memcpy((void *)real_allctrs,(void *)erts_allctrs,sizeof(erts_allctrs));
 

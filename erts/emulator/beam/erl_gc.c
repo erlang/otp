@@ -175,15 +175,15 @@ erts_init_gc(void)
     int i = 0, ix;
     Sint max_heap_size = 0;
 
-    ASSERT(offsetof(ProcBin,thing_word) == offsetof(struct erl_off_heap_header,thing_word));
-    ASSERT(offsetof(ProcBin,thing_word) == offsetof(ErlFunThing,thing_word));
-    ASSERT(offsetof(ProcBin,thing_word) == offsetof(ExternalThing,header));
-    ASSERT(offsetof(ProcBin,size) == offsetof(struct erl_off_heap_header,size));
-    ASSERT(offsetof(ProcBin,size) == offsetof(ErlSubBin,size));
-    ASSERT(offsetof(ProcBin,size) == offsetof(ErlHeapBin,size));
-    ASSERT(offsetof(ProcBin,next) == offsetof(struct erl_off_heap_header,next));
-    ASSERT(offsetof(ProcBin,next) == offsetof(ErlFunThing,next));
-    ASSERT(offsetof(ProcBin,next) == offsetof(ExternalThing,next));
+    ERTS_CT_ASSERT(offsetof(ProcBin,thing_word) == offsetof(struct erl_off_heap_header,thing_word));
+    ERTS_CT_ASSERT(offsetof(ProcBin,thing_word) == offsetof(ErlFunThing,thing_word));
+    ERTS_CT_ASSERT(offsetof(ProcBin,thing_word) == offsetof(ExternalThing,header));
+    ERTS_CT_ASSERT(offsetof(ProcBin,size) == offsetof(struct erl_off_heap_header,size));
+    ERTS_CT_ASSERT(offsetof(ProcBin,size) == offsetof(ErlSubBin,size));
+    ERTS_CT_ASSERT(offsetof(ProcBin,size) == offsetof(ErlHeapBin,size));
+    ERTS_CT_ASSERT(offsetof(ProcBin,next) == offsetof(struct erl_off_heap_header,next));
+    ERTS_CT_ASSERT(offsetof(ProcBin,next) == offsetof(ErlFunThing,next));
+    ERTS_CT_ASSERT(offsetof(ProcBin,next) == offsetof(ExternalThing,next));
 
     erts_test_long_gc_sleep = 0;
 
