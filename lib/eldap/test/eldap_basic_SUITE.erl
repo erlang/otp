@@ -24,12 +24,15 @@
 %%-include_lib("common_test/include/ct.hrl").
 -include_lib("test_server/include/test_server.hrl").
 -include_lib("eldap/include/eldap.hrl").
+-include_lib("eldap/ebin/ELDAPv3.hrl").
+
 
 -define(TIMEOUT, 120000). % 2 min
 
 all() ->
     [app,
      appup,
+     {group, encode_decode},
      {group, v4_connections},
      {group, v6_connections},
      {group, plain_api},
@@ -38,7 +41,10 @@ all() ->
     ].
 
 groups() ->
-    [{plain_api,     [], [{group,api}]},
+    [{encode_decode, [], [encode,
+			  decode
+			  ]},
+     {plain_api,     [], [{group,api}]},
      {ssl_api,       [], [{group,api}, start_tls_on_ssl_should_fail]},
      {start_tls_api, [], [{group,api}, start_tls_twice_should_fail]},
 
@@ -675,6 +681,31 @@ start_tls_on_ssl_should_fail(Config) ->
     {error,tls_already_started} = eldap:start_tls(H, []),
     _Ok = eldap:close(H),
     ok.
+
+%%%----------------------------------------------------------------
+encode(_Config) ->
+    {ok,Bin} = 'ELDAPv3':encode('AddRequest', #'AddRequest'{entry="hejHopp"  ,attributes=[]} ),
+    Expected = <<104,11,4,7,104,101,106,72,111,112,112,48,0>>,
+    case Bin of
+	Expected -> ok;
+	_ -> ct:log("Encoded erroneously to:~n~p~nExpected:~n~p",[Bin,Expected]),
+	     {fail, "Bad encode"}
+    end.
+
+%%%----------------------------------------------------------------
+decode(_Config) ->
+    {ok,Res} = 'ELDAPv3':decode('AddRequest', <<104,11,4,7,104,101,106,72,111,112,112,48,0>>),
+    ct:log("Res = ~p", [Res]),
+    Expected = #'AddRequest'{entry = "hejHopp",attributes = []},
+    case Res of
+	Expected -> ok;
+	#'AddRequest'{entry= <<"hejHopp">>, attributes=[]} -> 
+	    {fail, "decoded to (correct) binary!!"};
+	_ ->
+	    {fail, "Bad decode"}
+    end.
+	    
+
 
 %%%****************************************************************
 %%% Private
