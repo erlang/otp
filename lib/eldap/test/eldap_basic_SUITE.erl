@@ -134,17 +134,17 @@ init_per_group(start_tls_api, Config0) ->
 	    end
     end;
 init_per_group(v4_connections, Config) ->
-    [{listen_opts,  [{reuseaddr, true}]},
+    [{tcp_listen_opts,  [{reuseaddr, true}]},
      {listen_host,  "localhost"},
-     {connect_opts, []}
+     {tcp_connect_opts, []}
      |  Config];
 init_per_group(v6_connections, Config) ->
     {ok, Hostname} = inet:gethostname(),
     case lists:member(list_to_atom(Hostname), ct:get_config(ipv6_hosts,[])) of
 	true -> 
-	    [{listen_opts,  [inet6]},
+	    [{tcp_listen_opts,  [inet6,{reuseaddr, true}]},
 	     {listen_host,  "::"},
-	     {connect_opts, [{tcpopts,[inet6]}]}
+	     {tcp_connect_opts, [{tcpopts,[inet6]}]}
 	     |  Config];
 	false -> 
 	    {skip, io_lib:format("~p is not an ipv6_host",[Hostname])}
@@ -169,8 +169,9 @@ init_per_testcase(ssl_connection, Config) ->
 	    Listener = spawn_link(
 			 fun() ->
 				 case ssl:listen(SSL_Port, [{certfile, CertFile},
-							    {keyfile, KeyFile},
-							    {reuseaddr, true}]) of
+							    {keyfile, KeyFile}
+							    | ?config(tcp_listen_opts,Config)
+							   ]) of
 				     {ok,SSL_LSock} ->
 					 Parent ! {ok,self()},
 					 (fun L() ->
@@ -205,7 +206,7 @@ init_per_testcase(ssl_connection, Config) ->
 init_per_testcase(TC, Config) ->
     case lists:member(TC,connection_tests()) of
 	true ->
-	    case gen_tcp:listen(0, proplists:get_value(listen_opts,Config)) of
+	    case gen_tcp:listen(0, proplists:get_value(tcp_listen_opts,Config)) of
 		{ok,LSock} ->
 		    {ok,{_,Port}} = inet:sockname(LSock),
 		    [{listen_socket,LSock},
@@ -255,7 +256,7 @@ appup(Config) when is_list(Config) ->
 tcp_connection(Config) ->
     Host = proplists:get_value(listen_host, Config),
     Port = proplists:get_value(listen_port, Config),
-    Opts = proplists:get_value(connect_opts, Config),
+    Opts = proplists:get_value(tcp_connect_opts, Config),
     case eldap:open([Host], [{port,Port}|Opts]) of
 	{ok,_H} ->
 	    Sl = proplists:get_value(listen_socket, Config),
@@ -271,9 +272,10 @@ tcp_connection(Config) ->
 ssl_connection(Config) ->
     Host = proplists:get_value(listen_host, Config),
     Port = proplists:get_value(ssl_listen_port, Config),
-    Opts = proplists:get_value(connect_opts, Config),
+    Opts = proplists:get_value(tcp_connect_opts, Config),
     SSLOpts = proplists:get_value(ssl_connect_opts, Config),
-    case eldap:open([Host], [{port,Port},{ssl,true},
+    case eldap:open([Host], [{port,Port},
+			     {ssl,true},
 			     {timeout,5000},
 			     {sslopts,SSLOpts}|Opts]) of
 	{ok,_H} -> ok;
@@ -318,7 +320,7 @@ client_side_start_tls_timeout(Config) ->
 tcp_connection_option(Config) -> 
     Host = proplists:get_value(listen_host, Config),
     Port = proplists:get_value(listen_port, Config),
-    Opts = proplists:get_value(connect_opts, Config),
+    Opts = proplists:get_value(tcp_connect_opts, Config),
     Sl = proplists:get_value(listen_socket, Config),
 
     %% Make an option value to test.  The option must be implemented on all
@@ -864,7 +866,7 @@ supported_extension(OID, Config) ->
 client_timeout(Fun, Config) ->
     Host = proplists:get_value(listen_host, Config),
     Port = proplists:get_value(listen_port, Config),
-    Opts = proplists:get_value(connect_opts, Config),
+    Opts = proplists:get_value(tcp_connect_opts, Config),
     T = 1000,
     case eldap:open([Host], [{timeout,T},{port,Port}|Opts]) of
 	{ok,H} -> 
