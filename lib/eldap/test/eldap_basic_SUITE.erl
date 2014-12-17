@@ -33,6 +33,7 @@ all() ->
     [app,
      appup,
      {group, encode_decode},
+     {group, return_values},
      {group, v4_connections},
      {group, v6_connections},
      {group, plain_api},
@@ -70,7 +71,10 @@ groups() ->
 		      modify_dn_delete_old,
 		      modify_dn_keep_old]},
      {v4_connections, [], connection_tests()},
-     {v6_connections, [], connection_tests()}
+     {v6_connections, [], connection_tests()},
+     {return_values, [], [open_ret_val_success,
+			  open_ret_val_error,
+			  close_ret_val]}
     ].
 
 connection_tests() ->
@@ -103,6 +107,14 @@ end_per_suite(_Config) ->
     ssl:stop().
 
 
+init_per_group(return_values, Config) -> 
+    case ?config(ldap_server,Config) of
+	undefined -> 
+	    {skip, "LDAP server not availble"};
+	{Host,Port} -> 
+	    ct:comment("ldap://~s:~p",[Host,Port]),
+	    Config
+    end;
 init_per_group(plain_api, Config0) -> 
     case ?config(ldap_server,Config0) of
 	undefined -> 
@@ -251,6 +263,22 @@ app(Config) when is_list(Config) ->
 %%% Test that the eldap appup file is ok
 appup(Config) when is_list(Config) ->
     ok = test_server:appup_test(eldap).
+
+%%%----------------------------------------------------------------
+open_ret_val_success(Config) ->
+    {Host,Port} = ?config(ldap_server,Config),
+    {ok,H} = eldap:open([Host], [{port,Port}]),
+    catch eldap:close(H).
+
+%%%----------------------------------------------------------------
+open_ret_val_error(_Config) ->
+    {error,_} = eldap:open(["nohost.example.com"], [{port,65535}]).
+
+%%%----------------------------------------------------------------
+close_ret_val(Config) ->
+    {Host,Port} = ?config(ldap_server,Config),
+    {ok,H} = eldap:open([Host], [{port,Port}]),
+    ok = eldap:close(H).
 
 %%%----------------------------------------------------------------
 tcp_connection(Config) ->
