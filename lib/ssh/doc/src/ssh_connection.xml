@@ -62,6 +62,7 @@
     <p><c>ssh_request_status() = success | failure</c></p>
     <p><c>event() = {ssh_cm, ssh_connection_ref(), ssh_event_msg()} </c></p>
     <p><c>ssh_event_msg()  = data_events() | status_events() | terminal_events() </c></p>
+    <p><c>reason() = timeout | closed  </c></p>
 
     <taglist>
       <tag><b>data_events()</b></tag>
@@ -218,7 +219,7 @@
    </func>
    
    <func>
-     <name>exec(ConnectionRef, ChannelId, Command, TimeOut) -> ssh_request_status()  </name>
+     <name>exec(ConnectionRef, ChannelId, Command, TimeOut) -> ssh_request_status() | {error, reason()} </name>
      <fsummary>Request that the server start the execution of the given command.  </fsummary>
      <type>
        <v> ConnectionRef = ssh_connection_ref() </v>
@@ -274,7 +275,8 @@
    </func>
    
    <func>
-       <name>ptty_alloc(ConnectionRef, ChannelId, Options, Timeout) -> success | failure</name>
+     <name>ptty_alloc(ConnectionRef, ChannelId, Options) ->  </name>
+     <name>ptty_alloc(ConnectionRef, ChannelId, Options, Timeout) ->  > ssh_request_status() | {error, reason()}  </name>
        <fsummary>Send status replies to requests that want such replies. </fsummary>
       <type>
 	<v> ConnectionRef = ssh_connection_ref() </v>
@@ -374,7 +376,7 @@
      <func>
        <name>session_channel(ConnectionRef, Timeout) -> </name>
        <name>session_channel(ConnectionRef, InitialWindowSize,
-       MaxPacketSize, Timeout) -> {ok, ssh_channel_id()} | {error, Reason}</name>
+       MaxPacketSize, Timeout) -> {ok, ssh_channel_id()} | {error, reason()}</name>
        <fsummary>Opens a channel for a ssh session. </fsummary>
        <type>
 	 <v> ConnectionRef = ssh_connection_ref()</v>
@@ -391,7 +393,7 @@
      </func>
 
     <func>
-      <name>setenv(ConnectionRef, ChannelId, Var, Value, TimeOut) -> ssh_request_status()</name>
+      <name>setenv(ConnectionRef, ChannelId, Var, Value, TimeOut) -> ssh_request_status() | {error, reason()} </name>
       <fsummary> Environment variables may be passed to the
       shell/command to be started later.</fsummary>
       <type>
@@ -409,7 +411,7 @@
     </func>
     
     <func>
-      <name>shell(ConnectionRef, ChannelId) -> ssh_request_status()
+      <name>shell(ConnectionRef, ChannelId) -> ssh_request_status() | {error, closed}
       </name>
       <fsummary> Requests that the user's default shell (typically
       defined in /etc/passwd in UNIX systems) shall be executed at the server
@@ -426,7 +428,7 @@
     </func>
 
     <func>
-      <name>subsystem(ConnectionRef, ChannelId, Subsystem, Timeout) -> ssh_request_status()</name>
+      <name>subsystem(ConnectionRef, ChannelId, Subsystem, Timeout) -> ssh_request_status() | {error, reason()} </name>
       <fsummary>  </fsummary>
        <type>
 	 <v> ConnectionRef = ssh_connection_ref() </v>
