@@ -881,11 +881,12 @@ handle_info({nodeup, Node}, S0) when S0#state.connect_all ->
 	false ->
 	    resend_pre_connect(Node),
 
-	    %% now() is used as a tag to separate different synch sessions
+	    %% erlang:unique_integer([monotonic]) is used as a tag to
+	    %% separate different synch sessions
 	    %% from each others. Global could be confused at bursty nodeups
 	    %% because it couldn't separate the messages between the different
 	    %% synch sessions started by a nodeup.
-	    MyTag = now(),
+	    MyTag = erlang:unique_integer([monotonic]),
 	    put({sync_tag_my, Node}, MyTag),
             ?trace({sending_nodeup_to_locker, {node,Node},{mytag,MyTag}}),
 	    S1#state.the_locker ! {nodeup, Node, MyTag},
@@ -1772,8 +1773,8 @@ update_locker_known(Upd, S) ->
     S#multi{known = Known, the_boss = TheBoss}.
 
 random_element(L) ->
-    {A,B,C} = now(),
-    E = (A+B+C) rem length(L),
+    E = abs(erlang:monotonic_time()
+		bxor erlang:unique_integer()) rem length(L),
     lists:nth(E+1, L).
 
 exclude_known(Others, Known) ->
@@ -2072,9 +2073,10 @@ random_sleep(Times) ->
     end,
     case get(random_seed) of
 	undefined ->
-	    {A1, A2, A3} = now(),
-	    _ = random:seed(A1, A2, A3 + erlang:phash(node(), 100000)),
-            ok;
+	    _ = random:seed(erlang:phash2([erlang:node()]),
+			    erlang:monotonic_time(),
+			    erlang:unique_integer()),
+	    ok;
 	_ -> ok
     end,
     %% First time 1/4 seconds, then doubling each time up to 8 seconds max.
@@ -2106,7 +2108,7 @@ trace_message(S, M, X) ->
     S#state{trace = [trace_message(M, X) | S#state.trace]}.
 
 trace_message(M, X) ->
-    {node(), now(), M, nodes(), X}.
+    {node(), erlang:timestamp(), M, nodes(), X}.
 
 %%-----------------------------------------------------------------
 %% Each sync process corresponds to one call to sync. Each such

@@ -1312,7 +1312,7 @@ add_restart(State) ->
     I = State#state.intensity,
     P = State#state.period,
     R = State#state.restarts,
-    Now = erlang:now(),
+    Now = erlang:monotonic_time(1),
     R1 = add_restart([Now|R], Now, P),
     State1 = State#state{restarts = R1},
     case length(R1) of
@@ -1333,25 +1333,12 @@ add_restart([], _, _) ->
     [].
 
 inPeriod(Time, Now, Period) ->
-    case difference(Time, Now) of
+    case Time - Now of
 	T when T > Period ->
 	    false;
 	_ ->
 	    true
     end.
-
-%%
-%% Time = {MegaSecs, Secs, MicroSecs} (NOTE: MicroSecs is ignored)
-%% Calculate the time elapsed in seconds between two timestamps.
-%% If MegaSecs is equal just subtract Secs.
-%% Else calculate the Mega difference and add the Secs difference,
-%% note that Secs difference can be negative, e.g.
-%%      {827, 999999, 676} diff {828, 1, 653753} == > 2 secs.
-%%
-difference({TimeM, TimeS, _}, {CurM, CurS, _}) when CurM > TimeM ->
-    ((CurM - TimeM) * 1000000) + (CurS - TimeS);
-difference({_, TimeS, _}, {_, CurS, _}) ->
-    CurS - TimeS.
 
 %%% ------------------------------------------------------
 %%% Error and progress reporting.

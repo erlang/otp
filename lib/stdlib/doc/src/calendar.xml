@@ -270,7 +270,8 @@
       <fsummary>Convert now to local date and time</fsummary>
       <desc>
         <p>This function returns local date and time converted from
-          the return value from <c>erlang:now()</c>.</p>
+        the return value from
+	<seealso marker="erts:erlang#timestamp/0"><c>erlang:timestamp/0</c></seealso>.</p>
       </desc>
     </func>
     <func>
@@ -279,7 +280,8 @@
       <fsummary>Convert now to date and time</fsummary>
       <desc>
         <p>This function returns Universal Coordinated Time (UTC)
-          converted from the return value from <c>erlang:now()</c>.</p>
+        converted from the return value from
+	<seealso marker="erts:erlang#timestamp/0"><c>erlang:timestamp/0</c></seealso>.</p>
       </desc>
     </func>
     <func>

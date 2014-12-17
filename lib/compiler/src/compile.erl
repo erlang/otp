@@ -1300,8 +1300,9 @@ encrypt({des3_cbc=Type,Key,IVec,BlockSize}, Bin0) ->
     list_to_binary([0,length(TypeString),TypeString,Bin]).
 
 random_bytes(N) ->
-    {A,B,C} = now(),
-    _ = random:seed(A, B, C),
+    _ = random:seed(erlang:time_offset(),
+		    erlang:monotonic_time(),
+		    erlang:unique_integer()),
     random_bytes_1(N, []).
 
 random_bytes_1(0, Acc) -> Acc;
