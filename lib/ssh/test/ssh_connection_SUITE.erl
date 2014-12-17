@@ -45,7 +45,8 @@ all() ->
      gracefull_invalid_start,
      gracefull_invalid_long_start,
      gracefull_invalid_long_start_no_nl,
-     stop_listener
+     stop_listener,
+     start_subsystem_on_closed_channel
     ].
 groups() ->
     [{openssh, [], payload() ++ ptty()}].
@@ -574,6 +575,31 @@ stop_listener(Config) when is_list(Config) ->
 	Error ->
 	    ct:fail({unexpected, Error})
     end.
+
+start_subsystem_on_closed_channel(Config) ->
+    PrivDir = ?config(priv_dir, Config),
+    UserDir = filename:join(PrivDir, nopubkey), % to make sure we don't use public-key-auth
+    file:make_dir(UserDir),
+    SysDir = ?config(data_dir, Config),
+    {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SysDir},
+					     {user_dir, UserDir},
+					     {password, "morot"},
+					     {subsystems, [{"echo_n", {ssh_echo_server, [4000000]}}]}]),
+
+    ConnectionRef = ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
+						      {user, "foo"},
+						      {password, "morot"},
+						      {user_interaction, false},
+						      {user_dir, UserDir}]),
+
+    {ok, ChannelId} = ssh_connection:session_channel(ConnectionRef, infinity),
+
+    ok = ssh_connection:close(ConnectionRef, ChannelId),
+
+    {error, closed} = ssh_connection:subsystem(ConnectionRef, ChannelId, "echo_n", infinity),
+
+    ssh:close(ConnectionRef),
+    ssh:stop_daemon(Pid).
 
 %%--------------------------------------------------------------------
 %% Internal functions ------------------------------------------------
