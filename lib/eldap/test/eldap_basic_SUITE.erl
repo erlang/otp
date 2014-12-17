@@ -52,12 +52,12 @@ groups() ->
      {api, [], [{group,api_not_bound},
 		{group,api_bound}]},
 
-     {api_not_bound, [], [elementary_search, search_non_existant, 
+     {api_not_bound, [], [elementary_search, search_non_existant,
 			  add_when_not_bound,
 			  bind]},
-     {api_bound, [], [add_when_bound, 
+     {api_bound, [], [add_when_bound,
 		      add_already_exists,
-		      more_add, 
+		      more_add,
 		      search_filter_equalityMatch,
 		      search_filter_substring_any,
 		      search_filter_initial,
@@ -78,11 +78,11 @@ groups() ->
     ].
 
 connection_tests() ->
-    [tcp_connection, 
-     tcp_connection_option, 
+    [tcp_connection,
+     tcp_connection_option,
      ssl_connection,
-     client_side_start_tls_timeout, 
-     client_side_bind_timeout, 
+     client_side_start_tls_timeout,
+     client_side_bind_timeout,
      client_side_add_timeout,
      client_side_search_timeout
     ].
@@ -92,7 +92,7 @@ connection_tests() ->
 init_per_suite(Config) ->
     SSL_available = init_ssl_certs_et_al(Config),
     LDAP_server =  find_first_server(false, [{config,eldap_server}, {config,ldap_server}, {"localhost",9876}]),
-    LDAPS_server = 
+    LDAPS_server =
 	case SSL_available of
 	    true ->
 		find_first_server(true,  [{config,ldaps_server}, {"localhost",9877}]);
@@ -107,35 +107,35 @@ end_per_suite(_Config) ->
     ssl:stop().
 
 
-init_per_group(return_values, Config) -> 
+init_per_group(return_values, Config) ->
     case ?config(ldap_server,Config) of
-	undefined -> 
+	undefined ->
 	    {skip, "LDAP server not availble"};
-	{Host,Port} -> 
+	{Host,Port} ->
 	    ct:comment("ldap://~s:~p",[Host,Port]),
 	    Config
     end;
-init_per_group(plain_api, Config0) -> 
+init_per_group(plain_api, Config0) ->
     case ?config(ldap_server,Config0) of
-	undefined -> 
+	undefined ->
 	    {skip, "LDAP server not availble"};
-	Server = {Host,Port} -> 
+	Server = {Host,Port} ->
 	    ct:comment("ldap://~s:~p",[Host,Port]),
 	    initialize_db([{server,Server}, {ssl_flag,false}, {start_tls,false} | Config0])
     end;
-init_per_group(ssl_api, Config0) -> 
+init_per_group(ssl_api, Config0) ->
     case ?config(ldaps_server,Config0) of
-	undefined -> 
+	undefined ->
 	    {skip, "LDAPS server not availble"};
 	Server = {Host,Port} ->
 	    ct:comment("ldaps://~s:~p",[Host,Port]),
 	    initialize_db([{server,Server}, {ssl_flag,true}, {start_tls,false} | Config0])
     end;
-init_per_group(start_tls_api, Config0) -> 
+init_per_group(start_tls_api, Config0) ->
     case {?config(ldap_server,Config0), ?config(ssl_available,Config0)} of
-	{undefined,true} -> 
+	{undefined,true} ->
 	    {skip, "LDAP server not availble"};
-	{_,false} -> 
+	{_,false} ->
 	    {skip, "TLS not availble"};
 	{Server={Host,Port}, true} ->
 	    ct:comment("ldap://~s:~p + start_tls",[Host,Port]),
@@ -158,10 +158,10 @@ init_per_group(v6_connections, Config) ->
 	     {listen_host,  "::"},
 	     {tcp_connect_opts, [{tcpopts,[inet6]}]}
 	     |  Config];
-	false -> 
+	false ->
 	    {skip, io_lib:format("~p is not an ipv6_host",[Hostname])}
     end;
-init_per_group(_, Config) -> 
+init_per_group(_, Config) ->
     Config.
 
 end_per_group(plain_api,     Config) -> clear_db(Config);
@@ -227,7 +227,7 @@ init_per_testcase(TC, Config) ->
 		Other ->
 		    {fail, Other}
 	    end;
-	
+
 	false ->
 	    case proplists:get_value(name,?config(tc_group_properties, Config)) of
 		api_not_bound ->
@@ -316,8 +316,8 @@ client_side_add_timeout(Config) ->
       fun(H) ->
 	      eldap:add(H, "cn=Foo Bar,dc=host,dc=ericsson,dc=se",
 			[{"objectclass", ["person"]},
-			 {"cn", ["Foo Bar"]}, 
-			 {"sn", ["Bar"]}, 
+			 {"cn", ["Foo Bar"]},
+			 {"sn", ["Bar"]},
 			 {"telephoneNumber", ["555-1232", "555-5432"]}])
       end, Config).
 
@@ -345,7 +345,7 @@ client_side_start_tls_timeout(Config) ->
       end, Config).
 
 %%%----------------------------------------------------------------
-tcp_connection_option(Config) -> 
+tcp_connection_option(Config) ->
     Host = proplists:get_value(listen_host, Config),
     Port = proplists:get_value(listen_port, Config),
     Opts = proplists:get_value(tcp_connect_opts, Config),
@@ -360,15 +360,15 @@ tcp_connection_option(Config) ->
 		     {true,_} -> {false,0}
 		 end,
 
-    case catch eldap:open([Host], 
+    case catch eldap:open([Host],
 			  [{port,Port},{tcpopts,[{linger,TestLinger}]}|Opts]) of
 	{ok,H} ->
 	    case gen_tcp:accept(Sl,1000) of
-		{ok,_} -> 
+		{ok,_} ->
 		    case eldap:getopts(H, [{tcpopts,[linger]}]) of
 			{ok,[{tcpopts,[{linger,ActualLinger}]}]} ->
 			    case ActualLinger of
-				TestLinger -> 
+				TestLinger ->
 				    ok;
 				DefaultLinger ->
 				    ct:fail("eldap:getopts: 'linger' didn't change,"
@@ -381,7 +381,7 @@ tcp_connection_option(Config) ->
 			Other ->
 			    ct:fail("eldap:getopts: bad result ~p",[Other])
 		    end;
-		{error,timeout} -> 
+		{error,timeout} ->
 		    ct:fail("server side accept timeout",[])
 	    end;
 
@@ -395,7 +395,7 @@ tcp_connection_option(Config) ->
 
 %%%----------------------------------------------------------------
 elementary_search(Config) ->
-    {ok, #eldap_search_result{entries=[_]}} = 
+    {ok, #eldap_search_result{entries=[_]}} =
 	eldap:search(?config(handle,Config),
 		     #eldap_search{base  = ?config(eldap_path, Config),
 				   filter= eldap:present("objectclass"),
@@ -403,7 +403,7 @@ elementary_search(Config) ->
 
 %%%----------------------------------------------------------------
 search_non_existant(Config) ->
-    {error, noSuchObject} = 
+    {error, noSuchObject} =
 	eldap:search(?config(handle,Config),
 		     #eldap_search{base  = "cn=Bar," ++ ?config(eldap_path, Config),
 				   filter= eldap:present("objectclass"),
@@ -414,7 +414,7 @@ add_when_not_bound(Config) ->
     {error, _} = eldap:add(?config(handle,Config),
 			   "cn=Jonas Jonsson," ++ ?config(eldap_path, Config),
 			   [{"objectclass", ["person"]},
-			    {"cn", ["Jonas Jonsson"]}, 
+			    {"cn", ["Jonas Jonsson"]},
 			    {"sn", ["Jonsson"]}]).
 
 %%%----------------------------------------------------------------
@@ -428,16 +428,16 @@ add_when_bound(Config) ->
     ok = eldap:add(?config(handle, Config),
 		   "cn=Jonas Jonsson," ++  ?config(eldap_path, Config),
 		   [{"objectclass", ["person"]},
-		    {"cn", ["Jonas Jonsson"]}, 
+		    {"cn", ["Jonas Jonsson"]},
 		    {"sn", ["Jonsson"]}]).
 
 %%%----------------------------------------------------------------
 add_already_exists(Config) ->
-    {error, entryAlreadyExists} = 
+    {error, entryAlreadyExists} =
 	eldap:add(?config(handle, Config),
 		  "cn=Jonas Jonsson," ++ ?config(eldap_path, Config),
 		  [{"objectclass", ["person"]},
-		   {"cn", ["Jonas Jonsson"]}, 
+		   {"cn", ["Jonas Jonsson"]},
 		   {"sn", ["Jonsson"]}]).
 
 %%%----------------------------------------------------------------
@@ -446,8 +446,8 @@ more_add(Config) ->
     BasePath = ?config(eldap_path, Config),
     ok = eldap:add(H, "cn=Foo Bar," ++ BasePath,
 		   [{"objectclass", ["person"]},
-		    {"cn", ["Foo Bar"]}, 
-		    {"sn", ["Bar"]}, 
+		    {"cn", ["Foo Bar"]},
+		    {"sn", ["Bar"]},
 		    {"telephoneNumber", ["555-1232", "555-5432"]}]),
     ok = eldap:add(H, "ou=Team," ++ BasePath,
 		   [{"objectclass", ["organizationalUnit"]},
@@ -458,7 +458,7 @@ more_add(Config) ->
 search_filter_equalityMatch(Config) ->
     BasePath = ?config(eldap_path, Config),
     ExpectedDN = "cn=Jonas Jonsson," ++ BasePath,
-    {ok, #eldap_search_result{entries=[#eldap_entry{object_name=ExpectedDN}]}} = 
+    {ok, #eldap_search_result{entries=[#eldap_entry{object_name=ExpectedDN}]}} =
 	eldap:search(?config(handle, Config),
 		     #eldap_search{base = BasePath,
 				   filter = eldap:equalityMatch("sn", "Jonsson"),
@@ -468,7 +468,7 @@ search_filter_equalityMatch(Config) ->
 search_filter_substring_any(Config) ->
     BasePath = ?config(eldap_path, Config),
     ExpectedDN = "cn=Jonas Jonsson," ++ BasePath,
-    {ok, #eldap_search_result{entries=[#eldap_entry{object_name=ExpectedDN}]}} = 
+    {ok, #eldap_search_result{entries=[#eldap_entry{object_name=ExpectedDN}]}} =
 	eldap:search(?config(handle, Config),
 		     #eldap_search{base = BasePath,
 				   filter = eldap:substrings("sn", [{any, "ss"}]),
@@ -544,12 +544,12 @@ search_two_hits(Config) ->
     %% Add two objects:
     ok = eldap:add(H, DN1,
 		   [{"objectclass", ["person"]},
-		    {"cn", ["Santa Claus"]}, 
+		    {"cn", ["Santa Claus"]},
 		    {"sn", ["Santa"]},
 		    {"description", ["USA"]}]),
     ok = eldap:add(H, DN2,
 		   [{"objectclass", ["person"]},
-		    {"cn", ["Jultomten"]}, 
+		    {"cn", ["Jultomten"]},
 		    {"sn", ["Tomten"]},
 		    {"description", ["Sweden"]}]),
 
@@ -576,7 +576,7 @@ modify(Config) ->
 
     %% Save a copy to restore later:
     {ok,OriginalAttrs} = attributes(H, DN),
-    
+
     %% Do a change
     Mod = [eldap:mod_replace("telephoneNumber", ["555-12345"]),
 	   eldap:mod_add("description", ["Nice guy"])],
@@ -637,10 +637,10 @@ modify_dn_delete_old(Config) ->
 		     #eldap_search{base = BasePath,
 				   filter = eldap:substrings("sn", [{any, "a"}]),
 				   scope = eldap:singleLevel()}),
-    
+
     %% Modify and delete the old one:
     ok = eldap:modify_dn(H, DN, NewRDN, true, ""),
-    
+
     %% Check that DN was modified and the old one was deleted:
     {ok,NewAttrs} = attributes(H, NewDN),
     CN_new = lists:sort(proplists:get_value("cn",NewAttrs)),
@@ -651,7 +651,7 @@ modify_dn_delete_old(Config) ->
 				   scope = eldap:singleLevel()}),
     %% What we expect:
     CN_new = lists:sort([NewCN | CN_orig -- [OrigCN]]),
-    
+
     %% Change back:
     ok = eldap:modify_dn(H, NewDN, OriginalRDN, true, ""),
 
@@ -663,7 +663,7 @@ modify_dn_delete_old(Config) ->
 		     #eldap_search{base = BasePath,
 				   filter = eldap:substrings("sn", [{any, "a"}]),
 				   scope = eldap:singleLevel()}).
-    
+
 %%%----------------------------------------------------------------
 modify_dn_keep_old(Config) ->
     H = ?config(handle, Config),
@@ -681,17 +681,17 @@ modify_dn_keep_old(Config) ->
 		     #eldap_search{base = BasePath,
 				   filter = eldap:substrings("sn", [{any, "a"}]),
 				   scope = eldap:singleLevel()}),
-    
+
     %% Modify but keep the old "cn" attr:
     ok = eldap:modify_dn(H, DN, NewRDN, false, ""),
-    
+
     %% Check that DN was modified and the old CN entry is not deleted:
-    {ok,NewAttrs} = attributes(H, NewDN),    
+    {ok,NewAttrs} = attributes(H, NewDN),
     CN_orig = proplists:get_value("cn",OriginalAttrs),
     CN_new = proplists:get_value("cn",NewAttrs),
     Expected = lists:sort([NewCN|CN_orig]),
     Expected = lists:sort(CN_new),
-    
+
     %% Restore db:
     ok = eldap:delete(H, NewDN),
     restore_original_object(H, DN, OriginalAttrs).
@@ -727,12 +727,12 @@ decode(_Config) ->
     Expected = #'AddRequest'{entry = "hejHopp",attributes = []},
     case Res of
 	Expected -> ok;
-	#'AddRequest'{entry= <<"hejHopp">>, attributes=[]} -> 
+	#'AddRequest'{entry= <<"hejHopp">>, attributes=[]} ->
 	    {fail, "decoded to (correct) binary!!"};
 	_ ->
 	    {fail, "Bad decode"}
     end.
-	    
+
 
 
 %%%****************************************************************
@@ -768,7 +768,7 @@ find_first_server(UseSSL, [{Host,Port}|Ss]) ->
     case eldap:open([Host],[{port,Port},{ssl,UseSSL}]) of
 	{ok,H} when UseSSL==false, Ss=/=[] ->
 	    case eldap:start_tls(H,[]) of
-		ok -> 
+		ok ->
 		    ct:log("find_first_server ~p UseSSL=~p -> ok",[{Host,Port},UseSSL]),
 		    eldap:close(H),
 		    {Host,Port};
@@ -818,24 +818,24 @@ delete_old_contents(H, Path) ->
     of
 	{ok, #eldap_search_result{entries=Entries}} ->
 	    [ok = eldap:delete(H,DN) || #eldap_entry{object_name=DN} <- Entries];
-	_Res -> 
+	_Res ->
 	    ignore
     end.
 
 add_new_contents(H, Path, MyHost) ->
     ok(eldap:add(H,"dc=ericsson,dc=se",
 		 [{"objectclass", ["dcObject", "organization"]},
-		  {"dc", ["ericsson"]}, 
+		  {"dc", ["ericsson"]},
 		  {"o", ["Testing"]}])),
     ok(eldap:add(H,Path,
 		 [{"objectclass", ["dcObject", "organization"]},
-		  {"dc", [MyHost]}, 
+		  {"dc", [MyHost]},
 		  {"o", ["Test machine"]}])).
-    
+
 
 ok({error,entryAlreadyExists}) -> ok;
 ok(X) -> ok=X.
-    
+
 
 
 cond_start_tls(H, Config) ->
@@ -843,7 +843,7 @@ cond_start_tls(H, Config) ->
 	true -> start_tls(H,Config);
 	_ -> Config
     end.
-	    
+
 start_tls(H, Config) ->
     KeyFile = filename:join([?config(data_dir,Config),
 			     "certs/client/key.pem"
@@ -895,18 +895,18 @@ client_timeout(Fun, Config) ->
     Opts = proplists:get_value(tcp_connect_opts, Config),
     T = 1000,
     case eldap:open([Host], [{timeout,T},{port,Port}|Opts]) of
-	{ok,H} -> 
+	{ok,H} ->
 	    T0 = now(),
 	    {error,{gen_tcp_error,timeout}} = Fun(H),
 	    T_op = diff(T0,now()),
 	    ct:log("Time = ~p, Timeout spec = ~p",[T_op,T]),
-	    if 
-		T_op < T -> 
+	    if
+		T_op < T ->
 		    {fail, "Timeout too early"};
 		true ->
 		    ok
 	    end;
-		    
+
 	Other -> ct:fail("eldap:open failed: ~p",[Other])
     end.
 
@@ -918,16 +918,16 @@ init_ssl_certs_et_al(Config) ->
     try ssl:start()
     of
 	R when R==ok ; R=={error,{already_started,ssl}} ->
-	    try make_certs:all("/dev/null", 
+	    try make_certs:all("/dev/null",
 			       filename:join(?config(data_dir,Config), "certs"))
 	    of
 		{ok,_} -> true;
-		Other -> 
+		Other ->
 		    ct:comment("make_certs failed"),
 		    ct:log("make_certs failed ~p", [Other]),
 		    false
 	    catch
-		C:E -> 
+		C:E ->
 		    ct:comment("make_certs crashed"),
 		    ct:log("make_certs failed ~p:~p", [C,E]),
 		    false
