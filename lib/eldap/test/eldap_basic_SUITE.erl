@@ -673,16 +673,14 @@ modify_dn_keep_old(Config) ->
 start_tls_twice_should_fail(Config) ->
     {ok,H} = open_bind(Config),
     {error,tls_already_started} = eldap:start_tls(H, []),
-    _Ok = eldap:close(H),
-    ok.
+    eldap:close(H).
 
 %%%----------------------------------------------------------------
 %%% Test that start_tls on an ldaps connection fails
 start_tls_on_ssl_should_fail(Config) ->
     {ok,H} = open_bind(Config),
     {error,tls_already_started} = eldap:start_tls(H, []),
-    _Ok = eldap:close(H),
-    ok.
+    eldap:close(H).
 
 %%%----------------------------------------------------------------
 encode(_Config) ->
@@ -744,16 +742,16 @@ find_first_server(UseSSL, [{Host,Port}|Ss]) ->
 	    case eldap:start_tls(H,[]) of
 		ok -> 
 		    ct:log("find_first_server ~p UseSSL=~p -> ok",[{Host,Port},UseSSL]),
-		    _Ok = eldap:close(H),
+		    eldap:close(H),
 		    {Host,Port};
 		Res ->
 		    ct:log("find_first_server ~p UseSSL=~p failed with~n~p~nSave as spare host.",[{Host,Port},UseSSL,Res]),
-		    _Ok = eldap:close(H),
+		    eldap:close(H),
 		    find_first_server(UseSSL, Ss++[{spare_host,Host,Port}])
 	    end;
 	{ok,H} ->
 	    ct:log("find_first_server ~p UseSSL=~p -> ok",[{Host,Port},UseSSL]),
-	    _Ok = eldap:close(H),
+	    eldap:close(H),
 	    {Host,Port};
 	Res ->
 	    ct:log("find_first_server ~p UseSSL=~p failed with~n~p",[{Host,Port},UseSSL,Res]),
@@ -772,7 +770,7 @@ initialize_db(Config) ->
 	    Path = "dc="++MyHost++",dc=ericsson,dc=se",
 	    delete_old_contents(H, Path),
 	    add_new_contents(H, Path, MyHost),
-	    _Ok = eldap:close(H),
+	    eldap:close(H),
 	    [{eldap_path,Path}|Config];
 	Other ->
 	    ct:fail("initialize_db failed: ~p",[Other])
@@ -782,7 +780,7 @@ clear_db(Config) ->
     {ok,H} = open_bind(Config),
     Path = ?config(eldap_path, Config),
     delete_old_contents(H, Path),
-    _Ok = eldap:close(H),
+    eldap:close(H),
     Config.
 
 delete_old_contents(H, Path) ->
@@ -852,13 +850,13 @@ supported_extension(OID, Config) ->
 			  {deref,  eldap:neverDerefAliases()},
 			  {attributes, ["+"]}]) of
 	{ok,R=#eldap_search_result{}} ->
-	    _Ok = eldap:close(H),
+	    eldap:close(H),
 	    lists:member(OID,
 			 [SE || EE <- R#eldap_search_result.entries,
 				{"supportedExtension",SEs} <- EE#eldap_entry.attributes,
 				SE<-SEs]);
 	_ ->
-	    _Ok = eldap:close(H),
+	    eldap:close(H),
 	    false
     end.
 
