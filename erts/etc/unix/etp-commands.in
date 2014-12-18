@@ -2434,7 +2434,7 @@ define etp-system-info
   printf "ERTS version: %s\n", etp_erts_version
   printf "Compile date: %s\n", etp_compile_date
   printf "Arch: %s\n", etp_arch
-  printf "Endianess: "
+  printf "Endianness: "
   if (etp_big_endian)
     printf "Big\n"
   else
