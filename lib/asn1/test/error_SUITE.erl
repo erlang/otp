@@ -285,6 +285,9 @@ objects(Config) ->
 	   "  InvalidSet CL ::= { obj1 }\n"
 	   "  obj5 CL ::= {}\n"
 	   "  ErrSet ::= PT{ {PT{inst}}}\n"
+	   "  obj6 CL ::= 7\n"
+	   "  obj7 CL ::= int\n"
+	   "  obj8 NON-CLASS ::= { &id 1 }\n"
 
 	   "  CL ::= CLASS {\n"
 	   "    &code INTEGER UNIQUE,\n"
@@ -303,6 +306,9 @@ objects(Config) ->
 
 	   "  PT{SMALL:Small} ::= SEQUENCE { a SMALL.&code ({Small}) }\n"
 	   "  inst SMALL ::= {&code 42, &i 4711}\n"
+
+	   "  int INTEGER ::= 42\n"
+	   "  NON-CLASS ::= SEQUENCE { a BOOLEAN }\n"
 	   "END\n">>},
     {error,
      [
@@ -321,7 +327,10 @@ objects(Config) ->
        {missing_mandatory_fields,
 	['Data','Set','VarTypeValue',code,enum,object,
 	 vartypevalue],obj5}},
-      {structured_error,{M,8},asn1ct_check,invalid_objectset}
+      {structured_error,{M,8},asn1ct_check,invalid_objectset},
+      {structured_error,{M,9},asn1ct_check,illegal_object},
+      {structured_error,{M,10},asn1ct_check,illegal_object},
+      {structured_error,{M,11},asn1ct_check,illegal_object}
      ]
     } = run(P, Config),
     ok.

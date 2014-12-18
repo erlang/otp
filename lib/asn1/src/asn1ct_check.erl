@@ -705,12 +705,14 @@ check_object(S,_ObjDef,#'Object'{classname=ClassRef,def=ObjectDef}) ->
 		instantiate_po(S,ClassDef,Object,ArgList);
 	    #'Externalvaluereference'{} ->
 		{_,Object} = get_referenced_type(S,ObjectDef),
-		check_object(S, Object, object_to_check(Object));
+		check_object(S, Object, object_to_check(S, Object));
 	    [] -> 
 		%% An object with no fields (parsed as a value).
 		Def = {object,defaultsyntax,[]},
 		NewSettingList = check_objectdefn(S, Def, ClassDef),
-		#'Object'{def=NewSettingList}
+		#'Object'{def=NewSettingList};
+	    _ ->
+		asn1_error(S, illegal_object)
 	end,
     Fields = (ClassDef#classdef.typespec)#objectclass.fields,
     Gen = gen_incl(S,NewObj#'Object'.def, Fields),
@@ -973,12 +975,17 @@ traverse_seq_set_1([{'COMPONENTS OF', _} = CO0|Cs], Fun) ->
 traverse_seq_set_1([], _) ->
     [].
 
-object_to_check(#typedef{typespec=ObjDef}) ->
+object_to_check(_, #typedef{typespec=ObjDef}) ->
     ObjDef;
-object_to_check(#valuedef{type=ClassName,value=ObjectRef}) ->
+object_to_check(S, #valuedef{type=Class,value=ObjectRef}) ->
     %% If the object definition is parsed as an object the ClassName
-    %% is parsed as a type
-    #'Object'{classname=ClassName#type.def,def=ObjectRef}.
+    %% is parsed as a type.
+    case Class of
+	#type{def=#'Externaltypereference'{}=Def} ->
+	    #'Object'{classname=Def,def=ObjectRef};
+	_ ->
+	    asn1_error(S, illegal_object)
+    end.
 
 check_referenced_object(S,ObjRef) 
   when is_record(ObjRef,'Externalvaluereference')->
@@ -1182,7 +1189,7 @@ gen_incl1(S,Fields,[C|CFields]) ->
 				check_object(S,TDef,TDef#typedef.typespec);
 			    ERef ->
 				{_,T} = get_referenced_type(S,ERef),
-				check_object(S,T,object_to_check(T))
+				check_object(S, T, object_to_check(S, T))
 			end,
 		    case gen_incl(S,ObjDef#'Object'.def,
 				  ClassFields) of
@@ -1413,7 +1420,7 @@ match_syntax_type(_S, {fixedtypevaluesetfield,Name,#type{},_}, Any) ->
     {match,[{Name,Any}]};
 match_syntax_type(S, {objectfield,Name,_,_,_}, #'Externalvaluereference'{}=Ref) ->
     {M,Obj} = get_referenced_type(S, Ref),
-    check_object(S, Obj, object_to_check(Obj)),
+    check_object(S, Obj, object_to_check(S, Obj)),
     {match,[{Name,Ref#'Externalvaluereference'{module=M}}]};
 match_syntax_type(S, {objectfield,Name,Class,_,_}, {object,_,_}=ObjDef) ->
     InlinedObjName = list_to_atom(lists:concat([S#state.tname,
