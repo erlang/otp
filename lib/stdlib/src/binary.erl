@@ -89,9 +89,9 @@ copy(_, _) ->
 decode_unsigned(_) ->
     erlang:nif_error(undef).
 
--spec decode_unsigned(Subject, Endianess) -> Unsigned when
+-spec decode_unsigned(Subject, Endianness) -> Unsigned when
       Subject :: binary(),
-      Endianess :: big | little,
+      Endianness :: big | little,
       Unsigned :: non_neg_integer().
 
 decode_unsigned(_, _) ->
@@ -103,9 +103,9 @@ decode_unsigned(_, _) ->
 encode_unsigned(_) ->
     erlang:nif_error(undef).
 
--spec encode_unsigned(Unsigned, Endianess) -> binary() when
+-spec encode_unsigned(Unsigned, Endianness) -> binary() when
       Unsigned :: non_neg_integer(),
-      Endianess :: big | little.
+      Endianness :: big | little.
 
 encode_unsigned(_, _) ->
     erlang:nif_error(undef).

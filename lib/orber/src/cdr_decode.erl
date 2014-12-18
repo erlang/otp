@@ -193,7 +193,7 @@ dec_message_header(TypeCodes, Message, Bytes) ->
 %% Args: 
 %%       The message as a byte sequence.
 %% Returns: 
-%%       A tuple {Endianess, Rest} where Endianess is big or little.
+%%       A tuple {Endianness, Rest} where Endianness is big or little.
 %%       Rest is the remaining message byte sequence.
 %%-----------------------------------------------------------------
 dec_byte_order(<<0:8,T/binary>>) ->
@@ -206,7 +206,7 @@ dec_byte_order(<<1:8,T/binary>>) ->
 %% Args: 
 %%       The message as a byte sequence.
 %% Returns: 
-%%       A tuple {Endianess, Rest} where Endianess is big or little.
+%%       A tuple {Endianness, Rest} where Endianness is big or little.
 %%       Rest is the remaining message byte sequence.
 %%-----------------------------------------------------------------
 dec_byte_order_list([0|T]) ->
