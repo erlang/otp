@@ -3900,6 +3900,13 @@ BIF_RETTYPE erts_debug_set_internal_state_2(BIF_ALIST_2)
 		}
 	    }
 	}
+        else if (ERTS_IS_ATOM_STR("broken_halt", BIF_ARG_1)) {
+            /* Ugly ugly code used by bif_SUITE:erlang_halt/1 */
+#if defined(ERTS_HAVE_TRY_CATCH)
+	    erts_get_scheduler_data()->run_queue = NULL;
+#endif
+            erl_exit(ERTS_DUMP_EXIT, "%T", BIF_ARG_2);
+        }
     }
 
     BIF_ERROR(BIF_P, BADARG);

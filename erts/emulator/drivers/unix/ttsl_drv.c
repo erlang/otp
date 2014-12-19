@@ -338,8 +338,8 @@ static ErlDrvData ttysl_start(ErlDrvPort port, char* buf)
     }
 #endif
     DEBUGLOG(("utf8_mode is %s\n",(utf8_mode) ? "on" : "off"));
-    sys_sigset(SIGCONT, cont);
-    sys_sigset(SIGWINCH, winch);
+    sys_signal(SIGCONT, cont);
+    sys_signal(SIGWINCH, winch);
 
     driver_select(port, (ErlDrvEvent)(UWord)ttysl_fd, ERL_DRV_READ|ERL_DRV_USE, 1);
     ttysl_port = port;
@@ -423,8 +423,8 @@ static void ttysl_stop(ErlDrvData ttysl_data)
 	tty_reset(ttysl_fd);
 	driver_select(ttysl_port, (ErlDrvEvent)(UWord)ttysl_fd,
                       ERL_DRV_WRITE|ERL_DRV_READ|ERL_DRV_USE, 0);
-	sys_sigset(SIGCONT, SIG_DFL);
-	sys_sigset(SIGWINCH, SIG_DFL);
+	sys_signal(SIGCONT, SIG_DFL);
+	sys_signal(SIGWINCH, SIG_DFL);
     }
     ttysl_port = (ErlDrvPort)-1;
     ttysl_fd = -1;
@@ -1458,11 +1458,11 @@ static RETSIGTYPE suspend(int sig)
 	exit(1);
     }
 
-    sys_sigset(sig, SIG_DFL);	/* Set signal handler to default */
+    sys_signal(sig, SIG_DFL);	/* Set signal handler to default */
     sys_sigrelease(sig);	/* Allow 'sig' to come through */
     kill(getpid(), sig);	/* Send ourselves the signal */
     sys_sigblock(sig);		/* Reset to old mask */
-    sys_sigset(sig, suspend);	/* Reset signal handler */ 
+    sys_signal(sig, suspend);	/* Reset signal handler */ 
 
     if (tty_set(ttysl_fd) < 0) {
 	fprintf(stderr,"Can't set tty raw \n");

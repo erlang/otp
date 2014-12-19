@@ -772,6 +772,8 @@ typedef struct {
 } ErtsCheckIoDebugInfo;
 int erts_check_io_debug(ErtsCheckIoDebugInfo *ip);
 
+int erts_sys_is_area_readable(char *start, char *stop);
+
 /* xxxP */
 #define SYS_DEFAULT_FLOAT_DECIMALS 20
 void init_sys_float(void);
@@ -799,6 +801,11 @@ int erts_sys_unsetenv(char *key);
 /* Easier to use, but not as efficient, environment functions */
 char *erts_read_env(char *key);
 void erts_free_read_env(void *value);
+
+#if defined(ERTS_THR_HAVE_SIG_FUNCS) && !defined(ETHR_UNUSABLE_SIGUSRX)
+extern void sys_thr_resume(erts_tid_t tid);
+extern void sys_thr_suspend(erts_tid_t tid);
+#endif
 
 /* utils.c */
 

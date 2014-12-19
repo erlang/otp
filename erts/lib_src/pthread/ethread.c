@@ -42,6 +42,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include <signal.h>
+#include <string.h>
 
 #include <limits.h>
 
@@ -77,6 +78,8 @@ typedef struct {
     void *(*thr_func)(void *);
     void *arg;
     void *prep_func_res;
+    char *name;
+    char name_buff[16];
 } ethr_thr_wrap_data__;
 
 static void *thr_wrapper(void *vtwd)
@@ -98,6 +101,8 @@ static void *thr_wrapper(void *vtwd)
 
     tsep = twd->tse; /* We aren't allowed to follow twd after
 			result has been set! */
+    if (twd->name)
+        ethr_setname(twd->name);
 
     ethr_atomic32_set(&twd->result, result);
 
@@ -315,6 +320,12 @@ ethr_thr_create(ethr_tid *tid, void * (*func)(void *), void *arg,
     twd.thr_func = func;
     twd.arg = arg;
 
+    if (opts && opts->name) {
+        snprintf(twd.name_buff, 16, "%s", opts->name);
+	twd.name = twd.name_buff;
+    } else
+        twd.name = NULL;
+
     res = pthread_attr_init(&attr);
     if (res != 0)
 	return res;
@@ -445,6 +456,30 @@ ethr_self(void)
 }
 
 int
+ethr_getname(ethr_tid tid, char *buf, size_t len)
+{
+#if defined(ETHR_HAVE_PTHREAD_GETNAME_NP_3)
+    return pthread_getname_np((pthread_t) tid, buf, len);
+#elif defined(ETHR_HAVE_PTHREAD_GETNAME_NP_2)
+    return pthread_getname_np((pthread_t) tid, buf);
+#else
+    return ENOSYS;
+#endif
+}
+
+void
+ethr_setname(char *name)
+{
+#if defined(ETHR_HAVE_PTHREAD_SETNAME_NP_2) 
+    pthread_setname_np(ethr_self(), name);
+#elif defined(ETHR_HAVE_PTHREAD_SET_NAME_NP_2)
+    pthread_set_name_np(ethr_self(), name);
+#elif defined(ETHR_HAVE_PTHREAD_SETNAME_NP_1)
+    pthread_setname_np(name);
+#endif
+}
+
+int
 ethr_equal_tids(ethr_tid tid1, ethr_tid tid2)
 {
     return pthread_equal((pthread_t) tid1, (pthread_t) tid2);
@@ -563,6 +598,17 @@ int ethr_sigwait(const sigset_t *set, int *sig)
     if (sigwait(set, sig) < 0)
 	return errno;
     return 0;
+}
+
+int ethr_kill(const ethr_tid tid, const int sig)
+{
+#if ETHR_XCHK
+    if (ethr_not_inited__) {
+	ETHR_ASSERT(0);
+	return EACCES;
+    }
+#endif
+    return pthread_kill((const pthread_t)tid, sig);
 }
 
 #endif /* #if ETHR_HAVE_ETHR_SIG_FUNCS */

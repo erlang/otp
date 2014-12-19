@@ -104,6 +104,7 @@ typedef struct {
     float std_dev_expected;
     int max_chain_len;
     int min_chain_len;
+    int kept_items;
 }DbHashStats;
 
 void db_calc_stats_hash(DbTableHash* tb, DbHashStats*);

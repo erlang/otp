@@ -1349,7 +1349,56 @@ case "$THR_LIB_NAME" in
 	AC_MSG_RESULT([$linux_futex])
 	test $linux_futex = yes && AC_DEFINE(ETHR_HAVE_LINUX_FUTEX, 1, [Define if you have a linux futex implementation.])
 
-	fi
+	pthread_setname=no
+	AC_MSG_CHECKING([for pthread_setname_np])
+	old_CFLAGS=$CFLAGS
+	CFLAGS="$CFLAGS -Werror"
+	AC_TRY_LINK([#define __USE_GNU
+                     #include <pthread.h>],
+                    [pthread_setname_np(pthread_self(), "name");],
+                    pthread_setname=linux)
+	AC_TRY_LINK([#define __USE_GNU
+                     #include <pthread.h>],
+                    [pthread_set_name_np(pthread_self(), "name");],
+                    pthread_setname=bsd)
+	AC_TRY_LINK([#define _DARWIN_C_SOURCE
+                     #include <pthread.h>],
+                    [pthread_setname_np("name");],
+                    pthread_setname=darwin)
+        AC_MSG_RESULT([$pthread_setname])
+        case $pthread_setname in
+             linux) AC_DEFINE(ETHR_HAVE_PTHREAD_SETNAME_NP_2, 1,
+                          [Define if you have linux style pthread_setname_np]);;
+             bsd) AC_DEFINE(ETHR_HAVE_PTHREAD_SET_NAME_NP_2, 1,
+                          [Define if you have bsd style pthread_set_name_np]);;
+             darwin) AC_DEFINE(ETHR_HAVE_PTHREAD_SETNAME_NP_1, 1,
+                          [Define if you have darwin style pthread_setname_np]);;
+             *) ;;
+	esac
+
+	pthread_getname=no
+	AC_MSG_CHECKING([for pthread_getname_np])
+	AC_TRY_LINK([#define __USE_GNU
+                     #define _DARWIN_C_SOURCE
+                     #include <pthread.h>],
+                    [char buff[256]; pthread_getname_np(pthread_self(), buff, 256);],
+                    pthread_getname=normal)
+	AC_TRY_LINK([#define __USE_GNU
+                     #define _DARWIN_C_SOURCE
+                     #include <pthread.h>],
+                    [char buff[256]; pthread_getname_np(pthread_self(), buff);],
+                    pthread_getname=ibm)
+        AC_MSG_RESULT([$pthread_getname])
+        case $pthread_getname in
+             linux) AC_DEFINE(ETHR_HAVE_PTHREAD_GETNAME_NP_3, 1,
+                          [Define if you have linux style pthread_getname_np]);;
+             ibm) AC_DEFINE(ETHR_HAVE_PTHREAD_GETNAME_NP_2, 1,
+                          [Define if you have ibm style pthread_getname_np]);;
+             *) ;;
+	esac
+	CFLAGS=$old_CFLAGS
+
+        fi ## test "x$THR_LIB_NAME" = "xpthread"
 
 	AC_CHECK_SIZEOF(int)
 	AC_CHECK_SIZEOF(long)

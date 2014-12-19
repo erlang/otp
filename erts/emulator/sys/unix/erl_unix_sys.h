@@ -45,7 +45,7 @@
 #include <fcntl.h>
 #include "erl_errno.h"
 #include <signal.h>
-
+#include <setjmp.h>
 
 #if HAVE_SYS_SOCKETIO_H
 #   include <sys/socketio.h>
@@ -211,13 +211,8 @@ int sys_stop_hrvtime(void);
 #define SYS_CLOCK_RESOLUTION 1
 
 /* These are defined in sys.c */
-#if defined(SIG_SIGSET)		/* Old SysV */
-RETSIGTYPE (*sys_sigset())();
-#elif defined(SIG_SIGNAL)	/* Old BSD */
-RETSIGTYPE (*sys_sigset())();
-#else
-RETSIGTYPE (*sys_sigset(int, RETSIGTYPE (*func)(int)))(int);
-#endif
+typedef void (*SIGFUNC)(int);
+extern SIGFUNC sys_signal(int, SIGFUNC);
 extern void sys_sigrelease(int);
 extern void sys_sigblock(int);
 extern void sys_stop_cat(void);
@@ -353,5 +348,29 @@ extern int exit_async(void);
 #endif
 
 #define ERTS_EXIT_AFTER_DUMP _exit
+
+#if !defined(__APPLE__) && !defined(__MACH__)
+/* Some OS X versions do not allow (ab)using signal handlers like this */
+#define ERTS_HAVE_TRY_CATCH 1
+
+/* We try to simulate a try catch in C with the help of signal handlers.
+ * Only use this as a very last resort, as it is not very portable and
+ * quite unstable. It is also not thread safe, so make sure that only
+ * one thread can call this at a time!
+ */
+extern void erts_sys_sigsegv_handler(int);
+extern jmp_buf erts_sys_sigsegv_jmp;
+#define ERTS_SYS_TRY_CATCH(EXPR,CATCH)                                  \
+    do {                                                                \
+        SIGFUNC prev_handler = sys_signal(SIGSEGV,                      \
+                                          erts_sys_sigsegv_handler);    \
+        if (!setjmp(erts_sys_sigsegv_jmp)) {                            \
+            EXPR;                                                       \
+        } else {                                                        \
+            CATCH;                                                      \
+        }                                                               \
+        sys_signal(SIGSEGV,prev_handler);                               \
+    } while(0)
+#endif
 
 #endif /* #ifndef _ERL_UNIX_SYS_H */

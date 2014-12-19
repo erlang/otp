@@ -134,7 +134,9 @@ give_away(_, _, _) ->
                  | {owner, pid()}
                  | {protection, access()}
                  | {size, non_neg_integer()}
-                 | {type, type()}.
+                 | {type, type()}
+		 | {write_concurrency, boolean()}
+		 | {read_concurrency, boolean()}.
 
 info(_) ->
     erlang:nif_error(undef).
@@ -143,7 +145,8 @@ info(_) ->
       Tab :: tab(),
       Item :: compressed | fixed | heir | keypos | memory
             | name | named_table | node | owner | protection
-            | safe_fixed | size | stats | type,
+            | safe_fixed | size | stats | type
+	    | write_concurrency | read_concurrency,
       Value :: term().
 
 info(_, _) ->

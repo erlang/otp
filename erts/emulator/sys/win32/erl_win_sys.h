@@ -236,4 +236,16 @@ typedef long ssize_t;
 int init_async(int);
 int exit_async(void);
 #endif
+
+#define ERTS_HAVE_TRY_CATCH 1
+
+#define ERTS_SYS_TRY_CATCH(EXPR,CATCH)                                  \
+    __try {                                                             \
+    EXPR;                                                               \
+    }                                                                   \
+    __except(GetExceptionCode() == EXCEPTION_ACCESS_VIOLATION ? EXCEPTION_EXECUTE_HANDLER : EXCEPTION_CONTINUE_SEARCH) \
+    {                                                                   \
+        CATCH;                                                          \
+    }
+
 #endif

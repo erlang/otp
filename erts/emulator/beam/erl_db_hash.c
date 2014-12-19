@@ -648,25 +648,6 @@ restart:
     /* ToDo: Maybe try grow/shrink the table as well */
 }
 
-/* Only used by tests
-*/
-Uint db_kept_items_hash(DbTableHash *tb)
-{
-    Uint kept_items = 0;
-    Uint ix = 0;
-    erts_smp_rwmtx_t* lck = RLOCK_HASH(tb,ix);
-    HashDbTerm* b;
-    do {
-	for (b = BUCKET(tb, ix); b != NULL; b = b->next) {
-	    if (b->hvalue == INVALID_HASH) {
-		++kept_items;
-	    }
-	}	
-	ix = next_slot(tb, ix, &lck);
-    }while (ix);
-    return kept_items;
-}
-
 int db_create_hash(Process *p, DbTable *tbl)
 {
     DbTableHash *tb = &tbl->hash;
@@ -2161,10 +2142,38 @@ int db_mark_all_deleted_hash(DbTable *tbl)
 static void db_print_hash(int to, void *to_arg, int show, DbTable *tbl)
 {
     DbTableHash *tb = &tbl->hash;
+    DbHashStats stats;
     int i;
 
     erts_print(to, to_arg, "Buckets: %d\n", NACTIVE(tb));
-    
+
+#ifdef ERTS_SMP
+    i = tbl->common.is_thread_safe;
+    /* If crash dumping we set table to thread safe in order to
+       avoid taking any locks */
+    if (ERTS_IS_CRASH_DUMPING)
+        tbl->common.is_thread_safe = 1;
+
+    db_calc_stats_hash(&tbl->hash, &stats);
+
+    tbl->common.is_thread_safe = i;
+#else
+    db_calc_stats_hash(&tbl->hash, &stats);
+#endif
+
+    erts_print(to, to_arg, "Chain Length Avg: %f\n", stats.avg_chain_len);
+    erts_print(to, to_arg, "Chain Length Max: %d\n", stats.max_chain_len);
+    erts_print(to, to_arg, "Chain Length Min: %d\n", stats.min_chain_len);
+    erts_print(to, to_arg, "Chain Length Std Dev: %f\n",
+               stats.std_dev_chain_len);
+    erts_print(to, to_arg, "Chain Length Expected Std Dev: %f\n",
+               stats.std_dev_expected);
+
+    if (IS_FIXED(tb))
+        erts_print(to, to_arg, "Fixed: %d\n", stats.kept_items);
+    else
+        erts_print(to, to_arg, "Fixed: false\n");
+
     if (show) {
 	for (i = 0; i < NACTIVE(tb); i++) {
 	    HashDbTerm* list = BUCKET(tb,i);
@@ -2890,6 +2899,7 @@ void db_calc_stats_hash(DbTableHash* tb, DbHashStats* stats)
     erts_smp_rwmtx_t* lck;
     int sum = 0;
     int sq_sum = 0;
+    int kept_items = 0;
     int ix;
     int len;
     
@@ -2901,6 +2911,8 @@ void db_calc_stats_hash(DbTableHash* tb, DbHashStats* stats)
 	len = 0;
 	for (b = BUCKET(tb,ix); b!=NULL; b=b->next) {
 	    len++;
+            if (b->hvalue == INVALID_HASH)
+                ++kept_items;
 	}
 	sum += len;
 	sq_sum += len*len;
@@ -2912,7 +2924,8 @@ void db_calc_stats_hash(DbTableHash* tb, DbHashStats* stats)
     stats->std_dev_chain_len = sqrt((sq_sum - stats->avg_chain_len*sum) / NACTIVE(tb));
     /* Expected	standard deviation from a good uniform hash function, 
        ie binomial distribution (not taking the linear hashing into acount) */
-    stats->std_dev_expected = sqrt(stats->avg_chain_len * (1 - 1.0/NACTIVE(tb)));	
+    stats->std_dev_expected = sqrt(stats->avg_chain_len * (1 - 1.0/NACTIVE(tb)));
+    stats->kept_items = kept_items;
 }
 #ifdef HARDDEBUG
 

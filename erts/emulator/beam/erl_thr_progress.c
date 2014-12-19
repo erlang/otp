@@ -1335,25 +1335,10 @@ erts_thr_progress_block(void)
     thr_progress_block(tmp_thr_prgr_data(NULL), 1);
 }
 
-void
-erts_thr_progress_fatal_error_block(SWord timeout,
-				    ErtsThrPrgrData *tmp_tpd_bufp)
+int
+erts_thr_progress_fatal_error_block(ErtsThrPrgrData *tmp_tpd_bufp)
 {
     ErtsThrPrgrData *tpd = perhaps_thr_prgr_data(NULL);
-    erts_aint32_t bc;
-    SWord time_left = timeout;
-    SysTimeval to;
-
-    /*
-     * Counting poll intervals may give us a too long timeout
-     * if cpu is busy. If we got tolerant time of day we use it
-     * to prevent this.
-     */
-    if (!erts_disable_tolerant_timeofday) {
-	erts_get_timeval(&to);
-	to.tv_sec += timeout / 1000;
-	to.tv_sec += timeout % 1000;
-    }
 
     if (!tpd) {
 	/*
@@ -1366,9 +1351,26 @@ erts_thr_progress_fatal_error_block(SWord timeout,
 	init_tmp_thr_prgr_data(tpd);
     }
 
-    bc = thr_progress_block(tpd, 0);
-    if (bc == 0)
-	return; /* Succefully blocked all managed threads */
+    /* Returns number of threads that have not yes been blocked */
+    return thr_progress_block(tpd, 0);
+}
+
+void
+erts_thr_progress_fatal_error_wait(SWord timeout) {
+    erts_aint32_t bc;
+    SWord time_left = timeout;
+    SysTimeval to;
+
+    /*
+     * Counting poll intervals may give us a too long timeout
+     * if cpu is busy. If we got tolerant time of day we use it
+     * to prevent this.
+     */
+    if (!erts_disable_tolerant_timeofday) {
+        erts_get_timeval(&to);
+        to.tv_sec += timeout / 1000;
+        to.tv_sec += timeout % 1000;
+    }
 
     while (1) {
 	if (erts_milli_sleep(ERTS_THR_PRGR_FTL_ERR_BLCK_POLL_INTERVAL) == 0)

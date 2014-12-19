@@ -170,6 +170,8 @@ extern int erts_sched_thread_suggested_stack_size;
 #define ERTS_RUNQ_FLG_PROTECTED \
   (((Uint32) 1) << (ERTS_RUNQ_FLG_BASE2 + 6))
 
+#define ERTS_RUNQ_FLG_MAX (ERTS_RUNQ_FLG_BASE2 + 7)
+
 #define ERTS_RUNQ_FLGS_MIGRATION_QMASKS	\
   (ERTS_RUNQ_FLGS_EMIGRATE_QMASK	\
    | ERTS_RUNQ_FLGS_IMMIGRATE_QMASK	\
@@ -252,6 +254,8 @@ typedef enum {
 #define ERTS_SSI_FLG_WAITING		(((erts_aint32_t) 1) << 3)
 #define ERTS_SSI_FLG_SUSPENDED	 	(((erts_aint32_t) 1) << 4)
 
+#define ERTS_SSI_FLGS_MAX                                       5
+
 #define ERTS_SSI_FLGS_SLEEP_TYPE			\
  (ERTS_SSI_FLG_TSE_SLEEPING|ERTS_SSI_FLG_POLL_SLEEPING)
 
@@ -282,6 +286,8 @@ typedef enum {
 #define ERTS_SSI_AUX_WORK_SET_TMO		(((erts_aint32_t) 1) << 11)
 #define ERTS_SSI_AUX_WORK_MSEG_CACHE_CHECK	(((erts_aint32_t) 1) << 12)
 #define ERTS_SSI_AUX_WORK_REAP_PORTS		(((erts_aint32_t) 1) << 13)
+
+#define ERTS_SSI_AUX_WORK_MAX                                           14
 
 typedef struct ErtsSchedulerSleepInfo_ ErtsSchedulerSleepInfo;
 
@@ -1075,6 +1081,9 @@ void erts_check_for_holes(Process* p);
 #define ERTS_PSFLG_DIRTY_IO_PROC	ERTS_PSFLG_BIT(19)
 #define ERTS_PSFLG_DIRTY_CPU_PROC_IN_Q	ERTS_PSFLG_BIT(20)
 #define ERTS_PSFLG_DIRTY_IO_PROC_IN_Q	ERTS_PSFLG_BIT(21)
+#define ERTS_PSFLG_MAX  (ERTS_PSFLGS_ZERO_BIT_OFFSET + 22)
+#else
+#define ERTS_PSFLG_MAX  (ERTS_PSFLGS_ZERO_BIT_OFFSET + 18)
 #endif
 
 #define ERTS_PSFLGS_IN_PRQ_MASK 	(ERTS_PSFLG_IN_PRQ_MAX		\
@@ -1610,7 +1619,11 @@ void erts_cleanup_empty_process(Process* p);
 void erts_debug_verify_clean_empty_process(Process* p);
 #endif
 void erts_stack_dump(int to, void *to_arg, Process *);
+void erts_limited_stack_trace(int to, void *to_arg, Process *);
 void erts_program_counter_info(int to, void *to_arg, Process *);
+void erts_print_scheduler_info(int to, void *to_arg, ErtsSchedulerData *esdp);
+void erts_dump_extended_process_state(int to, void *to_arg, erts_aint32_t psflg);
+void erts_dump_process_state(int to, void *to_arg, erts_aint32_t psflg);
 
 Eterm erts_get_process_priority(Process *p);
 Eterm erts_set_process_priority(Process *p, Eterm prio);

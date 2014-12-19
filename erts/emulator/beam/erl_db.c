@@ -2668,7 +2668,9 @@ BIF_RETTYPE ets_match_object_3(BIF_ALIST_3)
 BIF_RETTYPE ets_info_1(BIF_ALIST_1)
 {
     static Eterm fields[] = {am_protection, am_keypos, am_type, am_named_table,
-	am_node, am_size, am_name, am_heir, am_owner, am_memory, am_compressed};
+                             am_node, am_size, am_name, am_heir, am_owner, am_memory, am_compressed,
+                             am_write_concurrency,
+                             am_read_concurrency};
     Eterm results[sizeof(fields)/sizeof(Eterm)];
     DbTable* tb;
     Eterm res;
@@ -3695,6 +3697,10 @@ static Eterm table_info(Process* p, DbTable* tb, Eterm What)
 	    ret = am_protected;
 	else if (tb->common.status & DB_PUBLIC)
 	    ret = am_public;
+    } else if (What == am_write_concurrency) {
+        ret = tb->common.status & DB_FINE_LOCKED ? am_true : am_false;
+    } else if (What == am_read_concurrency) {
+        ret = tb->common.status & DB_FREQ_READ ? am_true : am_false;
     } else if (What == am_name) {
 	ret = tb->common.the_name;
     } else if (What == am_keypos) {
@@ -3777,7 +3783,7 @@ static Eterm table_info(Process* p, DbTable* tb, Eterm What)
 			 avg, std_dev_real, std_dev_exp,
 			 make_small(stats.min_chain_len),
 			 make_small(stats.max_chain_len),
-			 make_small(db_kept_items_hash(&tb->hash)));
+			 make_small(stats.kept_items));
 	}
 	else {
 	    ret = am_false;
@@ -3799,6 +3805,11 @@ static void print_table(int to, void *to_arg, int show,  DbTable* tb)
 			+ sizeof(Uint)
 			- 1)
 		       / sizeof(Uint)));
+    erts_print(to, to_arg, "Type: %T\n", table_info(NULL, tb, am_type));
+    erts_print(to, to_arg, "Protection: %T\n", table_info(NULL, tb, am_protection));
+    erts_print(to, to_arg, "Compressed: %T\n", table_info(NULL, tb, am_compressed));
+    erts_print(to, to_arg, "Write Concurrency: %T\n", table_info(NULL, tb, am_write_concurrency));
+    erts_print(to, to_arg, "Read Concurrency: %T\n", table_info(NULL, tb, am_read_concurrency));
 }
 
 void db_info(int to, void *to_arg, int show)    /* Called by break handler */

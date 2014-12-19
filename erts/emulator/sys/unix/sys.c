@@ -224,9 +224,14 @@ static erts_smp_atomic_t sys_misc_mem_sz;
 #if defined(ERTS_SMP)
 static void smp_sig_notify(char c);
 static int sig_notify_fds[2] = {-1, -1};
+
+static int sig_suspend_fds[2] = {-1, -1};
+#define ERTS_SYS_SUSPEND_SIGNAL SIGUSR2
 #elif defined(USE_THREADS)
 static int async_fd[2];
 #endif
+
+jmp_buf erts_sys_sigsegv_jmp;
 
 #if CHLDWTHR || defined(ERTS_SMP)
 erts_mtx_t chld_stat_mtx;
@@ -654,39 +659,7 @@ erl_sys_init(void)
 
 /* signal handling */
 
-#ifdef SIG_SIGSET		/* Old SysV */
-RETSIGTYPE (*sys_sigset(sig, func))()
-int sig;
-RETSIGTYPE (*func)();
-{
-    return(sigset(sig, func));
-}
-void sys_sigblock(int sig)
-{
-    sighold(sig);
-}
-void sys_sigrelease(int sig)
-{
-    sigrelse(sig);
-}
-#else /* !SIG_SIGSET */
-#ifdef SIG_SIGNAL		/* Old BSD */
-RETSIGTYPE (*sys_sigset(sig, func))(int, int)
-int sig;
-RETSIGTYPE (*func)();
-{
-    return(signal(sig, func));
-}
-sys_sigblock(int sig)
-{
-    sigblock(sig);
-}
-sys_sigrelease(int sig)
-{
-    sigsetmask(sigblock(0) & ~sigmask(sig));
-}
-#else /* !SIG_SIGNAL */	/* The True Way - POSIX!:-) */
-RETSIGTYPE (*sys_sigset(int sig, RETSIGTYPE (*func)(int)))(int)
+SIGFUNC sys_signal(int sig, SIGFUNC func)
 {
     struct sigaction act, oact;
 
@@ -719,23 +692,35 @@ void sys_sigrelease(int sig)
     sigaddset(&mask, sig);
     sigprocmask(SIG_UNBLOCK, &mask, (sigset_t *)NULL);
 }
-#endif /* !SIG_SIGNAL */
-#endif /* !SIG_SIGSET */
 
-#if (0) /* not used? -- gordon */
-static void (*break_func)();
-static RETSIGTYPE break_handler(int sig)
-{
-#ifdef QNX
-    /* Turn off SIGCHLD during break processing */
-    sys_sigblock(SIGCHLD);
-#endif
-    (*break_func)();
-#ifdef QNX
-    sys_sigrelease(SIGCHLD);
-#endif
+void erts_sys_sigsegv_handler(int signo) {
+    if (signo == SIGSEGV) {
+        longjmp(erts_sys_sigsegv_jmp, 1);
+    }
 }
-#endif /* 0 */
+
+/*
+ * Function returns 1 if we can read from all values in between
+ * start and stop.
+ */
+int
+erts_sys_is_area_readable(char *start, char *stop) {
+    int fds[2];
+    if (!pipe(fds)) {
+        /* We let write try to figure out if the pointers are readable */
+        int res = write(fds[1], start, (char*)stop - (char*)start);
+        if (res == -1) {
+            close(fds[0]);
+            close(fds[1]);
+            return 0;
+        }
+        close(fds[0]);
+        close(fds[1]);
+        return 1;
+    }
+    return 0;
+
+}
 
 static ERTS_INLINE int
 prepare_crash_dump(int secs)
@@ -796,6 +781,9 @@ prepare_crash_dump(int secs)
 #if defined(ERTS_SMP)
 	/* We don't want to close the signal notification pipe... */
 	if (i == sig_notify_fds[0] || i == sig_notify_fds[1])
+	    continue;
+	/* We don't want to close the signal syspend pipe... */
+	if (i == sig_suspend_fds[0] || i == sig_suspend_fds[1])
 	    continue;
 #elif defined(USE_THREADS)
 	/* We don't want to close the async notification pipe... */
@@ -885,9 +873,23 @@ sigusr1_exit(void)
 
 #ifdef ETHR_UNUSABLE_SIGUSRX
 #warning "Unusable SIGUSR1 & SIGUSR2. Disabling use of these signals"
-#endif
 
-#ifndef ETHR_UNUSABLE_SIGUSRX
+#else
+
+#ifdef ERTS_SMP
+void
+sys_thr_suspend(erts_tid_t tid) {
+    erts_thr_kill(tid, ERTS_SYS_SUSPEND_SIGNAL);
+}
+
+void
+sys_thr_resume(erts_tid_t tid) {
+    int i = 0, res;
+    do {
+        res = write(sig_suspend_fds[1],&i,sizeof(i));
+    } while (res < 0 && errno == EAGAIN);
+}
+#endif
 
 #if (defined(SIG_SIGSET) || defined(SIG_SIGNAL))
 static RETSIGTYPE user_signal1(void)
@@ -902,20 +904,20 @@ static RETSIGTYPE user_signal1(int signum)
 #endif
 }
 
-#ifdef QUANTIFY
+#ifdef ERTS_SMP
 #if (defined(SIG_SIGSET) || defined(SIG_SIGNAL))
-static RETSIGTYPE user_signal2(void)
+static RETSIGTYPE suspend_signal(void)
 #else
-static RETSIGTYPE user_signal2(int signum)
+static RETSIGTYPE suspend_signal(int signum)
 #endif
 {
-#ifdef ERTS_SMP
-   smp_sig_notify('2');
-#else
-   quantify_save_data();
-#endif
+   int res;
+   int buf[1];
+   do {
+     res = read(sig_suspend_fds[0], buf, sizeof(int));
+   } while (res < 0 && errno == EINTR);
 }
-#endif
+#endif /* #ifdef ERTS_SMP */
 
 #endif /* #ifndef ETHR_UNUSABLE_SIGUSRX */
 
@@ -940,9 +942,9 @@ static RETSIGTYPE do_quit(int signum)
 
 /* Disable break */
 void erts_set_ignore_break(void) {
-    sys_sigset(SIGINT,  SIG_IGN);
-    sys_sigset(SIGQUIT, SIG_IGN);
-    sys_sigset(SIGTSTP, SIG_IGN);
+    sys_signal(SIGINT,  SIG_IGN);
+    sys_signal(SIGQUIT, SIG_IGN);
+    sys_signal(SIGTSTP, SIG_IGN);
 }
 
 /* Don't use ctrl-c for break handler but let it be 
@@ -965,14 +967,14 @@ void erts_replace_intr(void) {
 
 void init_break_handler(void)
 {
-   sys_sigset(SIGINT, request_break);
+   sys_signal(SIGINT, request_break);
 #ifndef ETHR_UNUSABLE_SIGUSRX
-   sys_sigset(SIGUSR1, user_signal1);
-#ifdef QUANTIFY
-   sys_sigset(SIGUSR2, user_signal2);
-#endif
+   sys_signal(SIGUSR1, user_signal1);
+#ifdef ERTS_SMP
+   sys_signal(ERTS_SYS_SUSPEND_SIGNAL, suspend_signal);
+#endif /* #ifdef ERTS_SMP */
 #endif /* #ifndef ETHR_UNUSABLE_SIGUSRX */
-   sys_sigset(SIGQUIT, do_quit);
+   sys_signal(SIGQUIT, do_quit);
 }
 
 int sys_max_files(void)
@@ -989,8 +991,13 @@ static void block_signals(void)
    sys_sigblock(SIGINT);
 #ifndef ETHR_UNUSABLE_SIGUSRX
    sys_sigblock(SIGUSR1);
+#endif /* #ifndef ETHR_UNUSABLE_SIGUSRX */
+#endif /* #ifndef ERTS_SMP */
+
+#if defined(ERTS_SMP) && !defined(ETHR_UNUSABLE_SIGUSRX)
+   sys_sigblock(ERTS_SYS_SUSPEND_SIGNAL);
 #endif
-#endif
+
 }
 
 static void unblock_signals(void)
@@ -1004,8 +1011,14 @@ static void unblock_signals(void)
 #ifndef ETHR_UNUSABLE_SIGUSRX
    sys_sigrelease(SIGUSR1);
 #endif /* #ifndef ETHR_UNUSABLE_SIGUSRX */
+#endif /* #ifndef ERTS_SMP */
+
+#if defined(ERTS_SMP) && !defined(ETHR_UNUSABLE_SIGUSRX)
+   sys_sigrelease(ERTS_SYS_SUSPEND_SIGNAL);
 #endif
+
 }
+
 /************************** Time stuff **************************/
 #ifdef HAVE_GETHRTIME
 #ifdef GETHRTIME_WITH_CLOCK_GETTIME
@@ -1335,9 +1348,10 @@ static int spawn_init()
 
    thr_opts.detached = 0;
    thr_opts.suggested_stack_size = 0; /* Smallest possible */
+   thr_opts.name = "child_waiter";
 #endif
 
-   sys_sigset(SIGPIPE, SIG_IGN); /* Ignore - we'll handle the write failure */
+   sys_signal(SIGPIPE, SIG_IGN); /* Ignore - we'll handle the write failure */
    driver_data = (struct driver_data *)
        erts_alloc(ERTS_ALC_T_DRV_TAB, max_files * sizeof(struct driver_data));
    erts_smp_atomic_add_nob(&sys_misc_mem_sz,
@@ -1350,7 +1364,7 @@ static int spawn_init()
    sys_sigblock(SIGCHLD);
 #endif
 
-   sys_sigset(SIGCHLD, onchld); /* Reap children */
+   sys_signal(SIGCHLD, onchld); /* Reap children */
 
 #if CHLDWTHR
    erts_thr_create(&child_waiter_tid, child_waiter, NULL, &thr_opts);
@@ -3210,13 +3224,6 @@ signal_dispatcher_thread_func(void *unused)
 	    case '1': /* SIGUSR1 */
 		sigusr1_exit();
 		break;
-#ifdef QUANTIFY
-	    case '2': /* SIGUSR2 */
-		quantify_save_data(); /* Might take a substantial amount of
-					 time, but this is a test/debug
-					 build */
-		break;
-#endif
 	    default:
 		erl_exit(ERTS_ABORT_EXIT,
 			 "signal-dispatcher thread received unknown "
@@ -3234,6 +3241,7 @@ init_smp_sig_notify(void)
 {
     erts_smp_thr_opts_t thr_opts = ERTS_SMP_THR_OPTS_DEFAULT_INITER;
     thr_opts.detached = 1;
+    thr_opts.name = "sys_sig_dispatcher";
 
     if (pipe(sig_notify_fds) < 0) {
 	erl_exit(ERTS_ABORT_EXIT,
@@ -3248,6 +3256,17 @@ init_smp_sig_notify(void)
 			NULL,
 			&thr_opts);
 }
+
+static void
+init_smp_sig_suspend(void) {
+  if (pipe(sig_suspend_fds) < 0) {
+    erl_exit(ERTS_ABORT_EXIT,
+	     "Failed to create sig_suspend pipe: %s (%d)\n",
+	     erl_errno_id(errno),
+	     errno);
+  }
+}
+
 #ifdef __DARWIN__
 
 int erts_darwin_main_thread_pipe[2];
@@ -3275,9 +3294,11 @@ erts_sys_main_thread(void)
 #endif
 
     smp_sig_notify(0); /* Notify initialized */
-    while (1) {
-	/* Wait for a signal to arrive... */
+
+    /* Wait for a signal to arrive... */
+
 #ifdef __DARWIN__
+    while (1) {
 	/*
 	 * The wx driver needs to be able to steal the main thread for Cocoa to
 	 * work properly.
@@ -3292,12 +3313,24 @@ erts_sys_main_thread(void)
 	    void* (*func)(void*);
 	    void* arg;
 	    void *resp;
-	    read(erts_darwin_main_thread_pipe[0],&func,sizeof(void* (*)(void*)));
-	    read(erts_darwin_main_thread_pipe[0],&arg, sizeof(void*));
+            res = read(erts_darwin_main_thread_pipe[0],&func,sizeof(void* (*)(void*)));
+            if (res != sizeof(void* (*)(void*)))
+                break;
+            res = read(erts_darwin_main_thread_pipe[0],&arg,sizeof(void*));
+            if (res != sizeof(void*))
+                break;
 	    resp = (*func)(arg);
 	    write(erts_darwin_main_thread_result_pipe[1],&resp,sizeof(void *));
 	}
-#else
+
+        if (res == -1 && errno != EINTR)
+            break;
+    }
+    /* Something broke with the main thread pipe, so we ignore it for now.
+       Most probably erts has closed this pipe and is about to exit. */
+#endif /* #ifdef __DARWIN__ */
+
+    while (1) {
 #ifdef DEBUG
 	int res =
 #else
@@ -3306,7 +3339,6 @@ erts_sys_main_thread(void)
 	    select(0, NULL, NULL, NULL, NULL);
 	ASSERT(res < 0);
 	ASSERT(errno == EINTR);
-#endif
     }
 }
 
@@ -3398,6 +3430,7 @@ erl_sys_args(int* argc, char** argv)
 
 #ifdef ERTS_SMP
     init_smp_sig_notify();
+    init_smp_sig_suspend();
 #endif
 
     /* Handled arguments have been marked with NULL. Slide arguments
