@@ -286,15 +286,10 @@ backward([{select,select_val,Reg,{f,Fail0},List0}|Is], D, Acc) ->
     Fail = shortcut_bs_test(Fail1, Is, D),
     Sel = {select,select_val,Reg,{f,Fail},List},
     backward(Is, D, [Sel|Acc]);
-backward([{jump,{f,To0}},{move,Src,Reg}=Move0|Is], D, Acc) ->
-    {To,Move} = case Src of
-		    {atom,Val0} ->
-			To1 = shortcut_select_label(To0, Reg, Val0, D),
-			{To2,Val} = shortcut_boolean_label(To1, Reg, Val0, D),
-			{To2,{move,{atom,Val},Reg}};
-		    _ ->
-			{shortcut_label(To0, D),Move0}
-		end,
+backward([{jump,{f,To0}},{move,Src0,Reg}|Is], D, Acc) ->
+    To1 = shortcut_select_label(To0, Reg, Src0, D),
+    {To,Src} = shortcut_boolean_label(To1, Reg, Src0, D),
+    Move = {move,Src,Reg},
     Jump = {jump,{f,To}},
     case beam_utils:is_killed_at(Reg, To, D) of
 	false -> backward([Move|Is], D, [Jump|Acc]);
@@ -309,11 +304,6 @@ backward([{jump,{f,To}}=J|[{bif,Op,_,Ops,Reg}|Is]=Is0], D, Acc) ->
 backward([{test,bs_start_match2,{f,To0},Live,[Src|_]=Info,Dst}|Is], D, Acc) ->
     To = shortcut_bs_start_match(To0, Src, D),
     I = {test,bs_start_match2,{f,To},Live,Info,Dst},
-    backward(Is, D, [I|Acc]);
-backward([{test,is_eq_exact,{f,To0},[Reg,{atom,Val}]=Ops}|Is], D, Acc) ->
-    To1 = shortcut_bs_test(To0, Is, D),
-    To = shortcut_fail_label(To1, Reg, Val, D),
-    I = combine_eqs(To, Ops, D, Acc),
     backward(Is, D, [I|Acc]);
 backward([{test,Op,{f,To0},Ops0}|Is], D, Acc) ->
     To1 = shortcut_bs_test(To0, Is, D),
@@ -378,8 +368,8 @@ equal_ops([Op|T0], [Op|T1]) ->
 equal_ops([], []) -> true;
 equal_ops(_, _) -> false.
     
-shortcut_select_list([{_,Val}=Lit,{f,To0}|T], Reg, D, Acc) ->
-    To = shortcut_select_label(To0, Reg, Val, D),
+shortcut_select_list([Lit,{f,To0}|T], Reg, D, Acc) ->
+    To = shortcut_select_label(To0, Reg, Lit, D),
     shortcut_select_list(T, Reg, D, [{f,To},Lit|Acc]);
 shortcut_select_list([], _, _, Acc) -> reverse(Acc).
 
@@ -389,58 +379,22 @@ shortcut_label(To0, D) ->
 	_ -> To0
     end.
 
-shortcut_select_label(To0, Reg, Val, D) ->
-    case beam_utils:code_at(To0, D) of
- 	[{jump,{f,To}}|_] ->
- 	    shortcut_select_label(To, Reg, Val, D);
-	[{test,is_atom,_,[Reg]},{select,select_val,Reg,{f,Fail},Map}|_] ->
-	    To = find_select_val(Map, Val, Fail),
-	    shortcut_select_label(To, Reg, Val, D);
-  	[{test,is_eq_exact,{f,_},[Reg,{atom,Val}]},{label,To}|_] when is_atom(Val) ->
-	    shortcut_select_label(To, Reg, Val, D);
-  	[{test,is_eq_exact,{f,_},[Reg,{atom,Val}]},{jump,{f,To}}|_] when is_atom(Val) ->
-	    shortcut_select_label(To, Reg, Val, D);
-  	[{test,is_eq_exact,{f,To},[Reg,{atom,AnotherVal}]}|_]
-	when is_atom(Val), Val =/= AnotherVal ->
-	    shortcut_select_label(To, Reg, Val, D);
-  	[{test,is_ne_exact,{f,To},[Reg,{atom,Val}]}|_] when is_atom(Val) ->
-	    shortcut_select_label(To, Reg, Val, D);
-  	[{test,is_ne_exact,{f,_},[Reg,{atom,_}]},{label,To}|_] when is_atom(Val) ->
-	    shortcut_select_label(To, Reg, Val, D);
-	[{test,is_tuple,{f,To},[Reg]}|_] when is_atom(Val) ->
-	    shortcut_select_label(To, Reg, Val, D);
-	_ ->
-	    To0
-    end.
+shortcut_select_label(To, Reg, Lit, D) ->
+    shortcut_rel_op(To, is_ne_exact, [Reg,Lit], D).
 
-shortcut_fail_label(To0, Reg, Val, D) ->
-    case beam_utils:code_at(To0, D) of
- 	[{jump,{f,To}}|_] ->
-	    shortcut_fail_label(To, Reg, Val, D);
-  	[{test,is_eq_exact,{f,To},[Reg,{atom,Val}]}|_] when is_atom(Val) ->
-	    shortcut_fail_label(To, Reg, Val, D);
-	_ ->
-	    To0
-    end.
-
-shortcut_boolean_label(To0, Reg, Bool0, D) when is_boolean(Bool0) ->
+shortcut_boolean_label(To0, Reg, {atom,Bool0}=Lit, D) when is_boolean(Bool0) ->
     case beam_utils:code_at(To0, D) of
 	[{line,_},{bif,'not',_,[Reg],Reg},{jump,{f,To}}|_] ->
-	    Bool = not Bool0,
+	    Bool = {atom,not Bool0},
 	    {shortcut_select_label(To, Reg, Bool, D),Bool};
 	_ ->
-	    {To0,Bool0}
+	    {To0,Lit}
     end;
 shortcut_boolean_label(To, _, Bool, _) -> {To,Bool}.
 
-find_select_val([{_,Val},{f,To}|_], Val, _) -> To;
-find_select_val([{_,_}, {f,_}|T], Val, Fail) ->
-    find_select_val(T, Val, Fail);
-find_select_val([], _, Fail) -> Fail.
-
 replace_comp_op(To, Reg, Op, Ops, D) ->
-    False = comp_op_find_shortcut(To, Reg, false, D),
-    True = comp_op_find_shortcut(To, Reg, true, D),
+    False = comp_op_find_shortcut(To, Reg, {atom,false}, D),
+    True = comp_op_find_shortcut(To, Reg, {atom,true}, D),
     [bif_to_test(Op, Ops, False),{jump,{f,True}}].
 
 comp_op_find_shortcut(To0, Reg, Val, D) ->
