@@ -2840,7 +2840,7 @@ os_prompt% </pre>
 	      raised. The error reason may differ between operating
 	      systems. Typically the error <c>enoent</c> is raised
 	      when one tries to run a program that is not found and
-	      <c>eaccess</c> is raised when the given file is not
+	      <c>eacces</c> is raised when the given file is not
 	      executable.</p>
           </item>
           <tag><c>{fd, <anno>In</anno>, <anno>Out</anno>}</c></tag>

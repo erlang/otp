@@ -262,7 +262,7 @@ make_del_dir(Config, Handle, Suffix) ->
     ?line {error, enoent} = ?PRIM_FILE_call(del_dir, Handle, [NewDir]),
 
     % Make sure we are not in a directory directly under test_server
-    % as that would result in eacess errors when trying to delere '..',
+    % as that would result in eacces errors when trying to delete '..',
     % because there are processes having that directory as current.
     ?line ok = ?PRIM_FILE_call(make_dir, Handle, [NewDir]),
     ?line {ok, CurrentDir} = ?PRIM_FILE_call(get_cwd, Handle, []),
