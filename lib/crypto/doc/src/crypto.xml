@@ -169,7 +169,38 @@
  </section>
 
   <funcs>
+      <func>
+      <name>block_encrypt(Type, Key, PlainText) -> CipherText</name>
+      <fsummary>Encrypt <c>PlainText</c>according to <c>Type</c> block cipher</fsummary>
+      <type>
+  <v>Type = des_ecb | blowfish_ecb | aes_ecb </v>
+  <v>Key = block_key() </v>
+        <v>PlainText = iodata() </v>
+      </type>
+      <desc>
+        <p>Encrypt <c>PlainText</c>according to <c>Type</c> block cipher.
+  <p>May throw exception <c>notsup</c> in case the chosen <c>Type</c>
+  is not supported by the underlying OpenSSL implementation.</p>
+      </desc>
+    </func>
+
     <func>
+      <name>block_decrypt(Type, Key, CipherText) -> PlainText</name>
+      <fsummary>Decrypt <c>CipherText</c>according to <c>Type</c> block cipher</fsummary>
+      <type>
+  <v>Type = des_ecb | blowfish_ecb | aes_ecb </v>
+  <v>Key = block_key() </v>
+        <v>PlainText = iodata() </v>
+      </type>
+      <desc>
+        <p>Decrypt <c>CipherText</c>according to <c>Type</c> block cipher.
+  <p>May throw exception <c>notsup</c> in case the chosen <c>Type</c>
+  is not supported by the underlying OpenSSL implementation.</p>
+      </desc>
+    </func>
+
+  <funcs>
+      <func>
       <name>block_encrypt(Type, Key, Ivec, PlainText) -> CipherText</name>
       <name>block_encrypt(AeadType, Key, Ivec, {AAD, PlainText}) -> {CipherText, CipherTag}</name>
       <fsummary>Encrypt <c>PlainText</c> according to <c>Type</c> block cipher</fsummary>
