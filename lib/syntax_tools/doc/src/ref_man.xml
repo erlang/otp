@@ -29,12 +29,11 @@
   </header>
   <description>
     <p><em>Syntax_Tools</em> contains modules for handling abstract
-      Erlang syntax trees, in a way that is compatible with the "parse
-      trees" of the STDLIB module <c>erl_parse</c>, together with
-      utilities for reading source files in unusual ways and
-      pretty-printing syntax trees. Also included is an amazing module
-      merger and renamer called Igor, as well as an automatic
-      code-cleaner.</p>
+      Erlang syntax trees, in a way that is compatible with the "external
+      format" parse trees of the STDLIB module <c>erl_parse</c>, together
+      with utilities for reading source files, pretty-printing syntax trees,
+      merging and renaming modules, cleaning up obsolete constructs, and
+      doing metaprogramming in Erlang.</p>
   </description>
   <xi:include href="epp_dodger.xml"/>
   <xi:include href="erl_comment_scan.xml"/>
@@ -44,6 +43,8 @@
   <xi:include href="erl_syntax_lib.xml"/>
   <xi:include href="erl_tidy.xml"/>
   <xi:include href="igor.xml"/>
+  <xi:include href="merl.xml"/>
+  <xi:include href="merl_transform.xml"/>
   <xi:include href="prettypr.xml"/>
 </application>
 
