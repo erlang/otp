@@ -154,9 +154,10 @@
 -deprecated({aes_ctr_decrypt, 3, next_major_release}).
 -deprecated({rc4_encrypt, 2, next_major_release}).
 
-%aes enc/dec
--export([aes_ecb_crypt/3,aes_ecb_encrypt/2,aes_ecb_decrypt/2]).
--deprecated({aes_ecb_crypt, 3}).
+%aes ecb enc/dec
+-export([aes_ecb_encrypt/2,aes_ecb_decrypt/2]).
+-deprecated({aes_ecb_encrypt, 2, next_major_release}).
+-deprecated({aes_ecb_decrypt, 2, next_major_release}).
 
 %% Replace by public/private_encrypt/decrypt
 -export([rsa_public_encrypt/3, rsa_private_decrypt/3]).
@@ -372,19 +373,24 @@ block_decrypt(chacha20_poly1305, Key, Ivec, {AAD, Data, Tag}) ->
     end;
 block_decrypt(rc2_cbc, Key, Ivec, Data) ->
     rc2_cbc_decrypt(Key, Ivec, Data).
--spec block_encrypt(des_ecb | blowfish_ecb, Key::iodata(), Data::iodata()) -> binary().
+
+-spec block_encrypt(des_ecb | blowfish_ecb | aes_ecb, Key::iodata(), Data::iodata()) -> binary().
 
 block_encrypt(des_ecb, Key, Data) ->
     des_ecb_encrypt(Key, Data);
 block_encrypt(blowfish_ecb, Key, Data) ->
-    blowfish_ecb_encrypt(Key, Data).
+    blowfish_ecb_encrypt(Key, Data);
+block_encrypt(aes_ecb, Key, Data) ->
+    aes_ecb_encrypt(Key, Data).       
 
 -spec block_decrypt(des_ecb | blowfish_ecb, Key::iodata(), Data::iodata()) -> binary().
 
 block_decrypt(des_ecb, Key, Data) ->
     des_ecb_decrypt(Key, Data);
 block_decrypt(blowfish_ecb, Key, Data) ->
-    blowfish_ecb_decrypt(Key, Data).
+    blowfish_ecb_decrypt(Key, Data);
+block_decrypt(aes_ecb, Key, Data) ->
+    aes_ecb_decrypt(Key, Data).       
 
 -spec next_iv(des_cbc | des3_cbc | aes_cbc | aes_ige, Data::iodata()) -> binary().
 
@@ -1869,7 +1875,7 @@ mod_exp_nif(_Base,_Exp,_Mod,_bin_hdr) -> ?nif_stub.
 		    aes_ctr_encrypt, aes_ctr_decrypt,
                     aes_ctr_stream_init, aes_ctr_stream_encrypt, aes_ctr_stream_decrypt,
 		    %%
-            aes_ecb_encrypt, aes_decrypt,
+            aes_ecb_encrypt, aes_ecb_decrypt,
 		    next_iv,
 		    %% deprecated
 		    aes_cbc_ivec,
