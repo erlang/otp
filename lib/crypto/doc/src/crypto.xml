@@ -199,7 +199,6 @@
       </desc>
     </func>
 
-  <funcs>
       <func>
       <name>block_encrypt(Type, Key, Ivec, PlainText) -> CipherText</name>
       <name>block_encrypt(AeadType, Key, Ivec, {AAD, PlainText}) -> {CipherText, CipherTag}</name>
