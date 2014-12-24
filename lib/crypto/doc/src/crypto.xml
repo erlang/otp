@@ -191,7 +191,6 @@
       </desc>
     </func>
 
-  <funcs>
       <func>
       <name>block_encrypt(Type, Key, Ivec, PlainText) -> CipherText</name>
       <fsummary>Encrypt <c>PlainText</c>according to <c>Type</c> block cipher</fsummary>
