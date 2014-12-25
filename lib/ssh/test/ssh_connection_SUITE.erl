@@ -269,7 +269,7 @@ ptty_alloc(Config) when is_list(Config) ->
 							     {user_interaction, false}]),
     {ok, ChannelId} = ssh_connection:session_channel(ConnectionRef, infinity),
     success = ssh_connection:ptty_alloc(ConnectionRef, ChannelId, 
-					[{term, default_term()}, {width, 70}, {high, 20}]),
+					[{term, os:getenv("TERM", ?DEFAULT_TERMINAL)}, {width, 70}, {high, 20}]),
     ssh:close(ConnectionRef).
 
 
@@ -282,7 +282,7 @@ ptty_alloc_pixel(Config) when is_list(Config) ->
 							     {user_interaction, false}]),
     {ok, ChannelId} = ssh_connection:session_channel(ConnectionRef, infinity),
     success = ssh_connection:ptty_alloc(ConnectionRef, ChannelId, 
-					[{term, default_term()}, {pixel_widh, 630}, {pixel_hight, 470}]),
+					[{term, os:getenv("TERM", ?DEFAULT_TERMINAL)}, {pixel_widh, 630}, {pixel_hight, 470}]),
     ssh:close(ConnectionRef).
 
 %%--------------------------------------------------------------------
@@ -647,11 +647,3 @@ ssh_exec(Cmd) ->
     spawn(fun() ->
 		  io:format(Cmd ++ "\n")
           end).
-
-default_term() ->
-    case os:getenv("TERM") of
-	false ->
-	    "vt100";
-	Str when is_list(Str)->
-	    Str
-    end.	

@@ -2518,10 +2518,7 @@ undefined_regexp(_Config) ->
 %% Library functions
 
 erl_libs() ->
-    case os:getenv("ERL_LIBS") of
-        false  -> [];
-        LibStr -> string:tokens(LibStr, ":;")
-    end.
+    string:tokens(os:getenv("ERL_LIBS", ""), ":;").
 
 datadir(Config) ->
     %% Removes the trailing slash...
