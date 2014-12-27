@@ -170,7 +170,7 @@ spawn(tut15, ping, [3, Pong_PID]),</code>
     <code type="none">
 tut15:ping(3, Pong_PID)</code>
     <p>&lt;0.36.0&gt; is the return value from the <c>start</c> function.</p>
-    <p>The process "pong"  now does:</p>
+    <p>The process "pong" now does:</p>
     <code type="none">
 receive
     finished ->
@@ -235,7 +235,7 @@ Ping_PID ! pong</code>
 Pid ! Message</code>
     <p>I.e. <c>Message</c> (any Erlang term) is sent to the process
       with identity <c>Pid</c>.</p>
-    <p>After sending the message <c>pong</c>, to the process "ping",
+    <p>After sending the message <c>pong</c> to the process "ping",
       "pong" calls the <c>pong</c> function again, which causes it to
       get back to the <c>receive</c> again and wait for another message.
       Now let's look at the process "ping". Recall that it was started
@@ -373,7 +373,7 @@ $ <input>chmod 400 .erlang.cookie</input></pre>
     <p>The <c>chmod</c> above make the <c>.erlang.cookie</c> file
       accessible only by the owner of the file. This is a requirement.</p>
     <p>When you start an Erlang system which is going to talk to other
-      Erlang systems, you must give it a name, eg: </p>
+      Erlang systems, you must give it a name, e.g.: </p>
     <pre>
 $ <input>erl -sname my_name</input></pre>
     <p>We will see more details of this later. If you want to
