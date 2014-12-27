@@ -253,7 +253,7 @@ Pong_PID ! {ping, self()},</code>
     <p><c>self()</c> returns the pid of the process which executes
       <c>self()</c>, in this case the pid of "ping". (Recall the code
       for "pong", this will land up in the variable <c>Ping_PID</c> in
-      the <c>receive</c> previously explained).</p>
+      the <c>receive</c> previously explained.)</p>
     <p>"Ping" now waits for a reply from "pong":</p>
     <code type="none">
 receive
@@ -385,7 +385,7 @@ $ <input>erl -sname my_name</input></pre>
       IP domain and we can use only the first component of the IP
       address, if we want to use nodes in different domains we use
       <c>-name</c> instead, but then all IP address must be given in
-      full.</p>
+      full.)</p>
     <p>Here is the ping pong example modified to run on two separate
       nodes:</p>
     <code type="none">

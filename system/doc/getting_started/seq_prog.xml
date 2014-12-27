@@ -62,7 +62,7 @@ Eshell V5.9.1  (abort with ^G)
       (See the chapter <seealso marker="erts:tty">"tty - A command line interface"</seealso> in ERTS User's Guide).</p>
     <p>(Note: you will find a lot of line numbers given by the shell
       out of sequence in this tutorial as it was written and the code
-      tested in several sessions).</p>
+      tested in several sessions.)</p>
     <p>Now let's try a more complex calculation.</p>
     <pre>
 2> <input>(42 + 77) * 66 / 3.</input>
@@ -345,7 +345,7 @@ convert_length({inch, Y}) ->
 [2,3,4,5]</pre>
     <p>We use | to separate the first elements of the list from
       the rest of the list. (<c>First</c> has got value 1 and
-      <c>TheRest</c> value [2,3,4,5]).</p>
+      <c>TheRest</c> value [2,3,4,5].)</p>
     <p>Another example:</p>
     <pre>
 20> <input>[E1, E2 | R] = [1,2,3,4,5,6,7].</input>
@@ -403,7 +403,7 @@ list_length([First | Rest]) ->
       the remaining elements <c>Rest</c> is 1 + the length of
       <c>Rest</c>.</p>
     <p>(Advanced readers only: This is not tail recursive, there is a
-      better way to write this function).</p>
+      better way to write this function.)</p>
     <p>In general we can say we use tuples where we would use "records"
       or "structs" in other languages and we use lists when we want to
       represent things which have varying sizes, (i.e. where we would
@@ -673,7 +673,7 @@ ok</pre>
     <p>Now we call <c>format_temps(Rest)</c> with the rest of the list
       as an argument. This way of doing things is similar to the loop
       constructs in other languages. (Yes, this is recursion, but don't
-      let that worry you). So the same <c>format_temps</c> function is
+      let that worry you.) So the same <c>format_temps</c> function is
       called again, this time <c>City</c> gets the value
       <c>{cape_town,{f,70}}</c> and we repeat the same procedure as
       before. We go on doing this until the list becomes empty, i.e. [],
@@ -738,11 +738,11 @@ list_max([Head|Rest], Result_so_far)  ->
     <p>Some useful operators in guards are, &lt; less than, &gt;
       greater than, == equal, &gt;= greater or equal, =&lt; less or
       equal, /= not equal. (see the chapter
-      <seealso marker="doc/reference_manual:expressions">"Guard Sequences"</seealso> in the Erlang Reference Manual).</p>
+      <seealso marker="doc/reference_manual:expressions">"Guard Sequences"</seealso> in the Erlang Reference Manual.)</p>
     <p>To change the above program to one which works out the minimum
       value of the element in a list, all we would need to do is to
       write &lt; instead of &gt;. (But it would be wise to change
-      the name of the function to <c>list_min</c> :-).</p>
+      the name of the function to <c>list_min</c> :-).)</p>
     <p>Remember that I mentioned earlier that a variable could only be
       given a value once in its scope? In the above we see, for example,
       that <c>Result_so_far</c> has been given several values. This is
@@ -1201,7 +1201,7 @@ Year rem 400 == 0 ->
       (see the chapter
       <seealso marker="doc/reference_manual:expressions">"Guard Sequences"</seealso> in the Erlang Reference Manual) (Aside for
       advanced readers: This is to ensure that guards don't have side
-      effects). Let's play with a few of these functions in the shell:</p>
+      effects.) Let's play with a few of these functions in the shell:</p>
     <pre>
 75> <input>trunc(5.6).</input>
 5
