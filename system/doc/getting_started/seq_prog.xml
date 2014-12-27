@@ -208,7 +208,7 @@ mult(X, Y) ->
       called variables. Variables must start with a capital letter
       (see the chapter
       <seealso marker="doc/reference_manual:expressions">"Variables"</seealso>
-      in the Erlang Reference Manual). Examples of variable could be
+      in the Erlang Reference Manual). Examples of variables could be
       <c>Number</c>, <c>ShoeSize</c>, <c>Age</c> etc.</p>
   </section>
 
@@ -271,7 +271,7 @@ convert(N, centimeter) ->
       Consider:</p>
     <code type="none">
 tut2:convert(3, inch).</code>
-    <p>Does this mean that 3 is in inches? or that 3 is in centimeters
+    <p>Does this mean that 3 is in inches? Or that 3 is in centimeters
       and we want to convert it to inches? So Erlang has a way to group
       things together to make things more understandable. We call these
       <em>tuples</em>. Tuples are surrounded by "{" and "}".</p>
@@ -736,7 +736,7 @@ list_max([Head|Rest], Result_so_far)  ->
       the next part of the function.</p>
     <p>Some useful operators in guards are, &lt; less than, &gt;
       greater than, == equal, &gt;= greater or equal, =&lt; less or
-      equal, /= not equal. (see the chapter
+      equal, /= not equal. (See the chapter
       <seealso marker="doc/reference_manual:expressions">"Guard Sequences"</seealso> in the Erlang Reference Manual.)</p>
     <p>To change the above program to one which works out the minimum
       value of the element in a list, all we would need to do is to
@@ -889,7 +889,7 @@ format_temps(List_of_cities) ->
     <code type="none">
 [City | convert_list_to_c(Rest)];</code>
     <p>We go on doing this until we get to the end of the list (i.e.
-      the list is empty:</p>
+      the list is empty):</p>
     <code type="none">
 convert_list_to_c([]) ->
     [].</code>
