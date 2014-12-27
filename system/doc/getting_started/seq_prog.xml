@@ -325,7 +325,7 @@ convert_length({inch, Y}) ->
     <title>Lists</title>
     <p>Whereas tuples group things together, we also want to be able to
       represent lists of things. Lists in Erlang are surrounded by "["
-      and "]". For example a list of the temperatures of various cities
+      and "]". For example, a list of the temperatures of various cities
       in the world could be:</p>
     <code type="none">
 [{moscow, {c, -10}}, {cape_town, {f, 70}}, {stockholm, {c, -4}},

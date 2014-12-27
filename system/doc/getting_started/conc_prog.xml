@@ -364,7 +364,7 @@ pong ! {ping, self()},</code>
       <c>.erlang.cookie</c> in the directory you get to after executing
       the command <c>cd</c> without any argument).
       The <c>.erlang.cookie</c> file should contain one line with
-      the same atom. For example on Linux or Unix in the OS shell:</p>
+      the same atom. For example, on Linux or Unix in the OS shell:</p>
     <pre>
 $ <input>cd</input>
 $ <input>cat > .erlang.cookie</input>
