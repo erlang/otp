@@ -115,7 +115,7 @@ double(X) ->
       entered and there will also be error messages to give you some
       idea as to what has gone wrong so you can change what you have
       written and try again.</p>
-    <p>Now lets run the program.</p>
+    <p>Now let's run the program.</p>
     <pre>
 4> <input>tut:double(10).</input>
 20</pre>
@@ -846,7 +846,7 @@ reverse([], [3,2,1]) =>
       write a list manipulating function it is a good idea to check
       that one isn't already written for you. (see
       <seealso marker="stdlib:lists">lists(3)</seealso>).</p>
-    <p>Now lets get back to the cities and temperatures, but take a more
+    <p>Now let's get back to the cities and temperatures, but take a more
       structured approach this time. First let's convert the whole list
       to Celsius as follows and test the function:</p>
     <code type="none">
@@ -1268,7 +1268,7 @@ map(Fun, []) ->
 #Fun&lt;erl_eval.5.123085357&gt;
 89> <input>lists:map(Add_3, [1,2,3]).</input>
 [4,5,6]</pre>
-    <p>Now lets print out the temperatures in a list of cities (yet
+    <p>Now let's print out the temperatures in a list of cities (yet
       again):</p>
     <pre>
 90> <input>Print_City = fun({City, {X, Temp}}) -> io:format("~-15w ~w ~w~n",</input>
