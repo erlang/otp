@@ -95,7 +95,7 @@ goodbye</pre>
       the second a "goodbye", the first another "hello" and so forth.
       But where did the &lt;0.63.0&gt; come from? The return value of a
       function is of course the return value of the last "thing" in
-      the function. The last thing in the function <c>start</c> is</p>
+      the function. The last thing in the function <c>start</c> is:</p>
     <code type="none">
 spawn(tut14, say_something, [goodbye, 3]).</code>
     <p><c>spawn</c> returns a <em>process identifier</em>, or
@@ -166,7 +166,7 @@ Pong_PID = spawn(tut15, pong, [])</code>
       <c>start</c> now creates another process "ping".</p>
     <code type="none">
 spawn(tut15, ping, [3, Pong_PID]),</code>
-    <p>this process executes</p>
+    <p>This process executes:</p>
     <code type="none">
 tut15:ping(3, Pong_PID)</code>
     <p>&lt;0.36.0&gt; is the return value from the <c>start</c> function.</p>

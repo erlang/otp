@@ -309,7 +309,7 @@ convert_length({inch, Y}) ->
     <p>We have shown tuples with two parts above, but tuples can have
       as many parts as we want and contain any valid Erlang
       <em>term</em>. For example, to represent the temperature of
-      various cities of the world we could write</p>
+      various cities of the world we could write:</p>
     <code type="none">
 {moscow, {c, -10}}
 {cape_town, {f, 70}}
@@ -1187,11 +1187,11 @@ trunc(5.0) = 5
     <pre>
 74> <input>2004 rem 400.</input>
 4</pre>
-    <p>so instead of writing</p>
+    <p>so instead of writing:</p>
     <code type="none">
 trunc(Year / 400) * 400 == Year ->
     leap;</code>
-    <p>we could write</p>
+    <p>we could write:</p>
     <code type="none">
 Year rem 400 == 0 ->
     leap;</code>
