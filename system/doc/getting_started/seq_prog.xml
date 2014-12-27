@@ -573,10 +573,9 @@ http://www.erlang.org/doc/r9b/doc/index.html</code>
   <section>
     <title>Writing Output to a Terminal</title>
     <p>It's nice to be able to do formatted output in these example, so
-      the next example shows a simple way to use to use
-      the <c>io:format</c> function. Of course, just like all other
-      exported functions, you can test the <c>io:format</c> function in
-      the shell:</p>
+      the next example shows a simple way to use the <c>io:format</c>
+      function. Of course, just like all other exported functions, you
+      can test the <c>io:format</c> function in the shell:</p>
     <pre>
 31> <input>io:format("hello world~n", []).</input>
 hello world
