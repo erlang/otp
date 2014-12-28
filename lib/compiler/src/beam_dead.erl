@@ -516,22 +516,24 @@ shortcut_bs_pos_used_1(Is, Reg, D) ->
     not beam_utils:is_killed(Reg, Is, D).
 
 %% shortcut_bs_start_match(TargetLabel, Reg) -> TargetLabel
-%%  A failing bs_start_match2 instruction means that the source
-%%  cannot be a binary, so there is no need to jump bs_context_to_binary/1
-%%  or another bs_start_match2 instruction.
+%%  A failing bs_start_match2 instruction means that the source (Reg)
+%%  cannot be a binary. That means that it is safe to skip
+%%  bs_context_to_binary instructions operating on Reg, and
+%%  bs_start_match2 instructions operating on Reg.
 
 shortcut_bs_start_match(To, Reg, D) ->
-    shortcut_bs_start_match_1(beam_utils:code_at(To, D), Reg, To).
+    shortcut_bs_start_match_1(beam_utils:code_at(To, D), Reg, To, D).
 
-shortcut_bs_start_match_1([{bs_context_to_binary,Reg}|Is], Reg, To) ->
-    shortcut_bs_start_match_2(Is, Reg, To);
-shortcut_bs_start_match_1(_, _, To) -> To.
-
-shortcut_bs_start_match_2([{jump,{f,To}}|_], _, _) ->
-    To;
-shortcut_bs_start_match_2([{test,bs_start_match2,{f,To},_,[Reg|_],_}|_], Reg, _) ->
-    To;
-shortcut_bs_start_match_2(_Is, _Reg, To) ->
+shortcut_bs_start_match_1([{bs_context_to_binary,Reg}|Is], Reg, To, D) ->
+    shortcut_bs_start_match_1(Is, Reg, To, D);
+shortcut_bs_start_match_1([{jump,{f,To}}|_], Reg, _, D) ->
+    Code = beam_utils:code_at(To, D),
+    shortcut_bs_start_match_1(Code, Reg, To, D);
+shortcut_bs_start_match_1([{test,bs_start_match2,{f,To},_,[Reg|_],_}|_],
+			  Reg, _, D) ->
+    Code = beam_utils:code_at(To, D),
+    shortcut_bs_start_match_1(Code, Reg, To, D);
+shortcut_bs_start_match_1(_, _, To, _) ->
     To.
 
 %% shortcut_rel_op(FailLabel, Operator, [Operand], D) -> FailLabel'
