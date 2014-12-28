@@ -368,16 +368,32 @@ partitioned_bs_match_3(Var, <<_>>) -> Var;
 partitioned_bs_match_3(1, 2) -> ok.
 
 function_clause(Config) when is_list(Config)  ->
-    ?line ok = function_clause_1(<<0,7,0,7,42>>),
-    ?line fc(function_clause_1, [<<0,1,2,3>>],
-	     catch function_clause_1(<<0,1,2,3>>)),
-    ?line fc(function_clause_1, [<<0,1,2,3>>],
-	     catch function_clause_1(<<0,7,0,1,2,3>>)),
+    ok = function_clause_1(<<0,7,0,7,42>>),
+    fc(function_clause_1, [<<0,1,2,3>>],
+       catch function_clause_1(<<0,1,2,3>>)),
+    fc(function_clause_1, [<<0,1,2,3>>],
+       catch function_clause_1(<<0,7,0,1,2,3>>)),
+
+    ok = function_clause_2(<<0,7,0,7,42>>),
+    ok = function_clause_2(<<255>>),
+    ok = function_clause_2(<<13:4>>),
+    fc(function_clause_2, [<<0,1,2,3>>],
+       catch function_clause_2(<<0,1,2,3>>)),
+    fc(function_clause_2, [<<0,1,2,3>>],
+       catch function_clause_2(<<0,7,0,1,2,3>>)),
+
     ok.
 
 function_clause_1(<<0:8,7:8,T/binary>>) ->
     function_clause_1(T);
 function_clause_1(<<_:8>>) ->
+    ok.
+
+function_clause_2(<<0:8,7:8,T/binary>>) ->
+    function_clause_2(T);
+function_clause_2(<<_:8>>) ->
+    ok;
+function_clause_2(<<_:4>>) ->
     ok.
 
 unit(Config) when is_list(Config) ->

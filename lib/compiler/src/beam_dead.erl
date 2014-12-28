@@ -453,31 +453,26 @@ remove_from_list(Lit, [Val,{f,_}=Fail|T]) ->
     [Val,Fail|remove_from_list(Lit, T)];
 remove_from_list(_, []) -> [].
 
-%% shortcut_bs_test(TargetLabel, [Instruction], D) -> TargetLabel'
-%%  Try to shortcut the failure label for a bit syntax matching.
-%%  We know that the binary contains at least Bits bits after
-%%  the latest save point.
+%% shortcut_bs_test(TargetLabel, ReversedInstructions, D) -> TargetLabel'
+%%  Try to shortcut the failure label for bit syntax matching.
 
 shortcut_bs_test(To, Is, D) ->
     shortcut_bs_test_1(beam_utils:code_at(To, D), Is, To, D).
 
-shortcut_bs_test_1([{bs_restore2,Reg,SavePoint}|Is], PrevIs, To, D) ->
-    shortcut_bs_test_2(Is, {Reg,SavePoint}, PrevIs, To, D);
-shortcut_bs_test_1([_|_], _, To, _) -> To.
-
-shortcut_bs_test_2([{label,_}|Is], Save, PrevIs, To, D) ->
-    shortcut_bs_test_2(Is, Save, PrevIs, To, D);
-shortcut_bs_test_2([{test,bs_test_tail2,{f,To},[_,TailBits]}|_],
-		   {Reg,_Point} = RP, PrevIs, To0, D) ->
-    case count_bits_matched(PrevIs, RP, 0) of
+shortcut_bs_test_1([{bs_restore2,Reg,SavePoint},
+		    {label,_},
+		    {test,bs_test_tail2,{f,To},[_,TailBits]}|_],
+		   PrevIs, To0, D) ->
+    case count_bits_matched(PrevIs, {Reg,SavePoint}, 0) of
 	Bits when Bits > TailBits ->
 	    %% This instruction will fail. We know because a restore has been
-	    %% done from the previous point SavePoint in the binary, and we also know
-	    %% that the binary contains at least Bits bits from SavePoint.
+	    %% done from the previous point SavePoint in the binary, and we
+	    %% also know that the binary contains at least Bits bits from
+	    %% SavePoint.
 	    %%
 	    %% Since we will skip a bs_restore2 if we shortcut to label To,
-	    %% we must now make sure that code at To does not depend on the position
-	    %% in the context in any way.
+	    %% we must now make sure that code at To does not depend on
+	    %% the position in the context in any way.
 	    case shortcut_bs_pos_used(To, Reg, D) of
 		false -> To;
 		true -> To0
@@ -485,8 +480,19 @@ shortcut_bs_test_2([{test,bs_test_tail2,{f,To},[_,TailBits]}|_],
 	_Bits ->
 	    To0
     end;
-shortcut_bs_test_2([_|_], _, _, To, _) -> To.
+shortcut_bs_test_1([_|_], _, To, _) -> To.
 
+%% counts_bits_matched(ReversedInstructions, SavePoint, Bits) -> Bits'
+%%  Given a reversed instruction stream, determine the minimum number
+%%  of bits that will be matched by bit syntax instructions up to the
+%%  given save point.
+
+count_bits_matched([{test,bs_get_utf8,{f,_},_,_,_}|Is], SavePoint, Bits) ->
+    count_bits_matched(Is, SavePoint, Bits+8);
+count_bits_matched([{test,bs_get_utf16,{f,_},_,_,_}|Is], SavePoint, Bits) ->
+    count_bits_matched(Is, SavePoint, Bits+16);
+count_bits_matched([{test,bs_get_utf32,{f,_},_,_,_}|Is], SavePoint, Bits) ->
+    count_bits_matched(Is, SavePoint, Bits+32);
 count_bits_matched([{test,_,_,_,[_,Sz,U,{field_flags,_}],_}|Is], SavePoint, Bits) ->
     case Sz of
 	{integer,N} -> count_bits_matched(Is, SavePoint, Bits+N*U);
