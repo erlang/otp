@@ -218,12 +218,7 @@ expand([C|Rest], [], Result) ->
     expand(Rest, [], [C|Result]);
 expand([$%|Rest], Env0, Result) ->
     Env = lists:reverse(Env0),
-    case os:getenv(Env) of
-	false ->
-	    expand(Rest, [], Result);
-	Value ->
-	    expand(Rest, [], lists:reverse(Value)++Result)
-    end;
+    expand(Rest, [], lists:reverse(os:getenv(Env, ""))++Result);
 expand([C|Rest], Env, Result) ->
     expand(Rest, [C|Env], Result);
 expand([], [], Result) ->

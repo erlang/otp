@@ -69,12 +69,7 @@
 
 init_per_testcase(_Case, Config) ->
     ?line Dog = ?t:timetrap(?default_timeout),
-    Term = case os:getenv("TERM") of
-	       List when is_list(List) ->
-		   List;
-	       _ ->
-		   "dumb"
-	   end,
+    Term = os:getenv("TERM", "dumb"),
     os:putenv("TERM","vt100"),
     [{watchdog, Dog}, {term, Term} | Config].
 end_per_testcase(_Case, Config) ->
