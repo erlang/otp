@@ -42,7 +42,8 @@
 %% User Events 
 -export([send/2, recv/3, close/1, shutdown/2,
 	 new_user/2, get_opts/2, set_opts/2, info/1, session_info/1, 
-	 peer_certificate/1, renegotiation/1, negotiated_next_protocol/1, prf/5	
+	 peer_certificate/1, renegotiation/1, negotiated_next_protocol/1, prf/5,
+	 sni_hostname/1
 	]).
 
 -export([handle_session/6]).
@@ -159,6 +160,14 @@ send(Pid, Data) ->
 %%--------------------------------------------------------------------
 recv(Pid, Length, Timeout) -> 
     sync_send_all_state_event(Pid, {recv, Length, Timeout}).
+
+%%--------------------------------------------------------------------
+-spec sni_hostname(pid()) -> undefined | string().
+%%
+%% Description: Get the SNI hostname
+%%--------------------------------------------------------------------
+sni_hostname(Pid) when is_pid(Pid) ->
+	sync_send_all_state_event(Pid, sni_hostname).
 
 %%--------------------------------------------------------------------
 -spec close(pid()) -> ok | {error, reason()}.  
@@ -842,7 +851,10 @@ handle_sync_event(session_info, _, StateName,
 handle_sync_event(peer_certificate, _, StateName, 
 		  #state{session = #session{peer_certificate = Cert}} 
 		  = State) ->
-    {reply, {ok, Cert}, StateName, State, get_timeout(State)}.
+    {reply, {ok, Cert}, StateName, State, get_timeout(State)};
+handle_sync_event(sni_hostname, _, StateName, #state{sni_hostname = SNIHostname} = State) ->
+	{reply, SNIHostname, StateName, State}.
+
 
 handle_info({ErrorTag, Socket, econnaborted}, StateName,  
 	    #state{socket = Socket, transport_cb = Transport,
