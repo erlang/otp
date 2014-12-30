@@ -89,7 +89,7 @@
       {ssl_imp, ssl_imp()} | {reuse_sessions, boolean()} | {reuse_session, fun()}
       {next_protocols_advertised, [binary()]} |
       {client_preferred_next_protocols, {client | server, [binary()]} | {client | server, [binary()], binary()}} |
-      {log_alert, boolean()} | {server_name_indication, hostname() | disable}
+      {log_alert, boolean()} | {server_name_indication, hostname() | disable} | {sni_hosts, [{hostname(), ssloptions()}]}
     </c></p>
 
     <p><c>transportoption() = {cb_info, {CallbackModule::atom(), DataTag::atom(), ClosedTag::atom(), ErrTag:atom()}}
@@ -475,7 +475,7 @@ fun(srp, Username :: string(), UserState :: term()) ->
       SuggestedSessionId is a binary(),  PeerCert is a DER encoded
       certificate, Compression is an enumeration integer
       and CipherSuite is of type ciphersuite().
-    </item>
+      </item>
 
       <tag>{next_protocols_advertised, Protocols :: [binary()]}</tag>
       <item>The list of protocols to send to the client if the client indicates
@@ -493,6 +493,12 @@ fun(srp, Username :: string(), UserState :: term()) ->
       <tag>{honor_cipher_order, boolean()}</tag>
       <item>If true, use the server's preference for cipher selection. If false
       (the default), use the client's preference.
+      </item>
+
+      <tag>{sni_hosts, [{hostname(), ssloptions()}]</tag>
+      <item>If the server receives a SNI (Server Name Indication) from the client
+      matching a host listed in the sni_hosts option, the speicific options for
+      that host will override previously specified options.
       </item>
     </taglist>
   </section>
@@ -615,6 +621,46 @@ fun(srp, Username :: string(), UserState :: term()) ->
       <desc><p>Returns the negotiated protocol version and cipher suite.</p> 
       </desc>
     </func>
+
+    <func>
+      <name>connection_information(SslSocket) ->
+        {ok, Info} |  {error, Reason} </name>
+      <fsummary>Returns all the connection information.
+      </fsummary>
+      <type>
+        <v>Info = [InfoTuple]</v>
+        <v>InfoTuple = {protocol, Protocol} | {cipher_suite, CipherSuite} | {sni_hostname, SNIHostname}</v>
+        <v>CipherSuite = ciphersuite()</v>
+        <v>ProtocolVersion = protocol()</v>
+        <v>SNIHostname = string()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc><p>Return all the connection information containing negotiated protocol version, cipher suite, and the hostname of SNI extension.
+      Info will be a proplists containing all the connection information on success, otherwise {error, Reason} will be returned.</p> 
+      </desc>
+    </func>
+
+    <func>
+      <name>connection_information(SslSocket, Items) ->
+        {ok, Info} |  {error, Reason} </name>
+      <fsummary>Returns the requested connection information.
+      </fsummary>
+      <type>
+        <v>Items = [Item]</v>
+        <v>Item = protocol | cipher_suite | sni_hostname</v>
+        <v>Info = [InfoTuple]</v>
+        <v>InfoTuple = {protocol, Protocol} | {cipher_suite, CipherSuite} | {sni_hostname, SNIHostname}</v>
+        <v>CipherSuite = ciphersuite()</v>
+        <v>ProtocolVersion = protocol()</v>
+        <v>SNIHostname = string()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc><p>Returns the connection information you requested. The connection information you can request contains protocol, cipher_suite, and sni_hostname.
+      {ok, Info} will be returned if it executes sucessfully. The Info is a proplists containing the information you requested.
+      Otherwise, {error, Reason} will be returned.</p>
+      </desc>
+    </func>
+
 
      <func>
       <name>format_error(Reason) -> string()</name>
