@@ -885,7 +885,13 @@ validate_option(server_name_indication, undefined) ->
 validate_option(sni_hosts, []) ->
     [];
 validate_option(sni_hosts, [{Hostname, SSLOptions} | Tail]) when is_list(Hostname) ->
-	[{Hostname, validate_options(SSLOptions)} | validate_option(sni_hosts, Tail)];
+	RecursiveSNIOptions = proplists:get_value(sni_hosts, SSLOptions, undefined),
+	case RecursiveSNIOptions of
+		undefined ->
+			[{Hostname, validate_options(SSLOptions)} | validate_option(sni_hosts, Tail)];
+		_ ->
+			throw({error, {options, {sni_hosts, RecursiveSNIOptions}}})
+	end;
 validate_option(honor_cipher_order, Value) when is_boolean(Value) ->
     Value;
 validate_option(padding_check, Value) when is_boolean(Value) ->
