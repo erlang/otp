@@ -414,12 +414,13 @@ send_eval(Config) ->
         = call(Config, Req).
 
 %% Send an accounting ACR that the server tries to answer with an
-%% inappropriate header, resulting in no answer being sent and the
-%% request timing out.
+%% inappropriate header. That the error is detected is coded in
+%% handle_answer.
 send_bad_answer(Config) ->
     Req = ['ACR', {'Accounting-Record-Type', ?EVENT_RECORD},
                   {'Accounting-Record-Number', 2}],
-    {timeout, _} = call(Config, Req).
+    ?answer_message(?SUCCESS)
+        = call(Config, Req).
 
 %% Send an ACR that the server callback answers explicitly with a
 %% protocol error.
@@ -1056,6 +1057,10 @@ answer(Pkt, Req, _Peer, Name, #group{client_dict0 = Dict0}) ->
     Dict = dict(Ans, Dict0),
     [R | Vs] = Dict:'#get-'(answer(Ans, Es, Name)),
     [Dict:rec2msg(R) | Vs].
+
+answer(Rec, Es, send_bad_answer) ->
+    [{5004, #diameter_avp{name = 'Result-Code'}} | _] = Es,
+    Rec;
 
 answer(Rec, [_|_], N)
   when N == send_long_avp_length;
