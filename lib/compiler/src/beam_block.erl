@@ -252,13 +252,6 @@ combine_alloc({_,Ns,Nh1,Init}, {_,nostack,Nh2,[]})  ->
 %% opt([Instruction]) -> [Instruction]
 %%  Optimize the instruction stream inside a basic block.
 
-opt([{set,[Dst],As,{bif,Bif,Fail}}=I1,
-     {set,[Dst],[Dst],{bif,'not',Fail}}=I2|Is]) ->
-    %% Get rid of the 'not' if the operation can be inverted.
-    case inverse_comp_op(Bif) of
- 	none -> [I1,I2|opt(Is)];
- 	RevBif -> [{set,[Dst],As,{bif,RevBif,Fail}}|opt(Is)]
-    end;
 opt([{set,[X],[X],move}|Is]) -> opt(Is);
 opt([{set,_,_,{line,_}}=Line1,
      {set,[D1],[{integer,Idx1},Reg],{bif,element,{f,0}}}=I1,
@@ -427,18 +420,6 @@ x_dead([], Regs) -> Regs.
 x_live([{x,N}|Rs], Regs) -> x_live(Rs, Regs bor (1 bsl N));
 x_live([_|Rs], Regs) -> x_live(Rs, Regs);
 x_live([], Regs) -> Regs.
-
-%% inverse_comp_op(Op) -> none|RevOp
-
-inverse_comp_op('=:=') -> '=/=';
-inverse_comp_op('=/=') -> '=:=';
-inverse_comp_op('==') -> '/=';
-inverse_comp_op('/=') -> '==';
-inverse_comp_op('>') -> '=<';
-inverse_comp_op('<') -> '>=';
-inverse_comp_op('>=') -> '<';
-inverse_comp_op('=<') -> '>';
-inverse_comp_op(_) -> none.
 
 %%%
 %%% Evaluation of constant bit fields.

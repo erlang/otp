@@ -234,10 +234,8 @@ backward([{select,select_val,Reg,{f,Fail0},List0}|Is], D, Acc) ->
     Fail = shortcut_bs_test(Fail1, Is, D),
     Sel = {select,select_val,Reg,{f,Fail},List},
     backward(Is, D, [Sel|Acc]);
-backward([{jump,{f,To0}},{move,Src0,Reg}|Is], D, Acc) ->
-    To1 = shortcut_select_label(To0, Reg, Src0, D),
-    {To,Src} = shortcut_boolean_label(To1, Reg, Src0, D),
-    Move = {move,Src,Reg},
+backward([{jump,{f,To0}},{move,Src,Reg}=Move|Is], D, Acc) ->
+    To = shortcut_select_label(To0, Reg, Src, D),
     Jump = {jump,{f,To}},
     case beam_utils:is_killed_at(Reg, To, D) of
 	false -> backward([Move|Is], D, [Jump|Acc]);
@@ -329,16 +327,6 @@ shortcut_label(To0, D) ->
 
 shortcut_select_label(To, Reg, Lit, D) ->
     shortcut_rel_op(To, is_ne_exact, [Reg,Lit], D).
-
-shortcut_boolean_label(To0, Reg, {atom,Bool0}=Lit, D) when is_boolean(Bool0) ->
-    case beam_utils:code_at(To0, D) of
-	[{line,_},{bif,'not',_,[Reg],Reg},{jump,{f,To}}|_] ->
-	    Bool = {atom,not Bool0},
-	    {shortcut_select_label(To, Reg, Bool, D),Bool};
-	_ ->
-	    {To0,Lit}
-    end;
-shortcut_boolean_label(To, _, Bool, _) -> {To,Bool}.
 
 %% Replace a comparison operator with a test instruction and a jump.
 %% For example, if we have this code:

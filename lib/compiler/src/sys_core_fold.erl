@@ -1965,6 +1965,107 @@ letify(Bs, Body) ->
 		  cerl:ann_c_let(Ann, [V], Val, B)
 	  end, Body, Bs).
 
+%% opt_not_in_let(Let) -> Cerl
+%%  Try to optimize away a 'not' operator in a 'let'.
+
+-spec opt_not_in_let(cerl:c_let()) -> cerl:cerl().
+
+opt_not_in_let(#c_let{vars=[_]=Vs0,arg=Arg0,body=Body0}=Let) ->
+    case opt_not_in_let(Vs0, Arg0, Body0) of
+	{[],#c_values{es=[]},Body} ->
+	    Body;
+	{Vs,Arg,Body} ->
+	    Let#c_let{vars=Vs,arg=Arg,body=Body}
+    end;
+opt_not_in_let(Let) -> Let.
+
+%% opt_not_in_let(Vs, Arg, Body) -> {Vs',Arg',Body'}
+%%  Try to optimize away a 'not' operator in a 'let'.
+
+-spec opt_not_in_let([cerl:c_var()], cerl:cerl(), cerl:cerl()) ->
+			    {[cerl:c_var()],cerl:cerl(),cerl:cerl()}.
+
+opt_not_in_let([#c_var{name=V}]=Vs0, Arg0, Body0) ->
+    case cerl:type(Body0) of
+	call ->
+	    %% let <V> = Expr in not V  ==>
+	    %%    let <> = <> in notExpr
+	    case opt_not_in_let_1(V, Body0, Arg0) of
+		no ->
+		    {Vs0,Arg0,Body0};
+		{yes,Body} ->
+		    {[],#c_values{es=[]},Body}
+	    end;
+	'let' ->
+	    %% let <V> = Expr in let <Var> = not V in Body  ==>
+	    %%    let <Var> = notExpr in Body
+	    %% V must not be used in Body.
+	    LetArg = cerl:let_arg(Body0),
+	    case opt_not_in_let_1(V, LetArg, Arg0) of
+		no ->
+		    {Vs0,Arg0,Body0};
+		{yes,Arg} ->
+		    LetBody = cerl:let_body(Body0),
+		    case core_lib:is_var_used(V, LetBody) of
+			true ->
+			    {Vs0,Arg0,Body0};
+			false ->
+			    LetVars = cerl:let_vars(Body0),
+			    {LetVars,Arg,LetBody}
+		    end
+	    end;
+	_ ->
+	    {Vs0,Arg0,Body0}
+    end;
+opt_not_in_let(Vs, Arg, Body) ->
+    {Vs,Arg,Body}.
+
+opt_not_in_let_1(V, Call, Body) ->
+    case Call of
+	#c_call{module=#c_literal{val=erlang},
+		name=#c_literal{val='not'},
+		args=[#c_var{name=V}]} ->
+	    opt_not_in_let_2(Body);
+	_ ->
+	    no
+    end.
+
+opt_not_in_let_2(#c_case{clauses=Cs0}=Case) ->
+    Vars = make_vars([], 1),
+    Body = #c_call{module=#c_literal{val=erlang},
+		   name=#c_literal{val='not'},
+		   args=Vars},
+    Cs = [begin
+	      Let = #c_let{vars=Vars,arg=B,body=Body},
+	      C#c_clause{body=opt_not_in_let(Let)}
+	  end || #c_clause{body=B}=C <- Cs0],
+    {yes,Case#c_case{clauses=Cs}};
+opt_not_in_let_2(#c_call{}=Call0) ->
+    invert_call(Call0);
+opt_not_in_let_2(_) -> no.
+
+invert_call(#c_call{module=#c_literal{val=erlang},
+		    name=#c_literal{val=Name0},
+		    args=[_,_]}=Call) ->
+    case inverse_rel_op(Name0) of
+	no -> no;
+	Name -> {yes,Call#c_call{name=#c_literal{val=Name}}}
+    end;
+invert_call(#c_call{}) -> no.
+
+%% inverse_rel_op(Op) -> no | RevOp
+
+inverse_rel_op('=:=') -> '=/=';
+inverse_rel_op('=/=') -> '=:=';
+inverse_rel_op('==') -> '/=';
+inverse_rel_op('/=') -> '==';
+inverse_rel_op('>') -> '=<';
+inverse_rel_op('<') -> '>=';
+inverse_rel_op('>=') -> '<';
+inverse_rel_op('=<') -> '>';
+inverse_rel_op(_) -> no.
+
+
 %% opt_case_in_let(LetExpr) -> LetExpr'
 
 opt_case_in_let(#c_let{vars=Vs,arg=Arg,body=B}=Let, Sub) ->
@@ -2272,19 +2373,28 @@ is_failing_clause(#c_clause{body=B}) ->
 %%  Optimize a let construct that does not contain any lets in
 %%  in its argument.
 
-opt_simple_let(#c_let{arg=Arg0}=Let, Ctxt, Sub0) ->
-    Arg = body(Arg0, value, Sub0),		%This is a body
+opt_simple_let(Let0, Ctxt, Sub) ->
+    case opt_not_in_let(Let0) of
+	#c_let{}=Let ->
+	    opt_simple_let_0(Let, Ctxt, Sub);
+	Expr ->
+	    expr(Expr, Ctxt, Sub)
+    end.
+
+opt_simple_let_0(#c_let{arg=Arg0}=Let, Ctxt, Sub) ->
+    Arg = body(Arg0, value, Sub),		%This is a body
     case will_fail(Arg) of
 	true -> Arg;
-	false -> opt_simple_let_1(Let, Arg, Ctxt, Sub0)
+	false -> opt_simple_let_1(Let, Arg, Ctxt, Sub)
     end.
 
 opt_simple_let_1(#c_let{vars=Vs0,body=B0}=Let, Arg0, Ctxt, Sub0) ->
     %% Optimise let and add new substitutions.
-    {Vs,Args,Sub1} = let_substs(Vs0, Arg0, Sub0),
-    BodySub = update_let_types(Vs, Args, Sub1),
-    B = body(B0, Ctxt, BodySub),
-    Arg = core_lib:make_values(Args),
+    {Vs1,Args,Sub1} = let_substs(Vs0, Arg0, Sub0),
+    BodySub = update_let_types(Vs1, Args, Sub1),
+    B1 = body(B0, Ctxt, BodySub),
+    Arg1 = core_lib:make_values(Args),
+    {Vs,Arg,B} = opt_not_in_let(Vs1, Arg1, B1),
     opt_simple_let_2(Let, Vs, Arg, B, B0, Ctxt, Sub1).
 
 opt_simple_let_2(Let0, Vs0, Arg0, Body, PrevBody, Ctxt, Sub) ->
