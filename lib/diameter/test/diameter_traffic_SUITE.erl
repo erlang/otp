@@ -1058,19 +1058,12 @@ answer(Pkt, Req, _Peer, Name, #group{client_dict0 = Dict0}) ->
     [R | Vs] = Dict:'#get-'(answer(Ans, Es, Name)),
     [Dict:rec2msg(R) | Vs].
 
+%% An inappropriate E-bit results in a decode error ...
 answer(Rec, Es, send_bad_answer) ->
     [{5004, #diameter_avp{name = 'Result-Code'}} | _] = Es,
     Rec;
 
-answer(Rec, [_|_], N)
-  when N == send_long_avp_length;
-       N == send_short_avp_length;
-       N == send_zero_avp_length;
-       N == send_invalid_avp_length;
-       N == send_invalid_reject;
-       N == send_unknown_short_mandatory;
-       N == send_unexpected_mandatory_decode ->
-    Rec;
+%% ... while other errors are reflected in Failed-AVP.
 answer(Rec, [], _) ->
     Rec.
 
