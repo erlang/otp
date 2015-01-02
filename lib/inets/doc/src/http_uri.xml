@@ -63,6 +63,7 @@ host()      = string()
 port()      = pos_integer()
 path()      = string() - Representing a file path or directory path 
 query()     = string()
+fragment()  = string()
     ]]></code>
 
     <marker id="scheme_defaults"></marker>
@@ -92,13 +93,16 @@ query()     = string()
         <v>URI = uri() </v> 
         <v>Options = [Option] </v> 
         <v>Option = {ipv6_host_with_brackets, boolean()} | 
-                    {scheme_defaults, scheme_defaults()}]</v> 
-	<v>Result = {Scheme, UserInfo, Host, Port, Path, Query}</v>
+                    {scheme_defaults, scheme_defaults()} |
+                    {fragment, boolean()}]</v>
+        <v>Result = {Scheme, UserInfo, Host, Port, Path, Query} |
+                    {Scheme, UserInfo, Host, Port, Path, Query, Fragment}</v>
 	<v>UserInfo = user_info()</v>
 	<v>Host = host()</v>
 	<v>Port = pos_integer()</v>
 	<v>Path = path()</v>
 	<v>Query = query()</v>
+        <v>Fragment = fragment()</v>
 	<v>Reason = term() </v>
       </type>
       <desc>
@@ -110,6 +114,9 @@ query()     = string()
         <p>Note that when parsing an URI with an unknown scheme (that is, 
 	a scheme not found in the scheme defaults) a port number must be 
 	provided or else the parsing will fail. </p>
+
+        <p>If the fragment option is true, the URI fragment will be returned as
+          part of the parsing result, otherwise it is completely ignored.</p>
 
         <marker id="encode"></marker>
       </desc>
