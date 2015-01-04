@@ -774,22 +774,27 @@ live_opt([], _, _, Acc) -> Acc.
 
 live_opt_block([{set,Ds,Ss,Op}=I0|Is], Regs0, D, Acc) ->
     Regs1 = x_live(Ss, x_dead(Ds, Regs0)),
-    {I,Regs} = case Op of
-		   {alloc,Live0,Alloc} ->
-		       %% The life-time analysis used by the code generator
-		       %% is sometimes too conservative, so it may be
-		       %% possible to lower the number of live registers
-		       %% based on the exact liveness information.
-		       %% The main benefit is that more optimizations that
-		       %% depend on liveness information (such as the
-		       %% beam_bool and beam_dead passes) may be applied.
-		       Live = live_regs(Regs1),
-		       true = Live =< Live0,	%Assertion.
-		       I1 = {set,Ds,Ss,{alloc,Live,Alloc}},
-		       {I1,live_call(Live)};
-		   _ ->
-		       {I0,Regs1}
-	       end,
+    {I,Regs} =
+        case Op of
+            {alloc,Live0,Alloc} ->
+                case live_regs(Regs1) of
+                    Live when Live =< Live0 ->
+                        %% The life-time analysis used by the code generator
+                        %% is sometimes too conservative, so it may be
+                        %% possible to lower the number of live registers
+                        %% based on the exact liveness information.
+                        %% The main benefit is that more optimizations that
+                        %% depend on liveness information (such as the
+                        %% beam_bool and beam_dead passes) may be applied.
+                        Live = live_regs(Regs1),
+                        I1 = {set,Ds,Ss,{alloc,Live,Alloc}},
+                        {I1,live_call(Live)};
+                    _ ->
+                        {I0,Regs1}
+                end;
+            _ ->
+                {I0,Regs1}
+        end,
     case Ds of
 	[{x,X}] ->
 	    case (not is_live(X, Regs0)) andalso Op =:= move of
