@@ -1818,6 +1818,7 @@ return_type_math(erf, 1) -> {float,[]};
 return_type_math(erfc, 1) -> {float,[]};
 return_type_math(exp, 1) -> {float,[]};
 return_type_math(log, 1) -> {float,[]};
+return_type_math(log2, 1) -> {float,[]};
 return_type_math(log10, 1) -> {float,[]};
 return_type_math(sqrt, 1) -> {float,[]};
 return_type_math(atan2, 2) -> {float,[]};
