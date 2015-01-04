@@ -67,6 +67,7 @@
       <name name="atanh" arity="1"/>
       <name name="exp" arity="1"/>
       <name name="log" arity="1"/>
+      <name name="log2" arity="1"/>
       <name name="log10" arity="1"/>
       <name name="pow" arity="2"/>
       <name name="sqrt" arity="1"/>

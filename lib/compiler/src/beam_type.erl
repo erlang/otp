@@ -451,6 +451,7 @@ is_math_bif(erf, 1) -> true;
 is_math_bif(erfc, 1) -> true;
 is_math_bif(exp, 1) -> true;
 is_math_bif(log, 1) -> true;
+is_math_bif(log2, 1) -> true;
 is_math_bif(log10, 1) -> true;
 is_math_bif(sqrt, 1) -> true;
 is_math_bif(atan2, 2) -> true;
