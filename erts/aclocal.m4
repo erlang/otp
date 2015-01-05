@@ -246,31 +246,31 @@ lbl1:
     return 1;
 lbl2:
     return 2;
-],ac_cv_prog_emu_cc=$CC,ac_cv_prog_emu_cc=no)
+],ac_cv_prog_emu_cc="$CC",ac_cv_prog_emu_cc=no)
 
-if test $ac_cv_prog_emu_cc = no; then
+if test "$ac_cv_prog_emu_cc" = no; then
 	for ac_progname in emu_cc.sh gcc-4.2 gcc; do
   		IFS="${IFS= 	}"; ac_save_ifs="$IFS"; IFS=":"
   		ac_dummy="$PATH"
   		for ac_dir in $ac_dummy; do
     			test -z "$ac_dir" && ac_dir=.
-    			if test -f $ac_dir/$ac_progname; then
-      				ac_cv_prog_emu_cc=$ac_dir/$ac_progname
+    			if test -f "$ac_dir/$ac_progname"; then
+      				ac_cv_prog_emu_cc="$ac_dir/$ac_progname"
       				break
     			fi
   		done
   		IFS="$ac_save_ifs"
-		if test $ac_cv_prog_emu_cc != no; then
+		if test "$ac_cv_prog_emu_cc" != no; then
 			break
 		fi
 	done
 fi
 
-if test $ac_cv_prog_emu_cc != no; then
-	save_CC=$CC
+if test "$ac_cv_prog_emu_cc" != no; then
+	save_CC="$CC"
 	save_CFLAGS=$CFLAGS
 	save_CPPFLAGS=$CPPFLAGS
-	CC=$ac_cv_prog_emu_cc
+	CC="$ac_cv_prog_emu_cc"
 	CFLAGS=""
 	CPPFLAGS=""
 	AC_TRY_COMPILE([],[
@@ -291,17 +291,17 @@ if test $ac_cv_prog_emu_cc != no; then
     	return 1;
 	lbl2:
     	return 2;
-	],ac_cv_prog_emu_cc=$CC,ac_cv_prog_emu_cc=no)
+	],ac_cv_prog_emu_cc="$CC",ac_cv_prog_emu_cc=no)
 	CC=$save_CC
 	CFLAGS=$save_CFLAGS
 	CPPFLAGS=$save_CPPFLAGS
 fi
 ])
-if test $ac_cv_prog_emu_cc = no; then
+if test "$ac_cv_prog_emu_cc" = no; then
 	AC_DEFINE(NO_JUMP_TABLE,[],[Defined if no found C compiler can handle jump tables])
-	EMU_CC=$CC
+	EMU_CC="$CC"
 else
-	EMU_CC=$ac_cv_prog_emu_cc
+	EMU_CC="$ac_cv_prog_emu_cc"
 fi
 AC_SUBST(EMU_CC)
 ])		
