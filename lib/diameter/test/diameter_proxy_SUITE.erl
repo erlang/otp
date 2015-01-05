@@ -101,7 +101,7 @@ all() ->
      start_services,
      connect,
      {group, all},
-     %{group, all, [parallel]},
+     {group, all, [parallel]},
      disconnect,
      stop_services,
      stop].
