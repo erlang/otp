@@ -1,7 +1,7 @@
 dnl
 dnl %CopyrightBegin%
 dnl
-dnl Copyright Ericsson AB 1998-2013. All Rights Reserved.
+dnl Copyright Ericsson AB 1998-2015. All Rights Reserved.
 dnl
 dnl The contents of this file are subject to the Erlang Public License,
 dnl Version 1.1, (the "License"); you may not use this file except in
@@ -908,24 +908,226 @@ AC_SUBST(ERTS_INTERNAL_X_LIBS)
 
 ])
 
-AC_DEFUN(ETHR_CHK_SYNC_OP,
+AC_DEFUN(ETHR_CHK_GCC_ATOMIC_OP__,
 [
-    AC_MSG_CHECKING([for $3-bit $1()])
-    case "$2" in
-	"1") sync_call="$1(&var);";;
-	"2") sync_call="$1(&var, ($4) 0);";;
-	"3") sync_call="$1(&var, ($4) 0, ($4) 0);";;
+    # $1 - atomic_op
+
+    for atomic_bit_size in 32 64 128; do
+	case $atomic_bit_size in
+	    32) gcc_atomic_type="$gcc_atomic_type32";;
+	    64) gcc_atomic_type="$gcc_atomic_type64";;
+	    128) gcc_atomic_type="$gcc_atomic_type128";;
+	esac
+	gcc_atomic_lockfree="int x[[(2*__atomic_always_lock_free(sizeof($gcc_atomic_type), 0))-1]]"
+	case $1 in
+	    __sync_add_and_fetch | __sync_fetch_and_and | __sync_fetch_and_or)
+		atomic_call="volatile $gcc_atomic_type var; $gcc_atomic_type res = $1(&var, ($gcc_atomic_type) 0);"
+		;;
+	    __sync_val_compare_and_swap)
+		atomic_call="volatile $gcc_atomic_type var; $gcc_atomic_type res = $1(&var, ($gcc_atomic_type) 0, ($gcc_atomic_type) 0);"
+		;;
+	    __atomic_store_n)
+		atomic_call="$gcc_atomic_lockfree; volatile $gcc_atomic_type var; $1(&var, ($gcc_atomic_type) 0, __ATOMIC_RELAXED); $1(&var, ($gcc_atomic_type) 0, __ATOMIC_RELEASE);"
+		;;
+	    __atomic_load_n)
+		atomic_call="$gcc_atomic_lockfree; volatile $gcc_atomic_type var; $gcc_atomic_type res = $1(&var, __ATOMIC_RELAXED); res = $1(&var, __ATOMIC_ACQUIRE);"
+		;;
+	    __atomic_add_fetch| __atomic_fetch_and | __atomic_fetch_or)
+		atomic_call="$gcc_atomic_lockfree; volatile $gcc_atomic_type var; $gcc_atomic_type res = $1(&var, ($gcc_atomic_type) 0, __ATOMIC_RELAXED); res = $1(&var, ($gcc_atomic_type) 0, __ATOMIC_ACQUIRE); res = $1(&var, ($gcc_atomic_type) 0, __ATOMIC_RELEASE);"
+		;;
+	    __atomic_compare_exchange_n)
+		atomic_call="$gcc_atomic_lockfree; volatile $gcc_atomic_type var; $gcc_atomic_type val; int res = $1(&var, &val, ($gcc_atomic_type) 0, 0, __ATOMIC_RELAXED, __ATOMIC_RELAXED); res = $1(&var, &val, ($gcc_atomic_type) 0, 0, __ATOMIC_ACQUIRE, __ATOMIC_ACQUIRE);"
+		;;
+	    *)
+		AC_MSG_ERROR([Internal error: missing implementation for $1])
+		;;
+	esac
+	eval atomic${atomic_bit_size}_call=\"$atomic_call\"
+    done
+    
+    AC_CACHE_CHECK([for 32-bit $1()], ethr_cv_32bit_$1,
+		   [
+		       ethr_cv_32bit_$1=no
+		       AC_TRY_LINK([], [$atomic32_call], [ethr_cv_32bit_$1=yes])
+		   ])
+    AC_CACHE_CHECK([for 64-bit $1()], ethr_cv_64bit_$1,
+		   [
+		       ethr_cv_64bit_$1=no
+		       AC_TRY_LINK([], [$atomic64_call], [ethr_cv_64bit_$1=yes])
+		   ])
+    AC_CACHE_CHECK([for 128-bit $1()], ethr_cv_128bit_$1,
+		   [
+		       ethr_cv_128bit_$1=no
+		       AC_TRY_LINK([], [$atomic128_call], [ethr_cv_128bit_$1=yes])
+		   ])
+
+	case $ethr_cv_128bit_$1-$ethr_cv_64bit_$1-$ethr_cv_32bit_$1 in
+	    no-no-no)
+		have_atomic_ops=0;;
+	    no-no-yes)
+		have_atomic_ops=4;;
+	    no-yes-no)
+		have_atomic_ops=8;;
+	    no-yes-yes)
+		have_atomic_ops=12;;
+	    yes-no-no)
+		have_atomic_ops=16;;
+	    yes-no-yes)
+		have_atomic_ops=20;;
+	    yes-yes-no)
+		have_atomic_ops=24;;
+	    yes-yes-yes)
+		have_atomic_ops=28;;
+	esac
+	AC_DEFINE_UNQUOTED([ETHR_HAVE_$1], [$have_atomic_ops], [Define as a bitmask corresponding to the word sizes that $1() can handle on your system])
+])
+
+AC_DEFUN(ETHR_CHK_IF_NOOP,
+[
+   ethr_test_filename="chk_if_$1$3_noop_config1test.$$"
+   cat > "${ethr_test_filename}.c" <<EOF
+int
+my_test(void)
+{
+    $1$2;
+    return 0;
+}
+EOF
+   $CC -O3 $ETHR_DEFS -c "${ethr_test_filename}.c" -o "${ethr_test_filename}1.o"
+   cat > "${ethr_test_filename}.c" <<EOF
+int
+my_test(void)
+{
+    ;
+    return 0;
+}
+EOF
+   $CC -O3 $ETHR_DEFS -c "${ethr_test_filename}.c" -o "${ethr_test_filename}2.o"
+   if diff "${ethr_test_filename}1.o" "${ethr_test_filename}2.o" >/dev/null 2>&1; then
+      ethr_$1$3_noop=yes
+   else
+      ethr_$1$3_noop=no
+   fi
+   rm -f "${ethr_test_filename}.c" "${ethr_test_filename}1.o"  "${ethr_test_filename}2.o" 
+])
+
+AC_DEFUN(ETHR_CHK_GCC_ATOMIC_OPS,
+[
+    AC_CHECK_SIZEOF(short)
+    AC_CHECK_SIZEOF(int)
+    AC_CHECK_SIZEOF(long)
+    AC_CHECK_SIZEOF(long long)
+    AC_CHECK_SIZEOF(__int128_t)
+
+    if test "$ac_cv_sizeof_short" = "4"; then
+	gcc_atomic_type32="short"
+    elif test "$ac_cv_sizeof_int" = "4"; then
+	gcc_atomic_type32="int"
+    elif test "$ac_cv_sizeof_long" = "4"; then
+	gcc_atomic_type32="long"
+    else
+	AC_MSG_ERROR([No 32-bit type found])
+    fi
+
+    if test "$ac_cv_sizeof_int" = "8"; then
+	gcc_atomic_type64="int"
+    elif test "$ac_cv_sizeof_long" = "8"; then
+	gcc_atomic_type64="long"
+    elif test "$ac_cv_sizeof_long_long" = "8"; then
+	gcc_atomic_type64="long long"
+    else
+	AC_MSG_ERROR([No 64-bit type found])
+    fi
+
+    if test "$ac_cv_sizeof___int128_t" = "16"; then
+	gcc_atomic_type128="__int128_t"
+    else
+	gcc_atomic_type128="#error "	
+    fi
+    AC_CACHE_CHECK([for a working __sync_synchronize()], ethr_cv___sync_synchronize,
+		   [
+		       ethr_cv___sync_synchronize=no
+		       AC_TRY_LINK([],
+				   [ __sync_synchronize(); ],
+				   [ethr_cv___sync_synchronize=yes])
+		       if test $ethr_cv___sync_synchronize = yes; then
+			   #
+			   # Old gcc versions on at least x86 have a buggy
+			   # __sync_synchronize() which does not emit a
+			   # memory barrier. We try to detect this by
+			   # compiling to assembly with and without
+			   # __sync_synchronize() and compare the results.
+			   #
+			   ETHR_CHK_IF_NOOP(__sync_synchronize, [()], [])
+			   if test $ethr___sync_synchronize_noop = yes; then
+			      # Got a buggy implementation of
+			      # __sync_synchronize...
+			      ethr_cv___sync_synchronize="no; buggy implementation"
+			   fi
+		       fi
+		   ])
+
+    if test "$ethr_cv___sync_synchronize" = "yes"; then
+	have_sync_synchronize_value="~0"
+    else
+	have_sync_synchronize_value="0"
+    fi
+    AC_DEFINE_UNQUOTED([ETHR_HAVE___sync_synchronize], [$have_sync_synchronize_value], [Define as a bitmask corresponding to the word sizes that __sync_synchronize() can handle on your system])
+
+    ETHR_CHK_GCC_ATOMIC_OP__(__sync_add_and_fetch)
+    ETHR_CHK_GCC_ATOMIC_OP__(__sync_fetch_and_and)
+    ETHR_CHK_GCC_ATOMIC_OP__(__sync_fetch_and_or)
+    ETHR_CHK_GCC_ATOMIC_OP__(__sync_val_compare_and_swap)
+
+    ETHR_CHK_GCC_ATOMIC_OP__(__atomic_store_n)
+    ETHR_CHK_GCC_ATOMIC_OP__(__atomic_load_n)
+    ETHR_CHK_GCC_ATOMIC_OP__(__atomic_add_fetch)
+    ETHR_CHK_GCC_ATOMIC_OP__(__atomic_fetch_and)
+    ETHR_CHK_GCC_ATOMIC_OP__(__atomic_fetch_or)
+    ETHR_CHK_GCC_ATOMIC_OP__(__atomic_compare_exchange_n)
+
+    ethr_have_gcc_native_atomics=no
+    ethr_arm_dbm_instr_val=0
+    case "$GCC-$host_cpu" in
+	yes-arm*)
+	    AC_CACHE_CHECK([for ARM DMB instruction], ethr_cv_arm_dbm_instr,
+			   [
+				ethr_cv_arm_dbm_instr=no
+				AC_TRY_LINK([],
+					    [
+						__asm__ __volatile__("dmb sy" : : : "memory");
+						__asm__ __volatile__("dmb st" : : : "memory");
+					    ],
+					    [ethr_cv_arm_dbm_instr=yes])
+			   ])
+	    if test $ethr_cv_arm_dbm_instr = yes; then
+		ethr_arm_dbm_instr_val=1
+		test $ethr_cv_64bit___atomic_compare_exchange_n = yes &&
+		    ethr_have_gcc_native_atomics=yes
+	    fi;;
+	*)
+	    ;;
     esac
-    have_sync_op=no
-    AC_TRY_LINK([],
-	[
-	    $4 res;
-	    volatile $4 var;
-	    res = $sync_call
-	],
-	[have_sync_op=yes])
-    test $have_sync_op = yes && $5
-    AC_MSG_RESULT([$have_sync_op])
+    AC_DEFINE_UNQUOTED([ETHR_HAVE_GCC_ASM_ARM_DMB_INSTRUCTION], [$ethr_arm_dbm_instr_val], [Define as a boolean indicating whether you have a gcc compatible compiler capable of generating the ARM DMB instruction, and are compiling for an ARM processor with ARM DMB instruction support, or not])
+    test $ethr_cv_32bit___sync_val_compare_and_swap = yes &&
+    	ethr_have_gcc_native_atomics=yes
+    test $ethr_cv_64bit___sync_val_compare_and_swap = yes &&
+    	ethr_have_gcc_native_atomics=yes
+    if test "$ethr_cv___sync_synchronize" = "yes"; then
+    	test $ethr_cv_64bit___atomic_compare_exchange_n = yes &&
+    	    ethr_have_gcc_native_atomics=yes
+    	test $ethr_cv_32bit___atomic_compare_exchange_n = yes &&
+    	    ethr_have_gcc_native_atomics=yes
+    fi
+    ethr_have_gcc_atomic_builtins=0
+    if test $ethr_have_gcc_native_atomics = yes; then
+       ethr_native_atomic_implementation=gcc_sync
+       test $ethr_cv_32bit___atomic_compare_exchange_n = yes && ethr_have_gcc_atomic_builtins=1
+       test $ethr_cv_64bit___atomic_compare_exchange_n = yes && ethr_have_gcc_atomic_builtins=1
+       test $ethr_have_gcc_atomic_builtins = 1 && ethr_native_atomic_implementation=gcc_atomic_sync
+    fi
+    AC_DEFINE_UNQUOTED([ETHR_HAVE_GCC___ATOMIC_BUILTINS], [$ethr_have_gcc_atomic_builtins], [Define as a boolean indicating whether you have a gcc __atomic builtins or not])
+    test $ethr_have_gcc_native_atomics = yes && ethr_have_native_atomics=yes
 ])
 
 AC_DEFUN(ETHR_CHK_INTERLOCKED,
@@ -1005,6 +1207,16 @@ AC_ARG_ENABLE(prefer-gcc-native-ethr-impls,
 test $enable_prefer_gcc_native_ethr_impls = yes &&
   AC_DEFINE(ETHR_PREFER_GCC_NATIVE_IMPLS, 1, [Define if you prefer gcc native ethread implementations])
 
+AC_ARG_ENABLE(trust-gcc-atomic-builtins-memory-barriers,
+	      AS_HELP_STRING([--enable-trust-gcc-atomic-builtins-memory-barriers],
+			     [trust gcc atomic builtins memory barriers]),
+[ case "$enableval" in
+    yes) trust_gcc_atomic_builtins_mbs=1 ;;
+    *) trust_gcc_atomic_builtins_mbs=0 ;;
+  esac ], trust_gcc_atomic_builtins_mbs=0)
+
+AC_DEFINE_UNQUOTED(ETHR_TRUST_GCC_ATOMIC_BUILTINS_MEMORY_BARRIERS, [$trust_gcc_atomic_builtins_mbs], [Define as a boolean indicating whether you trust gcc's __atomic_* builtins memory barrier implementations, or not])
+
 AC_ARG_WITH(libatomic_ops,
 	    AS_HELP_STRING([--with-libatomic_ops=PATH],
 			   [specify and prefer usage of libatomic_ops in the ethread library]))
@@ -1016,6 +1228,7 @@ AC_ARG_WITH(with_sparc_memory_order,
 LM_CHECK_THR_LIB
 ERL_INTERNAL_LIBS
 
+ethr_native_atomic_implementation=none
 ethr_have_native_atomics=no
 ethr_have_native_spinlock=no
 ETHR_THR_LIB_BASE="$THR_LIB_NAME"
@@ -1100,7 +1313,10 @@ case "$THR_LIB_NAME" in
 
 	    ETHR_CHK_INTERLOCKED([_InterlockedCompareExchange128], [4], [__int64], AC_DEFINE_UNQUOTED(ETHR_HAVE__INTERLOCKEDCOMPAREEXCHANGE128, 1, [Define if you have _InterlockedCompareExchange128()]))
 	fi
-	test "$ethr_have_native_atomics" = "yes" && ethr_have_native_spinlock=yes
+	if test "$ethr_have_native_atomics" = "yes"; then
+	   ethr_native_atomic_implementation=windows
+	   ethr_have_native_spinlock=yes
+	fi
 	;;
 
     pthread|ose_threads)
@@ -1351,54 +1567,11 @@ case "$THR_LIB_NAME" in
 
 	fi
 
-	AC_CHECK_SIZEOF(int)
-	AC_CHECK_SIZEOF(long)
-	AC_CHECK_SIZEOF(long long)
-	AC_CHECK_SIZEOF(__int128_t)
-
-	if test "$ac_cv_sizeof_int" = "4"; then
-	    int32="int"
-	elif test "$ac_cv_sizeof_long" = "4"; then
-	    int32="long"
-	elif test "$ac_cv_sizeof_long_long" = "4"; then
-	    int32="long long"
-	else
-	    AC_MSG_ERROR([No 32-bit type found])
-	fi
-
-	if test "$ac_cv_sizeof_int" = "8"; then
-	    int64="int"
-	elif test "$ac_cv_sizeof_long" = "8"; then
-	    int64="long"
-	elif test "$ac_cv_sizeof_long_long" = "8"; then
-	    int64="long long"
-	else
-	    AC_MSG_ERROR([No 64-bit type found])
-	fi
-
-	int128=no
-	if test "$ac_cv_sizeof___int128_t" = "16"; then
-	    int128="__int128_t"
-	fi
-
 	if test "X$disable_native_ethr_impls" = "Xyes"; then
 	    ethr_have_native_atomics=no
 	else
-	    ETHR_CHK_SYNC_OP([__sync_val_compare_and_swap], [3], [32], [$int32], AC_DEFINE(ETHR_HAVE___SYNC_VAL_COMPARE_AND_SWAP32, 1, [Define if you have __sync_val_compare_and_swap() for 32-bit integers]))
-	    test "$have_sync_op" = "yes" && ethr_have_native_atomics=yes
-	    ETHR_CHK_SYNC_OP([__sync_add_and_fetch], [2], [32], [$int32], AC_DEFINE(ETHR_HAVE___SYNC_ADD_AND_FETCH32, 1, [Define if you have __sync_add_and_fetch() for 32-bit integers]))
-	    ETHR_CHK_SYNC_OP([__sync_fetch_and_and], [2], [32], [$int32], AC_DEFINE(ETHR_HAVE___SYNC_FETCH_AND_AND32, 1, [Define if you have __sync_fetch_and_and() for 32-bit integers]))
-	    ETHR_CHK_SYNC_OP([__sync_fetch_and_or], [2], [32], [$int32], AC_DEFINE(ETHR_HAVE___SYNC_FETCH_AND_OR32, 1, [Define if you have __sync_fetch_and_or() for 32-bit integers]))
 
-	    ETHR_CHK_SYNC_OP([__sync_val_compare_and_swap], [3], [64], [$int64], AC_DEFINE(ETHR_HAVE___SYNC_VAL_COMPARE_AND_SWAP64, 1, [Define if you have __sync_val_compare_and_swap() for 64-bit integers]))
-	    test "$have_sync_op" = "yes" && ethr_have_native_atomics=yes
-	    ETHR_CHK_SYNC_OP([__sync_add_and_fetch], [2], [64], [$int64], AC_DEFINE(ETHR_HAVE___SYNC_ADD_AND_FETCH64, 1, [Define if you have __sync_add_and_fetch() for 64-bit integers]))
-	    ETHR_CHK_SYNC_OP([__sync_fetch_and_and], [2], [64], [$int64], AC_DEFINE(ETHR_HAVE___SYNC_FETCH_AND_AND64, 1, [Define if you have __sync_fetch_and_and() for 64-bit integers]))
-	    ETHR_CHK_SYNC_OP([__sync_fetch_and_or], [2], [64], [$int64], AC_DEFINE(ETHR_HAVE___SYNC_FETCH_AND_OR64, 1, [Define if you have __sync_fetch_and_or() for 64-bit integers]))
-
-	    if test $int128 != no; then
-	        ETHR_CHK_SYNC_OP([__sync_val_compare_and_swap], [3], [128], [$int128], AC_DEFINE(ETHR_HAVE___SYNC_VAL_COMPARE_AND_SWAP128, 1, [Define if you have __sync_val_compare_and_swap() for 128-bit integers]))
-	    fi
+	    ETHR_CHK_GCC_ATOMIC_OPS([])
 
 	    AC_MSG_CHECKING([for a usable libatomic_ops implementation])
 	    case "x$with_libatomic_ops" in
@@ -1448,6 +1621,7 @@ case "$THR_LIB_NAME" in
 #endif
 	    	        ],
 	    	        [ethr_have_native_atomics=yes
+			 ethr_native_atomic_implementation=libatomic_ops
 	    	         ethr_have_libatomic_ops=yes])
 	    AC_MSG_RESULT([$ethr_have_libatomic_ops])
 	    if test $ethr_have_libatomic_ops = yes; then
@@ -1479,15 +1653,19 @@ case "$THR_LIB_NAME" in
 	    	        *)
 	    	    	    AC_MSG_ERROR([Unsupported Sparc memory order: $with_sparc_memory_order]);;
 	    	    esac
+		    ethr_native_atomic_implementation=ethread
 	    	    ethr_have_native_atomics=yes;; 
 	      i86pc | i*86 | x86_64 | amd64)
 	    	    if test "$enable_x86_out_of_order" = "yes"; then
 	    	    	    AC_DEFINE(ETHR_X86_OUT_OF_ORDER, 1, [Define if x86/x86_64 out of order instructions should be synchronized])
 	    	    fi
+		    ethr_native_atomic_implementation=ethread
 	    	    ethr_have_native_atomics=yes;;
 	      macppc | ppc | powerpc | "Power Macintosh")
+	      	    ethr_native_atomic_implementation=ethread
 	    	    ethr_have_native_atomics=yes;;
 	      tile)
+	            ethr_native_atomic_implementation=ethread
 	    	    ethr_have_native_atomics=yes;;
 	      *)
 	    	    ;;

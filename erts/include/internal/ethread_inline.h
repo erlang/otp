@@ -20,6 +20,29 @@
 #ifndef ETHREAD_INLINE_H__
 #define ETHREAD_INLINE_H__
 
+#define ETHR_GCC_COMPILER_FALSE 0 /* Not a gcc compatible compiler */
+#define ETHR_GCC_COMPILER_TRUE 1 /* The GNU gcc compiler */
+/* Negative integers for gcc compatible compilers */
+#define ETHR_GCC_COMPILER_CLANG -1 /* The Clang gcc compatible compiler */
+#define ETHR_GCC_COMPILER_ICC -2 /* The Intel gcc compatible compiler */
+/* Line them up... */
+
+/*
+ * Unfortunately there is no easy and certain way of
+ * detecting a true gcc compiler, since the compatible
+ * ones all define the same defines as the true gnu-gcc...
+ */
+#if !defined(__GNUC__) && !defined(__GNUG__) 
+#  define ETHR_GCC_COMPILER ETHR_GCC_COMPILER_FALSE
+#elif defined(__clang__)
+#  define ETHR_GCC_COMPILER ETHR_GCC_COMPILER_CLANG
+#elif defined(__ICC) || defined(__INTEL_COMPILER)
+#  define ETHR_GCC_COMPILER ETHR_GCC_COMPILER_ICC
+#else
+/* Seems to be the true gnu-gcc... */
+#  define ETHR_GCC_COMPILER ETHR_GCC_COMPILER_TRUE
+#endif
+
 #if !defined(__GNUC__)
 #  define ETHR_AT_LEAST_GCC_VSN__(MAJ, MIN, PL) 0
 #elif !defined(__GNUC_MINOR__)
