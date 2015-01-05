@@ -452,8 +452,8 @@ rc(_, Avp) ->
 %% a record and a list of component AVP's.
 ungroup(V, #diameter_avp{type = 'Grouped'} = Avp) ->
     {Rec, As} = V,
-    A = Avp#diameter_avp{value = Rec},
-    {[A|As], A};
+    A = Avp#diameter_avp{value = Rec, data = As},
+    {A, A};
 
 %% Otherwise it's just a plain value.
 ungroup(V, #diameter_avp{} = Avp) ->
