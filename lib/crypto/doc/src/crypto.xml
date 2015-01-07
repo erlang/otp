@@ -169,7 +169,7 @@
  </section>
 
   <funcs>
-      <func>
+    <func>
       <name>block_encrypt(Type, Key, PlainText) -> CipherText</name>
       <fsummary>Encrypt <c>PlainText</c>according to <c>Type</c> block cipher</fsummary>
       <type>
@@ -178,7 +178,7 @@
         <v>PlainText = iodata() </v>
       </type>
       <desc>
-        <p>Encrypt <c>PlainText</c>according to <c>Type</c> block cipher.
+        <p>Encrypt <c>PlainText</c>according to <c>Type</c> block cipher.</p>
   <p>May throw exception <c>notsup</c> in case the chosen <c>Type</c>
   is not supported by the underlying OpenSSL implementation.</p>
       </desc>
@@ -193,13 +193,13 @@
         <v>PlainText = iodata() </v>
       </type>
       <desc>
-        <p>Decrypt <c>CipherText</c>according to <c>Type</c> block cipher.
+        <p>Decrypt <c>CipherText</c>according to <c>Type</c> block cipher.</p>
   <p>May throw exception <c>notsup</c> in case the chosen <c>Type</c>
   is not supported by the underlying OpenSSL implementation.</p>
       </desc>
     </func>
 
-      <func>
+    <func>
       <name>block_encrypt(Type, Key, Ivec, PlainText) -> CipherText</name>
       <name>block_encrypt(AeadType, Key, Ivec, {AAD, PlainText}) -> {CipherText, CipherTag}</name>
       <fsummary>Encrypt <c>PlainText</c> according to <c>Type</c> block cipher</fsummary>
