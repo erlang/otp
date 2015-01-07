@@ -151,9 +151,9 @@ If a new item is inserted with the same key as
       </item>
       <item>
         <p><c>local_content</c> When an application requires 
-          tables whose contents is local to each node,
+          tables whose contents are local to each node,
           <c>local_content</c> tables may be used. The name of the
-          table is known to all Mnesia nodes, but its contents is
+          table is known to all Mnesia nodes, but its contents are
           unique on each node. This means that access to such a table
           must be done locally.  Set the <c>local_content</c> field to
           <c>true</c> if you want to enable the <c>local_content</c>
@@ -579,7 +579,7 @@ mnesia:add_table_index(person, age)
       <desc>
         <p>The tables are backed up to external media using the backup
           module <c>BackupMod</c>. Tables with the local contents
-          property is being backed up as they exist on the current
+          property are backed up as they exist on the current
           node.  <c>BackupMod</c> is the default backup callback
           module obtained by
           <c>mnesia:system_info(backup_module)</c>. See the User's
