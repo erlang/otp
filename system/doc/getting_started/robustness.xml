@@ -30,7 +30,7 @@
   </header>
   <p>There are several things which are wrong with
     the <seealso marker="conc_prog#ex">messenger example</seealso> from
-    the previous chapter. For example if a node where a user is logged
+    the previous chapter. For example, if a node where a user is logged
     on goes down without doing a log off, the user will remain in
     the server's <c>User_List</c> but the client will disappear thus
     making it impossible for the user to log on again as the server
