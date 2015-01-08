@@ -96,9 +96,16 @@ do_beam_file(F) ->
 compiler_bug(Config) when is_list(Config) ->
     %% Check that the compiler returns an error if we try to
     %% assemble one of the bad '.S' files.
-    ?line Data = ?config(data_dir, Config),
-    ?line File = filename:join(Data, "stack"),
-    ?line error = compile:file(File, [asm,report_errors,binary,time]),
+    Data = ?config(data_dir, Config),
+    File = filename:join(Data, "compiler_bug"),
+    error = compile:file(File, [from_asm,report_errors,time]),
+
+    %% Make sure that the error was reported by
+    %% the beam_validator module.
+    {error,
+     [{"compiler_bug",
+       [{beam_validator,_}]}],
+     []} = compile:file(File, [from_asm,return_errors,time]),
     ok.
 
 %% The following code is stupid but it should compile.
