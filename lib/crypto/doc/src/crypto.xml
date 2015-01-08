@@ -171,14 +171,14 @@
   <funcs>
     <func>
       <name>block_encrypt(Type, Key, PlainText) -> CipherText</name>
-      <fsummary>Encrypt <c>PlainText</c>according to <c>Type</c> block cipher</fsummary>
+      <fsummary>Encrypt <c>PlainText</c> according to <c>Type</c> block cipher</fsummary>
       <type>
   <v>Type = des_ecb | blowfish_ecb | aes_ecb </v>
   <v>Key = block_key() </v>
         <v>PlainText = iodata() </v>
       </type>
       <desc>
-        <p>Encrypt <c>PlainText</c>according to <c>Type</c> block cipher.</p>
+        <p>Encrypt <c>PlainText</c> according to <c>Type</c> block cipher.</p>
   <p>May throw exception <c>notsup</c> in case the chosen <c>Type</c>
   is not supported by the underlying OpenSSL implementation.</p>
       </desc>
@@ -186,14 +186,14 @@
 
     <func>
       <name>block_decrypt(Type, Key, CipherText) -> PlainText</name>
-      <fsummary>Decrypt <c>CipherText</c>according to <c>Type</c> block cipher</fsummary>
+      <fsummary>Decrypt <c>CipherText</c> according to <c>Type</c> block cipher</fsummary>
       <type>
   <v>Type = des_ecb | blowfish_ecb | aes_ecb </v>
   <v>Key = block_key() </v>
         <v>PlainText = iodata() </v>
       </type>
       <desc>
-        <p>Decrypt <c>CipherText</c>according to <c>Type</c> block cipher.</p>
+        <p>Decrypt <c>CipherText</c> according to <c>Type</c> block cipher.</p>
   <p>May throw exception <c>notsup</c> in case the chosen <c>Type</c>
   is not supported by the underlying OpenSSL implementation.</p>
       </desc>
@@ -211,7 +211,7 @@
         <v>AAD = IVec = CipherText = CipherTag = binary()</v>
       </type>
       <desc>
-        <p>Encrypt <c>PlainText</c>according to <c>Type</c> block cipher.
+        <p>Encrypt <c>PlainText</c> according to <c>Type</c> block cipher.
 	<c>IVec</c> is an arbitrary initializing vector.</p>
 	<p>In AEAD (Authenticated Encryption with Associated Data) mode, encrypt
 	<c>PlainText</c>according to <c>Type</c> block cipher and calculate
@@ -233,7 +233,7 @@
         <v>AAD = IVec = CipherText = CipherTag = binary()</v>
       </type>
       <desc>
-        <p>Decrypt <c>CipherText</c>according to <c>Type</c> block cipher.
+        <p>Decrypt <c>CipherText</c> according to <c>Type</c> block cipher.
 	<c>IVec</c> is an arbitrary initializing vector.</p>
         <p>In AEAD (Authenticated Encryption with Associated Data) mode, decrypt
 	<c>CipherText</c>according to <c>Type</c> block cipher and check the authenticity
