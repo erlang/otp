@@ -1,0 +1,145 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>1998</year>
+      <year>2011</year>
+      <holder>Ericsson AB, All Rights Reserved</holder>
+    </copyright>
+    <legalnotice>
+  The contents of this file are subject to the Erlang Public License,
+  Version 1.1, (the "License"); you may not use this file except in
+  compliance with the License. You should have received a copy of the
+  Erlang Public License along with this software. If not, it can be
+  retrieved online at http://www.erlang.org/.
+
+  Software distributed under the License is distributed on an "AS IS"
+  basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+  the License for the specific language governing rights and limitations
+  under the License.
+
+  The Initial Developer of the Original Code is Ericsson AB.
+    </legalnotice>
+
+    <title>mnesia_schema</title>
+    <prepared>Ulf Wiger</prepared>
+    <responsible></responsible>
+    <docno></docno>
+    <approved></approved>
+    <checked></checked>
+    <date>14-05-15</date>
+    <rev>PA1</rev>
+    <file>mnesia_schema.sgml</file>
+  </header>
+  <module>mnesia_schema</module>
+  <modulesummary>Mnesia schema API</modulesummary>
+  <description>
+    <p>The module <c>mnesia_schema</c> is normally not used
+    by end users. It should only be considered by advanced users, and
+    users who depend on backend- or index plugins. The functions
+    intended to be called directly are described below.
+    </p>
+    <p>Schema operations are performed inside a special type of
+    database transaction. Starting a schema transaction explicitly can
+    be useful in order to perform several schema modifications
+    atomically.
+    </p>
+  </description>
+  <funcs>
+    <func>
+      <name>add_backend_type(Alias, Module) -> {atomic,ok} | {aborted,
+      Reason}</name>
+      <fsummary>Adds a backend plugin instance to the schema.</fsummary>
+      <desc>
+        <p>The <c>Module</c> must export all callback functions
+	specified in the <c>mnesia_backend_type</c> behaviour.
+          </p>
+	  <p><c>Alias</c> defines a name referring to the backend,
+	  similar to <c>ram_copies</c>, <c>disc_copies</c>, et al.
+	  </p>
+      </desc>
+    </func>
+    <func>
+      <name>add_index_plugin(Name, Module, Function) ->
+      {atomic, ok} | {aborted, Reason}</name>
+      <fsummary>Adds an indexing plugin to the schema.</fsummary>
+      <desc>
+        <p><c>Name :: {atom()}</c> defines the name used to refer to
+	the index type. The 1-tuple construct is used to distinguish
+	it uniquely from references to built-in indexes.</p>
+	<p><c>Module</c> and <c>Function</c> shall refer to an
+	exported function with arity 3. The indexing function will be
+	called as <c>Module:Function(Tab, Name, Object)</c> and shall
+	return a list of index values.</p>
+      </desc>
+    </func>
+    <func>
+      <name>backend_types() -> [{Alias, Module}]</name>
+      <fsummary>Lists the backend types registered in the schema.</fsummary>
+      <desc>
+        <p></p>
+      </desc>
+    </func>
+    <func>
+      <name>delete_backend_type(Alias) -> {atomic,ok} | {aborted, Reason}</name>
+      <fsummary>Deletes a registered backend type.</fsummary>
+      <desc>
+        <p></p>
+      </desc>
+    </func>
+    <func>
+      <name>do_add_backend_type(Alias, Module) -> ok | abort()</name>
+      <fsummary>Like <c>add_backend_type/2, but inside a schema transaction.</fsummary>
+      <desc>
+        <p></p>
+      </desc>
+    </func>
+    <func>
+      <name>do_add_index_plugin(Name, Module, Function) -> ok | abort()</name>
+      <fsummary>Like <c>add_index_plugin/3, but inside a schema transaction.</fsummary>
+      <desc>
+        <p></p>
+      </desc>
+    </func>
+    <func>
+      <name>do_delete_backend_type(Alias) -> ok | abort()</name>
+      <fsummary>Like <c>delete_backend_type/1, but inside a schema transaction.</fsummary>
+      <desc>
+        <p></p>
+      </desc>
+    </func>
+    <func>
+      <name>do_delete_index_plugin(Name) -> ok | abort()</name>
+      <fsummary>Like <c>delete_index_plugin/1, but inside a schema transaction.</fsummary>
+      <desc>
+        <p></p>
+      </desc>
+    </func>
+    <func>
+      <name>create_table(Tab, TabDef) -> ok | exit(Reason)</name>
+      <fsummary>Creates a customized registry table in Mnesia. </fsummary>
+      <desc>
+        <p>This is a wrapper function for
+          <c>mnesia:create_table/2</c> which creates a table (if there is no existing table)
+          with an appropriate set of <c>attributes</c>. The attributes
+          and <c>TabDef</c> are forwarded to
+          <c>mnesia:create_table/2</c>.  For example, if the table should
+          reside as <c>disc_only_copies</c> on all nodes a call would
+          look like:</p>
+        <code type="none">
+          TabDef = [{{disc_only_copies, node()|nodes()]}],
+          mnesia_registry:create_table(my_reg, TabDef)
+        </code>
+      </desc>
+    </func>
+  </funcs>
+
+  <section>
+    <title>See Also</title>
+    <p>mnesia(3), erl_interface(3)
+      </p>
+  </section>
+
+</erlref>

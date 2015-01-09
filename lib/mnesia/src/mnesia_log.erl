@@ -154,6 +154,7 @@
 	 dcd_version/0,
 	 ets2dcd/1,
 	 ets2dcd/2,
+	 ets2dcd/3,
 	 dcd2ets/1,
 	 dcd2ets/2,
 	 init/0,
@@ -226,6 +227,7 @@ sappend(Log, Term) ->
 %% Write commit records to the latest_log
 log(C) when  C#commit.disc_copies == [],
              C#commit.disc_only_copies  == [],
+             C#commit.external_copies  == [],
              C#commit.schema_ops == [] ->
     ignore;
 log(C) ->
@@ -249,6 +251,7 @@ log(C) ->
 
 slog(C) when  C#commit.disc_copies == [],
              C#commit.disc_only_copies  == [],
+             C#commit.external_copies  == [],
              C#commit.schema_ops == [] ->
     ignore;
 slog(C) ->
@@ -908,6 +911,9 @@ ets2dcd(Tab) ->
     ets2dcd(Tab, dcd).
 
 ets2dcd(Tab, Ftype) ->
+    ets2dcd(ram_copies, Tab, Ftype).
+
+ets2dcd(Storage, Tab, Ftype) ->
     Fname =
 	case Ftype of
 	    dcd -> mnesia_lib:tab2dcd(Tab);
@@ -916,9 +922,9 @@ ets2dcd(Tab, Ftype) ->
     TmpF = mnesia_lib:tab2tmp(Tab),
     file:delete(TmpF),
     Log  = open_log({Tab, ets2dcd}, dcd_log_header(), TmpF, false),
-    mnesia_lib:db_fixtable(ram_copies, Tab, true),
-    ok   = ets2dcd(mnesia_lib:db_init_chunk(ram_copies, Tab, 1000), Tab, Log),
-    mnesia_lib:db_fixtable(ram_copies, Tab, false),
+    mnesia_lib:db_fixtable(Storage, Tab, true),
+    ok   = ets2dcd(mnesia_lib:db_init_chunk(Storage, Tab, 1000), Storage, Tab, Log),
+    mnesia_lib:db_fixtable(Storage, Tab, false),
     close_log(Log),
     ok = file:rename(TmpF, Fname),
     %% Remove old log data which is now in the new dcd.
@@ -926,29 +932,32 @@ ets2dcd(Tab, Ftype) ->
     file:delete(mnesia_lib:tab2dcl(Tab)),
     ok.
 
-ets2dcd('$end_of_table', _Tab, _Log) ->
+ets2dcd('$end_of_table', _Storage, _Tab, _Log) ->
     ok;
-ets2dcd({Recs, Cont}, Tab, Log) ->
+ets2dcd({Recs, Cont}, Storage, Tab, Log) ->
     ok = disk_log:log_terms(Log, Recs),
-    ets2dcd(mnesia_lib:db_chunk(ram_copies, Cont), Tab, Log).
+    ets2dcd(mnesia_lib:db_chunk(Storage, Cont), Storage, Tab, Log).
 
 dcd2ets(Tab) ->
     dcd2ets(Tab, mnesia_monitor:get_env(auto_repair)).
 
 dcd2ets(Tab, Rep) ->
+    dcd2ets(ram_copies, Tab, Rep).
+
+dcd2ets(Storage, Tab, Rep) ->
     Dcd = mnesia_lib:tab2dcd(Tab),
     case mnesia_lib:exists(Dcd) of
 	true ->
 	    Log = open_log({Tab, dcd2ets}, dcd_log_header(), Dcd,
 			   true, Rep, read_only),
 	    Data = chunk_log(Log, start),
-	    ok = insert_dcdchunk(Data, Log, Tab),
+	    ok = insert_dcdchunk(Data, Log, Storage, Tab),
 	    close_log(Log),
 	    load_dcl(Tab, Rep);
 	false -> %% Handle old dets files, and conversion from disc_only to disc.
 	    Fname = mnesia_lib:tab2dat(Tab),
 	    Type = val({Tab, setorbag}),
-	    case mnesia_lib:dets_to_ets(Tab, Tab, Fname, Type, Rep, yes) of
+	    case mnesia_lib:dets_to_ets(Storage, Tab, Tab, Fname, Type, Rep, yes) of
 		loaded ->
 		    ets2dcd(Tab),
 		    file:delete(Fname),
@@ -958,16 +967,16 @@ dcd2ets(Tab, Rep) ->
 	    end
     end.
 
-insert_dcdchunk({Cont, [LogH | Rest]}, Log, Tab)
+insert_dcdchunk({Cont, [LogH | Rest]}, Log, Storage, Tab)
   when is_record(LogH, log_header),
        LogH#log_header.log_kind == dcd_log,
        LogH#log_header.log_version >= "1.0" ->
-    insert_dcdchunk({Cont, Rest}, Log, Tab);
+    insert_dcdchunk({Cont, Rest}, Log, Storage, Tab);
 
-insert_dcdchunk({Cont, Recs}, Log, Tab) ->
+insert_dcdchunk({Cont, Recs}, Log, Storage, Tab) ->
     true = ets:insert(Tab, Recs),
-    insert_dcdchunk(chunk_log(Log, Cont), Log, Tab);
-insert_dcdchunk(eof, _Log, _Tab) ->
+    insert_dcdchunk(chunk_log(Log, Cont), Log, Storage, Tab);
+insert_dcdchunk(eof, _Log, _Storage, _Tab) ->
     ok.
 
 load_dcl(Tab, Rep) ->
