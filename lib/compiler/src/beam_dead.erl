@@ -21,112 +21,10 @@
 
 -export([module/2]).
 
-%%% The following optimisations are done:
-%%%
-%%% (1) In this code
-%%%
-%%%     	move DeadValue {x,0}
-%%%     	jump L2
-%%%        .
-%%%        .
-%%%        .
-%%%     L2:	move Anything {x,0}
-%%%        .
-%%%        .
-%%%        .
-%%%
-%%%     the first assignment to {x,0} has no effect (is dead),
-%%%     so it can be removed. Besides removing a move instruction,
-%%%     if the move was preceeded by a label, the resulting code
-%%%	will look this
-%%%
-%%%     L1:	jump L2
-%%%        .
-%%%        .
-%%%        .
-%%%     L2:	move Anything {x,0}
-%%%        .
-%%%        .
-%%%        .
-%%%
-%%%	which can be further optimized by the jump optimizer (beam_jump).
-%%%
-%%% (2) In this code
-%%%
-%%%     L1:	move AtomLiteral {x,0}
-%%%     	jump L2
-%%%        .
-%%%        .
-%%%        .
-%%%     L2:	test is_atom FailLabel {x,0}
-%%%    		select_val {x,0}, FailLabel [... AtomLiteral => L3...]
-%%%        .
-%%%        .
-%%%        .
-%%%	L3:	...
-%%%
-%%%     FailLabel: ...
-%%%
-%%%	the first code fragment can be changed to
-%%%
-%%%     L1:	move AtomLiteral {x,0}
-%%%     	jump L3
-%%%
-%%%     If the literal is not included in the table of literals in the
-%%%     select_val instruction, the first code fragment will instead be
-%%%     rewritten as:
-%%%
-%%%     L1:	move AtomLiteral {x,0}
-%%%     	jump FailLabel
-%%%
-%%%	The move instruction will be removed by optimization (1) above,
-%%%	if the code following the L3 label overwrites {x,0}.
-%%%
-%%% 	The code following the L2 label will be kept, but it will be removed later
-%%%	by the jump optimizer.
-%%%
-%%% (3) In this code
-%%%
-%%%     	test is_eq_exact ALabel Src Dst
-%%%     	move Src Dst
-%%%
-%%%	the move instruction can be removed.
-%%%     Same thing for
-%%%
-%%%     	test is_nil ALabel Dst
-%%%     	move [] Dst
-%%%
-%%%
-%%% (4) In this code
-%%%
-%%%    		select_val {x,Reg}, ALabel [... Literal => L1...]
-%%%        .
-%%%        .
-%%%        .
-%%%	L1:	move Literal {x,Reg}
-%%%
-%%%     we can remove the move instruction.
-%%%
-%%% (5) In the following code
-%%%
-%%%     	bif '=:=' Fail Src1 Src2 {x,0}
-%%%    		jump L1
-%%%	   .
-%%%	   .
-%%%	   .
-%%%        L1:	select_val {x,0}, ALabel [... true => L2..., ...false => L3...]
-%%%	   .
-%%%	   .
-%%%	   .
-%%%        L2: ....      L3: ....
-%%%
-%%%  the first two instructions can be replaced with
-%%%
-%%%		test is_eq_exact L3 Src1 Src2
-%%%		jump L2
-%%%
-%%%  provided that {x,0} is killed at both L2 and L3.
-%%%
+%%% Dead code is code that is executed but has no effect. This
+%%% optimization pass either removes dead code or jumps around it,
+%%% potentially making it unreachable and a target for the
+%%% the beam_jump pass.
 
 -import(lists, [mapfoldl/3,reverse/1]).
 
@@ -173,7 +71,28 @@ move_move_into_block([I|Is], Acc) ->
 move_move_into_block([], Acc) -> reverse(Acc).
 
 %%%
-%%% Scan instructions in execution order and remove dead code.
+%%% Scan instructions in execution order and remove redundant 'move'
+%%% instructions. 'move' instructions are redundant if we know that
+%%% the register already contains the value being assigned, as in the
+%%% following code:
+%%%
+%%%           test is_eq_exact SomeLabel Src Dst
+%%%           move Src Dst
+%%%
+%%% or in:
+%%%
+%%%           test is_nil SomeLabel Dst
+%%%           move nil Dst
+%%%
+%%% or in:
+%%%
+%%%           select_val Register FailLabel [... Literal => L1...]
+%%%                      .
+%%%                      .
+%%%                      .
+%%%   L1:     move Literal Register
+%%%
+%%% Also add extra labels to help the second backward pass.
 %%%
 
 forward(Is, Lc) ->
@@ -249,8 +168,37 @@ useful_to_insert_label([{test,Op,_,_}|_]) ->
     end.
 
 %%%
-%%% Scan instructions in reverse execution order and remove dead code.
+%%% Scan instructions in reverse execution order and try to
+%%% shortcut branch instructions.
 %%%
+%%% For example, in this code:
+%%%
+%%%             move Literal Register
+%%%             jump L1
+%%%                .
+%%%                .
+%%%                .
+%%%     L1:     test is_{integer,atom} FailLabel Register
+%%%             select_val {x,0} FailLabel [... Literal => L2...]
+%%%                .
+%%%                .
+%%%                .
+%%%     L2:        ...
+%%%
+%%% the 'selectval' instruction will always transfer control to L2,
+%%% so we can just as well jump to L2 directly by rewriting the
+%%% first part of the sequence like this:
+%%%
+%%%           move Literal Register
+%%%           jump L2
+%%%
+%%% If register Register is killed at label L2, we can remove the
+%%% 'move' instruction, leaving just the 'jump' instruction:
+%%%
+%%%           jump L2
+%%%
+%%% These transformations may leave parts of the code unreachable.
+%%% The beam_jump pass will remove the unreachable code.
 
 backward(Is, D) ->
     backward(Is, D, []).
@@ -392,6 +340,23 @@ shortcut_boolean_label(To0, Reg, {atom,Bool0}=Lit, D) when is_boolean(Bool0) ->
     end;
 shortcut_boolean_label(To, _, Bool, _) -> {To,Bool}.
 
+%% Replace a comparison operator with a test instruction and a jump.
+%% For example, if we have this code:
+%%
+%%     	  bif '=:=' Fail Src1 Src2 {x,0}
+%%    	  jump L1
+%%           .
+%%           .
+%%           .
+%%   L1:  select_val {x,0} FailLabel [... true => L2..., ...false => L3...]
+%%
+%% the first two instructions can be replaced with
+%%
+%%        test is_eq_exact L3 Src1 Src2
+%%	  jump L2
+%%
+%% provided that {x,0} is killed at both L2 and L3.
+
 replace_comp_op(To, Reg, Op, Ops, D) ->
     False = comp_op_find_shortcut(To, Reg, {atom,false}, D),
     True = comp_op_find_shortcut(To, Reg, {atom,true}, D),
@@ -426,9 +391,9 @@ not_possible() -> throw(not_possible).
 %%
 %%      is_eq_exact F1 Reg Lit1		    select_val Reg F2 [ Lit1 L1
 %%   L1:                .                                       Lit2 L2 ]
-%%              	.
-%%                	.	     ==>
-%%                	.
+%%                      .
+%%                      .	     ==>
+%%                      .
 %%   F1:  is_eq_exact F2 Reg Lit2          F1: is_eq_exact F2 Reg Lit2
 %%   L2:  ....				   L2:
 %%
