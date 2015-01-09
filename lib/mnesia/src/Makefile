@@ -43,6 +43,7 @@ RELSYSDIR = $(RELEASE_PATH)/lib/mnesia-$(VSN)
 # ----------------------------------------------------
 MODULES= \
 	mnesia \
+	mnesia_backend_type \
 	mnesia_backup \
 	mnesia_bup \
 	mnesia_checkpoint \
@@ -50,6 +51,7 @@ MODULES= \
 	mnesia_controller \
 	mnesia_dumper\
 	mnesia_event \
+	mnesia_ext_sup \
 	mnesia_frag \
 	mnesia_frag_hash \
 	mnesia_frag_old_hash \
@@ -64,6 +66,7 @@ MODULES= \
 	mnesia_recover \
 	mnesia_registry \
 	mnesia_schema\
+	mnesia_sext \
 	mnesia_snmp_hook \
 	mnesia_snmp_sup \
 	mnesia_subscr \
@@ -95,6 +98,7 @@ APPUP_TARGET= $(EBIN)/$(APPUP_FILE)
 # ----------------------------------------------------
 ERL_COMPILE_FLAGS += \
 	-Werror \
+	-pa ../ebin \
 	+'{parse_transform,sys_pre_attributes}' \
 	+'{attribute,insert,vsn,"mnesia_$(MNESIA_VSN)"}'
 

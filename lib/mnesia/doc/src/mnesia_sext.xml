@@ -1,0 +1,483 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>2014</year>
+      <holder>Erlang Solutions Ltd</holder>
+    </copyright>
+    <legalnotice>
+  Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+    </legalnotice>
+
+    <title>mnesia_sext</title>
+    <prepared>Ulf Wiger</prepared>
+    <responsible></responsible>
+    <docno></docno>
+    <approved></approved>
+    <checked></checked>
+    <date>10-11-23</date>
+    <rev>A</rev>
+    <file>mnesia_sext.sgml</file>
+  </header>
+  <module>mnesia_sext</module>
+  <modulesummary>Sortable EXTernal term format</modulesummary>
+  <description>
+    <p>The module <c>mnesia_sext</c> was imported from the
+    <url href="https://github.com/esl/sext"><c>sext</c> library</url>
+    by Erlang Solutions Ltd, but for the time being, it is a part of
+    the Mnesia application.
+    </p>
+    <p><c>mnesia_sext</c> is intended for mnesia backend plugins,
+    e.g. or convenient use of Erlang terms as keys in third-party
+    storage backends with ordered-set semantics.
+    </p>
+    <p>The serialization format supports all Erlang types, and
+    preserves the internal Erlang term order, with a few
+    exceptions:</p>
+    <list type="bulleted">
+      <item>Floats are represented based on the IEEE 764 Binary 64
+      standard representation. This is the representation used by
+      Erlang, specifically the representation used when encoding
+      floats in binaries. To be exact, <c>sext</c> first normalizes
+      the float by encoding it as an Erlang binary, then serializes
+      it.</item>
+      <item>In Erlang, integers are cast to floats before comparing
+      them with a float. This means e.g. that the relative sort order of
+      <c>1</c> and <c>1.0</c> is undefined. It is not possible for
+      <c>sext</c> to preserve this ambiguity after serialization,
+      since it could only be done by producing identical encodings
+      for the two items, thereby sacrificing the property that
+      encoding a value and then decoding it again, should produce
+      the initial value.</item>
+    </list>
+  </description>
+  <section>
+    <title>Type tags</title>
+    <table>
+      <row>
+	<cell>Type</cell><cell>Description</cell><cell>Tag</cell>
+      </row>
+      <row>
+	<cell>negbig</cell><cell>Negative bignum</cell>
+	<cell>8</cell>
+      </row>
+      <row>
+	<cell>neg4</cell><cell>Negative 31-bit integer</cell>
+	<cell>9</cell>
+      </row>
+      <row>
+	<cell>pos4</cell><cell>Positive 31-bit integer</cell>
+	<cell>10</cell>
+      </row>
+      <row>
+	<cell>posbig</cell><cell>Positive bignum</cell>
+	<cell>11</cell>
+      </row>
+      <row>
+	<cell>atom</cell><cell>Obj of type atom</cell>
+	<cell>12</cell>
+      </row>
+      <row>
+	<cell>reference</cell><cell>Obj of type reference</cell>
+	<cell>13</cell>
+      </row>
+      <row>
+	<cell>port</cell><cell>Obj of type port</cell>
+	<cell>14</cell>
+      </row>
+      <row>
+	<cell>pid</cell><cell>Obj of type pid</cell>
+	<cell>15</cell>
+      </row>
+      <row>
+	<cell>tuple</cell><cell>Obj of type tuple</cell>
+	<cell>16</cell>
+      </row>
+      <row>
+	<cell>list</cell><cell>Obj of type list</cell>
+	<cell>17</cell>
+      </row>
+      <row>
+	<cell>binary</cell><cell>Obj of type binary or bitstring</cell>
+	<cell>18</cell>
+      </row>
+      <row>
+	<cell>bin_tail</cell><cell>Improper-tail marker followed
+	by binary or bitstring</cell><cell>19</cell>
+      </row>
+    </table>
+  </section>
+  <section>
+    <title>Tuples</title>
+    <p>Tuples are encoded as the tuple tag, followed by a 32-bit size
+    element, denoting the number of elements in the tuple, followed by
+    each element in the tuple individually encoded.</p>
+  </section>
+  <section>
+    <title>Lists</title>
+    <p>Lists are encoded as the list tag, followed by each element in
+    the list individually encoded, followed by the number <c>2</c> (1
+    byte).</p>
+    <p>Improper lists, e.g. <c>[1,2|3]</c>, have the number <c>1</c>
+    inserted before the improper tail. Since this also indicates the
+    last element in the list, no end byte is needed. This ensures that
+    it sorts before any corresponding proper list, as long as the
+    improper tail is not a binary (binaries are greater than the
+    missing 'cons', or list, cell).</p>
+
+    <p>Improper lists that have a binary or bitstring as 'tail',
+    e.g. <c>[1,2|&lt;&lt;1&gt;&gt;]</c>, have a <c>?bin_tail</c> (code
+    <c>19</c>) inserted before the tail. This ensures that it sorts
+    after a corresponding proper list.</p>
+  </section>
+  <section>
+    <title>Binaries and bitstrings</title>
+    <p>A binary is basically a bitstring whose size is a multiple of
+    8. From a sorting perspective, binaries and bitstrings are both
+    sorted as left-aligned bit arrays.</p>
+
+    <code type="none"><![CDATA[1> bitstring_to_list(<<11111111111:11>>).
+    [56,<<7:3>>]]]></code>
+
+    <p>Binaries and bitstrings are encoded as the binary tag, followed by
+    each whole byte, each padded with a leading 1 (one bit), followed by a
+    number of 0-bits to pad again make the size a multiple of 8 bits,
+    followed by a byte whose value is Bits, where Bits is the number of
+    "remainder bits"; 8 if the original binary is 8-bit aligned.</p>
+
+    <p>Example:</p>
+
+    <code type="none"><![CDATA[2> sext:encode(<<1,2,3>>).
+<<18,128,192,160,96,8>>
+3> <<18, 1:1,1, 1:1,2, 1:1,3, 0:5, 8>>.
+<<18,128,192,160,96,8>>]]></code>
+
+    <p>In the example above, we inserted 3 1-bits, and therefore had
+    to insert 5 more pad bits (zeroes) at the end. The last byte is 8,
+    signifying that the original binary was 8-bit aligned.</p>
+
+    <p>If the remainder is not an even 8 bits, the remainder bits are
+    padded with a 1-bit, just like the others, then left-aligned and
+    padded up to a whole byte (excluding the 1-bit added in
+    front). The value of the last byte is the bit size of the remainder.</p>
+
+    <p>Example:</p>
+
+    <code type="none"><![CDATA[2> sext:encode(<<1,2,3>>).
+<<18,128,192,160,96,8>>
+3> sext:encode(<<18, 1:1,1, 1:1,2, 1:1,3, 0:5, 8>>).
+<<18,128,192,160,96,8>>]]></code>
+
+   <p>The first part of the bitstring is encoded exactly like
+    above. The number 4:3 is first padded with 1 then padded at the
+    end to become a whole byte. Then an additional pad, 0:4, is
+    inserted to compensate for the fact that we have inserted 4
+    1-bits. Finally, the last byte is 3, to signify the size of the
+    remainder.</p>
+  </section>
+  <section>
+    <title>Positive numbers</title>
+      <p>Numbers are encoded as the corresponding type tag, followed
+      by the integer part, a marker indicating the presence of a
+      fraction part, and the fraction part, if any. The integer part
+      is encoded differently depending on the size of the value. The
+      fraction part is encoded as a binary (without the 'binary' type
+      tag).</p>
+    <section><title>Positive small integers, pos4</title>
+    <p>Integers up to 31 bits are encoded as <c>&lt;&lt; ?pos4, I:31,
+    F:1 &gt;&gt;</c> where <c>I</c> is the integer value, and <c>F</c>
+    is <c>1</c> if a fraction part follows; <c>0</c> otherwise.
+    </p>
+    </section>
+    <section><title>Positive large integers</title>
+    <p>Larger integers are converted to a byte string and then encoded
+    like binaries (without the 'binary' type tag), followed by a byte
+    signifying whether a fraction part follows (<c>1</c> if yes;
+    <c>0</c> otherwise).</p>
+    <code type="none"><![CDATA[Bytes = encode_big(I),
+<< ?pos_big, Bytes/binary, F:8 >>]]></code>
+    </section>
+    <section><title>Fraction part of positive numbers</title>
+    <p>The representation of floating point numbers is based on the
+    <url
+	href="http://en.wikipedia.org/wiki/Double_precision_floating-point_format">IEEE
+    764 Binary 64 standard representation</url>. This is also the
+    representation used by Erlang:</p>
+    <code><![CDATA[<<Sign:1, Exp:11, Frac:52>> = <<F/float>>]]></code>
+    <p>The encoding extracts the integer part and encodes it as a
+    positive integer (either pos4 or pos_big), flags the presence of a
+    fraction part, and encodes the fraction part as a binary (without
+    the binary tag).</p>
+    </section>
+  </section>
+  <section>
+    <title>Negative Numbers</title>
+    <section>
+      <title>Small negative numbers</title>
+      <code type="none"><![CDATA[<< ?neg4:8, IRep:31, F:1 >>]]></code>
+      <p>A negative number I is encoded as <c>IRep = Max + I</c>,
+      where <c>Max</c> is the largest possible number that can be
+      represented with the number of bits present for the given
+      subtype. For example, <c>Max</c> for <c>neg4</c> is <c>0x7FFF
+      FFFF</c> (31 bits). Keep in mind that <c>I &lt; 0</c>.</p>
+
+      <p>The fraction flag is inverted, compared to the pos4
+      representation, so it will be 1 if there is no fraction part; 0
+      otherwise.</p>
+    </section>
+    <section>
+      <title>Large negative numbers</title>
+      <p>Larger negative numbers are encoded as:</p>
+      <code type="none"><![CDATA[{Words, Max} = get_max(-I),
+Bin = encode_bin_elems(list_to_binary(encode_big(Max + I)),
+WordsRep = 16#FFFFffff - Words,
+<< ?neg_big:8, WordsRep:32, Bin/binary, F:8 >>]]></code>
+    </section>
+    <section>
+      <title>Fraction of negative numbers</title>
+      <p>The fraction is encoded almost like the inverse of the
+      positive fraction (as a "negative binary", if such a thing
+      existed). Each byte is padded with a 0-bit rather than a 1-bit,
+      and the byte itself is replaced by 16#ff - Byte. The sequence is
+      then padded with 1s to become a multiple of 8 bits.</p>
+
+      <p>The last byte, denoting the number of significant bits in the
+      last byte, is similarly inverted.</p>
+    </section>
+  </section>
+  <section>
+    <title>Atoms</title>
+    <p>Atoms are encoded as the atom tag, followed by the string
+    representation of the atom using the binary encoding described
+    above (but without the binary tag).</p>
+  </section>
+  <section>
+    <title>References</title>
+    <p>The encoding of references is perhaps best described by the
+    code:</p>
+    <code type="none"><![CDATA[encode_ref(R) ->
+    RBin = term_to_binary(R),
+    <<131,114,_Len:16,100,NLen:16,Name:NLen/binary,Rest/binary>> = RBin,
+    NameEnc = encode_bin_elems(Name),
+    RestEnc = encode_bin_elems(Rest),
+    <<?reference, NameEnc/binary, RestEnc/binary>>.]]></code>
+    <p>where <c>encode_bin_elems(B)</c> encodes the argument <c>B</c> the same way
+    as a binary (excluding the <c>'binary'</c> type tag).</p>
+  </section>
+  <section>
+    <title>Ports</title>
+    <p>The encoding of ports is perhaps best described by the
+    code:</p>
+    <code type="none"><![CDATA[encode_port(P) ->
+    PBin = term_to_binary(P),
+    <<131,102,100,ALen:16,Name:ALen/binary,Rest:5/binary>> = PBin,
+    NameEnc = encode_bin_elems(Name),
+    <<?port, NameEnc/binary, Rest/binary>>.]]></code>
+  </section>
+  <section>
+      <title>Pids</title>
+      <p>The encoding of ports is perhaps best described by the
+      code:</p>
+      <code type="none"><![CDATA[encode_pid(P) ->
+    PBin = term_to_binary(P),
+    <<131,103,100,ALen:16,Name:ALen/binary,Rest:9/binary>> = PBin,
+    NameEnc = encode_bin_elems(Name),
+    <<?pid, NameEnc/binary, Rest/binary>>.]]></code>
+  </section>
+  <funcs>
+    <func>
+      <name>decode(B :: binary()) -> T :: term()</name>
+      <desc>
+	<p>Decodes a binary generated using the function
+	<c>sext:encode(T)</c>. The function raises an exception if
+	<c>B</c> cannot be decoded as such.</p>
+      </desc>
+    </func>
+    <func>
+      <name>decode_hex(B :: binary()) -> T :: term()</name>
+      <desc>
+	<p>Decodes a binary generated using the function
+	<c>sext:encode_hext(T)</c>. The function raises an exception
+	if <c>B</c> cannot be decoded as such.</p>
+      </desc>
+    </func>
+    <func>
+      <name>decode_next(B :: binary()) -> {T :: term(), Rest ::
+      binary()}</name>
+      <desc>
+	<p>Decode a binary stream, returning the next decoded term and
+	the stream remainder.</p>
+
+	<p>This function will raise an exception if the beginning of
+	<c>B</c> is not a valid sext-encoded term.</p>
+      </desc>
+    </func>
+    <func>
+      <name>decode_sb32(B :: binary()) -> T :: term()</name>
+      <desc>
+	<p>Decodes a binary generated using the function
+	<c>sext:encode_sb32(T)</c>. The function raises an exception
+	if <c>B</c> cannot be decoded as such.</p>
+      </desc>
+    </func>
+    <func>
+      <name>encode(T :: term()) -> B :: binary()</name>
+      <desc>
+	<p>Encodes any Erlang term into a binary. The lexical sorting
+	properties of the encoded binary match those of the original
+	Erlang term. That is, encoded terms sort the same way as the
+	original terms would.</p>
+      </desc>
+    </func>
+    <func>
+      <name>encode_hex(T :: term()) -> B :: binary()</name>
+      <desc>
+	<p>Encodes any Erlang term into a hex-encoded binary. This is
+	similar to <c>encode/1</c>, but produces an octet string that
+	can be used without escaping in file names (containing only
+	the characters 0..9 and A..F). The sorting properties are
+	preserved.</p>
+
+	<p>Note: The encoding used is regular hex-encoding, with the
+	proviso that only capital letters are used (mixing upper- and
+	lowercase characters would break the sorting property).</p>
+      </desc>
+    </func>
+    <func>
+      <name>encode_sb32(T :: term()) -> B :: binary()</name>
+      <desc>
+	<p>Encodes any Erlang term into an sb32-encoded binary. This
+	is similar to <c>encode/1</c>, but produces an octet string
+	that can be used without escaping in file names (containing
+	only the characters 0..9, A..V and '-'). The sorting
+	properties are preserved.</p>
+
+	<p>Note: The encoding used is inspired by the base32 encoding
+	described in RFC3548, but uses a different alphabet in order
+	to preserve the sort order.</p>
+
+	<p>The (adapted) SB32 alphabet:</p>
+	<code type="none"><![CDATA[0 0     6 6     12 C     18 I     24 O     30 U
+1 1     7 7     13 D     19 J     25 P     31 V
+2 2     8 8     14 E     20 K     26 Q  (pad) -
+3 3     9 9     15 F     21 L     27 R
+4 4    10 A     16 G     22 M     28 S
+5 5    11 B     17 H     23 N     29 T]]></code>
+      </desc>
+    </func>
+    <func>
+      <name>from_hex(Hex :: binary()) -> Bin :: binary()</name>
+      <desc>
+	<p>Converts from a hex-encoded binary into a 'normal'
+	binary.</p>
+
+	<p>This function is the reverse of <c>to_hex(Bin) ->
+	Hex</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>from_sb32(SB32 :: binary()) -> Bin :: binary()</name>
+      <desc>
+	<p>Converts from an sb32-encoded bitstring into a 'normal'
+	bitstring.</p>
+
+	<p>This function is the reverse of <c>to_sb32(Bin) ->
+	SB32</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>partial_decode(B :: binary()) -> {full | partial, T ::
+      term(), Rest :: binary()}</name>
+      <desc>
+	<p>Decode a sext-encoded term or prefix embedded in a byte
+	stream (see <c>prefix/1</c>).</p>
+
+	<p>Example:</p>
+	<code type="none"><![CDATA[1> T = sext:encode({a,b,c}).
+<<16,0,0,0,3,12,176,128,8,12,177,0,8,12,177,128,8>>
+2> sext:partial_decode(<<T/binary, "tail">>).
+{full,{a,b,c},<<"tail">>}
+3> P = sext:prefix({a,b,'_'}).
+<<16,0,0,0,3,12,176,128,8,12,177,0,8>>
+4> sext:partial_decode(<<P/binary, "tail">>).
+{partial,{a,b,'_'},<<"tail">>}]]></code>
+        <p>Note that a decoded prefix may not be exactly like the encoded
+	prefix. For example, <c>['_']</c> will be encoded as
+	<c>&lt;&lt;17&gt;&gt;</c>, i.e. only the 'list' opcode. The
+	decoded prefix will be <c>'_'</c>, since the encoded prefix
+	would also match the empty list. The decoded prefix will
+	always be a prefix to anything to which the original prefix is
+	a prefix.</p>
+
+	<p>For tuples, <c>{1,'_',3}</c> encoded and decoded, will
+	result in <c>{1,'_','_'}</c>, i.e. the tuple size is kept, but
+	the elements after the first wildcard are replaced with
+	wildcards.</p>
+      </desc>
+    </func>
+    <func>
+      <name>prefix(T :: term()) -> B :: binary()</name>
+      <desc>
+	<p>Encodes a binary for prefix matching of similar encoded
+	terms. Lists and tuples can be prefixed by using the
+	<c>'_'</c> marker or e.g. <c>'$1'</c>, similarly to Erlang
+	match specifications. For example:</p>
+
+	<list type="bulleted">
+	  <item><c>prefix({1,2,'_','_'})</c> will result in a binary
+	  that is the same as the first part of any encoded 4-tuple
+	  with the first two elements being <c>1</c> and <c>2</c>. The
+	  prefix algorithm will search for the first "wildcard", and
+	  truncate the binary at that point.</item>
+
+	  <item><c>prefix([1,2|'_'])</c> will result in a binary that
+	  is the same as the first part of any encoded list where the
+	  first two elements are <c>1</c> and
+	  <c>2</c>. <c>prefix([1,2,'_'])</c> will give
+	  the same result, as the prefix pattern is the same for all
+	  lists starting with <c>[1,2|...]</c>.</item>
+
+	  <item><c>prefix(Binary)</c> will result in a binary that is
+	  the same as the encoded version of <c>Binary</c>, except
+	  that, instead of padding and terminating, the encoded binary
+	  is truncated to the longest byte-aligned binary. The same is
+	  done for bitstrings.</item>
+
+	  <item><c>prefix({1,[1,2|'_'],'_'})</c> will prefix-encode
+	  the second element, and let it end the resulting
+	  binary. This prefix will match any 3-tuple where the first
+	  element is <c>1</c> and the second element is a list where
+	  the first two elements are <c>1</c> and <c>2</c>.</item>
+
+	  <item><c>prefix([1,[1|'_']|'_'])</c> will result in a prefix
+	  that matches all lists where the first element is <c>1</c>
+	  and the second element is a list where the first element is
+	  <c>1</c>.</item>
+	</list>
+
+	<p>For all other data types, the prefix is the same as the
+	encoded term.</p>
+      </desc>
+    </func>
+
+  </funcs>
+
+  <section>
+    <title>See Also</title>
+    <p>mnesia(3), mnesia_schema(3)
+      </p>
+  </section>
+
+</erlref>

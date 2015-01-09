@@ -40,6 +40,8 @@
   </description>
   <xi:include href="mnesia.xml"/>
   <xi:include href="mnesia_frag_hash.xml"/>
+  <xi:include href="mnesia_schema.xml"/>
   <xi:include href="mnesia_registry.xml"/>
+  <xi:include href="mnesia_sext.xml"/>
 </application>
 

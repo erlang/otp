@@ -1,0 +1,629 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>1998</year>
+      <year>2011</year>
+      <holder>Ericsson AB, All Rights Reserved</holder>
+    </copyright>
+    <legalnotice>
+  The contents of this file are subject to the Erlang Public License,
+  Version 1.1, (the "License"); you may not use this file except in
+  compliance with the License. You should have received a copy of the
+  Erlang Public License along with this software. If not, it can be
+  retrieved online at http://www.erlang.org/.
+
+  Software distributed under the License is distributed on an "AS IS"
+  basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+  the License for the specific language governing rights and limitations
+  under the License.
+
+  The Initial Developer of the Original Code is Ericsson AB.
+    </legalnotice>
+
+    <title>mnesia_schema</title>
+    <prepared>Ulf Wiger</prepared>
+    <responsible></responsible>
+    <docno></docno>
+    <approved></approved>
+    <checked></checked>
+    <date>14-05-15</date>
+    <rev>PA1</rev>
+    <file>mnesia_schema.sgml</file>
+  </header>
+  <module>mnesia_schema</module>
+  <modulesummary>Mnesia schema API</modulesummary>
+  <description>
+    <p>The module <c>mnesia_schema</c> is normally not used
+    by end users. It should only be considered by advanced users, and
+    users who depend on backend- or index plugins. The functions
+    intended to be called directly are described below.
+    </p>
+    <p>Schema operations are performed inside a special type of
+    database transaction. Starting a schema transaction explicitly can
+    be useful in order to perform several schema modifications
+    atomically.
+    </p>
+    <type>
+      <v>index_info() :: index_position() | {index_position(), bag | ordered}</v>
+      <v>index_position() :: integer() | atom() | {atom()}</v>
+      <v>key() :: any()</v>
+      <v>obj() :: tuple()</v>
+      <v>tab() :: atom()</v>
+      <v>tabdef() :: [tab_property()]</v>
+      <v>tab_property() :: {access_mode, read_write | read_only}
+      | {attributes, [atom()]}
+      | {disc_copies, [node()]}
+      | {disc_only_copies, [node()]}
+      | {index, index_info()}
+      | {load_order, integer()}
+      | {majority, boolean()}
+      | {name, atom()}
+      | {ram_copies, [node()]}
+      | {record_name, atom()}
+      | {snmp, [integer()]}
+      | {storage_properties, [{backend(), [{atom(), any()}]}]}
+      | {type, set | ordered_set | bag}
+      | {local_content, boolean()}</v>
+    </type>
+  </description>
+  <funcs>
+    <func>
+      <name>add_backend_type(Alias, Module) -> {atomic,ok} | {aborted,
+      Reason}</name>
+      <desc>
+	<p>Adds a backend plugin instance to the schema.</p>
+        <p>The <c>Module</c> must export all callback functions
+	specified in the <c>mnesia_backend_type</c> behaviour.
+          </p>
+	  <p><c>Alias</c> defines a name referring to the backend,
+	  similar to <c>ram_copies</c>, <c>disc_copies</c>, et al. It
+	  must differ from all existing backend aliases in the schema.
+	  </p>
+      </desc>
+    </func>
+    <func>
+      <name>add_index_plugin(Name, Module, Function) ->
+      {atomic, ok} | {aborted, Reason}</name>
+      <desc>
+	<p>Adds an indexing plugin to the schema.</p>
+        <p><c>Name :: {atom()}</c> defines the name used to refer to
+	the index type. The 1-tuple construct is used to distinguish
+	it uniquely from references to built-in indexes. It must
+	differ from all existing index plugin names in the schema.</p>
+	<p><c>Module</c> and <c>Function</c> shall refer to an
+	exported function with arity 3. The indexing function will be
+	called as <c>Module:Function(Tab, Name, Object)</c> and shall
+	return a list of index values.</p>
+      </desc>
+    </func>
+    <func>
+      <name>backend_types() -> [{Alias, Module}]</name>
+      <desc>
+        <p>This function lists the backend types registered in the
+	schema.
+	</p>
+      </desc>
+    </func>
+    <func>
+      <name>delete_backend_type(Alias) -> {atomic,ok} | {aborted, Reason}</name>
+      <desc>
+        <p>This function deletes a registered backend type. This can
+	only be done if the backend type is not in use by any table.</p>
+      </desc>
+    </func>
+    <func>
+      <name>do_add_backend_type(Alias, Module) -> ok | abort()</name>
+      <desc>
+        <p>Like <c>add_backend_type/2</c>, but inside a schema transaction.</p>
+      </desc>
+    </func>
+    <func>
+      <name>do_add_index_plugin(Name, Module, Function) -> ok | abort()</name>
+      <desc>
+        <p>Like <c>add_index_plugin/3</c>, but inside a schema transaction.</p>
+      </desc>
+    </func>
+    <func>
+      <name>do_create_table(TabDef) -> ok | abort()</name>
+      <desc>
+        <p>Create a mnesia table from within a mnesia transaction.</p>
+	<p>TabDef is the same as in <c>mnesia:create_table/2</c>, but
+	must also include <c>{name, Name}</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>do_delete_backend_type(Alias) -> ok | abort()</name>
+      <desc>
+        <p>Like <c>delete_backend_type/1</c>, but inside a schema transaction.</p>
+      </desc>
+    </func>
+    <func>
+      <name>do_delete_index_plugin(Name) -> ok | abort()</name>
+      <desc>
+        <p>Like <c>delete_index_plugin/1</c>, but inside a schema transaction.</p>
+      </desc>
+    </func>
+    <func>
+      <name>index_plugins() -> [{Name, Module, Function}]</name>
+      <desc>
+	<p>List all index plugins registered in the schema.</p>
+      </desc>
+    </func>
+    <func>
+      <name>schema_transaction(Fun) -> {atomic, Result} | {aborted, Reason}</name>
+      <desc>
+        <p>This function executes a schema transaction.</p>
+	<p>Note that the schema functions that can be used inside a
+	schema transaction are:
+	<list type="bulleted">
+	  <item><c>do_add_backend_type/2</c></item>
+	  <item><c>do_add_index_plugin/3</c></item>
+	  <item><c>do_change_table_copy_type/3</c></item>
+	  <item><c>do_create_table/1</c></item>
+	  <item><c>do_delete_backend_type/1</c></item>
+	  <item><c>do_delete_index_plugin/1</c></item>
+	  <item><c>do_delete_table/1</c></item>
+	  <item><c>do_delete_table_property/2</c></item>
+	  <item><c>do_read_table_property/2</c></item>
+	  <item><c>do_write_table_property/2</c></item>
+	</list>
+	</p>
+      </desc>
+    </func>
+  </funcs>
+
+  <section>
+    <title>BACKEND TYPE: CALLBACK FUNCTIONS</title>
+
+    <p>The following functions implement the
+    <c>mnesia_backend_type</c> behaviour API. A backend plugin module
+    must include the line <c>-behaviour(mnesia_backend_type)</c> and
+    export all functions defined by the behaviour.
+    </p>
+    <p>The plugin interface API is modeled after the <c>ets</c> and
+    <c>dets</c> APIs, or specifically, the set of internal access functions
+    in mnesia that are common to all table types.</p>
+    <p>Note that most of these functions are required to succeed; an
+    error is considered fatal, and mnesia will dump core. The reason
+    for this is that these functions are called after transaction
+    commits, and mnesia has no way to gracefully handle failures at
+    that point. A way of looking at it is that a plugin needs to be as
+    reliable as <c>ets</c> and <c>dets</c>.</p>
+    <p>Plugin modules can define their 'storage_semantics' as either
+    <c>ram_copies</c>, <c>disc_copies</c> or
+    <c>disc_only_copies</c>. In other words, whether they keep data in
+    RAM only, in RAM and on disk, or only on disk. They can also
+    define whether they support <c>set</c>, <c>ordered_set</c> and
+    <c>bag</c> types. The mnesia schema operations will verify that
+    these restrictions are respected.</p>
+    <p>Indexes on plugin instances are handled through the same access
+    interface, with a few special quirks:</p>
+    <list type="bulleted">
+      <item>The plugin module can provide an indexing function via
+      <c>Mod:semantics(Alias, index_fun)</c>.</item>
+      <item>The index tables are referenced as <c>{Tab, index,
+      IndexInfo}</c>, and it is up to the plugin module to map this
+      reference to an actual table.</item>
+      <item>With disc_only_copies, indexes are rebuilt every time the
+      table is loaded. It is possible for a plugin module to store the
+      index information persistently. For this purpose, the function
+      <c>Mod:index_is_persistent/3</c> is used to signal that the
+      index and the table data are consistent.</item>
+    </list>
+    <type>
+      <v>index_tab() :: {tab(), index, index_info()}</v>
+    </type>
+  </section>
+  <funcs>
+    <func>
+      <name>add_aliases(Aliases) -> void()</name>
+      <type>
+	<v>Alias :: alias()</v>
+      </type>
+      <desc>This function is called both at startup, after
+      initialising a backend plugin, and when a new alias is
+      registered for an already initialised plugin. The call is
+      considered successful if it doesn't crash. A crash will lead to
+      the schema transaction being aborted.</desc>
+    </func>
+    <func>
+      <name>check_definition(Alias, Tab, Nodes, TabDef) -> ok | {ok,
+      TabDef1} | {error, Reason}</name>
+      <type>
+	<v>Alias :: alias()</v>
+	<v>Tab :: tab()</v>
+	<v>Nodes :: [node()]</v>
+	<v>TabDef :: tabdef()</v>
+	<v>TabDef1 :: tabdef()</v>
+      </type>
+      <desc>
+	  <p>This function is called whenever table metadata is
+	  verified, and the table makes use of a backend plugin. Examples
+	  of operations where this occurs are <c>create_table()</c>,
+	  <c>add_table_copy()</c>, <c>del_table_copy()</c> and
+	  <c>change_table_copy_type()</c>.</p>
+	  <p>The function may return a modified <c>TabDef</c>. The
+	  information is verified a final time before changes are
+	  committed.</p>
+	  <p>Returning <c>{error, Error}</c> will lead to the schema
+	  transaction being aborted with reason <c>Error</c>. Crashing
+	  will also lead to a transaction abort.
+	  </p>
+      </desc>
+    </func>
+    <func>
+      <name>create_table(Alias, Tab, TabDef) -> ok</name>
+      <type>
+	<v>Alias :: alias()</v>
+	<v>Tab :: tab()</v>
+	<v>TabDef :: tabdef()</v>
+      </type>
+      <desc>
+	<p>Ensures that the table exists and prepares it for loading.
+	</p>
+	<p>Note that this function is not responsible for loading the
+	table, only for preparing it to be loaded. If, like with
+	e.g. dets, the table is created at load-time, this function
+	doesn't need to do anything.
+	</p>
+	<p>Whenever the table needs to be empty before
+	<c>create_table/3</c> is called, mnesia will explicitly call
+	<c>Mod:delete_table/2</c> first. The <c>create_table/3</c>
+	function must not delete an existing table.</p>
+      </desc>
+    </func>
+    <func>
+      <name>delete(Alias, Tab, Key) -> ok</name>
+      <type>
+	<v>Alias :: alias()</v>
+	<v>Tab :: tab()</v>
+	<v>Key :: key()</v>
+      </type>
+      <desc>This function is semantically equivalent to
+      <c>ets:delete(Tab, Key)</c>, and is required to succeed.</desc>
+    </func>
+    <func>
+      <name>delete_table(Alias, Tab) -> ok</name>
+      <type>
+	<v>Alias :: alias()</v>
+	<v>Tab :: tab()</v>
+	<v>Key :: key()</v>
+      </type>
+      <desc>This function is called to remove the table and its
+      contents from RAM and/or disk. The <c>close_table/2</c> function
+      will have been called previously.</desc>
+    </func>
+    <func>
+      <name>load_table(Alias, Tab, Reason, TabDef) -> ok</name>
+      <type>
+	<v>Alias :: alias()</v>
+	<v>Tab :: tab()</v>
+	<v>Reason :: restore | {retainer, create_table} | {dumper,
+	ext} | init_index</v>
+	<v>TabDef :: tabdef()</v>
+      </type>
+      <desc><p>Loads the table and makes it ready for user access.</p>
+      <p>This function is called in order to create an instance of
+      the given table (c.f. <c>ets:new/2</c>). If an Erlang process
+      is needed to hold the table instance, one can be created using
+      <c>mnesia_ext_sup:start_proc(Name, M, F, A [, Opts])</c>
+      </p>
+      </desc>
+    </func>
+    <func>
+      <name>close_table(Alias, Tab) -> ok</name>
+      <type>
+	<v>Alias :: alias()</v>
+	<v>Tab :: tab()</v>
+      </type>
+      <desc><p>Closes the table.</p>
+      <p>Note that the close operation may be asynchronous. If so, it
+      is the responsibility of the <c>load_table/4</c> function to
+      ensure that any preceding close operation has finished first.</p></desc>
+    </func>
+    <func>
+      <name>sync_close_table(Alias, Tab) -> ok</name>
+      <type>
+	<v>Alias :: alias()</v>
+	<v>Tab :: tab()</v>
+      </type>
+      <desc>Closes the table synchronously. Once the operation
+      finishes, the table must be closed.</desc>
+    </func>
+    <func>
+      <name>first(Alias, Tab) -> any()</name>
+      <type>
+	<v>Alias :: alias()</v>
+	<v>Tab :: tab()</v>
+      </type>
+      <desc>Behaves like <c>ets:first(Tab)</c></desc>
+    </func>
+    <func>
+      <name>fixtable(Alias, Tab, Bool) -> true</name>
+      <type>
+	<v>Alias :: alias()</v>
+	<v>Tab :: tab()</v>
+	<v>Bool :: boolean()</v>
+      </type>
+      <desc><p>Prepares a table for match operations (e.g. preventing
+      rehashing).</p>
+      <p>Illustrative pseudo-example:</p>
+      <code style="none">
+	fixtable(Alias, Tab, true),
+        Res = match_object(Alias, Tab, Pat),
+        fixtable(Alias, Tab, false),
+      </code>
+      </desc>
+    </func>
+     <func>
+      <name>index_is_consistent(Alias, IndexTag, Boolean) -> ok</name>
+      <type>
+	<v>Alias :: atom()</v>
+	<v>IndexTag :: {Tab, index, pos_info()}</v>
+	<v>Tab :: atom()</v>
+	<v>pos_info() :: {index_position(), bag | ordered}</v>
+	<v>index_position() :: integer() | {atom()}</v>
+	<v>Bool :: boolean()</v>
+      </type>
+      <desc>This function is called once a table index has been completely
+      indexed. This makes it possible to avoid rebuilding very large
+      indexes unnecessarily. See also <c>is_index_consistent/2</c></desc>
+    </func>
+    <func>
+      <name>init_backend() -> ok</name>
+      <type>
+	<v></v>
+      </type>
+      <desc>Called when the backend plugin is first initialized,
+      either at mnesia startup, or when the plugin is first added to
+      the schema. Afterwards, the plugin should be ready to accept
+      requests to create and load tables, etc.</desc>
+    </func>
+    <func>
+      <name>info(Alias, Tab, Item) -> any()</name>
+      <type>
+	<v>Alias :: alias()</v>
+	<v>Tab :: tab()</v>
+	<v>Item :: size | memory</v>
+      </type>
+      <desc>If the backend has <c>ram_copies</c> or <c>disc_copies</c>
+      semantics, this function should behave like <c>ets:info(Tab,
+      Item)</c>. If the table has <c>disc_only_copies</c> semantics,
+      it should behave like <c>dets:info(Tab, Item)</c>.</desc>
+    </func>
+    <func>
+      <name>insert(Alias, Tab, Object) -> ok</name>
+      <type>
+	<v>Alias :: atom()</v>
+	<v>Tab :: atom() | index_tab()</v>
+      </type>
+      <desc>Behaves like <c>dets:insert(Tab, Object)</c>.</desc>
+    </func>
+    <func>
+      <name>is_index_consistent(Alias, IndexTag) -> boolean()</name>
+      <type>
+	<v>IndexTag :: {Tab, index, pos_info()}</v>
+	<v>Tab :: atom()</v>
+	<v>pos_info() :: {index_position(), bag | ordered}</v>
+	<v>index_position() :: integer() | {atom()}</v>
+      </type>
+      <desc>This function is called before rebuilding an index for a
+      newly loaded table. The plugin is expected to return the last
+      persistently stored value provided via
+      <c>index_is_consistent/3</c>, or <c>false</c> otherwise.</desc>
+    </func>
+    <func>
+      <name>last(Alias, Tab) -> Key</name>
+      <type>
+	<v>Alias :: alias()</v>
+	<v>Tab :: tab()</v>
+	<v>Key :: key()</v>
+      </type>
+      <desc>Behaves like <c>ets:last(Tab)</c>.</desc>
+    </func>
+     <func>
+      <name>lookup(Alias, Tab, Key) -> [Obj]</name>
+      <type>
+	<v>Alias :: alias()</v>
+	<v>Tab :: tab()</v>
+	<v>Key :: key()</v>
+	<v>Obj :: obj()</v>
+      </type>
+      <desc></desc>
+    </func>
+    <func>
+      <name>match_delete(Alias, Tab, Pattern) -> ok</name>
+      <type>
+	<v>Alias :: alias()</v>
+	<v>Tab :: tab()</v>
+	<v>Pattern :: '_' | tuple()</v>
+      </type>
+      <desc>Behaves like <c>dets:match_delete(Tab, Pattern)</c></desc>
+    </func>
+    <func>
+      <name>next(Alias, Tab, Key) -> NextKey</name>
+      <type>
+	<v>Alias :: alias()</v>
+	<v>Tab :: tab()</v>
+	<v>Key :: key()</v>
+	<v>NextKey :: key()</v>
+      </type>
+      <desc>Behaves like <c>dets:next(Tab, Key)</c></desc>
+    </func>
+    <func>
+      <name>prev(Alias, Tab, Key) -> PrevKey</name>
+      <type>
+	<v>Alias :: alias()</v>
+	<v>Tab :: tab()</v>
+	<v>Key :: key()</v>
+	<v>PrevKey :: key()</v>
+      </type>
+      <desc>Behaves like <c>dets:prev(Tab, Key)</c></desc>
+    </func>
+    <func>
+      <name>real_suffixes() -> [string()]</name>
+      <desc>Lists all suffixes used by the backend for persistent
+      data. Example: <c>[".extfs", ".extfsi"]</c>.</desc>
+    </func>
+    <func>
+      <name>remove_aliases(Aliases)</name>
+      <type>
+	<v></v>
+      </type>
+      <desc></desc>
+    </func>
+    <func>
+      <name>repair_continuation(Continuation, MatchSpec) -> Continuation2</name>
+      <type>
+	<v>Continuation :: any()</v>
+	<v>Continuation2 :: any()</v>
+	<v>MatchSpec :: ets:match_spec()</v>
+      </type>
+      <desc>Behaves like <c>dets:repair_continuation/2</c>, but the
+      repesentation of the continuation is entirely up to the backend plugin.</desc>
+    </func>
+    <func>
+      <name>select(Continuation) -> {[Obj], Continuation2} |
+      '$end_of_table'</name>
+      <type>
+	<v>Continuation :: any()</v>
+	<v>Continuation2 :: any()</v>
+	<v>Reason :: any()</v>
+      </type>
+      <desc>Behaves like <c>ets:select/1</c>, but the representation
+      of the continuation is entirely up to the backend plugin.</desc>
+    </func>
+    <func>
+      <name>select(Alias, Tab, Pattern) -> [Obj] | '$end_of_table'</name>
+      <type>
+	<v>Alias :: alias()</v>
+	<v>Tab :: tab()</v>
+	<v>Pattern :: ets:match_pattern()</v>
+	<v>Obj :: obj()</v>
+      </type>
+      <desc>Behaves like <c>ets:select(Tab, Pattern)</c>.</desc>
+    </func>
+    <func>
+      <name>select(Alias, Tab, Pattern, Limit) -> {[Obj],
+      Continuation} | '$end_of_table'</name>
+      <type>
+	<v>Alias :: alias()</v>
+	<v>Tab :: tab()</v>
+	<v>Pattern :: ets:match_pattern()</v>
+	<v>Limit :: integer() | infinity</v>
+	<v>Obj :: obj()</v>
+	<v>Continuation :: any()</v>
+      </type>
+      <desc>Behaves like <c>ets:select(Tab, Pattern, Limit)</c>. The
+      representation of the continuation is entirely up to the backend
+      plugin.</desc>
+    </func>
+    <func>
+      <name>semantics(Alias, Item)</name>
+      <type>
+	<v>Alias :: alias()</v>
+	<v>Item :: storage | types | index_types | index_fun</v>
+      </type>
+      <desc><p>This function is used by mnesia to discover the
+      capabilities of the plugin. The function should return
+      <c>undefined</c> for any value of <c>Item</c> that it doesn't
+      recognise or have an opinion on. Note, though that some items
+      are mandatory:</p>
+    <list>
+      <item><c>storage</c> (mandatory): <c>ram_copies | disc_copies |
+      disc_only_copies</c>. Describes whether the storage type holds
+      data in RAM only, RAM+disk or on disk only.</item>
+    <item><c>types</c> (mandatory): <c>[bag | ordered_set |
+    set]</c>. Describes which table types are supported by the
+    backend.</item>
+    <item><c>index_types</c> (optional): <c>[bag |
+    ordered]</c>. Describes which types of index are supported. If
+    indexing is not supported, return undefined. If multiple types are
+    supported, put the most preferred (the most efficient) type
+    first. If the user hasn't specified an index type, the type
+    preferred by the majority of involved backends will be
+    selected. Only an index type supported by all involved backends
+    can be chosen.</item>
+    <item><c>index_fun</c> (optional): <c>fun(
+    (alias(),tab(),pos(),object()) -> [any()] )</c>. Defines an
+    indexing function. If none is provided, the default function,
+    <c>fun(_Alias,_Tab,Pos,Object) -> [element(Pos,Object)]</c> will
+    be used. The indexing function shall return a list of index values.</item>
+    </list></desc>
+    </func>
+    <func>
+      <name>slot(Alias, Tab, Pos) -> [Object] | '$end_of_table'</name>
+      <type>
+	<v>Alias :: alias()</v>
+	<v>Tab :: tab()</v>
+	<v>Pos :: integer()</v>
+	<v>Object :: obj()</v>
+      </type>
+      <desc>Similar to <c>ets:slot</c>.</desc>
+    </func>
+    <func>
+      <name>tmp_suffixes() -> [string()]</name>
+      <desc>List filename suffixes corresponding to persistent
+      data. Example:
+      <code style="none">
+	tmp_suffixes() -> [".pgsql_tmp"].
+      </code>
+      </desc>
+    </func>
+    <func>
+      <name>update_counter(Alias, Tab, Key, Incr) -> NewVal</name>
+      <type>
+	<v>Alias :: alias()</v>
+	<v>Tab :: tab()</v>
+	<v>Key :: key()</v>
+	<v>Incr :: Incr()</v>
+	<v>NewVal :: integer()</v>
+      </type>
+      <desc>Corresponds to <c>mnesia:dirty_update_counter(Tab,
+      Key, Incr)</c>, and behaves like <c>dets:update_counter(Tab,
+      Key, {3,Incr})</c>. Note that mnesia enforces counter objects to
+      be on the form <c>{RecName, Key, Value}</c>, and also requires
+      the <c>update_counter/4</c> operation to be atomic.</desc>
+    </func>
+    <func>
+      <name>validate_key(Alias, Tab, RecName, Arity, Type, Key) ->
+      {RecName, Arity, Type} | abort()</name>
+      <type>
+	<v>Alias :: alias()</v>
+	<v>Tab :: tab()</v>
+	<v>RecName :: atom()</v>
+	<v>Arity :: integer()</v>
+	<v>Type :: bag | ordered_set | set</v>
+      </type>
+      <desc>This function gives an opportunity to validate the key
+      before e.g. a call to <c>Mod:update_counter/4</c> or
+      <c>Mod:delete/3</c>. This function and <c>validate_record/6</c>
+      are the places where quality checks can be performed before the
+      operation is committed.</desc>
+    </func>
+    <func>
+      <name>validate_record(Alias, Tab, RecName, Arity, Type, Object)
+      -> {RecName, Arity, Type} | abort()</name>
+      <type>
+	<v>Alias :: alias()</v>
+	<v>Tab :: tab()</v>
+	<v>RecName :: atom()</v>
+	<v>Arity :: integer()</v>
+	<v>Type :: bag | ordered_set | set</v>
+	<v>Object :: obj()</v>
+      </type>
+      <desc>This function gives an opportunity to validate the record
+      before e.g. a call to <c>Mod:insert/4</c>. This function and <c>validate_key/6</c>
+      are the places where quality checks can be performed before the
+      operation is committed.</desc>
+    </func>
+  </funcs>
+  <section>
+    <title>See Also</title>
+    <p>mnesia(3)
+      </p>
+  </section>
+</erlref>
