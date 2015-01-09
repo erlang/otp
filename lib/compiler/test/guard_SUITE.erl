@@ -330,7 +330,15 @@ complex_semicolon(Config) when is_list(Config) ->
     ?line ok = csemi6({a,b}, 0),
     ?line ok = csemi6({}, 3),
     ?line ok = csemi6({a,b,c}, 3),
-    
+
+    %% 7
+    error = csemi7(#{a=>1}, 1, 0),
+    error = csemi7(<<>>, 1, 0),
+    ok = csemi7(#{a=>1}, 3, 0),
+    ok = csemi7(#{a=>1}, 0, 3),
+    ok = csemi7(#{a=>1}, 3, 3),
+    ok = csemi7(#{a=>1, b=>3}, 0, 0),
+
     ok.
 
 csemi1(Type, Val) when is_list(Val), Type == float;
@@ -442,6 +450,9 @@ csemi5(_, _) -> error.
 csemi6(A, B) when hd([tuple_size(A)]) > 1; abs(B) > 2 -> ok;
 csemi6(_, _) -> error.
     
+csemi7(A, B, C) when A#{a:=B} > #{a=>1}; abs(C) > 2 -> ok;
+csemi7(_, _, _) -> error.
+
 comma(Config) when is_list(Config) ->
 
     %% ',' combinations of literal true/false.
