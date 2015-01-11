@@ -260,8 +260,6 @@ int hipe_patch_insn(void *address, Uint32 value, Eterm type)
     return 0;
 }
 
-/* called from hipe_bif0.c:hipe_bifs_make_native_stub_2()
-   and hipe_bif0.c:hipe_make_stub() */
 void *hipe_make_native_stub(void *beamAddress, unsigned int beamArity)
 {
     unsigned int *code;

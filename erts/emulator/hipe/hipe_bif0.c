@@ -647,19 +647,6 @@ static void *hipe_get_emu_address(Eterm m, Eterm f, unsigned int arity, int is_r
     return address;
 }
 
-#if 0 /* XXX: unused */
-BIF_RETTYPE hipe_bifs_get_emu_address_1(BIF_ALIST_1)
-{
-    struct mfa mfa;
-    void *address;
-
-    if (!term_to_mfa(BIF_ARG_1, &mfa))
-	BIF_ERROR(BIF_P, BADARG);
-    address = hipe_get_emu_address(mfa.mod, mfa.fun, mfa.ari);
-    BIF_RET(address_to_term(address, BIF_P));
-}
-#endif
-
 BIF_RETTYPE hipe_bifs_set_native_address_3(BIF_ALIST_3)
 {
     Eterm *pc;
@@ -1156,22 +1143,6 @@ BIF_RETTYPE hipe_bifs_set_native_address_in_fe_2(BIF_ALIST_2)
 	erts_erase_fun_entry(fe);
     BIF_RET(am_true);
 }
-
-#if 0 /* XXX: unused */
-BIF_RETTYPE hipe_bifs_make_native_stub_2(BIF_ALIST_2)
-{
-    void *beamAddress;
-    Uint beamArity;
-    void *stubAddress;
-
-    if ((beamAddress = term_to_address(BIF_ARG_1)) == 0 ||
-	is_not_small(BIF_ARG_2) ||
-	(beamArity = unsigned_val(BIF_ARG_2)) >= 256)
-	BIF_ERROR(BIF_P, BADARG);
-    stubAddress = hipe_make_native_stub(beamAddress, beamArity);
-    BIF_RET(address_to_term(stubAddress, BIF_P));
-}
-#endif
 
 /*
  * MFA info hash table:

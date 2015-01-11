@@ -182,8 +182,6 @@ void *hipe_alloc_code(Uint nrbytes, Eterm callees, Eterm *trampolines, Process *
     return alloc_code(nrbytes);
 }
 
-/* called from hipe_bif0.c:hipe_bifs_make_native_stub_2()
-   and hipe_bif0.c:hipe_make_stub() */
 void *hipe_make_native_stub(void *beamAddress, unsigned int beamArity)
 {
     /*
