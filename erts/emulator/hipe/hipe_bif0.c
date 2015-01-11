@@ -1178,7 +1178,7 @@ static struct {
     /*
      * The mfa info table is normally updated by the loader,
      * which runs in non-concurrent mode. Unfortunately runtime
-     * apply operations (get_na_nofail) update the table if
+     * apply operations (hipe_get_na) update the table if
      * they create a new stub for the mfa, which forces locking.
      * XXX: Redesign apply et al to avoid those updates.
      */
@@ -1458,19 +1458,12 @@ static void *hipe_make_stub(Eterm m, Eterm f, unsigned int arity, int is_remote)
     void *BEAMAddress;
     void *StubAddress;
 
-#if 0
-    if (is_not_atom(m) || is_not_atom(f) || arity > 255)
-	return NULL;
-#endif
     BEAMAddress = hipe_get_emu_address(m, f, arity, is_remote);
     StubAddress = hipe_make_native_stub(BEAMAddress, arity);
-#if 0
-    hipe_mfa_set_na(m, f, arity, StubAddress);
-#endif
     return StubAddress;
 }
 
-static void *hipe_get_na_nofail_locked(Eterm m, Eterm f, unsigned int a, int is_remote)
+static void *hipe_get_na_locked(Eterm m, Eterm f, unsigned int a, int is_remote)
 {
     struct hipe_mfa_info *p;
     void *address;
@@ -1496,12 +1489,12 @@ static void *hipe_get_na_nofail_locked(Eterm m, Eterm f, unsigned int a, int is_
     return address;
 }
 
-static void *hipe_get_na_nofail(Eterm m, Eterm f, unsigned int a, int is_remote)
+static void *hipe_get_na(Eterm m, Eterm f, unsigned int a, int is_remote)
 {
     void *p;
 
     hipe_mfa_info_table_lock();
-    p = hipe_get_na_nofail_locked(m, f, a, is_remote);
+    p = hipe_get_na_locked(m, f, a, is_remote);
     hipe_mfa_info_table_unlock();
     return p;
 }
@@ -1511,7 +1504,7 @@ void *hipe_get_remote_na(Eterm m, Eterm f, unsigned int a)
 {
     if (is_not_atom(m) || is_not_atom(f) || a > 255)
 	return NULL;
-    return hipe_get_na_nofail(m, f, a, 1);
+    return hipe_get_na(m, f, a, 1);
 }
 
 /* primop, but called like a BIF for error handling purposes */
@@ -1523,7 +1516,9 @@ BIF_RETTYPE hipe_find_na_or_make_stub(BIF_ALIST_3)
     if (is_not_atom(BIF_ARG_1) || is_not_atom(BIF_ARG_2))
 	BIF_ERROR(BIF_P, BADARG);
     arity = unsigned_val(BIF_ARG_3); /* no error check */
-    address = hipe_get_na_nofail(BIF_ARG_1, BIF_ARG_2, arity, 1);
+    address = hipe_get_na(BIF_ARG_1, BIF_ARG_2, arity, 1);
+    if (!address)
+	BIF_ERROR(BIF_P, BADARG);
     BIF_RET((Eterm)address);	/* semi-Ok */
 }
 
@@ -1541,7 +1536,9 @@ BIF_RETTYPE hipe_bifs_find_na_or_make_stub_2(BIF_ALIST_2)
 	is_remote = 0;
     else
 	BIF_ERROR(BIF_P, BADARG);
-    address = hipe_get_na_nofail(mfa.mod, mfa.fun, mfa.ari, is_remote);
+    address = hipe_get_na(mfa.mod, mfa.fun, mfa.ari, is_remote);
+    if (!address)
+	BIF_ERROR(BIF_P, BADARG);
     BIF_RET(address_to_term(address, BIF_P));
 }
 
@@ -1563,7 +1560,9 @@ BIF_RETTYPE hipe_nonclosure_address(BIF_ALIST_2)
 	f = ep->code[1];
     } else
 	goto badfun;
-    address = hipe_get_na_nofail(m, f, BIF_ARG_2, 1);
+    address = hipe_get_na(m, f, BIF_ARG_2, 1);
+    if (!address)
+	goto badfun;
     BIF_RET((Eterm)address);
 
  badfun:
@@ -1832,7 +1831,11 @@ BIF_RETTYPE hipe_bifs_redirect_referred_from_1(BIF_ALIST_1)
 	while (ref) {
 	    if (ref->flags & REF_FLAG_PENDING_REDIRECT) {
 		is_remote = ref->flags & REF_FLAG_IS_REMOTE;
-		new_address = hipe_get_na_nofail_locked(p->m, p->f, p->a, is_remote);
+		new_address = hipe_get_na_locked(p->m, p->f, p->a, is_remote);
+		if (!new_address) {
+		    hipe_mfa_info_table_unlock();
+		    BIF_ERROR(BIF_P, BADARG);
+		}
 		if (ref->flags & REF_FLAG_IS_LOAD_MFA)
 		    res = hipe_patch_insn(ref->address, (Uint)new_address, am_load_mfa);
 		else
