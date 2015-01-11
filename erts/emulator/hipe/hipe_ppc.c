@@ -293,6 +293,8 @@ void *hipe_make_native_stub(void *beamAddress, unsigned int beamArity)
 	abort();
 
     code = alloc_stub(7);
+    if (!code)
+	return NULL;
 
     /* addis r12,0,beamAddress@highest */
     code[0] = 0x3d800000 | (((unsigned long)beamAddress >> 48) & 0xffff);
@@ -381,6 +383,8 @@ void *hipe_make_native_stub(void *beamAddress, unsigned int beamArity)
 	abort();
 
     code = alloc_stub(4);
+    if (!code)
+	return NULL;
 
     /* addi r12,0,beamAddress@l */
     code[0] = 0x39800000 | ((unsigned long)beamAddress & 0xFFFF);
