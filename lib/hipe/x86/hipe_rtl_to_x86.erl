@@ -236,7 +236,7 @@ conv_insn(I, Map, Data) ->
     #fconv{} ->
       {Dst, Map0} = conv_dst(hipe_rtl:fconv_dst(I), Map),
       {[], Src, Map1} = conv_src(hipe_rtl:fconv_src(I), Map0),
-      I2 = [hipe_x86:mk_fmove(Src, Dst)],
+      I2 = conv_fconv(Dst, Src),
       {I2, Map1, Data};
     X ->
       %% gctest??
@@ -711,6 +711,19 @@ vmap_lookup(Map, Key) ->
 
 vmap_bind(Map, Key, Val) ->
   gb_trees:insert(Key, Val, Map).
+
+%%% Finalise the conversion of an Integer-to-Float operation.
+
+conv_fconv(Dst, Src) ->
+  case hipe_x86:is_imm(Src) of
+    false ->
+      [hipe_x86:mk_fmove(Src, Dst)];
+    true ->
+      %% cvtsi2sd does not allow src to be an immediate
+      Tmp = new_untagged_temp(),
+      [hipe_x86:mk_move(Src, Tmp),
+       hipe_x86:mk_fmove(Tmp, Dst)]
+  end.
 
 %%% Finalise the conversion of a 2-address FP operation.
 
