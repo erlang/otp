@@ -293,6 +293,8 @@ void *hipe_make_native_stub(void *callee_exp, unsigned int beamArity)
 	abort();
 
     code = alloc_stub(7);
+    if (!code)
+	return NULL;
 
     /* addis r12,0,callee_exp@highest */
     code[0] = 0x3d800000 | (((unsigned long)callee_exp >> 48) & 0xffff);
@@ -381,6 +383,8 @@ void *hipe_make_native_stub(void *callee_exp, unsigned int beamArity)
 	abort();
 
     code = alloc_stub(4);
+    if (!code)
+	return NULL;
 
     /* addi r12,0,callee_exp@l */
     code[0] = 0x39800000 | ((unsigned long)callee_exp & 0xFFFF);
