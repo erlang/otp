@@ -397,15 +397,9 @@ BIF_RETTYPE hipe_bifs_enter_code_2(BIF_ALIST_2)
     ASSERT(bitoffs == 0);
     ASSERT(bitsize == 0);
     trampolines = NIL;
-#ifdef HIPE_ALLOC_CODE
-    address = HIPE_ALLOC_CODE(nrbytes, BIF_ARG_2, &trampolines, BIF_P);
+    address = hipe_alloc_code(nrbytes, BIF_ARG_2, &trampolines, BIF_P);
     if (!address)
 	BIF_ERROR(BIF_P, BADARG);
-#else
-    if (is_not_nil(BIF_ARG_2))
-	BIF_ERROR(BIF_P, BADARG);
-    address = erts_alloc(ERTS_ALC_T_HIPE, nrbytes);
-#endif
     memcpy(address, bytes, nrbytes);
     hipe_flush_icache_range(address, nrbytes);
     hp = HAlloc(BIF_P, 3);
