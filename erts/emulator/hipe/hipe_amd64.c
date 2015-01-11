@@ -224,7 +224,6 @@ void *hipe_alloc_code(Uint nrbytes, Eterm callees, Eterm *trampolines, Process *
     return alloc_code(nrbytes);
 }
 
-
 /* Make stub for native code calling exported beam function.
 */
 void *hipe_make_native_stub(void *callee_exp, unsigned int beamArity)
