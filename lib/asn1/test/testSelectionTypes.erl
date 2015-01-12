@@ -23,10 +23,34 @@
 -include_lib("test_server/include/test_server.hrl").
 
 test() ->
-    Val = ["PrintableString","PrintableString","PrintableString"],
     ["Es"] = Val2 = ['SelectionType':einsteinium()],
-    roundtrip('MendeleyevTable', Val),
+    roundtrip('MendeleyevTable', ["fox","tree","cat","stone"]),
     roundtrip('MendeleyevTable', Val2),
+    roundtrip('MendeleyevSet', [42,57,93,101]),
+
+    M = 'SelectionType',
+    true = M:boolv(),
+    4 = M:intv(),
+    <<2#1001:4>> = M:bsv(),
+    <<16#3130:16>> = M:osv(),
+    'NULL' = M:nullv(),
+    {2,1,1} = M:oiv(),
+    "ObjectDesc" = M:odv(),
+    "utf8" = M:utfv(),
+    {5,32767,256} = M:rov(),
+    "089" = M:numsv(),
+    "telet" = M:teletv(),
+    "t61" = M:t61v(),
+    "video" = M:videov(),
+    "ia5" = M:ia5v(),
+    "9805281429Z" = M:utctimev(),
+    "19980528142905.1" = M:gTime(),
+    "graphic" = M:gsv(),
+    "visible" = M:vsv(),
+    "general" = M:gStringv(),
+    "Universal" = M:univv(),
+    "bmp" = M:bmov(),
+
     ok.
 
 roundtrip(T, V) ->

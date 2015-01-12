@@ -1,0 +1,30 @@
+ExtensibilityImplied DEFINITIONS
+AUTOMATIC TAGS
+EXTENSIBILITY IMPLIED
+::=
+BEGIN
+
+Enum1 ::= ENUMERATED { root, ..., ext }
+Enum2 ::= ENUMERATED { root }
+
+Seq1 ::= SEQUENCE {
+  b BOOLEAN,
+  ...,
+  i INTEGER
+}
+
+Seq2 ::= SEQUENCE {
+  b BOOLEAN
+}
+
+Set1 ::= SET {
+  b BOOLEAN,
+  ...,
+  i INTEGER
+}
+
+Set2 ::= SET {
+  b BOOLEAN
+}
+
+END

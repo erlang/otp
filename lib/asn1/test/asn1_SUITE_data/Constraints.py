@@ -81,7 +81,7 @@ maxNrOfCellPortionsPerCell-1 INTEGER ::= 35
 CellPortionID	::= INTEGER (0..maxNrOfCellPortionsPerCell-1,...)
 
 -- OTP-6763
-T ::=  IA5String (SIZE (1|2, ..., SIZE (1|2|3))) -- Dubuisson 268
+T ::=  IA5String (SIZE (1|2), ..., SIZE (1|2|3)) -- Dubuisson 268
 T2 ::= IA5String (SIZE (1|2, ..., 3)) -- equal with T
 
 -- OTP-8046
@@ -144,5 +144,47 @@ NonOverlapping ::= INTEGER (7280..7560 |
 23000..24000 |
 24960..26900)
 
+--
+-- Test INTEGER constraints from fields in objects.
+--
+
+INT-HOLDER ::= CLASS {
+  &id INTEGER UNIQUE,
+  &obj INT-HOLDER OPTIONAL
+} WITH SYNTAX {
+  ID &id
+  [OBJ &obj]
+}
+
+int-holder-1 INT-HOLDER ::= { ID 2 }
+int-holder-2 INT-HOLDER ::= { ID 4 OBJ int-holder-1 }
+
+IntObjectConstr ::= INTEGER (int-holder-2.&obj.&id..int-holder-2.&id)
+
+--
+-- INTEGER constraints defined using named INTEGERs.
+--
+
+ConstrainedNamedInt ::= INTEGER {v1(42)} (v1)
+constrainedNamedInt-1 INTEGER {v1(42)} (v1) ::= 42
+constrainedNamedInt-2 ConstrainedNamedInt ::= 100
+
+SeqWithNamedInt ::= SEQUENCE {
+   int INTEGER {v2(7)} (v2)
+}
+
+--
+-- Cover simpletable constraint checking code.
+--
+
+ContentInfo ::= SEQUENCE {
+  contentType ContentType
+}
+
+Contents TYPE-IDENTIFIER ::= {
+  {OCTET STRING IDENTIFIED BY {2 1 1 1 1 1 1}}
+}
+
+ContentType ::= TYPE-IDENTIFIER.&id({Contents})
 
 END

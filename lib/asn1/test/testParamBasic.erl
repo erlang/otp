@@ -46,6 +46,14 @@ main(Rules) ->
     roundtrip('AnAlgorithm', {'AnAlgorithm',1,42}),
     roundtrip('AnAlgorithm', {'AnAlgorithm',2,true}),
     roundtrip('AnAlgorithm', {'AnAlgorithm',2,false}),
+    {'AnAlgorithm',1,42} = 'ParamBasic':'alg-seq-1'(),
+    {'AnAlgorithm',2,true} = 'ParamBasic':'alg-seq-2'(),
+
+    roundtrip('Seq', {'Seq',
+		      {'Seq_c1',{2,1,1},42},
+		      {'Seq_c2',{2,1,1,1},asn1_NOVALUE}}),
+
+    {_,{2,9,9,9,7},'NULL'} = 'ParamBasic':'algid-hmacWithSHA1'(),
     ok.
 
 roundtrip(Type, Value) ->

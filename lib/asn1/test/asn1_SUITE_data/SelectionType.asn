@@ -14,7 +14,7 @@ Element ::= CHOICE {bool BOOLEAN,
 		    utf UTF8String,
 		    ro RELATIVE-OID,
 		    nums NumericString,
-		    symbol  PrintableString,
+		    symbol PrintableString,
 		    telet TeletexString,
 		    t61 T61String,
 		    video VideotexString,
@@ -23,13 +23,14 @@ Element ::= CHOICE {bool BOOLEAN,
 		    generalizedTime GeneralizedTime,
 		    gs GraphicString,
 		    vs VisibleString,
---		    iso64 ISO646String,
 		    generalString GeneralString,
 		    univ UniversalString,
 		    cs CHARACTER STRING,
 		    bmp BMPString}
 
-MendeleyevTable ::= SEQUENCE  OF symbol < Element
+MendeleyevTable ::= SEQUENCE OF symbol < Element
+MendeleyevSet ::= SET OF atomic-no < Element
+
 BoolType ::= bool < Element
 
 einsteinium symbol < Element ::= "Es"
@@ -51,7 +52,6 @@ utctimev utctime < Element ::= "9805281429Z"
 gTime generalizedTime < Element ::= "19980528142905.1"
 gsv gs < Element ::= "graphic"
 vsv vs  < Element ::= "visible"
---iso64v iso64 < Element ::= "iso"
 gStringv generalString < Element ::= "general"
 univv univ < Element ::= "Universal"
 bmov bmp < Element ::= "bmp"

@@ -3,7 +3,7 @@
 -- This Annex contains a module of PKCS#7 ASN.1 definitions conforming to current ASN.1 standards rather than the obsolescent (and now deprecated) 1988/90 version of ASN.1 used in version 1.5 of PKCS#7.
 -- Extensions to PKCS#7 defined in RFC 2630 are included.
 -- If differences are found between the ASN.1 in the following module and that in PKCS#7, the latter is definitive.
-PKCS7 {iso member-body usa(840) rsadsi(113549) pkcs(1) 7
+OLD-PKCS7 {iso member-body usa(840) rsadsi(113549) pkcs(1) 7
   module(0) -- module not currently defined in PKCS#7 --} DEFINITIONS IMPLICIT
 TAGS ::=
 BEGIN

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -24,17 +24,20 @@
 -include_lib("test_server/include/test_server.hrl").
 
 -record('Seq',{a, c}).
+-record('SeqV1',{a, b}).
 -record('SeqV2',{a, b ,c}).
 -record('SeqAlt',{a,d,b,e,c,f,g}).
 -record('SeqAltV2',{a,d,b,e,h,i,c,f,g}).
 
 -record('Set',{a, c}).
+-record('SetV1',{a, b}).
 -record('SetV2',{a, b ,c}).
 -record('SetAlt',{a,d,b,e,c,f,g}).
 -record('SetAltV2',{a,d,b,e,h,i,c,f,g}).
 
 main(_Rules) ->
     roundtrip('Seq', #'Seq'{a=10,c=true}),
+    roundtrip('SeqV1', #'SeqV1'{a=10,b=false}),
     roundtrip('SeqV2', #'SeqV2'{a=10,b=false,c=true}),
     roundtrip('SeqAlt',
 	      #'SeqAlt'{a=10,d=12,b = <<2#1010:4>>,
@@ -45,6 +48,7 @@ main(_Rules) ->
 			  e=true,h="PS",i=13,c=false,f=14,g=16}),
     
     roundtrip('Set', #'Set'{a=10,c=true}),
+    roundtrip('SetV1', #'SetV1'{a=10,b=false}),
     roundtrip('SetV2', #'SetV2'{a=10,b=false,c=true}),
     roundtrip('SetAlt',
 	      #'SetAlt'{a=10,d=12,

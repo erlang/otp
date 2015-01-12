@@ -1,0 +1,20 @@
+Importing DEFINITIONS AUTOMATIC TAGS ::=
+BEGIN
+
+ Seq ::= Exporting.PtSeq{ INTEGER(0..7) }
+ OtherSeq ::= Exporting.Seq
+
+ seq Exporting.Seq ::= { id 42, f TRUE }
+
+ o1 Exporting.CL ::= { ID 2 TYPE INTEGER (0..63) }
+
+ ObjSet Exporting.CL ::= { o1 | Exporting.obj }
+
+ ObjSeq ::= SEQUENCE {
+   id Exporting.CL.&id ({ObjSet}),
+   type Exporting.CL.&Type ({ObjSet}{@id})
+ }
+
+ o1-cloned Exporting.CL ::= Exporting.pt-object{o1}
+
+END
