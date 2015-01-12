@@ -435,14 +435,14 @@ is_label_used_in(Lbl, Is) ->
     is_label_used_in_1(Is, Lbl, gb_sets:empty()).
 
 is_label_used_in_1([{block,Block}|Is], Lbl, Empty) ->
-    lists:any(fun(I) -> is_label_used_in_2(I, Lbl) end, Block)
+    lists:any(fun(I) -> is_label_used_in_block(I, Lbl) end, Block)
 	orelse is_label_used_in_1(Is, Lbl, Empty);
 is_label_used_in_1([I|Is], Lbl, Empty) ->
     Used = ulbl(I, Empty),
     gb_sets:is_member(Lbl, Used) orelse is_label_used_in_1(Is, Lbl, Empty);
 is_label_used_in_1([], _, _) -> false.
 
-is_label_used_in_2({set,_,_,Info}, Lbl) ->
+is_label_used_in_block({set,_,_,Info}, Lbl) ->
     case Info of
 	{bif,_,{f,F}} -> F =:= Lbl;
 	{alloc,_,{gc_bif,_,{f,F}}} -> F =:= Lbl;
@@ -452,7 +452,6 @@ is_label_used_in_2({set,_,_,Info}, Lbl) ->
 	{put_tuple,_} -> false;
 	{get_tuple_element,_} -> false;
 	{set_tuple_element,_} -> false;
-        {get_map_elements,{f,F}} -> F =:= Lbl;
 	{line,_} -> false;
 	_ when is_atom(Info) -> false
     end.
