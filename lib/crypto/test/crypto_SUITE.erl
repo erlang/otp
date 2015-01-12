@@ -84,7 +84,7 @@ groups() ->
      {dss, [], [sign_verify]},
      {ecdsa, [], [sign_verify]},
      {dh, [], [generate_compute]},
-     {ecdh, [], [compute]},
+     {ecdh, [], [compute, generate]},
      {srp, [], [generate_compute]},
      {des_cbc, [], [block]},
      {des_cfb, [], [block]},
@@ -242,6 +242,12 @@ compute() ->
 compute(Config) when is_list(Config) ->
     Gen = proplists:get_value(compute, Config),
     lists:foreach(fun do_compute/1, Gen).
+%%--------------------------------------------------------------------
+generate() ->
+     [{doc, " Test crypto:generate_key"}].
+generate(Config) when is_list(Config) ->
+    Gen = proplists:get_value(generate, Config),
+    lists:foreach(fun do_generate/1, Gen).
 %%--------------------------------------------------------------------
 mod_pow() ->
     [{doc, "mod_pow testing (A ^ M % P with bignums)"}].
@@ -494,6 +500,14 @@ do_compute({ecdh = Type, Pub, Priv, Curve, SharedSecret}) ->
 	     ct:fail({{crypto, compute_key, [Type, Pub, Priv, Curve]}, {expected, SharedSecret}, {got, Other}})
      end.
 
+do_generate({ecdh = Type, Curve, Priv, Pub}) ->
+    case crypto:generate_key(Type, Curve, Priv) of
+	{Pub, _} ->
+	    ok;
+	{Other, _} ->
+	    ct:fail({{crypto, generate_key, [Type, Priv, Curve]}, {expected, Pub}, {got, Other}})
+    end.
+
 hexstr2point(X, Y) ->
     <<4:8, (hexstr2bin(X))/binary, (hexstr2bin(Y))/binary>>.
 
@@ -721,7 +735,8 @@ group_config(srp, Config) ->
     [{generate_compute, GenerateCompute} | Config];
 group_config(ecdh, Config) ->
     Compute = ecdh(),
-    [{compute, Compute} | Config];
+    Generate = ecc(),
+    [{compute, Compute}, {generate, Generate} | Config];
 group_config(dh, Config) ->
     GenerateCompute = [dh()],
     [{generate_compute, GenerateCompute} | Config];
@@ -1967,6 +1982,27 @@ rsa_oaep() ->
     %%Msg = hexstr2bin("6628194e12073db03ba94cda9ef9532397d50dba79b987004afefe34"),
     Msg =  hexstr2bin("750c4047f547e8e41411856523298ac9bae245efaf1397fbe56f9dd5"),
     {rsa, Public, Private, Msg, rsa_pkcs1_oaep_padding}.
+
+ecc() ->
+%%               http://point-at-infinity.org/ecc/nisttv
+%%
+%% Test vectors for the NIST elliptic curves P192, P224, P256, P384, P521,
+%% B163, B233, B283, B409, B571, K163, K233, K283, K409 and K571. For more
+%% information about the curves see
+%%       http://csrc.nist.gov/encryption/dss/ecdsa/NISTReCur.pdf
+%%
+    [{ecdh,secp192r1,1,
+      hexstr2point("188DA80EB03090F67CBF20EB43A18800F4FF0AFD82FF1012",
+		   "07192B95FFC8DA78631011ED6B24CDD573F977A11E794811")},
+     {ecdh,secp192r1,2,
+      hexstr2point("DAFEBF5828783F2AD35534631588A3F629A70FB16982A888",
+		   "DD6BDA0D993DA0FA46B27BBC141B868F59331AFA5C7E93AB")},
+     {ecdh,secp192r1,3,
+      hexstr2point("76E32A2557599E6EDCD283201FB2B9AADFD0D359CBB263DA",
+		   "782C37E372BA4520AA62E0FED121D49EF3B543660CFD05FD")},
+     {ecdh,secp192r1,4,
+      hexstr2point("35433907297CC378B0015703374729D7A4FE46647084E4BA",
+		   "A2649984F2135C301EA3ACB0776CD4F125389B311DB3BE32")}].
 
 no_padding() ->
     Public = [_, Mod] = rsa_public(),
