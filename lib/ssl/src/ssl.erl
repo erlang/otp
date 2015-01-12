@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2014. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -454,7 +454,7 @@ session_info(#sslsocket{pid = {Listen,_}}) when is_port(Listen) ->
 versions() ->
     Vsns = tls_record:supported_protocol_versions(),
     SupportedVsns = [tls_record:protocol_version(Vsn) || Vsn <- Vsns],
-    AvailableVsns = ?ALL_SUPPORTED_VERSIONS,
+    AvailableVsns = ?ALL_AVAILABLE_VERSIONS,
     %% TODO Add DTLS versions when supported
     [{ssl_app, ?VSN}, {supported, SupportedVsns}, {available, AvailableVsns}].
 

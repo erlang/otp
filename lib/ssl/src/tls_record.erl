@@ -311,8 +311,17 @@ supported_protocol_versions([]) ->
     Vsns;
 
 supported_protocol_versions([_|_] = Vsns) ->
-    Vsns.
-
+    case sufficient_tlsv1_2_crypto_support() of
+	true -> 
+	    Vsns;
+	false ->
+	    case Vsns -- ['tlsv1.2'] of
+		[] ->
+		    ?MIN_SUPPORTED_VERSIONS;
+		NewVsns ->
+		    NewVsns
+	    end
+    end.
 %%--------------------------------------------------------------------
 %%     
 %% Description: ssl version 2 is not acceptable security risks are too big.

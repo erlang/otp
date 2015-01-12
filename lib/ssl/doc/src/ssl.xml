@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1999</year><year>2014</year>
+      <year>1999</year><year>2015</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -38,7 +38,9 @@
       <item>ssl requires the crypto and public_key applications.</item>
       <item>Supported SSL/TLS-versions are SSL-3.0, TLS-1.0,
       TLS-1.1 and TLS-1.2.</item>
-      <item>For security reasons sslv2 is not supported.</item>
+      <item>For security reasons SSL-2.0 is not supported.</item>
+      <item>For security reasons SSL-3.0 is no longer supported by default,
+      but may be configured.</item>
       <item>Ephemeral Diffie-Hellman cipher suites are supported
       but not Diffie Hellman Certificates cipher suites.</item>
       <item>Elliptic Curve cipher suites are supported if crypto
@@ -302,7 +304,7 @@ fun(OtpCert :: #'OTPCertificate'{}, Event :: {bad_cert, Reason :: atom() | {revo
 
       </item>
 
-      <tag>{partial_chain, fun(Chain::[DerCert]) -> {trusted_ca, DerCert} | unknown_ca </tag>
+      <tag>{partial_chain, fun(Chain::[DerCert]) -> {trusted_ca, DerCert} | unknown_ca }</tag>
       <item>
 	Claim an intermediat CA in the chain as trusted. TLS will then perform the public_key:pkix_path_validation/3
 	with the selected CA as trusted anchor and the rest of the chain.
@@ -311,7 +313,7 @@ fun(OtpCert :: #'OTPCertificate'{}, Event :: {bad_cert, Reason :: atom() | {revo
       <tag>{versions, [protocol()]}</tag>
       <item>TLS protocol versions that will be supported by started clients and servers.
       This option overrides the application environment option <c>protocol_version</c>. If the
-      environment option is not set it defaults to all versions supported by the SSL application. See also
+      environment option is not set it defaults to all versions, except SSL-3.0, supported by the SSL application. See also
       <seealso marker="ssl:ssl_app">ssl(6)</seealso>
       </item>
 
@@ -904,19 +906,37 @@ fun(srp, Username :: string(), UserState :: term()) ->
     </func>
     
     <func>
-      <name>versions() ->
-	[{SslAppVer, SupportedSslVer, AvailableSslVsn}]</name>
+      <name>versions() -> [versions_info()]</name>
       <fsummary>Returns version information relevant for the
 	ssl application.</fsummary>
       <type>
-	<v>SslAppVer = string()</v>
-      	<v>SupportedSslVer = [protocol()]</v>
-      	<v>AvailableSslVsn = [protocol()]</v>
+	<v>versions_info() = {app_vsn, string()} | {supported | available, [protocol()] </v>
       </type>
       <desc>
 	<p>
 	  Returns version information relevant for the
-	  ssl application.</p>
+	  ssl application.
+	</p>
+	<taglist>
+	  <tag>app_vsn</tag>
+	  <item> The application version of the OTP ssl application.</item>
+
+	  <tag>supported</tag>
+
+	  <item>TLS/SSL versions supported by default.
+	  Overridden by a versions option on
+	  <seealso marker="#connect-2"> connect/[2,3,4]</seealso>, <seealso
+	  marker="#listen-2"> listen/2</seealso> and <seealso
+	  marker="#ssl_accept-2">ssl_accept/[1,2,3]</seealso>. For the
+	  negotiated TLS/SSL version see <seealso
+	  marker="#connection_info-1">ssl:connection_info/1
+	  </seealso></item>
+	  
+	  <tag>available</tag>
+	  <item>All TLS/SSL versions that the Erlang ssl application
+	  can support. Note that TLS 1.2 requires sufficient support
+	  from the crypto application. </item>
+	</taglist>
       </desc>
     </func>
     <func>

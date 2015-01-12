@@ -65,7 +65,7 @@ groups() ->
      {'tlsv1.2', [], all_versions_groups()},
      {'tlsv1.1', [], all_versions_groups()},
      {'tlsv1', [], all_versions_groups() ++ rizzo_tests()},
-     {'sslv3', [], all_versions_groups() ++ rizzo_tests()},
+     {'sslv3', [], all_versions_groups() ++ rizzo_tests() ++ [ciphersuite_vs_version]},
      {api,[], api_tests()},
      {session, [], session_tests()},
      {renegotiate, [], renegotiate_tests()},
@@ -90,7 +90,8 @@ basic_tests() ->
      version_option,
      connect_twice,
      connect_dist,
-     clear_pem_cache
+     clear_pem_cache,
+     defaults
     ].
 
 options_tests() ->
@@ -116,7 +117,6 @@ options_tests() ->
      tcp_reuseaddr,
      honor_server_cipher_order,
      honor_client_cipher_order,
-     ciphersuite_vs_version,
      unordered_protocol_versions_server,
      unordered_protocol_versions_client
 ].
@@ -2506,6 +2506,16 @@ no_reuses_session_server_restart_new_cert_file(Config) when is_list(Config) ->
     ssl_test_lib:close(Server1),
     ssl_test_lib:close(Client1).
 
+%%--------------------------------------------------------------------
+defaults(Config) when is_list(Config)->
+    [_, 
+     {supported, Supported},
+     {available, Available}]
+	= ssl:versions(),
+    true = lists:member(sslv3, Available),
+    false = lists:member(sslv3, Supported),
+    false = lists:member({rsa,rc4_128,sha}, ssl:cipher_suites()),
+    true = lists:member({rsa,rc4_128,sha}, ssl:cipher_suites(all)).
 %%--------------------------------------------------------------------
 reuseaddr() ->
     [{doc,"Test reuseaddr option"}].
