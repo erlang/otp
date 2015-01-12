@@ -54,7 +54,7 @@ split_block([{set,[D],[S|Puts],{alloc,R,{put_map,Op,{f,Lbl}=Fail}}}|Is],
     split_block(Is, [], [{put_map,Fail,Op,S,D,R,{list,Puts}}|
 			 make_block(Bl, Acc)]);
 split_block([{set,Ds,[S|Ss],{get_map_elements,Fail}}|Is], Bl, Acc) ->
-    Gets = beam_utils:joineven(Ss,Ds),
+    Gets = beam_utils:join_even(Ss,Ds),
     split_block(Is, [], [{get_map_elements,Fail,S,{list,Gets}}|make_block(Bl, Acc)]);
 split_block([{set,[R],[],{'catch',L}}|Is], Bl, Acc) ->
     split_block(Is, [], [{'catch',R,L}|make_block(Bl, Acc)]);
