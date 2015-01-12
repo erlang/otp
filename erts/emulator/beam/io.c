@@ -7396,6 +7396,7 @@ init_driver(erts_driver_t *drv, ErlDrvEntry *de, DE_Handle *handle)
     drv->timeout = de->timeout ? de->timeout : no_timeout_callback;
     drv->ready_async = de->ready_async;
     drv->process_exit = de->process_exit;
+    drv->emergency_close = de->emergency_close;
     if (de->stop_select)
 	drv->stop_select = de->stop_select;
     else

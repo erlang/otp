@@ -160,6 +160,7 @@ struct erts_driver_t_ {
     void (*ready_async)(ErlDrvData drv_data, ErlDrvThreadData thread_data); /* Might be NULL */ 
     void (*process_exit)(ErlDrvData drv_data, ErlDrvMonitor *monitor);
     void (*stop_select)(ErlDrvEvent event, void*); /* Might be NULL */
+    void (*emergency_close)(ErlDrvData drv_data);  /* Might be NULL */
 };
 
 extern erts_driver_t *driver_list;

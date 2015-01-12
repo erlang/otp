@@ -268,14 +268,13 @@ static BOOL (WINAPI *fpSetHandleInformation)(HANDLE,DWORD,DWORD);
 #define sock_htonl(x)              htonl((x))
 #define sock_send(s,buf,len,flag)  send((s),(buf),(len),(flag))
 #define sock_sendv(s, vec, size, np, flag) \
-                WSASend((s),(WSABUF*)(vec),\
-				   (size),(np),(flag),NULL,NULL)
+            WSASend((s),(WSABUF*)(vec),(size),(np),(flag),NULL,NULL)
 #define sock_recv(s,buf,len,flag)  recv((s),(buf),(len),(flag))
 
 #define sock_recvfrom(s,buf,blen,flag,addr,alen) \
-                recvfrom((s),(buf),(blen),(flag),(addr),(alen))
+	    recvfrom((s),(buf),(blen),(flag),(addr),(alen))
 #define sock_sendto(s,buf,blen,flag,addr,alen) \
-                sendto((s),(buf),(blen),(flag),(addr),(alen))
+	    sendto((s),(buf),(blen),(flag),(addr),(alen))
 #define sock_hostname(buf, len)    gethostname((buf), (len))
 
 #define sock_getservbyname(name,proto) getservbyname((name),(proto))
@@ -360,9 +359,9 @@ static ssize_t writev_fallback(int fd, const struct iovec *iov, int iovcnt, int 
 #define sock_accept(s, addr, len)   accept((s), (addr), (len))
 #define sock_send(s,buf,len,flag)   inet_send((s),(buf),(len),(flag))
 #define sock_sendto(s,buf,blen,flag,addr,alen) \
-                sendto((s),(buf),(blen),(flag),(addr),(alen))
+	    sendto((s),(buf),(blen),(flag),(addr),(alen))
 #define sock_sendv(s, vec, size, np, flag) \
-		(*(np) = writev_fallback((s), (struct iovec*)(vec), (size), (*(np))))
+	    (*(np) = writev_fallback((s), (struct iovec*)(vec), (size), (*(np))))
 #define sock_sendmsg(s,msghdr,flag) sendmsg((s),(msghdr),(flag))
 
 #define sock_open(af, type, proto)  socket((af), (type), (proto))
@@ -1178,6 +1177,7 @@ static ErlDrvSSizeT tcp_inet_ctl(ErlDrvData, unsigned int,
 static void tcp_inet_timeout(ErlDrvData);
 static void tcp_inet_process_exit(ErlDrvData, ErlDrvMonitor *); 
 static void inet_stop_select(ErlDrvEvent, void*); 
+static void inet_emergency_close(ErlDrvData);
 #ifdef __WIN32__
 static void tcp_inet_event(ErlDrvData, ErlDrvEvent);
 static void find_dynamic_functions(void);
@@ -1288,7 +1288,8 @@ static struct erl_drv_entry tcp_inet_driver_entry =
     ERL_DRV_FLAG_USE_PORT_LOCKING|ERL_DRV_FLAG_SOFT_BUSY,
     NULL,
     tcp_inet_process_exit,
-    inet_stop_select
+    inet_stop_select,
+    inet_emergency_close
 };
 
 
@@ -1341,7 +1342,8 @@ static struct erl_drv_entry udp_inet_driver_entry =
     ERL_DRV_FLAG_USE_PORT_LOCKING,
     NULL,
     NULL,
-    inet_stop_select
+    inet_stop_select,
+    inet_emergency_close
 };
 #endif
 
@@ -1375,7 +1377,8 @@ static struct erl_drv_entry sctp_inet_driver_entry =
     ERL_DRV_FLAG_USE_PORT_LOCKING,
     NULL,
     NULL, /* process_exit */
-    inet_stop_select
+    inet_stop_select,
+    inet_emergency_close
 };
 #endif
 
@@ -1421,7 +1424,7 @@ static int packet_inet_input(udp_descriptor* udesc, HANDLE event);
 static int packet_inet_output(udp_descriptor* udesc, HANDLE event);
 #endif
 
-/* convert descriptor poiner to inet_descriptor pointer */
+/* convert descriptor pointer to inet_descriptor pointer */
 #define INETP(d) (&(d)->inet)
 
 #ifdef __OSE__
@@ -8203,6 +8206,19 @@ static void inet_stop(inet_descriptor* desc)
 #endif
     FREE(desc);
 }
+
+static void inet_emergency_close(ErlDrvData data)
+{
+    /* valid for any (UDP, TCP or SCTP) descriptor */
+    tcp_descriptor* tcp_desc = (tcp_descriptor*)data;
+    inet_descriptor* desc = INETP(tcp_desc);
+    DEBUGF(("inet_emergency_close(%ld) {s=%d\r\n",
+	    (long)desc->inet.port, desc->inet.s));
+    if (desc->s != INVALID_SOCKET) {
+	sock_close(desc->s);
+    }
+}
+
 
 static void set_default_msgq_limits(ErlDrvPort port)
 {
