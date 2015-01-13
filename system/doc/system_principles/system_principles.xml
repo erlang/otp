@@ -109,7 +109,7 @@ init:stop()</pre>
           <p>Loads the code for and starts the applications Kernel and
           STDLIB, skips loading the <c>.erlang</c> file.
 	  Useful for scripts and other tools that should be behave the
-	  same irregardless of user preferences.
+	  same regardless of user preferences.
 	  </p>
         </item>
       </taglist>
