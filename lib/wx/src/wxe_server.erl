@@ -227,7 +227,7 @@ handle_connect(Object, EvData=#evh{handler=Handler},
 	       From, State0 = #state{users=Users}) ->
     %% Correct process is already listening just register it
     put(Handler, From),
-    case gb_trees:get(From, Users) of
+    case gb_trees:lookup(From, Users) of
 	{value, User0 = #user{events=Listeners0}} ->
 	    User  = User0#user{events=[{Object,EvData}|Listeners0]},
 	    State = State0#state{users=gb_trees:update(From, User, Users)},
