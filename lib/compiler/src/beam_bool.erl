@@ -126,43 +126,43 @@ bopt_block(Reg, Fail, OldIs, [{block,Bl0}|Acc0], St0) ->
 		%% There was a reference to a boolean expression
 		%% from inside a protected block (try/catch), to
 		%% a boolean expression outside.
-		  throw:protected_barrier ->
+		throw:protected_barrier ->
 		    failed;
 
-		  %% The 'xor' operator was used. We currently don't
-		  %% find it worthwile to translate 'xor' operators
-		  %% (the code would be clumsy).
-		  throw:'xor' ->
+		%% The 'xor' operator was used. We currently don't
+		%% find it worthwile to translate 'xor' operators
+		%% (the code would be clumsy).
+		throw:'xor' ->
 		    failed;
 
-		  %% The block does not contain a boolean expression,
-		  %% but only a call to a guard BIF.
-		  %% For instance: ... when element(1, T) ->
- 		  throw:not_boolean_expr ->
+		%% The block does not contain a boolean expression,
+		%% but only a call to a guard BIF.
+		%% For instance: ... when element(1, T) ->
+		throw:not_boolean_expr ->
  		    failed;
 
-		  %% The block contains a 'move' instruction that could
-		  %% not be handled.
- 		  throw:move ->
+		%% The block contains a 'move' instruction that could
+		%% not be handled.
+		throw:move ->
  		    failed;
 
-		  %% The optimization is not safe. (A register
-		  %% used by the instructions following the
-		  %% optimized code is either not assigned a
-		  %% value at all or assigned a different value.)
-		  throw:all_registers_not_killed ->
+		%% The optimization is not safe. (A register
+		%% used by the instructions following the
+		%% optimized code is either not assigned a
+		%% value at all or assigned a different value.)
+		throw:all_registers_not_killed ->
 		    failed;
-		  throw:registers_used ->
+		throw:registers_used ->
 		    failed;
 
-		  %% A protected block refered to the value
-		  %% returned by another protected block,
-		  %% probably because the Core Erlang code
-		  %% used nested try/catches in the guard.
-		  %% (v3_core never produces nested try/catches
-		  %% in guards, so it must have been another
-		  %% Core Erlang translator.)
-		  throw:protected_violation ->
+		%% A protected block refered to the value
+		%% returned by another protected block,
+		%% probably because the Core Erlang code
+		%% used nested try/catches in the guard.
+		%% (v3_core never produces nested try/catches
+		%% in guards, so it must have been another
+		%% Core Erlang translator.)
+		throw:protected_violation ->
 		    failed
 	    end
     end.
