@@ -244,6 +244,8 @@ static void note_child_death(int, int);
 static void* child_waiter(void *);
 #endif
 
+static int crashdump_companion_cube_fd = -1;
+
 /********************* General functions ****************************/
 
 /* This is used by both the drivers and general I/O, must be set early */
@@ -573,6 +575,14 @@ erts_sys_pre_init(void)
       close(fd);
     }
 
+    /* We need a file descriptor to close in the crashdump creation.
+     * We close this one to be sure we can get a fd for our real file ...
+     * so, we create one here ... a stone to carry all the way home.
+     */
+
+    crashdump_companion_cube_fd = open("/dev/null", O_RDONLY);
+
+    /* don't lose it, there will be cake */
 }
 
 void
@@ -760,7 +770,8 @@ prepare_crash_dump(int secs)
 			 heart_port->common.id, list, NULL);
     }
 
-    /* FIXME: Reserve one file descriptor */
+    /* Make sure we have a fd for our crashdump file. */
+    close(crashdump_companion_cube_fd);
 
     envsz = sizeof(env);
     i = erts_sys_getenv__("ERL_CRASH_DUMP_NICE", env, &envsz);
