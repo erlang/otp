@@ -120,7 +120,8 @@
 	  server_name_indication = undefined,
 	  %% Should the server prefer its own cipher order over the one provided by
 	  %% the client?
-	  honor_cipher_order = false
+	  honor_cipher_order = false,
+	  padding_check = true
 	  }).
 
 -record(socket_options,
