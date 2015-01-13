@@ -336,12 +336,14 @@ connect_in_callback(Config) ->
 					  end}]),
 		wxWindow:show(F1),
 		receive
-		    {continue, F1} -> Tester ! {continue, F1}
+		    {continue, F1} ->
+			true = wxFrame:disconnect(F1, size),
+			Tester ! {continue, F1}
 		end
 	end,
-    wxFrame:connect(Frame,size,
+    wxFrame:connect(Frame,show,
 		    [{callback,
-		      fun(#wx{event=#wxSize{}},_SizeEv) ->
+		      fun(#wx{event=#wxShow{}},_SizeEv) ->
 			      io:format("Frame got size~n",[]),
 			      spawn(TestWindow)
 		      end}]),
