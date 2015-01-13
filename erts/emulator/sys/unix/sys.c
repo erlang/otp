@@ -202,8 +202,6 @@ static erts_smp_atomic_t sys_misc_mem_sz;
 #if defined(ERTS_SMP)
 static void smp_sig_notify(char c);
 static int sig_notify_fds[2] = {-1, -1};
-#elif defined(USE_THREADS)
-static int async_fd[2];
 #endif
 
 #if CHLDWTHR || defined(ERTS_SMP)
@@ -719,14 +717,13 @@ static ERTS_INLINE int
 prepare_crash_dump(int secs)
 {
 #define NUFBUF (3)
-    int i, max;
+    int i;
     char env[21]; /* enough to hold any 64-bit integer */
     size_t envsz;
     DeclareTmpHeapNoproc(heap,NUFBUF);
     Port *heart_port;
     Eterm *hp = heap;
     Eterm list = NIL;
-    int heart_fd[2] = {-1,-1};
     int has_heart = 0;
 
     UseTmpHeapNoproc(NUFBUF);
@@ -749,43 +746,21 @@ prepare_crash_dump(int secs)
 	alarm((unsigned int)secs);
     }
 
+    /* close all viable sockets via emergency close callbacks.
+     * Specifically we want to close epmd sockets.
+     */
+
+    erts_emergency_close_ports();
+
     if (heart_port) {
-	/* hearts input fd
-	 * We "know" drv_data is the in_fd since the port is started with read|write
-	 */
-	heart_fd[0] = (int)heart_port->drv_data;
-	heart_fd[1] = (int)driver_data[heart_fd[0]].ofd;
-	has_heart   = 1;
-
+	has_heart = 1;
 	list = CONS(hp, make_small(8), list); hp += 2;
-
 	/* send to heart port, CMD = 8, i.e. prepare crash dump =o */
 	erts_port_output(NULL, ERTS_PORT_SIG_FLG_FORCE_IMM_CALL, heart_port,
 			 heart_port->common.id, list, NULL);
     }
 
-    /* Make sure we unregister at epmd (unknown fd) and get at least
-       one free filedescriptor (for erl_crash.dump) */
-
-    max = max_files;
-    if (max < 1024)
-	max = 1024;
-    for (i = 3; i < max; i++) {
-#if defined(ERTS_SMP)
-	/* We don't want to close the signal notification pipe... */
-	if (i == sig_notify_fds[0] || i == sig_notify_fds[1])
-	    continue;
-#elif defined(USE_THREADS)
-	/* We don't want to close the async notification pipe... */
-	if (i == async_fd[0] || i == async_fd[1])
-	    continue;
-#endif
-	/* We don't want to close our heart yet ... */
-	if (i == heart_fd[0] || i == heart_fd[1])
-	    continue;
-
-	close(i);
-    }
+    /* FIXME: Reserve one file descriptor */
 
     envsz = sizeof(env);
     i = erts_sys_getenv__("ERL_CRASH_DUMP_NICE", env, &envsz);

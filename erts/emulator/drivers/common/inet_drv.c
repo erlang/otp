@@ -8213,7 +8213,7 @@ static void inet_emergency_close(ErlDrvData data)
     tcp_descriptor* tcp_desc = (tcp_descriptor*)data;
     inet_descriptor* desc = INETP(tcp_desc);
     DEBUGF(("inet_emergency_close(%ld) {s=%d\r\n",
-	    (long)desc->inet.port, desc->inet.s));
+	    (long)desc->port, desc->s));
     if (desc->s != INVALID_SOCKET) {
 	sock_close(desc->s);
     }

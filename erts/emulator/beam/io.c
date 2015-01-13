@@ -7569,3 +7569,23 @@ Port *erts_get_heart_port(void)
 
     return NULL;
 }
+
+void erts_emergency_close_ports(void)
+{
+    int ix, max = erts_ptab_max(&erts_port);
+
+    for (ix = 0; ix < max; ix++) {
+	Port *port = erts_pix2port(ix);
+
+	if (!port)
+	    continue;
+	/* only examine undead or alive ports */
+	if (erts_atomic32_read_nob(&port->state) & ERTS_PORT_SFLGS_DEAD)
+	    continue;
+
+	/* emergency close socket */
+	if (port->drv_ptr->emergency_close) {
+	    port->drv_ptr->emergency_close((ErlDrvData) port->drv_data);
+	}
+    }
+}

@@ -853,6 +853,7 @@ Uint erts_port_ioq_size(Port *pp);
 void erts_stale_drv_select(Eterm, ErlDrvPort, ErlDrvEvent, int, int);
 
 Port *erts_get_heart_port(void);
+void erts_emergency_close_ports(void);
 
 #if defined(ERTS_SMP) && defined(ERTS_ENABLE_LOCK_COUNT)
 void erts_lcnt_enable_io_lock_count(int enable);
