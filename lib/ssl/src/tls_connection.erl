@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -482,8 +482,9 @@ next_record(#state{protocol_buffers = #protocol_buffers{tls_packets = [], tls_ci
 next_record(#state{protocol_buffers =
 		       #protocol_buffers{tls_packets = [], tls_cipher_texts = [CT | Rest]}
 		   = Buffers,
-		   connection_states = ConnStates0} = State) ->
-    case tls_record:decode_cipher_text(CT, ConnStates0) of
+		   connection_states = ConnStates0,
+		   ssl_options = #ssl_options{padding_check = Check}} = State) ->
+    case tls_record:decode_cipher_text(CT, ConnStates0, Check) of
 	{Plain, ConnStates} ->		      
 	    {Plain, State#state{protocol_buffers =
 				    Buffers#protocol_buffers{tls_cipher_texts = Rest},

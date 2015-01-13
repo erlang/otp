@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1999</year><year>2014</year>
+      <year>1999</year><year>2015</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -348,11 +348,23 @@ fun(srp, Username :: string(), UserState :: term()) ->
 	</p>
       </item>
 
+      <tag>{padding_check, boolean()}</tag>
+      <item>
+	<p> This option only affects TLS-1.0 connections.
+	If set to false it disables the block cipher padding check
+	to be able to interoperate with legacy software.
+	</p>
+	
+	<warning><p> Using this option makes TLS vulnerable to
+	the Poodle attack</p></warning>
+	
+      </item>
+      
     </taglist>
-
+    
   </section>
-
-   <section>
+  
+  <section>
     <title>SSL OPTION DESCRIPTIONS - CLIENT SIDE</title>
 
     <p>Options described here are client specific or has a slightly different
