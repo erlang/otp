@@ -7558,7 +7558,7 @@ Port *erts_get_heart_port(void)
 	if (!port)
 	    continue;
 	/* only examine undead or alive ports */
-	if (erts_atomic32_read_nob(&port->state) & ERTS_PORT_SFLGS_DEAD)
+	if (erts_atomic32_read_nob(&port->state) & ERTS_PORT_SFLGS_INVALID_DRIVER_LOOKUP)
 	    continue;
 	/* immediate atom compare */
 	reg = port->common.u.alive.reg;
@@ -7580,7 +7580,7 @@ void erts_emergency_close_ports(void)
 	if (!port)
 	    continue;
 	/* only examine undead or alive ports */
-	if (erts_atomic32_read_nob(&port->state) & ERTS_PORT_SFLGS_DEAD)
+	if (erts_atomic32_read_nob(&port->state) & ERTS_PORT_SFLGS_INVALID_DRIVER_LOOKUP)
 	    continue;
 
 	/* emergency close socket */
