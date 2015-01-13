@@ -163,7 +163,16 @@ bopt_block(Reg, Fail, OldIs, [{block,Bl0}|Acc0], St0) ->
 		%% in guards, so it must have been another
 		%% Core Erlang translator.)
 		throw:protected_violation ->
+		    failed;
+
+		%% Failed to work out the live registers for a GC
+		%% BIF. For example, if the number of live registers
+		%% needed to be 4 because {x,3} was a source register,
+		%% but {x,2} was not known to be initialized, this
+		%% exception would be thrown.
+		throw:gc_bif_alloc_failure ->
 		    failed
+
 	    end
     end.
 
@@ -665,10 +674,16 @@ put_reg_1(V, [], I) -> [{I,V}].
 fetch_reg(V, [{I,V}|_]) -> {x,I};
 fetch_reg(V, [_|SRs]) -> fetch_reg(V, SRs).
 
-live_regs(Regs) ->
-    foldl(fun ({I,_}, _) ->
-		  I
-	  end, -1, Regs)+1.
+live_regs([{_,reserved}|_]) ->
+    %% We are not sure that this register is initialized, so we must
+    %% abort the optimization.
+    throw(gc_bif_alloc_failure);
+live_regs([{I,_}]) ->
+    I+1;
+live_regs([{_,_}|Regs]) ->
+    live_regs(Regs);
+live_regs([]) ->
+    0.
 
     
 %%%
