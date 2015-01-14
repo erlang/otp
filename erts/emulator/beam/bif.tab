@@ -621,9 +621,11 @@ bif hashmap:remove/2
 bif hashmap:info/1
 bif hashmap:to_list/1
 bif hashmap:new/0
-# bif hashmap:keys/1
+bif hashmap:is_key/2
+bif hashmap:keys/1
 bif hashmap:size/1
 bif erlang:is_hashmap/1
+bif hashmap:values/1
 
 #
 # Obsolete
