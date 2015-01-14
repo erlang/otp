@@ -234,11 +234,11 @@
         <taglist>
 	  <tag><c><![CDATA[{inet, inet | inet6}]]></c></tag>
 	  <item> IP version to use when the host address is specified as <c>any</c>. </item>
-	  <tag><c><![CDATA[{subsystems, [subsystem_spec()]]]></c></tag>
+	  <tag><c><![CDATA[{subsystems, [subsystem_spec()]}]]></c></tag>
 	  <item>
 	    Provides specifications for handling of subsystems. The
 	    "sftp" subsystem spec can be retrieved by calling
-	    ssh_sftpd:subsystem_spec/1. If the subsystems option in
+	    ssh_sftpd:subsystem_spec/1. If the subsystems option is
 	    not present the value of
 	    <c>[ssh_sftpd:subsystem_spec([])]</c> will be used.  It is
 	    of course possible to set the option to the empty list if
