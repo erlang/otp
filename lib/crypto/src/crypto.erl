@@ -211,7 +211,7 @@ supports()->
     [{hashs, Hashs},
      {ciphers, [des_cbc, des_cfb, des3_cbc, des_ede3, blowfish_cbc,
 		blowfish_cfb64, blowfish_ofb64, blowfish_ecb, aes_cbc128, aes_cfb8, aes_cfb128,
-		aes_cbc256, rc2_cbc, aes_ctr, rc4] ++ Ciphers},
+		aes_cbc256, rc2_cbc, aes_ctr, rc4, aes_ecb] ++ Ciphers},
      {public_keys, [rsa, dss, dh, srp] ++ PubKeys}
     ].
 
@@ -347,19 +347,23 @@ block_decrypt(aes_cfb128, Key, Ivec, Data) ->
 block_decrypt(rc2_cbc, Key, Ivec, Data) ->
     rc2_cbc_decrypt(Key, Ivec, Data).
 
--spec block_encrypt(des_ecb | blowfish_ecb, Key::iodata(), Data::iodata()) -> binary().
+-spec block_encrypt(des_ecb | blowfish_ecb | aes_ecb, Key::iodata(), Data::iodata()) -> binary().
 
 block_encrypt(des_ecb, Key, Data) ->
     des_ecb_encrypt(Key, Data);
 block_encrypt(blowfish_ecb, Key, Data) ->
-    blowfish_ecb_encrypt(Key, Data).
+    blowfish_ecb_encrypt(Key, Data);
+block_encrypt(aes_ecb, Key, Data) ->
+    aes_ecb_encrypt(Key, Data).       
 
--spec block_decrypt(des_ecb | blowfish_ecb, Key::iodata(), Data::iodata()) -> binary().
+-spec block_decrypt(des_ecb | blowfish_ecb | aes_ecb, Key::iodata(), Data::iodata()) -> binary().
 
 block_decrypt(des_ecb, Key, Data) ->
     des_ecb_decrypt(Key, Data);
 block_decrypt(blowfish_ecb, Key, Data) ->
-    blowfish_ecb_decrypt(Key, Data).
+    blowfish_ecb_decrypt(Key, Data);
+block_decrypt(aes_ecb, Key, Data) ->
+    aes_ecb_decrypt(Key, Data).       
 
 -spec next_iv(des_cbc | des3_cbc | aes_cbc | aes_ige, Data::iodata()) -> binary().
 
@@ -1359,6 +1363,21 @@ do_stream_decrypt({rc4, State0}, Data) ->
 
 aes_ctr_encrypt(_Key, _IVec, _Data) -> ?nif_stub.
 aes_ctr_decrypt(_Key, _IVec, _Cipher) -> ?nif_stub.
+
+%%
+%% AES - in electronic codebook mode (ECB)
+%%
+-spec aes_ecb_crypt(iodata(), iodata(), integer()) ->
+                 binary().
+
+aes_ecb_encrypt(Key, Data) ->
+    aes_ecb_crypt(Key, Data, true).
+
+aes_ecb_decrypt(Key, Data) ->
+    aes_ecb_crypt(Key, Data, false).
+
+aes_ecb_crypt(_Key, __Data, _IsEncrypt) -> ?nif_stub.
+
 
 %%
 %% AES - in counter mode (CTR) with state maintained for multi-call streaming 
