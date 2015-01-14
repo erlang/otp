@@ -1537,6 +1537,7 @@ disc_less(Config) when is_list(Config) ->
     timer:sleep(500),
     ?match(ok, rpc:call(Node3, mnesia, start, [[{extra_db_nodes, [Node1, Node2]}]])),
     ?match(ok, rpc:call(Node3, mnesia, wait_for_tables, [[Tab1, Tab2, Tab3], 20000])),
+    ?match(ok, rpc:call(Node1, mnesia, wait_for_tables, [[Tab1, Tab2, Tab3], 20000])),
 
     ?match(ok, rpc:call(Node3, ?MODULE, verify_data, [Tab1, 100])),
     ?match(ok, rpc:call(Node3, ?MODULE, verify_data, [Tab2, 100])),
