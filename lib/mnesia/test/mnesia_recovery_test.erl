@@ -320,7 +320,9 @@ read_during_down(Op, Config) when is_list(Config) ->
     ?log("W2R ~p~n", [W2R]),
     loop_and_kill_mnesia(10, hd(W2R), Tabs),
     [Pid ! self() || Pid <- Readers],
-    ?match([ok, ok, ok], [receive ok -> ok after 1000 -> {Pid, mnesia_lib:dist_coredump()} end || Pid <- Readers]),
+    ?match([ok, ok, ok],
+	   [receive ok -> ok after 5000 -> {Pid, mnesia_lib:dist_coredump()} end
+	    || Pid <- Readers]),
     ?verify_mnesia(Ns, []).
 
 reader(Tab, OP) ->

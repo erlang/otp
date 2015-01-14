@@ -66,12 +66,14 @@
 				?verbose("ok, ~n Result as expected:~p~n",[_AR_2]),
 				{success,_AR_2};
 			    _AR_2 ->
-				?error("Not Matching Actual result was:~n ~p~n", [_AR_2]),
+				?error("Not Matching Actual result was:~n ~p~n ~p~n",
+				       [_AR_2, erlang:get_stacktrace()]),
 				{fail,_AR_2}
 			end;
-		    _:_AR_1 ->
-			?error("Not Matching Actual result was:~n ~p~n", [_AR_1]),
-			{fail,_AR_1}
+		    _T1_:_AR_1 ->
+			?error("Not Matching Actual result was:~n ~p~n  ~p~n",
+			       [{_T1_,_AR_1}, erlang:get_stacktrace()]),
+			{fail,{_T1_,_AR_1}}
 		end
 	end()).
 
