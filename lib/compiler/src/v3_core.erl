@@ -105,7 +105,8 @@
 -record(iset,      {anno=#a{},var,arg}).
 -record(itry,      {anno=#a{},args,vars,body,evars,handler}).
 -record(ifilter,   {anno=#a{},arg}).
--record(igen,      {anno=#a{},acc_pat,acc_guard,skip_pat,tail,tail_pat,arg}).
+-record(igen,      {anno=#a{},ceps=[],acc_pat,acc_guard,
+		    skip_pat,tail,tail_pat,arg}).
 
 -type iapply()    :: #iapply{}.
 -type ibinary()   :: #ibinary{}.
@@ -1011,7 +1012,8 @@ fun_tq({_,_,Name}=Id, Cs0, L, St0, NameInfo) ->
 %% lc_tq(Line, Exp, [Qualifier], Mc, State) -> {LetRec,[PreExp],State}.
 %%  This TQ from Simon PJ pp 127-138.  
 
-lc_tq(Line, E, [#igen{anno=GAnno,acc_pat=AccPat,acc_guard=AccGuard,
+lc_tq(Line, E, [#igen{anno=GAnno,ceps=Ceps,
+		      acc_pat=AccPat,acc_guard=AccGuard,
                       skip_pat=SkipPat,tail=Tail,tail_pat=TailPat,
                       arg={Pre,Arg}}|Qs], Mc, St0) ->
     {Name,St1} = new_fun_name("lc", St0),
@@ -1046,7 +1048,7 @@ lc_tq(Line, E, [#igen{anno=GAnno,acc_pat=AccPat,acc_guard=AccGuard,
     Fun = #ifun{anno=LAnno,id=[],vars=[Var],clauses=Cs,fc=Fc},
     {#iletrec{anno=LAnno#a{anno=[list_comprehension|LA]},defs=[{{Name,1},Fun}],
               body=Pre ++ [#iapply{anno=LAnno,op=F,args=[Arg]}]},
-     [],St4};
+     Ceps,St4};
 lc_tq(Line, E, [#ifilter{}=Filter|Qs], Mc, St) ->
     filter_tq(Line, E, Filter, Mc, St, Qs, fun lc_tq/5);
 lc_tq(Line, E0, [], Mc0, St0) ->
@@ -1071,7 +1073,8 @@ bc_tq(Line, Exp, Qs0, _, St0) ->
 			    args=[Sz]}}] ++ BcPre,
     {E,Pre,St}.
 
-bc_tq1(Line, E, [#igen{anno=GAnno,acc_pat=AccPat,acc_guard=AccGuard,
+bc_tq1(Line, E, [#igen{anno=GAnno,ceps=Ceps,
+		       acc_pat=AccPat,acc_guard=AccGuard,
                        skip_pat=SkipPat,tail=Tail,tail_pat=TailPat,
                        arg={Pre,Arg}}|Qs], Mc, St0) ->
     {Name,St1} = new_fun_name("lbc", St0),
@@ -1109,7 +1112,7 @@ bc_tq1(Line, E, [#igen{anno=GAnno,acc_pat=AccPat,acc_guard=AccGuard,
     Fun = #ifun{anno=LAnno,id=[],vars=Vars,clauses=Cs,fc=Fc},
     {#iletrec{anno=LAnno#a{anno=[list_comprehension|LA]},defs=[{{Name,2},Fun}],
               body=Pre ++ [#iapply{anno=LAnno,op=F,args=[Arg,Mc]}]},
-     [],St4};
+     Ceps,St4};
 bc_tq1(Line, E, [#ifilter{}=Filter|Qs], Mc, St) ->
     filter_tq(Line, E, Filter, Mc, St, Qs, fun bc_tq1/5);
 bc_tq1(_, {bin,Bl,Elements}, [], AccVar, St0) ->
@@ -1245,8 +1248,9 @@ generator(Line, {generate,Lg,P0,E}, Gs, St0) ->
                                 ann_c_cons(LA, Skip, Tail)}
                        end,
     {Ce,Pre,St4} = safe(E, St3),
-    Gen = #igen{anno=#a{anno=GA},acc_pat=AccPat,acc_guard=Cg,skip_pat=SkipPat,
-                tail=Tail,tail_pat=#c_literal{anno=LA,val=[]},arg={Ceps++Pre,Ce}},
+    Gen = #igen{anno=#a{anno=GA},ceps=Ceps,
+		acc_pat=AccPat,acc_guard=Cg,skip_pat=SkipPat,
+                tail=Tail,tail_pat=#c_literal{anno=LA,val=[]},arg={Pre,Ce}},
     {Gen,St4};
 generator(Line, {b_generate,Lg,P,E}, Gs, St0) ->
     LA = lineno_anno(Line, St0),
