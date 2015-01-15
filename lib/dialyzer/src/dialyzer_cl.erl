@@ -48,7 +48,7 @@
 	 plt_info        = none           :: 'none' | dialyzer_plt:plt_info(),
 	 report_mode     = normal         :: rep_mode(),
 	 return_status= ?RET_NOTHING_SUSPICIOUS	:: dial_ret(),
-	 stored_warnings = []             :: [dial_warning()],
+	 stored_warnings = []             :: [raw_warning()],
 	 unknown_behaviours = []          :: [dialyzer_behaviours:behaviour()]
 	}).
 
@@ -627,7 +627,7 @@ format_log_cache(LogCache) ->
   Str = lists:append(lists:reverse(LogCache)),
   string:join(string:tokens(Str, "\n"), "\n  ").
 
--spec store_warnings(#cl_state{}, [dial_warning()]) -> #cl_state{}.
+-spec store_warnings(#cl_state{}, [raw_warning()]) -> #cl_state{}.
 
 store_warnings(#cl_state{stored_warnings = StoredWarnings} = St, Warnings) ->
   St#cl_state{stored_warnings = StoredWarnings ++ Warnings}.
@@ -685,15 +685,21 @@ return_value(State = #cl_state{erlang_mode = ErlangMode,
               unknown_behaviours(State);
           false -> []
         end,
+      WarningInfo = {_Filename = "", _Line = 0, _MorMFA = ''},
       UnknownWarnings =
-        [{?WARN_UNKNOWN, {_Filename = "", _Line = 0}, W} || W <- Unknown],
+        [{?WARN_UNKNOWN, WarningInfo, W} || W <- Unknown],
       AllWarnings =
         UnknownWarnings ++ process_warnings(StoredWarnings),
-      {RetValue, AllWarnings}
+      {RetValue, set_warning_id(AllWarnings)}
   end.
 
 unknown_functions(#cl_state{external_calls = Calls}) ->
   [{unknown_function, MFA} || MFA <- Calls].
+
+set_warning_id(Warnings) ->
+  lists:map(fun({Tag, {File, Line, _MorMFA}, Msg}) ->
+                {Tag, {File, Line}, Msg}
+            end, Warnings).
 
 print_ext_calls(#cl_state{report_mode = quiet}) ->
   ok;
@@ -817,15 +823,16 @@ print_warnings(#cl_state{output = Output,
 	    formatted ->
 	      [dialyzer:format_warning(W, FOpt) || W <- PrWarnings];
 	    raw ->
-	      [io_lib:format("~p. \n", [W]) || W <- PrWarnings]
+	      [io_lib:format("~p. \n",
+                             [W]) || W <- set_warning_id(PrWarnings)]
 	  end,
       io:format(Output, "\n~s", [S])
   end.
 
--spec process_warnings([dial_warning()]) -> [dial_warning()].
+-spec process_warnings([raw_warning()]) -> [raw_warning()].
   
 process_warnings(Warnings) ->
-  Warnings1 = lists:keysort(2, Warnings), %% Sort on file/line
+  Warnings1 = lists:keysort(2, Warnings), %% Sort on file/line (and m/mfa..)
   remove_duplicate_warnings(Warnings1, []).
 
 remove_duplicate_warnings([Duplicate, Duplicate|Left], Acc) ->

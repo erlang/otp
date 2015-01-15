@@ -351,7 +351,7 @@ solve_constraints(Contract, Call, Constraints) ->
 
 %% Checks the contracts for functions that are not implemented
 -spec contracts_without_fun(contracts(), [_], dialyzer_callgraph:callgraph()) ->
-        [dial_warning()].
+        [raw_warning()].
 
 contracts_without_fun(Contracts, AllFuns0, Callgraph) ->
   AllFuns1 = [{dialyzer_callgraph:lookup_name(Label, Callgraph), Arity}
@@ -362,8 +362,9 @@ contracts_without_fun(Contracts, AllFuns0, Callgraph) ->
   [warn_spec_missing_fun(MFA, Contracts) || MFA <- ErrorContractMFAs].
 
 warn_spec_missing_fun({M, F, A} = MFA, Contracts) ->
-  {FileLine, _Contract, _Xtra} = dict:fetch(MFA, Contracts),
-  {?WARN_CONTRACT_SYNTAX, FileLine, {spec_missing_fun, [M, F, A]}}.
+  {{File, Line}, _Contract, _Xtra} = dict:fetch(MFA, Contracts),
+  WarningInfo = {File, Line, MFA},
+  {?WARN_CONTRACT_SYNTAX, WarningInfo, {spec_missing_fun, [M, F, A]}}.
 
 %% This treats the "when" constraints. It will be extended, we hope.
 insert_constraints([{subtype, Type1, Type2}|Left], Dict) ->
@@ -585,7 +586,7 @@ general_domain([], AccSig) ->
 -spec get_invalid_contract_warnings([module()],
                                     dialyzer_codeserver:codeserver(),
                                     dialyzer_plt:plt(),
-                                    opaques_fun()) -> [dial_warning()].
+                                    opaques_fun()) -> [raw_warning()].
 
 get_invalid_contract_warnings(Modules, CodeServer, Plt, FindOpaques) ->
   get_invalid_contract_warnings_modules(Modules, CodeServer, Plt, FindOpaques, []).
@@ -609,12 +610,14 @@ get_invalid_contract_warnings_funs([{MFA, {FileLine, Contract, _Xtra}}|Left],
       Sig = erl_types:t_fun(Args, Ret),
       {M, _F, _A} = MFA,
       Opaques = FindOpaques(M),
+      {File, Line} = FileLine,
+      WarningInfo = {File, Line, MFA},
       NewAcc =
 	case check_contract(Contract, Sig, Opaques) of
 	  {error, invalid_contract} ->
-	    [invalid_contract_warning(MFA, FileLine, Sig, RecDict)|Acc];
+	    [invalid_contract_warning(MFA, WarningInfo, Sig, RecDict)|Acc];
 	  {error, {overlapping_contract, []}} ->
-	    [overlapping_contract_warning(MFA, FileLine)|Acc];
+	    [overlapping_contract_warning(MFA, WarningInfo)|Acc];
 	  {error, {extra_range, ExtraRanges, STRange}} ->
 	    Warn =
 	      case t_from_forms_without_remote(Contract#contract.forms,
@@ -627,12 +630,12 @@ get_invalid_contract_warnings_funs([{MFA, {FileLine, Contract, _Xtra}}|Left],
 	      end,
 	    case Warn of
 	      true ->
-		[extra_range_warning(MFA, FileLine, ExtraRanges, STRange)|Acc];
+		[extra_range_warning(MFA, WarningInfo, ExtraRanges, STRange)|Acc];
 	      false ->
 		Acc
 	    end;
 	  {error, Msg} ->
-	    [{?WARN_CONTRACT_SYNTAX, FileLine, Msg}|Acc];
+	    [{?WARN_CONTRACT_SYNTAX, WarningInfo, Msg}|Acc];
 	  ok ->
 	    {M, F, A} = MFA,
 	    CSig0 = get_contract_signature(Contract),
@@ -646,14 +649,14 @@ get_invalid_contract_warnings_funs([{MFA, {FileLine, Contract, _Xtra}}|Left],
 		BifSig = erl_types:t_fun(BifArgs, BifRet),
 		case check_contract(Contract, BifSig, Opaques) of
 		  {error, _} ->
-		    [invalid_contract_warning(MFA, FileLine, BifSig, RecDict)
+		    [invalid_contract_warning(MFA, WarningInfo, BifSig, RecDict)
 		     |Acc];
 		  ok ->
-		    picky_contract_check(CSig, BifSig, MFA, FileLine,
+		    picky_contract_check(CSig, BifSig, MFA, WarningInfo,
 					 Contract, RecDict, Acc)
 		end;
 	      false ->
-		picky_contract_check(CSig, Sig, MFA, FileLine, Contract,
+		picky_contract_check(CSig, Sig, MFA, WarningInfo, Contract,
 				     RecDict, Acc)
 	    end
 	end,
@@ -662,20 +665,20 @@ get_invalid_contract_warnings_funs([{MFA, {FileLine, Contract, _Xtra}}|Left],
 get_invalid_contract_warnings_funs([], _Plt, _RecDict, _FindOpaques, Acc) ->
   Acc.
 
-invalid_contract_warning({M, F, A}, FileLine, SuccType, RecDict) ->
+invalid_contract_warning({M, F, A}, WarningInfo, SuccType, RecDict) ->
   SuccTypeStr = dialyzer_utils:format_sig(SuccType, RecDict),
-  {?WARN_CONTRACT_TYPES, FileLine, {invalid_contract, [M, F, A, SuccTypeStr]}}.
+  {?WARN_CONTRACT_TYPES, WarningInfo, {invalid_contract, [M, F, A, SuccTypeStr]}}.
 
-overlapping_contract_warning({M, F, A}, FileLine) ->
-  {?WARN_CONTRACT_TYPES, FileLine, {overlapping_contract, [M, F, A]}}.
+overlapping_contract_warning({M, F, A}, WarningInfo) ->
+  {?WARN_CONTRACT_TYPES, WarningInfo, {overlapping_contract, [M, F, A]}}.
 
-extra_range_warning({M, F, A}, FileLine, ExtraRanges, STRange) ->
+extra_range_warning({M, F, A}, WarningInfo, ExtraRanges, STRange) ->
   ERangesStr = erl_types:t_to_string(ExtraRanges),
   STRangeStr = erl_types:t_to_string(STRange),
-  {?WARN_CONTRACT_SUPERTYPE, FileLine,
+  {?WARN_CONTRACT_SUPERTYPE, WarningInfo,
    {extra_range, [M, F, A, ERangesStr, STRangeStr]}}.
 
-picky_contract_check(CSig0, Sig0, MFA, FileLine, Contract, RecDict, Acc) ->
+picky_contract_check(CSig0, Sig0, MFA, WarningInfo, Contract, RecDict, Acc) ->
   CSig = erl_types:t_abstract_records(CSig0, RecDict),
   Sig = erl_types:t_abstract_records(Sig0, RecDict),
   case erl_types:t_is_equal(CSig, Sig) of
@@ -685,7 +688,7 @@ picky_contract_check(CSig0, Sig0, MFA, FileLine, Contract, RecDict, Acc) ->
 	    erl_types:t_is_unit(erl_types:t_fun_range(CSig))) of
 	true -> Acc;
 	false ->
-	  case extra_contract_warning(MFA, FileLine, Contract,
+	  case extra_contract_warning(MFA, WarningInfo, Contract,
 				      CSig0, Sig0, RecDict) of
 	    no_warning -> Acc;
 	    {warning, Warning} -> [Warning|Acc]
@@ -693,7 +696,7 @@ picky_contract_check(CSig0, Sig0, MFA, FileLine, Contract, RecDict, Acc) ->
       end
   end.
 
-extra_contract_warning({M, F, A}, FileLine, Contract, CSig, Sig, RecDict) ->
+extra_contract_warning({M, F, A}, WarningInfo, Contract, CSig, Sig, RecDict) ->
   %% We do not want to depend upon erl_types:t_to_string() possibly
   %% hiding the contents of opaque types.
   SigUnopaque = erl_types:t_unopaque(Sig),
@@ -724,7 +727,7 @@ extra_contract_warning({M, F, A}, FileLine, Contract, CSig, Sig, RecDict) ->
 	    {?WARN_CONTRACT_NOT_EQUAL,
 	     {contract_diff, [M, F, A, ContractString, SigString]}}
 	end,
-      {warning, {Tag, FileLine, Msg}}
+      {warning, {Tag, WarningInfo, Msg}}
   end.
 
 is_remote_types_related(Contract, CSig, Sig, RecDict) ->

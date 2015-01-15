@@ -264,8 +264,10 @@
     its violation results in a compilation error. 
   </p>
   <note>
-    The following built-in list types also exist, 
-    but they are expected to be rarely used. Hence, they have long names:
+    <p>
+      The following built-in list types also exist,
+      but they are expected to be rarely used. Hence, they have long names:
+    </p>
   </note>
   <pre>
   nonempty_maybe_improper_list() :: nonempty_maybe_improper_list(any(), any())
@@ -504,7 +506,9 @@
   -spec foo({X, integer()}) -> X when X :: atom()
          ; ([Y]) -> Y when Y :: number().</pre>
     <note>
+      <p>
       For backwards compatibility the following form is also allowed:
+      </p>
       <pre>  -spec id(X) -> X when is_subtype(X, tuple()).</pre>
       <p>
 	but its use is discouraged. It will be taken out in a future
