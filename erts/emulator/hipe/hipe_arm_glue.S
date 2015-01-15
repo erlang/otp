@@ -24,6 +24,7 @@
 
 	.text
 	.p2align 2
+	.arm
 
 /*
  * Enter Erlang from C.
@@ -69,6 +70,7 @@
  * Emulated code recursively calls native code.
  */
 	.global	hipe_arm_call_to_native
+	.type	hipe_arm_call_to_native, %function
 hipe_arm_call_to_native:
 	ENTER_FROM_C
 	/* get argument registers */
@@ -84,6 +86,7 @@ hipe_arm_call_to_native:
  * This is where native code returns to emulated code.
  */
 	.global	nbif_return
+	.type	nbif_return, %function
 nbif_return:
 	str	r0, [P, #P_ARG0]			/* save retval */
 	mov	r0, #HIPE_MODE_SWITCH_RES_RETURN
@@ -94,6 +97,7 @@ nbif_return:
  * Emulated code returns to its native code caller.
  */
 	.global	hipe_arm_return_to_native
+	.type	hipe_arm_return_to_native, %function
 hipe_arm_return_to_native:
 	ENTER_FROM_C
 	/* get return value */
@@ -110,6 +114,7 @@ hipe_arm_return_to_native:
  * Emulated code tailcalls native code.
  */
 	.global	hipe_arm_tailcall_to_native
+	.type	hipe_arm_tailcall_to_native, %function
 hipe_arm_tailcall_to_native:
 	ENTER_FROM_C
 	/* get argument registers */
@@ -124,6 +129,7 @@ hipe_arm_tailcall_to_native:
  * Emulated code throws an exception to its native code caller.
  */
 	.global	hipe_arm_throw_to_native
+	.type	hipe_arm_throw_to_native, %function
 hipe_arm_throw_to_native:
 	ENTER_FROM_C
 	/* invoke the handler */
@@ -141,6 +147,7 @@ hipe_arm_throw_to_native:
  * XXX: Different stubs for different number of register parameters?
  */
 	.global	nbif_callemu
+	.type	nbif_callemu, %function
 nbif_callemu:
 	str	r8, [P, #P_CALLEE_EXP]
 	str	r0, [P, #P_ARITY]
@@ -152,6 +159,7 @@ nbif_callemu:
  * nbif_apply
  */
 	.global	nbif_apply
+	.type	nbif_apply, %function
 nbif_apply:
 	STORE_ARG_REGS
 	mov	r0, #HIPE_MODE_SWITCH_RES_APPLY
@@ -168,6 +176,7 @@ nbif_apply:
  */
 #if NR_ARG_REGS >= 6
 	.global	nbif_ccallemu6
+	.type	nbif_ccallemu6, %function
 nbif_ccallemu6:
 	str	ARG5, [P, #P_ARG5]
 #if NR_ARG_REGS > 6
@@ -180,6 +189,7 @@ nbif_ccallemu6:
 
 #if NR_ARG_REGS >= 5
 	.global	nbif_ccallemu5
+	.type	nbif_ccallemu5, %function
 nbif_ccallemu5:
 	str	ARG4, [P, #P_ARG4]
 #if NR_ARG_REGS > 5
@@ -192,6 +202,7 @@ nbif_ccallemu5:
 
 #if NR_ARG_REGS >= 4
 	.global	nbif_ccallemu4
+	.type	nbif_ccallemu4, %function
 nbif_ccallemu4:
 	str	ARG3, [P, #P_ARG3]
 #if NR_ARG_REGS > 4
@@ -204,6 +215,7 @@ nbif_ccallemu4:
 
 #if NR_ARG_REGS >= 3
 	.global	nbif_ccallemu3
+	.type	nbif_ccallemu3, %function
 nbif_ccallemu3:
 	str	ARG2, [P, #P_ARG2]
 #if NR_ARG_REGS > 3
@@ -216,6 +228,7 @@ nbif_ccallemu3:
 
 #if NR_ARG_REGS >= 2
 	.global	nbif_ccallemu2
+	.type	nbif_ccallemu2, %function
 nbif_ccallemu2:
 	str	ARG1, [P, #P_ARG1]
 #if NR_ARG_REGS > 2
@@ -228,6 +241,7 @@ nbif_ccallemu2:
 
 #if NR_ARG_REGS >= 1
 	.global	nbif_ccallemu1
+	.type	nbif_ccallemu1, %function
 nbif_ccallemu1:
 	str	ARG0, [P, #P_ARG0]
 #if NR_ARG_REGS > 1
@@ -239,6 +253,7 @@ nbif_ccallemu1:
 #endif
 
 	.global	nbif_ccallemu0
+	.type	nbif_ccallemu0, %function
 nbif_ccallemu0:
 	/* We use r1 not ARG0 here because ARG0 is not
 	   defined when NR_ARG_REGS == 0. */
@@ -253,6 +268,7 @@ nbif_ccallemu0:
  * This is where native code suspends.
  */
 	.global	nbif_suspend_0
+	.type	nbif_suspend_0, %function
 nbif_suspend_0:
 	mov	r0, #HIPE_MODE_SWITCH_RES_SUSPEND
 	b	.suspend_exit
@@ -261,6 +277,7 @@ nbif_suspend_0:
  * Suspend from a receive (waiting for a message)
  */
 	.global	nbif_suspend_msg
+	.type	nbif_suspend_msg, %function
 nbif_suspend_msg:
 	mov	r0, #HIPE_MODE_SWITCH_RES_WAIT
 	b	.suspend_exit
@@ -271,6 +288,7 @@ nbif_suspend_msg:
  *	else { return 0; }
  */
 	.global	nbif_suspend_msg_timeout
+	.type	nbif_suspend_msg_timeout, %function
 nbif_suspend_msg_timeout:
 	ldr	r1, [P, #P_FLAGS]
 	mov	r0, #HIPE_MODE_SWITCH_RES_WAIT_TIMEOUT
@@ -285,23 +303,31 @@ nbif_suspend_msg_timeout:
  * This is the default exception handler for native code.
  */
 	.global	nbif_fail
+	.type	nbif_fail, %function
 nbif_fail:
 	mov	r0, #HIPE_MODE_SWITCH_RES_THROW
 	b	.flush_exit	/* no need to save RA */
 
 	.global	nbif_0_gc_after_bif
-	.global	nbif_1_gc_after_bif
-	.global	nbif_2_gc_after_bif
-	.global	nbif_3_gc_after_bif
+	.type	nbif_0_gc_after_bif, %function
 nbif_0_gc_after_bif:
 	mov	r1, #0
 	b	.gc_after_bif
+
+	.global	nbif_1_gc_after_bif
+	.type	nbif_1_gc_after_bif, %function
 nbif_1_gc_after_bif:
 	mov	r1, #1
 	b	.gc_after_bif
+
+	.global	nbif_2_gc_after_bif
+	.type	nbif_2_gc_after_bif, %function
 nbif_2_gc_after_bif:
 	mov	r1, #2
 	b	.gc_after_bif
+
+	.global	nbif_3_gc_after_bif
+	.type	nbif_3_gc_after_bif, %function
 nbif_3_gc_after_bif:
 	mov	r1, #3
 	/*FALLTHROUGH*/
@@ -329,18 +355,25 @@ nbif_3_gc_after_bif:
  * TEMP_LR contains a copy of LR
  */
 	.global	nbif_0_simple_exception
+	.type	nbif_0_simple_exception, %function
 nbif_0_simple_exception:
 	mov	r1, #0
 	b	.nbif_simple_exception
+
 	.global	nbif_1_simple_exception
+	.type	nbif_1_simple_exception, %function
 nbif_1_simple_exception:
 	mov	r1, #1
 	b	.nbif_simple_exception
+
 	.global	nbif_2_simple_exception
+	.type	nbif_2_simple_exception, %function
 nbif_2_simple_exception:
 	mov	r1, #2
 	b	.nbif_simple_exception
+
 	.global	nbif_3_simple_exception
+	.type	nbif_3_simple_exception, %function
 nbif_3_simple_exception:
 	mov	r1, #3
 	/*FALLTHROUGH*/
@@ -384,6 +417,7 @@ nbif_3_simple_exception:
  * the gray/white stack boundary
  */
 	.global	nbif_stack_trap_ra
+	.type	nbif_stack_trap_ra, %function
 nbif_stack_trap_ra:		/* a return address, not a function */
 	# This only handles a single return value.
 	# If we have more, we need to save them in the PCB.
@@ -400,6 +434,7 @@ nbif_stack_trap_ra:		/* a return address, not a function */
  * Caller saved its LR in TEMP_LR (== TEMP1) before calling us.
  */
 	.global	hipe_arm_inc_stack
+	.type	hipe_arm_inc_stack, %function
 hipe_arm_inc_stack:
 	STORE_ARG_REGS
 	mov	TEMP_ARG0, lr
