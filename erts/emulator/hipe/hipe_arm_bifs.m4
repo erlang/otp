@@ -25,6 +25,7 @@ include(`hipe/hipe_arm_asm.m4')
 
 	.text
 	.p2align 2
+	.arm
 
 `#if defined(ERTS_ENABLE_LOCK_CHECK) && defined(ERTS_SMP)
 #  define CALL_BIF(F)	ldr r14, =F; str r14, [r0, #P_BIF_CALLEE]; bl hipe_debug_bif_wrapper
@@ -391,7 +392,14 @@ $1:
 	mov	r0, P
 
 	/* Perform a quick save;call;restore;ret sequence. */
+#ifdef __thumb__
+	SAVE_CONTEXT_QUICK
+	bl	$2
+	RESTORE_CONTEXT_QUICK
+	NBIF_RET(0)
+#else
 	QUICK_CALL_RET($2,0)
+#endif
 	.size	$1, .-$1
 	.type	$1, %function
 #endif')
@@ -407,7 +415,14 @@ $1:
 	NBIF_ARG(r1,1,0)
 
 	/* Perform a quick save;call;restore;ret sequence. */
+#ifdef __thumb__
+	SAVE_CONTEXT_QUICK
+	bl	$2
+	RESTORE_CONTEXT_QUICK
+	NBIF_RET(1)
+#else
 	QUICK_CALL_RET($2,1)
+#endif
 	.size	$1, .-$1
 	.type	$1, %function
 #endif')
@@ -424,7 +439,14 @@ $1:
 	NBIF_ARG(r2,2,1)
 
 	/* Perform a quick save;call;restore;ret sequence. */
+#ifdef __thumb__
+	SAVE_CONTEXT_QUICK
+	bl	$2
+	RESTORE_CONTEXT_QUICK
+	NBIF_RET(2)
+#else
 	QUICK_CALL_RET($2,2)
+#endif
 	.size	$1, .-$1
 	.type	$1, %function
 #endif')
@@ -442,7 +464,14 @@ $1:
 	NBIF_ARG(r3,3,2)
 
 	/* Perform a quick save;call;restore;ret sequence. */
+#ifdef __thumb__
+	SAVE_CONTEXT_QUICK
+	bl	$2
+	RESTORE_CONTEXT_QUICK
+	NBIF_RET(3)
+#else
 	QUICK_CALL_RET($2,3)
+#endif
 	.size	$1, .-$1
 	.type	$1, %function
 #endif')
@@ -466,7 +495,14 @@ $1:
 	NBIF_ARG(r3,5,2)
 
 	/* Perform a quick save;call;restore;ret sequence. */
+#ifdef __thumb__
+	SAVE_CONTEXT_QUICK
+	bl	$2
+	RESTORE_CONTEXT_QUICK
+	NBIF_RET(5)
+#else
 	QUICK_CALL_RET($2,5)
+#endif
 	.size	$1, .-$1
 	.type	$1, %function
 #endif')
@@ -488,9 +524,16 @@ define(noproc_primop_interface_0,
 #`define' HAVE_$1
 	.global	$1
 $1:
-	/* XXX: this case is always trivial; how to suppress the branch? */
 	/* Perform a quick save;call;restore;ret sequence. */
+#ifdef __thumb__
+	SAVE_CONTEXT_QUICK
+	bl	$2
+	RESTORE_CONTEXT_QUICK
+	NBIF_RET(0)
+#else
+	/* XXX: this case is always trivial; how to suppress the branch? */
 	QUICK_CALL_RET($2,0)
+#endif
 	.size	$1, .-$1
 	.type	$1, %function
 #endif')
@@ -505,7 +548,14 @@ $1:
 	NBIF_ARG(r0,1,0)
 
 	/* Perform a quick save;call;restore;ret sequence. */
+#ifdef __thumb__
+	SAVE_CONTEXT_QUICK
+	bl	$2
+	RESTORE_CONTEXT_QUICK
+	NBIF_RET(1)
+#else
 	QUICK_CALL_RET($2,1)
+#endif
 	.size	$1, .-$1
 	.type	$1, %function
 #endif')
@@ -521,7 +571,14 @@ $1:
 	NBIF_ARG(r1,2,1)
 
 	/* Perform a quick save;call;restore;ret sequence. */
+#ifdef __thumb__
+	SAVE_CONTEXT_QUICK
+	bl	$2
+	RESTORE_CONTEXT_QUICK
+	NBIF_RET(2)
+#else
 	QUICK_CALL_RET($2,2)
+#endif
 	.size	$1, .-$1
 	.type	$1, %function
 #endif')
@@ -538,7 +595,14 @@ $1:
 	NBIF_ARG(r2,3,2)
 
 	/* Perform a quick save;call;restore;ret sequence. */
+#ifdef __thumb__
+	SAVE_CONTEXT_QUICK
+	bl	$2
+	RESTORE_CONTEXT_QUICK
+	NBIF_RET(3)
+#else
 	QUICK_CALL_RET($2,3)
+#endif
 	.size	$1, .-$1
 	.type	$1, %function
 #endif')
@@ -558,7 +622,14 @@ $1:
 	str	r4, [sp, #0]
 
 	/* Perform a quick save;call;restore;ret sequence. */
+#ifdef __thumb__
+	SAVE_CONTEXT_QUICK
+	bl	$2
+	RESTORE_CONTEXT_QUICK
+	NBIF_RET(5)
+#else
 	QUICK_CALL_RET($2,5)
+#endif
 	.size	$1, .-$1
 	.type	$1, %function
 #endif')
