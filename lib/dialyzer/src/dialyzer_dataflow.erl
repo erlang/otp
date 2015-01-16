@@ -2,7 +2,7 @@
 %%--------------------------------------------------------------------
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2006-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -2977,8 +2977,10 @@ state__lookup_name(Fun, #state{callgraph = Callgraph}) ->
 state__lookup_record(Tag, Arity, #state{records = Records}) ->
   case erl_types:lookup_record(Tag, Arity, Records) of
     {ok, Fields} ->
-      {ok, t_tuple([t_atom(Tag)|
-		    [FieldType || {_FieldName, FieldType} <- Fields]])};
+      RecType =
+        t_tuple([t_atom(Tag)|
+                 [FieldType || {_FieldName, _Abstr, FieldType} <- Fields]]),
+      {ok, RecType};
     error ->
       error
   end.

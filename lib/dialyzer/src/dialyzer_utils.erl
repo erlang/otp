@@ -2,7 +2,7 @@
 %%-----------------------------------------------------------------------
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2006-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -221,28 +221,29 @@ get_record_and_type_info([{attribute, _, type, {{record, Name}, Fields0, []}}
 get_record_and_type_info([{attribute, _, Attr, {Name, TypeForm}}|Left],
 			 Module, Records, RecDict) when Attr =:= 'type';
                                                         Attr =:= 'opaque' ->
-  try
-    NewRecDict = add_new_type(Attr, Name, TypeForm, [], Module, RecDict),
-    get_record_and_type_info(Left, Module, Records, NewRecDict)
+  try add_new_type(Attr, Name, TypeForm, [], Module, RecDict) of
+    NewRecDict ->
+      get_record_and_type_info(Left, Module, Records, NewRecDict)
   catch
     throw:{error, _} = Error -> Error
   end;
 get_record_and_type_info([{attribute, _, Attr, {Name, TypeForm, Args}}|Left],
 			 Module, Records, RecDict) when Attr =:= 'type';
                                                         Attr =:= 'opaque' ->
-  try
-    NewRecDict = add_new_type(Attr, Name, TypeForm, Args, Module, RecDict),
-    get_record_and_type_info(Left, Module, Records, NewRecDict)
+  try add_new_type(Attr, Name, TypeForm, Args, Module, RecDict) of
+    NewRecDict ->
+      get_record_and_type_info(Left, Module, Records, NewRecDict)
   catch
     throw:{error, _} = Error -> Error
   end;
 get_record_and_type_info([_Other|Left], Module, Records, RecDict) ->
   get_record_and_type_info(Left, Module, Records, RecDict);
 get_record_and_type_info([], _Module, Records, RecDict) ->
-  case type_record_fields(lists:reverse(Records), RecDict) of
-    {ok, _NewRecDict} = Ok ->
-      ?debug(_NewRecDict),
-      Ok;
+  case
+    check_type_of_record_fields(lists:reverse(Records), RecDict)
+  of
+    ok ->
+      {ok, RecDict};
     {error, Name, Error} ->
       {error, flat_format("  Error while parsing #~w{}: ~s\n", [Name, Error])}
   end.
@@ -254,20 +255,20 @@ add_new_type(TypeOrOpaque, Name, TypeForm, ArgForms, Module, RecDict) ->
       Msg = flat_format("Type ~s/~w already defined\n", [Name, Arity]),
       throw({error, Msg});
     false ->
-      ArgTypes = [erl_types:t_from_form(X) || X <- ArgForms],
-      case lists:all(fun erl_types:t_is_var/1, ArgTypes) of
-	true ->
-	  ArgNames = [erl_types:t_var_name(X) || X <- ArgTypes],
+      try erl_types:t_var_names(ArgForms) of
+        ArgNames ->
 	  dict:store({TypeOrOpaque, Name, Arity},
-                     {Module, TypeForm, ArgNames}, RecDict);
-	false ->
+                     {Module, TypeForm, ArgNames}, RecDict)
+      catch
+        _:_ ->
 	  throw({error, flat_format("Type declaration for ~w does not "
 				    "have variables as parameters", [Name])})
       end
   end.
 
 get_record_fields(Fields, RecDict) ->
-  get_record_fields(Fields, RecDict, []).
+  Fs = get_record_fields(Fields, RecDict, []),
+  {ok, [{Name, Form, erl_types:t_any()} || {Name, Form} <- Fs]}.
 
 get_record_fields([{typed_record_field, OrdRecField, TypeForm}|Left],
 		  RecDict, Acc) ->
@@ -276,7 +277,7 @@ get_record_fields([{typed_record_field, OrdRecField, TypeForm}|Left],
       {record_field, _Line, Name0} -> erl_parse:normalise(Name0);
       {record_field, _Line, Name0, _Init} -> erl_parse:normalise(Name0)
     end,
-    get_record_fields(Left, RecDict, [{Name, TypeForm}|Acc]);
+  get_record_fields(Left, RecDict, [{Name, TypeForm}|Acc]);
 get_record_fields([{record_field, _Line, Name}|Left], RecDict, Acc) ->
   NewAcc = [{erl_parse:normalise(Name), {var, -1, '_'}}|Acc],
   get_record_fields(Left, RecDict, NewAcc);
@@ -284,22 +285,20 @@ get_record_fields([{record_field, _Line, Name, _Init}|Left], RecDict, Acc) ->
   NewAcc = [{erl_parse:normalise(Name), {var, -1, '_'}}|Acc],
   get_record_fields(Left, RecDict, NewAcc);
 get_record_fields([], _RecDict, Acc) ->
-  {ok, lists:reverse(Acc)}.
+  lists:reverse(Acc).
 
-type_record_fields([], RecDict) ->
-  {ok, RecDict};
-type_record_fields([RecKey|Recs], RecDict) ->
-  {ok, [{Arity, Fields}]} = dict:find(RecKey, RecDict),
+%% Just check the local types. process_record_remote_types will add
+%% the types later.
+check_type_of_record_fields([], _RecDict) ->
+  ok;
+check_type_of_record_fields([RecKey|Recs], RecDict) ->
+  {ok, [{_Arity, Fields}]} = dict:find(RecKey, RecDict),
   try
-    TypedFields =
-      [{FieldName, erl_types:t_from_form(FieldTypeForm, RecDict)}
-       || {FieldName, FieldTypeForm} <- Fields],
-    RecDict1 = dict:store(RecKey, [{Arity, TypedFields}], RecDict),
-    Fun = fun(OldOrdDict) ->
-              orddict:store(Arity, TypedFields, OldOrdDict)
-          end,
-    RecDict2 = dict:update(RecKey, Fun, RecDict1),
-    type_record_fields(Recs, RecDict2)
+    [erl_types:t_from_form_without_remote(FieldTypeForm, RecDict)
+     || {_FieldName, FieldTypeForm, _} <- Fields]
+  of
+    L when is_list(L) ->
+      check_type_of_record_fields(Recs, RecDict)
   catch
     throw:{error, Error} ->
       {record, Name} = RecKey,
@@ -308,30 +307,39 @@ type_record_fields([RecKey|Recs], RecDict) ->
 
 -spec process_record_remote_types(codeserver()) -> codeserver().
 
+%% The field types are cached. Used during analysis when handling records.
 process_record_remote_types(CServer) ->
   TempRecords = dialyzer_codeserver:get_temp_records(CServer),
   TempExpTypes = dialyzer_codeserver:get_temp_exported_types(CServer),
-  RecordFun =
-    fun(Key, Value) ->
-	case Key of
-	  {record, _Name} ->
-	    FieldFun =
-	      fun(_Arity, Fields) ->
-		  [{Name, erl_types:t_solve_remote(Field, TempExpTypes,
-                                                   TempRecords)}
-                   || {Name, Field} <- Fields]
-	      end,
-	    orddict:map(FieldFun, Value);
-	  _Other -> Value
-	end
-    end,
   ModuleFun =
-    fun(_Module, Record) ->
+    fun(Module, Record) ->
+        RecordFun =
+          fun(Key, Value) ->
+              case Key of
+                {record, _Name} ->
+                  FieldFun =
+                    fun(_Arity, Fields) ->
+                        [{Name, Field,
+                          erl_types:t_from_form(Field,
+                                                TempExpTypes,
+                                                Module,
+                                                TempRecords)}
+                         || {Name, Field, _} <- Fields]
+                    end,
+                  orddict:map(FieldFun, Value);
+                _Other -> Value
+              end
+          end,
 	dict:map(RecordFun, Record)
     end,
-  NewRecords = dict:map(ModuleFun, TempRecords),
-  CServer1 = dialyzer_codeserver:finalize_records(NewRecords, CServer),
-  dialyzer_codeserver:finalize_exported_types(TempExpTypes, CServer1).
+  try dict:map(ModuleFun, TempRecords) of
+    NewRecords ->
+      CServer1 = dialyzer_codeserver:finalize_records(NewRecords, CServer),
+      dialyzer_codeserver:finalize_exported_types(TempExpTypes, CServer1)
+  catch
+    throw:{error, _RecName, _Error} = Error->
+      Error
+  end.
 
 -spec merge_records(dict:dict(), dict:dict()) -> dict:dict().
 
