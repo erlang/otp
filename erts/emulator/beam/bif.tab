@@ -194,6 +194,7 @@ bif math:erf/1
 bif math:erfc/1
 bif math:exp/1
 bif math:log/1
+bif math:log2/1
 bif math:log10/1
 bif math:sqrt/1
 bif math:atan2/2

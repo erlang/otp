@@ -207,6 +207,24 @@ BIF_RETTYPE math_log_1(BIF_ALIST_1)
     return math_call_1(BIF_P, log, BIF_ARG_1);
 }
 
+#ifdef HAVE_LOG2
+static double
+log2_wrapper(double x)
+{
+    return log2(x);
+}
+#else
+static double
+log2_wrapper(double x)
+{
+    return log(x) / 0.6931471805599453; /* log(2.0); */
+}
+#endif
+
+BIF_RETTYPE math_log2_1(BIF_ALIST_1)
+{
+    return math_call_1(BIF_P, log2_wrapper, BIF_ARG_1);
+}
 
 BIF_RETTYPE math_log10_1(BIF_ALIST_1)
 {
