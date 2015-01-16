@@ -1580,7 +1580,7 @@ do_combine_put_bits(_, _, _) ->
     throw(impossible).
 
 debit(Budget0, Alternatives) ->
-    case Budget0 - log2(Alternatives) of
+    case Budget0 - math:log2(Alternatives) of
 	Budget when Budget > 0.0 ->
 	    Budget;
 	_ ->
@@ -1593,8 +1593,6 @@ num_clauses([_|T], N) ->
     num_clauses(T, N+1);
 num_clauses([], N) -> N.
 
-log2(N) ->
-    math:log(N) / math:log(2.0).
 
 collect_put_bits(Imm) ->
     lists:splitwith(fun({put_bits,V,_,_}) when is_integer(V) -> true;

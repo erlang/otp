@@ -134,6 +134,7 @@ is_pure(math, erf, 1) -> true;
 is_pure(math, erfc, 1) -> true;
 is_pure(math, exp, 1) -> true;
 is_pure(math, log, 1) -> true;
+is_pure(math, log2, 1) -> true;
 is_pure(math, log10, 1) -> true;
 is_pure(math, pow, 2) -> true;
 is_pure(math, sin, 1) -> true;
