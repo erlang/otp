@@ -22,7 +22,8 @@
 	 init_per_group/2,end_per_group/2,
 	 pmatch/1,mixed/1,aliases/1,match_in_call/1,
 	 untuplify/1,shortcut_boolean/1,letify_guard/1,
-	 selectify/1,underscore/1,match_map/1,coverage/1]).
+	 selectify/1,underscore/1,match_map/1,map_vars_used/1,
+      coverage/1]).
 	 
 -include_lib("test_server/include/test_server.hrl").
 
@@ -36,7 +37,7 @@ groups() ->
     [{p,test_lib:parallel(),
       [pmatch,mixed,aliases,match_in_call,untuplify,
        shortcut_boolean,letify_guard,selectify,
-       underscore,match_map,coverage]}].
+       underscore,match_map,map_vars_used,coverage]}].
 
 
 init_per_suite(Config) ->
@@ -411,6 +412,19 @@ match_map(Config) when is_list(Config) ->
 do_match_map(#s{map=#{key:=Val}}=S) ->
     %% Would crash with a 'badarg' exception.
     S#s{t=Val}.
+
+map_vars_used(Config) when is_list(Config) ->
+    {some,value} = do_map_vars_used(a, b, #{{a,b}=>42,v=>{some,value}}),
+    ok.
+
+do_map_vars_used(X, Y, Map) ->
+    case {X,Y} of
+	T ->
+	    %% core_lib:is_var_used/2 would not consider T used.
+	    #{T:=42,v:=Val} = Map,
+	    Val
+    end.
+
 
 coverage(Config) when is_list(Config) ->
     %% Cover beam_dead.
