@@ -299,7 +299,7 @@ _ET_DECLARE_CHECKED(Uint,atom_val,Eterm)
 #define atom_val(x)	_ET_APPLY(atom_val,(x))
 
 /* header (arityval or thing) access methods */
-#define _make_header(sz,tag)  ((Uint)(((sz) << _HEADER_ARITY_OFFS) + (tag)))
+#define _make_header(sz,tag) ((Uint)(((Uint)(sz) << _HEADER_ARITY_OFFS) + (tag)))
 #define is_header(x)	(((x) & _TAG_PRIMARY_MASK) == TAG_PRIMARY_HEADER)
 //#define _unchecked_header_arity(x)	((x) >> _HEADER_ARITY_OFFS)
 #define _unchecked_header_arity(x) \
