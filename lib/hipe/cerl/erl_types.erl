@@ -248,7 +248,8 @@
 %%
 
 -define(REC_TYPE_LIMIT, 2).
-%-define(REC_TYPE_LIMIT, 1).
+-define(EXPAND_DEPTH, 16).
+-define(EXPAND_LIMIT, 10000).
 
 -define(TUPLE_TAG_LIMIT, 5).
 -define(TUPLE_ARITY_LIMIT, 8).
@@ -2142,8 +2143,7 @@ t_sup(Ts) ->
   case lists:any(fun is_any/1, Ts) of
     true -> ?any;
     false ->
-      R = t_sup1(Ts, []),
-      R
+      t_sup1(Ts, [])
   end.
 
 t_sup1([H1, H2|T], L) ->
@@ -2151,17 +2151,6 @@ t_sup1([H1, H2|T], L) ->
 t_sup1([T], []) -> subst_all_vars_to_any(T);
 t_sup1(Ts, L) ->
   t_sup1(Ts++L, []).
-
--ifdef(old).
-t_sup([?any|_]) ->
-  ?any;
-t_sup([H1, H2|T]) ->
-  t_sup([t_sup(H1, H2)|T]);
-t_sup([H]) ->
-  subst_all_vars_to_any(H);
-t_sup([]) ->
-  ?none.
--endif.
 
 -spec t_sup(erl_type(), erl_type()) -> erl_type().
 
@@ -3974,20 +3963,47 @@ t_from_form(Form, ExpTypes, Module, RecDict) ->
                   module(), mod_records(), var_table()) -> erl_type().
 
 t_from_form(Form, ExpTypes, Module, RecDict, VarDict) ->
-  t_from_form(Form, [], ExpTypes, Module, RecDict, VarDict).
+  t_from_form1(Form, [], ExpTypes, Module, RecDict, VarDict).
 
-%% All uses of external types are replaced by none().
+%% Replace external types with with none().
 -spec t_from_form_without_remote(parse_form(), type_table()) -> erl_type().
 
 t_from_form_without_remote(Form, TypeTable) ->
   Module = mod,
   RecDict = dict:from_list([{Module, TypeTable}]),
   ExpTypes = replace_by_none,
-  t_from_form(Form, [], ExpTypes, Module, RecDict, dict:new()).
+  t_from_form1(Form, [], ExpTypes, Module, RecDict, dict:new()).
+
+%% REC_TYPE_LIMIT is used for limiting the depth of recursive types.
+%% EXPAND_LIMIT is used for limiting the size of types by
+%% limiting the number of elements of lists within one type form.
+%% EXPAND_DEPTH is used in conjunction with EXPAND_LIMIT to make the
+%% types balanced (unions will otherwise collapse to any()) by limiting
+%% the depth the same way as t_limit/2 does.
+
+-type expand_limit() :: integer().
+
+-type expand_depth() :: integer().
+
+t_from_form1(Form, TypeNames, ET, M, MR, V) ->
+  t_from_form1(Form, TypeNames, ET, M, MR, V, ?EXPAND_DEPTH).
+
+t_from_form1(Form, TypeNames, ET, M, MR, V, D) ->
+  L = ?EXPAND_LIMIT,
+  {T, L1} = t_from_form(Form, TypeNames, ET, M, MR, V, D, L),
+  if
+    L1 =< 0, D > 1 ->
+      D1 = D div 2,
+      t_from_form1(Form, TypeNames, ET, M, MR, V, D1);
+    true ->
+      T
+  end.
 
 -spec t_from_form(parse_form(), type_names(),
                   sets:set(mfa()) | 'replace_by_none',
-                  module(), mod_records(), var_table()) -> erl_type().
+                  module(), mod_records(), var_table(),
+                  expand_depth(), expand_limit())
+                           -> {erl_type(), expand_limit()}.
 
 %% If there is something wrong with parse_form()
 %% throw({error, io_lib:chars()} is called;
@@ -3995,201 +4011,203 @@ t_from_form_without_remote(Form, TypeTable) ->
 %% self() ! {self(), ext_types, {RemMod, Name, ArgsLen}}
 %% is called, unless 'replace_by_none' is given.
 %%
-%% It is assumed that M can be found in MR
+%% It is assumed that M can be found in MR.
 
-t_from_form({var, _L, '_'}, _TypeNames, _ET, _M, _MR, _V) ->
-  t_any();
-t_from_form({var, _L, Name}, _TypeNames, _ET, _M, _MR, V) ->
+t_from_form(_, _TypeNames, _ET, _M, _MR, _V, D, L) when D =< 0 ; L =< 0 ->
+  {t_any(), L};
+t_from_form({var, _L, '_'}, _TypeNames, _ET, _M, _MR, _V, _D, L) ->
+  {t_any(), L};
+t_from_form({var, _L, Name}, _TypeNames, _ET, _M, _MR, V, _D, L) ->
   case dict:find(Name, V) of
-    error -> t_var(Name);
-    {ok, Val} -> Val
+    error -> {t_var(Name), L};
+    {ok, Val} -> {Val, L}
   end;
-t_from_form({ann_type, _L, [_Var, Type]}, TypeNames, ET, M, MR, V) ->
-  t_from_form(Type, TypeNames, ET, M, MR, V);
-t_from_form({paren_type, _L, [Type]}, TypeNames, ET, M, MR, V) ->
-  t_from_form(Type, TypeNames, ET, M, MR, V);
+t_from_form({ann_type, _L, [_Var, Type]}, TypeNames, ET, M, MR, V, D, L) ->
+  t_from_form(Type, TypeNames, ET, M, MR, V, D, L);
+t_from_form({paren_type, _L, [Type]}, TypeNames, ET, M, MR, V, D, L) ->
+  t_from_form(Type, TypeNames, ET, M, MR, V, D, L);
 t_from_form({remote_type, _L, [{atom, _, Module}, {atom, _, Type}, Args]},
-	    TypeNames, ET, M, MR, V) ->
-  solve_remote_type(Module, Type, Args, TypeNames, ET, M, MR, V);
-t_from_form({atom, _L, Atom}, _TypeNames, _ET, _M, _MR, _V) ->
-  t_atom(Atom);
-t_from_form({integer, _L, Int}, _TypeNames, _ET, _M, _MR, _V) ->
-  t_integer(Int);
-t_from_form({op, _L, _Op, _Arg} = Op, _TypeNames, _ET, _M, _MR, _V) ->
+	    TypeNames, ET, M, MR, V, D, L) ->
+  remote_from_form(Module, Type, Args, TypeNames, ET, M, MR, V, D, L);
+t_from_form({atom, _L, Atom}, _TypeNames, _ET, _M, _MR, _V, _D, L) ->
+  {t_atom(Atom), L};
+t_from_form({integer, _L, Int}, _TypeNames, _ET, _M, _MR, _V, _D, L) ->
+  {t_integer(Int), L};
+t_from_form({op, _L, _Op, _Arg} = Op, _TypeNames, _ET, _M, _MR, _V, _D, L) ->
   case erl_eval:partial_eval(Op) of
     {integer, _, Val} ->
-      t_integer(Val);
+      {t_integer(Val), L};
     _ -> throw({error, io_lib:format("Unable to evaluate type ~w\n", [Op])})
   end;
 t_from_form({op, _L, _Op, _Arg1, _Arg2} = Op, _TypeNames,
-            _ET, _M, _MR, _V) ->
+            _ET, _M, _MR, _V, _D, L) ->
   case erl_eval:partial_eval(Op) of
     {integer, _, Val} ->
-      t_integer(Val);
+      {t_integer(Val), L};
     _ -> throw({error, io_lib:format("Unable to evaluate type ~w\n", [Op])})
   end;
-t_from_form({type, _L, any, []}, _TypeNames, _ET, _M, _MR, _V) ->
-  t_any();
-t_from_form({type, _L, arity, []}, _TypeNames, _ET, _M, _MR, _V) ->
-  t_arity();
-t_from_form({type, _L, atom, []}, _TypeNames, _ET, _M, _MR, _V) ->
-  t_atom();
-t_from_form({type, _L, binary, []}, _TypeNames, _ET, _M, _MR, _V) ->
-  t_binary();
+t_from_form({type, _L, any, []}, _TypeNames, _ET, _M, _MR, _V, _D, L) ->
+  {t_any(), L};
+t_from_form({type, _L, arity, []}, _TypeNames, _ET, _M, _MR, _V, _D, L) ->
+  {t_arity(), L};
+t_from_form({type, _L, atom, []}, _TypeNames, _ET, _M, _MR, _V, _D, L) ->
+  {t_atom(), L};
+t_from_form({type, _L, binary, []}, _TypeNames, _ET, _M, _MR, _V, _D, L) ->
+  {t_binary(), L};
 t_from_form({type, _L, binary, [Base, Unit]} = Type,
-	    _TypeNames, _ET, _M, _MR, _V) ->
+	    _TypeNames, _ET, _M, _MR, _V, _D, L) ->
   case {erl_eval:partial_eval(Base), erl_eval:partial_eval(Unit)} of
     {{integer, _, B}, {integer, _, U}} when B >= 0, U >= 0 ->
-      t_bitstr(U, B);
+      {t_bitstr(U, B), L};
     _ -> throw({error, io_lib:format("Unable to evaluate type ~w\n", [Type])})
   end;
-t_from_form({type, _L, bitstring, []}, _TypeNames, _ET, _M, _MR, _V) ->
-  t_bitstr();
-t_from_form({type, _L, bool, []}, _TypeNames, _ET, _M, _MR, _V) ->
-  t_boolean();	% XXX: Temporarily
-t_from_form({type, _L, boolean, []}, _TypeNames, _ET, _M, _MR, _V) ->
-  t_boolean();
-t_from_form({type, _L, byte, []}, _TypeNames, _ET, _M, _MR, _V) ->
-  t_byte();
-t_from_form({type, _L, char, []}, _TypeNames, _ET, _M, _MR, _V) ->
-  t_char();
-t_from_form({type, _L, float, []}, _TypeNames, _ET, _M, _MR, _V) ->
-  t_float();
-t_from_form({type, _L, function, []}, _TypeNames, _ET, _M, _MR, _V) ->
-  t_fun();
-t_from_form({type, _L, 'fun', []}, _TypeNames, _ET, _M, _MR, _V) ->
-  t_fun();
+t_from_form({type, _L, bitstring, []}, _TypeNames, _ET, _M, _MR, _V, _D, L) ->
+  {t_bitstr(), L};
+t_from_form({type, _L, bool, []}, _TypeNames, _ET, _M, _MR, _V, _D, L) ->
+  {t_boolean(), L};	% XXX: Temporarily
+t_from_form({type, _L, boolean, []}, _TypeNames, _ET, _M, _MR, _V, _D, L) ->
+  {t_boolean(), L};
+t_from_form({type, _L, byte, []}, _TypeNames, _ET, _M, _MR, _V, _D, L) ->
+  {t_byte(), L};
+t_from_form({type, _L, char, []}, _TypeNames, _ET, _M, _MR, _V, _D, L) ->
+  {t_char(), L};
+t_from_form({type, _L, float, []}, _TypeNames, _ET, _M, _MR, _V, _D, L) ->
+  {t_float(), L};
+t_from_form({type, _L, function, []}, _TypeNames, _ET, _M, _MR, _V, _D, L) ->
+  {t_fun(), L};
+t_from_form({type, _L, 'fun', []}, _TypeNames, _ET, _M, _MR, _V, _D, L) ->
+  {t_fun(), L};
 t_from_form({type, _L, 'fun', [{type, _, any}, Range]}, TypeNames,
-            ET, M, MR, V) ->
-  T = t_from_form(Range, TypeNames, ET, M, MR, V),
-  t_fun(T);
+            ET, M, MR, V, D, L) ->
+  {T, L1} = t_from_form(Range, TypeNames, ET, M, MR, V, D - 1, L - 1),
+  {t_fun(T), L1};
 t_from_form({type, _L, 'fun', [{type, _, product, Domain}, Range]},
-            TypeNames, ET, M, MR, V) ->
-  L = t_list_from_form(Domain, TypeNames, ET, M, MR, V),
-  T = t_from_form(Range, TypeNames, ET, M, MR, V),
-  t_fun(L, T);
-t_from_form({type, _L, identifier, []}, _TypeNames, _ET, _M, _MR, _V) ->
-  t_identifier();
-t_from_form({type, _L, integer, []}, _TypeNames, _ET, _M, _MR, _V) ->
-  t_integer();
-t_from_form({type, _L, iodata, []}, _TypeNames, _ET, _M, _MR, _V) ->
-  t_iodata();
-t_from_form({type, _L, iolist, []}, _TypeNames, _ET, _M, _MR, _V) ->
-  t_iolist();
-t_from_form({type, _L, list, []}, _TypeNames, _ET, _M, _MR, _V) ->
-  t_list();
-t_from_form({type, _L, list, [Type]}, TypeNames, ET, M, MR,  V) ->
-  T = t_from_form(Type, TypeNames, ET, M, MR, V),
-  t_list(T);
-t_from_form({type, _L, map, _}, TypeNames, ET, M, MR, V) ->
-  builtin_type(map, t_map([]), TypeNames, ET, M, MR, V);
-t_from_form({type, _L, mfa, []}, _TypeNames, _ET, _M, _MR, _V) ->
-  t_mfa();
-t_from_form({type, _L, module, []}, _TypeNames, _ET, _M, _MR, _V) ->
-  t_module();
-t_from_form({type, _L, nil, []}, _TypeNames, _ET, _M, _MR, _V) ->
-  t_nil();
-t_from_form({type, _L, neg_integer, []}, _TypeNames, _ET, _M, _MR, _V) ->
-  t_neg_integer();
+            TypeNames, ET, M, MR, V, D, L) ->
+  {Dom1, L1} = list_from_form(Domain, TypeNames, ET, M, MR, V, D, L),
+  {Ran1, L2} = t_from_form(Range, TypeNames, ET, M, MR, V, D - 1, L1),
+  {t_fun(Dom1, Ran1), L2};
+t_from_form({type, _L, identifier, []}, _TypeNames, _ET, _M, _MR, _V, _D, L) ->
+  {t_identifier(), L};
+t_from_form({type, _L, integer, []}, _TypeNames, _ET, _M, _MR, _V, _D, L) ->
+  {t_integer(), L};
+t_from_form({type, _L, iodata, []}, _TypeNames, _ET, _M, _MR, _V, _D, L) ->
+  {t_iodata(), L};
+t_from_form({type, _L, iolist, []}, _TypeNames, _ET, _M, _MR, _V, _D, L) ->
+  {t_iolist(), L};
+t_from_form({type, _L, list, []}, _TypeNames, _ET, _M, _MR, _V, _D, L) ->
+  {t_list(), L};
+t_from_form({type, _L, list, [Type]}, TypeNames, ET, M, MR, V, D, L) ->
+  {T, L1} = t_from_form(Type, TypeNames, ET, M, MR, V, D - 1, L - 1),
+  {t_list(T), L1};
+t_from_form({type, _L, map, _}, TypeNames, ET, M, MR, V, D, L) ->
+  builtin_type(map, t_map([]), TypeNames, ET, M, MR, V, D, L);
+t_from_form({type, _L, mfa, []}, _TypeNames, _ET, _M, _MR, _V, _D, L) ->
+  {t_mfa(), L};
+t_from_form({type, _L, module, []}, _TypeNames, _ET, _M, _MR, _V, _D, L) ->
+  {t_module(), L};
+t_from_form({type, _L, nil, []}, _TypeNames, _ET, _M, _MR, _V, _D, L) ->
+  {t_nil(), L};
+t_from_form({type, _L, neg_integer, []}, _TypeNames, _ET, _M, _MR, _V, _D, L) ->
+  {t_neg_integer(), L};
 t_from_form({type, _L, non_neg_integer, []}, _TypeNames, _ET, _M, _MR,
-               _V) ->
-  t_non_neg_integer();
-t_from_form({type, _L, no_return, []}, _TypeNames, _ET, _M, _MR, _V) ->
-  t_unit();
-t_from_form({type, _L, node, []}, _TypeNames, _ET, _M, _MR, _V) ->
-  t_node();
-t_from_form({type, _L, none, []}, _TypeNames, _ET, _M, _MR, _V) ->
-  t_none();
-t_from_form({type, _L, nonempty_list, []}, _TypeNames, _ET, _M, _MR, _V) ->
-  t_nonempty_list();
-t_from_form({type, _L, nonempty_list, [Type]}, TypeNames, ET, M, MR, V) ->
-  T = t_from_form(Type, TypeNames, ET, M, MR, V),
-  t_nonempty_list(T);
+               _V, _D, L) ->
+  {t_non_neg_integer(), L};
+t_from_form({type, _L, no_return, []}, _TypeNames, _ET, _M, _MR, _V, _D, L) ->
+  {t_unit(), L};
+t_from_form({type, _L, node, []}, _TypeNames, _ET, _M, _MR, _V, _D, L) ->
+  {t_node(), L};
+t_from_form({type, _L, none, []}, _TypeNames, _ET, _M, _MR, _V, _D, L) ->
+  {t_none(), L};
+t_from_form({type, _L, nonempty_list, []}, _TypeNames, _ET, _M, _MR, _V, _D, L) ->
+  {t_nonempty_list(), L};
+t_from_form({type, _L, nonempty_list, [Type]}, TypeNames, ET, M, MR, V, D, L) ->
+  {T, L1} = t_from_form(Type, TypeNames, ET, M, MR, V, D, L - 1),
+  {t_nonempty_list(T), L1};
 t_from_form({type, _L, nonempty_improper_list, [Cont, Term]}, TypeNames,
-            ET, M, MR, V) ->
-  T1 = t_from_form(Cont, TypeNames, ET, M, MR, V),
-  T2 = t_from_form(Term, TypeNames, ET, M, MR, V),
-  t_cons(T1, T2);
+            ET, M, MR, V, D, L) ->
+  {T1, L1} = t_from_form(Cont, TypeNames, ET, M, MR, V, D, L - 1),
+  {T2, L2} = t_from_form(Term, TypeNames, ET, M, MR, V, D, L1),
+  {t_cons(T1, T2), L2};
 t_from_form({type, _L, nonempty_maybe_improper_list, []}, _TypeNames,
-            _ET, _M, _MR, _V) ->
-  t_cons(?any, ?any);
+            _ET, _M, _MR, _V, _D, L) ->
+  {t_cons(?any, ?any), L};
 t_from_form({type, _L, nonempty_maybe_improper_list, [Cont, Term]},
-            TypeNames, ET, M, MR, V) ->
-  T1 = t_from_form(Cont, TypeNames, ET, M, MR, V),
-  T2 = t_from_form(Term, TypeNames, ET, M, MR, V),
-  t_cons(T1, T2);
-t_from_form({type, _L, nonempty_string, []}, _TypeNames, _ET, _M, _MR, _V) ->
-  t_nonempty_string();
-t_from_form({type, _L, number, []}, _TypeNames, _ET, _M, _MR, _V) ->
-  t_number();
-t_from_form({type, _L, pid, []}, _TypeNames, _ET, _M, _MR, _V) ->
-  t_pid();
-t_from_form({type, _L, port, []}, _TypeNames, _ET, _M, _MR, _V) ->
-  t_port();
-t_from_form({type, _L, pos_integer, []}, _TypeNames, _ET, _M, _MR, _V) ->
-  t_pos_integer();
+            TypeNames, ET, M, MR, V, D, L) ->
+  {T1, L1} = t_from_form(Cont, TypeNames, ET, M, MR, V, D, L - 1),
+  {T2, L2} = t_from_form(Term, TypeNames, ET, M, MR, V, D, L1),
+  {t_cons(T1, T2), L2};
+t_from_form({type, _L, nonempty_string, []}, _TypeNames, _ET, _M, _MR, _V, _D, L) ->
+  {t_nonempty_string(), L};
+t_from_form({type, _L, number, []}, _TypeNames, _ET, _M, _MR, _V, _D, L) ->
+  {t_number(), L};
+t_from_form({type, _L, pid, []}, _TypeNames, _ET, _M, _MR, _V, _D, L) ->
+  {t_pid(), L};
+t_from_form({type, _L, port, []}, _TypeNames, _ET, _M, _MR, _V, _D, L) ->
+  {t_port(), L};
+t_from_form({type, _L, pos_integer, []}, _TypeNames, _ET, _M, _MR, _V, _D, L) ->
+  {t_pos_integer(), L};
 t_from_form({type, _L, maybe_improper_list, []}, _TypeNames,
-            _ET, _M, _MR, _V) ->
-  t_maybe_improper_list();
+            _ET, _M, _MR, _V, _D, L) ->
+  {t_maybe_improper_list(), L};
 t_from_form({type, _L, maybe_improper_list, [Content, Termination]},
-            TypeNames, ET, M, MR, V) ->
-  T1 = t_from_form(Content, TypeNames, ET, M, MR, V),
-  T2 = t_from_form(Termination, TypeNames, ET, M, MR, V),
-  t_maybe_improper_list(T1, T2);
-t_from_form({type, _L, product, Elements}, TypeNames, ET, M, MR, V) ->
-  L = t_list_from_form(Elements, TypeNames, ET, M, MR, V),
-  t_product(L);
+            TypeNames, ET, M, MR, V, D, L) ->
+  {T1, L1} = t_from_form(Content, TypeNames, ET, M, MR, V, D, L - 1),
+  {T2, L2} = t_from_form(Termination, TypeNames, ET, M, MR, V, D, L1),
+  {t_maybe_improper_list(T1, T2), L2};
+t_from_form({type, _L, product, Elements}, TypeNames, ET, M, MR, V, D, L) ->
+  {Lst, L1} = list_from_form(Elements, TypeNames, ET, M, MR, V, D - 1, L),
+  {t_product(Lst), L1};
 t_from_form({type, _L, range, [From, To]} = Type,
-	    _TypeNames, _ET, _M, _MR, _V) ->
+	    _TypeNames, _ET, _M, _MR, _V, _D, L) ->
   case {erl_eval:partial_eval(From), erl_eval:partial_eval(To)} of
     {{integer, _, FromVal}, {integer, _, ToVal}} ->
-      t_from_range(FromVal, ToVal);
+      {t_from_range(FromVal, ToVal), L};
     _ -> throw({error, io_lib:format("Unable to evaluate type ~w\n", [Type])})
   end;
-t_from_form({type, _L, record, [Name|Fields]}, TypeNames, ET, M, MR, V) ->
-  record_from_form(Name, Fields, TypeNames, ET, M, MR, V);
-t_from_form({type, _L, reference, []}, _TypeNames, _ET, _M, _MR, _V) ->
-  t_reference();
-t_from_form({type, _L, string, []}, _TypeNames, _ET, _M, _MR, _V) ->
-  t_string();
-t_from_form({type, _L, term, []}, _TypeNames, _ET, _M, _MR, _V) ->
-  t_any();
-t_from_form({type, _L, timeout, []}, _TypeNames, _ET, _M, _MR, _V) ->
-  t_timeout();
-t_from_form({type, _L, tuple, any}, _TypeNames, _ET, _M, _MR, _V) ->
-  t_tuple();
-t_from_form({type, _L, tuple, Args}, TypeNames, ET, M, MR, V) ->
-  L = t_list_from_form(Args, TypeNames, ET, M, MR, V),
-  t_tuple(L);
-t_from_form({type, _L, union, Args}, TypeNames, ET, M, MR, V) ->
-  L = t_list_from_form(Args, TypeNames, ET, M, MR, V),
-  t_sup(L);
-t_from_form({user_type, _L, Name, Args}, TypeNames, ET, M, MR, V) ->
-  type_from_form(Name, Args, TypeNames, ET, M, MR, V);
-t_from_form({type, _L, Name, Args}, TypeNames, ET, M, MR, V) ->
+t_from_form({type, _L, record, [Name|Fields]}, TypeNames, ET, M, MR, V, D, L) ->
+  record_from_form(Name, Fields, TypeNames, ET, M, MR, V, D, L);
+t_from_form({type, _L, reference, []}, _TypeNames, _ET, _M, _MR, _V, _D, L) ->
+  {t_reference(), L};
+t_from_form({type, _L, string, []}, _TypeNames, _ET, _M, _MR, _V, _D, L) ->
+  {t_string(), L};
+t_from_form({type, _L, term, []}, _TypeNames, _ET, _M, _MR, _V, _D, L) ->
+  {t_any(), L};
+t_from_form({type, _L, timeout, []}, _TypeNames, _ET, _M, _MR, _V, _D, L) ->
+  {t_timeout(), L};
+t_from_form({type, _L, tuple, any}, _TypeNames, _ET, _M, _MR, _V, _D, L) ->
+  {t_tuple(), L};
+t_from_form({type, _L, tuple, Args}, TypeNames, ET, M, MR, V, D, L) ->
+  {Lst, L1} = list_from_form(Args, TypeNames, ET, M, MR, V, D - 1, L),
+  {t_tuple(Lst), L1};
+t_from_form({type, _L, union, Args}, TypeNames, ET, M, MR, V, D, L) ->
+  {Lst, L1} = list_from_form(Args, TypeNames, ET, M, MR, V, D, L),
+  {t_sup(Lst), L1};
+t_from_form({user_type, _L, Name, Args}, TypeNames, ET, M, MR, V, D, L) ->
+  type_from_form(Name, Args, TypeNames, ET, M, MR, V, D, L);
+t_from_form({type, _L, Name, Args}, TypeNames, ET, M, MR, V, D, L) ->
   %% Compatibility: modules compiled before Erlang/OTP 18.0.
-  type_from_form(Name, Args, TypeNames, ET, M, MR, V);
+  type_from_form(Name, Args, TypeNames, ET, M, MR, V, D, L);
 t_from_form({opaque, _L, Name, {Mod, Args, Rep}}, _TypeNames,
-            _ET, _M, _MR, _V) ->
+            _ET, _M, _MR, _V, _D, L) ->
   %% XXX. To be removed.
-  t_opaque(Mod, Name, Args, Rep).
+  {t_opaque(Mod, Name, Args, Rep), L}.
 
-builtin_type(Name, Type, TypeNames, ET, M, MR, V) ->
+builtin_type(Name, Type, TypeNames, ET, M, MR, V, D, L) ->
   case dict:find(M, MR) of
     {ok, R} ->
       case lookup_type(Name, 0, R) of
         {_, {_M, _T, _A}} ->
-          type_from_form(Name, [], TypeNames, ET, M, MR, V);
+          type_from_form(Name, [], TypeNames, ET, M, MR, V, D, L);
         error ->
-          Type
+          {Type, L}
       end;
     error ->
-      Type
+      {Type, L}
   end.
 
-type_from_form(Name, Args, TypeNames, ET, M, MR, V) ->
+type_from_form(Name, Args, TypeNames, ET, M, MR, V, D, L) ->
   ArgsLen = length(Args),
-  ArgTypes = forms_to_types(Args, TypeNames, ET, M, MR, V),
+  {ArgTypes, L1} = list_from_form(Args, TypeNames, ET, M, MR, V, D, L),
   {ok, R} = dict:find(M, MR),
   case lookup_type(Name, ArgsLen, R) of
     {type, {Module, Type, ArgNames}} ->
@@ -4198,154 +4216,180 @@ type_from_form(Name, Args, TypeNames, ET, M, MR, V) ->
         true ->
           List = lists:zip(ArgNames, ArgTypes),
           TmpV = dict:from_list(List),
-          t_from_form(Type, [TypeName|TypeNames], ET, M, MR, TmpV);
+          t_from_form(Type, [TypeName|TypeNames], ET, M, MR, TmpV, D, L1);
         false ->
-          t_any()
+          {t_any(), L1}
       end;
     {opaque, {Module, Type, ArgNames}} ->
       TypeName = {opaque, Module, Name, ArgsLen}, % 'type' would do...
-      Rep =
+      {Rep, L3} =
         case can_unfold_more(TypeName, TypeNames) of
           true ->
             List = lists:zip(ArgNames, ArgTypes),
             TmpV = dict:from_list(List),
-            t_from_form(Type, [TypeName|TypeNames], ET, M, MR, TmpV);
-          false -> t_any()
+            t_from_form(Type, [TypeName|TypeNames], ET, M, MR, TmpV, D, L1);
+          false -> {t_any(), L1}
         end,
       Args2 = [subst_all_vars_to_any(ArgType) || ArgType <- ArgTypes],
-      skip_opaque_alias(Rep, Module, Name, Args2);
+      {skip_opaque_alias(Rep, Module, Name, Args2), L3};
     error ->
       Msg = io_lib:format("Unable to find type ~w/~w\n", [Name, ArgsLen]),
       throw({error, Msg})
   end.
 
-forms_to_types(Forms, TypeNames, ET, M, MR, V) ->
-  t_list_from_form(Forms, TypeNames, ET, M, MR, V).
-
 skip_opaque_alias(?opaque(_) = T, _Mod, _Name, _Args) -> T;
 skip_opaque_alias(T, Module, Name, Args) ->
   t_opaque(Module, Name, Args, T).
 
-solve_remote_type(RemMod, Name, Args, TypeNames, ET, M, MR, V) ->
-  ArgTypes = t_list_from_form(Args, TypeNames, ET, M, MR, V),
-  ArgsLen = length(Args),
-  RemType = {type, RemMod, Name, ArgsLen},
-  case dict:find(RemMod, MR) of
-    error when ET =:= replace_by_none ->
-      t_none();
-    error ->
-      self() ! {self(), ext_types, {RemMod, Name, ArgsLen}},
-      t_any();
-    {ok, RemDict} ->
-      MFA = {RemMod, Name, ArgsLen},
-      case sets:is_element(MFA, ET) of
-        true ->
-          case lookup_type(Name, ArgsLen, RemDict) of
-            {type, {_Mod, Type, ArgNames}} ->
-              case can_unfold_more(RemType, TypeNames) of
-                true ->
+remote_from_form(RemMod, Name, Args, TypeNames, ET, M, MR, V, D, L) ->
+  {ArgTypes, L1} = list_from_form(Args, TypeNames, ET, M, MR, V, D, L),
+  if
+    ET =:= replace_by_none ->
+      {t_none(), L1};
+    true ->
+      ArgsLen = length(Args),
+      RemType = {type, RemMod, Name, ArgsLen},
+      case dict:find(RemMod, MR) of
+        error ->
+          self() ! {self(), ext_types, {RemMod, Name, ArgsLen}},
+          {t_any(), L1};
+        {ok, RemDict} ->
+          MFA = {RemMod, Name, ArgsLen},
+          case sets:is_element(MFA, ET) of
+            true ->
+              case lookup_type(Name, ArgsLen, RemDict) of
+                {type, {_Mod, Type, ArgNames}} ->
+                  case can_unfold_more(RemType, TypeNames) of
+                    true ->
+                      List = lists:zip(ArgNames, ArgTypes),
+                      TmpVarDict = dict:from_list(List),
+                      NewTypeNames = [RemType|TypeNames],
+                      t_from_form(Type, NewTypeNames, ET,
+                                  RemMod, MR, TmpVarDict, D, L1);
+                    false ->
+                      {t_any(), L1}
+                  end;
+                {opaque, {Mod, Type, ArgNames}} ->
                   List = lists:zip(ArgNames, ArgTypes),
                   TmpVarDict = dict:from_list(List),
-                  NewTypeNames = [RemType|TypeNames],
-                  t_from_form(Type, NewTypeNames, ET,
-                              RemMod, MR, TmpVarDict);
-                false ->
-                  t_any()
+                  {NewRep, L2} =
+                    case can_unfold_more(RemType, TypeNames) of
+                      true ->
+                        NewTypeNames = [RemType|TypeNames],
+                        t_from_form(Type, NewTypeNames, ET,
+                                    RemMod, MR, TmpVarDict, D, L1);
+                      false ->
+                        {t_any(), L1}
+                    end,
+                  {skip_opaque_alias(NewRep, Mod, Name, ArgTypes), L2};
+                error ->
+                  Msg = io_lib:format("Unable to find remote type ~w:~w()\n",
+                                      [RemMod, Name]),
+                  throw({error, Msg})
               end;
-            {opaque, {Mod, Type, ArgNames}} ->
-              List = lists:zip(ArgNames, ArgTypes),
-              TmpVarDict = dict:from_list(List),
-              NewRep =
-                case can_unfold_more(RemType, TypeNames) of
-                  true ->
-                    NewTypeNames = [RemType|TypeNames],
-		    t_from_form(Type, NewTypeNames, ET,
-                                RemMod, MR, TmpVarDict);
-                  false ->
-		    t_any()
-                end,
-              skip_opaque_alias(NewRep, Mod, Name, ArgTypes);
-            error ->
-              Msg = io_lib:format("Unable to find remote type ~w:~w()\n",
-                                  [RemMod, Name]),
-              throw({error, Msg})
-          end;
-        false when ET =:= replace_by_none ->
-          t_none();
-        false ->
-          self() ! {self(), ext_types, {RemMod, Name, ArgsLen}},
-          t_any()
+            false ->
+              self() ! {self(), ext_types, {RemMod, Name, ArgsLen}},
+              {t_any(), L1}
+          end
       end
   end.
 
-record_from_form({atom, _, Name}, ModFields, TypeNames, ET, M, MR, V) ->
+record_from_form({atom, _, Name}, ModFields, TypeNames, ET, M, MR, V, D, L) ->
   case can_unfold_more({record, Name}, TypeNames) of
     true ->
       {ok, R} = dict:find(M, MR),
       case lookup_record(Name, R) of
         {ok, DeclFields} ->
           NewTypeNames = [{record, Name}|TypeNames],
-          GetModRec = get_mod_record(ModFields, DeclFields,
-                                        NewTypeNames, ET, M, MR, V),
+          {GetModRec, L1} = get_mod_record(ModFields, DeclFields,
+                                           NewTypeNames, ET, M, MR, V, D, L),
           case GetModRec of
             {error, FieldName} ->
               throw({error, io_lib:format("Illegal declaration of #~w{~w}\n",
                                           [Name, FieldName])});
             {ok, NewFields} ->
-              NewFields1 =
+              {NewFields1, L2} =
                 fields_from_form(NewFields, NewTypeNames, ET, M, MR,
-                                 dict:new()),
-              t_tuple(
-                 [t_atom(Name)|[Type
-                                || {_FieldName, Type} <- NewFields1]])
+                                 dict:new(), D, L1),
+              Rec = t_tuple(
+                      [t_atom(Name)|[Type
+                                     || {_FieldName, Type} <- NewFields1]]),
+              {Rec, L2}
           end;
         error ->
           throw({error, io_lib:format("Unknown record #~w{}\n", [Name])})
       end;
     false ->
-       t_any()
+       {t_any(), L}
   end.
 
-get_mod_record([], DeclFields, _TypeNames, _ET, _M, _MR, _V) ->
-  {ok, DeclFields};
-get_mod_record(ModFields, DeclFields, TypeNames, ET, M, MR, V) ->
+get_mod_record([], DeclFields, _TypeNames, _ET, _M, _MR, _V, _D, L) ->
+  {{ok, DeclFields}, L};
+get_mod_record(ModFields, DeclFields, TypeNames, ET, M, MR, V, D, L) ->
   DeclFieldsDict = lists:keysort(1, DeclFields),
-  ModFieldsDict = build_field_dict(ModFields, TypeNames, ET, M, MR, V),
+  {ModFieldsDict, L1} =
+    build_field_dict(ModFields, TypeNames, ET, M, MR, V, D, L),
   case get_mod_record_types(DeclFieldsDict, ModFieldsDict, []) of
-    {error, _FieldName} = Error -> Error;
+    {error, _FieldName} = Error -> {Error, L1};
     {ok, FinalKeyDict} ->
-      {ok, [lists:keyfind(FieldName, 1, FinalKeyDict)
-             || {FieldName, _, _} <- DeclFields]}
+      Fields = [lists:keyfind(FieldName, 1, FinalKeyDict)
+             || {FieldName, _, _} <- DeclFields],
+      {{ok, Fields}, L1}
   end.
 
-build_field_dict(FieldTypes, TypeNames, ET, M, MR, V) ->
-  L = [{Name, Type, t_from_form(Type, TypeNames, ET, M, MR, V)}
-         || {type, _, field_type, [{atom, _, Name}, Type]} <- FieldTypes],
-  lists:keysort(1, L).
+build_field_dict(FieldTypes, TypeNames, ET, M, MR, V, D, L) ->
+  build_field_dict(FieldTypes, TypeNames, ET, M, MR, V, D, L, []).
+
+build_field_dict([{type, _, field_type, [{atom, _, Name}, Type]}|Left],
+		 TypeNames, ET, M, MR, V, D, L, Acc) ->
+  {T, L1} = t_from_form(Type, TypeNames, ET, M, MR, V, D, L - 1),
+  %% The cached record field type (DeclType) in
+  %% get_mod_record_types()), was created with a similar call as TT.
+  %% Using T for the subtype test does not work since any() is not
+  %% always a subset of the field type.
+  TT = t_from_form(Type, ET, M, MR, V),
+  NewAcc = [{Name, Type, T, TT}|Acc],
+  {Dict, L2} =
+    build_field_dict(Left, TypeNames, ET, M, MR, V, D, L1, NewAcc),
+  {Dict, L2};
+build_field_dict([], _TypeNames, _ET, _M, _MR, _V, _D, L, Acc) ->
+  {lists:keysort(1, Acc), L}.
 
 get_mod_record_types([{FieldName, _Abstr, DeclType}|Left1],
-                        [{FieldName, TypeForm, ModType}|Left2], Acc) ->
-  ModTypeNoVars = subst_all_vars_to_any(ModType),
+                     [{FieldName, TypeForm, ModType, ModTypeTest}|Left2],
+                     Acc) ->
+  ModTypeNoVars = subst_all_vars_to_any(ModTypeTest),
   case t_is_subtype(ModTypeNoVars, DeclType) of
     false -> {error, FieldName};
     true -> get_mod_record_types(Left1, Left2,
-                              [{FieldName, TypeForm, DeclType}|Acc])
+                              [{FieldName, TypeForm, ModType}|Acc])
   end;
 get_mod_record_types([{FieldName1, _Abstr, _DeclType} = DT|Left1],
-                  [{FieldName2, _FormType, _ModType}|_] = List2,
-                  Acc) when FieldName1 < FieldName2 ->
+                     [{FieldName2, _FormType, _ModType, _TT}|_] = List2,
+                     Acc) when FieldName1 < FieldName2 ->
   get_mod_record_types(Left1, List2, [DT|Acc]);
 get_mod_record_types(Left1, [], Acc) ->
   {ok, lists:keysort(1, Left1++Acc)};
-get_mod_record_types(_, [{FieldName2, _FormType, _ModType}|_], _Acc) ->
+get_mod_record_types(_, [{FieldName2, _FormType, _ModType, _TT}|_], _Acc) ->
   {error, FieldName2}.
 
-fields_from_form(Fields, TypeNames, ET, M, MR, V) ->
-  [{Name, t_from_form(Abstr, TypeNames, ET, M, MR, V)}
-     || {Name, Abstr, _Type} <- Fields].
+%% It is important to create a limited version of the record type
+%% since nested record types can otherwise easily result in huge
+%% terms.
+fields_from_form([], _TypeNames, _ET, _M, _MR, _V, _D, L) ->
+  {[], L};
+fields_from_form([{Name, Abstr, _Type}|Tail], TypeNames, ET, M, MR,
+                 V, D, L) ->
+  {T, L1} = t_from_form(Abstr, TypeNames, ET, M, MR, V, D, L),
+  {F, L2} = fields_from_form(Tail, TypeNames, ET, M, MR, V, D, L1),
+  {[{Name, T}|F], L2}.
 
-t_list_from_form(Forms, TypeNames, ET, M, MR, V) ->
-  [t_from_form(Form, TypeNames, ET, M, MR, V) || Form <- Forms].
+list_from_form([], _TypeNames, _ET, _M, _MR, _V, _D, L) ->
+  {[], L};
+list_from_form([H|Tail], TypeNames, ET, M, MR, V, D, L) ->
+  {H1, L1} = t_from_form(H, TypeNames, ET, M, MR, V, D, L - 1),
+  {T1, L2} = list_from_form(Tail, TypeNames, ET, M, MR, V, D, L1),
+  {[H1|T1], L2}.
 
 -spec t_var_names([erl_type()]) -> [atom()].
 
@@ -4440,7 +4484,8 @@ t_form_to_string({type, _L, Name, []} = T) ->
      M = mod,
      D0 = dict:new(),
      MR = dict:from_list([{M, D0}]),
-     T1 = t_from_form(T, [], sets:new(), M, MR, D0),
+     {T1, _} =
+       t_from_form(T, [], sets:new(), M, MR, D0, _Deep=1000, _ALot=100000),
      t_to_string(T1)
   catch throw:{error, _} -> atom_to_string(Name) ++ "()"
   end;
