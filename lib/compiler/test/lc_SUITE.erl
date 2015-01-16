@@ -22,7 +22,8 @@
 	 init_per_group/2,end_per_group/2,
 	 init_per_testcase/2,end_per_testcase/2,
 	 basic/1,deeply_nested/1,no_generator/1,
-	 empty_generator/1,no_export/1,shadow/1]).
+	 empty_generator/1,no_export/1,shadow/1,
+	 effect/1]).
 
 -include_lib("test_server/include/test_server.hrl").
 
@@ -39,7 +40,8 @@ groups() ->
        no_generator,
        empty_generator,
        no_export,
-       shadow
+       shadow,
+       effect
       ]}].
 
 init_per_suite(Config) ->
@@ -198,6 +200,21 @@ shadow(Config) when is_list(Config) ->
     [8,9] = id([Shadowed || {_,Shadowed} <- id(L),
 			    Shadowed < 10]),
     ok.
+
+effect(Config) when is_list(Config) ->
+    [{42,{a,b,c}}] =
+	do_effect(fun(F, L) ->
+			  [F({V1,V2}) ||
+			      #{<<1:500>>:=V1,<<2:301>>:=V2} <- L],
+			  ok
+		  end, id([#{},x,#{<<1:500>>=>42,<<2:301>>=>{a,b,c}}])),
+    ok.
+
+do_effect(Lc, L) ->
+    put(?MODULE, []),
+    F = fun(V) -> put(?MODULE, [V|get(?MODULE)]) end,
+    ok = Lc(F, L),
+    lists:reverse(erase(?MODULE)).
 
 id(I) -> I.
     

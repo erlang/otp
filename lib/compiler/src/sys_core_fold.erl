@@ -313,7 +313,7 @@ expr(#c_letrec{defs=Fs0,body=B0}=Letrec, Ctxt, Sub) ->
     Fs1 = map(fun ({Name,Fb}) ->
 		      {Name,expr(Fb, {letrec,Ctxt}, Sub)}
 	      end, Fs0),
-    B1 = body(B0, value, Sub),
+    B1 = body(B0, Ctxt, Sub),
     Letrec#c_letrec{defs=Fs1,body=B1};
 expr(#c_case{}=Case0, Ctxt, Sub) ->
     %% Ideally, the compiler should only emit warnings when there is
