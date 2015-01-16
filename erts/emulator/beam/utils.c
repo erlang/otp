@@ -2325,6 +2325,32 @@ tailrecur_ne:
 		    }
 		    break; /* not equal */
 		}
+	    case HASHMAP_SUBTAG:
+		{
+		    if (!is_boxed(b) || *boxed_val_rel(b,b_base) != hdr)
+			goto not_equal;
+
+		    aa = hashmap_val_rel(a, a_base) + 1;
+		    bb = hashmap_val_rel(b, b_base) + 1;
+		    switch (hdr & _HEADER_MAP_SUBTAG_MASK) {
+		    case HAMT_SUBTAG_HEAD_ARRAY:
+			aa++; bb++;
+		    case HAMT_SUBTAG_NODE_ARRAY:
+			sz = 16;
+			break;
+		    case HAMT_SUBTAG_HEAD_BITMAP:
+			aa++; bb++;
+		    case HAMT_SUBTAG_NODE_BITMAP:
+			sz = hashmap_bitcount(MAP_HEADER_VAL(hdr));
+			ASSERT(sz > 0 && sz < 16);
+			break;
+		    default:
+			erl_exit(1, "Unknown hashmap subsubtag\n");
+		    }
+		    goto term_array;
+		}
+	    default:
+		ASSERT(!"Unknown boxed subtab in EQ");
 	    }
 	    break;
 	}
