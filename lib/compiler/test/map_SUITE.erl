@@ -61,7 +61,9 @@
 
 suite() -> [].
 
-all() -> [
+all() ->
+    test_lib:recompile(?MODULE),
+    [
 	%% literals
 	t_build_and_match_literals,
 	t_update_literals, t_match_and_update_literals,
