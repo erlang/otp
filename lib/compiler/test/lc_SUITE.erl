@@ -22,7 +22,7 @@
 	 init_per_group/2,end_per_group/2,
 	 init_per_testcase/2,end_per_testcase/2,
 	 basic/1,deeply_nested/1,no_generator/1,
-	 empty_generator/1,no_export/1]).
+	 empty_generator/1,no_export/1,shadow/1]).
 
 -include_lib("test_server/include/test_server.hrl").
 
@@ -38,7 +38,8 @@ groups() ->
        deeply_nested,
        no_generator,
        empty_generator,
-       no_export
+       no_export,
+       shadow
       ]}].
 
 init_per_suite(Config) ->
@@ -184,6 +185,18 @@ empty_generator(Config) when is_list(Config) ->
 
 no_export(Config) when is_list(Config) ->
     [] = [ _X = a || false ] ++ [ _X = a || false ],
+    ok.
+
+%% Test that variables in list comprehensions are
+%% correctly shadowed.
+
+shadow(Config) when is_list(Config) ->
+    Shadowed = nomatch,
+    _ = id(Shadowed),				%Eliminate warning.
+    L = [{Shadowed,Shadowed+1} || Shadowed <- lists:seq(7, 9)],
+    [{7,8},{8,9},{9,10}] = id(L),
+    [8,9] = id([Shadowed || {_,Shadowed} <- id(L),
+			    Shadowed < 10]),
     ok.
 
 id(I) -> I.
