@@ -18,7 +18,6 @@
 %%
 -module(lc_SUITE).
 
--author('bjorn@erix.ericsson.se').
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2,
 	 init_per_testcase/2,end_per_testcase/2,
@@ -31,10 +30,16 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     test_lib:recompile(?MODULE),
-    [basic, deeply_nested, no_generator, empty_generator, no_export].
+    [{group,p}].
 
 groups() -> 
-    [].
+    [{p,test_lib:parallel(),
+      [basic,
+       deeply_nested,
+       no_generator,
+       empty_generator,
+       no_export
+      ]}].
 
 init_per_suite(Config) ->
     Config.
@@ -59,34 +64,34 @@ end_per_testcase(Case, Config) when is_atom(Case), is_list(Config) ->
     ok.
 
 basic(Config) when is_list(Config) ->
-    ?line L0 = lists:seq(1, 10),
-    ?line L1 = my_map(fun(X) -> {x,X} end, L0),
-    ?line L1 = [{x,X} || X <- L0],
-    ?line L0 = my_map(fun({x,X}) -> X end, L1),
-    ?line [1,2,3,4,5] = [X || X <- L0, X < 6],
-    ?line [4,5,6] = [X || X <- L0, X > 3, X < 7],
-    ?line [] = [X || X <- L0, X > 32, X < 7],
-    ?line [1,3,5,7,9] = [X || X <- L0, odd(X)],
-    ?line [2,4,6,8,10] = [X || X <- L0, not odd(X)],
-    ?line [1,3,5,9] = [X || X <- L0, odd(X), X =/= 7],
-    ?line [2,4,8,10] = [X || X <- L0, not odd(X), X =/= 6],
+    L0 = lists:seq(1, 10),
+    L1 = my_map(fun(X) -> {x,X} end, L0),
+    L1 = [{x,X} || X <- L0],
+    L0 = my_map(fun({x,X}) -> X end, L1),
+    [1,2,3,4,5] = [X || X <- L0, X < 6],
+    [4,5,6] = [X || X <- L0, X > 3, X < 7],
+    [] = [X || X <- L0, X > 32, X < 7],
+    [1,3,5,7,9] = [X || X <- L0, odd(X)],
+    [2,4,6,8,10] = [X || X <- L0, not odd(X)],
+    [1,3,5,9] = [X || X <- L0, odd(X), X =/= 7],
+    [2,4,8,10] = [X || X <- L0, not odd(X), X =/= 6],
 
     %% Append is specially handled.
-    ?line [1,3,5,9,2,4,8,10] = [X || X <- L0, odd(X), X =/= 7] ++
+    [1,3,5,9,2,4,8,10] = [X || X <- L0, odd(X), X =/= 7] ++
 	[X || X <- L0, not odd(X), X =/= 6],
 
     %% Guards BIFs are evaluated in guard context. Weird, but true.
-    ?line [{a,b,true},{x,y,true,true}] = [X || X <- tuple_list(), element(3, X)],
+    [{a,b,true},{x,y,true,true}] = [X || X <- tuple_list(), element(3, X)],
 
     %% Filter expressions with andalso/orelse.
-    ?line "abc123" = alphanum("?abc123.;"),
+    "abc123" = alphanum("?abc123.;"),
 
     %% Error cases.
-    ?line [] = [{xx,X} || X <- L0, element(2, X) == no_no_no],
-    ?line {'EXIT',_} = (catch [X || X <- L1, list_to_atom(X) == dum]),
-    ?line [] = [X || X <- L1, X+1 < 2],
-    ?line {'EXIT',_} = (catch [X || X <- L1, odd(X)]),
-    ?line fc([x], catch [E || E <- id(x)]),
+    [] = [{xx,X} || X <- L0, element(2, X) == no_no_no],
+    {'EXIT',_} = (catch [X || X <- L1, list_to_atom(X) == dum]),
+    [] = [X || X <- L1, X+1 < 2],
+    {'EXIT',_} = (catch [X || X <- L1, odd(X)]),
+    fc([x], catch [E || E <- id(x)]),
     ok.
 
 tuple_list() ->
@@ -116,12 +121,12 @@ deeply_nested_1() ->
 	X16 <- [4],X17 <- [3],X18 <- [fun() -> X16+X17 end],X19 <- [2],X20 <- [1]].
 
 no_generator(Config) when is_list(Config) ->
-    ?line Seq = lists:seq(-10, 17),
-    ?line [no_gen_verify(no_gen(A, B), A, B) || A <- Seq, B <- Seq],
+    Seq = lists:seq(-10, 17),
+    [no_gen_verify(no_gen(A, B), A, B) || A <- Seq, B <- Seq],
 
     %% Literal expression, for coverage.
-    ?line [a] = [a || true],
-    ?line [a,b,c] = [a || true] ++ [b,c],
+    [a] = [a || true],
+    [a,b,c] = [a || true] ++ [b,c],
     ok.
 
 no_gen(A, B) ->    
@@ -174,7 +179,7 @@ no_gen_eval(Fun, Res) ->
 no_gen_one_more(A, B) -> A + 1 =:= B.
 
 empty_generator(Config) when is_list(Config) ->
-    ?line [] = [X || {X} <- [], (false or (X/0 > 3))],
+    [] = [X || {X} <- [], (false or (X/0 > 3))],
     ok.
 
 no_export(Config) when is_list(Config) ->
