@@ -2072,15 +2072,45 @@ maybe_replace_var_1(E, #sub{t=Tdb}) ->
 		false ->
 		    E;
 		true ->
-		    cerl_trees:map(fun(C) ->
-					   case cerl:is_c_alias(C) of
-					       false -> C;
-					       true -> cerl:alias_pat(C)
-					   end
-				   end, T0)
+		    %% The pattern was a tuple. Now we must make sure
+		    %% that the elements of the tuple are suitable. In
+		    %% particular, we don't want binary or map
+		    %% construction here, since that means that the
+		    %% binary or map will be constructed in the 'case'
+		    %% argument. That is wasteful for binaries. Even
+		    %% worse is that any map pattern that use the ':='
+		    %% operator will fail when used in map
+		    %% construction (only the '=>' operator is allowed
+		    %% when constructing a map from scratch).
+		    ToData = fun coerce_to_data/1,
+		    try
+			cerl_trees:map(ToData, T0)
+		    catch
+			throw:impossible ->
+			    %% Something unsuitable was found (map or
+			    %% or binary). Keep the variable.
+			    E
+		    end
 	    end;
 	error ->
 	    E
+    end.
+
+%% coerce_to_data(Core) -> Core'
+%%  Coerce an element originally from a pattern to an data item or or
+%%  variable. Throw an 'impossible' exception if non-data Core Erlang
+%%  terms such as binary construction or map construction are
+%%  encountered.
+
+coerce_to_data(C) ->
+    case cerl:is_c_alias(C) of
+	false ->
+	    case cerl:is_data(C) orelse cerl:is_c_var(C) of
+		true -> C;
+		false -> throw(impossible)
+	    end;
+	true ->
+	    coerce_to_data(cerl:alias_pat(C))
     end.
 
 %% case_opt_lit(Literal, Clauses0, LitExpr) ->
