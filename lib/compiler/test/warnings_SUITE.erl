@@ -699,10 +699,10 @@ run(Config, Tests) ->
 %% Compiles a test module and returns the list of errors and warnings.
 
 run_test(Conf, Test0, Warnings) ->
-    Mod = "warnings_"++test_lib:uniq(),
-    Filename = Mod ++ ".erl",
+    Module = "warnings_"++test_lib:uniq(),
+    Filename = Module ++ ".erl",
     ?line DataDir = ?privdir,
-    Test = ["-module(", Mod, "). ", Test0],
+    Test = ["-module(", Module, "). ", Test0],
     ?line File = filename:join(DataDir, Filename),
     ?line Opts = [binary,export_all,return|Warnings],
     ?line ok = file:write_file(File, Test),
