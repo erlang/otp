@@ -126,44 +126,53 @@ bopt_block(Reg, Fail, OldIs, [{block,Bl0}|Acc0], St0) ->
 		%% There was a reference to a boolean expression
 		%% from inside a protected block (try/catch), to
 		%% a boolean expression outside.
-		  throw:protected_barrier ->
+		throw:protected_barrier ->
 		    failed;
 
-		  %% The 'xor' operator was used. We currently don't
-		  %% find it worthwile to translate 'xor' operators
-		  %% (the code would be clumsy).
-		  throw:'xor' ->
+		%% The 'xor' operator was used. We currently don't
+		%% find it worthwile to translate 'xor' operators
+		%% (the code would be clumsy).
+		throw:'xor' ->
 		    failed;
 
-		  %% The block does not contain a boolean expression,
-		  %% but only a call to a guard BIF.
-		  %% For instance: ... when element(1, T) ->
- 		  throw:not_boolean_expr ->
+		%% The block does not contain a boolean expression,
+		%% but only a call to a guard BIF.
+		%% For instance: ... when element(1, T) ->
+		throw:not_boolean_expr ->
  		    failed;
 
-		  %% The block contains a 'move' instruction that could
-		  %% not be handled.
- 		  throw:move ->
+		%% The block contains a 'move' instruction that could
+		%% not be handled.
+		throw:move ->
  		    failed;
 
-		  %% The optimization is not safe. (A register
-		  %% used by the instructions following the
-		  %% optimized code is either not assigned a
-		  %% value at all or assigned a different value.)
-		  throw:all_registers_not_killed ->
+		%% The optimization is not safe. (A register
+		%% used by the instructions following the
+		%% optimized code is either not assigned a
+		%% value at all or assigned a different value.)
+		throw:all_registers_not_killed ->
 		    failed;
-		  throw:registers_used ->
+		throw:registers_used ->
 		    failed;
 
-		  %% A protected block refered to the value
-		  %% returned by another protected block,
-		  %% probably because the Core Erlang code
-		  %% used nested try/catches in the guard.
-		  %% (v3_core never produces nested try/catches
-		  %% in guards, so it must have been another
-		  %% Core Erlang translator.)
-		  throw:protected_violation ->
+		%% A protected block refered to the value
+		%% returned by another protected block,
+		%% probably because the Core Erlang code
+		%% used nested try/catches in the guard.
+		%% (v3_core never produces nested try/catches
+		%% in guards, so it must have been another
+		%% Core Erlang translator.)
+		throw:protected_violation ->
+		    failed;
+
+		%% Failed to work out the live registers for a GC
+		%% BIF. For example, if the number of live registers
+		%% needed to be 4 because {x,3} was a source register,
+		%% but {x,2} was not known to be initialized, this
+		%% exception would be thrown.
+		throw:gc_bif_alloc_failure ->
 		    failed
+
 	    end
     end.
 
@@ -665,10 +674,16 @@ put_reg_1(V, [], I) -> [{I,V}].
 fetch_reg(V, [{I,V}|_]) -> {x,I};
 fetch_reg(V, [_|SRs]) -> fetch_reg(V, SRs).
 
-live_regs(Regs) ->
-    foldl(fun ({I,_}, _) ->
-		  I
-	  end, -1, Regs)+1.
+live_regs([{_,reserved}|_]) ->
+    %% We are not sure that this register is initialized, so we must
+    %% abort the optimization.
+    throw(gc_bif_alloc_failure);
+live_regs([{I,_}]) ->
+    I+1;
+live_regs([{_,_}|Regs]) ->
+    live_regs(Regs);
+live_regs([]) ->
+    0.
 
     
 %%%

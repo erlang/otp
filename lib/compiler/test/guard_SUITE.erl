@@ -1782,6 +1782,24 @@ bad_constants(Config) when is_list(Config) ->
 
 bad_guards(Config) when is_list(Config) ->
     if erlang:float(self()); true -> ok end,
+
+    fc(catch bad_guards_1(1, [])),
+    fc(catch bad_guards_1(1, [2])),
+    fc(catch bad_guards_1(atom, [2])),
+
+    fc(catch bad_guards_2(#{a=>0,b=>0}, [])),
+    fc(catch bad_guards_2(#{a=>0,b=>0}, [x])),
+    fc(catch bad_guards_2(not_a_map, [x])),
+    fc(catch bad_guards_2(42, [x])),
+    ok.
+
+%% beam_bool used to produce GC BIF instructions whose
+%% Live operands included uninitialized registers.
+
+bad_guards_1(X, [_]) when {{X}}, -X ->
+    ok.
+
+bad_guards_2(M, [_]) when M#{a := 0, b => 0}, map_size(M) ->
     ok.
 
 %% Call this function to turn off constant propagation.
