@@ -17,7 +17,7 @@
 %% @copyright 2003 Richard Carlsson
 %% @author Richard Carlsson <carlsson.richard@gmail.com>
 %% @see edoc
-%% @end 
+%% @end
 %% =====================================================================
 
 %% @doc Interface for calling EDoc from Erlang startup options.
@@ -38,7 +38,7 @@
 
 -module(edoc_run).
 
--export([file/1, application/1, packages/1, files/1, toc/1]).
+-export([file/1, application/1, files/1, toc/1]).
 
 -compile({no_auto_import,[error/1]}).
 
@@ -92,28 +92,6 @@ files(Args) ->
 	end,
     run(F).
 
-%% @spec packages([string()]) -> none()
-%%
-%% @doc Calls {@link edoc:application/2} with the corresponding
-%% arguments. The strings in the list are parsed as Erlang constant
-%% terms. The list can be either `[Packages]' or `[Packages, Options]'.
-%% In the first case {@link edoc:application/1} is called instead.
-%%
-%% The function call never returns; instead, the emulator is
-%% automatically terminated when the call has completed, signalling
-%% success or failure to the operating system.
-
-packages(Args) ->
-    F = fun () ->
-		case parse_args(Args) of
-		    [Packages] -> edoc:packages(Packages);
-		    [Packages, Opts] -> edoc:packages(Packages, Opts);
-		    _ ->
-			invalid_args("edoc_run:packages/1", Args)
-		end
-	end,
-    run(F).
-
 %% @hidden   Not official yet
 toc(Args) ->
     F = fun () ->
@@ -131,8 +109,8 @@ toc(Args) ->
 %%
 %% @deprecated This is part of the old interface to EDoc and is mainly
 %% kept for backwards compatibility. The preferred way of generating
-%% documentation is through one of the functions {@link application/1},
-%% {@link packages/1} and {@link files/1}.
+%% documentation is through one of the functions {@link application/1}
+%% and {@link files/1}.
 %%
 %% @doc Calls {@link edoc:file/2} with the corresponding arguments. The
 %% strings in the list are parsed as Erlang constant terms. The list can

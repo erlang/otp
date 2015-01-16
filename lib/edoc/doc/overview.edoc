@@ -76,8 +76,6 @@ The following are the main functions for running EDoc:
     <ul>
       <li>{@link edoc:application/2}: Creates documentation for a
 	  typical Erlang application.</li>
-      <li>{@link edoc:packages/2}: Creates documentation for one or
-	  more packages, automatically locating source files.</li>
       <li>{@link edoc:files/2}: Creates documentation for a
 	  specified set of source files.</li>
       <li>{@link edoc:run/3}: General interface function; the common
@@ -184,7 +182,7 @@ The following tags can be used anywhere within a module:
       path (see {@link edoc:read_source/2}).</dd>
 
   <dt><a name="gtag-todo">`@todo' (or `@TODO')</a></dt>
-      <dd>Attaches a To-Do note to a function, module, package, or
+      <dd>Attaches a To-Do note to a function, module or
       overview-page. The content can be any XHTML text describing
       the issue, e.g.:
 ```%% @TODO Finish writing the documentation.'''
@@ -338,7 +336,7 @@ The following tags can be used before a module declaration:
 
   <dt><a name="mtag-since">`@since'</a></dt>
       <dd>Specifies when the module was introduced, with respect to
-      the application, package, release or distribution it is part
+      the application, release or distribution it is part
       of. The content can be arbitrary text.</dd>
 
   <dt><a name="mtag-version">`@version'</a></dt>
@@ -445,7 +443,6 @@ possible formats for references are:
 <table border="1" summary="reference syntax">
   <tr><th>Reference syntax</th><th>Example</th><th>Scope</th></tr>
   <tr><td>`Module'</td><td>{@link edoc_run}, `erl.lang.list'</td><td>Global</td></tr>
-  <tr><td>`Package.*'</td><td>`erl.lang.*'</td><td>Global</td></tr>
   <tr><td>`Function/Arity'</td><td>`file/2'</td><td>Within module</td></tr>
   <tr><td>`Module:Function/Arity'</td><td>{@link edoc:application/2}</td><td>Global</td></tr>
   <tr><td>`Type()'</td><td>`filename()'</td><td>Within module</td></tr>
@@ -531,7 +528,7 @@ after the empty line into separate paragraphs. For example:
 ```%% @doc This will all be part of the first paragraph.
    %% It can stretch over several lines and contain <em>any
    %% XHTML markup</em>.
-   %% 
+   %%
    %% This is the second paragraph. The above line is
    %% regarded as "empty" by EDoc, even though it ends with
    %% a space.'''
@@ -685,17 +682,6 @@ information. User-defined macros override predefined macros.
       <dd>Expands to the current date, as "<tt>Month Day Year</tt>",
       e.g. "{@date}".</dd>
 
-  <dt><a name="predefmacro-docRoot"><code>@{@docRoot}</code></a></dt>
-      <dd>Expands to the relative URL path (such as
-      `"../../.."') from the current page to the root
-      directory of the generated documentation. This can be used to
-      create XHTML references such as `<img
-      src="@{@docRoot}/images/logo.jpeg">' that are independent of how
-      deep down in a package structure they occur. If packages are not
-      used (i.e., if all modules are in the "empty" package),
-      <code>@{@docRoot}</code> will always resolve to the empty
-      string.</dd>
-
   <dt><a name="predefmacro-link"><code>@{@link <em>reference</em>.
 		    <em>description</em>}</code></a></dt>
       <dd>This creates a hypertext link; cf. the
@@ -709,9 +695,6 @@ information. User-defined macros override predefined macros.
   <dt><a name="predefmacro-module"><code>@{@module}</code></a></dt>
       <dd>Expands to the name of the current module. Only defined when a
       module is being processed.</dd>
-
-  <dt><a name="predefmacro-package"><code>@{@package}</code></a></dt>
-      <dd>Expands to the name of the current package.</dd>
 
   <dt><a name="predefmacro-section"><code>@{@section
         <em>heading</em>}</code></a></dt>

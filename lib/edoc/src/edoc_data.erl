@@ -26,7 +26,7 @@
 
 -module(edoc_data).
 
--export([module/4, package/4, overview/4, type/2]).
+-export([module/4, overview/4, type/2]).
 
 -export([hidden_filter/2, get_all_tags/1]).
 
@@ -510,41 +510,14 @@ get_tags(_, []) -> [].
 type(T, Env) ->
     xmerl_lib:expand_element({type, [edoc_types:to_xml(T, Env)]}).
 
-%% <!ELEMENT package (description?, author*, copyright?, version?,
-%% 		   since?, deprecated?, see*, reference*, todo?,
-%% 		   modules)>
-%% <!ATTLIST package
-%%   name CDATA #REQUIRED
-%%   root CDATA #IMPLIED>
-%% <!ELEMENT modules (module+)>
-
-package(Package, Tags, Env, Opts) ->
-    Env1 = Env#env{package = Package,
-		   root = edoc_refs:relative_package_path('', Package)},
-    xmerl_lib:expand_element(package_1(Package, Tags, Env1, Opts)).
-
-package_1(Package, Tags, Env, Opts) ->
-    {package, [{root, Env#env.root}],
-     ([{packageName, [atom_to_list(Package)]}]
-      ++ get_doc(Tags)
-      ++ authors(Tags)
-      ++ get_copyright(Tags)
-      ++ get_version(Tags)
-      ++ get_since(Tags)
-      ++ get_deprecated(Tags)
-      ++ sees(Tags, Env)
-      ++ references(Tags)
-      ++ todos(Tags, Opts))
-    }.
-
 %% <!ELEMENT overview (title, description?, author*, copyright?, version?,
-%%                     since?, see*, reference*, todo?, packages, modules)>
+%%                     since?, see*, reference*, todo?, modules)>
 %% <!ATTLIST overview
 %%   root CDATA #IMPLIED>
 %% <!ELEMENT title (#PCDATA)>
 
 overview(Title, Tags, Env, Opts) ->
-    Env1 = Env#env{package = '',
+    Env1 = Env#env{
 		   root = ""},
     xmerl_lib:expand_element(overview_1(Title, Tags, Env1, Opts)).
 

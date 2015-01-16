@@ -104,11 +104,11 @@ build_app(Config) ->
 	OutDir = filename:join(PrivDir, "myapp"),
 	Src = filename:join(DataDir, "myapp"),
 
-	ok = edoc:application(myapp, Src, [{dir, OutDir}, {packages, false}, {subpackages, false}]),
+	ok = edoc:application(myapp, Src, [{dir, OutDir}, {subpackages, false}]),
 	true = filelib:is_regular(filename:join(OutDir, "a.html")),
 	false = filelib:is_regular(filename:join(OutDir, "b.html")),
 
-	ok = edoc:application(myapp, Src, [{dir, OutDir}, {packages, false}]),
+	ok = edoc:application(myapp, Src, [{dir, OutDir}]),
 	true = filelib:is_regular(filename:join(OutDir, "a.html")),
 	true = filelib:is_regular(filename:join(OutDir, "b.html")),
 	ok.

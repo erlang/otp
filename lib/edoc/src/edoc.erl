@@ -24,12 +24,11 @@
 %% TODO: option for ignoring functions matching some pattern ('..._test_'/0)
 %% TODO: @private_type tag, opaque unless generating private docs?
 %% TODO: document the record type syntax
-%% TODO: some 'skip' option for ignoring particular modules/packages?
-%% TODO: intermediate-level packages: document even if no local sources.
+%% TODO: some 'skip' option for ignoring particular modules?
 %% TODO: multiline comment support (needs modified comment representation)
 %% TODO: config-file for default settings
 %% TODO: config: locations of all local docdirs; generate local doc-index page
-%% TODO: config: URL:s of offline packages/apps
+%% TODO: config: URL:s of offline apps
 %% TODO: config: default stylesheet
 %% TODO: config: default header/footer, etc.
 %% TODO: offline linkage
@@ -45,10 +44,10 @@
 
 -module(edoc).
 
--export([packages/1, packages/2, files/1, files/2,
+-export([files/1, files/2,
 	 application/1, application/2, application/3,
 	 toc/1, toc/2, toc/3,
-	 run/3,
+	 run/2,
 	 file/1, file/2,
 	 read/1, read/2,
 	 layout/1, layout/2,
@@ -68,15 +67,15 @@
 file(Name) ->
     file(Name, []).
 
-%% @spec file(filename(), proplist()) -> ok 
+%% @spec file(filename(), proplist()) -> ok
 %%
 %% @type filename() = //kernel/file:filename()
 %% @type proplist() = [term()]
 %%
 %% @deprecated This is part of the old interface to EDoc and is mainly
 %% kept for backwards compatibility. The preferred way of generating
-%% documentation is through one of the functions {@link application/2},
-%% {@link packages/2} and {@link files/2}.
+%% documentation is through one of the functions {@link application/2}
+%% and {@link files/2}.
 %%
 %% @doc Reads a source code file and outputs formatted documentation to
 %% a corresponding file.
@@ -121,44 +120,24 @@ file(Name, Options) ->
 				 ?DEFAULT_FILE_SUFFIX),
     Dir = proplists:get_value(dir, Options, filename:dirname(Name)),
     Encoding = [{encoding, edoc_lib:read_encoding(Name, [])}],
-    edoc_lib:write_file(Text, Dir, BaseName ++ Suffix, '', Encoding).
+    edoc_lib:write_file(Text, Dir, BaseName ++ Suffix, Encoding).
 
 
-%% TODO: better documentation of files/1/2, packages/1/2, application/1/2/3
+%% TODO: better documentation of files/1/2, application/1/2/3
 
-%% @spec (Files::[filename() | {package(), [filename()]}]) -> ok
-%% @equiv packages(Packages, [])
+%% @spec (Files::[filename()]) -> ok
 
 files(Files) ->
     files(Files, []).
 
-%% @spec (Files::[filename() | {package(), [filename()]}],
+%% @spec (Files::[filename()],
 %%        Options::proplist()) -> ok
-%% @doc Runs EDoc on a given set of source files. See {@link run/3} for
+%% @doc Runs EDoc on a given set of source files. See {@link run/2} for
 %% details, including options.
 %% @equiv run([], Files, Options)
 
 files(Files, Options) ->
-    run([], Files, Options).
-
-%% @spec (Packages::[package()]) -> ok
-%% @equiv packages(Packages, [])
-
-packages(Packages) ->
-    packages(Packages, []).
-
-%% @spec (Packages::[package()], Options::proplist()) -> ok
-%% @type package() = atom() | string()
-%%
-%% @doc Runs EDoc on a set of packages. The `source_path' option is used
-%% to locate the files; see {@link run/3} for details, including
-%% options. This function automatically appends the current directory to
-%% the source path.
-%%
-%% @equiv run(Packages, [], Options)
-
-packages(Packages, Options) ->
-    run(Packages, [], Options  ++ [{source_path, [?CURRENT_DIR]}]).
+    run(Files, Options).
 
 %% @spec (Application::atom()) -> ok
 %% @equiv application(Application, [])
@@ -194,7 +173,7 @@ application(App, Options) when is_atom(App) ->
 %%   subdirectory, if it exists, or otherwise in the application
 %%   directory itself.
 %%   </li>
-%%   <li>The {@link run/3. `subpackages'} option is turned on. All found
+%%   <li>The {@link run/2. `subpackages'} option is turned on. All found
 %%   source files will be processed.
 %%   </li>
 %%   <li>The `include' subdirectory is automatically added to the
@@ -203,7 +182,7 @@ application(App, Options) when is_atom(App) ->
 %%   </li>
 %% </ul>
 %%
-%% See {@link run/3} for details, including options.
+%% See {@link run/2} for details, including options.
 %%
 %% @see application/2
 
@@ -219,7 +198,7 @@ application(App, Dir, Options) when is_atom(App) ->
 		       {includes, [filename:join(Dir, "include")]}],
     Opts1 = set_app_default(App, Dir, Opts),
     %% Recursively document all subpackages of '' - i.e., everything.
-    run([''], [], [{application, App} | Opts1]).
+    run([], [{application, App} | Opts1]).
 
 %% Try to set up a default application base URI in a smart way if the
 %% user has not specified it explicitly.
@@ -240,31 +219,20 @@ set_app_default(App, Dir0, Opts) ->
 	    Opts
     end.
 
-%% If no source files are found for a (specified) package, no package
-%% documentation will be generated either (even if there is a
-%% package-documentation file). This is the way it should be. For
-%% specified files, use empty package (unless otherwise specified). The
-%% assumed package is always used for creating the output. If the actual
-%% module or package of the source differs from the assumption gathered
-%% from the path and file name, a warning should be issued (since links
-%% are likely to be incorrect).
-
 opt_defaults() ->
-    [packages].
+    [].
 
 opt_negations() ->
     [{no_preprocess, preprocess},
      {no_subpackages, subpackages},
-     {no_report_missing_types, report_missing_types},
-     {no_packages, packages}].
+     {no_report_missing_types, report_missing_types}].
 
-%% @spec run(Packages::[package()],
-%%           Files::[filename() | {package(), [filename()]}],
+%% @spec run(Files::[filename()],
 %%           Options::proplist()) -> ok
-%% @doc Runs EDoc on a given set of source files and/or packages. Note
+%% @doc Runs EDoc on a given set of source files. Note
 %% that the doclet plugin module has its own particular options; see the
 %% `doclet' option below.
-%% 
+%%
 %% Also see {@link layout/2} for layout-related options, and
 %% {@link get_doc/2} for options related to reading source
 %% files.
@@ -298,11 +266,6 @@ opt_negations() ->
 %%      The default doclet module is {@link edoc_doclet}; see {@link
 %%      edoc_doclet:run/2} for doclet-specific options.
 %%  </dd>
-%%  <dt>{@type {exclude_packages, [package()]@}}
-%%  </dt>
-%%  <dd>Lists packages to be excluded from the documentation. Typically
-%%      used in conjunction with the `subpackages' option.
-%%  </dd>
 %%  <dt>{@type {file_suffix, string()@}}
 %%  </dt>
 %%  <dd>Specifies the suffix used for output files. The default value is
@@ -313,22 +276,6 @@ opt_negations() ->
 %%  <dd>If the value is `true', any existing `edoc-info' file in the
 %%      target directory will be ignored and overwritten. The default
 %%      value is `false'.
-%%  </dd>
-%%  <dt>{@type {packages, boolean()@}}
-%%  </dt>
-%%  <dd>If the value is `true', it it assumed that packages (module
-%%      namespaces) are being used, and that the source code directory
-%%      structure reflects this. The default value is `true'. (Usually,
-%%      this does the right thing even if all the modules belong to the
-%%      top-level "empty" package.) `no_packages' is an alias for
-%%      `{packages, false}'. See the `subpackages' option below for
-%%      further details.
-%%
-%%      If the source code is organized in a hierarchy of
-%%      subdirectories although it does not use packages, use
-%%      `no_packages' together with the recursive-search `subpackages'
-%%      option (on by default) to automatically generate documentation
-%%      for all the modules.
 %%  </dd>
 %%  <dt>{@type {source_path, [filename()]@}}
 %%  </dt>
@@ -345,7 +292,7 @@ opt_negations() ->
 %%  <dd>If the value is `true', all subpackages of specified packages
 %%      will also be included in the documentation. The default value is
 %%      `false'. `no_subpackages' is an alias for `{subpackages,
-%%      false}'. See also the `exclude_packages' option.
+%%      false}'.
 %%
 %%      Subpackage source files are found by recursively searching
 %%      for source code files in subdirectories of the known source code
@@ -358,38 +305,31 @@ opt_negations() ->
 %% </dl>
 %%
 %% @see files/2
-%% @see packages/2
 %% @see application/2
 
 %% NEW-OPTIONS: source_path, application
 %% INHERIT-OPTIONS: init_context/1
 %% INHERIT-OPTIONS: expand_sources/2
 %% INHERIT-OPTIONS: target_dir_info/5
-%% INHERIT-OPTIONS: edoc_lib:find_sources/3
+%% INHERIT-OPTIONS: edoc_lib:find_sources/2
 %% INHERIT-OPTIONS: edoc_lib:run_doclet/2
 %% INHERIT-OPTIONS: edoc_lib:get_doc_env/4
 
-run(Packages, Files, Opts0) ->
+run(Files, Opts0) ->
     Opts = expand_opts(Opts0),
     Ctxt = init_context(Opts),
     Dir = Ctxt#context.dir,
     Path = proplists:append_values(source_path, Opts),
-    Ss = sources(Path, Packages, Opts),
+    Ss = sources(Path, Opts),
     {Ss1, Ms} = expand_sources(expand_files(Files) ++ Ss, Opts),
-    Ps = [P || {_, P, _, _} <- Ss1],
     App = proplists:get_value(application, Opts, ?NO_APP),
-    {App1, Ps1, Ms1} = target_dir_info(Dir, App, Ps, Ms, Opts),
-    %% The "empty package" is never included in the list of packages.
-    Ps2 = edoc_lib:unique(lists:sort(Ps1)) -- [''],
+    {App1, Ms1} = target_dir_info(Dir, App, Ms, Opts),
     Ms2 = edoc_lib:unique(lists:sort(Ms1)),
-    Fs = package_files(Path, Ps2),
-    Env = edoc_lib:get_doc_env(App1, Ps2, Ms2, Opts),
+    Env = edoc_lib:get_doc_env(App1, Ms2, Opts),
     Ctxt1 = Ctxt#context{env = Env},
     Cmd = #doclet_gen{sources = Ss1,
 		      app = App1,
-		      packages = Ps2,
-		      modules = Ms2,
-		      filemap = Fs
+		      modules = Ms2
 		     },
     F = fun (M) ->
 		M:run(Cmd, Ctxt1)
@@ -401,42 +341,22 @@ expand_opts(Opts0) ->
 				   Opts0 ++ opt_defaults()).
 
 %% NEW-OPTIONS: dir
-%% DEFER-OPTIONS: run/3
+%% DEFER-OPTIONS: run/2
 
 init_context(Opts) ->
     #context{dir = proplists:get_value(dir, Opts, ?CURRENT_DIR),
 	     opts = Opts
 	    }.
 
-%% INHERIT-OPTIONS: edoc_lib:find_sources/3
+%% INHERIT-OPTIONS: edoc_lib:find_sources/2
 
-sources(Path, Packages, Opts) ->
-    lists:foldl(fun (P, Xs) ->
-			edoc_lib:find_sources(Path, P, Opts) ++ Xs
-		end,
-		[], Packages).
-
-package_files(Path, Packages) ->
-    Name = ?PACKAGE_FILE,    % this is hard-coded for now
-    D = lists:foldl(fun (P, D) ->
-			    F = edoc_lib:find_file(Path, P, Name),
-			    dict:store(P, F, D)
-		    end,
-		    dict:new(), Packages),
-    fun (P) ->
-	    case dict:find(P, D) of
-		{ok, F} -> F;
-		error -> ""
-	    end
-    end.
+sources(Path, Opts) ->
+	edoc_lib:find_sources(Path, Opts).
 
 %% Expand user-specified sets of files.
 
-expand_files([{P, Fs1} | Fs]) ->
-    [{P, filename:basename(F), filename:dirname(F)} || F <- Fs1]
-	++ expand_files(Fs);
 expand_files([F | Fs]) ->
-    [{'', filename:basename(F), filename:dirname(F)} |
+    [{filename:basename(F), filename:dirname(F)} |
      expand_files(Fs)];
 expand_files([]) ->
     [].
@@ -444,26 +364,23 @@ expand_files([]) ->
 %% Create the (assumed) full module names. Keep only the first source
 %% for each module, but preserve the order of the list.
 
-%% NEW-OPTIONS: source_suffix, packages
-%% DEFER-OPTIONS: run/3
+%% NEW-OPTIONS: source_suffix
+%% DEFER-OPTIONS: run/2
 
 expand_sources(Ss, Opts) ->
     Suffix = proplists:get_value(source_suffix, Opts,
 				 ?DEFAULT_SOURCE_SUFFIX),
-    Ss1 = case proplists:get_bool(packages, Opts) of
-	      true -> Ss;
-	      false -> [{'',F,D} || {_P,F,D} <- Ss]
-	  end,
+    Ss1 = [{F,D} || {F,D} <- Ss],
     expand_sources(Ss1, Suffix, sets:new(), [], []).
 
-expand_sources([{'', F, D} | Fs], Suffix, S, As, Ms) ->
+expand_sources([{F, D} | Fs], Suffix, S, As, Ms) ->
     M = list_to_atom(filename:rootname(F, Suffix)),
     case sets:is_element(M, S) of
 	true ->
 	    expand_sources(Fs, Suffix, S, As, Ms);
 	false ->
 	    S1 = sets:add_element(M, S),
-	    expand_sources(Fs, Suffix, S1, [{M, '', F, D} | As],
+	    expand_sources(Fs, Suffix, S1, [{M, F, D} | As],
 			   [M | Ms])
     end;
 expand_sources([], _Suffix, _S, As, Ms) ->
@@ -471,16 +388,15 @@ expand_sources([], _Suffix, _S, As, Ms) ->
 
 %% NEW-OPTIONS: new
 
-target_dir_info(Dir, App, Ps, Ms, Opts) ->
+target_dir_info(Dir, App, Ms, Opts) ->
     case proplists:get_bool(new, Opts) of
 	true ->
-	    {App, Ps, Ms};
+	    {App, Ms};
 	false ->
-	    {App1, Ps1, Ms1} = edoc_lib:read_info_file(Dir),
+	    {App1, Ms1} = edoc_lib:read_info_file(Dir),
 	    {if App == ?NO_APP -> App1;
 		true -> App
 	     end,
-	     Ps ++ Ps1,
 	     Ms ++ Ms1}
     end.
 
@@ -510,7 +426,7 @@ toc(Dir, Opts) ->
 toc(Dir, Paths, Opts0) ->
     Opts = expand_opts(Opts0 ++ [{dir, Dir}]),
     Ctxt = init_context(Opts),
-    Env = edoc_lib:get_doc_env('', [], [], Opts),
+    Env = edoc_lib:get_doc_env('', [], Opts),
     Ctxt1 = Ctxt#context{env = Env},
     F = fun (M) ->
 		M:run(#doclet_toc{paths=Paths}, Ctxt1)
@@ -562,7 +478,7 @@ layout(Doc) ->
 %% </dl>
 %%
 %% @see layout/1
-%% @see run/3
+%% @see run/2
 %% @see read/2
 %% @see file/2
 
@@ -856,7 +772,7 @@ get_doc(File) ->
 %% edoc_lib:get_doc_env/4} for further options.
 %%
 %% @see get_doc/3
-%% @see run/3
+%% @see run/2
 %% @see edoc_extract:source/5
 %% @see read/2
 %% @see layout/2

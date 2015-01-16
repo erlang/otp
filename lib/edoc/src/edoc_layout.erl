@@ -27,7 +27,7 @@
 
 -module(edoc_layout).
 
--export([module/2, package/2, overview/2, type/1]).
+-export([module/2, overview/2, type/1]).
 
 -import(edoc_report, [report/2]).
 
@@ -978,9 +978,6 @@ get_text(Name, Es) ->
 local_label(R) ->
     "#" ++ R.
 
-xhtml(Title, CSS, Body) ->
-    xhtml(Title, CSS, Body, "latin1").
-
 xhtml(Title, CSS, Body, Encoding) ->
     EncString = case Encoding of
                     "latin1" -> "ISO-8859-1";
@@ -1009,27 +1006,6 @@ type(E, Ds) ->
     Opts = [],
     xmerl:export_simple_content(t_utype_elem(E) ++ local_defs(Ds, Opts),
 				?HTML_EXPORT).
-
-package(E=#xmlElement{name = package, content = Es}, Options) ->
-    Opts = init_opts(E, Options),
-    Name = get_text(packageName, Es),
-    Title = ["Package ", Name],
-    Desc = get_content(description, Es),
-%    ShortDesc = get_content(briefDescription, Desc),
-    FullDesc = get_content(fullDescription, Desc),
-    Body = ([?NL, {h1, [Title]}, ?NL]
-%	    ++ ShortDesc
-	    ++ copyright(Es)
-	    ++ deprecated(Es, "package")
-	    ++ version(Es)
-	    ++ since(Es)
-	    ++ authors(Es)
-	    ++ references(Es)
-	    ++ sees(Es)
-	    ++ todos(Es)
-	    ++ FullDesc),
-    XML = xhtml(Title, stylesheet(Opts), Body),
-    xmerl:export_simple(XML, ?HTML_EXPORT, []).
 
 overview(E=#xmlElement{name = overview, content = Es}, Options) ->
     Opts = init_opts(E, Options),

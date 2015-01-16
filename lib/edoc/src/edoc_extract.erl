@@ -121,10 +121,8 @@ source1(Tree, File0, Env, Opts, TypeDocs) ->
     Module = get_module_info(Tree, File),
     {Header, Footer, Entries} = collect(Forms, Module),
     Name = Module#module.name,
-    Package = '',
     Env1 = Env#env{module = Name,
-		   package = Package,
-		   root = edoc_refs:relative_package_path('', Package)},
+		   root = ""},
     Env2 = add_macro_defs(module_macros(Env1), Opts, Env1),
     Entries1 = get_tags([Header, Footer | Entries], Env2, File, TypeDocs),
     Entries2 = edoc_specs:add_data(Entries1, Opts, File, Module),
@@ -218,7 +216,7 @@ add_macro_defs(Defs0, Opts, Env) ->
 
 %% @spec file(File::filename(), Context, Env::edoc_env(),
 %%            Options::proplist()) -> {ok, Tags} | {error, Reason}
-%%   Context = overview | package
+%%   Context = overview
 %%   Tags = [term()]
 %%   Reason = term()
 %%
@@ -249,7 +247,7 @@ file(File, Context, Env, Opts) ->
 
 %% @spec (Text::string(), Context, Env::edoc_env(),
 %%        Options::proplist()) -> Tags
-%%     Context = overview | package
+%%     Context = overview
 %%     Tags = [term()]
 %%
 %% @doc Returns the list of tags in the text. Any lines of text before
