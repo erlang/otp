@@ -626,6 +626,7 @@ bif hashmap:keys/1
 bif hashmap:size/1
 bif erlang:is_hashmap/1
 bif hashmap:values/1
+bif hashmap:merge/2
 
 #
 # Obsolete
