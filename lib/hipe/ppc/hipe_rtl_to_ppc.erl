@@ -102,10 +102,18 @@ conv_insn(I, Map, Data) ->
   end.
 
 conv_fconv(I, Map, Data) ->
-  %% Dst := (double)Src, where Dst is FP reg and Src is int reg
+  %% Dst := (double)Src, where Dst is FP reg and Src is GP reg or imm
   {Dst, Map0} = conv_fpreg(hipe_rtl:fconv_dst(I), Map),
-  {Src, Map1} = conv_src(hipe_rtl:fconv_src(I), Map0), % exclude imm src
-  I2 = mk_fconv(Dst, Src),
+  {Src, Map1} = conv_src(hipe_rtl:fconv_src(I), Map0),
+  I2 =
+    case hipe_ppc:is_temp(Src) of
+      true ->
+	mk_fconv(Dst, Src);
+      false ->
+	Tmp = new_untagged_temp(),
+	mk_li(Tmp, Src,
+	      mk_fconv(Dst, Tmp))
+    end,
   {I2, Map1, Data}.
 
 mk_fconv(Dst, Src) ->
