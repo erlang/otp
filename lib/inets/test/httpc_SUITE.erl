@@ -91,6 +91,7 @@ only_simulated() ->
      cookie,
      cookie_profile,
      empty_set_cookie,
+     invalid_set_cookie,
      trace,
      stream_once,
      stream_single_chunk,
@@ -564,6 +565,18 @@ empty_set_cookie(Config) when is_list(Config) ->
 
     {ok, {{_,200,_}, [_ | _], [_|_]}}
 	= httpc:request(get, Request0, [], []),
+
+    ok = httpc:set_options([{cookies, disabled}]).
+
+%%-------------------------------------------------------------------------
+invalid_set_cookie(doc) ->
+    ["Test ignoring invalid Set-Cookie header"];
+invalid_set_cookie(Config) when is_list(Config) ->
+    ok = httpc:set_options([{cookies, enabled}]),
+
+    URL = url(group_name(Config), "/invalid_set_cookie.html", Config),
+    {ok, {{_,200,_}, [_|_], [_|_]}} =
+        httpc:request(get, {URL, []}, [], []),
 
     ok = httpc:set_options([{cookies, disabled}]).
 
@@ -1683,6 +1696,13 @@ handle_uri(_,"/cookie.html",_,_,_,_) ->
 handle_uri(_,"/empty_set_cookie.html",_,_,_,_) ->
     "HTTP/1.1 200 ok\r\n" ++
 	"set-cookie: \r\n" ++
+	"Content-Length:32\r\n\r\n"++
+	"<HTML><BODY>foobar</BODY></HTML>";
+
+handle_uri(_,"/invalid_set_cookie.html",_,_,_,_) ->
+    "HTTP/1.1 200 ok\r\n" ++
+	"set-cookie: =\r\n" ++
+	"set-cookie: name-or-value\r\n" ++
 	"Content-Length:32\r\n\r\n"++
 	"<HTML><BODY>foobar</BODY></HTML>";
 
