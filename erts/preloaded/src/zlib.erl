@@ -24,6 +24,7 @@
 	 deflate/2,deflate/3,deflateEnd/1,
 	 inflateInit/1,inflateInit/2,inflateSetDictionary/2,
 	 inflateSync/1,inflateReset/1,inflate/2,inflateEnd/1,
+	 inflateChunk/1, inflateChunk/2,
 	 setBufSize/2,getBufSize/1,
 	 crc32/1,crc32/2,crc32/3,adler32/2,adler32/3,getQSize/1,
 	 crc32_combine/4,adler32_combine/4,
@@ -100,6 +101,7 @@
 -define(INFLATE_RESET,   12).
 -define(INFLATE_END,     13).
 -define(INFLATE,         14).
+-define(INFLATE_CHUNK,   25).
 
 -define(CRC32_0,         15).
 -define(CRC32_1,         16).
@@ -261,6 +263,39 @@ inflate(Z, Data) ->
 	error:_Err ->
 	    flush(Z),
 	    erlang:error(badarg) 
+    end.
+
+-spec inflateChunk(Z, Data) -> Decompressed | {more, Decompressed} when
+      Z :: zstream(),
+      Data :: iodata(),
+      Decompressed :: iolist().
+inflateChunk(Z, Data) ->
+    try port_command(Z, Data) of
+	true ->
+        inflateChunk(Z)
+    catch
+	error:_Err ->
+	    flush(Z),
+	    erlang:error(badarg)
+    end.
+
+-spec inflateChunk(Z) -> Decompressed | {more, Decompressed} when
+      Z :: zstream(),
+      Decompressed :: iolist().
+inflateChunk(Z) ->
+    Status = call(Z, ?INFLATE_CHUNK, []),
+    Data = receive
+	{Z, {data, Bin}} ->
+	    Bin
+    after 0 ->
+	    []
+    end,
+
+    case Status of
+        Good when (Good == ok) orelse (Good == stream_end) ->
+            Data;
+        inflate_has_more ->
+            {more, Data}
     end.
 
 -spec inflateEnd(Z) -> 'ok' when
@@ -514,7 +549,9 @@ call(Z, Cmd, Arg) ->
 	[2,A,B,C,D] ->
 	    (A bsl 24)+(B bsl 16)+(C bsl 8)+D;
 	[3,A,B,C,D] ->
-	    erlang:error({need_dictionary,(A bsl 24)+(B bsl 16)+(C bsl 8)+D})
+	    erlang:error({need_dictionary,(A bsl 24)+(B bsl 16)+(C bsl 8)+D});
+	[4, _, _, _, _] ->
+	    inflate_has_more
     catch 
 	error:badarg -> %% Rethrow loses port_control from stacktrace.
 	    erlang:error(badarg)

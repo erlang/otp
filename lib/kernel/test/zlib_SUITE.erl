@@ -82,7 +82,7 @@ groups() ->
        api_deflateSetDictionary, api_deflateReset,
        api_deflateParams, api_deflate, api_deflateEnd,
        api_inflateInit, api_inflateSetDictionary,
-       api_inflateSync, api_inflateReset, api_inflate,
+       api_inflateSync, api_inflateReset, api_inflate, api_inflateChunk,
        api_inflateEnd, api_setBufsz, api_getBufsz, api_crc32,
        api_adler32, api_getQSize, api_un_compress, api_un_zip,
        api_g_un_zip]},
@@ -355,6 +355,39 @@ api_inflate(Config) when is_list(Config) ->
     ?m(ok, zlib:inflateEnd(Z1)),
     ?m(ok, zlib:inflateInit(Z1)),
     ?m({'EXIT',{data_error,_}}, zlib:inflate(Z1, <<2,1,2,1,2>>)), 
+    ?m(ok, zlib:close(Z1)).
+
+api_inflateChunk(doc) -> "Test inflateChunk";
+api_inflateChunk(suite) -> [];
+api_inflateChunk(Config) when is_list(Config) ->
+    ChunkSize = 1024,
+    Data = << <<(I rem 150)>> || I <- lists:seq(1, 3 * ChunkSize) >>,
+    Part1 = binary:part(Data, 0, ChunkSize),
+    Part2 = binary:part(Data, ChunkSize, ChunkSize),
+    Part3 = binary:part(Data, ChunkSize * 2, ChunkSize),
+    ?line Compressed = zlib:compress(Data),
+    ?line Z1 = zlib:open(),
+    ?line zlib:setBufSize(Z1, ChunkSize),
+    ?m(ok, zlib:inflateInit(Z1)),
+    ?m([], zlib:inflateChunk(Z1, <<>>)),
+    ?m({more, Part1}, zlib:inflateChunk(Z1, Compressed)),
+    ?m({more, Part2}, zlib:inflateChunk(Z1)),
+    ?m(Part3, zlib:inflateChunk(Z1)),
+    ?m(ok, zlib:inflateEnd(Z1)),
+
+    ?m(ok, zlib:inflateInit(Z1)),
+    ?m({more, Part1}, zlib:inflateChunk(Z1, Compressed)),
+
+    ?m(ok, zlib:inflateReset(Z1)),
+
+    ?line zlib:setBufSize(Z1, size(Data)),
+    ?m(Data, zlib:inflateChunk(Z1, Compressed)),
+    ?m(ok, zlib:inflateEnd(Z1)),
+
+    ?m(ok, zlib:inflateInit(Z1)),
+    ?m(?BARG, zlib:inflateChunk(gurka, Compressed)),
+    ?m(?BARG, zlib:inflateChunk(Z1, 4384)),
+    ?m({'EXIT',{data_error,_}}, zlib:inflateEnd(Z1)),
     ?m(ok, zlib:close(Z1)).
 
 api_inflateEnd(doc) -> "Test inflateEnd";
