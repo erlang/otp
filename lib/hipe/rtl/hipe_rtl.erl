@@ -413,11 +413,11 @@ rtl_info_update(Rtl, Info) -> Rtl#rtl{info=Info}.
 %% move
 %%
 
-mk_move(Dst, Src) -> #move{dst=Dst, src=Src}.
+mk_move(Dst, Src) -> false = is_fpreg(Dst), false = is_fpreg(Src), #move{dst=Dst, src=Src}.
 move_dst(#move{dst=Dst}) -> Dst.
-move_dst_update(M, NewDst) -> M#move{dst=NewDst}.
+move_dst_update(M, NewDst) -> false = is_fpreg(NewDst), M#move{dst=NewDst}.
 move_src(#move{src=Src}) -> Src.
-move_src_update(M, NewSrc) -> M#move{src=NewSrc}.
+move_src_update(M, NewSrc) -> false = is_fpreg(NewSrc), M#move{src=NewSrc}.
 %% is_move(#move{}) -> true;
 %% is_move(_) -> false.
 
@@ -469,7 +469,11 @@ phi_remove_pred(Phi, Pred) ->
   case NewArgList of
     [Arg] -> %% the phi should be turned into a move instruction
       {_Label,Var} = Arg,
-      mk_move(phi_dst(Phi), Var);
+      Dst = phi_dst(Phi),
+      case {is_fpreg(Dst), is_fpreg(Var)} of
+	{true, true} -> mk_fmove(Dst, Var);
+	{false, false} -> mk_move(Dst, Var)
+      end;
   %%    io:format("~nPhi (~w) turned into move (~w) when removing pred ~w~n",[Phi,Move,Pred]),
     [_|_] ->
       Phi#phi{arglist=NewArgList}
@@ -836,11 +840,11 @@ fp_unop_op(#fp_unop{op=Op}) -> Op.
 %% fmove
 %%
 
-mk_fmove(X, Y) -> #fmove{dst=X, src=Y}.
+mk_fmove(X, Y) -> true = is_fpreg(X), true = is_fpreg(Y), #fmove{dst=X, src=Y}.
 fmove_dst(#fmove{dst=Dst}) -> Dst.
-fmove_dst_update(M, NewDst) -> M#fmove{dst=NewDst}.
+fmove_dst_update(M, NewDst) -> true = is_fpreg(NewDst), M#fmove{dst=NewDst}.
 fmove_src(#fmove{src=Src}) -> Src.
-fmove_src_update(M, NewSrc) -> M#fmove{src=NewSrc}.
+fmove_src_update(M, NewSrc) -> true = is_fpreg(NewSrc), M#fmove{src=NewSrc}.
 
 %%
 %% fconv
