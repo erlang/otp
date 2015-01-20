@@ -162,7 +162,7 @@ info(Pid) ->
 %% Request should not be streamed
 stream(BodyPart, #request{stream = none} = Request, _) ->
     ?hcrt("stream - none", []),
-    {BodyPart, Request};
+    {false, BodyPart, Request};
 
 %% Stream to caller
 stream(BodyPart, #request{stream = Self} = Request, Code) 
@@ -171,7 +171,7 @@ stream(BodyPart, #request{stream = Self} = Request, Code)
     ?hcrt("stream - self", [{stream, Self}, {code, Code}]),
     httpc_response:send(Request#request.from, 
                         {Request#request.id, stream, BodyPart}),
-    {<<>>, Request};
+    {true, <<>>, Request};
 
 %% Stream to file
 %% This has been moved to start_stream/3
@@ -193,14 +193,14 @@ stream(BodyPart, #request{stream = Fd} = Request, Code)
     ?hcrt("stream to file", [{stream, Fd}, {code, Code}]),
     case file:write(Fd, BodyPart) of
         ok ->
-            {<<>>, Request};
+            {true, <<>>, Request};
         {error, Reason} ->
             exit({stream_to_file_failed, Reason})
     end;
 
 stream(BodyPart, Request,_) -> % only 200 and 206 responses can be streamed
     ?hcrt("stream - ignore", [{request, Request}]),
-    {BodyPart, Request}.
+    {false, BodyPart, Request}.
 
 
 %%====================================================================
@@ -463,14 +463,14 @@ handle_info({Proto, _Socket, Data},
             {Module, whole_body, [Body, Length]} ->
                 ?hcrd("data processed - whole body", [{length, Length}]),
                 {_, Code, _} = StatusLine,
-                {NewBody, NewRequest} = stream(Body, Request, Code),
+                {Streamed, NewBody, NewRequest} = stream(Body, Request, Code),
                 %% When we stream we will not keep the already
                 %% streamed data, that would be a waste of memory.
                 NewLength = 
-                    case Stream of
-                        none ->   
+                    case Streamed of
+                        false ->
                             Length;
-                        _ ->
+                        true ->
                             Length - size(Body)                     
                     end,
                 
@@ -486,7 +486,7 @@ handle_info({Proto, _Socket, Data},
                 %% The response body is chunk-encoded. Steal decoded
                 %% chunks as much as possible to stream.
                 {_, Code, _} = StatusLine,
-                {NewBody, NewRequest} = stream(BodySoFar, Request, Code),
+                {_, NewBody, NewRequest} = stream(BodySoFar, Request, Code),
                 NewState = next_body_chunk(State),
                 NewMFA   = {Module, decode_size,
                             [TotalChunk, HexList,
@@ -506,7 +506,7 @@ handle_info({Proto, _Socket, Data},
                 NewChunkSize = ChunkSize - ChunkSizeToSteal,
                 {_, Code, _} = StatusLine,
 
-                {NewBody, NewRequest} = stream(StolenBody, Request, Code),
+                {_, NewBody, NewRequest} = stream(StolenBody, Request, Code),
                 NewState = next_body_chunk(State),
                 NewMFA   = {Module, decode_data,
                             [NewChunkSize, NewTotalChunk,
@@ -1060,13 +1060,13 @@ handle_http_msg({ChunkedHeaders, Body},
     ?hcrt("handle_http_msg", 
 	  [{chunked_headers, ChunkedHeaders}, {headers, Headers}]),
     NewHeaders = http_chunk:handle_headers(Headers, ChunkedHeaders),
-    {NewBody, NewRequest} = stream(Body, State#state.request, Code),
+    {_, NewBody, NewRequest} = stream(Body, State#state.request, Code),
     handle_response(State#state{headers = NewHeaders,
                                 body    = NewBody,
                                 request = NewRequest});
 handle_http_msg(Body, #state{status_line = {_,Code, _}} = State) ->
     ?hcrt("handle_http_msg", [{code, Code}]),
-    {NewBody, NewRequest} = stream(Body, State#state.request, Code),
+    {_, NewBody, NewRequest} = stream(Body, State#state.request, Code),
     handle_response(State#state{body = NewBody, request = NewRequest}).
 
 handle_http_body(_, #state{status = {ssl_tunnel, _},
@@ -1122,7 +1122,7 @@ handle_http_body(Body, #state{headers       = Headers,
                            handle_response(State#state{headers = NewHeaders,
                                                 body    = NewBody});
                         _ ->
-                           {NewBody2, NewRequest} =
+                           {_, NewBody2, _} =
                                 stream(NewBody, Request, Code),
                            handle_response(State#state{headers = NewHeaders,
                                        body    = NewBody2})
@@ -1136,7 +1136,7 @@ handle_http_body(Body, #state{headers       = Headers,
                 true ->
                     case httpc_response:whole_body(Body, Length) of
                         {ok, Body} ->
-			    {NewBody, NewRequest} = 
+			    {_, NewBody, NewRequest} =
 				stream(Body, Request, Code),
 			    handle_response(State#state{body    = NewBody,
 							request = NewRequest});
