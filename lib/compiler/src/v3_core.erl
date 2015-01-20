@@ -1638,7 +1638,7 @@ pattern({tuple,L,Ps}, St) ->
     {annotate_tuple(record_anno(L, St), Ps1, St),Eps,St1};
 pattern({map,L,Pairs}, St0) ->
     {Ps,Eps,St1} = pattern_map_pairs(Pairs, St0),
-    {#c_map{anno=lineno_anno(L, St1), es=Ps},Eps,St1};
+    {#c_map{anno=lineno_anno(L, St1),es=Ps,is_pat=true},Eps,St1};
 pattern({bin,L,Ps}, St) ->
     %% We don't create a #ibinary record here, since there is
     %% no need to hold any used/new annotations in a pattern.

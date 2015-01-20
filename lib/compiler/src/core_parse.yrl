@@ -182,14 +182,14 @@ atomic_pattern -> atomic_literal : '$1'.
 tuple_pattern -> '{' '}' : c_tuple([]).
 tuple_pattern -> '{' anno_patterns '}' : c_tuple('$2').
 
-map_pattern -> '~' '{' '}' '~' : #c_map{es=[]}.
+map_pattern -> '~' '{' '}' '~' : c_map_pattern([]).
 map_pattern -> '~' '{' map_pair_patterns '}' '~' :
-		   #c_map{es=lists:sort('$3')}.
+		   c_map_pattern(lists:sort('$3')).
 
 map_pair_patterns -> map_pair_pattern : ['$1'].
 map_pair_patterns -> map_pair_pattern ',' map_pair_patterns : ['$1' | '$3'].
 
-map_pair_pattern -> '~' '<' anno_pattern ',' anno_pattern '>' :
+map_pair_pattern -> '~' '<' anno_expression ',' anno_pattern '>' :
 			#c_map_pair{op=#c_literal{val=exact},key='$3',val='$5'}.
 
 cons_pattern -> '[' anno_pattern tail_pattern :
@@ -284,10 +284,10 @@ tail_literal -> ',' literal tail_literal : #c_cons{hd='$2',tl='$3'}.
 tuple -> '{' '}' : c_tuple([]).
 tuple -> '{' anno_expressions '}' : c_tuple('$2').
 
-map_expr -> '~' '{' '}' '~' : #c_map{es=[]}.
-map_expr -> '~' '{' map_pairs '}' '~' : #c_map{es='$3'}.
-map_expr -> '~' '{' map_pairs '|' variable '}' '~' : #c_map{arg='$5',es='$3'}.
-map_expr -> '~' '{' map_pairs '|' map_expr '}' '~' : #c_map{arg='$5',es='$3'}.
+map_expr -> '~' '{' '}' '~' : c_map([]).
+map_expr -> '~' '{' map_pairs '}' '~' : c_map('$3').
+map_expr -> '~' '{' map_pairs '|' variable '}' '~' : ann_c_map([], '$5', '$3').
+map_expr -> '~' '{' map_pairs '|' map_expr '}' '~' : ann_c_map([], '$5', '$3').
 
 map_pairs -> map_pair : ['$1'].
 map_pairs -> map_pair ',' map_pairs : ['$1' | '$3'].
@@ -307,7 +307,7 @@ tail -> '|' anno_expression ']' : '$2'.
 tail -> ',' anno_expression tail : c_cons('$2', '$3').
 
 binary -> '#' '{' '}' '#' : #c_literal{val = <<>>}.
-binary -> '#' '{' segments '}' '#' : #c_binary{segments='$3'}.
+binary -> '#' '{' segments '}' '#' : make_binary('$3').
 
 segments -> segment ',' segments : ['$1' | '$3'].
 segments -> segment : ['$1'].
@@ -410,9 +410,55 @@ Erlang code.
 
 -include("core_parse.hrl").
 
--import(cerl, [c_cons/2,c_tuple/1]).
+-import(cerl, [ann_c_map/3,c_cons/2,c_map/1,c_map_pattern/1,c_tuple/1]).
 
 tok_val(T) -> element(3, T).
 tok_line(T) -> element(2, T).
+
+%% make_binary([#c_bitstr{}]) -> #c_binary{} | #c_literal{}
+%%  Create either #c_binary{} or #c_literal{} from the binary segments.
+%%  In certain contexts, such as keys for maps, only literals and
+%%  variables are allowed, so we must not create a #c_binary{}
+%%  record in those situation.
+%%
+%%  To keep this function simple, we use a crude heuristic. We will
+%%  assume that Core Erlang has been produced by core_pp. If the
+%%  segments *could* have been output from a literal binary by
+%%  core_pp, we will create a #c_literal{}. Otherwise we will create a
+%%  #c_binary{} record.
+
+make_binary(Segs) ->
+    try make_lit_bin(<<>>, Segs) of
+	Bs when is_bitstring(Bs) ->
+	    #c_literal{val=Bs}
+    catch
+	throw:impossible ->
+	    #c_binary{segments=Segs}
+    end.
+
+make_lit_bin(Acc, [#c_bitstr{val=I0,size=Sz0,unit=U0,type=Type0,flags=F0}|T]) ->
+    I = get_lit_val(I0),
+    Sz = get_lit_val(Sz0),
+    U = get_lit_val(U0),
+    Type = get_lit_val(Type0),
+    F = get_lit_val(F0),
+    if
+	is_integer(I), U =:= 1, Type =:= integer, F =:= [unsigned,big] ->
+	    ok;
+	true ->
+	    throw(impossible)
+    end,
+    if
+	Sz =< 8, T =:= [] ->
+	    <<Acc/binary,I:Sz>>;
+	Sz =:= 8 ->
+	    make_lit_bin(<<Acc/binary,I:8>>, T);
+	true ->
+	    throw(impossible)
+    end;
+make_lit_bin(Acc, []) -> Acc.
+
+get_lit_val(#c_literal{val=Val}) -> Val;
+get_lit_val(_) -> throw(impossible).
 
 %% vim: syntax=erlang
