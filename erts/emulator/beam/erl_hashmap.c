@@ -64,7 +64,7 @@ static char *format_binary(Uint64 x, char *b) {
 }
 #endif
 
-static Eterm hashmap_insert(Process *p, Uint32 hx, Eterm key, Eterm value, Eterm node);
+static Eterm hashmap_insert(Process *p, Uint32 hx, Eterm key, Eterm value, Eterm node, int is_update);
 static const Eterm *hashmap_get(Uint32 hx, Eterm key, Eterm node);
 static Eterm hashmap_delete(Process *p, Uint32 hx, Eterm key, Eterm node);
 static Eterm hashmap_to_list(Process *p, Eterm map);
@@ -102,9 +102,23 @@ BIF_RETTYPE hashmap_put_3(BIF_ALIST_3) {
 	Uint32 hx = make_hash2(BIF_ARG_1);
 	Eterm map;
 
-	map = hashmap_insert(BIF_P, hx, BIF_ARG_1, BIF_ARG_2, BIF_ARG_3);
+	map = hashmap_insert(BIF_P, hx, BIF_ARG_1, BIF_ARG_2, BIF_ARG_3, 0);
 	ASSERT(is_hashmap(map));
 	BIF_RET(map);
+    }
+    BIF_ERROR(BIF_P, BADARG);
+}
+
+/* hashmap:update/3 */
+
+BIF_RETTYPE hashmap_update_3(BIF_ALIST_3) {
+    if (is_hashmap(BIF_ARG_3)) {
+	Uint32 hx = make_hash2(BIF_ARG_1);
+	Eterm map;
+
+	map = hashmap_insert(BIF_P, hx, BIF_ARG_1, BIF_ARG_2, BIF_ARG_3, 1);
+	if (is_value(map))
+	    BIF_RET(map);
     }
     BIF_ERROR(BIF_P, BADARG);
 }
@@ -303,7 +317,8 @@ static const Eterm *hashmap_get(Uint32 hx, Eterm key, Eterm node) {
     return NULL;
 }
 
-static Eterm hashmap_insert(Process *p, Uint32 hx, Eterm key, Eterm value, Eterm node) {
+static Eterm hashmap_insert(Process *p, Uint32 hx, Eterm key, Eterm value,
+			    Eterm node, int is_update) {
     Eterm *hp = NULL, *nhp = NULL;
     Eterm *ptr;
     Eterm hdr,res,ckey,fake;
@@ -321,6 +336,10 @@ static Eterm hashmap_insert(Process *p, Uint32 hx, Eterm key, Eterm value, Eterm
 		if (EQ(ckey, key)) {
 		    update_size = 0;
 		    goto unroll;
+		}
+		if (is_update) {
+		    res = THE_NON_VALUE;
+		    goto bail_out;
 		}
 		goto insert_subnodes;
 	    case TAG_PRIMARY_BOXED:
@@ -362,6 +381,10 @@ static Eterm hashmap_insert(Process *p, Uint32 hx, Eterm key, Eterm value, Eterm
 			    break;
 			}
 			/* not occupied */
+			if (is_update) {
+			    res = THE_NON_VALUE;
+			    goto bail_out;
+			}
 			size += HAMT_NODE_BITMAP_SZ(n+1);
 			goto unroll;
 		    case HAMT_SUBTAG_HEAD_BITMAP:
@@ -383,6 +406,10 @@ static Eterm hashmap_insert(Process *p, Uint32 hx, Eterm key, Eterm value, Eterm
 			    break;
 			}
 			/* not occupied */
+			if (is_update) {
+			    res = THE_NON_VALUE;
+			    goto bail_out;
+			}
 			size += HAMT_HEAD_BITMAP_SZ(n+1);
 			goto unroll;
 		    default:
@@ -515,6 +542,7 @@ unroll:
 
     } while(!ESTACK_ISEMPTY(stack));
 
+bail_out:
     DESTROY_ESTACK(stack);
     ERTS_VERIFY_UNUSED_TEMP_ALLOC(p);
     ERTS_HOLE_CHECK(p);

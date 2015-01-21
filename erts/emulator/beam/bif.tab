@@ -618,6 +618,7 @@ bif erlang:get_keys/0
 bif hashmap:put/3
 bif hashmap:get/2
 bif hashmap:find/2
+bif hashmap:update/3
 bif hashmap:remove/2
 bif hashmap:info/1
 bif hashmap:to_list/1
