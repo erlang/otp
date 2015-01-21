@@ -212,6 +212,8 @@ vu_pattern(V, #c_tuple{es=Es}, St) ->
     vu_pattern_list(V, Es, St);
 vu_pattern(V, #c_binary{segments=Ss}, St) ->
     vu_pat_seg_list(V, Ss, St);
+vu_pattern(V, #c_map{es=Es}, St) ->
+    vu_map_pairs(V, Es, St);
 vu_pattern(V, #c_alias{var=Var,pat=P}, St0) ->
     case vu_pattern(V, Var, St0) of
 	{true,_}=St1 -> St1;
@@ -233,6 +235,13 @@ vu_pat_seg_list(V, Ss, St) ->
 				{vu_expr(V, Size),Shad}
 			end
 		end, St, Ss).
+
+vu_map_pairs(V, [#c_map_pair{val=Pat}|T], St0) ->
+    case vu_pattern(V, Pat, St0) of
+	{true,_}=St -> St;
+	St -> vu_map_pairs(V, T, St)
+    end;
+vu_map_pairs(_, [], St) -> St.
 
 -spec vu_var_list(cerl:var_name(), [cerl:c_var()]) -> boolean().
 

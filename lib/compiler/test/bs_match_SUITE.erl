@@ -34,7 +34,7 @@
 	 otp_7188/1,otp_7233/1,otp_7240/1,otp_7498/1,
 	 match_string/1,zero_width/1,bad_size/1,haystack/1,
 	 cover_beam_bool/1,matched_out_size/1,follow_fail_branch/1,
-	 no_partition/1,calling_a_binary/1]).
+	 no_partition/1,calling_a_binary/1,binary_in_map/1]).
 
 -export([coverage_id/1,coverage_external_ignore/2]).
 
@@ -59,7 +59,7 @@ groups() ->
        matching_and_andalso,otp_7188,otp_7233,otp_7240,
        otp_7498,match_string,zero_width,bad_size,haystack,
        cover_beam_bool,matched_out_size,follow_fail_branch,
-       no_partition,calling_a_binary]}].
+       no_partition,calling_a_binary,binary_in_map]}].
 
 
 init_per_suite(Config) ->
@@ -1188,6 +1188,26 @@ call_binary(<<>>, Acc) ->
     Acc;
 call_binary(<<H,T/bits>>, Acc) ->
     T(<<Acc/binary,H>>).
+
+binary_in_map(Config) when is_list(Config) ->
+    ok = match_binary_in_map(#{key => <<42:8>>}),
+    {'EXIT',{{badmatch,#{key := 1}},_}} =
+	(catch match_binary_in_map(#{key => 1})),
+    {'EXIT',{{badmatch,#{key := <<1023:16>>}},_}} =
+	(catch match_binary_in_map(#{key => <<1023:16>>})),
+    {'EXIT',{{badmatch,#{key := <<1:8>>}},_}} =
+	(catch match_binary_in_map(#{key => <<1:8>>})),
+    {'EXIT',{{badmatch,not_a_map},_}} =
+	(catch match_binary_in_map(not_a_map)),
+    ok.
+
+match_binary_in_map(Map) ->
+    case 8 of
+	N ->
+	    #{key := <<42:N>>} = Map,
+	    ok
+    end.
+
 
 check(F, R) ->
     R = F().
