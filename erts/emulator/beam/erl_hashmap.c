@@ -133,6 +133,28 @@ BIF_RETTYPE hashmap_get_2(BIF_ALIST_2) {
     BIF_ERROR(BIF_P, BADARG);
 }
 
+/* hashmap:find/2 */
+
+BIF_RETTYPE hashmap_find_2(BIF_ALIST_2) {
+    if (is_hashmap(BIF_ARG_2)) {
+	Eterm *hp, res;
+	const Eterm *value;
+	Uint32 hx = make_hash2(BIF_ARG_1);
+
+	if ((value = hashmap_get(hx, BIF_ARG_1, BIF_ARG_2)) != NULL) {
+	    hp    = HAlloc(BIF_P, 3);
+	    res   = make_tuple(hp);
+	    *hp++ = make_arityval(2);
+	    *hp++ = am_ok;
+            *hp++ = *value;
+	    BIF_RET(res);
+	}
+	BIF_RET(am_error);
+    }
+    BIF_ERROR(BIF_P, BADARG);
+}
+
+
 /* hashmap:remove/2 */
 
 BIF_RETTYPE hashmap_remove_2(BIF_ALIST_2) {
