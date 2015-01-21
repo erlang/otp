@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -1883,9 +1883,9 @@
 -define(wxCURSOR_WAIT, 24).
 -define(wxCURSOR_WATCH, 25).
 -define(wxCURSOR_BLANK, 26).
--define(wxCURSOR_DEFAULT, 27).
--define(wxCURSOR_ARROWWAIT, 28).
--define(wxCURSOR_MAX, 29).
+-define(wxCURSOR_DEFAULT, wxe_util:get_const(wxCURSOR_DEFAULT)).
+-define(wxCURSOR_ARROWWAIT, wxe_util:get_const(wxCURSOR_ARROWWAIT)).
+-define(wxCURSOR_MAX, wxe_util:get_const(wxCURSOR_MAX)).
 % From "generic_2laywin.h"
 -define(wxLAYOUT_QUERY, 256).
 -define(wxLAYOUT_MRU_LENGTH, 16).
