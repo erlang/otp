@@ -758,13 +758,9 @@ live_opt([{line,_}=I|Is], Regs, D, Acc) ->
     live_opt(Is, Regs, D, [I|Acc]);
 
 %% The following instructions can occur if the "compilation" has been
-%% started from a .S file using the 'asm' option.
+%% started from a .S file using the 'from_asm' option.
 live_opt([{trim,_,_}=I|Is], Regs, D, Acc) ->
     live_opt(Is, Regs, D, [I|Acc]);
-live_opt([{allocate,_,Live}=I|Is], _, D, Acc) ->
-    live_opt(Is, live_call(Live), D, [I|Acc]);
-live_opt([{allocate_heap,_,_,Live}=I|Is], _, D, Acc) ->
-    live_opt(Is, live_call(Live), D, [I|Acc]);
 live_opt([{'%',_}=I|Is], Regs, D, Acc) ->
     live_opt(Is, Regs, D, [I|Acc]);
 live_opt([{recv_set,_}=I|Is], Regs, D, Acc) ->

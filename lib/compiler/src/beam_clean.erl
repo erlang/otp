@@ -234,31 +234,6 @@ replace([{bs_init,{f,Lbl},Info,Live,Ss,Dst}|Is], Acc, D) when Lbl =/= 0 ->
     replace(Is, [{bs_init,{f,label(Lbl, D)},Info,Live,Ss,Dst}|Acc], D);
 replace([{bs_put,{f,Lbl},Info,Ss}|Is], Acc, D) when Lbl =/= 0 ->
     replace(Is, [{bs_put,{f,label(Lbl, D)},Info,Ss}|Acc], D);
-replace([{bs_init2,{f,Lbl},Sz,Words,R,F,Dst}|Is], Acc, D) when Lbl =/= 0 ->
-    replace(Is, [{bs_init2,{f,label(Lbl, D)},Sz,Words,R,F,Dst}|Acc], D);
-replace([{bs_init_bits,{f,Lbl},Sz,Words,R,F,Dst}|Is], Acc, D) when Lbl =/= 0 ->
-    replace(Is, [{bs_init_bits,{f,label(Lbl, D)},Sz,Words,R,F,Dst}|Acc], D);
-replace([{bs_put_integer,{f,Lbl},Bits,Unit,Fl,Val}|Is], Acc, D) when Lbl =/= 0 ->
-    replace(Is, [{bs_put_integer,{f,label(Lbl, D)},Bits,Unit,Fl,Val}|Acc], D);
-replace([{bs_put_utf8=I,{f,Lbl},Fl,Val}|Is], Acc, D) when Lbl =/= 0 ->
-    replace(Is, [{I,{f,label(Lbl, D)},Fl,Val}|Acc], D);
-replace([{bs_put_utf16=I,{f,Lbl},Fl,Val}|Is], Acc, D) when Lbl =/= 0 ->
-    replace(Is, [{I,{f,label(Lbl, D)},Fl,Val}|Acc], D);
-replace([{bs_put_utf32=I,{f,Lbl},Fl,Val}|Is], Acc, D) when Lbl =/= 0 ->
-    replace(Is, [{I,{f,label(Lbl, D)},Fl,Val}|Acc], D);
-replace([{bs_put_binary,{f,Lbl},Bits,Unit,Fl,Val}|Is], Acc, D) when Lbl =/= 0 ->
-    replace(Is, [{bs_put_binary,{f,label(Lbl, D)},Bits,Unit,Fl,Val}|Acc], D);
-replace([{bs_put_float,{f,Lbl},Bits,Unit,Fl,Val}|Is], Acc, D) when Lbl =/= 0 ->
-    replace(Is, [{bs_put_float,{f,label(Lbl, D)},Bits,Unit,Fl,Val}|Acc], D);
-replace([{bs_add,{f,Lbl},Src,Dst}|Is], Acc, D) when Lbl =/= 0 ->
-    replace(Is, [{bs_add,{f,label(Lbl, D)},Src,Dst}|Acc], D);
-replace([{bs_append,{f,Lbl},_,_,_,_,_,_,_}=I0|Is], Acc, D) when Lbl =/= 0 ->
-    I = setelement(2, I0, {f,label(Lbl, D)}),
-    replace(Is, [I|Acc], D);
-replace([{bs_utf8_size=I,{f,Lbl},Src,Dst}|Is], Acc, D) when Lbl =/= 0 ->
-    replace(Is, [{I,{f,label(Lbl, D)},Src,Dst}|Acc], D);
-replace([{bs_utf16_size=I,{f,Lbl},Src,Dst}|Is], Acc, D) when Lbl =/= 0 ->
-    replace(Is, [{I,{f,label(Lbl, D)},Src,Dst}|Acc], D);
 replace([{put_map=I,{f,Lbl},Op,Src,Dst,Live,List}|Is], Acc, D)
   when Lbl =/= 0 ->
     replace(Is, [{I,{f,label(Lbl, D)},Op,Src,Dst,Live,List}|Acc], D);

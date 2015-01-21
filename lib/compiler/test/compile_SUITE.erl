@@ -30,7 +30,7 @@
 	 other_output/1, encrypted_abstr/1,
 	 bad_record_use1/1, bad_record_use2/1, strict_record/1,
 	 missing_testheap/1, cover/1, env/1, core/1, asm/1,
-	 sys_pre_attributes/1]).
+	 sys_pre_attributes/1, dialyzer/1]).
 
 -export([init/3]).
 
@@ -47,7 +47,7 @@ all() ->
      other_output, encrypted_abstr,
      {group, bad_record_use}, strict_record,
      missing_testheap, cover, env, core, asm,
-     sys_pre_attributes].
+     sys_pre_attributes, dialyzer].
 
 groups() -> 
     [{bad_record_use, [],
@@ -852,6 +852,20 @@ sys_pre_attributes(Config) ->
     {ok,Mod,_} = compile:file(File, PrePostOpts ++ PreOpts ++
 				  PostOpts ++ CommonOpts --
 				  [report,verbose]),
+    ok.
+
+%% Test the dialyzer option to cover more code.
+dialyzer(Config) ->
+    Priv = ?config(priv_dir, Config),
+    file:set_cwd(?config(data_dir, Config)),
+    Opts = [{outdir,Priv},report_errors],
+    M = dialyzer_test,
+    {ok,M} = c:c(M, [dialyzer|Opts]),
+    [{a,b,c}] = M:M(),
+
+    %% Cover huge line numbers without the 'dialyzer' option.
+    {ok,M} = c:c(M, Opts),
+    [{a,b,c}] = M:M(),
     ok.
 
 %%%
