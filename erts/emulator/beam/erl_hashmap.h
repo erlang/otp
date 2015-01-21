@@ -40,21 +40,12 @@ int hashmap_key_hash_cmp(Eterm* ap, Eterm* bp);
 
 /* HASH */
 
-
 #if defined(__GNUC__)
-#define hashmap_bitcount(x) 	(Uint32) __builtin_popcount((unsigned int) (x))
+#define hashmap_clz(x)       ((Uint32) __builtin_clz((unsigned int)(x)))
+#define hashmap_bitcount(x)  ((Uint32) __builtin_popcount((unsigned int) (x)))
 #else
-const Uint32 SK5 = 0x55555555, SK3 = 0x33333333;
-const Uint32 SKF0 = 0xF0F0F0F, SKFF = 0xFF00FF;
-
-/* CTPOP emulation */
-Uint32 hashmap_bitcount(Uint32 map) {
-    map -= (( map >> 1  ) & SK5 );
-    map  = ( map & SK3  ) + (( map >> 2 ) & SK3 );
-    map  = ( map & SKF0 ) + (( map >> 4 ) & SKF0);
-    map +=   map >> 8;
-    return ( map + ( map >> 16)) & 0x3F;
-}
+Uint32 hashmap_clz(Uint32 x);
+Uint32 hashmap_bitcount(Uint32 x);
 #endif
 
 /* hamt nodes v2.0

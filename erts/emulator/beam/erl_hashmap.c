@@ -1273,3 +1273,30 @@ BIF_RETTYPE hashmap_info_1(BIF_ALIST_1) {
     }
     BIF_ERROR(BIF_P, BADARG);
 }
+
+/* implementation of builtin emulations */
+
+#if !defined(__GNUC__)
+/* Count leading zeros emulation */
+Uint32 hashmap_clz(Uint32 x) {
+    Uint32 y;
+    int n = 32;
+    y = x >>16;  if (y != 0) {n = n -16;  x = y;}
+    y = x >> 8;  if (y != 0) {n = n - 8;  x = y;}
+    y = x >> 4;  if (y != 0) {n = n - 4;  x = y;}
+    y = x >> 2;  if (y != 0) {n = n - 2;  x = y;}
+    y = x >> 1;  if (y != 0) return n - 2;
+    return n - x;
+}
+const Uint32 SK5 = 0x55555555, SK3 = 0x33333333;
+const Uint32 SKF0 = 0xF0F0F0F, SKFF = 0xFF00FF;
+
+/* CTPOP emulation */
+Uint32 hashmap_bitcount(Uint32 x) {
+    x -= ((x >> 1  ) & SK5);
+    x  =  (x & SK3 ) + ((x >> 2 ) & SK3 );
+    x  =  (x & SKF0) + ((x >> 4 ) & SKF0);
+    x +=   x >> 8;
+    return (x + (x >> 16)) & 0x3F;
+}
+#endif
