@@ -748,55 +748,24 @@ not_found:
     return res;
 }
 
+static void hashmap_to_list_doer(Eterm* kv, hashmap_doer_state* sp);
+
 static Eterm hashmap_to_list(Process *p, Eterm node) {
-    Eterm *hp;
-    Eterm res = NIL;
-    Eterm *ptr, tup, hdr;
-    Uint sz, n;
-    DECLARE_ESTACK(stack);
+    hashmap_head_t* root;
+    hashmap_doer_state state;
 
-    ptr = boxed_val(node);
-    n   = (Uint)ptr[1];
-    hp  = HAlloc(p, n * (2 + 3));
-    ESTACK_PUSH(stack, node);
-    do {
-	node = ESTACK_POP(stack);
-	switch(primary_tag(node)) {
-	    case TAG_PRIMARY_LIST:
-		ptr = list_val(node);
-		tup = TUPLE2(hp, CAR(ptr), CDR(ptr)); hp += 3;
-		res = CONS(hp, tup, res); hp += 2;
-		break;
-	    case TAG_PRIMARY_BOXED:
-		ptr = boxed_val(node);
-		hdr = *ptr;
-		ASSERT(is_header(hdr));
-		switch(hdr & _HEADER_MAP_SUBTAG_MASK) {
-		    case HAMT_SUBTAG_HEAD_ARRAY:
-			ptr++;
-		    case HAMT_SUBTAG_NODE_ARRAY:
-			ptr++;
-			sz = 16;
-			while(sz--) { ESTACK_PUSH(stack, ptr[sz]); }
-			break;
-		    case HAMT_SUBTAG_HEAD_BITMAP:
-			ptr++;
-		    case HAMT_SUBTAG_NODE_BITMAP:
-			sz = hashmap_bitcount(MAP_HEADER_VAL(hdr));
-			ASSERT(sz < 17);
-			ptr++;
-			while(sz--) { ESTACK_PUSH(stack, ptr[sz]); }
-			break;
-		    default:
-			erl_exit(1, "bad header\r\n");
-			break;
-		}
-	}
-    } while(!ESTACK_ISEMPTY(stack));
+    root = (hashmap_head_t*) boxed_val(node);
+    state.hp  = HAlloc(p, root->size * (2 + 3));
+    state.res = NIL;
+    hashmap_do_foreach(node, hashmap_to_list_doer, &state);
+    return state.res;
+}
 
-    DESTROY_ESTACK(stack);
-    ERTS_HOLE_CHECK(p);
-    return res;
+static void hashmap_to_list_doer(Eterm* kv, hashmap_doer_state* sp) {
+    Eterm tup = TUPLE2(sp->hp, CAR(kv), CDR(kv));
+    sp->hp += 3;
+    sp->res = CONS(sp->hp, tup, sp->res);
+    sp->hp += 2;
 }
 
 #define HALLOC_EXTRA 200
