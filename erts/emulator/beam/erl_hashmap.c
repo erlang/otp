@@ -73,6 +73,13 @@ static Eterm hashmap_values(Process *p, Eterm map);
 static Eterm hashmap_merge(Process *p, Eterm nodeA, Eterm nodeB);
 static Eterm hashmap_bld_tuple_uint(Uint **hpp, Uint *szp, Uint n, Uint nums[]);
 
+typedef struct {
+    Eterm* hp;
+    Eterm res;
+}hashmap_doer_state;
+typedef void hashmap_doer(Eterm*, hashmap_doer_state*);
+static void hashmap_do_foreach(Eterm node, hashmap_doer* fptr, hashmap_doer_state*);
+
 /* hashmap:new/0 */
 
 BIF_RETTYPE hashmap_new_0(BIF_ALIST_0) {
@@ -1061,9 +1068,8 @@ recurse:
     return res;
 }
 
-typedef void hashmap_doer(Eterm*, void*);
-
-static void hashmap_do_foreach(Eterm node, hashmap_doer* fptr, void* farg) {
+static void hashmap_do_foreach(Eterm node, hashmap_doer* fptr,
+			       hashmap_doer_state* farg) {
     Eterm *ptr, hdr;
     Uint sz;
     DECLARE_ESTACK(stack);
@@ -1106,46 +1112,38 @@ static void hashmap_do_foreach(Eterm node, hashmap_doer* fptr, void* farg) {
     DESTROY_ESTACK(stack);
 }
 
-typedef struct {
-    Eterm* hp;
-    Eterm res;
-}hashmap_keys_state;
-static void hashmap_keys_doer(Eterm* kv, hashmap_keys_state*);
+static void hashmap_keys_doer(Eterm* kv, hashmap_doer_state*);
 
 static Eterm hashmap_keys(Process* p, Eterm node) {
     hashmap_head_t* root;
-    hashmap_keys_state state;
+    hashmap_doer_state state;
 
     root = (hashmap_head_t*) boxed_val(node);
     state.hp  = HAlloc(p, root->size * 2);
     state.res = NIL;
-    hashmap_do_foreach(node, (hashmap_doer*)hashmap_keys_doer, &state);
+    hashmap_do_foreach(node, hashmap_keys_doer, &state);
     return state.res;
 }
 
-static void hashmap_keys_doer(Eterm* kv, hashmap_keys_state* statep) {
+static void hashmap_keys_doer(Eterm* kv, hashmap_doer_state* statep) {
     statep->res = CONS(statep->hp, CAR(kv), statep->res);
     statep->hp += 2;
 }
 
-typedef struct {
-    Eterm* hp;
-    Eterm res;
-}hashmap_values_state;
-static void hashmap_values_doer(Eterm* kv, hashmap_values_state*);
+static void hashmap_values_doer(Eterm* kv, hashmap_doer_state*);
 
 static Eterm hashmap_values(Process* p, Eterm node) {
     hashmap_head_t* root;
-    hashmap_values_state state;
+    hashmap_doer_state state;
 
     root = (hashmap_head_t*) boxed_val(node);
     state.hp  = HAlloc(p, root->size * 2);
     state.res = NIL;
-    hashmap_do_foreach(node, (hashmap_doer*)hashmap_values_doer, &state);
+    hashmap_do_foreach(node, hashmap_values_doer, &state);
     return state.res;
 }
 
-static void hashmap_values_doer(Eterm* kv, hashmap_values_state* statep) {
+static void hashmap_values_doer(Eterm* kv, hashmap_doer_state* statep) {
     statep->res = CONS(statep->hp, CDR(kv), statep->res);
     statep->hp += 2;
 }
