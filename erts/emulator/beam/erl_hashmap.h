@@ -120,7 +120,7 @@ typedef struct hashmap_head_s {
 #define is_hashmap_header_head(x) ((MAP_HEADER_TYPE(x) & (0x2)))
 
 #define MAKE_MAP_HEADER(Type,Arity,Val) \
-    (_make_header(((((Uint16)Val) << MAP_HEADER_ARITY_SZ) | (Arity)) << MAP_HEADER_TAG_SZ | (Type) , _TAG_HEADER_HASHMAP))
+    (_make_header(((((Uint16)(Val)) << MAP_HEADER_ARITY_SZ) | (Arity)) << MAP_HEADER_TAG_SZ | (Type) , _TAG_HEADER_HASHMAP))
 
 #define MAP_HEADER_HAMT_HEAD_ARRAY \
     MAKE_MAP_HEADER(MAP_HEADER_TAG_HAMT_HEAD_ARRAY,0x1,0xffff)
