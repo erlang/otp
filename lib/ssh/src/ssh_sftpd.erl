@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -558,7 +558,20 @@ stat(ReqId, RelPath, State0=#state{file_handler=FileMod,
 	{error, E} ->
 	    send_status({error, E}, ReqId, State1)
     end.
-
+%% sftp v3
+decode_4_open_flag(read) ->
+    [read];
+decode_4_open_flag(write) ->
+    [write];
+decode_4_open_flag(append) ->
+    [append];
+decode_4_open_flag(creat) ->
+    [write];
+decode_4_open_flag(trunc) ->
+    [write];
+decode_4_open_flag(excl) ->
+    [read];
+%% sftp newer 
 decode_4_open_flag(create_new) ->
     [write];
 decode_4_open_flag(create_truncate) ->
@@ -608,7 +621,8 @@ open(Vsn, ReqId, Data, State) when Vsn =< 3 ->
     <<?UINT32(BLen), BPath:BLen/binary, ?UINT32(PFlags),
      _Attrs/binary>> = Data,
     Path = unicode:characters_to_list(BPath),
-    Flags = ssh_xfer:decode_open_flags(Vsn, PFlags),
+    FlagBits = ssh_xfer:decode_open_flags(Vsn, PFlags),
+    Flags = lists:append(lists:umerge([[decode_4_flags(FlagBits)]])),
     do_open(ReqId, State, Path, Flags);
 open(Vsn, ReqId, Data, State) when Vsn >= 4 ->
     <<?UINT32(BLen), BPath:BLen/binary, ?UINT32(Access),
