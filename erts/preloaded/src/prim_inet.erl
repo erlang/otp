@@ -1160,6 +1160,7 @@ enc_opt(packet_size)     -> ?INET_LOPT_PACKET_SIZE;
 enc_opt(read_packets)    -> ?INET_LOPT_READ_PACKETS;
 enc_opt(netns)           -> ?INET_LOPT_NETNS;
 enc_opt(raw)             -> ?INET_OPT_RAW;
+enc_opt(packet_endian)   -> ?INET_LOPT_PACKET_ENDIAN;
 % Names of SCTP opts:
 enc_opt(sctp_rtoinfo)	 	   -> ?SCTP_OPT_RTOINFO;
 enc_opt(sctp_associnfo)	 	   -> ?SCTP_OPT_ASSOCINFO;
@@ -1280,6 +1281,10 @@ type_opt_1(active) ->
 	   {true, ?INET_ACTIVE}, 
 	   {once, ?INET_ONCE},
            {multi, ?INET_MULTI}]};
+type_opt_1(packet_endian) ->
+    {enum,[{big, ?TCP_PH_ENDIAN_BIG},
+	   {little, ?TCP_PH_ENDIAN_LITTLE},
+           {native, ?TCP_PH_ENDIAN_NATIVE}]};
 type_opt_1(packet) -> 
     {enum,[{0, ?TCP_PB_RAW},
 	   {1, ?TCP_PB_1},

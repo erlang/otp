@@ -865,6 +865,7 @@ static int my_strncasecmp(const char *s1, const char *s2, size_t n)
 #define INET_LOPT_MSGQ_HIWTRMRK     36  /* set local msgq high watermark */
 #define INET_LOPT_MSGQ_LOWTRMRK     37  /* set local msgq low watermark */
 #define INET_LOPT_NETNS             38  /* Network namespace pathname */
+#define INET_LOPT_PACKET_ENDIAN     39  /* packet header endian (TCP) */
 /* SCTP options: a separate range, from 100: */
 #define SCTP_OPT_RTOINFO		100
 #define SCTP_OPT_ASSOCINFO		101
@@ -1109,6 +1110,7 @@ typedef struct {
 				   IPPROTO_TCP|IPPROTO_UDP|IPPROTO_SCTP     */
     int   sfamily;              /* address family */
     enum PacketParseType htype; /* header type (TCP only?) */
+    enum PacketHeaderEndian pkt_endian; /* header endian */
     unsigned int psize;         /* max packet size (TCP only?) */
     inet_address remote;        /* remote address for connected sockets */
     inet_address peer_addr;     /* fake peer address */
@@ -3696,6 +3698,31 @@ static int packet_error_message(udp_descriptor* udesc, int err)
 }
 #endif
 
+static enum PacketParseType tcp_htype_endian_combine(enum PacketParseType htype, enum PacketHeaderEndian endian ) {
+    enum PacketParseType res=htype;
+    switch(htype){
+        case TCP_PB_2:
+            if(endian==TCP_PH_ENDIAN_LITTLE) {
+                res=TCP_PB_LE2;
+            }
+            else if(endian==TCP_PH_ENDIAN_NATIVE) {
+                res=TCP_PB_NE2;
+            }
+            break;
+        case TCP_PB_4:
+            if(endian==TCP_PH_ENDIAN_LITTLE) {
+                res=TCP_PB_LE4;
+            }
+            else if(endian==TCP_PH_ENDIAN_NATIVE) {
+                res=TCP_PB_NE4;
+            }
+            break;
+        default:
+            break;
+    }
+    return res;
+}
+
 /* 
 ** active=TRUE:
 **  (NOTE! distribution MUST use active=TRUE, deliver=PORT)
@@ -3711,12 +3738,12 @@ static int tcp_reply_data(tcp_descriptor* desc, char* buf, int len)
     const char* body = buf;
     int bodylen = len;
 
-    packet_get_body(desc->inet.htype, &body, &bodylen);
+    packet_get_body(tcp_htype_endian_combine(desc->inet.htype,desc->inet.pkt_endian), &body, &bodylen);
 
     if (desc->inet.deliver == INET_DELIVER_PORT) {
         code = inet_port_data(INETP(desc), body, bodylen);
     }
-    else if ((code=packet_parse(desc->inet.htype, buf, len,
+    else if ((code=packet_parse(tcp_htype_endian_combine(desc->inet.htype,desc->inet.pkt_endian), buf, len,
                                 &desc->http_state, &packet_callbacks,
                                 desc)) == 0) {
         /* No body parsing, return raw binary */
@@ -3740,12 +3767,12 @@ tcp_reply_binary_data(tcp_descriptor* desc, ErlDrvBinary* bin, int offs, int len
     const char* body = buf;
     int bodylen = len;
 
-    packet_get_body(desc->inet.htype, &body, &bodylen);
+    packet_get_body(tcp_htype_endian_combine(desc->inet.htype,desc->inet.pkt_endian), &body, &bodylen);
     offs = body - bin->orig_bytes; /* body offset now */
 
     if (desc->inet.deliver == INET_DELIVER_PORT)
         code = inet_port_binary_data(INETP(desc), bin, offs, bodylen);
-    else if ((code=packet_parse(desc->inet.htype, buf, len, &desc->http_state,
+    else if ((code=packet_parse(tcp_htype_endian_combine(desc->inet.htype,desc->inet.pkt_endian), buf, len, &desc->http_state,
                                      &packet_callbacks,desc)) == 0) {
         /* No body parsing, return raw data */
         if (desc->inet.active == INET_PASSIVE)
@@ -6103,6 +6130,12 @@ static int inet_set_opts(inet_descriptor* desc, char* ptr, int len)
 	    desc->psize = (unsigned int)ival;
 	    continue;
 
+	case INET_LOPT_PACKET_ENDIAN:
+	    DEBUGF(("inet_set_opts(%ld): s=%d, PACKET_ENDIAN=%d\r\n",
+		    (long)desc->port, desc->s, ival));
+	    desc->pkt_endian= (unsigned int)ival;
+	    continue;
+
 	case INET_LOPT_EXITONCLOSE:
 	    DEBUGF(("inet_set_opts(%ld): s=%d, EXITONCLOSE=%d\r\n",
 		    (long)desc->port, desc->s, ival));
@@ -7071,6 +7104,10 @@ static ErlDrvSSizeT inet_fill_opts(inet_descriptor* desc,
 	case INET_LOPT_PACKET:
 	    *ptr++ = opt;
 	    put_int32(desc->htype, ptr);
+	    continue;
+	case INET_LOPT_PACKET_ENDIAN:
+	    *ptr++ = opt;
+	    put_int32(desc->pkt_endian, ptr);
 	    continue;
 	case INET_LOPT_PACKET_SIZE:
 	    *ptr++ = opt;
@@ -8252,6 +8289,7 @@ static ErlDrvData inet_start(ErlDrvPort port, int size, int protocol)
     desc->bufsz = INET_DEF_BUFFER; 
     desc->hsz = 0;                     /* list header size */
     desc->htype = TCP_PB_RAW;          /* default packet type */
+    desc->pkt_endian = TCP_PH_ENDIAN_BIG; /* default packet header endian */
     desc->psize = 0;                   /* no size check */
     desc->stype = -1;                  /* bad stype */
     desc->sfamily = -1;
@@ -8998,6 +9036,7 @@ static tcp_descriptor* tcp_inet_copy(tcp_descriptor* desc,SOCKET s,
     copy_desc->inet.exitf    = desc->inet.exitf;
     copy_desc->inet.deliver  = desc->inet.deliver;
     copy_desc->inet.htype    = desc->inet.htype; 
+    copy_desc->inet.pkt_endian = desc->inet.pkt_endian; 
     copy_desc->inet.psize    = desc->inet.psize; 
     copy_desc->inet.stype    = desc->inet.stype;
     copy_desc->inet.sfamily  = desc->inet.sfamily;
@@ -9720,7 +9759,6 @@ static int tcp_recv_error(tcp_descriptor* desc, int err)
 }
 
 
-
 /*
 ** Calculate number of bytes that remain to read before deliver
 ** Assume buf, ptr_start, ptr has been setup
@@ -9742,7 +9780,7 @@ static int tcp_remain(tcp_descriptor* desc, int* len)
     int n = desc->i_ptr - ptr;  /* number of bytes read */
     int tlen;
 
-    tlen = packet_get_length(desc->inet.htype, ptr, n, 
+    tlen = packet_get_length(tcp_htype_endian_combine(desc->inet.htype, desc->inet.pkt_endian), ptr, n, 
                              desc->inet.psize, desc->i_bufsz,
                              &desc->http_state);
 
@@ -10528,11 +10566,27 @@ static int tcp_sendv(tcp_descriptor* desc, ErlIOVec* ev)
          h_len = 1;
          break;
      case TCP_PB_2:
-         put_int16(len, buf);
+         if(desc->inet.pkt_endian==1) {
+             put_int16le(len, buf);
+         }
+         else if(desc->inet.pkt_endian==2) {
+             memcpy(buf, &len, 2);
+         }
+         else {
+             put_int16(len, buf);
+         }
          h_len = 2;
          break;
      case TCP_PB_4:
-         put_int32(len, buf);
+         if(desc->inet.pkt_endian==1) {
+             put_int32le(len, buf);
+         }
+         else if(desc->inet.pkt_endian==2) {
+             memcpy(buf, &len, 4);
+         }
+         else {
+             put_int32(len, buf);
+         }
          h_len = 4;
          break;
      default:
@@ -10634,6 +10688,14 @@ static int tcp_send(tcp_descriptor* desc, char* ptr, ErlDrvSizeT len)
     case TCP_PB_4: 
 	put_int32(len, buf);
 	h_len = 4; 
+	break;
+    case TCP_PB_LE2:
+	put_int16le(len, buf);
+	h_len = 2;
+	break;
+    case TCP_PB_LE4:
+	put_int32le(len, buf);
+	h_len = 4;
 	break;
     default:
 	if (len == 0)
@@ -10979,6 +11041,7 @@ static udp_descriptor* sctp_inet_copy(udp_descriptor* desc, SOCKET s, int* err)
     copy_desc->inet.exitf    = desc->inet.exitf;
     copy_desc->inet.deliver  = desc->inet.deliver;
     copy_desc->inet.htype    = desc->inet.htype;
+    copy_desc->inet.pkt_endian = desc->inet.pkt_endian;
     copy_desc->inet.psize    = desc->inet.psize;
     copy_desc->inet.stype    = desc->inet.stype;
     copy_desc->inet.sfamily  = desc->inet.sfamily;

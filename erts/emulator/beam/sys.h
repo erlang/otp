@@ -627,6 +627,7 @@ typedef struct _SysDriverOpts {
     Uint ifd;			/* Input file descriptor (fd driver). */
     Uint ofd;			/* Outputfile descriptor (fd driver). */
     int packet_bytes;		/* Number of bytes in packet header. */
+    int packet_endian;          /* Endian of packet header. 0 - big, 1 - little, 2 - native */
     int read_write;		/* Read and write bits. */
     int use_stdio;		/* Use standard I/O: TRUE or FALSE. */
     int redir_stderr;           /* Redirect stderr to stdout: TRUE/FALSE. */
@@ -983,10 +984,21 @@ extern int erts_use_kernel_poll;
                       (((unsigned char*) (s))[2] << 8)  | \
                       (((unsigned char*) (s))[3]))
 
+#define get_int32le(s) ((((unsigned char*) (s))[3] << 24) | \
+                      (((unsigned char*) (s))[2] << 16) | \
+                      (((unsigned char*) (s))[1] << 8)  | \
+                      (((unsigned char*) (s))[0]))
+
 #define put_int32(i, s) do {((char*)(s))[0] = (char)((i) >> 24) & 0xff;   \
                             ((char*)(s))[1] = (char)((i) >> 16) & 0xff;   \
                             ((char*)(s))[2] = (char)((i) >> 8)  & 0xff;   \
                             ((char*)(s))[3] = (char)(i)         & 0xff;} \
+                        while (0)
+
+#define put_int32le(i, s) do {((char*)(s))[3] = (char)((i) >> 24) & 0xff;   \
+                            ((char*)(s))[2] = (char)((i) >> 16) & 0xff;   \
+                            ((char*)(s))[1] = (char)((i) >> 8)  & 0xff;   \
+                            ((char*)(s))[0] = (char)(i)         & 0xff;} \
                         while (0)
 
 #define get_int24(s) ((((unsigned char*) (s))[0] << 16) | \
@@ -1001,9 +1013,15 @@ extern int erts_use_kernel_poll;
 #define get_int16(s) ((((unsigned char*)  (s))[0] << 8) | \
                       (((unsigned char*)  (s))[1]))
 
+#define get_int16le(s) ((((unsigned char*)  (s))[1] << 8) | \
+                      (((unsigned char*)  (s))[0]))
 
 #define put_int16(i, s) do {((char*)(s))[0] = (char)((i) >> 8) & 0xff;  \
                             ((char*)(s))[1] = (char)(i)        & 0xff;} \
+                        while (0)
+
+#define put_int16le(i, s) do {((char*)(s))[1] = (char)((i) >> 8) & 0xff;  \
+                            ((char*)(s))[0] = (char)(i)        & 0xff;} \
                         while (0)
 
 #define get_int8(s) ((((unsigned char*)  (s))[0] ))

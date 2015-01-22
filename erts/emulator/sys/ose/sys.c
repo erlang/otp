@@ -100,6 +100,7 @@ static struct driver_data {
    int                 ofd;
    int                 ifd;
    int                 packet_bytes;
+   int                 packet_endian;
    ErtsSysReportExit   *report_exit;
    int                 pid;
    int                 alive;
@@ -832,6 +833,7 @@ set_driver_data(ErlDrvPort port_num,
 			   int ifd,
 			   int ofd,
 			   int packet_bytes,
+			   int packet_endian,
 			   int read_write,
 			   int exit_status,
 			   PROCESS pid)
@@ -853,6 +855,7 @@ set_driver_data(ErlDrvPort port_num,
 		       __FILE__,__LINE__,ifd,errno);
        driver_data[ifd].ifd = ifd;
        driver_data[ifd].packet_bytes = packet_bytes;
+       driver_data[ifd].packet_endian = packet_endian;
        driver_data[ifd].port_num = port_num;
        driver_data[ifd].pid = pid;
 
@@ -898,6 +901,7 @@ set_driver_data(ErlDrvPort port_num,
     else { /* WRITE ONLY */
        efs_examine_fd(ofd, FLIB_FD_HANDLE, &driver_data[ofd].handle, 0);
        driver_data[ofd].packet_bytes = packet_bytes;
+       driver_data[ofd].packet_endian = packet_endian;
        driver_data[ofd].port_num = port_num;
        driver_data[ofd].ofd = ofd;
        driver_data[ofd].pid = pid;
@@ -1075,7 +1079,8 @@ spawn_start(ErlDrvPort port_num, char* name, SysDriverOpts* opts)
 
     /* setup driver data */
     res = set_driver_data(port_num, ofd[0], ifd[1], opts->packet_bytes,
-              opts->read_write, 1 /* opts->exit_status */, progpid);
+            opts->packet_endian, opts->read_write, 
+            1 /* opts->exit_status */, progpid);
 
     /* init the fd_data array for read/write */
     init_fd_data(ofd[0], port_num);
@@ -1164,8 +1169,8 @@ static ErlDrvData fd_start(ErlDrvPort port_num, char* name,
 	init_fd_data(opts->ofd, port_num);
     }
     res = set_driver_data(port_num, opts->ifd, opts->ofd,
-				      opts->packet_bytes,
-				      opts->read_write, 0, -1);
+            opts->packet_bytes, opts->packet_endian,
+            opts->read_write, 0, -1);
     CHLD_STAT_UNLOCK;
     return res;
 }
@@ -1250,8 +1255,35 @@ static void output(ErlDrvData drv_data, char* buf, ErlDrvSizeT len)
 	driver_failure_posix(data->port_num, EINVAL);
 	return; /* -1; */
     }
-    put_int32(len, lb);
-    lbp = lb + (4-(data->packet_bytes));
+    if (pb > 4 || pb < 1) { //avoid memory corruption in case memcpy
+        driver_failure_posix(ix, EINVAL);
+        return; /* -1; */
+    }
+
+    if(data->packet_endian==1) {//little endian
+        put_int32le((Uint32) len, lb);
+	lbp = lb;
+    } else if(data->packet_endian==2){ //native
+        switch(data->packet_bytes) {
+            case 1:
+                put_int8(len, lb);
+                break;
+            case 2: {
+                        uint16_t tmp_len=len;
+                        memcpy(lb,&tmp_len,2);
+                        break;
+                    }
+            case 4: {
+                        uint32_t tmp_len=len;
+                        memcpy(lb,&tmp_len,4);
+                        break;
+                    }
+        }
+        lbp = lb;
+    } else { //big endian
+        put_int32(len, lb);
+	lbp = lb + (4-(data->packet_bytes));
+    }
 
     if ((sz = driver_sizeq(data->port_num)) > 0) {
        if (data->packet_bytes != 0) {
@@ -1276,7 +1308,7 @@ static void output(ErlDrvData drv_data, char* buf, ErlDrvSizeT len)
        driver_select(data->port_num, data->output_event,
 		      ERL_DRV_WRITE|ERL_DRV_USE, 1);
        WRITE_AIO(data->ofd, 
-             (data->packet_bytes ? len+data->packet_bytes : len), 
+             (data->packet_bytes ? len+data->packet_bytes : len),
              (data->packet_bytes ? pbbuf : buf));
        if (data->packet_bytes != 0) free(pbbuf);
     }
@@ -1427,12 +1459,41 @@ static void ready_input(ErlDrvData drv_data, ErlDrvEvent ready_fd)
           }
           else if (data->packet_bytes && fd_data[data->ifd].remain == 0) { /* we've recieved a header */
 
-             /* analyze the header FIXME  */
-             switch (data->packet_bytes) {
-                case 1: h = get_int8(data->aiocb.aio_buf);  break;
-                case 2: h = get_int16(data->aiocb.aio_buf); break;
-                case 4: h = get_int32(data->aiocb.aio_buf); break;
-             }
+              if(data->packet_endian==1) {
+                  switch (data->packet_bytes) {
+                      case 1: h = get_int8(fd_data[ready_fd].pbuf);  break;
+                      case 2: h = get_int16le(fd_data[ready_fd].pbuf); break;
+                      case 4: h = get_int32le(fd_data[ready_fd].pbuf); break;
+                      default: ASSERT(0); return; /* -1; */
+                  }
+              }
+              else if(data->packet_endian==2) {
+                  switch(data->packet_bytes) {
+                      case 1: h = get_int8(fd_data[ready_fd].pbuf);  break;
+                      case 2: {
+                                  uint16_t tmp_len;
+                                  memcpy(&fd_data[ready_fd].pbuf,2);
+                                  h=tmp_len;
+                                  break;
+                              }
+                      case 4: {
+                                  uint32_t tmp_len;
+                                  memcpy(&fd_data[ready_fd].pbuf,4);
+                                  h=tmp_len;
+                                  break;
+                              }
+                      default: ASSERT(0); return; /* -1; */
+                  }
+              }
+              else {
+                  switch (data->data->packet_bytes) {
+                      case 1: h = get_int8(fd_data[ready_fd].pbuf);  break;
+                      case 2: h = get_int16(fd_data[ready_fd].pbuf); break;
+                      case 4: h = get_int32(fd_data[ready_fd].pbuf); break;
+                      default: ASSERT(0); return; /* -1; */
+                  }
+              }
+
 
              fd_data[data->ifd].buf = erts_alloc_fnf(ERTS_ALC_T_FD_ENTRY_BUF, h + data->packet_bytes);
              fd_data[data->ifd].remain = ((h + data->packet_bytes) - res);

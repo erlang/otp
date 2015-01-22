@@ -147,6 +147,7 @@
 -define(INET_LOPT_MSGQ_HIWTRMRK,  36).
 -define(INET_LOPT_MSGQ_LOWTRMRK,  37).
 -define(INET_LOPT_NETNS,          38).
+-define(INET_LOPT_PACKET_ENDIAN,  39).
 % Specific SCTP options: separate range:
 -define(SCTP_OPT_RTOINFO,	 	100).
 -define(SCTP_OPT_ASSOCINFO,	 	101).
@@ -192,6 +193,9 @@
 -define(TCP_PB_HTTP_BIN,13).
 -define(TCP_PB_HTTPH_BIN,14).
 
+-define(TCP_PH_ENDIAN_BIG,0).
+-define(TCP_PH_ENDIAN_LITTLE,1).
+-define(TCP_PH_ENDIAN_NATIVE,2).
 
 %% getstat, INET_REQ_GETSTAT
 -define(INET_STAT_RECV_CNT,  1).

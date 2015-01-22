@@ -43,7 +43,17 @@ enum PacketParseType {
     TCP_PB_HTTPH    = 11,
     TCP_PB_SSL_TLS  = 12,
     TCP_PB_HTTP_BIN = 13,
-    TCP_PB_HTTPH_BIN = 14
+    TCP_PB_HTTPH_BIN = 14,
+    TCP_PB_LE2      = 15,
+    TCP_PB_NE2      = 16,
+    TCP_PB_LE4      = 17,
+    TCP_PB_NE4      = 18
+};
+
+enum PacketHeaderEndian {
+    TCP_PH_ENDIAN_BIG=0,
+    TCP_PH_ENDIAN_LITTLE=1,
+    TCP_PH_ENDIAN_NATIVE=2
 };
 
 typedef struct http_atom {
@@ -146,14 +156,21 @@ ERTS_GLB_INLINE
 void packet_get_body(enum PacketParseType htype, const char** bufp, int* lenp)
 {
     switch (htype) {
-    case TCP_PB_1:  *bufp += 1; *lenp -= 1; break;
-    case TCP_PB_2:  *bufp += 2; *lenp -= 2; break;
-    case TCP_PB_4:  *bufp += 4; *lenp -= 4; break;
-    case TCP_PB_FCGI:
-	*lenp -= ((struct fcgi_head*)*bufp)->paddingLength;
-        break;
-    default:
-        ;/* Return other packets "as is" */
+        case TCP_PB_1:
+            *bufp += 1; *lenp -= 1; break;
+        case TCP_PB_2:
+        case TCP_PB_LE2:
+        case TCP_PB_NE2:
+            *bufp += 2; *lenp -= 2; break;
+        case TCP_PB_4:
+        case TCP_PB_LE4:
+        case TCP_PB_NE4:
+            *bufp += 4; *lenp -= 4; break;
+        case TCP_PB_FCGI:
+            *lenp -= ((struct fcgi_head*)*bufp)->paddingLength;
+            break;
+        default:
+            break;/* Return other packets "as is" */
     }
 }
 
