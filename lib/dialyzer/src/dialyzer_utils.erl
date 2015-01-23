@@ -63,13 +63,13 @@ print_types(RecDict) ->
 
 print_types1([], _) ->
   ok;
-print_types1([{type, _Name} = Key|T], RecDict) ->
-  {ok, {_Mod, Form, _Args}} = dict:find(Key, RecDict),
-  io:format("\n~w: ~w\n", [Key, erl_types:t_from_form(Form, RecDict)]),
+print_types1([{type, _Name, _NArgs} = Key|T], RecDict) ->
+  {ok, {{_Mod, _Form, _Args}, Type}} = dict:find(Key, RecDict),
+  io:format("\n~w: ~w\n", [Key, Type]),
   print_types1(T, RecDict);
-print_types1([{opaque, _Name} = Key|T], RecDict) ->
-  {ok, {_Mod, Form, _Args}} = dict:find(Key, RecDict),
-  io:format("\n~w: ~w\n", [Key, erl_types:t_from_form(Form, RecDict)]),
+print_types1([{opaque, _Name, _NArgs} = Key|T], RecDict) ->
+  {ok, {{_Mod, _Form, _Args}, Type}} = dict:find(Key, RecDict),
+  io:format("\n~w: ~w\n", [Key, Type]),
   print_types1(T, RecDict);
 print_types1([{record, _Name} = Key|T], RecDict) ->
   {ok, [{_Arity, _Fields} = AF]} = dict:find(Key, RecDict),
@@ -258,7 +258,8 @@ add_new_type(TypeOrOpaque, Name, TypeForm, ArgForms, Module, RecDict) ->
       try erl_types:t_var_names(ArgForms) of
         ArgNames ->
 	  dict:store({TypeOrOpaque, Name, Arity},
-                     {Module, TypeForm, ArgNames}, RecDict)
+                     {{Module, TypeForm, ArgNames},
+                      erl_types:t_any()}, RecDict)
       catch
         _:_ ->
 	  throw({error, flat_format("Type declaration for ~w does not "
@@ -327,6 +328,11 @@ process_record_remote_types(CServer) ->
                          || {Name, Field, _} <- Fields]
                     end,
                   orddict:map(FieldFun, Value);
+                {opaque, _, _} ->
+                  {{_Module, Form, _ArgNames}=F, _Type} = Value,
+                  Type = erl_types:t_from_form(Form, TempExpTypes, Module,
+                                               TempRecords),
+                  {F, Type};
                 _Other -> Value
               end
           end,
