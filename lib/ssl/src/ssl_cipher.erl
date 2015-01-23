@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -36,7 +36,7 @@
 	 cipher_init/3, decipher/6, cipher/5, decipher_aead/6, cipher_aead/6,
 	 suite/1, suites/1, all_suites/1, 
 	 ec_keyed_suites/0, anonymous_suites/1, psk_suites/1, srp_suites/0,
-	 openssl_suite/1, openssl_suite_name/1, filter/2, filter_suites/1,
+	 rc4_suites/1, openssl_suite/1, openssl_suite_name/1, filter/2, filter_suites/1,
 	 hash_algorithm/1, sign_algorithm/1, is_acceptable_hash/2]).
 
 -export_type([cipher_suite/0,
@@ -307,9 +307,10 @@ suites({3, N}) ->
 
 all_suites(Version) ->
     suites(Version)
-	++ ssl_cipher:anonymous_suites(Version)
-	++ ssl_cipher:psk_suites(Version)
-	++ ssl_cipher:srp_suites().
+	++ anonymous_suites(Version)
+	++ psk_suites(Version)
+	++ srp_suites()
+        ++ rc4_suites(Version).
 %%--------------------------------------------------------------------
 -spec anonymous_suites(ssl_record:ssl_version() | integer()) -> [cipher_suite()].
 %%
@@ -395,6 +396,24 @@ srp_suites() ->
      ?TLS_SRP_SHA_WITH_AES_256_CBC_SHA,
      ?TLS_SRP_SHA_RSA_WITH_AES_256_CBC_SHA,
      ?TLS_SRP_SHA_DSS_WITH_AES_256_CBC_SHA].
+%%--------------------------------------------------------------------
+-spec rc4_suites(Version::ssl_record:ssl_version()) -> [cipher_suite()].
+%%
+%% Description: Returns a list of the RSA|(ECDH/RSA)| (ECDH/ECDSA) 
+%% with RC4 cipher suites, only supported if explicitly set by user. 
+%% Are not considered secure any more. Other RC4 suites already
+%% belonged to the user configured only category.
+%%--------------------------------------------------------------------
+rc4_suites({3, 0}) ->
+    [?TLS_RSA_WITH_RC4_128_SHA,
+     ?TLS_RSA_WITH_RC4_128_MD5];
+rc4_suites({3, N}) when N =< 3 ->
+    [?TLS_ECDHE_ECDSA_WITH_RC4_128_SHA,
+     ?TLS_ECDHE_RSA_WITH_RC4_128_SHA,
+     ?TLS_RSA_WITH_RC4_128_SHA,
+     ?TLS_RSA_WITH_RC4_128_MD5,
+     ?TLS_ECDH_ECDSA_WITH_RC4_128_SHA,
+     ?TLS_ECDH_RSA_WITH_RC4_128_SHA].
 
 %%--------------------------------------------------------------------
 -spec suite_definition(cipher_suite()) -> int_cipher_suite().

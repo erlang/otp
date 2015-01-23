@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -187,6 +187,7 @@ run_client(Opts) ->
     Transport =  proplists:get_value(transport, Opts, ssl),
     Options = proplists:get_value(options, Opts),
     ct:log("~p:~p~n~p:connect(~p, ~p)@~p~n", [?MODULE,?LINE, Transport, Host, Port, Node]),
+    ct:log("SSLOpts: ~p", [Options]),
     case rpc:call(Node, Transport, connect, [Host, Port, Options]) of
 	{ok, Socket} ->
 	    Pid ! {connected, Socket},
@@ -918,6 +919,10 @@ srp_dss_suites() ->
 	 {srp_dss, aes_256_cbc, sha}],
     ssl_cipher:filter_suites(Suites).
 
+rc4_suites(Version) ->
+    Suites = ssl_cipher:rc4_suites(Version),
+    ssl_cipher:filter_suites(Suites).
+
 pem_to_der(File) ->
     {ok, PemBin} = file:read_file(File),
     public_key:pem_decode(PemBin).
@@ -1125,7 +1130,8 @@ filter_suites(Ciphers0) ->
     Supported0 = ssl_cipher:suites(Version)
 	++ ssl_cipher:anonymous_suites(Version)
 	++ ssl_cipher:psk_suites(Version)
-	++ ssl_cipher:srp_suites(),
+	++ ssl_cipher:srp_suites() 
+	++ ssl_cipher:rc4_suites(Version),
     Supported1 = ssl_cipher:filter_suites(Supported0),
     Supported2 = [ssl:suite_definition(S) || S <- Supported1],
     [Cipher || Cipher <- Ciphers0, lists:member(Cipher, Supported2)].
