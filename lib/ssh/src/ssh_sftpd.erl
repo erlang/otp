@@ -577,17 +577,21 @@ sftp_to_erlang_flag(trunc, Vsn) when Vsn == 3;
 sftp_to_erlang_flag(excl, Vsn) when Vsn == 3;
 				    Vsn == 4 ->
     read;
-sftp_to_erlang_flag(append_data, Vsn)  when Vsn > 4 ->
-    append;
-sftp_to_erlang_flag(append_data_atomic, Vsn) when Vsn > 4  ->
-    append;
 sftp_to_erlang_flag(create_new, Vsn)  when Vsn > 4 ->
     write;
 sftp_to_erlang_flag(create_truncate, Vsn) when Vsn > 4 ->
     write;
+sftp_to_erlang_flag(open_existing, Vsn)  when Vsn > 4 ->
+    read;
+sftp_to_erlang_flag(open_or_create, Vsn) when Vsn > 4 ->
+    write;
 sftp_to_erlang_flag(truncate_existing, Vsn) when Vsn > 4 ->
     write;
-sftp_to_erlang_flag(open_existing, Vsn)  when Vsn > 4 ->
+sftp_to_erlang_flag(append_data, Vsn)  when Vsn > 4 ->
+    append;
+sftp_to_erlang_flag(append_data_atomic, Vsn) when Vsn > 4  ->
+    append;
+sftp_to_erlang_flag(_, _) ->
     read.
 
 sftp_to_erlang_flags(Flags, Vsn) ->
@@ -601,12 +605,12 @@ sftp_to_erlang_access_flag(list_directory, _) ->
     read;
 sftp_to_erlang_access_flag(write_data, _) ->
     write;
-sftp_to_erlang_access_flag(add_file, _) ->
-    write;
-sftp_to_erlang_access_flag(add_subdirectory, _) ->
-    read;
 sftp_to_erlang_access_flag(append_data, _) ->
     append;
+sftp_to_erlang_access_flag(add_subdirectory, _) ->
+    read;
+sftp_to_erlang_access_flag(add_file, _) ->
+    write;
 sftp_to_erlang_access_flag(write_attributes, _) ->
     write;
 sftp_to_erlang_access_flag(_, _) ->
@@ -629,12 +633,10 @@ open(Vsn, ReqId, Data, State) when Vsn >= 4 ->
     Path = unicode:characters_to_list(BPath),
     FlagBits = ssh_xfer:decode_open_flags(Vsn, PFlags),
     AcessBits = ssh_xfer:decode_ace_mask(Access),
-    %% TODO: This is to make sure the Access flags are not ignored
-    %% but this should be thought through better. This solution should
-    %% be considered a hack in order to buy some time. At least
-    %% it works better than when the Access flags where totally ignored.
-    %% A better solution may need some code refactoring that we do
-    %% not have time for right now.
+    %% TODO: There are still flags that are not
+    %% fully handled as SSH_FXF_ACCESS_TEXT_MODE and
+    %% a lot a ACE flags, the later we may not need 
+    %% to understand as they are NFS flags
     AcessFlags = sftp_to_erlang_access_flags(AcessBits, Vsn),
     Flags = lists:usort(sftp_to_erlang_flags(FlagBits, Vsn) ++ AcessFlags),
     do_open(ReqId, State, Path, Flags).
