@@ -21,7 +21,7 @@
 
 <copyright>
 <year>2011</year>
-<year>2014</year>
+<year>2015</year>
 <holder>Ericsson AB. All Rights Reserved.</holder>
 </copyright>
 <legalnotice>
@@ -1188,6 +1188,19 @@ See &man_tcp; for the behaviour of that module.</p>
 </note>
 </item>
 
+<tag><c>{pool_size, pos_integer()}</c></tag>
+<item>
+<p>
+Number of transport processes to start.
+For a listening transport, defines the size of the pool of accepting
+transport processes, a larger number being desirable for processing
+multiple concurrent peer connection attempts.
+For a connecting transport, the &service_opt;
+<c>restrict_connections</c> must also be configured on the service in
+question to allow multiple connections to the same peer.</p>
+
+</item>
+
 <marker id="spawn_opt"/>
 <tag><c>{spawn_opt, [term()]}</c></tag>
 <item>
@@ -1736,6 +1749,14 @@ connection might look as follows.</p>
 <p>
 The information presented here is as in the <c>connect</c> case except
 that the client connections are grouped under an <c>accept</c> tuple.</p>
+
+<p>
+Whether or not the &transport_opt; <c>pool_size</c> affects the format
+of the listing in the case of a connecting transport, since a value
+greater than 1 implies multiple transport processes for the same
+<c>&transport_ref;</c>, as in the listening case.
+The format in this case is similar to the listening case, with a
+<c>pool</c> tuple in place of an <c>accept</c> tuple.</p>
 
 </item>
 

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -31,6 +31,8 @@
          spawn_opts/2,
          wait/1,
          fold_tuple/3,
+         fold_n/3,
+         for_n/2,
          log/4]).
 
 %% ---------------------------------------------------------------------------
@@ -288,6 +290,35 @@ ft(undefined, {_, T}) ->
     T;
 ft(Value, {Idx, T}) ->
     setelement(Idx, T, Value).
+
+%% ---------------------------------------------------------------------------
+%% # fold_n/3
+%% ---------------------------------------------------------------------------
+
+-spec fold_n(F, Acc0, N)
+   -> term()
+ when F    :: fun((non_neg_integer(), term()) -> term()),
+      Acc0 :: term(),
+      N    :: non_neg_integer().
+
+fold_n(F, Acc, N)
+  when is_integer(N), 0 < N ->
+    fold_n(F, F(N, Acc), N-1);
+
+fold_n(_, Acc, _) ->
+    Acc.
+
+%% ---------------------------------------------------------------------------
+%% # for_n/2
+%% ---------------------------------------------------------------------------
+
+-spec for_n(F, N)
+   -> non_neg_integer()
+ when F :: fun((non_neg_integer()) -> term()),
+      N :: non_neg_integer().
+
+for_n(F, N) ->
+    fold_n(fun(M,A) -> F(M), A+1 end, 0, N).
 
 %% ---------------------------------------------------------------------------
 %% # log/4
