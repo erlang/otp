@@ -2246,17 +2246,10 @@ make_var_name() ->
     list_to_atom("fol"++integer_to_list(N)).
 
 letify(Bs, Body) ->
+    Ann = cerl:get_ann(Body),
     foldr(fun({V,Val}, B) ->
-		  letify(V, Val, B)
+		  cerl:ann_c_let(Ann, [V], Val, B)
 	  end, Body, Bs).
-
-letify(#c_var{name=Vname}=Var, Val, Body) ->
-    case core_lib:is_var_used(Vname, Body) of
-	true ->
-	    A = element(2, Body),
-	    #c_let{anno=A,vars=[Var],arg=Val,body=Body};
-	false -> Body
-    end.
 
 %% opt_case_in_let(LetExpr) -> LetExpr'
 
@@ -2622,7 +2615,7 @@ opt_simple_let_2(Let0, Vs0, Arg0, Body0, effect, Sub) ->
 		    opt_case_in_let_arg(opt_case_in_let(Let, Sub), effect, Sub)
 	    end
     end;
-opt_simple_let_2(Let, Vs0, Arg0, Body, value, Sub) ->
+opt_simple_let_2(Let0, Vs0, Arg0, Body, value, Sub) ->
     case {Vs0,Arg0,Body} of
 	{[#c_var{name=N1}],Arg,#c_var{name=N2}} ->
 	    case N1 =:= N2 of
@@ -2641,9 +2634,17 @@ opt_simple_let_2(Let, Vs0, Arg0, Body, value, Sub) ->
 	    %% can be evaluated in effect context to simplify it.
 	    expr(#c_seq{arg=Arg,body=Body}, value, sub_new_preserve_types(Sub));
 	{Vs,Arg,Body} ->
-	    opt_case_in_let_arg(
-	      opt_case_in_let(Let#c_let{vars=Vs,arg=Arg,body=Body}, Sub),
-	      value, Sub)
+	    %% If none of the variables are used in the body, we can rewrite the
+	    %% let to a sequence:
+	    %%   let <Var> = Arg in BodyWithoutVar  ==> seq Arg BodyWithoutVar
+	    case is_any_var_used(Vs, Body) of
+		false ->
+		    expr(#c_seq{arg=Arg,body=Body}, value,
+			 sub_new_preserve_types(Sub));
+		true ->
+		    Let = Let0#c_let{vars=Vs,arg=Arg,body=Body},
+		    opt_case_in_let_arg(opt_case_in_let(Let, Sub), value, Sub)
+	    end
     end.
 
 move_case_into_arg(#c_case{arg=#c_let{vars=OuterVars0,arg=OuterArg,

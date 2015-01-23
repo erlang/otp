@@ -242,6 +242,8 @@ do_guard_try_catch(K, V) ->
 	    false
     end.
 
+-record(cover_opt_guard_try, {list=[]}).
+
 coverage(Config) when is_list(Config) ->
     ?line {'EXIT',{{case_clause,{a,b,c}},_}} =
 	(catch cover_will_match_list_type({a,b,c})),
@@ -250,6 +252,9 @@ coverage(Config) when is_list(Config) ->
     ?line a = cover_remove_non_vars_alias({a,b,c}),
     ?line error = cover_will_match_lit_list(),
     {ok,[a]} = cover_is_safe_bool_expr(a),
+
+    ok = cover_opt_guard_try(#cover_opt_guard_try{list=[a]}),
+    error = cover_opt_guard_try(#cover_opt_guard_try{list=[]}),
 
     %% Make sure that we don't attempt to make literals
     %% out of pids. (Putting a pid into a #c_literal{}
@@ -302,6 +307,14 @@ cover_is_safe_bool_expr(X) ->
     catch
 	_:_ ->
 	    false
+    end.
+
+cover_opt_guard_try(Msg) ->
+    if
+	length(Msg#cover_opt_guard_try.list) =/= 1 ->
+	    error;
+	true ->
+	    ok
     end.
 
 bsm_an_inlined(<<_:8>>, _) -> ok;

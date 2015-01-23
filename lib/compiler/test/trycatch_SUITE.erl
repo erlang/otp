@@ -790,7 +790,6 @@ nested_after_1({X1,C1,V1},
 
 
 nested_horrid(Config) when is_list(Config) ->
-    _V = {make_ref(),nested_horrid,4.711},
     {[true,true],{[true,1.0],1.0}} =
 	nested_horrid_1({true,void,void}, 1.0),
     ok.
