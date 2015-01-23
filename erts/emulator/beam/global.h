@@ -372,7 +372,7 @@ extern int stackdump_on_exit;
  * DESTROY_ESTACK(Stack)
  */
 
-typedef struct {
+typedef struct ErtsEStack_ {
     Eterm* start;
     Eterm* sp;
     Eterm* end;
@@ -381,7 +381,7 @@ typedef struct {
 
 #define DEF_ESTACK_SIZE (16)
 
-void erl_grow_estack(ErtsEStack*, Eterm* def_stack);
+void erl_grow_estack(ErtsEStack*, Eterm* def_stack, Uint need);
 #define ESTK_CONCAT(a,b) a##b
 #define ESTK_DEF_STACK(s) ESTK_CONCAT(s,_default_estack)
 
@@ -457,7 +457,7 @@ do {						\
 #define ESTACK_PUSH(s, x)				\
 do {							\
     if (s.sp == s.end) {				\
-	erl_grow_estack(&s, ESTK_DEF_STACK(s)); 	\
+	erl_grow_estack(&s, ESTK_DEF_STACK(s), 1); 	\
     }							\
     *s.sp++ = (x);					\
 } while(0)
@@ -465,7 +465,7 @@ do {							\
 #define ESTACK_PUSH2(s, x, y)			\
 do {						\
     if (s.sp > s.end - 2) {			\
-	erl_grow_estack(&s, ESTK_DEF_STACK(s)); \
+	erl_grow_estack(&s, ESTK_DEF_STACK(s), 2); \
     }						\
     *s.sp++ = (x);				\
     *s.sp++ = (y);				\
@@ -474,7 +474,7 @@ do {						\
 #define ESTACK_PUSH3(s, x, y, z)		\
 do {						\
     if (s.sp > s.end - 3) {			\
-	erl_grow_estack(&s, ESTK_DEF_STACK(s)); \
+	erl_grow_estack(&s, ESTK_DEF_STACK(s), 3); \
     }						\
     *s.sp++ = (x);				\
     *s.sp++ = (y);				\
@@ -492,6 +492,20 @@ do {						\
     *s.sp++ = (E4);				\
 } while(0)
 
+#define ESTACK_RESERVE(s, push_cnt)                         \
+do {						            \
+    if (s.sp > s.end - (push_cnt)) {	                    \
+	erl_grow_estack(&s, ESTK_DEF_STACK(s), (push_cnt)); \
+    }						            \
+} while(0)
+
+/* Must be preceded by ESTACK_RESERVE */
+#define ESTACK_FAST_PUSH(s, x)				\
+do {							\
+    ASSERT(s.sp < s.end);                               \
+    *s.sp++ = (x);					\
+} while(0)
+
 #define ESTACK_COUNT(s) (s.sp - s.start)
 #define ESTACK_ISEMPTY(s) (s.sp == s.start)
 #define ESTACK_POP(s) (*(--s.sp))
@@ -501,7 +515,7 @@ do {						\
  * WSTACK: same as ESTACK but with UWord instead of Eterm
  */
 
-typedef struct {
+typedef struct ErtsWStack_ {
     UWord* wstart;
     UWord* wsp;
     UWord* wend;
@@ -510,7 +524,7 @@ typedef struct {
 
 #define DEF_WSTACK_SIZE (16)
 
-void erl_grow_wstack(ErtsWStack*, UWord* def_stack);
+void erl_grow_wstack(ErtsWStack*, UWord* def_stack, Uint need);
 #define WSTK_CONCAT(a,b) a##b
 #define WSTK_DEF_STACK(s) WSTK_CONCAT(s,_default_wstack)
 
@@ -592,7 +606,7 @@ do {						\
 #define WSTACK_PUSH(s, x)				\
 do {							\
     if (s.wsp == s.wend) {				\
-	erl_grow_wstack(&s, WSTK_DEF_STACK(s)); 	\
+	erl_grow_wstack(&s, WSTK_DEF_STACK(s), 1); 	\
     }							\
     *s.wsp++ = (x);					\
 } while(0)
@@ -600,7 +614,7 @@ do {							\
 #define WSTACK_PUSH2(s, x, y)			\
 do {						\
     if (s.wsp > s.wend - 2) {			\
-	erl_grow_wstack(&s, WSTK_DEF_STACK(s)); \
+	erl_grow_wstack(&s, WSTK_DEF_STACK(s), 2); \
     }						\
     *s.wsp++ = (x);				\
     *s.wsp++ = (y);				\
@@ -609,7 +623,7 @@ do {						\
 #define WSTACK_PUSH3(s, x, y, z)		\
 do {						\
     if (s.wsp > s.wend - 3) {	\
-	erl_grow_wstack(&s, WSTK_DEF_STACK(s)); \
+	erl_grow_wstack(&s, WSTK_DEF_STACK(s), 3); \
     }						\
     *s.wsp++ = (x);				\
     *s.wsp++ = (y);				\
@@ -650,6 +664,20 @@ do {						\
     *s.wsp++ = (A4);				\
     *s.wsp++ = (A5);				\
     *s.wsp++ = (A6);				\
+} while(0)
+
+#define WSTACK_RESERVE(s, push_cnt)             \
+do {						\
+    if (s.wsp > s.wend - (push_cnt)) { 	        \
+	erl_grow_wstack(&s, WSTK_DEF_STACK(s), (push_cnt)); \
+    }                                           \
+} while(0)
+
+/* Must be preceded by WSTACK_RESERVE */
+#define WSTACK_FAST_PUSH(s, x)                  \
+do {						\
+    ASSERT(s.wsp < s.wend);                     \
+    *s.wsp++ = (x);                             \
 } while(0)
 
 #define WSTACK_COUNT(s) (s.wsp - s.wstart)
