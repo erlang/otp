@@ -2304,7 +2304,8 @@ dec_pid(ErtsDistExternal *edep, Eterm** hpp, byte* ep, ErlOffHeap* off_heap, Ete
 #define ENC_PATCH_FUN_SIZE ((Eterm) 2)
 #define ENC_BIN_COPY ((Eterm) 3)
 #define ENC_MAP_PAIR ((Eterm) 4)
-#define ENC_LAST_ARRAY_ELEMENT ((Eterm) 5)
+#define ENC_HASHMAP_NODE ((Eterm) 5)
+#define ENC_LAST_ARRAY_ELEMENT ((Eterm) 6)
 
 static byte*
 enc_term(ErtsAtomCacheMap *acmp, Eterm obj, byte* ep, Uint32 dflags,
@@ -2413,6 +2414,13 @@ enc_term_int(TTBEncodeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj, byte* ep,
 	    WSTACK_PUSH2(s, ENC_TERM, *vptr);
 	    break;
 	}
+	case ENC_HASHMAP_NODE:
+	    if (is_list(obj)) { /* leaf node [K|V] */
+		ptr = list_val(obj);
+		WSTACK_PUSH2(s, ENC_TERM, CDR(ptr));
+		obj = CAR(ptr);
+	    }
+	    break;
 	case ENC_LAST_ARRAY_ELEMENT:
 	    /* obj is the tuple */
 	    {
@@ -2607,6 +2615,44 @@ enc_term_int(TTBEncodeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj, byte* ep,
 
 		    WSTACK_PUSH4(s, (UWord)kptr, (UWord)vptr,
 				 ENC_MAP_PAIR, size);
+		}
+	    }
+	    break;
+
+	case HASHMAP_DEF:
+	    {
+		Eterm hdr;
+		Uint node_sz;
+		ptr = boxed_val(obj);
+		hdr = *ptr;
+		ASSERT(is_header(hdr));
+		switch(hdr & _HEADER_MAP_SUBTAG_MASK) {
+		case HAMT_SUBTAG_HEAD_ARRAY:
+		    *ep++ = MAP_EXT;
+		    ptr++;
+		    put_int32(*ptr, ep); ep += 4;
+		    /*fall through*/
+		case HAMT_SUBTAG_NODE_ARRAY:
+		    node_sz = 16;
+		    break;
+		case HAMT_SUBTAG_HEAD_BITMAP:
+		    *ep++ = MAP_EXT;
+		    ptr++;
+		    put_int32(*ptr, ep); ep += 4;
+		    /*fall through*/
+		case HAMT_SUBTAG_NODE_BITMAP:
+		    node_sz = hashmap_bitcount(MAP_HEADER_VAL(hdr));
+		    ASSERT(node_sz < 17);
+		    break;
+		default:
+		    erl_exit(1, "bad header\r\n");
+		}
+
+		ptr++;
+		WSTACK_RESERVE(s, node_sz*2);
+		while(node_sz--) {
+		    WSTACK_FAST_PUSH(s, ENC_HASHMAP_NODE);
+		    WSTACK_FAST_PUSH(s, *ptr++);
 		}
 	    }
 	    break;
@@ -4046,6 +4092,38 @@ encode_size_struct_int(TTBSizeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj,
 		}
 		goto outer_loop;
 	    }
+	    break;
+
+	case HASHMAP_DEF:
+	    {
+		Eterm *ptr;
+		Eterm hdr;
+		Uint node_sz;
+		ptr = boxed_val(obj);
+		hdr = *ptr;
+		ASSERT(is_header(hdr));
+		switch(hdr & _HEADER_MAP_SUBTAG_MASK) {
+		case HAMT_SUBTAG_HEAD_ARRAY: ptr++;
+		case HAMT_SUBTAG_NODE_ARRAY:
+		    node_sz = 16;
+		    break;
+		case HAMT_SUBTAG_HEAD_BITMAP: ptr++;
+		case HAMT_SUBTAG_NODE_BITMAP:
+		    node_sz = hashmap_bitcount(MAP_HEADER_VAL(hdr));
+		    ASSERT(node_sz < 17);
+		    break;
+		default:
+		    erl_exit(1, "bad header\r\n");
+		}
+
+		ptr++;
+		ESTACK_RESERVE(s, node_sz);
+		while(node_sz--) {
+		    ESTACK_FAST_PUSH(s, *ptr++);
+		}
+		result += 1 + 4; /* tag + 4 bytes size */
+	    }
+
 	    break;
 	case FLOAT_DEF:
 	    if (dflags & DFLAG_NEW_FLOATS) {
