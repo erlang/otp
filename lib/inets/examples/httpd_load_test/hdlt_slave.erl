@@ -180,7 +180,7 @@ ssh_slave_start(Host, ErlCmd) ->
  	    ?DEBUG("ssh_exec_erl -> done", []), 
 	    {ok, Connection, Channel};
 	Error3 ->
- 	    ?LOG("failed exec comand: ~p", [Error3]),
+	    ?LOG("failed exec comamnd: ~p", [Error3]),
 	    throw({error, {ssh_exec_failed, Error3}})
     end.
 
