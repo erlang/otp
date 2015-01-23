@@ -63,7 +63,7 @@ server(PortName,PortSettings) ->
     run(Port).
 
 run(P) ->
-    put(unicode,false),
+    put(encoding, latin1),
     server_loop(P).
 
 server_loop(Port) ->
@@ -95,25 +95,47 @@ do_io_request(Req, From, ReplyAs, Port) ->
     io_reply(From, ReplyAs, Reply).
 
 %% New in R13B
-% Wide characters (Unicode)
-io_request({put_chars,Encoding,Chars}, Port) -> % Binary new in R9C
-    put_chars(wrap_characters_to_binary(Chars,Encoding,
-					case get(unicode) of 
-					    true -> unicode;
-					    _ -> latin1
-					end), Port);
-io_request({put_chars,Encoding,Mod,Func,Args}, Port) ->
-    Result = case catch apply(Mod,Func,Args) of
-		 Data when is_list(Data); is_binary(Data) ->
-		     wrap_characters_to_binary(Data,Encoding,
-					       case get(unicode) of 
-						   true -> unicode;
-						   _ -> latin1
-					       end);
-		 Undef ->
-		     Undef
-	     end,
-    put_chars(Result, Port);
+%% Encoding option (unicode/latin1)
+io_request({put_chars,unicode,Chars}, Port) ->
+    case wrap_characters_to_binary(Chars, unicode, get(encoding)) of
+        Bin when is_binary(Bin) ->
+            put_chars(Bin, Port);
+        _ ->
+            {error,{error,put_chars}}
+    end;
+io_request({put_chars,unicode,Mod,Func,Args}, Port) ->
+    case catch apply(Mod, Func, Args) of
+        Data when is_list(Data); is_binary(Data) ->
+            case wrap_characters_to_binary(Data, unicode, get(encoding)) of
+                Bin when is_binary(Bin) ->
+                    put_chars(Bin, Port);
+                _ ->
+                    {error,{error,put_chars}}
+            end;
+        _ ->
+            {error,{error,put_chars}}
+    end;
+io_request({put_chars,latin1,Chars}, Port) ->
+    case catch unicode:characters_to_binary(Chars, latin1, get(encoding)) of
+        Data when is_binary(Data) ->
+            put_chars(Data, Port);
+        _ ->
+            {error,{error,put_chars}}
+    end;
+io_request({put_chars,latin1,Mod,Func,Args}, Port) ->
+    case catch apply(Mod, Func, Args) of
+        Data when is_list(Data); is_binary(Data) ->
+            case
+                catch unicode:characters_to_binary(Data, latin1, get(encoding))
+            of
+                Bin when is_binary(Bin) ->
+                    put_chars(Bin, Port);
+                _ ->
+                    {error,{error,put_chars}}
+            end;
+        _ ->
+            {error,{error,put_chars}}
+    end;
 %% BC if called from pre-R13 node
 io_request({put_chars,Chars}, Port) -> 
     io_request({put_chars,latin1,Chars}, Port); 
@@ -134,10 +156,10 @@ io_request({get_geometry,rows},Port) ->
 	_ ->
 	    {error,{error,enotsup}}
     end;
-io_request({getopts,[]}, Port) ->
-    getopts(Port);
-io_request({setopts,Opts}, Port) when is_list(Opts) ->
-    setopts(Opts, Port);
+io_request(getopts, _Port) ->
+    getopts();
+io_request({setopts,Opts}, _Port) when is_list(Opts) ->
+    setopts(Opts);
 io_request({requests,Reqs}, Port) ->
     io_requests(Reqs, {ok,ok}, Port);
 io_request(R, _Port) ->                      %Unknown request
@@ -176,47 +198,48 @@ io_reply(From, ReplyAs, Reply) ->
 %% put_chars
 put_chars(Chars, Port) when is_binary(Chars) ->
     _ = put_port(Chars, Port),
-    {ok,ok};
-put_chars(Chars, Port) ->
-    case catch list_to_binary(Chars) of
-	Binary when is_binary(Binary) ->
-	    put_chars(Binary, Port);
-	_ ->
-	    {error,{error,put_chars}}
-    end.
+    {ok,ok}.
 
 %% setopts
-setopts(Opts0,Port) ->
-    Opts = proplists:unfold(
-	     proplists:substitute_negations(
-	       [{latin1,unicode}], 
-	       Opts0)),
+setopts(Opts0) ->
+    Opts = expand_encoding(Opts0),
     case check_valid_opts(Opts) of
-	true ->
-	    do_setopts(Opts,Port);
-	false ->
-	    {error,{error,enotsup}}
+        true ->
+            do_setopts(Opts);
+        false ->
+            {error,{error,enotsup}}
     end.
+
 check_valid_opts([]) ->
     true;
-check_valid_opts([{unicode,Valid}|T]) when Valid =:= true; Valid =:= utf8; Valid =:= false ->
+check_valid_opts([{encoding,Valid}|T]) when Valid =:= unicode;
+                                            Valid =:= utf8; Valid =:= latin1 ->
     check_valid_opts(T);
 check_valid_opts(_) ->
     false.
 
-do_setopts(Opts, _Port) ->
-    case proplists:get_value(unicode,Opts) of
-	Valid when Valid =:= true; Valid =:= utf8 ->
-	    put(unicode,true);
-	false ->
-	    put(unicode,false);
-	undefined ->
-	    ok
+expand_encoding([]) ->
+    [];
+expand_encoding([latin1 | T]) ->
+    [{encoding,latin1} | expand_encoding(T)];
+expand_encoding([unicode | T]) ->
+    [{encoding,unicode} | expand_encoding(T)];
+expand_encoding([H|T]) ->
+    [H|expand_encoding(T)].
+
+do_setopts(Opts) ->
+    case proplists:get_value(encoding, Opts) of
+        Valid when Valid =:= unicode; Valid =:= utf8 ->
+            put(encoding, unicode);
+        latin1 ->
+            put(encoding, latin1);
+        undefined ->
+            ok
     end,
     {ok,ok}.
 
-getopts(_Port) ->
-    Uni = {unicode, get(unicode) =:= true},
+getopts() ->
+    Uni = {encoding,get(encoding)},
     {ok,[Uni]}.
 
 wrap_characters_to_binary(Chars,From,To) ->
@@ -227,17 +250,17 @@ wrap_characters_to_binary(Chars,From,To) ->
 		_Else ->
 		    16#10ffff
 	    end,
-    unicode:characters_to_binary(
-      [ case X of
-	    $\n ->
-		if
-		    TrNl ->
-			"\r\n";
-		    true ->
-			$\n
-		end;
-	    High when High > Limit ->
-		["\\x{",erlang:integer_to_list(X, 16),$}];
-	    Ordinary ->
-		Ordinary
-	end || X <- unicode:characters_to_list(Chars,From) ],unicode,To).
+    case catch unicode:characters_to_list(Chars, From) of
+        L when is_list(L) ->
+            unicode:characters_to_binary(
+              [ case X of
+                    $\n when TrNl ->
+                        "\r\n";
+                    High when High > Limit ->
+                        ["\\x{",erlang:integer_to_list(X, 16),$}];
+                    Low ->
+                        Low
+                end || X <- L ], unicode, To);
+        _ ->
+            error
+    end.
