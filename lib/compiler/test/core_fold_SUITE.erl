@@ -23,7 +23,8 @@
 	 t_element/1,setelement/1,t_length/1,append/1,t_apply/1,bifs/1,
 	 eq/1,nested_call_in_case/1,guard_try_catch/1,coverage/1,
 	 unused_multiple_values_error/1,unused_multiple_values/1,
-	 multiple_aliases/1,redundant_boolean_clauses/1,mixed_matching_clauses/1]).
+	 multiple_aliases/1,redundant_boolean_clauses/1,
+	 mixed_matching_clauses/1,unnecessary_building/1]).
 
 -export([foo/0,foo/1,foo/2,foo/3]).
 
@@ -40,7 +41,8 @@ groups() ->
       [t_element,setelement,t_length,append,t_apply,bifs,
        eq,nested_call_in_case,guard_try_catch,coverage,
        unused_multiple_values_error,unused_multiple_values,
-       multiple_aliases,redundant_boolean_clauses,mixed_matching_clauses]}].
+       multiple_aliases,redundant_boolean_clauses,
+       mixed_matching_clauses,unnecessary_building]}].
 
 
 init_per_suite(Config) ->
@@ -402,5 +404,30 @@ mixed_matching_clauses(Config) when is_list(Config) ->
           a -> 1
       end,
   ok.
+
+unnecessary_building(Config) when is_list(Config) ->
+    Term1 = do_unnecessary_building_1(test_lib:id(a)),
+    [{a,a},{a,a}] = Term1,
+    7 = erts_debug:size(Term1),
+
+    %% The Input term should not be rebuilt (thus, it should
+    %% only be counted once in the size of the combined term).
+    Input = test_lib:id({a,b,c}),
+    Term2 = test_lib:id(do_unnecessary_building_2(Input)),
+    {b,[{a,b,c},none],x} = Term2,
+    4+4+4+2 = erts_debug:size([Term2|Input]),
+
+    ok.
+
+do_unnecessary_building_1(S) ->
+    %% The tuple must only be built once.
+    F0 = F1 = {S,S},
+    [F0,F1].
+
+do_unnecessary_building_2({a,_,_}=T) ->
+    %% The T term should not be rebuilt.
+    {b,
+     [_,_] = [T,none],
+     x}.
 
 id(I) -> I.
