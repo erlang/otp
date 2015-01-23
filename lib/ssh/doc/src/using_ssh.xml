@@ -79,7 +79,7 @@
     <p> The option user_dir defaults to the users ~/.ssh  directory</p>
 
     <p>In the following example we generate new keys and host keys as
-    to be able to run the example without having root privilages</p>
+    to be able to run the example without having root privileges</p>
 
     <code>
       $bash> ssh-keygen -t rsa -f /tmp/ssh_daemon/ssh_host_rsa_key
