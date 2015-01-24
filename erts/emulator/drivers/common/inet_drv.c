@@ -10570,7 +10570,8 @@ static int tcp_sendv(tcp_descriptor* desc, ErlIOVec* ev)
              put_int16le(len, buf);
          }
          else if(desc->inet.pkt_endian==2) {
-             memcpy(buf, &len, 2);
+	     uint16_t tmp=len;
+             memcpy(buf, &tmp, 2);
          }
          else {
              put_int16(len, buf);
@@ -10582,7 +10583,8 @@ static int tcp_sendv(tcp_descriptor* desc, ErlIOVec* ev)
              put_int32le(len, buf);
          }
          else if(desc->inet.pkt_endian==2) {
-             memcpy(buf, &len, 4);
+	     uint32_t tmp=len;
+             memcpy(buf, &tmp, 4);
          }
          else {
              put_int32(len, buf);
