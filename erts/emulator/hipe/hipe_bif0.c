@@ -433,8 +433,16 @@ BIF_RETTYPE hipe_bifs_enter_code_2(BIF_ALIST_2)
     ASSERT(bitsize == 0);
     trampolines = NIL;
     address = hipe_alloc_code(nrbytes, BIF_ARG_2, &trampolines, BIF_P);
-    if (!address)
-	erl_exit(1, "hipe_bifs_enter_code_2: code allocation failed\r\n");
+    if (!address) {
+	Uint nrcallees;
+
+	if (is_tuple(BIF_ARG_2))
+	    nrcallees = arityval(tuple_val(BIF_ARG_2)[0]);
+	else
+	    nrcallees = 0;
+	erl_exit(1, "%s: failed to allocate %lu bytes and %lu trampolines\r\n",
+		 __func__, (unsigned long)nrbytes, (unsigned long)nrcallees);
+    }
     memcpy(address, bytes, nrbytes);
     hipe_flush_icache_range(address, nrbytes);
     hp = HAlloc(BIF_P, 3);
