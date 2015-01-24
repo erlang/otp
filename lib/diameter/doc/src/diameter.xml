@@ -111,7 +111,7 @@ Defined in &dict_data_types;.</p>
 <tag><c>application_alias() = term()</c></tag>
 <item>
 <p>
-A name identifying a Diameter application in
+Name identifying a Diameter application in
 service configuration.
 Passed to &call; when sending requests
 defined by the application.</p>
@@ -129,7 +129,7 @@ ExtraArgs = list()
 </pre>
 
 <p>
-A module implementing the callback interface defined in &man_app;,
+Module implementing the callback interface defined in &man_app;,
 along with any
 extra arguments to be appended to those documented.
 Note that extra arguments specific to an outgoing request can be
@@ -156,7 +156,7 @@ Has one the following types.</p>
 <tag><c>{alias, &application_alias;}</c></tag>
 <item>
 <p>
-A unique identifier for the application in the scope of the
+Unique identifier for the application in the scope of the
 service.
 Defaults to the value of the <c>dictionary</c> option if
 unspecified.</p>
@@ -165,7 +165,7 @@ unspecified.</p>
 <tag><c>{dictionary, atom()}</c></tag>
 <item>
 <p>
-The name of an encode/decode module for the Diameter
+Name of an encode/decode module for the Diameter
 messages defined by the application.
 These modules are generated from files whose format is documented in
 &man_dict;.</p>
@@ -174,7 +174,7 @@ These modules are generated from files whose format is documented in
 <tag><c>{module, &application_module;}</c></tag>
 <item>
 <p>
-The callback module with which messages of the Diameter application are
+Callback module in which messages of the Diameter application are
 handled.
 See &man_app; for the required interface and semantics.</p>
 </item>
@@ -182,7 +182,7 @@ See &man_app; for the required interface and semantics.</p>
 <tag><c>{state, term()}</c></tag>
 <item>
 <p>
-The initial callback state.
+Initial callback state.
 The prevailing state is passed to some
 &man_app;
 callbacks, which can then return a new state.
@@ -192,7 +192,7 @@ Defaults to the value of the <c>alias</c> option if unspecified.</p>
 <tag><c>{call_mutates_state, true|false}</c></tag>
 <item>
 <p>
-Specifies whether or not the &app_pick_peer;
+Whether or not the &app_pick_peer;
 application callback can modify the application state.
 Defaults to <c>false</c> if unspecified.</p>
 
@@ -209,7 +209,7 @@ probably avoid it.</p>
 <tag><c>{answer_errors, callback|report|discard}</c></tag>
 <item>
 <p>
-Determines the manner in which incoming answer messages containing
+Manner in which incoming answer messages containing
 decode errors are handled.</p>
 
 <p>
@@ -233,7 +233,7 @@ Defaults to <c>discard</c> if unspecified.</p>
 <tag><c>{request_errors, answer_3xxx|answer|callback}</c></tag>
 <item>
 <p>
-Determines the manner in which incoming requests are handled when an
+Manner in which incoming requests are handled when an
 error other than 3007 (DIAMETER_APPLICATION_UNSUPPORTED, which cannot
 be associated with an application callback module), is detected.</p>
 
@@ -293,7 +293,7 @@ Multiple options append to the argument list.</p>
 <tag><c>{filter, &peer_filter;}</c></tag>
 <item>
 <p>
-A filter to apply to the list of available peers before passing it to
+Filter to apply to the list of available peers before passing it to
 the &app_pick_peer; callback for the application in question.
 Multiple options are equivalent a single <c>all</c> filter on the
 corresponding list of filters.
@@ -311,7 +311,7 @@ Defaults to 5000.</p>
 <tag><c>detach</c></tag>
 <item>
 <p>
-Causes &call; to return <c>ok</c> as
+Cause &call; to return <c>ok</c> as
 soon as the request in
 question has been encoded, instead of waiting for and returning
 the result from a subsequent &app_handle_answer; or
@@ -427,7 +427,7 @@ configuration passed to &start_service; or &add_transport;.</p>
 <tag><c>peer_filter() = term()</c></tag>
 <item>
 <p>
-A filter passed to &call; in order to select candidate peers for a
+Filter passed to &call; in order to select candidate peers for a
 &app_pick_peer; callback.
 Has one of the following types.</p>
 
@@ -1032,7 +1032,7 @@ case the corresponding callbacks are applied until either all return
 <tag><c>{capx_timeout, &dict_Unsigned32;}</c></tag>
 <item>
 <p>
-The number of milliseconds after which a transport process having an
+Number of milliseconds after which a transport process having an
 established transport connection will be terminated if the expected
 capabilities exchange message (CER or CEA) is not received from the peer.
 For a connecting transport, the timing of connection attempts is
@@ -1079,7 +1079,7 @@ transport.</p>
 
 <item>
 <p>
-A callback invoked prior to terminating the transport process of a
+Callback invoked prior to terminating the transport process of a
 transport connection having watchdog state <c>OKAY</c>.
 Applied to <c>application|service|transport</c> and the
 <c>&transport_ref;</c> and <c>&app_peer;</c> in question:
@@ -1095,7 +1095,7 @@ The return value can have one of the following types.</p>
 <tag><c>{dpr, [option()]}</c></tag>
 <item>
 <p>
-Causes Disconnect-Peer-Request to be sent to the peer, the transport
+Send Disconnect-Peer-Request to the peer, the transport
 process being terminated following reception of
 Disconnect-Peer-Answer or timeout.
 An <c>option()</c> can be one of the following.</p>
@@ -1104,7 +1104,7 @@ An <c>option()</c> can be one of the following.</p>
 <tag><c>{cause, 0|rebooting|1|busy|2|goaway}</c></tag>
 <item>
 <p>
-The Disconnect-Cause to send, <c>REBOOTING</c>, <c>BUSY</c> and
+Disconnect-Cause to send, <c>REBOOTING</c>, <c>BUSY</c> and
 <c>DO_NOT_WANT_TO_TALK_TO_YOU</c> respectively.
 Defaults to <c>rebooting</c> for <c>Reason=service|application</c> and
 <c>goaway</c> for <c>Reason=transport</c>.</p>
@@ -1113,7 +1113,7 @@ Defaults to <c>rebooting</c> for <c>Reason=service|application</c> and
 <tag><c>{timeout, &dict_Unsigned32;}</c></tag>
 <item>
 <p>
-The number of milliseconds after which the transport process is
+Number of milliseconds after which the transport process is
 terminated if DPA has not been received.
 Defaults to 1000.</p>
 </item>
@@ -1129,7 +1129,7 @@ Equivalent to <c>{dpr, []}</c>.</p>
 <tag><c>close</c></tag>
 <item>
 <p>
-Causes the transport process to be terminated without
+Terminate the transport process without
 Disconnect-Peer-Request being sent to the peer.</p>
 </item>
 
@@ -1156,7 +1156,7 @@ Defaults to a single callback returning <c>dpr</c>.</p>
 <tag><c>{length_errors, exit|handle|discard}</c></tag>
 <item>
 <p>
-Specifies how to deal with errors in the Message Length field of the
+How to deal with errors in the Message Length field of the
 Diameter Header in an incoming message.
 An error in this context is that the length is not at least 20 bytes
 (the length of a Header), is not a multiple of 4 (a valid length) or
@@ -1192,12 +1192,14 @@ See &man_tcp; for the behaviour of that module.</p>
 <item>
 <p>
 Number of transport processes to start.
-For a listening transport, defines the size of the pool of accepting
-transport processes, a larger number being desirable for processing
-multiple concurrent peer connection attempts.
-For a connecting transport, the &service_opt;
-<c>restrict_connections</c> must also be configured on the service in
-question to allow multiple connections to the same peer.</p>
+For a listening transport, determines the size of the pool of
+accepting transport processes, a larger number being desirable for
+processing multiple concurrent peer connection attempts.
+For a connecting transport, determines the number of connections to
+the peer in question that will be attempted to be establshed:
+the &service_opt;: <c>restrict_connections</c> should also be
+configured on the service in question to allow multiple connections to
+the same peer.</p>
 
 </item>
 
@@ -1205,7 +1207,7 @@ question to allow multiple connections to the same peer.</p>
 <tag><c>{spawn_opt, [term()]}</c></tag>
 <item>
 <p>
-An options list passed to &spawn_opt; when spawning a process for an
+Options list passed to &spawn_opt; when spawning a process for an
 incoming Diameter request.
 Options <c>monitor</c> and <c>link</c> are ignored.</p>
 
@@ -1218,7 +1220,7 @@ Defaults to the list configured on the service if not specified.</p>
 <tag><c>{transport_config, term(), &dict_Unsigned32; | infinity}</c></tag>
 <item>
 <p>
-A term passed as the third argument to the &transport_start; function of
+Term passed as the third argument to the &transport_start; function of
 the relevant &transport_module; in order to
 start a transport process.
 Defaults to the empty list if unspecified.</p>
@@ -1246,7 +1248,7 @@ To listen on both SCTP and TCP, define one transport for each.</p>
 <tag><c>{transport_module, atom()}</c></tag>
 <item>
 <p>
-A module implementing a transport process as defined in &man_transport;.
+Module implementing a transport process as defined in &man_transport;.
 Defaults to <c>diameter_tcp</c> if unspecified.</p>
 
 <p>
@@ -1266,7 +1268,7 @@ corresponding timeout (see below) or all fail.</p>
 <tag><c>{watchdog_config, [{okay|suspect, non_neg_integer()}]}</c></tag>
 <item>
 <p>
-Specifies configuration that alters the behaviour of the watchdog
+Configuration that alters the behaviour of the watchdog
 state machine.
 On key <c>okay</c>, the non-negative number of answered DWR
 messages before transitioning from REOPEN to OKAY.
@@ -1321,7 +1323,7 @@ in predicate functions passed to &remove_transport;.</p>
 <tag><c>transport_ref() = reference()</c></tag>
 <item>
 <p>
-An reference returned by &add_transport; that
+Reference returned by &add_transport; that
 identifies the configuration.</p>
 </item>
 
