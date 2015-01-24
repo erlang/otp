@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -24,10 +24,13 @@
 %% api
 -export([ssh_device/5]).
 
-ssh_device(H, P, U, Pass, Cmd) ->
+%%% I wrote this because of i think a fully ssh client sample will be easy to start the ssh module better than
+%%% go though each function file.
+
+ssh_device(Host, Port, User, Pass, Cmd) ->
     ssh:start(),
-    case ssh:connect(H, P,
-		     [{user, U}, {password, Pass},
+    case ssh:connect(Host, Port,
+		     [{user, User}, {password, Pass},
 		      {silently_accept_hosts, true}, {quiet_mode, true}])
 	of
       {ok, Conn} ->
@@ -35,37 +38,28 @@ ssh_device(H, P, U, Pass, Cmd) ->
 							   infinity),
 	  ssh_connection:exec(Conn, ChannelId, Cmd, infinity),
 	  Init_rep = <<>>,
-	  wait_for_response(Conn, H, Init_rep),
+	  wait_for_response(Conn, Host, Init_rep),
 	  ssh:close(Conn);
       {error, nxdomain} ->
-	  {ok, Try1} = ssh:connect(vnet:q_ip(H), P,
-				   [{user, U}, {password, Pass},
-				    {silently_accept_hosts, true},
-				    {quiet_mode, true}]),
-	  {ok, ChannelId1} = ssh_connection:session_channel(Try1,
-							    infinity),
-	  ssh_connection:exec(Try1, ChannelId1, Cmd, infinity),
-	  Init_rep2 = <<>>,
-	  wait_for_response(Try1, H, Init_rep2),
-	  ssh:close(Try1)
+          {error,nxdomain}
     end.
 
 %%--------------------------------------------------------------------
 %%% Internal application API
 %%--------------------------------------------------------------------
-wait_for_response(Conn, H, Acc) ->
+wait_for_response(Conn, Host, Acc) ->
     receive
       {ssh_cm, Conn, Msg} ->
 	  case Msg of
 	    {closed, _ChannelId} ->
-		%file:write_file(string:concat("log\\",H), Acc, [append]),
-		io:format([">>>>>>>>>>>>>>>>>>> ", H,
-			   " <<<<<<<<<<<<<<<<<\r\n", Acc, "\r\n"]);
+		{ok,Acc};
 	    {data, _, _, A} ->
 		Acc2 = <<Acc/binary, A/binary>>,
-		wait_for_response(Conn, H, Acc2);
+		wait_for_response(Conn, Host, Acc2);
 	    _ ->
-		%io:format("~p", [Msg]),
-		wait_for_response(Conn, H, Acc)
+		wait_for_response(Conn, Host, Acc)
 	  end
+    after 
+    	5000 ->
+    	        {error,timeout}
     end.
