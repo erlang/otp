@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2013-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2013-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -397,4 +397,4 @@ stop(Name)
 
 stop(Config) ->
     Prot = proplists:get_value(group, Config),
-    [] = [RC || N <- ?NODES, RC <- [stop(concat(Prot, N))], RC /= ok].
+    [] = [RC || N <- ?NODES, RC <- [catch stop(concat(Prot, N))], RC /= ok].
