@@ -104,7 +104,7 @@ tc() ->
      reconnect].
 
 init_per_suite(Config) ->
-    [{sctp, have_sctp()} | Config].
+    [{sctp, ?util:have_sctp()} | Config].
 
 end_per_suite(_Config) ->
     ok.
@@ -127,7 +127,10 @@ tcp_accept(_) ->
     accept(tcp).
 
 sctp_accept(Config) ->
-    if_sctp(fun accept/1, Config).
+    case lists:member({sctp, true}, Config) of
+        true  -> accept(sctp);
+        false -> {skip, no_sctp}
+    end.
 
 %% Start multiple accepting transport processes that are connected to
 %% with an equal number of connecting processes using gen_tcp/sctp
@@ -157,7 +160,10 @@ tcp_connect(_) ->
     connect(tcp).
 
 sctp_connect(Config) ->
-    if_sctp(fun connect/1, Config).
+    case lists:member({sctp, true}, Config) of
+        true  -> connect(sctp);
+        false -> {skip, no_sctp}
+    end.
 
 connect(Prot) ->
     T = {Prot, make_ref()},
@@ -250,28 +256,6 @@ abort(SvcName, LRef, Ref)
 
 %% ===========================================================================
 %% ===========================================================================
-
-%% have_sctp/0
-
-have_sctp() ->
-    case gen_sctp:open() of
-        {ok, Sock} ->
-            gen_sctp:close(Sock),
-            true;
-        {error, E} when E == eprotonosupport;
-                        E == esocktnosupport -> %% fail on any other reason
-            false
-    end.
-
-%% if_sctp/2
-
-if_sctp(F, Config) ->
-    case proplists:get_value(sctp, Config) of
-        true ->
-            F(sctp);
-        false ->
-            {skip, no_sctp}
-    end.
 
 %% init/2
 

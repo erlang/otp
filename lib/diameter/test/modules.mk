@@ -1,8 +1,7 @@
-#-*-makefile-*-   ; force emacs to enter makefile-mode
 
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2010-2013. All Rights Reserved.
+# Copyright Ericsson AB 2010-2015. All Rights Reserved.
 #
 # The contents of this file are subject to the Erlang Public License,
 # Version 1.1, (the "License"); you may not use this file except in
@@ -40,6 +39,7 @@ MODULES = \
 	diameter_gen_sctp_SUITE \
 	diameter_gen_tcp_SUITE \
 	diameter_length_SUITE \
+	diameter_pool_SUITE \
 	diameter_reg_SUITE \
 	diameter_relay_SUITE \
 	diameter_stats_SUITE \
