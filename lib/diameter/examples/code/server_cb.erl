@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -24,7 +24,7 @@
 -module(server_cb).
 
 -include_lib("diameter/include/diameter.hrl").
--include_lib("diameter/include/diameter_gen_base_rfc3588.hrl").
+-include_lib("diameter/include/diameter_gen_base_rfc6733.hrl").
 
 %% diameter callbacks
 -export([peer_up/3,
