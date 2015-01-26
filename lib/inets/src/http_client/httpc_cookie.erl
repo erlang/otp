@@ -334,9 +334,23 @@ add_domain(Str, #http_cookie{domain_default = true}) ->
 add_domain(Str, #http_cookie{domain = Domain}) ->
     Str ++ "; $Domain=" ++  Domain.
 
+is_set_cookie_valid("") ->
+    %% an empty Set-Cookie header is not valid
+    false;
+is_set_cookie_valid([$=|_]) ->
+    %% a Set-Cookie header without name is not valid
+    false;
+is_set_cookie_valid(SetCookieHeader) ->
+    %% a Set-Cookie header without name/value is not valid
+    case string:chr(SetCookieHeader, $=) of
+        0 -> false;
+        _ -> true
+    end.
+
 parse_set_cookies(CookieHeaders, DefaultPathDomain) ->
-    %% empty Set-Cookie header is invalid according to RFC but some sites violate it
-    SetCookieHeaders = [Value || {"set-cookie", Value} <- CookieHeaders, Value /= ""],
+    %% filter invalid Set-Cookie headers
+    SetCookieHeaders = [Value || {"set-cookie", Value} <- CookieHeaders,
+                                 is_set_cookie_valid(Value)],
     Cookies = [parse_set_cookie(SetCookieHeader, DefaultPathDomain) || 
 		  SetCookieHeader <- SetCookieHeaders],
     %% print_cookies("Parsed Cookies", Cookies),
