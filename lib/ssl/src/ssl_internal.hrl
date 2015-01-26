@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -67,8 +67,11 @@
 -define(TRUE, 0).
 -define(FALSE, 1).
 
--define(ALL_SUPPORTED_VERSIONS, ['tlsv1.2', 'tlsv1.1', tlsv1, sslv3]).
--define(MIN_SUPPORTED_VERSIONS, ['tlsv1.1', tlsv1, sslv3]).
+%% sslv3 is considered insecure due to lack of padding check (Poodle attack)
+%% Keep as interop with legacy software but do not support as default 
+-define(ALL_AVAILABLE_VERSIONS, ['tlsv1.2', 'tlsv1.1', tlsv1, sslv3]).
+-define(ALL_SUPPORTED_VERSIONS, ['tlsv1.2', 'tlsv1.1', tlsv1]).
+-define(MIN_SUPPORTED_VERSIONS, ['tlsv1.1', tlsv1]).
 -define(ALL_DATAGRAM_SUPPORTED_VERSIONS, ['dtlsv1.2', dtlsv1]).
 -define(MIN_DATAGRAM_SUPPORTED_VERSIONS, ['dtlsv1.2', dtlsv1]).
 
@@ -117,7 +120,8 @@
 	  server_name_indication = undefined,
 	  %% Should the server prefer its own cipher order over the one provided by
 	  %% the client?
-	  honor_cipher_order = false
+	  honor_cipher_order = false,
+	  padding_check = true
 	  }).
 
 -record(socket_options,

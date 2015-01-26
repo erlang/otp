@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -65,7 +65,7 @@ groups() ->
      {'tlsv1.2', [], all_versions_groups()},
      {'tlsv1.1', [], all_versions_groups()},
      {'tlsv1', [], all_versions_groups() ++ rizzo_tests()},
-     {'sslv3', [], all_versions_groups() ++ rizzo_tests()},
+     {'sslv3', [], all_versions_groups() ++ rizzo_tests() ++ [ciphersuite_vs_version]},
      {api,[], api_tests()},
      {session, [], session_tests()},
      {renegotiate, [], renegotiate_tests()},
@@ -90,7 +90,8 @@ basic_tests() ->
      version_option,
      connect_twice,
      connect_dist,
-     clear_pem_cache
+     clear_pem_cache,
+     defaults
     ].
 
 options_tests() ->
@@ -116,7 +117,6 @@ options_tests() ->
      tcp_reuseaddr,
      honor_server_cipher_order,
      honor_client_cipher_order,
-     ciphersuite_vs_version,
      unordered_protocol_versions_server,
      unordered_protocol_versions_client
 ].
@@ -177,6 +177,9 @@ cipher_tests() ->
      srp_cipher_suites,
      srp_anon_cipher_suites,
      srp_dsa_cipher_suites,
+     rc4_rsa_cipher_suites,
+     rc4_ecdh_rsa_cipher_suites,
+     rc4_ecdsa_cipher_suites,
      default_reject_anonymous].
 
 cipher_tests_ec() ->
@@ -343,7 +346,7 @@ alerts(Config) when is_list(Config) ->
 		  end, Alerts).
 %%--------------------------------------------------------------------
 new_options_in_accept() ->
-    [{doc,"Test that you can set ssl options in ssl_accept/3 and not tcp upgrade"}].
+    [{doc,"Test that you can set ssl options in ssl_accept/3 and not only in tcp upgrade"}].
 new_options_in_accept(Config) when is_list(Config) -> 
     ClientOpts = ?config(client_opts, Config),
     ServerOpts0 = ?config(server_dsa_opts, Config),
@@ -361,7 +364,9 @@ new_options_in_accept(Config) when is_list(Config) ->
 					{host, Hostname},
 					{from, self()}, 
 					{mfa, {?MODULE, connection_info_result, []}},
-					{options, [{versions, [sslv3]} | ClientOpts]}]),
+					{options, [{versions, [sslv3]},
+						   {ciphers,[{rsa,rc4_128,sha}
+							    ]} | ClientOpts]}]),
     
     ct:log("Testcase ~p, Client ~p  Server ~p ~n",
 		       [self(), Client, Server]),
@@ -391,7 +396,7 @@ connection_info(Config) when is_list(Config) ->
 			   {from, self()}, 
 			   {mfa, {?MODULE, connection_info_result, []}},
 			   {options, 
-			    [{ciphers,[{rsa,rc4_128,sha,no_export}]} | 
+			    [{ciphers,[{rsa,des_cbc,sha,no_export}]} | 
 			     ClientOpts]}]),
     
     ct:log("Testcase ~p, Client ~p  Server ~p ~n",
@@ -400,7 +405,7 @@ connection_info(Config) when is_list(Config) ->
     Version = 
 	tls_record:protocol_version(tls_record:highest_protocol_version([])),
     
-    ServerMsg = ClientMsg = {ok, {Version, {rsa,rc4_128,sha}}},
+    ServerMsg = ClientMsg = {ok, {Version, {rsa, des_cbc, sha}}},
 			   
     ssl_test_lib:check_result(Server, ServerMsg, Client, ClientMsg),
     
@@ -1779,6 +1784,32 @@ srp_dsa_cipher_suites(Config) when is_list(Config) ->
     Version = tls_record:protocol_version(tls_record:highest_protocol_version([])),
     Ciphers = ssl_test_lib:srp_dss_suites(),
     run_suites(Ciphers, Version, Config, srp_dsa).
+%%-------------------------------------------------------------------
+rc4_rsa_cipher_suites()->
+    [{doc, "Test the RC4 ciphersuites"}].
+rc4_rsa_cipher_suites(Config) when is_list(Config) ->
+    NVersion = tls_record:highest_protocol_version([]),
+    Version = tls_record:protocol_version(NVersion),
+    Ciphers = ssl_test_lib:rc4_suites(NVersion),
+    run_suites(Ciphers, Version, Config, rc4_rsa).
+%-------------------------------------------------------------------
+rc4_ecdh_rsa_cipher_suites()->
+    [{doc, "Test the RC4 ciphersuites"}].
+rc4_ecdh_rsa_cipher_suites(Config) when is_list(Config) ->
+    NVersion = tls_record:highest_protocol_version([]),
+    Version = tls_record:protocol_version(NVersion),
+    Ciphers = ssl_test_lib:rc4_suites(NVersion),
+    run_suites(Ciphers, Version, Config, rc4_ecdh_rsa).
+
+%%-------------------------------------------------------------------
+rc4_ecdsa_cipher_suites()->
+    [{doc, "Test the RC4 ciphersuites"}].
+rc4_ecdsa_cipher_suites(Config) when is_list(Config) ->
+    NVersion = tls_record:highest_protocol_version([]),
+    Version = tls_record:protocol_version(NVersion),
+    Ciphers = ssl_test_lib:rc4_suites(NVersion),
+    run_suites(Ciphers, Version, Config, rc4_ecdsa).
+
 %%--------------------------------------------------------------------
 default_reject_anonymous()->
     [{doc,"Test that by default anonymous cipher suites are rejected "}].
@@ -2507,6 +2538,16 @@ no_reuses_session_server_restart_new_cert_file(Config) when is_list(Config) ->
     ssl_test_lib:close(Client1).
 
 %%--------------------------------------------------------------------
+defaults(Config) when is_list(Config)->
+    [_, 
+     {supported, Supported},
+     {available, Available}]
+	= ssl:versions(),
+    true = lists:member(sslv3, Available),
+    false = lists:member(sslv3, Supported),
+    false = lists:member({rsa,rc4_128,sha}, ssl:cipher_suites()),
+    true = lists:member({rsa,rc4_128,sha}, ssl:cipher_suites(all)).
+%%--------------------------------------------------------------------
 reuseaddr() ->
     [{doc,"Test reuseaddr option"}].
 
@@ -2631,6 +2672,8 @@ honor_cipher_order(Config, Honor, ServerCiphers, ClientCiphers, Expected) ->
     ssl_test_lib:close(Client).
 
 %%--------------------------------------------------------------------
+ciphersuite_vs_version()  ->
+    [{doc,"Test a SSLv3 client can not negotiate a TLSv* cipher suite."}].
 ciphersuite_vs_version(Config) when is_list(Config) ->
     
     {_ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
@@ -3694,8 +3737,20 @@ run_suites(Ciphers, Version, Config, Type) ->
 		 ?config(server_ecdsa_opts, Config)};
 	    ecdh_rsa ->
 		{?config(client_opts, Config),
-		 ?config(server_ecdh_rsa_opts, Config)}
-	    end,
+		 ?config(server_ecdh_rsa_opts, Config)};
+	    rc4_rsa ->
+		{?config(client_opts, Config),
+		 [{ciphers, Ciphers} |
+		  ?config(server_opts, Config)]};
+	    rc4_ecdh_rsa ->
+		{?config(client_opts, Config),
+		 [{ciphers, Ciphers} |
+		  ?config(server_ecdh_rsa_opts, Config)]};
+	    rc4_ecdsa ->
+		{?config(client_opts, Config),
+		 [{ciphers, Ciphers} |
+		  ?config(server_ecdsa_opts, Config)]}
+	end,
 
     Result =  lists:map(fun(Cipher) ->
 				cipher(Cipher, Version, Config, ClientOpts, ServerOpts) end,
@@ -3716,6 +3771,7 @@ erlang_cipher_suite(Suite) ->
 cipher(CipherSuite, Version, Config, ClientOpts, ServerOpts) ->
     %% process_flag(trap_exit, true),
     ct:log("Testing CipherSuite ~p~n", [CipherSuite]),
+    ct:log("Server Opts ~p~n", [ServerOpts]),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
 
     ErlangCipherSuite = erlang_cipher_suite(CipherSuite),

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2014. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -353,12 +353,8 @@ cipher_suites(openssl) ->
      || S <- ssl_cipher:filter_suites(ssl_cipher:suites(Version))];
 cipher_suites(all) ->
     Version = tls_record:highest_protocol_version([]),
-    Supported = ssl_cipher:all_suites(Version)
-	++ ssl_cipher:anonymous_suites(Version)
-	++ ssl_cipher:psk_suites(Version)
-	++ ssl_cipher:srp_suites(),
-    ssl_cipher:filter_suites([suite_definition(S) || S <- Supported]).
-
+    ssl_cipher:filter_suites([suite_definition(S)
+			      || S <-ssl_cipher:all_suites(Version)]).
 cipher_suites() ->
     cipher_suites(erlang).
 
@@ -454,7 +450,7 @@ session_info(#sslsocket{pid = {Listen,_}}) when is_port(Listen) ->
 versions() ->
     Vsns = tls_record:supported_protocol_versions(),
     SupportedVsns = [tls_record:protocol_version(Vsn) || Vsn <- Vsns],
-    AvailableVsns = ?ALL_SUPPORTED_VERSIONS,
+    AvailableVsns = ?ALL_AVAILABLE_VERSIONS,
     %% TODO Add DTLS versions when supported
     [{ssl_app, ?VSN}, {supported, SupportedVsns}, {available, AvailableVsns}].
 
@@ -656,7 +652,8 @@ handle_options(Opts0) ->
 		    log_alert = handle_option(log_alert, Opts, true),
 		    server_name_indication = handle_option(server_name_indication, Opts, undefined),
 		    honor_cipher_order = handle_option(honor_cipher_order, Opts, false),
-		    protocol = proplists:get_value(protocol, Opts, tls)
+		    protocol = proplists:get_value(protocol, Opts, tls),
+		    padding_check =  proplists:get_value(padding_check, Opts, true)
 		   },
 
     CbInfo  = proplists:get_value(cb_info, Opts, {gen_tcp, tcp, tcp_closed, tcp_error}),
@@ -669,7 +666,7 @@ handle_options(Opts0) ->
 		  cb_info, renegotiate_at, secure_renegotiate, hibernate_after,
 		  erl_dist, next_protocols_advertised,
 		  client_preferred_next_protocols, log_alert,
-		  server_name_indication, honor_cipher_order],
+		  server_name_indication, honor_cipher_order, padding_check],
 
     SockOpts = lists:foldl(fun(Key, PropList) ->
 				   proplists:delete(Key, PropList)
@@ -847,6 +844,8 @@ validate_option(server_name_indication, undefined) ->
     undefined;
 validate_option(honor_cipher_order, Value) when is_boolean(Value) ->
     Value;
+validate_option(padding_check, Value) when is_boolean(Value) ->
+    Value;
 validate_option(Opt, Value) ->
     throw({error, {options, {Opt, Value}}}).
 
@@ -952,10 +951,7 @@ binary_cipher_suites(Version, [{_,_,_}| _] = Ciphers0) ->
     binary_cipher_suites(Version, Ciphers);
 
 binary_cipher_suites(Version, [Cipher0 | _] = Ciphers0) when is_binary(Cipher0) ->
-    All = ssl_cipher:suites(Version)
-	++ ssl_cipher:anonymous_suites(Version)
-	++ ssl_cipher:psk_suites(Version)
-	++ ssl_cipher:srp_suites(),
+    All = ssl_cipher:all_suites(Version),
     case [Cipher || Cipher <- Ciphers0, lists:member(Cipher, All)] of
 	[] ->
 	    %% Defaults to all supported suites that does
@@ -1182,3 +1178,4 @@ handle_verify_options(Opts, CaCerts) ->
 	Value ->
 	    throw({error, {options, {verify, Value}}})
     end.
+

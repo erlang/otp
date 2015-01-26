@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -208,15 +208,7 @@ suites(Minor) when Minor == 1; Minor == 2 ->
       ?TLS_ECDH_ECDSA_WITH_AES_128_CBC_SHA,
       ?TLS_ECDH_RSA_WITH_AES_128_CBC_SHA,
       ?TLS_RSA_WITH_AES_128_CBC_SHA,
-
-      ?TLS_ECDHE_ECDSA_WITH_RC4_128_SHA,
-      ?TLS_ECDHE_RSA_WITH_RC4_128_SHA,
-      ?TLS_RSA_WITH_RC4_128_SHA,
-      ?TLS_RSA_WITH_RC4_128_MD5,
       ?TLS_DHE_RSA_WITH_DES_CBC_SHA,
-      ?TLS_ECDH_ECDSA_WITH_RC4_128_SHA,
-      ?TLS_ECDH_RSA_WITH_RC4_128_SHA,
-
       ?TLS_RSA_WITH_DES_CBC_SHA
     ];
 suites(3) ->

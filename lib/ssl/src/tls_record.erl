@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -34,7 +34,7 @@
 -export([get_tls_records/2]).
 
 %% Decoding
--export([decode_cipher_text/2]).
+-export([decode_cipher_text/3]).
 
 %% Encoding
 -export([encode_plain_text/4]).
@@ -159,7 +159,7 @@ encode_plain_text(Type, Version, Data,
     {CipherText, ConnectionStates#connection_states{current_write = WriteState#connection_state{sequence_number = Seq +1}}}.
 
 %%--------------------------------------------------------------------
--spec decode_cipher_text(#ssl_tls{}, #connection_states{}) ->
+-spec decode_cipher_text(#ssl_tls{}, #connection_states{}, boolean()) ->
 				{#ssl_tls{}, #connection_states{}}| #alert{}.
 %%
 %% Description: Decode cipher text
@@ -174,7 +174,7 @@ decode_cipher_text(#ssl_tls{type = Type, version = Version,
 						 #security_parameters{
 						    cipher_type = ?AEAD,
 						    compression_algorithm=CompAlg}
-					    } = ReadState0} = ConnnectionStates0) ->
+					    } = ReadState0} = ConnnectionStates0, _) ->
     AAD = calc_aad(Type, Version, ReadState0),
     case ssl_record:decipher_aead(Version, CipherFragment, ReadState0, AAD) of
 	{PlainFragment, ReadState1} ->
@@ -197,8 +197,8 @@ decode_cipher_text(#ssl_tls{type = Type, version = Version,
 					     sequence_number = Seq,
 					     security_parameters=
 						 #security_parameters{compression_algorithm=CompAlg}
-					    } = ReadState0} = ConnnectionStates0) ->
-    case ssl_record:decipher(Version, CipherFragment, ReadState0) of
+					    } = ReadState0} = ConnnectionStates0, PaddingCheck) ->
+    case ssl_record:decipher(Version, CipherFragment, ReadState0, PaddingCheck) of
 	{PlainFragment, Mac, ReadState1} ->
 	    MacHash = calc_mac_hash(Type, Version, PlainFragment, ReadState1),
 	    case ssl_record:is_correct_mac(Mac, MacHash) of
@@ -311,8 +311,17 @@ supported_protocol_versions([]) ->
     Vsns;
 
 supported_protocol_versions([_|_] = Vsns) ->
-    Vsns.
-
+    case sufficient_tlsv1_2_crypto_support() of
+	true -> 
+	    Vsns;
+	false ->
+	    case Vsns -- ['tlsv1.2'] of
+		[] ->
+		    ?MIN_SUPPORTED_VERSIONS;
+		NewVsns ->
+		    NewVsns
+	    end
+    end.
 %%--------------------------------------------------------------------
 %%     
 %% Description: ssl version 2 is not acceptable security risks are too big.
