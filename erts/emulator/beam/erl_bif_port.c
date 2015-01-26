@@ -472,7 +472,7 @@ cleanup_old_port_data(erts_aint_t data)
 	ErtsPortDataHeap *pdhp = (ErtsPortDataHeap *) data;
 	size_t size;
 	ERTS_SMP_DATA_DEPENDENCY_READ_MEMORY_BARRIER;
-	size = sizeof(ErtsPortDataHeap) + pdhp->hsize*(sizeof(Eterm) - 1);
+	size = sizeof(ErtsPortDataHeap) + (pdhp->hsize-1)*sizeof(Eterm);
 	erts_schedule_thr_prgr_later_cleanup_op(free_port_data_heap,
 						(void *) pdhp,
 						&pdhp->later_op,
@@ -493,8 +493,8 @@ void
 erts_cleanup_port_data(Port *prt)
 {
     ASSERT(erts_atomic32_read_nob(&prt->state) & ERTS_PORT_SFLGS_INVALID_LOOKUP);
-    cleanup_old_port_data(erts_smp_atomic_read_nob(&prt->data));
-    erts_smp_atomic_set_nob(&prt->data, (erts_aint_t) THE_NON_VALUE);
+    cleanup_old_port_data(erts_smp_atomic_xchg_nob(&prt->data,
+						   (erts_aint_t) NULL));
 }
 
 Uint
@@ -508,7 +508,7 @@ erts_port_data_size(Port *prt)
     }
     else {
 	ErtsPortDataHeap *pdhp = (ErtsPortDataHeap *) data;
-	return (Uint) sizeof(ErtsPortDataHeap) + pdhp->hsize*(sizeof(Eterm)-1);
+	return (Uint) sizeof(ErtsPortDataHeap) + (pdhp->hsize-1)*sizeof(Eterm);
     }
 }
 
@@ -550,10 +550,11 @@ BIF_RETTYPE port_set_data_2(BIF_ALIST_2)
 
 	hsize = size_object(BIF_ARG_2);
 	pdhp = erts_alloc(ERTS_ALC_T_PORT_DATA_HEAP,
-			  sizeof(ErtsPortDataHeap) + hsize*(sizeof(Eterm)-1));
+			  sizeof(ErtsPortDataHeap) + (hsize-1)*sizeof(Eterm));
 	hp = &pdhp->heap[0];
 	pdhp->off_heap.first = NULL;
 	pdhp->off_heap.overhead = 0;
+	pdhp->hsize = hsize;
 	pdhp->data = copy_struct(BIF_ARG_2, hsize, &hp, &pdhp->off_heap);
 	data = (erts_aint_t) pdhp;
 	ASSERT((data & 0x3) == 0);
@@ -561,8 +562,14 @@ BIF_RETTYPE port_set_data_2(BIF_ALIST_2)
 
     data = erts_smp_atomic_xchg_wb(&prt->data, data);
 
+    if (data == (erts_aint_t)NULL) {
+	/* Port terminated by racing thread */
+	data = erts_smp_atomic_xchg_wb(&prt->data, data);
+	ASSERT(data != (erts_aint_t)NULL);
+	cleanup_old_port_data(data);
+	BIF_ERROR(BIF_P, BADARG);
+    }
     cleanup_old_port_data(data);
-
     BIF_RET(am_true);
 }
 
@@ -581,6 +588,8 @@ BIF_RETTYPE port_get_data_1(BIF_ALIST_1)
         BIF_ERROR(BIF_P, BADARG);
 
     data = erts_smp_atomic_read_ddrb(&prt->data);
+    if (data == (erts_aint_t)NULL)
+        BIF_ERROR(BIF_P, BADARG);  /* Port terminated by racing thread */
 
     if ((data & 0x3) != 0) {
 	res = (Eterm) (UWord) data;
