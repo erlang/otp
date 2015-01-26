@@ -42,7 +42,7 @@ all() ->
     [{group,p}].
 
 groups() -> 
-    [{p,test_lib:parallel(),
+    [{p,[parallel],
       [misc,const_cond,basic_not,complex_not,nested_nots,
        semicolon,complex_semicolon,comma,or_guard,
        more_or_guards,complex_or_guards,and_guard,xor_guard,

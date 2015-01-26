@@ -33,7 +33,7 @@ all() ->
     [{group,p}].
 
 groups() -> 
-    [{p,test_lib:parallel(),
+    [{p,[parallel],
       [pmatch,mixed,aliases,match_in_call,untuplify,
        shortcut_boolean,letify_guard,selectify,
        underscore,match_map,coverage]}].

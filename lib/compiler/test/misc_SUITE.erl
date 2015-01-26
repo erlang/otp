@@ -60,7 +60,7 @@ all() ->
     [{group,p}].
 
 groups() -> 
-    [{p,[],%%test_lib:parallel(),
+    [{p,[],
       [tobias,empty_string,md5,silly_coverage,
        confused_literals,integer_encoding,override_bif]}].
 
