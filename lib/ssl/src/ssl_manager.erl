@@ -59,7 +59,6 @@
 -define(CLEAR_PEM_CACHE, 120000).
 -define(CLEAN_SESSION_DB, 60000).
 -define(CLEAN_CERT_DB, 500).
--define(NOT_TO_BIG, 10).
 
 %%====================================================================
 %% API
@@ -328,13 +327,8 @@ handle_info({delayed_clean_session, Key}, #state{session_cache = Cache,
     CacheCb:delete(Cache, Key),
     {noreply, State};
 
-handle_info(clear_pem_cache, #state{certificate_db = [_,_,PemChace]} = State) ->
-    case ssl_pkix_db:db_size(PemChace) of
-	N  when N < ?NOT_TO_BIG ->
-	    ok;
-	_ ->
-	    ssl_pkix_db:clear(PemChace)
-    end,
+handle_info(clear_pem_cache, #state{certificate_db = [_,_,PemCache]} = State) ->
+    ssl_pkix_db:clear(PemCache),
     erlang:send_after(?CLEAR_PEM_CACHE, self(), clear_pem_cache),
     {noreply, State};
 
