@@ -30,6 +30,25 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 5.10.4.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix race bug that could cause VM crash in
+	    <c>erlang:port_get_data/1</c> if the port was closed by a
+	    concurrent process. Also fix fatal bug if
+	    <c>port_set_data/2</c> is called with a non-immediate
+	    data term. Both bugs exist since R16B01.</p>
+          <p>
+	    Own Id: OTP-12208</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 5.10.4.2</title>
 
     <section><title>Improvements and New Features</title>
