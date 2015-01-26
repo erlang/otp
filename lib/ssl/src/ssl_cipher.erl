@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -33,8 +33,7 @@
 -include_lib("public_key/include/public_key.hrl").
 
 -export([security_parameters/2, security_parameters/3, suite_definition/1,
-	 decipher/5, cipher/5,
-	 suite/1, suites/1, all_suites/1, 
+	 decipher/6, cipher/5, suite/1, suites/1, all_suites/1, 
 	 ec_keyed_suites/0, anonymous_suites/0, psk_suites/1, srp_suites/0,
 	 openssl_suite/1, openssl_suite_name/1, filter/2, filter_suites/1,
 	 hash_algorithm/1, sign_algorithm/1, is_acceptable_hash/2]).
@@ -143,17 +142,18 @@ block_cipher(Fun, BlockSz, #cipher_state{key=Key, iv=IV} = CS0,
     {T, CS0#cipher_state{iv=NextIV}}.
 
 %%--------------------------------------------------------------------
--spec decipher(cipher_enum(), integer(), #cipher_state{}, binary(), ssl_record:ssl_version()) ->
+-spec decipher(cipher_enum(), integer(), #cipher_state{}, binary(), 
+	       ssl_record:ssl_version(), boolean()) ->
 		      {binary(), binary(), #cipher_state{}} | #alert{}.
 %%
 %% Description: Decrypts the data and the MAC using cipher described
 %% by cipher_enum() and updating the cipher state.
 %%-------------------------------------------------------------------
-decipher(?NULL, _HashSz, CipherState, Fragment, _) ->
+decipher(?NULL, _HashSz, CipherState, Fragment, _, _) ->
     {Fragment, <<>>, CipherState};
-decipher(?RC4, HashSz, CipherState, Fragment, _) ->
+decipher(?RC4, HashSz, CipherState, Fragment, _, _) ->
     State0 = case CipherState#cipher_state.state of
-                 undefined -> crypto:stream_init(rc4, CipherState#cipher_state.key);
+		 undefined -> crypto:stream_init(rc4, CipherState#cipher_state.key);
                  S -> S
              end,
     try crypto:stream_decrypt(State0, Fragment) of
@@ -171,23 +171,23 @@ decipher(?RC4, HashSz, CipherState, Fragment, _) ->
 	    ?ALERT_REC(?FATAL, ?BAD_RECORD_MAC)
     end;
 
-decipher(?DES, HashSz, CipherState, Fragment, Version) ->
+decipher(?DES, HashSz, CipherState, Fragment, Version, PaddingCheck) ->
     block_decipher(fun(Key, IV, T) ->
 			   crypto:block_decrypt(des_cbc, Key, IV, T)
-		   end, CipherState, HashSz, Fragment, Version);
-decipher(?'3DES', HashSz, CipherState, Fragment, Version) ->
+		   end, CipherState, HashSz, Fragment, Version, PaddingCheck);
+decipher(?'3DES', HashSz, CipherState, Fragment, Version, PaddingCheck) ->
     block_decipher(fun(<<K1:8/binary, K2:8/binary, K3:8/binary>>, IV, T) ->
 			   crypto:block_decrypt(des3_cbc, [K1, K2, K3], IV, T)
-		   end, CipherState, HashSz, Fragment, Version);
-decipher(?AES, HashSz, CipherState, Fragment, Version) ->
+		   end, CipherState, HashSz, Fragment, Version, PaddingCheck);
+decipher(?AES, HashSz, CipherState, Fragment, Version, PaddingCheck) ->
     block_decipher(fun(Key, IV, T) when byte_size(Key) =:= 16 ->
 			   crypto:block_decrypt(aes_cbc128, Key, IV, T);
 		      (Key, IV, T) when byte_size(Key) =:= 32 ->
 			   crypto:block_decrypt(aes_cbc256, Key, IV, T)
-		   end, CipherState, HashSz, Fragment, Version).
+		   end, CipherState, HashSz, Fragment, Version, PaddingCheck).
 
 block_decipher(Fun, #cipher_state{key=Key, iv=IV} = CipherState0, 
-	       HashSz, Fragment, Version) ->
+	       HashSz, Fragment, Version, PaddingCheck) ->
     try 
 	Text = Fun(Key, IV, Fragment),
 	NextIV = next_iv(Fragment, IV),
@@ -195,7 +195,7 @@ block_decipher(Fun, #cipher_state{key=Key, iv=IV} = CipherState0,
 	Content = GBC#generic_block_cipher.content,
 	Mac = GBC#generic_block_cipher.mac,
 	CipherState1 = CipherState0#cipher_state{iv=GBC#generic_block_cipher.next_iv},
-	case is_correct_padding(GBC, Version) of
+	case is_correct_padding(GBC, Version, PaddingCheck) of
 	    true ->
 		{Content, Mac, CipherState1};
 	    false ->
@@ -1288,16 +1288,18 @@ generic_stream_cipher_from_bin(T, HashSz) ->
     #generic_stream_cipher{content=Content,
 			   mac=Mac}.
 
-%% For interoperability reasons we do not check the padding content in
-%% SSL 3.0 and TLS 1.0 as it is not strictly required and breaks
-%% interopability with for instance Google. 
 is_correct_padding(#generic_block_cipher{padding_length = Len,
-					 padding = Padding}, {3, N})
-  when N == 0; N == 1 ->
-    Len == byte_size(Padding); 
-%% Padding must be check in TLS 1.1 and after  
+					 padding = Padding}, {3, 0}, _) ->
+    Len == byte_size(Padding); %% Only length check is done in SSL 3.0 spec
+%% For interoperability reasons it is possible to disable
+%% the padding check when using TLS 1.0, as it is not strictly required 
+%% in the spec (only recommended), howerver this makes TLS 1.0 vunrable to the Poodle attack 
+%% so by default this clause will not match
+is_correct_padding(GenBlockCipher, {3, 1}, false) ->
+    is_correct_padding(GenBlockCipher, {3, 0}, false);
+%% Padding must be checked in TLS 1.1 and after  
 is_correct_padding(#generic_block_cipher{padding_length = Len,
-					 padding = Padding}, _) ->
+					 padding = Padding}, _, _) ->
     Len == byte_size(Padding) andalso
 		list_to_binary(lists:duplicate(Len, Len)) == Padding.
 

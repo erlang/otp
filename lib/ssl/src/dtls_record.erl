@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2013-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2013-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -146,7 +146,7 @@ decode_cipher_text(#ssl_tls{type = Type, version = Version,
 		   = ConnnectionStates0) ->
     CompressAlg = SecParams#security_parameters.compression_algorithm,
     {PlainFragment, Mac, ReadState1} = ssl_record:decipher(dtls_v1:corresponding_tls_version(Version),
-							   CipherFragment, ReadState0),
+							   CipherFragment, ReadState0, true),
     MacHash = calc_mac_hash(ReadState1, Type, Version, Epoch, Seq, PlainFragment),
     case ssl_record:is_correct_mac(Mac, MacHash) of
 	true ->

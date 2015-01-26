@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -117,7 +117,8 @@
 	  server_name_indication = undefined,
 	  %% Should the server prefer its own cipher order over the one provided by
 	  %% the client?
-	  honor_cipher_order = false
+	  honor_cipher_order = false,
+	  padding_check = true
 	  }).
 
 -record(socket_options,

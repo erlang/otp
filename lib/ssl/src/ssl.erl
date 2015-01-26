@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2014. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -656,7 +656,8 @@ handle_options(Opts0) ->
 		    log_alert = handle_option(log_alert, Opts, true),
 		    server_name_indication = handle_option(server_name_indication, Opts, undefined),
 		    honor_cipher_order = handle_option(honor_cipher_order, Opts, false),
-		    protocol = proplists:get_value(protocol, Opts, tls)
+		    protocol = proplists:get_value(protocol, Opts, tls),
+		    padding_check =  proplists:get_value(padding_check, Opts, true)
 		   },
 
     CbInfo  = proplists:get_value(cb_info, Opts, {gen_tcp, tcp, tcp_closed, tcp_error}),
@@ -669,7 +670,7 @@ handle_options(Opts0) ->
 		  cb_info, renegotiate_at, secure_renegotiate, hibernate_after,
 		  erl_dist, next_protocols_advertised,
 		  client_preferred_next_protocols, log_alert,
-		  server_name_indication, honor_cipher_order],
+		  server_name_indication, honor_cipher_order, padding_check],
 
     SockOpts = lists:foldl(fun(Key, PropList) ->
 				   proplists:delete(Key, PropList)
@@ -846,6 +847,8 @@ validate_option(server_name_indication, disable) ->
 validate_option(server_name_indication, undefined) ->
     undefined;
 validate_option(honor_cipher_order, Value) when is_boolean(Value) ->
+    Value;
+validate_option(padding_check, Value) when is_boolean(Value) ->
     Value;
 validate_option(Opt, Value) ->
     throw({error, {options, {Opt, Value}}}).
