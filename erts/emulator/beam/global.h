@@ -685,6 +685,67 @@ do {						\
 #define WSTACK_POP(s) ((ASSERT(s.wsp > s.wstart)),*(--s.wsp))
 
 
+
+/* PSTACK - Stack of any type.
+ * Usage:
+ * {
+ * #define PSTACK_TYPE MyType
+ *    PSTACK_DECLARE(s,16);
+ *    MyType *sp = PSTACK_PUSH(s);
+ *
+ *    sp->x = ....
+ *    sp->y = ....
+ *    sp = PSTACK_PUSH(s);
+ *    ...
+ *    sp = PSTACK_POP(s);
+ *    if (PSTACK_IS_EMPTY(s)) {
+ *        // sp is invalid when stack is empty after pop
+ *    }
+ *
+ *    PSTACK_DESTROY(s);
+ * }
+ */
+
+
+typedef struct ErtsPStack_ {
+    byte* pstart;
+    byte* psp;
+    byte* pend;
+    ErtsAlcType_t alloc_type;
+}ErtsPStack;
+
+void erl_grow_pstack(ErtsPStack* s, void* default_pstack, unsigned need_bytes);
+#define PSTK_CONCAT(a,b) a##b
+#define PSTK_DEF_STACK(s) PSTK_CONCAT(s,_default_pstack)
+
+#define PSTACK_DECLARE(s, DEF_PSTACK_SIZE) \
+PSTACK_TYPE PSTK_DEF_STACK(s)[DEF_PSTACK_SIZE];                            \
+ErtsPStack s = { (byte*)PSTK_DEF_STACK(s), /* pstart */                    \
+                 (byte*)(PSTK_DEF_STACK(s) - 1), /* psp */                 \
+                 (byte*)(PSTK_DEF_STACK(s) + (DEF_PSTACK_SIZE)), /* pend */\
+                 ERTS_ALC_T_ESTACK   /* alloc_type */                      \
+}
+
+#define PSTACK_DESTROY(s)				\
+do {							\
+    if (s.pstart != (byte*)PSTK_DEF_STACK(s)) {		\
+	erts_free(s.alloc_type, s.pstart); 		\
+    }							\
+} while(0)
+
+#define PSTACK_IS_EMPTY(s) (s.psp < s.pstart)
+
+#define PSTACK_TOP(s) (ASSERT(!PSTACK_IS_EMPTY(s)), (PSTACK_TYPE*)(s.psp))
+
+#define PSTACK_PUSH(s) 		                                           \
+    (s.psp += sizeof(PSTACK_TYPE),                                         \
+     ((s.psp == s.pend) ? erl_grow_pstack(&s, PSTK_DEF_STACK(s),           \
+                                          sizeof(PSTACK_TYPE)) : (void)0), \
+     ((PSTACK_TYPE*) s.psp))
+
+#define PSTACK_POP(s) ((PSTACK_TYPE*) (s.psp -= sizeof(PSTACK_TYPE)))
+
+
 /* binary.c */
 
 void erts_emasculate_writable_binary(ProcBin* pb);

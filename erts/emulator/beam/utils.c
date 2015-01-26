@@ -239,6 +239,32 @@ erl_grow_wstack(ErtsWStack* s, UWord* default_wstack, Uint need)
     s->wsp = s->wstart + sp_offs;
 }
 
+/*
+ * Helper function for the PSTACK macros defined in global.h.
+ */
+void
+erl_grow_pstack(ErtsPStack* s, void* default_pstack, unsigned need_bytes)
+{
+    Uint old_size = s->pend - s->pstart;
+    Uint new_size;
+    Uint sp_offs = s->psp - s->pstart;
+
+    if (need_bytes < old_size)
+	new_size = 2 * old_size;
+    else
+	new_size = ((need_bytes / old_size) + 2) * old_size;
+
+    if (s->pstart != default_pstack) {
+	s->pstart = erts_realloc(s->alloc_type, s->pstart, new_size);
+    } else {
+	byte* new_ptr = erts_alloc(s->alloc_type, new_size);
+	sys_memcpy(new_ptr, s->pstart, old_size);
+	s->pstart = new_ptr;
+    }
+    s->pend = s->pstart + new_size;
+    s->psp = s->pstart + sp_offs;
+}
+
 /* CTYPE macros */
 
 #define LATIN1
