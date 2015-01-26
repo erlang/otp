@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -559,56 +559,73 @@ stat(ReqId, RelPath, State0=#state{file_handler=FileMod,
 	    send_status({error, E}, ReqId, State1)
     end.
 
-decode_4_open_flag(create_new) ->
-    [write];
-decode_4_open_flag(create_truncate) ->
-    [write];
-decode_4_open_flag(truncate_existing) ->
-    [write];
-decode_4_open_flag(open_existing) ->
-    [read].
+sftp_to_erlang_flag(read, Vsn) when Vsn == 3;
+				    Vsn == 4 ->
+    read;
+sftp_to_erlang_flag(write, Vsn) when Vsn == 3;
+				     Vsn == 4 ->
+    write;
+sftp_to_erlang_flag(append, Vsn) when Vsn == 3;
+				      Vsn == 4 ->
+    append;
+sftp_to_erlang_flag(creat, Vsn) when Vsn == 3;
+				     Vsn == 4 ->
+    write;
+sftp_to_erlang_flag(trunc, Vsn) when Vsn == 3;
+				     Vsn == 4 ->
+    write;
+sftp_to_erlang_flag(excl, Vsn) when Vsn == 3;
+				    Vsn == 4 ->
+    read;
+sftp_to_erlang_flag(create_new, Vsn)  when Vsn > 4 ->
+    write;
+sftp_to_erlang_flag(create_truncate, Vsn) when Vsn > 4 ->
+    write;
+sftp_to_erlang_flag(open_existing, Vsn)  when Vsn > 4 ->
+    read;
+sftp_to_erlang_flag(open_or_create, Vsn) when Vsn > 4 ->
+    write;
+sftp_to_erlang_flag(truncate_existing, Vsn) when Vsn > 4 ->
+    write;
+sftp_to_erlang_flag(append_data, Vsn)  when Vsn > 4 ->
+    append;
+sftp_to_erlang_flag(append_data_atomic, Vsn) when Vsn > 4  ->
+    append;
+sftp_to_erlang_flag(_, _) ->
+    read.
 
-decode_4_flags([OpenFlag | Flags]) ->
-    decode_4_flags(Flags, decode_4_open_flag(OpenFlag)).
-
-decode_4_flags([], Flags) ->
-    Flags;
-decode_4_flags([append_data|R], _Flags) ->
-    decode_4_flags(R, [append]);
-decode_4_flags([append_data_atomic|R], _Flags) ->
-    decode_4_flags(R, [append]);
-decode_4_flags([_|R], Flags) ->
-    decode_4_flags(R, Flags).
-
-decode_4_access_flag(read_data) ->
-    [read];
-decode_4_access_flag(list_directory) ->
-    [read];
-decode_4_access_flag(write_data) ->
-    [write];
-decode_4_access_flag(add_file) ->
-    [write];
-decode_4_access_flag(add_subdirectory) ->
-    [read];
-decode_4_access_flag(append_data) ->
-    [append];
-decode_4_access_flag(write_attributes) ->
-    [write];
-decode_4_access_flag(_) ->
-    [read].
-
-decode_4_acess([_ | _] = Flags) ->
+sftp_to_erlang_flags(Flags, Vsn) ->
     lists:map(fun(Flag) -> 
-		      [decode_4_access_flag(Flag)]
-	      end, Flags);
-decode_4_acess([]) ->
-    [].
+		      sftp_to_erlang_flag(Flag, Vsn) 
+	      end, Flags).
+
+sftp_to_erlang_access_flag(read_data, _) ->
+    read;
+sftp_to_erlang_access_flag(list_directory, _) ->
+    read;
+sftp_to_erlang_access_flag(write_data, _) ->
+    write;
+sftp_to_erlang_access_flag(append_data, _) ->
+    append;
+sftp_to_erlang_access_flag(add_subdirectory, _) ->
+    read;
+sftp_to_erlang_access_flag(add_file, _) ->
+    write;
+sftp_to_erlang_access_flag(write_attributes, _) ->
+    write;
+sftp_to_erlang_access_flag(_, _) ->
+    read.
+sftp_to_erlang_access_flags(Flags, Vsn) ->
+    lists:map(fun(Flag) -> 
+		      sftp_to_erlang_access_flag(Flag, Vsn)
+	      end, Flags).
 
 open(Vsn, ReqId, Data, State) when Vsn =< 3 ->
     <<?UINT32(BLen), BPath:BLen/binary, ?UINT32(PFlags),
      _Attrs/binary>> = Data,
     Path = unicode:characters_to_list(BPath),
-    Flags = ssh_xfer:decode_open_flags(Vsn, PFlags),
+    FlagBits = ssh_xfer:decode_open_flags(Vsn, PFlags),
+    Flags = lists:usort(sftp_to_erlang_flags(FlagBits, Vsn)),
     do_open(ReqId, State, Path, Flags);
 open(Vsn, ReqId, Data, State) when Vsn >= 4 ->
     <<?UINT32(BLen), BPath:BLen/binary, ?UINT32(Access),
@@ -616,15 +633,12 @@ open(Vsn, ReqId, Data, State) when Vsn >= 4 ->
     Path = unicode:characters_to_list(BPath),
     FlagBits = ssh_xfer:decode_open_flags(Vsn, PFlags),
     AcessBits = ssh_xfer:decode_ace_mask(Access),
-    %% TODO: This is to make sure the Access flags are not ignored
-    %% but this should be thought through better. This solution should
-    %% be considered a hack in order to buy some time. At least
-    %% it works better than when the Access flags where totally ignored.
-    %% A better solution may need some code refactoring that we do
-    %% not have time for right now.
-    AcessFlags = decode_4_acess(AcessBits),
-    Flags = lists:append(lists:umerge(
-			   [[decode_4_flags(FlagBits)] | AcessFlags])),
+    %% TODO: There are still flags that are not
+    %% fully handled as SSH_FXF_ACCESS_TEXT_MODE and
+    %% a lot a ACE flags, the later we may not need 
+    %% to understand as they are NFS flags
+    AcessFlags = sftp_to_erlang_access_flags(AcessBits, Vsn),
+    Flags = lists:usort(sftp_to_erlang_flags(FlagBits, Vsn) ++ AcessFlags),
     do_open(ReqId, State, Path, Flags).
 
 do_open(ReqId, State0, Path, Flags) ->
