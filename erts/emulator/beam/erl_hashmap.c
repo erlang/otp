@@ -73,12 +73,6 @@ static Eterm hashmap_values(Process *p, Eterm map);
 static Eterm hashmap_merge(Process *p, Eterm nodeA, Eterm nodeB);
 static Eterm hashmap_bld_tuple_uint(Uint **hpp, Uint *szp, Uint n, Uint nums[]);
 
-typedef struct {
-    Eterm* hp;
-    Eterm res;
-}hashmap_doer_state;
-typedef void hashmap_doer(Eterm*, hashmap_doer_state*);
-static void hashmap_do_foreach(Eterm node, hashmap_doer* fptr, hashmap_doer_state*);
 
 /* hashmap:new/0 */
 
@@ -798,26 +792,6 @@ not_found:
     return res;
 }
 
-static void hashmap_to_list_doer(Eterm* kv, hashmap_doer_state* sp);
-
-static Eterm hashmap_to_list(Process *p, Eterm node) {
-    hashmap_head_t* root;
-    hashmap_doer_state state;
-
-    root = (hashmap_head_t*) boxed_val(node);
-    state.hp  = HAlloc(p, root->size * (2 + 3));
-    state.res = NIL;
-    hashmap_do_foreach(node, hashmap_to_list_doer, &state);
-    return state.res;
-}
-
-static void hashmap_to_list_doer(Eterm* kv, hashmap_doer_state* sp) {
-    Eterm tup = TUPLE2(sp->hp, CAR(kv), CDR(kv));
-    sp->hp += 3;
-    sp->res = CONS(sp->hp, tup, sp->res);
-    sp->hp += 2;
-}
-
 #define HALLOC_EXTRA 200
 
 static Eterm hashmap_merge(Process *p, Eterm nodeA, Eterm nodeB) {
@@ -1035,84 +1009,107 @@ recurse:
     return res;
 }
 
-static void hashmap_do_foreach(Eterm node, hashmap_doer* fptr,
-			       hashmap_doer_state* farg) {
-    Eterm *ptr, hdr;
-    Uint sz;
-    DECLARE_ESTACK(stack);
-
-    ESTACK_PUSH(stack, node);
-    do {
-	node = ESTACK_POP(stack);
-	switch(primary_tag(node)) {
-	    case TAG_PRIMARY_LIST:
-		ptr = list_val(node);
-		(*fptr)(ptr, farg); /* Do! */
-		break;
-	    case TAG_PRIMARY_BOXED:
-		ptr = boxed_val(node);
-		hdr = *ptr;
-		ASSERT(is_header(hdr));
-		switch(hdr & _HEADER_MAP_SUBTAG_MASK) {
-		    case HAMT_SUBTAG_HEAD_ARRAY:
-			ptr++;
-		    case HAMT_SUBTAG_NODE_ARRAY:
-			ptr++;
-			sz = 16;
-			while(sz--) { ESTACK_PUSH(stack, ptr[sz]); }
-			break;
-		    case HAMT_SUBTAG_HEAD_BITMAP:
-			ptr++;
-		    case HAMT_SUBTAG_NODE_BITMAP:
-			sz = hashmap_bitcount(MAP_HEADER_VAL(hdr));
-			ASSERT(sz < 17);
-			ptr++;
-			while(sz--) { ESTACK_PUSH(stack, ptr[sz]); }
-			break;
-		    default:
-			erl_exit(1, "bad header\r\n");
-			break;
-		}
-	}
-    } while(!ESTACK_ISEMPTY(stack));
-
-    DESTROY_ESTACK(stack);
+static void hashmap_iterator_init(ErtsWStack* s, Eterm node) {
+    WSTACK_PUSH((*s), (UWord)THE_NON_VALUE);  /* end marker */
+    WSTACK_PUSH((*s), (UWord)node);
 }
 
-static void hashmap_keys_doer(Eterm* kv, hashmap_doer_state*);
+static Eterm* hashmap_iterator_next(ErtsWStack* s) {
+    Eterm node, *ptr, hdr;
+    Uint32 sz;
+
+    for (;;) {
+        ASSERT(!WSTACK_ISEMPTY((*s)));
+	node = (Eterm) WSTACK_POP((*s));
+        if (is_non_value(node)) {
+            return NULL;
+        }
+        switch (primary_tag(node)) {
+        case TAG_PRIMARY_LIST:
+            return list_val(node);
+
+        case TAG_PRIMARY_BOXED:
+            ptr = boxed_val(node);
+            hdr = *ptr;
+            ASSERT(is_header(hdr));
+            switch(hdr & _HEADER_MAP_SUBTAG_MASK) {
+            case HAMT_SUBTAG_HEAD_ARRAY:
+                ptr++;
+            case HAMT_SUBTAG_NODE_ARRAY:
+                ptr++;
+                sz = 16;
+                while(sz--) { WSTACK_PUSH((*s), (UWord)ptr[sz]); }
+                break;
+            case HAMT_SUBTAG_HEAD_BITMAP:
+                ptr++;
+            case HAMT_SUBTAG_NODE_BITMAP:
+                sz = hashmap_bitcount(MAP_HEADER_VAL(hdr));
+                ASSERT(sz < 17);
+                ptr++;
+                while(sz--) { WSTACK_PUSH((*s), (UWord)ptr[sz]); }
+                break;
+            default:
+                erl_exit(1, "bad header");
+            }
+            break;
+
+        default:
+            erl_exit(1, "bad hamt node");
+	}
+    }
+}
+
+static Eterm hashmap_to_list(Process *p, Eterm node) {
+    DECLARE_WSTACK(stack);
+    hashmap_head_t* root;
+    Eterm *hp, *kv;
+    Eterm res = NIL;
+
+    root = (hashmap_head_t*) boxed_val(node);
+    hp  = HAlloc(p, root->size * (2 + 3));
+    hashmap_iterator_init(&stack, node);
+    while ((kv=hashmap_iterator_next(&stack)) != NULL) {
+	Eterm tup = TUPLE2(hp, CAR(kv), CDR(kv));
+	hp += 3;
+	res = CONS(hp, tup, res);
+	hp += 2;
+    }
+    DESTROY_WSTACK(stack);
+    return res;
+}
 
 static Eterm hashmap_keys(Process* p, Eterm node) {
+    DECLARE_WSTACK(stack);
     hashmap_head_t* root;
-    hashmap_doer_state state;
+    Eterm *hp, *kv;
+    Eterm res = NIL;
 
     root = (hashmap_head_t*) boxed_val(node);
-    state.hp  = HAlloc(p, root->size * 2);
-    state.res = NIL;
-    hashmap_do_foreach(node, hashmap_keys_doer, &state);
-    return state.res;
+    hp  = HAlloc(p, root->size * 2);
+    hashmap_iterator_init(&stack, node);
+    while ((kv=hashmap_iterator_next(&stack)) != NULL) {
+	res = CONS(hp, CAR(kv), res);
+	hp += 2;
+    }
+    DESTROY_WSTACK(stack);
+    return res;
 }
-
-static void hashmap_keys_doer(Eterm* kv, hashmap_doer_state* statep) {
-    statep->res = CONS(statep->hp, CAR(kv), statep->res);
-    statep->hp += 2;
-}
-
-static void hashmap_values_doer(Eterm* kv, hashmap_doer_state*);
 
 static Eterm hashmap_values(Process* p, Eterm node) {
+    DECLARE_WSTACK(stack);
     hashmap_head_t* root;
-    hashmap_doer_state state;
+    Eterm *hp, *kv;
+    Eterm res = NIL;
 
     root = (hashmap_head_t*) boxed_val(node);
-    state.hp  = HAlloc(p, root->size * 2);
-    state.res = NIL;
-    hashmap_do_foreach(node, hashmap_values_doer, &state);
-    return state.res;
-}
-
-static void hashmap_values_doer(Eterm* kv, hashmap_doer_state* statep) {
-    statep->res = CONS(statep->hp, CDR(kv), statep->res);
-    statep->hp += 2;
+    hp  = HAlloc(p, root->size * 2);
+    hashmap_iterator_init(&stack, node);
+    while ((kv=hashmap_iterator_next(&stack)) != NULL) {
+	res = CONS(hp, CDR(kv), res);
+	hp += 2;
+    }
+    DESTROY_WSTACK(stack);
+    return res;
 }
 
 /* hashmap:info/0 */
