@@ -1617,18 +1617,6 @@ ann_c_map(As, Es) ->
 
 -spec ann_c_map([term()], c_map() | c_literal(), [c_map_pair()]) -> c_map() | c_literal().
 
-ann_c_map(As,#c_literal{val=Mval}=M,Es) when is_map(Mval), map_size(Mval) =:= 0 ->
-    Pairs = [[Ck,Cv]||#c_map_pair{key=Ck,val=Cv}<-Es],
-    IsLit = lists:foldl(fun(Pair,Res) ->
-		Res andalso is_lit_list(Pair)
-	end, true, Pairs),
-    Fun = fun(Pair) -> [K,V] = lit_list_vals(Pair), {K,V} end,
-    case IsLit of
-	false ->
-	    #c_map{arg=M, es=Es, anno=As };
-	true ->
-	    #c_literal{anno=As, val=maps:from_list(lists:map(Fun, Pairs))}
-	end;
 ann_c_map(As,#c_literal{val=M},Es) when is_map(M) ->
     fold_map_pairs(As,Es,M);
 ann_c_map(As,M,Es) ->
