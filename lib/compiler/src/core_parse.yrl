@@ -193,12 +193,12 @@ map_pair_pattern -> '~' '<' anno_expression ',' anno_pattern '>' :
 			#c_map_pair{op=#c_literal{val=exact},key='$3',val='$5'}.
 
 cons_pattern -> '[' anno_pattern tail_pattern :
-		    #c_cons{hd='$2',tl='$3'}.
+		    c_cons('$2', '$3').
 
 tail_pattern -> ']' : #c_literal{val=[]}.
 tail_pattern -> '|' anno_pattern ']' : '$2'.
 tail_pattern -> ',' anno_pattern tail_pattern :
-		    #c_cons{hd='$2',tl='$3'}.
+		    c_cons('$2', '$3').
 
 binary_pattern -> '#' '{' '}' '#' : #c_binary{segments=[]}.
 binary_pattern -> '#' '{' segment_patterns '}' '#' : #c_binary{segments='$3'}.
@@ -206,7 +206,7 @@ binary_pattern -> '#' '{' segment_patterns '}' '#' : #c_binary{segments='$3'}.
 segment_patterns -> segment_pattern ',' segment_patterns : ['$1' | '$3'].
 segment_patterns -> segment_pattern : ['$1'].
 
-segment_pattern -> '#' '<' anno_pattern '>' '(' anno_patterns ')':
+segment_pattern -> '#' '<' anno_pattern '>' '(' anno_expressions ')':
 	case '$6' of
 	    [S,U,T,Fs] ->
 		#c_bitstr{val='$3',size=S,unit=U,type=T,flags=Fs};
@@ -279,7 +279,7 @@ cons_literal -> '[' literal tail_literal : c_cons('$2', '$3').
 
 tail_literal -> ']' : #c_literal{val=[]}.
 tail_literal -> '|' literal ']' : '$2'.
-tail_literal -> ',' literal tail_literal : #c_cons{hd='$2',tl='$3'}.
+tail_literal -> ',' literal tail_literal : c_cons('$2', '$3').
 
 tuple -> '{' '}' : c_tuple([]).
 tuple -> '{' anno_expressions '}' : c_tuple('$2').
