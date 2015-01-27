@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2014. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2015. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -119,11 +119,15 @@ continue_init(Manager, ConfigDB, SocketType, Socket, TimeOut) ->
     MaxHeaderSize = max_header_size(ConfigDB), 
     MaxURISize    = max_uri_size(ConfigDB), 
     NrOfRequest   = max_keep_alive_request(ConfigDB), 
-    
+    MaxContentLen = max_content_length(ConfigDB),
+
     {_, Status} = httpd_manager:new_connection(Manager),
     
     MFA = {httpd_request, parse, [[{max_uri, MaxURISize}, {max_header, MaxHeaderSize},
-				   {max_version, ?HTTP_MAX_VERSION_STRING}, {max_method, ?HTTP_MAX_METHOD_STRING}]]}, 
+				   {max_version, ?HTTP_MAX_VERSION_STRING}, 
+				   {max_method, ?HTTP_MAX_METHOD_STRING},
+				   {max_content_length, MaxContentLen}
+				  ]]}, 
 
     State = #state{mod                    = Mod, 
 		   manager                = Manager, 
@@ -207,7 +211,7 @@ handle_info({Proto, Socket, Data},
 			       set_new_data_size(cancel_request_timeout(State), NewDataSize)
 		       end,
             handle_http_msg(Result, NewState); 
-	{error, {too_long, MaxSize, ErrCode, ErrStr}, Version} ->
+	{error, {size_error, MaxSize, ErrCode, ErrStr}, Version} ->
 	    NewModData =  ModData#mod{http_version = Version},
 	    httpd_response:send_status(NewModData, ErrCode, ErrStr),
 	    Reason = io_lib:format("~p: ~p max size is ~p~n", 
@@ -444,8 +448,7 @@ handle_body(#state{headers = Headers, body = Body, mod = ModData} = State,
 	    error_log(Reason, ModData),
 	    {stop, normal, State#state{response_sent = true}};
 	_ -> 
-	    Length = 
-		list_to_integer(Headers#http_request_h.'content-length'),
+	    Length = list_to_integer(Headers#http_request_h.'content-length'),	    
 	    case ((Length =< MaxBodySize) or (MaxBodySize == nolimit)) of
 		true ->
 		    case httpd_request:whole_body(Body, Length) of 
@@ -454,7 +457,7 @@ handle_body(#state{headers = Headers, body = Body, mod = ModData} = State,
 						   ModData#mod.socket, 
 						   [{active, once}]),
 			    {noreply, State#state{mfa = 
-						  {Module, Function, Args}}};
+						      {Module, Function, Args}}};
 			
 			{ok, NewBody} ->
 			    handle_response(
@@ -471,7 +474,7 @@ handle_body(#state{headers = Headers, body = Body, mod = ModData} = State,
 handle_expect(#state{headers = Headers, mod = 
 		     #mod{config_db = ConfigDB} = ModData} = State, 
 	      MaxBodySize) ->
-    Length = Headers#http_request_h.'content-length',
+    Length = list_to_integer(Headers#http_request_h.'content-length'),
     case expect(Headers, ModData#mod.http_version, ConfigDB) of
 	continue when (MaxBodySize > Length) orelse (MaxBodySize =:= nolimit) ->
 	    httpd_response:send_status(ModData, 100, ""),
@@ -545,9 +548,13 @@ handle_next_request(#state{mod = #mod{connection = true} = ModData,
  		      init_data   = ModData#mod.init_data},
     MaxHeaderSize = max_header_size(ModData#mod.config_db), 
     MaxURISize    = max_uri_size(ModData#mod.config_db), 
+    MaxContentLen = max_content_length(ModData#mod.config_db),
 
     MFA = {httpd_request, parse, [[{max_uri, MaxURISize}, {max_header, MaxHeaderSize},
-				   {max_version, ?HTTP_MAX_VERSION_STRING}, {max_method, ?HTTP_MAX_METHOD_STRING}]]}, 
+				   {max_version, ?HTTP_MAX_VERSION_STRING}, 
+				   {max_method, ?HTTP_MAX_METHOD_STRING},
+				   {max_content_length, MaxContentLen}
+				  ]]}, 
     TmpState = State#state{mod                    = NewModData,
 			   mfa                    = MFA,
 			   max_keep_alive_request = decrease(Max),
@@ -630,3 +637,5 @@ max_body_size(ConfigDB) ->
 max_keep_alive_request(ConfigDB) ->
     httpd_util:lookup(ConfigDB, max_keep_alive_request, infinity).
 
+max_content_length(ConfigDB) ->    
+    httpd_util:lookup(ConfigDB, max_content_length, ?HTTP_MAX_CONTENT_LENGTH).
