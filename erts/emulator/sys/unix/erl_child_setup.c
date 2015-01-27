@@ -101,18 +101,13 @@ main(int argc, char *argv[])
     if (sscanf(argv[CS_ARGV_FD_CR_IX], "%d:%d", &from, &to) != 2)
 	return 1;
 
-#if defined(__ANDROID__)
+#if defined(HAVE_CLOSEFROM)
+    closefrom(from);
+#elif defined(__ANDROID__)
     for (i = from; i <= to; i++) {
 	if (i!=__system_properties_fd)
 	    (void) close(i);
     }
-#else
-    for (i = from; i <= to; i++)
-	(void) close(i);
-#endif /* __ANDROID__ */
-
-#if defined(HAVE_CLOSEFROM)
-    closefrom(from);
 #else
     for (i = from; i <= to; i++)
 	(void) close(i);
@@ -146,8 +141,6 @@ main(int argc, char *argv[])
     }
     return 1;
 }
-
-
 
 #if defined(__ANDROID__)
 int __system_properties_fd(void)
