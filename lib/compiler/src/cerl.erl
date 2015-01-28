@@ -1644,9 +1644,7 @@ fold_map_pairs(As,[#c_map_pair{op=#c_literal{val=exact},key=Ck,val=Cv}=E|Es],M) 
 	    end;
 	false ->
 	    #c_map{arg=#c_literal{val=M,anno=As}, es=[E|Es], anno=As }
-    end;
-fold_map_pairs(As,Es,M) ->
-    #c_map{arg=#c_literal{val=M,anno=As}, es=Es, anno=As }.
+    end.
 
 -spec update_c_map(c_map(), cerl(), [cerl()]) -> c_map() | c_literal().
 
