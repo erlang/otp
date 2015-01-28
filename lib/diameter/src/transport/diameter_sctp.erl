@@ -483,12 +483,6 @@ l({sctp, Sock, _RA, _RP, Data} = Msg, #listener{socket = Sock} = S) ->
         setopts(Sock)
     end;
 
-%% Transport is asking message to be sent. See send/3 for why the send
-%% isn't directly from the transport.
-l({send, AssocId, StreamId, Bin}, #listener{socket = Sock} = S) ->
-    send(Sock, AssocId, StreamId, Bin),
-    S;
-
 l({'DOWN', MRef, process, TPid, _}, #listener{pending = {_,Q}} = S) ->
     down(ets:member(Q, TPid), MRef, TPid, S);
 
