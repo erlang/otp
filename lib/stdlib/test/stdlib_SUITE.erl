@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2014. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2015. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -172,9 +172,16 @@ major_upgrade(Config) ->
 
 %% Version numbers are checked by ct_release_test, so there is nothing
 %% more to check here...
-upgrade_init(State) ->
+upgrade_init(CtData,State) ->
+    {ok,{FromVsn,ToVsn}} = ct_release_test:get_app_vsns(CtData,stdlib),
+    case ct_release_test:get_appup(CtData,stdlib) of
+	{ok,{FromVsn,ToVsn,[restart_new_emulator],[restart_new_emulator]}} ->
+	    io:format("Upgrade/downgrade ~p <--> ~p",[FromVsn,ToVsn]);
+	{error,{vsn_not_found,_}} when FromVsn==ToVsn ->
+	    io:format("No upgrade test for stdlib, same version")
+    end,
     State.
-upgrade_upgraded(State) ->
+upgrade_upgraded(_CtData,State) ->
     State.
-upgrade_downgraded(State) ->
+upgrade_downgraded(_CtData,State) ->
     State.
