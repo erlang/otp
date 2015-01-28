@@ -38,11 +38,13 @@
 %% SSL/TLS protocol handling
 -export([cipher_suites/0, cipher_suites/1, suite_definition/1,
 	 connection_info/1, versions/0, session_info/1, format_error/1,
-	 renegotiate/1, prf/5, negotiated_protocol/1, negotiated_next_protocol/1]).
+     renegotiate/1, prf/5, negotiated_protocol/1, negotiated_next_protocol/1,
+	 connection_information/1, connection_information/2]).
 %% Misc
 -export([random_bytes/1, handle_options/2]).
 
 -deprecated({negotiated_next_protocol, 1, next_major_release}).
+-deprecated({connection_info, 1, next_major_release}).
 
 -include("ssl_api.hrl").
 -include("ssl_internal.hrl").
@@ -286,16 +288,42 @@ controlling_process(#sslsocket{pid = {Listen,
 				   is_pid(NewOwner) ->
     Transport:controlling_process(Listen, NewOwner).
 
+
+%%--------------------------------------------------------------------
+-spec connection_information(#sslsocket{}) -> {ok, list()} | {error, reason()}.
+%%
+%% Description: Return SSL information for the connection
+%%--------------------------------------------------------------------
+connection_information(#sslsocket{pid = Pid}) when is_pid(Pid) -> ssl_connection:connection_information(Pid);
+connection_information(#sslsocket{pid = {Listen, _}}) when is_port(Listen) -> {error, enotconn}.
+
+
+%%--------------------------------------------------------------------
+-spec connection_information(#sslsocket{}, [atom]) -> {ok, list()} | {error, reason()}.
+%%
+%% Description: Return SSL information for the connection
+%%--------------------------------------------------------------------
+connection_information(#sslsocket{} = SSLSocket, Items) -> 
+    case connection_information(SSLSocket) of
+        {ok, I} ->
+            {ok, lists:filter(fun({K, _}) -> lists:foldl(fun(K1, Acc) when K1 =:= K -> Acc +  1; (_, Acc) -> Acc end, 0, Items) > 0 end, I)};
+        E ->
+            E
+    end.
+
 %%--------------------------------------------------------------------
 -spec connection_info(#sslsocket{}) -> 	{ok, {tls_record:tls_atom_version(), ssl_cipher:erl_cipher_suite()}} |
 					{error, reason()}.
 %%
 %% Description: Returns ssl protocol and cipher used for the connection
 %%--------------------------------------------------------------------
-connection_info(#sslsocket{pid = Pid}) when is_pid(Pid) ->
-    ssl_connection:info(Pid);
-connection_info(#sslsocket{pid = {Listen, _}}) when is_port(Listen) ->
-    {error, enotconn}.
+connection_info(#sslsocket{} = SSLSocket) ->
+    case connection_information(SSLSocket) of
+        {ok, Result} ->
+            {ok, {proplists:get_value(protocol, Result), proplists:get_value(cipher_suite, Result)}};
+        Error ->
+            Error
+    end.
 
 %%--------------------------------------------------------------------
 -spec peername(#sslsocket{}) -> {ok, {inet:ip_address(), inet:port_number()}} | {error, reason()}.
