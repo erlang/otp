@@ -337,7 +337,7 @@ load("MaxKeepAliveRequest " ++  MaxRequests, []) ->
 load("KeepAliveTimeout " ++ Timeout, []) ->
     case make_integer(Timeout) of
 	{ok, Integer} ->
-	    {ok, [], {keep_alive_timeout, Integer*1000}};
+	    {ok, [], {keep_alive_timeout, Integer}};
 	{error, _} ->
 	    {error, ?NICE(clean(Timeout)++" is an invalid KeepAliveTimeout")}
     end;
@@ -805,7 +805,7 @@ store({server_tokens, ServerTokens} = Entry, _ConfigList) ->
     Server = server(ServerTokens), 
     {ok, [Entry, {server, Server}]};
 store({keep_alive_timeout, KeepAliveTimeout}, _ConfigList) ->
-    {ok, {keep_alive_timeout, KeepAliveTimeout * 1000}};
+    {ok, {keep_alive_timeout, KeepAliveTimeout}};
 store(ConfigListEntry, _ConfigList) ->
     {ok, ConfigListEntry}.
 

@@ -96,8 +96,9 @@ init([Manager, ConfigDB, AcceptTimeout]) ->
     proc_lib:init_ack({ok, self()}),
     
     {SocketType, Socket} = await_socket_ownership_transfer(AcceptTimeout),
- 
-    KeepAliveTimeOut = httpd_util:lookup(ConfigDB, keep_alive_timeout, 150000),
+    
+    %%Timeout value is in seconds we want it in milliseconds
+    KeepAliveTimeOut = 1000 * httpd_util:lookup(ConfigDB, keep_alive_timeout, 150),
     
     case http_transport:negotiate(SocketType, Socket, ?HANDSHAKE_TIMEOUT) of
 	{error, _Error} ->
