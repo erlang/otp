@@ -580,6 +580,9 @@ obsolete_1(asn1rt, utf8_list_to_binary, 1) ->
 obsolete_1(pg, _, _) ->
     {deprecated,"deprecated; will be removed in OTP 18"};
 
+obsolete_1(ssl, connection_info, 1) ->
+    {deprecated, "deprecated; use connection_information/[1,2] instead"};
+
 obsolete_1(_, _, _) ->
     no.
 
