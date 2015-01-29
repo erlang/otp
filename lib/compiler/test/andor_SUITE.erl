@@ -33,7 +33,7 @@ all() ->
     [{group,p}].
 
 groups() -> 
-    [{p,test_lib:parallel(),
+    [{p,[parallel],
       [t_case,t_and_or,t_andalso,t_orelse,inside,overlap,
        combined,in_case,before_and_inside_if]}].
 

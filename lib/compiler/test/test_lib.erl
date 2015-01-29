@@ -44,6 +44,10 @@ smoke_disasm(File) when is_list(File) ->
     Res = beam_disasm:file(File),
     {beam_file,_Mod} = {element(1, Res),element(2, Res)}.
 
+%% If we are running cover, we don't want to run test cases that
+%% invokes the compiler in parallel, as doing so would probably
+%% be slower than running them sequentially.
+
 parallel() ->
     case ?t:is_cover() orelse erlang:system_info(schedulers) =:= 1 of
 	true -> [];
@@ -90,13 +94,18 @@ get_data_dir(Config) ->
 %%  Will fail the test case if there were any errors.
 
 p_run(Test, List) ->
+    S = erlang:system_info(schedulers),
     N = case ?t:is_cover() of
 	    false ->
-		erlang:system_info(schedulers);
+		S + 1;
 	    true ->
-		%% Cover is running. Using more than one process
-		%% will probably only slow down compilation.
-		1
+		%% Cover is running. Using too many processes
+		%% could slow us down. Measurements on my computer
+		%% showed that using 4 parallel processes was
+		%% slightly faster than using 3. Using more than
+		%% 4 would not buy us much and could actually be
+		%% slower.
+		max(S, 4)
 	end,
     p_run_loop(Test, List, N, [], 0, 0).
 

@@ -1378,7 +1378,6 @@ eval_is_record(Call, _, _, _, _) -> Call.
 is_not_integer(#c_literal{val=Val}) when not is_integer(Val) -> true;
 is_not_integer(#c_tuple{}) -> true;
 is_not_integer(#c_cons{}) -> true;
-is_not_integer(#c_map{}) -> true;
 is_not_integer(_) -> false.
 
 %% is_not_tuple(Core) -> true | false.
@@ -1386,7 +1385,6 @@ is_not_integer(_) -> false.
 
 is_not_tuple(#c_literal{val=Val}) when not is_tuple(Val) -> true;
 is_not_tuple(#c_cons{}) -> true;
-is_not_tuple(#c_map{}) -> true;
 is_not_tuple(_) -> false.
 
 %% eval_setelement(Call, Pos, Tuple, NewVal) -> Core.

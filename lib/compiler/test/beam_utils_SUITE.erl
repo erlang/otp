@@ -32,7 +32,7 @@ all() ->
     [{group,p}].
 
 groups() ->
-    [{p,test_lib:parallel(),
+    [{p,[parallel],
       [apply_fun,
        apply_mf,
        bs_init,

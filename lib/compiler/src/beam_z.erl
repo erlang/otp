@@ -79,17 +79,9 @@ undo_rename({put_map,Fail,assoc,S,D,R,L}) ->
 undo_rename({put_map,Fail,exact,S,D,R,L}) ->
     {put_map_exact,Fail,S,D,R,L};
 undo_rename({test,has_map_fields,Fail,[Src|List]}) ->
-    {test,has_map_fields,Fail,Src,{list,[to_typed_literal(V)||V<-List]}};
-undo_rename({get_map_elements,Fail,Src,{list, List}}) ->
-    {get_map_elements,Fail,Src,{list,[to_typed_literal(V)||V<-List]}};
+    {test,has_map_fields,Fail,Src,{list,List}};
+undo_rename({get_map_elements,Fail,Src,{list,List}}) ->
+    {get_map_elements,Fail,Src,{list,List}};
 undo_rename({select,I,Reg,Fail,List}) ->
     {I,Reg,Fail,{list,List}};
 undo_rename(I) -> I.
-
-%% to_typed_literal(Arg)
-%% transform Arg to specific literal i.e. float | integer | atom if applicable
-to_typed_literal({literal, V}) when is_float(V) -> {float, V};
-to_typed_literal({literal, V}) when is_atom(V) -> {atom, V};
-to_typed_literal({literal, V}) when is_integer(V) -> {integer, V};
-to_typed_literal({literal, []}) -> nil;
-to_typed_literal(V) -> V.
