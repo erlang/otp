@@ -236,10 +236,15 @@ vu_pat_seg_list(V, Ss, St) ->
 			end
 		end, St, Ss).
 
-vu_map_pairs(V, [#c_map_pair{val=Pat}|T], St0) ->
-    case vu_pattern(V, Pat, St0) of
-	{true,_}=St -> St;
-	St -> vu_map_pairs(V, T, St)
+vu_map_pairs(V, [#c_map_pair{key=Key,val=Pat}|T], St0) ->
+    case vu_expr(V, Key) of
+	true ->
+	    {true,false};
+	false ->
+	    case vu_pattern(V, Pat, St0) of
+		{true,_}=St -> St;
+		St -> vu_map_pairs(V, T, St)
+	    end
     end;
 vu_map_pairs(_, [], St) -> St.
 

@@ -105,7 +105,8 @@
 -record(iset,      {anno=#a{},var,arg}).
 -record(itry,      {anno=#a{},args,vars,body,evars,handler}).
 -record(ifilter,   {anno=#a{},arg}).
--record(igen,      {anno=#a{},acc_pat,acc_guard,skip_pat,tail,tail_pat,arg}).
+-record(igen,      {anno=#a{},ceps=[],acc_pat,acc_guard,
+		    skip_pat,tail,tail_pat,arg}).
 
 -type iapply()    :: #iapply{}.
 -type ibinary()   :: #ibinary{}.
@@ -535,7 +536,7 @@ expr({tuple,L,Es0}, St0) ->
     A = record_anno(L, St1),
     {annotate_tuple(A, Es1, St1),Eps,St1};
 expr({map,L,Es0}, St0) ->
-    map_build_pair_chain(#c_literal{val=#{}},Es0,lineno_anno(L,St0),St0);
+    map_build_pairs(#c_literal{val=#{}}, Es0, lineno_anno(L, St0), St0);
 expr({map,L,M0,Es0}, St0) ->
     try expr_map(M0,Es0,lineno_anno(L, St0),St0) of
 	{_,_,_}=Res -> Res
@@ -778,66 +779,35 @@ expr_map(M0,Es0,A,St0) ->
 		    Fc = fail_clause([Fpat], A, #c_literal{val=badarg}),
 		    {#icase{anno=#a{anno=A},args=[M1],clauses=Cs,fc=Fc},Mps,St3};
 		{_,_} ->
-		    {M2,Eps,St2} = map_build_pair_chain(M1,Es0,A,St1),
+		    {M2,Eps,St2} = map_build_pairs(M1, Es0, A, St1),
 		    {M2,Mps++Eps,St2}
 	    end;
 	false -> throw({bad_map,bad_map})
     end.
 
-%% Group continuous literal blocks and single variables, i.e.
-%% M0#{ a := 1, b := V1, K1 := V2, K2 := 42}
-%% becomes equivalent to
-%% M1 = M0#{ a := 1, b := V1 },
-%% M2 = M1#{ K1 := V1 },
-%% M3 = M2#{ K2 := 42 }
-
-map_build_pair_chain(M,Es,A,St) ->
-    %% hack, remove iset if only literal
-    case map_build_pair_chain(M,Es,A,St,[]) of
-	{_,[#iset{arg=#c_literal{}=Val}],St1} -> {Val,[],St1};
-	Normal -> Normal
+map_build_pairs(Map0, Es0, Ann, St0) ->
+    {Es,Pre,St1} = map_build_pairs_1(Es0, St0),
+    case ann_c_map(Ann, Map0, Es) of
+	#c_literal{}=Map ->
+	    {Map,[],St1};
+	#c_map{}=Map ->
+	    {Var,St2} = new_var(St1),
+	    {Var,Pre++[#iset{var=Var,arg=Map}],St2}
     end.
 
-map_build_pair_chain(M0,[],_,St,Mps) ->
-    {M0,Mps,St};
-map_build_pair_chain(M0,Es0,A,St0,Mps) ->
-    % group continuous literal blocks
-    % Anno = #a{anno=[compiler_generated]},
-    % order is important, we need to reverse the literals
-    case map_pair_block(Es0,[],[],St0) of
-	{{CesL,EspL},{[],[]},Es1,St1} ->
-	    {MVar,St2} = new_var(St1),
-	    Pre = [#iset{var=MVar, arg=ann_c_map(A,M0,reverse(CesL))}],
-	    map_build_pair_chain(MVar,Es1,A,St2,Mps++EspL++Pre);
-	{{[],[]},{CesV,EspV},Es1,St1} ->
-	    {MVar,St2} = new_var(St1),
-	    Pre = [#iset{var=MVar, arg=#c_map{arg=M0,es=CesV, anno=A}}],
-	    map_build_pair_chain(MVar,Es1,A,St2,Mps ++ EspV++Pre);
-	{{CesL,EspL},{CesV,EspV},Es1,St1} ->
-	    {MVarL,St2} = new_var(St1),
-	    {MVarV,St3} = new_var(St2),
-	    Pre = [#iset{var=MVarL, arg=ann_c_map(A,M0,reverse(CesL))},
-		   #iset{var=MVarV, arg=#c_map{arg=MVarL,es=CesV,anno=A}}],
-	    map_build_pair_chain(MVarV,Es1,A,St3,Mps++EspL++EspV++Pre)
-    end.
+map_build_pairs_1([{Op0,L,K0,V0}|Es], St0) ->
+    {K,Pre0,St1} = safe(K0, St0),
+    {V,Pre1,St2} = safe(V0, St1),
+    {Pairs,Pre2,St3} = map_build_pairs_1(Es, St2),
+    As = lineno_anno(L, St3),
+    Op = map_op(Op0),
+    Pair = cerl:ann_c_map_pair(As, Op, K, V),
+    {[Pair|Pairs],Pre0++Pre1++Pre2,St3};
+map_build_pairs_1([], St) ->
+    {[],[],St}.
 
-map_pair_block([{Op,L,K0,V0}|Es],Ces,Esp,St0) ->
-    {K,Ep0,St1} = safe(K0, St0),
-    {V,Ep1,St2} = safe(V0, St1),
-    A = lineno_anno(L, St2),
-    Pair0 = map_op_to_c_map_pair(Op),
-    Pair1 = Pair0#c_map_pair{anno=A,key=K,val=V},
-    case cerl:is_literal(K) of
-	true ->
-	    map_pair_block(Es,[Pair1|Ces],Ep0 ++ Ep1 ++ Esp,St2);
-	false ->
-	    {{Ces,Esp},{[Pair1],Ep0++Ep1},Es,St2}
-    end;
-map_pair_block([],Ces,Esp,St) ->
-    {{Ces,Esp},{[],[]},[],St}.
-
-map_op_to_c_map_pair(map_field_assoc) -> #c_map_pair{op=#c_literal{val=assoc}};
-map_op_to_c_map_pair(map_field_exact) -> #c_map_pair{op=#c_literal{val=exact}}.
+map_op(map_field_assoc) -> #c_literal{val=assoc};
+map_op(map_field_exact) -> #c_literal{val=exact}.
 
 is_valid_map_src(#c_literal{val = M}) when is_map(M) -> true;
 is_valid_map_src(#c_var{})  -> true;
@@ -1011,7 +981,8 @@ fun_tq({_,_,Name}=Id, Cs0, L, St0, NameInfo) ->
 %% lc_tq(Line, Exp, [Qualifier], Mc, State) -> {LetRec,[PreExp],State}.
 %%  This TQ from Simon PJ pp 127-138.  
 
-lc_tq(Line, E, [#igen{anno=GAnno,acc_pat=AccPat,acc_guard=AccGuard,
+lc_tq(Line, E, [#igen{anno=GAnno,ceps=Ceps,
+		      acc_pat=AccPat,acc_guard=AccGuard,
                       skip_pat=SkipPat,tail=Tail,tail_pat=TailPat,
                       arg={Pre,Arg}}|Qs], Mc, St0) ->
     {Name,St1} = new_fun_name("lc", St0),
@@ -1046,7 +1017,7 @@ lc_tq(Line, E, [#igen{anno=GAnno,acc_pat=AccPat,acc_guard=AccGuard,
     Fun = #ifun{anno=LAnno,id=[],vars=[Var],clauses=Cs,fc=Fc},
     {#iletrec{anno=LAnno#a{anno=[list_comprehension|LA]},defs=[{{Name,1},Fun}],
               body=Pre ++ [#iapply{anno=LAnno,op=F,args=[Arg]}]},
-     [],St4};
+     Ceps,St4};
 lc_tq(Line, E, [#ifilter{}=Filter|Qs], Mc, St) ->
     filter_tq(Line, E, Filter, Mc, St, Qs, fun lc_tq/5);
 lc_tq(Line, E0, [], Mc0, St0) ->
@@ -1071,7 +1042,8 @@ bc_tq(Line, Exp, Qs0, _, St0) ->
 			    args=[Sz]}}] ++ BcPre,
     {E,Pre,St}.
 
-bc_tq1(Line, E, [#igen{anno=GAnno,acc_pat=AccPat,acc_guard=AccGuard,
+bc_tq1(Line, E, [#igen{anno=GAnno,ceps=Ceps,
+		       acc_pat=AccPat,acc_guard=AccGuard,
                        skip_pat=SkipPat,tail=Tail,tail_pat=TailPat,
                        arg={Pre,Arg}}|Qs], Mc, St0) ->
     {Name,St1} = new_fun_name("lbc", St0),
@@ -1109,7 +1081,7 @@ bc_tq1(Line, E, [#igen{anno=GAnno,acc_pat=AccPat,acc_guard=AccGuard,
     Fun = #ifun{anno=LAnno,id=[],vars=Vars,clauses=Cs,fc=Fc},
     {#iletrec{anno=LAnno#a{anno=[list_comprehension|LA]},defs=[{{Name,2},Fun}],
               body=Pre ++ [#iapply{anno=LAnno,op=F,args=[Arg,Mc]}]},
-     [],St4};
+     Ceps,St4};
 bc_tq1(Line, E, [#ifilter{}=Filter|Qs], Mc, St) ->
     filter_tq(Line, E, Filter, Mc, St, Qs, fun bc_tq1/5);
 bc_tq1(_, {bin,Bl,Elements}, [], AccVar, St0) ->
@@ -1245,8 +1217,9 @@ generator(Line, {generate,Lg,P0,E}, Gs, St0) ->
                                 ann_c_cons(LA, Skip, Tail)}
                        end,
     {Ce,Pre,St4} = safe(E, St3),
-    Gen = #igen{anno=#a{anno=GA},acc_pat=AccPat,acc_guard=Cg,skip_pat=SkipPat,
-                tail=Tail,tail_pat=#c_literal{anno=LA,val=[]},arg={Ceps++Pre,Ce}},
+    Gen = #igen{anno=#a{anno=GA},ceps=Ceps,
+		acc_pat=AccPat,acc_guard=Cg,skip_pat=SkipPat,
+                tail=Tail,tail_pat=#c_literal{anno=LA,val=[]},arg={Pre,Ce}},
     {Gen,St4};
 generator(Line, {b_generate,Lg,P,E}, Gs, St0) ->
     LA = lineno_anno(Line, St0),
@@ -1634,7 +1607,7 @@ pattern({tuple,L,Ps}, St) ->
     {annotate_tuple(record_anno(L, St), Ps1, St),Eps,St1};
 pattern({map,L,Pairs}, St0) ->
     {Ps,Eps,St1} = pattern_map_pairs(Pairs, St0),
-    {#c_map{anno=lineno_anno(L, St1), es=Ps},Eps,St1};
+    {#c_map{anno=lineno_anno(L, St1),es=Ps,is_pat=true},Eps,St1};
 pattern({bin,L,Ps}, St) ->
     %% We don't create a #ibinary record here, since there is
     %% no need to hold any used/new annotations in a pattern.

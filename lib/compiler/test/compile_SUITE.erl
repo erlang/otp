@@ -748,40 +748,63 @@ env_1(Simple, Target) ->
 %% compile the generated Core Erlang files.
 
 core(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:minutes(5)),
-    ?line PrivDir = ?config(priv_dir, Config),
-    ?line Outdir = filename:join(PrivDir, "core"),
-    ?line ok = file:make_dir(Outdir),
+    PrivDir = ?config(priv_dir, Config),
+    Outdir = filename:join(PrivDir, "core"),
+    ok = file:make_dir(Outdir),
 
-    ?line Wc = filename:join(filename:dirname(code:which(?MODULE)), "*.beam"),
-    ?line TestBeams = filelib:wildcard(Wc),
-    ?line Abstr = [begin {ok,{Mod,[{abstract_code,
+    Wc = filename:join(filename:dirname(code:which(?MODULE)), "*.beam"),
+    TestBeams = filelib:wildcard(Wc),
+    Abstr = [begin {ok,{Mod,[{abstract_code,
 				    {raw_abstract_v1,Abstr}}]}} = 
 			     beam_lib:chunks(Beam, [abstract_code]),
 			 {Mod,Abstr} end || Beam <- TestBeams],
-    ?line Res = test_lib:p_run(fun(F) -> do_core(F, Outdir) end, Abstr),
-    ?line test_server:timetrap_cancel(Dog),
-    Res.
-
+    test_lib:p_run(fun(F) -> do_core(F, Outdir) end, Abstr).
     
 do_core({M,A}, Outdir) ->
     try
-	{ok,M,Core} = compile:forms(A, [to_core,report]),
-	CoreFile = filename:join(Outdir, atom_to_list(M)++".core"),
-	CorePP = core_pp:format(Core),
-	ok = file:write_file(CoreFile, CorePP),
-	case compile:file(CoreFile, [clint,from_core,binary]) of
-	    {ok,M,_} ->
-		ok = file:delete(CoreFile);
-	    Other ->
-		io:format("*** core_lint failure '~p' for ~s\n",
-			  [Other,CoreFile]),
-		error
-	end
-    catch Class:Error ->
+	do_core_1(M, A, Outdir)
+    catch
+	throw:{error,Error} ->
+	    io:format("*** compilation failure '~p' for module ~s\n",
+		      [Error,M]),
+	    error;
+	Class:Error ->
 	    io:format("~p: ~p ~p\n~p\n",
 		      [M,Class,Error,erlang:get_stacktrace()]),
 	    error
+    end.
+
+do_core_1(M, A, Outdir) ->
+    {ok,M,Core0} = compile:forms(A, [to_core]),
+    CoreFile = filename:join(Outdir, atom_to_list(M)++".core"),
+    CorePP = core_pp:format(Core0),
+    ok = file:write_file(CoreFile, CorePP),
+
+    %% Parse the .core file and return the result as Core Erlang Terms.
+    Core = case compile:file(CoreFile, [report_errors,from_core,no_copt,to_core,binary]) of
+	       {ok,M,Core1} -> Core1;
+	       Other -> throw({error,Other})
+	   end,
+    ok = file:delete(CoreFile),
+
+    %% Compile as usual (including optimizations).
+    compile_forms(Core, [clint,from_core,binary]),
+
+    %% Don't optimize to test that we are not dependent
+    %% on the Core Erlang optmimization passes.
+    %% (Example of a previous bug: The core_parse pass
+    %% would not turn map literals into #c_literal{}
+    %% records; if sys_core_fold was run it would fix
+    %% that; if sys_core_fold was not run v3_kernel would
+    %% crash.)
+    compile_forms(Core, [clint,from_core,no_copt,binary]),
+
+    ok.
+
+compile_forms(Forms, Opts) ->
+    case compile:forms(Forms, [report_errors|Opts]) of
+	{ok,[],_} ->  ok;
+	Other -> throw({error,Other})
     end.
 
 %% Compile to Beam assembly language (.S) and then try to

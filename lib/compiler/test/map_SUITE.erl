@@ -319,6 +319,12 @@ t_update_exact(Config) when is_list(Config) ->
     {'EXIT',{badarg,_}} = (catch M0#{42=>v1,42.0:=v2,42:=v3}),
     {'EXIT',{badarg,_}} = (catch <<>>#{nonexisting:=val}),
     {'EXIT',{badarg,_}} = (catch M0#{<<0:257>> := val}), %% limitation
+
+    %% A workaround for a bug allowed an empty map to be updated.
+    {'EXIT',{badarg,_}} = (catch (id(#{}))#{a:=1}),
+    {'EXIT',{badarg,_}} = (catch #{}#{a:=1}),
+    Empty = #{},
+    {'EXIT',{badarg,_}} = (catch Empty#{a:=1}),
     ok.
 
 t_update_values(Config) when is_list(Config) ->

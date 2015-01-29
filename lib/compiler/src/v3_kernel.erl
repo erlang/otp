@@ -521,62 +521,76 @@ is_valid_map_src(#k_var{}) -> true;
 is_valid_map_src(_) -> false.
 
 map_split_pairs(A, Var, Ces, Sub, St0) ->
-    %% two steps
-    %% 1. force variables
-    %% 2. remove multiples
-    Pairs0 = [{Op,K,V} || #c_map_pair{op=#c_literal{val=Op},key=K,val=V} <- Ces],
+    %% 1. Force variables.
+    %% 2. Group adjacent pairs with literal keys.
+    %% 3. Within each such group, remove multiple assignments to the same key.
+    %% 4. Partition each group according to operator ('=>' and ':=').
+    Pairs0 = [{Op,K,V} ||
+		 #c_map_pair{op=#c_literal{val=Op},key=K,val=V} <- Ces],
     {Pairs,Esp,St1} = foldr(fun
 	    ({Op,K0,V0}, {Ops,Espi,Sti0}) when Op =:= assoc; Op =:= exact ->
 		{K,Eps1,Sti1} = atomic(K0, Sub, Sti0),
 		{V,Eps2,Sti2} = atomic(V0, Sub, Sti1),
 		{[{Op,K,V}|Ops],Eps1 ++ Eps2 ++ Espi,Sti2}
 	end, {[],[],St0}, Pairs0),
+    map_split_pairs_1(A, Var, Pairs, Esp, St1).
 
-    case map_group_pairs(Pairs) of
-	{Assoc,[]} ->
-	    Kes = [#k_map_pair{key=K,val=V}||{_,{assoc,K,V}} <- Assoc],
-	    {#k_map{anno=A,op=assoc,var=Var,es=Kes},Esp,St1};
-	{[],Exact} ->
-	    Kes = [#k_map_pair{key=K,val=V}||{_,{exact,K,V}} <- Exact],
-	    {#k_map{anno=A,op=exact,var=Var,es=Kes},Esp,St1};
-	{Assoc,Exact} ->
-	    Kes1 = [#k_map_pair{key=K,val=V}||{_,{assoc,K,V}} <- Assoc],
-	    {Mvar,Em,St2} = force_atomic(#k_map{anno=A,op=assoc,var=Var,es=Kes1},St1),
-	    Kes2 = [#k_map_pair{key=K,val=V}||{_,{exact,K,V}} <- Exact],
-	    {#k_map{anno=A,op=exact,var=Mvar,es=Kes2},Esp ++ Em,St2}
+map_split_pairs_1(A, Map0, [{Op,Key,Val}|Pairs1]=Pairs0, Esp0, St0) ->
+    {Map1,Em,St1} = force_atomic(Map0, St0),
+    case Key of
+	#k_var{} ->
+	    %% Don't combine variable keys with other keys.
+	    Kes = [#k_map_pair{key=Key,val=Val}],
+	    Map = #k_map{anno=A,op=Op,var=Map1,es=Kes},
+	    map_split_pairs_1(A, Map, Pairs1, Esp0 ++ Em, St1);
+	_ ->
+	    %% Literal key. Split off all literal keys.
+	    {L,Pairs} = splitwith(fun({_,#k_var{},_}) -> false;
+				     ({_,_,_}) -> true
+				  end, Pairs0),
+	    {Map,Esp,St2} = map_group_pairs(A, Map1, L, Esp0 ++ Em, St1),
+	    map_split_pairs_1(A, Map, Pairs, Esp, St2)
+    end;
+map_split_pairs_1(_, Map, [], Esp, St0) ->
+    {Map,Esp,St0}.
 
+map_group_pairs(A, Var, Pairs0, Esp, St0) ->
+    Pairs = map_remove_dup_keys(Pairs0),
+    Assoc = [#k_map_pair{key=K,val=V} || {_,{assoc,K,V}} <- Pairs],
+    Exact = [#k_map_pair{key=K,val=V} || {_,{exact,K,V}} <- Pairs],
+    case {Assoc,Exact} of
+	{[_|_],[]} ->
+	    {#k_map{anno=A,op=assoc,var=Var,es=Assoc},Esp,St0};
+	{[],[_|_]} ->
+	    {#k_map{anno=A,op=exact,var=Var,es=Exact},Esp,St0};
+	{[_|_],[_|_]} ->
+	    Map = #k_map{anno=A,op=assoc,var=Var,es=Assoc},
+	    {Mvar,Em,St1} = force_atomic(Map, St0),
+	    {#k_map{anno=A,op=exact,var=Mvar,es=Exact},Esp ++ Em,St1}
     end.
 
-%% Group map by Assoc operations and Exact operations
+map_remove_dup_keys(Es) ->
+    dict:to_list(map_remove_dup_keys(Es, dict:new())).
 
-map_group_pairs(Es) ->
-    Groups = dict:to_list(map_group_pairs(Es,dict:new())),
-    partition(fun({_,{Op,_,_}}) -> Op =:= assoc end, Groups).
+map_remove_dup_keys([{assoc,K0,V}|Es0],Used0) ->
+    K = map_key_clean(K0),
+    Op = case dict:find(K, Used0) of
+	     {ok,{exact,_,_}} -> exact;
+	     _                -> assoc
+	 end,
+    Used1 = dict:store(K, {Op,K0,V}, Used0),
+    map_remove_dup_keys(Es0, Used1);
+map_remove_dup_keys([{exact,K0,V}|Es0],Used0) ->
+    K = map_key_clean(K0),
+    Op = case dict:find(K, Used0) of
+	     {ok,{assoc,_,_}} -> assoc;
+	     _                -> exact
+	 end,
+    Used1 = dict:store(K, {Op,K0,V}, Used0),
+    map_remove_dup_keys(Es0, Used1);
+map_remove_dup_keys([], Used) -> Used.
 
-map_group_pairs([{assoc,K,V}|Es0],Used0) ->
-    Used1 = case map_key_is_used(K,Used0) of
-	{ok, {assoc,_,_}} -> map_key_set_used(K,{assoc,K,V},Used0);
-	{ok, {exact,_,_}} -> map_key_set_used(K,{exact,K,V},Used0);
-	_                 -> map_key_set_used(K,{assoc,K,V},Used0)
-    end,
-    map_group_pairs(Es0,Used1);
-map_group_pairs([{exact,K,V}|Es0],Used0) ->
-    Used1 = case map_key_is_used(K,Used0) of
-	{ok, {assoc,_,_}} -> map_key_set_used(K,{assoc,K,V},Used0);
-	{ok, {exact,_,_}} -> map_key_set_used(K,{exact,K,V},Used0);
-	_                 -> map_key_set_used(K,{exact,K,V},Used0)
-    end,
-    map_group_pairs(Es0,Used1);
-map_group_pairs([],Used) ->
-    Used.
-
-map_key_set_used(K,How,Used) ->
-    dict:store(map_key_clean(K),How,Used).
-
-map_key_is_used(K,Used) ->
-    dict:find(map_key_clean(K),Used).
-
-%% Be explicit instead of using set_kanno(K,[])
+%% Be explicit instead of using set_kanno(K, []).
 map_key_clean(#k_var{name=V})    -> {var,V};
 map_key_clean(#k_literal{val=V}) -> {lit,V};
 map_key_clean(#k_int{val=V})     -> {lit,V};

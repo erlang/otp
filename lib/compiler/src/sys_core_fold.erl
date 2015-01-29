@@ -313,7 +313,7 @@ expr(#c_letrec{defs=Fs0,body=B0}=Letrec, Ctxt, Sub) ->
     Fs1 = map(fun ({Name,Fb}) ->
 		      {Name,expr(Fb, {letrec,Ctxt}, Sub)}
 	      end, Fs0),
-    B1 = body(B0, value, Sub),
+    B1 = body(B0, Ctxt, Sub),
     Letrec#c_letrec{defs=Fs1,body=B1};
 expr(#c_case{}=Case0, Ctxt, Sub) ->
     %% Ideally, the compiler should only emit warnings when there is
@@ -606,14 +606,6 @@ eval_binary_1([#c_bitstr{val=#c_literal{val=Val},size=#c_literal{val=Sz},
     catch
 	error:_ ->
 	    throw(impossible)
-    end;
-eval_binary_1([#c_bitstr{val=#c_literal{},size=#c_literal{},
-			 unit=#c_literal{},type=#c_literal{},
-			 flags=#c_cons{}=Flags}=Bitstr|Ss], Acc0) ->
-    case cerl:fold_literal(Flags) of
-	#c_literal{} = Flags1 ->
-	    eval_binary_1([Bitstr#c_bitstr{flags=Flags1}|Ss], Acc0);
-	_ -> throw(impossible)
     end;
 eval_binary_1([], Acc) -> Acc;
 eval_binary_1(_, _) -> throw(impossible).
