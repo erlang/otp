@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -28,8 +28,10 @@
                     [],
                     [?APPLY(erlang, error, [?ATOM(badarg)])]}).
 
+-define(ANNO(L), erl_anno:new(L)).
+
 %% Form tag with line number.
--define(F(T), T, ?LINE).
+-define(F(T), T, ?ANNO(?LINE)).
 %% Yes, that's right. The replacement is to the first unmatched ')'.
 
 -define(attribute,    ?F(attribute)).
@@ -47,10 +49,10 @@
 -define(record_index, ?F(record_index)).
 -define(tuple,        ?F(tuple)).
 
--define(ATOM(T),      {atom, ?LINE, T}).
--define(INTEGER(N),   {integer, ?LINE, N}).
--define(VAR(V),       {var, ?LINE, V}).
--define(NIL,          {nil, ?LINE}).
+-define(ATOM(T),      {atom, ?ANNO(?LINE), T}).
+-define(INTEGER(N),   {integer, ?ANNO(?LINE), N}).
+-define(VAR(V),       {var, ?ANNO(?LINE), V}).
+-define(NIL,          {nil, ?ANNO(?LINE)}).
 
 -define(CALL(F,A),    {?call, ?ATOM(F), A}).
 -define(APPLY(M,F,A), {?call, {?remote, ?ATOM(M), ?ATOM(F)}, A}).
