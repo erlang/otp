@@ -2318,11 +2318,6 @@ lit_vars(#c_map_pair{key=K,val=V}, Vs) -> lit_vars(K, lit_vars(V, Vs));
 lit_vars(#c_var{name=V}, Vs) -> add_element(V, Vs); 
 lit_vars(_, Vs) -> Vs.				%These are atomic
 
-% lit_bin_vars(Segs, Vs) ->
-%     foldl(fun (#c_bitstr{val=V,size=S}, Vs0) ->
-% 		  lit_vars(V, lit_vars(S, Vs0))
-% 	  end, Vs, Segs).
-
 lit_list_vars(Ls) -> lit_list_vars(Ls, []).
 
 lit_list_vars(Ls, Vs) ->
