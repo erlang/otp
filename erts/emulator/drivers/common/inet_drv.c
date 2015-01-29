@@ -4721,6 +4721,36 @@ static char* sockaddr_to_buf(struct sockaddr* addr, char* ptr, char* end)
     return NULL;
 }
 
+/* sockaddr_bufsz_need
+ * Returns the number of bytes needed to store the information
+ * through sockaddr_to_buf
+ */
+
+static size_t sockaddr_bufsz_need(struct sockaddr* addr)
+{
+    if (addr->sa_family == AF_INET || addr->sa_family == 0) {
+	return 1 + sizeof(struct in_addr);
+    }
+#if defined(HAVE_IN6) && defined(AF_INET6)
+    else if (addr->sa_family == AF_INET6) {
+	return 1 + sizeof(struct in6_addr);
+    }
+#endif
+#if defined(AF_LINK)
+    if (addr->sa_family == AF_LINK) {
+	struct sockaddr_dl *sdl_p = (struct sockaddr_dl*) addr;
+	return 2 + sdl_p->sdl_alen;
+    }
+#endif
+#if defined(AF_PACKET) && defined(HAVE_NETPACKET_PACKET_H)
+    else if(addr->sa_family == AF_PACKET) {
+	struct sockaddr_ll *sll_p = (struct sockaddr_ll*) addr;
+	return 2 + sll_p->sll_halen;
+    }
+#endif
+    return 0;
+}
+
 static char* buf_to_sockaddr(char* ptr, char* end, struct sockaddr* addr)
 {
     buf_check(ptr,end,1);
@@ -5799,6 +5829,11 @@ done:
 }
 
 #elif defined(HAVE_GETIFADDRS)
+#ifdef  DEBUG
+#define GETIFADDRS_BUFSZ (1)
+#else
+#define GETIFADDRS_BUFSZ (512)
+#endif
 
 static ErlDrvSSizeT inet_ctl_getifaddrs(inet_descriptor* desc_p,
 					char **rbuf_pp, ErlDrvSizeT rsize)
@@ -5809,15 +5844,15 @@ static ErlDrvSSizeT inet_ctl_getifaddrs(inet_descriptor* desc_p,
     char *buf_p;
     char *buf_alloc_p;
 
-    buf_size = 512;
-    buf_alloc_p = ALLOC(buf_size);
+    buf_size = GETIFADDRS_BUFSZ;
+    buf_alloc_p = ALLOC(GETIFADDRS_BUFSZ);
     buf_p = buf_alloc_p;
 #   define BUF_ENSURE(Size)						\
     do {								\
 	int NEED_, GOT_ = buf_p - buf_alloc_p;				\
 	NEED_ = GOT_ + (Size);						\
 	if (NEED_ > buf_size) {						\
-	    buf_size = NEED_ + 512;					\
+	    buf_size = NEED_ + GETIFADDRS_BUFSZ;			\
 	    buf_alloc_p = REALLOC(buf_alloc_p, buf_size);		\
 	    buf_p = buf_alloc_p + GOT_;					\
 	}								\
@@ -5830,7 +5865,7 @@ static ErlDrvSSizeT inet_ctl_getifaddrs(inet_descriptor* desc_p,
 	    while (! (P_ = sockaddr_to_buf((sa), buf_p,			\
 					   buf_alloc_p+buf_size))) {	\
 		int GOT_ = buf_p - buf_alloc_p;				\
-		buf_size += 512;					\
+		buf_size += GETIFADDRS_BUFSZ;				\
 		buf_alloc_p = REALLOC(buf_alloc_p, buf_size);		\
 		buf_p = buf_alloc_p + GOT_;				\
 	    }								\
@@ -5887,10 +5922,11 @@ static ErlDrvSSizeT inet_ctl_getifaddrs(inet_descriptor* desc_p,
 		     || ifa_p->ifa_addr->sa_family == AF_PACKET
 #endif
 		     ) {
-		char *bp = buf_p;
-		BUF_ENSURE(1);
-		SOCKADDR_TO_BUF(INET_IFOPT_HWADDR, ifa_p->ifa_addr);
-		if (buf_p - bp < 4) buf_p = bp; /* Empty hwaddr */
+		size_t need = sockaddr_bufsz_need(ifa_p->ifa_addr);
+		if (need > 3) {
+		    BUF_ENSURE(1 + need);
+		    SOCKADDR_TO_BUF(INET_IFOPT_HWADDR, ifa_p->ifa_addr);
+		}
 	    }
 #endif
 	}
@@ -5905,6 +5941,7 @@ static ErlDrvSSizeT inet_ctl_getifaddrs(inet_descriptor* desc_p,
     return buf_size;
 #   undef BUF_ENSURE
 }
+#undef GETIFADDRS_BUFSZ
 
 #else
 
