@@ -534,7 +534,7 @@ expr({lc,L,E,Qs0}, St0) ->
     {Qs1,St1} = preprocess_quals(L, Qs0, St0),
     lc_tq(L, E, Qs1, #c_literal{anno=lineno_anno(L, St1),val=[]}, St1);
 expr({bc,L,E,Qs}, St) ->
-    bc_tq(L, E, Qs, {nil,L}, St);
+    bc_tq(L, E, Qs, St);
 expr({tuple,L,Es0}, St0) ->
     {Es1,Eps,St1} = safe_list(Es0, St0),
     A = record_anno(L, St1),
@@ -1033,7 +1033,7 @@ lc_tq(Line, E0, [], Mc0, St0) ->
 %%  This TQ from Gustafsson ERLANG'05.  
 %%  More could be transformed before calling bc_tq.
 
-bc_tq(Line, Exp, Qs0, _, St0) ->
+bc_tq(Line, Exp, Qs0, St0) ->
     {BinVar,St1} = new_var(St0),
     {Sz,SzPre,St2} = bc_initial_size(Exp, Qs0, St1),
     {Qs,St3} = preprocess_quals(Line, Qs0, St2),
