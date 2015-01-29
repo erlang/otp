@@ -680,23 +680,15 @@ count_bits_1(Int, Bits) -> count_bits_1(Int bsr 64, Bits+64).
 %%  a rewritten expression consisting of a sequence of
 %%  the arguments only is returned.
 
-useless_call(effect, #c_call{anno=Anno,
-			     module=#c_literal{val=Mod},
+useless_call(effect, #c_call{module=#c_literal{val=Mod},
 			     name=#c_literal{val=Name},
 			     args=Args}=Call) ->
     A = length(Args),
     case erl_bifs:is_safe(Mod, Name, A) of
 	false ->
 	    case erl_bifs:is_pure(Mod, Name, A) of
-		true ->
-		    case member(result_not_wanted, Anno) of
-			false ->
-			    add_warning(Call, result_ignored);
-			true ->
-			    ok
-		    end;
-		false ->
-		    ok
+		true -> add_warning(Call, result_ignored);
+		false -> ok
 	    end,
 	    no;
 	true ->
@@ -3101,7 +3093,7 @@ add_bin_opt_info(Core, Term) ->
     end.
 
 add_warning(Core, Term) ->
-    case is_compiler_generated(Core) of
+    case suppress_warning(Core) of
 	true ->
 	    ok;
 	false ->
@@ -3126,9 +3118,17 @@ get_file([{file,File}|_]) -> File;
 get_file([_|T]) -> get_file(T);
 get_file([]) -> "no_file". % should not happen
 
+suppress_warning(Core) ->
+    is_compiler_generated(Core) orelse
+	is_result_unwanted(Core).
+
 is_compiler_generated(Core) ->
-    Anno = core_lib:get_anno(Core),
-    member(compiler_generated, Anno).
+    Ann = cerl:get_ann(Core),
+    member(compiler_generated, Ann).
+
+is_result_unwanted(Core) ->
+    Ann = cerl:get_ann(Core),
+    member(result_not_wanted, Ann).
 
 get_warnings() ->
     ordsets:from_list((erase({?MODULE,warnings}))).
