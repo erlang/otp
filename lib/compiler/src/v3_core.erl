@@ -107,6 +107,7 @@
 -record(ifilter,   {anno=#a{},arg}).
 -record(igen,      {anno=#a{},ceps=[],acc_pat,acc_guard,
 		    skip_pat,tail,tail_pat,arg}).
+-record(isimple,   {anno=#a{},term :: cerl:cerl()}).
 
 -type iapply()    :: #iapply{}.
 -type ibinary()   :: #ibinary{}.
@@ -125,11 +126,12 @@
 -type itry()      :: #itry{}.
 -type ifilter()   :: #ifilter{}.
 -type igen()      :: #igen{}.
+-type isimple()   :: #isimple{}.
 
 -type i() :: iapply()   | ibinary()   | icall()     | icase()  | icatch()
            | iclause()  | ifun()      | iletrec()   | imatch() | iprimop()
            | iprotect() | ireceive1() | ireceive2() | iset()   | itry()
-           | ifilter()  | igen().
+           | ifilter()  | igen()      | isimple().
 
 -type warning() :: {file:filename(), [{integer(), module(), term()}]}.
 
@@ -288,13 +290,15 @@ gexpr({protect,Line,Arg}, Bools0, St0) ->
 	    {#iprotect{anno=#a{anno=Anno},body=Eps++[E]},[],Bools0,St}
     end;
 gexpr({op,L,'andalso',E1,E2}, Bools, St0) ->
-    {#c_var{name=V0},St} = new_var(L, St0),
+    Anno = lineno_anno(L, St0),
+    {#c_var{name=V0},St} = new_var(Anno, St0),
     V = {var,L,V0},
     False = {atom,L,false},
     E = make_bool_switch_guard(L, E1, V, E2, False),
     gexpr(E, Bools, St);
 gexpr({op,L,'orelse',E1,E2}, Bools, St0) ->
-    {#c_var{name=V0},St} = new_var(L, St0),
+    Anno = lineno_anno(L, St0),
+    {#c_var{name=V0},St} = new_var(Anno, St0),
     V = {var,L,V0},
     True = {atom,L,true},
     E = make_bool_switch_guard(L, E1, V, True, E2),
@@ -707,13 +711,15 @@ expr({op,_,'++',{lc,Llc,E,Qs0},More}, St0) ->
     {Y,Yps,St} = lc_tq(Llc, E, Qs, Mc, St2),
     {Y,Mps++Yps,St};
 expr({op,L,'andalso',E1,E2}, St0) ->
-    {#c_var{name=V0},St} = new_var(L, St0),
+    Anno = lineno_anno(L, St0),
+    {#c_var{name=V0},St} = new_var(Anno, St0),
     V = {var,L,V0},
     False = {atom,L,false},
     E = make_bool_switch(L, E1, V, E2, False, St0),
     expr(E, St);
 expr({op,L,'orelse',E1,E2}, St0) ->
-    {#c_var{name=V0},St} = new_var(L, St0),
+    Anno = lineno_anno(L, St0),
+    {#c_var{name=V0},St} = new_var(Anno, St0),
     V = {var,L,V0},
     True = {atom,L,true},
     E = make_bool_switch(L, E1, V, True, E2, St0),
@@ -1763,7 +1769,7 @@ new_var_name(#core{vcount=C}=St) ->
 new_var(St) ->
     new_var([], St).
 
-new_var(Anno, St0) ->
+new_var(Anno, St0) when is_list(Anno) ->
     {New,St} = new_var_name(St0),
     {#c_var{anno=Anno,name=New},St}.
 
@@ -1990,11 +1996,11 @@ uexpr(#ibinary{anno=A,segments=Ss}, _, St) ->
 uexpr(#c_literal{}=Lit, _, St) ->
     Anno = get_anno(Lit),
     {set_anno(Lit, #a{us=[],anno=Anno}),St};
-uexpr(Lit, _, St) ->
-    true = is_simple(Lit),			%Sanity check!
-    Vs = lit_vars(Lit),
-    Anno = get_anno(Lit),
-    {set_anno(Lit, #a{us=Vs,anno=Anno}),St}.
+uexpr(Simple, _, St) ->
+    true = is_simple(Simple),			%Sanity check!
+    Vs = lit_vars(Simple),
+    Anno = get_anno(Simple),
+    {#isimple{anno=#a{us=Vs,anno=Anno},term=Simple},St}.
 
 uexpr_list(Les0, Ks, St0) ->
     mapfoldl(fun (Le, St) -> uexpr(Le, Ks, St) end, St0, Les0).
@@ -2171,7 +2177,8 @@ cguard(Gs, St0) ->
 
 cexprs([#iset{var=#c_var{name=Name}=Var}=Iset], As, St) ->
     %% Make return value explicit, and make Var true top level.
-    cexprs([Iset,Var#c_var{anno=#a{us=[Name]}}], As, St);
+    Isimple = #isimple{anno=#a{us=[Name]},term=Var},
+    cexprs([Iset,Isimple], As, St);
 cexprs([Le], As, St0) ->
     {Ce,Es,Us,St1} = cexpr(Le, As, St0),
     Exp = make_vars(As),			%The export variables
@@ -2286,12 +2293,9 @@ cexpr(#c_literal{}=Lit, _As, St) ->
     Anno = get_anno(Lit),
     Vs = Anno#a.us,
     {set_anno(Lit, Anno#a.anno),[],Vs,St};
-cexpr(Lit, _As, St) ->
-    true = is_simple(Lit),		%Sanity check!
-    Anno = get_anno(Lit),
-    Vs = Anno#a.us,
-    %%Vs = lit_vars(Lit),
-    {set_anno(Lit, Anno#a.anno),[],Vs,St}.
+cexpr(#isimple{anno=#a{us=Vs},term=Simple}, _As, St) ->
+    true = is_simple(Simple),		%Sanity check!
+    {Simple,[],Vs,St}.
 
 cfun(#ifun{anno=A,id=Id,vars=Args,clauses=Lcs,fc=Lfc}, _As, St0) ->
     {Ccs,St1} = cclauses(Lcs, [], St0),     %NEVER export!
