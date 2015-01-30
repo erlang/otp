@@ -283,6 +283,8 @@ void *hipe_make_native_stub(void *callee_exp, unsigned int beamArity)
      */
 
     code = alloc_stub(4, &tramp_callemu);
+    if (!code)
+	return NULL;
     callemu_offset = ((int)&nbif_callemu - ((int)&code[2] + 8)) >> 2;
     if (!(callemu_offset >= -0x00800000 && callemu_offset <= 0x007FFFFF)) {
 	callemu_offset = ((int)tramp_callemu - ((int)&code[2] + 8)) >> 2;
