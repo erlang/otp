@@ -578,6 +578,19 @@ obsolete_1(asn1rt, utf8_binary_to_list, 1) ->
 obsolete_1(asn1rt, utf8_list_to_binary, 1) ->
     {deprecated,{unicode,characters_to_binary,1}};
 
+%% Added in OTP 18.
+obsolete_1(core_lib, get_anno, 1) ->
+    {deprecated,{cerl,get_ann,1}};
+obsolete_1(core_lib, set_anno, 2) ->
+    {deprecated,{cerl,set_ann,2}};
+obsolete_1(core_lib, is_literal, 1) ->
+    {deprecated,{cerl,is_literal,1}};
+obsolete_1(core_lib, is_literal_list, 1) ->
+    {deprecated,"deprecated; use lists:all(fun cerl:is_literal/1, L)"
+     " instead"};
+obsolete_1(core_lib, literal_value, 1) ->
+    {deprecated,{core_lib,concrete,1}};
+
 obsolete_1(_, _, _) ->
     no.
 
