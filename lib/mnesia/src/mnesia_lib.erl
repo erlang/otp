@@ -930,14 +930,9 @@ random_time(Retries, _Counter0) ->
     
     case get(random_seed) of
 	undefined ->
-	    try
-		_ = random:seed(erlang:phash2([erlang:node()]),
-				erlang:monotonic_time(),
-				erlang:unique_integer())
-	    catch
-		error:_ ->
-		    _ = random:seed(erlang:now())
-	    end,
+	    _ = random:seed(erlang:unique_integer(),
+			    erlang:monotonic_time(),
+			    erlang:unique_integer()),
 	    Time = Dup + random:uniform(MaxIntv),
 	    %%	    dbg_out("---random_test rs ~w max ~w val ~w---~n", [Retries, MaxIntv, Time]),
 	    Time;

@@ -2171,7 +2171,7 @@ system_info2(version) ->
 		    Version;
 		false ->
 		    %% Ensure that it does not match
-		    {mnesia_not_loaded, node(), now()}
+		    {mnesia_not_loaded, node(), erlang:timestamp()}
 	    end;
 	Version ->
 	    Version

@@ -200,7 +200,7 @@ log_header(Kind, Version) ->
 		log_kind=Kind,
 		mnesia_version=mnesia:system_info(version),
 		node=node(),
-		now=now()}.
+		now=erlang:timestamp()}.
 
 version() -> "4.3".
 

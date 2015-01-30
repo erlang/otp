@@ -53,7 +53,9 @@
          up_stores = [],  %% list of upper layer stores for nested trans
          level = 1}).     %% transaction level
 
--define(unique_cookie, {erlang:now(), node()}).
+-define(unique_cookie, {{erlang:monotonic_time() + erlang:time_offset(),
+			 erlang:unique_integer(),1},
+			node()}).
 
 -record(cstruct, {name,                            % Atom
 		  type = set,                      % set | bag
