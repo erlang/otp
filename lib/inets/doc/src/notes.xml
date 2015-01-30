@@ -32,7 +32,40 @@
     <file>notes.xml</file>
   </header>
   
-  <section><title>Inets 5.10.4</title>
+  <section><title>Inets 5.10.5</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    mod_alias now handles https-URIs properly</p>
+          <p>
+	    Consistent view of configuration parameter
+	    keep_alive_timeout, should be presented in the
+	    httpd:info/[1,2] function in the same unit as it is
+	    inputted.</p>
+          <p>
+	    Own Id: OTP-12436 Aux Id: seq12786 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Gracefully handle invalid content-lenght headers instead
+	    of crashing in list_to_integer.</p>
+          <p>
+	    Own Id: OTP-12429</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Inets 5.10.4</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>
