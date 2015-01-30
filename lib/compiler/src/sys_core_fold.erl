@@ -1482,7 +1482,7 @@ clause(#c_clause{pats=Ps0,guard=G0,body=B0}=Cl, Cexpr, Ctxt, Sub0) ->
 let_substs(Vs0, As0, Sub0) ->
     {Vs1,Sub1} = pattern_list(Vs0, Sub0),
     {Vs2,As1,Ss} = let_substs_1(Vs1, As0, Sub1),
-    Sub2 = scope_add([V || #c_var{name=V} <- Vs2], Sub1),
+    Sub2 = sub_add_scope([V || #c_var{name=V} <- Vs2], Sub1),
     {Vs2,As1,
      foldl(fun ({V,S}, Sub) -> sub_set_name(V, S, Sub) end, Sub2, Ss)}.
 
@@ -1517,7 +1517,7 @@ pattern(#c_var{}=Pat, Isub, Osub) ->
 	true ->
 	    V1 = make_var_name(),
 	    Pat1 = #c_var{name=V1},
-	    {Pat1,sub_set_var(Pat, Pat1, scope_add([V1], Osub))};
+	    {Pat1,sub_set_var(Pat, Pat1, sub_add_scope([V1], Osub))};
 	false ->
 	    {Pat,sub_del_var(Pat, Osub)}
     end;
@@ -1587,6 +1587,7 @@ is_subst(_) -> false.
 %% sub_del_var(Var, #sub{}) -> #sub{}.
 %% sub_subst_var(Var, Value, #sub{}) -> [{Name,Value}].
 %% sub_is_val(Var, #sub{}) -> boolean().
+%% sub_add_scope(#sub{}) -> #sub{}
 %% sub_subst_scope(#sub{}) -> #sub{}
 %%
 %%  We use the variable name as key so as not have problems with
@@ -1597,9 +1598,10 @@ is_subst(_) -> false.
 %%  In addition to the list of substitutions, we also keep track of
 %%  all variable currently live (the scope).
 %%
-%%  sub_subst_scope/1 adds dummy substitutions for all variables
-%%  in the scope in order to force renaming if variables in the
-%%  scope occurs as pattern variables.
+%%  sub_add_scope/2 adds variables to the scope.  sub_subst_scope/1
+%%  adds dummy substitutions for all variables in the scope in order
+%%  to force renaming if variables in the scope occurs as pattern
+%%  variables.
 
 sub_new() -> #sub{v=orddict:new(),s=gb_trees:empty(),t=[]}.
 
@@ -1638,6 +1640,12 @@ sub_del_var(#c_var{name=V}, #sub{v=S,s=Scope,t=Tdb}=Sub) ->
 sub_subst_var(#c_var{name=V}, Val, #sub{v=S0}) ->
     %% Fold chained substitutions.
     [{V,Val}] ++ [ {K,Val} || {K,#c_var{name=V1}} <- S0, V1 =:= V].
+
+sub_add_scope(Vs, #sub{s=Scope0}=Sub) ->
+    Scope = foldl(fun(V, S) when is_integer(V); is_atom(V) ->
+			  gb_sets:add(V, S)
+		  end, Scope0, Vs),
+    Sub#sub{s=Scope}.
 
 sub_subst_scope(#sub{v=S0,s=Scope}=Sub) ->
     S = [{-1,#c_var{name=Sv}} || Sv <- gb_sets:to_list(Scope)]++S0,
@@ -2611,12 +2619,6 @@ move_let_into_expr(_Let, _Expr, _Sub) -> impossible.
 
 is_failing_clause(#c_clause{body=B}) ->
     will_fail(B).
-
-scope_add(Vs, #sub{s=Scope0}=Sub) ->
-    Scope = foldl(fun(V, S) when is_integer(V); is_atom(V) ->
-			  gb_sets:add(V, S)
-		  end, Scope0, Vs),
-    Sub#sub{s=Scope}.
 
 %% opt_simple_let(#c_let{}, Context, Sub) -> CoreTerm
 %%  Optimize a let construct that does not contain any lets in
