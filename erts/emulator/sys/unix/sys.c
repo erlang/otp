@@ -1560,9 +1560,13 @@ static ErlDrvData spawn_start(ErlDrvPort port_num, char* name, SysDriverOpts* op
 			goto child_error;
 	    }
 
+#if defined(HAVE_CLOSEFROM)
+	    closefrom(opts->use_stdio ? 3 : 5);
+#else
 	    for (i = opts->use_stdio ? 3 : 5; i < max_files; i++)
 		(void) close(i);
-	    
+#endif
+
 	    if (opts->wd && chdir(opts->wd) < 0)
 		goto child_error;
 
