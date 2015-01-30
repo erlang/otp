@@ -124,7 +124,7 @@ function_definition ->
 	{'$1','$3'}.
 
 anno_fun -> '(' fun_expr '-|' annotation ')' :
-	core_lib:set_anno('$2', '$4').
+	cerl:set_ann('$2', '$4').
 anno_fun -> fun_expr : '$1'.
 
 %% Constant terms for annotations and attributes.
@@ -163,7 +163,7 @@ tail_constant -> ',' constant tail_constant : ['$2'|'$3'].
 %%  ( ( V -| <anno> ) = ( {a} -| <anno> ) -| <anno> )
 
 anno_pattern -> '(' other_pattern '-|' annotation ')' :
-	core_lib:set_anno('$2', '$4').
+	cerl:set_ann('$2', '$4').
 anno_pattern -> other_pattern : '$1'.
 anno_pattern -> anno_variable : '$1'.
 
@@ -224,7 +224,7 @@ anno_variables -> anno_variable : ['$1'].
 
 anno_variable -> variable : '$1'.
 anno_variable -> '(' variable '-|' annotation ')' :
-	core_lib:set_anno('$2', '$4').
+	cerl:set_ann('$2', '$4').
 
 %% Expressions
 %%  Must split expressions into two levels as nested value expressions
@@ -232,7 +232,7 @@ anno_variable -> '(' variable '-|' annotation ')' :
 
 anno_expression -> expression : '$1'.
 anno_expression -> '(' expression '-|' annotation ')' :
-	core_lib:set_anno('$2', '$4').
+	cerl:set_ann('$2', '$4').
 
 anno_expressions -> anno_expression ',' anno_expressions : ['$1' | '$3'].
 anno_expressions -> anno_expression : ['$1'].
@@ -328,7 +328,7 @@ function_name -> atom '/' integer :
 
 anno_function_name -> function_name : '$1'.
 anno_function_name -> '(' function_name '-|' annotation ')' :
-	core_lib:set_anno('$2', '$4').
+	cerl:set_ann('$2', '$4').
 
 let_vars -> anno_variable : ['$1'].
 let_vars -> '<' '>' : [].
@@ -356,7 +356,7 @@ anno_clauses -> anno_clause : ['$1'].
 
 anno_clause -> clause : '$1'.
 anno_clause -> '(' clause '-|' annotation ')' :
-	core_lib:set_anno('$2', '$4').
+	cerl:set_ann('$2', '$4').
 
 clause -> clause_pattern 'when' anno_expression '->' anno_expression :
 	#c_clause{pats='$1',guard='$3',body='$5'}.

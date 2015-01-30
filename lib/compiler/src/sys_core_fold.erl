@@ -1178,7 +1178,7 @@ fold_non_lit_args(Call, _, _, _, _) -> Call.
 %% Evaluate a relational operation using type information.
 eval_rel_op(Call, Op, [#c_var{name=V},#c_var{name=V}], _) ->
     Bool = erlang:Op(same, same),
-    #c_literal{anno=core_lib:get_anno(Call),val=Bool};
+    #c_literal{anno=cerl:get_ann(Call),val=Bool};
 eval_rel_op(Call, '=:=', [#c_var{name=V}=Var,#c_literal{val=true}], Sub) ->
     %% BoolVar =:= true  ==>  BoolVar
     case is_boolean_type(V, Sub) of
@@ -1188,7 +1188,7 @@ eval_rel_op(Call, '=:=', [#c_var{name=V}=Var,#c_literal{val=true}], Sub) ->
 eval_rel_op(Call, '==', Ops, _Sub) ->
     case is_exact_eq_ok(Ops) of
 	true ->
-	    Name = #c_literal{anno=core_lib:get_anno(Call),val='=:='},
+	    Name = #c_literal{anno=cerl:get_ann(Call),val='=:='},
 	    Call#c_call{name=Name};
 	false ->
 	    Call
@@ -1196,7 +1196,7 @@ eval_rel_op(Call, '==', Ops, _Sub) ->
 eval_rel_op(Call, '/=', Ops, _Sub) ->
     case is_exact_eq_ok(Ops) of
 	true ->
-	    Name = #c_literal{anno=core_lib:get_anno(Call),val='=/='},
+	    Name = #c_literal{anno=cerl:get_ann(Call),val='=/='},
 	    Call#c_call{name=Name};
 	false ->
 	    Call
@@ -1694,7 +1694,7 @@ clauses(E, [C0|Cs], Ctxt, Sub, LitExpr) ->
 	{yes,yes} ->
 	    case LitExpr of
 		false ->
-		    Line = get_line(core_lib:get_anno(C1)),
+		    Line = get_line(cerl:get_ann(C1)),
 		    shadow_warning(Cs, Line);
 		true ->
 		    %% If the case expression is a literal,
@@ -1928,7 +1928,7 @@ opt_bool_case_guard(#c_case{arg=Arg,clauses=Cs0}=Case) ->
 	    Case;
 	true ->
 	    Cs = opt_bool_case_guard(Arg, Cs0),
-	    Case#c_case{arg=#c_values{anno=core_lib:get_anno(Arg),es=[]},
+	    Case#c_case{arg=#c_values{anno=cerl:get_ann(Arg),es=[]},
 			clauses=Cs}
     end.
 
@@ -3155,7 +3155,7 @@ add_warning(Core, Term) ->
 	true ->
 	    ok;
 	false ->
-	    Anno = core_lib:get_anno(Core),
+	    Anno = cerl:get_ann(Core),
 	    Line = get_line(Anno),
 	    File = get_file(Anno),
 	    Key = {?MODULE,warnings},

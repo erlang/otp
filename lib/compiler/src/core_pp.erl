@@ -45,7 +45,7 @@ format(Node) ->
     format(Node, #ctxt{}).
 
 maybe_anno(Node, Fun, Ctxt) ->
-    As = core_lib:get_anno(Node),
+    As = cerl:get_ann(Node),
     case get_line(As) of
 	none ->
 	    maybe_anno(Node, Fun, Ctxt, As);
@@ -195,7 +195,7 @@ format_1(#c_alias{var=V,pat=P}, Ctxt) ->
     Txt = [format(V, Ctxt)|" = "],
     [Txt|format(P, add_indent(Ctxt, width(Txt, Ctxt)))];
 format_1(#c_let{vars=Vs0,arg=A,body=B}, Ctxt) ->
-    Vs = [core_lib:set_anno(V, []) || V <- Vs0],
+    Vs = [cerl:set_ann(V, []) || V <- Vs0],
     case is_simple_term(A) of
 	false ->
 	    Ctxt1 = add_indent(Ctxt, Ctxt#ctxt.body_indent),
@@ -213,7 +213,7 @@ format_1(#c_let{vars=Vs0,arg=A,body=B}, Ctxt) ->
 	    ["let ",
 	     format_values(Vs, add_indent(Ctxt, 4)),
 	     " = ",
-	     format(core_lib:set_anno(A, []), Ctxt1),
+	     format(cerl:set_ann(A, []), Ctxt1),
 	     nl_indent(Ctxt),
 	     "in  "
 	     | format(B, add_indent(Ctxt, 4))
