@@ -18,7 +18,7 @@
 %%
 -module(test_lib).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 -compile({no_auto_import,[binary_part/2]}).
 -export([id/1,recompile/1,parallel/0,uniq/0,opt_opts/1,get_data_dir/1,
 	 smoke_disasm/1,p_run/2,binary_part/2]).
