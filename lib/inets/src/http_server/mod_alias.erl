@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -55,6 +55,7 @@ do(#mod{data = Data} = Info) ->
 
 do_alias(#mod{config_db   = ConfigDB, 
 	      request_uri = ReqURI,
+	      socket_type = SocketType,
 	      data        = Data}) ->
     {ShortPath, Path, AfterPath} = 
 	real_name(ConfigDB, ReqURI, which_alias(ConfigDB)),
@@ -70,8 +71,9 @@ do_alias(#mod{config_db   = ConfigDB,
 			     (LastChar =/= $/)) ->
 	    ?hdrt("directory and last-char is a /", []),
 	    ServerName = which_server_name(ConfigDB), 
-	    Port = port_string( which_port(ConfigDB) ),
-	    URL = "http://" ++ ServerName ++ Port ++ ReqURI ++ "/",
+	    Port = port_string(which_port(ConfigDB)),
+	    Protocol = get_protocol(SocketType),
+	    URL = Protocol ++ ServerName ++ Port ++ ReqURI ++ "/",
 	    ReasonPhrase = httpd_util:reason_phrase(301),
 	    Message = httpd_util:message(301, URL, ConfigDB),
 	    {proceed,
@@ -93,6 +95,12 @@ port_string(80) ->
     "";
 port_string(Port) ->
     ":" ++ integer_to_list(Port).
+
+get_protocol(ip_comm) ->
+    "http://";
+get_protocol(_) ->
+    %% Should clean up to have only one ssl type essl vs ssl is not relevant any more
+    "https://".
 
 %% real_name
 
