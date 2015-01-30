@@ -130,7 +130,7 @@ static void atexit_alloc_code_stats(void)
 #define ALLOC_CODE_STATS(X)	do{}while(0)
 #endif
 
-static void morecore(unsigned int alloc_bytes)
+static int morecore(unsigned int alloc_bytes)
 {
     unsigned int map_bytes;
     char *map_hint, *map_start;
@@ -158,10 +158,9 @@ static void morecore(unsigned int alloc_bytes)
 #endif
 		     ,
 		     -1, 0);
-    if (map_start == MAP_FAILED) {
-	perror("mmap");
-	abort();
-    }
+    if (map_start == MAP_FAILED)
+	return -1;
+
     ALLOC_CODE_STATS(total_mapped += map_bytes);
 
     /* Merge adjacent mappings, so the trailing portion of the previous
@@ -177,6 +176,8 @@ static void morecore(unsigned int alloc_bytes)
     }
 
     ALLOC_CODE_STATS(atexit_alloc_code_stats());
+
+    return 0;
 }
 
 static void *alloc_code(unsigned int alloc_bytes)
@@ -186,8 +187,8 @@ static void *alloc_code(unsigned int alloc_bytes)
     /* Align function entries. */
     alloc_bytes = (alloc_bytes + 3) & ~3;
 
-    if (code_bytes < alloc_bytes)
-	morecore(alloc_bytes);
+    if (code_bytes < alloc_bytes && morecore(alloc_bytes) != 0)
+	return NULL;
     ALLOC_CODE_STATS(++nr_allocs);
     ALLOC_CODE_STATS(total_alloc += alloc_bytes);
     res = code_next;
@@ -204,8 +205,6 @@ void *hipe_alloc_code(Uint nrbytes, Eterm callees, Eterm *trampolines, Process *
     return alloc_code(nrbytes);
 }
 
-/* called from hipe_bif0.c:hipe_bifs_make_native_stub_2()
-   and hipe_bif0.c:hipe_make_stub() */
 void *hipe_make_native_stub(void *beamAddress, unsigned int beamArity)
 {
     unsigned int *code;
@@ -213,6 +212,8 @@ void *hipe_make_native_stub(void *beamAddress, unsigned int beamArity)
     int i;
 
     code = alloc_code(5*sizeof(int));
+    if (!code)
+	return NULL;
 
     /* sethi %hi(Address), %i4 */
     code[0] = 0x39000000 | (((unsigned int)beamAddress >> 10) & 0x3FFFFF);

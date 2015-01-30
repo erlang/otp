@@ -827,7 +827,6 @@ patch_to_emu_step1(Mod) ->
       %% were added as the result of dynamic apply calls. We must
       %% purge them too, but we have no explicit record of them.
       %% Therefore invalidate all native addresses for the module.
-      %% emu_make_stubs/1 will repair the ones for compiled static calls.
       hipe_bifs:invalidate_funinfo_native_addresses(MFAs),
       %% Find all call sites that call these MFAs. As a side-effect,
       %% create native stubs for any MFAs that are referred.
@@ -841,7 +840,6 @@ patch_to_emu_step1(Mod) ->
 
 %% Step 2 must occur after the new BEAM stub module is created.
 patch_to_emu_step2(ReferencesToPatch) ->
-  emu_make_stubs(ReferencesToPatch),
   redirect(ReferencesToPatch).
 
 -spec is_loaded(Module::atom()) -> boolean().
@@ -851,21 +849,6 @@ is_loaded(M) when is_atom(M) ->
     I when is_integer(I) -> true
   catch _:_ -> false
   end.
-
--ifdef(notdef).
-emu_make_stubs([{MFA,_Refs}|Rest]) ->
-  make_stub(MFA),
-  emu_make_stubs(Rest);
-emu_make_stubs([]) ->
-  [].
-
-make_stub({_,_,A} = MFA) ->
-  EmuAddress = hipe_bifs:get_emu_address(MFA),
-  StubAddress = hipe_bifs:make_native_stub(EmuAddress, A),
-  hipe_bifs:set_funinfo_native_address(MFA, StubAddress).
--else.
-emu_make_stubs(_) -> [].
--endif.
 
 %%--------------------------------------------------------------------
 %% Given a list of MFAs, tag them with their referred_from references.
