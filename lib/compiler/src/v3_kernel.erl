@@ -131,12 +131,12 @@ module(#c_module{anno=A,name=M,exports=Es,attrs=As,defs=Fs}, _Options) ->
     {ok,#k_mdef{anno=A,name=M#c_literal.val,exports=Kes,attributes=Kas,
 		body=Kfs ++ St#kern.funs},lists:sort(St#kern.ws)}.
 
-attributes([{#c_literal{val=Name},Val}|As]) ->
+attributes([{#c_literal{val=Name},#c_literal{val=Val}}|As]) ->
     case include_attribute(Name) of
 	false ->
 	    attributes(As);
 	true ->
-	    [{Name,core_lib:literal_value(Val)}|attributes(As)]
+	    [{Name,Val}|attributes(As)]
     end;
 attributes([]) -> [].
 
@@ -675,12 +675,12 @@ atomic_bin([#c_bitstr{anno=A,val=E0,size=S0,unit=U0,type=T,flags=Fs0}|Es0],
     {E,Ap1,St1} = atomic(E0, Sub, St0),
     {S1,Ap2,St2} = atomic(S0, Sub, St1),
     validate_bin_element_size(S1),
-    U1 = core_lib:literal_value(U0),
-    Fs1 = core_lib:literal_value(Fs0),
+    U1 = cerl:concrete(U0),
+    Fs1 = cerl:concrete(Fs0),
     {Es,Ap3,St3} = atomic_bin(Es0, Sub, St2),
     {#k_bin_seg{anno=A,size=S1,
 		unit=U1,
-		type=core_lib:literal_value(T),
+		type=cerl:concrete(T),
 		flags=Fs1,
 		seg=E,next=Es},
      Ap1++Ap2++Ap3,St3};
@@ -807,8 +807,8 @@ pattern_bin_1([#c_bitstr{anno=A,val=E0,size=S0,unit=U,type=T,flags=Fs}|Es0],
 		%% problems.
 		#k_atom{val=bad_size}
 	end,
-    U0 = core_lib:literal_value(U),
-    Fs0 = core_lib:literal_value(Fs),
+    U0 = cerl:concrete(U),
+    Fs0 = cerl:concrete(Fs),
     %%ok= io:fwrite("~w: ~p~n", [?LINE,{B0,S,U0,Fs0}]),
     {E,Osub1,St2} = pattern(E0, Isub0, Osub0, St1),
     Isub1 = case E0 of
@@ -819,7 +819,7 @@ pattern_bin_1([#c_bitstr{anno=A,val=E0,size=S0,unit=U,type=T,flags=Fs}|Es0],
     {Es,{Isub,Osub},St3} = pattern_bin_1(Es0, Isub1, Osub1, St2),
     {#k_bin_seg{anno=A,size=S,
 		unit=U0,
-		type=core_lib:literal_value(T),
+		type=cerl:concrete(T),
 		flags=Fs0,
 		seg=E,next=Es},
      {Isub,Osub},St3};

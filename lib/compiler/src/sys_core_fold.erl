@@ -1117,29 +1117,33 @@ fold_call_1(Call, Mod, Name, Args, Sub) ->
 	true -> fold_call_2(Call, Mod, Name, Args, Sub)
     end.
 
-fold_call_2(Call, Module, Name, Args0, Sub) ->
-    try
-	Args = [core_lib:literal_value(A) || A <- Args0],
-	try apply(Module, Name, Args) of
-	    Val ->
-		case cerl:is_literal_term(Val) of
-		    true ->
-			#c_literal{val=Val};
-		    false ->
-			%% Successful evaluation, but it was not
-			%% possible to express the computed value as a literal.
-			Call
-		end
-	catch
-	    error:Reason ->
-		%% Evaluation of the function failed. Warn and replace
-		%% the call with a call to erlang:error/1.
-		eval_failure(Call, Reason)
-	end
+fold_call_2(Call, Module, Name, Args, Sub) ->
+    case all(fun cerl:is_literal/1, Args) of
+	true ->
+	    %% All arguments are literals.
+	    fold_lit_args(Call, Module, Name, Args);
+	false ->
+	    %% At least one non-literal argument.
+	    fold_non_lit_args(Call, Module, Name, Args, Sub)
+    end.
+
+fold_lit_args(Call, Module, Name, Args0) ->
+    Args = [cerl:concrete(A) || A <- Args0],
+    try apply(Module, Name, Args) of
+	Val ->
+	    case cerl:is_literal_term(Val) of
+		true ->
+		    cerl:abstract(Val);
+		false ->
+		    %% Successful evaluation, but it was not possible
+		    %% to express the computed value as a literal.
+		    Call
+	    end
     catch
-	error:_ ->
-	    %% There was at least one non-literal argument.
-	    fold_non_lit_args(Call, Module, Name, Args0, Sub)
+	error:Reason ->
+	    %% Evaluation of the function failed. Warn and replace
+	    %% the call with a call to erlang:error/1.
+	    eval_failure(Call, Reason)
     end.
 
 %% fold_non_lit_args(Call, Module, Name, Args, Sub) -> Expr.
