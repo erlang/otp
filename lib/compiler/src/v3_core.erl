@@ -387,32 +387,29 @@ gexpr_test(E0, Bools0, St0) ->
 		    Lanno = Anno#a.anno,
 		    {New,St2} = new_var(Lanno, St1),
 		    Bools = [New|Bools0],
-		    {#icall{anno=Anno,	%Must have an #a{}
-			    module=#c_literal{anno=Lanno,val=erlang},
-			    name=#c_literal{anno=Lanno,val='=:='},
-			    args=[New,#c_literal{anno=Lanno,val=true}]},
+		    {icall_eq_true(New),
 		     Eps0 ++ [#iset{anno=Anno,var=New,arg=E1}],Bools,St2}
 	    end;
 	_ ->
-	    Anno = get_ianno(E1),
 	    Lanno = get_lineno_anno(E1),
+	    ACompGen = #a{anno=[compiler_generated]},
 	    case is_simple(E1) of
 		true ->
 		    Bools = [E1|Bools0],
-		    {#icall{anno=Anno,	%Must have an #a{}
-			    module=#c_literal{anno=Lanno,val=erlang},
-			    name=#c_literal{anno=Lanno,val='=:='},
-			    args=[E1,#c_literal{anno=Lanno,val=true}]},Eps0,Bools,St1};
+		    {icall_eq_true(E1),Eps0,Bools,St1};
 		false ->
 		    {New,St2} = new_var(Lanno, St1),
 		    Bools = [New|Bools0],
-		    {#icall{anno=Anno,	%Must have an #a{}
-			    module=#c_literal{anno=Lanno,val=erlang},
-			    name=#c_literal{anno=Lanno,val='=:='},
-			    args=[New,#c_literal{anno=Lanno,val=true}]},
-		     Eps0 ++ [#iset{anno=Anno,var=New,arg=E1}],Bools,St2}
+		    {icall_eq_true(New),
+		     Eps0 ++ [#iset{anno=ACompGen,var=New,arg=E1}],Bools,St2}
 	    end
     end.
+
+icall_eq_true(Arg) ->
+    #icall{anno=#a{anno=[compiler_generated]},
+	   module=#c_literal{val=erlang},
+	   name=#c_literal{val='=:='},
+	   args=[Arg,#c_literal{val=true}]}.
 
 force_booleans(Vs0, E, Eps, St) ->
     Vs1 = [set_anno(V, []) || V <- Vs0],
@@ -423,16 +420,15 @@ force_booleans_1([], E, Eps, St) ->
     {E,Eps,St};
 force_booleans_1([V|Vs], E0, Eps0, St0) ->
     {E1,Eps1,St1} = force_safe(E0, St0),
-    Lanno = element(2, V),
-    Anno = #a{anno=Lanno},
-    Call = #icall{anno=Anno,module=#c_literal{anno=Lanno,val=erlang},
-		  name=#c_literal{anno=Lanno,val=is_boolean},
+    ACompGen = #a{anno=[compiler_generated]},
+    Call = #icall{anno=ACompGen,module=#c_literal{val=erlang},
+		  name=#c_literal{val=is_boolean},
 		  args=[V]},
-    {New,St} = new_var(Lanno, St1),
-    Iset = #iset{anno=Anno,var=New,arg=Call},
+    {New,St} = new_var([], St1),
+    Iset = #iset{var=New,arg=Call},
     Eps = Eps0 ++ Eps1 ++ [Iset],
-    E = #icall{anno=Anno,
-	       module=#c_literal{anno=Lanno,val=erlang},name=#c_literal{anno=Lanno,val='and'},
+    E = #icall{anno=ACompGen,
+	       module=#c_literal{val=erlang},name=#c_literal{val='and'},
 	       args=[E1,New]},
     force_booleans_1(Vs, E, Eps, St).
 
