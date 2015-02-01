@@ -22,7 +22,8 @@
 	 init_per_suite/1, end_per_suite/1,
 	 init_per_testcase/2, end_per_testcase/2]).
 
--export([nodename/1, register_and_whereis/1, get_names/1, boolean_atom/1,
+-export([transport_factory/1,
+	 nodename/1, register_and_whereis/1, get_names/1, boolean_atom/1,
 	 node_ping/1, mbox_ping/1,
 	 java_erlang_send_receive/1,
 	 java_internal_send_receive_same_node/1,
@@ -103,6 +104,7 @@ end_per_group(_GroupName, Config) ->
 
 fundamental() ->
     [
+     transport_factory,    % TransportFactoryTest.java
      nodename,             % Nodename.java
      register_and_whereis, % RegisterAndWhereis.java
      get_names,            % GetNames.java
@@ -200,6 +202,16 @@ end_per_testcase(_Case,Config) ->
 
 %%%-----------------------------------------------------------------
 %%% TEST CASES
+%%%-----------------------------------------------------------------
+transport_factory(doc) ->
+    ["TransportFactoryTest.java: Test custom OTP Transport Factory"];
+transport_factory(suite) ->
+    [];
+transport_factory(Config) when is_list(Config) ->
+    ok = jitu:java(?config(java, Config),
+		   ?config(data_dir, Config),
+		   "TransportFactoryTest").
+
 %%%-----------------------------------------------------------------
 nodename(doc) ->
     ["Nodename.java: "

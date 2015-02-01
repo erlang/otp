@@ -19,7 +19,6 @@
 package com.ericsson.otp.erlang;
 
 import java.io.IOException;
-import java.net.Socket;
 
 /**
  * <p>
@@ -78,8 +77,8 @@ public class OtpCookedConnection extends AbstractConnection {
      * error
      */
     // package scope
-    OtpCookedConnection(final OtpNode self, final Socket s) throws IOException,
-            OtpAuthException {
+    OtpCookedConnection(final OtpNode self, final OtpTransport s)
+            throws IOException, OtpAuthException {
         super(self, s);
         this.self = self;
         links = new Links(25);

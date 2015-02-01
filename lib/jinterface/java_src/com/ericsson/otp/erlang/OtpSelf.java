@@ -19,8 +19,6 @@
 package com.ericsson.otp.erlang;
 
 import java.io.IOException;
-import java.net.ServerSocket;
-import java.net.Socket;
 import java.net.UnknownHostException;
 
 /**
@@ -48,7 +46,7 @@ import java.net.UnknownHostException;
  *
  */
 public class OtpSelf extends OtpLocalNode {
-    private final ServerSocket sock;
+    private final OtpServerTransport sock;
     private final OtpErlangPid pid;
 
     /**
@@ -67,9 +65,40 @@ public class OtpSelf extends OtpLocalNode {
      * @param node
      *            the name of this node.
      *
+     * @exception IOException
+     *                in case of server transport failure
+     *
      */
     public OtpSelf(final String node) throws IOException {
         this(node, defaultCookie, 0);
+    }
+
+    /**
+     * <p>
+     * Create a self node using the default cookie and custom transport factory.
+     * The default cookie is found by reading the first line of the
+     * .erlang.cookie file in the user's home directory. The home directory is
+     * obtained from the System property "user.home".
+     * </p>
+     *
+     * <p>
+     * If the file does not exist, an empty string is used. This method makes no
+     * attempt to create the file.
+     * </p>
+     *
+     * @param node
+     *            the name of this node.
+     *
+     * @param transportFactory
+     *            the transport factory to use when creating connections.
+     *
+     * @exception IOException
+     *                in case of server transport failure
+     *
+     */
+    public OtpSelf(final String node,
+            final OtpTransportFactory transportFactory) throws IOException {
+        this(node, defaultCookie, 0, transportFactory);
     }
 
     /**
@@ -81,16 +110,95 @@ public class OtpSelf extends OtpLocalNode {
      * @param cookie
      *            the authorization cookie that will be used by this node when
      *            it communicates with other nodes.
+     *
+     * @exception IOException
+     *                in case of server transport failure
      */
     public OtpSelf(final String node, final String cookie) throws IOException {
         this(node, cookie, 0);
     }
 
+    /**
+     * Create a self node.
+     *
+     * @param node
+     *            the name of this node.
+     *
+     * @param cookie
+     *            the authorization cookie that will be used by this node when
+     *            it communicates with other nodes.
+     *
+     * @param transportFactory
+     *            the transport factory to use when creating connections.
+     *
+     * @exception IOException
+     *                in case of server transport failure
+     */
+    public OtpSelf(final String node, final String cookie,
+            final OtpTransportFactory transportFactory) throws IOException {
+        this(node, cookie, 0, transportFactory);
+    }
+
+    /**
+     * Create a self node.
+     *
+     * @param node
+     *            the name of this node.
+     *
+     * @param cookie
+     *            the authorization cookie that will be used by this node when
+     *            it communicates with other nodes.
+     *
+     * @param port
+     *            the port number you wish to use for incoming connections.
+     *            Specifying 0 lets the system choose an available port.
+     *
+     * @param transportFactory
+     *            the transport factory to use when creating connections.
+     *
+     * @exception IOException
+     *                in case of server transport failure
+     */
     public OtpSelf(final String node, final String cookie, final int port)
             throws IOException {
         super(node, cookie);
 
-        sock = new ServerSocket(port);
+        sock = createServerTransport(port);
+
+        if (port != 0) {
+            this.port = port;
+        } else {
+            this.port = sock.getLocalPort();
+        }
+
+        pid = createPid();
+    }
+
+    /**
+     * Create a self node.
+     *
+     * @param node
+     *            the name of this node.
+     *
+     * @param cookie
+     *            the authorization cookie that will be used by this node when
+     *            it communicates with other nodes.
+     *
+     * @param port
+     *            the port number you wish to use for incoming connections.
+     *            Specifying 0 lets the system choose an available port.
+     *
+     * @param transportFactory
+     *            the transport factory to use when creating connections.
+     *
+     * @exception IOException
+     *                in case of server transport failure
+     */
+    public OtpSelf(final String node, final String cookie, final int port,
+            final OtpTransportFactory transportFactory) throws IOException {
+        super(node, cookie, transportFactory);
+
+        sock = createServerTransport(port);
 
         if (port != 0) {
             this.port = port;
@@ -179,7 +287,7 @@ public class OtpSelf extends OtpLocalNode {
      *                authorized to connect.
      */
     public OtpConnection accept() throws IOException, OtpAuthException {
-        Socket newsock = null;
+        OtpTransport newsock = null;
 
         while (true) {
             try {

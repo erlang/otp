@@ -19,7 +19,6 @@
 package com.ericsson.otp.erlang;
 
 import java.io.IOException;
-import java.net.Socket;
 
 /**
  * Maintains a connection between a Java process and a remote Erlang, Java or C
@@ -63,8 +62,8 @@ public class OtpConnection extends AbstractConnection {
      * error
      */
     // package scope
-    OtpConnection(final OtpSelf self, final Socket s) throws IOException,
-            OtpAuthException {
+    OtpConnection(final OtpSelf self, final OtpTransport s)
+            throws IOException, OtpAuthException {
         super(self, s);
         this.self = self;
         queue = new GenericQueue();

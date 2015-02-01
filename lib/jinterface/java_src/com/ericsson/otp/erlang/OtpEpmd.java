@@ -21,13 +21,12 @@ package com.ericsson.otp.erlang;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.net.InetAddress;
-import java.net.Socket;
 
 /**
  * Provides methods for registering, unregistering and looking up nodes with the
  * Erlang portmapper daemon (Epmd). For each registered node, Epmd maintains
  * information about the port on which incoming connections are accepted, as
- * well as which versions of the Erlang communication protocolt the node
+ * well as which versions of the Erlang communication protocol the node
  * supports.
  *
  * <p>
@@ -136,7 +135,7 @@ public class OtpEpmd {
      */
     public static boolean publishPort(final OtpLocalNode node)
             throws IOException {
-        Socket s = null;
+        OtpTransport s = null;
 
         s = r4_publish(node);
 
@@ -156,16 +155,16 @@ public class OtpEpmd {
      * This method does not report any failures.
      */
     public static void unPublishPort(final OtpLocalNode node) {
-        Socket s = null;
+        OtpTransport s = null;
 
         try {
-            s = new Socket((String) null, EpmdPort.get());
+            s = node.createTransport((String) null, EpmdPort.get());
             @SuppressWarnings("resource")
             final OtpOutputStream obuf = new OtpOutputStream();
             obuf.write2BE(node.alive().length() + 1);
             obuf.write1(stopReq);
             obuf.writeN(node.alive().getBytes());
-            obuf.writeTo(s.getOutputStream());
+            obuf.writeToAndFlush(s.getOutputStream());
             // don't even wait for a response (is there one?)
             if (traceLevel >= traceThreshold) {
                 System.out.println("-> UNPUBLISH " + node + " port="
@@ -187,12 +186,12 @@ public class OtpEpmd {
     private static int r4_lookupPort(final AbstractNode node)
             throws IOException {
         int port = 0;
-        Socket s = null;
+        OtpTransport s = null;
 
         try {
             @SuppressWarnings("resource")
             final OtpOutputStream obuf = new OtpOutputStream();
-            s = new Socket(node.host(), EpmdPort.get());
+            s = node.createTransport(node.host(), EpmdPort.get());
 
             // build and send epmd request
             // length[2], tag[1], alivename[n] (length = n+1)
@@ -201,7 +200,7 @@ public class OtpEpmd {
             obuf.writeN(node.alive().getBytes());
 
             // send request
-            obuf.writeTo(s.getOutputStream());
+            obuf.writeToAndFlush(s.getOutputStream());
 
             if (traceLevel >= traceThreshold) {
                 System.out.println("-> LOOKUP (r4) " + node);
@@ -242,7 +241,7 @@ public class OtpEpmd {
                 System.out.println("<- (no response)");
             }
             throw new IOException("Nameserver not responding on " + node.host()
-                    + " when looking up " + node.alive());
+                    + " when looking up " + node.alive(), e);
         } catch (final OtpErlangDecodeException e) {
             if (traceLevel >= traceThreshold) {
                 System.out.println("<- (invalid response)");
@@ -276,14 +275,14 @@ public class OtpEpmd {
      * fatal. If we manage to successfully communicate with an r4 epmd, we
      * return either the socket, or null, depending on the result.
      */
-    private static Socket r4_publish(final OtpLocalNode node)
+    private static OtpTransport r4_publish(final OtpLocalNode node)
             throws IOException {
-        Socket s = null;
+        OtpTransport s = null;
 
         try {
             @SuppressWarnings("resource")
             final OtpOutputStream obuf = new OtpOutputStream();
-            s = new Socket((String) null, EpmdPort.get());
+            s = node.createTransport((String) null, EpmdPort.get());
 
             obuf.write2BE(node.alive().length() + 13);
 
@@ -301,7 +300,7 @@ public class OtpEpmd {
             obuf.write2BE(0); // No extra
 
             // send request
-            obuf.writeTo(s.getOutputStream());
+            obuf.writeToAndFlush(s.getOutputStream());
 
             if (traceLevel >= traceThreshold) {
                 System.out.println("-> PUBLISH (r4) " + node + " port="
@@ -356,23 +355,34 @@ public class OtpEpmd {
     }
 
     public static String[] lookupNames() throws IOException {
-        return lookupNames(InetAddress.getByName(null));
+        return lookupNames(InetAddress.getByName(null),
+                new OtpSocketTransportFactory());
+    }
+
+    public static String[] lookupNames(
+            final OtpTransportFactory transportFactory) throws IOException {
+        return lookupNames(InetAddress.getByName(null), transportFactory);
     }
 
     public static String[] lookupNames(final InetAddress address)
             throws IOException {
-        Socket s = null;
+        return lookupNames(address, new OtpSocketTransportFactory());
+    }
+
+    public static String[] lookupNames(final InetAddress address,
+            final OtpTransportFactory transportFactory) throws IOException {
+        OtpTransport s = null;
 
         try {
             @SuppressWarnings("resource")
             final OtpOutputStream obuf = new OtpOutputStream();
             try {
-                s = new Socket(address, EpmdPort.get());
+                s = transportFactory.createTransport(address, EpmdPort.get());
 
                 obuf.write2BE(1);
                 obuf.write1(names4req);
                 // send request
-                obuf.writeTo(s.getOutputStream());
+                obuf.writeToAndFlush(s.getOutputStream());
 
                 if (traceLevel >= traceThreshold) {
                     System.out.println("-> NAMES (r4) ");

@@ -64,13 +64,14 @@ import java.net.UnknownHostException;
  * instead.
  * </p>
  */
-public class AbstractNode {
+public class AbstractNode implements OtpTransportFactory {
     static String localHost = null;
     String node;
     String host;
     String alive;
     String cookie;
     static String defaultCookie = null;
+    final OtpTransportFactory transportFactory;
 
     // Node types
     static final int NTYPE_R6 = 110; // 'n' post-r5, all nodes
@@ -146,21 +147,41 @@ public class AbstractNode {
         }
     }
 
-    protected AbstractNode() {
+    protected AbstractNode(final OtpTransportFactory transportFactory) {
+        this.transportFactory = transportFactory;
     }
 
     /**
-     * Create a node with the given name and the default cookie.
+     * Create a node with the given name and default cookie and transport
+     * factory.
      */
     protected AbstractNode(final String node) {
-        this(node, defaultCookie);
+        this(node, defaultCookie, new OtpSocketTransportFactory());
     }
 
     /**
-     * Create a node with the given name and cookie.
+     * Create a node with the given name, transport factory and the default
+     * cookie.
+     */
+    protected AbstractNode(final String node,
+            final OtpTransportFactory transportFactory) {
+        this(node, defaultCookie, transportFactory);
+    }
+
+    /**
+     * Create a node with the given name, cookie and default transport factory.
      */
     protected AbstractNode(final String name, final String cookie) {
+        this(name, cookie, new OtpSocketTransportFactory());
+    }
+
+    /**
+     * Create a node with the given name, cookie and transport factory.
+     */
+    protected AbstractNode(final String name, final String cookie,
+            final OtpTransportFactory transportFactory) {
         this.cookie = cookie;
+        this.transportFactory = transportFactory;
 
         final int i = name.indexOf('@', 0);
         if (i < 0) {
@@ -267,5 +288,20 @@ public class AbstractNode {
             return drive != null && path != null ? drive + path : home;
         }
         return home;
+    }
+
+    public OtpTransport createTransport(final String addr, final int port)
+            throws IOException {
+        return transportFactory.createTransport(addr, port);
+    }
+
+    public OtpTransport createTransport(final InetAddress addr, final int port)
+            throws IOException {
+        return transportFactory.createTransport(addr, port);
+    }
+
+    public OtpServerTransport createServerTransport(final int port)
+            throws IOException {
+        return transportFactory.createServerTransport(port);
     }
 }
