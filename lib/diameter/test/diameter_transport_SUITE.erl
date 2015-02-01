@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -365,37 +365,14 @@ start_connect(tcp, T, Svc, Opts) ->
     diameter_tcp:start(T, Svc, Opts).
 
 %% start_accept/2
-%%
-%% Start transports sequentially by having each wait for a message
-%% from a job in a queue before commencing. Only one transport with a
-%% pending accept is started at a time since diameter_{tcp,sctp}
-%% currently assume (and diameter currently implements) this.
 
 start_accept(Prot, Ref) ->
-    Pid = sync(accept, Ref),
     {Mod, Opts} = tmod(Prot),
-
-    try
-        {ok, TPid, [?ADDR]} = Mod:start({accept, Ref},
-                                        ?SVC([?ADDR]),
-                                        [{port, 0} | Opts]),
-        ?RECV(?TMSG({TPid, connected})),
-        TPid
-    after
-        Pid ! Ref
-    end.
-
-sync(What, Ref) ->
-    ok = diameter_sync:cast({?MODULE, What, Ref},
-                            [fun lock/2, Ref, self()],
-                            infinity,
-                            infinity),
-    receive {start, Ref, Pid} -> Pid end.
-
-lock(Ref, Pid) ->
-    Pid ! {start, Ref, self()},
-    erlang:monitor(process, Pid),
-    Ref = receive T -> T end.
+    {ok, TPid, [?ADDR]} = Mod:start({accept, Ref},
+                                    ?SVC([?ADDR]),
+                                    [{port, 0} | Opts]),
+    ?RECV(?TMSG({TPid, connected})),
+    TPid.
 
 tmod(sctp) ->
     {diameter_sctp, [{sctp_initmsg, ?SCTP_INIT}]};
