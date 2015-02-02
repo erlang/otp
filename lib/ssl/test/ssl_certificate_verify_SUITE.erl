@@ -443,7 +443,7 @@ verify_fun_always_run_client(Config) when is_list(Config) ->
 			    {unknown, UserState};
 		       (_, valid, [ChainLen]) ->
 			    {valid, [ChainLen + 1]};
-		       (_, valid_peer, [2]) ->
+		       (_, valid_peer, [1]) ->
 			    {fail, "verify_fun_was_always_run"};
 		       (_, valid_peer, UserState) ->
 			    {valid, UserState}
@@ -482,7 +482,7 @@ verify_fun_always_run_server(Config) when is_list(Config) ->
 			    {unknown, UserState};
 		       (_, valid, [ChainLen]) ->
 			    {valid, [ChainLen + 1]};
-		       (_, valid_peer, [2]) ->
+		       (_, valid_peer, [1]) ->
 			    {fail, "verify_fun_was_always_run"};
 		       (_, valid_peer, UserState) ->
 			    {valid, UserState}
