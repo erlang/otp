@@ -124,6 +124,7 @@
 
 	 %% keep map exports here for now
 	 c_map_pattern/1,
+	 is_c_map/1,
 	 map_es/1,
 	 map_arg/1,
 	 update_c_map/3,
@@ -1578,6 +1579,20 @@ ann_make_list(_, [], Node) ->
 
 %% ---------------------------------------------------------------------
 %% maps
+
+%% @spec is_c_map(Node::cerl()) -> boolean()
+%%
+%% @doc Returns <code>true</code> if <code>Node</code> is an abstract
+%% map constructor, otherwise <code>false</code>.
+
+-spec is_c_map(cerl()) -> boolean().
+
+is_c_map(#c_map{}) ->
+    true;
+is_c_map(#c_literal{val = V}) when is_map(V) ->
+    true;
+is_c_map(_) ->
+    false.
 
 -spec map_es(c_map()) -> [c_map_pair()].
 
