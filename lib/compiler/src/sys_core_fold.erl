@@ -2040,17 +2040,18 @@ case_opt_args([], Cs, _Sub, _LitExpr, Acc) ->
 %%  Try to expand one argument to several arguments (if tuple/list)
 %%  or to remove a literal argument.
 %%
-case_opt_arg(E0, Sub, Cs, LitExpr) ->
+case_opt_arg(E0, Sub, Cs0, LitExpr) ->
     E = maybe_replace_var(E0, Sub),
     case cerl:is_data(E) of
 	false ->
-            {error,Cs};
+            {error,Cs0};
 	true ->
+	    Cs = case_opt_nomatch(E, Cs0, LitExpr),
 	    case cerl:data_type(E) of
 		{atomic,_} ->
-		    case_opt_lit(E, Cs, LitExpr);
+		    case_opt_lit(E, Cs);
 		_ ->
-		    case_opt_data(E, Cs, LitExpr)
+		    case_opt_data(E, Cs)
 	    end
     end.
 
@@ -2113,8 +2114,26 @@ coerce_to_data(C) ->
 	    coerce_to_data(cerl:alias_pat(C))
     end.
 
-%% case_opt_lit(Literal, Clauses0, LitExpr) ->
-%%           {ok,[],Clauses} | error
+%% case_opt_nomatch(E, Clauses, LitExpr) -> Clauses'
+%%  Remove all clauses that cannot possibly match.
+
+case_opt_nomatch(E, [{[P|_],C,_,_}=Current|Cs], LitExpr) ->
+    case cerl_clauses:match(P, E) of
+        none ->
+            %% The pattern will not match the case expression. Remove
+            %% the clause.  Unless the entire case expression is a
+            %% literal, also emit a warning.
+            case LitExpr of
+                false -> add_warning(C, nomatch_clause_type);
+                true -> ok
+            end,
+            case_opt_nomatch(E, Cs, LitExpr);
+        _ ->
+            [Current|case_opt_nomatch(E, Cs, LitExpr)]
+    end;
+case_opt_nomatch(_, [], _) -> [].
+
+%% case_opt_lit(Literal, Clauses0) -> {ok,[],Clauses} | error
 %%  The current part of the case expression is a literal. That
 %%  means that we will know at compile-time whether a clause
 %%  will match, and we can remove the corresponding pattern from
@@ -2123,68 +2142,48 @@ coerce_to_data(C) ->
 %%  The only complication is if the literal is a binary. Binary
 %%  pattern matching is tricky, so we will give up in that case.
 
-case_opt_lit(Lit, Cs0, LitExpr) ->
-    Cs1 = case_opt_lit_1(Lit, Cs0, LitExpr),
-    try case_opt_lit_2(Lit, Cs1) of
+case_opt_lit(Lit, Cs0) ->
+    try case_opt_lit_1(Lit, Cs0) of
 	Cs ->
 	    {ok,[],Cs}
     catch
 	throw:impossible ->
-            {error,Cs1}
+            {error,Cs0}
     end.
 
-case_opt_lit_1(E, [{[P|_],C,_,_}=Current|Cs], LitExpr) ->
-    case cerl_clauses:match(P, E) of
-        none ->
-            %% The pattern will not match the literal. Remove the clause.
-            %% Unless the entire case expression is a literal, also
-            %% emit a warning.
-            case LitExpr of
-                false -> add_warning(C, nomatch_clause_type);
-                true -> ok
-            end,
-            case_opt_lit_1(E, Cs, LitExpr);
-        _ ->
-            [Current|case_opt_lit_1(E, Cs, LitExpr)]
-    end;
-case_opt_lit_1(_, [], _) -> [].
-
-case_opt_lit_2(E, [{[P|Ps],C,PsAcc,Bs0}|Cs]) ->
-    %% Non-matching clauses have already been removed in case_opt_lit_1/3.
+case_opt_lit_1(E, [{[P|Ps],C,PsAcc,Bs0}|Cs]) ->
+    %% Non-matching clauses have already been removed
+    %% in case_opt_nomatch/3.
     case cerl_clauses:match(P, E) of
 	{true,Bs} ->
 	    %% The pattern matches the literal. Remove the pattern
 	    %% and update the bindings.
-            [{Ps,C,PsAcc,Bs++Bs0}|case_opt_lit_2(E, Cs)];
+            [{Ps,C,PsAcc,Bs++Bs0}|case_opt_lit_1(E, Cs)];
 	{false,_} ->
 	    %% Binary literal and pattern. We are not sure whether
 	    %% the pattern will match.
 	    throw(impossible)
     end;
-case_opt_lit_2(_, []) -> [].
+case_opt_lit_1(_, []) -> [].
 
 %% case_opt_data(Expr, Clauses0, LitExpr) -> {ok,Exprs,Clauses}
 
-case_opt_data(E, Cs0, LitExpr) ->
+case_opt_data(E, Cs0) ->
     Es = cerl:data_es(E),
-    Cs = case_opt_data_1(Cs0, Es,
-			 {cerl:data_type(E),cerl:data_arity(E)},
-			 LitExpr),
-    {ok,Es,Cs}.
+    TypeSig = {cerl:data_type(E),cerl:data_arity(E)},
+    try case_opt_data_1(Cs0, Es, TypeSig) of
+	Cs ->
+	    {ok,Es,Cs}
+    catch
+	throw:impossible ->
+	    {error,Cs0}
+    end.
 
-case_opt_data_1([{[P|Ps0],C,PsAcc,Bs0}|Cs], Es, TypeSig, LitExpr) ->
-    case case_data_pat(P, TypeSig) of
-	{ok,Ps1,Bs1} ->
-	    [{Ps1++Ps0,C,PsAcc,Bs1++Bs0}|
-	     case_opt_data_1(Cs, Es, TypeSig,LitExpr)];
-	error ->
-	    case LitExpr of
-		false -> add_warning(C, nomatch_clause_type);
-		true -> ok
-	    end,
-	    case_opt_data_1(Cs, Es, TypeSig, LitExpr)
-    end;
-case_opt_data_1([], _, _, _) -> [].
+case_opt_data_1([{[P|Ps0],C,PsAcc,Bs0}|Cs], Es, TypeSig) ->
+    {ok,Ps1,Bs1} = case_data_pat(P, TypeSig),
+    [{Ps1++Ps0,C,PsAcc,Bs1++Bs0}|
+     case_opt_data_1(Cs, Es, TypeSig)];
+case_opt_data_1([], _, _) -> [].
 
 %% case_data_pat(Pattern, Type, Arity) -> {ok,[Pattern],[{AliasVar,Pat}]} | error.
 
@@ -2193,12 +2192,7 @@ case_data_pat(P, TypeSig) ->
 	false ->
 	    case_data_pat_var(P, TypeSig);
 	true ->
-	    case {cerl:data_type(P),cerl:data_arity(P)} of
-		TypeSig ->
-		    {ok,cerl:data_es(P),[]};
-		{_,_} ->
-		    error
-	    end
+	    {ok,cerl:data_es(P),[]}
     end.
 
 %% case_data_pat_var(Pattern, {DataType,ArityType}) ->
@@ -2218,35 +2212,38 @@ case_data_pat_var(P, {Type,Arity}=TypeSig) ->
 	alias ->
 	    V = cerl:alias_var(P),
 	    Apat = cerl:alias_pat(P),
-	    case case_data_pat(Apat, TypeSig) of
-		{ok,Ps,Bs} ->
-		    {ok,Ps,[{V,cerl:ann_make_data(Ann, Type, unalias_pat_list(Ps))}|Bs]};
-		error ->
-		    error
-	    end;
-	_ ->
-	    error
+	    {ok,Ps,Bs} = case_data_pat(Apat, TypeSig),
+	    {ok,Ps,[{V,cerl:ann_make_data(Ann, Type,
+					  pat_to_expr_list(Ps))}|Bs]}
     end.
 
-%% unalias_pat(Pattern) -> Pattern.
-%%  Remove all the aliases in a pattern but using the alias variables
-%%  instead of the values.  We KNOW they will be bound.
+%% pat_to_expr(Pattern) -> Expression.
+%%  Convert a pattern to an expression if possible. We KNOW that
+%%  all variables in the pattern will be bound.
+%%
+%%  Throw an 'impossible' exception if a map or (non-literal)
+%%  binary is encountered. Trying to use a map pattern as an
+%%  expression is incorrect, while rebuilding a potentially
+%%  huge binary in an expression would be wasteful.
 
-unalias_pat(P) ->
-    case cerl:is_c_alias(P) of
-	true ->
+pat_to_expr(P) ->
+    case cerl:type(P) of
+	alias ->
 	    cerl:alias_var(P);
-	false ->
+	var ->
+	    P;
+	_ ->
 	    case cerl:is_data(P) of
 		false ->
-		    P;
+		    %% Map or binary.
+		    throw(impossible);
 		true ->
-		    Es = unalias_pat_list(cerl:data_es(P)),
+		    Es = pat_to_expr_list(cerl:data_es(P)),
 		    cerl:update_data(P, cerl:data_type(P), Es)
 	    end
     end.
 
-unalias_pat_list(Ps) -> [unalias_pat(P) || P <- Ps].
+pat_to_expr_list(Ps) -> [pat_to_expr(P) || P <- Ps].
 
 make_vars(A, Max) ->
     make_vars(A, 1, Max).
