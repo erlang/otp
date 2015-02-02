@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -30,10 +30,10 @@
 	 lookup_trusted_cert/4,
 	 new_session_id/1, clean_cert_db/2,
 	 register_session/2, register_session/3, invalidate_session/2,
-	 invalidate_session/3, clear_pem_cache/0, manager_name/1]).
+	 invalidate_session/3, invalidate_pem/1, clear_pem_cache/0, manager_name/1]).
 
 % Spawn export
--export([init_session_validator/1]).
+-export([init_session_validator/1, init_pem_cache_validator/1]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
@@ -49,7 +49,9 @@
 	  session_lifetime,
 	  certificate_db,
 	  session_validation_timer,
-	  last_delay_timer  = {undefined, undefined}%% Keep for testing purposes
+	  last_delay_timer  = {undefined, undefined},%% Keep for testing purposes
+	  last_pem_check,
+	  clear_pem_cache 
 	 }).
 
 -define('24H_in_msec', 86400000).
@@ -117,14 +119,13 @@ connection_init(Trustedcerts, Role) ->
 %% Description: Cache a pem file and return its content.
 %%--------------------------------------------------------------------
 cache_pem_file(File, DbHandle) ->
-    MD5 = crypto:hash(md5, File),
-    case ssl_pkix_db:lookup_cached_pem(DbHandle, MD5) of
+    case ssl_pkix_db:lookup_cached_pem(DbHandle, File) of
 	[{Content,_}] ->
 	    {ok, Content};
 	[Content] ->
 	   {ok, Content};
 	undefined ->
-	    call({cache_pem, {MD5, File}})
+	    call({cache_pem, File})
     end.
 
 %%--------------------------------------------------------------------
@@ -191,6 +192,11 @@ invalidate_session(Host, Port, Session) ->
 invalidate_session(Port, Session) ->
     cast({invalidate_session, Port, Session}).
 
+
+-spec invalidate_pem(File::binary()) -> ok.
+invalidate_pem(File) ->
+    cast({invalidate_pem, File}).
+
 %%====================================================================
 %% gen_server callbacks
 %%====================================================================
@@ -212,12 +218,16 @@ init([Name, Opts]) ->
     SessionCache = CacheCb:init(proplists:get_value(session_cb_init_args, Opts, [])),
     Timer = erlang:send_after(SessionLifeTime * 1000 + 5000, 
 			      self(), validate_sessions),
-    erlang:send_after(?CLEAR_PEM_CACHE, self(), clear_pem_cache),
+    Interval = pem_check_interval(),
+    erlang:send_after(Interval, self(), clear_pem_cache),
     {ok, #state{certificate_db = CertDb,
 		session_cache = SessionCache,
 		session_cache_cb = CacheCb,
 		session_lifetime = SessionLifeTime,
-		session_validation_timer = Timer}}.
+		session_validation_timer = Timer,
+		last_pem_check =  erlang:timestamp(),
+		clear_pem_cache = Interval 	
+	       }}.
 
 %%--------------------------------------------------------------------
 -spec handle_call(msg(), from(), #state{}) -> {reply, reply(), #state{}}. 
@@ -256,7 +266,7 @@ handle_call({{new_session_id,Port}, _},
     {reply, Id, State};
 
 
-handle_call({{cache_pem, File}, _Pid}, _,
+handle_call({{cache_pem,File}, _Pid}, _,
 	    #state{certificate_db = Db} = State) ->
     try ssl_pkix_db:cache_pem_file(File, Db) of
 	Result ->
@@ -303,7 +313,12 @@ handle_cast({invalidate_session, Host, Port,
 handle_cast({invalidate_session, Port, #session{session_id = ID} = Session},
 	    #state{session_cache = Cache,
 		   session_cache_cb = CacheCb} = State) ->
-    invalidate_session(Cache, CacheCb, {Port, ID}, Session, State).
+    invalidate_session(Cache, CacheCb, {Port, ID}, Session, State);
+
+handle_cast({invalidate_pem, File},
+	    #state{certificate_db = [_, _, PemCache]} = State) ->
+    ssl_pkix_db:remove(File, PemCache),
+    {noreply, State}.
 
 %%--------------------------------------------------------------------
 -spec handle_info(msg(), #state{}) -> {noreply, #state{}}.
@@ -325,18 +340,16 @@ handle_info(validate_sessions, #state{session_cache_cb = CacheCb,
 handle_info({delayed_clean_session, Key}, #state{session_cache = Cache,
                    session_cache_cb = CacheCb
                    } = State) ->
-    CacheCb:delete(Cache, Key),
+    CacheCb:remove(Cache, Key),
     {noreply, State};
 
-handle_info(clear_pem_cache, #state{certificate_db = [_,_,PemChace]} = State) ->
-    case ssl_pkix_db:db_size(PemChace) of
-	N  when N < ?NOT_TO_BIG ->
-	    ok;
-	_ ->
-	    ssl_pkix_db:clear(PemChace)
-    end,
-    erlang:send_after(?CLEAR_PEM_CACHE, self(), clear_pem_cache),
-    {noreply, State};
+handle_info(clear_pem_cache, #state{certificate_db = [_,_,PemChace],
+				    clear_pem_cache = Interval,
+				    last_pem_check = CheckPoint} = State) ->
+    NewCheckPoint = erlang:timestamp(),
+    start_pem_cache_validator(PemChace, CheckPoint),
+    erlang:send_after(Interval, self(), clear_pem_cache),
+    {noreply, State#state{last_pem_check = NewCheckPoint}};
 
 
 handle_info({clean_cert_db, Ref, File},
@@ -482,10 +495,9 @@ new_id(Port, Tries, Cache, CacheCb) ->
 clean_cert_db(Ref, CertDb, RefDb, PemCache, File) ->
     case ssl_pkix_db:ref_count(Ref, RefDb, 0) of
 	0 ->	  
-	    MD5 = crypto:hash(md5, File),
-	    case ssl_pkix_db:lookup_cached_pem(PemCache, MD5) of
+	    case ssl_pkix_db:lookup_cached_pem(PemCache, File) of
 		[{Content, Ref}] ->
-		    ssl_pkix_db:insert(MD5, Content, PemCache);		
+		    ssl_pkix_db:insert(File, Content, PemCache);		
 		_ ->
 		    ok
 	    end,
@@ -494,3 +506,39 @@ clean_cert_db(Ref, CertDb, RefDb, PemCache, File) ->
 	_ ->
 	    ok
     end.
+
+start_pem_cache_validator(PemCache, CheckPoint) ->
+    spawn_link(?MODULE, init_pem_cache_validator, 
+	       [[get(ssl_manager), PemCache, CheckPoint]]).
+
+init_pem_cache_validator([SslManagerName, PemCache, CheckPoint]) ->
+    put(ssl_manager, SslManagerName),
+    ssl_pkix_db:foldl(fun pem_cache_validate/2,
+		      CheckPoint, PemCache).
+
+pem_cache_validate({File, _}, CheckPoint) ->
+    case file:read_file_info(File, []) of
+	{ok, #file_info{mtime = Time}} ->
+	    case is_before_checkpoint(Time, CheckPoint) of
+		true ->
+		    ok;
+		false ->
+		    invalidate_pem(File)
+	    end;
+	_  ->
+	    invalidate_pem(File)
+    end,
+    CheckPoint.
+
+pem_check_interval() ->
+    case application:get_env(ssl, ssl_pem_cache_clean) of
+	{ok, Interval} when is_integer(Interval) ->
+	    Interval;
+	_  ->
+	    ?CLEAR_PEM_CACHE
+    end.
+	
+is_before_checkpoint(Time, CheckPoint) ->
+    calendar:datetime_to_gregorian_seconds(calendar:now_to_datetime(CheckPoint)) -
+    calendar:datetime_to_gregorian_seconds(Time) > 0.
+
