@@ -60,6 +60,12 @@ t_element(Config) when is_list(Config) ->
     X = make_ref(),
     ?line X = id(element(1, {X,y,z})),
     ?line b = id(element(2, {a,b,c,d})),
+    (fun() ->
+	    case {a,#{k=>X}} of
+		{a,#{k:=X}}=Tuple ->
+		    #{k:=X} = id(element(2, Tuple))
+	    end
+    end)(),
 
     %% No optimization, but should work.
     Tuple = id({x,y,z}),

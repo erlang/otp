@@ -1338,9 +1338,12 @@ eval_element(Call, #c_literal{val=Pos}, #c_var{name=V}, Types)
 	{ok,#c_tuple{es=Elements}} ->
 	    if
 		1 =< Pos, Pos =< length(Elements) ->
-		    case lists:nth(Pos, Elements) of
-			#c_alias{var=Alias} -> Alias;
-			Res -> Res
+		    El = lists:nth(Pos, Elements),
+		    try
+			pat_to_expr(El)
+		    catch
+			throw:impossible ->
+			    Call
 		    end;
 		true ->
 		    eval_failure(Call, badarg)
