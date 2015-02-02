@@ -282,7 +282,7 @@ other_issuer(OtpCert, CertDbHandle) ->
 handle_path({BinCert, OTPCert}, Path, PartialChainHandler) ->
     case public_key:pkix_is_self_signed(OTPCert) of
 	true ->
-	    {BinCert, Path};
+	    {BinCert, lists:delete(BinCert, Path)};
 	false ->
 	   handle_incomplete_chain(Path, PartialChainHandler)
     end.
