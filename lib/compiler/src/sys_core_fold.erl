@@ -1335,8 +1335,9 @@ eval_element(Call, #c_literal{val=Pos}, Tuple, Types)
 		    eval_failure(Call, badarg)
 	    end
     end;
-eval_element(Call, Pos, Tuple, _Types) ->
-    case is_not_integer(Pos) orelse is_not_tuple(Tuple) of
+eval_element(Call, Pos, Tuple, Sub) ->
+    case is_int_type(Pos, Sub) =:= no orelse
+	is_tuple_type(Tuple, Sub) =:= no of
 	true ->
 	    eval_failure(Call, badarg);
 	false ->
@@ -1366,21 +1367,6 @@ eval_is_record(Call, Term, #c_literal{val=NeededTag},
 	    end
     end;
 eval_is_record(Call, _, _, _, _) -> Call.
-
-%% is_not_integer(Core) -> true | false.
-%%  Returns true if Core is definitely not an integer.
-
-is_not_integer(#c_literal{val=Val}) when not is_integer(Val) -> true;
-is_not_integer(#c_tuple{}) -> true;
-is_not_integer(#c_cons{}) -> true;
-is_not_integer(_) -> false.
-
-%% is_not_tuple(Core) -> true | false.
-%%  Returns true if Core is definitely not a tuple.
-
-is_not_tuple(#c_literal{val=Val}) when not is_tuple(Val) -> true;
-is_not_tuple(#c_cons{}) -> true;
-is_not_tuple(_) -> false.
 
 %% eval_setelement(Call, Pos, Tuple, NewVal) -> Core.
 %%  Evaluates setelement/3 if position Pos is an integer
@@ -2858,6 +2844,22 @@ is_boolean_type(Var, Sub) ->
 	    B = cerl:is_c_atom(C) andalso
 		is_boolean(cerl:atom_val(C)),
 	    yes_no(B)
+    end.
+
+-spec is_int_type(cerl:cerl(), sub()) -> yes_no_maybe().
+
+is_int_type(Var, Sub) ->
+    case get_type(Var, Sub) of
+	none -> maybe;
+	C -> yes_no(cerl:is_c_int(C))
+    end.
+
+-spec is_tuple_type(cerl:cerl(), sub()) -> yes_no_maybe().
+
+is_tuple_type(Var, Sub) ->
+    case get_type(Var, Sub) of
+	none -> maybe;
+	C -> yes_no(cerl:is_c_tuple(C))
     end.
 
 yes_no(true) -> yes;
