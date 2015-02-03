@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2013-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2013-2015. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -132,6 +132,7 @@ http_get() ->
      bad_hex, 
      missing_CR,
      max_header,
+     max_content_length,
      ipv6
     ].
 
@@ -979,11 +980,20 @@ max_header(Config) when is_list(Config) ->
     Host =  ?config(host, Config),
     case Version of
  	"HTTP/0.9" ->
- 	    {skip, no_implemented};
+ 	    {skip, not_implemented};
  	_ ->
  	    dos_hostname(?config(type, Config), ?config(port, Config), Host, 
  			 ?config(node, Config), Version, ?MAX_HEADER_SIZE)
     end.
+
+%%-------------------------------------------------------------------------
+max_content_length() ->
+    ["Denial Of Service (DOS) attack, prevented by max_content_length"].
+max_content_length(Config) when is_list(Config) ->
+    Version = ?config(http_version, Config),
+    Host =  ?config(host, Config),
+    garbage_content_length(?config(type, Config), ?config(port, Config), Host, 
+			   ?config(node, Config), Version).
 
 %%-------------------------------------------------------------------------
 security_1_1(Config) when is_list(Config) -> 
@@ -1368,7 +1378,9 @@ server_config(http_reload, Config) ->
 server_config(https_reload, Config) ->
     [{keep_alive_timeout, 2}]  ++ server_config(https, Config);
 server_config(http_limit, Config) ->
-    [{max_clients, 1}]  ++ server_config(http, Config);
+    [{max_clients, 1},
+     %% Make sure option checking code is run
+     {max_content_length, 100000002}]  ++ server_config(http, Config);
 server_config(https_limit, Config) ->
     [{max_clients, 1}]  ++ server_config(https, Config);
 server_config(http_basic_auth, Config) ->
@@ -1814,7 +1826,7 @@ dos_hostname(Type, Port, Host, Node, Version, Max) ->
     
     ok = httpd_test_lib:verify_request(Type, Host, Port, Node, 
  				       dos_hostname_request(TooLongHeader, Version),
- 				       [{statuscode, dos_code(Version)},
+ 				       [{statuscode, request_entity_too_large_code(Version)},
  					{version, Version}]).
 dos_hostname_request(Host, Version) ->
     dos_http_request("GET / ", Version, Host).
@@ -1824,10 +1836,31 @@ dos_http_request(Request,  "HTTP/1.1" = Version, Host) ->
 dos_http_request(Request, Version, Host) ->
     Request ++ Version ++ "\r\nhost:" ++ Host  ++ "\r\n\r\n".
 
-dos_code("HTTP/1.0") ->
+request_entity_too_large_code("HTTP/1.0") ->
     403; %% 413 not defined in HTTP/1.0
-dos_code(_) ->
+request_entity_too_large_code(_) ->
     413.
+
+length_required_code("HTTP/1.0") ->
+    403; %% 411 not defined in HTTP/1.0
+length_required_code(_) ->
+    411.
+
+garbage_content_length(Type, Port, Host, Node, Version) ->    
+    ok = httpd_test_lib:verify_request(Type, Host, Port, Node, 
+     				       garbage_content_length_request("GET / ", Version, Host, "aaaa"),	
+     				       [{statuscode, length_required_code(Version)},
+      					{version, Version}]),
+    ok = httpd_test_lib:verify_request(Type, Host, Port, Node, 
+				       garbage_content_length_request("GET / ", Version, Host, 
+								      lists:duplicate($a, 100)),	
+ 				       [{statuscode, request_entity_too_large_code(Version)},
+ 					{version, Version}]).
+ 
+garbage_content_length_request(Request, Version, Host, Garbage) ->	
+    http_request(Request, Version, Host,
+		 {"content-length:" ++ Garbage, "Body with garbage content length indicator"}).
+
 
 update_password(Node, ServerRoot, _Address, Port, AuthPrefix, Dir, Old, New)->
     Directory = filename:join([ServerRoot, "htdocs", AuthPrefix ++ Dir]),

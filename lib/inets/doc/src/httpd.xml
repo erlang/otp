@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1997</year><year>2013</year>
+      <year>1997</year><year>2015</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -249,7 +249,16 @@
 	<p>Limits the size of the message header of HTTP request.
 	Defaults to 10240. </p>
       </item>
-      
+
+      <marker id="prop_max_content_length"></marker>
+      <tag>{max_content_length, integer()}</tag>
+      <item>
+	<p>Maximum Content-Length in an incoming request, in bytes. Requests
+	with content larger than this are answered with Status 413.
+	Defaults to 100000000 (100 MB).
+	</p>
+      </item>
+
       <marker id="prop_max_uri"></marker>
       <tag>{max_uri_size, integer()}</tag>
       <item>

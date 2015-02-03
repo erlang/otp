@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -118,18 +118,17 @@ validate(Method, Uri, Version) ->
 %% create it.
 %% ----------------------------------------------------------------------
 update_mod_data(ModData, Method, RequestURI, HTTPVersion, Headers)-> 
-    ParsedHeaders =  tagup_header(Headers),
-    PersistentConn = get_persistens(HTTPVersion, ParsedHeaders, 
+    PersistentConn = get_persistens(HTTPVersion, Headers, 
 				    ModData#mod.config_db),
     {ok, ModData#mod{data = [],
 		     method = Method,
 		     absolute_uri = format_absolute_uri(RequestURI, 
-							ParsedHeaders),
+							Headers),
 		     request_uri = format_request_uri(RequestURI),
 		     http_version = HTTPVersion,
 		     request_line = Method ++ " " ++ RequestURI ++ 
 		     " " ++ HTTPVersion,
-		     parsed_header = ParsedHeaders,
+		     parsed_header = Headers,
 		     connection = PersistentConn}}.
 
 %%%========================================================================
@@ -146,14 +145,14 @@ parse_method(_, _, _, Max, _, _) ->
     %% We do not know the version of the client as it comes after the
     %% method send the lowest version in the response so that the client
     %% will be able to handle it.
-    {error, {too_long, Max, 413, "Method unreasonably long"}, lowest_version()}.
+    {error, {size_error, Max, 413, "Method unreasonably long"}, lowest_version()}.
 
 parse_uri(_, _, Current, MaxURI, _, _) 
   when (Current > MaxURI) andalso (MaxURI =/= nolimit) -> 
     %% We do not know the version of the client as it comes after the
     %% uri send the lowest version in the response so that the client
     %% will be able to handle it.
-    {error, {too_long, MaxURI, 414, "URI unreasonably long"},lowest_version()};
+    {error, {size_error, MaxURI, 414, "URI unreasonably long"},lowest_version()};
 parse_uri(<<>>, URI, Current, Max, MaxSizes, Result) ->
     {?MODULE, parse_uri, [URI, Current, Max, MaxSizes, Result]};
 parse_uri(<<?SP, Rest/binary>>, URI, _, _, MaxSizes, Result) -> 
@@ -179,12 +178,12 @@ parse_version(<<?CR>> = Data, Version, Current, Max, MaxSizes, Result) ->
 parse_version(<<Octet, Rest/binary>>, Version, Current, Max, MaxSizes, Result)  when Current =< Max ->
     parse_version(Rest, [Octet | Version], Current + 1, Max, MaxSizes, Result);
 parse_version(_, _, _, Max,_,_) ->
-    {error, {too_long, Max, 413, "Version string unreasonably long"}, lowest_version()}.
+    {error, {size_error, Max, 413, "Version string unreasonably long"}, lowest_version()}.
 
 parse_headers(_, _, _, Current, Max, _, Result) 
   when Max =/= nolimit andalso Current > Max -> 
     HttpVersion = lists:nth(3, lists:reverse(Result)),
-    {error, {too_long, Max, 413, "Headers unreasonably long"}, HttpVersion};
+    {error, {size_error, Max, 413, "Headers unreasonably long"}, HttpVersion};
 
 parse_headers(<<>>, Header, Headers, Current, Max, MaxSizes, Result) ->
     {?MODULE, parse_headers, [<<>>, Header, Headers, Current, Max, 
@@ -204,14 +203,22 @@ parse_headers(<<?CR,?LF,?CR,?LF,Body/binary>>, [], [], _, _,  _, Result) ->
 					     Result])),
     {ok, NewResult};
 parse_headers(<<?CR,?LF,?CR,?LF,Body/binary>>, Header, Headers, _, _,
-	      _, Result) ->
-    HTTPHeaders = [lists:reverse(Header) | Headers],
-    RequestHeaderRcord = 
-	http_request:headers(HTTPHeaders, #http_request_h{}),
-    NewResult = 
-	list_to_tuple(lists:reverse([Body, {RequestHeaderRcord, 
-						    HTTPHeaders} | Result])),
-    {ok, NewResult};
+	      MaxSizes, Result) ->
+    case http_request:key_value(lists:reverse(Header)) of
+	undefined -> %% Skip headers with missing :
+	    {ok, list_to_tuple(lists:reverse([Body, {http_request:headers(Headers, #http_request_h{}), Headers} | Result]))};
+	NewHeader ->
+	    case check_header(NewHeader, MaxSizes) of 
+		ok ->
+		    {ok, list_to_tuple(lists:reverse([Body, {http_request:headers([NewHeader | Headers], 
+										  #http_request_h{}),  
+							     [NewHeader | Headers]} | Result]))};
+		
+		{error, Reason} ->
+		    HttpVersion = lists:nth(3, lists:reverse(Result)),
+		    {error, Reason, HttpVersion}
+	    end
+    end;
 
 parse_headers(<<?CR,?LF,?CR>> = Data, Header, Headers, Current, Max, 
 	      MaxSizes, Result) ->
@@ -243,8 +250,21 @@ parse_headers(<<?LF, Octet, Rest/binary>>, Header, Headers, Current, Max,
 		  MaxSizes, Result); 
 parse_headers(<<?CR,?LF, Octet, Rest/binary>>, Header, Headers, _, Max,
 	      MaxSizes, Result) ->
-    parse_headers(Rest, [Octet], [lists:reverse(Header) | Headers], 
-		  0, Max, MaxSizes, Result);
+    case http_request:key_value(lists:reverse(Header)) of
+	undefined -> %% Skip headers with missing :
+	    parse_headers(Rest, [Octet], Headers, 
+			  0, Max, MaxSizes, Result);
+	NewHeader ->
+	    case check_header(NewHeader, MaxSizes) of 
+		ok ->
+		    parse_headers(Rest, [Octet], [NewHeader | Headers], 
+				  0, Max, MaxSizes, Result);
+		{error, Reason} ->
+		    HttpVersion = lists:nth(3, lists:reverse(Result)),
+		    {error, Reason, HttpVersion}
+	    end
+    end;
+	
 parse_headers(<<?CR>> = Data, Header, Headers, Current, Max,  
 	      MaxSizes, Result) ->
     {?MODULE, parse_headers, [Data, Header, Headers, Current, Max, 
@@ -388,29 +408,25 @@ get_persistens(HTTPVersion,ParsedHeader,ConfigDB)->
 	    false
     end.
 
-
-%%----------------------------------------------------------------------
-%% tagup_header
-%%
-%% Parses the header of a HTTP request and returns a key,value tuple 
-%% list containing Name and Value of each header directive as of:
-%%
-%% Content-Type: multipart/mixed -> {"Content-Type", "multipart/mixed"}
-%%
-%% But in http/1.1 the field-names are case insencitive so now it must be 
-%% Content-Type: multipart/mixed -> {"content-type", "multipart/mixed"}
-%% The standard furthermore says that leading and traling white space 
-%% is not a part of the fieldvalue and shall therefore be removed.
-%%----------------------------------------------------------------------
-tagup_header([]) ->          [];
-tagup_header([Line|Rest]) -> [tag(Line, [])|tagup_header(Rest)].
-
-tag([], Tag) ->
-    {http_util:to_lower(lists:reverse(Tag)), ""};
-tag([$:|Rest], Tag) ->
-    {http_util:to_lower(lists:reverse(Tag)), string:strip(Rest)};
-tag([Chr|Rest], Tag) ->
-    tag(Rest, [Chr|Tag]).
-
 lowest_version()->    
     "HTTP/0.9".
+
+check_header({"content-length", Value}, Maxsizes) ->
+    Max = proplists:get_value(max_content_length, Maxsizes),
+    MaxLen = length(integer_to_list(Max)),
+    case length(Value) =< MaxLen of
+	true ->
+	    try 
+		_ = list_to_integer(Value),
+		ok
+	    catch _:_ ->
+		    {error, {size_error, Max, 411, "content-length not an integer"}}
+	    end;
+	false ->
+	    {error, {size_error, Max, 413, "content-length unreasonably long"}}
+    end;
+check_header(_, _) ->
+    ok.
+	    
+	    
+	    

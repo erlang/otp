@@ -30,6 +30,65 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 6.3.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix getifaddrs realloc pointer error</p>
+          <p>
+	    When a buffer was exhausted and subsequently reallocated,
+	    we could get an unsafe pointer pointing to faulty memory.</p>
+          <p>
+	    For this to occur we would need to have a large number of
+	    interfaces and a reallocation of memory to a lower
+	    addresses.</p>
+          <p>
+	    The symptom would be garbage returned from
+	    erlang:port_control(Port, 25, [])
+	    (prim_inet:getifaddrs(Port) resulting in a badarg) or a
+	    segmentation fault.</p>
+          <p>
+	    Own Id: OTP-12445</p>
+        </item>
+        <item>
+          <p>
+	    Don't close all file descriptors twice in child_setup</p>
+          <p>
+	    The commit c2b4eab25c907f453a394d382c04cd04e6c06b49
+	    introduced an error in which child_setup erroneously
+	    tried to close all file descriptors twice.</p>
+          <p>
+	    Use closefrom() if available when closing all file
+	    descriptors.</p>
+          <p>
+	    The function closefrom() was only used in the vfork()
+	    case before but is now also used in the fork() case if
+	    available.</p>
+          <p>
+	    Own Id: OTP-12446</p>
+        </item>
+        <item>
+          <p>
+	    During a crashdump all file descriptors are closed to
+	    ensure the closing of the epmd port and to reserve a file
+	    descriptor for the crashdump file.</p>
+          <p>
+	    If a driver (third party library) cannot handle closing
+	    of sockets this could result in a segmentation fault in
+	    which case a crashdump would not be produced. This is now
+	    fixed by only closing inets sockets via an emergency
+	    close callback to the driver and thus closing the epmd
+	    socket.</p>
+          <p>
+	    Own Id: OTP-12447</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 6.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
