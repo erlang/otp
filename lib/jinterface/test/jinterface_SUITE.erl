@@ -39,7 +39,8 @@
 	 status_handler_localStatus/1, status_handler_remoteStatus/1,
 	 status_handler_connAttempt/1,
 	 maps/1,
-	 fun_equals/1
+	 fun_equals/1,
+	 core_match_bind/1
      ]).
 
 -include_lib("common_test/include/ct.hrl").
@@ -108,7 +109,8 @@ fundamental() ->
      get_names,            % GetNames.java
      boolean_atom,         % BooleanAtom.java
      maps,                 % Maps.java
-     fun_equals            % FunEquals.java
+     fun_equals,           % FunEquals.java
+     core_match_bind       % CoreMatchBind.java
     ].
 
 ping() ->
@@ -702,6 +704,18 @@ fun_equals(Config) when is_list(Config) ->
     ok = jitu:java(?config(java, Config),
            ?config(data_dir, Config),
            "FunEquals",
+           []).
+
+%%%-----------------------------------------------------------------
+core_match_bind(doc) ->
+    ["CoreMatchBind.java: "
+     "Test OtpErlangObject.match() and bind()"];
+core_match_bind(suite) ->
+    [];
+core_match_bind(Config) when is_list(Config) ->
+    ok = jitu:java(?config(java, Config),
+           ?config(data_dir, Config),
+           "CoreMatchBind",
            []).
 
 %%%-----------------------------------------------------------------
