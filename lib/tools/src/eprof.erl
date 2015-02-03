@@ -187,7 +187,7 @@ handle_call({profile_start, Rootset, Pattern, {M,F,A}, Opts}, From, #state{fd = 
     case set_process_trace(true, [Pid|Rootset], Topts) of
 	true ->
 	    ok = set_pattern_trace(true, Pattern),
-	    T0 = now(),
+	    T0 = erlang:timestamp(),
 	    ok = execute_profiling(Pid),
 	    {noreply, #state{
 		    profiling  = true,
@@ -211,7 +211,7 @@ handle_call({profile_start, Rootset, Pattern, undefined, Opts}, From, #state{ fd
 
     case set_process_trace(true, Rootset, Topts) of
 	true ->
-	    T0 = now(),
+	    T0 = erlang:timestamp(),
 	    ok = set_pattern_trace(true, Pattern),
 	    {reply, profiling, #state{
 		    profiling  = true,
