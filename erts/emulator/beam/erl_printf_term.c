@@ -594,6 +594,7 @@ print_term(fmtfn_t fn, void* arg, Eterm obj, long *dcount,
 		head = hashmap_val(wobj);
 		mapval = MAP_HEADER_VAL(*head);
 		switch (MAP_HEADER_TYPE(*head)) {
+		    case MAP_HEADER_TAG_HAMT_HEAD_ARRAY:
 		    case MAP_HEADER_TAG_HAMT_HEAD_BITMAP:
 			PRINT_STRING(res, fn, arg, "#<");
 			PRINT_UWORD(res, fn, arg, 'x', 0, 1, mapval);
