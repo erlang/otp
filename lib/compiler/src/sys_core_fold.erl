@@ -96,6 +96,10 @@
 	      t=[],				%Types
 	      in_guard=false}).			%In guard or not.
 
+-type type_info() :: cerl:cerl() | 'bool'.
+-type yes_no_maybe() :: 'yes' | 'no' | 'maybe'.
+-type sub() :: #sub{}.
+
 -spec module(cerl:c_module(), [compile:option()]) ->
 	{'ok', cerl:c_module(), [_]}.
 
@@ -462,10 +466,7 @@ is_safe_simple(#c_call{module=#c_literal{val=erlang},
     case erl_internal:bool_op(Name, NumArgs) of
 	true ->
 	    %% Boolean operators are safe if the arguments are boolean.
-	    all(fun(#c_var{name=V}) -> is_boolean_type(V, Sub);
-		   (#c_literal{val=Lit}) -> is_boolean(Lit);
-		   (_) -> false
-		end, Args);
+	    all(fun(C) -> is_boolean_type(C, Sub) =:= yes end, Args);
 	false ->
 	    %% We need a rather complicated test to ensure that
 	    %% we only allow safe calls that are allowed in a guard.
@@ -1183,11 +1184,12 @@ fold_non_lit_args(Call, _, _, _, _) -> Call.
 eval_rel_op(Call, Op, [#c_var{name=V},#c_var{name=V}], _) ->
     Bool = erlang:Op(same, same),
     #c_literal{anno=cerl:get_ann(Call),val=Bool};
-eval_rel_op(Call, '=:=', [#c_var{name=V}=Var,#c_literal{val=true}], Sub) ->
+eval_rel_op(Call, '=:=', [Term,#c_literal{val=true}], Sub) ->
     %% BoolVar =:= true  ==>  BoolVar
-    case is_boolean_type(V, Sub) of
-	true -> Var;
-	false -> Call
+    case is_boolean_type(Term, Sub) of
+	yes -> Term;
+	maybe -> Call;
+	no -> #c_literal{val=false}
     end;
 eval_rel_op(Call, '==', Ops, _Sub) ->
     case is_exact_eq_ok(Ops) of
@@ -1235,40 +1237,31 @@ is_non_numeric_tuple(_Tuple, 0) -> true.
 %% there must be at least one non-literal argument (i.e.
 %% there is no need to handle the case that all argments
 %% are literal).
-eval_bool_op(Call, 'and', [#c_literal{val=true},#c_var{name=V}=Res], Sub) ->
-    case is_boolean_type(V, Sub) of
-	true -> Res;
-	false-> Call
-    end;
-eval_bool_op(Call, 'and', [#c_var{name=V}=Res,#c_literal{val=true}], Sub) ->
-    case is_boolean_type(V, Sub) of
-	true -> Res;
-	false-> Call
-    end;
-eval_bool_op(Call, 'and', [#c_literal{val=false}=Res,#c_var{name=V}], Sub) ->
-    case is_boolean_type(V, Sub) of
-	true -> Res;
-	false-> Call
-    end;
-eval_bool_op(Call, 'and', [#c_var{name=V},#c_literal{val=false}=Res], Sub) ->
-    case is_boolean_type(V, Sub) of
-	true -> Res;
-	false-> Call
-    end;
+
+eval_bool_op(Call, 'and', [#c_literal{val=true},Term], Sub) ->
+    eval_bool_op_1(Call, Term, Term, Sub);
+eval_bool_op(Call, 'and', [Term,#c_literal{val=true}], Sub) ->
+    eval_bool_op_1(Call, Term, Term, Sub);
+eval_bool_op(Call, 'and', [#c_literal{val=false}=Res,Term], Sub) ->
+    eval_bool_op_1(Call, Res, Term, Sub);
+eval_bool_op(Call, 'and', [Term,#c_literal{val=false}=Res], Sub) ->
+    eval_bool_op_1(Call, Res, Term, Sub);
 eval_bool_op(Call, _, _, _) -> Call.
 
+eval_bool_op_1(Call, Res, Term, Sub) ->
+    case is_boolean_type(Term, Sub) of
+	yes -> Res;
+	no -> eval_failure(Call, badarg);
+	maybe -> Call
+    end.
+
 %% Evaluate is_boolean/1 using type information.
-eval_is_boolean(Call, #c_var{name=V}, Sub) ->
-    case is_boolean_type(V, Sub) of
-	true -> #c_literal{val=true};
-	false -> Call
-    end;
-eval_is_boolean(_, #c_cons{}, _) ->
-    #c_literal{val=false};
-eval_is_boolean(_, #c_tuple{}, _) ->
-    #c_literal{val=false};
-eval_is_boolean(Call, _, _) ->
-    Call.
+eval_is_boolean(Call, Term, Sub) ->
+    case is_boolean_type(Term, Sub) of
+	no -> #c_literal{val=false};
+	yes -> #c_literal{val=true};
+	maybe -> Call
+    end.
 
 %% eval_length(Call, List) -> Val.
 %%  Evaluates the length for the prefix of List which has a known
@@ -1318,20 +1311,19 @@ eval_append(Call, X, Y) ->
 %%  Evaluates element/2 if the position Pos is a literal and
 %%  the shape of the tuple Tuple is known.
 %%
-eval_element(Call, #c_literal{val=Pos}, #c_tuple{es=Es}, _Types) when is_integer(Pos) ->
-    if
-	1 =< Pos, Pos =< length(Es) ->
-	    lists:nth(Pos, Es);
-	true ->
-	    eval_failure(Call, badarg)
-    end;
-eval_element(Call, #c_literal{val=Pos}, #c_var{name=V}, Types)
+eval_element(Call, #c_literal{val=Pos}, Tuple, Types)
   when is_integer(Pos) ->
-    case orddict:find(V, Types#sub.t) of
-	{ok,#c_tuple{es=Elements}} ->
+    case get_type(Tuple, Types) of
+	none ->
+	    Call;
+	Type ->
+	    Es = case cerl:is_c_tuple(Type) of
+		     false -> [];
+		     true -> cerl:tuple_es(Type)
+		 end,
 	    if
-		1 =< Pos, Pos =< length(Elements) ->
-		    El = lists:nth(Pos, Elements),
+		1 =< Pos, Pos =< length(Es) ->
+		    El = lists:nth(Pos, Es),
 		    try
 			pat_to_expr(El)
 		    catch
@@ -1339,12 +1331,9 @@ eval_element(Call, #c_literal{val=Pos}, #c_var{name=V}, Types)
 			    Call
 		    end;
 		true ->
+		    %% Index outside tuple or not a tuple.
 		    eval_failure(Call, badarg)
-	    end;
-	{ok,_} ->
-	    eval_failure(Call, badarg);
-	error ->
-	    Call
+	    end
     end;
 eval_element(Call, Pos, Tuple, _Types) ->
     case is_not_integer(Pos) orelse is_not_tuple(Tuple) of
@@ -1357,14 +1346,24 @@ eval_element(Call, Pos, Tuple, _Types) ->
 %% eval_is_record(Call, Var, Tag, Size, Types) -> Val.
 %%  Evaluates is_record/3 using type information.
 %%
-eval_is_record(Call, #c_var{name=V}, #c_literal{val=NeededTag}=Lit,
+eval_is_record(Call, Term, #c_literal{val=NeededTag},
 	       #c_literal{val=Size}, Types) ->
-    case orddict:find(V, Types#sub.t) of
-	{ok,#c_tuple{es=[#c_literal{val=Tag}|_]=Es}} ->
-	    Lit#c_literal{val=Tag =:= NeededTag andalso
-			  length(Es) =:= Size};
-	_ ->
-	    Call
+    case get_type(Term, Types) of
+	none ->
+	    Call;
+	Type ->
+	    Es = case cerl:is_c_tuple(Type) of
+		     false -> [];
+		     true -> cerl:tuple_es(Type)
+		 end,
+	    case Es of
+		[#c_literal{val=Tag}|_] ->
+		    Bool = Tag =:= NeededTag andalso
+			length(Es) =:= Size,
+		    #c_literal{val=Bool};
+		_ ->
+		    #c_literal{val=false}
+	    end
     end;
 eval_is_record(Call, _, _, _, _) -> Call.
 
@@ -2406,11 +2405,8 @@ is_bool_expr(#c_let{vars=[V],arg=Arg,body=B}, Sub0) ->
 is_bool_expr(#c_let{body=B}, Sub) ->
     %% Binding of multiple variables.
     is_bool_expr(B, Sub);
-is_bool_expr(#c_literal{val=Bool}, _) when is_boolean(Bool) ->
-    true;
-is_bool_expr(#c_var{name=V}, Sub) ->
-    is_boolean_type(V, Sub);
-is_bool_expr(_, _) -> false.
+is_bool_expr(C, Sub) ->
+    is_boolean_type(C, Sub) =:= yes.
 
 is_bool_expr_list([C|Cs], Sub) ->
     is_bool_expr(C, Sub) andalso is_bool_expr_list(Cs, Sub);
@@ -2828,11 +2824,44 @@ is_any_var_used([#c_var{name=V}|Vs], Expr) ->
     end;
 is_any_var_used([], _) -> false.
 
-is_boolean_type(V, #sub{t=Tdb}) ->
+%%%
+%%% Retrieving information about types.
+%%%
+
+-spec get_type(cerl:cerl(), #sub{}) -> type_info() | 'none'.
+
+get_type(#c_var{name=V}, #sub{t=Tdb}) ->
     case orddict:find(V, Tdb) of
-	{ok,bool} -> true;
-	_ -> false
+	{ok,Type} -> Type;
+	error -> none
+    end;
+get_type(C, _) ->
+    case cerl:type(C) of
+	binary -> C;
+	map -> C;
+	_ ->
+	    case cerl:is_data(C) of
+		true -> C;
+		false -> none
+	    end
     end.
+
+-spec is_boolean_type(cerl:cerl(), sub()) -> yes_no_maybe().
+
+is_boolean_type(Var, Sub) ->
+    case get_type(Var, Sub) of
+	none ->
+	    maybe;
+	bool ->
+	    yes;
+	C ->
+	    B = cerl:is_c_atom(C) andalso
+		is_boolean(cerl:atom_val(C)),
+	    yes_no(B)
+    end.
+
+yes_no(true) -> yes;
+yes_no(false) -> no.
 
 %% update_types(Expr, Pattern, Sub) -> Sub'
 %%  Update the type database.

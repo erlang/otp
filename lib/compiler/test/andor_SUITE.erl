@@ -173,7 +173,13 @@ t_and_or(Config) when is_list(Config) ->
 
     true = (fun (X = true) when X or true or X -> true end)(True),
 
-   ok.
+    Tuple = id({a,b}),
+    case Tuple of
+	{_,_} ->
+	    {'EXIT',{badarg,_}} = (catch true and Tuple)
+    end,
+
+    ok.
 
 t_andalso(Config) when is_list(Config) ->
     Bs = [true,false],

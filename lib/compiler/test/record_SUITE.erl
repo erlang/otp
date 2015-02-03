@@ -246,6 +246,14 @@ record_test_2(Config) when is_list(Config) ->
     ?line Barf = update_barf(Barf0),
     ?line #barf{a="abc",b=1} = id(Barf),
 
+    %% Test optimization of is_record/3.
+    false = case id({a,b}) of
+		{_,_}=Tuple -> is_record(Tuple, foo)
+	    end,
+    false = case id(true) of
+		true=Bool -> is_record(Bool, foo)
+	    end,
+
     ok.
 
 record_test_3(Config) when is_list(Config) ->

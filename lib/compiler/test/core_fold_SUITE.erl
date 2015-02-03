@@ -280,6 +280,12 @@ coverage(Config) when is_list(Config) ->
     error = bsm_an_inlined(<<1,2,3>>, Config),
     error = bsm_an_inlined([], Config),
 
+    %% Cover eval_rel_op/4.
+    Tuple = id({a,b}),
+    false = case Tuple of
+		{_,_} ->
+		    Tuple =:= true
+	    end,
     ok.
 
 cover_will_match_list_type(A) ->
