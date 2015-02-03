@@ -197,7 +197,10 @@ foo(A, B, C) ->
     A + B + C.
 
 bifs(Config) when is_list(Config) ->
-    ?line <<1,2,3,4>> = id(list_to_binary([1,2,3,4])),
+    <<1,2,3,4>> = id(list_to_binary([1,2,3,4])),
+    K = {a,key},
+    V = {a,value},
+    {ok,#{K:=V}} = id(list_to_tuple([ok,#{K=>V}])),
     ok.
 
 -define(CMP_SAME(A0, B), (fun(A) -> true = A == B, false = A /= B end)(id(A0))).

@@ -434,6 +434,8 @@ is_literal_term([H | T]) ->
 is_literal_term(T) when is_tuple(T) ->
     is_literal_term_list(tuple_to_list(T));
 is_literal_term(B) when is_bitstring(B) -> true;
+is_literal_term(M) when is_map(M) ->
+    is_literal_term_list(maps:to_list(M));
 is_literal_term(_) ->
     false.
 
