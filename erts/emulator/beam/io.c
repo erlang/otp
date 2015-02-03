@@ -7342,6 +7342,8 @@ no_stop_select_callback(ErlDrvEvent event, void* private)
     erts_send_error_to_logger_nogl(dsbufp);
 }
 
+#define IS_DRIVER_VERSION_GE(DE,MAJOR,MINOR) \
+    ((DE)->major_version >= (MAJOR) && (DE)->minor_version >= (MINOR))
 
 static int
 init_driver(erts_driver_t *drv, ErlDrvEntry *de, DE_Handle *handle)
@@ -7389,6 +7391,7 @@ init_driver(erts_driver_t *drv, ErlDrvEntry *de, DE_Handle *handle)
     drv->timeout = de->timeout ? de->timeout : no_timeout_callback;
     drv->ready_async = de->ready_async;
     drv->process_exit = de->process_exit;
+    drv->emergency_close = IS_DRIVER_VERSION_GE(de,3,2) ? de->emergency_close : NULL;
     if (de->stop_select)
 	drv->stop_select = de->stop_select;
     else
@@ -7406,6 +7409,8 @@ init_driver(erts_driver_t *drv, ErlDrvEntry *de, DE_Handle *handle)
 	return res;
     }
 }
+
+#undef IS_DRIVER_VERSION_GE
 
 void
 erts_destroy_driver(erts_driver_t *drv)
@@ -7550,7 +7555,7 @@ Port *erts_get_heart_port(void)
 	if (!port)
 	    continue;
 	/* only examine undead or alive ports */
-	if (erts_atomic32_read_nob(&port->state) & ERTS_PORT_SFLGS_DEAD)
+	if (erts_atomic32_read_nob(&port->state) & ERTS_PORT_SFLGS_INVALID_DRIVER_LOOKUP)
 	    continue;
 	/* immediate atom compare */
 	reg = port->common.u.alive.reg;
@@ -7560,4 +7565,24 @@ Port *erts_get_heart_port(void)
     }
 
     return NULL;
+}
+
+void erts_emergency_close_ports(void)
+{
+    int ix, max = erts_ptab_max(&erts_port);
+
+    for (ix = 0; ix < max; ix++) {
+	Port *port = erts_pix2port(ix);
+
+	if (!port)
+	    continue;
+	/* only examine undead or alive ports */
+	if (erts_atomic32_read_nob(&port->state) & ERTS_PORT_SFLGS_INVALID_DRIVER_LOOKUP)
+	    continue;
+
+	/* emergency close socket */
+	if (port->drv_ptr->emergency_close) {
+	    port->drv_ptr->emergency_close((ErlDrvData) port->drv_data);
+	}
+    }
 }

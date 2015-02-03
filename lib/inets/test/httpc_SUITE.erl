@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2004-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2015. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -1288,8 +1288,9 @@ dummy_server_init(Caller, ip_comm, Inet, _) ->
     dummy_ipcomm_server_loop({httpd_request, parse, [[{max_uri,    ?HTTP_MAX_URI_SIZE},
 						      {max_header, ?HTTP_MAX_HEADER_SIZE},
 						      {max_version,?HTTP_MAX_VERSION_STRING}, 
-						      {max_method, ?HTTP_MAX_METHOD_STRING}]]},
-			     [], ListenSocket);
+						      {max_method, ?HTTP_MAX_METHOD_STRING},
+						      {max_content_length, ?HTTP_MAX_CONTENT_LENGTH}]]},
+    [], ListenSocket);
 
 dummy_server_init(Caller, ssl, Inet, SSLOptions) ->
     BaseOpts = [binary, {reuseaddr,true}, {active, false} |
@@ -1303,7 +1304,9 @@ dummy_ssl_server_init(Caller, BaseOpts, Inet) ->
     dummy_ssl_server_loop({httpd_request, parse, [[{max_uri,    ?HTTP_MAX_URI_SIZE},
 						   {max_method, ?HTTP_MAX_METHOD_STRING},
 						   {max_version,?HTTP_MAX_VERSION_STRING}, 
-						   {max_method, ?HTTP_MAX_METHOD_STRING}]]},
+						   {max_method, ?HTTP_MAX_METHOD_STRING},
+						   {max_content_length, ?HTTP_MAX_CONTENT_LENGTH}
+						  ]]},
 			  [], ListenSocket).
 
 dummy_ipcomm_server_loop(MFA, Handlers, ListenSocket) ->
@@ -1380,16 +1383,20 @@ handle_request(Module, Function, Args, Socket) ->
 		stop ->
 		    stop;
 		<<>> ->
-		    {httpd_request, parse, [[<<>>, [{max_uri,    ?HTTP_MAX_URI_SIZE},
+		    {httpd_request, parse, [[{max_uri,?HTTP_MAX_URI_SIZE},
 						    {max_header, ?HTTP_MAX_HEADER_SIZE},
 						    {max_version,?HTTP_MAX_VERSION_STRING}, 
-						    {max_method, ?HTTP_MAX_METHOD_STRING}]]]};
+						    {max_method, ?HTTP_MAX_METHOD_STRING},
+						    {max_content_length, ?HTTP_MAX_CONTENT_LENGTH}
+						   ]]};
 		Data ->	
 		    handle_request(httpd_request, parse, 
 				   [Data, [{max_uri,    ?HTTP_MAX_URI_SIZE},
-					   {max_header, ?HTTP_MAX_HEADER_SIZE},
-					   {max_version,?HTTP_MAX_VERSION_STRING}, 
-					   {max_method, ?HTTP_MAX_METHOD_STRING}]], Socket)
+					    {max_header, ?HTTP_MAX_HEADER_SIZE},
+					    {max_version,?HTTP_MAX_VERSION_STRING}, 
+					    {max_method, ?HTTP_MAX_METHOD_STRING},
+					    {max_content_length, ?HTTP_MAX_CONTENT_LENGTH}
+					  ]], Socket)
 	    end;
 	NewMFA ->
 	    NewMFA
@@ -1479,7 +1486,7 @@ dummy_ssl_server_hang_loop(_) ->
 
 ensure_host_header_with_port([]) ->
     false;
-ensure_host_header_with_port(["host: " ++ Host| _]) ->
+ensure_host_header_with_port([{"host", Host}| _]) ->
     case string:tokens(Host, [$:]) of
 	[_ActualHost, _Port] ->
 	    true;
@@ -1491,7 +1498,7 @@ ensure_host_header_with_port([_|T]) ->
 
 auth_header([]) ->
     auth_header_not_found;
-auth_header(["authorization:" ++ Value | _]) ->
+auth_header([{"authorization", Value} | _]) ->
     {ok, string:strip(Value)};
 auth_header([_ | Tail]) ->
     auth_header(Tail).
@@ -1508,7 +1515,7 @@ handle_auth("Basic " ++ UserInfo, Challange, DefaultResponse) ->
 
 check_cookie([]) ->
     ct:fail(no_cookie_header);
-check_cookie(["cookie:" ++ _Value | _]) ->
+check_cookie([{"cookie", _} | _]) ->
     ok;
 check_cookie([_Head | Tail]) ->
    check_cookie(Tail).

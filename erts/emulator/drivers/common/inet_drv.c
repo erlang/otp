@@ -268,14 +268,13 @@ static BOOL (WINAPI *fpSetHandleInformation)(HANDLE,DWORD,DWORD);
 #define sock_htonl(x)              htonl((x))
 #define sock_send(s,buf,len,flag)  send((s),(buf),(len),(flag))
 #define sock_sendv(s, vec, size, np, flag) \
-                WSASend((s),(WSABUF*)(vec),\
-				   (size),(np),(flag),NULL,NULL)
+            WSASend((s),(WSABUF*)(vec),(size),(np),(flag),NULL,NULL)
 #define sock_recv(s,buf,len,flag)  recv((s),(buf),(len),(flag))
 
 #define sock_recvfrom(s,buf,blen,flag,addr,alen) \
-                recvfrom((s),(buf),(blen),(flag),(addr),(alen))
+	    recvfrom((s),(buf),(blen),(flag),(addr),(alen))
 #define sock_sendto(s,buf,blen,flag,addr,alen) \
-                sendto((s),(buf),(blen),(flag),(addr),(alen))
+	    sendto((s),(buf),(blen),(flag),(addr),(alen))
 #define sock_hostname(buf, len)    gethostname((buf), (len))
 
 #define sock_getservbyname(name,proto) getservbyname((name),(proto))
@@ -360,9 +359,9 @@ static ssize_t writev_fallback(int fd, const struct iovec *iov, int iovcnt, int 
 #define sock_accept(s, addr, len)   accept((s), (addr), (len))
 #define sock_send(s,buf,len,flag)   inet_send((s),(buf),(len),(flag))
 #define sock_sendto(s,buf,blen,flag,addr,alen) \
-                sendto((s),(buf),(blen),(flag),(addr),(alen))
+	    sendto((s),(buf),(blen),(flag),(addr),(alen))
 #define sock_sendv(s, vec, size, np, flag) \
-		(*(np) = writev_fallback((s), (struct iovec*)(vec), (size), (*(np))))
+	    (*(np) = writev_fallback((s), (struct iovec*)(vec), (size), (*(np))))
 #define sock_sendmsg(s,msghdr,flag) sendmsg((s),(msghdr),(flag))
 
 #define sock_open(af, type, proto)  socket((af), (type), (proto))
@@ -1178,6 +1177,7 @@ static ErlDrvSSizeT tcp_inet_ctl(ErlDrvData, unsigned int,
 static void tcp_inet_timeout(ErlDrvData);
 static void tcp_inet_process_exit(ErlDrvData, ErlDrvMonitor *); 
 static void inet_stop_select(ErlDrvEvent, void*); 
+static void inet_emergency_close(ErlDrvData);
 #ifdef __WIN32__
 static void tcp_inet_event(ErlDrvData, ErlDrvEvent);
 static void find_dynamic_functions(void);
@@ -1288,7 +1288,8 @@ static struct erl_drv_entry tcp_inet_driver_entry =
     ERL_DRV_FLAG_USE_PORT_LOCKING|ERL_DRV_FLAG_SOFT_BUSY,
     NULL,
     tcp_inet_process_exit,
-    inet_stop_select
+    inet_stop_select,
+    inet_emergency_close
 };
 
 
@@ -1341,7 +1342,8 @@ static struct erl_drv_entry udp_inet_driver_entry =
     ERL_DRV_FLAG_USE_PORT_LOCKING,
     NULL,
     NULL,
-    inet_stop_select
+    inet_stop_select,
+    inet_emergency_close
 };
 #endif
 
@@ -1375,7 +1377,8 @@ static struct erl_drv_entry sctp_inet_driver_entry =
     ERL_DRV_FLAG_USE_PORT_LOCKING,
     NULL,
     NULL, /* process_exit */
-    inet_stop_select
+    inet_stop_select,
+    inet_emergency_close
 };
 #endif
 
@@ -1421,7 +1424,7 @@ static int packet_inet_input(udp_descriptor* udesc, HANDLE event);
 static int packet_inet_output(udp_descriptor* udesc, HANDLE event);
 #endif
 
-/* convert descriptor poiner to inet_descriptor pointer */
+/* convert descriptor pointer to inet_descriptor pointer */
 #define INETP(d) (&(d)->inet)
 
 #ifdef __OSE__
@@ -4727,6 +4730,36 @@ static char* sockaddr_to_buf(struct sockaddr* addr, char* ptr, char* end)
     return NULL;
 }
 
+/* sockaddr_bufsz_need
+ * Returns the number of bytes needed to store the information
+ * through sockaddr_to_buf
+ */
+
+static size_t sockaddr_bufsz_need(struct sockaddr* addr)
+{
+    if (addr->sa_family == AF_INET || addr->sa_family == 0) {
+	return 1 + sizeof(struct in_addr);
+    }
+#if defined(HAVE_IN6) && defined(AF_INET6)
+    else if (addr->sa_family == AF_INET6) {
+	return 1 + sizeof(struct in6_addr);
+    }
+#endif
+#if defined(AF_LINK)
+    if (addr->sa_family == AF_LINK) {
+	struct sockaddr_dl *sdl_p = (struct sockaddr_dl*) addr;
+	return 2 + sdl_p->sdl_alen;
+    }
+#endif
+#if defined(AF_PACKET) && defined(HAVE_NETPACKET_PACKET_H)
+    else if(addr->sa_family == AF_PACKET) {
+	struct sockaddr_ll *sll_p = (struct sockaddr_ll*) addr;
+	return 2 + sll_p->sll_halen;
+    }
+#endif
+    return 0;
+}
+
 static char* buf_to_sockaddr(char* ptr, char* end, struct sockaddr* addr)
 {
     buf_check(ptr,end,1);
@@ -5805,6 +5838,11 @@ done:
 }
 
 #elif defined(HAVE_GETIFADDRS)
+#ifdef  DEBUG
+#define GETIFADDRS_BUFSZ (1)
+#else
+#define GETIFADDRS_BUFSZ (512)
+#endif
 
 static ErlDrvSSizeT inet_ctl_getifaddrs(inet_descriptor* desc_p,
 					char **rbuf_pp, ErlDrvSizeT rsize)
@@ -5815,15 +5853,15 @@ static ErlDrvSSizeT inet_ctl_getifaddrs(inet_descriptor* desc_p,
     char *buf_p;
     char *buf_alloc_p;
 
-    buf_size = 512;
-    buf_alloc_p = ALLOC(buf_size);
+    buf_size = GETIFADDRS_BUFSZ;
+    buf_alloc_p = ALLOC(GETIFADDRS_BUFSZ);
     buf_p = buf_alloc_p;
 #   define BUF_ENSURE(Size)						\
     do {								\
 	int NEED_, GOT_ = buf_p - buf_alloc_p;				\
 	NEED_ = GOT_ + (Size);						\
 	if (NEED_ > buf_size) {						\
-	    buf_size = NEED_ + 512;					\
+	    buf_size = NEED_ + GETIFADDRS_BUFSZ;			\
 	    buf_alloc_p = REALLOC(buf_alloc_p, buf_size);		\
 	    buf_p = buf_alloc_p + GOT_;					\
 	}								\
@@ -5836,7 +5874,7 @@ static ErlDrvSSizeT inet_ctl_getifaddrs(inet_descriptor* desc_p,
 	    while (! (P_ = sockaddr_to_buf((sa), buf_p,			\
 					   buf_alloc_p+buf_size))) {	\
 		int GOT_ = buf_p - buf_alloc_p;				\
-		buf_size += 512;					\
+		buf_size += GETIFADDRS_BUFSZ;				\
 		buf_alloc_p = REALLOC(buf_alloc_p, buf_size);		\
 		buf_p = buf_alloc_p + GOT_;				\
 	    }								\
@@ -5893,10 +5931,11 @@ static ErlDrvSSizeT inet_ctl_getifaddrs(inet_descriptor* desc_p,
 		     || ifa_p->ifa_addr->sa_family == AF_PACKET
 #endif
 		     ) {
-		char *bp = buf_p;
-		BUF_ENSURE(1);
-		SOCKADDR_TO_BUF(INET_IFOPT_HWADDR, ifa_p->ifa_addr);
-		if (buf_p - bp < 4) buf_p = bp; /* Empty hwaddr */
+		size_t need = sockaddr_bufsz_need(ifa_p->ifa_addr);
+		if (need > 3) {
+		    BUF_ENSURE(1 + need);
+		    SOCKADDR_TO_BUF(INET_IFOPT_HWADDR, ifa_p->ifa_addr);
+		}
 	    }
 #endif
 	}
@@ -5911,6 +5950,7 @@ static ErlDrvSSizeT inet_ctl_getifaddrs(inet_descriptor* desc_p,
     return buf_size;
 #   undef BUF_ENSURE
 }
+#undef GETIFADDRS_BUFSZ
 
 #else
 
@@ -8214,6 +8254,19 @@ static void inet_stop(inet_descriptor* desc)
 #endif
     FREE(desc);
 }
+
+static void inet_emergency_close(ErlDrvData data)
+{
+    /* valid for any (UDP, TCP or SCTP) descriptor */
+    tcp_descriptor* tcp_desc = (tcp_descriptor*)data;
+    inet_descriptor* desc = INETP(tcp_desc);
+    DEBUGF(("inet_emergency_close(%ld) {s=%d\r\n",
+	    (long)desc->port, desc->s));
+    if (desc->s != INVALID_SOCKET) {
+	sock_close(desc->s);
+    }
+}
+
 
 static void set_default_msgq_limits(ErlDrvPort port)
 {
