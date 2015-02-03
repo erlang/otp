@@ -829,16 +829,16 @@ eval_rel_op(Call, '=:=', [Term,#c_literal{val=true}], Sub) ->
 	maybe -> Call;
 	no -> #c_literal{val=false}
     end;
-eval_rel_op(Call, '==', Ops, _Sub) ->
-    case is_exact_eq_ok(Ops) of
+eval_rel_op(Call, '==', Ops, Sub) ->
+    case is_exact_eq_ok(Ops, Sub) of
 	true ->
 	    Name = #c_literal{anno=cerl:get_ann(Call),val='=:='},
 	    Call#c_call{name=Name};
 	false ->
 	    Call
     end;
-eval_rel_op(Call, '/=', Ops, _Sub) ->
-    case is_exact_eq_ok(Ops) of
+eval_rel_op(Call, '/=', Ops, Sub) ->
+    case is_exact_eq_ok(Ops, Sub) of
 	true ->
 	    Name = #c_literal{anno=cerl:get_ann(Call),val='=/='},
 	    Call#c_call{name=Name};
@@ -847,11 +847,17 @@ eval_rel_op(Call, '/=', Ops, _Sub) ->
     end;
 eval_rel_op(Call, _, _, _) -> Call.
 
-is_exact_eq_ok([#c_literal{val=Lit}|_]) ->
+is_exact_eq_ok([A,B]=L, Sub) ->
+    case is_int_type(A, Sub) =:= yes andalso is_int_type(B, Sub) =:= yes of
+	true -> true;
+	false -> is_exact_eq_ok_1(L)
+    end.
+
+is_exact_eq_ok_1([#c_literal{val=Lit}|_]) ->
     is_non_numeric(Lit);
-is_exact_eq_ok([_|T]) ->
-    is_exact_eq_ok(T);
-is_exact_eq_ok([]) -> false.
+is_exact_eq_ok_1([_|T]) ->
+    is_exact_eq_ok_1(T);
+is_exact_eq_ok_1([]) -> false.
 
 is_non_numeric([H|T]) ->
     is_non_numeric(H) andalso is_non_numeric(T);
