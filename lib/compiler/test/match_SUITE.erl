@@ -406,11 +406,18 @@ underscore(Config) when is_list(Config) ->
 match_map(Config) when is_list(Config) ->
     Map = #{key=>{x,y},ignore=>anything},
     #s{map=Map,t={x,y}} = do_match_map(#s{map=Map}),
+    {a,#{k:={a,b,c}}} = do_match_map_2(#{k=>{a,b,c}}),
     ok.
 
 do_match_map(#s{map=#{key:=Val}}=S) ->
     %% Would crash with a 'badarg' exception.
     S#s{t=Val}.
+
+do_match_map_2(Map) ->
+    case {a,Map} of
+	{a,#{k:=_}}=Tuple ->
+	    Tuple
+    end.
 
 coverage(Config) when is_list(Config) ->
     %% Cover beam_dead.
