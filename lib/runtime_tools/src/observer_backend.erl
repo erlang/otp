@@ -248,7 +248,7 @@ etop_collect(Collector) ->
     SchedulerWallTime = erlang:statistics(scheduler_wall_time),
     ProcInfo = etop_collect(processes(), []),
 
-    Collector ! {self(),#etop_info{now = now(),
+    Collector ! {self(),#etop_info{now = erlang:timestamp(),
 				   n_procs = length(ProcInfo),
 				   run_queue = erlang:statistics(run_queue),
 				   runtime = SchedulerWallTime,
