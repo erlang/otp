@@ -778,36 +778,8 @@ prepare_crash_dump(int secs)
 			 heart_port->common.id, list, NULL);
     }
 
-<<<<<<< HEAD
-    /* Make sure we unregister at epmd (unknown fd) and get at least
-       one free filedescriptor (for erl_crash.dump) */
-
-    max = max_files;
-    if (max < 1024)
-	max = 1024;
-    for (i = 3; i < max; i++) {
-#if defined(ERTS_SMP)
-	/* We don't want to close the signal notification pipe... */
-	if (i == sig_notify_fds[0] || i == sig_notify_fds[1])
-	    continue;
-	/* We don't want to close the signal syspend pipe... */
-	if (i == sig_suspend_fds[0] || i == sig_suspend_fds[1])
-	    continue;
-#elif defined(USE_THREADS)
-	/* We don't want to close the async notification pipe... */
-	if (i == async_fd[0] || i == async_fd[1])
-	    continue;
-#endif
-	/* We don't want to close our heart yet ... */
-	if (i == heart_fd[0] || i == heart_fd[1])
-	    continue;
-
-	close(i);
-    }
-=======
     /* Make sure we have a fd for our crashdump file. */
     close(crashdump_companion_cube_fd);
->>>>>>> maint
 
     envsz = sizeof(env);
     i = erts_sys_getenv__("ERL_CRASH_DUMP_NICE", env, &envsz);
