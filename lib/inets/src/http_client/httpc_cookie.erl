@@ -362,6 +362,8 @@ parse_set_cookie(CookieHeader, {DefaultPath, DefaultDomain}) ->
     Name            = string:substr(CookieHeader, 1, Pos - 1),
     {Value, Attrs}  = 
 	case string:substr(CookieHeader, Pos + 1) of
+	    [] ->
+		{"", ""};
 	    [$;|ValueAndAttrs] ->
 		{"", string:tokens(ValueAndAttrs, ";")};
 	    ValueAndAttrs ->
