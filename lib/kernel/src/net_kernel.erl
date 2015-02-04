@@ -53,6 +53,12 @@
 -define(tckr_dbg(X), ok).
 -endif.
 
+-ifdef(EPMD_IPV6).
+-define(DEFAULT_PROTO_DIST, "inet6_tcp").
+-else.
+-define(DEFAULT_PROTO_DIST, "inet_tcp").
+-endif.
+
 %% User Interface Exports
 -export([start/1, start_link/1, stop/0,
 	 kernel_apply/3,
@@ -1276,7 +1282,7 @@ protocol_childspecs() ->
 	{ok, [Protos]} ->
 	    protocol_childspecs(Protos);
 	_ ->
-	    protocol_childspecs(["inet_tcp"])
+	    protocol_childspecs([?DEFAULT_PROTO_DIST])
     end.
 
 protocol_childspecs([]) ->
@@ -1312,7 +1318,7 @@ start_protos(Name,Node) ->
 	{ok, [Protos]} ->
 	    start_protos(Name,Protos, Node);
 	_ ->
-	    start_protos(Name,["inet_tcp"], Node)
+	    start_protos(Name,[?DEFAULT_PROTO_DIST], Node) 
     end.
 
 start_protos(Name,Ps, Node) ->

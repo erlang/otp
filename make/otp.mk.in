@@ -62,6 +62,12 @@ HIPE_ENABLED=@HIPE_ENABLED@
 NATIVE_LIBS_ENABLED=@NATIVE_LIBS_ENABLED@
 
 # ----------------------------------------------------
+#	Epmd default IPV6
+# ----------------------------------------------------
+
+EPMD_IPV6_ENABLED=@EPMD_IPV6_ENABLED@
+
+# ----------------------------------------------------
 #	Command macros
 # ----------------------------------------------------
 INSTALL         = @INSTALL@
@@ -99,6 +105,11 @@ else
     ERL_COMPILE_FLAGS += +debug_info
   endif
 endif
+
+ifeq ($(EPMD_IPV6_ENABLED),yes)
+ERL_COMPILE_FLAGS += -DEPMD_IPV6
+endif
+
 ERLC_WFLAGS = -W
 ERLC = erlc $(ERLC_WFLAGS) $(ERLC_FLAGS)
 ERL = erl -boot start_clean

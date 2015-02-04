@@ -29,6 +29,12 @@
 -define(port_please_failure2(Term), noop).
 -endif.
 
+-ifdef(EPMD_IPV6).
+-define(DEFAULT_EPMD_IP, {0,0,0,0,0,0,0,1}).
+-else.
+-define(DEFAULT_EPMD_IP, {127,0,0,1}).
+-endif.
+
 %% External exports
 -export([start/0, start_link/0, stop/0, port_please/2, 
 	 port_please/3, names/0, names/1,
@@ -193,7 +199,7 @@ get_epmd_port() ->
 %%
 %% Epmd socket
 %%
-open() -> open({127,0,0,1}).  % The localhost IP address.
+open() -> open(?DEFAULT_EPMD_IP).  % The localhost IP address.
 
 open({A,B,C,D}=EpmdAddr) when ?ip(A,B,C,D) ->
     gen_tcp:connect(EpmdAddr, get_epmd_port(), [inet]);
