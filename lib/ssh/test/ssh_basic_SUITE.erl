@@ -723,7 +723,7 @@ ssh_connect_arg4_timeout(_Config) ->
 
     %% Wait for client reaction on the connection try:
     receive
-	{done, Client, {error,_E}, T0} ->
+	{done, Client, {error,timeout}, T0} ->
 	    Msp = ms_passed(T0, now()),
 	    exit(Server,hasta_la_vista___baby),
 	    Low = 0.9*Timeout,
@@ -733,6 +733,11 @@ ssh_connect_arg4_timeout(_Config) ->
 		Low<Msp, Msp<High -> ok;
 		true -> {fail, "timeout not within limits"}
 	    end;
+
+	{done, Client, {error,Other}, _T0} ->
+	    ct:log("Error message \"~p\" from the client is unexpected.",[{error,Other}]),
+	    {fail, "Unexpected error message"};
+
 	{done, Client, {ok,_Ref}, _T0} ->
 	    {fail,"ssh-connected ???"}
     after
