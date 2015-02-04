@@ -1014,28 +1014,32 @@ eval_is_record(Call, _, _, _, _) -> Call.
 
 %% eval_setelement(Call, Pos, Tuple, NewVal) -> Core.
 %%  Evaluates setelement/3 if position Pos is an integer
-%%  the shape of the tuple Tuple is known.
+%%  and the shape of the tuple Tuple is known.
 %%
-eval_setelement(Call, Pos, Tuple, NewVal) ->
-    try
-	eval_setelement_1(Pos, Tuple, NewVal)
-    catch
-	error:_ ->
-	    Call
-    end.
-
-eval_setelement_1(#c_literal{val=Pos}, #c_tuple{anno=A,es=Es}, NewVal)
+eval_setelement(Call, #c_literal{val=Pos}, Tuple, NewVal)
   when is_integer(Pos) ->
-    ann_c_tuple(A, eval_setelement_2(Pos, Es, NewVal));
-eval_setelement_1(#c_literal{val=Pos}, #c_literal{anno=A,val=Es0}, NewVal)
-  when is_integer(Pos) ->
-    Es = [#c_literal{anno=A,val=E} || E <- tuple_to_list(Es0)],
-    ann_c_tuple(A, eval_setelement_2(Pos, Es, NewVal)).
+    case cerl:is_data(Tuple) of
+	false ->
+	    Call;
+	true ->
+	    Es0 = case cerl:is_c_tuple(Tuple) of
+		      false -> [];
+		      true -> cerl:tuple_es(Tuple)
+		  end,
+	    if
+		1 =< Pos, Pos =< length(Es0) ->
+		    Es = eval_setelement_1(Pos, Es0, NewVal),
+		    cerl:update_c_tuple(Tuple, Es);
+		true ->
+		    eval_failure(Call, badarg)
+	    end
+    end;
+eval_setelement(Call, _, _, _) -> Call.
 
-eval_setelement_2(1, [_|T], NewVal) ->
+eval_setelement_1(1, [_|T], NewVal) ->
     [NewVal|T];
-eval_setelement_2(Pos, [H|T], NewVal) when Pos > 1 ->
-    [H|eval_setelement_2(Pos-1, T, NewVal)].
+eval_setelement_1(Pos, [H|T], NewVal) when Pos > 1 ->
+    [H|eval_setelement_1(Pos-1, T, NewVal)].
 
 %% eval_failure(Call, Reason) -> Core.
 %%  Warn for a call that will fail and replace the call with
