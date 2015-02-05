@@ -71,9 +71,9 @@ cmp([E1 | T1], [E2 | T2]) ->
     end;
 cmp(T1, T2) when tuple_size(T1) =:= tuple_size(T2) ->
     tcmp(T1, T2, 1, tuple_size(T1));
-cmp(I, F) when is_integer(I), is_float(F) ->
+cmp(I, F) when is_integer(I), is_float(F), I == F ->
     -1;
-cmp(F, I) when is_float(F), is_integer(I) ->
+cmp(F, I) when is_float(F), is_integer(I), I == F ->
     1;
 cmp(T1, T2) when T1 < T2 ->
     -1;
