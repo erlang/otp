@@ -81,6 +81,7 @@ MODULES =  \
 	rec_env \
 	sys_core_dsetel \
 	sys_core_fold \
+	sys_core_fold_lists \
 	sys_core_inline \
 	sys_pre_attributes \
 	sys_pre_expand \
@@ -187,6 +188,7 @@ $(EBIN)/core_parse.beam: core_parse.hrl $(EGEN)/core_parse.erl
 $(EBIN)/core_pp.beam: core_parse.hrl
 $(EBIN)/sys_core_dsetel.beam: core_parse.hrl
 $(EBIN)/sys_core_fold.beam: core_parse.hrl
+$(EBIN)/sys_core_fold_lists.beam: core_parse.hrl
 $(EBIN)/sys_core_inline.beam: core_parse.hrl
 $(EBIN)/sys_pre_expand.beam: ../../stdlib/include/erl_bits.hrl
 $(EBIN)/v3_codegen.beam: v3_life.hrl
