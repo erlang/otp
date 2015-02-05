@@ -611,12 +611,10 @@ otp_7345(Config) when is_list(Config) ->
 
 otp_7345(ObjRef, _RdEnv, Args) ->
     Cid = ObjRef#contextId.cid,
-    _DpRef =
-	#dpRef{cid = Cid,
+    _ =	#dpRef{cid = Cid,
 		     ms_device_context_id = cid_id,
 		     tlli = #ptmsi{value = 0}},
-    _QosProfile =
-	#qosProfileBssgp{peak_bit_rate_msb = 0,
+    _ =	#qosProfileBssgp{peak_bit_rate_msb = 0,
 			 peak_bit_rate_lsb = 80,
 			 t_a_precedence = 49},
     [Cpdu|_] = Args,

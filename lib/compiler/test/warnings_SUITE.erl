@@ -39,7 +39,7 @@
 	 guard/1,bad_arith/1,bool_cases/1,bad_apply/1,
          files/1,effect/1,bin_opt_info/1,bin_construction/1,
 	 comprehensions/1,maps/1,redundant_boolean_clauses/1,
-	 latin1_fallback/1]).
+	 latin1_fallback/1,underscore/1]).
 
 % Default timetrap timeout (set in init_per_testcase).
 -define(default_timeout, ?t:minutes(2)).
@@ -64,7 +64,8 @@ groups() ->
       [pattern,pattern2,pattern3,pattern4,guard,
        bad_arith,bool_cases,bad_apply,files,effect,
        bin_opt_info,bin_construction,comprehensions,maps,
-       redundant_boolean_clauses,latin1_fallback]}].
+       redundant_boolean_clauses,latin1_fallback,
+       underscore]}].
 
 init_per_suite(Config) ->
     Config.
@@ -280,11 +281,12 @@ bad_arith(Config) when is_list(Config) ->
 	     {3,sys_core_fold,{eval_failure,badarith}},
 	     {9,sys_core_fold,nomatch_guard},
 	     {9,sys_core_fold,{eval_failure,badarith}},
+	     {9,sys_core_fold,{no_effect,{erlang,is_integer,1}}},
 	     {10,sys_core_fold,nomatch_guard},
 	     {10,sys_core_fold,{eval_failure,badarith}},
 	     {15,sys_core_fold,{eval_failure,badarith}}
 	    ] }}],
-    ?line [] = run(Config, Ts),
+    [] = run(Config, Ts),
     ok.
 
 bool_cases(Config) when is_list(Config) ->
@@ -675,6 +677,45 @@ latin1_fallback(Conf) when is_list(Conf) ->
 	    [],
 	    {warnings,[{2,compile,reparsing_invalid_unicode}]}}],
     [] = run(Conf, Ts3),
+
+    ok.
+
+underscore(Config) when is_list(Config) ->
+    S0 = <<"f(A) ->
+              _VAR1 = <<A>>,
+              _VAR2 = {ok,A},
+              _VAR3 = [A],
+              ok.
+	    g(A) ->
+              _VAR1 = A/0,
+              _VAR2 = date(),
+	      ok.
+            h() ->
+               _VAR1 = fun() -> ok end,
+	      ok.
+            i(A) ->
+               _VAR1 = #{A=>42},
+	      ok.
+	 ">>,
+    Ts0 = [{underscore0,
+	    S0,
+	    [],
+	    {warnings,[{2,sys_core_fold,useless_building},
+		       {3,sys_core_fold,useless_building},
+		       {4,sys_core_fold,useless_building},
+		       {7,sys_core_fold,result_ignored},
+		       {8,sys_core_fold,{no_effect,{erlang,date,0}}},
+		       {11,sys_core_fold,useless_building},
+		       {14,sys_core_fold,useless_building}
+		      ]}}],
+    [] = run(Config, Ts0),
+
+    %% Replace all "_VAR<digit>" variables with a plain underscore.
+    %% Now there should be no warnings.
+    S1 = re:replace(S0, "_VAR\\d+", "_", [global]),
+    io:format("~s\n", [S1]),
+    Ts1 = [{underscore1,S1,[],[]}],
+    [] = run(Config, Ts1),
 
     ok.
 

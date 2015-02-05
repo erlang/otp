@@ -680,23 +680,15 @@ count_bits_1(Int, Bits) -> count_bits_1(Int bsr 64, Bits+64).
 %%  a rewritten expression consisting of a sequence of
 %%  the arguments only is returned.
 
-useless_call(effect, #c_call{anno=Anno,
-			     module=#c_literal{val=Mod},
+useless_call(effect, #c_call{module=#c_literal{val=Mod},
 			     name=#c_literal{val=Name},
 			     args=Args}=Call) ->
     A = length(Args),
     case erl_bifs:is_safe(Mod, Name, A) of
 	false ->
 	    case erl_bifs:is_pure(Mod, Name, A) of
-		true ->
-		    case member(result_not_wanted, Anno) of
-			false ->
-			    add_warning(Call, result_ignored);
-			true ->
-			    ok
-		    end;
-		false ->
-		    ok
+		true -> add_warning(Call, result_ignored);
+		false -> ok
 	    end,
 	    no;
 	true ->
@@ -2038,12 +2030,31 @@ case_opt_args([], Cs, _Sub, _LitExpr, Acc) ->
 %%  Try to expand one argument to several arguments (if tuple/list)
 %%  or to remove a literal argument.
 %%
-case_opt_arg(E0, Sub, Cs0, LitExpr) ->
-    E = maybe_replace_var(E0, Sub),
-    case cerl:is_data(E) of
+case_opt_arg(E0, Sub, Cs, LitExpr) ->
+    case cerl:is_c_var(E0) of
+	false ->
+	    case_opt_arg_1(E0, Cs, LitExpr);
+	true ->
+	    case case_will_var_match(Cs) of
+		true ->
+		    %% All clauses will match a variable in the
+		    %% current position. Don't expand this variable
+		    %% (that can only make the code worse).
+		    {error,Cs};
+		false ->
+		    %% If possible, expand this variable to a previously
+		    %% matched term.
+		    E = case_expand_var(E0, Sub),
+		    case_opt_arg_1(E, Cs, LitExpr)
+	    end
+    end.
+
+case_opt_arg_1(E0, Cs0, LitExpr) ->
+    case cerl:is_data(E0) of
 	false ->
             {error,Cs0};
 	true ->
+	    E = case_opt_compiler_generated(E0),
 	    Cs = case_opt_nomatch(E, Cs0, LitExpr),
 	    case cerl:data_type(E) of
 		{atomic,_} ->
@@ -2053,18 +2064,42 @@ case_opt_arg(E0, Sub, Cs0, LitExpr) ->
 	    end
     end.
 
-%% maybe_replace_var(Expr0, Sub) -> Expr
+%% case_will_var_match([Clause]) -> true | false.
+%%  Return if all clauses will match a variable in the
+%%  current position.
+%%
+case_will_var_match(Cs) ->
+    all(fun({[P|_],_,_,_}) ->
+		case cerl_clauses:match(P, any) of
+		    {true,_} -> true;
+		    _ -> false
+		end
+	end, Cs).
+
+
+%% case_opt_compiler_generated(Core) -> Core'
+%%  Mark Core expressions as compiler generated to ensure that
+%%  no warnings are generated if they turn out to be unused.
+%%  To pretty-printed Core Erlang easier to read, don't mark
+%%  constructs that can't cause warnings to be emitted.
+%%
+case_opt_compiler_generated(Core) ->
+    F = fun(C) ->
+		case cerl:type(C) of
+		    alias -> C;
+		    var -> C;
+		    _ -> cerl:set_ann(C, [compiler_generated])
+		end
+	end,
+    cerl_trees:map(F, Core).
+
+
+%% case_expand_var(Expr0, Sub) -> Expr
 %%  If Expr0 is a variable that has been previously matched and
 %%  is known to be a tuple, return the tuple instead. Otherwise
 %%  return Expr0 unchanged.
 %%
-maybe_replace_var(E, Sub) ->
-    case cerl:is_c_var(E) of
-	false -> E;
-	true -> maybe_replace_var_1(E, Sub)
-    end.
-
-maybe_replace_var_1(E, #sub{t=Tdb}) ->
+case_expand_var(E, #sub{t=Tdb}) ->
     case orddict:find(cerl:var_name(E), Tdb) of
 	{ok,T0} ->
 	    case cerl:is_c_tuple(T0) of
@@ -2081,9 +2116,8 @@ maybe_replace_var_1(E, #sub{t=Tdb}) ->
 		    %% operator will fail when used in map
 		    %% construction (only the '=>' operator is allowed
 		    %% when constructing a map from scratch).
-		    ToData = fun coerce_to_data/1,
 		    try
-			cerl_trees:map(ToData, T0)
+			cerl_trees:map(fun coerce_to_data/1, T0)
 		    catch
 			throw:impossible ->
 			    %% Something unsuitable was found (map or
@@ -2137,8 +2171,9 @@ case_opt_nomatch(_, [], _) -> [].
 %%  will match, and we can remove the corresponding pattern from
 %%  each clause.
 %%
-%%  The only complication is if the literal is a binary. Binary
-%%  pattern matching is tricky, so we will give up in that case.
+%%  The only complication is if the literal is a binary or map.
+%%  In general, it is difficult to know whether a binary or
+%%  map pattern will match, so we give up in that case.
 
 case_opt_lit(Lit, Cs0) ->
     try case_opt_lit_1(Lit, Cs0) of
@@ -2165,6 +2200,10 @@ case_opt_lit_1(E, [{[P|Ps],C,PsAcc,Bs0}|Cs]) ->
 case_opt_lit_1(_, []) -> [].
 
 %% case_opt_data(Expr, Clauses0, LitExpr) -> {ok,Exprs,Clauses}
+%%  The case expression is a non-atomic data constructor (cons
+%%  or tuple). We can know at compile time whether each clause
+%%  will match, and we can delay the building of the data to
+%%  the clauses where it is actually needed.
 
 case_opt_data(E, Cs0) ->
     Es = cerl:data_es(E),
@@ -2174,45 +2213,48 @@ case_opt_data(E, Cs0) ->
 	    {ok,Es,Cs}
     catch
 	throw:impossible ->
+	    %% The pattern contained a binary or map.
 	    {error,Cs0}
     end.
 
-case_opt_data_1([{[P|Ps0],C,PsAcc,Bs0}|Cs], Es, TypeSig) ->
-    {ok,Ps1,Bs1} = case_data_pat(P, TypeSig),
-    [{Ps1++Ps0,C,PsAcc,Bs1++Bs0}|
-     case_opt_data_1(Cs, Es, TypeSig)];
+case_opt_data_1([{[P0|Ps0],C,PsAcc,Bs0}|Cs], Es, TypeSig) ->
+    P = case_opt_compiler_generated(P0),
+    BindTo = #c_var{name=dummy},
+    {Ps1,[{BindTo,_}|Bs1]} = case_data_pat_alias(P, BindTo, TypeSig, []),
+    [{Ps1++Ps0,C,PsAcc,Bs1++Bs0}|case_opt_data_1(Cs, Es, TypeSig)];
 case_opt_data_1([], _, _) -> [].
 
-%% case_data_pat(Pattern, Type, Arity) -> {ok,[Pattern],[{AliasVar,Pat}]} | error.
-
-case_data_pat(P, TypeSig) ->
-    case cerl:is_data(P) of
-	false ->
-	    case_data_pat_var(P, TypeSig);
-	true ->
-	    {ok,cerl:data_es(P),[]}
-    end.
-
-%% case_data_pat_var(Pattern, {DataType,ArityType}) ->
-%%          {ok,[Pattern],[{AliasVar,Pat}]}
-
-case_data_pat_var(P, {Type,Arity}=TypeSig) ->
-    %% If the entire case statement is evaluated in an effect
-    %% context (e.g. "case {A,B} of ... end, ok"), there will
-    %% be a warning that a term is constructed but never used.
-    %% To avoid that warning, we must annotate the data
-    %% constructor as compiler generated.
-    Ann = [compiler_generated|cerl:get_ann(P)],
+case_data_pat_alias(P, BindTo0, TypeSig, Bs0) ->
     case cerl:type(P) of
-	var ->
-	    Vars = make_vars(cerl:get_ann(P), Arity),
-	    {ok,Vars,[{P,cerl:ann_make_data(Ann, Type, Vars)}]};
 	alias ->
-	    V = cerl:alias_var(P),
-	    Apat = cerl:alias_pat(P),
-	    {ok,Ps,Bs} = case_data_pat(Apat, TypeSig),
-	    {ok,Ps,[{V,cerl:ann_make_data(Ann, Type,
-					  pat_to_expr_list(Ps))}|Bs]}
+	    %% Recursively handle the pattern and bind to
+	    %% the alias variable.
+	    BindTo = cerl:alias_var(P),
+	    Apat0 = cerl:alias_pat(P),
+	    Ann = [compiler_generated],
+	    Apat = cerl:set_ann(Apat0, Ann),
+	    {Ps,Bs} = case_data_pat_alias(Apat, BindTo, TypeSig, Bs0),
+	    {Ps,[{BindTo0,BindTo}|Bs]};
+	var ->
+	    %% Here we will need to actually build the data and bind
+	    %% it to the variable.
+	    {Type,Arity} = TypeSig,
+	    Vars = make_vars([], Arity),
+	    Ann = [compiler_generated],
+	    Data = cerl:ann_make_data(Ann, Type, Vars),
+	    Bs = [{BindTo0,P},{P,Data}|Bs0],
+	    {Vars,Bs};
+	_ ->
+	    %% Since case_opt_nomatch/3 has removed all clauses that
+	    %% cannot match, we KNOW that this clause must match and
+	    %% that the pattern must be a data constructor.
+	    %% Here we must build the data and bind it to the variable.
+	    {Type,_} = TypeSig,
+	    DataEs = cerl:data_es(P),
+	    Vars = pat_to_expr_list(DataEs),
+	    Ann = [compiler_generated],
+	    Data = cerl:ann_make_data(Ann, Type, Vars),
+	    {DataEs,[{BindTo0,Data}]}
     end.
 
 %% pat_to_expr(Pattern) -> Expression.
@@ -2259,17 +2301,10 @@ make_var_name() ->
     list_to_atom("fol"++integer_to_list(N)).
 
 letify(Bs, Body) ->
+    Ann = cerl:get_ann(Body),
     foldr(fun({V,Val}, B) ->
-		  letify(V, Val, B)
+		  cerl:ann_c_let(Ann, [V], Val, B)
 	  end, Body, Bs).
-
-letify(#c_var{name=Vname}=Var, Val, Body) ->
-    case core_lib:is_var_used(Vname, Body) of
-	true ->
-	    A = element(2, Body),
-	    #c_let{anno=A,vars=[Var],arg=Val,body=Body};
-	false -> Body
-    end.
 
 %% opt_case_in_let(LetExpr) -> LetExpr'
 
@@ -2635,7 +2670,7 @@ opt_simple_let_2(Let0, Vs0, Arg0, Body0, effect, Sub) ->
 		    opt_case_in_let_arg(opt_case_in_let(Let, Sub), effect, Sub)
 	    end
     end;
-opt_simple_let_2(Let, Vs0, Arg0, Body, value, Sub) ->
+opt_simple_let_2(Let0, Vs0, Arg0, Body, value, Sub) ->
     case {Vs0,Arg0,Body} of
 	{[#c_var{name=N1}],Arg,#c_var{name=N2}} ->
 	    case N1 =:= N2 of
@@ -2654,9 +2689,17 @@ opt_simple_let_2(Let, Vs0, Arg0, Body, value, Sub) ->
 	    %% can be evaluated in effect context to simplify it.
 	    expr(#c_seq{arg=Arg,body=Body}, value, sub_new_preserve_types(Sub));
 	{Vs,Arg,Body} ->
-	    opt_case_in_let_arg(
-	      opt_case_in_let(Let#c_let{vars=Vs,arg=Arg,body=Body}, Sub),
-	      value, Sub)
+	    %% If none of the variables are used in the body, we can rewrite the
+	    %% let to a sequence:
+	    %%   let <Var> = Arg in BodyWithoutVar  ==> seq Arg BodyWithoutVar
+	    case is_any_var_used(Vs, Body) of
+		false ->
+		    expr(#c_seq{arg=Arg,body=Body}, value,
+			 sub_new_preserve_types(Sub));
+		true ->
+		    Let = Let0#c_let{vars=Vs,arg=Arg,body=Body},
+		    opt_case_in_let_arg(opt_case_in_let(Let, Sub), value, Sub)
+	    end
     end.
 
 move_case_into_arg(#c_case{arg=#c_let{vars=OuterVars0,arg=OuterArg,
@@ -3106,7 +3149,7 @@ add_bin_opt_info(Core, Term) ->
     end.
 
 add_warning(Core, Term) ->
-    case is_compiler_generated(Core) of
+    case suppress_warning(Core) of
 	true ->
 	    ok;
 	false ->
@@ -3131,9 +3174,17 @@ get_file([{file,File}|_]) -> File;
 get_file([_|T]) -> get_file(T);
 get_file([]) -> "no_file". % should not happen
 
+suppress_warning(Core) ->
+    is_compiler_generated(Core) orelse
+	is_result_unwanted(Core).
+
 is_compiler_generated(Core) ->
-    Anno = core_lib:get_anno(Core),
-    member(compiler_generated, Anno).
+    Ann = cerl:get_ann(Core),
+    member(compiler_generated, Ann).
+
+is_result_unwanted(Core) ->
+    Ann = cerl:get_ann(Core),
+    member(result_not_wanted, Ann).
 
 get_warnings() ->
     ordsets:from_list((erase({?MODULE,warnings}))).

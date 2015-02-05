@@ -515,16 +515,16 @@ exprs([], St) -> {[],St}.
 %%  Generate an internal core expression.
 
 expr({var,L,V}, St) -> {#c_var{anno=lineno_anno(L, St),name=V},[],St};
-expr({char,L,C}, St) -> {#c_literal{anno=lineno_anno(L, St),val=C},[],St};
-expr({integer,L,I}, St) -> {#c_literal{anno=lineno_anno(L, St),val=I},[],St};
-expr({float,L,F}, St) -> {#c_literal{anno=lineno_anno(L, St),val=F},[],St};
-expr({atom,L,A}, St) -> {#c_literal{anno=lineno_anno(L, St),val=A},[],St};
-expr({nil,L}, St) -> {#c_literal{anno=lineno_anno(L, St),val=[]},[],St};
-expr({string,L,S}, St) -> {#c_literal{anno=lineno_anno(L, St),val=S},[],St};
+expr({char,L,C}, St) -> {#c_literal{anno=full_anno(L, St),val=C},[],St};
+expr({integer,L,I}, St) -> {#c_literal{anno=full_anno(L, St),val=I},[],St};
+expr({float,L,F}, St) -> {#c_literal{anno=full_anno(L, St),val=F},[],St};
+expr({atom,L,A}, St) -> {#c_literal{anno=full_anno(L, St),val=A},[],St};
+expr({nil,L}, St) -> {#c_literal{anno=full_anno(L, St),val=[]},[],St};
+expr({string,L,S}, St) -> {#c_literal{anno=full_anno(L, St),val=S},[],St};
 expr({cons,L,H0,T0}, St0) ->
     {H1,Hps,St1} = safe(H0, St0),
     {T1,Tps,St2} = safe(T0, St1),
-    A = lineno_anno(L, St2),
+    A = full_anno(L, St2),
     {annotate_cons(A, H1, T1, St2),Hps ++ Tps,St2};
 expr({lc,L,E,Qs0}, St0) ->
     {Qs1,St1} = preprocess_quals(L, Qs0, St0),
@@ -536,7 +536,7 @@ expr({tuple,L,Es0}, St0) ->
     A = record_anno(L, St1),
     {annotate_tuple(A, Es1, St1),Eps,St1};
 expr({map,L,Es0}, St0) ->
-    map_build_pairs(#c_literal{val=#{}}, Es0, lineno_anno(L, St0), St0);
+    map_build_pairs(#c_literal{val=#{}}, Es0, full_anno(L, St0), St0);
 expr({map,L,M0,Es0}, St0) ->
     try expr_map(M0,Es0,lineno_anno(L, St0),St0) of
 	{_,_,_}=Res -> Res
@@ -551,7 +551,7 @@ expr({map,L,M0,Es0}, St0) ->
 		    args=As},[],St}
     end;
 expr({bin,L,Es0}, St0) ->
-    try expr_bin(Es0, lineno_anno(L, St0), St0) of
+    try expr_bin(Es0, full_anno(L, St0), St0) of
 	{_,_,_}=Res -> Res
     catch
 	throw:bad_binary ->
@@ -641,11 +641,11 @@ expr({'catch',L,E0}, St0) ->
     Lanno = lineno_anno(L, St1),
     {#icatch{anno=#a{anno=Lanno},body=Eps ++ [E1]},[],St1};
 expr({'fun',L,{function,F,A},{_,_,_}=Id}, St) ->
-    Lanno = lineno_anno(L, St),
+    Lanno = full_anno(L, St),
     {#c_var{anno=Lanno++[{id,Id}],name={F,A}},[],St};
 expr({'fun',L,{function,M,F,A}}, St0) ->
     {As,Aps,St1} = safe_list([M,F,A], St0),
-    Lanno = lineno_anno(L, St1),
+    Lanno = full_anno(L, St1),
     {#icall{anno=#a{anno=Lanno},
 	    module=#c_literal{val=erlang},
 	    name=#c_literal{val=make_fun},
@@ -656,13 +656,9 @@ expr({named_fun,L,'_',Cs,Id}, St) ->
     fun_tq(Id, Cs, L, St, unnamed);
 expr({named_fun,L,Name,Cs,Id}, St) ->
     fun_tq(Id, Cs, L, St, {named,Name});
-expr({call,L,{remote,_,M,F},As0}, #core{wanted=Wanted}=St0) ->
+expr({call,L,{remote,_,M,F},As0}, St0) ->
     {[M1,F1|As1],Aps,St1} = safe_list([M,F|As0], St0),
-    Lanno = lineno_anno(L, St1),
-    Anno = case Wanted of
-	       false -> [result_not_wanted|Lanno];
-	       true -> Lanno
-	   end,
+    Anno = full_anno(L, St1),
     {#icall{anno=#a{anno=Anno},module=M1,name=F1,args=As1},Aps,St1};
 expr({call,Lc,{atom,Lf,F},As0}, St0) ->
     {As1,Aps,St1} = safe_list(As0, St0),
@@ -724,13 +720,13 @@ expr({op,L,'orelse',E1,E2}, St0) ->
     expr(E, St);
 expr({op,L,Op,A0}, St0) ->
     {A1,Aps,St1} = safe(A0, St0),
-    LineAnno = lineno_anno(L, St1),
+    LineAnno = full_anno(L, St1),
     {#icall{anno=#a{anno=LineAnno},		%Must have an #a{}
 	    module=#c_literal{anno=LineAnno,val=erlang},
 	    name=#c_literal{anno=LineAnno,val=Op},args=[A1]},Aps,St1};
 expr({op,L,Op,L0,R0}, St0) ->
     {As,Aps,St1} = safe_list([L0,R0], St0),
-    LineAnno = lineno_anno(L, St1),
+    LineAnno = full_anno(L, St1),
     {#icall{anno=#a{anno=LineAnno},		%Must have an #a{}
 	    module=#c_literal{anno=LineAnno,val=erlang},
 	    name=#c_literal{anno=LineAnno,val=Op},args=As},Aps,St1}.
@@ -971,7 +967,7 @@ fun_tq({_,_,Name}=Id, Cs0, L, St0, NameInfo) ->
     {Cs1,Ceps,St1} = clauses(Cs0, St0),
     {Args,St2} = new_vars(Arity, St1),
     {Ps,St3} = new_vars(Arity, St2),		%Need new variables here
-    Anno = lineno_anno(L, St3),
+    Anno = full_anno(L, St3),
     Fc = function_clause(Ps, Anno, {Name,Arity}),
     Fun = #ifun{anno=#a{anno=Anno},
 		id=[{id,Id}],				%We KNOW!
@@ -2341,16 +2337,21 @@ record_anno(L, St) when L >= ?REC_OFFSET ->
         true ->
             [record | lineno_anno(L - ?REC_OFFSET, St)];
         false ->
-            lineno_anno(L, St)
+            full_anno(L, St)
     end;
 record_anno(L, St) when L < -?REC_OFFSET ->
     case member(dialyzer, St#core.opts) of
         true ->
             [record | lineno_anno(L + ?REC_OFFSET, St)];
         false ->
-            lineno_anno(L, St)
+            full_anno(L, St)
     end;
 record_anno(L, St) ->
+    full_anno(L, St).
+
+full_anno(L, #core{wanted=false}=St) ->
+    [result_not_wanted|lineno_anno(L, St)];
+full_anno(L, #core{wanted=true}=St) ->
     lineno_anno(L, St).
 
 lineno_anno(L, St) ->

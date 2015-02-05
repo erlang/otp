@@ -20,8 +20,10 @@
 
 -include("test_server.hrl").
 -compile({no_auto_import,[binary_part/2]}).
--export([recompile/1,parallel/0,uniq/0,opt_opts/1,get_data_dir/1,
+-export([id/1,recompile/1,parallel/0,uniq/0,opt_opts/1,get_data_dir/1,
 	 smoke_disasm/1,p_run/2,binary_part/2]).
+
+id(I) -> I.
 
 recompile(Mod) when is_atom(Mod) ->
     case whereis(cover_server) of
