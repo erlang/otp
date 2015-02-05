@@ -1221,6 +1221,11 @@ is_non_numeric([H|T]) ->
     is_non_numeric(H) andalso is_non_numeric(T);
 is_non_numeric(Tuple) when is_tuple(Tuple) ->
     is_non_numeric_tuple(Tuple, tuple_size(Tuple));
+is_non_numeric(Map) when is_map(Map) ->
+    %% Note that 17.x and 18.x compare keys in different ways.
+    %% Be very conservative -- require that both keys and values
+    %% are non-numeric.
+    is_non_numeric(maps:to_list(Map));
 is_non_numeric(Num) when is_number(Num) ->
     false;
 is_non_numeric(_) -> true.
