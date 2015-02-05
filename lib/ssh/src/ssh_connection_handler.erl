@@ -1711,7 +1711,7 @@ handshake(Pid, Ref, Timeout) ->
 	    {error, Reason}
     after Timeout ->
 	    stop(Pid),
-	    {error, Timeout}
+	    {error, timeout}
     end.
 
 start_timeout(_,_, infinity) ->
