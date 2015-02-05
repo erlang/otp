@@ -97,7 +97,7 @@
 %%%     with a suitable error message.
 
 %%% logoff()
-%%%     Logs off anybody at at node
+%%%     Logs off anybody at that node
 
 %%% message(ToName, Message)
 %%%     sends Message to ToName. Error messages if the user of this 
