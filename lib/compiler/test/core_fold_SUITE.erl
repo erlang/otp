@@ -210,6 +210,16 @@ eq(Config) when is_list(Config) ->
     ?line ?CMP_DIFF(a, [a]),
     ?line ?CMP_DIFF(a, {1,2,3}),
 
+    ?CMP_SAME(#{a=>1.0,b=>2}, #{b=>2.0,a=>1}),
+    ?CMP_SAME(#{a=>[1.0],b=>[2]}, #{b=>[2.0],a=>[1]}),
+
+    %% The rule for comparing keys are different in 17.x and 18.x.
+    %% Just test that the results are consistent.
+    Bool = id(#{1=>a}) == id(#{1.0=>a}),	%Unoptimizable.
+    Bool = id(#{1=>a}) == #{1.0=>a},		%Optimizable.
+    Bool = #{1=>a} == #{1.0=>a},		%Optimizable.
+    io:format("Bool = ~p\n", [Bool]),
+
     ok.
 
 %% OTP-7117.
