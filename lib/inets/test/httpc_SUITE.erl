@@ -1709,6 +1709,7 @@ handle_uri(_,"/empty_set_cookie.html",_,_,_,_) ->
 handle_uri(_,"/invalid_set_cookie.html",_,_,_,_) ->
     "HTTP/1.1 200 ok\r\n" ++
 	"set-cookie: =\r\n" ++
+	"set-cookie: name=\r\n" ++
 	"set-cookie: name-or-value\r\n" ++
 	"Content-Length:32\r\n\r\n"++
 	"<HTML><BODY>foobar</BODY></HTML>";
