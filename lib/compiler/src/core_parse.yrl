@@ -58,7 +58,8 @@ Terminals
 
 %% Separators
 
-'(' ')' '{' '}' '[' ']' '|' ',' '->' '=' '/' '<' '>' ':' '-|' '#' '~' '::'
+'(' ')' '{' '}' '[' ']' '|' ',' '->' '=' '/' '<' '>' ':' '-|' '#'
+'~' '=>' ':='
 
 %% Keywords (atoms are assumed to always be single-quoted).
 
@@ -189,8 +190,9 @@ map_pattern -> '~' '{' map_pair_patterns '}' '~' :
 map_pair_patterns -> map_pair_pattern : ['$1'].
 map_pair_patterns -> map_pair_pattern ',' map_pair_patterns : ['$1' | '$3'].
 
-map_pair_pattern -> '~' '<' anno_expression ',' anno_pattern '>' :
-			#c_map_pair{op=#c_literal{val=exact},key='$3',val='$5'}.
+map_pair_pattern -> anno_expression ':=' anno_pattern :
+			#c_map_pair{op=#c_literal{val=exact},
+				    key='$1',val='$3'}.
 
 cons_pattern -> '[' anno_pattern tail_pattern :
 		    c_cons('$2', '$3').
@@ -295,10 +297,10 @@ map_pairs -> map_pair ',' map_pairs : ['$1' | '$3'].
 map_pair -> map_pair_assoc : '$1'.
 map_pair -> map_pair_exact : '$1'.
 
-map_pair_assoc -> '::' '<' anno_expression ',' anno_expression'>' :
-		#c_map_pair{op=#c_literal{val=assoc},key='$3',val='$5'}.
-map_pair_exact -> '~' '<' anno_expression ',' anno_expression'>' :
-		#c_map_pair{op=#c_literal{val=exact},key='$3',val='$5'}.
+map_pair_assoc -> anno_expression '=>' anno_expression :
+		#c_map_pair{op=#c_literal{val=assoc},key='$1',val='$3'}.
+map_pair_exact -> anno_expression ':=' anno_expression :
+		#c_map_pair{op=#c_literal{val=exact},key='$1',val='$3'}.
 
 cons -> '[' anno_expression tail : c_cons('$2', '$3').
 
