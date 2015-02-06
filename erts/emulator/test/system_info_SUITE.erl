@@ -213,7 +213,7 @@ memory(Config) when is_list(Config) ->
     %%
 
     erts_debug:set_internal_state(available_internal_state, true),
-    %% Use a large heap size on the controling process in
+    %% Use a large heap size on the controlling process in
     %% order to avoid changes in its heap size during
     %% comparisons.
     MinHeapSize = process_flag(min_heap_size, 1024*1024), 

@@ -1554,7 +1554,7 @@ typedef struct ErlIOVec {
       <fsummary>Set and get limits for busy port message queue</fsummary>
       <desc>
         <marker id="erl_drv_busy_msgq_limits"></marker>
-        <p>Sets and gets limits that will be used for controling the
+        <p>Sets and gets limits that will be used for controlling the
 	busy state of the port message queue.</p>
 	<p>The port message queue will be set into a busy
 	state when the amount of command data queued on the
