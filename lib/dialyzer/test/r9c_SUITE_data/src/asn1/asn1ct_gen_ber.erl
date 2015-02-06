@@ -1032,7 +1032,7 @@ gen_decode_default_call(ClassName,FieldName,Bytes,Type) ->
 	    [];
 	#'Externaltypereference'{module=Emod,type=Etype} ->
 	    emit(["   '",Emod,"':'dec_",Etype,"'(",Bytes,
-		  ", opt_or_defualt, TagIn ++ ",{asis,Tag},")",nl]),
+		  ", opt_or_default, TagIn ++ ",{asis,Tag},")",nl]),
 	    []
     end.
 

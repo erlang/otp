@@ -287,7 +287,7 @@ convert_FIFO_Key(Key) ->
 %%------------------------------------------------------------
 %% function : extract_priority
 %% Arguments: Event
-%%            Defalt Value
+%%            Default Value
 %%            Mapping Filter Value 
 %%             - false  value not needed (depends on QoS type)
 %%             - undefined value needed but no filter associated.
