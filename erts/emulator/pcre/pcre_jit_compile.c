@@ -6095,7 +6095,7 @@ return stacksize;
     C - Push the previous OVECTOR(i), OVECTOR(i+1) and OVECTOR_PRIV(i) to the stack.
     L - Push the previous local (pointed by localptr) to the stack
    () - opional values stored on the stack
-  ()* - optonal, can be stored multiple times
+  ()* - optional, can be stored multiple times
 
   The following list shows the regular expression templates, their PCRE byte codes
   and stack layout supported by pcre-sljit.

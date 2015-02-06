@@ -746,7 +746,7 @@ create_name(Type) ->
 %%            Type - if /4 used the types defines the extra arguments
 %%                   to be used.
 %% Returns  : {ok, Node} | {error, _}
-%% Effect   : Starts a new slave-node with given (optinally)
+%% Effect   : Starts a new slave-node with given (optionally)
 %%            extra arguments. If fails it retries 'Retries' times.
 %%------------------------------------------------------------
 create_node(Name, Port, normal) ->

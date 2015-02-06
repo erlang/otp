@@ -210,7 +210,7 @@ get_loopback_interface(Family) ->
 %%            InitOptions - [{Key, Value}]
 %%            {Type, StartOptions} - {lightweight, [{Key, Value}]}
 %% Returns  : {ok, Node} | {error, _}
-%% Effect   : Starts a new slave-node with given (optinally)
+%% Effect   : Starts a new slave-node with given (optionally)
 %%            extra arguments. If fails it retries 'Retries' times.
 %%------------------------------------------------------------
 js_node() ->

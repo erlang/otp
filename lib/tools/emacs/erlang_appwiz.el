@@ -305,7 +305,7 @@ The first element is the name which shows up in the menu.  The second
 is the `tempo' identfier (The string \"erlang-\" will be added in
 front of it).  The third is the skeleton descriptor, a variable
 containing `tempo' attributes as described in the function
-`tempo-define-template'.  The optinal fourth elements denotes a
+`tempo-define-template'.  The optional fourth elements denotes a
 function which should be called when the menu is selected.
 
 Functions corresponding to every template will be created.  The name

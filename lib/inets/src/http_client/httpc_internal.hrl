@@ -104,7 +104,7 @@
 	  content,       % {ContentType, Body} - Current HTTP request
 	  settings,      % #http_options{} - User defined settings
 	  abs_uri,       % string() ex: "http://www.erlang.org"
-	  userinfo,      % string() - optinal "<userinfo>@<host>:<port>"
+	  userinfo,      % string() - optional "<userinfo>@<host>:<port>"
 	  stream,	 % boolean() - stream async reply?
 	  headers_as_is, % boolean() - workaround for servers that does
 			 % not honor the http standard, can also be used 
