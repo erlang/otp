@@ -1146,7 +1146,7 @@ start_client(FileOrWrap,Traci) ->
 		     {fun handler/2, dict:to_list(Traci)}).
 
 handler(Trace,Traci) ->
-    %%We return our own Traci so that it not necesarry to look it up
+    %%We return our own Traci so that it not necessary to look it up
     %%This may take time if something huge has been written to it
     receive
 	{get,Collector} -> Collector ! {self(),{Trace,Traci}};

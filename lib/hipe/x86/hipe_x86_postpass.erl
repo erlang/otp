@@ -52,7 +52,7 @@ postpass(#defun{code=Code0}=Defun, Options) ->
 %  Purpose   : Function that does peephole optimizations. It works by 
 %              moving a window over the code and looking at a sequence of 
 %              a few instructions. Replaces long sequences of instructions
-%              with shorter ones and removes unnecesary ones.
+%              with shorter ones and removes unnecessary ones.
 %  Arguments : Insns   - List of pseudo x86-assembler records.
 %              Res     - Returned list of pseudo x86-assembler records. 
 %                        Kept reversed, until it is returned.
