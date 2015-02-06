@@ -992,8 +992,8 @@
               <xsd:element minOccurs="0" name="cpuUpperTreshold" type="TresholdPercent">
                 <xsd:annotation>
                   <xsd:documentation>
-                    Configuration of CPU upper treshold, i.e. when the CPU load 
-                    is rising and crosses this treshold then the  PMON function 
+                    Configuration of CPU upper threshold, i.e. when the CPU load 
+                    is rising and crosses this threshold then the  PMON function 
                     in ISS will raise a CPU alarm.
                   </xsd:documentation>
                 </xsd:annotation>
@@ -1001,8 +1001,8 @@
               <xsd:element minOccurs="0" name="cpuLowerTreshold" type="TresholdPercent">
                 <xsd:annotation>
                   <xsd:documentation>
-                    CPU lower treshold, i.e. when the CPU load 
-                    is falling and crosses this treshold then the 
+                    CPU lower threshold, i.e. when the CPU load 
+                    is falling and crosses this threshold then the 
                     PM function in ISS will cease the CPU alarm.
                   </xsd:documentation>
                 </xsd:annotation>
@@ -1025,8 +1025,8 @@
               <xsd:element minOccurs="0" name="memoryUpperTreshold">
                 <xsd:annotation>
                   <xsd:documentation>
-                    Memory upper treshold, i.e. when the Memory usage 
-                    is rising and crosses this treshold then the PM 
+                    Memory upper threshold, i.e. when the Memory usage 
+                    is rising and crosses this threshold then the PM 
                     function in ISS will raise a Memory alarm.
                   </xsd:documentation>
                 </xsd:annotation>
@@ -1041,8 +1041,8 @@
               <xsd:element minOccurs="0" name="memoryLowerTreshold" type="TresholdPercent">
                 <xsd:annotation>
                   <xsd:documentation>
-                    Memory lower treshold, i.e. when the Memory usage 
-                    is falling and crosses this treshold then the PM 
+                    Memory lower threshold, i.e. when the Memory usage 
+                    is falling and crosses this threshold then the PM 
                     function in ISS will cease the Memory alarm.
                   </xsd:documentation>
                 </xsd:annotation>
@@ -1050,8 +1050,8 @@
               <xsd:element minOccurs="0" name="bandwidthUpperTreshold" type="TresholdPercent">
                 <xsd:annotation>
                   <xsd:documentation>
-                    Bandwidth upper treshold, i.e. when the Bandwidth 
-                    usage is rising and crosses this treshold then the PM 
+                    Bandwidth upper threshold, i.e. when the Bandwidth 
+                    usage is rising and crosses this threshold then the PM 
                     function in ISS will raise a Bandwidth alarm.
                   </xsd:documentation>
                 </xsd:annotation>
@@ -1059,8 +1059,8 @@
               <xsd:element minOccurs="0" name="bandwidthLowerTreshold" type="TresholdPercent">
                 <xsd:annotation>
                   <xsd:documentation>
-                    Bandwidth lower treshold, i.e. when the Bandwidth usage 
-                    is falling and crosses this treshold then the PM function 
+                    Bandwidth lower threshold, i.e. when the Bandwidth usage 
+                    is falling and crosses this threshold then the PM function 
                     in ISS will cease the Bandwidth alarm.
                   </xsd:documentation>
                 </xsd:annotation>
