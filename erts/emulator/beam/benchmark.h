@@ -35,7 +35,7 @@
  * the BIFs.
  */
 
-/* BM_TIMERS keeps track of the time spent in diferent parts of the
+/* BM_TIMERS keeps track of the time spent in different parts of the
  * system. It only measures accual active time, not time spent in idle
  * mode. These timers requires hardware support.  For Linux, use the
  * package perfctr from user.it.uu.se/~mikpe/linux/perfctr. If this

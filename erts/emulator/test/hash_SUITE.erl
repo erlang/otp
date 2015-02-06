@@ -20,7 +20,7 @@
 %%
 %% Verifying erlang:phash/2. And now also phash2/2, to some extent.
 %% Test the hashing algorithm for integer numbers in 2 ways:
-%% 1 Test that numbers in diferent sequences get sufficiently spread
+%% 1 Test that numbers in different sequences get sufficiently spread
 %%   in a "bit pattern" way (modulo 256 etc).
 %% 2 Test that numbers are correctly hashed compared to a reference implementation,
 %%   regardless of their internal representation. The hashing algorithm should never 
