@@ -844,7 +844,7 @@ match_encoded_map(<<>>,[]) -> ok;
 match_encoded_map(Bin,[<<131,Item/binary>>|Items]) ->
     Size = erlang:byte_size(Item),
     <<EncodedTerm:Size/binary, Bin1/binary>> = Bin,
-    EncodedTerm = Item, %% Asssert
+    EncodedTerm = Item, %% Assert
     match_encoded_map(Bin1,Items).
 
 

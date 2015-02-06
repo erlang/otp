@@ -1375,7 +1375,7 @@ allocate(Config) when is_list(Config) ->
 
 allocate_and_assert(Fd, Offset, Length) ->
     % Just verify that calls to ?PRIM_FILE:allocate/3 don't crash or have
-    % any other negative side effect. We can't really asssert against a
+    % any other negative side effect. We can't really assert against a
     % specific return value, because support for file space pre-allocation
     % depends on the OS, OS version and underlying filesystem.
     %
