@@ -1021,7 +1021,7 @@
         </item>
 
         <item>
-          <p>Use of depricated function erlang:fault replaced with 
+          <p>Use of deprecated function erlang:fault replaced with 
             erlang:error.</p>
           <p>Own Id: OTP-6919</p>
         </item>
@@ -1143,7 +1143,7 @@
 
 <!--
         <item>
-          <p>Use of depricated function erlang:fault replaced by
+          <p>Use of deprecated function erlang:fault replaced by
             erlang:error. </p>
           <p>Own Id: OTP-6919</p>
         </item>

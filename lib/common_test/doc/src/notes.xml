@@ -816,7 +816,7 @@
       <list>
         <item>
           <p>
-	    Removed depricated run_test program, use ct_run instead.</p>
+	    Removed deprecated run_test program, use ct_run instead.</p>
           <p>
 	    *** POTENTIAL INCOMPATIBILITY ***</p>
           <p>
