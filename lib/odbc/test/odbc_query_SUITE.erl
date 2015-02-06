@@ -239,7 +239,7 @@ select_count(doc) ->
     ["Tests select_count/[2,3]'s timeout, "
      " select_count's functionality will be better tested by other tests "
      " such as first."];
-select_count(sute) -> [];
+select_count(suite) -> [];
 select_count(Config) when is_list(Config) ->
     Ref = ?config(connection_ref, Config),
     Table = ?config(tableName, Config),
