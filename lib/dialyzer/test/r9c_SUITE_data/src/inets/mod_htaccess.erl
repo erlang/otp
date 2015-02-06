@@ -988,7 +988,7 @@ getAllowDenyData(AllowDeny)->
 		    AllowDenyData
 	    end;
 	Error->
-	    errror
+	    error
     end.
 %----------------------------------------------------------------------
 % Fix the string that describes who is allowed to se the page
