@@ -59,7 +59,7 @@
    they are converted to string values.
 
    [?OPEN_CONNECTION, C_AutoCommitMode, C_TraceDriver, C_SrollableCursors,
-   C_TupelRow, BinaryStrings, ConnectionStr]
+   C_TupleRow, BinaryStrings, ConnectionStr]
    [?CLOSE_CONNECTION]		     
    [?COMMIT_TRANSACTION, CommitMode]
    [?QUERY, SQLQuery]
@@ -75,7 +75,7 @@
    C_AutoCommitMode - ?ON | ?OFF
    C_TraceDriver - ?ON | ?OFF
    C_SrollableCursors - ?ON | ?OFF
-   C_TupelRow -  - ?ON | ?OFF
+   C_TupleRow -  - ?ON | ?OFF
    BinaryStrings - ?ON | ?OFF
    ConnectionStr -  String
    CommitMode -  ?COMMIT | ?ROLLBACK

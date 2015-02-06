@@ -255,7 +255,7 @@ pattern(Config) when is_list(Config) ->
              13 = t({[]}),
              14 = t({a,b}),
              15 = t({{}}),
-             16 = t({tuple,tupel}),
+             16 = t({tuple,tuple}),
              17 = t(4),
              18 = t(10),
              19 = t({a}),
