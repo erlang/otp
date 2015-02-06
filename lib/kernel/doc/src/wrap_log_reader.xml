@@ -46,7 +46,7 @@
       will be done but an error message is returned. 
       </p>
     <p>If a log is configured to be distributed, there is a possibility that all items 
-      are not loggen on all nodes. <c>wrap_log_reader</c> does only read the log on
+      are not logged on all nodes. <c>wrap_log_reader</c> does only read the log on
       the called node, it is entirely up to the user to be sure that all items are read.
       </p>
   </description>

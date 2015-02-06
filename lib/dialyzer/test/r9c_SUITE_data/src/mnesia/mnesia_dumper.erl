@@ -515,7 +515,7 @@ insert_op(Tid, _, {op, transform, _Fun, TabDef}, InPlace, InitBy) ->
     end,
     insert_cstruct(Tid, Cs, true, InPlace, InitBy);
 
-%%%  Operations below this are handled without using the logg.
+%%%  Operations below this are handled without using the log.
 
 insert_op(Tid, _, {op, restore_recreate, TabDef}, InPlace, InitBy) ->
     Cs = mnesia_schema:list2cs(TabDef),

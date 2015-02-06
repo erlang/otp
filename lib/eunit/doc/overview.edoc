@@ -566,7 +566,7 @@ The main reason for using `assertMatch' also for simple matches, instead
 of matching with `=', is that it produces more detailed error messages.
 
 Examples:
-```?assertMatch({found, {fred, _}}, lookup(bloggs, Table))'''
+```?assertMatch({found, {fred, _}}, lookup(blogs, Table))'''
 ```?assertMatch([X|_] when X > 0, binary_to_list(B))'''
 </dd>
 <dt>`assertEqual(Expect, Expr)'</dt>

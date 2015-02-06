@@ -195,7 +195,7 @@ set_directory(_OE_This, State, Directory)  when ?is_FTP(State); ?is_NATIVE(State
 			{reason="Directory not found."});
 	{error, elogin} ->
 	    corba:raise(#'CosFileTransfer_SessionException'
-			{reason="User not loggen in."});
+			{reason="User not logged in."});
 	{error, econn} ->
 	    corba:raise(#'CosFileTransfer_RequestFailureException'
 			{reason="Premature connection ending."});
@@ -232,7 +232,7 @@ create_directory(OE_This, State, FileNameList) when ?is_FTP(State);
 			{reason="Directory not found."});
 	{error, elogin} ->
 	    corba:raise(#'CosFileTransfer_SessionException'
-			{reason="User not loggen in."});
+			{reason="User not logged in."});
 	{error, econn} ->
 	    corba:raise(#'CosFileTransfer_RequestFailureException'
 			{reason="Premature connection ending."});
@@ -305,7 +305,7 @@ delete(_OE_This, State, File) when ?is_FTP(State); ?is_NATIVE(State) ->
 			{reason="File or Directory not found."});
 	{error, elogin} ->
 	    corba:raise(#'CosFileTransfer_SessionException'
-			{reason="User not loggen in."});
+			{reason="User not logged in."});
 	{error, econn} ->
 	    corba:raise(#'CosFileTransfer_RequestFailureException'
 			{reason="Premature connection ending."});
@@ -455,7 +455,7 @@ oe_orber_create_directory_current(OE_This, State)  when ?is_FTP(State);
 			{reason="Directory not found."});
 	{error, elogin} ->
 	    corba:raise(#'CosFileTransfer_SessionException'
-			{reason="User not loggen in."});
+			{reason="User not logged in."});
 	{error, econn} ->
 	    corba:raise(#'CosFileTransfer_RequestFailureException'
 			{reason="Premature connection ending."});
@@ -762,7 +762,7 @@ source_FTS_operation(State, SrcFile, DestFile, Op, Offset, FTS) ->
 			{reason="File not found."});
 	{error, elogin} ->
 	    corba:raise(#'CosFileTransfer_SessionException'
-			{reason="User not loggen in."});
+			{reason="User not logged in."});
 	{error, econn} ->
 	    corba:raise(#'CosFileTransfer_RequestFailureException'
 			{reason="Premature connection ending."})

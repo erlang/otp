@@ -317,7 +317,7 @@
 
 	  <tag><c><![CDATA[{max_sessions, pos_integer()}]]></c></tag>
 	  <item>
-	    <p>The maximum number of simultaneous sessions that are accepted at any time for this daemon.  This includes sessions that are being authorized.  So if set to <c>N</c>, and <c>N</c> clients have connected but not started the login process, the <c>N+1</c> connection attempt will be aborted.  If <c>N</c> connections are authenticated and still logged in, no more loggins will be accepted until one of the existing ones log out.
+	    <p>The maximum number of simultaneous sessions that are accepted at any time for this daemon.  This includes sessions that are being authorized.  So if set to <c>N</c>, and <c>N</c> clients have connected but not started the login process, the <c>N+1</c> connection attempt will be aborted.  If <c>N</c> connections are authenticated and still logged in, no more logins will be accepted until one of the existing ones log out.
 	    </p>
 	    <p>The counter is per listening port, so if two daemons are started, one with <c>{max_sessions,N}</c> and the other with <c>{max_sessions,M}</c> there will be in total <c>N+M</c> connections accepted for the whole ssh application.
 	    </p>

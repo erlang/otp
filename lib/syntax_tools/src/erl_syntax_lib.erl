@@ -1463,7 +1463,7 @@ analyze_function_name_list(Node) ->
 %%
 %% @doc Returns the function name represented by a syntax tree. If
 %% `Node' represents a function name, such as
-%% "`foo/1'" or "`bloggs:fred/2'", a uniform
+%% "`foo/1'" or "`blogs:fred/2'", a uniform
 %% representation of that name is returned. Different nestings of arity
 %% and module name qualifiers in the syntax tree does not affect the
 %% result.

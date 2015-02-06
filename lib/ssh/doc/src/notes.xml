@@ -198,7 +198,7 @@
         <item>
           <p>
 	    ssh now has a format_status function to avoid printing
-	    sensitive information in error loggs.</p>
+	    sensitive information in error logs.</p>
           <p>
 	    Own Id: OTP-12030</p>
         </item>
