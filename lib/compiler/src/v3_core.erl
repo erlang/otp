@@ -1623,48 +1623,29 @@ pattern_map_pairs(Ps, St) ->
 		{CMapPair,EpsP,Sti1} = pattern_map_pair(P,Sti0),
 		{CMapPair, {EpsM++EpsP,Sti1}}
 	end, {[],St}, Ps),
-    {pat_alias_map_pairs(CMapPairs,[]),Eps,St1}.
-
-%% remove cluddering annotations
-pattern_map_clean_key(#c_literal{val=V}) -> {literal,V};
-pattern_map_clean_key(#c_var{name=V}) -> {var,V}.
-
-pat_alias_map_pairs(Ps1,Ps2) ->
-    Ps = Ps1 ++ Ps2,
-    F = fun(#c_map_pair{key=Ck,val=Cv},Dbi) ->
-		K = pattern_map_clean_key(Ck),
-		case dict:find(K,Dbi) of
-		    {ok,Cvs} -> dict:store(K,[Cv|Cvs],Dbi);
-		    _        -> dict:store(K,[Cv],Dbi)
-		end
-	end,
-    Kdb = lists:foldl(F,dict:new(),Ps),
-    pat_alias_map_pairs(Ps,Kdb,sets:new()).
-
-pat_alias_map_pairs([],_,_) -> [];
-pat_alias_map_pairs([#c_map_pair{key=Ck}=Pair|Pairs],Kdb,Set) ->
-    K = pattern_map_clean_key(Ck),
-    case sets:is_element(K,Set) of
-	true ->
-	    pat_alias_map_pairs(Pairs,Kdb,Set);
-	false ->
-	    Cvs = dict:fetch(K,Kdb),
-	    Cv = pat_alias_map_pair_values(Cvs),
-	    Set1 = sets:add_element(K,Set),
-	    [Pair#c_map_pair{val=Cv}|pat_alias_map_pairs(Pairs,Kdb,Set1)]
-    end.
-
-pat_alias_map_pair_values([Cv]) -> Cv;
-pat_alias_map_pair_values([Cv1,Cv2|Cvs]) ->
-    pat_alias_map_pair_values([pat_alias(Cv1,Cv2)|Cvs]).
+    {pat_alias_map_pairs(CMapPairs),Eps,St1}.
 
 pattern_map_pair({map_field_exact,L,K,V}, St0) ->
-    {Ck,EpsK,St1} = safe_pattern_expr(K,St0),
+    {Ck,EpsK,St1} = safe_pattern_expr(K, St0),
     {Cv,EpsV,St2} = pattern(V, St1),
-    {#c_map_pair{anno=lineno_anno(L,St2),
+    {#c_map_pair{anno=lineno_anno(L, St2),
 		 op=#c_literal{val=exact},
 		 key=Ck,
 		 val=Cv},EpsK++EpsV,St2}.
+
+pat_alias_map_pairs(Ps) ->
+    D = foldl(fun(#c_map_pair{key=K0}=Pair, D0) ->
+		      K = cerl:set_ann(K0, []),
+		      dict:append(K, Pair, D0)
+	      end, dict:new(), Ps),
+    pat_alias_map_pairs_1(dict:to_list(D)).
+
+pat_alias_map_pairs_1([{_,[#c_map_pair{val=V0}=Pair|Vs]}|T]) ->
+    V = foldl(fun(#c_map_pair{val=V}, Pat) ->
+		      pat_alias(V, Pat)
+	      end, V0, Vs),
+    [Pair#c_map_pair{val=V}|pat_alias_map_pairs_1(T)];
+pat_alias_map_pairs_1([]) -> [].
 
 %% pat_bin([BinElement], State) -> [BinSeg].
 
@@ -1707,7 +1688,7 @@ pat_alias(#c_tuple{anno=Anno,es=Es1}, #c_tuple{es=Es2}) ->
 %% alias maps
 %% There are no literals in maps patterns (patterns are always abstract)
 pat_alias(#c_map{es=Es1}=M,#c_map{es=Es2}) ->
-    M#c_map{es=pat_alias_map_pairs(Es1,Es2)};
+    M#c_map{es=pat_alias_map_pairs(Es1++Es2)};
 
 pat_alias(#c_alias{var=V1,pat=P1},
 	  #c_alias{var=V2,pat=P2}) ->
