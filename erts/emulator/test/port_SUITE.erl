@@ -1494,7 +1494,7 @@ test_bat_file(Dir) ->
     [DN,"hello","world"] = 
 	run_echo_args(Dir,FN,
 		      [default,"hello","world"]),
-    %% The arg0 argumant should be ignored when running batch files
+    %% The arg0 argument should be ignored when running batch files
     [DN,"hello","world"] = 
 	run_echo_args(Dir,FN,
 		      ["knaskurt","hello","world"]),
