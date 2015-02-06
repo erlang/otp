@@ -73,7 +73,7 @@ finish(Port) when is_port(Port) ->
 send_term(Port, Term) when is_port(Port) ->
     Port ! {self(), {command, [$t, term_to_binary(Term)]}}.
 
-%% Sends an 'eot' (end-of-test) indication to a C progrm.
+%% Sends an 'eot' (end-of-test) indication to a C program.
 
 send_eot(Port) when is_port(Port) ->
     Port ! {self(), {command, [$e]}}.
