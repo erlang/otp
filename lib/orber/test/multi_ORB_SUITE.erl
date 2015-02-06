@@ -1063,7 +1063,7 @@ close_connections_local_interface_api(_Config) ->
 		 orber_test_lib:remote_apply(ClientNode, corba, string_to_object,
 					     ["corbaloc::1.2@"++IP++":"++integer_to_list(Port)++"/NameService"])),
 
-    %% Check that the connnection is up and running using the default interface
+    %% Check that the connection is up and running using the default interface
     ?match([{Loopback,_RemotePort}], orber_test_lib:remote_apply(ServerNode, orber,
 								 iiop_connections, [in])),
     ?match([{IP, Port}],
@@ -1104,7 +1104,7 @@ close_connections_local_interface_ctx_override_api(_Config) ->
 						context_data = {interface, Loopback}}]])),
 
     timer:sleep(2000),
-    %% Check that the connnection is up and running using the default interface
+    %% Check that the connection is up and running using the default interface
     ?match([{Loopback,_RemotePort}], orber_test_lib:remote_apply(ServerNode, orber,
 								 iiop_connections, [in])),
 

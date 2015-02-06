@@ -514,7 +514,7 @@ controller_dies(Config) when is_list(Config) ->
 		      {ok, Socket} = ssl:connect(Hostname, Port, 
 						  [{reuseaddr,true},{ssl_imp,new}]),
 		      %% Make sure server finishes and verification
-		      %% and is in coonection state before
+		      %% and is in coonnection state before
 		      %% killing client
 		      ct:sleep(?SLEEP),
 		      Pid ! {self(), connected, Socket},

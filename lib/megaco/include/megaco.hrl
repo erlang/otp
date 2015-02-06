@@ -40,7 +40,7 @@
 %%----------------------------------------------------------------------
 %% Connection handle
 %%
-%% The connecion handle provides a locally unique identity of a
+%% The connection handle provides a locally unique identity of a
 %% connection. It is generated when a connection is established.
 %%----------------------------------------------------------------------
 

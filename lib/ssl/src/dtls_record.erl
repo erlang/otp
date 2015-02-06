@@ -143,7 +143,7 @@ decode_cipher_text(#ssl_tls{type = Type, version = Version,
 		   #connection_states{current_read =
 					  #connection_state{compression_state = CompressionS0,
 							    security_parameters = SecParams} = ReadState0}
-		   = ConnnectionStates0) ->
+		   = ConnectionStates0) ->
     CompressAlg = SecParams#security_parameters.compression_algorithm,
     {PlainFragment, Mac, ReadState1} = ssl_record:decipher(dtls_v1:corresponding_tls_version(Version),
 							   CipherFragment, ReadState0),
@@ -152,10 +152,10 @@ decode_cipher_text(#ssl_tls{type = Type, version = Version,
 	true ->
 	    {Plain, CompressionS1} = ssl_record:uncompress(CompressAlg,
 							   PlainFragment, CompressionS0),
-	    ConnnectionStates = ConnnectionStates0#connection_states{
+	    ConnectionStates = ConnectionStates0#connection_states{
 				  current_read = ReadState1#connection_state{
 						   compression_state = CompressionS1}},
-	    {CipherText#ssl_tls{fragment = Plain}, ConnnectionStates};
+	    {CipherText#ssl_tls{fragment = Plain}, ConnectionStates};
 	false ->
 	    ?ALERT_REC(?FATAL, ?BAD_RECORD_MAC)
     end.
@@ -288,7 +288,7 @@ init_connection_state_seq(_, CS) ->
 					    integer().
 %%
 %% Description: Returns the epoch the connection_state record
-%% that is currently defined as the current conection state.
+%% that is currently defined as the current connection state.
 %%--------------------------------------------------------------------
 current_connection_state_epoch(#connection_states{current_read = Current},
 			       read) ->

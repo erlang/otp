@@ -148,8 +148,8 @@ encode_plain_text(Type, Version, Data,
 %% Description: Decode cipher text
 %%--------------------------------------------------------------------
 decode_cipher_text(#ssl_tls{type = Type, version = Version,
-			    fragment = CipherFragment} = CipherText, ConnnectionStates0) ->
-    ReadState0 = ConnnectionStates0#connection_states.current_read,
+			    fragment = CipherFragment} = CipherText, ConnectionStates0) ->
+    ReadState0 = ConnectionStates0#connection_states.current_read,
     #connection_state{compression_state = CompressionS0,
 		      sequence_number = Seq,
 		      security_parameters = SecParams} = ReadState0,
@@ -161,11 +161,11 @@ decode_cipher_text(#ssl_tls{type = Type, version = Version,
 		true ->
 		    {Plain, CompressionS1} = ssl_record:uncompress(CompressAlg,
 								   PlainFragment, CompressionS0),
-		    ConnnectionStates = ConnnectionStates0#connection_states{
+		    ConnectionStates = ConnectionStates0#connection_states{
 					  current_read = ReadState1#connection_state{
 							   sequence_number = Seq + 1,
 							   compression_state = CompressionS1}},
-		    {CipherText#ssl_tls{fragment = Plain}, ConnnectionStates};
+		    {CipherText#ssl_tls{fragment = Plain}, ConnectionStates};
 		false ->
 			?ALERT_REC(?FATAL, ?BAD_RECORD_MAC)
 	    end;

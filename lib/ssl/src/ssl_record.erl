@@ -80,7 +80,7 @@ init_connection_states(Role) ->
 				      #connection_state{}.
 %%
 %% Description: Returns the instance of the connection_state record
-%% that is currently defined as the current conection state.
+%% that is currently defined as the current connection state.
 %%--------------------------------------------------------------------
 current_connection_state(#connection_states{current_read = Current},
 			 read) ->
@@ -94,7 +94,7 @@ current_connection_state(#connection_states{current_write = Current},
 				      term().
 %%
 %% Description: Returns the instance of the connection_state record
-%% that is currently defined as the pending conection state.
+%% that is currently defined as the pending connection state.
 %%--------------------------------------------------------------------
 pending_connection_state(#connection_states{pending_read = Pending},
 			 read) ->

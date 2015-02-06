@@ -4240,7 +4240,7 @@ remove_extension([{'PermittedAlphabet',{A={'SingleValue',_},
     remove_extension(R,[{'PermittedAlphabet',A}|Acc]).
 
 %% constraint_intersection(S,C) takes a list of constraints as input and
-%% performs intersections. Intersecions are performed when an 
+%% performs intersections. Intersections are performed when an 
 %% atom intersection is found between two constraints. 
 %% The list may be nested. Fix that later !!!
 constraint_intersection(_S,[]) ->
