@@ -76,7 +76,7 @@ public abstract class AbstractConnection extends Thread {
     protected static final int regSendTTTag = 16;
     protected static final int exit2TTTag = 18;
 
-    // MD5 challenge messsage tags
+    // MD5 challenge message tags
     protected static final int ChallengeReply = 'r';
     protected static final int ChallengeAck = 'a';
     protected static final int ChallengeStatus = 's';

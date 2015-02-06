@@ -1048,7 +1048,7 @@ static db_result_msg encode_error_message(char *reason, char *errCode, SQLINTEGE
     return msg;
 }
 
-/* Description: Encode a messge that is a erlang atom */
+/* Description: Encode a message that is a erlang atom */
 static db_result_msg encode_atom_message(char* atom)
 {
     int index;

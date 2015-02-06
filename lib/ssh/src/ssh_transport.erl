@@ -111,7 +111,7 @@ kex_init(#ssh{role = Role, opts = Opts, available_host_keys = HostKeyAlgs}) ->
 		      zlib -> ["zlib", "none"];
 		      none -> ["none", "zlib"]
 		  end,
-    kexinit_messsage(Role, Random, Compression, HostKeyAlgs).
+    kexinit_message(Role, Random, Compression, HostKeyAlgs).
 
 key_init(client, Ssh, Value) ->
     Ssh#ssh{c_keyinit = Value};
@@ -130,7 +130,7 @@ available_ssh_algos() ->
 	lists:member(CryptoAlgo, proplists:get_value(hashs, Supports, []))],
     {Ciphers, Hashs}.
 
-kexinit_messsage(client, Random, Compression, HostKeyAlgs) ->
+kexinit_message(client, Random, Compression, HostKeyAlgs) ->
     {CipherAlgs, HashAlgs} = available_ssh_algos(),
     #ssh_msg_kexinit{ 
 		  cookie = Random,
@@ -146,7 +146,7 @@ kexinit_messsage(client, Random, Compression, HostKeyAlgs) ->
 		  languages_server_to_client = []
 		 };
 
-kexinit_messsage(server, Random, Compression, HostKeyAlgs) ->
+kexinit_message(server, Random, Compression, HostKeyAlgs) ->
     {CipherAlgs, HashAlgs} = available_ssh_algos(),
     #ssh_msg_kexinit{
 		  cookie = Random,

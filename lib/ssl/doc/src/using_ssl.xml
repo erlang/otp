@@ -76,7 +76,7 @@ ok</code>
       <code type="erl">4 server> ok = ssl:ssl_accept(Socket).
 ok</code>
       
-      <p>Send a messag over ssl</p>
+      <p>Send a message over ssl</p>
       <code type="erl">5 server> ssl:send(Socket, "foo").
 ok</code>
       
@@ -131,7 +131,7 @@ ok</code>
 {certfile, "cert.pem"}, {keyfile, "key.pem"}], infinity).
 {ok,{sslsocket,[...]}}</code>
       
-      <p>Send a messag over ssl</p>
+      <p>Send a message over ssl</p>
       <code type="erl">4 client> ssl:send(SSLSocket, "foo").
 ok</code>
       

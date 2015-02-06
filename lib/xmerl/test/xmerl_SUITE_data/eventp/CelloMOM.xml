@@ -27901,7 +27901,7 @@ Start and stop of accounting and output period for the accounting file is specif
         <attribute name="usageType">
             <description>This attribute specifies if the MO is used for renumeration or verification.
 
-0 = Verification Criteria to detect outgoing massages that will be charged in the next relay node.
+0 = Verification Criteria to detect outgoing messages that will be charged in the next relay node.
 
 1 = Renumeration Criteria to detect incoming messages for relaying, that will be charged.</description>
             <mandatory/>
