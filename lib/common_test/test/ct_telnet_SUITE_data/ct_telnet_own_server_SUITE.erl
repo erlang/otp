@@ -44,6 +44,7 @@ all() ->
      expect_error_timeout1,
      expect_error_timeout2,
      expect_error_timeout3,
+     total_timeout_less_than_idle,
      no_prompt_check,
      no_prompt_check_repeat,
      no_prompt_check_sequence,
@@ -134,9 +135,32 @@ expect_error_timeout2(_) ->
 expect_error_timeout3(_) ->
     {ok, Handle} = ct_telnet:open(telnet_server_conn1),
     ok = ct_telnet:send(Handle, "echo_loop 5000 xxx"),
+
+    T0 = now(),
     {error,timeout} = ct_telnet:expect(Handle, ["yyy"],
 				       [{idle_timeout,infinity},
-					{total_timeout,3000}]),
+					{total_timeout,2001}]),
+    Diff = trunc(timer:now_diff(now(),T0)/1000),
+    {_,true} = {Diff, (Diff >= 2000) and (Diff =< 4000)},
+
+    ok = ct_telnet:send(Handle, "echo ayt"),
+    {ok,["ayt"]} = ct_telnet:expect(Handle, ["ayt"]),
+    ok = ct_telnet:close(Handle),
+    ok.
+    
+%% OTP-12335: If total_timeout < idle_timeout, expect will never timeout
+%% until after idle_timeout, which is incorrect.
+total_timeout_less_than_idle(_) ->
+    {ok, Handle} = ct_telnet:open(telnet_server_conn1),
+    ok = ct_telnet:send(Handle, "echo_no_prompt xxx"),
+
+    T0 = now(),
+    {error,timeout} = ct_telnet:expect(Handle, ["yyy"],
+				       [{idle_timeout,5000},
+					{total_timeout,2001}]),
+    Diff = trunc(timer:now_diff(now(),T0)/1000),
+    {_,true} = {Diff, (Diff >= 2000) and (Diff =< 4000)},
+
     ok = ct_telnet:send(Handle, "echo ayt"),
     {ok,["ayt"]} = ct_telnet:expect(Handle, ["ayt"]),
     ok = ct_telnet:close(Handle),

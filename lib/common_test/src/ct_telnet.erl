@@ -1122,7 +1122,8 @@ teln_expect1(Name,Pid,Data,Pattern,Acc,EO=#eo{idle_timeout=IdleTO,
 	NotFinished ->
 	    %% Get more data
 	    Fun = fun() -> get_data1(EO#eo.teln_pid) end,
-	    case timer:tc(ct_gen_conn, do_within_time, [Fun, IdleTO]) of
+	    BreakAfter = if TotalTO < IdleTO -> TotalTO; true -> IdleTO end,
+	    case timer:tc(ct_gen_conn, do_within_time, [Fun, BreakAfter]) of
 		{_,{error,Reason}} -> 
 		    %% A timeout will occur when the telnet connection
 		    %% is idle for EO#eo.idle_timeout milliseconds.
