@@ -165,7 +165,7 @@
       is supplied it will override the certfile option.</item>
       
       <tag>{certfile, path()}</tag>
-      <item>Path to a file containing the user's certificate.</item>
+      <item>Path to a file containing the user's PEM encoded certificate.</item>
       
       <tag>{key, {'RSAPrivateKey'| 'DSAPrivateKey' | 'ECPrivateKey' |'PrivateKeyInfo', der_encoded()}}</tag>
       <item> The DER encoded users private key. If this option
@@ -552,7 +552,19 @@ fun(srp, Username :: string(), UserState :: term()) ->
 	</p>
     </desc>
     </func>
-    
+
+    <func>
+      <name>clear_pem_cache() -> ok </name>
+      <fsummary> Clears the pem cache</fsummary>
+
+      <desc><p>PEM files, used by ssl API-functions, are cached. The
+      cache is regularly checked to see if any cache entries should be
+      invalidated, however this function provides a way to
+      unconditionally clear the whole cache.
+      </p>
+      </desc>
+    </func>
+   
     <func>
       <name>connect(Socket, SslOptions) -> </name>
       <name>connect(Socket, SslOptions, Timeout) -> {ok, SslSocket}

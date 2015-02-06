@@ -259,11 +259,6 @@ init_per_testcase(Case, Config) when Case ==  unordered_protocol_versions_client
 	_ ->
 	    {skip, "TLS 1.2 need but not supported on this platform"}
     end;
-init_per_testcase(no_authority_key_identifier, Config) ->
-    %% Clear cach so that root cert will not
-    %% be found.
-    ssl:clear_pem_cache(),
-    Config;
 
 init_per_testcase(protocol_versions, Config)  ->
     ssl:stop(),

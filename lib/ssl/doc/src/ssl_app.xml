@@ -4,7 +4,7 @@
 <appref>
   <header>
     <copyright>
-      <year>1999</year><year>2014</year>
+      <year>1999</year><year>2015</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -82,7 +82,16 @@
 	  callback module, defaults to [].
 	</p>
       </item>
-
+      
+      <tag><c><![CDATA[ssl_pem_cache_clean = integer() <optional>]]></c></tag>
+      <item>
+	<p>
+	  Number of milliseconds between PEM cache validations.
+	</p>
+	<seealso
+	    marker="ssl#clear_pem_cache-0">ssl:clear_pem_cache/0</seealso>
+	
+      </item>
     </taglist>
   </section>
 
