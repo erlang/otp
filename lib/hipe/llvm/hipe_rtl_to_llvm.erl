@@ -1589,7 +1589,7 @@ fixed_fun_decl() ->
                                        ByteTy, ""),
   [LandPad, GCROOTDecl, FixPinnedRegs, GcMetadata].
 
-%% @doc Declare an External Consant. We declare all constants as i8 in order to
+%% @doc Declare an External Constant. We declare all constants as i8 in order to
 %%      be able to calcucate pointers of the form DL+6, with the getelementptr
 %%      instruction. Otherwise we have to convert constants form pointers to
 %%      values, add the offset and convert them again to pointers.
