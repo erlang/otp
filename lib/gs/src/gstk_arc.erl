@@ -123,7 +123,7 @@ read(DB, Gstkid, Opt) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Function   	: delete/2
-%% Purpose    	: Delete widget from databas and return tkwidget to destroy
+%% Purpose    	: Delete widget from database and return tkwidget to destroy
 %% Args        	: DB	  - The Database
 %%		  Gstkid   - The gstkid of the widget
 %%

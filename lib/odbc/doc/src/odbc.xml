@@ -247,7 +247,7 @@
       <fsummary>Queries the database to find out the data types of the columns of the table <c>Table</c>. </fsummary>
       <type>
         <v>Ref = connection_reference()</v>
-        <v>Table = string() - Name of databas table.</v>
+        <v>Table = string() - Name of database table.</v>
         <v>TimeOut = time_out()</v>
         <v>Description = [{col_name(), odbc_data_type()}]</v>
         <v>Reason = common_reason()</v>
