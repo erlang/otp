@@ -141,6 +141,13 @@ aliases(Config) when is_list(Config) ->
     ?line {a,b} = list_alias2([a,b]),
     ?line {a,b} = list_alias3([a,b]),
 
+    %% Non-matching aliases.
+    none = mixed_aliases(<<42>>),
+    none = mixed_aliases([b]),
+    none = mixed_aliases([d]),
+    none = mixed_aliases({a,42}),
+    none = mixed_aliases(42),
+
     ok.
 
 str_alias(V) ->
@@ -243,6 +250,12 @@ list_alias2([X,Y]=[a,b]) ->
 
 list_alias3([X,b]=[a,Y]) ->
     {X,Y}.
+
+mixed_aliases(<<X:8>> = x) -> {a,X};
+mixed_aliases([b] = <<X:8>>) -> {b,X};
+mixed_aliases(<<X:8>> = {a,X}) -> {c,X};
+mixed_aliases([X] = <<X:8>>) -> {d,X};
+mixed_aliases(_) -> none.
 
 %% OTP-7018.
 

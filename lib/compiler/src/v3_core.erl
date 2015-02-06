@@ -78,7 +78,7 @@
 		splitwith/2,keyfind/3,sort/1,foreach/2,droplast/1,last/1]).
 -import(ordsets, [add_element/2,del_element/2,is_element/2,
 		  union/1,union/2,intersection/2,subtract/2]).
--import(cerl, [ann_c_cons/3,ann_c_cons_skel/3,ann_c_tuple/2,c_tuple/1,
+-import(cerl, [ann_c_cons/3,ann_c_tuple/2,c_tuple/1,
 	       ann_c_map/3]).
 
 -include("core_parse.hrl").
@@ -1660,48 +1660,55 @@ pat_segment({bin_element,_,Val,Size,[Type,{unit,Unit}|Flags]}, St) ->
 %% pat_alias(CorePat, CorePat) -> AliasPat.
 %%  Normalise aliases.  Trap bad aliases by throwing 'nomatch'.
 
-pat_alias(#c_var{name=V1}, P2) -> #c_alias{var=#c_var{name=V1},pat=P2};
-pat_alias(P1, #c_var{name=V2}) -> #c_alias{var=#c_var{name=V2},pat=P1};
-
-%% alias cons
-pat_alias(#c_cons{}=Cons, #c_literal{anno=A,val=[H|T]}=S) ->
-    pat_alias(Cons, ann_c_cons_skel(A, #c_literal{anno=A,val=H},
-				    S#c_literal{val=T}));
-pat_alias(#c_literal{anno=A,val=[H|T]}=S, #c_cons{}=Cons) ->
-    pat_alias(ann_c_cons_skel(A, #c_literal{anno=A,val=H},
-			      S#c_literal{val=T}), Cons);
-pat_alias(#c_cons{anno=Anno,hd=H1,tl=T1}, #c_cons{hd=H2,tl=T2}) ->
-    ann_c_cons(Anno, pat_alias(H1, H2), pat_alias(T1, T2));
-
-%% alias tuples
-pat_alias(#c_tuple{anno=Anno,es=Es1}, #c_literal{val=T}) when is_tuple(T) ->
-    Es2 = [#c_literal{val=E} || E <- tuple_to_list(T)],
-    ann_c_tuple(Anno, pat_alias_list(Es1, Es2));
-pat_alias(#c_literal{anno=Anno,val=T}, #c_tuple{es=Es2}) when is_tuple(T) ->
-    Es1 = [#c_literal{val=E} || E <- tuple_to_list(T)],
-    ann_c_tuple(Anno, pat_alias_list(Es1, Es2));
-pat_alias(#c_tuple{anno=Anno,es=Es1}, #c_tuple{es=Es2}) ->
-    ann_c_tuple(Anno, pat_alias_list(Es1, Es2));
-
-%% alias maps
-%% There are no literals in maps patterns (patterns are always abstract)
-pat_alias(#c_map{es=Es1}=M,#c_map{es=Es2}) ->
-    M#c_map{es=pat_alias_map_pairs(Es1++Es2)};
-
-pat_alias(#c_alias{var=V1,pat=P1},
-	  #c_alias{var=V2,pat=P2}) ->
-    if V1 =:= V2 -> #c_alias{var=V1,pat=pat_alias(P1, P2)};
-       true -> #c_alias{var=V1,pat=#c_alias{var=V2,pat=pat_alias(P1, P2)}}
+pat_alias(#c_var{name=V1}=P, #c_var{name=V1}) -> P;
+pat_alias(#c_var{name=V1}=Var,
+	  #c_alias{var=#c_var{name=V2},pat=Pat}=Alias) ->
+    if
+	V1 =:= V2 ->
+	    Alias;
+	true ->
+	    Alias#c_alias{pat=pat_alias(Var, Pat)}
     end;
-pat_alias(#c_alias{var=V1,pat=P1}, P2) ->
-    #c_alias{var=V1,pat=pat_alias(P1, P2)};
-pat_alias(P1, #c_alias{var=V2,pat=P2}) ->
-    #c_alias{var=V2,pat=pat_alias(P1, P2)};
+pat_alias(#c_var{}=P1, P2) -> #c_alias{var=P1,pat=P2};
+
+pat_alias(#c_alias{var=#c_var{name=V1}}=Alias, #c_var{name=V1}) ->
+    Alias;
+pat_alias(#c_alias{var=#c_var{name=V1}=Var1,pat=P1},
+	  #c_alias{var=#c_var{name=V2}=Var2,pat=P2}) ->
+    Pat = pat_alias(P1, P2),
+    if
+	V1 =:= V2 ->
+	    #c_alias{var=Var1,pat=Pat};
+	true ->
+	    pat_alias(Var1, pat_alias(Var2, Pat))
+    end;
+pat_alias(#c_alias{var=#c_var{}=Var,pat=P1}, P2) ->
+    #c_alias{var=Var,pat=pat_alias(P1, P2)};
+
+pat_alias(#c_map{es=Es1}=M, #c_map{es=Es2}) ->
+    M#c_map{es=pat_alias_map_pairs(Es1 ++ Es2)};
+
+pat_alias(P1, #c_var{}=Var) ->
+    #c_alias{var=Var,pat=P1};
+pat_alias(P1, #c_alias{pat=P2}=Alias) ->
+    Alias#c_alias{pat=pat_alias(P1, P2)};
+
 pat_alias(P1, P2) ->
-    case {set_anno(P1, []),set_anno(P2, [])} of
-	{P,P} -> P;
+    %% Aliases between binaries are not allowed, so the only
+    %% legal patterns that remain are data patterns.
+    case cerl:is_data(P1) andalso cerl:is_data(P2) of
+	false -> throw(nomatch);
+	true -> ok
+    end,
+    Type = cerl:data_type(P1),
+    case cerl:data_type(P2) of
+	Type -> ok;
 	_ -> throw(nomatch)
-    end.
+    end,
+    Es1 = cerl:data_es(P1),
+    Es2 = cerl:data_es(P2),
+    Es = pat_alias_list(Es1, Es2),
+    cerl:make_data(Type, Es).
 
 %% pat_alias_list([A1], [A2]) -> [A].
 
