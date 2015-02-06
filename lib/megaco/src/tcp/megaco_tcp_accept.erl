@@ -55,7 +55,7 @@
 %%-----------------------------------------------------------------
 %%-----------------------------------------------------------------
 %% Func: start
-%% Description: Starts the proces that makes the accept call.
+%% Description: Starts the process that makes the accept call.
 %%-----------------------------------------------------------------
 start_link({TcpRec, SupPid, Listen}) ->
     Args = [TcpRec, SupPid, Listen, self()],

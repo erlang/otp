@@ -68,7 +68,7 @@
 
 %%-----------------------------------------------------------------
 %% Func: start_link/1
-%% Description: Starts the proces that keeps track of an TCP 
+%% Description: Starts the process that keeps track of an TCP 
 %%              connection.
 %%-----------------------------------------------------------------
 

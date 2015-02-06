@@ -148,7 +148,7 @@
 %% Do not use gen_server:start_link because we do not want the
 %% appmon_info to die when initiating process dies unless special
 %% conditions apply.
-%% Uhu, we don't??? Made a fix so that this proces DOES indeed die
+%% Uhu, we don't??? Made a fix so that this process DOES indeed die
 %% if it's starter dies. /Gunilla
 start_link(Node, Client, Opts) ->
     rpc:call(Node, ?MODULE, start_link2, [self(), Client, Opts]).

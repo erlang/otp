@@ -221,7 +221,7 @@ static int zlib_output_init(ZLibData* d)
 
 /*
  * Send compressed or uncompressed data
- * and restart output procesing
+ * and restart output processing
  */
 static int zlib_output(ZLibData* d)
 {
