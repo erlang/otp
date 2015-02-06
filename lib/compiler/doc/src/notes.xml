@@ -1071,7 +1071,7 @@
         <item>
           <p>
 	    Using complex boolean expressions in ifs could cause the
-	    compiler to either crash or teminate with an internal
+	    compiler to either crash or terminate with an internal
 	    error. (Thanks to Simon Cornish.)</p>
           <p>
 	    Own Id: OTP-8338</p>
