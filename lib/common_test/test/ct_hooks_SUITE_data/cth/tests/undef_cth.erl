@@ -32,7 +32,7 @@ init(Id, Opts) ->
     empty_cth:init(Id, Opts).
 
 pre_init_per_suite(_Suite, _Config, _State) ->
-    lists:flaten([1,2,[3,4]]).
+    lists:flatten([1,2,[3,4]]).
 
 post_init_per_suite(Suite,Config,Return,State) ->
     empty_cth:post_init_per_suite(Suite,Config,Return,State).
