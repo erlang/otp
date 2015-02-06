@@ -439,7 +439,7 @@ try_new_erl_scheme_method(Info,Env,Input,Mod,Func)->
 
 
 %%----------------------------------------------------------------------
-%%The function recieves the data from the process that generates the page
+%%The function receives the data from the process that generates the page
 %%and send the data to the client through the mod_cgi:send function
 %%----------------------------------------------------------------------
 

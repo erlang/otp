@@ -1442,7 +1442,7 @@
         </item>
         <item>
           <p>
-            If a progress message was not recieved after invoking ssh:connect/3
+            If a progress message was not received after invoking ssh:connect/3
             the call could hang for ever. A timeout option has also been added.</p>
           <p>
             Own Id: OTP-8160 Aux Id: seq11386</p>

@@ -1057,7 +1057,7 @@ start_object(Env)->
 %% Effect   : calls send_prepare/3, which sends a prepare call
 %% to resources participating in the transaction and then collect 
 %% their votes. send_prepare will block until
-%% it recieves a reply from the resource.
+%% it receives a reply from the resource.
 %%------------------------------------------------------------
 
 send_prepare(RegResources, Alarm) ->

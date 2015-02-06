@@ -1283,7 +1283,7 @@ static void output(ErlDrvData drv_data, char* buf, ErlDrvSizeT len)
     return; /* 0; */
 }
 
-/* This function is being run when we in recieve
+/* This function is being run when we in receive
  * either a read of 0 bytes, or the attach signal from a dying
  * spawned load module */
 static int port_inp_failure(ErlDrvPort port_num, ErlDrvEvent ready_fd, int res)
@@ -1331,7 +1331,7 @@ static void ready_input(ErlDrvData drv_data, ErlDrvEvent ready_fd)
 
 
    while (sig) {
-      /* If we've recieved an attach signal, we need to handle
+      /* If we've received an attach signal, we need to handle
        * it in port_inp_failure */
       if (sig->sig_no == ERTS_SIGNAL_OSE_DRV_ATTACH) {
          port_inp_failure(data->port_num, ready_fd, 0);
@@ -1425,7 +1425,7 @@ static void ready_input(ErlDrvData drv_data, ErlDrvEvent ready_fd)
                 aio_read(&data->aiocb);
              }
           }
-          else if (data->packet_bytes && fd_data[data->ifd].remain == 0) { /* we've recieved a header */
+          else if (data->packet_bytes && fd_data[data->ifd].remain == 0) { /* we've received a header */
 
              /* analyze the header FIXME  */
              switch (data->packet_bytes) {

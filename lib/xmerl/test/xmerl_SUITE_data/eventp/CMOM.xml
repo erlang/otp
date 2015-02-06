@@ -49,7 +49,7 @@
     </exception>
 
     <exception name="ChecksumhandlerException">
-        <description>Exception thrown when the control of checksum for loadmodules has been rejaected due to 'null' recieved from resource layer.</description>
+        <description>Exception thrown when the control of checksum for loadmodules has been rejaected due to 'null' received from resource layer.</description>
     </exception>
 
     <exception name="ClearAllPiuTypesReferencedByPlugInUnitException">
@@ -6212,7 +6212,7 @@ The ATM layer system provides four QoS classes, numbered 1 to 4, where CLASS_ONE
     </enum>
 
     <struct name="ValueOfUnex">
-        <description>The attributes in this struct represents the ATM header, (vpi, vci, pti), of the last recieved unexpected cell.</description>
+        <description>The attributes in this struct represents the ATM header, (vpi, vci, pti), of the last received unexpected cell.</description>
         <structMember name="vpi">
             <description>The ATM header vpi.</description>
             <long>

@@ -79,7 +79,7 @@ client_hello(Host, Port, ConnectionStates,
 		    [ssl_handshake:oid()] | undefined, [ssl_handshake:oid()] | undefined} |
 		   #alert{}.
 %%
-%% Description: Handles a recieved hello message
+%% Description: Handles a received hello message
 %%--------------------------------------------------------------------
 hello(#server_hello{server_version = Version, random = Random,
 		    cipher_suite = CipherSuite,
