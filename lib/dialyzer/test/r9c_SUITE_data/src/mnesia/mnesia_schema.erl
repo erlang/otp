@@ -605,7 +605,7 @@ schema_coordinator(Client, Fun, Controller) when pid(Controller) ->
     unlink(whereis(mnesia_tm)), % Avoids spurious exit message
     exit(normal).
 
-%% The make* rotines return a list of ops, this function
+%% The make* routines return a list of ops, this function
 %% inserts em all in the Store and maintains the local order
 %% of ops.
 
