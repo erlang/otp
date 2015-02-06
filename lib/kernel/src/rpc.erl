@@ -430,9 +430,9 @@ abcast([Node|Tail], Name, Mess) ->
 abcast([], _,_) -> abcast.
 
 
-%% Syncronous broadcast, returns a list of the nodes which had Name
+%% Synchronous broadcast, returns a list of the nodes which had Name
 %% as a registered server. Returns {Goodnodes, Badnodes}.
-%% Syncronous in the sense that we know that all servers have received the
+%% Synchronous in the sense that we know that all servers have received the
 %% message when we return from the call, we can't know that they have
 %% processed the message though.
 
@@ -627,7 +627,7 @@ rec_nodes(Name, [{N,R} | Tail], Badnodes, Replies) ->
     end.
 
 %% Now for an asynchronous rpc.
-%% An asyncronous version of rpc that is faster for series of
+%% An asynchronous version of rpc that is faster for series of
 %% rpc's towards the same node. I.e. it returns immediately and 
 %% it returns a Key that can be used in a subsequent yield(Key).
 

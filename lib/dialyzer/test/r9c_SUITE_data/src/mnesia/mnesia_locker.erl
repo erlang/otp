@@ -598,7 +598,7 @@ mnesia_down(N, Pending) ->
 	    %% Takes care of mnesia_down's in early startup
 	    mnesia_monitor:mnesia_down(?MODULE, N);
 	Pid ->
-	    %% Syncronously call needed in order to avoid
+	    %% Synchronously call needed in order to avoid
 	    %% race with mnesia_tm's coordinator processes
 	    %% that may restart and acquire new locks.
 	    %% mnesia_monitor ensures the sync.

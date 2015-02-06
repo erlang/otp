@@ -64,7 +64,7 @@ connection1(accept, Manager, ConfigDB, SocketType, Socket) ->
 await_synchronize(Manager) ->
     receive
 	{synchronize, SocketType, Socket} ->
-	    ?vlog("received syncronize: "
+	    ?vlog("received synchronize: "
 		  "~n   SocketType: ~p"
 		  "~n   Socket:     ~p", [SocketType, Socket]),
 	    {SocketType, Socket, httpd_manager:new_connection(Manager)}

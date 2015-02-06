@@ -2296,7 +2296,7 @@ static int read_exact(HANDLE fd, void *vbuff, DWORD nbytes, HANDLE ev)
 		}
 	    }
 	} else {
-	    DEBUGF(4,("Read completed syncronously, result %d",ret));
+	    DEBUGF(4,("Read completed synchronously, result %d",ret));
 	}	    
 	if (ret == 0) {
 	    DEBUGF(1, ("End of file detected as zero read from pipe."));
@@ -2346,7 +2346,7 @@ static int write_exact(HANDLE fd, AddrByte *buff, DWORD len, HANDLE ev)
 		}
 	    }
 	} else {
-	    DEBUGF(4,("Write completed syncronously, result %d",res));
+	    DEBUGF(4,("Write completed synchronously, result %d",res));
 	}
 	    
 	if (res < x) {

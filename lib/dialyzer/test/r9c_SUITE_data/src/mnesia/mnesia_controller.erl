@@ -319,7 +319,7 @@ get_network_copy(Tab, Cs) ->
 %%   no need for sync, since mnesia_controller not started yet
 %% schema_trans ->
 %%   already synced with mnesia_controller since the dumper
-%%   is syncronously started from mnesia_controller
+%%   is synchronously started from mnesia_controller
 
 create_table(Tab) ->
     {loaded, ok} = mnesia_loader:disc_load_table(Tab, {dumper,create_table}).

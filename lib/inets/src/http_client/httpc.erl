@@ -135,7 +135,7 @@ request(Url, Profile) ->
 %%      SendAcc = NewSendAcc = term()
 %%
 %% Description: Sends a HTTP-request. The function can be both
-%% syncronus and asynchronous in the later case the function will
+%% synchronous and asynchronous in the later case the function will
 %% return {ok, RequestId} and later on a message will be sent to the
 %% calling process on the format {http, {RequestId, {StatusLine,
 %% Headers, Body}}} or {http, {RequestId, {error, Reason}}}

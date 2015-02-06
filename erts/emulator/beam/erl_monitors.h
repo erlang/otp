@@ -74,7 +74,7 @@
  *       +-------------+  +-------------+    +-------------+  +-------------+
  * The reason for the node atom in X->pid is that we don't know the actual
  * pid of the monitored process on the other node when setting the monitor
- * (which is done asyncronously).
+ * (which is done asynchronously).
  **********************************************************************/
 #ifndef _ERL_MONITORS_H
 #define _ERL_MONITORS_H

@@ -694,7 +694,7 @@ handle_call({finish,Fini}, _From, State) ->
 %% handle_call({idle_notify,Fun}, From, State) -> {ok,Pid}
 %%
 %% Lets a test client subscribe to receive a notification when the
-%% test server becomes idle (can be used to syncronize jobs).
+%% test server becomes idle (can be used to synchronize jobs).
 %% test_server calls Fun(From) when idle.
 
 handle_call({idle_notify,Fun}, {Cli,_Ref}, State) ->
@@ -719,7 +719,7 @@ handle_call({start_get_totals,Fun}, {Cli,_Ref}, State) ->
 %% handle_call(stop_get_totals, From, State) -> ok
 %%
 %% Lets a test client subscribe to receive a notification when the
-%% test server becomes idle (can be used to syncronize jobs).
+%% test server becomes idle (can be used to synchronize jobs).
 %% test_server calls Fun(From) when idle.
 
 handle_call(stop_get_totals, {_Cli,_Ref}, State) ->

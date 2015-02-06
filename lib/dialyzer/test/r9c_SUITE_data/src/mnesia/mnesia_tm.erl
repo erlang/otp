@@ -168,7 +168,7 @@ tmpid(Pid) ->
 
 %% Returns a list of participant transaction Tid's
 mnesia_down(Node) ->
-    %% Syncronously call needed in order to avoid
+    %% Synchronously call needed in order to avoid
     %% race with mnesia_tm's coordinator processes
     %% that may restart and acquire new locks.
     %% mnesia_monitor takes care of the sync
@@ -1295,7 +1295,7 @@ multi_commit(sym_trans, Tid, CR, Store) ->
 
 multi_commit(sync_sym_trans, Tid, CR, Store) ->
     %%   This protocol is the same as sym_trans except that it
-    %%   uses syncronized calls to disk_log and syncronized commits
+    %%   uses synchronized calls to disk_log and synchronized commits
     %%   when several nodes are involved.
 
     {DiscNs, RamNs} = commit_nodes(CR, [], []),

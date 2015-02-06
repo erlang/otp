@@ -614,7 +614,7 @@ list_blocked([{Name, {ETS, DETS}}|Tables], Addr, Port, Dir, Acc) ->
 %%
 %% sync_dets_to_ets/2
 %%
-%% Reads dets-table DETS and syncronizes it with the ets-table ETS.
+%% Reads dets-table DETS and synchronizes it with the ets-table ETS.
 %%
 sync_dets_to_ets(DETS, ETS) ->
     dets:traverse(DETS, fun(X) ->

@@ -150,7 +150,7 @@ server(NoCtrlG, StartSync) ->
 %%% The shell should not start until the system is up and running.
 %%% We subscribe with init to get a notification of when.
 
-%%% In older releases we didn't syncronize the shell with init, but let it
+%%% In older releases we didn't synchronize the shell with init, but let it
 %%% start in parallell with other system processes. This was bad since 
 %%% accessing the shell too early could interfere with the boot procedure.
 %%% Still, by means of a flag, we make it possible to start the shell the

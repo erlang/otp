@@ -30,7 +30,7 @@ static char *stdin_buff = NULL;
 static int stdin_siz = 0;
 static int stdin_len = 0;
 static int stdin_eof = 0;
-/* end syncronized objects */
+/* end synchronized objects */
 static int stdin_is_console = 0;
 static HANDLE stdin_event;
 

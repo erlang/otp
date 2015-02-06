@@ -25,7 +25,7 @@
  * end of file is reached.
  * If we would wait on an ordinary pipe handle, we 
  * would return immediately as it's always "signaled".
- * some kind of asyncronous I/O in the win32 way is 
+ * some kind of asynchronous I/O in the win32 way is 
  * not possible as it's not supported on anonymous pipes
  * (besides we have not opened the file ourselves so we 
  *  cannot specify that we want async I/O...).

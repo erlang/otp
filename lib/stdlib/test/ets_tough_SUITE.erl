@@ -444,7 +444,7 @@ ddump_next(ServerPid,Count,Ticket) ->
 %%% data stored in them.
 %%%
 %%% Normally there is only one class table, Mtab (main table).
-%%% When dumping is initiated, each class is syncronously given a 
+%%% When dumping is initiated, each class is synchronously given a 
 %%% temporary table, Ttab, where all updates are stored. Reads are 
 %%% directed to the Ttab first, and only if not found there, Mtab is
 %%% consulted.

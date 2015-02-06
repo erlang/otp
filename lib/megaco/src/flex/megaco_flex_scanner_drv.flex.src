@@ -347,7 +347,7 @@ static ErlDrvEntry mfs_entry = {
     NULL,              /* outputv, vector output interface */
     NULL,              /* ready_async, called after an asynchronous call has completed */
     NULL,              /* flush, port is about to be closed */
-    NULL,              /* call, a syncronous call into the driver */
+    NULL,              /* call, a synchronous call into the driver */
     NULL,              /* event, event selected by driver_event() has occurred */
     ERL_DRV_EXTENDED_MARKER,
     ERL_DRV_EXTENDED_MAJOR_VERSION,
