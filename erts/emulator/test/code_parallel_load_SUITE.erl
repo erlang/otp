@@ -112,7 +112,7 @@ code_changer([{Token,Code}|Cs], Codes, T, Pids, Ps) ->
 	    % this is second time we call load_module for this module
 	    % so it should have old code
 	    [Pid ! {self(), change, Token} || Pid <- Pids],
-	    % should we wait a moment or just blantantly try to check and purge repeatadly?
+	    % should we wait a moment or just blantantly try to check and purge repeatedly?
 	    receive after 1 -> ok end,
 	    ok = check_and_purge_processes_code(Pids, ?model),
 	    code_changer(Cs, Codes, T, Pids, Ps)
