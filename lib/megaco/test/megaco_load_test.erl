@@ -582,7 +582,7 @@ await_multi_load_collectors(Pids, Oks, Errs) ->
 	    
 		
 %% Note that this is an approximation...we run all the
-%% MGs in parrallel, so it should be "accurate"...
+%% MGs in parallel, so it should be "accurate"...
 multi_load_collector_calc(Sec, Oks) ->
     Succs = lists:sum([Ok   || {_, Ok,   _} <- Oks]),
     Fails = lists:sum([Err  || {_,  _, Err} <- Oks]),
