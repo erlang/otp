@@ -44,7 +44,7 @@ Instructions.
 
     javac rmod/*.java                   ( compiles all generated java code )
 
-    javac *.java                        ( compiles all manually writen java code )
+    javac *.java                        ( compiles all manually written java code )
 
 
 7)  Start the java on an terminal window :
