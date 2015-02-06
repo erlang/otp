@@ -138,6 +138,7 @@ esac
 # Checks for libraries.
 AC_CHECK_LIB([nsl], [gethostbyname])
 AC_CHECK_LIB([socket], [getpeername])
+AC_CHECK_LIB([m], [isfinite])
 
 # Checks for header files.
 AC_HEADER_STDC

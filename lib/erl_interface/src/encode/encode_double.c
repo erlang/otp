@@ -31,10 +31,8 @@ int ei_encode_double(char *buf, int *index, double p)
   /* Erlang does not handle Inf and NaN, so we return an error rather
    * than letting the Erlang VM complain about a bad external
    * term. */
-  switch(fpclassify(p)) {
-      case FP_NAN:
-      case FP_INFINITE:
-          return -1;
+  if(!isfinite(p)) {
+      return -1;
   }
 
   if (!buf)
