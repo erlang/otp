@@ -15308,7 +15308,7 @@ resumeTransformFeedback() ->
 drawTransformFeedback(Mode,Id) ->
   cast(5763, <<Mode:?GLenum,Id:?GLuint>>).
 
-%% @doc Render primitives using a count derived from a specifed stream of a transform feedback object
+%% @doc Render primitives using a count derived from a specified stream of a transform feedback object
 %%
 %% ``gl:drawTransformFeedbackStream'' draws primitives of a type specified by  `Mode' 
 %% using a count retrieved from the transform feedback stream specified by  `Stream' 

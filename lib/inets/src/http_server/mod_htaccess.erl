@@ -225,7 +225,7 @@ authenticateUser2(Info,AccessData,Realm,AllowedUsers)->
 %%                                                                  %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %--------------------------------------------------------------------- 
-%Controls the users networkaddress agains the specifed networks to 
+%Controls the users networkaddress agains the specified networks to 
 %allow or deny
 %
 %returns either allow or deny

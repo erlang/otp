@@ -16188,7 +16188,7 @@ This is a preparation to introduce predefined SwAllocation in  future upgrade pa
             </dataType>
         </attribute>
         <action name="addRepertoire">
-            <description>Adds the specifed repertoire to this list. 
+            <description>Adds the specified repertoire to this list. 
 
 Note! This action does not require a transaction.</description>
             <returnType>
@@ -16284,7 +16284,7 @@ Note! This action requires a transaction.</description>
             <raisesException name="IllegalArgumentTypeException"/>
         </action>
         <action name="addRepertoires">
-            <description>Adds the specifed repertoire to this list. 
+            <description>Adds the specified repertoire to this list. 
 
 If the repertoires exist in the list the repertoire is ignored.
 

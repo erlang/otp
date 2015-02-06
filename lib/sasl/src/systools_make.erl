@@ -608,7 +608,7 @@ parse_application({application, Name, Dict}, File, Vsn, Incls)
 parse_application(Other, _, _, _) ->
     {error, {badly_formatted_application, Other}}.
 
-%% Test if all included applications specifed in the .rel file
+%% Test if all included applications specified in the .rel file
 %% exists in the {included_applications,Incs} specified in the
 %% .app file.
 override_include(Name, Incs, Incls) ->
