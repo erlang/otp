@@ -742,7 +742,7 @@ handle_info({'EXIT', Port, _}, State = #state{erlang_port = Port,
 handle_info({'EXIT', Port, Reason}, State = #state{erlang_port = Port}) ->
     {stop, Reason, State};
 
-%%% If the owning process dies there is no reson to go on
+%%% If the owning process dies there is no reason to go on
 handle_info({'DOWN', _Ref, _Type, _Process, normal}, State) ->
     {stop, normal, State#state{reply_to = undefined}};
     

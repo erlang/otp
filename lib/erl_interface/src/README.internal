@@ -222,7 +222,7 @@ When user code is linked with the "libei.a" the linker will extract
 all objects files needed for resolving all symbol referenses
 found. This means that you want to follow the rule that
 
- * To reduce executable code size we use resonably small C source
+ * To reduce executable code size we use reasonably small C source
    files. One C file is one object file.
 
  * We try to avoid unessesary dependency. For example currently almost all
