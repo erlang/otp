@@ -520,7 +520,7 @@ bjorn_1() ->
     do_more(Bitstr, 13).
 
 do_more(Bin, Sz) ->
-    %% Previous bug in the bs_bits_to_bytes instruction: The exeption code
+    %% Previous bug in the bs_bits_to_bytes instruction: The exception code
     %% was not set - the previous exception (throw:blurf) would be used,
     %% causing the catch to slip.
     try <<Bin:Sz/binary>> of

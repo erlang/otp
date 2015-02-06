@@ -489,7 +489,7 @@ thr_create_prepare_child(void *vtcdp)
 
 #ifndef NO_FPE_SIGNALS
     /*
-     * We do not want fp exeptions in other threads than the
+     * We do not want fp exceptions in other threads than the
      * scheduler threads. We enable fpe explicitly in the scheduler
      * threads after this.
      */

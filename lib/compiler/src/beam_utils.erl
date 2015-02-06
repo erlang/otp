@@ -726,7 +726,7 @@ live_opt([{select,_,Src,Fail,List}=I|Is], Regs0, D, Acc) ->
     Regs = live_join_labels([Fail|List], D, Regs1),
     live_opt(Is, Regs, D, [I|Acc]);
 live_opt([{'try',_,_}=I|Is], Regs, D, Acc) ->
-    %% If an exeption happens, all x registers will be killed.
+    %% If an exception happens, all x registers will be killed.
     %% Therefore, we should only base liveness of the code inside
     %% the try.
     live_opt(Is, Regs, D, [I|Acc]);
