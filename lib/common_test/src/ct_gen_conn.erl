@@ -83,7 +83,7 @@
 %%% each type of connection (e.g. telnet, ftp,...). It must export the
 %%% function <code>init/3</code> which takes the arguments
 %%% <code>Name</code>, <code>Addresse</code>) and
-%%% <code>InitData</code> and returna
+%%% <code>InitData</code> and returns
 %%% <code>{ok,ConnectionPid,State}</code> or
 %%% <code>{error,Reason}</code>.</p>
 %%%
