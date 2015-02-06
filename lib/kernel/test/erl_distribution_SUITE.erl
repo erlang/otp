@@ -860,7 +860,7 @@ monitor_nodes_otp_6481_test(Config, TestType) when is_list(Config) ->
     ?line RemotePid = spawn(Node,
 		fun () ->
 			receive after 1500 -> ok end,
-			% infinit loop of msgs
+			% infinite loop of msgs
 			% we want an endless stream of messages and the kill
 			% the node mercilessly.
 			% We then want to ensure that the nodedown message arrives

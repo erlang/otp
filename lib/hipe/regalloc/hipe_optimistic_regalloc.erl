@@ -71,7 +71,7 @@
 %%   CFG         -- A control flow graph
 %%   SpillIndex  -- Last index of spill variable
 %%   SpillLimit  -- Temporaris with numbers higher than this have
-%%                  infinit spill cost. 
+%%                  infinite spill cost. 
 %%                  Consider changing this to a set.
 %%   Target      -- The module containing the target-specific functions.
 %%

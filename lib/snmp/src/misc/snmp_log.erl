@@ -1018,7 +1018,7 @@ log_open2(Name, File, SeqNoGen, Size, Repair, Notify) ->
     end.
 
 
-%% We need to make sure we do not end up in an infinit loop
+%% We need to make sure we do not end up in an infinite loop
 %% Take the number of files of the wrap log and add 2 (for
 %% the index and size files).
 do_log_open(Name, File, {_, N} = Size, snmp_repair = _Repair, Notify) ->

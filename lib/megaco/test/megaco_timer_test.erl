@@ -185,7 +185,7 @@ simple_init(Config) when is_list(Config) ->
     Verify(ok,    Init(TMR05)), 
 
     d(" 6) verify invalid timer"), 
-    TMR06 = infinit,
+    TMR06 = infinite,
     Verify(true,  VerifyTMR(false, TMR06)),
     Verify(error, Init(TMR06)),
 
@@ -213,7 +213,7 @@ simple_init(Config) when is_list(Config) ->
     TMR11 = #megaco_incr_timer{wait_for    = 10,
 			       factor      = 1,
 			       incr        = 0,
-			       max_retries = infinit},
+			       max_retries = infinite},
     Verify(true,  VerifyTMR(false, TMR11)),
     Verify(error, Init(TMR11)),
 
