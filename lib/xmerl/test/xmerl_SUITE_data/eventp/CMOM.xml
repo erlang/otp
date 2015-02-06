@@ -13170,7 +13170,7 @@ If the board is of type SPB2 the maximum number of Spm MO's that is possible to 
             </dataType>
         </attribute>
         <attribute name="spLinkName">
-            <description>The uniqe name of the link between  the SP and BP.</description>
+            <description>The unique name of the link between  the SP and BP.</description>
             <noNotification/>
             <readOnly/>
             <dataType>
@@ -18119,7 +18119,7 @@ The RPU is at the server.</description>
             <description>The signallingPointCode (Local Point Code) attribute (SPC) is used together with the network indicator (NI, networkInd attribute) to uniquely identify the MTP Signalling Point, SP.
 SP = NI-SPC.
 Size (2 exp 24)-1 (16777215). 
-The SignallingPointCode (SPC) is normally grouped together as three numbers wich correspond to network identifier, network cluster, network cluster member. The three numbers are coded as 8-8-8 bits in the total SPC. To enter the SPC-value, you have to convert the 3 numbers to their binary code and then convert the whole 24-bit  patterna as an integer. Sometimes the SPC is used as a whole uniqe number (no internal structure).
+The SignallingPointCode (SPC) is normally grouped together as three numbers wich correspond to network identifier, network cluster, network cluster member. The three numbers are coded as 8-8-8 bits in the total SPC. To enter the SPC-value, you have to convert the 3 numbers to their binary code and then convert the whole 24-bit  patterna as an integer. Sometimes the SPC is used as a whole unique number (no internal structure).
 </description>
             <mandatory/>
             <noNotification/>
@@ -20661,7 +20661,7 @@ The link state is a bit map which contains a combination of the following values
         </attribute>
         <attribute name="signLinkCode">
             <description>The signalling link code, SLC, used for this link.
-The code have to be uniqe in this signal link set, i.e the signallingLinkCode for 
+The code have to be unique in this signal link set, i.e the signallingLinkCode for 
 all the Mtp3bSl that belongs to the same Mtp3bSls must be unique(mutual exclusive). </description>
             <mandatory/>
             <noNotification/>

@@ -1208,7 +1208,7 @@ compute_state(Seed, Tables) ->
     Closure = keysort(1, erase()),
     state_items(Closure, [], [], Tables#tabs.rp_rhs).
 
-%% Collects a uniqe id for the state (all rule pointers). 
+%% Collects a unique id for the state (all rule pointers). 
 state_items([{RP, LA} | L], Is, Id, RpRhs) ->
     I = #item{rule_pointer = RP, look_ahead = LA, rhs = element(RP, RpRhs)},
     state_items(L, [I | Is], [RP | Id], RpRhs);

@@ -733,7 +733,7 @@ non_transaction(OldState, Fun, Args, ActivityKind, Mod) ->
     Id = {ActivityKind, self()},
     NewState = {Mod, Id, non_transaction},
     put(mnesia_activity_state, NewState),
-    %% I Want something uniqe here, references are expensive
+    %% I Want something unique here, references are expensive
     Ref = mNeSia_nOn_TrAnSacTioN,
     RefRes = (catch {Ref, apply(Fun, Args)}),
     case OldState of
