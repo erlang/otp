@@ -143,7 +143,7 @@ only be made on a strict need to know basis.
      </parameter>
       <parameter name="password">
        <description>
-            The pasword of the user
+            The password of the user
        </description>
          <dataType><string/></dataType>
      </parameter>
