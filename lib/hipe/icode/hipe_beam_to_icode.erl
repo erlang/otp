@@ -2246,7 +2246,7 @@ fix_catch(Type, Lbl, ContLbl, Code, HandledCatchLbls, Instr) ->
 	++ CatchedCode
 	++ [mk_label(new), % dummy label before the goto
 	    hipe_icode:mk_goto(OldCatch),  % normal execution path
-	    NewCatchLbl,  % exception handing enters here
+	    NewCatchLbl,  % exception handling enters here
 	    hipe_icode:mk_begin_handler(Vars)]
         ++ catch_handler(Type, Vars, OldCatchLbl)
 	++ RestOfCode1  % back to normal execution

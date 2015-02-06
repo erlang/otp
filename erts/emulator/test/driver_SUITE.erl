@@ -826,7 +826,7 @@ use_fallback_pollset(Config) when is_list(Config) ->
 			      ?line ?t:fail({failed_to_use_fallback, Error})
 		      end
 	      end,
-    ?line {BckupTest, Handel, OkRes}
+    ?line {BckupTest, Handle, OkRes}
 	= case chkio_test_init(Config) of
 	      {erts_poll_info, ChkIo} = Hndl ->
 		  case lists:keysearch(fallback, 1, ChkIo) of
@@ -842,7 +842,7 @@ use_fallback_pollset(Config) when is_list(Config) ->
 	      Skip ->
 		  {fun () -> ok end, Skip, ok}
 	  end,
-    ?line case chkio_test_fini(chkio_test(Handel,
+    ?line case chkio_test_fini(chkio_test(Handle,
 					  ?CHKIO_USE_FALLBACK_POLLSET,
 					  fun () ->
 						  ?line sleep(1000),

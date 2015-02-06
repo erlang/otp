@@ -96,7 +96,7 @@
 
 /*
 ** SO, most of the differences between WinDoze and Posixish OS'es 
-** is handeled here, but the multiplexing (driver_select) is also quite
+** is handled here, but the multiplexing (driver_select) is also quite
 ** interesting, see my_driver_select further down in the file...
 */
 
