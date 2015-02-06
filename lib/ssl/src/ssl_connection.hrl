@@ -47,7 +47,7 @@
           ssl_options           :: #ssl_options{},
           socket_options        :: #socket_options{},
           connection_states     :: #connection_states{} | secret_printout(),
-	  protocol_buffers      :: term() | secret_printout() , %% #protocol_buffers{} from tls_record.hrl or dtls_recor.hrl
+	  protocol_buffers      :: term() | secret_printout() , %% #protocol_buffers{} from tls_record.hrl or dtls_record.hrl
           tls_handshake_history :: ssl_handshake:ssl_handshake_history() | secret_printout(),
 	  cert_db               :: reference(),
           session               :: #session{} | secret_printout(),
