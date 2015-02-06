@@ -155,7 +155,7 @@ handle_message(GIOPHdr, Message, SocketType, Socket, Env) ->
 	    handle_request(Env#giop_env{version = Version}, ReqHdr, Rest, Len, 
 			   ByteOrder, SocketType, Socket, Message);
 	Other ->
-	    %% This cluase takes care of all erranous messages.
+	    %% This clause takes care of all erranous messages.
 	    orber:dbg("[~p] orber_iiop_inrequest:handle_message(~p)~n"
 		      "Decoding Msg Header failed: ~p", 
 		      [?LINE, Message, Other], ?DEBUG_LEVEL),
@@ -331,7 +331,7 @@ decode_body(#giop_env{version = Version} = Env, ReqHdr, Rest, Len,
 	    {error, marshal_exception(Env, ReqHdr#request_header.request_id,
 				      E, Func)};
 	Other ->
-	    %% This cluase takes care of all erranous messages.
+	    %% This clause takes care of all erranous messages.
 	    orber:dbg("[~p] orber_iiop_inrequest:decode_body(~p, ~p)~n"
 		      "Failed decoding request body: ~p", 
 		      [?LINE, ReqHdr, Message, Other], ?DEBUG_LEVEL),
