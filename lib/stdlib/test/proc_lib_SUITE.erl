@@ -70,7 +70,7 @@ end_per_group(_GroupName, Config) ->
 
 
 %%-----------------------------------------------------------------
-%% We don't have to test that spwn and spawn_link actually spawns
+%% We don't have to test that spawn and spawn_link actually spawns
 %% new processes - if they don't we can't run this suite!
 %% But we want to test that start and start_link really is
 %% synchronous, and we want to test that the crash report is ok.
