@@ -1332,7 +1332,7 @@ llvm_type_from_size(Size) ->
 %% @doc Create definition for the compiled function. The parameters that are
 %%      passed to the stack must be reversed to match with the CC. Also
 %%      precoloured registers that are passed as arguments must be stored to
-%%      the corresonding stack slots.
+%%      the correspondinging stack slots.
 create_function_definition(Fun, Params, Code, LocalVars) ->
   FunctionName = trans_mfa_name(Fun),
   FixedRegs = fixed_registers(),

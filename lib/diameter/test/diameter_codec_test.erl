@@ -444,7 +444,7 @@ values(Name, Mod) ->
 %%
 %% Pack four variants of group values: tagged list containing all
 %% values, the corresponding record, a minimal tagged list and the
-%% coresponding record.
+%% corresponding record.
 
 group(Mod, Name, Rec, Avps, Enum) ->
     lists:map(fun(B) -> group(Mod, Name, Rec, Avps, Enum, B) end,

@@ -38,7 +38,7 @@ final public class Ref extends com.ericsson.otp.erlang.OtpErlangRef {
   }
   
   /** 
-    Old style Ref costructor. Costructs an Ref that coresponds to the
+    Old style Ref costructor. Costructs an Ref that corresponds to the
     old erlang Ref type.
     **/
   public Ref(String node, int id, int creation) {
