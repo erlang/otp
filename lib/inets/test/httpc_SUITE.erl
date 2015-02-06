@@ -300,7 +300,7 @@ pipeline(Config) when is_list(Config) ->
     Request  = {url(group_name(Config), "/dummy.html", Config), []},
     {ok, _} = httpc:request(get, Request, [], [], pipeline),
 
-    %% Make sure pipeline session is registerd
+    %% Make sure pipeline session is registered
     test_server:sleep(4000),
     keep_alive_requests(Request, pipeline).
 
@@ -310,7 +310,7 @@ persistent_connection(Config) when is_list(Config) ->
     Request  = {url(group_name(Config), "/dummy.html", Config), []},
     {ok, _} = httpc:request(get, Request, [], [], persistent),
 
-    %% Make sure pipeline session is registerd
+    %% Make sure pipeline session is registered
     test_server:sleep(4000),
     keep_alive_requests(Request, persistent).
 
