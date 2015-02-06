@@ -822,7 +822,7 @@ one_shell_op(IO, TimeOut) ->
     ct:pal("One shell op: Waiting for prompter"),
     receive
 	ErlPrompt0 -> ct:log("Erlang prompt: ~p~n", [ErlPrompt0])
-	after TimeOut -> ct:fail("Timeout waiting for promter")
+	after TimeOut -> ct:fail("Timeout waiting for prompter")
     end,
 
     IO ! {input, self(), "2*3*7.\r\n"},
