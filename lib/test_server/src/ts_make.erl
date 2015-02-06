@@ -67,7 +67,17 @@ get_port_data(Port, Last0, Complete0) ->
     end.
 
 update_last([C|Rest], Line, true) ->
-    io:put_chars(list_to_binary(Line)), %% Utf-8 list to utf-8 binary
+    try
+	%% Utf-8 list to utf-8 binary
+	%% (e.g. we assume utf-8 bytes from port)
+	io:put_chars(list_to_binary(Line))
+    catch
+	error:badarg ->
+	    %% io:put_chars/1 badarged
+	    %% this likely means we had unicode code points
+	    %% in our bytes buffer (e.g warning from gcc with åäö)
+	    io:put_chars(unicode:characters_to_binary(Line))
+    end,
     io:nl(),
     update_last([C|Rest], [], false);
 update_last([$\r|Rest], Result, Complete) ->
