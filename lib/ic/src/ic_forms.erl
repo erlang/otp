@@ -43,7 +43,7 @@
 %%
 %% Generation go-get utilities
 %%
-%%	Feeble attempt at virtual funtions.
+%%	Feeble attempt at virtual functions.
 %%
 %%--------------------------------------------------------------------
 

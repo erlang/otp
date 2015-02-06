@@ -1867,7 +1867,7 @@ otp_5338(Config) when is_list(Config) ->
 
 otp_5362(doc) ->
     "OTP-5362. deprecated_function, "
-    "{nowarn_unused_funtion,FAs}, 'better' line numbers.";
+    "{nowarn_unused_function,FAs}, 'better' line numbers.";
 otp_5362(suite) -> [];
 otp_5362(Config) when is_list(Config) ->
     Ts = [{otp_5362_1,

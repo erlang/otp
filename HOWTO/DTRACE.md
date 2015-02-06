@@ -44,7 +44,7 @@ Status
 As of R15B01, the dynamic trace code is included in the OTP source distribution,
 although it's considered experimental. The main development of the dtrace code 
 still happens outside of Ericsson, but there is no need to fetch a patched 
-version of the OTP source to get the basic funtionality.
+version of the OTP source to get the basic functionality.
 
 Implementation summary
 ----------------------

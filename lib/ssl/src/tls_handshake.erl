@@ -18,7 +18,7 @@
 %%
 
 %%----------------------------------------------------------------------
-%% Purpose: Help funtions for handling the TLS (specific parts of)
+%% Purpose: Help functions for handling the TLS (specific parts of)
 %%% SSL/TLS/DTLS handshake protocol
 %%----------------------------------------------------------------------
 

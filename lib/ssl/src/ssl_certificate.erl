@@ -18,7 +18,7 @@
 %%
 
 %%----------------------------------------------------------------------
-%% Purpose: Help funtions for handling certificat verification.
+%% Purpose: Help functions for handling certificat verification.
 %% The path validation defined in ssl_handshake.erl that mainly
 %% calls functions in this module is described in RFC 3280. 
 %%----------------------------------------------------------------------

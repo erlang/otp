@@ -212,7 +212,7 @@ Interpret one module").
 
 
 ?MAN_CASE(finish3, "Finish the current function body",
-"Call the fucntion test:test1() from the shell. Press Finish to evaluate the remaining lines in the function. The result printed in the shell should be: {\"peter\",[1,2,4,a,b,c],\"olin\"}").
+"Call the function test:test1() from the shell. Press Finish to evaluate the remaining lines in the function. The result printed in the shell should be: {\"peter\",[1,2,4,a,b,c],\"olin\"}").
 
 ?MAN_CASE(killinit3,"Set up for killing and clearing processes",
 "Call test:test2() from the shell. Set a break point at the last line of test:test2. Click Continue. This should open three new attach windows. One for each spawn called in test:test2/0.   ").

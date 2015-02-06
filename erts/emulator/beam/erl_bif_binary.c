@@ -382,7 +382,7 @@ static void ac_compute_failure_functions(ACTrie *act, ACNode **qbuff)
 		qbuff[qt++] = child;
 		/* Search for correct failure function, follow the parent's
 		   failure function until you find a similar transition
-		   funtion to this child's */
+		   function to this child's */
 		r =  parent->h;
 		while (r != NULL && r->g[i] == NULL) {
 		    r = r->h;

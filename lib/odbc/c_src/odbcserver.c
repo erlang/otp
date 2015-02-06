@@ -207,7 +207,7 @@ static void tcp_nodelay(int sock);
 #endif
 static void clean_socket_lib(void);
 
-/*------------- Memory handling funtions --------------------------------*/
+/*------------- Memory handling functions --------------------------------*/
 
 static void * safe_malloc(int size);
 static void * safe_realloc(void * ptr, int size);
@@ -2051,7 +2051,7 @@ static void clean_socket_lib(void)
 }
     
 
-/*------------- Memmory handling funtions -------------------------------*/
+/*------------- Memmory handling functions -------------------------------*/
 static void *safe_malloc(int size)
 {
     void *memory;

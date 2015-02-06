@@ -232,7 +232,7 @@ open_close_dir(Config) when is_list(Config) ->
 
 %%--------------------------------------------------------------------
 read_file() ->
-    [{doc, "Test API funtion read_file/2"}].
+    [{doc, "Test API function read_file/2"}].
 read_file(Config) when is_list(Config) ->
     PrivDir =  ?config(priv_dir, Config),
     FileName = filename:join(PrivDir, ?'sftp.txt'),

@@ -295,7 +295,7 @@ split_Megacop([H | T], Acc) ->
 
 %% Corr1:
 %% As of corr 1 ModemDescriptor has been deprecated.
-%% and since this functon is only used when creating
+%% and since this function is only used when creating
 %% a ModemDescriptor, iit is removed.
 %% modemType         = (V32bisToken / V22bisToken / V18Token / 
 %%                      V22Token / V32Token / V34Token / V90Token / 

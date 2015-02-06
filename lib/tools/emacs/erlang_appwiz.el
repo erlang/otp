@@ -454,7 +454,7 @@ Example:
        ((\"Yellow\" function-yellow)
         (\"Blue\" function-blue)))
       nil
-      (\"Region Funtion\" spook-function midnight-variable))
+      (\"Region Function\" spook-function midnight-variable))
 
 Call the function `erlang-menu-init' after modifying this variable.")
 

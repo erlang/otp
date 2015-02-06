@@ -400,7 +400,7 @@ http://your.server.org/***/Module[:/]Function(?QueryString|/PathInfo)
             directive has been used</p>
           <p>The module (Module) referred to must be found in the code
             path, and it must define a function (Function) with an arity
-            of two or three. It is preferable to implement a funtion
+            of two or three. It is preferable to implement a function
             with arity three as it permits you to send chunks of the
             webpage beeing generated to the client during the generation
             phase instead of first generating the whole web page and

@@ -17,7 +17,7 @@
 %% %CopyrightEnd%
 
 %----------------------------------------------------------------------
-%% Purpose: Help funtions for handling the SSL-handshake protocol (common
+%% Purpose: Help functions for handling the SSL-handshake protocol (common
 %% to SSL/TLS and DTLS
 %%----------------------------------------------------------------------
 
