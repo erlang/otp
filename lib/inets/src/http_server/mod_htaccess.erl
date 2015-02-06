@@ -782,7 +782,7 @@ loadAccessFileData({file,FileName},AccessData)->
 
 %----------------------------------------------------------------------
 %%look att each line in the file and add them to the database
-%%When end of file is reached control i overrride is allowed
+%%When end of file is reached control i override is allowed
 %% if so return 
 %----------------------------------------------------------------------
 loadAccessFileData({stream,File},AccessData,FileData)->

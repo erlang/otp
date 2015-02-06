@@ -1084,11 +1084,11 @@ merge_decisions(Node, D, NewD0) ->
 		    OldD#decision{outcome = aborted};
 
 		OldD#decision.outcome == aborted ->
-		    %% aborted overrrides anything
+		    %% aborted overrides anything
 		    OldD#decision{outcome = aborted};
 
 		NewD#decision.outcome == aborted ->
-		    %% aborted overrrides anything
+		    %% aborted overrides anything
 		    OldD#decision{outcome = aborted};
 
 		OldD#decision.outcome == committed,
