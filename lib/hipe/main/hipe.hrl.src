@@ -38,7 +38,7 @@
 %%  IF_DEBUG(Lvl,A,B)  - Executes A if DEBUG is defined to a value >= Lvl 
 %%                       otherwise B is executed.    
 %%  EXIT               - Exits with added module and line info.
-%%  ASSERT             - Exits if the expresion does not evaluate to true.
+%%  ASSERT             - Exits if the expression does not evaluate to true.
 %%  VERBOSE_ASSSERT    - A message is printed even when an asertion is true.
 %%  TIME_STMNT(Stmnt, String, FreeVar) 
 %%                     - Times the statemnet Stmnt if TIMING is on.
