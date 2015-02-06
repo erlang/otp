@@ -879,7 +879,7 @@
       <list>
         <item>
           <p>
-	    crypto and zlib drivers improved to allow concurent smp
+	    crypto and zlib drivers improved to allow concurrent smp
 	    access.</p>
           <p>
 	    Own Id: OTP-7262</p>

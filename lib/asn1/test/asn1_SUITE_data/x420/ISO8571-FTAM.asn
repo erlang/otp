@@ -286,7 +286,7 @@ F-OPEN-response ::= SEQUENCE {
   -- This flag is set if the responder is going to follow this response
   -- by a P-ALTER-CONTEXT exchange.
   --The following are conditional on the negotiation of the concecutive access
-  -- or concurent access functional units.
+  -- or concurrent access functional units.
   degree-of-overlap       Degree-Of-Overlap OPTIONAL,
   transfer-window         [7] IMPLICIT INTEGER OPTIONAL
 }
