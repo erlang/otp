@@ -257,7 +257,7 @@ syntax_check_script([]) ->
 %%       is present).
 %%
 %% {load_object_code, {Lib, LibVsn, [Mod]} 
-%%    read the files as binarys. do not make code out of them
+%%    read the files as binaries. do not make code out of them
 %% {load, {Module, PrePurgeMethod, PostPurgeMethod}}
 %%    Module must have been load_object_code:ed.  make code out of it
 %%    old procs && soft_purge => no new release
