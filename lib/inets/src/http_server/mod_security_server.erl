@@ -299,7 +299,7 @@ handle_call(_Request,_From,Tables) ->
 
 handle_cast({store_failed_auth, [_, _, []]}, Tables) ->
     %% Some other authentication scheme than mod_auth (example mod_htacess)
-    %% was the source for the authentication failure so we should ignor it!
+    %% was the source for the authentication failure so we should ignore it!
     {noreply, Tables};
 handle_cast({store_failed_auth, [Info, DecodedString, SDirData]}, Tables) ->
     {ETS, DETS} = proplists:get_value(data_file, SDirData),

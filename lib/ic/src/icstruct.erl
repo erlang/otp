@@ -241,7 +241,7 @@ emit_c_struct(G, N, X, local) ->
 	    ok
     end.
 
-%% Extracts array dimention(s)
+%% Extracts array dimension(s)
 
 get_structelement_tk({tk_struct, _, _, EList}, EN) ->
     {value, {EN, ArrayTK}} = lists:keysearch(EN, 1, EList),
