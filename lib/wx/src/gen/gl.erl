@@ -13718,7 +13718,7 @@ framebufferRenderbuffer(Target,Attachment,Renderbuffertarget,Renderbuffer) ->
 %% will contain the value zero. 
 %%
 %%  If  `Pname'  is `?GL_FRAMEBUFFER_ATTACHMENT_LAYERED', then  `Params'  will
-%% contain `?GL_TRUE' if an entire level of a three-dimesional texture, cube map texture,
+%% contain `?GL_TRUE' if an entire level of a three-dimessional texture, cube map texture,
 %% or one-or two-dimensional array texture is attached. Otherwise,  `Params'  will contain
 %% `?GL_FALSE'. 
 %%

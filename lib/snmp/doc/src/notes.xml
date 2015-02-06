@@ -1061,7 +1061,7 @@
           conflict. When dumping the vacm table to disk, a temoporary 
           file with a fixed name was used. If the table dumping 
           (snmpa_vacm:dump_table/0) was initiated from several different 
-          processes in rapid succesion, the dumping could fail because the 
+          processes in rapid succession, the dumping could fail because the 
           different processes was simultaniously trying to write to the 
           same file. This problem has been eliminated by creating a unique 
           name for the temporary file. </p>

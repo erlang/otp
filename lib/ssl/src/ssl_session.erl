@@ -38,7 +38,7 @@
 -spec is_new(session_id(), session_id()) -> boolean().
 %%
 %% Description: Checks if the session id decided by the server is a
-%%              new or resumed sesion id.
+%%              new or resumed session id.
 %%--------------------------------------------------------------------
 is_new(<<>>, _) ->
     true;
