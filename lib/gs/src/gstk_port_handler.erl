@@ -41,7 +41,7 @@
 % The executable can have many names. There is not always
 % a plain "wish" program. 
 % FIXME There has to be a better solution....
-% FIXME Add option in app file or environmen  variable.
+% FIXME Add option in app file or environment  variable.
 
 -define(WISHNAMES, ["wish85","wish8.5",
 		    "wish84","wish8.4",
