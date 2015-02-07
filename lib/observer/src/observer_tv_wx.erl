@@ -176,10 +176,16 @@ handle_call(Event, From, _State) ->
 handle_cast(Event, _State) ->
     error({unhandled_cast, Event}).
 
-handle_info(refresh_interval, State = #state{node=Node, grid=Grid, opt=Opt}) ->
-    Tables = get_tables(Node, Opt),
-    Tabs = update_grid(Grid, Opt, Tables),
-    {noreply, State#state{tabs=Tabs}};
+handle_info(refresh_interval, State = #state{node=Node, grid=Grid, opt=Opt,
+                                             tabs=OldTabs}) ->
+    case get_tables(Node, Opt) of
+        OldTabs ->
+            %% no change
+            {noreply, State};
+        Tables ->
+            Tabs = update_grid(Grid, Opt, Tables),
+            {noreply, State#state{tabs=Tabs}}
+    end;
 
 handle_info({active, Node}, State = #state{parent=Parent, grid=Grid, opt=Opt,
 					   timer=Timer0}) ->
