@@ -124,6 +124,8 @@ forward([{label,Lbl}=LblI|[{move,Lit,Dst}|Is1]=Is0], D, Lc, Acc) ->
 	     _ -> Is0		     %Keep move instruction.
 	 end,
     forward(Is, D, Lc, [LblI|Acc]);
+forward([{test,is_eq_exact,_,[Same,Same]}|Is], D, Lc, Acc) ->
+    forward(Is, D, Lc, Acc);
 forward([{test,is_eq_exact,_,[Dst,Src]}=I,
 	 {block,[{set,[Dst],[Src],move}|Bl]}|Is], D, Lc, Acc) ->
     forward([I,{block,Bl}|Is], D, Lc, Acc);
