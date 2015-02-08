@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -122,7 +122,8 @@ i({Ack, T, Pid, {RecvData,
                  = Svc}}) ->
     erlang:monitor(process, Pid),
     wait(Ack, Pid),
-    random:seed(now()),
+    {_, Seed} = diameter_lib:seed(),
+    random:seed(Seed),
     putr(restart, {T, Opts, Svc}),  %% save seeing it in trace
     putr(dwr, dwr(Caps)),           %%
     {_,_} = Mask = proplists:get_value(sequence, SvcOpts),

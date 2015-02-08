@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -26,6 +26,9 @@
 
 -module(diameter_sync).
 -behaviour(gen_server).
+
+-compile({no_auto_import, [now/0]}).
+-import(diameter_lib, [now/0]).
 
 -export([call/4, call/5,
          cast/4, cast/5,
