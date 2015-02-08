@@ -349,16 +349,6 @@ endif
 EPCRE_LIB = $(ERL_TOP)/erts/emulator/pcre/obj/$(TARGET)/$(TYPE)/$(LIB_PREFIX)epcre$(LIB_SUFFIX)
 DEPLIBS += $(EPCRE_LIB)
 
-PERFCTR_PATH=@PERFCTR_PATH@
-USE_PERFCTR=@USE_PERFCTR@
-ifdef PERFCTR_PATH
-LIBS += $(PERFCTR_PATH)/usr.lib/libperfctr.a
-else
-ifdef USE_PERFCTR
-LIBS += -lperfctr
-endif
-endif
-
 LIBSCTP = @LIBSCTP@
 
 ORG_THR_LIBS=@EMU_THR_LIBS@
@@ -566,9 +556,6 @@ HIPE_ppc64_TAB=hipe/hipe_ppc64.tab $(HIPE_ARCH64_TAB)
 HIPE_arm_TAB=hipe/hipe_arm.tab
 HIPE_ARCH_TAB=$(HIPE_$(ARCH)_TAB)
 BIFS += hipe/hipe_bif0.tab hipe/hipe_bif1.tab hipe/hipe_bif2.tab $(HIPE_ARCH_TAB)
-ifdef USE_PERFCTR
-BIFS += hipe/hipe_perfctr.tab
-endif
 endif
 
 $(TARGET)/erl_bif_table.c \
@@ -663,10 +650,6 @@ COMMON_INCLUDES += -I../include -I../include/$(TARGET)
 COMMON_INCLUDES += -I../include/internal -I../include/internal/$(TARGET)
 
 INCLUDES  =  -I$(TTF_DIR) $(COMMON_INCLUDES)
-
-ifdef PERFCTR_PATH
-INCLUDES += -I$(PERFCTR_PATH)/usr.lib -I$(PERFCTR_PATH)/linux/include
-endif
 
 ifeq ($(TARGET),win32)
 $(OBJDIR)/dll_sys.o: sys/$(ERLANG_OSTYPE)/sys.c
@@ -927,9 +910,6 @@ HIPE_OBJS= \
 	$(OBJDIR)/hipe_mode_switch.o \
 	$(OBJDIR)/hipe_native_bif.o \
 	$(OBJDIR)/hipe_stack.o $(HIPE_ARCH_OBJS)
-ifdef USE_PERFCTR
-HIPE_OBJS += $(OBJDIR)/hipe_perfctr.o
-endif
 ifdef HIPE_ENABLED
 EXTRA_BASE_OBJS += $(HIPE_OBJS)
 endif
