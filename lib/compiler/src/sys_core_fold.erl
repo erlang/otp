@@ -2272,31 +2272,7 @@ opt_simple_let_1(#c_let{vars=Vs0,body=B0}=Let, Arg0, Ctxt, Sub0) ->
     Arg = core_lib:make_values(Args),
     opt_simple_let_2(Let, Vs, Arg, B, Ctxt, Sub1).
 
-opt_simple_let_2(Let0, Vs0, Arg0, Body0, effect, Sub) ->
-    case {Vs0,Arg0,Body0} of
-	{[],#c_values{es=[]},Body} ->
-	    %% No variables left (because of substitutions).
-	    Body;
-	{[_|_],Arg,#c_literal{}} ->
-	    %% The body is a literal. That means that we can ignore
-	    %% it and that the return value is Arg revisited in
-	    %% effect context.
-	    body(Arg, effect, sub_new_preserve_types(Sub));
-	{Vs,Arg,Body} ->
-	    %% Since we are in effect context, there is a chance
-	    %% that the body no longer references the variables.
-	    %% In that case we can construct a sequence and visit
-	    %% that in effect context:
-	    %%   let <Var> = Arg in BodyWithoutVar  ==> seq Arg BodyWithoutVar
-	    case is_any_var_used(Vs, Body) of
-		false ->
-		    expr(#c_seq{arg=Arg,body=Body}, effect, sub_new_preserve_types(Sub));
-		true ->
-		    Let = Let0#c_let{vars=Vs,arg=Arg,body=Body},
-		    opt_case_in_let_arg(opt_case_in_let(Let, Sub), effect, Sub)
-	    end
-    end;
-opt_simple_let_2(Let0, Vs0, Arg0, Body, value, Sub) ->
+opt_simple_let_2(Let0, Vs0, Arg0, Body, Ctxt, Sub) ->
     case {Vs0,Arg0,Body} of
 	{[#c_var{name=N1}],Arg,#c_var{name=N2}} ->
 	    case N1 =:= N2 of
@@ -2305,26 +2281,30 @@ opt_simple_let_2(Let0, Vs0, Arg0, Body, value, Sub) ->
 		    Arg;
 		false ->
 		    %% let <Var> = Arg in <OtherVar>  ==>  seq Arg OtherVar
-		    expr(#c_seq{arg=Arg,body=Body}, value, sub_new_preserve_types(Sub))
+		    expr(#c_seq{arg=Arg,body=Body}, Ctxt,
+			 sub_new_preserve_types(Sub))
 	    end;
 	{[],#c_values{es=[]},_} ->
 	    %% No variables left.
 	    Body;
 	{_,Arg,#c_literal{}} ->
-	    %% The variable is not used in the body. The argument
-	    %% can be evaluated in effect context to simplify it.
-	    expr(#c_seq{arg=Arg,body=Body}, value, sub_new_preserve_types(Sub));
-	{Vs,Arg,Body} ->
-	    %% If none of the variables are used in the body, we can rewrite the
+	    %% Since the variable is not used in the body, we can rewrite the
 	    %% let to a sequence:
-	    %%   let <Var> = Arg in BodyWithoutVar  ==> seq Arg BodyWithoutVar
+	    %%   let <Var> = Arg in Literal  ==>  seq Arg Literal
+	    expr(#c_seq{arg=Arg,body=Body}, Ctxt, sub_new_preserve_types(Sub));
+	{Vs,Arg,Body} ->
+	    %% If none of the variables are used in the body, we can
+	    %% rewrite the let to a sequence:
+	    %%    let <Var> = Arg in BodyWithoutVar ==>
+	    %%        seq Arg BodyWithoutVar
 	    case is_any_var_used(Vs, Body) of
 		false ->
-		    expr(#c_seq{arg=Arg,body=Body}, value,
+		    expr(#c_seq{arg=Arg,body=Body}, Ctxt,
 			 sub_new_preserve_types(Sub));
 		true ->
-		    Let = Let0#c_let{vars=Vs,arg=Arg,body=Body},
-		    opt_case_in_let_arg(opt_case_in_let(Let, Sub), value, Sub)
+		    Let1 = Let0#c_let{vars=Vs,arg=Arg,body=Body},
+		    Let2 = opt_case_in_let(Let1, Sub),
+		    opt_case_in_let_arg(Let2, Ctxt, Sub)
 	    end
     end.
 
