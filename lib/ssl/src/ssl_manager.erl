@@ -230,7 +230,7 @@ init([Name, Opts]) ->
 		session_cache_cb = CacheCb,
 		session_lifetime = SessionLifeTime,
 		session_validation_timer = Timer,
-		last_pem_check =  erlang:timestamp(),
+		last_pem_check =  os:timestamp(),
 		clear_pem_cache = Interval 	
 	       }}.
 
@@ -377,7 +377,7 @@ handle_info({delayed_clean_session, Key, Cache}, #state{session_cache_cb = Cache
 handle_info(clear_pem_cache, #state{certificate_db = [_,_,PemChace],
 				    clear_pem_cache = Interval,
 				    last_pem_check = CheckPoint} = State) ->
-    NewCheckPoint = erlang:timestamp(),
+    NewCheckPoint = os:timestamp(),
     start_pem_cache_validator(PemChace, CheckPoint),
     erlang:send_after(Interval, self(), clear_pem_cache),
     {noreply, State#state{last_pem_check = NewCheckPoint}};
