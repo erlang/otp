@@ -821,12 +821,16 @@ static void hashmap_to_list_doer(Eterm* kv, hashmap_doer_state* sp) {
 #define HALLOC_EXTRA 200
 
 static Eterm hashmap_merge(Process *p, Eterm nodeA, Eterm nodeB) {
-    struct {
-	Eterm *srcA, *srcB, *dst;
+#define PSTACK_TYPE struct HashmapMergePStackType
+    struct HashmapMergePStackType {
+	Eterm *srcA, *srcB;
 	Uint32 abm, bbm, rbm;        /* node bitmaps */
 	int keepA;
+	int ix;
 	Eterm array[16];
-    }stack[16], *sp = stack;
+    };
+    PSTACK_DECLARE(s, 4);
+    struct HashmapMergePStackType* sp = PSTACK_PUSH(s);
     Eterm *hp, *nhp;
     Eterm hdrA, hdrB;
     Eterm th[2];
@@ -834,7 +838,6 @@ static Eterm hashmap_merge(Process *p, Eterm nodeA, Eterm nodeB) {
     Uint size;  /* total key-value counter */
     int keepA = 0;
     unsigned lvl = 0;
-    unsigned node_sz;
     Eterm res = THE_NON_VALUE;
 
     /*
@@ -970,12 +973,12 @@ recurse:
     for (;;) {
 	if (is_value(res)) { /* We have a complete (sub-)tree or leaf */
 	    if (lvl == 0)
-		return res;
+		break;
 
 	    /* Pop from stack and continue build parent node */
 	    lvl--;
-	    sp--;
-	    *sp->dst++ = res;
+	    sp = PSTACK_POP(s);
+	    sp->array[sp->ix++] = res;
 	    res = THE_NON_VALUE;
 	    if (sp->rbm) {
 		sp->srcA++;
@@ -983,7 +986,7 @@ recurse:
 		keepA = sp->keepA;
 	    }
 	} else { /* Start build a node */
-	    sp->dst = sp->array;
+	    sp->ix = 0;
 	    sp->rbm = sp->abm | sp->bbm;
 	    ASSERT(!(sp->rbm == 0 && lvl > 0));
 	}
@@ -1001,34 +1004,35 @@ recurse:
 		    nodeA = *sp->srcA;
 		    nodeB = *sp->srcB;
 		    lvl++;
-		    sp++;
+		    sp = PSTACK_PUSH(s);
 		    goto recurse;
 		} else {
-		    *sp->dst++ = *sp->srcA++;
+		    sp->array[sp->ix++] = *sp->srcA++;
 		}
 	    } else {
 		ASSERT(sp->bbm & bit);
-		*sp->dst++ = *sp->srcB++;
+		sp->array[sp->ix++] = *sp->srcB++;
 	    }
 	}
 
-	node_sz = sp->dst - sp->array;
-	ASSERT(node_sz == hashmap_bitcount(sp->abm | sp->bbm));
+	ASSERT(sp->ix == hashmap_bitcount(sp->abm | sp->bbm));
 	if (lvl == 0) {
-	    nhp = HAllocX(p, HAMT_HEAD_BITMAP_SZ(node_sz), HALLOC_EXTRA);
+	    nhp = HAllocX(p, HAMT_HEAD_BITMAP_SZ(sp->ix), HALLOC_EXTRA);
 	    hp = nhp;
-	    *hp++ = (node_sz == 16 ? MAP_HEADER_HAMT_HEAD_ARRAY
+	    *hp++ = (sp->ix == 16 ? MAP_HEADER_HAMT_HEAD_ARRAY
 		     : MAP_HEADER_HAMT_HEAD_BITMAP(sp->abm | sp->bbm));
 	    *hp++ = size;
 	} else {
-	    nhp = HAllocX(p, HAMT_NODE_BITMAP_SZ(node_sz), HALLOC_EXTRA);
+	    nhp = HAllocX(p, HAMT_NODE_BITMAP_SZ(sp->ix), HALLOC_EXTRA);
 	    hp = nhp;
-	    *hp++ = (node_sz == 16 ? make_arityval(16)
+	    *hp++ = (sp->ix == 16 ? make_arityval(16)
 		     : MAP_HEADER_HAMT_NODE_BITMAP(sp->abm | sp->bbm));
 	}
-	memcpy(hp, sp->array, node_sz * sizeof(Eterm));
+	memcpy(hp, sp->array, sp->ix * sizeof(Eterm));
 	res = make_boxed(nhp);
     }
+    PSTACK_DESTROY(s);
+    return res;
 }
 
 static void hashmap_do_foreach(Eterm node, hashmap_doer* fptr,
