@@ -2512,7 +2512,18 @@ Sint erts_cmp_rel_opt(Eterm a, Eterm* a_base, Eterm b, Eterm* b_base, int exact)
 Sint erts_cmp(Eterm a, Eterm b, int exact)
 #endif
 {
-    DECLARE_WSTACK(stack);
+#define PSTACK_TYPE struct erts_cmp_hashmap_state
+    struct erts_cmp_hashmap_state {
+        Sint wstack_rollback;
+        int was_exact;
+        Eterm *ap;
+        Eterm *bp;
+        Eterm min_key;
+        Sint cmp_res;   /* result so far -1,0,+1 */
+    };
+    PSTACK_DECLARE(hmap_stack, 1);
+    WSTACK_DECLARE(stack);
+    WSTACK_DECLARE(b_stack); /* only used by hashmaps */
     Eterm* aa;
     Eterm* bb;
     int i;
@@ -2527,6 +2538,26 @@ Sint erts_cmp(Eterm a, Eterm b, int exact)
     Uint blen;
     Uint32 *anum;
     Uint32 *bnum;
+
+/* The WSTACK contains naked Eterms and Operations marked with header-tags */
+#define OP_BITS 4
+#define OP_MASK 0xF
+#define TERM_ARRAY_OP                 0
+#define SWITCH_EXACT_OFF_OP           1
+#define HASHMAP_PHASE1_ARE_KEYS_EQUAL 2
+#define HASHMAP_PHASE1_IS_MIN_KEY     3
+#define HASHMAP_PHASE1_CMP_VALUES     4
+#define HASHMAP_PHASE2_ARE_KEYS_EQUAL 5
+#define HASHMAP_PHASE2_IS_MIN_KEY_A   6
+#define HASHMAP_PHASE2_IS_MIN_KEY_B   7
+
+
+#define OP_WORD(OP)  (((OP)  << _TAG_PRIMARY_SIZE) | TAG_PRIMARY_HEADER)
+#define TERM_ARRAY_OP_WORD(SZ) OP_WORD(((SZ) << OP_BITS) | TERM_ARRAY_OP)
+
+#define GET_OP(WORD) (ASSERT(is_header(WORD)), ((WORD) >> _TAG_PRIMARY_SIZE) & OP_MASK)
+#define GET_OP_ARG(WORD) (ASSERT(is_header(WORD)), ((WORD) >> (OP_BITS + _TAG_PRIMARY_SIZE)))
+
 
 #define RETURN_NEQ(cmp) { j=(cmp); ASSERT(j != 0); goto not_equal; }
 #define ON_CMP_GOTO(cmp) if ((j=(cmp)) == 0) goto pop_next; else goto not_equal
@@ -2543,6 +2574,8 @@ Sint erts_cmp(Eterm a, Eterm b, int exact)
     } while (0)
 
 
+bodyrecur:
+    j = 0;
 tailrecur:
     if (is_same(a,a_base,b,b_base)) {	/* Equal values or pointers. */
 	goto pop_next;
@@ -2692,28 +2725,60 @@ tailrecur_ne:
 		}
 		else {
 		    /* Value array */
-		    WSTACK_PUSH3(stack, i, (UWord)(bb+1), (UWord)(aa+1) | TAG_PRIMARY_HEADER);
-		    /* Marker to switch back from 'exact' compare */
-		    WSTACK_PUSH(stack, (UWord)NULL | TAG_PRIMARY_HEADER);
+		    WSTACK_PUSH3(stack, (UWord)(bb+1), (UWord)(aa+1), TERM_ARRAY_OP_WORD(i));
+		    /* Switch back from 'exact' key compare */
+		    WSTACK_PUSH(stack, OP_WORD(SWITCH_EXACT_OFF_OP));
 		    /* Now do 'exact' compare of key tuples */
 		    a = *aa;
 		    b = *bb;
 		    exact = 1;
-		    goto tailrecur;
+		    goto bodyrecur;
 		}
 
 	    case (_TAG_HEADER_HASHMAP >> _TAG_PRIMARY_SIZE) :
 		{
+                    struct erts_cmp_hashmap_state* sp;
 		    if (!is_hashmap_rel(b,b_base)) {
 			a_tag = HASHMAP_DEF;
 			goto mixed_types;
 		    }
-		    i = (((hashmap_head_t*) hashmap_val_rel(a,a_base))->size -
-			 ((hashmap_head_t*) hashmap_val_rel(b,b_base))->size);
+		    i = hashmap_size_rel(a,a_base) - hashmap_size_rel(b,b_base);
 		    if (i) {
 			RETURN_NEQ(i);
 		    }
-		    ON_CMP_GOTO(hashmap_cmp(a, b));
+                    if (hashmap_size_rel(a,a_base) == 0) {
+                        goto pop_next;
+                    }
+
+                /* Hashmap compare strategy:
+                   Phase 1. While keys are identical
+                     Do synchronous stepping through leafs of both trees in hash
+                     order. Maintain value compare result of minimal key.
+
+                   Phase 2. If key diff was found in phase 1
+                     Ignore values from now on.
+                     Continue iterate trees by always advancing the one
+                     lagging behind hash-wise. Identical keys are skipped.
+                     A minimal key can only be candidate as tie-breaker if we
+                     have passed that hash value in the other tree (which means
+                     the key did not exist in the other tree).
+                */
+
+                    sp = PSTACK_PUSH(hmap_stack);
+                    hashmap_iterator_init(&stack, a);
+                    hashmap_iterator_init(&b_stack, b);
+                    sp->ap = hashmap_iterator_next(&stack);
+                    sp->bp = hashmap_iterator_next(&b_stack);
+                    sp->cmp_res = 0;
+                    ASSERT(sp->ap && sp->bp);
+
+                    a = CAR(sp->ap);
+                    b = CAR(sp->bp);
+                    sp->was_exact = exact;
+                    exact = 1;
+                    WSTACK_PUSH(stack, OP_WORD(HASHMAP_PHASE1_ARE_KEYS_EQUAL));
+                    sp->wstack_rollback = WSTACK_COUNT(stack);
+                    goto bodyrecur;
 		}
 	    case (_TAG_HEADER_FLOAT >> _TAG_PRIMARY_SIZE):
 		if (!is_float_rel(b,b_base)) {
@@ -3074,8 +3139,7 @@ term_array: /* arrays in 'aa' and 'bb', length in 'i' */
 		    goto not_equal;
 		}
 	    } else {
-		/* (ab)Use TAG_PRIMARY_HEADER to recognize a term_array */
-		WSTACK_PUSH3(stack, i, (UWord)bb, (UWord)aa | TAG_PRIMARY_HEADER);
+		WSTACK_PUSH3(stack, (UWord)bb, (UWord)aa, TERM_ARRAY_OP_WORD(i));
 		goto tailrecur_ne;
 	    }
 	}
@@ -3087,28 +3151,179 @@ term_array: /* arrays in 'aa' and 'bb', length in 'i' */
 pop_next:
     if (!WSTACK_ISEMPTY(stack)) {
 	UWord something = WSTACK_POP(stack);
-	if (primary_tag((Eterm) something) == TAG_PRIMARY_HEADER) { /* a term_array */
-	    if (something == ((UWord)NULL | TAG_PRIMARY_HEADER)) {
+        struct erts_cmp_hashmap_state* sp;
+	if (primary_tag((Eterm) something) == TAG_PRIMARY_HEADER) { /* an operation */
+	    switch (GET_OP(something)) {
+	    case TERM_ARRAY_OP:
+		i = GET_OP_ARG(something);
+		aa = (Eterm*)WSTACK_POP(stack);
+		bb = (Eterm*) WSTACK_POP(stack);
+		goto term_array;
+
+	    case SWITCH_EXACT_OFF_OP:
 		/* Done with exact compare of map keys, switch back */
 		ASSERT(exact);
 		exact = 0;
 		goto pop_next;
-	    }
-	    aa = (Eterm *)something;
-	    bb = (Eterm*) WSTACK_POP(stack);
-	    i = WSTACK_POP(stack);
-	    goto term_array;
+
+            case HASHMAP_PHASE1_ARE_KEYS_EQUAL: {
+                sp = PSTACK_TOP(hmap_stack);
+                if (j) {
+                    /* Key diff found, enter phase 2 */
+                    if (hashmap_key_hash_cmp(sp->ap, sp->bp) < 0) {
+                        sp->min_key = CAR(sp->ap);
+                        sp->cmp_res = -1;
+                        sp->ap = hashmap_iterator_next(&stack);
+                    }
+                    else {
+                        sp->min_key = CAR(sp->bp);
+                        sp->cmp_res = 1;
+                        sp->bp = hashmap_iterator_next(&b_stack);
+                    }
+                    exact = 1; /* only exact key compares in phase 2 */
+                    goto case_HASHMAP_PHASE2_LOOP;
+                }
+
+                /* No key diff found so far, compare values if min key */
+
+                if (sp->cmp_res) {
+                    a = CAR(sp->ap);
+                    b = sp->min_key;
+                    exact = 1;
+                    WSTACK_PUSH(stack, OP_WORD(HASHMAP_PHASE1_IS_MIN_KEY));
+                    sp->wstack_rollback = WSTACK_COUNT(stack);
+                    goto bodyrecur;
+                }
+                /* no min key-value found yet */
+                a = CDR(sp->ap);
+                b = CDR(sp->bp);
+                exact = sp->was_exact;
+                WSTACK_PUSH(stack, OP_WORD(HASHMAP_PHASE1_CMP_VALUES));
+                sp->wstack_rollback = WSTACK_COUNT(stack);
+                goto bodyrecur;
+            }
+            case HASHMAP_PHASE1_IS_MIN_KEY:
+                sp = PSTACK_TOP(hmap_stack);
+                if (j < 0) {
+                    a = CDR(sp->ap);
+                    b = CDR(sp->bp);
+                    exact = sp->was_exact;
+                    WSTACK_PUSH(stack, OP_WORD(HASHMAP_PHASE1_CMP_VALUES));
+                    sp->wstack_rollback = WSTACK_COUNT(stack);
+                    goto bodyrecur;
+                }
+                goto case_HASHMAP_PHASE1_LOOP;
+
+            case HASHMAP_PHASE1_CMP_VALUES:
+                sp = PSTACK_TOP(hmap_stack);
+                if (j) {
+                    sp->cmp_res = j;
+                    sp->min_key = CAR(sp->ap);
+                }
+            case_HASHMAP_PHASE1_LOOP:
+                sp->ap = hashmap_iterator_next(&stack);
+                sp->bp = hashmap_iterator_next(&b_stack);
+                if (!sp->ap) {
+                    /* end of maps with identical keys */
+                    ASSERT(!sp->bp);
+                    j = sp->cmp_res;
+                    exact = sp->was_exact;
+                    (void) PSTACK_POP(hmap_stack);
+                    ON_CMP_GOTO(j);
+                }
+                a = CAR(sp->ap);
+                b = CAR(sp->bp);
+                exact = 1;
+                WSTACK_PUSH(stack, OP_WORD(HASHMAP_PHASE1_ARE_KEYS_EQUAL));
+                sp->wstack_rollback = WSTACK_COUNT(stack);
+                goto bodyrecur;
+
+            case_HASHMAP_PHASE2_LOOP:
+                if (sp->ap && sp->bp) {
+                    a = CAR(sp->ap);
+                    b = CAR(sp->bp);
+                    ASSERT(exact);
+                    WSTACK_PUSH(stack, OP_WORD(HASHMAP_PHASE2_ARE_KEYS_EQUAL));
+                    sp->wstack_rollback = WSTACK_COUNT(stack);
+                    goto bodyrecur;
+                }
+                goto case_HASHMAP_PHASE2_NEXT_STEP;
+
+            case HASHMAP_PHASE2_ARE_KEYS_EQUAL:
+                sp = PSTACK_TOP(hmap_stack);
+                if (j == 0) {
+                    /* keys are equal, skip them */
+                    sp->ap = hashmap_iterator_next(&stack);
+                    sp->bp = hashmap_iterator_next(&b_stack);
+                    goto case_HASHMAP_PHASE2_LOOP;
+                }
+                /* fall through */
+            case_HASHMAP_PHASE2_NEXT_STEP:
+                if (sp->ap || sp->bp) {
+                    if (hashmap_key_hash_cmp(sp->ap, sp->bp) < 0) {
+                        ASSERT(sp->ap);
+                        a = CAR(sp->ap);
+                        b = sp->min_key;
+                        ASSERT(exact);
+                        WSTACK_PUSH(stack, OP_WORD(HASHMAP_PHASE2_IS_MIN_KEY_A));
+                    }
+                    else { /* hash_cmp > 0 */
+                        ASSERT(sp->bp);
+                        a = CAR(sp->bp);
+                        b = sp->min_key;
+                        ASSERT(exact);
+                        WSTACK_PUSH(stack, OP_WORD(HASHMAP_PHASE2_IS_MIN_KEY_B));
+                    }
+                    sp->wstack_rollback = WSTACK_COUNT(stack);
+                    goto bodyrecur;
+                }
+                /* End of both maps */
+                j = sp->cmp_res;
+                exact = sp->was_exact;
+                (void) PSTACK_POP(hmap_stack);
+                ON_CMP_GOTO(j);
+
+            case HASHMAP_PHASE2_IS_MIN_KEY_A:
+                sp = PSTACK_TOP(hmap_stack);
+                if (j < 0) {
+                    sp->min_key = CAR(sp->ap);
+                    sp->cmp_res = -1;
+                }
+                sp->ap = hashmap_iterator_next(&stack);
+                goto case_HASHMAP_PHASE2_LOOP;
+
+            case HASHMAP_PHASE2_IS_MIN_KEY_B:
+                sp = PSTACK_TOP(hmap_stack);
+                if (j < 0) {
+                    sp->min_key = CAR(sp->bp);
+                    sp->cmp_res = 1;
+                }
+                sp->bp = hashmap_iterator_next(&b_stack);
+                goto case_HASHMAP_PHASE2_LOOP;
+
+            default:
+                ASSERT(!"Invalid cmp op");
+            } /* switch */
 	}
 	a = (Eterm) something;
 	b = (Eterm) WSTACK_POP(stack);
 	goto tailrecur;
     }
 
-    DESTROY_WSTACK(stack);
+    ASSERT(PSTACK_IS_EMPTY(hmap_stack));
+    PSTACK_DESTROY(hmap_stack);
+    WSTACK_DESTROY(stack);
+    WSTACK_DESTROY(b_stack);
     return 0;
 
 not_equal:
-    DESTROY_WSTACK(stack);
+    if (!PSTACK_IS_EMPTY(hmap_stack)) {
+        WSTACK_ROLLBACK(stack, PSTACK_TOP(hmap_stack)->wstack_rollback);
+        goto pop_next;
+    }
+    PSTACK_DESTROY(hmap_stack);
+    WSTACK_DESTROY(stack);
+    WSTACK_DESTROY(b_stack);
     return j;
 
 #undef CMP_NODES

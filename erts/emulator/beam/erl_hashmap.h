@@ -24,7 +24,10 @@
 #include "sys.h"
 
 Eterm erts_hashmap_get(Eterm key, Eterm map);
-int hashmap_cmp(Eterm a, Eterm b);
+struct ErtsWStack_;
+void hashmap_iterator_init(struct ErtsWStack_* s, Eterm node);
+Eterm* hashmap_iterator_next(struct ErtsWStack_* s);
+int hashmap_key_hash_cmp(Eterm* ap, Eterm* bp);
 
 /* erl_term.h stuff */
 #define make_hashmap(x)		make_boxed((Eterm*)(x))
@@ -67,6 +70,9 @@ typedef struct hashmap_head_s {
     Uint size;
     Eterm items[1];
 } hashmap_head_t;
+
+#define hashmap_size(x) (((hashmap_head_t*) hashmap_val(x))->size)
+#define hashmap_size_rel(RTERM, BASE) hashmap_size(rterm2wterm(RTERM, BASE))
  
 /* the bitmap-node
  * typedef struct hashmap_bitmap_node_s {

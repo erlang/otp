@@ -529,7 +529,7 @@ void erl_grow_wstack(ErtsWStack*, Uint need);
 #define WSTK_CONCAT(a,b) a##b
 #define WSTK_DEF_STACK(s) WSTK_CONCAT(s,_default_wstack)
 
-#define DECLARE_WSTACK(s)				\
+#define WSTACK_DECLARE(s)				\
     UWord WSTK_DEF_STACK(s)[DEF_WSTACK_SIZE];		\
     ErtsWStack s = {					\
         WSTK_DEF_STACK(s),  /* wstart */ 		\
@@ -538,6 +538,7 @@ void erl_grow_wstack(ErtsWStack*, Uint need);
         WSTK_DEF_STACK(s),  /* wdflt */ 		\
         ERTS_ALC_T_ESTACK /* alloc_type */		\
     }
+#define DECLARE_WSTACK WSTACK_DECLARE
 
 #define WSTACK_CHANGE_ALLOCATOR(s,t)					\
 do {									\
@@ -548,12 +549,13 @@ do {									\
     s.alloc_type = (t);							\
  } while (0)
 
-#define DESTROY_WSTACK(s)				\
+#define WSTACK_DESTROY(s)				\
 do {							\
     if (s.wstart != WSTK_DEF_STACK(s)) {		\
 	erts_free(s.alloc_type, s.wstart); 		\
     }							\
 } while(0)
+#define DESTROY_WSTACK WSTACK_DESTROY
 
 #define WSTACK_DEBUG(s) \
     do { \
@@ -686,7 +688,8 @@ do {						\
 #define WSTACK_ISEMPTY(s) (s.wsp == s.wstart)
 #define WSTACK_POP(s) ((ASSERT(s.wsp > s.wstart)),*(--s.wsp))
 
-
+#define WSTACK_ROLLBACK(s, count) (ASSERT(WSTACK_COUNT(s) >= (count)), \
+                                   s.wsp = s.wstart + (count))
 
 /* PSTACK - Stack of any type.
  * Usage:
