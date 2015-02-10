@@ -161,7 +161,7 @@ convert_module(Mod,Config) ->
     Src = filename:join(DataDir,Mod++".erl"),
     Dst = filename:join(PrivDir,Mod++".erl.html"),
     io:format("<a href=\"~s\">~s</a>\n",[Src,filename:basename(Src)]),
-    ok = erl2html2:convert(Src, Dst, "<html><body>"),
+    ok = erl2html2:convert(Src, Dst, [], "<html><body>"),
     io:format("<a href=\"~s\">~s</a>\n",[Dst,filename:basename(Dst)]),
     {Src,Dst}.
 
