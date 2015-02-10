@@ -689,12 +689,29 @@ handle_call({connect_nodes, Ns}, From, State) ->
 	    %% called from handle_info
 	    gen_server:reply(From, {[], AlreadyConnected}),
 	    {noreply, State};
-	GoodNodes ->
+	ProbablyGoodNodes ->
 	    %% Now we have agreed upon a protocol with some new nodes
-	    %% and we may use them when we recover transactions
+	    %% and we may use them when we recover transactions.
+	    %%
+	    %% Just in case Mnesia was stopped on some of those nodes
+	    %% between the protocol negotiation and now, we check one
+	    %% more time the state of Mnesia.
+	    %%
+	    %% Of course, there is still a chance that mnesia_down
+	    %% events occur during this check and we miss them. To
+	    %% prevent it, handle_cast({mnesia_down, ...}, ...) removes
+	    %% the down node again, in addition to mnesia_down/1.
+	    %%
+	    %% See a comment in handle_cast({mnesia_down, ...}, ...).
+	    Verify = fun(N) ->
+			     Run = mnesia_lib:is_running(N),
+			     Run =:= yes orelse Run =:= starting
+		     end,
+	    GoodNodes = [N || N <- ProbablyGoodNodes, Verify(N)],
+
 	    mnesia_lib:add_list(recover_nodes, GoodNodes),
 	    cast({announce_all, GoodNodes}),
-	    case get_master_nodes(schema) of 
+	    case get_master_nodes(schema) of
 		[] ->
 		    Context = starting_partitioned_network,
 		    mnesia_monitor:detect_inconcistency(GoodNodes, Context);
@@ -842,6 +859,14 @@ handle_cast({what_decision, Node, OtherD}, State) ->
     {noreply, State};
 
 handle_cast({mnesia_down, Node}, State) ->
+    %% The node was already removed from recover_nodes in mnesia_down/1,
+    %% but we do it again here in the mnesia_recover process, in case
+    %% another event incorrectly added it back. This can happen during
+    %% Mnesia startup which takes time betweenthe connection, the
+    %% protocol negotiation and the merge of the schema.
+    %%
+    %% See a comment in handle_call({connect_nodes, ...), ...).
+    mnesia_lib:del(recover_nodes, Node),
     case State#state.unclear_decision of
 	undefined ->
 	    {noreply, State};
