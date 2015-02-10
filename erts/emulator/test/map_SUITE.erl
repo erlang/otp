@@ -30,6 +30,7 @@
 	t_list_comprehension/1,
 	t_map_sort_literals/1,
 	t_map_equal/1,
+	t_map_compare/1,
 	%t_size/1,
 	t_map_size/1,
 
@@ -66,6 +67,13 @@
 
 -include_lib("stdlib/include/ms_transform.hrl").
 
+-define(CHECK(Cond,Term),
+	case (catch (Cond)) of
+	    true -> true;
+	    _ -> io:format("###### CHECK FAILED ######~nINPUT:  ~p~n", [Term]),
+		 exit(Term)
+	end).
+
 suite() -> [].
 
 all() -> [
@@ -75,7 +83,7 @@ all() -> [
 	t_update_assoc,t_update_exact,
 	t_guard_bifs, t_guard_sequence, t_guard_update,
 	t_guard_receive,t_guard_fun, t_list_comprehension,
-	t_map_equal,
+	t_map_equal, t_map_compare,
 	t_map_sort_literals,
 
 	%% Specific Map BIFs
@@ -470,6 +478,242 @@ t_map_equal(Config) when is_list(Config) ->
     true = id(#{ "a" => 2, b => 3 }) =:= id(#{ "a" => 2, b => 3}),
     true = id(#{ a => 1, b => 3, c => <<"wat">> }) =:= id(#{ a => 1, b => 3, c=><<"wat">>}),
     ok.
+
+
+t_map_compare(Config) when is_list(Config) ->
+    Seed = erlang:now(),
+    io:format("seed = ~p\n", [Seed]),
+    random:seed(Seed),
+    repeat(100, fun(_) -> float_int_compare(maps) end, []),
+    repeat(100, fun(_) -> float_int_compare(hashmap) end, []),
+    repeat(1000, fun(_) -> recursive_compare() end, []),
+    ok.
+
+float_int_compare(MapMod) ->
+    Terms = numeric_keys(3),
+    io:format("Keys to use: ~p\n", [Terms]),
+    Pairs = lists:map(fun(K) -> list_to_tuple([{K,V} || V <- Terms]) end, Terms),
+    lists:foreach(fun(Size) ->
+			  MapGen = fun() -> map_gen(MapMod, list_to_tuple(Pairs), Size) end,
+			  repeat(100, fun do_compare/1, [MapMod, MapGen, MapGen])
+		  end,
+		  lists:seq(1,length(Terms))),
+    ok.
+
+numeric_keys(N) ->
+    lists:foldl(fun(_,Acc) ->
+			Int = random:uniform(N*4) - N*2,
+			Float = float(Int),
+			[Int, Float, Float * 0.99, Float * 1.01 | Acc]
+		end,
+		[],
+		lists:seq(1,N)).
+
+
+repeat(0, _, _) ->
+    ok;
+repeat(N, Fun, Arg) ->
+    Fun(Arg),
+    repeat(N-1, Fun, Arg).
+
+copy_term(T) ->
+    Papa = self(),
+    P = spawn_link(fun() -> receive Msg -> Papa ! Msg end end),
+    P ! T,
+    receive R -> R end.
+
+do_compare([MapMod, Gen1, Gen2]) ->
+    M1 = Gen1(),
+    M2 = Gen2(),
+    %%io:format("Maps to compare: ~p AND ~p\n", [M1, M2]),
+    C = (M1 < M2),
+    Erlang = maps_lessthan(MapMod, M1, M2),
+    C = Erlang,
+    ?CHECK(M1==M1, M1),
+
+    %% Change one key from int to float (or vice versa) and check compare
+    ML1 = MapMod:to_list(M1),
+    {K1,V1} = lists:nth(random:uniform(length(ML1)), ML1),
+    case K1 of
+	I when is_integer(I) ->
+	    case MapMod:find(float(I),M1) of
+		error ->
+		    M1f = MapMod:remove(I, MapMod:put(float(I), V1, M1)),
+		    ?CHECK(M1f > M1, [M1f, M1]);
+		_ -> ok
+	    end;
+
+	F when is_float(F), round(F) == F ->
+	    case MapMod:find(round(F),M1) of
+		error ->
+		    M1i = MapMod:remove(F, MapMod:put(round(F), V1, M1)),
+		    ?CHECK(M1i < M1, [M1i, M1]);
+		_ -> ok
+	    end;
+
+	_ -> ok   % skip floats with decimals
+    end,
+
+    ?CHECK(M2 == M2, [M2]).
+
+
+maps_lessthan(MapMod, M1, M2) ->
+  case {MapMod:size(M1),MapMod:size(M2)} of
+      {_S,_S} ->
+	  {K1,V1} = lists:unzip(term_sort(MapMod:to_list(M1))),
+	  {K2,V2} = lists:unzip(term_sort(MapMod:to_list(M2))),
+
+	  case erts_internal:cmp_term(K1,K2) of
+	      -1 -> true;
+	      0 -> (V1 < V2);
+	      1 -> false
+	  end;
+
+      {S1, S2} ->
+	  S1 < S2
+  end.
+
+term_sort(L) ->
+    lists:sort(fun(A,B) -> erts_internal:cmp_term(A,B) =< 0 end,
+	       L).
+
+
+cmp(T1, T2, Exact) when is_tuple(T1) and is_tuple(T2) ->
+    case {size(T1),size(T2)} of
+	{_S,_S} -> cmp(tuple_to_list(T1), tuple_to_list(T2), Exact);
+	{S1,S2} when S1 < S2 -> -1;
+	{S1,S2} when S1 > S2 -> 1
+    end;
+
+cmp([H1|T1], [H2|T2], Exact) ->
+    case cmp(H1,H2, Exact) of
+	0 -> cmp(T1,T2, Exact);
+	C -> C
+    end;
+
+cmp(M1, M2, Exact) -> %when is_hashmap(M1) and is_hashmap(M2)
+    case {erlang:is_hashmap(M1), erlang:is_hashmap(M2)} of
+	{true, true} -> cmp_hashmaps(M1, M2, Exact);
+	_ -> cmp_others(M1, M2, Exact)
+    end.
+
+cmp_hashmaps(M1, M2, Exact) ->
+    case {hashmap:size(M1),hashmap:size(M2)} of
+	{_S,_S} ->
+	    {K1,V1} = lists:unzip(term_sort(hashmap:to_list(M1))),
+	    {K2,V2} = lists:unzip(term_sort(hashmap:to_list(M2))),
+
+	    case cmp(K1, K2, true) of
+		0 -> cmp(V1, V2, Exact);
+		C -> C
+	    end;
+
+	{S1,S2} when S1 < S2 -> -1;
+	{S1,S2} when S1 > S2 -> 1
+    end.
+
+cmp_others(I, F, true) when is_integer(I), is_float(F) ->
+    -1;
+cmp_others(F, I, true) when is_float(F), is_integer(I) ->
+    1;
+cmp_others(T1, T2, _) ->
+    case {T1<T2, T1==T2} of
+	{true,false} -> -1;
+	{false,true} -> 0;
+	{false,false} -> 1
+    end.
+
+map_gen(MapMod, Pairs, Size) ->
+    {_,L} = lists:foldl(fun(_, {Keys, Acc}) ->
+				KI = random:uniform(size(Keys)),
+				K = element(KI,Keys),
+				KV = element(random:uniform(size(K)), K),
+				{erlang:delete_element(KI,Keys), [KV | Acc]}
+			end,
+			{Pairs, []},
+			lists:seq(1,Size)),
+
+    map_from_list(MapMod, L).
+
+-define(NO_MAPS, 1). % Todo: Remove NO_MAPS when hashing of hashmaps is implemented
+-define(NO_LEAF, 2).
+
+recursive_compare() ->
+    Leafs = {atom, 17, 16.9, 17.1, [], self(), spawn(fun() -> ok end), make_ref(), make_ref()},
+    {A, B} = term_gen_recursive(Leafs, ?NO_LEAF),
+    %erlang:display({"Recursive term A", A}),
+    %erlang:display({"Recursive term B", B}),
+
+    {true,false} =  case do_cmp(A, B, false) of
+			-1 -> {A<B, A>=B};
+			0 -> {A==B, A/=B};
+			1 -> {A>B, A=<B}
+		    end,
+    A2 = copy_term(A),
+    true = (A == A2),
+    0 = cmp(A, A2, false),
+
+    B2 = copy_term(B),
+    true = (B == B2),
+    0 = cmp(B, B2, false).
+
+do_cmp(A, B, Exact) ->
+    C = cmp(A, B, Exact),
+    io:format("cmp = ~p\n", [C]),
+    C.
+
+
+%% Generate two terms {A,B} that may only differ
+%% at float vs integer types.
+term_gen_recursive(Leafs, Flags0) ->
+    Rnd = case Flags0 of
+	      0 -> random:uniform(size(Leafs)+3);
+	      ?NO_MAPS -> random:uniform(size(Leafs)+2) + 1;
+	      ?NO_LEAF -> random:uniform(3)
+	  end,
+    Flags1 = Flags0 band (bnot ?NO_LEAF),
+    case Rnd of
+	1 -> % Make hashmap
+	    Size = random:uniform(size(Leafs)),
+	    %%io:format("Generate hashmap with size ~p:\n", [Size]),
+	    lists:foldl(fun(_, {Acc1,Acc2}) ->
+				{K1,K2} = term_gen_recursive(Leafs, Flags1 bor ?NO_MAPS),
+				{V1,V2} = term_gen_recursive(Leafs, Flags1),
+				%%io:format("hashmap:put(~p, ~p)\n", [K,V]),
+				{hashmap:put(K1,V1, Acc1), hashmap:put(K2,V2, Acc2)}
+			end,
+			{hashmap:new(), hashmap:new()},
+			lists:seq(1,Size));
+	2 -> % Make cons
+	    {Car1,Car2} = term_gen_recursive(Leafs, Flags1),
+	    {Cdr1,Cdr2} = term_gen_recursive(Leafs, Flags1),
+	    {[Car1 | Cdr1], [Car2 | Cdr2]};
+	3 -> % Make tuple
+	    Size = random:uniform(size(Leafs)),
+	    L = lists:map(fun(_) -> term_gen_recursive(Leafs, Flags1) end,
+			  lists:seq(1,Size)),
+	    {L1, L2} = lists:unzip(L),
+	    {list_to_tuple(L1), list_to_tuple(L2)};
+
+	N -> % Make leaf
+	    case element(N-3, Leafs) of
+		I when is_integer(I) ->
+		    case random:uniform(4) of
+			1 -> {I, float(I)};
+			2 -> {float(I), I};
+			_ -> {I,I}
+		    end;
+		T -> {T,T}
+	    end
+    end.
+
+map_from_list(maps, L) ->
+    maps:from_list(L);
+map_from_list(hashmap, L) ->  %% while waiting for Egil...
+    lists:foldl(fun({K,V},Acc) -> hashmap:put(K,V,Acc) end,
+		hashmap:new(),
+		L).
+
 
 %% BIFs
 t_bif_map_get(Config) when is_list(Config) ->
