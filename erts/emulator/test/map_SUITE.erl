@@ -432,7 +432,7 @@ t_map_sort_literals(Config) when is_list(Config) ->
     true  = #{ c => 1, b => 1, a => 1 } < id(#{ b => 1, c => 1, d => 1}),
     true  = #{ "a" => 1 } < id(#{ <<"a">> => 1}),
     false = #{ <<"a">> => 1 } < id(#{ "a" => 1}),
-    false = #{ 1 => 1 } < id(#{ 1.0 => 1}),
+    true = #{ 1 => 1 } < id(#{ 1.0 => 1}),
     false = #{ 1.0 => 1 } < id(#{ 1 => 1}),
 
     %% value order
@@ -440,6 +440,8 @@ t_map_sort_literals(Config) when is_list(Config) ->
     false = #{ a => 2 } < id(#{ a => 1}),
     false = #{ a => 2, b => 1 } < id(#{ a => 1, b => 3}),
     true  = #{ a => 1, b => 1 } < id(#{ a => 1, b => 3}),
+    false = #{ a => 1 } < id(#{ a => 1.0}),
+    false = #{ a => 1.0 } < id(#{ a => 1}),
 
     true  = #{ "a" => "hi", b => 134 } == id(#{ b => 134,"a" => "hi"}),
 

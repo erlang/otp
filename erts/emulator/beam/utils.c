@@ -2686,8 +2686,22 @@ tailrecur_ne:
 		}
 		aa += 2;
 		bb += 2;
-		i  += 1; /* increment for tuple-keys */
-		goto term_array;
+		if (exact) {
+		    i  += 1; /* increment for tuple-keys */
+		    goto term_array;
+		}
+		else {
+		    /* Value array */
+		    WSTACK_PUSH3(stack, i, (UWord)(bb+1), (UWord)(aa+1) | TAG_PRIMARY_HEADER);
+		    /* Marker to switch back from 'exact' compare */
+		    WSTACK_PUSH(stack, (UWord)NULL | TAG_PRIMARY_HEADER);
+		    /* Now do 'exact' compare of key tuples */
+		    a = *aa;
+		    b = *bb;
+		    exact = 1;
+		    goto tailrecur;
+		}
+
 	    case (_TAG_HEADER_FLOAT >> _TAG_PRIMARY_SIZE):
 		if (!is_float_rel(b,b_base)) {
 		    a_tag = FLOAT_DEF;
@@ -3061,7 +3075,13 @@ pop_next:
     if (!WSTACK_ISEMPTY(stack)) {
 	UWord something = WSTACK_POP(stack);
 	if (primary_tag((Eterm) something) == TAG_PRIMARY_HEADER) { /* a term_array */
-	    aa = (Eterm*) something;
+	    if (something == ((UWord)NULL | TAG_PRIMARY_HEADER)) {
+		/* Done with exact compare of map keys, switch back */
+		ASSERT(exact);
+		exact = 0;
+		goto pop_next;
+	    }
+	    aa = (Eterm *)something;
 	    bb = (Eterm*) WSTACK_POP(stack);
 	    i = WSTACK_POP(stack);
 	    goto term_array;
