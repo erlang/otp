@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -229,8 +229,7 @@ v(Max, Ord, E)
   when Ord =< Max ->
     diameter_enum:to_list(E);
 v(Max, Ord, E) ->
-    {M,S,U} = now(),
-    random:seed(M,S,U),
+    random:seed(diameter_util:seed()),
     v(Max, Ord, E, []).
 
 v(0, _, _, Acc) ->
@@ -512,7 +511,7 @@ random(Mn,Mx) ->
 
 seed(undefined) ->
     put({?MODULE, seed}, true),
-    random:seed(now());
+    random:seed(diameter_util:seed());
 
 seed(true) ->
     ok.

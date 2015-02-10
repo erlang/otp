@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -301,11 +301,12 @@ connect2(Pid, PortNr, Bin) ->
     %% T2 = time after listening process received our message
     %% T3 = time after reply is received
 
-    T1 = now(),
+    T1 = diameter_util:timestamp(),
     ok = send(Sock, Id, Bin),
     T2 = unmark(recv(Sock, Id)),
-    T3 = now(),
-    {timer:now_diff(T2, T1), timer:now_diff(T3, T2)}. %% {Outbound, Inbound}
+    T3 = diameter_util:timestamp(),
+    {diameter_lib:micro_diff(T2, T1),  %% Outbound
+     diameter_lib:micro_diff(T3, T2)}. %% Inbound
 
 %% recv/2
 
@@ -325,7 +326,7 @@ send(Sock, Id, Bin) ->
 %% mark/1
 
 mark(Bin) ->
-    Info = term_to_binary(now()),
+    Info = term_to_binary(diameter_util:timestamp()),
     <<Info/binary, Bin/binary>>.
 
 %% unmark/1

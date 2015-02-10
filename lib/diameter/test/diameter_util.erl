@@ -30,6 +30,9 @@
          fold/3,
          foldl/3,
          scramble/1,
+         timestamp/0,
+         seed/0,
+         unique_string/0,
          have_sctp/0]).
 
 %% diameter-specific
@@ -175,7 +178,7 @@ scramble(L) ->
           [[fun s/1, L]]).
 
 s(L) ->
-    random:seed(now()),
+    random:seed(seed()),
     s([], L).
 
 s(Acc, []) ->
@@ -183,6 +186,31 @@ s(Acc, []) ->
 s(Acc, L) ->
     {H, [T|Rest]} = lists:split(random:uniform(length(L)) - 1, L),
     s([T|Acc], H ++ Rest).
+
+%% ---------------------------------------------------------------------------
+%% timestamp/0
+
+timestamp() ->
+    diameter_lib:timestamp(diameter_lib:now()).
+
+%% ---------------------------------------------------------------------------
+%% seed/0
+
+seed() ->
+    {_,T} = diameter_lib:seed(),
+    T.
+
+%% ---------------------------------------------------------------------------
+%% unique_string/0
+
+unique_string() ->
+    us(diameter_lib:now()).
+
+us({M,S,U}) ->
+    tl(lists:append(["-" ++ integer_to_list(N) || N <- [M,S,U]]));
+
+us(MonoT) ->
+    integer_to_list(MonoT).
 
 %% ---------------------------------------------------------------------------
 %% have_sctp/0
