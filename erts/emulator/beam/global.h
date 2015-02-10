@@ -519,12 +519,13 @@ typedef struct ErtsWStack_ {
     UWord* wstart;
     UWord* wsp;
     UWord* wend;
+    UWord* wdefault;
     ErtsAlcType_t alloc_type;
 }ErtsWStack;
 
 #define DEF_WSTACK_SIZE (16)
 
-void erl_grow_wstack(ErtsWStack*, UWord* def_stack, Uint need);
+void erl_grow_wstack(ErtsWStack*, Uint need);
 #define WSTK_CONCAT(a,b) a##b
 #define WSTK_DEF_STACK(s) WSTK_CONCAT(s,_default_wstack)
 
@@ -534,6 +535,7 @@ void erl_grow_wstack(ErtsWStack*, UWord* def_stack, Uint need);
         WSTK_DEF_STACK(s),  /* wstart */ 		\
         WSTK_DEF_STACK(s),  /* wsp */			\
         WSTK_DEF_STACK(s) + DEF_WSTACK_SIZE, /* wend */	\
+        WSTK_DEF_STACK(s),  /* wdflt */ 		\
         ERTS_ALC_T_ESTACK /* alloc_type */		\
     }
 
@@ -606,7 +608,7 @@ do {						\
 #define WSTACK_PUSH(s, x)				\
 do {							\
     if (s.wsp == s.wend) {				\
-	erl_grow_wstack(&s, WSTK_DEF_STACK(s), 1); 	\
+	erl_grow_wstack(&s, 1); 	                \
     }							\
     *s.wsp++ = (x);					\
 } while(0)
@@ -614,7 +616,7 @@ do {							\
 #define WSTACK_PUSH2(s, x, y)			\
 do {						\
     if (s.wsp > s.wend - 2) {			\
-	erl_grow_wstack(&s, WSTK_DEF_STACK(s), 2); \
+	erl_grow_wstack(&s, 2);                 \
     }						\
     *s.wsp++ = (x);				\
     *s.wsp++ = (y);				\
@@ -622,8 +624,8 @@ do {						\
 
 #define WSTACK_PUSH3(s, x, y, z)		\
 do {						\
-    if (s.wsp > s.wend - 3) {	\
-	erl_grow_wstack(&s, WSTK_DEF_STACK(s), 3); \
+    if (s.wsp > s.wend - 3) {	                \
+	erl_grow_wstack(&s, 3);                 \
     }						\
     *s.wsp++ = (x);				\
     *s.wsp++ = (y);				\
@@ -632,8 +634,8 @@ do {						\
 
 #define WSTACK_PUSH4(s, A1, A2, A3, A4)		\
 do {						\
-    if (s.wsp > s.wend - 4) {	\
-	erl_grow_wstack(&s, WSTK_DEF_STACK(s)); \
+    if (s.wsp > s.wend - 4) {	                \
+	erl_grow_wstack(&s, 4);                 \
     }						\
     *s.wsp++ = (A1);				\
     *s.wsp++ = (A2);				\
@@ -644,7 +646,7 @@ do {						\
 #define WSTACK_PUSH5(s, A1, A2, A3, A4, A5)     \
 do {						\
     if (s.wsp > s.wend - 5) {	                \
-	erl_grow_wstack(&s, WSTK_DEF_STACK(s)); \
+	erl_grow_wstack(&s, 5);                 \
     }						\
     *s.wsp++ = (A1);				\
     *s.wsp++ = (A2);				\
@@ -656,7 +658,7 @@ do {						\
 #define WSTACK_PUSH6(s, A1, A2, A3, A4, A5, A6) \
 do {						\
     if (s.wsp > s.wend - 6) {	                \
-	erl_grow_wstack(&s, WSTK_DEF_STACK(s)); \
+	erl_grow_wstack(&s, 6);                 \
     }						\
     *s.wsp++ = (A1);				\
     *s.wsp++ = (A2);				\
@@ -669,7 +671,7 @@ do {						\
 #define WSTACK_RESERVE(s, push_cnt)             \
 do {						\
     if (s.wsp > s.wend - (push_cnt)) { 	        \
-	erl_grow_wstack(&s, WSTK_DEF_STACK(s), (push_cnt)); \
+	erl_grow_wstack(&s, (push_cnt));        \
     }                                           \
 } while(0)
 

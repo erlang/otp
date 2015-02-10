@@ -216,7 +216,7 @@ erl_grow_estack(ErtsEStack* s, Eterm* default_estack, Uint need)
  * Helper function for the WSTACK macros defined in global.h.
  */
 void
-erl_grow_wstack(ErtsWStack* s, UWord* default_wstack, Uint need)
+erl_grow_wstack(ErtsWStack* s, Uint need)
 {
     Uint old_size = (s->wend - s->wstart);
     Uint new_size;
@@ -227,7 +227,7 @@ erl_grow_wstack(ErtsWStack* s, UWord* default_wstack, Uint need)
     else
 	new_size = ((need / old_size) + 2) * old_size;
 
-    if (s->wstart != default_wstack) {
+    if (s->wstart != s->wdefault) {
 	s->wstart = erts_realloc(s->alloc_type, s->wstart,
 				 new_size*sizeof(UWord));
     } else {
