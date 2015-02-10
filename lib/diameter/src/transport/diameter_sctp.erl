@@ -123,7 +123,8 @@
 %% queue or spawned and placed in the first queue. Thus, there are
 %% only elements in one queue at a time, so share an ets table queue
 %% and tag it with a positive length if it contains the first queue, a
-%% negative length if it contains the second queue.
+%% negative length if it contains the second queue. The case -1 is
+%% handled differently for backwards compatibility reasons.
 
 %% ---------------------------------------------------------------------------
 %% # start/3
@@ -373,8 +374,8 @@ handle_call({{accept, Ref}, Pid}, _, #listener{ref = Ref,
                                                count = K}
                                      = S) ->
     TPid = accept(Ref, Pid, S),
-    {reply, {ok, TPid}, S#listener{pending = {N-1,Q},
-                                   count = K+1}};
+    {reply, {ok, TPid}, downgrade(S#listener{pending = {N-1,Q},
+                                             count = K+1})};
 
 handle_call(_, _, State) ->
     {reply, nok, State}.
@@ -398,7 +399,7 @@ handle_info(T, #listener{pending = L} = S)
     handle_info(T, upgrade(S));
 
 handle_info(T, #listener{} = S) ->
-    {noreply, #listener{} = l(T,S)}.
+    {noreply, downgrade(#listener{} = l(T,S))}.
 
 %% upgrade/1
 
@@ -419,6 +420,20 @@ upgrade(#listener{pending = [TPid | {0,Q}]} = S) ->
 %% any given time, implement both queues in the same ets table. The
 %% absolute value of the first element of the 2-tuple is the queue
 %% length, the sign says which queue it is.
+
+%% downgrade/1
+%%
+%% Revert to the pre-pool_size representation when possible, for
+%% backwards compatibility in the case that the pool_size option
+%% hasn't been used.
+
+downgrade(#listener{pending = {-1,Q}} = S) ->
+    TPid = ets:first(Q),
+    ets:delete(Q, TPid),
+    S#listener{pending = [TPid | {0,Q}]};
+
+downgrade(S) ->
+    S.
 
 %% ---------------------------------------------------------------------------
 %% # code_change/3
