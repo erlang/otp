@@ -664,6 +664,7 @@ env() ->
      backup_module,
      debug,
      dir,
+     dump_disc_copies_at_startup,
      dump_log_load_regulation,
      dump_log_time_threshold,
      dump_log_update_in_place,
@@ -692,6 +693,8 @@ default_env(debug) ->
 default_env(dir) ->
     Name = lists:concat(["Mnesia.", node()]),
     filename:absname(Name);
+default_env(dump_disc_copies_at_startup) ->
+    true;
 default_env(dump_log_load_regulation) ->
     false;
 default_env(dump_log_time_threshold) ->
@@ -741,6 +744,7 @@ do_check_type(debug, trace) -> trace;
 do_check_type(debug, true) -> debug;
 do_check_type(debug, verbose) -> verbose;
 do_check_type(dir, V) -> filename:absname(V);
+do_check_type(dump_disc_copies_at_startup, B) -> bool(B);
 do_check_type(dump_log_load_regulation, B) -> bool(B);
 do_check_type(dump_log_time_threshold, I) when is_integer(I), I > 0 -> I;
 do_check_type(dump_log_update_in_place, B) -> bool(B);
