@@ -2702,6 +2702,19 @@ tailrecur_ne:
 		    goto tailrecur;
 		}
 
+	    case (_TAG_HEADER_HASHMAP >> _TAG_PRIMARY_SIZE) :
+		{
+		    if (!is_hashmap_rel(b,b_base)) {
+			a_tag = HASHMAP_DEF;
+			goto mixed_types;
+		    }
+		    i = (((hashmap_head_t*) hashmap_val_rel(a,a_base))->size -
+			 ((hashmap_head_t*) hashmap_val_rel(b,b_base))->size);
+		    if (i) {
+			RETURN_NEQ(i);
+		    }
+		    ON_CMP_GOTO(hashmap_cmp(a, b));
+		}
 	    case (_TAG_HEADER_FLOAT >> _TAG_PRIMARY_SIZE):
 		if (!is_float_rel(b,b_base)) {
 		    a_tag = FLOAT_DEF;

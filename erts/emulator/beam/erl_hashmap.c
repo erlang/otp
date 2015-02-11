@@ -1112,6 +1112,135 @@ static Eterm hashmap_values(Process* p, Eterm node) {
     return res;
 }
 
+static int hash_cmp(Uint32 ha, Uint32 hb)
+{
+    int i;
+    for (i=0; i<8; i++) {
+	int cmp = (int)(ha & 0xF) - (int)(hb & 0xF);
+	if (cmp)
+	    return cmp;
+	ha >>= 4;
+	hb >>= 4;
+    }
+    return 0;
+}
+
+static int key_hash_cmp(Eterm* ap, Eterm* bp)
+{
+    Eterm th[2];
+    unsigned lvl = 0;
+
+    if (ap && bp) {
+	ASSERT(CMP_TERM(CAR(ap), CAR(bp)) != 0);
+	for (;;) {
+	    Uint32 ha = hashmap_restore_hash(th, lvl, CAR(ap));
+	    Uint32 hb = hashmap_restore_hash(th, lvl, CAR(bp));
+	    int cmp = hash_cmp(ha, hb);
+	    if (cmp)
+		return cmp;
+	    lvl += 8;
+	}
+    }
+    return ap ? -1 : 1;
+}
+
+int hashmap_cmp(Eterm a, Eterm b)
+{
+    DECLARE_WSTACK(astack);
+    DECLARE_WSTACK(bstack);
+    Eterm *ap;
+    Eterm *bp;
+    Eterm min_key;
+    int cmp_res = 0;
+
+    /* Strategy:
+       Phase 1.
+          While keys are identical
+	  Do synchronous stepping through leafs of both trees in hash order.
+          Maintain min value of min key.
+
+       Phase 2:  (If key diff was found in phase 1)
+          Ignore values from now on.
+          Continue iterate trees by always advancing the one lagging behind hash-wise.
+          Identical keys are skipped
+          A minimal key can only be candidate as tie-breaker if we have passed
+          that hash value in the other tree (which means the key did not exist
+          in the other tree).
+     */
+
+    hashmap_iterator_init(&astack, a);
+    hashmap_iterator_init(&bstack, b);
+
+    for (;;) {   /* Phase 1 */
+	int cmp;
+	ap = hashmap_iterator_next(&astack);
+	bp = hashmap_iterator_next(&bstack);
+	if (!ap) {
+	    ASSERT(!bp);
+	    return cmp_res;
+	}
+	cmp = CMP_TERM(CAR(ap), CAR(bp));
+	if (cmp)
+	    break;
+
+	/* No key diff found so far, compare values */
+	if (!cmp_res || (CMP_TERM(CAR(ap), min_key) < 0)) {
+	    cmp = CMP(CDR(ap), CDR(bp));
+	    if (cmp) {
+		cmp_res = cmp;
+		min_key = CAR(ap);
+	    }
+	}
+    }
+
+    /* Phase 2 */
+
+    if (key_hash_cmp(ap,bp) < 0) {
+	min_key = CAR(ap);
+	cmp_res = -1;
+	ap = hashmap_iterator_next(&astack);
+    }
+    else {
+	min_key = CAR(bp);
+	cmp_res = 1;
+	bp = hashmap_iterator_next(&bstack);
+    }
+
+    for (;;) {
+	int hash_cmp;
+
+	while (ap && bp && CMP_TERM(CAR(ap), CAR(bp)) == 0) {
+	    ap = hashmap_iterator_next(&astack);
+	    bp = hashmap_iterator_next(&bstack);
+	}
+	if (!ap && !bp)
+	    break;
+
+	hash_cmp = key_hash_cmp(ap,bp);
+	if (hash_cmp < 0) {
+	    ASSERT(ap);
+	    if (CMP_TERM(CAR(ap), min_key) < 0) {
+		min_key = CAR(ap);
+                cmp_res = -1;
+	    }
+	    ap = hashmap_iterator_next(&astack);
+	}
+	else if (hash_cmp > 0) {
+	    ASSERT(bp);
+	    if (CMP_TERM(CAR(bp), min_key) < 0) {
+		min_key = CAR(bp);
+		cmp_res = 1;
+	    }
+	    bp = hashmap_iterator_next(&bstack);
+	}
+    }
+
+    DESTROY_WSTACK(astack);
+    DESTROY_WSTACK(bstack);
+
+    return cmp_res;
+}
+
 /* hashmap:info/0 */
 
 static Eterm hashmap_info(Process *p, Eterm node) {
