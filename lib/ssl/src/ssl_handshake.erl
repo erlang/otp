@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2013-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2013-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -49,7 +49,7 @@
 	 finished/5,  next_protocol/1]).
 
 %% Handle handshake messages
--export([certify/8, client_certificate_verify/6, certificate_verify/6, verify_signature/5,
+-export([certify/10, client_certificate_verify/6, certificate_verify/6, verify_signature/5,
 	 master_secret/5, server_key_exchange_hash/2, verify_connection/6,
 	 init_handshake_history/0, update_handshake_history/2, verify_server_key/5
 	]).
@@ -149,7 +149,7 @@ client_hello_extensions(Host, Version, CipherSuites, SslOpts, ConnectionStates, 
 certificate(OwnCert, CertDbHandle, CertDbRef, client) ->
     Chain =
 	case ssl_certificate:certificate_chain(OwnCert, CertDbHandle, CertDbRef) of
-	    {ok, CertChain} ->
+	    {ok, _,  CertChain} ->
 		CertChain;
 	    {error, _} ->
 		%% If no suitable certificate is available, the client
@@ -161,7 +161,7 @@ certificate(OwnCert, CertDbHandle, CertDbRef, client) ->
 
 certificate(OwnCert, CertDbHandle, CertDbRef, server) ->
     case ssl_certificate:certificate_chain(OwnCert, CertDbHandle, CertDbRef) of
-	{ok, Chain} ->
+	{ok, _, Chain} ->
 	    #certificate{asn1_certificates = Chain};
 	{error, _} ->
 	    ?ALERT_REC(?FATAL, ?INTERNAL_ERROR)
@@ -383,49 +383,24 @@ verify_signature(_Version, Hash, {HashAlgo, ecdsa}, Signature,
 
 %%--------------------------------------------------------------------
 -spec certify(#certificate{}, db_handle(), certdb_ref(), integer() | nolimit,
-	      verify_peer | verify_none, {fun(), term}, fun(),
+	      verify_peer | verify_none, {fun(), term}, fun(), term(), term(),
 	      client | server) ->  {der_cert(), public_key_info()} | #alert{}.
 %%
 %% Description: Handles a certificate handshake message
 %%--------------------------------------------------------------------
 certify(#certificate{asn1_certificates = ASN1Certs}, CertDbHandle, CertDbRef,
-	MaxPathLen, _Verify, VerifyFunAndState, PartialChain, Role) ->
+	MaxPathLen, _Verify, ValidationFunAndState0, PartialChain, CRLCheck, CRLDbHandle, Role) ->
     [PeerCert | _] = ASN1Certs,
-
-    ValidationFunAndState =
-	case VerifyFunAndState of
-	    undefined ->
-		{fun(OtpCert, ExtensionOrVerifyResult, SslState) ->
-			 ssl_certificate:validate_extension(OtpCert,
-							    ExtensionOrVerifyResult, SslState)
-		 end, Role};
-	    {Fun, UserState0} ->
-		{fun(OtpCert, {extension, _} = Extension, {SslState, UserState}) ->
-			 case ssl_certificate:validate_extension(OtpCert,
-								 Extension,
-								 SslState) of
-			     {valid, NewSslState} ->
-				 {valid, {NewSslState, UserState}};
-			     {fail, Reason} ->
-				 apply_user_fun(Fun, OtpCert, Reason, UserState,
-						SslState);
-			     {unknown, _} ->
-				 apply_user_fun(Fun, OtpCert,
-						Extension, UserState, SslState)
-			 end;
-		    (OtpCert, VerifyResult, {SslState, UserState}) ->
-			 apply_user_fun(Fun, OtpCert, VerifyResult, UserState,
-					SslState)
-		 end, {Role, UserState0}}
-	end,
+        
+    ValidationFunAndState = validation_fun_and_state(ValidationFunAndState0, Role, 
+						     CertDbHandle, CertDbRef,  CRLCheck, CRLDbHandle),
 
     try
-	{TrustedErlCert, CertPath}  =
+	{TrustedCert, CertPath}  =
 	    ssl_certificate:trusted_cert_and_path(ASN1Certs, CertDbHandle, CertDbRef, PartialChain),
-	case public_key:pkix_path_validation(TrustedErlCert,
-					      CertPath,
-					     [{max_path_length,
-					       MaxPathLen},
+	case public_key:pkix_path_validation(TrustedCert,
+					     CertPath,
+					     [{max_path_length, MaxPathLen},
 					      {verify_fun, ValidationFunAndState}]) of
 	    {ok, {PublicKeyInfo,_}} ->
 		{PeerCert, PublicKeyInfo};
@@ -1374,15 +1349,66 @@ sni1(Hostname) ->
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
+validation_fun_and_state({Fun, UserState0}, Role,  CertDbHandle, CertDbRef, CRLCheck, CRLDbHandle) ->
+    {fun(OtpCert, {extension, _} = Extension, {SslState, UserState}) ->
+	     case ssl_certificate:validate(OtpCert,
+					   Extension,
+					   SslState) of
+		 {valid, NewSslState} ->
+		     {valid, {NewSslState, UserState}};
+		 {fail, Reason} ->
+		     apply_user_fun(Fun, OtpCert, Reason, UserState,
+				    SslState);
+		 {unknown, _} ->
+		     apply_user_fun(Fun, OtpCert,
+				    Extension, UserState, SslState)
+	     end;
+	(OtpCert, VerifyResult, {SslState, UserState}) ->
+	     apply_user_fun(Fun, OtpCert, VerifyResult, UserState,
+			    SslState)
+     end, {{Role, CertDbHandle, CertDbRef, CRLCheck, CRLDbHandle}, UserState0}};
+validation_fun_and_state(undefined, Role, CertDbHandle, CertDbRef, CRLCheck, CRLDbHandle) ->
+    {fun(OtpCert, {extension, _} = Extension, SslState) ->
+	     ssl_certificate:validate(OtpCert,
+				      Extension,
+				      SslState);
+	(OtpCert, VerifyResult, SslState) when (VerifyResult == valid) or (VerifyResult == valid_peer) -> 
+	     case crl_check(OtpCert, CRLCheck, CertDbHandle, CertDbRef, CRLDbHandle, VerifyResult) of
+		 valid ->
+		     {VerifyResult, SslState};
+		 Reason ->
+		     {fail, Reason}
+	     end;
+	(OtpCert, VerifyResult, SslState) ->
+	     ssl_certificate:validate(OtpCert,
+				      VerifyResult,
+				      SslState)
+     end, {Role, CertDbHandle, CertDbRef, CRLCheck, CRLDbHandle}}.
+
+apply_user_fun(Fun, OtpCert, VerifyResult, UserState0, 
+	       {_, CertDbHandle, CertDbRef, CRLCheck, CRLDbHandle} = SslState) when
+      (VerifyResult == valid) or (VerifyResult == valid_peer) ->
+    case Fun(OtpCert, VerifyResult, UserState0) of
+	{Valid, UserState} when (Valid == valid) or (Valid == valid_peer) ->
+	    case crl_check(OtpCert, CRLCheck, CertDbHandle, CertDbRef, CRLDbHandle, VerifyResult) of
+		valid ->
+		    {Valid, {SslState, UserState}};
+		Result ->
+		    apply_user_fun(Fun, OtpCert, Result, UserState, SslState)
+	    end;
+	{fail, _} = Fail ->
+	    Fail
+    end;
 apply_user_fun(Fun, OtpCert, ExtensionOrError, UserState0, SslState) ->
     case Fun(OtpCert, ExtensionOrError, UserState0) of
-	{valid, UserState} ->
-	    {valid, {SslState, UserState}};
+	{Valid, UserState} when (Valid == valid) or (Valid == valid_peer)->
+	    {Valid, {SslState, UserState}};
 	{fail, _} = Fail ->
 	    Fail;
 	{unknown, UserState} ->
 	    {unknown, {SslState, UserState}}
     end.
+
 path_validation_alert({bad_cert, cert_expired}) ->
     ?ALERT_REC(?FATAL, ?CERTIFICATE_EXPIRED);
 path_validation_alert({bad_cert, invalid_issuer}) ->
@@ -1393,8 +1419,10 @@ path_validation_alert({bad_cert, name_not_permitted}) ->
     ?ALERT_REC(?FATAL, ?BAD_CERTIFICATE);
 path_validation_alert({bad_cert, unknown_critical_extension}) ->
     ?ALERT_REC(?FATAL, ?UNSUPPORTED_CERTIFICATE);
-path_validation_alert({bad_cert, cert_revoked}) ->
+path_validation_alert({bad_cert, {revoked, _}}) ->
     ?ALERT_REC(?FATAL, ?CERTIFICATE_REVOKED);
+path_validation_alert({bad_cert, revocation_status_undetermined}) ->
+    ?ALERT_REC(?FATAL, ?BAD_CERTIFICATE);
 path_validation_alert({bad_cert, selfsigned_peer}) ->
     ?ALERT_REC(?FATAL, ?BAD_CERTIFICATE);
 path_validation_alert({bad_cert, unknown_ca}) ->
@@ -1954,3 +1982,70 @@ handle_psk_identity(_PSKIdentity, LookupFun)
     error;
 handle_psk_identity(PSKIdentity, {Fun, UserState}) ->
     Fun(psk, PSKIdentity, UserState).
+
+crl_check(_, false, _,_,_, _) ->
+    valid;
+crl_check(_, peer, _, _,_, valid) -> %% Do not check CAs with this option.
+    valid;
+crl_check(OtpCert, Check, CertDbHandle, CertDbRef, {Callback, CRLDbHandle}, _) ->
+    Options = [{issuer_fun, {fun(_DP, CRL, Issuer, DBInfo) ->
+				     ssl_crl:trusted_cert_and_path(CRL, Issuer, DBInfo)
+			     end, {CertDbHandle, CertDbRef}}}, 
+	       {update_crl, fun(DP, CRL) -> Callback:fresh_crl(DP, CRL) end}
+	      ],
+    case dps_and_crls(OtpCert, Callback, CRLDbHandle, ext) of
+	no_dps ->
+	    case dps_and_crls(OtpCert, Callback, CRLDbHandle, same_issuer) of
+		[] ->
+		    valid; %% No relevant CRL existed
+		Dps ->
+		    crl_check_same_issuer(OtpCert, Check, Dps, Options)		
+	    end;
+	Dps ->  %% This DP list may be empty if relevant CRLs existed 
+	    %% but could not be retrived, will result in {bad_cert, revocation_status_undetermined}
+	    case public_key:pkix_crls_validate(OtpCert, Dps, Options) of
+		{bad_cert, revocation_status_undetermined} ->
+		    crl_check_same_issuer(OtpCert, Check, dps_and_crls(OtpCert, Callback, 
+								       CRLDbHandle, same_issuer), Options);
+		Other ->
+		    Other
+	    end
+    end.
+
+crl_check_same_issuer(OtpCert, best_effort, Dps, Options) ->		
+    case public_key:pkix_crls_validate(OtpCert, Dps, Options) of 
+	{bad_cert, revocation_status_undetermined}  ->
+	    valid;
+	Other ->
+	    Other
+    end;
+crl_check_same_issuer(OtpCert, _, Dps, Options) ->    
+    public_key:pkix_crls_validate(OtpCert, Dps, Options).
+
+dps_and_crls(OtpCert, Callback, CRLDbHandle, ext) ->
+	case public_key:pkix_dist_points(OtpCert) of
+	    [] ->
+		no_dps;
+	    DistPoints ->
+		distpoints_lookup(DistPoints, Callback, CRLDbHandle) 
+	end;
+    
+dps_and_crls(OtpCert, Callback, CRLDbHandle, same_issuer) ->    
+    DP = #'DistributionPoint'{distributionPoint = {fullName, GenNames}} = 
+	public_key:pkix_dist_point(OtpCert),
+    CRLs = lists:flatmap(fun({directoryName, Issuer}) -> 
+				 Callback:select(Issuer, CRLDbHandle);
+			    (_) ->
+				 []
+			 end, GenNames),
+    [{DP, {CRL, public_key:der_decode('CertificateList', CRL)}} ||  CRL <- CRLs].
+
+distpoints_lookup([], _, _) ->
+    [];
+distpoints_lookup([DistPoint | Rest], Callback, CRLDbHandle) ->
+    case Callback:lookup(DistPoint, CRLDbHandle) of
+	not_available ->
+	    distpoints_lookup(Rest, Callback, CRLDbHandle);
+	CRLs ->
+	    [{DistPoint, {CRL, public_key:der_decode('CertificateList', CRL)}} ||  CRL <- CRLs]
+    end.	

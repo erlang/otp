@@ -654,7 +654,9 @@ handle_options(Opts0) ->
 		    honor_cipher_order = handle_option(honor_cipher_order, Opts, false),
 		    protocol = proplists:get_value(protocol, Opts, tls),
 		    padding_check =  proplists:get_value(padding_check, Opts, true),
-		    fallback =  proplists:get_value(fallback, Opts, false)
+		    fallback =  proplists:get_value(fallback, Opts, false),
+		    crl_check = handle_option(crl_check, Opts, false),
+		    crl_cache = handle_option(crl_cache, Opts, {ssl_crl_cache, {internal, []}})
 		   },
 
     CbInfo  = proplists:get_value(cb_info, Opts, {gen_tcp, tcp, tcp_closed, tcp_error}),
@@ -667,7 +669,7 @@ handle_options(Opts0) ->
 		  cb_info, renegotiate_at, secure_renegotiate, hibernate_after,
 		  erl_dist, next_protocols_advertised,
 		  client_preferred_next_protocols, log_alert,
-		  server_name_indication, honor_cipher_order, padding_check,
+		  server_name_indication, honor_cipher_order, padding_check, crl_check, crl_cache,
 		  fallback],
 
     SockOpts = lists:foldl(fun(Key, PropList) ->
@@ -849,6 +851,12 @@ validate_option(honor_cipher_order, Value) when is_boolean(Value) ->
 validate_option(padding_check, Value) when is_boolean(Value) ->
     Value;
 validate_option(fallback, Value) when is_boolean(Value) ->
+    Value;
+validate_option(crl_check, Value) when is_boolean(Value)  ->
+    Value;
+validate_option(crl_check, Value) when (Value == best_effort) or (Value == peer) -> 
+    Value;
+validate_option(crl_cache, {Cb, {_Handle, Options}} = Value) when is_atom(Cb) and is_list(Options) ->
     Value;
 validate_option(Opt, Value) ->
     throw({error, {options, {Opt, Value}}}).

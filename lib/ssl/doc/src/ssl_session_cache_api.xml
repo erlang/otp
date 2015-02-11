@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1999</year><year>2014</year>
+      <year>1999</year><year>2015</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -119,14 +119,14 @@
     
     <func>
       <name>select_session(Cache, PartialKey) -> [session()]</name>
-      <fsummary>>Selects sessions that could be reused.</fsummary>
+      <fsummary>Selects a sessions that could be reused.</fsummary>
       <type>
 	<v> Cache = cache_ref()</v>
 	<v> PartialKey = partialkey()</v>
 	<v> Session = session()</v>
       </type>
       <desc>
-	<p>Selects sessions that could be reused. Should be callable
+	<p>Selects a sessions that could be reused. Should be callable
 	from any process.
 	</p>
       </desc>

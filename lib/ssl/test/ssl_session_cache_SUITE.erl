@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -174,7 +174,7 @@ session_cleanup(Config)when is_list(Config) ->
     State = ssl_test_lib:state(Prop),
     ClientCache = element(2, State),
     ServerCache = element(3, State),
-    SessionTimer = element(7, State),
+    SessionTimer = element(9, State),
 
     Id = proplists:get_value(session_id, SessionInfo),
     CSession = ssl_session_cache:lookup(ClientCache, {{Hostname, Port}, Id}),
@@ -217,7 +217,7 @@ get_delay_timers() ->
     {status, _, _, StatusInfo} = sys:get_status(whereis(ssl_manager)),
     [_, _,_, _, Prop] = StatusInfo,
     State = ssl_test_lib:state(Prop),
-    case element(8, State) of
+    case element(10, State) of
 	{undefined, undefined} ->
 	    ct:sleep(?SLEEP),
 	    get_delay_timers();
