@@ -1399,9 +1399,6 @@ aes_ctr_decrypt(_Key, _IVec, _Cipher) -> ?nif_stub.
 %%
 %% AES - in electronic codebook mode (ECB)
 %%
--spec aes_ecb_crypt(iodata(), iodata(), integer()) ->
-                 binary().
-
 aes_ecb_encrypt(Key, Data) ->
     aes_ecb_crypt(Key, Data, true).
 
