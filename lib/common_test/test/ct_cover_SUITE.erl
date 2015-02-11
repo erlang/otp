@@ -78,7 +78,10 @@ all() ->
      otp_9956,
      cross,
      export_import,
-     relative_incl_dirs
+     relative_incl_dirs,
+     absolute_incl_dirs,
+     relative_excl_dirs,
+     absolute_excl_dirs
     ].
 
 %%--------------------------------------------------------------------
@@ -226,6 +229,35 @@ relative_incl_dirs(Config) ->
     check_calls(Events, 1),
     ok.
 
+absolute_incl_dirs(Config) ->
+    false = check_cover(Config),
+    CoverSpec = [{incl_dirs, [?config(data_dir, Config)]}],
+    CoverFile = create_cover_file(abs_incl_dirs, CoverSpec, Config),
+    Opts = [{cover, CoverFile}],
+    {ok, Events} = run_test(abs_incl_dirs, default, Opts, Config),
+    check_calls(Events, 1),
+    ok.
+
+relative_excl_dirs(Config) ->
+    false = check_cover(Config),
+    RelDir = rel_path(?config(priv_dir, Config), ?config(data_dir, Config)),
+    CoverSpec = default_cover_file_content() ++ [{excl_dirs, [RelDir]}],
+    CoverFile = create_cover_file(rel_excl_dirs, CoverSpec, Config),
+    Opts = [{cover, CoverFile}],
+    {ok, Events} = run_test(rel_excl_dirs, default_no_cover, Opts, Config),
+    check_no_cover_compiled(Events),
+    ok.
+
+absolute_excl_dirs(Config) ->
+    false = check_cover(Config),
+    AbsDir = ?config(data_dir, Config),
+    CoverSpec = default_cover_file_content() ++ [{excl_dirs, [AbsDir]}],
+    CoverFile = create_cover_file(abs_excl_dirs, CoverSpec, Config),
+    Opts = [{cover, CoverFile}],
+    {ok, Events} = run_test(abs_excl_dirs, default_no_cover, Opts, Config),
+    check_no_cover_compiled(Events),
+    ok.
+
 %%%-----------------------------------------------------------------
 %%% HELP FUNCTIONS
 %%%-----------------------------------------------------------------
@@ -299,22 +331,35 @@ get_log_dirs(Events) ->
 	{ct_test_support_eh,
 	 {event,start_logging,_Node,LogDir}} <- Events].
 
+%% Check if a module was compiled without cover
+check_no_cover_compiled(Events) ->
+    check_no_cover_compiled(Events, ?mod).
+check_no_cover_compiled(Events, Mod) ->
+    [ {error, {not_cover_compiled, Mod}} = analyse_log(CoverLog, Mod)
+      || CoverLog <- cover_logs(Events) ].
+
 %% Check that each coverlog includes N calls to ?mod:foo/0
 check_calls(Events,N) ->
     check_calls(Events,{?mod,foo,0},N).
 check_calls(Events,MFA,N) ->
-    CoverLogs = [filename:join(D,"all.coverdata") || D <- get_log_dirs(Events)],
-    do_check_logs(CoverLogs,MFA,N).
+    do_check_logs(cover_logs(Events),MFA,N).
 
 do_check_logs([CoverLog|CoverLogs],{Mod,_,_} = MFA,N) ->
-    {ok,_} = cover:start(),
-    ok = cover:import(CoverLog),
-    {ok,Calls} = cover:analyse(Mod,calls,function),
-    ok = cover:stop(),
+    {ok, Calls} = analyse_log(CoverLog, Mod),
     {MFA,N} = lists:keyfind(MFA,1,Calls),
     do_check_logs(CoverLogs,MFA,N);
 do_check_logs([],_,_) ->
     ok.
+
+cover_logs(Events) ->
+    [filename:join(D,"all.coverdata") || D <- get_log_dirs(Events)].
+
+analyse_log(CoverLog, Mod) ->
+    {ok, _} = cover:start(),
+    ok = cover:import(CoverLog),
+    Result = cover:analyse(Mod, calls, function),
+    ok = cover:stop(),
+    Result.
 
 fullname(Name) ->
     {ok,Host} = inet:gethostname(),
