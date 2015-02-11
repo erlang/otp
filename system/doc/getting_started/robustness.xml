@@ -214,9 +214,9 @@ Ping received pong</pre>
       signal to be sent to "pong" which will also terminate.</p>
     <p>It is possible to modify the default behaviour of a process so
       that it does not get killed when it receives abnormal exit
-      signals, but all signals will be turned into normal messages on
+      signals, but all signals will be turned into normal messages with
       the format <c>{'EXIT',FromPID,Reason}</c> and added to the end of
-      the receiving processes message queue. This behaviour is set by:</p>
+      the receiving process' message queue. This behaviour is set by:</p>
     <code type="none">
 process_flag(trap_exit, true)</code>
     <p>There are several other process flags, see
@@ -289,7 +289,7 @@ pong exiting, got {'EXIT',&lt;3820.39.0>,ping}</pre>
 %%%     already logged in at the same node, login will be rejected
 %%%     with a suitable error message.
 %%% logoff()
-%%%     Logs off anybody at at node
+%%%     Logs off anybody at that node
 %%% message(ToName, Message)
 %%%     sends Message to ToName. Error messages if the user of this 
 %%%     function is not logged on or if ToName is not logged on at
