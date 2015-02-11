@@ -538,7 +538,7 @@ ping finished</pre>
     <p>Before we start, let's note the following:</p>
     <list type="bulleted">
       <item>
-        <p>This example will just show the message passing logic- no
+        <p>This example will just show the message passing logic - no
           attempt at all has been made to provide a nice graphical user
           interface. This can, of course, also be done in Erlang - but
           that's another tutorial.</p>
@@ -571,7 +571,7 @@ ping finished</pre>
 %%%     already logged in at the same node, login will be rejected
 %%%     with a suitable error message.
 %%% logoff()
-%%%     Logs off anybody at at node
+%%%     Logs off anybody at that node
 %%% message(ToName, Message)
 %%%     sends Message to ToName. Error messages if the user of this 
 %%%     function is not logged on or if ToName is not logged on at
