@@ -969,7 +969,7 @@ eval_element(Call, #c_literal{val=Pos}, Tuple, Types)
 		1 =< Pos, Pos =< length(Es) ->
 		    El = lists:nth(Pos, Es),
 		    try
-			pat_to_expr(El)
+			cerl:set_ann(pat_to_expr(El), [compiler_generated])
 		    catch
 			throw:impossible ->
 			    Call
