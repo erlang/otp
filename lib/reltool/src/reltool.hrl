@@ -27,6 +27,7 @@
 %% derived  - Include only those modules that others are dependent on
 -type mod_cond()         :: all | app | ebin | derived | none.
 -type incl_cond()        :: include | exclude | derived.
+-type app_cond()         :: incl_cond() | release.
 -type debug_info()       :: keep | strip.
 -type app_file()         :: keep | strip | all.
 -type re_regexp()        :: string(). % re:regexp()
@@ -66,7 +67,7 @@
 			  | {lib_dir, lib_dir()}
                           | {mod, mod_name(), [mod()]}
                           | {mod_cond, mod_cond()}
-                          | {incl_cond, incl_cond()}
+                          | {incl_cond, app_cond()}
                           | {app_file, app_file()}
                           | {debug_info, debug_info()}
                           | {incl_app_filters, incl_app_filters()}
@@ -75,7 +76,7 @@
                           | {excl_archive_filters, excl_archive_filters()}.
 -type escript()          :: {incl_cond, incl_cond()}.
 -type sys()              :: {mod_cond, mod_cond()}
-                          | {incl_cond, incl_cond()}
+                          | {incl_cond, app_cond()}
                           | {debug_info, debug_info()}
                           | {app_file, app_file()}
                           | {profile, profile()}
@@ -185,7 +186,7 @@
 
           %% Static source cond
           mod_cond  :: '_' | mod_cond()  | undefined,
-          incl_cond :: '_' | incl_cond() | undefined,
+          incl_cond :: '_' | app_cond() | undefined,
 
           %% Static target cond
           debug_info            :: '_' | debug_info() | undefined,
@@ -228,7 +229,7 @@
           lib_dirs  :: [dir()],
           escripts  :: [file()],
           mod_cond  :: mod_cond(),
-          incl_cond :: incl_cond(),
+          incl_cond :: app_cond(),
           apps      :: [#app{}] | undefined,
 
           %% Target cond

@@ -621,11 +621,7 @@ app_init_is_included(#state{app_tab = AppTab, mod_tab = ModTab, sys=Sys},
 		     #app{name = AppName, mods = Mods} = A,
 		     RelApps,
 		     Status) ->
-    AppCond =
-        case A#app.incl_cond of
-            undefined -> Sys#sys.incl_cond;
-            _         -> A#app.incl_cond
-        end,
+    AppCond = resolve_app_cond(A, Sys#sys.incl_cond),
     ModCond =
         case A#app.mod_cond of
             undefined -> Sys#sys.mod_cond;
@@ -645,7 +641,11 @@ app_init_is_included(#state{app_tab = AppTab, mod_tab = ModTab, sys=Sys},
             {derived, []} ->
 		{undefined, undefined, undefined, Status};
             {derived, [_ | _]} -> % App is included in at least one rel
-		{true, undefined, true, Status}
+		{true, undefined, true, Status};
+            {release, []} ->
+		{undefined, false, false, Status};
+            {release, [_ | _]} -> % App is included in at least one rel
+		{true, true, true, Status}
         end,
     {Mods2,Status3} = lists:mapfoldl(fun(Mod,Acc) ->
 					     mod_init_is_included(ModTab,
@@ -663,6 +663,12 @@ app_init_is_included(#state{app_tab = AppTab, mod_tab = ModTab, sys=Sys},
 	       rels = Rels},
     ets:insert(AppTab, A2),
     Status3.
+
+resolve_app_cond(#app{incl_cond=InclCond}, SysInclCond) ->
+    case InclCond of
+        undefined -> SysInclCond;
+        _         -> InclCond
+    end.
 
 mod_init_is_included(ModTab, M, ModCond, AppCond, Default, Status) ->
     %% print(M#mod.name, hipe, "incl_cond -> ~w\n", [AppCond]),
@@ -690,6 +696,17 @@ mod_init_is_included(ModTab, M, ModCond, AppCond, Default, Status) ->
             exclude ->
                 false;
             derived ->
+                case M#mod.incl_cond of
+                    include ->
+                        true;
+                    exclude ->
+                        false;
+		    derived ->
+			undefined;
+                    undefined ->
+                        Default
+                end;
+            release ->
                 case M#mod.incl_cond of
                     include ->
                         true;
@@ -858,6 +875,11 @@ app_recap_dependencies(S) ->
 
 app_recap_dependencies(S, #app{mods = Mods, is_included = IsIncl} = A) ->
     {Mods2, IsIncl2} = mod_recap_dependencies(S, A, Mods, [], IsIncl),
+    IsIncl3 =
+        case resolve_app_cond(A, (S#state.sys)#sys.incl_cond) of
+            release -> IsIncl;
+            _       -> IsIncl2
+        end,
     AppStatus =
         case lists:keymember(missing, #mod.status, Mods2) of
             true  -> missing;
@@ -880,7 +902,7 @@ app_recap_dependencies(S, #app{mods = Mods, is_included = IsIncl} = A) ->
                used_by_mods = UsedByMods2,
                uses_apps = UsesApps2,
                used_by_apps = UsedByApps2,
-               is_included = IsIncl2},
+               is_included = IsIncl3},
     ets:insert(S#state.app_tab,A2),
     ok.
 
@@ -1393,7 +1415,8 @@ decode(#sys{} = Sys, [{Key, Val} | KeyVals]) ->
                 Sys#sys{mod_cond = Val};
             incl_cond when Val =:= include;
 			   Val =:= exclude;
-                           Val =:= derived ->
+                           Val =:= derived;
+                           Val =:= release ->
                 Sys#sys{incl_cond = Val};
             boot_rel when is_list(Val) ->
                 Sys#sys{boot_rel = Val};
@@ -1477,7 +1500,8 @@ decode(#app{} = App, [{Key, Val} | KeyVals]) ->
                 App#app{mod_cond = Val};
             incl_cond when Val =:= include;
 			   Val =:= exclude;
-			   Val =:= derived ->
+			   Val =:= derived;
+                           Val =:= release ->
                 App#app{incl_cond = Val};
 
             debug_info when Val =:= keep;
@@ -1618,8 +1642,7 @@ refresh(#state{sys=Sys} = S) ->
     %% to the user configuration.
     %% Then find all modules and their dependencies and set user
     %% configuration per module if it exists.
-    {RefreshedApps, Status3} = refresh_apps(Sys#sys.apps, AllApps, [],
-					    true, Status2),
+    {RefreshedApps, Status3} = refresh_apps(Sys, AllApps, [], true, Status2),
 
     %% Make sure erts exists in app list and has a version (or warn)
     {PatchedApps, Status4} = patch_erts_version(RootDir, RefreshedApps, Status3),
@@ -1958,14 +1981,14 @@ default_app(Name) ->
 
 
 
-refresh_apps(ConfigApps, [New | NewApps], Acc, Force, Status) ->
+refresh_apps(Sys, [New | NewApps], Acc, Force, Status) ->
     {New2, Status3} =
-	case lists:keymember(New#app.name,#app.name,ConfigApps) of
+	case lists:keymember(New#app.name, #app.name, Sys#sys.apps) of
 	    true ->
 		%% There is user defined config for this application, make
 		%% sure that the application exists and that correct
 		%% version is used. Set active directory.
-		{Info, ActiveDir, Status2} = ensure_app_info(New, Status),
+		{Info, ActiveDir, Status2} = ensure_app_info(Sys, New, Status),
 		OptLabel =
 		    case Info#app_info.vsn =:= New#app.vsn of
 			true -> New#app.label;
@@ -1985,25 +2008,34 @@ refresh_apps(ConfigApps, [New | NewApps], Acc, Force, Status) ->
 		%% from merge_app_dirs.
 		refresh_app(New, Force, Status)
 	end,
-    refresh_apps(ConfigApps, NewApps, [New2 | Acc], Force, Status3);
-refresh_apps(_ConfigApps, [], Acc, _Force, Status) ->
+    refresh_apps(Sys, NewApps, [New2 | Acc], Force, Status3);
+refresh_apps(_Sys, [], Acc, _Force, Status) ->
     {lists:reverse(Acc), Status}.
 
-ensure_app_info(#app{is_escript = IsEscript, active_dir = Dir, info = Info},
+ensure_app_info(_Sys,
+                #app{is_escript = IsEscript, active_dir = Dir, info = Info},
 		Status)
   when IsEscript=/=false ->
     %% Escript or application which is inlined in an escript
     {Info, Dir, Status};
-ensure_app_info(#app{name = Name, sorted_dirs = []} = App, Status) ->
+ensure_app_info(Sys,
+                #app{name = Name,
+		     active_dir = ActiveDir,
+		     sorted_dirs = [],
+                     status = AppStatus} = App,
+                Status) ->
     Reason = "~w: Missing application directory.",
-    case App of
-        #app{incl_cond = exclude, status = missing, active_dir = Dir} ->
+    AppCond = resolve_app_cond(App, Sys#sys.incl_cond),
+    Exclude = (AppCond =:= exclude) orelse (AppCond =:= release),
+    if
+        AppStatus =:= missing, Exclude ->
             Status2 = reltool_utils:add_warning(Reason, [Name], Status),
-            {missing_app_info(""), Dir, Status2};
-        _ ->
+            {missing_app_info(""), ActiveDir, Status2};
+        true ->
             reltool_utils:throw_error(Reason, [Name])
     end;
-ensure_app_info(#app{name = Name,
+ensure_app_info(_Sys,
+                #app{name = Name,
 		     vsn = Vsn,
 		     use_selected_vsn = UseSelectedVsn,
 		     active_dir = ActiveDir,
@@ -2059,7 +2091,7 @@ ensure_app_info(#app{name = Name,
 	true ->
             {FirstInfo, FirstDir, Status3}
     end;
-ensure_app_info(#app{active_dir = Dir, info = Info}, Status) ->
+ensure_app_info(_Sys, #app{active_dir = Dir, info = Info}, Status) ->
     {Info, Dir, Status}.
 
 find_vsn(Vsn, [#app_info{vsn = Vsn} = Info | _], [Dir | _]) ->

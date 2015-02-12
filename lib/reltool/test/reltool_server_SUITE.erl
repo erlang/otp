@@ -59,7 +59,7 @@ end_per_testcase(Func,Config) ->
 	    ok;
 	_Fail ->
 	    SaveDir = "save."++atom_to_list(Func),
-	    ok = file:make_dir(SaveDir),
+	    file:make_dir(SaveDir),
 	    save_test_result(Files,SaveDir)
     end,
     rm_files(Files),
@@ -141,6 +141,7 @@ all() ->
      save_config,
      dependencies,
      mod_incl_cond_derived,
+     incl_cond_release,
      use_selected_vsn,
      use_selected_vsn_relative_path,
      non_standard_vsn_id,
@@ -2346,7 +2347,23 @@ mod_incl_cond_derived(Config) ->
     %% 3. check that y2 is included since it has incl_cond=derived and
     %% is used by x3.
     ?msym({ok,#mod{is_included=true}}, reltool_server:get_mod(Pid,y2)),
+    ok.
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+incl_cond_release(_Config) ->
+    Sys = {sys,[{incl_cond, release},
+                {rel,"start_clean","1.0",[crypto,inets]},
+		{app,kernel,[{incl_cond,release}]},
+		{app,mnesia,[{incl_cond,include}]}
+               ]},
+    {ok, Pid} = ?msym({ok, _}, reltool:start_server([{config, Sys}])),
+    ?msym({ok,[#app{name=crypto},
+               #app{name=inets},
+               #app{name=kernel},
+               #app{name=mnesia},
+	       #app{name=stdlib}]},
+          reltool_server:get_apps(Pid,whitelist)),
+    ?msym({ok,[]},reltool_server:get_apps(Pid,derived)),
     ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
