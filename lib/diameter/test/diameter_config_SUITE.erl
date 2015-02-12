@@ -82,6 +82,9 @@
            [false],
            [[node(), node()]]],
           [[x]]},
+         {string_decode,
+          [[true], [false]],
+          [[0], [x]]},
          {invalid_option,  %% invalid service options are rejected
           [],
           [[x],

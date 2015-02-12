@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -90,7 +90,12 @@
 
 'OctetString'(decode, Bin)
   when is_binary(Bin) ->
-    binary_to_list(Bin);
+    case diameter_codec:getopt(string_decode) of
+        true ->
+            binary_to_list(Bin);
+        _ ->
+            Bin
+    end;
 
 'OctetString'(decode, B) ->
     ?INVALID_LENGTH(B);
@@ -298,17 +303,19 @@
     'OctetString'(M, lists:duplicate(0,7));
 
 'DiameterURI'(encode, #diameter_uri{type = Type,
-                                    fqdn = D,
-                                    port = P,
+                                    fqdn = DN,
+                                    port = PN,
                                     transport = T,
-                                    protocol = Prot}
-                      = U) ->
-    S = lists:append([atom_to_list(Type), "://", D,
-                      ":", integer_to_list(P),
+                                    protocol = P})
+  when (Type == 'aaa' orelse Type == 'aaas'),
+       is_integer(PN),
+       0 =< PN,
+       (T == tcp orelse T == sctp orelse T == udp),
+       (P == diameter orelse P == radius orelse P == 'tacacs+') ->
+    iolist_to_binary([atom_to_list(Type), "://", DN,
+                      ":", integer_to_list(PN),
                       ";transport=", atom_to_list(T),
-                      ";protocol=", atom_to_list(Prot)]),
-    U = scan_uri(S), %% assert
-    list_to_binary(S);
+                      ";protocol=", atom_to_list(P)]);
 
 'DiameterURI'(encode, Str) ->
     Bin = iolist_to_binary(Str),
@@ -321,7 +328,6 @@
 'IPFilterRule'(encode = M, zero) ->
     'OctetString'(M, lists:duplicate(0,33));
 
-%% TODO: parse grammar.
 'IPFilterRule'(M, X) ->
     'OctetString'(M, X).
 
@@ -331,7 +337,6 @@
 'QoSFilterRule'(encode = M, zero = X) ->
     'IPFilterRule'(M, X);
 
-%% TODO: parse grammar.
 'QoSFilterRule'(M, X) ->
     'OctetString'(M, X).
 
@@ -339,7 +344,13 @@
 
 'UTF8String'(decode, Bin)
   when is_binary(Bin) ->
-    tl([0|_] = unicode:characters_to_list([0, Bin])); %% assert list return
+    case diameter_codec:getopt(string_decode) of
+        true ->
+            %% assert list return
+            tl([0|_] = unicode:characters_to_list([0, Bin]));
+        false ->
+            <<_/binary>> = unicode:characters_to_binary(Bin)
+    end;
 
 'UTF8String'(decode, B) ->
     ?INVALID_LENGTH(B);
@@ -507,55 +518,42 @@ msb(false) -> ?TIME_2036.
 %%
 %%       aaa-protocol       = ( "diameter" / "radius" / "tacacs+" )
 
-scan_uri(Bin)
-  when is_binary(Bin) ->
-    scan_uri(binary_to_list(Bin));
-scan_uri("aaa://" ++ Rest) ->
-    scan_fqdn(Rest, #diameter_uri{type = aaa});
-scan_uri("aaas://" ++ Rest) ->
-    scan_fqdn(Rest, #diameter_uri{type = aaas}).
+scan_uri(Bin) ->
+    RE = "^(aaas?)://"
+         "([-a-zA-Z0-9.]+)"
+         "(:([0-9]+))?"
+         "(;transport=(tcp|sctp|udp))?"
+         "(;protocol=(diameter|radius|tacacs\\+))?$",
+    {match, [A, DN, PN, T, P]} = re:run(Bin,
+                                        RE,
+                                        [{capture, [1,2,4,6,8], binary}]),
+    #diameter_uri{port = PN0,
+                  transport = T0,
+                  protocol = P0}
+        = #diameter_uri{},
+    #diameter_uri{type = to_atom(A),
+                  fqdn = from_bin(DN),
+                  port = to_int(PN, PN0),
+                  transport = to_atom(T, T0),
+                  protocol = to_atom(P, P0)}.
 
-scan_fqdn(S, U) ->
-    {[_|_] = F, Rest} = lists:splitwith(fun is_fqdn/1, S),
-    scan_opt_port(Rest, U#diameter_uri{fqdn = F}).
+from_bin(B) ->
+    case diameter_codec:getopt(string_decode) of
+        true ->
+            binary_to_list(B);
+        false ->
+            B
+    end.
 
-scan_opt_port(":" ++ S, U) ->
-    {[_|_] = P, Rest} = lists:splitwith(fun is_digit/1, S),
-    scan_opt_transport(Rest, U#diameter_uri{port = list_to_integer(P)});
-scan_opt_port(S, U) ->
-    scan_opt_transport(S, U).
+to_int(<<>>, N) ->
+    N;
+to_int(B, _) ->
+    binary_to_integer(B).
 
-scan_opt_transport(";transport=" ++ S, U) ->
-    {P, Rest} = transport(S),
-    scan_opt_protocol(Rest, U#diameter_uri{transport = P});
-scan_opt_transport(S, U) ->
-    scan_opt_protocol(S, U).
+to_atom(<<>>, A) ->
+    A;
+to_atom(B, _) ->
+    to_atom(B).
 
-scan_opt_protocol(";protocol=" ++ S, U) ->
-    {P, ""} = protocol(S),
-    U#diameter_uri{protocol = P};
-scan_opt_protocol("", U) ->
-    U.
-
-transport("tcp" ++ S) ->
-    {tcp, S};
-transport("sctp" ++ S) ->
-    {sctp, S};
-transport("udp" ++ S) ->
-    {udp, S}.
-
-protocol("diameter" ++ S) ->
-    {diameter, S};
-protocol("radius" ++ S) ->
-    {radius, S};
-protocol("tacacs+" ++ S) ->
-    {'tacacs+', S}.
-
-is_fqdn(C) ->
-    is_digit(C) orelse is_alpha(C) orelse C == $. orelse C == $-.
-
-is_alpha(C) ->
-    ($a =< C andalso C =< $z) orelse ($A =< C andalso C =< $Z).
-
-is_digit(C) ->
-    $0 =< C andalso C =< $9.
+to_atom(B) ->
+    binary_to_atom(B, latin1).

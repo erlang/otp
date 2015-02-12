@@ -529,6 +529,11 @@ answer record and passed to a &app_handle_request;
 callback upon reception of an incoming request.</p>
 
 <p>
+In cases in which there is a choice between list() and binary() types
+for OctetString() and derived types, the representation is determined
+by the value of &mod_string_decode;.</p>
+
+<p>
 <em>Basic AVP Data Formats</em></p>
 
 <marker id="OctetString"/>
@@ -541,7 +546,7 @@ callback upon reception of an incoming request.</p>
 <marker id="Grouped"/>
 
 <pre>
-OctetString() = [0..255]
+OctetString() = string() | binary()
 Integer32()   = -2147483647..2147483647
 Integer64()   = -9223372036854775807..9223372036854775807
 Unsigned32()  = 0..4294967295
@@ -603,7 +608,7 @@ and <c>{{2104,2,26},{9,42,23}}</c> (both inclusive) can be encoded.</p>
 
 <marker id="UTF8String"/>
 <pre>
-UTF8String() = [integer()]
+UTF8String() = [integer()] | binary()
 </pre>
 
 <p>

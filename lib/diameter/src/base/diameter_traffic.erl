@@ -77,7 +77,8 @@
         {peerT        :: ets:tid(),
          service_name :: diameter:service_name(),
          apps         :: [#diameter_app{}],
-         sequence     :: diameter:sequence()}).
+         sequence     :: diameter:sequence(),
+         codec        :: list()}).
 
 %% Record stored in diameter_request for each outgoing request.
 -record(request,
@@ -92,11 +93,16 @@
 %% # make_recvdata/1
 %% ---------------------------------------------------------------------------
 
-make_recvdata([SvcName, PeerT, Apps, Mask | _]) ->
+make_recvdata([SvcName, PeerT, Apps, {_,_} = Mask | _]) ->  %% from old code
+    make_recvdata([SvcName, PeerT, Apps, [{sequence, Mask}]]);
+
+make_recvdata([SvcName, PeerT, Apps, SvcOpts | _]) ->
+    {_,_} = Mask = proplists:get_value(sequence, SvcOpts),
     #recvdata{service_name = SvcName,
               peerT = PeerT,
               apps = Apps,
-              sequence = Mask}.
+              sequence = Mask,
+              codec = [T || {K,_} = T <- SvcOpts, K == string_decode]}.
 
 %% ---------------------------------------------------------------------------
 %% peer_up/1
@@ -270,8 +276,11 @@ recv_request(TPid,
              #diameter_packet{header = #diameter_header{application_id = Id}}
              = Pkt,
              Dict0,
-             #recvdata{peerT = PeerT, apps = Apps}
+             #recvdata{peerT = PeerT,
+                       apps = Apps,
+                       codec = Opts}
              = RecvData) ->
+    diameter_codec:setopts(Opts),
     send_A(recv_R(diameter_service:find_incoming_app(PeerT, TPid, Id, Apps),
                   TPid,
                   Pkt,
@@ -279,7 +288,13 @@ recv_request(TPid,
                   RecvData),
            TPid,
            Dict0,
-           RecvData).
+           RecvData);
+
+recv_request(TPid, Pkt, Dict0, RecvData) -> %% from old code
+    recv_request(TPid,
+                 Pkt,
+                 Dict0,
+                 #recvdata{} = erlang:append_element(RecvData, [])).
 
 %% recv_R/5
 
@@ -1225,10 +1240,9 @@ answer_rc(_, _, Sent) ->
 
 send_R(SvcName, AppOrAlias, Msg, Opts, Caller) ->
     case pick_peer(SvcName, AppOrAlias, Msg, Opts) of
-        {{_,_,_} = Transport, Mask} ->
+        {Transport, Mask, SvcOpts} ->
+            diameter_codec:setopts(SvcOpts),
             send_request(Transport, Mask, Msg, Opts, Caller, SvcName);
-        false ->
-            {error, no_connection};
         {error, _} = No ->
             No
     end.
@@ -1289,6 +1303,8 @@ send_request({TPid, Caps, App}
            Caller,
            SvcName,
            []).
+
+%% send_R/7
 
 send_R({send, Msg}, Pkt, Transport, Opts, Caller, SvcName, Fs) ->
     send_R(make_request_packet(Msg, Pkt),
@@ -1550,7 +1566,9 @@ a(Hdr, SvcName, discard) ->
 %% timer value is ignored. This means that an answer could be accepted
 %% from a peer after timeout in the case of failover.
 
-retransmit({{_,_,App} = Transport, _Mask}, Req, Opts, SvcName, Timeout) ->
+%% retransmit/5
+
+retransmit({{_,_,App} = Transport, _, _}, Req, Opts, SvcName, Timeout) ->
     try retransmit(Transport, Req, SvcName, Timeout) of
         T -> recv_A(Timeout, SvcName, App, Opts, T)
     catch
@@ -1571,17 +1589,26 @@ pick_peer(SvcName,
     pick_peer(SvcName, App, Msg, Opts#options{extra = []});
 
 pick_peer(_, _, undefined, _) ->
-    false;
+    {error, no_connection};
 
 pick_peer(SvcName,
           AppOrAlias,
           Msg,
           #options{filter = Filter, extra = Xtra}) ->
-    diameter_service:pick_peer(SvcName,
-                               AppOrAlias,
-                               {fun(D) -> get_destination(D, Msg) end,
-                                Filter,
-                                Xtra}).
+    pick(diameter_service:pick_peer(SvcName,
+                                    AppOrAlias,
+                                    {fun(D) -> get_destination(D, Msg) end,
+                                     Filter,
+                                     Xtra})).
+
+pick({{_,_,_} = Transport, Mask}) ->  %% from old code; dialyzer complains
+    {Transport, Mask, []};            %% about this
+
+pick(false) ->
+    {error, no_connection};
+
+pick(T) ->
+    T.
 
 %% handle_error/4
 

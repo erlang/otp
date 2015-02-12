@@ -899,6 +899,30 @@ Options <c>monitor</c> and <c>link</c> are ignored.</p>
 Defaults to the empty list.</p>
 </item>
 
+<marker id="string_decode"/>
+<tag><c>{string_decode, boolean()}</c></tag>
+<item>
+<p>
+Whether or not to decode AVPs of type &dict_OctetString; and its
+derived types &dict_DiameterIdentity;, &dict_DiameterURI;,
+&dict_IPFilterRule;, &dict_QoSFilterRule;, and &dict_UTF8String;.
+If <c>true</c> then AVPs of these types are decoded to string().
+If <c>false</c> then values are retained as binary().</p>
+
+<p>
+Defaults to <c>true</c>.</p>
+
+<warning>
+<p>
+This option should be set to <c>false</c>
+since a sufficiently malicious peer can otherwise cause large amounts
+of memory to be consumed when decoded Diameter messages are passed
+between processes.
+The default value is for backwards compatibility.</p>
+</warning>
+
+</item>
+
 <tag><c>{use_shared_peers, boolean() | [node()] | evaluable()}</c></tag>
 <item>
 <p>
