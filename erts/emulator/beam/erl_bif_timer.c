@@ -490,8 +490,9 @@ setup_bif_timer(Uint32 xflags,
     return ref;
 }
 
+BIF_RETTYPE old_send_after_3(BIF_ALIST_3);
 /* send_after(Time, Pid, Message) -> Ref */
-BIF_RETTYPE send_after_3(BIF_ALIST_3)
+BIF_RETTYPE old_send_after_3(BIF_ALIST_3)
 {
     Eterm res;
 
@@ -511,8 +512,9 @@ BIF_RETTYPE send_after_3(BIF_ALIST_3)
     }
 }
 
+BIF_RETTYPE old_start_timer_3(BIF_ALIST_3);
 /* start_timer(Time, Pid, Message) -> Ref */
-BIF_RETTYPE start_timer_3(BIF_ALIST_3)
+BIF_RETTYPE old_start_timer_3(BIF_ALIST_3)
 {
     Eterm res;
 
@@ -532,8 +534,9 @@ BIF_RETTYPE start_timer_3(BIF_ALIST_3)
     }
 }
 
+BIF_RETTYPE old_cancel_timer_1(BIF_ALIST_1);
 /* cancel_timer(Ref) -> false | RemainingTime */
-BIF_RETTYPE cancel_timer_1(BIF_ALIST_1)
+BIF_RETTYPE old_cancel_timer_1(BIF_ALIST_1)
 {
     Eterm res;
     ErtsBifTimer *btm;
@@ -570,8 +573,9 @@ BIF_RETTYPE cancel_timer_1(BIF_ALIST_1)
     BIF_RET(res);
 }
 
+BIF_RETTYPE old_read_timer_1(BIF_ALIST_1);
 /* read_timer(Ref) -> false | RemainingTime */
-BIF_RETTYPE read_timer_1(BIF_ALIST_1)
+BIF_RETTYPE old_read_timer_1(BIF_ALIST_1)
 {
     Eterm res;
     ErtsBifTimer *btm;
@@ -653,7 +657,7 @@ erts_cancel_bif_timers(Process *p, ErtsProcLocks plocks)
     erts_smp_btm_rwunlock();
 }
 
-void erts_bif_timer_init(void)
+static void erts_old_bif_timer_init(void)
 {
     int i;
     no_bif_timers = 0;
@@ -703,4 +707,147 @@ erts_bif_timer_foreach(void (*func)(Eterm, Eterm, ErlHeapFragment *, void *),
 		    arg);
 	}
     }
+}
+
+typedef struct {
+    Uint ref_heap[REF_THING_SIZE];
+    Eterm pid[1];
+} ErtsBifTimerServers;
+
+static ErtsBifTimerServers *bif_timer_servers;
+
+void erts_bif_timer_init(void)
+{
+    erts_old_bif_timer_init();
+}
+
+void
+erts_bif_timer_start_servers(Eterm parent)
+{
+    Process *parent_proc;
+    Eterm *hp, btr_ref, arg_list_end;
+    ErlSpawnOpts so;
+    int i;
+
+    bif_timer_servers = erts_alloc(ERTS_ALC_T_BIF_TIMER_DATA,
+				   (sizeof(ErtsBifTimerServers)
+				    + (sizeof(Eterm)*(erts_no_schedulers-1))));
+
+    so.flags = SPO_USE_ARGS|SPO_SYSTEM_PROC|SPO_PREFER_SCHED|SPO_OFF_HEAP_MSGS;
+    so.min_heap_size  = H_MIN_SIZE;
+    so.min_vheap_size = BIN_VH_MIN_SIZE;
+    so.priority       = PRIORITY_MAX;
+    so.max_gen_gcs    = (Uint16) erts_smp_atomic32_read_nob(&erts_max_gen_gcs);
+
+    /*
+     * Parent is "init" and schedulers have not yet been started, so it
+     * *should* be alive and well...
+     */
+    ASSERT(is_internal_pid(parent));
+    parent_proc = (Process *) erts_ptab_pix2intptr_ddrb(&erts_proc,
+							internal_pid_index(parent));
+    ASSERT(parent_proc);
+    ASSERT(parent_proc->common.id == parent);
+    ASSERT(!ERTS_PROC_IS_EXITING(parent_proc));
+
+    erts_smp_proc_lock(parent_proc, ERTS_PROC_LOCK_MAIN);
+
+    hp = HAlloc(parent_proc, 2*erts_no_schedulers + 2 + REF_THING_SIZE);
+
+    btr_ref = erts_make_ref_in_buffer(hp);
+    hp += REF_THING_SIZE;
+
+    arg_list_end = CONS(hp, btr_ref, NIL);
+    hp += 2;
+
+    for (i = 0; i < erts_no_schedulers; i++) {
+	int sched = i+1;
+	Eterm arg_list = CONS(hp, make_small(i+1), arg_list_end);
+	hp += 2;
+
+	so.scheduler = sched; /* Preferred scheduler */
+
+	bif_timer_servers->pid[i] = erl_create_process(parent_proc,
+						       am_erts_internal,
+						       am_bif_timer_server,
+						       arg_list,
+						       &so);
+    }
+
+    erts_smp_proc_unlock(parent_proc, ERTS_PROC_LOCK_MAIN);
+
+    hp = internal_ref_val(btr_ref);
+    for (i = 0; i < REF_THING_SIZE; i++)
+	bif_timer_servers->ref_heap[i] = hp[i];
+}
+
+BIF_RETTYPE
+erts_internal_get_bif_timer_servers_0(BIF_ALIST_0)
+{
+    int i;
+    Eterm *hp, res = NIL;
+
+    hp = HAlloc(BIF_P, erts_no_schedulers*2);
+    for (i = erts_no_schedulers-1; i >= 0; i--) {
+	res = CONS(hp, bif_timer_servers->pid[i], res);
+	hp += 2;
+    }
+    BIF_RET(res);
+}
+
+BIF_RETTYPE
+erts_internal_access_bif_timer_1(BIF_ALIST_1)
+{
+    int ix;
+    Uint32 *rdp;
+    Eterm ref, pid, *hp, res;
+
+    if (is_not_internal_ref(BIF_ARG_1)) {
+	if (is_not_ref(BIF_ARG_1))
+	    BIF_ERROR(BIF_P, BADARG);
+	BIF_RET(am_undefined);
+    }
+
+    rdp = internal_ref_numbers(BIF_ARG_1);
+    ix = (int) erts_get_ref_numbers_thr_id(rdp);
+    if (ix < 1 || erts_no_schedulers < ix)
+	BIF_RET(am_undefined);
+
+    pid = bif_timer_servers->pid[ix-1];
+    ASSERT(is_internal_pid(pid));
+
+    hp = HAlloc(BIF_P, 3 /* 2-tuple */ + REF_THING_SIZE);
+    for (ix = 0; ix < REF_THING_SIZE; ix++)
+	hp[ix] = bif_timer_servers->ref_heap[ix];
+    ref = make_internal_ref(&hp[0]);
+    hp += REF_THING_SIZE;
+
+    res = TUPLE2(hp, ref, pid);
+    BIF_RET(res);
+}
+
+BIF_RETTYPE
+erts_internal_create_bif_timer_0(BIF_ALIST_0)
+{
+    ErtsSchedulerData *esdp = ERTS_PROC_GET_SCHDATA(BIF_P);
+    Eterm *hp, btr_ref, t_ref, pid, res;
+    int ix;
+
+    hp = HAlloc(BIF_P, 4 /* 3-tuple */ + 2*REF_THING_SIZE);
+    for (ix = 0; ix < REF_THING_SIZE; ix++)
+	hp[ix] = bif_timer_servers->ref_heap[ix];
+    btr_ref = make_internal_ref(&hp[0]);
+    hp += REF_THING_SIZE;
+
+    t_ref = erts_sched_make_ref_in_buffer(esdp, hp);
+    hp += REF_THING_SIZE;
+
+    ASSERT(erts_get_ref_numbers_thr_id(internal_ref_numbers(t_ref))
+	   == (Uint32) esdp->no);
+
+    pid = bif_timer_servers->pid[((int) esdp->no) - 1];
+    
+    res = TUPLE3(hp, btr_ref, pid, t_ref);
+
+    BIF_RET(res);
 }

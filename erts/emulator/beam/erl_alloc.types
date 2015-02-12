@@ -365,6 +365,7 @@ type	AINFO_REQ	STANDARD_LOW	SYSTEM		alloc_info_request
 type	SCHED_WTIME_REQ	STANDARD_LOW	SYSTEM		sched_wall_time_request
 type	GC_INFO_REQ	STANDARD_LOW	SYSTEM		gc_info_request
 type	PORT_DATA_HEAP	STANDARD_LOW	SYSTEM		port_data_heap
+type	BIF_TIMER_DATA	LONG_LIVED_LOW	SYSTEM		bif_timer_data
 
 +else # "fullword"
 
@@ -385,6 +386,7 @@ type	AINFO_REQ	SHORT_LIVED	SYSTEM		alloc_info_request
 type	SCHED_WTIME_REQ	SHORT_LIVED	SYSTEM		sched_wall_time_request
 type	GC_INFO_REQ	SHORT_LIVED	SYSTEM		gc_info_request
 type	PORT_DATA_HEAP	STANDARD	SYSTEM		port_data_heap
+type	BIF_TIMER_DATA	LONG_LIVED	SYSTEM		bif_timer_data
 
 +endif
 

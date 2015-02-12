@@ -171,10 +171,53 @@ static ERTS_INLINE void add_fixed_deletion(DbTableHash* tb, int ix)
 #define MAX_HASH 0xEFFFFFFFUL
 #define INVALID_HASH 0xFFFFFFFFUL
 
-/* optimised version of make_hash (normal case? atomic key) */
-#define MAKE_HASH(term) \
-    ((is_atom(term) ? (atom_tab(atom_val(term))->slot.bucket.hvalue) : \
-      make_hash2(term)) % MAX_HASH)
+static ERTS_INLINE HashValue
+MAKE_HASH(Eterm term)
+{
+    if (is_atom(term)) {
+	/*
+	 * optimised version of make_hash, although poor hashvalue
+	 * (normal case? atomic key)
+	 */
+	return atom_tab(atom_val(term))->slot.bucket.hvalue;
+    }
+    if (is_ref(term)) {
+	/*
+	 * make_hash2() produce poor hash values
+	 * for refs.
+	 */
+	int no;
+	Uint32 *ref;
+	HashValue hval;
+	if (is_internal_ref(term)) {
+	    no = (int) internal_ref_no_of_numbers(term);
+	    ref = internal_ref_numbers(term);
+	}
+	else {
+	    no = (int) external_ref_no_of_numbers(term);
+	    ref = external_ref_numbers(term);
+	}
+	switch (no) {
+	case 3:
+	ref_limit:
+	    if (!ref[2])
+		no = 2;
+	case 2:
+	    if (!ref[1])
+		no = 1;
+	case 1:
+	    break;
+	default:
+	    no = 3;
+	    goto ref_limit;
+	}
+	hval = (HashValue) block_hash((byte *) ref,
+				      no * sizeof(Uint32),
+				      0x08d12e65);
+	return hval % MAX_HASH;
+    }
+    return make_hash2(term) % MAX_HASH;
+}
 
 #ifdef ERTS_SMP
 #  define DB_HASH_LOCK_MASK (DB_HASH_LOCK_CNT-1)

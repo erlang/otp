@@ -1984,3 +1984,4 @@ BIF_RETTYPE os_system_time_1(BIF_ALIST_0)
     stime += ERTS_USEC_TO_MONOTONIC(tod.tv_usec);
     BIF_RET(time_unit_conversion(BIF_P, BIF_ARG_1, stime, 0));
 }
+

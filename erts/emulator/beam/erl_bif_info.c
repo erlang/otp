@@ -538,6 +538,7 @@ pi_locks(Eterm info)
     switch (info) {
     case am_status:
     case am_priority:
+    case am_trap_exit:
 	return ERTS_PROC_LOCK_STATUS;
     case am_links:
     case am_monitors:
@@ -590,7 +591,7 @@ static Eterm pi_args[] = {
     am_min_bin_vheap_size,
     am_current_location,
     am_current_stacktrace,
-};    
+};
 
 #define ERTS_PI_ARGS ((int) (sizeof(pi_args)/sizeof(Eterm)))
 
@@ -3700,6 +3701,24 @@ BIF_RETTYPE erts_debug_get_internal_state_1(BIF_ALIST_1)
     }
     BIF_ERROR(BIF_P, BADARG);
 }
+
+BIF_RETTYPE erts_internal_is_system_process_1(BIF_ALIST_1)
+{
+    if (is_internal_pid(BIF_ARG_1)) {
+	Process *rp = erts_proc_lookup(BIF_ARG_1);
+	if (rp && (rp->static_flags & ERTS_STC_FLG_SYSTEM_PROC))
+	    BIF_RET(am_true);
+	BIF_RET(am_false);
+    }
+
+    if (is_external_pid(BIF_ARG_1)
+	&& external_pid_dist_entry(BIF_ARG_1) == erts_this_dist_entry) {
+	BIF_RET(am_false);
+    }
+
+    BIF_ERROR(BIF_P, BADARG);
+}
+
 
 static erts_smp_atomic_t hipe_test_reschedule_flag;
 

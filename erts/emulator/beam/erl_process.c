@@ -5844,6 +5844,13 @@ schedule_out_process(ErtsRunQueue *c_rq, erts_aint32_t state, Process *p, Proces
     int check_emigration_need;
 #endif
 
+#ifdef ERTS_SMP
+    if ((p->static_flags & ERTS_STC_FLG_PREFER_SCHED)
+	&& p->preferred_run_queue != RUNQ_READ_RQ(&p->run_queue)) {
+	RUNQ_SET_RQ(&p->run_queue, p->preferred_run_queue);
+    }
+#endif
+
     a = state;
 
     while (1) {
@@ -5882,6 +5889,7 @@ schedule_out_process(ErtsRunQueue *c_rq, erts_aint32_t state, Process *p, Proces
 	    free_proxy_proc(proxy);
 
 	erts_smp_runq_lock(c_rq);
+
 	return 0;
 
 #ifdef ERTS_DIRTY_SCHEDULERS
@@ -10511,13 +10519,19 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
 	    int ix = so->scheduler-1;
 	    ASSERT(0 <= ix && ix < erts_no_run_queues);
 	    rq = ERTS_RUNQ_IX(ix);
-	    state |= ERTS_PSFLG_BOUND;
+	    if (!(so->flags & SPO_PREFER_SCHED)) {
+		/* Unsupported feature... */
+		state |= ERTS_PSFLG_BOUND;
+	    }
 	}
 	prio = (erts_aint32_t) so->priority;
     }
 
     state |= (((prio & ERTS_PSFLGS_PRIO_MASK) << ERTS_PSFLGS_ACT_PRIO_OFFSET)
 	      | ((prio & ERTS_PSFLGS_PRIO_MASK) << ERTS_PSFLGS_USR_PRIO_OFFSET));
+
+    if (so->flags & SPO_OFF_HEAP_MSGS)
+	state |= ERTS_PSFLG_OFF_HEAP_MSGS;
 
     if (!rq)
 	rq = erts_get_runq_proc(parent);
@@ -10542,11 +10556,25 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
     heap_need = arg_size;
 
     p->flags = erts_default_process_flags;
+    if (so->flags & SPO_OFF_HEAP_MSGS)
+	p->flags |= F_OFF_HEAP_MSGS;
 
+#ifdef ERTS_SMP
+    p->preferred_run_queue = NULL;
+#endif
+    p->static_flags = 0;
+    if (so->flags & SPO_SYSTEM_PROC)
+	p->static_flags |= ERTS_STC_FLG_SYSTEM_PROC;
     if (so->flags & SPO_USE_ARGS) {
 	p->min_heap_size  = so->min_heap_size;
 	p->min_vheap_size = so->min_vheap_size;
 	p->max_gen_gcs    = so->max_gen_gcs;
+	if (so->flags & SPO_PREFER_SCHED) {
+#ifdef ERTS_SMP
+	    p->preferred_run_queue = rq;
+#endif
+	    p->static_flags |= ERTS_STC_FLG_PREFER_SCHED;
+	}
     } else {
 	p->min_heap_size  = H_MIN_SIZE;
 	p->min_vheap_size = BIN_VH_MIN_SIZE;
@@ -10867,6 +10895,8 @@ void erts_init_empty_process(Process *p)
 
     p->parent = NIL;
     p->approx_started = 0;
+    p->static_flags = 0;
+
     p->common.u.alive.started_interval = 0;
 
 #ifdef HIPE
@@ -10892,6 +10922,7 @@ void erts_init_empty_process(Process *p)
     p->pending_suspenders = NULL;
     p->pending_exit.reason = THE_NON_VALUE;
     p->pending_exit.bp = NULL;
+    p->preferred_run_queue = NULL;
     erts_proc_lock_init(p);
     erts_smp_proc_unlock(p, ERTS_PROC_LOCKS_ALL);
     RUNQ_SET_RQ(&p->run_queue, ERTS_RUNQ_IX(0));
@@ -11804,6 +11835,9 @@ erts_do_exit_process(Process* p, Eterm reason)
         DTRACE2(process_exit, process_buf, reason_buf);
     }
 #endif
+
+    if (p->static_flags & ERTS_STC_FLG_SYSTEM_PROC)
+	erl_exit(1, "System process %T terminated: %T\n", p->common.id, reason);
 
 #ifdef ERTS_SMP
     ERTS_SMP_CHK_HAVE_ONLY_MAIN_PROC_LOCK(p);

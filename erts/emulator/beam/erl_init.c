@@ -389,12 +389,13 @@ erl_init(int ncpu,
     erl_nif_init();
 }
 
-static void
+static Eterm
 erl_first_process_otp(char* modname, void* code, unsigned size, int argc, char** argv)
 {
     int i;
     Eterm start_mod;
     Eterm args;
+    Eterm res;
     Eterm* hp;
     Process parent;
     ErlSpawnOpts so;
@@ -424,10 +425,11 @@ erl_first_process_otp(char* modname, void* code, unsigned size, int argc, char**
     hp += 2;
     args = CONS(hp, env, args);
 
-    so.flags = 0;
-    (void) erl_create_process(&parent, start_mod, am_start, args, &so);
+    so.flags = SPO_SYSTEM_PROC;
+    res = erl_create_process(&parent, start_mod, am_start, args, &so);
     erts_smp_proc_unlock(&parent, ERTS_PROC_LOCK_MAIN);
     erts_cleanup_empty_process(&parent);
+    return res;
 }
 
 Eterm
@@ -2086,7 +2088,11 @@ erl_start(int argc, char **argv)
 
     erts_initialized = 1;
 
-    erl_first_process_otp("otp_ring0", NULL, 0, boot_argc, boot_argv);
+    {
+	Eterm init = erl_first_process_otp("otp_ring0", NULL, 0,
+					   boot_argc, boot_argv);
+	erts_bif_timer_start_servers(init);
+    }
 
 #ifdef ERTS_SMP
     erts_start_schedulers();

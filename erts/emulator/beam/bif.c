@@ -615,14 +615,12 @@ erts_queue_monitor_message(Process *p,
 }
 
 static BIF_RETTYPE
-local_pid_monitor(Process *p, Eterm target)
+local_pid_monitor(Process *p, Eterm target, Eterm mon_ref, int bool)
 {
     BIF_RETTYPE ret;
-    Eterm mon_ref;
     Process *rp;
     ErtsProcLocks p_locks = ERTS_PROC_LOCK_MAIN|ERTS_PROC_LOCK_LINK;
 
-    mon_ref = erts_make_ref(p);
     ERTS_BIF_PREP_RET(ret, mon_ref);
     if (target == p->common.id) {
 	return ret;
@@ -635,11 +633,17 @@ local_pid_monitor(Process *p, Eterm target)
     if (!rp) {
 	erts_smp_proc_unlock(p, ERTS_PROC_LOCK_LINK);
 	p_locks &= ~ERTS_PROC_LOCK_LINK;
-	erts_queue_monitor_message(p, &p_locks,
-				   mon_ref, am_process, target, am_noproc);
+	if (bool)
+	    ret = am_false;
+	else
+	    erts_queue_monitor_message(p, &p_locks,
+				       mon_ref, am_process, target, am_noproc);
     }
     else {
 	ASSERT(rp != p);
+
+	if (bool)
+	    ret = am_true;
 
 	erts_add_monitor(&ERTS_P_MONITORS(p), MON_ORIGIN, mon_ref, target, NIL);
 	erts_add_monitor(&ERTS_P_MONITORS(rp), MON_TARGET, mon_ref, p->common.id, NIL);
@@ -785,7 +789,7 @@ BIF_RETTYPE monitor_2(BIF_ALIST_2)
 
     if (is_internal_pid(target)) {
     local_pid:
-	ret = local_pid_monitor(BIF_P, target);
+	ret = local_pid_monitor(BIF_P, target, erts_make_ref(BIF_P), 0);
     } else if (is_external_pid(target)) {
 	dep = external_pid_dist_entry(target);
 	if (dep == erts_this_dist_entry)
@@ -828,6 +832,25 @@ BIF_RETTYPE monitor_2(BIF_ALIST_2)
     return ret;
 }
 
+BIF_RETTYPE erts_internal_monitor_process_2(BIF_ALIST_2)
+{
+    if (is_not_internal_pid(BIF_ARG_1)) {
+	if (is_external_pid(BIF_ARG_1)
+	    && (external_pid_dist_entry(BIF_ARG_1)
+		== erts_this_dist_entry)) {
+	    BIF_RET(am_false);
+	}
+	goto badarg;
+    }
+
+    if (is_not_internal_ref(BIF_ARG_2))
+	goto badarg;
+
+    BIF_RET(local_pid_monitor(BIF_P, BIF_ARG_1, BIF_ARG_2, 1));
+
+badarg:
+    BIF_ERROR(BIF_P, BADARG);
+}
 
 /**********************************************************************/
 /* this is a combination of the spawn and link BIFs */

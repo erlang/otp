@@ -217,11 +217,6 @@ bif math:sqrt/1
 bif math:atan2/2
 bif math:pow/2
 
-bif erlang:start_timer/3
-bif erlang:send_after/3
-bif erlang:cancel_timer/1
-bif erlang:read_timer/1
-
 bif erlang:make_tuple/2
 bif erlang:append_element/2
 bif erlang:make_tuple/3

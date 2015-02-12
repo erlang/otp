@@ -109,6 +109,7 @@ atom bag
 atom band
 atom big
 atom bif_return_trap
+atom bif_timer_server
 atom binary
 atom binary_bin_to_list_trap
 atom binary_copy_trap
