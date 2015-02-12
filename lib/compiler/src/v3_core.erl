@@ -66,6 +66,7 @@
 %% match arguments are novars
 %% case arguments are novars
 %% receive timeouts are novars
+%% binaries and maps are novars
 %% let/set arguments are expressions
 %% fun is not a safe
 
@@ -783,15 +784,9 @@ expr_map(M0,Es0,A,St0) ->
 	false -> throw({bad_map,bad_map})
     end.
 
-map_build_pairs(Map0, Es0, Ann, St0) ->
+map_build_pairs(Map, Es0, Ann, St0) ->
     {Es,Pre,St1} = map_build_pairs_1(Es0, St0),
-    case ann_c_map(Ann, Map0, Es) of
-	#c_literal{}=Map ->
-	    {Map,[],St1};
-	#c_map{}=Map ->
-	    {Var,St2} = new_var(St1),
-	    {Var,Pre++[#iset{var=Var,arg=Map}],St2}
-    end.
+    {ann_c_map(Ann, Map, Es),Pre,St1}.
 
 map_build_pairs_1([{Op0,L,K0,V0}|Es], St0) ->
     {K,Pre0,St1} = safe(K0, St0),
@@ -1486,6 +1481,7 @@ force_novars(#iapply{}=App, St) -> {App,[],St};
 force_novars(#icall{}=Call, St) -> {Call,[],St};
 force_novars(#ifun{}=Fun, St) -> {Fun,[],St};	%These are novars too
 force_novars(#ibinary{}=Bin, St) -> {Bin,[],St};
+force_novars(#c_map{}=Bin, St) -> {Bin,[],St};
 force_novars(Ce, St) ->
     force_safe(Ce, St).
 
