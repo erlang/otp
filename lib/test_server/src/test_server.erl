@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2014. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -177,68 +177,35 @@ module_names(Beams) ->
 
 do_cover_compile(Modules) ->
     cover:start(),
-    pmap1(fun(M) -> do_cover_compile1(M) end,lists:usort(Modules)),
+    Sticky = prepare_cover_compile(Modules,[]),
+    R = cover:compile_beam(Modules),
+    [warn_compile(Error) || Error <- R,element(1,Error)=/=ok],
+    [code:stick_mod(M) || M <- Sticky],
     ok.
 
-do_cover_compile1(M) ->
+warn_compile({error,{Reason,Module}}) ->
+    io:fwrite("\nWARNING: Could not cover compile ~ts: ~p\n",
+	      [Module,{error,Reason}]).
+
+%% Make sure all modules are loaded and unstick if sticky
+prepare_cover_compile([M|Ms],Sticky) ->
     case {code:is_sticky(M),code:is_loaded(M)} of
 	{true,_} ->
 	    code:unstick_mod(M),
-	    case cover:compile_beam(M) of
-		{ok,_} ->
-		    ok;
-		Error ->
-		    io:fwrite("\nWARNING: Could not cover compile ~w: ~p\n",
-			      [M,Error])
-	    end,
-	    code:stick_mod(M);
+	    prepare_cover_compile(Ms,[M|Sticky]);
 	{false,false} ->
 	    case code:load_file(M) of
 		{module,_} ->
-		    do_cover_compile1(M);
+		    prepare_cover_compile([M|Ms],Sticky);
 		Error ->
-		    io:fwrite("\nWARNING: Could not load ~w: ~p\n",[M,Error])
+		    io:fwrite("\nWARNING: Could not load ~w: ~p\n",[M,Error]),
+		    prepare_cover_compile(Ms,Sticky)
 	    end;
 	{false,_} ->
-	    case cover:compile_beam(M) of
-		{ok,_} ->
-		    ok;
-		Error ->
-		    io:fwrite("\nWARNING: Could not cover compile ~w: ~p\n",
-			      [M,Error])
-	    end
-    end.
-
-pmap1(Fun,List) ->
-    NTot = length(List),
-    NProcs = erlang:system_info(schedulers) * 2,
-    NPerProc = (NTot div NProcs) + 1,
-
-    {[],Pids} =
-	lists:foldr(
-	  fun(_,{L,Ps}) ->
-		  {L1,L2} = if length(L)>=NPerProc -> lists:split(NPerProc,L);
-			       true -> {L,[]} % last chunk
-			    end,
-		  {P,_Ref} =
-		      spawn_monitor(fun() ->
-					    exit(lists:map(Fun,L1))
-				    end),
-		  {L2,[P|Ps]}
-	  end,
-	  {List,[]},
-	  lists:seq(1,NProcs)),
-    collect(Pids,[]).
-
-collect([],Acc) ->
-    lists:append(Acc);
-collect([Pid|Pids],Acc) ->
-    receive
-	{'DOWN', _Ref, process, Pid, Result} ->
-	    %% collect(lists:delete(Pid,Pids),[Result|Acc])
-	    collect(Pids,[Result|Acc])
-    end.
-
+	    prepare_cover_compile(Ms,Sticky)
+    end;
+prepare_cover_compile([],Sticky) ->
+    Sticky.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% cover_analyse(Dir,#cover{level=Analyse,mods=Modules,stop=Stop) ->
@@ -268,45 +235,40 @@ collect([Pid|Pids],Acc) ->
 %% after the test is completed.
 cover_analyse(Dir,#cover{level=Analyse,mods=Modules,stop=Stop}) ->
     io:fwrite(user, "Cover analysing... ", []),
-    DetailsFun =
+    {ATFOk,ATFFail} =
 	case Analyse of
 	    details ->
 		case cover:export(filename:join(Dir,"all.coverdata")) of
 		    ok ->
-			fun(M) ->
-				OutFile = filename:join(Dir,
-							atom_to_list(M) ++
-							".COVER.html"),
-				case cover:analyse_to_file(M,OutFile,[html]) of
-				    {ok,_} ->
-					{file,OutFile};
-				    Error ->
-					Error
-				end
-			end;
+			{result,Ok1,Fail1} =
+			    cover:analyse_to_file(Modules,[{outdir,Dir},html]),
+			{lists:map(fun(OutFile) ->
+					   M = list_to_atom(
+						 filename:basename(
+						   filename:rootname(OutFile,
+								     ".COVER.html")
+						  )
+						),
+					   {M,{file,OutFile}}
+				   end, Ok1),
+			lists:map(fun({Reason,M}) ->
+					  {M,{error,Reason}}
+				  end, Fail1)};
 		    Error ->
-			fun(_) -> Error end
+			{[],lists:map(fun(M) -> {M,Error} end, Modules)}
 		end;
 	    overview ->
 		case cover:export(filename:join(Dir,"all.coverdata")) of
 		    ok ->
-			fun(_) -> undefined end;
+			{[],lists:map(fun(M) -> {M,undefined} end, Modules)};
 		    Error ->
-			fun(_) -> Error end
+			{[],lists:map(fun(M) -> {M,Error} end, Modules)}
 		end
 	end,
-    R = pmap2(
-	  fun(M) ->
-		  case cover:analyse(M,module) of
-		      {ok,{M,{Cov,NotCov}}} ->
-			  {M,{Cov,NotCov,DetailsFun(M)}};
-		      Err ->
-			  io:fwrite(user,
-				    "\nWARNING: Analysis failed for ~w. Reason: ~p\n",
-				    [M,Err]),
-			  {M,Err}
-		  end
-	  end, Modules),
+    {result,AOk,AFail} = cover:analyse(Modules,module),
+    R = merge_analysis_results(AOk,ATFOk++ATFFail,[]) ++
+	[{M,{error,Reason}} || {Reason,M} <- AFail],
+
     io:fwrite(user, "done\n\n", []),
 
     case Stop of
@@ -319,19 +281,15 @@ cover_analyse(Dir,#cover{level=Analyse,mods=Modules,stop=Stop}) ->
     end,
     R.
 
-pmap2(Fun,List) ->
-    Collector = self(),
-    Pids = lists:map(fun(E) ->
-			     spawn(fun() ->
-					   Collector ! {res,self(),Fun(E)}
-				   end)
-		     end, List),
-    lists:map(fun(Pid) ->
-		      receive
-			  {res,Pid,Res} ->
-			      Res
-		      end
-	      end, Pids).
+merge_analysis_results([{M,{Cov,NotCov}}|T],ATF,Acc) ->
+    case lists:keytake(M,1,ATF) of
+	{value,{_,R},ATF1} ->
+	    merge_analysis_results(T,ATF1,[{M,{Cov,NotCov,R}}|Acc]);
+	false ->
+	    merge_analysis_results(T,ATF,Acc)
+    end;
+merge_analysis_results([],_,Acc) ->
+    Acc.
 
 do_cover_for_node(Node,CoverFunc) ->
     do_cover_for_node(Node,CoverFunc,true).
