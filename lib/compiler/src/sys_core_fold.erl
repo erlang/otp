@@ -96,7 +96,7 @@
 	      t=[],				%Types
 	      in_guard=false}).			%In guard or not.
 
--type type_info() :: cerl:cerl() | 'bool'.
+-type type_info() :: cerl:cerl() | 'bool' | 'integer'.
 -type yes_no_maybe() :: 'yes' | 'no' | 'maybe'.
 -type sub() :: #sub{}.
 
@@ -2511,6 +2511,7 @@ is_boolean_type(Var, Sub) ->
 is_int_type(Var, Sub) ->
     case get_type(Var, Sub) of
 	none -> maybe;
+	integer -> yes;
 	C -> yes_no(cerl:is_c_int(C))
     end.
 
@@ -2545,11 +2546,32 @@ update_types_from_expr(V, Expr, Sub) ->
     Type = extract_type(Expr, Sub),
     update_types(V, [Type], Sub).
 
+extract_type(#c_call{module=#c_literal{val=erlang},
+		     name=#c_literal{val=Name},
+		     args=Args}=Call, Sub) ->
+    case returns_integer(Name, Args) of
+	true -> integer;
+	false -> extract_type_1(Call, Sub)
+    end;
 extract_type(Expr, Sub) ->
+    extract_type_1(Expr, Sub).
+
+extract_type_1(Expr, Sub) ->
     case is_bool_expr(Expr, Sub) of
 	false -> Expr;
 	true -> bool
     end.
+
+returns_integer(bit_size, [_]) -> true;
+returns_integer('bsl', [_,_]) -> true;
+returns_integer('bsr', [_,_]) -> true;
+returns_integer(byte_size, [_]) -> true;
+returns_integer(length, [_]) -> true;
+returns_integer('rem', [_,_]) -> true;
+returns_integer(size, [_]) -> true;
+returns_integer(tuple_size, [_]) -> true;
+returns_integer(trunc, [_]) -> true;
+returns_integer(_, _) -> false.
 
 %% update_types(Expr, Pattern, Sub) -> Sub'
 %%  Update the type database.

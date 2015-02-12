@@ -88,6 +88,7 @@ t_element(Config) when is_list(Config) ->
 	{_,_,_}=Tup ->
 	    ?line {'EXIT',{badarg,_}} = (catch element(4, Tup))
     end,
+    {'EXIT',{badarg,_}} = (catch element(1, tuple_size(Tuple))),
 
     ok.
 
