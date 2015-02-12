@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -4230,7 +4230,7 @@ t_from_form({type, _L, any, []}, _TypeNames, _RecDict, _VarDict) ->
 t_from_form({type, _L, arity, []}, _TypeNames, _RecDict, _VarDict) ->
   {t_arity(), []};
 t_from_form({type, _L, array, []}, TypeNames, RecDict, VarDict) ->
-  builtin_type(array, t_array(), TypeNames, RecDict, VarDict);
+  builtin_type(array, t_array(), [], TypeNames, RecDict, VarDict);
 t_from_form({type, _L, atom, []}, _TypeNames, _RecDict, _VarDict) ->
   {t_atom(), []};
 t_from_form({type, _L, binary, []}, _TypeNames, _RecDict, _VarDict) ->
@@ -4253,9 +4253,9 @@ t_from_form({type, _L, byte, []}, _TypeNames, _RecDict, _VarDict) ->
 t_from_form({type, _L, char, []}, _TypeNames, _RecDict, _VarDict) ->
   {t_char(), []};
 t_from_form({type, _L, dict, []}, TypeNames, RecDict, VarDict) ->
-  builtin_type(dict, t_dict(), TypeNames, RecDict, VarDict);
+  builtin_type(dict, t_dict(), [], TypeNames, RecDict, VarDict);
 t_from_form({type, _L, digraph, []}, TypeNames, RecDict, VarDict) ->
-  builtin_type(digraph, t_digraph(), TypeNames, RecDict, VarDict);
+  builtin_type(digraph, t_digraph(), [], TypeNames, RecDict, VarDict);
 t_from_form({type, _L, float, []}, _TypeNames, _RecDict, _VarDict) ->
   {t_float(), []};
 t_from_form({type, _L, function, []}, _TypeNames, _RecDict, _VarDict) ->
@@ -4272,9 +4272,9 @@ t_from_form({type, _L, 'fun', [{type, _, product, Domain}, Range]},
   {T, R2} = t_from_form(Range, TypeNames, RecDict, VarDict),
   {t_fun(L, T), R1 ++ R2};
 t_from_form({type, _L, gb_set, []}, TypeNames, RecDict, VarDict) ->
-  builtin_type(gb_set, t_gb_set(), TypeNames, RecDict, VarDict);
+  builtin_type(gb_set, t_gb_set(), [], TypeNames, RecDict, VarDict);
 t_from_form({type, _L, gb_tree, []}, TypeNames, RecDict, VarDict) ->
-  builtin_type(gb_tree, t_gb_tree(), TypeNames, RecDict, VarDict);
+  builtin_type(gb_tree, t_gb_tree(), [], TypeNames, RecDict, VarDict);
 t_from_form({type, _L, identifier, []}, _TypeNames, _RecDict, _VarDict) ->
   {t_identifier(), []};
 t_from_form({type, _L, integer, []}, _TypeNames, _RecDict, _VarDict) ->
@@ -4288,8 +4288,12 @@ t_from_form({type, _L, list, []}, _TypeNames, _RecDict, _VarDict) ->
 t_from_form({type, _L, list, [Type]}, TypeNames, RecDict,  VarDict) ->
   {T, R} = t_from_form(Type, TypeNames, RecDict, VarDict),
   {t_list(T), R};
-t_from_form({type, _L, map, _}, TypeNames, RecDict, VarDict) ->
-  builtin_type(map, t_map([]), TypeNames, RecDict, VarDict);
+t_from_form({type, _L, map, As0}, TypeNames, RecDict, VarDict) ->
+  As = case is_list(As0) of
+         true -> As0;
+         false -> []
+       end,
+  builtin_type(map, t_map([]), As, TypeNames, RecDict, VarDict);
 t_from_form({type, _L, mfa, []}, _TypeNames, _RecDict, _VarDict) ->
   {t_mfa(), []};
 t_from_form({type, _L, module, []}, _TypeNames, _RecDict, _VarDict) ->
@@ -4348,7 +4352,7 @@ t_from_form({type, _L, product, Elements}, TypeNames, RecDict, VarDict) ->
   {L, R} = list_from_form(Elements, TypeNames, RecDict, VarDict),
   {t_product(L), R};
 t_from_form({type, _L, queue, []}, TypeNames, RecDict, VarDict) ->
-  builtin_type(queue, t_queue(), TypeNames, RecDict, VarDict);
+  builtin_type(queue, t_queue(), [], TypeNames, RecDict, VarDict);
 t_from_form({type, _L, range, [From, To]} = Type,
 	    _TypeNames, _RecDict, _VarDict) ->
   case {erl_eval:partial_eval(From), erl_eval:partial_eval(To)} of
@@ -4361,13 +4365,13 @@ t_from_form({type, _L, record, [Name|Fields]}, TypeNames, RecDict, VarDict) ->
 t_from_form({type, _L, reference, []}, _TypeNames, _RecDict, _VarDict) ->
   {t_reference(), []};
 t_from_form({type, _L, set, []}, TypeNames, RecDict, VarDict) ->
-  builtin_type(set, t_set(), TypeNames, RecDict, VarDict);
+  builtin_type(set, t_set(), [], TypeNames, RecDict, VarDict);
 t_from_form({type, _L, string, []}, _TypeNames, _RecDict, _VarDict) ->
   {t_string(), []};
 t_from_form({type, _L, term, []}, _TypeNames, _RecDict, _VarDict) ->
   {t_any(), []};
 t_from_form({type, _L, tid, []}, TypeNames, RecDict, VarDict) ->
-  builtin_type(tid, t_tid(), TypeNames, RecDict, VarDict);
+  builtin_type(tid, t_tid(), [], TypeNames, RecDict, VarDict);
 t_from_form({type, _L, timeout, []}, _TypeNames, _RecDict, _VarDict) ->
   {t_timeout(), []};
 t_from_form({type, _L, tuple, any}, _TypeNames, _RecDict, _VarDict) ->
@@ -4384,10 +4388,10 @@ t_from_form({opaque, _L, Name, {Mod, Args, Rep}}, _TypeNames,
             _RecDict, _VarDict) ->
   {t_opaque(Mod, Name, Args, Rep), []}.
 
-builtin_type(Name, Type, TypeNames, RecDict, VarDict) ->
-  case lookup_type(Name, 0, RecDict) of
+builtin_type(Name, Type, Args, TypeNames, RecDict, VarDict) ->
+  case lookup_type(Name, length(Args), RecDict) of
     {_, {_M, _T, _A}} ->
-      type_from_form(Name, [], TypeNames, RecDict, VarDict);
+      type_from_form(Name, Args, TypeNames, RecDict, VarDict);
     error ->
       {Type, []}
   end.
@@ -4588,7 +4592,7 @@ t_form_to_string({type, _L, iodata, []}) -> "iodata()";
 t_form_to_string({type, _L, iolist, []}) -> "iolist()";
 t_form_to_string({type, _L, list, [Type]}) -> 
   "[" ++ t_form_to_string(Type) ++ "]";
-t_form_to_string({type, _L, map, _}) ->
+t_form_to_string({type, _L, map, Args}) when not is_list(Args) ->
   "#{}";
 t_form_to_string({type, _L, mfa, []}) -> "mfa()";
 t_form_to_string({type, _L, module, []}) -> "module()";
