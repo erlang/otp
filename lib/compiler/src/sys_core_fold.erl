@@ -2036,7 +2036,7 @@ is_bool_expr(#c_clause{body=B}, Sub) ->
     is_bool_expr(B, Sub);
 is_bool_expr(#c_let{vars=[V],arg=Arg,body=B}, Sub0) ->
     Sub = case is_bool_expr(Arg, Sub0) of
-	      true -> update_types(V, [#c_literal{val=true}], Sub0);
+	      true -> update_types(V, [bool], Sub0);
 	      false -> Sub0
 	  end,
     is_bool_expr(B, Sub);
@@ -2272,36 +2272,29 @@ opt_simple_let(#c_let{arg=Arg0}=Let, Ctxt, Sub0) ->
 opt_simple_let_1(#c_let{vars=Vs0,body=B0}=Let, Arg0, Ctxt, Sub0) ->
     %% Optimise let and add new substitutions.
     {Vs,Args,Sub1} = let_substs(Vs0, Arg0, Sub0),
-    BodySub = case {Vs,Args} of
-		  {[V],[A]} ->
-		      case is_bool_expr(A, Sub0) of
-			  true ->
-			      update_types(V, [#c_literal{val=true}], Sub1);
-			  false ->
-			      Sub1
-		      end;
-		  {_,_} -> Sub1
-	      end,
+    BodySub = update_let_types(Vs, Args, Sub1),
     B = body(B0, Ctxt, BodySub),
     Arg = core_lib:make_values(Args),
-    opt_simple_let_2(Let, Vs, Arg, B, Ctxt, Sub1).
+    opt_simple_let_2(Let, Vs, Arg, B, B0, Ctxt, Sub1).
 
-opt_simple_let_2(Let0, Vs0, Arg0, Body, Ctxt, Sub) ->
+opt_simple_let_2(Let0, Vs0, Arg0, Body, PrevBody, Ctxt, Sub) ->
     case {Vs0,Arg0,Body} of
-	{[#c_var{name=N1}],Arg,#c_var{name=N2}} ->
+	{[#c_var{name=N1}],Arg1,#c_var{name=N2}} ->
 	    case N1 =:= N2 of
 		true ->
 		    %% let <Var> = Arg in <Var>  ==>  Arg
-		    Arg;
+		    Arg1;
 		false ->
 		    %% let <Var> = Arg in <OtherVar>  ==>  seq Arg OtherVar
+		    Arg = maybe_suppress_warnings(Arg1, Vs0, PrevBody, Ctxt),
 		    expr(#c_seq{arg=Arg,body=Body}, Ctxt,
 			 sub_new_preserve_types(Sub))
 	    end;
 	{[],#c_values{es=[]},_} ->
 	    %% No variables left.
 	    Body;
-	{_,Arg,#c_literal{}} ->
+	{Vs,Arg1,#c_literal{}} ->
+	    Arg = maybe_suppress_warnings(Arg1, Vs, PrevBody, Ctxt),
 	    E = case Ctxt of
 		    effect ->
 			%% Throw away the literal body.
@@ -2313,19 +2306,47 @@ opt_simple_let_2(Let0, Vs0, Arg0, Body, Ctxt, Sub) ->
 			#c_seq{arg=Arg,body=Body}
 		end,
 	    expr(E, Ctxt, sub_new_preserve_types(Sub));
-	{Vs,Arg,Body} ->
+	{Vs,Arg1,Body} ->
 	    %% If none of the variables are used in the body, we can
 	    %% rewrite the let to a sequence:
 	    %%    let <Var> = Arg in BodyWithoutVar ==>
 	    %%        seq Arg BodyWithoutVar
 	    case is_any_var_used(Vs, Body) of
 		false ->
+		    Arg = maybe_suppress_warnings(Arg1, Vs, PrevBody, Ctxt),
 		    expr(#c_seq{arg=Arg,body=Body}, Ctxt,
 			 sub_new_preserve_types(Sub));
 		true ->
-		    Let1 = Let0#c_let{vars=Vs,arg=Arg,body=Body},
+		    Let1 = Let0#c_let{vars=Vs,arg=Arg1,body=Body},
 		    Let2 = opt_case_in_let(Let1, Sub),
 		    opt_case_in_let_arg(Let2, Ctxt, Sub)
+	    end
+    end.
+
+%% maybe_suppress_warnings(Arg, [#c_var{}], PreviousBody, Context) -> Arg'
+%%  Try to suppress false warnings when a variable is not used.
+%%  For instance, we don't expect a warning for useless building in:
+%%
+%%    R = #r{},  %No warning expected.
+%%    R#r.f      %Optimization would remove the reference to R.
+%%
+%%  To avoid false warnings, we will check whether the variables were
+%%  referenced in the original unoptimized code. If they were, we will
+%%  consider the warning false and suppress it.
+
+maybe_suppress_warnings(Arg, _, _, effect) ->
+    %% Don't suppress any warnings in effect context.
+    Arg;
+maybe_suppress_warnings(Arg, Vs, PrevBody, value) ->
+    case suppress_warning(Arg) of
+	true ->
+	    Arg;				%Already suppressed.
+	false ->
+	    case is_any_var_used(Vs, PrevBody) of
+		true ->
+		    cerl:set_ann(Arg, [compiler_generated]);
+		false ->
+		    Arg
 	    end
     end.
 
@@ -2504,8 +2525,37 @@ is_tuple_type(Var, Sub) ->
 yes_no(true) -> yes;
 yes_no(false) -> no.
 
+%%%
+%%% Update type information.
+%%%
+
+update_let_types(Vs, Args, Sub) when is_list(Args) ->
+    update_let_types_1(Vs, Args, Sub);
+update_let_types(_Vs, _Arg, Sub) ->
+    %% The argument is a complex expression (such as a 'case')
+    %% that returns multiple values.
+    Sub.
+
+update_let_types_1([#c_var{}=V|Vs], [A|As], Sub0) ->
+    Sub = update_types_from_expr(V, A, Sub0),
+    update_let_types_1(Vs, As, Sub);
+update_let_types_1([], [], Sub) -> Sub.
+
+update_types_from_expr(V, Expr, Sub) ->
+    Type = extract_type(Expr, Sub),
+    update_types(V, [Type], Sub).
+
+extract_type(Expr, Sub) ->
+    case is_bool_expr(Expr, Sub) of
+	false -> Expr;
+	true -> bool
+    end.
+
 %% update_types(Expr, Pattern, Sub) -> Sub'
 %%  Update the type database.
+
+-spec update_types(cerl:cerl(), [type_info()], sub()) -> sub().
+
 update_types(Expr, Pat, #sub{t=Tdb0}=Sub) ->
     Tdb = update_types_1(Expr, Pat, Tdb0),
     Sub#sub{t=Tdb}.
@@ -2525,6 +2575,8 @@ update_types_2(V, [#c_tuple{}=P], Types) ->
     orddict:store(V, P, Types);
 update_types_2(V, [#c_literal{val=Bool}], Types) when is_boolean(Bool) ->
     orddict:store(V, bool, Types);
+update_types_2(V, [Type], Types) when is_atom(Type) ->
+    orddict:store(V, Type, Types);
 update_types_2(_, _, Types) -> Types.
 
 %% kill_types(V, Tdb) -> Tdb'
