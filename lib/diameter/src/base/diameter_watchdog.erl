@@ -572,11 +572,18 @@ rcv('DWR', Pkt, #watchdog{transport = TPid,
     DPkt = diameter_codec:decode(Dict0, Pkt),
     diameter_traffic:incr(recv, DPkt, TPid, Dict0),
     diameter_traffic:incr_error(recv, DPkt, TPid, Dict0),
-    EPkt = encode(dwa, Dict0, Pkt),
+    #diameter_packet{header = H,
+                     transport_data = T,
+                     bin = Bin}
+        = EPkt
+        = encode(dwa, Dict0, Pkt),
     diameter_traffic:incr(send, EPkt, TPid, Dict0),
     diameter_traffic:incr_rc(send, EPkt, TPid, Dict0),
 
-    send(TPid, {send, EPkt}),
+    %% Strip potentially large message terms.
+    send(TPid, {send, #diameter_packet{header = H,
+                                       transport_data = T,
+                                       bin = Bin}}),
     ?LOG(send, 'DWA');
 
 rcv('DWA', Pkt, #watchdog{transport = TPid,

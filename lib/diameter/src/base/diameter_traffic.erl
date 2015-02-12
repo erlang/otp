@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2013-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2013-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -1679,8 +1679,14 @@ recv(TPid, Pid, TRef, Ref) ->
 
 %% send/2
 
-send(Pid, Pkt) ->
-    Pid ! {send, Pkt}.
+send(Pid, Pkt) ->  %% Strip potentially large message terms.
+    #diameter_packet{header = H,
+                     bin = Bin,
+                     transport_data = T}
+        = Pkt,
+    Pid ! {send, #diameter_packet{header = H,
+                                  bin = Bin,
+                                  transport_data = T}}.
 
 %% retransmit/4
 
