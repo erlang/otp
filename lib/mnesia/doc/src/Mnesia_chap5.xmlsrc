@@ -867,6 +867,7 @@ ok
   </section>
 
   <section>
+    <marker id="event_handling"></marker>
     <title>Mnesia Event Handling</title>
     <p>System events and table events are the two categories of events
       that Mnesia will generate in various situations. 
