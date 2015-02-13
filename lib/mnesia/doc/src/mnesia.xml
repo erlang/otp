@@ -2188,12 +2188,13 @@ mnesia:create_table(employee,
       </desc>
     </func>
     <func>
-      <name>subscribe(EventCategory)</name>
+      <name>subscribe(EventCategory) -> {ok, Node} | {error, Reason} </name>
       <fsummary>Subscribe to events of type <c>EventCategory</c>.</fsummary>
       <desc>
         <p>Ensures that a copy of all events of type
           <c>EventCategory</c> are sent to the caller.  The event
-          types available are described in the Mnesia User's Guide.</p>
+          types available are described in the Mnesia User's Guide at <seealso marker="Mnesia_chap5#event_handling">Mnesia Event Handling</seealso>.</p>
+        <p><c>Node</c> is the local node. For table events to be subscribed, mnesia must have a readable local copy of the table on the node.</p>        
       </desc>
     </func>
     <func>
@@ -2861,11 +2862,12 @@ raise(Name, Amount) ->
       </desc>
     </func>
     <func>
-      <name>unsubscribe(EventCategory)</name>
+      <name>unsubscribe(EventCategory) -> {ok, Node} | {error, Reason} </name>
       <fsummary>Subscribe to events of type <c>EventCategory</c>.</fsummary>
       <desc>
         <p>Stops sending events of type
           <c>EventCategory</c> to the caller.</p>
+        <p><c>Node</c> is the local node.</p>
       </desc>
     </func>
     <func>
