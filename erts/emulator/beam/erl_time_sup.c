@@ -690,6 +690,7 @@ static void
 late_init_time_correction(void)
 {
     if (time_sup.inf.c.finalized_offset) {
+	erts_init_timer(&time_sup.inf.c.parmon.timer);
 	erts_set_timer(&time_sup.inf.c.parmon.timer,
 #ifndef ERTS_HAVE_CORRECTED_OS_MONOTONIC
 		       init_check_time_correction,

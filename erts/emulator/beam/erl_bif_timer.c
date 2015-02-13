@@ -481,7 +481,7 @@ setup_bif_timer(Uint32 xflags,
 
     tab_insert(btm);
     ASSERT(btm == tab_find(ref));
-    btm->tm.active = 0; /* MUST be initalized */
+    erts_init_timer(&btm->tm);
     erts_set_timer(&btm->tm,
 		  (ErlTimeoutProc) bif_timer_timeout,
 		  (ErlCancelProc) bif_timer_cleanup,

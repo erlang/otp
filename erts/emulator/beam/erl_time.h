@@ -26,6 +26,10 @@
 #define ERTS_TIME_ASSERT(B) ((void) 1)
 #endif
 
+typedef struct ErtsTimerWheel_ ErtsTimerWheel;
+typedef erts_atomic64_t * ErtsNextTimeoutRef;
+extern ErtsTimerWheel *erts_default_timer_wheel;
+
 extern SysTimeval erts_first_emu_time;
 
 /*
@@ -35,8 +39,8 @@ typedef struct erl_timer {
     struct erl_timer* next;	/* next entry tiw slot or chain */
     struct erl_timer* prev;	/* prev entry tiw slot or chain */
     Uint slot;			/* slot in timer wheel */
+    erts_smp_atomic_t wheel;
     ErtsMonotonicTime timeout_pos; /* Timeout in absolute clock ticks */
-    int    active;		/* 1=activated, 0=deactivated */
     /* called when timeout */
     void (*timeout)(void*);
     /* called when cancel (may be NULL) */
@@ -63,7 +67,6 @@ union ErtsSmpPTimer_ {
     ErtsSmpPTimer *next;
 };
 
-
 void erts_create_smp_ptimer(ErtsSmpPTimer **timer_ref,
 			    Eterm id,
 			    ErlTimeoutProc timeout_func,
@@ -79,28 +82,35 @@ void erts_late_init_time_sup(void);
 
 /* timer-wheel api */
 
+ErtsTimerWheel *erts_create_timer_wheel(int);
+ErtsNextTimeoutRef erts_get_next_timeout_reference(ErtsTimerWheel *);
 void erts_init_time(int time_correction, ErtsTimeWarpMode time_warp_mode);
 void erts_set_timer(ErlTimer*, ErlTimeoutProc, ErlCancelProc, void*, Uint);
 void erts_cancel_timer(ErlTimer*);
-void erts_bump_timers(ErtsMonotonicTime);
-Uint erts_timer_wheel_memory_size(void);
 Uint erts_time_left(ErlTimer *);
+void erts_bump_timers(ErtsTimerWheel *, ErtsMonotonicTime);
+Uint erts_timer_wheel_memory_size(void);
 
 #ifdef DEBUG
 void erts_p_slpq(void);
 #endif
 
-ErtsMonotonicTime erts_check_next_timeout_time(ErtsMonotonicTime);
+ErtsMonotonicTime erts_check_next_timeout_time(ErtsTimerWheel *,
+					       ErtsMonotonicTime);
 
-extern erts_atomic64_t erts_next_timeout__;
-
-ERTS_GLB_INLINE ErtsMonotonicTime erts_next_timeout_time(void);
+ERTS_GLB_INLINE void erts_init_timer(ErlTimer *p);
+ERTS_GLB_INLINE ErtsMonotonicTime erts_next_timeout_time(ErtsNextTimeoutRef);
 
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
 
-ERTS_GLB_INLINE ErtsMonotonicTime erts_next_timeout_time(void)
+ERTS_GLB_INLINE void erts_init_timer(ErlTimer *p)
 {
-    return (ErtsMonotonicTime) erts_atomic64_read_acqb(&erts_next_timeout__);
+    erts_smp_atomic_init_nob(&p->wheel, (erts_aint_t) NULL);
+}
+
+ERTS_GLB_INLINE ErtsMonotonicTime erts_next_timeout_time(ErtsNextTimeoutRef nxt_tmo_ref)
+{
+    return (ErtsMonotonicTime) erts_atomic64_read_acqb((erts_atomic64_t *) nxt_tmo_ref);
 }
 
 #endif /* #if ERTS_GLB_INLINE_INCL_FUNC_DEF */

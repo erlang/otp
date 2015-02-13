@@ -1603,6 +1603,9 @@ ERTS_CIO_EXPORT(erts_check_io)(int do_wait)
     ErtsMonotonicTime timeout_time;
     int poll_ret, i;
     erts_aint_t current_cio_time;
+    ErtsSchedulerData *esdp = erts_get_scheduler_data();
+
+    ASSERT(esdp);
 
  restart:
 
@@ -1613,7 +1616,8 @@ ERTS_CIO_EXPORT(erts_check_io)(int do_wait)
 
     /* Figure out timeout value */
     timeout_time = (do_wait
-		    ? erts_check_next_timeout_time(ERTS_SEC_TO_MONOTONIC(10*60))
+		    ? erts_check_next_timeout_time(esdp->timer_wheel,
+						   ERTS_SEC_TO_MONOTONIC(10*60))
 		    : ERTS_POLL_NO_TIMEOUT /* poll only */);
 
     /*

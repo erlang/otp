@@ -562,6 +562,8 @@ struct ErtsSchedulerData_ {
     Eterm* x_reg_array;		/* X registers */
     FloatDef* f_reg_array;	/* Floating point registers. */
 
+    ErtsTimerWheel *timer_wheel;
+    ErtsNextTimeoutRef next_tmo_ref;
 #ifdef ERTS_SMP
     ethr_tid tid;		/* Thread id */
     struct erl_bits_state erl_bits_state; /* erl_bits.c state */
@@ -2236,6 +2238,8 @@ extern int erts_disable_proc_not_running_opt;
 #endif
 
 void erts_smp_notify_inc_runq(ErtsRunQueue *runq);
+
+void erts_interupt_aux_thread_timed(ErtsMonotonicTime timeout_time);
 
 #ifdef ERTS_SMP
 void erts_sched_finish_poke(ErtsSchedulerSleepInfo *, erts_aint32_t);

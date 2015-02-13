@@ -340,6 +340,7 @@ erl_init(int ncpu,
 			 no_dirty_io_schedulers
 #endif
 			 );
+    erts_late_init_time_sup();
     erts_init_cpu_topology(); /* Must be after init_scheduling */
     erts_init_gc(); /* Must be after init_scheduling */
     erts_alloc_late_init();

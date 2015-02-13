@@ -3777,7 +3777,7 @@ erts_create_smp_ptimer(ErtsSmpPTimer **timer_ref,
     res->timer.timeout_func = timeout_func;
     res->timer.timer_ref = timer_ref;
     res->timer.id = id;
-    res->timer.tm.active = 0; /* MUST be initalized */
+    erts_init_timer(&res->timer.tm);
 
     ASSERT(!*timer_ref);
 
