@@ -426,6 +426,7 @@ static int db_select_count_continue_hash(Process *p, DbTable *tbl,
 
 static int db_select_delete_continue_hash(Process *p, DbTable *tbl,
 					  Eterm continuation, Eterm *ret);
+static int db_take_hash(Process *, DbTable *, Eterm, Eterm *);
 static void db_print_hash(int to,
 			  void *to_arg,
 			  int show,
@@ -536,6 +537,7 @@ DbTableMethod db_hash =
     db_select_delete_continue_hash,
     db_select_count_hash,
     db_select_count_continue_hash,
+    db_take_hash,
     db_delete_all_objects_hash,
     db_free_table_hash,
     db_free_table_continue_hash,
@@ -879,34 +881,45 @@ Ldone:
     return ret;
 }
 
+static Eterm
+get_term_list(Process *p, DbTableHash *tb, Eterm key, HashValue hval,
+              HashDbTerm *b1, HashDbTerm **bend)
+{
+    HashDbTerm* b2 = b1->next;
+    Eterm copy;
+
+    if (tb->common.status & (DB_BAG | DB_DUPLICATE_BAG)) {
+        while (b2 && has_key(tb, b2, key, hval)) {
+            b2 = b2->next;
+        }
+    }
+    copy = build_term_list(p, b1, b2, tb);
+    CHECK_TABLES();
+    if (bend) {
+        *bend = b2;
+    }
+    return copy;
+}
+
 int db_get_hash(Process *p, DbTable *tbl, Eterm key, Eterm *ret)
 {
     DbTableHash *tb = &tbl->hash;
     HashValue hval;
     int ix;
-    HashDbTerm* b1;
+    HashDbTerm* b;
     erts_smp_rwmtx_t* lck;
 
     hval = MAKE_HASH(key);
     lck = RLOCK_HASH(tb,hval);
     ix = hash_to_ix(tb, hval);
-    b1 = BUCKET(tb, ix);
+    b = BUCKET(tb, ix);
 
-    while(b1 != 0) {
-	if (has_live_key(tb,b1,key,hval)) {
-	    HashDbTerm* b2 = b1->next;
-	    Eterm copy;
-
-	    if (tb->common.status & (DB_BAG | DB_DUPLICATE_BAG)) {
-		while(b2 != NULL && has_key(tb,b2,key,hval))
-		    b2 = b2->next;
-	    }
-	    copy = build_term_list(p, b1, b2, tb);
-	    CHECK_TABLES();
-	    *ret = copy;
+    while(b != 0) {
+        if (has_live_key(tb, b, key, hval)) {
+            *ret = get_term_list(p, tb, key, hval, b, NULL);
 	    goto done;
 	}
-	b1 = b1->next;
+        b = b->next;
     }
     *ret = NIL;
 done:
@@ -2069,6 +2082,46 @@ trap:
 
 }
     
+static int db_take_hash(Process *p, DbTable *tbl, Eterm key, Eterm *ret)
+{
+    DbTableHash *tb = &tbl->hash;
+    HashDbTerm **bp, *b;
+    HashValue hval = MAKE_HASH(key);
+    erts_smp_rwmtx_t *lck = WLOCK_HASH(tb, hval);
+    int ix = hash_to_ix(tb, hval);
+    int nitems_diff = 0;
+
+    *ret = NIL;
+    for (bp = &BUCKET(tb, ix), b = *bp; b; bp = &b->next, b = b->next) {
+        if (has_live_key(tb, b, key, hval)) {
+            HashDbTerm *bend;
+
+            *ret = get_term_list(p, tb, key, hval, b, &bend);
+            while (b != bend) {
+                --nitems_diff;
+                if (nitems_diff == -1 && IS_FIXED(tb)) {
+                    /* Pseudo remove (no need to keep several of same key) */
+                    add_fixed_deletion(tb, ix);
+                    bp = &b->next;
+                    b->hvalue = INVALID_HASH;
+                    b = b->next;
+                } else {
+                    *bp = b->next;
+                    free_term(tb, b);
+                    b = *bp;
+                }
+            }
+            break;
+        }
+    }
+    WUNLOCK_HASH(lck);
+    if (nitems_diff) {
+        erts_smp_atomic_add_nob(&tb->common.nitems, nitems_diff);
+        try_shrink(tb);
+    }
+    return DB_ERROR_NONE;
+}
+
 /*
 ** Other interface routines (not directly coupled to one bif)
 */
