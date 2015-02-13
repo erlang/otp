@@ -651,6 +651,8 @@ ERTS_GLB_INLINE void erts_tse_set(erts_tse_t *ep);
 ERTS_GLB_INLINE void erts_tse_reset(erts_tse_t *ep);
 ERTS_GLB_INLINE int erts_tse_wait(erts_tse_t *ep);
 ERTS_GLB_INLINE int erts_tse_swait(erts_tse_t *ep, int spincount);
+ERTS_GLB_INLINE int erts_tse_twait(erts_tse_t *ep, Sint64 tmo);
+ERTS_GLB_INLINE int erts_tse_stwait(erts_tse_t *ep, int spincount, Sint64 tmo);
 ERTS_GLB_INLINE int erts_tse_is_tmp(erts_tse_t *ep);
 ERTS_GLB_INLINE void erts_thr_set_main_status(int, int);
 ERTS_GLB_INLINE int erts_thr_get_main_status(void);
@@ -3468,6 +3470,27 @@ ERTS_GLB_INLINE int erts_tse_swait(erts_tse_t *ep, int spincount)
 {
 #ifdef USE_THREADS
     return ethr_event_swait(&((ethr_ts_event *) ep)->event, spincount);
+#else
+    return ENOTSUP;
+#endif
+}
+
+ERTS_GLB_INLINE int erts_tse_twait(erts_tse_t *ep, Sint64 tmo)
+{
+#ifdef USE_THREADS
+    return ethr_event_twait(&((ethr_ts_event *) ep)->event,
+			    (ethr_sint64_t) tmo);
+#else
+    return ENOTSUP;
+#endif
+}
+
+ERTS_GLB_INLINE int erts_tse_stwait(erts_tse_t *ep, int spincount, Sint64 tmo)
+{
+#ifdef USE_THREADS
+    return ethr_event_stwait(&((ethr_ts_event *) ep)->event,
+			     spincount,
+			     (ethr_sint64_t) tmo);
 #else
     return ENOTSUP;
 #endif

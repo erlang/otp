@@ -1460,6 +1460,50 @@ case "$THR_LIB_NAME" in
 			AC_DEFINE(ETHR_HAVE_PTHREAD_ATTR_SETGUARDSIZE, 1, \
 [Define if you have the pthread_attr_setguardsize function.]))
 
+	if test "x$erl_monotonic_clock_id" != "x"; then
+	  AC_MSG_CHECKING(whether pthread_cond_timedwait() can use the monotonic clock $erl_monotonic_clock_id for timeout)
+	  pthread_cond_timedwait_monotonic=no
+	  AC_TRY_LINK([
+			#if defined(ETHR_NEED_NPTL_PTHREAD_H)
+			#  include <nptl/pthread.h>
+			#elif defined(ETHR_HAVE_MIT_PTHREAD_H)
+			#  include <pthread/mit/pthread.h>
+			#elif defined(ETHR_HAVE_PTHREAD_H)
+			#  include <pthread.h>
+			#endif
+			#ifdef ETHR_TIME_WITH_SYS_TIME
+			#  include <time.h>
+			#  include <sys/time.h>
+			#else
+			#  ifdef ETHR_HAVE_SYS_TIME_H
+			#    include <sys/time.h>
+			#  else
+			#    include <time.h>
+			#  endif
+			#endif
+			#if defined(ETHR_HAVE_MACH_CLOCK_GET_TIME)
+			#  include <mach/clock.h>
+			#  include <mach/mach.h>
+			#endif
+			], 
+			[
+			int res;
+			pthread_condattr_t attr;
+			pthread_cond_t cond;
+			struct timespec cond_timeout;
+			pthread_mutex_t mutex;
+			res = pthread_condattr_init(&attr);
+			res = pthread_condattr_setclock(&attr, ETHR_MONOTONIC_CLOCK_ID);
+			res = pthread_cond_init(&cond, &attr);
+			res = pthread_cond_timedwait(&cond, &mutex, &cond_timeout);
+			],
+			[pthread_cond_timedwait_monotonic=yes])
+	  AC_MSG_RESULT([$pthread_cond_timedwait_monotonic])
+	  if test $pthread_cond_timedwait_monotonic = yes; then
+	    AC_DEFINE(ETHR_HAVE_PTHREAD_COND_TIMEDWAIT_MONOTONIC, [1], [Define if pthread_cond_timedwait() can be used with a monotonic clock])
+	  fi
+	fi
+
 	linux_futex=no
 	AC_MSG_CHECKING([for Linux futexes])
 	AC_TRY_LINK([

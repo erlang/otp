@@ -49,6 +49,8 @@
 #define ETHREAD_IMPL__
 
 #include "ethread.h"
+#undef ETHR_INCLUDE_MONOTONIC_CLOCK__
+#define ETHR_INCLUDE_MONOTONIC_CLOCK__
 #include "ethr_internal.h"
 
 #ifndef ETHR_HAVE_ETHREAD_DEFINES
@@ -232,6 +234,10 @@ ethr_x86_cpuid__(int *eax, int *ebx, int *ecx, int *edx)
 
 #endif /* ETHR_X86_RUNTIME_CONF__ */
 
+#ifdef ETHR_HAVE_ETHR_GET_MONOTONIC_TIME
+static void init_get_monotonic_time(void);
+#endif
+
 /*
  * --------------------------------------------------------------------------
  * Exported functions
@@ -252,6 +258,10 @@ ethr_init(ethr_init_data *id)
     res = ppc_init__();
     if (res != 0)
 	goto error;
+#endif
+
+#ifdef ETHR_HAVE_ETHR_GET_MONOTONIC_TIME
+    init_get_monotonic_time();
 #endif
 
     res = ethr_init_common__(id);
@@ -566,6 +576,144 @@ int ethr_sigwait(const sigset_t *set, int *sig)
 }
 
 #endif /* #if ETHR_HAVE_ETHR_SIG_FUNCS */
+
+#ifdef ETHR_HAVE_ETHR_GET_MONOTONIC_TIME
+
+static int broken_get_monotonic_time;
+
+#if defined(ETHR_HAVE_CLOCK_GETTIME_MONOTONIC)
+#  ifndef ETHR_MONOTONIC_CLOCK_ID
+#    error ETHR_MONOTONIC_CLOCK_ID should have been defined
+#  endif
+
+ethr_sint64_t
+ethr_get_monotonic_time(void)
+{
+    ethr_sint64_t time;
+    struct timespec ts;
+
+    if (broken_get_monotonic_time)
+	return (ethr_sint64_t) 0;
+
+    if (0 != clock_gettime(ETHR_MONOTONIC_CLOCK_ID, &ts))
+	ETHR_FATAL_ERROR__(errno);
+
+    time = (ethr_sint64_t) ts.tv_sec;
+    time *= (ethr_sint64_t) 1000*1000*1000;
+    time += (ethr_sint64_t) ts.tv_nsec;
+    return time;
+}
+
+#elif defined(ETHR_HAVE_MACH_CLOCK_GET_TIME)
+#  ifndef ETHR_MONOTONIC_CLOCK_ID
+#    error ETHR_MONOTONIC_CLOCK_ID should have been defined
+#  endif
+
+ethr_sint64_t
+ethr_get_monotonic_time(void)
+{
+    ethr_sint64_t time;
+    kern_return_t res;
+    clock_serv_t clk_srv;
+    mach_timespec_t time_spec;
+
+    if (broken_get_monotonic_time)
+	return (ethr_sint64_t) 0;
+    
+    errno = EFAULT;
+    host_get_clock_service(mach_host_self(),
+			   ETHR_MONOTONIC_CLOCK_ID,
+			   &clk_srv);
+    res = clock_get_time(clk_srv, &time_spec);
+    if (res != KERN_SUCCESS)
+	ETHR_FATAL_ERROR__(errno);
+    mach_port_deallocate(mach_task_self(), clk_srv);
+
+    time = (ethr_sint64_t) time_spec.tv_sec;
+    time *= (ethr_sint64_t) 1000*1000*1000;
+    time += (ethr_sint64_t) time_spec.tv_nsec;
+    return time;
+}
+
+#elif defined(ETHR_HAVE_GETHRTIME)
+
+ethr_sint64_t
+ethr_get_monotonic_time(void)
+{
+    if (broken_get_monotonic_time)
+	return (ethr_sint64_t) 0;
+    return (ethr_sint64_t) gethrtime();
+}
+
+#else
+#error missing monotonic clock
+#endif
+
+int
+ethr_get_monotonic_time_is_broken(void)
+{
+    return broken_get_monotonic_time;
+}
+
+#include <string.h>
+#include <ctype.h>
+#include <sys/utsname.h>
+
+static void
+init_get_monotonic_time(void)
+{
+    struct utsname uts;
+    int vsn[3];
+    int i;
+    char *c;
+
+    broken_get_monotonic_time = 0;
+    
+    (void) uname(&uts);
+    
+    for (c = uts.sysname; *c; c++) {
+	if (isupper((int) *c))
+	    *c = tolower((int) *c);
+    }
+
+    c = uts.release;
+    for (i = 0; i < sizeof(vsn)/sizeof(int); i++) {
+	if (!isdigit((int) *c))
+	    vsn[i] = 0;
+	else {
+	    char *c2 = c;
+	    do {
+		c2++;
+	    } while (isdigit((int) *c2));
+	    *c2 = '\0';
+	    vsn[i] = atoi(c);
+	    c = c2;
+	    c++;
+	}
+    }
+
+    if (strcmp("linux", uts.sysname) == 0) {
+	if (vsn[0] < 2
+	    || (vsn[0] == 2 && vsn[1] < 6)
+	    || (vsn[0] == 2 && vsn[1] == 6 && vsn[2] < 33)) {
+	    broken_get_monotonic_time = 1;
+	}
+    }
+    else if (strcmp("sunos", uts.sysname) == 0) {
+	if ((vsn[0] < 5
+	     || (vsn[0] == 5 && vsn[1] < 8))
+#if defined(HAVE_SYSCONF) && defined(_SC_NPROCESSORS_CONF)
+	    && sysconf(_SC_NPROCESSORS_CONF) > 1
+#endif
+	    ) {
+	    broken_get_monotonic_time = 1;
+	}
+    }
+
+}
+			
+
+#endif /* ETHR_HAVE_ETHR_GET_MONOTONIC_TIME */
 
 ETHR_IMPL_NORETURN__
 ethr_abort__(void)

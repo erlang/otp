@@ -2806,7 +2806,7 @@ scheduler_wait(int *fcalls, ErtsSchedulerData *esdp, ErtsRunQueue *rq)
 			ASSERT(flgs & ERTS_SSI_FLG_TSE_SLEEPING);
 			ASSERT(flgs & ERTS_SSI_FLG_WAITING);
 			do {
-			    res = erts_tse_wait(ssi->event);
+			    res = erts_tse_twait(ssi->event, -1);
 			} while (res == EINTR);
 		    }
 		}
@@ -6594,7 +6594,7 @@ suspend_scheduler(ErtsSchedulerData *esdp)
 			    int res;
 
 			    do {
-				res = erts_tse_wait(ssi->event);
+				res = erts_tse_twait(ssi->event, -1);
 			    } while (res == EINTR);
 			}
 		    }
@@ -6800,7 +6800,7 @@ suspend_scheduler(ErtsSchedulerData *esdp)
 			    int res;
 
 			    do {
-				res = erts_tse_wait(ssi->event);
+				res = erts_tse_twait(ssi->event, -1);
 			    } while (res == EINTR);
 			}
 		    }
