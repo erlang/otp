@@ -863,7 +863,7 @@ mnesia:create_table(person,
      {attributes, record_info(fields,person)}]).
         </code>
         <p>The specification of <c>index</c> and <c>attributes</c> may be
-          hard coded as <c>{index, [2]}</c> and 
+          hard coded as <c>{index, [4]}</c> and
           <c>{attributes, [name, age, address, salary, children]}</c> 
           respectively.
           </p>
