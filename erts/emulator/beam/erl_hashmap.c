@@ -48,10 +48,12 @@
 #define DECL_AM(S) Eterm AM_ ## S = am_atom_put(#S, sizeof(#S) - 1)
 #endif
 
+#define hashmap_make_hash(Key) make_hash_vsn(Key, 3)
+
 #define hashmap_restore_hash(Heap,Lvl,Key) \
-    ((Lvl) < 8) ? make_hash2(Key) >> (4*(Lvl)) : make_hash2(CONS(Heap, make_small(Lvl), (Key))) >> (4*((Lvl) & 7))
+    ((Lvl) < 8) ? hashmap_make_hash(Key) >> (4*(Lvl)) : hashmap_make_hash(CONS(Heap, make_small(Lvl), (Key))) >> (4*((Lvl) & 7))
 #define hashmap_shift_hash(Heap,Hx,Lvl,Key) \
-    ((++(Lvl)) & 7) ? (Hx) >> 4 : make_hash2(CONS(Heap, make_small(Lvl), Key))
+    ((++(Lvl)) & 7) ? (Hx) >> 4 : hashmap_make_hash(CONS(Heap, make_small(Lvl), Key))
 
 #if 0
 static char *format_binary(Uint64 x, char *b) {
@@ -93,7 +95,7 @@ BIF_RETTYPE hashmap_new_0(BIF_ALIST_0) {
 
 BIF_RETTYPE hashmap_put_3(BIF_ALIST_3) {
     if (is_hashmap(BIF_ARG_3)) {
-	Uint32 hx = make_hash2(BIF_ARG_1);
+	Uint32 hx = hashmap_make_hash(BIF_ARG_1);
 	Eterm map;
 
 	map = hashmap_insert(BIF_P, hx, BIF_ARG_1, BIF_ARG_2, BIF_ARG_3, 0);
@@ -107,7 +109,7 @@ BIF_RETTYPE hashmap_put_3(BIF_ALIST_3) {
 
 BIF_RETTYPE hashmap_update_3(BIF_ALIST_3) {
     if (is_hashmap(BIF_ARG_3)) {
-	Uint32 hx = make_hash2(BIF_ARG_1);
+	Uint32 hx = hashmap_make_hash(BIF_ARG_1);
 	Eterm map;
 
 	map = hashmap_insert(BIF_P, hx, BIF_ARG_1, BIF_ARG_2, BIF_ARG_3, 1);
@@ -132,7 +134,7 @@ BIF_RETTYPE hashmap_to_list_1(BIF_ALIST_1) {
 BIF_RETTYPE hashmap_get_2(BIF_ALIST_2) {
     if (is_hashmap(BIF_ARG_2)) {
 	const Eterm *value;
-	Uint32 hx = make_hash2(BIF_ARG_1);
+	Uint32 hx = hashmap_make_hash(BIF_ARG_1);
 
 	if ((value = hashmap_get(hx, BIF_ARG_1, BIF_ARG_2)) != NULL) {
 	    BIF_RET(*value);
@@ -147,7 +149,7 @@ BIF_RETTYPE hashmap_find_2(BIF_ALIST_2) {
     if (is_hashmap(BIF_ARG_2)) {
 	Eterm *hp, res;
 	const Eterm *value;
-	Uint32 hx = make_hash2(BIF_ARG_1);
+	Uint32 hx = hashmap_make_hash(BIF_ARG_1);
 
 	if ((value = hashmap_get(hx, BIF_ARG_1, BIF_ARG_2)) != NULL) {
 	    hp    = HAlloc(BIF_P, 3);
@@ -167,7 +169,7 @@ BIF_RETTYPE hashmap_find_2(BIF_ALIST_2) {
 
 BIF_RETTYPE hashmap_remove_2(BIF_ALIST_2) {
     if (is_hashmap(BIF_ARG_2)) {
-	Uint32 hx = make_hash2(BIF_ARG_1);
+	Uint32 hx = hashmap_make_hash(BIF_ARG_1);
 
 	BIF_RET(hashmap_delete(BIF_P, hx, BIF_ARG_1, BIF_ARG_2));
     }
@@ -204,7 +206,7 @@ BIF_RETTYPE is_hashmap_1(BIF_ALIST_1) {
 
 BIF_RETTYPE hashmap_is_key_2(BIF_ALIST_2) {
     if (is_hashmap(BIF_ARG_1)) {
-	Uint32 hx = make_hash2(BIF_ARG_1);
+	Uint32 hx = hashmap_make_hash(BIF_ARG_1);
 
 	BIF_RET(hashmap_get(hx, BIF_ARG_1, BIF_ARG_2) ? am_true : am_false);
     }
