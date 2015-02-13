@@ -65,14 +65,8 @@ open_win(Win, Pos, SFile, Str, What) ->
                                 {style,What}]),
     case wxFileDialog:showModal(FD) of
         ?wxID_OK ->
-            case wxFileDialog:getPaths(FD) of
-                [NewFile] ->
-                    wxFileDialog:destroy(FD),
-                    {ok, NewFile};
-                _ ->
-                    wxFileDialog:destroy(FD),
-                    cancel
-            end;
+            NewFile = wxFileDialog:getPath(FD),
+	    {ok, NewFile};
         _ ->
             wxFileDialog:destroy(FD),
             cancel

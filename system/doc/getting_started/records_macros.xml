@@ -97,7 +97,7 @@
 %%%     with a suitable error message.
 
 %%% logoff()
-%%%     Logs off anybody at at node
+%%%     Logs off anybody at that node
 
 %%% message(ToName, Message)
 %%%     sends Message to ToName. Error messages if the user of this 
@@ -284,7 +284,7 @@ server_transfer(From, Name, To, Message, User_List) ->
       the record is referred to. If you leave out a field when creating
       a record, it will get the value of the atom undefined. (*manual*)</p>
     <p>Pattern matching with records is very similar to creating
-      records. For example inside a <c>case</c> or <c>receive</c>:</p>
+      records. For example, inside a <c>case</c> or <c>receive</c>:</p>
     <code type="none">
 #message_to{to_name=ToName, message=Message} -></code>
     <p>is the same as:</p>

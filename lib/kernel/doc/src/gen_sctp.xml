@@ -961,7 +961,7 @@
 <pre>  #sctp_paddrinfo{
         assoc_id  = assoc_id(),
         address   = {IP, Port},
-        state     = inactive | active,
+        state     = inactive | active | unconfirmed,
         cwnd      = integer(),
         srtt      = integer(),
         rto       = integer(),

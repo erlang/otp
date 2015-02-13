@@ -151,9 +151,9 @@ If a new item is inserted with the same key as
       </item>
       <item>
         <p><c>local_content</c> When an application requires 
-          tables whose contents is local to each node,
+          tables whose contents are local to each node,
           <c>local_content</c> tables may be used. The name of the
-          table is known to all Mnesia nodes, but its contents is
+          table is known to all Mnesia nodes, but its contents are
           unique on each node. This means that access to such a table
           must be done locally.  Set the <c>local_content</c> field to
           <c>true</c> if you want to enable the <c>local_content</c>
@@ -579,7 +579,7 @@ mnesia:add_table_index(person, age)
       <desc>
         <p>The tables are backed up to external media using the backup
           module <c>BackupMod</c>. Tables with the local contents
-          property is being backed up as they exist on the current
+          property are backed up as they exist on the current
           node.  <c>BackupMod</c> is the default backup callback
           module obtained by
           <c>mnesia:system_info(backup_module)</c>. See the User's
@@ -863,7 +863,7 @@ mnesia:create_table(person,
      {attributes, record_info(fields,person)}]).
         </code>
         <p>The specification of <c>index</c> and <c>attributes</c> may be
-          hard coded as <c>{index, [2]}</c> and 
+          hard coded as <c>{index, [4]}</c> and
           <c>{attributes, [name, age, address, salary, children]}</c> 
           respectively.
           </p>
@@ -2188,12 +2188,13 @@ mnesia:create_table(employee,
       </desc>
     </func>
     <func>
-      <name>subscribe(EventCategory)</name>
+      <name>subscribe(EventCategory) -> {ok, Node} | {error, Reason} </name>
       <fsummary>Subscribe to events of type <c>EventCategory</c>.</fsummary>
       <desc>
         <p>Ensures that a copy of all events of type
           <c>EventCategory</c> are sent to the caller.  The event
-          types available are described in the Mnesia User's Guide.</p>
+          types available are described in the Mnesia User's Guide at <seealso marker="Mnesia_chap5#event_handling">Mnesia Event Handling</seealso>.</p>
+        <p><c>Node</c> is the local node. For table events to be subscribed, mnesia must have a readable local copy of the table on the node.</p>        
       </desc>
     </func>
     <func>
@@ -2861,11 +2862,12 @@ raise(Name, Amount) ->
       </desc>
     </func>
     <func>
-      <name>unsubscribe(EventCategory)</name>
+      <name>unsubscribe(EventCategory) -> {ok, Node} | {error, Reason} </name>
       <fsummary>Subscribe to events of type <c>EventCategory</c>.</fsummary>
       <desc>
         <p>Stops sending events of type
           <c>EventCategory</c> to the caller.</p>
+        <p><c>Node</c> is the local node.</p>
       </desc>
     </func>
     <func>

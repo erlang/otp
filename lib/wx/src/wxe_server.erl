@@ -223,14 +223,18 @@ handle_connect(Object, #evh{handler=undefined, cb=Callback} = EvData0,
 	Error ->
 	    {reply, Error, State0}
     end;
-handle_connect(Object, EvData=#evh{handler=Handler}, 
+handle_connect(Object, EvData=#evh{handler=Handler},
 	       From, State0 = #state{users=Users}) ->
     %% Correct process is already listening just register it
     put(Handler, From),
-    User0 = #user{events=Listeners0} = gb_trees:get(From, Users),
-    User  = User0#user{events=[{Object,EvData}|Listeners0]},
-    State = State0#state{users=gb_trees:update(From, User, Users)},
-    {reply, ok, State}.
+    case gb_trees:lookup(From, Users) of
+	{value, User0 = #user{events=Listeners0}} ->
+	    User  = User0#user{events=[{Object,EvData}|Listeners0]},
+	    State = State0#state{users=gb_trees:update(From, User, Users)},
+	    {reply, ok, State};
+	none -> %% We are closing up the shop
+	    {reply, {error, terminating}, State0}
+    end.
 
 invoke_cb({{Ev=#wx{}, Ref=#wx_ref{}}, FunId,_}, _S) ->
     %% Event callbacks

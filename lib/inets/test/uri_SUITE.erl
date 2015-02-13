@@ -46,6 +46,7 @@ all() ->
      userinfo,
      scheme,
      queries,
+     fragments,
      escaped,
      hexed_query
     ].
@@ -104,6 +105,42 @@ scheme(Config) when is_list(Config) ->
 queries(Config) when is_list(Config) ->
     {ok, {http,[],"localhost",8888,"/foobar.html","?foo=bar&foobar=42"}} =
 	http_uri:parse("http://localhost:8888/foobar.html?foo=bar&foobar=42").
+
+fragments(Config) when is_list(Config) ->
+    {ok, {http,[],"localhost",80,"/",""}} =
+        http_uri:parse("http://localhost#fragment"),
+    {ok, {http,[],"localhost",80,"/path",""}} =
+        http_uri:parse("http://localhost/path#fragment"),
+    {ok, {http,[],"localhost",80,"/","?query"}} =
+        http_uri:parse("http://localhost?query#fragment"),
+    {ok, {http,[],"localhost",80,"/path","?query"}} =
+        http_uri:parse("http://localhost/path?query#fragment"),
+    {ok, {http,[],"localhost",80,"/","","#fragment"}} =
+        http_uri:parse("http://localhost#fragment", [{fragment,true}]),
+    {ok, {http,[],"localhost",80,"/path","","#fragment"}} =
+        http_uri:parse("http://localhost/path#fragment", [{fragment,true}]),
+    {ok, {http,[],"localhost",80,"/","?query","#fragment"}} =
+        http_uri:parse("http://localhost?query#fragment", [{fragment,true}]),
+    {ok, {http,[],"localhost",80,"/path","?query","#fragment"}} =
+        http_uri:parse("http://localhost/path?query#fragment",
+                       [{fragment,true}]),
+    {ok, {http,[],"localhost",80,"/","",""}} =
+        http_uri:parse("http://localhost", [{fragment,true}]),
+    {ok, {http,[],"localhost",80,"/path","",""}} =
+        http_uri:parse("http://localhost/path", [{fragment,true}]),
+    {ok, {http,[],"localhost",80,"/","?query",""}} =
+        http_uri:parse("http://localhost?query", [{fragment,true}]),
+    {ok, {http,[],"localhost",80,"/path","?query",""}} =
+        http_uri:parse("http://localhost/path?query", [{fragment,true}]),
+    {ok, {http,[],"localhost",80,"/","","#"}} =
+        http_uri:parse("http://localhost#", [{fragment,true}]),
+    {ok, {http,[],"localhost",80,"/path","","#"}} =
+        http_uri:parse("http://localhost/path#", [{fragment,true}]),
+    {ok, {http,[],"localhost",80,"/","?query","#"}} =
+        http_uri:parse("http://localhost?query#", [{fragment,true}]),
+    {ok, {http,[],"localhost",80,"/path","?query","#"}} =
+        http_uri:parse("http://localhost/path?query#", [{fragment,true}]),
+    ok.
 
 escaped(Config) when is_list(Config) ->
        {ok, {http,[],"www.somedomain.com",80,"/%2Eabc",[]}} =

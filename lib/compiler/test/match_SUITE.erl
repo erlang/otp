@@ -22,7 +22,7 @@
 	 init_per_group/2,end_per_group/2,
 	 pmatch/1,mixed/1,aliases/1,match_in_call/1,
 	 untuplify/1,shortcut_boolean/1,letify_guard/1,
-	 selectify/1,underscore/1,coverage/1]).
+	 selectify/1,underscore/1,match_map/1,coverage/1]).
 	 
 -include_lib("test_server/include/test_server.hrl").
 
@@ -35,7 +35,8 @@ all() ->
 groups() -> 
     [{p,test_lib:parallel(),
       [pmatch,mixed,aliases,match_in_call,untuplify,
-       shortcut_boolean,letify_guard,selectify,underscore,coverage]}].
+       shortcut_boolean,letify_guard,selectify,
+       underscore,match_map,coverage]}].
 
 
 init_per_suite(Config) ->
@@ -399,6 +400,24 @@ underscore(Config) when is_list(Config) ->
     end,
     _ = is_list(Config),
     ok.
+
+-record(s, {map,t}).
+
+match_map(Config) when is_list(Config) ->
+    Map = #{key=>{x,y},ignore=>anything},
+    #s{map=Map,t={x,y}} = do_match_map(#s{map=Map}),
+    {a,#{k:={a,b,c}}} = do_match_map_2(#{k=>{a,b,c}}),
+    ok.
+
+do_match_map(#s{map=#{key:=Val}}=S) ->
+    %% Would crash with a 'badarg' exception.
+    S#s{t=Val}.
+
+do_match_map_2(Map) ->
+    case {a,Map} of
+	{a,#{k:=_}}=Tuple ->
+	    Tuple
+    end.
 
 coverage(Config) when is_list(Config) ->
     %% Cover beam_dead.

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -205,13 +205,13 @@ load("MaxURISize " ++ MaxHeaderSize, []) ->
                           " is an invalid number of MaxHeaderSize")}
     end;
 
-load("MaxBodySize " ++ MaxBodySize, []) ->
-    case make_integer(MaxBodySize) of
+load("MaxContentLength " ++ Max, []) ->
+    case make_integer(Max) of
         {ok, Integer} ->
-            {ok, [], {max_body_size,Integer}};
+            {ok, [], {max_content_length, Integer}};
         {error, _} ->
-            {error, ?NICE(clean(MaxBodySize) ++
-                          " is an invalid number of MaxBodySize")}
+            {error, ?NICE(clean(Max) ++
+			      " is an invalid number of MaxContentLength")}
     end;
 
 load("ServerName " ++ ServerName, []) ->
@@ -337,7 +337,7 @@ load("MaxKeepAliveRequest " ++  MaxRequests, []) ->
 load("KeepAliveTimeout " ++ Timeout, []) ->
     case make_integer(Timeout) of
 	{ok, Integer} ->
-	    {ok, [], {keep_alive_timeout, Integer*1000}};
+	    {ok, [], {keep_alive_timeout, Integer}};
 	{error, _} ->
 	    {error, ?NICE(clean(Timeout)++" is an invalid KeepAliveTimeout")}
     end;
@@ -569,6 +569,12 @@ validate_config_params([{max_body_size, Value} | Rest])
 validate_config_params([{max_body_size, Value} | _]) -> 
     throw({max_body_size, Value});
 
+validate_config_params([{max_content_length, Value} | Rest]) 
+  when is_integer(Value) andalso (Value > 0) ->
+    validate_config_params(Rest);
+validate_config_params([{max_content_length, Value} | _]) -> 
+    throw({max_content_length, Value});
+
 validate_config_params([{server_name, Value} | Rest])  
   when is_list(Value) ->
     validate_config_params(Rest);
@@ -635,7 +641,7 @@ validate_config_params([{max_keep_alive_request, Value} | Rest])
   when is_integer(Value) andalso (Value > 0) ->
     validate_config_params(Rest);
 validate_config_params([{max_keep_alive_request, Value} | _]) ->
-    throw({max_header_size, Value});
+    throw({max_keep_alive_request, Value});
 
 validate_config_params([{keep_alive_timeout, Value} | Rest]) 
   when is_integer(Value) andalso (Value >= 0) ->
@@ -799,7 +805,7 @@ store({server_tokens, ServerTokens} = Entry, _ConfigList) ->
     Server = server(ServerTokens), 
     {ok, [Entry, {server, Server}]};
 store({keep_alive_timeout, KeepAliveTimeout}, _ConfigList) ->
-    {ok, {keep_alive_timeout, KeepAliveTimeout * 1000}};
+    {ok, {keep_alive_timeout, KeepAliveTimeout}};
 store(ConfigListEntry, _ConfigList) ->
     {ok, ConfigListEntry}.
 

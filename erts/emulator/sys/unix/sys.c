@@ -202,8 +202,6 @@ static erts_smp_atomic_t sys_misc_mem_sz;
 #if defined(ERTS_SMP)
 static void smp_sig_notify(char c);
 static int sig_notify_fds[2] = {-1, -1};
-#elif defined(USE_THREADS)
-static int async_fd[2];
 #endif
 
 #if CHLDWTHR || defined(ERTS_SMP)
@@ -245,6 +243,8 @@ static void note_child_death(int, int);
 #if CHLDWTHR
 static void* child_waiter(void *);
 #endif
+
+static int crashdump_companion_cube_fd = -1;
 
 /********************* General functions ****************************/
 
@@ -575,6 +575,14 @@ erts_sys_pre_init(void)
       close(fd);
     }
 
+    /* We need a file descriptor to close in the crashdump creation.
+     * We close this one to be sure we can get a fd for our real file ...
+     * so, we create one here ... a stone to carry all the way home.
+     */
+
+    crashdump_companion_cube_fd = open("/dev/null", O_RDONLY);
+
+    /* don't lose it, there will be cake */
 }
 
 void
@@ -719,14 +727,13 @@ static ERTS_INLINE int
 prepare_crash_dump(int secs)
 {
 #define NUFBUF (3)
-    int i, max;
+    int i;
     char env[21]; /* enough to hold any 64-bit integer */
     size_t envsz;
     DeclareTmpHeapNoproc(heap,NUFBUF);
     Port *heart_port;
     Eterm *hp = heap;
     Eterm list = NIL;
-    int heart_fd[2] = {-1,-1};
     int has_heart = 0;
 
     UseTmpHeapNoproc(NUFBUF);
@@ -749,43 +756,22 @@ prepare_crash_dump(int secs)
 	alarm((unsigned int)secs);
     }
 
+    /* close all viable sockets via emergency close callbacks.
+     * Specifically we want to close epmd sockets.
+     */
+
+    erts_emergency_close_ports();
+
     if (heart_port) {
-	/* hearts input fd
-	 * We "know" drv_data is the in_fd since the port is started with read|write
-	 */
-	heart_fd[0] = (int)heart_port->drv_data;
-	heart_fd[1] = (int)driver_data[heart_fd[0]].ofd;
-	has_heart   = 1;
-
+	has_heart = 1;
 	list = CONS(hp, make_small(8), list); hp += 2;
-
 	/* send to heart port, CMD = 8, i.e. prepare crash dump =o */
 	erts_port_output(NULL, ERTS_PORT_SIG_FLG_FORCE_IMM_CALL, heart_port,
 			 heart_port->common.id, list, NULL);
     }
 
-    /* Make sure we unregister at epmd (unknown fd) and get at least
-       one free filedescriptor (for erl_crash.dump) */
-
-    max = max_files;
-    if (max < 1024)
-	max = 1024;
-    for (i = 3; i < max; i++) {
-#if defined(ERTS_SMP)
-	/* We don't want to close the signal notification pipe... */
-	if (i == sig_notify_fds[0] || i == sig_notify_fds[1])
-	    continue;
-#elif defined(USE_THREADS)
-	/* We don't want to close the async notification pipe... */
-	if (i == async_fd[0] || i == async_fd[1])
-	    continue;
-#endif
-	/* We don't want to close our heart yet ... */
-	if (i == heart_fd[0] || i == heart_fd[1])
-	    continue;
-
-	close(i);
-    }
+    /* Make sure we have a fd for our crashdump file. */
+    close(crashdump_companion_cube_fd);
 
     envsz = sizeof(env);
     i = erts_sys_getenv__("ERL_CRASH_DUMP_NICE", env, &envsz);
@@ -1574,9 +1560,13 @@ static ErlDrvData spawn_start(ErlDrvPort port_num, char* name, SysDriverOpts* op
 			goto child_error;
 	    }
 
+#if defined(HAVE_CLOSEFROM)
+	    closefrom(opts->use_stdio ? 3 : 5);
+#else
 	    for (i = opts->use_stdio ? 3 : 5; i < max_files; i++)
 		(void) close(i);
-	    
+#endif
+
 	    if (opts->wd && chdir(opts->wd) < 0)
 		goto child_error;
 

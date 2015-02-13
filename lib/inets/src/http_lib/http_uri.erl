@@ -90,8 +90,8 @@ parse(AbsURI, Opts) ->
 	    {error, Reason};
 	{Scheme, DefaultPort, Rest} ->
 	    case (catch parse_uri_rest(Scheme, DefaultPort, Rest, Opts)) of
-		{ok, {UserInfo, Host, Port, Path, Query}} ->
-		    {ok, {Scheme, UserInfo, Host, Port, Path, Query}};
+                {ok, Result} ->
+                    {ok, Result};
 		{error, Reason} ->
 		    {error, {Reason, Scheme, AbsURI}};
 		_  ->
@@ -148,27 +148,22 @@ parse_scheme(AbsURI, Opts) ->
     end.
 
 parse_uri_rest(Scheme, DefaultPort, "//" ++ URIPart, Opts) ->
-    {Authority, PathQuery} =
-	case split_uri(URIPart, "/", URIPart, 1, 0) of
-	    Split = {_, _} ->
-		Split;
-	    URIPart ->
-		case split_uri(URIPart, "\\?", URIPart, 1, 0) of
-		    Split = {_, _} ->
-			Split;
-		    URIPart ->
-			{URIPart,""}
-		end
-	end,
+    {Authority, PathQueryFragment} =
+        split_uri(URIPart, "[/?#]", {URIPart, ""}, 1, 0),
+    {RawPath, QueryFragment} =
+        split_uri(PathQueryFragment, "[?#]", {PathQueryFragment, ""}, 1, 0),
+    {Query, Fragment} =
+        split_uri(QueryFragment, "#", {QueryFragment, ""}, 1, 0),
     {UserInfo, HostPort} = split_uri(Authority, "@", {"", Authority}, 1, 1),
     {Host, Port}         = parse_host_port(Scheme, DefaultPort, HostPort, Opts),
-    {Path, Query}        = parse_path_query(PathQuery),
-    {ok, {UserInfo, Host, Port, Path, Query}}.
+    Path                 = path(RawPath),
+    case lists:keyfind(fragment, 1, Opts) of
+        {fragment, true} ->
+            {ok, {Scheme, UserInfo, Host, Port, Path, Query, Fragment}};
+        _ ->
+            {ok, {Scheme, UserInfo, Host, Port, Path, Query}}
+    end.
 
-
-parse_path_query(PathQuery) ->
-    {Path, Query} =  split_uri(PathQuery, "\\?", {PathQuery, ""}, 1, 0),
-    {path(Path), Query}.
 
 %% In this version of the function, we no longer need 
 %% the Scheme argument, but just in case...

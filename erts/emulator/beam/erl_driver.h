@@ -133,7 +133,7 @@ typedef struct {
 
 #define ERL_DRV_EXTENDED_MARKER		(0xfeeeeeed)
 #define ERL_DRV_EXTENDED_MAJOR_VERSION	3
-#define ERL_DRV_EXTENDED_MINOR_VERSION	1
+#define ERL_DRV_EXTENDED_MINOR_VERSION	2
 
 /*
  * The emulator will refuse to load a driver with a major version
@@ -361,6 +361,9 @@ typedef struct erl_drv_entry {
     	                        /* Called on behalf of driver_select when
 				   it is safe to release 'event'. A typical
 				   unix driver would call close(event) */
+    void (*emergency_close)(ErlDrvData drv_data);
+                                /* called when the port is closed abruptly.
+				   specifically when erl_crash_dump is called. */
     /* When adding entries here, dont forget to pad in obsolete/driver.h */
 } ErlDrvEntry;
 

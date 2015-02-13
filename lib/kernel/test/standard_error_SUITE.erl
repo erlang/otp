@@ -1,7 +1,7 @@
-%% -*- erlang -*-
+%%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -15,11 +15,24 @@
 %% under the License.
 %%
 %% %CopyrightEnd%
-{"3.1",
- %% Up from - max one major revision back
- [{<<"3\\.0(\\.[0-9]+)*">>,[restart_new_emulator]}, %% R17
-  {<<"2\\.16(\\.[0-9]+)*">>,[restart_new_emulator]}],%% R16
- %% Down to - max one major revision back
- [{<<"3\\.0(\\.[0-9]+)*">>,[restart_new_emulator]}, %% R17
-  {<<"2\\.16(\\.[0-9]+)*">>,[restart_new_emulator]}] %% R16
-}.
+%%
+
+-module(standard_error_SUITE).
+
+-export([all/0,suite/0]).
+-export([badarg/1,getopts/1]).
+
+suite() ->
+    [{ct_hooks,[ts_install_cth]}].
+
+all() -> 
+    [badarg,getopts].
+
+badarg(Config) when is_list(Config) ->
+    {'EXIT',{badarg,_}} = (catch io:put_chars(standard_error, [oops])),
+    true = erlang:is_process_alive(whereis(standard_error)),
+    ok.
+
+getopts(Config) when is_list(Config) ->
+    [{encoding,latin1}] = io:getopts(standard_error),
+    ok.

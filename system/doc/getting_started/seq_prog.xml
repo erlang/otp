@@ -62,7 +62,7 @@ Eshell V5.9.1  (abort with ^G)
       (See the chapter <seealso marker="erts:tty">"tty - A command line interface"</seealso> in ERTS User's Guide).</p>
     <p>(Note: you will find a lot of line numbers given by the shell
       out of sequence in this tutorial as it was written and the code
-      tested in several sessions).</p>
+      tested in several sessions.)</p>
     <p>Now let's try a more complex calculation.</p>
     <pre>
 2> <input>(42 + 77) * 66 / 3.</input>
@@ -115,7 +115,7 @@ double(X) ->
       entered and there will also be error messages to give you some
       idea as to what has gone wrong so you can change what you have
       written and try again.</p>
-    <p>Now lets run the program.</p>
+    <p>Now let's run the program.</p>
     <pre>
 4> <input>tut:double(10).</input>
 20</pre>
@@ -208,7 +208,7 @@ mult(X, Y) ->
       called variables. Variables must start with a capital letter
       (see the chapter
       <seealso marker="doc/reference_manual:expressions">"Variables"</seealso>
-      in the Erlang Reference Manual). Examples of variable could be
+      in the Erlang Reference Manual). Examples of variables could be
       <c>Number</c>, <c>ShoeSize</c>, <c>Age</c> etc.</p>
   </section>
 
@@ -271,7 +271,7 @@ convert(N, centimeter) ->
       Consider:</p>
     <code type="none">
 tut2:convert(3, inch).</code>
-    <p>Does this mean that 3 is in inches? or that 3 is in centimeters
+    <p>Does this mean that 3 is in inches? Or that 3 is in centimeters
       and we want to convert it to inches? So Erlang has a way to group
       things together to make things more understandable. We call these
       <em>tuples</em>. Tuples are surrounded by "{" and "}".</p>
@@ -309,7 +309,7 @@ convert_length({inch, Y}) ->
     <p>We have shown tuples with two parts above, but tuples can have
       as many parts as we want and contain any valid Erlang
       <em>term</em>. For example, to represent the temperature of
-      various cities of the world we could write</p>
+      various cities of the world we could write:</p>
     <code type="none">
 {moscow, {c, -10}}
 {cape_town, {f, 70}}
@@ -325,7 +325,7 @@ convert_length({inch, Y}) ->
     <title>Lists</title>
     <p>Whereas tuples group things together, we also want to be able to
       represent lists of things. Lists in Erlang are surrounded by "["
-      and "]". For example a list of the temperatures of various cities
+      and "]". For example, a list of the temperatures of various cities
       in the world could be:</p>
     <code type="none">
 [{moscow, {c, -10}}, {cape_town, {f, 70}}, {stockholm, {c, -4}},
@@ -345,7 +345,7 @@ convert_length({inch, Y}) ->
 [2,3,4,5]</pre>
     <p>We use | to separate the first elements of the list from
       the rest of the list. (<c>First</c> has got value 1 and
-      <c>TheRest</c> value [2,3,4,5]).</p>
+      <c>TheRest</c> value [2,3,4,5].)</p>
     <p>Another example:</p>
     <pre>
 20> <input>[E1, E2 | R] = [1,2,3,4,5,6,7].</input>
@@ -403,7 +403,7 @@ list_length([First | Rest]) ->
       the remaining elements <c>Rest</c> is 1 + the length of
       <c>Rest</c>.</p>
     <p>(Advanced readers only: This is not tail recursive, there is a
-      better way to write this function).</p>
+      better way to write this function.)</p>
     <p>In general we can say we use tuples where we would use "records"
       or "structs" in other languages and we use lists when we want to
       represent things which have varying sizes, (i.e. where we would
@@ -573,10 +573,9 @@ http://www.erlang.org/doc/r9b/doc/index.html</code>
   <section>
     <title>Writing Output to a Terminal</title>
     <p>It's nice to be able to do formatted output in these example, so
-      the next example shows a simple way to use to use
-      the <c>io:format</c> function. Of course, just like all other
-      exported functions, you can test the <c>io:format</c> function in
-      the shell:</p>
+      the next example shows a simple way to use the <c>io:format</c>
+      function. Of course, just like all other exported functions, you
+      can test the <c>io:format</c> function in the shell:</p>
     <pre>
 31> <input>io:format("hello world~n", []).</input>
 hello world
@@ -673,7 +672,7 @@ ok</pre>
     <p>Now we call <c>format_temps(Rest)</c> with the rest of the list
       as an argument. This way of doing things is similar to the loop
       constructs in other languages. (Yes, this is recursion, but don't
-      let that worry you). So the same <c>format_temps</c> function is
+      let that worry you.) So the same <c>format_temps</c> function is
       called again, this time <c>City</c> gets the value
       <c>{cape_town,{f,70}}</c> and we repeat the same procedure as
       before. We go on doing this until the list becomes empty, i.e. [],
@@ -737,12 +736,12 @@ list_max([Head|Rest], Result_so_far)  ->
       the next part of the function.</p>
     <p>Some useful operators in guards are, &lt; less than, &gt;
       greater than, == equal, &gt;= greater or equal, =&lt; less or
-      equal, /= not equal. (see the chapter
-      <seealso marker="doc/reference_manual:expressions">"Guard Sequences"</seealso> in the Erlang Reference Manual).</p>
+      equal, /= not equal. (See the chapter
+      <seealso marker="doc/reference_manual:expressions">"Guard Sequences"</seealso> in the Erlang Reference Manual.)</p>
     <p>To change the above program to one which works out the minimum
       value of the element in a list, all we would need to do is to
       write &lt; instead of &gt;. (But it would be wise to change
-      the name of the function to <c>list_min</c> :-).</p>
+      the name of the function to <c>list_min</c> :-).)</p>
     <p>Remember that I mentioned earlier that a variable could only be
       given a value once in its scope? In the above we see, for example,
       that <c>Result_so_far</c> has been given several values. This is
@@ -846,7 +845,7 @@ reverse([], [3,2,1]) =>
       write a list manipulating function it is a good idea to check
       that one isn't already written for you. (see
       <seealso marker="stdlib:lists">lists(3)</seealso>).</p>
-    <p>Now lets get back to the cities and temperatures, but take a more
+    <p>Now let's get back to the cities and temperatures, but take a more
       structured approach this time. First let's convert the whole list
       to Celsius as follows and test the function:</p>
     <code type="none">
@@ -890,7 +889,7 @@ format_temps(List_of_cities) ->
     <code type="none">
 [City | convert_list_to_c(Rest)];</code>
     <p>We go on doing this until we get to the end of the list (i.e.
-      the list is empty:</p>
+      the list is empty):</p>
     <code type="none">
 convert_list_to_c([]) ->
     [].</code>
@@ -1187,11 +1186,11 @@ trunc(5.0) = 5
     <pre>
 74> <input>2004 rem 400.</input>
 4</pre>
-    <p>so instead of writing</p>
+    <p>so instead of writing:</p>
     <code type="none">
 trunc(Year / 400) * 400 == Year ->
     leap;</code>
-    <p>we could write</p>
+    <p>we could write:</p>
     <code type="none">
 Year rem 400 == 0 ->
     leap;</code>
@@ -1201,7 +1200,7 @@ Year rem 400 == 0 ->
       (see the chapter
       <seealso marker="doc/reference_manual:expressions">"Guard Sequences"</seealso> in the Erlang Reference Manual) (Aside for
       advanced readers: This is to ensure that guards don't have side
-      effects). Let's play with a few of these functions in the shell:</p>
+      effects.) Let's play with a few of these functions in the shell:</p>
     <pre>
 75> <input>trunc(5.6).</input>
 5
@@ -1268,7 +1267,7 @@ map(Fun, []) ->
 #Fun&lt;erl_eval.5.123085357&gt;
 89> <input>lists:map(Add_3, [1,2,3]).</input>
 [4,5,6]</pre>
-    <p>Now lets print out the temperatures in a list of cities (yet
+    <p>Now let's print out the temperatures in a list of cities (yet
       again):</p>
     <pre>
 90> <input>Print_City = fun({City, {X, Temp}}) -> io:format("~-15w ~w ~w~n",</input>

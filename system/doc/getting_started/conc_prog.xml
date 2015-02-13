@@ -95,7 +95,7 @@ goodbye</pre>
       the second a "goodbye", the first another "hello" and so forth.
       But where did the &lt;0.63.0&gt; come from? The return value of a
       function is of course the return value of the last "thing" in
-      the function. The last thing in the function <c>start</c> is</p>
+      the function. The last thing in the function <c>start</c> is:</p>
     <code type="none">
 spawn(tut14, say_something, [goodbye, 3]).</code>
     <p><c>spawn</c> returns a <em>process identifier</em>, or
@@ -166,11 +166,11 @@ Pong_PID = spawn(tut15, pong, [])</code>
       <c>start</c> now creates another process "ping".</p>
     <code type="none">
 spawn(tut15, ping, [3, Pong_PID]),</code>
-    <p>this process executes</p>
+    <p>This process executes:</p>
     <code type="none">
 tut15:ping(3, Pong_PID)</code>
     <p>&lt;0.36.0&gt; is the return value from the <c>start</c> function.</p>
-    <p>The process "pong"  now does:</p>
+    <p>The process "pong" now does:</p>
     <code type="none">
 receive
     finished ->
@@ -235,7 +235,7 @@ Ping_PID ! pong</code>
 Pid ! Message</code>
     <p>I.e. <c>Message</c> (any Erlang term) is sent to the process
       with identity <c>Pid</c>.</p>
-    <p>After sending the message <c>pong</c>, to the process "ping",
+    <p>After sending the message <c>pong</c> to the process "ping",
       "pong" calls the <c>pong</c> function again, which causes it to
       get back to the <c>receive</c> again and wait for another message.
       Now let's look at the process "ping". Recall that it was started
@@ -253,7 +253,7 @@ Pong_PID ! {ping, self()},</code>
     <p><c>self()</c> returns the pid of the process which executes
       <c>self()</c>, in this case the pid of "ping". (Recall the code
       for "pong", this will land up in the variable <c>Ping_PID</c> in
-      the <c>receive</c> previously explained).</p>
+      the <c>receive</c> previously explained.)</p>
     <p>"Ping" now waits for a reply from "pong":</p>
     <code type="none">
 receive
@@ -364,7 +364,7 @@ pong ! {ping, self()},</code>
       <c>.erlang.cookie</c> in the directory you get to after executing
       the command <c>cd</c> without any argument).
       The <c>.erlang.cookie</c> file should contain one line with
-      the same atom. For example on Linux or Unix in the OS shell:</p>
+      the same atom. For example, on Linux or Unix in the OS shell:</p>
     <pre>
 $ <input>cd</input>
 $ <input>cat > .erlang.cookie</input>
@@ -373,7 +373,7 @@ $ <input>chmod 400 .erlang.cookie</input></pre>
     <p>The <c>chmod</c> above make the <c>.erlang.cookie</c> file
       accessible only by the owner of the file. This is a requirement.</p>
     <p>When you start an Erlang system which is going to talk to other
-      Erlang systems, you must give it a name, eg: </p>
+      Erlang systems, you must give it a name, e.g.: </p>
     <pre>
 $ <input>erl -sname my_name</input></pre>
     <p>We will see more details of this later. If you want to
@@ -385,7 +385,7 @@ $ <input>erl -sname my_name</input></pre>
       IP domain and we can use only the first component of the IP
       address, if we want to use nodes in different domains we use
       <c>-name</c> instead, but then all IP address must be given in
-      full.</p>
+      full.)</p>
     <p>Here is the ping pong example modified to run on two separate
       nodes:</p>
     <code type="none">
@@ -538,7 +538,7 @@ ping finished</pre>
     <p>Before we start, let's note the following:</p>
     <list type="bulleted">
       <item>
-        <p>This example will just show the message passing logic- no
+        <p>This example will just show the message passing logic - no
           attempt at all has been made to provide a nice graphical user
           interface. This can, of course, also be done in Erlang - but
           that's another tutorial.</p>
@@ -571,7 +571,7 @@ ping finished</pre>
 %%%     already logged in at the same node, login will be rejected
 %%%     with a suitable error message.
 %%% logoff()
-%%%     Logs off anybody at at node
+%%%     Logs off anybody at that node
 %%% message(ToName, Message)
 %%%     sends Message to ToName. Error messages if the user of this 
 %%%     function is not logged on or if ToName is not logged on at

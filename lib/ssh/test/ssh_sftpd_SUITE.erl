@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2006-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -56,7 +56,8 @@ all() ->
      retrieve_attributes, 
      set_attributes, 
      links,
-     ver3_rename, 
+     ver3_rename,
+     ver3_open_flags,
      relpath, 
      sshd_read_file,
      ver6_basic].
@@ -193,6 +194,39 @@ open_close_file(Config) when is_list(Config) ->
 		  ?ACE4_READ_DATA  bor ?ACE4_READ_ATTRIBUTES,
 		  ?SSH_FXF_OPEN_EXISTING).
 
+ver3_open_flags() ->
+    [{doc, "Test open flags"}].
+ver3_open_flags(Config) when is_list(Config) ->
+    PrivDir =  ?config(priv_dir, Config),
+    FileName = filename:join(PrivDir, "not_exist.txt"),
+    {Cm, Channel} = ?config(sftp, Config),
+    ReqId = 0,
+    
+    {ok, <<?SSH_FXP_HANDLE, ?UINT32(ReqId), Handle/binary>>, _} =
+	open_file_v3(FileName, Cm, Channel, ReqId,
+		     ?SSH_FXF_CREAT bor ?SSH_FXF_TRUNC),
+    {ok, <<?SSH_FXP_STATUS, ?UINT32(ReqId),
+	   ?UINT32(?SSH_FX_OK), _/binary>>, _} = close(Handle, ReqId,
+						       Cm, Channel),
+   
+    NewFileName = filename:join(PrivDir, "not_exist2.txt"),
+    NewReqId = ReqId + 1, 
+    {ok, <<?SSH_FXP_HANDLE, ?UINT32(NewReqId), NewHandle/binary>>, _} =
+     	open_file_v3(NewFileName, Cm, Channel, NewReqId,
+    		     ?SSH_FXF_CREAT bor ?SSH_FXF_EXCL),
+    {ok, <<?SSH_FXP_STATUS, ?UINT32(NewReqId),
+    	   ?UINT32(?SSH_FX_OK), _/binary>>, _} = close(NewHandle, NewReqId,
+    						       Cm, Channel),
+    
+    NewFileName1 = filename:join(PrivDir, "test.txt"),
+    NewReqId1 = NewReqId + 1,
+    {ok, <<?SSH_FXP_HANDLE, ?UINT32(NewReqId1), NewHandle1/binary>>, _} =
+	open_file_v3(NewFileName1, Cm, Channel, NewReqId1,
+		     ?SSH_FXF_READ bor ?SSH_FXF_WRITE bor ?SSH_FXF_APPEND),
+     {ok, <<?SSH_FXP_STATUS, ?UINT32(NewReqId1),
+	   ?UINT32(?SSH_FX_OK), _/binary>>, _} = close(NewHandle1, NewReqId1,
+						       Cm, Channel).
+    
 %%--------------------------------------------------------------------
 open_close_dir() ->
     [{doc,"Test SSH_FXP_OPENDIR and SSH_FXP_CLOSE commands"}].
@@ -662,6 +696,16 @@ open_file(File, Cm, Channel, ReqId, Access, Flags) ->
 				      ?SSH_FXP_OPEN, Data/binary>>),
     reply(Cm, Channel).
 
+open_file_v3(File, Cm, Channel, ReqId, Flags) ->
+
+    Data = list_to_binary([?uint32(ReqId),
+			   ?binary(list_to_binary(File)),
+			   ?uint32(Flags),
+			   ?REG_ATTERS]),
+    Size = 1 + size(Data),
+    ssh_connection:send(Cm, Channel, <<?UINT32(Size),
+				      ?SSH_FXP_OPEN, Data/binary>>),
+    reply(Cm, Channel).
 
 
 close(Handle, ReqId, Cm , Channel) ->

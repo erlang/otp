@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1999-2013. All Rights Reserved.
+# Copyright Ericsson AB 1999-2015. All Rights Reserved.
 #
 # The contents of this file are subject to the Erlang Public License,
 # Version 1.1, (the "License"); you may not use this file except in
@@ -46,6 +46,7 @@ MODULES = \
 	ssl_npn_handshake_SUITE \
 	ssl_packet_SUITE \
 	ssl_payload_SUITE \
+	ssl_pem_cache_SUITE \
 	ssl_session_cache_SUITE	\
 	ssl_to_openssl_SUITE \
 	ssl_ECC_SUITE \

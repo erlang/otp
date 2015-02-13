@@ -60,6 +60,12 @@ t_element(Config) when is_list(Config) ->
     X = make_ref(),
     ?line X = id(element(1, {X,y,z})),
     ?line b = id(element(2, {a,b,c,d})),
+    (fun() ->
+	    case {a,#{k=>X}} of
+		{a,#{k:=X}}=Tuple ->
+		    #{k:=X} = id(element(2, Tuple))
+	    end
+    end)(),
 
     %% No optimization, but should work.
     Tuple = id({x,y,z}),
@@ -203,6 +209,16 @@ eq(Config) when is_list(Config) ->
 
     ?line ?CMP_DIFF(a, [a]),
     ?line ?CMP_DIFF(a, {1,2,3}),
+
+    ?CMP_SAME(#{a=>1.0,b=>2}, #{b=>2.0,a=>1}),
+    ?CMP_SAME(#{a=>[1.0],b=>[2]}, #{b=>[2.0],a=>[1]}),
+
+    %% The rule for comparing keys are different in 17.x and 18.x.
+    %% Just test that the results are consistent.
+    Bool = id(#{1=>a}) == id(#{1.0=>a}),	%Unoptimizable.
+    Bool = id(#{1=>a}) == #{1.0=>a},		%Optimizable.
+    Bool = #{1=>a} == #{1.0=>a},		%Optimizable.
+    io:format("Bool = ~p\n", [Bool]),
 
     ok.
 
