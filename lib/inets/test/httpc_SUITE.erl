@@ -97,6 +97,7 @@ only_simulated() ->
      stream_once,
      stream_single_chunk,
      stream_no_length,
+     stream_large_not_200_or_206,
      no_content_204,
      tolerate_missing_CR,
      userinfo,
@@ -406,6 +407,13 @@ stream_no_length(Config) when is_list(Config) ->
     stream_test(Request1, {stream, self}),
     Request2 = {url(group_name(Config), "/http_1_0_no_length_multiple.html", Config), []},
     stream_test(Request2, {stream, self}).
+%%-------------------------------------------------------------------------
+stream_large_not_200_or_206() ->
+    [{doc, "Test the option stream for large responses with status codes "
+      "other than 200 or 206" }].
+stream_large_not_200_or_206(Config) when is_list(Config) ->
+    Request = {url(group_name(Config), "/large_404_response.html", Config), []},
+    {{_,404,_}, _, _} = non_streamed_async_test(Request, {stream, self}).
 
 
 %%-------------------------------------------------------------------------
@@ -1108,6 +1116,19 @@ stream_test(Request, To) ->
 
     Body = binary_to_list(StreamedBody).
 
+non_streamed_async_test(Request, To) ->
+    {ok, Response} =
+	httpc:request(get, Request, [], [{body_format, binary}]),
+    {ok, RequestId} =
+	httpc:request(get, Request, [], [{sync, false}, To]),
+
+	receive
+	    {http, {RequestId, Response}} ->
+        Response;
+	    {http, Msg} ->
+		ct:fail(Msg)
+	end.
+
 url(http, End, Config) ->
     Port = ?config(port, Config),
     {ok,Host} = inet:gethostname(),
@@ -1784,6 +1805,17 @@ handle_uri(_,"/http_1_0_no_length_multiple.html",_,_,Socket,_) ->
     send(Socket, Head),
     %% long body to make sure it will be sent in multiple tcp packets
     send(Socket, string:copies("other multiple packets ", 200)),
+    close(Socket);
+
+handle_uri(_,"/large_404_response.html",_,_,Socket,_) ->
+    %% long body to make sure it will be sent in multiple tcp packets
+    Body = string:copies("other multiple packets ", 200),
+    Head = io_lib:format("HTTP/1.1 404 not found\r\n"
+                         "Content-length: ~B\r\n"
+                         "Content-type: text/plain\r\n\r\n",
+                         [length(Body)]),
+    send(Socket, Head),
+    send(Socket, Body),
     close(Socket);
 
 handle_uri(_,"/once.html",_,_,Socket,_) ->
