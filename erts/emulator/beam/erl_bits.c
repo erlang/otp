@@ -404,6 +404,7 @@ erts_bs_get_integer_2(Process *p, Uint num_bits, unsigned flags, ErlBinMatchBuff
 	hp = HeapOnlyAlloc(p, words_needed);
 	res = bytes_to_big(LSB, bytes, sgn, hp); 
 	if (is_nil(res)) {
+	    p->htop = hp;
 	    res = THE_NON_VALUE;
 	} else if (is_small(res)) {
 	    p->htop = hp;
