@@ -166,6 +166,26 @@
 %% This is mostly a convenience which gives more detailed reports.
 %% Note: Guard is a guarded pattern, and can not be used for value.
 -ifdef(NOASSERT).
+-define(assertReceive(Guard, Timeout), ok).
+-else.
+-define(assertReceive(Guard, Timeout),
+	begin
+	((fun () ->
+	    receive (Guard) -> ok
+	    after Timeout -> erlang:error({assertReceive_timedout,
+					   [{module, ?MODULE},
+					    {line, ?LINE},
+					    {pattern, (??Guard)},
+					    {timeout, Timeout}]})
+	    end
+	  end)())
+	end).
+-endif.
+-define(_assertReceive(Guard, Timeout), ?_test(?assertReceive(Guard, Timeout))).
+
+%% This is mostly a convenience which gives more detailed reports.
+%% Note: Guard is a guarded pattern, and can not be used for value.
+-ifdef(NOASSERT).
 -define(assertMatch(Guard, Expr), ok).
 -else.
 -define(assertMatch(Guard, Expr),
