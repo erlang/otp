@@ -1141,6 +1141,9 @@ enc_opt(multicast_ttl)   -> ?UDP_OPT_MULTICAST_TTL;
 enc_opt(multicast_loop)  -> ?UDP_OPT_MULTICAST_LOOP;
 enc_opt(add_membership)  -> ?UDP_OPT_ADD_MEMBERSHIP;
 enc_opt(drop_membership) -> ?UDP_OPT_DROP_MEMBERSHIP;
+enc_opt(ipv6_multicast_if) -> ?UDP_OPT_IPV6_MULTICAST_IF;
+enc_opt(ipv6_join_group) -> ?UDP_OPT_IPV6_JOIN_GROUP;
+enc_opt(ipv6_leave_group) -> ?UDP_OPT_IPV6_LEAVE_GROUP;
 enc_opt(ipv6_v6only)     -> ?INET_OPT_IPV6_V6ONLY;
 enc_opt(buffer)          -> ?INET_LOPT_BUFFER;
 enc_opt(header)          -> ?INET_LOPT_HEADER;
@@ -1198,6 +1201,9 @@ dec_opt(?UDP_OPT_MULTICAST_TTL)   -> multicast_ttl;
 dec_opt(?UDP_OPT_MULTICAST_LOOP)  -> multicast_loop;
 dec_opt(?UDP_OPT_ADD_MEMBERSHIP)  -> add_membership;
 dec_opt(?UDP_OPT_DROP_MEMBERSHIP) -> drop_membership;
+dec_opt(?UDP_OPT_IPV6_MULTICAST_IF) -> ipv6_multicast_if;
+dec_opt(?UDP_OPT_IPV6_JOIN_GROUP) -> ipv6_join_group;
+dec_opt(?UDP_OPT_IPV6_LEAVE_GROUP) -> ipv6_leave_group;
 dec_opt(?INET_OPT_IPV6_V6ONLY)    -> ipv6_v6only;
 dec_opt(?INET_LOPT_BUFFER)        -> buffer;
 dec_opt(?INET_LOPT_HEADER)        -> header;
@@ -1272,6 +1278,9 @@ type_opt_1(multicast_loop)  -> bool;
 type_opt_1(multicast_if)    -> ip;
 type_opt_1(add_membership)  -> {ip,ip};
 type_opt_1(drop_membership) -> {ip,ip};
+type_opt_1(ipv6_multicast_if) -> binary;
+type_opt_1(ipv6_join_group)  -> {binary,ipv6};
+type_opt_1(ipv6_leave_group) -> {binary,ipv6};
 %% driver options
 type_opt_1(header)          -> uint;
 type_opt_1(buffer)          -> int;
@@ -1503,6 +1512,7 @@ type_value_2(uint8, X)  when X band 16#ff =:= X       -> true;
 type_value_2(time, infinity)                          -> true;
 type_value_2(time, X) when is_integer(X), X >= 0      -> true;
 type_value_2(ip,{A,B,C,D}) when ?ip(A,B,C,D)          -> true;
+type_value_2(ipv6,{A,B,C,D,E,F,G,H}) when ?ip6(A,B,C,D,E,F,G,H) -> true;
 type_value_2(addr, {any,Port}) ->
     type_value_2(uint16, Port);
 type_value_2(addr, {loopback,Port}) ->
@@ -1618,6 +1628,8 @@ enc_value_2(time, Val)      -> ?int32(Val);
 enc_value_2(ip,{A,B,C,D})   -> [A,B,C,D];
 enc_value_2(ip, any)        -> [0,0,0,0];
 enc_value_2(ip, loopback)   -> [127,0,0,1];
+enc_value_2(ipv6, IP) when tuple_size(IP) =:= 8 ->
+    [ip6_to_bytes(IP)];
 enc_value_2(addr, {any,Port}) ->
     [?INET_AF_ANY|?int16(Port)];
 enc_value_2(addr, {loopback,Port}) ->
@@ -1680,6 +1692,8 @@ dec_value(time, [X3,X2,X1,X0|T]) ->
 	Val -> {Val, T}
     end;
 dec_value(ip, [A,B,C,D|T])             -> {{A,B,C,D}, T};
+dec_value(ipv6, IP) ->
+    get_ip6(IP);
 %% dec_value(ether, [X1,X2,X3,X4,X5,X6|T]) -> {[X1,X2,X3,X4,X5,X6],T};
 dec_value(sockaddr, [X|T]) ->
     get_ip(X, T);

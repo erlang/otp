@@ -136,12 +136,27 @@
 
 		  <tag><c>{add_membership, {MultiAddress, InterfaceAddress}}</c></tag>
           <item>
-			  <p>Join a multicast group. </p>
+			  <p>Join a IPv4 multicast group. </p>
           </item>
 
 		  <tag><c>{drop_membership, {MultiAddress, InterfaceAddress}}</c></tag>
           <item>
-			  <p>Leave multicast group.</p>
+			  <p>Leave IPv4 multicast group.</p>
+          </item>
+
+          <tag><c>{ipv6_multicast_if, IfName}</c></tag>
+          <item>
+	      <p>Set the local device for a IPv6 multicast socket.</p>
+          </item>
+
+	  <tag><c>{ipv6_join_group, {IfName, MultiAddress}}</c></tag>
+          <item>
+	      <p>Join a IPv6 multicast group. </p>
+          </item>
+
+	  <tag><c>{ipv6_leave_group, {IfName, MultiAddress}}</c></tag>
+          <item>
+	      <p>Leave IPv6 multicast group.</p>
           </item>
 
           <tag><c>Opt</c></tag>
