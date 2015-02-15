@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -24,6 +24,9 @@
 %%
 
 -define(THROW(T), throw({?MODULE, T})).
+
+%% Tag common to generated dictionaries.
+-define(TAG, diameter_gen).
 
 %% Key to a value in the process dictionary that determines whether or
 %% not an unrecognized AVP setting the M-bit should be regarded as an
@@ -48,13 +51,20 @@
 %% dictionary.
 
 putr(K,V) ->
-    put({?MODULE, K}, V).
+    put({?TAG, K}, V).
 
 getr(K) ->
-    get({?MODULE, K}).
+    case get({?TAG, K}) of
+        undefined ->
+            V = erase({?MODULE, K}),  %% written in old code
+            V == undefined orelse putr(K,V),
+            V;
+        V ->
+            V
+    end.
 
 eraser(K) ->
-    erase({?MODULE, K}).
+    erase({?TAG, K}).
 
 %% ---------------------------------------------------------------------------
 %% # encode_avps/2
