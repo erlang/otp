@@ -31,7 +31,8 @@
 	 get_pid_key/2, get_key/2, get_pid_all_key/1, get_all_key/1,
 	 get_master/1, get_application/1, get_application_module/1,
 	 start_type/1, permit_application/2, do_config_diff/2,
-	 set_env/3, set_env/4, unset_env/2, unset_env/3]).
+	 set_env/3, set_env/4, unset_env/2, unset_env/3,
+         prim_consult/1]).
 
 %% Internal exports
 -export([handle_call/3, handle_cast/2, handle_info/2, terminate/2, 
