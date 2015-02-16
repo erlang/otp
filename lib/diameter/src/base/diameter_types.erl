@@ -75,7 +75,7 @@
 %%      message indicating this error MUST include the offending AVPs
 %%      within a Failed-AVP AVP.
 %%
--define(INVALID_LENGTH(Bin), erlang:error({'DIAMETER', 5014, Bin})).
+-define(INVALID_LENGTH(Bitstr), erlang:error({'DIAMETER', 5014, Bitstr})).
 
 %% -------------------------------------------------------------------------
 %% 3588, 4.2.  Basic AVP Data Formats
