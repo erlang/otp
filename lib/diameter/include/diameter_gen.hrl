@@ -323,12 +323,19 @@ d(Name, Avp, Acc) ->
                            %% decode is packed into 'AVP'.
     Mod = dict(Failed),    %% Dictionary to decode in.
 
+    %% On decode, a Grouped AVP is represented as a #diameter_avp{}
+    %% list with AVP as head and component AVPs as tail. On encode,
+    %% data can be a list of component AVPs.
+
     try Mod:avp(decode, Data, AvpName) of
         V ->
             {Avps, T} = Acc,
             {H, A} = ungroup(V, Avp),
             {[H | Avps], pack_avp(Name, A, T)}
     catch
+        throw: {?TAG, {grouped, RC, ComponentAvps}} ->
+            {Avps, {Rec, Failed}} = Acc,
+            {[[Avp | ComponentAvps] | Avps], {Rec, [{RC, Avp} | Failed]}};
         error: Reason ->
             d(undefined == Failed orelse is_failed(),
               Reason,
@@ -599,11 +606,11 @@ value(_, Avp) ->
     | no_return().
 
 grouped_avp(decode, Name, Data) ->
-    {Rec, Avps, []} = decode_avps(Name, diameter_codec:collect_avps(Data)),
+    {Rec, Avps, Es} = decode_avps(Name, diameter_codec:collect_avps(Data)),
+    [] == Es orelse throw({?TAG, {grouped, 5004, Avps}}),  %% decode failure
     {Rec, Avps};
-%% A failed match here will result in 5004. Note that this is the only
-%% AVP type that doesn't just return the decoded record, also
-%% returning the list of component AVP's.
+%% Note that this is the only AVP type that doesn't just return the
+%% decoded record, also returning the list of component AVP's.
 
 grouped_avp(encode, Name, Data) ->
     encode_avps(Name, Data).
