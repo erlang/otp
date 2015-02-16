@@ -140,8 +140,9 @@ module({Mod,Exp,Attr,Fs0,Lc}, _Opt) ->
 function({function,Name,Arity,CLabel,Asm0}) ->
     Asm1 = share(Asm0),
     Asm2 = move(Asm1),
-    Asm3 = opt(Asm2, CLabel),
-    Asm = remove_unused_labels(Asm3),
+    Asm3 = merge(Asm2),
+    Asm4 = opt(Asm3, CLabel),
+    Asm = remove_unused_labels(Asm4),
     {function,Name,Arity,CLabel,Asm}.
 
 %%%
@@ -236,6 +237,20 @@ extract_seq_1([{label,Lbl},{jump,{f,Lbl}}|_], _) ->
 extract_seq_1([{label,_}=Lbl|Is], Acc) ->
     {yes,[Lbl|Acc],Is};
 extract_seq_1(_, _) -> no.
+
+%%%
+%%% Merge label,jump,label,jump,... instructions as a pre-pass
+%%% before actually optimizing. Because opt/2 looks for a fixpoint,
+%%% N patterns will trigger opt/2 N*N times. If we do a pre-pass,
+%%% those labels are already considered together, taking only N.
+%%%
+
+merge([{label,_}=Lbl,{jump,{f,X}}|[{label,_},{jump,{f,X}}|_]=T]) ->
+    [Lbl|merge(T)];
+merge([H|T]) ->
+    [H|merge(T)];
+merge([]) ->
+    [].
 
 %%%
 %%% (3) (4) (5) (6) Jump and unreachable code optimizations.
