@@ -22,21 +22,14 @@
 #define __ERL_HASH_H__
 
 #include "sys.h"
+#include "erl_term.h"
 
 Eterm erts_hashmap_get(Eterm key, Eterm map);
 struct ErtsWStack_;
 void hashmap_iterator_init(struct ErtsWStack_* s, Eterm node);
 Eterm* hashmap_iterator_next(struct ErtsWStack_* s);
 int hashmap_key_hash_cmp(Eterm* ap, Eterm* bp);
-
-/* erl_term.h stuff */
-#define make_hashmap(x)		make_boxed((Eterm*)(x))
-#define make_hashmap_rel 	make_boxed_rel
-#define is_hashmap(x)		(is_boxed((x)) && is_hashmap_header(*boxed_val((x))))
-#define is_hashmap_rel(RTERM,BASE)  is_hashmap(rterm2wterm(RTERM,BASE))
-#define is_hashmap_header(x)	(((x) & (_TAG_HEADER_MASK)) == _TAG_HEADER_HASHMAP)
-#define hashmap_val(x)		_unchecked_boxed_val((x))
-#define hashmap_val_rel(RTERM, BASE) hashmap_val(rterm2wterm(RTERM, BASE))
+Eterm erts_hashmap_from_array(Process *p, Eterm *leafs, Uint n);
 
 /* HASH */
 
@@ -54,8 +47,8 @@ Uint32 hashmap_bitcount(Uint32 x);
  * head
  */
 
-/* the head-node is a bitmap or array with an untagged size
- */
+/* the head-node is a bitmap or array with an untagged size */
+
 typedef struct hashmap_head_s {
     Eterm thing_word;
     Uint size;
@@ -65,21 +58,6 @@ typedef struct hashmap_head_s {
 #define hashmap_size(x) (((hashmap_head_t*) hashmap_val(x))->size)
 #define hashmap_size_rel(RTERM, BASE) hashmap_size(rterm2wterm(RTERM, BASE))
  
-/* the bitmap-node
- * typedef struct hashmap_bitmap_node_s {
- *     Eterm thing_word;
- *     Eterm items[1];
- * } hashmap_bitmap_node_t;
- *
- * the array-node is a tuple
- * typedef struct hashmap_bitmap_node_s {
- *     Eterm thing_word; 
- *     Eterm items[1];
- * } hashmap_bitmap_node_t;
- *
- * the leaf-node
- * cons-cell
- */
 
 /* thing_word tagscheme
  * Need two bits for map subtags
@@ -102,19 +80,6 @@ typedef struct hashmap_head_s {
  */
 
 /* erl_map.h stuff */
-
-#define MAP_HEADER_TAG_SZ                 (2)
-#define MAP_HEADER_ARITY_SZ               (8)
-#define MAP_HEADER_VAL_SZ                 (16)
-
-#define MAP_HEADER_TAG_FLAT               (0x0)
-#define MAP_HEADER_TAG_HAMT_NODE_BITMAP   (0x1)
-#define MAP_HEADER_TAG_HAMT_HEAD_ARRAY    (0x2)
-#define MAP_HEADER_TAG_HAMT_HEAD_BITMAP   (0x3)
-
-#define MAP_HEADER_TYPE(Hdr)  (((Hdr) >> (_HEADER_ARITY_OFFS)) & (0x3))
-#define MAP_HEADER_ARITY(Hdr) (((Hdr) >> (_HEADER_ARITY_OFFS + MAP_HEADER_TAG_SZ)) & (0xff))
-#define MAP_HEADER_VAL(Hdr)   (((Hdr) >> (_HEADER_ARITY_OFFS + MAP_HEADER_TAG_SZ + MAP_HEADER_ARITY_SZ)) & (0xffff))
 
 #define is_hashmap_header_head(x) ((MAP_HEADER_TYPE(x) & (0x2)))
 

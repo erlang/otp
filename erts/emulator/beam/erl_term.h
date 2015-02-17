@@ -21,7 +21,6 @@
 #define __ERL_TERM_H
 
 #include "sys.h" /* defines HALFWORD_HEAP */
-#include "erl_hashmap.h"
 
 typedef UWord Wterm;  /* Full word terms */
 
@@ -995,6 +994,29 @@ _ET_DECLARE_CHECKED(Uint32*,external_ref_data,Wterm)
 #define _unchecked_external_ref_node(x) _unchecked_external_node((x))
 _ET_DECLARE_CHECKED(struct erl_node_*,external_ref_node,Eterm)
 #define external_ref_node(x) _ET_APPLY(external_ref_node,(x))
+
+/* maps */
+
+#define MAP_HEADER_TAG_SZ                 (2)
+#define MAP_HEADER_ARITY_SZ               (8)
+#define MAP_HEADER_VAL_SZ                 (16)
+
+#define MAP_HEADER_TAG_FLAT               (0x0)
+#define MAP_HEADER_TAG_HAMT_NODE_BITMAP   (0x1)
+#define MAP_HEADER_TAG_HAMT_HEAD_ARRAY    (0x2)
+#define MAP_HEADER_TAG_HAMT_HEAD_BITMAP   (0x3)
+
+#define MAP_HEADER_TYPE(Hdr)  (((Hdr) >> (_HEADER_ARITY_OFFS)) & (0x3))
+#define MAP_HEADER_ARITY(Hdr) (((Hdr) >> (_HEADER_ARITY_OFFS + MAP_HEADER_TAG_SZ)) & (0xff))
+#define MAP_HEADER_VAL(Hdr)   (((Hdr) >> (_HEADER_ARITY_OFFS + MAP_HEADER_TAG_SZ + MAP_HEADER_ARITY_SZ)) & (0xffff))
+
+#define make_hashmap(x)		make_boxed((Eterm*)(x))
+#define make_hashmap_rel 	make_boxed_rel
+#define is_hashmap(x)		(is_boxed((x)) && is_hashmap_header(*boxed_val((x))))
+#define is_hashmap_rel(RTERM,BASE)  is_hashmap(rterm2wterm(RTERM,BASE))
+#define is_hashmap_header(x)	(((x) & (_TAG_HEADER_MASK)) == _TAG_HEADER_HASHMAP)
+#define hashmap_val(x)		_unchecked_boxed_val((x))
+#define hashmap_val_rel(RTERM, BASE) hashmap_val(rterm2wterm(RTERM, BASE))
 
 /* number tests */
 

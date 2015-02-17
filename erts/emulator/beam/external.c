@@ -45,6 +45,7 @@
 #include "erl_bits.h"
 #include "erl_zlib.h"
 #include "erl_map.h"
+#include "erl_hashmap.h"
 
 #define in_area(ptr,start,nbytes) ((UWord)((char*)(ptr) - (char*)(start)) < (nbytes))
 

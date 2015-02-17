@@ -84,7 +84,7 @@ static Eterm hashmap_keys(Process *p, Eterm map);
 static Eterm hashmap_values(Process *p, Eterm map);
 static Eterm hashmap_merge(Process *p, Eterm nodeA, Eterm nodeB);
 static Eterm hashmap_bld_tuple_uint(Uint **hpp, Uint *szp, Uint n, Uint nums[]);
-
+static Eterm hashmap_from_unsorted_array(Process *p, hxnode_t *hxns, Uint n);
 static Eterm hashmap_from_sorted_unique_array(Process *p, hxnode_t *hxns, Uint n, int is_root);
 static Eterm hashmap_from_chunked_array(Process *p, hxnode_t *hxns, Uint n, int is_root);
 static int hxnodecmp(hxnode_t* a, hxnode_t* b);
@@ -831,7 +831,7 @@ static Eterm hashmap_from_list(Process *p, Eterm list) {
     Eterm *hp;
     Eterm tmp[2];
     Uint32 sw, hx;
-    Uint jx = 0, ix = 0, lx, cx, n = 0;
+    Uint ix = 0, n = 0;
     hxnode_t *hxns;
 
     /* Calculate size and check validity */
@@ -879,6 +879,47 @@ static Eterm hashmap_from_list(Process *p, Eterm list) {
     }
 
     ASSERT(n > 0);
+
+    res = hashmap_from_unsorted_array(p, hxns, n);
+
+    erts_free(ERTS_ALC_T_TMP, (void *) hxns);
+    ERTS_VERIFY_UNUSED_TEMP_ALLOC(p);
+
+    BIF_RET(res);
+error:
+    BIF_ERROR(p, BADARG);
+}
+
+Eterm erts_hashmap_from_array(Process *p, Eterm *leafs, Uint n) {
+    Eterm tmp[2];
+    Uint32 sw, hx;
+    Uint ix;
+    hxnode_t *hxns;
+    Eterm res;
+
+    /* create tmp hx values and leaf ptrs */
+    hxns = (hxnode_t *)erts_alloc(ERTS_ALC_T_TMP, n * sizeof(hxnode_t));
+
+    for (ix = 0; ix < n; ix++) {
+	hx  = hashmap_restore_hash(tmp,0,CAR(list_val(leafs[ix])));
+	swizzle32(sw,hx);
+	hxns[ix].hx   = sw;
+	hxns[ix].val  = leafs[ix];
+	hxns[ix].skip = 1;
+	hxns[ix].i    = ix;
+    }
+
+    res = hashmap_from_unsorted_array(p, hxns, n);
+
+    erts_free(ERTS_ALC_T_TMP, (void *) hxns);
+    ERTS_VERIFY_UNUSED_TEMP_ALLOC(p);
+
+    return res;
+}
+
+static Eterm hashmap_from_unsorted_array(Process *p, hxnode_t *hxns, Uint n) {
+    Uint jx = 0, ix = 0, lx, cx;
+    Eterm res;
 
     /* sort and compact array (remove non-unique entries) */
     qsort(hxns, n, sizeof(hxnode_t), (int (*)(const void *, const void *)) hxnodecmp);
@@ -931,6 +972,7 @@ static Eterm hashmap_from_list(Process *p, Eterm list) {
 	/* recursive decompose array */
 	res = hashmap_from_sorted_unique_array(p, hxns, cx, 0);
     } else {
+	Eterm *hp;
 	 /* hash value has been swizzled, need to drag it down to get the
 	 * correct slot. */
 	hp    = HAlloc(p, HAMT_HEAD_BITMAP_SZ(1));
@@ -940,14 +982,8 @@ static Eterm hashmap_from_list(Process *p, Eterm list) {
 	res   = make_hashmap(hp);
     }
 
-    erts_free(ERTS_ALC_T_TMP, (void *) hxns);
-    ERTS_VERIFY_UNUSED_TEMP_ALLOC(p);
-
-    BIF_RET(res);
-error:
-    BIF_ERROR(p, BADARG);
+    return res;
 }
-
 
 static Eterm hashmap_from_sorted_unique_array(Process *p, hxnode_t *hxns, Uint n, int lvl) {
     Eterm res = NIL;
