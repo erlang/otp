@@ -28,7 +28,7 @@
 	 overwrite_catchtag/1,overwrite_trytag/1,accessing_tags/1,bad_catch_try/1,
 	 cons_guard/1,
 	 freg_range/1,freg_uninit/1,freg_state/1,
-	 bin_match/1,bad_bin_match/1,bin_aligned/1,bad_dsetel/1,
+	 bad_bin_match/1,bin_aligned/1,bad_dsetel/1,
 	 state_after_fault_in_catch/1,no_exception_in_catch/1,
 	 undef_label/1,illegal_instruction/1,failing_gc_guard_bif/1]).
 	 
@@ -56,7 +56,7 @@ groups() ->
        unsafe_catch,dead_code,mult_labels,
        overwrite_catchtag,overwrite_trytag,accessing_tags,
        bad_catch_try,cons_guard,freg_range,freg_uninit,
-       freg_state,bin_match,bad_bin_match,bin_aligned,bad_dsetel,
+       freg_state,bad_bin_match,bin_aligned,bad_dsetel,
        state_after_fault_in_catch,no_exception_in_catch,
        undef_label,illegal_instruction,failing_gc_guard_bif]}].
 
@@ -315,13 +315,6 @@ freg_state(Config) when is_list(Config) ->
 	   {bad_floating_point_state,undefined}}},
 	 {{t,sum_5,2},
 	  {fclearerror,5,{bad_floating_point_state,cleared}}}] = Errors,
-    ok.
-
-bin_match(Config) when is_list(Config) ->
-    Errors = do_val(bin_match, Config),
-    ?line
-	[{{t,t,1},{{bs_save,0},4,no_bs_match_state}},
-	 {{t,x,1},{{bs_restore,1},16,{no_save_point,1}}}] = Errors,
     ok.
 
 bad_bin_match(Config) when is_list(Config) ->

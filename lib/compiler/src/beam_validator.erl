@@ -225,7 +225,6 @@ validate_error_1(Error, Module, Name, Ar) ->
 	 hf=0,				%Available heap size for floats.
 	 fls=undefined,			%Floating point state.
 	 ct=[],				%List of hot catch/try labels
-	 bsm=undefined,			%Bit syntax matching state.
 	 bits=undefined,	        %Number of bits in bit syntax binary.
 	 setelem=false			%Previous instruction was setelement/3.
 	}).
@@ -738,32 +737,6 @@ valfun_4({bs_save2,Ctx,SavePoint}, Vst) ->
 valfun_4({bs_restore2,Ctx,SavePoint}, Vst) ->
     bsm_restore(Ctx, SavePoint, Vst);
 
-%% Bit syntax instructions.
-valfun_4({bs_start_match,{f,_Fail}=F,Src}, Vst) ->
-    valfun_4({test,bs_start_match,F,[Src]}, Vst);
-valfun_4({test,bs_start_match,{f,Fail},[Src]}, Vst) ->
-    assert_term(Src, Vst),
-    bs_start_match(branch_state(Fail, Vst));
-
-valfun_4({bs_save,SavePoint}, Vst) ->
-    bs_assert_state(Vst),
-    bs_save(SavePoint, Vst);
-valfun_4({bs_restore,SavePoint}, Vst) ->
-    bs_assert_state(Vst),
-    bs_assert_savepoint(SavePoint, Vst),
-    Vst;
-valfun_4({test,bs_skip_bits,{f,Fail},[Src,_,_]}, Vst) ->
-    bs_assert_state(Vst),
-    assert_term(Src, Vst),
-    branch_state(Fail, Vst);
-valfun_4({test,bs_test_tail,{f,Fail},_}, Vst) ->
-    bs_assert_state(Vst),
-    branch_state(Fail, Vst);
-valfun_4({test,_,{f,Fail},[_,_,_,Dst]}, Vst0) ->
-    bs_assert_state(Vst0),
-    Vst = branch_state(Fail, Vst0),
-    set_type_reg({integer,[]}, Dst, Vst);
-
 %% Other test instructions.
 valfun_4({test,is_float,{f,Lbl},[Float]}, Vst) ->
     assert_term(Float, Vst),
@@ -794,9 +767,6 @@ valfun_4({bs_utf8_size,{f,Fail},A,Dst}, Vst) ->
     set_type_reg({integer,[]}, Dst, branch_state(Fail, Vst));
 valfun_4({bs_utf16_size,{f,Fail},A,Dst}, Vst) ->
     assert_term(A, Vst),
-    set_type_reg({integer,[]}, Dst, branch_state(Fail, Vst));
-valfun_4({bs_bits_to_bytes,{f,Fail},Src,Dst}, Vst) ->
-    assert_term(Src, Vst),
     set_type_reg({integer,[]}, Dst, branch_state(Fail, Vst));
 valfun_4({bs_init2,{f,Fail},Sz,Heap,Live,_,Dst}, Vst0) ->
     verify_live(Live, Vst0),
@@ -868,16 +838,6 @@ valfun_4({bs_put_utf32,{f,Fail},_,Src}=I, Vst0) ->
     assert_term(Src, Vst0),
     Vst = bs_align_check(I, Vst0),
     branch_state(Fail, Vst);
-%% Old bit syntax construction (before R10B).
-valfun_4({bs_init,_,_}, Vst) ->
-    bs_zero_bits(Vst);
-valfun_4({bs_need_buf,_}, Vst) -> Vst;
-valfun_4({bs_final,{f,Fail},Dst}, Vst0) ->
-    Vst = branch_state(Fail, Vst0),
-    set_type_reg(binary, Dst, Vst);
-valfun_4({bs_final2,Src,Dst}, Vst0) ->
-    assert_term(Src, Vst0),
-    set_type_reg(binary, Dst, Vst0);
 %% Map instructions.
 valfun_4({put_map_assoc,{f,Fail},Src,Dst,Live,{list,List}}, Vst) ->
     verify_put_map(Fail, Src, Dst, Live, List, Vst);
@@ -972,7 +932,7 @@ call(Name, Live, #vst{current=St}=Vst) ->
 	Type when Type =/= exception ->
 	    %% Type is never 'exception' because it has been handled earlier.
 	    Xs = gb_trees_from_list([{0,Type}]),
-	    Vst#vst{current=St#st{x=Xs,f=init_fregs(),bsm=undefined}}
+	    Vst#vst{current=St#st{x=Xs,f=init_fregs()}}
     end.
 
 %% Tail call.
@@ -1030,7 +990,7 @@ allocate(_, _, _, _, #vst{current=#st{numy=Numy}}) ->
     error({existing_stack_frame,{size,Numy}}).
 
 deallocate(#vst{current=St}=Vst) ->
-    Vst#vst{current=St#st{y=init_regs(0, initialized),numy=none,bsm=undefined}}.
+    Vst#vst{current=St#st{y=init_regs(0, initialized),numy=none}}.
 
 test_heap(Heap, Live, Vst0) ->
     verify_live(Live, Vst0),
@@ -1038,7 +998,7 @@ test_heap(Heap, Live, Vst0) ->
     heap_alloc(Heap, Vst).
 
 heap_alloc(Heap, #vst{current=St0}=Vst) ->
-    St1 = kill_heap_allocation(St0#st{bsm=undefined}),
+    St1 = kill_heap_allocation(St0),
     St = heap_alloc_1(Heap, St1),
     Vst#vst{current=St}.
 
@@ -1154,42 +1114,6 @@ check_strict_value_termorder([V1,V2|Vs]) ->
 	true -> check_strict_value_termorder([V2|Vs]);
 	false -> false
     end.
-
-%%%
-%%% Binary matching.
-%%%
-%%% Possible values for the bsm field (=bit syntax matching state).
-%%%
-%%% undefined 	- Undefined (initial state). No matching instructions allowed.
-%%%		 
-%%% (gb set)	- The gb set contains the defined save points.
-%%%
-%%% The bsm field is reset to 'undefined' by instructions that may cause a
-%%% a garbage collection (might move the binary) and/or context switch
-%%% (may invalidate the save points).
-
-bs_start_match(#vst{current=#st{bsm=undefined}=St}=Vst) ->
-    Vst#vst{current=St#st{bsm=gb_sets:empty()}};
-bs_start_match(Vst) ->
-    %% Must retain save points here - it is possible to restore back
-    %% to a previous binary.
-    Vst.
-
-bs_save(Reg, #vst{current=#st{bsm=Saved}=St}=Vst)
-  when is_integer(Reg), Reg < ?MAXREG  ->
-    Vst#vst{current=St#st{bsm=gb_sets:add(Reg, Saved)}};
-bs_save(_, _) -> error(limit).
-
-bs_assert_savepoint(Reg, #vst{current=#st{bsm=Saved}}) ->
-    case gb_sets:is_member(Reg, Saved) of
-	false -> error({no_save_point,Reg});
-	true -> ok
-    end.
-
-bs_assert_state(#vst{current=#st{bsm=undefined}}) ->
-    error(no_bs_match_state);
-bs_assert_state(_) -> ok.
-
 
 %%%
 %%% New binary matching instructions.
@@ -1525,14 +1449,13 @@ merge_states(L, St, Branched) when L =/= 0 ->
 	{value,OtherSt} -> merge_states_1(St, OtherSt)
     end.
 
-merge_states_1(#st{x=Xs0,y=Ys0,numy=NumY0,h=H0,ct=Ct0,bsm=Bsm0}=St,
-	       #st{x=Xs1,y=Ys1,numy=NumY1,h=H1,ct=Ct1,bsm=Bsm1}) ->
+merge_states_1(#st{x=Xs0,y=Ys0,numy=NumY0,h=H0,ct=Ct0}=St,
+	       #st{x=Xs1,y=Ys1,numy=NumY1,h=H1,ct=Ct1}) ->
     NumY = merge_stk(NumY0, NumY1),
     Xs = merge_regs(Xs0, Xs1),
     Ys = merge_y_regs(Ys0, Ys1),
     Ct = merge_ct(Ct0, Ct1),
-    Bsm = merge_bsm(Bsm0, Bsm1),
-    St#st{x=Xs,y=Ys,numy=NumY,h=min(H0, H1),ct=Ct,bsm=Bsm}.
+    St#st{x=Xs,y=Ys,numy=NumY,h=min(H0, H1),ct=Ct}.
 
 merge_stk(S, S) -> S;
 merge_stk(_, _) -> undecided.
@@ -1614,10 +1537,6 @@ merge_types(_, {match_context,_,_}=M) ->
 merge_types(T1, T2) when T1 =/= T2 ->
     %% Too different. All we know is that the type is a 'term'.
     term.
-
-merge_bsm(undefined, _) -> undefined;
-merge_bsm(_, undefined) -> undefined;
-merge_bsm(Bsm0, Bsm1) -> gb_sets:intersection(Bsm0, Bsm1).
 
 tuple_sz([Sz]) -> Sz;
 tuple_sz(Sz) -> Sz.
