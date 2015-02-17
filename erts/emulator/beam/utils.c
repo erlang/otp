@@ -1252,11 +1252,12 @@ make_hash2(Eterm term)
 		UINT32_HASH(arity, HCONST_9);
 		if (arity == 0) /* Empty tuple */ 
 		    goto hash2_common;
-		for (i = arity; i >= 1; i--) {
-		    tmp = elem[i];
-		    ESTACK_PUSH(s, tmp);
+		for (i = arity; ; i--) {
+		    term = elem[i];
+                    if (i == 1)
+                        break;
+                    ESTACK_PUSH(s, term);
 		}
-		goto hash2_common;
 	    }
 	    break;
 	    case MAP_SUBTAG:
