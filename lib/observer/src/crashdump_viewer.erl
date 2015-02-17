@@ -1131,6 +1131,8 @@ all_procinfo(Fd,Fun,Proc,WS,LineHead) ->
 	"arity = " ++ Arity ->
 	    %%! Temporary workaround
 	    get_procinfo(Fd,Fun,Proc#proc{arity=Arity--"\r\n"},WS);
+	"Run queue" ->
+	    get_procinfo(Fd,Fun,Proc#proc{run_queue=val(Fd)},WS);
 	"=" ++ _next_tag ->
 	    Proc;
 	Other ->
