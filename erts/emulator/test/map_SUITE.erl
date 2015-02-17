@@ -486,12 +486,12 @@ t_map_compare(Config) when is_list(Config) ->
     random:seed(Seed),
     repeat(100, fun(_) -> float_int_compare(maps) end, []),
     repeat(100, fun(_) -> float_int_compare(hashmap) end, []),
-    repeat(1000, fun(_) -> recursive_compare() end, []),
+    repeat(100, fun(_) -> recursive_compare() end, []),
     ok.
 
 float_int_compare(MapMod) ->
     Terms = numeric_keys(3),
-    io:format("Keys to use: ~p\n", [Terms]),
+    %%io:format("Keys to use: ~p\n", [Terms]),
     Pairs = lists:map(fun(K) -> list_to_tuple([{K,V} || V <- Terms]) end, Terms),
     lists:foreach(fun(Size) ->
 			  MapGen = fun() -> map_gen(MapMod, list_to_tuple(Pairs), Size) end,
@@ -635,62 +635,65 @@ map_gen(MapMod, Pairs, Size) ->
 
     map_from_list(MapMod, L).
 
--define(NO_MAPS, 1). % Todo: Remove NO_MAPS when hashing of hashmaps is implemented
--define(NO_LEAF, 2).
 
 recursive_compare() ->
     Leafs = {atom, 17, 16.9, 17.1, [], self(), spawn(fun() -> ok end), make_ref(), make_ref()},
-    {A, B} = term_gen_recursive(Leafs, ?NO_LEAF),
-    %erlang:display({"Recursive term A", A}),
-    %erlang:display({"Recursive term B", B}),
+    {A, B} = term_gen_recursive(Leafs, 0, 0),
+    %%io:format("Recursive term A = ~p\n", [A]),
+    %%io:format("Recursive term B = ~p\n", [B]),
 
-    {true,false} =  case do_cmp(A, B, false) of
-			-1 -> {A<B, A>=B};
-			0 -> {A==B, A/=B};
-			1 -> {A>B, A=<B}
-		    end,
+    ?CHECK({true,false} =:=  case do_cmp(A, B, false) of
+				 -1 -> {A<B, A>=B};
+				 0 -> {A==B, A/=B};
+				 1 -> {A>B, A=<B}
+			     end,
+	   {A,B}),
     A2 = copy_term(A),
-    true = (A == A2),
-    0 = cmp(A, A2, false),
+    ?CHECK(A == A2, {A,A2}),
+    ?CHECK(0 =:= cmp(A, A2, false), {A,A2}),
 
     B2 = copy_term(B),
-    true = (B == B2),
-    0 = cmp(B, B2, false).
+    ?CHECK(B == B2, {B,B2}),
+    ?CHECK(0 =:= cmp(B, B2, false), {B,B2}),
+    ok.
 
 do_cmp(A, B, Exact) ->
     C = cmp(A, B, Exact),
-    io:format("cmp = ~p\n", [C]),
     C.
-
 
 %% Generate two terms {A,B} that may only differ
 %% at float vs integer types.
-term_gen_recursive(Leafs, Flags0) ->
-    Rnd = case Flags0 of
-	      0 -> random:uniform(size(Leafs)+3);
-	      ?NO_MAPS -> random:uniform(size(Leafs)+2) + 1;
-	      ?NO_LEAF -> random:uniform(3)
+term_gen_recursive(Leafs, Flags, Depth) ->
+    MaxDepth = 10,
+    Rnd = case {Flags, Depth} of
+	      {_, MaxDepth} -> % Only leafs
+		  random:uniform(size(Leafs)) + 3;
+	      {0, 0} ->        % Only containers
+		  random:uniform(3);
+	      {0,_} ->         % Anything
+		  random:uniform(size(Leafs)+3)
 	  end,
-    Flags1 = Flags0 band (bnot ?NO_LEAF),
     case Rnd of
 	1 -> % Make hashmap
 	    Size = random:uniform(size(Leafs)),
 	    %%io:format("Generate hashmap with size ~p:\n", [Size]),
 	    lists:foldl(fun(_, {Acc1,Acc2}) ->
-				{K1,K2} = term_gen_recursive(Leafs, Flags1 bor ?NO_MAPS),
-				{V1,V2} = term_gen_recursive(Leafs, Flags1),
+				{K1,K2} = term_gen_recursive(Leafs, Flags,
+							     Depth+1),
+				{V1,V2} = term_gen_recursive(Leafs, Flags, Depth+1),
 				%%io:format("hashmap:put(~p, ~p)\n", [K,V]),
+				%%ok = check_keys(K1,K2, 0),
 				{hashmap:put(K1,V1, Acc1), hashmap:put(K2,V2, Acc2)}
 			end,
 			{hashmap:new(), hashmap:new()},
 			lists:seq(1,Size));
 	2 -> % Make cons
-	    {Car1,Car2} = term_gen_recursive(Leafs, Flags1),
-	    {Cdr1,Cdr2} = term_gen_recursive(Leafs, Flags1),
+	    {Car1,Car2} = term_gen_recursive(Leafs, Flags, Depth+1),
+	    {Cdr1,Cdr2} = term_gen_recursive(Leafs, Flags, Depth+1),
 	    {[Car1 | Cdr1], [Car2 | Cdr2]};
 	3 -> % Make tuple
 	    Size = random:uniform(size(Leafs)),
-	    L = lists:map(fun(_) -> term_gen_recursive(Leafs, Flags1) end,
+	    L = lists:map(fun(_) -> term_gen_recursive(Leafs, Flags, Depth+1) end,
 			  lists:seq(1,Size)),
 	    {L1, L2} = lists:unzip(L),
 	    {list_to_tuple(L1), list_to_tuple(L2)};
@@ -714,6 +717,27 @@ map_from_list(hashmap, L) ->  %% while waiting for Egil...
 		hashmap:new(),
 		L).
 
+
+check_keys(K1, K2, _) when K1 =:= K2 ->
+    case erlang:phash3(K1) =:= erlang:phash3(K2) of
+	true -> ok;
+	false ->
+	    io:format("Same keys with different hash values !!!\nK1 = ~p\nK2 = ~p\n", [K1,K2]),
+	    error
+    end;
+check_keys(K1, K2, 0) ->
+    case {erlang:phash3(K1), erlang:phash3(K2)} of
+	{H,H} -> check_keys(K1, K2, 1);
+	{_,_} -> ok
+    end;
+check_keys(K1, K2, L) when L < 10 ->
+    case {erlang:phash3([L|K1]), erlang:phash3([L|K2])} of
+	{H,H} -> check_keys(K1, K2, L+1);
+	{_,_} -> ok
+    end;
+check_keys(K1, K2, L) ->
+    io:format("Same hash value at level ~p !!!\nK1 = ~p\nK2 = ~p\n", [L,K1,K2]),
+    error.
 
 %% BIFs
 t_bif_map_get(Config) when is_list(Config) ->
