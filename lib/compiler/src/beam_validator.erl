@@ -22,7 +22,6 @@
 
 %% Avoid warning for local function error/1 clashing with autoimported BIF.
 -compile({no_auto_import,[error/1]}).
--export([file/1, files/1]).
 
 %% Interface for compiler.
 -export([module/2, format_error/1]).
@@ -40,38 +39,12 @@
 -define(DBG_FORMAT(F, D), ok).
 -endif.
 
-%%%
-%%% API functions.
-%%%
-
--spec file(file:filename()) -> 'ok' | {'error', term()}.
-
-file(Name) when is_list(Name) ->
-    case case filename:extension(Name) of
-	     ".S" -> s_file(Name);
-	     ".beam" -> beam_file(Name)
-	 end of
-	[] -> ok;
-	Es -> {error,Es}
-    end.
-
--spec files([file:filename()]) -> 'ok'.
-
-files([F|Fs]) ->
-    ?DBG_FORMAT("# Verifying: ~p~n", [F]),
-    case file(F) of
-	ok -> ok;
-	{error,Es} -> 
-	    io:format("~tp:~n~ts~n", [F,format_error(Es)])
-    end,
-    files(Fs);
-files([]) -> ok.
-
 %% To be called by the compiler.
 module({Mod,Exp,Attr,Fs,Lc}=Code, _Opts)
   when is_atom(Mod), is_list(Exp), is_list(Attr), is_integer(Lc) ->
     case validate(Mod, Fs) of
-	[] -> {ok,Code};
+	[] ->
+	    {ok,Code};
 	Es0 ->
 	    Es = [{?MODULE,E} || E <- Es0],
 	    {error,[{atom_to_list(Mod),Es}]}
@@ -79,12 +52,6 @@ module({Mod,Exp,Attr,Fs,Lc}=Code, _Opts)
 
 -spec format_error(term()) -> iolist().
 
-format_error([]) -> [];
-format_error([{{M,F,A},{I,Off,Desc}}|Es]) ->
-    [io_lib:format("  ~p:~p/~p+~p:~n    ~p - ~p~n", 
-		   [M,F,A,Off,I,Desc])|format_error(Es)];
-format_error([Error|Es]) ->
-    [format_error(Error)|format_error(Es)];
 format_error({{_M,F,A},{I,Off,limit}}) ->
     io_lib:format(
       "function ~p/~p+~p:~n"
@@ -103,44 +70,12 @@ format_error({{_M,F,A},{I,Off,Desc}}) ->
       "  Internal consistency check failed - please report this bug.~n"
       "  Instruction: ~p~n"
       "  Error:       ~p:~n", [F,A,Off,I,Desc]);
-format_error({Module,Error}) ->
-    [Module:format_error(Error)];
 format_error(Error) ->
     io_lib:format("~p~n", [Error]).
 
 %%%
 %%% Local functions follow.
 %%% 
-
-s_file(Name) ->
-    {ok,Is} = file:consult(Name),
-    {module,Module} = lists:keyfind(module, 1, Is),
-    Fs = find_functions(Is),
-    validate(Module, Fs).
-
-find_functions(Fs) ->
-    find_functions_1(Fs, none, [], []).
-
-find_functions_1([{function,Name,Arity,Entry}|Is], Func, FuncAcc, Acc0) ->
-    Acc = add_func(Func, FuncAcc, Acc0),
-    find_functions_1(Is, {Name,Arity,Entry}, [], Acc);
-find_functions_1([I|Is], Func, FuncAcc, Acc) ->
-    find_functions_1(Is, Func, [I|FuncAcc], Acc);
-find_functions_1([], Func, FuncAcc, Acc) ->
-    reverse(add_func(Func, FuncAcc, Acc)).
-
-add_func(none, _, Acc) -> Acc;
-add_func({Name,Arity,Entry}, Is, Acc) ->
-    [{function,Name,Arity,Entry,reverse(Is)}|Acc].
-
-beam_file(Name) ->
-    try beam_disasm:file(Name) of
-	{error,beam_lib,Reason} -> [{beam_lib,Reason}];
-	#beam_file{module=Module, code=Code0} ->
-	    Code = normalize_disassembled_code(Code0),
-	    validate(Module, Code)
-    catch _:_ -> [disassembly_failed]
-    end.
 
 %%%
 %%% The validator follows.
@@ -307,7 +242,7 @@ labels_1([{label,L}|Is], R) ->
 labels_1([{line,_}|Is], R) ->
     labels_1(Is, R);
 labels_1(Is, R) ->
-    {lists:reverse(R),Is}.
+    {reverse(R),Is}.
 
 init_state(Arity) ->
     Xs = init_regs(Arity, term),
@@ -402,10 +337,6 @@ valfun_1({init,{y,_}=Reg}, Vst) ->
     set_type_y(initialized, Reg, Vst);
 valfun_1({test_heap,Heap,Live}, Vst) ->
     test_heap(Heap, Live, Vst);
-valfun_1({bif,_Op,nofail,Src,Dst}, Vst) ->
-    %% The 'nofail' atom only occurs in disassembled code.
-    validate_src(Src, Vst),
-    set_type_reg(term, Dst, Vst);
 valfun_1({bif,Op,{f,_},Src,Dst}=I, Vst) ->
     case is_bif_safe(Op, length(Src)) of
 	false ->
@@ -614,8 +545,6 @@ valfun_4({bif,element,{f,Fail},[Pos,Tuple],Dst}, Vst0) ->
     TupleType = upgrade_tuple_type({tuple,[get_tuple_size(PosType)]}, TupleType0),
     Vst = set_type(TupleType, Tuple, Vst1),
     set_type_reg(term, Dst, Vst);
-valfun_4({raise,{f,_}=Fail,Src,Dst}, Vst) ->
-    valfun_4({bif,raise,Fail,Src,Dst}, Vst);
 valfun_4({bif,Op,{f,Fail},Src,Dst}, Vst0) ->
     validate_src(Src, Vst0),
     Vst = branch_state(Fail, Vst0),
@@ -1751,52 +1680,3 @@ error(Error) -> exit(Error).
 -else.
 error(Error) -> throw(Error).
 -endif.
-
-
-%%%
-%%% Rewrite disassembled code to the same format as we used internally
-%%% to not have to worry later.
-%%%
-
-normalize_disassembled_code(Fs) ->
-    Index = ndc_index(Fs, []),
-    ndc(Fs, Index, []).
-
-ndc_index([{function,Name,Arity,Entry,_Code}|Fs], Acc) ->
-    ndc_index(Fs, [{{Name,Arity},Entry}|Acc]);
-ndc_index([], Acc) ->
-    gb_trees:from_orddict(lists:sort(Acc)).
-
-ndc([{function,Name,Arity,Entry,Code0}|Fs], D, Acc) ->
-    Code = ndc_1(Code0, D, []),
-    ndc(Fs, D, [{function,Name,Arity,Entry,Code}|Acc]);
-ndc([], _, Acc) -> reverse(Acc).
-    
-ndc_1([{call=Op,A,{_,F,A}}|Is], D, Acc) ->
-    ndc_1(Is, D, [{Op,A,{f,gb_trees:get({F,A}, D)}}|Acc]);
-ndc_1([{call_only=Op,A,{_,F,A}}|Is], D, Acc) ->
-    ndc_1(Is, D, [{Op,A,{f,gb_trees:get({F,A}, D)}}|Acc]);
-ndc_1([{call_last=Op,A,{_,F,A},Sz}|Is], D, Acc) ->
-    ndc_1(Is, D, [{Op,A,{f,gb_trees:get({F,A}, D)},Sz}|Acc]);
-ndc_1([{arithbif,Op,F,Src,Dst}|Is], D, Acc) ->
-    ndc_1(Is, D, [{bif,Op,F,Src,Dst}|Acc]);
-ndc_1([{arithfbif,Op,F,Src,Dst}|Is], D, Acc) ->
-    ndc_1(Is, D, [{bif,Op,F,Src,Dst}|Acc]);
-ndc_1([{test,bs_start_match2=Op,F,[A1,Live,A3,Dst]}|Is], D, Acc) ->
-    ndc_1(Is, D, [{test,Op,F,Live,[A1,A3],Dst}|Acc]);
-ndc_1([{test,bs_get_binary2=Op,F,[A1,Live,A3,A4,A5,Dst]}|Is], D, Acc) ->
-    ndc_1(Is, D, [{test,Op,F,Live,[A1,A3,A4,A5],Dst}|Acc]);
-ndc_1([{test,bs_get_float2=Op,F,[A1,Live,A3,A4,A5,Dst]}|Is], D, Acc) ->
-    ndc_1(Is, D, [{test,Op,F,Live,[A1,A3,A4,A5],Dst}|Acc]);
-ndc_1([{test,bs_get_integer2=Op,F,[A1,Live,A3,A4,A5,Dst]}|Is], D, Acc) ->
-    ndc_1(Is, D, [{test,Op,F,Live,[A1,A3,A4,A5],Dst}|Acc]);
-ndc_1([{test,bs_get_utf8=Op,F,[A1,Live,A3,Dst]}|Is], D, Acc) ->
-    ndc_1(Is, D, [{test,Op,F,Live,[A1,A3],Dst}|Acc]);
-ndc_1([{test,bs_get_utf16=Op,F,[A1,Live,A3,Dst]}|Is], D, Acc) ->
-    ndc_1(Is, D, [{test,Op,F,Live,[A1,A3],Dst}|Acc]);
-ndc_1([{test,bs_get_utf32=Op,F,[A1,Live,A3,Dst]}|Is], D, Acc) ->
-    ndc_1(Is, D, [{test,Op,F,Live,[A1,A3],Dst}|Acc]);
-ndc_1([I|Is], D, Acc) ->
-    ndc_1(Is, D, [I|Acc]);
-ndc_1([], _, Acc) ->
-    reverse(Acc).

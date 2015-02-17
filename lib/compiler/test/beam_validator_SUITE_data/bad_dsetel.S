@@ -1,4 +1,4 @@
-{module, t}.  %% version = 0
+{module, bad_dsetel}.  %% version = 0
 
 {exports, [{module_info,0},{module_info,1},{t,1}]}.
 

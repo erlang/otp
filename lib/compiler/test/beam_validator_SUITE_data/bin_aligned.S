@@ -1,4 +1,4 @@
-{module, t}.  %% version = 0
+{module, bin_aligned}.  %% version = 0
 
 {exports, [{decode,1},{module_info,0},{module_info,1}]}.
 

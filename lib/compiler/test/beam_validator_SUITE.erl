@@ -21,7 +21,7 @@
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2,
 	 init_per_testcase/2,end_per_testcase/2,
-	 beam_files/1,compiler_bug/1,stupid_but_valid/1,
+	 compiler_bug/1,stupid_but_valid/1,
 	 xrange/1,yrange/1,stack/1,call_last/1,merge_undefined/1,
 	 uninit/1,unsafe_catch/1,
 	 dead_code/1,
@@ -47,7 +47,7 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     test_lib:recompile(?MODULE),
-    [beam_files,{group,p}].
+    [{group,p}].
 
 groups() -> 
     [{p,test_lib:parallel(),
@@ -71,27 +71,6 @@ init_per_group(_GroupName, Config) ->
 
 end_per_group(_GroupName, Config) ->
 	Config.
-
-
-beam_files(Config) when is_list(Config) ->
-    ?line DataDir = proplists:get_value(data_dir, Config),
-    ?line Wc = filename:join([DataDir,"..","..","*","*.beam"]),
-    %% Must have at least two files here, or there will be
-    %% a grammatical error in the output of the io:format/2 call below. ;-)
-    ?line [_,_|_] = Fs = filelib:wildcard(Wc),
-    ?line io:format("~p files\n", [length(Fs)]),
-    test_lib:p_run(fun do_beam_file/1, Fs).
-
-
-do_beam_file(F) ->
-    case beam_validator:file(F) of
-	ok ->
-	    ok;
-	{error,Es} ->
-	    io:format("File:  ~s", [F]),
-	    io:format("Error: ~p\n", [Es]),
-	    error
-    end.
 
 compiler_bug(Config) when is_list(Config) ->
     %% Check that the compiler returns an error if we try to
@@ -152,14 +131,14 @@ yrange(Config) when is_list(Config) ->
 
 stack(Config) when is_list(Config) ->
     Errors = do_val(stack, Config),
-    ?line [{{t,a,2},{return,11,{stack_frame,2}}},
-	   {{t,b,2},{{deallocate,2},4,{allocated,none}}},
-	   {{t,c,2},{{deallocate,2},12,{allocated,none}}},
-	   {{t,d,2},
-	    {{allocate,2,2},5,{existing_stack_frame,{size,2}}}},
-	   {{t,e,2},{{deallocate,5},6,{allocated,2}}},
-	   {{t,bad_1,0},{{allocate_zero,2,10},4,{{x,9},not_live}}},
-	   {{t,bad_2,0},{{move,{y,0},{x,0}},5,{unassigned,{y,0}}}}] = Errors,
+    [{{t,a,2},{return,11,{stack_frame,2}}},
+     {{t,b,2},{{deallocate,2},4,{allocated,none}}},
+     {{t,bad_1,0},{{allocate_zero,2,10},4,{{x,9},not_live}}},
+     {{t,bad_2,0},{{move,{y,0},{x,0}},5,{unassigned,{y,0}}}},
+     {{t,c,2},{{deallocate,2},12,{allocated,none}}},
+     {{t,d,2},
+      {{allocate,2,2},5,{existing_stack_frame,{size,2}}}},
+     {{t,e,2},{{deallocate,5},6,{allocated,2}}}] = Errors,
     ok.
 
 call_last(Config) when is_list(Config) ->
@@ -185,7 +164,7 @@ uninit(Config) when is_list(Config) ->
 	[{{t,sum_1,2},
 	  {{move,{y,0},{x,0}},5,{uninitialized_reg,{y,0}}}},
 	 {{t,sum_2,2},
-	  {{call,1,{f,10}},6,{uninitialized_reg,{y,0}}}},
+	  {{call,1,{f,8}},6,{uninitialized_reg,{y,0}}}},
 	 {{t,sum_3,2},
 	  {{bif,'+',{f,0},[{x,0},{y,0}],{x,0}},
 	   7,
@@ -222,11 +201,10 @@ overwrite_trytag(Config) when is_list(Config) ->
 
 accessing_tags(Config) when is_list(Config) ->
     Errors = do_val(accessing_tags, Config),
-    ?line
-	[{{accessing_tags,foo,1},
-	  {{move,{y,0},{x,0}},6,{catchtag,_}}},
-	 {{accessing_tags,bar,1},
-	  {{move,{y,0},{x,0}},6,{trytag,_}}}] = Errors,
+    [{{accessing_tags,bar,1},
+      {{move,{y,0},{x,0}},6,{trytag,_}}},
+     {{accessing_tags,foo,1},
+      {{move,{y,0},{x,0}},6,{catchtag,_}}}] = Errors,
     ok.
 
 bad_catch_try(Config) when is_list(Config) ->
@@ -342,14 +320,14 @@ bad_dsetel(Config) when is_list(Config) ->
 
 state_after_fault_in_catch(Config) when is_list(Config) ->
     Errors = do_val(state_after_fault_in_catch, Config),
-    [{{t,foo,1},
-      {{move,{x,1},{x,0}},10,{uninitialized_reg,{x,1}}}},
-     {{state_after_fault_in_catch,if_end,1},
+    [{{state_after_fault_in_catch,badmatch,1},
       {{move,{x,1},{x,0}},9,{uninitialized_reg,{x,1}}}},
      {{state_after_fault_in_catch,case_end,1},
       {{move,{x,1},{x,0}},9,{uninitialized_reg,{x,1}}}},
-     {{state_after_fault_in_catch,badmatch,1},
-      {{move,{x,1},{x,0}},9,{uninitialized_reg,{x,1}}}}] = Errors,
+     {{state_after_fault_in_catch,if_end,1},
+      {{move,{x,1},{x,0}},9,{uninitialized_reg,{x,1}}}},
+     {{t,foo,1},
+      {{move,{x,1},{x,0}},10,{uninitialized_reg,{x,1}}}}] = Errors,
     ok.
 
 no_exception_in_catch(Config) when is_list(Config) ->
@@ -359,13 +337,46 @@ no_exception_in_catch(Config) when is_list(Config) ->
     ok.
 
 undef_label(Config) when is_list(Config) ->
-    Errors = do_val(undef_label, Config),
+    M = {undef_label,
+	 [{t,1}],
+	 [],
+	 [{function,t,1,2,
+	   [{label,1},
+	    {func_info,{atom,undef_label},{atom,t},1},
+	    {label,2},
+	    {test,is_eq_exact,{f,42},[{x,0},{atom,x}]},
+	    {move,{atom,ok},{x,0}},
+	    return]},
+	  {function,x,1,17,
+	   [{label,3},
+	    {func_info,{atom,undef_label},{atom,x},1},
+	    {label,4},
+	    return]}],
+	 5},
+    Errors = beam_val(M),
     [{{undef_label,t,1},{undef_labels,[42]}},
      {{undef_label,x,1},{return,4,no_entry_label}}] = Errors,
     ok.
 
 illegal_instruction(Config) when is_list(Config) ->
-    Errors = do_val(illegal_instruction, Config),
+    M = {illegal_instruction,
+	 [{t,1},{x,1},{y,0}],
+	 [],
+	 [{function,t,1,2,
+	   [{label,1},
+	    {func_info,{atom,illegal_instruction},{atom,t},1},
+	    {label,2},
+	    {my_illegal_instruction,{x,0}},
+	    return]},
+	  {function,x,1,4,
+	   [{label,3},
+	    bad_func_info,
+	    {label,4},
+	    {my_illegal_instruction,{x,0}},
+	    return]},
+	  {function,y,0,17,[]}],
+	 5},
+    Errors = beam_val(M),
     [{{illegal_instruction,t,1},
       {{my_illegal_instruction,{x,0}},4,unknown_instruction}},
      {{'_',x,1},{bad_func_info,1,illegal_instruction}},
@@ -406,16 +417,25 @@ process_request_bar(Pid, [Response]) when is_pid(Pid) ->
 
 %%%-------------------------------------------------------------------------
 
-do_val(Name, Config) ->
-    do_val(Name, Config, ".S").
+do_val(Mod, Config) ->
+    Data = ?config(data_dir, Config),
+    Base = atom_to_list(Mod),
+    File = filename:join(Data, Base),
+    case compile:file(File, [from_asm,no_postopt,return_errors]) of
+	{error,L,[]} ->
+	    [{Base,Errors0}] = L,
+	    Errors = [E || {beam_validator,E} <- Errors0],
+	    _ = [io:put_chars(beam_validator:format_error(E)) ||
+		    E <- Errors],
+	    Errors;
+	{ok,Mod} ->
+	    []
+    end.
 
-do_val(Name, Config, Type) ->
-    ?line Data = ?config(data_dir, Config),
-    ?line File = filename:join(Data, atom_to_list(Name)++Type),
-    ?line case beam_validator:file(File) of
-	      {error,Errors} ->
-		  ?line io:format("~p:~n~s", 
-				  [File,beam_validator:format_error(Errors)]),
-		  Errors;
-	      ok -> []
-	  end.
+beam_val(M) ->
+    Name = atom_to_list(element(1, M)),
+    {error,[{Name,Errors0}]} = beam_validator:module(M, []),
+    Errors = [E || {beam_validator,E} <- Errors0],
+    _ = [io:put_chars(beam_validator:format_error(E)) ||
+	    E <- Errors],
+    Errors.
