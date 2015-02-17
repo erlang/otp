@@ -340,8 +340,12 @@ reader(Tab, OP) ->
 	    ?error("Expected ~p Got ~p ~n", [[{Tab, key, val}], Else]),
 	    erlang:error(test_failed)
     end,
-    receive Pid ->
-	    Pid ! ok
+    receive
+	Pid when is_pid(Pid) ->
+	    Pid ! ok;
+	Other ->
+	    io:format("Msg: ~p~n", [Other]),
+	    error(Other)
     after 50 ->
 	    reader(Tab, OP)
     end.
