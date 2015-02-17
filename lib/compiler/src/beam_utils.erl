@@ -187,7 +187,7 @@ is_pure_test({test,is_lt,_,[_,_]}) -> true;
 is_pure_test({test,is_nil,_,[_]}) -> true;
 is_pure_test({test,is_nonempty_list,_,[_]}) -> true;
 is_pure_test({test,test_arity,_,[_,_]}) -> true;
-is_pure_test({test,has_map_fields,_,[_,{list,_}]}) -> true;
+is_pure_test({test,has_map_fields,_,[_|_]}) -> true;
 is_pure_test({test,Op,_,Ops}) -> 
     erl_internal:new_type_test(Op, length(Ops)).
 
