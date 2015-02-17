@@ -1288,6 +1288,55 @@ make_hash2(Eterm term)
 		goto hash2_common;
 	    }
 	    break;
+            case HASHMAP_SUBTAG:
+            {
+                Eterm* ptr = boxed_val(term) + 1;
+                Uint size;
+                int i;
+                switch (hdr & _HEADER_MAP_SUBTAG_MASK) {
+                case HAMT_SUBTAG_HEAD_ARRAY:
+                case HAMT_SUBTAG_HEAD_BITMAP:
+                    size = *ptr++;
+                    UINT32_HASH(size, HCONST_16);
+                    if (size == 0)
+                        goto hash2_common;
+                    ESTACK_PUSH(s, hash_xor_values);
+                    ESTACK_PUSH(s, hash_xor_keys);
+                    ESTACK_PUSH(s, hash);
+                    ESTACK_PUSH(s, HASH_MAP_TAIL);
+                    hash = 0;
+                    hash_xor_keys = 0;
+                    hash_xor_values = 0;
+                }
+                switch (hdr & _HEADER_MAP_SUBTAG_MASK) {
+                case HAMT_SUBTAG_HEAD_ARRAY:
+                case HAMT_SUBTAG_NODE_ARRAY:
+                    i = 16;
+                    break;
+                case HAMT_SUBTAG_HEAD_BITMAP:
+                case HAMT_SUBTAG_NODE_BITMAP:
+                    i = hashmap_bitcount(MAP_HEADER_VAL(hdr));
+                    break;
+                default:
+                    erl_exit(1, "bad header");
+                }
+                while (i) {
+                    if (is_list(*ptr)) {
+                        Eterm* cons = list_val(*ptr);
+                        ESTACK_PUSH(s, HASH_MAP_KEY);
+                        ESTACK_PUSH(s, CAR(cons));
+                        ESTACK_PUSH(s, HASH_MAP_VAL);
+                        ESTACK_PUSH(s, CDR(cons));
+                    }
+                    else {
+                        ASSERT(is_boxed(*ptr));
+                        ESTACK_PUSH(s, *ptr);
+                    }
+                    i--; ptr++;
+                }
+                goto hash2_common;
+            }
+            break;
 	    case EXPORT_SUBTAG:
 	    {
 		Export* ep = *((Export **) (export_val(term) + 1));
