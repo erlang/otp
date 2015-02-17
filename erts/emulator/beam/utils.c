@@ -1133,9 +1133,10 @@ Uint32
 make_hash2(Eterm term)
 {
     Uint32 hash;
-    Uint32 hash_xor_keys   = 0;
-    Uint32 hash_xor_values = 0;
+    Uint32 hash_xor_pairs;
     DeclareTmpHeapNoproc(tmp_big,2);
+
+    ERTS_UNDEF(hash_xor_pairs, 0);
 
 /* (HCONST * {2, ..., 16}) mod 2^32 */
 #define HCONST_2 0x3c6ef372UL
@@ -1155,8 +1156,8 @@ make_hash2(Eterm term)
 #define HCONST_16 0xe3779b90UL
 
 #define HASH_MAP_TAIL (_make_header(1,_TAG_HEADER_REF))
-#define HASH_MAP_KEY  (_make_header(2,_TAG_HEADER_REF))
-#define HASH_MAP_VAL  (_make_header(3,_TAG_HEADER_REF))
+#define HASH_MAP_PAIR (_make_header(2,_TAG_HEADER_REF))
+#define HASH_CDR      (_make_header(3,_TAG_HEADER_REF))
 
 #define UINT32_HASH_2(Expr1, Expr2, AConst)       \
          do {                                     \
@@ -1233,9 +1234,9 @@ make_hash2(Eterm term)
 	    if (c > 0)
 		UINT32_HASH(sh, HCONST_4);
 	    if (is_list(term)) {
-		term = *ptr;
-		tmp = *++ptr;
-		ESTACK_PUSH(s, tmp);	    
+		tmp = CDR(ptr);
+                ESTACK_PUSH(s, tmp);
+		term = CAR(ptr);
 	    }
 	}
 	break;
@@ -1271,20 +1272,20 @@ make_hash2(Eterm term)
 		if (size == 0) {
 		    goto hash2_common;
 		}
-		ESTACK_PUSH4(s, hash_xor_values, hash_xor_keys, hash, HASH_MAP_TAIL);
-		hash = 0;
-		hash_xor_keys = 0;
-		hash_xor_values = 0;
-		for (i = size - 1; i >= 0; i--) {
-		    tmp = vs[i];
-		    ESTACK_PUSH2(s, HASH_MAP_VAL, tmp);
-		}
-		/* We do not want to expose the tuple representation.
-		 * Do not push the keys as a tuple.
+		/* We want a portable hash function that is *independent* of
+		 * the order in which keys and values are encountered.
+		 * We therefore calculate context independent hashes for all    				      .
+		 * key-value pairs and then xor them together.
 		 */
+		ESTACK_PUSH(s, hash_xor_pairs);
+		ESTACK_PUSH(s, hash);
+		ESTACK_PUSH(s, HASH_MAP_TAIL);
+		hash = 0;
+		hash_xor_pairs = 0;
 		for (i = size - 1; i >= 0; i--) {
-		    tmp = ks[i];
-		    ESTACK_PUSH2(s, HASH_MAP_KEY, tmp);
+		    ESTACK_PUSH(s, HASH_MAP_PAIR);
+		    ESTACK_PUSH(s, vs[i]);
+                    ESTACK_PUSH(s, ks[i]);
 		}
 		goto hash2_common;
 	    }
@@ -1301,13 +1302,11 @@ make_hash2(Eterm term)
                     UINT32_HASH(size, HCONST_16);
                     if (size == 0)
                         goto hash2_common;
-                    ESTACK_PUSH(s, hash_xor_values);
-                    ESTACK_PUSH(s, hash_xor_keys);
+                    ESTACK_PUSH(s, hash_xor_pairs);
                     ESTACK_PUSH(s, hash);
                     ESTACK_PUSH(s, HASH_MAP_TAIL);
                     hash = 0;
-                    hash_xor_keys = 0;
-                    hash_xor_values = 0;
+                    hash_xor_pairs = 0;
                 }
                 switch (hdr & _HEADER_MAP_SUBTAG_MASK) {
                 case HAMT_SUBTAG_HEAD_ARRAY:
@@ -1324,10 +1323,9 @@ make_hash2(Eterm term)
                 while (i) {
                     if (is_list(*ptr)) {
                         Eterm* cons = list_val(*ptr);
-                        ESTACK_PUSH(s, HASH_MAP_KEY);
-                        ESTACK_PUSH(s, CAR(cons));
-                        ESTACK_PUSH(s, HASH_MAP_VAL);
+                        ESTACK_PUSH(s, HASH_MAP_PAIR);
                         ESTACK_PUSH(s, CDR(cons));
+                        ESTACK_PUSH(s, CAR(cons));
                     }
                     else {
                         ASSERT(is_boxed(*ptr));
@@ -1437,7 +1435,8 @@ make_hash2(Eterm term)
 		do {
 		    Uint t;
 		    Uint32 x, y;
-		    t = i < n ? BIG_DIGIT(ptr, i++) : 0;
+                    ASSERT(i < n);
+		    t = BIG_DIGIT(ptr, i++);
 		    x = t & 0xffffffff;
 		    y = t >> 32;
 		    UINT32_HASH_2(x, y, con);
@@ -1545,18 +1544,12 @@ make_hash2(Eterm term)
 	    switch (term) {
 		case HASH_MAP_TAIL: {
 		    hash = (Uint32) ESTACK_POP(s);
-		    UINT32_HASH(hash_xor_keys, HCONST_16);
-		    UINT32_HASH(hash_xor_values, HCONST_16);
-		    hash_xor_keys = (Uint32) ESTACK_POP(s);
-		    hash_xor_values = (Uint32) ESTACK_POP(s);
+                    UINT32_HASH(hash_xor_pairs, HCONST_19);
+		    hash_xor_pairs = (Uint32) ESTACK_POP(s);
 		    goto hash2_common;
 		}
-		case HASH_MAP_KEY:
-		    hash_xor_keys ^= hash;
-		    hash = 0;
-		    goto hash2_common;
-		case HASH_MAP_VAL:
-		    hash_xor_values ^= hash;
+		case HASH_MAP_PAIR:
+		    hash_xor_pairs ^= hash;
 		    hash = 0;
 		    goto hash2_common;
 		default:
