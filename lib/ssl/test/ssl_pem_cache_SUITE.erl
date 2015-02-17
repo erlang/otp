@@ -121,7 +121,7 @@ get_pem_cache() ->
     end.
 
 later()->
-    DateTime = calendar:now_to_local_time(erlang:timestamp()), 
+    DateTime = calendar:now_to_local_time(os:timestamp()), 
     Gregorian = calendar:datetime_to_gregorian_seconds(DateTime),
     calendar:gregorian_seconds_to_datetime(Gregorian + (2 * ?CLEANUP_INTERVAL)).
 	
