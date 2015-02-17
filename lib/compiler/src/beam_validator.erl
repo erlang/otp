@@ -891,9 +891,13 @@ valfun_4(_, _) ->
 verify_get_map(Fail, Src, List, Vst0) ->
     assert_term(Src, Vst0),
     Vst1 = branch_state(Fail, Vst0),
-    Lits = mmap(fun(L,_R) -> [L] end, List),
-    assert_strict_literal_termorder(Lits),
+    Keys = extract_map_keys(List),
+    assert_strict_literal_termorder(Keys),
     verify_get_map_pair(List,Vst0,Vst1).
+
+extract_map_keys([Key,_Val|T]) ->
+    [Key|extract_map_keys(T)];
+extract_map_keys([]) -> [].
 
 verify_get_map_pair([],_,Vst) -> Vst;
 verify_get_map_pair([Src,Dst|Vs],Vst0,Vsti) ->
@@ -1122,38 +1126,30 @@ assert_freg_set(Fr, _) -> error({bad_source,Fr}).
 
 %%% Maps
 
-%% ensure that a list of literals has a strict
-%% ascending term order (also meaning unique literals).
-%% Single item lists may have registers.
-assert_strict_literal_termorder([_]) -> ok;
-assert_strict_literal_termorder(Ls) ->
-    Vs = lists:map(fun (L) -> get_literal(L) end, Ls),
+%% A single item list may be either a list or a register.
+%%
+%% A list with more than item must contain literals in
+%% ascending term order.
+%%
+%% An empty list is not allowed.
+
+assert_strict_literal_termorder([]) ->
+    %% There is no reason to use the get_map_elements and
+    %% has_map_fields instructions with empty lists.
+    error(empty_field_list);
+assert_strict_literal_termorder([_]) ->
+    ok;
+assert_strict_literal_termorder([_,_|_]=Ls) ->
+    Vs = [get_literal(L) || L <- Ls],
     case check_strict_value_termorder(Vs) of
 	true ->  ok;
-	false -> error({not_strict_order, Ls})
+	false -> error(not_strict_order)
     end.
 
-%% usage:
-%% mmap(fun(A,B) -> [{A,B}] end, [1,2,3,4]),
-%% [{1,2},{3,4}]
-
-mmap(F,List) ->
-    {arity,Ar} = erlang:fun_info(F,arity),
-    mmap(F,Ar,List).
-mmap(_F,_,[]) -> [];
-mmap(F,Ar,List) ->
-    {Hd,Tl} = lists:split(Ar,List),
-    apply(F,Hd) ++ mmap(F,Ar,Tl).
-
-check_strict_value_termorder([]) -> true;
-check_strict_value_termorder([_]) -> true;
-check_strict_value_termorder([V1,V2]) ->
-    erts_internal:cmp_term(V1,V2) < 0;
-check_strict_value_termorder([V1,V2|Vs]) ->
-    case erts_internal:cmp_term(V1,V2) < 0 of
-	true -> check_strict_value_termorder([V2|Vs]);
-	false -> false
-    end.
+check_strict_value_termorder([V1|[V2|_]=Vs]) ->
+    erts_internal:cmp_term(V1, V2) < 0 andalso
+	check_strict_value_termorder(Vs);
+check_strict_value_termorder([_]) -> true.
 
 %%%
 %%% Binary matching.
