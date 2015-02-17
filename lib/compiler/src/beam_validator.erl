@@ -431,9 +431,6 @@ valfun_1({put_tuple,Sz,Dst}, Vst0) when is_integer(Sz) ->
 valfun_1({put,Src}, Vst) ->
     assert_term(Src, Vst),
     eat_heap(1, Vst);
-valfun_1({put_string,Sz,_,Dst}, Vst0) when is_integer(Sz) ->
-    Vst = eat_heap(2*Sz, Vst0),
-    set_type_reg(cons, Dst, Vst);
 %% Instructions for optimization of selective receives.
 valfun_1({recv_mark,{f,Fail}}, Vst) when is_integer(Fail) ->
     Vst;
@@ -601,8 +598,6 @@ valfun_4({call_ext_last,Live,Func,StkSize},
     tail_call(Func, Live, Vst);
 valfun_4({call_ext_last,_,_,_}, #vst{current=#st{numy=NumY}}) ->
     error({allocated,NumY});
-valfun_4({make_fun,_,_,Live}, Vst) ->
-    call('fun', Live, Vst);
 valfun_4({make_fun2,_,_,_,Live}, Vst) ->
     call(make_fun, Live, Vst);
 %% Other BIFs
@@ -895,9 +890,6 @@ validate_bs_skip_utf(Fail, Ctx, Live, Vst0) ->
 %% set_tuple_element/3.
 %%
 val_dsetel({move,_,_}, Vst) ->
-    Vst;
-val_dsetel({put_string,0,{string,""},_}, Vst) ->
-    %% An empty string is OK since it doesn't build anything.
     Vst;
 val_dsetel({call_ext,3,{extfunc,erlang,setelement,3}}, #vst{current=St}=Vst) ->
     Vst#vst{current=St#st{setelem=true}};

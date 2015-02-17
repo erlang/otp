@@ -24,7 +24,7 @@
 	 beam_files/1,compiler_bug/1,stupid_but_valid/1,
 	 xrange/1,yrange/1,stack/1,call_last/1,merge_undefined/1,
 	 uninit/1,unsafe_catch/1,
-	 dead_code/1,mult_labels/1,
+	 dead_code/1,
 	 overwrite_catchtag/1,overwrite_trytag/1,accessing_tags/1,bad_catch_try/1,
 	 cons_guard/1,
 	 freg_range/1,freg_uninit/1,freg_state/1,
@@ -53,7 +53,7 @@ groups() ->
     [{p,test_lib:parallel(),
       [compiler_bug,stupid_but_valid,xrange,
        yrange,stack,call_last,merge_undefined,uninit,
-       unsafe_catch,dead_code,mult_labels,
+       unsafe_catch,dead_code,
        overwrite_catchtag,overwrite_trytag,accessing_tags,
        bad_catch_try,cons_guard,freg_range,freg_uninit,
        freg_state,bad_bin_match,bin_aligned,bad_dsetel,
@@ -173,10 +173,10 @@ call_last(Config) when is_list(Config) ->
 
 merge_undefined(Config) when is_list(Config) ->
     Errors = do_val(merge_undefined, Config),
-    ?line [{{t,handle_call,2},
-	    {{call_ext,2,{extfunc,debug,filter,2}},
-	     22,
-	     {uninitialized_reg,{y,0}}}}] = Errors,
+    [{{t,handle_call,2},
+      {{call_ext,2,{extfunc,debug,filter,2}},
+       23,
+       {uninitialized_reg,{y,0}}}}] = Errors,
     ok.
 
 uninit(Config) when is_list(Config) ->
@@ -204,10 +204,6 @@ unsafe_catch(Config) when is_list(Config) ->
 
 dead_code(Config) when is_list(Config) ->
     [] = do_val(dead_code, Config),
-    ok.
-
-mult_labels(Config) when is_list(Config) ->
-    [] = do_val(erl_prim_loader, Config, ".beam"),
     ok.
 
 overwrite_catchtag(Config) when is_list(Config) ->
@@ -340,7 +336,7 @@ bad_dsetel(Config) when is_list(Config) ->
     ?line
 	[{{t,t,1},
 	  {{set_tuple_element,{x,1},{x,0},1},
-	   15,
+	   17,
 	   illegal_context_for_set_tuple_element}}] = Errors,
     ok.
 
