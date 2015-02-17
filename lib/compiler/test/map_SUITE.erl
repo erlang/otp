@@ -641,6 +641,7 @@ t_build_and_match_nil(Config) when is_list(Config) ->
 	    "treat" => V2, 
 	    [] => V1 }),
     #{ [] := V3, [] := V3 } = id(#{ [] => V1, [] => V3 }),
+    #{ <<1>> := V3, [] := V1 } = id(#{ [] => V1, <<1>> => V3 }),
     ok.
 
 t_build_and_match_structure(Config) when is_list(Config) ->
