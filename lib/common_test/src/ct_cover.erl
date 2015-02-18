@@ -174,7 +174,7 @@ get_spec_test(File) ->
 				     [] -> [#cover{app=none, level=details}];
 				     _ -> Res
 				 end,
-			    case get_cover_opts(Apps, Terms, []) of
+			    case get_cover_opts(Apps, Terms, Dir, []) of
 				E = {error,_} -> 
 				    E;
 				[CoverSpec] ->
@@ -205,124 +205,125 @@ collect_apps([], Apps) ->
 %% get_cover_opts(Terms) -> AppCoverInfo
 %% AppCoverInfo: [#cover{app=App,...}]
 
-get_cover_opts([App | Apps], Terms, CoverInfo) ->
-    case get_app_info(App, Terms) of
+get_cover_opts([App | Apps], Terms, Dir, CoverInfo) ->
+    case get_app_info(App, Terms, Dir) of
 	E = {error,_} -> E;
 	AppInfo ->
 	    AppInfo1 = files2mods(AppInfo),
-	    get_cover_opts(Apps, Terms, [AppInfo1|CoverInfo])
+	    get_cover_opts(Apps, Terms, Dir, [AppInfo1|CoverInfo])
     end;
-get_cover_opts([], _, CoverInfo) ->
+get_cover_opts([], _, _, CoverInfo) ->
     lists:reverse(CoverInfo).
 
-%% get_app_info(App, Terms) -> App1
+%% get_app_info(App, Terms, Dir) -> App1
 
-get_app_info(App=#cover{app=none}, [{incl_dirs,Dirs}|Terms]) ->
-    get_app_info(App, [{incl_dirs,none,Dirs}|Terms]);
-get_app_info(App=#cover{app=Name}, [{incl_dirs,Name,Dirs}|Terms]) ->
-    case get_files(Dirs, ".beam", false, []) of
+get_app_info(App=#cover{app=none}, [{incl_dirs,Dirs}|Terms], Dir) ->
+    get_app_info(App, [{incl_dirs,none,Dirs}|Terms], Dir);
+get_app_info(App=#cover{app=Name}, [{incl_dirs,Name,Dirs}|Terms], Dir) ->
+    case get_files(Dirs, Dir, ".beam", false, []) of
 	E = {error,_} -> E;
 	Mods1 ->
 	    Mods = App#cover.incl_mods,
-	    get_app_info(App#cover{incl_mods=Mods++Mods1},Terms)
+	    get_app_info(App#cover{incl_mods=Mods++Mods1},Terms,Dir)
     end;
 
-get_app_info(App=#cover{app=none}, [{incl_dirs_r,Dirs}|Terms]) ->
-    get_app_info(App, [{incl_dirs_r,none,Dirs}|Terms]);
-get_app_info(App=#cover{app=Name}, [{incl_dirs_r,Name,Dirs}|Terms]) ->
-    case get_files(Dirs, ".beam", true, []) of
+get_app_info(App=#cover{app=none}, [{incl_dirs_r,Dirs}|Terms], Dir) ->
+    get_app_info(App, [{incl_dirs_r,none,Dirs}|Terms], Dir);
+get_app_info(App=#cover{app=Name}, [{incl_dirs_r,Name,Dirs}|Terms], Dir) ->
+    case get_files(Dirs, Dir, ".beam", true, []) of
 	E = {error,_} -> E;
 	Mods1 ->
 	    Mods = App#cover.incl_mods,
-	    get_app_info(App#cover{incl_mods=Mods++Mods1},Terms)
+	    get_app_info(App#cover{incl_mods=Mods++Mods1},Terms,Dir)
     end;
 
-get_app_info(App=#cover{app=none}, [{incl_mods,Mods1}|Terms]) ->
-    get_app_info(App, [{incl_mods,none,Mods1}|Terms]);
-get_app_info(App=#cover{app=Name}, [{incl_mods,Name,Mods1}|Terms]) ->
+get_app_info(App=#cover{app=none}, [{incl_mods,Mods1}|Terms], Dir) ->
+    get_app_info(App, [{incl_mods,none,Mods1}|Terms], Dir);
+get_app_info(App=#cover{app=Name}, [{incl_mods,Name,Mods1}|Terms], Dir) ->
     Mods = App#cover.incl_mods,
-    get_app_info(App#cover{incl_mods=Mods++Mods1},Terms);
+    get_app_info(App#cover{incl_mods=Mods++Mods1},Terms,Dir);
 
-get_app_info(App=#cover{app=none}, [{excl_dirs,Dirs}|Terms]) ->
-    get_app_info(App, [{excl_dirs,none,Dirs}|Terms]);
-get_app_info(App=#cover{app=Name}, [{excl_dirs,Name,Dirs}|Terms]) ->
-    case get_files(Dirs, ".beam", false, []) of
+get_app_info(App=#cover{app=none}, [{excl_dirs,Dirs}|Terms], Dir) ->
+    get_app_info(App, [{excl_dirs,none,Dirs}|Terms], Dir);
+get_app_info(App=#cover{app=Name}, [{excl_dirs,Name,Dirs}|Terms], Dir) ->
+    case get_files(Dirs, Dir, ".beam", false, []) of
 	E = {error,_} -> E;
 	Mods1 ->
 	    Mods = App#cover.excl_mods,
-	    get_app_info(App#cover{excl_mods=Mods++Mods1},Terms)
+	    get_app_info(App#cover{excl_mods=Mods++Mods1},Terms,Dir)
     end;
 
-get_app_info(App=#cover{app=none}, [{excl_dirs_r,Dirs}|Terms]) ->
-    get_app_info(App, [{excl_dirs_r,none,Dirs}|Terms]);
-get_app_info(App=#cover{app=Name}, [{excl_dirs_r,Name,Dirs}|Terms]) ->
-    case get_files(Dirs, ".beam", true, []) of
+get_app_info(App=#cover{app=none}, [{excl_dirs_r,Dirs}|Terms],Dir) ->
+    get_app_info(App, [{excl_dirs_r,none,Dirs}|Terms],Dir);
+get_app_info(App=#cover{app=Name}, [{excl_dirs_r,Name,Dirs}|Terms],Dir) ->
+    case get_files(Dirs, Dir, ".beam", true, []) of
 	E = {error,_} -> E;
 	Mods1 ->
 	    Mods = App#cover.excl_mods,
-	    get_app_info(App#cover{excl_mods=Mods++Mods1},Terms)
+	    get_app_info(App#cover{excl_mods=Mods++Mods1},Terms,Dir)
     end;
 
-get_app_info(App=#cover{app=none}, [{excl_mods,Mods1}|Terms]) ->
-    get_app_info(App, [{excl_mods,none,Mods1}|Terms]);
-get_app_info(App=#cover{app=Name}, [{excl_mods,Name,Mods1}|Terms]) ->
+get_app_info(App=#cover{app=none}, [{excl_mods,Mods1}|Terms], Dir) ->
+    get_app_info(App, [{excl_mods,none,Mods1}|Terms], Dir);
+get_app_info(App=#cover{app=Name}, [{excl_mods,Name,Mods1}|Terms], Dir) ->
     Mods = App#cover.excl_mods,
-    get_app_info(App#cover{excl_mods=Mods++Mods1},Terms);
+    get_app_info(App#cover{excl_mods=Mods++Mods1},Terms,Dir);
 
-get_app_info(App=#cover{app=none}, [{cross,Cross}|Terms]) ->
-    get_app_info(App, [{cross,none,Cross}|Terms]);
-get_app_info(App=#cover{app=Name}, [{cross,Name,Cross1}|Terms]) ->
+get_app_info(App=#cover{app=none}, [{cross,Cross}|Terms], Dir) ->
+    get_app_info(App, [{cross,none,Cross}|Terms], Dir);
+get_app_info(App=#cover{app=Name}, [{cross,Name,Cross1}|Terms], Dir) ->
     Cross = App#cover.cross,
-    get_app_info(App#cover{cross=Cross++Cross1},Terms);
+    get_app_info(App#cover{cross=Cross++Cross1},Terms,Dir);
 
-get_app_info(App=#cover{app=none}, [{src_dirs,Dirs}|Terms]) ->
-    get_app_info(App, [{src_dirs,none,Dirs}|Terms]);
-get_app_info(App=#cover{app=Name}, [{src_dirs,Name,Dirs}|Terms]) ->
-    case get_files(Dirs, ".erl", false, []) of
+get_app_info(App=#cover{app=none}, [{src_dirs,Dirs}|Terms], Dir) ->
+    get_app_info(App, [{src_dirs,none,Dirs}|Terms], Dir);
+get_app_info(App=#cover{app=Name}, [{src_dirs,Name,Dirs}|Terms], Dir) ->
+    case get_files(Dirs, Dir, ".erl", false, []) of
 	E = {error,_} -> E;
 	Src1 ->
 	    Src = App#cover.src,
-	    get_app_info(App#cover{src=Src++Src1},Terms)
+	    get_app_info(App#cover{src=Src++Src1},Terms,Dir)
     end;
 
-get_app_info(App=#cover{app=none}, [{src_dirs_r,Dirs}|Terms]) ->
-    get_app_info(App, [{src_dirs_r,none,Dirs}|Terms]);
-get_app_info(App=#cover{app=Name}, [{src_dirs_r,Name,Dirs}|Terms]) ->
-    case get_files(Dirs, ".erl", true, []) of
+get_app_info(App=#cover{app=none}, [{src_dirs_r,Dirs}|Terms], Dir) ->
+    get_app_info(App, [{src_dirs_r,none,Dirs}|Terms], Dir);
+get_app_info(App=#cover{app=Name}, [{src_dirs_r,Name,Dirs}|Terms], Dir) ->
+    case get_files(Dirs, Dir, ".erl", true, []) of
 	E = {error,_} -> E;
 	Src1 ->
 	    Src = App#cover.src,
-	    get_app_info(App#cover{src=Src++Src1},Terms)
+	    get_app_info(App#cover{src=Src++Src1},Terms,Dir)
     end;
 
-get_app_info(App=#cover{app=none}, [{src_files,Src1}|Terms]) ->
-    get_app_info(App, [{src_files,none,Src1}|Terms]);
-get_app_info(App=#cover{app=Name}, [{src_files,Name,Src1}|Terms]) ->
+get_app_info(App=#cover{app=none}, [{src_files,Src1}|Terms], Dir) ->
+    get_app_info(App, [{src_files,none,Src1}|Terms], Dir);
+get_app_info(App=#cover{app=Name}, [{src_files,Name,Src1}|Terms], Dir) ->
     Src = App#cover.src,
-    get_app_info(App#cover{src=Src++Src1},Terms);
+    get_app_info(App#cover{src=Src++Src1},Terms,Dir);
 
-get_app_info(App, [_|Terms]) ->
-    get_app_info(App, Terms);
+get_app_info(App, [_|Terms], Dir) ->
+    get_app_info(App, Terms, Dir);
 
-get_app_info(App, []) ->
+get_app_info(App, [], _) ->
     App.
 
 %% get_files(...)
     
-get_files([Dir|Dirs], Ext, Recurse, Files) ->
-    case file:list_dir(Dir) of
+get_files([Dir|Dirs], RootDir, Ext, Recurse, Files) ->
+    DirAbs = filename:absname(Dir, RootDir),
+    case file:list_dir(DirAbs) of
 	{ok,Entries} ->
-	    {SubDirs,Matches} = analyse_files(Entries, Dir, Ext, [], []),
+	    {SubDirs,Matches} = analyse_files(Entries, DirAbs, Ext, [], []),
 	    if Recurse == false ->
-		    get_files(Dirs, Ext, Recurse, Files++Matches);
+		    get_files(Dirs, RootDir, Ext, Recurse, Files++Matches);
 	       true ->
-		    Files1 = get_files(SubDirs, Ext, Recurse, Files++Matches),
-		    get_files(Dirs, Ext, Recurse, Files1)
+		    Files1 = get_files(SubDirs, RootDir, Ext, Recurse, Files++Matches),
+		    get_files(Dirs, RootDir, Ext, Recurse, Files1)
 	    end;
 	{error,Reason} ->
-	    {error,{Reason,Dir}}
+	    {error,{Reason,DirAbs}}
     end;
-get_files([], _Ext, _R, Files) ->	      
+get_files([], _RootDir, _Ext, _R, Files) ->
     Files.
 	    
 %% analyse_files(...)
