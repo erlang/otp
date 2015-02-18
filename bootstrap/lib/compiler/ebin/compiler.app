@@ -56,6 +56,7 @@
 	     rec_env,
 	     sys_core_dsetel,
 	     sys_core_fold,
+	     sys_core_fold_lists,
 	     sys_core_inline,
 	     sys_pre_attributes,
 	     sys_pre_expand,
