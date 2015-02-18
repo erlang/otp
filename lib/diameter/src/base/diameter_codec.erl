@@ -582,6 +582,8 @@ split_data(Bin, Len) ->
 %% dictionary doesn't know about specific AVP's.
 
 %% Grouped AVP whose components need packing ...
+pack_avp([#diameter_avp{} = A | Avps]) ->
+    pack_avp(A#diameter_avp{data = Avps});
 pack_avp(#diameter_avp{data = [#diameter_avp{} | _] = Avps} = A) ->
     pack_avp(A#diameter_avp{data = encode_avps(Avps)});
 
