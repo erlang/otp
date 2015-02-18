@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2014. All Rights Reserved.
+%% Copyright Ericsson AB 2014-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -51,10 +51,11 @@
 %% executed.
 %%
 %% <dl>
-%%   <dt>Module:upgrade_init(State) -> NewState</dt>
+%%   <dt>Module:upgrade_init(CtData,State) -> NewState</dt>
 %%   <dd>Types:
 %%
-%%     <b><c>State = NewState = cb_state()</c></b>
+%%     <b><code>CtData = {@link ct_data()}</code></b><br/>
+%%     <b><code>State = NewState = cb_state()</code></b>
 %%
 %%     Initialyze system before upgrade test starts.
 %%
@@ -63,17 +64,22 @@
 %%     the boot script, so this callback is intended for additional
 %%     initialization, if necessary.
 %%
+%%     <code>CtData</code> is an opaque data structure which shall be used
+%%     in any call to <code>ct_release_test</code> inside the callback.
+%%
 %%     Example:
 %%
 %% ```
-%% upgrade_init(State) ->
+%% upgrade_init(CtData,State) ->
+%%     {ok,{FromVsn,ToVsn}} = ct_release_test:get_app_vsns(CtData,myapp),
 %%     open_connection(State).'''
 %%   </dd>
 %%
-%%   <dt>Module:upgrade_upgraded(State) -> NewState</dt>
+%%   <dt>Module:upgrade_upgraded(CtData,State) -> NewState</dt>
 %%   <dd>Types:
 %%
-%%     <b><c>State = NewState = cb_state()</c></b>
+%%     <b><code>CtData = {@link ct_data()}</code></b><br/>
+%%     <b><code>State = NewState = cb_state()</code></b>
 %%
 %%     Check that upgrade was successful.
 %%
@@ -82,17 +88,21 @@
 %%     been made permanent. It allows application specific checks to
 %%     ensure that the upgrade was successful.
 %%
+%%     <code>CtData</code> is an opaque data structure which shall be used
+%%     in any call to <code>ct_release_test</code> inside the callback.
+%%
 %%     Example:
 %%
 %% ```
-%% upgrade_upgraded(State) ->
+%% upgrade_upgraded(CtData,State) ->
 %%     check_connection_still_open(State).'''
 %%   </dd>
 %%
-%%   <dt>Module:upgrade_downgraded(State) -> NewState</dt>
+%%   <dt>Module:upgrade_downgraded(CtData,State) -> NewState</dt>
 %%   <dd>Types:
 %%
-%%     <b><c>State = NewState = cb_state()</c></b>
+%%     <b><code>CtData = {@link ct_data()}</code></b><br/>
+%%     <b><code>State = NewState = cb_state()</code></b>
 %%
 %%     Check that downgrade was successful.
 %%
@@ -101,10 +111,13 @@
 %%     made permanent. It allows application specific checks to ensure
 %%     that the downgrade was successful.
 %%
+%%     <code>CtData</code> is an opaque data structure which shall be used
+%%     in any call to <code>ct_release_test</code> inside the callback.
+%%
 %%     Example:
 %%
 %% ```
-%% upgrade_init(State) ->
+%% upgrade_downgraded(CtData,State) ->
 %%     check_connection_closed(State).'''
 %%   </dd>
 %% </dl>
@@ -112,7 +125,7 @@
 %%-----------------------------------------------------------------
 -module(ct_release_test).
 
--export([init/1, upgrade/4, cleanup/1]).
+-export([init/1, upgrade/4, cleanup/1, get_app_vsns/2, get_appup/2]).
 
 -include_lib("kernel/include/file.hrl").
 
@@ -121,12 +134,17 @@
 -define(exclude_apps, [hipe, typer, dialyzer]). % never include these apps
 
 %%-----------------------------------------------------------------
+-record(ct_data, {from,to}).
+
+%%-----------------------------------------------------------------
 -type config() :: [{atom(),term()}].
 -type cb_state() :: term().
+-opaque ct_data() :: #ct_data{}.
+-export_type([ct_data/0]).
 
--callback upgrade_init(cb_state()) -> cb_state().
--callback upgrade_upgraded(cb_state()) -> cb_state().
--callback upgrade_downgraded(cb_state()) -> cb_state().
+-callback upgrade_init(ct_data(),cb_state()) -> cb_state().
+-callback upgrade_upgraded(ct_data(),cb_state()) -> cb_state().
+-callback upgrade_downgraded(ct_data(),cb_state()) -> cb_state().
 
 %%-----------------------------------------------------------------
 -spec init(Config) -> Result when
@@ -207,12 +225,12 @@ init(Config) ->
 %%   <li>Perform the upgrade test and allow customized
 %%     control by using callbacks:
 %%     <ol>
-%%       <li>Callback: `upgrade_init/1'</li>
+%%       <li>Callback: `upgrade_init/2'</li>
 %%       <li>Unpack the new release</li>
 %%       <li>Install the new release</li>
-%%       <li>Callback: `upgrade_upgraded/1'</li>
+%%       <li>Callback: `upgrade_upgraded/2'</li>
 %%       <li>Install the original release</li>
-%%       <li>Callback: `upgrade_downgraded/1'</li>
+%%       <li>Callback: `upgrade_downgraded/2'</li>
 %%     </ol>
 %%   </li>
 %% </ol>
@@ -312,6 +330,71 @@ cleanup(Config) ->
     Nodes = [node_name(?testnode)|nodes()],
     [rpc:call(Node,erlang,halt,[]) || Node <- Nodes],
     Config.
+
+%%-----------------------------------------------------------------
+-spec get_app_vsns(CtData,App) -> {ok,{From,To}} | {error,Reason} when
+      CtData :: ct_data(),
+      App :: atom(),
+      From :: string(),
+      To :: string(),
+      Reason :: {app_not_found,App}.
+%% @doc Get versions involved in this upgrade for the given application.
+%%
+%% This function can be called from inside any of the callback
+%% functions. It returns the old (From) and new (To) versions involved
+%% in the upgrade/downgrade test for the given application.
+%%
+%% <code>CtData</code> must be the first argument received in the
+%% calling callback function - an opaque data structure set by
+%% <code>ct_release_tests</code>.
+get_app_vsns(#ct_data{from=FromApps,to=ToApps},App) ->
+    case {lists:keyfind(App,1,FromApps),lists:keyfind(App,1,ToApps)} of
+	{{App,FromVsn,_},{App,ToVsn,_}} ->
+	    {ok,{FromVsn,ToVsn}};
+	_ ->
+	    {error,{app_not_found,App}}
+    end.
+
+%%-----------------------------------------------------------------
+-spec get_appup(CtData,App) -> {ok,Appup} | {error,Reason} when
+      CtData :: ct_data(),
+      App :: atom(),
+      Appup :: {From,To,Up,Down},
+      From :: string(),
+      To :: string(),
+      Up :: [Instr],
+      Down :: [Instr],
+      Instr :: term(),
+      Reason :: {app_not_found,App} | {vsn_not_found,{App,From}}.
+%% @doc Get appup instructions for the given application.
+%%
+%% This function can be called from inside any of the callback
+%% functions. It reads the appup file for the given application and
+%% returns the instructions for upgrade and downgrade for the versions
+%% in the test.
+%%
+%% <code>CtData</code> must be the first argument received in the
+%% calling callback function - an opaque data structure set by
+%% <code>ct_release_tests</code>.
+%%
+%% See reference manual for appup files for types definitions for the
+%% instructions.
+get_appup(#ct_data{from=FromApps,to=ToApps},App) ->
+    case lists:keyfind(App,1,ToApps) of
+	{App,ToVsn,ToDir} ->
+	    Appup = filename:join([ToDir, "ebin", atom_to_list(App)++".appup"]),
+	    {ok, [{ToVsn, Ups, Downs}]} = file:consult(Appup),
+	    {App,FromVsn,_} = lists:keyfind(App,1,FromApps),
+	    case {systools_relup:appup_search_for_version(FromVsn,Ups),
+		  systools_relup:appup_search_for_version(FromVsn,Downs)} of
+		{{ok,Up},{ok,Down}} ->
+		    {ok,{FromVsn,ToVsn,Up,Down}};
+		_ ->
+		    {error,{vsn_not_found,{App,FromVsn}}}
+	    end;
+	false ->
+	    {error,{app_not_found,App}}
+    end.
 
 %%-----------------------------------------------------------------
 init_upgrade_test() ->
@@ -558,8 +641,14 @@ do_upgrade({Cb,InitState},FromVsn,FromAppsVsns,ToRel,ToAppsVsns,InstallDir) ->
     Start = filename:join([InstallDir,bin,start]),
     {ok,Node} = start_node(Start,FromVsn,FromAppsVsns),
 
+    %% Add path to this module, to allow calls to get_appup/2
+    Dir = filename:dirname(code:which(?MODULE)),
+    _ = rpc:call(Node,code,add_pathz,[Dir]),
+
     ct:log("Node started: ~p",[Node]),
-    State1 = do_callback(Node,Cb,upgrade_init,InitState),
+    CtData = #ct_data{from = [{A,V,code:lib_dir(A)} || {A,V} <- FromAppsVsns],
+		      to=[{A,V,code:lib_dir(A)} || {A,V} <- ToAppsVsns]},
+    State1 = do_callback(Node,Cb,upgrade_init,[CtData,InitState]),
 
     [{"OTP upgrade test",FromVsn,_,permanent}] =
 	rpc:call(Node,release_handler,which_releases,[]),
@@ -592,7 +681,7 @@ do_upgrade({Cb,InitState},FromVsn,FromAppsVsns,ToRel,ToAppsVsns,InstallDir) ->
      {"OTP upgrade test",FromVsn,_,old}] =
 	rpc:call(Node,release_handler,which_releases,[]),
 
-    State2 = do_callback(Node,Cb,upgrade_upgraded,State1),
+    State2 = do_callback(Node,Cb,upgrade_upgraded,[CtData,State1]),
 
     ct:log("Re-installing old release"),
     case rpc:call(Node,release_handler,install_release,[FromVsn]) of
@@ -615,7 +704,7 @@ do_upgrade({Cb,InitState},FromVsn,FromAppsVsns,ToRel,ToAppsVsns,InstallDir) ->
      {"OTP upgrade test",FromVsn,_,permanent}] =
 	rpc:call(Node,release_handler,which_releases,[]),
 
-    _State3 = do_callback(Node,Cb,upgrade_downgraded,State2),
+    _State3 = do_callback(Node,Cb,upgrade_downgraded,[CtData,State2]),
 
     ct:log("Terminating node ~p",[Node]),
     erlang:monitor_node(Node,true),
@@ -625,15 +714,15 @@ do_upgrade({Cb,InitState},FromVsn,FromAppsVsns,ToRel,ToAppsVsns,InstallDir) ->
 
     ok.
 
-do_callback(Node,Mod,Func,State) ->
+do_callback(Node,Mod,Func,Args) ->
     Dir = filename:dirname(code:which(Mod)),
     _ = rpc:call(Node,code,add_path,[Dir]),
     ct:log("Calling ~p:~p/1",[Mod,Func]),
-    R = rpc:call(Node,Mod,Func,[State]),
-    ct:log("~p:~p/1 returned: ~p",[Mod,Func,R]),
+    R = rpc:call(Node,Mod,Func,Args),
+    ct:log("~p:~p/~w returned: ~p",[Mod,Func,length(Args),R]),
     case R of
 	{badrpc,Error} ->
-	    test_server:fail({test_upgrade_callback,Mod,Func,State,Error});
+	    test_server:fail({test_upgrade_callback,Mod,Func,Args,Error});
 	NewState ->
 	    NewState
     end.
