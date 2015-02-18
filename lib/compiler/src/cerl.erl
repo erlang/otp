@@ -124,6 +124,7 @@
 
 	 %% keep map exports here for now
 	 c_map_pattern/1,
+	 is_c_map/1,
 	 map_es/1,
 	 map_arg/1,
 	 update_c_map/3,
@@ -433,6 +434,8 @@ is_literal_term([H | T]) ->
 is_literal_term(T) when is_tuple(T) ->
     is_literal_term_list(tuple_to_list(T));
 is_literal_term(B) when is_bitstring(B) -> true;
+is_literal_term(M) when is_map(M) ->
+    is_literal_term_list(maps:to_list(M));
 is_literal_term(_) ->
     false.
 
@@ -1578,6 +1581,20 @@ ann_make_list(_, [], Node) ->
 
 %% ---------------------------------------------------------------------
 %% maps
+
+%% @spec is_c_map(Node::cerl()) -> boolean()
+%%
+%% @doc Returns <code>true</code> if <code>Node</code> is an abstract
+%% map constructor, otherwise <code>false</code>.
+
+-spec is_c_map(cerl()) -> boolean().
+
+is_c_map(#c_map{}) ->
+    true;
+is_c_map(#c_literal{val = V}) when is_map(V) ->
+    true;
+is_c_map(_) ->
+    false.
 
 -spec map_es(c_map()) -> [c_map_pair()].
 

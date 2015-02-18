@@ -173,7 +173,7 @@ check_exports(Es, St) ->
     end.
 
 check_attrs(As, St) ->
-    case all(fun ({#c_literal{},V}) -> core_lib:is_literal(V);
+    case all(fun ({#c_literal{},#c_literal{}}) -> true;
 		 (_) -> false
 	     end, As) of
 	true -> St;

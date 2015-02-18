@@ -66,6 +66,7 @@
 %% match arguments are novars
 %% case arguments are novars
 %% receive timeouts are novars
+%% binaries and maps are novars
 %% let/set arguments are expressions
 %% fun is not a safe
 
@@ -107,6 +108,7 @@
 -record(ifilter,   {anno=#a{},arg}).
 -record(igen,      {anno=#a{},ceps=[],acc_pat,acc_guard,
 		    skip_pat,tail,tail_pat,arg}).
+-record(isimple,   {anno=#a{},term :: cerl:cerl()}).
 
 -type iapply()    :: #iapply{}.
 -type ibinary()   :: #ibinary{}.
@@ -125,11 +127,12 @@
 -type itry()      :: #itry{}.
 -type ifilter()   :: #ifilter{}.
 -type igen()      :: #igen{}.
+-type isimple()   :: #isimple{}.
 
 -type i() :: iapply()   | ibinary()   | icall()     | icase()  | icatch()
            | iclause()  | ifun()      | iletrec()   | imatch() | iprimop()
            | iprotect() | ireceive1() | ireceive2() | iset()   | itry()
-           | ifilter()  | igen().
+           | ifilter()  | igen()      | isimple().
 
 -type warning() :: {file:filename(), [{integer(), module(), term()}]}.
 
@@ -288,13 +291,15 @@ gexpr({protect,Line,Arg}, Bools0, St0) ->
 	    {#iprotect{anno=#a{anno=Anno},body=Eps++[E]},[],Bools0,St}
     end;
 gexpr({op,L,'andalso',E1,E2}, Bools, St0) ->
-    {#c_var{name=V0},St} = new_var(L, St0),
+    Anno = lineno_anno(L, St0),
+    {#c_var{name=V0},St} = new_var(Anno, St0),
     V = {var,L,V0},
     False = {atom,L,false},
     E = make_bool_switch_guard(L, E1, V, E2, False),
     gexpr(E, Bools, St);
 gexpr({op,L,'orelse',E1,E2}, Bools, St0) ->
-    {#c_var{name=V0},St} = new_var(L, St0),
+    Anno = lineno_anno(L, St0),
+    {#c_var{name=V0},St} = new_var(Anno, St0),
     V = {var,L,V0},
     True = {atom,L,true},
     E = make_bool_switch_guard(L, E1, V, True, E2),
@@ -383,32 +388,29 @@ gexpr_test(E0, Bools0, St0) ->
 		    Lanno = Anno#a.anno,
 		    {New,St2} = new_var(Lanno, St1),
 		    Bools = [New|Bools0],
-		    {#icall{anno=Anno,	%Must have an #a{}
-			    module=#c_literal{anno=Lanno,val=erlang},
-			    name=#c_literal{anno=Lanno,val='=:='},
-			    args=[New,#c_literal{anno=Lanno,val=true}]},
+		    {icall_eq_true(New),
 		     Eps0 ++ [#iset{anno=Anno,var=New,arg=E1}],Bools,St2}
 	    end;
 	_ ->
-	    Anno = get_ianno(E1),
 	    Lanno = get_lineno_anno(E1),
+	    ACompGen = #a{anno=[compiler_generated]},
 	    case is_simple(E1) of
 		true ->
 		    Bools = [E1|Bools0],
-		    {#icall{anno=Anno,	%Must have an #a{}
-			    module=#c_literal{anno=Lanno,val=erlang},
-			    name=#c_literal{anno=Lanno,val='=:='},
-			    args=[E1,#c_literal{anno=Lanno,val=true}]},Eps0,Bools,St1};
+		    {icall_eq_true(E1),Eps0,Bools,St1};
 		false ->
 		    {New,St2} = new_var(Lanno, St1),
 		    Bools = [New|Bools0],
-		    {#icall{anno=Anno,	%Must have an #a{}
-			    module=#c_literal{anno=Lanno,val=erlang},
-			    name=#c_literal{anno=Lanno,val='=:='},
-			    args=[New,#c_literal{anno=Lanno,val=true}]},
-		     Eps0 ++ [#iset{anno=Anno,var=New,arg=E1}],Bools,St2}
+		    {icall_eq_true(New),
+		     Eps0 ++ [#iset{anno=ACompGen,var=New,arg=E1}],Bools,St2}
 	    end
     end.
+
+icall_eq_true(Arg) ->
+    #icall{anno=#a{anno=[compiler_generated]},
+	   module=#c_literal{val=erlang},
+	   name=#c_literal{val='=:='},
+	   args=[Arg,#c_literal{val=true}]}.
 
 force_booleans(Vs0, E, Eps, St) ->
     Vs1 = [set_anno(V, []) || V <- Vs0],
@@ -419,16 +421,15 @@ force_booleans_1([], E, Eps, St) ->
     {E,Eps,St};
 force_booleans_1([V|Vs], E0, Eps0, St0) ->
     {E1,Eps1,St1} = force_safe(E0, St0),
-    Lanno = element(2, V),
-    Anno = #a{anno=Lanno},
-    Call = #icall{anno=Anno,module=#c_literal{anno=Lanno,val=erlang},
-		  name=#c_literal{anno=Lanno,val=is_boolean},
+    ACompGen = #a{anno=[compiler_generated]},
+    Call = #icall{anno=ACompGen,module=#c_literal{val=erlang},
+		  name=#c_literal{val=is_boolean},
 		  args=[V]},
-    {New,St} = new_var(Lanno, St1),
-    Iset = #iset{anno=Anno,var=New,arg=Call},
+    {New,St} = new_var([], St1),
+    Iset = #iset{var=New,arg=Call},
     Eps = Eps0 ++ Eps1 ++ [Iset],
-    E = #icall{anno=Anno,
-	       module=#c_literal{anno=Lanno,val=erlang},name=#c_literal{anno=Lanno,val='and'},
+    E = #icall{anno=ACompGen,
+	       module=#c_literal{val=erlang},name=#c_literal{val='and'},
 	       args=[E1,New]},
     force_booleans_1(Vs, E, Eps, St).
 
@@ -530,7 +531,7 @@ expr({lc,L,E,Qs0}, St0) ->
     {Qs1,St1} = preprocess_quals(L, Qs0, St0),
     lc_tq(L, E, Qs1, #c_literal{anno=lineno_anno(L, St1),val=[]}, St1);
 expr({bc,L,E,Qs}, St) ->
-    bc_tq(L, E, Qs, {nil,L}, St);
+    bc_tq(L, E, Qs, St);
 expr({tuple,L,Es0}, St0) ->
     {Es1,Eps,St1} = safe_list(Es0, St0),
     A = record_anno(L, St1),
@@ -707,13 +708,15 @@ expr({op,_,'++',{lc,Llc,E,Qs0},More}, St0) ->
     {Y,Yps,St} = lc_tq(Llc, E, Qs, Mc, St2),
     {Y,Mps++Yps,St};
 expr({op,L,'andalso',E1,E2}, St0) ->
-    {#c_var{name=V0},St} = new_var(L, St0),
+    Anno = lineno_anno(L, St0),
+    {#c_var{name=V0},St} = new_var(Anno, St0),
     V = {var,L,V0},
     False = {atom,L,false},
     E = make_bool_switch(L, E1, V, E2, False, St0),
     expr(E, St);
 expr({op,L,'orelse',E1,E2}, St0) ->
-    {#c_var{name=V0},St} = new_var(L, St0),
+    Anno = lineno_anno(L, St0),
+    {#c_var{name=V0},St} = new_var(Anno, St0),
     V = {var,L,V0},
     True = {atom,L,true},
     E = make_bool_switch(L, E1, V, True, E2, St0),
@@ -781,15 +784,9 @@ expr_map(M0,Es0,A,St0) ->
 	false -> throw({bad_map,bad_map})
     end.
 
-map_build_pairs(Map0, Es0, Ann, St0) ->
+map_build_pairs(Map, Es0, Ann, St0) ->
     {Es,Pre,St1} = map_build_pairs_1(Es0, St0),
-    case ann_c_map(Ann, Map0, Es) of
-	#c_literal{}=Map ->
-	    {Map,[],St1};
-	#c_map{}=Map ->
-	    {Var,St2} = new_var(St1),
-	    {Var,Pre++[#iset{var=Var,arg=Map}],St2}
-    end.
+    {ann_c_map(Ann, Map, Es),Pre,St1}.
 
 map_build_pairs_1([{Op0,L,K0,V0}|Es], St0) ->
     {K,Pre0,St1} = safe(K0, St0),
@@ -1027,7 +1024,7 @@ lc_tq(Line, E0, [], Mc0, St0) ->
 %%  This TQ from Gustafsson ERLANG'05.  
 %%  More could be transformed before calling bc_tq.
 
-bc_tq(Line, Exp, Qs0, _, St0) ->
+bc_tq(Line, Exp, Qs0, St0) ->
     {BinVar,St1} = new_var(St0),
     {Sz,SzPre,St2} = bc_initial_size(Exp, Qs0, St1),
     {Qs,St3} = preprocess_quals(Line, Qs0, St2),
@@ -1484,6 +1481,7 @@ force_novars(#iapply{}=App, St) -> {App,[],St};
 force_novars(#icall{}=Call, St) -> {Call,[],St};
 force_novars(#ifun{}=Fun, St) -> {Fun,[],St};	%These are novars too
 force_novars(#ibinary{}=Bin, St) -> {Bin,[],St};
+force_novars(#c_map{}=Bin, St) -> {Bin,[],St};
 force_novars(Ce, St) ->
     force_safe(Ce, St).
 
@@ -1763,7 +1761,7 @@ new_var_name(#core{vcount=C}=St) ->
 new_var(St) ->
     new_var([], St).
 
-new_var(Anno, St0) ->
+new_var(Anno, St0) when is_list(Anno) ->
     {New,St} = new_var_name(St0),
     {#c_var{anno=Anno,name=New},St}.
 
@@ -1990,11 +1988,11 @@ uexpr(#ibinary{anno=A,segments=Ss}, _, St) ->
 uexpr(#c_literal{}=Lit, _, St) ->
     Anno = get_anno(Lit),
     {set_anno(Lit, #a{us=[],anno=Anno}),St};
-uexpr(Lit, _, St) ->
-    true = is_simple(Lit),			%Sanity check!
-    Vs = lit_vars(Lit),
-    Anno = get_anno(Lit),
-    {set_anno(Lit, #a{us=Vs,anno=Anno}),St}.
+uexpr(Simple, _, St) ->
+    true = is_simple(Simple),			%Sanity check!
+    Vs = lit_vars(Simple),
+    Anno = get_anno(Simple),
+    {#isimple{anno=#a{us=Vs,anno=Anno},term=Simple},St}.
 
 uexpr_list(Les0, Ks, St0) ->
     mapfoldl(fun (Le, St) -> uexpr(Le, Ks, St) end, St0, Les0).
@@ -2171,7 +2169,8 @@ cguard(Gs, St0) ->
 
 cexprs([#iset{var=#c_var{name=Name}=Var}=Iset], As, St) ->
     %% Make return value explicit, and make Var true top level.
-    cexprs([Iset,Var#c_var{anno=#a{us=[Name]}}], As, St);
+    Isimple = #isimple{anno=#a{us=[Name]},term=Var},
+    cexprs([Iset,Isimple], As, St);
 cexprs([Le], As, St0) ->
     {Ce,Es,Us,St1} = cexpr(Le, As, St0),
     Exp = make_vars(As),			%The export variables
@@ -2286,12 +2285,9 @@ cexpr(#c_literal{}=Lit, _As, St) ->
     Anno = get_anno(Lit),
     Vs = Anno#a.us,
     {set_anno(Lit, Anno#a.anno),[],Vs,St};
-cexpr(Lit, _As, St) ->
-    true = is_simple(Lit),		%Sanity check!
-    Anno = get_anno(Lit),
-    Vs = Anno#a.us,
-    %%Vs = lit_vars(Lit),
-    {set_anno(Lit, Anno#a.anno),[],Vs,St}.
+cexpr(#isimple{anno=#a{us=Vs},term=Simple}, _As, St) ->
+    true = is_simple(Simple),		%Sanity check!
+    {Simple,[],Vs,St}.
 
 cfun(#ifun{anno=A,id=Id,vars=Args,clauses=Lcs,fc=Lfc}, _As, St0) ->
     {Ccs,St1} = cclauses(Lcs, [], St0),     %NEVER export!
@@ -2313,11 +2309,6 @@ lit_vars(#c_map{arg=V,es=Es}, Vs) -> lit_vars(V, lit_list_vars(Es, Vs));
 lit_vars(#c_map_pair{key=K,val=V}, Vs) -> lit_vars(K, lit_vars(V, Vs));
 lit_vars(#c_var{name=V}, Vs) -> add_element(V, Vs); 
 lit_vars(_, Vs) -> Vs.				%These are atomic
-
-% lit_bin_vars(Segs, Vs) ->
-%     foldl(fun (#c_bitstr{val=V,size=S}, Vs0) ->
-% 		  lit_vars(V, lit_vars(S, Vs0))
-% 	  end, Vs, Segs).
 
 lit_list_vars(Ls) -> lit_list_vars(Ls, []).
 

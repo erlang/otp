@@ -195,10 +195,10 @@ kill_id_anns(Body) ->
 			   A = kill_id_anns_1(A0),
 			   CFun#c_fun{anno=A};
 		      (Expr) ->
-			   %% Mark everything as compiler generated to suppress
-			   %% bogus warnings.
-			   A = compiler_generated(core_lib:get_anno(Expr)),
-			   core_lib:set_anno(Expr, A)
+			   %% Mark everything as compiler generated to
+			   %% suppress bogus warnings.
+			   A = compiler_generated(cerl:get_ann(Expr)),
+			   cerl:set_ann(Expr, A)
 		   end, Body).
 
 kill_id_anns_1([{'id',_}|As]) ->

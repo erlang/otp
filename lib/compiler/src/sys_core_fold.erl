@@ -96,6 +96,10 @@
 	      t=[],				%Types
 	      in_guard=false}).			%In guard or not.
 
+-type type_info() :: cerl:cerl() | 'bool'.
+-type yes_no_maybe() :: 'yes' | 'no' | 'maybe'.
+-type sub() :: #sub{}.
+
 -spec module(cerl:c_module(), [compile:option()]) ->
 	{'ok', cerl:c_module(), [_]}.
 
@@ -462,10 +466,7 @@ is_safe_simple(#c_call{module=#c_literal{val=erlang},
     case erl_internal:bool_op(Name, NumArgs) of
 	true ->
 	    %% Boolean operators are safe if the arguments are boolean.
-	    all(fun(#c_var{name=V}) -> is_boolean_type(V, Sub);
-		   (#c_literal{val=Lit}) -> is_boolean(Lit);
-		   (_) -> false
-		end, Args);
+	    all(fun(C) -> is_boolean_type(C, Sub) =:= yes end, Args);
 	false ->
 	    %% We need a rather complicated test to ensure that
 	    %% we only allow safe calls that are allowed in a guard.
@@ -714,384 +715,22 @@ make_effect_seq([], _) -> void().
 call(#c_call{args=As}=Call, #c_literal{val=M}=M0, #c_literal{val=N}=N0, Sub) ->
     case get(no_inline_list_funcs) of
   	true ->
- 	    call_0(Call, M0, N0, As, Sub);
+	    call_1(Call, M0, N0, As, Sub);
   	false ->
-  	    call_1(Call, M, N, As, Sub)
+	    case sys_core_fold_lists:call(Call, M, N, As) of
+		none ->
+		    call_1(Call, M, N, As, Sub);
+		Core ->
+		    expr(Core, Sub)
+	    end
+
       end;
 call(#c_call{args=As}=Call, M, N, Sub) ->
-    call_0(Call, M, N, As, Sub).
+    call_1(Call, M, N, As, Sub).
 
-call_0(Call, M, N, As0, Sub) ->
+call_1(Call, M, N, As0, Sub) ->
     As1 = expr_list(As0, value, Sub),
     fold_call(Call#c_call{args=As1}, M, N, As1, Sub).
-
-%% We inline some very common higher order list operations.
-%% We use the same evaluation order as the library function.
-
-call_1(#c_call{anno=Anno}, lists, all, [Arg1,Arg2], Sub) ->
-    Loop = #c_var{name={'lists^all',1}},
-    F = #c_var{name='F'},
-    Xs = #c_var{name='Xs'},
-    X = #c_var{name='X'},
-    Err1 = #c_tuple{es=[#c_literal{val='case_clause'}, X]},
-    CC1 = #c_clause{pats=[#c_literal{val=true}], guard=#c_literal{val=true},
-		    body=#c_apply{anno=Anno, op=Loop, args=[Xs]}},
-    CC2 = #c_clause{pats=[#c_literal{val=false}], guard=#c_literal{val=true},
-		    body=#c_literal{val=false}},
-    CC3 = #c_clause{pats=[X], guard=#c_literal{val=true},
-		    body=match_fail(Anno, Err1)},
-    C1 = #c_clause{pats=[#c_cons{hd=X, tl=Xs}], guard=#c_literal{val=true},
-		   body=#c_case{arg=#c_apply{anno=Anno, op=F, args=[X]},
-				clauses = [CC1, CC2, CC3]}},
-    C2 = #c_clause{pats=[#c_literal{val=[]}],
-		   guard=#c_call{module=#c_literal{val=erlang},
-				 name=#c_literal{val=is_function},
-				 args=[F, #c_literal{val=1}]},
-		   body=#c_literal{val=true}},
-    Err2 = #c_tuple{es=[#c_literal{val='function_clause'}, F, Xs]},
-    C3 = #c_clause{pats=[Xs], guard=#c_literal{val=true},
-		   body=match_fail([{function_name,{'lists^all',1}}|Anno], Err2)},
-    Fun = #c_fun{vars=[Xs],
-		 body=#c_case{arg=Xs, clauses=[C1, C2, C3]}},
-    L = #c_var{name='L'},
-    expr(#c_let{vars=[F, L], arg=#c_values{es=[Arg1, Arg2]},
-		body=#c_letrec{defs=[{Loop,Fun}],
-			       body=#c_apply{anno=Anno, op=Loop, args=[L]}}},
-	 Sub);
-call_1(#c_call{anno=Anno}, lists, any, [Arg1,Arg2], Sub) ->
-    Loop = #c_var{name={'lists^any',1}},
-    F = #c_var{name='F'},
-    Xs = #c_var{name='Xs'},
-    X = #c_var{name='X'},
-    Err1 = #c_tuple{es=[#c_literal{val='case_clause'}, X]},
-    CC1 = #c_clause{pats=[#c_literal{val=true}], guard=#c_literal{val=true},
-		    body=#c_literal{val=true}},
-    CC2 = #c_clause{pats=[#c_literal{val=false}], guard=#c_literal{val=true},
-		    body=#c_apply{anno=Anno, op=Loop, args=[Xs]}},
-    CC3 = #c_clause{pats=[X], guard=#c_literal{val=true},
-		    body=match_fail(Anno, Err1)},
-    C1 = #c_clause{pats=[#c_cons{hd=X, tl=Xs}], guard=#c_literal{val=true},
-		   body=#c_case{arg=#c_apply{anno=Anno, op=F, args=[X]},
-				clauses = [CC1, CC2, CC3]}},
-    C2 = #c_clause{pats=[#c_literal{val=[]}],
-		   guard=#c_call{module=#c_literal{val=erlang},
-				 name=#c_literal{val=is_function},
-				 args=[F, #c_literal{val=1}]},
-		   body=#c_literal{val=false}},
-    Err2 = #c_tuple{es=[#c_literal{val='function_clause'}, F, Xs]},
-    C3 = #c_clause{pats=[Xs], guard=#c_literal{val=true},
-		   body=match_fail([{function_name,{'lists^any',1}}|Anno], Err2)},
-    Fun = #c_fun{vars=[Xs],
-		 body=#c_case{arg=Xs, clauses=[C1, C2, C3]}},
-    L = #c_var{name='L'},
-    expr(#c_let{vars=[F, L], arg=#c_values{es=[Arg1, Arg2]},
-		body=#c_letrec{defs=[{Loop,Fun}],
-			       body=#c_apply{anno=Anno, op=Loop, args=[L]}}},
-	 Sub);
-call_1(#c_call{anno=Anno}, lists, foreach, [Arg1,Arg2], Sub) ->
-    Loop = #c_var{name={'lists^foreach',1}},
-    F = #c_var{name='F'},
-    Xs = #c_var{name='Xs'},
-    X = #c_var{name='X'},
-    C1 = #c_clause{pats=[#c_cons{hd=X, tl=Xs}], guard=#c_literal{val=true},
-		   body=#c_seq{arg=#c_apply{anno=Anno, op=F, args=[X]},
-			       body=#c_apply{anno=Anno, op=Loop, args=[Xs]}}},
-    C2 = #c_clause{pats=[#c_literal{val=[]}],
-		   guard=#c_call{module=#c_literal{val=erlang},
-				 name=#c_literal{val=is_function},
-				 args=[F, #c_literal{val=1}]},
-		   body=#c_literal{val=ok}},
-    Err = #c_tuple{es=[#c_literal{val='function_clause'}, F, Xs]},
-    C3 = #c_clause{pats=[Xs], guard=#c_literal{val=true},
-		   body=match_fail([{function_name,{'lists^foreach',1}}|Anno], Err)},
-    Fun = #c_fun{vars=[Xs],
-		 body=#c_case{arg=Xs, clauses=[C1, C2, C3]}},
-    L = #c_var{name='L'},
-    expr(#c_let{vars=[F, L], arg=#c_values{es=[Arg1, Arg2]},
-		body=#c_letrec{defs=[{Loop,Fun}],
-			       body=#c_apply{anno=Anno, op=Loop, args=[L]}}},
-	 Sub);
-call_1(#c_call{anno=Anno}, lists, map, [Arg1,Arg2], Sub) ->
-    Loop = #c_var{name={'lists^map',1}},
-    F = #c_var{name='F'},
-    Xs = #c_var{name='Xs'},
-    X = #c_var{name='X'},
-    H = #c_var{name='H'},
-    C1 = #c_clause{pats=[#c_cons{hd=X, tl=Xs}], guard=#c_literal{val=true},
-		   body=#c_let{vars=[H], arg=#c_apply{anno=Anno,
-						      op=F,
-						      args=[X]},
-			       body=#c_cons{hd=H,
-					    anno=[compiler_generated],
-					    tl=#c_apply{anno=Anno,
-							op=Loop,
-							args=[Xs]}}}},
-    C2 = #c_clause{pats=[#c_literal{val=[]}],
-		   guard=#c_call{module=#c_literal{val=erlang},
-				 name=#c_literal{val=is_function},
-				 args=[F, #c_literal{val=1}]},
-		   body=#c_literal{val=[]}},
-    Err = #c_tuple{es=[#c_literal{val='function_clause'}, F, Xs]},
-    C3 = #c_clause{pats=[Xs], guard=#c_literal{val=true},
-		   body=match_fail([{function_name,{'lists^map',1}}|Anno], Err)},
-    Fun = #c_fun{vars=[Xs],
-		 body=#c_case{arg=Xs, clauses=[C1, C2, C3]}},
-    L = #c_var{name='L'},
-    expr(#c_let{vars=[F, L], arg=#c_values{es=[Arg1, Arg2]},
-		body=#c_letrec{defs=[{Loop,Fun}],
-			       body=#c_apply{anno=Anno, op=Loop, args=[L]}}},
-	 Sub);
-call_1(#c_call{anno=Anno}, lists, flatmap, [Arg1,Arg2], Sub) ->
-    Loop = #c_var{name={'lists^flatmap',1}},
-    F = #c_var{name='F'},
-    Xs = #c_var{name='Xs'},
-    X = #c_var{name='X'},
-    H = #c_var{name='H'},
-    C1 = #c_clause{pats=[#c_cons{hd=X, tl=Xs}], guard=#c_literal{val=true},
-		   body=#c_let{vars=[H],
-			       arg=#c_apply{anno=Anno, op=F, args=[X]},
-			       body=#c_call{anno=[compiler_generated|Anno],
-					    module=#c_literal{val=erlang},
-					    name=#c_literal{val='++'},
-					    args=[H,
-						  #c_apply{anno=Anno,
-							   op=Loop,
-							   args=[Xs]}]}}},
-    C2 = #c_clause{pats=[#c_literal{val=[]}],
-		   guard=#c_call{module=#c_literal{val=erlang},
-				 name=#c_literal{val=is_function},
-				 args=[F, #c_literal{val=1}]},
-		   body=#c_literal{val=[]}},
-    Err = #c_tuple{es=[#c_literal{val='function_clause'}, F, Xs]},
-    C3 = #c_clause{pats=[Xs], guard=#c_literal{val=true},
-		   body=match_fail([{function_name,{'lists^flatmap',1}}|Anno], Err)},
-    Fun = #c_fun{vars=[Xs],
-		 body=#c_case{arg=Xs, clauses=[C1, C2, C3]}},
-    L = #c_var{name='L'},
-    expr(#c_let{vars=[F, L], arg=#c_values{es=[Arg1, Arg2]},
-		body=#c_letrec{defs=[{Loop,Fun}],
-			       body=#c_apply{anno=Anno, op=Loop, args=[L]}}},
-	 Sub);
-call_1(#c_call{anno=Anno}, lists, filter, [Arg1,Arg2], Sub) ->
-    Loop = #c_var{name={'lists^filter',1}},
-    F = #c_var{name='F'},
-    Xs = #c_var{name='Xs'},
-    X = #c_var{name='X'},
-    B = #c_var{name='B'},
-    Err1 = #c_tuple{es=[#c_literal{val='case_clause'}, X]},
-    CC1 = #c_clause{pats=[#c_literal{val=true}], guard=#c_literal{val=true},
-		    body=#c_cons{anno=[compiler_generated], hd=X, tl=Xs}},
-    CC2 = #c_clause{pats=[#c_literal{val=false}], guard=#c_literal{val=true},
-		    body=Xs},
-    CC3 = #c_clause{pats=[X], guard=#c_literal{val=true},
-		    body=match_fail(Anno, Err1)},
-    Case = #c_case{arg=B, clauses = [CC1, CC2, CC3]},
-    C1 = #c_clause{pats=[#c_cons{hd=X, tl=Xs}], guard=#c_literal{val=true},
-		   body=#c_let{vars=[B],
-			       arg=#c_apply{anno=Anno, op=F, args=[X]},
-			       body=#c_let{vars=[Xs],
-					   arg=#c_apply{anno=Anno,
-							op=Loop,
-							args=[Xs]},
-					   body=Case}}},
-    C2 = #c_clause{pats=[#c_literal{val=[]}],
-		   guard=#c_call{module=#c_literal{val=erlang},
-				 name=#c_literal{val=is_function},
-				 args=[F, #c_literal{val=1}]},
-		   body=#c_literal{val=[]}},
-    Err2 = #c_tuple{es=[#c_literal{val='function_clause'}, F, Xs]},
-    C3 = #c_clause{pats=[Xs], guard=#c_literal{val=true},
-		   body=match_fail([{function_name,{'lists^filter',1}}|Anno], Err2)},
-    Fun = #c_fun{vars=[Xs],
-		 body=#c_case{arg=Xs, clauses=[C1, C2, C3]}},
-    L = #c_var{name='L'},
-    expr(#c_let{vars=[F, L], arg=#c_values{es=[Arg1, Arg2]},
-		body=#c_letrec{defs=[{Loop,Fun}],
-			       body=#c_apply{anno=Anno, op=Loop, args=[L]}}},
-    Sub);
-call_1(#c_call{anno=Anno}, lists, foldl, [Arg1,Arg2,Arg3], Sub) ->
-    Loop = #c_var{name={'lists^foldl',2}},
-    F = #c_var{name='F'},
-    Xs = #c_var{name='Xs'},
-    X = #c_var{name='X'},
-    A = #c_var{name='A'},
-    C1 = #c_clause{pats=[#c_cons{hd=X, tl=Xs}], guard=#c_literal{val=true},
-		   body=#c_apply{anno=Anno,
-				 op=Loop,
-				 args=[Xs, #c_apply{anno=Anno,
-						    op=F,
-						    args=[X, A]}]}},
-    C2 = #c_clause{pats=[#c_literal{val=[]}],
-		   guard=#c_call{module=#c_literal{val=erlang},
-				 name=#c_literal{val=is_function},
-				 args=[F, #c_literal{val=2}]},
-		   body=A},
-    Err = #c_tuple{es=[#c_literal{val='function_clause'}, F, A, Xs]},
-    C3 = #c_clause{pats=[Xs], guard=#c_literal{val=true},
-		   body=match_fail([{function_name,{'lists^foldl',2}}|Anno], Err)},
-    Fun = #c_fun{vars=[Xs, A],
-		 body=#c_case{arg=Xs, clauses=[C1, C2, C3]}},
-    L = #c_var{name='L'},
-    expr(#c_let{vars=[F, A, L], arg=#c_values{es=[Arg1, Arg2, Arg3]},
-		body=#c_letrec{defs=[{Loop,Fun}],
-			       body=#c_apply{anno=Anno, op=Loop, args=[L, A]}}},
-	 Sub);
-call_1(#c_call{anno=Anno}, lists, foldr, [Arg1,Arg2,Arg3], Sub) ->
-    Loop = #c_var{name={'lists^foldr',2}},
-    F = #c_var{name='F'},
-    Xs = #c_var{name='Xs'},
-    X = #c_var{name='X'},
-    A = #c_var{name='A'},
-    C1 = #c_clause{pats=[#c_cons{hd=X, tl=Xs}], guard=#c_literal{val=true},
-		   body=#c_apply{anno=Anno,
-				 op=F,
-				 args=[X, #c_apply{anno=Anno,
-						   op=Loop,
-						   args=[Xs, A]}]}},
-    C2 = #c_clause{pats=[#c_literal{val=[]}],
-		   guard=#c_call{module=#c_literal{val=erlang},
-				 name=#c_literal{val=is_function},
-				 args=[F, #c_literal{val=2}]},
-		   body=A},
-    Err = #c_tuple{es=[#c_literal{val='function_clause'}, F, A, Xs]},
-    C3 = #c_clause{pats=[Xs], guard=#c_literal{val=true},
-		   body=match_fail([{function_name,{'lists^foldr',2}}|Anno], Err)},
-    Fun = #c_fun{vars=[Xs, A],
-		 body=#c_case{arg=Xs, clauses=[C1, C2, C3]}},
-    L = #c_var{name='L'},
-    expr(#c_let{vars=[F, A, L], arg=#c_values{es=[Arg1, Arg2, Arg3]},
-		body=#c_letrec{defs=[{Loop,Fun}],
-			       body=#c_apply{anno=Anno, op=Loop, args=[L, A]}}},
-	 Sub);
-call_1(#c_call{anno=Anno}, lists, mapfoldl, [Arg1,Arg2,Arg3], Sub) ->
-    Loop = #c_var{name={'lists^mapfoldl',2}},
-    F = #c_var{name='F'},
-    Xs = #c_var{name='Xs'},
-    X = #c_var{name='X'},
-    Avar = #c_var{name='A'},
-    Match =
-	fun (A, P, E) ->
-		C1 = #c_clause{pats=[P], guard=#c_literal{val=true}, body=E},
-		Err = #c_tuple{es=[#c_literal{val='badmatch'}, X]},
-		C2 = #c_clause{pats=[X], guard=#c_literal{val=true},
-			       body=match_fail(Anno, Err)},
-		#c_case{arg=A, clauses=[C1, C2]}
-	end,
-    C1 = #c_clause{pats=[#c_cons{hd=X, tl=Xs}], guard=#c_literal{val=true},
-		   body=Match(#c_apply{anno=Anno, op=F, args=[X, Avar]},
-			      #c_tuple{es=[X, Avar]},
-%%% Tuple passing version
-			      Match(#c_apply{anno=Anno,
-					     op=Loop,
-					     args=[Xs, Avar]},
-				    #c_tuple{es=[Xs, Avar]},
-				    #c_tuple{anno=[compiler_generated],
-					     es=[#c_cons{anno=[compiler_generated],
-							 hd=X, tl=Xs},
-						 Avar]})
-%%% Multiple-value version
-%%% 			      #c_let{vars=[Xs,A],
-%%% 				     %% The tuple here will be optimised
-%%% 				     %% away later; no worries.
-%%% 				     arg=#c_apply{op=Loop, args=[Xs, A]},
-%%% 				     body=#c_values{es=[#c_cons{hd=X, tl=Xs},
-%%% 							A]}}
-			     )},
-    C2 = #c_clause{pats=[#c_literal{val=[]}],
-		   guard=#c_call{module=#c_literal{val=erlang},
-				 name=#c_literal{val=is_function},
-				 args=[F, #c_literal{val=2}]},
-%%% Tuple passing version
-		   body=#c_tuple{anno=[compiler_generated],
-				 es=[#c_literal{val=[]}, Avar]}},
-%%% Multiple-value version
-%%% 		   body=#c_values{es=[#c_literal{val=[]}, A]}},
-    Err = #c_tuple{es=[#c_literal{val='function_clause'}, F, Avar, Xs]},
-    C3 = #c_clause{pats=[Xs], guard=#c_literal{val=true},
-		   body=match_fail([{function_name,{'lists^mapfoldl',2}}|Anno], Err)},
-    Fun = #c_fun{vars=[Xs, Avar],
-		 body=#c_case{arg=Xs, clauses=[C1, C2, C3]}},
-    L = #c_var{name='L'},
-    expr(#c_let{vars=[F, Avar, L], arg=#c_values{es=[Arg1, Arg2, Arg3]},
-		body=#c_letrec{defs=[{Loop,Fun}],
-%%% Tuple passing version
-			       body=#c_apply{anno=Anno,
-					     op=Loop,
-					     args=[L, Avar]}}},
-%%% Multiple-value version
-%%% 			       body=#c_let{vars=[Xs, A],
-%%% 					   arg=#c_apply{op=Loop,
-%%% 							args=[L, A]},
-%%% 					   body=#c_tuple{es=[Xs, A]}}}},
-	 Sub);
-call_1(#c_call{anno=Anno}, lists, mapfoldr, [Arg1,Arg2,Arg3], Sub) ->
-    Loop = #c_var{name={'lists^mapfoldr',2}},
-    F = #c_var{name='F'},
-    Xs = #c_var{name='Xs'},
-    X = #c_var{name='X'},
-    Avar = #c_var{name='A'},
-    Match =
-	fun (A, P, E) ->
-		C1 = #c_clause{pats=[P], guard=#c_literal{val=true}, body=E},
-		Err = #c_tuple{es=[#c_literal{val='badmatch'}, X]},
-		C2 = #c_clause{pats=[X], guard=#c_literal{val=true},
-			       body=match_fail(Anno, Err)},
-		#c_case{arg=A, clauses=[C1, C2]}
-	end,
-    C1 = #c_clause{pats=[#c_cons{hd=X, tl=Xs}], guard=#c_literal{val=true},
-%%% Tuple passing version
-		   body=Match(#c_apply{anno=Anno,
-				       op=Loop,
-				       args=[Xs, Avar]},
-			      #c_tuple{es=[Xs, Avar]},
-			      Match(#c_apply{anno=Anno, op=F, args=[X, Avar]},
-				    #c_tuple{es=[X, Avar]},
-				    #c_tuple{anno=[compiler_generated],
-					     es=[#c_cons{anno=[compiler_generated],
-							 hd=X, tl=Xs}, Avar]}))
-%%% Multiple-value version
-%%% 		   body=#c_let{vars=[Xs,A],
-%%% 			       %% The tuple will be optimised away
-%%% 			       arg=#c_apply{op=Loop, args=[Xs, A]},
-%%% 			       body=Match(#c_apply{op=F, args=[X, A]},
-%%% 					  #c_tuple{es=[X, A]},
-%%% 					  #c_values{es=[#c_cons{hd=X, tl=Xs},
-%%% 						        A]})}
-		  },
-    C2 = #c_clause{pats=[#c_literal{val=[]}],
-		   guard=#c_call{module=#c_literal{val=erlang},
-				 name=#c_literal{val=is_function},
-				 args=[F, #c_literal{val=2}]},
-%%% Tuple passing version
-		   body=#c_tuple{anno=[compiler_generated],
-				 es=[#c_literal{val=[]}, Avar]}},
-%%% Multiple-value version
-%%% 		   body=#c_values{es=[#c_literal{val=[]}, A]}},
-    Err = #c_tuple{es=[#c_literal{val='function_clause'}, F, Avar, Xs]},
-    C3 = #c_clause{pats=[Xs], guard=#c_literal{val=true},
-		   body=match_fail([{function_name,{'lists^mapfoldr',2}}|Anno], Err)},
-    Fun = #c_fun{vars=[Xs, Avar],
-		 body=#c_case{arg=Xs, clauses=[C1, C2, C3]}},
-    L = #c_var{name='L'},
-    expr(#c_let{vars=[F, Avar, L], arg=#c_values{es=[Arg1, Arg2, Arg3]},
-		body=#c_letrec{defs=[{Loop,Fun}],
-%%% Tuple passing version
-			       body=#c_apply{anno=Anno,
-					     op=Loop,
-					     args=[L, Avar]}}},
-%%% Multiple-value version
-%%% 			       body=#c_let{vars=[Xs, A],
-%%% 					   arg=#c_apply{op=Loop,
-%%% 							args=[L, A]},
-%%% 					   body=#c_tuple{es=[Xs, A]}}}},
-	 Sub);
-call_1(#c_call{module=M, name=N}=Call, _, _, As, Sub) ->
-    call_0(Call, M, N, As, Sub).
-
-match_fail(Anno, Arg) ->
-    #c_primop{anno=Anno,
-	      name=#c_literal{val='match_fail'},
-	      args=[Arg]}.
 
 %% fold_call(Call, Mod, Name, Args, Sub) -> Expr.
 %%  Try to safely evaluate the call.  Just try to evaluate arguments,
@@ -1117,29 +756,33 @@ fold_call_1(Call, Mod, Name, Args, Sub) ->
 	true -> fold_call_2(Call, Mod, Name, Args, Sub)
     end.
 
-fold_call_2(Call, Module, Name, Args0, Sub) ->
-    try
-	Args = [core_lib:literal_value(A) || A <- Args0],
-	try apply(Module, Name, Args) of
-	    Val ->
-		case cerl:is_literal_term(Val) of
-		    true ->
-			#c_literal{val=Val};
-		    false ->
-			%% Successful evaluation, but it was not
-			%% possible to express the computed value as a literal.
-			Call
-		end
-	catch
-	    error:Reason ->
-		%% Evaluation of the function failed. Warn and replace
-		%% the call with a call to erlang:error/1.
-		eval_failure(Call, Reason)
-	end
+fold_call_2(Call, Module, Name, Args, Sub) ->
+    case all(fun cerl:is_literal/1, Args) of
+	true ->
+	    %% All arguments are literals.
+	    fold_lit_args(Call, Module, Name, Args);
+	false ->
+	    %% At least one non-literal argument.
+	    fold_non_lit_args(Call, Module, Name, Args, Sub)
+    end.
+
+fold_lit_args(Call, Module, Name, Args0) ->
+    Args = [cerl:concrete(A) || A <- Args0],
+    try apply(Module, Name, Args) of
+	Val ->
+	    case cerl:is_literal_term(Val) of
+		true ->
+		    cerl:abstract(Val);
+		false ->
+		    %% Successful evaluation, but it was not possible
+		    %% to express the computed value as a literal.
+		    Call
+	    end
     catch
-	error:_ ->
-	    %% There was at least one non-literal argument.
-	    fold_non_lit_args(Call, Module, Name, Args0, Sub)
+	error:Reason ->
+	    %% Evaluation of the function failed. Warn and replace
+	    %% the call with a call to erlang:error/1.
+	    eval_failure(Call, Reason)
     end.
 
 %% fold_non_lit_args(Call, Module, Name, Args, Sub) -> Expr.
@@ -1178,17 +821,18 @@ fold_non_lit_args(Call, _, _, _, _) -> Call.
 %% Evaluate a relational operation using type information.
 eval_rel_op(Call, Op, [#c_var{name=V},#c_var{name=V}], _) ->
     Bool = erlang:Op(same, same),
-    #c_literal{anno=core_lib:get_anno(Call),val=Bool};
-eval_rel_op(Call, '=:=', [#c_var{name=V}=Var,#c_literal{val=true}], Sub) ->
+    #c_literal{anno=cerl:get_ann(Call),val=Bool};
+eval_rel_op(Call, '=:=', [Term,#c_literal{val=true}], Sub) ->
     %% BoolVar =:= true  ==>  BoolVar
-    case is_boolean_type(V, Sub) of
-	true -> Var;
-	false -> Call
+    case is_boolean_type(Term, Sub) of
+	yes -> Term;
+	maybe -> Call;
+	no -> #c_literal{val=false}
     end;
 eval_rel_op(Call, '==', Ops, _Sub) ->
     case is_exact_eq_ok(Ops) of
 	true ->
-	    Name = #c_literal{anno=core_lib:get_anno(Call),val='=:='},
+	    Name = #c_literal{anno=cerl:get_ann(Call),val='=:='},
 	    Call#c_call{name=Name};
 	false ->
 	    Call
@@ -1196,7 +840,7 @@ eval_rel_op(Call, '==', Ops, _Sub) ->
 eval_rel_op(Call, '/=', Ops, _Sub) ->
     case is_exact_eq_ok(Ops) of
 	true ->
-	    Name = #c_literal{anno=core_lib:get_anno(Call),val='=/='},
+	    Name = #c_literal{anno=cerl:get_ann(Call),val='=/='},
 	    Call#c_call{name=Name};
 	false ->
 	    Call
@@ -1231,40 +875,31 @@ is_non_numeric_tuple(_Tuple, 0) -> true.
 %% there must be at least one non-literal argument (i.e.
 %% there is no need to handle the case that all argments
 %% are literal).
-eval_bool_op(Call, 'and', [#c_literal{val=true},#c_var{name=V}=Res], Sub) ->
-    case is_boolean_type(V, Sub) of
-	true -> Res;
-	false-> Call
-    end;
-eval_bool_op(Call, 'and', [#c_var{name=V}=Res,#c_literal{val=true}], Sub) ->
-    case is_boolean_type(V, Sub) of
-	true -> Res;
-	false-> Call
-    end;
-eval_bool_op(Call, 'and', [#c_literal{val=false}=Res,#c_var{name=V}], Sub) ->
-    case is_boolean_type(V, Sub) of
-	true -> Res;
-	false-> Call
-    end;
-eval_bool_op(Call, 'and', [#c_var{name=V},#c_literal{val=false}=Res], Sub) ->
-    case is_boolean_type(V, Sub) of
-	true -> Res;
-	false-> Call
-    end;
+
+eval_bool_op(Call, 'and', [#c_literal{val=true},Term], Sub) ->
+    eval_bool_op_1(Call, Term, Term, Sub);
+eval_bool_op(Call, 'and', [Term,#c_literal{val=true}], Sub) ->
+    eval_bool_op_1(Call, Term, Term, Sub);
+eval_bool_op(Call, 'and', [#c_literal{val=false}=Res,Term], Sub) ->
+    eval_bool_op_1(Call, Res, Term, Sub);
+eval_bool_op(Call, 'and', [Term,#c_literal{val=false}=Res], Sub) ->
+    eval_bool_op_1(Call, Res, Term, Sub);
 eval_bool_op(Call, _, _, _) -> Call.
 
+eval_bool_op_1(Call, Res, Term, Sub) ->
+    case is_boolean_type(Term, Sub) of
+	yes -> Res;
+	no -> eval_failure(Call, badarg);
+	maybe -> Call
+    end.
+
 %% Evaluate is_boolean/1 using type information.
-eval_is_boolean(Call, #c_var{name=V}, Sub) ->
-    case is_boolean_type(V, Sub) of
-	true -> #c_literal{val=true};
-	false -> Call
-    end;
-eval_is_boolean(_, #c_cons{}, _) ->
-    #c_literal{val=false};
-eval_is_boolean(_, #c_tuple{}, _) ->
-    #c_literal{val=false};
-eval_is_boolean(Call, _, _) ->
-    Call.
+eval_is_boolean(Call, Term, Sub) ->
+    case is_boolean_type(Term, Sub) of
+	no -> #c_literal{val=false};
+	yes -> #c_literal{val=true};
+	maybe -> Call
+    end.
 
 %% eval_length(Call, List) -> Val.
 %%  Evaluates the length for the prefix of List which has a known
@@ -1314,20 +949,19 @@ eval_append(Call, X, Y) ->
 %%  Evaluates element/2 if the position Pos is a literal and
 %%  the shape of the tuple Tuple is known.
 %%
-eval_element(Call, #c_literal{val=Pos}, #c_tuple{es=Es}, _Types) when is_integer(Pos) ->
-    if
-	1 =< Pos, Pos =< length(Es) ->
-	    lists:nth(Pos, Es);
-	true ->
-	    eval_failure(Call, badarg)
-    end;
-eval_element(Call, #c_literal{val=Pos}, #c_var{name=V}, Types)
+eval_element(Call, #c_literal{val=Pos}, Tuple, Types)
   when is_integer(Pos) ->
-    case orddict:find(V, Types#sub.t) of
-	{ok,#c_tuple{es=Elements}} ->
+    case get_type(Tuple, Types) of
+	none ->
+	    Call;
+	Type ->
+	    Es = case cerl:is_c_tuple(Type) of
+		     false -> [];
+		     true -> cerl:tuple_es(Type)
+		 end,
 	    if
-		1 =< Pos, Pos =< length(Elements) ->
-		    El = lists:nth(Pos, Elements),
+		1 =< Pos, Pos =< length(Es) ->
+		    El = lists:nth(Pos, Es),
 		    try
 			pat_to_expr(El)
 		    catch
@@ -1335,15 +969,13 @@ eval_element(Call, #c_literal{val=Pos}, #c_var{name=V}, Types)
 			    Call
 		    end;
 		true ->
+		    %% Index outside tuple or not a tuple.
 		    eval_failure(Call, badarg)
-	    end;
-	{ok,_} ->
-	    eval_failure(Call, badarg);
-	error ->
-	    Call
+	    end
     end;
-eval_element(Call, Pos, Tuple, _Types) ->
-    case is_not_integer(Pos) orelse is_not_tuple(Tuple) of
+eval_element(Call, Pos, Tuple, Sub) ->
+    case is_int_type(Pos, Sub) =:= no orelse
+	is_tuple_type(Tuple, Sub) =:= no of
 	true ->
 	    eval_failure(Call, badarg);
 	false ->
@@ -1353,31 +985,26 @@ eval_element(Call, Pos, Tuple, _Types) ->
 %% eval_is_record(Call, Var, Tag, Size, Types) -> Val.
 %%  Evaluates is_record/3 using type information.
 %%
-eval_is_record(Call, #c_var{name=V}, #c_literal{val=NeededTag}=Lit,
+eval_is_record(Call, Term, #c_literal{val=NeededTag},
 	       #c_literal{val=Size}, Types) ->
-    case orddict:find(V, Types#sub.t) of
-	{ok,#c_tuple{es=[#c_literal{val=Tag}|_]=Es}} ->
-	    Lit#c_literal{val=Tag =:= NeededTag andalso
-			  length(Es) =:= Size};
-	_ ->
-	    Call
+    case get_type(Term, Types) of
+	none ->
+	    Call;
+	Type ->
+	    Es = case cerl:is_c_tuple(Type) of
+		     false -> [];
+		     true -> cerl:tuple_es(Type)
+		 end,
+	    case Es of
+		[#c_literal{val=Tag}|_] ->
+		    Bool = Tag =:= NeededTag andalso
+			length(Es) =:= Size,
+		    #c_literal{val=Bool};
+		_ ->
+		    #c_literal{val=false}
+	    end
     end;
 eval_is_record(Call, _, _, _, _) -> Call.
-
-%% is_not_integer(Core) -> true | false.
-%%  Returns true if Core is definitely not an integer.
-
-is_not_integer(#c_literal{val=Val}) when not is_integer(Val) -> true;
-is_not_integer(#c_tuple{}) -> true;
-is_not_integer(#c_cons{}) -> true;
-is_not_integer(_) -> false.
-
-%% is_not_tuple(Core) -> true | false.
-%%  Returns true if Core is definitely not a tuple.
-
-is_not_tuple(#c_literal{val=Val}) when not is_tuple(Val) -> true;
-is_not_tuple(#c_cons{}) -> true;
-is_not_tuple(_) -> false.
 
 %% eval_setelement(Call, Pos, Tuple, NewVal) -> Core.
 %%  Evaluates setelement/3 if position Pos is an integer
@@ -1482,7 +1109,7 @@ clause(#c_clause{pats=Ps0,guard=G0,body=B0}=Cl, Cexpr, Ctxt, Sub0) ->
 let_substs(Vs0, As0, Sub0) ->
     {Vs1,Sub1} = pattern_list(Vs0, Sub0),
     {Vs2,As1,Ss} = let_substs_1(Vs1, As0, Sub1),
-    Sub2 = scope_add([V || #c_var{name=V} <- Vs2], Sub1),
+    Sub2 = sub_add_scope([V || #c_var{name=V} <- Vs2], Sub1),
     {Vs2,As1,
      foldl(fun ({V,S}, Sub) -> sub_set_name(V, S, Sub) end, Sub2, Ss)}.
 
@@ -1517,7 +1144,7 @@ pattern(#c_var{}=Pat, Isub, Osub) ->
 	true ->
 	    V1 = make_var_name(),
 	    Pat1 = #c_var{name=V1},
-	    {Pat1,sub_set_var(Pat, Pat1, scope_add([V1], Osub))};
+	    {Pat1,sub_set_var(Pat, Pat1, sub_add_scope([V1], Osub))};
 	false ->
 	    {Pat,sub_del_var(Pat, Osub)}
     end;
@@ -1587,6 +1214,7 @@ is_subst(_) -> false.
 %% sub_del_var(Var, #sub{}) -> #sub{}.
 %% sub_subst_var(Var, Value, #sub{}) -> [{Name,Value}].
 %% sub_is_val(Var, #sub{}) -> boolean().
+%% sub_add_scope(#sub{}) -> #sub{}
 %% sub_subst_scope(#sub{}) -> #sub{}
 %%
 %%  We use the variable name as key so as not have problems with
@@ -1597,9 +1225,10 @@ is_subst(_) -> false.
 %%  In addition to the list of substitutions, we also keep track of
 %%  all variable currently live (the scope).
 %%
-%%  sub_subst_scope/1 adds dummy substitutions for all variables
-%%  in the scope in order to force renaming if variables in the
-%%  scope occurs as pattern variables.
+%%  sub_add_scope/2 adds variables to the scope.  sub_subst_scope/1
+%%  adds dummy substitutions for all variables in the scope in order
+%%  to force renaming if variables in the scope occurs as pattern
+%%  variables.
 
 sub_new() -> #sub{v=orddict:new(),s=gb_trees:empty(),t=[]}.
 
@@ -1638,6 +1267,12 @@ sub_del_var(#c_var{name=V}, #sub{v=S,s=Scope,t=Tdb}=Sub) ->
 sub_subst_var(#c_var{name=V}, Val, #sub{v=S0}) ->
     %% Fold chained substitutions.
     [{V,Val}] ++ [ {K,Val} || {K,#c_var{name=V1}} <- S0, V1 =:= V].
+
+sub_add_scope(Vs, #sub{s=Scope0}=Sub) ->
+    Scope = foldl(fun(V, S) when is_integer(V); is_atom(V) ->
+			  gb_sets:add(V, S)
+		  end, Scope0, Vs),
+    Sub#sub{s=Scope}.
 
 sub_subst_scope(#sub{v=S0,s=Scope}=Sub) ->
     S = [{-1,#c_var{name=Sv}} || Sv <- gb_sets:to_list(Scope)]++S0,
@@ -1686,7 +1321,7 @@ clauses(E, [C0|Cs], Ctxt, Sub, LitExpr) ->
 	{yes,yes} ->
 	    case LitExpr of
 		false ->
-		    Line = get_line(core_lib:get_anno(C1)),
+		    Line = get_line(cerl:get_ann(C1)),
 		    shadow_warning(Cs, Line);
 		true ->
 		    %% If the case expression is a literal,
@@ -1920,7 +1555,7 @@ opt_bool_case_guard(#c_case{arg=Arg,clauses=Cs0}=Case) ->
 	    Case;
 	true ->
 	    Cs = opt_bool_case_guard(Arg, Cs0),
-	    Case#c_case{arg=#c_values{anno=core_lib:get_anno(Arg),es=[]},
+	    Case#c_case{arg=#c_values{anno=cerl:get_ann(Arg),es=[]},
 			clauses=Cs}
     end.
 
@@ -2394,11 +2029,8 @@ is_bool_expr(#c_let{vars=[V],arg=Arg,body=B}, Sub0) ->
 is_bool_expr(#c_let{body=B}, Sub) ->
     %% Binding of multiple variables.
     is_bool_expr(B, Sub);
-is_bool_expr(#c_literal{val=Bool}, _) when is_boolean(Bool) ->
-    true;
-is_bool_expr(#c_var{name=V}, Sub) ->
-    is_boolean_type(V, Sub);
-is_bool_expr(_, _) -> false.
+is_bool_expr(C, Sub) ->
+    is_boolean_type(C, Sub) =:= yes.
 
 is_bool_expr_list([C|Cs], Sub) ->
     is_bool_expr(C, Sub) andalso is_bool_expr_list(Cs, Sub);
@@ -2612,12 +2244,6 @@ move_let_into_expr(_Let, _Expr, _Sub) -> impossible.
 is_failing_clause(#c_clause{body=B}) ->
     will_fail(B).
 
-scope_add(Vs, #sub{s=Scope0}=Sub) ->
-    Scope = foldl(fun(V, S) when is_integer(V); is_atom(V) ->
-			  gb_sets:add(V, S)
-		  end, Scope0, Vs),
-    Sub#sub{s=Scope}.
-
 %% opt_simple_let(#c_let{}, Context, Sub) -> CoreTerm
 %%  Optimize a let construct that does not contain any lets in
 %%  in its argument.
@@ -2646,31 +2272,7 @@ opt_simple_let_1(#c_let{vars=Vs0,body=B0}=Let, Arg0, Ctxt, Sub0) ->
     Arg = core_lib:make_values(Args),
     opt_simple_let_2(Let, Vs, Arg, B, Ctxt, Sub1).
 
-opt_simple_let_2(Let0, Vs0, Arg0, Body0, effect, Sub) ->
-    case {Vs0,Arg0,Body0} of
-	{[],#c_values{es=[]},Body} ->
-	    %% No variables left (because of substitutions).
-	    Body;
-	{[_|_],Arg,#c_literal{}} ->
-	    %% The body is a literal. That means that we can ignore
-	    %% it and that the return value is Arg revisited in
-	    %% effect context.
-	    body(Arg, effect, sub_new_preserve_types(Sub));
-	{Vs,Arg,Body} ->
-	    %% Since we are in effect context, there is a chance
-	    %% that the body no longer references the variables.
-	    %% In that case we can construct a sequence and visit
-	    %% that in effect context:
-	    %%   let <Var> = Arg in BodyWithoutVar  ==> seq Arg BodyWithoutVar
-	    case is_any_var_used(Vs, Body) of
-		false ->
-		    expr(#c_seq{arg=Arg,body=Body}, effect, sub_new_preserve_types(Sub));
-		true ->
-		    Let = Let0#c_let{vars=Vs,arg=Arg,body=Body},
-		    opt_case_in_let_arg(opt_case_in_let(Let, Sub), effect, Sub)
-	    end
-    end;
-opt_simple_let_2(Let0, Vs0, Arg0, Body, value, Sub) ->
+opt_simple_let_2(Let0, Vs0, Arg0, Body, Ctxt, Sub) ->
     case {Vs0,Arg0,Body} of
 	{[#c_var{name=N1}],Arg,#c_var{name=N2}} ->
 	    case N1 =:= N2 of
@@ -2679,26 +2281,30 @@ opt_simple_let_2(Let0, Vs0, Arg0, Body, value, Sub) ->
 		    Arg;
 		false ->
 		    %% let <Var> = Arg in <OtherVar>  ==>  seq Arg OtherVar
-		    expr(#c_seq{arg=Arg,body=Body}, value, sub_new_preserve_types(Sub))
+		    expr(#c_seq{arg=Arg,body=Body}, Ctxt,
+			 sub_new_preserve_types(Sub))
 	    end;
 	{[],#c_values{es=[]},_} ->
 	    %% No variables left.
 	    Body;
 	{_,Arg,#c_literal{}} ->
-	    %% The variable is not used in the body. The argument
-	    %% can be evaluated in effect context to simplify it.
-	    expr(#c_seq{arg=Arg,body=Body}, value, sub_new_preserve_types(Sub));
-	{Vs,Arg,Body} ->
-	    %% If none of the variables are used in the body, we can rewrite the
+	    %% Since the variable is not used in the body, we can rewrite the
 	    %% let to a sequence:
-	    %%   let <Var> = Arg in BodyWithoutVar  ==> seq Arg BodyWithoutVar
+	    %%   let <Var> = Arg in Literal  ==>  seq Arg Literal
+	    expr(#c_seq{arg=Arg,body=Body}, Ctxt, sub_new_preserve_types(Sub));
+	{Vs,Arg,Body} ->
+	    %% If none of the variables are used in the body, we can
+	    %% rewrite the let to a sequence:
+	    %%    let <Var> = Arg in BodyWithoutVar ==>
+	    %%        seq Arg BodyWithoutVar
 	    case is_any_var_used(Vs, Body) of
 		false ->
-		    expr(#c_seq{arg=Arg,body=Body}, value,
+		    expr(#c_seq{arg=Arg,body=Body}, Ctxt,
 			 sub_new_preserve_types(Sub));
 		true ->
-		    Let = Let0#c_let{vars=Vs,arg=Arg,body=Body},
-		    opt_case_in_let_arg(opt_case_in_let(Let, Sub), value, Sub)
+		    Let1 = Let0#c_let{vars=Vs,arg=Arg,body=Body},
+		    Let2 = opt_case_in_let(Let1, Sub),
+		    opt_case_in_let_arg(Let2, Ctxt, Sub)
 	    end
     end.
 
@@ -2822,11 +2428,60 @@ is_any_var_used([#c_var{name=V}|Vs], Expr) ->
     end;
 is_any_var_used([], _) -> false.
 
-is_boolean_type(V, #sub{t=Tdb}) ->
+%%%
+%%% Retrieving information about types.
+%%%
+
+-spec get_type(cerl:cerl(), #sub{}) -> type_info() | 'none'.
+
+get_type(#c_var{name=V}, #sub{t=Tdb}) ->
     case orddict:find(V, Tdb) of
-	{ok,bool} -> true;
-	_ -> false
+	{ok,Type} -> Type;
+	error -> none
+    end;
+get_type(C, _) ->
+    case cerl:type(C) of
+	binary -> C;
+	map -> C;
+	_ ->
+	    case cerl:is_data(C) of
+		true -> C;
+		false -> none
+	    end
     end.
+
+-spec is_boolean_type(cerl:cerl(), sub()) -> yes_no_maybe().
+
+is_boolean_type(Var, Sub) ->
+    case get_type(Var, Sub) of
+	none ->
+	    maybe;
+	bool ->
+	    yes;
+	C ->
+	    B = cerl:is_c_atom(C) andalso
+		is_boolean(cerl:atom_val(C)),
+	    yes_no(B)
+    end.
+
+-spec is_int_type(cerl:cerl(), sub()) -> yes_no_maybe().
+
+is_int_type(Var, Sub) ->
+    case get_type(Var, Sub) of
+	none -> maybe;
+	C -> yes_no(cerl:is_c_int(C))
+    end.
+
+-spec is_tuple_type(cerl:cerl(), sub()) -> yes_no_maybe().
+
+is_tuple_type(Var, Sub) ->
+    case get_type(Var, Sub) of
+	none -> maybe;
+	C -> yes_no(cerl:is_c_tuple(C))
+    end.
+
+yes_no(true) -> yes;
+yes_no(false) -> no.
 
 %% update_types(Expr, Pattern, Sub) -> Sub'
 %%  Update the type database.
@@ -3153,7 +2808,7 @@ add_warning(Core, Term) ->
 	true ->
 	    ok;
 	false ->
-	    Anno = core_lib:get_anno(Core),
+	    Anno = cerl:get_ann(Core),
 	    Line = get_line(Anno),
 	    File = get_file(Anno),
 	    Key = {?MODULE,warnings},
