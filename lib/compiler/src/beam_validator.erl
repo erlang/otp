@@ -131,22 +131,15 @@ validate_0(Module, [{function,Name,Ar,Entry,Code}|Fs], Ft) ->
     try validate_1(Code, Name, Ar, Entry, Ft) of
 	_ -> validate_0(Module, Fs, Ft)
     catch
-	Error ->
+	throw:Error ->
+	    %% Controlled error.
 	    [Error|validate_0(Module, Fs, Ft)];
-	  error:Error ->
-	    [validate_error(Error, Module, Name, Ar)|validate_0(Module, Fs, Ft)]
+	Class:Error ->
+	    %% Crash.
+	    Stack = erlang:get_stacktrace(),
+	    io:fwrite("Function: ~w/~w\n", [Name,Ar]),
+	    erlang:raise(Class, Error, Stack)
     end.
-
--ifdef(DEBUG).
-validate_error(Error, Module, Name, Ar) ->
-    exit(validate_error_1(Error, Module, Name, Ar)).
--else.
-validate_error(Error, Module, Name, Ar) ->
-    validate_error_1(Error, Module, Name, Ar).
--endif.
-validate_error_1(Error, Module, Name, Ar) ->
-    {{Module,Name,Ar},
-     {internal_error,'_',{Error,erlang:get_stacktrace()}}}.
 
 -type index() :: non_neg_integer().
 -type reg_tab() :: gb_trees:tree(index(), 'none' | {'value', _}).
