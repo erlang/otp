@@ -340,7 +340,7 @@ handle_info(validate_sessions, #state{session_cache_cb = CacheCb,
 handle_info({delayed_clean_session, Key}, #state{session_cache = Cache,
                    session_cache_cb = CacheCb
                    } = State) ->
-    CacheCb:remove(Cache, Key),
+    CacheCb:delete(Cache, Key),
     {noreply, State};
 
 handle_info(clear_pem_cache, #state{certificate_db = [_,_,PemChace],
