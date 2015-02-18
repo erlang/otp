@@ -71,6 +71,10 @@ default(_Config) ->
     cover_test_mod:foo(),
     ok.
 
+default_no_cover(_Config) ->
+    cover_test_mod:foo(),
+    ok.
+
 slave(_Config) ->
     cover_compiled = code:which(cover_test_mod),
     cover_test_mod:foo(),
