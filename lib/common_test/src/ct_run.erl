@@ -774,7 +774,8 @@ script_usage() ->
 	      "\n\t[-basic_html]\n\n"),
     io:format("Run tests from command line:\n\n"
 	      "\tct_run [-dir TestDir1 TestDir2 .. TestDirN] |"
-	      "\n\t[-suite Suite1 Suite2 .. SuiteN [-case Case1 Case2 .. CaseN]]"
+	      "\n\t[[-dir TestDir] -suite Suite1 Suite2 .. SuiteN"
+	      "\n\t [[-group Groups1 Groups2 .. GroupsN] [-case Case1 Case2 .. CaseN]]]"
 	      "\n\t[-step [config | keep_inactive]]"
 	      "\n\t[-config ConfigFile1 ConfigFile2 .. ConfigFileN]"
 	      "\n\t[-userconfig CallbackModule ConfigFile1 .. ConfigFileN]"
