@@ -438,6 +438,7 @@ erts_trace_flag2bit(Eterm flag)
     case am_set_on_link: return F_TRACE_SOL;
     case am_set_on_first_link: return F_TRACE_SOL1;
     case am_timestamp: return F_TIMESTAMP;
+    case am_cpu_timestamp: return F_TIMESTAMP;
     case am_running: return F_TRACE_SCHED;
     case am_exiting: return F_TRACE_SCHED_EXIT;
     case am_garbage_collection: return F_TRACE_GC;
@@ -474,10 +475,6 @@ erts_trace_flags(Eterm List,
 	Eterm item = CAR(list_val(list));
 	if (is_atom(item) && (bit = erts_trace_flag2bit(item))) {
 	    mask |= bit;
-#ifdef HAVE_ERTS_NOW_CPU
-	} else if (item == am_cpu_timestamp) {
-	    cpu_timestamp = !0;
-#endif
 	} else if (is_tuple(item)) {
 	    Eterm* tp = tuple_val(item);
 	    
@@ -486,6 +483,10 @@ erts_trace_flags(Eterm List,
 		tracer = tp[2];
 	    } else goto error;
 	} else goto error;
+#ifdef HAVE_ERTS_NOW_CPU
+        if (item == am_cpu_timestamp) cpu_timestamp = !0;
+#endif
+
 	list = CDR(list_val(list));
     }
     if (is_not_nil(list)) goto error;
