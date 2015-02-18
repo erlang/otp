@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2011-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -1802,11 +1802,17 @@ upgrade_gg(cleanup,Config) ->
 %%%-----------------------------------------------------------------
 %%% OTP-10463, Bug - release_handler could not handle regexp in appup
 %%% files.
-otp_10463_upgrade_script_regexp(_Config) ->
-    %% Assuming that kernel always has a regexp in it's appup
-    KernelVsn = vsn(kernel,current),
-    {ok,KernelVsn,_} =
-	release_handler:upgrade_script(kernel,code:lib_dir(kernel)),
+otp_10463_upgrade_script_regexp(Config) ->
+    DataDir = ?config(data_dir,Config),
+    code:add_path(filename:join([DataDir,regexp_appup,app1,ebin])),
+    application:start(app1),
+    {ok,"1.1",_} = release_handler:upgrade_script(app1,code:lib_dir(app1)),
+    ok.
+
+otp_10463_upgrade_script_regexp(cleanup,Config) ->
+    DataDir = ?config(data_dir,Config),
+    application:stop(app1),
+    code:del_path(filename:join([DataDir,regexp_appup,app1,ebin])),
     ok.
 
 no_dot_erlang(Conf) ->
