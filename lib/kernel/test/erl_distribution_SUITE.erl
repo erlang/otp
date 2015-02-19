@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2011. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -26,7 +26,8 @@
 
 -export([tick/1, tick_change/1, illegal_nodenames/1, hidden_node/1,
 	 table_waste/1, net_setuptime/1,
-	
+	 inet_dist_options_options/1,
+
 	 monitor_nodes_nodedown_reason/1,
 	 monitor_nodes_complex_nodedown_reason/1,
 	 monitor_nodes_node_type/1,
@@ -38,7 +39,8 @@
 	 monitor_nodes_many/1]).
 
 %% Performs the test at another node.
--export([tick_cli_test/1, tick_cli_test1/1,
+-export([get_socket_priorities/0,
+	 tick_cli_test/1, tick_cli_test1/1,
 	 tick_serv_test/2, tick_serv_test1/1,
 	 keep_conn/1, time_ping/1]).
 
@@ -62,7 +64,8 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [tick, tick_change, illegal_nodenames, hidden_node,
-     table_waste, net_setuptime, {group, monitor_nodes}].
+     table_waste, net_setuptime, inet_dist_options_options,
+     {group, monitor_nodes}].
 
 groups() -> 
     [{monitor_nodes, [],
@@ -552,6 +555,71 @@ check_monitor_nodes_res(Pid, Node) ->
 	{Ref, MNs} ->
 	    ?line false = lists:keysearch(Node, 2, MNs)
     end.
+
+
+
+inet_dist_options_options(suite) -> [];
+inet_dist_options_options(doc) ->
+    ["Check the kernel inet_dist_{listen,connect}_options options"];
+inet_dist_options_options(Config) when is_list(Config) ->
+    Prio = 1,
+    case gen_udp:open(0, [{priority,Prio}]) of
+	{ok,Socket} ->
+	    case inet:getopts(Socket, [priority]) of
+		{ok,[{priority,Prio}]} ->
+		    ok = gen_udp:close(Socket),
+		    do_inet_dist_options_options(Prio);
+		      _ ->
+		    ok = gen_udp:close(Socket),
+		    {skip,
+		     "Can not set priority "++integer_to_list(Prio)++
+			 " on socket"}
+	    end;
+	{error,_} ->
+	    {skip, "Can not set priority on socket"}
+    end.
+
+do_inet_dist_options_options(Prio) ->
+    PriorityString0 = "[{priority,"++integer_to_list(Prio)++"}]",
+    PriorityString =
+	case os:cmd("echo [{a,1}]") of
+	    "[{a,1}]"++_ ->
+		PriorityString0;
+	    _ ->
+		%% Some shells need quoting of [{}]
+		"'"++PriorityString0++"'"
+	end,
+    InetDistOptions =
+	"-hidden "
+	"-kernel inet_dist_connect_options "++PriorityString++" "
+	"-kernel inet_dist_listen_options "++PriorityString,
+    ?line {ok,Node1} =
+	start_node(inet_dist_options_1, InetDistOptions),
+    ?line {ok,Node2} =
+	start_node(inet_dist_options_2, InetDistOptions),
+    %%
+    ?line pong =
+	rpc:call(Node1, net_adm, ping, [Node2]),
+    ?line PrioritiesNode1 =
+	rpc:call(Node1, ?MODULE, get_socket_priorities, []),
+    ?line PrioritiesNode2 =
+	rpc:call(Node2, ?MODULE, get_socket_priorities, []),
+    ?line ?t:format("PrioritiesNode1 = ~p", [PrioritiesNode1]),
+    ?line ?t:format("PrioritiesNode2 = ~p", [PrioritiesNode2]),
+    ?line Elevated = [P || P <- PrioritiesNode1, P =:= Prio],
+    ?line Elevated = [P || P <- PrioritiesNode2, P =:= Prio],
+    ?line [_|_] = Elevated,
+    %%
+    ?line stop_node(Node2),
+    ?line stop_node(Node1),
+    ok.
+
+get_socket_priorities() ->
+    [Priority ||
+	{ok,[{priority,Priority}]} <-
+	    [inet:getopts(Port, [priority]) ||
+		Port <- erlang:ports(),
+		element(2, erlang:port_info(Port, name)) =:= "tcp_inet"]].
 
 
 	    
