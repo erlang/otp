@@ -60,7 +60,8 @@ expandable_term_body(Heading,[],_Tab) ->
 	 "StackDump"  -> "No stack dump was found";
 	 "Dictionary" -> "No dictionary was found";
 	 "ProcState"  -> "Information could not be retrieved,"
-			     " system messages may not be handled by this process."
+			     " system messages may not be handled by this process.";
+         "SaslLog"    -> "No log entry was found"
      end];
 expandable_term_body(Heading,Expanded,Tab) ->
     Attr = "BORDER=0 CELLPADDING=0 CELLSPACING=1 WIDTH=100%",
@@ -102,7 +103,10 @@ expandable_term_body(Heading,Expanded,Tab) ->
 		    element(1, lists:mapfoldl(fun(Entry, Even) ->
 						      {proc_state(Tab, Entry,Even),
 						       not Even}
-					      end, true, Expanded))]);
+					      end, true, Expanded))]);         
+     "SaslLog"  ->
+             table(Attr,
+                   [tr("BGCOLOR=white",[td("ALIGN=left", pre(href_proc_port(Expanded)))])]) ;
 	 _ ->
 	     table(Attr,
 		   [tr(
