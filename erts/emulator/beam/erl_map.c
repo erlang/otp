@@ -77,6 +77,16 @@ BIF_RETTYPE map_size_1(BIF_ALIST_1) {
 	erts_bld_uint(NULL, &hsz, n);
 	hp = HAlloc(BIF_P, hsz);
 	BIF_RET(erts_bld_uint(&hp, NULL, n));
+    } else if (is_hashmap(BIF_ARG_1)) {
+	Eterm *head, *hp, res;
+	Uint size, hsz=0;
+
+	head = hashmap_val(BIF_ARG_1);
+	size = head[1];
+	(void) erts_bld_uint(NULL, &hsz, size);
+	hp = HAlloc(BIF_P, hsz);
+	res = erts_bld_uint(&hp, NULL, size);
+	BIF_RET(res);
     }
 
     BIF_ERROR(BIF_P, BADARG);
