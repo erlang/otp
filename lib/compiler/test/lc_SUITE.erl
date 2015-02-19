@@ -208,6 +208,17 @@ effect(Config) when is_list(Config) ->
 			      #{<<1:500>>:=V1,<<2:301>>:=V2} <- L],
 			  ok
 		  end, id([#{},x,#{<<1:500>>=>42,<<2:301>>=>{a,b,c}}])),
+
+    %% Will trigger the time-trap timeout if not tail-recursive.
+    case ?MODULE of
+	lc_SUITE ->
+	    _ = [{'EXIT',{badarg,_}} =
+		     (catch binary_to_atom(<<C/utf8>>, utf8)) ||
+		    C <- lists:seq(16#10000, 16#FFFFF)];
+	_ ->
+	    ok
+    end,
+
     ok.
 
 do_effect(Lc, L) ->
