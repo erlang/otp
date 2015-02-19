@@ -99,7 +99,7 @@
 -define(last_link, "last_link").
 -define(last_test, "last_test").
 -define(html_ext, ".html").
--define(now, erlang:now()).
+-define(now, os:timestamp()).
 
 -define(void_fun, fun() -> ok end).
 -define(mod_result(X), if X == skip -> skipped;
@@ -1204,19 +1204,14 @@ init_tester(Mod, Func, Args, Dir, Name, {_,_,MinLev}=Levels,
 report_severe_error(Reason) ->
     test_server_sup:framework_call(report, [severe_error,Reason]).
 
-%% timer:tc/3
-ts_tc(M, F, A) ->
-    Before = ?now,
-    Val = (catch apply(M, F, A)),
-    After = ?now,
-    Elapsed = elapsed_time(Before, After),
-    {Elapsed,Val}.
-
-elapsed_time(Before, After) ->
-    (element(1,After)*1000000000000 +
-     element(2,After)*1000000 + element(3,After)) -
-    (element(1,Before)*1000000000000 +
-     element(2,Before)*1000000 + element(3,Before)).
+ts_tc(M,F,A) ->
+    Before = erlang:monotonic_time(),
+    Result = (catch apply(M, F, A)),
+    After   = erlang:monotonic_time(),
+    Elapsed = erlang:convert_time_unit(After-Before,
+				       native,
+				       micro_seconds),
+    {Elapsed, Result}.
 
 start_extra_tools(ExtraTools) ->
     start_extra_tools(ExtraTools, []).
@@ -2473,7 +2468,7 @@ run_test_cases_loop([{conf,Ref,Props,{Mod,Func}}|_Cases]=Cs0,
 			file:set_cwd(filename:dirname(get(test_server_dir))),
 			After = ?now,
 			Before = get(test_server_parallel_start_time),
-			Elapsed = elapsed_time(Before, After)/1000000,
+			Elapsed = timer:now_diff(After, Before)/1000000,
 			put(test_server_total_time, Elapsed),
 			{false,tl(Mode0),undefined,Elapsed,
 			 update_status(Ref, OkSkipFail, Status)};
@@ -2482,7 +2477,7 @@ run_test_cases_loop([{conf,Ref,Props,{Mod,Func}}|_Cases]=Cs0,
 			%% parallel group (io buffering is active)
 			OkSkipFail = wait_for_cases(Ref),
 			queue_test_case_io(Ref, self(), 0, Mod, Func),
-			Elapsed = elapsed_time(conf_start(Ref, Mode0),?now)/1000000,
+			Elapsed = timer:now_diff(?now, conf_start(Ref, Mode0))/1000000,
 			case CurrIOHandler of
 			    {Ref,_} ->
 				%% current_io_handler was set by start conf of this
@@ -2499,12 +2494,12 @@ run_test_cases_loop([{conf,Ref,Props,{Mod,Func}}|_Cases]=Cs0,
 		%% this is an end conf for a non-parallel group that's not
 		%% nested under a parallel group, so no need to buffer io
 		{false,tl(Mode0),undefined,
-		 elapsed_time(conf_start(Ref, Mode0),?now)/1000000, Status};
+		 timer:now_diff(?now, conf_start(Ref, Mode0))/1000000, Status};
 	    {Ref,_} ->
 		%% this is an end conf for a non-parallel group nested under
 		%% a parallel group (io buffering is active)
 		queue_test_case_io(Ref, self(), 0, Mod, Func),
-		Elapsed = elapsed_time(conf_start(Ref, Mode0),?now)/1000000,
+		Elapsed = timer:now_diff(?now, conf_start(Ref, Mode0))/1000000,
 		case CurrIOHandler of
 		    {Ref,_} ->
 			%% current_io_handler was set by start conf of this
@@ -2559,7 +2554,7 @@ run_test_cases_loop([{conf,Ref,Props,{Mod,Func}}|_Cases]=Cs0,
 			    %% 1. check the TS_RANDOM_SEED env variable
 			    %% 2. check random_seed in process state
 			    %% 3. use value provided with shuffle option
-			    %% 4. use now() values for seed
+			    %% 4. use timestamp() values for seed
 			    case os:getenv("TS_RANDOM_SEED") of
 				Undef when Undef == false ; Undef == "undefined" ->
 				    case get(test_server_random_seed) of
@@ -3696,8 +3691,8 @@ run_test_case1(Ref, Num, Mod, Func, Args, RunInit,
 		RunDir = filename:dirname(MinorName),
 		Ext =
 		    if Num == 0 ->
-			    {_,S,Us} = now(),
-			    lists:flatten(io_lib:format(".~w.~w", [S,Us]));
+			    Nr = erlang:unique_integer([positive]),
+			    lists:flatten(io_lib:format(".~w", [Nr]));
 		       true ->
 			    lists:flatten(io_lib:format(".~w", [Num]))
 		    end,

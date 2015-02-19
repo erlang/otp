@@ -238,12 +238,9 @@ generate_nodenames2(0, _Hosts, Acc) ->
     Acc;
 generate_nodenames2(N, Hosts, Acc) ->
     Host=lists:nth((N rem (length(Hosts)))+1, Hosts),
-    Name=list_to_atom(temp_nodename("nod", []) ++ "@" ++ Host),
+    Name=list_to_atom(temp_nodename("nod") ++ "@" ++ Host),
     generate_nodenames2(N-1, Hosts, [Name|Acc]).
 
-temp_nodename([], Acc) ->
-    lists:flatten(Acc);
-temp_nodename([Chr|Base], Acc) ->
-    {A,B,C} = erlang:now(),
-    New = [Chr | integer_to_list(Chr bxor A bxor B+A bxor C+B)],
-    temp_nodename(Base, [New|Acc]).
+temp_nodename(Base) ->
+    Num = erlang:unique_integer([positive]),
+    Base ++ integer_to_list(Num).
