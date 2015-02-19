@@ -725,6 +725,10 @@ expr({'case',Line,E,Cs}, Bs0, Ieval) ->
 expr({'if',Line,Cs}, Bs, Ieval) ->
     if_clauses(Cs, Bs, Ieval#ieval{line=Line});
 
+%% Cond statement
+expr({'cond',Line,Cs}, Bs, Ieval) ->
+    cond_clauses(Cs, Bs, Ieval#ieval{line=Line});
+
 %% Andalso/orelse
 expr({'andalso',Line,E1,E2}, Bs0, Ieval) ->
     case expr(E1, Bs0, Ieval#ieval{line=Line, top=false}) of
@@ -1353,6 +1357,19 @@ if_clauses([{clause,_,[],G,B}|Cs], Bs, Ieval) ->
     end;
 if_clauses([], Bs, Ieval) ->
     exception(error, if_clause, Bs, Ieval).
+
+%% cond_clauses(Clauses, Bindings, Ieval)
+cond_clauses([{clause,_,[],[[E]],B}|Cs], Bs0, Ieval) ->
+    case expr(E, Bs0, Ieval) of
+        {value,true,Bs} ->
+            seq(B, Bs, Ieval);
+        {value,false,_} ->
+            cond_clauses(Cs, Bs0, Ieval);
+        {value,Other,Bs} ->
+            exception(error, {badbool,Other}, Bs, Ieval)
+    end;
+cond_clauses([], Bs, Ieval) ->
+    exception(error, cond_clause, Bs, Ieval).
 
 %% case_clauses(Value, Clauses, Bindings, Error, Ieval)
 %%   Error = try_clause | case_clause

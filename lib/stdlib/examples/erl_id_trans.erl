@@ -419,6 +419,9 @@ expr({block,Line,Es0}) ->
 expr({'if',Line,Cs0}) ->
     Cs1 = icr_clauses(Cs0),
     {'if',Line,Cs1};
+expr({'cond',Line,Cs0}) ->
+    Cs1 = icr_clauses(fun ([[E]]) -> expr(E) end, Cs0),
+    {'cond',Line,Cs1};
 expr({'case',Line,E0,Cs0}) ->
     E1 = expr(E0),
     Cs1 = icr_clauses(Cs0),
@@ -519,10 +522,13 @@ record_updates([]) -> [].
 
 %% -type icr_clauses([Clause]) -> [Clause].
 
-icr_clauses([C0|Cs]) ->
-    C1 = clause(C0),
-    [C1|icr_clauses(Cs)];
-icr_clauses([]) -> [].
+icr_clauses(Cs) ->
+    icr_clauses(fun guard/1, Cs).
+
+icr_clauses(GuardF, [C0|Cs]) ->
+    C1 = clause(GuardF, C0),
+    [C1|icr_clauses(GuardF, Cs)];
+icr_clauses(_, []) -> [].
 
 %% -type lc_bc_quals([Qualifier]) -> [Qualifier].
 %%  Allow filters to be both guard tests and general expressions.

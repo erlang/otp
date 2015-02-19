@@ -566,6 +566,8 @@ expr({'if',L,Cs0}, St0) ->
     Lanno = lineno_anno(L, St1),
     Fc = fail_clause([], Lanno, #c_literal{val=if_clause}),
     {#icase{anno=#a{anno=Lanno},args=[],clauses=Cs1,fc=Fc},[],St1};
+expr({'cond',L,Cs}, St) ->
+    cond_tq(L, Cs, St);
 expr({'case',L,E0,Cs0}, St0) ->
     {E1,Eps,St1} = novars(E0, St0),
     {Cs1,St2} = clauses(Cs0, St1),
@@ -973,6 +975,34 @@ bitstr({bin_element,_,E0,Size0,[Type,{unit,Unit}|Flags]}, St0) ->
 	       type=#c_literal{val=Type},
 	       flags=#c_literal{val=Flags}},
      Eps ++ Eps2,St2}.
+
+%% cond_tq(Line, [Clause], State) -> {Case,[PreExp],State}.
+
+cond_tq(L, [{clause,CL,[],[[E]],B}|Cs], St0) ->
+    LA = lineno_anno(CL, St0),
+    {Cc,Cps,St1} = cond_tq(L, Cs, St0),
+    {Fpat,St2} = new_var(St1),
+    Fc = fail_clause([Fpat], LA,
+                     c_tuple([#c_literal{val=badbool},Fpat])),
+    {Ec,Eps,St3} = novars(E, St2),
+    {Bc,St4} = exprs(B, St3),
+    {#icase{anno=#a{anno=[cond_case|LA]},
+            args=[Ec],
+            clauses=[#iclause{anno=#a{anno=LA},
+                              pats=[#c_literal{anno=LA,val=true}],
+                              guard=[],
+                              body=Bc},
+                     #iclause{anno=#a{anno=LA},
+                              pats=[#c_literal{anno=LA,val=false}],
+                              guard=[],
+                              body=Cps ++ [Cc]}],
+            fc=Fc},
+     Eps,St4};
+cond_tq(L, [], St) ->
+    Anno = lineno_anno(L, St),
+    {#iprimop{anno=#a{anno=Anno},name=#c_literal{val=match_fail},
+              args=[#c_literal{val=cond_clause}]},
+     [],St}.
 
 %% fun_tq(Id, [Clauses], Line, State, NameInfo) -> {Fun,[PreExp],State}.
 

@@ -29,7 +29,7 @@
 	 export_import/1,
 	 otp_5031/1, eif/1, otp_5305/1, otp_5418/1, otp_6115/1, otp_7095/1,
          otp_8188/1, otp_8270/1, otp_8273/1, otp_8340/1,
-	 otp_10979_hanging_node/1, compile_beam_opts/1, eep37/1]).
+         otp_10979_hanging_node/1, compile_beam_opts/1, eep37/1, 'cond'/1]).
 
 -export([do_coverage/1]).
 
@@ -50,7 +50,7 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     NoStartStop = [eif,otp_5305,otp_5418,otp_7095,otp_8273,
-		   otp_8340,otp_8188,compile_beam_opts,eep37],
+                   otp_8340,otp_8188,compile_beam_opts,eep37,'cond'],
     StartStop = [start, compile, analyse, misc, stop,
 		 distribution, reconnect, die_and_reconnect,
 		 dont_reconnect_after_stop, stop_node_after_disconnect,
@@ -1440,6 +1440,18 @@ eep37(Config) when is_list(Config) ->
                        "    F(6)\n" % 1
                        "end\n">>,
                     Config),
+    ok.
+
+'cond'(Config) when is_list(Config) ->
+    [{{t,1},1},{{t,2},1},{{t,3},0},{{t,5},1}] =
+        analyse_expr(<<"begin\n" % 1
+                       "    cond lists:member(foo, [bar]) ->\n" % 1
+                       "             foo_in_list;\n" % 0
+                       "         true ->\n"
+                       "             foo_not_in_list\n" % 1
+                       "    end\n"
+                       "end\n">>,
+                     Config),
     ok.
 
 otp_10979_hanging_node(_Config) ->

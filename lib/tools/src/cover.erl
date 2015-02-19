@@ -1671,6 +1671,9 @@ fix_last_expr([MungedExpr|MungedExprs], Line, Vars) ->
 fix_expr({'if',L,Clauses}, Line, Bump) -> 
     FixedClauses = fix_clauses(Clauses, Line, Bump),
     {'if',L,FixedClauses};
+fix_expr({'cond',L,Clauses}, Line, Bump) -> 
+    FixedClauses = fix_clauses(Clauses, Line, Bump),
+    {'cond',L,FixedClauses};
 fix_expr({'case',L,Expr,Clauses}, Line, Bump) ->
     FixedExpr = fix_expr(Expr, Line, Bump),
     FixedClauses = fix_clauses(Clauses, Line, Bump),
@@ -1825,6 +1828,9 @@ munge_expr({block,Line,Body}, Vars) ->
 munge_expr({'if',Line,Clauses}, Vars) -> 
     {MungedClauses,Vars2} = munge_clauses(Clauses, Vars),
     {{'if',Line,MungedClauses}, Vars2};
+munge_expr({'cond',Line,Clauses}, Vars) ->
+    {MungedClauses,Vars2} = munge_clauses(Clauses, Vars),
+    {{'cond',Line,MungedClauses}, Vars2};
 munge_expr({'case',Line,Expr,Clauses}, Vars) ->
     {MungedExpr,Vars2} = munge_expr(Expr, Vars),
     {MungedClauses,Vars3} = munge_clauses(Clauses, Vars2),

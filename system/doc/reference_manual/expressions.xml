@@ -350,6 +350,38 @@ is_greater_than(X, Y) ->
   </section>
 
   <section>
+    <marker id="cond"></marker>
+    <title>Cond</title>
+    <pre>
+cond Expr1 ->
+         Body1;
+     ...;
+     ExprN ->
+         BodyN
+end</pre>
+    <p>The branches of an <c>cond</c>-expression are scanned sequentially
+      until an expression <c>Expr</c> which evaluates to true is found. Then the
+      corresponding <c>Body</c> is evaluated.</p>
+    <p>The return value of <c>Body</c> is the return value of
+      the <c>cond</c> expression.</p>
+    <p>If no expression is true, a <c>cond_clause</c> run-time error will occur.
+      If necessary, the expression <c>true</c> can be used in the last branch,
+      as that expression is always true.</p>
+    <p>Arbitrary expressions are allowed, if one of them evaluates to a
+      non-boolean value, a <c>badbool</c> run-time error will occur.</p>
+    <p>Example:</p>
+    <pre>
+manage_engine() ->
+    cond voltage_nominal() ->
+             continue_operations();
+         in_emergency() ->
+             set_speed_slow();
+         true ->
+             shut_device_down()
+    end.</pre>
+  </section>
+
+  <section>
     <marker id="case"></marker>
     <title>Case</title>
     <pre>

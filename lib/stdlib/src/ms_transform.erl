@@ -873,6 +873,7 @@ translate_language_element(Atom) ->
 		{bc,"binary comprehension"},
 		{block, "begin/end block"},
 		{'if', "if"},
+                {'cond', "cond"},
 		{'case', "case"},
 		{'receive', "receive"},
 		{'try', "try"},

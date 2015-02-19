@@ -393,6 +393,8 @@ expand_expr({block,L,Es}, C) ->
     {block,L,expand_exprs(Es, C)};
 expand_expr({'if',L,Cs}, C) ->
     {'if',L,expand_cs(Cs, C)};
+expand_expr({'cond',L,Cs}, C) ->
+    {'cond',L,expand_cs(Cs, C)};
 expand_expr({'case',L,E,Cs}, C) ->
     {'case',L,expand_expr(E, C),expand_cs(Cs, C)};
 expand_expr({'try',L,Es,Scs,Ccs,As}, C) ->
