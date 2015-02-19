@@ -34,6 +34,8 @@
 
 -import(lists, [member/2,map/2,foldl/3,foldr/3,mapfoldl/3,all/2,reverse/1]).
 
+-compile({inline, [vtnew/0]}).
+
 %% bool_option(OnOpt, OffOpt, Default, Options) -> boolean().
 %% value_option(Flag, Default, Options) -> Value.
 %% value_option(Flag, Default, OnOpt, OnVal, OffOpt, OffVal, Options) ->
@@ -440,9 +442,9 @@ used_vars(Exprs, BindingsList) ->
 	       end, [], BindingsList),
     Vt = orddict:from_list(Vs),
     {Evt,_St} = exprs(zip_file_and_line(Exprs, "nofile"), Vt, start()),
-    {ok, foldl(fun({V,{_,used,_}}, L) -> [V | L];
-                  (_, L) -> L
-	       end, [], Evt)}.
+    {ok, vtfold(fun(V, {_,used,_}, L) -> [V | L];
+                  (_, _, L) -> L
+                end, [], Evt)}.
 
 %% module([Form]) ->
 %% module([Form], FileName) ->
@@ -1379,7 +1381,7 @@ clauses(Cs, St) ->
           end, St, Cs).
 
 clause({clause,_Line,H,G,B}, St0) ->
-    Vt0 = [],
+    Vt0 = vtnew(),
     {Hvt,Binvt,St1} = head(H, Vt0, St0),
     %% Cannot ignore BinVt since "binsize variables" may have been used.
     Vt1 = vtupdate(Hvt, vtupdate(Binvt, Vt0)),
@@ -1398,10 +1400,10 @@ head(Ps, Vt, St0) ->
     head(Ps, Vt, Vt, St0).    % Old = Vt
 
 head([P|Ps], Vt, Old, St0) ->
-    {Pvt,Bvt1,St1} = pattern(P, Vt, Old, [], St0),
+    {Pvt,Bvt1,St1} = pattern(P, Vt, Old, vtnew(), St0),
     {Psvt,Bvt2,St2} = head(Ps, Vt, Old, St1),
     {vtmerge_pat(Pvt, Psvt),vtmerge_pat(Bvt1,Bvt2),St2};
-head([], _Vt, _Env, St) -> {[],[],St}.
+head([], _Vt, _Env, St) -> {vtnew(),vtnew(),St}.
 
 %% pattern(Pattern, VarTable, Old, BinVarTable, State) ->
 %%                  {UpdVarTable,BinVarTable,State}.
@@ -1417,19 +1419,19 @@ head([], _Vt, _Env, St) -> {[],[],St}.
 %%  A = 4, fun(<<A:8,16:A>>) -> % A #1 unused
 
 pattern(P, Vt, St) ->
-    pattern(P, Vt, Vt, [], St).    % Old = Vt
+    pattern(P, Vt, Vt, vtnew(), St).    % Old = Vt
 
 pattern({var,_Line,'_'}, _Vt, _Old, _Bvt, St) ->
-    {[],[],St}; %Ignore anonymous variable
+    {vtnew(),vtnew(),St}; %Ignore anonymous variable
 pattern({var,Line,V}, _Vt, Old, Bvt, St) ->
     pat_var(V, Line, Old, Bvt, St);
-pattern({char,_Line,_C}, _Vt, _Old, _Bvt, St) -> {[],[],St};
-pattern({integer,_Line,_I}, _Vt, _Old, _Bvt, St) -> {[],[],St};
-pattern({float,_Line,_F}, _Vt, _Old, _Bvt, St) -> {[],[],St};
+pattern({char,_Line,_C}, _Vt, _Old, _Bvt, St) -> {vtnew(),vtnew(),St};
+pattern({integer,_Line,_I}, _Vt, _Old, _Bvt, St) -> {vtnew(),vtnew(),St};
+pattern({float,_Line,_F}, _Vt, _Old, _Bvt, St) -> {vtnew(),vtnew(),St};
 pattern({atom,Line,A}, _Vt, _Old, _Bvt, St) ->
-    {[],[],keyword_warning(Line, A, St)};
-pattern({string,_Line,_S}, _Vt, _Old, _Bvt, St) -> {[],[],St};
-pattern({nil,_Line}, _Vt, _Old, _Bvt, St) -> {[],[],St};
+    {vtnew(),vtnew(),keyword_warning(Line, A, St)};
+pattern({string,_Line,_S}, _Vt, _Old, _Bvt, St) -> {vtnew(),vtnew(),St};
+pattern({nil,_Line}, _Vt, _Old, _Bvt, St) -> {vtnew(),vtnew(),St};
 pattern({cons,_Line,H,T}, Vt, Old,  Bvt, St0) ->
     {Hvt,Bvt1,St1} = pattern(H, Vt, Old, Bvt, St0),
     {Tvt,Bvt2,St2} = pattern(T, Vt, Old, Bvt, St1),
@@ -1446,13 +1448,13 @@ pattern({record_index,Line,Name,Field}, _Vt, _Old, _Bvt, St) ->
                      fun (Dfs, St1) ->
                              pattern_field(Field, Name, Dfs, St1)
                      end),
-    {Vt1,[],St1};
+    {Vt1,vtnew(),St1};
 pattern({record,Line,Name,Pfs}, Vt, Old, Bvt, St) ->
     case dict:find(Name, St#lint.records) of
         {ok,{_Line,Fields}} ->
             St1 = used_record(Name, St),
             pattern_fields(Pfs, Name, Fields, Vt, Old, Bvt, St1);
-        error -> {[],[],add_error(Line, {undefined_record,Name}, St)}
+        error -> {vtnew(),vtnew(),add_error(Line, {undefined_record,Name}, St)}
     end;
 pattern({bin,_,Fs}, Vt, Old, Bvt, St) ->
     pattern_bin(Fs, Vt, Old, Bvt, St);
@@ -1472,15 +1474,15 @@ pattern({match,_Line,Pat1,Pat2}, Vt, Old, Bvt, St0) ->
 %% Catch legal constant expressions, including unary +,-.
 pattern(Pat, _Vt, _Old, _Bvt, St) ->
     case is_pattern_expr(Pat) of
-        true -> {[],[],St};
-        false -> {[],[],add_error(element(2, Pat), illegal_pattern, St)}
+        true -> {vtnew(),vtnew(),St};
+        false -> {vtnew(),vtnew(),add_error(element(2, Pat), illegal_pattern, St)}
     end.
 
 pattern_list(Ps, Vt, Old, Bvt0, St) ->
     foldl(fun (P, {Psvt,Bvt,St0}) ->
                   {Pvt,Bvt1,St1} = pattern(P, Vt, Old, Bvt0, St0),
                   {vtmerge_pat(Pvt, Psvt),vtmerge_pat(Bvt,Bvt1),St1}
-          end, {[],[],St}, Ps).
+          end, {vtnew(),vtnew(),St}, Ps).
 
 %% reject_bin_alias(Pat, Expr, St) -> St'
 %%  Reject aliases for binary patterns at the top level.
@@ -1604,7 +1606,7 @@ pattern_map(Ps, Vt, Old, Bvt, St) ->
 		    false ->
 			{Psvt,Bvt0,add_error(L, illegal_map_key, St0)}
 		end
-	end, {[],[],St}, Ps).
+	end, {vtnew(),vtnew(),St}, Ps).
 
 %% pattern_bin([Element], VarTable, Old, BinVarTable, State) ->
 %%           {UpdVarTable,UpdBinVarTable,State}.
@@ -1614,7 +1616,7 @@ pattern_bin(Es, Vt, Old, Bvt0, St0) ->
     {_Sz,Esvt,Bvt,St1} = foldl(fun (E, Acc) ->
 				       pattern_element(E, Vt, Old, Acc)
 			       end,
-			       {0,[],Bvt0,St0}, Es),
+			       {0,vtnew(),Bvt0,St0}, Es),
     {Esvt,Bvt,St1}.
 
 pattern_element({bin_element,Line,{string,_,_},Size,Ts}=Be, Vt,
@@ -1657,23 +1659,23 @@ good_string_size_type(_, _) -> false.
 %%              {UpdVarTable,UpdBinVarTable,State}.
 %%  Check pattern bit expression, only allow really valid patterns!
 
-pat_bit_expr({var,_,'_'}, _Old, _Bvt, St) -> {[],[],St};
+pat_bit_expr({var,_,'_'}, _Old, _Bvt, St) -> {vtnew(),vtnew(),St};
 pat_bit_expr({var,Ln,V}, Old, Bvt, St) -> pat_var(V, Ln, Old, Bvt, St);
-pat_bit_expr({string,_,_}, _Old, _Bvt, St) -> {[],[],St};
+pat_bit_expr({string,_,_}, _Old, _Bvt, St) -> {vtnew(),vtnew(),St};
 pat_bit_expr({bin,L,_}, _Old, _Bvt, St) ->
-    {[],[],add_error(L, illegal_pattern, St)};
+    {vtnew(),vtnew(),add_error(L, illegal_pattern, St)};
 pat_bit_expr(P, _Old, _Bvt, St) ->
     case is_pattern_expr(P) of
-        true -> {[],[],St};
-        false -> {[],[],add_error(element(2, P), illegal_pattern, St)}
+        true -> {vtnew(),vtnew(),St};
+        false -> {vtnew(),vtnew(),add_error(element(2, P), illegal_pattern, St)}
     end.
 
 %% pat_bit_size(Size, VarTable, BinVarTable, State) ->
 %%             {Value,UpdVarTable,UpdBinVarTable,State}.
 %%  Check pattern size expression, only allow really valid sizes!
 
-pat_bit_size(default, _Vt, _Bvt, St) -> {default,[],[],St};
-pat_bit_size({atom,_Line,all}, _Vt, _Bvt, St) -> {all,[],[],St};
+pat_bit_size(default, _Vt, _Bvt, St) -> {default,vtnew(),vtnew(),St};
+pat_bit_size({atom,_Line,all}, _Vt, _Bvt, St) -> {all,vtnew(),vtnew(),St};
 pat_bit_size({var,Lv,V}, Vt0, Bvt0, St0) ->
     {Vt,Bvt,St1} = pat_binsize_var(V, Lv, Vt0, Bvt0, St0),
     {unknown,Vt,Bvt,St1};
@@ -1682,10 +1684,10 @@ pat_bit_size(Size, _Vt, _Bvt, St) ->
     case is_pattern_expr(Size) of
         true ->
             case erl_eval:partial_eval(Size) of
-                {integer,Line,I} -> {I,[],[],St};
-                _Other -> {unknown,[],[],add_error(Line, illegal_bitsize, St)}
+                {integer,Line,I} -> {I,vtnew(),vtnew(),St};
+                _Other -> {unknown,vtnew(),vtnew(),add_error(Line, illegal_bitsize, St)}
             end;
-        false -> {unknown,[],[],add_error(Line, illegal_bitsize, St)}
+        false -> {unknown,vtnew(),vtnew(),add_error(Line, illegal_bitsize, St)}
     end.
 
 %% expr_bin(Line, [Element], VarTable, State, CheckFun) -> {UpdVarTable,State}.
@@ -1693,7 +1695,7 @@ pat_bit_size(Size, _Vt, _Bvt, St) ->
 
 expr_bin(Es, Vt, St0, Check) ->
     {_Sz,Esvt,St1} = foldl(fun (E, Acc) -> bin_element(E, Vt, Acc, Check) end,
-			   {0,[],St0}, Es),
+			   {0,vtnew(),St0}, Es),
     {Esvt,St1}.
 
 bin_element({bin_element,Line,E,Sz0,Ts}, Vt, {Size0,Esvt,St0}, Check) ->
@@ -1704,15 +1706,15 @@ bin_element({bin_element,Line,E,Sz0,Ts}, Vt, {Size0,Esvt,St0}, Check) ->
     {Size1,St5} = add_bit_size(Line, Sz3, Size0, true, St4),
     {Size1,vtmerge([Vt2,Vt1,Esvt]),St5}.
 
-bit_size(default, _Vt, St, _Check) -> {default,[],St};
-bit_size({atom,_Line,all}, _Vt, St, _Check) -> {all,[],St};
+bit_size(default, _Vt, St, _Check) -> {default,vtnew(),St};
+bit_size({atom,_Line,all}, _Vt, St, _Check) -> {all,vtnew(),St};
 bit_size(Size, Vt, St, Check) ->
     %% Try to safely evaluate Size if constant to get size,
     %% otherwise just treat it as an expression.
     case is_gexpr(Size, St#lint.records) of
         true ->
             case erl_eval:partial_eval(Size) of
-                {integer,_ILn,I} -> {I,[],St};
+                {integer,_ILn,I} -> {I,vtnew(),St};
                 _Other ->
                     {Evt,St1} = Check(Size, Vt, St),
                     {unknown,Evt,St1}
@@ -1790,7 +1792,7 @@ guard_tests([G|Gs], Vt, St0) ->
     {Gvt,St1} = guard_test(G, Vt, St0),
     {Gsvt,St2} = guard_tests(Gs, vtupdate(Gvt, Vt), St1),
     {vtupdate(Gvt, Gsvt),St2};
-guard_tests([], _Vt, St) -> {[],St}.
+guard_tests([], _Vt, St) -> {vtnew(),St}.
 
 %% guard_test(Test, VarTable, State) ->
 %%      {UsedVarTable,State'}
@@ -1829,13 +1831,13 @@ guard_test2(G, Vt, St) ->
 
 gexpr({var,Line,V}, Vt, St) ->
     expr_var(V, Line, Vt, St);
-gexpr({char,_Line,_C}, _Vt, St) -> {[],St};
-gexpr({integer,_Line,_I}, _Vt, St) -> {[],St};
-gexpr({float,_Line,_F}, _Vt, St) -> {[],St};
+gexpr({char,_Line,_C}, _Vt, St) -> {vtnew(),St};
+gexpr({integer,_Line,_I}, _Vt, St) -> {vtnew(),St};
+gexpr({float,_Line,_F}, _Vt, St) -> {vtnew(),St};
 gexpr({atom,Line,A}, _Vt, St) ->
-    {[],keyword_warning(Line, A, St)};
-gexpr({string,_Line,_S}, _Vt, St) -> {[],St};
-gexpr({nil,_Line}, _Vt, St) -> {[],St};
+    {vtnew(),keyword_warning(Line, A, St)};
+gexpr({string,_Line,_S}, _Vt, St) -> {vtnew(),St};
+gexpr({nil,_Line}, _Vt, St) -> {vtnew(),St};
 gexpr({cons,_Line,H,T}, Vt, St) ->
     gexpr_list([H,T], Vt, St);
 gexpr({tuple,_Line,Es}, Vt, St) ->
@@ -1931,7 +1933,7 @@ gexpr({op,Line,Op,L,R}, Vt, St0) ->
 %% Everything else is illegal! You could put explicit tests here to
 %% better error diagnostics.
 gexpr(E, _Vt, St) ->
-    {[],add_error(element(2, E), illegal_guard_expr, St)}.
+    {vtnew(),add_error(element(2, E), illegal_guard_expr, St)}.
 
 %% gexpr_list(Expressions, VarTable, State) ->
 %%      {UsedVarTable,State'}
@@ -1940,7 +1942,7 @@ gexpr_list(Es, Vt, St) ->
     foldl(fun (E, {Esvt,St0}) ->
                   {Evt,St1} = gexpr(E, Vt, St0),
                   {vtmerge(Evt, Esvt),St1}
-          end, {[],St}, Es).
+          end, {vtnew(),St}, Es).
 
 %% is_guard_test(Expression) -> boolean().
 %%  Test if a general expression is a guard test.
@@ -2044,7 +2046,7 @@ exprs([E|Es], Vt, St0) ->
     {Evt,St1} = expr(E, Vt, St0),
     {Esvt,St2} = exprs(Es, vtupdate(Evt, Vt), St1),
     {vtupdate(Evt, Esvt),St2};
-exprs([], _Vt, St) -> {[],St}.
+exprs([], _Vt, St) -> {vtnew(),St}.
 
 %% expr(Expression, VarTable, State) ->
 %%      {UsedVarTable,State'}
@@ -2054,13 +2056,13 @@ exprs([], _Vt, St) -> {[],St}.
 
 expr({var,Line,V}, Vt, St) ->
     expr_var(V, Line, Vt, St);
-expr({char,_Line,_C}, _Vt, St) -> {[],St};
-expr({integer,_Line,_I}, _Vt, St) -> {[],St};
-expr({float,_Line,_F}, _Vt, St) -> {[],St};
+expr({char,_Line,_C}, _Vt, St) -> {vtnew(),St};
+expr({integer,_Line,_I}, _Vt, St) -> {vtnew(),St};
+expr({float,_Line,_F}, _Vt, St) -> {vtnew(),St};
 expr({atom,Line,A}, _Vt, St) ->
-    {[],keyword_warning(Line, A, St)};
-expr({string,_Line,_S}, _Vt, St) -> {[],St};
-expr({nil,_Line}, _Vt, St) -> {[],St};
+    {vtnew(),keyword_warning(Line, A, St)};
+expr({string,_Line,_S}, _Vt, St) -> {vtnew(),St};
+expr({nil,_Line}, _Vt, St) -> {vtnew(),St};
 expr({cons,_Line,H,T}, Vt, St) ->
     expr_list([H,T], Vt, St);
 expr({lc,_Line,E,Qs}, Vt, St) ->
@@ -2097,7 +2099,7 @@ expr({record,Line,Rec,Name,Upds}, Vt, St0) ->
                                   update_fields(Upds, Name, Dfs, Vt, St)
                           end ),
     case has_wildcard_field(Upds) of
-        true -> {[],add_error(Line, {wildcard_in_update,Name}, St2)};
+        true -> {vtnew(),add_error(Line, {wildcard_in_update,Name}, St2)};
         false -> {vtmerge(Rvt, Usvt),St2}
     end;
 expr({bin,_Line,Fs}, Vt, St) ->
@@ -2133,12 +2135,12 @@ expr({'fun',Line,Body}, Vt, St) ->
             case ((not is_local_function(St#lint.locals,{F,A})) andalso
 		  (erl_internal:bif(F, A) andalso
 		   (not is_autoimport_suppressed(St#lint.no_auto,{F,A})))) of
-                true -> {[],St};
-                false -> {[],call_function(Line, F, A, St)}
+                true -> {vtnew(),St};
+                false -> {vtnew(),call_function(Line, F, A, St)}
             end;
 	{function,M,F,A} when is_atom(M), is_atom(F), is_integer(A) ->
 	    %% Compatibility with pre-R15 abstract format.
-	    {[],St};
+	    {vtnew(),St};
 	{function,M,F,A} ->
 	    %% New in R15.
 	    {Bvt, St1} = expr_list([M,F,A], Vt, St),
@@ -2147,11 +2149,11 @@ expr({'fun',Line,Body}, Vt, St) ->
 expr({named_fun,_,'_',Cs}, Vt, St) ->
     fun_clauses(Cs, Vt, St);
 expr({named_fun,Line,Name,Cs}, Vt, St0) ->
-    Nvt0 = [{Name,{bound,unused,[Line]}}],
+    Nvt0 = vtvar(Name,{bound,unused,[Line]}),
     St1 = shadow_vars(Nvt0, Vt, 'named fun', St0),
     Nvt1 = vtupdate(vtsubtract(Vt, Nvt0), Nvt0),
     {Csvt,St2} = fun_clauses(Cs, Nvt1, St1),
-    {_,St3} = check_unused_vars(vtupdate(Csvt, Nvt0), [], St2),
+    {_,St3} = check_unused_vars(vtupdate(Csvt, Nvt0), vtnew(), St2),
     {vtold(Csvt, Vt),St3};
 expr({call,_Line,{atom,_Lr,is_record},[E,{atom,Ln,Name}]}, Vt, St0) ->
     {Rvt,St1} = expr(E, Vt, St0),
@@ -2178,7 +2180,7 @@ expr({call,Line,{atom,La,F},As}, Vt, St0) ->
     AutoSuppressed = is_autoimport_suppressed(St2#lint.no_auto,{F,A}),
     Warn = is_warn_enabled(bif_clash, St2) and (not bif_clash_specifically_disabled(St2,{F,A})),
     Imported = imported(F, A, St2),
-    case ((not IsLocal) andalso (Imported =:= no) andalso 
+    case ((not IsLocal) andalso (Imported =:= no) andalso
 	  IsAutoBif andalso (not AutoSuppressed)) of
         true ->
 	    St3 = deprecated_function(Line, erlang, F, As, St2),
@@ -2264,7 +2266,7 @@ expr({op,_Line,_Op,L,R}, Vt, St) ->
     expr_list([L,R], Vt, St);                   %They see the same variables
 %% The following are not allowed to occur anywhere!
 expr({remote,Line,_M,_F}, _Vt, St) ->
-    {[],add_error(Line, illegal_expr, St)}.
+    {vtnew(),add_error(Line, illegal_expr, St)}.
 
 %% expr_list(Expressions, Variables, State) ->
 %%      {UsedVarTable,State}
@@ -2273,7 +2275,7 @@ expr_list(Es, Vt, St) ->
     {Vt1,St1} = foldl(fun (E, {Esvt,St0}) ->
                               {Evt,St1} = expr(E, Vt, St0),
                               {vtmerge_pat(Evt, Esvt),St1}
-                      end, {[],St}, Es),
+                      end, {vtnew(),St}, Es),
     {vtmerge(vtnew(Vt1, Vt), vtold(Vt1, Vt)),St1}.
 
 record_expr(Line, Rec, Vt, St0) ->
@@ -2426,7 +2428,7 @@ def_fields(Fs0, Name, St0) ->
                       true -> {Fs,add_error(Lf, {redefine_field,Name,F}, St)};
                       false ->
                           St1 = St#lint{recdef_top = true},
-                          {_,St2} = expr(V, [], St1),
+                          {_,St2} = expr(V, vtnew(), St1),
                           %% Warnings and errors found are kept, but
                           %% updated calls, records, etc. are discarded.
                           St3 = St1#lint{warnings = St2#lint.warnings,
@@ -2480,7 +2482,7 @@ exist_record(Line, Name, St) ->
 check_record(Line, Name, St, CheckFun) ->
     case dict:find(Name, St#lint.records) of
         {ok,{_Line,Fields}} -> CheckFun(Fields, used_record(Name, St));
-        error -> {[],add_error(Line, {undefined_record,Name}, St)}
+        error -> {vtnew(),add_error(Line, {undefined_record,Name}, St)}
     end.
 
 used_record(Name, #lint{usage=Usage}=St) ->
@@ -2498,18 +2500,18 @@ check_fields(Fs, Name, Fields, Vt, St0, CheckFun) ->
                       {Sfsb,{Vtb,Stb}} = check_field(Field, Name, Fields,
                                                      Vt, Sta, Sfsa, CheckFun),
                       {Sfsb,vtmerge_pat(Vta, Vtb),Stb}
-              end, {[],[],St0}, Fs),
+              end, {[],vtnew(),St0}, Fs),
     {Uvt,St1}.
 
 check_field({record_field,Lf,{atom,La,F},Val}, Name, Fields,
             Vt, St, Sfs, CheckFun) ->
     case member(F, Sfs) of
-        true -> {Sfs,{[],add_error(Lf, {redefine_field,Name,F}, St)}};
+        true -> {Sfs,{vtnew(),add_error(Lf, {redefine_field,Name,F}, St)}};
         false ->
             {[F|Sfs],
              case find_field(F, Fields) of
                  {ok,_I} -> CheckFun(Val, Vt, St);
-                 error -> {[],add_error(La, {undefined_field,Name,F}, St)}
+                 error -> {vtnew(),add_error(La, {undefined_field,Name,F}, St)}
              end}
     end;
 check_field({record_field,_Lf,{var,_La,'_'},Val}, _Name, _Fields,
@@ -2525,8 +2527,8 @@ check_field({record_field,_Lf,{var,La,V},_Val}, Name, _Fields,
 
 pattern_field({atom,La,F}, Name, Fields, St) ->
     case find_field(F, Fields) of
-        {ok,_I} -> {[],St};
-        error -> {[],add_error(La, {undefined_field,Name,F}, St)}
+        {ok,_I} -> {vtnew(),St};
+        error -> {vtnew(),add_error(La, {undefined_field,Name,F}, St)}
     end.
 
 %% pattern_fields([PatField],RecordName,[RecDefField],
@@ -2540,12 +2542,12 @@ pattern_fields(Fs, Name, Fields, Vt0, Old, Bvt, St0) ->
                       case check_field(Field, Name, Fields,
                                        Vt0, Sta, Sfsa, CheckFun) of
                           {Sfsb,{Vtb,Stb}} ->
-                              {Sfsb,vtmerge_pat(Vta, Vtb),[],Stb};
+                              {Sfsb,vtmerge_pat(Vta, Vtb),vtnew(),Stb};
                           {Sfsb,{Vtb,Bvt2,Stb}} ->
                               {Sfsb,vtmerge_pat(Vta, Vtb),
                                vtmerge_pat(Bvt1,Bvt2),Stb}
                       end
-              end, {[],[],[],St0}, Fs),
+              end, {[],vtnew(),vtnew(),St0}, Fs),
     {Uvt,Bvt1,St1}.
 
 %% record_field(Field, RecordName, [RecDefField], State) ->
@@ -2554,8 +2556,8 @@ pattern_fields(Fs, Name, Fields, Vt0, Old, Bvt, St0) ->
 
 record_field({atom,La,F}, Name, Fields, St) ->
     case find_field(F, Fields) of
-        {ok,_I} -> {[],St};
-        error -> {[],add_error(La, {undefined_field,Name,F}, St)}
+        {ok,_I} -> {vtnew(),St};
+        error -> {vtnew(),add_error(La, {undefined_field,Name,F}, St)}
     end.
 
 %% init_fields([InitField], InitLine, RecordName, [DefField], VarTable, State) ->
@@ -3032,7 +3034,7 @@ icrt_clause({clause,_Line,H,G,B}, Vt0, St0) ->
 
 icrt_export(Vts, Vt, {Tag,Attrs}) ->
     {_File,Loc} = loc(Attrs),
-    icrt_export(lists:merge(Vts), Vt, {Tag,Loc}, length(Vts), []).
+    icrt_export(lists:merge(Vts), Vt, {Tag,Loc}, length(Vts), vtnew()).
 
 icrt_export([{V,{{export,_},_,_}}|Vs0], [{V,{{export,_}=S0,_,Ls}}|Vt],
             In, I, Acc) ->
@@ -3122,7 +3124,7 @@ handle_comprehension(E, Qs, Vt0, St0) ->
 
 lc_quals(Qs, Vt0, St0) ->
     OldRecDef = St0#lint.recdef_top,
-    {Vt,Uvt,St} = lc_quals(Qs, Vt0, [], St0#lint{recdef_top = false}),
+    {Vt,Uvt,St} = lc_quals(Qs, Vt0, vtnew(), St0#lint{recdef_top = false}),
     {Vt,Uvt,St#lint{recdef_top = OldRecDef}}.
 
 lc_quals([{generate,_Line,P,E} | Qs], Vt0, Uvt0, St0) ->
@@ -3146,7 +3148,7 @@ handle_generator(P,E,Vt,Uvt,St0) ->
     %% Forget variables local to E immediately.
     Vt1 = vtupdate(vtold(Evt, Vt), Vt),
     {_, St2} = check_unused_vars(Evt, Vt, St1),
-    {Pvt,Binvt,St3} = pattern(P, Vt1, [], [], St2),
+    {Pvt,Binvt,St3} = pattern(P, Vt1, vtnew(), vtnew(), St2),
     %% Have to keep fresh variables separated from used variables somehow
     %% in order to handle for example X = foo(), [X || <<X:X>> <- bar()].
     %%                                1           2      2 1
@@ -3187,12 +3189,12 @@ fun_clauses(Cs, Vt, St) ->
     {Bvt,St2} = foldl(fun (C, {Bvt0, St0}) ->
                               {Cvt,St1} = fun_clause(C, Vt, St0),
                               {vtmerge(Cvt, Bvt0),St1}
-                      end, {[],St#lint{recdef_top = false}}, Cs),
+                      end, {vtnew(),St#lint{recdef_top = false}}, Cs),
     Uvt = vt_no_unsafe(vt_no_unused(vtold(Bvt, Vt))),
     {Uvt,St2#lint{recdef_top = OldRecDef}}.
 
 fun_clause({clause,_Line,H,G,B}, Vt0, St0) ->
-    {Hvt,Binvt,St1} = head(H, Vt0, [], St0), % No imported pattern variables
+    {Hvt,Binvt,St1} = head(H, Vt0, vtnew(), St0), % No imported pattern variables
     Vt1 = vtupdate(Hvt, Vt0),
     St2 = shadow_vars(Binvt, Vt0, 'fun', St1),
     Vt2 = vtupdate(vtsubtract(Vt1, Binvt), Binvt),
@@ -3238,7 +3240,6 @@ fun_clause({clause,_Line,H,G,B}, Vt0, St0) ->
 %% match".
 
 %% For storing the variable table we use the orddict module.
-%% We know an empty set is [].
 
 %% pat_var(Variable, LineNo, VarTable, State) -> {UpdVarTable,State}
 %%  A pattern variable has been found. Handle errors and warnings. Return
@@ -3249,22 +3250,22 @@ fun_clause({clause,_Line,H,G,B}, Vt0, St0) ->
 pat_var(V, Line, Vt, Bvt, St) ->
     case orddict:find(V, Bvt) of
         {ok, {bound,_Usage,Ls}} ->
-            {[],[{V,{bound,used,Ls}}],St};
+            {vtnew(),vtvar(V,{bound,used,Ls}),St};
         error ->
             case orddict:find(V, Vt) of
                 {ok,{bound,_Usage,Ls}} ->
-                    {[{V,{bound,used,Ls}}],[],St};
+                    {vtvar(V,{bound,used,Ls}),vtnew(),St};
                 {ok,{{unsafe,In},_Usage,Ls}} ->
-                    {[{V,{bound,used,Ls}}],[],
+                    {vtvar(V,{bound,used,Ls}),vtnew(),
                      add_error(Line, {unsafe_var,V,In}, St)};
                 {ok,{{export,From},_Usage,Ls}} ->
-                    {[{V,{bound,used,Ls}}],[],
+                    {vtvar(V,{bound,used,Ls}),vtnew(),
                      %% As this is matching, exported vars are risky.
                      add_warning(Line, {exported_var,V,From}, St)};
                 error when St#lint.recdef_top ->
-                    {[],[{V,{bound,unused,[Line]}}],
+                    {vtnew(),vtvar(V,{bound,unused,[Line]}),
                      add_error(Line, {variable_in_record_def,V}, St)};
-                error -> {[],[{V,{bound,unused,[Line]}}],St}
+                error -> {vtnew(),vtvar(V,{bound,unused,[Line]}),St}
             end
     end.
 
@@ -3276,21 +3277,21 @@ pat_var(V, Line, Vt, Bvt, St) ->
 pat_binsize_var(V, Line, Vt, Bvt, St) ->
     case orddict:find(V, Bvt) of
         {ok,{bound,_Used,Ls}} ->
-            {[],[{V,{bound,used,Ls}}],St};
+            {vtnew(),vtvar(V,{bound,used,Ls}),St};
         error ->
             case orddict:find(V, Vt) of
                 {ok,{bound,_Used,Ls}} ->
-                    {[{V,{bound,used,Ls}}],[],St};
+                    {vtvar(V,{bound,used,Ls}),vtnew(),St};
                 {ok,{{unsafe,In},_Used,Ls}} ->
-                    {[{V,{bound,used,Ls}}],[],
+                    {vtvar(V,{bound,used,Ls}),vtnew(),
                      add_error(Line, {unsafe_var,V,In}, St)};
                 {ok,{{export,From},_Used,Ls}} ->
-                    {[{V,{bound,used,Ls}}],[],
+                    {vtvar(V,{bound,used,Ls}),vtnew(),
                      %% As this is not matching, exported vars are
                      %% probably safe.
                      exported_var(Line, V, From, St)};
                 error ->
-                    {[{V,{bound,used,[Line]}}],[],
+                    {vtvar(V,{bound,used,[Line]}),vtnew(),
                      add_error(Line, {unbound_var,V}, St)}
             end
     end.
@@ -3306,20 +3307,20 @@ pat_binsize_var(V, Line, Vt, Bvt, St) ->
 expr_var(V, Line, Vt, St) ->
     case orddict:find(V, Vt) of
         {ok,{bound,_Usage,Ls}} ->
-            {[{V,{bound,used,Ls}}],St};
+            {vtvar(V,{bound,used,Ls}),St};
         {ok,{{unsafe,In},_Usage,Ls}} ->
-            {[{V,{bound,used,Ls}}],
+            {vtvar(V,{bound,used,Ls}),
              add_error(Line, {unsafe_var,V,In}, St)};
         {ok,{{export,From},_Usage,Ls}} ->
             case is_warn_enabled(export_vars, St) of
                 true ->
-                    {[{V,{bound,used,Ls}}],
+                    {vtvar(V,{bound,used,Ls}),
                      add_warning(Line, {exported_var,V,From}, St)};
                 false ->
-                    {[{V,{{export,From},used,Ls}}],St}
+                    {vtvar(V,{{export,From},used,Ls}),St}
             end;
         error ->
-            {[{V,{bound,used,[Line]}}],
+            {vtvar(V,{bound,used,[Line]}),
              add_error(Line, {unbound_var,V}, St)}
     end.
 
@@ -3332,10 +3333,10 @@ exported_var(Line, V, From, St) ->
 shadow_vars(Vt, Vt0, In, St0) ->
     case is_warn_enabled(shadow_vars, St0) of
         true ->
-            foldl(fun ({V,{_,_,[L | _]}}, St) ->
+            vtfold(fun (V, {_,_,[L | _]}, St) ->
                           add_warning(L, {shadowed_var,V,In}, St);
-                      (_, St) -> St
-                  end, St0, vtold(Vt, vt_no_unsafe(Vt0)));
+                      (_, _, St) -> St
+                   end, St0, vtold(Vt, vt_no_unsafe(Vt0)));
         false -> St0
     end.
 
@@ -3344,17 +3345,17 @@ check_unused_vars(Vt, Vt0, St0) ->
     warn_unused_vars(U, Vt, St0).
 
 check_old_unused_vars(Vt, Vt0, St0) ->
-    U = unused_vars(vtold(Vt, Vt0), [], St0),
+    U = unused_vars(vtold(Vt, Vt0), vtnew(), St0),
     warn_unused_vars(U, Vt, St0).
 
 unused_vars(Vt, Vt0, _St0) ->
-    U0 = orddict:filter(fun (V, {_State,unused,_Ls}) ->
+    U0 = vtfilter(fun (V, {_State,unused,_Ls}) ->
                                 case atom_to_list(V) of
                                     "_"++_ -> false;
                                     _ -> true
                                 end;
                             (_V, _How) -> false
-                        end, Vt),
+                  end, Vt),
     vtnew(U0, Vt0). % Only new variables.
 
 warn_unused_vars([], Vt, St0) ->
@@ -3363,15 +3364,15 @@ warn_unused_vars(U, Vt, St0) ->
     St1 = case is_warn_enabled(unused_vars, St0) of
 	      false -> St0;
 	      true ->
-		  foldl(fun ({V,{_,unused,Ls}}, St) ->
+		  vtfold(fun (V, {_,unused,Ls}, St) ->
 				foldl(fun (L, St2) ->
 					      add_warning(L, {unused_var,V},
 							  St2)
 				      end, St, Ls)
-			end, St0, U)
+			 end, St0, U)
 	  end,
     %% Return all variables as bound so warnings are only reported once.
-    UVt = map(fun ({V,{State,_,Ls}}) -> {V,{State,used,Ls}} end, U),
+    UVt = vtmap(fun (_V, {State,_,Ls}) -> {State,used,Ls} end, U),
     {vtmerge(Vt, UVt), St1}.
 
 %% vtupdate(UpdVarTable, VarTable) -> VarTable.
@@ -3382,14 +3383,16 @@ warn_unused_vars(U, Vt, St0) ->
 vtupdate(Uvt, Vt0) ->
     orddict:merge(fun (_V, {S,U1,L1}, {_S,U2,L2}) ->
                           {S, merge_used(U1, U2), merge_lines(L1, L2)}
-                  end, Uvt, Vt0).
+		  end, Uvt, Vt0).
 
 %% vtunsafe(From, UpdVarTable, VarTable) -> UnsafeVarTable.
 %%  Return all new variables in UpdVarTable as unsafe.
 
 vtunsafe({Tag,FileLine}, Uvt, Vt) ->
     {_File,Line} = loc(FileLine),
-    [{V,{{unsafe,{Tag,Line}},U,Ls}} || {V,{_,U,Ls}} <- vtnew(Uvt, Vt)].
+    vtmap(fun (_V, {_, U, Ls}) ->
+		{{unsafe,{Tag,Line}},U,Ls}
+          end, vtnew(Uvt, Vt)).
 
 %% vtmerge(VarTable, VarTable) -> VarTable.
 %%  Merge two variables tables generating a new vartable. Give priority to
@@ -3400,14 +3403,20 @@ vtmerge(Vt1, Vt2) ->
                           {merge_state(S1, S2),
                            merge_used(U1, U2),
                            merge_lines(L1, L2)}
-                  end, Vt1, Vt2).
+		  end, Vt1, Vt2).
 
-vtmerge(Vts) -> foldl(fun (Vt, Mvts) -> vtmerge(Vt, Mvts) end, [], Vts).
+vtmerge(Vts) -> foldl(fun (Vt, Mvts) -> vtmerge(Vt, Mvts) end, vtnew(), Vts).
 
 vtmerge_pat(Vt1, Vt2) ->
     orddict:merge(fun (_V, {S1,_Usage1,L1}, {S2,_Usage2,L2}) ->
                           {merge_state(S1, S2),used, merge_lines(L1, L2)}
-                  end, Vt1, Vt2).
+		  end, Vt1, Vt2).
+
+%% fold, filter and map functions on variable tables.
+
+vtfold(Fun, Acc, Tree) -> orddict:fold(Fun, Acc, Tree).
+vtfilter(Fun, Tree) -> orddict:filter(Fun, Tree).
+vtmap(Fun, Tree) -> orddict:map(Fun, Tree).
 
 merge_lines(Ls1, Ls2) ->
     ordsets:union(Ls1,Ls2).
@@ -3424,11 +3433,21 @@ merge_used(used, _Usage2) -> used;
 merge_used(_Usage1, used) -> used;
 merge_used(unused, unused) -> unused.
 
+%% vtnew(Var, Info) -> NewVarTable.
+%%  Return a new variables table with Var.
+
+vtvar(V, Info) -> [{V, Info}].
+
+%% vtnew() -> NewVarTable.
+%%  Return a new variables table.
+
+vtnew() -> [].
+
 %% vtnew(NewVarTable, OldVarTable) -> NewVarTable.
 %%  Return all the truly new variables in NewVarTable.
 
 vtnew(New, Old) ->
-    orddict:filter(fun (V, _How) -> not orddict:is_key(V, Old) end, New).
+    [V || {K,_How} = V <- New, not orddict:is_key(K, Old)].
 
 %% vtsubtract(VarTable1, VarTable2) -> NewVarTable.
 %%  Return all the variables in VarTable1 which don't occur in VarTable2.
@@ -3440,7 +3459,7 @@ vtsubtract(New, Old) ->
 %%  Return all the truly old variables in NewVarTable.
 
 vtold(New, Old) ->
-    orddict:filter(fun (V, _How) -> orddict:is_key(V, Old) end, New).
+    [V || {K,_How} = V <- New, orddict:is_key(K, Old)].
 
 vt_no_unsafe(Vt) -> [V || {_,{S,_U,_L}}=V <- Vt,
                           case S of
