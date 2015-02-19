@@ -31,6 +31,7 @@
 #include "bif.h"
 
 #include "erl_map.h"
+#include "erl_hashmap.h"
 
 /* BIFs
  *
@@ -62,6 +63,10 @@
  * - erts_internal:map_to_tuple_keys/1
  */
 
+static Eterm hashmap_to_list(Process *p, Eterm map);
+static Eterm hashmap_keys(Process *p, Eterm map);
+static Eterm hashmap_values(Process *p, Eterm map);
+
 /* erlang:map_size/1
  * the corresponding instruction is implemented in:
  *     beam/erl_bif_guard.c
@@ -92,8 +97,7 @@ BIF_RETTYPE map_size_1(BIF_ALIST_1) {
     BIF_ERROR(BIF_P, BADARG);
 }
 
-/* maps:to_list/1
- */
+/* maps:to_list/1 */
 
 BIF_RETTYPE maps_to_list_1(BIF_ALIST_1) {
     if (is_map(BIF_ARG_1)) {
@@ -114,6 +118,8 @@ BIF_RETTYPE maps_to_list_1(BIF_ALIST_1) {
 	}
 
 	BIF_RET(res);
+    } else if (is_hashmap(BIF_ARG_1)) {
+	return hashmap_to_list(BIF_P, BIF_ARG_1);
     }
 
     BIF_ERROR(BIF_P, BADARG);
@@ -386,6 +392,8 @@ BIF_RETTYPE maps_keys_1(BIF_ALIST_1) {
 	}
 
 	BIF_RET(res);
+    } else if (is_hashmap(BIF_ARG_1)) {
+	BIF_RET(hashmap_keys(BIF_P, BIF_ARG_1));
     }
     BIF_ERROR(BIF_P, BADARG);
 }
@@ -786,8 +794,111 @@ BIF_RETTYPE maps_values_1(BIF_ALIST_1) {
 	}
 
 	BIF_RET(res);
+    } else if (is_hashmap(BIF_ARG_1)) {
+	BIF_RET(hashmap_values(BIF_P, BIF_ARG_1));
     }
     BIF_ERROR(BIF_P, BADARG);
+}
+
+static Eterm hashmap_to_list(Process *p, Eterm node) {
+    DECLARE_WSTACK(stack);
+    Eterm *hp, *kv;
+    Eterm res = NIL;
+
+    hp  = HAlloc(p, hashmap_size(node) * (2 + 3));
+    hashmap_iterator_init(&stack, node);
+    while ((kv=hashmap_iterator_next(&stack)) != NULL) {
+	Eterm tup = TUPLE2(hp, CAR(kv), CDR(kv));
+	hp += 3;
+	res = CONS(hp, tup, res);
+	hp += 2;
+    }
+    DESTROY_WSTACK(stack);
+    return res;
+}
+
+void hashmap_iterator_init(ErtsWStack* s, Eterm node) {
+    WSTACK_PUSH((*s), (UWord)THE_NON_VALUE);  /* end marker */
+    WSTACK_PUSH((*s), (UWord)node);
+}
+
+Eterm* hashmap_iterator_next(ErtsWStack* s) {
+    Eterm node, *ptr, hdr;
+    Uint32 sz;
+
+    for (;;) {
+        ASSERT(!WSTACK_ISEMPTY((*s)));
+	node = (Eterm) WSTACK_POP((*s));
+        if (is_non_value(node)) {
+            return NULL;
+        }
+        switch (primary_tag(node)) {
+        case TAG_PRIMARY_LIST:
+            return list_val(node);
+
+        case TAG_PRIMARY_BOXED:
+            ptr = boxed_val(node);
+            hdr = *ptr;
+            ASSERT(is_header(hdr));
+            switch(hdr & _HEADER_MAP_SUBTAG_MASK) {
+            case HAMT_SUBTAG_HEAD_ARRAY:
+                ptr++;
+            case HAMT_SUBTAG_NODE_ARRAY:
+                ptr++;
+                sz = 16;
+                while(sz--) { WSTACK_PUSH((*s), (UWord)ptr[sz]); }
+                break;
+            case HAMT_SUBTAG_HEAD_BITMAP:
+                ptr++;
+            case HAMT_SUBTAG_NODE_BITMAP:
+                sz = hashmap_bitcount(MAP_HEADER_VAL(hdr));
+                ASSERT(sz < 17);
+                ptr++;
+                while(sz--) { WSTACK_PUSH((*s), (UWord)ptr[sz]); }
+                break;
+            default:
+                erl_exit(1, "bad header");
+            }
+            break;
+
+        default:
+            erl_exit(1, "bad hamt node");
+	}
+    }
+}
+
+static Eterm hashmap_keys(Process* p, Eterm node) {
+    DECLARE_WSTACK(stack);
+    hashmap_head_t* root;
+    Eterm *hp, *kv;
+    Eterm res = NIL;
+
+    root = (hashmap_head_t*) boxed_val(node);
+    hp  = HAlloc(p, root->size * 2);
+    hashmap_iterator_init(&stack, node);
+    while ((kv=hashmap_iterator_next(&stack)) != NULL) {
+	res = CONS(hp, CAR(kv), res);
+	hp += 2;
+    }
+    DESTROY_WSTACK(stack);
+    return res;
+}
+
+static Eterm hashmap_values(Process* p, Eterm node) {
+    DECLARE_WSTACK(stack);
+    hashmap_head_t* root;
+    Eterm *hp, *kv;
+    Eterm res = NIL;
+
+    root = (hashmap_head_t*) boxed_val(node);
+    hp  = HAlloc(p, root->size * 2);
+    hashmap_iterator_init(&stack, node);
+    while ((kv=hashmap_iterator_next(&stack)) != NULL) {
+	res = CONS(hp, CDR(kv), res);
+	hp += 2;
+    }
+    DESTROY_WSTACK(stack);
+    return res;
 }
 
 int erts_validate_and_sort_map(map_t* mp)

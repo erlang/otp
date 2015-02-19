@@ -42,7 +42,11 @@ typedef struct map_s {
  * -----------
  */
 
+/* the head-node is a bitmap or array with an untagged size */
 
+
+#define hashmap_size(x) (((hashmap_head_t*) hashmap_val(x))->size)
+#define hashmap_size_rel(RTERM, BASE) hashmap_size(rterm2wterm(RTERM, BASE))
 
 /* erl_term.h stuff */
 #define make_map(x)		make_boxed((Eterm*)(x))
@@ -62,10 +66,13 @@ typedef struct map_s {
 #define MAP_HEADER             _make_header(1,_TAG_HEADER_MAP)
 #define MAP_HEADER_SIZE        (sizeof(map_t) / sizeof(Eterm))
 
+struct ErtsWStack_;
 Eterm erts_maps_put(Process *p, Eterm key, Eterm value, Eterm map);
 int   erts_maps_update(Process *p, Eterm key, Eterm value, Eterm map, Eterm *res);
 int   erts_maps_remove(Process *p, Eterm key, Eterm map, Eterm *res);
 int   erts_validate_and_sort_map(map_t* map);
+void  hashmap_iterator_init(struct ErtsWStack_* s, Eterm node);
+Eterm* hashmap_iterator_next(struct ErtsWStack_* s);
 
 #if HALFWORD_HEAP
 const Eterm *

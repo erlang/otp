@@ -25,9 +25,6 @@
 #include "erl_term.h"
 
 Eterm erts_hashmap_get(Eterm key, Eterm map);
-struct ErtsWStack_;
-void hashmap_iterator_init(struct ErtsWStack_* s, Eterm node);
-Eterm* hashmap_iterator_next(struct ErtsWStack_* s);
 int hashmap_key_hash_cmp(Eterm* ap, Eterm* bp);
 Eterm erts_hashmap_from_array(Process *p, Eterm *leafs, Uint n);
 
@@ -46,18 +43,13 @@ Uint32 hashmap_bitcount(Uint32 x);
  * node :: leaf | array | bitmap
  * head
  */
-
-/* the head-node is a bitmap or array with an untagged size */
-
 typedef struct hashmap_head_s {
     Eterm thing_word;
     Uint size;
     Eterm items[1];
 } hashmap_head_t;
 
-#define hashmap_size(x) (((hashmap_head_t*) hashmap_val(x))->size)
-#define hashmap_size_rel(RTERM, BASE) hashmap_size(rterm2wterm(RTERM, BASE))
- 
+
 
 /* thing_word tagscheme
  * Need two bits for map subtags
