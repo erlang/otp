@@ -47,7 +47,6 @@
 %%-export([get_slot/2,get_bucket/2,on_bucket/3,fold_dict/3,
 %%	 maybe_expand/2,maybe_contract/2]).
 
-%% Note: mk_seg/1 must be changed too if seg_size is changed.
 -define(seg_size, 16).
 -define(max_seg, 32).
 -define(expand_load, 5).
@@ -80,7 +79,7 @@
 -spec new() -> dict().
 
 new() ->
-    Empty = mk_seg(?seg_size),
+    Empty = erlang:make_tuple(?seg_size, []),
     #dict{empty=Empty,segs={Empty}}.
 
 -spec is_key(Key, Dict) -> boolean() when
@@ -563,10 +562,6 @@ rehash([?kv(Key,_Bag)=KeyBag|T], Slot1, Slot2, MaxN) ->
 	Slot2 -> [L1|[KeyBag|L2]]
     end;
 rehash([], _Slot1, _Slot2, _MaxN) -> [[]|[]].
-
-%% mk_seg(Size) -> Segment.
-
-mk_seg(16) -> {[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[]}.
 
 %% expand_segs(Segs, EmptySeg) -> NewSegs.
 %% contract_segs(Segs) -> NewSegs.
