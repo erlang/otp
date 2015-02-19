@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2000-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -94,7 +94,8 @@ undefined_functions(Config) when is_list(Config) ->
     Undef4 = eunit_filter(Undef3),
     Undef5 = dialyzer_filter(Undef4),
     Undef6 = wx_filter(Undef5),
-    Undef  = gs_filter(Undef6),
+    Undef7 = gs_filter(Undef6),
+    Undef = diameter_filter(Undef7),
 
     case Undef of
 	[] -> ok;
@@ -216,6 +217,21 @@ gs_filter(Undef) ->
 		   end, Undef);
 	_ -> Undef
     end.
+
+diameter_filter(Undef) ->
+    %% Filter away function calls that are catched.
+    filter(fun({{diameter_lib,_,_},{erlang,convert_time_resolution,3}}) ->
+                   false;
+              ({{diameter_lib,_,_},{erlang,monotonic_time,0}}) ->
+                   false;
+              ({{diameter_lib,_,_},{erlang,time_resolution,0}}) ->
+                   false;
+              ({{diameter_lib,_,_},{erlang,unique_integer,0}}) ->
+                   false;
+              ({{diameter_lib,_,_},{erlang,time_offset,0}}) ->
+                   false;
+	      (_) -> true
+	   end, Undef).
 
 deprecated_not_in_obsolete(Config) when is_list(Config) ->
     ?line Server = ?config(xref_server, Config),
