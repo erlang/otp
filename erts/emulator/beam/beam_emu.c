@@ -699,7 +699,7 @@ void** beam_ops;
         Fail; 								  \
     }
 
-#define IsMap(Src, Fail) if (is_not_map(Src)) { Fail; }
+#define IsMap(Src, Fail) if (is_not_map(Src) && is_not_hashmap(Src)) { Fail; }
 
 #define HasMapField(Src, Key, Fail) if (has_not_map_field(Src, Key)) { Fail; }
 

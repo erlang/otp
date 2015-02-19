@@ -189,18 +189,9 @@ BIF_RETTYPE hashmap_remove_2(BIF_ALIST_2) {
 }
 /* hashmap:size/1 */
 
-
 /* erlang:is_hashmap/1 */
 
-BIF_RETTYPE is_hashmap_1(BIF_ALIST_1) {
-    if (is_hashmap(BIF_ARG_1)) {
-	BIF_RET(am_true);
-    }
-    BIF_RET(am_false);
-}
-
-/* hashmap:is_key/2
- */
+/* hashmap:is_key/2 */
 
 BIF_RETTYPE hashmap_is_key_2(BIF_ALIST_2) {
     if (is_hashmap(BIF_ARG_1)) {

@@ -624,7 +624,6 @@ bif hashmap:info/1
 bif hashmap:from_list/1
 bif hashmap:new/0
 bif hashmap:is_key/2
-bif erlang:is_hashmap/1
 bif hashmap:merge/2
 
 #

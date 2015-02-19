@@ -1013,6 +1013,7 @@ _ET_DECLARE_CHECKED(struct erl_node_*,external_ref_node,Eterm)
 #define make_hashmap(x)		make_boxed((Eterm*)(x))
 #define make_hashmap_rel 	make_boxed_rel
 #define is_hashmap(x)		(is_boxed((x)) && is_hashmap_header(*boxed_val((x))))
+#define is_not_hashmap(x)       (!is_hashmap(x))
 #define is_hashmap_rel(RTERM,BASE)  is_hashmap(rterm2wterm(RTERM,BASE))
 #define is_hashmap_header(x)	(((x) & (_TAG_HEADER_MASK)) == _TAG_HEADER_HASHMAP)
 #define hashmap_val(x)		_unchecked_boxed_val((x))
