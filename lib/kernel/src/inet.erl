@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2014. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -1070,7 +1070,7 @@ gethostbyname_tm(Name, Type, Timer, [wins|_]=Opts) ->
     gethostbyname_tm_native(Name, Type, Timer, Opts);
 gethostbyname_tm(Name, Type, Timer, [native|_]=Opts) ->
     gethostbyname_tm_native(Name, Type, Timer, Opts);
-gethostbyname_tm(Name, Type, Timer, [_|_]=Opts) ->
+gethostbyname_tm(Name, Type, Timer, [_|Opts]) ->
     gethostbyname_tm(Name, Type, Timer, Opts);
 %% Make sure we always can look up our own hostname.
 gethostbyname_tm(Name, Type, Timer, []) ->
