@@ -280,6 +280,14 @@ silly_coverage(Config) when is_list(Config) ->
 		     {label,2}|non_proper_list]}],99},
     expect_error(fun() -> beam_z:module(BeamZInput, []) end),
 
+    %% beam_validator.
+    BeamValInput = {?MODULE,[{foo,0}],[],
+		    [{function,foo,0,2,
+		      [{label,1},
+		       {func_info,{atom,?MODULE},{atom,foo},0},
+		       {label,2}|non_proper_list]}],99},
+    expect_error(fun() -> beam_validator:module(BeamValInput, []) end),
+
     ok.
 
 expect_error(Fun) ->
