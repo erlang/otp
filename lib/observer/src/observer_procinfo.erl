@@ -338,7 +338,7 @@ init_log_page(Parent, Pid, Table) ->
     Update = fun() ->
 		     Fd = spawn_link(fun() -> io_server() end),
 		     rpc:call(node(Pid), rb, rescan, [[{start_log, Fd}]]),
-		     rpc:call(node(Pid), rb , grep, [local_pid_str(Pid)]),
+		     rpc:call(node(Pid), rb, grep, [local_pid_str(Pid)]),
 		     Logs = io_get_data(Fd),
 		     %% Replace remote local pid notation to global notation
 		     Pref = global_pid_node_pref(Pid),
@@ -453,7 +453,7 @@ global_pid_node_pref(Pid) ->
 io_get_data(Pid) ->
     Pid ! {self(), get_data_and_close},
     receive
-       {Pid, data, Data} ->  lists:flatten(Data)
+	{Pid, data, Data} ->  lists:flatten(Data)
     end.
 
 io_server() ->
@@ -461,29 +461,25 @@ io_server() ->
 
 io_server(State) ->
     receive
-       {io_request, From, ReplyAs, Request} ->
-           case io_request(Request,State) of
-               {Tag, Reply, NewState} when Tag =:= ok; Tag =:= error ->
-                   From ! {io_reply, ReplyAs, Reply},
-                   io_server(NewState);
-               {stop, Reply, _NewState} ->
-                   From ! {io_reply, ReplyAs, Reply},
-                   exit(Reply)
-           end;
-       {Pid, get_data_and_close} ->
-           Pid ! {self(), data, lists:reverse(State#io.rdata)},
-           normal;
-       _Unknown ->
-           io:format("~p: Unknown msg: ~p ~n",[?LINE, _Unknown]),
-           io_server(State)
+	{io_request, From, ReplyAs, Request} ->
+	    {_, Reply, NewState} =  io_request(Request,State),
+	    From ! {io_reply, ReplyAs, Reply},
+	    io_server(NewState);
+	{Pid, get_data_and_close} ->
+	    Pid ! {self(), data, lists:reverse(State#io.rdata)},
+	    normal;
+	_Unknown ->
+	    io_server(State)
     end.
 
 io_request({put_chars, _Encoding, Chars}, State = #io{rdata=Data}) ->
     {ok, ok, State#io{rdata=[Chars|Data]}};
 io_request({put_chars, Encoding, Module, Function, Args}, State) ->
-    try        io_request({put_chars, Encoding, apply(Module, Function, Args)}, State)
-    catch _:_ -> {error, {error,Function}, State}
+    try
+	io_request({put_chars, Encoding, apply(Module, Function, Args)}, State)
+    catch _:_ ->
+	    {error, {error, Function}, State}
     end;
-io_request(Req, State) ->
-    io:format("~p: Unknown req: ~p ~n",[?LINE, Req]),
-    State.
+io_request(_Req, State) ->
+    %% io:format("~p: Unknown req: ~p ~n",[?LINE, _Req]),
+    {ok, {error, request}, State}.
