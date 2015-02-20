@@ -295,12 +295,6 @@ opt([{test,_,{f,_}=Lbl,_,_,_}=I|Is], Acc, St) ->
     opt(Is, [I|Acc], label_used(Lbl, St));
 opt([{select,_,_R,Fail,Vls}=I|Is], Acc, St) ->
     skip_unreachable(Is, [I|Acc], label_used([Fail|Vls], St));
-opt([{label,L}=I|Is], Acc, #st{entry=L}=St) ->
-    %% NEVER move the entry label.
-    opt(Is, [I|Acc], St);
-opt([{label,L1},{jump,{f,L2}}=I|Is], [Prev|Acc], St0) ->
-    St = St0#st{mlbl=dict:append(L2, L1, St0#st.mlbl)},
-    opt([Prev,I|Is], Acc, label_used({f,L2}, St));
 opt([{label,Lbl}=I|Is], Acc, #st{mlbl=Mlbl}=St0) ->
     case dict:find(Lbl, Mlbl) of
 	{ok,Lbls} ->
@@ -310,9 +304,20 @@ opt([{label,Lbl}=I|Is], Acc, #st{mlbl=Mlbl}=St0) ->
 	    insert_labels([Lbl|Lbls], Is, Acc, St);
 	error -> opt(Is, [I|Acc], St0)
     end;
-opt([{jump,{f,Lbl}},{label,Lbl}=I|Is], Acc, St) ->
-    opt([I|Is], Acc, St);
-opt([{jump,Lbl}=I|Is], Acc, St) ->
+opt([{jump,{f,_}=X}|[{label,_},{jump,X}|_]=Is], Acc, St) ->
+    opt(Is, Acc, St);
+opt([{jump,{f,Lbl}}|[{label,Lbl}|_]=Is], Acc, St) ->
+    opt(Is, Acc, St);
+opt([{jump,{f,L}=Lbl}=I|Is], Acc0, #st{mlbl=Mlbl0}=St0) ->
+    %% All labels before this jump instruction should now be
+    %% moved to the location of the jump's target.
+    {Lbls,Acc} = collect_labels(Acc0, St0),
+    St = case Lbls of
+	     [] -> St0;
+	     [_|_] ->
+		 Mlbl = dict:append_list(L, Lbls, Mlbl0),
+		 St0#st{mlbl=Mlbl}
+	 end,
     skip_unreachable(Is, [I|Acc], label_used(Lbl, St));
 %% Optimization: quickly handle some common instructions that don't
 %% have any failure labels and where is_unreachable_after(I) =:= false.
@@ -348,6 +353,17 @@ insert_fc_labels([L|Ls], Mlbl, Acc0) ->
 	    insert_fc_labels(Lbls++Ls, Mlbl, Acc)
     end;
 insert_fc_labels([], _, Acc) -> Acc.
+
+collect_labels(Is, #st{entry=Entry}) ->
+    collect_labels_1(Is, Entry, []).
+
+collect_labels_1([{label,Entry}|_]=Is, Entry, Acc) ->
+    %% Never move the entry label.
+    {Acc,Is};
+collect_labels_1([{label,L}|Is], Entry, Acc) ->
+    collect_labels_1(Is, Entry, [L|Acc]);
+collect_labels_1(Is, _Entry, Acc) ->
+    {Acc,Is}.
 
 %% label_defined(Is, Label) -> true | false.
 %%  Test whether the label Label is defined at the start of the instruction
