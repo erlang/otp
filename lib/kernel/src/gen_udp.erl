@@ -78,7 +78,7 @@
 	ipv6_v6only.
 -type socket() :: port().
 
--export_type([option/0, option_name/0]).
+-export_type([option/0, option_name/0, socket/0]).
 
 -spec open(Port) -> {ok, Socket} | {error, Reason} when
       Port :: inet:port_number(),
