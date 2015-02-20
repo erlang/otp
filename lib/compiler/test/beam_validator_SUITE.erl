@@ -30,7 +30,8 @@
 	 freg_range/1,freg_uninit/1,freg_state/1,
 	 bin_match/1,bad_bin_match/1,bin_aligned/1,bad_dsetel/1,
 	 state_after_fault_in_catch/1,no_exception_in_catch/1,
-	 undef_label/1,illegal_instruction/1,failing_gc_guard_bif/1]).
+	 undef_label/1,illegal_instruction/1,failing_gc_guard_bif/1,
+	 map_field_lists/1]).
 	 
 -include_lib("test_server/include/test_server.hrl").
 
@@ -58,7 +59,8 @@ groups() ->
        bad_catch_try,cons_guard,freg_range,freg_uninit,
        freg_state,bin_match,bad_bin_match,bin_aligned,bad_dsetel,
        state_after_fault_in_catch,no_exception_in_catch,
-       undef_label,illegal_instruction,failing_gc_guard_bif]}].
+       undef_label,illegal_instruction,failing_gc_guard_bif,
+       map_field_lists]}].
 
 init_per_suite(Config) ->
     Config.
@@ -414,6 +416,18 @@ process_request_foo(_) ->
 process_request_bar(Pid, [Response]) when is_pid(Pid) ->
     Response.
 
+map_field_lists(Config) ->
+    Errors = do_val(map_field_lists, Config),
+    [{{map_field_lists,x,1},
+      {{test,has_map_fields,{f,1},{x,0},
+	{list,[{atom,z},{atom,a}]}},
+       5,
+       not_strict_order}},
+     {{map_field_lists,y,1},
+      {{test,has_map_fields,{f,3},{x,0},{list,[]}},
+       5,
+       empty_field_list}}
+    ] = Errors.
 
 %%%-------------------------------------------------------------------------
 
