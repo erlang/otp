@@ -18,6 +18,7 @@
 %%
 
 -module(diameter_lib).
+-compile({nowarn_deprecated_function, [{erlang, now, 0}]}).
 
 -export([info_report/2,
          error_report/2,
