@@ -264,24 +264,6 @@ AS_HELP_STRING([--enable-m32-build],
   esac
 ],enable_m32_build=no)
 
-AC_SUBST(PERFCTR_PATH)
-AC_ARG_WITH(perfctr,
-AS_HELP_STRING([--with-perfctr=PATH],
-               [specify location of perfctr include and lib])
-AS_HELP_STRING([--without-perfctr], [don't use perfctr (default)]))
-
-if test "x$with_perfctr" = "xno" -o "x$with_perfctr" = "x" ; then
-    PERFCTR_PATH=
-else
-    if test ! -f "$with_perfctr/usr.lib/libperfctr.a" ; then
-	AC_MSG_ERROR(Invalid path to option --with-perfctr=PATH)
-    fi
-    PERFCTR_PATH="$with_perfctr"
-    AC_DEFINE(USE_PERFCTR,[1],
-              [Define to enable hrvtime() on Linux systems with perfctr extension])
-fi
-
-
 AC_ARG_WITH(dynamic-trace,
 AS_HELP_STRING([--with-dynamic-trace={dtrace|systemtap}],
 	       [specify use of dynamic trace framework, dtrace or systemtap])
@@ -3501,19 +3483,6 @@ if test X${enable_native_libs} = Xyes -a X${HIPE_ENABLED} = Xyes; then
   NATIVE_LIBS_ENABLED=yes
 fi
 AC_SUBST(NATIVE_LIBS_ENABLED)
-
-#
-# Check if HiPE should use a standard installation of perfctr.
-#
-AC_SUBST(USE_PERFCTR)
-if test "x$HIPE_ENABLED" = "xyes" ; then
-  if test "x$with_perfctr" = "x" ; then
-      AC_CHECK_LIB(perfctr, vperfctr_info, [USE_PERFCTR=1
-	  AC_DEFINE(USE_PERFCTR,[1],[Define to enable hrvtime() on Linux systems with perfctr extension])])
-  elif test "x$with_perfctr" != "xno" ; then
-      USE_PERFCTR=1
-  fi
-fi
 
 #
 # Check for working poll().
