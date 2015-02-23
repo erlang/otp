@@ -424,7 +424,11 @@ gen_send(tcp, Sock, Bin) ->
 
 gen_recv(sctp, Sock) ->
     {_OS, _IS, Id} = getr(assoc),
-    ?RECV(?SCTP(Sock, {[#sctp_sndrcvinfo{assoc_id = Id}], Bin}), Bin);
+    receive
+        ?SCTP(Sock, {[#sctp_sndrcvinfo{assoc_id = Id}], Bin})
+          when is_binary(Bin) ->
+            Bin
+    end;
 gen_recv(tcp, Sock) ->
     tcp_recv(Sock, <<>>).
 
