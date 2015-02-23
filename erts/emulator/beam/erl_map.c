@@ -698,56 +698,56 @@ BIF_RETTYPE maps_remove_2(BIF_ALIST_2) {
  */
 
 int erts_maps_update(Process *p, Eterm key, Eterm value, Eterm map, Eterm *res) {
-	Sint n,i;
-	Eterm* hp,*shp;
-	Eterm *ks,*vs;
-	map_t *mp = (map_t*)map_val(map);
+    Sint n,i;
+    Eterm* hp,*shp;
+    Eterm *ks,*vs;
+    map_t *mp = (map_t*)map_val(map);
 
-	if ((n = map_get_size(mp)) == 0) {
-	    return 0;
-	}
-
-	ks  = map_get_keys(mp);
-	vs  = map_get_values(mp);
-
-	/* only allocate for values,
-	 * assume key-tuple will be intact
-	 */
-
-	hp  = HAlloc(p, MAP_HEADER_SIZE + n);
-	shp = hp;
-	*hp++ = MAP_HEADER;
-	*hp++ = n;
-	*hp++ = mp->keys;
-
-	if (is_immed(key)) {
-	    for( i = 0; i < n; i ++) {
-		if (ks[i] == key) {
-		    goto found_key;
-		} else {
-		    *hp++ = *vs++;
-		}
-	    }
-	} else {
-	    for( i = 0; i < n; i ++) {
-		if (EQ(ks[i], key)) {
-		    goto found_key;
-		} else {
-		    *hp++ = *vs++;
-		}
-	    }
-	}
-
-	HRelease(p, shp + MAP_HEADER_SIZE + n, shp);
+    if ((n = map_get_size(mp)) == 0) {
 	return 0;
+    }
+
+    ks  = map_get_keys(mp);
+    vs  = map_get_values(mp);
+
+    /* only allocate for values,
+     * assume key-tuple will be intact
+     */
+
+    hp  = HAlloc(p, MAP_HEADER_SIZE + n);
+    shp = hp;
+    *hp++ = MAP_HEADER;
+    *hp++ = n;
+    *hp++ = mp->keys;
+
+    if (is_immed(key)) {
+	for( i = 0; i < n; i ++) {
+	    if (ks[i] == key) {
+		goto found_key;
+	    } else {
+		*hp++ = *vs++;
+	    }
+	}
+    } else {
+	for( i = 0; i < n; i ++) {
+	    if (EQ(ks[i], key)) {
+		goto found_key;
+	    } else {
+		*hp++ = *vs++;
+	    }
+	}
+    }
+
+    HRelease(p, shp + MAP_HEADER_SIZE + n, shp);
+    return 0;
 
 found_key:
-	*hp++ = value;
-	vs++;
-	if (++i < n)
-	    sys_memcpy(hp, vs, (n - i)*sizeof(Eterm));
-	*res = make_map(shp);
-	return 1;
+    *hp++ = value;
+    vs++;
+    if (++i < n)
+	sys_memcpy(hp, vs, (n - i)*sizeof(Eterm));
+    *res = make_map(shp);
+    return 1;
 }
 
 BIF_RETTYPE maps_update_3(BIF_ALIST_3) {
