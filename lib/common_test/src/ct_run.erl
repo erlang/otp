@@ -293,10 +293,10 @@ script_start1(Parent, Args) ->
 		application:set_env(common_test, auto_compile, true),
 		InclDirs =
 		    case proplists:get_value(include, Args) of
-			Incl when is_list(hd(Incl)) ->
-			    Incl;
+			Incls when is_list(hd(Incls)) ->
+			    [filename:absname(IDir) || IDir <- Incls];
 			Incl when is_list(Incl) ->
-			    [Incl];
+			    [filename:absname(Incl)];
 			undefined ->
 			    []
 		    end,
@@ -1023,10 +1023,10 @@ run_test2(StartOpts) ->
 		    case proplists:get_value(include, StartOpts) of
 			undefined ->
 			    [];
-			Incl when is_list(hd(Incl)) ->
-			    Incl;
+			Incls when is_list(hd(Incls)) ->
+			    [filename:absname(IDir) || IDir <- Incls];
 			Incl when is_list(Incl) ->
-			    [Incl]
+			    [filename:absname(Incl)]
 		    end,
 		case os:getenv("CT_INCLUDE_PATH") of
 		    false ->
@@ -1393,6 +1393,7 @@ run_testspec2(TestSpec) ->
 			EnvInclude++Opts#opts.include
 		end,
 	    application:set_env(common_test, include, AllInclude),
+
 	    LogDir1 = which(logdir,Opts#opts.logdir),
 	    case check_and_install_configfiles(
 		   Opts#opts.config, LogDir1, Opts) of
@@ -2134,6 +2135,14 @@ do_run_test(Tests, Skip, Opts0) ->
     case check_and_add(Tests, [], []) of
 	{ok,AddedToPath} ->
 	    ct_util:set_testdata({stats,{0,0,{0,0}}}),
+
+	    %% test_server needs to know the include path too
+	    InclPath = case application:get_env(common_test, include) of
+			   {ok,Incls} -> Incls;
+			   _ -> []
+		       end,
+	    application:set_env(test_server, include, InclPath),
+
 	    test_server_ctrl:start_link(local),
 
 	    %% let test_server expand the test tuples and count no of cases

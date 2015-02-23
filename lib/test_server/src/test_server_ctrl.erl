@@ -1927,15 +1927,20 @@ html_possibly_convert(Src, SrcInfo, Dest) ->
 	{ok,DestInfo} when DestInfo#file_info.mtime >= SrcInfo#file_info.mtime ->
 	    ok;					% dest file up to date
 	_ ->
+	    InclPath = case application:get_env(test_server, include) of
+			   {ok,Incls} -> Incls;
+			   _ -> []
+		       end,
+
 	    OutDir = get(test_server_log_dir_base),
 	    case test_server_sup:framework_call(get_html_wrapper,
 						["Module "++Src,false,
 						 OutDir,undefined,
 						 encoding(Src)], "") of
 		Empty when (Empty == "") ; (element(2,Empty) == "")  ->
-		    erl2html2:convert(Src, Dest);
+		    erl2html2:convert(Src, Dest, InclPath);
 		{_,Header,_} ->
-		    erl2html2:convert(Src, Dest, Header)
+		    erl2html2:convert(Src, Dest, InclPath, Header)
 	    end
     end.
 
