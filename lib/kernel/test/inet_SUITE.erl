@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2014. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -36,6 +36,7 @@
 	 gethostnative_parallell/1, cname_loop/1, 
          gethostnative_soft_restart/0, gethostnative_soft_restart/1,
 	 gethostnative_debug_level/0, gethostnative_debug_level/1,
+	 lookup_bad_search_option/1,
 	 getif/1,
 	 getif_ifr_name_overflow/1,getservbyname_overflow/1, getifaddrs/1,
 	 parse_strict_address/1, simple_netns/1, simple_netns_open/1]).
@@ -52,6 +53,7 @@ all() ->
      ipv4_to_ipv6, host_and_addr, {group, parse},
      t_gethostnative, gethostnative_parallell, cname_loop,
      gethostnative_debug_level, gethostnative_soft_restart,
+     lookup_bad_search_option,
      getif, getif_ifr_name_overflow, getservbyname_overflow,
      getifaddrs, parse_strict_address, simple_netns, simple_netns_open].
 
@@ -905,6 +907,21 @@ lookup_loop([H|Hs], Delay, Tag, Parent, Cnt, Hosts) ->
     after random:uniform(Delay) -> 
 	    lookup_loop(Hs, Delay, Tag, Parent, Cnt-1, Hosts) 
     end.
+
+
+
+lookup_bad_search_option(suite) ->
+    [];
+lookup_bad_search_option(doc) ->
+    ["Test lookup with erroneously configured lookup option (OTP-12133)"];
+lookup_bad_search_option(Config) when is_list(Config) ->
+    Db = inet_db,
+    %% The bad option can not enter through inet_db:set_lookup/1,
+    %% but through e.g .inetrc.
+    ets:insert(Db, {res_lookup,[lookup_bad_search_option]}),
+    {ok,Hostname} = inet:gethostname(),
+    {ok,_Hent} = inet:gethostbyname(Hostname), % Will hang loop for this bug
+    ok.
 
 
 

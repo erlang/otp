@@ -22,11 +22,11 @@
 %%%------------------------------------------------------------------
 
 -module(erl2html2).
--export([convert/2, convert/3]).
+-export([convert/3, convert/4]).
 
-convert([], _Dest) ->   % Fake clause.
+convert([], _Dest, _InclPath) ->   % Fake clause.
     ok;
-convert(File, Dest) ->
+convert(File, Dest, InclPath) ->
     %% The generated code uses the BGCOLOR attribute in the
     %% BODY tag, which wasn't valid until HTML 3.2.  Also,
     %% good HTML should either override all colour attributes
@@ -48,12 +48,12 @@ convert(File, Dest) ->
               "</head>\n\n"
 	      "<body bgcolor=\"white\" text=\"black\""
 	      " link=\"blue\" vlink=\"purple\" alink=\"red\">\n"],
-    convert(File, Dest, Header).
+    convert(File, Dest, InclPath, Header).
 
 
-convert(File, Dest, Header) ->
+convert(File, Dest, InclPath, Header) ->
     %% statistics(runtime),
-    case parse_file(File) of
+    case parse_file(File, InclPath) of
 	{ok,Functions} ->
 	    %% {_, Time1} = statistics(runtime),
 	    %% io:format("Parsed file in ~.2f Seconds.~n",[Time1/1000]),
@@ -92,8 +92,8 @@ convert(File, Dest, Header) ->
 %%% Use expanded preprocessor directives if possible (epp). Only if
 %%% this fails, fall back on using non-expanded code (epp_dodger).
 
-parse_file(File) ->
-    case epp:open(File, [], []) of
+parse_file(File, InclPath) ->
+    case epp:open(File, InclPath, []) of
 	{ok,Epp} ->
 	    try parse_preprocessed_file(Epp,File,false) of
 		Forms ->
@@ -145,13 +145,15 @@ parse_non_preprocessed_file(File) ->
 parse_non_preprocessed_file(Epp, File, Location) ->
     case epp_dodger:parse_form(Epp, Location) of
 	{ok,Tree,Location1} ->
-	    case erl_syntax:revert(Tree) of
+	    try erl_syntax:revert(Tree) of
 		{function,L,F,A,[_|C]} ->
 		    Clauses = [{clause,CL} || {clause,CL,_,_,_} <- C],
 		    [{atom_to_list(F),A,L} | Clauses] ++
 			parse_non_preprocessed_file(Epp, File, Location1);
 		_ ->
 		    parse_non_preprocessed_file(Epp, File, Location1)
+	    catch
+		_:_ -> parse_non_preprocessed_file(Epp, File, Location1)
 	    end;
 	{error,_E,Location1} ->
 	    parse_non_preprocessed_file(Epp, File, Location1);
