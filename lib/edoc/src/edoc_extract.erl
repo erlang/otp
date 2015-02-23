@@ -351,8 +351,6 @@ preprocess_forms_2(F, Fs) ->
 	    [F | preprocess_forms_1(Fs)];
 	{function, _} ->
 	    [F | preprocess_forms_1(Fs)];
-	{rule, _} ->
-	    [F | preprocess_forms_1(Fs)];
 	{attribute, {module, _}} ->
 	    [F | preprocess_forms_1(Fs)];
   	text ->
@@ -385,15 +383,6 @@ collect([F | Fs], Cs, Ss, Ts, As, Header, Mod) ->
 	    L = erl_syntax:get_pos(F),
 	    Export = ordsets:is_element(Name, Mod#module.exports),
 	    Args = parameters(erl_syntax:function_clauses(F)),
-	    collect(Fs, [], [], [],
-                    [#entry{name = Name, args = Args, line = L,
-                            export = Export,
-                            data = {comment_text(Cs),Ss,Ts}} | As],
-		    Header, Mod);
-	{rule, Name} ->
-	    L = erl_syntax:get_pos(F),
-	    Export = ordsets:is_element(Name, Mod#module.exports),
-	    Args = parameters(erl_syntax:rule_clauses(F)),
 	    collect(Fs, [], [], [],
                     [#entry{name = Name, args = Args, line = L,
                             export = Export,
