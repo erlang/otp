@@ -613,9 +613,9 @@ bif erlang:fun_info_mfa/1
 #
 
 bif erlang:get_keys/0
+bif erts_debug:map_info/1
 
 # Hash Array Mappped Trie
-bif hashmap:info/1
 bif hashmap:merge/2
 
 #
