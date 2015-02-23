@@ -24,7 +24,8 @@
 	 catch_oops/1,after_oops/1,eclectic/1,rethrow/1,
 	 nested_of/1,nested_catch/1,nested_after/1,
 	 nested_horrid/1,last_call_optimization/1,bool/1,
-	 plain_catch_coverage/1,andalso_orelse/1,get_in_try/1]).
+	 plain_catch_coverage/1,andalso_orelse/1,get_in_try/1,
+	 hockey/1]).
 
 -include_lib("test_server/include/test_server.hrl").
 
@@ -39,7 +40,8 @@ groups() ->
       [basic,lean_throw,try_of,try_after,catch_oops,
        after_oops,eclectic,rethrow,nested_of,nested_catch,
        nested_after,nested_horrid,last_call_optimization,
-       bool,plain_catch_coverage,andalso_orelse,get_in_try]}].
+       bool,plain_catch_coverage,andalso_orelse,get_in_try,
+       hockey]}].
 
 
 init_per_suite(Config) ->
@@ -943,3 +945,14 @@ get_valid_line([_|T]=Path, Annotations) ->
         _:not_found ->
             get_valid_line(T, Annotations)
     end.
+
+hockey(_) ->
+    {'EXIT',{{badmatch,_},[_|_]}} = (catch hockey()),
+    ok.
+
+hockey() ->
+    %% beam_jump used to generate a call into the try block.
+    %% beam_validator disapproved.
+    receive _ -> (b = fun() -> ok end)
+    + hockey, +x after 0 -> ok end, try (a = fun() -> ok end) + hockey, +
+    y catch _ -> ok end.
