@@ -616,7 +616,6 @@ bif erlang:get_keys/0
 
 # Hash Array Mappped Trie
 bif hashmap:info/1
-bif hashmap:from_list/1
 bif hashmap:new/0
 bif hashmap:merge/2
 

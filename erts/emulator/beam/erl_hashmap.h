@@ -24,19 +24,9 @@
 #include "sys.h"
 #include "erl_term.h"
 
-Eterm erts_hashmap_get(Eterm key, Eterm map);
 int hashmap_key_hash_cmp(Eterm* ap, Eterm* bp);
-Eterm erts_hashmap_from_array(Process *p, Eterm *leafs, Uint n);
 
 /* HASH */
-
-#if defined(__GNUC__)
-#define hashmap_clz(x)       ((Uint32) __builtin_clz((unsigned int)(x)))
-#define hashmap_bitcount(x)  ((Uint32) __builtin_popcount((unsigned int) (x)))
-#else
-Uint32 hashmap_clz(Uint32 x);
-Uint32 hashmap_bitcount(Uint32 x);
-#endif
 
 /* hamt nodes v2.0
  * 
@@ -48,8 +38,6 @@ typedef struct hashmap_head_s {
     Uint size;
     Eterm items[1];
 } hashmap_head_t;
-
-
 
 /* thing_word tagscheme
  * Need two bits for map subtags

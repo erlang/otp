@@ -22,6 +22,16 @@
 #define __ERL_MAP_H__
 
 #include "sys.h"
+
+/* instrinsic wrappers */
+#if defined(__GNUC__)
+#define hashmap_clz(x)       ((Uint32) __builtin_clz((unsigned int)(x)))
+#define hashmap_bitcount(x)  ((Uint32) __builtin_popcount((unsigned int) (x)))
+#else
+Uint32 hashmap_clz(Uint32 x);
+Uint32 hashmap_bitcount(Uint32 x);
+#endif
+
 /* MAP */
 
 typedef struct map_s {
@@ -70,6 +80,7 @@ typedef struct map_s {
 #define map_get_keys(x)        (((Eterm *)tuple_val(((map_t *)(x))->keys)) + 1)
 #define map_get_size(x)        (((map_t*)(x))->size)
 
+#define MAP_SMALL_MAP_LIMIT    (32)
 #define MAP_HEADER             _make_header(1,_TAG_HEADER_MAP)
 #define MAP_HEADER_SIZE        (sizeof(map_t) / sizeof(Eterm))
 
@@ -80,6 +91,8 @@ int   erts_maps_remove(Process *p, Eterm key, Eterm map, Eterm *res);
 int   erts_validate_and_sort_map(map_t* map);
 void  hashmap_iterator_init(struct ErtsWStack_* s, Eterm node);
 Eterm* hashmap_iterator_next(struct ErtsWStack_* s);
+Eterm erts_hashmap_get(Eterm key, Eterm map);
+Eterm erts_hashmap_from_array(Process *p, Eterm *leafs, Uint n);
 
 #if HALFWORD_HEAP
 const Eterm *
