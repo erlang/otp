@@ -1,0 +1,4 @@
+#!/bin/sh
+make fasta > /dev/null 2>&1
+./fasta 5000000 > regexdna-input.txt
+echo "-noinput"

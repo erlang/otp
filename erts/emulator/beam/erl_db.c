@@ -1812,7 +1812,7 @@ BIF_RETTYPE ets_give_away_3(BIF_ALIST_3)
 			     tb->common.id,
 			     from_pid,
 			     BIF_ARG_3), 
-		      0);
+		      ERTS_SND_FLG_SHCOPY_TMP_BUF);
     erts_smp_proc_unlock(to_proc, to_locks);
     UnUseTmpHeap(5,BIF_P);
     BIF_RET(am_true);
@@ -3152,7 +3152,7 @@ retry:
 			     tb->common.id,
 			     p->common.id,
 			     heir_data), 
-		      0);
+		      ERTS_SND_FLG_SHCOPY_TMP_BUF);
     erts_smp_proc_unlock(to_proc, to_locks);
     return !0;
 }

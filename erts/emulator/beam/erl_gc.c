@@ -1012,6 +1012,9 @@ do_minor(Process *p, Uint new_sz, Eterm* objv, int nobj)
     Eterm* old_htop = OLD_HTOP(p);
     Eterm* n_heap;
 
+    VERBOSE(DEBUG_SHCOPY, ("[pid=%T] MINOR GC: %p %p %p %p\n", p->common.id,
+                           HEAP_START(p), HEAP_END(p), OLD_HEAP(p), OLD_HEND(p)));
+
     n_htop = n_heap = (Eterm*) ERTS_HEAP_ALLOC(ERTS_ALC_T_HEAP,
 					       sizeof(Eterm)*new_sz);
 
@@ -1227,6 +1230,9 @@ major_collection(Process* p, int need, Eterm* objv, int nobj, Uint *recl)
     ErlMessage *msgp;
 
     size_before = fragments + (HEAP_TOP(p) - HEAP_START(p));
+
+    VERBOSE(DEBUG_SHCOPY, ("[pid=%T] MAJOR GC: %p %p %p %p\n", p->common.id,
+                           HEAP_START(p), HEAP_END(p), OLD_HEAP(p), OLD_HEND(p)));
 
     /*
      * Do a fullsweep GC. First figure out the size of the heap

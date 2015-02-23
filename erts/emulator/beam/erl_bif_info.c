@@ -134,6 +134,9 @@ static char erts_system_version[] = ("Erlang/OTP " ERLANG_OTP_RELEASE
 #ifdef USE_SYSTEMTAP
 				     " [systemtap]"
 #endif
+#ifdef SHCOPY
+				     " [sharing-preserving]"
+#endif
 				     "\n");
 
 #define ASIZE(a) (sizeof(a)/sizeof(a[0]))

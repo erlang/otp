@@ -1,0 +1,14 @@
+###
+### Clustered graph example from http://www.burningcutlery.com/derek/bargraph/
+###
+=cluster;BEAM / ErLLVM;HiPE / ErLLVM
+colors=med_blue,light_green
+=arithmean
+meanlabel=Average
+yformat=%g
+ylabel=Runtime Speedup
+xlabel=Benchmark
+horizline=1
+
+=table
+
