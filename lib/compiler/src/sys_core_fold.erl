@@ -2288,10 +2288,17 @@ opt_simple_let_2(Let0, Vs0, Arg0, Body, Ctxt, Sub) ->
 	    %% No variables left.
 	    Body;
 	{_,Arg,#c_literal{}} ->
-	    %% Since the variable is not used in the body, we can rewrite the
-	    %% let to a sequence:
-	    %%   let <Var> = Arg in Literal  ==>  seq Arg Literal
-	    expr(#c_seq{arg=Arg,body=Body}, Ctxt, sub_new_preserve_types(Sub));
+	    E = case Ctxt of
+		    effect ->
+			%% Throw away the literal body.
+			Arg;
+		    value ->
+			%% Since the variable is not used in the body, we
+			%% can rewrite the let to a sequence.
+			%%  let <Var> = Arg in Literal ==> seq Arg Literal
+			#c_seq{arg=Arg,body=Body}
+		end,
+	    expr(E, Ctxt, sub_new_preserve_types(Sub));
 	{Vs,Arg,Body} ->
 	    %% If none of the variables are used in the body, we can
 	    %% rewrite the let to a sequence:
