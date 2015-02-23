@@ -42,18 +42,12 @@
 #include "error.h"
 #include "bif.h"
 
+#include "erl_map.h"
 #include "erl_hashmap.h"
 
 #ifndef DECL_AM
 #define DECL_AM(S) Eterm AM_ ## S = am_atom_put(#S, sizeof(#S) - 1)
 #endif
-
-#define hashmap_make_hash(Key) make_hash_vsn(Key, 3)
-
-#define hashmap_restore_hash(Heap,Lvl,Key) \
-    (((Lvl) < 8) ? hashmap_make_hash(Key) >> (4*(Lvl)) : hashmap_make_hash(CONS(Heap, make_small((Lvl)>>3), (Key))) >> (4*((Lvl) & 7)))
-#define hashmap_shift_hash(Heap,Hx,Lvl,Key) \
-    (((++(Lvl)) & 7) ? (Hx) >> 4 : hashmap_make_hash(CONS(Heap, make_small((Lvl)>>3), Key)))
 
 #if 0
 static char *format_binary(Uint64 x, char *b) {
@@ -76,7 +70,6 @@ typedef struct {
     Eterm  val;
 } hxnode_t;
 
-static const Eterm *hashmap_get(Uint32 hx, Eterm key, Eterm node);
 static Eterm hashmap_delete(Process *p, Uint32 hx, Eterm key, Eterm node);
 static Eterm hashmap_from_list(Process *p, Eterm node);
 static Eterm hashmap_merge(Process *p, Eterm nodeA, Eterm nodeB);
@@ -143,39 +136,7 @@ BIF_RETTYPE hashmap_from_list_1(BIF_ALIST_1) {
 }
 /* hashmap:get/2 */
 
-BIF_RETTYPE hashmap_get_2(BIF_ALIST_2) {
-    if (is_hashmap(BIF_ARG_2)) {
-	const Eterm *value;
-	Uint32 hx = hashmap_make_hash(BIF_ARG_1);
-
-	if ((value = hashmap_get(hx, BIF_ARG_1, BIF_ARG_2)) != NULL) {
-	    BIF_RET(*value);
-	}
-    }
-    BIF_ERROR(BIF_P, BADARG);
-}
-
 /* hashmap:find/2 */
-
-BIF_RETTYPE hashmap_find_2(BIF_ALIST_2) {
-    if (is_hashmap(BIF_ARG_2)) {
-	Eterm *hp, res;
-	const Eterm *value;
-	Uint32 hx = hashmap_make_hash(BIF_ARG_1);
-
-	if ((value = hashmap_get(hx, BIF_ARG_1, BIF_ARG_2)) != NULL) {
-	    hp    = HAlloc(BIF_P, 3);
-	    res   = make_tuple(hp);
-	    *hp++ = make_arityval(2);
-	    *hp++ = am_ok;
-            *hp++ = *value;
-	    BIF_RET(res);
-	}
-	BIF_RET(am_error);
-    }
-    BIF_ERROR(BIF_P, BADARG);
-}
-
 
 /* hashmap:remove/2 */
 
@@ -193,17 +154,7 @@ BIF_RETTYPE hashmap_remove_2(BIF_ALIST_2) {
 
 /* hashmap:is_key/2 */
 
-BIF_RETTYPE hashmap_is_key_2(BIF_ALIST_2) {
-    if (is_hashmap(BIF_ARG_1)) {
-	Uint32 hx = hashmap_make_hash(BIF_ARG_1);
-
-	BIF_RET(hashmap_get(hx, BIF_ARG_1, BIF_ARG_2) ? am_true : am_false);
-    }
-    BIF_ERROR(BIF_P, BADARG);
-}
-
 /* hashmap:keys/1 */
-
 
 /* hashmap:values/1 */
 
@@ -216,76 +167,6 @@ BIF_RETTYPE hashmap_merge_2(BIF_ALIST_2) {
 
 /* impl. */
 
-static const Eterm *hashmap_get(Uint32 hx, Eterm key, Eterm node) {
-    Eterm *ptr, hdr;
-    Eterm th[2];
-    Uint ix,slot, lvl = 0;
-    Uint32 hval,bp;
-
-    for (;;) {
-	switch(primary_tag(node)) {
-	    case TAG_PRIMARY_LIST: /* LEAF NODE [K|V] */
-		ptr = list_val(node);
-		if (EQ(CAR(ptr), key)) {
-		    return &(CDR(ptr));
-		}
-		return NULL;
-	    case TAG_PRIMARY_BOXED:
-		ptr = boxed_val(node);
-		hdr = *ptr;
-		ASSERT(is_header(hdr));
-
-		switch(hdr & _HEADER_MAP_SUBTAG_MASK) {
-		    case HAMT_SUBTAG_NODE_ARRAY:
-			ix   = hashmap_index(hx);
-			hx   = hashmap_shift_hash(th,hx,lvl,key);
-			node = ptr[ix+1];
-			break;
-		    case HAMT_SUBTAG_HEAD_ARRAY:
-			ix   = hashmap_index(hx);
-			hx   = hashmap_shift_hash(th,hx,lvl,key);
-			node = ptr[ix+2];
-			break;
-		    case HAMT_SUBTAG_NODE_BITMAP:
-			hval = MAP_HEADER_VAL(hdr);
-			ix   = hashmap_index(hx);
-			bp   = 1 << ix;
-			slot = hashmap_bitcount(hval & (bp - 1));
-
-			/* occupied */
-			if (bp & hval) {
-			    hx    = hashmap_shift_hash(th,hx,lvl,key);
-			    node  = ptr[slot+1];
-			    break;
-			}
-			/* not occupied */
-			return NULL;
-		    case HAMT_SUBTAG_HEAD_BITMAP:
-			hval = MAP_HEADER_VAL(hdr);
-			ix   = hashmap_index(hx);
-			bp   = 1 << ix;
-			slot = hashmap_bitcount(hval & (bp - 1));
-
-			/* occupied */
-			if (bp & hval) {
-			    hx    = hashmap_shift_hash(th,hx,lvl,key);
-			    node  = ptr[slot+2];
-			    break;
-			}
-			/* not occupied */
-			return NULL;
-		    default:
-			erl_exit(1, "bad header tag %ld\r\n", hdr & _HEADER_MAP_SUBTAG_MASK);
-			break;
-		}
-		break;
-	    default:
-		erl_exit(1, "bad primary tag %p\r\n", node);
-		break;
-	}
-    }
-    return NULL;
-}
 
 static Eterm hashmap_insert(Process *p, Uint32 hx, Eterm key, Eterm value,
 			    Eterm node, int is_update) {

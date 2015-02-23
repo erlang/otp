@@ -47,6 +47,13 @@ typedef struct map_s {
 
 #define hashmap_size(x) (((hashmap_head_t*) hashmap_val(x))->size)
 #define hashmap_size_rel(RTERM, BASE) hashmap_size(rterm2wterm(RTERM, BASE))
+#define hashmap_make_hash(Key) make_hash2(Key)
+
+#define hashmap_restore_hash(Heap,Lvl,Key) \
+    (((Lvl) < 8) ? hashmap_make_hash(Key) >> (4*(Lvl)) : hashmap_make_hash(CONS(Heap, make_small((Lvl)>>3), (Key))) >> (4*((Lvl) & 7)))
+#define hashmap_shift_hash(Heap,Hx,Lvl,Key) \
+    (((++(Lvl)) & 7) ? (Hx) >> 4 : hashmap_make_hash(CONS(Heap, make_small((Lvl)>>3), Key)))
+
 
 /* erl_term.h stuff */
 #define make_map(x)		make_boxed((Eterm*)(x))
