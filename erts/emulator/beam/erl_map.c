@@ -64,6 +64,7 @@
  */
 
 static const Eterm *hashmap_get(Uint32 hx, Eterm key, Eterm node);
+static Eterm hashmap_insert(Process *p, Uint32 hx, Eterm key, Eterm value, Eterm node, int is_update);
 static Eterm hashmap_to_list(Process *p, Eterm map);
 static Eterm hashmap_keys(Process *p, Eterm map);
 static Eterm hashmap_values(Process *p, Eterm map);
@@ -594,6 +595,13 @@ Eterm erts_maps_put(Process *p, Eterm key, Eterm value, Eterm map) {
 BIF_RETTYPE maps_put_3(BIF_ALIST_3) {
     if (is_map(BIF_ARG_3)) {
 	BIF_RET(erts_maps_put(BIF_P, BIF_ARG_1, BIF_ARG_2, BIF_ARG_3));
+    } else if (is_hashmap(BIF_ARG_3)) {
+	Uint32 hx = hashmap_make_hash(BIF_ARG_1);
+	Eterm map;
+
+	map = hashmap_insert(BIF_P, hx, BIF_ARG_1, BIF_ARG_2, BIF_ARG_3, 0);
+	ASSERT(is_hashmap(map));
+	BIF_RET(map);
     }
     BIF_ERROR(BIF_P, BADARG);
 }
@@ -748,6 +756,13 @@ BIF_RETTYPE maps_update_3(BIF_ALIST_3) {
 	if (erts_maps_update(BIF_P, BIF_ARG_1, BIF_ARG_2, BIF_ARG_3, &res)) {
 	    BIF_RET(res);
 	}
+    } else if (is_hashmap(BIF_ARG_3)) {
+	Uint32 hx = hashmap_make_hash(BIF_ARG_1);
+	Eterm map;
+
+	map = hashmap_insert(BIF_P, hx, BIF_ARG_1, BIF_ARG_2, BIF_ARG_3, 1);
+	if (is_value(map))
+	    BIF_RET(map);
     }
     BIF_ERROR(BIF_P, BADARG);
 }
@@ -918,6 +933,238 @@ static const Eterm *hashmap_get(Uint32 hx, Eterm key, Eterm node) {
 	}
     }
     return NULL;
+}
+
+static Eterm hashmap_insert(Process *p, Uint32 hx, Eterm key, Eterm value,
+			    Eterm node, int is_update) {
+    Eterm *hp = NULL, *nhp = NULL;
+    Eterm *ptr;
+    Eterm hdr,res,ckey,fake;
+    Eterm th[2];
+    Uint32 ix, cix, bp, hval, chx;
+    Uint slot, lvl = 0, clvl;
+    Uint size = 0, n = 0, update_size = 1;
+    DECLARE_ESTACK(stack);
+
+    for (;;) {
+	switch(primary_tag(node)) {
+	    case TAG_PRIMARY_LIST: /* LEAF NODE [K|V] */
+		ptr  = list_val(node);
+		ckey = CAR(ptr);
+		if (EQ(ckey, key)) {
+		    update_size = 0;
+		    goto unroll;
+		}
+		if (is_update) {
+		    res = THE_NON_VALUE;
+		    goto bail_out;
+		}
+		goto insert_subnodes;
+	    case TAG_PRIMARY_BOXED:
+		ptr = boxed_val(node);
+		hdr = *ptr;
+		ASSERT(is_header(hdr));
+
+		switch(hdr & _HEADER_MAP_SUBTAG_MASK) {
+		    case HAMT_SUBTAG_NODE_ARRAY:
+			ix    = hashmap_index(hx);
+			hx    = hashmap_shift_hash(th,hx,lvl,key);
+			size += HAMT_NODE_ARRAY_SZ;
+			ESTACK_PUSH2(stack, ix, node);
+			node  = ptr[ix+1];
+			break;
+		    case HAMT_SUBTAG_HEAD_ARRAY:
+			ix    = hashmap_index(hx);
+			hx    = hashmap_shift_hash(th,hx,lvl,key);
+			size += HAMT_HEAD_ARRAY_SZ;
+			ESTACK_PUSH2(stack, ix, node);
+			node  = ptr[ix+2];
+			break;
+		    case HAMT_SUBTAG_NODE_BITMAP:
+			hval = MAP_HEADER_VAL(hdr);
+			ix   = hashmap_index(hx);
+			bp   = 1 << ix;
+			slot = hashmap_bitcount(hval & (bp - 1));
+			n    = hashmap_bitcount(hval);
+
+			ESTACK_PUSH(stack, n);
+			ESTACK_PUSH3(stack, bp, slot, node);
+
+			/* occupied */
+			if (bp & hval) {
+			    hx    = hashmap_shift_hash(th,hx,lvl,key);
+			    node  = ptr[slot+1];
+			    ASSERT(HAMT_NODE_BITMAP_SZ(n) <= 17);
+			    size += HAMT_NODE_BITMAP_SZ(n);
+			    break;
+			}
+			/* not occupied */
+			if (is_update) {
+			    res = THE_NON_VALUE;
+			    goto bail_out;
+			}
+			size += HAMT_NODE_BITMAP_SZ(n+1);
+			goto unroll;
+		    case HAMT_SUBTAG_HEAD_BITMAP:
+			hval = MAP_HEADER_VAL(hdr);
+			ix   = hashmap_index(hx);
+			bp   = 1 << ix;
+			slot = hashmap_bitcount(hval & (bp - 1));
+			n    = hashmap_bitcount(hval);
+
+			ESTACK_PUSH(stack, n);
+			ESTACK_PUSH3(stack, bp, slot, node);
+
+			/* occupied */
+			if (bp & hval) {
+			    hx    = hashmap_shift_hash(th,hx,lvl,key);
+			    node  = ptr[slot+2];
+			    ASSERT(HAMT_HEAD_BITMAP_SZ(n) <= 18);
+			    size += HAMT_HEAD_BITMAP_SZ(n);
+			    break;
+			}
+			/* not occupied */
+			if (is_update) {
+			    res = THE_NON_VALUE;
+			    goto bail_out;
+			}
+			size += HAMT_HEAD_BITMAP_SZ(n+1);
+			goto unroll;
+		    default:
+			erl_exit(1, "bad header tag %ld\r\n", hdr & _HEADER_MAP_SUBTAG_MASK);
+			break;
+		}
+		break;
+	    default:
+		erl_exit(1, "bad primary tag %p\r\n", node);
+		break;
+	}
+    }
+insert_subnodes:
+    clvl  = lvl;
+    chx   = hashmap_restore_hash(th,clvl,ckey);
+    size += HAMT_NODE_BITMAP_SZ(2);
+    ix    = hashmap_index(hx);
+    cix   = hashmap_index(chx);
+
+    while (cix == ix) {
+	ESTACK_PUSH(stack, 0);
+	ESTACK_PUSH3(stack, 1 << ix, 0, MAP_HEADER_HAMT_NODE_BITMAP(0));
+	size += HAMT_NODE_BITMAP_SZ(1);
+	hx    = hashmap_shift_hash(th,hx,lvl,key);
+	chx   = hashmap_shift_hash(th,chx,clvl,ckey);
+	ix    = hashmap_index(hx);
+	cix   = hashmap_index(chx);
+    }
+    ESTACK_PUSH3(stack, cix, ix, node);
+
+unroll:
+    size += 2;
+    hp  = HAlloc(p, size);
+    res = CONS(hp, key, value); hp += 2;
+
+    do {
+	node = ESTACK_POP(stack);
+	switch(primary_tag(node)) {
+	    case TAG_PRIMARY_LIST:
+		ix   = (Uint32) ESTACK_POP(stack);
+		cix  = (Uint32) ESTACK_POP(stack);
+
+		nhp   = hp;
+		*hp++ = MAP_HEADER_HAMT_NODE_BITMAP((1 << ix) | (1 << cix));
+		if (ix < cix) {
+		    *hp++ = res;
+		    *hp++ = node;
+		} else {
+		    *hp++ = node;
+		    *hp++ = res;
+		}
+		res = make_hashmap(nhp);
+		break;
+	    case TAG_PRIMARY_HEADER:
+		/* subnodes, fake it */
+		fake = node;
+		node = make_boxed(&fake);
+	    case TAG_PRIMARY_BOXED:
+		ptr = boxed_val(node);
+		hdr = *ptr;
+		ASSERT(is_header(hdr));
+
+		switch(hdr & _HEADER_MAP_SUBTAG_MASK) {
+		    case HAMT_SUBTAG_NODE_ARRAY:
+			slot  = (Uint)   ESTACK_POP(stack);
+			nhp   = hp;
+			n     = HAMT_NODE_ARRAY_SZ;
+			while(n--) { *hp++ = *ptr++; }
+			nhp[slot+1] = res;
+			res = make_hashmap(nhp);
+			break;
+		    case HAMT_SUBTAG_HEAD_ARRAY:
+			slot  = (Uint)   ESTACK_POP(stack);
+			nhp   = hp;
+			n     = HAMT_HEAD_ARRAY_SZ - 2;
+			*hp++ = MAP_HEADER_HAMT_HEAD_ARRAY; ptr++;
+			*hp++ = (*ptr++) + update_size;
+			while(n--) { *hp++ = *ptr++; }
+			nhp[slot+2] = res;
+			res = make_hashmap(nhp);
+			break;
+		    case HAMT_SUBTAG_NODE_BITMAP:
+			slot  = (Uint)   ESTACK_POP(stack);
+			bp    = (Uint32) ESTACK_POP(stack);
+			n     = (Uint32) ESTACK_POP(stack);
+			hval  = MAP_HEADER_VAL(hdr);
+			nhp   = hp;
+			*hp++ = MAP_HEADER_HAMT_NODE_BITMAP(hval | bp); ptr++;
+
+			n -= slot;
+			while(slot--) { *hp++ = *ptr++; }
+			*hp++ = res;
+			if (hval & bp) { ptr++; n--; }
+			while(n--) { *hp++ = *ptr++; }
+
+			if ((hval | bp) == 0xffff) {
+			    *nhp = make_arityval(16);
+			}
+			res = make_hashmap(nhp);
+			break;
+		    case HAMT_SUBTAG_HEAD_BITMAP:
+			slot  = (Uint)   ESTACK_POP(stack);
+			bp    = (Uint32) ESTACK_POP(stack);
+			n     = (Uint32) ESTACK_POP(stack);
+			hval  = MAP_HEADER_VAL(hdr);
+			nhp   = hp;
+			*hp++ = MAP_HEADER_HAMT_HEAD_BITMAP(hval | bp); ptr++;
+			*hp++ = (*ptr++) + update_size;
+
+			n -= slot;
+			while(slot--) { *hp++ = *ptr++; }
+			*hp++ = res;
+			if (hval & bp) { ptr++; n--; }
+			while(n--) { *hp++ = *ptr++; }
+
+			if ((hval | bp) == 0xffff) {
+			    *nhp = MAP_HEADER_HAMT_HEAD_ARRAY;
+			}
+			res = make_hashmap(nhp);
+			break;
+		    default:
+			erl_exit(1, "bad header tag %x\r\n", hdr & _HEADER_MAP_SUBTAG_MASK);
+			break;
+		}
+		break;
+	    default:
+		erl_exit(1, "bad primary tag %x\r\n", primary_tag(node));
+		break;
+	}
+
+    } while(!ESTACK_ISEMPTY(stack));
+
+bail_out:
+    DESTROY_ESTACK(stack);
+    ERTS_VERIFY_UNUSED_TEMP_ALLOC(p);
+    ERTS_HOLE_CHECK(p);
+    return res;
 }
 
 static Eterm hashmap_keys(Process* p, Eterm node) {
