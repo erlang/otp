@@ -32,7 +32,6 @@
 #include "erl_binary.h"
 #include "erl_bits.h"
 #include "erl_map.h"
-#include "erl_hashmap.h"
 #include "packet_parser.h"
 #include "erl_gc.h"
 #define ERTS_WANT_DB_INTERNAL__

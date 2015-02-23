@@ -16,6 +16,9 @@
  *
  * %CopyrightEnd%
  *
+ * hashmaps are an adaption of Rich Hickeys Persistent HashMaps
+ *   which were an adaption of Phil Bagwells - Hash Array Mapped Tries
+ *
  * Author: Björn-Egil Dahlberg
  */
 
@@ -31,7 +34,6 @@
 #include "bif.h"
 
 #include "erl_map.h"
-#include "erl_hashmap.h"
 
 /* BIFs
  *

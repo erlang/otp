@@ -28,7 +28,6 @@
 #include "global.h"
 
 #include "erl_gc.h"
-#include "erl_hashmap.h"
 
 #include "hipe_stack.h"
 #include "hipe_gc.h"

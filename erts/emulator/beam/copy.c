@@ -33,7 +33,6 @@
 #include "erl_binary.h"
 #include "erl_bits.h"
 #include "dtrace-wrapper.h"
-#include "erl_hashmap.h"
 
 static void move_one_frag(Eterm** hpp, Eterm* src, Uint src_sz, ErlOffHeap*);
 

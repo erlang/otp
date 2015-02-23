@@ -26,7 +26,6 @@
 #include "big.h"
 #include "erl_map.h"
 #include "erl_binary.h"
-#include "erl_hashmap.h"
 
 #define PRINT_CHAR(CNT, FN, ARG, C)					\
 do {									\

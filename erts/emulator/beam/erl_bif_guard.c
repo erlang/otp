@@ -34,7 +34,6 @@
 #include "big.h"
 #include "erl_binary.h"
 #include "erl_map.h"
-#include "erl_hashmap.h"
 
 static Eterm gc_double_to_integer(Process* p, double x, Eterm* reg, Uint live);
 
