@@ -66,19 +66,6 @@ static Eterm hashmap_bld_tuple_uint(Uint **hpp, Uint *szp, Uint n, Uint nums[]);
 
 /* hashmap:new/0 */
 
-BIF_RETTYPE hashmap_new_0(BIF_ALIST_0) {
-    Eterm* hp;
-    hashmap_head_t *head;
-
-    hp   = HAlloc(BIF_P, HAMT_HEAD_EMPTY_SZ);
-    head = (hashmap_head_t *) hp;
-
-    head->thing_word = MAP_HEADER_HAMT_HEAD_BITMAP(0);
-    head->size       = 0;
-
-    BIF_RET(make_hashmap(head));
-}
-
 /* hashmap:put/3 */
 
 /* hashmap:update/3 */
