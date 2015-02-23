@@ -982,8 +982,14 @@ sticky_flush(Ns=[Node | Tail], Store) ->
 flush_remaining([], _SkipNode, Res) ->
     del_debug(),
     exit(Res);
-flush_remaining([SkipNode | Tail ], SkipNode, Res) ->
-    flush_remaining(Tail, SkipNode, Res);
+flush_remaining(Ns=[SkipNode | Tail ], SkipNode, Res) ->
+    add_debug(Ns),
+    receive
+	{?MODULE, SkipNode, _} ->
+	    flush_remaining(Tail, SkipNode, Res)
+    after 0 ->
+	    flush_remaining(Tail, SkipNode, Res)
+    end;
 flush_remaining(Ns=[Node | Tail], SkipNode, Res) ->
     add_debug(Ns),
     receive
