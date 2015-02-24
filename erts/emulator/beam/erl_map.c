@@ -499,89 +499,93 @@ BIF_RETTYPE maps_put_3(BIF_ALIST_3) {
 /* maps:remove/3 */
 
 int erts_maps_remove(Process *p, Eterm key, Eterm map, Eterm *res) {
-    Sint n;
-    Uint need;
-    Eterm *hp_start;
-    Eterm *thp, *mhp;
-    Eterm *ks, *vs, tup;
-    map_t *mp = (map_t*)map_val(map);
+    Uint32 hx;
+    if (is_map(map)) {
+	Sint n;
+	Uint need;
+	Eterm *hp_start;
+	Eterm *thp, *mhp;
+	Eterm *ks, *vs, tup;
+	map_t *mp = (map_t*)map_val(map);
 
-    n = map_get_size(mp);
+	n = map_get_size(mp);
 
-    if (n == 0) {
+	if (n == 0) {
+	    *res = map;
+	    return 1;
+	}
+
+	ks = map_get_keys(mp);
+	vs = map_get_values(mp);
+
+	/* Assume key exists.
+	 * Release allocated if it didn't.
+	 * Allocate key tuple first.
+	 */
+
+	need   = n + 1 - 1 + 3 + n - 1; /* tuple - 1 + map - 1 */
+	hp_start = HAlloc(p, need);
+	thp    = hp_start;
+	mhp    = thp + n;               /* offset with tuple heap size */
+
+	tup    = make_tuple(thp);
+	*thp++ = make_arityval(n - 1);
+
+	*res   = make_map(mhp);
+	*mhp++ = MAP_HEADER;
+	*mhp++ = n - 1;
+	*mhp++ = tup;
+
+	if (is_immed(key)) {
+	    while (1) {
+		if (*ks == key) {
+		    goto found_key;
+		} else if (--n) {
+		    *mhp++ = *vs++;
+		    *thp++ = *ks++;
+		} else
+		    break;
+	    }
+	} else {
+	    while(1) {
+		if (EQ(*ks, key)) {
+		    goto found_key;
+		} else if (--n) {
+		    *mhp++ = *vs++;
+		    *thp++ = *ks++;
+		} else
+		    break;
+	    }
+	}
+
+	/* Not found, remove allocated memory
+	 * and return previous map.
+	 */
+	HRelease(p, hp_start + need, hp_start);
+
 	*res = map;
 	return 1;
-    }
-
-    ks = map_get_keys(mp);
-    vs = map_get_values(mp);
-
-    /* Assume key exists.
-     * Release allocated if it didn't.
-     * Allocate key tuple first.
-     */
-
-    need   = n + 1 - 1 + 3 + n - 1; /* tuple - 1 + map - 1 */
-    hp_start = HAlloc(p, need);
-    thp    = hp_start;
-    mhp    = thp + n;               /* offset with tuple heap size */
-
-    tup    = make_tuple(thp);
-    *thp++ = make_arityval(n - 1);
-
-    *res   = make_map(mhp);
-    *mhp++ = MAP_HEADER;
-    *mhp++ = n - 1;
-    *mhp++ = tup;
-
-    if (is_immed(key)) {
-	while (1) {
-	    if (*ks == key) {
-		goto found_key;
-	    } else if (--n) {
-		*mhp++ = *vs++;
-		*thp++ = *ks++;
-	    } else
-		break;
-	}
-    } else {
-	while(1) {
-	    if (EQ(*ks, key)) {
-		goto found_key;
-	    } else if (--n) {
-		*mhp++ = *vs++;
-		*thp++ = *ks++;
-	    } else
-		break;
-	}
-    }
-
-    /* Not found, remove allocated memory
-     * and return previous map.
-     */
-    HRelease(p, hp_start + need, hp_start);
-
-    *res = map;
-    return 1;
 
 found_key:
-    /* Copy rest of keys and values */
-    if (--n) {
-	sys_memcpy(mhp, vs+1, n*sizeof(Eterm));
-	sys_memcpy(thp, ks+1, n*sizeof(Eterm));
+	/* Copy rest of keys and values */
+	if (--n) {
+	    sys_memcpy(mhp, vs+1, n*sizeof(Eterm));
+	    sys_memcpy(thp, ks+1, n*sizeof(Eterm));
+	}
+	return 1;
     }
+    ASSERT(is_hashmap(map));
+    hx = hashmap_make_hash(key);
+    *res = hashmap_delete(p, hx, key, map);
     return 1;
 }
 
 BIF_RETTYPE maps_remove_2(BIF_ALIST_2) {
-    if (is_map(BIF_ARG_2)) {
+    if (is_map(BIF_ARG_2) || is_hashmap(BIF_ARG_2)) {
 	Eterm res;
 	if (erts_maps_remove(BIF_P, BIF_ARG_1, BIF_ARG_2, &res)) {
 	    BIF_RET(res);
 	}
-    } else if (is_hashmap(BIF_ARG_2)) {
-	Uint32 hx = hashmap_make_hash(BIF_ARG_1);
-	BIF_RET(hashmap_delete(BIF_P, hx, BIF_ARG_1, BIF_ARG_2));
     }
     BIF_ERROR(BIF_P, BADARG);
 }
@@ -1248,11 +1252,11 @@ static Eterm hashmap_values(Process* p, Eterm node) {
     return res;
 }
 
-static Eterm hashmap_delete(Process *p, Uint32 hx, Eterm key, Eterm node) {
+static Eterm hashmap_delete(Process *p, Uint32 hx, Eterm key, Eterm map) {
     Eterm *hp = NULL, *nhp = NULL, *hp_end = NULL;
     Eterm th[2];
     Eterm *ptr;
-    Eterm hdr,res = node;
+    Eterm hdr, res = map, node = map;
     Uint32 ix, bp, hval;
     Uint slot, lvl = 0;
     Uint size = 0, n = 0;
@@ -1338,7 +1342,47 @@ static Eterm hashmap_delete(Process *p, Uint32 hx, Eterm key, Eterm node) {
 
 unroll:
     /* the size is bounded and atleast one less than the previous size */
-    size  -= 1;
+    size -= 1;
+    n     = hashmap_size(map) - 1;
+
+    if (n <= MAP_SMALL_MAP_LIMIT) {
+	DECLARE_WSTACK(wstack);
+	Eterm *kv, *ks, *vs;
+	map_t *mp;
+	Eterm keys;
+
+	DESTROY_ESTACK(stack);
+
+	/* build flat structure */
+	hp    = HAlloc(p, 3 + 1 + (2 * n));
+	keys  = make_tuple(hp);
+	*hp++ = make_arityval(n);
+	ks    = hp;
+	hp   += n;
+	mp    = (map_t*)hp;
+	hp   += MAP_HEADER_SIZE;
+	vs    = hp;
+
+	mp->thing_word = MAP_HEADER;
+	mp->size = n;
+	mp->keys = keys;
+
+	hashmap_iterator_init(&wstack, map);
+
+	while ((kv=hashmap_iterator_next(&wstack)) != NULL) {
+	    if (EQ(CAR(kv),key))
+		continue;
+	    *ks++ = CAR(kv);
+	    *vs++ = CDR(kv);
+	}
+
+	/* it cannot have multiple keys */
+	erts_validate_and_sort_map(mp);
+
+	DESTROY_WSTACK(wstack);
+	return make_map(mp);
+    }
+
     hp     = HAlloc(p, size);
     hp_end = hp + size;
     res    = THE_NON_VALUE;
