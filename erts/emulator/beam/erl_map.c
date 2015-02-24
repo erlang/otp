@@ -137,58 +137,50 @@ erts_maps_get_rel(Eterm key, Eterm map, Eterm *map_base)
 erts_maps_get(Eterm key, Eterm map)
 #endif
 {
-    Eterm *ks, *vs;
-    map_t *mp;
-    Uint n, i;
+    Uint32 hx;
+    if (is_map(map)) {
+	Eterm *ks, *vs;
+	map_t *mp;
+	Uint n, i;
 
-    mp  = (map_t *)map_val_rel(map, map_base);
-    n   = map_get_size(mp);
+	mp  = (map_t *)map_val_rel(map, map_base);
+	n   = map_get_size(mp);
 
-    if (n == 0) {
-        return NULL;
+	if (n == 0) {
+	    return NULL;
+	}
+
+	ks  = (Eterm *)tuple_val_rel(mp->keys, map_base) + 1;
+	vs  = map_get_values(mp);
+
+	if (is_immed(key)) {
+	    for (i = 0; i < n; i++) {
+		if (ks[i] == key) {
+		    return &vs[i];
+		}
+	    }
+	}
+
+	for (i = 0; i < n; i++) {
+	    if (eq_rel(ks[i], NULL, key, map_base)) {
+		return &vs[i];
+	    }
+	}
+	return NULL;
     }
+    ASSERT(is_hashmap(map));
+    hx = hashmap_make_hash(key);
 
-    ks  = (Eterm *)tuple_val_rel(mp->keys, map_base) + 1;
-    vs  = map_get_values(mp);
-
-    if (is_immed(key)) {
-        for (i = 0; i < n; i++) {
-            if (ks[i] == key) {
-                return &vs[i];
-            }
-        }
-    }
-
-    for (i = 0; i < n; i++) {
-        if (eq_rel(ks[i], NULL, key, map_base)) {
-            return &vs[i];
-        }
-    }
-    return NULL;
+    return hashmap_get(hx, key, map);
 }
 
 BIF_RETTYPE maps_find_2(BIF_ALIST_2) {
-    if (is_map(BIF_ARG_2)) {
+    if (is_map(BIF_ARG_2) || is_hashmap(BIF_ARG_2)) {
         Eterm *hp, res;
         const Eterm *value;
 
         value = erts_maps_get(BIF_ARG_1, BIF_ARG_2);
 	if (value) {
-	    hp    = HAlloc(BIF_P, 3);
-	    res   = make_tuple(hp);
-	    *hp++ = make_arityval(2);
-	    *hp++ = am_ok;
-            *hp++ = *value;
-	    BIF_RET(res);
-	}
-
-	BIF_RET(am_error);
-    } else if (is_hashmap(BIF_ARG_2)) {
-	Eterm *hp, res;
-	const Eterm *value;
-	Uint32 hx = hashmap_make_hash(BIF_ARG_1);
-
-	if ((value = hashmap_get(hx, BIF_ARG_1, BIF_ARG_2)) != NULL) {
 	    hp    = HAlloc(BIF_P, 3);
 	    res   = make_tuple(hp);
 	    *hp++ = make_arityval(2);
@@ -207,7 +199,7 @@ BIF_RETTYPE maps_find_2(BIF_ALIST_2) {
  */
 
 BIF_RETTYPE maps_get_2(BIF_ALIST_2) {
-    if (is_map(BIF_ARG_2)) {
+    if (is_map(BIF_ARG_2) || is_hashmap(BIF_ARG_2)) {
 	Eterm *hp;
         Eterm error;
         const Eterm *value;
@@ -224,15 +216,7 @@ BIF_RETTYPE maps_get_2(BIF_ALIST_2) {
 	hp = HAlloc(BIF_P, 3);
 	BIF_P->fvalue = TUPLE2(hp, error, BIF_ARG_1);
 	BIF_ERROR(BIF_P, EXC_ERROR_2);
-    } else if (is_hashmap(BIF_ARG_2)) {
-	const Eterm *value;
-	Uint32 hx = hashmap_make_hash(BIF_ARG_1);
-
-	if ((value = hashmap_get(hx, BIF_ARG_1, BIF_ARG_2)) != NULL) {
-	    BIF_RET(*value);
-	}
     }
-
     BIF_ERROR(BIF_P, BADARG);
 }
 
@@ -361,36 +345,8 @@ error:
  */
 
 BIF_RETTYPE maps_is_key_2(BIF_ALIST_2) {
-    if (is_map(BIF_ARG_2)) {
-	Eterm *ks, key;
-	map_t *mp;
-	Uint n,i;
-
-	mp  = (map_t*)map_val(BIF_ARG_2);
-	key = BIF_ARG_1;
-	n   = map_get_size(mp);
-	ks  = map_get_keys(mp);
-
-	if (n == 0)
-	    BIF_RET(am_false);
-
-	if (is_immed(key)) {
-	    for( i = 0; i < n; i++) {
-		if (ks[i] == key) {
-		    BIF_RET(am_true);
-		}
-	    }
-	}
-
-	for( i = 0; i < n; i++) {
-	    if (EQ(ks[i], key)) {
-		BIF_RET(am_true);
-	    }
-	}
-	BIF_RET(am_false);
-    } else if (is_hashmap(BIF_ARG_2)) {
-	Uint32 hx = hashmap_make_hash(BIF_ARG_1);
-	BIF_RET(hashmap_get(hx, BIF_ARG_1, BIF_ARG_2) ? am_true : am_false);
+    if (is_map(BIF_ARG_2) || is_hashmap(BIF_ARG_2)) {
+	BIF_RET(erts_maps_get(BIF_ARG_1, BIF_ARG_2) ? am_true : am_false);
     }
     BIF_ERROR(BIF_P, BADARG);
 }
