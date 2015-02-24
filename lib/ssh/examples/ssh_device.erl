@@ -17,8 +17,6 @@
 %% %CopyrightEnd%
 %%
 
-%%
-
 -module(ssh_device).
 
 %% api
