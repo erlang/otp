@@ -103,12 +103,14 @@ init([]) ->
 
 handle_call({call, Mod, Fun, Args, Gleader}, To, S) ->
     handle_call_call(Mod, Fun, Args, Gleader, To, S);
-handle_call({block_call, Mod, Fun, Args, Gleader}, _To, S) ->
+handle_call({block_call, Mod, Fun, Args, Gleader}, To, S) ->
     MyGL = group_leader(),
     set_group_leader(Gleader),
     Reply = 
 	case catch apply(Mod,Fun,Args) of
 	    {'EXIT', _} = Exit ->
+                error_logger:info_msg("Bad RPC: ~p ~p ~p from (~p): ~p~n",
+                                      [Mod, Fun, Args, To, Exit]),
 		{badrpc, Exit};
 	    Other ->
 		Other
@@ -140,6 +142,8 @@ handle_info({'DOWN', _, process, Caller, Reason}, S) ->
 		{Caller, {reply, Reply}} ->
 		    gen_server:reply(To, Reply)
 	    after 0 ->
+                    error_logger:info_msg("Bad RPC: ~p from (~p)~n",
+                                          [Caller, Reason]),
 		    gen_server:reply(To, {badrpc, {'EXIT', Reason}})
 	    end,
 	    {noreply, gb_trees:delete(Caller, S)};
@@ -204,6 +208,8 @@ handle_call_call(Mod, Fun, Args, Gleader, To, S) ->
 		      %% something that throws
 		      case catch apply(Mod, Fun, Args) of
 			  {'EXIT', _} = Exit ->
+                              error_logger:info_msg("Bad RPC: ~p ~p ~p from (~p): ~p~n",
+                                                    [Mod, Fun, Args, To, Exit]),
 			      {badrpc, Exit};
 			  Result ->
 			      Result
