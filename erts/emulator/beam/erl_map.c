@@ -486,122 +486,11 @@ BIF_RETTYPE maps_new_0(BIF_ALIST_0) {
     BIF_RET(make_map(mp));
 }
 
-/* maps:put/3
- */
-
-Eterm erts_maps_put(Process *p, Eterm key, Eterm value, Eterm map) {
-    Sint n,i;
-    Sint c = 0;
-    Eterm* hp, *shp;
-    Eterm *ks,*vs, res, tup;
-    map_t *mp = (map_t*)map_val(map);
-
-    n = map_get_size(mp);
-
-    if (n == 0) {
-	hp    = HAlloc(p, MAP_HEADER_SIZE + 1 + 2);
-	tup   = make_tuple(hp);
-	*hp++ = make_arityval(1);
-	*hp++ = key;
-	res   = make_map(hp);
-	*hp++ = MAP_HEADER;
-	*hp++ = 1;
-	*hp++ = tup;
-	*hp++ = value;
-
-	return res;
-    }
-
-    ks  = map_get_keys(mp);
-    vs  = map_get_values(mp);
-
-    /* only allocate for values,
-     * assume key-tuple will be intact
-     */
-
-    hp  = HAlloc(p, MAP_HEADER_SIZE + n);
-    shp = hp; /* save hp, used if optimistic update fails */
-    res = make_map(hp);
-    *hp++ = MAP_HEADER;
-    *hp++ = n;
-    *hp++ = mp->keys;
-
-    if (is_immed(key)) {
-	for( i = 0; i < n; i ++) {
-	    if (ks[i] == key) {
-		*hp++ = value;
-		vs++;
-		c = 1;
-	    } else {
-		*hp++ = *vs++;
-	    }
-	}
-    } else {
-	for( i = 0; i < n; i ++) {
-	    if (EQ(ks[i], key)) {
-		*hp++ = value;
-		vs++;
-		c = 1;
-	    } else {
-		*hp++ = *vs++;
-	    }
-	}
-    }
-
-    if (c)
-	return res;
-
-    /* need to make a new tuple,
-     * use old hp since it needs to be recreated anyway.
-     */
-    tup    = make_tuple(shp);
-    *shp++ = make_arityval(n+1);
-
-    hp    = HAlloc(p, 3 + n + 1);
-    res   = make_map(hp);
-    *hp++ = MAP_HEADER;
-    *hp++ = n + 1;
-    *hp++ = tup;
-
-    ks  = map_get_keys(mp);
-    vs  = map_get_values(mp);
-
-    ASSERT(n >= 0);
-
-    /* copy map in order */
-    while (n && ((c = CMP_TERM(*ks, key)) < 0)) {
-	*shp++ = *ks++;
-	*hp++  = *vs++;
-	n--;
-    }
-
-    *shp++ = key;
-    *hp++  = value;
-
-    ASSERT(n >= 0);
-
-    while(n--) {
-	*shp++ = *ks++;
-	*hp++  = *vs++;
-    }
-    /* we have one word remaining
-     * this will work out fine once we get the size word
-     * in the header.
-     */
-    *shp = make_pos_bignum_header(0);
-    return res;
-}
+/* maps:put/3 */
 
 BIF_RETTYPE maps_put_3(BIF_ALIST_3) {
-    if (is_map(BIF_ARG_3)) {
+    if (is_map(BIF_ARG_3) || is_hashmap(BIF_ARG_3)) {
 	BIF_RET(erts_maps_put(BIF_P, BIF_ARG_1, BIF_ARG_2, BIF_ARG_3));
-    } else if (is_hashmap(BIF_ARG_3)) {
-	Uint32 hx = hashmap_make_hash(BIF_ARG_1);
-	Eterm map;
-
-	map = hashmap_insert(BIF_P, hx, BIF_ARG_1, BIF_ARG_2, BIF_ARG_3, 0);
-	ASSERT(is_hashmap(map));
-	BIF_RET(map);
     }
     BIF_ERROR(BIF_P, BADARG);
 }
@@ -694,82 +583,237 @@ BIF_RETTYPE maps_remove_2(BIF_ALIST_2) {
     BIF_ERROR(BIF_P, BADARG);
 }
 
-/* maps:update/3
- */
-
 int erts_maps_update(Process *p, Eterm key, Eterm value, Eterm map, Eterm *res) {
-    Sint n,i;
-    Eterm* hp,*shp;
-    Eterm *ks,*vs;
-    map_t *mp = (map_t*)map_val(map);
+    Uint32 hx;
+    if (is_map(map)) {
+	Sint n,i;
+	Eterm* hp,*shp;
+	Eterm *ks,*vs;
+	map_t *mp = (map_t*)map_val(map);
 
-    if ((n = map_get_size(mp)) == 0) {
+	if ((n = map_get_size(mp)) == 0) {
+	    return 0;
+	}
+
+	ks  = map_get_keys(mp);
+	vs  = map_get_values(mp);
+
+	/* only allocate for values,
+	 * assume key-tuple will be intact
+	 */
+
+	hp  = HAlloc(p, MAP_HEADER_SIZE + n);
+	shp = hp;
+	*hp++ = MAP_HEADER;
+	*hp++ = n;
+	*hp++ = mp->keys;
+
+	if (is_immed(key)) {
+	    for( i = 0; i < n; i ++) {
+		if (ks[i] == key) {
+		    goto found_key;
+		} else {
+		    *hp++ = *vs++;
+		}
+	    }
+	} else {
+	    for( i = 0; i < n; i ++) {
+		if (EQ(ks[i], key)) {
+		    goto found_key;
+		} else {
+		    *hp++ = *vs++;
+		}
+	    }
+	}
+
+	HRelease(p, shp + MAP_HEADER_SIZE + n, shp);
 	return 0;
-    }
-
-    ks  = map_get_keys(mp);
-    vs  = map_get_values(mp);
-
-    /* only allocate for values,
-     * assume key-tuple will be intact
-     */
-
-    hp  = HAlloc(p, MAP_HEADER_SIZE + n);
-    shp = hp;
-    *hp++ = MAP_HEADER;
-    *hp++ = n;
-    *hp++ = mp->keys;
-
-    if (is_immed(key)) {
-	for( i = 0; i < n; i ++) {
-	    if (ks[i] == key) {
-		goto found_key;
-	    } else {
-		*hp++ = *vs++;
-	    }
-	}
-    } else {
-	for( i = 0; i < n; i ++) {
-	    if (EQ(ks[i], key)) {
-		goto found_key;
-	    } else {
-		*hp++ = *vs++;
-	    }
-	}
-    }
-
-    HRelease(p, shp + MAP_HEADER_SIZE + n, shp);
-    return 0;
 
 found_key:
-    *hp++ = value;
-    vs++;
-    if (++i < n)
-	sys_memcpy(hp, vs, (n - i)*sizeof(Eterm));
-    *res = make_map(shp);
-    return 1;
+	*hp++ = value;
+	vs++;
+	if (++i < n)
+	    sys_memcpy(hp, vs, (n - i)*sizeof(Eterm));
+	*res = make_map(shp);
+	return 1;
+    }
+
+    ASSERT(is_hashmap(map));
+    hx = hashmap_make_hash(key);
+    *res = hashmap_insert(p, hx, key, value, map, 1);
+    if (is_value(*res))
+	return 1;
+
+    return 0;
 }
 
+Eterm erts_maps_put(Process *p, Eterm key, Eterm value, Eterm map) {
+    Uint32 hx;
+    Eterm res;
+    if (is_map(map)) {
+	Sint n,i;
+	Sint c = 0;
+	Eterm* hp, *shp;
+	Eterm *ks, *vs, tup;
+	map_t *mp = (map_t*)map_val(map);
+
+	n = map_get_size(mp);
+
+	if (n == 0) {
+	    hp    = HAlloc(p, MAP_HEADER_SIZE + 1 + 2);
+	    tup   = make_tuple(hp);
+	    *hp++ = make_arityval(1);
+	    *hp++ = key;
+	    res   = make_map(hp);
+	    *hp++ = MAP_HEADER;
+	    *hp++ = 1;
+	    *hp++ = tup;
+	    *hp++ = value;
+
+	    return res;
+	}
+
+	ks = map_get_keys(mp);
+	vs = map_get_values(mp);
+
+	/* only allocate for values,
+	 * assume key-tuple will be intact
+	 */
+
+	hp  = HAlloc(p, MAP_HEADER_SIZE + n);
+	shp = hp; /* save hp, used if optimistic update fails */
+	res = make_map(hp);
+	*hp++ = MAP_HEADER;
+	*hp++ = n;
+	*hp++ = mp->keys;
+
+	if (is_immed(key)) {
+	    for( i = 0; i < n; i ++) {
+		if (ks[i] == key) {
+		    *hp++ = value;
+		    vs++;
+		    c = 1;
+		} else {
+		    *hp++ = *vs++;
+		}
+	    }
+	} else {
+	    for( i = 0; i < n; i ++) {
+		if (EQ(ks[i], key)) {
+		    *hp++ = value;
+		    vs++;
+		    c = 1;
+		} else {
+		    *hp++ = *vs++;
+		}
+	    }
+	}
+
+	if (c)
+	    return res;
+
+	/* the map will grow */
+
+	if (n >= MAP_SMALL_MAP_LIMIT) {
+	    hxnode_t *hxns;
+	    Uint32 sw, hx;
+	    Eterm tmp[2];
+
+	    HRelease(p, shp + MAP_HEADER_SIZE + n, shp);
+	    hp = HAlloc(p, (2 * (n + 1)));
+	    ks = map_get_keys(mp);
+	    vs = map_get_values(mp);
+
+	    /* create tmp hx values and leaf ptrs */
+	    hxns = (hxnode_t *)erts_alloc(ERTS_ALC_T_TMP, (n + 1) * sizeof(hxnode_t));
+
+	    for (i = 0; i < n; i++) {
+		hx = hashmap_restore_hash(tmp,0,ks[i]);
+		swizzle32(sw,hx);
+		hxns[i].hx   = sw;
+		hxns[i].val  = CONS(hp, ks[i], vs[i]); hp += 2;
+		hxns[i].skip = 1;
+		hxns[i].i    = i;
+	    }
+
+	    hx = hashmap_restore_hash(tmp,0,key);
+	    swizzle32(sw,hx);
+	    hxns[i].hx   = sw;
+	    hxns[i].val  = CONS(hp, key, value); hp += 2;
+	    hxns[i].skip = 1;
+	    hxns[i].i    = n;
+
+	    res = hashmap_from_unsorted_array(p, hxns, n + 1);
+
+	    erts_free(ERTS_ALC_T_TMP, (void *) hxns);
+	    ERTS_VERIFY_UNUSED_TEMP_ALLOC(p);
+
+	    return res;
+	}
+
+	/* still a small map. need to make a new tuple,
+	 * use old hp since it needs to be recreated anyway. */
+
+	tup    = make_tuple(shp);
+	*shp++ = make_arityval(n+1);
+
+	hp    = HAlloc(p, 3 + n + 1);
+	res   = make_map(hp);
+	*hp++ = MAP_HEADER;
+	*hp++ = n + 1;
+	*hp++ = tup;
+
+	ks = map_get_keys(mp);
+	vs = map_get_values(mp);
+
+	ASSERT(n >= 0);
+
+	/* copy map in order */
+	while (n && ((c = CMP_TERM(*ks, key)) < 0)) {
+	    *shp++ = *ks++;
+	    *hp++  = *vs++;
+	    n--;
+	}
+
+	*shp++ = key;
+	*hp++  = value;
+
+	ASSERT(n >= 0);
+
+	while(n--) {
+	    *shp++ = *ks++;
+	    *hp++  = *vs++;
+	}
+	/* we have one word remaining
+	 * this will work out fine once we get the size word
+	 * in the header.
+	 */
+	*shp = make_pos_bignum_header(0);
+	return res;
+    }
+    ASSERT(is_hashmap(map));
+
+    hx  = hashmap_make_hash(key);
+    res = hashmap_insert(p, hx, key, value, map, 0);
+    ASSERT(is_hashmap(res));
+
+    return res;
+}
+
+/* maps:update/3 */
+
 BIF_RETTYPE maps_update_3(BIF_ALIST_3) {
-    if (is_map(BIF_ARG_3)) {
+    if (is_map(BIF_ARG_3) || is_hashmap(BIF_ARG_3)) {
 	Eterm res;
 	if (erts_maps_update(BIF_P, BIF_ARG_1, BIF_ARG_2, BIF_ARG_3, &res)) {
 	    BIF_RET(res);
 	}
-    } else if (is_hashmap(BIF_ARG_3)) {
-	Uint32 hx = hashmap_make_hash(BIF_ARG_1);
-	Eterm map;
-
-	map = hashmap_insert(BIF_P, hx, BIF_ARG_1, BIF_ARG_2, BIF_ARG_3, 1);
-	if (is_value(map))
-	    BIF_RET(map);
     }
     BIF_ERROR(BIF_P, BADARG);
 }
 
 
-/* maps:values/1
- */
+/* maps:values/1 */
 
 BIF_RETTYPE maps_values_1(BIF_ALIST_1) {
     if (is_map(BIF_ARG_1)) {
