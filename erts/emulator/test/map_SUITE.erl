@@ -52,6 +52,9 @@
 	t_erlang_hash/1,
 	t_map_encode_decode/1,
 
+	%% non specific BIF related
+	t_bif_build_and_check/1,
+
 	%% maps module not bifs
 	t_maps_fold/1,
 	t_maps_map/1,
@@ -97,6 +100,9 @@ all() -> [
 	%% erlang
 	t_erlang_hash, t_map_encode_decode,
 	t_map_size,
+
+	%% non specific BIF related
+	t_bif_build_and_check,
 
 	%% maps module
 	t_maps_fold, t_maps_map,
@@ -1199,6 +1205,60 @@ t_bif_map_from_list(Config) when is_list(Config) ->
     {'EXIT', {badarg,_}} = (catch maps:from_list(id(a))),
     {'EXIT', {badarg,_}} = (catch maps:from_list(id(42))),
     ok.
+
+t_bif_build_and_check(Config) when is_list(Config) ->
+    ok = check_build_and_remove(750,[
+				      fun(K) -> [K,K] end,
+				      fun(K) -> [float(K),K] end,
+				      fun(K) -> K end,
+				      fun(K) -> {1,K} end,
+				      fun(K) -> {K} end,
+				      fun(K) -> [K|K] end,
+				      fun(K) -> [K,1,2,3,4] end,
+				      fun(K) -> {K,atom} end,
+				      fun(K) -> float(K) end,
+				      fun(K) -> integer_to_list(K) end,
+				      fun(K) -> list_to_atom(integer_to_list(K)) end,
+				      fun(K) -> [K,{K,[K,{K,[K]}]}] end,
+				      fun(K) -> <<K:32>> end
+			      ]),
+
+    ok.
+
+check_build_and_remove(_,[]) -> ok;
+check_build_and_remove(N,[F|Fs]) ->
+    {M,Ks} = build_and_check(N, maps:new(), F, []),
+    ok     = remove_and_check(Ks,M),
+    check_build_and_remove(N,Fs).
+
+build_and_check(0, M0, _, Ks) -> {M0, Ks};
+build_and_check(N, M0, F, Ks) ->
+    K  = build_key(F,N),
+    M1 = maps:put(K,K,M0),
+    ok = check_keys_exist([K|Ks], M1),
+    build_and_check(N-1,M1,F,[K|Ks]).
+
+remove_and_check([],_) -> ok;
+remove_and_check([K|Ks], M0) ->
+    K     = maps:get(K,M0),
+    true  = maps:is_key(K,M0),
+    M1    = maps:remove(K,M0),
+    false = maps:is_key(K,M1),
+    true  = maps:is_key(K,M0),
+    ok    = check_keys_exist(Ks,M1),
+    error = maps:find(K,M1),
+    remove_and_check(Ks, M1).
+
+build_key(F,N) when N rem 3 =:= 0 -> F(N);
+build_key(F,N) when N rem 3 =:= 1 -> K = F(N), {K,K};
+build_key(F,N) when N rem 3 =:= 2 -> K = F(N), [K,K].
+
+check_keys_exist([], _) -> ok;
+check_keys_exist([K|Ks],M) ->
+    K = maps:get(K,M),
+    check_keys_exist(Ks,M).
+
+
 
 %% Maps module, not BIFs
 t_maps_fold(_Config) ->
