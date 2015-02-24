@@ -332,23 +332,23 @@ fe80::204:acff:fe17:bf38
         <taglist>
 	  <tag><c>recv_avg</c></tag>
 	  <item>
-            <p>Average size of packets in bytes received to the socket.</p>
+            <p>Average size of packets in bytes received by the socket.</p>
 	  </item>
 	  <tag><c>recv_cnt</c></tag>
 	  <item>
-            <p>Number of packets received to the socket.</p>
+            <p>Number of packets received by the socket.</p>
 	  </item>
 	  <tag><c>recv_dvi</c></tag>
 	  <item>
-            <p>Average packet size deviation in bytes received to the socket.</p>
+            <p>Average packet size deviation in bytes received by the socket.</p>
 	  </item>
 	  <tag><c>recv_max</c></tag>
 	  <item>
-            <p>The size of the largest packet in bytes received to the socket.</p>
+            <p>The size of the largest packet in bytes received by the socket.</p>
 	  </item>
 	  <tag><c>recv_oct</c></tag>
 	  <item>
-            <p>Number of bytes received to the socket.</p>
+            <p>Number of bytes received by the socket.</p>
 	  </item>
 
 	  <tag><c>send_avg</c></tag>
