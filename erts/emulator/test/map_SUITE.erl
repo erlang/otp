@@ -729,25 +729,35 @@ check_keys(K1, K2, L) ->
 
 %% BIFs
 t_bif_map_get(Config) when is_list(Config) ->
-
+    %% small map
     1    = maps:get(a, #{ a=> 1}),
     2    = maps:get(b, #{ a=> 1, b => 2}),
     "hi" = maps:get("hello", #{ a=>1, "hello" => "hi"}),
     "tuple hi" = maps:get({1,1.0}, #{ a=>a, {1,1.0} => "tuple hi"}),
 
-    M    = id(#{ k1=>"v1", <<"k2">> => <<"v3">> }),
-    "v4" = maps:get(<<"k2">>, M#{ <<"k2">> => "v4" }),
+    M0    = id(#{ k1=>"v1", <<"k2">> => <<"v3">> }),
+    "v4" = maps:get(<<"k2">>, M0#{<<"k2">> => "v4"}),
+
+    %% large map
+    M1   = maps:from_list([{I,I}||I<-lists:seq(1,100)] ++
+			  [{a,1},{b,2},{"hello","hi"},{{1,1.0},"tuple hi"},
+			   {k1,"v1"},{<<"k2">>,"v3"}]),
+    1    = maps:get(a, M1),
+    2    = maps:get(b, M1),
+    "hi" = maps:get("hello", M1),
+    "tuple hi" = maps:get({1,1.0}, M1),
+    "v3" = maps:get(<<"k2">>, M1),
 
     %% error case
     {'EXIT',{badarg, [{maps,get,_,_}|_]}} = (catch maps:get(a,[])),
     {'EXIT',{badarg, [{maps,get,_,_}|_]}} = (catch maps:get(a,<<>>)),
     {'EXIT',{bad_key,[{maps,get,_,_}|_]}} = (catch maps:get({1,1}, #{{1,1.0} => "tuple"})),
     {'EXIT',{bad_key,[{maps,get,_,_}|_]}} = (catch maps:get(a,#{})),
-    {'EXIT',{bad_key,[{maps,get,_,_}|_]}} = (catch maps:get(a,#{ b=>1, c=>2})),
+    {'EXIT',{bad_key,[{maps,get,_,_}|_]}} = (catch maps:get(a,#{b=>1, c=>2})),
     ok.
 
 t_bif_map_find(Config) when is_list(Config) ->
-
+    %% small map
     {ok, 1}     = maps:find(a, #{ a=> 1}),
     {ok, 2}     = maps:find(b, #{ a=> 1, b => 2}),
     {ok, "int"} = maps:find(1, #{ 1   => "int"}),
@@ -756,8 +766,18 @@ t_bif_map_find(Config) when is_list(Config) ->
     {ok, "hi"} = maps:find("hello", #{ a=>1, "hello" => "hi"}),
     {ok, "tuple hi"} = maps:find({1,1.0}, #{ a=>a, {1,1.0} => "tuple hi"}),
 
-    M = id(#{ k1=>"v1", <<"k2">> => <<"v3">> }),
-    {ok, "v4"} = maps:find(<<"k2">>, M#{ <<"k2">> => "v4" }),
+    M0 = id(#{ k1=>"v1", <<"k2">> => <<"v3">> }),
+    {ok, "v4"} = maps:find(<<"k2">>, M0#{ <<"k2">> => "v4" }),
+
+    %% large map
+    M1   = maps:from_list([{I,I}||I<-lists:seq(1,100)] ++
+			  [{a,1},{b,2},{"hello","hi"},{{1,1.0},"tuple hi"},
+			   {k1,"v1"},{<<"k2">>,"v3"}]),
+    {ok, 1}    = maps:find(a, M1),
+    {ok, 2}    = maps:find(b, M1),
+    {ok, "hi"} = maps:find("hello", M1),
+    {ok, "tuple hi"} = maps:find({1,1.0}, M1),
+    {ok, "v3"} = maps:find(<<"k2">>, M1),
 
     %% error case
     error = maps:find(a,#{}),
@@ -765,7 +785,6 @@ t_bif_map_find(Config) when is_list(Config) ->
     error = maps:find(1.0, #{ 1 => "int"}),
     error = maps:find(1, #{ 1.0  => "float"}),
     error = maps:find({1.0,1}, #{ a=>a, {1,1.0} => "tuple hi"}), % reverse types in tuple key
-
 
     {'EXIT',{badarg,[{maps,find,_,_}|_]}} = (catch maps:find(a,id([]))),
     {'EXIT',{badarg,[{maps,find,_,_}|_]}} = (catch maps:find(a,id(<<>>))),
