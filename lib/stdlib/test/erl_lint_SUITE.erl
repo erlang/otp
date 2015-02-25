@@ -3708,7 +3708,13 @@ maps(Config) ->
 	   ">>,
 	   [],
 	   {errors,[{4,erl_lint,illegal_map_construction},
-		    {6,erl_lint,illegal_map_key}],[]}}],
+                    {6,erl_lint,illegal_map_key}],[]}},
+          {unused_vars_with_empty_maps,
+           <<"t(Foo, Bar, Baz) -> {#{},#{}}.">>,
+           [warn_unused_variables],
+           {warnings,[{1,erl_lint,{unused_var,'Bar'}},
+                      {1,erl_lint,{unused_var,'Baz'}},
+                      {1,erl_lint,{unused_var,'Foo'}}]}}],
     [] = run(Config, Ts),
     ok.
 

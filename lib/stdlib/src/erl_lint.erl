@@ -2291,8 +2291,8 @@ map_fields([{Tag,_,K,V}|Fs], Vt, St, F) when Tag =:= map_field_assoc;
     {Pvt,St2} = F([K,V], Vt, St),
     {Vts,St3} = map_fields(Fs, Vt, St2, F),
     {vtupdate(Pvt, Vts),St3};
-map_fields([], Vt, St, _) ->
-  {Vt,St}.
+map_fields([], _, St, _) ->
+  {[],St}.
 
 %% warn_invalid_record(Line, Record, State0) -> State
 %% Adds warning if the record is invalid.
