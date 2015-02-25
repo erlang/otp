@@ -54,6 +54,7 @@
 
 	%% non specific BIF related
 	t_bif_build_and_check/1,
+	t_bif_merge_and_check/1,
 
 	%% maps module not bifs
 	t_maps_fold/1,
@@ -103,6 +104,7 @@ all() -> [
 
 	%% non specific BIF related
 	t_bif_build_and_check,
+	t_bif_merge_and_check,
 
 	%% maps module
 	t_maps_fold, t_maps_map,
@@ -1258,6 +1260,79 @@ check_keys_exist([K|Ks],M) ->
     K = maps:get(K,M),
     check_keys_exist(Ks,M).
 
+t_bif_merge_and_check(Config) when is_list(Config) ->
+    %% simple disjunct ones
+    %% make sure all keys are unique
+    Kss = [[a,b,c,d],
+	   [1,2,3,4],
+	   [],
+	   ["hi"],
+	   [e],
+	   [build_key(fun(K) -> {small,K} end, I) || I <- lists:seq(1,32)],
+	   lists:seq(5, 50),
+	   [build_key(fun(K) -> integer_to_list(K) end, I) || I <- lists:seq(2000,10000)],
+	   [build_key(fun(K) -> <<K:32>> end, I) || I <- lists:seq(1,80)],
+	   [build_key(fun(K) -> {<<K:32>>} end, I) || I <- lists:seq(100,1000)]],
+
+
+    KsMs = build_keys_map_pairs(Kss),
+    Cs   = [{CKs1,CM1,CKs2,CM2} || {CKs1,CM1} <- KsMs, {CKs2,CM2} <- KsMs],
+    ok   = merge_and_check_combo(Cs),
+
+    %% overlapping ones
+
+    KVs1 = [{a,1},{b,2},{c,3}],
+    KVs2 = [{b,3},{c,4},{d,5}],
+    KVs  = [{I,I} || I <- lists:seq(1,32)],
+    KVs3 = KVs1 ++ KVs,
+    KVs4 = KVs2 ++ KVs,
+
+    M1  = maps:from_list(KVs1),
+    M2  = maps:from_list(KVs2),
+    M3  = maps:from_list(KVs3),
+    M4  = maps:from_list(KVs4),
+
+    M12 = maps:merge(M1,M2),
+    ok  = check_key_values(KVs2 ++ [{a,1}], M12),
+    M21 = maps:merge(M2,M1),
+    ok  = check_key_values(KVs1 ++ [{d,5}], M21),
+
+    M34 = maps:merge(M3,M4),
+    ok  = check_key_values(KVs4 ++ [{a,1}], M34),
+    M43 = maps:merge(M4,M3),
+    ok  = check_key_values(KVs3 ++ [{d,5}], M43),
+
+    M14 = maps:merge(M1,M4),
+    ok  = check_key_values(KVs4 ++ [{a,1}], M14),
+    M41 = maps:merge(M4,M1),
+    ok  = check_key_values(KVs1 ++ [{d,5}] ++ KVs, M41),
+
+    ok.
+
+check_key_values([],_) -> ok;
+check_key_values([{K,V}|KVs],M) ->
+    V = maps:get(K,M),
+    check_key_values(KVs,M).
+
+merge_and_check_combo([]) -> ok;
+merge_and_check_combo([{Ks1,M1,Ks2,M2}|Cs]) ->
+    M12 = maps:merge(M1,M2),
+    ok  = check_keys_exist(Ks1 ++ Ks2, M12),
+    M21 = maps:merge(M2,M1),
+    ok  = check_keys_exist(Ks1 ++ Ks2, M21),
+
+    true = M12 =:= M21,
+    M12  = M21,
+
+    merge_and_check_combo(Cs).
+
+build_keys_map_pairs([]) -> [];
+build_keys_map_pairs([Ks|Kss]) ->
+    M  = maps:from_list(keys_to_pairs(Ks)),
+    ok = check_keys_exist(Ks, M),
+    [{Ks,M}|build_keys_map_pairs(Kss)].
+
+keys_to_pairs(Ks) -> [{K,K} || K <- Ks].
 
 
 %% Maps module, not BIFs
