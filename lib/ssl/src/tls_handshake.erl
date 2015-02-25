@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -28,6 +28,7 @@
 -include("tls_record.hrl").
 -include("ssl_alert.hrl").
 -include("ssl_internal.hrl").
+-include("ssl_cipher.hrl").
 -include_lib("public_key/include/public_key.hrl").
 
 -export([client_hello/8, hello/4,
@@ -47,22 +48,28 @@
 %%--------------------------------------------------------------------
 client_hello(Host, Port, ConnectionStates,
 	     #ssl_options{versions = Versions,
-			  ciphers = UserSuites
+			  ciphers = UserSuites,
+			  fallback = Fallback
 			 } = SslOpts,
 	     Cache, CacheCb, Renegotiation, OwnCert) ->
     Version = tls_record:highest_protocol_version(Versions),
     Pending = ssl_record:pending_connection_state(ConnectionStates, read),
     SecParams = Pending#connection_state.security_parameters,
-    CipherSuites = ssl_handshake:available_suites(UserSuites, Version),
+    AvailableCipherSuites = ssl_handshake:available_suites(UserSuites, Version), 
     Extensions = ssl_handshake:client_hello_extensions(Host, Version, 
-						       CipherSuites,
+						       AvailableCipherSuites,
 						       SslOpts, ConnectionStates, Renegotiation),
-
-    Id = ssl_session:client_id({Host, Port, SslOpts}, Cache, CacheCb, OwnCert),
-
+    CipherSuites = 
+	case Fallback of
+	    true ->
+	        [?TLS_FALLBACK_SCSV | ssl_handshake:cipher_suites(AvailableCipherSuites, Renegotiation)];
+	    false ->
+		ssl_handshake:cipher_suites(AvailableCipherSuites, Renegotiation)
+	end,
+    Id = ssl_session:client_id({Host, Port, SslOpts}, Cache, CacheCb, OwnCert),    
     #client_hello{session_id = Id,
 		  client_version = Version,
-		  cipher_suites = ssl_handshake:cipher_suites(CipherSuites, Renegotiation),
+		  cipher_suites = CipherSuites,
 		  compression_methods = ssl_record:compressions(),
 		  random = SecParams#security_parameters.client_random,
 		  extensions = Extensions
@@ -96,33 +103,22 @@ hello(#server_hello{server_version = Version, random = Random,
     end;
 			       
 hello(#client_hello{client_version = ClientVersion,
-		    session_id = SugesstedId,
-		    cipher_suites = CipherSuites,
-		    compression_methods = Compressions,
-		    random = Random,
-		    extensions = #hello_extensions{elliptic_curves = Curves} = HelloExt},
+		    cipher_suites = CipherSuites} = Hello,
       #ssl_options{versions = Versions} = SslOpts,
-      {Port, Session0, Cache, CacheCb, ConnectionStates0, Cert}, Renegotiation) ->
+      Info, Renegotiation) ->
     Version = ssl_handshake:select_version(tls_record, ClientVersion, Versions),
-    case tls_record:is_acceptable_version(Version, Versions) of
-	true ->
-	    ECCCurve = ssl_handshake:select_curve(Curves, ssl_handshake:supported_ecc(Version)),
-	    {Type, #session{cipher_suite = CipherSuite} = Session1}
-		= ssl_handshake:select_session(SugesstedId, CipherSuites, Compressions,
-					       Port, Session0#session{ecc = ECCCurve}, Version,
-					       SslOpts, Cache, CacheCb, Cert),
-	    case CipherSuite of 
-		no_suite ->
-		    ?ALERT_REC(?FATAL, ?INSUFFICIENT_SECURITY);
-		_ ->
-		    handle_client_hello_extensions(Version, Type, Random, CipherSuites, HelloExt,
-						   SslOpts, Session1, ConnectionStates0,
-						   Renegotiation)
+    case ssl_cipher:is_fallback(CipherSuites) of
+	true -> 
+	    Highest = tls_record:highest_protocol_version(Versions),
+	    case tls_record:is_higher(Highest, Version) of
+		true ->
+		    ?ALERT_REC(?FATAL, ?INAPPROPRIATE_FALLBACK);
+		false ->				     
+		    handle_client_hello(Version, Hello, SslOpts, Info, Renegotiation)
 	    end;
 	false ->
-	    ?ALERT_REC(?FATAL, ?PROTOCOL_VERSION)
+	    handle_client_hello(Version, Hello, SslOpts, Info, Renegotiation)
     end.
-
 %%--------------------------------------------------------------------
 -spec encode_handshake(tls_handshake(), tls_record:tls_version()) -> iolist().
 %%     
@@ -149,6 +145,32 @@ get_tls_handshake(Version, Data, Buffer) ->
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
+handle_client_hello(Version, #client_hello{session_id = SugesstedId,
+				       cipher_suites = CipherSuites,
+				       compression_methods = Compressions,
+				       random = Random,
+				       extensions = #hello_extensions{elliptic_curves = Curves} = HelloExt},
+		#ssl_options{versions = Versions} = SslOpts,
+	 {Port, Session0, Cache, CacheCb, ConnectionStates0, Cert}, Renegotiation) ->
+    case tls_record:is_acceptable_version(Version, Versions) of
+	true ->
+	    ECCCurve = ssl_handshake:select_curve(Curves, ssl_handshake:supported_ecc(Version)),
+	    {Type, #session{cipher_suite = CipherSuite} = Session1}
+		= ssl_handshake:select_session(SugesstedId, CipherSuites, Compressions,
+					       Port, Session0#session{ecc = ECCCurve}, Version,
+					       SslOpts, Cache, CacheCb, Cert),
+	    case CipherSuite of 
+		no_suite ->
+		    ?ALERT_REC(?FATAL, ?INSUFFICIENT_SECURITY);
+		_ ->
+		    handle_client_hello_extensions(Version, Type, Random, CipherSuites, HelloExt,
+						   SslOpts, Session1, ConnectionStates0,
+						   Renegotiation)
+	    end;
+	false ->
+	    ?ALERT_REC(?FATAL, ?PROTOCOL_VERSION)
+    end.
+
 get_tls_handshake_aux(Version, <<?BYTE(Type), ?UINT24(Length),
 			Body:Length/binary,Rest/binary>>, Acc) ->
     Raw = <<?BYTE(Type), ?UINT24(Length), Body/binary>>,
