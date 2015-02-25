@@ -159,6 +159,10 @@ $(EBIN)/beam_asm.beam: $(ESRC)/beam_asm.erl $(EGEN)/beam_opcodes.hrl
 $(EBIN)/cerl_inline.beam: $(ESRC)/cerl_inline.erl
 	$(V_ERLC) $(ERL_COMPILE_FLAGS) +nowarn_shadow_vars -o$(EBIN) $<
 
+# Inlining core_parse is slow and has no benefit.
+$(EBIN)/core_parse.beam: $(EGEN)/core_parse.erl
+	$(V_ERLC) $(subst +inline,,$(ERL_COMPILE_FLAGS)) -o$(EBIN) $<
+
 # ----------------------------------------------------
 # Release Target
 # ---------------------------------------------------- 
