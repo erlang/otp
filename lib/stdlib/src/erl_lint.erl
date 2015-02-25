@@ -2270,11 +2270,10 @@ expr({remote,Line,_M,_F}, _Vt, St) ->
 %%      {UsedVarTable,State}
 
 expr_list(Es, Vt, St) ->
-    {Vt1,St1} = foldl(fun (E, {Esvt,St0}) ->
-                              {Evt,St1} = expr(E, Vt, St0),
-                              {vtmerge_pat(Evt, Esvt),St1}
-                      end, {[],St}, Es),
-    {vtmerge(vtnew(Vt1, Vt), vtold(Vt1, Vt)),St1}.
+    foldl(fun (E, {Esvt,St0}) ->
+                  {Evt,St1} = expr(E, Vt, St0),
+                  {vtmerge_pat(Evt, Esvt),St1}
+          end, {[],St}, Es).
 
 record_expr(Line, Rec, Vt, St0) ->
     St1 = warn_invalid_record(Line, Rec, St0),
