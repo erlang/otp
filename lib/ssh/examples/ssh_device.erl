@@ -24,7 +24,6 @@
 
 %%% I wrote this because of i think a fully ssh client sample will be easy to start the ssh module better than
 %%% go though each function file.
-
 ssh_device(Host, Port, User, Pass, Cmd) ->
     ssh:start(),
     case ssh:connect(Host, Port,
