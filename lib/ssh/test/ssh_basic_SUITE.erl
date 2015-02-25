@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -715,7 +715,16 @@ ssh_connect_arg4_timeout(_Config) ->
 
     %% try to connect with a timeout, but "supervise" it
     Client = spawn(fun() ->
-			   T0 = now(),
+                           %% Adapt to OTP 18 erlang time API and be back-compatible
+                           T0 = try
+                                    erlang:monotonic_time()
+                                catch
+                                    error:undef ->
+                                        %% Use Erlang system time as monotonic time
+                                        {MS, S, US} = erlang:now(),
+                                        %%(MS*1000000+S)*1000000+US
+                                        {MS, S, US}
+                                end,
 			   Rc = ssh:connect("localhost",Port,[],Timeout),
 			   ct:log("Client ssh:connect got ~p",[Rc]),
 			   Parent ! {done,self(),Rc,T0}
@@ -724,11 +733,14 @@ ssh_connect_arg4_timeout(_Config) ->
     %% Wait for client reaction on the connection try:
     receive
 	{done, Client, {error,timeout}, T0} ->
-	    Msp = ms_passed(T0, now()),
+	    %%Msp = ms_passed(T0, now()),
+            Msp = ms_passed(T0),
 	    exit(Server,hasta_la_vista___baby),
 	    Low = 0.9*Timeout,
 	    High =  1.1*Timeout,
-	    ct:log("Timeout limits: ~p--~p, timeout was ~p, expected ~p",[Low,High,Msp,Timeout]),
+	    ct:log("Timeout limits: ~.4f - ~.4f ms, timeout "
+                   "was ~.4f ms, expected ~p ms",[Low,High,Msp,Timeout]),
+	    %%ct:log("Timeout limits: ~p--~p, my timeout was ~p, expected ~p",[Low,High,Msp0,Timeout]),
 	    if
 		Low<Msp, Msp<High -> ok;
 		true -> {fail, "timeout not within limits"}
@@ -748,12 +760,16 @@ ssh_connect_arg4_timeout(_Config) ->
     end.
 
 
-%% Help function
-%% N2-N1
-ms_passed(N1={_,_,M1}, N2={_,_,M2}) ->
-    {0,{0,Min,Sec}} = calendar:time_difference(calendar:now_to_local_time(N1),
-					       calendar:now_to_local_time(N2)),
-    1000 * (Min*60 + Sec + (M2-M1)/1000000).
+%% Help function, elapsed microseconds since T0
+ms_passed({_,_,_} = T0 ) ->
+    %% OTP 17 and earlier
+    timer:now_diff(erlang:now(), T0)/1000;
+
+ms_passed(T0) ->
+    %% OTP 18
+    erlang:convert_time_resolution(erlang:monotonic_time() - T0,
+                                   erlang:time_resolution(),
+                                   1000000)/1000.
 
 %%--------------------------------------------------------------------
 ssh_connect_negtimeout_parallel(Config) -> ssh_connect_negtimeout(Config,true).
