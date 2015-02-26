@@ -1238,6 +1238,8 @@ build_and_check(N, M0, F, Ks) ->
     K  = build_key(F,N),
     M1 = maps:put(K,K,M0),
     ok = check_keys_exist([K|Ks], M1),
+    M2 = maps:update(K,v,M1),
+    v  = maps:get(K,M2),
     build_and_check(N-1,M1,F,[K|Ks]).
 
 remove_and_check([],_) -> ok;
