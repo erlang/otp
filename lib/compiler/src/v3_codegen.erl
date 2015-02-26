@@ -69,10 +69,8 @@
 	     stk=[],				%Stack table
 	     res=[]}).				%Reserved regs: [{reserved,I,V}]
 
-module({Mod,Exp,Attr,Forms}, Options) ->
-    put(?MODULE, Options),
+module({Mod,Exp,Attr,Forms}, _Options) ->
     {Fs,St} = functions(Forms, {atom,Mod}),
-    erase(?MODULE),
     {ok,{Mod,Exp,Attr,Fs,St#cg.lcount}}.
 
 functions(Forms, AtomMod) ->
