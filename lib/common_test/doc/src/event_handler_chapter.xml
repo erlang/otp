@@ -59,6 +59,15 @@
     Event handlers plugged into this manager will receive the events from 
     all the test nodes as well as information from the CT Master server
     itself.</p>
+
+    <p>User specific event handlers may be plugged into a Common Test event
+    manager, either by telling Common Test to install them before the test
+    run (see below), or by adding the handlers dynamically during the test
+    run by means of 
+    <c>gen_event:add_handler/3</c> or <c>gen_event:add_sup_handler/3</c>.
+    In the latter scenario, the reference of the Common Test event manager is
+    required. To get it, call <c>ct:get_event_mgr_ref/0</c> or (on the CT
+    Master node) <c>ct_master:get_event_mgr_ref/0</c>.</p>
   </section>
   <section>
     <marker id="usage"></marker>

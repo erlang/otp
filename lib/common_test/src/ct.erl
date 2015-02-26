@@ -1014,7 +1014,7 @@ abort_current_testcase(Reason) ->
 %%%         CT event manager. The reference can be used to e.g. add
 %%%         a user specific event handler while tests are running.
 %%%         Example:
-%%%         gen_event:add_handler(ct:get_event_mgr_ref(), my_ev_h, [])</p>
+%%%         <c>gen_event:add_handler(ct:get_event_mgr_ref(), my_ev_h, [])</c></p>
 get_event_mgr_ref() ->
     ?CT_EVMGR_REF.
 
