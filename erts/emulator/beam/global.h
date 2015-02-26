@@ -376,12 +376,13 @@ typedef struct ErtsEStack_ {
     Eterm* start;
     Eterm* sp;
     Eterm* end;
+    Eterm* edefault;
     ErtsAlcType_t alloc_type;
 }ErtsEStack;
 
 #define DEF_ESTACK_SIZE (16)
 
-void erl_grow_estack(ErtsEStack*, Eterm* def_stack, Uint need);
+void erl_grow_estack(ErtsEStack*, Uint need);
 #define ESTK_CONCAT(a,b) a##b
 #define ESTK_DEF_STACK(s) ESTK_CONCAT(s,_default_estack)
 
@@ -391,22 +392,23 @@ void erl_grow_estack(ErtsEStack*, Eterm* def_stack, Uint need);
         ESTK_DEF_STACK(s),  /* start */ 		\
         ESTK_DEF_STACK(s),  /* sp */			\
         ESTK_DEF_STACK(s) + DEF_ESTACK_SIZE, /* end */	\
+        ESTK_DEF_STACK(s),  /* default */		\
         ERTS_ALC_T_ESTACK /* alloc_type */		\
     }
 
 #define ESTACK_CHANGE_ALLOCATOR(s,t)					\
 do {									\
-    if (s.start != ESTK_DEF_STACK(s)) {					\
+    if ((s).start != ESTK_DEF_STACK(s)) {				\
 	erl_exit(1, "Internal error - trying to change allocator "	\
 		 "type of active estack\n");				\
     }									\
-    s.alloc_type = (t);							\
+    (s).alloc_type = (t);						\
  } while (0)
 
 #define DESTROY_ESTACK(s)				\
 do {							\
-    if (s.start != ESTK_DEF_STACK(s)) {			\
-	erts_free(s.alloc_type, s.start); 		\
+    if ((s).start != ESTK_DEF_STACK(s)) {		\
+	erts_free((s).alloc_type, (s).start); 		\
     }							\
 } while(0)
 
@@ -417,16 +419,16 @@ do {							\
  */
 #define ESTACK_SAVE(s,dst)\
 do {\
-    if (s.start == ESTK_DEF_STACK(s)) {\
+    if ((s).start == ESTK_DEF_STACK(s)) {\
 	UWord _wsz = ESTACK_COUNT(s);\
-	(dst)->start = erts_alloc(s.alloc_type,\
+	(dst)->start = erts_alloc((s).alloc_type,\
 				  DEF_ESTACK_SIZE * sizeof(Eterm));\
-	memcpy((dst)->start, s.start,_wsz*sizeof(Eterm));\
+	memcpy((dst)->start, (s).start,_wsz*sizeof(Eterm));\
 	(dst)->sp = (dst)->start + _wsz;\
 	(dst)->end = (dst)->start + DEF_ESTACK_SIZE;\
-	(dst)->alloc_type = s.alloc_type;\
+	(dst)->alloc_type = (s).alloc_type;\
     } else\
-        *(dst) = s;\
+        *(dst) = (s);\
  } while (0)
 
 #define DESTROY_SAVED_ESTACK(estack)\
@@ -445,70 +447,70 @@ do {\
  */
 #define ESTACK_RESTORE(s, src)			\
 do {						\
-    ASSERT(s.start == ESTK_DEF_STACK(s));	\
-    s = *(src);  /* struct copy */		\
+    ASSERT((s).start == ESTK_DEF_STACK(s));	\
+    (s) = *(src);  /* struct copy */		\
     (src)->start = NULL;			\
-    ASSERT(s.sp >= s.start);			\
-    ASSERT(s.sp <= s.end);			\
+    ASSERT((s).sp >= (s).start);		\
+    ASSERT((s).sp <= (s).end);			\
 } while (0)
 
-#define ESTACK_IS_STATIC(s) (s.start == ESTK_DEF_STACK(s)))
+#define ESTACK_IS_STATIC(s) ((s).start == ESTK_DEF_STACK(s))
 
-#define ESTACK_PUSH(s, x)				\
-do {							\
-    if (s.sp == s.end) {				\
-	erl_grow_estack(&s, ESTK_DEF_STACK(s), 1); 	\
-    }							\
-    *s.sp++ = (x);					\
+#define ESTACK_PUSH(s, x)			\
+do {						\
+    if ((s).sp == (s).end) {			\
+	erl_grow_estack(&(s), 1); 		\
+    }						\
+    *(s).sp++ = (x);				\
 } while(0)
 
 #define ESTACK_PUSH2(s, x, y)			\
 do {						\
-    if (s.sp > s.end - 2) {			\
-	erl_grow_estack(&s, ESTK_DEF_STACK(s), 2); \
+    if ((s).sp > (s).end - 2) {			\
+	erl_grow_estack(&(s), 2);		\
     }						\
-    *s.sp++ = (x);				\
-    *s.sp++ = (y);				\
+    *(s).sp++ = (x);				\
+    *(s).sp++ = (y);				\
 } while(0)
 
 #define ESTACK_PUSH3(s, x, y, z)		\
 do {						\
-    if (s.sp > s.end - 3) {			\
-	erl_grow_estack(&s, ESTK_DEF_STACK(s), 3); \
+    if ((s).sp > (s).end - 3) {			\
+	erl_grow_estack(&s, 3); 		\
     }						\
-    *s.sp++ = (x);				\
-    *s.sp++ = (y);				\
-    *s.sp++ = (z);				\
+    *(s).sp++ = (x);				\
+    *(s).sp++ = (y);				\
+    *(s).sp++ = (z);				\
 } while(0)
 
 #define ESTACK_PUSH4(s, E1, E2, E3, E4)		\
 do {						\
-    if (s.sp > s.end - 4) {			\
-	erl_grow_estack(&s, ESTK_DEF_STACK(s)); \
+    if ((s).sp > (s).end - 4) {			\
+	erl_grow_estack(&s, 4);                 \
     }						\
-    *s.sp++ = (E1);				\
-    *s.sp++ = (E2);				\
-    *s.sp++ = (E3);				\
-    *s.sp++ = (E4);				\
+    *(s).sp++ = (E1);				\
+    *(s).sp++ = (E2);				\
+    *(s).sp++ = (E3);				\
+    *(s).sp++ = (E4);				\
 } while(0)
 
-#define ESTACK_RESERVE(s, push_cnt)                         \
-do {						            \
-    if (s.sp > s.end - (push_cnt)) {	                    \
-	erl_grow_estack(&s, ESTK_DEF_STACK(s), (push_cnt)); \
-    }						            \
+#define ESTACK_RESERVE(s, push_cnt)             \
+do {					        \
+    if ((s).sp > (s).end - (push_cnt)) {	\
+	erl_grow_estack(&(s), (push_cnt));	\
+    }					        \
 } while(0)
 
 /* Must be preceded by ESTACK_RESERVE */
 #define ESTACK_FAST_PUSH(s, x)				\
 do {							\
-    ASSERT(s.sp < s.end);                               \
+    ASSERT((s).sp < (s).end);                           \
     *s.sp++ = (x);					\
 } while(0)
 
-#define ESTACK_COUNT(s) (s.sp - s.start)
-#define ESTACK_ISEMPTY(s) (s.sp == s.start)
-#define ESTACK_POP(s) (*(--s.sp))
+#define ESTACK_COUNT(s) ((s).sp - (s).start)
+#define ESTACK_ISEMPTY(s) ((s).sp == (s).start)
+#define ESTACK_POP(s) (*(--(s).sp))
 
 
 /*

@@ -190,7 +190,7 @@ erts_set_hole_marker(Eterm* ptr, Uint sz)
  * Helper function for the ESTACK macros defined in global.h.
  */
 void
-erl_grow_estack(ErtsEStack* s, Eterm* default_estack, Uint need)
+erl_grow_estack(ErtsEStack* s, Uint need)
 {
     Uint old_size = (s->end - s->start);
     Uint new_size;
@@ -201,7 +201,7 @@ erl_grow_estack(ErtsEStack* s, Eterm* default_estack, Uint need)
     else
 	new_size = ((need / old_size) + 2) * old_size;
 
-    if (s->start != default_estack) {
+    if (s->start != s->edefault) {
 	s->start = erts_realloc(s->alloc_type, s->start,
 				new_size*sizeof(Eterm));
     } else {
