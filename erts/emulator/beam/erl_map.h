@@ -85,16 +85,25 @@ typedef struct map_s {
 #define MAP_HEADER_SIZE        (sizeof(map_t) / sizeof(Eterm))
 
 struct ErtsWStack_;
-Eterm erts_maps_put(Process *p, Eterm key, Eterm value, Eterm map);
-int   erts_maps_update(Process *p, Eterm key, Eterm value, Eterm map, Eterm *res);
-int   erts_maps_remove(Process *p, Eterm key, Eterm map, Eterm *res);
-int   erts_validate_and_sort_map(map_t* map);
-void  hashmap_iterator_init(struct ErtsWStack_* s, Eterm node);
+struct ErtsEStack_;
+
+Eterm  erts_maps_put(Process *p, Eterm key, Eterm value, Eterm map);
+int    erts_maps_update(Process *p, Eterm key, Eterm value, Eterm map, Eterm *res);
+int    erts_maps_remove(Process *p, Eterm key, Eterm map, Eterm *res);
+
+Eterm  erts_hashmap_insert(Process *p, Uint32 hx, Eterm key, Eterm value,
+			   Eterm node, int is_update);
+int    erts_hashmap_insert_down(Uint32 hx, Eterm key, Eterm node, Uint *sz,
+			        Uint *upsz, struct ErtsEStack_ *sp, int is_update);
+Eterm  erts_hashmap_insert_up(Eterm *hp, Eterm key, Eterm value,
+			      Uint *upsz, struct ErtsEStack_ *sp);
+
+int    erts_validate_and_sort_map(map_t* map);
+void   hashmap_iterator_init(struct ErtsWStack_* s, Eterm node);
 Eterm* hashmap_iterator_next(struct ErtsWStack_* s);
-int   hashmap_key_hash_cmp(Eterm* ap, Eterm* bp);
-Eterm erts_hashmap_from_array(Process *p, Eterm *leafs, Uint n);
-Eterm erts_hashmap_insert(Process *p, Uint32 hx, Eterm key, Eterm val, Eterm node, int is_update);
-const Eterm *erts_hashmap_get(Uint32 hx, Eterm key, Eterm map);
+int    hashmap_key_hash_cmp(Eterm* ap, Eterm* bp);
+Eterm  erts_hashmap_from_array(Process *p, Eterm *leafs, Uint n);
+const  Eterm *erts_hashmap_get(Uint32 hx, Eterm key, Eterm map);
 
 #if HALFWORD_HEAP
 const Eterm *

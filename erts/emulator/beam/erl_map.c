@@ -77,7 +77,7 @@ typedef struct {
     Eterm  val;
 } hxnode_t;
 
-static Eterm hashmap_insert(Process *p, Uint32 hx, Eterm key, Eterm value, Eterm node, int is_update);
+
 static Eterm map_merge(Process *p, Eterm nodeA, Eterm nodeB);
 static Eterm map_merge_mixed(Process *p, Eterm flat, Eterm tree, int swap_args);
 static Eterm hashmap_merge(Process *p, Eterm nodeA, Eterm nodeB);
@@ -1391,7 +1391,7 @@ found_key:
 
     ASSERT(is_hashmap(map));
     hx = hashmap_make_hash(key);
-    *res = hashmap_insert(p, hx, key, value, map, 1);
+    *res = erts_hashmap_insert(p, hx, key, value, map, 1);
     if (is_value(*res))
 	return 1;
 
@@ -1545,7 +1545,7 @@ Eterm erts_maps_put(Process *p, Eterm key, Eterm value, Eterm map) {
     ASSERT(is_hashmap(map));
 
     hx  = hashmap_make_hash(key);
-    res = hashmap_insert(p, hx, key, value, map, 0);
+    res = erts_hashmap_insert(p, hx, key, value, map, 0);
     ASSERT(is_hashmap(res));
 
     return res;
@@ -1730,16 +1730,34 @@ const Eterm *erts_hashmap_get(Uint32 hx, Eterm key, Eterm node) {
     return NULL;
 }
 
-static Eterm hashmap_insert(Process *p, Uint32 hx, Eterm key, Eterm value,
-			    Eterm node, int is_update) {
-    Eterm *hp = NULL, *nhp = NULL;
+Eterm erts_hashmap_insert(Process *p, Uint32 hx, Eterm key, Eterm value,
+			  Eterm map, int is_update) {
+    Uint size, upsz;
+    Eterm *hp, res = THE_NON_VALUE;
+    DECLARE_ESTACK(stack);
+    if (erts_hashmap_insert_down(hx, key, map, &size, &upsz, &stack, is_update)) {
+	hp  = HAlloc(p, size);
+	res = erts_hashmap_insert_up(hp, key, value, &upsz, &stack);
+    }
+
+    DESTROY_ESTACK(stack);
+    ERTS_VERIFY_UNUSED_TEMP_ALLOC(p);
+    ERTS_HOLE_CHECK(p);
+
+    return res;
+}
+
+
+int erts_hashmap_insert_down(Uint32 hx, Eterm key, Eterm node, Uint *sz,
+			     Uint *update_size, ErtsEStack *sp, int is_update) {
     Eterm *ptr;
-    Eterm hdr,res,ckey,fake;
+    Eterm hdr, ckey;
     Eterm th[2];
     Uint32 ix, cix, bp, hval, chx;
     Uint slot, lvl = 0, clvl;
-    Uint size = 0, n = 0, update_size = 1;
-    DECLARE_ESTACK(stack);
+    Uint size = 0, n = 0;
+
+    *update_size = 1;
 
     for (;;) {
 	switch(primary_tag(node)) {
@@ -1747,12 +1765,11 @@ static Eterm hashmap_insert(Process *p, Uint32 hx, Eterm key, Eterm value,
 		ptr  = list_val(node);
 		ckey = CAR(ptr);
 		if (EQ(ckey, key)) {
-		    update_size = 0;
+		    *update_size = 0;
 		    goto unroll;
 		}
 		if (is_update) {
-		    res = THE_NON_VALUE;
-		    goto bail_out;
+		    return 0;
 		}
 		goto insert_subnodes;
 	    case TAG_PRIMARY_BOXED:
@@ -1765,14 +1782,14 @@ static Eterm hashmap_insert(Process *p, Uint32 hx, Eterm key, Eterm value,
 			ix    = hashmap_index(hx);
 			hx    = hashmap_shift_hash(th,hx,lvl,key);
 			size += HAMT_NODE_ARRAY_SZ;
-			ESTACK_PUSH2(stack, ix, node);
+			ESTACK_PUSH2(*sp, ix, node);
 			node  = ptr[ix+1];
 			break;
 		    case HAMT_SUBTAG_HEAD_ARRAY:
 			ix    = hashmap_index(hx);
 			hx    = hashmap_shift_hash(th,hx,lvl,key);
 			size += HAMT_HEAD_ARRAY_SZ;
-			ESTACK_PUSH2(stack, ix, node);
+			ESTACK_PUSH2(*sp, ix, node);
 			node  = ptr[ix+2];
 			break;
 		    case HAMT_SUBTAG_NODE_BITMAP:
@@ -1782,8 +1799,8 @@ static Eterm hashmap_insert(Process *p, Uint32 hx, Eterm key, Eterm value,
 			slot = hashmap_bitcount(hval & (bp - 1));
 			n    = hashmap_bitcount(hval);
 
-			ESTACK_PUSH(stack, n);
-			ESTACK_PUSH3(stack, bp, slot, node);
+			ESTACK_PUSH(*sp, n);
+			ESTACK_PUSH3(*sp, bp, slot, node);
 
 			/* occupied */
 			if (bp & hval) {
@@ -1795,8 +1812,7 @@ static Eterm hashmap_insert(Process *p, Uint32 hx, Eterm key, Eterm value,
 			}
 			/* not occupied */
 			if (is_update) {
-			    res = THE_NON_VALUE;
-			    goto bail_out;
+			    return 0;
 			}
 			size += HAMT_NODE_BITMAP_SZ(n+1);
 			goto unroll;
@@ -1807,8 +1823,8 @@ static Eterm hashmap_insert(Process *p, Uint32 hx, Eterm key, Eterm value,
 			slot = hashmap_bitcount(hval & (bp - 1));
 			n    = hashmap_bitcount(hval);
 
-			ESTACK_PUSH(stack, n);
-			ESTACK_PUSH3(stack, bp, slot, node);
+			ESTACK_PUSH(*sp, n);
+			ESTACK_PUSH3(*sp, bp, slot, node);
 
 			/* occupied */
 			if (bp & hval) {
@@ -1820,8 +1836,7 @@ static Eterm hashmap_insert(Process *p, Uint32 hx, Eterm key, Eterm value,
 			}
 			/* not occupied */
 			if (is_update) {
-			    res = THE_NON_VALUE;
-			    goto bail_out;
+			    return 0;
 			}
 			size += HAMT_HEAD_BITMAP_SZ(n+1);
 			goto unroll;
@@ -1843,27 +1858,37 @@ insert_subnodes:
     cix   = hashmap_index(chx);
 
     while (cix == ix) {
-	ESTACK_PUSH(stack, 0);
-	ESTACK_PUSH3(stack, 1 << ix, 0, MAP_HEADER_HAMT_NODE_BITMAP(0));
+	ESTACK_PUSH(*sp, 0);
+	ESTACK_PUSH3(*sp, 1 << ix, 0, MAP_HEADER_HAMT_NODE_BITMAP(0));
 	size += HAMT_NODE_BITMAP_SZ(1);
 	hx    = hashmap_shift_hash(th,hx,lvl,key);
 	chx   = hashmap_shift_hash(th,chx,clvl,ckey);
 	ix    = hashmap_index(hx);
 	cix   = hashmap_index(chx);
     }
-    ESTACK_PUSH3(stack, cix, ix, node);
+    ESTACK_PUSH3(*sp, cix, ix, node);
 
 unroll:
-    size += 2;
-    hp  = HAlloc(p, size);
+    *sz = size + /* res cons */ 2;
+    return 1;
+}
+
+Eterm erts_hashmap_insert_up(Eterm *hp, Eterm key, Eterm value,
+			     Uint *update_size, ErtsEStack *sp) {
+    Eterm node, fake, *ptr, hdr;
+    Eterm res;
+    Eterm *nhp = NULL;
+    Uint32 ix, cix, bp, hval;
+    Uint slot, n;
+
     res = CONS(hp, key, value); hp += 2;
 
     do {
-	node = ESTACK_POP(stack);
+	node = ESTACK_POP(*sp);
 	switch(primary_tag(node)) {
 	    case TAG_PRIMARY_LIST:
-		ix   = (Uint32) ESTACK_POP(stack);
-		cix  = (Uint32) ESTACK_POP(stack);
+		ix  = (Uint32) ESTACK_POP(*sp);
+		cix = (Uint32) ESTACK_POP(*sp);
 
 		nhp   = hp;
 		*hp++ = MAP_HEADER_HAMT_NODE_BITMAP((1 << ix) | (1 << cix));
@@ -1887,7 +1912,7 @@ unroll:
 
 		switch(hdr & _HEADER_MAP_SUBTAG_MASK) {
 		    case HAMT_SUBTAG_NODE_ARRAY:
-			slot  = (Uint)   ESTACK_POP(stack);
+			slot  = (Uint) ESTACK_POP(*sp);
 			nhp   = hp;
 			n     = HAMT_NODE_ARRAY_SZ;
 			while(n--) { *hp++ = *ptr++; }
@@ -1895,19 +1920,19 @@ unroll:
 			res = make_hashmap(nhp);
 			break;
 		    case HAMT_SUBTAG_HEAD_ARRAY:
-			slot  = (Uint)   ESTACK_POP(stack);
+			slot  = (Uint) ESTACK_POP(*sp);
 			nhp   = hp;
 			n     = HAMT_HEAD_ARRAY_SZ - 2;
 			*hp++ = MAP_HEADER_HAMT_HEAD_ARRAY; ptr++;
-			*hp++ = (*ptr++) + update_size;
+			*hp++ = (*ptr++) + *update_size;
 			while(n--) { *hp++ = *ptr++; }
 			nhp[slot+2] = res;
 			res = make_hashmap(nhp);
 			break;
 		    case HAMT_SUBTAG_NODE_BITMAP:
-			slot  = (Uint)   ESTACK_POP(stack);
-			bp    = (Uint32) ESTACK_POP(stack);
-			n     = (Uint32) ESTACK_POP(stack);
+			slot  = (Uint)   ESTACK_POP(*sp);
+			bp    = (Uint32) ESTACK_POP(*sp);
+			n     = (Uint32) ESTACK_POP(*sp);
 			hval  = MAP_HEADER_VAL(hdr);
 			nhp   = hp;
 			*hp++ = MAP_HEADER_HAMT_NODE_BITMAP(hval | bp); ptr++;
@@ -1924,13 +1949,13 @@ unroll:
 			res = make_hashmap(nhp);
 			break;
 		    case HAMT_SUBTAG_HEAD_BITMAP:
-			slot  = (Uint)   ESTACK_POP(stack);
-			bp    = (Uint32) ESTACK_POP(stack);
-			n     = (Uint32) ESTACK_POP(stack);
+			slot  = (Uint)   ESTACK_POP(*sp);
+			bp    = (Uint32) ESTACK_POP(*sp);
+			n     = (Uint32) ESTACK_POP(*sp);
 			hval  = MAP_HEADER_VAL(hdr);
 			nhp   = hp;
 			*hp++ = MAP_HEADER_HAMT_HEAD_BITMAP(hval | bp); ptr++;
-			*hp++ = (*ptr++) + update_size;
+			*hp++ = (*ptr++) + *update_size;
 
 			n -= slot;
 			while(slot--) { *hp++ = *ptr++; }
@@ -1953,13 +1978,9 @@ unroll:
 		break;
 	}
 
-    } while(!ESTACK_ISEMPTY(stack));
+    } while(!ESTACK_ISEMPTY(*sp));
 
-bail_out:
-    DESTROY_ESTACK(stack);
-    ERTS_VERIFY_UNUSED_TEMP_ALLOC(p);
-    ERTS_HOLE_CHECK(p);
-    return res;
+   return res;
 }
 
 static Eterm hashmap_keys(Process* p, Eterm node) {
