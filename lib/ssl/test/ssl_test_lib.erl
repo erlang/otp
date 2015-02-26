@@ -1090,6 +1090,8 @@ cipher_restriction(Config0) ->
 
 check_sane_openssl_version(Version) ->
     case {Version, os:cmd("openssl version")} of
+	{_, "OpenSSL 1.0.2" ++ _} ->
+	    true;
 	{_, "OpenSSL 1.0.1" ++ _} ->
 	    true;
 	{'tlsv1.2', "OpenSSL 1.0" ++ _} ->

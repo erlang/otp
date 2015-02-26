@@ -95,6 +95,7 @@
 -record(hello_extensions, {
 	  renegotiation_info,
 	  hash_signs,          % supported combinations of hashes/signature algos
+          alpn,
 	  next_protocol_negotiation = undefined, % [binary()]
 	  srp,
 	  ec_point_formats,
@@ -299,6 +300,14 @@
 -record(hash_sign_algos, {
 	  hash_sign_algos
 	 }).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Application-Layer Protocol Negotiation  RFC 7301
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+-define(ALPN_EXT, 16).
+
+-record(alpn, {extension_data}).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Next Protocol Negotiation

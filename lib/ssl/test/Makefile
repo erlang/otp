@@ -36,6 +36,7 @@ VSN=$(GS_VSN)
 
 MODULES = \
 	ssl_test_lib \
+	ssl_alpn_handshake_SUITE \
 	ssl_basic_SUITE \
 	ssl_bench_SUITE \
 	ssl_cipher_SUITE \
