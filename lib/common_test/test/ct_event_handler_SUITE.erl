@@ -29,6 +29,7 @@
 -compile(export_all).
 
 -include_lib("common_test/include/ct.hrl").
+-include_lib("common_test/src/ct_util.hrl").
 
 %-include_lib("common_test/include/ct_event.hrl").
 
@@ -59,7 +60,7 @@ end_per_testcase(TestCase, Config) ->
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    [start_stop, results].
+    [start_stop, results, event_mgrs].
 
 groups() -> 
     [].
@@ -174,6 +175,11 @@ results(Config) when is_list(Config) ->
 	 {eh_A,stop_logging,[]}],
 
     ok = ct_test_support:verify_events(TestEvents++TestEvents, Events, Config).
+
+
+event_mgrs(_) ->
+    ?CT_EVMGR_REF = ct:get_event_mgr_ref(),
+    ?CT_MEVMGR_REF = ct_master:get_event_mgr_ref().
 
 
 %%%-----------------------------------------------------------------

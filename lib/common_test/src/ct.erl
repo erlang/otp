@@ -52,6 +52,7 @@
 -module(ct).
 
 -include("ct.hrl").
+-include("ct_util.hrl").
 
 %% Command line user interface for running tests
 -export([install/1, run/1, run/2, run/3,
@@ -77,6 +78,7 @@
 
 %% Other interface functions
 -export([get_status/0, abort_current_testcase/1,
+	 get_event_mgr_ref/0,
 	 encrypt_config_file/2, encrypt_config_file/3,
 	 decrypt_config_file/2, decrypt_config_file/3]).
 
@@ -1003,6 +1005,18 @@ get_testdata(Key) ->
 %%%      in the test case log.</p>
 abort_current_testcase(Reason) ->
     test_server_ctrl:abort_current_testcase(Reason).
+
+%%%-----------------------------------------------------------------
+%%% @spec get_event_mgr_ref() -> EvMgrRef
+%%%       EvMgrRef = atom()
+%%%
+%%% @doc <p>Call this function in order to get a reference to the
+%%%         CT event manager. The reference can be used to e.g. add
+%%%         a user specific event handler while tests are running.
+%%%         Example:
+%%%         gen_event:add_handler(ct:get_event_mgr_ref(), my_ev_h, [])</p>
+get_event_mgr_ref() ->
+    ?CT_EVMGR_REF.
 
 %%%-----------------------------------------------------------------
 %%% @spec encrypt_config_file(SrcFileName, EncryptFileName) -> 
