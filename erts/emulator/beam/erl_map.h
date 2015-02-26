@@ -92,8 +92,9 @@ int   erts_validate_and_sort_map(map_t* map);
 void  hashmap_iterator_init(struct ErtsWStack_* s, Eterm node);
 Eterm* hashmap_iterator_next(struct ErtsWStack_* s);
 int   hashmap_key_hash_cmp(Eterm* ap, Eterm* bp);
-Eterm erts_hashmap_get(Eterm key, Eterm map);
 Eterm erts_hashmap_from_array(Process *p, Eterm *leafs, Uint n);
+Eterm erts_hashmap_insert(Process *p, Uint32 hx, Eterm key, Eterm val, Eterm node, int is_update);
+const Eterm *erts_hashmap_get(Uint32 hx, Eterm key, Eterm map);
 
 #if HALFWORD_HEAP
 const Eterm *

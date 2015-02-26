@@ -77,7 +77,6 @@ typedef struct {
     Eterm  val;
 } hxnode_t;
 
-static const Eterm *hashmap_get(Uint32 hx, Eterm key, Eterm node);
 static Eterm hashmap_insert(Process *p, Uint32 hx, Eterm key, Eterm value, Eterm node, int is_update);
 static Eterm map_merge(Process *p, Eterm nodeA, Eterm nodeB);
 static Eterm map_merge_mixed(Process *p, Eterm flat, Eterm tree, int swap_args);
@@ -199,7 +198,7 @@ erts_maps_get(Eterm key, Eterm map)
     ASSERT(is_hashmap(map));
     hx = hashmap_make_hash(key);
 
-    return hashmap_get(hx, key, map);
+    return erts_hashmap_get(hx, key, map);
 }
 
 BIF_RETTYPE maps_find_2(BIF_ALIST_2) {
@@ -1660,7 +1659,7 @@ Eterm* hashmap_iterator_next(ErtsWStack* s) {
     }
 }
 
-static const Eterm *hashmap_get(Uint32 hx, Eterm key, Eterm node) {
+const Eterm *erts_hashmap_get(Uint32 hx, Eterm key, Eterm node) {
     Eterm *ptr, hdr;
     Eterm th[2];
     Uint ix,slot, lvl = 0;

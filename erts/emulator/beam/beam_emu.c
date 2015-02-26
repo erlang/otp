@@ -2460,12 +2460,8 @@ do {								\
 
  OpCase(i_get_map_elements_fsI): {
     Eterm map;
-    map_t *mp;
-    Eterm field;
-    Eterm *ks;
-    Eterm *vs;
     BeamInstr *fs;
-    Uint sz,n;
+    Uint sz, n;
 
     GetArg1(1, map);
 
@@ -2473,36 +2469,56 @@ do {								\
      * i.e. that it follows a test is_map if needed.
      */
 
-    mp = (map_t *)map_val(map);
-    sz = map_get_size(mp);
-
-    if (sz == 0) {
-	SET_I((BeamInstr *) Arg(0));
-	goto get_map_elements_fail;
-    }
-
     n  = (Uint)Arg(2) / 2;
     fs = &Arg(3); /* pattern fields and target registers */
-    ks = map_get_keys(mp);
-    vs = map_get_values(mp);
 
-    while(sz) {
-	field = (Eterm)*fs;
-	if (EQ(field,*ks)) {
-	    PUT_TERM_REG(*vs, fs[1]);
-	    n--;
-	    fs += 2;
-	    /* no more values to fetch, we are done */
-	    if (n == 0) break;
+    if (is_map(map)) {
+	map_t *mp;
+	Eterm *ks;
+	Eterm *vs;
+
+	mp = (map_t *)map_val(map);
+	sz = map_get_size(mp);
+
+	if (sz == 0) {
+	    SET_I((BeamInstr *) Arg(0));
+	    goto get_map_elements_fail;
 	}
-	ks++; sz--;
-	vs++;
+
+	ks = map_get_keys(mp);
+	vs = map_get_values(mp);
+
+	while(sz) {
+	    if (EQ((Eterm)*fs,*ks)) {
+		PUT_TERM_REG(*vs, fs[1]);
+		n--;
+		fs += 2;
+		/* no more values to fetch, we are done */
+		if (n == 0) break;
+	    }
+	    ks++; sz--;
+	    vs++;
+	}
+
+	if (n) {
+	    SET_I((BeamInstr *) Arg(0));
+	    goto get_map_elements_fail;
+	}
+    } else {
+	const Eterm *v;
+	Uint32 hx;
+	ASSERT(is_hashmap(map));
+	while(n--) {
+	    hx = hashmap_make_hash((Eterm)*fs);
+	    if ((v = erts_hashmap_get(hx,(Eterm)*fs, map)) == NULL) {
+		SET_I((BeamInstr *) Arg(0));
+		goto get_map_elements_fail;
+	    }
+	    PUT_TERM_REG(*v, fs[1]);
+	    fs += 2;
+	}
     }
 
-    if (n) {
-	SET_I((BeamInstr *) Arg(0));
-	goto get_map_elements_fail;
-    }
 
     I += 4 + Arg(2);
 get_map_elements_fail:
@@ -6444,55 +6460,69 @@ new_fun(Process* p, Eterm* reg, ErlFunEntry* fe, int num_free)
 
 static int has_not_map_field(Eterm map, Eterm key)
 {
-    map_t* mp;
-    Eterm* keys;
-    Uint i;
-    Uint n;
+    Uint32 hx;
+    if (is_map(map)) {
+	map_t* mp;
+	Eterm* keys;
+	Uint i;
+	Uint n;
 
-    mp   = (map_t *)map_val(map);
-    keys = map_get_keys(mp);
-    n    = map_get_size(mp);
-    if (is_immed(key)) {
-	for (i = 0; i < n; i++) {
-	    if (keys[i] == key) {
-		return 0;
+	mp   = (map_t *)map_val(map);
+	keys = map_get_keys(mp);
+	n    = map_get_size(mp);
+	if (is_immed(key)) {
+	    for (i = 0; i < n; i++) {
+		if (keys[i] == key) {
+		    return 0;
+		}
+	    }
+	} else {
+	    for (i = 0; i <  n; i++) {
+		if (EQ(keys[i], key)) {
+		    return 0;
+		}
 	    }
 	}
-    } else {
-	for (i = 0; i <  n; i++) {
-	    if (EQ(keys[i], key)) {
-		return 0;
-	    }
-	}
+	return 1;
     }
-    return 1;
+    ASSERT(is_hashmap(map));
+    hx = hashmap_make_hash(key);
+    return erts_hashmap_get(hx,key,map) ? 0 : 1;
 }
 
 static Eterm get_map_element(Eterm map, Eterm key)
 {
-    map_t *mp;
-    Eterm* ks, *vs;
-    Uint i;
-    Uint n;
+    Uint32 hx;
+    const Eterm *vs;
+    if (is_map(map)) {
+	map_t *mp;
+	Eterm *ks;
+	Uint i;
+	Uint n;
 
-    mp = (map_t *)map_val(map);
-    ks = map_get_keys(mp);
-    vs = map_get_values(mp);
-    n  = map_get_size(mp);
-    if (is_immed(key)) {
-	for (i = 0; i < n; i++) {
-	    if (ks[i] == key) {
-		return vs[i];
+	mp = (map_t *)map_val(map);
+	ks = map_get_keys(mp);
+	vs = map_get_values(mp);
+	n  = map_get_size(mp);
+	if (is_immed(key)) {
+	    for (i = 0; i < n; i++) {
+		if (ks[i] == key) {
+		    return vs[i];
+		}
+	    }
+	} else {
+	    for (i = 0; i < n; i++) {
+		if (EQ(ks[i], key)) {
+		    return vs[i];
+		}
 	    }
 	}
-    } else {
-	for (i = 0; i < n; i++) {
-	    if (EQ(ks[i], key)) {
-		return vs[i];
-	    }
-	}
+	return THE_NON_VALUE;
     }
-    return THE_NON_VALUE;
+    ASSERT(is_hashmap(map));
+    hx = hashmap_make_hash(key);
+    vs = erts_hashmap_get(hx,key,map);
+    return vs ? *vs : THE_NON_VALUE;
 }
 
 #define GET_TERM(term, dest)					\
