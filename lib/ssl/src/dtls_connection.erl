@@ -227,9 +227,9 @@ hello(Hello,
     case dtls_handshake:hello(Hello, SslOptions, ConnectionStates0, Renegotiation) of
 	#alert{} = Alert ->
 	    handle_own_alert(Alert, ReqVersion, hello, State);
-	{Version, NewId, ConnectionStates, NextProtocol} ->
+	{Version, NewId, ConnectionStates, ProtoExt, Protocol} ->
 	    ssl_connection:handle_session(Hello, 
-					  Version, NewId, ConnectionStates, NextProtocol, State)
+					  Version, NewId, ConnectionStates, ProtoExt, Protocol, State)
     end;
 
 hello(Msg, State) ->

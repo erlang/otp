@@ -246,8 +246,10 @@ handle_client_hello_extensions(Version, Type, Random, CipherSuites,
     try ssl_handshake:handle_client_hello_extensions(tls_record, Random, CipherSuites,
 						     HelloExt, Version, SslOpts,
 						     Session0, ConnectionStates0, Renegotiation) of
-	{Session, ConnectionStates, ServerHelloExt} ->
-	    {Version, {Type, Session}, ConnectionStates, ServerHelloExt}
+	#alert{} = Alert ->
+	    Alert;
+	{Session, ConnectionStates, Protocol, ServerHelloExt} ->
+	    {Version, {Type, Session}, ConnectionStates, Protocol, ServerHelloExt}
     catch throw:Alert ->
 	    Alert
     end.
@@ -260,7 +262,7 @@ handle_server_hello_extensions(Version, SessionId, Random, CipherSuite,
 						      SslOpt, ConnectionStates0, Renegotiation) of
 	#alert{} = Alert ->
 	    Alert;
-	{ConnectionStates, Protocol} ->
-	    {Version, SessionId, ConnectionStates, Protocol}
+	{ConnectionStates, ProtoExt, Protocol} ->
+	    {Version, SessionId, ConnectionStates, ProtoExt, Protocol}
     end.
 

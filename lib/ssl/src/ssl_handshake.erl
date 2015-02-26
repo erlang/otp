@@ -136,6 +136,7 @@ client_hello_extensions(Host, Version, CipherSuites, SslOpts, ConnectionStates, 
        hash_signs = advertised_hash_signs(Version),
        ec_point_formats = EcPointFormats,
        elliptic_curves = EllipticCurves,
+       alpn = encode_alpn(SslOpts#ssl_options.alpn_advertised_protocols, Renegotiation),
        next_protocol_negotiation =
 	   encode_client_protocol_negotiation(SslOpts#ssl_options.next_protocol_selector,
 					      Renegotiation),
@@ -789,6 +790,11 @@ encode_hello_extensions([], Acc) ->
     Size = byte_size(Acc),
     <<?UINT16(Size), Acc/binary>>;
 
+encode_hello_extensions([#alpn{extension_data = ExtensionData} | Rest], Acc) ->
+	Len = byte_size(ExtensionData),
+    ExtLen = Len + 2,
+	encode_hello_extensions(Rest, <<?UINT16(?ALPN_EXT), ?UINT16(ExtLen), ?UINT16(Len),
+					ExtensionData/binary, Acc/binary>>);
 encode_hello_extensions([#next_protocol_negotiation{extension_data = ExtensionData} | Rest], Acc) ->
     Len = byte_size(ExtensionData),
     encode_hello_extensions(Rest, <<?UINT16(?NEXTPROTONEG_EXT), ?UINT16(Len),
@@ -886,6 +892,25 @@ decode_client_key(ClientKey, Type, Version) ->
 %%--------------------------------------------------------------------
 decode_server_key(ServerKey, Type, Version) ->
     dec_server_key(ServerKey, key_exchange_alg(Type), Version).
+
+%%
+%% Description: Encode and decode functions for ALPN extension data.
+%%--------------------------------------------------------------------
+
+%% While the RFC opens the door to allow ALPN during renegotiation, in practice
+%% this does not work and it is recommended to ignore any ALPN extension during
+%% renegotiation, as done here.
+encode_alpn(_, true) ->
+    undefined;
+encode_alpn(undefined, _) ->
+    undefined;
+encode_alpn(Protocols, _) ->
+    #alpn{extension_data = lists:foldl(fun encode_protocol/2, <<>>, Protocols)}.
+
+decode_alpn(undefined) ->
+    undefined;
+decode_alpn(#alpn{extension_data=Data}) ->
+    decode_protocols(Data, []).
 
 encode_client_protocol_negotiation(undefined, _) ->
     undefined;
@@ -1149,8 +1174,10 @@ handle_client_hello_extensions(RecordCB, Random, ClientCipherSuites,
 			       #hello_extensions{renegotiation_info = Info,
 						 srp = SRP,
 						 ec_point_formats = ECCFormat,
+                         alpn = ALPN,
 						 next_protocol_negotiation = NextProtocolNegotiation}, Version,
-			       #ssl_options{secure_renegotiate = SecureRenegotation} = Opts,
+			       #ssl_options{secure_renegotiate = SecureRenegotation,
+                                            alpn_preferred_protocols = ALPNPreferredProtocols} = Opts,
 			       #session{cipher_suite = NegotiatedCipherSuite,
 					compression_method = Compression} = Session0,
 			       ConnectionStates0, Renegotiation) ->
@@ -1159,19 +1186,34 @@ handle_client_hello_extensions(RecordCB, Random, ClientCipherSuites,
 						      Random, NegotiatedCipherSuite, 
 						      ClientCipherSuites, Compression,
 						      ConnectionStates0, Renegotiation, SecureRenegotation),
-    ProtocolsToAdvertise = handle_next_protocol_extension(NextProtocolNegotiation, Renegotiation, Opts),
-   
+
     ServerHelloExtensions =  #hello_extensions{
 				renegotiation_info = renegotiation_info(RecordCB, server,
 									ConnectionStates, Renegotiation),
-				ec_point_formats = server_ecc_extension(Version, ECCFormat),
-				next_protocol_negotiation =
-				    encode_protocols_advertised_on_server(ProtocolsToAdvertise)
+				ec_point_formats = server_ecc_extension(Version, ECCFormat)
 			       },
-    {Session, ConnectionStates, ServerHelloExtensions}.
+
+    %% If we receive an ALPN extension and have ALPN configured for this connection,
+    %% we handle it. Otherwise we check for the NPN extension.
+    if
+        ALPN =/= undefined, ALPNPreferredProtocols =/= undefined ->
+			case handle_alpn_extension(ALPNPreferredProtocols, decode_alpn(ALPN)) of
+                #alert{} = Alert ->
+                    Alert;
+                Protocol ->
+                    {Session, ConnectionStates, Protocol,
+                        ServerHelloExtensions#hello_extensions{alpn=encode_alpn([Protocol], Renegotiation)}}
+            end;
+        true ->
+            ProtocolsToAdvertise = handle_next_protocol_extension(NextProtocolNegotiation, Renegotiation, Opts),
+            {Session, ConnectionStates, undefined,
+				ServerHelloExtensions#hello_extensions{next_protocol_negotiation=
+                	encode_protocols_advertised_on_server(ProtocolsToAdvertise)}}
+    end.
 
 handle_server_hello_extensions(RecordCB, Random, CipherSuite, Compression,
 			       #hello_extensions{renegotiation_info = Info,
+                                                 alpn = ALPN,
 						 next_protocol_negotiation = NextProtocolNegotiation}, Version,
 			       #ssl_options{secure_renegotiate = SecureRenegotation,
 					    next_protocol_selector = NextProtoSelector},
@@ -1180,11 +1222,23 @@ handle_server_hello_extensions(RecordCB, Random, CipherSuite, Compression,
 						      CipherSuite, undefined,
 						      Compression, ConnectionStates0,
 						      Renegotiation, SecureRenegotation),
-    case handle_next_protocol(NextProtocolNegotiation, NextProtoSelector, Renegotiation) of
-	#alert{} = Alert ->
-	    Alert;
-	Protocol ->
-	    {ConnectionStates, Protocol}
+
+    %% If we receive an ALPN extension then this is the protocol selected,
+    %% otherwise handle the NPN extension.
+    case decode_alpn(ALPN) of
+        %% ServerHello contains exactly one protocol: the one selected.
+        %% We also ignore the ALPN extension during renegotiation (see encode_alpn/2).
+        [Protocol] when not Renegotiation ->
+            {ConnectionStates, alpn, Protocol};
+        undefined ->
+            case handle_next_protocol(NextProtocolNegotiation, NextProtoSelector, Renegotiation) of
+                #alert{} = Alert ->
+                    Alert;
+                Protocol ->
+                    {ConnectionStates, npn, Protocol}
+            end;
+        _ -> %% {error, _Reason} or a list of 0/2+ protocols.
+            ?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE)
     end.
 
 select_version(RecordCB, ClientVersion, Versions) ->
@@ -1292,10 +1346,11 @@ hello_extensions_list(#hello_extensions{renegotiation_info = RenegotiationInfo,
 					hash_signs = HashSigns,
 					ec_point_formats = EcPointFormats,
 					elliptic_curves = EllipticCurves,
+                                        alpn = ALPN,
 					next_protocol_negotiation = NextProtocolNegotiation,
 					sni = Sni}) ->
     [Ext || Ext <- [RenegotiationInfo, SRP, HashSigns,
-		    EcPointFormats, EllipticCurves, NextProtocolNegotiation, Sni], Ext =/= undefined].
+		    EcPointFormats, EllipticCurves, ALPN, NextProtocolNegotiation, Sni], Ext =/= undefined].
 
 srp_user(#ssl_options{srp_identity = {UserName, _}}) ->
     #srp{username = UserName};
@@ -1680,6 +1735,10 @@ dec_server_key_signature(_, _, _) ->
 
 dec_hello_extensions(<<>>, Acc) ->
     Acc;
+dec_hello_extensions(<<?UINT16(?ALPN_EXT), ?UINT16(ExtLen), ?UINT16(Len), ExtensionData:Len/binary, Rest/binary>>, Acc)
+        when Len + 2 =:= ExtLen ->
+    ALPN = #alpn{extension_data = ExtensionData},
+    dec_hello_extensions(Rest, Acc#hello_extensions{alpn = ALPN});
 dec_hello_extensions(<<?UINT16(?NEXTPROTONEG_EXT), ?UINT16(Len), ExtensionData:Len/binary, Rest/binary>>, Acc) ->
     NextP = #next_protocol_negotiation{extension_data = ExtensionData},
     dec_hello_extensions(Rest, Acc#hello_extensions{next_protocol_negotiation = NextP});
@@ -1760,18 +1819,19 @@ dec_sni(<<?BYTE(_), ?UINT16(Len), _:Len, Rest/binary>>) -> dec_sni(Rest);
 dec_sni(_) -> undefined.
 
 decode_next_protocols({next_protocol_negotiation, Protocols}) ->
-    decode_next_protocols(Protocols, []).
-decode_next_protocols(<<>>, Acc) ->
+    decode_protocols(Protocols, []).
+
+decode_protocols(<<>>, Acc) ->
     lists:reverse(Acc);
-decode_next_protocols(<<?BYTE(Len), Protocol:Len/binary, Rest/binary>>, Acc) ->
+decode_protocols(<<?BYTE(Len), Protocol:Len/binary, Rest/binary>>, Acc) ->
     case Len of
         0 ->
-            {error, invalid_next_protocols};
+            {error, invalid_protocols};
         _ ->
-            decode_next_protocols(Rest, [Protocol|Acc])
+            decode_protocols(Rest, [Protocol|Acc])
     end;
-decode_next_protocols(_Bytes, _Acc) ->
-    {error, invalid_next_protocols}.
+decode_protocols(_Bytes, _Acc) ->
+    {error, invalid_protocols}.
 
 %% encode/decode stream of certificate data to/from list of certificate data
 certs_to_list(ASN1Certs) ->
@@ -1824,6 +1884,17 @@ key_exchange_alg(_) ->
     ?NULL.
 
 %%-------------Extension handling --------------------------------
+
+%% Receive protocols, choose one from the list, return it.
+handle_alpn_extension(_, {error, _Reason}) ->
+    ?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE);
+handle_alpn_extension([], _) ->
+	?ALERT_REC(?FATAL, ?NO_APPLICATION_PROTOCOL);
+handle_alpn_extension([ServerProtocol|Tail], ClientProtocols) ->
+	case lists:member(ServerProtocol, ClientProtocols) of
+		true -> ServerProtocol;
+		false -> handle_alpn_extension(Tail, ClientProtocols)
+	end.
 
 handle_next_protocol(undefined,
 		     _NextProtocolSelector, _Renegotiating) ->

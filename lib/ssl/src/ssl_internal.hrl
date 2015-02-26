@@ -114,6 +114,8 @@
 	  hibernate_after      :: boolean(),
 	  %% This option should only be set to true by inet_tls_dist
 	  erl_dist = false     :: boolean(),
+          alpn_advertised_protocols = undefined :: [binary()],
+          alpn_preferred_protocols = undefined :: [binary()],
 	  next_protocols_advertised = undefined, %% [binary()],
 	  next_protocol_selector = undefined,  %% fun([binary()]) -> binary())
 	  log_alert             :: boolean(),
