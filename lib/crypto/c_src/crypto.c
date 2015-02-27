@@ -1688,14 +1688,15 @@ static ERL_NIF_TERM aes_cfb_8_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM
     int new_ivlen = 0;
     ERL_NIF_TERM ret;
 
-    if (!enif_inspect_iolist_as_binary(env, argv[0], &key) || key.size != 16
+    if (!enif_inspect_iolist_as_binary(env, argv[0], &key)
+	|| !(key.size == 16 || key.size == 24 || key.size == 32)
 	|| !enif_inspect_binary(env, argv[1], &ivec) || ivec.size != 16
 	|| !enif_inspect_iolist_as_binary(env, argv[2], &text)) {
 	return enif_make_badarg(env);
     }
 
     memcpy(ivec_clone, ivec.data, 16);
-    AES_set_encrypt_key(key.data, 128, &aes_key);
+    AES_set_encrypt_key(key.data, key.size * 8, &aes_key);
     AES_cfb8_encrypt((unsigned char *) text.data,
 		       enif_make_new_binary(env, text.size, &ret), 
 		       text.size, &aes_key, ivec_clone, &new_ivlen,
@@ -1714,14 +1715,15 @@ static ERL_NIF_TERM aes_cfb_128_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TE
 
     CHECK_OSE_CRYPTO();
 
-    if (!enif_inspect_iolist_as_binary(env, argv[0], &key) || key.size != 16
+    if (!enif_inspect_iolist_as_binary(env, argv[0], &key)
+	|| !(key.size == 16 || key.size == 24 || key.size == 32)
 	|| !enif_inspect_binary(env, argv[1], &ivec) || ivec.size != 16
 	|| !enif_inspect_iolist_as_binary(env, argv[2], &text)) {
 	return enif_make_badarg(env);
     }
 
     memcpy(ivec_clone, ivec.data, 16);
-    AES_set_encrypt_key(key.data, 128, &aes_key);
+    AES_set_encrypt_key(key.data, key.size * 8, &aes_key);
     AES_cfb128_encrypt((unsigned char *) text.data,
 		       enif_make_new_binary(env, text.size, &ret), 
 		       text.size, &aes_key, ivec_clone, &new_ivlen,
