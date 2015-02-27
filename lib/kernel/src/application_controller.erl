@@ -1615,7 +1615,6 @@ conv([Key, Val | T]) ->
     [{make_term(Key), make_term(Val)} | conv(T)];
 conv(_) -> [].
 
-%%% Fix some day: eliminate the duplicated code here
 make_term(Str) -> 
     case erl_scan:string(Str) of
 	{ok, Tokens, _} ->		  
@@ -1623,15 +1622,16 @@ make_term(Str) ->
 		{ok, Term} ->
 		    Term;
 		{error, {_,M,Reason}} ->
-		    error_logger:format("application_controller: ~ts: ~ts~n",
-					[M:format_error(Reason), Str]),
-		    throw({error, {bad_environment_value, Str}})
+                    handle_make_term_error(M, Reason, Str)
 	    end;
 	{error, {_,M,Reason}, _} ->
-	    error_logger:format("application_controller: ~ts: ~ts~n",
-				[M:format_error(Reason), Str]),
-	    throw({error, {bad_environment_value, Str}})
+            handle_make_term_error(M, Reason, Str)
     end.
+
+handle_make_term_error(Mod, Reason, Str) ->
+    error_logger:format("application_controller: ~ts: ~ts~n",
+        [Mod:format_error(Reason), Str]),
+    throw({error, {bad_environment_value, Str}}).
 
 get_env_i(Name, #state{conf_data = ConfData}) when is_list(ConfData) ->
     case lists:keyfind(Name, 1, ConfData) of
