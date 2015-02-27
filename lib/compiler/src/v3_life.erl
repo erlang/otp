@@ -270,7 +270,7 @@ match(#k_select{anno=A,var=V,types=Kts}, Ls0, I, Ctxt, Vdb0) ->
 	   end,
     Vdb1 = use_vars(union(A#k.us, Ls1), I, Vdb0),
     Ts = [type_clause(Tc, Ls1, I+1, Ctxt, Vdb1) || Tc <- Kts],
-    #l{ke={select,literal2(V, Ctxt),Ts},i=I,vdb=Vdb1,a=Anno};
+    #l{ke={select,literal(V, Ctxt),Ts},i=I,vdb=Vdb1,a=Anno};
 match(#k_guard{anno=A,clauses=Kcs}, Ls, I, Ctxt, Vdb0) ->
     Vdb1 = use_vars(union(A#k.us, Ls), I, Vdb0),
     Cs = [guard_clause(G, Ls, I+1, Ctxt, Vdb1) || G <- Kcs],
@@ -297,7 +297,7 @@ val_clause(#k_val_clause{anno=A,val=V,body=Kb}, Ls0, I, Ctxt0, Vdb0) ->
 	       _ -> Ctxt0
 	   end,
     B = match(Kb, Ls1, I+1, Ctxt, Vdb1),
-    #l{ke={val_clause,literal2(V, Ctxt),B},i=I,vdb=use_vars(Bus, I+1, Vdb1),a=A#k.a}.
+    #l{ke={val_clause,literal(V, Ctxt),B},i=I,vdb=use_vars(Bus, I+1, Vdb1),a=A#k.a}.
 
 guard_clause(#k_guard_clause{anno=A,guard=Kg,body=Kb}, Ls, I, Ctxt, Vdb0) ->
     Vdb1 = use_vars(union(A#k.us, Ls), I+2, Vdb0),
@@ -350,6 +350,7 @@ atomic_list(Ks) -> [atomic(K) || K <- Ks].
 %% literal_list([Klit]) -> [Lit].
 
 literal(#k_var{name=N}, _) -> {var,N};
+literal(#k_literal{val=I}, _) -> {literal,I};
 literal(#k_int{val=I}, _) -> {integer,I};
 literal(#k_float{val=F}, _) -> {float,F};
 literal(#k_atom{val=N}, _) -> {atom,N};
@@ -358,57 +359,28 @@ literal(#k_nil{}, _) -> nil;
 literal(#k_cons{hd=H,tl=T}, Ctxt) ->
     {cons,[literal(H, Ctxt),literal(T, Ctxt)]};
 literal(#k_binary{segs=V}, Ctxt) ->
-	    {binary,literal(V, Ctxt)};
+    {binary,literal(V, Ctxt)};
+literal(#k_bin_seg{size=S,unit=U,type=T,flags=Fs,seg=Seg,next=[]}, Ctxt) ->
+    %% Only occurs in patterns.
+    {bin_seg,Ctxt,literal(S, Ctxt),U,T,Fs,[literal(Seg, Ctxt)]};
 literal(#k_bin_seg{size=S,unit=U,type=T,flags=Fs,seg=Seg,next=N}, Ctxt) ->
     {bin_seg,Ctxt,literal(S, Ctxt),U,T,Fs,
      [literal(Seg, Ctxt),literal(N, Ctxt)]};
+literal(#k_bin_int{size=S,unit=U,flags=Fs,val=Int,next=N}, Ctxt) ->
+    %% Only occurs in patterns.
+    {bin_int,Ctxt,literal(S, Ctxt),U,Fs,Int,
+     [literal(N, Ctxt)]};
 literal(#k_bin_end{}, Ctxt) ->
     {bin_end,Ctxt};
 literal(#k_tuple{es=Es}, Ctxt) ->
     {tuple,literal_list(Es, Ctxt)};
-literal(#k_map{op=Op,var=Var,es=Es}, Ctxt) ->
-    {map,Op,literal(Var, Ctxt),literal_list(Es, Ctxt)};
+literal(#k_map{op=Op,var=Var,es=Es0}, Ctxt) ->
+    {map,Op,literal(Var, Ctxt),literal_list(Es0, Ctxt)};
 literal(#k_map_pair{key=K,val=V}, Ctxt) ->
-    {map_pair,literal(K, Ctxt),literal(V, Ctxt)};
-literal(#k_literal{val=V}, _Ctxt) ->
-    {literal,V}.
+    {map_pair,literal(K, Ctxt),literal(V, Ctxt)}.
 
 literal_list(Ks, Ctxt) ->
     [literal(K, Ctxt) || K <- Ks].
-
-literal2(#k_var{name=N}, _) -> {var,N};
-literal2(#k_literal{val=I}, _) -> {literal,I};
-literal2(#k_int{val=I}, _) -> {integer,I};
-literal2(#k_float{val=F}, _) -> {float,F};
-literal2(#k_atom{val=N}, _) -> {atom,N};
-%%literal2(#k_char{val=C}, _) -> {char,C};
-literal2(#k_nil{}, _) -> nil;
-literal2(#k_cons{hd=H,tl=T}, Ctxt) ->
-    {cons,[literal2(H, Ctxt),literal2(T, Ctxt)]};
-literal2(#k_binary{segs=V}, Ctxt) ->
-    {binary,literal2(V, Ctxt)};
-literal2(#k_bin_seg{size=S,unit=U,type=T,flags=Fs,seg=Seg,next=[]}, Ctxt) ->
-    {bin_seg,Ctxt,literal2(S, Ctxt),U,T,Fs,[literal2(Seg, Ctxt)]};
-literal2(#k_bin_seg{size=S,unit=U,type=T,flags=Fs,seg=Seg,next=N}, Ctxt) ->
-    {bin_seg,Ctxt,literal2(S, Ctxt),U,T,Fs,
-     [literal2(Seg, Ctxt),literal2(N, Ctxt)]};
-literal2(#k_bin_int{size=S,unit=U,flags=Fs,val=Int,next=N}, Ctxt) ->
-    {bin_int,Ctxt,literal2(S, Ctxt),U,Fs,Int,
-     [literal2(N, Ctxt)]};
-literal2(#k_bin_end{}, Ctxt) ->
-    {bin_end,Ctxt};
-literal2(#k_tuple{es=Es}, Ctxt) ->
-    {tuple,literal_list2(Es, Ctxt)};
-literal2(#k_map{op=Op,es=Es}, Ctxt) ->
-    {map,Op,literal_list2(Es, Ctxt)};
-literal2(#k_map_pair{key=K,val=V}, Ctxt) ->
-    {map_pair,literal2(K, Ctxt),literal2(V, Ctxt)}.
-
-literal_list2(Ks, Ctxt) ->
-    [literal2(K, Ctxt) || K <- Ks].
-
-%% literal_bin(#k_bin_seg{size=S,unit=U,type=T,flags=Fs,seg=Seg,next=N}) ->
-%%     {bin_seg,literal(S),U,T,Fs,[literal(Seg),literal(N)]}
 
 
 %% is_gc_bif(Name, Arity) -> true|false
