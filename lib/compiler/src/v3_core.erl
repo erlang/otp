@@ -758,30 +758,28 @@ make_bool_switch_guard(L, E, V, T, F) ->
       {clause,NegL,[V],[],[V]}
      ]}.
 
-expr_map(M0,Es0,A,St0) ->
-    {M1,Mps,St1} = safe(M0, St0),
+expr_map(M0, Es0, A, St0) ->
+    {M1,Eps0,St1} = safe(M0, St0),
     case is_valid_map_src(M1) of
 	true ->
-	    case {M1,Es0} of
-		{#c_var{}, []} ->
-		    %% transform M#{} to is_map(M)
-		    {Vpat,St2} = new_var(St1),
-		    {Fpat,St3} = new_var(St2),
-		    Cs = [#iclause{
-			   anno=A,
-			   pats=[Vpat],
-			   guard=[#icall{anno=#a{anno=A},
+	    {M2,Eps1,St2} = map_build_pairs(M1, Es0, A, St1),
+	    M3 = case Es0 of
+		     [] -> M1;
+		     [_|_] -> M2
+		 end,
+	    Cs = [#iclause{
+		     anno=#a{anno=[compiler_generated|A]},
+		     pats=[],
+		     guard=[#icall{anno=#a{anno=A},
 				   module=#c_literal{anno=A,val=erlang},
 			           name=#c_literal{anno=A,val=is_map},
-				   args=[Vpat]}],
-			   body=[Vpat]}],
-		    Fc = fail_clause([Fpat], A, #c_literal{val=badarg}),
-		    {#icase{anno=#a{anno=A},args=[M1],clauses=Cs,fc=Fc},Mps,St3};
-		{_,_} ->
-		    {M2,Eps,St2} = map_build_pairs(M1, Es0, A, St1),
-		    {M2,Mps++Eps,St2}
-	    end;
-	false -> throw({bad_map,bad_map})
+				   args=[M1]}],
+		     body=[M3]}],
+	    Fc = fail_clause([], [eval_failure|A], #c_literal{val=badarg}),
+	    Eps = Eps0 ++ Eps1,
+	    {#icase{anno=#a{anno=A},args=[],clauses=Cs,fc=Fc},Eps,St2};
+	false ->
+	    throw({bad_map,bad_map})
     end.
 
 map_build_pairs(Map, Es0, Ann, St0) ->
