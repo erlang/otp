@@ -214,7 +214,9 @@
 -type zip_comment() :: #zip_comment{}.
 -type zip_file() :: #zip_file{}.
 
--export_type([create_option/0, filename/0]).
+-opaque handle() :: pid().
+
+-export_type([create_option/0, filename/0, handle/0]).
 
 %% Open a zip archive with options
 %%
@@ -500,7 +502,7 @@ do_list_dir(F, Options) ->
 
 -spec(t(Archive) -> ok when
       Archive :: file:name() | binary() | ZipHandle,
-      ZipHandle :: pid()).
+      ZipHandle :: handle()).
 
 t(F) when is_pid(F) -> zip_t(F);
 t(F) when is_record(F, openzip) -> openzip_t(F);
@@ -524,7 +526,7 @@ do_t(F, RawPrint) ->
 
 -spec(tt(Archive) -> ok when
       Archive :: file:name() | binary() | ZipHandle,
-      ZipHandle :: pid()).
+      ZipHandle :: handle()).
 
 tt(F) when is_pid(F) -> zip_tt(F);
 tt(F) when is_record(F, openzip) -> openzip_tt(F);
@@ -1156,14 +1158,14 @@ server_loop(Parent, OpenZip) ->
 
 -spec(zip_open(Archive) -> {ok, ZipHandle} | {error, Reason} when
       Archive :: file:name() | binary(),
-      ZipHandle :: pid(),
+      ZipHandle :: handle(),
       Reason :: term()).
 
 zip_open(Archive) -> zip_open(Archive, []).
 
 -spec(zip_open(Archive, Options) -> {ok, ZipHandle} | {error, Reason} when
       Archive :: file:name() | binary(),
-      ZipHandle :: pid(),
+      ZipHandle :: handle(),
       Options :: [Option],
       Option :: cooked | memory | {cwd, CWD :: file:filename()},
       Reason :: term()).
@@ -1174,7 +1176,7 @@ zip_open(Archive, Options) ->
     request(Self, Pid, {open, Archive, Options}).
 
 -spec(zip_get(ZipHandle) -> {ok, [Result]} | {error, Reason} when
-      ZipHandle :: pid(),
+      ZipHandle :: handle(),
       Result :: file:name() | {file:name(), binary()},
       Reason :: term()).
 
@@ -1182,14 +1184,14 @@ zip_get(Pid) when is_pid(Pid) ->
     request(self(), Pid, get).
 
 -spec(zip_close(ZipHandle) -> ok | {error, einval} when
-      ZipHandle :: pid()).
+      ZipHandle :: handle()).
 
 zip_close(Pid) when is_pid(Pid) ->
     request(self(), Pid, close).
 
 -spec(zip_get(FileName, ZipHandle) -> {ok, Result} | {error, Reason} when
       FileName :: file:name(),
-      ZipHandle :: pid(),
+      ZipHandle :: handle(),
       Result :: file:name() | {file:name(), binary()},
       Reason :: term()).
 
@@ -1198,7 +1200,7 @@ zip_get(FileName, Pid) when is_pid(Pid) ->
 
 -spec(zip_list_dir(ZipHandle) -> {ok, Result} | {error, Reason} when
       Result :: [zip_comment() | zip_file()],
-      ZipHandle :: pid(),
+      ZipHandle :: handle(),
       Reason :: term()).
 
 zip_list_dir(Pid) when is_pid(Pid) ->
