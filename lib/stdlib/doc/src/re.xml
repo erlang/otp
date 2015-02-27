@@ -150,7 +150,11 @@ This option makes it possible to include comments inside complicated patterns. N
       <tag><c>no_start_optimize</c></tag>
       <item>This option disables optimization that may malfunction if "Special start-of-pattern items" are present in the regular expression. A typical example would be when matching "DEFABC" against "(*COMMIT)ABC", where the start optimization of PCRE would skip the subject up to the "A" and would never realize that the (*COMMIT) instruction should have made the matching fail. This option is only relevant if you use "start-of-pattern items", as discussed in the section "PCRE regular expression details" below.</item>
       <tag><c>ucp</c></tag>
-      <item>Specifies that Unicode Character Properties should be used when resolving \B, \b, \D, \d, \S, \s, \Wand \w. Without this flag, only ISO-Latin-1 properties are used. Using Unicode properties hurts performance, but is semantically correct when working with Unicode characters beyond the ISO-Latin-1 range.</item>
+      <item>Specifies that Unicode Character Properties should be used when
+        resolving \B, \b, \D, \d, \S, \s, \W and \w. Without this flag, only
+        ISO-Latin-1 properties are used. Using Unicode properties hurts
+        performance, but is semantically correct when working with Unicode
+        characters beyond the ISO-Latin-1 range.</item>
       <tag><c>never_utf</c></tag>
       <item>Specifies that the (*UTF) and/or (*UTF8) "start-of-pattern items" are forbidden. This flag can not be combined with <c>unicode</c>. Useful if ISO-Latin-1 patterns from an external source are to be compiled.</item>
       </taglist>
@@ -966,7 +970,7 @@ appearance causes an error.
 </quote>
 <p>This has the same effect as setting the <c>ucp</c> option: it causes sequences
 such as \d and \w to use Unicode properties to determine character types,
-instead of recognizing only characters with codes less than 128 via a lookup
+instead of recognizing only characters with codes less than 256 via a lookup
 table.
 </p>
 
@@ -1307,7 +1311,8 @@ By default, the definition of letters and digits is controlled by PCRE's
 low-valued character tables, in Erlang's case (and without the <c>unicode</c> option), 
 the ISO-Latin-1 character set.</p>
 
-<p>By default, in <c>unicode</c> mode, characters with values greater than 128 never match
+<p>By default, in <c>unicode</c> mode, characters with values greater than 255,
+i.e. all characters outside the ISO-Latin-1 character set, never match
 \d, \s, or \w, and always match \D, \S, and \W. These sequences retain
 their original meanings from before UTF support was available, mainly for
 efficiency reasons. However, if the <c>ucp</c> option is set, the behaviour is changed so that Unicode
@@ -1954,10 +1959,10 @@ can be included in a class as a literal string of data units, or by using the
 upper case and lower case versions, so for example, a caseless [aeiou] matches
 "A" as well as "a", and a caseless [^aeiou] does not match "A", whereas a
 caseful version would. In a UTF mode, PCRE always understands the concept of
-case for characters whose values are less than 128, so caseless matching is
+case for characters whose values are less than 256, so caseless matching is
 always possible. For characters with higher values, the concept of case is
 supported if PCRE is compiled with Unicode property support, but not otherwise.
-If you want to use caseless matching in a UTF mode for characters 128 and
+If you want to use caseless matching in a UTF mode for characters 256 and
 above, you must ensure that PCRE is compiled with Unicode property support as
 well as with UTF support.</p>
 
@@ -1989,7 +1994,7 @@ matches the letters in either case. For example, [W-c] is equivalent to
 [][\\^_`wxyzabc], matched caselessly, and in a non-UTF mode, if character
 tables for a French locale are in use, [\xc8-\xcb] matches accented E
 characters in both cases. In UTF modes, PCRE supports the concept of case for
-characters with values greater than 128 only when it is compiled with Unicode
+characters with values greater than 255 only when it is compiled with Unicode
 property support.</p>
 
 <p>The character escape sequences \d, \D, \h, \H, \p, \P, \s, \S, \v,
@@ -2062,7 +2067,7 @@ by a ^ character after the colon. For example,</p>
 syntax [.ch.] and [=ch=] where "ch" is a "collating element", but these are not
 supported, and an error is given if they are encountered.</p>
 
-<p>By default, in UTF modes, characters with values greater than 128 do not match
+<p>By default, in UTF modes, characters with values greater than 255 do not match
 any of the POSIX character classes. However, if the PCRE_UCP option is passed
 to <b>pcre_compile()</b>, some of the classes are changed so that Unicode
 character properties are used. This is achieved by replacing the POSIX classes
@@ -2081,7 +2086,7 @@ by other sequences, as follows:</p>
 
 <p>Negated versions, such as [:^alpha:] use \P instead of \p. The other POSIX
 classes are unchanged, and match only characters with code points less than
-128.</p>
+256.</p>
 
 </section>
 
