@@ -6598,11 +6598,43 @@ update_map_assoc(Process* p, Eterm* reg, Eterm map, BeamInstr* I)
     Eterm new_key;
     Eterm* kp;
 
+    new_p = &Arg(5);
+    num_updates = Arg(4) / 2;
+
     if (is_not_map(map)) {
-	return THE_NON_VALUE;
+	Uint32 hx;
+	Eterm val;
+
+	/* apparently the compiler does not emit is_map instructions,
+	 * bad compiler */
+
+	if (is_not_hashmap(map))
+	    return THE_NON_VALUE;
+
+	res = map;
+	E = p->stop;
+	while(num_updates--) {
+	    /* assoc can't fail */
+	    GET_TERM(new_p[0], new_key);
+	    GET_TERM(new_p[1], val);
+	    hx = hashmap_make_hash(new_key);
+
+	    res = erts_hashmap_insert(p, hx, new_key, val, res,  0);
+	    if (p->mbuf) {
+		Uint live = Arg(3);
+		reg[live] = res;
+		erts_garbage_collect(p, 0, reg, live+1);
+		res       = reg[live];
+	    }
+
+	    E = p->stop;
+
+	    new_p += 2;
+	}
+	return res;
     }
 
-    old_mp = (map_t *) map_val(map);
+    old_mp  = (map_t *) map_val(map);
     num_old = map_get_size(old_mp);
 
     /*
@@ -6618,7 +6650,6 @@ update_map_assoc(Process* p, Eterm* reg, Eterm map, BeamInstr* I)
      * update list are new).
      */
 
-    num_updates = Arg(4) / 2;
     need = 2*(num_old+num_updates) + 1 + MAP_HEADER_SIZE;
     if (HeapWordsLeft(p) < need) {
 	Uint live = Arg(3);
@@ -6665,7 +6696,6 @@ update_map_assoc(Process* p, Eterm* reg, Eterm map, BeamInstr* I)
     old_vals = map_get_values(old_mp);
     old_keys = map_get_keys(old_mp);
 
-    new_p = &Arg(5);
     GET_TERM(*new_p, new_key);
     n = num_updates;
 
@@ -6776,8 +6806,44 @@ update_map_exact(Process* p, Eterm* reg, Eterm map, BeamInstr* I)
     BeamInstr* new_p;
     Eterm new_key;
 
+    new_p = &Arg(5);
+    n = Arg(4) / 2;		/* Number of values to be updated */
+    ASSERT(n > 0);
+
     if (is_not_map(map)) {
-	return THE_NON_VALUE;
+	Uint32 hx;
+	Eterm val;
+
+	/* apparently the compiler does not emit is_map instructions,
+	 * bad compiler */
+
+	if (is_not_hashmap(map))
+	    return THE_NON_VALUE;
+
+	res = map;
+	E = p->stop;
+	while(n--) {
+	    /* assoc can't fail */
+	    GET_TERM(new_p[0], new_key);
+	    GET_TERM(new_p[1], val);
+	    hx = hashmap_make_hash(new_key);
+
+	    res = erts_hashmap_insert(p, hx, new_key, val, res,  1);
+	    if (is_non_value(res))
+		return res;
+
+	    if (p->mbuf) {
+		Uint live = Arg(3);
+		reg[live] = res;
+		erts_garbage_collect(p, 0, reg, live+1);
+		res       = reg[live];
+	    }
+
+	    E = p->stop;
+
+	    new_p += 2;
+	}
+	return res;
     }
 
     old_mp = (map_t *) map_val(map);
@@ -6822,12 +6888,9 @@ update_map_exact(Process* p, Eterm* reg, Eterm map, BeamInstr* I)
     mp->keys = old_mp->keys;
 
     /* Get array of key/value pairs to be updated */
-    new_p = &Arg(5);
     GET_TERM(*new_p, new_key);
 
     /* Update all values */
-    n = Arg(4) / 2;		/* Number of values to be updated */
-    ASSERT(n > 0);
     for (i = 0; i < num_old; i++) {
 	if (!EQ(*old_keys, new_key)) {
 	    /* Not same keys */
