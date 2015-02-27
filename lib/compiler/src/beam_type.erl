@@ -244,7 +244,7 @@ clearerror([], OrigIs) -> [{set,[],[],fclearerror}|OrigIs].
 %%  Combine two blocks and eliminate any move instructions that assign
 %%  to registers that are killed later in the block.
 %%
-merge_blocks(B1, [{'%live',_}|B2]) ->
+merge_blocks(B1, [{'%live',_,_}|B2]) ->
     merge_blocks_1(B1++[{set,[],[],stop_here}|B2]).
 
 merge_blocks_1([{set,[],_,stop_here}|Is]) -> Is;
@@ -336,7 +336,7 @@ build_alloc(Words, Floats) -> {alloc,[{words,Words},{floats,Floats}]}.
 %%  is not continous at an allocation function (e.g. if {x,0} and {x,2}
 %%  are live, but not {x,1}).
 
-flt_liveness([{'%live',Live}=LiveInstr|Is]) ->
+flt_liveness([{'%live',Live,_}=LiveInstr|Is]) ->
     flt_liveness_1(Is, init_regs(Live), [LiveInstr]).
 
 flt_liveness_1([{set,Ds,Ss,{alloc,_,Alloc}}|Is], Regs0, Acc) ->
@@ -347,7 +347,7 @@ flt_liveness_1([{set,Ds,Ss,{alloc,_,Alloc}}|Is], Regs0, Acc) ->
 flt_liveness_1([{set,Ds,_,_}=I|Is], Regs0, Acc) ->
     Regs = foldl(fun(R, A) -> set_live(R, A) end, Regs0, Ds),
     flt_liveness_1(Is, Regs, [I|Acc]);
-flt_liveness_1([{'%live',_}=I|Is], Regs, Acc) ->
+flt_liveness_1([{'%live',_,_}=I|Is], Regs, Acc) ->
     flt_liveness_1(Is, Regs, [I|Acc]);
 flt_liveness_1([], _Regs, Acc) -> reverse(Acc).
 
@@ -371,7 +371,7 @@ set_live(_, Regs) -> Regs.
 %%  Update the type database to account for executing an instruction.
 %%
 %%  First the cases for instructions inside basic blocks.
-update({'%live',_}, Ts) -> Ts;
+update({'%live',_,_}, Ts) -> Ts;
 update({set,[D],[S],move}, Ts) ->
     tdb_copy(S, D, Ts);
 update({set,[D],[{integer,I},Reg],{bif,element,_}}, Ts0) ->

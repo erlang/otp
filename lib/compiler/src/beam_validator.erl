@@ -361,9 +361,6 @@ valfun_1({recv_mark,{f,Fail}}, Vst) when is_integer(Fail) ->
 valfun_1({recv_set,{f,Fail}}, Vst) when is_integer(Fail) ->
     Vst;
 %% Misc.
-valfun_1({'%live',Live}, Vst) ->
-    verify_live(Live, Vst),
-    Vst;
 valfun_1(remove_message, Vst) ->
     Vst;
 valfun_1({'%',_}, Vst) ->

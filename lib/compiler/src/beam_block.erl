@@ -184,7 +184,7 @@ embed_lines([], Acc) -> Acc.
 
 opt_blocks([{block,Bl0}|Is]) ->
     %% The live annotation at the beginning is not useful.
-    [{'%live',_}|Bl] = Bl0,
+    [{'%live',_,_}|Bl] = Bl0,
     [{block,opt_block(Bl)}|opt_blocks(Is)];
 opt_blocks([I|Is]) ->
     [I|opt_blocks(Is)];
@@ -269,7 +269,7 @@ opt([{set,_,_,{line,_}}=Line1,
 opt([{set,Ds0,Ss,Op}|Is0]) ->	
     {Ds,Is} = opt_moves(Ds0, Is0),
     [{set,Ds,Ss,Op}|opt(Is)];
-opt([{'%live',_}=I|Is]) ->
+opt([{'%live',_,_}=I|Is]) ->
     [I|opt(Is)];
 opt([]) -> [].
 
