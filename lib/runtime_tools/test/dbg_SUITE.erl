@@ -25,7 +25,7 @@
 	 ip_port/1, file_port/1, file_port2/1, file_port_schedfix/1,
 	 ip_port_busy/1, wrap_port/1, wrap_port_time/1,
 	 with_seq_trace/1, dead_suspend/1, local_trace/1,
-	 saved_patterns/1]).
+	 saved_patterns/1, tracer_exit_on_stop/1]).
 -export([init_per_testcase/2, end_per_testcase/2]).
 -export([tracee1/1, tracee2/1]).
 -export([dummy/0, exported/1]).
@@ -47,7 +47,7 @@ all() ->
     [big, tiny, simple, message, distributed, ip_port,
      file_port, file_port2, file_port_schedfix, ip_port_busy,
      wrap_port, wrap_port_time, with_seq_trace, dead_suspend,
-     local_trace, saved_patterns].
+     local_trace, saved_patterns, tracer_exit_on_stop].
 
 groups() -> 
     [].
@@ -742,6 +742,38 @@ run_dead_suspend() ->
 dummy() ->
     ok.
 
+%% Test that a tracer process does not ignore an exit signal message when it has
+%% received (but not handled) trace messages
+tracer_exit_on_stop(_) ->
+    %% Tracer blocks waiting for fun to complete so that the trace message and
+    %% the exit signal message from the dbg process are in its message queue.
+    Fun = fun() ->
+	    ?MODULE:dummy(),
+	    Ref = erlang:trace_delivered(self()),
+	    receive {trace_delivered, _, Ref} -> stop() end
+	end,
+    {ok, _} = dbg:tracer(process, {fun spawn_once_handler/2, {self(), Fun}}),
+    {ok, Tracer} = dbg:get_tracer(),
+    MRef = monitor(process, Tracer),
+    {ok, _} = dbg:p(self(), [call]),
+    {ok, _} = dbg:p(new, [call]),
+    {ok, _} = dbg:tp(?MODULE, dummy, []),
+    ?MODULE:dummy(),
+    receive {'DOWN', MRef, _, _, normal} -> ok end,
+    [{trace,_,call,{?MODULE, dummy,[]}},
+     {trace,_,call,{?MODULE, dummy,[]}}] = flush(),
+    ok.
+
+spawn_once_handler(Event, {Pid, done} = State) ->
+    Pid ! Event,
+    State;
+spawn_once_handler(Event, {Pid, Fun}) ->
+    {_, Ref} = spawn_monitor(Fun),
+    receive
+	{'DOWN', Ref, _, _, _} ->
+	    Pid ! Event,
+	    {Pid, done}
+    end.
 
 %%
 %% Support functions
