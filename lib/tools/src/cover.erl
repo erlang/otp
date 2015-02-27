@@ -2377,9 +2377,9 @@ do_analyse_to_file(Module,File,OutFile,HTML,State) ->
 %%   Module = atom()
 %%   OutFile = ErlFile = string()
 do_analyse_to_file1(Module, OutFile, ErlFile, HTML) ->
-    case file:open(ErlFile, [read]) of
+    case file:open(ErlFile, [read,raw,read_ahead]) of
 	{ok, InFd} ->
-	    case file:open(OutFile, [write]) of
+	    case file:open(OutFile, [write,raw,delayed_write]) of
 		{ok, OutFd} ->
 		    if HTML -> 
                            Encoding = encoding(ErlFile),
@@ -2422,7 +2422,9 @@ do_analyse_to_file1(Module, OutFile, ErlFile, HTML) ->
 		    CovLines = lists:keysort(1,ets:select(?COLLECTION_TABLE, MS)),
 		    print_lines(Module, CovLines, InFd, OutFd, 1, HTML),
 		    
-		    if HTML -> io:format(OutFd,"</pre>\n</body>\n</html>\n",[]);
+		    if
+			HTML ->
+			    file:write(OutFd, "</pre>\n</body>\n</html>\n");
 		       true -> ok
 		    end,
 
@@ -2441,13 +2443,13 @@ do_analyse_to_file1(Module, OutFile, ErlFile, HTML) ->
 
 
 print_lines(Module, CovLines, InFd, OutFd, L, HTML) ->
-    case io:get_line(InFd, '') of
+    case file:read_line(InFd) of
 	eof ->
 	    ignore;
- 	"%"++_=Line ->				%Comment line - not executed.
- 	    io:put_chars(OutFd, [tab(),escape_lt_and_gt(Line, HTML)]),
+	{ok,"%"++_=Line} ->		 %Comment line - not executed.
+	    file:write(OutFd, [tab(),escape_lt_and_gt(Line, HTML)]),
 	    print_lines(Module, CovLines, InFd, OutFd, L+1, HTML);
-	RawLine ->
+	{ok,RawLine} ->
 	    Line = escape_lt_and_gt(RawLine,HTML),
 	    case CovLines of
 	       [{L,N}|CovLines1] ->
@@ -2459,20 +2461,20 @@ print_lines(Module, CovLines, InFd, OutFd, L, HTML) ->
 			    %%Str = string:right("0", 6, 32),
 			    RedLine = ["<font color=red>",Str,fill1(),
 				       LineNoNL,"</font>\n"],
-			    io:put_chars(OutFd, RedLine);
+			    file:write(OutFd, RedLine);
 			N<1000000 ->
 			    Str = string:right(integer_to_list(N), 6, 32),
-			    io:put_chars(OutFd, [Str,fill1(),Line]);
+			    file:write(OutFd, [Str,fill1(),Line]);
 			N<10000000 ->
 			    Str = integer_to_list(N),
-			    io:put_chars(OutFd, [Str,fill2(),Line]);
+			    file:write(OutFd, [Str,fill2(),Line]);
 			true ->
 			    Str = integer_to_list(N),
-			    io:put_chars(OutFd, [Str,fill3(),Line])
+			    file:write(OutFd, [Str,fill3(),Line])
 		    end,
 		    print_lines(Module, CovLines1, InFd, OutFd, L+1, HTML);
 		_ ->
-		    io:put_chars(OutFd, [tab(),Line]),
+		    file:write(OutFd, [tab(),Line]),
 		    print_lines(Module, CovLines, InFd, OutFd, L+1, HTML)
 	    end
     end.
@@ -2484,7 +2486,7 @@ fill3() ->        "|  ".
 
 %%%--Export--------------------------------------------------------------
 do_export(Module, OutFile, From, State) ->
-    case file:open(OutFile,[write,binary,raw]) of
+    case file:open(OutFile,[write,binary,raw,delayed_write]) of
 	{ok,Fd} ->
 	    Reply = 
 		case Module of

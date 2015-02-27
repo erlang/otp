@@ -266,9 +266,9 @@ cover_analyse(Dir,#cover{level=Analyse,mods=Modules,stop=Stop}) ->
 		end
 	end,
     {result,AOk,AFail} = cover:analyse(Modules,module),
-    R = merge_analysis_results(AOk,ATFOk++ATFFail,[]) ++
+    R0 = merge_analysis_results(AOk,ATFOk++ATFFail,[]) ++
 	[{M,{error,Reason}} || {Reason,M} <- AFail],
-
+    R = lists:sort(R0),
     io:fwrite(user, "done\n\n", []),
 
     case Stop of
