@@ -127,6 +127,7 @@ void erts_pre_nif(ErlNifEnv* env, Process* p, struct erl_module_nif* mod_nif)
     env->heap_frag = NULL;
     env->fpe_was_unmasked = erts_block_fpe();
     env->tmp_obj_list = NULL;
+    env->exception_thrown = 0;
 }
 
 static void pre_nif_noproc(ErlNifEnv* env, struct erl_module_nif* mod_nif)
@@ -742,6 +743,7 @@ Eterm enif_make_sub_binary(ErlNifEnv* env, ERL_NIF_TERM bin_term,
 
 Eterm enif_make_badarg(ErlNifEnv* env)
 {
+    env->exception_thrown = 1;
     BIF_ERROR(env->proc, BADARG);
 }
 
@@ -964,7 +966,10 @@ ERL_NIF_TERM enif_make_uint64(ErlNifEnv* env, ErlNifUInt64 i)
 
 ERL_NIF_TERM enif_make_double(ErlNifEnv* env, double d)
 {
-    Eterm* hp = alloc_heap(env,FLOAT_SIZE_OBJECT);
+    Eterm* hp;
+    if (!isfinite(d))
+        return enif_make_badarg(env);
+    hp = alloc_heap(env,FLOAT_SIZE_OBJECT);
     FloatDef f;
     f.fd = d;
     PUT_DOUBLE(f, hp);
@@ -978,6 +983,8 @@ ERL_NIF_TERM enif_make_atom(ErlNifEnv* env, const char* name)
 
 ERL_NIF_TERM enif_make_atom_len(ErlNifEnv* env, const char* name, size_t len)
 {
+    if (len > MAX_ATOM_CHARACTERS)
+        return enif_make_badarg(env);
     return erts_atom_put((byte*)name, len, ERTS_ATOM_ENC_LATIN1, 1);
 }
 
@@ -991,6 +998,8 @@ int enif_make_existing_atom_len(ErlNifEnv* env, const char* name, size_t len,
 				ERL_NIF_TERM* atom, ErlNifCharEncoding encoding)
 {
     ASSERT(encoding == ERL_NIF_LATIN1);
+    if (len > MAX_ATOM_CHARACTERS)
+        return 0;
     return erts_atom_get(name, len, atom, ERTS_ATOM_ENC_LATIN1);
 }
 
@@ -1754,14 +1763,13 @@ execute_dirty_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     ASSERT(ep);
     if (ep->fp)
 	fp = NULL;
-    if (is_non_value(result)) {
+    if (is_non_value(result) || env->exception_thrown) {
 	if (proc->freason != TRAP) {
-	    ASSERT(proc->freason == BADARG);
 	    return init_nif_sched_data(env, dirty_nif_exception, fp, 0, argc, argv);
 	} else {
 	    if (ep->fp == NULL)
 		restore_nif_mfa(proc, ep, 1);
-	    return result;
+	    return THE_NON_VALUE;
 	}
     }
     else
