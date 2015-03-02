@@ -1154,6 +1154,11 @@ make_hash2(Eterm term)
 #define HCONST_14 0xa708a81eUL
 #define HCONST_15 0x454021d7UL
 #define HCONST_16 0xe3779b90UL
+#define HCONST_17 0x81af1549UL
+#define HCONST_18 0x1fe68f02UL
+#define HCONST_19 0xbe1e08bbUL
+#define HCONST_20 0x5c558274UL
+#define HCONST_21 0xfa8cfc2dUL
 
 #define HASH_MAP_TAIL (_make_header(1,_TAG_HEADER_REF))
 #define HASH_MAP_PAIR (_make_header(2,_TAG_HEADER_REF))
@@ -1180,6 +1185,13 @@ make_hash2(Eterm term)
 	} while(0)
 
 #define IS_SSMALL28(x) (((Uint) (((x) >> (28-1)) + 1)) < 2)
+
+#ifdef ARCH_64
+#  define POINTER_HASH(Ptr, AConst) UINT32_HASH_2((Uint32)(UWord)(Ptr), (((UWord)(Ptr)) >> 32), AConst)
+#else
+#  define POINTER_HASH(Ptr, AConst) UINT32_HASH(Ptr, Const)
+#endif
+
     /* Optimization. Simple cases before declaration of estack. */
     if (primary_tag(term) == TAG_PRIMARY_IMMED1) {
 	switch (term & _TAG_IMMED1_MASK) {
@@ -1339,7 +1351,6 @@ make_hash2(Eterm term)
 	    case EXPORT_SUBTAG:
 	    {
 		Export* ep = *((Export **) (export_val(term) + 1));
-
 		UINT32_HASH_2
 		    (ep->code[2], 
 		     atom_tab(atom_val(ep->code[0]))->slot.bucket.hvalue,
@@ -1354,7 +1365,6 @@ make_hash2(Eterm term)
 	    {
 		ErlFunThing* funp = (ErlFunThing *) fun_val(term);
 		Uint num_free = funp->num_free;
-
 		UINT32_HASH_2
 		    (num_free, 
 		     atom_tab(atom_val(funp->fe->module))->slot.bucket.hvalue,
@@ -1558,10 +1568,386 @@ make_hash2(Eterm term)
 	}
     }
     }
+}
 
+/* Term hash function for internal use.
+ * Is not "portable" in any way betweem different VM instances.
+ *
+ * One IMPORTANT property must hold (for hamt).
+ * EVERY BIT of the term that is significant for equality (see EQ)
+ * must be used as input for the hash. Two different terms must always have a
+ * chance of hashing different when salted: h([Salt|A]) vs h([Salt|B]).
+ *
+ * This is why we can not use cached hash values for atoms for example.
+ */
+
+#define CONST_HASH(AConst)                              \
+do {  /* Lightweight mixing of constant (type info) */  \
+    hash ^= AConst;                                     \
+    hash = (hash << 17) ^ (hash >> (32-17));            \
+} while (0)
+
+Uint32
+make_internal_hash(Eterm term)
+{
+    Uint32 hash;
+    Uint32 hash_xor_pairs;
+
+    ERTS_UNDEF(hash_xor_pairs, 0);
+
+    /* Optimization. Simple cases before declaration of estack. */
+    if (primary_tag(term) == TAG_PRIMARY_IMMED1) {
+        hash = 0;
+    #if ERTS_SIZEOF_ETERM == 8
+        UINT32_HASH_2((Uint32)term, (Uint32)(term >> 32), HCONST);
+    #elif ERTS_SIZEOF_ETERM == 4
+        UINT32_HASH(term, HCONST);
+    #else
+    #  error "No you don't"
+    #endif
+        return hash;
+    }
+    {
+    Eterm tmp;
+    DECLARE_ESTACK(s);
+
+    UseTmpHeapNoproc(2);
+    hash = 0;
+    for (;;) {
+	switch (primary_tag(term)) {
+	case TAG_PRIMARY_LIST:
+	{
+	    int c = 0;
+	    Uint32 sh = 0;
+	    Eterm* ptr = list_val(term);
+	    while (is_byte(*ptr)) {
+		/* Optimization for strings. */
+		sh = (sh << 8) + unsigned_val(*ptr);
+		if (c == 3) {
+		    UINT32_HASH(sh, HCONST_4);
+		    c = sh = 0;
+		} else {
+		    c++;
+		}
+		term = CDR(ptr);
+		if (is_not_list(term))
+		    break;
+		ptr = list_val(term);
+	    }
+	    if (c > 0)
+		UINT32_HASH(sh, HCONST_4);
+	    if (is_list(term)) {
+		tmp = CDR(ptr);
+                CONST_HASH(HCONST_17);  /* Hash CAR in cons cell */
+                ESTACK_PUSH(s, tmp);
+                if (is_not_list(tmp)) {
+                    ESTACK_PUSH(s, HASH_CDR);
+                }
+		term = CAR(ptr);
+	    }
+	}
+	break;
+	case TAG_PRIMARY_BOXED:
+	{
+	    Eterm hdr = *boxed_val(term);
+	    ASSERT(is_header(hdr));
+	    switch (hdr & _TAG_HEADER_MASK) {
+	    case ARITYVAL_SUBTAG:
+	    {
+		int i;
+		int arity = header_arity(hdr);
+		Eterm* elem = tuple_val(term);
+		UINT32_HASH(arity, HCONST_9);
+		if (arity == 0) /* Empty tuple */
+		    goto pop_next;
+		for (i = arity; ; i--) {
+		    term = elem[i];
+                    if (i == 1)
+                        break;
+                    ESTACK_PUSH(s, term);
+		}
+	    }
+	    break;
+	    case MAP_SUBTAG:
+	    {
+		map_t *mp = (map_t *)map_val(term);
+		int i;
+		int size  = map_get_size(mp);
+		Eterm *ks = map_get_keys(mp);
+		Eterm *vs = map_get_values(mp);
+		UINT32_HASH(size, HCONST_16);
+		if (size == 0) {
+		    goto pop_next;
+		}
+		/* We want a hash function that is *independent* of
+		 * the order in which keys and values are encountered.
+		 * We therefore calculate context independent hashes for all    				      .
+		 * key-value pairs and then xor them together.
+		 */
+		ESTACK_PUSH(s, hash_xor_pairs);
+		ESTACK_PUSH(s, hash);
+		ESTACK_PUSH(s, HASH_MAP_TAIL);
+		hash = 0;
+		hash_xor_pairs = 0;
+		for (i = size - 1; i >= 0; i--) {
+		    ESTACK_PUSH(s, HASH_MAP_PAIR);
+		    ESTACK_PUSH(s, vs[i]);
+                    ESTACK_PUSH(s, ks[i]);
+		}
+		goto pop_next;
+	    }
+	    break;
+            case HASHMAP_SUBTAG:
+            {
+                Eterm* ptr = boxed_val(term) + 1;
+                Uint size;
+                int i;
+                switch (hdr & _HEADER_MAP_SUBTAG_MASK) {
+                case HAMT_SUBTAG_HEAD_ARRAY:
+                case HAMT_SUBTAG_HEAD_BITMAP:
+                    size = *ptr++;
+                    UINT32_HASH(size, HCONST_16);
+                    if (size == 0)
+                        goto pop_next;
+                    ESTACK_PUSH(s, hash_xor_pairs);
+                    ESTACK_PUSH(s, hash);
+                    ESTACK_PUSH(s, HASH_MAP_TAIL);
+                    hash = 0;
+                    hash_xor_pairs = 0;
+                }
+                switch (hdr & _HEADER_MAP_SUBTAG_MASK) {
+                case HAMT_SUBTAG_HEAD_ARRAY:
+                case HAMT_SUBTAG_NODE_ARRAY:
+                    i = 16;
+                    break;
+                case HAMT_SUBTAG_HEAD_BITMAP:
+                case HAMT_SUBTAG_NODE_BITMAP:
+                    i = hashmap_bitcount(MAP_HEADER_VAL(hdr));
+                    break;
+                default:
+                    erl_exit(1, "bad header");
+                }
+                while (i) {
+                    if (is_list(*ptr)) {
+                        Eterm* cons = list_val(*ptr);
+                        ESTACK_PUSH(s, HASH_MAP_PAIR);
+                        ESTACK_PUSH(s, CDR(cons));
+                        ESTACK_PUSH(s, CAR(cons));
+                    }
+                    else {
+                        ASSERT(is_boxed(*ptr));
+                        ESTACK_PUSH(s, *ptr);
+                    }
+                    i--; ptr++;
+                }
+                goto pop_next;
+            }
+            break;
+	    case EXPORT_SUBTAG:
+	    {
+		Export* ep = *((Export **) (export_val(term) + 1));
+                /* Assumes Export entries never moves */
+                POINTER_HASH(ep, HCONST_14);
+		goto pop_next;
+	    }
+
+	    case FUN_SUBTAG:
+	    {
+		ErlFunThing* funp = (ErlFunThing *) fun_val(term);
+		Uint num_free = funp->num_free;
+                UINT32_HASH_2(num_free, funp->fe->module, HCONST_20);
+                UINT32_HASH_2(funp->fe->old_index, funp->fe->old_uniq, HCONST_21);
+		if (num_free == 0) {
+		    goto pop_next;
+		} else {
+		    Eterm* bptr = funp->env + num_free - 1;
+		    while (num_free-- > 1) {
+			term = *bptr--;
+			ESTACK_PUSH(s, term);
+		    }
+		    term = *bptr;
+		}
+	    }
+	    break;
+	    case REFC_BINARY_SUBTAG:
+	    case HEAP_BINARY_SUBTAG:
+	    case SUB_BINARY_SUBTAG:
+	    {
+		byte* bptr;
+		unsigned sz = binary_size(term);
+		Uint32 con = HCONST_13 + hash;
+		Uint bitoffs;
+		Uint bitsize;
+
+		ERTS_GET_BINARY_BYTES(term, bptr, bitoffs, bitsize);
+		if (sz == 0 && bitsize == 0) {
+		    hash = con;
+		} else {
+		    if (bitoffs == 0) {
+			hash = block_hash(bptr, sz, con);
+			if (bitsize > 0) {
+			    UINT32_HASH_2(bitsize, (bptr[sz] >> (8 - bitsize)),
+					  HCONST_15);
+			}
+		    } else {
+			byte* buf = (byte *) erts_alloc(ERTS_ALC_T_TMP,
+							sz + (bitsize != 0));
+			erts_copy_bits(bptr, bitoffs, 1, buf, 0, 1, sz*8+bitsize);
+			hash = block_hash(buf, sz, con);
+			if (bitsize > 0) {
+			    UINT32_HASH_2(bitsize, (buf[sz] >> (8 - bitsize)),
+					  HCONST_15);
+			}
+			erts_free(ERTS_ALC_T_TMP, (void *) buf);
+		    }
+		}
+		goto pop_next;
+	    }
+	    break;
+	    case POS_BIG_SUBTAG:
+	    case NEG_BIG_SUBTAG:
+	    {
+		Eterm* ptr = big_val(term);
+		Uint i = 0;
+		Uint n = BIG_SIZE(ptr);
+		Uint32 con = BIG_SIGN(ptr) ? HCONST_10 : HCONST_11;
+#if D_EXP == 16
+		do {
+		    Uint32 x, y;
+		    x = i < n ? BIG_DIGIT(ptr, i++) : 0;
+		    x += (Uint32)(i < n ? BIG_DIGIT(ptr, i++) : 0) << 16;
+		    y = i < n ? BIG_DIGIT(ptr, i++) : 0;
+		    y += (Uint32)(i < n ? BIG_DIGIT(ptr, i++) : 0) << 16;
+		    UINT32_HASH_2(x, y, con);
+		} while (i < n);
+#elif D_EXP == 32
+		do {
+		    Uint32 x, y;
+		    x = i < n ? BIG_DIGIT(ptr, i++) : 0;
+		    y = i < n ? BIG_DIGIT(ptr, i++) : 0;
+		    UINT32_HASH_2(x, y, con);
+		} while (i < n);
+#elif D_EXP == 64
+		do {
+		    Uint t;
+		    Uint32 x, y;
+                    ASSERT(i < n);
+		    t = BIG_DIGIT(ptr, i++);
+		    x = t & 0xffffffff;
+		    y = t >> 32;
+		    UINT32_HASH_2(x, y, con);
+		} while (i < n);
+#else
+#error "unsupported D_EXP size"
+#endif
+		goto pop_next;
+	    }
+	    break;
+	    case REF_SUBTAG:
+		UINT32_HASH(internal_ref_numbers(term)[0], HCONST_7);
+                ASSERT(internal_ref_no_of_numbers(term) == 3);
+                UINT32_HASH_2(internal_ref_numbers(term)[1],
+                              internal_ref_numbers(term)[2], HCONST_8);
+                goto pop_next;
+
+            case EXTERNAL_REF_SUBTAG:
+            {
+                ExternalThing* thing = external_thing_ptr(term);
+
+                ASSERT(external_thing_ref_no_of_numbers(thing) == 3);
+                /*SVERK Is it really ok to hash node POINTER? */
+            #ifdef ARCH_64
+                POINTER_HASH(thing->node, HCONST_7);
+                UINT32_HASH(external_thing_ref_numbers(thing)[0], HCONST_7);
+            #else
+                UINT32_HASH_2(thing->node,
+                              external_thing_ref_numbers(thing)[0], HCONST_7);
+            #endif
+                UINT32_HASH_2(external_thing_ref_numbers(thing)[1],
+                              external_thing_ref_numbers(thing)[2], HCONST_8);
+                goto pop_next;
+            }
+            case EXTERNAL_PID_SUBTAG: {
+                ExternalThing* thing = external_thing_ptr(term);
+                /*SVERK Is it really ok to hash node POINTER? */
+            #ifdef ARCH_64
+                POINTER_HASH(thing->node, HCONST_5);
+                UINT32_HASH(thing->data.ui[0], HCONST_5);
+            #else
+                UINT32_HASH_2(thing->node, thing->data.ui[0], HCONST_5);
+            #endif
+		goto pop_next;
+            }
+	    case EXTERNAL_PORT_SUBTAG: {
+                ExternalThing* thing = external_thing_ptr(term);
+                /*SVERK Is it really ok to hash node POINTER? */
+            #ifdef ARCH_64
+                POINTER_HASH(thing->node, HCONST_6);
+                UINT32_HASH(thing->data.ui[0], HCONST_6);
+            #else
+                UINT32_HASH_2(thing->node, thing->data.ui[0], HCONST_6);
+            #endif
+		goto pop_next;
+            }
+	    case FLOAT_SUBTAG:
+	    {
+		FloatDef ff;
+		GET_DOUBLE(term, ff);
+		UINT32_HASH_2(ff.fw[0], ff.fw[1], HCONST_12);
+		goto pop_next;
+	    }
+
+	    default:
+		erl_exit(1, "Invalid tag in make_hash2(0x%X)\n", term);
+	    }
+	}
+	break;
+        case TAG_PRIMARY_IMMED1:
+        #if ERTS_SIZEOF_ETERM == 8
+            UINT32_HASH_2((Uint32)term, (Uint32)(term >> 32), HCONST);
+        #else
+            UINT32_HASH(term, HCONST);
+        #endif
+            goto pop_next;
+
+	default:
+	    erl_exit(1, "Invalid tag in make_hash2(0x%X)\n", term);
+
+	pop_next:
+	    if (ESTACK_ISEMPTY(s)) {
+		DESTROY_ESTACK(s);
+		UnUseTmpHeapNoproc(2);
+		return hash;
+	    }
+
+	    term = ESTACK_POP(s);
+
+	    switch (term) {
+		case HASH_MAP_TAIL: {
+		    hash = (Uint32) ESTACK_POP(s);
+                    UINT32_HASH(hash_xor_pairs, HCONST_19);
+		    hash_xor_pairs = (Uint32) ESTACK_POP(s);
+		    goto pop_next;
+		}
+		case HASH_MAP_PAIR:
+		    hash_xor_pairs ^= hash;
+		    hash = 0;
+		    goto pop_next;
+
+	        case HASH_CDR:
+		    CONST_HASH(HCONST_18);   /* Hash CDR i cons cell */
+		    goto pop_next;
+		default:
+		    break;
+	    }
+	}
+    }
+    }
+
+#undef CONST_HASH
 #undef HASH_MAP_TAIL
-#undef HASH_MAP_KEY
-#undef HASH_MAP_VAL
+#undef HASH_MAP_PAIR
+#undef HASH_CDR
 
 #undef UINT32_HASH_2
 #undef UINT32_HASH
