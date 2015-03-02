@@ -779,6 +779,37 @@ set_attribute() ->
     %% OTP-9412
     ?line 8 = erl_scan:set_attribute(line, [{line,{nos,'X',8}}],
                                      fun({nos,_V,VL}) -> VL end),
+
+    % file
+    ?line 8 = erl_scan:set_attribute(file, 8,
+                                     fun (undefined) -> undefined end),
+    ?line {8,1} = erl_scan:set_attribute(file, {8,1},
+                                         fun (undefined) -> undefined end),
+    ?line [{line,8},{text,""}] =
+        erl_scan:set_attribute(file, [{line,8},{text,""}],
+                               fun (undefined) -> undefined end),
+    ?line [{line,8},{column,1},{text,""}] =
+        erl_scan:set_attribute(file, [{line,8},{column,1},{text,""}],
+                               fun (undefined) -> undefined end),
+    ?line [{file,"file.erl"},{line,8}] =
+        erl_scan:set_attribute(file, 8,
+                               fun (undefined) -> "file.erl" end),
+    ?line [{file,"file.erl"},{line,8},{column,1}] =
+        erl_scan:set_attribute(file, {8,1},
+                               fun (undefined) -> "file.erl" end),
+    ?line [{line,8}] =
+        erl_scan:set_attribute(file, [{file,"file.erl"},{line,8}],
+                               fun ("file.erl") -> undefined end),
+    ?line [{line,8},{column,1}] =
+        erl_scan:set_attribute(file, [{file,"file.erl"},{line,8},{column,1}],
+                               fun ("file.erl") -> undefined end),
+    ?line [{file,"file2.erl"},{line,8}] =
+        erl_scan:set_attribute(file, [{file,"file.erl"},{line,8}],
+                               fun ("file.erl") -> "file2.erl" end),
+    ?line [{file,"file2.erl"},{line,8},{column,1}] =
+        erl_scan:set_attribute(file, [{file,"file.erl"},{line,8},{column,1}],
+                               fun ("file.erl") -> "file2.erl" end),
+
     ok.
 
 column_errors() ->
