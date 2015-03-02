@@ -4,7 +4,7 @@
 <appref>
   <header>
     <copyright>
-      <year>1996</year><year>2014</year>
+      <year>1996</year><year>2015</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -187,6 +187,18 @@
       <item>
         <p>Define the <c>First..Last</c> port range for the listener
           socket of a distributed Erlang node.</p>
+      </item>
+      <tag><c>{inet_dist_listen_options, Opts}</c></tag>
+      <item>
+        <p>Define a list of extra socket options to be used when opening the
+	  listening socket for a distributed Erlang node.
+	  See <seealso marker="gen_tcp#listen/2">gen_tcp:listen/2</seealso></p>
+      </item>
+      <tag><c>{inet_dist_connect_options, Opts}</c></tag>
+      <item>
+        <p>Define a list of extra socket options to be used when connecting to
+	  other distributed Erlang nodes.
+	  See <seealso marker="gen_tcp#connect/4">gen_tcp:connect/4</seealso></p>
       </item>
       <tag><c>inet_parse_error_log = silent</c></tag>
       <item>
