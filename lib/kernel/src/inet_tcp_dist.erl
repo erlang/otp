@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2015. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -77,7 +77,7 @@ listen(Name) ->
 	    Error
     end.
 
-do_listen(Options0) ->
+do_listen(Options) ->
     {First,Last} = case application:get_env(kernel,inet_dist_listen_min) of
 		       {ok,N} when is_integer(N) ->
 			   case application:get_env(kernel,
@@ -90,13 +90,7 @@ do_listen(Options0) ->
 		       _ ->
 			   {0,0}
 		   end,
-    Options = case application:get_env(kernel, inet_dist_use_interface) of
-		   {ok, Ip} ->
-		       [{ip, Ip} | Options0];
-		   _ ->
-		       Options0
-	       end,
-    do_listen(First, Last, [{backlog,128}|Options]).
+    do_listen(First, Last, listen_options([{backlog,128}|Options])).
 
 do_listen(First,Last,_) when First > Last ->
     {error,eaddrinuse};
@@ -107,6 +101,23 @@ do_listen(First,Last,Options) ->
 	Other ->
 	    Other
     end.
+
+listen_options(Opts0) ->
+    Opts1 =
+	case application:get_env(kernel, inet_dist_use_interface) of
+	    {ok, Ip} ->
+		[{ip, Ip} | Opts0];
+	    _ ->
+		Opts0
+	end,
+    case application:get_env(kernel, inet_dist_listen_options) of
+	{ok,ListenOpts} ->
+	    erlang:display({inet_dist_listen_options, ListenOpts}),
+	    ListenOpts ++ Opts1;
+	_ ->
+	    Opts1
+    end.
+
 
 %% ------------------------------------------------------------
 %% Accepts new connection attempts from other Erlang nodes.
@@ -219,7 +230,7 @@ nodelay() ->
 	_ ->
 	    {nodelay, true}
     end.
-	    
+
 
 %% ------------------------------------------------------------
 %% Get remote information about a Socket.
@@ -260,9 +271,11 @@ do_setup(Kernel, Node, Type, MyNode, LongOrShortNames,SetupTime) ->
 		    ?trace("port_please(~p) -> version ~p~n", 
 			   [Node,Version]),
 		    dist_util:reset_timer(Timer),
-		    case inet_tcp:connect(Ip, TcpPort, 
-					  [{active, false}, 
-					   {packet,2}]) of
+		    case
+			inet_tcp:connect(
+			  Ip, TcpPort,
+			  connect_options([{active, false}, {packet, 2}]))
+		    of
 			{ok, Socket} ->
 			    HSData = #hs_data{
 			      kernel_pid = Kernel,
@@ -322,6 +335,15 @@ do_setup(Kernel, Node, Type, MyNode, LongOrShortNames,SetupTime) ->
 	    ?trace("inet_getaddr(~p) "
 		   "failed (~p).~n", [Node,_Other]),
 	    ?shutdown(Node)
+    end.
+
+connect_options(Opts) ->
+    case application:get_env(kernel, inet_dist_connect_options) of
+	{ok,ConnectOpts} ->
+	    erlang:display({inet_dist_listen_options, ConnectOpts}),
+	    ConnectOpts ++ Opts;
+	_ ->
+	    Opts
     end.
 
 %%
