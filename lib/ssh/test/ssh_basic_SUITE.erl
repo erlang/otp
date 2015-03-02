@@ -721,9 +721,7 @@ ssh_connect_arg4_timeout(_Config) ->
                                 catch
                                     error:undef ->
                                         %% Use Erlang system time as monotonic time
-                                        {MS, S, US} = erlang:now(),
-                                        %%(MS*1000000+S)*1000000+US
-                                        {MS, S, US}
+                                        erlang:now()
                                 end,
 			   Rc = ssh:connect("localhost",Port,[],Timeout),
 			   ct:log("Client ssh:connect got ~p",[Rc]),
@@ -733,14 +731,12 @@ ssh_connect_arg4_timeout(_Config) ->
     %% Wait for client reaction on the connection try:
     receive
 	{done, Client, {error,timeout}, T0} ->
-	    %%Msp = ms_passed(T0, now()),
             Msp = ms_passed(T0),
 	    exit(Server,hasta_la_vista___baby),
 	    Low = 0.9*Timeout,
 	    High =  1.1*Timeout,
 	    ct:log("Timeout limits: ~.4f - ~.4f ms, timeout "
                    "was ~.4f ms, expected ~p ms",[Low,High,Msp,Timeout]),
-	    %%ct:log("Timeout limits: ~p--~p, my timeout was ~p, expected ~p",[Low,High,Msp0,Timeout]),
 	    if
 		Low<Msp, Msp<High -> ok;
 		true -> {fail, "timeout not within limits"}
