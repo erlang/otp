@@ -830,10 +830,10 @@ Uint32 make_hash(Eterm term_arg)
     unsigned op;
 
     /* Must not collide with the real tag_val_def's: */
-#define MAKE_HASH_TUPLE_OP 0x11
-#define MAKE_HASH_TERM_ARRAY_OP 0x12
-#define MAKE_HASH_CDR_PRE_OP 0x13
-#define	MAKE_HASH_CDR_POST_OP 0x14
+#define MAKE_HASH_TUPLE_OP      (FIRST_VACANT_TAG_DEF)
+#define MAKE_HASH_TERM_ARRAY_OP (FIRST_VACANT_TAG_DEF+1)
+#define MAKE_HASH_CDR_PRE_OP    (FIRST_VACANT_TAG_DEF+2)
+#define MAKE_HASH_CDR_POST_OP   (FIRST_VACANT_TAG_DEF+3)
 
     /* 
     ** Convenience macro for calculating a bytewise hash on an unsigned 32 bit 

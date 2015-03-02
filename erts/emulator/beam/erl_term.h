@@ -1111,20 +1111,22 @@ _ET_DECLARE_CHECKED(Uint,y_reg_index,Uint)
 #define LIST_DEF		0x1
 #define NIL_DEF			0x2
 #define MAP_DEF			0x3
-#define TUPLE_DEF		0x4
-#define PID_DEF			0x5
-#define EXTERNAL_PID_DEF	0x6
-#define PORT_DEF		0x7
-#define EXTERNAL_PORT_DEF	0x8
-#define EXPORT_DEF		0x9
-#define FUN_DEF			0xa
-#define REF_DEF			0xb
-#define EXTERNAL_REF_DEF	0xc
-#define ATOM_DEF		0xd
-#define FLOAT_DEF		0xe
-#define BIG_DEF			0xf
-#define SMALL_DEF		0x10
-#define HASHMAP_DEF		0x11
+#define HASHMAP_DEF		0x4
+#define TUPLE_DEF		0x5
+#define PID_DEF			0x6
+#define EXTERNAL_PID_DEF	0x7
+#define PORT_DEF		0x8
+#define EXTERNAL_PORT_DEF	0x9
+#define EXPORT_DEF		0xa
+#define FUN_DEF			0xb
+#define REF_DEF			0xc
+#define EXTERNAL_REF_DEF	0xd
+#define ATOM_DEF		0xe
+#define FLOAT_DEF		0xf
+#define BIG_DEF			0x10
+#define SMALL_DEF		0x11
+
+#define FIRST_VACANT_TAG_DEF    0x12
 
 #if ET_DEBUG
 extern unsigned tag_val_def_debug(Wterm, const char*, unsigned);
