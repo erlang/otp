@@ -1579,7 +1579,7 @@ munge_body(Expr, Vars) ->
 
 munge_body([Expr|Body], Vars, MungedBody, LastExprBumpLines) ->
     %% Here is the place to add a call to cover:bump/6!
-    Line = element(2, Expr),
+    {line, Line} = erl_parse:get_attribute(element(2, Expr), line),
     Lines = Vars#vars.lines,
     case lists:member(Line,Lines) of
 	true -> % already a bump at this line
