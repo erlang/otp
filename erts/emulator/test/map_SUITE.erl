@@ -1034,42 +1034,42 @@ t_bif_erlang_phash2() ->
 
 t_bif_erlang_phash() ->
     Sz = 1 bsl 32,
-    268440612  = erlang:phash(#{},Sz),
-    1196461908 = erlang:phash(#{ a => 1, "a" => 2, <<"a">> => 3, {a,b} => 4 },Sz),
-    3944426064 = erlang:phash(#{ 1 => a, 2 => "a", 3 => <<"a">>, 4 => {a,b} },Sz),
-    1394238263 = erlang:phash(#{ 1 => a },Sz),
-    4066388227 = erlang:phash(#{ a => 1 },Sz),
+    1113425985 = erlang:phash(#{},Sz), % 268440612
+    1510068139 = erlang:phash(#{ a => 1, "a" => 2, <<"a">> => 3, {a,b} => 4 },Sz), % 1196461908
+    3182345590 = erlang:phash(#{ 1 => a, 2 => "a", 3 => <<"a">>, 4 => {a,b} },Sz), % 3944426064
+    2927531828 = erlang:phash(#{ 1 => a },Sz), % 1394238263
+    1670235874 = erlang:phash(#{ a => 1 },Sz), % 4066388227
 
-    1578050717 = erlang:phash(#{{} => <<>>},Sz),
-    1578050717 = erlang:phash(#{<<>> => {}},Sz), % yep, broken
+    3935089469 = erlang:phash(#{{} => <<>>},Sz), % 1578050717
+    71692856   = erlang:phash(#{<<>> => {}},Sz), % 1578050717
 
     M0 = #{ a => 1, "key" => <<"value">> },
     M1 = maps:remove("key",M0),
     M2 = M1#{ "key" => <<"value">> },
 
-    3590546636 = erlang:phash(M0,Sz),
-    4066388227 = erlang:phash(M1,Sz),
-    3590546636 = erlang:phash(M2,Sz),
+    2620391445 = erlang:phash(M0,Sz), % 3590546636
+    1670235874 = erlang:phash(M1,Sz), % 4066388227
+    2620391445 = erlang:phash(M2,Sz), % 3590546636
     ok.
 
 t_bif_erlang_hash() ->
     Sz = 1 bsl 27 - 1,
-    5158      = erlang:hash(#{},Sz),
-    71555838  = erlang:hash(#{ a => 1, "a" => 2, <<"a">> => 3, {a,b} => 4 },Sz),
-    5497225   = erlang:hash(#{ 1 => a, 2 => "a", 3 => <<"a">>, 4 => {a,b} },Sz),
-    126071654 = erlang:hash(#{ 1 => a },Sz),
-    126426236 = erlang:hash(#{ a => 1 },Sz),
+    39684169 = erlang:hash(#{},Sz),  % 5158
+    33673142 = erlang:hash(#{ a => 1, "a" => 2, <<"a">> => 3, {a,b} => 4 },Sz), % 71555838
+    95337869 = erlang:hash(#{ 1 => a, 2 => "a", 3 => <<"a">>, 4 => {a,b} },Sz), % 5497225
+    108959561 = erlang:hash(#{ 1 => a },Sz), % 126071654
+    59623150 = erlang:hash(#{ a => 1 },Sz), % 126426236
 
-    101655720 = erlang:hash(#{{} => <<>>},Sz),
-    101655720 = erlang:hash(#{<<>> => {}},Sz), % yep, broken
+    42775386 = erlang:hash(#{{} => <<>>},Sz), % 101655720
+    71692856 = erlang:hash(#{<<>> => {}},Sz), % 101655720
 
     M0 = #{ a => 1, "key" => <<"value">> },
     M1 = maps:remove("key",M0),
     M2 = M1#{ "key" => <<"value">> },
 
-    38260486  = erlang:hash(M0,Sz),
-    126426236 = erlang:hash(M1,Sz),
-    38260486  = erlang:hash(M2,Sz),
+    70254632 = erlang:hash(M0,Sz), % 38260486
+    59623150 = erlang:hash(M1,Sz), % 126426236
+    70254632 = erlang:hash(M2,Sz), % 38260486
     ok.
 
 

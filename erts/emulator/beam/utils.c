@@ -1013,21 +1013,9 @@ tail_recur:
 	    break;
 	}	
     case MAP_DEF:
+    case HASHMAP_DEF:
 	{
-	    map_t *mp = (map_t *)map_val(term);
-	    int size  = map_get_size(mp);
-	    Eterm *ks = map_get_keys(mp);
-	    Eterm *vs = map_get_values(mp);
-
-	    /* Use a prime with size to remedy some of
-	     * the {} and <<>> hash problems */
-	    hash = hash*FUNNY_NUMBER13 + FUNNY_NUMBER14 + size;
-	    if (size == 0)
-		break;
-
-	    /* push values first */
-	    WSTACK_PUSH3(stack, (UWord)vs, (UWord) size, MAKE_HASH_TERM_ARRAY_OP);
-	    WSTACK_PUSH3(stack, (UWord)ks, (UWord) size, MAKE_HASH_TERM_ARRAY_OP);
+	    hash = hash*FUNNY_NUMBER13 + FUNNY_NUMBER14 + make_hash2(term);
 	    break;
 	}
     case TUPLE_DEF: 
@@ -2164,21 +2152,9 @@ tail_recur:
 	break;
 
     case MAP_DEF:
+    case HASHMAP_DEF:
 	{
-	    map_t *mp = (map_t *)map_val(term);
-	    int size  = map_get_size(mp);
-	    Eterm *ks = map_get_keys(mp);
-	    Eterm *vs = map_get_values(mp);
-
-	    /* Use a prime with size to remedy some of
-	     * the {} and <<>> hash problems */
-	    hash = hash*FUNNY_NUMBER13 + FUNNY_NUMBER14 + size;
-	    if (size == 0)
-		break;
-
-	    /* push values first */
-	    WSTACK_PUSH3(stack, (UWord)vs, (UWord) size, MAKE_HASH_TERM_ARRAY_OP);
-	    WSTACK_PUSH3(stack, (UWord)ks, (UWord) size, MAKE_HASH_TERM_ARRAY_OP);
+	    hash = hash*FUNNY_NUMBER13 + FUNNY_NUMBER14 + make_hash2(term);
 	    break;
 	}
     case TUPLE_DEF: 
