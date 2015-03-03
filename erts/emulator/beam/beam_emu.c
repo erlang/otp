@@ -6556,6 +6556,7 @@ new_map(Process* p, Eterm* reg, BeamInstr* I)
     Eterm *E;
     BeamInstr *ptr;
     map_t *mp;
+    ErtsHeapFactory factory;
 
     ptr = &Arg(4);
 
@@ -6575,7 +6576,8 @@ new_map(Process* p, Eterm* reg, BeamInstr* I)
 
 	p->htop = mhp;
 
-	return erts_hashmap_from_array(p, thp, n/2);
+        factory.p = p;
+	return erts_hashmap_from_array(&factory, thp, n/2);
     }
 
     if (HeapWordsLeft(p) < need) {

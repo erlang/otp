@@ -80,7 +80,7 @@ typedef struct map_s {
 #define map_get_keys(x)        (((Eterm *)tuple_val(((map_t *)(x))->keys)) + 1)
 #define map_get_size(x)        (((map_t*)(x))->size)
 
-#define MAP_SMALL_MAP_LIMIT    (32)
+#define MAP_SMALL_MAP_LIMIT    (2) /*SVERK (32) */
 #define MAP_HEADER             _make_header(1,_TAG_HEADER_MAP)
 #define MAP_HEADER_SIZE        (sizeof(map_t) / sizeof(Eterm))
 
@@ -102,7 +102,7 @@ int    erts_validate_and_sort_map(map_t* map);
 void   hashmap_iterator_init(struct ErtsWStack_* s, Eterm node);
 Eterm* hashmap_iterator_next(struct ErtsWStack_* s);
 int    hashmap_key_hash_cmp(Eterm* ap, Eterm* bp);
-Eterm  erts_hashmap_from_array(Process *p, Eterm *leafs, Uint n);
+Eterm  erts_hashmap_from_array(ErtsHeapFactory*, Eterm *leafs, Uint n);
 const  Eterm *erts_hashmap_get(Uint32 hx, Eterm key, Eterm map);
 
 #define erts_hashmap_from_ks_and_vs(P, KS, VS, N) \

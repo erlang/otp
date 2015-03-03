@@ -68,6 +68,23 @@ struct erl_heap_fragment {
     Eterm mem[1];		/* Data */
 };
 
+typedef struct {
+    Process* p;
+    Eterm* hp;
+    Eterm* hp_end;
+    /* more to come... */
+} ErtsHeapFactory;
+
+Eterm* erts_produce_heap(ErtsHeapFactory*, Uint need, Uint xtra);
+#ifdef CHECK_FOR_HOLES
+# define ERTS_FACTORY_HOLE_CHECK(f) do {    \
+        if ((f)->p) erts_check_for_holes((f)->p); \
+    } while (0)
+#else
+# define ERTS_FACTORY_HOLE_CHECK(p)
+#endif
+
+
 typedef struct erl_mesg {
     struct erl_mesg* next;	/* Next message */
     union {

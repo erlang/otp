@@ -1182,7 +1182,8 @@ typedef struct {
     Eterm* hp_end;
     int remaining_n;
     char* remaining_bytes;
-    Eterm* maps_head;
+    Eterm* maps_list;
+    struct dec_term_hamt_placeholder* hamt_list;
 } B2TDecodeContext;
 
 typedef struct {
@@ -1508,7 +1509,8 @@ static BIF_RETTYPE binary_to_term_int(Process* p, Uint32 flags, Eterm bin, Binar
             ctx->u.dc.hp_start = HAlloc(p, ctx->heap_size);
             ctx->u.dc.hp       = ctx->u.dc.hp_start;
             ctx->u.dc.hp_end   = ctx->u.dc.hp_start + ctx->heap_size;
-	    ctx->u.dc.maps_head = NULL;
+	    ctx->u.dc.maps_list = NULL;
+	    ctx->u.dc.hamt_list = NULL;
             ctx->state = B2TDecode;
             /*fall through*/
 	case B2TDecode:
@@ -2938,9 +2940,21 @@ undo_offheap_in_area(ErlOffHeap* off_heap, Eterm* start, Eterm* end)
 #endif /* DEBUG */
 }
 
+struct dec_term_hamt_placeholder
+{
+    struct dec_term_hamt_placeholder* next;
+    Eterm* objp; /* write result here */
+    Uint size;   /* nr of leafs */
+    Eterm* leaf_array;
+
+    Eterm _heap_capacity_[1];
+};
+
+#define DEC_TERM_HAMT_PLACEHOLDER_SIZE(SZ) \
+    (offsetof(struct dec_term_hamt_placeholder, _heap_capacity_) + (SZ))
 
 /* Decode term from external format into *objp.
-** On failure return NULL and (R13B04) *hpp will be unchanged.
+** On failure return NULL and *hpp will be unchanged.
 */
 static byte*
 dec_term(ErtsDistExternal *edep, Eterm** hpp, byte* ep, ErlOffHeap* off_heap,
@@ -2950,7 +2964,8 @@ dec_term(ErtsDistExternal *edep, Eterm** hpp, byte* ep, ErlOffHeap* off_heap,
     int n;
     ErtsAtomEncoding char_enc;
     register Eterm* hp;        /* Please don't take the address of hp */
-    Eterm *maps_head;   /* for validation of maps */
+    Eterm *maps_list;   /* for preprocessing of small maps */
+    struct dec_term_hamt_placeholder* hamt_list;   /* for preprocessing of big maps */
     Eterm* next;
     SWord reds;
 
@@ -2960,7 +2975,8 @@ dec_term(ErtsDistExternal *edep, Eterm** hpp, byte* ep, ErlOffHeap* off_heap,
         next     = ctx->u.dc.next;
         ep       = ctx->u.dc.ep;
         hpp      = &ctx->u.dc.hp;
-	maps_head = ctx->u.dc.maps_head;
+	maps_list = ctx->u.dc.maps_list;
+        hamt_list = ctx->u.dc.hamt_list;
 
         if (ctx->state != B2TDecode) {
             int n_limit = reds;
@@ -3041,7 +3057,8 @@ dec_term(ErtsDistExternal *edep, Eterm** hpp, byte* ep, ErlOffHeap* off_heap,
         reds = ERTS_SWORD_MAX;
         next = objp;
         *next = (Eterm) (UWord) NULL;
-	maps_head = NULL;
+	maps_list = NULL;
+        hamt_list = NULL;
     }
     hp = *hpp;
 
@@ -3577,46 +3594,68 @@ dec_term_atom_common:
 	    break;
 	case MAP_EXT:
 	    {
-		map_t *mp;
 		Uint32 size,n;
 		Eterm *kptr,*vptr;
 		Eterm keys;
 
 		size = get_int32(ep); ep += 4;
 
-		keys  = make_tuple(hp);
-		*hp++ = make_arityval(size);
-		hp   += size;
-		kptr = hp - 1;
+                if (size <= MAP_SMALL_MAP_LIMIT) {
+                    map_t *mp;
 
-		mp    = (map_t*)hp;
-		hp   += MAP_HEADER_SIZE;
-		hp   += size;
-		vptr = hp - 1;
+                    keys  = make_tuple(hp);
+                    *hp++ = make_arityval(size);
+                    hp   += size;
+                    kptr = hp - 1;
 
-		/* kptr, last word for keys
-		 * vptr, last word for values
-		 */
+                    mp    = (map_t*)hp;
+                    hp   += MAP_HEADER_SIZE;
+                    hp   += size;
+                    vptr = hp - 1;
 
-		/*
-		 * Use thing_word to link through decoded maps.
-		 * The list of maps is for later validation.
-		 */
+                    /* kptr, last word for keys
+                     * vptr, last word for values
+                     */
 
-		mp->thing_word = (Eterm) COMPRESS_POINTER(maps_head);
-		maps_head      = (Eterm *) mp;
+                    /*
+                     * Use thing_word to link through decoded maps.
+                     * The list of maps is for later validation.
+                     */
 
-		mp->size       = size;
-		mp->keys       = keys;
-		*objp          = make_map(mp);
+                    mp->thing_word = (Eterm) COMPRESS_POINTER(maps_list);
+                    maps_list      = (Eterm *) mp;
 
-		for (n = size; n; n--) {
-		    *vptr = (Eterm) COMPRESS_POINTER(next);
-		    *kptr = (Eterm) COMPRESS_POINTER(vptr);
-		    next  = kptr;
-		    vptr--;
-		    kptr--;
-		}
+                    mp->size       = size;
+                    mp->keys       = keys;
+                    *objp          = make_map(mp);
+
+                    for (n = size; n; n--) {
+                        *vptr = (Eterm) COMPRESS_POINTER(next);
+                        *kptr = (Eterm) COMPRESS_POINTER(vptr);
+                        next  = kptr;
+                        vptr--;
+                        kptr--;
+                    }
+                }
+                else {  /* Make hamt */
+                    struct dec_term_hamt_placeholder* holder =
+                        (struct dec_term_hamt_placeholder*) hp;
+
+                    holder->next = hamt_list;
+                    hamt_list    = holder;
+                    holder->objp = objp;
+                    holder->size = size;
+
+                    hp += DEC_TERM_HAMT_PLACEHOLDER_SIZE(size);
+                    holder->leaf_array = hp;
+
+                    for (n = size; n; n--) {
+                        CDR(hp) = (Eterm) COMPRESS_POINTER(next);
+                        CAR(hp) = (Eterm) COMPRESS_POINTER(&CDR(hp));
+                        next = &CAR(hp);
+                        hp += 2;
+                    }
+                }
 	    }
 	    break;
 	case NEW_FUN_EXT:
@@ -3837,7 +3876,7 @@ dec_term_atom_common:
                     ctx->u.dc.ep = ep;
                     ctx->u.dc.next = next;
                     ctx->u.dc.hp = hp;
-		    ctx->u.dc.maps_head = maps_head;
+		    ctx->u.dc.maps_list = maps_list;
                     ctx->reds = 0;
                     return NULL;
                 }
@@ -3852,12 +3891,38 @@ dec_term_atom_common:
      * - done here for when we know it is complete.
      */
 
-    while (maps_head) {
-	next  = (Eterm *)(EXPAND_POINTER(*maps_head));
-	*maps_head = MAP_HEADER;
-	if (!erts_validate_and_sort_map((map_t*)maps_head))
+    while (maps_list) {
+	next  = (Eterm *)(EXPAND_POINTER(*maps_list));
+	*maps_list = MAP_HEADER;
+	if (!erts_validate_and_sort_map((map_t*)maps_list))
 	    goto error;
-	maps_head  = next;
+	maps_list  = next;
+    }
+
+    while (hamt_list) {
+        ErtsHeapFactory factory;
+        int residue;
+
+        factory.p = NULL;
+        factory.hp = (Eterm*) hamt_list;
+        factory.hp_end = hamt_list->leaf_array;
+
+        next  = (Eterm *) hamt_list->next;
+        objp = hamt_list->objp;
+
+	/*SVERK Make it reject duplicate keys */
+        *objp = erts_hashmap_from_array(&factory,
+                                        hamt_list->leaf_array,
+                                        hamt_list->size);
+        if (is_non_value(*objp))
+            goto error;
+
+        residue = factory.hp_end - factory.hp;
+        if (residue) {
+            ASSERT(residue > 0);
+            *factory.hp = make_pos_bignum_header(residue-1);
+        }
+        hamt_list = (struct dec_term_hamt_placeholder*) next;
     }
 
     if (ctx) {
@@ -4420,7 +4485,11 @@ init_done:
 	    n = get_int32(ep);
 	    ep += 4;
 	    ADDTERMS(2*n);
-	    heap_size += 3 + n + 1 + n;
+            if (n <= MAP_SMALL_MAP_LIMIT) {
+                heap_size += 3 + n + 1 + n;
+            } else {
+                heap_size += DEC_TERM_HAMT_PLACEHOLDER_SIZE(n) + 2*n;
+            }
 	    break;
 	case STRING_EXT:
 	    CHKSIZE(2);

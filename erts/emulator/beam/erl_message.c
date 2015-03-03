@@ -1146,3 +1146,16 @@ erts_deliver_exit_message(Eterm from, Process *to, ErtsProcLocks *to_locksp,
     }
 }
 
+Eterm* erts_produce_heap(ErtsHeapFactory* factory, Uint need, Uint xtra)
+{
+    Eterm* res;
+    if (factory->p) {
+        res = HAllocX(factory->p, need, xtra);
+    } else {
+        res = factory->hp;
+        factory->hp += need;
+        ASSERT(factory->hp <= factory->hp_end);
+    }
+    return res;
+}
+

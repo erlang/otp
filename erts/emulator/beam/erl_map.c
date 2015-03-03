@@ -87,9 +87,9 @@ static Eterm hashmap_values(Process *p, Eterm map);
 static Eterm hashmap_delete(Process *p, Uint32 hx, Eterm key, Eterm node);
 static Eterm map_from_validated_list(Process *p, Eterm list, Uint size);
 static Eterm hashmap_from_validated_list(Process *p, Eterm list, Uint size);
-static Eterm hashmap_from_unsorted_array(Process *p, hxnode_t *hxns, Uint n);
-static Eterm hashmap_from_sorted_unique_array(Process *p, hxnode_t *hxns, Uint n, int is_root);
-static Eterm hashmap_from_chunked_array(Process *p, hxnode_t *hxns, Uint n, int is_root);
+static Eterm hashmap_from_unsorted_array(ErtsHeapFactory*, hxnode_t *hxns, Uint n);
+static Eterm hashmap_from_sorted_unique_array(ErtsHeapFactory*, hxnode_t *hxns, Uint n, int is_root);
+static Eterm hashmap_from_chunked_array(ErtsHeapFactory*, hxnode_t *hxns, Uint n, int is_root);
 static Eterm hashmap_info(Process *p, Eterm node);
 static Eterm hashmap_bld_tuple_uint(Uint **hpp, Uint *szp, Uint n, Uint nums[]);
 static int hxnodecmp(hxnode_t* a, hxnode_t* b);
@@ -396,6 +396,7 @@ static Eterm hashmap_from_validated_list(Process *p, Eterm list, Uint size) {
     Uint32 sw, hx;
     Uint ix = 0;
     hxnode_t *hxns;
+    ErtsHeapFactory factory;
 
     ASSERT(size > 0);
 
@@ -417,7 +418,8 @@ static Eterm hashmap_from_validated_list(Process *p, Eterm list, Uint size) {
 	item = CDR(list_val(item));
     }
 
-    res = hashmap_from_unsorted_array(p, hxns, size);
+    factory.p = p;
+    res = hashmap_from_unsorted_array(&factory, hxns, size);
 
     erts_free(ERTS_ALC_T_TMP, (void *) hxns);
     ERTS_VERIFY_UNUSED_TEMP_ALLOC(p);
@@ -460,7 +462,7 @@ static Eterm hashmap_from_validated_list(Process *p, Eterm list, Uint size) {
     return res;
 }
 
-Eterm erts_hashmap_from_array(Process *p, Eterm *leafs, Uint n) {
+Eterm erts_hashmap_from_array(ErtsHeapFactory* factory, Eterm *leafs, Uint n) {
     Uint32 sw, hx;
     Uint ix;
     hxnode_t *hxns;
@@ -479,10 +481,9 @@ Eterm erts_hashmap_from_array(Process *p, Eterm *leafs, Uint n) {
 	leafs += 2;
     }
 
-    res = hashmap_from_unsorted_array(p, hxns, n);
+    res = hashmap_from_unsorted_array(factory, hxns, n);
 
     erts_free(ERTS_ALC_T_TMP, (void *) hxns);
-    ERTS_VERIFY_UNUSED_TEMP_ALLOC(p);
 
     return res;
 }
@@ -493,6 +494,7 @@ Eterm erts_hashmap_from_ks_and_vs_extra(Process *p, Eterm *ks, Eterm *vs, Uint n
     Uint32 sw, hx;
     Uint i,sz;
     hxnode_t *hxns;
+    ErtsHeapFactory factory;
     Eterm *hp, res;
 
     sz = (key == THE_NON_VALUE) ? n : (n + 1);
@@ -520,7 +522,8 @@ Eterm erts_hashmap_from_ks_and_vs_extra(Process *p, Eterm *ks, Eterm *vs, Uint n
 	hxns[i].i    = i;
     }
 
-    res = hashmap_from_unsorted_array(p, hxns, sz);
+    factory.p = p;
+    res = hashmap_from_unsorted_array(&factory, hxns, sz);
 
     erts_free(ERTS_ALC_T_TMP, (void *) hxns);
     ERTS_VERIFY_UNUSED_TEMP_ALLOC(p);
@@ -528,13 +531,14 @@ Eterm erts_hashmap_from_ks_and_vs_extra(Process *p, Eterm *ks, Eterm *vs, Uint n
     return res;
 }
 
-static Eterm hashmap_from_unsorted_array(Process *p, hxnode_t *hxns, Uint n) {
+static Eterm hashmap_from_unsorted_array(ErtsHeapFactory* factory,
+                                         hxnode_t *hxns, Uint n) {
     Uint jx = 0, ix = 0, lx, cx;
     Eterm res;
 
     if (n == 0) {
 	Eterm *hp;
-	hp = HAlloc(p, 2);
+	hp = erts_produce_heap(factory, 2, 0);
 	hp[0] = MAP_HEADER_HAMT_HEAD_BITMAP(0);
 	hp[1] = 0;
 
@@ -590,7 +594,7 @@ static Eterm hashmap_from_unsorted_array(Process *p, hxnode_t *hxns, Uint n) {
 
     if (cx > 1) {
 	/* recursive decompose array */
-	res = hashmap_from_sorted_unique_array(p, hxns, cx, 0);
+	res = hashmap_from_sorted_unique_array(factory, hxns, cx, 0);
     } else {
 	Eterm *hp;
 
@@ -600,7 +604,7 @@ static Eterm hashmap_from_unsorted_array(Process *p, hxnode_t *hxns, Uint n) {
 	 * hash value has been swizzled, need to drag it down to get the
 	 * correct slot. */
 
-	hp    = HAlloc(p, HAMT_HEAD_BITMAP_SZ(1));
+	hp    = erts_produce_heap(factory, HAMT_HEAD_BITMAP_SZ(1), 0);
 	hp[0] = MAP_HEADER_HAMT_HEAD_BITMAP(1 << ((hxns[0].hx >> 0x1c) & 0xf));
 	hp[1] = 1;
 	hp[2] = hxns[0].val;
@@ -610,7 +614,8 @@ static Eterm hashmap_from_unsorted_array(Process *p, hxnode_t *hxns, Uint n) {
     return res;
 }
 
-static Eterm hashmap_from_sorted_unique_array(Process *p, hxnode_t *hxns, Uint n, int lvl) {
+static Eterm hashmap_from_sorted_unique_array(ErtsHeapFactory* factory,
+                                              hxnode_t *hxns, Uint n, int lvl) {
     Eterm res = NIL;
     Uint i,ix,jx,elems;
     Uint32 sw, hx;
@@ -640,7 +645,7 @@ static Eterm hashmap_from_sorted_unique_array(Process *p, hxnode_t *hxns, Uint n
 	    qsort(tmp, jx - ix, sizeof(hxnode_t), (int (*)(const void *, const void *)) hxnodecmp);
 
 	    hxns[ix].skip = jx - ix;
-	    hxns[ix].val  = hashmap_from_sorted_unique_array(p, tmp, jx - ix, lvl + 8);
+	    hxns[ix].val  = hashmap_from_sorted_unique_array(factory, tmp, jx - ix, lvl + 8);
 	    erts_free(ERTS_ALC_T_TMP, (void *) tmp);
 	    ix = jx;
 	    if (ix < n) { elems++; }
@@ -651,15 +656,16 @@ static Eterm hashmap_from_sorted_unique_array(Process *p, hxnode_t *hxns, Uint n
 	ix++;
     }
 
-    res = hashmap_from_chunked_array(p, hxns, elems, !lvl);
+    res = hashmap_from_chunked_array(factory, hxns, elems, !lvl);
 
-    ERTS_HOLE_CHECK(p);
+    ERTS_FACTORY_HOLE_CHECK(factory);
 
     return res;
 }
 
 #define HALLOC_EXTRA 200
-static Eterm hashmap_from_chunked_array(Process *p, hxnode_t *hxns, Uint n, int is_root) {
+static Eterm hashmap_from_chunked_array(ErtsHeapFactory *factory,
+                                        hxnode_t *hxns, Uint n, int is_root) {
     Uint ix, d, dn, dc, slot, elems;
     Uint32 v, vp, vn, hdr;
     Uint bp, sz;
@@ -691,7 +697,7 @@ static Eterm hashmap_from_chunked_array(Process *p, hxnode_t *hxns, Uint n, int 
 	dc = 7;
 	/* build collision nodes */
 	while (dc > d) {
-	    hp    = HAllocX(p, HAMT_NODE_BITMAP_SZ(1), HALLOC_EXTRA);
+	    hp    = erts_produce_heap(factory, HAMT_NODE_BITMAP_SZ(1), HALLOC_EXTRA);
 	    hp[0] = MAP_HEADER_HAMT_NODE_BITMAP(1 << maskval(vp,dc));
 	    hp[1] = res;
 	    res   = make_hashmap(hp);
@@ -722,7 +728,7 @@ static Eterm hashmap_from_chunked_array(Process *p, hxnode_t *hxns, Uint n, int 
 	    dc = 7;
 	    /* build collision nodes */
 	    while (dc > wat) {
-		hp    = HAllocX(p, HAMT_NODE_BITMAP_SZ(1), HALLOC_EXTRA);
+		hp    = erts_produce_heap(factory, HAMT_NODE_BITMAP_SZ(1), HALLOC_EXTRA);
 		hp[0] = MAP_HEADER_HAMT_NODE_BITMAP(1 << maskval(v,dc));
 		hp[1] = res;
 		res   = make_hashmap(hp);
@@ -762,7 +768,7 @@ static Eterm hashmap_from_chunked_array(Process *p, hxnode_t *hxns, Uint n, int 
 		 * redundant collisions */
 		hdr  |= bp;
 		sz    = hashmap_bitcount(hdr);
-		hp    = HAllocX(p, HAMT_NODE_BITMAP_SZ(sz), HALLOC_EXTRA);
+		hp    = erts_produce_heap(factory, HAMT_NODE_BITMAP_SZ(sz), HALLOC_EXTRA);
 		nhp   = hp;
 		*hp++ = (hdr == 0xffff) ? MAP_HEADER_HAMT_NODE_ARRAY : MAP_HEADER_HAMT_NODE_BITMAP(hdr);
 		*hp++ = res; sz--;
@@ -782,7 +788,7 @@ static Eterm hashmap_from_chunked_array(Process *p, hxnode_t *hxns, Uint n, int 
 	vp = v;
 	v  = vn;
 	d  = dn;
-	ERTS_HOLE_CHECK(p);
+	ERTS_FACTORY_HOLE_CHECK(factory);
     }
 
     /* v and vp are reused from above */
@@ -794,7 +800,7 @@ static Eterm hashmap_from_chunked_array(Process *p, hxnode_t *hxns, Uint n, int 
 	dc = 7;
 	/* build collision nodes */
 	while (dc > dn) {
-	    hp    = HAllocX(p, HAMT_NODE_BITMAP_SZ(1), HALLOC_EXTRA);
+	    hp    = erts_produce_heap(factory, HAMT_NODE_BITMAP_SZ(1), HALLOC_EXTRA);
 	    hp[0] = MAP_HEADER_HAMT_NODE_BITMAP(1 << maskval(v,dc));
 	    hp[1] = res;
 	    res   = make_hashmap(hp);
@@ -811,7 +817,7 @@ static Eterm hashmap_from_chunked_array(Process *p, hxnode_t *hxns, Uint n, int 
 	 * redundant collisions */
 	hdr  |= bp;
 	sz    = hashmap_bitcount(hdr);
-	hp    = HAllocX(p, HAMT_NODE_BITMAP_SZ(sz), HALLOC_EXTRA);
+	hp    = erts_produce_heap(factory, HAMT_NODE_BITMAP_SZ(sz), HALLOC_EXTRA);
 	nhp   = hp;
 	*hp++ = (hdr == 0xffff) ? MAP_HEADER_HAMT_NODE_ARRAY : MAP_HEADER_HAMT_NODE_BITMAP(hdr);
 	*hp++ = res; sz--;
@@ -828,7 +834,7 @@ static Eterm hashmap_from_chunked_array(Process *p, hxnode_t *hxns, Uint n, int 
     bp    = 1 << slot;
     hdr  |= bp;
     sz    = hashmap_bitcount(hdr);
-    hp    = HAlloc(p, sz + /* hdr + item */ (is_root ? 2 : 1));
+    hp    = erts_produce_heap(factory, sz + /* hdr + item */ (is_root ? 2 : 1), 0);
     nhp   = hp;
 
     if (is_root) {
@@ -845,7 +851,7 @@ static Eterm hashmap_from_chunked_array(Process *p, hxnode_t *hxns, Uint n, int 
 
     ASSERT(ESTACK_COUNT(stack) == 0);
     DESTROY_ESTACK(stack);
-    ERTS_HOLE_CHECK(p);
+    ERTS_FACTORY_HOLE_CHECK(factory);
     return res;
 }
 #undef HALLOC_EXTRA
@@ -1005,6 +1011,7 @@ static Eterm map_merge(Process *p, Eterm nodeA, Eterm nodeB) {
 	Uint i;
 	Eterm res;
 	hxnode_t *hxns;
+        ErtsHeapFactory factory;
 
 	ks = map_get_keys(mp_new);
 	vs = map_get_values(mp_new);
@@ -1022,7 +1029,8 @@ static Eterm map_merge(Process *p, Eterm nodeA, Eterm nodeB) {
 	    hxns[i].i    = i;
 	}
 
-	res = hashmap_from_unsorted_array(p, hxns, n);
+        factory.p = p;
+	res = hashmap_from_unsorted_array(&factory, hxns, n);
 
 	erts_free(ERTS_ALC_T_TMP, (void *) hxns);
 	ERTS_VERIFY_UNUSED_TEMP_ALLOC(p);
@@ -1041,6 +1049,7 @@ static Eterm map_merge_mixed(Process *p, Eterm flat, Eterm tree, int swap_args) 
     Uint n, i;
     hxnode_t *hxns;
     Uint32 sw, hx;
+    ErtsHeapFactory factory;
 
     /* convert flat to tree */
 
@@ -1066,7 +1075,8 @@ static Eterm map_merge_mixed(Process *p, Eterm flat, Eterm tree, int swap_args) 
 	hxns[i].i    = i;
     }
 
-    res = hashmap_from_unsorted_array(p, hxns, n);
+    factory.p = p;
+    res = hashmap_from_unsorted_array(&factory, hxns, n);
 
     erts_free(ERTS_ALC_T_TMP, (void *) hxns);
     ERTS_VERIFY_UNUSED_TEMP_ALLOC(p);
@@ -1576,7 +1586,7 @@ Eterm erts_maps_put(Process *p, Eterm key, Eterm value, Eterm map) {
 
 	/* the map will grow */
 
-	if (n > MAP_SMALL_MAP_LIMIT) {
+	if (n >= MAP_SMALL_MAP_LIMIT) {
 	    HRelease(p, shp + MAP_HEADER_SIZE + n, shp);
 	    ks = map_get_keys(mp);
 	    vs = map_get_values(mp);
