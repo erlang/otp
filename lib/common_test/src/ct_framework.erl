@@ -686,18 +686,21 @@ end_tc(Mod,Func,TCPid,Result,Args,Return) ->
 	    undefined ->
 		%% send sync notification so that event handlers may print
 		%% in the log file before it gets closed
-		ct_event:sync_notify(#event{name=tc_done,
-					    node=node(),
-					    data={Mod,FuncSpec,
-						  tag_cth(FinalNotify)}}),
+		Event = #event{name=tc_done,
+			       node=node(),
+			       data={Mod,FuncSpec,
+				     tag(FinalNotify)}},
+		ct_event:sync_notify(Event),
 		Result1;
 	    Fun ->
 		%% send sync notification so that event handlers may print
 		%% in the log file before it gets closed
-		ct_event:sync_notify(#event{name=tc_done,
-					    node=node(),
-					    data={Mod,FuncSpec,
-						  tag(FinalNotify)}}),
+		Event = #event{name=tc_done,
+			       node=node(),
+			       data={Mod,FuncSpec,
+				     tag({'$test_server_framework_test',
+					  FinalNotify})}},
+		ct_event:sync_notify(Event),
 		Fun(end_tc, Return)
 	end,    
 
@@ -770,44 +773,37 @@ end_tc(Mod,Func,TCPid,Result,Args,Return) ->
 
 %% {error,Reason} | {skip,Reason} | {timetrap_timeout,TVal} | 
 %% {testcase_aborted,Reason} | testcase_aborted_or_killed | 
-%% {'EXIT',Reason} | Other (ignored return value, e.g. 'ok')
-tag({STag,Reason}) when STag == skip; STag == skipped ->
+%% {'EXIT',Reason} | {fail,Reason} | {failed,Reason} |
+%% {user_timetrap_error,Reason} |
+%% Other (ignored return value, e.g. 'ok')
+tag({'$test_server_framework_test',Result}) ->
+    case tag(Result) of
+	ok      -> Result;
+	Failure -> Failure
+    end;	    
+tag({skipped,Reason={failed,{_,init_per_testcase,_}}}) ->
+    {auto_skipped,Reason};
+tag({STag,Reason}) when STag == skip; STag == skipped -> 
     case Reason of
 	{failed,{_,init_per_testcase,_}} -> {auto_skipped,Reason};
 	_ -> {skipped,Reason}
     end;
 tag({auto_skip,Reason}) ->
     {auto_skipped,Reason};
-tag(E = {ETag,_}) when ETag == error; ETag == 'EXIT'; 
-                       ETag == timetrap_timeout;
-                       ETag == testcase_aborted -> 
-    {failed,E};
-tag(E = testcase_aborted_or_killed) ->
-    {failed,E};
-tag(Other) ->
-    Other.
-
-tag_cth({skipped,Reason={failed,{_,init_per_testcase,_}}}) ->
-    {auto_skipped,Reason};
-tag_cth({STag,Reason}) when STag == skip; STag == skipped -> 
-    case Reason of
-	{failed,{_,init_per_testcase,_}} -> {auto_skipped,Reason};
-	_ -> {skipped,Reason}
-    end;
-tag_cth({auto_skip,Reason}) ->
-    {auto_skipped,Reason};
-tag_cth({fail,Reason}) ->
+tag({fail,Reason}) ->
     {failed,{error,Reason}};
-tag_cth(E = {ETag,_}) when ETag == error; ETag == 'EXIT'; 
+tag(Failed = {failed,_Reason}) ->
+    Failed;
+tag(E = {ETag,_}) when ETag == error; ETag == 'EXIT'; 
 			   ETag == timetrap_timeout;
 			   ETag == testcase_aborted -> 
     {failed,E};
-tag_cth(E = testcase_aborted_or_killed) ->
+tag(E = testcase_aborted_or_killed) ->
     {failed,E};
-tag_cth(List) when is_list(List) ->
-    ok;
-tag_cth(Other) ->
-    Other.
+tag(UserTimetrap = {user_timetrap_error,_Reason}) ->
+    UserTimetrap;
+tag(_Other) ->
+    ok.
 
 %%%-----------------------------------------------------------------
 %%% @spec error_notification(Mod,Func,Args,Error) -> ok
@@ -841,6 +837,8 @@ error_notification(Mod,Func,_Args,{Error,Loc}) ->
 			     io_lib:format("{test_case_failed,~p}", [Reason]);
 			 Result -> Result
 		     end;
+		 {'EXIT',_Reason} = EXIT ->
+		     io_lib:format("~P", [EXIT,5]);
 		 {Spec,_Reason} when is_atom(Spec) ->
 		     io_lib:format("~w", [Spec]);
 		 Other ->

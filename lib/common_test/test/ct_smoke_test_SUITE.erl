@@ -480,7 +480,7 @@ events(Test) when Test == dir1 ; Test == dir2 ;
       {Suite,tc4,{skipped,"Skipping this one"}}},
      {?eh,test_stats,{7,0,{1,0}}},
      {?eh,tc_start,{Suite,end_per_suite}},
-     {?eh,tc_done,{Suite,end_per_suite,ips_data}},
+     {?eh,tc_done,{Suite,end_per_suite,ok}},
      {?eh,test_done,{'DEF','STOP_TIME'}},
      {?eh,stop_logging,[]}
     ];
@@ -517,7 +517,7 @@ events(Test) when Test == dir1_2 ; Test == suite11_21 ->
       {happy_11_SUITE,tc4,{skipped,"Skipping this one"}}},
      {?eh,test_stats,{7,0,{1,0}}},
      {?eh,tc_start,{happy_11_SUITE,end_per_suite}},
-     {?eh,tc_done,{happy_11_SUITE,end_per_suite,ips_data}},
+     {?eh,tc_done,{happy_11_SUITE,end_per_suite,ok}},
      {?eh,tc_start,{happy_21_SUITE,init_per_suite}},
      {?eh,tc_done,{happy_21_SUITE,init_per_suite,ok}},
      {?eh,tc_start,{happy_21_SUITE,tc1}},
@@ -546,7 +546,7 @@ events(Test) when Test == dir1_2 ; Test == suite11_21 ->
       {happy_21_SUITE,tc4,{skipped,"Skipping this one"}}},
      {?eh,test_stats,{14,0,{2,0}}},
      {?eh,tc_start,{happy_21_SUITE,end_per_suite}},
-     {?eh,tc_done,{happy_21_SUITE,end_per_suite,ips_data}},
+     {?eh,tc_done,{happy_21_SUITE,end_per_suite,ok}},
      {?eh,test_done,{'DEF','STOP_TIME'}},
      {?eh,stop_logging,[]}
     ];
@@ -563,7 +563,7 @@ events(Test) when Test == tc111 ; Test == tc211 ->
      {?eh,tc_done,{Suite,tc1,ok}},
      {?eh,test_stats,{1,0,{0,0}}},
      {?eh,tc_start,{Suite,end_per_suite}},
-     {?eh,tc_done,{Suite,end_per_suite,ips_data}},
+     {?eh,tc_done,{Suite,end_per_suite,ok}},
      {?eh,test_done,{'DEF','STOP_TIME'}},
      {?eh,stop_logging,[]}
     ];
@@ -582,7 +582,7 @@ events(tc111_112) ->
      {?eh,tc_done,{happy_11_SUITE,tc2,ok}},
      {?eh,test_stats,{2,0,{0,0}}},
      {?eh,tc_start,{happy_11_SUITE,end_per_suite}},
-     {?eh,tc_done,{happy_11_SUITE,end_per_suite,ips_data}},
+     {?eh,tc_done,{happy_11_SUITE,end_per_suite,ok}},
      {?eh,test_done,{'DEF','STOP_TIME'}},
      {?eh,stop_logging,[]}
     ].

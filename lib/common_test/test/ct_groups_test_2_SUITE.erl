@@ -302,7 +302,7 @@ test_events(empty_group) ->
       {?eh,tc_done,
        {groups_22_SUITE,{end_per_group,test_group_8,[]},ok}}],
      {?eh,tc_start,{groups_22_SUITE,end_per_suite}},
-     {?eh,tc_done,{groups_22_SUITE,end_per_suite,init}},
+     {?eh,tc_done,{groups_22_SUITE,end_per_suite,ok}},
      {?eh,test_done,{'DEF','STOP_TIME'}},
      {?eh,stop_logging,[]}
     ].
