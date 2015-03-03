@@ -31,7 +31,6 @@
 	t_map_sort_literals/1,
 	t_map_equal/1,
 	t_map_compare/1,
-	%t_size/1,
 	t_map_size/1,
 
 	%% Specific Map BIFs
@@ -162,17 +161,6 @@ t_build_and_match_literals(Config) when is_list(Config) ->
     ok.
 
 
-%% Tests size(Map).
-%% not implemented, perhaps it shouldn't be either
-
-%t_size(Config) when is_list(Config) ->
-%    0 = size(#{}),
-%    1 = size(#{a=>1}),
-%    1 = size(#{a=>#{a=>1}}),
-%    2 = size(#{a=>1, b=>2}),
-%    3 = size(#{a=>1, b=>2, b=>"3"}),
-%    ok.
-
 t_map_size(Config) when is_list(Config) ->
     0 = map_size(id(#{})),
     1 = map_size(id(#{a=>1})),
@@ -188,10 +176,21 @@ t_map_size(Config) when is_list(Config) ->
     true  = map_is_size(M#{ "a" => 2}, 2),
     false = map_is_size(M#{ "c" => 2}, 2),
 
+    Ks = [build_key(fun(K) -> <<1,K:32,1>> end,I)||I<-lists:seq(1,100)],
+    ok = build_and_check_size(Ks,0,#{}),
+
     %% Error cases.
     {'EXIT',{badarg,_}} = (catch map_size([])),
     {'EXIT',{badarg,_}} = (catch map_size(<<1,2,3>>)),
     {'EXIT',{badarg,_}} = (catch map_size(1)),
+    ok.
+
+build_and_check_size([K|Ks],N,M0) ->
+    N = map_size(M0),
+    M1 = M0#{ K => K },
+    build_and_check_size(Ks,N + 1,M1);
+build_and_check_size([],N,M) ->
+    N = map_size(M),
     ok.
 
 map_is_size(M,N) when map_size(M) =:= N -> true;
@@ -1271,7 +1270,8 @@ t_bif_merge_and_check(Config) when is_list(Config) ->
 	   ["hi"],
 	   [e],
 	   [build_key(fun(K) -> {small,K} end, I) || I <- lists:seq(1,32)],
-	   lists:seq(5, 50),
+	   lists:seq(5, 28),
+	   lists:seq(29, 59),
 	   [build_key(fun(K) -> integer_to_list(K) end, I) || I <- lists:seq(2000,10000)],
 	   [build_key(fun(K) -> <<K:32>> end, I) || I <- lists:seq(1,80)],
 	   [build_key(fun(K) -> {<<K:32>>} end, I) || I <- lists:seq(100,1000)]],
