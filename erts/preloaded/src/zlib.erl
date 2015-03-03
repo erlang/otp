@@ -30,7 +30,7 @@
 	 compress/1,uncompress/1,zip/1,unzip/1,
 	 gzip/1,gunzip/1]).
 
--export_type([zstream/0]).
+-export_type([zstream/0, zlevel/0, zwindowbits/0, zmemlevel/0, zstrategy/0]).
 
 %% flush argument encoding
 -define(Z_NO_FLUSH,      0).
