@@ -99,7 +99,7 @@ list_to_binary([Compressed|Last])</pre>
     <datatype>
       <name name="zwindowbits"/>
       <desc>
-        <p>Normally in the range <c>-15..-9 | 9..15</c>.</p>
+        <p>Normally in the range <c>-15..-8 | 8..15</c>.</p>
       </desc>
     </datatype>
   </datatypes>
@@ -149,7 +149,7 @@ list_to_binary([Compressed|Last])</pre>
           currently the only supported method is <c>deflated</c>.</p>
         <p>The <c><anno>WindowBits</anno></c> parameter is the base two logarithm
           of the window size (the size of the history buffer).  It
-          should be in the range 9 through 15. Larger values
+          should be in the range 8 through 15. Larger values
           of this parameter result in better compression at the
           expense of memory usage. The default value is 15 if
           <c>deflateInit/2</c>. A negative <c><anno>WindowBits</anno></c>
@@ -288,7 +288,7 @@ list_to_binary([B1,B2])</pre>
         <p>Initialize decompression session on zlib stream.</p>
         <p>The <c><anno>WindowBits</anno></c> parameter is the base two logarithm
           of the maximum window size (the size of the history buffer).
-          It should be in the range 9 through 15.
+          It should be in the range 8 through 15.
           The default value is 15 if <c>inflateInit/1</c> is used.
           If a compressed stream with a larger window size is
           given as input, inflate() will throw the <c>data_error</c>
