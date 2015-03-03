@@ -426,7 +426,6 @@ static Eterm hashmap_from_validated_list(Process *p, Eterm list, Uint size) {
 }
 
 Eterm erts_hashmap_from_array(Process *p, Eterm *leafs, Uint n) {
-    Eterm tmp[2];
     Uint32 sw, hx;
     Uint ix;
     hxnode_t *hxns;
@@ -436,12 +435,13 @@ Eterm erts_hashmap_from_array(Process *p, Eterm *leafs, Uint n) {
     hxns = (hxnode_t *)erts_alloc(ERTS_ALC_T_TMP, n * sizeof(hxnode_t));
 
     for (ix = 0; ix < n; ix++) {
-	hx  = hashmap_restore_hash(tmp,0,CAR(list_val(leafs[ix])));
+	hx  = hashmap_make_hash(*leafs);
 	swizzle32(sw,hx);
 	hxns[ix].hx   = sw;
-	hxns[ix].val  = leafs[ix];
+	hxns[ix].val  = make_list(leafs);
 	hxns[ix].skip = 1;
 	hxns[ix].i    = ix;
+	leafs += 2;
     }
 
     res = hashmap_from_unsorted_array(p, hxns, n);

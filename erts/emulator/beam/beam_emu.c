@@ -6557,6 +6557,27 @@ new_map(Process* p, Eterm* reg, BeamInstr* I)
     BeamInstr *ptr;
     map_t *mp;
 
+    ptr = &Arg(4);
+
+    if (n > MAP_SMALL_MAP_LIMIT) {
+	if (HeapWordsLeft(p) < n) {
+	    erts_garbage_collect(p, n, reg, Arg(2));
+	}
+
+	mhp = p->htop;
+	thp = p->htop;
+	E   = p->stop;
+
+	for (i = 0; i < n/2; i++) {
+	    GET_TERM(*ptr++, *mhp++);
+	    GET_TERM(*ptr++, *mhp++);
+	}
+
+	p->htop = mhp;
+
+	return erts_hashmap_from_array(p, thp, n/2);
+    }
+
     if (HeapWordsLeft(p) < need) {
 	erts_garbage_collect(p, need, reg, Arg(2));
     }
@@ -6564,7 +6585,6 @@ new_map(Process* p, Eterm* reg, BeamInstr* I)
     thp    = p->htop;
     mhp    = thp + 1 + n/2;
     E      = p->stop;
-    ptr    = &Arg(4);
     keys   = make_tuple(thp);
     *thp++ = make_arityval(n/2);
 
