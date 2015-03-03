@@ -453,18 +453,18 @@ Eterm erts_hashmap_from_array(Process *p, Eterm *leafs, Uint n) {
 }
 
 
-Eterm erts_hashmap_from_ks_and_vs(Process *p, Eterm *ks, Eterm *vs, Uint n) {
+Eterm erts_hashmap_from_ks_and_vs_extra(Process *p, Eterm *ks, Eterm *vs, Uint n,
+					Eterm key, Eterm value) {
     Uint32 sw, hx;
-    Uint i;
+    Uint i,sz;
     hxnode_t *hxns;
     Eterm *hp, res;
 
-    ASSERT(n > 0);
-
-    hp = HAlloc(p, (2 * n));
+    sz = (key == THE_NON_VALUE) ? n : (n + 1);
+    hp = HAlloc(p, 2 * sz);
 
     /* create tmp hx values and leaf ptrs */
-    hxns = (hxnode_t *)erts_alloc(ERTS_ALC_T_TMP, n * sizeof(hxnode_t));
+    hxns = (hxnode_t *)erts_alloc(ERTS_ALC_T_TMP, sz * sizeof(hxnode_t));
 
     for(i = 0; i < n; i++) {
 	hx = hashmap_make_hash(ks[i]);
@@ -475,7 +475,16 @@ Eterm erts_hashmap_from_ks_and_vs(Process *p, Eterm *ks, Eterm *vs, Uint n) {
 	hxns[i].i    = i;
     }
 
-    res = hashmap_from_unsorted_array(p, hxns, n);
+    if (key != THE_NON_VALUE) {
+	hx = hashmap_make_hash(key);
+	swizzle32(sw,hx);
+	hxns[i].hx   = sw;
+	hxns[i].val  = CONS(hp, key, value); hp += 2;
+	hxns[i].skip = 1;
+	hxns[i].i    = i;
+    }
+
+    res = hashmap_from_unsorted_array(p, hxns, sz);
 
     erts_free(ERTS_ALC_T_TMP, (void *) hxns);
     ERTS_VERIFY_UNUSED_TEMP_ALLOC(p);
@@ -1531,39 +1540,12 @@ Eterm erts_maps_put(Process *p, Eterm key, Eterm value, Eterm map) {
 
 	/* the map will grow */
 
-	if (n >= MAP_SMALL_MAP_LIMIT) {
-	    hxnode_t *hxns;
-	    Uint32 sw, hx;
-	    Eterm tmp[2];
-
+	if (n > MAP_SMALL_MAP_LIMIT) {
 	    HRelease(p, shp + MAP_HEADER_SIZE + n, shp);
-	    hp = HAlloc(p, (2 * (n + 1)));
 	    ks = map_get_keys(mp);
 	    vs = map_get_values(mp);
 
-	    /* create tmp hx values and leaf ptrs */
-	    hxns = (hxnode_t *)erts_alloc(ERTS_ALC_T_TMP, (n + 1) * sizeof(hxnode_t));
-
-	    for (i = 0; i < n; i++) {
-		hx = hashmap_restore_hash(tmp,0,ks[i]);
-		swizzle32(sw,hx);
-		hxns[i].hx   = sw;
-		hxns[i].val  = CONS(hp, ks[i], vs[i]); hp += 2;
-		hxns[i].skip = 1;
-		hxns[i].i    = i;
-	    }
-
-	    hx = hashmap_restore_hash(tmp,0,key);
-	    swizzle32(sw,hx);
-	    hxns[i].hx   = sw;
-	    hxns[i].val  = CONS(hp, key, value); hp += 2;
-	    hxns[i].skip = 1;
-	    hxns[i].i    = n;
-
-	    res = hashmap_from_unsorted_array(p, hxns, n + 1);
-
-	    erts_free(ERTS_ALC_T_TMP, (void *) hxns);
-	    ERTS_VERIFY_UNUSED_TEMP_ALLOC(p);
+	    res = erts_hashmap_from_ks_and_vs_extra(p,ks,vs,n,key,value);
 
 	    return res;
 	}
