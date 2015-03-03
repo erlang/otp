@@ -6559,7 +6559,7 @@ new_map(Process* p, Eterm* reg, BeamInstr* I)
 
     ptr = &Arg(4);
 
-    if (n > MAP_SMALL_MAP_LIMIT) {
+    if (n > 2*MAP_SMALL_MAP_LIMIT) {
 	if (HeapWordsLeft(p) < n) {
 	    erts_garbage_collect(p, n, reg, Arg(2));
 	}

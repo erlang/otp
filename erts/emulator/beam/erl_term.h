@@ -1110,8 +1110,8 @@ _ET_DECLARE_CHECKED(Uint,y_reg_index,Uint)
 #define BINARY_DEF		0x0
 #define LIST_DEF		0x1
 #define NIL_DEF			0x2
-#define MAP_DEF			0x3
-#define HASHMAP_DEF		0x4
+#define HASHMAP_DEF		0x3
+#define MAP_DEF			0x4
 #define TUPLE_DEF		0x5
 #define PID_DEF			0x6
 #define EXTERNAL_PID_DEF	0x7

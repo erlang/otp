@@ -422,6 +422,41 @@ static Eterm hashmap_from_validated_list(Process *p, Eterm list, Uint size) {
     erts_free(ERTS_ALC_T_TMP, (void *) hxns);
     ERTS_VERIFY_UNUSED_TEMP_ALLOC(p);
 
+    if (hashmap_size(res) <= MAP_SMALL_MAP_LIMIT) {
+        DECLARE_WSTACK(wstack);
+	Eterm *kv, *ks, *vs;
+	map_t *mp;
+	Eterm keys;
+        Uint n = hashmap_size(res);
+
+	/* build flat structure */
+	hp    = HAlloc(p, 3 + 1 + (2 * n));
+	keys  = make_tuple(hp);
+	*hp++ = make_arityval(n);
+	ks    = hp;
+	hp   += n;
+	mp    = (map_t*)hp;
+	hp   += MAP_HEADER_SIZE;
+	vs    = hp;
+
+	mp->thing_word = MAP_HEADER;
+	mp->size = n;
+	mp->keys = keys;
+
+	hashmap_iterator_init(&wstack, res);
+
+	while ((kv=hashmap_iterator_next(&wstack)) != NULL) {
+	    *ks++ = CAR(kv);
+	    *vs++ = CDR(kv);
+	}
+
+	/* it cannot have multiple keys */
+	erts_validate_and_sort_map(mp);
+
+	DESTROY_WSTACK(wstack);
+	return make_map(mp);
+    }
+
     return res;
 }
 
@@ -461,6 +496,7 @@ Eterm erts_hashmap_from_ks_and_vs_extra(Process *p, Eterm *ks, Eterm *vs, Uint n
     Eterm *hp, res;
 
     sz = (key == THE_NON_VALUE) ? n : (n + 1);
+    ASSERT(sz > MAP_SMALL_MAP_LIMIT);
     hp = HAlloc(p, 2 * sz);
 
     /* create tmp hx values and leaf ptrs */
