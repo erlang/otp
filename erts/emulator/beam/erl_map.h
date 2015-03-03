@@ -103,6 +103,7 @@ void   hashmap_iterator_init(struct ErtsWStack_* s, Eterm node);
 Eterm* hashmap_iterator_next(struct ErtsWStack_* s);
 int    hashmap_key_hash_cmp(Eterm* ap, Eterm* bp);
 Eterm  erts_hashmap_from_array(Process *p, Eterm *leafs, Uint n);
+Eterm  erts_hashmap_from_ks_and_vs(Process *p, Eterm *ks, Eterm *vs, Uint n);
 const  Eterm *erts_hashmap_get(Uint32 hx, Eterm key, Eterm map);
 
 #if HALFWORD_HEAP

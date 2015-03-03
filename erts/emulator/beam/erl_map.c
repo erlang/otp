@@ -452,6 +452,37 @@ Eterm erts_hashmap_from_array(Process *p, Eterm *leafs, Uint n) {
     return res;
 }
 
+
+Eterm erts_hashmap_from_ks_and_vs(Process *p, Eterm *ks, Eterm *vs, Uint n) {
+    Uint32 sw, hx;
+    Uint i;
+    hxnode_t *hxns;
+    Eterm *hp, res;
+
+    ASSERT(n > 0);
+
+    hp = HAlloc(p, (2 * n));
+
+    /* create tmp hx values and leaf ptrs */
+    hxns = (hxnode_t *)erts_alloc(ERTS_ALC_T_TMP, n * sizeof(hxnode_t));
+
+    for(i = 0; i < n; i++) {
+	hx = hashmap_make_hash(ks[i]);
+	swizzle32(sw,hx);
+	hxns[i].hx   = sw;
+	hxns[i].val  = CONS(hp, ks[i], vs[i]); hp += 2;
+	hxns[i].skip = 1; /* will be reassigned in from_array */
+	hxns[i].i    = i;
+    }
+
+    res = hashmap_from_unsorted_array(p, hxns, n);
+
+    erts_free(ERTS_ALC_T_TMP, (void *) hxns);
+    ERTS_VERIFY_UNUSED_TEMP_ALLOC(p);
+
+    return res;
+}
+
 static Eterm hashmap_from_unsorted_array(Process *p, hxnode_t *hxns, Uint n) {
     Uint jx = 0, ix = 0, lx, cx;
     Eterm res;

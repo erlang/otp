@@ -6781,8 +6781,19 @@ update_map_assoc(Process* p, Eterm* reg, Eterm map, BeamInstr* I)
 
     n = kp - p->htop - 1;	/* Actual number of keys/values */
     *p->htop = make_arityval(n);
+    p->htop  = hp;
     mp->size = n;
-    p->htop = hp;
+
+    /* The expensive case, need to build a hashmap */
+    if (n > MAP_SMALL_MAP_LIMIT) {
+	res = erts_hashmap_from_ks_and_vs(p,map_get_keys(mp),map_get_values(mp),n);
+	if (p->mbuf) {
+	    Uint live = Arg(3);
+	    reg[live] = res;
+	    erts_garbage_collect(p, 0, reg, live+1);
+	    res       = reg[live];
+	}
+    }
     return res;
 }
 
