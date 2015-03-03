@@ -830,12 +830,14 @@ BIF_RETTYPE maps_merge_2(BIF_ALIST_2) {
 	if (is_map(BIF_ARG_2)) {
 	    BIF_RET(map_merge(BIF_P, BIF_ARG_1, BIF_ARG_2));
 	} else if (is_hashmap(BIF_ARG_2)) {
+	    /* Will always become a tree */
 	    BIF_RET(map_merge_mixed(BIF_P, BIF_ARG_1, BIF_ARG_2, 0));
 	}
     } else if (is_hashmap(BIF_ARG_1)) {
 	if (is_hashmap(BIF_ARG_2)) {
 	    BIF_RET(hashmap_merge(BIF_P, BIF_ARG_1, BIF_ARG_2));
 	} else if (is_map(BIF_ARG_2)) {
+	    /* Will always become a tree */
 	    BIF_RET(map_merge_mixed(BIF_P, BIF_ARG_2, BIF_ARG_1, 1));
 	}
     }
@@ -847,7 +849,7 @@ static Eterm map_merge(Process *p, Eterm nodeA, Eterm nodeB) {
     Eterm tup;
     Eterm *ks,*vs,*ks1,*vs1,*ks2,*vs2;
     map_t *mp1,*mp2,*mp_new;
-    Uint n1,n2,i1,i2,need,unused_size=0;
+    Uint n,n1,n2,i1,i2,need,unused_size=0;
     int c = 0;
 
     mp1  = (map_t*)map_val(nodeA);
@@ -876,13 +878,13 @@ static Eterm map_merge(Process *p, Eterm nodeA, Eterm nodeB) {
 
     while(i1 < n1 && i2 < n2) {
 	c = CMP_TERM(ks1[i1],ks2[i2]);
-	if ( c == 0) {
+	if (c == 0) {
 	    /* use righthand side arguments map value,
 	     * but advance both maps */
 	    *ks++ = ks2[i2];
 	    *vs++ = vs2[i2];
 	    i1++, i2++, unused_size++;
-	} else if ( c < 0) {
+	} else if (c < 0) {
 	    *ks++ = ks1[i1];
 	    *vs++ = vs1[i1];
 	    i1++;
@@ -917,8 +919,42 @@ static Eterm map_merge(Process *p, Eterm nodeA, Eterm nodeB) {
 	HRelease(p, vs + unused_size, vs);
     }
 
-    mp_new->size = n1 + n2 - unused_size;
-    *thp = make_arityval(n1 + n2 - unused_size);
+    n = n1 + n2 - unused_size;
+    *thp = make_arityval(n);
+
+    /* Reshape map to a hashmap if the map exceeds the limit */
+
+    if (n > MAP_SMALL_MAP_LIMIT) {
+	Uint32 hx,sw;
+	Uint i;
+	Eterm res;
+	hxnode_t *hxns;
+
+	ks = map_get_keys(mp_new);
+	vs = map_get_values(mp_new);
+
+	hp = HAlloc(p, 2 * n);
+
+	hxns = (hxnode_t *)erts_alloc(ERTS_ALC_T_TMP,n * sizeof(hxnode_t));
+
+	for (i = 0; i < n; i++) {
+	    hx = hashmap_make_hash(ks[i]);
+	    swizzle32(sw,hx);
+	    hxns[i].hx   = sw;
+	    hxns[i].val  = CONS(hp, ks[i], vs[i]); hp += 2;
+	    hxns[i].skip = 1;
+	    hxns[i].i    = i;
+	}
+
+	res = hashmap_from_unsorted_array(p, hxns, n);
+
+	erts_free(ERTS_ALC_T_TMP, (void *) hxns);
+	ERTS_VERIFY_UNUSED_TEMP_ALLOC(p);
+
+	return res;
+    }
+
+    mp_new->size = n;
 
     return make_map(mp_new);
 }
@@ -929,7 +965,6 @@ static Eterm map_merge_mixed(Process *p, Eterm flat, Eterm tree, int swap_args) 
     Uint n, i;
     hxnode_t *hxns;
     Uint32 sw, hx;
-    Eterm tmp[2];
 
     /* convert flat to tree */
 
@@ -947,7 +982,7 @@ static Eterm map_merge_mixed(Process *p, Eterm flat, Eterm tree, int swap_args) 
     hxns = (hxnode_t *)erts_alloc(ERTS_ALC_T_TMP, n * sizeof(hxnode_t));
 
     for (i = 0; i < n; i++) {
-	hx = hashmap_restore_hash(tmp,0,ks[i]);
+	hx = hashmap_make_hash(ks[i]);
 	swizzle32(sw,hx);
 	hxns[i].hx   = sw;
 	hxns[i].val  = CONS(hp, ks[i], vs[i]); hp += 2;
