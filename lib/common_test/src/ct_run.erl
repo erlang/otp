@@ -1620,11 +1620,15 @@ groups_and_cases(Gs, Cs) ->
 tests(TestDir, Suites, []) when is_list(TestDir), is_integer(hd(TestDir)) ->
     [{?testdir(TestDir,Suites),ensure_atom(Suites),all}];
 tests(TestDir, Suite, Cases) when is_list(TestDir), is_integer(hd(TestDir)) ->
+    [{?testdir(TestDir,Suite),ensure_atom(Suite),Cases}];
+tests([TestDir], Suite, Cases) when is_list(TestDir), is_integer(hd(TestDir)) ->
     [{?testdir(TestDir,Suite),ensure_atom(Suite),Cases}].
 tests([{Dir,Suite}],Cases) ->
     [{?testdir(Dir,Suite),ensure_atom(Suite),Cases}];
 tests(TestDir, Suite) when is_list(TestDir), is_integer(hd(TestDir)) ->
-    tests(TestDir, ensure_atom(Suite), all).
+    tests(TestDir, ensure_atom(Suite), all);
+tests([TestDir], Suite) when is_list(TestDir), is_integer(hd(TestDir)) ->
+     tests(TestDir, ensure_atom(Suite), all).
 tests(DirSuites) when is_list(DirSuites), is_tuple(hd(DirSuites)) ->
     [{?testdir(Dir,Suite),ensure_atom(Suite),all} || {Dir,Suite} <- DirSuites];
 tests(TestDir) when is_list(TestDir), is_integer(hd(TestDir)) ->
