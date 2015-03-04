@@ -386,9 +386,15 @@
           added to the supervisor and the function returns the same
           value.</p>
         <p>If the child process start function returns <c>ignore</c>,
-          the child specification is added to the supervisor, the pid
-          is set to <c>undefined</c>, and the function returns
-          <c>{ok,undefined}</c>.</p>
+          the child specification is added to the supervisor (unless the
+          supervisor is a <c>simple_one_for_one</c> supervisor, see below),
+          the pid is set to <c>undefined</c> and the function returns
+          <c>{ok,undefined}</c>.
+        </p>
+        <p>In the case of a <c>simple_one_for_one</c> supervisor, when a child
+          process start function returns <c>ignore</c> the functions returns
+          <c>{ok,undefined}</c> and no child is added to the supervisor.
+        </p>
         <p>If the child process start function returns an error tuple or
           an erroneous value, or if it fails, the child specification is
           discarded, and the function returns <c>{error,Error}</c> where
