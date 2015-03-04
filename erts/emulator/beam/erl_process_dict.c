@@ -47,7 +47,7 @@
 
 /* Hash constant macros */
 #define MAX_HASH            1342177280UL
-#define INITIAL_SIZE        10
+#define INITIAL_SIZE        (erts_pd_initial_size)
 
 /* Hash utility macros  */
 #define HASH_RANGE(PDict) ((PDict)->homeSize + (PDict)->splitPosition)
