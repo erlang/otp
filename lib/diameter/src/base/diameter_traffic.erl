@@ -1392,6 +1392,21 @@ make_request_packet(#diameter_packet{header = Hdr} = Pkt,
 make_request_packet(Msg, Pkt) ->
     Pkt#diameter_packet{msg = Msg}.
 
+%% make_retransmit_packet/2
+
+make_retransmit_packet(#diameter_packet{msg = [#diameter_header{} = Hdr
+                                               | Avps]}
+                       = Pkt) ->
+    Pkt#diameter_packet{msg = [make_retransmit_header(Hdr) | Avps]};
+
+make_retransmit_packet(#diameter_packet{header = Hdr} = Pkt) ->
+    Pkt#diameter_packet{header = make_retransmit_header(Hdr)}.
+
+%% make_retransmit_header/1
+
+make_retransmit_header(Hdr) ->
+    Hdr#diameter_header{is_retransmitted = true}.
+
 %% fold_record/2
 
 fold_record(undefined, R) ->
@@ -1678,9 +1693,7 @@ retransmit({TPid, Caps, App}
     have_request(Pkt0, TPid)     %% Don't failover to a peer we've
         andalso ?THROW(timeout), %% already sent to.
 
-    #diameter_packet{header = Hdr0} = Pkt0,
-    Hdr = Hdr0#diameter_header{is_retransmitted = true},
-    Pkt = Pkt0#diameter_packet{header = Hdr},
+    Pkt = make_retransmit_packet(Pkt0),
 
     retransmit(cb(App, prepare_retransmit, [Pkt, SvcName, {TPid, Caps}]),
                Transport,

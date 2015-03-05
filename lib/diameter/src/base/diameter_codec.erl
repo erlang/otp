@@ -390,6 +390,9 @@ sequence_numbers(#diameter_packet{bin = Bin})
 sequence_numbers(#diameter_packet{header = #diameter_header{} = H}) ->
     sequence_numbers(H);
 
+sequence_numbers(#diameter_packet{msg = [#diameter_header{} = H | _]}) ->
+    sequence_numbers(H);
+
 sequence_numbers(#diameter_header{hop_by_hop_id = H,
                                   end_to_end_id = E}) ->
     {H,E};
