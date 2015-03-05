@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -337,6 +337,7 @@ call(SvcName, App, Message) ->
    :: {transport_module, atom()}
     | {transport_config, any()}
     | {transport_config, any(), 'Unsigned32'() | infinity}
+    | {pool_size, pos_integer()}
     | {applications, [app_alias()]}
     | {capabilities, [capability()]}
     | {capabilities_cb, evaluable()}

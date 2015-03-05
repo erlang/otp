@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -144,8 +144,8 @@ end_per_suite(_Config) ->
 %% Generate a unique hostname for each testcase so that watchdogs
 %% don't prevent a connection from being brought up immediately.
 init_per_testcase(Name, Config) ->
-    Uniq = ["." ++ integer_to_list(N) || N <- tuple_to_list(now())],
-    [{host, lists:flatten([?L(Name) | Uniq])} | Config].
+    [{host, ?L(Name) ++ "." ++ diameter_util:unique_string()}
+     | Config].
 
 init_per_group(Name, Config) ->
     [{rfc, Name} | Config].

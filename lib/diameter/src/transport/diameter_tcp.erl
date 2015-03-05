@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -37,7 +37,8 @@
          code_change/3,
          terminate/2]).
 
--export([info/1]).  %% service_info callback
+-export([listener/1,%% diameter_sync callback
+         info/1]).  %% service_info callback
 
 -export([ports/0,
          ports/1]).
@@ -191,7 +192,7 @@ init(T) ->
 i({T, Ref, Mod, Pid, Opts, Addrs})
   when T == accept;
        T == connect ->
-    erlang:monitor(process, Pid),
+    monitor(process, Pid),
     %% Since accept/connect might block indefinitely, spawn a process
     %% that does nothing but kill us with the parent until call
     %% returns.
@@ -218,8 +219,8 @@ i({T, Ref, Mod, Pid, Opts, Addrs})
 %% A monitor process to kill the transport if the parent dies.
 i(#monitor{parent = Pid, transport = TPid} = S) ->
     proc_lib:init_ack({ok, self()}),
-    erlang:monitor(process, Pid),
-    erlang:monitor(process, TPid),
+    monitor(process, Pid),
+    monitor(process, TPid),
     S;
 %% In principle a link between the transport and killer processes
 %% could do the same thing: have the accepting/connecting process be
@@ -235,7 +236,7 @@ i({listen, LRef, APid, {Mod, Opts, Addrs}}) ->
     LAddr = laddr(LAddrOpt, Mod, LSock),
     true = diameter_reg:add_new({?MODULE, listener, {LRef, {LAddr, LSock}}}),
     proc_lib:init_ack({ok, self(), {LAddr, LSock}}),
-    erlang:monitor(process, APid),
+    monitor(process, APid),
     start_timer(#listener{socket = LSock}).
 
 laddr([], Mod, Sock) ->
@@ -336,17 +337,25 @@ accept(Opts) ->
 
 %% listener/2
 
+%% Accepting processes can be started concurrently: ensure only one
+%% listener is started.
 listener(LRef, T) ->
-    l(diameter_reg:match({?MODULE, listener, {LRef, '_'}}), LRef, T).
+    diameter_sync:call({?MODULE, listener, LRef},
+                       {?MODULE, listener, [{LRef, T, self()}]},
+                       infinity,
+                       infinity).
 
-%% Existing process with the listening socket ...
-l([{{?MODULE, listener, {_, AS}}, LPid}], _, _) ->
-    LPid ! {accept, self()},
+listener({LRef, T, TPid}) ->
+    l(diameter_reg:match({?MODULE, listener, {LRef, '_'}}), LRef, T, TPid).
+
+%% Existing listening process ...
+l([{{?MODULE, listener, {_, AS}}, LPid}], _, _, TPid) ->
+    LPid ! {accept, TPid},
     AS;
 
-%% ... or not: start one.
-l([], LRef, T) ->
-    {ok, _, AS} = diameter_tcp_sup:start_child({listen, LRef, self(), T}),
+%% ... or not.
+l([], LRef, T, TPid) ->
+    {ok, _, AS} = diameter_tcp_sup:start_child({listen, LRef, TPid, T}),
     AS.
 
 %% get_addr/1
@@ -502,7 +511,7 @@ m({'DOWN', _, process, Pid, _}, #monitor{parent = Pid,
 
 %% Another accept transport is attaching.
 l({accept, TPid}, #listener{count = N} = S) ->
-    erlang:monitor(process, TPid),
+    monitor(process, TPid),
     S#listener{count = N+1};
 
 %% Accepting process has died.

@@ -1,7 +1,7 @@
 
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2010-2014. All Rights Reserved.
+# Copyright Ericsson AB 2010-2015. All Rights Reserved.
 #
 # The contents of this file are subject to the Erlang Public License,
 # Version 1.1, (the "License"); you may not use this file except in
@@ -94,7 +94,7 @@ BINS = \
 # Released files relative to ../examples.
 EXAMPLES = \
 	code/GNUmakefile \
-	code/peer.erl \
+	code/node.erl \
 	code/client.erl \
 	code/client_cb.erl \
 	code/server.erl \

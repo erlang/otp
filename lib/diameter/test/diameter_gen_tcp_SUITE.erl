@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2013. All Rights Reserved.
+%% Copyright Ericsson AB 2014-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -18,10 +18,10 @@
 %%
 
 %%
-%% Some gen_sctp-specific tests demonstrating problems that were
+%% Some gen_tcp-specific tests demonstrating problems that were
 %% encountered during diameter development but have nothing
-%% specifically to do with diameter. At least one of them can cause
-%% diameter_traffic_SUITE testcases to fail.
+%% specifically to do with diameter. These can cause testcases in
+%% other suites to fail.
 %%
 
 -module(diameter_gen_tcp_SUITE).
@@ -30,7 +30,8 @@
          all/0]).
 
 %% testcases
--export([send_long/1]).
+-export([send_long/1,
+         connect/1]).
 
 -define(LOOPBACK, {127,0,0,1}).
 -define(GEN_OPTS, [binary, {active, true}, {ip, ?LOOPBACK}]).
@@ -41,7 +42,8 @@ suite() ->
     [{timetrap, {minutes, 2}}].
 
 all() ->
-    [send_long].
+    [connect,     %% Appears to fail only when run first.
+     send_long].
 
 %% ===========================================================================
 
@@ -87,15 +89,6 @@ connect(PortNr, LPid) ->
     LPid ! {self(), fun(B) -> send(Sock, B) end},
     down(LPid).
 
-%% down/1
-
-down(Pid)
-  when is_pid(Pid) ->
-    down(erlang:monitor(process, Pid));
-
-down(MRef) ->
-    receive {'DOWN', MRef, process, _, Reason} -> Reason end.
-
 %% send/2
 %%
 %% Send from a spawned process just to avoid sending from the
@@ -104,3 +97,47 @@ down(MRef) ->
 send(Sock, Bin) ->
     {_, MRef} = spawn_monitor(fun() -> exit(gen_tcp:send(Sock, Bin)) end),
     down(MRef).
+
+%% ===========================================================================
+
+%% connect/1
+%%
+%% Test that simultaneous connections succeed. This fails sporadically
+%% on OS X at the time of writing, when gen_tcp:connect/2 returns
+%% {error, econnreset}.
+
+connect(_) ->
+    {ok, LSock} = gen_tcp:listen(0, ?GEN_OPTS),
+    {ok, {_,PortNr}} = inet:sockname(LSock),
+    Count = lists:seq(1,8),  %% 8 simultaneous connects
+    As = [gen_accept(LSock) || _ <- Count],
+    %% Wait for spawned processes to have called gen_tcp:accept/1
+    %% (presumably).
+    receive after 2000 -> ok end,
+    Cs = [gen_connect(PortNr) || _ <- Count],
+    [] = failures(Cs),
+    [] = failures(As).
+
+failures(Monitors) ->
+    [RC || {_, MRef} <- Monitors, RC <- [down(MRef)], ok /= element(1, RC)].
+
+gen_accept(LSock) ->
+    spawn_monitor(fun() ->
+                          exit(gen_tcp:accept(LSock))
+                  end).
+
+gen_connect(PortNr) ->
+    spawn_monitor(fun() ->
+                          exit(gen_tcp:connect(?LOOPBACK, PortNr, ?GEN_OPTS))
+                  end).
+
+%% ===========================================================================
+
+%% down/1
+
+down(Pid)
+  when is_pid(Pid) ->
+    down(monitor(process, Pid));
+
+down(MRef) ->
+    receive {'DOWN', MRef, process, _, Reason} -> Reason end.

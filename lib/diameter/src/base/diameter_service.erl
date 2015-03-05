@@ -24,6 +24,9 @@
 -module(diameter_service).
 -behaviour(gen_server).
 
+-compile({no_auto_import, [now/0]}).
+-import(diameter_lib, [now/0]).
+
 %% towards diameter_service_sup
 -export([start_link/1]).
 
@@ -766,8 +769,9 @@ reason(failure) ->
 start(Ref, {T, Opts}, S)
   when T == connect;
        T == listen ->
+    N = proplists:get_value(pool_size, Opts, 1),
     try
-        {ok, start(Ref, type(T), Opts, S)}
+        {ok, start(Ref, type(T), Opts, N, S)}
     catch
         ?FAILURE(Reason) ->
             {error, Reason}
@@ -785,11 +789,16 @@ type(connect = T) -> T.
 
 %% start/4
 
-start(Ref, Type, Opts, #state{watchdogT = WatchdogT,
-                              peerT = PeerT,
-                              options = SvcOpts,
-                              service_name = SvcName,
-                              service = Svc0})
+start(Ref, Type, Opts, State) ->
+    start(Ref, Type, Opts, 1, State).
+
+%% start/5
+
+start(Ref, Type, Opts, N, #state{watchdogT = WatchdogT,
+                                 peerT = PeerT,
+                                 options = SvcOpts,
+                                 service_name = SvcName,
+                                 service = Svc0})
   when Type == connect;
        Type == accept ->
     #diameter_service{applications = Apps}
@@ -797,14 +806,19 @@ start(Ref, Type, Opts, #state{watchdogT = WatchdogT,
         = merge_service(Opts, Svc0),
     {_,_} = Mask = proplists:get_value(sequence, SvcOpts),
     RecvData = diameter_traffic:make_recvdata([SvcName, PeerT, Apps, Mask]),
-    Pid = s(Type, Ref, {{spawn_opts([Opts, SvcOpts]), RecvData},
-                        Opts,
-                        SvcOpts,
-                        Svc}),
-    insert(WatchdogT, #watchdog{pid = Pid,
-                                type = Type,
-                                ref = Ref,
-                                options = Opts}),
+    T = {{spawn_opts([Opts, SvcOpts]), RecvData}, Opts, SvcOpts, Svc},
+    Rec = #watchdog{type = Type,
+                    ref = Ref,
+                    options = Opts},
+    diameter_lib:fold_n(fun(_,A) ->
+                                [wd(Type, Ref, T, WatchdogT, Rec) | A]
+                        end,
+                        [],
+                        N).
+
+wd(Type, Ref, T, WatchdogT, Rec) ->
+    Pid = wd(Type, Ref, T),
+    insert(WatchdogT, Rec#watchdog{pid = Pid}),
     Pid.
 
 %% Note that the service record passed into the watchdog is the merged
@@ -817,7 +831,7 @@ spawn_opts(Optss) ->
           T /= link,
           T /= monitor].
 
-s(Type, Ref, T) ->
+wd(Type, Ref, T) ->
     {_MRef, Pid} = diameter_watchdog:start({Type, Ref}, T),
     Pid.
 
@@ -1186,7 +1200,7 @@ connect_timer(Opts, Def0) ->
 %% continuous restarted in case of faulty config or other problems.
 tc(Time, Tc) ->
     choose(Tc > ?RESTART_TC
-             orelse timer:now_diff(now(), Time) > 1000*?RESTART_TC,
+             orelse diameter_lib:micro_diff(Time) > 1000*?RESTART_TC,
            Tc,
            ?RESTART_TC).
 
@@ -1719,31 +1733,43 @@ info_transport(S) ->
               [],
               PeerD).
 
-%% Only a config entry for a listening transport: use it.
-transport([[{type, listen}, _] = L]) ->
-    L ++ [{accept, []}];
-
-%% Only one config or peer entry for a connecting transport: use it.
-transport([[{type, connect} | _] = L]) ->
-    L;
+%% Single config entry. Distinguish between pool_size config or not on
+%% a connecting transport for backwards compatibility: with the option
+%% the form is similar to the listening case, with connections grouped
+%% in a pool tuple (for lack of a better name), without as before.
+transport([[{type, Type}, {options, Opts}] = L])
+  when Type == listen;
+       Type == connect ->
+    L ++ [{K, []} || [{_,K}] <- [keys(Type, Opts)]];
 
 %% Peer entries: discard config. Note that the peer entries have
 %% length at least 3.
 transport([[_,_] | L]) ->
     transport(L);
 
-%% Possibly many peer entries for a listening transport. Note that all
-%% have the same options by construction, which is not terribly space
-%% efficient.
-transport([[{type, accept}, {options, Opts} | _] | _] = Ls) ->
-    [{type, listen},
+%% Multiple tranports. Note that all have the same options by
+%% construction, which is not terribly space efficient.
+transport([[{type, Type}, {options, Opts} | _] | _] = Ls) ->
+    transport(keys(Type, Opts), Ls).
+
+%% Group transports in an accept or pool tuple ...
+transport([{Type, Key}], [[{type, _}, {options, Opts} | _] | _] = Ls) ->
+    [{type, Type},
      {options, Opts},
-     {accept, [lists:nthtail(2,L) || L <- Ls]}].
+     {Key, [tl(tl(L)) || L <- Ls]}];
+
+%% ... or not: there can only be one.
+transport([], [L]) ->
+    L.
+
+keys(connect = T, Opts) ->
+    [{T, pool} || lists:keymember(pool_size, 1, Opts)];
+keys(_, _) ->
+    [{listen, accept}].
 
 peer_dict(#state{watchdogT = WatchdogT, peerT = PeerT}, Dict0) ->
     try ets:tab2list(WatchdogT) of
-        L ->
-            lists:foldl(fun(T,A) -> peer_acc(PeerT, A, T) end, Dict0, L)
+        L -> lists:foldl(fun(T,A) -> peer_acc(PeerT, A, T) end, Dict0, L)
     catch
         error: badarg -> Dict0  %% service has gone down
     end.

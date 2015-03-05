@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -35,9 +35,10 @@
 %%
 
 -module(diameter_config).
--compile({no_auto_import, [monitor/2]}).
-
 -behaviour(gen_server).
+
+-compile({no_auto_import, [monitor/2, now/0]}).
+-import(diameter_lib, [now/0]).
 
 -export([start_service/2,
          stop_service/1,
@@ -553,6 +554,9 @@ opt({watchdog_config, L}) ->
 
 opt({spawn_opt, Opts}) ->
     is_list(Opts);
+
+opt({pool_size, N}) ->
+    is_integer(N) andalso 0 < N;
 
 %% Options that we can't validate.
 opt({K, _})

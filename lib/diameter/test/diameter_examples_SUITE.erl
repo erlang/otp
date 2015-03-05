@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2013-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2013-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -295,15 +295,15 @@ slave() ->
     [{timetrap, {minutes, 10}}].
 
 slave(_) ->
-    T0 = now(),
+    T0 = diameter_lib:now(),
     {ok, Node} = ct_slave:start(?MODULE, ?TIMEOUTS),
-    T1 = now(),
+    T1 = diameter_lib:now(),
     T2 = rpc:call(Node, erlang, now, []),
     {ok, Node} = ct_slave:stop(?MODULE),
-    now_diff([T0, T1, T2, now()]).
+    now_diff([T0, T1, T2, diameter_lib:now()]).
 
 now_diff([T1,T2|_] = Ts) ->
-    [timer:now_diff(T2,T1) | now_diff(tl(Ts))];
+    [diameter_lib:micro_diff(T2,T1) | now_diff(tl(Ts))];
 now_diff(_) ->
     [].
 
@@ -397,4 +397,4 @@ stop(Name)
 
 stop(Config) ->
     Prot = proplists:get_value(group, Config),
-    [] = [RC || N <- ?NODES, RC <- [stop(concat(Prot, N))], RC /= ok].
+    [] = [RC || N <- ?NODES, RC <- [catch stop(concat(Prot, N))], RC /= ok].

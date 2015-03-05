@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -420,6 +420,7 @@ suspect(TRef, false, SvcName, N) ->
 %% abuse/1
 
 abuse(F) ->
+
     [] = run([[abuse, F, T] || T <- [listen, connect]]).
 
 abuse(F, [_,_,_|_] = Args) ->
@@ -672,7 +673,8 @@ jitter(T,D) ->
 
 %% Generate a unique hostname for the faked peer.
 hostname() ->
-    lists:flatten(io_lib:format("~p-~p-~p", tuple_to_list(now()))).
+    {M,S,U} = diameter_util:timestamp(),
+    lists:flatten(io_lib:format("~p-~p-~p", [M,S,U])).
 
 putr(Key, Val) ->
     put({?MODULE, Key}, Val).

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -187,15 +187,14 @@ xref(Config) ->
 
     xref:stop(XRef),
 
+    Rel = release(),  %% otp_release-ish
+
     %% Only care about calls from our own application.
-    [] = lists:filter(fun({{F,_,_},{T,_,_}}) ->
+    [] = lists:filter(fun({{F,_,_} = From, {_,_,_} = To}) ->
                               lists:member(F, Mods)
-                                  andalso {F,T} /= {diameter_tcp, ssl}
+                                  andalso not ignored(From, To, Rel)
                       end,
                       Undefs),
-    %% diameter_tcp does call ssl despite the latter not being listed
-    %% as a dependency in the app file since ssl is only required for
-    %% TLS security: it's up to a client who wants TLS to start ssl.
 
     %% Ensure that only runtime or info modules call runtime modules.
     %% It's not strictly necessary that diameter compiler modules not
@@ -213,6 +212,38 @@ xref(Config) ->
     %% since we only know what we can see now.
     [] = lists:filter(fun(M) -> not lists:member(app(M), Deps) end,
                       RTdeps -- Mods).
+
+ignored({FromMod,_,_}, {ToMod,_,_} = To, Rel)->
+    %% diameter_tcp does call ssl despite the latter not being listed
+    %% as a dependency in the app file since ssl is only required for
+    %% TLS security: it's up to a client who wants TLS to start ssl.
+    %% The OTP 18 time api is also called if it exists, so that the
+    %% same code can be run on older releases.
+    {FromMod, ToMod} == {diameter_tcp, ssl}
+        orelse (FromMod == diameter_lib
+                andalso Rel < 18
+                andalso lists:member(To, time_api())).
+
+%% New time api in OTP 18.
+time_api() ->
+    [{erlang, F, A} || {F,A} <- [{convert_time_resolution,3},
+                                 {monotonic_time,0},
+                                 {monotonic_time,1},
+                                 {time_offset,0},
+                                 {time_offset,1},
+                                 {time_resolution,0},
+                                 {timestamp,0},
+                                 {unique_integer,0},
+                                 {unique_integer,1}]].
+
+release() ->
+    Rel = erlang:system_info(otp_release),
+    try list_to_integer(Rel) of
+        N -> N
+    catch
+        error:_ ->
+            0  %% aka < 17
+    end.
 
 unversion(App) ->
     T = lists:dropwhile(fun is_vsn_ch/1, lists:reverse(App)),

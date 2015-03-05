@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -43,7 +43,7 @@ ct_run(Opts) ->
     info(Start , info()).
 
 info() ->
-    [{time, now()},
+    [{time, diameter_lib:now()},
      {process_count, erlang:system_info(process_count)}
      | erlang:memory()].
 
@@ -56,6 +56,6 @@ info(L0, L1) ->
     io:format("INFO: ~p~n", [Diff]).
 
 diff(time, T0, T1) ->
-    timer:now_diff(T1, T0);
+    diameter_lib:micro_diff(T1, T0);
 diff(_, N0, N1) ->
     N1 - N0.
