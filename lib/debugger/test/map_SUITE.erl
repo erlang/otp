@@ -494,7 +494,7 @@ t_map_sort_literals(Config) when is_list(Config) ->
     true  = #{ c => 1, b => 1, a => 1 } < id(#{ b => 1, c => 1, d => 1}),
     true  = #{ "a" => 1 } < id(#{ <<"a">> => 1}),
     false = #{ <<"a">> => 1 } < id(#{ "a" => 1}),
-    false = #{ 1 => 1 } < id(#{ 1.0 => 1}),
+    true  = #{ 1 => 1 } < id(#{ 1.0 => 1}),
     false = #{ 1.0 => 1 } < id(#{ 1 => 1}),
 
     %% value order
@@ -587,12 +587,11 @@ t_bif_map_is_key(Config) when is_list(Config) ->
 t_bif_map_keys(Config) when is_list(Config) ->
     [] = maps:keys(#{}),
 
-    [1,2,3,4,5] = maps:keys(#{ 1 => a, 2 => b, 3 => c, 4 => d, 5 => e}),
-    [1,2,3,4,5] = maps:keys(#{ 4 => d, 5 => e, 1 => a, 2 => b, 3 => c}),
+    [1,2,3,4,5] = lists:sort(maps:keys(#{ 1 => a, 2 => b, 3 => c, 4 => d, 5 => e})),
+    [1,2,3,4,5] = lists:sort(maps:keys(#{ 4 => d, 5 => e, 1 => a, 2 => b, 3 => c})),
 
-    % values in key order: [4,int,"hi",<<"key">>]
     M1 = #{ "hi" => "hello", int => 3, <<"key">> => <<"value">>, 4 => number},
-    [4,int,"hi",<<"key">>] = maps:keys(M1),
+    [4,int,"hi",<<"key">>] = lists:sort(maps:keys(M1)),
 
     %% error case
     {'EXIT',{badarg,[{maps,keys,_,_}|_]}} = (catch maps:keys(1 bsl 65 + 3)),
@@ -634,40 +633,39 @@ t_bif_map_merge(Config) when is_list(Config) ->
 
     ok.
 
-
 t_bif_map_put(Config) when is_list(Config) ->
     M0 = #{ "hi" => "hello", int => 3, <<"key">> => <<"value">>,
 	4 => number, 18446744073709551629 => wat},
 
     M1 = #{ "hi" := "hello"} = maps:put("hi", "hello", #{}),
 
-    ["hi"]    = maps:keys(M1),
-    ["hello"] = maps:values(M1),
+    true = is_members(["hi"],maps:keys(M1)),
+    true = is_members(["hello"],maps:values(M1)),
 
     M2 = #{ int := 3 } = maps:put(int, 3, M1),
 
-    [int,"hi"]  = maps:keys(M2),
-    [3,"hello"] = maps:values(M2),
+    true = is_members([int,"hi"],maps:keys(M2)),
+    true = is_members([3,"hello"],maps:values(M2)),
 
     M3 = #{ <<"key">> := <<"value">> } = maps:put(<<"key">>, <<"value">>, M2),
 
-    [int,"hi",<<"key">>]    = maps:keys(M3),
-    [3,"hello",<<"value">>] = maps:values(M3),
+    true = is_members([int,"hi",<<"key">>],maps:keys(M3)),
+    true = is_members([3,"hello",<<"value">>],maps:values(M3)),
 
     M4 = #{ 18446744073709551629 := wat } = maps:put(18446744073709551629, wat, M3),
 
-    [18446744073709551629,int,"hi",<<"key">>] = maps:keys(M4),
-    [wat,3,"hello",<<"value">>]               = maps:values(M4),
+    true = is_members([18446744073709551629,int,"hi",<<"key">>],maps:keys(M4)),
+    true = is_members([wat,3,"hello",<<"value">>],maps:values(M4)),
 
     M0 = #{ 4 := number } = M5 = maps:put(4, number, M4),
 
-    [4,18446744073709551629,int,"hi",<<"key">>] = maps:keys(M5),
-    [number,wat,3,"hello",<<"value">>]          = maps:values(M5),
+    true = is_members([4,18446744073709551629,int,"hi",<<"key">>],maps:keys(M5)),
+    true = is_members([number,wat,3,"hello",<<"value">>],maps:values(M5)),
 
     M6 = #{ <<"key">> := <<"other value">> } = maps:put(<<"key">>, <<"other value">>, M5),
 
-    [4,18446744073709551629,int,"hi",<<"key">>] = maps:keys(M6),
-    [number,wat,3,"hello",<<"other value">>]    = maps:values(M6),
+    true = is_members([4,18446744073709551629,int,"hi",<<"key">>],maps:keys(M6)),
+    true = is_members([number,wat,3,"hello",<<"other value">>],maps:values(M6)),
 
     %% error case
     {'EXIT',{badarg,[{maps,put,_,_}|_]}} = (catch maps:put(1,a,1 bsl 65 + 3)),
@@ -675,46 +673,12 @@ t_bif_map_put(Config) when is_list(Config) ->
     {'EXIT',{badarg,[{maps,put,_,_}|_]}} = (catch maps:put(1,a,atom)),
     {'EXIT',{badarg,[{maps,put,_,_}|_]}} = (catch maps:put(1,a,[])),
     {'EXIT',{badarg,[{maps,put,_,_}|_]}} = (catch maps:put(1,a,<<>>)),
-     ok.
+    ok.
 
-t_bif_map_remove(Config) when is_list(Config) ->
-    0  = erlang:map_size(maps:remove(some_key, #{})),
+is_members([],_) -> true;
+is_members([K|Ks],Ls) ->
+    lists:member(K,Ls) andalso is_members(Ks,Ls).
 
-    M0 = #{ "hi" => "hello", int => 3, <<"key">> => <<"value">>,
-	4 => number, 18446744073709551629 => wat},
-
-    M1 = maps:remove("hi", M0),
-    [4,18446744073709551629,int,<<"key">>] = maps:keys(M1),
-    [number,wat,3,<<"value">>]             = maps:values(M1),
-
-    M2 = maps:remove(int, M1),
-    [4,18446744073709551629,<<"key">>] = maps:keys(M2),
-    [number,wat,<<"value">>]           = maps:values(M2),
-
-    M3 = maps:remove(<<"key">>, M2),
-    [4,18446744073709551629] = maps:keys(M3),
-    [number,wat]             = maps:values(M3),
-
-    M4 = maps:remove(18446744073709551629, M3),
-    [4]      = maps:keys(M4),
-    [number] = maps:values(M4),
-
-    M5 = maps:remove(4, M4),
-    [] = maps:keys(M5),
-    [] = maps:values(M5),
-
-    M0 = maps:remove(5,M0),
-    M0 = maps:remove("hi there",M0),
-
-    #{ "hi" := "hello", int := 3, 4 := number} = maps:remove(18446744073709551629,maps:remove(<<"key">>,M0)),
-
-    %% error case
-    {'EXIT',{badarg,[{maps,remove,_,_}|_]}} = (catch maps:remove(a,1 bsl 65 + 3)),
-    {'EXIT',{badarg,[{maps,remove,_,_}|_]}} = (catch maps:remove(1,154)),
-    {'EXIT',{badarg,[{maps,remove,_,_}|_]}} = (catch maps:remove(a,atom)),
-    {'EXIT',{badarg,[{maps,remove,_,_}|_]}} = (catch maps:remove(1,[])),
-    {'EXIT',{badarg,[{maps,remove,_,_}|_]}} = (catch maps:remove(a,<<>>)),
-     ok.
 
 t_bif_map_update(Config) when is_list(Config) ->
     M0 = #{ "hi" => "hello", int => 3, <<"key">> => <<"value">>,
@@ -742,20 +706,57 @@ t_bif_map_update(Config) when is_list(Config) ->
 
     ok.
 
+t_bif_map_remove(Config) when is_list(Config) ->
+    0  = erlang:map_size(maps:remove(some_key, #{})),
 
+    M0 = #{ "hi" => "hello", int => 3, <<"key">> => <<"value">>,
+	4 => number, 18446744073709551629 => wat},
+
+    M1 = maps:remove("hi", M0),
+    true = is_members([4,18446744073709551629,int,<<"key">>],maps:keys(M1)),
+    true = is_members([number,wat,3,<<"value">>],maps:values(M1)),
+
+    M2 = maps:remove(int, M1),
+    true = is_members([4,18446744073709551629,<<"key">>],maps:keys(M2)),
+    true = is_members([number,wat,<<"value">>],maps:values(M2)),
+
+    M3 = maps:remove(<<"key">>, M2),
+    true = is_members([4,18446744073709551629],maps:keys(M3)),
+    true = is_members([number,wat],maps:values(M3)),
+
+    M4 = maps:remove(18446744073709551629, M3),
+    true = is_members([4],maps:keys(M4)),
+    true = is_members([number],maps:values(M4)),
+
+    M5 = maps:remove(4, M4),
+    [] = maps:keys(M5),
+    [] = maps:values(M5),
+
+    M0 = maps:remove(5,M0),
+    M0 = maps:remove("hi there",M0),
+
+    #{ "hi" := "hello", int := 3, 4 := number} = maps:remove(18446744073709551629,maps:remove(<<"key">>,M0)),
+
+    %% error case
+    {'EXIT',{badarg,[{maps,remove,_,_}|_]}} = (catch maps:remove(a,1 bsl 65 + 3)),
+    {'EXIT',{badarg,[{maps,remove,_,_}|_]}} = (catch maps:remove(1,154)),
+    {'EXIT',{badarg,[{maps,remove,_,_}|_]}} = (catch maps:remove(a,atom)),
+    {'EXIT',{badarg,[{maps,remove,_,_}|_]}} = (catch maps:remove(1,[])),
+    {'EXIT',{badarg,[{maps,remove,_,_}|_]}} = (catch maps:remove(a,<<>>)),
+     ok.
 
 t_bif_map_values(Config) when is_list(Config) ->
 
     [] = maps:values(#{}),
+    [1] = maps:values(#{a=>1}),
 
-    [a,b,c,d,e] = maps:values(#{ 1 => a, 2 => b, 3 => c, 4 => d, 5 => e}),
-    [a,b,c,d,e] = maps:values(#{ 4 => d, 5 => e, 1 => a, 2 => b, 3 => c}),
+    true = is_members([a,b,c,d,e],maps:values(#{ 1 => a, 2 => b, 3 => c, 4 => d, 5 => e})),
+    true = is_members([a,b,c,d,e],maps:values(#{ 4 => d, 5 => e, 1 => a, 2 => b, 3 => c})),
 
-    % values in key order: [4,int,"hi",<<"key">>]
     M1 = #{ "hi" => "hello", int => 3, <<"key">> => <<"value">>, 4 => number},
     M2 = M1#{ "hi" => "hello2", <<"key">> => <<"value2">> },
-    [number,3,"hello2",<<"value2">>] = maps:values(M2),
-    [number,3,"hello",<<"value">>]   = maps:values(M1),
+    true = is_members([number,3,"hello2",<<"value2">>],maps:values(M2)),
+    true = is_members([number,3,"hello",<<"value">>],maps:values(M1)),
 
     %% error case
     {'EXIT',{badarg,[{maps,values,_,_}|_]}} = (catch maps:values(1 bsl 65 + 3)),
@@ -764,74 +765,73 @@ t_bif_map_values(Config) when is_list(Config) ->
     {'EXIT',{badarg,[{maps,values,_,_}|_]}} = (catch maps:values(<<>>)),
     ok.
 
+
+
 t_erlang_hash(Config) when is_list(Config) ->
 
     ok = t_bif_erlang_phash2(),
     ok = t_bif_erlang_phash(),
     ok = t_bif_erlang_hash(),
-
     ok.
 
 t_bif_erlang_phash2() ->
-
     39679005 = erlang:phash2(#{}),
-    78942764 = erlang:phash2(#{ a => 1, "a" => 2, <<"a">> => 3, {a,b} => 4 }),
-    37338230 = erlang:phash2(#{ 1 => a, 2 => "a", 3 => <<"a">>, 4 => {a,b} }),
-    14363616 = erlang:phash2(#{ 1 => a }),
-    51612236 = erlang:phash2(#{ a => 1 }),
+    33667975 = erlang:phash2(#{ a => 1, "a" => 2, <<"a">> => 3, {a,b} => 4 }), % 78942764
+    95332690 = erlang:phash2(#{ 1 => a, 2 => "a", 3 => <<"a">>, 4 => {a,b} }), % 37338230
+    108954384 = erlang:phash2(#{ 1 => a }), % 14363616
+    59617982 = erlang:phash2(#{ a => 1 }), % 51612236
 
-    37468437 = erlang:phash2(#{{} => <<>>}),
-    44049159 = erlang:phash2(#{<<>> => {}}),
+    42770201 = erlang:phash2(#{{} => <<>>}), % 37468437
+    71687700 = erlang:phash2(#{<<>> => {}}), % 44049159
 
     M0 = #{ a => 1, "key" => <<"value">> },
     M1 = maps:remove("key",M0),
     M2 = M1#{ "key" => <<"value">> },
 
-    118679416 = erlang:phash2(M0),
-    51612236  = erlang:phash2(M1),
-    118679416 = erlang:phash2(M2),
+    70249457 = erlang:phash2(M0), % 118679416
+    59617982 = erlang:phash2(M1), % 51612236
+    70249457 = erlang:phash2(M2), % 118679416
     ok.
 
 t_bif_erlang_phash() ->
     Sz = 1 bsl 32,
-    268440612  = erlang:phash(#{},Sz),
-    1196461908 = erlang:phash(#{ a => 1, "a" => 2, <<"a">> => 3, {a,b} => 4 },Sz),
-    3944426064 = erlang:phash(#{ 1 => a, 2 => "a", 3 => <<"a">>, 4 => {a,b} },Sz),
-    1394238263 = erlang:phash(#{ 1 => a },Sz),
-    4066388227 = erlang:phash(#{ a => 1 },Sz),
+    1113425985 = erlang:phash(#{},Sz), % 268440612
+    1510068139 = erlang:phash(#{ a => 1, "a" => 2, <<"a">> => 3, {a,b} => 4 },Sz), % 1196461908
+    3182345590 = erlang:phash(#{ 1 => a, 2 => "a", 3 => <<"a">>, 4 => {a,b} },Sz), % 3944426064
+    2927531828 = erlang:phash(#{ 1 => a },Sz), % 1394238263
+    1670235874 = erlang:phash(#{ a => 1 },Sz), % 4066388227
 
-    1578050717 = erlang:phash(#{{} => <<>>},Sz),
-    1578050717 = erlang:phash(#{<<>> => {}},Sz), % yep, broken
+    3935089469 = erlang:phash(#{{} => <<>>},Sz), % 1578050717
+    71692856   = erlang:phash(#{<<>> => {}},Sz), % 1578050717
 
     M0 = #{ a => 1, "key" => <<"value">> },
     M1 = maps:remove("key",M0),
     M2 = M1#{ "key" => <<"value">> },
 
-    3590546636 = erlang:phash(M0,Sz),
-    4066388227 = erlang:phash(M1,Sz),
-    3590546636 = erlang:phash(M2,Sz),
+    2620391445 = erlang:phash(M0,Sz), % 3590546636
+    1670235874 = erlang:phash(M1,Sz), % 4066388227
+    2620391445 = erlang:phash(M2,Sz), % 3590546636
     ok.
 
 t_bif_erlang_hash() ->
     Sz = 1 bsl 27 - 1,
-    5158      = erlang:hash(#{},Sz),
-    71555838  = erlang:hash(#{ a => 1, "a" => 2, <<"a">> => 3, {a,b} => 4 },Sz),
-    5497225   = erlang:hash(#{ 1 => a, 2 => "a", 3 => <<"a">>, 4 => {a,b} },Sz),
-    126071654 = erlang:hash(#{ 1 => a },Sz),
-    126426236 = erlang:hash(#{ a => 1 },Sz),
+    39684169 = erlang:hash(#{},Sz),  % 5158
+    33673142 = erlang:hash(#{ a => 1, "a" => 2, <<"a">> => 3, {a,b} => 4 },Sz), % 71555838
+    95337869 = erlang:hash(#{ 1 => a, 2 => "a", 3 => <<"a">>, 4 => {a,b} },Sz), % 5497225
+    108959561 = erlang:hash(#{ 1 => a },Sz), % 126071654
+    59623150 = erlang:hash(#{ a => 1 },Sz), % 126426236
 
-    101655720 = erlang:hash(#{{} => <<>>},Sz),
-    101655720 = erlang:hash(#{<<>> => {}},Sz), % yep, broken
+    42775386 = erlang:hash(#{{} => <<>>},Sz), % 101655720
+    71692856 = erlang:hash(#{<<>> => {}},Sz), % 101655720
 
     M0 = #{ a => 1, "key" => <<"value">> },
     M1 = maps:remove("key",M0),
     M2 = M1#{ "key" => <<"value">> },
 
-    38260486  = erlang:hash(M0,Sz),
-    126426236 = erlang:hash(M1,Sz),
-    38260486  = erlang:hash(M2,Sz),
+    70254632 = erlang:hash(M0,Sz), % 38260486
+    59623150 = erlang:hash(M1,Sz), % 126426236
+    70254632 = erlang:hash(M2,Sz), % 38260486
     ok.
-
 
 t_map_encode_decode(Config) when is_list(Config) ->
     <<131,116,0,0,0,0>> = erlang:term_to_binary(#{}),
@@ -915,19 +915,18 @@ match_encoded_map(Bin,[<<131,Item/binary>>|Items]) ->
     EncodedTerm = Item, %% Asssert
     match_encoded_map(Bin1,Items).
 
-
 t_bif_map_to_list(Config) when is_list(Config) ->
     [] = maps:to_list(#{}),
-    [{a,1},{b,2}] = maps:to_list(#{a=>1,b=>2}),
-    [{a,1},{b,2},{c,3}] = maps:to_list(#{c=>3,a=>1,b=>2}),
-    [{a,1},{b,2},{g,3}] = maps:to_list(#{g=>3,a=>1,b=>2}),
-    [{a,1},{b,2},{g,3},{"c",4}] = maps:to_list(#{g=>3,a=>1,b=>2,"c"=>4}),
-    [{3,v2},{hi,v4},{{hi,3},v5},{"hi",v3},{<<"hi">>,v1}] = maps:to_list(#{
-	    <<"hi">>=>v1,3=>v2,"hi"=>v3,hi=>v4,{hi,3}=>v5}),
+    [{a,1},{b,2}] = lists:sort(maps:to_list(#{a=>1,b=>2})),
+    [{a,1},{b,2},{c,3}] = lists:sort(maps:to_list(#{c=>3,a=>1,b=>2})),
+    [{a,1},{b,2},{g,3}] = lists:sort(maps:to_list(#{g=>3,a=>1,b=>2})),
+    [{a,1},{b,2},{g,3},{"c",4}] = lists:sort(maps:to_list(#{g=>3,a=>1,b=>2,"c"=>4})),
+    [{3,v2},{hi,v4},{{hi,3},v5},{"hi",v3},{<<"hi">>,v1}] =
+	lists:sort(maps:to_list(#{<<"hi">>=>v1,3=>v2,"hi"=>v3,hi=>v4,{hi,3}=>v5})),
 
-    [{3,v7},{hi,v9},{{hi,3},v10},{"hi",v8},{<<"hi">>,v6}] = maps:to_list(#{
-	    <<"hi">>=>v1,3=>v2,"hi"=>v3,hi=>v4,{hi,3}=>v5,
-	    <<"hi">>=>v6,3=>v7,"hi"=>v8,hi=>v9,{hi,3}=>v10}),
+    [{3,v7},{hi,v9},{{hi,3},v10},{"hi",v8},{<<"hi">>,v6}] =
+	lists:sort(maps:to_list(#{<<"hi">>=>v1,3=>v2,"hi"=>v3,hi=>v4,{hi,3}=>v5,
+				  <<"hi">>=>v6,3=>v7,"hi"=>v8,hi=>v9,{hi,3}=>v10})),
 
     %% error cases
     {'EXIT', {badarg,_}} = (catch maps:to_list(id(a))),
