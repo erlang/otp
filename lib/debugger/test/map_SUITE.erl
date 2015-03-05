@@ -675,9 +675,13 @@ t_bif_map_put(Config) when is_list(Config) ->
     {'EXIT',{badarg,[{maps,put,_,_}|_]}} = (catch maps:put(1,a,<<>>)),
     ok.
 
-is_members([],_) -> true;
-is_members([K|Ks],Ls) ->
-    lists:member(K,Ls) andalso is_members(Ks,Ls).
+is_members(Ks,Ls) when length(Ks) =/= length(Ls) -> false;
+is_members(Ks,Ls) -> is_members_do(Ks,Ls).
+
+is_members_do([],[]) -> true;
+is_members_do([],_) -> false;
+is_members_do([K|Ks],Ls) ->
+    is_members_do(Ks, lists:delete(K,Ls)).
 
 
 t_bif_map_update(Config) when is_list(Config) ->
