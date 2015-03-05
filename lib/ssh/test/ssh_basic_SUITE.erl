@@ -756,7 +756,7 @@ ssh_connect_arg4_timeout(_Config) ->
     end.
 
 
-%% Help function, elapsed microseconds since T0
+%% Help function, elapsed milliseconds since T0
 ms_passed({_,_,_} = T0 ) ->
     %% OTP 17 and earlier
     timer:now_diff(erlang:now(), T0)/1000;
