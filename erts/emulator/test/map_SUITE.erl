@@ -826,12 +826,12 @@ t_bif_map_is_key(Config) when is_list(Config) ->
 t_bif_map_keys(Config) when is_list(Config) ->
     [] = maps:keys(#{}),
 
-    [1,2,3,4,5] = maps:keys(#{ 1 => a, 2 => b, 3 => c, 4 => d, 5 => e}),
-    [1,2,3,4,5] = maps:keys(#{ 4 => d, 5 => e, 1 => a, 2 => b, 3 => c}),
+    [1,2,3,4,5] = lists:sort(maps:keys(#{ 1 => a, 2 => b, 3 => c, 4 => d, 5 => e})),
+    [1,2,3,4,5] = lists:sort(maps:keys(#{ 4 => d, 5 => e, 1 => a, 2 => b, 3 => c})),
 
     % values in key order: [4,int,"hi",<<"key">>]
     M1 = #{ "hi" => "hello", int => 3, <<"key">> => <<"value">>, 4 => number},
-    [4,int,"hi",<<"key">>] = maps:keys(M1),
+    [4,int,"hi",<<"key">>] = lists:sort(maps:keys(M1)),
 
     %% error case
     {'EXIT',{badarg,[{maps,keys,_,_}|_]}} = (catch maps:keys(1 bsl 65 + 3)),
@@ -880,33 +880,33 @@ t_bif_map_put(Config) when is_list(Config) ->
 
     M1 = #{ "hi" := "hello"} = maps:put("hi", "hello", #{}),
 
-    ["hi"]    = maps:keys(M1),
-    ["hello"] = maps:values(M1),
+    true = is_members(["hi"],maps:keys(M1)),
+    true = is_members(["hello"],maps:values(M1)),
 
     M2 = #{ int := 3 } = maps:put(int, 3, M1),
 
-    [int,"hi"]  = maps:keys(M2),
-    [3,"hello"] = maps:values(M2),
+    true = is_members([int,"hi"],maps:keys(M2)),
+    true = is_members([3,"hello"],maps:values(M2)),
 
     M3 = #{ <<"key">> := <<"value">> } = maps:put(<<"key">>, <<"value">>, M2),
 
-    [int,"hi",<<"key">>]    = maps:keys(M3),
-    [3,"hello",<<"value">>] = maps:values(M3),
+    true = is_members([int,"hi",<<"key">>],maps:keys(M3)),
+    true = is_members([3,"hello",<<"value">>],maps:values(M3)),
 
     M4 = #{ 18446744073709551629 := wat } = maps:put(18446744073709551629, wat, M3),
 
-    [18446744073709551629,int,"hi",<<"key">>] = maps:keys(M4),
-    [wat,3,"hello",<<"value">>]               = maps:values(M4),
+    true = is_members([18446744073709551629,int,"hi",<<"key">>],maps:keys(M4)),
+    true = is_members([wat,3,"hello",<<"value">>],maps:values(M4)),
 
     M0 = #{ 4 := number } = M5 = maps:put(4, number, M4),
 
-    [4,18446744073709551629,int,"hi",<<"key">>] = maps:keys(M5),
-    [number,wat,3,"hello",<<"value">>]          = maps:values(M5),
+    true = is_members([4,18446744073709551629,int,"hi",<<"key">>],maps:keys(M5)),
+    true = is_members([number,wat,3,"hello",<<"value">>],maps:values(M5)),
 
     M6 = #{ <<"key">> := <<"other value">> } = maps:put(<<"key">>, <<"other value">>, M5),
 
-    [4,18446744073709551629,int,"hi",<<"key">>] = maps:keys(M6),
-    [number,wat,3,"hello",<<"other value">>]    = maps:values(M6),
+    true = is_members([4,18446744073709551629,int,"hi",<<"key">>],maps:keys(M6)),
+    true = is_members([number,wat,3,"hello",<<"other value">>],maps:values(M6)),
 
     %% error case
     {'EXIT',{badarg,[{maps,put,_,_}|_]}} = (catch maps:put(1,a,1 bsl 65 + 3)),
@@ -914,7 +914,11 @@ t_bif_map_put(Config) when is_list(Config) ->
     {'EXIT',{badarg,[{maps,put,_,_}|_]}} = (catch maps:put(1,a,atom)),
     {'EXIT',{badarg,[{maps,put,_,_}|_]}} = (catch maps:put(1,a,[])),
     {'EXIT',{badarg,[{maps,put,_,_}|_]}} = (catch maps:put(1,a,<<>>)),
-     ok.
+    ok.
+
+is_members([],_) -> true;
+is_members([K|Ks],Ls) ->
+    lists:member(K,Ls) andalso is_members(Ks,Ls).
 
 t_bif_map_remove(Config) when is_list(Config) ->
     0  = erlang:map_size(maps:remove(some_key, #{})),
@@ -923,20 +927,20 @@ t_bif_map_remove(Config) when is_list(Config) ->
 	4 => number, 18446744073709551629 => wat},
 
     M1 = maps:remove("hi", M0),
-    [4,18446744073709551629,int,<<"key">>] = maps:keys(M1),
-    [number,wat,3,<<"value">>]             = maps:values(M1),
+    true = is_members([4,18446744073709551629,int,<<"key">>],maps:keys(M1)),
+    true = is_members([number,wat,3,<<"value">>],maps:values(M1)),
 
     M2 = maps:remove(int, M1),
-    [4,18446744073709551629,<<"key">>] = maps:keys(M2),
-    [number,wat,<<"value">>]           = maps:values(M2),
+    true = is_members([4,18446744073709551629,<<"key">>],maps:keys(M2)),
+    true = is_members([number,wat,<<"value">>],maps:values(M2)),
 
     M3 = maps:remove(<<"key">>, M2),
-    [4,18446744073709551629] = maps:keys(M3),
-    [number,wat]             = maps:values(M3),
+    true = is_members([4,18446744073709551629],maps:keys(M3)),
+    true = is_members([number,wat],maps:values(M3)),
 
     M4 = maps:remove(18446744073709551629, M3),
-    [4]      = maps:keys(M4),
-    [number] = maps:values(M4),
+    true = is_members([4],maps:keys(M4)),
+    true = is_members([number],maps:values(M4)),
 
     M5 = maps:remove(4, M4),
     [] = maps:keys(M5),
@@ -986,15 +990,15 @@ t_bif_map_update(Config) when is_list(Config) ->
 t_bif_map_values(Config) when is_list(Config) ->
 
     [] = maps:values(#{}),
+    [1] = maps:values(#{a=>1}),
 
-    [a,b,c,d,e] = maps:values(#{ 1 => a, 2 => b, 3 => c, 4 => d, 5 => e}),
-    [a,b,c,d,e] = maps:values(#{ 4 => d, 5 => e, 1 => a, 2 => b, 3 => c}),
+    true = is_members([a,b,c,d,e],maps:values(#{ 1 => a, 2 => b, 3 => c, 4 => d, 5 => e})),
+    true = is_members([a,b,c,d,e],maps:values(#{ 4 => d, 5 => e, 1 => a, 2 => b, 3 => c})),
 
-    % values in key order: [4,int,"hi",<<"key">>]
     M1 = #{ "hi" => "hello", int => 3, <<"key">> => <<"value">>, 4 => number},
     M2 = M1#{ "hi" => "hello2", <<"key">> => <<"value2">> },
-    [number,3,"hello2",<<"value2">>] = maps:values(M2),
-    [number,3,"hello",<<"value">>]   = maps:values(M1),
+    true = is_members([number,3,"hello2",<<"value2">>],maps:values(M2)),
+    true = is_members([number,3,"hello",<<"value">>],maps:values(M1)),
 
     %% error case
     {'EXIT',{badarg,[{maps,values,_,_}|_]}} = (catch maps:values(1 bsl 65 + 3)),
@@ -1102,12 +1106,12 @@ t_map_encode_decode(Config) when is_list(Config) ->
 
     %% literally #{ "hi" => "value", a=>33, b=>55 } in the internal order
     #{ a:=33, b:=55, "hi" := "value"} = erlang:binary_to_term(<<131,116,0,0,0,3,
-	107,0,2,104,105, % "hi" :: list()
+	107,0,2,104,105,            % "hi" :: list()
 	107,0,5,118,97,108,117,101, % "value" :: list()
-	100,0,1,97, % a :: atom()
-	97,33, % 33 :: integer()
-	100,0,1,98, % b :: atom()
-	97,55  % 55 :: integer()
+	100,0,1,97,                 % a :: atom()
+	97,33,                      % 33 :: integer()
+	100,0,1,98,                 % b :: atom()
+	97,55                       % 55 :: integer()
 	>>),
 
 
@@ -1163,16 +1167,16 @@ match_encoded_map(Bin,[<<131,Item/binary>>|Items]) ->
 
 t_bif_map_to_list(Config) when is_list(Config) ->
     [] = maps:to_list(#{}),
-    [{a,1},{b,2}] = maps:to_list(#{a=>1,b=>2}),
-    [{a,1},{b,2},{c,3}] = maps:to_list(#{c=>3,a=>1,b=>2}),
-    [{a,1},{b,2},{g,3}] = maps:to_list(#{g=>3,a=>1,b=>2}),
-    [{a,1},{b,2},{g,3},{"c",4}] = maps:to_list(#{g=>3,a=>1,b=>2,"c"=>4}),
-    [{3,v2},{hi,v4},{{hi,3},v5},{"hi",v3},{<<"hi">>,v1}] = maps:to_list(#{
-	    <<"hi">>=>v1,3=>v2,"hi"=>v3,hi=>v4,{hi,3}=>v5}),
+    [{a,1},{b,2}] = lists:sort(maps:to_list(#{a=>1,b=>2})),
+    [{a,1},{b,2},{c,3}] = lists:sort(maps:to_list(#{c=>3,a=>1,b=>2})),
+    [{a,1},{b,2},{g,3}] = lists:sort(maps:to_list(#{g=>3,a=>1,b=>2})),
+    [{a,1},{b,2},{g,3},{"c",4}] = lists:sort(maps:to_list(#{g=>3,a=>1,b=>2,"c"=>4})),
+    [{3,v2},{hi,v4},{{hi,3},v5},{"hi",v3},{<<"hi">>,v1}] =
+	lists:sort(maps:to_list(#{<<"hi">>=>v1,3=>v2,"hi"=>v3,hi=>v4,{hi,3}=>v5})),
 
-    [{3,v7},{hi,v9},{{hi,3},v10},{"hi",v8},{<<"hi">>,v6}] = maps:to_list(#{
-	    <<"hi">>=>v1,3=>v2,"hi"=>v3,hi=>v4,{hi,3}=>v5,
-	    <<"hi">>=>v6,3=>v7,"hi"=>v8,hi=>v9,{hi,3}=>v10}),
+    [{3,v7},{hi,v9},{{hi,3},v10},{"hi",v8},{<<"hi">>,v6}] =
+	lists:sort(maps:to_list(#{<<"hi">>=>v1,3=>v2,"hi"=>v3,hi=>v4,{hi,3}=>v5,
+				  <<"hi">>=>v6,3=>v7,"hi"=>v8,hi=>v9,{hi,3}=>v10})),
 
     %% error cases
     {'EXIT', {badarg,_}} = (catch maps:to_list(id(a))),
@@ -1185,7 +1189,7 @@ t_bif_map_from_list(Config) when is_list(Config) ->
     A   = maps:from_list([]),
     0   = erlang:map_size(A),
 
-    #{a:=1,b:=2}  = maps:from_list([{a,1},{b,2}]),
+    #{a:=1,b:=2}      = maps:from_list([{a,1},{b,2}]),
     #{c:=3,a:=1,b:=2} = maps:from_list([{a,1},{b,2},{c,3}]),
     #{g:=3,a:=1,b:=2} = maps:from_list([{a,1},{b,2},{g,3}]),
 
@@ -1258,7 +1262,7 @@ build_key(F,N) when N rem 3 =:= 2 -> K = F(N), [K,K].
 
 check_keys_exist([], _) -> ok;
 check_keys_exist([K|Ks],M) ->
-    K = maps:get(K,M),
+    true = maps:is_key(K,M),
     check_keys_exist(Ks,M).
 
 t_bif_merge_and_check(Config) when is_list(Config) ->
