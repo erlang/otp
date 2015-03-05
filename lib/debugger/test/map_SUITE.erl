@@ -895,25 +895,29 @@ t_map_encode_decode(Config) when is_list(Config) ->
 map_encode_decode_and_match([{K,V}|Pairs], EncodedPairs, M0) ->
     M1 = maps:put(K,V,M0),
     B0 = erlang:term_to_binary(M1),
-    Ls = lists:sort(fun(A,B) -> erts_internal:cmp_term(A,B) < 0 end, [{K, erlang:term_to_binary(K), erlang:term_to_binary(V)}|EncodedPairs]),
-    %% sort Ks and Vs according to term spec, then match it
-    KVbins = lists:foldr(fun({_,Kbin,Vbin}, Acc) -> [Kbin,Vbin | Acc] end, [], Ls),
-    ok = match_encoded_map(B0, length(Ls), KVbins),
+    Ls = [{erlang:term_to_binary(K), erlang:term_to_binary(V)}|EncodedPairs],
+    ok = match_encoded_map(B0, length(Ls), Ls),
     %% decode and match it
     M1 = erlang:binary_to_term(B0),
     map_encode_decode_and_match(Pairs,Ls,M1);
 map_encode_decode_and_match([],_,_) -> ok.
 
 match_encoded_map(<<131,116,Size:32,Encoded/binary>>,Size,Items) ->
-    match_encoded_map(Encoded,Items);
+    match_encoded_map_stripped_size(Encoded,Items,Items);
 match_encoded_map(_,_,_) -> no_match_size.
 
-match_encoded_map(<<>>,[]) -> ok;
-match_encoded_map(Bin,[<<131,Item/binary>>|Items]) ->
-    Size = erlang:byte_size(Item),
-    <<EncodedTerm:Size/binary, Bin1/binary>> = Bin,
-    EncodedTerm = Item, %% Asssert
-    match_encoded_map(Bin1,Items).
+match_encoded_map_stripped_size(<<>>,_,_) -> ok;
+match_encoded_map_stripped_size(B0,[{<<131,K/binary>>,<<131,V/binary>>}|Items],Ls) ->
+    Ksz = byte_size(K),
+    Vsz = byte_size(V),
+    case B0 of
+	<<K:Ksz/binary,V:Vsz/binary,B1/binary>> ->
+	    match_encoded_map_stripped_size(B1,Ls,Ls);
+	_ ->
+	    match_encoded_map_stripped_size(B0,Items,Ls)
+    end;
+match_encoded_map_stripped_size(_,[],_) -> fail.
+
 
 t_bif_map_to_list(Config) when is_list(Config) ->
     [] = maps:to_list(#{}),
