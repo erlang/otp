@@ -2400,10 +2400,24 @@ void process_main(void)
     Uint sz,n;
 
     GetArg1(1, map);
+    n  = (Uint)Arg(2);
+    fs = &Arg(3); /* pattern fields */
 
-    /* this instruction assumes Arg1 is a map,
-     * i.e. that it follows a test is_map if needed.
-     */
+    /* get term from field? */
+    if (is_hashmap(map)) {
+	Uint32 hx;
+	while(n--) {
+	    field = *fs++;
+	    hx = hashmap_make_hash(field);
+	    if (!erts_hashmap_get(hx,field,map)) {
+		SET_I((BeamInstr *) Arg(0));
+		goto has_map_fields_fail;
+	    }
+	}
+	goto has_map_fields_ok;
+    }
+
+    ASSERT(is_map(map));
 
     mp = (map_t *)map_val(map);
     sz = map_get_size(mp);
@@ -2414,8 +2428,6 @@ void process_main(void)
     }
 
     ks = map_get_keys(mp);
-    n  = (Uint)Arg(2);
-    fs = &Arg(3); /* pattern fields */
 
     ASSERT(n>0);
 
@@ -2433,7 +2445,7 @@ void process_main(void)
 	SET_I((BeamInstr *) Arg(0));
 	goto has_map_fields_fail;
     }
-
+has_map_fields_ok:
     I += 4 + Arg(2);
 has_map_fields_fail:
     ASSERT(VALID_INSTR(*I));
