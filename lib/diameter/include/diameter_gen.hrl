@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -24,6 +24,9 @@
 %%
 
 -define(THROW(T), throw({?MODULE, T})).
+
+%% Tag common to generated dictionaries.
+-define(TAG, diameter_gen).
 
 %% Key to a value in the process dictionary that determines whether or
 %% not an unrecognized AVP setting the M-bit should be regarded as an
@@ -48,13 +51,20 @@
 %% dictionary.
 
 putr(K,V) ->
-    put({?MODULE, K}, V).
+    put({?TAG, K}, V).
 
 getr(K) ->
-    get({?MODULE, K}).
+    case get({?TAG, K}) of
+        undefined ->
+            V = erase({?MODULE, K}),  %% written in old code
+            V == undefined orelse putr(K,V),
+            V;
+        V ->
+            V
+    end.
 
 eraser(K) ->
-    erase({?MODULE, K}).
+    erase({?TAG, K}).
 
 %% ---------------------------------------------------------------------------
 %% # encode_avps/2
@@ -313,12 +323,20 @@ d(Name, Avp, Acc) ->
                            %% decode is packed into 'AVP'.
     Mod = dict(Failed),    %% Dictionary to decode in.
 
+    %% On decode, a Grouped AVP is represented as a #diameter_avp{}
+    %% list with AVP as head and component AVPs as tail. On encode,
+    %% data can be a list of component AVPs.
+
     try Mod:avp(decode, Data, AvpName) of
         V ->
             {Avps, T} = Acc,
             {H, A} = ungroup(V, Avp),
             {[H | Avps], pack_avp(Name, A, T)}
     catch
+        throw: {?TAG, {grouped, RC, ComponentAvps}} ->
+            {Avps, {Rec, Errors}} = Acc,
+            A = trim(Avp),
+            {[[A | trim(ComponentAvps)] | Avps], {Rec, [{RC, A} | Errors]}};
         error: Reason ->
             d(undefined == Failed orelse is_failed(),
               Reason,
@@ -337,6 +355,10 @@ d(Name, Avp, Acc) ->
 
 trim(#diameter_avp{data = <<0:1, Bin/binary>>} = Avp) ->
     Avp#diameter_avp{data = Bin};
+
+trim(Avps)
+  when is_list(Avps) ->
+    lists:map(fun trim/1, Avps);
 
 trim(Avp) ->
     Avp.
@@ -582,21 +604,36 @@ value(_, Avp) ->
 %% # grouped_avp/3
 %% ---------------------------------------------------------------------------
 
--spec grouped_avp(decode, avp_name(), binary())
+-spec grouped_avp(decode, avp_name(), bitstring())
    -> {avp_record(), [avp()]};
                  (encode, avp_name(), avp_record() | avp_values())
    -> binary()
     | no_return().
 
+%% Length error induced by diameter_codec:collect_avps/1.
+grouped_avp(decode, _Name, <<0:1, _/binary>>) ->
+    throw({?TAG, {grouped, 5014, []}});
+
 grouped_avp(decode, Name, Data) ->
-    {Rec, Avps, []} = decode_avps(Name, diameter_codec:collect_avps(Data)),
-    {Rec, Avps};
-%% A failed match here will result in 5004. Note that this is the only
-%% AVP type that doesn't just return the decoded record, also
-%% returning the list of component AVP's.
+    grouped_decode(Name, diameter_codec:collect_avps(Data));
 
 grouped_avp(encode, Name, Data) ->
     encode_avps(Name, Data).
+
+%% grouped_decode/2
+%%
+%% Note that Grouped is the only AVP type that doesn't just return a
+%% decoded value, also returning the list of component diameter_avp
+%% records.
+
+grouped_decode(_Name, {Error, Acc}) ->
+    {RC, Avp} = Error,
+    throw({?TAG, {grouped, RC, [Avp | Acc]}});
+
+grouped_decode(Name, ComponentAvps) ->
+    {Rec, Avps, Es} = decode_avps(Name, ComponentAvps),
+    [] == Es orelse throw({?TAG, {grouped, 5004, Avps}}), %% decode failure
+    {Rec, Avps}.
 
 %% ---------------------------------------------------------------------------
 %% # empty_group/1

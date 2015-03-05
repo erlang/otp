@@ -564,14 +564,14 @@ split_data(Bin, Len) ->
         <<Data:Len/binary, _:Pad/binary, Rest/binary>> ->
             {Data, Rest};
         _ ->
-            %% Header length points past the end of the message. As
-            %% stated in the 6733 text above, it's sufficient to
-            %% return a zero-filled minimal payload if this is a
-            %% request. Do this (in cases that we know the type) by
-            %% inducing a decode failure and letting the dictionary's
-            %% decode (in diameter_gen) deal with it. Here we don't
-            %% know type. If the type isn't known, then the decode
-            %% just strips the extra bit.
+            %% Header length points past the end of the message, or
+            %% doesn't span the header. As stated in the 6733 text
+            %% above, it's sufficient to return a zero-filled minimal
+            %% payload if this is a request. Do this (in cases that we
+            %% know the type) by inducing a decode failure and letting
+            %% the dictionary's decode (in diameter_gen) deal with it.
+            %% Here we don't know type. If the type isn't known, then
+            %% the decode just strips the extra bit.
             {<<0:1, Bin/binary>>, <<>>}
     end.
 
@@ -585,6 +585,8 @@ split_data(Bin, Len) ->
 %% dictionary doesn't know about specific AVP's.
 
 %% Grouped AVP whose components need packing ...
+pack_avp([#diameter_avp{} = A | Avps]) ->
+    pack_avp(A#diameter_avp{data = Avps});
 pack_avp(#diameter_avp{data = [#diameter_avp{} | _] = Avps} = A) ->
     pack_avp(A#diameter_avp{data = encode_avps(Avps)});
 
