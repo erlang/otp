@@ -102,7 +102,7 @@ int    erts_validate_and_sort_map(map_t* map);
 void   hashmap_iterator_init(struct ErtsWStack_* s, Eterm node);
 Eterm* hashmap_iterator_next(struct ErtsWStack_* s);
 int    hashmap_key_hash_cmp(Eterm* ap, Eterm* bp);
-Eterm  erts_hashmap_from_array(ErtsHeapFactory*, Eterm *leafs, Uint n);
+Eterm  erts_hashmap_from_array(ErtsHeapFactory*, Eterm *leafs, Uint n, int reject_dupkeys);
 const  Eterm *erts_hashmap_get(Uint32 hx, Eterm key, Eterm map);
 
 #define erts_hashmap_from_ks_and_vs(P, KS, VS, N) \

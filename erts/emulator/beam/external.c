@@ -3910,10 +3910,10 @@ dec_term_atom_common:
         next  = (Eterm *) hamt_list->next;
         objp = hamt_list->objp;
 
-	/*SVERK Make it reject duplicate keys */
         *objp = erts_hashmap_from_array(&factory,
                                         hamt_list->leaf_array,
-                                        hamt_list->size);
+                                        hamt_list->size,
+                                        1);
         if (is_non_value(*objp))
             goto error;
 

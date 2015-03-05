@@ -87,7 +87,7 @@ static Eterm hashmap_values(Process *p, Eterm map);
 static Eterm hashmap_delete(Process *p, Uint32 hx, Eterm key, Eterm node);
 static Eterm map_from_validated_list(Process *p, Eterm list, Uint size);
 static Eterm hashmap_from_validated_list(Process *p, Eterm list, Uint size);
-static Eterm hashmap_from_unsorted_array(ErtsHeapFactory*, hxnode_t *hxns, Uint n);
+static Eterm hashmap_from_unsorted_array(ErtsHeapFactory*, hxnode_t *hxns, Uint n, int reject_dupkeys);
 static Eterm hashmap_from_sorted_unique_array(ErtsHeapFactory*, hxnode_t *hxns, Uint n, int is_root);
 static Eterm hashmap_from_chunked_array(ErtsHeapFactory*, hxnode_t *hxns, Uint n, int is_root);
 static Eterm hashmap_info(Process *p, Eterm node);
@@ -419,7 +419,7 @@ static Eterm hashmap_from_validated_list(Process *p, Eterm list, Uint size) {
     }
 
     factory.p = p;
-    res = hashmap_from_unsorted_array(&factory, hxns, size);
+    res = hashmap_from_unsorted_array(&factory, hxns, size, 0);
 
     erts_free(ERTS_ALC_T_TMP, (void *) hxns);
     ERTS_VERIFY_UNUSED_TEMP_ALLOC(p);
@@ -462,7 +462,8 @@ static Eterm hashmap_from_validated_list(Process *p, Eterm list, Uint size) {
     return res;
 }
 
-Eterm erts_hashmap_from_array(ErtsHeapFactory* factory, Eterm *leafs, Uint n) {
+Eterm erts_hashmap_from_array(ErtsHeapFactory* factory, Eterm *leafs, Uint n,
+                              int reject_dupkeys) {
     Uint32 sw, hx;
     Uint ix;
     hxnode_t *hxns;
@@ -481,7 +482,7 @@ Eterm erts_hashmap_from_array(ErtsHeapFactory* factory, Eterm *leafs, Uint n) {
 	leafs += 2;
     }
 
-    res = hashmap_from_unsorted_array(factory, hxns, n);
+    res = hashmap_from_unsorted_array(factory, hxns, n, reject_dupkeys);
 
     erts_free(ERTS_ALC_T_TMP, (void *) hxns);
 
@@ -523,7 +524,7 @@ Eterm erts_hashmap_from_ks_and_vs_extra(Process *p, Eterm *ks, Eterm *vs, Uint n
     }
 
     factory.p = p;
-    res = hashmap_from_unsorted_array(&factory, hxns, sz);
+    res = hashmap_from_unsorted_array(&factory, hxns, sz, 0);
 
     erts_free(ERTS_ALC_T_TMP, (void *) hxns);
     ERTS_VERIFY_UNUSED_TEMP_ALLOC(p);
@@ -532,7 +533,8 @@ Eterm erts_hashmap_from_ks_and_vs_extra(Process *p, Eterm *ks, Eterm *vs, Uint n
 }
 
 static Eterm hashmap_from_unsorted_array(ErtsHeapFactory* factory,
-                                         hxnode_t *hxns, Uint n) {
+                                         hxnode_t *hxns, Uint n,
+                                         int reject_dupkeys) {
     Uint jx = 0, ix = 0, lx, cx;
     Eterm res;
 
@@ -566,7 +568,10 @@ static Eterm hashmap_from_unsorted_array(ErtsHeapFactory* factory,
 	    while(ix < jx) {
 		lx = ix;
 		while(ix < jx && EQ(CAR(list_val(hxns[ix].val)), CAR(list_val(hxns[lx].val)))) {
-		    if (hxns[ix].i > hxns[lx].i) {
+                    if (reject_dupkeys)
+                        return THE_NON_VALUE;
+
+                    if (hxns[ix].i > hxns[lx].i) {
 			lx = ix;
 		    }
 		    ix++;
@@ -1030,7 +1035,7 @@ static Eterm map_merge(Process *p, Eterm nodeA, Eterm nodeB) {
 	}
 
         factory.p = p;
-	res = hashmap_from_unsorted_array(&factory, hxns, n);
+	res = hashmap_from_unsorted_array(&factory, hxns, n, 0);
 
 	erts_free(ERTS_ALC_T_TMP, (void *) hxns);
 	ERTS_VERIFY_UNUSED_TEMP_ALLOC(p);
@@ -1076,7 +1081,7 @@ static Eterm map_merge_mixed(Process *p, Eterm flat, Eterm tree, int swap_args) 
     }
 
     factory.p = p;
-    res = hashmap_from_unsorted_array(&factory, hxns, n);
+    res = hashmap_from_unsorted_array(&factory, hxns, n, 0);
 
     erts_free(ERTS_ALC_T_TMP, (void *) hxns);
     ERTS_VERIFY_UNUSED_TEMP_ALLOC(p);

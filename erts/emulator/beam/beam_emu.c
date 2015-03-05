@@ -6589,7 +6589,7 @@ new_map(Process* p, Eterm* reg, BeamInstr* I)
 	p->htop = mhp;
 
         factory.p = p;
-	return erts_hashmap_from_array(&factory, thp, n/2);
+	return erts_hashmap_from_array(&factory, thp, n/2, 0);
     }
 
     if (HeapWordsLeft(p) < need) {
