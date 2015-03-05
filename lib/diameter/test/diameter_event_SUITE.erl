@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2013. All Rights Reserved.
+%% Copyright Ericsson AB 2013-15. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -168,16 +168,15 @@ connect(Config, Opts) ->
     {Name, Ref}.
 
 uniq() ->
-    {MS,S,US} = now(),
-    lists:flatten(io_lib:format("-~p-~p-~p-", [MS,S,US])).
+    "-" ++ diameter_util:unique_string().
 
 event(Name) ->
     receive #diameter_event{service = Name, info = T} -> T end.
 
 event(Name, TL, TH) ->
-    T0 = now(),
+    T0 = diameter_lib:now(),
     Event = event(Name),
-    DT = timer:now_diff(now(), T0) div 1000,
+    DT = diameter_lib:micro_diff(T0) div 1000,
     {true, true, DT, Event} = {TL < DT, DT < TH, DT, Event},
     Event.
 

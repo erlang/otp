@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -22,8 +22,10 @@
 %%
 
 -module(diameter_stats).
-
 -behaviour(gen_server).
+
+-compile({no_auto_import, [now/0]}).
+-import(diameter_lib, [now/0]).
 
 -export([reg/2, reg/1,
          incr/3, incr/1,

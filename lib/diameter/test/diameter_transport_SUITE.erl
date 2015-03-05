@@ -53,7 +53,7 @@
 
 %% Receive a message.
 -define(RECV(Pat, Ret), receive Pat -> Ret end).
--define(RECV(Pat), ?RECV(Pat, now())).
+-define(RECV(Pat), ?RECV(Pat, diameter_util:timestamp())).
 
 %% Sockets are opened on the loopback address.
 -define(ADDR, {127,0,0,1}).
@@ -225,7 +225,7 @@ reconnect(_) ->
                     || T <- [listen, connect]]).
 
 start_service(SvcName) ->
-    OH = io_lib:format("~p-~p-~p", tuple_to_list(now())),
+    OH = diameter_util:unique_string(),
     Opts = [{application, [{dictionary, diameter_gen_base_rfc6733},
                            {module, diameter_callback}]},
             {'Origin-Host', OH},
@@ -335,7 +335,7 @@ make_msg() ->
 %% crypto:rand_bytes/1 isn't available on all platforms (since openssl
 %% isn't) so roll our own.
 rand_bytes(N) ->
-    random:seed(now()),
+    random:seed(diameter_util:seed()),
     rand_bytes(N, <<>>).
 
 rand_bytes(0, Bin) ->
@@ -415,7 +415,7 @@ gen_accept(tcp, LSock) ->
 
 gen_send(sctp, Sock, Bin) ->
     {OS, _IS, Id} = getr(assoc),
-    {_, _, Us} = now(),
+    {_, _, Us} = diameter_util:timestamp(),
     gen_sctp:send(Sock, Id, Us rem OS, Bin);
 gen_send(tcp, Sock, Bin) ->
     gen_tcp:send(Sock, Bin).

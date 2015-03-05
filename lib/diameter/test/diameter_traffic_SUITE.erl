@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -760,7 +760,7 @@ call(Config, Req, Opts) ->
     diameter:call(?CLIENT,
                   dict(Req, Dict0),
                   msg(Req, ReqEncoding, Dict0),
-                  [{extra, [{Name, Group}, now()]} | Opts]).
+                  [{extra, [{Name, Group}, diameter_lib:now()]} | Opts]).
 
 origin({A,C}) ->
     2*codec(A) + container(C);
@@ -1076,8 +1076,10 @@ app(Req, _, Dict0) ->
 %% handle_error/6
 
 handle_error(timeout = Reason, _Req, ?CLIENT, _Peer, _, Time) ->
-    Now = now(),
-    {Reason, {Time, Now, timer:now_diff(Now, Time)}};
+    Now = diameter_lib:now(),
+    {Reason, {diameter_lib:timestamp(Time),
+              diameter_lib:timestamp(Now),
+              diameter_lib:micro_diff(Now, Time)}};
 
 handle_error(Reason, _Req, ?CLIENT, _Peer, _, _Time) ->
     {error, Reason}.
