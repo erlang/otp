@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -247,17 +247,19 @@ opts(HeapSize, Opts) ->
 %% # wait/1
 %% ---------------------------------------------------------------------------
 
--spec wait([pid()])
+-spec wait([pid() | reference()])
    -> ok.
 
 wait(L) ->
-    down([erlang:monitor(process, P) || P <- L]).
+    lists:foreach(fun down/1, L).
 
-down([]) ->
-    ok;
-down([MRef|T]) ->
-    receive {'DOWN', MRef, process, _, _} -> ok end,
-    down(T).
+down(Pid)
+  when is_pid(Pid) ->
+    down(monitor(process, Pid));
+
+down(MRef)
+  when is_reference(MRef) ->
+    receive {'DOWN', MRef, process, _, _} = T -> T end.
 
 %% ---------------------------------------------------------------------------
 %% # fold_tuple/3

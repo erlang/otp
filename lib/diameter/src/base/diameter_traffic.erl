@@ -162,24 +162,28 @@ incr_error(Dir, Id, TPid) ->
 %% incr_rc/4
 %% ---------------------------------------------------------------------------
 
--spec incr_rc(send|recv, Pkt, TPid, Dict0)
+-spec incr_rc(send|recv, Pkt, TPid, DictT)
    -> {Counter, non_neg_integer()}
     | Reason
  when Pkt :: #diameter_packet{},
       TPid :: pid(),
-      Dict0 :: module(),
+      DictT :: module() | {module(), module(), module()},
       Counter :: {'Result-Code', integer()}
                | {'Experimental-Result', integer(), integer()},
       Reason :: atom().
 
-incr_rc(Dir, Pkt, TPid, Dict0) ->
+incr_rc(Dir, Pkt, TPid, {Dict, _, _} = DictT) ->
     try
-        incr_result(Dir, Pkt, TPid, {Dict0, Dict0, Dict0})
+        incr_result(Dir, Pkt, TPid, DictT)
     catch
         exit: {E,_} when E == no_result_code;
                          E == invalid_error_bit ->
+            incr(TPid, {msg_id(Pkt#diameter_packet.header, Dict), Dir, E}),
             E
-    end.
+    end;
+
+incr_rc(Dir, Pkt, TPid, Dict0) ->
+    incr_rc(Dir, Pkt, TPid, {Dict0, Dict0, Dict0}).
 
 %% ---------------------------------------------------------------------------
 %% pending/1
@@ -678,7 +682,7 @@ local(Msg, TPid, {Dict, AppDict, Dict0} = DictT, Fs, ReqPkt) ->
                  reset(make_answer_packet(Msg, ReqPkt), Dict, Dict0),
                  Fs),
     incr(send, Pkt, TPid, AppDict),
-    incr_result(send, Pkt, TPid, DictT),  %% count outgoing
+    incr_rc(send, Pkt, TPid, DictT),  %% count outgoing
     send(TPid, Pkt).
 
 %% reset/3
@@ -1388,6 +1392,21 @@ make_request_packet(#diameter_packet{header = Hdr} = Pkt,
 make_request_packet(Msg, Pkt) ->
     Pkt#diameter_packet{msg = Msg}.
 
+%% make_retransmit_packet/2
+
+make_retransmit_packet(#diameter_packet{msg = [#diameter_header{} = Hdr
+                                               | Avps]}
+                       = Pkt) ->
+    Pkt#diameter_packet{msg = [make_retransmit_header(Hdr) | Avps]};
+
+make_retransmit_packet(#diameter_packet{header = Hdr} = Pkt) ->
+    Pkt#diameter_packet{header = make_retransmit_header(Hdr)}.
+
+%% make_retransmit_header/1
+
+make_retransmit_header(Hdr) ->
+    Hdr#diameter_header{is_retransmitted = true}.
+
 %% fold_record/2
 
 fold_record(undefined, R) ->
@@ -1674,9 +1693,7 @@ retransmit({TPid, Caps, App}
     have_request(Pkt0, TPid)     %% Don't failover to a peer we've
         andalso ?THROW(timeout), %% already sent to.
 
-    #diameter_packet{header = Hdr0} = Pkt0,
-    Hdr = Hdr0#diameter_header{is_retransmitted = true},
-    Pkt = Pkt0#diameter_packet{header = Hdr},
+    Pkt = make_retransmit_packet(Pkt0),
 
     retransmit(cb(App, prepare_retransmit, [Pkt, SvcName, {TPid, Caps}]),
                Transport,

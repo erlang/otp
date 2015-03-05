@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -610,8 +610,9 @@ st(#watchdog{ref = Ref, pid = Pid}, Refs) ->
 %% st/3
 
 st(#watchdog{pid = Pid}, Reason, Acc) ->
+    MRef = monitor(process, Pid),
     Pid ! {shutdown, self(), Reason},
-    [Pid | Acc].
+    [MRef | Acc].
 
 %% ---------------------------------------------------------------------------
 %% # call_service/2

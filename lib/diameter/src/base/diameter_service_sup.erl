@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -58,7 +58,7 @@ init([]) ->
     ChildSpec = {Mod,
                  {Mod, start_link, []},
                  temporary,
-                 1000,
+                 5000,
                  worker,
                  [Mod]},
     {ok, {Flags, [ChildSpec]}}.
