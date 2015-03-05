@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -119,10 +119,10 @@ send_not_from_controlling_process(_) ->
 
 send_not_from_controlling_process() ->
     FPid = self(),
-    {L, MRef} = spawn_monitor(fun() -> listen(FPid) end),%% listening process
+    {L, MRef} = spawn_monitor(fun() -> listen(FPid) end),
     receive
         {?MODULE, C, S} ->
-            erlang:demonitor(MRef, [flush]),
+            demonitor(MRef, [flush]),
             [L,C,S];
         {'DOWN', MRef, process, _, _} = T ->
             error(T)
@@ -137,13 +137,7 @@ listen(FPid) ->
     LPid = self(),
     spawn(fun() -> connect1(PortNr, FPid, LPid) end), %% connecting process
     Id = assoc(Sock),
-    ?SCTP(Sock, {[#sctp_sndrcvinfo{assoc_id = Id}], _Bin})
-        = recv(). %% Waits with this as current_function.
-
-%% recv/0
-
-recv() ->
-    receive T -> T end.
+    recv(Sock, Id).
 
 %% connect1/3
 
@@ -154,7 +148,7 @@ connect1(PortNr, FPid, LPid) ->
     FPid ! {?MODULE,
             self(),
             spawn(fun() -> send(Sock, Id) end)}, %% sending process
-    MRef = erlang:monitor(process, LPid),
+    MRef = monitor(process, LPid),
     down(MRef).  %% Waits with this as current_function.
 
 %% down/1
@@ -277,7 +271,8 @@ acc(N, Acc) ->
 
 loop(Sock, MRef, Bin) ->
     receive
-        ?SCTP(Sock, {[#sctp_sndrcvinfo{assoc_id = Id}], B}) ->
+        ?SCTP(Sock, {[#sctp_sndrcvinfo{assoc_id = Id}], B})
+          when is_binary(B) ->
             Sz = size(Bin),
             {Sz, Bin} = {size(B), B},  %% assert
             ok = send(Sock, Id, mark(Bin)),
@@ -291,7 +286,7 @@ loop(Sock, MRef, Bin) ->
 %% connect2/3
 
 connect2(Pid, PortNr, Bin) ->
-    erlang:monitor(process, Pid),
+    monitor(process, Pid),
 
     {ok, Sock} = open(),
     ok = gen_sctp:connect_init(Sock, ?ADDR, PortNr, []),
@@ -311,9 +306,14 @@ connect2(Pid, PortNr, Bin) ->
 
 recv(Sock, Id) ->
     receive
-        ?SCTP(Sock, {[#sctp_sndrcvinfo{assoc_id = Id}], Bin}) ->
+        ?SCTP(Sock, {[#sctp_sndrcvinfo{assoc_id = I}], Bin})
+          when is_binary(Bin) ->
+            Id = I,   %% assert
             Bin;
-        T ->  %% eg. 'DOWN'
+        ?SCTP(S, _) ->
+            Sock = S, %% assert
+            recv(Sock, Id);
+        T ->
             exit(T)
     end.
 

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -104,7 +104,7 @@ tc() ->
      reconnect].
 
 init_per_suite(Config) ->
-    [{sctp, have_sctp()} | Config].
+    [{sctp, ?util:have_sctp()} | Config].
 
 end_per_suite(_Config) ->
     ok.
@@ -127,7 +127,10 @@ tcp_accept(_) ->
     accept(tcp).
 
 sctp_accept(Config) ->
-    if_sctp(fun accept/1, Config).
+    case lists:member({sctp, true}, Config) of
+        true  -> accept(sctp);
+        false -> {skip, no_sctp}
+    end.
 
 %% Start multiple accepting transport processes that are connected to
 %% with an equal number of connecting processes using gen_tcp/sctp
@@ -157,7 +160,10 @@ tcp_connect(_) ->
     connect(tcp).
 
 sctp_connect(Config) ->
-    if_sctp(fun connect/1, Config).
+    case lists:member({sctp, true}, Config) of
+        true  -> connect(sctp);
+        false -> {skip, no_sctp}
+    end.
 
 connect(Prot) ->
     T = {Prot, make_ref()},
@@ -250,28 +256,6 @@ abort(SvcName, LRef, Ref)
 
 %% ===========================================================================
 %% ===========================================================================
-
-%% have_sctp/0
-
-have_sctp() ->
-    case gen_sctp:open() of
-        {ok, Sock} ->
-            gen_sctp:close(Sock),
-            true;
-        {error, E} when E == eprotonosupport;
-                        E == esocktnosupport -> %% fail on any other reason
-            false
-    end.
-
-%% if_sctp/2
-
-if_sctp(F, Config) ->
-    case proplists:get_value(sctp, Config) of
-        true ->
-            F(sctp);
-        false ->
-            {skip, no_sctp}
-    end.
 
 %% init/2
 
@@ -381,37 +365,14 @@ start_connect(tcp, T, Svc, Opts) ->
     diameter_tcp:start(T, Svc, Opts).
 
 %% start_accept/2
-%%
-%% Start transports sequentially by having each wait for a message
-%% from a job in a queue before commencing. Only one transport with a
-%% pending accept is started at a time since diameter_{tcp,sctp}
-%% currently assume (and diameter currently implements) this.
 
 start_accept(Prot, Ref) ->
-    Pid = sync(accept, Ref),
     {Mod, Opts} = tmod(Prot),
-
-    try
-        {ok, TPid, [?ADDR]} = Mod:start({accept, Ref},
-                                        ?SVC([?ADDR]),
-                                        [{port, 0} | Opts]),
-        ?RECV(?TMSG({TPid, connected})),
-        TPid
-    after
-        Pid ! Ref
-    end.
-
-sync(What, Ref) ->
-    ok = diameter_sync:cast({?MODULE, What, Ref},
-                            [fun lock/2, Ref, self()],
-                            infinity,
-                            infinity),
-    receive {start, Ref, Pid} -> Pid end.
-
-lock(Ref, Pid) ->
-    Pid ! {start, Ref, self()},
-    erlang:monitor(process, Pid),
-    Ref = receive T -> T end.
+    {ok, TPid, [?ADDR]} = Mod:start({accept, Ref},
+                                    ?SVC([?ADDR]),
+                                    [{port, 0} | Opts]),
+    ?RECV(?TMSG({TPid, connected})),
+    TPid.
 
 tmod(sctp) ->
     {diameter_sctp, [{sctp_initmsg, ?SCTP_INIT}]};
@@ -463,7 +424,11 @@ gen_send(tcp, Sock, Bin) ->
 
 gen_recv(sctp, Sock) ->
     {_OS, _IS, Id} = getr(assoc),
-    ?RECV(?SCTP(Sock, {[#sctp_sndrcvinfo{assoc_id = Id}], Bin}), Bin);
+    receive
+        ?SCTP(Sock, {[#sctp_sndrcvinfo{assoc_id = Id}], Bin})
+          when is_binary(Bin) ->
+            Bin
+    end;
 gen_recv(tcp, Sock) ->
     tcp_recv(Sock, <<>>).
 

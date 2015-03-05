@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -31,9 +31,6 @@
 
 -module(relay).
 
--include_lib("diameter/include/diameter.hrl").
--include_lib("diameter/include/diameter_gen_base_rfc3588.hrl").
-
 -export([start/1,
          listen/2,
          connect/2,
@@ -44,49 +41,47 @@
          connect/1,
          stop/0]).
 
--define(APP_ALIAS,    ?MODULE).
--define(SVC_NAME,     ?MODULE).
--define(CALLBACK_MOD, relay_cb).
+-define(DEF_SVC_NAME, ?MODULE).
 
 %% The service configuration.
 -define(SERVICE(Name), [{'Origin-Host', atom_to_list(Name) ++ ".example.com"},
                         {'Origin-Realm', "example.com"},
                         {'Vendor-Id', 193},
                         {'Product-Name', "RelayAgent"},
-                        {'Auth-Application-Id', [?DIAMETER_APP_ID_RELAY]},
-                        {application, [{alias, ?MODULE},
-                                       {dictionary, ?DIAMETER_DICT_RELAY},
-                                       {module, ?CALLBACK_MOD}]}]).
+                        {'Auth-Application-Id', [16#FFFFFFFF]},
+                        {application, [{alias, relay},
+                                       {dictionary, diameter_relay},
+                                       {module, relay_cb}]}]).
 
 %% start/1
 
 start(Name)
   when is_atom(Name) ->
-    peer:start(Name, ?SERVICE(Name)).
+    node:start(Name, ?SERVICE(Name)).
 
 start() ->
-    start(?SVC_NAME).
+    start(?DEF_SVC_NAME).
 
 %% listen/2
 
 listen(Name, T) ->
-    peer:listen(Name, T).
+    node:listen(Name, T).
 
 listen(T) ->
-    listen(?SVC_NAME, T).
+    listen(?DEF_SVC_NAME, T).
 
 %% connect/2
 
 connect(Name, T) ->
-    peer:connect(Name, T).
+    node:connect(Name, T).
 
 connect(T) ->
-    connect(?SVC_NAME, T).
+    connect(?DEF_SVC_NAME, T).
 
 %% stop/1
 
 stop(Name) ->
-    peer:stop(Name).
+    node:stop(Name).
 
 stop() ->
-    stop(?SVC_NAME).
+    stop(?DEF_SVC_NAME).

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -29,7 +29,8 @@
          run/1,
          fold/3,
          foldl/3,
-         scramble/1]).
+         scramble/1,
+         have_sctp/0]).
 
 %% diameter-specific
 -export([lport/2,
@@ -184,6 +185,19 @@ s(Acc, L) ->
     s([T|Acc], H ++ Rest).
 
 %% ---------------------------------------------------------------------------
+%% have_sctp/0
+
+have_sctp() ->
+    case gen_sctp:open() of
+        {ok, Sock} ->
+            gen_sctp:close(Sock),
+            true;
+        {error, E} when E == eprotonosupport;
+                        E == esocktnosupport -> %% fail on any other reason
+            false
+    end.
+
+%% ---------------------------------------------------------------------------
 %% eval/1
 %%
 %% Evaluate a function in one of a number of forms.
@@ -254,13 +268,12 @@ path(Config, Name) ->
 %%
 %% Lookup the port number of a tcp/sctp listening transport.
 
-lport(M, {Node, Ref}) ->
-    rpc:call(Node, ?MODULE, lport, [M, Ref]);
+lport(Prot, {Node, Ref}) ->
+    rpc:call(Node, ?MODULE, lport, [Prot, Ref]);
 
 lport(Prot, Ref) ->
-    Mod = tmod(Prot),
     [_] = diameter_reg:wait({'_', listener, {Ref, '_'}}),
-    [N || {listen, N, _} <- Mod:ports(Ref)].
+    [N || M <- tmod(Prot), {listen, N, _} <- M:ports(Ref)].
 
 %% ---------------------------------------------------------------------------
 %% listen/2-3
@@ -292,12 +305,16 @@ connect(Client, Prot, LRef, Opts) ->
     Ref = add_transport(Client, {connect, opts(Prot, PortNr) ++ Opts}),
     true = transport(Client, Ref),                 %% assert
 
-    ok = receive
-             {diameter_event, Client, {up, Ref, _, _, _}} -> ok
-         after 10000 ->
-                 {Client, Prot, PortNr, process_info(self(), messages)}
-         end,
+    diameter_lib:for_n(fun(_) -> ok = up(Client, Ref, Prot, PortNr) end,
+                       proplists:get_value(pool_size, Opts, 1)),
     Ref.
+
+up(Client, Ref, Prot, PortNr) ->
+    receive
+        {diameter_event, Client, {up, Ref, _, _, _}} -> ok
+    after 10000 ->
+            {Client, Prot, PortNr, process_info(self(), messages)}
+    end.
 
 transport(SvcName, Ref) ->
     [Ref] == [R || [{ref, R} | _] <- diameter:service_info(SvcName, transport),
@@ -327,13 +344,15 @@ add_transport(SvcName, T) ->
     Ref.
 
 tmod(tcp) ->
-    diameter_tcp;
+    [diameter_tcp];
 tmod(sctp) ->
-    diameter_sctp.
+    [diameter_sctp];
+tmod(any) ->
+    [diameter_sctp, diameter_tcp].
 
 opts(Prot, T) ->
-    [{transport_module, tmod(Prot)},
-     {transport_config, [{ip, ?ADDR}, {port, 0} | opts(T)]}].
+    [{transport_module, M} || M <- tmod(Prot)]
+        ++ [{transport_config, [{ip, ?ADDR}, {port, 0} | opts(T)]}].
 
 opts(listen) ->
     [{accept, M} || M <- [{256,0,0,1}, ["256.0.0.1", ["^.+$"]]]];
