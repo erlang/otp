@@ -181,7 +181,6 @@ static void doit_print_monitor(ErtsMonitor *mon, void *vpcontext)
 	    ASSERT(is_node_name_atom(mon->pid));
 	    erts_print(to, to_arg, "%s{to,{%T,%T},%T}", prefix, mon->name,
 		       mon->pid, mon->ref);
-	    erts_print(to, to_arg,"}");
 	} else if (is_atom(mon->name)){ /* local by name */
 	    erts_print(to, to_arg, "%s{to,{%T,%T},%T}", prefix, mon->name,
 		       erts_this_dist_entry->sysname, mon->ref);
