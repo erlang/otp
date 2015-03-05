@@ -90,7 +90,8 @@ basic_tests() ->
      version_option,
      connect_twice,
      connect_dist,
-     clear_pem_cache
+     clear_pem_cache,
+     fallback
     ].
 
 options_tests() ->
@@ -280,6 +281,14 @@ init_per_testcase(empty_protocol_versions, Config)  ->
     application:set_env(ssl, protocol_version, []),
     ssl:start(),
     Config;
+
+init_per_testcase(fallback, Config)  ->
+    case tls_record:highest_protocol_version([]) of
+	{3, N} when N > 1 ->
+	    Config;
+	_ ->
+	    {skip, "Not relevant if highest supported version is less than 3.2"}
+    end;
 
 %% init_per_testcase(different_ca_peer_sign, Config0) ->
 %%     ssl_test_lib:make_mix_cert(Config0);
@@ -641,6 +650,34 @@ clear_pem_cache(Config) when is_list(Config) ->
     ct:sleep(5000),
     _ = sys:get_status(whereis(ssl_manager)),
     0 = ets:info(FilRefDb, size).
+
+%%--------------------------------------------------------------------
+
+fallback() ->
+    [{doc, "Test TLS_FALLBACK_SCSV downgrade prevention"}].
+
+fallback(Config) when is_list(Config) ->
+    ClientOpts = ?config(client_opts, Config),
+    ServerOpts = ?config(server_opts, Config),
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    
+    Server = 
+	ssl_test_lib:start_server_error([{node, ServerNode}, {port, 0}, 
+					 {from, self()},
+					 {options, ServerOpts}]),
+    
+    Port = ssl_test_lib:inet_port(Server),
+    
+    Client =
+	ssl_test_lib:start_client_error([{node, ClientNode}, 
+					 {port, Port}, {host, Hostname},
+					 {from, self()},  {options, 
+							   [{fallback, true}, 
+							    {versions, ['tlsv1']} 
+							    | ClientOpts]}]),
+    
+    ssl_test_lib:check_result(Server, {error,{tls_alert,"inappropriate fallback"}}, 
+			      Client, {error,{tls_alert,"inappropriate fallback"}}).
 
 %%--------------------------------------------------------------------
 peername() ->

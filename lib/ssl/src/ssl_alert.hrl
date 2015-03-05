@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2007-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2015. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -58,6 +58,7 @@
 %%       protocol_version(70),
 %%       insufficient_security(71),
 %%       internal_error(80),
+%%       inappropriate_fallback(86),
 %%       user_canceled(90),
 %%       no_renegotiation(100),
 %% RFC 4366
@@ -93,6 +94,7 @@
 -define(PROTOCOL_VERSION, 70).
 -define(INSUFFICIENT_SECURITY, 71).
 -define(INTERNAL_ERROR, 80).
+-define(INAPPROPRIATE_FALLBACK, 86).
 -define(USER_CANCELED, 90).
 -define(NO_RENEGOTIATION, 100).
 -define(UNSUPPORTED_EXTENSION, 110).
