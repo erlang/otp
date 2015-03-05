@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -355,6 +355,10 @@
 %% to avoid handshake failure from old servers that do not ignore
 %% hello extension data as they should.
 -define(TLS_EMPTY_RENEGOTIATION_INFO_SCSV, <<?BYTE(16#00), ?BYTE(16#FF)>>).
+
+%% TLS Fallback Signaling Cipher Suite Value (SCSV) for Preventing Protocol
+%% Downgrade Attacks
+-define(TLS_FALLBACK_SCSV, <<?BYTE(16#56), ?BYTE(16#00)>>).
 
 %%% PSK Cipher Suites RFC 4279
 

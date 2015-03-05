@@ -653,7 +653,8 @@ handle_options(Opts0) ->
 		    server_name_indication = handle_option(server_name_indication, Opts, undefined),
 		    honor_cipher_order = handle_option(honor_cipher_order, Opts, false),
 		    protocol = proplists:get_value(protocol, Opts, tls),
-		    padding_check =  proplists:get_value(padding_check, Opts, true)
+		    padding_check =  proplists:get_value(padding_check, Opts, true),
+		    fallback =  proplists:get_value(fallback, Opts, false)
 		   },
 
     CbInfo  = proplists:get_value(cb_info, Opts, {gen_tcp, tcp, tcp_closed, tcp_error}),
@@ -666,7 +667,8 @@ handle_options(Opts0) ->
 		  cb_info, renegotiate_at, secure_renegotiate, hibernate_after,
 		  erl_dist, next_protocols_advertised,
 		  client_preferred_next_protocols, log_alert,
-		  server_name_indication, honor_cipher_order, padding_check],
+		  server_name_indication, honor_cipher_order, padding_check,
+		  fallback],
 
     SockOpts = lists:foldl(fun(Key, PropList) ->
 				   proplists:delete(Key, PropList)
@@ -845,6 +847,8 @@ validate_option(server_name_indication, undefined) ->
 validate_option(honor_cipher_order, Value) when is_boolean(Value) ->
     Value;
 validate_option(padding_check, Value) when is_boolean(Value) ->
+    Value;
+validate_option(fallback, Value) when is_boolean(Value) ->
     Value;
 validate_option(Opt, Value) ->
     throw({error, {options, {Opt, Value}}}).

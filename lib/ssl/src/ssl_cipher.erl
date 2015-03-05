@@ -37,7 +37,7 @@
 	 suite/1, suites/1, all_suites/1, 
 	 ec_keyed_suites/0, anonymous_suites/1, psk_suites/1, srp_suites/0,
 	 rc4_suites/1, openssl_suite/1, openssl_suite_name/1, filter/2, filter_suites/1,
-	 hash_algorithm/1, sign_algorithm/1, is_acceptable_hash/2]).
+	 hash_algorithm/1, sign_algorithm/1, is_acceptable_hash/2, is_fallback/1]).
 
 -export_type([cipher_suite/0,
 	      erl_cipher_suite/0, openssl_cipher_suite/0,
@@ -1441,6 +1441,9 @@ is_acceptable_prf(default_prf, _) ->
     true;
 is_acceptable_prf(Prf, Algos) ->
     proplists:get_bool(Prf, Algos).
+
+is_fallback(CipherSuites)->
+    lists:member(?TLS_FALLBACK_SCSV, CipherSuites).
 
 %%--------------------------------------------------------------------
 %%% Internal functions

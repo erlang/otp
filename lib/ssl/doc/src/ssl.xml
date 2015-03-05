@@ -427,6 +427,23 @@ fun(srp, Username :: string(), UserState :: term()) ->
         Indication extension will be sent if possible, this option may also be
         used to disable that behavior.</p>
       </item>
+      <tag>{fallback, boolean()}</tag>
+      <item>
+	<p> Send special cipher suite TLS_FALLBACK_SCSV to avoid undesired TLS version downgrade.
+	Defaults to false</p>
+	<warning><p>Note this option is not needed in normal TLS usage and should not be used
+	to implement new clients. But legacy clients that that retries connections in the following manner</p>
+
+	<p><c> ssl:connect(Host, Port, [...{versions, ['tlsv2', 'tlsv1.1', 'tlsv1', 'sslv3']}])</c></p>
+	<p><c>  ssl:connect(Host, Port, [...{versions, [tlsv1.1', 'tlsv1', 'sslv3']}, {fallback, true}])</c></p>
+	<p><c>  ssl:connect(Host, Port, [...{versions, ['tlsv1', 'sslv3']}, {fallback, true}]) </c></p>
+	<p><c>  ssl:connect(Host, Port, [...{versions, ['sslv3']}, {fallback, true}]) </c></p>
+	 
+	 <p>may use it to avoid undesired TLS version downgrade. Note that TLS_FALLBACK_SCSV must also
+	 be supported by the server for the prevention to work.
+	</p></warning>
+      </item>
+      
     </taglist>
    </section>
 

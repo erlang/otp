@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -161,5 +161,7 @@ description_txt(?BAD_CERTIFICATE_HASH_VALUE) ->
     "bad certificate hash value";
 description_txt(?UNKNOWN_PSK_IDENTITY) ->
     "unknown psk identity";
+description_txt(?INAPPROPRIATE_FALLBACK) ->
+    "inappropriate fallback";
 description_txt(Enum) ->
     lists:flatten(io_lib:format("unsupported/unknown alert: ~p", [Enum])).

@@ -41,7 +41,7 @@
 
 %% Protocol version handling
 -export([protocol_version/1, lowest_protocol_version/2,
-	 highest_protocol_version/1, supported_protocol_versions/0,
+	 highest_protocol_version/1, is_higher/2, supported_protocol_versions/0,
 	 is_acceptable_version/1, is_acceptable_version/2]).
 
 -export_type([tls_version/0, tls_atom_version/0]).
@@ -277,6 +277,13 @@ highest_protocol_version(Version = {M,_}, [{N,_} | Rest])  when M > N ->
     highest_protocol_version(Version, Rest);
 highest_protocol_version(_, [Version | Rest]) ->
     highest_protocol_version(Version, Rest).
+
+is_higher({M, N}, {M, O}) when N > O ->
+    true;
+is_higher({M, _}, {N, _}) when M > N ->
+    true; 
+is_higher(_, _) ->
+    false.
 
 %%--------------------------------------------------------------------
 -spec supported_protocol_versions() -> [tls_version()].					 
