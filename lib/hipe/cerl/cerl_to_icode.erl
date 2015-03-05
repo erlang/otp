@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2003-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2015. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -110,7 +110,7 @@
 	       effect = false :: boolean(),
 	       fail   = [],		% [] or fail-to label
 	       class  = expr  :: 'expr' | 'guard',
-	       line   = 0     :: erl_scan:line(),	% current line number
+	       line   = 0     :: erl_anno:line(),	% current line number
 	       'receive'      :: 'undefined' | #'receive'{}
 	      }).
 
