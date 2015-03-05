@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2001-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -122,7 +122,7 @@ loop(Pollers, Timeout) ->
 	    case is_poller(Pid, Pollers) of
 		true ->
 		    error_msg("received unexpected exit from poller ~p~n"
-			      "befor completion of test "
+			      "before completion of test "
 			      "after ~p micro sec"
 			      "~n   SocketType: ~p"
 			      "~n   Host:       ~p"
@@ -412,35 +412,6 @@ validate(ExpStatusCode, _SocketType, _Socket, Response) ->
     end.
 
 
-trash_the_rest(Socket, N) ->
-    receive
-	{ssl, Socket, Trash} ->
-            trash_the_rest(Socket, add(N,sz(Trash)));
-	{ssl_closed, Socket} ->
-	    N;
-	{ssl_error, Socket, Error} ->
-	    exit({connection_error, Error});
-	
-        {tcp, Socket, Trash} ->
-            trash_the_rest(Socket, add(N,sz(Trash)));
-        {tcp_closed, Socket} ->
-            N;
-	{tcp_error, Socket, Error} ->
-	    exit({connection_error, Error})
-
-    after 10000 ->
-            exit({connection_timed_out, N})
-    end.
-
-
-add(N1,N2) when is_integer(N1) andalso is_integer(N2) ->
-    N1 + N2;
-add(N1,_) when is_integer(N1) ->
-    N1;
-add(_,N2) when is_integer(N2) ->
-    N2.
-
-
 sz(L) when is_list(L) ->
     length(lists:flatten(L));
 sz(B) when is_binary(B) ->
@@ -510,8 +481,15 @@ to(To, Start) ->
 
 %% Time in milli seconds
 t() ->
-    {A,B,C} = erlang:now(),
-    A*1000000000+B*1000+(C div 1000).
+    %% Adapt to OTP 18 erlang time API and be back-compatible
+    try
+        erlang:monotonic_time(1000)
+    catch
+        error:undef ->
+            %% Use Erlang system time as monotonic time
+            {A,B,C} = erlang:now(),
+            A*1000000000+B*1000+(C div 1000)
+    end.
 
 
 %% ----------------------------------------------------------------

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2001-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -498,13 +498,6 @@ close(essl,Socket) ->
 close(ip_comm,Socket) ->
     catch gen_tcp:close(Socket).
 
-millis() ->
-    erlang:now().
-
-millis_diff(A,B) ->
-    T1 = (element(1,A)*1000000) + element(2,A) + (element(3,A)/1000000),
-    T2 = (element(1,B)*1000000) + element(2,B) + (element(3,B)/1000000),
-    T1 - T2.
 
 hours(N)   -> trunc(N * 1000 * 60 * 60).
 minutes(N) -> trunc(N * 1000 * 60).
