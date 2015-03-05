@@ -970,7 +970,7 @@ max_sessions(Config, ParallelLogin, Connect0) when is_function(Connect0,2) ->
   
 %% Due to timing the error message may or may not be delivered to
 %% the "tcp-application" before the socket closed message is recived
-check_error("Internal error") ->
+check_error("Invalid state") ->
     ok;
 check_error("Connection closed") ->
     ok;

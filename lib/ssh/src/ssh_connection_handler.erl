@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -1241,10 +1241,9 @@ event(Event, StateName, State) ->
 	    handle_disconnect(DisconnectMsg, State);
 	throw:{ErrorToDisplay, #ssh_msg_disconnect{} = DisconnectMsg}  ->
 	    handle_disconnect(DisconnectMsg, State, ErrorToDisplay);
-	_:Error ->
-	    log_error(Error),
+	_:_ ->
 	    handle_disconnect(#ssh_msg_disconnect{code = error_code(StateName),
-						  description = "Internal error",
+						  description = "Invalid state",
 						  language = "en"}, State)
     end.
 error_code(key_exchange) ->
