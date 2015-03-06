@@ -28,9 +28,13 @@
 %% CT Hooks
 -export([init/2]).
 -export([terminate/1]).
+-export([on_tc_skip/3]).
 
 init(Id, Opts) ->
     empty_cth:init(Id, Opts).
+
+on_tc_skip(TC, Reason, State) ->
+    empty_cth:on_tc_skip(TC,Reason,State).
 
 terminate(State) ->
     empty_cth:terminate(State).

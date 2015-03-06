@@ -41,6 +41,8 @@ end_per_group(_Group,_Config) ->
 
 init_per_testcase(test_case2, Config) ->
     {skip,"skip it"};
+init_per_testcase(test_case3, Config) ->
+    {skipped,"skip it"};
 init_per_testcase(_TestCase, Config) ->
     Config.
 
@@ -48,7 +50,9 @@ end_per_testcase(_TestCase, _Config) ->
     ok.
 
 groups() ->
-    [{group1,[parallel],[{group2,[parallel],[test_case1,test_case2,test_case3]}]}].
+    [{group1,[parallel],
+      [{group2,[parallel],
+	[test_case1,test_case2,test_case3,test_case4]}]}].
 
 all() ->
     [{group,group1}].
@@ -61,4 +65,7 @@ test_case2(Config) ->
     ok.
 
 test_case3(Config) ->
+    ok.
+
+test_case4(Config) ->
     ok.

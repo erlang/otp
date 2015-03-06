@@ -130,7 +130,8 @@ cover_compile(CoverInfo=#cover{app=App,excl=all,incl=Include,cross=Cross}) ->
 	    io:fwrite("done\n\n",[]),
 	    {ok,CoverInfo#cover{mods=Include}}
     end;
-cover_compile(CoverInfo=#cover{app=App,excl=Exclude,incl=Include,cross=Cross}) ->
+cover_compile(CoverInfo=#cover{app=App,excl=Exclude,
+			       incl=Include,cross=Cross}) ->
     CrossMods = lists:flatmap(fun({_,M}) -> M end,Cross),
     case code:lib_dir(App) of
 	{error,bad_name} ->
@@ -779,7 +780,9 @@ do_call_end_conf(Starter,Mod,Func,Data,Conf,TVal) ->
 		EndConfApply =
 		    fun() ->
 			    timetrap(TVal),
-			    case catch apply(Mod,end_per_testcase,[Func,Conf]) of
+			    case catch apply(Mod,
+					     end_per_testcase,
+					     [Func,Conf]) of
 				{'EXIT',Why} ->
 				    timer:sleep(1),
 				    group_leader() ! {printout,12,
@@ -817,7 +820,9 @@ spawn_fw_call(Mod,{init_per_testcase,Func},CurrConf,Pid,
 		Skip = {skip,{failed,{Mod,init_per_testcase,Why}}},
 		%% if init_per_testcase fails, the test case
 		%% should be skipped
-		case catch do_end_tc_call(Mod,Func, {Pid,Skip,[CurrConf]}, Why) of
+		case catch do_end_tc_call(Mod,Func,
+					  {Pid,Skip,[CurrConf]},
+					  Why) of
 		    {'EXIT',FwEndTCErr} ->
 			exit({fw_notify_done,end_tc,FwEndTCErr});
 		    _ ->
@@ -984,12 +989,15 @@ run_test_case_eval(Mod, Func, Args0, Name, Ref, RunInit,
 		NewResult = do_end_tc_call(Mod,Func, {{error,Reason},[Conf]},
 					   {fail,Reason}),
 		{{0,NewResult},Where,[]};
-	    Skip = {skip,_Reason} ->
-		NewResult = do_end_tc_call(Mod,Func, {Skip,Args0}, Skip),
+	    Skip = {SkipType,_Reason} when SkipType == skip;
+					   SkipType == skipped ->
+		NewResult = do_end_tc_call(Mod,Func,
+					   {Skip,Args0}, Skip),
 		{{0,NewResult},Where,[]};
 	    AutoSkip = {auto_skip,_Reason} ->
 		%% special case where a conf case "pretends" to be skipped
-		NewResult = do_end_tc_call(Mod,Func, {AutoSkip,Args0}, AutoSkip),
+		NewResult =
+		    do_end_tc_call(Mod,Func, {AutoSkip,Args0}, AutoSkip),
 		{{0,NewResult},Where,[]}
 	end,
     exit({Ref,Time,Value,Loc,Opts}).
@@ -1000,10 +1008,12 @@ run_test_case_eval1(Mod, Func, Args, Name, RunInit, TCCallback) ->
 	    set_tc_state(init_per_testcase, hd(Args)),
 	    ensure_timetrap(Args),
 	    case init_per_testcase(Mod, Func, Args) of
-		Skip = {skip,Reason} ->
+		Skip = {SkipType,Reason} when SkipType == skip;
+					      SkipType == skipped ->
 		    Line = get_loc(),
 		    Conf = [{tc_status,{skipped,Reason}}|hd(Args)],
-		    NewRes = do_end_tc_call(Mod,Func, {Skip,[Conf]}, Skip),
+		    NewRes = do_end_tc_call(Mod,Func,
+					    {Skip,[Conf]}, Skip),
 		    {{0,NewRes},Line,[]};
 		{skip_and_save,Reason,SaveCfg} ->
 		    Line = get_loc(),
@@ -1021,11 +1031,12 @@ run_test_case_eval1(Mod, Func, Args, Name, RunInit, TCCallback) ->
 		    {{0,NewRes},[{Mod,Func}],[]};
 		{ok,NewConf} ->
 		    %% call user callback function if defined
-		    NewConf1 = user_callback(TCCallback, Mod, Func, init, NewConf),
+		    NewConf1 =
+			user_callback(TCCallback, Mod, Func, init, NewConf),
 		    %% save current state in controller loop
 		    set_tc_state(tc, NewConf1),
 		    %% execute the test case
-		    {{T,Return},Loc} = {ts_tc(Mod, Func, [NewConf1]),get_loc()},
+		    {{T,Return},Loc} = {ts_tc(Mod,Func,[NewConf1]), get_loc()},
 		    {EndConf,TSReturn,FWReturn} =
 			case Return of
 			    {E,TCError} when E=='EXIT' ; E==failed ->
@@ -1041,30 +1052,39 @@ run_test_case_eval1(Mod, Func, Args, Name, RunInit, TCCallback) ->
 				{[{tc_status,{skipped,Why}},
 				  {save_config,SaveCfg}|NewConf1],
 				 Skip,Skip};
-			    {skip,Why} ->
-				{[{tc_status,{skipped,Why}}|NewConf1],Return,Return};
+			    {SkipType,Why} when SkipType == skip;
+						SkipType == skipped ->
+				{[{tc_status,{skipped,Why}}|NewConf1],Return,
+				 Return};
 			    _ ->
 				{[{tc_status,ok}|NewConf1],Return,ok}
 			end,
 		    %% call user callback function if defined
-		    EndConf1 = user_callback(TCCallback, Mod, Func, 'end', EndConf),
+		    EndConf1 =
+			user_callback(TCCallback, Mod, Func, 'end', EndConf),
 		    %% update current state in controller loop
 		    {FWReturn1,TSReturn1,EndConf2} =
 			case end_per_testcase(Mod, Func, EndConf1) of
 			    SaveCfg1={save_config,_} ->
-				{FWReturn,TSReturn,[SaveCfg1|lists:keydelete(save_config,1,
-									     EndConf1)]};
+				{FWReturn,TSReturn,
+				 [SaveCfg1|lists:keydelete(save_config,1,
+							   EndConf1)]};
 			    {fail,ReasonToFail} ->
 				%% user has failed the testcase
-				fw_error_notify(Mod, Func, EndConf1, ReasonToFail),
-				{{error,ReasonToFail},{failed,ReasonToFail},EndConf1};
-			    {failed,{_,end_per_testcase,_}} = Failure when FWReturn == ok ->
+				fw_error_notify(Mod, Func, EndConf1,
+						ReasonToFail),
+				{{error,ReasonToFail},
+				 {failed,ReasonToFail},
+				 EndConf1};
+			    {failed,{_,end_per_testcase,_}} = Failure when
+				  FWReturn == ok ->
 				%% unexpected termination in end_per_testcase
 				%% report this as the result to the framework
 				{Failure,TSReturn,EndConf1};
 			    _ ->
-				%% test case result should be reported to framework
-				%% no matter the status of end_per_testcase
+				%% test case result should be reported to
+				%% framework no matter the status of
+				%% end_per_testcase
 				{FWReturn,TSReturn,EndConf1}
 			end,
 		    %% clear current state in controller loop
@@ -1131,7 +1151,8 @@ process_return_val([Return], M,F,A, Loc, Final) when is_list(Return) ->
     ReturnTags = [skip,skip_and_save,save_config,comment,return_group_result],
     %% check if all elements in the list are valid end conf return value tuples
     case lists:all(fun(Val) when is_tuple(Val) ->
-			   lists:any(fun(T) -> T == element(1, Val) end, ReturnTags);
+			   lists:any(fun(T) -> T == element(1, Val) end,
+				     ReturnTags);
 		      (ok) ->
 			   true;
 		      (_) ->
@@ -1165,14 +1186,19 @@ process_return_val1([Failed={E,TCError}|_], M,F,A=[Args], Loc, _, SaveOpts)
 	NewReturn ->
 	    {NewReturn,SaveOpts}
     end;
-process_return_val1([SaveCfg={save_config,_}|Opts], M,F,[Args], Loc, Final, SaveOpts) ->
+process_return_val1([SaveCfg={save_config,_}|Opts], M,F,[Args],
+		    Loc, Final, SaveOpts) ->
     process_return_val1(Opts, M,F,[[SaveCfg|Args]], Loc, Final, SaveOpts);
-process_return_val1([{skip_and_save,Why,SaveCfg}|Opts], M,F,[Args], Loc, _, SaveOpts) ->
-    process_return_val1(Opts, M,F,[[{save_config,SaveCfg}|Args]], Loc, {skip,Why}, SaveOpts);
-process_return_val1([GR={return_group_result,_}|Opts], M,F,A, Loc, Final, SaveOpts) ->
+process_return_val1([{skip_and_save,Why,SaveCfg}|Opts], M,F,[Args],
+		    Loc, _, SaveOpts) ->
+    process_return_val1(Opts, M,F,[[{save_config,SaveCfg}|Args]],
+			Loc, {skip,Why}, SaveOpts);
+process_return_val1([GR={return_group_result,_}|Opts], M,F,A,
+		    Loc, Final, SaveOpts) ->
     process_return_val1(Opts, M,F,A, Loc, Final, [GR|SaveOpts]);
-process_return_val1([RetVal={Tag,_}|Opts], M,F,A, Loc, _, SaveOpts) when Tag==skip;
-									 Tag==comment ->
+process_return_val1([RetVal={Tag,_}|Opts], M,F,A,
+		    Loc, _, SaveOpts) when Tag==skip;
+					   Tag==comment ->
     process_return_val1(Opts, M,F,A, Loc, RetVal, SaveOpts);
 process_return_val1([_|Opts], M,F,A, Loc, Final, SaveOpts) ->
     process_return_val1(Opts, M,F,A, Loc, Final, SaveOpts);
@@ -1186,7 +1212,8 @@ process_return_val1([], M,F,A, _Loc, Final, SaveOpts) ->
 
 user_callback(undefined, _, _, _, Args) ->
     Args;
-user_callback({CBMod,CBFunc}, Mod, Func, InitOrEnd, [Args]) when is_list(Args) ->
+user_callback({CBMod,CBFunc}, Mod, Func, InitOrEnd,
+	      [Args]) when is_list(Args) ->
     case catch apply(CBMod, CBFunc, [InitOrEnd,Mod,Func,Args]) of
 	Args1 when is_list(Args1) ->
 	    [Args1];
@@ -1778,7 +1805,8 @@ timetrap(Timeout0, TimeToReport0, TCPid, MultAndScale = {Multiplier,Scale}) ->
 	    put(test_server_timetraps,[{Handle,TCPid,{TimeToReport,Scale}}]);
 	List ->
 	    List1 = lists:delete({infinity,TCPid,{infinity,false}}, List),
-	    put(test_server_timetraps,[{Handle,TCPid,{TimeToReport,Scale}}|List1])
+	    put(test_server_timetraps,[{Handle,TCPid,
+					{TimeToReport,Scale}}|List1])
     end,
     Handle.
 
@@ -1837,7 +1865,9 @@ time_ms(Ms, _, _) when is_integer(Ms) -> Ms;
 time_ms(infinity, _, _) -> infinity;
 time_ms(Fun, TCPid, MultAndScale) when is_function(Fun) ->
     time_ms_apply(Fun, TCPid, MultAndScale);
-time_ms({M,F,A}=MFA, TCPid, MultAndScale) when is_atom(M), is_atom(F), is_list(A) ->
+time_ms({M,F,A}=MFA, TCPid, MultAndScale) when is_atom(M),
+					       is_atom(F),
+					       is_list(A) ->
     time_ms_apply(MFA, TCPid, MultAndScale);
 time_ms(Other, _, _) -> exit({invalid_time_format,Other}).
 
