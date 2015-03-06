@@ -1268,6 +1268,11 @@ report(What,Data) ->
 	    Data1 = if GrName == undefined -> {Suite,Func,Result};
 		       true                -> Data
 	    end,
+	    %% Register the group leader for the process calling the report
+	    %% function, making it possible for a hook function to print
+	    %% in the test case log file
+	    ReportingPid = self(),
+	    ct_logs:register_groupleader(ReportingPid, group_leader()),
 	    case Result of
 		{failed, _} ->
 		    ct_hooks:on_tc_fail(What, Data1);
@@ -1282,6 +1287,7 @@ report(What,Data) ->
 		_Else ->
 		    ok
 	    end,
+	    ct_logs:unregister_groupleader(ReportingPid),
 	    case {Func,Result} of
 		{init_per_suite,_} ->
 		    ok;
