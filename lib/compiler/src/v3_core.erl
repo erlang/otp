@@ -1798,7 +1798,7 @@ uclauses(Lcs, Ks, St0) ->
 
 uclause(Cl0, Ks, St0) ->
     {Cl1,_Pvs,Used,New,St1} = uclause(Cl0, Ks, Ks, St0),
-    A0 = get_ianno(Cl1),
+    A0 = get_anno(Cl1),
     A = A0#a{us=Used,ns=New},
     {Cl1#iclause{anno=A},St1}.
 
@@ -1985,7 +1985,7 @@ ufun_clauses(Lcs, Ks, St0) ->
 
 ufun_clause(Cl0, Ks, St0) ->
     {Cl1,Pvs,Used,_,St1} = uclause(Cl0, [], Ks, St0),
-    A0 = get_ianno(Cl1),
+    A0 = get_anno(Cl1),
     A = A0#a{us=subtract(intersection(Used, Ks), Pvs),ns=[]},
     {Cl1#iclause{anno=A},St1}.
 
@@ -2331,12 +2331,6 @@ lineno_anno(L, St) ->
 	    [-Line] ++ St#core.file ++ [compiler_generated];
 	true ->
 	    [Line] ++ St#core.file
-    end.
-
-get_ianno(Ce) ->
-    case get_anno(Ce) of
-	#a{}=A -> A;
-	A when is_list(A) -> #a{anno=A}
     end.
 
 get_lineno_anno(Ce) ->
