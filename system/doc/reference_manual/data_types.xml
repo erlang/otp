@@ -44,7 +44,8 @@
     <list type="bulleted">
       <item><c>$</c><em><c>char</c></em>      <br></br>
 
-       ASCII value of the character <em><c>char</c></em>.</item>
+       ASCII value or unicode code-point of the character
+       <em><c>char</c></em>.</item>
       <item><em><c>base</c></em><c>#</c><em><c>value</c></em>      <br></br>
 
        Integer with the base <em><c>base</c></em>, which must be an

@@ -156,7 +156,6 @@ void erts_init_atom_cache_map(ErtsAtomCacheMap *);
 void erts_reset_atom_cache_map(ErtsAtomCacheMap *);
 void erts_destroy_atom_cache_map(ErtsAtomCacheMap *);
 void erts_finalize_atom_cache_map(ErtsAtomCacheMap *, Uint32);
-Uint erts_encode_ext_dist_header_size(ErtsAtomCacheMap *);
 
 Uint erts_encode_ext_dist_header_size(ErtsAtomCacheMap *);
 byte *erts_encode_ext_dist_header_setup(byte *, ErtsAtomCacheMap *);
