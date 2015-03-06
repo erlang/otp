@@ -124,7 +124,7 @@ end_per_testcase(_TestCase, _Config) ->
 %% Description: Returns the list of test cases that are to be executed.
 %%--------------------------------------------------------------------
 all() -> 
-    [tc1, tc2, tc3].
+    [tc1, tc2, tc3, tc4].
 
 
 %%--------------------------------------------------------------------
@@ -135,7 +135,10 @@ tc1(_Config) ->
     ok.
 
 tc2(_Config) -> 
-    {skip,"Skipped"}.
+    {skip,"Skip"}.
 
-tc3(_Config) ->
+tc3(_Config) -> 
+    {skipped,"Skipped"}.
+
+tc4(_Config) ->
     exit('Failing').
