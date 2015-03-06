@@ -58,6 +58,14 @@ main(_Rules) ->
 	      #'SetAltV2'{a=10,d=12,
 			  b = <<2#1010:4>>,
 			  e=true,h="PS",i=13,c=false,f=14,g=16}),
+
+    roundtrip('SeqDoubleEmpty1',
+	      {'SeqDoubleEmpty1'}),
+    roundtrip('SeqDoubleEmpty2',
+	      {'SeqDoubleEmpty2',true,42}),
+    roundtrip('SeqDoubleEmpty2',
+	      {'SeqDoubleEmpty2',true,asn1_NOVALUE}),
+
     ok.
 
 roundtrip(T, V) ->
