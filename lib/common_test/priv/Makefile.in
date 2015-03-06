@@ -71,7 +71,7 @@ debug opt:
 	$(V_at)sed -e 's;@CT_VSN@;$(VSN);' \
             -e 's;@TS_VSN@;$(TEST_SERVER_VSN);' \
             ../install.sh.in > install.sh
-	$(V_at)chmod 775 install.sh
+	- $(V_at)chmod -f 775 install.sh
 
 docs:
 
