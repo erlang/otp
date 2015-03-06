@@ -98,6 +98,12 @@ move_move_into_block([], Acc) -> reverse(Acc).
 forward(Is, Lc) ->
     forward(Is, gb_trees:empty(), Lc, []).
 
+forward([{move,_,_}=Move|[{label,L}|_]=Is], D, Lc, Acc) ->
+    %% move/2 followed by jump/1 is optimized by backward/3.
+    forward([Move,{jump,{f,L}}|Is], D, Lc, Acc);
+forward([{bif,_,_,_,_}=Bif|[{label,L}|_]=Is], D, Lc, Acc) ->
+    %% bif/4 followed by jump/1 is optimized by backward/3.
+    forward([Bif,{jump,{f,L}}|Is], D, Lc, Acc);
 forward([{block,[]}|Is], D, Lc, Acc) ->
     %% Empty blocks can prevent optimizations.
     forward(Is, D, Lc, Acc);
