@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -397,8 +397,8 @@ transition({timeout, _}, _) ->
     ok;
 
 %% Outgoing message.
-transition({send, Msg}, #state{transport = TPid}) ->
-    send(TPid, Msg),
+transition({send, Msg}, S) ->
+    outgoing(Msg, S),
     ok;
 
 %% Request for graceful shutdown at remove_transport, stop_service of
@@ -639,6 +639,27 @@ incr_error(Dir, Pkt, Dict0) ->
 %% while messages coming from clients will be in a #diameter_packet.
 send(Pid, Msg) ->
     diameter_peer:send(Pid, Msg).
+
+%% outgoing/2
+
+%% DPR not sent: send.
+outgoing(Msg, #state{transport = TPid, dpr = false}) ->
+    send(TPid, Msg);
+
+%% Outgoing answer: send.
+outgoing(#diameter_packet{header = #diameter_header{is_request = false}}
+         = Pkt,
+         #state{transport = TPid}) ->
+    send(TPid, Pkt);
+
+%% Outgoing request: discard.
+outgoing(Msg, #state{dpr = {_,_}}) ->
+    invalid(false, send_after_dpr, header(Msg)).
+
+header(#diameter_packet{header = H}) ->
+    H;
+header(Bin) ->  %% DWR
+    diameter_codec:decode_header(Bin).
 
 %% handle_request/3
 %%
