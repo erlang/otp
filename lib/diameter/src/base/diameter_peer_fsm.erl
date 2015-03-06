@@ -516,12 +516,9 @@ encode(Rec, Dict) ->
 
 recv(#diameter_packet{header = #diameter_header{} = Hdr}
      = Pkt,
-     #state{parent = Pid,
-            dictionary = Dict0}
+     #state{dictionary = Dict0}
      = S) ->
-    Name = diameter_codec:msg_name(Dict0, Hdr),
-    Pid ! {recv, self(), Name, Pkt},
-    rcv(Name, Pkt, S);
+    recv1(diameter_codec:msg_name(Dict0, Hdr), Pkt, S);
 
 recv(#diameter_packet{header = undefined,
                       bin = Bin}
@@ -531,6 +528,22 @@ recv(#diameter_packet{header = undefined,
 
 recv(Bin, S) ->
     recv(#diameter_packet{bin = Bin}, S).
+
+%% recv1/3
+
+%% Incoming request after DPR has been sent: discard. Don't discard
+%% DPR, so both ends don't do so when sending simultaneously.
+recv1(Name,
+      #diameter_packet{header = #diameter_header{is_request = true} = H},
+      #state{dpr = {_,_}})
+  when Name /= 'DPR' ->
+    invalid(false, recv_after_dpr, H);
+
+%% Any other message with a header and no length errors: send to the
+%% parent.
+recv1(Name, Pkt, #state{parent = Pid} = S) ->
+    Pid ! {recv, self(), Name, Pkt},
+    rcv(Name, Pkt, S).
 
 %% recv/3
 
