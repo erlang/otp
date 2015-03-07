@@ -342,6 +342,7 @@ call(SvcName, App, Message) ->
     | {capabilities_cb, evaluable()}
     | {capx_timeout, 'Unsigned32'()}
     | {disconnect_cb, evaluable()}
+    | {dpa_timeout, 'Unsigned32'()}
     | {length_errors, exit | handle | discard}
     | {connect_timer, 'Unsigned32'()}
     | {watchdog_timer, 'Unsigned32'() | {module(), atom(), list()}}

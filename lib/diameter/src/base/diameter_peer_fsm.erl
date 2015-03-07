@@ -63,6 +63,7 @@
 %% Keys in process dictionary.
 -define(CB_KEY, cb).         %% capabilities callback
 -define(DPR_KEY, dpr).       %% disconnect callback
+-define(DPA_KEY, dpa).       %% timeout for DPA reception
 -define(REF_KEY, ref).       %% transport_ref()
 -define(Q_KEY, q).           %% transport start queue
 -define(START_KEY, start).   %% start of connected transport
@@ -187,6 +188,7 @@ i({Ack, WPid, {M, Ref} = T, Opts, {Mask, Nodes, Dict0, Svc}}) ->
     putr(?REF_KEY, Ref),
     putr(?SEQUENCE_KEY, Mask),
     putr(?RESTRICT_KEY, Nodes),
+    putr(?DPA_KEY, proplists:get_value(dpa_timeout, Opts, ?DPA_TIMEOUT)),
 
     Tmo = proplists:get_value(capx_timeout, Opts, ?EVENT_TIMEOUT),
     OnLengthErr = proplists:get_value(length_errors, Opts, exit),
@@ -1107,7 +1109,7 @@ dpr([CB|Rest], [Reason | _] = Args, S) ->
 dpr([], [Reason | _], S) ->
     send_dpr(Reason, [], S).
 
--record(opts, {cause, timeout = ?DPA_TIMEOUT}).
+-record(opts, {cause, timeout}).
 
 send_dpr(Reason, Opts, #state{transport = TPid,
                               dictionary = Dict,
@@ -1119,7 +1121,7 @@ send_dpr(Reason, Opts, #state{transport = TPid,
                                         transport -> ?GOAWAY;
                                         _         -> ?REBOOT
                                     end,
-                            timeout = ?DPA_TIMEOUT},
+                            timeout = dpa_timeout()},
                       Opts),
     #diameter_caps{origin_host = {OH, _},
                    origin_realm = {OR, _}}
@@ -1158,6 +1160,14 @@ cause(N) ->
 
 dpa_timer(Tmo) ->
     erlang:send_after(Tmo, self(), dpa_timeout).
+
+dpa_timeout() ->
+    dpa_timeout(getr(?DPA_KEY)).
+
+dpa_timeout(undefined) ->
+    ?DPA_TIMEOUT;
+dpa_timeout(Tmo) ->
+    Tmo.
 
 %% register_everywhere/1
 %%

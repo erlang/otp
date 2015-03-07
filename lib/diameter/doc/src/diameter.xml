@@ -21,7 +21,7 @@
 
 <copyright>
 <year>2011</year>
-<year>2014</year>
+<year>2015</year>
 <holder>Ericsson AB. All Rights Reserved.</holder>
 </copyright>
 <legalnotice>
@@ -1115,7 +1115,7 @@ Defaults to <c>rebooting</c> for <c>Reason=service|application</c> and
 <p>
 The number of milliseconds after which the transport process is
 terminated if DPA has not been received.
-Defaults to 1000.</p>
+Defaults to the value of &dpa_timeout;.</p>
 </item>
 </taglist>
 </item>
@@ -1150,6 +1150,17 @@ configured them.</p>
 
 <p>
 Defaults to a single callback returning <c>dpr</c>.</p>
+</item>
+
+<marker id="dpa_timeout"/>
+<tag><c>{dpa_timeout, &dict_Unsigned32;}</c></tag>
+<item>
+<p>
+Number of milliseconds after which a transport connection is
+terminated following an outgoing DPR if DPA is not received.</p>
+
+<p>
+Defaults to 1000.</p>
 </item>
 
 <marker id="length_errors"/>

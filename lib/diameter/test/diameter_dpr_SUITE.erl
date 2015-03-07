@@ -115,7 +115,7 @@ start(_Config) ->
 
 send_dpr(_Config) ->
     LRef = ?util:listen(?SERVER, tcp),
-    Ref = ?util:connect(?CLIENT, tcp, LRef, []),
+    Ref = ?util:connect(?CLIENT, tcp, LRef, [{dpa_timeout, 10000}]),
     #diameter_base_DPA{'Result-Code' = 2001}
         = diameter:call(?CLIENT,
                         common,

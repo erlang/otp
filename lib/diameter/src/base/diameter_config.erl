@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -531,7 +531,9 @@ opt({applications, As}) ->
 opt({capabilities, Os}) ->
     is_list(Os) andalso ok == encode_CER(Os);
 
-opt({capx_timeout, Tmo}) ->
+opt({K, Tmo})
+  when K == capx_timeout;
+       K == dpa_timeout ->
     ?IS_UINT32(Tmo);
 
 opt({length_errors, T}) ->
