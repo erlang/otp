@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -332,8 +332,9 @@ transition({shutdown = T, Pid, Reason}, #watchdog{parent = Pid,
     send(TPid, {T, self(), Reason}),
     S#watchdog{shutdown = true};
 
-%% Transport is telling us that DPA has been sent in response to DPR:
-%% its death should lead to ours.
+%% Transport is telling us that DPA has been sent in response to DPR,
+%% or that DPR has been explicitly sent: transport death should lead
+%% to ours.
 transition({'DPR', TPid}, #watchdog{transport = TPid} = S) ->
     S#watchdog{shutdown = true};
 
@@ -549,7 +550,7 @@ send_watchdog(#watchdog{pending = false,
     ?LOG(send, 'DWR'),
     S#watchdog{pending = true}.
 
-%% Dont' count encode errors since we don't expect any on DWR/DWA.
+%% Don't count encode errors since we don't expect any on DWR/DWA.
 
 %% recv/3
 
@@ -590,9 +591,10 @@ rcv('DWA', Pkt, #watchdog{transport = TPid,
 rcv(N, _, _)
   when N == 'CER';
        N == 'CEA';
-       N == 'DPR';
-       N == 'DPA' ->
+       N == 'DPR' ->
     false;
+%% DPR can be sent explicitly with diameter:call/4. Only the
+%% corresponding DPAs arrive here.
 
 rcv(_, Pkt, #watchdog{transport = TPid,
                       dictionary = Dict0,
