@@ -38,8 +38,8 @@ all() ->
 
 init_per_suite(Config0) ->
     catch crypto:stop(),
-    try crypto:start() of
-	ok ->
+    try {crypto:start(), erlang:system_info({wordsize, internal}) == erlang:system_info({wordsize, external})} of
+	{ok, true} ->
 	    case ct_release_test:init(Config0) of
 		{skip, Reason} ->
 		    {skip, Reason};
@@ -49,7 +49,9 @@ init_per_suite(Config0) ->
 					      ?config(priv_dir, Config))),
 		    ct:log("Make certs  ~p~n", [Result]),
 		    ssl_test_lib:cert_options(Config)
-	    end
+	    end;
+	{ok, false} ->
+	    {skip, "Test server will not handle halfwordemulator correctly. Skip as halfwordemulator is deprecated"} 
     catch _:_ ->
 	    {skip, "Crypto did not start"}
     end.
