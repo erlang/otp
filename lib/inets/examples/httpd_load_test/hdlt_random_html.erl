@@ -19,6 +19,7 @@
 %%
 
 -module(hdlt_random_html). 
+-compile([{nowarn_deprecated_function,{erlang,now,0}}]).
 -export([page/3]). 
 
 page(SessionID, _Env, Input) -> 

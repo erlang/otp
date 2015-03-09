@@ -21,6 +21,7 @@
 %% It also supports ipv6 RFC 2428 and starttls RFC 4217.
 
 -module(ftp).
+-compile([{nowarn_deprecated_function,{erlang,now,0}}]).
 
 -behaviour(gen_server).
 -behaviour(inets_service).

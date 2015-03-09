@@ -29,6 +29,7 @@
 % -export([init_per_testcase/2, end_per_testcase/2]).
 
 -compile(export_all).
+-compile([{nowarn_deprecated_function,{erlang,now,0}}]).
 
 
 -record(progress, {

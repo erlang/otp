@@ -22,6 +22,7 @@
 %%----------------------------------------------------------------------
 
 -module(tftp_sup).
+-compile([{nowarn_deprecated_function,{erlang,now,0}}]).
 
 -behaviour(supervisor).
 

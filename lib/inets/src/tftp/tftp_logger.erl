@@ -18,6 +18,7 @@
 %%
 %%
 -module(tftp_logger).
+-compile([{nowarn_deprecated_function,{erlang,now,0}}]).
 
 %%-------------------------------------------------------------------
 %% Interface

@@ -18,6 +18,7 @@
 %%
 %%
 -module(httpd_time_test).
+-compile([{nowarn_deprecated_function,{erlang,now,0}}]).
 
 -export([t/3, t1/2, t2/2, t4/2]).
 

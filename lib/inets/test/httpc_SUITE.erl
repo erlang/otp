@@ -30,6 +30,7 @@
 -include("http_internal.hrl").
 %% Note: This directive should only be used in test suites.
 -compile(export_all).
+-compile([{nowarn_deprecated_function,{erlang,now,0}}]).
 
 -define(URL_START, "http://").
 -define(TLS_URL_START, "https://").
