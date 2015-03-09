@@ -41,10 +41,10 @@ validate(OtpCert, OtherDPCRLs, DP, {DerCRL, CRL}, {DerDeltaCRL, DeltaCRL},
 		CRLIssuer =  TBSCRL#'TBSCertList'.issuer,
 		AltNames = case pubkey_cert:select_extension(?'id-ce-subjectAltName',
 							     TBSCert#'OTPTBSCertificate'.extensions) of
-			     undefined ->
-				[];
-			     Ext ->
-				Ext#'Extension'.extnValue
+			       #'Extension'{extnValue = Value} ->
+				   Value;
+			       _ ->
+				   []
 			   end,
 		revoked_status(DP, IDP, {directoryName, CRLIssuer},
 			       [ {directoryName, CertIssuer} | AltNames], SerialNumber, Revoked,
