@@ -113,9 +113,9 @@ get_pem_cache() ->
     {status, _, _, StatusInfo} = sys:get_status(whereis(ssl_manager)),
     [_, _,_, _, Prop] = StatusInfo,
     State = ssl_test_lib:state(Prop),
-    case element(5, State) of
-	[_CertDb, _FileRefDb, PemChace] ->
-	    PemChace;
+    case element(6, State) of
+	[_CertDb, _FileRefDb, PemCache| _] ->
+	    PemCache;
 	_ ->
 	    undefined
     end.

@@ -254,7 +254,6 @@ check_result(Server, ServerMsg, Client, ClientMsg) ->
 	{Port, {data,Debug}} when is_port(Port) ->
 	    ct:log("~p:~p~nopenssl ~s~n",[?MODULE,?LINE, Debug]),
 	    check_result(Server, ServerMsg, Client, ClientMsg);
-
 	Unexpected ->
 	    Reason = {{expected, {Client, ClientMsg}},
 		      {expected, {Server, ServerMsg}}, {got, Unexpected}},
@@ -268,6 +267,9 @@ check_result(Pid, Msg) ->
 	{Port, {data,Debug}} when is_port(Port) ->
 	    ct:log("~p:~p~nopenssl ~s~n",[?MODULE,?LINE, Debug]),
 	    check_result(Pid,Msg);
+	%% {Port, {exit_status, Status}} when is_port(Port) ->
+	%%     ct:log("~p:~p Exit status: ~p~n",[?MODULE,?LINE, Status]),
+	%%    check_result(Pid, Msg);
 	Unexpected ->
 	    Reason = {{expected, {Pid, Msg}}, 
 		      {got, Unexpected}},
@@ -837,7 +839,7 @@ string_regex_filter(Str, Search) when is_list(Str) ->
 	_ ->
 	    true
     end;
-string_regex_filter(Str, _Search) ->
+string_regex_filter(_Str, _Search) ->
     false.
 
 anonymous_suites() ->

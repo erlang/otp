@@ -51,9 +51,9 @@
       <item>IDEA cipher suites are not supported as they have
       become deprecated by the latest TLS spec so there is not any
       real motivation to implement them.</item>
-      <item>CRL and policy certificate extensions are not supported
-      yet. However CRL verification is supported by public_key, only not integrated
-      in ssl yet. </item>
+      <item>CRL validation is supported.</item>
+      <item>Policy certificate extensions are not supported
+      yet. </item>
       <item>Support for 'Server Name Indication' extension client side
       (RFC 6066 section 3).</item>
     </list>
@@ -301,10 +301,47 @@ fun(OtpCert :: #'OTPCertificate'{}, Event :: {bad_cert, Reason :: atom() | {revo
 	<item> Possible such reasons see <seealso
 	marker="public_key:public_key#pkix_path_validation-3"> public_key:pkix_path_validation/3 </seealso></item>
       </taglist>
-
       </item>
 
-      <tag>{partial_chain, fun(Chain::[DerCert]) -> {trusted_ca, DerCert} | unknown_ca }</tag>
+      <tag>{crl_check, boolean() | peer | best_effort )</tag>
+      <item>
+	Perform CRL (Certificate Revocation List) verification
+	<seealso marker="public_key:public_key#pkix_crl_validate-3">
+	public_key:pkix_crls_validate/3</seealso>, during the
+	<seealso
+	marker="public_key:public_key#pkix_path_validation-3">public_key:pkix_path_validation/3  </seealso>
+	invokation on all the certificates in the peer certificate chain. Defaults to
+	false.
+
+	<p><c>peer</c> - check is only performed on
+	the peer certificate.</p>
+
+	<p><c>best_effort</c> - if certificate revokation status can not be determined
+	it will be accepted as valid.</p>
+
+	<p>The CA certificates specified for the connection will be used to 
+	construct the certificate chain validating the CRLs.</p>
+ 	
+	<p>The CRLs will be fetched from a local or external cache
+	<seealso marker="ssl:ssl_crl_cache_api">ssl_crl_cache_api(3)</seealso>.</p>
+      </item>
+
+      <tag>{crl_cache, {Module::atom, {DbHandle::internal | term(), Args::list()}}</tag>
+      <item>
+	<p>Module defaults to ssl_crl_cache with <c> DbHandle </c> internal and an
+	empty argument list. The following arguments may be specified for the internal cache.</p>
+	<taglist>
+	  <tag>{http, timeout()}</tag>
+	  <item>
+	    Enables fetching of CRLs specified as http URIs in<seealso 
+	    marker="public_key:cert_records"> X509 cerificate extensions.</seealso>
+	    Requires the OTP inets application.
+	  </item>	    
+	</taglist>    
+      </item>
+      
+      <tag>{partial_chain, fun(Chain::[DerCert]) -> {trusted_ca, DerCert} | unknown_ca </tag>
+      
       <item>
 	Claim an intermediat CA in the chain as trusted. TLS will then perform the public_key:pkix_path_validation/3
 	with the selected CA as trusted anchor and the rest of the chain.

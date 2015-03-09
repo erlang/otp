@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2013-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2013-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -411,11 +411,15 @@ certify(#certificate{} = Cert,
 	       role = Role,
 	       cert_db = CertDbHandle,
 	       cert_db_ref = CertDbRef,
+	       crl_db = CRLDbInfo,
 	       ssl_options = Opts} = State, Connection) ->
-    case ssl_handshake:certify(Cert, CertDbHandle, CertDbRef, Opts#ssl_options.depth,
+    case ssl_handshake:certify(Cert, CertDbHandle, CertDbRef, 
+			       Opts#ssl_options.depth,
 			       Opts#ssl_options.verify,
 			       Opts#ssl_options.verify_fun,
 			       Opts#ssl_options.partial_chain,
+			       Opts#ssl_options.crl_check,
+			       CRLDbInfo,		       
 			       Role) of
         {PeerCert, PublicKeyInfo} ->
 	    handle_peer_cert(Role, PeerCert, PublicKeyInfo,
@@ -964,7 +968,7 @@ format_status(terminate, [_, State]) ->
 %%% Internal functions
 %%--------------------------------------------------------------------
 ssl_config(Opts, Role, State) ->
-    {ok, Ref, CertDbHandle, FileRefHandle, CacheHandle, OwnCert, Key, DHParams} = 
+    {ok, Ref, CertDbHandle, FileRefHandle, CacheHandle, CRLDbInfo, OwnCert, Key, DHParams} = 
 	ssl_config:init(Opts, Role), 
     Handshake = ssl_handshake:init_handshake_history(),
     TimeStamp = calendar:datetime_to_gregorian_seconds({date(), time()}),
@@ -975,6 +979,7 @@ ssl_config(Opts, Role, State) ->
 		file_ref_db = FileRefHandle,
 		cert_db_ref = Ref,
 		cert_db = CertDbHandle,
+		crl_db = CRLDbInfo,
 		session_cache = CacheHandle,
 		private_key = Key,
 		diffie_hellman_params = DHParams,

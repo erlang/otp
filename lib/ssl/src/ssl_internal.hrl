@@ -61,6 +61,8 @@
 -define(CDR_HDR_SIZE, 12).
 
 -define(DEFAULT_TIMEOUT, 5000).
+-define(NO_DIST_POINT, "http://dummy/no_distribution_point").
+-define(NO_DIST_POINT_PATH, "dummy/no_distribution_point").
 
 %% Common enumerate values in for SSL-protocols 
 -define(NULL, 0).
@@ -122,7 +124,9 @@
 	  %% the client?
 	  honor_cipher_order = false,
 	  padding_check = true,
-	  fallback = false
+	  fallback = false,
+	  crl_check, 
+	  crl_cache
 	  }).
 
 -record(socket_options,
