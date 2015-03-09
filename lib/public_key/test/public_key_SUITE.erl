@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -42,7 +42,7 @@ all() ->
      encrypt_decrypt,
      {group, sign_verify},
      pkix, pkix_countryname, pkix_emailaddress, pkix_path_validation,
-     pkix_iso_rsa_oid, pkix_iso_dsa_oid].
+     pkix_iso_rsa_oid, pkix_iso_dsa_oid, pkix_crl].
 
 groups() -> 
     [{pem_decode_encode, [], [dsa_pem, rsa_pem, encrypted_pem,
@@ -710,6 +710,42 @@ pkix_iso_dsa_oid(Config) when is_list(Config) ->
     OTPCert = public_key:pkix_decode_cert(Cert, otp),
     SigAlg = OTPCert#'OTPCertificate'.signatureAlgorithm,
     {_, dsa} = public_key:pkix_sign_types(SigAlg#'SignatureAlgorithm'.algorithm).
+
+%%--------------------------------------------------------------------
+
+pkix_crl() ->
+    [{doc, "test pkix_crl_* functions"}].
+
+pkix_crl(Config) when is_list(Config) ->
+    Datadir = ?config(data_dir, Config),
+    {ok, PemCRL} = file:read_file(filename:join(Datadir, "idp_crl.pem")),
+    [{_, CRL, _}] = public_key:pem_decode(PemCRL),
+    
+    {ok, IDPPemCert} = file:read_file(filename:join(Datadir, "idp_cert.pem")),
+    [{_, IDPCert, _}] = public_key:pem_decode(IDPPemCert),
+
+    {ok, SignPemCert} = file:read_file(filename:join(Datadir, "crl_signer.pem")),
+    [{_, SignCert, _}] = public_key:pem_decode(SignPemCert),
+    
+    OTPIDPCert = public_key:pkix_decode_cert(IDPCert, otp),
+    OTPSignCert = public_key:pkix_decode_cert(SignCert, otp),
+    ERLCRL = public_key:der_decode('CertificateList',CRL),
+
+    {rdnSequence,_} = public_key:pkix_crl_issuer(CRL),
+    {rdnSequence,_} = public_key:pkix_crl_issuer(ERLCRL),
+    
+    true = public_key:pkix_crl_verify(CRL, SignCert),
+    true = public_key:pkix_crl_verify(ERLCRL, OTPSignCert),
+
+    [#'DistributionPoint'{}|_] = public_key:pkix_dist_points(IDPCert),
+    [#'DistributionPoint'{}|_] = public_key:pkix_dist_points(OTPIDPCert),
+
+    #'DistributionPoint'{cRLIssuer = asn1_NOVALUE,
+     			 reasons = asn1_NOVALUE,
+			 distributionPoint =  Point} = public_key:pkix_dist_point(IDPCert),
+    #'DistributionPoint'{cRLIssuer = asn1_NOVALUE,
+			 reasons = asn1_NOVALUE,
+			 distributionPoint =  Point} = public_key:pkix_dist_point(OTPIDPCert).
 
 %%--------------------------------------------------------------------
 %% Internal functions ------------------------------------------------

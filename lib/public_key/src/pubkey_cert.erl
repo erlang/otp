@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -28,8 +28,9 @@
  	 validate_issuer/4, validate_names/6,
 	 validate_extensions/4,
 	 normalize_general_name/1, is_self_signed/1,
-	 is_issuer/2, issuer_id/2, is_fixed_dh_cert/1,
-	 verify_data/1, verify_fun/4, select_extension/2, match_name/3,
+	 is_issuer/2, issuer_id/2, distribution_points/1, 
+	 is_fixed_dh_cert/1, verify_data/1, verify_fun/4, 
+	 select_extension/2, match_name/3,
 	 extensions_list/1, cert_auth_key_id/1, time_str_2_gregorian_sec/1]).
 
 -define(NULL, 0).
@@ -272,6 +273,16 @@ issuer_id(Otpcert, self) ->
     SerialNr = TBSCert#'OTPTBSCertificate'.serialNumber,
     {ok, {SerialNr, normalize_general_name(Issuer)}}.  
 
+distribution_points(Otpcert) ->
+    TBSCert = Otpcert#'OTPCertificate'.tbsCertificate,
+    Extensions = extensions_list(TBSCert#'OTPTBSCertificate'.extensions),
+    case select_extension(?'id-ce-cRLDistributionPoints', Extensions) of
+	undefined ->
+	    [];
+	#'Extension'{extnValue = Value} ->
+	    Value
+    end.
+
 %%--------------------------------------------------------------------
 -spec is_fixed_dh_cert(#'OTPCertificate'{}) -> boolean().  
 %%
@@ -296,7 +307,9 @@ is_fixed_dh_cert(#'OTPCertificate'{tbsCertificate =
 %% --------------------------------------------------------------------
 verify_fun(Otpcert, Result, UserState0, VerifyFun) ->
     case VerifyFun(Otpcert, Result, UserState0) of
-	{valid,UserState} ->
+	{valid, UserState} ->
+	    UserState;
+	{valid_peer, UserState} ->
 	    UserState;
 	{fail, Reason} ->
 	    case Reason of
