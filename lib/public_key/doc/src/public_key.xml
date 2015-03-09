@@ -370,8 +370,8 @@
     <name>pkix_is_issuer(Cert, IssuerCert) -> boolean()</name>
     <fsummary> Checks if <c>IssuerCert</c> issued <c>Cert</c> </fsummary>
     <type>
-      <v>Cert = der_encode() | #'OTPCertificate'{}</v> 
-      <v>IssuerCert = der_encode() | #'OTPCertificate'{}</v> 
+      <v>Cert = der_encoded() | #'OTPCertificate'{}</v>
+      <v>IssuerCert = der_encoded() | #'OTPCertificate'{}</v>
   </type> 
   <desc> 
     <p> Checks if <c>IssuerCert</c> issued <c>Cert</c> </p> 
@@ -382,7 +382,7 @@
     <name>pkix_is_fixed_dh_cert(Cert) -> boolean()</name>
     <fsummary> Checks if a Certificate is a fixed Diffie-Hellman Cert.</fsummary>
     <type>
-        <v>Cert = der_encode() | #'OTPCertificate'{}</v> 
+        <v>Cert = der_encoded() | #'OTPCertificate'{}</v>
   </type> 
   <desc> 
     <p> Checks if a Certificate is a fixed Diffie-Hellman Cert.</p> 
@@ -393,7 +393,7 @@
     <name>pkix_is_self_signed(Cert) -> boolean()</name>
     <fsummary> Checks if a Certificate is self signed.</fsummary>
     <type>
-       <v>Cert = der_encode() | #'OTPCertificate'{}</v> 
+       <v>Cert = der_encoded() | #'OTPCertificate'{}</v>
   </type> 
   <desc> 
     <p> Checks if a Certificate is self signed.</p> 
@@ -404,7 +404,7 @@
     <name>pkix_issuer_id(Cert, IssuedBy) -> {ok, IssuerID} | {error, Reason}</name>
     <fsummary> Returns the issuer id.</fsummary>
     <type>
-        <v>Cert = der_encode() | #'OTPCertificate'{}</v>
+        <v>Cert = der_encoded() | #'OTPCertificate'{}</v>
 	<v>IssuedBy = self | other</v>
 	<v>IssuerID = {integer(), issuer_name()}</v>
 	<d>The issuer id consists of the serial number and the issuers name.</d>
@@ -434,13 +434,13 @@
     <name>pkix_path_validation(TrustedCert, CertChain, Options) -> {ok, {PublicKeyInfo, PolicyTree}} | {error, {bad_cert, Reason}} </name>
     <fsummary> Performs a basic path validation according to RFC 5280.</fsummary>
      <type>
-       <v> TrustedCert =  #'OTPCertificate'{} | der_encode() | atom()  </v>
+       <v> TrustedCert =  #'OTPCertificate'{} | der_encoded() | atom()  </v>
        <d>Normally a trusted certificate but it can also be a path validation
        error that can be discovered while
        constructing the input to this function and that should be run through the <c>verify_fun</c>.
        For example <c>unknown_ca </c> or <c>selfsigned_peer </c>
        </d>
-       <v> CertChain = [der_encode()]</v>
+       <v> CertChain = [der_encoded()]</v>
        <d>A list of DER encoded certificates in trust order ending with the peer certificate.</d>
        <v> Options = proplists:proplist()</v>
        <v>PublicKeyInfo = {?'rsaEncryption' | ?'id-dsa',
@@ -629,7 +629,7 @@ fun(#'DistributionPoint'{}, #'CertificateList'{},
  </func>
    
   <func>
-    <name>pkix_sign(#'OTPTBSCertificate'{}, Key) -> der_encode()</name>
+    <name>pkix_sign(#'OTPTBSCertificate'{}, Key) -> der_encoded()</name>
     <fsummary>Signs certificate.</fsummary>
     <type>
       <v>Key = rsa_public_key() | dsa_public_key()</v> 
@@ -659,7 +659,7 @@ fun(#'DistributionPoint'{}, #'CertificateList'{},
     <name>pkix_verify(Cert, Key) -> boolean()</name>
     <fsummary> Verify pkix x.509 certificate signature.</fsummary>
     <type>
-      <v>Cert = der_encode()</v> 
+      <v>Cert = der_encoded()</v>
       <v>Key = rsa_public_key() | dsa_public_key()</v> 
     </type> 
   <desc> 
