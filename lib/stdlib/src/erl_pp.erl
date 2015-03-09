@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2014. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -46,6 +46,23 @@
 
 -record(options, {hook, encoding, opts}).
 
+%-define(DEBUG, true).
+
+-ifdef(DEBUG).
+-define(TEST(T),
+        %% Assumes that erl_anno has been compiled with DEBUG=true.
+        %% erl_pp does not use the annoations, but test it anyway.
+        %% Note: hooks are not handled.
+        _ = try
+                erl_parse:map_anno(fun(A) when is_list(A) -> A end, T)
+            catch
+                _:_ ->
+                    erlang:error(badarg, [T])
+            end).
+-else.
+-define(TEST(T), ok).
+-endif.
+
 %%%
 %%% Exported functions
 %%%
@@ -61,6 +78,7 @@ form(Thing) ->
       Options :: options()).
 
 form(Thing, Options) ->
+    ?TEST(Thing),
     State = state(Options),
     frmt(lform(Thing, options(Options), State), State).
 
@@ -75,6 +93,7 @@ attribute(Thing) ->
       Options :: options()).
 
 attribute(Thing, Options) ->
+    ?TEST(Thing),
     State = state(Options),
     frmt(lattribute(Thing, options(Options), State), State).
 
@@ -89,6 +108,7 @@ function(F) ->
       Options :: options()).
 
 function(F, Options) ->
+    ?TEST(F),
     frmt(lfunction(F, options(Options)), state(Options)).
 
 -spec(guard(Guard) -> io_lib:chars() when
@@ -102,6 +122,7 @@ guard(Gs) ->
       Options :: options()).
 
 guard(Gs, Options) ->
+    ?TEST(Gs),
     frmt(lguard(Gs, options(Options)), state(Options)).
 
 -spec(exprs(Expressions) -> io_lib:chars() when
@@ -123,12 +144,14 @@ exprs(Es, Options) ->
       Options :: options()).
 
 exprs(Es, I, Options) ->
+    ?TEST(Es),
     frmt({seq,[],[],[$,],lexprs(Es, options(Options))}, I, state(Options)).
 
 -spec(expr(Expression) -> io_lib:chars() when
       Expression :: erl_parse:abstract_expr()).
 
 expr(E) ->
+    ?TEST(E),
     frmt(lexpr(E, 0, options(none)), state(none)).
 
 -spec(expr(Expression, Options) -> io_lib:chars() when
@@ -136,6 +159,7 @@ expr(E) ->
       Options :: options()).
 
 expr(E, Options) ->
+    ?TEST(E),
     frmt(lexpr(E, 0, options(Options)), state(Options)).
 
 -spec(expr(Expression, Indent, Options) -> io_lib:chars() when
@@ -144,6 +168,7 @@ expr(E, Options) ->
       Options :: options()).
 
 expr(E, I, Options) ->
+    ?TEST(E),
     frmt(lexpr(E, 0, options(Options)), I, state(Options)).
 
 -spec(expr(Expression, Indent, Precedence, Options) -> io_lib:chars() when
@@ -153,6 +178,7 @@ expr(E, I, Options) ->
       Options :: options()).
 
 expr(E, I, P, Options) ->
+    ?TEST(E),
     frmt(lexpr(E, P, options(Options)), I, state(Options)).
 
 %%%
@@ -213,24 +239,25 @@ lattribute({attribute,_Line,Name,Arg}, Opts, State) ->
     [lattribute(Name, Arg, Opts, State),leaf(".\n")].
 
 lattribute(module, {M,Vs}, _Opts, _State) ->
-    attr("module",[{var,0,pname(M)},
-                   foldr(fun(V, C) -> {cons,0,{var,0,V},C}
-                         end, {nil,0}, Vs)]);
+    A = a0(),
+    attr("module",[{var,A,pname(M)},
+                   foldr(fun(V, C) -> {cons,A,{var,A,V},C}
+                         end, {nil,A}, Vs)]);
 lattribute(module, M, _Opts, _State) ->
-    attr("module", [{var,0,pname(M)}]);
+    attr("module", [{var,a0(),pname(M)}]);
 lattribute(export, Falist, _Opts, _State) ->
-    call({var,0,"-export"}, [falist(Falist)], 0, options(none));
+    call({var,a0(),"-export"}, [falist(Falist)], 0, options(none));
 lattribute(import, Name, _Opts, _State) when is_list(Name) ->
-    attr("import", [{var,0,pname(Name)}]);
+    attr("import", [{var,a0(),pname(Name)}]);
 lattribute(import, {From,Falist}, _Opts, _State) ->
-    attr("import",[{var,0,pname(From)},falist(Falist)]);
+    attr("import",[{var,a0(),pname(From)},falist(Falist)]);
 lattribute(optional_callbacks, Falist, Opts, _State) ->
     ArgL = try falist(Falist)
            catch _:_ -> abstract(Falist, Opts)
            end,
-    call({var,0,"-optional_callbacks"}, [ArgL], 0, options(none));
+    call({var,a0(),"-optional_callbacks"}, [ArgL], 0, options(none));
 lattribute(file, {Name,Line}, _Opts, State) ->
-    attr("file", [{var,0,(State#pp.string_fun)(Name)},{integer,0,Line}]);
+    attr("file", [{var,a0(),(State#pp.string_fun)(Name)},{integer,a0(),Line}]);
 lattribute(record, {Name,Is}, Opts, _State) ->
     Nl = leaf(format("-record(~w,", [Name])),
     [{first,Nl,record_fields(Is, Opts)},$)];
@@ -242,7 +269,7 @@ abstract(Arg, #options{encoding = Encoding}) ->
 
 typeattr(Tag, {TypeName,Type,Args}, _Opts) ->
     {first,leaf("-"++atom_to_list(Tag)++" "),
-     typed(call({atom,0,TypeName}, Args, 0, options(none)), Type)}.
+     typed(call({atom,a0(),TypeName}, Args, 0, options(none)), Type)}.
 
 ltype({ann_type,_Line,[V,T]}) ->
     typed(lexpr(V, options(none)), T);
@@ -384,7 +411,7 @@ ltypes(Ts, F) ->
     [F(T) || T <- Ts].
 
 attr(Name, Args) ->
-    call({var,0,format("-~s", [Name])}, Args, 0, options(none)).
+    call({var,a0(),format("-~s", [Name])}, Args, 0, options(none)).
 
 pname(['' | As]) ->
     [$. | pname(As)];
@@ -396,9 +423,10 @@ pname(A) when is_atom(A) ->
     write(A).
 
 falist([]) ->
-    {nil,0};
+    {nil,a0()};
 falist([{Name,Arity}|Falist]) ->
-    {cons,0,{var,0,format("~w/~w", [Name,Arity])},falist(Falist)}.
+    A = a0(),
+    {cons,A,{var,A,format("~w/~w", [Name,Arity])},falist(Falist)}.
 
 lfunction({function,_Line,Name,_Arity,Cs}, Opts) ->
     Cll = nl_clauses(fun (C, H) -> func_clause(Name, C, H) end, $;, Opts, Cs),
@@ -1110,6 +1138,9 @@ write_char(C, PP) ->
 %%
 %% Utilities
 %%
+
+a0() ->
+    erl_anno:new(0).
 
 chars_size([C | Es]) when is_integer(C) ->
     1 + chars_size(Es);

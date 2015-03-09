@@ -2487,8 +2487,11 @@ info(Config) when is_list(Config) ->
                (catch qlc:info([X || {X} <- []], {n_elements, 0})),
           L = lists:seq(1, 1000),
           \"[1,2,3,4,5,6,7,8,9,10|'...']\" = qlc:info(L, {n_elements, 10}),
-          {cons,1,{integer,1,1},{atom,1,'...'}} = 
+          {cons,A1,{integer,A2,1},{atom,A3,'...'}} =
             qlc:info(L, [{n_elements, 1},{format,abstract_code}]),
+          1 = erl_anno:line(A1),
+          1 = erl_anno:line(A2),
+          1 = erl_anno:line(A3),
           Q = qlc:q([{X} || X <- [a,b,c,d,e,f]]),
           {call,_,_,[{cons,_,{atom,_,a},{cons,_,{atom,_,b},{cons,_,{atom,_,c},
                                                             {atom,_,'...'}}}},
@@ -6825,7 +6828,8 @@ otp_6674(Config) when is_list(Config) ->
                             A == 192, B =:= 192.0,
                             {Y} <- [{0},{1},{2}],
                             X == Y]),
-       {block,0,
+       A0 = erl_anno:new(0),
+       {block,A0,
          [{match,_,_,
            {call,_,_,
             [{lc,_,_,
@@ -7395,7 +7399,8 @@ try_old_join_info(Config) ->
     {ok, M} = compile:file(File, [{outdir, ?datadir}]),
     {module, M} = code:load_abs(filename:rootname(File)),
     H = M:create_handle(),
-    {block,0,
+    A0 = erl_anno:new(0),
+    {block,A0,
      [{match,_,_,
        {call,_,_,
         [{lc,_,_,
@@ -7775,8 +7780,8 @@ table(List, Indices, KeyPos, ParentFun) ->
 
                 end,
     FormatFun = fun(all) ->
-                        L = 17,
-                        {call,L,{remote,L,{atom,1,?MODULE},{atom,L,the_list}},
+                        L = erl_anno:new(17),
+                        {call,L,{remote,L,{atom,L,?MODULE},{atom,L,the_list}},
                                  [erl_parse:abstract(List, 17)]};
                    ({lookup, Column, Values}) ->
                         {?MODULE, list_keys, [Values, Column, List]}

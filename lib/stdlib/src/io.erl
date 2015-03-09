@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2014. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -45,7 +45,7 @@
 %% ErrorDescription is whatever the I/O-server sends.
 -type server_no_data() :: {'error', ErrorDescription :: term()} | 'eof'.
 
--type location() :: erl_scan:location().
+-type location() :: erl_anno:location().
 
 %%-------------------------------------------------------------------------
 
