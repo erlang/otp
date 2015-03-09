@@ -20,11 +20,10 @@
 
 %% Formatting functions of io library.
 
--export([fwrite/2,fwrite_g/1,indentation/2]).
+-export([fwrite/2,fwrite_g/1,indentation/2,scan/2,unscan/1,build/1]).
 
-%% fwrite(Format, ArgList) -> string().
-%%  Format the arguments in ArgList after string Format. Just generate
-%%  an error if there is an error in the arguments.
+%% @doc Format the arguments in ArgList after string Format. Just
+%%  generate an error if there is an error in the arguments.
 %%
 %%  To do the printing command correctly we need to calculate the
 %%  current indentation for everything before it. This may be very
@@ -37,14 +36,83 @@
 %%  and it also splits the handling of the control characters into two
 %%  parts.
 
-fwrite(Format, Args) when is_atom(Format) ->
-    fwrite(atom_to_list(Format), Args);
-fwrite(Format, Args) when is_binary(Format) ->
-    fwrite(binary_to_list(Format), Args);
+-spec fwrite(Format, Data) -> FormatList when
+      Format :: io:format(),
+      Data :: [term()],
+      FormatList :: [char()|io_lib:format_spec()].
+
 fwrite(Format, Args) ->
-    Cs = collect(Format, Args),
+    build(scan(Format, Args)).
+
+%% @doc Build the output text for a pre-parsed format list.
+
+-spec build(FormatList) -> string() when
+      FormatList :: [char()|io_lib:format_spec()].
+
+build(Cs) ->
     Pc = pcount(Cs),
     build(Cs, Pc, 0).
+
+%% @doc Parse all control sequences in the format string.
+
+-spec scan(Format, Data) -> FormatList when
+      Format :: io:format(),
+      Data :: [term()],
+      FormatList :: [char()|io_lib:format_spec()].
+
+scan(Format, Args) when is_atom(Format) ->
+    scan(atom_to_list(Format), Args);
+scan(Format, Args) when is_binary(Format) ->
+    scan(binary_to_list(Format), Args);
+scan(Format, Args) ->
+    collect(Format, Args).
+
+%% @doc Revert a pre-parsed format list to a plain character list and a
+%% list of arguments.
+
+-spec unscan(FormatList) -> {Format, Data} when
+      FormatList :: [char()|io_lib:format_spec()],
+      Format :: io:format(),
+      Data :: [term()].
+
+unscan(Cs) ->
+    {print(Cs), args(Cs)}.
+
+args([{_C,As,_F,_Ad,_P,_Pad,_Encoding,_Strings} | Cs]) ->
+    As ++ args(Cs);
+args([_C | Cs]) ->
+    args(Cs);
+args([]) ->
+    [].
+
+print([{C,_As,F,Ad,P,Pad,Encoding,Strings} | Cs]) ->
+    print(C, F, Ad, P, Pad, Encoding, Strings) ++ print(Cs);
+print([C | Cs]) ->
+    [C | print(Cs)];
+print([]) ->
+    [].
+
+print(C, F, Ad, P, Pad, Encoding, Strings) ->
+    [$~] ++ print_field_width(F, Ad) ++ print_precision(P, Pad) ++
+        print_pad_char(Pad) ++ print_encoding(Encoding) ++
+        print_strings(Strings) ++ [C].
+
+print_field_width(none, _Ad) -> "";
+print_field_width(F, left) -> integer_to_list(-F);
+print_field_width(F, right) -> integer_to_list(F).
+
+print_precision(none, $\s) -> "";
+print_precision(none, _Pad) -> ".";  % pad must be second dot
+print_precision(P, _Pad) -> [$. | integer_to_list(P)].
+
+print_pad_char($\s) -> ""; % default, no need to make explicit
+print_pad_char(Pad) -> [$., Pad].
+
+print_encoding(unicode) -> "t";
+print_encoding(latin1) -> "".
+
+print_strings(false) -> "l";
+print_strings(true) -> "".
 
 collect([$~|Fmt0], Args0) ->
     {C,Fmt1,Args1} = collect_cseq(Fmt0, Args0),
@@ -162,9 +230,13 @@ decr_pc($p, Pc) -> Pc - 1;
 decr_pc($P, Pc) -> Pc - 1;
 decr_pc(_, Pc) -> Pc.
 
-%% indentation(String, Indentation) -> Indentation.
-%%  Calculate the indentation of the end of a string given its start
-%%  indentation. We assume tabs at 8 cols.
+
+%% @doc Calculate the indentation of the end of a string given its start
+%% indentation. We assume tabs at 8 cols.
+
+-spec indentation(String, StartIndent) -> integer() when
+      String :: string(),
+      StartIndent :: integer().
 
 indentation([$\n|Cs], _I) -> indentation(Cs, 0);
 indentation([$\t|Cs], I) -> indentation(Cs, ((I + 8) div 8) * 8);
@@ -366,13 +438,14 @@ float_data([D|Cs], Ds) when D >= $0, D =< $9 ->
 float_data([_|Cs], Ds) ->
     float_data(Cs, Ds).
 
-%% fwrite_g(Float)
 %%  Writes the shortest, correctly rounded string that converts
 %%  to Float when read back with list_to_float/1.
 %%
 %%  See also "Printing Floating-Point Numbers Quickly and Accurately"
 %%  in Proceedings of the SIGPLAN '96 Conference on Programming
 %%  Language Design and Implementation.
+
+-spec fwrite_g(float()) -> string().
 
 fwrite_g(0.0) ->
     "0.0";

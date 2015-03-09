@@ -59,6 +59,9 @@
     <datatype>
       <name name="latin1_string"/>
     </datatype>
+    <datatype>
+      <name name="format_spec"/>
+    </datatype>
   </datatypes>
   <funcs>
     <func>
@@ -257,6 +260,41 @@
       <desc>
         <p>Returns the list of characters needed to print a character
           constant in the ISO-latin-1 character set.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="scan_format" arity="2"/>
+      <fsummary>Parse all control sequences in the format string.</fsummary>
+      <desc>
+        <p>Returns a list corresponding to the given format string, where
+           control sequences have been replaced with corresponding tuples.
+           This list can be passed to
+           <seealso marker="#build_text/1">io_lib:build_text/1</seealso>
+           to have the same effect as <c>io_lib:format(Format, Args)</c>, or to
+           <seealso marker="#unscan_format/1">io_lib:unscan_format/1</seealso>
+           in order to get the corresponding pair of <c>Format</c> and
+           <c>Args</c>.</p>
+        <p>A typical use of this function is to replace unbounded-size
+        control sequences like <c>~w</c> and <c>~p</c> with the
+        depth-limited variants <c>~W</c> and <c>~P</c> before formatting to
+        text, e.g. in a logger.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="unscan_format" arity="1"/>
+      <fsummary>Revert a pre-parsed format list to a plain character list
+                and a list of arguments.</fsummary>
+      <desc>
+        <p>See <seealso marker="#scan_format/2">io_lib:scan_format/2</seealso>
+        for details.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="build_text" arity="1"/>
+      <fsummary>Build the output text for a pre-parsed format list.</fsummary>
+      <desc>
+        <p>See <seealso marker="#scan_format/2">io_lib:scan_format/2</seealso>
+        for details.</p>
       </desc>
     </func>
     <func>
