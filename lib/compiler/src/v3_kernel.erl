@@ -273,17 +273,7 @@ expr(#c_tuple{anno=A,es=Ces}, Sub, St0) ->
     {Kes,Ep,St1} = atomic_list(Ces, Sub, St0),
     {#k_tuple{anno=A,es=Kes},Ep,St1};
 expr(#c_map{anno=A,arg=Var,es=Ces}, Sub, St0) ->
-    try expr_map(A,Var,Ces,Sub,St0) of
-	{_,_,_}=Res -> Res
-    catch
-	throw:bad_map ->
-	    St1 = add_warning(get_line(A), bad_map, A, St0),
-	    Erl = #c_literal{val=erlang},
-	    Name = #c_literal{val=error},
-	    Args = [#c_literal{val=badarg}],
-	    Error = #c_call{anno=A,module=Erl,name=Name,args=Args},
-	    expr(Error, Sub, St1)
-    end;
+    expr_map(A, Var, Ces, Sub, St0);
 expr(#c_binary{anno=A,segments=Cv}, Sub, St0) ->
     try atomic_bin(Cv, Sub, St0) of
 	{Kv,Ep,St1} ->
@@ -506,19 +496,9 @@ translate_fc(Args) ->
     [#c_literal{val=function_clause},make_list(Args)].
 
 expr_map(A,Var0,Ces,Sub,St0) ->
-    %% An extra pass of validation of Map src because of inlining
     {Var,Mps,St1} = expr(Var0, Sub, St0),
-    case is_valid_map_src(Var) of
-	true ->
-	    {Km,Eps,St2} = map_split_pairs(A, Var, Ces, Sub, St1),
-	    {Km,Eps++Mps,St2};
-	false -> throw(bad_map)
-    end.
-
-is_valid_map_src(#k_map{}) -> true;
-is_valid_map_src(#k_literal{val=M}) when is_map(M) -> true;
-is_valid_map_src(#k_var{}) -> true;
-is_valid_map_src(_) -> false.
+    {Km,Eps,St2} = map_split_pairs(A, Var, Ces, Sub, St1),
+    {Km,Eps++Mps,St2}.
 
 map_split_pairs(A, Var, Ces, Sub, St0) ->
     %% 1. Force variables.
@@ -2024,9 +2004,7 @@ format_error(nomatch_shadow) ->
 format_error(bad_call) ->
     "invalid module and/or function name; this call will always fail";
 format_error(bad_segment_size) ->
-    "binary construction will fail because of a type mismatch";
-format_error(bad_map) ->
-    "map construction will fail because of a type mismatch".
+    "binary construction will fail because of a type mismatch".
 
 add_warning(none, Term, Anno, #kern{ws=Ws}=St) ->
     File = get_file(Anno),

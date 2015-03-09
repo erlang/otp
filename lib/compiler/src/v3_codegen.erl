@@ -1523,9 +1523,11 @@ set_cg([{var,R}], {map,Op,Map,[{map_pair,{var,_}=K,V}]}, Le, Vdb, Bef,
     List = [cg_reg_arg(K,Int0),cg_reg_arg(V,Int0)],
 
     Live = max_reg(Bef#sr.reg),
-    Int1 = Int0#sr{reg=put_reg(R, Int0#sr.reg)},
-    Aft = clear_dead(Int1, Le#l.i, Vdb),
-    Target = fetch_reg(R, Int1#sr.reg),
+
+    %% The target register can reuse one of the source registers.
+    Aft0 = clear_dead(Int0, Le#l.i, Vdb),
+    Aft = Aft0#sr{reg=put_reg(R, Aft0#sr.reg)},
+    Target = fetch_reg(R, Aft#sr.reg),
 
     I = case Op of
 	assoc -> put_map_assoc;
@@ -1557,9 +1559,11 @@ set_cg([{var,R}], {map,Op,Map,Es}, Le, Vdb, Bef,
     List = flatmap(fun({K,V}) -> [K,cg_reg_arg(V,Int0)] end, Pairs),
 
     Live = max_reg(Bef#sr.reg),
-    Int1 = Int0#sr{reg=put_reg(R, Int0#sr.reg)},
-    Aft = clear_dead(Int1, Le#l.i, Vdb),
-    Target = fetch_reg(R, Int1#sr.reg),
+
+    %% The target register can reuse one of the source registers.
+    Aft0 = clear_dead(Int0, Le#l.i, Vdb),
+    Aft = Aft0#sr{reg=put_reg(R, Aft0#sr.reg)},
+    Target = fetch_reg(R, Aft#sr.reg),
 
     I = case Op of
 	assoc -> put_map_assoc;

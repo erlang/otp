@@ -361,9 +361,6 @@ valfun_1({recv_mark,{f,Fail}}, Vst) when is_integer(Fail) ->
 valfun_1({recv_set,{f,Fail}}, Vst) when is_integer(Fail) ->
     Vst;
 %% Misc.
-valfun_1({'%live',Live}, Vst) ->
-    verify_live(Live, Vst),
-    Vst;
 valfun_1(remove_message, Vst) ->
     Vst;
 valfun_1({'%',_}, Vst) ->
@@ -669,9 +666,17 @@ valfun_4({test,test_arity,{f,Lbl},[Tuple,Sz]}, Vst) when is_integer(Sz) ->
     assert_type(tuple, Tuple, Vst),
     set_type_reg({tuple,Sz}, Tuple, branch_state(Lbl, Vst));
 valfun_4({test,has_map_fields,{f,Lbl},Src,{list,List}}, Vst) ->
-    validate_src([Src], Vst),
+    assert_type(map, Src, Vst),
     assert_strict_literal_termorder(List),
     branch_state(Lbl, Vst);
+valfun_4({test,is_map,{f,Lbl},[Src]}, Vst0) ->
+    Vst = branch_state(Lbl, Vst0),
+    case Src of
+	{Tag,_} when Tag =:= x; Tag =:= y ->
+	    set_type_reg(map, Src, Vst);
+	_ ->
+	    Vst
+    end;
 valfun_4({test,_Op,{f,Lbl},Src}, Vst) ->
     validate_src(Src, Vst),
     branch_state(Lbl, Vst);
@@ -766,7 +771,7 @@ valfun_4(_, _) ->
     error(unknown_instruction).
 
 verify_get_map(Fail, Src, List, Vst0) ->
-    assert_term(Src, Vst0),
+    assert_type(map, Src, Vst0),
     Vst1 = branch_state(Fail, Vst0),
     Keys = extract_map_keys(List),
     assert_strict_literal_termorder(Keys),
@@ -782,14 +787,14 @@ verify_get_map_pair([Src,Dst|Vs],Vst0,Vsti) ->
     verify_get_map_pair(Vs,Vst0,set_type_reg(term,Dst,Vsti)).
 
 verify_put_map(Fail, Src, Dst, Live, List, Vst0) ->
+    assert_type(map, Src, Vst0),
     verify_live(Live, Vst0),
     verify_y_init(Vst0),
     foreach(fun (Term) -> assert_term(Term, Vst0) end, List),
-    assert_term(Src, Vst0),
     Vst1 = heap_alloc(0, Vst0),
     Vst2 = branch_state(Fail, Vst1),
     Vst = prune_x_regs(Live, Vst2),
-    set_type_reg(term, Dst, Vst).
+    set_type_reg(map, Dst, Vst).
 
 %%
 %% Common code for validating bs_get* instructions.
@@ -1223,7 +1228,8 @@ assert_term(Src, Vst) ->
 %%
 %% number		Integer or Float of unknown value
 %%
-
+%% map			Map.
+%%
 
 assert_type(WantedType, Term, Vst) ->
     assert_type(WantedType, get_term_type(Term, Vst)).
@@ -1305,6 +1311,7 @@ get_term_type_1(nil=T, _) -> T;
 get_term_type_1({atom,A}=T, _) when is_atom(A) -> T;
 get_term_type_1({float,F}=T, _) when is_float(F) -> T;
 get_term_type_1({integer,I}=T, _) when is_integer(I) -> T;
+get_term_type_1({literal,Map}, _) when is_map(Map) -> map;
 get_term_type_1({literal,_}=T, _) -> T;
 get_term_type_1({x,X}=Reg, #vst{current=#st{x=Xs}}) when is_integer(X) ->
     case gb_trees:lookup(X, Xs) of
@@ -1554,6 +1561,7 @@ bif_type(is_float, [_], _) -> bool;
 bif_type(is_function, [_], _) -> bool;
 bif_type(is_integer, [_], _) -> bool;
 bif_type(is_list, [_], _) -> bool;
+bif_type(is_map, [_], _) -> bool;
 bif_type(is_number, [_], _) -> bool;
 bif_type(is_pid, [_], _) -> bool;
 bif_type(is_port, [_], _) -> bool;
@@ -1583,6 +1591,7 @@ is_bif_safe(is_float, 1) -> true;
 is_bif_safe(is_function, 1) -> true;
 is_bif_safe(is_integer, 1) -> true;
 is_bif_safe(is_list, 1) -> true;
+is_bif_safe(is_map, 1) -> true;
 is_bif_safe(is_number, 1) -> true;
 is_bif_safe(is_pid, 1) -> true;
 is_bif_safe(is_port, 1) -> true;

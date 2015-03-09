@@ -196,7 +196,7 @@ is_pure_test({test,Op,_,Ops}) ->
 %%  Go through the instruction sequence in reverse execution
 %%  order, keep track of liveness and remove 'move' instructions
 %%  whose destination is a register that will not be used.
-%%  Also insert {'%live',Live} annotations at the beginning
+%%  Also insert {'%live',Live,Regs} annotations at the beginning
 %%  and end of each block.
 %%
 live_opt(Is0) ->
@@ -217,7 +217,7 @@ delete_live_annos([{block,Bl0}|Is]) ->
 	[] -> delete_live_annos(Is);
 	[_|_]=Bl -> [{block,Bl}|delete_live_annos(Is)]
     end;
-delete_live_annos([{'%live',_}|Is]) ->
+delete_live_annos([{'%live',_,_}|Is]) ->
     delete_live_annos(Is);
 delete_live_annos([I|Is]) ->
     [I|delete_live_annos(Is)];
@@ -365,11 +365,6 @@ check_liveness(R, [{apply,Args}|Is], St) ->
 	{x,X} when X < Args+2 -> {used,St};
 	{x,_} -> {killed,St};
 	{y,_} -> check_liveness(R, Is, St)
-    end;
-check_liveness({x,R}, [{'%live',Live}|Is], St) ->
-    if
-	R < Live -> check_liveness(R, Is, St);
-	true -> {killed,St}
     end;
 check_liveness(R, [{bif,Op,{f,Fail},Ss,D}|Is], St0) ->
     case check_liveness_fail(R, Op, Ss, Fail, St0) of
@@ -554,7 +549,7 @@ check_killed_block(R, [{set,Ds,Ss,_Op}|Is]) ->
 		false -> check_killed_block(R, Is)
 	    end
     end;
-check_killed_block(R, [{'%live',Live}|Is]) ->
+check_killed_block(R, [{'%live',Live,_}|Is]) ->
     case R of
 	{x,X} when X >= Live -> killed;
 	_ -> check_killed_block(R, Is)
@@ -577,7 +572,7 @@ check_used_block({x,X}=R, [{set,Ds,Ss,{alloc,Live,Op}}|Is], St) ->
     end;
 check_used_block(R, [{set,Ds,Ss,Op}|Is], St) ->
     check_used_block_1(R, Ss, Ds, Op, Is, St);
-check_used_block(R, [{'%live',Live}|Is], St) ->
+check_used_block(R, [{'%live',Live,_}|Is], St) ->
     case R of
 	{x,X} when X >= Live -> {killed,St};
 	_ -> check_used_block(R, Is, St)
@@ -678,9 +673,9 @@ live_opt([{test,bs_start_match2,Fail,Live,[Src,_],_}=I|Is], _, D, Acc) ->
 
 %% Other instructions.
 live_opt([{block,Bl0}|Is], Regs0, D, Acc) ->
-    Live0 = {'%live',live_regs(Regs0)},
+    Live0 = {'%live',live_regs(Regs0),Regs0},
     {Bl,Regs} = live_opt_block(reverse(Bl0), Regs0, D, [Live0]),
-    Live = {'%live',live_regs(Regs)},
+    Live = {'%live',live_regs(Regs),Regs},
     live_opt(Is, Regs, D, [{block,[Live|Bl]}|Acc]);
 live_opt([{label,L}=I|Is], Regs, D0, Acc) ->
     D = gb_trees:insert(L, Regs, D0),

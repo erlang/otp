@@ -580,11 +580,11 @@ maps(Config) when is_list(Config) ->
            <<"
              t() ->
 		 M = {a,[]},
-		 {'EXIT',{badarg,_}} = (catch(M#{ a => 1})),
+		 {'EXIT',{badarg,_}} = (catch(M#{ a => 1 })),
 		 ok.
            ">>,
            [],
-	   {warnings,[{4,v3_kernel,bad_map}]}},
+	   {warnings,[{4,sys_core_fold,{eval_failure,badarg}}]}},
 	   {bad_map_src2,
            <<"
              t() ->
@@ -594,7 +594,7 @@ maps(Config) when is_list(Config) ->
 	     id(I) -> I.
            ">>,
 	   [inline],
-	   {warnings,[{4,v3_kernel,bad_map}]}},
+	    []},
 	   {bad_map_src3,
            <<"
              t() ->

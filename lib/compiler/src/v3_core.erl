@@ -758,30 +758,28 @@ make_bool_switch_guard(L, E, V, T, F) ->
       {clause,NegL,[V],[],[V]}
      ]}.
 
-expr_map(M0,Es0,A,St0) ->
-    {M1,Mps,St1} = safe(M0, St0),
+expr_map(M0, Es0, A, St0) ->
+    {M1,Eps0,St1} = safe(M0, St0),
     case is_valid_map_src(M1) of
 	true ->
-	    case {M1,Es0} of
-		{#c_var{}, []} ->
-		    %% transform M#{} to is_map(M)
-		    {Vpat,St2} = new_var(St1),
-		    {Fpat,St3} = new_var(St2),
-		    Cs = [#iclause{
-			   anno=A,
-			   pats=[Vpat],
-			   guard=[#icall{anno=#a{anno=A},
+	    {M2,Eps1,St2} = map_build_pairs(M1, Es0, A, St1),
+	    M3 = case Es0 of
+		     [] -> M1;
+		     [_|_] -> M2
+		 end,
+	    Cs = [#iclause{
+		     anno=#a{anno=[compiler_generated|A]},
+		     pats=[],
+		     guard=[#icall{anno=#a{anno=A},
 				   module=#c_literal{anno=A,val=erlang},
 			           name=#c_literal{anno=A,val=is_map},
-				   args=[Vpat]}],
-			   body=[Vpat]}],
-		    Fc = fail_clause([Fpat], A, #c_literal{val=badarg}),
-		    {#icase{anno=#a{anno=A},args=[M1],clauses=Cs,fc=Fc},Mps,St3};
-		{_,_} ->
-		    {M2,Eps,St2} = map_build_pairs(M1, Es0, A, St1),
-		    {M2,Mps++Eps,St2}
-	    end;
-	false -> throw({bad_map,bad_map})
+				   args=[M1]}],
+		     body=[M3]}],
+	    Fc = fail_clause([], [eval_failure|A], #c_literal{val=badarg}),
+	    Eps = Eps0 ++ Eps1,
+	    {#icase{anno=#a{anno=A},args=[],clauses=Cs,fc=Fc},Eps,St2};
+	false ->
+	    throw({bad_map,bad_map})
     end.
 
 map_build_pairs(Map, Es0, Ann, St0) ->
@@ -1623,48 +1621,29 @@ pattern_map_pairs(Ps, St) ->
 		{CMapPair,EpsP,Sti1} = pattern_map_pair(P,Sti0),
 		{CMapPair, {EpsM++EpsP,Sti1}}
 	end, {[],St}, Ps),
-    {pat_alias_map_pairs(CMapPairs,[]),Eps,St1}.
-
-%% remove cluddering annotations
-pattern_map_clean_key(#c_literal{val=V}) -> {literal,V};
-pattern_map_clean_key(#c_var{name=V}) -> {var,V}.
-
-pat_alias_map_pairs(Ps1,Ps2) ->
-    Ps = Ps1 ++ Ps2,
-    F = fun(#c_map_pair{key=Ck,val=Cv},Dbi) ->
-		K = pattern_map_clean_key(Ck),
-		case dict:find(K,Dbi) of
-		    {ok,Cvs} -> dict:store(K,[Cv|Cvs],Dbi);
-		    _        -> dict:store(K,[Cv],Dbi)
-		end
-	end,
-    Kdb = lists:foldl(F,dict:new(),Ps),
-    pat_alias_map_pairs(Ps,Kdb,sets:new()).
-
-pat_alias_map_pairs([],_,_) -> [];
-pat_alias_map_pairs([#c_map_pair{key=Ck}=Pair|Pairs],Kdb,Set) ->
-    K = pattern_map_clean_key(Ck),
-    case sets:is_element(K,Set) of
-	true ->
-	    pat_alias_map_pairs(Pairs,Kdb,Set);
-	false ->
-	    Cvs = dict:fetch(K,Kdb),
-	    Cv = pat_alias_map_pair_values(Cvs),
-	    Set1 = sets:add_element(K,Set),
-	    [Pair#c_map_pair{val=Cv}|pat_alias_map_pairs(Pairs,Kdb,Set1)]
-    end.
-
-pat_alias_map_pair_values([Cv]) -> Cv;
-pat_alias_map_pair_values([Cv1,Cv2|Cvs]) ->
-    pat_alias_map_pair_values([pat_alias(Cv1,Cv2)|Cvs]).
+    {pat_alias_map_pairs(CMapPairs),Eps,St1}.
 
 pattern_map_pair({map_field_exact,L,K,V}, St0) ->
-    {Ck,EpsK,St1} = safe_pattern_expr(K,St0),
+    {Ck,EpsK,St1} = safe_pattern_expr(K, St0),
     {Cv,EpsV,St2} = pattern(V, St1),
-    {#c_map_pair{anno=lineno_anno(L,St2),
+    {#c_map_pair{anno=lineno_anno(L, St2),
 		 op=#c_literal{val=exact},
 		 key=Ck,
 		 val=Cv},EpsK++EpsV,St2}.
+
+pat_alias_map_pairs(Ps) ->
+    D = foldl(fun(#c_map_pair{key=K0}=Pair, D0) ->
+		      K = cerl:set_ann(K0, []),
+		      dict:append(K, Pair, D0)
+	      end, dict:new(), Ps),
+    pat_alias_map_pairs_1(dict:to_list(D)).
+
+pat_alias_map_pairs_1([{_,[#c_map_pair{val=V0}=Pair|Vs]}|T]) ->
+    V = foldl(fun(#c_map_pair{val=V}, Pat) ->
+		      pat_alias(V, Pat)
+	      end, V0, Vs),
+    [Pair#c_map_pair{val=V}|pat_alias_map_pairs_1(T)];
+pat_alias_map_pairs_1([]) -> [].
 
 %% pat_bin([BinElement], State) -> [BinSeg].
 
@@ -1707,7 +1686,7 @@ pat_alias(#c_tuple{anno=Anno,es=Es1}, #c_tuple{es=Es2}) ->
 %% alias maps
 %% There are no literals in maps patterns (patterns are always abstract)
 pat_alias(#c_map{es=Es1}=M,#c_map{es=Es2}) ->
-    M#c_map{es=pat_alias_map_pairs(Es1,Es2)};
+    M#c_map{es=pat_alias_map_pairs(Es1++Es2)};
 
 pat_alias(#c_alias{var=V1,pat=P1},
 	  #c_alias{var=V2,pat=P2}) ->
@@ -1819,7 +1798,7 @@ uclauses(Lcs, Ks, St0) ->
 
 uclause(Cl0, Ks, St0) ->
     {Cl1,_Pvs,Used,New,St1} = uclause(Cl0, Ks, Ks, St0),
-    A0 = get_ianno(Cl1),
+    A0 = get_anno(Cl1),
     A = A0#a{us=Used,ns=New},
     {Cl1#iclause{anno=A},St1}.
 
@@ -2006,7 +1985,7 @@ ufun_clauses(Lcs, Ks, St0) ->
 
 ufun_clause(Cl0, Ks, St0) ->
     {Cl1,Pvs,Used,_,St1} = uclause(Cl0, [], Ks, St0),
-    A0 = get_ianno(Cl1),
+    A0 = get_anno(Cl1),
     A = A0#a{us=subtract(intersection(Used, Ks), Pvs),ns=[]},
     {Cl1#iclause{anno=A},St1}.
 
@@ -2352,12 +2331,6 @@ lineno_anno(L, St) ->
 	    [-Line] ++ St#core.file ++ [compiler_generated];
 	true ->
 	    [Line] ++ St#core.file
-    end.
-
-get_ianno(Ce) ->
-    case get_anno(Ce) of
-	#a{}=A -> A;
-	A when is_list(A) -> #a{anno=A}
     end.
 
 get_lineno_anno(Ce) ->

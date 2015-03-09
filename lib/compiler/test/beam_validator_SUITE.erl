@@ -122,7 +122,7 @@ yrange(Config) when is_list(Config) ->
 	  {{move,{x,1},{y,-1}},5,
 	   {invalid_store,{y,-1},term}}},
 	 {{t,sum_2,2},
-	  {{bif,'+',{f,0},[{x,0},{y,1024}],{x,0}},8,
+	  {{bif,'+',{f,0},[{x,0},{y,1024}],{x,0}},7,
 	   {uninitialized_reg,{y,1024}}}},
 	 {{t,sum_3,2},
 	  {{move,{x,1},{y,1024}},5,limit}},
@@ -133,11 +133,11 @@ yrange(Config) when is_list(Config) ->
 
 stack(Config) when is_list(Config) ->
     Errors = do_val(stack, Config),
-    [{{t,a,2},{return,11,{stack_frame,2}}},
+    [{{t,a,2},{return,9,{stack_frame,2}}},
      {{t,b,2},{{deallocate,2},4,{allocated,none}}},
      {{t,bad_1,0},{{allocate_zero,2,10},4,{{x,9},not_live}}},
      {{t,bad_2,0},{{move,{y,0},{x,0}},5,{unassigned,{y,0}}}},
-     {{t,c,2},{{deallocate,2},12,{allocated,none}}},
+     {{t,c,2},{{deallocate,2},10,{allocated,none}}},
      {{t,d,2},
       {{allocate,2,2},5,{existing_stack_frame,{size,2}}}},
      {{t,e,2},{{deallocate,5},6,{allocated,2}}}] = Errors,
@@ -145,18 +145,18 @@ stack(Config) when is_list(Config) ->
 
 call_last(Config) when is_list(Config) ->
     Errors = do_val(call_last, Config),
-    ?line [{{t,a,1},{{call_last,1,{f,8},2},11,{allocated,1}}},
-	   {{t,b,1},
-	    {{call_ext_last,2,{extfunc,lists,seq,2},2},
-	     11,
-	     {allocated,1}}}] = Errors,
+    [{{t,a,1},{{call_last,1,{f,8},2},9,{allocated,1}}},
+     {{t,b,1},
+      {{call_ext_last,2,{extfunc,lists,seq,2},2},
+       10,
+       {allocated,1}}}] = Errors,
     ok.
 
 merge_undefined(Config) when is_list(Config) ->
     Errors = do_val(merge_undefined, Config),
     [{{t,handle_call,2},
       {{call_ext,2,{extfunc,debug,filter,2}},
-       23,
+       22,
        {uninitialized_reg,{y,0}}}}] = Errors,
     ok.
 
@@ -166,10 +166,10 @@ uninit(Config) when is_list(Config) ->
 	[{{t,sum_1,2},
 	  {{move,{y,0},{x,0}},5,{uninitialized_reg,{y,0}}}},
 	 {{t,sum_2,2},
-	  {{call,1,{f,8}},6,{uninitialized_reg,{y,0}}}},
+	  {{call,1,{f,8}},5,{uninitialized_reg,{y,0}}}},
 	 {{t,sum_3,2},
 	  {{bif,'+',{f,0},[{x,0},{y,0}],{x,0}},
-	   7,
+	   6,
 	   {unassigned,{y,0}}}}] = Errors,
     ok.
 
@@ -198,7 +198,7 @@ overwrite_trytag(Config) when is_list(Config) ->
     Errors = do_val(overwrite_trytag, Config),
     ?line
 	[{{overwrite_trytag,foo,1},
-	  {{kill,{y,2}},9,{trytag,_}}}] = Errors,
+	  {{kill,{y,2}},8,{trytag,_}}}] = Errors,
     ok.
 
 accessing_tags(Config) when is_list(Config) ->
@@ -335,7 +335,7 @@ state_after_fault_in_catch(Config) when is_list(Config) ->
 no_exception_in_catch(Config) when is_list(Config) ->
     Errors = do_val(no_exception_in_catch, Config),
     [{{no_exception_in_catch,nested_of_1,4},
-      {{move,{x,3},{x,0}},91,{uninitialized_reg,{x,3}}}}] = Errors,
+      {{move,{x,3},{x,0}},88,{uninitialized_reg,{x,3}}}}] = Errors,
     ok.
 
 undef_label(Config) when is_list(Config) ->

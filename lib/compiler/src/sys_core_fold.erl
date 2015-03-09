@@ -1603,12 +1603,26 @@ eval_case(#c_case{arg=E,clauses=[#c_clause{pats=Ps0,
 	    %% is correct, the clause will always match at run-time.
 	    Case;
 	{true,Bs} ->
+	    eval_case_warn(B),
 	    {Ps,As} = unzip(Bs),
 	    InnerLet = cerl:c_let(Ps, core_lib:make_values(As), B),
 	    Let = cerl:c_let(Vs, E, InnerLet),
 	    expr(Let, sub_new(Sub))
     end;
 eval_case(Case, _) -> Case.
+
+eval_case_warn(#c_primop{anno=Anno,
+			 name=#c_literal{val=match_fail},
+			 args=[#c_literal{val=Reason}]}=Core)
+  when is_atom(Reason) ->
+    case member(eval_failure, Anno) of
+	false ->
+	    ok;
+	true ->
+	    %% Example: M = not_map, M#{k:=v}
+	    add_warning(Core, {eval_failure,Reason})
+    end;
+eval_case_warn(_) -> ok.
 
 %% case_opt(CaseArg, [Clause]) -> {CaseArg,[Clause]}.
 %%  Try and optimise a case by avoid building tuples or lists
