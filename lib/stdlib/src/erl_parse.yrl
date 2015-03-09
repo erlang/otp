@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2014. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -524,6 +524,8 @@ Erlang code.
 -export([normalise/1,abstract/1,tokens/1,tokens/2]).
 -export([abstract/2]).
 -export([inop_prec/1,preop_prec/1,func_prec/0,max_prec/0]).
+-export([map_anno/2, fold_anno/3, mapfold_anno/3,
+         new_anno/1, anno_to_term/1, anno_from_term/1]).
 -export([set_line/2,get_attribute/2,get_attributes/1]).
 
 %% The following directive is needed for (significantly) faster compilation
@@ -533,6 +535,7 @@ Erlang code.
 -export_type([abstract_clause/0, abstract_expr/0, abstract_form/0,
               error_info/0]).
 
+%% XXX. To be refined.
 -type abstract_clause() :: term().
 -type abstract_expr() :: term().
 -type abstract_form() :: term().
@@ -1100,5 +1103,160 @@ get_attribute(L, Name) ->
 
 get_attributes(L) ->
     erl_scan:attributes_info(L).
+
+-spec map_anno(Fun, Abstr) -> NewAbstr when
+      Fun :: fun((Anno) -> Anno),
+      Anno :: erl_anno:anno(),
+      Abstr :: abstract_form() | abstract_expr(),
+      NewAbstr :: abstract_form() | abstract_expr().
+
+map_anno(F0, Abstr) ->
+    F = fun(A, Acc) -> {F0(A), Acc} end,
+    {NewAbstr, []} = modify_anno1(Abstr, [], F),
+    NewAbstr.
+
+-spec fold_anno(Fun, Acc0, Abstr) -> NewAbstr when
+      Fun :: fun((Anno, AccIn) -> AccOut),
+      Anno :: erl_anno:anno(),
+      Acc0 :: term(),
+      AccIn :: term(),
+      AccOut :: term(),
+      Abstr :: abstract_form() | abstract_expr(),
+      NewAbstr :: abstract_form() | abstract_expr().
+
+fold_anno(F0, Acc0, Abstr) ->
+    F = fun(A, Acc) -> {A, F0(A, Acc)} end,
+    {_, NewAcc} = modify_anno1(Abstr, Acc0, F),
+    NewAcc.
+
+-spec mapfold_anno(Fun, Acc0, Abstr) -> {NewAbstr, Acc1} when
+      Fun :: fun((Anno, AccIn) -> {Anno, AccOut}),
+      Anno :: erl_anno:anno(),
+      Acc0 :: term(),
+      Acc1 :: term(),
+      AccIn :: term(),
+      AccOut :: term(),
+      Abstr :: abstract_form() | abstract_expr(),
+      NewAbstr :: abstract_form() | abstract_expr().
+
+mapfold_anno(F, Acc0, Abstr) ->
+    modify_anno1(Abstr, Acc0, F).
+
+-spec new_anno(Term) -> Abstr when
+      Term :: term(),
+      Abstr :: abstract_form() | abstract_expr().
+
+new_anno(Term) ->
+    F = fun(Loc) -> erl_anno:new(Loc) end,
+    map_anno(F, Term).
+
+-spec anno_to_term(Abstr) -> term() when
+      Abstr :: abstract_form() | abstract_expr().
+
+anno_to_term(Abstract) ->
+    F = fun(Anno) -> erl_anno:to_term(Anno) end,
+    map_anno(F, Abstract).
+
+-spec anno_from_term(Term) -> abstract_form() | abstract_expr() when
+      Term :: term().
+
+anno_from_term(Term) ->
+    F = fun(T) -> erl_anno:from_term(T) end,
+    map_anno(F, Term).
+
+%% Forms.
+%% Recognize what sys_pre_expand does:
+modify_anno1({'fun',A,F,{_,_,_}=Id}, Ac, Mf) ->
+    {A1,Ac1} = Mf(A, Ac),
+    {F1,Ac2} = modify_anno1(F, Ac1, Mf),
+    {{'fun',A1,F1,Id},Ac2};
+modify_anno1({named_fun,A,N,F,{_,_,_}=Id}, Ac, Mf) ->
+    {A1,Ac1} = Mf(A, Ac),
+    {F1,Ac2} = modify_anno1(F, Ac1, Mf),
+    {{named_fun,A1,N,F1,Id},Ac2};
+modify_anno1({attribute,A,N,[V]}, Ac, Mf) ->
+    {{attribute,A1,N1,V1},Ac1} = modify_anno1({attribute,A,N,V}, Ac, Mf),
+    {{attribute,A1,N1,[V1]},Ac1};
+%% End of sys_pre_expand special forms.
+modify_anno1({function,F,A}, Ac, _Mf) ->
+    {{function,F,A},Ac};
+modify_anno1({function,M,F,A}, Ac, Mf) ->
+    {M1,Ac1} = modify_anno1(M, Ac, Mf),
+    {F1,Ac2} = modify_anno1(F, Ac1, Mf),
+    {A1,Ac3} = modify_anno1(A, Ac2, Mf),
+    {{function,M1,F1,A1},Ac3};
+modify_anno1({attribute,A,record,{Name,Fields}}, Ac, Mf) ->
+    {A1,Ac1} = Mf(A, Ac),
+    {Fields1,Ac2} = modify_anno1(Fields, Ac1, Mf),
+    {{attribute,A1,record,{Name,Fields1}},Ac2};
+modify_anno1({attribute,A,spec,{Fun,Types}}, Ac, Mf) ->
+    {A1,Ac1} = Mf(A, Ac),
+    {Types1,Ac2} = modify_anno1(Types, Ac1, Mf),
+    {{attribute,A1,spec,{Fun,Types1}},Ac2};
+modify_anno1({attribute,A,callback,{Fun,Types}}, Ac, Mf) ->
+    {A1,Ac1} = Mf(A, Ac),
+    {Types1,Ac2} = modify_anno1(Types, Ac1, Mf),
+    {{attribute,A1,callback,{Fun,Types1}},Ac2};
+modify_anno1({attribute,A,type,{TypeName,TypeDef,Args}}, Ac, Mf) ->
+    {A1,Ac1} = Mf(A, Ac),
+    {TypeDef1,Ac2} = modify_anno1(TypeDef, Ac1, Mf),
+    {Args1,Ac3} = modify_anno1(Args, Ac2, Mf),
+    {{attribute,A1,type,{TypeName,TypeDef1,Args1}},Ac3};
+modify_anno1({attribute,A,opaque,{TypeName,TypeDef,Args}}, Ac, Mf) ->
+    {A1,Ac1} = Mf(A, Ac),
+    {TypeDef1,Ac2} = modify_anno1(TypeDef, Ac1, Mf),
+    {Args1,Ac3} = modify_anno1(Args, Ac2, Mf),
+    {{attribute,A1,opaque,{TypeName,TypeDef1,Args1}},Ac3};
+modify_anno1({attribute,A,Attr,Val}, Ac, Mf) ->
+    {A1,Ac1} = Mf(A, Ac),
+    {{attribute,A1,Attr,Val},Ac1};
+modify_anno1({warning,W}, Ac, _Mf) ->
+    {{warning,W},Ac};
+modify_anno1({error,W}, Ac, _Mf) ->
+    {{error,W},Ac};
+%% Expressions.
+modify_anno1({clauses,Cs}, Ac, Mf) ->
+    {Cs1,Ac1} = modify_anno1(Cs, Ac, Mf),
+    {{clauses,Cs1},Ac1};
+modify_anno1({typed_record_field,Field,Type}, Ac, Mf) ->
+    {Field1,Ac1} = modify_anno1(Field, Ac, Mf),
+    {Type1,Ac2} = modify_anno1(Type, Ac1, Mf),
+    {{typed_record_field,Field1,Type1},Ac2};
+modify_anno1({Tag,A}, Ac, Mf) ->
+    {A1,Ac1} = Mf(A, Ac),
+    {{Tag,A1},Ac1};
+modify_anno1({Tag,A,E1}, Ac, Mf) ->
+    {A1,Ac1} = Mf(A, Ac),
+    {E11,Ac2} = modify_anno1(E1, Ac1, Mf),
+    {{Tag,A1,E11},Ac2};
+modify_anno1({Tag,A,E1,E2}, Ac, Mf) ->
+    {A1,Ac1} = Mf(A, Ac),
+    {E11,Ac2} = modify_anno1(E1, Ac1, Mf),
+    {E21,Ac3} = modify_anno1(E2, Ac2, Mf),
+    {{Tag,A1,E11,E21},Ac3};
+modify_anno1({bin_element,A,E1,E2,TSL}, Ac, Mf) ->
+    {A1,Ac1} = Mf(A, Ac),
+    {E11,Ac2} = modify_anno1(E1, Ac1, Mf),
+    {E21,Ac3} = modify_anno1(E2, Ac2, Mf),
+    {{bin_element,A1,E11,E21, TSL},Ac3};
+modify_anno1({Tag,A,E1,E2,E3}, Ac, Mf) ->
+    {A1,Ac1} = Mf(A, Ac),
+    {E11,Ac2} = modify_anno1(E1, Ac1, Mf),
+    {E21,Ac3} = modify_anno1(E2, Ac2, Mf),
+    {E31,Ac4} = modify_anno1(E3, Ac3, Mf),
+    {{Tag,A1,E11,E21,E31},Ac4};
+modify_anno1({Tag,A,E1,E2,E3,E4}, Ac, Mf) ->
+    {A1,Ac1} = Mf(A, Ac),
+    {E11,Ac2} = modify_anno1(E1, Ac1, Mf),
+    {E21,Ac3} = modify_anno1(E2, Ac2, Mf),
+    {E31,Ac4} = modify_anno1(E3, Ac3, Mf),
+    {E41,Ac5} = modify_anno1(E4, Ac4, Mf),
+    {{Tag,A1,E11,E21,E31,E41},Ac5};
+modify_anno1([H|T], Ac, Mf) ->
+    {H1,Ac1} = modify_anno1(H, Ac, Mf),
+    {T1,Ac2} = modify_anno1(T, Ac1, Mf),
+    {[H1|T1],Ac2};
+modify_anno1([], Ac, _Mf) -> {[],Ac};
+modify_anno1(E, Ac, _Mf) when not is_tuple(E), not is_list(E) -> {E,Ac}.
 
 %% vim: ft=erlang
