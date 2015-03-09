@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2002-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2015. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -822,9 +822,10 @@ th(T,B,OB) when is_tuple(T) ->
 th(Nonstruct,B,_OB) ->
     {Nonstruct,B}.
 
-warn_var_clash(Line,Name,OuterBound) ->
+warn_var_clash(Anno,Name,OuterBound) ->
     case gb_sets:is_member(Name,OuterBound) of
 	true ->
+            Line = erl_anno:line(Anno),
 	    add_warning(Line,{?WARN_SHADOW_VAR,Name});
 	_ ->
 	    ok

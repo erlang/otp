@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2014. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -64,7 +64,7 @@
 	  too_many_arguments/1,
 	  basic_errors/1,bin_syntax_errors/1,
           predef/1,
-          maps/1,maps_type/1,otp_11851/1
+          maps/1,maps_type/1,otp_11851/1,otp_12195/1
         ]).
 
 % Default timetrap timeout (set in init_per_testcase).
@@ -93,7 +93,7 @@ all() ->
      bif_clash, behaviour_basic, behaviour_multiple, otp_11861,
      otp_7550, otp_8051, format_warn, {group, on_load},
      too_many_arguments, basic_errors, bin_syntax_errors, predef,
-     maps, maps_type, otp_11851].
+     maps, maps_type, otp_11851, otp_12195].
 
 groups() -> 
     [{unused_vars_warn, [],
@@ -3831,6 +3831,40 @@ otp_11851(Config) when is_list(Config) ->
                   {6,erl_lint,{spec_fun_undefined,{a,1}}}],
           []}}
           ],
+    [] = run(Config, Ts),
+    ok.
+
+otp_12195(doc) ->
+    "OTP-12195: Check obsolete types (tailor made for OTP 18).";
+otp_12195(Config) when is_list(Config) ->
+    Ts = [{otp_12195_1,
+           <<"-export_type([r1/0]).
+              -type r1() :: erl_scan:line()
+                          | erl_scan:column()
+                          | erl_scan:location()
+                          | erl_anno:line().">>,
+           [],
+           {warnings,[{2,erl_lint,
+                       {deprecated_type,{erl_scan,line,0},
+                        "deprecated (will be removed in OTP 19); "
+                        "use erl_anno:line() instead"}},
+                      {3,erl_lint,
+                       {deprecated_type,{erl_scan,column,0},
+                        "deprecated (will be removed in OTP 19); use "
+                        "erl_anno:column() instead"}},
+                      {4,erl_lint,
+                       {deprecated_type,{erl_scan,location,0},
+                        "deprecated (will be removed in OTP 19); "
+                        "use erl_anno:location() instead"}}]}},
+          {otp_12195_2,
+           <<"-export_type([r1/0]).
+              -compile(nowarn_deprecated_type).
+              -type r1() :: erl_scan:line()
+                          | erl_scan:column()
+                          | erl_scan:location()
+                          | erl_anno:line().">>,
+           [],
+           []}],
     [] = run(Config, Ts),
     ok.
 
