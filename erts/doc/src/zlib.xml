@@ -312,6 +312,53 @@ list_to_binary([B1,B2])</pre>
       </desc>
     </func>
     <func>
+      <name name="inflateChunk" arity="2"/>
+      <fsummary>Decompress data with limited output size</fsummary>
+      <desc>
+        <p>Like <c>inflate/2</c>, but decompress no more data than
+          will fit in the buffer configured via <c>setBufSize/2</c>.
+          Is is useful when decompressing a stream with a high compression
+          ratio such that a small amount of compressed input may expand up to
+          1000 times.
+          It returns <c>{more, Decompressed}</c>, when there is more output
+          available, and <c>inflateChunk/1</c> should be used to read it.
+          It may introduce some output latency (reading
+          input without producing any output).</p>
+        <p>If a preset dictionary is needed at this point (see
+          <c>inflateSetDictionary</c> below), <c>inflateChunk/2</c> throws a
+          <c>{need_dictionary,Adler}</c> exception where <c>Adler</c> is
+          the adler32 checksum of the dictionary chosen by the
+          compressor.</p>
+
+        <pre>
+walk(Compressed, Handler) ->
+    Z = zlib:open(),
+    zlib:inflateInit(Z),
+    % Limit single uncompressed chunk size to 512kb
+    zlib:setBufSize(Z, 512 * 1024),
+    loop(Z, Handler, zlib:inflateChunk(Z, Compressed)),
+    zlib:inflateEnd(Z),
+    zlib:close(Z).
+
+loop(Z, Handler, {more, Uncompressed}) ->
+    Handler(Uncompressed),
+    loop(Z, Handler, zlib:inflateChunk(Z));
+loop(Z, Handler, Uncompressed) ->
+    Handler(Uncompressed).
+        </pre>
+      </desc>
+    </func>
+    <func>
+      <name name="inflateChunk" arity="1"/>
+      <fsummary>Read next uncompressed chunk</fsummary>
+      <desc>
+        <p>Read next chunk of uncompressed data, initialized by
+          <c>inflateChunk/2</c>.</p>
+        <p>This function should be repeatedly called, while it returns
+          <c>{more, Decompressed}</c>.</p>
+      </desc>
+    </func>
+    <func>
       <name name="inflateSetDictionary" arity="2"/>
       <fsummary>Initialize the decompression dictionary</fsummary>
       <desc>
