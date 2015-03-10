@@ -1625,12 +1625,17 @@ choice(Height, Width, P, Mode, Tab, Key, Turn, Opos) ->
     end.
 
 get_line(P, Default) ->
-    case io:get_line(P) of
+    case line_string(io:get_line(P)) of
 	"\n" ->
 	    Default;
 	L ->
 	    L
     end.
+
+%% If the standard input is set to binary mode
+%% convert it to a list so we can properly match.
+line_string(Binary) when is_binary(Binary) -> unicode:characters_to_list(Binary);
+line_string(Other) -> Other.
 
 nonl(S) -> string:strip(S, right, $\n).
 
