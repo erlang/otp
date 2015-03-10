@@ -25,6 +25,6 @@
 
 -type db_handle() :: term(). 
 
--callback lookup(#'DistributionPoint'{}, db_handle()) -> not_available | [public_key:der_encode()].
--callback select(term(), db_handle()) ->  [public_key:der_encode()].
--callback fresh_crl(#'DistributionPoint'{}, public_key:der_encode()) -> public_key:der_encode().
+-callback lookup(#'DistributionPoint'{}, db_handle()) -> not_available | [public_key:der_encoded()].
+-callback select(term(), db_handle()) ->  [public_key:der_encoded()].
+-callback fresh_crl(#'DistributionPoint'{}, public_key:der_encoded()) -> public_key:der_encoded().

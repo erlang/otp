@@ -116,18 +116,18 @@
 	  hibernate_after      :: boolean(),
 	  %% This option should only be set to true by inet_tls_dist
 	  erl_dist = false     :: boolean(),
-          alpn_advertised_protocols = undefined :: [binary()],
-          alpn_preferred_protocols = undefined :: [binary()],
-	  next_protocols_advertised = undefined, %% [binary()],
+          alpn_advertised_protocols = undefined :: [binary()] | undefined ,
+          alpn_preferred_protocols = undefined  :: [binary()] | undefined,
+	  next_protocols_advertised = undefined :: [binary()] | undefined,
 	  next_protocol_selector = undefined,  %% fun([binary()]) -> binary())
 	  log_alert             :: boolean(),
 	  server_name_indication = undefined,
 	  %% Should the server prefer its own cipher order over the one provided by
 	  %% the client?
-	  honor_cipher_order = false,
-	  padding_check = true,
-	  fallback = false,
-	  crl_check, 
+	  honor_cipher_order = false :: boolean(),
+	  padding_check = true       :: boolean(),
+	  fallback = false           :: boolean(),
+	  crl_check                  :: boolean() | peer | best_effort, 
 	  crl_cache
 	  }).
 
