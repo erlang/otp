@@ -1787,7 +1787,7 @@ static int application_type (const wchar_t *originalName, /* Name of the applica
     char buf[2];
     DWORD read;
     IMAGE_DOS_HEADER header;
-    static wchar_t extensions[][5] = {L"", L".com", L".exe", L".bat"};
+    static wchar_t extensions[][5] = {L"", L".cmd", L".com", L".exe", L".bat"};
     int is_quoted;
     int len;
     wchar_t xfullpath[MAX_PATH];
