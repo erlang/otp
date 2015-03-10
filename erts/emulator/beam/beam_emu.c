@@ -699,7 +699,7 @@ void** beam_ops;
         Fail; 								  \
     }
 
-#define IsMap(Src, Fail) if (is_not_map(Src) && is_not_hashmap(Src)) { Fail; }
+#define IsMap(Src, Fail) if (is_not_flatmap(Src) && is_not_hashmap(Src)) { Fail; }
 
 #define HasMapField(Src, Key, Fail) if (has_not_map_field(Src, Key)) { Fail; }
 
@@ -2392,7 +2392,7 @@ void process_main(void)
  }
 
  OpCase(i_has_map_fields_fsI): {
-    map_t* mp;
+    flatmap_t* mp;
     Eterm map;
     Eterm field;
     Eterm *ks;
@@ -2417,17 +2417,17 @@ void process_main(void)
 	goto has_map_fields_ok;
     }
 
-    ASSERT(is_map(map));
+    ASSERT(is_flatmap(map));
 
-    mp = (map_t *)map_val(map);
-    sz = map_get_size(mp);
+    mp = (flatmap_t *)flatmap_val(map);
+    sz = flatmap_get_size(mp);
 
     if (sz == 0) {
 	SET_I((BeamInstr *) Arg(0));
 	goto has_map_fields_fail;
     }
 
-    ks = map_get_keys(mp);
+    ks = flatmap_get_keys(mp);
 
     ASSERT(n>0);
 
@@ -2484,21 +2484,21 @@ do {								\
     n  = (Uint)Arg(2) / 2;
     fs = &Arg(3); /* pattern fields and target registers */
 
-    if (is_map(map)) {
-	map_t *mp;
+    if (is_flatmap(map)) {
+	flatmap_t *mp;
 	Eterm *ks;
 	Eterm *vs;
 
-	mp = (map_t *)map_val(map);
-	sz = map_get_size(mp);
+	mp = (flatmap_t *)flatmap_val(map);
+	sz = flatmap_get_size(mp);
 
 	if (sz == 0) {
 	    SET_I((BeamInstr *) Arg(0));
 	    goto get_map_elements_fail;
 	}
 
-	ks = map_get_keys(mp);
-	vs = map_get_values(mp);
+	ks = flatmap_get_keys(mp);
+	vs = flatmap_get_values(mp);
 
 	while(sz) {
 	    if (EQ((Eterm)*fs,*ks)) {
@@ -6473,15 +6473,15 @@ new_fun(Process* p, Eterm* reg, ErlFunEntry* fe, int num_free)
 static int has_not_map_field(Eterm map, Eterm key)
 {
     Uint32 hx;
-    if (is_map(map)) {
-	map_t* mp;
+    if (is_flatmap(map)) {
+	flatmap_t* mp;
 	Eterm* keys;
 	Uint i;
 	Uint n;
 
-	mp   = (map_t *)map_val(map);
-	keys = map_get_keys(mp);
-	n    = map_get_size(mp);
+	mp   = (flatmap_t *)flatmap_val(map);
+	keys = flatmap_get_keys(mp);
+	n    = flatmap_get_size(mp);
 	if (is_immed(key)) {
 	    for (i = 0; i < n; i++) {
 		if (keys[i] == key) {
@@ -6506,16 +6506,16 @@ static Eterm get_map_element(Eterm map, Eterm key)
 {
     Uint32 hx;
     const Eterm *vs;
-    if (is_map(map)) {
-	map_t *mp;
+    if (is_flatmap(map)) {
+	flatmap_t *mp;
 	Eterm *ks;
 	Uint i;
 	Uint n;
 
-	mp = (map_t *)map_val(map);
-	ks = map_get_keys(mp);
-	vs = map_get_values(mp);
-	n  = map_get_size(mp);
+	mp = (flatmap_t *)flatmap_val(map);
+	ks = flatmap_get_keys(mp);
+	vs = flatmap_get_values(mp);
+	n  = flatmap_get_size(mp);
 	if (is_immed(key)) {
 	    for (i = 0; i < n; i++) {
 		if (ks[i] == key) {
@@ -6567,7 +6567,7 @@ new_map(Process* p, Eterm* reg, BeamInstr* I)
     Eterm *mhp,*thp;
     Eterm *E;
     BeamInstr *ptr;
-    map_t *mp;
+    flatmap_t *mp;
     ErtsHeapFactory factory;
 
     ptr = &Arg(4);
@@ -6602,7 +6602,7 @@ new_map(Process* p, Eterm* reg, BeamInstr* I)
     keys   = make_tuple(thp);
     *thp++ = make_arityval(n/2);
 
-    mp = (map_t *)mhp; mhp += MAP_HEADER_SIZE;
+    mp = (flatmap_t *)mhp; mhp += MAP_HEADER_SIZE;
     mp->thing_word = MAP_HEADER;
     mp->size = n/2;
     mp->keys = keys;
@@ -6612,7 +6612,7 @@ new_map(Process* p, Eterm* reg, BeamInstr* I)
 	GET_TERM(*ptr++, *mhp++);
     }
     p->htop = mhp;
-    return make_map(mp);
+    return make_flatmap(mp);
 }
 
 static Eterm
@@ -6622,7 +6622,7 @@ update_map_assoc(Process* p, Eterm* reg, Eterm map, BeamInstr* I)
     Uint num_old;
     Uint num_updates;
     Uint need;
-    map_t *old_mp, *mp;
+    flatmap_t *old_mp, *mp;
     Eterm res;
     Eterm* hp;
     Eterm* E;
@@ -6635,7 +6635,7 @@ update_map_assoc(Process* p, Eterm* reg, Eterm map, BeamInstr* I)
     new_p = &Arg(5);
     num_updates = Arg(4) / 2;
 
-    if (is_not_map(map)) {
+    if (is_not_flatmap(map)) {
 	Uint32 hx;
 	Eterm val;
 
@@ -6668,8 +6668,8 @@ update_map_assoc(Process* p, Eterm* reg, Eterm map, BeamInstr* I)
 	return res;
     }
 
-    old_mp  = (map_t *) map_val(map);
-    num_old = map_get_size(old_mp);
+    old_mp  = (flatmap_t *) flatmap_val(map);
+    num_old = flatmap_get_size(old_mp);
 
     /*
      * If the old map is empty, create a new map.
@@ -6690,7 +6690,7 @@ update_map_assoc(Process* p, Eterm* reg, Eterm map, BeamInstr* I)
 	reg[live] = map;
 	erts_garbage_collect(p, need, reg, live+1);
 	map      = reg[live];
-	old_mp   = (map_t *)map_val(map);
+	old_mp   = (flatmap_t *)flatmap_val(map);
     }
 
     /*
@@ -6721,14 +6721,14 @@ update_map_assoc(Process* p, Eterm* reg, Eterm map, BeamInstr* I)
     kp = p->htop + 1;		/* Point to first key */
     hp = kp + num_old + num_updates;
 
-    res = make_map(hp);
-    mp = (map_t *)hp;
+    res = make_flatmap(hp);
+    mp = (flatmap_t *)hp;
     hp += MAP_HEADER_SIZE;
     mp->thing_word = MAP_HEADER;
     mp->keys = make_tuple(kp-1);
 
-    old_vals = map_get_values(old_mp);
-    old_keys = map_get_keys(old_mp);
+    old_vals = flatmap_get_values(old_mp);
+    old_keys = flatmap_get_keys(old_mp);
 
     GET_TERM(*new_p, new_key);
     n = num_updates;
@@ -6820,7 +6820,7 @@ update_map_assoc(Process* p, Eterm* reg, Eterm map, BeamInstr* I)
 
     /* The expensive case, need to build a hashmap */
     if (n > MAP_SMALL_MAP_LIMIT) {
-	res = erts_hashmap_from_ks_and_vs(p,map_get_keys(mp),map_get_values(mp),n);
+	res = erts_hashmap_from_ks_and_vs(p,flatmap_get_keys(mp),flatmap_get_values(mp),n);
 	if (p->mbuf) {
 	    Uint live = Arg(3);
 	    reg[live] = res;
@@ -6842,7 +6842,7 @@ update_map_exact(Process* p, Eterm* reg, Eterm map, BeamInstr* I)
     Uint i;
     Uint num_old;
     Uint need;
-    map_t *old_mp, *mp;
+    flatmap_t *old_mp, *mp;
     Eterm res;
     Eterm* hp;
     Eterm* E;
@@ -6855,7 +6855,7 @@ update_map_exact(Process* p, Eterm* reg, Eterm map, BeamInstr* I)
     n = Arg(4) / 2;		/* Number of values to be updated */
     ASSERT(n > 0);
 
-    if (is_not_map(map)) {
+    if (is_not_flatmap(map)) {
 	Uint32 hx;
 	Eterm val;
 
@@ -6891,8 +6891,8 @@ update_map_exact(Process* p, Eterm* reg, Eterm map, BeamInstr* I)
 	return res;
     }
 
-    old_mp = (map_t *) map_val(map);
-    num_old = map_get_size(old_mp);
+    old_mp = (flatmap_t *) flatmap_val(map);
+    num_old = flatmap_get_size(old_mp);
 
     /*
      * If the old map is empty, create a new map.
@@ -6912,7 +6912,7 @@ update_map_exact(Process* p, Eterm* reg, Eterm map, BeamInstr* I)
 	reg[live] = map;
 	erts_garbage_collect(p, need, reg, live+1);
 	map      = reg[live];
-	old_mp   = (map_t *)map_val(map);
+	old_mp   = (flatmap_t *)flatmap_val(map);
     }
 
     /*
@@ -6922,11 +6922,11 @@ update_map_exact(Process* p, Eterm* reg, Eterm map, BeamInstr* I)
     hp = p->htop;
     E = p->stop;
 
-    old_vals = map_get_values(old_mp);
-    old_keys = map_get_keys(old_mp);
+    old_vals = flatmap_get_values(old_mp);
+    old_keys = flatmap_get_keys(old_mp);
 
-    res = make_map(hp);
-    mp = (map_t *)hp;
+    res = make_flatmap(hp);
+    mp = (flatmap_t *)hp;
     hp += MAP_HEADER_SIZE;
     mp->thing_word = MAP_HEADER;
     mp->size = num_old;

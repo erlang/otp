@@ -2605,15 +2605,15 @@ enc_term_int(TTBEncodeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj, byte* ep,
 
 	case MAP_DEF:
 	    {
-		map_t *mp = (map_t*)map_val(obj);
-		Uint size = map_get_size(mp);
+		flatmap_t *mp = (flatmap_t*)flatmap_val(obj);
+		Uint size = flatmap_get_size(mp);
 
 		*ep++ = MAP_EXT;
 		put_int32(size, ep); ep += 4;
 
 		if (size > 0) {
-		    Eterm *kptr = map_get_keys(mp);
-		    Eterm *vptr = map_get_values(mp);
+		    Eterm *kptr = flatmap_get_keys(mp);
+		    Eterm *vptr = flatmap_get_values(mp);
 
 		    WSTACK_PUSH4(s, (UWord)kptr, (UWord)vptr,
 				 ENC_MAP_PAIR, size);
@@ -3599,14 +3599,14 @@ dec_term_atom_common:
 		size = get_int32(ep); ep += 4;
 
                 if (size <= MAP_SMALL_MAP_LIMIT) {
-                    map_t *mp;
+                    flatmap_t *mp;
 
                     keys  = make_tuple(hp);
                     *hp++ = make_arityval(size);
                     hp   += size;
                     kptr = hp - 1;
 
-                    mp    = (map_t*)hp;
+                    mp    = (flatmap_t*)hp;
                     hp   += MAP_HEADER_SIZE;
                     hp   += size;
                     vptr = hp - 1;
@@ -3625,7 +3625,7 @@ dec_term_atom_common:
 
                     mp->size       = size;
                     mp->keys       = keys;
-                    *objp          = make_map(mp);
+                    *objp          = make_flatmap(mp);
 
                     for (n = size; n; n--) {
                         *vptr = (Eterm) COMPRESS_POINTER(next);
@@ -3891,7 +3891,7 @@ dec_term_atom_common:
     while (maps_list) {
 	next  = (Eterm *)(EXPAND_POINTER(*maps_list));
 	*maps_list = MAP_HEADER;
-	if (!erts_validate_and_sort_map((map_t*)maps_list))
+	if (!erts_validate_and_sort_flatmap((flatmap_t*)maps_list))
 	    goto error;
 	maps_list  = next;
     }
@@ -4120,15 +4120,15 @@ encode_size_struct_int(TTBSizeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj,
 	    break;
 	case MAP_DEF:
 	    {
-		map_t *mp = (map_t*)map_val(obj);
-		Uint size = map_get_size(mp);
+		flatmap_t *mp = (flatmap_t*)flatmap_val(obj);
+		Uint size = flatmap_get_size(mp);
 		Uint i;
 		Eterm *ptr;
 
 		result += 1 + 4; /* tag + 4 bytes size */
 
 		/* push values first */
-		ptr = map_get_values(mp);
+		ptr = flatmap_get_values(mp);
 		i   = size;
 		while(i--) {
 		    if (is_list(*ptr)) {
@@ -4142,7 +4142,7 @@ encode_size_struct_int(TTBSizeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj,
 		    ++ptr;
 		}
 
-		ptr = map_get_keys(mp);
+		ptr = flatmap_get_keys(mp);
 		i   = size;
 		while(i--) {
 		    if (is_list(*ptr)) {

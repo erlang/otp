@@ -186,10 +186,10 @@ Uint size_object(Eterm obj)
 		case MAP_SUBTAG:
 		    {
 			Uint n;
-			map_t *mp;
-			mp  = (map_t*)map_val_rel(obj,base);
+			flatmap_t *mp;
+			mp  = (flatmap_t*)flatmap_val_rel(obj,base);
 			ptr = (Eterm *)mp;
-			n   = map_get_size(mp) + 1;
+			n   = flatmap_get_size(mp) + 1;
 			sum += n + 2;
 			ptr += 2; /* hdr + size words */
 			while (n--) {
@@ -371,8 +371,8 @@ Eterm copy_struct(Eterm obj, Uint sz, Eterm** hpp, ErlOffHeap* off_heap)
 		break;
 	    case MAP_SUBTAG:
 		{
-		    i = map_get_size(objp) + 3;
-		    *argp = make_map_rel(htop, dst_base);
+		    i = flatmap_get_size(objp) + 3;
+		    *argp = make_flatmap_rel(htop, dst_base);
 		    while (i--) {
 			*htop++ = *objp++;
 		    }

@@ -1274,11 +1274,11 @@ make_hash2(Eterm term)
 	    break;
 	    case MAP_SUBTAG:
 	    {
-		map_t *mp = (map_t *)map_val(term);
+		flatmap_t *mp = (flatmap_t *)flatmap_val(term);
 		int i;
-		int size  = map_get_size(mp);
-		Eterm *ks = map_get_keys(mp);
-		Eterm *vs = map_get_values(mp);
+		int size  = flatmap_get_size(mp);
+		Eterm *ks = flatmap_get_keys(mp);
+		Eterm *vs = flatmap_get_values(mp);
 		UINT32_HASH(size, HCONST_16);
 		if (size == 0) {
 		    goto hash2_common;
@@ -1669,11 +1669,11 @@ make_internal_hash(Eterm term)
 	    break;
 	    case MAP_SUBTAG:
 	    {
-		map_t *mp = (map_t *)map_val(term);
+		flatmap_t *mp = (flatmap_t *)flatmap_val(term);
 		int i;
-		int size  = map_get_size(mp);
-		Eterm *ks = map_get_keys(mp);
-		Eterm *vs = map_get_values(mp);
+		int size  = flatmap_get_size(mp);
+		Eterm *ks = flatmap_get_keys(mp);
+		Eterm *vs = flatmap_get_values(mp);
 		UINT32_HASH(size, HCONST_16);
 		if (size == 0) {
 		    goto pop_next;
@@ -2574,13 +2574,13 @@ tailrecur_ne:
 		}
 	    case MAP_SUBTAG:
 		{
-		    aa = map_val_rel(a, a_base);
+		    aa = flatmap_val_rel(a, a_base);
 		    if (!is_boxed(b) || *boxed_val_rel(b,b_base) != *aa)
 			goto not_equal;
-		    bb = map_val_rel(b,b_base);
-		    sz = map_get_size((map_t*)aa);
+		    bb = flatmap_val_rel(b,b_base);
+		    sz = flatmap_get_size((flatmap_t*)aa);
 
-		    if (sz != map_get_size((map_t*)bb)) goto not_equal;
+		    if (sz != flatmap_get_size((flatmap_t*)bb)) goto not_equal;
 		    if (sz == 0) goto pop_next;
 
 		    aa += 2;
@@ -3119,16 +3119,16 @@ tailrecur_ne:
 		++bb;
 		goto term_array;
 	    case (_TAG_HEADER_MAP >> _TAG_PRIMARY_SIZE) :
-		if (!is_map_rel(b,b_base)) {
+		if (!is_flatmap_rel(b,b_base)) {
 		    a_tag = MAP_DEF;
 		    goto mixed_types;
 		}
-		aa = (Eterm *)map_val_rel(a,a_base);
-		bb = (Eterm *)map_val_rel(b,b_base);
+		aa = (Eterm *)flatmap_val_rel(a,a_base);
+		bb = (Eterm *)flatmap_val_rel(b,b_base);
 
-		i = map_get_size((map_t*)aa);
-		if (i != map_get_size((map_t*)bb)) {
-		    RETURN_NEQ((int)(i - map_get_size((map_t*)bb)));
+		i = flatmap_get_size((flatmap_t*)aa);
+		if (i != flatmap_get_size((flatmap_t*)bb)) {
+		    RETURN_NEQ((int)(i - flatmap_get_size((flatmap_t*)bb)));
 		}
 		if (i == 0) {
 		    goto pop_next;

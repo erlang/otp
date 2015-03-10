@@ -1377,15 +1377,15 @@ restart:
 	for (;;) {
 	    switch (t & _TAG_PRIMARY_MASK) {
 	    case TAG_PRIMARY_BOXED:
-                if (is_map(t)) {
-                    num_iters = map_get_size(map_val(t));
+                if (is_flatmap(t)) {
+                    num_iters = flatmap_get_size(flatmap_val(t));
                     if (!structure_checked) {
                         DMC_PUSH(text, matchMap);
                         DMC_PUSH(text, num_iters);
                     }
                     structure_checked = 0;
                     for (i = 0; i < num_iters; ++i) {
-                        Eterm key = map_get_keys(map_val(t))[i];
+                        Eterm key = flatmap_get_keys(flatmap_val(t))[i];
                         if (db_is_variable(key) >= 0) {
                             if (context.err_info) {
                                 add_dmc_err(context.err_info,
@@ -1405,7 +1405,7 @@ restart:
                         DMC_PUSH(text, dmc_private_copy(&context, key));
                         {
                             int old_stack = ++(context.stack_used);
-                            Eterm value = map_get_values(map_val(t))[i];
+                            Eterm value = flatmap_get_values(flatmap_val(t))[i];
                             res = dmc_one_term(&context, &heap, &stack, &text,
                                                value);
                             ASSERT(res != retFail);
@@ -2004,12 +2004,12 @@ restart:
 	    ++ep;
 	    break;
         case matchMap:
-            if (!is_map_rel(*ep, base) && !is_hashmap_rel(*ep,base)) {
+            if (!is_flatmap_rel(*ep, base) && !is_hashmap_rel(*ep,base)) {
                 FAIL();
             }
             n = *pc++;
-            if (is_map_rel(*ep,base)) {
-		if (map_get_size(map_val_rel(*ep, base)) < n) {
+            if (is_flatmap_rel(*ep,base)) {
+		if (flatmap_get_size(flatmap_val_rel(*ep, base)) < n) {
 		    FAIL();
 		}
             } else {
@@ -2018,15 +2018,15 @@ restart:
 		    FAIL();
 		}
 	    }
-            ep = map_val_rel(*ep, base);
+            ep = flatmap_val_rel(*ep, base);
             break;
         case matchPushM:
-            if (!is_map_rel(*ep, base) && !is_hashmap_rel(*ep, base)) {
+            if (!is_flatmap_rel(*ep, base) && !is_hashmap_rel(*ep, base)) {
                 FAIL();
             }
             n = *pc++;
-            if (is_map_rel(*ep,base)) {
-		if (map_get_size(map_val_rel(*ep, base)) < n) {
+            if (is_flatmap_rel(*ep,base)) {
+		if (flatmap_get_size(flatmap_val_rel(*ep, base)) < n) {
 		    FAIL();
 		}
 	    } else {
@@ -2035,11 +2035,11 @@ restart:
 		    FAIL();
 		}
 	    }
-            *sp++ = map_val_rel(*ep++, base);
+            *sp++ = flatmap_val_rel(*ep++, base);
             break;
         case matchKey:
             t = (Eterm) *pc++;
-            tp = erts_maps_get_rel(t, make_map_rel(ep, base), base);
+            tp = erts_maps_get_rel(t, make_flatmap_rel(ep, base), base);
             if (!tp) {
                 FAIL();
             }
@@ -2156,12 +2156,12 @@ restart:
             ehp = HAllocX(build_proc, 1 + MAP_HEADER_SIZE + n, HEAP_XTRA);
             t = *ehp++ = *--esp;
             {
-                map_t *m = (map_t *)ehp;
+                flatmap_t *m = (flatmap_t *)ehp;
                 m->thing_word = MAP_HEADER;
                 m->size = n;
                 m->keys = t;
             }
-            t = make_map(ehp);
+            t = make_flatmap(ehp);
             ehp += MAP_HEADER_SIZE;
             while (n--) {
                 *ehp++ = *--esp;
@@ -3373,10 +3373,10 @@ int db_has_variable(Eterm node) {
 		while(arity--) {
 		    ESTACK_PUSH(s,*(++tuple));
 		}
-            } else if (is_map(node)) {
-                Eterm *values = map_get_values(map_val(node));
-                int size = map_get_size(map_val(node));
-                ESTACK_PUSH(s, ((map_t *) map_val(node))->keys);
+            } else if (is_flatmap(node)) {
+                Eterm *values = flatmap_get_values(flatmap_val(node));
+                Uint size = flatmap_get_size(flatmap_val(node));
+                ESTACK_PUSH(s, ((flatmap_t *) flatmap_val(node))->keys);
                 while (size--) {
                     ESTACK_PUSH(s, *(values++));
                 }
@@ -3540,7 +3540,7 @@ static DMCRet dmc_one_term(DMCContext *context,
 	    DMC_PUSH(*stack, c);
 	    break;
         case (_TAG_HEADER_MAP >> _TAG_PRIMARY_SIZE):
-            n = map_get_size(map_val(c));
+            n = flatmap_get_size(flatmap_val(c));
             DMC_PUSH(*text, matchPushM);
             ++(context->stack_used);
             DMC_PUSH(*text, n);
@@ -3841,11 +3841,11 @@ dmc_map(DMCContext *context, DMCHeap *heap, DMC_STACK_TYPE(UWord) *text,
     int nelems;
     int constant_values;
     DMCRet ret;
-    if (is_map(t)) {
-        map_t *m = (map_t *)map_val(t);
-        Eterm *values = map_get_values(m);
+    if (is_flatmap(t)) {
+        flatmap_t *m = (flatmap_t *)flatmap_val(t);
+        Eterm *values = flatmap_get_values(m);
 
-        nelems = map_get_size(m);
+        nelems = flatmap_get_size(m);
         ret = dmc_array(context, heap, text, values, nelems, &constant_values);
 
         if (ret != retOk) {
@@ -4915,7 +4915,7 @@ static DMCRet dmc_expr(DMCContext *context,
 	    return ret;
 	break;
     case TAG_PRIMARY_BOXED:
-        if (is_map(t) || is_hashmap(t)) {
+        if (is_flatmap(t) || is_hashmap(t)) {
             return dmc_map(context, heap, text, t, constant);
         }
 	if (!is_tuple(t)) {

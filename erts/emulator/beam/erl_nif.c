@@ -1905,15 +1905,15 @@ enif_is_on_dirty_scheduler(ErlNifEnv* env)
 
 int enif_is_map(ErlNifEnv* env, ERL_NIF_TERM term)
 {
-    return is_map(term);
+    return is_flatmap(term);
 }
 
 int enif_get_map_size(ErlNifEnv* env, ERL_NIF_TERM term, size_t *size)
 {
-    if (is_map(term)) {
-	map_t *mp;
-	mp    = (map_t*)map_val(term);
-	*size = map_get_size(mp);
+    if (is_flatmap(term)) {
+	flatmap_t *mp;
+	mp    = (flatmap_t*)flatmap_val(term);
+	*size = flatmap_get_size(mp);
 	return 1;
     }
     return 0;
@@ -1923,16 +1923,16 @@ ERL_NIF_TERM enif_make_new_map(ErlNifEnv* env)
 {
     Eterm* hp = alloc_heap(env,MAP_HEADER_SIZE+1);
     Eterm tup;
-    map_t *mp;
+    flatmap_t *mp;
 
     tup   = make_tuple(hp);
     *hp++ = make_arityval(0);
-    mp    = (map_t*)hp;
+    mp    = (flatmap_t*)hp;
     mp->thing_word = MAP_HEADER;
     mp->size = 0;
     mp->keys = tup;
 
-    return make_map(mp);
+    return make_flatmap(mp);
 }
 
 int enif_make_map_put(ErlNifEnv* env,
@@ -1941,7 +1941,7 @@ int enif_make_map_put(ErlNifEnv* env,
 		      Eterm value,
 		      Eterm *map_out)
 {
-    if (is_not_map(map_in)) {
+    if (is_not_flatmap(map_in)) {
 	return 0;
     }
     flush_env(env);
@@ -1956,7 +1956,7 @@ int enif_get_map_value(ErlNifEnv* env,
 		       Eterm *value)
 {
     const Eterm *ret;
-    if (is_not_map(map)) {
+    if (is_not_flatmap(map)) {
 	return 0;
     }
     ret = erts_maps_get(key, map);
@@ -1974,7 +1974,7 @@ int enif_make_map_update(ErlNifEnv* env,
 			 Eterm *map_out)
 {
     int res;
-    if (is_not_map(map_in)) {
+    if (is_not_flatmap(map_in)) {
 	return 0;
     }
 
@@ -1990,7 +1990,7 @@ int enif_make_map_remove(ErlNifEnv* env,
 			 Eterm *map_out)
 {
     int res;
-    if (is_not_map(map_in)) {
+    if (is_not_flatmap(map_in)) {
 	return 0;
     }
     flush_env(env);
@@ -2004,13 +2004,13 @@ int enif_map_iterator_create(ErlNifEnv *env,
 			     ErlNifMapIterator *iter,
 			     ErlNifMapIteratorEntry entry)
 {
-    if (is_map(map)) {
-	map_t *mp = (map_t*)map_val(map);
+    if (is_flatmap(map)) {
+	flatmap_t *mp = (flatmap_t*)flatmap_val(map);
 	size_t offset;
 
 	switch (entry) {
 	    case ERL_NIF_MAP_ITERATOR_HEAD: offset = 0; break;
-	    case ERL_NIF_MAP_ITERATOR_TAIL: offset = map_get_size(mp) - 1; break;
+	    case ERL_NIF_MAP_ITERATOR_TAIL: offset = flatmap_get_size(mp) - 1; break;
 	    default: goto error;
 	}
 
@@ -2019,9 +2019,9 @@ int enif_map_iterator_create(ErlNifEnv *env,
 	 */
 
 	iter->map     = map;
-	iter->ks      = ((Eterm *)map_get_keys(mp)) + offset;
-	iter->vs      = ((Eterm *)map_get_values(mp)) + offset;
-	iter->t_limit = map_get_size(mp) + 1;
+	iter->ks      = ((Eterm *)flatmap_get_keys(mp)) + offset;
+	iter->vs      = ((Eterm *)flatmap_get_values(mp)) + offset;
+	iter->t_limit = flatmap_get_size(mp) + 1;
 	iter->idx     = offset + 1;
 
 	return 1;
@@ -2045,22 +2045,22 @@ void enif_map_iterator_destroy(ErlNifEnv *env, ErlNifMapIterator *iter)
 
 int enif_map_iterator_is_tail(ErlNifEnv *env, ErlNifMapIterator *iter)
 {
-    ASSERT(iter && is_map(iter->map));
-    ASSERT(iter->idx >= 0 && (iter->idx <= map_get_size(map_val(iter->map)) + 1));
+    ASSERT(iter && is_flatmap(iter->map));
+    ASSERT(iter->idx >= 0 && (iter->idx <= flatmap_get_size(flatmap_val(iter->map)) + 1));
     return (iter->t_limit == 1 || iter->idx == iter->t_limit);
 }
 
 int enif_map_iterator_is_head(ErlNifEnv *env, ErlNifMapIterator *iter)
 {
-    ASSERT(iter && is_map(iter->map));
-    ASSERT(iter->idx >= 0 && (iter->idx <= map_get_size(map_val(iter->map)) + 1));
+    ASSERT(iter && is_flatmap(iter->map));
+    ASSERT(iter->idx >= 0 && (iter->idx <= flatmap_get_size(flatmap_val(iter->map)) + 1));
     return (iter->t_limit == 1 || iter->idx == 0);
 }
 
 
 int enif_map_iterator_next(ErlNifEnv *env, ErlNifMapIterator *iter)
 {
-    ASSERT(iter && is_map(iter->map));
+    ASSERT(iter && is_flatmap(iter->map));
     if (iter->idx < iter->t_limit) {
 	iter->idx++;
 	iter->ks++;
@@ -2071,7 +2071,7 @@ int enif_map_iterator_next(ErlNifEnv *env, ErlNifMapIterator *iter)
 
 int enif_map_iterator_prev(ErlNifEnv *env, ErlNifMapIterator *iter)
 {
-    ASSERT(iter && is_map(iter->map));
+    ASSERT(iter && is_flatmap(iter->map));
     if (iter->idx > 0) {
 	iter->idx--;
 	iter->ks--;
@@ -2085,12 +2085,12 @@ int enif_map_iterator_get_pair(ErlNifEnv *env,
 			       Eterm *key,
 			       Eterm *value)
 {
-    ASSERT(iter && is_map(iter->map));
+    ASSERT(iter && is_flatmap(iter->map));
     if (iter->idx > 0 && iter->idx < iter->t_limit) {
-	ASSERT(iter->ks >= map_get_keys(map_val(iter->map)) &&
-	       iter->ks  < (map_get_keys(map_val(iter->map)) + map_get_size(map_val(iter->map))));
-	ASSERT(iter->vs >= map_get_values(map_val(iter->map)) &&
-	       iter->vs  < (map_get_values(map_val(iter->map)) + map_get_size(map_val(iter->map))));
+	ASSERT(iter->ks >= flatmap_get_keys(flatmap_val(iter->map)) &&
+	       iter->ks  < (flatmap_get_keys(flatmap_val(iter->map)) + flatmap_get_size(flatmap_val(iter->map))));
+	ASSERT(iter->vs >= flatmap_get_values(flatmap_val(iter->map)) &&
+	       iter->vs  < (flatmap_get_values(flatmap_val(iter->map)) + flatmap_get_size(flatmap_val(iter->map))));
 	*key   = *(iter->ks);
 	*value = *(iter->vs);
 	return 1;

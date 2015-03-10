@@ -461,9 +461,9 @@ Eterm erts_gc_map_size_1(Process* p, Eterm* reg, Uint live)
     Eterm arg = reg[live];
     Eterm* hp;
     Uint size;
-    if (is_map(arg)) {
-	map_t *mp = (map_t*)map_val(arg);
-	size = map_get_size(mp);
+    if (is_flatmap(arg)) {
+	flatmap_t *mp = (flatmap_t*)flatmap_val(arg);
+	size = flatmap_get_size(mp);
     } else if (is_hashmap(arg)) {
 	size = hashmap_size(arg);
     } else {

@@ -34,11 +34,11 @@ Uint32 hashmap_bitcount(Uint32 x);
 
 /* MAP */
 
-typedef struct map_s {
+typedef struct flatmap_s {
     Eterm thing_word;
     Uint  size;
     Eterm keys;      /* tuple */
-} map_t;
+} flatmap_t;
 /* map node
  *
  * -----------
@@ -66,23 +66,23 @@ typedef struct map_s {
 
 
 /* erl_term.h stuff */
-#define make_map(x)		make_boxed((Eterm*)(x))
-#define make_map_rel(x, BASE)   make_boxed_rel((Eterm*)(x),(BASE))
-#define is_map(x)		(is_boxed((x)) && is_map_header(*boxed_val((x))))
-#define is_map_rel(RTERM,BASE)  is_map(rterm2wterm(RTERM,BASE))
-#define is_not_map(x)           (!is_map((x)))
-#define is_map_header(x)	(((x) & (_TAG_HEADER_MASK)) == _TAG_HEADER_MAP)
-#define header_is_map(x)        ((((x) & (_HEADER_SUBTAG_MASK)) == MAP_SUBTAG))
-#define map_val(x)		(_unchecked_boxed_val((x)))
-#define map_val_rel(RTERM, BASE) map_val(rterm2wterm(RTERM, BASE))
+#define make_flatmap(x)		make_boxed((Eterm*)(x))
+#define make_flatmap_rel(x, BASE)   make_boxed_rel((Eterm*)(x),(BASE))
+#define is_flatmap(x)		(is_boxed((x)) && is_flatmap_header(*boxed_val((x))))
+#define is_flatmap_rel(RTERM,BASE)  is_flatmap(rterm2wterm(RTERM,BASE))
+#define is_not_flatmap(x)           (!is_flatmap((x)))
+#define is_flatmap_header(x)	(((x) & (_TAG_HEADER_MASK)) == _TAG_HEADER_MAP)
+#define header_is_flatmap(x)        ((((x) & (_HEADER_SUBTAG_MASK)) == MAP_SUBTAG))
+#define flatmap_val(x)		(_unchecked_boxed_val((x)))
+#define flatmap_val_rel(RTERM, BASE) flatmap_val(rterm2wterm(RTERM, BASE))
 
-#define map_get_values(x)      (((Eterm *)(x)) + 3)
-#define map_get_keys(x)        (((Eterm *)tuple_val(((map_t *)(x))->keys)) + 1)
-#define map_get_size(x)        (((map_t*)(x))->size)
+#define flatmap_get_values(x)      (((Eterm *)(x)) + 3)
+#define flatmap_get_keys(x)        (((Eterm *)tuple_val(((flatmap_t *)(x))->keys)) + 1)
+#define flatmap_get_size(x)        (((flatmap_t*)(x))->size)
 
 #define MAP_SMALL_MAP_LIMIT    (2) /*SVERK (32) */
 #define MAP_HEADER             _make_header(1,_TAG_HEADER_MAP)
-#define MAP_HEADER_SIZE        (sizeof(map_t) / sizeof(Eterm))
+#define MAP_HEADER_SIZE        (sizeof(flatmap_t) / sizeof(Eterm))
 
 struct ErtsWStack_;
 struct ErtsEStack_;
@@ -98,7 +98,7 @@ int    erts_hashmap_insert_down(Uint32 hx, Eterm key, Eterm node, Uint *sz,
 Eterm  erts_hashmap_insert_up(Eterm *hp, Eterm key, Eterm value,
 			      Uint *upsz, struct ErtsEStack_ *sp);
 
-int    erts_validate_and_sort_map(map_t* map);
+int    erts_validate_and_sort_flatmap(flatmap_t* map);
 Uint   hashmap_over_estimated_heap_size(Uint n);
 void   hashmap_iterator_init(struct ErtsWStack_* s, Eterm node);
 Eterm* hashmap_iterator_next(struct ErtsWStack_* s);

@@ -568,10 +568,10 @@ print_term(fmtfn_t fn, void* arg, Eterm obj, long *dcount,
 	    {
 		Uint n;
 		Eterm *ks, *vs;
-		map_t *mp = (map_t *)map_val(wobj);
-		n  = map_get_size(mp);
-		ks = map_get_keys(mp);
-		vs = map_get_values(mp);
+		flatmap_t *mp = (flatmap_t *)flatmap_val(wobj);
+		n  = flatmap_get_size(mp);
+		ks = flatmap_get_keys(mp);
+		vs = flatmap_get_values(mp);
 
 		PRINT_CHAR(res, fn, arg, '#');
 		PRINT_CHAR(res, fn, arg, '{');

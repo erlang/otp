@@ -5595,16 +5595,16 @@ driver_deliver_term(Eterm to, ErlDrvTermData* data, int len)
 	    int size = (int)ptr[0];
 	    Eterm* tp = hp;
 	    Eterm* vp;
-	    map_t *mp;
+	    flatmap_t *mp;
 
 	    *tp = make_arityval(size);
 
 	    hp += 1 + size;
-	    mp = (map_t*)hp;
+	    mp = (flatmap_t*)hp;
 	    mp->thing_word = MAP_HEADER;
 	    mp->size = size;
 	    mp->keys = make_tuple(tp);
-	    mess = make_map(mp);
+	    mess = make_flatmap(mp);
 
 	    hp += MAP_HEADER_SIZE + size;   /* advance "heap" pointer */
 
@@ -5615,7 +5615,7 @@ driver_deliver_term(Eterm to, ErlDrvTermData* data, int len)
 		*vp-- = ESTACK_POP(stack);
 		*tp-- = ESTACK_POP(stack);
 	    }
-	    if (!erts_validate_and_sort_map(mp))
+	    if (!erts_validate_and_sort_flatmap(mp))
 		ERTS_DDT_FAIL;
 	    ptr++;
 	    break;

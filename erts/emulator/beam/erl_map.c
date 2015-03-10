@@ -78,7 +78,7 @@ typedef struct {
 } hxnode_t;
 
 
-static Eterm map_merge(Process *p, Eterm nodeA, Eterm nodeB);
+static Eterm flatmap_merge(Process *p, Eterm nodeA, Eterm nodeB);
 static Eterm map_merge_mixed(Process *p, Eterm flat, Eterm tree, int swap_args);
 static Eterm hashmap_merge(Process *p, Eterm nodeA, Eterm nodeB);
 static Eterm hashmap_to_list(Process *p, Eterm map);
@@ -101,11 +101,11 @@ static int hxnodecmpkey(hxnode_t* a, hxnode_t* b);
  */
 
 BIF_RETTYPE map_size_1(BIF_ALIST_1) {
-    if (is_map(BIF_ARG_1)) {
+    if (is_flatmap(BIF_ARG_1)) {
 	Eterm *hp;
 	Uint hsz  = 0;
-	map_t *mp = (map_t*)map_val(BIF_ARG_1);
-	Uint n    = map_get_size(mp);
+	flatmap_t *mp = (flatmap_t*)flatmap_val(BIF_ARG_1);
+	Uint n    = flatmap_get_size(mp);
 
 	erts_bld_uint(NULL, &hsz, n);
 	hp = HAlloc(BIF_P, hsz);
@@ -128,15 +128,15 @@ BIF_RETTYPE map_size_1(BIF_ALIST_1) {
 /* maps:to_list/1 */
 
 BIF_RETTYPE maps_to_list_1(BIF_ALIST_1) {
-    if (is_map(BIF_ARG_1)) {
+    if (is_flatmap(BIF_ARG_1)) {
 	Uint n;
 	Eterm* hp;
 	Eterm *ks,*vs, res, tup;
-	map_t *mp = (map_t*)map_val(BIF_ARG_1);
+	flatmap_t *mp = (flatmap_t*)flatmap_val(BIF_ARG_1);
 
-	ks  = map_get_keys(mp);
-	vs  = map_get_values(mp);
-	n   = map_get_size(mp);
+	ks  = flatmap_get_keys(mp);
+	vs  = flatmap_get_values(mp);
+	n   = flatmap_get_size(mp);
 	hp  = HAlloc(BIF_P, (2 + 3) * n);
 	res = NIL;
 
@@ -165,20 +165,20 @@ erts_maps_get(Eterm key, Eterm map)
 #endif
 {
     Uint32 hx;
-    if (is_map(map)) {
+    if (is_flatmap(map)) {
 	Eterm *ks, *vs;
-	map_t *mp;
+	flatmap_t *mp;
 	Uint n, i;
 
-	mp  = (map_t *)map_val_rel(map, map_base);
-	n   = map_get_size(mp);
+	mp  = (flatmap_t *)flatmap_val_rel(map, map_base);
+	n   = flatmap_get_size(mp);
 
 	if (n == 0) {
 	    return NULL;
 	}
 
 	ks  = (Eterm *)tuple_val_rel(mp->keys, map_base) + 1;
-	vs  = map_get_values(mp);
+	vs  = flatmap_get_values(mp);
 
 	if (is_immed(key)) {
 	    for (i = 0; i < n; i++) {
@@ -202,7 +202,7 @@ erts_maps_get(Eterm key, Eterm map)
 }
 
 BIF_RETTYPE maps_find_2(BIF_ALIST_2) {
-    if (is_map(BIF_ARG_2) || is_hashmap(BIF_ARG_2)) {
+    if (is_flatmap(BIF_ARG_2) || is_hashmap(BIF_ARG_2)) {
         Eterm *hp, res;
         const Eterm *value;
 
@@ -226,7 +226,7 @@ BIF_RETTYPE maps_find_2(BIF_ALIST_2) {
  */
 
 BIF_RETTYPE maps_get_2(BIF_ALIST_2) {
-    if (is_map(BIF_ARG_2) || is_hashmap(BIF_ARG_2)) {
+    if (is_flatmap(BIF_ARG_2) || is_hashmap(BIF_ARG_2)) {
 	Eterm *hp;
         Eterm error;
         const Eterm *value;
@@ -289,7 +289,7 @@ error:
 static Eterm map_from_validated_list(Process *p, Eterm list, Uint size) {
     Eterm *kv, item = list;
     Eterm *hp, *thp,*vs, *ks, keys, res;
-    map_t *mp;
+    flatmap_t *mp;
     Uint  unused_size = 0;
     Sint  c = 0;
     Sint  idx = 0;
@@ -301,8 +301,8 @@ static Eterm map_from_validated_list(Process *p, Eterm list, Uint size) {
     *hp++ = make_arityval(size);
     ks    = hp;
     hp   += size;
-    mp    = (map_t*)hp;
-    res   = make_map(mp);
+    mp    = (flatmap_t*)hp;
+    res   = make_flatmap(mp);
     hp   += MAP_HEADER_SIZE;
     vs    = hp;
 
@@ -427,7 +427,7 @@ static Eterm hashmap_from_validated_list(Process *p, Eterm list, Uint size) {
     if (hashmap_size(res) <= MAP_SMALL_MAP_LIMIT) {
         DECLARE_WSTACK(wstack);
 	Eterm *kv, *ks, *vs;
-	map_t *mp;
+	flatmap_t *mp;
 	Eterm keys;
         Uint n = hashmap_size(res);
 
@@ -437,7 +437,7 @@ static Eterm hashmap_from_validated_list(Process *p, Eterm list, Uint size) {
 	*hp++ = make_arityval(n);
 	ks    = hp;
 	hp   += n;
-	mp    = (map_t*)hp;
+	mp    = (flatmap_t*)hp;
 	hp   += MAP_HEADER_SIZE;
 	vs    = hp;
 
@@ -453,10 +453,10 @@ static Eterm hashmap_from_validated_list(Process *p, Eterm list, Uint size) {
 	}
 
 	/* it cannot have multiple keys */
-	erts_validate_and_sort_map(mp);
+	erts_validate_and_sort_flatmap(mp);
 
 	DESTROY_WSTACK(wstack);
-	return make_map(mp);
+	return make_flatmap(mp);
     }
 
     return res;
@@ -877,7 +877,7 @@ static int hxnodecmp(hxnode_t *a, hxnode_t *b) {
 /* maps:is_key/2 */
 
 BIF_RETTYPE maps_is_key_2(BIF_ALIST_2) {
-    if (is_map(BIF_ARG_2) || is_hashmap(BIF_ARG_2)) {
+    if (is_flatmap(BIF_ARG_2) || is_hashmap(BIF_ARG_2)) {
 	BIF_RET(erts_maps_get(BIF_ARG_1, BIF_ARG_2) ? am_true : am_false);
     }
     BIF_ERROR(BIF_P, BADARG);
@@ -886,19 +886,19 @@ BIF_RETTYPE maps_is_key_2(BIF_ALIST_2) {
 /* maps:keys/1 */
 
 BIF_RETTYPE maps_keys_1(BIF_ALIST_1) {
-    if (is_map(BIF_ARG_1)) {
+    if (is_flatmap(BIF_ARG_1)) {
 	Eterm *hp, *ks, res = NIL;
-	map_t *mp;
+	flatmap_t *mp;
 	Uint n;
 
-	mp  = (map_t*)map_val(BIF_ARG_1);
-	n   = map_get_size(mp);
+	mp  = (flatmap_t*)flatmap_val(BIF_ARG_1);
+	n   = flatmap_get_size(mp);
 
 	if (n == 0)
 	    BIF_RET(res);
 
 	hp  = HAlloc(BIF_P, (2 * n));
-	ks  = map_get_keys(mp);
+	ks  = flatmap_get_keys(mp);
 
 	while(n--) {
 	    res = CONS(hp, ks[n], res); hp += 2;
@@ -913,9 +913,9 @@ BIF_RETTYPE maps_keys_1(BIF_ALIST_1) {
 /* maps:merge/2 */
 
 BIF_RETTYPE maps_merge_2(BIF_ALIST_2) {
-    if (is_map(BIF_ARG_1)) {
-	if (is_map(BIF_ARG_2)) {
-	    BIF_RET(map_merge(BIF_P, BIF_ARG_1, BIF_ARG_2));
+    if (is_flatmap(BIF_ARG_1)) {
+	if (is_flatmap(BIF_ARG_2)) {
+	    BIF_RET(flatmap_merge(BIF_P, BIF_ARG_1, BIF_ARG_2));
 	} else if (is_hashmap(BIF_ARG_2)) {
 	    /* Will always become a tree */
 	    BIF_RET(map_merge_mixed(BIF_P, BIF_ARG_1, BIF_ARG_2, 0));
@@ -923,7 +923,7 @@ BIF_RETTYPE maps_merge_2(BIF_ALIST_2) {
     } else if (is_hashmap(BIF_ARG_1)) {
 	if (is_hashmap(BIF_ARG_2)) {
 	    BIF_RET(hashmap_merge(BIF_P, BIF_ARG_1, BIF_ARG_2));
-	} else if (is_map(BIF_ARG_2)) {
+	} else if (is_flatmap(BIF_ARG_2)) {
 	    /* Will always become a tree */
 	    BIF_RET(map_merge_mixed(BIF_P, BIF_ARG_2, BIF_ARG_1, 1));
 	}
@@ -931,18 +931,18 @@ BIF_RETTYPE maps_merge_2(BIF_ALIST_2) {
     BIF_ERROR(BIF_P, BADARG);
 }
 
-static Eterm map_merge(Process *p, Eterm nodeA, Eterm nodeB) {
+static Eterm flatmap_merge(Process *p, Eterm nodeA, Eterm nodeB) {
     Eterm *hp,*thp;
     Eterm tup;
     Eterm *ks,*vs,*ks1,*vs1,*ks2,*vs2;
-    map_t *mp1,*mp2,*mp_new;
+    flatmap_t *mp1,*mp2,*mp_new;
     Uint n,n1,n2,i1,i2,need,unused_size=0;
     int c = 0;
 
-    mp1  = (map_t*)map_val(nodeA);
-    mp2  = (map_t*)map_val(nodeB);
-    n1   = map_get_size(mp1);
-    n2   = map_get_size(mp2);
+    mp1  = (flatmap_t*)flatmap_val(nodeA);
+    mp2  = (flatmap_t*)flatmap_val(nodeB);
+    n1   = flatmap_get_size(mp1);
+    n2   = flatmap_get_size(mp2);
 
     need = MAP_HEADER_SIZE + 1 + 2*(n1 + n2);
 
@@ -950,7 +950,7 @@ static Eterm map_merge(Process *p, Eterm nodeA, Eterm nodeB) {
     thp    = hp;
     tup    = make_tuple(thp);
     ks     = hp + 1; hp += 1 + n1 + n2;
-    mp_new = (map_t*)hp; hp += MAP_HEADER_SIZE;
+    mp_new = (flatmap_t*)hp; hp += MAP_HEADER_SIZE;
     vs     = hp; hp += n1 + n2;
 
     mp_new->thing_word = MAP_HEADER;
@@ -958,10 +958,10 @@ static Eterm map_merge(Process *p, Eterm nodeA, Eterm nodeB) {
     mp_new->keys = tup;
 
     i1  = 0; i2 = 0;
-    ks1 = map_get_keys(mp1);
-    vs1 = map_get_values(mp1);
-    ks2 = map_get_keys(mp2);
-    vs2 = map_get_values(mp2);
+    ks1 = flatmap_get_keys(mp1);
+    vs1 = flatmap_get_values(mp1);
+    ks2 = flatmap_get_keys(mp2);
+    vs2 = flatmap_get_values(mp2);
 
     while(i1 < n1 && i2 < n2) {
 	c = CMP_TERM(ks1[i1],ks2[i2]);
@@ -1018,8 +1018,8 @@ static Eterm map_merge(Process *p, Eterm nodeA, Eterm nodeB) {
 	hxnode_t *hxns;
         ErtsHeapFactory factory;
 
-	ks = map_get_keys(mp_new);
-	vs = map_get_values(mp_new);
+	ks = flatmap_get_keys(mp_new);
+	vs = flatmap_get_values(mp_new);
 
 	hp = HAlloc(p, 2 * n);
 
@@ -1045,12 +1045,12 @@ static Eterm map_merge(Process *p, Eterm nodeA, Eterm nodeB) {
 
     mp_new->size = n;
 
-    return make_map(mp_new);
+    return make_flatmap(mp_new);
 }
 
 static Eterm map_merge_mixed(Process *p, Eterm flat, Eterm tree, int swap_args) {
     Eterm *ks, *vs, *hp, res;
-    map_t *mp;
+    flatmap_t *mp;
     Uint n, i;
     hxnode_t *hxns;
     Uint32 sw, hx;
@@ -1058,14 +1058,14 @@ static Eterm map_merge_mixed(Process *p, Eterm flat, Eterm tree, int swap_args) 
 
     /* convert flat to tree */
 
-    ASSERT(is_map(flat));
+    ASSERT(is_flatmap(flat));
     ASSERT(is_hashmap(tree));
 
-    mp = (map_t*)map_val(flat);
-    n  = map_get_size(mp);
+    mp = (flatmap_t*)flatmap_val(flat);
+    n  = flatmap_get_size(mp);
 
-    ks = map_get_keys(mp);
-    vs = map_get_values(mp);
+    ks = flatmap_get_keys(mp);
+    vs = flatmap_get_values(mp);
 
     hp = HAlloc(p, 2 * n);
 
@@ -1343,24 +1343,24 @@ int hashmap_key_hash_cmp(Eterm* ap, Eterm* bp)
 BIF_RETTYPE maps_new_0(BIF_ALIST_0) {
     Eterm* hp;
     Eterm tup;
-    map_t *mp;
+    flatmap_t *mp;
 
     hp    = HAlloc(BIF_P, (MAP_HEADER_SIZE + 1));
     tup   = make_tuple(hp);
     *hp++ = make_arityval(0);
 
-    mp    = (map_t*)hp;
+    mp    = (flatmap_t*)hp;
     mp->thing_word = MAP_HEADER;
     mp->size = 0;
     mp->keys = tup;
 
-    BIF_RET(make_map(mp));
+    BIF_RET(make_flatmap(mp));
 }
 
 /* maps:put/3 */
 
 BIF_RETTYPE maps_put_3(BIF_ALIST_3) {
-    if (is_map(BIF_ARG_3) || is_hashmap(BIF_ARG_3)) {
+    if (is_flatmap(BIF_ARG_3) || is_hashmap(BIF_ARG_3)) {
 	BIF_RET(erts_maps_put(BIF_P, BIF_ARG_1, BIF_ARG_2, BIF_ARG_3));
     }
     BIF_ERROR(BIF_P, BADARG);
@@ -1370,23 +1370,23 @@ BIF_RETTYPE maps_put_3(BIF_ALIST_3) {
 
 int erts_maps_remove(Process *p, Eterm key, Eterm map, Eterm *res) {
     Uint32 hx;
-    if (is_map(map)) {
+    if (is_flatmap(map)) {
 	Sint n;
 	Uint need;
 	Eterm *hp_start;
 	Eterm *thp, *mhp;
 	Eterm *ks, *vs, tup;
-	map_t *mp = (map_t*)map_val(map);
+	flatmap_t *mp = (flatmap_t*)flatmap_val(map);
 
-	n = map_get_size(mp);
+	n = flatmap_get_size(mp);
 
 	if (n == 0) {
 	    *res = map;
 	    return 1;
 	}
 
-	ks = map_get_keys(mp);
-	vs = map_get_values(mp);
+	ks = flatmap_get_keys(mp);
+	vs = flatmap_get_values(mp);
 
 	/* Assume key exists.
 	 * Release allocated if it didn't.
@@ -1401,7 +1401,7 @@ int erts_maps_remove(Process *p, Eterm key, Eterm map, Eterm *res) {
 	tup    = make_tuple(thp);
 	*thp++ = make_arityval(n - 1);
 
-	*res   = make_map(mhp);
+	*res   = make_flatmap(mhp);
 	*mhp++ = MAP_HEADER;
 	*mhp++ = n - 1;
 	*mhp++ = tup;
@@ -1451,7 +1451,7 @@ found_key:
 }
 
 BIF_RETTYPE maps_remove_2(BIF_ALIST_2) {
-    if (is_map(BIF_ARG_2) || is_hashmap(BIF_ARG_2)) {
+    if (is_flatmap(BIF_ARG_2) || is_hashmap(BIF_ARG_2)) {
 	Eterm res;
 	if (erts_maps_remove(BIF_P, BIF_ARG_1, BIF_ARG_2, &res)) {
 	    BIF_RET(res);
@@ -1462,18 +1462,18 @@ BIF_RETTYPE maps_remove_2(BIF_ALIST_2) {
 
 int erts_maps_update(Process *p, Eterm key, Eterm value, Eterm map, Eterm *res) {
     Uint32 hx;
-    if (is_map(map)) {
+    if (is_flatmap(map)) {
 	Sint n,i;
 	Eterm* hp,*shp;
 	Eterm *ks,*vs;
-	map_t *mp = (map_t*)map_val(map);
+	flatmap_t *mp = (flatmap_t*)flatmap_val(map);
 
-	if ((n = map_get_size(mp)) == 0) {
+	if ((n = flatmap_get_size(mp)) == 0) {
 	    return 0;
 	}
 
-	ks  = map_get_keys(mp);
-	vs  = map_get_values(mp);
+	ks  = flatmap_get_keys(mp);
+	vs  = flatmap_get_values(mp);
 
 	/* only allocate for values,
 	 * assume key-tuple will be intact
@@ -1511,7 +1511,7 @@ found_key:
 	vs++;
 	if (++i < n)
 	    sys_memcpy(hp, vs, (n - i)*sizeof(Eterm));
-	*res = make_map(shp);
+	*res = make_flatmap(shp);
 	return 1;
     }
 
@@ -1527,21 +1527,21 @@ found_key:
 Eterm erts_maps_put(Process *p, Eterm key, Eterm value, Eterm map) {
     Uint32 hx;
     Eterm res;
-    if (is_map(map)) {
+    if (is_flatmap(map)) {
 	Sint n,i;
 	Sint c = 0;
 	Eterm* hp, *shp;
 	Eterm *ks, *vs, tup;
-	map_t *mp = (map_t*)map_val(map);
+	flatmap_t *mp = (flatmap_t*)flatmap_val(map);
 
-	n = map_get_size(mp);
+	n = flatmap_get_size(mp);
 
 	if (n == 0) {
 	    hp    = HAlloc(p, MAP_HEADER_SIZE + 1 + 2);
 	    tup   = make_tuple(hp);
 	    *hp++ = make_arityval(1);
 	    *hp++ = key;
-	    res   = make_map(hp);
+	    res   = make_flatmap(hp);
 	    *hp++ = MAP_HEADER;
 	    *hp++ = 1;
 	    *hp++ = tup;
@@ -1550,8 +1550,8 @@ Eterm erts_maps_put(Process *p, Eterm key, Eterm value, Eterm map) {
 	    return res;
 	}
 
-	ks = map_get_keys(mp);
-	vs = map_get_values(mp);
+	ks = flatmap_get_keys(mp);
+	vs = flatmap_get_values(mp);
 
 	/* only allocate for values,
 	 * assume key-tuple will be intact
@@ -1559,7 +1559,7 @@ Eterm erts_maps_put(Process *p, Eterm key, Eterm value, Eterm map) {
 
 	hp  = HAlloc(p, MAP_HEADER_SIZE + n);
 	shp = hp; /* save hp, used if optimistic update fails */
-	res = make_map(hp);
+	res = make_flatmap(hp);
 	*hp++ = MAP_HEADER;
 	*hp++ = n;
 	*hp++ = mp->keys;
@@ -1593,8 +1593,8 @@ Eterm erts_maps_put(Process *p, Eterm key, Eterm value, Eterm map) {
 
 	if (n >= MAP_SMALL_MAP_LIMIT) {
 	    HRelease(p, shp + MAP_HEADER_SIZE + n, shp);
-	    ks = map_get_keys(mp);
-	    vs = map_get_values(mp);
+	    ks = flatmap_get_keys(mp);
+	    vs = flatmap_get_values(mp);
 
 	    res = erts_hashmap_from_ks_and_vs_extra(p,ks,vs,n,key,value);
 
@@ -1608,13 +1608,13 @@ Eterm erts_maps_put(Process *p, Eterm key, Eterm value, Eterm map) {
 	*shp++ = make_arityval(n+1);
 
 	hp    = HAlloc(p, 3 + n + 1);
-	res   = make_map(hp);
+	res   = make_flatmap(hp);
 	*hp++ = MAP_HEADER;
 	*hp++ = n + 1;
 	*hp++ = tup;
 
-	ks = map_get_keys(mp);
-	vs = map_get_values(mp);
+	ks = flatmap_get_keys(mp);
+	vs = flatmap_get_values(mp);
 
 	ASSERT(n >= 0);
 
@@ -1653,7 +1653,7 @@ Eterm erts_maps_put(Process *p, Eterm key, Eterm value, Eterm map) {
 /* maps:update/3 */
 
 BIF_RETTYPE maps_update_3(BIF_ALIST_3) {
-    if (is_map(BIF_ARG_3) || is_hashmap(BIF_ARG_3)) {
+    if (is_flatmap(BIF_ARG_3) || is_hashmap(BIF_ARG_3)) {
 	Eterm res;
 	if (erts_maps_update(BIF_P, BIF_ARG_1, BIF_ARG_2, BIF_ARG_3, &res)) {
 	    BIF_RET(res);
@@ -1666,19 +1666,19 @@ BIF_RETTYPE maps_update_3(BIF_ALIST_3) {
 /* maps:values/1 */
 
 BIF_RETTYPE maps_values_1(BIF_ALIST_1) {
-    if (is_map(BIF_ARG_1)) {
+    if (is_flatmap(BIF_ARG_1)) {
 	Eterm *hp, *vs, res = NIL;
-	map_t *mp;
+	flatmap_t *mp;
 	Uint n;
 
-	mp  = (map_t*)map_val(BIF_ARG_1);
-	n   = map_get_size(mp);
+	mp  = (flatmap_t*)flatmap_val(BIF_ARG_1);
+	n   = flatmap_get_size(mp);
 
 	if (n == 0)
 	    BIF_RET(res);
 
 	hp  = HAlloc(BIF_P, (2 * n));
-	vs  = map_get_values(mp);
+	vs  = flatmap_get_values(mp);
 
 	while(n--) {
 	    res = CONS(hp, vs[n], res); hp += 2;
@@ -2257,7 +2257,7 @@ unroll:
     if (n <= MAP_SMALL_MAP_LIMIT) {
 	DECLARE_WSTACK(wstack);
 	Eterm *kv, *ks, *vs;
-	map_t *mp;
+	flatmap_t *mp;
 	Eterm keys;
 
 	DESTROY_ESTACK(stack);
@@ -2268,7 +2268,7 @@ unroll:
 	*hp++ = make_arityval(n);
 	ks    = hp;
 	hp   += n;
-	mp    = (map_t*)hp;
+	mp    = (flatmap_t*)hp;
 	hp   += MAP_HEADER_SIZE;
 	vs    = hp;
 
@@ -2286,10 +2286,10 @@ unroll:
 	}
 
 	/* it cannot have multiple keys */
-	erts_validate_and_sort_map(mp);
+	erts_validate_and_sort_flatmap(mp);
 
 	DESTROY_WSTACK(wstack);
-	return make_map(mp);
+	return make_flatmap(mp);
     }
 
     hp     = HAlloc(p, size);
@@ -2451,11 +2451,11 @@ not_found:
 }
 
 
-int erts_validate_and_sort_map(map_t* mp)
+int erts_validate_and_sort_flatmap(flatmap_t* mp)
 {
-    Eterm *ks  = map_get_keys(mp);
-    Eterm *vs  = map_get_values(mp);
-    Uint   sz  = map_get_size(mp);
+    Eterm *ks  = flatmap_get_keys(mp);
+    Eterm *vs  = flatmap_get_values(mp);
+    Uint   sz  = flatmap_get_size(mp);
     Uint   ix,jx;
     Eterm  tmp;
     int c;
@@ -2533,8 +2533,8 @@ BIF_RETTYPE erts_debug_map_info_1(BIF_ALIST_1) {
  */
 
 BIF_RETTYPE erts_internal_map_to_tuple_keys_1(BIF_ALIST_1) {
-    if (is_map(BIF_ARG_1)) {
-	map_t *mp = (map_t*)map_val(BIF_ARG_1);
+    if (is_flatmap(BIF_ARG_1)) {
+	flatmap_t *mp = (flatmap_t*)flatmap_val(BIF_ARG_1);
 	BIF_RET(mp->keys);
     }
     BIF_ERROR(BIF_P, BADARG);
