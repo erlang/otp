@@ -231,7 +231,8 @@ typedef enum {
     matchConsA, /* Car is below Cdr */
     matchConsB, /* Cdr is below Car (unusual) */
     matchMkTuple,
-    matchMkMap,
+    matchMkFlatMap,
+    matchMkHashMap,
     matchCall0,
     matchCall1,
     matchCall2,
@@ -1424,6 +1425,63 @@ restart:
                     }
                     break;
                 }
+                if (is_hashmap(t)) {
+                    DECLARE_WSTACK(wstack);
+                    Eterm *kv;
+                    num_iters = hashmap_size(t);
+                    if (!structure_checked) {
+                        DMC_PUSH(text, matchMap);
+                        DMC_PUSH(text, num_iters);
+                    }
+                    structure_checked = 0;
+
+                    hashmap_iterator_init(&wstack, t);
+
+                    while ((kv=hashmap_iterator_next(&wstack)) != NULL) {
+                        Eterm key = CAR(kv);
+                        Eterm value = CDR(kv);
+                        if (db_is_variable(key) >= 0) {
+                            if (context.err_info) {
+                                add_dmc_err(context.err_info,
+                                        "Variable found in map key.",
+                                        -1, 0UL, dmcError);
+                            }
+                            DESTROY_WSTACK(wstack);
+                            goto error;
+                        } else if (key == am_Underscore) {
+                            if (context.err_info) {
+                                add_dmc_err(context.err_info,
+                                        "Underscore found in map key.",
+                                        -1, 0UL, dmcError);
+                            }
+                            DESTROY_WSTACK(wstack);
+                            goto error;
+                        }
+                        DMC_PUSH(text, matchKey);
+                        DMC_PUSH(text, dmc_private_copy(&context, key));
+                        {
+                            int old_stack = ++(context.stack_used);
+                            res = dmc_one_term(&context, &heap, &stack, &text,
+                                               value);
+                            ASSERT(res != retFail);
+                            if (res == retRestart) {
+                                DESTROY_WSTACK(wstack);
+                                goto restart;
+                            }
+                            if (old_stack != context.stack_used) {
+                                ASSERT(old_stack + 1 == context.stack_used);
+                                DMC_PUSH(text, matchSwap);
+                            }
+                            if (context.stack_used > context.stack_need) {
+                                context.stack_need = context.stack_used;
+                            }
+                            DMC_PUSH(text, matchPop);
+                            --(context.stack_used);
+                        }
+                    }
+                    DESTROY_WSTACK(wstack);
+                    break;
+                }
 		if (!is_tuple(t)) {
 		    goto simple_term;
 		}
@@ -1946,23 +2004,37 @@ restart:
 	    ++ep;
 	    break;
         case matchMap:
-            if (!is_map_rel(*ep, base)) {
+            if (!is_map_rel(*ep, base) && !is_hashmap_rel(*ep,base)) {
                 FAIL();
             }
             n = *pc++;
-            if (map_get_size(map_val_rel(*ep, base)) < n) {
-                FAIL();
-            }
+            if (is_map_rel(*ep,base)) {
+		if (map_get_size(map_val_rel(*ep, base)) < n) {
+		    FAIL();
+		}
+            } else {
+		ASSERT(is_hashmap_rel(*ep,base));
+		if (hashmap_size_rel(*ep, base) < n) {
+		    FAIL();
+		}
+	    }
             ep = map_val_rel(*ep, base);
             break;
         case matchPushM:
-            if (!is_map_rel(*ep, base)) {
+            if (!is_map_rel(*ep, base) && !is_hashmap_rel(*ep, base)) {
                 FAIL();
             }
             n = *pc++;
-            if (map_get_size(map_val_rel(*ep, base)) < n) {
-                FAIL();
-            }
+            if (is_map_rel(*ep,base)) {
+		if (map_get_size(map_val_rel(*ep, base)) < n) {
+		    FAIL();
+		}
+	    } else {
+		ASSERT(is_hashmap_rel(*ep,base));
+		if (hashmap_size_rel(*ep, base) < n) {
+		    FAIL();
+		}
+	    }
             *sp++ = map_val_rel(*ep++, base);
             break;
         case matchKey:
@@ -2079,7 +2151,7 @@ restart:
 	    }
 	    *esp++ = t;
 	    break;
-        case matchMkMap:
+        case matchMkFlatMap:
             n = *pc++;
             ehp = HAllocX(build_proc, 1 + MAP_HEADER_SIZE + n, HEAP_XTRA);
             t = *ehp++ = *--esp;
@@ -2093,6 +2165,21 @@ restart:
             ehp += MAP_HEADER_SIZE;
             while (n--) {
                 *ehp++ = *--esp;
+            }
+            *esp++ = t;
+            break;
+        case matchMkHashMap:
+            n = *pc++;
+            esp -= 2*n;
+            ehp = HAllocX(build_proc, 2*n, HEAP_XTRA);
+            {
+                ErtsHeapFactory factory;
+                Uint ix;
+                factory.p = build_proc;
+                for (ix = 0; ix < 2*n; ix++){
+                    ehp[ix] = esp[ix];
+                }
+                t = erts_hashmap_from_array(&factory, ehp, n, 0);
             }
             *esp++ = t;
             break;
@@ -3366,7 +3453,6 @@ static DMCRet dmc_one_term(DMCContext *context,
     Uint sz, sz2, sz3;
     Uint i, j;
 
-
     switch (c & _TAG_PRIMARY_MASK) {
     case TAG_PRIMARY_IMMED1:
 	if ((n = db_is_variable(c)) >= 0) { /* variable */
@@ -3455,6 +3541,13 @@ static DMCRet dmc_one_term(DMCContext *context,
 	    break;
         case (_TAG_HEADER_MAP >> _TAG_PRIMARY_SIZE):
             n = map_get_size(map_val(c));
+            DMC_PUSH(*text, matchPushM);
+            ++(context->stack_used);
+            DMC_PUSH(*text, n);
+            DMC_PUSH(*stack, c);
+            break;
+        case (_TAG_HEADER_HASHMAP >> _TAG_PRIMARY_SIZE):
+            n = hashmap_size(c);
             DMC_PUSH(*text, matchPushM);
             ++(context->stack_used);
             DMC_PUSH(*text, n);
@@ -3745,30 +3838,87 @@ static DMCRet
 dmc_map(DMCContext *context, DMCHeap *heap, DMC_STACK_TYPE(UWord) *text,
         Eterm t, int *constant)
 {
-    map_t *m = (map_t *)map_val(t);
-    Eterm *values = map_get_values(m);
-    int nelems = map_get_size(m);
+    int nelems;
     int constant_values;
     DMCRet ret;
+    if (is_map(t)) {
+        map_t *m = (map_t *)map_val(t);
+        Eterm *values = map_get_values(m);
 
-    ret = dmc_array(context, heap, text, values, nelems, &constant_values);
-    if (ret != retOk) {
-        return ret;
-    }
-    if (constant_values) {
-        *constant = 1;
+        nelems = map_get_size(m);
+        ret = dmc_array(context, heap, text, values, nelems, &constant_values);
+
+        if (ret != retOk) {
+            return ret;
+        }
+        if (constant_values) {
+            *constant = 1;
+            return retOk;
+        }
+        DMC_PUSH(*text, matchPushC);
+        DMC_PUSH(*text, dmc_private_copy(context, m->keys));
+        if (++context->stack_used > context->stack_need) {
+            context->stack_need = context->stack_used;
+        }
+        DMC_PUSH(*text, matchMkFlatMap);
+        DMC_PUSH(*text, nelems);
+        context->stack_used -= nelems;
+        *constant = 0;
+        return retOk;
+    } else {
+        DECLARE_WSTACK(wstack);
+        Eterm *kv;
+        int c;
+
+        ASSERT(is_hashmap(t));
+
+        hashmap_iterator_init(&wstack, t);
+        constant_values = 1;
+        nelems = hashmap_size(t);
+
+        while ((kv=hashmap_iterator_prev(&wstack)) != NULL) {
+            if ((ret = dmc_expr(context, heap, text, CDR(kv), &c)) != retOk) {
+                DESTROY_WSTACK(wstack);
+                return ret;
+            }
+            if (!c)
+                constant_values = 0;
+        }
+
+        if (constant_values) {
+            *constant = 1;
+            DESTROY_WSTACK(wstack);
+            return retOk;
+        }
+
+        *constant = 0;
+
+        hashmap_iterator_init(&wstack, t);
+
+        while ((kv=hashmap_iterator_prev(&wstack)) != NULL) {
+            /* push key */
+            if ((ret = dmc_expr(context, heap, text, CAR(kv), &c)) != retOk) {
+                DESTROY_WSTACK(wstack);
+                return ret;
+            }
+            if (c) {
+                do_emit_constant(context, text, CAR(kv));
+            }
+            /* push value */
+            if ((ret = dmc_expr(context, heap, text, CDR(kv), &c)) != retOk) {
+                DESTROY_WSTACK(wstack);
+                return ret;
+            }
+            if (c) {
+                do_emit_constant(context, text, CDR(kv));
+            }
+        }
+        DMC_PUSH(*text, matchMkHashMap);
+        DMC_PUSH(*text, nelems);
+        context->stack_used -= nelems;
+        DESTROY_WSTACK(wstack);
         return retOk;
     }
-    DMC_PUSH(*text, matchPushC);
-    DMC_PUSH(*text, dmc_private_copy(context, m->keys));
-    if (++context->stack_used > context->stack_need) {
-        context->stack_need = context->stack_used;
-    }
-    DMC_PUSH(*text, matchMkMap);
-    DMC_PUSH(*text, nelems);
-    context->stack_used -= nelems;
-    *constant = 0;
-    return retOk;
 }
 
 static DMCRet dmc_whole_expression(DMCContext *context,
@@ -4765,7 +4915,7 @@ static DMCRet dmc_expr(DMCContext *context,
 	    return ret;
 	break;
     case TAG_PRIMARY_BOXED:
-        if (is_map(t)) {
+        if (is_map(t) || is_hashmap(t)) {
             return dmc_map(context, heap, text, t, constant);
         }
 	if (!is_tuple(t)) {
@@ -5462,11 +5612,17 @@ void db_match_dis(Binary *bp)
 	    ++t;
 	    erts_printf("MkTuple\t%beu\n", n);
 	    break;
-        case matchMkMap:
+        case matchMkFlatMap:
             ++t;
             n = *t;
             ++t;
-            erts_printf("MkMapA\t%beu\n", n);
+            erts_printf("MkFlatMap\t%beu\n", n);
+            break;
+        case matchMkHashMap:
+            ++t;
+            n = *t;
+            ++t;
+            erts_printf("MkHashMap\t%beu\n", n);
             break;
 	case matchOr:
 	    ++t;
