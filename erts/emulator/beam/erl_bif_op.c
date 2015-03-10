@@ -324,7 +324,7 @@ BIF_RETTYPE is_record_3(BIF_ALIST_3)
 	
 BIF_RETTYPE is_map_1(BIF_ALIST_1)
 {
-    if (is_flatmap(BIF_ARG_1) || is_hashmap(BIF_ARG_1)) {
+    if (is_map(BIF_ARG_1)) {
 	BIF_RET(am_true);
     }
     BIF_RET(am_false);

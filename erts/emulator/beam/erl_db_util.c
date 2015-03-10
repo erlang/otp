@@ -2004,7 +2004,7 @@ restart:
 	    ++ep;
 	    break;
         case matchMap:
-            if (!is_flatmap_rel(*ep, base) && !is_hashmap_rel(*ep,base)) {
+            if (!is_map_rel(*ep, base)) {
                 FAIL();
             }
             n = *pc++;
@@ -2021,7 +2021,7 @@ restart:
             ep = flatmap_val_rel(*ep, base);
             break;
         case matchPushM:
-            if (!is_flatmap_rel(*ep, base) && !is_hashmap_rel(*ep, base)) {
+            if (!is_map_rel(*ep, base)) {
                 FAIL();
             }
             n = *pc++;
@@ -4915,7 +4915,7 @@ static DMCRet dmc_expr(DMCContext *context,
 	    return ret;
 	break;
     case TAG_PRIMARY_BOXED:
-        if (is_flatmap(t) || is_hashmap(t)) {
+        if (is_map(t)) {
             return dmc_map(context, heap, text, t, constant);
         }
 	if (!is_tuple(t)) {

@@ -1019,6 +1019,9 @@ _ET_DECLARE_CHECKED(struct erl_node_*,external_ref_node,Eterm)
 #define hashmap_val(x)		_unchecked_boxed_val((x))
 #define hashmap_val_rel(RTERM, BASE) hashmap_val(rterm2wterm(RTERM, BASE))
 
+#define is_map(x)            (is_flatmap(x) || is_hashmap(x))
+#define is_map_rel(x,BASE)   (is_flatmap_rel(x,BASE) || is_hashmap_rel(x,BASE))
+
 /* number tests */
 
 #define is_integer(x)		(is_small(x) || is_big(x))

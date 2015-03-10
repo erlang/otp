@@ -202,7 +202,7 @@ erts_maps_get(Eterm key, Eterm map)
 }
 
 BIF_RETTYPE maps_find_2(BIF_ALIST_2) {
-    if (is_flatmap(BIF_ARG_2) || is_hashmap(BIF_ARG_2)) {
+    if (is_map(BIF_ARG_2)) {
         Eterm *hp, res;
         const Eterm *value;
 
@@ -226,7 +226,7 @@ BIF_RETTYPE maps_find_2(BIF_ALIST_2) {
  */
 
 BIF_RETTYPE maps_get_2(BIF_ALIST_2) {
-    if (is_flatmap(BIF_ARG_2) || is_hashmap(BIF_ARG_2)) {
+    if (is_map(BIF_ARG_2)) {
 	Eterm *hp;
         Eterm error;
         const Eterm *value;
@@ -877,7 +877,7 @@ static int hxnodecmp(hxnode_t *a, hxnode_t *b) {
 /* maps:is_key/2 */
 
 BIF_RETTYPE maps_is_key_2(BIF_ALIST_2) {
-    if (is_flatmap(BIF_ARG_2) || is_hashmap(BIF_ARG_2)) {
+    if (is_map(BIF_ARG_2)) {
 	BIF_RET(erts_maps_get(BIF_ARG_1, BIF_ARG_2) ? am_true : am_false);
     }
     BIF_ERROR(BIF_P, BADARG);
@@ -1360,7 +1360,7 @@ BIF_RETTYPE maps_new_0(BIF_ALIST_0) {
 /* maps:put/3 */
 
 BIF_RETTYPE maps_put_3(BIF_ALIST_3) {
-    if (is_flatmap(BIF_ARG_3) || is_hashmap(BIF_ARG_3)) {
+    if (is_map(BIF_ARG_3)) {
 	BIF_RET(erts_maps_put(BIF_P, BIF_ARG_1, BIF_ARG_2, BIF_ARG_3));
     }
     BIF_ERROR(BIF_P, BADARG);
@@ -1451,7 +1451,7 @@ found_key:
 }
 
 BIF_RETTYPE maps_remove_2(BIF_ALIST_2) {
-    if (is_flatmap(BIF_ARG_2) || is_hashmap(BIF_ARG_2)) {
+    if (is_map(BIF_ARG_2)) {
 	Eterm res;
 	if (erts_maps_remove(BIF_P, BIF_ARG_1, BIF_ARG_2, &res)) {
 	    BIF_RET(res);
@@ -1653,7 +1653,7 @@ Eterm erts_maps_put(Process *p, Eterm key, Eterm value, Eterm map) {
 /* maps:update/3 */
 
 BIF_RETTYPE maps_update_3(BIF_ALIST_3) {
-    if (is_flatmap(BIF_ARG_3) || is_hashmap(BIF_ARG_3)) {
+    if (is_map(BIF_ARG_3)) {
 	Eterm res;
 	if (erts_maps_update(BIF_P, BIF_ARG_1, BIF_ARG_2, BIF_ARG_3, &res)) {
 	    BIF_RET(res);
