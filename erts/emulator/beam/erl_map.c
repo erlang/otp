@@ -1758,6 +1758,51 @@ Eterm* hashmap_iterator_next(ErtsWStack* s) {
     }
 }
 
+Eterm* hashmap_iterator_prev(ErtsWStack* s) {
+    Eterm node, *ptr, hdr;
+    Uint32 sz,i;
+
+    for (;;) {
+        ASSERT(!WSTACK_ISEMPTY((*s)));
+	node = (Eterm) WSTACK_POP((*s));
+        if (is_non_value(node)) {
+            return NULL;
+        }
+        switch (primary_tag(node)) {
+        case TAG_PRIMARY_LIST:
+            return list_val(node);
+
+        case TAG_PRIMARY_BOXED:
+            ptr = boxed_val(node);
+            hdr = *ptr;
+            ASSERT(is_header(hdr));
+            switch(hdr & _HEADER_MAP_SUBTAG_MASK) {
+            case HAMT_SUBTAG_HEAD_ARRAY:
+                ptr++;
+            case HAMT_SUBTAG_NODE_ARRAY:
+                ptr++;
+                i = 0;
+                while(i < 16) { WSTACK_PUSH((*s), (UWord)ptr[i++]); }
+                break;
+            case HAMT_SUBTAG_HEAD_BITMAP:
+                ptr++;
+            case HAMT_SUBTAG_NODE_BITMAP:
+                sz = hashmap_bitcount(MAP_HEADER_VAL(hdr));
+                ASSERT(sz < 17);
+		i = 0;
+                ptr++;
+                while(i < sz) { WSTACK_PUSH((*s), (UWord)ptr[i++]); }
+                break;
+            default:
+                erl_exit(1, "bad header");
+            }
+            break;
+
+        default:
+            erl_exit(1, "bad hamt node");
+	}
+    }
+}
 const Eterm *erts_hashmap_get(Uint32 hx, Eterm key, Eterm node) {
     Eterm *ptr, hdr;
     Eterm th[2];
