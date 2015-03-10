@@ -82,8 +82,7 @@ client_hello(Host, Port, ConnectionStates,
 	    boolean()) ->
 		   {tls_record:tls_version(), session_id(), #connection_states{}, binary() | undefined}|
 		   {tls_record:tls_version(), {resumed | new, #session{}}, #connection_states{},
-		    [binary()] | undefined,
-		    [ssl_handshake:oid()] | undefined, [ssl_handshake:oid()] | undefined} |
+		   #hello_extensions{}} |
 		   #alert{}.
 %%
 %% Description: Handles a recieved hello message

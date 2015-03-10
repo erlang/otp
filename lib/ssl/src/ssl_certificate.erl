@@ -84,7 +84,7 @@ trusted_cert_and_path(CertChain, CertDbHandle, CertDbRef, PartialChainHandler) -
     end.
 
 %%--------------------------------------------------------------------
--spec certificate_chain(undefined | binary(), db_handle(), certdb_ref()) ->
+-spec certificate_chain(undefined | binary() | #'OTPCertificate'{} , db_handle(), certdb_ref()) ->
 			  {error, no_cert} | {ok, #'OTPCertificate'{} | undefined, [der_cert()]}.
 %%
 %% Description: Return the certificate chain to send to peer.

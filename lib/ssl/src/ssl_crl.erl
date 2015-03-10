@@ -73,8 +73,6 @@ verify_crl_issuer(CRL, ErlCertCandidate, Issuer, NotIssuer) ->
 		true ->
 		    throw({ok, ErlCertCandidate});
 		false ->
-		    NotIssuer;
-		_ ->
 		    NotIssuer
 	    end;
 	_ ->
