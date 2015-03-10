@@ -352,6 +352,17 @@ int erts_fit_in_bits_int32(Sint32 value)
     return fit_in_bits((Sint64) (Uint32) value, 4);
 }
 
+int erts_fit_in_bits_uint(Uint value)
+{
+#if ERTS_SIZEOF_ETERM == 4
+    return fit_in_bits((Sint64) (Uint32) value, 4);
+#elif ERTS_SIZEOF_ETERM == 8
+    return fit_in_bits(value, 5);
+#else
+# error "No way, Jose"
+#endif
+}
+
 int
 erts_print(int to, void *arg, char *format, ...)
 {

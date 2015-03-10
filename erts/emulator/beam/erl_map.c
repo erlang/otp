@@ -2437,6 +2437,43 @@ int erts_validate_and_sort_map(map_t* mp)
     return 1;
 }
 
+/* Really rough estimate of sqrt(x)
+ * Guaranteed not to be less than sqrt(x)
+ */
+static int int_sqrt_ceiling(Uint x)
+{
+    int n;
+
+    if (x <= 2)
+	return x;
+
+    n = erts_fit_in_bits_uint(x-1);
+    if (n & 1) {
+	/* Calc: sqrt(2^n) = 2^(n/2) * sqrt(2) ~= 2^(n/2) * 3 / 2 */
+	return (1 << (n/2 - 1)) * 3;
+    }
+    else {
+	/* Calc: sqrt(2^n) = 2^(n/2) */
+	return 1 << (n / 2);
+    }
+}
+
+Uint hashmap_over_estimated_heap_size(Uint n)
+{
+    /* n is nr of key-value pairs.
+       Average nr of nodes is about n/3.
+       Standard deviation is about sqrt(n)/3.
+       Assuming normal probability distribution,
+       we overestimate nr of nodes by 14 std.devs, which gives a probability
+       for overrun of 1.0e-49 (same magnitude as a git SHA1 collision).
+     */
+    Uint nodes = (n + int_sqrt_ceiling(n)*14) / 3;
+    return (n*2 +     /* leaf cons cells */
+	    n +       /* leaf list terms */
+	    nodes*2); /* headers + parent refs */
+}
+
+
 BIF_RETTYPE erts_debug_map_info_1(BIF_ALIST_1) {
     if (is_hashmap(BIF_ARG_1)) {
 	BIF_RET(hashmap_info(BIF_P,BIF_ARG_1));

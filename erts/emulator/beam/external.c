@@ -2945,13 +2945,11 @@ struct dec_term_hamt_placeholder
     struct dec_term_hamt_placeholder* next;
     Eterm* objp; /* write result here */
     Uint size;   /* nr of leafs */
-    Eterm* leaf_array;
-
-    Eterm _heap_capacity_[1];
+    Eterm leafs[1];
 };
 
-#define DEC_TERM_HAMT_PLACEHOLDER_SIZE(SZ) \
-    (offsetof(struct dec_term_hamt_placeholder, _heap_capacity_) + (SZ))
+#define DEC_TERM_HAMT_PLACEHOLDER_SIZE \
+    (offsetof(struct dec_term_hamt_placeholder, leafs) / sizeof(Eterm))
 
 /* Decode term from external format into *objp.
 ** On failure return NULL and *hpp will be unchanged.
@@ -3646,8 +3644,7 @@ dec_term_atom_common:
                     holder->objp = objp;
                     holder->size = size;
 
-                    hp += DEC_TERM_HAMT_PLACEHOLDER_SIZE(size);
-                    holder->leaf_array = hp;
+                    hp += DEC_TERM_HAMT_PLACEHOLDER_SIZE;
 
                     for (n = size; n; n--) {
                         CDR(hp) = (Eterm) COMPRESS_POINTER(next);
@@ -3899,30 +3896,33 @@ dec_term_atom_common:
 	maps_list  = next;
     }
 
-    while (hamt_list) {
-        ErtsHeapFactory factory;
-        int residue;
+    /* Iterate through all the hamts and build tree nodes.
+     */
+    if (hamt_list) {
+        struct dec_term_hamt_placeholder* hamt = hamt_list;
+	ErtsHeapFactory factory;
 
-        factory.p = NULL;
-        factory.hp = (Eterm*) hamt_list;
-        factory.hp_end = hamt_list->leaf_array;
+	factory.p = NULL;
+        factory.hp = hp;
+	/* We assume heap will suffice (see hashmap_over_estimated_heap_size) */
+        factory.hp_end = hp + (ERTS_SWORD_MAX / sizeof(Eterm));
 
-        next  = (Eterm *) hamt_list->next;
-        objp = hamt_list->objp;
+        do {
+	    *hamt->objp = erts_hashmap_from_array(&factory,
+						  hamt->leafs,
+						  hamt->size,
+						  1);
+	    if (is_non_value(*hamt->objp))
+		goto error;
 
-        *objp = erts_hashmap_from_array(&factory,
-                                        hamt_list->leaf_array,
-                                        hamt_list->size,
-                                        1);
-        if (is_non_value(*objp))
-            goto error;
+	    hamt_list = hamt->next;
 
-        residue = factory.hp_end - factory.hp;
-        if (residue) {
-            ASSERT(residue > 0);
-            *factory.hp = make_pos_bignum_header(residue-1);
-        }
-        hamt_list = (struct dec_term_hamt_placeholder*) next;
+	    /* Yes, we waste a couple of heap words per hamt
+	       for the temporary placeholder */
+	    *(Eterm*)hamt = make_pos_bignum_header(DEC_TERM_HAMT_PLACEHOLDER_SIZE-1);
+        } while (hamt_list);
+
+	hp = factory.hp;
     }
 
     if (ctx) {
@@ -4292,6 +4292,8 @@ encode_size_struct_int(TTBSizeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj,
     return 0;
 }
 
+
+
 static Sint
 decoded_size(byte *ep, byte* endp, int internal_tags, B2TContext* ctx)
 {
@@ -4488,7 +4490,7 @@ init_done:
             if (n <= MAP_SMALL_MAP_LIMIT) {
                 heap_size += 3 + n + 1 + n;
             } else {
-                heap_size += DEC_TERM_HAMT_PLACEHOLDER_SIZE(n) + 2*n;
+                heap_size += hashmap_over_estimated_heap_size(n);
             }
 	    break;
 	case STRING_EXT:
