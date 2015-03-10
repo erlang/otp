@@ -888,7 +888,7 @@ find_doc_dirs([]) ->
 %% implies that we use the default app-path.
 
 %% NEW-OPTIONS: doc_path
-%% DEFER-OPTIONS: get_doc_env/4
+%% DEFER-OPTIONS: get_doc_env/3
 
 get_doc_links(App, Modules, Opts) ->
     Path = proplists:append_values(doc_path, Opts) ++ find_doc_dirs(),
@@ -924,7 +924,7 @@ add_new(K, V, D) ->
     end.
 
 %% @spec (Options::proplist()) -> edoc_env()
-%% @equiv get_doc_env([], [], [], Opts)
+%% @equiv get_doc_env([], [], Opts)
 %% @private
 
 get_doc_env(Opts) ->
@@ -940,7 +940,7 @@ get_doc_env(Opts) ->
 %% generating references. The data representation is not documented.
 %%
 %% @doc Creates an environment data structure used by parts of EDoc for
-%% generating references, etc. See {@link edoc:run/3} for a description
+%% generating references, etc. See {@link edoc:run/2} for a description
 %% of the options `file_suffix', `app_default' and `doc_path'.
 %%
 %% @see edoc_extract:source/4
@@ -948,7 +948,7 @@ get_doc_env(Opts) ->
 
 %% NEW-OPTIONS: file_suffix, app_default
 %% INHERIT-OPTIONS: get_doc_links/4
-%% DEFER-OPTIONS: edoc:run/3
+%% DEFER-OPTIONS: edoc:run/2
 
 get_doc_env(App, Modules, Opts) ->
     Suffix = proplists:get_value(file_suffix, Opts,
@@ -967,10 +967,10 @@ get_doc_env(App, Modules, Opts) ->
 %% ---------------------------------------------------------------------
 %% Plug-in modules
 
-%% @doc See {@link edoc:run/3} for a description of the `doclet' option.
+%% @doc See {@link edoc:run/2} for a description of the `doclet' option.
 
 %% NEW-OPTIONS: doclet
-%% DEFER-OPTIONS: edoc:run/3
+%% DEFER-OPTIONS: edoc:run/2
 
 %% @private
 run_doclet(Fun, Opts) ->
