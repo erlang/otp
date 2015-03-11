@@ -3181,8 +3181,8 @@ tailrecur_ne:
                 */
 
                     sp = PSTACK_PUSH(hmap_stack);
-                    hashmap_iterator_init(&stack, a);
-                    hashmap_iterator_init(&b_stack, b);
+                    hashmap_iterator_init(&stack, a, 0);
+                    hashmap_iterator_init(&b_stack, b, 0);
                     sp->ap = hashmap_iterator_next(&stack);
                     sp->bp = hashmap_iterator_next(&b_stack);
                     sp->cmp_res = 0;

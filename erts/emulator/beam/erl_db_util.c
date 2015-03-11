@@ -1435,7 +1435,7 @@ restart:
                     }
                     structure_checked = 0;
 
-                    hashmap_iterator_init(&wstack, t);
+                    hashmap_iterator_init(&wstack, t, 0);
 
                     while ((kv=hashmap_iterator_next(&wstack)) != NULL) {
                         Eterm key = CAR(kv);
@@ -3872,7 +3872,7 @@ dmc_map(DMCContext *context, DMCHeap *heap, DMC_STACK_TYPE(UWord) *text,
 
         ASSERT(is_hashmap(t));
 
-        hashmap_iterator_init(&wstack, t);
+        hashmap_iterator_init(&wstack, t, 1);
         constant_values = 1;
         nelems = hashmap_size(t);
 
@@ -3893,7 +3893,7 @@ dmc_map(DMCContext *context, DMCHeap *heap, DMC_STACK_TYPE(UWord) *text,
 
         *constant = 0;
 
-        hashmap_iterator_init(&wstack, t);
+        hashmap_iterator_init(&wstack, t, 1);
 
         while ((kv=hashmap_iterator_prev(&wstack)) != NULL) {
             /* push key */
