@@ -141,12 +141,13 @@ tc3() ->
     [{timetrap,{seconds,2}}].
 
 tc3(_) ->
-    T0 = now(),
+    T0 = erlang:monotonic_time(),
     ct:timetrap(infinity),
     N = list_to_integer(ct:get_config(multiply)),
     ct:comment(io_lib:format("Sleeping for ~w sec...", [4*N])),
     ct:sleep(4000),
-    Diff = timer:now_diff(now(), T0),
+    T1 = erlang:monotonic_time(),
+    Diff = erlang:convert_time_unit(T1-T0, native, micro_seconds),
     if ((Diff < (N*4000000)) or (Diff > (N*4500000))) ->
 	    exit(not_expected);
        true ->
