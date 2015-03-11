@@ -320,7 +320,9 @@ read_during_down(Op, Config) when is_list(Config) ->
     ?log("W2R ~p~n", [W2R]),
     loop_and_kill_mnesia(10, hd(W2R), Tabs),
     [Pid ! self() || Pid <- Readers],
-    ?match([ok, ok, ok], [receive ok -> ok after 1000 -> {Pid, mnesia_lib:dist_coredump()} end || Pid <- Readers]),
+    ?match([ok, ok, ok],
+	   [receive ok -> ok after 5000 -> {Pid, mnesia_lib:dist_coredump()} end
+	    || Pid <- Readers]),
     ?verify_mnesia(Ns, []).
 
 reader(Tab, OP) ->
@@ -338,8 +340,12 @@ reader(Tab, OP) ->
 	    ?error("Expected ~p Got ~p ~n", [[{Tab, key, val}], Else]),
 	    erlang:error(test_failed)
     end,
-    receive Pid ->
-	    Pid ! ok
+    receive
+	Pid when is_pid(Pid) ->
+	    Pid ! ok;
+	Other ->
+	    io:format("Msg: ~p~n", [Other]),
+	    error(Other)
     after 50 ->
 	    reader(Tab, OP)
     end.
@@ -1537,6 +1543,7 @@ disc_less(Config) when is_list(Config) ->
     timer:sleep(500),
     ?match(ok, rpc:call(Node3, mnesia, start, [[{extra_db_nodes, [Node1, Node2]}]])),
     ?match(ok, rpc:call(Node3, mnesia, wait_for_tables, [[Tab1, Tab2, Tab3], 20000])),
+    ?match(ok, rpc:call(Node1, mnesia, wait_for_tables, [[Tab1, Tab2, Tab3], 20000])),
 
     ?match(ok, rpc:call(Node3, ?MODULE, verify_data, [Tab1, 100])),
     ?match(ok, rpc:call(Node3, ?MODULE, verify_data, [Tab2, 100])),
