@@ -2540,6 +2540,81 @@ BIF_RETTYPE erts_internal_map_to_tuple_keys_1(BIF_ALIST_1) {
     BIF_ERROR(BIF_P, BADARG);
 }
 
+/*
+ * erts_internal:map_type/1
+ *
+ * Used in erts_debug:size/1
+ */
+
+BIF_RETTYPE erts_internal_map_type_1(BIF_ALIST_1) {
+    DECL_AM(hashmap);
+    DECL_AM(hashmap_node);
+    DECL_AM(flatmap);
+    if (is_flatmap(BIF_ARG_1)) {
+	BIF_RET(AM_flatmap);
+    } else if (is_hashmap(BIF_ARG_1)) {
+        Eterm hdr = *(boxed_val(BIF_ARG_1));
+        ASSERT(is_header(hdr));
+        switch (hdr & _HEADER_MAP_SUBTAG_MASK) {
+            case HAMT_SUBTAG_HEAD_ARRAY:
+            case HAMT_SUBTAG_HEAD_BITMAP:
+                BIF_RET(AM_hashmap);
+            case HAMT_SUBTAG_NODE_ARRAY:
+            case HAMT_SUBTAG_NODE_BITMAP:
+                BIF_RET(AM_hashmap_node);
+            default:
+                erl_exit(1, "bad header");
+        }
+    }
+    BIF_ERROR(BIF_P, BADARG);
+}
+
+/*
+ * erts_internal:map_hashmap_children/1
+ *
+ * Used in erts_debug:size/1
+ */
+
+BIF_RETTYPE erts_internal_map_hashmap_children_1(BIF_ALIST_1) {
+    if (is_hashmap(BIF_ARG_1)) {
+        Eterm node = BIF_ARG_1;
+        Eterm *ptr, hdr, *hp, res = NIL;
+        Uint  sz = 0;
+        ptr = boxed_val(node);
+        hdr = *ptr;
+
+        ASSERT(is_header(hdr));
+
+        switch(hdr & _HEADER_MAP_SUBTAG_MASK) {
+            case HAMT_SUBTAG_NODE_ARRAY:
+                sz   = 16;
+                ptr += 1;
+                break;
+            case HAMT_SUBTAG_NODE_BITMAP:
+                sz   = hashmap_bitcount(MAP_HEADER_VAL(hdr));
+                ptr += 1;
+                break;
+            case HAMT_SUBTAG_HEAD_BITMAP:
+                sz   = hashmap_bitcount(MAP_HEADER_VAL(hdr));
+                ptr += 2;
+                break;
+            case HAMT_SUBTAG_HEAD_ARRAY:
+                sz   = 16;
+                ptr += 2;
+                break;
+            default:
+                erl_exit(1, "bad header\r\n");
+                break;
+        }
+        ASSERT(sz < 17);
+        hp = HAlloc(BIF_P, 2*sz);
+        while(sz--) { res = CONS(hp, *ptr++, res); hp += 2; }
+        BIF_RET(res);
+    }
+    BIF_ERROR(BIF_P, BADARG);
+}
+
+
 static Eterm hashmap_info(Process *p, Eterm node) {
     Eterm *hp;
     Eterm res = NIL, info = NIL;
