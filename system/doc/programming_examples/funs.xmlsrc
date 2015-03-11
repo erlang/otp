@@ -190,7 +190,7 @@ print_list(File, List) ->
       the following diagnostic:</p>
     <code type="none">
 ./FileName.erl:Line: Warning: variable 'File' 
-      shadowed in 'lambda head'</code>
+      shadowed in 'fun'</code>
     <p>This indicates that the variable <c>File</c>, which is defined
       inside the fun, collides with the variable <c>File</c>, which is
       defined outside the fun.</p>
