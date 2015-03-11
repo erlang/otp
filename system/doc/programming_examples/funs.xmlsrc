@@ -127,7 +127,7 @@ F = fun FunctionName/Arity</code>
     <p>It is also possible to refer to a function defined in a different module,
       with the following syntax:</p>
     <code type="none">
-F = {Module, FunctionName}</code>
+F = fun Module:FunctionName/Arity</code>
     <p>In this case, the function must be exported from the module in
       question.</p>
     <p>The following program illustrates the different ways of creating
