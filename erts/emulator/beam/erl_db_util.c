@@ -214,8 +214,8 @@ typedef enum {
     matchPushT,
     matchPushL,
     matchPushM,
-    matchPushK,
     matchPop,
+    matchSwap,
     matchBind,
     matchCmp,
     matchEqBin,
@@ -225,6 +225,7 @@ typedef enum {
     matchEq,
     matchList,
     matchMap,
+    matchKey,
     matchSkip,
     matchPushC,
     matchConsA, /* Car is below Cdr */
@@ -1399,22 +1400,26 @@ restart:
                             }
                             goto error;
                         }
-                        DMC_PUSH(text, matchPushK);
-                        ++(context.stack_used);
+                        DMC_PUSH(text, matchKey);
                         DMC_PUSH(text, dmc_private_copy(&context, key));
-                    }
-                    if (context.stack_used > context.stack_need) {
-                        context.stack_need = context.stack_used;
-                    }
-                    for (i = num_iters; i--; ) {
-                        Eterm value = map_get_values(map_val(t))[i];
-                        DMC_PUSH(text, matchPop);
-                        --(context.stack_used);
-                        res = dmc_one_term(&context, &heap, &stack, &text,
-                                           value);
-                        ASSERT(res != retFail);
-                        if (res == retRestart) {
-                            goto restart;
+                        {
+                            int old_stack = ++(context.stack_used);
+                            Eterm value = map_get_values(map_val(t))[i];
+                            res = dmc_one_term(&context, &heap, &stack, &text,
+                                               value);
+                            ASSERT(res != retFail);
+                            if (res == retRestart) {
+                                goto restart;
+                            }
+                            if (old_stack != context.stack_used) {
+                                ASSERT(old_stack + 1 == context.stack_used);
+                                DMC_PUSH(text, matchSwap);
+                            }
+                            if (context.stack_used > context.stack_need) {
+                                context.stack_need = context.stack_used;
+                            }
+                            DMC_PUSH(text, matchPop);
+                            --(context.stack_used);
                         }
                     }
                     break;
@@ -1960,17 +1965,23 @@ restart:
             }
             *sp++ = map_val_rel(*ep++, base);
             break;
-        case matchPushK:
+        case matchKey:
             t = (Eterm) *pc++;
             tp = erts_maps_get_rel(t, make_map_rel(ep, base), base);
             if (!tp) {
                 FAIL();
             }
-            *sp++ = tp;
+            *sp++ = ep;
+            ep = tp;
             break;
 	case matchPop:
 	    ep = *(--sp);
 	    break;
+        case matchSwap:
+            tp = sp[-1];
+            sp[-1] = sp[-2];
+            sp[-2] = tp;
+            break;
 	case matchBind:
 	    n = *pc++;
 	    variables[n].term = *ep++;
@@ -5302,6 +5313,12 @@ void db_match_dis(Binary *bp)
             ++t;
             erts_printf("Map\t%beu\n", n);
             break;
+        case matchKey:
+            ++t;
+            p = (Eterm) *t;
+            ++t;
+            erts_printf("Key\t%p (%T)\n", t, p);
+            break;
 	case matchPushT:
 	    ++t;
 	    n = *t;
@@ -5318,16 +5335,14 @@ void db_match_dis(Binary *bp)
             ++t;
             erts_printf("PushM\t%beu\n", n);
             break;
-        case matchPushK:
-            ++t;
-            p = (Eterm) *t;
-            ++t;
-            erts_printf("PushK\t%p (%T)\n", t, p);
-            break;
 	case matchPop:
 	    ++t;
 	    erts_printf("Pop\n");
 	    break;
+        case matchSwap:
+            ++t;
+            erts_printf("Swap\n");
+            break;
 	case matchBind:
 	    ++t;
 	    n = *t;
