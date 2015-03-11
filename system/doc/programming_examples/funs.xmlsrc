@@ -149,10 +149,6 @@ f(N, _) when is_integer(N) ->
       <c>erlang:fun_to_list/1</c> returns a textual representation of a fun.
       The <c>check_process_code/2</c> BIF returns <c>true</c> if the process
       contains funs that depend on the old version of a module.</p>
-    <note>
-      <p>In OTP R5 and earlier releases, funs were represented using
-        tuples.</p>
-    </note>
   </section>
 
   <section>
