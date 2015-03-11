@@ -3779,6 +3779,7 @@ match_object_do(Opts) ->
     ?line ets:insert(Tab,{{one,5},5}),
     ?line ets:insert(Tab,{{two,4},4}),
     ?line ets:insert(Tab,{{two,5},6}),
+    ?line ets:insert(Tab, {#{camembert=>cabécou},7}),
     ?line case ets:match_object(Tab, {{one, '_'}, '$0'}) of
 	[{{one,5},5},{{one,4},4}] -> ok;
 	[{{one,4},4},{{one,5},5}] -> ok;
@@ -3799,6 +3800,10 @@ match_object_do(Opts) ->
 	[{{two,4},4},{{two,5},6}] -> ok;
 	_ -> ?t:fail("ets:match_object() returned something funny.")
     end,
+    % Check that maps are inspected for variables.
+    [{#{camembert:=cabécou},7}] =
+        ets:match_object(Tab, {#{camembert=>'_'},7}),
+    {'EXIT',{badarg,_}} = (catch ets:match_object(Tab, {#{'$1'=>'_'},7})),
     % Check that unsucessful match returns an empty list.
     ?line [] = ets:match_object(Tab, {{three,'$0'}, '$92'}),
     % Check that '$0' equals '_'.

@@ -3286,7 +3286,14 @@ int db_has_variable(Eterm node) {
 		while(arity--) {
 		    ESTACK_PUSH(s,*(++tuple));
 		}
-	    }
+            } else if (is_map(node)) {
+                Eterm *values = map_get_values(map_val(node));
+                int size = map_get_size(map_val(node));
+                ESTACK_PUSH(s, ((map_t *) map_val(node))->keys);
+                while (size--) {
+                    ESTACK_PUSH(s, *(values++));
+                }
+            }
 	    break;
 	case TAG_PRIMARY_IMMED1:
 	    if (node == am_Underscore || db_is_variable(node) >= 0) {
