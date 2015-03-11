@@ -542,6 +542,20 @@ void erl_grow_wstack(ErtsWStack*, Uint need);
     }
 #define DECLARE_WSTACK WSTACK_DECLARE
 
+typedef struct ErtsDynamicWStack_ {
+    UWord default_stack[DEF_WSTACK_SIZE];
+    ErtsWStack ws;
+}ErtsDynamicWStack;
+
+#define WSTACK_INIT(dwsp, ALC_TYPE)                               \
+do {	 	                                                  \
+    (dwsp)->ws.wstart   = (dwsp)->default_stack;                  \
+    (dwsp)->ws.wsp      = (dwsp)->default_stack;                  \
+    (dwsp)->ws.wend     = (dwsp)->default_stack + DEF_WSTACK_SIZE;\
+    (dwsp)->ws.wdefault = (dwsp)->default_stack;                  \
+    (dwsp)->ws.alloc_type = ALC_TYPE;                             \
+} while (0)
+
 #define WSTACK_CHANGE_ALLOCATOR(s,t)					\
 do {									\
     if (s.wstart != WSTK_DEF_STACK(s)) {				\
@@ -553,7 +567,7 @@ do {									\
 
 #define WSTACK_DESTROY(s)				\
 do {							\
-    if (s.wstart != WSTK_DEF_STACK(s)) {		\
+    if (s.wstart != s.wdefault) {		        \
 	erts_free(s.alloc_type, s.wstart); 		\
     }							\
 } while(0)

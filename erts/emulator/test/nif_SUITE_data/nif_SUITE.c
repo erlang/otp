@@ -1744,6 +1744,7 @@ static ERL_NIF_TERM sorted_list_from_maps_nif(ErlNifEnv* env, int argc, const ER
 
 	list_b = enif_make_list_cell(env, enif_make_tuple2(env, key, value), list_b);
 	prev_ret = enif_map_iterator_prev(env,&iter_b);
+	cnt++;
     }
 
     if (cnt) {
