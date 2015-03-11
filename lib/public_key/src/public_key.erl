@@ -114,7 +114,7 @@ pem_encode(PemEntries) when is_list(PemEntries) ->
     iolist_to_binary(pubkey_pem:encode(PemEntries)).
 
 %%--------------------------------------------------------------------
--spec pem_entry_decode(pem_entry(), [string()]) -> term().
+-spec pem_entry_decode(pem_entry(), string()) -> term().
 %
 %% Description: Decodes a pem entry. pem_decode/1 returns a list of
 %% pem entries.
@@ -146,14 +146,16 @@ pem_entry_decode({Asn1Type, CryptDer, {Cipher, #'PBES2-params'{}}} = PemEntry,
 pem_entry_decode({Asn1Type, CryptDer, {Cipher, {#'PBEParameter'{},_}}} = PemEntry, 
  		 Password) when is_atom(Asn1Type) andalso
  				is_binary(CryptDer) andalso
- 				is_list(Cipher) ->
+ 				is_list(Cipher) andalso
+				is_list(Password) ->
     do_pem_entry_decode(PemEntry, Password);
 pem_entry_decode({Asn1Type, CryptDer, {Cipher, Salt}} = PemEntry, 
 		 Password) when is_atom(Asn1Type) andalso
 				is_binary(CryptDer) andalso
 				is_list(Cipher) andalso
 				is_binary(Salt) andalso
-				((erlang:byte_size(Salt) == 8) or (erlang:byte_size(Salt) == 16)) ->
+				((erlang:byte_size(Salt) == 8) or (erlang:byte_size(Salt) == 16)) andalso
+				is_list(Password) ->
     do_pem_entry_decode(PemEntry, Password).	
 
 
@@ -626,8 +628,12 @@ pkix_is_fixed_dh_cert(Cert) when is_binary(Cert) ->
 %
 %% Description: Returns the issuer id.
 %%--------------------------------------------------------------------
-pkix_issuer_id(Cert, Signed)->
-    pkix_issuer_id(Cert, Signed, decode).
+pkix_issuer_id(#'OTPCertificate'{} = OtpCert, Signed) when (Signed == self) or 
+							   (Signed == other) ->
+    pubkey_cert:issuer_id(OtpCert, Signed);
+pkix_issuer_id(Cert, Signed) when is_binary(Cert) -> 
+    OtpCert = pkix_decode_cert(Cert, otp),
+    pkix_issuer_id(OtpCert, Signed).
 
 %%--------------------------------------------------------------------
 -spec pkix_crl_issuer(CRL::binary()| #'CertificateList'{}) -> 
@@ -990,17 +996,3 @@ ec_key({PubKey, PrivateKey}, Params) ->
 		    parameters = Params,
 		    publicKey = {0, PubKey}}.
 
-pkix_issuer_id(#'OTPCertificate'{} = OtpCert, Signed, decode) when (Signed == self) or 
-								   (Signed == other) ->
-    pubkey_cert:issuer_id(OtpCert, Signed);
-pkix_issuer_id(#'OTPCertificate'{} = OtpCert, Signed, encode) when (Signed == self) or 
-								   (Signed == other) ->
-    case pubkey_cert:issuer_id(OtpCert, Signed) of
-	{ok, {Serial, Issuer}} ->
-	    {ok, {Serial, pubkey_cert_records:transform(Issuer, encode)}};
-	Error ->
-	    Error
-    end;
-pkix_issuer_id(Cert, Signed, Decode) when is_binary(Cert) -> 
-    OtpCert = pkix_decode_cert(Cert, otp),
-    pkix_issuer_id(OtpCert, Signed, Decode).
