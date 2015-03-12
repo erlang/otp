@@ -1905,6 +1905,17 @@ sort_all_runs(Dirs) ->
 		       {Date1,HH1,MM1,SS1} > {Date2,HH2,MM2,SS2}
 	       end, Dirs).
 
+sort_ct_runs(Dirs) ->
+    %% Directory naming: <Prefix>.NodeName.Date_Time[/...]
+    %% Sort on Date_Time string: "YYYY-MM-DD_HH.MM.SS"
+    lists:sort(fun(Dir1,Dir2) ->
+		       [_Prefix,_Node1,DateHH1,MM1,SS1] =
+			   string:tokens(filename:dirname(Dir1),[$.]),
+		       [_Prefix,_Node2,DateHH2,MM2,SS2] =
+			   string:tokens(filename:dirname(Dir2),[$.]),
+		       {DateHH1,MM1,SS1} =< {DateHH2,MM2,SS2}
+	       end, Dirs).
+
 dir_diff_all_runs(Dirs, LogCache) ->
     case LogCache#log_cache.all_runs of
 	[] ->
@@ -2217,7 +2228,8 @@ make_all_suites_index(When) when is_atom(When) ->
 		end
 	end,	
 
-    LogDirs = filelib:wildcard(logdir_prefix()++".*/*"++?logdir_ext),
+    Wildcard = logdir_prefix()++".*/*"++?logdir_ext,
+    LogDirs = sort_ct_runs(filelib:wildcard(Wildcard)),
 
     LogCacheInfo = get_cache_data(UseCache),
 
