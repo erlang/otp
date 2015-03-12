@@ -5072,7 +5072,8 @@ get_tag_and_value(LoaderState* stp, Uint len_code,
 
     arity = count/sizeof(Eterm);
     *result = new_literal(stp, &hp, arity+1);
-    (void) bytes_to_big(bigbuf, count, neg, hp);
+    if (is_nil(bytes_to_big(bigbuf, count, neg, hp)))
+	goto load_error;
 
     if (bigbuf != default_buf) {
 	erts_free(ERTS_ALC_T_LOADER_TMP, (void *) bigbuf);

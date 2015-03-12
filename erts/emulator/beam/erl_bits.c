@@ -403,7 +403,10 @@ erts_bs_get_integer_2(Process *p, Uint num_bits, unsigned flags, ErlBinMatchBuff
 	words_needed = 1+WSIZE(bytes);
 	hp = HeapOnlyAlloc(p, words_needed);
 	res = bytes_to_big(LSB, bytes, sgn, hp); 
-	if (is_small(res)) {
+	if (is_nil(res)) {
+	    p->htop = hp;
+	    res = THE_NON_VALUE;
+	} else if (is_small(res)) {
 	    p->htop = hp;
 	} else if ((actual = bignum_header_arity(*hp)+1) < words_needed) {
 	    p->htop = hp + actual;
