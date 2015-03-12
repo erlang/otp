@@ -1900,6 +1900,8 @@ Eterm bytes_to_big(byte *xp, dsize_t xsz, int xsgn, Eterm *r)
 	*rwp = d;
 	rwp++;
     }
+    if (rsz > BIG_ARITY_MAX)
+	return NIL;
     if (xsgn) {
       *r = make_neg_bignum_header(rsz);
     }

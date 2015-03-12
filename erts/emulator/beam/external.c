@@ -3056,6 +3056,8 @@ dec_term(ErtsDistExternal *edep, Eterm** hpp, byte* ep, ErlOffHeap* off_heap,
 		    big = make_small(0);
 		} else {
 		    big = bytes_to_big(first, n, neg, hp);
+		    if (is_nil(big))
+			goto error;
 		    if (is_big(big)) {
 			hp += big_arity(big) + 1;
 		    }
