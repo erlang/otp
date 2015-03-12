@@ -313,7 +313,7 @@ opt_negations() ->
 %% INHERIT-OPTIONS: target_dir_info/5
 %% INHERIT-OPTIONS: edoc_lib:find_sources/2
 %% INHERIT-OPTIONS: edoc_lib:run_doclet/2
-%% INHERIT-OPTIONS: edoc_lib:get_doc_env/4
+%% INHERIT-OPTIONS: edoc_lib:get_doc_env/3
 
 run(Files, Opts0) ->
     Opts = expand_opts(Opts0),
@@ -421,7 +421,7 @@ toc(Dir, Opts) ->
 
 %% INHERIT-OPTIONS: init_context/1
 %% INHERIT-OPTIONS: edoc_lib:run_doclet/2
-%% INHERIT-OPTIONS: edoc_lib:get_doc_env/4
+%% INHERIT-OPTIONS: edoc_lib:get_doc_env/3
 
 toc(Dir, Paths, Opts0) ->
     Opts = expand_opts(Opts0 ++ [{dir, Dir}]),
@@ -769,7 +769,7 @@ get_doc(File) ->
 %% </dl>
 %%
 %% See {@link read_source/2}, {@link read_comments/2} and {@link
-%% edoc_lib:get_doc_env/4} for further options.
+%% edoc_lib:get_doc_env/3} for further options.
 %%
 %% @see get_doc/3
 %% @see run/2
@@ -778,7 +778,7 @@ get_doc(File) ->
 %% @see layout/2
 
 %% INHERIT-OPTIONS: get_doc/3
-%% INHERIT-OPTIONS: edoc_lib:get_doc_env/4
+%% INHERIT-OPTIONS: edoc_lib:get_doc_env/3
 
 get_doc(File, Opts) ->
     Env = edoc_lib:get_doc_env(Opts),
@@ -790,7 +790,7 @@ get_doc(File, Opts) ->
 %%
 %% @doc Like {@link get_doc/2}, but for a given environment
 %% parameter. `Env' is an environment created by {@link
-%% edoc_lib:get_doc_env/4}.
+%% edoc_lib:get_doc_env/3}.
 
 %% INHERIT-OPTIONS: read_source/2, read_comments/2, edoc_extract:source/5
 %% DEFER-OPTIONS: get_doc/2

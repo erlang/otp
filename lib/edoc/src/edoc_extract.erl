@@ -91,7 +91,7 @@ source(Forms, Comments, File, Env, Opts) ->
 %% type `form_list', or a list of syntax trees representing
 %% "program forms" (cf. {@link edoc:read_source/2}.
 %% `Env' is an environment created by {@link
-%% edoc_lib:get_doc_env/4}. The `File' argument is used for
+%% edoc_lib:get_doc_env/3}. The `File' argument is used for
 %% error reporting and output file name generation only.
 %%
 %% See {@link edoc:get_doc/2} for descriptions of the `def',
@@ -222,7 +222,7 @@ add_macro_defs(Defs0, Opts, Env) ->
 %%
 %% @doc Reads a text file and returns the list of tags in the file. Any
 %% lines of text before the first tag are ignored. `Env' is an
-%% environment created by {@link edoc_lib:get_doc_env/4}. Upon error,
+%% environment created by {@link edoc_lib:get_doc_env/3}. Upon error,
 %% `Reason' is an atom returned from the call to {@link
 %% //kernel/file:read_file/1} or the atom 'invalid_unicode'.
 %%
@@ -252,7 +252,7 @@ file(File, Context, Env, Opts) ->
 %%
 %% @doc Returns the list of tags in the text. Any lines of text before
 %% the first tag are ignored. `Env' is an environment created by {@link
-%% edoc_lib:get_doc_env/4}.
+%% edoc_lib:get_doc_env/3}.
 %%
 %% See {@link source/4} for a description of the `def' option.
 

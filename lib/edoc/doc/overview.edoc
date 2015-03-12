@@ -78,7 +78,7 @@ The following are the main functions for running EDoc:
 	  typical Erlang application.</li>
       <li>{@link edoc:files/2}: Creates documentation for a
 	  specified set of source files.</li>
-      <li>{@link edoc:run/3}: General interface function; the common
+      <li>{@link edoc:run/2}: General interface function; the common
           back-end for the above functions. Options are documented here.</li>
     </ul>
 
