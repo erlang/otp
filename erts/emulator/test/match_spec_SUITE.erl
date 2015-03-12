@@ -924,6 +924,14 @@ maps(Config) when is_list(Config) ->
                                table),
     {ok,#{foo := 3},[],[]} =
         erlang:match_spec_test({}, [{{},[],[#{foo => {'+',1,2}}]}], table),
+    {ok,"camembert",[],[]} =
+        erlang:match_spec_test(#{b => "camembert",c => "cabécou"},
+                               [{#{b => '$1',c => "cabécou"},[],['$1']}], table),
+
+    {ok,#{a :="camembert",b := "hi"},[],[]} =
+        erlang:match_spec_test(#{<<"b">> =>"camembert","c"=>"cabécou", "wat"=>"hi", b=><<"other">>},
+                               [{#{<<"b">> => '$1',"wat" => '$2'},[],[#{a=>'$1',b=>'$2'}]}],
+                               table),
     ok.
 
 empty_list(Config) when is_list(Config) ->
