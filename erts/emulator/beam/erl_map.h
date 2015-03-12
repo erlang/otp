@@ -80,7 +80,11 @@ typedef struct flatmap_s {
 #define flatmap_get_keys(x)        (((Eterm *)tuple_val(((flatmap_t *)(x))->keys)) + 1)
 #define flatmap_get_size(x)        (((flatmap_t*)(x))->size)
 
-#define MAP_SMALL_MAP_LIMIT    (2) /*SVERK (32) */
+#ifdef DEBUG
+#define MAP_SMALL_MAP_LIMIT    (3)
+#else
+#define MAP_SMALL_MAP_LIMIT    (32)
+#endif
 #define MAP_HEADER             _make_header(1,_TAG_HEADER_MAP)
 #define MAP_HEADER_SIZE        (sizeof(flatmap_t) / sizeof(Eterm))
 
