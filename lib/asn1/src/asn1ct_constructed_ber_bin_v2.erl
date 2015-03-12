@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2002-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2014. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -234,7 +234,7 @@ gen_decode_sequence(Erules,Typename,D) when is_record(D,type) ->
 	    asn1ct_name:new(rb),
 	    emit(["   {'",RecordName,"'}.",nl,nl]);
 	{LeadingAttrTerm,PostponedDecArgs} ->
-	    emit([com,nl,nl]),
+	    emit([nl]),
 	    case {LeadingAttrTerm,PostponedDecArgs} of
 		{[],[]} ->
 		    ok;
@@ -413,7 +413,7 @@ gen_decode_set(Erules,Typename,D) when is_record(D,type) ->
 	    %% return value as record
 	    emit(["   {'",RecordName,"'}.",nl]);
 	{LeadingAttrTerm,PostponedDecArgs} ->
-	    emit([com,nl,nl]),
+	    emit([nl]),
 	    case {LeadingAttrTerm,PostponedDecArgs} of
 		{[],[]} ->
 		    ok;
@@ -617,18 +617,20 @@ gen_dec_sequence_call1(Erules,TopType,[#'ComponentType'{name=Cname,typespec=Type
     {LA,PostponedDec} = 
 	gen_dec_component(Erules,TopType,Cname,Tags,Type,Num,Prop,
 			  Ext,DecObjInf),
+    emit([com,nl]),
     case Rest of
 	[] ->
 	    {LA ++ LeadingAttrAcc,PostponedDec ++ ArgsAcc};
 	_ ->
-	    emit([com,nl]),
 	    asn1ct_name:new(bytes),
 	    gen_dec_sequence_call1(Erules,TopType,Rest,Num+1,Ext,DecObjInf,
 				   LA++LeadingAttrAcc,PostponedDec++ArgsAcc)
     end;
 
 gen_dec_sequence_call1(_Erules,_TopType,[],1,_,_,_,_) ->
-    no_terms.
+    no_terms;
+gen_dec_sequence_call1(_, _, [], _Num, _, _, LA, PostponedDec) ->
+    {LA, PostponedDec}.
 
 gen_dec_sequence_call2(_Erules,_TopType, {[], [], []}, _Ext,_DecObjInf) ->
     no_terms;
@@ -643,7 +645,6 @@ gen_dec_sequence_call2(Erules,TopType,{Root1,EList,Root2},_Ext,DecObjInf) ->
     %% TagList is the tags of Root2 elements from the first up to and
     %% including the first mandatory element.
     TagList = get_root2_taglist(Root2,[]),
-    emit({com,nl}),
     emit([{curr,tlv}," = ",
 	  {call,ber,skip_ExtensionAdditions,
 	   [{prev,tlv},{asis,TagList}]},com,nl]),
