@@ -579,9 +579,29 @@ print_op(int to, void *to_arg, int op, int size, BeamInstr* addr)
     unpacked = ap;
     ap = addr + size;
     switch (op) {
-    case op_i_select_val_rfI:
-    case op_i_select_val_xfI:
-    case op_i_select_val_yfI:
+    case op_i_select_val_lins_rfI:
+    case op_i_select_val_lins_xfI:
+    case op_i_select_val_lins_yfI:
+	{
+	    int n = ap[-1];
+	    int ix = n;
+
+	    while (ix--) {
+		erts_print(to, to_arg, "%T ", (Eterm) ap[0]);
+		ap++;
+		size++;
+	    }
+	    ix = n;
+	    while (ix--) {
+		erts_print(to, to_arg, "f(" HEXF ") ", (Eterm) ap[0]);
+		ap++;
+		size++;
+	    }
+	}
+	break;
+    case op_i_select_val_bins_rfI:
+    case op_i_select_val_bins_xfI:
+    case op_i_select_val_bins_yfI:
 	{
 	    int n = ap[-1];
 
@@ -598,13 +618,19 @@ print_op(int to, void *to_arg, int op, int size, BeamInstr* addr)
     case op_i_select_tuple_arity_yfI:
 	{
 	    int n = ap[-1];
+	    int ix = n;
 
-	    while (n > 0) {
+	    while (ix--) {
 		Uint arity = arityval(ap[0]);
-		erts_print(to, to_arg, " {%d} f(" HEXF ")", arity, ap[1]);
-		ap += 2;
-		size += 2;
-		n--;
+		erts_print(to, to_arg, "{%d} ", arity, ap[1]);
+		ap++;
+		size++;
+	    }
+	    ix = n;
+	    while (ix--) {
+		erts_print(to, to_arg, "f(" HEXF ") ", ap[0]);
+		ap++;
+		size++;
 	    }
 	}
 	break;
