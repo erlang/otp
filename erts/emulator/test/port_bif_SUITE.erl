@@ -24,7 +24,7 @@
 	 init_per_group/2,end_per_group/2, command/1,
 	 command_e_1/1, command_e_2/1, command_e_3/1, command_e_4/1,
 	 port_info1/1, port_info2/1,
-	 port_info_os_pid/1,
+	 port_info_os_pid/1, port_info_race/1,
 	 connect/1, control/1, echo_to_busy/1]).
 
 -export([do_command_e_1/1, do_command_e_2/1, do_command_e_4/1]).
@@ -42,7 +42,8 @@ all() ->
 groups() -> 
     [{command_e, [],
       [command_e_1, command_e_2, command_e_3, command_e_4]},
-     {port_info, [], [port_info1, port_info2, port_info_os_pid]}].
+     {port_info, [],
+      [port_info1, port_info2, port_info_os_pid, port_info_race]}].
 
 init_per_suite(Config) ->
     Config.
@@ -252,6 +253,28 @@ do_port_info_os_pid() ->
     {value,{os_pid, InfoOSPid}}=lists:keysearch(os_pid, 1, A),
     EchoPid = InfoOSPid,
     true = erlang:port_close(P),
+    ok.
+
+port_info_race(Config) when is_list(Config) ->
+    DataDir = ?config(data_dir, Config),
+    Program = filename:join(DataDir, "port_test"),
+    Top = self(),
+    P1 = open_port({spawn,Program}, [{packet,1}]),
+    P2 = open_port({spawn,Program}, [{packet,1}]),
+    Info1 = erlang:port_info(P1),
+    Info2 = erlang:port_info(P2),
+    F = fun Loop(Port, _, 0) ->
+                Top ! {ok,Port};
+            Loop(Port, Info, N) ->
+                Info = erlang:port_info(Port),
+                Loop(Port, Info, N - 1)
+        end,
+    spawn_link(fun () -> F(P1, Info1, 1000) end),
+    spawn_link(fun () -> F(P2, Info2, 1000) end),
+    receive {ok,P1} -> ok end,
+    receive {ok,P2} -> ok end,
+    true = erlang:port_close(P1),
+    true = erlang:port_close(P2),
     ok.
 
 output_test(_, _, Input, Output) when Output > 16#1fffffff ->
