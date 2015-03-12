@@ -1188,7 +1188,7 @@ make_hash2(Eterm term)
 #ifdef ARCH_64
 #  define POINTER_HASH(Ptr, AConst) UINT32_HASH_2((Uint32)(UWord)(Ptr), (((UWord)(Ptr)) >> 32), AConst)
 #else
-#  define POINTER_HASH(Ptr, AConst) UINT32_HASH(Ptr, Const)
+#  define POINTER_HASH(Ptr, AConst) UINT32_HASH(Ptr, AConst)
 #endif
 
     /* Optimization. Simple cases before declaration of estack. */
