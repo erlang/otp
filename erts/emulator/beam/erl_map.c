@@ -2670,7 +2670,8 @@ static Eterm hashmap_info(Process *p, Eterm node) {
     do {
 	node = ESTACK_POP(stack);
 	clvl = ESTACK_POP(stack);
-	lvl  = MAX(lvl,clvl);
+	if (lvl < clvl)
+            lvl = clvl;
 	switch(primary_tag(node)) {
 	    case TAG_PRIMARY_LIST:
 		nleaf++;
