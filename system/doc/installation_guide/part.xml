@@ -29,7 +29,8 @@
     <file>part.xml</file>
   </header>
   <description>
-    <p>How to install Erlang/OTP on UNIX or Windows.</p>
+    <marker id="installation guide"></marker>
+    <p>This section describes how to install Erlang/OTP on UNIX and Windows.</p>
   </description>
   <xi:include href="install-binary.xml"/>
   <xi:include href="INSTALL.xml"/>
