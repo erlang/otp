@@ -1570,14 +1570,22 @@ make_hash2(Eterm term)
 }
 
 /* Term hash function for internal use.
- * Is not "portable" in any way betweem different VM instances.
+ *
+ * Limitation #1: Is not "portable" in any way between different VM instances.
+ *
+ * Limitation #2: The hash value is only valid as long as the term exists
+ * somewhere in the VM. Why? Because external pids, ports and refs are hashed
+ * by mixing the node *pointer* value. If a node disappears and later reappears
+ * with a new ErlNode struct, externals from that node will hash different than
+ * before.
  *
  * One IMPORTANT property must hold (for hamt).
  * EVERY BIT of the term that is significant for equality (see EQ)
- * must be used as input for the hash. Two different terms must always have a
- * chance of hashing different when salted: h([Salt|A]) vs h([Salt|B]).
+ * MUST BE USED AS INPUT FOR THE HASH. Two different terms must always have a
+ * chance of hashing different when salted: hash([Salt|A]) vs hash([Salt|B]).
  *
  * This is why we can not use cached hash values for atoms for example.
+ *
  */
 
 #define CONST_HASH(AConst)                              \
@@ -1854,7 +1862,7 @@ make_internal_hash(Eterm term)
                 ExternalThing* thing = external_thing_ptr(term);
 
                 ASSERT(external_thing_ref_no_of_numbers(thing) == 3);
-                /*SVERK Is it really ok to hash node POINTER? */
+                /* See limitation #2 */
             #ifdef ARCH_64
                 POINTER_HASH(thing->node, HCONST_7);
                 UINT32_HASH(external_thing_ref_numbers(thing)[0], HCONST_7);
@@ -1868,7 +1876,7 @@ make_internal_hash(Eterm term)
             }
             case EXTERNAL_PID_SUBTAG: {
                 ExternalThing* thing = external_thing_ptr(term);
-                /*SVERK Is it really ok to hash node POINTER? */
+                /* See limitation #2 */
             #ifdef ARCH_64
                 POINTER_HASH(thing->node, HCONST_5);
                 UINT32_HASH(thing->data.ui[0], HCONST_5);
@@ -1879,7 +1887,7 @@ make_internal_hash(Eterm term)
             }
 	    case EXTERNAL_PORT_SUBTAG: {
                 ExternalThing* thing = external_thing_ptr(term);
-                /*SVERK Is it really ok to hash node POINTER? */
+                /* See limitation #2 */
             #ifdef ARCH_64
                 POINTER_HASH(thing->node, HCONST_6);
                 UINT32_HASH(thing->data.ui[0], HCONST_6);
