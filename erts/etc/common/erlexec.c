@@ -143,6 +143,7 @@ static char *pluss_val_switches[] = {
 static char *plush_val_switches[] = {
     "ms",
     "mbs",
+    "pds",
     "",
     NULL
 };
