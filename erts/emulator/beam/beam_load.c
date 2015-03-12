@@ -3727,7 +3727,7 @@ gen_select_val(LoaderState* stp, GenOpArg S, GenOpArg Fail,
     op->a[j+size] = Fail;
 
 #ifdef DEBUG
-    for (i = 0; i < size; i++) {
+    for (i = 0; i < size - 1; i++) {
 	ASSERT(op->a[i+3].val <= op->a[i+4].val);
     }
 #endif
