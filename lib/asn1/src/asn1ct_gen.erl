@@ -1233,15 +1233,23 @@ gen_record(TorPtype,Name,Type,Num) when is_record(Type,type) ->
 			emit({"}).",nl,nl}),
 			Tr ++ ExtensionList2;
 		    {Rootl1,Extl,Rootl2} ->
+			case Rootl1 =/= [] andalso Extl++Rootl2 =/= [] of
+			    true -> emit([com]);
+			    false -> ok
+			end,
 			case Rootl1 of
-			    [] -> true;
-			    _ -> emit([",",nl])
+			    [_|_] -> emit([nl]);
+			    [] -> ok
 			end,
 			emit(["%% with extensions",nl]),
 			gen_record2(Name,'SEQUENCE',Extl,"",ext),
+			case Extl =/= [] andalso Rootl2 =/= [] of
+			    true -> emit([com]);
+			    false -> ok
+			end,
 			case Extl of
-			    [_H|_] when Rootl2 /= [] -> emit([",",nl]);
-			    _ -> ok
+			    [_|_] -> emit([nl]);
+			    [] -> ok
 			end,
 			emit(["%% end of extensions",nl]),
 			gen_record2(Name,'SEQUENCE',Rootl2,"",noext),

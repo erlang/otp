@@ -59,6 +59,18 @@ SeqAltV2 ::= SEQUENCE
    g INTEGER
  }
 
+SeqDoubleEmpty1 ::= SEQUENCE {
+   ...,
+   ...
+}
+
+SeqDoubleEmpty2 ::= SEQUENCE {
+   a BOOLEAN,
+   b INTEGER OPTIONAL,
+   ...,
+   ...
+}
+
 Set ::= SET {
    a  INTEGER,
    ...,
