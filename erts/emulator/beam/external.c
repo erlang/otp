@@ -3396,6 +3396,7 @@ dec_term_atom_common:
 		    pb->size = n;
 		    pb->next = off_heap->first;
 		    off_heap->first = (struct erl_off_heap_header*)pb;
+                    OH_OVERHEAD(off_heap, pb->size / sizeof(Eterm));
 		    pb->val = dbin;
 		    pb->bytes = (byte*) dbin->orig_bytes;
 		    pb->flags = 0;
@@ -3449,6 +3450,7 @@ dec_term_atom_common:
 		    pb->size = n;
 		    pb->next = off_heap->first;
 		    off_heap->first = (struct erl_off_heap_header*)pb;
+                    OH_OVERHEAD(off_heap, pb->size / sizeof(Eterm));
 		    pb->val = dbin;
 		    pb->bytes = (byte*) dbin->orig_bytes;
 		    pb->flags = 0;
@@ -3747,6 +3749,7 @@ dec_term_atom_common:
 		hp += PROC_BIN_SIZE;
 		pb->next = off_heap->first;
 		off_heap->first = (struct erl_off_heap_header*)pb;
+                OH_OVERHEAD(off_heap, pb->size / sizeof(Eterm));
 		pb->flags = 0;
 		*objp = make_binary(pb);
 		break;
@@ -3764,6 +3767,7 @@ dec_term_atom_common:
 		hp += PROC_BIN_SIZE;
 		pb->next = off_heap->first;
 		off_heap->first = (struct erl_off_heap_header*)pb;
+                OH_OVERHEAD(off_heap, pb->size / sizeof(Eterm));
 		pb->flags = 0;
 
 		sub = (ErlSubBin*)hp;
