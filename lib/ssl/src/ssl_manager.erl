@@ -101,8 +101,10 @@ start_link_dist(Opts) ->
     gen_server:start_link({local, DistMangerName}, ?MODULE, [DistMangerName, Opts], []).
 
 %%--------------------------------------------------------------------
--spec connection_init(binary()| {der, list()}, client | server, {Cb :: atom(), Handle:: term()}) ->
-			     {ok, certdb_ref(), db_handle(), db_handle(), db_handle(), db_handle()}.
+-spec connection_init(binary()| {der, list()}, client | server, 
+		      {Cb :: atom(), Handle:: term()}) ->
+			     {ok, certdb_ref(), db_handle(), db_handle(), 
+			      db_handle(), db_handle(), CRLInfo::term()}.
 %%			     
 %% Description: Do necessary initializations for a new connection.
 %%--------------------------------------------------------------------

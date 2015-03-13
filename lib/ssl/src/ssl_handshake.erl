@@ -1998,12 +1998,12 @@ crl_check(OtpCert, Check, CertDbHandle, CertDbRef, {Callback, CRLDbHandle}, _) -
 	    case dps_and_crls(OtpCert, Callback, CRLDbHandle, same_issuer) of
 		[] ->
 		    valid; %% No relevant CRL existed
-		Dps ->
-		    crl_check_same_issuer(OtpCert, Check, Dps, Options)		
+		DpsAndCRls ->
+		    crl_check_same_issuer(OtpCert, Check, DpsAndCRls, Options)		
 	    end;
-	Dps ->  %% This DP list may be empty if relevant CRLs existed 
+	DpsAndCRLs ->  %% This DP list may be empty if relevant CRLs existed 
 	    %% but could not be retrived, will result in {bad_cert, revocation_status_undetermined}
-	    case public_key:pkix_crls_validate(OtpCert, Dps, Options) of
+	    case public_key:pkix_crls_validate(OtpCert, DpsAndCRLs, Options) of
 		{bad_cert, revocation_status_undetermined} ->
 		    crl_check_same_issuer(OtpCert, Check, dps_and_crls(OtpCert, Callback, 
 								       CRLDbHandle, same_issuer), Options);
