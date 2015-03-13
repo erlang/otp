@@ -30,7 +30,25 @@
   </header>
   <p>This document describes the changes made to the SSL application.</p>
   
-  <section><title>SSL 5.1.2.1</title>
+  <section><title>SSL 5.2.1.3</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Add padding check for TLS-1.0 to remove Poodle
+	    vulnerability from TLS 1.0 Also supply a working SSL/TLS
+	    protocol version option to be able to disable SSL-3.0 via
+	    connect/listen options.</p>
+          <p>
+	    Own Id: OTP-12561</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SSL 5.1.2.1</title>
 
     <section><title>Improvements and New Features</title>
       <list>
