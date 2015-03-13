@@ -511,7 +511,7 @@ Eterm copy_struct(Eterm obj, Uint sz, Eterm** hpp, ErlOffHeap* off_heap)
 		    case MAP_HEADER_TAG_HAMT_NODE_BITMAP :
 			i = 1 + hashmap_bitcount(MAP_HEADER_VAL(hdr));
 			while (i--)  { *htop++ = *objp++; }
-			*argp = make_hashmap_rel(tp, dstbase);
+			*argp = make_hashmap_rel(tp, dst_base);
 			break;
 		    default:
 			erl_exit(ERTS_ABORT_EXIT, "copy_struct: bad hashmap type %d\n", MAP_HEADER_TYPE(hdr));
