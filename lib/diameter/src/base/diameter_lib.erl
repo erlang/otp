@@ -129,11 +129,12 @@ timestamp({_,_,_} = T) ->  %% erlang:now()
     T;
 
 timestamp(MonoT) ->  %% monotonic time
-    MicroSecs = erlang:convert_time_resolution(MonoT + erlang:time_offset(),
-                                               erlang:time_resolution(),
-                                               1000000),
+    MicroSecs = monotonic_to_microseconds(MonoT + erlang:time_offset()),
     Secs = MicroSecs div 1000000,
     {Secs div 1000000, Secs rem 1000000, MicroSecs rem 1000000}.
+
+monotonic_to_microseconds(MonoT) ->
+    erlang:convert_time_unit(MonoT, native, micro_seconds).
 
 %% ---------------------------------------------------------------------------
 %% # now_diff/1
@@ -164,9 +165,7 @@ micro_diff({_,_,_} = T0) ->
     timer:now_diff(erlang:now(), T0);
 
 micro_diff(T0) ->  %% monotonic time
-    erlang:convert_time_resolution(erlang:monotonic_time() - T0,
-                                   erlang:time_resolution(),
-                                   1000000).
+    monotonic_to_microseconds(erlang:monotonic_time() - T0).
 
 %% ---------------------------------------------------------------------------
 %% # micro_diff/2
@@ -178,9 +177,7 @@ micro_diff(T0) ->  %% monotonic time
 
 micro_diff(T1, T0)
   when is_integer(T1), is_integer(T0) ->  %% monotonic time
-    erlang:convert_time_resolution(T1 - T0,
-                                   erlang:time_resolution(),
-                                   1000000);
+    monotonic_to_microseconds(T1 - T0);
 
 micro_diff(T1, T0) ->  %% at least one erlang:now()
     timer:now_diff(timestamp(T1), timestamp(T0)).
