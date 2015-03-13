@@ -482,7 +482,7 @@ to(To, Start) ->
 
 %% Time in milli seconds
 t() ->
-    %% Adapt to OTP 18 erlang time API and be back-compatible
+    %% Adapt to OTP 18 erlang time API and be backwards compatible
     try
         erlang:monotonic_time(1000)
     catch

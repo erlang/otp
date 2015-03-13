@@ -85,7 +85,7 @@ info_msg(Format, Data) ->
 %%-------------------------------------------------------------------
 
 add_timestamp(Format, Data) ->
-    %% Adapt to new OTP 18 erlang time API and be back-compatible
+    %% Adapt to new OTP 18 erlang time API and be backwards compatible
     Now = try
               erlang:timestamp()
           catch

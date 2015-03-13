@@ -49,7 +49,7 @@ stop() ->
 ". 
  
 content(WorkSim, SzSim) ->  
-    %% Adapt to OTP 18 erlang time API and be back-compatible
+    %% Adapt to OTP 18 erlang time API and be backwards compatible
     {A, B, C} = try
                     {erlang:phash2([node()]),
                      erlang:monotonic_time(),

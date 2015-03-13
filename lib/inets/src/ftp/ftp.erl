@@ -2177,7 +2177,7 @@ handle_caller(#state{caller = {transfer_data, {Cmd, Bin, RemoteFile}}} =
 %% Connect to FTP server at Host (default is TCP port 21) 
 %% in order to establish a control connection.
 setup_ctrl_connection(Host, Port, Timeout, State) ->
-    %% Adapt to OTP 18 erlang time API and be back-compatible
+    %% Adapt to OTP 18 erlang time API and be backwards compatible
     MsTime = try
                  erlang:monotonic_time()
              catch

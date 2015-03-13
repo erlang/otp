@@ -1353,7 +1353,7 @@ do_delete(Pid, Config) ->
     ok.
 
 do_mkdir(Pid) ->
-    %% Adapt to OTP 18 erlang time API and be back-compatible
+    %% Adapt to OTP 18 erlang time API and be backwards compatible
     NewDir = try
                  "earl_" ++ integer_to_list(erlang:unique_integer([positive]))
              catch

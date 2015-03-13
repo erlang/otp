@@ -1877,7 +1877,7 @@ run_clients(NumClients, ServerPort, SeqNumServer) ->
 wait4clients([], _Timeout) ->
     ok;
 wait4clients(Clients, Timeout) when Timeout > 0 ->
-    %% Adapt to OTP 18 erlang time API and be back-compatible
+    %% Adapt to OTP 18 erlang time API and be backwards compatible
     Time = try
                  erlang:monotonic_time()
              catch
@@ -1994,7 +1994,7 @@ millisec_passed(T0) ->
                                    1000000) div 1000.
 
 set_random_seed() ->
-    %% Adapt to OTP 18 erlang time API and be back-compatible
+    %% Adapt to OTP 18 erlang time API and be backwards compatible
     Unique = try
 	erlang:unique_integer()
     catch

@@ -98,7 +98,7 @@ unique_name(Options) ->
     end.
 
 unique_integer() ->
-    %% Adapt to OTP 18 erlang time API and be back-compatible
+    %% Adapt to OTP 18 erlang time API and be backwards compatible
     try
 	erlang:unique_integer([positive])
     catch
