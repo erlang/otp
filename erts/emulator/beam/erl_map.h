@@ -24,7 +24,7 @@
 #include "sys.h"
 
 /* instrinsic wrappers */
-#if defined(__GNUC__)
+#if ERTS_AT_LEAST_GCC_VSN__(3, 4, 0)
 #define hashmap_clz(x)       ((Uint32) __builtin_clz((unsigned int)(x)))
 #define hashmap_bitcount(x)  ((Uint32) __builtin_popcount((unsigned int) (x)))
 #else

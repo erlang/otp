@@ -2768,7 +2768,7 @@ static Eterm hashmap_bld_tuple_uint(Uint **hpp, Uint *szp, Uint n, Uint nums[]) 
 
 /* implementation of builtin emulations */
 
-#if !defined(__GNUC__)
+#if !ERTS_AT_LEAST_GCC_VSN__(3, 4, 0)
 /* Count leading zeros emulation */
 Uint32 hashmap_clz(Uint32 x) {
     Uint32 y;
@@ -2780,6 +2780,7 @@ Uint32 hashmap_clz(Uint32 x) {
     y = x >> 1;  if (y != 0) return n - 2;
     return n - x;
 }
+
 const Uint32 SK5 = 0x55555555, SK3 = 0x33333333;
 const Uint32 SKF0 = 0xF0F0F0F, SKFF = 0xFF00FF;
 
