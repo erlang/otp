@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -56,7 +56,7 @@
 %% Misc.
 -export([protocol_version/1, lowest_protocol_version/2,
 	 highest_protocol_version/1, supported_protocol_versions/0,
-	 is_acceptable_version/1]).
+	 is_acceptable_version/1, is_acceptable_version/2]).
 
 -export([compressions/0]).
 
@@ -476,13 +476,21 @@ supported_protocol_versions([_|_] = Vsns) ->
 
 %%--------------------------------------------------------------------
 -spec is_acceptable_version(tls_version()) -> boolean().
+-spec is_acceptable_version(tls_version(), Supported :: [tls_version()]) -> boolean().
 %%     
 %% Description: ssl version 2 is not acceptable security risks are too big.
+%% 
 %%--------------------------------------------------------------------
 is_acceptable_version({N,_}) 
   when N >= ?LOWEST_MAJOR_SUPPORTED_VERSION ->
     true;
 is_acceptable_version(_) ->
+    false.
+
+is_acceptable_version({N,_} = Version, Versions)   
+  when N >= ?LOWEST_MAJOR_SUPPORTED_VERSION ->
+    lists:member(Version, Versions);
+is_acceptable_version(_,_) ->
     false.
 
 %%--------------------------------------------------------------------

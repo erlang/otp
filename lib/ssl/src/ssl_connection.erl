@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -74,7 +74,6 @@
 	  session_cache,        % 
 	  session_cache_cb,     %
           negotiated_version,   % tls_version()
-          supported_protocol_versions, % [atom()]
           client_certificate_requested = false,
 	  key_algorithm,       % atom as defined by cipher_suite
 	  hashsign_algorithm,  % atom as defined by cipher_suite

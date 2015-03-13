@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -668,14 +668,12 @@ generic_stream_cipher_from_bin(T, HashSz) ->
     #generic_stream_cipher{content=Content,
 			   mac=Mac}.
 
-%% For interoperability reasons we do not check the padding content in
-%% SSL 3.0 and TLS 1.0 as it is not strictly required and breaks
-%% interopability with for instance Google. 
+%% SSL 3.0 has no padding check
 is_correct_padding(#generic_block_cipher{padding_length = Len,
 										 padding = Padding}, {3, N})
-  when N == 0; N == 1 ->
+  when N == 0 ->
     Len == byte_size(Padding); 
-%% Padding must be check in TLS 1.1 and after  
+%% Padding should/must be check in TLS-1.0/TLS 1.1 and after  
 is_correct_padding(#generic_block_cipher{padding_length = Len,
 										 padding = Padding}, _) ->
     Len == byte_size(Padding) andalso
