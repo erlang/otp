@@ -109,6 +109,7 @@
 -define(TAG_HEADER_REFC_BIN,((16#8 bsl ?TAG_PRIMARY_SIZE) bor ?TAG_PRIMARY_HEADER)).
 -define(TAG_HEADER_HEAP_BIN,((16#9 bsl ?TAG_PRIMARY_SIZE) bor ?TAG_PRIMARY_HEADER)).
 -define(TAG_HEADER_SUB_BIN, ((16#A bsl ?TAG_PRIMARY_SIZE) bor ?TAG_PRIMARY_HEADER)).
+-define(TAG_HEADER_HASHMAP, ((16#B bsl ?TAG_PRIMARY_SIZE) bor ?TAG_PRIMARY_HEADER)).
 -define(TAG_HEADER_EXTERNAL_PID, ((16#C bsl ?TAG_PRIMARY_SIZE) bor ?TAG_PRIMARY_HEADER)).
 -define(TAG_HEADER_EXTERNAL_PORT,((16#D bsl ?TAG_PRIMARY_SIZE) bor ?TAG_PRIMARY_HEADER)).
 -define(TAG_HEADER_EXTERNAL_REF, ((16#E bsl ?TAG_PRIMARY_SIZE) bor ?TAG_PRIMARY_HEADER)).
@@ -257,11 +258,16 @@ test_tuple_N(X, N, TrueLab, FalseLab, Pred) ->
 test_map(X, TrueLab, FalseLab, Pred) ->
   Tmp = hipe_rtl:mk_new_reg_gcsafe(),
   HalfTrueLab = hipe_rtl:mk_new_label(),
+  OrHashmapLab = hipe_rtl:mk_new_label(),
   MapMask = ?TAG_HEADER_MASK,
   [test_is_boxed(X, hipe_rtl:label_name(HalfTrueLab), FalseLab, Pred),
    HalfTrueLab,
    get_header(Tmp, X),
-   mask_and_compare(Tmp, MapMask, ?TAG_HEADER_MAP, TrueLab, FalseLab, Pred)].
+   mask_and_compare(Tmp, MapMask, ?TAG_HEADER_MAP,
+		    TrueLab, hipe_rtl:label_name(OrHashmapLab), Pred),
+   OrHashmapLab,
+   mask_and_compare(Tmp, MapMask, ?TAG_HEADER_HASHMAP, TrueLab, FalseLab, Pred)
+  ].
 
 test_ref(X, TrueLab, FalseLab, Pred) ->
   Hdr = hipe_rtl:mk_new_reg_gcsafe(),
@@ -360,16 +366,22 @@ test_matchstate(X, TrueLab, FalseLab, Pred) ->
 test_bitstr(X, TrueLab, FalseLab, Pred) ->
   Tmp = hipe_rtl:mk_new_reg_gcsafe(),
   HalfTrueLab = hipe_rtl:mk_new_label(),
+  AndNotHashmapLab = hipe_rtl:mk_new_label(),
   Mask = ?TAG_HEADER_MASK - ?BINARY_XXX_MASK,
   [test_is_boxed(X, hipe_rtl:label_name(HalfTrueLab), FalseLab, Pred),
    HalfTrueLab,
    get_header(Tmp, X),
-   mask_and_compare(Tmp, Mask, ?TAG_HEADER_REFC_BIN, TrueLab, FalseLab, Pred)].
+   mask_and_compare(Tmp, Mask, ?TAG_HEADER_REFC_BIN,
+		    hipe_rtl:label_name(AndNotHashmapLab), FalseLab, Pred),
+   AndNotHashmapLab,
+   mask_and_compare(Tmp, ?TAG_HEADER_MASK, ?TAG_HEADER_HASHMAP, FalseLab, TrueLab, Pred)
+  ].
 
 test_binary(X, TrueLab, FalseLab, Pred) ->
   Tmp1 = hipe_rtl:mk_new_reg_gcsafe(),
   Tmp2 = hipe_rtl:mk_new_reg_gcsafe(),
   IsBoxedLab = hipe_rtl:mk_new_label(),
+  AndNotHashmapLab = hipe_rtl:mk_new_label(),
   IsBitStrLab = hipe_rtl:mk_new_label(),
   IsSubBinLab =  hipe_rtl:mk_new_label(),
   Mask = ?TAG_HEADER_MASK - ?BINARY_XXX_MASK,
@@ -377,7 +389,10 @@ test_binary(X, TrueLab, FalseLab, Pred) ->
    IsBoxedLab,
    get_header(Tmp1, X),
    mask_and_compare(Tmp1, Mask, ?TAG_HEADER_REFC_BIN,
-		    hipe_rtl:label_name(IsBitStrLab), FalseLab, Pred),
+		    hipe_rtl:label_name(AndNotHashmapLab), FalseLab, Pred),
+   AndNotHashmapLab,
+   mask_and_compare(Tmp1, ?TAG_HEADER_MASK, ?TAG_HEADER_HASHMAP,
+		    FalseLab, hipe_rtl:label_name(IsBitStrLab), Pred),
    IsBitStrLab,
    mask_and_compare(Tmp1, ?TAG_HEADER_MASK, ?TAG_HEADER_SUB_BIN,
 		    hipe_rtl:label_name(IsSubBinLab), TrueLab, 0.5),
