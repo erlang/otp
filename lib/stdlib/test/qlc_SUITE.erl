@@ -3418,7 +3418,8 @@ lookup2(Config) when is_list(Config) ->
            end, [{1},{2}])">>
 
        ],
-    ?line run(Config, Ts),
+
+    ok = run(Config, Ts),
 
     TsR = [
        %% is_record/2,3:
@@ -3456,7 +3457,8 @@ lookup2(Config) when is_list(Config) ->
          end, [{keypos,1}], [#r{}])">>
 
        ],
-    ?line run(Config, <<"-record(r, {a}).\n">>, TsR),
+
+    ok = run(Config, <<"-record(r, {a}).\n">>, TsR),
 
     Ts2 = [
        <<"etsc(fun(E) ->
@@ -3566,7 +3568,6 @@ lookup2(Config) when is_list(Config) ->
                        [{1,2},{2,2}] = qlc:e(Q),
                        [2] = lookup_keys(Q)
                end, [{keypos,1}], [{1},{2},{3}])">>,
-
        <<"%% Matchspec only. No cache.
           etsc(fun(E) ->
                        Q = qlc:q([{X,Y} ||
@@ -3578,7 +3579,7 @@ lookup2(Config) when is_list(Config) ->
                                {generate,_,
                                 {table,{ets,_,[_,[{traverse,_}]]}}}],[]} = 
                                        i(Q),
-                       [{1,2},{1,3},{2,2},{2,3}] = qlc:e(Q),
+                       [{1,2},{1,3},{2,2},{2,3}] = lists:sort(qlc:e(Q)),
                        false = lookup_keys(Q)
                end, [{keypos,1}], [{1},{2},{3}])">>,
        <<"%% Matchspec only. Cache
@@ -3592,7 +3593,7 @@ lookup2(Config) when is_list(Config) ->
                             {generate,_,{qlc,_,
                            [{generate,_,{table,{ets,_,[_,[{traverse,_}]]}}}],
                           [{cache,ets}]}}],[]} = i(Q),
-                       [{1,2},{1,3},{2,2},{2,3}] = qlc:e(Q),
+                       [{1,2},{1,3},{2,2},{2,3}] = lists:sort(qlc:e(Q)),
                        false = lookup_keys(Q)
                end, [{keypos,1}], [{1},{2},{3}])">>,
        <<"%% An empty list. Always unique and cached.
@@ -3645,7 +3646,7 @@ lookup2(Config) when is_list(Config) ->
 
       ],
 
-    ?line run(Config, Ts2),
+    ok = run(Config, Ts2),
 
     LTs = [
        <<"etsc(fun(E) ->
@@ -3677,7 +3678,8 @@ lookup2(Config) when is_list(Config) ->
                end, [{1,a},{2,b}])">>
 
        ],
-    ?line run(Config, LTs),
+
+    ok = run(Config, LTs),
 
     ok.
 
