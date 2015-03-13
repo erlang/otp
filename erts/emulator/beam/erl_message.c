@@ -1154,7 +1154,6 @@ Eterm* erts_produce_heap(ErtsHeapFactory* factory, Uint need, Uint xtra)
     } else {
         res = factory->hp;
         factory->hp += need;
-        ASSERT(factory->hp <= factory->hp_end);
     }
     return res;
 }

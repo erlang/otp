@@ -3905,7 +3905,6 @@ dec_term_atom_common:
 	factory.p = NULL;
         factory.hp = hp;
 	/* We assume heap will suffice (see hashmap_over_estimated_heap_size) */
-        factory.hp_end = hp + (ERTS_SWORD_MAX / sizeof(Eterm));
 
         do {
 	    *hamt->objp = erts_hashmap_from_array(&factory,

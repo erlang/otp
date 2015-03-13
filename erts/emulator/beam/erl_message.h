@@ -71,8 +71,6 @@ struct erl_heap_fragment {
 typedef struct {
     Process* p;
     Eterm* hp;
-    Eterm* hp_end;
-    /* more to come... */
 } ErtsHeapFactory;
 
 Eterm* erts_produce_heap(ErtsHeapFactory*, Uint need, Uint xtra);

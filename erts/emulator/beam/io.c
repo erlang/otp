@@ -5609,7 +5609,6 @@ driver_deliver_term(Eterm to, ErlDrvTermData* data, int len)
                 factory.p = NULL;
                 factory.hp = hp;
                 /* We assume heap will suffice (see hashmap_over_estimated_heap_size) */
-                factory.hp_end = hp + (ERTS_SWORD_MAX / sizeof(Eterm));
 
                 mess = erts_hashmap_from_array(&factory, leafs, size, 1);
 
