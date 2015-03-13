@@ -661,7 +661,6 @@ erl_crash_dump_v(char *file, int line, char* fmt, va_list args)
 {
 #ifdef ERTS_SMP
     ErtsThrPrgrData tpd_buf; /* in case we aren't a managed thread... */
-    int bc;
 #endif
     int fd;
     size_t envsz;
@@ -681,7 +680,7 @@ erl_crash_dump_v(char *file, int line, char* fmt, va_list args)
     /* Order all managed threads to block, this has to be done
        first to guarantee that this is the only thread to generate
        crash dump. */
-    bc = erts_thr_progress_fatal_error_block(&tpd_buf);
+    erts_thr_progress_fatal_error_block(&tpd_buf);
 
 #ifdef ERTS_THR_HAVE_SIG_FUNCS
     /*
