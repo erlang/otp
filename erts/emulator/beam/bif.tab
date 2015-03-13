@@ -600,6 +600,8 @@ bif maps:values/1
 
 bif erts_internal:cmp_term/2
 
+bif ets:update_counter/4
+
 #
 # New in 17.1.
 #

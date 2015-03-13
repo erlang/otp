@@ -3556,7 +3556,7 @@ get_map_elements_fail:
 	    vbf = (BifFunction) Arg(0);
 	    PROCESS_MAIN_CHK_LOCKS(c_p);
 	    bif_nif_arity = I[-1];
-	    ASSERT(bif_nif_arity <= 3);
+            ASSERT(bif_nif_arity <= 4);
 	    ERTS_SMP_UNREQ_PROC_MAIN_LOCK(c_p);
 	    reg[0] = r(0);
 	    {

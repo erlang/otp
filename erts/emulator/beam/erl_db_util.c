@@ -2601,10 +2601,10 @@ Wterm db_do_read_element(DbUpdateHandle* handle, Sint position)
     }
 
     ASSERT(((DbTableCommon*)handle->tb)->compress);
-    ASSERT(!handle->mustResize);
+    ASSERT(!(handle->flags & DB_MUST_RESIZE));
     handle->dbterm = db_alloc_tmp_uncompressed(&handle->tb->common,
 					       handle->dbterm);
-    handle->mustResize = 1;
+    handle->flags |= DB_MUST_RESIZE;
     return handle->dbterm->tpl[position];
 }
 
@@ -2637,11 +2637,11 @@ void db_do_update_element(DbUpdateHandle* handle,
     #endif
 	return;
     }
-    if (!handle->mustResize) {
+    if (!(handle->flags & DB_MUST_RESIZE)) {
 	if (handle->tb->common.compress) {
 	    handle->dbterm = db_alloc_tmp_uncompressed(&handle->tb->common,
 						       handle->dbterm);
-	    handle->mustResize = 1;
+	    handle->flags |= DB_MUST_RESIZE;
 	    oldval = handle->dbterm->tpl[position];
         #if HALFWORD_HEAP
 	    old_base = NULL;
@@ -2701,7 +2701,7 @@ both_size_set:
 
     /* write new value in old dbterm, finalize will make a flat copy */
     handle->dbterm->tpl[position] = newval;
-    handle->mustResize = 1;
+    handle->flags |= DB_MUST_RESIZE;
 
 #if HALFWORD_HEAP
     if (old_base && newval_sz > 0) {

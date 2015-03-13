@@ -443,8 +443,11 @@ static int db_delete_all_objects_hash(Process* p, DbTable* tbl);
 #ifdef HARDDEBUG
 static void db_check_table_hash(DbTableHash *tb);
 #endif
-static int db_lookup_dbterm_hash(DbTable *tbl, Eterm key, DbUpdateHandle* handle);
-static void db_finalize_dbterm_hash(DbUpdateHandle* handle);
+static int
+db_lookup_dbterm_hash(Process *p, DbTable *tbl, Eterm key, Eterm obj,
+                      DbUpdateHandle* handle);
+static void
+db_finalize_dbterm_hash(int cret, DbUpdateHandle* handle);
 
 static ERTS_INLINE void try_shrink(DbTableHash* tb)
 {
@@ -2730,59 +2733,129 @@ static HashDbTerm* next(DbTableHash *tb, Uint *iptr, erts_smp_rwmtx_t** lck_ptr,
     return NULL;
 }
 
-static int db_lookup_dbterm_hash(DbTable *tbl, Eterm key, DbUpdateHandle* handle)
+static int
+db_lookup_dbterm_hash(Process *p, DbTable *tbl, Eterm key, Eterm obj,
+                      DbUpdateHandle* handle)
 {
     DbTableHash *tb = &tbl->hash;
-    HashDbTerm* b;
-    HashDbTerm** prevp;
-    int ix;
     HashValue hval;
+    HashDbTerm **bp, *b;
     erts_smp_rwmtx_t* lck;
+    int flags = 0;
+
+    ASSERT(tb->common.status & DB_SET);
 
     hval = MAKE_HASH(key);
-    lck = WLOCK_HASH(tb,hval);
-    ix = hash_to_ix(tb, hval);
-    prevp = &BUCKET(tb, ix);
-    b = *prevp;
+    lck = WLOCK_HASH(tb, hval);
+    bp = &BUCKET(tb, hash_to_ix(tb, hval));
+    b = *bp;
 
-    while (b != 0) {
-	if (has_live_key(tb,b,key,hval)) {
-	    handle->tb = tbl;
-	    handle->bp = (void**) prevp;
-	    handle->dbterm = &b->dbterm;
-	    handle->mustResize = 0;
-	    handle->new_size = b->dbterm.size;
-	#if HALFWORD_HEAP
-	    handle->abs_vec = NULL;
-	#endif
-	    handle->lck = lck;
-	    /* KEEP hval WLOCKED, db_finalize_dbterm_hash will WUNLOCK */
-	    return 1;
-	}
-	prevp = &b->next;
-	b = *prevp;
+    for (;;) {
+        if (b == NULL) {
+            break;
+        }
+        if (has_key(tb, b, key, hval)) {
+            if (b->hvalue != INVALID_HASH) {
+                goto Ldone;
+            }
+            break;
+        }
+        bp = &b->next;
+        b = *bp;
     }
-    WUNLOCK_HASH(lck);
-    return 0;
+
+    if (obj == THE_NON_VALUE) {
+        WUNLOCK_HASH(lck);
+        return 0;
+    }
+
+    {
+        Eterm *objp = tuple_val(obj);
+        int arity = arityval(*objp);
+        Eterm *htop, *hend;
+
+        ASSERT(arity >= tb->common.keypos);
+        htop = HAlloc(p, arity + 1);
+        hend = htop + arity + 1;
+        sys_memcpy(htop, objp, sizeof(Eterm) * (arity + 1));
+        htop[tb->common.keypos] = key;
+        obj = make_tuple(htop);
+
+        if (b == NULL) {
+            HashDbTerm *q = new_dbterm(tb, obj);
+
+            q->hvalue = hval;
+            q->next = NULL;
+            *bp = b = q;
+
+            {
+                int nitems = erts_smp_atomic_inc_read_nob(&tb->common.nitems);
+                int nactive = NACTIVE(tb);
+
+                if (nitems > nactive * (CHAIN_LEN + 1) && !IS_FIXED(tb)) {
+                    grow(tb, nactive);
+                }
+            }
+        } else {
+            HashDbTerm *q, *next = b->next;
+
+            ASSERT(b->hvalue == INVALID_HASH);
+            q = replace_dbterm(tb, b, obj);
+            q->next = next;
+            q->hvalue = hval;
+            *bp = b = q;
+            erts_smp_atomic_inc_nob(&tb->common.nitems);
+        }
+
+        HRelease(p, hend, htop);
+        flags |= DB_NEW_OBJECT;
+    }
+
+Ldone:
+    handle->tb = tbl;
+    handle->bp = (void **)bp;
+    handle->dbterm = &b->dbterm;
+    handle->flags = flags;
+    handle->new_size = b->dbterm.size;
+#if HALFWORD_HEAP
+    handle->abs_vec = NULL;
+#endif
+    handle->lck = lck;
+    return 1;
 }
 
 /* Must be called after call to db_lookup_dbterm
 */
-static void db_finalize_dbterm_hash(DbUpdateHandle* handle)
+static void
+db_finalize_dbterm_hash(int cret, DbUpdateHandle* handle)
 {
     DbTable* tbl = handle->tb;
-    HashDbTerm* oldp = (HashDbTerm*) *(handle->bp);
+    DbTableHash *tb = &tbl->hash;
+    HashDbTerm **bp = (HashDbTerm **) handle->bp;
+    HashDbTerm *b = *bp;
     erts_smp_rwmtx_t* lck = (erts_smp_rwmtx_t*) handle->lck;
 
-    ERTS_SMP_LC_ASSERT(IS_HASH_WLOCKED(&tbl->hash,lck));  /* locked by db_lookup_dbterm_hash */
+    ERTS_SMP_LC_ASSERT(IS_HASH_WLOCKED(tb, lck));  /* locked by db_lookup_dbterm_hash */
 
-    ASSERT((&oldp->dbterm == handle->dbterm) == !(tbl->common.compress && handle->mustResize));
+    ASSERT((&b->dbterm == handle->dbterm) == !(tb->common.compress && handle->flags & DB_MUST_RESIZE));
 
-    if (handle->mustResize) {
+    if (handle->flags & DB_NEW_OBJECT && cret != DB_ERROR_NONE) {
+        if (IS_FIXED(tb)) {
+            add_fixed_deletion(tb, hash_to_ix(tb, b->hvalue));
+            b->hvalue = INVALID_HASH;
+        } else {
+            *bp = b->next;
+            free_term(tb, b);
+        }
+
+        WUNLOCK_HASH(lck);
+        erts_smp_atomic_dec_nob(&tb->common.nitems);
+        try_shrink(tb);
+    } else if (handle->flags & DB_MUST_RESIZE) {
 	db_finalize_resize(handle, offsetof(HashDbTerm,dbterm));
 	WUNLOCK_HASH(lck);
 
-	free_term(&tbl->hash, oldp);
+	free_term(tb, b);
     }
     else {
 	WUNLOCK_HASH(lck);
