@@ -88,10 +88,30 @@ init_per_group(_GroupName, Config) ->
 end_per_group(_GroupName, Config) ->
     Config.
 
+init_per_testcase(lookup_bad_search_option, Config) ->
+    Db = inet_db,
+    Key = res_lookup,
+    %% The bad option can not enter through inet_db:set_lookup/1,
+    %% but through e.g .inetrc.
+    Prev = ets:lookup(Db, Key),
+    ets:delete(Db, Key),
+    ets:insert(Db, {Key,[lookup_bad_search_option]}),
+    ?t:format("Misconfigured resolver lookup order", []),
+    Dog = test_server:timetrap(test_server:seconds(60)),
+    [{Key,Prev},{watchdog,Dog}|Config];
 init_per_testcase(_Func, Config) ->
     Dog = test_server:timetrap(test_server:seconds(60)),
     [{watchdog,Dog}|Config].
 
+end_per_testcase(lookup_bad_search_option, Config) ->
+    Dog = ?config(watchdog, Config),
+    test_server:timetrap_cancel(Dog),
+    Db = inet_db,
+    Key = res_lookup,
+    Prev = ?config(Key, Config),
+    ets:delete(Db, Key),
+    ets:insert(Db, Prev),
+    ?t:format("Restored resolver lookup order", []);
 end_per_testcase(_Func, Config) ->
     Dog = ?config(watchdog, Config),
     test_server:timetrap_cancel(Dog).
@@ -915,10 +935,8 @@ lookup_bad_search_option(suite) ->
 lookup_bad_search_option(doc) ->
     ["Test lookup with erroneously configured lookup option (OTP-12133)"];
 lookup_bad_search_option(Config) when is_list(Config) ->
-    Db = inet_db,
-    %% The bad option can not enter through inet_db:set_lookup/1,
-    %% but through e.g .inetrc.
-    ets:insert(Db, {res_lookup,[lookup_bad_search_option]}),
+    %% Manipulation of resolver config is done in init_per_testcase
+    %% and end_per_testcase to ensure cleanup.
     {ok,Hostname} = inet:gethostname(),
     {ok,_Hent} = inet:gethostbyname(Hostname), % Will hang loop for this bug
     ok.
