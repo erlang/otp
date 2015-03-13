@@ -447,7 +447,7 @@ t_map_sort_literals(Config) when is_list(Config) ->
     true  = #{ c => 1, b => 1, a => 1 } < id(#{ b => 1, c => 1, d => 1}),
     true  = #{ "a" => 1 } < id(#{ <<"a">> => 1}),
     false = #{ <<"a">> => 1 } < id(#{ "a" => 1}),
-    true = #{ 1 => 1 } < id(#{ 1.0 => 1}),
+    true  = #{ 1 => 1 } < id(#{ 1.0 => 1}),
     false = #{ 1.0 => 1 } < id(#{ 1 => 1}),
 
     %% value order
@@ -460,13 +460,42 @@ t_map_sort_literals(Config) when is_list(Config) ->
 
     true  = #{ "a" => "hi", b => 134 } == id(#{ b => 134,"a" => "hi"}),
 
+    %% large maps
+
+    M = maps:from_list([{I,I}||I <- lists:seq(1,500)]),
+
+    %% size order
+    true  = M#{ a => 1, b => 2} < id(M#{ a => 1, b => 1, c => 1}),
+    true  = M#{ b => 1, a => 1} < id(M#{ c => 1, a => 1, b => 1}),
+    false = M#{ c => 1, b => 1, a => 1} < id(M#{ c => 1, a => 1}),
+
+    %% key order
+    true  = M#{ a => 1 } < id(M#{ b => 1}),
+    false = M#{ b => 1 } < id(M#{ a => 1}),
+    true  = M#{ a => 1, b => 1, c => 1 } < id(M#{ b => 1, c => 1, d => 1}),
+    true  = M#{ b => 1, c => 1, d => 1 } > id(M#{ a => 1, b => 1, c => 1}),
+    true  = M#{ c => 1, b => 1, a => 1 } < id(M#{ b => 1, c => 1, d => 1}),
+    true  = M#{ "a" => 1 } < id(M#{ <<"a">> => 1}),
+    false = M#{ <<"a">> => 1 } < id(#{ "a" => 1}),
+    true  = M#{ 1 => 1 } < id(maps:remove(1,M#{ 1.0 => 1})),
+    false = M#{ 1.0 => 1 } < id(M#{ 1 => 1}),
+
+    %% value order
+    true  = M#{ a => 1 } < id(M#{ a => 2}),
+    false = M#{ a => 2 } < id(M#{ a => 1}),
+    false = M#{ a => 2, b => 1 } < id(M#{ a => 1, b => 3}),
+    true  = M#{ a => 1, b => 1 } < id(M#{ a => 1, b => 3}),
+    false = M#{ a => 1 } < id(M#{ a => 1.0}),
+    false = M#{ a => 1.0 } < id(M#{ a => 1}),
+
+    true  = M#{ "a" => "hi", b => 134 } == id(M#{ b => 134,"a" => "hi"}),
+
     %% lists:sort
 
     SortVs = [#{"a"=>1},#{a=>2},#{1=>3},#{<<"a">>=>4}],
     [#{1:=ok},#{a:=ok},#{"a":=ok},#{<<"a">>:=ok}] = lists:sort([#{"a"=>ok},#{a=>ok},#{1=>ok},#{<<"a">>=>ok}]),
     [#{1:=3},#{a:=2},#{"a":=1},#{<<"a">>:=4}] = lists:sort(SortVs),
     [#{1:=3},#{a:=2},#{"a":=1},#{<<"a">>:=4}] = lists:sort(lists:reverse(SortVs)),
-
     ok.
 
 t_map_equal(Config) when is_list(Config) ->
