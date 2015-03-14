@@ -53,6 +53,7 @@ MODULES = \
 	ssl_to_openssl_SUITE \
 	ssl_ECC_SUITE \
 	ssl_upgrade_SUITE\
+	ssl_sni_SUITE \
 	make_certs\
 	erl_make_certs
 

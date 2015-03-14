@@ -50,9 +50,9 @@ all() ->
 
 groups() ->
     [{basic, [], basic_tests()},
-     {'tlsv1.2', [], all_versions_tests() ++ alpn_tests() ++ npn_tests()},
-     {'tlsv1.1', [], all_versions_tests() ++ alpn_tests() ++ npn_tests()},
-     {'tlsv1', [], all_versions_tests()++ alpn_tests() ++ npn_tests()},
+     {'tlsv1.2', [], all_versions_tests() ++ alpn_tests() ++ npn_tests() ++ sni_server_tests()},
+     {'tlsv1.1', [], all_versions_tests() ++ alpn_tests() ++ npn_tests() ++ sni_server_tests()},
+     {'tlsv1', [], all_versions_tests()++ alpn_tests() ++ npn_tests() ++ sni_server_tests()},
      {'sslv3', [], all_versions_tests()}].
 
 basic_tests() ->
@@ -100,6 +100,11 @@ npn_tests() ->
      erlang_server_openssl_client_npn_only_server,
      erlang_client_openssl_server_npn_only_client,
      erlang_client_openssl_server_npn_only_server].
+
+sni_server_tests() ->
+    [erlang_server_oepnssl_client_sni_match,
+     erlang_server_openssl_client_sni_no_match,
+     erlang_server_openssl_client_sni_no_header].
 
 
 init_per_suite(Config0) ->
@@ -221,6 +226,12 @@ special_init(TestCase, Config)
 	_ -> 
 	    check_openssl_npn_support(Config)
     end;
+
+special_init(TestCase, Config)
+  when TestCase == erlang_server_openssl_client_sni_match;
+       TestCase == erlang_server_openssl_client_sni_no_match;
+       TestCase == erlang_server_openssl_client_sni_no_header ->
+    check_openssl_sni_support(Config);
 
 special_init(_, Config) ->
     Config.
@@ -1181,6 +1192,16 @@ erlang_server_openssl_client_npn_only_client(Config) when is_list(Config) ->
         ssl_test_lib:check_result(Server, ok)
     end),
     ok.
+%--------------------------------------------------------------------------
+erlang_server_openssl_client_sni_no_header(Config) when is_list(Config) ->
+    erlang_server_openssl_client_sni_test(Config, undefined, undefined, "server").
+
+erlang_server_openssl_client_sni_match(Config) when is_list(Config) ->
+    erlang_server_openssl_client_sni_test(Config, "a.server", "a.server", "a.server").
+
+erlang_server_openssl_client_sni_no_match(Config) when is_list(Config) ->
+    erlang_server_openssl_client_sni_test(Config, "c.server", undefined, "server").
+
 
 %%--------------------------------------------------------------------
 %% Internal functions ------------------------------------------------
@@ -1206,6 +1227,64 @@ run_suites(Ciphers, Version, Config, Type) ->
 	    ct:log("Cipher suite errors: ~p~n", [Error]),
 	    ct:fail(cipher_suite_failed_see_test_case_log)
     end.
+
+client_read_check([], _NewData) -> ok;
+client_read_check([Hd | T], NewData) ->
+    case binary:match(NewData, list_to_binary(Hd)) of
+        nomatch ->
+            nomatch;
+        _ ->
+            client_read_check(T, NewData)
+    end.
+client_read_bulk(Port, DataExpected, DataReceived) ->
+    receive
+        {Port, {data, TheData}} ->
+            Data = list_to_binary(TheData),
+            NewData = <<DataReceived/binary, Data/binary>>,
+            ct:log("New Data: ~p", [NewData]),
+            case client_read_check(DataExpected, NewData) of
+                ok ->
+                    ok;
+                _ ->
+                    client_read_bulk(Port, DataExpected, NewData)
+            end;
+        _ ->
+            ct:fail("unexpected_message")
+    after 4000 ->
+              ct:fail("timeout")
+    end.
+client_read_bulk(Port, DataExpected) ->
+    client_read_bulk(Port, DataExpected, <<"">>).
+
+send_and_hostname(SSLSocket) ->
+    ssl:send(SSLSocket, "OK"),
+    {ok, [{sni_hostname, Hostname}]} = ssl:connection_information(SSLSocket, [sni_hostname]),
+    Hostname.
+
+erlang_server_openssl_client_sni_test(Config, SNIHostname, ExpectedSNIHostname, ExpectedCN) ->
+    ct:log("Start running handshake, Config: ~p, SNIHostname: ~p, ExpectedSNIHostname: ~p, ExpectedCN: ~p", [Config, SNIHostname, ExpectedSNIHostname, ExpectedCN]),
+    ServerOptions = ?config(sni_server_opts, Config) ++ ?config(server_opts, Config),
+    {_, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+                                        {from, self()}, {mfa, {?MODULE, send_and_hostname, []}},
+                                        {options, ServerOptions}]),
+    Port = ssl_test_lib:inet_port(Server),
+    ClientCommand = case SNIHostname of
+                        undefined ->
+                            "openssl s_client -connect " ++ Hostname ++ ":" ++ integer_to_list(Port);
+                        _ ->
+                            "openssl s_client -connect " ++ Hostname ++ ":" ++ integer_to_list(Port) ++ " -servername " ++ SNIHostname
+                    end,
+    ct:log("Options: ~p", [[ServerOptions, ClientCommand]]),
+    ClientPort = open_port({spawn, ClientCommand}, [stderr_to_stdout]),
+    ssl_test_lib:check_result(Server, ExpectedSNIHostname),
+    ExpectedClientOutput = ["OK", "/CN=" ++ ExpectedCN ++ "/"],
+    ok = client_read_bulk(ClientPort, ExpectedClientOutput),
+    ssl_test_lib:close_port(ClientPort),
+    ssl_test_lib:close(Server),
+    ok.
+
+
 
 cipher(CipherSuite, Version, Config, ClientOpts, ServerOpts) ->
     process_flag(trap_exit, true),
@@ -1588,6 +1667,14 @@ server_sent_garbage(Socket) ->
 	    
     end.
     
+check_openssl_sni_support(Config) ->
+    HelpText = os:cmd("openssl s_client --help"),
+    case string:str(HelpText, "-servername") of
+        0 ->
+            {skip, "Current openssl doesn't support SNI"};
+        _ ->
+            Config
+    end.
 
 check_openssl_npn_support(Config) ->
     HelpText = os:cmd("openssl s_client --help"),
