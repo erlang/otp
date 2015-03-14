@@ -351,6 +351,11 @@ cert_options(Config) ->
     BadKeyFile = filename:join([?config(priv_dir, Config), 
 			      "badkey.pem"]),
     PskSharedSecret = <<1,2,3,4,5,6,7,8,9,10,11,12,13,14,15>>,
+
+    SNIServerACertFile = filename:join([?config(priv_dir, Config), "a.server", "cert.pem"]),
+    SNIServerAKeyFile = filename:join([?config(priv_dir, Config), "a.server", "key.pem"]),
+    SNIServerBCertFile = filename:join([?config(priv_dir, Config), "b.server", "cert.pem"]),
+    SNIServerBKeyFile = filename:join([?config(priv_dir, Config), "b.server", "key.pem"]),
     [{client_opts, [{ssl_imp, new},{reuseaddr, true}]}, 
      {client_verification_opts, [{cacertfile, ClientCaCertFile}, 
 				{certfile, ClientCertFile},  
@@ -411,7 +416,17 @@ cert_options(Config) ->
      {server_bad_cert, [{ssl_imp, new},{cacertfile, ServerCaCertFile},
 			{certfile, BadCertFile}, {keyfile, ServerKeyFile}]},
      {server_bad_key, [{ssl_imp, new},{cacertfile, ServerCaCertFile},
-		       {certfile, ServerCertFile}, {keyfile, BadKeyFile}]}
+		       {certfile, ServerCertFile}, {keyfile, BadKeyFile}]},
+     {sni_server_opts, [{sni_hosts, [
+                                     {"a.server", [
+                                                   {certfile, SNIServerACertFile},
+                                                   {keyfile, SNIServerAKeyFile}
+                                                  ]},
+                                     {"b.server", [
+                                                   {certfile, SNIServerBCertFile},
+                                                   {keyfile, SNIServerBKeyFile}
+                                                  ]}
+                                    ]}]}
      | Config].
 
 
@@ -1090,6 +1105,8 @@ cipher_restriction(Config0) ->
 
 check_sane_openssl_version(Version) ->
     case {Version, os:cmd("openssl version")} of
+	{_, "OpenSSL 1.0.2" ++ _} ->
+        true;
 	{_, "OpenSSL 1.0.1" ++ _} ->
 	    true;
 	{'tlsv1.2', "OpenSSL 1.0" ++ _} ->
