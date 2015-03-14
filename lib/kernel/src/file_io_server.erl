@@ -256,7 +256,12 @@ file_request(close,
     {stop,normal,?PRIM_FILE:close(Handle),State#state{buf= <<>>}};
 file_request({position,At}, 
 	     #state{handle=Handle,buf=Buf}=State) ->
-    std_reply(position(Handle, At, Buf), State);
+    case position(Handle, At, Buf) of
+    {error, _Reason}=Reply ->
+        {error,Reply,State};
+    Reply ->
+        {reply,Reply,State#state{buf= <<>>}}
+    end;
 file_request(truncate, 
 	     #state{handle=Handle}=State) ->
     case ?PRIM_FILE:truncate(Handle) of

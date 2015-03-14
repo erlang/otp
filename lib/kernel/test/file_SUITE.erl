@@ -47,7 +47,7 @@
 -export([cur_dir_0/1, cur_dir_1/1, make_del_dir/1,
 	 list_dir/1,list_dir_error/1,
 	 untranslatable_names/1, untranslatable_names_error/1,
-	 pos1/1, pos2/1]).
+	 pos1/1, pos2/1, pos3/1]).
 -export([close/1, consult1/1, path_consult/1, delete/1]).
 -export([ eval1/1, path_eval/1, script1/1, path_script/1,
 	 open1/1,
@@ -1219,6 +1219,20 @@ pos2(Config) when is_list(Config) ->
     ?line test_server:timetrap_cancel(Dog),
     ok.
 
+pos3(suite) -> [];
+pos3(doc) -> ["When it does not use raw mode, file:postiion had a bug."];
+pos3(Config) when is_list(Config) ->
+    ?line Dog = test_server:timetrap(test_server:seconds(5)),
+    ?line RootDir = ?config(data_dir, Config),
+    ?line Name = filename:join(RootDir, "realmen.html.gz"),
+
+    ?line {ok, Fd} = ?FILE_MODULE:open(Name, [read, binary]),
+    ?line {ok, _}  = ?FILE_MODULE:read(Fd, 5),
+    ?line {error, einval} = ?FILE_MODULE:position(Fd, {bof, -1}),
+    %% Here ok had returned =(
+    ?line {error, einval} = ?FILE_MODULE:position(Fd, {cur, -10}),
+    ?line test_server:timetrap_cancel(Dog),
+    ok.
 
 file_info_basic_file(suite) -> [];
 file_info_basic_file(doc) -> [];
