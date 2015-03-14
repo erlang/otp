@@ -687,6 +687,7 @@ split_bin(Config) when is_list(Config) ->
     [<<"/">>,<<"usr">>,<<"local">>,<<"bin">>] = filename:split(<<"/usr/local/bin">>),
     [<<"foo">>,<<"bar">>]= filename:split(<<"foo/bar">>),
     [<<"foo">>, <<"bar">>, <<"hello">>]= filename:split(<<"foo////bar//hello">>),
+    [] = filename:split(<<>>),
     case os:type() of
        {win32,_} ->
 	    [<<"a:/">>,<<"msdev">>,<<"include">>] =
