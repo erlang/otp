@@ -1808,19 +1808,31 @@ start_minor_log_file1(Mod, Func, LogDir, AbsName, MFA) ->
     put(test_server_minor_footer, Footer),
     io:put_chars(Fd, Header),
 
+    io:put_chars(Fd, "<a name=\"top\"></a>"),
+    io:put_chars(Fd, "<pre>\n"),
+
     SrcListing = downcase(atom_to_list(Mod)) ++ ?src_listing_ext,
+    
+    {Info,Arity} =
+	if Func == init_per_suite; Func == end_per_suite ->
+		{"Config function: ", 1};
+	   Func == init_per_group; Func == end_per_group ->
+		{"Config function: ", 2};
+	   true ->
+		{"Test case: ", 1}
+	end,
+
     case {filelib:is_file(filename:join(LogDir, SrcListing)),
 	  lists:member(no_src, get(test_server_logopts))} of
 	{true,false} ->
-	    print(Lev, "<a href=\"~ts#~ts\">source code for ~w:~w/1</a>\n",
+	    print(Lev, Info ++ "<a href=\"~ts#~ts\">~w:~w/~w</a> "
+		  "(click for source code)\n",
 		  [uri_encode(SrcListing),
 		   uri_encode(atom_to_list(Func)++"-1",utf8),
-		   Mod,Func]);
+		   Mod,Func,Arity]);
 	_ ->
-	    ok
+	    print(Lev, Info ++ "~w:~w/~w\n", [Mod,Func,Arity])
     end,
-
-    io:put_chars(Fd, "<pre>\n"),
 
     AbsName.
 
@@ -3076,13 +3088,11 @@ print_conf_time(ConfTime) ->
     print(major, "=group_time    ~.3fs", [ConfTime]),
     print(minor, "~n=== Total execution time of group: ~.3fs~n", [ConfTime]).
 
-print_props(_, []) ->
+print_props([]) ->
     ok;
-print_props(true, Props) ->
+print_props(Props) ->
     print(major, "=group_props   ~p", [Props]),
-    print(minor, "Group properties: ~p~n", [Props]);
-print_props(_, _) ->
-    ok.
+    print(minor, "Group properties: ~p~n", [Props]).
 
 %% repeat N times:                                  {repeat,N}
 %% repeat N times or until all successful:          {repeat_until_all_ok,N}
@@ -3687,7 +3697,6 @@ run_test_case1(Ref, Num, Mod, Func, Args, RunInit,
 
     print(major, "=case          ~w:~w", [Mod, Func]),
     MinorName = start_minor_log_file(Mod, Func, self() /= Main),
-    print(minor, "<a name=\"top\"></a>", [], internal_raw),
     MinorBase = filename:basename(MinorName),
     print(major, "=logfile       ~ts", [filename:basename(MinorName)]),
 
@@ -3720,7 +3729,20 @@ run_test_case1(Ref, Num, Mod, Func, Args, RunInit,
 				   [tc_start,{{Mod,{Func,GrName}},
 					      MinorName}]),
 
-    print_props((RunInit==skip_init), get_props(Mode)),
+    {ok,Cwd} = file:get_cwd(),
+    Args2Print = if is_list(UpdatedArgs) ->
+			 lists:keydelete(tc_group_result, 1, UpdatedArgs);
+		     true ->
+			 UpdatedArgs
+		 end,
+    if RunInit == skip_init ->
+	    print_props(get_props(Mode));
+       true ->
+	    ok
+    end,
+    print(minor, "Config value:\n\n    ~tp\n", [Args2Print]),
+    print(minor, "Current directory is ~tp\n", [Cwd]),
+
     GrNameStr =	case GrName of
 		    undefined -> "";
 		    Name      -> cast_to_list(Name)

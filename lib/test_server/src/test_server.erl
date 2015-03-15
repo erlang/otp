@@ -446,15 +446,6 @@ run_test_case_apply({CaseNum,Mod,Func,Args,Name,
 	}).
 
 run_test_case_apply(Mod, Func, Args, Name, RunInit, TimetrapData) ->
-    {ok,Cwd} = file:get_cwd(),
-    Args2Print = case Args of
-		     [Args1] when is_list(Args1) ->
-			 lists:keydelete(tc_group_result, 1, Args1);
-		     _ ->
-			 Args
-		 end,
-    print(minor, "Test case started with:\n~w:~w(~tp)\n", [Mod,Func,Args2Print]),
-    print(minor, "Current directory is ~tp\n", [Cwd]),
     print_timestamp(minor,"Started at "),
     print(minor, "", [], internal_raw),
     TCCallback = get(test_server_testcase_callback),
@@ -1400,8 +1391,8 @@ fw_error_notify(Mod, Func, Args, Error, Loc) ->
 %% Just like io:format, except that depending on the Detail value, the output
 %% is directed to console, major and/or minor log files.
 
-print(Detail,Format,Args) ->
-    test_server_ctrl:print(Detail, Format, Args).
+%% print(Detail,Format,Args) ->
+%%    test_server_ctrl:print(Detail, Format, Args).
 
 print(Detail,Format,Args,Printer) ->
     test_server_ctrl:print(Detail, Format, Args, Printer).
