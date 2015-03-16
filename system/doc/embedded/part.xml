@@ -31,17 +31,17 @@
     <rev>C</rev>
     <file></file>
   </header>
+
   <description>
-    <p>This manual describes the issues that are specific
+    <marker id="embedded systems user guide"></marker>
+    <p>This section describes the issues that are specific
       for running Erlang on an embedded system.
       It describes the differences in installing and starting
-      Erlang compared to how it is done for a non-embedded system.
-      </p>
-    <p>Note that this is a supplementary document. You still need to
-      read the Installation Guide.
-      </p>
-    <p>There is also target architecture specific information in
-      the top level README file of the Erlang distribution.</p>
+      Erlang compared to how it is done for a non-embedded system.</p>
+      <note><p>This is a supplementary section. You also need to
+      read Section 1 Installation Guide.</p></note>
+    <p>There is also target architecture-specific information in
+      the top-level README file of the Erlang distribution.</p>
   </description>
   <xi:include href="embedded_solaris.xml"/>
   <xi:include href="embedded_nt.xml"/>
