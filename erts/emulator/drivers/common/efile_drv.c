@@ -1712,9 +1712,9 @@ static void invoke_pwritev(void *data) {
 	    d->result_ok = 0;
 	    d->again = 0;
 	deq_error:
-	    MUTEX_LOCK(d->c.writev.q_mtx);
+	    MUTEX_LOCK(d->c.pwritev.q_mtx);
 	    driver_deq(d->c.pwritev.port, c->size);
-	    MUTEX_UNLOCK(d->c.writev.q_mtx);
+	    MUTEX_UNLOCK(d->c.pwritev.q_mtx);
 
 	    goto done;
 	} else {
@@ -1725,9 +1725,9 @@ static void invoke_pwritev(void *data) {
       ASSERT(written >= FILE_SEGMENT_WRITE);
     }
       
-    MUTEX_LOCK(d->c.writev.q_mtx);
+    MUTEX_LOCK(d->c.pwritev.q_mtx);
     driver_deq(d->c.pwritev.port, written);
-    MUTEX_UNLOCK(d->c.writev.q_mtx);
+    MUTEX_UNLOCK(d->c.pwritev.q_mtx);
  done:
     EF_FREE(iov); /* Free our copy of the vector, nothing to restore */
     
