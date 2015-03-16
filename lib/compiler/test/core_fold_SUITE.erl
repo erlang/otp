@@ -88,6 +88,7 @@ t_element(Config) when is_list(Config) ->
 	{_,_,_}=Tup ->
 	    ?line {'EXIT',{badarg,_}} = (catch element(4, Tup))
     end,
+    {'EXIT',{badarg,_}} = (catch element(1, tuple_size(Tuple))),
 
     ok.
 
@@ -106,6 +107,7 @@ setelement(Config) when is_list(Config) ->
     ?line error = setelement_crash_2({a,b,c,d,e,f}, <<42>>),
 
     {'EXIT',{badarg,_}} = (catch setelement(1, not_a_tuple, New)),
+    {'EXIT',{badarg,_}} = (catch setelement(3, {a,b}, New)),
 
     ok.
 

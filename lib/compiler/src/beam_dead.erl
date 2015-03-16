@@ -98,6 +98,12 @@ move_move_into_block([], Acc) -> reverse(Acc).
 forward(Is, Lc) ->
     forward(Is, gb_trees:empty(), Lc, []).
 
+forward([{move,_,_}=Move|[{label,L}|_]=Is], D, Lc, Acc) ->
+    %% move/2 followed by jump/1 is optimized by backward/3.
+    forward([Move,{jump,{f,L}}|Is], D, Lc, Acc);
+forward([{bif,_,_,_,_}=Bif|[{label,L}|_]=Is], D, Lc, Acc) ->
+    %% bif/4 followed by jump/1 is optimized by backward/3.
+    forward([Bif,{jump,{f,L}}|Is], D, Lc, Acc);
 forward([{block,[]}|Is], D, Lc, Acc) ->
     %% Empty blocks can prevent optimizations.
     forward(Is, D, Lc, Acc);
@@ -124,6 +130,8 @@ forward([{label,Lbl}=LblI|[{move,Lit,Dst}|Is1]=Is0], D, Lc, Acc) ->
 	     _ -> Is0		     %Keep move instruction.
 	 end,
     forward(Is, D, Lc, [LblI|Acc]);
+forward([{test,is_eq_exact,_,[Same,Same]}|Is], D, Lc, Acc) ->
+    forward(Is, D, Lc, Acc);
 forward([{test,is_eq_exact,_,[Dst,Src]}=I,
 	 {block,[{set,[Dst],[Src],move}|Bl]}|Is], D, Lc, Acc) ->
     forward([I,{block,Bl}|Is], D, Lc, Acc);
@@ -234,10 +242,8 @@ backward([{select,select_val,Reg,{f,Fail0},List0}|Is], D, Acc) ->
     Fail = shortcut_bs_test(Fail1, Is, D),
     Sel = {select,select_val,Reg,{f,Fail},List},
     backward(Is, D, [Sel|Acc]);
-backward([{jump,{f,To0}},{move,Src0,Reg}|Is], D, Acc) ->
-    To1 = shortcut_select_label(To0, Reg, Src0, D),
-    {To,Src} = shortcut_boolean_label(To1, Reg, Src0, D),
-    Move = {move,Src,Reg},
+backward([{jump,{f,To0}},{move,Src,Reg}=Move|Is], D, Acc) ->
+    To = shortcut_select_label(To0, Reg, Src, D),
     Jump = {jump,{f,To}},
     case beam_utils:is_killed_at(Reg, To, D) of
 	false -> backward([Move|Is], D, [Jump|Acc]);
@@ -329,16 +335,6 @@ shortcut_label(To0, D) ->
 
 shortcut_select_label(To, Reg, Lit, D) ->
     shortcut_rel_op(To, is_ne_exact, [Reg,Lit], D).
-
-shortcut_boolean_label(To0, Reg, {atom,Bool0}=Lit, D) when is_boolean(Bool0) ->
-    case beam_utils:code_at(To0, D) of
-	[{line,_},{bif,'not',_,[Reg],Reg},{jump,{f,To}}|_] ->
-	    Bool = {atom,not Bool0},
-	    {shortcut_select_label(To, Reg, Bool, D),Bool};
-	_ ->
-	    {To0,Lit}
-    end;
-shortcut_boolean_label(To, _, Bool, _) -> {To,Bool}.
 
 %% Replace a comparison operator with a test instruction and a jump.
 %% For example, if we have this code:

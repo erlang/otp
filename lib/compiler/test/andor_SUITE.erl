@@ -370,6 +370,11 @@ combined(Config) when is_list(Config) ->
     ?line true = ?COMB(false, blurf, true),
     ?line true = ?COMB(true, true, blurf),
 
+    false = simple_comb(false, false),
+    false = simple_comb(false, true),
+    false = simple_comb(true, false),
+    true = simple_comb(true, true),
+
     ok.
 -undef(COMB).
 
@@ -395,6 +400,13 @@ comb(A, B, C) ->
 	      true -> false
 	  end,
     id(Res).
+
+simple_comb(A, B) ->
+    %% Use Res twice, to ensure that a careless optimization of 'not'
+    %% doesn't leave Res as a free variable.
+    Res = A andalso B,
+    _ = id(not Res),
+    Res.
 
 %% Test that a boolean expression in a case expression is properly
 %% optimized (in particular, that the error behaviour is correct).

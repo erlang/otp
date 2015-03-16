@@ -138,7 +138,8 @@
      ]).
 
 -export_type([c_binary/0, c_bitstr/0, c_call/0, c_clause/0, c_cons/0, c_fun/0,
-	      c_literal/0, c_map/0, c_map_pair/0, c_module/0, c_tuple/0,
+	      c_let/0, c_literal/0, c_map/0, c_map_pair/0,
+	      c_module/0, c_tuple/0,
 	      c_values/0, c_var/0, cerl/0, var_name/0]).
 
 -include("core_parse.hrl").

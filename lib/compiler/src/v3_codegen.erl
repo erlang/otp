@@ -69,10 +69,8 @@
 	     stk=[],				%Stack table
 	     res=[]}).				%Reserved regs: [{reserved,I,V}]
 
-module({Mod,Exp,Attr,Forms}, Options) ->
-    put(?MODULE, Options),
+module({Mod,Exp,Attr,Forms}, _Options) ->
     {Fs,St} = functions(Forms, {atom,Mod}),
-    erase(?MODULE),
     {ok,{Mod,Exp,Attr,Fs,St#cg.lcount}}.
 
 functions(Forms, AtomMod) ->
@@ -924,7 +922,7 @@ select_extract_tuple(Src, Vs, I, Vdb, Bef, St) ->
 select_map(Scs, V, Tf, Vf, Bef, St0) ->
     Reg = fetch_var(V, Bef),
     {Is,Aft,St1} =
-	match_fmf(fun(#l{ke={val_clause,{map,_,Es},B},i=I,vdb=Vdb}, Fail, St1) ->
+	match_fmf(fun(#l{ke={val_clause,{map,exact,_,Es},B},i=I,vdb=Vdb}, Fail, St1) ->
 			  select_map_val(V, Es, B, Fail, I, Vdb, Bef, St1)
 		  end, Vf, St0, Scs),
     {[{test,is_map,{f,Tf},[Reg]}|Is],Aft,St1}.
