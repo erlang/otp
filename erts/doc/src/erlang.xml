@@ -1356,7 +1356,7 @@ true
       <name name="get" arity="1"/>
       <fsummary>Return a value from the process dictionary</fsummary>
       <desc>
-        <p>Returns the value <c><anno>Val</anno></c>associated with <c><anno>Key</anno></c> in
+        <p>Returns the value <c><anno>Val</anno></c> associated with <c><anno>Key</anno></c> in
           the process dictionary, or <c>undefined</c> if <c><anno>Key</anno></c>
           does not exist.</p>
         <pre>
