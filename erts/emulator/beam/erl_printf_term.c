@@ -31,7 +31,7 @@
 do {									\
     int res__ = erts_printf_char((FN), (ARG), (C));			\
     if (res__ < 0)							\
-	abort();							\
+	return res__;							\
     (CNT) += res__;							\
 } while (0)
 
@@ -39,7 +39,7 @@ do {									\
 do {									\
     int res__ = erts_printf_string((FN), (ARG), (STR));			\
     if (res__ < 0)							\
-	abort();							\
+	return res__;							\
     (CNT) += res__;							\
 } while (0)
 
@@ -47,7 +47,7 @@ do {									\
 do {									\
     int res__ = erts_printf_buf((FN), (ARG), (char*)(BUF), (LEN));	\
     if (res__ < 0)							\
-	abort();							\
+	return res__;							\
     (CNT) += res__;							\
 } while (0)
 
@@ -55,7 +55,7 @@ do {									\
 do {									\
     int res__ = erts_printf_pointer((FN), (ARG), (void *) (PTR));	\
     if (res__ < 0)							\
-	abort();							\
+	return res__;							\
     (CNT) += res__;							\
 } while (0)
 
@@ -63,7 +63,7 @@ do {									\
 do {									\
     int res__ = erts_printf_uword((FN), (ARG), (C), (P), (W), (I));	\
     if (res__ < 0)							\
-	abort();							\
+	return res__;							\
     (CNT) += res__;							\
 } while (0)
 
@@ -71,7 +71,7 @@ do {									\
 do {									\
     int res__ = erts_printf_sword((FN), (ARG), (C), (P), (W), (I));	\
     if (res__ < 0)							\
-	abort();							\
+	return res__;							\
     (CNT) += res__;							\
 } while (0)
 
@@ -79,7 +79,7 @@ do {									\
 do {									\
     int res__ = erts_printf_double((FN), (ARG), (C), (P), (W), (I));	\
     if (res__ < 0)							\
-	abort();							\
+	return res__;							\
     (CNT) += res__;							\
 } while (0)
 
