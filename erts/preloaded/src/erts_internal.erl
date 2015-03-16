@@ -30,7 +30,7 @@
 
 -export([await_port_send_result/3]).
 -export([cmp_term/2]).
--export([map_to_tuple_keys/1]).
+-export([map_to_tuple_keys/1, map_type/1, map_hashmap_children/1]).
 -export([port_command/3, port_connect/2, port_close/1,
 	 port_control/3, port_call/3, port_info/1, port_info/2]).
 
@@ -177,4 +177,21 @@ cmp_term(_A,_B) ->
     Keys :: tuple().
 
 map_to_tuple_keys(_M) ->
+    erlang:nif_error(undefined).
+
+%% return the internal map type
+-spec map_type(M) -> Type when
+    M :: map(),
+    Type :: 'flatmap' | 'hashmap' | 'hashmap_node'.
+
+map_type(_M) ->
+    erlang:nif_error(undefined).
+
+%% return the internal hashmap sub-nodes from
+%% a hashmap node
+-spec map_hashmap_children(M) -> Children when
+    M :: map(), %% hashmap node
+    Children :: [map() | nonempty_improper_list(term(),term())].
+
+map_hashmap_children(_M) ->
     erlang:nif_error(undefined).
