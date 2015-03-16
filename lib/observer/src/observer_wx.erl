@@ -626,8 +626,8 @@ default_menus(NodesMenuItems) ->
 	    %% automagicly, so just add them to a menu that always exist.
 	    %% But not to the help menu for some reason
 
-	    {Tag, Menus} = NodeMenu,
-	    [{Tag, Menus ++ [Quit,About]}, LogMenu, {"&Help", [Help]}]
+	    {Tag, Menus} = FileMenu,
+	    [{Tag, Menus ++ [Quit,About]}, NodeMenu, LogMenu, {"&Help", [Help]}]
     end.
 
 clean_menus(Menus, MenuBar) ->
