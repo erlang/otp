@@ -34,7 +34,7 @@
 %% Cache callback API
 %%====================================================================
 
-lookup(#'DistributionPoint'{distributionPoint={fullName, Names}}, 
+lookup(#'DistributionPoint'{distributionPoint = {fullName, Names}},
        CRLDbInfo) ->
     get_crls(Names, CRLDbInfo);
 lookup(_,_) ->
@@ -48,8 +48,8 @@ select(Issuer, {{_Cache, Mapping},_}) ->
 	    CRLs
     end.
 
-fresh_crl(DistributionPoint, CRL) ->
-    case get_crls(DistributionPoint, undefined) of
+fresh_crl(#'DistributionPoint'{distributionPoint = {fullName, Names}}, CRL) ->
+    case get_crls(Names, undefined) of
 	not_available ->
 	    CRL;
 	[NewCRL] ->
