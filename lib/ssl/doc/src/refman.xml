@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <!DOCTYPE application SYSTEM "application.dtd">
 
-<application xmlns:xi="http://www.w3.org/2001/XInclude">
+<appref xmlns:xi="http://www.w3.org/2001/XInclude">
   <header>
     <copyright>
       <year>1999</year><year>2015</year>
@@ -33,6 +33,6 @@
   <xi:include href="ssl_crl_cache.xml"/>
   <xi:include href="ssl_crl_cache_api.xml"/>
   <xi:include href="ssl_session_cache_api.xml"/>
-</application>
+</appref>
 
 

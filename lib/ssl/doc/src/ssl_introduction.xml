@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2015</year>
+      <year>2015</year>
+      <holder>Ericsson AB, All Rights Reserved</holder>
+    </copyright>
+    <legalnotice>
+  The contents of this file are subject to the Erlang Public License,
+  Version 1.1, (the "License"); you may not use this file except in
+  compliance with the License. You should have received a copy of the
+  Erlang Public License along with this software. If not, it can be
+  retrieved online at http://www.erlang.org/.
+
+  Software distributed under the License is distributed on an "AS IS"
+  basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+  the License for the specific language governing rights and limitations
+  under the License.
+
+  The Initial Developer of the Original Code is Ericsson AB.
+    </legalnotice>
+
+    <title>Introduction</title>
+    <prepared>OTP team</prepared>
+    <docno></docno>
+    <date>2015-03-05</date>
+    <rev>A</rev>
+    <file>ssl_introduction.xml</file>
+  </header>
+
+  <section>
+    <title>Purpose</title>
+    <p>Transport Layer Security (TLS) and its predecessor, the Secure
+    Sockets Layer (SSL) are cryptographic protocols designed to
+    provide communications security over a computer network. They
+    use x.509 certificates and hence asymmetric cryptography to
+    authenticate the counterparty with whom they are communicating,
+    and to exchange a symmetric key. This session key is then used
+    to encrypt data flowing between the parties. This allows for
+    data/message confidentiality, and message authentication codes
+    for message integrity.</p>
+  </section>
+
+  <section>
+    <title>Prerequisites</title>
+    <p>It is assumed that the reader is familiar with the Erlang
+    programming language, the concepts of OTP, and has a basic
+    understanding of SSL/TSP.</p>
+  </section>
+
+</chapter>
