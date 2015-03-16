@@ -47,6 +47,7 @@
 -export([ordered/1, ordered_match/1, interface_equality/1,
 	 fixtable_next/1, fixtable_insert/1, rename/1, rename_unnamed/1, evil_rename/1,
 	 update_element/1, update_counter/1, evil_update_counter/1, partly_bound/1, match_heavy/1]).
+-export([update_counter_with_default/1]).
 -export([member/1]).
 -export([memory/1]).
 -export([select_fail/1]).
@@ -99,7 +100,7 @@
 	 misc1_do/1, safe_fixtable_do/1, info_do/1, dups_do/1, heavy_lookup_do/1,
 	 heavy_lookup_element_do/1, member_do/1, otp_5340_do/1, otp_7665_do/1, meta_wb_do/1,
 	 do_heavy_concurrent/1, tab2file2_do/2, exit_large_table_owner_do/2,
-         types_do/1, sleeper/0, memory_do/1,
+         types_do/1, sleeper/0, memory_do/1, update_counter_with_default_do/1,
 	 ms_tracee_dummy/1, ms_tracee_dummy/2, ms_tracee_dummy/3, ms_tracee_dummy/4
 	]).
 
@@ -136,7 +137,8 @@ all() ->
      {group, heavy}, ordered, ordered_match,
      interface_equality, fixtable_next, fixtable_insert,
      rename, rename_unnamed, evil_rename, update_element,
-     update_counter, evil_update_counter, partly_bound,
+     update_counter, evil_update_counter,
+     update_counter_with_default, partly_bound,
      match_heavy, {group, fold}, member, t_delete_object,
      t_init_table, t_whitebox, t_delete_all_objects,
      t_insert_list, t_test_ms, t_select_delete, t_ets_dets,
@@ -1761,6 +1763,14 @@ update_counter_do(Opts) ->
     OrdSet = ets_new(ordered_set,[ordered_set | Opts]),
     update_counter_for(Set),
     update_counter_for(OrdSet),
+    ets:delete_all_objects(Set),
+    ets:delete_all_objects(OrdSet),
+    ets:safe_fixtable(Set, true),
+    ets:safe_fixtable(OrdSet, true),
+    update_counter_for(Set),
+    update_counter_for(OrdSet),
+    ets:safe_fixtable(Set, false),
+    ets:safe_fixtable(OrdSet, false),
     ets:delete(Set),
     ets:delete(OrdSet),
     update_counter_neg(Opts).
@@ -1780,10 +1790,14 @@ update_counter_for(T) ->
 		      ?line {NewObj, Ret} = uc_mimic(Obj,Arg3),
 		      ArgHash = erlang:phash2({T,a,Arg3}),
 		      %%io:format("update_counter(~p, ~p, ~p) expecting ~p\n",[T,a,Arg3,Ret]),
+                      [DefaultObj] = ets:lookup(T, a),
 		      ?line Ret = ets:update_counter(T,a,Arg3),
+                      Ret = ets:update_counter(T, b, Arg3, DefaultObj),   % Use other key
 		      ?line ArgHash = erlang:phash2({T,a,Arg3}),
 		      %%io:format("NewObj=~p~n ",[NewObj]),
 		      ?line [NewObj] = ets:lookup(T,a),
+                      true = ets:lookup(T, b) =:= [setelement(1, NewObj, b)],
+                      ets:delete(T, b),
 		      Myself(NewObj,Times-1,Arg3,Myself)
 	      end,		  
 
@@ -2007,6 +2021,44 @@ evil_counter_1(0, T) ->
 evil_counter_1(Iter, T) ->
     ets:update_counter(T, dracula, 1),
     evil_counter_1(Iter-1, T).
+
+update_counter_with_default(Config) when is_list(Config) ->
+	repeat_for_opts(update_counter_with_default_do).
+
+update_counter_with_default_do(Opts) ->
+    T1 = ets_new(a, [set | Opts]),
+    %% Insert default object.
+    3 = ets:update_counter(T1, foo, 2, {beaufort,1}),
+    %% Increment.
+    5 = ets:update_counter(T1, foo, 2, {cabecou,1}),
+    %% Increment with list.
+    [9] = ets:update_counter(T1, foo, [{2,4}], {camembert,1}),
+    %% Same with non-immediate key.
+    3 = ets:update_counter(T1, {foo,bar}, 2, {{chaource,chevrotin},1}),
+    5 = ets:update_counter(T1, {foo,bar}, 2, {{cantal,comté},1}),
+    [9] = ets:update_counter(T1, {foo,bar}, [{2,4}], {{emmental,de,savoie},1}),
+    %% Same with ordered set.
+    T2 = ets_new(b, [ordered_set | Opts]),
+    3 = ets:update_counter(T2, foo, 2, {maroilles,1}),
+    5 = ets:update_counter(T2, foo, 2, {mimolette,1}),
+    [9] = ets:update_counter(T2, foo, [{2,4}], {morbier,1}),
+    3 = ets:update_counter(T2, {foo,bar}, 2, {{laguiole},1}),
+    5 = ets:update_counter(T2, {foo,bar}, 2, {{saint,nectaire},1}),
+    [9] = ets:update_counter(T2, {foo,bar}, [{2,4}], {{rocamadour},1}),
+    %% Arithmetically-equal keys.
+    3 = ets:update_counter(T2, 1.0, 2, {1,1}),
+    5 = ets:update_counter(T2, 1, 2, {1,1}),
+    7 = ets:update_counter(T2, 1, 2, {1.0,1}),
+    %% Same with reversed type difference.
+    3 = ets:update_counter(T2, 2, 2, {2.0,1}),
+    5 = ets:update_counter(T2, 2.0, 2, {2.0,1}),
+    7 = ets:update_counter(T2, 2.0, 2, {2,1}),
+    %% bar is not an integer.
+    {'EXIT',{badarg,_}} = (catch ets:update_counter(T1, qux, 3, {saint,félicien})),
+    %% No third element in default value.
+    {'EXIT',{badarg,_}} = (catch ets:update_counter(T1, qux, [{3,1}], {roquefort,1})),
+
+    ok.
 
 fixtable_next(doc) ->
     ["Check that a first-next sequence always works on a fixed table"];

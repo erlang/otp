@@ -805,7 +805,7 @@ BIF_RETTYPE ets_update_element_3(BIF_ALIST_3)
 	list = BIF_ARG_3;
     }
 
-    if (!tb->common.meth->db_lookup_dbterm(tb, BIF_ARG_2, &handle)) {
+    if (!tb->common.meth->db_lookup_dbterm(BIF_P, tb, BIF_ARG_2, THE_NON_VALUE, &handle)) {
 	cret = DB_ERROR_BADKEY;
 	goto bail_out;
     }
@@ -844,7 +844,7 @@ BIF_RETTYPE ets_update_element_3(BIF_ALIST_3)
     }
 
 finalize:
-    tb->common.meth->db_finalize_dbterm(&handle);
+    tb->common.meth->db_finalize_dbterm(cret, &handle);
 
 bail_out:
     UnUseTmpHeap(2,BIF_P);
@@ -863,14 +863,8 @@ bail_out:
     }
 }
 
-/* 
-** update_counter(Tab, Key, Incr) 
-** update_counter(Tab, Key, {Upop}) 
-** update_counter(Tab, Key, [{Upop}]) 
-** Upop = {Pos,Incr} | {Pos,Incr,Threshold,WarpTo}
-** Returns new value(s) (integer or [integer])
-*/
-BIF_RETTYPE ets_update_counter_3(BIF_ALIST_3)
+static BIF_RETTYPE
+do_update_counter(Process *p, Eterm arg1, Eterm arg2, Eterm arg3, Eterm arg4)
 {
     DbTable* tb;
     int cret = DB_ERROR_BADITEM;
@@ -880,7 +874,7 @@ BIF_RETTYPE ets_update_counter_3(BIF_ALIST_3)
     Eterm* ret_list_currp = NULL;
     Eterm* ret_list_prevp = NULL;
     Eterm iter;
-    DeclareTmpHeap(cell,5,BIF_P);
+    DeclareTmpHeap(cell, 5, p);
     Eterm *tuple = cell+2;
     DbUpdateHandle handle;
     Uint halloc_size = 0; /* overestimated heap usage */
@@ -888,28 +882,29 @@ BIF_RETTYPE ets_update_counter_3(BIF_ALIST_3)
     Eterm* hstart;
     Eterm* hend;
 
-    if ((tb = db_get_table(BIF_P, BIF_ARG_1, DB_WRITE, LCK_WRITE_REC)) == NULL) {
-	BIF_ERROR(BIF_P, BADARG);
+    if ((tb = db_get_table(p, arg1, DB_WRITE, LCK_WRITE_REC)) == NULL) {
+        BIF_ERROR(p, BADARG);
     }
 
-    UseTmpHeap(5,BIF_P);
+    UseTmpHeap(5, p);
 
     if (!(tb->common.status & (DB_SET | DB_ORDERED_SET))) {
 	goto bail_out;
     }
-    if (is_integer(BIF_ARG_3)) {  /* Incr */
-	upop_list = CONS(cell, TUPLE2(tuple, make_small(tb->common.keypos+1),
-				      BIF_ARG_3), NIL);
+    if (is_integer(arg3)) { /* Incr */
+        upop_list = CONS(cell,
+                         TUPLE2(tuple, make_small(tb->common.keypos+1), arg3),
+                         NIL);
     }
-    else if (is_tuple(BIF_ARG_3)) { /* {Upop} */
-	upop_list = CONS(cell, BIF_ARG_3, NIL);
+    else if (is_tuple(arg3)) { /* {Upop} */
+        upop_list = CONS(cell, arg3, NIL);
     }
     else { /* [{Upop}] (probably) */
-	upop_list = BIF_ARG_3;
+        upop_list = arg3;
 	ret_list_prevp = &ret;
     }
 
-    if (!tb->common.meth->db_lookup_dbterm(tb, BIF_ARG_2, &handle)) {
+    if (!tb->common.meth->db_lookup_dbterm(p, tb, arg2, arg4, &handle)) {
 	goto bail_out; /* key not found */
     }
 
@@ -982,13 +977,13 @@ BIF_RETTYPE ets_update_counter_3(BIF_ALIST_3)
     if (ret_list_prevp) { /* Prepare to return a list */
 	ret = NIL;
 	halloc_size += list_size;
-	hstart = HAlloc(BIF_P, halloc_size);
+	hstart = HAlloc(p, halloc_size);
 	ret_list_currp = hstart;
 	htop = hstart + list_size;
 	hend = hstart + halloc_size;
     }
     else {
-	hstart = htop = HAlloc(BIF_P, halloc_size);
+	hstart = htop = HAlloc(p, halloc_size);
     }
     hend = hstart + halloc_size;
 
@@ -1035,25 +1030,53 @@ BIF_RETTYPE ets_update_counter_3(BIF_ALIST_3)
 	   (is_list(ret) && (list_val(ret)+list_size)==ret_list_currp));
     ASSERT(htop <= hend);
 
-    HRelease(BIF_P,hend,htop);
+    HRelease(p, hend, htop);
 
 finalize:
-    tb->common.meth->db_finalize_dbterm(&handle);
+    tb->common.meth->db_finalize_dbterm(cret, &handle);
 
 bail_out:
-    UnUseTmpHeap(5,BIF_P);
+    UnUseTmpHeap(5, p);
     db_unlock(tb, LCK_WRITE_REC);
 
     switch (cret) {
     case DB_ERROR_NONE:
 	BIF_RET(ret);
     case DB_ERROR_SYSRES:
-	BIF_ERROR(BIF_P, SYSTEM_LIMIT);
+        BIF_ERROR(p, SYSTEM_LIMIT);
     default:
-	BIF_ERROR(BIF_P, BADARG);
+        BIF_ERROR(p, BADARG);
 	break;
     }
 }
+
+/*
+** update_counter(Tab, Key, Incr)
+** update_counter(Tab, Key, Upop)
+** update_counter(Tab, Key, [{Upop}])
+** Upop = {Pos,Incr} | {Pos,Incr,Threshold,WarpTo}
+** Returns new value(s) (integer or [integer])
+*/
+BIF_RETTYPE ets_update_counter_3(BIF_ALIST_3)
+{
+    return do_update_counter(BIF_P, BIF_ARG_1, BIF_ARG_2, BIF_ARG_3, THE_NON_VALUE);
+}
+
+/*
+** update_counter(Tab, Key, Incr, Default)
+** update_counter(Tab, Key, Upop, Default)
+** update_counter(Tab, Key, [{Upop}], Default)
+** Upop = {Pos,Incr} | {Pos,Incr,Threshold,WarpTo}
+** Returns new value(s) (integer or [integer])
+*/
+BIF_RETTYPE ets_update_counter_4(BIF_ALIST_4)
+{
+    if (is_not_tuple(BIF_ARG_4)) {
+        BIF_ERROR(BIF_P, BADARG);
+    }
+    return do_update_counter(BIF_P, BIF_ARG_1, BIF_ARG_2, BIF_ARG_3, BIF_ARG_4);
+}
+
 
 /* 
 ** The put BIF 

@@ -212,6 +212,7 @@ define(NBIF_COPY_NSP,`ifelse(eval($1 > NR_ARG_REGS),0,,`movl	%esp, TEMP_NSP')')d
 `/* #define NBIF_COPY_NSP_1	'NBIF_COPY_NSP(1)` */'
 `/* #define NBIF_COPY_NSP_2	'NBIF_COPY_NSP(2)` */'
 `/* #define NBIF_COPY_NSP_3	'NBIF_COPY_NSP(3)` */'
+`/* #define NBIF_COPY_NSP_4	'NBIF_COPY_NSP(4)` */'
 `/* #define NBIF_COPY_NSP_5	'NBIF_COPY_NSP(5)` */'
 
 dnl
@@ -235,6 +236,10 @@ define(NBIF_ARG_OPND,`ifelse(eval($2 >= NR_ARG_REGS),0,`ARG'$2,BASE_OFFSET(eval(
 `/* #define NBIF_ARG_OPND_3_0	'NBIF_ARG_OPND(3,0)` */'
 `/* #define NBIF_ARG_OPND_3_1	'NBIF_ARG_OPND(3,1)` */'
 `/* #define NBIF_ARG_OPND_3_2	'NBIF_ARG_OPND(3,2)` */'
+`/* #define NBIF_ARG_OPND_4_0	'NBIF_ARG_OPND(4,0)` */'
+`/* #define NBIF_ARG_OPND_4_1	'NBIF_ARG_OPND(4,1)` */'
+`/* #define NBIF_ARG_OPND_4_2	'NBIF_ARG_OPND(4,2)` */'
+`/* #define NBIF_ARG_OPND_4_3	'NBIF_ARG_OPND(4,3)` */'
 `/* #define NBIF_ARG_OPND_5_0	'NBIF_ARG_OPND(5,0)` */'
 `/* #define NBIF_ARG_OPND_5_1	'NBIF_ARG_OPND(5,1)` */'
 `/* #define NBIF_ARG_OPND_5_2	'NBIF_ARG_OPND(5,2)` */'
@@ -274,6 +279,7 @@ define(NBIF_RET,`NBIF_RET_N(eval(RET_POP($1)))')dnl
 `/* #define NBIF_RET_1	'NBIF_RET(1)` */'
 `/* #define NBIF_RET_2	'NBIF_RET(2)` */'
 `/* #define NBIF_RET_3	'NBIF_RET(3)` */'
+`/* #define NBIF_RET_4	'NBIF_RET(4)` */'
 `/* #define NBIF_RET_5	'NBIF_RET(5)` */'
 
 dnl

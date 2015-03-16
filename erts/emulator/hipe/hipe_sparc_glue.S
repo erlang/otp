@@ -316,6 +316,7 @@ nbif_fail:
 	.global	nbif_1_gc_after_bif
 	.global	nbif_2_gc_after_bif
 	.global	nbif_3_gc_after_bif
+	.global nbif_4_gc_after_bif
 nbif_0_gc_after_bif:
 	ba	.gc_after_bif
 	mov	0, %o1		/* delay slot */
@@ -326,7 +327,10 @@ nbif_2_gc_after_bif:
 	ba	.gc_after_bif
 	mov	2, %o1		/* delay slot */
 nbif_3_gc_after_bif:
-	mov	3, %o1
+	ba	.gc_after_bif
+	mov	3, %o1		/* delay slot */
+nbif_4_gc_after_bif:
+	mov	4, %o1
 	/*FALLTHROUGH*/
 .gc_after_bif:
 	st	%o1, [P+P_NARITY]
@@ -364,7 +368,11 @@ nbif_2_simple_exception:
 	mov	2, %o1		/* delay slot */
 	.global	nbif_3_simple_exception
 nbif_3_simple_exception:
-	mov	3, %o1
+	ba	.nbif_simple_exception
+	mov	3, %o1		/* delay slot */
+	.global	nbif_4_simple_exception
+nbif_4_simple_exception:
+	mov	4, %o1
 	/*FALLTHROUGH*/
 .nbif_simple_exception:
 	ld	[P+P_FREASON], %o0
