@@ -146,8 +146,6 @@ api_deflateInit(Config) when is_list(Config) ->
     ?m(?BARG, zlib:deflateInit(Z1,default,deflated,-20,8,default)),
     ?m(?BARG, zlib:deflateInit(Z1,default,deflated,-7,8,default)),
     ?m(?BARG, zlib:deflateInit(Z1,default,deflated,7,8,default)),
-    ?m(?BARG, zlib:deflateInit(Z1,default,deflated,-8,8,default)),
-    ?m(?BARG, zlib:deflateInit(Z1,default,deflated,8,8,default)),
     
     ?m(?BARG, zlib:deflateInit(Z1,default,deflated,-15,0,default)),
     ?m(?BARG, zlib:deflateInit(Z1,default,deflated,-15,10,default)),    
@@ -169,7 +167,7 @@ api_deflateInit(Config) when is_list(Config) ->
 			  ?m(ok, zlib:deflateInit(Z12,default,deflated,-Wbits,8,default)),
 			  ?m(ok,zlib:close(Z11)),
 			  ?m(ok,zlib:close(Z12))
-		  end, lists:seq(9, 15)),
+		  end, lists:seq(8, 15)),
     
     lists:foreach(fun(MemLevel) ->
 			  ?line Z = zlib:open(),
@@ -277,7 +275,7 @@ api_inflateInit(Config) when is_list(Config) ->
 			  ?m(ok, zlib:inflateInit(Z12,-Wbits)),
 			  ?m(ok,zlib:close(Z11)),
 			  ?m(ok,zlib:close(Z12))
-		  end, lists:seq(9,15)),
+		  end, lists:seq(8,15)),
     ?m(?BARG, zlib:inflateInit(gurka, -15)),
     ?m(?BARG, zlib:inflateInit(Z1, 7)),
     ?m(?BARG, zlib:inflateInit(Z1, -7)),

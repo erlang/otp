@@ -126,7 +126,7 @@
 -type zlevel()      :: 'none' | 'default' | 'best_compression' | 'best_speed' 
                      | 0..9.
 -type zmethod()     :: 'deflated'.
--type zwindowbits() :: -15..-9 | 9..47.
+-type zwindowbits() :: -15..-8 | 8..47.
 -type zmemlevel()   :: 1..9.
 -type zstrategy()   :: 'default' | 'filtered' | 'huffman_only' | 'rle'.
 
@@ -531,8 +531,8 @@ arg_method(_) -> erlang:error(badarg).
 
 -spec arg_bitsz(zwindowbits()) -> zwindowbits().
 arg_bitsz(Bits) when is_integer(Bits) andalso
-		     ((8 < Bits andalso Bits < 48) orelse
-		      (-15 =< Bits andalso Bits < -8)) ->
+		     ((8 =< Bits andalso Bits < 48) orelse
+		      (-15 =< Bits andalso Bits =< -8)) ->
     Bits;
 arg_bitsz(_) -> erlang:error(badarg).
 
