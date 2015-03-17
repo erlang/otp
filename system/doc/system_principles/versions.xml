@@ -61,8 +61,9 @@
     <c>filename:join([<seealso marker="kernel:code#root_dir/0">code:root_dir()</seealso>, "releases", <seealso marker="erts:erlang#system_info_otp_release">erlang:system_info(otp_release)</seealso>, "OTP_VERSION"]).</c></p>
     <p>If the version read from the <c>OTP_VERSION</c> file in a
     development system has a <c>**</c> suffix, the system has been
-    patched using the <c>otp_patch_apply</c> tool available to
-    licensed customers. In this case, the system consists of application
+    patched using the
+    <seealso marker="../installation_guide/OTP-PATCH-APPLY"><c>otp_patch_apply</c></seealso>
+    tool. In this case, the system consists of application
     versions from multiple OTP versions. The version preceding the <c>**</c>
     suffix corresponds to the OTP version of the base system that
     has been patched. Note that if a development system is updated by
