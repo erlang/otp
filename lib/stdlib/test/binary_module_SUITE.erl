@@ -1130,7 +1130,9 @@ do_random_matches_comp3(N,NeedleRange,HaystackRange) ->
     Needles = [random_substring(NeedleRange,Haystack) ||
 		  _ <- lists:duplicate(NumNeedles,a)],
     RefRes = binref:matches(Haystack,Needles),
-    true = do_matches_comp_loop(10000,Needles,Haystack, RefRes),
+    RefRes = binary:matches(Haystack,Needles),
+    Compiled = binary:compile_pattern(Needles),
+    true = do_matches_comp_loop(10000,Compiled,Haystack, RefRes),
     do_random_matches_comp3(N-1,NeedleRange,HaystackRange).
 
 do_matches_comp_loop(0,_,_,_) ->
