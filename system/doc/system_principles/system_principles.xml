@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>1996</year><year>2014</year>
+      <year>1996</year><year>2015</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -137,7 +137,7 @@ init:stop()</pre>
         principles. (The program does not have to be started in terms of
         OTP applications, but can be plain Erlang).</p>
       <p>For more information about <c>.rel</c> files, see
-        <seealso marker="otp design principles">
+        <seealso marker="doc/design_principles:release_handling">
         OTP Design Principles</seealso> and the
         <seealso marker="sasl:rel">rel(4)</seealso> manual page in
 	SASL.</p>
@@ -199,14 +199,14 @@ init:stop()</pre>
         <cell align="left" valign="middle">Module</cell>
         <cell align="left" valign="middle"><c>.erl</c></cell>
         <cell align="left" valign="middle">
-          <seealso marker="erlang ref manual">
+          <seealso marker="doc/reference_manual:modules">
           Erlang Reference Manual</seealso></cell>
       </row>
       <row>
         <cell align="left" valign="middle">Include file</cell>
         <cell align="left" valign="middle"><c>.hrl</c></cell>
         <cell align="left" valign="middle">
-          <seealso marker="erlang ref manual">
+          <seealso marker="doc/reference_manual:modules">
           Erlang Reference Manual</seealso></cell>
       </row>
       <row>

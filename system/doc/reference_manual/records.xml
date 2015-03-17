@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2003</year><year>2013</year>
+      <year>2003</year><year>2015</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -36,7 +36,7 @@
     <seealso marker="stdlib:shell">shell(3)</seealso>
     manual page in STDLIB.</p>
   <p>More examples are provided in
-    <seealso marker="doc/programming_examples">
+    <seealso marker="doc/programming_examples:records">
     Programming Examples</seealso>.</p>
 
   <section>

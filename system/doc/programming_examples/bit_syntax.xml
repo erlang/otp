@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2003</year><year>2013</year>
+      <year>2003</year><year>2015</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -331,7 +331,8 @@ triples_to_bin([], Acc) ->
     <p>In previous releases, this function was highly inefficient, because
     the binary constructed so far (<c>Acc</c>) was copied in each recursion step.
     That is no longer the case. For more information, see
-    <seealso marker="doc/efficiency_guide">Efficiency Guide</seealso>.</p>
+    <seealso marker="doc/efficiency_guide:introduction">
+    Efficiency Guide</seealso>.</p>
   </section>
 </chapter>
 
