@@ -51,12 +51,12 @@ init_per_suite(Config) ->
     init_per_suite(Config, 50).
 
 init_per_suite(Config, Level) ->
+    ScaleFactor = test_server:timetrap_scale_factor(),
     case os:type() of
 	{win32, _} ->
 	    %% Extend timeout to 1 hour for windows as starting node
 	    %% can take a long time there
-	    test_server:timetrap( 60*60*1000 * 
-				      test_server:timetrap_scale_factor());
+	    test_server:timetrap( 60*60*1000 * ScaleFactor );
 	_ ->
 	    ok
     end,
@@ -67,6 +67,16 @@ init_per_suite(Config, Level) ->
 	_ ->
 	    ok
     end,
+
+    {Mult,Scale} = test_server_ctrl:get_timetrap_parameters(),
+    test_server:format(Level, "Timetrap multiplier: ~w~n", [Mult]),
+    if Scale == true ->
+	    test_server:format(Level, "Timetrap scale factor: ~w~n",
+			       [ScaleFactor]);
+       true ->
+	    ok
+    end,
+
     start_slave(Config, Level).
 
 start_slave(Config, Level) ->
