@@ -27,13 +27,15 @@
   <modulesummary>API for a SSL/TLS CRL (Certificate Revocation List) cache.</modulesummary>
   <description>
     <p>
-      When SSL/TLS performs certificate path validation according to 
-      <url href="http://www.ietf.org/rfc/rfc5280.txt">RFC 5280 </url> it should
-      also perform CRL validation checks. To enable the CRL checks the application
-      needs access to CRLs. A database of CRLs can be set up in many different ways.
-      This module provides an API to integrate an arbitrary CRL cache with the erlang
-      ssl application. It is also used by the application itself to provide a simple
-      default implementation of a CRL cache. 
+      When SSL/TLS performs certificate path validation according to
+      <url href="http://www.ietf.org/rfc/rfc5280.txt">RFC 5280 </url>
+      it should also perform CRL validation checks. To enable the CRL
+      checks the application needs access to CRLs. A database of CRLs
+      can be set up in many different ways. This module provides the
+      behavior of the API needed to integrate an arbitrary CRL cache
+      with the erlang ssl application. It is also used by the
+      application itself to provide a simple default implementation of
+      a CRL cache.
     </p>
   </description>
   

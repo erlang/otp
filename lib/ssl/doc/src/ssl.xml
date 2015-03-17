@@ -94,7 +94,7 @@
       {log_alert, boolean()} | {server_name_indication, hostname() | disable}
     </c></p>
 
-    <p><c>transportoption() = {cb_info, {CallbackModule::atom(), DataTag::atom(), ClosedTag::atom(), ErrTag:atom()}}
+    <p><c>transportoption() = {cb_info, {CallbackModule :: atom(), DataTag :: atom(), ClosedTag :: atom(), ErrTag:atom()}}
 	- defaults to {gen_tcp, tcp, tcp_closed, tcp_error}. Can be used to customize
 	the transport layer. The callback module must implement a reliable transport
 	protocol and behave as gen_tcp and in addition have functions corresponding to
@@ -303,20 +303,20 @@ fun(OtpCert :: #'OTPCertificate'{}, Event :: {bad_cert, Reason :: atom() | {revo
       </taglist>
       </item>
 
-      <tag>{crl_check, boolean() | peer | best_effort )</tag>
+      <tag>{crl_check, boolean() | peer | best_effort }</tag>
       <item>
 	Perform CRL (Certificate Revocation List) verification
 	<seealso marker="public_key:public_key#pkix_crl_validate-3">
-	public_key:pkix_crls_validate/3</seealso>, during the
+	(public_key:pkix_crls_validate/3)</seealso> on all the certificates during the path validation
 	<seealso
-	marker="public_key:public_key#pkix_path_validation-3">public_key:pkix_path_validation/3  </seealso>
-	invokation on all the certificates in the peer certificate chain. Defaults to
-	false.
-
+	    marker="public_key:public_key#pkix_path_validation-3">(public_key:pkix_path_validation/3)
+	</seealso>
+	of the certificate chain. Defaults to false.
+	
 	<p><c>peer</c> - check is only performed on
 	the peer certificate.</p>
 
-	<p><c>best_effort</c> - if certificate revokation status can not be determined
+	<p><c>best_effort</c> - if certificate revocation status can not be determined
 	it will be accepted as valid.</p>
 
 	<p>The CA certificates specified for the connection will be used to 
@@ -326,7 +326,7 @@ fun(OtpCert :: #'OTPCertificate'{}, Event :: {bad_cert, Reason :: atom() | {revo
 	<seealso marker="ssl:ssl_crl_cache_api">ssl_crl_cache_api(3)</seealso>.</p>
       </item>
 
-      <tag>{crl_cache, {Module::atom, {DbHandle::internal | term(), Args::list()}}</tag>
+      <tag>{crl_cache, {Module :: atom(), {DbHandle :: internal | term(), Args :: list()}}}</tag>
       <item>
 	<p>Module defaults to ssl_crl_cache with <c> DbHandle </c> internal and an
 	empty argument list. The following arguments may be specified for the internal cache.</p>
