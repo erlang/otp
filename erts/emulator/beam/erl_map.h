@@ -109,7 +109,6 @@ Eterm* hashmap_iterator_next(struct ErtsWStack_* s);
 Eterm* hashmap_iterator_prev(struct ErtsWStack_* s);
 int    hashmap_key_hash_cmp(Eterm* ap, Eterm* bp);
 Eterm  erts_hashmap_from_array(ErtsHeapFactory*, Eterm *leafs, Uint n, int reject_dupkeys);
-const  Eterm *erts_hashmap_get(Uint32 hx, Eterm key, Eterm map);
 
 #define erts_hashmap_from_ks_and_vs(P, KS, VS, N) \
     erts_hashmap_from_ks_and_vs_extra((P), (KS), (VS), (N), THE_NON_VALUE, THE_NON_VALUE);
@@ -117,14 +116,22 @@ const  Eterm *erts_hashmap_get(Uint32 hx, Eterm key, Eterm map);
 Eterm  erts_hashmap_from_ks_and_vs_extra(Process *p, Eterm *ks, Eterm *vs, Uint n,
 					 Eterm k, Eterm v);
 
-#if HALFWORD_HEAP
 const Eterm *
+#if HALFWORD_HEAP
 erts_maps_get_rel(Eterm key, Eterm map, Eterm *map_base);
 #  define erts_maps_get(A, B) erts_maps_get_rel(A, B, NULL)
 #else
-const Eterm *
 erts_maps_get(Eterm key, Eterm map);
 #  define erts_maps_get_rel(A, B, B_BASE) erts_maps_get(A, B)
+#endif
+
+const Eterm *
+#if HALFWORD_HEAP
+erts_hashmap_get_rel(Uint32 hx, Eterm key, Eterm node, Eterm *map_base);
+#  define erts_hashmap_get(Hx, K, M) erts_hashmap_get_rel(Hx, K, M, NULL)
+#else
+erts_hashmap_get(Uint32 hx, Eterm key, Eterm map);
+#  define erts_hashmap_get_rel(Hx, K, M, M_BASE) erts_hashmap_get(Hx, K, M)
 #endif
 
 /* hamt nodes v2.0

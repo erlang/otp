@@ -165,7 +165,7 @@ erts_maps_get(Eterm key, Eterm map)
 #endif
 {
     Uint32 hx;
-    if (is_flatmap(map)) {
+    if (is_flatmap_rel(map, map_base)) {
 	Eterm *ks, *vs;
 	flatmap_t *mp;
 	Uint n, i;
@@ -189,16 +189,16 @@ erts_maps_get(Eterm key, Eterm map)
 	}
 
 	for (i = 0; i < n; i++) {
-	    if (eq_rel(ks[i], NULL, key, map_base)) {
+	    if (eq_rel(ks[i], map_base, key, NULL)) {
 		return &vs[i];
 	    }
 	}
 	return NULL;
     }
-    ASSERT(is_hashmap(map));
+    ASSERT(is_hashmap_rel(map, map_base));
     hx = hashmap_make_hash(key);
 
-    return erts_hashmap_get(hx, key, map);
+    return erts_hashmap_get_rel(hx, key, map, map_base);
 }
 
 BIF_RETTYPE maps_find_2(BIF_ALIST_2) {
@@ -1833,7 +1833,13 @@ Eterm* hashmap_iterator_prev(ErtsWStack* s) {
     }
 }
 
-const Eterm *erts_hashmap_get(Uint32 hx, Eterm key, Eterm node) {
+const Eterm *
+#if HALFWORD_HEAP
+erts_hashmap_get_rel(Uint32 hx, Eterm key, Eterm node, Eterm *map_base)
+#else
+erts_hashmap_get(Uint32 hx, Eterm key, Eterm node)
+#endif
+{
     Eterm *ptr, hdr;
     Uint ix,slot, lvl = 0;
     Uint32 hval,bp;
@@ -1845,7 +1851,8 @@ const Eterm *erts_hashmap_get(Uint32 hx, Eterm key, Eterm node) {
             case TAG_PRIMARY_LIST: /* LEAF NODE [K|V] */
                 ptr = list_val(node);
                 UnUseTmpHeapNoproc(2);
-                if (EQ(CAR(ptr), key)) {
+
+                if (eq_rel(CAR(ptr), map_base, key, NULL)) {
                     return &(CDR(ptr));
                 }
                 return NULL;
