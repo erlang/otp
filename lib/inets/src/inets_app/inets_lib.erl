@@ -18,6 +18,7 @@
 %%
 
 -module(inets_lib).
+-compile([{nowarn_deprecated_function,{erlang,now,0}}]).
 
 -export([millisec_passed/1, formated_timestamp/0, format_timestamp/1]).
 
