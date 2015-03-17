@@ -3477,6 +3477,7 @@ find_terminals(Tree) ->
     'let' -> find_terminals(cerl:let_body(Tree));
     letrec -> find_terminals(cerl:letrec_body(Tree));
     literal -> {false, true};
+    map -> {false, true};
     primop -> {false, false}; %% match_fail, etc. are not explicit exits.
     'receive' ->
       Timeout = cerl:receive_timeout(Tree),
