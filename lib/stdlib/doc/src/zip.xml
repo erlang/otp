@@ -430,6 +430,8 @@
           means that subsequently reading files from the archive will be
           faster than unzipping files one at a time with <c>unzip</c>.</p>
         <p>The archive must be closed with <c>zip_close/1</c>.</p>
+        <p>The <c><anno>ZipHandle</anno></c> will be closed if the
+          process which originally opened the archive dies.</p>
       </desc>
     </func>
     <func>
