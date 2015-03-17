@@ -20,4 +20,5 @@ INST_GUIDE_CHAPTER_FILES = \
 	install-binary.xml \
 	INSTALL.xml \
 	INSTALL-CROSS.xml \
-	INSTALL-WIN32.xml
+	INSTALL-WIN32.xml \
+	OTP-PATCH-APPLY.xml
