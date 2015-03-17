@@ -1922,16 +1922,7 @@ enc_opt(nil, St) ->
 enc_opt({seq,H0,T0}, St0) ->
     {H,St1} = enc_opt(H0, St0),
     {T,St} = enc_opt(T0, St1),
-    case {H,T} of
-	{none,_} ->
-	    {T,St};
-	{{list,Imm,Data},
-	 {seq,{call,per,complete,[Data],_},_}} ->
-	    %% Get rid of any explicit 'align' added by per_enc_open_type/2.
-	    {{seq,{list,remove_trailing_align(Imm),Data},T},St};
-	{_,_} ->
-	    {{seq,H,T},St}
-    end;
+    {enc_opt_seq(H, T),St};
 enc_opt({set,_,_}=Imm, St) ->
     {Imm,St#ost{t=undefined}};
 enc_opt({sub,Src0,Int,Dst}, St0) ->
@@ -1964,6 +1955,28 @@ remove_trailing_align({cons,H,{cons,align,nil}}) ->
 remove_trailing_align({seq,H,T}) ->
     {seq,H,remove_trailing_align(T)};
 remove_trailing_align(Imm) -> Imm.
+
+enc_opt_seq(none, T) ->
+    T;
+enc_opt_seq({list,Imm,Data}, {seq,{call,per,complete,[Data],_},_}=T) ->
+    %% Get rid of any explicit 'align' added by per_enc_open_type/2.
+    {seq,{list,remove_trailing_align(Imm),Data},T};
+enc_opt_seq({call,_,_,_,{var,_}=Dst}=H, T) ->
+    case is_var_unused(Dst, T) of
+	false -> {seq,H,T};
+	true -> T
+    end;
+enc_opt_seq(H, T) ->
+    {seq,H,T}.
+
+is_var_unused(_, align) ->
+    true;
+is_var_unused(V, {call,_,_,Args}) ->
+    not lists:member(V, Args);
+is_var_unused(V, {cons,H,T}) ->
+    is_var_unused(V, H) andalso is_var_unused(V, T);
+is_var_unused(_, _) ->
+    false.
 
 bit_size_propagate(Bin, Type, St) ->
     case t_range(Type) of
