@@ -258,14 +258,14 @@ gen_io(Label, N, Acc) ->
 %% (via ct logging functions) from an external process which has a
 %% different group leader than the test cases.
 unexp1(Config) ->
-    timer:sleep(1000),
+    ct:sleep(1000),
     gen_unexp_io(),
-    timer:sleep(1000),
+    ct:sleep(1000),
     check_unexp_io(Config),
     ok.
 
 unexp2(_) ->
-    timer:sleep(2000),
+    ct:sleep(2000),
     ok.
 
 gen_unexp_io() ->

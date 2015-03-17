@@ -111,7 +111,7 @@ end_per_testcase1(tc2, Config) ->
     ct:pal("end_per_testcase(tc2): ~p", [Config]),
     tc2 = ?config(tc, Config),
     {failed,timetrap_timeout} = ?config(tc_status, Config),
-    timer:sleep(2000);
+    ct:sleep(2000);
 
 end_per_testcase1(tc3, Config) ->
     ct:pal("end_per_testcase(tc3): ~p", [Config]),
@@ -123,7 +123,7 @@ end_per_testcase1(tc4, Config) ->
     ct:pal("end_per_testcase(tc4): ~p", [Config]),
     tc4 = ?config(tc, Config),
     {failed,{testcase_aborted,testing_end_conf}} = ?config(tc_status, Config),
-    timer:sleep(2000);
+    ct:sleep(2000);
 
 end_per_testcase1(tc5, Config) ->
     ct:pal("end_per_testcase(tc5): ~p", [Config]),
@@ -182,29 +182,29 @@ all() ->
     [tc1, tc2, tc3, tc4, tc5, tc6, tc7, tc8, tc9].
 
 tc1(_) ->
-    timer:sleep(2000),
+    ct:sleep(2000),
     ok.
 
 tc2(_) ->
-    timer:sleep(2000).
+    ct:sleep(2000).
 
 tc3(_) ->
     spawn(ct, abort_current_testcase, [testing_end_conf]),
-    timer:sleep(2000),
+    ct:sleep(2000),
     ok.
 
 tc4(_) ->
     spawn(ct, abort_current_testcase, [testing_end_conf]),
-    timer:sleep(2000),
+    ct:sleep(2000),
     ok.
 
 tc5(_) ->
-    timer:sleep(2000),
+    ct:sleep(2000),
     ok.
 
 tc6(_) ->
     spawn(ct, abort_current_testcase, [testing_end_conf]),
-    timer:sleep(2000).
+    ct:sleep(2000).
 
 tc7(_) ->
     sleep(2000),
@@ -220,5 +220,5 @@ tc9(_) ->
 
 %%%-----------------------------------------------------------------
 sleep(T) ->
-    timer:sleep(T),
+    ct:sleep(T),
     ok.

@@ -351,7 +351,7 @@ check_expected(SessionId,ConnRef,Msg) ->
 	    do(ConnRef, Do),
 	    reply(ConnRef,Reply);
 	error ->
-	    timer:sleep(1000),
+	    ct:sleep(1000),
 	    exit({error,{got_unexpected,SessionId,Msg,ets:tab2list(ns_tab)}})
     end.
 

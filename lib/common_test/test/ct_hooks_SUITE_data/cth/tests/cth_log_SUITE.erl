@@ -50,7 +50,7 @@ init_per_suite(Config) ->
 end_per_suite(Config) ->
     Gen = proplists:get_value(gen, Config),
     exit(Gen, kill),
-    timer:sleep(100),
+    ct:sleep(100),
     ok.
 
 %%--------------------------------------------------------------------

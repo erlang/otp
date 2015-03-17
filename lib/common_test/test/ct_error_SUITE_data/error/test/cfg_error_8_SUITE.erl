@@ -57,7 +57,7 @@ init_per_group(g1, Config) ->
     Config;
 init_per_group(g2, Config) ->
     ct:comment("init_per_group(g2) timeout"),
-    timer:sleep(5000),
+    ct:sleep(5000),
     Config;
 init_per_group(g3, _Config) ->
     badmatch = 42;
@@ -80,7 +80,7 @@ end_per_group(g11, _Config) ->
     ok;
 end_per_group(g12, _Config) ->
     ct:comment("end_per_group(g6) timeout"),
-    timer:sleep(5000),
+    ct:sleep(5000),
     ok;
 end_per_group(_GroupName, _Config) ->
     ok.

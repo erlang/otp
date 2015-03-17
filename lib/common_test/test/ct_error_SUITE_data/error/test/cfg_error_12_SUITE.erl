@@ -26,10 +26,10 @@ init_per_testcase(_, Config) ->
     Config.
 
 end_per_testcase(tc2, _Config) ->
-    timer:sleep(2000),
+    ct:sleep(2000),
     exit(this_should_not_be_printed);
 end_per_testcase(tc4, _Config) ->
-    timer:sleep(2000),
+    ct:sleep(2000),
     exit(this_should_not_be_printed);
 end_per_testcase(_, _) ->
     ok.
@@ -42,7 +42,7 @@ tc1() ->
     put('$test_server_framework_test',
 	fun(init_tc, _Default) ->
 		ct:pal("init_tc(~p): Night time...",[self()]),
-		timer:sleep(2000),
+		ct:sleep(2000),
 		ct:pal("init_tc(~p): Day time!",[self()]),
 		exit(this_should_not_be_printed);
 	   (_, Default) -> Default
@@ -67,7 +67,7 @@ tc3(_) ->
     put('$test_server_framework_test',
 	fun(end_tc, _Default) ->
 		ct:pal("end_tc(~p): Night time...",[self()]),
-		timer:sleep(1000),
+		ct:sleep(1000),
 		ct:pal("end_tc(~p): Day time!",[self()]);
 	   (_, Default) -> Default
 	end),
@@ -78,7 +78,7 @@ tc4() ->
     put('$test_server_framework_test',
 	fun(end_tc, _Default) ->
 		ct:pal("end_tc(~p): Night time...",[self()]),
-		timer:sleep(1000),
+		ct:sleep(1000),
 		ct:pal("end_tc(~p): Day time!",[self()]);
 	   (_, Default) -> Default
 	end),
