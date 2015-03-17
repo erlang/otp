@@ -117,7 +117,16 @@ main(N, SocketType, Host, Port, Time)
 loop(Pollers, Timeout) ->
     d("loop -> entry when"
       "~n   Timeout: ~p", [Timeout]),
-    Start = t(), 
+    %% Adapt to OTP 18 erlang time API and be backwards compatible
+    Start = try
+                erlang:monotonic_time(1000)
+            catch
+                error:undef ->
+                    %% Use Erlang system time as monotonic time
+                    {A,B,C} = erlang:now(),
+                    A*1000000000+B*1000+(C div 1000)
+            end,
+
     receive 
 	{'EXIT', Pid, {poller_stat_failure, SocketType, Host, Port, Time, Reason}} ->
 	    case is_poller(Pid, Pollers) of
@@ -134,7 +143,7 @@ loop(Pollers, Timeout) ->
 		false ->
 		    error_msg("received unexpected ~p from ~p"
 			      "befor completion of test", [Reason, Pid]),
-		    loop(Pollers, to(Timeout, Start))
+		    loop(Pollers, Timeout - inets_lib:millisec_passed(Start))
 	    end;
 
 	{poller_stat_failure, Pid, {SocketType, Host, Port, Time, Reason}} ->
@@ -474,24 +483,6 @@ status_to_message(503) -> "Section 10.5.4: Service Unavailable";
 status_to_message(504) -> "Section 10.5.5: Gateway Time-out";
 status_to_message(505) -> "Section 10.5.6: HTTP Version not supported";
 status_to_message(Code) -> io_lib:format("Unknown status code: ~p",[Code]).
-
-%% ----------------------------------------------------------------
-
-to(To, Start) ->
-    To - (t() - Start).
-
-%% Time in milli seconds
-t() ->
-    %% Adapt to OTP 18 erlang time API and be backwards compatible
-    try
-        erlang:monotonic_time(1000)
-    catch
-        error:undef ->
-            %% Use Erlang system time as monotonic time
-            {A,B,C} = erlang:now(),
-            A*1000000000+B*1000+(C div 1000)
-    end.
-
 
 %% ----------------------------------------------------------------
 

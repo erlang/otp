@@ -1889,7 +1889,7 @@ wait4clients(Clients, Timeout) when Timeout > 0 ->
 	{'DOWN', _MRef, process, Pid, normal} ->
 	    {value, {Id, _, _}} = lists:keysearch(Pid, 2, Clients),
 	    NewClients = lists:keydelete(Id, 1, Clients),
-	    wait4clients(NewClients, Timeout - millisec_passed(Time));
+	    wait4clients(NewClients, Timeout - inets_lib:millisec_passed(Time));
 	{'DOWN', _MRef, process, Pid, Reason} ->
 	    {value, {Id, _, _}} = lists:keysearch(Pid, 2, Clients),
 	    ct:fail({bad_client_termination, Id, Reason})
@@ -1981,17 +1981,6 @@ parse_connection_type(Request) ->
 	"close" -> close;
 	"keep-alive" -> keep_alive
     end.
-
-%% Help function, elapsed milliseconds since T0
-millisec_passed({_,_,_} = T0 ) ->
-    %% OTP 17 and earlier
-    timer:now_diff(erlang:now(), T0) div 1000;
-
-millisec_passed(T0) ->
-    %% OTP 18
-    erlang:convert_time_resolution(erlang:monotonic_time() - T0,
-                                   erlang:time_resolution(),
-                                   1000000) div 1000.
 
 set_random_seed() ->
     %% Adapt to OTP 18 erlang time API and be backwards compatible

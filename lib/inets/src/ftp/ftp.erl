@@ -2189,7 +2189,7 @@ setup_ctrl_connection(Host, Port, Timeout, State) ->
 	{ok, IpFam, CSock} ->
 	    NewState = State#state{csock = {tcp, CSock}, ipfamily = IpFam},
 	    activate_ctrl_connection(NewState),
-	    case Timeout - millisec_passed(MsTime) of
+	    case Timeout - inets_lib:millisec_passed(MsTime) of
 		Timeout2 when (Timeout2 >= 0) ->
 		    {ok, NewState#state{caller = open}, Timeout2};
 		_ ->
@@ -2508,17 +2508,6 @@ progress_report({binary, Data}, #state{progress = ProgressPid}) ->
 progress_report(Report,  #state{progress = ProgressPid}) ->
     ftp_progress:report(ProgressPid, Report).
 
-
-%% Help function, elapsed milliseconds since T0
-millisec_passed({_,_,_} = T0 ) ->
-    %% OTP 17 and earlier
-    timer:now_diff(erlang:now(), T0) div 1000;
-
-millisec_passed(T0) ->
-    %% OTP 18
-    erlang:convert_time_resolution(erlang:monotonic_time() - T0,
-                                   erlang:time_resolution(),
-                                   1000000) div 1000.
 
 peername({tcp, Socket}) -> inet:peername(Socket);
 peername({ssl, Socket}) -> ssl:peername(Socket).

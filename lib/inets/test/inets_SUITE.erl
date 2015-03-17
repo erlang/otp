@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -549,25 +549,12 @@ tsf(Reason) ->
 tsp(F) ->
     tsp(F, []).
 tsp(F, A) ->
-    Timestamp = formated_timestamp(), 
+    Timestamp = inets_lib:formated_timestamp(),
     test_server:format("** ~s ** ~p ~p:" ++ F ++ "~n", [Timestamp, self(), ?MODULE | A]).
 
 i(F) ->
     i(F, []).
 
 i(F, A) ->
-    Timestamp = formated_timestamp(), 
+    Timestamp = inets_lib:formated_timestamp(),
     io:format("*** ~s ~w:" ++ F ++ "~n", [Timestamp, ?MODULE | A]).
-
-formated_timestamp() ->
-    format_timestamp( os:timestamp() ).
-
-format_timestamp({_N1, _N2, N3} = Now) ->
-    {Date, Time}   = calendar:now_to_datetime(Now),
-    {YYYY,MM,DD}   = Date,
-    {Hour,Min,Sec} = Time,
-    FormatDate =
-        io_lib:format("~.4w:~.2.0w:~.2.0w ~.2.0w:~.2.0w:~.2.0w 4~w",
-                      [YYYY,MM,DD,Hour,Min,Sec,round(N3/1000)]),
-    lists:flatten(FormatDate).
-
