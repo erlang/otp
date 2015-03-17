@@ -4085,14 +4085,15 @@ erts_port_control(Process* c_p,
 				      size,
 				      &resp_bufp,
 				      &resp_size);
+
+	    control_flags = prt->control_flags;
+
 	    finalize_imm_drv_call(&try_call_state);
 	    if (tmp_alloced)
 		erts_free(ERTS_ALC_T_TMP, bufp);
 	    if (res == ERTS_PORT_OP_BADARG) {
 		return ERTS_PORT_OP_BADARG;
 	    }
-
-	    control_flags = prt->control_flags;
 
 	    hsz = port_control_result_size(control_flags,
 					   resp_bufp,
