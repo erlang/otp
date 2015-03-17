@@ -58,7 +58,8 @@ XML_FILES = \
 GENERATED_XML_FILES = \
 	INSTALL.xml \
 	INSTALL-CROSS.xml \
-	INSTALL-WIN32.xml
+	INSTALL-WIN32.xml \
+	OTP-PATCH-APPLY.xml
 
 # ----------------------------------------------------
 
@@ -73,7 +74,8 @@ REDIRECT_HTML_DIR = $(HTMLDIR)/source
 REDIRECT_HTML_FILES = \
 	$(REDIRECT_HTML_DIR)/INSTALL.html \
 	$(REDIRECT_HTML_DIR)/INSTALL-CROSS.html \
-	$(REDIRECT_HTML_DIR)/INSTALL-WIN32.html
+	$(REDIRECT_HTML_DIR)/INSTALL-WIN32.html \
+	$(REDIRECT_HTML_DIR)/OTP-PATCH-APPLY.html
 
 # ----------------------------------------------------
 # FLAGS 

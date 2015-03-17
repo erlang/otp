@@ -36,4 +36,5 @@
   <xi:include href="INSTALL.xml"/>
   <xi:include href="INSTALL-CROSS.xml"/>
   <xi:include href="INSTALL-WIN32.xml"/>
+  <xi:include href="OTP-PATCH-APPLY.xml"/>
 </part>
