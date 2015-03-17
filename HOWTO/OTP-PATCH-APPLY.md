@@ -58,6 +58,7 @@ Configure and build all applications in OTP:
 
 	$ configure
 	$ make
+
 or
 
 	$ ./otp_build configure
