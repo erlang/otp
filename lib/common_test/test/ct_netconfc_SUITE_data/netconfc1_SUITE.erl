@@ -218,7 +218,7 @@ hello_required_exists(Config) ->
 
     ?NS:expect_do_reply('close-session',close,ok),
     ?ok = ct_netconfc:close_session(my_named_connection),
-    timer:sleep(500),
+    ct:sleep(500),
 
     %% Then check that it can be used again after the first is closed
     {ok,_Client2} = open_configured_success(my_named_connection,DataDir),
@@ -663,10 +663,10 @@ receive_chunked_data(Config) ->
     %% Spawn a process which will wait a bit for the client to send
     %% the request (below), then order the server to the chunks of the
     %% rpc-reply one by one.
-    spawn(fun() -> timer:sleep(500),?NS:hupp(send,Part1),
-		   timer:sleep(100),?NS:hupp(send,Part2),
-		   timer:sleep(100),?NS:hupp(send,Part3),
-		   timer:sleep(100),?NS:hupp(send,Part4)
+    spawn(fun() -> ct:sleep(500),?NS:hupp(send,Part1),
+		   ct:sleep(100),?NS:hupp(send,Part2),
+		   ct:sleep(100),?NS:hupp(send,Part3),
+		   ct:sleep(100),?NS:hupp(send,Part4)
 	  end),
 
     %% Order server to expect a get - then the process above will make
@@ -711,8 +711,8 @@ timeout_receive_chunked_data(Config) ->
     %% Spawn a process which will wait a bit for the client to send
     %% the request (below), then order the server to the chunks of the
     %% rpc-reply one by one.
-    spawn(fun() -> timer:sleep(500),?NS:hupp(send,Part1),
-		   timer:sleep(100),?NS:hupp(send,Part2)
+    spawn(fun() -> ct:sleep(500),?NS:hupp(send,Part1),
+		   ct:sleep(100),?NS:hupp(send,Part2)
 	  end),
 
     %% Order server to expect a get - then the process above will make
@@ -757,9 +757,9 @@ close_while_waiting_for_chunked_data(Config) ->
     %% Spawn a process which will wait a bit for the client to send
     %% the request (below), then order the server to the chunks of the
     %% rpc-reply one by one.
-    spawn(fun() -> timer:sleep(500),?NS:hupp(send,Part1),
-		   timer:sleep(100),?NS:hupp(send,Part2),
-		   timer:sleep(100),?NS:hupp(kill)
+    spawn(fun() -> ct:sleep(500),?NS:hupp(send,Part1),
+		   ct:sleep(100),?NS:hupp(send,Part2),
+		   ct:sleep(100),?NS:hupp(kill)
 	  end),
 
     %% Order server to expect a get - then the process above will make
@@ -775,7 +775,7 @@ connection_crash(Config) ->
     %% Test that if the test survives killing the connection
     %% process. Earlier this caused ct_util_server to terminate, and
     %% this aborting the complete test run.
-    spawn(fun() -> timer:sleep(500),exit(Client,kill) end),
+    spawn(fun() -> ct:sleep(500),exit(Client,kill) end),
     ?NS:expect(get),
     {error,{closed,killed}}=ct_netconfc:get(Client,{server,[{xmlns,"myns"}],[]}),
     ok.

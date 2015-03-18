@@ -68,7 +68,7 @@ end_per_testcase(_Case, Config) ->
 %%%-----------------------------------------------------------------
 %%% Test cases
 tc1(_Config) ->
-    %% timer:sleep(3000),
+    %% ct:sleep(3000),
     ok.
 
 tc2(_Config) ->

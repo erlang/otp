@@ -283,14 +283,14 @@ large_string(_) ->
     %% yield the same result as the single request case.
 
     ok = ct_telnet:send(Handle, "echo_sep "++BigString),
-    timer:sleep(1000),
+    ct:sleep(1000),
     {ok,Data1} = ct_telnet:get_data(Handle),
     ct:log("[GET DATA #1] Received ~w chars: ~s",
 	   [length(lists:flatten(Data1)),Data1]),
     VerifyStr = [C || C <- lists:flatten(Data1), C/=$ , C/=$\r, C/=$\n, C/=$>],
 
     ok = ct_telnet:send(Handle, "echo_sep "++BigString),
-    timer:sleep(50),
+    ct:sleep(50),
     {ok,Data2} = ct_telnet:get_data(Handle),
     ct:log("[GET DATA #2] Received ~w chars: ~s", [length(lists:flatten(Data2)),Data2]),
     VerifyStr = [C || C <- lists:flatten(Data2), C/=$ , C/=$\r, C/=$\n, C/=$>],
@@ -316,7 +316,7 @@ server_speaks(_) ->
 				    "echo_no_prompt This is the second message"),
     %% Let ct_telnet_client get an idle timeout. This should print the
     %% two messages to the log. Note that the buffers are not flushed here!
-    timer:sleep(15000),
+    ct:sleep(15000),
     ok = ct_telnet_client:send_data(Backdoor,
 				    "echo_no_prompt This is the third message"),
     {ok,_} = ct_telnet:expect(Handle, ["first.*second.*third"],
@@ -326,7 +326,7 @@ server_speaks(_) ->
     ok = ct_telnet_client:send_data(Backdoor,
 				    "echo_no_prompt This is the fourth message"),
     %% give the server time to respond
-    timer:sleep(2000),
+    ct:sleep(2000),
     %% closing the connection should print last message in log
     ok = ct_telnet:close(Handle),
     ok.  
@@ -338,11 +338,11 @@ server_disconnects(_) ->
     ok = ct_telnet:send(Handle, "disconnect_after 1500"),
     %% wait until the get_data operation (triggered by send/2) times out
     %% before sending the msg
-    timer:sleep(500),
+    ct:sleep(500),
     ok = ct_telnet:send(Handle, "echo_no_prompt This is the message"),
     %% when the server closes the connection, the last message should be
     %% printed in the log
-    timer:sleep(3000),
+    ct:sleep(3000),
     _ = ct_telnet:close(Handle),
     ok.
 

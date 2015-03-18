@@ -76,7 +76,7 @@ end_per_group(_GroupName, _Config) ->
 %% Reason = term()
 %%--------------------------------------------------------------------
 init_per_testcase(tc1, Config) ->
-    timer:sleep(5000),
+    ct:sleep(5000),
     Config;
 init_per_testcase(tc8, _Config) ->
     {skip,"tc8 skipped"};
@@ -92,7 +92,7 @@ init_per_testcase(_TestCase, Config) ->
 %% Config0 = Config1 = [tuple()]
 %%--------------------------------------------------------------------
 end_per_testcase(tc2, Config) ->
-    timer:sleep(5000);
+    ct:sleep(5000);
 end_per_testcase(tc12, Config) ->
     ct:comment("end_per_testcase(tc12) called!"),
     ct:pal("end_per_testcase(tc12) called!", []),
@@ -146,7 +146,7 @@ tc2(_) ->
     timeout_in_end_per_testcase.
 
 tc3(_) ->
-   timer:sleep(5000).
+   ct:sleep(5000).
 
 tc4(_) ->
     exit(failed_on_purpose).
@@ -186,7 +186,7 @@ gtc2(_) ->
 tc12(_) ->
     F = fun() -> ct:abort_current_testcase('stopping tc12') end,
     spawn(F),
-    timer:sleep(1000),
+    ct:sleep(1000),
     exit(should_have_been_aborted).
 
 tc13(_) ->

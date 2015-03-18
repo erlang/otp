@@ -36,7 +36,7 @@ suite() ->
 %% Reason = term()
 %%--------------------------------------------------------------------
 init_per_suite(Config) ->
-    timer:sleep(5000),
+    ct:sleep(5000),
     exit(shouldnt_happen).
 %    Config.
 
