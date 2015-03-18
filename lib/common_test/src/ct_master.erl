@@ -25,6 +25,7 @@
 -export([run/1,run/3,run/4]).
 -export([run_on_node/2,run_on_node/3]).
 -export([run_test/1,run_test/2]).
+-export([get_event_mgr_ref/0]).
 -export([basic_html/1]).
 
 -export([abort/0,abort/1,progress/0]).
@@ -290,6 +291,18 @@ abort(Node) when is_atom(Node) ->
 %%% tests are running on the node and have not yet finished.
 progress() ->
     call(progress).
+
+%%%-----------------------------------------------------------------
+%%% @spec get_event_mgr_ref() -> MasterEvMgrRef
+%%%       MasterEvMgrRef = atom()
+%%%
+%%% @doc <p>Call this function in order to get a reference to the
+%%%         CT master event manager. The reference can be used to e.g.
+%%%         add a user specific event handler while tests are running.
+%%%         Example:
+%%%         <c>gen_event:add_handler(ct_master:get_event_mgr_ref(), my_ev_h, [])</c></p>
+get_event_mgr_ref() ->
+    ?CT_MEVMGR_REF.
 
 %%%-----------------------------------------------------------------
 %%% @spec basic_html(Bool) -> ok
