@@ -18,7 +18,6 @@
 %%
 -module(ts_install).
 
-
 -export([install/2, platform_id/1]).
 
 -include("ts.hrl").
@@ -135,14 +134,62 @@ unix_autoconf(XConf) ->
     case filelib:is_file(Configure) of
 	true ->
 	    OSXEnv = macosx_cflags(),
+	    UnQuotedEnv = assign_vars(unquote(Env++OSXEnv)),
 	    io:format("Running ~s~nEnv: ~p~n",
-		      [lists:flatten(Configure ++ Args),Env++OSXEnv]),
+		      [lists:flatten(Configure ++ Args),UnQuotedEnv]),
 	    Port = open_port({spawn, lists:flatten(["\"",Configure,"\"",Args])},
-			     [stream, eof, {env,Env++OSXEnv}]),
+			     [stream, eof, {env,UnQuotedEnv}]),
 	    ts_lib:print_data(Port);
 	false ->
 	    {error, no_configure_script}
     end.
+
+unquote([{Var,Val}|T]) ->
+    [{Var,unquote(Val)}|unquote(T)];
+unquote([]) ->
+    [];
+unquote("\""++Rest) ->
+    lists:reverse(tl(lists:reverse(Rest)));
+unquote(String) ->
+    String.
+
+assign_vars([]) ->
+    [];
+assign_vars([{VAR,FlagsStr} | VARs]) ->
+    [{VAR,assign_vars(FlagsStr)} | assign_vars(VARs)];
+assign_vars(FlagsStr) ->
+    Flags = [assign_all_vars(Str,[]) || Str <- string:tokens(FlagsStr, [$ ])],
+    string:strip(lists:flatten(lists:map(fun(Flag) ->
+						 Flag ++ " "
+					 end, Flags)), right).
+
+assign_all_vars([$$ | Rest], FlagSoFar) ->
+    {VarName,Rest1} = get_var_name(Rest, []),
+    assign_all_vars(Rest1, FlagSoFar ++ assign_var(VarName));
+assign_all_vars([Char | Rest], FlagSoFar) ->
+    assign_all_vars(Rest, FlagSoFar ++ [Char]);
+assign_all_vars([], Flag) ->
+    Flag.
+
+get_var_name([Ch | Rest] = Str, VarR) ->
+    case valid_char(Ch) of
+	true  -> get_var_name(Rest, [Ch | VarR]);
+	false -> {lists:reverse(VarR),Str}
+    end;
+get_var_name([], VarR) ->
+    {lists:reverse(VarR),[]}.
+	    
+assign_var(VarName) ->
+    case os:getenv(VarName) of
+	false -> "";
+	Val   -> Val
+    end.
+
+valid_char(Ch) when Ch >= $a, Ch =< $z -> true;
+valid_char(Ch) when Ch >= $A, Ch =< $Z -> true;
+valid_char(Ch) when Ch >= $0, Ch =< $9 -> true;
+valid_char($_)                         -> true;
+valid_char(_)                          -> false.
 
 get_xcomp_flag(Flag, Flags) ->
     get_xcomp_flag(Flag, Flag, Flags).
