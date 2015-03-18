@@ -794,8 +794,9 @@ action(Client,Action) ->
       Client :: client(),
       Action :: simple_xml(),
       Timeout :: timeout(),
-      Result :: {ok,[simple_xml()]} | {error,error_reason()}.
-%% @doc Execute an action.
+      Result :: ok | {ok,[simple_xml()]} | {error,error_reason()}.
+%% @doc Execute an action. If the return type is void, <c>ok</c> will
+%%      be returned instead of <c>{ok,[simple_xml()]}</c>.
 %%
 %% @end
 %%----------------------------------------------------------------------
@@ -1606,6 +1607,9 @@ decode_ok(Other) ->
 
 decode_data([{Tag,Attrs,Content}]) ->
     case get_local_name_atom(Tag) of
+	ok ->
+	    %% when action has return type void
+	    ok;	
 	data ->
 	    %% Since content of data has nothing from the netconf
 	    %% namespace, we remove the parent's xmlns attribute here
