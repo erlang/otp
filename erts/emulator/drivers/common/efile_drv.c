@@ -264,23 +264,6 @@ dt_private *get_dt_private(int);
 
 
 
-#define GET_TIME(i, b) \
-    (i).year  = get_int32((b) + 0 * 4); \
-    (i).month = get_int32((b) + 1 * 4); \
-    (i).day   = get_int32((b) + 2 * 4); \
-    (i).hour  = get_int32((b) + 3 * 4); \
-    (i).minute = get_int32((b) + 4 * 4); \
-    (i).second = get_int32((b) + 5 * 4)
-
-#define PUT_TIME(i, b) \
-  put_int32((i).year,  (b) + 0 * 4); \
-  put_int32((i).month, (b) + 1 * 4); \
-  put_int32((i).day,   (b) + 2 * 4); \
-  put_int32((i).hour,  (b) + 3 * 4); \
-  put_int32((i).minute,(b) + 4 * 4); \
-  put_int32((i).second,(b) + 5 * 4)
-
-
 #if ALWAYS_READ_LINE_AHEAD
 #define DEFAULT_LINEBUF_SIZE 2048
 #else
