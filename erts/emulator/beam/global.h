@@ -426,6 +426,7 @@ do {\
 	memcpy((dst)->start, (s).start,_wsz*sizeof(Eterm));\
 	(dst)->sp = (dst)->start + _wsz;\
 	(dst)->end = (dst)->start + DEF_ESTACK_SIZE;\
+        (dst)->edefault = NULL;\
 	(dst)->alloc_type = (s).alloc_type;\
     } else\
         *(dst) = (s);\
@@ -593,6 +594,7 @@ do {\
 	memcpy((dst)->wstart, s.wstart,_wsz*sizeof(UWord));\
 	(dst)->wsp = (dst)->wstart + _wsz;\
 	(dst)->wend = (dst)->wstart + DEF_WSTACK_SIZE;\
+        (dst)->wdefault = NULL;\
 	(dst)->alloc_type = s.alloc_type;\
     } else\
         *(dst) = s;\
