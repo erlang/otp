@@ -1162,9 +1162,8 @@ do_matches_comp2(N,H,A) ->
     end.
 do_matches_comp(N,H) ->
     A = ?MASK_ERROR(binref:matches(H,N)),
-    B = ?MASK_ERROR(binref:matches(H,binref:compile_pattern(N))),
-    C = ?MASK_ERROR(binary:matches(H,N)),
-    D = ?MASK_ERROR(binary:matches(make_unaligned(H),
+    B = ?MASK_ERROR(binary:matches(H,N)),
+    C = ?MASK_ERROR(binary:matches(make_unaligned(H),
 				   binary:compile_pattern([make_unaligned2(X) || X <- N]))),
     if
 	A =/= nomatch ->
@@ -1172,14 +1171,14 @@ do_matches_comp(N,H) ->
 	true ->
 	    ok
     end,
-    case {(A =:= B), (B =:= C),(C =:= D)} of
-	{true,true,true} ->
+    case {(A =:= B), (B =:= C)} of
+	{true,true} ->
 	    true;
 	_ ->
 	    io:format("Failed to match ~p (needle) against ~s (haystack)~n",
 		      [N,H]),
-	    io:format("A:~p,~nB:~p,~n,C:~p,~n,D:~p.~n",
-		      [A,B,C,D]),
+	    io:format("A:~p,~nB:~p,~n,C:~p,~n",
+		      [A,B,C]),
 	    exit(mismatch)
     end.
 
@@ -1221,32 +1220,9 @@ do_random_match_comp4(N,NeedleRange,HaystackRange) ->
 
 do_match_comp(N,H) ->
     A = ?MASK_ERROR(binref:match(H,N)),
-    B = ?MASK_ERROR(binref:match(H,binref:compile_pattern([N]))),
-    C = ?MASK_ERROR(binary:match(make_unaligned(H),N)),
-    D = ?MASK_ERROR(binary:match(H,binary:compile_pattern([N]))),
-    E = ?MASK_ERROR(binary:match(H,binary:compile_pattern(make_unaligned(N)))),
-    if
-	A =/= nomatch ->
-	    put(success_counter,get(success_counter)+1);
-	true ->
-	    ok
-    end,
-    case {(A =:= B), (B =:= C),(C =:= D),(D =:= E)} of
-	{true,true,true,true} ->
-	    true;
-	_ ->
-	    io:format("Failed to match ~s (needle) against ~s (haystack)~n",
-		      [N,H]),
-	    io:format("A:~p,~nB:~p,~n,C:~p,~n,D:~p,E:~p.~n",
-		      [A,B,C,D,E]),
-	    exit(mismatch)
-    end.
-
-do_match_comp3(N,H) ->
-    A = ?MASK_ERROR(binref:match(H,N)),
-    B = ?MASK_ERROR(binref:match(H,binref:compile_pattern(N))),
-    C = ?MASK_ERROR(binary:match(H,N)),
-    D = ?MASK_ERROR(binary:match(H,binary:compile_pattern(N))),
+    B = ?MASK_ERROR(binary:match(make_unaligned(H),N)),
+    C = ?MASK_ERROR(binary:match(H,binary:compile_pattern([N]))),
+    D = ?MASK_ERROR(binary:match(H,binary:compile_pattern(make_unaligned(N)))),
     if
 	A =/= nomatch ->
 	    put(success_counter,get(success_counter)+1);
@@ -1261,6 +1237,27 @@ do_match_comp3(N,H) ->
 		      [N,H]),
 	    io:format("A:~p,~nB:~p,~n,C:~p,~n,D:~p.~n",
 		      [A,B,C,D]),
+	    exit(mismatch)
+    end.
+
+do_match_comp3(N,H) ->
+    A = ?MASK_ERROR(binref:match(H,N)),
+    B = ?MASK_ERROR(binary:match(H,N)),
+    C = ?MASK_ERROR(binary:match(H,binary:compile_pattern(N))),
+    if
+	A =/= nomatch ->
+	    put(success_counter,get(success_counter)+1);
+	true ->
+	    ok
+    end,
+    case {(A =:= B),(B =:= C)} of
+	{true,true} ->
+	    true;
+	_ ->
+	    io:format("Failed to match ~s (needle) against ~s (haystack)~n",
+		      [N,H]),
+	    io:format("A:~p,~nB:~p,~n,C:~p.~n",
+		      [A,B,C]),
 	    exit(mismatch)
     end.
 
