@@ -22,7 +22,6 @@
 
 -export([start_link/0,start_link/1,init/1,start/1,stop/0]).
 
-%-define(DBG,io:format("~p:~p~n",[?MODULE,?LINE])).
 -define(DBG,erlang:display([?MODULE,?LINE])).
 
 start_link() ->

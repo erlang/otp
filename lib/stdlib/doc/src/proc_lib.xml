@@ -173,7 +173,7 @@
       <name name="init_ack" arity="2"/>
       <fsummary>Used by a process when it has started.</fsummary>
       <desc>
-        <p>This function must used by a process that has been started by
+        <p>This function must be used by a process that has been started by
           a <seealso marker="#start/3">start[_link]/3,4,5</seealso>
           function. It tells <c><anno>Parent</anno></c> that the process has
           initialized itself, has started, or has failed to initialize

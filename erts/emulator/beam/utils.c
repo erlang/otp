@@ -707,7 +707,7 @@ erts_bld_atom_2uint_3tup_list(Uint **hpp, Uint *szp, Sint length,
 **  If N < 0, Y = FUNNY_NUMBER4 else Y = FUNNY_NUMBER3.
 **  The hash value is Y*h(J) mod 2^32 where h(J) is calculated like
 **  h(0) = <initial hash> 
-**  h(i) = h(i-i)*X + B(i-1)
+**  h(i) = h(i-1)*X + B(i-1)
 ** The above should hold regardless of internal representation.
 ** Pids are hashed like small numbers but with differrent constants, as are
 ** ports.
