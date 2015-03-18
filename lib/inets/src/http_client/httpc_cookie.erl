@@ -115,8 +115,8 @@ maybe_dets_close(Db) ->
     
 
 %%--------------------------------------------------------------------
-%% Func: insert(CookieDb) -> ok
-%% Purpose: Close the cookie db
+%% Func: insert(CookieDb, Cookie) -> ok
+%% Purpose: insert cookies into the cookie db
 %%--------------------------------------------------------------------
 
 %% If no persistent cookie database is defined we
