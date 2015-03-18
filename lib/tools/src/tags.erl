@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2015. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -297,15 +297,16 @@ word_char(_) -> false.
 
 %% Check the options `outfile' and `outdir'.
 open_out(Options) ->
+    Opts = [write, {encoding, unicode}],
     case lists:keysearch(outfile, 1, Options) of
 	{value, {outfile, File}} ->
-	    file:open(File, [write]);
+	    file:open(File, Opts);
 	_ ->
 	    case lists:keysearch(outdir, 1, Options) of
 		{value, {outdir, Dir}} ->
-		    file:open(filename:join(Dir, "TAGS"), [write]);
+		    file:open(filename:join(Dir, "TAGS"), Opts);
 		_ ->
-		    file:open("TAGS", [write])
+		    file:open("TAGS", Opts)
 	    end
     end.
 	    
