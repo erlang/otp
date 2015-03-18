@@ -29,7 +29,13 @@
 	 random_lists/1,
 	 roundtrips/1,
 	 latin1/1,
-	 exceptions/1, binaries_errors/1]).
+	 exceptions/1,
+	 binaries_errors_limit/1,
+	 ex_binaries_errors_utf8/1,
+	 ex_binaries_errors_utf16_little/1,
+	 ex_binaries_errors_utf16_big/1,
+	 ex_binaries_errors_utf32_little/1,
+	 ex_binaries_errors_utf32_big/1]).
 	 
 init_per_testcase(Case, Config) when is_atom(Case), is_list(Config) ->
     Dog=?t:timetrap(?t:minutes(20)),
@@ -44,10 +50,17 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 all() -> 
     [utf8_illegal_sequences_bif,
      utf16_illegal_sequences_bif, random_lists, roundtrips,
-     latin1, exceptions, binaries_errors].
+     latin1, exceptions,
+     binaries_errors_limit,
+     {group,binaries_errors}].
 
 groups() -> 
-    [].
+    [{binaries_errors,[parallel],
+      [ex_binaries_errors_utf8,
+       ex_binaries_errors_utf16_little,
+       ex_binaries_errors_utf16_big,
+       ex_binaries_errors_utf32_little,
+       ex_binaries_errors_utf32_big]}].
 
 init_per_suite(Config) ->
     Config.
@@ -61,15 +74,11 @@ init_per_group(_GroupName, Config) ->
 end_per_group(_GroupName, Config) ->
     Config.
 
-binaries_errors(Config) when is_list(Config) ->
+binaries_errors_limit(Config) when is_list(Config) ->
     setlimit(10),
     ex_binaries_errors_utf8(Config),
     setlimit(default),
-    ex_binaries_errors_utf8(Config),
-    ex_binaries_errors_utf16_little(Config),
-    ex_binaries_errors_utf16_big(Config),
-    ex_binaries_errors_utf32_little(Config),
-    ex_binaries_errors_utf32_big(Config).
+    ok.
     
 ex_binaries_errors_utf8(Config) when is_list(Config) ->
     %% Original smoke test, we should not forget the original offset...
