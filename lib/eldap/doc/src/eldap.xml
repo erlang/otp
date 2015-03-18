@@ -103,7 +103,7 @@ filter()    See present/1, substrings/2,
       <type>
 	<v>Handle = handle()</v>
 	<v>Options = ssl:ssl_options()</v>
-	<v>Timeout = inifinity | positive_integer()</v>
+	<v>Timeout = infinity | positive_integer()</v>
       </type>
       <desc>
         <p>Upgrade the connection associated with <c>Handle</c> to a tls connection if possible.</p>
