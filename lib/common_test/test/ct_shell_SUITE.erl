@@ -93,7 +93,7 @@ start_interactive(Config) ->
 	    test_server:format(Level,
 			       "ct_util_server not stopped on ~p yet, waiting 5 s...~n",
 			       [CTNode]),
-	    timer:sleep(5000),
+	    ct:sleep(5000),
 	    undefined = rpc:call(CTNode, erlang, whereis, [ct_util_server])
     end,
     Events = ct_test_support:get_events(ERPid, Config),

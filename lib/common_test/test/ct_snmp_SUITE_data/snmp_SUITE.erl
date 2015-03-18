@@ -117,12 +117,12 @@ break(_Config) ->
 
 start_stop(Config) ->
     ok = ct_snmp:start(Config,snmp1,snmp_app1),
-    timer:sleep(1000),
+    ct:sleep(1000),
     {snmp,_,_} = lists:keyfind(snmp,1,application:which_applications()),
     [_|_] = filelib:wildcard("*/*.conf",?config(priv_dir,Config)),
 
     ok = ct_snmp:stop(Config),
-    timer:sleep(1000),
+    ct:sleep(1000),
     false = lists:keyfind(snmp,1,application:which_applications()),
     [] = filelib:wildcard("*/*.conf",?config(priv_dir,Config)),
     ok.

@@ -278,7 +278,7 @@ testcase_5a(Config) ->
     %% increase chance the done event will come
     %% during execution of subgroup (could be
     %% tricky to handle)
-    timer:sleep(3),
+    ct:sleep(3),
     ok.
 testcase_5b() -> 
     [].

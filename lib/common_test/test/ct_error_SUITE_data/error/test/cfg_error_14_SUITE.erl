@@ -29,7 +29,7 @@ end_per_suite() ->
     put('$test_server_framework_test',
 	fun(end_tc, _Default) ->
 		ct:pal("end_tc(~p): Night time...",[self()]),
-		timer:sleep(1000),
+		ct:sleep(1000),
 		ct:pal("end_tc(~p): Day time!",[self()]);
 	   (_, Default) -> Default
 	end),

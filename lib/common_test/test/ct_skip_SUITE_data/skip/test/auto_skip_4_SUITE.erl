@@ -72,7 +72,7 @@ end_per_group(_GroupName, _Config) ->
 %% Reason = term()
 %%--------------------------------------------------------------------
 init_per_testcase(tc1, Config) ->
-    timer:sleep(5000),
+    ct:sleep(5000),
     Config;
 init_per_testcase(_TestCase, Config) ->
     Config.
