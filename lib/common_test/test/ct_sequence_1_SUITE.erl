@@ -182,8 +182,7 @@ test_events(subgroup_return_fail) ->
        {?eh,test_stats,{0,1,{0,0}}},
        {?eh,tc_start,
 	{subgroups_1_SUITE,{end_per_group,return_fail,[]}}},
-       {?eh,tc_done,{subgroups_1_SUITE,{end_per_group,return_fail,[]},
-		     {return_group_result,failed}}}],
+       {?eh,tc_done,{subgroups_1_SUITE,{end_per_group,return_fail,[]},ok}}],
       {?eh,tc_auto_skip,
        {subgroups_1_SUITE,{ok_tc,ok_group},
 	{group_result,return_fail,failed}}},
@@ -191,8 +190,7 @@ test_events(subgroup_return_fail) ->
       {?eh,tc_start,
        {subgroups_1_SUITE,{end_per_group,subgroup_return_fail,[sequence]}}},
       {?eh,tc_done,
-       {subgroups_1_SUITE,{end_per_group,subgroup_return_fail,[sequence]},
-	{return_group_result,failed}}}],
+       {subgroups_1_SUITE,{end_per_group,subgroup_return_fail,[sequence]},ok}}],
      {?eh,test_done,{'DEF','STOP_TIME'}},
      {?eh,stop_logging,[]}
     ];
@@ -221,8 +219,7 @@ test_events(subgroup_init_fail) ->
       {?eh,test_stats,{0,0,{0,2}}},
       {?eh,tc_start,{subgroups_1_SUITE,{end_per_group,subgroup_init_fail,[sequence]}}},
       {?eh,tc_done,{subgroups_1_SUITE,
-		    {end_per_group,subgroup_init_fail,[sequence]},
-		    {return_group_result,failed}}}],
+		    {end_per_group,subgroup_init_fail,[sequence]},ok}}],
      {?eh,test_done,{'DEF','STOP_TIME'}},
      {?eh,stop_logging,[]}
     ];
@@ -245,8 +242,7 @@ test_events(subgroup_after_failed_case) ->
       {?eh,tc_start,{subgroups_1_SUITE,
 		     {end_per_group,subgroup_after_failed_case,[sequence]}}},
       {?eh,tc_done,{subgroups_1_SUITE,
-		    {end_per_group,subgroup_after_failed_case,[sequence]},
-		    {return_group_result,failed}}}],
+		    {end_per_group,subgroup_after_failed_case,[sequence]},ok}}],
      {?eh,test_done,{'DEF','STOP_TIME'}},
      {?eh,stop_logging,[]}
 ];
@@ -266,16 +262,14 @@ test_events(case_after_subgroup_return_fail) ->
        {?eh,tc_done,{subgroups_1_SUITE,failing_tc,{failed,{error,{{badmatch,3},'_'}}}}},
        {?eh,test_stats,{0,1,{0,0}}},
        {?eh,tc_start,{subgroups_1_SUITE,{end_per_group,return_fail,[]}}},
-       {?eh,tc_done,{subgroups_1_SUITE,{end_per_group,return_fail,[]},
-		     {return_group_result,failed}}}],
+       {?eh,tc_done,{subgroups_1_SUITE,{end_per_group,return_fail,[]},ok}}],
       {?eh,tc_auto_skip,{subgroups_1_SUITE,{ok_tc,case_after_subgroup_return_fail},
 			 {group_result,return_fail,failed}}},
       {?eh,test_stats,{0,1,{0,1}}},
       {?eh,tc_start,{subgroups_1_SUITE,
 		     {end_per_group,case_after_subgroup_return_fail,[sequence]}}},
       {?eh,tc_done,{subgroups_1_SUITE,
-		    {end_per_group,case_after_subgroup_return_fail,[sequence]},
-		    {return_group_result,failed}}}],
+		    {end_per_group,case_after_subgroup_return_fail,[sequence]},ok}}],
      {?eh,test_done,{'DEF','STOP_TIME'}},
      {?eh,stop_logging,[]}
     ];
@@ -310,8 +304,7 @@ test_events(case_after_subgroup_fail_init) ->
       {?eh,tc_start,{subgroups_1_SUITE,
 		     {end_per_group,case_after_subgroup_fail_init,[sequence]}}},
       {?eh,tc_done,{subgroups_1_SUITE,
-		    {end_per_group,case_after_subgroup_fail_init,[sequence]},
-		    {return_group_result,failed}}}],
+		    {end_per_group,case_after_subgroup_fail_init,[sequence]},ok}}],
      {?eh,test_done,{'DEF','STOP_TIME'}},
      {?eh,stop_logging,[]}
     ].

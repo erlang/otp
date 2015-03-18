@@ -795,7 +795,7 @@ test_events(skip_all_groups) ->
      {?eh,test_stats,{0,0,{12,0}}},
      {?eh,tc_user_skip,{groups_11_SUITE,{end_per_group,test_group_4},"SKIPPED!"}},
      {?eh,tc_start,{groups_11_SUITE,end_per_suite}},
-     {?eh,tc_done,{groups_11_SUITE,end_per_suite,init}},
+     {?eh,tc_done,{groups_11_SUITE,end_per_suite,ok}},
      {negative,{?eh,tc_start,'_'},{?eh,stop_logging,'_'}}
     ];
 
@@ -840,7 +840,7 @@ test_events(skip_group) ->
       {?eh,test_stats,{2,0,{6,0}}},
       {?eh,tc_user_skip,{groups_11_SUITE,{end_per_group,test_group_2},
 			 "SKIPPED!"}},
-      {?eh,tc_done,{groups_11_SUITE,end_per_suite,init}},
+      {?eh,tc_done,{groups_11_SUITE,end_per_suite,ok}},
       {negative,{?eh,tc_start,'_'},{?eh,stop_logging,'_'}}
      ];
 
@@ -876,7 +876,7 @@ test_events(skip_group_all_testcases) ->
      {?eh,test_stats,{0,0,{4,0}}},
      {?eh,tc_user_skip,{groups_11_SUITE,{end_per_group,test_group_1b},
 			"SKIPPED!"}},
-     {?eh,tc_done,{groups_11_SUITE,end_per_suite,init}},
+     {?eh,tc_done,{groups_11_SUITE,end_per_suite,ok}},
      {negative,{?eh,tc_start,'_'},{?eh,stop_logging,'_'}}
     ];
 
@@ -1065,7 +1065,7 @@ test_events(skip_subgroup) ->
       {?eh,tc_done,{groups_12_SUITE,{end_per_group,test_group_4,[]},ok}}],
 
      {?eh,tc_start,{groups_12_SUITE,end_per_suite}},
-     {?eh,tc_done,{groups_12_SUITE,end_per_suite,init}},
+     {?eh,tc_done,{groups_12_SUITE,end_per_suite,ok}},
      {negative,{?eh,tc_start,'_'},{?eh,stop_logging,'_'}}
     ];
 

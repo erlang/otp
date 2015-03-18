@@ -302,7 +302,7 @@ test_events(groups_suite_1) ->
       {?eh,tc_done,{groups_11_SUITE,{end_per_group,test_group_4,[]},ok}}],
 
      {?eh,tc_start,{groups_11_SUITE,end_per_suite}},
-     {?eh,tc_done,{groups_11_SUITE,end_per_suite,init}},
+     {?eh,tc_done,{groups_11_SUITE,end_per_suite,ok}},
      {?eh,test_done,{'DEF','STOP_TIME'}},
      {?eh,stop_logging,[]}];
 
@@ -410,7 +410,7 @@ test_events(groups_suite_2) ->
       {?eh,tc_done,{groups_12_SUITE,{end_per_group,test_group_4,[]},ok}}],
 
       {?eh,tc_start,{groups_12_SUITE,end_per_suite}},
-      {?eh,tc_done,{groups_12_SUITE,end_per_suite,init}},
+      {?eh,tc_done,{groups_12_SUITE,end_per_suite,ok}},
      {?eh,test_done,{'DEF','STOP_TIME'}},
      {?eh,stop_logging,[]}];
 
@@ -505,7 +505,7 @@ test_events(groups_suites_1) ->
       {?eh,tc_done,{groups_11_SUITE,{end_per_group,test_group_4,[]},ok}}],
 
      {?eh,tc_start,{groups_11_SUITE,end_per_suite}},
-     {?eh,tc_done,{groups_11_SUITE,end_per_suite,init}},
+     {?eh,tc_done,{groups_11_SUITE,end_per_suite,ok}},
 
      {?eh,tc_start,{groups_12_SUITE,init_per_suite}},
      {?eh,tc_done,{groups_12_SUITE,init_per_suite,ok}},
@@ -596,7 +596,7 @@ test_events(groups_suites_1) ->
       {?eh,tc_done,{groups_12_SUITE,{end_per_group,test_group_4,[]},ok}}],
 
      {?eh,tc_start,{groups_12_SUITE,end_per_suite}},
-     {?eh,tc_done,{groups_12_SUITE,end_per_suite,init}},
+     {?eh,tc_done,{groups_12_SUITE,end_per_suite,ok}},
      {?eh,test_done,{'DEF','STOP_TIME'}},
      {?eh,stop_logging,[]}];
 
@@ -691,7 +691,7 @@ test_events(groups_dir_1) ->
       {?eh,tc_done,{groups_11_SUITE,{end_per_group,test_group_4,[]},ok}}],
 
      {?eh,tc_start,{groups_11_SUITE,end_per_suite}},
-     {?eh,tc_done,{groups_11_SUITE,end_per_suite,init}},
+     {?eh,tc_done,{groups_11_SUITE,end_per_suite,ok}},
 
      {?eh,tc_start,{groups_12_SUITE,init_per_suite}},
      {?eh,tc_done,{groups_12_SUITE,init_per_suite,ok}},
@@ -782,7 +782,7 @@ test_events(groups_dir_1) ->
       {?eh,tc_done,{groups_12_SUITE,{end_per_group,test_group_4,[]},ok}}],
 
      {?eh,tc_start,{groups_12_SUITE,end_per_suite}},
-     {?eh,tc_done,{groups_12_SUITE,end_per_suite,init}},
+     {?eh,tc_done,{groups_12_SUITE,end_per_suite,ok}},
      {?eh,test_done,{'DEF','STOP_TIME'}},
      {?eh,stop_logging,[]}];
 
@@ -878,7 +878,7 @@ test_events(groups_dirs_1) ->
       {?eh,tc_done,{groups_11_SUITE,{end_per_group,test_group_4,[]},ok}}],
 
      {?eh,tc_start,{groups_11_SUITE,end_per_suite}},
-     {?eh,tc_done,{groups_11_SUITE,end_per_suite,init}},
+     {?eh,tc_done,{groups_11_SUITE,end_per_suite,ok}},
 
      {?eh,tc_start,{groups_12_SUITE,init_per_suite}},
      {?eh,tc_done,{groups_12_SUITE,init_per_suite,ok}},
@@ -969,7 +969,7 @@ test_events(groups_dirs_1) ->
       {?eh,tc_done,{groups_12_SUITE,{end_per_group,test_group_4,[]},ok}}],
 
      {?eh,tc_start,{groups_12_SUITE,end_per_suite}},
-     {?eh,tc_done,{groups_12_SUITE,end_per_suite,init}},
+     {?eh,tc_done,{groups_12_SUITE,end_per_suite,ok}},
 
      {?eh,tc_start,{groups_21_SUITE,init_per_suite}},
      {?eh,tc_done,{groups_21_SUITE,init_per_suite,ok}},
@@ -1089,7 +1089,7 @@ test_events(groups_dirs_1) ->
        {groups_21_SUITE,{end_per_group,test_group_4,[]},ok}}],
 
      {?eh,tc_start,{groups_21_SUITE,end_per_suite}},
-     {?eh,tc_done,{groups_21_SUITE,end_per_suite,init}},
+     {?eh,tc_done,{groups_21_SUITE,end_per_suite,ok}},
 
      {?eh,tc_start,{groups_22_SUITE,init_per_suite}},
      {?eh,tc_done,{groups_22_SUITE,init_per_suite,ok}},
@@ -1223,6 +1223,6 @@ test_events(groups_dirs_1) ->
        {groups_22_SUITE,{end_per_group,test_group_4,[]},ok}}],
 
      {?eh,tc_start,{groups_22_SUITE,end_per_suite}},
-     {?eh,tc_done,{groups_22_SUITE,end_per_suite,init}},
+     {?eh,tc_done,{groups_22_SUITE,end_per_suite,ok}},
      {?eh,test_done,{'DEF','STOP_TIME'}},
      {?eh,stop_logging,[]}].

@@ -678,7 +678,7 @@ handle_tc_exit(Reason, #st{status=tc,config=Config0,mf={Mod,Func},pid=Pid}=St)
 			 Msg = {E,AbortReason},
 			 {Msg,Loc0,Msg};
 		     Other ->
-			 {Other,unknown,Other}
+			 {{'EXIT',Other},unknown,Other}
 		 end,
     Timeout = end_conf_timeout(Reason, St),
     Config = [{tc_status,{failed,F}}|Config0],
@@ -692,7 +692,7 @@ handle_tc_exit(Reason, #st{config=Config,mf={Mod,Func0},pid=Pid,
 		   {testcase_aborted=E,AbortReason,Loc0} ->
 		       {{E,AbortReason},Loc0};
 		   Other ->
-		       {Other,St#st.last_known_loc}
+		       {{'EXIT',Other},St#st.last_known_loc}
 	       end,
     Func = case Status of
 	       init_per_testcase=F -> {F,Func0};
@@ -729,18 +729,16 @@ do_call_end_conf(Starter,Mod,Func,Data,Conf,TVal) ->
 		EndConfApply =
 		    fun() ->
 			    timetrap(TVal),
-			    case catch apply(Mod,
-					     end_per_testcase,
-					     [Func,Conf]) of
-				{'EXIT',Why} ->
+			    try apply(Mod,end_per_testcase,[Func,Conf]) of
+				_ -> ok
+			    catch
+				_:Why ->
 				    timer:sleep(1),
 				    group_leader() ! {printout,12,
 						      "WARNING! "
 						      "~w:end_per_testcase(~w, ~p)"
 						      " crashed!\n\tReason: ~p\n",
-						      [Mod,Func,Conf,Why]};
-				_ ->
-				    ok
+						      [Mod,Func,Conf,Why]}
 			    end,
 			    Supervisor ! {self(),end_conf}
 		    end,
@@ -769,13 +767,11 @@ spawn_fw_call(Mod,{init_per_testcase,Func},CurrConf,Pid,
 		Skip = {skip,{failed,{Mod,init_per_testcase,Why}}},
 		%% if init_per_testcase fails, the test case
 		%% should be skipped
-		case catch do_end_tc_call(Mod,Func,
-					  {Pid,Skip,[CurrConf]},
-					  Why) of
-		    {'EXIT',FwEndTCErr} ->
-			exit({fw_notify_done,end_tc,FwEndTCErr});
-		    _ ->
-			ok
+		try do_end_tc_call(Mod,Func, {Pid,Skip,[CurrConf]}, Why) of
+		    _ -> ok
+		catch
+		    _:FwEndTCErr ->
+			exit({fw_notify_done,end_tc,FwEndTCErr})
 		end,
 		%% finished, report back
 		SendTo ! {self(),fw_notify_done,
@@ -803,12 +799,12 @@ spawn_fw_call(Mod,{end_per_testcase,Func},EndConf,Pid,
 				  " failed!\n\tReason: timetrap timeout"
 				  " after ~w ms!\n", [Mod,Func,EndConf,TVal]},
 		FailLoc = proplists:get_value(tc_fail_loc, EndConf),
-		case catch do_end_tc_call(Mod,Func,
+		try do_end_tc_call(Mod,Func,
 					  {Pid,Report,[EndConf]}, Why) of
-		    {'EXIT',FwEndTCErr} ->
-			exit({fw_notify_done,end_tc,FwEndTCErr});
-		    _ ->
-			ok
+		    _ -> ok
+		catch
+		    _:FwEndTCErr ->
+			exit({fw_notify_done,end_tc,FwEndTCErr})
 		end,
 		Warn = "<font color=\"red\">"
 		       "WARNING: end_per_testcase timed out!</font>",
@@ -844,21 +840,21 @@ spawn_fw_call(Mod,Func,CurrConf,Pid,Error,Loc,SendTo) ->
 	    end,
     FwCall =
 	fun() ->
-		case catch fw_error_notify(Mod,Func1,[],
-					   Error,Loc) of
-		    {'EXIT',FwErrorNotifyErr} ->
+		try fw_error_notify(Mod,Func1,[],
+				    Error,Loc) of
+		    _ -> ok
+		catch
+		    _:FwErrorNotifyErr ->
 			exit({fw_notify_done,error_notification,
-			      FwErrorNotifyErr});
-		    _ ->
-			ok
+			      FwErrorNotifyErr})
 		end,
 		Conf = [{tc_status,{failed,Error}}|CurrConf],
-		case catch do_end_tc_call(Mod,Func1,
-					  {Pid,Error,[Conf]},Error) of
-		    {'EXIT',FwEndTCErr} ->
-			exit({fw_notify_done,end_tc,FwEndTCErr});
-		    _ ->
-			ok
+		try do_end_tc_call(Mod,Func1,
+				   {Pid,Error,[Conf]},Error) of
+		    _ -> ok
+		catch
+		    _:FwEndTCErr ->
+			exit({fw_notify_done,end_tc,FwEndTCErr})
 		end,
 		%% finished, report back
 		SendTo ! {self(),fw_notify_done,{died,Error,Loc,[],undefined}}
