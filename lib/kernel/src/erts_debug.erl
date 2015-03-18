@@ -33,7 +33,7 @@
 -export([breakpoint/2, disassemble/1, display/1, dist_ext_to_term/2,
          dump_monitors/1, dump_links/1, flat_size/1,
          get_internal_state/1, instructions/0, lock_counters/1,
-         same/2, set_internal_state/2]).
+         map_info/1, same/2, set_internal_state/2]).
 
 -spec breakpoint(MFA, Flag) -> non_neg_integer() when
       MFA :: {Module :: module(),
@@ -334,3 +334,9 @@ cont_dis(File, {Addr,Str,MFA}, MFA) ->
     io:put_chars(File, binary_to_list(Str)),
     cont_dis(File, erts_debug:disassemble(Addr), MFA);
 cont_dis(_, {_,_,_}, _) -> ok.
+
+-spec map_info(Map) -> list() when
+      Map :: map().
+
+map_info(_) ->
+    erlang:nif_error(undef).
