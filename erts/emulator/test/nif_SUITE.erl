@@ -451,7 +451,7 @@ maps(Config) when is_list(Config) ->
     M  = maps_from_list_nif(Pairs),
     R = {RIs,Is} = sorted_list_from_maps_nif(M),
     io:format("Pairs: ~p~nMap: ~p~nReturned: ~p~n", [lists:sort(Pairs),M,R]),
-    Is = lists:sort(Pairs),
+    true = (lists:sort(Is) =:= lists:sort(Pairs)),
     Is = lists:reverse(RIs),
 
     #{} = maps_from_list_nif([]),

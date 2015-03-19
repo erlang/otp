@@ -188,6 +188,16 @@ __decl_noreturn void __noreturn erl_assert_error(const char* expr, const char *f
 #  define ASSERT(e) ((void) 1)
 #endif
 
+/* ERTS_UNDEF can be used to silence false warnings about
+ * "variable may be used uninitialized" while keeping the variable
+ * marked as undefined by valgrind.
+ */
+#ifdef VALGRIND
+#  define ERTS_UNDEF(V,I)
+#else
+#  define ERTS_UNDEF(V,I) V = I
+#endif
+
 /*
  * Compile time assert
  * (the actual compiler error msg can be a bit confusing)

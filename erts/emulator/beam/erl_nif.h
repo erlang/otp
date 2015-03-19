@@ -201,10 +201,18 @@ typedef enum
 typedef struct /* All fields all internal and may change */
 {
     ERL_NIF_TERM map;
-    ERL_NIF_UINT t_limit;
+    ERL_NIF_UINT size;
     ERL_NIF_UINT idx;
-    ERL_NIF_TERM *ks;
-    ERL_NIF_TERM *vs;
+    union {
+        struct {
+            ERL_NIF_TERM *ks;
+            ERL_NIF_TERM *vs;
+        }flat;
+        struct {
+            struct ErtsDynamicWStack_* wstack;
+            ERL_NIF_TERM* kv;
+        }hash;
+    }u;
     void* __spare__[2]; /* for future additions to be ABI compatible (same struct size) */
 } ErlNifMapIterator;
 

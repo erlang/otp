@@ -5350,7 +5350,11 @@ driver_deliver_term(Eterm to, ErlDrvTermData* data, int len)
 	case ERL_DRV_MAP: { /* int */
 	    ERTS_DDT_CHK_ENOUGH_ARGS(1);
 	    if ((int) ptr[0] < 0) ERTS_DDT_FAIL;
-	    need += MAP_HEADER_SIZE + 1 + 2*ptr[0];
+            if (ptr[0] > MAP_SMALL_MAP_LIMIT) {
+                need += hashmap_over_estimated_heap_size(ptr[0]);
+            } else {
+                need += MAP_HEADER_SIZE + 1 + 2*ptr[0];
+            }
 	    depth -= 2*ptr[0];
 	    if (depth < 0) ERTS_DDT_FAIL;
 	    ptr++;
@@ -5594,31 +5598,52 @@ driver_deliver_term(Eterm to, ErlDrvTermData* data, int len)
 
 	case ERL_DRV_MAP: { /* int */
 	    int size = (int)ptr[0];
-	    Eterm* tp = hp;
-	    Eterm* vp;
-	    map_t *mp;
+            if (size > MAP_SMALL_MAP_LIMIT) {
+                int ix = 2*size;
+                ErtsHeapFactory factory;
+                Eterm* leafs = hp;
 
-	    *tp = make_arityval(size);
+                hp += 2*size;
+                while(ix--) { *--hp = ESTACK_POP(stack); }
 
-	    hp += 1 + size;
-	    mp = (map_t*)hp;
-	    mp->thing_word = MAP_HEADER;
-	    mp->size = size;
-	    mp->keys = make_tuple(tp);
-	    mess = make_map(mp);
+                hp += 2*size;
+                factory.p = NULL;
+                factory.hp = hp;
+                /* We assume heap will suffice (see hashmap_over_estimated_heap_size) */
 
-	    hp += MAP_HEADER_SIZE + size;   /* advance "heap" pointer */
+                mess = erts_hashmap_from_array(&factory, leafs, size, 1);
 
-	    tp += size;    /* point at last key */
-	    vp = hp - 1;   /* point at last value */
+                if (is_non_value(mess))
+                    ERTS_DDT_FAIL;
 
-	    while(size--) {
-		*vp-- = ESTACK_POP(stack);
-		*tp-- = ESTACK_POP(stack);
-	    }
-	    if (!erts_validate_and_sort_map(mp))
-		ERTS_DDT_FAIL;
-	    ptr++;
+                hp = factory.hp;
+            } else {
+                Eterm* tp = hp;
+                Eterm* vp;
+                flatmap_t *mp;
+
+                *tp = make_arityval(size);
+
+                hp += 1 + size;
+                mp = (flatmap_t*)hp;
+                mp->thing_word = MAP_HEADER;
+                mp->size = size;
+                mp->keys = make_tuple(tp);
+                mess = make_flatmap(mp);
+
+                hp += MAP_HEADER_SIZE + size;   /* advance "heap" pointer */
+
+                tp += size;    /* point at last key */
+                vp = hp - 1;   /* point at last value */
+
+                while(size--) {
+                    *vp-- = ESTACK_POP(stack);
+                    *tp-- = ESTACK_POP(stack);
+                }
+                if (!erts_validate_and_sort_flatmap(mp))
+                    ERTS_DDT_FAIL;
+            }
+            ptr++;
 	    break;
 	}
 

@@ -924,6 +924,7 @@ maps(Config) when is_list(Config) ->
                                table),
     {ok,#{foo := 3},[],[]} =
         erlang:match_spec_test({}, [{{},[],[#{foo => {'+',1,2}}]}], table),
+
     {ok,"camembert",[],[]} =
         erlang:match_spec_test(#{b => "camembert",c => "cabécou"},
                                [{#{b => '$1',c => "cabécou"},[],['$1']}], table),
@@ -932,7 +933,41 @@ maps(Config) when is_list(Config) ->
         erlang:match_spec_test(#{<<"b">> =>"camembert","c"=>"cabécou", "wat"=>"hi", b=><<"other">>},
                                [{#{<<"b">> => '$1',"wat" => '$2'},[],[#{a=>'$1',b=>'$2'}]}],
                                table),
+    %% large maps
+
+    Ls0 = [{I,<<I:32>>}||I <- lists:seq(1,415)],
+    M0  = maps:from_list(Ls0),
+    M1  = #{a=>1,b=>2,c=>3,d=>4},
+
+    R1  = M0#{263 := #{ a=> 3 }},
+    Ms1 = [{M1#{c:='$1'},[],[M0#{263 := #{a => '$1'}}]}],
+
+    {ok,R1,[],[]} = erlang:match_spec_test(M1,Ms1,table),
+
+    Ms2 = [{M0#{63:='$1', 19:='$2'},[],[M0#{19:='$1', 63:='$2'}]}],
+    R2  = M0#{63 := maps:get(19,M0), 19 := maps:get(63,M0) },
+    {ok,R2,[],[]} = erlang:match_spec_test(M0,Ms2,table),
+
+    ok = maps_check_loop(M1),
+    ok = maps_check_loop(M0),
+    M2 = maps:from_list([{integer_to_list(K),V} || {K,V} <- Ls0]),
+    ok = maps_check_loop(M2),
     ok.
+
+maps_check_loop(M) ->
+    Ks = maps:keys(M),
+    maps_check_loop(M,M,M,M,Ks,lists:reverse(Ks),1).
+
+maps_check_loop(Orig,M0,MsM0,Rm0,[K|Ks],[Rk|Rks],Ix) ->
+    MsK  = list_to_atom([$$]++integer_to_list(Ix)),
+    MsM1 = MsM0#{K := MsK},
+    Rm1  = Rm0#{Rk := MsK},
+    M1   = M0#{Rk  := maps:get(K,MsM0)},
+    Ms   = [{MsM1,[],[Rm1]}],
+    {ok,M1,[],[]} = erlang:match_spec_test(Orig,Ms,table),
+    maps_check_loop(Orig,M1,MsM1,Rm1,Ks,Rks,Ix+1);
+maps_check_loop(_,_,_,_,[],[],_) -> ok.
+
 
 empty_list(Config) when is_list(Config) ->
     Val=[{'$1',[], [{message,'$1'},{message,{caller}},{return_trace}]}],

@@ -247,6 +247,17 @@ static int print_atom_name(fmtfn_t fn, void* arg, Eterm atom, long *dcount)
 #define PRT_PATCH_FUN_SIZE     ((Eterm) 7)
 #define PRT_LAST_ARRAY_ELEMENT ((Eterm) 8) /* Note! Must be last... */
 
+#if 0
+static char *format_binary(Uint16 x, char *b) {
+    int z;
+    b[16] = '\0';
+    for (z = 0; z < 16; z++) { 
+	b[15-z] = ((x>>z) & 0x1) ? '1' : '0'; 
+    }
+    return b;
+}
+#endif
+
 static int
 print_term(fmtfn_t fn, void* arg, Eterm obj, long *dcount,
 	   Eterm* obj_base) /* ignored if !HALFWORD_HEAP */
@@ -557,10 +568,10 @@ print_term(fmtfn_t fn, void* arg, Eterm obj, long *dcount,
 	    {
 		Uint n;
 		Eterm *ks, *vs;
-		map_t *mp = (map_t *)map_val(wobj);
-		n  = map_get_size(mp);
-		ks = map_get_keys(mp);
-		vs = map_get_values(mp);
+		flatmap_t *mp = (flatmap_t *)flatmap_val(wobj);
+		n  = flatmap_get_size(mp);
+		ks = flatmap_get_keys(mp);
+		vs = flatmap_get_values(mp);
 
 		PRINT_CHAR(res, fn, arg, '#');
 		PRINT_CHAR(res, fn, arg, '{');
@@ -575,6 +586,55 @@ print_term(fmtfn_t fn, void* arg, Eterm obj, long *dcount,
 		}
 	    }
 	    break;
+	case HASHMAP_DEF:
+	    {
+		Uint n,mapval;
+		Eterm *head;
+		head = hashmap_val(wobj);
+		mapval = MAP_HEADER_VAL(*head);
+		switch (MAP_HEADER_TYPE(*head)) {
+		    case MAP_HEADER_TAG_HAMT_HEAD_ARRAY:
+		    case MAP_HEADER_TAG_HAMT_HEAD_BITMAP:
+			PRINT_STRING(res, fn, arg, "#<");
+			PRINT_UWORD(res, fn, arg, 'x', 0, 1, mapval);
+			PRINT_STRING(res, fn, arg, ">{");
+			WSTACK_PUSH(s,PRT_CLOSE_TUPLE);
+			n = hashmap_bitcount(mapval);
+			ASSERT(n < 17);
+			head += 2;
+			if (n > 0) {
+			    n--;
+			    WSTACK_PUSH(s, head[n]);
+			    WSTACK_PUSH(s, PRT_TERM);
+			    while (n--) {
+				WSTACK_PUSH(s, PRT_COMMA);
+				WSTACK_PUSH(s, head[n]);
+				WSTACK_PUSH(s, PRT_TERM);
+			    }
+			}
+			break;
+		    case MAP_HEADER_TAG_HAMT_NODE_BITMAP:
+			n = hashmap_bitcount(mapval);
+			head++;
+			PRINT_CHAR(res, fn, arg, '<');
+			PRINT_UWORD(res, fn, arg, 'x', 0, 1, mapval);
+			PRINT_STRING(res, fn, arg, ">{");
+			WSTACK_PUSH(s,PRT_CLOSE_TUPLE);
+			ASSERT(n < 17);
+			if (n > 0) {
+			    n--;
+			    WSTACK_PUSH(s, head[n]);
+			    WSTACK_PUSH(s, PRT_TERM);
+			    while (n--) {
+				WSTACK_PUSH(s, PRT_COMMA);
+				WSTACK_PUSH(s, head[n]);
+				WSTACK_PUSH(s, PRT_TERM);
+			    }
+			}
+			break;
+		}
+	    }
+	    break;
 	default:
 	    PRINT_STRING(res, fn, arg, "<unknown:");
 	    PRINT_POINTER(res, fn, arg, wobj);
@@ -584,10 +644,10 @@ print_term(fmtfn_t fn, void* arg, Eterm obj, long *dcount,
     }
 
  L_done:
-    
     DESTROY_WSTACK(s);
     return res;
 }
+
 
 int
 erts_printf_term(fmtfn_t fn, void* arg, ErlPfEterm term, long precision,

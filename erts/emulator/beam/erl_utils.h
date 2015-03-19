@@ -113,12 +113,14 @@ void erts_silence_warn_unused_result(long unused);
 
 int erts_fit_in_bits_int64(Sint64);
 int erts_fit_in_bits_int32(Sint32);
+int erts_fit_in_bits_uint(Uint);
 int erts_list_length(Eterm);
 int erts_is_builtin(Eterm, Eterm, int);
 Uint32 make_broken_hash(Eterm);
 Uint32 block_hash(byte *, unsigned, Uint32);
 Uint32 make_hash2(Eterm);
 Uint32 make_hash(Eterm);
+Uint32 make_internal_hash(Eterm);
 
 void erts_save_emu_args(int argc, char **argv);
 Eterm erts_get_emu_args(struct process *c_p);

@@ -372,16 +372,17 @@ extern int stackdump_on_exit;
  * DESTROY_ESTACK(Stack)
  */
 
-typedef struct {
+typedef struct ErtsEStack_ {
     Eterm* start;
     Eterm* sp;
     Eterm* end;
+    Eterm* edefault;
     ErtsAlcType_t alloc_type;
 }ErtsEStack;
 
 #define DEF_ESTACK_SIZE (16)
 
-void erl_grow_estack(ErtsEStack*, Eterm* def_stack);
+void erl_grow_estack(ErtsEStack*, Uint need);
 #define ESTK_CONCAT(a,b) a##b
 #define ESTK_DEF_STACK(s) ESTK_CONCAT(s,_default_estack)
 
@@ -391,22 +392,23 @@ void erl_grow_estack(ErtsEStack*, Eterm* def_stack);
         ESTK_DEF_STACK(s),  /* start */ 		\
         ESTK_DEF_STACK(s),  /* sp */			\
         ESTK_DEF_STACK(s) + DEF_ESTACK_SIZE, /* end */	\
+        ESTK_DEF_STACK(s),  /* default */		\
         ERTS_ALC_T_ESTACK /* alloc_type */		\
     }
 
 #define ESTACK_CHANGE_ALLOCATOR(s,t)					\
 do {									\
-    if (s.start != ESTK_DEF_STACK(s)) {					\
+    if ((s).start != ESTK_DEF_STACK(s)) {				\
 	erl_exit(1, "Internal error - trying to change allocator "	\
 		 "type of active estack\n");				\
     }									\
-    s.alloc_type = (t);							\
+    (s).alloc_type = (t);						\
  } while (0)
 
 #define DESTROY_ESTACK(s)				\
 do {							\
-    if (s.start != ESTK_DEF_STACK(s)) {			\
-	erts_free(s.alloc_type, s.start); 		\
+    if ((s).start != ESTK_DEF_STACK(s)) {		\
+	erts_free((s).alloc_type, (s).start); 		\
     }							\
 } while(0)
 
@@ -417,16 +419,17 @@ do {							\
  */
 #define ESTACK_SAVE(s,dst)\
 do {\
-    if (s.start == ESTK_DEF_STACK(s)) {\
+    if ((s).start == ESTK_DEF_STACK(s)) {\
 	UWord _wsz = ESTACK_COUNT(s);\
-	(dst)->start = erts_alloc(s.alloc_type,\
+	(dst)->start = erts_alloc((s).alloc_type,\
 				  DEF_ESTACK_SIZE * sizeof(Eterm));\
-	memcpy((dst)->start, s.start,_wsz*sizeof(Eterm));\
+	memcpy((dst)->start, (s).start,_wsz*sizeof(Eterm));\
 	(dst)->sp = (dst)->start + _wsz;\
 	(dst)->end = (dst)->start + DEF_ESTACK_SIZE;\
-	(dst)->alloc_type = s.alloc_type;\
+        (dst)->edefault = NULL;\
+	(dst)->alloc_type = (s).alloc_type;\
     } else\
-        *(dst) = s;\
+        *(dst) = (s);\
  } while (0)
 
 #define DESTROY_SAVED_ESTACK(estack)\
@@ -445,83 +448,114 @@ do {\
  */
 #define ESTACK_RESTORE(s, src)			\
 do {						\
-    ASSERT(s.start == ESTK_DEF_STACK(s));	\
-    s = *(src);  /* struct copy */		\
+    ASSERT((s).start == ESTK_DEF_STACK(s));	\
+    (s) = *(src);  /* struct copy */		\
     (src)->start = NULL;			\
-    ASSERT(s.sp >= s.start);			\
-    ASSERT(s.sp <= s.end);			\
+    ASSERT((s).sp >= (s).start);		\
+    ASSERT((s).sp <= (s).end);			\
 } while (0)
 
-#define ESTACK_IS_STATIC(s) (s.start == ESTK_DEF_STACK(s)))
+#define ESTACK_IS_STATIC(s) ((s).start == ESTK_DEF_STACK(s))
 
-#define ESTACK_PUSH(s, x)				\
-do {							\
-    if (s.sp == s.end) {				\
-	erl_grow_estack(&s, ESTK_DEF_STACK(s)); 	\
-    }							\
-    *s.sp++ = (x);					\
+#define ESTACK_PUSH(s, x)			\
+do {						\
+    if ((s).sp == (s).end) {			\
+	erl_grow_estack(&(s), 1); 		\
+    }						\
+    *(s).sp++ = (x);				\
 } while(0)
 
 #define ESTACK_PUSH2(s, x, y)			\
 do {						\
-    if (s.sp > s.end - 2) {			\
-	erl_grow_estack(&s, ESTK_DEF_STACK(s)); \
+    if ((s).sp > (s).end - 2) {			\
+	erl_grow_estack(&(s), 2);		\
     }						\
-    *s.sp++ = (x);				\
-    *s.sp++ = (y);				\
+    *(s).sp++ = (x);				\
+    *(s).sp++ = (y);				\
 } while(0)
 
 #define ESTACK_PUSH3(s, x, y, z)		\
 do {						\
-    if (s.sp > s.end - 3) {			\
-	erl_grow_estack(&s, ESTK_DEF_STACK(s)); \
+    if ((s).sp > (s).end - 3) {			\
+	erl_grow_estack(&s, 3); 		\
     }						\
-    *s.sp++ = (x);				\
-    *s.sp++ = (y);				\
-    *s.sp++ = (z);				\
+    *(s).sp++ = (x);				\
+    *(s).sp++ = (y);				\
+    *(s).sp++ = (z);				\
 } while(0)
 
 #define ESTACK_PUSH4(s, E1, E2, E3, E4)		\
 do {						\
-    if (s.sp > s.end - 4) {			\
-	erl_grow_estack(&s, ESTK_DEF_STACK(s)); \
+    if ((s).sp > (s).end - 4) {			\
+	erl_grow_estack(&s, 4);                 \
     }						\
-    *s.sp++ = (E1);				\
-    *s.sp++ = (E2);				\
-    *s.sp++ = (E3);				\
-    *s.sp++ = (E4);				\
+    *(s).sp++ = (E1);				\
+    *(s).sp++ = (E2);				\
+    *(s).sp++ = (E3);				\
+    *(s).sp++ = (E4);				\
 } while(0)
 
-#define ESTACK_COUNT(s) (s.sp - s.start)
-#define ESTACK_ISEMPTY(s) (s.sp == s.start)
-#define ESTACK_POP(s) (*(--s.sp))
+#define ESTACK_RESERVE(s, push_cnt)             \
+do {					        \
+    if ((s).sp > (s).end - (push_cnt)) {	\
+	erl_grow_estack(&(s), (push_cnt));	\
+    }					        \
+} while(0)
+
+/* Must be preceded by ESTACK_RESERVE */
+#define ESTACK_FAST_PUSH(s, x)				\
+do {							\
+    ASSERT((s).sp < (s).end);                           \
+    *s.sp++ = (x);					\
+} while(0)
+
+#define ESTACK_COUNT(s) ((s).sp - (s).start)
+#define ESTACK_ISEMPTY(s) ((s).sp == (s).start)
+#define ESTACK_POP(s) (*(--(s).sp))
 
 
 /*
  * WSTACK: same as ESTACK but with UWord instead of Eterm
  */
 
-typedef struct {
+typedef struct ErtsWStack_ {
     UWord* wstart;
     UWord* wsp;
     UWord* wend;
+    UWord* wdefault;
     ErtsAlcType_t alloc_type;
 }ErtsWStack;
 
 #define DEF_WSTACK_SIZE (16)
 
-void erl_grow_wstack(ErtsWStack*, UWord* def_stack);
+void erl_grow_wstack(ErtsWStack*, Uint need);
 #define WSTK_CONCAT(a,b) a##b
 #define WSTK_DEF_STACK(s) WSTK_CONCAT(s,_default_wstack)
 
-#define DECLARE_WSTACK(s)				\
+#define WSTACK_DECLARE(s)				\
     UWord WSTK_DEF_STACK(s)[DEF_WSTACK_SIZE];		\
     ErtsWStack s = {					\
         WSTK_DEF_STACK(s),  /* wstart */ 		\
         WSTK_DEF_STACK(s),  /* wsp */			\
         WSTK_DEF_STACK(s) + DEF_WSTACK_SIZE, /* wend */	\
+        WSTK_DEF_STACK(s),  /* wdflt */ 		\
         ERTS_ALC_T_ESTACK /* alloc_type */		\
     }
+#define DECLARE_WSTACK WSTACK_DECLARE
+
+typedef struct ErtsDynamicWStack_ {
+    UWord default_stack[DEF_WSTACK_SIZE];
+    ErtsWStack ws;
+}ErtsDynamicWStack;
+
+#define WSTACK_INIT(dwsp, ALC_TYPE)                               \
+do {	 	                                                  \
+    (dwsp)->ws.wstart   = (dwsp)->default_stack;                  \
+    (dwsp)->ws.wsp      = (dwsp)->default_stack;                  \
+    (dwsp)->ws.wend     = (dwsp)->default_stack + DEF_WSTACK_SIZE;\
+    (dwsp)->ws.wdefault = (dwsp)->default_stack;                  \
+    (dwsp)->ws.alloc_type = ALC_TYPE;                             \
+} while (0)
 
 #define WSTACK_CHANGE_ALLOCATOR(s,t)					\
 do {									\
@@ -532,13 +566,20 @@ do {									\
     s.alloc_type = (t);							\
  } while (0)
 
-#define DESTROY_WSTACK(s)				\
+#define WSTACK_DESTROY(s)				\
 do {							\
-    if (s.wstart != WSTK_DEF_STACK(s)) {		\
+    if (s.wstart != s.wdefault) {		        \
 	erts_free(s.alloc_type, s.wstart); 		\
     }							\
 } while(0)
+#define DESTROY_WSTACK WSTACK_DESTROY
 
+#define WSTACK_DEBUG(s) \
+    do { \
+	fprintf(stderr, "wstack size   = %ld\r\n", s.wsp - s.wstart); \
+	fprintf(stderr, "wstack wstart = %p\r\n", s.wstart); \
+	fprintf(stderr, "wstack wsp    = %p\r\n", s.wsp); \
+    } while(0)
 
 /*
  * Do not free the stack after this, it may have pointers into what
@@ -553,6 +594,7 @@ do {\
 	memcpy((dst)->wstart, s.wstart,_wsz*sizeof(UWord));\
 	(dst)->wsp = (dst)->wstart + _wsz;\
 	(dst)->wend = (dst)->wstart + DEF_WSTACK_SIZE;\
+        (dst)->wdefault = NULL;\
 	(dst)->alloc_type = s.alloc_type;\
     } else\
         *(dst) = s;\
@@ -581,12 +623,12 @@ do {						\
     ASSERT(s.wsp <= s.wend);			\
 } while (0)
 
-#define WSTACK_IS_STATIC(s) (s.wstart == WSTK_DEF_STACK(s)))
+#define WSTACK_IS_STATIC(s) (s.wstart == WSTK_DEF_STACK(s))
 
 #define WSTACK_PUSH(s, x)				\
 do {							\
     if (s.wsp == s.wend) {				\
-	erl_grow_wstack(&s, WSTK_DEF_STACK(s)); 	\
+	erl_grow_wstack(&s, 1); 	                \
     }							\
     *s.wsp++ = (x);					\
 } while(0)
@@ -594,7 +636,7 @@ do {							\
 #define WSTACK_PUSH2(s, x, y)			\
 do {						\
     if (s.wsp > s.wend - 2) {			\
-	erl_grow_wstack(&s, WSTK_DEF_STACK(s)); \
+	erl_grow_wstack(&s, 2);                 \
     }						\
     *s.wsp++ = (x);				\
     *s.wsp++ = (y);				\
@@ -602,8 +644,8 @@ do {						\
 
 #define WSTACK_PUSH3(s, x, y, z)		\
 do {						\
-    if (s.wsp > s.wend - 3) {	\
-	erl_grow_wstack(&s, WSTK_DEF_STACK(s)); \
+    if (s.wsp > s.wend - 3) {	                \
+	erl_grow_wstack(&s, 3);                 \
     }						\
     *s.wsp++ = (x);				\
     *s.wsp++ = (y);				\
@@ -612,8 +654,8 @@ do {						\
 
 #define WSTACK_PUSH4(s, A1, A2, A3, A4)		\
 do {						\
-    if (s.wsp > s.wend - 4) {	\
-	erl_grow_wstack(&s, WSTK_DEF_STACK(s)); \
+    if (s.wsp > s.wend - 4) {	                \
+	erl_grow_wstack(&s, 4);                 \
     }						\
     *s.wsp++ = (A1);				\
     *s.wsp++ = (A2);				\
@@ -624,7 +666,7 @@ do {						\
 #define WSTACK_PUSH5(s, A1, A2, A3, A4, A5)     \
 do {						\
     if (s.wsp > s.wend - 5) {	                \
-	erl_grow_wstack(&s, WSTK_DEF_STACK(s)); \
+	erl_grow_wstack(&s, 5);                 \
     }						\
     *s.wsp++ = (A1);				\
     *s.wsp++ = (A2);				\
@@ -636,7 +678,7 @@ do {						\
 #define WSTACK_PUSH6(s, A1, A2, A3, A4, A5, A6) \
 do {						\
     if (s.wsp > s.wend - 6) {	                \
-	erl_grow_wstack(&s, WSTK_DEF_STACK(s)); \
+	erl_grow_wstack(&s, 6);                 \
     }						\
     *s.wsp++ = (A1);				\
     *s.wsp++ = (A2);				\
@@ -646,9 +688,85 @@ do {						\
     *s.wsp++ = (A6);				\
 } while(0)
 
+#define WSTACK_RESERVE(s, push_cnt)             \
+do {						\
+    if (s.wsp > s.wend - (push_cnt)) { 	        \
+	erl_grow_wstack(&s, (push_cnt));        \
+    }                                           \
+} while(0)
+
+/* Must be preceded by WSTACK_RESERVE */
+#define WSTACK_FAST_PUSH(s, x)                  \
+do {						\
+    ASSERT(s.wsp < s.wend);                     \
+    *s.wsp++ = (x);                             \
+} while(0)
+
 #define WSTACK_COUNT(s) (s.wsp - s.wstart)
 #define WSTACK_ISEMPTY(s) (s.wsp == s.wstart)
-#define WSTACK_POP(s) (*(--s.wsp))
+#define WSTACK_POP(s) ((ASSERT(s.wsp > s.wstart)),*(--s.wsp))
+
+#define WSTACK_ROLLBACK(s, count) (ASSERT(WSTACK_COUNT(s) >= (count)), \
+                                   s.wsp = s.wstart + (count))
+
+/* PSTACK - Stack of any type.
+ * Usage:
+ * {
+ * #define PSTACK_TYPE MyType
+ *    PSTACK_DECLARE(s,16);
+ *    MyType *sp = PSTACK_PUSH(s);
+ *
+ *    sp->x = ....
+ *    sp->y = ....
+ *    sp = PSTACK_PUSH(s);
+ *    ...
+ *    sp = PSTACK_POP(s);
+ *    if (PSTACK_IS_EMPTY(s)) {
+ *        // sp is invalid when stack is empty after pop
+ *    }
+ *
+ *    PSTACK_DESTROY(s);
+ * }
+ */
+
+
+typedef struct ErtsPStack_ {
+    byte* pstart;
+    byte* psp;
+    byte* pend;
+    ErtsAlcType_t alloc_type;
+}ErtsPStack;
+
+void erl_grow_pstack(ErtsPStack* s, void* default_pstack, unsigned need_bytes);
+#define PSTK_CONCAT(a,b) a##b
+#define PSTK_DEF_STACK(s) PSTK_CONCAT(s,_default_pstack)
+
+#define PSTACK_DECLARE(s, DEF_PSTACK_SIZE) \
+PSTACK_TYPE PSTK_DEF_STACK(s)[DEF_PSTACK_SIZE];                            \
+ErtsPStack s = { (byte*)PSTK_DEF_STACK(s), /* pstart */                    \
+                 (byte*)(PSTK_DEF_STACK(s) - 1), /* psp */                 \
+                 (byte*)(PSTK_DEF_STACK(s) + (DEF_PSTACK_SIZE)), /* pend */\
+                 ERTS_ALC_T_ESTACK   /* alloc_type */                      \
+}
+
+#define PSTACK_DESTROY(s)				\
+do {							\
+    if (s.pstart != (byte*)PSTK_DEF_STACK(s)) {		\
+	erts_free(s.alloc_type, s.pstart); 		\
+    }							\
+} while(0)
+
+#define PSTACK_IS_EMPTY(s) (s.psp < s.pstart)
+
+#define PSTACK_TOP(s) (ASSERT(!PSTACK_IS_EMPTY(s)), (PSTACK_TYPE*)(s.psp))
+
+#define PSTACK_PUSH(s) 		                                           \
+    (s.psp += sizeof(PSTACK_TYPE),                                         \
+     ((s.psp == s.pend) ? erl_grow_pstack(&s, PSTK_DEF_STACK(s),           \
+                                          sizeof(PSTACK_TYPE)) : (void)0), \
+     ((PSTACK_TYPE*) s.psp))
+
+#define PSTACK_POP(s) ((PSTACK_TYPE*) (s.psp -= sizeof(PSTACK_TYPE)))
 
 
 /* binary.c */

@@ -127,6 +127,35 @@ Uint size_object(Eterm obj)
 			obj = *bptr;
 			break;
 		    }
+		case HASHMAP_SUBTAG:
+		    switch (MAP_HEADER_TYPE(hdr)) {
+			case MAP_HEADER_TAG_HAMT_HEAD_BITMAP :
+			case MAP_HEADER_TAG_HAMT_HEAD_ARRAY :
+			case MAP_HEADER_TAG_HAMT_NODE_BITMAP :
+			    {
+				Eterm *head;
+				Uint sz;
+				head  = hashmap_val_rel(obj, base);
+				sz    = hashmap_bitcount(MAP_HEADER_VAL(hdr));
+				sum  += 1 + sz + header_arity(hdr);
+				head += 1 + header_arity(hdr);
+
+				if (sz == 0) {
+				    goto pop_next;
+				}
+				while(sz-- > 1) {
+				    obj = head[sz];
+				    if (!IS_CONST(obj)) {
+					ESTACK_PUSH(s, obj);
+				    }
+				}
+				obj = head[0];
+			    }
+			    break;
+			default:
+			    erl_exit(ERTS_ABORT_EXIT, "size_object: bad hashmap type %d\n", MAP_HEADER_TYPE(hdr));
+		    }
+		    break;
 		case SUB_BINARY_SUBTAG:
 		    {
 			Eterm real_bin;
@@ -157,10 +186,10 @@ Uint size_object(Eterm obj)
 		case MAP_SUBTAG:
 		    {
 			Uint n;
-			map_t *mp;
-			mp  = (map_t*)map_val_rel(obj,base);
+			flatmap_t *mp;
+			mp  = (flatmap_t*)flatmap_val_rel(obj,base);
 			ptr = (Eterm *)mp;
-			n   = map_get_size(mp) + 1;
+			n   = flatmap_get_size(mp) + 1;
 			sum += n + 2;
 			ptr += 2; /* hdr + size words */
 			while (n--) {
@@ -342,8 +371,8 @@ Eterm copy_struct(Eterm obj, Uint sz, Eterm** hpp, ErlOffHeap* off_heap)
 		break;
 	    case MAP_SUBTAG:
 		{
-		    i = map_get_size(objp) + 3;
-		    *argp = make_map_rel(htop, dst_base);
+		    i = flatmap_get_size(objp) + 3;
+		    *argp = make_flatmap_rel(htop, dst_base);
 		    while (i--) {
 			*htop++ = *objp++;
 		    }
@@ -459,7 +488,7 @@ Eterm copy_struct(Eterm obj, Uint sz, Eterm** hpp, ErlOffHeap* off_heap)
 		{
 		  ExternalThing *etp = (ExternalThing *) htop;
 
-		  i =  thing_arityval(hdr) + 1;
+		  i  = thing_arityval(hdr) + 1;
 		  tp = htop;
 
 		  while (i--)  {
@@ -471,6 +500,21 @@ Eterm copy_struct(Eterm obj, Uint sz, Eterm** hpp, ErlOffHeap* off_heap)
 		  erts_refc_inc(&etp->node->refc, 2);
 
 		  *argp = make_external_rel(tp, dst_base);
+		}
+		break;
+	    case HASHMAP_SUBTAG:
+		tp = htop;
+		switch (MAP_HEADER_TYPE(hdr)) {
+		    case MAP_HEADER_TAG_HAMT_HEAD_BITMAP :
+		    case MAP_HEADER_TAG_HAMT_HEAD_ARRAY :
+			*htop++ = *objp++;
+		    case MAP_HEADER_TAG_HAMT_NODE_BITMAP :
+			i = 1 + hashmap_bitcount(MAP_HEADER_VAL(hdr));
+			while (i--)  { *htop++ = *objp++; }
+			*argp = make_hashmap_rel(tp, dst_base);
+			break;
+		    default:
+			erl_exit(ERTS_ABORT_EXIT, "copy_struct: bad hashmap type %d\n", MAP_HEADER_TYPE(hdr));
 		}
 		break;
 	    case BIN_MATCHSTATE_SUBTAG:

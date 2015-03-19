@@ -543,7 +543,7 @@ t_map_sort_literals(Config) when is_list(Config) ->
     true  = id(#{ c => 1, b => 1, a => 1 }) < id(#{ b => 1, c => 1, d => 1}),
     true  = id(#{ "a" => 1 }) < id(#{ <<"a">> => 1}),
     false = id(#{ <<"a">> => 1 }) < id(#{ "a" => 1}),
-    false = id(#{ 1 => 1 }) < id(#{ 1.0 => 1}),
+    true = id(#{ 1 => 1 }) < id(#{ 1.0 => 1}),
     false = id(#{ 1.0 => 1 }) < id(#{ 1 => 1}),
 
     %% value order
