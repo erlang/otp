@@ -596,7 +596,7 @@ resend(false,
     Route = #diameter_avp{data = {Dict0, 'Route-Record', OH}},
     Seq = diameter_session:sequence(Mask),
     Hdr = Hdr0#diameter_header{hop_by_hop_id = Seq},
-    Msg = [Hdr, Route | Avps],
+    Msg = [Hdr|Avps++[Route]],
     resend(send_request(SvcName, App, Msg, Opts), Caps, Dict0, Pkt).
 %% The incoming request is relayed with the addition of a
 %% Route-Record. Note the requirement on the return from call/4 below,
