@@ -23,43 +23,49 @@
 
     <title>ssh_sftp</title>
     <prepared>OTP</prepared>
+    <docno></docno>
     <date>2005-09-22</date>
+    <rev></rev>
     <file>ssh_sftp.sgml</file>
   </header>
   <module>ssh_sftp</module>
   <modulesummary>SFTP client.</modulesummary>
   <description>
-    <p>This module implements an SFTP (SSH FTP) client. SFTP is a
+    <p>This module implements an SSH FTP (SFTP) client. SFTP is a
     secure, encrypted file transfer service available for
     SSH.</p>
   </description>
   
  <section>
-    <title>DATA TYPES </title>
-    <p>Type definitions that are used more than once in this module
-    and/or abstractions to indicate the intended use of the data type:
+    <title>DATA TYPES</title>
+    <p>Type definitions that are used more than once in this module,
+    or abstractions to indicate the intended use of the data type, or both:
     </p>
-    <p><c>ssh_connection_ref() - opaque to the user
-    returned by ssh:connect/3</c></p>
-    <p><c>timeout() =  infinity | integer() - in milliseconds.</c></p>    
+
+    <taglist>
+      <tag><c>ssh_connection_ref()</c></tag>
+      <item><p>Opaque to the user, returned by <c>ssh:connect/3</c></p></item>
+      <tag><c>timeout()</c></tag>
+      <item><p>= <c>infinity | integer() in milliseconds</c></p></item>
+    </taglist>
    </section>
 
  <section>
-    <title>TIMEOUTS </title>
-    <p>If the request functions for the SFTP channel return {error, timeout}
-    it does not guarantee that the request did not reach the server and was
-    not performed, it only means that we did not receive an answer from the
-    server within the time that was expected.</p>
+    <title>Time-outs</title>
+    <p>If the request functions for the SFTP channel return <c>{error, timeout}</c>,
+    it does not guarantee that the request never reached the server and was
+    not performed. It only means that no answer was received from the
+    server within the expected time.</p>
    </section>
 
   <funcs>
     <func>
-      <name>start_channel(ConnectionRef) -> </name>
-      <name>start_channel(ConnectionRef, Options) -> </name>
+      <name>start_channel(ConnectionRef) -></name>
+      <name>start_channel(ConnectionRef, Options) -></name>
       <name>start_channel(Host, Options) -></name>
       <name>start_channel(Host, Port, Options) -> {ok, Pid} | {ok, Pid, ConnectionRef} |
       {error, Reason}</name>
-      <fsummary>Starts a SFTP client</fsummary>
+      <fsummary>Starts an SFTP client.</fsummary>
       <type>
         <v>Host = string()</v>
         <v>ConnectionRef = ssh_connection_ref()</v>
@@ -69,33 +75,33 @@
       </type>
       <desc>
 	<p>If no connection reference is provided, a connection is set
-	up and the new connection is returned.  An SSH channel process
+	up, and the new connection is returned. An SSH channel process
 	is started to handle the communication with the SFTP server.
-	The returned pid for this process should be used as input to
+	The returned <c>pid</c> for this process is to be used as input to
 	all other API functions in this module.</p>
 
-	<p>Options are:</p>
+	<p>Options:</p>
 	<taglist>
           <tag><c><![CDATA[{timeout, timeout()}]]></c></tag>
 	  <item>
-	    <p>The timeout is passed to the ssh_channel start function,
-	    and defaults to infinity.</p>
+	    <p>The time-out is passed to the <c>ssh_channel</c> start function,
+	    and defaults to <c>infinity</c>.</p>
 	  </item>
 	  <tag>
-	    <p><c><![CDATA[{sftp_vsn, integer()}]]></c></p>
+	    <c><![CDATA[{sftp_vsn, integer()}]]></c>
 	  </tag>
 	  <item>
 	    <p>
 	      Desired SFTP protocol version.
-	      The actual version will be the minimum of
+	      The actual version is the minimum of
 	      the desired version and the maximum supported
 	      versions by the SFTP server.
 	    </p>
 	  </item>
 	</taglist>
-	<p>All other options are  directly passed to
+	<p>All other options are directly passed to
 	<seealso marker="ssh">ssh:connect/3</seealso> or ignored if a
-	connection is already provided. </p>
+	connection is already provided.</p>
       </desc>
     </func>
 
@@ -106,15 +112,15 @@
         <v>ChannelPid = pid()</v>
       </type>
       <desc>
-	<p>Stops an SFTP channel. Does not close the SSH connetion.
+	<p>Stops an SFTP channel. Does not close the SSH connection.
 	Use <seealso marker="ssh">ssh:close/1</seealso> to close it.</p>
       </desc>
     </func>
   
     <func>
-      <name>read_file(ChannelPid, File) -> </name>
+      <name>read_file(ChannelPid, File) -></name>
       <name>read_file(ChannelPid, File, Timeout) -> {ok, Data} | {error, Reason}</name>
-      <fsummary>Read a file</fsummary>
+      <fsummary>Reads a file.</fsummary>
       <type>
 	<v>ChannelPid = pid()</v>
 	<v>File = string()</v>
@@ -128,9 +134,9 @@
       </desc>
     </func>
     <func>
-      <name>write_file(ChannelPid, File, Iolist) -> </name>
+      <name>write_file(ChannelPid, File, Iolist) -></name>
       <name>write_file(ChannelPid, File, Iolist, Timeout) -> ok | {error, Reason}</name>
-      <fsummary>Write a file</fsummary>
+      <fsummary>Writes a file.</fsummary>
       <type>
         <v>ChannelPid = pid()</v>
         <v>File = string()</v>
@@ -140,14 +146,14 @@
       </type>
       <desc>
         <p>Writes a file to the server, like
-        <c><![CDATA[file:write_file/2]]></c>.  The file is created if
-        it does not exist or is owerwritten if it does.</p>
+        <c><![CDATA[file:write_file/2]]></c>. The file is created if
+        it does not exist. The file is overwritten if it exists.</p>
       </desc>
     </func>
     <func>
-      <name>list_dir(ChannelPid, Path) -> </name>
+      <name>list_dir(ChannelPid, Path) -></name>
       <name>list_dir(ChannelPid, Path, Timeout) -> {ok, Filenames} | {error, Reason}</name>
-      <fsummary>List directory</fsummary>
+      <fsummary>Lists the directory.</fsummary>
       <type>
         <v>ChannelPid = pid()</v>
         <v>Path = string()</v>
@@ -162,9 +168,9 @@
       </desc>
     </func>
     <func>
-      <name>open(ChannelPid, File, Mode) -> </name>
+      <name>open(ChannelPid, File, Mode) -></name>
       <name>open(ChannelPid, File, Mode, Timeout) -> {ok, Handle} | {error, Reason}</name>
-      <fsummary>Open a file and return a handle</fsummary>
+      <fsummary>Opens a file and returns a handle.</fsummary>
       <type>
         <v>ChannelPid = pid()</v>
         <v>File = string()</v>
@@ -175,14 +181,14 @@
         <v>Reason = term()</v>
       </type>
       <desc>
-        <p>Opens a file on the server, and returns a handle that
+        <p>Opens a file on the server and returns a handle, which
           can be used for reading or writing.</p>
       </desc>
     </func>
     <func>
-      <name>opendir(ChannelPid, Path) -> </name>
+      <name>opendir(ChannelPid, Path) -></name>
       <name>opendir(ChannelPid, Path, Timeout) -> {ok, Handle} | {error, Reason}</name>
-      <fsummary>Open a directory and return a handle</fsummary>
+      <fsummary>Opens a directory and returns a handle.</fsummary>
       <type>
         <v>ChannelPid = pid()</v>
         <v>Path = string()</v>
@@ -190,7 +196,7 @@
         <v>Reason = term()</v>
       </type>
       <desc>
-        <p>Opens a handle to a directory on the server, the handle
+        <p>Opens a handle to a directory on the server. The handle
           can be used for reading directory contents.</p>
       </desc>
     </func>
@@ -198,14 +204,15 @@
     <func>
       <name>open_tar(ChannelPid, Path, Mode) -></name>
       <name>open_tar(ChannelPid, Path, Mode, Timeout) -> {ok, Handle} | {error, Reason}</name>
-      <fsummary>Opens a tar file on the server to which <v>ChannelPid</v> is connected and returns a handle</fsummary>
+      <fsummary>Opens a tar file on the server to which <c>ChannelPid</c>
+      is connected and returns a handle.</fsummary>
       <type>
         <v>ChannelPid = pid()</v>
         <v>Path = string()</v>
-	<v>Mode = [read] | [write] | [read,EncryptOpt] | [write,DecryptOpt] </v>
+	<v>Mode = [read] | [write] | [read,EncryptOpt] | [write,DecryptOpt]</v>
 	<v>EncryptOpt = {crypto,{InitFun,EncryptFun,CloseFun}}</v>
 	<v>DecryptOpt = {crypto,{InitFun,DecryptFun}}</v>
-	<v>InitFun = (fun() -> {ok,CryptoState}) | (fun() -> {ok,CryptoState,ChunkSize}) </v>
+	<v>InitFun = (fun() -> {ok,CryptoState}) | (fun() -> {ok,CryptoState,ChunkSize})</v>
 	<v>CryptoState = any()</v>
 	<v>ChunkSize = undefined | pos_integer()</v>
 	<v>EncryptFun = (fun(PlainBin,CryptoState) -> EncryptResult)</v>
@@ -219,11 +226,11 @@
         <v>Reason = term()</v>
       </type>
       <desc>
-        <p>Opens a handle to a tar file on the server associated with <c>ChannelPid</c>. The handle
-	can be used for remote tar creation and extraction as defined by the
+        <p>Opens a handle to a tar file on the server, associated with <c>ChannelPid</c>.
+	The handle can be used for remote tar creation and extraction, as defined by the
 	<seealso marker="stdlib:erl_tar#init/3">erl_tar:init/3</seealso> function.
 	</p>
-	<p>An example of writing and then reading a tar file:</p>
+	<p>Example of writing and then reading a tar file follows:</p>
         <code type="none">
           {ok,HandleWrite} = ssh_sftp:open_tar(ChannelPid, ?tar_file_name, [write]),
           ok = erl_tar:add(HandleWrite, .... ),
@@ -238,25 +245,24 @@
           ok = erl_tar:close(HandleRead),
         </code>
 
-	<p>The <c>crypto</c> mode option is applied to the generated stream of bytes just prior to sending
-	them to the sftp server.  This is intended for encryption but could of course be used for other
+	<p>The <c>crypto</c> mode option is applied to the generated stream of bytes prior to sending
+	them to the SFTP server. This is intended for encryption but can be used for other
 	purposes.
 	</p>
 	<p>The <c>InitFun</c> is applied once
-	prior to any other crypto operation. The returned <c>CryptoState</c> is then folded into
-	repeated applications of the <c>EncryptFun</c> or <c>DecryptFun</c>.  The binary returned
-	from those Funs are sent further to the remote sftp server. Finally - if doing encryption
-	- the <c>CloseFun</c> is applied to the last piece of data.  The <c>CloseFun</c> is
+	prior to any other <c>crypto</c> operation. The returned <c>CryptoState</c> is then folded into
+	repeated applications of the <c>EncryptFun</c> or <c>DecryptFun</c>. The binary returned
+	from those funs are sent further to the remote SFTP server. Finally, if doing encryption,
+	the <c>CloseFun</c> is applied to the last piece of data. The <c>CloseFun</c> is
 	responsible for padding (if needed) and encryption of that last piece.
 	</p>
 	<p>The <c>ChunkSize</c> defines the size of the <c>PlainBin</c>s that <c>EncodeFun</c> is applied
-	to. If the <c>ChunkSize</c> is <c>undefined</c> the size of the <c>PlainBin</c>s varies because
-	this is	inteded for stream crypto while a fixed  <c>ChunkSize</c> is intended for block crypto. It
-	is possible to change the  <c>ChunkSize</c>s in the return from the <c>EncryptFun</c> or
-	<c>DecryptFun</c>. It is in fact possible to change the value between <c>pos_integer()</c> and
-	<c>undefined</c>.
+	to. If the <c>ChunkSize</c> is <c>undefined</c>, the size of the <c>PlainBin</c>s varies,
+	because this is	intended for stream crypto, whereas a fixed <c>ChunkSize</c> is intended for block crypto.
+	<c>ChunkSize</c>s can be changed in the return from the <c>EncryptFun</c> or
+	<c>DecryptFun</c>. The value can be changed between <c>pos_integer()</c> and <c>undefined</c>.
 	</p>
-	<p>The write and read example above can be extended with encryption and decryption:</p>
+	<p>The previous write and read example can be extended with encryption and decryption as follows:</p>
         <code type="none">
           %% First three parameters depending on which crypto type we select:
           Key = &lt;&lt;"This is a 256 bit key. abcdefghi">>,
@@ -307,9 +313,9 @@
     </func>
 
     <func>
-      <name>close(ChannelPid, Handle) -> </name>
+      <name>close(ChannelPid, Handle) -></name>
       <name>close(ChannelPid, Handle, Timeout) -> ok | {error, Reason}</name>
-      <fsummary>Close an open handle</fsummary>
+      <fsummary>Closes an open handle.</fsummary>
       <type>
         <v>ChannelPid = pid()</v>
         <v>Handle = term()</v>
@@ -321,11 +327,11 @@
       </desc>
     </func>
     <func>
-      <name>read(ChannelPid, Handle, Len) -> </name>
+      <name>read(ChannelPid, Handle, Len) -></name>
       <name>read(ChannelPid, Handle, Len, Timeout) -> {ok, Data} | eof | {error, Error}</name>
-      <name>pread(ChannelPid, Handle, Position, Len) -> </name>
+      <name>pread(ChannelPid, Handle, Position, Len) -></name>
       <name>pread(ChannelPid, Handle, Position, Len, Timeout) -> {ok, Data} | eof | {error, Error}</name>
-      <fsummary>Read from an open file</fsummary>
+      <fsummary>Reads from an open file.</fsummary>
       <type>
         <v>ChannelPid = pid()</v>
         <v>Handle = term()</v>
@@ -340,8 +346,8 @@
           <c><![CDATA[Handle]]></c>. Returns <c><![CDATA[{ok, Data}]]></c>, <c><![CDATA[eof]]></c>, or
           <c><![CDATA[{error, Reason}]]></c>. If the file is opened with <c><![CDATA[binary]]></c>,
           <c><![CDATA[Data]]></c> is a binary, otherwise it is a string.</p>
-        <p>If the file is read past eof, only the remaining bytes
-          will be read and returned. If no bytes are read, <c><![CDATA[eof]]></c>
+        <p>If the file is read past <c>eof</c>, only the remaining bytes
+          are read and returned. If no bytes are read, <c><![CDATA[eof]]></c>
           is returned.</p>
         <p>The <c><![CDATA[pread]]></c> function reads from a specified position,
           combining the <c><![CDATA[position]]></c> and <c><![CDATA[read]]></c> functions.</p>
@@ -350,7 +356,7 @@
     <func>
       <name>aread(ChannelPid, Handle, Len) -> {async, N} | {error, Error}</name>
       <name>apread(ChannelPid, Handle, Position, Len) -> {async, N} | {error, Error}</name>
-      <fsummary>Read asynchronously from an open file</fsummary>
+      <fsummary>Reads asynchronously from an open file.</fsummary>
       <type>
         <v>ChannelPid = pid()</v>
         <v>Handle = term()</v>
@@ -361,12 +367,12 @@
       </type>
       <desc>
         <p>Reads from an open file, without waiting for the result. If the
-          handle is valid, the function returns <c><![CDATA[{async, N}]]></c>, where N
+          handle is valid, the function returns <c><![CDATA[{async, N}]]></c>, where <c>N</c>
           is a term guaranteed to be unique between calls of <c><![CDATA[aread]]></c>. 
           The actual data is sent as a message to the calling process. This
           message has the form <c><![CDATA[{async_reply, N, Result}]]></c>, where
           <c><![CDATA[Result]]></c> is the result from the read, either <c><![CDATA[{ok, Data}]]></c>,
-          or <c><![CDATA[eof]]></c>, or <c><![CDATA[{error, Error}]]></c>.</p>
+          <c><![CDATA[eof]]></c>, or <c><![CDATA[{error, Error}]]></c>.</p>
         <p>The <c><![CDATA[apread]]></c> function reads from a specified position,
           combining the <c><![CDATA[position]]></c> and <c><![CDATA[aread]]></c> functions.</p>
       </desc>
@@ -374,9 +380,9 @@
     <func>
       <name>write(ChannelPid, Handle, Data) -></name>
       <name>write(ChannelPid, Handle, Data, Timeout) -> ok | {error, Error}</name>
-      <name>pwrite(ChannelPid, Handle, Position, Data) -> ok </name>
+      <name>pwrite(ChannelPid, Handle, Position, Data) -> ok</name>
       <name>pwrite(ChannelPid, Handle, Position, Data, Timeout) -> ok | {error, Error}</name>
-      <fsummary>Write to an open file</fsummary>
+      <fsummary>Writes to an open file.</fsummary>
       <type>
         <v>ChannelPid = pid()</v>
         <v>Handle = term()</v>
@@ -386,27 +392,27 @@
         <v>Reason = term()</v>
       </type>
       <desc>
-        <p>Writes<c><![CDATA[data]]></c> to the file referenced by <c><![CDATA[Handle]]></c>.
-          The file should be opened with <c><![CDATA[write]]></c> or <c><![CDATA[append]]></c>
-          flag. Returns <c><![CDATA[ok]]></c> if successful or S<c><![CDATA[{error, Reason}]]></c>
+        <p>Writes <c><![CDATA[data]]></c> to the file referenced by <c><![CDATA[Handle]]></c>.
+          The file is to be opened with <c><![CDATA[write]]></c> or <c><![CDATA[append]]></c>
+          flag. Returns <c><![CDATA[ok]]></c> if successful or <c><![CDATA[{error, Reason}]]></c>
           otherwise.</p>
-        <p>Typical error reasons are:</p>
+        <p>Typical error reasons:</p>
         <taglist>
           <tag><c><![CDATA[ebadf]]></c></tag>
           <item>
-            <p>The file is not opened for writing.</p>
+            <p>File is not opened for writing.</p>
           </item>
           <tag><c><![CDATA[enospc]]></c></tag>
           <item>
-            <p>There is a no space left on the device.</p>
+            <p>No space is left on the device.</p>
           </item>
         </taglist>
       </desc>
     </func>
     <func>
-      <name>awrite(ChannelPid, Handle, Data) -> ok | {error, Reason} </name>
+      <name>awrite(ChannelPid, Handle, Data) -> ok | {error, Reason}</name>
       <name>apwrite(ChannelPid, Handle, Position, Data) -> ok | {error, Reason}</name>
-      <fsummary>Write asynchronously to an open file</fsummary>
+      <fsummary>Writes asynchronously to an open file.</fsummary>
       <type>
         <v>ChannelPid = pid()</v>
         <v>Handle = term()</v>
@@ -418,24 +424,25 @@
       </type>
       <desc>
         <p>Writes to an open file, without waiting for the result. If the
-          handle is valid, the function returns <c><![CDATA[{async, N}]]></c>, where N
+          handle is valid, the function returns <c><![CDATA[{async, N}]]></c>, where <c>N</c>
           is a term guaranteed to be unique between calls of
           <c><![CDATA[awrite]]></c>. The result of the <c><![CDATA[write]]></c> operation is sent
           as a message to the calling process. This message has the form
           <c><![CDATA[{async_reply, N, Result}]]></c>, where <c><![CDATA[Result]]></c> is the result
           from the write, either <c><![CDATA[ok]]></c>, or <c><![CDATA[{error, Error}]]></c>.</p>
-        <p>The <c><![CDATA[apwrite]]></c> writes on a specified position, combining
+        <p><c><![CDATA[apwrite]]></c> writes on a specified position, combining
           the <c><![CDATA[position]]></c> and <c><![CDATA[awrite]]></c> operations.</p>
       </desc>
     </func>
     <func>
-      <name>position(ChannelPid, Handle, Location) -> </name>
+      <name>position(ChannelPid, Handle, Location) -></name>
       <name>position(ChannelPid, Handle, Location, Timeout) -> {ok, NewPosition | {error, Error}</name>
-      <fsummary>Seek position in open file</fsummary>
+      <fsummary>Sets the file position of a file.</fsummary>
       <type>
         <v>ChannelPid = pid()</v>
         <v>Handle = term()</v>
-        <v>Location = Offset | {bof, Offset} | {cur, Offset} | {eof, Offset} | bof | cur | eof</v>
+        <v>Location = Offset
+ | {bof, Offset} | {cur, Offset} | {eof, Offset} | bof | cur | eof</v>
         <v>Offset = integer()</v>
 	<v>Timeout = timeout()</v>
         <v>NewPosition = integer()</v>
@@ -465,15 +472,17 @@
           </item>
           <tag><c><![CDATA[bof | cur | eof]]></c></tag>
           <item>
-            <p>The same as above with <c><![CDATA[Offset]]></c> 0.</p>
+            <p>The same as eariler with <c><![CDATA[Offset]]></c> 0,
+	    that is, <c><![CDATA[{bof, 0} | {cur, 0} | {eof, 0}]]></c>.
+	    </p>
           </item>
         </taglist>
       </desc>
     </func>
     <func>
-      <name>read_file_info(ChannelPid, Name) -> </name>
+      <name>read_file_info(ChannelPid, Name) -></name>
       <name>read_file_info(ChannelPid, Name, Timeout) -> {ok, FileInfo} | {error, Reason}</name>
-      <fsummary>Get information about a file</fsummary>
+      <fsummary>Gets information about a file.</fsummary>
       <type>
         <v>ChannelPid = pid()</v>
         <v>Name = string()</v>
@@ -484,13 +493,14 @@
       </type>
       <desc>
         <p>Returns a <c><![CDATA[file_info]]></c> record from the file specified by
-          <c><![CDATA[Name]]></c> or <c><![CDATA[Handle]]></c>, like <c><![CDATA[file:read_file_info/2]]></c>.</p>
+          <c><![CDATA[Name]]></c> or <c><![CDATA[Handle]]></c>,
+	like <c><![CDATA[file:read_file_info/2]]></c>.</p>
       </desc>
     </func>
     <func>
       <name>read_link_info(ChannelPid, Name) -> {ok, FileInfo} | {error, Reason}</name>
       <name>read_link_info(ChannelPid, Name, Timeout) -> {ok, FileInfo} | {error, Reason}</name>
-      <fsummary>Get information about a symbolic link</fsummary>
+      <fsummary>Gets information about a symbolic link.</fsummary>
       <type>
         <v>ChannelPid = pid()</v>
         <v>Name = string()</v>
@@ -506,9 +516,9 @@
       </desc>
     </func>
     <func>
-      <name>write_file_info(ChannelPid, Name, Info) -> </name>
+      <name>write_file_info(ChannelPid, Name, Info) -></name>
       <name>write_file_info(ChannelPid, Name, Info, Timeout) -> ok | {error, Reason}</name>
-      <fsummary>Write information for a file</fsummary>
+      <fsummary>Writes information for a file.</fsummary>
       <type>
         <v>ChannelPid = pid()</v>
         <v>Name = string()</v>
@@ -522,9 +532,9 @@
       </desc>
     </func>
     <func>
-      <name>read_link(ChannelPid, Name) -> </name>
+      <name>read_link(ChannelPid, Name) -></name>
       <name>read_link(ChannelPid, Name, Timeout) -> {ok, Target} | {error, Reason}</name>
-      <fsummary>Read symbolic link</fsummary>
+      <fsummary>Reads symbolic link.</fsummary>
       <type>
         <v>ChannelPid = pid()</v>
         <v>Name = string()</v>
@@ -537,9 +547,9 @@
       </desc>
     </func>
     <func>
-      <name>make_symlink(ChannelPid, Name, Target) -> </name>
+      <name>make_symlink(ChannelPid, Name, Target) -></name>
       <name>make_symlink(ChannelPid, Name, Target, Timeout) -> ok | {error, Reason}</name>
-      <fsummary>Create symbolic link</fsummary>
+      <fsummary>Creates a symbolic link.</fsummary>
       <type>
         <v>ChannelPid = pid()</v>
         <v>Name = string()</v>
@@ -552,9 +562,9 @@
       </desc>
     </func>
     <func>
-      <name>rename(ChannelPid, OldName, NewName) ->  </name>
+      <name>rename(ChannelPid, OldName, NewName) -> </name>
       <name>rename(ChannelPid, OldName, NewName, Timeout) -> ok | {error, Reason}</name>
-      <fsummary>Rename a file</fsummary>
+      <fsummary>Renames a file.</fsummary>
       <type>
         <v>ChannelPid = pid()</v>
         <v>OldName = string()</v>
@@ -563,14 +573,14 @@
         <v>Reason = term()</v>
       </type>
       <desc>
-        <p>Renames a file named <c><![CDATA[OldName]]></c>, and gives it the name
-          <c><![CDATA[NewName]]></c>, like <c><![CDATA[file:rename/2]]></c></p>
+        <p>Renames a file named <c><![CDATA[OldName]]></c> and gives it the name
+          <c><![CDATA[NewName]]></c>, like <c><![CDATA[file:rename/2]]></c>.</p>
       </desc>
     </func>
     <func>
-      <name>delete(ChannelPid, Name) -> </name>
+      <name>delete(ChannelPid, Name) -></name>
       <name>delete(ChannelPid, Name, Timeout) -> ok | {error, Reason}</name>
-      <fsummary>Delete a file</fsummary>
+      <fsummary>Deletes a file.</fsummary>
       <type>
         <v>ChannelPid = pid()</v>
         <v>Name = string()</v>
@@ -579,13 +589,13 @@
       </type>
       <desc>
         <p>Deletes the file specified by <c><![CDATA[Name]]></c>, like
-          <c><![CDATA[file:delete/1]]></c></p>
+          <c><![CDATA[file:delete/1]]></c>.</p>
       </desc>
     </func>
     <func>
-      <name>make_dir(ChannelPid, Name) -> </name>
+      <name>make_dir(ChannelPid, Name) -></name>
       <name>make_dir(ChannelPid, Name, Timeout) -> ok | {error, Reason}</name>
-      <fsummary>Create a directory</fsummary>
+      <fsummary>Creates a directory.</fsummary>
       <type>
         <v>ChannelPid = pid()</v>
         <v>Name = string()</v>
@@ -593,15 +603,15 @@
         <v>Reason = term()</v>
       </type>
       <desc>
-        <p>Creates a directory specified by <c><![CDATA[Name]]></c>. <c><![CDATA[Name]]></c> should
-          be a full path to a new directory. The directory can only be
+        <p>Creates a directory specified by <c><![CDATA[Name]]></c>. <c><![CDATA[Name]]></c>
+          must be a full path to a new directory. The directory can only be
           created in an existing directory.</p>
       </desc>
     </func>
     <func>
-      <name>del_dir(ChannelPid, Name) -> </name>
+      <name>del_dir(ChannelPid, Name) -></name>
       <name>del_dir(ChannelPid, Name, Timeout) -> ok | {error, Reason}</name>
-      <fsummary>Delete an empty directory</fsummary>
+      <fsummary>Deletes an empty directory.</fsummary>
       <type>
         <v>ChannelPid = pid()</v>
         <v>Name = string()</v>
@@ -610,7 +620,7 @@
       </type>
       <desc>
 	<p>Deletes a directory specified by <c><![CDATA[Name]]></c>.
-	Note that the directory must be empty before it can be successfully deleted
+	The directory must be empty before it can be successfully deleted.
 	</p>
       </desc>
     </func>
