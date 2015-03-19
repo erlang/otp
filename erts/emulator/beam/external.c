@@ -3899,7 +3899,6 @@ dec_term_atom_common:
     /* Iterate through all the hamts and build tree nodes.
      */
     if (hamt_list) {
-        struct dec_term_hamt_placeholder* hamt = hamt_list;
 	ErtsHeapFactory factory;
 
 	factory.p = NULL;
@@ -3907,6 +3906,7 @@ dec_term_atom_common:
 	/* We assume heap will suffice (see hashmap_over_estimated_heap_size) */
 
         do {
+	    struct dec_term_hamt_placeholder* hamt = hamt_list;
 	    *hamt->objp = erts_hashmap_from_array(&factory,
 						  hamt->leafs,
 						  hamt->size,

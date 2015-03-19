@@ -1147,6 +1147,13 @@ t_map_encode_decode(Config) when is_list(Config) ->
 	97,55                       % 55 :: integer()
 	>>),
 
+    %% many maps in same binary
+    MapList = lists:foldl(fun(K, [M|_]=Acc) -> [M#{K => K} | Acc] end,
+			  [#{}],
+			  lists:seq(1,100)),
+    MapList = binary_to_term(term_to_binary(MapList)),
+    MapListR = lists:reverse(MapList),
+    MapListR = binary_to_term(term_to_binary(MapListR)),
 
     %% error cases
     %% template: <<131,116,0,0,0,2,100,0,1,97,100,0,1,98,97,1,97,1>>
