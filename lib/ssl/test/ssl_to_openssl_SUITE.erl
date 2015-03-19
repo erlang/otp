@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -248,7 +248,7 @@ basic_erlang_server_openssl_client(Config) when is_list(Config) ->
     Port = ssl_test_lib:inet_port(Server),
 
     Cmd = "openssl s_client -port " ++ integer_to_list(Port) ++
-	" -host localhost" ++ workaround_openssl_s_clinent(),
+	" -host localhost" ++ workaround_openssl_s_client(),
 
     ct:log("openssl cmd: ~p~n", [Cmd]),
     
@@ -1348,7 +1348,7 @@ supports_sslv2(Port) ->
 	    true
     end.
 
-workaround_openssl_s_clinent() ->
+workaround_openssl_s_client() ->
     %% http://bugs.debian.org/cgi-bin/bugreport.cgi?bug=683159
     %% https://bugs.archlinux.org/task/33919
     %% Bug seems to manifests it self if TLS version is not
@@ -1362,6 +1362,8 @@ workaround_openssl_s_clinent() ->
 	    " -no_tls1_2 ";
 	"OpenSSL 1.0.1f" ++ _ ->
 	    " -no_tls1_2 ";
-	_  ->
+	"OpenSSL 1.0.1l" ++ _ ->
+	    " -cipher AES256-SHA";
+	_  ->	    
 	    ""
     end.
