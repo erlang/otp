@@ -89,6 +89,8 @@
       |{dh, der_encoded()} | {dhfile, path()} | {ciphers, ciphers()} |
       {user_lookup_fun, {fun(), term()}}, {psk_identity, string()}, {srp_identity, {string(), string()}} |
       {ssl_imp, ssl_imp()} | {reuse_sessions, boolean()} | {reuse_session, fun()}
+      {alpn_advertised_protocols, [binary()]} |
+      {alpn_preferred_protocols, [binary()]} |
       {next_protocols_advertised, [binary()]} |
       {client_preferred_next_protocols, {client | server, [binary()]} | {client | server, [binary()], binary()}} |
       {log_alert, boolean()} | {server_name_indication, hostname() | disable}
@@ -425,7 +427,20 @@ fun(srp, Username :: string(), UserState :: term()) ->
       certificates are used during server authentication and when building the
       client certificate chain.
      </item>
-  
+
+      <tag>{alpn_advertised_protocols, [binary()]}</tag>
+      <item>
+      <p>The list of protocols supported by the client to be sent to the
+      server to be used for an Application-Layer Protocol Negotiation (ALPN).
+      If the server supports ALPN then it will choose a protocol from this
+      list; otherwise it will fail the connection with a "no_application_protocol"
+      alert. A server that does not support ALPN will ignore this value.</p>
+
+      <p>The list of protocols must not contain an empty binary.</p>
+
+      <p>The negotiated protocol can be retrieved using the <c>negotiated_protocol/1</c> function.</p>
+      </item>
+
       <tag>{client_preferred_next_protocols, {Precedence :: server | client, ClientPrefs :: [binary()]}}</tag>
       <tag>{client_preferred_next_protocols, {Precedence :: server | client, ClientPrefs :: [binary()], Default :: binary()}}</tag>
 	   <item>
@@ -545,12 +560,25 @@ fun(srp, Username :: string(), UserState :: term()) ->
       and CipherSuite is of type ciphersuite().
     </item>
 
+      <tag>{alpn_preferred_protocols, [binary()]}</tag>
+      <item>
+      <p>Indicates the server will try to perform Application-Layer
+      Protocol Negotiation (ALPN).</p>
+
+      <p>The list of protocols is in order of preference. The protocol
+      negotiated will be the first in the list that matches one of the
+      protocols advertised by the client. If no protocol matches, the
+      server will fail the connection with a "no_application_protocol" alert.</p>
+
+      <p>The negotiated protocol can be retrieved using the <c>negotiated_protocol/1</c> function.</p>
+      </item>
+
       <tag>{next_protocols_advertised, Protocols :: [binary()]}</tag>
       <item>The list of protocols to send to the client if the client indicates
       it supports the Next Protocol extension. The client may select a protocol
       that is not on this list. The list of protocols must not contain an empty
       binary. If the server negotiates a Next Protocol it can be accessed
-      using <c>negotiated_next_protocol/1</c> method.
+      using <c>negotiated_protocol/1</c> function.
       </item>
 
       <tag>{psk_identity, string()}</tag>
@@ -1018,15 +1046,15 @@ fun(srp, Username :: string(), UserState :: term()) ->
       </desc>
     </func>
     <func>
-      <name>negotiated_next_protocol(Socket) -> {ok, Protocol} | {error, next_protocol_not_negotiated}</name>
-      <fsummary>Returns the Next Protocol negotiated.</fsummary>
+      <name>negotiated_protocol(Socket) -> {ok, Protocol} | {error, protocol_not_negotiated}</name>
+      <fsummary>Returns the protocol negotiated through ALPN or NPN extensions.</fsummary>
       <type>
         <v>Socket = sslsocket()</v>
         <v>Protocol = binary()</v>
       </type>
       <desc>
         <p>
-          Returns the Next Protocol negotiated.
+          Returns the protocol negotiated through ALPN or NPN extensions.
         </p>
       </desc>
     </func>

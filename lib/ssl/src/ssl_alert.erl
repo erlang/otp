@@ -163,5 +163,7 @@ description_txt(?UNKNOWN_PSK_IDENTITY) ->
     "unknown psk identity";
 description_txt(?INAPPROPRIATE_FALLBACK) ->
     "inappropriate fallback";
+description_txt(?NO_APPLICATION_PROTOCOL) ->
+    "no application protocol";
 description_txt(Enum) ->
     lists:flatten(io_lib:format("unsupported/unknown alert: ~p", [Enum])).
