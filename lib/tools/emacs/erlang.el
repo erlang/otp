@@ -4743,6 +4743,23 @@ for a tag on the form `module:tag'."
 ;;; `module:tag'.
 
 
+(when (and (fboundp 'etags-tags-completion-table)
+           (fboundp 'tags-lazy-completion-table)) ; Emacs 23.1+
+  (if (fboundp 'advice-add)
+      ;; Emacs 24.4+
+      (advice-add 'etags-tags-completion-table :around
+                  (lambda (oldfun)
+                    (if (eq find-tag-default-function 'erlang-find-tag-for-completion)
+                        (erlang-etags-tags-completion-table)
+                      (funcall oldfun)))
+                  (list :name 'erlang-replace-tags-table))
+    ;; Emacs 23.1-24.3
+    (defadvice etags-tags-completion-table (around erlang-replace-tags-table activate)
+      (if (eq find-tag-default-function 'erlang-find-tag-for-completion)
+          (setq ad-return-value (erlang-etags-tags-completion-table))
+        ad-do-it))))
+
+
 (defun erlang-complete-tag ()
   "Perform tags completion on the text around point.
 Completes to the set of names listed in the current tags table.
@@ -4754,7 +4771,17 @@ about Erlang modules."
       (require 'etags)
     (error nil))
   (cond ((and erlang-tags-installed
-	      (fboundp 'complete-tag))	; Emacs 19
+              (fboundp 'etags-tags-completion-table)
+              (fboundp 'tags-lazy-completion-table)) ; Emacs 23.1+
+         ;; This depends on the advice called erlang-replace-tags-table
+         ;; above.  It is not enough to let-bind
+         ;; tags-completion-table-function since that will not override
+         ;; the buffer-local value in the TAGS buffer.
+         (let ((find-tag-default-function 'erlang-find-tag-for-completion))
+           (complete-tag)))
+        ((and erlang-tags-installed
+	      (fboundp 'complete-tag)
+              (fboundp 'tags-complete-tag)) ; Emacs 19
 	 (let ((orig-tags-complete-tag (symbol-function 'tags-complete-tag)))
 	   (fset 'tags-complete-tag
 	     (symbol-function 'erlang-tags-complete-tag))
@@ -4767,6 +4794,15 @@ about Erlang modules."
 	 (funcall (symbol-function 'tag-complete-symbol)))
 	(t
 	 (error "This version of Emacs can't complete tags"))))
+
+
+(defun erlang-find-tag-for-completion ()
+  (let ((start (save-excursion
+                 (skip-chars-backward "[:word:][:digit:]_:'")
+                 (point))))
+    (unless (eq start (point))
+      (buffer-substring-no-properties start (point)))))
+
 
 
 ;; Based on `tags-complete-tag', but this one uses
@@ -4816,7 +4852,12 @@ about Erlang modules."
 ;; the only format supported by Emacs, so far.)
 (defun erlang-etags-tags-completion-table ()
   (let ((table (make-vector 511 0))
-	(file nil))
+        (file nil)
+        (progress-reporter
+         (when (fboundp 'make-progress-reporter)
+           (make-progress-reporter
+            (format "Making erlang tags completion table for %s..." buffer-file-name)
+            (point-min) (point-max)))))
     (save-excursion
       (goto-char (point-min))
       ;; This monster regexp matches an etags tag line.
@@ -4828,31 +4869,33 @@ about Erlang modules."
       ;;   \6 is the line to start searching at;
       ;;   \7 is the char to start searching at.
       (while (progn
-	       (while (and
-		       (eq (following-char) ?\f)
-		       (looking-at "\f\n\\([^,\n]*\\),.*\n"))
-		 (setq file (buffer-substring
-			     (match-beginning 1) (match-end 1)))
-		 (goto-char (match-end 0)))
-	       (re-search-forward
-		"\
+               (while (and
+                       (eq (following-char) ?\f)
+                       (looking-at "\f\n\\([^,\n]*\\),.*\n"))
+                 (setq file (buffer-substring
+                             (match-beginning 1) (match-end 1)))
+                 (goto-char (match-end 0)))
+               (re-search-forward
+                "\
 ^\\(\\([^\177]+[^-a-zA-Z0-9_$\177]+\\)?\\([-a-zA-Z0-9_$?:]+\\)\
 \[^-a-zA-Z0-9_$?:\177]*\\)\177\\(\\([^\n\001]+\\)\001\\)?\
 \\([0-9]+\\)?,\\([0-9]+\\)?\n"
-		nil t))
-	(let ((tag (if (match-beginning 5)
-		       ;; There is an explicit tag name.
-		       (buffer-substring (match-beginning 5) (match-end 5))
-		     ;; No explicit tag name.  Best guess.
-		     (buffer-substring (match-beginning 3) (match-end 3))))
-	      (module (and file
-			   (erlang-get-module-from-file-name file))))
-	  (intern tag table)
-	  (if (stringp module)
-	      (progn
-		(intern (concat module ":" tag) table)
-		;; Only the first one will be stored in the table.
-		(intern (concat module ":") table))))))
+                nil t))
+        (let ((tag (if (match-beginning 5)
+                       ;; There is an explicit tag name.
+                       (buffer-substring (match-beginning 5) (match-end 5))
+                     ;; No explicit tag name.  Best guess.
+                     (buffer-substring (match-beginning 3) (match-end 3))))
+              (module (and file
+                           (erlang-get-module-from-file-name file))))
+          (intern tag table)
+          (when (stringp module)
+            (intern (concat module ":" tag) table)
+            ;; Only the first ones will be stored in the table.
+            (intern (concat module ":") table)
+            (intern (concat module ":module_info") table))
+          (when progress-reporter
+            (progress-reporter-update progress-reporter (point))))))
     table))
 
 ;;;
