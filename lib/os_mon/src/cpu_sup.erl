@@ -221,7 +221,7 @@ get_uint32_measurement(Request, #internal{port = P, os_type = {unix, sunos}}) ->
     port_server_call(P, Request);
 get_uint32_measurement(Request, #internal{os_type = {unix, linux}}) ->
     {ok,F} = file:open("/proc/loadavg",[read,raw]),
-    {ok,D} = file:read(F,24),
+    {ok,D} = file:read_line(F),
     ok = file:close(F),
     {ok,[Load1,Load5,Load15,_PRun,PTotal],_} = io_lib:fread("~f ~f ~f ~d/~d", D),
     case Request of
