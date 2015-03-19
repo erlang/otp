@@ -2,6 +2,7 @@
 
 # emacs
 *~
+lib/tools/emacs/*.elc
 # vim
 .*.sw[a-z]
 
