@@ -111,109 +111,84 @@ ex_binaries_errors_utf8(Config) when is_list(Config) ->
     ok.
 
 ex_binaries_errors_utf16_little(Config) when is_list(Config) ->
-    BrokenPart = << <<X:16/little>> || X <- lists:seq(16#DC00,16#DFFF) >>,
-    BrokenSz = byte_size(BrokenPart),
-    [ begin
-	  OKList = lists:flatten(lists:duplicate(N,lists:seq(1,255))),
-	  OKBin = unicode:characters_to_binary(OKList,unicode,{utf16,little}),
-	  OKLen = length(OKList),
-	  %% Copy to avoid that the binary get's writable
-	  PartlyBroken = binary:copy(<<OKBin/binary, BrokenPart/binary>>),
-	  PBSz = byte_size(PartlyBroken),
-	  {error,OKList,DeepBrokenPart} = 
-	      unicode:characters_to_list(PartlyBroken,{utf16,little}),
-	  BrokenPart = iolist_to_binary(DeepBrokenPart),
-	  [ begin
-		NewList = lists:nthtail(X, OKList),
-		NewSz = byte_size(unicode:characters_to_binary(NewList,unicode,{utf16,little})) + 
-		    BrokenSz,
-		Chomped = binary:part(PartlyBroken,PBSz - NewSz, NewSz),
-		true = (binary:referenced_byte_size(Chomped) =:= PBSz),
-		{error,NewList,DeepBrokenPart2} =  
-		    unicode:characters_to_list(Chomped,{utf16,little}),
-		BrokenPart = iolist_to_binary(DeepBrokenPart2)
-	    end || X <- lists:seq(1,OKLen) ]
-      end || N <- lists:seq(1,16,3) ],
-    ok.
+    ex_binaries_errors_utf16(little).
+
 ex_binaries_errors_utf16_big(Config) when is_list(Config) ->
-    BrokenPart = << <<X:16/big>> || X <- lists:seq(16#DC00,16#DFFF) >>,
+    ex_binaries_errors_utf16(big).
+
+ex_binaries_errors_utf16(Endian) ->
+    BrokenSeq = lists:seq(16#DC00, 16#DFFF),
+    BrokenPart = case Endian of
+		     little ->
+			 << <<X:16/little>> || X <- BrokenSeq >>;
+		     big ->
+			 << <<X:16/big>> || X <- BrokenSeq >>
+		 end,
     BrokenSz = byte_size(BrokenPart),
+    Seq255 = lists:seq(1, 255),
     [ begin
-	  OKList = lists:flatten(lists:duplicate(N,lists:seq(1,255))),
-	  OKBin = unicode:characters_to_binary(OKList,unicode,{utf16,big}),
-	  OKLen = length(OKList),
-	  %% Copy to avoid that the binary get's writable
-	  PartlyBroken = binary:copy(<<OKBin/binary, BrokenPart/binary>>),
+	  OKList = lists:append(lists:duplicate(N, Seq255)),
+	  OKBin = unicode:characters_to_binary(OKList, unicode, {utf16,Endian}),
+	  PartlyBroken = iolist_to_binary([OKBin,BrokenPart]),
 	  PBSz = byte_size(PartlyBroken),
 	  {error,OKList,DeepBrokenPart} = 
-	      unicode:characters_to_list(PartlyBroken,{utf16,big}),
+	      unicode:characters_to_list(PartlyBroken, {utf16,Endian}),
 	  BrokenPart = iolist_to_binary(DeepBrokenPart),
-	  [ begin
-		NewList = lists:nthtail(X, OKList),
-		NewSz = byte_size(unicode:characters_to_binary(NewList,unicode,{utf16,big})) + 
-		    BrokenSz,
-		Chomped = binary:part(PartlyBroken,PBSz - NewSz, NewSz),
-		true = (binary:referenced_byte_size(Chomped) =:= PBSz),
-		{error,NewList,DeepBrokenPart2} =  
-		    unicode:characters_to_list(Chomped,{utf16,big}),
-		BrokenPart = iolist_to_binary(DeepBrokenPart2)
-	    end || X <- lists:seq(1,OKLen) ]
-      end || N <- lists:seq(1,16,3) ],
+	  utf16_inner_loop(OKList, BrokenPart, BrokenSz,
+			   PartlyBroken, PBSz, Endian)
+      end || N <- lists:seq(1, 16, 3) ],
+    ok.
+
+utf16_inner_loop([_|List], BrokenPart, BrokenSz, PartlyBroken, PBSz, Endian) ->
+    Sz = length(List)*2 + BrokenSz,
+    Chomped = binary:part(PartlyBroken, PBSz - Sz, Sz),
+    true = binary:referenced_byte_size(Chomped) =:= PBSz,
+    {error,List,DeepBrokenPart} =
+	unicode:characters_to_list(Chomped, {utf16,Endian}),
+    BrokenPart = iolist_to_binary(DeepBrokenPart),
+    utf16_inner_loop(List, BrokenPart, BrokenSz, PartlyBroken, PBSz, Endian);
+utf16_inner_loop([], _, _, _, _, _) ->
     ok.
     
 ex_binaries_errors_utf32_big(Config) when is_list(Config) ->
-    BrokenPart = << <<X:32/big>> || X <- lists:seq(16#DC00,16#DFFF) >>,
-    BrokenSz = byte_size(BrokenPart),
-    [ begin
-	  OKList = lists:flatten(lists:duplicate(N,lists:seq(1,255))),
-	  OKBin = unicode:characters_to_binary(OKList,unicode,{utf32,big}),
-	  OKLen = length(OKList),
-	  %% Copy to avoid that the binary get's writable
-	  PartlyBroken = binary:copy(<<OKBin/binary, BrokenPart/binary>>),
-	  PBSz = byte_size(PartlyBroken),
-	  {error,OKList,DeepBrokenPart} = 
-	      unicode:characters_to_list(PartlyBroken,{utf32,big}),
-	  BrokenPart = iolist_to_binary(DeepBrokenPart),
-	  [ begin
-		NewList = lists:nthtail(X, OKList),
-		NewSz = byte_size(unicode:characters_to_binary(NewList,unicode,{utf32,big})) + 
-		    BrokenSz,
-		Chomped = binary:part(PartlyBroken,PBSz - NewSz, NewSz),
-		true = (binary:referenced_byte_size(Chomped) =:= PBSz),
-		{error,NewList,DeepBrokenPart2} =  
-		    unicode:characters_to_list(Chomped,{utf32,big}),
-		BrokenPart = iolist_to_binary(DeepBrokenPart2)
-	    end || X <- lists:seq(1,OKLen) ]
-      end || N <- lists:seq(1,16,3) ],
-    ok.
+    ex_binaries_errors_utf32(big).
     
 ex_binaries_errors_utf32_little(Config) when is_list(Config) ->
-    BrokenPart = << <<X:32/little>> || X <- lists:seq(16#DC00,16#DFFF) >>,
+    ex_binaries_errors_utf32(little).
+
+ex_binaries_errors_utf32(Endian) ->
+    BrokenSeq = lists:seq(16#DC00, 16#DFFF),
+    BrokenPart = case Endian of
+		     little ->
+			 << <<X:32/little>> || X <- BrokenSeq >>;
+		     big ->
+			 << <<X:32/big>> || X <- BrokenSeq >>
+		 end,
     BrokenSz = byte_size(BrokenPart),
+    Seq255 = lists:seq(1, 255),
     [ begin
-	  OKList = lists:flatten(lists:duplicate(N,lists:seq(1,255))),
-	  OKBin = unicode:characters_to_binary(OKList,unicode,{utf32,little}),
-	  OKLen = length(OKList),
-	  %% Copy to avoid that the binary get's writable
-	  PartlyBroken = binary:copy(<<OKBin/binary, BrokenPart/binary>>),
+	  OKList = lists:append(lists:duplicate(N, Seq255)),
+	  OKBin = unicode:characters_to_binary(OKList, unicode, {utf32,Endian}),
+	  PartlyBroken = iolist_to_binary([OKBin,BrokenPart]),
 	  PBSz = byte_size(PartlyBroken),
 	  {error,OKList,DeepBrokenPart} = 
-	      unicode:characters_to_list(PartlyBroken,{utf32,little}),
+	      unicode:characters_to_list(PartlyBroken, {utf32,Endian}),
 	  BrokenPart = iolist_to_binary(DeepBrokenPart),
-	  [ begin
-		NewList = lists:nthtail(X, OKList),
-		NewSz = byte_size(unicode:characters_to_binary(NewList,unicode,{utf32,little})) + 
-		    BrokenSz,
-		Chomped = binary:part(PartlyBroken,PBSz - NewSz, NewSz),
-		true = (binary:referenced_byte_size(Chomped) =:= PBSz),
-		{error,NewList,DeepBrokenPart2} =  
-		    unicode:characters_to_list(Chomped,{utf32,little}),
-		BrokenPart = iolist_to_binary(DeepBrokenPart2)
-	    end || X <- lists:seq(1,OKLen) ]
-      end || N <- lists:seq(1,16,3) ],
+	  utf32_inner_loop(OKList, BrokenPart, BrokenSz,
+			   PartlyBroken, PBSz, Endian)
+      end || N <- lists:seq(1, 16, 3) ],
     ok.
     
-
+utf32_inner_loop([_|List], BrokenPart, BrokenSz, PartlyBroken, PBSz, Endian) ->
+    Sz = length(List)*4 + BrokenSz,
+    Chomped = binary:part(PartlyBroken, PBSz - Sz, Sz),
+    true = binary:referenced_byte_size(Chomped) =:= PBSz,
+    {error,List,DeepBrokenPart} =
+	unicode:characters_to_list(Chomped, {utf32,Endian}),
+    BrokenPart = iolist_to_binary(DeepBrokenPart),
+    utf32_inner_loop(List, BrokenPart, BrokenSz, PartlyBroken, PBSz, Endian);
+utf32_inner_loop([], _, _, _, _, _) ->
+    ok.
 
 exceptions(Config) when is_list(Config) ->
     setlimit(10),
