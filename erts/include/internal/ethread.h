@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2004-2013. All Rights Reserved.
+ * Copyright Ericsson AB 2004-2015. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -361,6 +361,9 @@ extern ethr_runtime_t ethr_runtime__;
 #        elif defined(__sparc__) && defined(__arch64__)
 #          include "sparc64/ethread.h"
 #        endif
+#      endif
+#      if ETHR_HAVE_GCC___ATOMIC_BUILTINS
+#        include "gcc/ethread.h"
 #      endif
 #      include "libatomic_ops/ethread.h"
 #      include "gcc/ethread.h"
