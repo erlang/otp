@@ -1478,7 +1478,7 @@ put_map_assoc F Src=s Dst Live Size Rest=* => \
 	       update_map_assoc F Src Dst Live Size Rest
 put_map_assoc F Src Dst Live Size Rest=* => \
 	       move Src x | update_map_assoc F x Dst Live Size Rest
-put_map_exact F n Dst Live Size Rest=* => new_map F Dst Live Size Rest
+
 put_map_exact F Src=s Dst Live Size Rest=* => \
 	      update_map_exact F Src Dst Live Size Rest
 put_map_exact F Src Dst Live Size Rest=* => \
