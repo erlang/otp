@@ -1473,8 +1473,8 @@ apply_last I P
 # Map instructions in R17.
 #
 
-put_map_assoc F Map Dst Live Size Rest=* | is_empty_map(Map) => \
-   new_map F Dst Live Size Rest
+put_map_assoc j Map Dst Live Size Rest=* | is_empty_map(Map) => \
+   new_map Dst Live Size Rest
 put_map_assoc F Src=s Dst Live Size Rest=* => \
 	       update_map_assoc F Src Dst Live Size Rest
 put_map_assoc F Src Dst Live Size Rest=* => \
@@ -1485,7 +1485,7 @@ put_map_exact F Src=s Dst Live Size Rest=* => \
 put_map_exact F Src Dst Live Size Rest=* => \
 	      move Src x | update_map_exact F x Dst Live Size Rest
 
-new_map j d I I
+new_map d I I
 update_map_assoc j s d I I
 update_map_exact j s d I I
 

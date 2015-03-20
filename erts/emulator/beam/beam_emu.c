@@ -2379,16 +2379,16 @@ void process_main(void)
      Goto(*I);
  }
 
- OpCase(new_map_jdII): {
+ OpCase(new_map_dII): {
      Eterm res;
 
      x(0) = r(0);
      SWAPOUT;
-     res = new_map(c_p, reg, I);
+     res = new_map(c_p, reg, I-1);
      SWAPIN;
      r(0) = x(0);
-     StoreResult(res, Arg(1));
-     Next(4+Arg(3));
+     StoreResult(res, Arg(0));
+     Next(3+Arg(2));
  }
 
  OpCase(i_has_map_fields_fsI): {
