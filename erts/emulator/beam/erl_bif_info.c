@@ -3597,6 +3597,26 @@ BIF_RETTYPE erts_debug_get_internal_state_1(BIF_ALIST_1)
 
 		BIF_RET(erts_debug_reader_groups_map(BIF_P, (int) groups));
 	    }
+	    else if (ERTS_IS_ATOM_STR("internal_hash", tp[1])) {
+		Uint hash = (Uint) make_internal_hash(tp[2]);
+		Uint hsz = 0;
+		Eterm* hp;
+		erts_bld_uint(NULL, &hsz, hash);
+		hp = HAlloc(BIF_P,hsz);
+		return erts_bld_uint(&hp, NULL, hash);
+	    }
+	    else if (ERTS_IS_ATOM_STR("atom", tp[1])) {
+		Uint ix;
+		if (!term_to_Uint(tp[2], &ix))
+		    BIF_ERROR(BIF_P, BADARG);
+		while (ix >= atom_table_size()) {
+		    char tmp[20];
+		    erts_snprintf(tmp, sizeof(tmp), "am%x", atom_table_size());
+		    erts_atom_put((byte *) tmp, strlen(tmp), ERTS_ATOM_ENC_LATIN1, 1);
+		}
+		return make_atom(ix);
+	    }
+
 	    break;
 	}
 	default:
