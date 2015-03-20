@@ -127,8 +127,25 @@ Uint size_object(Eterm obj)
 			obj = *bptr;
 			break;
 		    }
-		case HASHMAP_SUBTAG:
+		case MAP_SUBTAG:
 		    switch (MAP_HEADER_TYPE(hdr)) {
+			case MAP_HEADER_TAG_FLATMAP_HEAD :
+                            {
+                                Uint n;
+                                flatmap_t *mp;
+                                mp  = (flatmap_t*)flatmap_val_rel(obj,base);
+                                ptr = (Eterm *)mp;
+                                n   = flatmap_get_size(mp) + 1;
+                                sum += n + 2;
+                                ptr += 2; /* hdr + size words */
+                                while (n--) {
+                                    obj = *ptr++;
+                                    if (!IS_CONST(obj)) {
+                                        ESTACK_PUSH(s, obj);
+                                    }
+                                }
+                                goto pop_next;
+                            }
 			case MAP_HEADER_TAG_HAMT_HEAD_BITMAP :
 			case MAP_HEADER_TAG_HAMT_HEAD_ARRAY :
 			case MAP_HEADER_TAG_HAMT_NODE_BITMAP :
@@ -183,25 +200,7 @@ Uint size_object(Eterm obj)
 			goto pop_next;
 		    }
 		    break;
-		case MAP_SUBTAG:
-		    {
-			Uint n;
-			flatmap_t *mp;
-			mp  = (flatmap_t*)flatmap_val_rel(obj,base);
-			ptr = (Eterm *)mp;
-			n   = flatmap_get_size(mp) + 1;
-			sum += n + 2;
-			ptr += 2; /* hdr + size words */
-			while (n--) {
-			    obj = *ptr++;
-			    if (!IS_CONST(obj)) {
-				ESTACK_PUSH(s, obj);
-			    }
-			}
-			goto pop_next;
-		    }
-		    break;
-		case BIN_MATCHSTATE_SUBTAG:
+                case BIN_MATCHSTATE_SUBTAG:
 		    erl_exit(ERTS_ABORT_EXIT,
 			     "size_object: matchstate term not allowed");
 		default:
@@ -369,15 +368,6 @@ Eterm copy_struct(Eterm obj, Uint sz, Eterm** hpp, ErlOffHeap* off_heap)
 		    }
 		}
 		break;
-	    case MAP_SUBTAG:
-		{
-		    i = flatmap_get_size(objp) + 3;
-		    *argp = make_flatmap_rel(htop, dst_base);
-		    while (i--) {
-			*htop++ = *objp++;
-		    }
-		}
-		break;
 	    case REFC_BINARY_SUBTAG:
 		{
 		    ProcBin* pb;
@@ -502,9 +492,16 @@ Eterm copy_struct(Eterm obj, Uint sz, Eterm** hpp, ErlOffHeap* off_heap)
 		  *argp = make_external_rel(tp, dst_base);
 		}
 		break;
-	    case HASHMAP_SUBTAG:
+	    case MAP_SUBTAG:
 		tp = htop;
 		switch (MAP_HEADER_TYPE(hdr)) {
+		    case MAP_HEADER_TAG_FLATMAP_HEAD :
+                        i = flatmap_get_size(objp) + 3;
+                        *argp = make_flatmap_rel(htop, dst_base);
+                        while (i--) {
+                            *htop++ = *objp++;
+                        }
+			break;
 		    case MAP_HEADER_TAG_HAMT_HEAD_BITMAP :
 		    case MAP_HEADER_TAG_HAMT_HEAD_ARRAY :
 			*htop++ = *objp++;

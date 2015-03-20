@@ -141,29 +141,27 @@ struct erl_node_; /* Declared in erl_node_tables.h */
 #define HEAP_BINARY_SUBTAG	(0x9 << _TAG_PRIMARY_SIZE) /* BINARY */
 #define SUB_BINARY_SUBTAG	(0xA << _TAG_PRIMARY_SIZE) /* BINARY */
 /*   _BINARY_XXX_MASK depends on 0xB being unused */
-#define HASHMAP_SUBTAG		(0xB << _TAG_PRIMARY_SIZE) /* HASHMAP */
 #define EXTERNAL_PID_SUBTAG	(0xC << _TAG_PRIMARY_SIZE) /* EXTERNAL_PID */
 #define EXTERNAL_PORT_SUBTAG	(0xD << _TAG_PRIMARY_SIZE) /* EXTERNAL_PORT */
 #define EXTERNAL_REF_SUBTAG	(0xE << _TAG_PRIMARY_SIZE) /* EXTERNAL_REF */
 #define MAP_SUBTAG		(0xF << _TAG_PRIMARY_SIZE) /* MAP */
 
 
-#define _TAG_HEADER_ARITYVAL	(TAG_PRIMARY_HEADER|ARITYVAL_SUBTAG)
-#define _TAG_HEADER_FUN		(TAG_PRIMARY_HEADER|FUN_SUBTAG)
-#define _TAG_HEADER_POS_BIG	(TAG_PRIMARY_HEADER|POS_BIG_SUBTAG)
-#define _TAG_HEADER_NEG_BIG	(TAG_PRIMARY_HEADER|NEG_BIG_SUBTAG)
-#define _TAG_HEADER_FLOAT	(TAG_PRIMARY_HEADER|FLOAT_SUBTAG)
-#define _TAG_HEADER_EXPORT	(TAG_PRIMARY_HEADER|EXPORT_SUBTAG)
-#define _TAG_HEADER_REF		(TAG_PRIMARY_HEADER|REF_SUBTAG)
-#define _TAG_HEADER_REFC_BIN	(TAG_PRIMARY_HEADER|REFC_BINARY_SUBTAG)
-#define _TAG_HEADER_HEAP_BIN	(TAG_PRIMARY_HEADER|HEAP_BINARY_SUBTAG)
-#define _TAG_HEADER_SUB_BIN	(TAG_PRIMARY_HEADER|SUB_BINARY_SUBTAG)
-#define _TAG_HEADER_EXTERNAL_PID  (TAG_PRIMARY_HEADER|EXTERNAL_PID_SUBTAG)
-#define _TAG_HEADER_EXTERNAL_PORT (TAG_PRIMARY_HEADER|EXTERNAL_PORT_SUBTAG)
-#define _TAG_HEADER_EXTERNAL_REF  (TAG_PRIMARY_HEADER|EXTERNAL_REF_SUBTAG)
+#define _TAG_HEADER_ARITYVAL       (TAG_PRIMARY_HEADER|ARITYVAL_SUBTAG)
+#define _TAG_HEADER_FUN	           (TAG_PRIMARY_HEADER|FUN_SUBTAG)
+#define _TAG_HEADER_POS_BIG        (TAG_PRIMARY_HEADER|POS_BIG_SUBTAG)
+#define _TAG_HEADER_NEG_BIG        (TAG_PRIMARY_HEADER|NEG_BIG_SUBTAG)
+#define _TAG_HEADER_FLOAT          (TAG_PRIMARY_HEADER|FLOAT_SUBTAG)
+#define _TAG_HEADER_EXPORT         (TAG_PRIMARY_HEADER|EXPORT_SUBTAG)
+#define _TAG_HEADER_REF            (TAG_PRIMARY_HEADER|REF_SUBTAG)
+#define _TAG_HEADER_REFC_BIN       (TAG_PRIMARY_HEADER|REFC_BINARY_SUBTAG)
+#define _TAG_HEADER_HEAP_BIN       (TAG_PRIMARY_HEADER|HEAP_BINARY_SUBTAG)
+#define _TAG_HEADER_SUB_BIN        (TAG_PRIMARY_HEADER|SUB_BINARY_SUBTAG)
+#define _TAG_HEADER_EXTERNAL_PID   (TAG_PRIMARY_HEADER|EXTERNAL_PID_SUBTAG)
+#define _TAG_HEADER_EXTERNAL_PORT  (TAG_PRIMARY_HEADER|EXTERNAL_PORT_SUBTAG)
+#define _TAG_HEADER_EXTERNAL_REF   (TAG_PRIMARY_HEADER|EXTERNAL_REF_SUBTAG)
 #define _TAG_HEADER_BIN_MATCHSTATE (TAG_PRIMARY_HEADER|BIN_MATCHSTATE_SUBTAG)
-#define _TAG_HEADER_MAP	 	(TAG_PRIMARY_HEADER|MAP_SUBTAG)
-#define _TAG_HEADER_HASHMAP	(TAG_PRIMARY_HEADER|HASHMAP_SUBTAG)
+#define _TAG_HEADER_MAP	           (TAG_PRIMARY_HEADER|MAP_SUBTAG)
 
 
 #define _TAG_HEADER_MASK	0x3F
@@ -302,7 +300,7 @@ _ET_DECLARE_CHECKED(Uint,atom_val,Eterm)
 #define is_header(x)	(((x) & _TAG_PRIMARY_MASK) == TAG_PRIMARY_HEADER)
 //#define _unchecked_header_arity(x)	((x) >> _HEADER_ARITY_OFFS)
 #define _unchecked_header_arity(x) \
-    (is_hashmap_header(x) ? MAP_HEADER_ARITY(x) : ((x) >> _HEADER_ARITY_OFFS))
+    (is_map_header(x) ? MAP_HEADER_ARITY(x) : ((x) >> _HEADER_ARITY_OFFS))
 _ET_DECLARE_CHECKED(Uint,header_arity,Eterm)
 #define header_arity(x)	_ET_APPLY(header_arity,(x))
 
@@ -1001,7 +999,7 @@ _ET_DECLARE_CHECKED(struct erl_node_*,external_ref_node,Eterm)
 #define MAP_HEADER_ARITY_SZ               (8)
 #define MAP_HEADER_VAL_SZ                 (16)
 
-#define MAP_HEADER_TAG_FLAT               (0x0)
+#define MAP_HEADER_TAG_FLATMAP_HEAD       (0x0)
 #define MAP_HEADER_TAG_HAMT_NODE_BITMAP   (0x1)
 #define MAP_HEADER_TAG_HAMT_HEAD_ARRAY    (0x2)
 #define MAP_HEADER_TAG_HAMT_HEAD_BITMAP   (0x3)
@@ -1010,17 +1008,27 @@ _ET_DECLARE_CHECKED(struct erl_node_*,external_ref_node,Eterm)
 #define MAP_HEADER_ARITY(Hdr) (((Hdr) >> (_HEADER_ARITY_OFFS + MAP_HEADER_TAG_SZ)) & (0xff))
 #define MAP_HEADER_VAL(Hdr)   (((Hdr) >> (_HEADER_ARITY_OFFS + MAP_HEADER_TAG_SZ + MAP_HEADER_ARITY_SZ)) & (0xffff))
 
-#define make_hashmap(x)		make_boxed((Eterm*)(x))
-#define make_hashmap_rel 	make_boxed_rel
-#define is_hashmap(x)		(is_boxed((x)) && is_hashmap_header(*boxed_val((x))))
-#define is_not_hashmap(x)       (!is_hashmap(x))
-#define is_hashmap_rel(RTERM,BASE)  is_hashmap(rterm2wterm(RTERM,BASE))
-#define is_hashmap_header(x)	(((x) & (_TAG_HEADER_MASK)) == _TAG_HEADER_HASHMAP)
-#define hashmap_val(x)		_unchecked_boxed_val((x))
-#define hashmap_val_rel(RTERM, BASE) hashmap_val(rterm2wterm(RTERM, BASE))
+#define make_hashmap(x)		      make_boxed((Eterm*)(x))
+#define make_hashmap_rel 	      make_boxed_rel
+#define is_hashmap(x)		      (is_boxed((x)) && is_hashmap_header(*boxed_val((x))))
+#define is_not_hashmap(x)             (!is_hashmap(x))
+#define is_hashmap_rel(RTERM,BASE)    is_hashmap(rterm2wterm(RTERM,BASE))
+#define is_hashmap_header(x)	      (((x) & (_HEADER_MAP_HASHMAP_HEAD_MASK)) == HAMT_SUBTAG_HEAD_ARRAY)
+#define hashmap_val(x)		      _unchecked_boxed_val((x))
+#define hashmap_val_rel(RTERM, BASE)  hashmap_val(rterm2wterm(RTERM, BASE))
 
-#define is_map(x)            (is_flatmap(x) || is_hashmap(x))
-#define is_map_rel(x,BASE)   (is_flatmap_rel(x,BASE) || is_hashmap_rel(x,BASE))
+#define make_flatmap(x)               make_boxed((Eterm*)(x))
+#define make_flatmap_rel(x, BASE)     make_boxed_rel((Eterm*)(x),(BASE))
+#define is_flatmap(x)                 (is_boxed((x)) && is_flatmap_header(*boxed_val((x))))
+#define is_flatmap_rel(RTERM,BASE)    is_flatmap(rterm2wterm(RTERM,BASE))
+#define is_not_flatmap(x)             (!is_flatmap((x)))
+#define is_flatmap_header(x)          (((x) & (_HEADER_MAP_SUBTAG_MASK)) == HAMT_SUBTAG_HEAD_FLATMAP)
+#define flatmap_val(x)                (_unchecked_boxed_val((x)))
+#define flatmap_val_rel(RTERM, BASE)  flatmap_val(rterm2wterm(RTERM, BASE))
+
+#define is_map_header(x)       (((x) & (_TAG_HEADER_MASK)) == _TAG_HEADER_MAP)
+#define is_map(x)              (is_boxed((x)) && is_map_header(*boxed_val(x)))
+#define is_map_rel(RTERM,BASE) is_map(rterm2wterm(RTERM,BASE))
 
 /* number tests */
 
@@ -1113,23 +1121,22 @@ _ET_DECLARE_CHECKED(Uint,y_reg_index,Uint)
 #define BINARY_DEF		0x0
 #define LIST_DEF		0x1
 #define NIL_DEF			0x2
-#define HASHMAP_DEF		0x3
-#define MAP_DEF			0x4
-#define TUPLE_DEF		0x5
-#define PID_DEF			0x6
-#define EXTERNAL_PID_DEF	0x7
-#define PORT_DEF		0x8
-#define EXTERNAL_PORT_DEF	0x9
-#define EXPORT_DEF		0xa
-#define FUN_DEF			0xb
-#define REF_DEF			0xc
-#define EXTERNAL_REF_DEF	0xd
-#define ATOM_DEF		0xe
-#define FLOAT_DEF		0xf
-#define BIG_DEF			0x10
-#define SMALL_DEF		0x11
+#define MAP_DEF			0x3
+#define TUPLE_DEF		0x4
+#define PID_DEF			0x5
+#define EXTERNAL_PID_DEF	0x6
+#define PORT_DEF		0x7
+#define EXTERNAL_PORT_DEF	0x8
+#define EXPORT_DEF		0x9
+#define FUN_DEF			0xa
+#define REF_DEF			0xb
+#define EXTERNAL_REF_DEF	0xc
+#define ATOM_DEF		0xd
+#define FLOAT_DEF		0xe
+#define BIG_DEF			0xf
+#define SMALL_DEF		0x10
 
-#define FIRST_VACANT_TAG_DEF    0x12
+#define FIRST_VACANT_TAG_DEF    0x11
 
 #if ET_DEBUG
 extern unsigned tag_val_def_debug(Wterm, const char*, unsigned);

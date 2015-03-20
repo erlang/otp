@@ -565,77 +565,74 @@ print_term(fmtfn_t fn, void* arg, Eterm obj, long *dcount,
 	    }
 	    break;
 	case MAP_DEF:
-	    {
-		Uint n;
-		Eterm *ks, *vs;
-		flatmap_t *mp = (flatmap_t *)flatmap_val(wobj);
-		n  = flatmap_get_size(mp);
-		ks = flatmap_get_keys(mp);
-		vs = flatmap_get_values(mp);
+            if (is_flatmap(wobj)) {
+                Uint n;
+                Eterm *ks, *vs;
+                flatmap_t *mp = (flatmap_t *)flatmap_val(wobj);
+                n  = flatmap_get_size(mp);
+                ks = flatmap_get_keys(mp);
+                vs = flatmap_get_values(mp);
 
-		PRINT_CHAR(res, fn, arg, '#');
-		PRINT_CHAR(res, fn, arg, '{');
-		WSTACK_PUSH(s, PRT_CLOSE_TUPLE);
-		if (n > 0) {
-		    n--;
-		    WSTACK_PUSH5(s, vs[n], PRT_TERM, PRT_ASSOC, ks[n], PRT_TERM);
-		    while (n--) {
-			WSTACK_PUSH6(s, PRT_COMMA, vs[n], PRT_TERM, PRT_ASSOC,
-				     ks[n], PRT_TERM);
-		    }
-		}
-	    }
-	    break;
-	case HASHMAP_DEF:
-	    {
-		Uint n,mapval;
-		Eterm *head;
-		head = hashmap_val(wobj);
-		mapval = MAP_HEADER_VAL(*head);
-		switch (MAP_HEADER_TYPE(*head)) {
-		    case MAP_HEADER_TAG_HAMT_HEAD_ARRAY:
-		    case MAP_HEADER_TAG_HAMT_HEAD_BITMAP:
-			PRINT_STRING(res, fn, arg, "#<");
-			PRINT_UWORD(res, fn, arg, 'x', 0, 1, mapval);
-			PRINT_STRING(res, fn, arg, ">{");
-			WSTACK_PUSH(s,PRT_CLOSE_TUPLE);
-			n = hashmap_bitcount(mapval);
-			ASSERT(n < 17);
-			head += 2;
-			if (n > 0) {
-			    n--;
-			    WSTACK_PUSH(s, head[n]);
-			    WSTACK_PUSH(s, PRT_TERM);
-			    while (n--) {
-				WSTACK_PUSH(s, PRT_COMMA);
-				WSTACK_PUSH(s, head[n]);
-				WSTACK_PUSH(s, PRT_TERM);
-			    }
-			}
-			break;
-		    case MAP_HEADER_TAG_HAMT_NODE_BITMAP:
-			n = hashmap_bitcount(mapval);
-			head++;
-			PRINT_CHAR(res, fn, arg, '<');
-			PRINT_UWORD(res, fn, arg, 'x', 0, 1, mapval);
-			PRINT_STRING(res, fn, arg, ">{");
-			WSTACK_PUSH(s,PRT_CLOSE_TUPLE);
-			ASSERT(n < 17);
-			if (n > 0) {
-			    n--;
-			    WSTACK_PUSH(s, head[n]);
-			    WSTACK_PUSH(s, PRT_TERM);
-			    while (n--) {
-				WSTACK_PUSH(s, PRT_COMMA);
-				WSTACK_PUSH(s, head[n]);
-				WSTACK_PUSH(s, PRT_TERM);
-			    }
-			}
-			break;
-		}
-	    }
-	    break;
-	default:
+                PRINT_CHAR(res, fn, arg, '#');
+                PRINT_CHAR(res, fn, arg, '{');
+                WSTACK_PUSH(s, PRT_CLOSE_TUPLE);
+                if (n > 0) {
+                    n--;
+                    WSTACK_PUSH5(s, vs[n], PRT_TERM, PRT_ASSOC, ks[n], PRT_TERM);
+                    while (n--) {
+                        WSTACK_PUSH6(s, PRT_COMMA, vs[n], PRT_TERM, PRT_ASSOC,
+                                ks[n], PRT_TERM);
+                    }
+                }
+            } else {
+                Uint n, mapval;
+                Eterm *head;
+                head = hashmap_val(wobj);
+                mapval = MAP_HEADER_VAL(*head);
+                switch (MAP_HEADER_TYPE(*head)) {
+                case MAP_HEADER_TAG_HAMT_HEAD_ARRAY:
+                case MAP_HEADER_TAG_HAMT_HEAD_BITMAP:
+                    PRINT_STRING(res, fn, arg, "#<");
+                    PRINT_UWORD(res, fn, arg, 'x', 0, 1, mapval);
+                    PRINT_STRING(res, fn, arg, ">{");
+                    WSTACK_PUSH(s,PRT_CLOSE_TUPLE);
+                    n = hashmap_bitcount(mapval);
+                    ASSERT(n < 17);
+                    head += 2;
+                    if (n > 0) {
+                        n--;
+                        WSTACK_PUSH(s, head[n]);
+                        WSTACK_PUSH(s, PRT_TERM);
+                        while (n--) {
+                            WSTACK_PUSH(s, PRT_COMMA);
+                            WSTACK_PUSH(s, head[n]);
+                            WSTACK_PUSH(s, PRT_TERM);
+                        }
+                    }
+                    break;
+                case MAP_HEADER_TAG_HAMT_NODE_BITMAP:
+                    n = hashmap_bitcount(mapval);
+                    head++;
+                    PRINT_CHAR(res, fn, arg, '<');
+                    PRINT_UWORD(res, fn, arg, 'x', 0, 1, mapval);
+                    PRINT_STRING(res, fn, arg, ">{");
+                    WSTACK_PUSH(s,PRT_CLOSE_TUPLE);
+                    ASSERT(n < 17);
+                    if (n > 0) {
+                        n--;
+                        WSTACK_PUSH(s, head[n]);
+                        WSTACK_PUSH(s, PRT_TERM);
+                        while (n--) {
+                            WSTACK_PUSH(s, PRT_COMMA);
+                            WSTACK_PUSH(s, head[n]);
+                            WSTACK_PUSH(s, PRT_TERM);
+                        }
+                    }
+                    break;
+                }
+            }
+            break;
+        default:
 	    PRINT_STRING(res, fn, arg, "<unknown:");
 	    PRINT_POINTER(res, fn, arg, wobj);
 	    PRINT_CHAR(res, fn, arg, '>');

@@ -1025,11 +1025,8 @@ tail_recur:
 	    break;
 	}	
     case MAP_DEF:
-    case HASHMAP_DEF:
-	{
-	    hash = hash*FUNNY_NUMBER13 + FUNNY_NUMBER14 + make_hash2(term);
-	    break;
-	}
+        hash = hash*FUNNY_NUMBER13 + FUNNY_NUMBER14 + make_hash2(term);
+        break;
     case TUPLE_DEF: 
 	{
 	    Eterm* ptr = tuple_val(term);
@@ -1273,41 +1270,40 @@ make_hash2(Eterm term)
 		}
 	    }
 	    break;
-	    case MAP_SUBTAG:
-	    {
-		flatmap_t *mp = (flatmap_t *)flatmap_val(term);
-		int i;
-		int size  = flatmap_get_size(mp);
-		Eterm *ks = flatmap_get_keys(mp);
-		Eterm *vs = flatmap_get_values(mp);
-		UINT32_HASH(size, HCONST_16);
-		if (size == 0) {
-		    goto hash2_common;
-		}
-		/* We want a portable hash function that is *independent* of
-		 * the order in which keys and values are encountered.
-		 * We therefore calculate context independent hashes for all    				      .
-		 * key-value pairs and then xor them together.
-		 */
-		ESTACK_PUSH(s, hash_xor_pairs);
-		ESTACK_PUSH(s, hash);
-		ESTACK_PUSH(s, HASH_MAP_TAIL);
-		hash = 0;
-		hash_xor_pairs = 0;
-		for (i = size - 1; i >= 0; i--) {
-		    ESTACK_PUSH(s, HASH_MAP_PAIR);
-		    ESTACK_PUSH(s, vs[i]);
-                    ESTACK_PUSH(s, ks[i]);
-		}
-		goto hash2_common;
-	    }
-	    break;
-            case HASHMAP_SUBTAG:
+            case MAP_SUBTAG:
             {
                 Eterm* ptr = boxed_val(term) + 1;
                 Uint size;
                 int i;
                 switch (hdr & _HEADER_MAP_SUBTAG_MASK) {
+                case HAMT_SUBTAG_HEAD_FLATMAP:
+                {
+                    flatmap_t *mp = (flatmap_t *)flatmap_val(term);
+                    Eterm *ks = flatmap_get_keys(mp);
+                    Eterm *vs = flatmap_get_values(mp);
+                    size      = flatmap_get_size(mp);
+                    UINT32_HASH(size, HCONST_16);
+                    if (size == 0)
+                        goto hash2_common;
+
+                    /* We want a portable hash function that is *independent* of
+                     * the order in which keys and values are encountered.
+                     * We therefore calculate context independent hashes for all    				      .
+                     * key-value pairs and then xor them together.
+                     */
+                    ESTACK_PUSH(s, hash_xor_pairs);
+                    ESTACK_PUSH(s, hash);
+                    ESTACK_PUSH(s, HASH_MAP_TAIL);
+                    hash = 0;
+                    hash_xor_pairs = 0;
+                    for (i = size - 1; i >= 0; i--) {
+                        ESTACK_PUSH(s, HASH_MAP_PAIR);
+                        ESTACK_PUSH(s, vs[i]);
+                        ESTACK_PUSH(s, ks[i]);
+                    }
+                    goto hash2_common;
+                }
+
                 case HAMT_SUBTAG_HEAD_ARRAY:
                 case HAMT_SUBTAG_HEAD_BITMAP:
                     size = *ptr++;
@@ -1675,42 +1671,40 @@ make_internal_hash(Eterm term)
 		}
 	    }
 	    break;
-	    case MAP_SUBTAG:
-	    {
-		flatmap_t *mp = (flatmap_t *)flatmap_val(term);
-		int i;
-		int size  = flatmap_get_size(mp);
-		Eterm *ks = flatmap_get_keys(mp);
-		Eterm *vs = flatmap_get_values(mp);
-		UINT32_HASH(size, HCONST_16);
-		if (size == 0) {
-		    goto pop_next;
-		}
-		/* We want a hash function that is *independent* of
-		 * the order in which keys and values are encountered.
-		 * We therefore calculate context independent hashes for all    				      .
-		 * key-value pairs and then xor them together.
-		 */
-		ESTACK_PUSH(s, hash_xor_pairs);
-		ESTACK_PUSH(s, hash);
-		ESTACK_PUSH(s, HASH_MAP_TAIL);
-		hash = 0;
-		hash_xor_pairs = 0;
-		for (i = size - 1; i >= 0; i--) {
-		    ESTACK_PUSH(s, HASH_MAP_PAIR);
-		    ESTACK_PUSH(s, vs[i]);
-                    ESTACK_PUSH(s, ks[i]);
-		}
-		goto pop_next;
-	    }
-	    break;
-            case HASHMAP_SUBTAG:
+
+            case MAP_SUBTAG:
             {
                 Eterm* ptr = boxed_val(term) + 1;
                 Uint size;
                 int i;
                 switch (hdr & _HEADER_MAP_SUBTAG_MASK) {
-                case HAMT_SUBTAG_HEAD_ARRAY:
+                case HAMT_SUBTAG_HEAD_FLATMAP:
+                {
+                    flatmap_t *mp = (flatmap_t *)flatmap_val(term);
+                    Eterm *ks = flatmap_get_keys(mp);
+                    Eterm *vs = flatmap_get_values(mp);
+                    size      = flatmap_get_size(mp);
+                    UINT32_HASH(size, HCONST_16);
+                    if (size == 0)
+                        goto pop_next;
+
+                    /* We want a hash function that is *independent* of
+                     * the order in which keys and values are encountered.
+                     * We therefore calculate context independent hashes for all    				      .
+                     * key-value pairs and then xor them together.
+                     */
+                    ESTACK_PUSH(s, hash_xor_pairs);
+                    ESTACK_PUSH(s, hash);
+                    ESTACK_PUSH(s, HASH_MAP_TAIL);
+                    hash = 0;
+                    hash_xor_pairs = 0;
+                    for (i = size - 1; i >= 0; i--) {
+                        ESTACK_PUSH(s, HASH_MAP_PAIR);
+                        ESTACK_PUSH(s, vs[i]);
+                        ESTACK_PUSH(s, ks[i]);
+                    }
+                    goto pop_next;
+                }
                 case HAMT_SUBTAG_HEAD_BITMAP:
                     size = *ptr++;
                     UINT32_HASH(size, HCONST_16);
@@ -2170,11 +2164,8 @@ tail_recur:
 	break;
 
     case MAP_DEF:
-    case HASHMAP_DEF:
-	{
-	    hash = hash*FUNNY_NUMBER13 + FUNNY_NUMBER14 + make_hash2(term);
-	    break;
-	}
+        hash = hash*FUNNY_NUMBER13 + FUNNY_NUMBER14 + make_hash2(term);
+        break;
     case TUPLE_DEF: 
 	{
 	    Eterm* ptr = tuple_val(term);
@@ -2579,22 +2570,6 @@ tailrecur_ne:
 		    ++bb;
 		    goto term_array;
 		}
-	    case MAP_SUBTAG:
-		{
-		    aa = flatmap_val_rel(a, a_base);
-		    if (!is_boxed(b) || *boxed_val_rel(b,b_base) != *aa)
-			goto not_equal;
-		    bb = flatmap_val_rel(b,b_base);
-		    sz = flatmap_get_size((flatmap_t*)aa);
-
-		    if (sz != flatmap_get_size((flatmap_t*)bb)) goto not_equal;
-		    if (sz == 0) goto pop_next;
-
-		    aa += 2;
-		    bb += 2;
-		    sz += 1; /* increment for tuple-keys */
-		    goto term_array;
-		}
 	    case REFC_BINARY_SUBTAG:
 	    case HEAP_BINARY_SUBTAG:
 	    case SUB_BINARY_SUBTAG:
@@ -2786,8 +2761,23 @@ tailrecur_ne:
 		    }
 		    break; /* not equal */
 		}
-	    case HASHMAP_SUBTAG:
-		{
+	    case MAP_SUBTAG:
+                if (is_flatmap_rel(a, a_base)) {
+		    aa = flatmap_val_rel(a, a_base);
+		    if (!is_boxed(b) || *boxed_val_rel(b,b_base) != *aa)
+			goto not_equal;
+		    bb = flatmap_val_rel(b,b_base);
+		    sz = flatmap_get_size((flatmap_t*)aa);
+
+		    if (sz != flatmap_get_size((flatmap_t*)bb)) goto not_equal;
+		    if (sz == 0) goto pop_next;
+
+		    aa += 2;
+		    bb += 2;
+		    sz += 1; /* increment for tuple-keys */
+		    goto term_array;
+
+                } else {
 		    if (!is_boxed(b) || *boxed_val_rel(b,b_base) != hdr)
 			goto not_equal;
 
@@ -3124,44 +3114,56 @@ tailrecur_ne:
 		++aa;
 		++bb;
 		goto term_array;
-	    case (_TAG_HEADER_MAP >> _TAG_PRIMARY_SIZE) :
-		if (!is_flatmap_rel(b,b_base)) {
-		    a_tag = MAP_DEF;
-		    goto mixed_types;
-		}
-		aa = (Eterm *)flatmap_val_rel(a,a_base);
-		bb = (Eterm *)flatmap_val_rel(b,b_base);
-
-		i = flatmap_get_size((flatmap_t*)aa);
-		if (i != flatmap_get_size((flatmap_t*)bb)) {
-		    RETURN_NEQ((int)(i - flatmap_get_size((flatmap_t*)bb)));
-		}
-		if (i == 0) {
-		    goto pop_next;
-		}
-		aa += 2;
-		bb += 2;
-		if (exact) {
-		    i  += 1; /* increment for tuple-keys */
-		    goto term_array;
-		}
-		else {
-		    /* Value array */
-		    WSTACK_PUSH3(stack, (UWord)(bb+1), (UWord)(aa+1), TERM_ARRAY_OP_WORD(i));
-		    /* Switch back from 'exact' key compare */
-		    WSTACK_PUSH(stack, OP_WORD(SWITCH_EXACT_OFF_OP));
-		    /* Now do 'exact' compare of key tuples */
-		    a = *aa;
-		    b = *bb;
-		    exact = 1;
-		    goto bodyrecur;
-		}
-
-	    case (_TAG_HEADER_HASHMAP >> _TAG_PRIMARY_SIZE) :
+            case (_TAG_HEADER_MAP >> _TAG_PRIMARY_SIZE) :
 		{
                     struct erts_cmp_hashmap_state* sp;
+                    if (is_flatmap_header(ahdr)) {
+                        if (!is_flatmap_rel(b,b_base)) {
+                            if (is_hashmap_rel(b,b_base)) {
+                                aa = (Eterm *)flatmap_val_rel(a,a_base);
+                                i = flatmap_get_size((flatmap_t*)aa) - hashmap_size_rel(b,b_base);
+                                ASSERT(i != 0);
+                                RETURN_NEQ(i);
+                            }
+                            a_tag = MAP_DEF;
+                            goto mixed_types;
+                        }
+                        aa = (Eterm *)flatmap_val_rel(a,a_base);
+                        bb = (Eterm *)flatmap_val_rel(b,b_base);
+
+                        i = flatmap_get_size((flatmap_t*)aa);
+                        if (i != flatmap_get_size((flatmap_t*)bb)) {
+                            RETURN_NEQ((int)(i - flatmap_get_size((flatmap_t*)bb)));
+                        }
+                        if (i == 0) {
+                            goto pop_next;
+                        }
+                        aa += 2;
+                        bb += 2;
+                        if (exact) {
+                            i  += 1; /* increment for tuple-keys */
+                            goto term_array;
+                        }
+                        else {
+                            /* Value array */
+                            WSTACK_PUSH3(stack,(UWord)(bb+1),(UWord)(aa+1),TERM_ARRAY_OP_WORD(i));
+                            /* Switch back from 'exact' key compare */
+                            WSTACK_PUSH(stack,OP_WORD(SWITCH_EXACT_OFF_OP));
+                            /* Now do 'exact' compare of key tuples */
+                            a = *aa;
+                            b = *bb;
+                            exact = 1;
+                            goto bodyrecur;
+                        }
+                    }
 		    if (!is_hashmap_rel(b,b_base)) {
-			a_tag = HASHMAP_DEF;
+                        if (is_flatmap_rel(b,b_base)) {
+                            bb = (Eterm *)flatmap_val_rel(b,b_base);
+                            i = hashmap_size_rel(a,a_base) - flatmap_get_size((flatmap_t*)bb);
+                            ASSERT(i != 0);
+                            RETURN_NEQ(i);
+                        }
+			a_tag = MAP_DEF;
 			goto mixed_types;
 		    }
 		    i = hashmap_size_rel(a,a_base) - hashmap_size_rel(b,b_base);

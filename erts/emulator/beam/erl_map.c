@@ -303,10 +303,10 @@ static Eterm flatmap_from_validated_list(Process *p, Eterm list, Uint size) {
     hp   += size;
     mp    = (flatmap_t*)hp;
     res   = make_flatmap(mp);
-    hp   += MAP_HEADER_SIZE;
+    hp   += MAP_HEADER_FLATMAP_SZ;
     vs    = hp;
 
-    mp->thing_word = MAP_HEADER;
+    mp->thing_word = MAP_HEADER_FLATMAP;
     mp->size = size; /* set later, might shrink*/
     mp->keys = keys;
 
@@ -438,10 +438,10 @@ static Eterm hashmap_from_validated_list(Process *p, Eterm list, Uint size) {
 	ks    = hp;
 	hp   += n;
 	mp    = (flatmap_t*)hp;
-	hp   += MAP_HEADER_SIZE;
+	hp   += MAP_HEADER_FLATMAP_SZ;
 	vs    = hp;
 
-	mp->thing_word = MAP_HEADER;
+	mp->thing_word = MAP_HEADER_FLATMAP;
 	mp->size = n;
 	mp->keys = keys;
 
@@ -944,16 +944,16 @@ static Eterm flatmap_merge(Process *p, Eterm nodeA, Eterm nodeB) {
     n1   = flatmap_get_size(mp1);
     n2   = flatmap_get_size(mp2);
 
-    need = MAP_HEADER_SIZE + 1 + 2*(n1 + n2);
+    need = MAP_HEADER_FLATMAP_SZ + 1 + 2 * (n1 + n2);
 
     hp     = HAlloc(p, need);
     thp    = hp;
     tup    = make_tuple(thp);
     ks     = hp + 1; hp += 1 + n1 + n2;
-    mp_new = (flatmap_t*)hp; hp += MAP_HEADER_SIZE;
+    mp_new = (flatmap_t*)hp; hp += MAP_HEADER_FLATMAP_SZ;
     vs     = hp; hp += n1 + n2;
 
-    mp_new->thing_word = MAP_HEADER;
+    mp_new->thing_word = MAP_HEADER_FLATMAP;
     mp_new->size = 0;
     mp_new->keys = tup;
 
@@ -1344,12 +1344,12 @@ BIF_RETTYPE maps_new_0(BIF_ALIST_0) {
     Eterm tup;
     flatmap_t *mp;
 
-    hp    = HAlloc(BIF_P, (MAP_HEADER_SIZE + 1));
+    hp    = HAlloc(BIF_P, (MAP_HEADER_FLATMAP_SZ + 1));
     tup   = make_tuple(hp);
     *hp++ = make_arityval(0);
 
     mp    = (flatmap_t*)hp;
-    mp->thing_word = MAP_HEADER;
+    mp->thing_word = MAP_HEADER_FLATMAP;
     mp->size = 0;
     mp->keys = tup;
 
@@ -1401,7 +1401,7 @@ int erts_maps_remove(Process *p, Eterm key, Eterm map, Eterm *res) {
 	*thp++ = make_arityval(n - 1);
 
 	*res   = make_flatmap(mhp);
-	*mhp++ = MAP_HEADER;
+	*mhp++ = MAP_HEADER_FLATMAP;
 	*mhp++ = n - 1;
 	*mhp++ = tup;
 
@@ -1478,9 +1478,9 @@ int erts_maps_update(Process *p, Eterm key, Eterm value, Eterm map, Eterm *res) 
 	 * assume key-tuple will be intact
 	 */
 
-	hp  = HAlloc(p, MAP_HEADER_SIZE + n);
+	hp  = HAlloc(p, MAP_HEADER_FLATMAP_SZ + n);
 	shp = hp;
-	*hp++ = MAP_HEADER;
+	*hp++ = MAP_HEADER_FLATMAP;
 	*hp++ = n;
 	*hp++ = mp->keys;
 
@@ -1502,7 +1502,7 @@ int erts_maps_update(Process *p, Eterm key, Eterm value, Eterm map, Eterm *res) 
 	    }
 	}
 
-	HRelease(p, shp + MAP_HEADER_SIZE + n, shp);
+	HRelease(p, shp + MAP_HEADER_FLATMAP_SZ + n, shp);
 	return 0;
 
 found_key:
@@ -1536,12 +1536,12 @@ Eterm erts_maps_put(Process *p, Eterm key, Eterm value, Eterm map) {
 	n = flatmap_get_size(mp);
 
 	if (n == 0) {
-	    hp    = HAlloc(p, MAP_HEADER_SIZE + 1 + 2);
+	    hp    = HAlloc(p, MAP_HEADER_FLATMAP_SZ + 1 + 2);
 	    tup   = make_tuple(hp);
 	    *hp++ = make_arityval(1);
 	    *hp++ = key;
 	    res   = make_flatmap(hp);
-	    *hp++ = MAP_HEADER;
+	    *hp++ = MAP_HEADER_FLATMAP;
 	    *hp++ = 1;
 	    *hp++ = tup;
 	    *hp++ = value;
@@ -1556,10 +1556,10 @@ Eterm erts_maps_put(Process *p, Eterm key, Eterm value, Eterm map) {
 	 * assume key-tuple will be intact
 	 */
 
-	hp  = HAlloc(p, MAP_HEADER_SIZE + n);
+	hp  = HAlloc(p, MAP_HEADER_FLATMAP_SZ + n);
 	shp = hp; /* save hp, used if optimistic update fails */
 	res = make_flatmap(hp);
-	*hp++ = MAP_HEADER;
+	*hp++ = MAP_HEADER_FLATMAP;
 	*hp++ = n;
 	*hp++ = mp->keys;
 
@@ -1591,7 +1591,7 @@ Eterm erts_maps_put(Process *p, Eterm key, Eterm value, Eterm map) {
 	/* the map will grow */
 
 	if (n >= MAP_SMALL_MAP_LIMIT) {
-	    HRelease(p, shp + MAP_HEADER_SIZE + n, shp);
+	    HRelease(p, shp + MAP_HEADER_FLATMAP_SZ + n, shp);
 	    ks = flatmap_get_keys(mp);
 	    vs = flatmap_get_values(mp);
 
@@ -1608,7 +1608,7 @@ Eterm erts_maps_put(Process *p, Eterm key, Eterm value, Eterm map) {
 
 	hp    = HAlloc(p, 3 + n + 1);
 	res   = make_flatmap(hp);
-	*hp++ = MAP_HEADER;
+	*hp++ = MAP_HEADER_FLATMAP;
 	*hp++ = n + 1;
 	*hp++ = tup;
 
@@ -2258,10 +2258,10 @@ unroll:
 	ks    = hp;
 	hp   += n;
 	mp    = (flatmap_t*)hp;
-	hp   += MAP_HEADER_SIZE;
+	hp   += MAP_HEADER_FLATMAP_SZ;
 	vs    = hp;
 
-	mp->thing_word = MAP_HEADER;
+	mp->thing_word = MAP_HEADER_FLATMAP;
 	mp->size = n;
 	mp->keys = keys;
 
