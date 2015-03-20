@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2013. All Rights Reserved.
+%% Copyright Ericsson AB 2013-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -171,6 +171,9 @@
            [[{suspect, 2}]]],
           [[x],
            [[{open, 0}]]]},
+         {pool_size,
+          [[1], [100]],
+          [[0], [infinity], [-1], [x]]},
          {private,
           [[x]],
           []},
