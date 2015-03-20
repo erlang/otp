@@ -217,12 +217,14 @@
     </func>
     <func>
       <name name="now_diff" arity="2"/>
-      <fsummary>Calculate time difference between <c>now/0</c>timestamps</fsummary>
+      <fsummary>Calculate time difference between timestamps</fsummary>
       <type_desc variable="Tdiff">In microseconds</type_desc>
       <desc>
         <p>Calculates the time difference <c><anno>Tdiff</anno> = <anno>T2</anno> - <anno>T1</anno></c> in
-          <em>microseconds</em>, where <c><anno>T1</anno></c> and <c><anno>T2</anno></c> probably
-          are timestamp tuples returned from <c>erlang:now/0</c>.</p>
+        <em>microseconds</em>, where <c><anno>T1</anno></c> and <c><anno>T2</anno></c>
+        are timestamp tuples on the same format as returned from
+	<seealso marker="erts:erlang#timestamp/0"><c>erlang:timestamp/0</c></seealso>,
+	or <seealso marker="kernel:os#timestamp/0"><c>os:timestamp/0</c></seealso>.</p>
       </desc>
     </func>
     <func>
@@ -234,7 +236,7 @@
     </func>
     <func>
       <name name="minutes" arity="1"/>
-      <fsummary>Converts <c>Minutes</c>to <c>Milliseconds</c>.</fsummary>
+      <fsummary>Converts <c>Minutes</c> to <c>Milliseconds</c>.</fsummary>
       <desc>
         <p>Return the number of milliseconds in <c><anno>Minutes</anno></c>.</p>
       </desc>

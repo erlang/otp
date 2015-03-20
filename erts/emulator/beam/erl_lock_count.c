@@ -104,11 +104,10 @@ static void lcnt_clear_stats(erts_lcnt_lock_stats_t *stats) {
 }
 
 static void lcnt_time(erts_lcnt_time_t *time) {
-#if 0 || defined(HAVE_GETHRTIME)
-    SysHrTime hr_time;
-    hr_time  = sys_gethrtime();
-    time->s  = (unsigned long)(hr_time / 1000000000LL);
-    time->ns = (unsigned long)(hr_time - 1000000000LL*time->s);
+#if 0 || defined(ERTS_HAVE_OS_MONOTONIC_TIME_SUPPORT)
+    ErtsMonotonicTime mtime = ERTS_MONOTONIC_TO_NSEC(erts_os_monotonic_time());
+    time->s  = (unsigned long) (mtime / 1000000000LL);
+    time->ns = (unsigned long) (mtime - 1000000000LL*time->s);
 #else
   SysTimeval tv;
   sys_gettimeofday(&tv);

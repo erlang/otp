@@ -952,6 +952,36 @@
     </div>
   </xsl:template>
 
+  <!-- Do -->
+  <xsl:template match="do">
+    <xsl:param name="chapnum"/>
+    <div class="do">
+      <div class="label">Do</div>
+      <div class="content">
+        <p>
+          <xsl:apply-templates>
+            <xsl:with-param name="chapnum" select="$chapnum"/>
+          </xsl:apply-templates>
+        </p>
+      </div>
+    </div>
+  </xsl:template>
+
+  <!-- Dont -->
+  <xsl:template match="dont">
+    <xsl:param name="chapnum"/>
+    <div class="dont">
+      <div class="label">Don't</div>
+      <div class="content">
+        <p>
+          <xsl:apply-templates>
+            <xsl:with-param name="chapnum" select="$chapnum"/>
+          </xsl:apply-templates>
+        </p>
+      </div>
+    </div>
+  </xsl:template>
+
  <!-- Paragraph -->
   <xsl:template match="p">
     <p>

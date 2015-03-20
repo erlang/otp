@@ -930,8 +930,9 @@ random_time(Retries, _Counter0) ->
     
     case get(random_seed) of
 	undefined ->
-	    {X, Y, Z} = erlang:now(), %% time()
-	    _ = random:seed(X, Y, Z),
+	    _ = random:seed(erlang:unique_integer(),
+			    erlang:monotonic_time(),
+			    erlang:unique_integer()),
 	    Time = Dup + random:uniform(MaxIntv),
 	    %%	    dbg_out("---random_test rs ~w max ~w val ~w---~n", [Retries, MaxIntv, Time]),
 	    Time;

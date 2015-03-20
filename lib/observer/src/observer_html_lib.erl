@@ -155,7 +155,7 @@ all_or_expand(_Tab,Term,Str,false)
     href_proc_port(lists:flatten(Str));
 all_or_expand(Tab,Term,Preview,true)
   when not is_binary(Term) ->
-    Key = {Key1,Key2,Key3} = now(),
+    Key = {Key1,Key2,Key3} = {erlang:unique_integer([positive]),1,2},
     ets:insert(Tab,{Key,Term}),
     [href_proc_port(lists:flatten(Preview), false), $\n,
      href("TARGET=\"expanded\"",

@@ -213,15 +213,25 @@ do {									\
     if ((M)->data.attached) {						\
 	Uint need__ = erts_msg_attached_data_size((M));			\
  	if ((ST) - (HT) >= need__) {					\
-	    Uint *htop__ = (HT);					\
+	    Uint *htop__;						\
+	move__attached__msg__data____:					\
+	    htop__ = (HT);						\
 	    erts_move_msg_attached_data_to_heap(&htop__, &MSO((P)), (M));\
 	    ASSERT(htop__ - (HT) <= need__);				\
 	    (HT) = htop__;						\
 	}								\
 	else {								\
+	    int off_heap_msgs__ = (int) (P)->flags & F_OFF_HEAP_MSGS;	\
+	    if (!off_heap_msgs__)					\
+		need__ = 0;						\
 	    { SWPO ; }							\
-	    (FC) -= erts_garbage_collect((P), 0, NULL, 0);		\
+	    (FC) -= erts_garbage_collect((P), need__, NULL, 0);		\
 	    { SWPI ; }							\
+	    if (off_heap_msgs__) {					\
+		ASSERT((M)->data.attached);				\
+		ASSERT((ST) - (HT) >= need__);				\
+		goto move__attached__msg__data____;			\
+	    }								\
 	}								\
 	ASSERT(!(M)->data.attached);					\
     }									\

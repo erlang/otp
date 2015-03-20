@@ -120,9 +120,6 @@
 /*
  * For erl_time_sup
  */
-#define HAVE_GETHRTIME
-
-#define sys_init_hrtime() /* Nothing */
 
 #define SYS_CLK_TCK 1000
 #define SYS_CLOCK_RESOLUTION 1
@@ -164,18 +161,58 @@ typedef struct {
 #if defined (__GNUC__)
 typedef unsigned long long Uint64;
 typedef long long          Sint64;
+#  ifdef ULLONG_MAX
+#    define ERTS_UINT64_MAX ULLONG_MAX
+#  endif
+#  ifdef LLONG_MAX
+#    define ERTS_SINT64_MAX LLONG_MAX
+#  endif
+#  ifdef LLONG_MIN
+#    define ERTS_SINT64_MIN LLONG_MIN
+#  endif
 
-typedef long long SysHrTime;
+typedef long long ErtsMonotonicTime;
 #else
 typedef ULONGLONG Uint64;
 typedef LONGLONG  Sint64;
 
-typedef LONGLONG SysHrTime;
+typedef LONGLONG ErtsMonotonicTime;
 #endif
 
-extern int sys_init_time(void);
+#define ERTS_MONOTONIC_TIME_MIN (((ErtsMonotonicTime) 1) << 63)
+#define ERTS_MONOTONIC_TIME_MAX (~ERTS_MONOTONIC_TIME_MIN)
+
+#define ERTS_HAVE_OS_MONOTONIC_TIME_SUPPORT 1
+#define ERTS_COMPILE_TIME_MONOTONIC_TIME_UNIT 0
+
+struct erts_sys_time_read_only_data__ {
+    ErtsMonotonicTime (*os_monotonic_time)(void);
+};
+
+typedef struct {
+    union {
+	struct erts_sys_time_read_only_data__ o;
+	char align__[(((sizeof(struct erts_sys_time_read_only_data__) - 1)
+		       / ASSUMED_CACHE_LINE_SIZE) + 1)
+		     * ASSUMED_CACHE_LINE_SIZE];
+    } r;
+} ErtsSysTimeData__;
+
+extern ErtsSysTimeData__ erts_sys_time_data__;
+
+ERTS_GLB_INLINE ErtsMonotonicTime erts_os_monotonic_time(void);
+
+#if ERTS_GLB_INLINE_INCL_FUNC_DEF
+
+ERTS_GLB_INLINE ErtsMonotonicTime
+erts_os_monotonic_time(void)
+{
+    return (*erts_sys_time_data__.r.o.os_monotonic_time)();
+}
+
+#endif /* ERTS_GLB_INLINE_INCL_FUNC_DEF */
+
 extern void sys_gettimeofday(SysTimeval *tv);
-extern SysHrTime sys_gethrtime(void);
 extern clock_t sys_times(SysTimes *buffer);
 
 extern char *win_build_environment(char *);

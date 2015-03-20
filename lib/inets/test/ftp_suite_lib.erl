@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2005-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2015. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -29,6 +29,7 @@
 % -export([init_per_testcase/2, end_per_testcase/2]).
 
 -compile(export_all).
+-compile([{nowarn_deprecated_function,{erlang,now,0}}]).
 
 
 -record(progress, {
@@ -1352,9 +1353,15 @@ do_delete(Pid, Config) ->
     ok.
 
 do_mkdir(Pid) ->
-    {A, B, C} = erlang:now(),
-    NewDir = "nisse_" ++ integer_to_list(A) ++ "_" ++
-	integer_to_list(B) ++ "_" ++ integer_to_list(C),
+    %% Adapt to OTP 18 erlang time API and be backwards compatible
+    NewDir = try
+                 "earl_" ++ integer_to_list(erlang:unique_integer([positive]))
+             catch
+                 error:undef ->
+                     {A, B, C} = erlang:now(),
+                     "nisse_" ++ integer_to_list(A) ++ "_" ++
+                         integer_to_list(B) ++ "_" ++ integer_to_list(C)
+             end,
     ok = ftp:cd(Pid, "incoming"),
     {ok, CurrDir} = ftp:pwd(Pid),
     {error, efnamena} = ftp:mkdir(Pid, NewDir++"\r\nCWD ."),

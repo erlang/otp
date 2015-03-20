@@ -368,7 +368,7 @@ create_schema(_Ns, Reason) ->
     {error, Reason}.
 
 mk_str() ->
-    Now = [integer_to_list(I) || I <- tuple_to_list(now())],
+    Now = integer_to_list(erlang:unique_integer([positive])),
     lists:concat([node()] ++ Now ++ ".TMP").
 
 make_initial_backup(Ns, Opaque, Mod) ->

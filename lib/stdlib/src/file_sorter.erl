@@ -1425,8 +1425,8 @@ tmp_prefix1(Dir, TmpDirOpt) ->
     U = "_",
     Node = node(),
     Pid = os:getpid(),
-    {MSecs,Secs,MySecs} = now(),
-    F = lists:concat(["fs_",Node,U,Pid,U,MSecs,U,Secs,U,MySecs,"."]),
+    Unique = erlang:unique_integer([positive]),
+    F = lists:concat(["fs_",Node,U,Pid,U,Unique,"."]),
     TmpDir = case TmpDirOpt of
                  default ->
                      Dir;

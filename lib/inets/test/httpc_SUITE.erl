@@ -31,6 +31,7 @@
 -include("httpc_internal.hrl").
 %% Note: This directive should only be used in test suites.
 -compile(export_all).
+-compile([{nowarn_deprecated_function,{erlang,now,0}}]).
 
 -define(URL_START, "http://").
 -define(TLS_URL_START, "https://").
@@ -1933,12 +1934,19 @@ run_clients(NumClients, ServerPort, SeqNumServer) ->
 wait4clients([], _Timeout) ->
     ok;
 wait4clients(Clients, Timeout) when Timeout > 0 ->
-    Time = now_ms(),
+    %% Adapt to OTP 18 erlang time API and be backwards compatible
+    Time = try
+                 erlang:monotonic_time()
+             catch
+                 error:undef ->
+                     %% Use Erlang system time as monotonic time
+                     erlang:now()
+             end,
     receive
 	{'DOWN', _MRef, process, Pid, normal} ->
 	    {value, {Id, _, _}} = lists:keysearch(Pid, 2, Clients),
 	    NewClients = lists:keydelete(Id, 1, Clients),
-	    wait4clients(NewClients, Timeout - (now_ms() - Time));
+	    wait4clients(NewClients, Timeout - inets_lib:millisec_passed(Time));
 	{'DOWN', _MRef, process, Pid, Reason} ->
 	    {value, {Id, _, _}} = lists:keysearch(Pid, 2, Clients),
 	    ct:fail({bad_client_termination, Id, Reason})
@@ -2031,14 +2039,16 @@ parse_connection_type(Request) ->
 	"keep-alive" -> keep_alive
     end.
 
-%% Time in milli seconds
-now_ms() ->
-    {A,B,C} = erlang:now(),
-    A*1000000000+B*1000+(C div 1000).
-
 set_random_seed() ->
-    {_, _, Micros} = now(),
-    A = erlang:phash2([make_ref(), self(), Micros]),
+    %% Adapt to OTP 18 erlang time API and be backwards compatible
+    Unique = try
+	erlang:unique_integer()
+    catch
+	error:undef ->
+	    {MS, S, US} = erlang:now(),
+	    (MS*1000000+S)*1000000+US
+    end,
+    A = erlang:phash2([make_ref(), self(), Unique]),
     random:seed(A, A, A).
 
 

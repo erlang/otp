@@ -724,6 +724,117 @@ esac
 ])# AC_C_DOUBLE_MIDDLE_ENDIAN
 
 
+AC_DEFUN(ERL_MONOTONIC_CLOCK,
+[
+  AC_CACHE_CHECK([for clock_gettime() with monotonic clock type], erl_cv_clock_gettime_monotonic,
+  [
+     for clock_type in CLOCK_HIGHRES CLOCK_MONOTONIC CLOCK_MONOTONIC_PRECISE; do
+       AC_TRY_COMPILE([
+#include <time.h>
+		      ],
+		      [
+    struct timespec ts;
+    long long result;
+    clock_gettime($clock_type,&ts);
+    result = ((long long) ts.tv_sec) * 1000000000LL + 
+    ((long long) ts.tv_nsec);
+		      ],
+		      erl_cv_clock_gettime_monotonic=$clock_type,
+		      erl_cv_clock_gettime_monotonic=no)
+       test $erl_cv_clock_gettime_monotonic = no || break
+     done
+  ])
+  
+  AC_CHECK_FUNC(clock_getres)
+
+  AC_CHECK_FUNC(gethrtime)
+  
+  AC_CACHE_CHECK([for mach clock_get_time()], erl_cv_mach_clock_get_time,
+  [
+     AC_TRY_COMPILE([
+#include <mach/clock.h>
+#include <mach/mach.h>
+			],
+	 		[
+    kern_return_t res;
+    clock_serv_t clk_srv;
+    mach_timespec_t time_spec;
+
+    host_get_clock_service(mach_host_self(), SYSTEM_CLOCK, &clk_srv);
+    res = clock_get_time(clk_srv, &time_spec);
+    mach_port_deallocate(mach_task_self(), clk_srv);
+    			],
+    			erl_cv_mach_clock_get_time=yes,
+			erl_cv_mach_clock_get_time=no)
+  ])
+  
+  case $erl_cv_clock_gettime_monotonic-$ac_cv_func_gethrtime-$erl_cv_mach_clock_get_time-$host_os in
+    *-*-*-win32)
+      erl_monotonic_clock_func=GetTickCount
+      ;;
+    CLOCK_*-*-*-linux*)
+      if test X$cross_compiling != Xyes; then
+        linux_kernel_vsn_=`uname -r`
+        case $linux_kernel_vsn_ in
+          [[0-1]].*|2.[[0-5]]|2.[[0-5]].*)
+            erl_monotonic_clock_func=times
+	    ;;
+          *)
+            erl_monotonic_clock_func=clock_gettime
+	    ;;
+        esac
+      else
+        case X$erl_xcomp_linux_clock_gettime_correction in
+          X)
+	    AC_MSG_WARN([result clock_gettime guessed because of cross compilation])
+            erl_monotonic_clock_func=clock_gettime
+	    ;;
+          Xyes|Xno)
+            if test $erl_xcomp_linux_clock_gettime_correction = yes; then
+              erl_monotonic_clock_func=clock_gettime
+            else
+              erl_monotonic_clock_func=times
+            fi
+	    ;;
+          *)
+            AC_MSG_ERROR([Bad erl_xcomp_linux_clock_gettime_correction value: $erl_xcomp_linux_clock_gettime_correction])
+	    ;;
+        esac
+      fi
+      ;;
+    no-no-no-linux*)
+      erl_monotonic_clock_func=times
+      ;;
+    CLOCK_*-*-*-*)
+      erl_monotonic_clock_func=clock_gettime
+      ;;
+    no-yes-*-*)
+      erl_monotonic_clock_func=gethrtime
+      ;;
+    no-no-yes-*)
+      erl_monotonic_clock_func=mach_clock_get_time
+      ;;
+    no-no-no-*)
+      erl_monotonic_clock_func=none
+      ;;
+  esac
+
+  erl_monotonic_clock_lib=
+  erl_monotonic_clock_id=
+  case $erl_monotonic_clock_func in
+    clock_gettime)
+      erl_monotonic_clock_id="$erl_cv_clock_gettime_monotonic"
+      AC_CHECK_LIB(rt, clock_gettime, [erl_monotonic_clock_lib="-lrt"])
+      ;;
+    mach_clock_get_time)
+      erl_monotonic_clock_id=SYSTEM_CLOCK
+      ;;
+    *)
+      ;;
+  esac
+ 
+])
+
 dnl ----------------------------------------------------------------------
 dnl
 dnl LM_CHECK_THR_LIB
@@ -1016,12 +1127,32 @@ AC_ARG_WITH(with_sparc_memory_order,
 LM_CHECK_THR_LIB
 ERL_INTERNAL_LIBS
 
+ERL_MONOTONIC_CLOCK
+
+case $erl_monotonic_clock_func in
+  clock_gettime)
+    AC_DEFINE(ETHR_HAVE_CLOCK_GETTIME_MONOTONIC, [1], [Define if you have a clock_gettime() with a monotonic clock])
+    ;;
+  mach_clock_get_time)
+    AC_DEFINE(ETHR_HAVE_MACH_CLOCK_GET_TIME, [1], [Define if you have a mach clock_get_time() with a monotonic clock])
+    ;;
+  gethrtime)
+    AC_DEFINE(ETHR_HAVE_GETHRTIME, [1], [Define if you have a monotonic gethrtime()])
+    ;;
+  *)
+    ;;
+esac
+
+if test "x$erl_monotonic_clock_id" != "x"; then
+    AC_DEFINE_UNQUOTED(ETHR_MONOTONIC_CLOCK_ID, [$erl_monotonic_clock_id], [Define to the monotonic clock id to use])
+fi
+
 ethr_have_native_atomics=no
 ethr_have_native_spinlock=no
 ETHR_THR_LIB_BASE="$THR_LIB_NAME"
 ETHR_THR_LIB_BASE_TYPE="$THR_LIB_TYPE"
 ETHR_DEFS="$THR_DEFS"
-ETHR_X_LIBS="$THR_LIBS $ERTS_INTERNAL_X_LIBS"
+ETHR_X_LIBS="$THR_LIBS $ERTS_INTERNAL_X_LIBS $erl_monotonic_clock_lib"
 ETHR_LIBS=
 ETHR_LIB_NAME=
 
@@ -1328,6 +1459,50 @@ case "$THR_LIB_NAME" in
 	AC_CHECK_FUNC(pthread_attr_setguardsize, \
 			AC_DEFINE(ETHR_HAVE_PTHREAD_ATTR_SETGUARDSIZE, 1, \
 [Define if you have the pthread_attr_setguardsize function.]))
+
+	if test "x$erl_monotonic_clock_id" != "x"; then
+	  AC_MSG_CHECKING(whether pthread_cond_timedwait() can use the monotonic clock $erl_monotonic_clock_id for timeout)
+	  pthread_cond_timedwait_monotonic=no
+	  AC_TRY_LINK([
+			#if defined(ETHR_NEED_NPTL_PTHREAD_H)
+			#  include <nptl/pthread.h>
+			#elif defined(ETHR_HAVE_MIT_PTHREAD_H)
+			#  include <pthread/mit/pthread.h>
+			#elif defined(ETHR_HAVE_PTHREAD_H)
+			#  include <pthread.h>
+			#endif
+			#ifdef ETHR_TIME_WITH_SYS_TIME
+			#  include <time.h>
+			#  include <sys/time.h>
+			#else
+			#  ifdef ETHR_HAVE_SYS_TIME_H
+			#    include <sys/time.h>
+			#  else
+			#    include <time.h>
+			#  endif
+			#endif
+			#if defined(ETHR_HAVE_MACH_CLOCK_GET_TIME)
+			#  include <mach/clock.h>
+			#  include <mach/mach.h>
+			#endif
+			], 
+			[
+			int res;
+			pthread_condattr_t attr;
+			pthread_cond_t cond;
+			struct timespec cond_timeout;
+			pthread_mutex_t mutex;
+			res = pthread_condattr_init(&attr);
+			res = pthread_condattr_setclock(&attr, ETHR_MONOTONIC_CLOCK_ID);
+			res = pthread_cond_init(&cond, &attr);
+			res = pthread_cond_timedwait(&cond, &mutex, &cond_timeout);
+			],
+			[pthread_cond_timedwait_monotonic=yes])
+	  AC_MSG_RESULT([$pthread_cond_timedwait_monotonic])
+	  if test $pthread_cond_timedwait_monotonic = yes; then
+	    AC_DEFINE(ETHR_HAVE_PTHREAD_COND_TIMEDWAIT_MONOTONIC, [1], [Define if pthread_cond_timedwait() can be used with a monotonic clock])
+	  fi
+	fi
 
 	linux_futex=no
 	AC_MSG_CHECKING([for Linux futexes])
@@ -1709,7 +1884,6 @@ AC_SUBST(ETHR_X86_SSE2_ASM)
 ])
 
 
-
 dnl ----------------------------------------------------------------------
 dnl
 dnl ERL_TIME_CORRECTION
@@ -1725,93 +1899,33 @@ dnl work...
 dnl
 
 AC_DEFUN(ERL_TIME_CORRECTION,
-[if test x$ac_cv_func_gethrtime = x; then
-  AC_CHECK_FUNC(gethrtime)
-fi
-if test x$clock_gettime_correction = xunknown; then
-	AC_TRY_COMPILE([#include <time.h>],
-			[struct timespec ts;
-     			 long long result;
-			 clock_gettime(CLOCK_MONOTONIC,&ts);
-                         result = ((long long) ts.tv_sec) * 1000000000LL + 
-			 ((long long) ts.tv_nsec);],
-			clock_gettime_compiles=yes,
-			clock_gettime_compiles=no)
-else
-	clock_gettime_compiles=no
-fi
-			
-
-AC_CACHE_CHECK([how to correct for time adjustments], erl_cv_time_correction,
 [
-case $clock_gettime_correction in
-    yes)
-	erl_cv_time_correction=clock_gettime;;	
-    no|unknown)
-	case $ac_cv_func_gethrtime in
-  	    yes)
-    		erl_cv_time_correction=hrtime ;;
-  	    no)
-    		case $host_os in
-        	    linux*)
-			case $clock_gettime_correction in
-			    unknown)
-				if test x$clock_gettime_compiles = xyes; then
-				    if test X$cross_compiling != Xyes; then
-				    	linux_kernel_vsn_=`uname -r`
-				    	case $linux_kernel_vsn_ in
-					    [[0-1]].*|2.[[0-5]]|2.[[0-5]].*)
-					    	erl_cv_time_correction=times ;;
-					    *)
-					    	erl_cv_time_correction=clock_gettime;;
-				    	esac
-				    else
-					case X$erl_xcomp_linux_clock_gettime_correction in
-					    X)
-						erl_cv_time_correction=cross;;
-					    Xyes|Xno)
-						if test $erl_xcomp_linux_clock_gettime_correction = yes; then
-						    erl_cv_time_correction=clock_gettime
-						else
-					    	    erl_cv_time_correction=times
-						fi;;
-					    *)
-						AC_MSG_ERROR([Bad erl_xcomp_linux_clock_gettime_correction value: $erl_xcomp_linux_clock_gettime_correction]);;
-					esac
-				    fi
-				else
-				    erl_cv_time_correction=times
-				fi
-				;;
-			     *)				
-        			erl_cv_time_correction=times ;;
-			esac
-			;;
-            	    *)
-        		erl_cv_time_correction=none ;;
-    		esac
-    		;;
-	esac
-	;;
-esac
-])
 
-xrtlib=""
-case $erl_cv_time_correction in
+ERL_MONOTONIC_CLOCK
+
+case $erl_monotonic_clock_func in
   times)
-    AC_DEFINE(CORRECT_USING_TIMES,[],
-	[Define if you do not have a high-res. timer & want to use times() instead])
+    AC_DEFINE(OS_MONOTONIC_TIME_USING_TIMES, [1], [Define if you want to implement erts_os_monotonic_time() using times()])
     ;;
-  clock_gettime|cross)
-    if test $erl_cv_time_correction = cross; then
-	erl_cv_time_correction=clock_gettime
-	AC_MSG_WARN([result clock_gettime guessed because of cross compilation])
-    fi
-    xrtlib="-lrt"
-    AC_DEFINE(GETHRTIME_WITH_CLOCK_GETTIME,[1],
-	[Define if you want to use clock_gettime to simulate gethrtime])
+  mach_clock_get_time)
+    AC_DEFINE(OS_MONOTONIC_TIME_USING_MACH_CLOCK_GET_TIME, [1], [Define if you want to implement erts_os_monotonic_time() using mach clock_get_time()])
+    ;;
+  clock_gettime)
+    AC_DEFINE(OS_MONOTONIC_TIME_USING_CLOCK_GETTIME, [1], [Define if you want to implement erts_os_monotonic_time() using clock_gettime()])
+    ;;
+  gethrtime)
+    AC_DEFINE(OS_MONOTONIC_TIME_USING_GETHRTIME,  [1], [Define if you want to implement erts_os_monotonic_time() using gethrtime()])
+    ;;
+  *)
     ;;
 esac
+
+xrtlib="$erl_monotonic_clock_lib"
+if test "x$erl_monotonic_clock_id" != "x"; then
+    AC_DEFINE_UNQUOTED(MONOTONIC_CLOCK_ID_STR, ["$erl_monotonic_clock_id"], [Define as a string of monotonic clock id to use])
+    AC_DEFINE_UNQUOTED(MONOTONIC_CLOCK_ID, [$erl_monotonic_clock_id], [Define to monotonic clock id to use])
+fi
+
 dnl
 dnl Check if gethrvtime is working, and if to use procfs ioctl
 dnl or (yet to be written) write to the procfs ctl file.
@@ -1884,6 +1998,7 @@ case X$erl_xcomp_gethrvtime_procfs_ioctl in
 esac
 ])
 
+LIBRT=$xrtlib
 case $erl_gethrvtime in
   procfs_ioctl)
 	AC_DEFINE(HAVE_GETHRVTIME_PROCFS_IOCTL,[1],
@@ -1950,15 +2065,13 @@ case $erl_gethrvtime in
 		cross)
 			erl_clock_gettime_cpu_time=no
 			AC_MSG_WARN([result no guessed because of cross compilation])
-			LIBRT=$xrtlib
 			;;
 		*)
-			LIBRT=$xrtlib
 			;;
 	esac
-	AC_SUBST(LIBRT)
 	;;
 esac
+AC_SUBST(LIBRT)
 ])dnl
 
 dnl ----------------------------------------------------------------------

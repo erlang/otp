@@ -21,6 +21,7 @@
 #define __BIF_H__
 
 extern Export* erts_format_cpu_topology_trap;
+extern Export *erts_convert_time_unit_trap;
 
 #define BIF_RETTYPE Eterm
 

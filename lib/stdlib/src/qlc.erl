@@ -2764,8 +2764,8 @@ tmp_filename(TmpDirOpt) ->
     U = "_",
     Node = node(),
     Pid = os:getpid(),
-    {MSecs,Secs,MySecs} = erlang:now(),
-    F = lists:concat([?MODULE,U,Node,U,Pid,U,MSecs,U,Secs,U,MySecs]),
+    Unique = erlang:unique_integer(),
+    F = lists:concat([?MODULE,U,Node,U,Pid,U,Unique]),
     TmpDir = case TmpDirOpt of
                  "" ->
                      {ok, CurDir} = file:get_cwd(),

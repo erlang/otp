@@ -114,11 +114,6 @@
 /*
  * Make sure that MAXPATHLEN is defined.
  */
-#ifdef GETHRTIME_WITH_CLOCK_GETTIME
-#undef HAVE_GETHRTIME
-#define HAVE_GETHRTIME 1
-#endif
-
 #ifndef MAXPATHLEN
 #   ifdef PATH_MAX
 #       define MAXPATHLEN PATH_MAX
@@ -160,33 +155,112 @@ typedef struct timeval SysTimeval;
 
 typedef struct tms SysTimes;
 
-extern int erts_ticks_per_sec;
-
-#define SYS_CLK_TCK (erts_ticks_per_sec)
+#define SYS_CLK_TCK (erts_sys_time_data__.r.o.ticks_per_sec)
 
 #define sys_times(Arg) times(Arg)
 
-#define ERTS_WRAP_SYS_TIMES 1
-extern int erts_ticks_per_sec_wrap;
-#define SYS_CLK_TCK_WRAP (erts_ticks_per_sec_wrap)
-extern clock_t sys_times_wrap(void);
+#if SIZEOF_LONG == 8
+typedef long ErtsMonotonicTime;
+#elif SIZEOF_LONG_LONG == 8
+typedef long long ErtsMonotonicTime;
+#else
+#error No signed 64-bit type found...
+#endif
 
-#ifdef HAVE_GETHRTIME
-#ifdef GETHRTIME_WITH_CLOCK_GETTIME
-typedef long long SysHrTime;
+#define ERTS_MONOTONIC_TIME_MIN (((ErtsMonotonicTime) 1) << 63)
+#define ERTS_MONOTONIC_TIME_MAX (~ERTS_MONOTONIC_TIME_MIN)
 
-extern SysHrTime sys_gethrtime(void);
-#define sys_init_hrtime() /* Nothing */
+/*
+ * OS monotonic time
+ */
 
-#else /* Real gethrtime (Solaris) */
+/*
+ * Most common with os monotonic time using nano second
+ * time unit. These defines are modified below if this
+ * isn't the case...
+ */
+#define ERTS_HAVE_OS_MONOTONIC_TIME_SUPPORT 1
+#define ERTS_COMPILE_TIME_MONOTONIC_TIME_UNIT (1000*1000*1000)
 
-typedef hrtime_t SysHrTime;
+#undef ERTS_OS_MONOTONIC_INLINE_FUNC_PTR_CALL__
+#undef ERTS_HAVE_CORRECTED_OS_MONOTONIC
 
-#define sys_gethrtime() gethrtime()
-#define sys_init_hrtime() /* Nothing */
+#if defined(OS_MONOTONIC_TIME_USING_CLOCK_GETTIME)
 
-#endif /* GETHRTIME_WITH_CLOCK_GETTIME */
-#endif /* HAVE_GETHRTIME */
+#if defined(__linux__)
+
+#define ERTS_HAVE_CORRECTED_OS_MONOTONIC 1
+#define ERTS_OS_MONOTONIC_INLINE_FUNC_PTR_CALL__ 1
+
+#else /* !defined(__linux__) */
+
+ErtsMonotonicTime erts_os_monotonic_time(void);
+
+#endif /* !defined(__linux__) */
+
+#elif defined(OS_MONOTONIC_TIME_USING_GETHRTIME)
+
+#define erts_os_monotonic() ((ErtsMonotonicTime) gethrtime())
+
+#elif defined(OS_MONOTONIC_TIME_USING_MACH_CLOCK_GET_TIME) \
+    || defined(OS_MONOTONIC_TIME_USING_TIMES)
+
+#if defined(OS_MONOTONIC_TIME_USING_TIMES)
+#  undef ERTS_COMPILE_TIME_MONOTONIC_TIME_UNIT
+#  define ERTS_COMPILE_TIME_MONOTONIC_TIME_UNIT (1000*1000)
+#  define ERTS_HAVE_ERTS_OS_TIME_OFFSET_FINALIZE 1
+void erts_os_time_offset_finalize(void);
+#  define ERTS_HAVE_ERTS_OS_MONOTONIC_TIME_INIT
+void erts_os_monotonic_time_init(void);
+#endif
+
+ErtsMonotonicTime erts_os_monotonic_time(void);
+
+#else /* No OS monotonic available... */
+
+#undef ERTS_HAVE_OS_MONOTONIC_TIME_SUPPORT
+#undef ERTS_COMPILE_TIME_MONOTONIC_TIME_UNIT
+#define ERTS_COMPILE_TIME_MONOTONIC_TIME_UNIT (1000*1000)
+
+#endif
+
+struct erts_sys_time_read_only_data__ {
+#ifdef ERTS_OS_MONOTONIC_INLINE_FUNC_PTR_CALL__
+    ErtsMonotonicTime (*os_monotonic_time)(void);
+#endif
+    int ticks_per_sec;
+};
+
+typedef struct {
+    union {
+	struct erts_sys_time_read_only_data__ o;
+	char align__[(((sizeof(struct erts_sys_time_read_only_data__) - 1)
+		       / ASSUMED_CACHE_LINE_SIZE) + 1)
+		     * ASSUMED_CACHE_LINE_SIZE];
+    } r;
+} ErtsSysTimeData__;
+
+extern ErtsSysTimeData__ erts_sys_time_data__;
+
+#ifdef ERTS_OS_MONOTONIC_INLINE_FUNC_PTR_CALL__
+
+ERTS_GLB_INLINE ErtsMonotonicTime erts_os_monotonic_time(void);
+
+#if ERTS_GLB_INLINE_INCL_FUNC_DEF
+
+ERTS_GLB_INLINE ErtsMonotonicTime
+erts_os_monotonic_time(void)
+{
+    return (*erts_sys_time_data__.r.o.os_monotonic_time)();
+}
+
+#endif /* ERTS_GLB_INLINE_INCL_FUNC_DEF */
+
+#endif /* ERTS_OS_MONOTONIC_INLINE_FUNC_PTR_CALL__ */
+
+/*
+ *
+ */
 
 #if (defined(HAVE_GETHRVTIME) || defined(HAVE_CLOCK_GETTIME_CPU_TIME))
 typedef long long SysCpuTime;

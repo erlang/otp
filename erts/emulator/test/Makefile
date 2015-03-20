@@ -108,6 +108,7 @@ MODULES= \
 	trace_call_time_SUITE \
 	scheduler_SUITE \
 	old_scheduler_SUITE \
+	unique_SUITE \
 	z_SUITE \
 	old_mod \
 	long_timers_test \

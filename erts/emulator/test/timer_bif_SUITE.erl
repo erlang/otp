@@ -238,6 +238,7 @@ cleanup(Config) when is_list(Config) ->
     ?line wait_until(fun () -> process_is_cleaned_up(P1) end),
     ?line T1 = erlang:start_timer(10000, P1, "hej"),
     ?line T2 = erlang:send_after(10000, P1, "hej"),
+    receive after 1000 -> ok end,
     ?line Mem = mem(),
     ?line false = erlang:read_timer(T1),
     ?line false = erlang:read_timer(T2),
@@ -250,6 +251,7 @@ cleanup(Config) when is_list(Config) ->
     ?line true = is_integer(erlang:read_timer(T3)),
     ?line true = is_integer(erlang:read_timer(T4)),
     ?line wait_until(fun () -> process_is_cleaned_up(P2) end),
+    receive after 1000 -> ok end,
     ?line false = erlang:read_timer(T3),
     ?line false = erlang:read_timer(T4),
     ?line Mem = mem(),
@@ -455,10 +457,18 @@ registered_process(Config) when is_list(Config) ->
     ?line ok.
 
 mem() ->
-    AA = erlang:system_info(allocated_areas),
-    {value,{bif_timer,Mem}} = lists:keysearch(bif_timer, 1, AA),
-    Mem.
-
+    TSrvs = erts_internal:get_bif_timer_servers(),
+    lists:foldl(fun (Tab, Sz) ->
+			case lists:member(ets:info(Tab, owner), TSrvs) of
+			    true ->
+				ets:info(Tab, memory) + Sz;
+			    false ->
+				Sz
+			end
+		end,
+		0,
+		ets:all())*erlang:system_info({wordsize,external}).
+					    
 process_is_cleaned_up(P) when is_pid(P) ->
     undefined == erts_debug:get_internal_state({process_status, P}).
 

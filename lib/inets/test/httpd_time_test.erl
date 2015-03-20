@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2001-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -18,6 +18,7 @@
 %%
 %%
 -module(httpd_time_test).
+-compile([{nowarn_deprecated_function,{erlang,now,0}}]).
 
 -export([t/3, t1/2, t2/2, t4/2]).
 
@@ -116,13 +117,22 @@ main(N, SocketType, Host, Port, Time)
 loop(Pollers, Timeout) ->
     d("loop -> entry when"
       "~n   Timeout: ~p", [Timeout]),
-    Start = t(), 
+    %% Adapt to OTP 18 erlang time API and be backwards compatible
+    Start = try
+                erlang:monotonic_time(1000)
+            catch
+                error:undef ->
+                    %% Use Erlang system time as monotonic time
+                    {A,B,C} = erlang:now(),
+                    A*1000000000+B*1000+(C div 1000)
+            end,
+
     receive 
 	{'EXIT', Pid, {poller_stat_failure, SocketType, Host, Port, Time, Reason}} ->
 	    case is_poller(Pid, Pollers) of
 		true ->
 		    error_msg("received unexpected exit from poller ~p~n"
-			      "befor completion of test "
+			      "before completion of test "
 			      "after ~p micro sec"
 			      "~n   SocketType: ~p"
 			      "~n   Host:       ~p"
@@ -133,7 +143,7 @@ loop(Pollers, Timeout) ->
 		false ->
 		    error_msg("received unexpected ~p from ~p"
 			      "befor completion of test", [Reason, Pid]),
-		    loop(Pollers, to(Timeout, Start))
+		    loop(Pollers, Timeout - inets_lib:millisec_passed(Start))
 	    end;
 
 	{poller_stat_failure, Pid, {SocketType, Host, Port, Time, Reason}} ->
@@ -412,35 +422,6 @@ validate(ExpStatusCode, _SocketType, _Socket, Response) ->
     end.
 
 
-trash_the_rest(Socket, N) ->
-    receive
-	{ssl, Socket, Trash} ->
-            trash_the_rest(Socket, add(N,sz(Trash)));
-	{ssl_closed, Socket} ->
-	    N;
-	{ssl_error, Socket, Error} ->
-	    exit({connection_error, Error});
-	
-        {tcp, Socket, Trash} ->
-            trash_the_rest(Socket, add(N,sz(Trash)));
-        {tcp_closed, Socket} ->
-            N;
-	{tcp_error, Socket, Error} ->
-	    exit({connection_error, Error})
-
-    after 10000 ->
-            exit({connection_timed_out, N})
-    end.
-
-
-add(N1,N2) when is_integer(N1) andalso is_integer(N2) ->
-    N1 + N2;
-add(N1,_) when is_integer(N1) ->
-    N1;
-add(_,N2) when is_integer(N2) ->
-    N2.
-
-
 sz(L) when is_list(L) ->
     length(lists:flatten(L));
 sz(B) when is_binary(B) ->
@@ -502,17 +483,6 @@ status_to_message(503) -> "Section 10.5.4: Service Unavailable";
 status_to_message(504) -> "Section 10.5.5: Gateway Time-out";
 status_to_message(505) -> "Section 10.5.6: HTTP Version not supported";
 status_to_message(Code) -> io_lib:format("Unknown status code: ~p",[Code]).
-
-%% ----------------------------------------------------------------
-
-to(To, Start) ->
-    To - (t() - Start).
-
-%% Time in milli seconds
-t() ->
-    {A,B,C} = erlang:now(),
-    A*1000000000+B*1000+(C div 1000).
-
 
 %% ----------------------------------------------------------------
 

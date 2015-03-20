@@ -26,6 +26,7 @@
 
 %% Note: This directive should only be used in test suites.
 -compile(export_all).
+-compile([{nowarn_deprecated_function,{erlang,now,0}}]).
 
 -define(NEWLINE, <<"\r\n">>).
 
@@ -763,9 +764,9 @@ ms_passed({_,_,_} = T0 ) ->
 
 ms_passed(T0) ->
     %% OTP 18
-    erlang:convert_time_resolution(erlang:monotonic_time() - T0,
-                                   erlang:time_resolution(),
-                                   1000000)/1000.
+    erlang:convert_time_unit(erlang:monotonic_time() - T0,
+			     native,
+			     micro_seconds)/1000.
 
 %%--------------------------------------------------------------------
 ssh_connect_negtimeout_parallel(Config) -> ssh_connect_negtimeout(Config,true).

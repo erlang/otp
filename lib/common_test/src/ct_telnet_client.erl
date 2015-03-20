@@ -391,7 +391,7 @@ cmd_dbg(Prefix,Cmd) ->
     end.
 
 timestamp() ->
-    {MS,S,US} = now(),
+    {MS,S,US} = os:timestamp(),
     {{Year,Month,Day}, {Hour,Min,Sec}} =
         calendar:now_to_local_time({MS,S,US}),
     MilliSec = trunc(US/1000),
