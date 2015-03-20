@@ -68,6 +68,7 @@
                         {'Vendor-Id', 0},
                         {'Product-Name', "Client"},
                         {'Auth-Application-Id', [0]},
+                        {string_decode, false},
                         {application, [{alias, common},
                                        {dictionary, diameter_gen_base_rfc6733},
                                        {module, client_cb}]}]).

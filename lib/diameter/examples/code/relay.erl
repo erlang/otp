@@ -49,6 +49,7 @@
                         {'Vendor-Id', 193},
                         {'Product-Name', "RelayAgent"},
                         {'Auth-Application-Id', [16#FFFFFFFF]},
+                        {string_decode, false},
                         {application, [{alias, relay},
                                        {dictionary, diameter_relay},
                                        {module, relay_cb}]}]).
