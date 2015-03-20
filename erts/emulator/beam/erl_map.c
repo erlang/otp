@@ -2549,19 +2549,24 @@ static int int_sqrt_ceiling(Uint x)
     }
 }
 
-Uint hashmap_over_estimated_heap_size(Uint n)
+Uint hashmap_over_estimated_heap_size(Uint k)
 {
-    /* n is nr of key-value pairs.
-       Average nr of nodes is about n/3.
-       Standard deviation is about sqrt(n)/3.
-       Assuming normal probability distribution,
-       we overestimate nr of nodes by 14 std.devs, which gives a probability
-       for overrun of 1.0e-49 (same magnitude as a git SHA1 collision).
+    /* k is nr of key-value pairs.
+       N(k) is expected nr of nodes in hamt.
+
+       Observation:
+       For uniformly distributed hash values, average of N varies between
+       0.3*k and 0.4*k (with a beautiful sine curve)
+       and standard deviation of N is about sqrt(k)/3.
+
+       Assuming normal probability distribution, we overestimate nr of nodes
+       by 15 std.devs above the average, which gives a probability for overrun
+       less than 1.0e-49 (same magnitude as a git SHA1 collision).
      */
-    Uint nodes = (n + int_sqrt_ceiling(n)*14) / 3;
-    return (n*2 +     /* leaf cons cells */
-	    n +       /* leaf list terms */
-	    nodes*2); /* headers + parent refs */
+    Uint max_nodes = 2*k/5 + (15/3)*int_sqrt_ceiling(k);
+    return (k*2 +     /* leaf cons cells */
+	    k +       /* leaf list terms */
+	    max_nodes*2); /* headers + parent boxed terms */
 }
 
 
