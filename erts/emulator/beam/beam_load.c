@@ -36,6 +36,7 @@
 #include "beam_catches.h"
 #include "erl_binary.h"
 #include "erl_zlib.h"
+#include "erl_map.h"
 
 #ifdef HIPE
 #include "hipe_bif0.h"
@@ -4048,6 +4049,22 @@ tuple_append_put(LoaderState* stp, GenOpArg Arity, GenOpArg Dst,
     }
     op->a[arity+2] = S;
     return op;
+}
+
+/*
+ * Predicate to test whether the given literal is an empty map.
+ */
+
+static int
+is_empty_map(LoaderState* stp, GenOpArg Lit)
+{
+    Eterm term;
+
+    if (Lit.type != TAG_q) {
+	return 0;
+    }
+    term = stp->literals[Lit.val].term;
+    return is_flatmap(term) && flatmap_get_size(flatmap_val(term)) == 0;
 }
 
 /*
