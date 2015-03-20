@@ -311,7 +311,12 @@
        is_integer(PN),
        0 =< PN,
        (T == tcp orelse T == sctp orelse T == udp),
-       (P == diameter orelse P == radius orelse P == 'tacacs+') ->
+       (P == diameter orelse P == radius orelse P == 'tacacs+'),
+       (P /= diameter orelse T /= udp) ->
+    #diameter_uri{port = PN0,
+                  transport = T0,
+                  protocol = P0}
+        = #diameter_uri{},
     iolist_to_binary([atom_to_list(Type), "://", DN,
                       ":", integer_to_list(PN),
                       ";transport=", atom_to_list(T),
