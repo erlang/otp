@@ -41,8 +41,9 @@
 
 %% User Events 
 -export([send/2, recv/3, close/1, shutdown/2,
-	 new_user/2, get_opts/2, set_opts/2, info/1, session_info/1, 
-	 peer_certificate/1, renegotiation/1, negotiated_next_protocol/1, prf/5	
+	 new_user/2, get_opts/2, set_opts/2, session_info/1, 
+	 peer_certificate/1, renegotiation/1, negotiated_next_protocol/1, prf/5,
+	 connection_information/1
 	]).
 
 -export([handle_session/6]).
@@ -161,6 +162,14 @@ recv(Pid, Length, Timeout) ->
     sync_send_all_state_event(Pid, {recv, Length, Timeout}).
 
 %%--------------------------------------------------------------------
+-spec connection_information(pid()) -> {ok, list()} | {error, reason()}.
+%%
+%% Description: Get the SNI hostname
+%%--------------------------------------------------------------------
+connection_information(Pid) when is_pid(Pid) ->
+    sync_send_all_state_event(Pid, connection_information).
+
+%%--------------------------------------------------------------------
 -spec close(pid()) -> ok | {error, reason()}.  
 %%
 %% Description:  Close an ssl connection
@@ -212,14 +221,6 @@ get_opts(ConnectionPid, OptTags) ->
 %%--------------------------------------------------------------------
 set_opts(ConnectionPid, Options) ->
     sync_send_all_state_event(ConnectionPid, {set_opts, Options}).
-
-%%--------------------------------------------------------------------
--spec info(pid()) ->  {ok, {atom(), tuple()}} | {error, reason()}. 
-%%
-%% Description:  Returns ssl protocol and cipher used for the connection
-%%--------------------------------------------------------------------
-info(ConnectionPid) ->
-    sync_send_all_state_event(ConnectionPid, info). 
 
 %%--------------------------------------------------------------------
 -spec session_info(pid()) -> {ok, list()} | {error, reason()}. 
@@ -826,13 +827,6 @@ handle_sync_event({prf, Secret, Label, Seed, WantedLength}, _, StateName,
 		error:Reason -> {error, Reason}
 	    end,
     {reply, Reply, StateName, State, get_timeout(State)};
-handle_sync_event(info, _, StateName, 
-		  #state{negotiated_version = Version,
-			 session = #session{cipher_suite = Suite}} = State) ->
-    
-    AtomVersion = tls_record:protocol_version(Version),
-    {reply, {ok, {AtomVersion, ssl:suite_definition(Suite)}},
-     StateName, State, get_timeout(State)};
 handle_sync_event(session_info, _, StateName, 
 		  #state{session = #session{session_id = Id,
 					    cipher_suite = Suite}} = State) ->
@@ -842,7 +836,10 @@ handle_sync_event(session_info, _, StateName,
 handle_sync_event(peer_certificate, _, StateName, 
 		  #state{session = #session{peer_certificate = Cert}} 
 		  = State) ->
-    {reply, {ok, Cert}, StateName, State, get_timeout(State)}.
+    {reply, {ok, Cert}, StateName, State, get_timeout(State)};
+handle_sync_event(connection_information, _, StateName, #state{sni_hostname = SNIHostname, session = #session{cipher_suite = CipherSuite}, negotiated_version = Version} = State) ->
+    {reply, {ok, [{protocol, tls_record:protocol_version(Version)}, {cipher_suite, ssl:suite_definition(CipherSuite)}, {sni_hostname, SNIHostname}]}, StateName, State, get_timeout(State)}.
+
 
 handle_info({ErrorTag, Socket, econnaborted}, StateName,  
 	    #state{socket = Socket, transport_cb = Transport,

@@ -80,7 +80,8 @@
 	  expecting_finished =                  false ::boolean(),
           next_protocol = undefined                   :: undefined | binary(),
 	  client_ecc,          % {Curves, PointFmt}
-	  tracker              :: pid() %% Tracker process for listen socket
+	  tracker              :: pid(), %% Tracker process for listen socket
+	  sni_hostname = undefined
 	 }).
 
 -define(DEFAULT_DIFFIE_HELLMAN_PARAMS,
