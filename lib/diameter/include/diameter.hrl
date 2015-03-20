@@ -39,7 +39,7 @@
 %%
 -record(diameter_event,
         {service,   %% name
-         info}).    %% tuple()
+         info}).    %% term()
 
 %% diameter_packet records are passed through the encode/decode
 %% interface supplied by a dictionary module configured on a Diameter
