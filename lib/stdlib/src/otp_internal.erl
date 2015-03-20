@@ -59,6 +59,11 @@ obsolete_1(erl_eval, arg_list, 3) ->
 obsolete_1(erlang, hash, 2) ->
     {deprecated, {erlang, phash2, 2}};
 
+obsolete_1(erlang, now, 0) ->
+    {deprecated,
+     "Deprecated BIF. See the \"Time and Time Correction in Erlang\" "
+     "chapter of the ERTS User's Guide for more information."};
+
 obsolete_1(calendar, local_time_to_universal_time, 1) ->
     {deprecated, {calendar, local_time_to_universal_time_dst, 1}};
 

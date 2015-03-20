@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -19,6 +19,7 @@
 %%
 
 -module(hdlt_random_html). 
+-compile([{nowarn_deprecated_function,{erlang,now,0}}]).
 -export([page/3]). 
 
 page(SessionID, _Env, Input) -> 
@@ -48,7 +49,15 @@ stop() ->
 ". 
  
 content(WorkSim, SzSim) ->  
-    {A, B, C} = now(),  
+    %% Adapt to OTP 18 erlang time API and be backwards compatible
+    {A, B, C} = try
+                    {erlang:phash2([node()]),
+                     erlang:monotonic_time(),
+                     erlang:unique_integer()}
+                catch
+                    error:undef ->
+                        erlang:now()
+                end,
     random:seed(A, B, C),  
     lists:sort([random:uniform(X) || X <- lists:seq(1, WorkSim)]),  
     lists:flatten(lists:duplicate(SzSim, "Dummy data ")). 

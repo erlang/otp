@@ -49,6 +49,7 @@
 #include "beam_bp.h"
 #include "erl_ptab.h"
 #include "erl_check_io.h"
+#include "erl_bif_unique.h"
 #ifdef HIPE
 #  include "hipe_mode_switch.h"
 #endif
@@ -4510,7 +4511,7 @@ erts_create_smp_ptimer(ErtsSmpPTimer **timer_ref,
     res->timer.timeout_func = timeout_func;
     res->timer.timer_ref = timer_ref;
     res->timer.id = id;
-    res->timer.tm.active = 0; /* MUST be initalized */
+    erts_init_timer(&res->timer.tm);
 
     ASSERT(!*timer_ref);
 
@@ -5087,8 +5088,8 @@ erts_smp_ensure_later_interval_acqb(erts_interval_t *icp, Uint64 ic)
  */
 Uint64 erts_timestamp_millis(void)
 {
-#ifdef HAVE_GETHRTIME
-    return (Uint64) (sys_gethrtime() / 1000000);
+#ifdef ERTS_HAVE_OS_MONOTONIC_TIME_SUPPORT
+    return ERTS_MONOTONIC_TO_MSEC(erts_os_monotonic_time());
 #else
     Uint64 res;
     SysTimeval tv;

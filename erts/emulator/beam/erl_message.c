@@ -994,7 +994,7 @@ erts_send_message(Process* sender,
 #endif
 	    );
         BM_SWAP_TIMER(send,system);
-    } else if (sender == receiver) {
+    } else if (sender == receiver && !(sender->flags & F_OFF_HEAP_MSGS)) {
 	/* Drop message if receiver has a pending exit ... */
 #ifdef ERTS_SMP
 	ErtsProcLocks need_locks = (~(*receiver_locks)

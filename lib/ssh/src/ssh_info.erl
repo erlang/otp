@@ -25,6 +25,7 @@
 -module(ssh_info).
 
 -compile(export_all).
+-compile([{nowarn_deprecated_function,{erlang,now,0}}]).
 
 print() ->
     try supervisor:which_children(ssh_sup)

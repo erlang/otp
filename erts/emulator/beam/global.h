@@ -348,8 +348,6 @@ extern Uint display_items;	/* no of items to display in traces etc */
 extern int erts_backtrace_depth;
 extern erts_smp_atomic32_t erts_max_gen_gcs;
 
-extern int erts_disable_tolerant_timeofday;
-
 extern int bif_reductions;      /* reductions + fcalls (when doing call_bif) */
 extern int stackdump_on_exit;
 
@@ -789,9 +787,6 @@ erts_bld_port_info(Eterm **hpp,
 void erts_bif_info_init(void);
 
 /* bif.c */
-Eterm erts_make_ref(Process *);
-Eterm erts_make_ref_in_buffer(Eterm buffer[REF_THING_SIZE]);
-void erts_make_ref_in_array(Uint32 ref[ERTS_MAX_REF_NUMBERS]);
 
 ERTS_GLB_INLINE Eterm
 erts_proc_store_ref(Process *c_p, Uint32 ref[ERTS_MAX_REF_NUMBERS]);
@@ -1310,7 +1305,9 @@ erts_alloc_message_heap_state(Uint size,
     state = erts_smp_atomic32_read_acqb(&receiver->state);
     if (statep)
 	*statep = state;
-    if (state & (ERTS_PSFLG_EXITING|ERTS_PSFLG_PENDING_EXIT))
+    if (state & (ERTS_PSFLG_OFF_HEAP_MSGS
+		 | ERTS_PSFLG_EXITING
+		 | ERTS_PSFLG_PENDING_EXIT))
 	goto allocate_in_mbuf;
 #endif
 
@@ -1330,7 +1327,9 @@ erts_alloc_message_heap_state(Uint size,
 	state = erts_smp_atomic32_read_nob(&receiver->state);
 	if (statep)
 	    *statep = state;
-	if ((state & (ERTS_PSFLG_EXITING|ERTS_PSFLG_PENDING_EXIT))
+	if ((state & (ERTS_PSFLG_OFF_HEAP_MSGS
+		      | ERTS_PSFLG_EXITING
+		      | ERTS_PSFLG_PENDING_EXIT))
 	    || (receiver->flags & F_DISABLE_GC)
 	    || HEAP_LIMIT(receiver) - HEAP_TOP(receiver) <= size) {
 	    /*

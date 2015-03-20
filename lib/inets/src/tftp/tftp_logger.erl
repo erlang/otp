@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2008-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2015. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -18,6 +18,7 @@
 %%
 %%
 -module(tftp_logger).
+-compile([{nowarn_deprecated_function,{erlang,now,0}}]).
 
 %%-------------------------------------------------------------------
 %% Interface
@@ -84,7 +85,13 @@ info_msg(Format, Data) ->
 %%-------------------------------------------------------------------
 
 add_timestamp(Format, Data) ->
-    Now = {_MegaSecs, _Secs, _MicroSecs} = erlang:now(),
+    %% Adapt to new OTP 18 erlang time API and be backwards compatible
+    Now = try
+              erlang:timestamp()
+          catch
+              error:undef ->
+                  erlang:now()
+          end,
     {{_Y, _Mo, _D}, {H, Mi, S}} = calendar:now_to_universal_time(Now),
     %% {"~p-~s-~sT~s:~s:~sZ,~6.6.0w tftp: " ++ Format ++ "\n", 
     %%  [Y, t(Mo), t(D), t(H), t(Mi), t(S), MicroSecs | Data]}.

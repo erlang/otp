@@ -252,10 +252,10 @@ ticker_init(Pid) ->
 ticker_loop(Pid, Time) ->
     receive after Time ->
         Pid ! {self(), redraw},
-        T0 = now(),
+        T0 = erlang:monotonic_time(),
         receive {Pid, ok} -> ok end,
-        T1 = now(),
-        D = timer:now_diff(T1, T0)/1000,
+        T1 = erlang:monotonic_time(),
+        D = erlang:convert_time_unit(T1-T0, native, milli_seconds),
         case round(40 - D) of
             Ms when Ms < 0 ->
                 %io:format("ticker: wait is   0 ms [fg ~7s ms] [fps ~7s]~n",

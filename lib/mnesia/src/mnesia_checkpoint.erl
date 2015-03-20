@@ -68,12 +68,12 @@
 -import(mnesia_lib, [add/2, del/2, set/2, unset/1]).
 -import(mnesia_lib, [dbg_out/2]).
 
--record(checkpoint_args, {name = {now(), node()},
+-record(checkpoint_args, {name = {erlang:unique_integer([positive]), node()},
 			  allow_remote = true,
 			  ram_overrides_dump = false,
 			  nodes = [],
 			  node = node(),
-			  now = now(),
+			  now,  %% unused
 			  cookie = ?unique_cookie,
 			  min = [],
 			  max = [],

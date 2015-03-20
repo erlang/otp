@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2011-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2011-2015. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -228,21 +228,24 @@ handle_trace({trace_ts, _Who, call,
                [_Sev, "stop trace", stop_trace, [stop_trace]]},
               Timestamp},
              {_, standard_io} = Fd) ->
-    (catch io:format(standard_io, "stop trace at ~s~n", [format_timestamp(Timestamp)])),
+    (catch io:format(standard_io, "stop trace at ~s~n",
+                     [inets_lib:format_timestamp(Timestamp)])),
     Fd;
 handle_trace({trace_ts, _Who, call,
               {?MODULE, report_event,
                [_Sev, "stop trace", stop_trace, [stop_trace]]},
               Timestamp},
              standard_io = Fd) ->
-    (catch io:format(Fd, "stop trace at ~s~n", [format_timestamp(Timestamp)])),
+    (catch io:format(Fd, "stop trace at ~s~n",
+                     [inets_lib:format_timestamp(Timestamp)])),
     Fd;
 handle_trace({trace_ts, _Who, call,
               {?MODULE, report_event,
                [_Sev, "stop trace", stop_trace, [stop_trace]]},
               Timestamp},
              {_Service, Fd}) ->
-    (catch io:format(Fd, "stop trace at ~s~n", [format_timestamp(Timestamp)])),
+    (catch io:format(Fd, "stop trace at ~s~n",
+                     [inets_lib:format_timestamp(Timestamp)])),
     (catch file:close(Fd)),
     closed_file;
 handle_trace({trace_ts, _Who, call,
@@ -250,7 +253,8 @@ handle_trace({trace_ts, _Who, call,
                [_Sev, "stop trace", stop_trace, [stop_trace]]},
               Timestamp},
              Fd) ->
-    (catch io:format(Fd, "stop trace at ~s~n", [format_timestamp(Timestamp)])),
+    (catch io:format(Fd, "stop trace at ~s~n",
+                     [inets_lib:format_timestamp(Timestamp)])),
     (catch file:close(Fd)),
     closed_file;
 handle_trace({trace_ts, Who, call,
@@ -280,7 +284,7 @@ print_inets_trace(Fd, Sev, Timestamp, Who, Label, Service, Content) ->
     do_print_inets_trace(Fd, Sev, Timestamp, Who, Label, Service, Content).
 
 do_print_inets_trace(Fd, Sev, Timestamp, Who, Label, Service, Content) ->
-    Ts = format_timestamp(Timestamp),
+    Ts = inets_lib:format_timestamp(Timestamp),
     io:format(Fd, "[inets ~w trace ~w ~w ~s] ~s "
               "~n   Content: ~p"
               "~n",
@@ -307,7 +311,7 @@ do_print_trace(Fd, {trace, Who, What, Where, Extra}) ->
               "~n", [Who, What, Where, Extra]);
 
 do_print_trace(Fd, {trace_ts, Who, What, Where, When}) ->
-    Ts = format_timestamp(When),
+    Ts = inets_lib:format_timestamp(When),
     io:format(Fd, "[trace ~s]"
               "~n   Who:   ~p"
               "~n   What:  ~p"
@@ -315,7 +319,7 @@ do_print_trace(Fd, {trace_ts, Who, What, Where, When}) ->
               "~n", [Ts, Who, What, Where]);
 
 do_print_trace(Fd, {trace_ts, Who, What, Where, Extra, When}) ->
-    Ts = format_timestamp(When),
+    Ts = inets_lib:format_timestamp(When),
     io:format(Fd, "[trace ~s]"
               "~n   Who:   ~p"
               "~n   What:  ~p"
@@ -330,7 +334,7 @@ do_print_trace(Fd, {seq_trace, What, Where}) ->
               "~n", [What, Where]);
 
 do_print_trace(Fd, {seq_trace, What, Where, When}) ->
-    Ts = format_timestamp(When),
+    Ts = inets_lib:format_timestamp(When),
     io:format(Fd, "[seq trace ~s]"
               "~n   What:       ~p"
               "~n   Where:      ~p"
@@ -343,15 +347,5 @@ do_print_trace(Fd, Trace) ->
     io:format(Fd, "[trace] "
               "~n   ~p"
               "~n", [Trace]).
-
-
-format_timestamp({_N1, _N2, N3} = Now) ->
-    {Date, Time}   = calendar:now_to_datetime(Now),
-    {YYYY,MM,DD}   = Date,
-    {Hour,Min,Sec} = Time,
-    FormatDate =
-        io_lib:format("~.4w:~.2.0w:~.2.0w ~.2.0w:~.2.0w:~.2.0w 4~w",
-                      [YYYY,MM,DD,Hour,Min,Sec,round(N3/1000)]),
-    lists:flatten(FormatDate).
 
 

@@ -24,7 +24,7 @@
 <!ENTITY % common.header SYSTEM "common.header.dtd" >
 %common.header;
 
-<!ELEMENT description         (%block;|quote|br|marker|warning|note)* >
+<!ELEMENT description         (%block;|quote|br|marker|warning|note|dont|do)* >
 <!ELEMENT funcs               (func)+ >
 <!ELEMENT func                (name+,type_desc*,fsummary,type?,desc?) >
 <!-- ELEMENT name is defined in each ref dtd -->
@@ -34,12 +34,12 @@
                                name_i CDATA #IMPLIED>
 <!ELEMENT v                   (#PCDATA) >
 <!ELEMENT d                   (#PCDATA|c|em)* >
-<!ELEMENT desc                (%block;|quote|br|marker|warning|note|anno)* >
+<!ELEMENT desc                (%block;|quote|br|marker|warning|note|dont|do|anno)* >
 <!ELEMENT authors             (aname,email)+ >
 <!ELEMENT aname               (#PCDATA) >
 <!ELEMENT email               (#PCDATA) >
 <!ELEMENT section             (marker*,title,(%block;|quote|br|marker|
-                               warning|note)*) >
+                               warning|note|dont|do)*) >
 <!ELEMENT datatypes           (datatype)+ >
 <!ELEMENT datatype            (name+,desc?) >
 <!ELEMENT type_desc           (#PCDATA) >

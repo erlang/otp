@@ -437,10 +437,8 @@ positive(X) ->
 %%
 %%  system_time() -> time in microseconds
 %%
-system_time() ->    
-    {M,S,U} = erlang:now(),
-    1000000 * (M*1000000 + S) + U.
-
+system_time() ->
+    erlang:monotonic_time(1000000).
 
 send([Pid, Msg]) ->
     Pid ! Msg.

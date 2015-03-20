@@ -232,7 +232,8 @@ bit_string(Rules, Opts) ->
     end.
 
 random_bits(N) ->
-    Seed = integer_to_list(erlang:phash2(erlang:now())),
+    Seed0 = {erlang:monotonic_time(),erlang:unique_integer()},
+    Seed = integer_to_list(erlang:phash2(Seed0)),
     random_bits(<<>>, N, Seed).
 
 random_bits(Bin, N, Seed) ->

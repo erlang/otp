@@ -36,6 +36,7 @@
 #include "erl_thr_progress.h"
 #include "dtrace-wrapper.h"
 #include "erl_process.h"
+#include "erl_bif_unique.h"
 #if defined(USE_DYNAMIC_TRACE) && (defined(USE_DTRACE) || defined(USE_SYSTEMTAP))
 #define HAVE_USE_DTRACE 1
 #endif

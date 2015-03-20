@@ -3273,9 +3273,9 @@ erts_sys_schedule_interrupt(int set)
 
 #ifdef ERTS_SMP
 void
-erts_sys_schedule_interrupt_timed(int set, erts_short_time_t msec)
+erts_sys_schedule_interrupt_timed(int set, ErtsMonotonicTime timeout_time)
 {
-    erts_check_io_interrupt_timed(set, msec);
+    erts_check_io_interrupt_timed(set, timeout_time);
 }
 #endif
 

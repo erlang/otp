@@ -1382,7 +1382,7 @@ lookup_config(Key,Config) ->
 
 %% timer:tc/3
 ts_tc(M, F, A) ->
-    Before = erlang:now(),
+    Before = erlang:monotonic_time(),
     Result = try
 		 apply(M, F, A)
 	     catch
@@ -1402,12 +1402,8 @@ ts_tc(M, F, A) ->
 			     {'EXIT',Reason}
 		     end
 	     end,
-    After = erlang:now(),
-    Elapsed =
-	(element(1,After)*1000000000000
-	 +element(2,After)*1000000+element(3,After)) -
-	(element(1,Before)*1000000000000
-	 +element(2,Before)*1000000+element(3,Before)),
+    After   = erlang:monotonic_time(),
+    Elapsed = erlang:convert_time_unit(After-Before, native, micro_seconds),
     {Elapsed, Result}.
 
 set_loc(Stk) ->
@@ -1826,7 +1822,7 @@ time_ms_check(Other) ->
 time_ms_apply(Func, TCPid, MultAndScale) ->
     {_,GL} = process_info(TCPid, group_leader),
     WhoAmI = self(),				% either TC or IO server
-    T0 = now(),
+    T0 = os:timestamp(),
     UserTTSup = 
 	spawn(fun() -> 
 		      user_timetrap_supervisor(Func, WhoAmI, TCPid,
@@ -1859,7 +1855,7 @@ user_timetrap_supervisor(Func, Spawner, TCPid, GL, T0, MultAndScale) ->
     receive
 	{UserTT,Result} ->
 	    demonitor(MonRef, [flush]),
-	    Elapsed = trunc(timer:now_diff(now(), T0) / 1000),
+	    Elapsed = trunc(timer:now_diff(os:timestamp(), T0) / 1000),
 	    try time_ms_check(Result) of
 		TimeVal ->
 		    %% this is the new timetrap value to set (return value
@@ -2382,9 +2378,8 @@ is_release_available(Release) ->
 %%
 
 run_on_shielded_node(Fun, CArgs) when is_function(Fun), is_list(CArgs) ->
-    {A,B,C} = now(),
-    Name = "shielded_node-" ++ integer_to_list(A) ++ "-" ++ integer_to_list(B)
-	++ "-" ++ integer_to_list(C),
+    Nr = erlang:unique_integer([positive]),
+    Name = "shielded_node-" ++ integer_to_list(Nr),
     Node = case start_node(Name, slave, [{args, "-hidden " ++ CArgs}]) of
 	       {ok, N} -> N;
 	       Err -> fail({failed_to_start_shielded_node, Err})
@@ -2443,9 +2438,8 @@ is_cover(Name) ->
 %% A filename of the form <Stem><Number> is generated, and the
 %% function checks that that file doesn't already exist.
 temp_name(Stem) ->
-    {A,B,C} = erlang:now(),
-    RandomNum = A bxor B bxor C,
-    RandomName = Stem ++ integer_to_list(RandomNum),
+    Num = erlang:unique_integer([positive]),
+    RandomName = Stem ++ integer_to_list(Num),
     {ok,Files} = file:list_dir(filename:dirname(Stem)),
     case lists:member(RandomName,Files) of
 	true ->
