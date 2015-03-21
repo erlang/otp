@@ -53,6 +53,7 @@
                         {'Vendor-Id', 193},
                         {'Product-Name', "Server"},
                         {'Auth-Application-Id', [0]},
+                        {restrict_connections, false},
                         {string_decode, false},
                         {application, [{alias, common},
                                        {dictionary, diameter_gen_base_rfc6733},
