@@ -765,8 +765,7 @@ erts_has_time_correction(void)
     return time_sup.r.o.correction;
 }
 
-void
-erts_early_init_time_sup(void)
+void erts_init_sys_time_sup(void)
 {
     ErtsSysInitTimeResult sys_init_time_res
 	= ERTS_SYS_INIT_TIME_RESULT_INITER;

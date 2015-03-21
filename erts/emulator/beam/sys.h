@@ -724,6 +724,7 @@ typedef struct {
 #define ERTS_SYS_INIT_TIME_RESULT_INITER \
     {0, (ErtsMonotonicTime) -1, (ErtsMonotonicTime) 1}
 
+extern void erts_init_sys_time_sup(void);
 extern void sys_init_time(ErtsSysInitTimeResult *);
 extern void erts_deliver_time(void);
 extern void erts_time_remaining(SysTimeval *);

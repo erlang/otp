@@ -532,11 +532,14 @@ thr_create_prepare_child(void *vtcdp)
 void
 erts_sys_pre_init(void)
 {
+#ifdef USE_THREADS
+    erts_thr_init_data_t eid = ERTS_THR_INIT_DATA_DEF_INITER;
+#endif
+
     erts_printf_add_cr_to_stdout = 1;
     erts_printf_add_cr_to_stderr = 1;
+
 #ifdef USE_THREADS
-    {
-    erts_thr_init_data_t eid = ERTS_THR_INIT_DATA_DEF_INITER;
 
     eid.thread_create_child_func = thr_create_prepare_child;
     /* Before creation in parent */
@@ -552,6 +555,12 @@ erts_sys_pre_init(void)
 #endif
 
     erts_thr_init(&eid);
+
+#endif /* USE_THREADS */
+
+    erts_init_sys_time_sup();
+
+#ifdef USE_THREADS
 
     report_exit_list = NULL;
 
@@ -569,7 +578,7 @@ erts_sys_pre_init(void)
     erts_cnd_init(&chld_stat_cnd);
     children_alive = 0;
 #endif
-    }
+
 #ifdef ERTS_SMP
     erts_smp_atomic32_init_nob(&erts_break_requested, 0);
     erts_smp_atomic32_init_nob(&erts_got_sigusr1, 0);
@@ -582,7 +591,9 @@ erts_sys_pre_init(void)
 #if !CHLDWTHR && !defined(ERTS_SMP)
     children_died = 0;
 #endif
+
 #endif /* USE_THREADS */
+
     erts_smp_atomic_init_nob(&sys_misc_mem_sz, 0);
 
     {

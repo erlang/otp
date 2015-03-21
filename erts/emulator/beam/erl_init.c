@@ -1171,7 +1171,6 @@ early_init(int *argc, char **argv) /*
 
     /* Creates threads on Windows that depend on the arguments, so has to be after erl_sys_args */
     erl_sys_init();
-    erts_early_init_time_sup();
 
     erts_ets_realloc_always_moves = 0;
     erts_ets_always_compress = 0;
