@@ -35,6 +35,7 @@
 -module(server).
 
 -export([start/1,    %% start a service
+         start/2,    %%
          listen/2,   %% add a listening transport
          stop/1]).   %% stop a service
 
@@ -63,10 +64,22 @@
 
 start(Name)
   when is_atom(Name) ->
-    node:start(Name, ?SERVICE(Name)).
+    start(Name, []);
+
+start(Opts)
+  when is_list(Opts) ->
+    start(?DEF_SVC_NAME, Opts).
+
+%% start/0
 
 start() ->
     start(?DEF_SVC_NAME).
+
+%% start/2
+
+start(Name, Opts) ->
+    node:start(Name, Opts ++ [T || {K,_} = T <- ?SERVICE(Name),
+                                   false == lists:keymember(K, 1, Opts)]).
 
 %% listen/2
 

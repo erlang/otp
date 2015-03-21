@@ -41,6 +41,7 @@
 -include_lib("diameter/include/diameter_gen_base_rfc6733.hrl").
 
 -export([start/1,     %% start a service
+         start/2,     %%
          connect/2,   %% add a connecting transport
          call/1,      %% send using the record encoding
          cast/1,      %% send using the list encoding and detached
@@ -77,10 +78,22 @@
 
 start(Name)
   when is_atom(Name) ->
-    node:start(Name, ?SERVICE(Name)).
+    start(Name, []);
+
+start(Opts)
+  when is_list(Opts) ->
+    start(?DEF_SVC_NAME, Opts).
+
+%% start/0
 
 start() ->
     start(?DEF_SVC_NAME).
+
+%% start/2
+
+start(Name, Opts) ->
+    node:start(Name, Opts ++ [T || {K,_} = T <- ?SERVICE(Name),
+                                   false == lists:keymember(K, 1, Opts)]).
 
 %% connect/2
 
