@@ -642,7 +642,9 @@ rcv('DPA' = N,
     diameter_peer:close(TPid),
     {stop, N};
 
-%% Ignore anything else, an unsolicited DPA in particular.
+%% Ignore anything else, an unsolicited DPA in particular. Note that
+%% dpa_timeout deals with the case in which the peer sends the wrong
+%% identifiers in DPA.
 rcv(N, #diameter_packet{header = H}, _)
   when N == 'CER';
        N == 'CEA';
@@ -820,7 +822,7 @@ build_answer(Type,
                               errors = Es}
              = Pkt,
              S) ->
-    {RC, FailedAVP} = result_code(H, Es),
+    {RC, FailedAVP} = result_code(Type, H, Es),
     {answer(Type, RC, FailedAVP, S), post(Type, RC, Pkt, S)}.
 
 inband_security([]) ->
@@ -889,6 +891,19 @@ set(['answer-message' | _] = Ans, FailedAvp) ->
     Ans ++ [{'AVP', [FailedAvp]}];
 set([_|_] = Ans, FailedAvp) ->
     Ans ++ FailedAvp.
+
+%% result_code/3
+
+%% Be lenient with errors in DPR since there's no reason to be
+%% otherwise. Rejecting may cause the peer to missinterpret the error
+%% as meaning that the connection should not be closed, which may well
+%% lead to more problems than any errors in the DPR.
+
+result_code('DPR', _, _) ->
+    {2001, []};
+
+result_code('CER', H, Es) ->
+    result_code(H, Es).
 
 %% result_code/2
 
