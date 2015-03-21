@@ -47,7 +47,7 @@
 -define(default_timeout, ?t:minutes(1)).
 
 init_per_testcase(_Case, Config) ->
-    ?line Dog=?t:timetrap(?default_timeout),
+    Dog=?t:timetrap(?default_timeout),
     [{watchdog, Dog}|Config].
 end_per_testcase(_Case, Config) ->
     Dog=?config(watchdog, Config),
@@ -72,8 +72,8 @@ not_started_func1(suite) ->
 not_started_func1(doc) ->
     ["Testing function 1 when application is not started"].
 not_started_func1(Config) when list(Config) ->
-    ?line {error, not_started} = myapp:func1(dummy_ref,1),
-    ?line {error, not_started} = myapp:func1(dummy_ref,2),
+    {error, not_started} = myapp:func1(dummy_ref,1),
+    {error, not_started} = myapp:func1(dummy_ref,2),
     ok.
 
 not_started_func2(suite) ->
@@ -81,8 +81,8 @@ not_started_func2(suite) ->
 not_started_func2(doc) ->
     ["Testing function 2 when application is not started"].
 not_started_func2(Config) when list(Config) ->
-    ?line {error, not_started} = myapp:func2(dummy_ref,1),
-    ?line {error, not_started} = myapp:func2(dummy_ref,2),
+    {error, not_started} = myapp:func2(dummy_ref,1),
+    {error, not_started} = myapp:func2(dummy_ref,2),
     ok.
 
 
@@ -90,7 +90,7 @@ not_started_func2(Config) when list(Config) ->
 start(doc) ->
     ["Testing start of my application."];
 start(Config) when list(Config) ->
-    ?line Ref = myapp:start(),
+    Ref = myapp:start(),
     case erlang:whereis(my_main_process) of
       Pid when pid(Pid) -> 
          [{myapp_ref,Ref}|Config];
@@ -105,9 +105,9 @@ func1(suite) ->
 func1(doc) ->
     ["Test that func1 returns ok when argument is 1 and error if argument is 2"];
 func1(Config) when list(Config) ->
-    ?line Ref = ?config(myapp_ref,Config),
-    ?line ok = myapp:func1(Ref,1),
-    ?line error = myapp:func1(Ref,2),
+    Ref = ?config(myapp_ref,Config),
+    ok = myapp:func1(Ref,1),
+    error = myapp:func1(Ref,2),
     ok.
 
 func2(suite) ->
@@ -115,17 +115,17 @@ func2(suite) ->
 func2(doc) ->
     ["Test that func1 returns ok when argument is 3 and error if argument is 4"];
 func2(Config) when list(Config) ->
-    ?line Ref = ?config(myapp_ref,Config),
-    ?line ok = myapp:func2(Ref,3),
-    ?line error = myapp:func2(Ref,4),
+    Ref = ?config(myapp_ref,Config),
+    ok = myapp:func2(Ref,3),
+    error = myapp:func2(Ref,4),
     ok.
 
 %% No specification clause needed for a cleanup function in a conf case!!!
 stop(doc) ->
     ["Testing termination of my application"];
 stop(Config) when list(Config) ->
-    ?line Ref = ?config(myapp_ref,Config),
-    ?line ok = myapp:stop(Ref),
+    Ref = ?config(myapp_ref,Config),
+    ok = myapp:stop(Ref),
     case erlang:whereis(my_main_process) of
       undefined -> 
          lists:keydelete(myapp_ref,1,Config);
