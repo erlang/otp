@@ -117,9 +117,14 @@
          transport    :: pid(),     %% transport process
          dictionary   :: module(),  %% common dictionary
          service      :: #diameter_service{},
-         dpr = false  :: false | {uint32(), uint32()}  %% set in old code
-                               | {boolean(), uint32(), uint32()},
-                            %% | hop by hop and end to end identifiers
+         dpr = false  :: false
+                       | true  %% DPR received, DPA sent
+                       | {uint32(), uint32()}  %% set in old code
+                       | {boolean(), uint32(), uint32()},
+                       %% hop by hop and end to end identifiers in
+                       %% outgoing DPR; boolean says whether or not
+                       %% the request was sent explicitly with
+                       %% diameter:call/4.
          length_errors :: exit | handle | discard}).
 
 %% There are non-3588 states possible as a consequence of 5.6.1 of the
@@ -550,13 +555,19 @@ recv(Bin, S) ->
 
 %% recv1/3
 
-%% Incoming request after DPR has been sent: discard. Don't discard
-%% DPR, so both ends don't do so when sending simultaneously.
+%% Incoming request after outgoing DPR: discard. Don't discard DPR, so
+%% both ends don't do so when sending simultaneously.
 recv1(Name,
       #diameter_packet{header = #diameter_header{is_request = true} = H},
       #state{dpr = {_,_,_}})
   when Name /= 'DPR' ->
-    invalid(false, recv_after_dpr, H);
+    invalid(false, recv_after_outgoing_dpr, H);
+
+%% Incoming request after incoming DPR: discard.
+recv1(_,
+      #diameter_packet{header = #diameter_header{is_request = true} = H},
+      #state{dpr = true}) ->
+    invalid(false, recv_after_incoming_dpr, H);
 
 %% DPA with identifier mismatch, or in response to a DPR initiated by
 %% the service.
@@ -707,8 +718,10 @@ outgoing(#diameter_packet{header = #diameter_header{application_id = 0,
     if T == false ->
             inform_dpr(Pid),
             send_dpr(true, Pkt, dpa_timeout(), S);
+       T == true ->
+            invalid(false, dpr_after_dpa, H);  %% DPA sent: discard
        true ->
-            invalid(false, dpr_after_dpr, H)  %% already sent: discard
+            invalid(false, dpr_after_dpr, H)   %% DPR sent: discard
     end;
 
 %% Explict CER or DWR: discard. These are sent by us.
@@ -851,7 +864,12 @@ cea(CEA, RC, Dict0) ->
 post('CER' = T, RC, Pkt, S) ->
     {T, caps(S), {RC, Pkt}};
 post('DPR', _, _, #state{parent = Pid}) ->
-    [fun(S) -> dpr_timer(), inform_dpr(Pid), S end].
+    [fun(S) -> dpr_timer(), inform_dpr(Pid), dpr(S) end].
+
+dpr(#state{dpr = false} = S) ->  %% not awaiting DPA
+    S#state{dpr = true};  %% DPR received
+dpr(S) ->  %% DPR already sent or received
+    S.
 
 inform_dpr(Pid) ->
     Pid ! {'DPR', self()}.  %% tell watchdog to die with us
@@ -1144,7 +1162,7 @@ close(Reason) ->
 
 %% dpr/2
 %%
-%% The RFC isn't clear on whether DPR should be send in a non-Open
+%% The RFC isn't clear on whether DPR should be sent in a non-Open
 %% state. The Peer State Machine transitions it documents aren't
 %% exhaustive (no Stop in Wait-I-CEA for example) so assume it's up to
 %% the implementation and transition to Closed (ie. die) if we haven't
@@ -1160,7 +1178,7 @@ dpr(Reason, #state{state = 'Open',
     Peer = {self(), Caps},
     dpr(CBs, [Reason, Ref, Peer], S);
 
-%% Connection is open, DPR already sent.
+%% Connection is open, DPR already sent or received.
 dpr(_, #state{state = 'Open'}) ->
     ok;
 
