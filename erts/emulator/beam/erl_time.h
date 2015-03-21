@@ -77,7 +77,6 @@ void erts_cancel_smp_ptimer(ErtsSmpPTimer *ptimer);
 void erts_monitor_time_offset(Eterm id, Eterm ref);
 int erts_demonitor_time_offset(Eterm ref);
 
-void erts_early_init_time_sup(void);
 void erts_late_init_time_sup(void);
 
 /* timer-wheel api */

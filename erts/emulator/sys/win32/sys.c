@@ -3157,25 +3157,31 @@ thr_create_prepare_child(void *vtcdp)
 void
 erts_sys_pre_init(void)
 {
+#ifdef USE_THREADS
+    erts_thr_init_data_t eid = ERTS_THR_INIT_DATA_DEF_INITER;
+#endif
     int_os_version.dwOSVersionInfoSize = sizeof(OSVERSIONINFO);
     GetVersionEx(&int_os_version);
     check_supported_os_version();
+
 #ifdef USE_THREADS
-    {
-	erts_thr_init_data_t eid = ERTS_THR_INIT_DATA_DEF_INITER;
+    eid.thread_create_child_func = thr_create_prepare_child;
+    /* Before creation in parent */
+    eid.thread_create_prepare_func = thr_create_prepare;
+    /* After creation in parent */
+    eid.thread_create_parent_func = thr_create_cleanup;
 
-	eid.thread_create_child_func = thr_create_prepare_child;
-	/* Before creation in parent */
-	eid.thread_create_prepare_func = thr_create_prepare;
-	/* After creation in parent */
-	eid.thread_create_parent_func = thr_create_cleanup,
+    erts_thr_init(&eid);
+#endif
 
-	erts_thr_init(&eid);
+    erts_init_sys_time_sup();
+
+#ifdef USE_THREADS
 #ifdef ERTS_ENABLE_LOCK_COUNT
-	erts_lcnt_init();
+    erts_lcnt_init();
 #endif
-    }
 #endif
+
     erts_smp_atomic_init_nob(&sys_misc_mem_sz, 0);
 }
 
