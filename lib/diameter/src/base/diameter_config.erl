@@ -534,6 +534,7 @@ opt({capabilities, Os}) ->
 
 opt({K, Tmo})
   when K == capx_timeout;
+       K == dpr_timeout;
        K == dpa_timeout ->
     ?IS_UINT32(Tmo);
 

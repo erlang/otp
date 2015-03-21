@@ -63,7 +63,8 @@
 %% Keys in process dictionary.
 -define(CB_KEY, cb).         %% capabilities callback
 -define(DPR_KEY, dpr).       %% disconnect callback
--define(DPA_KEY, dpa).       %% timeout for DPA reception
+-define(DPA_KEY, dpa).       %% timeout for incoming DPA, or shutdown after
+                             %% outgoing DPA
 -define(REF_KEY, ref).       %% transport_ref()
 -define(Q_KEY, q).           %% transport start queue
 -define(START_KEY, start).   %% start of connected transport
@@ -83,17 +84,25 @@
                      N == ?GOAWAY; N == goaway;
                      N == ?BUSY;   N == busy).
 
-%% RFC 3588:
+%% RFC 6733:
 %%
 %%   Timeout        An application-defined timer has expired while waiting
 %%                  for some event.
 %%
--define(EVENT_TIMEOUT, 10000).
-%% Default timeout for reception of CER/CEA.
 
-%% Default timeout for DPA in response to DPR. A bit short but the
-%% timeout used to be hardcoded. (So it could be worse.)
+%% Default timeout for reception of CER/CEA.
+-define(CAPX_TIMEOUT, 10000).
+
+%% Default timeout for DPA to be received in response to an outgoing
+%% DPR. A bit short but the timeout used to be hardcoded. (So it could
+%% be worse.)
 -define(DPA_TIMEOUT, 1000).
+
+%% Default timeout for the connection to be closed by the peer
+%% following an outgoing DPA in response to an incoming DPR. It's the
+%% recipient of DPA that should close the connection according to the
+%% RFC.
+-define(DPR_TIMEOUT, 5000).
 
 -type uint32() :: diameter:'Unsigned32'().
 
@@ -189,9 +198,10 @@ i({Ack, WPid, {M, Ref} = T, Opts, {Mask, Nodes, Dict0, Svc}}) ->
     putr(?REF_KEY, Ref),
     putr(?SEQUENCE_KEY, Mask),
     putr(?RESTRICT_KEY, Nodes),
-    putr(?DPA_KEY, proplists:get_value(dpa_timeout, Opts, ?DPA_TIMEOUT)),
+    putr(?DPA_KEY, {proplists:get_value(dpr_timeout, Opts, ?DPR_TIMEOUT),
+                    proplists:get_value(dpa_timeout, Opts, ?DPA_TIMEOUT)}),
 
-    Tmo = proplists:get_value(capx_timeout, Opts, ?EVENT_TIMEOUT),
+    Tmo = proplists:get_value(capx_timeout, Opts, ?CAPX_TIMEOUT),
     OnLengthErr = proplists:get_value(length_errors, Opts, exit),
 
     {TPid, Addrs} = start_transport(T, Rest, Svc),
@@ -416,7 +426,8 @@ transition({shutdown, Pid, Reason}, #state{parent = Pid, dpr = false} = S) ->
 transition({shutdown, Pid, _}, #state{parent = Pid}) ->
     ok;
 
-%% DPA reception has timed out.
+%% DPA reception has timed out, or peer has not closed the connection
+%% as a result of outgoing DPA.
 transition(dpa_timeout, _) ->
     stop;
 
@@ -840,7 +851,7 @@ cea(CEA, RC, Dict0) ->
 post('CER' = T, RC, Pkt, S) ->
     {T, caps(S), {RC, Pkt}};
 post('DPR', _, _, #state{parent = Pid}) ->
-    [fun(S) -> inform_dpr(Pid), S end].
+    [fun(S) -> dpr_timer(), inform_dpr(Pid), S end].
 
 inform_dpr(Pid) ->
     Pid ! {'DPR', self()}.  %% tell watchdog to die with us
@@ -1247,10 +1258,23 @@ dpa_timer(Tmo) ->
 dpa_timeout() ->
     dpa_timeout(getr(?DPA_KEY)).
 
-dpa_timeout(undefined) ->
+dpa_timeout({_, Tmo}) ->
+    Tmo;
+dpa_timeout(undefined) ->  %% set in old code
     ?DPA_TIMEOUT;
-dpa_timeout(Tmo) ->
+dpa_timeout(Tmo) ->        %% ditto
     Tmo.
+
+dpr_timer() ->
+    dpa_timer(dpr_timeout()).
+
+dpr_timeout() ->
+    dpr_timeout(getr(?DPA_KEY)).
+
+dpr_timeout({Tmo, _}) ->
+    Tmo;
+dpr_timeout(_) ->  %% set in old code
+    ?DPR_TIMEOUT.
 
 %% register_everywhere/1
 %%
