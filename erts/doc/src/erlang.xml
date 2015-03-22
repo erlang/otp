@@ -6449,6 +6449,15 @@ ok
 	      precision won't be higher than
 	      <c>OsMonotonicTimeResolution</c>.</p></item>
 
+	      <tag><c>{extended, Extended}</c></tag>
+	      <item><p><c>Extended</c> equals <c>yes</c> if
+	      the range of time values has been extended;
+	      otherwise, <c>Extended</c> equals <c>no</c>. The
+	      range needs to be extended if <c>Function</c>
+	      returns values that wrap fast. This typically
+	      is the case when the return value is a 32-bit
+	      value.</p></item>
+
 	      <tag><c>{parallel, Parallel}</c></tag>
 	      <item><p><c>Parallel</c> equals <c>yes</c> if
 	      <c>Function</c> is called in parallel from multiple

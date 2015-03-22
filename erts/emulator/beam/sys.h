@@ -692,6 +692,7 @@ typedef struct {
 	char *func;
 	char *clock_id;
 	int locked_use;
+	int extended;
     } os_monotonic_info;
 } ErtsSysInitTimeResult;
 
@@ -700,6 +701,7 @@ typedef struct {
 
 extern void erts_init_sys_time_sup(void);
 extern void sys_init_time(ErtsSysInitTimeResult *);
+extern void erts_late_sys_init_time(void);
 extern void erts_deliver_time(void);
 extern void erts_time_remaining(SysTimeval *);
 extern int erts_init_time_sup(int, ErtsTimeWarpMode);

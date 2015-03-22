@@ -206,12 +206,9 @@ ErtsMonotonicTime erts_os_monotonic_time(void);
     || defined(OS_MONOTONIC_TIME_USING_TIMES)
 
 #if defined(OS_MONOTONIC_TIME_USING_TIMES)
+/* Time unit determined at runtime... */
 #  undef ERTS_COMPILE_TIME_MONOTONIC_TIME_UNIT
-#  define ERTS_COMPILE_TIME_MONOTONIC_TIME_UNIT (1000*1000)
-#  define ERTS_HAVE_ERTS_OS_TIME_OFFSET_FINALIZE 1
-void erts_os_time_offset_finalize(void);
-#  define ERTS_HAVE_ERTS_OS_MONOTONIC_TIME_INIT
-void erts_os_monotonic_time_init(void);
+#  define ERTS_COMPILE_TIME_MONOTONIC_TIME_UNIT 0
 #endif
 
 ErtsMonotonicTime erts_os_monotonic_time(void);

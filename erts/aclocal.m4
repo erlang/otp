@@ -745,9 +745,7 @@ AC_DEFUN(ERL_MONOTONIC_CLOCK,
      done
   ])
   
-  AC_CHECK_FUNC(clock_getres)
-
-  AC_CHECK_FUNC(gethrtime)
+  AC_CHECK_FUNCS([clock_getres gethrtime])
   
   AC_CACHE_CHECK([for mach clock_get_time()], erl_cv_mach_clock_get_time,
   [

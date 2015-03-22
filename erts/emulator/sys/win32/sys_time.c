@@ -25,6 +25,7 @@
 #endif
 #include "sys.h"
 #include "assert.h"
+#include "erl_os_monotonic_time_extender.h"
 
 #define LL_LITERAL(X) ERTS_I64_LITERAL(X)
 
@@ -80,6 +81,10 @@ struct sys_time_internal_state_read_only__ {
     BOOL (WINAPI *pQueryPerformanceCounter)(LARGE_INTEGER *);
 };
 
+struct sys_time_internal_state_read_mostly__ {
+    ErtsOsMonotonicTimeExtendState os_mtime_xtnd;
+};
+
 struct sys_time_internal_state_write_freq__ {
     erts_smp_mtx_t mtime_mtx;
     ULONGLONG wrap;
@@ -93,6 +98,12 @@ __declspec(align(ASSUMED_CACHE_LINE_SIZE)) struct {
 		       / ASSUMED_CACHE_LINE_SIZE) + 1)
 		     * ASSUMED_CACHE_LINE_SIZE];
     } r;
+    union {
+	struct sys_time_internal_state_read_mostly__ m;
+	char align__[(((sizeof(struct sys_time_internal_state_read_mostly__) - 1)
+		       / ASSUMED_CACHE_LINE_SIZE) + 1)
+		     * ASSUMED_CACHE_LINE_SIZE];
+    } wr;
     union {
 	struct sys_time_internal_state_write_freq__ f;
 	char align__[(((sizeof(struct sys_time_internal_state_write_freq__) - 1)
@@ -114,29 +125,27 @@ os_monotonic_time_qpc(void)
     return (ErtsMonotonicTime) pc.QuadPart;
 }
 
+static Uint32
+get_tick_count(void)
+{
+    return (Uint32) GetTickCount();
+}
+
 static ErtsMonotonicTime
 os_monotonic_time_gtc32(void) 
 {
-    ULONGLONG res, ticks;
-
-    erts_smp_mtx_lock(&internal_state.w.f.mtime_mtx);
-
-    ticks = (ULONGLONG) (GetTickCount() & 0x7FFFFFFF);
-    if (ticks < internal_state.w.f.last_tick_count)
-	internal_state.w.f.wrap += (ULONGLONG) LL_LITERAL(1) << 31;
-    internal_state.w.f.last_tick_count = ticks;
-    res = ticks + internal_state.w.f.wrap;
-
-    erts_smp_mtx_unlock(&internal_state.w.f.mtime_mtx);
-
-    return (ErtsMonotonicTime) res*1000;
+    Uint32 ticks = (Uint32) GetTickCount();
+    ERTS_CHK_EXTEND_OS_MONOTONIC_TIME(&internal_state.wr.m.os_mtime_xtnd,
+				      tick_count);
+    return ERTS_EXTEND_OS_MONOTONIC_TIME(&internal_state.wr.m.os_mtime_xtnd,
+					 ticks) << 10;
 }
 
 static ErtsMonotonicTime
 os_monotonic_time_gtc64(void) 
 {
     ULONGLONG ticks = (*internal_state.r.o.pGetTickCount64)();
-    return (ErtsMonotonicTime) ticks*1000;
+    return (ErtsMonotonicTime) ticks << 10;
 }
 
 /*
@@ -163,9 +172,14 @@ sys_init_time(ErtsSysInitTimeResult *init_resp)
 
 	init_resp->os_monotonic_info.func = "GetTickCount";
 	init_resp->os_monotonic_info.locked_use = 1;
-	init_resp->os_monotonic_info.resolution = 1000;
-	time_unit = (ErtsMonotonicTime) 1000*1000;
+	/* 10-16 ms resolution according to MicroSoft documentation */
+	init_resp->os_monotonic_info.resolution = 100; /* 10 ms */
+	time_unit = (ErtsMonotonicTime) (1000 << 10);
 	os_mtime_func = os_monotonic_time_gtc32;
+	init_resp->os_monotonic_info.extended = 1;
+	erts_init_os_monotonic_time_extender(&internal_state.wr.m.os_mtime_xtnd,
+					     get_tick_count,
+					     60*60*24*7); /* Check once a week */
     }
     else {
 	int major, minor, build;
@@ -184,8 +198,9 @@ sys_init_time(ErtsSysInitTimeResult *init_resp)
 
 	    init_resp->os_monotonic_info.func = "GetTickCount64";
 	    init_resp->os_monotonic_info.locked_use = 0;
-	    init_resp->os_monotonic_info.resolution = 1000;
-	    time_unit = (ErtsMonotonicTime) 1000*1000;
+	    /* 10-16 ms resolution according to MicroSoft documentation */
+	    init_resp->os_monotonic_info.resolution = 100; /* 10 ms */
+	    time_unit = (ErtsMonotonicTime) (1000 << 10);
 	    os_mtime_func = os_monotonic_time_gtc64;
 	}
 	else { /* Vista or newer... */
@@ -233,6 +248,13 @@ sys_init_time(ErtsSysInitTimeResult *init_resp)
 	have_static_tzi = 1;
     }
 
+}
+
+void
+erts_late_sys_init_time(void)
+{
+    if (erts_sys_time_data__.r.o.os_monotonic_time == os_monotonic_time_gtc32)
+	erts_late_init_os_monotonic_time_extender(&internal_state.wr.m.os_mtime_xtnd);
 }
 
 /* Returns a switchtimes for DST as UTC filetimes given data from a 

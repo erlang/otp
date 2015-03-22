@@ -898,7 +898,8 @@ OS_OBJS +=	$(OBJDIR)/erl_mseg.o \
 		$(OBJDIR)/erl_mmap.o \
 		$(OBJDIR)/erl_$(ERLANG_OSTYPE)_sys_ddll.o \
 		$(OBJDIR)/erl_mtrace_sys_wrap.o \
-		$(OBJDIR)/erl_sys_common_misc.o
+		$(OBJDIR)/erl_sys_common_misc.o \
+		$(OBJDIR)/erl_os_monotonic_time_extender.o
 
 HIPE_ARCH64_OBJS=$(OBJDIR)/hipe_bif64.o
 

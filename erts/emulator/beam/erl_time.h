@@ -219,6 +219,10 @@ erts_time_unit_conversion(Uint64 value,
  * it is assumed (and need) to be a power of 10.
  */
 
+#if ERTS_COMPILE_TIME_MONOTONIC_TIME_UNIT < 1000*1000
+#  error Compile time time unit needs to be at least 1000000
+#endif
+
 #define ERTS_MONOTONIC_TIME_UNIT \
     ((ErtsMonotonicTime) ERTS_COMPILE_TIME_MONOTONIC_TIME_UNIT)
 
@@ -247,19 +251,6 @@ erts_time_unit_conversion(Uint64 value,
 #define ERTS_MSEC_TO_MONOTONIC__(MSEC) (((ErtsMonotonicTime) (MSEC))*1000)
 #define ERTS_USEC_TO_MONOTONIC__(USEC) ((ErtsMonotonicTime) (USEC))
 #define ERTS_NSEC_TO_MONOTONIC__(NSEC) (((ErtsMonotonicTime) (NSEC))/1000)
-
-#elif ERTS_COMPILE_TIME_MONOTONIC_TIME_UNIT == 1000
-/* Milli-second time unit */
-
-#define ERTS_MONOTONIC_TO_SEC__(MSEC) ((USEC)/(1000))
-#define ERTS_MONOTONIC_TO_MSEC__(MSEC) (MSEC)
-#define ERTS_MONOTONIC_TO_USEC__(MSEC) ((MSEC)*1000)
-#define ERTS_MONOTONIC_TO_NSEC__(MSEC) ((MSEC)*(1000*1000))
-
-#define ERTS_SEC_TO_MONOTONIC__(SEC) (((ErtsMonotonicTime) (SEC))*1000)
-#define ERTS_MSEC_TO_MONOTONIC__(MSEC) ((ErtsMonotonicTime) (MSEC))
-#define ERTS_USEC_TO_MONOTONIC__(USEC) (((ErtsMonotonicTime) (USEC))/1000)
-#define ERTS_NSEC_TO_MONOTONIC__(NSEC) (((ErtsMonotonicTime) (NSEC))/(1000*1000))
 
 #else
 #error Missing implementation for monotonic time unit

@@ -33,6 +33,7 @@
 
 #include "sys.h"
 #include "global.h"
+#include "erl_os_monotonic_time_extender.h"
 
 #ifdef NO_SYSCONF
 #  define TICKS_PER_SEC()	HZ
@@ -55,36 +56,19 @@
 
 #undef ERTS_SYS_TIME_INTERNAL_STATE_WRITE_FREQ__
 #undef ERTS_SYS_TIME_INTERNAL_STATE_READ_ONLY__
+#undef ERTS_SYS_TIME_INTERNAL_STATE_READ_MOSTLY__
 
 #if defined(OS_MONOTONIC_TIME_USING_TIMES)
 
-#define ERTS_WRAP_SYS_TIMES 1
-#define ERTS_SYS_TIME_INTERNAL_STATE_WRITE_FREQ__
+static Uint32
+get_tick_count(void)
+{
+    struct tms unused;
+    return (Uint32) times(&unused);
+}
+
 #define ERTS_SYS_TIME_INTERNAL_STATE_READ_ONLY__
-
-/*
- * Not sure there is a need to use times() anymore, perhaps drop
- * support for this soon...
- *
- * sys_times() might need to be wrapped and the values shifted (right)
- * a bit to cope with faster ticks, this has to be taken care 
- * of dynamically to start with, a special version that uses
- * the times() return value as a high resolution timer can be made
- * to fully utilize the faster ticks, like on windows, but for now, we'll
- * settle with this silly workaround
- */
-#ifdef ERTS_WRAP_SYS_TIMES
-static clock_t sys_times_wrap(void);
-#define KERNEL_TICKS() (sys_times_wrap() &  \
-			((1UL << ((sizeof(clock_t) * 8) - 1)) - 1)) 
-#define ERTS_KERNEL_TICK_TO_USEC(TCKS) (((TCKS)*(1000*1000)) \
-					/ internal_state.r.o.ticks_per_sec_wrap)
-#else
-
-#define KERNEL_TICKS() (sys_times(&internal_state.w.f.dummy_tms) &  \
-			((1UL << ((sizeof(clock_t) * 8) - 1)) - 1)) 
-#define ERTS_KERNEL_TICK_TO_USEC(TCKS) (((TCKS)*(1000*1000))/SYS_CLK_TCK)
-#endif
+#define ERTS_SYS_TIME_INTERNAL_STATE_READ_MOSTLY__
 
 #endif
 
@@ -109,8 +93,15 @@ ErtsMonotonicTime clock_gettime_monotonic_verified(void);
 #ifdef ERTS_SYS_TIME_INTERNAL_STATE_READ_ONLY__
 struct sys_time_internal_state_read_only__ {
 #if defined(OS_MONOTONIC_TIME_USING_TIMES)
-    int ticks_bsr;
-    int ticks_per_sec_wrap;
+    int times_shift;
+#endif
+};
+#endif
+
+#ifdef ERTS_SYS_TIME_INTERNAL_STATE_READ_MOSTLY__
+struct sys_time_internal_state_read_mostly__ {
+#if defined(OS_MONOTONIC_TIME_USING_TIMES)
+    ErtsOsMonotonicTimeExtendState os_mtime_xtnd;
 #endif
 };
 #endif
@@ -120,15 +111,6 @@ struct sys_time_internal_state_write_freq__ {
     erts_smp_mtx_t mtx;
 #if defined(__linux__) && defined(OS_MONOTONIC_TIME_USING_CLOCK_GETTIME)
     ErtsMonotonicTime last_delivered;
-#endif
-#if defined(OS_MONOTONIC_TIME_USING_TIMES)
-    ErtsMonotonicTime last_tick_count;
-    ErtsMonotonicTime last_tick_wrap_count;
-    ErtsMonotonicTime last_tick_monotonic_time;
-    ErtsMonotonicTime last_timeofday_usec;
-#ifndef ERTS_WRAP_SYS_TIMES 
-    SysTimes dummy_tms;
-#endif
 #endif
 };
 #endif
@@ -143,6 +125,14 @@ static struct {
 		       / ASSUMED_CACHE_LINE_SIZE) + 1)
 		     * ASSUMED_CACHE_LINE_SIZE];
     } r;
+#endif
+#ifdef ERTS_SYS_TIME_INTERNAL_STATE_READ_MOSTLY__
+    union {
+	struct sys_time_internal_state_read_mostly__ m;
+	char align__[(((sizeof(struct sys_time_internal_state_read_mostly__) - 1)
+		       / ASSUMED_CACHE_LINE_SIZE) + 1)
+		     * ASSUMED_CACHE_LINE_SIZE];
+    } wr;
 #endif
 #ifdef ERTS_SYS_TIME_INTERNAL_STATE_WRITE_FREQ__
     union {
@@ -193,8 +183,6 @@ sys_init_time(ErtsSysInitTimeResult *init_resp)
     init_resp->os_monotonic_info.func = "gethrtime";
 #elif defined(OS_MONOTONIC_TIME_USING_TIMES)
     init_resp->os_monotonic_info.func = "times";
-    init_resp->os_monotonic_info.locked_use = 1;
-    init_resp->os_monotonic_info.resolution = TICKS_PER_SEC();
 #else
 # error Unknown erts_os_monotonic_time() implementation
 #endif
@@ -247,7 +235,9 @@ sys_init_time(ErtsSysInitTimeResult *init_resp)
 
 #endif /* defined(ERTS_HAVE_OS_MONOTONIC_TIME_SUPPORT) */
 
+#ifdef ERTS_COMPILE_TIME_MONOTONIC_TIME_UNIT
     init_resp->os_monotonic_time_unit = ERTS_COMPILE_TIME_MONOTONIC_TIME_UNIT;
+#endif
     init_resp->sys_clock_resolution = SYS_CLOCK_RESOLUTION;
 
     /* 
@@ -258,36 +248,38 @@ sys_init_time(ErtsSysInitTimeResult *init_resp)
 	erl_exit(ERTS_ABORT_EXIT, "Can't get clock ticks/sec\n");
     
 #if defined(OS_MONOTONIC_TIME_USING_TIMES)
-
-    if (erts_sys_time_data__.r.o.ticks_per_sec >= 1000) {
-	/* Workaround for beta linux kernels, need to be done in runtime
-	   to make erlang run on both 2.4 and 2.5 kernels. In the future, 
-	   the kernel ticks might as 
-	   well be used as a high res timer instead, but that's for when the 
-	   majority uses kernels with HZ == 1024 */
-	internal_state.r.o.ticks_bsr = 3;
-    } else {
-	internal_state.r.o.ticks_bsr = 0;
-    }
-
-    internal_state.r.o.ticks_per_sec_wrap
-	= (erts_sys_time_data__.r.o.ticks_per_sec
-	   >> internal_state.r.o.ticks_bsr);
-
-    erts_smp_mtx_init(&internal_state.w.f.mtx, "os_monotonic_time");
-    internal_state.w.f.last_tick_count = KERNEL_TICKS();
-    internal_state.w.f.last_tick_wrap_count = 0;    
-    internal_state.w.f.last_tick_monotonic_time
-	= ERTS_KERNEL_TICK_TO_USEC(internal_state.w.f.last_tick_count);
+#if ERTS_COMPILE_TIME_MONOTONIC_TIME_UNIT
+#  error Time unit is supposed to be determined at runtime...
+#endif
     {
-	SysTimeval tv;
-	sys_gettimeofday(&tv);
-	internal_state.w.f.last_timeofday_usec = tv.tv_sec*(1000*1000);
-	internal_state.w.f.last_timeofday_usec += tv.tv_usec;
-    }
+	ErtsMonotonicTime resolution = erts_sys_time_data__.r.o.ticks_per_sec;
+	ErtsMonotonicTime time_unit = resolution;
+	int shift = 0;
 
+	while (time_unit < 1000*1000) {
+	    time_unit <<= 1;
+	    shift++;
+	}
+
+	init_resp->os_monotonic_info.resolution = resolution;
+	init_resp->os_monotonic_time_unit = time_unit;
+	init_resp->os_monotonic_info.extended = 1;
+	internal_state.r.o.times_shift = shift;
+
+	erts_init_os_monotonic_time_extender(&internal_state.wr.m.os_mtime_xtnd,
+					     get_tick_count,
+					     (1 << 29) / resolution);
+    }
 #endif /* defined(OS_MONOTONIC_TIME_USING_TIMES) */
 
+}
+
+void
+erts_late_sys_init_time(void)
+{
+#if defined(OS_MONOTONIC_TIME_USING_TIMES)
+    erts_late_init_os_monotonic_time_extender(&internal_state.wr.m.os_mtime_xtnd);
+#endif
 }
 
 #if defined(OS_MONOTONIC_TIME_USING_CLOCK_GETTIME)
@@ -379,86 +371,14 @@ ErtsMonotonicTime erts_os_monotonic_time(void)
 
 #elif defined(OS_MONOTONIC_TIME_USING_TIMES)
 
-static clock_t sys_times_wrap(void)
-{
-    SysTimes dummy;
-    clock_t result = (sys_times(&dummy) >> internal_state.r.o.ticks_bsr);
-    return result;
-}
-
-void
-erts_os_time_offset_finalize(void)
-{
-    erts_smp_mtx_lock(&internal_state.w.f.mtx);
-    internal_state.w.f.last_tick_wrap_count = 0;
-    erts_smp_mtx_unlock(&internal_state.w.f.mtx);
-}
-
-#define ERTS_TIME_EXCEED_TICK_LIMIT(SYS_TIME, TCK_TIME)			\
-    (((Uint64) (SYS_TIME)) - (((Uint64) (TCK_TIME))			\
-			      - ERTS_KERNEL_TICK_TO_USEC(1))		\
-     > ERTS_KERNEL_TICK_TO_USEC(2))
-
-/* Returns monotonic time in micro seconds */
 ErtsMonotonicTime
 erts_os_monotonic_time(void)
 {
-    SysTimeval tv;
-    ErtsMonotonicTime res;
-    ErtsMonotonicTime tick_count;
-    ErtsMonotonicTime tick_count_usec;
-    ErtsMonotonicTime tick_monotonic_time;
-    ErtsMonotonicTime timeofday_usec;
-    ErtsMonotonicTime timeofday_diff_usec;
-
-    erts_smp_mtx_lock(&internal_state.w.f.mtx);
-
-    tick_count = (ErtsMonotonicTime) KERNEL_TICKS();
-    sys_gettimeofday(&tv);
-
-    if (internal_state.w.f.last_tick_count > tick_count) {
-	internal_state.w.f.last_tick_wrap_count
-	    += (((ErtsMonotonicTime) 1) << ((sizeof(clock_t) * 8) - 1));
-    }
-    internal_state.w.f.last_tick_count = tick_count;
-    tick_count += internal_state.w.f.last_tick_wrap_count;
-
-    tick_count_usec = ERTS_KERNEL_TICK_TO_USEC(tick_count);
-
-    timeofday_usec = (ErtsMonotonicTime) tv.tv_sec*(1000*1000);
-    timeofday_usec += (ErtsMonotonicTime) tv.tv_usec;
-    timeofday_diff_usec = timeofday_usec;
-    timeofday_diff_usec -= internal_state.w.f.last_timeofday_usec;
-    internal_state.w.f.last_timeofday_usec = timeofday_usec;
-
-    if (timeofday_diff_usec < 0) {
-	/* timeofday jumped backwards use tick count only... */
-	tick_monotonic_time = tick_count_usec;
-    }
-    else {
-	/* Use time diff from of timeofday if not off by too much... */
-	tick_monotonic_time = internal_state.w.f.last_tick_monotonic_time;
-	tick_monotonic_time += timeofday_diff_usec;
-
-	if (ERTS_TIME_EXCEED_TICK_LIMIT(tick_monotonic_time, tick_count_usec)) {
-	    /*
-	     * Value off by more than one tick from tick_count, i.e.
-	     * timofday leaped one way or the other. We use
-	     * tick_count_usec as is instead and unfortunately
-	     * get lousy precision.
-	     */
-	    tick_monotonic_time = tick_count_usec;
-	}
-    }
-
-    if (internal_state.w.f.last_tick_monotonic_time < tick_monotonic_time)
-	internal_state.w.f.last_tick_monotonic_time = tick_monotonic_time;
-
-    res = internal_state.w.f.last_tick_monotonic_time;
-
-    erts_smp_mtx_unlock(&internal_state.w.f.mtx);
-
-    return res;
+    Uint32 ticks = get_tick_count();
+    ERTS_CHK_EXTEND_OS_MONOTONIC_TIME(&internal_state.wr.m.os_mtime_xtnd,
+				      ticks);
+    return ERTS_EXTEND_OS_MONOTONIC_TIME(&internal_state.wr.m.os_mtime_xtnd,
+					 ticks) << internal_state.r.o.times_shift;
 }
 
 #endif  /* !defined(OS_MONOTONIC_TIME_USING_TIMES) */
