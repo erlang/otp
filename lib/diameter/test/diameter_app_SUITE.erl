@@ -226,15 +226,18 @@ ignored({FromMod,_,_}, {ToMod,_,_} = To, Rel)->
 
 %% New time api in OTP 18.
 time_api() ->
-    [{erlang, F, A} || {F,A} <- [{convert_time_resolution,3},
+    [{erlang, F, A} || {F,A} <- [{convert_time_unit,3},
                                  {monotonic_time,0},
                                  {monotonic_time,1},
+                                 {system_time,0},
+                                 {system_time,1},
                                  {time_offset,0},
                                  {time_offset,1},
-                                 {time_resolution,0},
                                  {timestamp,0},
                                  {unique_integer,0},
-                                 {unique_integer,1}]].
+                                 {unique_integer,1}]]
+        ++ [{os, system_time, 0},
+            {os, system_time, 1}].
 
 release() ->
     Rel = erlang:system_info(otp_release),
