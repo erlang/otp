@@ -532,7 +532,9 @@ opt({applications, As}) ->
 opt({capabilities, Os}) ->
     is_list(Os) andalso ok == encode_CER(Os);
 
-opt({capx_timeout, Tmo}) ->
+opt({K, Tmo})
+  when K == capx_timeout;
+       K == dpa_timeout ->
     ?IS_UINT32(Tmo);
 
 opt({length_errors, T}) ->
