@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -397,8 +397,8 @@ transition({timeout, _}, _) ->
     ok;
 
 %% Outgoing message.
-transition({send, Msg}, #state{transport = TPid}) ->
-    send(TPid, Msg),
+transition({send, Msg}, S) ->
+    outgoing(Msg, S),
     ok;
 
 %% Request for graceful shutdown at remove_transport, stop_service of
@@ -516,12 +516,9 @@ encode(Rec, Dict) ->
 
 recv(#diameter_packet{header = #diameter_header{} = Hdr}
      = Pkt,
-     #state{parent = Pid,
-            dictionary = Dict0}
+     #state{dictionary = Dict0}
      = S) ->
-    Name = diameter_codec:msg_name(Dict0, Hdr),
-    Pid ! {recv, self(), Name, Pkt},
-    rcv(Name, Pkt, S);
+    recv1(diameter_codec:msg_name(Dict0, Hdr), Pkt, S);
 
 recv(#diameter_packet{header = undefined,
                       bin = Bin}
@@ -531,6 +528,22 @@ recv(#diameter_packet{header = undefined,
 
 recv(Bin, S) ->
     recv(#diameter_packet{bin = Bin}, S).
+
+%% recv1/3
+
+%% Incoming request after DPR has been sent: discard. Don't discard
+%% DPR, so both ends don't do so when sending simultaneously.
+recv1(Name,
+      #diameter_packet{header = #diameter_header{is_request = true} = H},
+      #state{dpr = {_,_}})
+  when Name /= 'DPR' ->
+    invalid(false, recv_after_dpr, H);
+
+%% Any other message with a header and no length errors: send to the
+%% parent.
+recv1(Name, Pkt, #state{parent = Pid} = S) ->
+    Pid ! {recv, self(), Name, Pkt},
+    rcv(Name, Pkt, S).
 
 %% recv/3
 
@@ -639,6 +652,27 @@ incr_error(Dir, Pkt, Dict0) ->
 %% while messages coming from clients will be in a #diameter_packet.
 send(Pid, Msg) ->
     diameter_peer:send(Pid, Msg).
+
+%% outgoing/2
+
+%% DPR not sent: send.
+outgoing(Msg, #state{transport = TPid, dpr = false}) ->
+    send(TPid, Msg);
+
+%% Outgoing answer: send.
+outgoing(#diameter_packet{header = #diameter_header{is_request = false}}
+         = Pkt,
+         #state{transport = TPid}) ->
+    send(TPid, Pkt);
+
+%% Outgoing request: discard.
+outgoing(Msg, #state{dpr = {_,_}}) ->
+    invalid(false, send_after_dpr, header(Msg)).
+
+header(#diameter_packet{header = H}) ->
+    H;
+header(Bin) ->  %% DWR
+    diameter_codec:decode_header(Bin).
 
 %% handle_request/3
 %%
