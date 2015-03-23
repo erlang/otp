@@ -4,7 +4,7 @@
 
 %CopyrightBegin%
 
-Copyright Ericsson AB 2012-2014. All Rights Reserved.
+Copyright Ericsson AB 2012-2015. All Rights Reserved.
 
 The contents of this file are subject to the Erlang Public License,
 Version 1.1, (the "License"); you may not use this file except in
@@ -64,6 +64,7 @@ significant.
 <!ENTITY capabilities_cb '<seealso marker="#capabilities_cb">capabilities_cb</seealso>'>
 <!ENTITY capx_timeout '<seealso marker="#capx_timeout">capx_timeout</seealso>'>
 <!ENTITY disconnect_cb '<seealso marker="#disconnect_cb">disconnect_cb</seealso>'>
+<!ENTITY dpa_timeout '<seealso marker="#dpa_timeout">dpa_timeout</seealso>'>
 <!ENTITY transport_config '<seealso marker="#transport_config">transport_config</seealso>'>
 <!ENTITY transport_module '<seealso marker="#transport_module">transport_module</seealso>'>
 <!ENTITY connect_timer '<seealso marker="#connect_timer">connect_timer</seealso>'>
