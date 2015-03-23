@@ -1106,12 +1106,18 @@ repeat_expect(Name,Pid,Data,Pattern,Acc,EO) ->
 
 teln_expect1(Name,Pid,Data,Pattern,Acc,EO=#eo{idle_timeout=IdleTO,
 					      total_timeout=TotalTO}) ->
-    ExpectFun = case EO#eo.seq of
+    %% TotalTO is a float value in this loop (unless it's 'infinity'),
+    %% but an integer value will be passed to the other functions
+    EOMod = if TotalTO /= infinity -> EO#eo{total_timeout=trunc(TotalTO)};
+	       true                -> EO
+	    end,
+
+    ExpectFun = case EOMod#eo.seq of
 		    true -> fun() ->
-				    seq_expect(Name,Pid,Data,Pattern,Acc,EO)
+				    seq_expect(Name,Pid,Data,Pattern,Acc,EOMod)
 			    end;
 		    false -> fun() ->
-				     one_expect(Name,Pid,Data,Pattern,EO)
+				     one_expect(Name,Pid,Data,Pattern,EOMod)
 			     end
 		end,
     case ExpectFun() of
@@ -1121,9 +1127,14 @@ teln_expect1(Name,Pid,Data,Pattern,Acc,EO=#eo{idle_timeout=IdleTO,
 	    {halt,Why,Rest};
 	NotFinished ->
 	    %% Get more data
-	    Fun = fun() -> get_data1(EO#eo.teln_pid) end,
-	    BreakAfter = if TotalTO < IdleTO -> TotalTO; true -> IdleTO end,
-	    case timer:tc(ct_gen_conn, do_within_time, [Fun, BreakAfter]) of
+	    Fun = fun() -> get_data1(EOMod#eo.teln_pid) end,
+	    BreakAfter = if TotalTO < IdleTO ->
+				 %% use the integer value
+				 EOMod#eo.total_timeout;
+			    true ->
+				 IdleTO
+			 end,
+	    case timer:tc(ct_gen_conn, do_within_time, [Fun,BreakAfter]) of
 		{_,{error,Reason}} -> 
 		    %% A timeout will occur when the telnet connection
 		    %% is idle for EO#eo.idle_timeout milliseconds.
@@ -1132,13 +1143,15 @@ teln_expect1(Name,Pid,Data,Pattern,Acc,EO=#eo{idle_timeout=IdleTO,
 		    case NotFinished of
 			{nomatch,Rest} ->
 			    %% One expect
-			    teln_expect1(Name,Pid,Rest++Data1,Pattern,[],EO);
+			    teln_expect1(Name,Pid,Rest++Data1,
+					 Pattern,[],EOMod);
 			{continue,Patterns1,Acc1,Rest} ->
 			    %% Sequence
-			    teln_expect1(Name,Pid,Rest++Data1,Patterns1,Acc1,EO)
+			    teln_expect1(Name,Pid,Rest++Data1,
+					 Patterns1,Acc1,EOMod)
 		    end;
 		{Elapsed,{ok,Data1}} ->
-		    TVal = trunc(TotalTO - (Elapsed/1000)),
+		    TVal = TotalTO - (Elapsed/1000),
 		    if TVal =< 0 ->
 			    {error,timeout};
 		       true ->
@@ -1146,10 +1159,12 @@ teln_expect1(Name,Pid,Data,Pattern,Acc,EO=#eo{idle_timeout=IdleTO,
 			    case NotFinished of
 				{nomatch,Rest} ->
 				    %% One expect
-				    teln_expect1(Name,Pid,Rest++Data1,Pattern,[],EO1);
+				    teln_expect1(Name,Pid,Rest++Data1,
+						 Pattern,[],EO1);
 				{continue,Patterns1,Acc1,Rest} ->
 				    %% Sequence
-				    teln_expect1(Name,Pid,Rest++Data1,Patterns1,Acc1,EO1)
+				    teln_expect1(Name,Pid,Rest++Data1,
+						 Patterns1,Acc1,EO1)
 			    end
 		    end
 	    end
