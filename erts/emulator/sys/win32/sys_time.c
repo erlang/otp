@@ -26,6 +26,7 @@
 #include "sys.h"
 #include "assert.h"
 #include "erl_os_monotonic_time_extender.h"
+#include "erl_time.h"
 
 #define LL_LITERAL(X) ERTS_I64_LITERAL(X)
 
@@ -79,6 +80,7 @@ static int days_in_month[2][13] = {
 struct sys_time_internal_state_read_only__ {
     ULONGLONG (WINAPI *pGetTickCount64)(void);
     BOOL (WINAPI *pQueryPerformanceCounter)(LARGE_INTEGER *);
+    Sint32 pcf;
 };
 
 struct sys_time_internal_state_read_mostly__ {
@@ -148,6 +150,42 @@ os_monotonic_time_gtc64(void)
     return (ErtsMonotonicTime) ticks << 10;
 }
 
+static ErtsSysHrTime
+sys_hrtime_qpc(void)
+{
+    LARGE_INTEGER pc;
+
+    if (!(*internal_state.r.o.pQueryPerformanceCounter)(&pc))
+	erl_exit(ERTS_ABORT_EXIT, "QueryPerformanceCounter() failed\n");
+
+    ASSERT(pc.QuadPart > 0);
+
+    return (ErtsSysHrTime) erts_time_unit_conversion((Uint64) pc.QuadPart,
+						     internal_state.r.o.pcf,
+						     (Uint32) 1000*1000*1000);
+}
+
+static ErtsSysHrTime
+sys_hrtime_gtc32(void)
+{
+    ErtsSysHrTime time;
+    Uint32 ticks = (Uint32) GetTickCount();
+    ERTS_CHK_EXTEND_OS_MONOTONIC_TIME(&internal_state.wr.m.os_mtime_xtnd,
+				      tick_count);
+    time = (ErtsSysHrTime) ERTS_EXTEND_OS_MONOTONIC_TIME(&internal_state.wr.m.os_mtime_xtnd,
+							 ticks);
+    time *= (ErtsSysHrTime) (1000 * 1000);
+    return time;
+}
+
+static ErtsSysHrTime
+sys_hrtime_gtc64(void)
+{
+    ErtsSysHrTime time = (*internal_state.r.o.pGetTickCount64)();
+    time *= (ErtsSysHrTime) (1000*1000);
+    return time;
+}
+
 /*
  * Init
  */
@@ -156,6 +194,7 @@ void
 sys_init_time(ErtsSysInitTimeResult *init_resp)
 {
     ErtsMonotonicTime (*os_mtime_func)(void);
+    ErtsSysHrTime (*sys_hrtime_func)(void) = NULL;
     ErtsMonotonicTime time_unit;
     char kernel_dll_name[] = "kernel32";
     HMODULE module;
@@ -180,6 +219,8 @@ sys_init_time(ErtsSysInitTimeResult *init_resp)
 	erts_init_os_monotonic_time_extender(&internal_state.wr.m.os_mtime_xtnd,
 					     get_tick_count,
 					     60*60*24*7); /* Check once a week */
+	if (!sys_hrtime_func)
+	    sys_hrtime_func = sys_hrtime_gtc32;
     }
     else {
 	int major, minor, build;
@@ -202,6 +243,8 @@ sys_init_time(ErtsSysInitTimeResult *init_resp)
 	    init_resp->os_monotonic_info.resolution = 100; /* 10 ms */
 	    time_unit = (ErtsMonotonicTime) (1000 << 10);
 	    os_mtime_func = os_monotonic_time_gtc64;
+	    if (!sys_hrtime_func)
+		sys_hrtime_func = sys_hrtime_gtc64;
 	}
 	else { /* Vista or newer... */
 
@@ -214,19 +257,26 @@ sys_init_time(ErtsSysInitTimeResult *init_resp)
 		goto get_tick_count64;
 	    if (!(*QPF)(&pf))
 		goto get_tick_count64;
-	    /*
-	     * We only use QueryPerformanceCounter() if
-	     * its frequency is equal to, or larger than
-	     * GHz in order to ensure that the user wont
-	     * be able to observe faulty order between
-	     * values retrieved on different threads.
-	     */
-	    if (pf.QuadPart < (LONGLONG) 1000*1000*1000)
-		goto get_tick_count64;
+
 	    internal_state.r.o.pQueryPerformanceCounter
 		= ((BOOL (WINAPI *)(LARGE_INTEGER *))
 		   GetProcAddress(module, "QueryPerformanceCounter"));
 	    if (!internal_state.r.o.pQueryPerformanceCounter)
+		goto get_tick_count64;
+
+	    if (pf.QuadPart < (((LONGLONG) 1) << 32)) {
+		internal_state.r.o.pcf = (Uint32) pf.QuadPart;
+		sys_hrtime_func = sys_hrtime_qpc;
+	    }
+	    
+	    /*
+	     * We only use QueryPerformanceCounter() for
+	     * os-monotonic-time if its frequency is equal
+	     * to, or larger than GHz in order to ensure
+	     * that the user wont be able to observe faulty
+	     * order between values retrieved on different threads.
+	     */
+	    if (pf.QuadPart < (LONGLONG) 1000*1000*1000)
 		goto get_tick_count64;
 
 	    init_resp->os_monotonic_info.func = "QueryPerformanceCounter";

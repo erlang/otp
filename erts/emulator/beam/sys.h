@@ -708,7 +708,6 @@ extern int erts_init_time_sup(int, ErtsTimeWarpMode);
 extern void erts_sys_init_float(void);
 extern void erts_thread_init_float(void);
 extern void erts_thread_disable_fpe(void);
-
 ERTS_GLB_INLINE int erts_block_fpe(void);
 ERTS_GLB_INLINE void erts_unblock_fpe(int);
 

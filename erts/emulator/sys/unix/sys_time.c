@@ -85,8 +85,8 @@ ErtsSysTimeData__ erts_sys_time_data__ erts_align_attribute(ERTS_CACHE_LINE_SIZE
 
 #define ERTS_SYS_TIME_INTERNAL_STATE_WRITE_FREQ__
 
-ErtsMonotonicTime clock_gettime_monotonic_raw(void);
-ErtsMonotonicTime clock_gettime_monotonic_verified(void);
+static ErtsMonotonicTime clock_gettime_monotonic_raw(void);
+static ErtsMonotonicTime clock_gettime_monotonic_verified(void);
 
 #endif /* defined(__linux__) && defined(OS_MONOTONIC_TIME_USING_CLOCK_GETTIME) */
 
@@ -306,7 +306,7 @@ clock_gettime_monotonic(void)
 
 #if defined(__linux__)
 
-ErtsMonotonicTime clock_gettime_monotonic_verified(void)
+static ErtsMonotonicTime clock_gettime_monotonic_verified(void)
 {
     ErtsMonotonicTime mtime;
 
@@ -322,7 +322,7 @@ ErtsMonotonicTime clock_gettime_monotonic_verified(void)
     return mtime;
 }
 
-ErtsMonotonicTime clock_gettime_monotonic_raw(void)
+static ErtsMonotonicTime clock_gettime_monotonic_raw(void)
 {
     return clock_gettime_monotonic();
 }
@@ -335,6 +335,12 @@ ErtsMonotonicTime erts_os_monotonic_time(void)
 }
 
 #endif /* !defined(__linux__) */
+
+ErtsSysHrTime
+erts_sys_hrtime(void)
+{
+    return (ErtsSysHrTime) clock_gettime_monotonic();
+}
 
 #elif defined(OS_MONOTONIC_TIME_USING_MACH_CLOCK_GET_TIME)
 
@@ -369,6 +375,12 @@ ErtsMonotonicTime erts_os_monotonic_time(void)
     return mtime;
 }
 
+ErtsSysHrTime
+erts_sys_hrtime(void)
+{
+    return (ErtsSysHrTime) erts_os_monotonic_time();
+}
+
 #elif defined(OS_MONOTONIC_TIME_USING_TIMES)
 
 ErtsMonotonicTime
@@ -381,7 +393,29 @@ erts_os_monotonic_time(void)
 					 ticks) << internal_state.r.o.times_shift;
 }
 
-#endif  /* !defined(OS_MONOTONIC_TIME_USING_TIMES) */
+#  define ERTS_NEED_ERTS_SYS_HRTIME_FALLBACK
+
+#else  /* !defined(OS_MONOTONIC_TIME_USING_TIMES) */
+/* No os-monotonic-time */
+#  define ERTS_NEED_ERTS_SYS_HRTIME_FALLBACK
+#endif
+
+#ifdef ERTS_NEED_ERTS_SYS_HRTIME_FALLBACK
+
+ErtsSysHrTime
+erts_sys_hrtime(void)
+{
+    ErtsSysHrTime time;
+    struct timeval tv;
+    gettimeofday(&tv);
+    time = (ErtsSysHrTime) tv.tv_sec;
+    time *= (ErtsSysHrTime) 1000*1000*1000;
+    time += ((ErtsSysHrTime) tv.tv_usec)*1000;
+    return time;
+}
+
+#endif
+
 
 #ifdef HAVE_GETHRVTIME_PROCFS_IOCTL
 

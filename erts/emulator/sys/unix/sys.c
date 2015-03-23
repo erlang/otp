@@ -528,17 +528,17 @@ erts_sys_pre_init(void)
 
     erts_thr_init(&eid);
 
-#endif /* USE_THREADS */
-
-    erts_init_sys_time_sup();
-
-#ifdef USE_THREADS
-
     report_exit_list = NULL;
 
 #ifdef ERTS_ENABLE_LOCK_COUNT
     erts_lcnt_init();
 #endif
+
+#endif /* USE_THREADS */
+
+    erts_init_sys_time_sup();
+
+#ifdef USE_THREADS
 
 #if CHLDWTHR || defined(ERTS_SMP)
     erts_mtx_init(&chld_stat_mtx, "child_status");
