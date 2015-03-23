@@ -524,6 +524,7 @@ erts_set_timer(ErlTimer *p, ErlTimeoutProc timeout,
 	tiw->nto++;
 	tiw->at_once.nto++;
 	*tiw->at_once.tail = p;
+	tiw->at_once.tail = &p->next;
 	p->next = NULL;
 	p->timeout_pos = timeout_pos;
 	timeout_time = ERTS_CLKTCKS_TO_MONOTONIC(timeout_pos);
