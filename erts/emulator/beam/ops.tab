@@ -1473,16 +1473,24 @@ apply_last I P
 # Map instructions in R17.
 #
 
-put_map_assoc j Map Dst Live Size Rest=* | is_empty_map(Map) => \
+sorted_put_map_assoc/5
+put_map_assoc F Map Dst Live Size Rest=* | map_key_sort(Size, Rest) => \
+  sorted_put_map_assoc F Map Dst Live Size Rest
+
+sorted_put_map_exact/5
+put_map_exact F Map Dst Live Size Rest=* | map_key_sort(Size, Rest) => \
+  sorted_put_map_exact F Map Dst Live Size Rest
+
+sorted_put_map_assoc j Map Dst Live Size Rest=* | is_empty_map(Map) => \
    new_map Dst Live Size Rest
-put_map_assoc F Src=s Dst Live Size Rest=* => \
+sorted_put_map_assoc F Src=s Dst Live Size Rest=* => \
 	       update_map_assoc F Src Dst Live Size Rest
-put_map_assoc F Src Dst Live Size Rest=* => \
+sorted_put_map_assoc F Src Dst Live Size Rest=* => \
 	       move Src x | update_map_assoc F x Dst Live Size Rest
 
-put_map_exact F Src=s Dst Live Size Rest=* => \
+sorted_put_map_exact F Src=s Dst Live Size Rest=* => \
 	      update_map_exact F Src Dst Live Size Rest
-put_map_exact F Src Dst Live Size Rest=* => \
+sorted_put_map_exact F Src Dst Live Size Rest=* => \
 	      move Src x | update_map_exact F x Dst Live Size Rest
 
 new_map d I I
@@ -1506,8 +1514,10 @@ has_map_fields Fail Src Size Rest=* => \
 
 get_map_element/4
 
-get_map_elements Fail Src=rxy Size=u==2 Rest=* => gen_get_map_element(Fail,Src,Size,Rest)
-get_map_elements Fail Src Size Rest=* => i_get_map_elements Fail Src Size Rest
+get_map_elements Fail Src=rxy Size=u==2 Rest=* => \
+    gen_get_map_element(Fail, Src, Size, Rest)
+get_map_elements Fail Src Size Rest=* | map_key_sort(Size, Rest) => \
+   i_get_map_elements Fail Src Size Rest
 
 i_get_map_elements f s I
 

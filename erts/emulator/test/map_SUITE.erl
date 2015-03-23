@@ -164,6 +164,9 @@ t_build_and_match_literals(Config) when is_list(Config) ->
     #{1:=a,2:=b,3:="c","4":="d",<<"5">>:=<<"e">>,{"6",7}:="f",8:=g} =
 	id(#{1=>a,2=>b,3=>"c","4"=>"d",<<"5">>=><<"e">>,{"6",7}=>"f",8=>g}),
 
+    #{[]:=a,42.0:=b,x:={x,y},[a,b]:=list} =
+         id(#{[]=>a,42.0=>b,x=>{x,y},[a,b]=>list}),
+
     #{<<"hi all">> := 1} = id(#{<<"hi",32,"all">> => 1}),
 
     #{a:=X,a:=X=3,b:=4} = id(#{a=>3,b=>4}), % weird but ok =)

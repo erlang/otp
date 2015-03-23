@@ -4082,6 +4082,86 @@ is_empty_map(LoaderState* stp, GenOpArg Lit)
 }
 
 /*
+ * Pseudo predicate map_key_sort that will sort the Rest operand for
+ * map instructions as a side effect.
+ */
+
+typedef struct SortGenOpArg {
+    Eterm term;			/* Term to use for comparing  */
+    GenOpArg arg;		/* Original data */
+} SortGenOpArg;
+
+static int
+genopargtermcompare(SortGenOpArg* a, SortGenOpArg* b)
+{
+    return CMP_TERM(a->term, b->term);
+}
+
+static int
+map_key_sort(LoaderState* stp, GenOpArg Size, GenOpArg* Rest)
+{
+    SortGenOpArg* t;
+    unsigned size = Size.val;
+    unsigned i;
+
+    if (size == 2) {
+	return 1;		/* Already sorted. */
+    }
+
+
+    t = (SortGenOpArg *) erts_alloc(ERTS_ALC_T_TMP, size*sizeof(SortGenOpArg));
+
+    /*
+     * Copy original data and sort keys to a temporary array.
+     */
+    for (i = 0; i < size; i += 2) {
+	t[i].arg = Rest[i];
+	switch (Rest[i].type) {
+	case TAG_a:
+	    t[i].term = Rest[i].val;
+	    ASSERT(is_atom(t[i].term));
+	    break;
+	case TAG_i:
+	    t[i].term = make_small(Rest[i].val);
+	    break;
+	case TAG_n:
+	    t[i].term = NIL;
+	    break;
+	case TAG_q:
+	    t[i].term = stp->literals[Rest[i].val].term;
+	    break;
+	default:
+	    /*
+	     * Not a literal key. Not allowed. Only a single
+	     * variable key is allowed in each map instruction.
+	     */
+	    erts_free(ERTS_ALC_T_TMP, (void *) t);
+	    return 0;
+	}
+#ifdef DEBUG
+	t[i+1].term = THE_NON_VALUE;
+#endif
+	t[i+1].arg = Rest[i+1];
+    }
+
+    /*
+     * Sort the temporary array.
+     */
+    qsort((void *) t, size / 2, 2 * sizeof(SortGenOpArg),
+	  (int (*)(const void *, const void *)) genopargtermcompare);
+
+    /*
+     * Copy back the sorted, original data.
+     */
+    for (i = 0; i < size; i++) {
+	Rest[i] = t[i].arg;
+    }
+
+    erts_free(ERTS_ALC_T_TMP, (void *) t);
+    return 1;
+}
+
+/*
  * Replace a get_map_elements with one key to an instruction with one
  * element
  */
