@@ -85,7 +85,7 @@ static Eterm hashmap_to_list(Process *p, Eterm map);
 static Eterm hashmap_keys(Process *p, Eterm map);
 static Eterm hashmap_values(Process *p, Eterm map);
 static Eterm hashmap_delete(Process *p, Uint32 hx, Eterm key, Eterm node);
-static Eterm map_from_validated_list(Process *p, Eterm list, Uint size);
+static Eterm flatmap_from_validated_list(Process *p, Eterm list, Uint size);
 static Eterm hashmap_from_validated_list(Process *p, Eterm list, Uint size);
 static Eterm hashmap_from_unsorted_array(ErtsHeapFactory*, hxnode_t *hxns, Uint n, int reject_dupkeys);
 static Eterm hashmap_from_sorted_unique_array(ErtsHeapFactory*, hxnode_t *hxns, Uint n, int is_root);
@@ -277,7 +277,7 @@ BIF_RETTYPE maps_from_list_1(BIF_ALIST_1) {
 	if (size > MAP_SMALL_MAP_LIMIT) {
 	    BIF_RET(hashmap_from_validated_list(BIF_P, BIF_ARG_1, size));
 	} else {
-	    BIF_RET(map_from_validated_list(BIF_P, BIF_ARG_1, size));
+	    BIF_RET(flatmap_from_validated_list(BIF_P, BIF_ARG_1, size));
 	}
     }
 
@@ -286,7 +286,7 @@ error:
     BIF_ERROR(BIF_P, BADARG);
 }
 
-static Eterm map_from_validated_list(Process *p, Eterm list, Uint size) {
+static Eterm flatmap_from_validated_list(Process *p, Eterm list, Uint size) {
     Eterm *kv, item = list;
     Eterm *hp, *thp,*vs, *ks, keys, res;
     flatmap_t *mp;
