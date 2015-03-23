@@ -90,7 +90,7 @@ encode(Mod, Msg) ->
                                   msg = Msg}).
 
 e(_, #diameter_packet{msg = [#diameter_header{} = Hdr | As]} = Pkt) ->
-    try encode_avps(As) of
+    try encode_avps(reorder(As)) of
         Avps ->
             Length = size(Avps) + 20,
 
@@ -183,26 +183,50 @@ values(Avps) ->
 
 %% Message as a list of #diameter_avp{} ...
 encode_avps(_, _, [#diameter_avp{} | _] = Avps) ->
-    encode_avps(reorder(Avps, [], Avps));
+    encode_avps(reorder(Avps));
 
 %% ... or as a tuple list or record.
 encode_avps(Mod, MsgName, Values) ->
     Mod:encode_avps(MsgName, Values).
 
 %% reorder/1
+%%
+%% Reorder AVPs for the relay case using the index field of
+%% diameter_avp records. Decode populates this field in collect_avps
+%% and presents AVPs in reverse order. A relay then sends the reversed
+%% list with a Route-Record AVP prepended. The goal here is just to do
+%% lists:reverse/1 in Grouped AVPs and the outer list, but only in the
+%% case there are indexed AVPs at all, so as not to reverse lists that
+%% have been explicilty sent (unindexed, in the desired order) as a
+%% diameter_avp list. The effect is the same as lists:keysort/2, but
+%% only on the cases we expect, not a general sort.
 
-reorder([#diameter_avp{index = 0} | _] = Avps, Acc, _) ->
+reorder(Avps) ->
+    case reorder(Avps, []) of
+        false ->
+            Avps;
+        Sorted ->
+            Sorted
+    end.
+
+%% reorder/3
+
+%% In case someone has reversed the list already. (Not likely.)
+reorder([#diameter_avp{index = 0} | _] = Avps, Acc) ->
     Avps ++ Acc;
 
-reorder([#diameter_avp{index = N} = A | Avps], Acc, _)
+%% Assume indexed AVPs are in reverse order.
+reorder([#diameter_avp{index = N} = A | Avps], Acc)
   when is_integer(N) ->
     lists:reverse(Avps, [A | Acc]);
 
-reorder([H | T], Acc, Avps) ->
-    reorder(T, [H | Acc], Avps);
+%% An unindexed AVP.
+reorder([H | T], Acc) ->
+    reorder(T, [H | Acc]);
 
-reorder([], Acc, _) ->
-    Acc.
+%% No indexed members.
+reorder([], _) ->
+    false.
 
 %% encode_avps/1
 
