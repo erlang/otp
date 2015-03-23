@@ -37,6 +37,7 @@
 	t_map_sort_literals/1,
 	t_map_size/1,
 	t_build_and_match_aliasing/1,
+	t_is_map/1,
 
 	%% variables
 	t_build_and_match_variables/1,
@@ -84,6 +85,7 @@ all() ->
 	t_map_sort_literals,
 	t_map_size,
 	t_build_and_match_aliasing,
+	t_is_map,
 
 	%% variables
 	t_build_and_match_variables,
@@ -674,6 +676,17 @@ t_map_size(Config) when is_list(Config) ->
 
 map_is_size(M,N) when map_size(M) =:= N -> true;
 map_is_size(_,_) -> false.
+
+t_is_map(Config) when is_list(Config) ->
+    true = is_map(#{}),
+    true = is_map(#{a=>1}),
+    false = is_map({a,b}),
+    false = is_map(x),
+    if is_map(#{}) -> ok end,
+    if is_map(#{b=>1}) -> ok end,
+    if not is_map([1,2,3]) -> ok end,
+    if not is_map(x) -> ok end,
+    ok.
 
 % test map updates without matching
 t_update_literals(Config) when is_list(Config) ->

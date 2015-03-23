@@ -38,6 +38,7 @@
 	t_map_equal/1,
 	t_map_compare/1,
 	t_map_size/1,
+	t_is_map/1,
 
 	%% Specific Map BIFs
 	t_bif_map_get/1,
@@ -114,7 +115,7 @@ all() -> [
 
 	%% erlang
 	t_erlang_hash, t_map_encode_decode,
-	t_map_size,
+	t_map_size, t_is_map,
 
 	%% non specific BIF related
 	t_bif_build_and_check,
@@ -679,6 +680,17 @@ build_and_check_size([],N,M) ->
 
 map_is_size(M,N) when map_size(M) =:= N -> true;
 map_is_size(_,_) -> false.
+
+t_is_map(Config) when is_list(Config) ->
+    true = is_map(#{}),
+    true = is_map(#{a=>1}),
+    false = is_map({a,b}),
+    false = is_map(x),
+    if is_map(#{}) -> ok end,
+    if is_map(#{b=>1}) -> ok end,
+    if not is_map([1,2,3]) -> ok end,
+    if not is_map(x) -> ok end,
+    ok.
 
 % test map updates without matching
 t_update_literals_large(Config) when is_list(Config) ->
