@@ -751,7 +751,9 @@ handle_sync_event({open, ChannelPid, Type, InitialWindowSize, MaxPacketSize, Dat
 		       user = ChannelPid,
 		       local_id = ChannelId,
 		       recv_window_size = InitialWindowSize,
-		       recv_packet_size = MaxPacketSize},
+		       recv_packet_size = MaxPacketSize,
+		       send_buf = queue:new()
+		      },
     ssh_channel:cache_update(Cache, Channel),
     State = add_request(true, ChannelId, From, State2),
     start_timeout(ChannelId, From, Timeout),
