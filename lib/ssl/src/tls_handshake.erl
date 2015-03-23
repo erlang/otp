@@ -78,11 +78,14 @@ client_hello(Host, Port, ConnectionStates,
 %%--------------------------------------------------------------------
 -spec hello(#server_hello{} | #client_hello{}, #ssl_options{},
 	    #connection_states{} | {inet:port_number(), #session{}, db_handle(),
-				    atom(), #connection_states{}, binary() | undefined},
+				    atom(), #connection_states{}, 
+				    binary() | undefined},
 	    boolean()) ->
-		   {tls_record:tls_version(), session_id(), #connection_states{}, binary() | undefined}|
-		   {tls_record:tls_version(), {resumed | new, #session{}}, #connection_states{},
-		   #hello_extensions{}} |
+		   {tls_record:tls_version(), session_id(), 
+		    #connection_states{}, alpn | npn, binary() | undefined}|
+		   {tls_record:tls_version(), {resumed | new, #session{}}, 
+		    #connection_states{}, binary() | undefined, 
+		    #hello_extensions{}} |
 		   #alert{}.
 %%
 %% Description: Handles a recieved hello message
