@@ -1489,8 +1489,8 @@ new_map d I I
 update_map_assoc j s d I I
 update_map_exact j s d I I
 
-is_map Fail Literal=q => move Literal x | is_map Fail x
-is_map Fail c => jump Fail
+is_map Fail Lit=q | literal_is_map(Lit) =>
+is_map Fail cq => jump Fail
 
 %macro: is_map IsMap -fail_action
 is_map f r

@@ -4052,6 +4052,20 @@ tuple_append_put(LoaderState* stp, GenOpArg Arity, GenOpArg Dst,
 }
 
 /*
+ * Predicate to test whether the given literal is a map.
+ */
+
+static int
+literal_is_map(LoaderState* stp, GenOpArg Lit)
+{
+    Eterm term;
+
+    ASSERT(Lit.type == TAG_q);
+    term = stp->literals[Lit.val].term;
+    return is_map(term);
+}
+
+/*
  * Predicate to test whether the given literal is an empty map.
  */
 
