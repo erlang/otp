@@ -75,7 +75,10 @@
 	t_pdict/1,
 	t_ets/1,
 	t_dets/1,
-	t_tracing/1
+	t_tracing/1,
+
+	%% instruction-level tests
+	t_has_map_fields/1
     ]).
 
 -include_lib("stdlib/include/ms_transform.hrl").
@@ -132,7 +135,10 @@ all() -> [
         t_erts_internal_hash,
 	t_pdict,
 	t_ets,
-	t_tracing
+	t_tracing,
+
+	%% instruction-level tests
+	t_has_map_fields
     ].
 
 groups() -> [].
@@ -2714,6 +2720,40 @@ trace_collector(Msg,Parent) ->
     io:format("~p~n",[Msg]),
     Parent ! Msg,
     Parent.
+
+t_has_map_fields(Config) when is_list(Config) ->
+    true = has_map_fields_1(#{one=>1}),
+    true = has_map_fields_1(#{one=>1,two=>2}),
+    false = has_map_fields_1(#{two=>2}),
+    false = has_map_fields_1(#{}),
+
+    true = has_map_fields_2(#{c=>1,b=>2,a=>3}),
+    true = has_map_fields_2(#{c=>1,b=>2,a=>3,x=>42}),
+    false = has_map_fields_2(#{b=>2,c=>1}),
+    false = has_map_fields_2(#{x=>y}),
+    false = has_map_fields_2(#{}),
+
+    true = has_map_fields_3(#{c=>1,b=>2,a=>3}),
+    true = has_map_fields_3(#{c=>1,b=>2,a=>3,[]=>42}),
+    true = has_map_fields_3(#{b=>2,a=>3,[]=>42,42.0=>43}),
+    true = has_map_fields_3(#{a=>3,[]=>42,42.0=>43}),
+    true = has_map_fields_3(#{[]=>42,42.0=>43}),
+    false = has_map_fields_3(#{b=>2,c=>1}),
+    false = has_map_fields_3(#{[]=>y}),
+    false = has_map_fields_3(#{42.0=>x,a=>99}),
+    false = has_map_fields_3(#{}),
+
+    ok.
+
+has_map_fields_1(#{one:=_}) -> true;
+has_map_fields_1(#{}) -> false.
+
+has_map_fields_2(#{a:=_,b:=_,c:=_}) -> true;
+has_map_fields_2(#{}) -> false.
+
+has_map_fields_3(#{a:=_,b:=_}) -> true;
+has_map_fields_3(#{[]:=_,42.0:=_}) -> true;
+has_map_fields_3(#{}) -> false.
 
 %% Use this function to avoid compile-time evaluation of an expression.
 id(I) -> I.
