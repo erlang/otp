@@ -95,8 +95,7 @@ undefined_functions(Config) when is_list(Config) ->
     Undef5 = dialyzer_filter(Undef4),
     Undef6 = wx_filter(Undef5),
     Undef7 = gs_filter(Undef6),
-    Undef8 = diameter_filter(Undef7),
-    Undef = ssh_filter(Undef8),
+    Undef = diameter_filter(Undef7),
 
     case Undef of
 	[] -> ok;
@@ -220,7 +219,7 @@ gs_filter(Undef) ->
     end.
 
 diameter_filter(Undef) ->
-    %% Filter away function calls that are catched for OTP 18 time API
+    %% Filter away function calls that are catched.
     filter(fun({{diameter_lib,_,_},{erlang,convert_time_resolution,3}}) ->
                    false;
               ({{diameter_lib,_,_},{erlang,monotonic_time,0}}) ->
@@ -230,13 +229,6 @@ diameter_filter(Undef) ->
               ({{diameter_lib,_,_},{erlang,unique_integer,0}}) ->
                    false;
               ({{diameter_lib,_,_},{erlang,time_offset,0}}) ->
-                   false;
-	      (_) -> true
-	   end, Undef).
-
-ssh_filter(Undef) ->
-    %% Filter away function calls that are catched for OTP 18 time API
-    filter(fun({{ssh_info,_,_},{erlang,timestamp,0}}) ->
                    false;
 	      (_) -> true
 	   end, Undef).

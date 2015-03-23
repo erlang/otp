@@ -25,7 +25,6 @@
 -module(ssh_info).
 
 -compile(export_all).
--compile([{nowarn_deprecated_function,{erlang,now,0}}]).
 
 print() ->
     try supervisor:which_children(ssh_sup)
@@ -180,14 +179,7 @@ line(Len, Char) ->
 	    
 
 datetime() ->
-    %% Adapt to new OTP 18 erlang time API and be back-compatible
-    TimeStamp = try
-                    erlang:timestamp()
-                catch
-                    error:undef ->
-                        erlang:now()
-                end,
-    {{YYYY,MM,DD}, {H,M,S}} = calendar:now_to_universal_time(TimeStamp),
+    {{YYYY,MM,DD}, {H,M,S}} = calendar:now_to_universal_time(now()),
     lists:flatten(io_lib:format('~4w-~2..0w-~2..0w ~2..0w:~2..0w:~2..0w UTC',[YYYY,MM,DD, H,M,S])).
 
 
