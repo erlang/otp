@@ -566,17 +566,25 @@ msb(false) -> ?TIME_2036.
 scan_uri(Bin) ->
     RE = "^(aaas?)://"
          "([-a-zA-Z0-9.]+)"
-         "(:([0-9]+))?"
+         "(:0{0,5}([0-9]{1,5}))?"
          "(;transport=(tcp|sctp|udp))?"
          "(;protocol=(diameter|radius|tacacs\\+))?$",
+    %% A port number is 16-bit, so an arbitrary number of digits is
+    %% just a vulnerability, but provide a little slack with leading
+    %% zeros in a port number just because the regexp was previously
+    %% [0-9]+ and it's not inconceivable that a value might be padded.
+    %% Don't fantasize about this padding being more than the number
+    %% of digits in the port number proper.
     {match, [A, DN, PN, T, P]} = re:run(Bin,
                                         RE,
                                         [{capture, [1,2,4,6,8], binary}]),
     Type = to_atom(A),
     {PN0, T0} = defaults(diameter_codec:getopt(rfc), Type),
+    PortNr = to_int(PN, PN0),
+    0 = PortNr bsr 16,  %% assert
     #diameter_uri{type = Type,
                   fqdn = from_bin(DN),
-                  port = to_int(PN, PN0),
+                  port = PortNr,
                   transport = to_atom(T, T0),
                   protocol = to_atom(P, diameter)}.
 
