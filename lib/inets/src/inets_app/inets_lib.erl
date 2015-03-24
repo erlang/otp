@@ -18,7 +18,6 @@
 %%
 
 -module(inets_lib).
--compile([{nowarn_deprecated_function,{erlang,now,0}}]).
 
 -export([millisec_passed/1, formated_timestamp/0, format_timestamp/1]).
 
@@ -27,7 +26,7 @@
 %% Help function, elapsed milliseconds since T0
 millisec_passed({_,_,_} = T0 ) ->
     %% OTP 17 and earlier
-    timer:now_diff(erlang:now(), T0) div 1000;
+    timer:now_diff(inets_time_compat:monotonic_time(), T0) div 1000;
 
 millisec_passed(T0) ->
     %% OTP 18

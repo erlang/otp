@@ -48,7 +48,8 @@ MODULES = \
 	inets_sup \
 	inets_regexp \
 	inets_trace \
-	inets_lib
+	inets_lib \
+	inets_time_compat
 
 INTERNAL_HRL_FILES = inets_internal.hrl
 EXTERNAL_HRL_FILES = ../../include/httpd.hrl \

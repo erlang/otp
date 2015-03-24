@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2002-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2015. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -1122,7 +1122,7 @@ handle_http_body(Body, #state{headers       = Headers,
                            handle_response(State#state{headers = NewHeaders,
                                                 body    = NewBody});
                         _ ->
-                           {NewBody2, NewRequest} =
+                           {NewBody2, _NewRequest} =
                                 stream(NewBody, Request, Code),
                            handle_response(State#state{headers = NewHeaders,
                                        body    = NewBody2})
