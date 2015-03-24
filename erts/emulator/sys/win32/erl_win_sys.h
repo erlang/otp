@@ -181,6 +181,10 @@ typedef LONGLONG ErtsMonotonicTime;
 typedef LONGLONG ErtsSysHrTime;
 #endif
 
+typedef ErtsMonotonicTime ErtsSystemTime;
+
+ErtsSystemTime erts_os_system_time(void);
+
 #define ERTS_MONOTONIC_TIME_MIN (((ErtsMonotonicTime) 1) << 63)
 #define ERTS_MONOTONIC_TIME_MAX (~ERTS_MONOTONIC_TIME_MIN)
 

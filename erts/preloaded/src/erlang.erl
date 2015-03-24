@@ -2531,6 +2531,7 @@ tuple_to_list(_Tuple) ->
          (nif_version) -> string();
          (otp_release) -> string();
          (os_monotonic_time_source) -> [{atom(),term()}];
+         (os_system_time_source) -> [{atom(),term()}];
          (port_count) -> non_neg_integer();
          (port_limit) -> pos_integer();
          (process_count) -> pos_integer();

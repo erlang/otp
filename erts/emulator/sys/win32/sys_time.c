@@ -73,6 +73,8 @@ static int days_in_month[2][13] = {
     {0,31,28,31,30,31,30,31,31,30,31,30,31},
     {0,31,29,31,30,31,30,31,31,30,31,30,31}};
 
+#define ERTS_GET_TICK_COUNT_TIME_UNIT_SHIFT 10
+
 /*
  * erts_os_monotonic_time()
  */
@@ -81,6 +83,7 @@ struct sys_time_internal_state_read_only__ {
     ULONGLONG (WINAPI *pGetTickCount64)(void);
     BOOL (WINAPI *pQueryPerformanceCounter)(LARGE_INTEGER *);
     Sint32 pcf;
+    int using_get_tick_count_time_unit;
 };
 
 struct sys_time_internal_state_read_mostly__ {
@@ -199,7 +202,7 @@ sys_init_time(ErtsSysInitTimeResult *init_resp)
     char kernel_dll_name[] = "kernel32";
     HMODULE module;
 
-    init_resp->os_monotonic_info.clock_id = NULL;
+    init_resp->os_monotonic_time_info.clock_id = NULL;
 
     module = GetModuleHandle(kernel_dll_name);
     if (!module) {
@@ -209,13 +212,15 @@ sys_init_time(ErtsSysInitTimeResult *init_resp)
 	internal_state.w.f.wrap = 0;
 	internal_state.w.f.last_tick_count = 0;
 
-	init_resp->os_monotonic_info.func = "GetTickCount";
-	init_resp->os_monotonic_info.locked_use = 1;
+	init_resp->os_monotonic_time_info.func = "GetTickCount";
+	init_resp->os_monotonic_time_info.locked_use = 1;
 	/* 10-16 ms resolution according to MicroSoft documentation */
-	init_resp->os_monotonic_info.resolution = 100; /* 10 ms */
-	time_unit = (ErtsMonotonicTime) (1000 << 10);
+	init_resp->os_monotonic_time_info.resolution = 100; /* 10 ms */
+	time_unit = (ErtsMonotonicTime) 1000;
+	time_unit <<= ERTS_GET_TICK_COUNT_TIME_UNIT_SHIFT;
+	internal_state.r.o.using_get_tick_count_time_unit = 1;
 	os_mtime_func = os_monotonic_time_gtc32;
-	init_resp->os_monotonic_info.extended = 1;
+	init_resp->os_monotonic_time_info.extended = 1;
 	erts_init_os_monotonic_time_extender(&internal_state.wr.m.os_mtime_xtnd,
 					     get_tick_count,
 					     60*60*24*7); /* Check once a week */
@@ -237,11 +242,13 @@ sys_init_time(ErtsSysInitTimeResult *init_resp)
 	    if (!internal_state.r.o.pGetTickCount64)
 		goto get_tick_count;
 
-	    init_resp->os_monotonic_info.func = "GetTickCount64";
-	    init_resp->os_monotonic_info.locked_use = 0;
+	    init_resp->os_monotonic_time_info.func = "GetTickCount64";
+	    init_resp->os_monotonic_time_info.locked_use = 0;
 	    /* 10-16 ms resolution according to MicroSoft documentation */
-	    init_resp->os_monotonic_info.resolution = 100; /* 10 ms */
-	    time_unit = (ErtsMonotonicTime) (1000 << 10);
+	    init_resp->os_monotonic_time_info.resolution = 100; /* 10 ms */
+	    time_unit = (ErtsMonotonicTime) 1000;
+	    time_unit <<= ERTS_GET_TICK_COUNT_TIME_UNIT_SHIFT;
+	    internal_state.r.o.using_get_tick_count_time_unit = 1;
 	    os_mtime_func = os_monotonic_time_gtc64;
 	    if (!sys_hrtime_func)
 		sys_hrtime_func = sys_hrtime_gtc64;
@@ -279,25 +286,30 @@ sys_init_time(ErtsSysInitTimeResult *init_resp)
 	    if (pf.QuadPart < (LONGLONG) 1000*1000*1000)
 		goto get_tick_count64;
 
-	    init_resp->os_monotonic_info.func = "QueryPerformanceCounter";
-	    init_resp->os_monotonic_info.locked_use = 0;
+	    init_resp->os_monotonic_time_info.func = "QueryPerformanceCounter";
+	    init_resp->os_monotonic_time_info.locked_use = 0;
 	    time_unit = (ErtsMonotonicTime) pf.QuadPart;
-	    init_resp->os_monotonic_info.resolution = time_unit;
+	    internal_state.r.o.using_get_tick_count_time_unit = 0;
+	    init_resp->os_monotonic_time_info.resolution = time_unit;
 	    os_mtime_func = os_monotonic_time_qpc;
 	}
     }
 
     erts_sys_time_data__.r.o.os_monotonic_time = os_mtime_func;
     init_resp->os_monotonic_time_unit = time_unit;
-    init_resp->have_os_monotonic = 1;
+    init_resp->have_os_monotonic_time = 1;
     init_resp->sys_clock_resolution = 1;
+
+    init_resp->os_system_time_info.func = "GetSystemTime";    
+    init_resp->os_system_time_info.clock_id = NULL;
+    init_resp->os_system_time_info.resolution = 100;
+    init_resp->os_system_time_info.locked_use = 0;
 
     if(GetTimeZoneInformation(&static_tzi) && 
        static_tzi.StandardDate.wMonth != 0 &&
        static_tzi.DaylightDate.wMonth != 0) {
 	have_static_tzi = 1;
     }
-
 }
 
 void
@@ -584,6 +596,37 @@ sys_gettimeofday(SysTimeval *tv)
     tv->tv_sec = (long) ((ull.QuadPart / LL_LITERAL(10000000)) - 
 			 EPOCH_JULIAN_DIFF);
 }
+
+ErtsSystemTime
+erts_os_system_time(void)
+{
+    SYSTEMTIME t;
+    FILETIME ft;
+    ULARGE_INTEGER ull;
+    ErtsSystemTime stime;
+
+    GetSystemTime(&t);
+    SystemTimeToFileTime(&t, &ft);
+    FILETIME_TO_ULI(ull,ft);
+
+    /* now in 100 ns units */
+
+    stime = (ErtsSystemTime) ull.QuadPart;
+    stime -= (((ErtsSystemTime) EPOCH_JULIAN_DIFF)
+	      * ((ErtsSystemTime) (10*1000*1000)));
+    stime /= (ErtsSystemTime) (10*1000);
+
+    if (internal_state.r.o.using_get_tick_count_time_unit) {
+	stime <<= ERTS_GET_TICK_COUNT_TIME_UNIT_SHIFT;
+	return stime;
+    }
+
+    return ((ErtsSystemTime)
+	    erts_time_unit_conversion(stime,
+				      (Uint32) 1000,
+				      (Uint32) ERTS_MONOTONIC_TIME_UNIT));
+}
+
 
 clock_t 
 sys_times(SysTimes *buffer) {

@@ -148,6 +148,7 @@ ErtsTimeOffsetState erts_finalize_time_offset(void);
 struct process;
 Eterm erts_get_monotonic_start_time(struct process *c_p);
 Eterm erts_monotonic_time_source(struct process*c_p);
+Eterm erts_system_time_source(struct process*c_p);
 
 #ifdef SYS_CLOCK_RESOLUTION
 #define ERTS_CLKTCK_RESOLUTION ((ErtsMonotonicTime) (SYS_CLOCK_RESOLUTION*1000))

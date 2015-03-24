@@ -684,7 +684,7 @@ typedef enum {
 } ErtsTimeWarpMode;
 
 typedef struct {
-    int have_os_monotonic;
+    int have_os_monotonic_time;
     ErtsMonotonicTime os_monotonic_time_unit;
     ErtsMonotonicTime sys_clock_resolution;
     struct {
@@ -693,7 +693,13 @@ typedef struct {
 	char *clock_id;
 	int locked_use;
 	int extended;
-    } os_monotonic_info;
+    } os_monotonic_time_info;
+    struct {
+	Uint64 resolution;
+	char *func;
+	char *clock_id;
+	int locked_use;
+    } os_system_time_info;
 } ErtsSysInitTimeResult;
 
 #define ERTS_SYS_INIT_TIME_RESULT_INITER \

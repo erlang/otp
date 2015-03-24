@@ -6031,6 +6031,8 @@ ok
       <name name="system_info" arity="1" clause_i="62"/>
       <name name="system_info" arity="1" clause_i="63"/>
       <name name="system_info" arity="1" clause_i="64"/>
+      <name name="system_info" arity="1" clause_i="65"/>
+      <name name="system_info" arity="1" clause_i="66"/>
       <fsummary>Information about the system</fsummary>
       <desc>
         <p>Returns various information about the current system
@@ -6479,6 +6481,59 @@ ok
 	      <tag><c>{time, OsMonotonicTime}</c></tag>
 	      <item><p><c>OsMonotonicTime</c> equals current OS
 	      monotonic time in <c>native</c>
+	      <seealso marker="#type_time_unit">time unit</seealso>.</p></item>
+	    </taglist>
+          </item>
+          <tag><marker id="system_info_os_system_time_source"><c>os_system_time_source</c></marker></tag>
+          <item>
+            <p>Returns a list containing information about the source of
+	    <seealso marker="erts:time_correction#OS_System_Time">OS
+	    system time</seealso> that is used by the runtime system.</p>
+	    <p>The list contains two-tuples with <c>Key</c>s
+	    as first element, and <c>Value</c>s as second element. The
+	    order if these tuples is undefined. Currently the following
+	    tuples may be part of the list, but more tuples may be
+	    introduced in the future:</p>
+	    <taglist>
+	      <tag><c>{function, Function}</c></tag>
+	      <item><p><c>Function</c> is the name of the funcion
+	      used.</p></item>
+
+	      <tag><c>{clock_id, ClockId}</c></tag>
+	      <item><p>This tuple only exist if <c>Function</c>
+	      can be used with different clocks. <c>ClockId</c>
+	      corresponds to the clock identifer used when calling
+	      <c>Function</c>.</p></item>
+
+	      <tag><c>{resolution, OsSystemTimeResolution}</c></tag>
+	      <item><p>Highest possible
+	      <seealso marker="time_correction#Time_Resolution">resolution</seealso>
+	      of current OS system time source as parts per
+	      second. If no resolution information can be retreived
+	      from the OS, <c>OsSystemTimeResolution</c> will be
+	      set to the resolution of the time unit of
+	      <c>Function</c>s return value. That is, the actual
+	      resolution may be lower than
+	      <c>OsSystemTimeResolution</c>. Also note that
+	      the resolution does not say anything about the
+	      <seealso marker="time_correction#Time_Accuracy">accuracy</seealso>,
+	      and that the
+	      <seealso marker="time_correction#Time_Precision">precision</seealso>
+	      might not align with the resolution. You do,
+	      however, know that the precision won't be
+	      better than
+	      <c>OsSystemTimeResolution</c>.</p></item>
+
+	      <tag><c>{parallel, Parallel}</c></tag>
+	      <item><p><c>Parallel</c> equals <c>yes</c> if
+	      <c>Function</c> is called in parallel from multiple
+	      threads. If it is not called in parallel, because
+	      calls needs to be serialized, <c>Parallel</c> equals
+	      <c>no</c>.</p></item>
+
+	      <tag><c>{time, OsSystemTime}</c></tag>
+	      <item><p><c>OsSystemTime</c> equals current OS
+	      system time in <c>native</c>
 	      <seealso marker="#type_time_unit">time unit</seealso>.</p></item>
 	    </taglist>
           </item>

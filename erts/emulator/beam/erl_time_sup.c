@@ -133,12 +133,17 @@ struct time_sup_read_only__ {
     ErtsTimeWarpMode warp_mode;
 #ifdef ERTS_HAVE_OS_MONOTONIC_TIME_SUPPORT
     ErtsMonotonicTime moffset;
-    int os_monotonic_disable;
-    char *os_monotonic_func;
-    char *os_monotonic_clock_id;
-    int os_monotonic_locked;
-    Uint64 os_monotonic_resolution;
-    Uint64 os_monotonic_extended;
+    int os_monotonic_time_disable;
+    char *os_monotonic_time_func;
+    char *os_monotonic_time_clock_id;
+    int os_monotonic_time_locked;
+    Uint64 os_monotonic_time_resolution;
+    Uint64 os_monotonic_time_extended;
+    char *os_system_time_func;
+    char *os_system_time_clock_id;
+    int os_system_time_locked;
+    Uint64 os_system_time_resolution;
+    Uint64 os_system_time_extended;
 #endif
 #if !ERTS_COMPILE_TIME_MONOTONIC_TIME_UNIT
     ErtsMonotonicTime start;
@@ -209,7 +214,7 @@ struct time_sup_infrequently_changed__ {
     ErtsMonotonicTime minit;
 #endif
     int finalized_offset;
-    SysTimeval inittv; /* Used everywhere, the initial time-of-day */
+    ErtsSystemTime sinit;
     ErtsMonotonicTime not_corrected_moffset;
     erts_atomic64_t offset;
 };
@@ -242,10 +247,8 @@ ErtsTimeSupData erts_time_sup__ erts_align_attribute(ERTS_CACHE_LINE_SIZE);
 erts_approx_time_t
 erts_get_approx_time(void)
 {
-    SysTimeval tv;
-    sys_gettimeofday(&tv);
-
-    return (erts_approx_time_t) tv.tv_sec;
+    ErtsSystemTime stime = erts_os_system_time();
+    return (erts_approx_time_t) ERTS_MONOTONIC_TO_SEC(stime);
 }
 
 static ERTS_INLINE void
@@ -403,7 +406,6 @@ check_time_correction(void *unused)
     ErtsMonotonicTime mdiff, sdiff, os_mtime, erl_mtime, os_stime,
 	erl_stime, time_offset;
     Uint timeout;
-    SysTimeval tod;
     int set_new_correction, begin_short_intervals = 0;
 
     erts_smp_rwmtx_rlock(&time_sup.inf.c.parmon.rwmtx);
@@ -411,7 +413,7 @@ check_time_correction(void *unused)
     ASSERT(time_sup.inf.c.finalized_offset);
 
     os_mtime = erts_os_monotonic_time();
-    sys_gettimeofday(&tod);
+    os_stime = erts_os_system_time();
 
     cdata = time_sup.inf.c.parmon.cdata;
 
@@ -425,9 +427,6 @@ check_time_correction(void *unused)
     erl_mtime = calc_corrected_erl_mtime(os_mtime, cip, &mdiff);
     time_offset = get_time_offset();
     erl_stime = erl_mtime + time_offset;
-
-    os_stime = ERTS_SEC_TO_MONOTONIC(tod.tv_sec);
-    os_stime += ERTS_USEC_TO_MONOTONIC(tod.tv_usec);
 
     sdiff = erl_stime - os_stime;
 
@@ -686,7 +685,6 @@ init_check_time_correction(void *unused)
     ErtsMonotonicTime old_mtime, old_stime, mtime, stime, mtime_diff,
 	stime_diff;
     int ix;
-    SysTimeval tod;
 
     ddp = &time_sup.inf.c.parmon.cdata.drift;
     ix = ddp->ix;
@@ -694,10 +692,7 @@ init_check_time_correction(void *unused)
     old_stime = ddp->intervals[0].time.sys;
 
     mtime = erts_os_monotonic_time();
-    sys_gettimeofday(&tod);
-
-    stime = ERTS_SEC_TO_MONOTONIC(tod.tv_sec);
-    stime += ERTS_USEC_TO_MONOTONIC(tod.tv_usec);
+    stime = erts_os_system_time();
 
     mtime_diff = mtime - old_mtime;
     stime_diff = stime - old_stime;
@@ -729,7 +724,7 @@ init_check_time_correction(void *unused)
 #endif
 
 static ErtsMonotonicTime
-finalize_corrected_time_offset(SysTimeval *todp)
+finalize_corrected_time_offset(ErtsSystemTime *stimep)
 {
     ErtsMonotonicTime os_mtime;
     ErtsMonotonicCorrectionData cdata;
@@ -738,7 +733,7 @@ finalize_corrected_time_offset(SysTimeval *todp)
     erts_smp_rwmtx_rlock(&time_sup.inf.c.parmon.rwmtx);
 
     os_mtime = erts_os_monotonic_time();
-    sys_gettimeofday(todp);
+    *stimep = erts_os_system_time();
 
     cdata = time_sup.inf.c.parmon.cdata;
 
@@ -774,15 +769,11 @@ late_init_time_correction(void)
 
 static ErtsMonotonicTime get_not_corrected_time(void)
 {
-    SysTimeval tmp_tv;
     ErtsMonotonicTime stime, mtime;
 
     erts_smp_mtx_lock(&erts_get_time_mtx);
 
-    sys_gettimeofday(&tmp_tv);
-
-    stime = ERTS_SEC_TO_MONOTONIC(tmp_tv.tv_sec);
-    stime += ERTS_USEC_TO_MONOTONIC(tmp_tv.tv_usec);
+    stime = erts_os_system_time();
 
     mtime = stime - time_sup.inf.c.not_corrected_moffset;
 
@@ -820,7 +811,7 @@ int erts_check_time_adj_support(int time_correction,
     /* User wants time correction */
 
 #ifdef ERTS_HAVE_OS_MONOTONIC_TIME_SUPPORT
-    return !time_sup.r.o.os_monotonic_disable;
+    return !time_sup.r.o.os_monotonic_time_disable;
 #else
     return 0;
 #endif
@@ -849,24 +840,33 @@ void erts_init_sys_time_sup(void)
 #endif
 
 #ifdef ERTS_HAVE_OS_MONOTONIC_TIME_SUPPORT
-    time_sup.r.o.os_monotonic_disable
-	= !sys_init_time_res.have_os_monotonic;
-    time_sup.r.o.os_monotonic_func
-	= sys_init_time_res.os_monotonic_info.func;
-    time_sup.r.o.os_monotonic_clock_id
-	= sys_init_time_res.os_monotonic_info.clock_id;
-    time_sup.r.o.os_monotonic_locked
-	= sys_init_time_res.os_monotonic_info.locked_use;
-    time_sup.r.o.os_monotonic_resolution
-	= sys_init_time_res.os_monotonic_info.resolution;
-    time_sup.r.o.os_monotonic_extended
-	= sys_init_time_res.os_monotonic_info.extended;
+    time_sup.r.o.os_monotonic_time_disable
+	= !sys_init_time_res.have_os_monotonic_time;
+    time_sup.r.o.os_monotonic_time_func
+	= sys_init_time_res.os_monotonic_time_info.func;
+    time_sup.r.o.os_monotonic_time_clock_id
+	= sys_init_time_res.os_monotonic_time_info.clock_id;
+    time_sup.r.o.os_monotonic_time_locked
+	= sys_init_time_res.os_monotonic_time_info.locked_use;
+    time_sup.r.o.os_monotonic_time_resolution
+	= sys_init_time_res.os_monotonic_time_info.resolution;
+    time_sup.r.o.os_monotonic_time_extended
+	= sys_init_time_res.os_monotonic_time_info.extended;
+    time_sup.r.o.os_system_time_func
+	= sys_init_time_res.os_system_time_info.func;
+    time_sup.r.o.os_system_time_clock_id
+	= sys_init_time_res.os_system_time_info.clock_id;
+    time_sup.r.o.os_system_time_locked
+	= sys_init_time_res.os_system_time_info.locked_use;
+    time_sup.r.o.os_system_time_resolution
+	= sys_init_time_res.os_system_time_info.resolution;
 #endif
 }
 
 int 
 erts_init_time_sup(int time_correction, ErtsTimeWarpMode time_warp_mode)
 {
+    ErtsMonotonicTime resolution;
 #if !ERTS_COMPILE_TIME_MONOTONIC_TIME_UNIT
     ErtsMonotonicTime abs_native_offset, native_offset;
 #endif
@@ -935,11 +935,15 @@ erts_init_time_sup(int time_correction, ErtsTimeWarpMode time_warp_mode)
 
 #endif
 
+    resolution = time_sup.r.o.os_monotonic_time_resolution;
+    if (resolution > time_sup.r.o.os_system_time_resolution)
+	resolution = time_sup.r.o.os_system_time_resolution;
+
     time_sup.r.o.adj.large_diff = erts_time_sup__.r.o.monotonic_time_unit;
     time_sup.r.o.adj.large_diff *= 50;
-    time_sup.r.o.adj.large_diff /= time_sup.r.o.os_monotonic_resolution;
-    if (time_sup.r.o.adj.large_diff < ERTS_MSEC_TO_MONOTONIC(5))
-	time_sup.r.o.adj.large_diff = ERTS_MSEC_TO_MONOTONIC(5);
+    time_sup.r.o.adj.large_diff /= resolution;
+    if (time_sup.r.o.adj.large_diff < ERTS_USEC_TO_MONOTONIC(500))
+	time_sup.r.o.adj.large_diff = ERTS_USEC_TO_MONOTONIC(500);
     time_sup.r.o.adj.small_diff = time_sup.r.o.adj.large_diff/10;
 
 #ifdef ERTS_TIME_CORRECTION_PRINT
@@ -961,7 +965,7 @@ erts_init_time_sup(int time_correction, ErtsTimeWarpMode time_warp_mode)
 #ifndef ERTS_HAVE_OS_MONOTONIC_TIME_SUPPORT
     time_sup.r.o.correction = 0;
 #else
-    if (time_sup.r.o.os_monotonic_disable)
+    if (time_sup.r.o.os_monotonic_time_disable)
 	time_sup.r.o.correction = 0;
 
     if (time_sup.r.o.correction) {
@@ -969,10 +973,9 @@ erts_init_time_sup(int time_correction, ErtsTimeWarpMode time_warp_mode)
 	erts_smp_rwmtx_opt_t rwmtx_opts = ERTS_SMP_RWMTX_OPT_DEFAULT_INITER;
 	ErtsMonotonicTime offset;
 	time_sup.inf.c.minit = erts_os_monotonic_time();
-	sys_gettimeofday(&time_sup.inf.c.inittv);
+	time_sup.inf.c.sinit = erts_os_system_time();
 	time_sup.r.o.moffset = -1*time_sup.inf.c.minit;
-	offset = ERTS_SEC_TO_MONOTONIC(time_sup.inf.c.inittv.tv_sec);
-	offset += ERTS_USEC_TO_MONOTONIC(time_sup.inf.c.inittv.tv_usec);
+	offset = time_sup.inf.c.sinit;
 	offset -= ERTS_MONOTONIC_TIME_UNIT;
 	init_time_offset(offset);
 
@@ -985,10 +988,7 @@ erts_init_time_sup(int time_correction, ErtsTimeWarpMode time_warp_mode)
 	cdatap = &time_sup.inf.c.parmon.cdata;
     
 #ifndef ERTS_HAVE_CORRECTED_OS_MONOTONIC
-	cdatap->drift.intervals[0].time.sys
-	    = ERTS_SEC_TO_MONOTONIC(time_sup.inf.c.inittv.tv_sec);
-	cdatap->drift.intervals[0].time.sys
-	    += ERTS_USEC_TO_MONOTONIC(time_sup.inf.c.inittv.tv_usec);
+	cdatap->drift.intervals[0].time.sys = time_sup.inf.c.sinit;
 	cdatap->drift.intervals[0].time.mon = time_sup.inf.c.minit;
 	cdatap->curr.correction.drift = 0;
 #endif
@@ -1006,9 +1006,7 @@ erts_init_time_sup(int time_correction, ErtsTimeWarpMode time_warp_mode)
     {
 	ErtsMonotonicTime stime, offset;
 	time_sup.r.o.get_time = get_not_corrected_time;
-	sys_gettimeofday(&time_sup.inf.c.inittv);
-	stime = ERTS_SEC_TO_MONOTONIC(time_sup.inf.c.inittv.tv_sec);
- 	stime += ERTS_USEC_TO_MONOTONIC(time_sup.inf.c.inittv.tv_usec);
+	stime = time_sup.inf.c.sinit = erts_os_system_time();
 	offset = stime - ERTS_MONOTONIC_TIME_UNIT;
 	time_sup.inf.c.not_corrected_moffset = offset;
 	init_time_offset(offset);
@@ -1085,17 +1083,12 @@ erts_finalize_time_offset(void)
 
 	if (!time_sup.inf.c.finalized_offset) {
 	    ErtsMonotonicTime mtime, new_offset;
-	    SysTimeval tv;
 
 #ifdef ERTS_HAVE_OS_MONOTONIC_TIME_SUPPORT
 	    if (!time_sup.r.o.correction)
 #endif
 	    {
-		ErtsMonotonicTime stime;
-		sys_gettimeofday(&tv);
-
-		stime = ERTS_SEC_TO_MONOTONIC(tv.tv_sec);
-		stime += ERTS_USEC_TO_MONOTONIC(tv.tv_usec);
+		ErtsMonotonicTime stime = erts_os_system_time();
 
 		mtime = stime - time_sup.inf.c.not_corrected_moffset;
 
@@ -1114,11 +1107,9 @@ erts_finalize_time_offset(void)
 	    }
 #ifdef ERTS_HAVE_OS_MONOTONIC_TIME_SUPPORT
 	    else {
-		mtime = finalize_corrected_time_offset(&tv);
-		new_offset = ERTS_SEC_TO_MONOTONIC(tv.tv_sec);
-		new_offset += ERTS_USEC_TO_MONOTONIC(tv.tv_usec);
-		new_offset -= mtime;
-
+		ErtsSystemTime stime;
+		mtime = finalize_corrected_time_offset(&stime);
+		new_offset = stime - mtime;
 	    }
 #endif
 	    new_offset = ERTS_MONOTONIC_TO_USEC(new_offset);
@@ -1613,13 +1604,16 @@ erts_get_monotonic_time(void)
 void
 get_sys_now(Uint* megasec, Uint* sec, Uint* microsec)
 {
-    SysTimeval now;
-    
-    sys_gettimeofday(&now);
-    
-    *megasec = (Uint) (now.tv_sec / 1000000);
-    *sec = (Uint) (now.tv_sec % 1000000);
-    *microsec = (Uint) (now.tv_usec);
+    ErtsSystemTime stime = erts_os_system_time();
+    ErtsSystemTime ms, s, us;
+
+    us = ERTS_MONOTONIC_TO_USEC(stime);
+    s = us / (1000*1000);
+    ms = s / (1000*1000);
+
+    *megasec = (Uint) ms;
+    *sec = (Uint) (s - ms*(1000*1000));
+    *microsec = (Uint) (us - s*(1000*1000));
 }
 
 #ifdef HAVE_ERTS_NOW_CPU
@@ -1848,25 +1842,28 @@ bld_monotonic_time_source(Uint **hpp, Uint *szp, Sint64 os_mtime)
     Eterm k[6];
     Eterm v[6];
 
-    if (time_sup.r.o.os_monotonic_disable)
+    if (time_sup.r.o.os_monotonic_time_disable)
 	return NIL;
 
     k[i] = erts_bld_atom(hpp, szp, "function");
-    v[i++] = erts_bld_atom(hpp, szp, time_sup.r.o.os_monotonic_func);
+    v[i++] = erts_bld_atom(hpp, szp,
+			   time_sup.r.o.os_monotonic_time_func);
 
-    if (time_sup.r.o.os_monotonic_clock_id) {
+    if (time_sup.r.o.os_monotonic_time_clock_id) {
 	k[i] = erts_bld_atom(hpp, szp, "clock_id");
-	v[i++] = erts_bld_atom(hpp, szp, time_sup.r.o.os_monotonic_clock_id);
+	v[i++] = erts_bld_atom(hpp, szp,
+			       time_sup.r.o.os_monotonic_time_clock_id);
     }
 
     k[i] = erts_bld_atom(hpp, szp, "resolution");
-    v[i++] = erts_bld_uint64(hpp, szp, time_sup.r.o.os_monotonic_resolution);
+    v[i++] = erts_bld_uint64(hpp, szp,
+			     time_sup.r.o.os_monotonic_time_resolution);
 
     k[i] = erts_bld_atom(hpp, szp, "extended");
-    v[i++] = time_sup.r.o.os_monotonic_extended ? am_yes : am_no;
+    v[i++] = time_sup.r.o.os_monotonic_time_extended ? am_yes : am_no;
 
     k[i] = erts_bld_atom(hpp, szp, "parallel");
-    v[i++] = time_sup.r.o.os_monotonic_locked ? am_no : am_yes;
+    v[i++] = time_sup.r.o.os_monotonic_time_locked ? am_no : am_yes;
 
     k[i] = erts_bld_atom(hpp, szp, "time");
     v[i++] = erts_bld_sint64(hpp, szp, os_mtime);
@@ -1882,7 +1879,7 @@ erts_monotonic_time_source(struct process *c_p)
     Eterm *hp = NULL;
     Sint64 os_mtime = 0;
 #ifdef ERTS_HAVE_OS_MONOTONIC_TIME_SUPPORT
-    if (!time_sup.r.o.os_monotonic_disable)
+    if (!time_sup.r.o.os_monotonic_time_disable)
 	os_mtime = (Sint64) erts_os_monotonic_time();
 #endif
 
@@ -1890,6 +1887,49 @@ erts_monotonic_time_source(struct process *c_p)
     if (hsz)
 	hp = HAlloc(c_p, hsz);
     return bld_monotonic_time_source(&hp, NULL, os_mtime);
+}
+
+static Eterm
+bld_system_time_source(Uint **hpp, Uint *szp, Sint64 os_stime)
+{
+    int i = 0;
+    Eterm k[5];
+    Eterm v[5];
+
+    k[i] = erts_bld_atom(hpp, szp, "function");
+    v[i++] = erts_bld_atom(hpp, szp,
+			   time_sup.r.o.os_system_time_func);
+
+    if (time_sup.r.o.os_system_time_clock_id) {
+	k[i] = erts_bld_atom(hpp, szp, "clock_id");
+	v[i++] = erts_bld_atom(hpp, szp,
+			       time_sup.r.o.os_system_time_clock_id);
+    }
+
+    k[i] = erts_bld_atom(hpp, szp, "resolution");
+    v[i++] = erts_bld_uint64(hpp, szp,
+			     time_sup.r.o.os_system_time_resolution);
+
+    k[i] = erts_bld_atom(hpp, szp, "parallel");
+    v[i++] = am_yes;
+
+    k[i] = erts_bld_atom(hpp, szp, "time");
+    v[i++] = erts_bld_sint64(hpp, szp, os_stime);
+
+    return erts_bld_2tup_list(hpp, szp, (Sint) i, k, v);
+}
+
+Eterm
+erts_system_time_source(struct process *c_p)
+{
+    Uint hsz = 0;
+    Eterm *hp = NULL;
+    Sint64 os_stime = (Sint64) erts_os_system_time();
+
+    bld_system_time_source(NULL, &hsz, os_stime);
+    if (hsz)
+	hp = HAlloc(c_p, hsz);
+    return bld_system_time_source(&hp, NULL, os_stime);
 }
 
 
@@ -2066,21 +2106,13 @@ BIF_RETTYPE timestamp_0(BIF_ALIST_0)
 
 BIF_RETTYPE os_system_time_0(BIF_ALIST_0)
 {
-    ErtsMonotonicTime stime;
-    SysTimeval tod;
-    sys_gettimeofday(&tod);
-    stime = ERTS_SEC_TO_MONOTONIC(tod.tv_sec);
-    stime += ERTS_USEC_TO_MONOTONIC(tod.tv_usec);
+    ErtsSystemTime stime = erts_os_system_time();
     BIF_RET(make_time_val(BIF_P, stime));
 }
 
 BIF_RETTYPE os_system_time_1(BIF_ALIST_0)
 {
-    ErtsMonotonicTime stime;
-    SysTimeval tod;
-    sys_gettimeofday(&tod);
-    stime = ERTS_SEC_TO_MONOTONIC(tod.tv_sec);
-    stime += ERTS_USEC_TO_MONOTONIC(tod.tv_usec);
+    ErtsSystemTime stime = erts_os_system_time();
     BIF_RET(time_unit_conversion(BIF_P, BIF_ARG_1, stime, 0));
 }
 

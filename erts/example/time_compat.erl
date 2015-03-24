@@ -240,6 +240,7 @@ system_info(Item) ->
 		time_offset ->
 		    final;
 		NotSupArg when NotSupArg == os_monotonic_time_source;
+			       NotSupArg == os_system_time_source;
 			       NotSupArg == start_time ->
 		    %% Cannot emulate this...
 		    erlang:error(notsup, [NotSupArg]);
