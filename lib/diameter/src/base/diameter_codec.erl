@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -22,6 +22,8 @@
 -export([encode/2,
          decode/2,
          decode/3,
+         setopts/1,
+         getopt/1,
          collect_avps/1,
          decode_header/1,
          sequence_numbers/1,
@@ -57,6 +59,41 @@
 %%    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 %%    |  AVPs ...
 %%    +-+-+-+-+-+-+-+-+-+-+-+-+-
+
+%%% ---------------------------------------------------------------------------
+%%% # setopts/1
+%%% # getopt/1
+%%% ---------------------------------------------------------------------------
+
+%% These functions are a compromise in the same vein as the use of the
+%% process dictionary in diameter_gen.hrl in generated codec modules.
+%% Instead of rewriting the entire dictionary generation to pass
+%% encode/decode options around, the calling process sets them by
+%% calling setopts/1. At current, the only option is whether or not to
+%% decode binaries as strings, which is used by diameter_types.
+
+setopts(Opts)
+  when is_list(Opts) ->
+    lists:foreach(fun setopt/1, Opts).
+
+%% Decode stringish types to string()? The default true is for
+%% backwards compatibility.
+setopt({string_decode = K, false = B}) ->
+    setopt(K, B);
+
+setopt(_) ->
+    ok.
+
+setopt(Key, Value) ->
+    put({diameter, Key}, Value).
+
+getopt(Key) ->
+    case get({diameter, Key}) of
+        undefined when Key == string_decode ->
+            true;
+        V ->
+            V
+    end.
 
 %%% ---------------------------------------------------------------------------
 %%% # encode/2

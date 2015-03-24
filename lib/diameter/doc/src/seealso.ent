@@ -70,6 +70,8 @@ significant.
 <!ENTITY connect_timer '<seealso marker="#connect_timer">connect_timer</seealso>'>
 <!ENTITY watchdog_timer '<seealso marker="#watchdog_timer">watchdog_timer</seealso>'>
 
+<!ENTITY mod_string_decode '<seealso marker="diameter#service_opt">diameter:service_opt()</seealso> <seealso marker="diameter#string_decode">string_decode</seealso>'>
+
 <!-- diameter_app -->
 
 <!ENTITY app_handle_answer '<seealso marker="diameter_app#Mod:handle_answer-4">handle_answer/4</seealso>'>
@@ -103,6 +105,9 @@ significant.
 
 <!ENTITY dict_Address '<seealso marker="diameter_dict#DATA_TYPES">Address()</seealso>'>
 <!ENTITY dict_DiameterIdentity '<seealso marker="diameter_dict#DATA_TYPES">DiameterIdentity()</seealso>'>
+<!ENTITY dict_DiameterURI '<seealso marker="diameter_dict#DATA_TYPES">DiameterURI()</seealso>'>
+<!ENTITY dict_IPFilterRule '<seealso marker="diameter_dict#DATA_TYPES">IPFilterRule()</seealso>'>
+<!ENTITY dict_QoSFilterRule '<seealso marker="diameter_dict#DATA_TYPES">QoSFilterRule()</seealso>'>
 <!ENTITY dict_Grouped '<seealso marker="diameter_dict#DATA_TYPES">Grouped()</seealso>'>
 <!ENTITY dict_OctetString '<seealso marker="diameter_dict#DATA_TYPES">OctetString()</seealso>'>
 <!ENTITY dict_Time '<seealso marker="diameter_dict#DATA_TYPES">Time()</seealso>'>

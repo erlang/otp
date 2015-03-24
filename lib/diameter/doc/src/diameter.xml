@@ -303,7 +303,7 @@ Defaults to <c>none</c>.</p>
 <tag><c>{timeout, &dict_Unsigned32;}</c></tag>
 <item>
 <p>
-The number of milliseconds after which the request should
+Number of milliseconds after which the request should
 timeout.
 Defaults to 5000.</p>
 </item>
@@ -742,7 +742,7 @@ info fields of forms other than the above.</p>
 <tag><c>service_name() = term()</c></tag>
 <item>
 <p>
-The name of a service as passed to &start_service; and with which the
+Name of a service as passed to &start_service; and with which the
 service is identified.
 There can be at most one service with a given name on a given node.
 Note that &make_ref;
@@ -754,7 +754,7 @@ can be used to generate a service name that is somewhat unique.</p>
 <tag><c>service_opt()</c></tag>
 <item>
 <p>
-An option passed to &start_service;.
+Option passed to &start_service;.
 Can be any <c>&capability;</c> as well as the following.</p>
 
 <taglist>
@@ -762,7 +762,7 @@ Can be any <c>&capability;</c> as well as the following.</p>
 <tag><c>{application, [&application_opt;]}</c></tag>
 <item>
 <p>
-Defines a Diameter application supported by the service.</p>
+A Diameter application supported by the service.</p>
 
 <p>
 A service must configure one tuple for each Diameter
@@ -790,7 +790,7 @@ be matched by corresponding &capability; configuration, of
                              | evaluable()}</c></tag>
 <item>
 <p>
-Specifies the degree to which the service allows multiple transport
+The degree to which the service allows multiple transport
 connections to the same peer, as identified by its Origin-Host
 at capabilities exchange.</p>
 
@@ -816,7 +816,7 @@ Defaults to <c>nodes</c>.</p>
 <tag><c>{sequence, {H,N} | &evaluable;}</c></tag>
 <item>
 <p>
-Specifies a constant value <c>H</c> for the topmost <c>32-N</c> bits of
+A constant value <c>H</c> for the topmost <c>32-N</c> bits of
 of 32-bit End-to-End and Hop-by-Hop Identifiers generated
 by the service, either explicitly or as a return value of a function
 to be evaluated at &start_service;.
@@ -851,7 +851,7 @@ outgoing requests.</p>
 <tag><c>{share_peers, boolean() | [node()] | evaluable()}</c></tag>
 <item>
 <p>
-Specifies nodes to which peer connections established on the local
+Nodes to which peer connections established on the local
 Erlang node are communicated.
 Shared peers become available in the remote candidates list passed to
 &app_pick_peer; callbacks on remote nodes whose services are
@@ -890,7 +890,7 @@ of a single Diameter node across multiple Erlang nodes.</p>
 <tag><c>{spawn_opt, [term()]}</c></tag>
 <item>
 <p>
-An options list passed to &spawn_opt; when spawning a process for an
+Options list passed to &spawn_opt; when spawning a process for an
 incoming Diameter request, unless the transport in question
 specifies another value.
 Options <c>monitor</c> and <c>link</c> are ignored.</p>
@@ -899,10 +899,34 @@ Options <c>monitor</c> and <c>link</c> are ignored.</p>
 Defaults to the empty list.</p>
 </item>
 
+<marker id="string_decode"/>
+<tag><c>{string_decode, boolean()}</c></tag>
+<item>
+<p>
+Whether or not to decode AVPs of type &dict_OctetString; and its
+derived types &dict_DiameterIdentity;, &dict_DiameterURI;,
+&dict_IPFilterRule;, &dict_QoSFilterRule;, and &dict_UTF8String;.
+If <c>true</c> then AVPs of these types are decoded to string().
+If <c>false</c> then values are retained as binary().</p>
+
+<p>
+Defaults to <c>true</c>.</p>
+
+<warning>
+<p>
+This option should be set to <c>false</c>
+since a sufficiently malicious peer can otherwise cause large amounts
+of memory to be consumed when decoded Diameter messages are passed
+between processes.
+The default value is for backwards compatibility.</p>
+</warning>
+
+</item>
+
 <tag><c>{use_shared_peers, boolean() | [node()] | evaluable()}</c></tag>
 <item>
 <p>
-Specifies nodes from which communicated peers are made available in
+Nodes from which communicated peers are made available in
 the remote candidates list of &app_pick_peer; callbacks.</p>
 
 <p>
@@ -942,7 +966,7 @@ each node from which requests are sent.</p>
 <tag><c>transport_opt()</c></tag>
 <item>
 <p>
-An option passed to &add_transport;.
+Option passed to &add_transport;.
 Has one of the following types.</p>
 
 <taglist>
@@ -950,8 +974,7 @@ Has one of the following types.</p>
 <tag><c>{applications, [&application_alias;]}</c></tag>
 <item>
 <p>
-The list of Diameter applications to which the transport should be
-restricted.
+Diameter applications to which the transport should be restricted.
 Defaults to all applications configured on the service in question.
 Applications not configured on the service in question are ignored.</p>
 
@@ -984,7 +1007,7 @@ TLS is desired over TCP as implemented by &man_tcp;.</p>
 <tag><c>{capabilities_cb, &evaluable;}</c></tag>
 <item>
 <p>
-A callback invoked upon reception of CER/CEA during capabilities
+Callback invoked upon reception of CER/CEA during capabilities
 exchange in order to ask whether or not the connection should
 be accepted.
 Applied to the <c>&transport_ref;</c> and
@@ -1218,7 +1241,7 @@ the same peer.</p>
 <tag><c>{spawn_opt, [term()]}</c></tag>
 <item>
 <p>
-Options list passed to &spawn_opt; when spawning a process for an
+Options passed to &spawn_opt; when spawning a process for an
 incoming Diameter request.
 Options <c>monitor</c> and <c>link</c> are ignored.</p>
 

@@ -140,7 +140,8 @@
 %% # start/3
 %% ---------------------------------------------------------------------------
 
--spec start(T, [Opt], {diameter:sequence(),
+-spec start(T, [Opt], {[diameter:service_opt()]
+                       | diameter:sequence(),  %% from old code
                        [node()],
                        module(),
                        #diameter_service{}})
@@ -179,10 +180,15 @@ init(T) ->
     proc_lib:init_ack({ok, self()}),
     gen_server:enter_loop(?MODULE, [], i(T)).
 
-i({Ack, WPid, {M, Ref} = T, Opts, {Mask, Nodes, Dict0, Svc}}) ->
+i({Ack, WPid, T, Opts, {{_,_} = Mask, Nodes, Dict0, Svc}}) -> %% from old code
+    i({Ack, WPid, T, Opts, {[{sequence, Mask}], Nodes, Dict0, Svc}});
+
+i({Ack, WPid, {M, Ref} = T, Opts, {SvcOpts, Nodes, Dict0, Svc}}) ->
     erlang:monitor(process, WPid),
     wait(Ack, WPid),
     diameter_stats:reg(Ref),
+    diameter_codec:setopts(SvcOpts),
+    {_,_} = Mask = proplists:get_value(sequence, SvcOpts),
     {[Cs,Ds], Rest} = proplists:split(Opts, [capabilities_cb, disconnect_cb]),
     putr(?CB_KEY, {Ref, [F || {_,F} <- Cs]}),
     putr(?DPR_KEY, [F || {_, F} <- Ds]),
@@ -788,6 +794,8 @@ build_answer('CER',
              = Pkt,
              #state{dictionary = Dict0}
              = S) ->
+    diameter_codec:setopts([{string_decode, false}]),
+
     {SupportedApps, RCaps, CEA} = recv_CER(CER, S),
 
     [RC, IS] = Dict0:'#get-'(['Result-Code', 'Inband-Security-Id'], CEA),
@@ -977,6 +985,8 @@ handle_CEA(#diameter_packet{header = H}
     #diameter_packet{}
         = DPkt
         = diameter_codec:decode(Dict0, Pkt),
+
+    diameter_codec:setopts([{string_decode, false}]),
 
     RC = result_code(incr_rc(recv, DPkt, Dict0)),
 

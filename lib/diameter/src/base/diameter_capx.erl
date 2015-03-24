@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -50,7 +50,8 @@
 -export([build_CER/2,
          recv_CER/3,
          recv_CEA/3,
-         make_caps/2]).
+         make_caps/2,
+         binary_caps/1]).
 
 -include_lib("diameter/include/diameter.hrl").
 -include("diameter_internal.hrl").
@@ -115,7 +116,8 @@ mk_caps(Caps0, Opts) ->
 
 -define(SC(K,F),
         set_cap({K, Val}, {Caps, #diameter_caps{F = false} = C}) ->
-            {Caps#diameter_caps{F = cap(K, Val)}, C#diameter_caps{F = true}}).
+            {Caps#diameter_caps{F = cap(K, copy(Val))},
+             C#diameter_caps{F = true}}).
 
 ?SC('Origin-Host',         origin_host);
 ?SC('Origin-Realm',        origin_realm);
@@ -375,10 +377,10 @@ capx_to_caps(CEX, Dict) ->
                         'Firmware-Revision',
                         'AVP'],
                        CEX),
-    #diameter_caps{origin_host = OH,
-                   origin_realm = OR,
+    #diameter_caps{origin_host = copy(OH),
+                   origin_realm = copy(OR),
                    vendor_id = VId,
-                   product_name = PN,
+                   product_name = copy(PN),
                    origin_state_id = OSI,
                    host_ip_address = IP,
                    supported_vendor_id = SV,
@@ -388,6 +390,32 @@ capx_to_caps(CEX, Dict) ->
                    vendor_specific_application_id = VSA,
                    firmware_revision = FR,
                    avp = X}.
+
+%% Copy binaries to avoid retaining a reference to a large binary
+%% containing AVPs we aren't interested in.
+copy(B)
+  when is_binary(B) ->
+    binary:copy(B);
+
+copy(T) ->
+    T.
+
+%% binary_caps/1
+%%
+%% Encode stringish capabilities with {string_decode, false}.
+
+binary_caps(Caps) ->
+    lists:foldl(fun bcaps/2, Caps, [#diameter_caps.origin_host,
+                                    #diameter_caps.origin_realm,
+                                    #diameter_caps.product_name]).
+
+bcaps(N, Caps) ->
+    case element(N, Caps) of
+        undefined ->
+            Caps;
+        V ->
+            setelement(N, Caps, iolist_to_binary(V))
+    end.
 
 %% ---------------------------------------------------------------------------
 %% ---------------------------------------------------------------------------

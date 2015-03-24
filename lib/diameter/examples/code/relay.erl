@@ -32,6 +32,7 @@
 -module(relay).
 
 -export([start/1,
+         start/2,
          listen/2,
          connect/2,
          stop/1]).
@@ -49,6 +50,7 @@
                         {'Vendor-Id', 193},
                         {'Product-Name', "RelayAgent"},
                         {'Auth-Application-Id', [16#FFFFFFFF]},
+                        {string_decode, false},
                         {application, [{alias, relay},
                                        {dictionary, diameter_relay},
                                        {module, relay_cb}]}]).
@@ -57,10 +59,18 @@
 
 start(Name)
   when is_atom(Name) ->
-    node:start(Name, ?SERVICE(Name)).
+    start(Name, []).
+
+%% start/1
 
 start() ->
     start(?DEF_SVC_NAME).
+
+%% start/2
+
+start(Name, Opts) ->
+    node:start(Name, Opts ++ [T || {K,_} = T <- ?SERVICE(Name),
+                                   false == lists:keymember(K, 1, Opts)]).
 
 %% listen/2
 

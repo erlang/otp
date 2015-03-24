@@ -130,7 +130,8 @@
          :: [{sequence, diameter:sequence()}  %% sequence mask
              | {share_peers, diameter:remotes()}       %% broadcast to
              | {use_shared_peers, diameter:remotes()}  %% use from
-             | {restrict_connections, diameter:restriction()}]}).
+             | {restrict_connections, diameter:restriction()}
+             | {string_decode, boolean()}]}).
 %% shared_peers reflects the peers broadcast from remote nodes.
 
 %% Record representing an RFC 3539 watchdog process implemented by
@@ -261,16 +262,22 @@ whois(SvcName) ->
 %% ---------------------------------------------------------------------------
 
 -spec pick_peer(SvcName, AppOrAlias, Opts)
-   -> {{TPid, Caps, App}, Mask}
-    | false
-    | {error, term()}
+   -> {{TPid, Caps, App}, Mask, SvcOpts}
+    | false  %% no selection
+    | {error, no_service}
  when SvcName :: diameter:service_name(),
-      AppOrAlias :: {alias, diameter:app_alias()} | #diameter_app{},
-      Opts :: tuple(),
+      AppOrAlias :: #diameter_app{}
+                  | {alias, diameter:app_alias()},
+      Opts :: {fun((Dict :: module()) -> [term()]),
+               diameter:peer_filter(),
+               Xtra :: list()},
       TPid :: pid(),
       Caps :: #diameter_caps{},
       App  :: #diameter_app{},
-      Mask :: diameter:sequence().
+      Mask :: diameter:sequence(),
+      SvcOpts :: [diameter:service_opt()].
+%% Extract Mask in the returned tuple so that diameter_traffic doesn't
+%% need to know about the ordering of SvcOpts used here.
 
 pick_peer(SvcName, App, Opts) ->
     pick(lookup_state(SvcName), App, Opts).
@@ -287,10 +294,10 @@ pick(#state{service = #diameter_service{applications = Apps}}
      Opts) ->  %% initial call from diameter:call/4
     pick(S, find_outgoing_app(Alias, Apps), Opts);
 
-pick(_, false, _) ->
-    false;
+pick(_, false = No, _) ->
+    No;
 
-pick(#state{options = [{_, Mask} | _]}
+pick(#state{options = [{_, Mask} | SvcOpts]}
      = S,
      #diameter_app{module = ModX, dictionary = Dict}
      = App0,
@@ -299,7 +306,7 @@ pick(#state{options = [{_, Mask} | _]}
     [_,_] = RealmAndHost = diameter_lib:eval([DestF, Dict]),
     case pick_peer(App, RealmAndHost, Filter, S) of
         {TPid, Caps} ->
-            {{TPid, Caps, App}, Mask};
+            {{TPid, Caps, App}, Mask, SvcOpts};
         false = No ->
             No
     end.
@@ -690,7 +697,8 @@ service_options(Opts) ->
      {restrict_connections, proplists:get_value(restrict_connections,
                                                 Opts,
                                                 ?RESTRICT)},
-     {spawn_opt, proplists:get_value(spawn_opt, Opts, [])}].
+     {spawn_opt, proplists:get_value(spawn_opt, Opts, [])},
+     {string_decode, proplists:get_value(string_decode, Opts, true)}].
 %% The order of options is significant since we match against the list.
 
 mref(false = No) ->
@@ -802,10 +810,13 @@ start(Ref, Type, Opts, N, #state{watchdogT = WatchdogT,
   when Type == connect;
        Type == accept ->
     #diameter_service{applications = Apps}
-        = Svc
+        = Svc1
         = merge_service(Opts, Svc0),
-    {_,_} = Mask = proplists:get_value(sequence, SvcOpts),
-    RecvData = diameter_traffic:make_recvdata([SvcName, PeerT, Apps, Mask]),
+    Svc = binary_caps(Svc1, proplists:get_value(string_decode, SvcOpts, true)),
+    RecvData = diameter_traffic:make_recvdata([SvcName,
+                                               PeerT,
+                                               Apps,
+                                               SvcOpts]),
     T = {{spawn_opts([Opts, SvcOpts]), RecvData}, Opts, SvcOpts, Svc},
     Rec = #watchdog{type = Type,
                     ref = Ref,
@@ -816,8 +827,13 @@ start(Ref, Type, Opts, N, #state{watchdogT = WatchdogT,
                         [],
                         N).
 
+binary_caps(Svc, true) ->
+    Svc;
+binary_caps(#diameter_service{capabilities = Caps} = Svc, false) ->
+    Svc#diameter_service{capabilities = diameter_capx:binary_caps(Caps)}.
+
 wd(Type, Ref, T, WatchdogT, Rec) ->
-    Pid = wd(Type, Ref, T),
+    Pid = start_watchdog(Type, Ref, T),
     insert(WatchdogT, Rec#watchdog{pid = Pid}),
     Pid.
 
@@ -831,7 +847,7 @@ spawn_opts(Optss) ->
           T /= link,
           T /= monitor].
 
-wd(Type, Ref, T) ->
+start_watchdog(Type, Ref, T) ->
     {_MRef, Pid} = diameter_watchdog:start({Type, Ref}, T),
     Pid.
 
@@ -852,7 +868,7 @@ ms({applications, As}, #diameter_service{applications = Apps} = S)
 
 %% The fact that all capabilities can be configured on the transports
 %% means that the service doesn't necessarily represent a single
-%% locally implemented Diameter peer as identified by Origin-Host: a
+%% locally implemented Diameter node as identified by Origin-Host: a
 %% transport can configure its own Origin-Host. This means that the
 %% service little more than a placeholder for default capabilities
 %% plus a list of applications that individual transports can choose

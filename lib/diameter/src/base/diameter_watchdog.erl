@@ -124,14 +124,15 @@ i({Ack, T, Pid, {RecvData,
     wait(Ack, Pid),
     {_, Seed} = diameter_lib:seed(),
     random:seed(Seed),
-    putr(restart, {T, Opts, Svc}),  %% save seeing it in trace
-    putr(dwr, dwr(Caps)),           %%
+    putr(restart, {T, Opts, Svc, SvcOpts}),  %% save seeing it in trace
+    putr(dwr, dwr(Caps)),                    %%
+    diameter_codec:setopts([{string_decode, false}]),
     {_,_} = Mask = proplists:get_value(sequence, SvcOpts),
     Restrict = proplists:get_value(restrict_connections, SvcOpts),
     Nodes = restrict_nodes(Restrict),
     Dict0 = common_dictionary(Apps),
     #watchdog{parent = Pid,
-              transport = start(T, Opts, Mask, Nodes, Dict0, Svc),
+              transport = start(T, Opts, SvcOpts, Nodes, Dict0, Svc),
               tw = proplists:get_value(watchdog_timer,
                                        Opts,
                                        ?DEFAULT_TW_INIT),
@@ -166,11 +167,11 @@ config({okay, N}, Rec)
   when ?IS_NATURAL(N) ->
     Rec#config{okay = N}.
 
-%% start/5
+%% start/6
 
-start(T, Opts, Mask, Nodes, Dict0, Svc) ->
+start(T, Opts, SvcOpts, Nodes, Dict0, Svc) ->
     {_MRef, Pid}
-        = diameter_peer_fsm:start(T, Opts, {Mask, Nodes, Dict0, Svc}),
+        = diameter_peer_fsm:start(T, Opts, {SvcOpts, Nodes, Dict0, Svc}),
     Pid.
 
 %% common_dictionary/1
@@ -320,7 +321,7 @@ code_change(_, State, _) ->
 %% expiry; or another watchdog is saying the same after reestablishing
 %% a connection previously had by this one.
 transition(close, #watchdog{}) ->
-    {{accept, _}, _, _} = getr(restart), %% assert
+    {accept, _} = role(), %% assert
     stop;
 
 %% Service is asking for the peer to be taken down gracefully.
@@ -370,7 +371,7 @@ transition({open, TPid, Hosts, _} = Open,
                      restrict = {_,R},
                      config = #config{suspect = OS}}
            = S) ->
-    case okay(getr(restart), Hosts, R) of
+    case okay(role(), Hosts, R) of
         okay ->
             set_watchdog(S#watchdog{status = okay,
                                     num_dwa = OS});
@@ -424,7 +425,7 @@ transition({'DOWN', _, process, TPid, _Reason} = D,
            = S0) ->
     S = S0#watchdog{pending = false,
                     transport = undefined},
-    {{M,_}, _, _} = getr(restart),
+    {M,_} = role(),
 
     %% Close an accepting watchdog immediately if there's no
     %% restriction on the number of connections to the same peer: the
@@ -491,7 +492,7 @@ encode(dwa, Dict0, #diameter_packet{header = H, transport_data = TD}
 
 %% okay/3
 
-okay({{accept, Ref}, _, _}, Hosts, Restrict) ->
+okay({accept, Ref}, Hosts, Restrict) ->
     T = {?MODULE, connection, Ref, Hosts},
     diameter_reg:add(T),
     if Restrict ->
@@ -502,7 +503,7 @@ okay({{accept, Ref}, _, _}, Hosts, Restrict) ->
 %% Register before matching so that at least one of two registering
 %% processes will match the other.
 
-okay({{connect, _}, _, _}, _, _) ->
+okay({connect, _}, _, _) ->
     okay.
 
 %% okay/2
@@ -516,6 +517,11 @@ okay([{_,P}]) ->
 okay(C) ->
     [_|_] = [send(P, close) || {_,P} <- C, self() /= P],
     reopen.
+
+%% role/0
+
+role() ->
+    element(1, getr(restart)).
 
 %% set_watchdog/1
 
@@ -573,11 +579,18 @@ rcv('DWR', Pkt, #watchdog{transport = TPid,
     DPkt = diameter_codec:decode(Dict0, Pkt),
     diameter_traffic:incr(recv, DPkt, TPid, Dict0),
     diameter_traffic:incr_error(recv, DPkt, TPid, Dict0),
-    EPkt = encode(dwa, Dict0, Pkt),
+    #diameter_packet{header = H,
+                     transport_data = T,
+                     bin = Bin}
+        = EPkt
+        = encode(dwa, Dict0, Pkt),
     diameter_traffic:incr(send, EPkt, TPid, Dict0),
     diameter_traffic:incr_rc(send, EPkt, TPid, Dict0),
 
-    send(TPid, {send, EPkt}),
+    %% Strip potentially large message terms.
+    send(TPid, {send, #diameter_packet{header = H,
+                                       transport_data = T,
+                                       bin = Bin}}),
     ?LOG(send, 'DWA');
 
 rcv('DWA', Pkt, #watchdog{transport = TPid,
@@ -796,26 +809,28 @@ restart(S) ->  %% reconnect has won race with timeout
 %% state down rather then initial when receiving notification of an
 %% open connection.
 
-restart({{connect, _} = T, Opts, Svc},
+restart({T, Opts, Svc}, S) ->  %% put in old code
+    restart({T, Opts, Svc, []}, S);
+
+restart({{connect, _} = T, Opts, Svc, SvcOpts},
         #watchdog{parent = Pid,
-                  sequence = Mask,
                   restrict = {R,_},
                   dictionary = Dict0}
         = S) ->
     send(Pid, {reconnect, self()}),
     Nodes = restrict_nodes(R),
-    S#watchdog{transport = start(T, Opts, Mask, Nodes, Dict0, Svc),
+    S#watchdog{transport = start(T, Opts, SvcOpts, Nodes, Dict0, Svc),
                restrict = {R, lists:member(node(), Nodes)}};
 
 %% No restriction on the number of connections to the same peer: just
 %% die. Note that a state machine never enters state REOPEN in this
 %% case.
-restart({{accept, _}, _, _}, #watchdog{restrict = {_, false}}) ->
+restart({{accept, _}, _, _, _}, #watchdog{restrict = {_, false}}) ->
     stop;  %% 'DOWN' was in old code: 'close' was not sent
 
 %% Otherwise hang around until told to die, either by the service or
 %% by another watchdog.
-restart({{accept, _}, _, _}, S) ->
+restart({{accept, _}, _, _, _}, S) ->
     S.
 
 %% Don't currently use Opts/Svc in the accept case.
