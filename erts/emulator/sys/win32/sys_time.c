@@ -119,6 +119,24 @@ __declspec(align(ASSUMED_CACHE_LINE_SIZE)) struct {
 
 __declspec(align(ASSUMED_CACHE_LINE_SIZE)) ErtsSysTimeData__ erts_sys_time_data__;
 
+
+static ERTS_INLINE ErtsSystemTime
+SystemTime2MilliSec(SYSTEMTIME *stp)
+{
+    ErtsSystemTime stime;
+    FILETIME ft;
+    ULARGE_INTEGER ull;
+
+    SystemTimeToFileTime(stp, &ft);
+    FILETIME_TO_ULI(ull,ft);
+    /* now in 100 ns units */
+    stime = (ErtsSystemTime) ull.QuadPart;
+    stime -= (((ErtsSystemTime) EPOCH_JULIAN_DIFF)
+	      * ((ErtsSystemTime) (10*1000*1000)));
+    stime /= (ErtsSystemTime) (10*1000); /* ms */
+    return stime;
+}
+
 static ErtsMonotonicTime
 os_monotonic_time_qpc(void)
 {
@@ -130,6 +148,30 @@ os_monotonic_time_qpc(void)
     return (ErtsMonotonicTime) pc.QuadPart;
 }
 
+static void
+os_times_qpc(ErtsMonotonicTime *mtimep, ErtsSystemTime *stimep)
+{
+    LARGE_INTEGER pc;
+    SYSTEMTIME st;
+    ErtsSystemTime stime;
+    BOOL qpcr;
+
+    qpcr = (*internal_state.r.o.pQueryPerformanceCounter)(&pc);
+    GetSystemTime(&st);
+
+    if (!qpcr)
+	erl_exit(ERTS_ABORT_EXIT, "QueryPerformanceCounter() failed\n");
+
+    *mtimep = (ErtsMonotonicTime) pc.QuadPart;
+
+    stime = SystemTime2MilliSec(&st);
+
+    *stimep = ((ErtsSystemTime)
+	       erts_time_unit_conversion((Uint64) stime,
+					 (Uint32) 1000,
+					 internal_state.r.o.pcf));
+}
+
 static Uint32
 get_tick_count(void)
 {
@@ -139,18 +181,64 @@ get_tick_count(void)
 static ErtsMonotonicTime
 os_monotonic_time_gtc32(void) 
 {
+    ErtsMonotonicTime mtime;
     Uint32 ticks = (Uint32) GetTickCount();
     ERTS_CHK_EXTEND_OS_MONOTONIC_TIME(&internal_state.wr.m.os_mtime_xtnd,
-				      tick_count);
-    return ERTS_EXTEND_OS_MONOTONIC_TIME(&internal_state.wr.m.os_mtime_xtnd,
-					 ticks) << 10;
+				      ticks);
+    mtime = ERTS_EXTEND_OS_MONOTONIC_TIME(&internal_state.wr.m.os_mtime_xtnd,
+					  ticks);
+    mtime <<= ERTS_GET_TICK_COUNT_TIME_UNIT_SHIFT;
+    return mtime;
+}
+
+static void
+os_times_gtc32(ErtsMonotonicTime *mtimep, ErtsSystemTime *stimep)
+{
+    SYSTEMTIME st;
+    ErtsSystemTime stime, mtime;
+    Uint32 ticks;
+
+    ticks = (Uint32) GetTickCount();
+    GetSystemTime(&st);
+
+    ERTS_CHK_EXTEND_OS_MONOTONIC_TIME(&internal_state.wr.m.os_mtime_xtnd,
+				      ticks);
+    mtime = ERTS_EXTEND_OS_MONOTONIC_TIME(&internal_state.wr.m.os_mtime_xtnd,
+					  ticks);
+    mtime <<= ERTS_GET_TICK_COUNT_TIME_UNIT_SHIFT;
+    *mtimep = mtime;
+
+    stime = SystemTime2MilliSec(&st);
+    stime <<= ERTS_GET_TICK_COUNT_TIME_UNIT_SHIFT;
+    *stimep = stime;
+
 }
 
 static ErtsMonotonicTime
 os_monotonic_time_gtc64(void) 
 {
     ULONGLONG ticks = (*internal_state.r.o.pGetTickCount64)();
-    return (ErtsMonotonicTime) ticks << 10;
+    ErtsMonotonicTime mtime = (ErtsMonotonicTime) ticks;
+    return mtime << ERTS_GET_TICK_COUNT_TIME_UNIT_SHIFT;
+}
+
+static void
+os_times_gtc64(ErtsMonotonicTime *mtimep, ErtsSystemTime *stimep)
+{
+    SYSTEMTIME st;
+    ErtsSystemTime stime, mtime;
+    ULONGLONG ticks;
+
+    ticks = (*internal_state.r.o.pGetTickCount64)();
+    GetSystemTime(&st);
+
+    mtime = (ErtsMonotonicTime) ticks;
+    mtime <<= ERTS_GET_TICK_COUNT_TIME_UNIT_SHIFT;
+    *mtimep = mtime;
+
+    stime = SystemTime2MilliSec(&st);
+    stime <<= ERTS_GET_TICK_COUNT_TIME_UNIT_SHIFT;
+    *stimep = stime;
 }
 
 static ErtsSysHrTime
@@ -197,6 +285,7 @@ void
 sys_init_time(ErtsSysInitTimeResult *init_resp)
 {
     ErtsMonotonicTime (*os_mtime_func)(void);
+    void (*os_times_func)(ErtsMonotonicTime *, ErtsSystemTime *);
     ErtsSysHrTime (*sys_hrtime_func)(void) = NULL;
     ErtsMonotonicTime time_unit;
     char kernel_dll_name[] = "kernel32";
@@ -220,6 +309,7 @@ sys_init_time(ErtsSysInitTimeResult *init_resp)
 	time_unit <<= ERTS_GET_TICK_COUNT_TIME_UNIT_SHIFT;
 	internal_state.r.o.using_get_tick_count_time_unit = 1;
 	os_mtime_func = os_monotonic_time_gtc32;
+	os_times_func = os_times_gtc32;
 	init_resp->os_monotonic_time_info.extended = 1;
 	erts_init_os_monotonic_time_extender(&internal_state.wr.m.os_mtime_xtnd,
 					     get_tick_count,
@@ -250,6 +340,7 @@ sys_init_time(ErtsSysInitTimeResult *init_resp)
 	    time_unit <<= ERTS_GET_TICK_COUNT_TIME_UNIT_SHIFT;
 	    internal_state.r.o.using_get_tick_count_time_unit = 1;
 	    os_mtime_func = os_monotonic_time_gtc64;
+	    os_times_func = os_times_gtc64;
 	    if (!sys_hrtime_func)
 		sys_hrtime_func = sys_hrtime_gtc64;
 	}
@@ -292,10 +383,12 @@ sys_init_time(ErtsSysInitTimeResult *init_resp)
 	    internal_state.r.o.using_get_tick_count_time_unit = 0;
 	    init_resp->os_monotonic_time_info.resolution = time_unit;
 	    os_mtime_func = os_monotonic_time_qpc;
+	    os_times_func = os_times_qpc;
 	}
     }
 
     erts_sys_time_data__.r.o.os_monotonic_time = os_mtime_func;
+    erts_sys_time_data__.r.o.os_times = os_times_func;
     init_resp->os_monotonic_time_unit = time_unit;
     init_resp->have_os_monotonic_time = 1;
     init_resp->sys_clock_resolution = 1;
@@ -600,21 +693,11 @@ sys_gettimeofday(SysTimeval *tv)
 ErtsSystemTime
 erts_os_system_time(void)
 {
-    SYSTEMTIME t;
-    FILETIME ft;
-    ULARGE_INTEGER ull;
+    SYSTEMTIME st;
     ErtsSystemTime stime;
 
-    GetSystemTime(&t);
-    SystemTimeToFileTime(&t, &ft);
-    FILETIME_TO_ULI(ull,ft);
-
-    /* now in 100 ns units */
-
-    stime = (ErtsSystemTime) ull.QuadPart;
-    stime -= (((ErtsSystemTime) EPOCH_JULIAN_DIFF)
-	      * ((ErtsSystemTime) (10*1000*1000)));
-    stime /= (ErtsSystemTime) (10*1000);
+    GetSystemTime(&st);
+    stime = SystemTime2MilliSec(&st);
 
     if (internal_state.r.o.using_get_tick_count_time_unit) {
 	stime <<= ERTS_GET_TICK_COUNT_TIME_UNIT_SHIFT;
@@ -622,9 +705,9 @@ erts_os_system_time(void)
     }
 
     return ((ErtsSystemTime)
-	    erts_time_unit_conversion(stime,
+	    erts_time_unit_conversion((Uint64) stime,
 				      (Uint32) 1000,
-				      (Uint32) ERTS_MONOTONIC_TIME_UNIT));
+				      internal_state.r.o.pcf));
 }
 
 
