@@ -674,7 +674,7 @@ connection establishment.</p>
 <tag><c>{'CEA', Result, Caps, Pkt}</c></tag>
 <item>
 <pre>
-Result = integer() | atom() | {capabilities_cb, CB, ResultCode|discard}
+Result = ResultCode | atom() | {capabilities_cb, CB, ResultCode|discard}
 Caps = #diameter_caps{}
 Pkt  = #diameter_packet{}
 ResultCode = integer()
