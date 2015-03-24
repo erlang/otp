@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -59,7 +59,32 @@
   {"1.7.1",   [{load_module, diameter_traffic},    %% 17.3
                {load_module, diameter_watchdog},
                {load_module, diameter_peer_fsm},
-               {load_module, diameter_service}]}
+               {load_module, diameter_service}]},
+  {"1.8",     [{load_module, diameter_lib},        %% 17.4
+               {load_module, diameter_peer},
+               {load_module, diameter_reg},
+               {load_module, diameter_session},
+               {load_module, diameter_stats},
+               {load_module, diameter_sync},
+               {load_module, diameter_capx},
+               {load_module, diameter_codec},
+               {load_module, diameter_types},
+               {load_module, diameter_traffic},
+               {load_module, diameter_service},
+               {load_module, diameter_peer_fsm},
+               {load_module, diameter_watchdog},
+               {load_module, diameter_tcp},
+               {load_module, diameter_sctp},
+               {load_module, diameter_config},
+               {load_module, diameter},
+               {load_module, diameter_gen_base_rfc6733},
+               {load_module, diameter_gen_acct_rfc6733},
+               {load_module, diameter_gen_base_rfc3588},
+               {load_module, diameter_gen_base_accounting},
+               {load_module, diameter_gen_relay},
+               {update, diameter_transport_sup, supervisor},
+               {update, diameter_service_sup, supervisor},
+               {update, diameter_sup, supervisor}]}
  ],
  [
   {"0.9",     [{restart_application, diameter}]},
@@ -101,6 +126,31 @@
   {"1.7.1",   [{load_module, diameter_service},
                {load_module, diameter_peer_fsm},
                {load_module, diameter_watchdog},
-               {load_module, diameter_traffic}]}
+               {load_module, diameter_traffic}]},
+  {"1.8",     [{update, diameter_sup, supervisor},
+               {update, diameter_service_sup, supervisor},
+               {update, diameter_transport_sup, supervisor},
+               {load_module, diameter_gen_relay},
+               {load_module, diameter_gen_base_accounting},
+               {load_module, diameter_gen_base_rfc3588},
+               {load_module, diameter_gen_acct_rfc6733},
+               {load_module, diameter_gen_base_rfc6733},
+               {load_module, diameter},
+               {load_module, diameter_config},
+               {load_module, diameter_sctp},
+               {load_module, diameter_tcp},
+               {load_module, diameter_watchdog},
+               {load_module, diameter_peer_fsm},
+               {load_module, diameter_service},
+               {load_module, diameter_traffic},
+               {load_module, diameter_types},
+               {load_module, diameter_codec},
+               {load_module, diameter_capx},
+               {load_module, diameter_sync},
+               {load_module, diameter_stats},
+               {load_module, diameter_session},
+               {load_module, diameter_reg},
+               {load_module, diameter_peer},
+               {load_module, diameter_lib}]}
  ]
 }.
