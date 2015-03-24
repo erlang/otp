@@ -1555,10 +1555,11 @@ if test "$have_gethostbyname_r" = yes; then
 				    [Define to flavour of gethostbyname_r]))
 		;;
 		*)
-			AC_EGREP_CPP(yes,[#include <stdio.h>
-			  #ifdef __GLIBC__
-			  yes
-			  #endif
+			AC_EGREP_CPP(^yes$,[
+#include <stdio.h>
+#ifdef __GLIBC__
+yes
+#endif
 			  ], AC_DEFINE(HAVE_GETHOSTBYNAME_R, GHBN_R_GLIBC,
 				[Define to flavour of gethostbyname_r]))
 		;;
@@ -4303,10 +4304,10 @@ case "$erl_xcomp_without_sysroot-$with_ssl" in
 			SSL_INCLUDE="-I$dir/include"
 			old_CPPFLAGS=$CPPFLAGS
 			CPPFLAGS=$SSL_INCLUDE
-			AC_EGREP_CPP(yes,[
+			AC_EGREP_CPP(^yes$,[
 #include <openssl/opensslv.h>
 #if OPENSSL_VERSION_NUMBER >= 0x0090700fL
-  yes
+yes
 #endif
 			],[
 			ssl_found=yes
@@ -4501,10 +4502,10 @@ if test "x$SSL_APP" != "x" ; then
     AC_MSG_CHECKING(for OpenSSL kerberos 5 support)
     old_CPPFLAGS=$CPPFLAGS
     CPPFLAGS=$SSL_INCLUDE
-    AC_EGREP_CPP(yes,[
+    AC_EGREP_CPP(^yes$,[
 #include <openssl/opensslconf.h>
 #ifndef OPENSSL_NO_KRB5
-  yes
+yes
 #endif
       ],[
       AC_MSG_RESULT([yes])
