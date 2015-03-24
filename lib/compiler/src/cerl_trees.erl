@@ -19,7 +19,7 @@
 %% @doc Basic functions on Core Erlang abstract syntax trees.
 %%
 %% <p>Syntax trees are defined in the module <a
-%% href=""><code>cerl</code></a>.</p>
+%% href="cerl"><code>cerl</code></a>.</p>
 %%
 %% @type cerl() = cerl:cerl()
 
