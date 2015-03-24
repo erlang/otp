@@ -1837,75 +1837,51 @@ erts_hashmap_get_rel(Uint32 hx, Eterm key, Eterm node, Eterm *map_base)
 erts_hashmap_get(Uint32 hx, Eterm key, Eterm node)
 #endif
 {
-    Eterm *ptr, hdr;
-    Uint ix,slot, lvl = 0;
+    Eterm *ptr, hdr, *res;
+    Uint ix, lvl = 0;
     Uint32 hval,bp;
     DeclareTmpHeapNoproc(th,2);
     UseTmpHeapNoproc(2);
 
+    ASSERT(is_boxed(node));
+    ptr = boxed_val(node);
+    hdr = *ptr;
+    ASSERT(is_header(hdr));
+    ASSERT(is_hashmap_header_head(hdr));
+    ptr++;
+
     for (;;) {
-        switch(primary_tag(node)) {
-            case TAG_PRIMARY_LIST: /* LEAF NODE [K|V] */
-                ptr = list_val(node);
-                UnUseTmpHeapNoproc(2);
-
-                if (eq_rel(CAR(ptr), map_base, key, NULL)) {
-                    return &(CDR(ptr));
-                }
-                return NULL;
-            case TAG_PRIMARY_BOXED:
-                ptr = boxed_val(node);
-                hdr = *ptr;
-                ASSERT(is_header(hdr));
-
-                switch(hdr & _HEADER_MAP_SUBTAG_MASK) {
-                    case HAMT_SUBTAG_HEAD_ARRAY:
-                        ix   = hashmap_index(hx);
-                        hx   = hashmap_shift_hash(th,hx,lvl,key);
-                        node = ptr[ix+2];
-                        break;
-                    case HAMT_SUBTAG_NODE_BITMAP:
-                        hval = MAP_HEADER_VAL(hdr);
-                        ix   = hashmap_index(hx);
-                        bp   = 1 << ix;
-                        slot = hashmap_bitcount(hval & (bp - 1));
-
-                        /* occupied */
-                        if (bp & hval) {
-                            hx    = hashmap_shift_hash(th,hx,lvl,key);
-                            node  = ptr[slot+1];
-                            break;
-                        }
-                        /* not occupied */
-                        UnUseTmpHeapNoproc(2);
-                        return NULL;
-                    case HAMT_SUBTAG_HEAD_BITMAP:
-                        hval = MAP_HEADER_VAL(hdr);
-                        ix   = hashmap_index(hx);
-                        bp   = 1 << ix;
-                        slot = hashmap_bitcount(hval & (bp - 1));
-
-                        /* occupied */
-                        if (bp & hval) {
-                            hx    = hashmap_shift_hash(th,hx,lvl,key);
-                            node  = ptr[slot+2];
-                            break;
-                        }
-                        /* not occupied */
-                        UnUseTmpHeapNoproc(2);
-                        return NULL;
-                    default:
-                        erl_exit(1, "bad header tag %ld\r\n", hdr & _HEADER_MAP_SUBTAG_MASK);
-                        break;
-                }
+        hval = MAP_HEADER_VAL(hdr);
+        ix   = hashmap_index(hx);
+        if (hval != 0xffff) {
+            bp   = 1 << ix;
+            if (!(bp & hval)) {
+                /* not occupied */
+                res = NULL;
                 break;
-            default:
-                erl_exit(1, "bad primary tag %p\r\n", node);
-                break;
+            }
+            ix = hashmap_bitcount(hval & (bp - 1));
         }
+        node  = ptr[ix+1];
+
+        if (is_list(node)) { /* LEAF NODE [K|V] */
+            ptr = list_val(node);
+
+            res = eq_rel(CAR(ptr), map_base, key, NULL) ? &(CDR(ptr)) : NULL;
+            break;
+        }
+
+        hx = hashmap_shift_hash(th,hx,lvl,key);
+
+        ASSERT(is_boxed(node));
+        ptr = boxed_val(node);
+        hdr = *ptr;
+        ASSERT(is_header(hdr));
+        ASSERT(!is_hashmap_header_head(hdr));
     }
+
     UnUseTmpHeapNoproc(2);
-    return NULL;
+    return res;
 }
 
 Eterm erts_hashmap_insert(Process *p, Uint32 hx, Eterm key, Eterm value,
