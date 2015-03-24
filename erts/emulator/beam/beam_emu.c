@@ -6572,9 +6572,8 @@ update_map_assoc(Process* p, Eterm* reg, Eterm map, BeamInstr* I)
 		reg[live] = res;
 		erts_garbage_collect(p, 0, reg, live+1);
 		res       = reg[live];
+		E = p->stop;
 	    }
-
-	    E = p->stop;
 
 	    new_p += 2;
 	}
@@ -6781,7 +6780,6 @@ update_map_exact(Process* p, Eterm* reg, Eterm map, BeamInstr* I)
 	res = map;
 	E = p->stop;
 	while(n--) {
-	    /* assoc can't fail */
 	    GET_TERM(new_p[0], new_key);
 	    GET_TERM(new_p[1], val);
 	    hx = hashmap_make_hash(new_key);
@@ -6795,9 +6793,8 @@ update_map_exact(Process* p, Eterm* reg, Eterm map, BeamInstr* I)
 		reg[live] = res;
 		erts_garbage_collect(p, 0, reg, live+1);
 		res       = reg[live];
+		E = p->stop;
 	    }
-
-	    E = p->stop;
 
 	    new_p += 2;
 	}
@@ -6808,7 +6805,7 @@ update_map_exact(Process* p, Eterm* reg, Eterm map, BeamInstr* I)
     num_old = flatmap_get_size(old_mp);
 
     /*
-     * If the old map is empty, create a new map.
+     * If the old map is empty, fail.
      */
 
     if (num_old == 0) {

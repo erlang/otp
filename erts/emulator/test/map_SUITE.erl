@@ -78,7 +78,8 @@
 	t_tracing/1,
 
 	%% instruction-level tests
-	t_has_map_fields/1
+	t_has_map_fields/1,
+	y_regs/1
     ]).
 
 -include_lib("stdlib/include/ms_transform.hrl").
@@ -138,7 +139,8 @@ all() -> [
 	t_tracing,
 
 	%% instruction-level tests
-	t_has_map_fields
+	t_has_map_fields,
+	y_regs
     ].
 
 groups() -> [].
@@ -2757,6 +2759,58 @@ has_map_fields_2(#{}) -> false.
 has_map_fields_3(#{a:=_,b:=_}) -> true;
 has_map_fields_3(#{[]:=_,42.0:=_}) -> true;
 has_map_fields_3(#{}) -> false.
+
+y_regs(Config) when is_list(Config) ->
+    Val = [length(Config)],
+    Map0 = y_regs_update(#{}, Val),
+    Map2 = y_regs_update(Map0, Val),
+
+    Map3 = maps:from_list([{I,I*I} || I <- lists:seq(1, 100)]),
+    Map4 = y_regs_update(Map3, Val),
+
+    true = is_map(Map2) andalso is_map(Map4),
+
+    ok.
+
+y_regs_update(Map0, Val0) ->
+    Val1 = {t,Val0},
+    K1 = id({key,1}),
+    K2 = id({key,2}),
+    Map1 = Map0#{K1=>K1,
+		 a=>Val0,b=>Val0,c=>Val0,d=>Val0,e=>Val0,
+		 f=>Val0,g=>Val0,h=>Val0,i=>Val0,j=>Val0,
+		 k=>Val0,l=>Val0,m=>Val0,n=>Val0,o=>Val0,
+		 p=>Val0,q=>Val0,r=>Val0,s=>Val0,t=>Val0,
+		 u=>Val0,v=>Val0,w=>Val0,x=>Val0,y=>Val0,
+		 z=>Val0,
+		 aa=>Val0,ab=>Val0,ac=>Val0,ad=>Val0,ae=>Val0,
+		 af=>Val0,ag=>Val0,ah=>Val0,ai=>Val0,aj=>Val0,
+		 ak=>Val0,al=>Val0,am=>Val0,an=>Val0,ao=>Val0,
+		 ap=>Val0,aq=>Val0,ar=>Val0,as=>Val0,at=>Val0,
+		 au=>Val0,av=>Val0,aw=>Val0,ax=>Val0,ay=>Val0,
+		 az=>Val0,
+		 K2=>[a,b,c]},
+    Map2 = Map1#{K1=>K1,
+		 a:=Val1,b:=Val1,c:=Val1,d:=Val1,e:=Val1,
+		 f:=Val1,g:=Val1,h:=Val1,i:=Val1,j:=Val1,
+		 k:=Val1,l:=Val1,m:=Val1,n:=Val1,o:=Val1,
+		 p:=Val1,q:=Val1,r:=Val1,s:=Val1,t:=Val1,
+		 u:=Val1,v:=Val1,w:=Val1,x:=Val1,y:=Val1,
+		 z:=Val1,
+		 aa:=Val1,ab:=Val1,ac:=Val1,ad:=Val1,ae:=Val1,
+		 af:=Val1,ag:=Val1,ah:=Val1,ai:=Val1,aj:=Val1,
+		 ak:=Val1,al:=Val1,am:=Val1,an:=Val1,ao:=Val1,
+		 ap:=Val1,aq:=Val1,ar:=Val1,as:=Val1,at:=Val1,
+		 au:=Val1,av:=Val1,aw:=Val1,ax:=Val1,ay:=Val1,
+		 az:=Val1,
+		 K2=>[a,b,c]},
+
+    %% Traverse the maps to validate them.
+    _ = erlang:phash2({Map1,Map2}, 100000),
+
+    _ = id({K1,K2,Val0,Val1}),			%Force use of Y registers.
+    Map2.
+
 
 %% Use this function to avoid compile-time evaluation of an expression.
 id(I) -> I.
