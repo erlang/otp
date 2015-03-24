@@ -58,6 +58,7 @@
 	t_maps_without/1,
 
 	%% misc
+        t_erts_internal_order/1,
 	t_pdict/1,
 	t_ets/1,
 	t_dets/1,
@@ -96,6 +97,7 @@ all() -> [
 
 
         %% Other functions
+        t_erts_internal_order,
 	t_pdict,
 	t_ets,
 	t_tracing
@@ -960,6 +962,49 @@ t_maps_without(_Config) ->
 
 
 %% MISC
+
+t_erts_internal_order(_Config) when is_list(_Config) ->
+
+    -1 = erts_internal:cmp_term(1,2),
+    1  = erts_internal:cmp_term(2,1),
+    0  = erts_internal:cmp_term(2,2),
+
+
+    -1 = erts_internal:cmp_term(1,a),
+    1  = erts_internal:cmp_term(a,1),
+    0  = erts_internal:cmp_term(a,a),
+
+    -1 = erts_internal:cmp_term(1,1.0),
+    1  = erts_internal:cmp_term(1.0,1),
+    0  = erts_internal:cmp_term(1.0,1.0),
+
+    -1 = erts_internal:cmp_term(1,1 bsl 65),
+    1  = erts_internal:cmp_term(1 bsl 65,1),
+    0  = erts_internal:cmp_term(1 bsl 65, 1 bsl 65),
+
+    -1 = erts_internal:cmp_term(1 bsl 65,float(1)),
+    1  = erts_internal:cmp_term(float(1),1 bsl 65),
+    -1 = erts_internal:cmp_term(1,float(1 bsl 65)),
+    1  = erts_internal:cmp_term(float(1 bsl 65),1),
+    0  = erts_internal:cmp_term(float(1 bsl 65), float(1 bsl 65)),
+
+    %% reported errors
+    -1 = erts_internal:cmp_term(0,2147483648),
+    0  = erts_internal:cmp_term(2147483648,2147483648),
+    1  = erts_internal:cmp_term(2147483648,0),
+
+    M = #{0 => 0,2147483648 => 0},
+    true = M =:= binary_to_term(term_to_binary(M)),
+
+    F1 = fun(_, _) -> 0 end,
+    F2 = fun(_, _) -> 1 end,
+    M0 = maps:from_list( [{-2147483649, 0}, {0,0}, {97, 0}, {false, 0}, {flower, 0}, {F1, 0}, {F2, 0}, {<<>>, 0}]),
+    M1 = maps:merge(M0, #{0 => 1}),
+    8  = maps:size(M1),
+    1  = maps:get(0,M1),
+    ok.
+
+
 t_pdict(_Config) ->
 
     put(#{ a => b, b => a},#{ c => d}),

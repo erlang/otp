@@ -400,7 +400,7 @@ BIF_RETTYPE maps_merge_2(BIF_ALIST_2) {
 	Eterm *ks,*vs,*ks1,*vs1,*ks2,*vs2;
 	map_t *mp1,*mp2,*mp_new;
 	Uint n1,n2,i1,i2,need,unused_size=0;
-	int c = 0;
+	Sint c = 0;
 
 	mp1  = (map_t*)map_val(BIF_ARG_1);
 	mp2  = (map_t*)map_val(BIF_ARG_2);
@@ -798,7 +798,7 @@ int erts_validate_and_sort_map(map_t* mp)
     Uint   sz  = map_get_size(mp);
     Uint   ix,jx;
     Eterm  tmp;
-    int c;
+    Sint c;
 
     /* sort */
 
