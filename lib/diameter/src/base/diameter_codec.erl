@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -22,6 +22,8 @@
 -export([encode/2,
          decode/2,
          decode/3,
+         setopts/1,
+         getopt/1,
          collect_avps/1,
          decode_header/1,
          sequence_numbers/1,
@@ -59,6 +61,50 @@
 %%    +-+-+-+-+-+-+-+-+-+-+-+-+-
 
 %%% ---------------------------------------------------------------------------
+%%% # setopts/1
+%%% # getopt/1
+%%% ---------------------------------------------------------------------------
+
+%% These functions are a compromise in the same vein as the use of the
+%% process dictionary in diameter_gen.hrl in generated codec modules.
+%% Instead of rewriting the entire dictionary generation to pass
+%% encode/decode options around, the calling process sets them by
+%% calling setopts/1. At current, the only option is whether or not to
+%% decode binaries as strings, which is used by diameter_types.
+
+setopts(Opts)
+  when is_list(Opts) ->
+    lists:foreach(fun setopt/1, Opts).
+
+%% Decode stringish types to string()? The default true is for
+%% backwards compatibility.
+setopt({string_decode = K, false = B}) ->
+    setopt(K, B);
+
+%% Regard anything but the generated RFC 3588 dictionary as modern.
+%% This affects the interpretation of defaults during the decode
+%% of values of type DiameterURI, this having changed from RFC 3588.
+%% (So much for backwards compatibility.)
+setopt({common_dictionary, diameter_gen_base_rfc3588}) ->
+    setopt(rfc, 3588);
+
+setopt(_) ->
+    ok.
+
+setopt(Key, Value) ->
+    put({diameter, Key}, Value).
+
+getopt(Key) ->
+    case get({diameter, Key}) of
+        undefined when Key == string_decode ->
+            true;
+        undefined when Key == rfc ->
+            6733;
+        V ->
+            V
+    end.
+
+%%% ---------------------------------------------------------------------------
 %%% # encode/2
 %%% ---------------------------------------------------------------------------
 
@@ -90,7 +136,7 @@ encode(Mod, Msg) ->
                                   msg = Msg}).
 
 e(_, #diameter_packet{msg = [#diameter_header{} = Hdr | As]} = Pkt) ->
-    try encode_avps(As) of
+    try encode_avps(reorder(As)) of
         Avps ->
             Length = size(Avps) + 20,
 
@@ -183,26 +229,50 @@ values(Avps) ->
 
 %% Message as a list of #diameter_avp{} ...
 encode_avps(_, _, [#diameter_avp{} | _] = Avps) ->
-    encode_avps(reorder(Avps, [], Avps));
+    encode_avps(reorder(Avps));
 
 %% ... or as a tuple list or record.
 encode_avps(Mod, MsgName, Values) ->
     Mod:encode_avps(MsgName, Values).
 
 %% reorder/1
+%%
+%% Reorder AVPs for the relay case using the index field of
+%% diameter_avp records. Decode populates this field in collect_avps
+%% and presents AVPs in reverse order. A relay then sends the reversed
+%% list with a Route-Record AVP prepended. The goal here is just to do
+%% lists:reverse/1 in Grouped AVPs and the outer list, but only in the
+%% case there are indexed AVPs at all, so as not to reverse lists that
+%% have been explicilty sent (unindexed, in the desired order) as a
+%% diameter_avp list. The effect is the same as lists:keysort/2, but
+%% only on the cases we expect, not a general sort.
 
-reorder([#diameter_avp{index = 0} | _] = Avps, Acc, _) ->
+reorder(Avps) ->
+    case reorder(Avps, []) of
+        false ->
+            Avps;
+        Sorted ->
+            Sorted
+    end.
+
+%% reorder/3
+
+%% In case someone has reversed the list already. (Not likely.)
+reorder([#diameter_avp{index = 0} | _] = Avps, Acc) ->
     Avps ++ Acc;
 
-reorder([#diameter_avp{index = N} = A | Avps], Acc, _)
+%% Assume indexed AVPs are in reverse order.
+reorder([#diameter_avp{index = N} = A | Avps], Acc)
   when is_integer(N) ->
     lists:reverse(Avps, [A | Acc]);
 
-reorder([H | T], Acc, Avps) ->
-    reorder(T, [H | Acc], Avps);
+%% An unindexed AVP.
+reorder([H | T], Acc) ->
+    reorder(T, [H | Acc]);
 
-reorder([], Acc, _) ->
-    Acc.
+%% No indexed members.
+reorder([], _) ->
+    false.
 
 %% encode_avps/1
 

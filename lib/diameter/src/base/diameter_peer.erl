@@ -232,12 +232,22 @@ recv(Pid, Pkt) ->
 %% # send/2
 %% ---------------------------------------------------------------------------
 
-send(Pid, #diameter_packet{transport_data = undefined,
-			   bin = Bin}) ->
-    send(Pid, Bin);
+send(Pid, Msg) ->
+    ifc_send(Pid, {send, strip(Msg)}).
 
-send(Pid, Pkt) ->
-    ifc_send(Pid, {send, Pkt}).
+%% Send only binary when possible.
+strip(#diameter_packet{transport_data = undefined,
+                       bin = Bin}) ->
+    Bin;
+
+%% Strip potentially large message terms.
+strip(#diameter_packet{transport_data = T,
+                       bin = Bin}) ->
+    #diameter_packet{transport_data = T,
+                     bin = Bin};
+
+strip(Msg) ->
+    Msg.
 
 %% ---------------------------------------------------------------------------
 %% # close/1
@@ -326,7 +336,6 @@ code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
 
 %% ---------------------------------------------------------
-%% INTERNAL FUNCTIONS
 %% ---------------------------------------------------------
 
 %% ifc_send/2

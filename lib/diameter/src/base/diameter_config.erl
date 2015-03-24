@@ -534,6 +534,7 @@ opt({capabilities, Os}) ->
 
 opt({K, Tmo})
   when K == capx_timeout;
+       K == dpr_timeout;
        K == dpa_timeout ->
     ?IS_UINT32(Tmo);
 
@@ -644,12 +645,22 @@ make_config(SvcName, Opts) ->
                          {false, monitor},
                          {?NOMASK, sequence},
                          {nodes, restrict_connections},
+                         {true, string_decode},
                          {[], spawn_opt}]),
+
+    D = proplists:get_value(string_decode, SvcOpts, true),
 
     #service{name = SvcName,
              rec = #diameter_service{applications = Apps,
-                                     capabilities = Caps},
+                                     capabilities = binary_caps(Caps, D)},
              options = SvcOpts}.
+
+binary_caps(Caps, true) ->
+    Caps;
+binary_caps(Caps, false) ->
+    diameter_capx:binary_caps(Caps).
+
+%% make_opts/2
 
 make_opts(Opts, Defs) ->
     Known = [{K, get_opt(K, Opts, D)} || {D,K} <- Defs],
@@ -669,7 +680,8 @@ opt(K, false = B)
 
 opt(K, true = B)
   when K == share_peers;
-       K == use_shared_peers ->
+       K == use_shared_peers;
+       K == string_decode ->
     B;
 
 opt(restrict_connections, T)

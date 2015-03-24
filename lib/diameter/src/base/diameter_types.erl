@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -90,7 +90,12 @@
 
 'OctetString'(decode, Bin)
   when is_binary(Bin) ->
-    binary_to_list(Bin);
+    case diameter_codec:getopt(string_decode) of
+        true ->
+            binary_to_list(Bin);
+        _ ->
+            Bin
+    end;
 
 'OctetString'(decode, B) ->
     ?INVALID_LENGTH(B);
@@ -298,21 +303,29 @@
     'OctetString'(M, lists:duplicate(0,7));
 
 'DiameterURI'(encode, #diameter_uri{type = Type,
-                                    fqdn = D,
-                                    port = P,
+                                    fqdn = DN,
+                                    port = PN,
                                     transport = T,
-                                    protocol = Prot}
-                      = U) ->
-    S = lists:append([atom_to_list(Type), "://", D,
-                      ":", integer_to_list(P),
+                                    protocol = P})
+  when (Type == 'aaa' orelse Type == 'aaas'),
+       is_integer(PN),
+       0 =< PN,
+       (T == tcp orelse T == sctp orelse T == udp),
+       (P == diameter orelse P == radius orelse P == 'tacacs+'),
+       (P /= diameter orelse T /= udp) ->
+    iolist_to_binary([atom_to_list(Type), "://", DN,
+                      ":", integer_to_list(PN),
                       ";transport=", atom_to_list(T),
-                      ";protocol=", atom_to_list(Prot)]),
-    U = scan_uri(S), %% assert
-    list_to_binary(S);
+                      ";protocol=", atom_to_list(P)]);
+%% Don't omit defaults since they're dependent on whether RFC 3588 or
+%% 6733 is being followed. For one, we don't know this at encode; for
+%% two (more importantly), we don't know how the peer will interpret
+%% defaults, so it's best to be explicit. Interpret defaults on decode
+%% since there's no choice.
 
 'DiameterURI'(encode, Str) ->
     Bin = iolist_to_binary(Str),
-    #diameter_uri{} = scan_uri(Bin),  %% type check
+    #diameter_uri{} = scan_uri(Bin),  %% assert
     Bin.
 
 %% --------------------
@@ -321,7 +334,6 @@
 'IPFilterRule'(encode = M, zero) ->
     'OctetString'(M, lists:duplicate(0,33));
 
-%% TODO: parse grammar.
 'IPFilterRule'(M, X) ->
     'OctetString'(M, X).
 
@@ -331,7 +343,6 @@
 'QoSFilterRule'(encode = M, zero = X) ->
     'IPFilterRule'(M, X);
 
-%% TODO: parse grammar.
 'QoSFilterRule'(M, X) ->
     'OctetString'(M, X).
 
@@ -339,7 +350,13 @@
 
 'UTF8String'(decode, Bin)
   when is_binary(Bin) ->
-    tl([0|_] = unicode:characters_to_list([0, Bin])); %% assert list return
+    case diameter_codec:getopt(string_decode) of
+        true ->
+            %% assert list return
+            tl([0|_] = unicode:characters_to_list([0, Bin]));
+        false ->
+            <<_/binary>> = unicode:characters_to_binary(Bin)
+    end;
 
 'UTF8String'(decode, B) ->
     ?INVALID_LENGTH(B);
@@ -507,55 +524,87 @@ msb(false) -> ?TIME_2036.
 %%
 %%       aaa-protocol       = ( "diameter" / "radius" / "tacacs+" )
 
-scan_uri(Bin)
-  when is_binary(Bin) ->
-    scan_uri(binary_to_list(Bin));
-scan_uri("aaa://" ++ Rest) ->
-    scan_fqdn(Rest, #diameter_uri{type = aaa});
-scan_uri("aaas://" ++ Rest) ->
-    scan_fqdn(Rest, #diameter_uri{type = aaas}).
+%% RFC 6733, 4.3.1, changes the defaults:
+%%
+%%       "aaa://" FQDN [ port ] [ transport ] [ protocol ]
+%%
+%%                       ; No transport security
+%%
+%%       "aaas://" FQDN [ port ] [ transport ] [ protocol ]
+%%
+%%                       ; Transport security used
+%%
+%%       FQDN               = < Fully Qualified Domain Name >
+%%
+%%       port               = ":" 1*DIGIT
+%%
+%%                       ; One of the ports used to listen for
+%%                       ; incoming connections.
+%%                       ; If absent, the default Diameter port
+%%                       ; (3868) is assumed if no transport
+%%                       ; security is used and port 5658 when
+%%                       ; transport security (TLS/TCP and DTLS/SCTP)
+%%                       ; is used.
+%%
+%%       transport          = ";transport=" transport-protocol
+%%
+%%                       ; One of the transports used to listen
+%%                       ; for incoming connections.  If absent,
+%%                       ; the default protocol is assumed to be TCP.
+%%                       ; UDP MUST NOT be used when the aaa-protocol
+%%                       ; field is set to diameter.
+%%
+%%       transport-protocol = ( "tcp" / "sctp" / "udp" )
+%%
+%%       protocol           = ";protocol=" aaa-protocol
+%%
+%%                       ; If absent, the default AAA protocol
+%%                       ; is Diameter.
+%%
+%%       aaa-protocol       = ( "diameter" / "radius" / "tacacs+" )
 
-scan_fqdn(S, U) ->
-    {[_|_] = F, Rest} = lists:splitwith(fun is_fqdn/1, S),
-    scan_opt_port(Rest, U#diameter_uri{fqdn = F}).
+scan_uri(Bin) ->
+    RE = "^(aaas?)://"
+         "([-a-zA-Z0-9.]+)"
+         "(:([0-9]+))?"
+         "(;transport=(tcp|sctp|udp))?"
+         "(;protocol=(diameter|radius|tacacs\\+))?$",
+    {match, [A, DN, PN, T, P]} = re:run(Bin,
+                                        RE,
+                                        [{capture, [1,2,4,6,8], binary}]),
+    Type = to_atom(A),
+    {PN0, T0} = defaults(diameter_codec:getopt(rfc), Type),
+    #diameter_uri{type = Type,
+                  fqdn = from_bin(DN),
+                  port = to_int(PN, PN0),
+                  transport = to_atom(T, T0),
+                  protocol = to_atom(P, diameter)}.
 
-scan_opt_port(":" ++ S, U) ->
-    {[_|_] = P, Rest} = lists:splitwith(fun is_digit/1, S),
-    scan_opt_transport(Rest, U#diameter_uri{port = list_to_integer(P)});
-scan_opt_port(S, U) ->
-    scan_opt_transport(S, U).
+%% Choose defaults based on the RFC, since 6733 has changed them.
+defaults(3588, _) ->
+    {3868, sctp};
+defaults(6733, aaa) ->
+    {3868, tcp};
+defaults(6733, aaas) ->
+    {5658, tcp}.
 
-scan_opt_transport(";transport=" ++ S, U) ->
-    {P, Rest} = transport(S),
-    scan_opt_protocol(Rest, U#diameter_uri{transport = P});
-scan_opt_transport(S, U) ->
-    scan_opt_protocol(S, U).
+from_bin(B) ->
+    case diameter_codec:getopt(string_decode) of
+        true ->
+            binary_to_list(B);
+        false ->
+            B
+    end.
 
-scan_opt_protocol(";protocol=" ++ S, U) ->
-    {P, ""} = protocol(S),
-    U#diameter_uri{protocol = P};
-scan_opt_protocol("", U) ->
-    U.
+to_int(<<>>, N) ->
+    N;
+to_int(B, _) ->
+    binary_to_integer(B).
 
-transport("tcp" ++ S) ->
-    {tcp, S};
-transport("sctp" ++ S) ->
-    {sctp, S};
-transport("udp" ++ S) ->
-    {udp, S}.
+to_atom(<<>>, A) ->
+    A;
+to_atom(B, _) ->
+    to_atom(B).
 
-protocol("diameter" ++ S) ->
-    {diameter, S};
-protocol("radius" ++ S) ->
-    {radius, S};
-protocol("tacacs+" ++ S) ->
-    {'tacacs+', S}.
-
-is_fqdn(C) ->
-    is_digit(C) orelse is_alpha(C) orelse C == $. orelse C == $-.
-
-is_alpha(C) ->
-    ($a =< C andalso C =< $z) orelse ($A =< C andalso C =< $Z).
-
-is_digit(C) ->
-    $0 =< C andalso C =< $9.
+to_atom(B) ->
+    binary_to_atom(B, latin1).

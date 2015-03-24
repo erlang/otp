@@ -63,7 +63,8 @@
 %% Keys in process dictionary.
 -define(CB_KEY, cb).         %% capabilities callback
 -define(DPR_KEY, dpr).       %% disconnect callback
--define(DPA_KEY, dpa).       %% timeout for DPA reception
+-define(DPA_KEY, dpa).       %% timeout for incoming DPA, or shutdown after
+                             %% outgoing DPA
 -define(REF_KEY, ref).       %% transport_ref()
 -define(Q_KEY, q).           %% transport start queue
 -define(START_KEY, start).   %% start of connected transport
@@ -83,17 +84,25 @@
                      N == ?GOAWAY; N == goaway;
                      N == ?BUSY;   N == busy).
 
-%% RFC 3588:
+%% RFC 6733:
 %%
 %%   Timeout        An application-defined timer has expired while waiting
 %%                  for some event.
 %%
--define(EVENT_TIMEOUT, 10000).
-%% Default timeout for reception of CER/CEA.
 
-%% Default timeout for DPA in response to DPR. A bit short but the
-%% timeout used to be hardcoded. (So it could be worse.)
+%% Default timeout for reception of CER/CEA.
+-define(CAPX_TIMEOUT, 10000).
+
+%% Default timeout for DPA to be received in response to an outgoing
+%% DPR. A bit short but the timeout used to be hardcoded. (So it could
+%% be worse.)
 -define(DPA_TIMEOUT, 1000).
+
+%% Default timeout for the connection to be closed by the peer
+%% following an outgoing DPA in response to an incoming DPR. It's the
+%% recipient of DPA that should close the connection according to the
+%% RFC.
+-define(DPR_TIMEOUT, 5000).
 
 -type uint32() :: diameter:'Unsigned32'().
 
@@ -108,9 +117,14 @@
          transport    :: pid(),     %% transport process
          dictionary   :: module(),  %% common dictionary
          service      :: #diameter_service{},
-         dpr = false  :: false | {uint32(), uint32()}  %% set in old code
-                               | {boolean(), uint32(), uint32()},
-                            %% | hop by hop and end to end identifiers
+         dpr = false  :: false
+                       | true  %% DPR received, DPA sent
+                       | {uint32(), uint32()}  %% set in old code
+                       | {boolean(), uint32(), uint32()},
+                       %% hop by hop and end to end identifiers in
+                       %% outgoing DPR; boolean says whether or not
+                       %% the request was sent explicitly with
+                       %% diameter:call/4.
          length_errors :: exit | handle | discard}).
 
 %% There are non-3588 states possible as a consequence of 5.6.1 of the
@@ -140,7 +154,8 @@
 %% # start/3
 %% ---------------------------------------------------------------------------
 
--spec start(T, [Opt], {diameter:sequence(),
+-spec start(T, [Opt], {[diameter:service_opt()]
+                       | diameter:sequence(),  %% from old code
                        [node()],
                        module(),
                        #diameter_service{}})
@@ -179,19 +194,25 @@ init(T) ->
     proc_lib:init_ack({ok, self()}),
     gen_server:enter_loop(?MODULE, [], i(T)).
 
-i({Ack, WPid, {M, Ref} = T, Opts, {Mask, Nodes, Dict0, Svc}}) ->
+i({Ack, WPid, T, Opts, {{_,_} = Mask, Nodes, Dict0, Svc}}) -> %% from old code
+    i({Ack, WPid, T, Opts, {[{sequence, Mask}], Nodes, Dict0, Svc}});
+
+i({Ack, WPid, {M, Ref} = T, Opts, {SvcOpts, Nodes, Dict0, Svc}}) ->
     erlang:monitor(process, WPid),
     wait(Ack, WPid),
     diameter_stats:reg(Ref),
+    diameter_codec:setopts([{common_dictionary, Dict0} | SvcOpts]),
+    {_,_} = Mask = proplists:get_value(sequence, SvcOpts),
     {[Cs,Ds], Rest} = proplists:split(Opts, [capabilities_cb, disconnect_cb]),
     putr(?CB_KEY, {Ref, [F || {_,F} <- Cs]}),
     putr(?DPR_KEY, [F || {_, F} <- Ds]),
     putr(?REF_KEY, Ref),
     putr(?SEQUENCE_KEY, Mask),
     putr(?RESTRICT_KEY, Nodes),
-    putr(?DPA_KEY, proplists:get_value(dpa_timeout, Opts, ?DPA_TIMEOUT)),
+    putr(?DPA_KEY, {proplists:get_value(dpr_timeout, Opts, ?DPR_TIMEOUT),
+                    proplists:get_value(dpa_timeout, Opts, ?DPA_TIMEOUT)}),
 
-    Tmo = proplists:get_value(capx_timeout, Opts, ?EVENT_TIMEOUT),
+    Tmo = proplists:get_value(capx_timeout, Opts, ?CAPX_TIMEOUT),
     OnLengthErr = proplists:get_value(length_errors, Opts, exit),
 
     {TPid, Addrs} = start_transport(T, Rest, Svc),
@@ -416,7 +437,8 @@ transition({shutdown, Pid, Reason}, #state{parent = Pid, dpr = false} = S) ->
 transition({shutdown, Pid, _}, #state{parent = Pid}) ->
     ok;
 
-%% DPA reception has timed out.
+%% DPA reception has timed out, or peer has not closed the connection
+%% as a result of outgoing DPA.
 transition(dpa_timeout, _) ->
     stop;
 
@@ -539,13 +561,19 @@ recv(Bin, S) ->
 
 %% recv1/3
 
-%% Incoming request after DPR has been sent: discard. Don't discard
-%% DPR, so both ends don't do so when sending simultaneously.
+%% Incoming request after outgoing DPR: discard. Don't discard DPR, so
+%% both ends don't do so when sending simultaneously.
 recv1(Name,
       #diameter_packet{header = #diameter_header{is_request = true} = H},
       #state{dpr = {_,_,_}})
   when Name /= 'DPR' ->
-    invalid(false, recv_after_dpr, H);
+    invalid(false, recv_after_outgoing_dpr, H);
+
+%% Incoming request after incoming DPR: discard.
+recv1(_,
+      #diameter_packet{header = #diameter_header{is_request = true} = H},
+      #state{dpr = true}) ->
+    invalid(false, recv_after_incoming_dpr, H);
 
 %% DPA with identifier mismatch, or in response to a DPR initiated by
 %% the service.
@@ -642,7 +670,9 @@ rcv('DPA' = N,
     diameter_peer:close(TPid),
     {stop, N};
 
-%% Ignore anything else, an unsolicited DPA in particular.
+%% Ignore anything else, an unsolicited DPA in particular. Note that
+%% dpa_timeout deals with the case in which the peer sends the wrong
+%% identifiers in DPA.
 rcv(N, #diameter_packet{header = H}, _)
   when N == 'CER';
        N == 'CEA';
@@ -694,8 +724,10 @@ outgoing(#diameter_packet{header = #diameter_header{application_id = 0,
     if T == false ->
             inform_dpr(Pid),
             send_dpr(true, Pkt, dpa_timeout(), S);
+       T == true ->
+            invalid(false, dpr_after_dpa, H);  %% DPA sent: discard
        true ->
-            invalid(false, dpr_after_dpr, H)  %% already sent: discard
+            invalid(false, dpr_after_dpr, H)   %% DPR sent: discard
     end;
 
 %% Explict CER or DWR: discard. These are sent by us.
@@ -788,6 +820,8 @@ build_answer('CER',
              = Pkt,
              #state{dictionary = Dict0}
              = S) ->
+    diameter_codec:setopts([{string_decode, false}]),
+
     {SupportedApps, RCaps, CEA} = recv_CER(CER, S),
 
     [RC, IS] = Dict0:'#get-'(['Result-Code', 'Inband-Security-Id'], CEA),
@@ -820,7 +854,7 @@ build_answer(Type,
                               errors = Es}
              = Pkt,
              S) ->
-    {RC, FailedAVP} = result_code(H, Es),
+    {RC, FailedAVP} = result_code(Type, H, Es),
     {answer(Type, RC, FailedAVP, S), post(Type, RC, Pkt, S)}.
 
 inband_security([]) ->
@@ -838,7 +872,12 @@ cea(CEA, RC, Dict0) ->
 post('CER' = T, RC, Pkt, S) ->
     {T, caps(S), {RC, Pkt}};
 post('DPR', _, _, #state{parent = Pid}) ->
-    [fun(S) -> inform_dpr(Pid), S end].
+    [fun(S) -> dpr_timer(), inform_dpr(Pid), dpr(S) end].
+
+dpr(#state{dpr = false} = S) ->  %% not awaiting DPA
+    S#state{dpr = true};  %% DPR received
+dpr(S) ->  %% DPR already sent or received
+    S.
 
 inform_dpr(Pid) ->
     Pid ! {'DPR', self()}.  %% tell watchdog to die with us
@@ -889,6 +928,19 @@ set(['answer-message' | _] = Ans, FailedAvp) ->
     Ans ++ [{'AVP', [FailedAvp]}];
 set([_|_] = Ans, FailedAvp) ->
     Ans ++ FailedAvp.
+
+%% result_code/3
+
+%% Be lenient with errors in DPR since there's no reason to be
+%% otherwise. Rejecting may cause the peer to missinterpret the error
+%% as meaning that the connection should not be closed, which may well
+%% lead to more problems than any errors in the DPR.
+
+result_code('DPR', _, _) ->
+    {2001, []};
+
+result_code('CER', H, Es) ->
+    result_code(H, Es).
 
 %% result_code/2
 
@@ -977,6 +1029,8 @@ handle_CEA(#diameter_packet{header = H}
     #diameter_packet{}
         = DPkt
         = diameter_codec:decode(Dict0, Pkt),
+
+    diameter_codec:setopts([{string_decode, false}]),
 
     RC = result_code(incr_rc(recv, DPkt, Dict0)),
 
@@ -1118,7 +1172,7 @@ close(Reason) ->
 
 %% dpr/2
 %%
-%% The RFC isn't clear on whether DPR should be send in a non-Open
+%% The RFC isn't clear on whether DPR should be sent in a non-Open
 %% state. The Peer State Machine transitions it documents aren't
 %% exhaustive (no Stop in Wait-I-CEA for example) so assume it's up to
 %% the implementation and transition to Closed (ie. die) if we haven't
@@ -1134,7 +1188,7 @@ dpr(Reason, #state{state = 'Open',
     Peer = {self(), Caps},
     dpr(CBs, [Reason, Ref, Peer], S);
 
-%% Connection is open, DPR already sent.
+%% Connection is open, DPR already sent or received.
 dpr(_, #state{state = 'Open'}) ->
     ok;
 
@@ -1232,10 +1286,23 @@ dpa_timer(Tmo) ->
 dpa_timeout() ->
     dpa_timeout(getr(?DPA_KEY)).
 
-dpa_timeout(undefined) ->
+dpa_timeout({_, Tmo}) ->
+    Tmo;
+dpa_timeout(undefined) ->  %% set in old code
     ?DPA_TIMEOUT;
-dpa_timeout(Tmo) ->
+dpa_timeout(Tmo) ->        %% ditto
     Tmo.
+
+dpr_timer() ->
+    dpa_timer(dpr_timeout()).
+
+dpr_timeout() ->
+    dpr_timeout(getr(?DPA_KEY)).
+
+dpr_timeout({Tmo, _}) ->
+    Tmo;
+dpr_timeout(_) ->  %% set in old code
+    ?DPR_TIMEOUT.
 
 %% register_everywhere/1
 %%

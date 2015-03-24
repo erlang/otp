@@ -356,8 +356,15 @@ values('DiameterURI') ->
          Tr <- ["" | [";transport=" ++ X
                       || X <- ["tcp", "sctp", "udp"]]],
          Pr <- ["" | [";protocol=" ++ X
-                      || X <- ["diameter","radius","tacacs+"]]]],
-     []};
+                      || X <- ["diameter","radius","tacacs+"]]],
+         Tr /= ";transport=udp"
+             orelse (Pr /= ";protocol=diameter" andalso Pr /= "")],
+     ["aaa://diameter.se;transport=udp;protocol=diameter",
+      "aaa://diameter.se;transport=udp",
+      "aaa://:3868",
+      "aaax://diameter.se",
+      "aaa://diameter.se;transport=tcpx",
+      "aaa://diameter.se;transport=tcp;protocol=diameter "]};
 
 values(T)
   when T == 'IPFilterRule';
