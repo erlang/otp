@@ -559,7 +559,7 @@ dnl
 
 AC_DEFUN(LM_SYS_MULTICAST,
 [AC_CACHE_CHECK([for multicast support], ac_cv_sys_multicast_support,
-[AC_EGREP_CPP(yes,
+[AC_EGREP_CPP(^yes$,
 [#include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
