@@ -1186,6 +1186,18 @@ terminated following an outgoing DPR if DPA is not received.</p>
 Defaults to 1000.</p>
 </item>
 
+<marker id="dpr_timeout"/>
+<tag><c>{dpr_timeout, &dict_Unsigned32;}</c></tag>
+<item>
+<p>
+Number of milliseconds after which a transport connection is
+terminated following an incoming DPR if the peer does not close the
+connection.</p>
+
+<p>
+Defaults to 5000.</p>
+</item>
+
 <marker id="length_errors"/>
 <tag><c>{length_errors, exit|handle|discard}</c></tag>
 <item>
