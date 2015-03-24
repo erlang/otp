@@ -1149,6 +1149,20 @@ t_map_encode_decode(Config) when is_list(Config) ->
 	97,55                       % 55 :: integer()
 	>>),
 
+    %% Maps of different sizes
+    lists:foldl(fun(Key, M0) ->
+			M1 = M0#{Key => Key},
+			case Key rem 17 of
+			    0 ->
+				M1 = binary_to_term(term_to_binary(M1));
+			    _ ->
+				ok
+			end,
+			M1
+		end,
+		#{},
+		lists:seq(1,10000)),
+
     %% many maps in same binary
     MapList = lists:foldl(fun(K, [M|_]=Acc) -> [M#{K => K} | Acc] end,
 			  [#{}],
