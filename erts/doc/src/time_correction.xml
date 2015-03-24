@@ -114,6 +114,29 @@
       happened yet), POSIX time would make a one second leap forward.</p>
     </section>
 
+    <marker id="Time_Resolution"/>
+    <section>
+      <title>Time Resolution</title>
+      <p>The shortest time interval that can be distinguished when
+      reading time values.</p>
+    </section>
+
+    <marker id="Time_Precision"/>
+    <section>
+      <title>Time Precision</title>
+      <p>The shortest time interval that can be be distinguished
+      repeatedly and reliably when reading time values. Precision
+      is limited by the
+      <seealso marker="#Time_Resolution">resolution</seealso>, but
+      resolution and precision might differ significantly.</p>
+    </section>
+
+    <marker id="Time_Accuracy"/>
+    <section>
+      <title>Time Accuracy</title>
+      <p>The correctness of time values.</p>
+    </section>
+
     <marker id="OS_System_Time"/>
     <section>
       <title>OS System Time</title>
@@ -162,8 +185,10 @@
       Erlang runtime system. The Erlang monotonic time increase since
       some unspecified point in time. It can be retrieved by calling
       <seealso marker="erlang#monotonic_time/0"><c>erlang:monotonic_time()</c></seealso>.
-      The accuracy, and precision of Erlang monotonic time heavily
-      depends on the accuracy and precision of
+      The
+      <seealso marker="#Time_Accuracy">accuracy</seealso>, and
+      <seealso marker="#Time_Precision">precision</seealso> of Erlang
+      monotonic time heavily depends on the accuracy and precision of
       <seealso marker="#OS_Monotonic_Time">OS monotonic time</seealso>,
       the accuracy and precision of
       <seealso marker="#OS_System_Time">OS system time</seealso> as well
