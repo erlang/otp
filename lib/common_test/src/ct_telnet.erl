@@ -29,7 +29,9 @@
 %% Command timeout = 10 sec (time to wait for a command to return)
 %% Max no of reconnection attempts = 3
 %% Reconnection interval = 5 sek (time to wait in between reconnection attempts)
-%% Keep alive = true (will send NOP to the server every 10 sec if connection is idle)</pre>
+%% Keep alive = true (will send NOP to the server every 10 sec if connection is idle)
+%% Polling limit = 10 (max number of times to poll for data to complete a line)
+%% Polling interval = 1 sec (sleep time between polls)</pre>
 %% <p>These parameters can be altered by the user with the following
 %% configuration term:</p>
 %% <pre>
@@ -37,7 +39,9 @@
 %%                    {command_timeout,Millisec},
 %%                    {reconnection_attempts,N},
 %%                    {reconnection_interval,Millisec},
-%%                    {keep_alive,Bool}]}.</pre>
+%%                    {keep_alive,Bool},
+%%                    {poll_limit,N},
+%%                    {poll_interval,Millisec}]}.</pre>
 %% <p><code>Millisec = integer(), N = integer()</code></p>
 %% <p>Enter the <code>telnet_settings</code> term in a configuration 
 %% file included in the test and ct_telnet will retrieve the information
@@ -156,6 +160,8 @@
 -define(RECONN_TIMEOUT,5000).
 -define(DEFAULT_TIMEOUT,10000).
 -define(DEFAULT_PORT,23).
+-define(POLL_LIMIT,10).
+-define(POLL_INTERVAL,1000).
 
 -include("ct_util.hrl").
 
@@ -169,6 +175,8 @@
 	       type,
 	       target_mod,
 	       keep_alive,
+	       poll_limit=?POLL_LIMIT,
+	       poll_interval=?POLL_INTERVAL,
 	       extra,
 	       conn_to=?DEFAULT_TIMEOUT, 
 	       com_to=?DEFAULT_TIMEOUT, 
@@ -596,9 +604,12 @@ init(Name,{Ip,Port,Type},{TargetMod,KeepAlive,Extra}) ->
 		"Reconnection attempts: ~p\n"
 		"Reconnection interval: ~p\n"
 		"Connection timeout: ~p\n"
-		"Keep alive: ~w",
+		"Keep alive: ~w\n"
+		"Poll limit: ~w\n"
+		"Poll interval: ~w",
 		[Ip,Port,S1#state.com_to,S1#state.reconns,
-		 S1#state.reconn_int,S1#state.conn_to,KeepAlive]),
+		 S1#state.reconn_int,S1#state.conn_to,KeepAlive,
+		 S1#state.poll_limit,S1#state.poll_interval]),
 	    {ok,TelnPid,S1};
 	{'EXIT',Reason} ->
 	    {error,Reason};
@@ -619,6 +630,10 @@ set_telnet_defaults([{reconnection_interval,RInt}|Ss],S) ->
     set_telnet_defaults(Ss,S#state{reconn_int=RInt});
 set_telnet_defaults([{keep_alive,_}|Ss],S) ->
     set_telnet_defaults(Ss,S);
+set_telnet_defaults([{poll_limit,PL}|Ss],S) ->
+    set_telnet_defaults(Ss,S#state{poll_limit=PL});
+set_telnet_defaults([{poll_interval,PI}|Ss],S) ->
+    set_telnet_defaults(Ss,S#state{poll_interval=PI});
 set_telnet_defaults([Unknown|Ss],S) ->
     force_log(S,error,
 	      "Bad element in telnet_settings: ~p",[Unknown]),
@@ -706,10 +721,8 @@ handle_msg({send,Cmd,Opts},State) ->
 handle_msg(get_data,State) ->
     start_gen_log(heading(get_data,State#state.name)),
     log(State,cmd,"Reading data...",[]),
-    {ok,Data,Buffer} = teln_get_all_data(State#state.teln_pid,
-					 State#state.prx,
-					 State#state.buffer,
-					 [],[]),
+    {ok,Data,Buffer} = teln_get_all_data(State,State#state.buffer,[],[],
+					 State#state.poll_limit),
     log(State,recv,"Return: ~p",[{ok,Data}]),
     end_gen_log(),
     {{ok,Data},State#state{buffer=Buffer}};
@@ -944,16 +957,22 @@ teln_cmd(Pid,Cmd,Prx,Newline,Timeout) ->
     ct_telnet_client:send_data(Pid,Cmd,Newline),
     teln_receive_until_prompt(Pid,Prx,Timeout).
 
-teln_get_all_data(Pid,Prx,Data,Acc,LastLine) ->
+teln_get_all_data(State=#state{teln_pid=Pid,prx=Prx},Data,Acc,LastLine,Polls) ->
     case check_for_prompt(Prx,LastLine++Data) of
 	{prompt,Lines,_PromptType,Rest} ->
-	    teln_get_all_data(Pid,Prx,Rest,[Lines|Acc],[]);
+	    teln_get_all_data(State,Rest,[Lines|Acc],[],State#state.poll_limit);
 	{noprompt,Lines,LastLine1} ->
 	    case ct_telnet_client:get_data(Pid) of
+		{ok,[]} when LastLine1 /= [], Polls > 0 ->
+		    %% No more data from server but the last string is not
+		    %% a complete line (maybe because of a slow connection),
+		    timer:sleep(State#state.poll_interval),
+		    teln_get_all_data(State,[],[Lines|Acc],LastLine1,Polls-1);
 		{ok,[]} ->
 		    {ok,lists:reverse(lists:append([Lines|Acc])),LastLine1};
 		{ok,Data1} ->
-		    teln_get_all_data(Pid,Prx,Data1,[Lines|Acc],LastLine1)
+		    teln_get_all_data(State,Data1,[Lines|Acc],LastLine1,
+				      State#state.poll_limit)
 	    end
     end.
     
