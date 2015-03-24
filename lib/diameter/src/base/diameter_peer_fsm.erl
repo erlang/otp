@@ -187,7 +187,7 @@ i({Ack, WPid, {M, Ref} = T, Opts, {SvcOpts, Nodes, Dict0, Svc}}) ->
     erlang:monitor(process, WPid),
     wait(Ack, WPid),
     diameter_stats:reg(Ref),
-    diameter_codec:setopts(SvcOpts),
+    diameter_codec:setopts([{common_dictionary, Dict0} | SvcOpts]),
     {_,_} = Mask = proplists:get_value(sequence, SvcOpts),
     {[Cs,Ds], Rest} = proplists:split(Opts, [capabilities_cb, disconnect_cb]),
     putr(?CB_KEY, {Ref, [F || {_,F} <- Cs]}),

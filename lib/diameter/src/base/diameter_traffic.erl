@@ -280,7 +280,7 @@ recv_request(TPid,
                        apps = Apps,
                        codec = Opts}
              = RecvData) ->
-    diameter_codec:setopts(Opts),
+    diameter_codec:setopts([{common_dictionary, Dict0} | Opts]),
     send_A(recv_R(diameter_service:find_incoming_app(PeerT, TPid, Id, Apps),
                   TPid,
                   Pkt,

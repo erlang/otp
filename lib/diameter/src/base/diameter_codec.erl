@@ -81,6 +81,13 @@ setopts(Opts)
 setopt({string_decode = K, false = B}) ->
     setopt(K, B);
 
+%% Regard anything but the generated RFC 3588 dictionary as modern.
+%% This affects the interpretation of defaults during the decode
+%% of values of type DiameterURI, this having changed from RFC 3588.
+%% (So much for backwards compatibility.)
+setopt({common_dictionary, diameter_gen_base_rfc3588}) ->
+    setopt(rfc, 3588);
+
 setopt(_) ->
     ok.
 
@@ -91,6 +98,8 @@ getopt(Key) ->
     case get({diameter, Key}) of
         undefined when Key == string_decode ->
             true;
+        undefined when Key == rfc ->
+            6733;
         V ->
             V
     end.

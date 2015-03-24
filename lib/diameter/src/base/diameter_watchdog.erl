@@ -126,11 +126,12 @@ i({Ack, T, Pid, {RecvData,
     random:seed(Seed),
     putr(restart, {T, Opts, Svc, SvcOpts}),  %% save seeing it in trace
     putr(dwr, dwr(Caps)),                    %%
-    diameter_codec:setopts([{string_decode, false}]),
     {_,_} = Mask = proplists:get_value(sequence, SvcOpts),
     Restrict = proplists:get_value(restrict_connections, SvcOpts),
     Nodes = restrict_nodes(Restrict),
     Dict0 = common_dictionary(Apps),
+    diameter_codec:setopts([{common_dictionary, Dict0},
+                            {string_decode, false}]),
     #watchdog{parent = Pid,
               transport = start(T, Opts, SvcOpts, Nodes, Dict0, Svc),
               tw = proplists:get_value(watchdog_timer,
