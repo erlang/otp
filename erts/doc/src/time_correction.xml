@@ -114,6 +114,29 @@
       happened yet), POSIX time would make a one second leap forward.</p>
     </section>
 
+    <marker id="Time_Resolution"/>
+    <section>
+      <title>Time Resolution</title>
+      <p>The shortest time interval that can be distinguished when
+      reading time values.</p>
+    </section>
+
+    <marker id="Time_Precision"/>
+    <section>
+      <title>Time Precision</title>
+      <p>The shortest time interval that can be be distinguished
+      repeatedly and reliably when reading time values. Precision
+      is limited by the
+      <seealso marker="#Time_Resolution">resolution</seealso>, but
+      resolution and precision might differ significantly.</p>
+    </section>
+
+    <marker id="Time_Accuracy"/>
+    <section>
+      <title>Time Accuracy</title>
+      <p>The correctness of time values.</p>
+    </section>
+
     <marker id="OS_System_Time"/>
     <section>
       <title>OS System Time</title>
@@ -124,7 +147,9 @@
       This may or may not be an accurate view of POSIX time. This time
       may typically be adjusted both backwards and forwards without
       limitation. That is, huge leaps both backwards and forwards in time
-      may be observed.</p>
+      may be observed. You can get information about the Erlang runtime
+      system's source of OS system time by calling
+      <seealso marker="erlang#system_info_os_system_time_source"><c>erlang:system_info(os_system_time_source)</c></seealso>.</p>
     </section>
 
     <marker id="OS_Monotonic_Time"/>
@@ -138,7 +163,9 @@
       point in time that is not connected to
       <seealso marker="#OS_System_Time">OS system time</seealso>. Note that
       this type of time is not necessarily provided by all operating
-      systems.</p>
+      systems. You can get information about the Erlang runtime
+      system's source of OS monotonic time by calling
+      <seealso marker="erlang#system_info_os_monotonic_time_source"><c>erlang:system_info(os_monotonic_time_source)</c></seealso>.</p>
     </section>
 
     <marker id="Erlang_System_Time"/>
@@ -162,8 +189,10 @@
       Erlang runtime system. The Erlang monotonic time increase since
       some unspecified point in time. It can be retrieved by calling
       <seealso marker="erlang#monotonic_time/0"><c>erlang:monotonic_time()</c></seealso>.
-      The accuracy, and precision of Erlang monotonic time heavily
-      depends on the accuracy and precision of
+      The
+      <seealso marker="#Time_Accuracy">accuracy</seealso>, and
+      <seealso marker="#Time_Precision">precision</seealso> of Erlang
+      monotonic time heavily depends on the accuracy and precision of
       <seealso marker="#OS_Monotonic_Time">OS monotonic time</seealso>,
       the accuracy and precision of
       <seealso marker="#OS_System_Time">OS system time</seealso> as well
@@ -572,6 +601,7 @@
       <item><p><seealso marker="erlang#monitor/2"><c>erlang:monitor(time_offset, clock_service)</c></seealso></p></item>
       <item><p><seealso marker="erlang#system_flag_time_offset"><c>erlang:system_flag(time_offset, finalize)</c></seealso></p></item>
       <item><p><seealso marker="erlang#system_info_os_monotonic_time_source"><c>erlang:system_info(os_monotonic_time_source)</c></seealso></p></item>
+      <item><p><seealso marker="erlang#system_info_os_system_time_source"><c>erlang:system_info(os_system_time_source)</c></seealso></p></item>
       <item><p><seealso marker="erlang#system_info_time_offset"><c>erlang:system_info(time_offset)</c></seealso></p></item>
       <item><p><seealso marker="erlang#system_info_time_warp_mode"><c>erlang:system_info(time_warp_mode)</c></seealso></p></item>
       <item><p><seealso marker="erlang#system_info_time_correction"><c>erlang:system_info(time_correction)</c></seealso></p></item>
@@ -827,8 +857,9 @@ EventTag = {Time, UMI}</code>
     when it is not available. Fortunately almost all of the new
     API can easily be implemented using existing primitives
     (except for
-    <seealso marker="erlang#system_info_start_time"><c>erlang:system_info(start_time)</c></seealso>, and
-    <seealso marker="erlang#system_info_os_monotonic_time_source"><c>erlang:system_info(os_monotonic_time_source)</c></seealso>).
+    <seealso marker="erlang#system_info_start_time"><c>erlang:system_info(start_time)</c></seealso>,
+    <seealso marker="erlang#system_info_os_monotonic_time_source"><c>erlang:system_info(os_monotonic_time_source)</c></seealso>, and
+    <seealso marker="erlang#system_info_os_system_time_source"><c>erlang:system_info(os_system_time_source)</c></seealso>).
     By wrapping the API with functions that fall back on
     <c>erlang:now/0</c> when the new API is not available,
     and using these wrappers instead of using the API directly

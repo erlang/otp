@@ -161,11 +161,17 @@ typedef struct tms SysTimes;
 
 #if SIZEOF_LONG == 8
 typedef long ErtsMonotonicTime;
+typedef long ErtsSysHrTime;
 #elif SIZEOF_LONG_LONG == 8
 typedef long long ErtsMonotonicTime;
+typedef long long ErtsSysHrTime;
 #else
 #error No signed 64-bit type found...
 #endif
+
+typedef ErtsMonotonicTime ErtsSystemTime;
+
+ErtsSystemTime erts_os_system_time(void);
 
 #define ERTS_MONOTONIC_TIME_MIN (((ErtsMonotonicTime) 1) << 63)
 #define ERTS_MONOTONIC_TIME_MAX (~ERTS_MONOTONIC_TIME_MIN)
@@ -201,17 +207,15 @@ ErtsMonotonicTime erts_os_monotonic_time(void);
 #elif defined(OS_MONOTONIC_TIME_USING_GETHRTIME)
 
 #define erts_os_monotonic() ((ErtsMonotonicTime) gethrtime())
+#define erts_sys_hrtime() ((ErtsSysHrTime) gethrtime())
 
 #elif defined(OS_MONOTONIC_TIME_USING_MACH_CLOCK_GET_TIME) \
     || defined(OS_MONOTONIC_TIME_USING_TIMES)
 
 #if defined(OS_MONOTONIC_TIME_USING_TIMES)
+/* Time unit determined at runtime... */
 #  undef ERTS_COMPILE_TIME_MONOTONIC_TIME_UNIT
-#  define ERTS_COMPILE_TIME_MONOTONIC_TIME_UNIT (1000*1000)
-#  define ERTS_HAVE_ERTS_OS_TIME_OFFSET_FINALIZE 1
-void erts_os_time_offset_finalize(void);
-#  define ERTS_HAVE_ERTS_OS_MONOTONIC_TIME_INIT
-void erts_os_monotonic_time_init(void);
+#  define ERTS_COMPILE_TIME_MONOTONIC_TIME_UNIT 0
 #endif
 
 ErtsMonotonicTime erts_os_monotonic_time(void);
@@ -222,6 +226,15 @@ ErtsMonotonicTime erts_os_monotonic_time(void);
 #undef ERTS_COMPILE_TIME_MONOTONIC_TIME_UNIT
 #define ERTS_COMPILE_TIME_MONOTONIC_TIME_UNIT (1000*1000)
 
+#endif
+
+/*
+ * erts_sys_hrtime() is the highest resolution
+ * time function found. Time unit is nano-seconds.
+ * It may or may not be monotonic.
+ */
+#ifndef erts_sys_hrtime
+extern ErtsSysHrTime erts_sys_hrtime(void);
 #endif
 
 struct erts_sys_time_read_only_data__ {

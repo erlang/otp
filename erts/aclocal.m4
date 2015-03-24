@@ -745,11 +745,9 @@ AC_DEFUN(ERL_MONOTONIC_CLOCK,
      done
   ])
   
-  AC_CHECK_FUNC(clock_getres)
-
-  AC_CHECK_FUNC(gethrtime)
+  AC_CHECK_FUNCS([clock_getres gethrtime])
   
-  AC_CACHE_CHECK([for mach clock_get_time()], erl_cv_mach_clock_get_time,
+  AC_CACHE_CHECK([for mach clock_get_time()], erl_cv_mach_clock_get_time_monotonic,
   [
      AC_TRY_COMPILE([
 #include <mach/clock.h>
@@ -764,13 +762,13 @@ AC_DEFUN(ERL_MONOTONIC_CLOCK,
     res = clock_get_time(clk_srv, &time_spec);
     mach_port_deallocate(mach_task_self(), clk_srv);
     			],
-    			erl_cv_mach_clock_get_time=yes,
-			erl_cv_mach_clock_get_time=no)
+    			erl_cv_mach_clock_get_time_monotonic=yes,
+			erl_cv_mach_clock_get_time_monotonic=no)
   ])
   
-  case $erl_cv_clock_gettime_monotonic-$ac_cv_func_gethrtime-$erl_cv_mach_clock_get_time-$host_os in
+  case $erl_cv_clock_gettime_monotonic-$ac_cv_func_gethrtime-$erl_cv_mach_clock_get_time_monotonic-$host_os in
     *-*-*-win32)
-      erl_monotonic_clock_func=GetTickCount
+      erl_monotonic_clock_func=WindowsAPI
       ;;
     CLOCK_*-*-*-linux*)
       if test X$cross_compiling != Xyes; then
@@ -833,6 +831,70 @@ AC_DEFUN(ERL_MONOTONIC_CLOCK,
       ;;
   esac
  
+])
+
+AC_DEFUN(ERL_WALL_CLOCK,
+[
+  AC_CACHE_CHECK([for clock_gettime() with wall clock type], erl_cv_clock_gettime_wall,
+  [
+     for clock_type in CLOCK_REALTIME; do
+       AC_TRY_COMPILE([
+#include <time.h>
+		      ],
+		      [
+    struct timespec ts;
+    long long result;
+    clock_gettime($clock_type,&ts);
+    result = ((long long) ts.tv_sec) * 1000000000LL + 
+    ((long long) ts.tv_nsec);
+		      ],
+		      erl_cv_clock_gettime_wall=$clock_type,
+		      erl_cv_clock_gettime_wall=no)
+       test $erl_cv_clock_gettime_wall = no || break
+     done
+  ])
+  
+  AC_CHECK_FUNCS([clock_getres gettimeofday])
+  
+  AC_CACHE_CHECK([for mach clock_get_time()], erl_cv_mach_clock_get_time_wall,
+  [
+     AC_TRY_COMPILE([
+#include <mach/clock.h>
+#include <mach/mach.h>
+			],
+	 		[
+    kern_return_t res;
+    clock_serv_t clk_srv;
+    mach_timespec_t time_spec;
+
+    host_get_clock_service(mach_host_self(), CALENDAR_CLOCK, &clk_srv);
+    res = clock_get_time(clk_srv, &time_spec);
+    mach_port_deallocate(mach_task_self(), clk_srv);
+    			],
+    			erl_cv_mach_clock_get_time_wall=yes,
+			erl_cv_mach_clock_get_time_wall=no)
+  ])
+
+  erl_wall_clock_id=
+  case $erl_cv_clock_gettime_wall-$erl_cv_mach_clock_get_time_wall-$ac_cv_func_gettimeofday-$host_os in
+    *-*-*-win32)
+      erl_wall_clock_func=WindowsAPI
+      ;;
+    no-yes-*-*)
+      erl_wall_clock_func=mach_clock_get_time
+      erl_wall_clock_id=CALENDAR_CLOCK
+      ;;
+    CLOCK_*-*-*-*)
+      erl_wall_clock_func=clock_gettime
+      erl_wall_clock_id=$erl_cv_clock_gettime_wall
+      ;;
+    no-no-yes-*)
+      erl_wall_clock_func=gettimeofday
+      ;;
+    *)
+      erl_wall_clock_func=none
+      ;;
+  esac
 ])
 
 dnl ----------------------------------------------------------------------
@@ -2078,6 +2140,27 @@ dnl
 
 AC_DEFUN(ERL_TIME_CORRECTION,
 [
+
+ERL_WALL_CLOCK
+
+case $erl_wall_clock_func in
+  mach_clock_get_time)
+    AC_DEFINE(OS_SYSTEM_TIME_USING_MACH_CLOCK_GET_TIME, [1], [Define if you want to implement erts_os_system_time() using mach clock_get_time()])
+    ;;
+  clock_gettime)
+    AC_DEFINE(OS_SYSTEM_TIME_USING_CLOCK_GETTIME, [1], [Define if you want to implement erts_os_system_time() using clock_gettime()])
+    ;;
+  gettimeofday)
+    AC_DEFINE(OS_SYSTEM_TIME_GETTIMEOFDAY,  [1], [Define if you want to implement erts_os_system_time() using gettimeofday()])
+    ;;
+  *)
+    ;;
+esac
+
+if test "x$erl_wall_clock_id" != "x"; then
+    AC_DEFINE_UNQUOTED(WALL_CLOCK_ID_STR, ["$erl_wall_clock_id"], [Define as a string of wall clock id to use])
+    AC_DEFINE_UNQUOTED(WALL_CLOCK_ID, [$erl_wall_clock_id], [Define to wall clock id to use])
+fi
 
 ERL_MONOTONIC_CLOCK
 

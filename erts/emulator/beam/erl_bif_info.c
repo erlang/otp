@@ -2123,6 +2123,8 @@ BIF_RETTYPE system_info_1(BIF_ALIST_1)
 	}
     } else if (ERTS_IS_ATOM_STR("os_monotonic_time_source", BIF_ARG_1)) {
 	BIF_RET(erts_monotonic_time_source(BIF_P));
+    } else if (ERTS_IS_ATOM_STR("os_system_time_source", BIF_ARG_1)) {
+	BIF_RET(erts_system_time_source(BIF_P));
     } else if (ERTS_IS_ATOM_STR("time_correction", BIF_ARG_1)) {
 	BIF_RET(erts_has_time_correction() ? am_true : am_false);
     } else if (ERTS_IS_ATOM_STR("start_time", BIF_ARG_1)) {

@@ -710,7 +710,7 @@ typedef enum {
 } ErtsTimeWarpMode;
 
 typedef struct {
-    int have_os_monotonic;
+    int have_os_monotonic_time;
     ErtsMonotonicTime os_monotonic_time_unit;
     ErtsMonotonicTime sys_clock_resolution;
     struct {
@@ -718,7 +718,14 @@ typedef struct {
 	char *func;
 	char *clock_id;
 	int locked_use;
-    } os_monotonic_info;
+	int extended;
+    } os_monotonic_time_info;
+    struct {
+	Uint64 resolution;
+	char *func;
+	char *clock_id;
+	int locked_use;
+    } os_system_time_info;
 } ErtsSysInitTimeResult;
 
 #define ERTS_SYS_INIT_TIME_RESULT_INITER \
@@ -726,13 +733,13 @@ typedef struct {
 
 extern void erts_init_sys_time_sup(void);
 extern void sys_init_time(ErtsSysInitTimeResult *);
+extern void erts_late_sys_init_time(void);
 extern void erts_deliver_time(void);
 extern void erts_time_remaining(SysTimeval *);
 extern int erts_init_time_sup(int, ErtsTimeWarpMode);
 extern void erts_sys_init_float(void);
 extern void erts_thread_init_float(void);
 extern void erts_thread_disable_fpe(void);
-
 ERTS_GLB_INLINE int erts_block_fpe(void);
 ERTS_GLB_INLINE void erts_unblock_fpe(int);
 

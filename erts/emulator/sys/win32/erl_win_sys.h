@@ -172,12 +172,18 @@ typedef long long          Sint64;
 #  endif
 
 typedef long long ErtsMonotonicTime;
+typedef long long ErtsSysHrTime;
 #else
 typedef ULONGLONG Uint64;
 typedef LONGLONG  Sint64;
 
 typedef LONGLONG ErtsMonotonicTime;
+typedef LONGLONG ErtsSysHrTime;
 #endif
+
+typedef ErtsMonotonicTime ErtsSystemTime;
+
+ErtsSystemTime erts_os_system_time(void);
 
 #define ERTS_MONOTONIC_TIME_MIN (((ErtsMonotonicTime) 1) << 63)
 #define ERTS_MONOTONIC_TIME_MAX (~ERTS_MONOTONIC_TIME_MIN)
@@ -187,6 +193,7 @@ typedef LONGLONG ErtsMonotonicTime;
 
 struct erts_sys_time_read_only_data__ {
     ErtsMonotonicTime (*os_monotonic_time)(void);
+    ErtsSysHrTime (*sys_hrtime)(void);
 };
 
 typedef struct {
@@ -201,6 +208,7 @@ typedef struct {
 extern ErtsSysTimeData__ erts_sys_time_data__;
 
 ERTS_GLB_INLINE ErtsMonotonicTime erts_os_monotonic_time(void);
+ERTS_GLB_INLINE ErtsSysHrTime erts_sys_hrtime(void);
 
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
 
@@ -208,6 +216,12 @@ ERTS_GLB_INLINE ErtsMonotonicTime
 erts_os_monotonic_time(void)
 {
     return (*erts_sys_time_data__.r.o.os_monotonic_time)();
+}
+
+ERTS_GLB_INLINE ErtsSysHrTime
+erts_sys_hrtime(void)
+{
+    return (*erts_sys_time_data__.r.o.sys_hrtime)();
 }
 
 #endif /* ERTS_GLB_INLINE_INCL_FUNC_DEF */
