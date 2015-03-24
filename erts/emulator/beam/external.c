@@ -3878,6 +3878,7 @@ dec_term_atom_common:
                     ctx->u.dc.next = next;
                     ctx->u.dc.hp = hp;
 		    ctx->u.dc.maps_list = maps_list;
+		    ctx->u.dc.hamt_list = hamt_list;
                     ctx->reds = 0;
                     return NULL;
                 }
