@@ -710,8 +710,7 @@ static Eterm hashmap_from_chunked_array(ErtsHeapFactory *factory,
 	}
     }
 
-    ESTACK_PUSH(stack, res);
-    ESTACK_PUSH(stack, 1 << slot);
+    ESTACK_PUSH2(stack,res,1 << slot);
 
     /* all of the other nodes .. */
     elems = n - 2; /* remove first and last elements */
@@ -755,14 +754,12 @@ static Eterm hashmap_from_chunked_array(ErtsHeapFactory *factory,
 	    slot = maskval(v, d);
 	    bp   = 1 << slot;
 	    /* no more collisions */
-	    ESTACK_PUSH(stack,res);
-	    ESTACK_PUSH(stack,bp);
+            ESTACK_PUSH2(stack,res,bp);
 	} else if (d == dn) {
 	    /* no collisions at all */
 	    slot = maskval(v, d);
 	    bp   = 1 << slot;
-	    ESTACK_PUSH(stack,res);
-	    ESTACK_PUSH(stack,hdr | bp);
+            ESTACK_PUSH2(stack,res,hdr | bp);
 	} else {
 	    /* dn < n, we have a drop and we are done
 	     * build nodes and subtree */
@@ -786,8 +783,7 @@ static Eterm hashmap_from_chunked_array(ErtsHeapFactory *factory,
 		hdr = ESTACK_POP(stack);
 		d--;
 	    }
-	    ESTACK_PUSH(stack, res);
-	    ESTACK_PUSH(stack, hdr);
+            ESTACK_PUSH2(stack,res,hdr);
 	}
 
 	vp = v;
@@ -1945,8 +1941,7 @@ int erts_hashmap_insert_down(Uint32 hx, Eterm key, Eterm node, Uint *sz,
 			slot = hashmap_bitcount(hval & (bp - 1));
 			n    = hashmap_bitcount(hval);
 
-			ESTACK_PUSH(*sp, n);
-			ESTACK_PUSH3(*sp, bp, slot, node);
+			ESTACK_PUSH4(*sp, n, bp, slot, node);
 
 			/* occupied */
 			if (bp & hval) {
@@ -1969,8 +1964,7 @@ int erts_hashmap_insert_down(Uint32 hx, Eterm key, Eterm node, Uint *sz,
 			slot = hashmap_bitcount(hval & (bp - 1));
 			n    = hashmap_bitcount(hval);
 
-			ESTACK_PUSH(*sp, n);
-			ESTACK_PUSH3(*sp, bp, slot, node);
+			ESTACK_PUSH4(*sp, n, bp, slot, node);
 
 			/* occupied */
 			if (bp & hval) {
@@ -2004,8 +1998,7 @@ insert_subnodes:
     cix   = hashmap_index(chx);
 
     while (cix == ix) {
-	ESTACK_PUSH(*sp, 0);
-	ESTACK_PUSH3(*sp, 1 << ix, 0, MAP_HEADER_HAMT_NODE_BITMAP(0));
+	ESTACK_PUSH4(*sp, 0, 1 << ix, 0, MAP_HEADER_HAMT_NODE_BITMAP(0));
 	size += HAMT_NODE_BITMAP_SZ(1);
 	hx    = hashmap_shift_hash(th,hx,lvl,key);
 	chx   = hashmap_shift_hash(th,chx,clvl,ckey);
@@ -2193,8 +2186,7 @@ static Eterm hashmap_delete(Process *p, Uint32 hx, Eterm key, Eterm map) {
 			slot = hashmap_bitcount(hval & (bp - 1));
 			n    = hashmap_bitcount(hval);
 
-			ESTACK_PUSH(stack, n);
-			ESTACK_PUSH3(stack, bp, slot, node);
+			ESTACK_PUSH4(stack, n, bp, slot, node);
 
 			/* occupied */
 			if (bp & hval) {
@@ -2213,8 +2205,7 @@ static Eterm hashmap_delete(Process *p, Uint32 hx, Eterm key, Eterm map) {
 			slot = hashmap_bitcount(hval & (bp - 1));
 			n    = hashmap_bitcount(hval);
 
-			ESTACK_PUSH(stack, n);
-			ESTACK_PUSH3(stack, bp, slot, node);
+			ESTACK_PUSH4(stack, n, bp, slot, node);
 
 			/* occupied */
 			if (bp & hval) {
