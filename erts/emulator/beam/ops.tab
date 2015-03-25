@@ -1512,8 +1512,6 @@ has_map_fields Fail Src Size Rest=* => \
 
 ## Transform get_map_elements(s) #{ K1 := V1, K2 := V2 }
 
-get_map_element/4
-
 get_map_elements Fail Src=rxy Size=u==2 Rest=* => \
     gen_get_map_element(Fail, Src, Size, Rest)
 get_map_elements Fail Src Size Rest=* | map_key_sort(Size, Rest) => \
@@ -1521,21 +1519,21 @@ get_map_elements Fail Src Size Rest=* | map_key_sort(Size, Rest) => \
 
 i_get_map_elements f s I
 
-get_map_element Fail Src=rxy Key=cx Dst => i_get_map_element Fail Src Key Dst
-get_map_element Fail Src=rxy Key=ry Dst => \
+i_get_map_element Fail Src=rxy Key=ry Dst => \
     move Key x | i_get_map_element Fail Src x Dst
-get_map_element Fail Src Key Dst => jump Fail
+
+%macro: i_get_map_element_hash GetMapElementHash -fail_action
+i_get_map_element_hash f r c I r
+i_get_map_element_hash f x c I r
+i_get_map_element_hash f y c I r
+i_get_map_element_hash f r c I x
+i_get_map_element_hash f x c I x
+i_get_map_element_hash f y c I x
+i_get_map_element_hash f r c I y
+i_get_map_element_hash f x c I y
+i_get_map_element_hash f y c I y
 
 %macro: i_get_map_element GetMapElement -fail_action
-i_get_map_element f r c r
-i_get_map_element f x c r
-i_get_map_element f y c r
-i_get_map_element f r c x
-i_get_map_element f x c x
-i_get_map_element f y c x
-i_get_map_element f r c y
-i_get_map_element f x c y
-i_get_map_element f y c y
 i_get_map_element f r x r
 i_get_map_element f x x r
 i_get_map_element f y x r

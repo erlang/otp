@@ -710,6 +710,15 @@ void** beam_ops;
      Dst = _res;				\
   } while (0)
 
+#define GetMapElementHash(Src, Key, Hx, Dst, Fail)	\
+  do {							\
+     Eterm _res = get_map_element_hash(Src, Key, Hx);	\
+     if (is_non_value(_res)) {				\
+        Fail;						\
+     }							\
+     Dst = _res;					\
+  } while (0)
+
 #define IsFunction(X, Action)			\
   do {						\
      if ( !(is_any_fun(X)) ) {			\
@@ -959,6 +968,7 @@ static Eterm update_map_assoc(Process* p, Eterm* reg,
 static Eterm update_map_exact(Process* p, Eterm* reg,
 			      Eterm map, BeamInstr* I) NOINLINE;
 static Eterm get_map_element(Eterm map, Eterm key);
+static Eterm get_map_element_hash(Eterm map, Eterm key, Uint32 hx);
 
 /*
  * Functions not directly called by process_main(). OK to inline.
@@ -6438,6 +6448,42 @@ static Eterm get_map_element(Eterm map, Eterm key)
     ASSERT(is_hashmap(map));
     hx = hashmap_make_hash(key);
     vs = erts_hashmap_get(hx,key,map);
+    return vs ? *vs : THE_NON_VALUE;
+}
+
+static Eterm get_map_element_hash(Eterm map, Eterm key, Uint32 hx)
+{
+    const Eterm *vs;
+
+    if (is_flatmap(map)) {
+	flatmap_t *mp;
+	Eterm *ks;
+	Uint i;
+	Uint n;
+
+	mp = (flatmap_t *)flatmap_val(map);
+	ks = flatmap_get_keys(mp);
+	vs = flatmap_get_values(mp);
+	n  = flatmap_get_size(mp);
+	if (is_immed(key)) {
+	    for (i = 0; i < n; i++) {
+		if (ks[i] == key) {
+		    return vs[i];
+		}
+	    }
+	} else {
+	    for (i = 0; i < n; i++) {
+		if (EQ(ks[i], key)) {
+		    return vs[i];
+		}
+	    }
+	}
+	return THE_NON_VALUE;
+    }
+
+    ASSERT(is_hashmap(map));
+    ASSERT(hx == hashmap_make_hash(key));
+    vs = erts_hashmap_get(hx, key, map);
     return vs ? *vs : THE_NON_VALUE;
 }
 

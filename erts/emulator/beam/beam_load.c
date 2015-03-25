@@ -4161,9 +4161,30 @@ map_key_sort(LoaderState* stp, GenOpArg Size, GenOpArg* Rest)
     return 1;
 }
 
+static int
+hash_genop_arg(LoaderState* stp, GenOpArg Key, Uint32* hx)
+{
+    switch (Key.type) {
+    case TAG_a:
+	*hx = hashmap_make_hash(Key.val);
+	return 1;
+    case TAG_i:
+	*hx = hashmap_make_hash(make_small(Key.val));
+	return 1;
+    case TAG_n:
+	*hx = hashmap_make_hash(NIL);
+	return 1;
+    case TAG_q:
+	*hx = hashmap_make_hash(stp->literals[Key.val].term);
+	return 1;
+    default:
+	return 0;
+    }
+}
+
 /*
  * Replace a get_map_elements with one key to an instruction with one
- * element
+ * element.
  */
 
 static GenOp*
@@ -4171,18 +4192,29 @@ gen_get_map_element(LoaderState* stp, GenOpArg Fail, GenOpArg Src,
 		    GenOpArg Size, GenOpArg* Rest)
 {
     GenOp* op;
+    GenOpArg Key;
+    Uint32 hx = 0;
 
     ASSERT(Size.type == TAG_u);
 
     NEW_GENOP(stp, op);
     op->next = NULL;
-    op->op = genop_get_map_element_4;
-    op->arity = 4;
-
     op->a[0] = Fail;
     op->a[1] = Src;
     op->a[2] = Rest[0];
-    op->a[3] = Rest[1];
+
+    Key = Rest[0];
+    if (hash_genop_arg(stp, Key, &hx)) {
+	op->arity = 5;
+	op->op = genop_i_get_map_element_hash_5;
+	op->a[3].type = TAG_u;
+	op->a[3].val = (BeamInstr) hx;
+	op->a[4] = Rest[1];
+    } else {
+	op->arity = 4;
+	op->op = genop_i_get_map_element_4;
+	op->a[3] = Rest[1];
+    }
     return op;
 }
 
