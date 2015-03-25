@@ -256,7 +256,7 @@
 %% @see c_primop/2
 %% @see c_receive/1
 %% @see c_seq/2
-%% @see c_try/3
+%% @see c_try/5
 %% @see c_tuple/1
 %% @see c_values/1
 %% @see c_var/1
@@ -1456,7 +1456,7 @@ is_proper_list(_) ->
 %% X4]</code>.
 %%
 %% @see c_cons/2
-%% @see c_nil/1
+%% @see c_nil/0
 %% @see is_c_list/1
 %% @see list_length/1
 %% @see make_list/2
@@ -1487,7 +1487,7 @@ abstract_list([]) ->
 %% efficient.</p>
 %%
 %% @see c_cons/2
-%% @see c_nil/1
+%% @see c_nil/0
 %% @see is_c_list/1
 %% @see list_elements/1
 
@@ -1992,7 +1992,7 @@ update_c_fname(Node, Atom, Arity) ->
 %%
 %% @see c_fname/2
 %% @see c_var/1
-%% @see c_var_name/1
+%% @see var_name/1
 
 -spec is_c_fname(cerl()) -> boolean().
 
@@ -3670,7 +3670,7 @@ c_try(Expr, Vs, Body, Evs, Handler) ->
 %% @spec ann_c_try(As::[term()], Expression::cerl(),
 %%                 Variables::[cerl()], Body::cerl(),
 %%                 EVars::[cerl()], Handler::cerl()) -> cerl()
-%% @see c_try/3
+%% @see c_try/5
 
 -spec ann_c_try([term()], cerl(), [cerl()], cerl(), [cerl()], cerl()) ->
         c_try().
@@ -3683,7 +3683,7 @@ ann_c_try(As, Expr, Vs, Body, Evs, Handler) ->
 %% @spec update_c_try(Old::cerl(), Expression::cerl(),
 %%                    Variables::[cerl()], Body::cerl(),
 %%                    EVars::[cerl()], Handler::cerl()) -> cerl()
-%% @see c_try/3
+%% @see c_try/5
 
 -spec update_c_try(c_try(), cerl(), [cerl()], cerl(), [cerl()], cerl()) ->
         c_try().
@@ -3698,7 +3698,7 @@ update_c_try(Node, Expr, Vs, Body, Evs, Handler) ->
 %% @doc Returns <code>true</code> if <code>Node</code> is an abstract
 %% try-expression, otherwise <code>false</code>.
 %%
-%% @see c_try/3
+%% @see c_try/5
 
 -spec is_c_try(cerl()) -> boolean().
 
@@ -3712,7 +3712,7 @@ is_c_try(_) ->
 %%
 %% @doc Returns the expression subtree of an abstract try-expression.
 %%
-%% @see c_try/3
+%% @see c_try/5
 
 -spec try_arg(c_try()) -> cerl().
 
@@ -3725,7 +3725,7 @@ try_arg(Node) ->
 %% @doc Returns the list of success variable subtrees of an abstract
 %% try-expression.
 %%
-%% @see c_try/3
+%% @see c_try/5
 
 -spec try_vars(c_try()) -> [cerl()].
 
@@ -3737,7 +3737,7 @@ try_vars(Node) ->
 %%
 %% @doc Returns the success body subtree of an abstract try-expression.
 %%
-%% @see c_try/3
+%% @see c_try/5
 
 -spec try_body(c_try()) -> cerl().
 
@@ -3750,7 +3750,7 @@ try_body(Node) ->
 %% @doc Returns the list of exception variable subtrees of an abstract
 %% try-expression.
 %%
-%% @see c_try/3
+%% @see c_try/5
 
 -spec try_evars(c_try()) -> [cerl()].
 
@@ -3763,7 +3763,7 @@ try_evars(Node) ->
 %% @doc Returns the exception body subtree of an abstract
 %% try-expression.
 %%
-%% @see c_try/3
+%% @see c_try/5
 
 -spec try_handler(c_try()) -> cerl().
 
@@ -3785,7 +3785,7 @@ try_handler(Node) ->
 %% @see update_c_catch/2
 %% @see is_c_catch/1
 %% @see catch_body/1
-%% @see c_try/3
+%% @see c_try/5
 
 -spec c_catch(cerl()) -> c_catch().
 
