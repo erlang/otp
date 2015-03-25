@@ -4219,6 +4219,47 @@ gen_get_map_element(LoaderState* stp, GenOpArg Fail, GenOpArg Src,
 }
 
 static GenOp*
+gen_get_map_elements(LoaderState* stp, GenOpArg Fail, GenOpArg Src,
+		     GenOpArg Size, GenOpArg* Rest)
+{
+    GenOp* op;
+    Uint32 hx;
+    Uint i;
+    GenOpArg* dst;
+#ifdef DEBUG
+    int good_hash;
+#endif
+
+    ASSERT(Size.type == TAG_u);
+
+    NEW_GENOP(stp, op);
+    op->op = genop_i_get_map_elements_3;
+    GENOP_ARITY(op, 3 + 3*(Size.val/2));
+    op->next = NULL;
+    op->a[0] = Fail;
+    op->a[1] = Src;
+    op->a[2].type = TAG_u;
+    op->a[2].val = 3*(Size.val/2);
+
+    dst = op->a+3;
+    for (i = 0; i < Size.val / 2; i++) {
+	dst[0] = Rest[2*i];
+	dst[1] = Rest[2*i+1];
+#ifdef DEBUG
+	good_hash =
+#endif
+	    hash_genop_arg(stp, dst[0], &hx);
+#ifdef DEBUG
+	ASSERT(good_hash);
+#endif
+	dst[2].type = TAG_u;
+	dst[2].val = (BeamInstr) hx;
+	dst += 3;
+    }
+    return op;
+}
+
+static GenOp*
 gen_has_map_fields(LoaderState* stp, GenOpArg Fail, GenOpArg Src,
 		   GenOpArg Size, GenOpArg* Rest)
 {

@@ -1515,7 +1515,7 @@ has_map_fields Fail Src Size Rest=* => \
 get_map_elements Fail Src=rxy Size=u==2 Rest=* => \
     gen_get_map_element(Fail, Src, Size, Rest)
 get_map_elements Fail Src Size Rest=* | map_key_sort(Size, Rest) => \
-   i_get_map_elements Fail Src Size Rest
+   gen_get_map_elements(Fail, Src, Size, Rest)
 
 i_get_map_elements f s I
 

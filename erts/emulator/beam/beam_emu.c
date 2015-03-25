@@ -2427,7 +2427,7 @@ do {								\
      * i.e. that it follows a test is_map if needed.
      */
 
-    n  = (Uint)Arg(2) / 2;
+    n  = (Uint)Arg(2) / 3;
     fs = &Arg(3); /* pattern fields and target registers */
 
     if (is_flatmap(map)) {
@@ -2450,12 +2450,11 @@ do {								\
 	    if (EQ((Eterm)*fs,*ks)) {
 		PUT_TERM_REG(*vs, fs[1]);
 		n--;
-		fs += 2;
+		fs += 3;
 		/* no more values to fetch, we are done */
 		if (n == 0) break;
 	    }
-	    ks++; sz--;
-	    vs++;
+	    ks++, sz--, vs++;
 	}
 
 	if (n) {
@@ -2467,13 +2466,14 @@ do {								\
 	Uint32 hx;
 	ASSERT(is_hashmap(map));
 	while(n--) {
-	    hx = hashmap_make_hash((Eterm)*fs);
-	    if ((v = erts_hashmap_get(hx,(Eterm)*fs, map)) == NULL) {
+	    hx = fs[2];
+	    ASSERT(hx == hashmap_make_hash((Eterm)fs[0]));
+	    if ((v = erts_hashmap_get(hx, (Eterm)fs[0], map)) == NULL) {
 		SET_I((BeamInstr *) Arg(0));
 		goto get_map_elements_fail;
 	    }
 	    PUT_TERM_REG(*v, fs[1]);
-	    fs += 2;
+	    fs += 3;
 	}
     }
 
