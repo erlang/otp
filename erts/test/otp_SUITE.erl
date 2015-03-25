@@ -220,11 +220,9 @@ gs_filter(Undef) ->
 
 diameter_filter(Undef) ->
     %% Filter away function calls that are catched.
-    filter(fun({{diameter_lib,_,_},{erlang,convert_time_resolution,3}}) ->
+    filter(fun({{diameter_lib,_,_},{erlang,convert_time_unit,3}}) ->
                    false;
               ({{diameter_lib,_,_},{erlang,monotonic_time,0}}) ->
-                   false;
-              ({{diameter_lib,_,_},{erlang,time_resolution,0}}) ->
                    false;
               ({{diameter_lib,_,_},{erlang,unique_integer,0}}) ->
                    false;
