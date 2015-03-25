@@ -790,7 +790,7 @@ erts_os_monotonic_time(void)
 ErtsSysHrTime
 erts_sys_hrtime(void)
 {
-    return (ErtsSysHrTime) erts_os_system_time();
+    return (ErtsSysHrTime) ERTS_MONOTONIC_TO_NSEC(erts_os_system_time());
 }
 
 #endif
