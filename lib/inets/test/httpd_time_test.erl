@@ -18,7 +18,6 @@
 %%
 %%
 -module(httpd_time_test).
--compile([{nowarn_deprecated_function,{erlang,now,0}}]).
 
 -export([t/3, t1/2, t2/2, t4/2]).
 
@@ -117,15 +116,7 @@ main(N, SocketType, Host, Port, Time)
 loop(Pollers, Timeout) ->
     d("loop -> entry when"
       "~n   Timeout: ~p", [Timeout]),
-    %% Adapt to OTP 18 erlang time API and be backwards compatible
-    Start = try
-                erlang:monotonic_time(1000)
-            catch
-                error:undef ->
-                    %% Use Erlang system time as monotonic time
-                    {A,B,C} = erlang:now(),
-                    A*1000000000+B*1000+(C div 1000)
-            end,
+    Start = inets_time_compat:monotonic_time(),
 
     receive 
 	{'EXIT', Pid, {poller_stat_failure, SocketType, Host, Port, Time, Reason}} ->

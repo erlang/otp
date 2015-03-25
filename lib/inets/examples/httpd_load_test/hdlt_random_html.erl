@@ -19,7 +19,6 @@
 %%
 
 -module(hdlt_random_html). 
--compile([{nowarn_deprecated_function,{erlang,now,0}}]).
 -export([page/3]). 
 
 page(SessionID, _Env, Input) -> 
@@ -49,15 +48,10 @@ stop() ->
 ". 
  
 content(WorkSim, SzSim) ->  
-    %% Adapt to OTP 18 erlang time API and be backwards compatible
-    {A, B, C} = try
-                    {erlang:phash2([node()]),
-                     erlang:monotonic_time(),
-                     erlang:unique_integer()}
-                catch
-                    error:undef ->
-                        erlang:now()
-                end,
+    {A, B, C} = {erlang:phash2([node()]),
+                 inets_time_compat:monotonic_time(),
+                 inets_time_compat:unique_integer()},
+
     random:seed(A, B, C),  
     lists:sort([random:uniform(X) || X <- lists:seq(1, WorkSim)]),  
     lists:flatten(lists:duplicate(SzSim, "Dummy data ")). 

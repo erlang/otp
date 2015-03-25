@@ -31,7 +31,6 @@
 -include("httpc_internal.hrl").
 %% Note: This directive should only be used in test suites.
 -compile(export_all).
--compile([{nowarn_deprecated_function,{erlang,now,0}}]).
 
 -define(URL_START, "http://").
 -define(TLS_URL_START, "https://").
@@ -1934,14 +1933,8 @@ run_clients(NumClients, ServerPort, SeqNumServer) ->
 wait4clients([], _Timeout) ->
     ok;
 wait4clients(Clients, Timeout) when Timeout > 0 ->
-    %% Adapt to OTP 18 erlang time API and be backwards compatible
-    Time = try
-                 erlang:monotonic_time()
-             catch
-                 error:undef ->
-                     %% Use Erlang system time as monotonic time
-                     erlang:now()
-             end,
+    Time = inets_time_compat:monotonic_time(),
+
     receive
 	{'DOWN', _MRef, process, Pid, normal} ->
 	    {value, {Id, _, _}} = lists:keysearch(Pid, 2, Clients),
@@ -2040,14 +2033,8 @@ parse_connection_type(Request) ->
     end.
 
 set_random_seed() ->
-    %% Adapt to OTP 18 erlang time API and be backwards compatible
-    Unique = try
-	erlang:unique_integer()
-    catch
-	error:undef ->
-	    {MS, S, US} = erlang:now(),
-	    (MS*1000000+S)*1000000+US
-    end,
+    Unique = inets_time_compat:unique_integer(),
+
     A = erlang:phash2([make_ref(), self(), Unique]),
     random:seed(A, A, A).
 

@@ -21,7 +21,6 @@
 %% It also supports ipv6 RFC 2428 and starttls RFC 4217.
 
 -module(ftp).
--compile([{nowarn_deprecated_function,{erlang,now,0}}]).
 
 -behaviour(gen_server).
 -behaviour(inets_service).
@@ -2177,14 +2176,7 @@ handle_caller(#state{caller = {transfer_data, {Cmd, Bin, RemoteFile}}} =
 %% Connect to FTP server at Host (default is TCP port 21) 
 %% in order to establish a control connection.
 setup_ctrl_connection(Host, Port, Timeout, State) ->
-    %% Adapt to OTP 18 erlang time API and be backwards compatible
-    MsTime = try
-                 erlang:monotonic_time()
-             catch
-                 error:undef ->
-                     %% Use Erlang system time as monotonic time
-                     erlang:now()
-             end,
+    MsTime = inets_time_compat:monotonic_time(),
     case connect(Host, Port, Timeout, State) of
 	{ok, IpFam, CSock} ->
 	    NewState = State#state{csock = {tcp, CSock}, ipfamily = IpFam},

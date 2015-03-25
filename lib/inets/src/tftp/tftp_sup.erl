@@ -22,7 +22,6 @@
 %%----------------------------------------------------------------------
 
 -module(tftp_sup).
--compile([{nowarn_deprecated_function,{erlang,now,0}}]).
 
 -behaviour(supervisor).
 
@@ -94,17 +93,7 @@ unique_name(Options) ->
 	{value, {_, Port}} when is_integer(Port), Port > 0 -> 
 	    {tftpd, Port};
 	_ ->
-	    {tftpd, unique_integer()}
-    end.
-
-unique_integer() ->
-    %% Adapt to OTP 18 erlang time API and be backwards compatible
-    try
-	erlang:unique_integer([positive])
-    catch
-	error:undef ->
-	    {MS, S, US} = erlang:now(),
-	    (MS*1000000+S)*1000000+US
+	    {tftpd, inets_time_compat:unique_integer([positive])}
     end.
 
 default_kill_after() ->
