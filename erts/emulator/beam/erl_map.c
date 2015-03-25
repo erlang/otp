@@ -1008,6 +1008,7 @@ static Eterm flatmap_merge(Process *p, Eterm nodeA, Eterm nodeB) {
 
     n = n1 + n2 - unused_size;
     *thp = make_arityval(n);
+    mp_new->size = n;
 
     /* Reshape map to a hashmap if the map exceeds the limit */
 
@@ -1042,8 +1043,6 @@ static Eterm flatmap_merge(Process *p, Eterm nodeA, Eterm nodeB) {
 
 	return res;
     }
-
-    mp_new->size = n;
 
     return make_flatmap(mp_new);
 }
