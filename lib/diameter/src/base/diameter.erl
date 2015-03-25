@@ -45,6 +45,7 @@
 
 -export_type([evaluable/0,
               restriction/0,
+              message_length/0,
               remotes/0,
               sequence/0,
               app_alias/0,
@@ -298,6 +299,9 @@ call(SvcName, App, Message) ->
     | [node()]
     | evaluable().
 
+-type message_length()
+   :: 0..16#FFFFFF.
+
 %% Options passed to start_service/2
 
 -type service_opt()
@@ -307,6 +311,7 @@ call(SvcName, App, Message) ->
     | {sequence, sequence() | evaluable()}
     | {share_peers, remotes()}
     | {string_decode, boolean()}
+    | {incoming_maxlen, message_length()}
     | {use_shared_peers, remotes()}
     | {spawn_opt, list()}.
 

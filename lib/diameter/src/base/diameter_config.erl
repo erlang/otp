@@ -159,7 +159,8 @@ stop_service(SvcName) ->
 %% # add_transport/2
 %% --------------------------------------------------------------------------
 
--spec add_transport(diameter:service_name(), {connect|listen, [diameter:transport_opt()]})
+-spec add_transport(diameter:service_name(),
+                    {connect|listen, [diameter:transport_opt()]})
    -> {ok, diameter:transport_ref()}
     | {error, term()}.
 
@@ -645,6 +646,7 @@ make_config(SvcName, Opts) ->
                          {false, monitor},
                          {?NOMASK, sequence},
                          {nodes, restrict_connections},
+                         {16#FFFFFF, incoming_maxlen},
                          {true, string_decode},
                          {[], spawn_opt}]),
 
@@ -669,6 +671,10 @@ make_opts(Opts, Defs) ->
     [] == Unknown orelse ?THROW({invalid, hd(Unknown)}),
 
     [{K, opt(K,V)} || {K,V} <- Known].
+
+opt(incoming_maxlen, N)
+  when 0 =< N, N < 1 bsl 24 ->
+    N;
 
 opt(spawn_opt, L)
   when is_list(L) ->
