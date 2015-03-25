@@ -1521,21 +1521,21 @@ get_map_elements Fail Src Size Rest=* | map_key_sort(Size, Rest) => \
 
 i_get_map_elements f s I
 
-get_map_element Fail Src=rxy Key=ax Dst => i_get_map_element Fail Src Key Dst
-get_map_element Fail Src=rxy Key=rycq Dst => \
+get_map_element Fail Src=rxy Key=cx Dst => i_get_map_element Fail Src Key Dst
+get_map_element Fail Src=rxy Key=ry Dst => \
     move Key x | i_get_map_element Fail Src x Dst
 get_map_element Fail Src Key Dst => jump Fail
 
 %macro: i_get_map_element GetMapElement -fail_action
-i_get_map_element f r a r
-i_get_map_element f x a r
-i_get_map_element f y a r
-i_get_map_element f r a x
-i_get_map_element f x a x
-i_get_map_element f y a x
-i_get_map_element f r a y
-i_get_map_element f x a y
-i_get_map_element f y a y
+i_get_map_element f r c r
+i_get_map_element f x c r
+i_get_map_element f y c r
+i_get_map_element f r c x
+i_get_map_element f x c x
+i_get_map_element f y c x
+i_get_map_element f r c y
+i_get_map_element f x c y
+i_get_map_element f y c y
 i_get_map_element f r x r
 i_get_map_element f x x r
 i_get_map_element f y x r
