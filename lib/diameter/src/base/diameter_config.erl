@@ -675,7 +675,11 @@ opt(spawn_opt, L)
     L;
 
 opt(K, false = B)
-  when K /= sequence ->
+  when K == share_peers;
+       K == use_shared_peers;
+       K == monitor;
+       K == restrict_connections;
+       K == string_decode ->
     B;
 
 opt(K, true = B)
