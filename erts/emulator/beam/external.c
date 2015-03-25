@@ -2633,8 +2633,6 @@ enc_term_int(TTBEncodeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj, byte* ep,
 		    *ep++ = MAP_EXT;
 		    ptr++;
 		    put_int32(*ptr, ep); ep += 4;
-		    /*fall through*/
-		case HAMT_SUBTAG_NODE_ARRAY:
 		    node_sz = 16;
 		    break;
 		case HAMT_SUBTAG_HEAD_BITMAP:
@@ -3878,6 +3876,7 @@ dec_term_atom_common:
                     ctx->u.dc.next = next;
                     ctx->u.dc.hp = hp;
 		    ctx->u.dc.maps_list = maps_list;
+		    ctx->u.dc.hamt_list = hamt_list;
                     ctx->reds = 0;
                     return NULL;
                 }
@@ -4171,8 +4170,8 @@ encode_size_struct_int(TTBSizeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj,
 		hdr = *ptr;
 		ASSERT(is_header(hdr));
 		switch(hdr & _HEADER_MAP_SUBTAG_MASK) {
-		case HAMT_SUBTAG_HEAD_ARRAY: ptr++;
-		case HAMT_SUBTAG_NODE_ARRAY:
+		case HAMT_SUBTAG_HEAD_ARRAY:
+		    ptr++;
 		    node_sz = 16;
 		    break;
 		case HAMT_SUBTAG_HEAD_BITMAP: ptr++;

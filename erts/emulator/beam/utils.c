@@ -1322,7 +1322,6 @@ make_hash2(Eterm term)
                 }
                 switch (hdr & _HEADER_MAP_SUBTAG_MASK) {
                 case HAMT_SUBTAG_HEAD_ARRAY:
-                case HAMT_SUBTAG_NODE_ARRAY:
                     i = 16;
                     break;
                 case HAMT_SUBTAG_HEAD_BITMAP:
@@ -1725,7 +1724,6 @@ make_internal_hash(Eterm term)
                 }
                 switch (hdr & _HEADER_MAP_SUBTAG_MASK) {
                 case HAMT_SUBTAG_HEAD_ARRAY:
-                case HAMT_SUBTAG_NODE_ARRAY:
                     i = 16;
                     break;
                 case HAMT_SUBTAG_HEAD_BITMAP:
@@ -2798,14 +2796,13 @@ tailrecur_ne:
 		    switch (hdr & _HEADER_MAP_SUBTAG_MASK) {
 		    case HAMT_SUBTAG_HEAD_ARRAY:
 			aa++; bb++;
-		    case HAMT_SUBTAG_NODE_ARRAY:
 			sz = 16;
 			break;
 		    case HAMT_SUBTAG_HEAD_BITMAP:
 			aa++; bb++;
 		    case HAMT_SUBTAG_NODE_BITMAP:
 			sz = hashmap_bitcount(MAP_HEADER_VAL(hdr));
-			ASSERT(sz > 0 && sz < 16);
+			ASSERT(sz > 0 && sz < 17);
 			break;
 		    default:
 			erl_exit(1, "Unknown hashmap subsubtag\n");
