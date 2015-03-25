@@ -745,9 +745,9 @@ AC_DEFUN(ERL_MONOTONIC_CLOCK,
      done
   ])
   
-  AC_CHECK_FUNCS([clock_getres gethrtime])
+  AC_CHECK_FUNCS([clock_getres clock_get_attributes gethrtime])
   
-  AC_CACHE_CHECK([for mach clock_get_time()], erl_cv_mach_clock_get_time_monotonic,
+  AC_CACHE_CHECK([for mach clock_get_time() with monotonic clock type], erl_cv_mach_clock_get_time_monotonic,
   [
      AC_TRY_COMPILE([
 #include <mach/clock.h>
@@ -854,9 +854,9 @@ AC_DEFUN(ERL_WALL_CLOCK,
      done
   ])
   
-  AC_CHECK_FUNCS([clock_getres gettimeofday])
+  AC_CHECK_FUNCS([clock_getres clock_get_attributes gettimeofday])
   
-  AC_CACHE_CHECK([for mach clock_get_time()], erl_cv_mach_clock_get_time_wall,
+  AC_CACHE_CHECK([for mach clock_get_time() with wall clock type], erl_cv_mach_clock_get_time_wall,
   [
      AC_TRY_COMPILE([
 #include <mach/clock.h>

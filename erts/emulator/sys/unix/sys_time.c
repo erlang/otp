@@ -35,6 +35,20 @@
 #include "global.h"
 #include "erl_os_monotonic_time_extender.h"
 
+#undef ERTS_HAVE_ERTS_OS_TIMES_IMPL__
+#undef ERTS_HAVE_ERTS_SYS_HRTIME_IMPL__
+
+#if defined(OS_MONOTONIC_TIME_USING_MACH_CLOCK_GET_TIME) \
+    || defined(OS_SYSTEM_TIME_USING_MACH_CLOCK_GET_TIME)
+# include <mach/clock.h>
+# include <mach/mach.h>
+#  ifdef HAVE_CLOCK_GET_ATTRIBUTES
+#  define ERTS_HAVE_MACH_CLOCK_GETRES
+static Sint64
+mach_clock_getres(clock_id_t clkid, char *clkid_str);
+#  endif
+#endif
+
 #ifdef NO_SYSCONF
 #  define TICKS_PER_SEC()	HZ
 #else
@@ -87,6 +101,10 @@ ErtsSysTimeData__ erts_sys_time_data__ erts_align_attribute(ERTS_CACHE_LINE_SIZE
 
 static ErtsMonotonicTime clock_gettime_monotonic_raw(void);
 static ErtsMonotonicTime clock_gettime_monotonic_verified(void);
+#if defined(OS_SYSTEM_TIME_USING_CLOCK_GETTIME)
+static void clock_gettime_times_raw(ErtsMonotonicTime *, ErtsSystemTime *);
+static void clock_gettime_times_verified(ErtsMonotonicTime *, ErtsSystemTime *);
+#endif
 
 #endif /* defined(__linux__) && defined(OS_MONOTONIC_TIME_USING_CLOCK_GETTIME) */
 
@@ -167,6 +185,9 @@ sys_init_time(ErtsSysInitTimeResult *init_resp)
 		init_resp->os_monotonic_time_info.resolution = 1;
 	}
     }
+#elif defined(ERTS_HAVE_MACH_CLOCK_GETRES) && defined(MONOTONIC_CLOCK_ID)
+    init_resp->os_monotonic_time_info.resolution
+	= mach_clock_getres(MONOTONIC_CLOCK_ID, MONOTONIC_CLOCK_ID_STR);
 #endif
 
 #ifdef MONOTONIC_CLOCK_ID_STR
@@ -197,9 +218,14 @@ sys_init_time(ErtsSysInitTimeResult *init_resp)
 
 
 #if defined(__linux__) && defined(OS_MONOTONIC_TIME_USING_CLOCK_GETTIME)
-    if (vsn >= ERTS_MK_VSN_INT(2, 6, 33))
+    if (vsn >= ERTS_MK_VSN_INT(2, 6, 33)) {
 	erts_sys_time_data__.r.o.os_monotonic_time =
 	    clock_gettime_monotonic_raw;
+#if defined(OS_SYSTEM_TIME_USING_CLOCK_GETTIME)
+	erts_sys_time_data__.r.o.os_times =
+	    clock_gettime_times_raw;
+#endif
+    }
     else {
 	/*
 	 * Linux versions prior to 2.6.33 have a
@@ -208,6 +234,10 @@ sys_init_time(ErtsSysInitTimeResult *init_resp)
 	 */
 	erts_sys_time_data__.r.o.os_monotonic_time =
 	    clock_gettime_monotonic_verified;
+#if defined(OS_SYSTEM_TIME_USING_CLOCK_GETTIME)
+	erts_sys_time_data__.r.o.os_times =
+	    clock_gettime_times_verified;
+#endif
 	erts_smp_mtx_init(&internal_state.w.f.mtx,
 			  "os_monotonic_time");
 	internal_state.w.f.last_delivered
@@ -292,6 +322,9 @@ sys_init_time(ErtsSysInitTimeResult *init_resp)
 		init_resp->os_system_time_info.resolution = 1;
 	}
     }
+#elif defined(ERTS_HAVE_MACH_CLOCK_GETRES) && defined(WALL_CLOCK_ID)
+    init_resp->os_system_time_info.resolution
+	= mach_clock_getres(WALL_CLOCK_ID, WALL_CLOCK_ID_STR);
 #endif
 
 #if defined(OS_SYSTEM_TIME_USING_CLOCK_GETTIME)
@@ -303,7 +336,7 @@ sys_init_time(ErtsSysInitTimeResult *init_resp)
     init_resp->os_system_time_info.resolution = 1000*1000;
     init_resp->os_system_time_info.clock_id = NULL;
 #else
-#  error Missing erts_os_system_time() implmenentation
+#  error Missing erts_os_system_time() implementation
 #endif
 
 }
@@ -333,62 +366,379 @@ adj_stime_time_unit(ErtsSystemTime stime, Uint32 res)
 				      (Uint32) ERTS_MONOTONIC_TIME_UNIT));
 }
 
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *\
+ * POSIX clock_gettime()                                                     *
+\*                                                                           */
+
+#if defined(OS_MONOTONIC_TIME_USING_CLOCK_GETTIME) \
+    || defined(OS_SYSTEM_TIME_USING_CLOCK_GETTIME)
+
+static ERTS_INLINE ErtsMonotonicTime
+timespec2montime(struct timespec *ts)
+{
+    ErtsMonotonicTime time;
+    time = (ErtsMonotonicTime) ts->tv_sec;
+    time *= (ErtsMonotonicTime) 1000*1000*1000;
+    time += (ErtsMonotonicTime) ts->tv_nsec;
+    return time;
+}
+
+static ERTS_INLINE ErtsMonotonicTime
+posix_clock_gettime(clockid_t id, char *name)
+{
+    struct timespec ts;
+
+    if (clock_gettime(id, &ts) != 0) {
+	int err = errno;
+	char *errstr = err ? strerror(err) : "unknown";
+	erl_exit(ERTS_ABORT_EXIT,
+		 "clock_gettime(%s, _) failed: %s (%d)\n",
+		 name, errstr, err);
+    }
+    return timespec2montime(&ts);
+}
+
+#endif /* defined(OS_MONOTONIC_TIME_USING_CLOCK_GETTIME) \
+	  || defined(OS_SYSTEM_TIME_USING_CLOCK_GETTIME) */
+
 #if defined(OS_SYSTEM_TIME_USING_CLOCK_GETTIME)
 
 ErtsSystemTime
 erts_os_system_time(void)
 {
     ErtsSystemTime stime;
-    struct timespec ts;
 
-    if (clock_gettime(WALL_CLOCK_ID,&ts) != 0) {
-	int err = errno;
-	char *errstr = err ? strerror(err) : "unknown";
-	erl_exit(ERTS_ABORT_EXIT,
-		 "clock_gettime(%s, _) failed: %s (%d)\n",
-		 WALL_CLOCK_ID_STR, errstr, err);
-
-    }
-
-    stime = (ErtsSystemTime) ts.tv_sec;
-    stime *= (ErtsSystemTime) 1000*1000*1000;
-    stime += (ErtsSystemTime) ts.tv_nsec;
+    stime = (ErtsSystemTime) posix_clock_gettime(WALL_CLOCK_ID,
+						 WALL_CLOCK_ID_STR);
+#if defined(OS_MONOTONIC_TIME_USING_CLOCK_GETTIME)
+    return stime;
+#else
     return adj_stime_time_unit(stime, (Uint32) 1000*1000*1000);
+#endif
 }
 
-#elif defined(OS_SYSTEM_TIME_USING_MACH_CLOCK_GET_TIME)
+#endif /* defined(OS_SYSTEM_TIME_USING_CLOCK_GETTIME) */
+
+#if defined(OS_MONOTONIC_TIME_USING_CLOCK_GETTIME)
+
+#if defined(OS_SYSTEM_TIME_USING_CLOCK_GETTIME)
+
+#define ERTS_HAVE_ERTS_OS_TIMES_IMPL__
+
+static ERTS_INLINE void
+posix_clock_gettime_times(ErtsMonotonicTime *mtimep,
+			  ErtsSystemTime *stimep)
+{
+    struct timespec mts, sts;
+    int mres, sres, merr, serr;
+
+    mres = clock_gettime(MONOTONIC_CLOCK_ID, &mts);
+    merr = errno;
+    sres = clock_gettime(WALL_CLOCK_ID, &sts);
+    serr = errno;
+    
+    if (mres != 0) {
+	char *errstr = merr ? strerror(merr) : "unknown";
+	erl_exit(ERTS_ABORT_EXIT,
+		 "clock_gettime(%s, _) failed: %s (%d)\n",
+		 MONOTONIC_CLOCK_ID_STR, errstr, merr);
+    }
+    if (sres != 0) {
+	char *errstr = serr ? strerror(serr) : "unknown";
+	erl_exit(ERTS_ABORT_EXIT,
+		 "clock_gettime(%s, _) failed: %s (%d)\n",
+		 WALL_CLOCK_ID_STR, errstr, serr);
+    }
+
+    *mtimep = timespec2montime(&mts);
+    *stimep = (ErtsSystemTime) timespec2montime(&sts);
+}
+
+#endif /* defined(OS_SYSTEM_TIME_USING_CLOCK_GETTIME) */
+
+#if defined(__linux__)
+
+static ErtsMonotonicTime clock_gettime_monotonic_verified(void)
+{
+    ErtsMonotonicTime mtime = posix_clock_gettime(MONOTONIC_CLOCK_ID,
+						  MONOTONIC_CLOCK_ID_STR);
+
+    erts_smp_mtx_lock(&internal_state.w.f.mtx);
+    if (mtime < internal_state.w.f.last_delivered)
+	mtime = internal_state.w.f.last_delivered;
+    else
+	internal_state.w.f.last_delivered = mtime;
+    erts_smp_mtx_unlock(&internal_state.w.f.mtx);
+
+    return mtime;
+}
+
+#if defined(OS_SYSTEM_TIME_USING_CLOCK_GETTIME)
+
+static void clock_gettime_times_verified(ErtsMonotonicTime *mtimep,
+					 ErtsSystemTime *stimep)
+{
+    posix_clock_gettime_times(mtimep, stimep);
+
+    erts_smp_mtx_lock(&internal_state.w.f.mtx);
+    if (*mtimep < internal_state.w.f.last_delivered)
+	*mtimep = internal_state.w.f.last_delivered;
+    else
+	internal_state.w.f.last_delivered = *mtimep;
+    erts_smp_mtx_unlock(&internal_state.w.f.mtx);
+}
+
+#endif /* defined(OS_SYSTEM_TIME_USING_CLOCK_GETTIME) */
+
+static ErtsMonotonicTime clock_gettime_monotonic_raw(void)
+{
+    return posix_clock_gettime(MONOTONIC_CLOCK_ID,
+			       MONOTONIC_CLOCK_ID_STR);
+}
+
+#if defined(OS_SYSTEM_TIME_USING_CLOCK_GETTIME)
+
+static void clock_gettime_times_raw(ErtsMonotonicTime *mtimep,
+				    ErtsSystemTime *stimep)
+{
+    posix_clock_gettime_times(mtimep, stimep);
+}
+
+#endif /* defined(OS_SYSTEM_TIME_USING_CLOCK_GETTIME) */
+
+#else /* !defined(__linux__) */
+
+ErtsMonotonicTime erts_os_monotonic_time(void)
+{
+    return posix_clock_gettime(MONOTONIC_CLOCK_ID,
+			       MONOTONIC_CLOCK_ID_STR);
+}
+
+#if defined(OS_SYSTEM_TIME_USING_CLOCK_GETTIME)
+
+static void erts_os_times(ErtsMonotonicTime *mtimep,
+			  ErtsSystemTime *stimep)
+{
+    posix_clock_gettime_times(mtimep, stimep);
+}
+
+#endif /* defined(OS_SYSTEM_TIME_USING_CLOCK_GETTIME) */
+
+#endif /* !defined(__linux__) */
+
+#define ERTS_HAVE_ERTS_SYS_HRTIME_IMPL__
+
+ErtsSysHrTime
+erts_sys_hrtime(void)
+{
+    return (ErtsSysHrTime) posix_clock_gettime(MONOTONIC_CLOCK_ID,
+					       MONOTONIC_CLOCK_ID_STR);
+}
+
+#endif /* defined(OS_MONOTONIC_TIME_USING_CLOCK_GETTIME) */
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *\
+ * MACH clock_get_time()                                                     *
+\*                                                                           */
+
+#if defined(OS_MONOTONIC_TIME_USING_MACH_CLOCK_GET_TIME) \
+    || defined(OS_SYSTEM_TIME_USING_MACH_CLOCK_GET_TIME)
+
+#ifdef ERTS_HAVE_MACH_CLOCK_GETRES
+
+static Sint64
+mach_clock_getres(clock_id_t clkid, char *clkid_str)
+{
+    mach_port_t task;
+    host_name_port_t host;
+    natural_t attr[1];
+    kern_return_t kret;
+    clock_serv_t clk_srv;
+    mach_msg_type_number_t cnt;
+
+    host = mach_host_self();
+    kret = host_get_clock_service(host, clkid, &clk_srv);
+    if (kret != KERN_SUCCESS) {
+	erl_exit(ERTS_ABORT_EXIT,
+		 "host_get_clock_service(_, %s, _) failed\n",
+		 clkid_str);
+    }
+
+    cnt = sizeof(attr);
+    kret = clock_get_attributes(clk_srv, CLOCK_GET_TIME_RES, (clock_attr_t) attr, &cnt);
+    if (kret != KERN_SUCCESS) {
+	erl_exit(ERTS_ABORT_EXIT,	
+		 "clock_get_attributes(%s, _) failed\n",
+		 clkid_str);
+    }
+    task = mach_task_self();
+    mach_port_deallocate(task, host);
+    mach_port_deallocate(task, clk_srv);
+
+    return (Sint64) attr[0];
+}
+
+#endif /* ERTS_HAVE_MACH_CLOCK_GETRES */
+
+static ERTS_INLINE Sint64
+mach_clock_gettime(clock_id_t clkid, char *clkid_str)
+{
+    Sint64 time;
+    mach_port_t task;
+    host_name_port_t host;
+    kern_return_t kret;
+    clock_serv_t clk_srv;
+    mach_timespec_t time_spec;
+
+    host = mach_host_self();
+    kret = host_get_clock_service(host, clkid, &clk_srv);
+    if (kret != KERN_SUCCESS) {
+	erl_exit(ERTS_ABORT_EXIT,
+		 "host_get_clock_service(_, %s, _) failed\n",
+		 clkid_str);
+    }
+    errno = 0;
+    kret = clock_get_time(clk_srv, &time_spec);
+    if (kret != KERN_SUCCESS) {
+	erl_exit(ERTS_ABORT_EXIT,
+		 "clock_get_time(%s, _) failed\n",
+		 clkid_str);
+    }
+    task = mach_task_self();
+    mach_port_deallocate(task, host);
+    mach_port_deallocate(task, clk_srv);
+
+    time = (Sint64) time_spec.tv_sec;
+    time *= (Sint64) 1000*1000*1000;
+    time += (Sint64) time_spec.tv_nsec;
+    return time;
+}
+
+#endif /* defined(OS_MONOTONIC_TIME_USING_MACH_CLOCK_GET_TIME) \
+	  || defined(OS_SYSTEM_TIME_USING_MACH_CLOCK_GET_TIME) */
+
+#if defined(OS_SYSTEM_TIME_USING_MACH_CLOCK_GET_TIME)
+
+#define ERTS_HAVE_ERTS_OS_TIMES_IMPL__
 
 ErtsSystemTime
 erts_os_system_time(void)
 {
     ErtsSystemTime stime;
-    kern_return_t res;
-    clock_serv_t clk_srv;
-    mach_timespec_t time_spec;
-    int err;
-
-    host_get_clock_service(mach_host_self(),
-			   WALL_CLOCK_ID,
-			   &clk_srv);
-    errno = 0;
-    res = clock_get_time(clk_srv, &time_spec);
-    err = errno;
-    mach_port_deallocate(mach_task_self(), clk_srv);
-    if (res != KERN_SUCCESS) {
-	char *errstr = err ? strerror(err) : "unknown";
-	erl_exit(ERTS_ABORT_EXIT,
-		 "clock_get_time(%s, _) failed: %s (%d)\n",
-		 MONOTONIC_CLOCK_ID_STR, errstr, err);
-    }
-
-    stime = (ErtsSystemTime) time_spec.tv_sec;
-    stime *= (ErtsSystemTime) 1000*1000*1000;
-    stime += (ErtsSystemTime) time_spec.tv_nsec;
-
+    stime = (ErtsSystemTime) mach_clock_gettime(WALL_CLOCK_ID,
+						WALL_CLOCK_ID_STR);
+#if defined(OS_MONOTONIC_TIME_USING_MACH_CLOCK_GET_TIME)
+    return stime;
+#else
     return adj_stime_time_unit(stime, (Uint32) 1000*1000*1000);
+#endif
 }
 
-#elif defined(OS_SYSTEM_TIME_GETTIMEOFDAY)
+#endif /* defined(OS_SYSTEM_TIME_USING_MACH_CLOCK_GET_TIME) */
+
+#if defined(OS_MONOTONIC_TIME_USING_MACH_CLOCK_GET_TIME)
+
+ErtsMonotonicTime
+erts_os_monotonic_time(void)
+{
+    return (ErtsMonotonicTime) mach_clock_gettime(MONOTONIC_CLOCK_ID,
+						  MONOTONIC_CLOCK_ID_STR);
+}
+
+#define ERTS_HAVE_ERTS_SYS_HRTIME_IMPL__
+
+ErtsSysHrTime
+erts_sys_hrtime(void)
+{
+    return (ErtsMonotonicTime) mach_clock_gettime(MONOTONIC_CLOCK_ID,
+						  MONOTONIC_CLOCK_ID_STR);
+}
+
+#if defined(OS_SYSTEM_TIME_USING_MACH_CLOCK_GET_TIME)
+
+#define ERTS_HAVE_ERTS_OS_TIMES_IMPL__
+
+void
+erts_os_times(ErtsMonotonicTime *mtimep, ErtsSystemTime *stimep)
+{
+    ErtsMonotonicTime mtime;
+    ErtsSystemTime stime;
+    mach_port_t task;
+    host_name_port_t host;
+    kern_return_t mkret, skret;
+    clock_serv_t mclk_srv, sclk_srv;
+    mach_timespec_t mon_time_spec, sys_time_spec;
+
+    host = mach_host_self();
+    mkret = host_get_clock_service(host, MONOTONIC_CLOCK_ID, &mclk_srv);
+    skret = host_get_clock_service(host, WALL_CLOCK_ID, &sclk_srv);
+    if (mkret != KERN_SUCCESS) {
+	erl_exit(ERTS_ABORT_EXIT,
+		 "host_get_clock_service(_, %s, _) failed\n",
+		 MONOTONIC_CLOCK_ID);
+    }
+    if (skret != KERN_SUCCESS) {
+	erl_exit(ERTS_ABORT_EXIT,
+		 "host_get_clock_service(_, %s, _) failed\n",
+		 WALL_CLOCK_ID);
+    }
+    mkret = clock_get_time(mclk_srv, &mon_time_spec);
+    skret = clock_get_time(sclk_srv, &sys_time_spec);
+    if (mkret != KERN_SUCCESS) {
+	erl_exit(ERTS_ABORT_EXIT,
+		 "clock_get_time(%s, _) failed\n",
+		 MONOTONIC_CLOCK_ID);
+    }
+    if (skret != KERN_SUCCESS) {
+	erl_exit(ERTS_ABORT_EXIT,
+		 "clock_get_time(%s, _) failed\n",
+		 WALL_CLOCK_ID);
+    }
+    task = mach_task_self();
+    mach_port_deallocate(task, host);
+    mach_port_deallocate(task, mclk_srv);
+    mach_port_deallocate(task, sclk_srv);
+
+    mtime = (ErtsMonotonicTime) mon_time_spec.tv_sec;
+    mtime *= (ErtsMonotonicTime) 1000*1000*1000;
+    mtime += (ErtsMonotonicTime) mon_time_spec.tv_nsec;
+    stime = (ErtsSystemTime) sys_time_spec.tv_sec;
+    stime *= (ErtsSystemTime) 1000*1000*1000;
+    stime += (ErtsSystemTime) sys_time_spec.tv_nsec;
+    *mtimep = mtime;
+    *stimep = stime;
+}
+
+#endif /* defined(OS_SYSTEM_TIME_USING_MACH_CLOCK_GET_TIME) */
+
+#endif /* defined(OS_MONOTONIC_TIME_USING_MACH_CLOCK_GET_TIME) */
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *\
+ * Solaris gethrtime() - OS monotonic time                                   *
+\*                                                                           */
+
+#if defined(OS_MONOTONIC_TIME_USING_GETHRTIME)
+
+ErtsMonotonicTime erts_os_monotonic_time(void)
+{
+    return (ErtsMonotonicTime) gethrtime();
+}
+
+#define ERTS_HAVE_ERTS_SYS_HRTIME_IMPL__
+
+ErtsSysHrTime
+erts_sys_hrtime(void)
+{
+    return (ErtsSysHrTime) gethrtime();
+}
+
+#endif /* defined(OS_MONOTONIC_TIME_USING_GETHRTIME) */
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *\
+ * gettimeofday() - OS system time                                           *
+\*                                                                           */
+
+#if defined(OS_SYSTEM_TIME_GETTIMEOFDAY)
 
 ErtsSystemTime
 erts_os_system_time(void)
@@ -411,110 +761,13 @@ erts_os_system_time(void)
     return adj_stime_time_unit(stime, (Uint32) 1000*1000);
 }
 
-#else
-#  error Missing erts_os_system_time() implmenentation
-#endif
+#endif /* defined(OS_SYSTEM_TIME_GETTIMEOFDAY) */
 
-#if defined(OS_MONOTONIC_TIME_USING_CLOCK_GETTIME)
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *\
+ * times() - OS monotonic time                                               *
+\*                                                                           */
 
-static ERTS_INLINE ErtsMonotonicTime
-clock_gettime_monotonic(void)
-{
-    ErtsMonotonicTime mtime;
-    struct timespec ts;
-
-    if (clock_gettime(MONOTONIC_CLOCK_ID,&ts) != 0) {
-	int err = errno;
-	char *errstr = err ? strerror(err) : "unknown";
-	erl_exit(ERTS_ABORT_EXIT,
-		 "clock_gettime(%s, _) failed: %s (%d)\n",
-		 MONOTONIC_CLOCK_ID_STR, errstr, err);
-
-    }
-    mtime = (ErtsMonotonicTime) ts.tv_sec;
-    mtime *= (ErtsMonotonicTime) 1000*1000*1000;
-    mtime += (ErtsMonotonicTime) ts.tv_nsec;
-    return mtime;
-}
-
-#if defined(__linux__)
-
-static ErtsMonotonicTime clock_gettime_monotonic_verified(void)
-{
-    ErtsMonotonicTime mtime;
-
-    mtime = clock_gettime_monotonic();
-
-    erts_smp_mtx_lock(&internal_state.w.f.mtx);
-    if (mtime < internal_state.w.f.last_delivered)
-	mtime = internal_state.w.f.last_delivered;
-    else
-	internal_state.w.f.last_delivered = mtime;
-    erts_smp_mtx_unlock(&internal_state.w.f.mtx);
-
-    return mtime;
-}
-
-static ErtsMonotonicTime clock_gettime_monotonic_raw(void)
-{
-    return clock_gettime_monotonic();
-}
-
-#else /* !defined(__linux__) */
-
-ErtsMonotonicTime erts_os_monotonic_time(void)
-{
-    return clock_gettime_monotonic();
-}
-
-#endif /* !defined(__linux__) */
-
-ErtsSysHrTime
-erts_sys_hrtime(void)
-{
-    return (ErtsSysHrTime) clock_gettime_monotonic();
-}
-
-#elif defined(OS_MONOTONIC_TIME_USING_MACH_CLOCK_GET_TIME)
-
-#include <mach/clock.h>
-#include <mach/mach.h>
-
-ErtsMonotonicTime erts_os_monotonic_time(void)
-{
-    ErtsMonotonicTime mtime;
-    kern_return_t res;
-    clock_serv_t clk_srv;
-    mach_timespec_t time_spec;
-    int err;
-
-    host_get_clock_service(mach_host_self(),
-			   MONOTONIC_CLOCK_ID,
-			   &clk_srv);
-    errno = 0;
-    res = clock_get_time(clk_srv, &time_spec);
-    err = errno;
-    mach_port_deallocate(mach_task_self(), clk_srv);
-    if (res != KERN_SUCCESS) {
-	char *errstr = err ? strerror(err) : "unknown";
-	erl_exit(ERTS_ABORT_EXIT,
-		 "clock_get_time(%s, _) failed: %s (%d)\n",
-		 MONOTONIC_CLOCK_ID_STR, errstr, err);
-    }
-
-    mtime = (ErtsMonotonicTime) time_spec.tv_sec;
-    mtime *= (ErtsMonotonicTime) 1000*1000*1000;
-    mtime += (ErtsMonotonicTime) time_spec.tv_nsec;
-    return mtime;
-}
-
-ErtsSysHrTime
-erts_sys_hrtime(void)
-{
-    return (ErtsSysHrTime) erts_os_monotonic_time();
-}
-
-#elif defined(OS_MONOTONIC_TIME_USING_TIMES)
+#if defined(OS_MONOTONIC_TIME_USING_TIMES)
 
 ErtsMonotonicTime
 erts_os_monotonic_time(void)
@@ -526,29 +779,35 @@ erts_os_monotonic_time(void)
 					 ticks) << internal_state.r.o.times_shift;
 }
 
-#  define ERTS_NEED_ERTS_SYS_HRTIME_FALLBACK
-
-#else  /* !defined(OS_MONOTONIC_TIME_USING_TIMES) */
-/* No os-monotonic-time */
-#  define ERTS_NEED_ERTS_SYS_HRTIME_FALLBACK
 #endif
 
-#ifdef ERTS_NEED_ERTS_SYS_HRTIME_FALLBACK
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *\
+ * Fallbacks                                                                 *
+\*                                                                           */
+
+#ifndef ERTS_HAVE_ERTS_SYS_HRTIME_IMPL__
 
 ErtsSysHrTime
 erts_sys_hrtime(void)
 {
-    ErtsSysHrTime time;
-    struct timeval tv;
-    gettimeofday(&tv);
-    time = (ErtsSysHrTime) tv.tv_sec;
-    time *= (ErtsSysHrTime) 1000*1000*1000;
-    time += ((ErtsSysHrTime) tv.tv_usec)*1000;
-    return time;
+    return (ErtsSysHrTime) erts_os_system_time();
 }
 
 #endif
 
+#if !defined(ERTS_HAVE_ERTS_OS_TIMES_IMPL__) \
+    && defined(ERTS_HAVE_OS_MONOTONIC_TIME_SUPPORT)
+
+void
+erts_os_times(ErtsMonotonicTime *mtimep, ErtsSystemTime *stimep)
+{
+    *mtimep = erts_os_monotonic_time();
+    *stimep = erts_os_system_time();
+}
+
+#endif
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 #ifdef HAVE_GETHRVTIME_PROCFS_IOCTL
 

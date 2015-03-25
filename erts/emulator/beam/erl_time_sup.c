@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1999-2012. All Rights Reserved.
+ * Copyright Ericsson AB 1999-2015. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -139,12 +139,12 @@ struct time_sup_read_only__ {
     int os_monotonic_time_locked;
     Uint64 os_monotonic_time_resolution;
     Uint64 os_monotonic_time_extended;
+#endif
     char *os_system_time_func;
     char *os_system_time_clock_id;
     int os_system_time_locked;
     Uint64 os_system_time_resolution;
     Uint64 os_system_time_extended;
-#endif
 #if !ERTS_COMPILE_TIME_MONOTONIC_TIME_UNIT
     ErtsMonotonicTime start;
     struct {
@@ -287,7 +287,7 @@ get_time_offset(void)
 #define ERTS_LONG_TIME_CORRECTION_CHECK ERTS_SEC_TO_MONOTONIC(60)
 #define ERTS_SHORT_TIME_CORRECTION_CHECK ERTS_SEC_TO_MONOTONIC(15)
 
-#define ERTS_TIME_DRIFT_MAX_ADJ_DIFF ERTS_USEC_TO_MONOTONIC(100)
+#define ERTS_TIME_DRIFT_MAX_ADJ_DIFF ERTS_USEC_TO_MONOTONIC(50)
 #define ERTS_TIME_DRIFT_MIN_ADJ_DIFF ERTS_USEC_TO_MONOTONIC(5)
 
 static ERTS_INLINE ErtsMonotonicTime
@@ -353,21 +353,21 @@ print_correction(int change,
 
     if (!change)
 	fprintf(stderr,
-		"sdiff = %lld usec : [ec=%lld ppm, dc=%lld ppm] : "
+		"sdiff = %lld usec : [ec=%lld ppm, dc=%lld ppb] : "
 		"tmo = %lld msec\r\n",
 		(long long) usec_sdiff,
 		(long long) (1000000*old_ecorr) / ERTS_TCORR_ERR_UNIT,
-		(long long) (1000000*old_dcorr) / ERTS_MONOTONIC_TIME_UNIT,
+		(long long) (1000000000*old_dcorr) / ERTS_MONOTONIC_TIME_UNIT,
 		(long long) tmo);
     else
 	fprintf(stderr,
-		"sdiff = %lld usec : [ec=%lld ppm, dc=%lld ppm] "
-		"-> [ec=%lld ppm, dc=%lld ppm] : tmo = %lld msec\r\n",
+		"sdiff = %lld usec : [ec=%lld ppm, dc=%lld ppb] "
+		"-> [ec=%lld ppm, dc=%lld ppb] : tmo = %lld msec\r\n",
 		(long long) usec_sdiff,
 		(long long) (1000000*old_ecorr) / ERTS_TCORR_ERR_UNIT,
-		(long long) (1000000*old_dcorr) / ERTS_MONOTONIC_TIME_UNIT,
+		(long long) (1000000000*old_dcorr) / ERTS_MONOTONIC_TIME_UNIT,
 		(long long) (1000000*new_ecorr) / ERTS_TCORR_ERR_UNIT,
-		(long long) (1000000*new_dcorr) / ERTS_MONOTONIC_TIME_UNIT,
+		(long long) (1000000000*new_dcorr) / ERTS_MONOTONIC_TIME_UNIT,
 		(long long) tmo);
 
 }
@@ -412,8 +412,7 @@ check_time_correction(void *unused)
 
     ASSERT(time_sup.inf.c.finalized_offset);
 
-    os_mtime = erts_os_monotonic_time();
-    os_stime = erts_os_system_time();
+    erts_os_times(&os_mtime, &os_stime);
 
     cdata = time_sup.inf.c.parmon.cdata;
 
@@ -556,13 +555,6 @@ check_time_correction(void *unused)
 	    ddp->acc.mon = mtime_acc;
 	    ddp->acc.sys = stime_acc;
 
-	    /*
-	     * If calculated drift adjustment is if off by more than 20%
-	     * from the average drift we interpret this as a discontinous
-	     * leap in system time and ignore it. If it actually is a
-	     * change in drift we will later detect this when the average
-	     * drift change.
-	     */
 	    drift_adj_diff = avg_drift_adj - drift_adj;
 	    if (drift_adj_diff < -ERTS_TIME_DRIFT_MAX_ADJ_DIFF
 		|| ERTS_TIME_DRIFT_MAX_ADJ_DIFF < drift_adj_diff) {
@@ -691,8 +683,7 @@ init_check_time_correction(void *unused)
     old_mtime = ddp->intervals[0].time.mon;
     old_stime = ddp->intervals[0].time.sys;
 
-    mtime = erts_os_monotonic_time();
-    stime = erts_os_system_time();
+    erts_os_times(&mtime, &stime);
 
     mtime_diff = mtime - old_mtime;
     stime_diff = stime - old_stime;
@@ -732,8 +723,7 @@ finalize_corrected_time_offset(ErtsSystemTime *stimep)
 
     erts_smp_rwmtx_rlock(&time_sup.inf.c.parmon.rwmtx);
 
-    os_mtime = erts_os_monotonic_time();
-    *stimep = erts_os_system_time();
+    erts_os_times(&os_mtime, stimep);
 
     cdata = time_sup.inf.c.parmon.cdata;
 
@@ -852,6 +842,7 @@ void erts_init_sys_time_sup(void)
 	= sys_init_time_res.os_monotonic_time_info.resolution;
     time_sup.r.o.os_monotonic_time_extended
 	= sys_init_time_res.os_monotonic_time_info.extended;
+#endif
     time_sup.r.o.os_system_time_func
 	= sys_init_time_res.os_system_time_info.func;
     time_sup.r.o.os_system_time_clock_id
@@ -860,7 +851,6 @@ void erts_init_sys_time_sup(void)
 	= sys_init_time_res.os_system_time_info.locked_use;
     time_sup.r.o.os_system_time_resolution
 	= sys_init_time_res.os_system_time_info.resolution;
-#endif
 }
 
 int 
@@ -935,9 +925,11 @@ erts_init_time_sup(int time_correction, ErtsTimeWarpMode time_warp_mode)
 
 #endif
 
-    resolution = time_sup.r.o.os_monotonic_time_resolution;
-    if (resolution > time_sup.r.o.os_system_time_resolution)
-	resolution = time_sup.r.o.os_system_time_resolution;
+    resolution = time_sup.r.o.os_system_time_resolution;
+#ifdef ERTS_HAVE_OS_MONOTONIC_TIME_SUPPORT
+    if (resolution > time_sup.r.o.os_monotonic_time_resolution)
+	resolution = time_sup.r.o.os_monotonic_time_resolution;
+#endif
 
     time_sup.r.o.adj.large_diff = erts_time_sup__.r.o.monotonic_time_unit;
     time_sup.r.o.adj.large_diff *= 50;
@@ -972,8 +964,8 @@ erts_init_time_sup(int time_correction, ErtsTimeWarpMode time_warp_mode)
 	ErtsMonotonicCorrectionData *cdatap;
 	erts_smp_rwmtx_opt_t rwmtx_opts = ERTS_SMP_RWMTX_OPT_DEFAULT_INITER;
 	ErtsMonotonicTime offset;
-	time_sup.inf.c.minit = erts_os_monotonic_time();
-	time_sup.inf.c.sinit = erts_os_system_time();
+	erts_os_times(&time_sup.inf.c.minit,
+		      &time_sup.inf.c.sinit);
 	time_sup.r.o.moffset = -1*time_sup.inf.c.minit;
 	offset = time_sup.inf.c.sinit;
 	offset -= ERTS_MONOTONIC_TIME_UNIT;

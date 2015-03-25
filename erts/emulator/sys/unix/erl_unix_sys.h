@@ -171,61 +171,47 @@ typedef long long ErtsSysHrTime;
 
 typedef ErtsMonotonicTime ErtsSystemTime;
 
-ErtsSystemTime erts_os_system_time(void);
-
 #define ERTS_MONOTONIC_TIME_MIN (((ErtsMonotonicTime) 1) << 63)
 #define ERTS_MONOTONIC_TIME_MAX (~ERTS_MONOTONIC_TIME_MIN)
 
 /*
- * OS monotonic time
+ * OS monotonic time and OS system time
  */
 
-/*
- * Most common with os monotonic time using nano second
- * time unit. These defines are modified below if this
- * isn't the case...
- */
-#define ERTS_HAVE_OS_MONOTONIC_TIME_SUPPORT 1
-#define ERTS_COMPILE_TIME_MONOTONIC_TIME_UNIT (1000*1000*1000)
+#undef ERTS_OS_TIMES_INLINE_FUNC_PTR_CALL__
 
+#if defined(OS_SYSTEM_TIME_USING_CLOCK_GETTIME)
+#  if defined(__linux__)
+#    define ERTS_OS_TIMES_INLINE_FUNC_PTR_CALL__ 1
+#  endif
+#endif
+
+ErtsSystemTime erts_os_system_time(void);
+
+#undef ERTS_HAVE_OS_MONOTONIC_TIME_SUPPORT
+#undef ERTS_COMPILE_TIME_MONOTONIC_TIME_UNIT
 #undef ERTS_OS_MONOTONIC_INLINE_FUNC_PTR_CALL__
 #undef ERTS_HAVE_CORRECTED_OS_MONOTONIC
 
 #if defined(OS_MONOTONIC_TIME_USING_CLOCK_GETTIME)
-
-#if defined(__linux__)
-
-#define ERTS_HAVE_CORRECTED_OS_MONOTONIC 1
-#define ERTS_OS_MONOTONIC_INLINE_FUNC_PTR_CALL__ 1
-
-#else /* !defined(__linux__) */
-
-ErtsMonotonicTime erts_os_monotonic_time(void);
-
-#endif /* !defined(__linux__) */
-
+#  define ERTS_HAVE_OS_MONOTONIC_TIME_SUPPORT 1
+#  define ERTS_COMPILE_TIME_MONOTONIC_TIME_UNIT (1000*1000*1000)
+#  if defined(__linux__)
+#    define ERTS_HAVE_CORRECTED_OS_MONOTONIC 1
+#    define ERTS_OS_MONOTONIC_INLINE_FUNC_PTR_CALL__ 1
+#  endif
+#elif defined(OS_MONOTONIC_TIME_USING_MACH_CLOCK_GET_TIME)
+#  define ERTS_HAVE_OS_MONOTONIC_TIME_SUPPORT 1
+#  define ERTS_COMPILE_TIME_MONOTONIC_TIME_UNIT (1000*1000*1000)
 #elif defined(OS_MONOTONIC_TIME_USING_GETHRTIME)
-
-#define erts_os_monotonic() ((ErtsMonotonicTime) gethrtime())
-#define erts_sys_hrtime() ((ErtsSysHrTime) gethrtime())
-
-#elif defined(OS_MONOTONIC_TIME_USING_MACH_CLOCK_GET_TIME) \
-    || defined(OS_MONOTONIC_TIME_USING_TIMES)
-
-#if defined(OS_MONOTONIC_TIME_USING_TIMES)
+#  define ERTS_HAVE_OS_MONOTONIC_TIME_SUPPORT 1
+#  define ERTS_COMPILE_TIME_MONOTONIC_TIME_UNIT (1000*1000*1000)
+#elif defined(OS_MONOTONIC_TIME_USING_TIMES)
+#  define ERTS_HAVE_OS_MONOTONIC_TIME_SUPPORT 1
 /* Time unit determined at runtime... */
-#  undef ERTS_COMPILE_TIME_MONOTONIC_TIME_UNIT
 #  define ERTS_COMPILE_TIME_MONOTONIC_TIME_UNIT 0
-#endif
-
-ErtsMonotonicTime erts_os_monotonic_time(void);
-
 #else /* No OS monotonic available... */
-
-#undef ERTS_HAVE_OS_MONOTONIC_TIME_SUPPORT
-#undef ERTS_COMPILE_TIME_MONOTONIC_TIME_UNIT
-#define ERTS_COMPILE_TIME_MONOTONIC_TIME_UNIT (1000*1000)
-
+#  define ERTS_COMPILE_TIME_MONOTONIC_TIME_UNIT (1000*1000)
 #endif
 
 /*
@@ -233,13 +219,14 @@ ErtsMonotonicTime erts_os_monotonic_time(void);
  * time function found. Time unit is nano-seconds.
  * It may or may not be monotonic.
  */
-#ifndef erts_sys_hrtime
-extern ErtsSysHrTime erts_sys_hrtime(void);
-#endif
+ErtsSysHrTime erts_sys_hrtime(void);
 
 struct erts_sys_time_read_only_data__ {
 #ifdef ERTS_OS_MONOTONIC_INLINE_FUNC_PTR_CALL__
     ErtsMonotonicTime (*os_monotonic_time)(void);
+#endif
+#ifdef ERTS_OS_TIMES_INLINE_FUNC_PTR_CALL__
+    void (*os_times)(ErtsMonotonicTime *, ErtsSystemTime *);
 #endif
     int ticks_per_sec;
 };
@@ -255,11 +242,21 @@ typedef struct {
 
 extern ErtsSysTimeData__ erts_sys_time_data__;
 
-#ifdef ERTS_OS_MONOTONIC_INLINE_FUNC_PTR_CALL__
+#ifdef ERTS_HAVE_OS_MONOTONIC_TIME_SUPPORT
 
-ERTS_GLB_INLINE ErtsMonotonicTime erts_os_monotonic_time(void);
+#ifdef ERTS_OS_MONOTONIC_INLINE_FUNC_PTR_CALL__
+ERTS_GLB_INLINE
+#endif
+ErtsMonotonicTime erts_os_monotonic_time(void);
+
+#ifdef ERTS_OS_TIMES_INLINE_FUNC_PTR_CALL__
+ERTS_GLB_INLINE
+#endif
+void erts_os_times(ErtsMonotonicTime *, ErtsSystemTime *);
 
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
+
+#ifdef ERTS_OS_MONOTONIC_INLINE_FUNC_PTR_CALL__
 
 ERTS_GLB_INLINE ErtsMonotonicTime
 erts_os_monotonic_time(void)
@@ -267,9 +264,21 @@ erts_os_monotonic_time(void)
     return (*erts_sys_time_data__.r.o.os_monotonic_time)();
 }
 
+#endif /* ERTS_OS_MONOTONIC_INLINE_FUNC_PTR_CALL__ */
+
+#ifdef ERTS_OS_TIMES_INLINE_FUNC_PTR_CALL__
+
+ERTS_GLB_INLINE void
+erts_os_times(ErtsMonotonicTime *mtimep, ErtsSystemTime *stimep)
+{
+    return (*erts_sys_time_data__.r.o.os_times)(mtimep, stimep);
+}
+
+#endif /* ERTS_OS_TIMES_INLINE_FUNC_PTR_CALL__ */
+
 #endif /* ERTS_GLB_INLINE_INCL_FUNC_DEF */
 
-#endif /* ERTS_OS_MONOTONIC_INLINE_FUNC_PTR_CALL__ */
+#endif /* ERTS_HAVE_OS_MONOTONIC_TIME_SUPPORT */
 
 /*
  *

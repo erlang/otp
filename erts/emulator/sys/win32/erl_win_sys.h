@@ -193,6 +193,7 @@ ErtsSystemTime erts_os_system_time(void);
 
 struct erts_sys_time_read_only_data__ {
     ErtsMonotonicTime (*os_monotonic_time)(void);
+    void (*os_times)(ErtsMonotonicTime *, ErtsSystemTime*);
     ErtsSysHrTime (*sys_hrtime)(void);
 };
 
@@ -208,6 +209,8 @@ typedef struct {
 extern ErtsSysTimeData__ erts_sys_time_data__;
 
 ERTS_GLB_INLINE ErtsMonotonicTime erts_os_monotonic_time(void);
+ERTS_GLB_INLINE void erts_os_times(ErtsMonotonicTime *,
+				   ErtsSystemTime *);
 ERTS_GLB_INLINE ErtsSysHrTime erts_sys_hrtime(void);
 
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
@@ -216,6 +219,12 @@ ERTS_GLB_INLINE ErtsMonotonicTime
 erts_os_monotonic_time(void)
 {
     return (*erts_sys_time_data__.r.o.os_monotonic_time)();
+}
+
+ERTS_GLB_INLINE void
+erts_os_times(ErtsMonotonicTime *mtimep, ErtsSystemTime *stimep)
+{
+    return (*erts_sys_time_data__.r.o.os_times)(mtimep, stimep);
 }
 
 ERTS_GLB_INLINE ErtsSysHrTime
