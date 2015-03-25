@@ -4109,8 +4109,9 @@ encode_size_struct_int(TTBSizeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj,
 		}
 		for (i = 1; i <= arity; ++i) {
 		    if (is_list(ptr[i])) {
-			if ((m = is_string(obj)) && (m < MAX_STRING_LEN)) {
+			if ((m = is_string(ptr[i])) && (m < MAX_STRING_LEN)) {
 			    result += m + 2 + 1;
+			    continue;
 			} else {
 			    result += 5;
 			}
@@ -4131,31 +4132,29 @@ encode_size_struct_int(TTBSizeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj,
 
 		/* push values first */
 		ptr = flatmap_get_values(mp);
-		i   = size;
-		while(i--) {
+		for (i = size; i; i--, ptr++) {
 		    if (is_list(*ptr)) {
 			if ((m = is_string(*ptr)) && (m < MAX_STRING_LEN)) {
 			    result += m + 2 + 1;
+			    continue;
 			} else {
 			    result += 5;
 			}
 		    }
 		    ESTACK_PUSH(s,*ptr);
-		    ++ptr;
 		}
 
 		ptr = flatmap_get_keys(mp);
-		i   = size;
-		while(i--) {
+		for (i = size; i; i--, ptr++) {
 		    if (is_list(*ptr)) {
 			if ((m = is_string(*ptr)) && (m < MAX_STRING_LEN)) {
 			    result += m + 2 + 1;
+			    continue;
 			} else {
 			    result += 5;
 			}
 		    }
 		    ESTACK_PUSH(s,*ptr);
-		    ++ptr;
 		}
 		goto outer_loop;
 	    }
