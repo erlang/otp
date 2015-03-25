@@ -4754,7 +4754,7 @@ BIF_RETTYPE bump_reductions_1(BIF_ALIST_1)
 }
 
 BIF_RETTYPE erts_internal_cmp_term_2(BIF_ALIST_2) {
-    int res = CMP_TERM(BIF_ARG_1,BIF_ARG_2);
+    Sint res = CMP_TERM(BIF_ARG_1,BIF_ARG_2);
 
     /* ensure -1, 0, 1 result */
     if (res < 0) {

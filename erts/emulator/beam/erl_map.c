@@ -937,7 +937,7 @@ static Eterm flatmap_merge(Process *p, Eterm nodeA, Eterm nodeB) {
     Eterm *ks,*vs,*ks1,*vs1,*ks2,*vs2;
     flatmap_t *mp1,*mp2,*mp_new;
     Uint n,n1,n2,i1,i2,need,unused_size=0;
-    int c = 0;
+    Sint c = 0;
 
     mp1  = (flatmap_t*)flatmap_val(nodeA);
     mp2  = (flatmap_t*)flatmap_val(nodeB);
@@ -2504,7 +2504,7 @@ int erts_validate_and_sort_flatmap(flatmap_t* mp)
     Uint   sz  = flatmap_get_size(mp);
     Uint   ix,jx;
     Eterm  tmp;
-    int c;
+    Sint c;
 
     /* sort */
 
