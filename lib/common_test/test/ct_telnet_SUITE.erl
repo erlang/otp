@@ -203,7 +203,9 @@ telnet_config(_, LogType) ->
 			{command_timeout,10000},
 			{reconnection_attempts,0},
 			{reconnection_interval,0},
-			{keep_alive,true}]} |
+			{keep_alive,true},
+			{poll_limit,10},
+			{poll_interval,1000}]} |
      if LogType == legacy -> 
 	     [{ct_conn_log,[]}];
 	true ->

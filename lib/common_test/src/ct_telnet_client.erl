@@ -32,7 +32,7 @@
 
 -module(ct_telnet_client).
 
-%% -define(debug, true).
+%%-define(debug, true).
 
 -export([open/2, open/3, open/4, open/5, close/1]).
 -export([send_data/2, send_data/3, get_data/1]).
@@ -111,7 +111,6 @@ get_data(Pid) ->
 	    {ok,Data}
     end.
 
-
 %%%-----------------------------------------------------------------
 %%% Internal functions
 init(Parent, Server, Port, Timeout, KeepAlive, ConnName) ->
@@ -146,7 +145,7 @@ loop(State, Sock, Acc) ->
 		    ok
 	    end;
 	{tcp,_,Msg0} ->
-	    dbg("tcp msg: ~tp~n",[Msg0]),
+	    dbg("rcv tcp msg: ~tp~n",[Msg0]),
 	    Msg = check_msg(Sock,Msg0,[]),
 	    loop(State, Sock, [Msg | Acc]);
 	{send_data,Data} ->
@@ -180,6 +179,7 @@ loop(State, Sock, Acc) ->
 	    NewState =
 		case State of
 		    #state{keep_alive = true, get_data = 0} ->
+			dbg("sending NOP\n",[]),
 			if Acc == [] -> send([?IAC,?NOP], Sock, 
 					     State#state.conn_name);
 			   true -> ok
@@ -225,15 +225,17 @@ loop(State, Sock, Acc) ->
 	    gen_tcp:close(Sock),
 	    Pid ! closed
     after wait(State#state.keep_alive,?IDLE_TIMEOUT) ->
+	    dbg("idle timeout\n",[]),
 	    Data = lists:reverse(lists:append(Acc)),
 	    case Data of
 		[] ->
+		    dbg("sending NOP\n",[]),
 		    send([?IAC,?NOP], Sock, State#state.conn_name),
 		    loop(State, Sock, Acc);
 		_ when State#state.log_pos == length(Data)+1 ->
 		    loop(State, Sock, Acc);
 		_ ->
-		    dbg("Idle timeout, printing ~tp\n",[Data]),
+		    dbg("idle timeout, printing ~tp\n",[Data]),
 		    Len = length(Data),
 		    ct_telnet:log(State#state.conn_name,
 				  general_io, "~ts",
