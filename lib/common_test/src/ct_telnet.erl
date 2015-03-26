@@ -29,7 +29,9 @@
 %% Command timeout = 10 sec (time to wait for a command to return)
 %% Max no of reconnection attempts = 3
 %% Reconnection interval = 5 sek (time to wait in between reconnection attempts)
-%% Keep alive = true (will send NOP to the server every 10 sec if connection is idle)</pre>
+%% Keep alive = true (will send NOP to the server every 10 sec if connection is idle)
+%% Polling limit = 0 (max number of times to poll to get a remaining string terminated)
+%% Polling interval = 1 sec (sleep time between polls)</pre>
 %% <p>These parameters can be altered by the user with the following
 %% configuration term:</p>
 %% <pre>
@@ -37,7 +39,9 @@
 %%                    {command_timeout,Millisec},
 %%                    {reconnection_attempts,N},
 %%                    {reconnection_interval,Millisec},
-%%                    {keep_alive,Bool}]}.</pre>
+%%                    {keep_alive,Bool},
+%%                    {poll_limit,N},
+%%                    {poll_interval,Millisec}]}.</pre>
 %% <p><code>Millisec = integer(), N = integer()</code></p>
 %% <p>Enter the <code>telnet_settings</code> term in a configuration 
 %% file included in the test and ct_telnet will retrieve the information
@@ -156,6 +160,8 @@
 -define(RECONN_TIMEOUT,5000).
 -define(DEFAULT_TIMEOUT,10000).
 -define(DEFAULT_PORT,23).
+-define(POLL_LIMIT,0).
+-define(POLL_INTERVAL,1000).
 
 -include("ct_util.hrl").
 
@@ -169,6 +175,8 @@
 	       type,
 	       target_mod,
 	       keep_alive,
+	       poll_limit=?POLL_LIMIT,
+	       poll_interval=?POLL_INTERVAL,
 	       extra,
 	       conn_to=?DEFAULT_TIMEOUT, 
 	       com_to=?DEFAULT_TIMEOUT, 
@@ -379,8 +387,15 @@ cmdf(Connection,CmdFormat,Args,Opts) when is_list(Args) ->
 %%%      Connection = ct_telnet:connection()
 %%%      Data = [string()]
 %%%      Reason = term()
-%%% @doc Get all data which has been received by the telnet client
-%%% since last command was sent.
+%%% @doc Get all data that has been received by the telnet client
+%%% since the last command was sent. Note that only newline terminated
+%%% strings are returned. If the last string received has not yet
+%%% been terminated, the connection may be polled automatically until
+%%% the string is complete. The polling feature is controlled
+%%% by the `poll_limit' and `poll_interval' config values and is
+%%% by default disabled (meaning the function will immediately
+%%% return all complete strings received and save a remaining
+%%% non-terminated string for a later `get_data' call).
 get_data(Connection) ->
     case get_handle(Connection) of
 	{ok,Pid} ->
@@ -596,9 +611,12 @@ init(Name,{Ip,Port,Type},{TargetMod,KeepAlive,Extra}) ->
 		"Reconnection attempts: ~p\n"
 		"Reconnection interval: ~p\n"
 		"Connection timeout: ~p\n"
-		"Keep alive: ~w",
+		"Keep alive: ~w\n"
+		"Poll limit: ~w\n"
+		"Poll interval: ~w",
 		[Ip,Port,S1#state.com_to,S1#state.reconns,
-		 S1#state.reconn_int,S1#state.conn_to,KeepAlive]),
+		 S1#state.reconn_int,S1#state.conn_to,KeepAlive,
+		 S1#state.poll_limit,S1#state.poll_interval]),
 	    {ok,TelnPid,S1};
 	{'EXIT',Reason} ->
 	    {error,Reason};
@@ -619,6 +637,10 @@ set_telnet_defaults([{reconnection_interval,RInt}|Ss],S) ->
     set_telnet_defaults(Ss,S#state{reconn_int=RInt});
 set_telnet_defaults([{keep_alive,_}|Ss],S) ->
     set_telnet_defaults(Ss,S);
+set_telnet_defaults([{poll_limit,PL}|Ss],S) ->
+    set_telnet_defaults(Ss,S#state{poll_limit=PL});
+set_telnet_defaults([{poll_interval,PI}|Ss],S) ->
+    set_telnet_defaults(Ss,S#state{poll_interval=PI});
 set_telnet_defaults([Unknown|Ss],S) ->
     force_log(S,error,
 	      "Bad element in telnet_settings: ~p",[Unknown]),
@@ -706,10 +728,8 @@ handle_msg({send,Cmd,Opts},State) ->
 handle_msg(get_data,State) ->
     start_gen_log(heading(get_data,State#state.name)),
     log(State,cmd,"Reading data...",[]),
-    {ok,Data,Buffer} = teln_get_all_data(State#state.teln_pid,
-					 State#state.prx,
-					 State#state.buffer,
-					 [],[]),
+    {ok,Data,Buffer} = teln_get_all_data(State,State#state.buffer,[],[],
+					 State#state.poll_limit),
     log(State,recv,"Return: ~p",[{ok,Data}]),
     end_gen_log(),
     {{ok,Data},State#state{buffer=Buffer}};
@@ -944,16 +964,25 @@ teln_cmd(Pid,Cmd,Prx,Newline,Timeout) ->
     ct_telnet_client:send_data(Pid,Cmd,Newline),
     teln_receive_until_prompt(Pid,Prx,Timeout).
 
-teln_get_all_data(Pid,Prx,Data,Acc,LastLine) ->
+teln_get_all_data(State=#state{teln_pid=Pid,prx=Prx},Data,Acc,LastLine,Polls) ->
     case check_for_prompt(Prx,LastLine++Data) of
 	{prompt,Lines,_PromptType,Rest} ->
-	    teln_get_all_data(Pid,Prx,Rest,[Lines|Acc],[]);
+	    teln_get_all_data(State,Rest,[Lines|Acc],[],State#state.poll_limit);
 	{noprompt,Lines,LastLine1} ->
 	    case ct_telnet_client:get_data(Pid) of
+		{ok,[]} when LastLine1 /= [], Polls > 0 ->
+		    %% No more data from server but the last string is not
+		    %% a complete line (maybe because of a slow connection),
+		    timer:sleep(State#state.poll_interval),
+		    NewPolls = if Polls == infinity -> infinity;
+				  true              -> Polls-1
+			       end,
+		    teln_get_all_data(State,[],[Lines|Acc],LastLine1,NewPolls);
 		{ok,[]} ->
 		    {ok,lists:reverse(lists:append([Lines|Acc])),LastLine1};
 		{ok,Data1} ->
-		    teln_get_all_data(Pid,Prx,Data1,[Lines|Acc],LastLine1)
+		    teln_get_all_data(State,Data1,[Lines|Acc],LastLine1,
+				      State#state.poll_limit)
 	    end
     end.
     
@@ -1106,12 +1135,18 @@ repeat_expect(Name,Pid,Data,Pattern,Acc,EO) ->
 
 teln_expect1(Name,Pid,Data,Pattern,Acc,EO=#eo{idle_timeout=IdleTO,
 					      total_timeout=TotalTO}) ->
-    ExpectFun = case EO#eo.seq of
+    %% TotalTO is a float value in this loop (unless it's 'infinity'),
+    %% but an integer value will be passed to the other functions
+    EOMod = if TotalTO /= infinity -> EO#eo{total_timeout=trunc(TotalTO)};
+	       true                -> EO
+	    end,
+
+    ExpectFun = case EOMod#eo.seq of
 		    true -> fun() ->
-				    seq_expect(Name,Pid,Data,Pattern,Acc,EO)
+				    seq_expect(Name,Pid,Data,Pattern,Acc,EOMod)
 			    end;
 		    false -> fun() ->
-				     one_expect(Name,Pid,Data,Pattern,EO)
+				     one_expect(Name,Pid,Data,Pattern,EOMod)
 			     end
 		end,
     case ExpectFun() of
@@ -1121,9 +1156,14 @@ teln_expect1(Name,Pid,Data,Pattern,Acc,EO=#eo{idle_timeout=IdleTO,
 	    {halt,Why,Rest};
 	NotFinished ->
 	    %% Get more data
-	    Fun = fun() -> get_data1(EO#eo.teln_pid) end,
-	    BreakAfter = if TotalTO < IdleTO -> TotalTO; true -> IdleTO end,
-	    case timer:tc(ct_gen_conn, do_within_time, [Fun, BreakAfter]) of
+	    Fun = fun() -> get_data1(EOMod#eo.teln_pid) end,
+	    BreakAfter = if TotalTO < IdleTO ->
+				 %% use the integer value
+				 EOMod#eo.total_timeout;
+			    true ->
+				 IdleTO
+			 end,
+	    case timer:tc(ct_gen_conn, do_within_time, [Fun,BreakAfter]) of
 		{_,{error,Reason}} -> 
 		    %% A timeout will occur when the telnet connection
 		    %% is idle for EO#eo.idle_timeout milliseconds.
@@ -1132,13 +1172,15 @@ teln_expect1(Name,Pid,Data,Pattern,Acc,EO=#eo{idle_timeout=IdleTO,
 		    case NotFinished of
 			{nomatch,Rest} ->
 			    %% One expect
-			    teln_expect1(Name,Pid,Rest++Data1,Pattern,[],EO);
+			    teln_expect1(Name,Pid,Rest++Data1,
+					 Pattern,[],EOMod);
 			{continue,Patterns1,Acc1,Rest} ->
 			    %% Sequence
-			    teln_expect1(Name,Pid,Rest++Data1,Patterns1,Acc1,EO)
+			    teln_expect1(Name,Pid,Rest++Data1,
+					 Patterns1,Acc1,EOMod)
 		    end;
 		{Elapsed,{ok,Data1}} ->
-		    TVal = trunc(TotalTO - (Elapsed/1000)),
+		    TVal = TotalTO - (Elapsed/1000),
 		    if TVal =< 0 ->
 			    {error,timeout};
 		       true ->
@@ -1146,10 +1188,12 @@ teln_expect1(Name,Pid,Data,Pattern,Acc,EO=#eo{idle_timeout=IdleTO,
 			    case NotFinished of
 				{nomatch,Rest} ->
 				    %% One expect
-				    teln_expect1(Name,Pid,Rest++Data1,Pattern,[],EO1);
+				    teln_expect1(Name,Pid,Rest++Data1,
+						 Pattern,[],EO1);
 				{continue,Patterns1,Acc1,Rest} ->
 				    %% Sequence
-				    teln_expect1(Name,Pid,Rest++Data1,Patterns1,Acc1,EO1)
+				    teln_expect1(Name,Pid,Rest++Data1,
+						 Patterns1,Acc1,EO1)
 			    end
 		    end
 	    end
@@ -1430,8 +1474,10 @@ check_for_prompt(Prx,Data) ->
 
 split_lines(String) ->
     split_lines(String,[],[]).
-split_lines([$\n|Rest],Line,Lines) ->
+split_lines([$\n|Rest],Line,Lines) when Line /= [] ->
     split_lines(Rest,[],[lists:reverse(Line)|Lines]);
+split_lines([$\n|Rest],[],Lines) ->
+    split_lines(Rest,[],Lines);
 split_lines([$\r|Rest],Line,Lines) ->
     split_lines(Rest,Line,Lines);
 split_lines([0|Rest],Line,Lines) ->
