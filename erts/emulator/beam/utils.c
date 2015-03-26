@@ -1705,6 +1705,7 @@ make_internal_hash(Eterm term)
                     }
                     goto pop_next;
                 }
+                case HAMT_SUBTAG_HEAD_ARRAY:
                 case HAMT_SUBTAG_HEAD_BITMAP:
                     size = *ptr++;
                     UINT32_HASH(size, HCONST_16);
