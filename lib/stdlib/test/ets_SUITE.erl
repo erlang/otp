@@ -4552,16 +4552,16 @@ build_table2(L1,L2,Num) ->
     T.
 
 time_match_object(Tab,Match, Res) ->
-    T1 = erlang:now(),
+    T1 = erlang:monotonic_time(micro_seconds),
     Res = ets:match_object(Tab,Match),
-    T2 = erlang:now(),
-    nowdiff(T1,T2).
+    T2 = erlang:monotonic_time(micro_seconds),
+    T2 - T1.
 
 time_match(Tab,Match) ->
-    T1 = erlang:now(),
+    T1 = erlang:monotonic_time(micro_seconds),
     ets:match(Tab,Match),
-    T2 = erlang:now(),
-    nowdiff(T1,T2).
+    T2 = erlang:monotonic_time(micro_seconds),
+    T2 - T1.
 
 seventyfive_percent_success(_,S,Fa,0) ->
     true = (S > ((S + Fa) * 0.75));
@@ -4585,11 +4585,6 @@ fifty_percent_success({M,F,A},S,Fa,N) ->
 	    fifty_percent_success({M,F,A},S+1,Fa,N-1)
     end.
 
-
-nowtonumber({Mega, Secs, Milli}) ->
-    Milli + Secs * 1000000 + Mega * 1000000000000.
-nowdiff(T1,T2) ->
-    nowtonumber(T2) - nowtonumber(T1).
 
 create_random_string(0) ->
     [];

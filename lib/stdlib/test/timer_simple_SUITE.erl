@@ -482,8 +482,7 @@ append([],X) ->
 	X.
 
 system_time() ->    
-    {M,S,U} = erlang:now(),
-    1000000*(M*1000000 + S) + U.
+    erlang:monotonic_time(micro_seconds).
 
 %% ------------------------------------------------------- %%
 

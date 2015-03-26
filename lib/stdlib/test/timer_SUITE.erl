@@ -361,9 +361,7 @@ res_combine({error,Es}, [{error,E}|T]) ->
 
 
 system_time() ->
-    %%element(1, statistics(wall_clock)).
-    {M,S,U} = erlang:now(),
-    1000000000 * M + 1000 * S + (U div 1000).
+    erlang:monotonic_time(milli_seconds).
 
 %% ------------------------------------------------------- %%
 
