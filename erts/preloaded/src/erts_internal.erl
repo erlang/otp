@@ -232,7 +232,7 @@ create_bif_timer() ->
 
 -spec erts_internal:access_bif_timer(Ref) -> Res when
       Ref :: reference(),
-      Res :: {reference(), pid(), reference()}.
+      Res :: {reference(), pid()} | 'undefined'.
 
 access_bif_timer(_Ref) ->
     erlang:nif_error(undefined).
@@ -352,7 +352,7 @@ tsrv_handle_msg({cancel_timeout, BTR, From, Reply, Req, TRef},
 		false ->
 		    ok;
 		_ ->
-		    try From ! {cancel_timer, Req, false} catch _:_ -> ok end
+		    _ = try From ! {cancel_timer, Req, false} catch _:_ -> ok end
 	    end,
 	    Nxt;
 	[{Time, TRef} = TKey] ->
@@ -370,7 +370,7 @@ tsrv_handle_msg({cancel_timeout, BTR, From, Reply, Req, TRef},
 			     false ->
 				 ((1000*(Time - RcvTime)) div Unit)
 			 end,
-		    try From ! {cancel_timer, Req, RT} catch _:_ -> ok end
+		    _ = try From ! {cancel_timer, Req, RT} catch _:_ -> ok end
 	    end,
 	    case Time =:= Nxt of
 		false ->
@@ -389,14 +389,14 @@ tsrv_handle_msg({read_timeout, BTR, From, Req, TRef},
 		Nxt) ->
     case ets:lookup(RTab, TRef) of
 	[] ->
-	    try From ! {read_timer, Req, false} catch _:_ -> ok end;
+	    _ = try From ! {read_timer, Req, false} catch _:_ -> ok end;
 	[{Time, TRef}] ->
 	    RcvTime = erlang:monotonic_time(),
 	    RT = case Time =< RcvTime of
 		     true -> 0;
 		     false -> (1000*(Time - RcvTime)) div Unit
 		 end,
-	    try From ! {read_timer, Req, RT} catch _:_ -> ok end
+	    _ = try From ! {read_timer, Req, RT} catch _:_ -> ok end
     end,
     Nxt;
 tsrv_handle_msg({'DOWN', TRef, process, _, _},
@@ -456,6 +456,6 @@ tsrv_handle_timeout(CallTime, #tsrv_state{rtab = RTab,
 	    end,
 	    ets:delete(TTab, TKey),
 	    ets:delete(RTab, TRef),
-	    try Proc ! Msg catch _:_ -> ok end,
+	    _ = try Proc ! Msg catch _:_ -> ok end,
 	    tsrv_handle_timeout(CallTime, S)
     end.

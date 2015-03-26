@@ -410,11 +410,7 @@ erts_os_system_time(void)
 
     stime = (ErtsSystemTime) posix_clock_gettime(WALL_CLOCK_ID,
 						 WALL_CLOCK_ID_STR);
-#if defined(OS_MONOTONIC_TIME_USING_CLOCK_GETTIME)
-    return stime;
-#else
     return adj_stime_time_unit(stime, (Uint32) 1000*1000*1000);
-#endif
 }
 
 #endif /* defined(OS_SYSTEM_TIME_USING_CLOCK_GETTIME) */
@@ -516,8 +512,7 @@ ErtsMonotonicTime erts_os_monotonic_time(void)
 
 #if defined(OS_SYSTEM_TIME_USING_CLOCK_GETTIME)
 
-static void erts_os_times(ErtsMonotonicTime *mtimep,
-			  ErtsSystemTime *stimep)
+void erts_os_times(ErtsMonotonicTime *mtimep, ErtsSystemTime *stimep)
 {
     posix_clock_gettime_times(mtimep, stimep);
 }
@@ -627,11 +622,7 @@ erts_os_system_time(void)
     ErtsSystemTime stime;
     stime = (ErtsSystemTime) mach_clock_gettime(WALL_CLOCK_ID,
 						WALL_CLOCK_ID_STR);
-#if defined(OS_MONOTONIC_TIME_USING_MACH_CLOCK_GET_TIME)
-    return stime;
-#else
     return adj_stime_time_unit(stime, (Uint32) 1000*1000*1000);
-#endif
 }
 
 #endif /* defined(OS_SYSTEM_TIME_USING_MACH_CLOCK_GET_TIME) */

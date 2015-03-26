@@ -576,7 +576,7 @@ erts_cancel_timer(ErlTimer *p)
 {
     ErtsTimerWheel *tiw;
     ErlCancelProc cancel;
-    void *arg;
+    void *arg = NULL; /* Shut up faulty warning... */
 
     tiw = get_timer_wheel(p);
     if (!tiw)

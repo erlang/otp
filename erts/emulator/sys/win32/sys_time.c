@@ -302,7 +302,7 @@ sys_init_time(ErtsSysInitTimeResult *init_resp)
 	internal_state.w.f.last_tick_count = 0;
 
 	init_resp->os_monotonic_time_info.func = "GetTickCount";
-	init_resp->os_monotonic_time_info.locked_use = 1;
+	init_resp->os_monotonic_time_info.locked_use = 0;
 	/* 10-16 ms resolution according to MicroSoft documentation */
 	init_resp->os_monotonic_time_info.resolution = 100; /* 10 ms */
 	time_unit = (ErtsMonotonicTime) 1000;

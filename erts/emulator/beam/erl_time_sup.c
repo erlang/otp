@@ -1693,7 +1693,7 @@ static void
 send_time_offset_changed_notifications(void *new_offsetp)
 {
     ErtsMonotonicTime new_offset;
-    ErtsTimeOffsetMonitorInfo *to_mon_info;
+    ErtsTimeOffsetMonitorInfo *to_mon_info = NULL; /* Shut up faulty warning */
     Uint no_monitors;
     char *tmp = NULL;
 
