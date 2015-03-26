@@ -79,10 +79,7 @@ report_result(Error) -> ?line test_server:fail(Error).
 big_test(N) ->
     C = start_collect(),
     system_time(), system_time(), system_time(),
-    A1 = element(2, erlang:now()),
-    A2 = A1 * 3,
-    A3 = element(3, erlang:now()),
-    random:seed(A1, A2, A3),
+    random:seed(erlang:timestamp()),
     random:uniform(100),random:uniform(100),random:uniform(100),
 
     big_loop(C, N, []),

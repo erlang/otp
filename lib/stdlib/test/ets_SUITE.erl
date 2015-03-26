@@ -1385,7 +1385,7 @@ random_test() ->
 	       {ok,[X]} ->
 		   X;
 	       _ ->
-		   {A,B,C} = erlang:now(),
+		   {A,B,C} = erlang:timestamp(),
 		   random:seed(A,B,C),
 		   get(random_seed)
 	   end,

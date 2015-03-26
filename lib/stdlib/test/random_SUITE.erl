@@ -82,7 +82,7 @@ seed(suite) ->
     [];
 seed(Config) when is_list(Config) ->
     ?line Self = self(),
-    ?line Seed = {S1, S2, S3} = now(),
+    Seed = {S1, S2, S3} = erlang:timestamp(),
     ?line _ = spawn(fun() ->
     	random:seed(S1,S2,S3),
     	Rands = lists:foldl(fun

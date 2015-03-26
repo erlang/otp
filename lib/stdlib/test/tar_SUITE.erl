@@ -89,7 +89,7 @@ borderline_test(Size, TempDir) ->
     ?line io:format("Testing size ~p", [Size]),
 
     %% Create a file and archive it.
-    ?line {_, _, X0} = erlang:now(),
+    X0 = erlang:monotonic_time(),
     ?line file:write_file(Name, random_byte_list(X0, Size)),
     ?line ok = erl_tar:create(Archive, [Name]),
     ?line ok = file:delete(Name),
