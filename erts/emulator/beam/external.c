@@ -4104,8 +4104,9 @@ encode_size_struct_int(TTBSizeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj,
 		}
 		for (i = 1; i <= arity; ++i) {
 		    if (is_list(ptr[i])) {
-			if ((m = is_string(obj)) && (m < MAX_STRING_LEN)) {
+			if ((m = is_string(ptr[i])) && (m < MAX_STRING_LEN)) {
 			    result += m + 2 + 1;
+			    continue;
 			} else {
 			    result += 5;
 			}
@@ -4126,31 +4127,29 @@ encode_size_struct_int(TTBSizeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj,
 
 		/* push values first */
 		ptr = flatmap_get_values(mp);
-		i   = size;
-		while(i--) {
+		for (i = size; i; i--, ptr++) {
 		    if (is_list(*ptr)) {
 			if ((m = is_string(*ptr)) && (m < MAX_STRING_LEN)) {
 			    result += m + 2 + 1;
+			    continue;
 			} else {
 			    result += 5;
 			}
 		    }
 		    ESTACK_PUSH(s,*ptr);
-		    ++ptr;
 		}
 
 		ptr = flatmap_get_keys(mp);
-		i   = size;
-		while(i--) {
+		for (i = size; i; i--, ptr++) {
 		    if (is_list(*ptr)) {
 			if ((m = is_string(*ptr)) && (m < MAX_STRING_LEN)) {
 			    result += m + 2 + 1;
+			    continue;
 			} else {
 			    result += 5;
 			}
 		    }
 		    ESTACK_PUSH(s,*ptr);
-		    ++ptr;
 		}
 		goto outer_loop;
 	    } else {
@@ -4164,8 +4163,12 @@ encode_size_struct_int(TTBSizeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj,
 		case HAMT_SUBTAG_HEAD_ARRAY:
 		    ptr++;
 		    node_sz = 16;
+		    result += 1 + 4; /* tag + 4 bytes size */
 		    break;
-		case HAMT_SUBTAG_HEAD_BITMAP: ptr++;
+		case HAMT_SUBTAG_HEAD_BITMAP:
+		    ptr++;
+		    result += 1 + 4; /* tag + 4 bytes size */
+		    /*fall through*/
 		case HAMT_SUBTAG_NODE_BITMAP:
 		    node_sz = hashmap_bitcount(MAP_HEADER_VAL(hdr));
 		    ASSERT(node_sz < 17);
@@ -4175,11 +4178,38 @@ encode_size_struct_int(TTBSizeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj,
 		}
 
 		ptr++;
-		ESTACK_RESERVE(s, node_sz);
+		ESTACK_RESERVE(s, node_sz*2);
 		while(node_sz--) {
-		    ESTACK_FAST_PUSH(s, *ptr++);
+                    if (is_list(*ptr)) {
+			Eterm* leaf = list_val(*ptr);
+			if (is_not_list(CAR(leaf))) {
+			    ESTACK_FAST_PUSH(s, CAR(leaf));
+			}
+			else {
+			    if ((m = is_string(CAR(leaf))) && (m < MAX_STRING_LEN)) {
+				result += m + 2 + 1;
+			    } else {
+				result += 5;
+				ESTACK_FAST_PUSH(s, CAR(leaf));
+			    }
+			}
+			if (is_not_list(CDR(leaf))) {
+			    ESTACK_FAST_PUSH(s, CDR(leaf));
+			}
+			else {
+			    if ((m = is_string(CDR(leaf))) && (m < MAX_STRING_LEN)) {
+				result += m + 2 + 1;
+			    } else {
+				result += 5;
+				ESTACK_FAST_PUSH(s, CDR(leaf));
+			    }
+			}
+		    }
+		    else {
+			ESTACK_FAST_PUSH(s, *ptr);
+		    }
+		    ptr++;
 		}
-		result += 1 + 4; /* tag + 4 bytes size */
 	    }
 	    break;
 	case FLOAT_DEF:
