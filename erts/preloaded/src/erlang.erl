@@ -1738,7 +1738,7 @@ start_timer(0, Dest, Msg) ->
 		orelse (erlang:is_atom(Dest)
 			andalso Dest /= undefined)),
 	TimerRef = erlang:make_ref(),
-	try Dest ! {timeout, TimerRef, Msg} catch _:_ -> ok end,
+	_ = try Dest ! {timeout, TimerRef, Msg} catch _:_ -> ok end,
 	TimerRef
     catch
 	_:_ ->
