@@ -47,6 +47,48 @@ accept(Listen) ->
 connect(Ip, Port) ->
     gen_server:call(?MODULE, {connect, Ip, Port}, infinity).
 
+
+do_listen(Options) ->
+    {First,Last} = case application:get_env(kernel,inet_dist_listen_min) of
+                        {ok,N} when is_integer(N) ->
+                            case application:get_env(kernel,
+                                                    inet_dist_listen_max) of
+                               {ok,M} when is_integer(M) ->
+                                   {N,M};
+                               _ ->
+                                   {N,N}
+                            end;
+                        _ ->
+                            {0,0}
+                   end,
+    do_listen(First, Last, listen_options([{backlog,128}|Options])).
+
+do_listen(First,Last,_) when First > Last ->
+    {error,eaddrinuse};
+do_listen(First,Last,Options) ->
+    case gen_tcp:listen(First, Options) of
+        {error, eaddrinuse} ->
+            do_listen(First+1,Last,Options);
+        Other ->
+            Other
+    end.
+
+listen_options(Opts0) ->
+    Opts1 =
+        case application:get_env(kernel, inet_dist_use_interface) of
+            {ok, Ip} ->
+                [{ip, Ip} | Opts0];
+            _ ->
+                Opts0
+        end,
+    case application:get_env(kernel, inet_dist_listen_options) of
+        {ok,ListenOpts} ->
+            erlang:display({inet_dist_listen_options, ListenOpts}),
+            ListenOpts ++ Opts1;
+        _ ->
+            Opts1
+    end.
+
 %%====================================================================
 %% gen_server callbacks
 %%====================================================================
@@ -60,16 +102,16 @@ init([]) ->
 
 handle_call({listen, Name}, _From, State) ->
     case gen_tcp:listen(0, [{active, false}, {packet,?PPRE}]) of
-	{ok, Socket} ->
-	    {ok, World} = gen_tcp:listen(0, [{active, false}, binary, {packet,?PPRE}]),
-	    {ok, TcpAddress} = get_tcp_address(Socket),
-	    {ok, WorldTcpAddress} = get_tcp_address(World),
-	    {_,Port} = WorldTcpAddress#net_address.address,
-	    {ok, Creation} = erl_epmd:register_node(Name, Port),
-	    {reply, {ok, {Socket, TcpAddress, Creation}},
-	     State#state{listen={Socket, World}}};
-	Error ->
-	    {reply, Error, State}
+       {ok, Socket} ->
+           {ok, World} = do_listen([{active, false}, binary, {packet,?PPRE}]),
+           {ok, TcpAddress} = get_tcp_address(Socket),
+           {ok, WorldTcpAddress} = get_tcp_address(World),
+           {_,Port} = WorldTcpAddress#net_address.address,
+           {ok, Creation} = erl_epmd:register_node(Name, Port),
+           {reply, {ok, {Socket, TcpAddress, Creation}},
+            State#state{listen={Socket, World}}};
+       Error ->
+           {reply, Error, State}
     end;
 
 handle_call({accept, Listen}, {From, _}, State = #state{listen={_, World}}) ->
