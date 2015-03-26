@@ -2439,28 +2439,27 @@ do {								\
 	sz = flatmap_get_size(mp);
 
 	if (sz == 0) {
-	    SET_I((BeamInstr *) Arg(0));
-	    goto get_map_elements_fail;
+	    ClauseFail();
 	}
 
 	ks = flatmap_get_keys(mp);
 	vs = flatmap_get_values(mp);
 
 	while(sz) {
-	    if (EQ((Eterm)*fs,*ks)) {
+	    if (EQ((Eterm) fs[0], *ks)) {
 		PUT_TERM_REG(*vs, fs[1]);
 		n--;
 		fs += 3;
 		/* no more values to fetch, we are done */
-		if (n == 0) break;
+		if (n == 0) {
+		    I = fs;
+		    Next(-1);
+		}
 	    }
 	    ks++, sz--, vs++;
 	}
 
-	if (n) {
-	    SET_I((BeamInstr *) Arg(0));
-	    goto get_map_elements_fail;
-	}
+	ClauseFail();
     } else {
 	const Eterm *v;
 	Uint32 hx;
@@ -2469,19 +2468,14 @@ do {								\
 	    hx = fs[2];
 	    ASSERT(hx == hashmap_make_hash((Eterm)fs[0]));
 	    if ((v = erts_hashmap_get(hx, (Eterm)fs[0], map)) == NULL) {
-		SET_I((BeamInstr *) Arg(0));
-		goto get_map_elements_fail;
+		ClauseFail();
 	    }
 	    PUT_TERM_REG(*v, fs[1]);
 	    fs += 3;
 	}
+	I = fs;
+	Next(-1);
     }
-
-
-    I += 4 + Arg(2);
-get_map_elements_fail:
-    ASSERT(VALID_INSTR(*I));
-    Goto(*I);
  }
 #undef PUT_TERM_REG
 
