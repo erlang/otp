@@ -588,6 +588,11 @@
         <p>Sets the default binary virtual heap size of processes to the size
           <c><![CDATA[Size]]></c>.</p>
       </item>
+      <tag><c><![CDATA[+hpds Size]]></c></tag>
+      <item>
+        <p>Sets the initial process dictionary size of processes to the size
+          <c><![CDATA[Size]]></c>.</p>
+      </item>
       <tag><c><![CDATA[+K true | false]]></c></tag>
       <item>
         <p>Enables or disables the kernel poll functionality if

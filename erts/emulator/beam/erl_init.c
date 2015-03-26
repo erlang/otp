@@ -194,6 +194,8 @@ int erts_disable_tolerant_timeofday; /* Time correction can be disabled it is
 
 int erts_atom_table_size = ATOM_LIMIT;	/* Maximum number of atoms */
 
+int erts_pd_initial_size = 10;
+
 int erts_modified_timing_level;
 
 int erts_no_crash_dump = 0;	/* Use -d to suppress crash dump. */
@@ -519,6 +521,8 @@ void erts_usage(void)
 	       H_DEFAULT_SIZE);
     erts_fprintf(stderr, "-hmbs size     set minimum binary virtual heap size in words (default %d)\n",
 	       VH_DEFAULT_SIZE);
+    erts_fprintf(stderr, "-hpds size     initial process dictionary size (default %d)\n",
+	       erts_pd_initial_size);
 
     /*    erts_fprintf(stderr, "-i module  set the boot module (default init)\n"); */
 
@@ -1408,6 +1412,7 @@ erl_start(int argc, char **argv)
 	     *
 	     * h|ms  - min_heap_size
 	     * h|mbs - min_bin_vheap_size
+	     * h|pds - erts_pd_initial_size
 	     *
 	     */
 	    if (has_prefix("mbs", sub_param)) {
@@ -1425,6 +1430,14 @@ erl_start(int argc, char **argv)
 		    erts_usage();
 		}
 		VERBOSE(DEBUG_SYSTEM, ("using minimum heap size %d\n", H_MIN_SIZE));
+	    } else if (has_prefix("pds", sub_param)) {
+		arg = get_arg(sub_param+3, argv[i+1], &i);
+		if ((erts_pd_initial_size = atoi(arg)) <= 0) {
+		    erts_fprintf(stderr, "bad initial process dictionary size %s\n", arg);
+		    erts_usage();
+		}
+		VERBOSE(DEBUG_SYSTEM, ("using initial process dictionary size %d\n",
+			    erts_pd_initial_size));
 	    } else {
 	        /* backward compatibility */
 		arg = get_arg(argv[i]+2, argv[i+1], &i);
