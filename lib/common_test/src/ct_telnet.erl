@@ -30,7 +30,7 @@
 %% Max no of reconnection attempts = 3
 %% Reconnection interval = 5 sek (time to wait in between reconnection attempts)
 %% Keep alive = true (will send NOP to the server every 10 sec if connection is idle)
-%% Polling limit = 10 (max number of times to poll for data to complete a line)
+%% Polling limit = 0 (max number of times to poll to get a remaining string terminated)
 %% Polling interval = 1 sec (sleep time between polls)</pre>
 %% <p>These parameters can be altered by the user with the following
 %% configuration term:</p>
@@ -160,7 +160,7 @@
 -define(RECONN_TIMEOUT,5000).
 -define(DEFAULT_TIMEOUT,10000).
 -define(DEFAULT_PORT,23).
--define(POLL_LIMIT,10).
+-define(POLL_LIMIT,0).
 -define(POLL_INTERVAL,1000).
 
 -include("ct_util.hrl").
@@ -387,8 +387,15 @@ cmdf(Connection,CmdFormat,Args,Opts) when is_list(Args) ->
 %%%      Connection = ct_telnet:connection()
 %%%      Data = [string()]
 %%%      Reason = term()
-%%% @doc Get all data which has been received by the telnet client
-%%% since last command was sent.
+%%% @doc Get all data that has been received by the telnet client
+%%% since the last command was sent. Note that only newline terminated
+%%% strings are returned. If the last string received has not yet
+%%% been terminated, the connection may be polled automatically until
+%%% the string is complete. The polling feature is controlled
+%%% by the `poll_limit' and `poll_interval' config values and is
+%%% by default disabled (meaning the function will immediately
+%%% return all complete strings received and save a remaining
+%%% non-terminated string for a later `get_data' call).
 get_data(Connection) ->
     case get_handle(Connection) of
 	{ok,Pid} ->
@@ -967,7 +974,10 @@ teln_get_all_data(State=#state{teln_pid=Pid,prx=Prx},Data,Acc,LastLine,Polls) ->
 		    %% No more data from server but the last string is not
 		    %% a complete line (maybe because of a slow connection),
 		    timer:sleep(State#state.poll_interval),
-		    teln_get_all_data(State,[],[Lines|Acc],LastLine1,Polls-1);
+		    NewPolls = if Polls == infinity -> infinity;
+				  true              -> Polls-1
+			       end,
+		    teln_get_all_data(State,[],[Lines|Acc],LastLine1,NewPolls);
 		{ok,[]} ->
 		    {ok,lists:reverse(lists:append([Lines|Acc])),LastLine1};
 		{ok,Data1} ->
@@ -1464,8 +1474,10 @@ check_for_prompt(Prx,Data) ->
 
 split_lines(String) ->
     split_lines(String,[],[]).
-split_lines([$\n|Rest],Line,Lines) ->
+split_lines([$\n|Rest],Line,Lines) when Line /= [] ->
     split_lines(Rest,[],[lists:reverse(Line)|Lines]);
+split_lines([$\n|Rest],[],Lines) ->
+    split_lines(Rest,[],Lines);
 split_lines([$\r|Rest],Line,Lines) ->
     split_lines(Rest,Line,Lines);
 split_lines([0|Rest],Line,Lines) ->
