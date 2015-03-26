@@ -2153,16 +2153,16 @@ restart:
 	    break;
         case matchMkFlatMap:
             n = *pc++;
-            ehp = HAllocX(build_proc, 1 + MAP_HEADER_SIZE + n, HEAP_XTRA);
+            ehp = HAllocX(build_proc, 1 + MAP_HEADER_FLATMAP_SZ + n, HEAP_XTRA);
             t = *ehp++ = *--esp;
             {
                 flatmap_t *m = (flatmap_t *)ehp;
-                m->thing_word = MAP_HEADER;
+                m->thing_word = MAP_HEADER_FLATMAP;
                 m->size = n;
                 m->keys = t;
             }
             t = make_flatmap(ehp);
-            ehp += MAP_HEADER_SIZE;
+            ehp += MAP_HEADER_FLATMAP_SZ;
             while (n--) {
                 *ehp++ = *--esp;
             }
@@ -3540,14 +3540,10 @@ static DMCRet dmc_one_term(DMCContext *context,
 	    DMC_PUSH(*stack, c);
 	    break;
         case (_TAG_HEADER_MAP >> _TAG_PRIMARY_SIZE):
-            n = flatmap_get_size(flatmap_val(c));
-            DMC_PUSH(*text, matchPushM);
-            ++(context->stack_used);
-            DMC_PUSH(*text, n);
-            DMC_PUSH(*stack, c);
-            break;
-        case (_TAG_HEADER_HASHMAP >> _TAG_PRIMARY_SIZE):
-            n = hashmap_size(c);
+            if (is_flatmap(c))
+                n = flatmap_get_size(flatmap_val(c));
+            else
+                n = hashmap_size(c);
             DMC_PUSH(*text, matchPushM);
             ++(context->stack_used);
             DMC_PUSH(*text, n);

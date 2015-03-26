@@ -1926,14 +1926,14 @@ int enif_get_map_size(ErlNifEnv* env, ERL_NIF_TERM term, size_t *size)
 
 ERL_NIF_TERM enif_make_new_map(ErlNifEnv* env)
 {
-    Eterm* hp = alloc_heap(env,MAP_HEADER_SIZE+1);
+    Eterm* hp = alloc_heap(env,MAP_HEADER_FLATMAP_SZ+1);
     Eterm tup;
     flatmap_t *mp;
 
     tup   = make_tuple(hp);
     *hp++ = make_arityval(0);
     mp    = (flatmap_t*)hp;
-    mp->thing_word = MAP_HEADER;
+    mp->thing_word = MAP_HEADER_FLATMAP;
     mp->size = 0;
     mp->keys = tup;
 

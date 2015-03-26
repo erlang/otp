@@ -90,7 +90,6 @@ unsigned tag_val_def(Wterm x)
 	    case (_TAG_HEADER_REFC_BIN >> _TAG_PRIMARY_SIZE):	return BINARY_DEF;
 	    case (_TAG_HEADER_HEAP_BIN >> _TAG_PRIMARY_SIZE):	return BINARY_DEF;
 	    case (_TAG_HEADER_SUB_BIN >> _TAG_PRIMARY_SIZE):	return BINARY_DEF;
-	    case (_TAG_HEADER_HASHMAP >> _TAG_PRIMARY_SIZE):	return HASHMAP_DEF;
 	  }
  
 	  break;

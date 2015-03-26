@@ -2604,7 +2604,7 @@ enc_term_int(TTBEncodeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj, byte* ep,
 	    break;
 
 	case MAP_DEF:
-	    {
+	    if (is_flatmap(obj)) {
 		flatmap_t *mp = (flatmap_t*)flatmap_val(obj);
 		Uint size = flatmap_get_size(mp);
 
@@ -2618,11 +2618,7 @@ enc_term_int(TTBEncodeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj, byte* ep,
 		    WSTACK_PUSH4(s, (UWord)kptr, (UWord)vptr,
 				 ENC_MAP_PAIR, size);
 		}
-	    }
-	    break;
-
-	case HASHMAP_DEF:
-	    {
+	    } else {
 		Eterm hdr;
 		Uint node_sz;
 		ptr = boxed_val(obj);
@@ -2656,7 +2652,6 @@ enc_term_int(TTBEncodeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj, byte* ep,
 		}
 	    }
 	    break;
-
 	case FLOAT_DEF:
 	    GET_DOUBLE(obj, f);
 	    if (dflags & DFLAG_NEW_FLOATS) {
@@ -3607,7 +3602,7 @@ dec_term_atom_common:
                     kptr = hp - 1;
 
                     mp    = (flatmap_t*)hp;
-                    hp   += MAP_HEADER_SIZE;
+                    hp   += MAP_HEADER_FLATMAP_SZ;
                     hp   += size;
                     vptr = hp - 1;
 
@@ -3893,7 +3888,7 @@ dec_term_atom_common:
 
     while (maps_list) {
 	next  = (Eterm *)(EXPAND_POINTER(*maps_list));
-	*maps_list = MAP_HEADER;
+	*maps_list = MAP_HEADER_FLATMAP;
 	if (!erts_validate_and_sort_flatmap((flatmap_t*)maps_list))
 	    goto error;
 	maps_list  = next;
@@ -4121,7 +4116,7 @@ encode_size_struct_int(TTBSizeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj,
 	    }
 	    break;
 	case MAP_DEF:
-	    {
+	    if (is_flatmap(obj)) {
 		flatmap_t *mp = (flatmap_t*)flatmap_val(obj);
 		Uint size = flatmap_get_size(mp);
 		Uint i;
@@ -4158,11 +4153,7 @@ encode_size_struct_int(TTBSizeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj,
 		    ++ptr;
 		}
 		goto outer_loop;
-	    }
-	    break;
-
-	case HASHMAP_DEF:
-	    {
+	    } else {
 		Eterm *ptr;
 		Eterm hdr;
 		Uint node_sz;
@@ -4190,7 +4181,6 @@ encode_size_struct_int(TTBSizeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj,
 		}
 		result += 1 + 4; /* tag + 4 bytes size */
 	    }
-
 	    break;
 	case FLOAT_DEF:
 	    if (dflags & DFLAG_NEW_FLOATS) {

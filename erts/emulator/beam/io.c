@@ -5354,7 +5354,7 @@ driver_deliver_term(Eterm to, ErlDrvTermData* data, int len)
             if (ptr[0] > MAP_SMALL_MAP_LIMIT) {
                 need += hashmap_over_estimated_heap_size(ptr[0]);
             } else {
-                need += MAP_HEADER_SIZE + 1 + 2*ptr[0];
+                need += MAP_HEADER_FLATMAP_SZ + 1 + 2*ptr[0];
             }
 	    depth -= 2*ptr[0];
 	    if (depth < 0) ERTS_DDT_FAIL;
@@ -5627,12 +5627,12 @@ driver_deliver_term(Eterm to, ErlDrvTermData* data, int len)
 
                 hp += 1 + size;
                 mp = (flatmap_t*)hp;
-                mp->thing_word = MAP_HEADER;
+                mp->thing_word = MAP_HEADER_FLATMAP;
                 mp->size = size;
                 mp->keys = make_tuple(tp);
                 mess = make_flatmap(mp);
 
-                hp += MAP_HEADER_SIZE + size;   /* advance "heap" pointer */
+                hp += MAP_HEADER_FLATMAP_SZ + size;
 
                 tp += size;    /* point at last key */
                 vp = hp - 1;   /* point at last value */

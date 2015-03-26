@@ -55,9 +55,9 @@ typedef struct flatmap_s {
 /* the head-node is a bitmap or array with an untagged size */
 
 
-#define hashmap_size(x) (((hashmap_head_t*) hashmap_val(x))->size)
+#define hashmap_size(x)               (((hashmap_head_t*) hashmap_val(x))->size)
 #define hashmap_size_rel(RTERM, BASE) hashmap_size(rterm2wterm(RTERM, BASE))
-#define hashmap_make_hash(Key) make_internal_hash(Key)
+#define hashmap_make_hash(Key)        make_internal_hash(Key)
 
 #define hashmap_restore_hash(Heap,Lvl,Key) \
     (((Lvl) < 8) ? hashmap_make_hash(Key) >> (4*(Lvl)) : hashmap_make_hash(CONS(Heap, make_small((Lvl)>>3), (Key))) >> (4*((Lvl) & 7)))
@@ -66,27 +66,15 @@ typedef struct flatmap_s {
 
 
 /* erl_term.h stuff */
-#define make_flatmap(x)		make_boxed((Eterm*)(x))
-#define make_flatmap_rel(x, BASE)   make_boxed_rel((Eterm*)(x),(BASE))
-#define is_flatmap(x)		(is_boxed((x)) && is_flatmap_header(*boxed_val((x))))
-#define is_flatmap_rel(RTERM,BASE)  is_flatmap(rterm2wterm(RTERM,BASE))
-#define is_not_flatmap(x)           (!is_flatmap((x)))
-#define is_flatmap_header(x)	(((x) & (_TAG_HEADER_MASK)) == _TAG_HEADER_MAP)
-#define header_is_flatmap(x)        ((((x) & (_HEADER_SUBTAG_MASK)) == MAP_SUBTAG))
-#define flatmap_val(x)		(_unchecked_boxed_val((x)))
-#define flatmap_val_rel(RTERM, BASE) flatmap_val(rterm2wterm(RTERM, BASE))
-
-#define flatmap_get_values(x)      (((Eterm *)(x)) + 3)
-#define flatmap_get_keys(x)        (((Eterm *)tuple_val(((flatmap_t *)(x))->keys)) + 1)
-#define flatmap_get_size(x)        (((flatmap_t*)(x))->size)
+#define flatmap_get_values(x)        (((Eterm *)(x)) + 3)
+#define flatmap_get_keys(x)          (((Eterm *)tuple_val(((flatmap_t *)(x))->keys)) + 1)
+#define flatmap_get_size(x)          (((flatmap_t*)(x))->size)
 
 #ifdef DEBUG
 #define MAP_SMALL_MAP_LIMIT    (3)
 #else
 #define MAP_SMALL_MAP_LIMIT    (32)
 #endif
-#define MAP_HEADER             _make_header(1,_TAG_HEADER_MAP)
-#define MAP_HEADER_SIZE        (sizeof(flatmap_t) / sizeof(Eterm))
 
 struct ErtsWStack_;
 struct ErtsEStack_;
@@ -170,7 +158,10 @@ typedef struct hashmap_head_s {
 #define is_hashmap_header_head(x) ((MAP_HEADER_TYPE(x) & (0x2)))
 
 #define MAKE_MAP_HEADER(Type,Arity,Val) \
-    (_make_header(((((Uint16)(Val)) << MAP_HEADER_ARITY_SZ) | (Arity)) << MAP_HEADER_TAG_SZ | (Type) , _TAG_HEADER_HASHMAP))
+    (_make_header(((((Uint16)(Val)) << MAP_HEADER_ARITY_SZ) | (Arity)) << MAP_HEADER_TAG_SZ | (Type) , _TAG_HEADER_MAP))
+
+#define MAP_HEADER_FLATMAP \
+    MAKE_MAP_HEADER(MAP_HEADER_TAG_FLATMAP_HEAD,0x1,0x0)
 
 #define MAP_HEADER_HAMT_HEAD_ARRAY \
     MAKE_MAP_HEADER(MAP_HEADER_TAG_HAMT_HEAD_ARRAY,0x1,0xffff)
@@ -181,15 +172,22 @@ typedef struct hashmap_head_s {
 #define MAP_HEADER_HAMT_NODE_BITMAP(Bmp) \
     MAKE_MAP_HEADER(MAP_HEADER_TAG_HAMT_NODE_BITMAP,0x0,Bmp)
 
-#define HAMT_HEAD_EMPTY_SZ     (2)
-#define HAMT_HEAD_ARRAY_SZ     (18)
-#define HAMT_NODE_BITMAP_SZ(n) (1 + n)
-#define HAMT_HEAD_BITMAP_SZ(n) (2 + n)
+#define MAP_HEADER_FLATMAP_SZ  (sizeof(flatmap_t) / sizeof(Eterm))
 
-#define _HEADER_MAP_SUBTAG_MASK    (0xfc) /* 2 bits maps tag + 4 bits subtag + 2 ignore bits */
-#define HAMT_SUBTAG_NODE_BITMAP  ((MAP_HEADER_TAG_HAMT_NODE_BITMAP << _HEADER_ARITY_OFFS) | HASHMAP_SUBTAG)
-#define HAMT_SUBTAG_HEAD_ARRAY   ((MAP_HEADER_TAG_HAMT_HEAD_ARRAY << _HEADER_ARITY_OFFS) | HASHMAP_SUBTAG)
-#define HAMT_SUBTAG_HEAD_BITMAP  ((MAP_HEADER_TAG_HAMT_HEAD_BITMAP << _HEADER_ARITY_OFFS) | HASHMAP_SUBTAG)
+#define HAMT_NODE_ARRAY_SZ      (17)
+#define HAMT_HEAD_ARRAY_SZ      (18)
+#define HAMT_NODE_BITMAP_SZ(n)  (1 + n)
+#define HAMT_HEAD_BITMAP_SZ(n)  (2 + n)
+
+/* 2 bits maps tag + 4 bits subtag + 2 ignore bits */
+#define _HEADER_MAP_SUBTAG_MASK       (0xfc)
+/* 1 bit map tag + 1 ignore bit + 4 bits subtag + 2 ignore bits */
+#define _HEADER_MAP_HASHMAP_HEAD_MASK (0xbc)
+
+#define HAMT_SUBTAG_NODE_BITMAP  ((MAP_HEADER_TAG_HAMT_NODE_BITMAP << _HEADER_ARITY_OFFS) | MAP_SUBTAG)
+#define HAMT_SUBTAG_HEAD_ARRAY   ((MAP_HEADER_TAG_HAMT_HEAD_ARRAY  << _HEADER_ARITY_OFFS) | MAP_SUBTAG)
+#define HAMT_SUBTAG_HEAD_BITMAP  ((MAP_HEADER_TAG_HAMT_HEAD_BITMAP << _HEADER_ARITY_OFFS) | MAP_SUBTAG)
+#define HAMT_SUBTAG_HEAD_FLATMAP ((MAP_HEADER_TAG_FLATMAP_HEAD << _HEADER_ARITY_OFFS) | MAP_SUBTAG)
 
 #define hashmap_index(hash)      (((Uint32)hash) & 0xf)
 

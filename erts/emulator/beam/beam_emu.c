@@ -6602,8 +6602,8 @@ new_map(Process* p, Eterm* reg, BeamInstr* I)
     keys   = make_tuple(thp);
     *thp++ = make_arityval(n/2);
 
-    mp = (flatmap_t *)mhp; mhp += MAP_HEADER_SIZE;
-    mp->thing_word = MAP_HEADER;
+    mp = (flatmap_t *)mhp; mhp += MAP_HEADER_FLATMAP_SZ;
+    mp->thing_word = MAP_HEADER_FLATMAP;
     mp->size = n/2;
     mp->keys = keys;
 
@@ -6684,7 +6684,7 @@ update_map_assoc(Process* p, Eterm* reg, Eterm map, BeamInstr* I)
      * update list are new).
      */
 
-    need = 2*(num_old+num_updates) + 1 + MAP_HEADER_SIZE;
+    need = 2*(num_old+num_updates) + 1 + MAP_HEADER_FLATMAP_SZ;
     if (HeapWordsLeft(p) < need) {
 	Uint live = Arg(3);
 	reg[live] = map;
@@ -6723,8 +6723,8 @@ update_map_assoc(Process* p, Eterm* reg, Eterm map, BeamInstr* I)
 
     res = make_flatmap(hp);
     mp = (flatmap_t *)hp;
-    hp += MAP_HEADER_SIZE;
-    mp->thing_word = MAP_HEADER;
+    hp += MAP_HEADER_FLATMAP_SZ;
+    mp->thing_word = MAP_HEADER_FLATMAP;
     mp->keys = make_tuple(kp-1);
 
     old_vals = flatmap_get_values(old_mp);
@@ -6906,7 +6906,7 @@ update_map_exact(Process* p, Eterm* reg, Eterm map, BeamInstr* I)
      * Allocate the exact heap space needed.
      */
 
-    need = num_old + MAP_HEADER_SIZE;
+    need = num_old + MAP_HEADER_FLATMAP_SZ;
     if (HeapWordsLeft(p) < need) {
 	Uint live = Arg(3);
 	reg[live] = map;
@@ -6927,8 +6927,8 @@ update_map_exact(Process* p, Eterm* reg, Eterm map, BeamInstr* I)
 
     res = make_flatmap(hp);
     mp = (flatmap_t *)hp;
-    hp += MAP_HEADER_SIZE;
-    mp->thing_word = MAP_HEADER;
+    hp += MAP_HEADER_FLATMAP_SZ;
+    mp->thing_word = MAP_HEADER_FLATMAP;
     mp->size = num_old;
     mp->keys = old_mp->keys;
 
