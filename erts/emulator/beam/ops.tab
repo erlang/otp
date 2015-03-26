@@ -1497,31 +1497,10 @@ is_map f r
 is_map f x
 is_map f y
 
-## Transform has_map_field(s) #{ K1 := _, K2 := _ }
+## Transform has_map_fields #{ K1 := _, K2 := _ } to has_map_elements
 
-has_map_field/3
-
-has_map_fields Fail Src Size=u==1 Rest=* => gen_has_map_field(Fail,Src,Size,Rest)
-has_map_fields Fail Src Size Rest=* => i_has_map_fields Fail Src Size Rest
-
-i_has_map_fields f s I
-
-has_map_field Fail Src=rxy Key=arxy => i_has_map_field Fail Src Key
-has_map_field Fail Src Key => move Key x | i_has_map_field Fail Src x
-
-%macro: i_has_map_field HasMapField -fail_action
-i_has_map_field f r a
-i_has_map_field f x a
-i_has_map_field f y a
-i_has_map_field f r r
-i_has_map_field f x r
-i_has_map_field f y r
-i_has_map_field f r x
-i_has_map_field f x x
-i_has_map_field f y x
-i_has_map_field f r y
-i_has_map_field f x y
-i_has_map_field f y y
+has_map_fields Fail Src Size Rest=* => \
+   gen_has_map_fields(Fail, Src, Size, Rest)
 
 ## Transform get_map_elements(s) #{ K1 := V1, K2 := V2 }
 

@@ -701,8 +701,6 @@ void** beam_ops;
 
 #define IsMap(Src, Fail) if (!is_map(Src)) { Fail; }
 
-#define HasMapField(Src, Key, Fail) if (has_not_map_field(Src, Key)) { Fail; }
-
 #define GetMapElement(Src, Key, Dst, Fail)	\
   do {						\
      Eterm _res = get_map_element(Src, Key);	\
@@ -960,7 +958,6 @@ static Eterm update_map_assoc(Process* p, Eterm* reg,
 			      Eterm map, BeamInstr* I) NOINLINE;
 static Eterm update_map_exact(Process* p, Eterm* reg,
 			      Eterm map, BeamInstr* I) NOINLINE;
-static int has_not_map_field(Eterm map, Eterm key);
 static Eterm get_map_element(Eterm map, Eterm key);
 
 /*
@@ -2389,67 +2386,6 @@ void process_main(void)
      r(0) = x(0);
      StoreResult(res, Arg(0));
      Next(3+Arg(2));
- }
-
- OpCase(i_has_map_fields_fsI): {
-    flatmap_t* mp;
-    Eterm map;
-    Eterm field;
-    Eterm *ks;
-    BeamInstr* fs;
-    Uint sz,n;
-
-    GetArg1(1, map);
-    n  = (Uint)Arg(2);
-    fs = &Arg(3); /* pattern fields */
-
-    /* get term from field? */
-    if (is_hashmap(map)) {
-	Uint32 hx;
-	while(n--) {
-	    field = *fs++;
-	    hx = hashmap_make_hash(field);
-	    if (!erts_hashmap_get(hx,field,map)) {
-		SET_I((BeamInstr *) Arg(0));
-		goto has_map_fields_fail;
-	    }
-	}
-	goto has_map_fields_ok;
-    }
-
-    ASSERT(is_flatmap(map));
-
-    mp = (flatmap_t *)flatmap_val(map);
-    sz = flatmap_get_size(mp);
-
-    if (sz == 0) {
-	SET_I((BeamInstr *) Arg(0));
-	goto has_map_fields_fail;
-    }
-
-    ks = flatmap_get_keys(mp);
-
-    ASSERT(n>0);
-
-    while(sz) {
-	field = (Eterm)*fs;
-	if (EQ(field,*ks)) {
-	    n--;
-	    fs++;
-	    if (n == 0) break;
-	}
-	ks++; sz--;
-    }
-
-    if (n) {
-	SET_I((BeamInstr *) Arg(0));
-	goto has_map_fields_fail;
-    }
-has_map_fields_ok:
-    I += 4 + Arg(2);
-has_map_fields_fail:
-    ASSERT(VALID_INSTR(*I));
-    Goto(*I);
  }
 
 #define PUT_TERM_REG(term, desc)				\
@@ -6468,38 +6404,6 @@ new_fun(Process* p, Eterm* reg, ErlFunEntry* fe, int num_free)
 	*hp++ = reg[i];
     }
     return make_fun(funp);
-}
-
-static int has_not_map_field(Eterm map, Eterm key)
-{
-    Uint32 hx;
-    if (is_flatmap(map)) {
-	flatmap_t* mp;
-	Eterm* keys;
-	Uint i;
-	Uint n;
-
-	mp   = (flatmap_t *)flatmap_val(map);
-	keys = flatmap_get_keys(mp);
-	n    = flatmap_get_size(mp);
-	if (is_immed(key)) {
-	    for (i = 0; i < n; i++) {
-		if (keys[i] == key) {
-		    return 0;
-		}
-	    }
-	} else {
-	    for (i = 0; i <  n; i++) {
-		if (EQ(keys[i], key)) {
-		    return 0;
-		}
-	    }
-	}
-	return 1;
-    }
-    ASSERT(is_hashmap(map));
-    hx = hashmap_make_hash(key);
-    return erts_hashmap_get(hx,key,map) ? 0 : 1;
 }
 
 static Eterm get_map_element(Eterm map, Eterm key)

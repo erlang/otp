@@ -4107,21 +4107,31 @@ gen_get_map_element(LoaderState* stp, GenOpArg Fail, GenOpArg Src,
 }
 
 static GenOp*
-gen_has_map_field(LoaderState* stp, GenOpArg Fail, GenOpArg Src,
-		    GenOpArg Size, GenOpArg* Rest)
+gen_has_map_fields(LoaderState* stp, GenOpArg Fail, GenOpArg Src,
+		   GenOpArg Size, GenOpArg* Rest)
 {
     GenOp* op;
+    Uint i;
+    Uint n;
 
     ASSERT(Size.type == TAG_u);
+    n = Size.val;
 
     NEW_GENOP(stp, op);
+    GENOP_ARITY(op, 3 + 2*n);
     op->next = NULL;
-    op->op = genop_has_map_field_3;
-    op->arity = 4;
+    op->op = genop_get_map_elements_3;
 
     op->a[0] = Fail;
     op->a[1] = Src;
-    op->a[2] = Rest[0];
+    op->a[2].type = TAG_u;
+    op->a[2].val = 2*n;
+
+    for (i = 0; i < n; i++) {
+	op->a[3+2*i] = Rest[i];
+	op->a[3+2*i+1].type = TAG_x;
+	op->a[3+2*i+1].val = 0;	/* x(0); normally not used */
+    }
     return op;
 }
 
