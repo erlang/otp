@@ -115,7 +115,7 @@ struct ErtsTimerWheel_ {
     Uint nto;
     struct {
 	ErlTimer *head;
-	ErlTimer **tail;
+	ErlTimer *tail;
 	Uint nto;
     } at_once;
     int true_next_timeout_time;
@@ -235,22 +235,38 @@ found_next:
 static void
 remove_timer(ErtsTimerWheel *tiw, ErlTimer *p)
 {
-    /* first */
-    if (!p->prev) {
-	tiw->w[p->slot] = p->next;
+    if (p->slot >= 0) {
+	/* Timer in wheel... */
+	ASSERT(p->slot < TIW_SIZE);
+	if (p->prev)
+	    p->prev->next = p->next;
+	else {
+	    ASSERT(tiw->w[p->slot] == p);
+	    tiw->w[p->slot] = p->next;
+	}
 	if(p->next)
-	    p->next->prev = NULL;
-    } else {
-	p->prev->next = p->next;
+	    p->next->prev = p->prev;
+    }
+    else {
+	/* Timer in "at once" queue... */
+	ASSERT(p->slot == -1);
+	if (p->prev)
+	    p->prev->next = p->next;
+	else {
+	    ASSERT(tiw->at_once.head == p);
+	    tiw->at_once.head = p->next;
+	}
+	if (p->next)
+	    p->next->prev = p->prev;
+	else {
+	    ASSERT(tiw->at_once.tail == p);
+	    tiw->at_once.tail = p->prev;
+	}
+	ASSERT(tiw->at_once.nto > 0);
+	tiw->at_once.nto--;
     }
 
-    /* last */
-    if (!p->next) {
-	if (p->prev)
-	    p->prev->next = NULL;
-    } else {
-	p->next->prev = p->prev;
-    }
+    p->slot = -2;
 
     p->next = NULL;
     p->prev = NULL;
@@ -337,11 +353,17 @@ erts_bump_timers(ErtsTimerWheel *tiw, ErtsMonotonicTime curr_time)
     }
     else {
 	ASSERT(tiw->nto >= tiw->at_once.nto);
-	timeout_head = tiw->at_once.head;
-	timeout_tail = tiw->at_once.tail;
+	p = timeout_head = tiw->at_once.head;
+	while (1) {
+	    set_timer_wheel(p, NULL);
+	    if (!p->next) {
+		timeout_tail = &p->next;
+		break;
+	    }
+	}
 	tiw->nto -= tiw->at_once.nto;
 	tiw->at_once.head = NULL;
-	tiw->at_once.tail = &tiw->at_once.head;
+	tiw->at_once.tail = NULL;
 	tiw->at_once.nto = 0;
     }
 
@@ -458,7 +480,7 @@ erts_create_timer_wheel(int no)
     tiw->pos = ERTS_MONOTONIC_TO_CLKTCKS(mtime);
     tiw->nto = 0;
     tiw->at_once.head = NULL;
-    tiw->at_once.tail = &tiw->at_once.head;
+    tiw->at_once.tail = NULL;
     tiw->at_once.nto = 0;
     tiw->true_next_timeout_time = 0;
     tiw->next_timeout_time = mtime + ERTS_MONOTONIC_DAY;
@@ -523,10 +545,13 @@ erts_set_timer(ErlTimer *p, ErlTimeoutProc timeout,
 	timeout_pos = ERTS_MONOTONIC_TO_CLKTCKS(curr_time);
 	tiw->nto++;
 	tiw->at_once.nto++;
-	*tiw->at_once.tail = p;
-	tiw->at_once.tail = &p->next;
 	p->next = NULL;
+	p->prev = tiw->at_once.tail;
+	tiw->at_once.tail = p;
+	if (!tiw->at_once.head)
+	    tiw->at_once.head = p;
 	p->timeout_pos = timeout_pos;
+	p->slot = -1;
 	timeout_time = ERTS_CLKTCKS_TO_MONOTONIC(timeout_pos);
     }
     else {
@@ -538,7 +563,7 @@ erts_set_timer(ErlTimer *p, ErlTimeoutProc timeout,
 
 	/* calculate slot */
 	tm = (int) (timeout_pos & (TIW_SIZE-1));
-	p->slot = (Uint) tm;
+	p->slot = tm;
   
 	/* insert at head of list at slot */
 	p->next = tiw->w[tm];
@@ -587,7 +612,6 @@ erts_cancel_timer(ErlTimer *p)
 	cancel = NULL;
     else {
 	remove_timer(tiw, p);
-	p->slot = 0;
 
 	cancel = p->cancel;
 	arg = p->arg;

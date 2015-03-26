@@ -25,6 +25,7 @@
 #include "sys.h"
 #include "erl_alloc.h"
 #include "erl_poll.h"
+#include "erl_time.h"
 
 /*
  * Some debug macros 

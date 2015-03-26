@@ -404,7 +404,7 @@ erts_garbage_collect(Process* p, int need, Eterm* objv, int nobj)
     Uint reclaimed_now = 0;
     int done = 0;
     int off_heap_msgs;
-    Uint ms1, s1, us1;
+    ErtsMonotonicTime start_time = 0; /* Shut up faulty warning... */
     erts_aint32_t state;
     ErtsSchedulerData *esdp;
 #ifdef USE_VM_PROBES
@@ -424,9 +424,8 @@ erts_garbage_collect(Process* p, int need, Eterm* objv, int nobj)
 
     state = erts_smp_atomic32_read_bor_nob(&p->state, ERTS_PSFLG_GC);
     off_heap_msgs = state & ERTS_PSFLG_OFF_HEAP_MSGS;
-    if (erts_system_monitor_long_gc != 0) {
-	get_now(&ms1, &s1, &us1);
-    }
+    if (erts_system_monitor_long_gc != 0)
+	start_time = erts_get_monotonic_time();
 
     ERTS_CHK_OFFHEAP(p);
 
@@ -474,16 +473,14 @@ erts_garbage_collect(Process* p, int need, Eterm* objv, int nobj)
     }
 
     if (erts_system_monitor_long_gc != 0) {
-	Uint ms2, s2, us2;
-	Sint t;
+	ErtsMonotonicTime end_time;
+	Uint gc_time;
 	if (erts_test_long_gc_sleep)
 	    while (0 != erts_milli_sleep(erts_test_long_gc_sleep));
-	get_now(&ms2, &s2, &us2);
-	t = ms2 - ms1;
-	t = t*1000000 + s2 - s1;
-	t = t*1000 + ((Sint) (us2 - us1))/1000;
-	if (t > 0 && (Uint)t > erts_system_monitor_long_gc) {
-	    monitor_long_gc(p, t);
+	end_time = erts_get_monotonic_time();
+	gc_time = (Uint) ERTS_MONOTONIC_TO_MSEC(end_time - start_time);
+	if (gc_time && gc_time > erts_system_monitor_long_gc) {
+	    monitor_long_gc(p, gc_time);
 	}
     }
     if (erts_system_monitor_large_heap != 0) {

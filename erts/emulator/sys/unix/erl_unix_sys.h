@@ -177,10 +177,10 @@ typedef ErtsMonotonicTime ErtsSystemTime;
 /*
  * OS monotonic time and OS system time
  */
-
 #undef ERTS_OS_TIMES_INLINE_FUNC_PTR_CALL__
 
-#if defined(OS_SYSTEM_TIME_USING_CLOCK_GETTIME)
+#if defined(OS_SYSTEM_TIME_USING_CLOCK_GETTIME) \
+    && defined(OS_MONOTONIC_TIME_USING_CLOCK_GETTIME)
 #  if defined(__linux__)
 #    define ERTS_OS_TIMES_INLINE_FUNC_PTR_CALL__ 1
 #  endif
@@ -191,13 +191,11 @@ ErtsSystemTime erts_os_system_time(void);
 #undef ERTS_HAVE_OS_MONOTONIC_TIME_SUPPORT
 #undef ERTS_COMPILE_TIME_MONOTONIC_TIME_UNIT
 #undef ERTS_OS_MONOTONIC_INLINE_FUNC_PTR_CALL__
-#undef ERTS_HAVE_CORRECTED_OS_MONOTONIC
 
 #if defined(OS_MONOTONIC_TIME_USING_CLOCK_GETTIME)
 #  define ERTS_HAVE_OS_MONOTONIC_TIME_SUPPORT 1
 #  define ERTS_COMPILE_TIME_MONOTONIC_TIME_UNIT (1000*1000*1000)
 #  if defined(__linux__)
-#    define ERTS_HAVE_CORRECTED_OS_MONOTONIC 1
 #    define ERTS_OS_MONOTONIC_INLINE_FUNC_PTR_CALL__ 1
 #  endif
 #elif defined(OS_MONOTONIC_TIME_USING_MACH_CLOCK_GET_TIME)

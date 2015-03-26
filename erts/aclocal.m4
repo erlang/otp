@@ -60,7 +60,6 @@ AC_ARG_VAR(erl_xcomp_isysroot, [Absolute cross system root include path (only us
 dnl Cross compilation variables
 AC_ARG_VAR(erl_xcomp_bigendian, [big endian system: yes|no (only used when cross compiling)])
 AC_ARG_VAR(erl_xcomp_double_middle_endian, [double-middle-endian system: yes|no (only used when cross compiling)])
-AC_ARG_VAR(erl_xcomp_linux_clock_gettime_correction, [clock_gettime() can be used for time correction: yes|no (only used when cross compiling)])
 AC_ARG_VAR(erl_xcomp_linux_nptl, [have Native POSIX Thread Library: yes|no (only used when cross compiling)])
 AC_ARG_VAR(erl_xcomp_linux_usable_sigusrx, [SIGUSR1 and SIGUSR2 can be used: yes|no (only used when cross compiling)])
 AC_ARG_VAR(erl_xcomp_linux_usable_sigaltstack, [have working sigaltstack(): yes|no (only used when cross compiling)])
@@ -726,9 +725,48 @@ esac
 
 AC_DEFUN(ERL_MONOTONIC_CLOCK,
 [
-  AC_CACHE_CHECK([for clock_gettime() with monotonic clock type], erl_cv_clock_gettime_monotonic,
+  default_resolution_clock_gettime_monotonic="CLOCK_HIGHRES CLOCK_BOOTTIME CLOCK_MONOTONIC"
+  low_resolution_clock_gettime_monotonic="CLOCK_MONOTONIC_COARSE CLOCK_MONOTONIC_FAST"
+  high_resolution_clock_gettime_monotonic="CLOCK_MONOTONIC_PRECISE"
+
+  case "$1" in
+    high_resolution)
+	check_msg="high resolution "
+	prefer_resolution_clock_gettime_monotonic="$high_resolution_clock_gettime_monotonic"
+	;;
+    low_resolution)
+	check_msg="low resolution "
+	prefer_resolution_clock_gettime_monotonic="$low_resolution_clock_gettime_monotonic"
+	;;
+    custom_resolution)
+	check_msg="custom resolution "
+	prefer_resolution_clock_gettime_monotonic="$2"
+	;;
+    *)
+	check_msg=""
+	prefer_resolution_clock_gettime_monotonic=
+	;;
+  esac
+
+  AC_CACHE_CHECK([for clock_gettime(CLOCK_MONOTONIC_RAW, _)], erl_cv_clock_gettime_monotonic_raw,
   [
-     for clock_type in CLOCK_HIGHRES CLOCK_MONOTONIC CLOCK_MONOTONIC_PRECISE; do
+       AC_TRY_COMPILE([
+#include <time.h>
+		      ],
+		      [
+    struct timespec ts;
+    long long result;
+    clock_gettime(CLOCK_MONOTONIC_RAW, &ts);
+    result = ((long long) ts.tv_sec) * 1000000000LL + 
+    ((long long) ts.tv_nsec);
+		      ],
+		      erl_cv_clock_gettime_monotonic_raw=yes,
+		      erl_cv_clock_gettime_monotonic_raw=no)
+  ])
+
+  AC_CACHE_CHECK([for clock_gettime() with ${check_msg}monotonic clock type], erl_cv_clock_gettime_monotonic_$1,
+  [
+     for clock_type in $prefer_resolution_clock_gettime_monotonic $default_resolution_clock_gettime_monotonic $high_resolution_clock_gettime_monotonic $low_resolution_clock_gettime_monotonic; do
        AC_TRY_COMPILE([
 #include <time.h>
 		      ],
@@ -739,12 +777,12 @@ AC_DEFUN(ERL_MONOTONIC_CLOCK,
     result = ((long long) ts.tv_sec) * 1000000000LL + 
     ((long long) ts.tv_nsec);
 		      ],
-		      erl_cv_clock_gettime_monotonic=$clock_type,
-		      erl_cv_clock_gettime_monotonic=no)
-       test $erl_cv_clock_gettime_monotonic = no || break
+		      erl_cv_clock_gettime_monotonic_$1=$clock_type,
+		      erl_cv_clock_gettime_monotonic_$1=no)
+       test $erl_cv_clock_gettime_monotonic_$1 = no || break
      done
   ])
-  
+
   AC_CHECK_FUNCS([clock_getres clock_get_attributes gethrtime])
   
   AC_CACHE_CHECK([for mach clock_get_time() with monotonic clock type], erl_cv_mach_clock_get_time_monotonic,
@@ -766,39 +804,24 @@ AC_DEFUN(ERL_MONOTONIC_CLOCK,
 			erl_cv_mach_clock_get_time_monotonic=no)
   ])
   
-  case $erl_cv_clock_gettime_monotonic-$ac_cv_func_gethrtime-$erl_cv_mach_clock_get_time_monotonic-$host_os in
+  erl_corrected_monotonic_clock=no
+  case $erl_cv_clock_gettime_monotonic_$1-$ac_cv_func_gethrtime-$erl_cv_mach_clock_get_time_monotonic-$host_os in
     *-*-*-win32)
       erl_monotonic_clock_func=WindowsAPI
       ;;
     CLOCK_*-*-*-linux*)
-      if test X$cross_compiling != Xyes; then
-        linux_kernel_vsn_=`uname -r`
-        case $linux_kernel_vsn_ in
-          [[0-1]].*|2.[[0-5]]|2.[[0-5]].*)
-            erl_monotonic_clock_func=times
-	    ;;
-          *)
-            erl_monotonic_clock_func=clock_gettime
-	    ;;
-        esac
-      else
-        case X$erl_xcomp_linux_clock_gettime_correction in
-          X)
-	    AC_MSG_WARN([result clock_gettime guessed because of cross compilation])
-            erl_monotonic_clock_func=clock_gettime
-	    ;;
-          Xyes|Xno)
-            if test $erl_xcomp_linux_clock_gettime_correction = yes; then
-              erl_monotonic_clock_func=clock_gettime
-            else
-              erl_monotonic_clock_func=times
-            fi
-	    ;;
-          *)
-            AC_MSG_ERROR([Bad erl_xcomp_linux_clock_gettime_correction value: $erl_xcomp_linux_clock_gettime_correction])
-	    ;;
-        esac
-      fi
+      case $erl_cv_clock_gettime_monotonic_$1-$erl_cv_clock_gettime_monotonic_raw in
+        CLOCK_BOOTTIME-yes|CLOCK_MONOTONIC-yes)
+	  erl_corrected_monotonic_clock=yes
+	  ;;
+	*)
+	  # We don't trust CLOCK_MONOTONIC to be NTP
+	  # adjusted on linux systems that do not have
+	  # CLOCK_MONOTONIC_RAW (although it seems to
+	  # be...)
+	  ;;
+      esac
+      erl_monotonic_clock_func=clock_gettime
       ;;
     no-no-no-linux*)
       erl_monotonic_clock_func=times
@@ -817,15 +840,25 @@ AC_DEFUN(ERL_MONOTONIC_CLOCK,
       ;;
   esac
 
+  erl_monotonic_clock_low_resolution=no
   erl_monotonic_clock_lib=
   erl_monotonic_clock_id=
   case $erl_monotonic_clock_func in
     clock_gettime)
-      erl_monotonic_clock_id="$erl_cv_clock_gettime_monotonic"
+      erl_monotonic_clock_id=$erl_cv_clock_gettime_monotonic_$1
+      for low_res_id in $low_resolution_clock_gettime_monotonic; do
+      	  if test $erl_monotonic_clock_id = $low_res_id; then
+	    erl_monotonic_clock_low_resolution=yes
+	    break
+	  fi
+      done
       AC_CHECK_LIB(rt, clock_gettime, [erl_monotonic_clock_lib="-lrt"])
       ;;
     mach_clock_get_time)
       erl_monotonic_clock_id=SYSTEM_CLOCK
+      ;;
+    times)
+      erl_monotonic_clock_low_resolution=yes
       ;;
     *)
       ;;
@@ -835,9 +868,32 @@ AC_DEFUN(ERL_MONOTONIC_CLOCK,
 
 AC_DEFUN(ERL_WALL_CLOCK,
 [
-  AC_CACHE_CHECK([for clock_gettime() with wall clock type], erl_cv_clock_gettime_wall,
+  default_resolution_clock_gettime_wall="CLOCK_REALTIME"
+  low_resolution_clock_gettime_wall="CLOCK_REALTIME_COARSE CLOCK_REALTIME_FAST"
+  high_resolution_clock_gettime_wall="CLOCK_REALTIME_PRECISE"
+
+  case "$1" in
+    high_resolution)
+	check_msg="high resolution "
+	prefer_resolution_clock_gettime_wall="$high_resolution_clock_gettime_wall"
+	;;
+    low_resolution)
+	check_msg="low resolution "
+	prefer_resolution_clock_gettime_wall="$low_resolution_clock_gettime_wall"
+	;;
+    custom_resolution)
+	check_msg="custom resolution "
+	prefer_resolution_clock_gettime_wall="$2"
+	;;
+    *)
+	check_msg=""
+	prefer_resolution_clock_gettime_wall=
+	;;
+  esac
+
+  AC_CACHE_CHECK([for clock_gettime() with ${check_msg}wall clock type], erl_cv_clock_gettime_wall_$1,
   [
-     for clock_type in CLOCK_REALTIME; do
+     for clock_type in $prefer_resolution_clock_gettime_wall $default_resolution_clock_gettime_wall $high_resolution_clock_gettime_wall $low_resolution_clock_gettime_wall; do
        AC_TRY_COMPILE([
 #include <time.h>
 		      ],
@@ -848,12 +904,12 @@ AC_DEFUN(ERL_WALL_CLOCK,
     result = ((long long) ts.tv_sec) * 1000000000LL + 
     ((long long) ts.tv_nsec);
 		      ],
-		      erl_cv_clock_gettime_wall=$clock_type,
-		      erl_cv_clock_gettime_wall=no)
-       test $erl_cv_clock_gettime_wall = no || break
+		      erl_cv_clock_gettime_wall_$1=$clock_type,
+		      erl_cv_clock_gettime_wall_$1=no)
+       test $erl_cv_clock_gettime_wall_$1 = no || break
      done
   ])
-  
+
   AC_CHECK_FUNCS([clock_getres clock_get_attributes gettimeofday])
   
   AC_CACHE_CHECK([for mach clock_get_time() with wall clock type], erl_cv_mach_clock_get_time_wall,
@@ -875,10 +931,12 @@ AC_DEFUN(ERL_WALL_CLOCK,
 			erl_cv_mach_clock_get_time_wall=no)
   ])
 
+  erl_wall_clock_low_resolution=no
   erl_wall_clock_id=
-  case $erl_cv_clock_gettime_wall-$erl_cv_mach_clock_get_time_wall-$ac_cv_func_gettimeofday-$host_os in
+  case $erl_cv_clock_gettime_wall_$1-$erl_cv_mach_clock_get_time_wall-$ac_cv_func_gettimeofday-$host_os in
     *-*-*-win32)
       erl_wall_clock_func=WindowsAPI
+      erl_wall_clock_low_resolution=yes
       ;;
     no-yes-*-*)
       erl_wall_clock_func=mach_clock_get_time
@@ -886,7 +944,13 @@ AC_DEFUN(ERL_WALL_CLOCK,
       ;;
     CLOCK_*-*-*-*)
       erl_wall_clock_func=clock_gettime
-      erl_wall_clock_id=$erl_cv_clock_gettime_wall
+      erl_wall_clock_id=$erl_cv_clock_gettime_wall_$1
+      for low_res_id in $low_resolution_clock_gettime_wall; do
+      	  if test $erl_wall_clock_id = $low_res_id; then
+	    erl_wall_clock_low_resolution=yes
+	    break
+	  fi
+      done
       ;;
     no-no-yes-*)
       erl_wall_clock_func=gettimeofday
@@ -1401,7 +1465,7 @@ AC_ARG_WITH(with_sparc_memory_order,
 LM_CHECK_THR_LIB
 ERL_INTERNAL_LIBS
 
-ERL_MONOTONIC_CLOCK
+ERL_MONOTONIC_CLOCK(high_resolution)
 
 case $erl_monotonic_clock_func in
   clock_gettime)
@@ -2128,20 +2192,89 @@ dnl ----------------------------------------------------------------------
 dnl
 dnl ERL_TIME_CORRECTION
 dnl
-dnl In the presence of a high resolution realtime timer Erlang can adapt
-dnl its view of time relative to this timer. On solaris such a timer is
-dnl available with the syscall gethrtime(). On other OS's a fallback
-dnl solution using times() is implemented. (However on e.g. FreeBSD times()
-dnl is implemented using gettimeofday so it doesn't make much sense to
-dnl use it there...) On second thought, it seems to be safer to do it the
-dnl other way around. I.e. only use times() on OS's where we know it will
-dnl work...
+dnl Check for primitives that can be used for implementing
+dnl erts_os_monotonic_time() and erts_os_system_time()
 dnl
 
 AC_DEFUN(ERL_TIME_CORRECTION,
 [
 
-ERL_WALL_CLOCK
+AC_ARG_WITH(clock-resolution,
+AS_HELP_STRING([--with-clock-resolution=high|low|default],
+               [specify wanted clock resolution)]))
+
+AC_ARG_WITH(clock-gettime-realtime-id,
+AS_HELP_STRING([--with-clock-gettime-realtime-id=CLOCKID],
+               [specify clock id to use with clock_gettime() for realtime time)]))
+
+AC_ARG_WITH(clock-gettime-monotonic-id,
+AS_HELP_STRING([--with-clock-gettime-monotonic-id=CLOCKID],
+               [specify clock id to use with clock_gettime() for monotonic time)]))
+
+case "$with_clock_resolution" in
+   ""|no|yes)
+     with_clock_resolution=default;;
+   high|low|default)
+     ;;
+   *)
+     AC_MSG_ERROR([Invalid wanted clock resolution: $with_clock_resolution])
+     ;;
+esac
+
+case "$with_clock_gettime_realtime_id" in
+   ""|no)
+     with_clock_gettime_realtime_id=no
+     ;;
+   CLOCK_*CPUTIME*)
+     AC_MSG_ERROR([Invalid clock_gettime() realtime clock id: Refusing to use the cputime clock id $with_clock_gettime_realtime_id as realtime clock id])
+     ;;
+   CLOCK_MONOTONIC*|CLOCK_BOOTTIME*|CLOCK_UPTIME*|CLOCK_HIGHRES*)
+     AC_MSG_ERROR([Invalid clock_gettime() realtime clock id: Refusing to use the monotonic clock id $with_clock_gettime_realtime_id as realtime clock id])
+     ;;
+   CLOCK_*)
+     ;;
+   *)
+     AC_MSG_ERROR([Invalid clock_gettime() clock id: $with_clock_gettime_realtime_id])
+     ;;
+esac
+
+case "$with_clock_gettime_monotonic_id" in
+   ""|no)
+     with_clock_gettime_monotonic_id=no
+     ;;
+   CLOCK_*CPUTIME*)
+     AC_MSG_ERROR([Invalid clock_gettime() monotonic clock id: Refusing to use the cputime clock id $with_clock_gettime_monotonic_id as monotonic clock id])
+     ;;
+   CLOCK_REALTIME*|CLOCK_TAI*)
+     AC_MSG_ERROR([Invalid clock_gettime() monotonic clock id: Refusing to use the realtime clock id $with_clock_gettime_monotonic_id as monotonic clock id])
+     ;;
+   CLOCK_*)
+     ;;
+   *)
+     AC_MSG_ERROR([Invalid clock_gettime() clock id: $with_clock_gettime_monotonic_id])
+     ;;
+esac
+
+case "$with_clock_resolution-$with_clock_gettime_realtime_id" in
+  high-no)
+	ERL_WALL_CLOCK(high_resolution);;
+  low-no)
+	ERL_WALL_CLOCK(low_resolution);;
+  default-no)
+	ERL_WALL_CLOCK(default_resolution);;
+  *)
+	ERL_WALL_CLOCK(custom_resolution, $with_clock_gettime_realtime_id);;
+esac
+
+case "$erl_wall_clock_func-$erl_wall_clock_id-$with_clock_gettime_realtime_id" in
+  *-*-no)
+    ;;
+  clock_gettime-$with_clock_gettime_realtime_id-$with_clock_gettime_realtime_id)
+    ;;
+  *)
+    AC_MSG_ERROR([$with_clock_gettime_realtime_id as clock id to clock_gettime() doesn't compile])
+    ;;
+esac
 
 case $erl_wall_clock_func in
   mach_clock_get_time)
@@ -2162,7 +2295,26 @@ if test "x$erl_wall_clock_id" != "x"; then
     AC_DEFINE_UNQUOTED(WALL_CLOCK_ID, [$erl_wall_clock_id], [Define to wall clock id to use])
 fi
 
-ERL_MONOTONIC_CLOCK
+case "$with_clock_resolution-$with_clock_gettime_monotonic_id" in
+  high-no)
+	ERL_MONOTONIC_CLOCK(high_resolution);;
+  low-no)
+	ERL_MONOTONIC_CLOCK(low_resolution);;
+  default-no)
+	ERL_MONOTONIC_CLOCK(default_resolution);;
+  *)
+	ERL_MONOTONIC_CLOCK(custom_resolution, $with_clock_gettime_monotonic_id);;
+esac
+
+case "$erl_monotonic_clock_func-$erl_monotonic_clock_id-$with_clock_gettime_monotonic_id" in
+  *-*-no)
+    ;;
+  clock_gettime-$with_clock_gettime_monotonic_id-$with_clock_gettime_monotonic_id)
+    ;;
+  *)
+    AC_MSG_ERROR([$with_clock_gettime_monotonic_id as clock id to clock_gettime() doesn't compile])
+    ;;
+esac
 
 case $erl_monotonic_clock_func in
   times)
@@ -2181,11 +2333,53 @@ case $erl_monotonic_clock_func in
     ;;
 esac
 
+if test $erl_corrected_monotonic_clock = yes; then
+  AC_DEFINE(ERTS_HAVE_CORRECTED_OS_MONOTONIC_TIME, [1], [Define if OS monotonic clock is corrected])
+fi
+
+if test $erl_monotonic_clock_low_resolution = yes; then
+  AC_DEFINE(ERTS_HAVE_LOW_RESOLUTION_OS_MONOTONIC_LOW, [1], [Define if you have a low resolution OS monotonic clock])
+fi
+
 xrtlib="$erl_monotonic_clock_lib"
 if test "x$erl_monotonic_clock_id" != "x"; then
     AC_DEFINE_UNQUOTED(MONOTONIC_CLOCK_ID_STR, ["$erl_monotonic_clock_id"], [Define as a string of monotonic clock id to use])
     AC_DEFINE_UNQUOTED(MONOTONIC_CLOCK_ID, [$erl_monotonic_clock_id], [Define to monotonic clock id to use])
 fi
+
+if test $erl_cv_clock_gettime_monotonic_raw = yes; then
+  AC_DEFINE(HAVE_CLOCK_GETTIME_MONOTONIC_RAW, [1], [Define if you have clock_gettime(CLOCK_MONOTONIC_RAW, _)])
+fi
+
+ERL_MONOTONIC_CLOCK(high_resolution)
+
+case $$erl_monotonic_clock_low_resolution-$erl_monotonic_clock_func in
+  no-mach_clock_get_time)
+    monotonic_hrtime=yes    
+    AC_DEFINE(SYS_HRTIME_USING_MACH_CLOCK_GET_TIME, [1], [Define if you want to implement erts_os_hrtime() using mach clock_get_time()])
+    ;;
+  no-clock_gettime)
+    monotonic_hrtime=yes
+    AC_DEFINE(SYS_HRTIME_USING_CLOCK_GETTIME, [1], [Define if you want to implement erts_os_hrtime() using clock_gettime()])
+    ;;
+  no-gethrtime)
+    monotonic_hrtime=yes
+    AC_DEFINE(SYS_HRTIME_USING_GETHRTIME,  [1], [Define if you want to implement erts_os_hrtime() using gethrtime()])
+    ;;
+  *)
+    monotonic_hrtime=no
+    ;;
+esac
+
+if test $monotonic_hrtime = yes; then
+    AC_DEFINE(HAVE_MONOTONIC_ERTS_SYS_HRTIME, [1], [Define if you have a monotonic erts_os_hrtime() implementation])
+fi
+
+if test "x$erl_monotonic_clock_id" != "x"; then
+    AC_DEFINE_UNQUOTED(HRTIME_CLOCK_ID_STR, ["$erl_monotonic_clock_id"], [Define as a string of monotonic clock id to use])
+    AC_DEFINE_UNQUOTED(HRTIME_CLOCK_ID, [$erl_monotonic_clock_id], [Define to monotonic clock id to use])
+fi
+
 
 dnl
 dnl Check if gethrvtime is working, and if to use procfs ioctl

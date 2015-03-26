@@ -133,6 +133,7 @@ struct time_sup_read_only__ {
     ErtsTimeWarpMode warp_mode;
 #ifdef ERTS_HAVE_OS_MONOTONIC_TIME_SUPPORT
     ErtsMonotonicTime moffset;
+    int os_corrected_monotonic_time;
     int os_monotonic_time_disable;
     char *os_monotonic_time_func;
     char *os_monotonic_time_clock_id;
@@ -159,12 +160,16 @@ struct time_sup_read_only__ {
 	ErtsMonotonicTime large_diff;
 	ErtsMonotonicTime small_diff;
     } adj;
+    struct {
+	ErtsMonotonicTime error;
+	ErtsMonotonicTime resolution;
+	int intervals;
+	int use_avg;
+    } drift_adj;
 };
 
 typedef struct {
-#ifndef ERTS_HAVE_CORRECTED_OS_MONOTONIC
     ErtsMonotonicTime drift; /* Correction for os monotonic drift */
-#endif
     ErtsMonotonicTime error; /* Correction for error between system times */
 } ErtsMonotonicCorrection;
 
@@ -174,7 +179,7 @@ typedef struct {
     ErtsMonotonicCorrection correction;
 } ErtsMonotonicCorrectionInstance;
 
-#define ERTS_DRIFT_INTERVALS 5
+#define ERTS_MAX_DRIFT_INTERVALS 50
 typedef struct {
     struct {
 	struct {
@@ -185,7 +190,7 @@ typedef struct {
 	    ErtsMonotonicTime sys;
 	    ErtsMonotonicTime mon;
 	} time;
-    } intervals[ERTS_DRIFT_INTERVALS];
+    } intervals[ERTS_MAX_DRIFT_INTERVALS];
     struct {
 	ErtsMonotonicTime sys;
 	ErtsMonotonicTime mon;
@@ -197,9 +202,7 @@ typedef struct {
 typedef struct {
     ErtsMonotonicCorrectionInstance prev;
     ErtsMonotonicCorrectionInstance curr;    
-#ifndef ERTS_HAVE_CORRECTED_OS_MONOTONIC
     ErtsMonotonicDriftData drift;
-#endif
     ErtsMonotonicTime last_check;
     int short_check_interval;
 } ErtsMonotonicCorrectionData;
@@ -213,10 +216,11 @@ struct time_sup_infrequently_changed__ {
     } parmon;
     ErtsMonotonicTime minit;
 #endif
-    int finalized_offset;
     ErtsSystemTime sinit;
     ErtsMonotonicTime not_corrected_moffset;
-    erts_atomic64_t offset;
+    erts_smp_atomic64_t offset;
+    ErtsMonotonicTime shadow_offset;
+    erts_smp_atomic32_t preliminary_offset;
 };
 
 struct time_sup_frequently_changed__ {
@@ -254,19 +258,19 @@ erts_get_approx_time(void)
 static ERTS_INLINE void
 init_time_offset(ErtsMonotonicTime offset)
 {
-    erts_atomic64_init_nob(&time_sup.inf.c.offset, (erts_aint64_t) offset);
+    erts_smp_atomic64_init_nob(&time_sup.inf.c.offset, (erts_aint64_t) offset);
 }
 
 static ERTS_INLINE void
 set_time_offset(ErtsMonotonicTime offset)
 {
-    erts_atomic64_set_relb(&time_sup.inf.c.offset, (erts_aint64_t) offset);
+    erts_smp_atomic64_set_relb(&time_sup.inf.c.offset, (erts_aint64_t) offset);
 }
 
 static ERTS_INLINE ErtsMonotonicTime
 get_time_offset(void)
 {
-    return (ErtsMonotonicTime) erts_atomic64_read_acqb(&time_sup.inf.c.offset);
+    return (ErtsMonotonicTime) erts_smp_atomic64_read_acqb(&time_sup.inf.c.offset);
 }
 
 
@@ -290,16 +294,38 @@ get_time_offset(void)
 #define ERTS_TIME_DRIFT_MAX_ADJ_DIFF ERTS_USEC_TO_MONOTONIC(50)
 #define ERTS_TIME_DRIFT_MIN_ADJ_DIFF ERTS_USEC_TO_MONOTONIC(5)
 
+/*
+ * Maximum drift of the OS monotonic clock expected.
+ *
+ * We use 1 milli second per second. If the monotonic
+ * clock drifts more than this we will fail to adjust for
+ * drift, and error correction will kick in instead.
+ * If it is larger than this, one could argue that the
+ * primitive is to poor to be used...
+ */
+#define ERTS_MAX_MONOTONIC_DRIFT ERTS_MSEC_TO_MONOTONIC(1)
+
+/*
+ * We assume that precision is 32 times worse than the
+ * resolution. This is a wild guess, but there are no
+ * practical way to determine actual precision.
+ */
+#define ERTS_ASSUMED_PRECISION_DROP 32
+
+#define ERTS_MIN_MONOTONIC_DRIFT_MEASUREMENT \
+    (ERTS_SHORT_TIME_CORRECTION_CHECK - 2*ERTS_MAX_MONOTONIC_DRIFT)
+
+
 static ERTS_INLINE ErtsMonotonicTime
 calc_corrected_erl_mtime(ErtsMonotonicTime os_mtime,
 			 ErtsMonotonicCorrectionInstance *cip,
-			 ErtsMonotonicTime *os_mdiff_p)
+			 ErtsMonotonicTime *os_mdiff_p,
+			 int os_drift_corrected)
 {
     ErtsMonotonicTime erl_mtime, diff = os_mtime - cip->os_mtime;
     ERTS_TIME_ASSERT(diff >= 0);
-#ifndef ERTS_HAVE_CORRECTED_OS_MONOTONIC
-    diff += (cip->correction.drift*diff)/ERTS_MONOTONIC_TIME_UNIT;
-#endif
+    if (!os_drift_corrected)
+	diff += (cip->correction.drift*diff)/ERTS_MONOTONIC_TIME_UNIT;
     erl_mtime = cip->erl_mtime;
     erl_mtime += diff;
     erl_mtime += cip->correction.error*(diff/ERTS_TCORR_ERR_UNIT);
@@ -308,7 +334,8 @@ calc_corrected_erl_mtime(ErtsMonotonicTime os_mtime,
     return erl_mtime;
 }
 
-static ErtsMonotonicTime get_corrected_time(void)
+static ERTS_INLINE ErtsMonotonicTime
+read_corrected_time(int os_drift_corrected)
 {
     ErtsMonotonicTime os_mtime;
     ErtsMonotonicCorrectionData cdata;
@@ -331,7 +358,18 @@ static ErtsMonotonicTime get_corrected_time(void)
 	cip = &cdata.prev;
     }
 
-    return calc_corrected_erl_mtime(os_mtime, cip, NULL);
+    return calc_corrected_erl_mtime(os_mtime, cip, NULL,
+				    os_drift_corrected);
+}
+
+static ErtsMonotonicTime get_os_drift_corrected_time(void)
+{
+    return read_corrected_time(!0);
+}
+
+static ErtsMonotonicTime get_corrected_time(void)
+{
+    return read_corrected_time(0);
 }
 
 #ifdef ERTS_TIME_CORRECTION_PRINT
@@ -352,65 +390,41 @@ print_correction(int change,
 	usec_sdiff = ERTS_MONOTONIC_TO_USEC(sdiff);
 
     if (!change)
-	fprintf(stderr,
-		"sdiff = %lld usec : [ec=%lld ppm, dc=%lld ppb] : "
-		"tmo = %lld msec\r\n",
-		(long long) usec_sdiff,
-		(long long) (1000000*old_ecorr) / ERTS_TCORR_ERR_UNIT,
-		(long long) (1000000000*old_dcorr) / ERTS_MONOTONIC_TIME_UNIT,
-		(long long) tmo);
+	erts_fprintf(stderr,
+		     "sdiff = %b64d usec : [ec=%b64d ppm, dc=%b64d ppb] : "
+		     "tmo = %bpu msec\r\n",
+		     usec_sdiff,
+		     (1000000*old_ecorr) / ERTS_TCORR_ERR_UNIT,
+		     (1000000000*old_dcorr) / ERTS_MONOTONIC_TIME_UNIT,
+		     tmo);
     else
-	fprintf(stderr,
-		"sdiff = %lld usec : [ec=%lld ppm, dc=%lld ppb] "
-		"-> [ec=%lld ppm, dc=%lld ppb] : tmo = %lld msec\r\n",
-		(long long) usec_sdiff,
-		(long long) (1000000*old_ecorr) / ERTS_TCORR_ERR_UNIT,
-		(long long) (1000000000*old_dcorr) / ERTS_MONOTONIC_TIME_UNIT,
-		(long long) (1000000*new_ecorr) / ERTS_TCORR_ERR_UNIT,
-		(long long) (1000000000*new_dcorr) / ERTS_MONOTONIC_TIME_UNIT,
-		(long long) tmo);
-
+	erts_fprintf(stderr,
+		     "sdiff = %b64d usec : [ec=%b64d ppm, dc=%b64d ppb] "
+		     "-> [ec=%b64d ppm, dc=%b64d ppb] : tmo = %bpu msec\r\n",
+		     usec_sdiff,
+		     (1000000*old_ecorr) / ERTS_TCORR_ERR_UNIT,
+		     (1000000000*old_dcorr) / ERTS_MONOTONIC_TIME_UNIT,
+		     (1000000*new_ecorr) / ERTS_TCORR_ERR_UNIT,
+		     (1000000000*new_dcorr) / ERTS_MONOTONIC_TIME_UNIT,
+		     tmo);
 }
 
 #endif
 
 static void
-check_time_correction(void *unused)
+check_time_correction(void *idap)
 {
-#ifndef ERTS_TIME_CORRECTION_PRINT
-#  define ERTS_PRINT_CORRECTION
-#else
-#  ifdef ERTS_HAVE_CORRECTED_OS_MONOTONIC
-#    define ERTS_PRINT_CORRECTION		\
-    print_correction(set_new_correction,	\
-		     sdiff,			\
-		     cip->correction.error,	\
-		     0,				\
-		     new_correction.error,	\
-		     0,				\
-		     timeout)
-#  else
-#    define ERTS_PRINT_CORRECTION		\
-    print_correction(set_new_correction,	\
-		     sdiff,			\
-		     cip->correction.error,	\
-		     cip->correction.drift,	\
-		     new_correction.error,	\
-		     new_correction.drift,	\
-		     timeout)
-#  endif
-#endif
+    UWord init_drift_adj = (UWord) idap;
     ErtsMonotonicCorrectionData cdata;
     ErtsMonotonicCorrection new_correction;
     ErtsMonotonicCorrectionInstance *cip;
     ErtsMonotonicTime mdiff, sdiff, os_mtime, erl_mtime, os_stime,
 	erl_stime, time_offset;
     Uint timeout;
-    int set_new_correction, begin_short_intervals = 0;
+    int os_drift_corrected = time_sup.r.o.os_corrected_monotonic_time;
+    int set_new_correction = 0, begin_short_intervals = 0;
 
     erts_smp_rwmtx_rlock(&time_sup.inf.c.parmon.rwmtx);
-
-    ASSERT(time_sup.inf.c.finalized_offset);
 
     erts_os_times(&os_mtime, &os_stime);
 
@@ -423,14 +437,23 @@ check_time_correction(void *unused)
 		 "OS monotonic time stepped backwards\n");
     cip = &cdata.curr;
 
-    erl_mtime = calc_corrected_erl_mtime(os_mtime, cip, &mdiff);
+    erl_mtime = calc_corrected_erl_mtime(os_mtime, cip, &mdiff,
+					 os_drift_corrected);
     time_offset = get_time_offset();
     erl_stime = erl_mtime + time_offset;
 
     sdiff = erl_stime - os_stime;
 
+    if (time_sup.inf.c.shadow_offset) {
+	ERTS_TIME_ASSERT(time_sup.r.o.warp_mode == ERTS_SINGLE_TIME_WARP_MODE);
+	if (erts_smp_atomic32_read_nob(&time_sup.inf.c.preliminary_offset))
+	    sdiff += time_sup.inf.c.shadow_offset;
+	else
+	    time_sup.inf.c.shadow_offset = 0;
+    }
+
     new_correction = cip->correction;
-    
+
     if (time_sup.r.o.warp_mode == ERTS_MULTI_TIME_WARP_MODE
 	&& (sdiff < -2*time_sup.r.o.adj.small_diff
 	    || 2*time_sup.r.o.adj.small_diff < sdiff)) {
@@ -440,9 +463,24 @@ check_time_correction(void *unused)
 	set_time_offset(time_offset);
 	schedule_send_time_offset_changed_notifications(time_offset);
 	begin_short_intervals = 1;
-	if (cdata.curr.correction.error == 0)
-	    set_new_correction = 0;
-	else {
+	if (cdata.curr.correction.error != 0) {
+	    set_new_correction = 1;
+	    new_correction.error = 0;
+	}
+    }
+    else if ((time_sup.r.o.warp_mode == ERTS_SINGLE_TIME_WARP_MODE
+	      && erts_smp_atomic32_read_nob(&time_sup.inf.c.preliminary_offset))
+	     && (sdiff < -2*time_sup.r.o.adj.small_diff
+		 || 2*time_sup.r.o.adj.small_diff < sdiff)) {
+	/*
+	 * System time diff exeeded limits; change shadow offset
+	 * and let OS system time leap away from Erlang system
+	 * time.
+	 */
+	time_sup.inf.c.shadow_offset -= sdiff;
+	sdiff = 0;
+	begin_short_intervals = 1;
+	if (cdata.curr.correction.error != 0) {
 	    set_new_correction = 1;
 	    new_correction.error = 0;
 	}
@@ -462,16 +500,11 @@ check_time_correction(void *unused)
 	    else
 		new_correction.error = -ERTS_TCORR_ERR_SMALL_ADJ;
 	}
-	else {
-	    set_new_correction = 0;
-	}
     }
     else if (cdata.curr.correction.error > 0) {
 	if (sdiff < 0) {
-	    if (cdata.curr.correction.error == ERTS_TCORR_ERR_LARGE_ADJ
-		|| -time_sup.r.o.adj.large_diff <= sdiff)
-		set_new_correction = 0;
-	    else {
+	    if (cdata.curr.correction.error != ERTS_TCORR_ERR_LARGE_ADJ
+		&& sdiff < -time_sup.r.o.adj.large_diff) {
 		new_correction.error = ERTS_TCORR_ERR_LARGE_ADJ;
 		set_new_correction = 1;
 	    }
@@ -490,14 +523,11 @@ check_time_correction(void *unused)
     }
     else /* if (cdata.curr.correction.error < 0) */ { 
 	if (0 < sdiff) {
-	    if (cdata.curr.correction.error == -ERTS_TCORR_ERR_LARGE_ADJ
-		|| sdiff <= time_sup.r.o.adj.large_diff)
-		set_new_correction = 0;
-	    else {
+	    if (cdata.curr.correction.error != -ERTS_TCORR_ERR_LARGE_ADJ
+		&& time_sup.r.o.adj.large_diff < sdiff) {
 		new_correction.error = -ERTS_TCORR_ERR_LARGE_ADJ;
 		set_new_correction = 1;
 	    }
-	    set_new_correction = 0;
 	}
 	else if (sdiff < -time_sup.r.o.adj.small_diff) {
 	    set_new_correction = 1;
@@ -512,8 +542,7 @@ check_time_correction(void *unused)
 	}
     }
 
-#ifndef ERTS_HAVE_CORRECTED_OS_MONOTONIC
-    {
+    if (!os_drift_corrected) {
 	ErtsMonotonicDriftData *ddp = &time_sup.inf.c.parmon.cdata.drift;
 	int ix = ddp->ix;
 	ErtsMonotonicTime mtime_diff, old_os_mtime;
@@ -521,25 +550,26 @@ check_time_correction(void *unused)
 	old_os_mtime = ddp->intervals[ix].time.mon;
 	mtime_diff = os_mtime - old_os_mtime;
 
-	if (mtime_diff >= ERTS_SEC_TO_MONOTONIC(10)) {
+	if ((mtime_diff >= ERTS_MIN_MONOTONIC_DRIFT_MEASUREMENT)
+	    | init_drift_adj) {
 	    ErtsMonotonicTime drift_adj, drift_adj_diff, old_os_stime,
-		stime_diff, mtime_acc, stime_acc, avg_drift_adj;
+		smtime_diff, stime_diff, mtime_acc, stime_acc,
+		avg_drift_adj, max_drift;
 
 	    old_os_stime = ddp->intervals[ix].time.sys;
 
 	    mtime_acc = ddp->acc.mon;
 	    stime_acc = ddp->acc.sys;
 
-	    avg_drift_adj = (((stime_acc - mtime_acc)*ERTS_MONOTONIC_TIME_UNIT)
+	    avg_drift_adj = (((stime_acc - mtime_acc)
+			      * ERTS_MONOTONIC_TIME_UNIT)
 			     / mtime_acc);
 
 	    mtime_diff = os_mtime - old_os_mtime;
 	    stime_diff = os_stime - old_os_stime;
-	    drift_adj = (((stime_diff - mtime_diff)*ERTS_MONOTONIC_TIME_UNIT)
-			 / mtime_diff);
-	    
+	    smtime_diff = stime_diff - mtime_diff;
 	    ix++;
-	    if (ix >= ERTS_DRIFT_INTERVALS)
+	    if (ix >= time_sup.r.o.drift_adj.intervals)
 		ix = 0;
 	    mtime_acc -= ddp->intervals[ix].diff.mon;
 	    mtime_acc += mtime_diff;
@@ -555,24 +585,50 @@ check_time_correction(void *unused)
 	    ddp->acc.mon = mtime_acc;
 	    ddp->acc.sys = stime_acc;
 
-	    drift_adj_diff = avg_drift_adj - drift_adj;
-	    if (drift_adj_diff < -ERTS_TIME_DRIFT_MAX_ADJ_DIFF
-		|| ERTS_TIME_DRIFT_MAX_ADJ_DIFF < drift_adj_diff) {
-		ddp->dirty_counter = ERTS_DRIFT_INTERVALS;
+	    max_drift = ERTS_MAX_MONOTONIC_DRIFT;
+	    max_drift *= ERTS_MONOTONIC_TO_SEC(mtime_diff);
+
+	    if (smtime_diff > time_sup.r.o.drift_adj.error + max_drift
+		|| smtime_diff < -1*time_sup.r.o.drift_adj.error - max_drift) {
+	    dirty_intervals:
+		/*
+		 * We had a leap in system time. Mark array as
+		 * dirty to ensure that dirty values are rotated
+		 * out before we use it again...
+		 */
+		ddp->dirty_counter = time_sup.r.o.drift_adj.intervals;
 		begin_short_intervals = 1;
 	    }
-	    else {
-		if (ddp->dirty_counter <= 0) {
-		    drift_adj = ((stime_acc - mtime_acc)
-				 *ERTS_MONOTONIC_TIME_UNIT) / mtime_acc;
+	    else if (ddp->dirty_counter > 0) {
+		if (init_drift_adj) {
+		    new_correction.drift = ((smtime_diff
+					     * ERTS_MONOTONIC_TIME_UNIT)
+					    / mtime_diff);
+		    set_new_correction = 1;
 		}
-		if (ddp->dirty_counter >= 0) {
-		    if (ddp->dirty_counter == 0) {
-			/* Force set new drift correction... */
-			set_new_correction = 1;
-		    }
+		ddp->dirty_counter--;
+	    }
+	    else {
+		if (ddp->dirty_counter == 0) {
+		    /* Force set new drift correction... */
+		    set_new_correction = 1;
 		    ddp->dirty_counter--;
 		}
+
+		if (time_sup.r.o.drift_adj.use_avg)
+		    drift_adj = (((stime_acc - mtime_acc)
+				  * ERTS_MONOTONIC_TIME_UNIT)
+				 / mtime_acc);
+		else
+		    drift_adj = ((smtime_diff
+				  * ERTS_MONOTONIC_TIME_UNIT)
+				 / mtime_diff);
+
+		drift_adj_diff = avg_drift_adj - drift_adj;
+		if (drift_adj_diff < -ERTS_TIME_DRIFT_MAX_ADJ_DIFF
+		    || ERTS_TIME_DRIFT_MAX_ADJ_DIFF < drift_adj_diff)
+		    goto dirty_intervals;
+
 		drift_adj_diff = drift_adj - new_correction.drift;
 		if (drift_adj_diff) {
 		    if (drift_adj_diff > ERTS_TIME_DRIFT_MAX_ADJ_DIFF)
@@ -580,7 +636,6 @@ check_time_correction(void *unused)
 		    else if (drift_adj_diff < -ERTS_TIME_DRIFT_MAX_ADJ_DIFF)
 			drift_adj_diff = -ERTS_TIME_DRIFT_MAX_ADJ_DIFF;
 		    new_correction.drift += drift_adj_diff;
-
 		    if (drift_adj_diff < -ERTS_TIME_DRIFT_MIN_ADJ_DIFF
 			|| ERTS_TIME_DRIFT_MIN_ADJ_DIFF < drift_adj_diff) {
 			set_new_correction = 1;
@@ -589,7 +644,6 @@ check_time_correction(void *unused)
 	    }
 	}
     }
-#endif
 
     begin_short_intervals |= set_new_correction;
     
@@ -608,25 +662,34 @@ check_time_correction(void *unused)
 	timeout = ERTS_MONOTONIC_TO_MSEC(ERTS_LONG_TIME_CORRECTION_CHECK);
     else {
 	ErtsMonotonicTime ecorr = new_correction.error;
-	if (sdiff < 0)
-	    sdiff = -1*sdiff;
+	ErtsMonotonicTime abs_sdiff;
+	abs_sdiff = (sdiff < 0) ? -1*sdiff : sdiff;
 	if (ecorr < 0)
 	    ecorr = -1*ecorr;
-	if (sdiff > ecorr*(ERTS_LONG_TIME_CORRECTION_CHECK/ERTS_TCORR_ERR_UNIT))
+	if (abs_sdiff > ecorr*(ERTS_LONG_TIME_CORRECTION_CHECK/ERTS_TCORR_ERR_UNIT))
 	    timeout = ERTS_MONOTONIC_TO_MSEC(ERTS_LONG_TIME_CORRECTION_CHECK);
 	else {
-	    timeout = ERTS_MONOTONIC_TO_MSEC((ERTS_TCORR_ERR_UNIT*sdiff)/ecorr);
+	    timeout = ERTS_MONOTONIC_TO_MSEC((ERTS_TCORR_ERR_UNIT*abs_sdiff)/ecorr);
 	    if (timeout < 10)
 		timeout = 10;
 	}
     }
 
     if (timeout > ERTS_MONOTONIC_TO_MSEC(ERTS_SHORT_TIME_CORRECTION_CHECK)
-	&& time_sup.inf.c.parmon.cdata.short_check_interval) {
+	&& (time_sup.inf.c.parmon.cdata.short_check_interval
+	    || time_sup.inf.c.parmon.cdata.drift.dirty_counter >= 0)) {
 	timeout = ERTS_MONOTONIC_TO_MSEC(ERTS_SHORT_TIME_CORRECTION_CHECK);
     }
 
-    ERTS_PRINT_CORRECTION;
+#ifdef ERTS_TIME_CORRECTION_PRINT
+    print_correction(set_new_correction,
+		     sdiff,
+		     cip->correction.error,
+		     cip->correction.drift,
+		     new_correction.error,
+		     new_correction.drift,
+		     timeout);
+#endif
 
     if (set_new_correction) {
 	erts_smp_rwmtx_rwlock(&time_sup.inf.c.parmon.rwmtx);
@@ -638,16 +701,17 @@ check_time_correction(void *unused)
 
 	/*
 	 * Current correction instance begin when
-	 * OS monotonic time has increased one unit.
+	 * OS monotonic time has increased two units.
 	 */
-	os_mtime++;
+	os_mtime += 2;
 
 	/*
 	 * Erlang monotonic time corresponding to
 	 * next OS monotonic time using previous
 	 * correction.
 	 */
-	erl_mtime = calc_corrected_erl_mtime(os_mtime, cip, NULL);
+	erl_mtime = calc_corrected_erl_mtime(os_mtime, cip, NULL,
+					     os_drift_corrected);
 
 	/*
 	 * Save new current correction instance.
@@ -664,18 +728,60 @@ check_time_correction(void *unused)
 		   NULL,
 		   NULL,
 		   timeout);
-
-#undef ERTS_PRINT_CORRECTION
 }
 
-#ifndef ERTS_HAVE_CORRECTED_OS_MONOTONIC
+static ErtsMonotonicTime get_os_corrected_time(void)
+{
+    ASSERT(time_sup.r.o.warp_mode == ERTS_MULTI_TIME_WARP_MODE);
+    return erts_os_monotonic_time() + time_sup.r.o.moffset;
+}
 
 static void
-init_check_time_correction(void *unused)
+check_time_offset(void *unused)
+{
+    ErtsMonotonicTime sdiff, os_mtime, erl_mtime, os_stime,
+	erl_stime, time_offset;
+
+    ASSERT(time_sup.r.o.warp_mode == ERTS_MULTI_TIME_WARP_MODE);
+
+    erts_os_times(&os_mtime, &os_stime);
+
+    erl_mtime =  os_mtime + time_sup.r.o.moffset;
+    time_offset = get_time_offset();
+    erl_stime = erl_mtime + time_offset;
+
+    sdiff = erl_stime - os_stime;
+
+    if ((sdiff < -2*time_sup.r.o.adj.small_diff
+	 || 2*time_sup.r.o.adj.small_diff < sdiff)) {
+	/* System time diff exeeded limits; change time offset... */
+#ifdef ERTS_TIME_CORRECTION_PRINT
+	erts_fprintf(stderr, "sdiff = %b64d nsec -> 0 nsec\n",
+		     ERTS_MONOTONIC_TO_NSEC(sdiff));
+#endif
+	time_offset -= sdiff;
+	sdiff = 0;
+	set_time_offset(time_offset);
+	schedule_send_time_offset_changed_notifications(time_offset);
+    }
+#ifdef ERTS_TIME_CORRECTION_PRINT
+    else erts_fprintf(stderr, "sdiff = %b64d nsec\n",
+		      ERTS_MONOTONIC_TO_NSEC(sdiff));
+#endif
+
+    erts_set_timer(&time_sup.inf.c.parmon.timer,
+		   check_time_offset,
+		   NULL,
+		   NULL,
+		   ERTS_MONOTONIC_TO_MSEC(ERTS_LONG_TIME_CORRECTION_CHECK));
+}
+
+static void
+init_check_time_correction(void *quick_init_drift)
 {
     ErtsMonotonicDriftData *ddp;
     ErtsMonotonicTime old_mtime, old_stime, mtime, stime, mtime_diff,
-	stime_diff;
+	stime_diff, smtime_diff, max_drift;
     int ix;
 
     ddp = &time_sup.inf.c.parmon.cdata.drift;
@@ -687,7 +793,13 @@ init_check_time_correction(void *unused)
 
     mtime_diff = mtime - old_mtime;
     stime_diff = stime - old_stime;
-    if (100*stime_diff  < 80*mtime_diff || 120*mtime_diff < 100*stime_diff ) {
+    smtime_diff = stime_diff - mtime_diff;
+
+    max_drift = ERTS_MAX_MONOTONIC_DRIFT;
+    max_drift *= ERTS_MONOTONIC_TO_SEC(mtime_diff);
+
+    if (smtime_diff > time_sup.r.o.drift_adj.error + max_drift
+	|| smtime_diff < -1*time_sup.r.o.drift_adj.error - max_drift) {
 	/* Had a system time leap... pretend no drift... */
 	stime_diff = mtime_diff;
     }
@@ -697,22 +809,20 @@ init_check_time_correction(void *unused)
      * a drift adjustment, and repeat this interval
      * in all slots...
      */
-    for (ix = 0; ix < ERTS_DRIFT_INTERVALS; ix++) {
+    for (ix = 0; ix < time_sup.r.o.drift_adj.intervals; ix++) {
 	ddp->intervals[ix].diff.mon = mtime_diff;
 	ddp->intervals[ix].diff.sys = stime_diff;
 	ddp->intervals[ix].time.mon = old_mtime;
 	ddp->intervals[ix].time.sys = old_stime;
     }
 
-    ddp->acc.sys = stime_diff*ERTS_DRIFT_INTERVALS;
-    ddp->acc.mon = mtime_diff*ERTS_DRIFT_INTERVALS;
+    ddp->acc.sys = stime_diff*time_sup.r.o.drift_adj.intervals;
+    ddp->acc.mon = mtime_diff*time_sup.r.o.drift_adj.intervals;
     ddp->ix = 0;
-    ddp->dirty_counter = ERTS_DRIFT_INTERVALS;
+    ddp->dirty_counter = time_sup.r.o.drift_adj.intervals;
 
-    check_time_correction(NULL);
+    check_time_correction(quick_init_drift);
 }
-
-#endif
 
 static ErtsMonotonicTime
 finalize_corrected_time_offset(ErtsSystemTime *stimep)
@@ -720,6 +830,7 @@ finalize_corrected_time_offset(ErtsSystemTime *stimep)
     ErtsMonotonicTime os_mtime;
     ErtsMonotonicCorrectionData cdata;
     ErtsMonotonicCorrectionInstance *cip;
+    int os_drift_corrected = time_sup.r.o.os_corrected_monotonic_time;
 
     erts_smp_rwmtx_rlock(&time_sup.inf.c.parmon.rwmtx);
 
@@ -734,25 +845,38 @@ finalize_corrected_time_offset(ErtsSystemTime *stimep)
 		 "OS monotonic time stepped backwards\n");
     cip = &cdata.curr;
 
-    return calc_corrected_erl_mtime(os_mtime, cip, NULL);
+    return calc_corrected_erl_mtime(os_mtime, cip, NULL,
+				    os_drift_corrected);
 }
 
 static void
 late_init_time_correction(void)
 {
-    if (time_sup.inf.c.finalized_offset) {
+    Uint timeout;
+    Uint quick_init_drift_adj;
+    void (*check_func)(void *);
 
-	erts_init_timer(&time_sup.inf.c.parmon.timer);
-	erts_set_timer(&time_sup.inf.c.parmon.timer,
-#ifndef ERTS_HAVE_CORRECTED_OS_MONOTONIC
-		       init_check_time_correction,
-#else
-		       check_time_correction,
-#endif
-		       NULL,
-		       NULL,
-		       ERTS_MONOTONIC_TO_MSEC(ERTS_SHORT_TIME_CORRECTION_CHECK));
-    }
+    quick_init_drift_adj =
+	(Uint) ERTS_MONOTONIC_TO_USEC(time_sup.r.o.drift_adj.error) == 0;
+
+    if (quick_init_drift_adj)
+	timeout = ERTS_MONOTONIC_TO_MSEC(ERTS_SHORT_TIME_CORRECTION_CHECK/10);
+    else
+	timeout = ERTS_MONOTONIC_TO_MSEC(ERTS_SHORT_TIME_CORRECTION_CHECK);
+
+    if (!time_sup.r.o.os_corrected_monotonic_time)
+	check_func = init_check_time_correction;
+    else if (time_sup.r.o.get_time == get_os_corrected_time)
+	check_func = check_time_offset;
+    else
+	check_func = check_time_correction;
+
+    erts_init_timer(&time_sup.inf.c.parmon.timer);
+    erts_set_timer(&time_sup.inf.c.parmon.timer,
+		   check_func,
+		   NULL,
+		   (void *) quick_init_drift_adj,
+		   timeout);
 }
 
 #endif /* ERTS_HAVE_OS_MONOTONIC_TIME_SUPPORT */
@@ -832,6 +956,8 @@ void erts_init_sys_time_sup(void)
 #ifdef ERTS_HAVE_OS_MONOTONIC_TIME_SUPPORT
     time_sup.r.o.os_monotonic_time_disable
 	= !sys_init_time_res.have_os_monotonic_time;
+    time_sup.r.o.os_corrected_monotonic_time =
+	sys_init_time_res.have_corrected_os_monotonic_time;
     time_sup.r.o.os_monotonic_time_func
 	= sys_init_time_res.os_monotonic_time_info.func;
     time_sup.r.o.os_monotonic_time_clock_id
@@ -856,7 +982,7 @@ void erts_init_sys_time_sup(void)
 int 
 erts_init_time_sup(int time_correction, ErtsTimeWarpMode time_warp_mode)
 {
-    ErtsMonotonicTime resolution;
+    ErtsMonotonicTime resolution, ilength, intervals, short_isecs;
 #if !ERTS_COMPILE_TIME_MONOTONIC_TIME_UNIT
     ErtsMonotonicTime abs_native_offset, native_offset;
 #endif
@@ -870,9 +996,10 @@ erts_init_time_sup(int time_correction, ErtsTimeWarpMode time_warp_mode)
     time_sup.r.o.warp_mode = time_warp_mode;
  
     if (time_warp_mode == ERTS_SINGLE_TIME_WARP_MODE)
-	time_sup.inf.c.finalized_offset = 0;
+	erts_smp_atomic32_init_nob(&time_sup.inf.c.preliminary_offset, 1);
     else
-	time_sup.inf.c.finalized_offset = ~0;
+	erts_smp_atomic32_init_nob(&time_sup.inf.c.preliminary_offset, 0);
+    time_sup.inf.c.shadow_offset = 0;
 
 #if !ERTS_COMPILE_TIME_MONOTONIC_TIME_UNIT
 
@@ -882,7 +1009,7 @@ erts_init_time_sup(int time_correction, ErtsTimeWarpMode time_warp_mode)
     time_sup.r.o.start *= ERTS_MONOTONIC_TIME_UNIT;
     time_sup.r.o.start += ERTS_MONOTONIC_TIME_UNIT;
     native_offset = time_sup.r.o.start - ERTS_MONOTONIC_TIME_UNIT;
-    native_offset = native_offset;
+    abs_native_offset = native_offset;
 #else /* ARCH_64 */
     if (ERTS_MONOTONIC_TIME_UNIT <= 10*1000*1000) {
 	time_sup.r.o.start = 0;
@@ -938,17 +1065,66 @@ erts_init_time_sup(int time_correction, ErtsTimeWarpMode time_warp_mode)
 	time_sup.r.o.adj.large_diff = ERTS_USEC_TO_MONOTONIC(500);
     time_sup.r.o.adj.small_diff = time_sup.r.o.adj.large_diff/10;
 
+    time_sup.r.o.drift_adj.resolution = resolution;
+
+    if (time_sup.r.o.os_corrected_monotonic_time) {
+	time_sup.r.o.drift_adj.use_avg = 0;
+	time_sup.r.o.drift_adj.intervals = 0;
+	time_sup.r.o.drift_adj.error = 0;
+	time_sup.inf.c.parmon.cdata.drift.dirty_counter = -1;
+    }
+    else {
+	/*
+	 * Calculate length of the interval in seconds needed
+	 * in order to get an error that is at most 1 micro second.
+	 * If this interval is longer than the short time correction
+	 * check interval we use the average of all values instead
+	 * of the latest value.
+	 */
+	short_isecs = ERTS_MONOTONIC_TO_SEC(ERTS_SHORT_TIME_CORRECTION_CHECK);
+	ilength = ERTS_ASSUMED_PRECISION_DROP * ERTS_MONOTONIC_TIME_UNIT;
+	ilength /= (resolution * ERTS_USEC_TO_MONOTONIC(1));
+	time_sup.r.o.drift_adj.use_avg = ilength > short_isecs;
+
+	if (ilength == 0)
+	    intervals = 5;
+	else {
+	    intervals = ilength / short_isecs;
+	    if (intervals > ERTS_MAX_DRIFT_INTERVALS)
+		intervals = ERTS_MAX_DRIFT_INTERVALS;
+	    else if (intervals < 5)
+		intervals = 5;
+	}
+	time_sup.r.o.drift_adj.intervals = (int) intervals;
+
+	/*
+	 * drift_adj.error equals maximum assumed error
+	 * over a short time interval. We use this value also
+	 * when examining a large interval. In this case the
+	 * error will be smaller, but we do not want to
+	 * recalculate this over and over again.
+	 */
+
+	time_sup.r.o.drift_adj.error = ERTS_MONOTONIC_TIME_UNIT;
+	time_sup.r.o.drift_adj.error *= ERTS_ASSUMED_PRECISION_DROP;
+	time_sup.r.o.drift_adj.error /= resolution * short_isecs;
+    }
 #ifdef ERTS_TIME_CORRECTION_PRINT
-    fprintf(stderr, "start         = %lld\n\r", (long long) ERTS_MONOTONIC_TIME_START);
-    fprintf(stderr, "native offset = %lld\n\r", (long long) ERTS_MONOTONIC_OFFSET_NATIVE);
-    fprintf(stderr, "nsec offset   = %lld\n\r", (long long) ERTS_MONOTONIC_OFFSET_NSEC);
-    fprintf(stderr, "usec offset   = %lld\n\r", (long long) ERTS_MONOTONIC_OFFSET_USEC);
-    fprintf(stderr, "msec offset   = %lld\n\r", (long long) ERTS_MONOTONIC_OFFSET_MSEC);
-    fprintf(stderr, "sec offset    = %lld\n\r", (long long) ERTS_MONOTONIC_OFFSET_SEC);
-    fprintf(stderr, "large diff    = %lld usec\r\n",
-	    (long long) ERTS_MONOTONIC_TO_USEC(time_sup.r.o.adj.large_diff));
-    fprintf(stderr, "small diff    = %lld usec\r\n",
-	    (long long) ERTS_MONOTONIC_TO_USEC(time_sup.r.o.adj.small_diff));
+    erts_fprintf(stderr, "resolution           = %b64d\n", resolution);
+    erts_fprintf(stderr, "adj large diff       = %b64d usec\n",
+		 ERTS_MONOTONIC_TO_USEC(time_sup.r.o.adj.large_diff));
+    erts_fprintf(stderr, "adj small diff       = %b64d usec\n",
+		 ERTS_MONOTONIC_TO_USEC(time_sup.r.o.adj.small_diff));
+    if (!time_sup.r.o.os_corrected_monotonic_time) {
+	erts_fprintf(stderr, "drift intervals      = %d\n",
+		     time_sup.r.o.drift_adj.intervals);
+	erts_fprintf(stderr, "drift adj error      = %b64d usec\n",
+		     ERTS_MONOTONIC_TO_USEC(time_sup.r.o.drift_adj.error));
+	erts_fprintf(stderr, "drift adj max diff   = %b64d nsec\n",
+		     ERTS_MONOTONIC_TO_NSEC(ERTS_TIME_DRIFT_MAX_ADJ_DIFF));
+	erts_fprintf(stderr, "drift adj min diff   = %b64d nsec\n",
+		     ERTS_MONOTONIC_TO_NSEC(ERTS_TIME_DRIFT_MIN_ADJ_DIFF));
+    }
 #endif
 
     if (ERTS_MONOTONIC_TIME_UNIT < ERTS_CLKTCK_RESOLUTION)
@@ -967,6 +1143,7 @@ erts_init_time_sup(int time_correction, ErtsTimeWarpMode time_warp_mode)
 	erts_os_times(&time_sup.inf.c.minit,
 		      &time_sup.inf.c.sinit);
 	time_sup.r.o.moffset = -1*time_sup.inf.c.minit;
+	time_sup.r.o.moffset += ERTS_MONOTONIC_TIME_UNIT;
 	offset = time_sup.inf.c.sinit;
 	offset -= ERTS_MONOTONIC_TIME_UNIT;
 	init_time_offset(offset);
@@ -979,11 +1156,9 @@ erts_init_time_sup(int time_correction, ErtsTimeWarpMode time_warp_mode)
 
 	cdatap = &time_sup.inf.c.parmon.cdata;
     
-#ifndef ERTS_HAVE_CORRECTED_OS_MONOTONIC
 	cdatap->drift.intervals[0].time.sys = time_sup.inf.c.sinit;
 	cdatap->drift.intervals[0].time.mon = time_sup.inf.c.minit;
 	cdatap->curr.correction.drift = 0;
-#endif
 	cdatap->curr.correction.error = 0;
 	cdatap->curr.erl_mtime = ERTS_MONOTONIC_TIME_UNIT;
 	cdatap->curr.os_mtime = time_sup.inf.c.minit;
@@ -991,7 +1166,12 @@ erts_init_time_sup(int time_correction, ErtsTimeWarpMode time_warp_mode)
 	cdatap->short_check_interval = ERTS_INIT_SHORT_INTERVAL_COUNTER;
 	cdatap->prev = cdatap->curr;
 
-	time_sup.r.o.get_time = get_corrected_time;
+	if (!time_sup.r.o.os_corrected_monotonic_time)
+	    time_sup.r.o.get_time = get_corrected_time;
+	else if (time_sup.r.o.warp_mode == ERTS_MULTI_TIME_WARP_MODE)
+	    time_sup.r.o.get_time = get_os_corrected_time;
+	else
+	    time_sup.r.o.get_time = get_os_drift_corrected_time;
     }
     else
 #endif
@@ -1020,8 +1200,8 @@ void
 erts_late_init_time_sup(void)
 {
 #ifdef ERTS_HAVE_OS_MONOTONIC_TIME_SUPPORT
-    /* Timer wheel must be initialized */
-    if (time_sup.r.o.get_time == get_corrected_time)
+    /* Timer wheel must have beeen initialized */
+    if (time_sup.r.o.get_time != get_not_corrected_time)
 	late_init_time_correction();
 #endif
     erts_late_sys_init_time();
@@ -1038,9 +1218,9 @@ ErtsTimeOffsetState erts_time_offset_state(void)
     case ERTS_NO_TIME_WARP_MODE:
 	return ERTS_TIME_OFFSET_FINAL;
     case ERTS_SINGLE_TIME_WARP_MODE:
-	if (time_sup.inf.c.finalized_offset)
-	    return ERTS_TIME_OFFSET_FINAL;
-	return ERTS_TIME_OFFSET_PRELIMINARY;
+	if (erts_smp_atomic32_read_nob(&time_sup.inf.c.preliminary_offset))
+	    return ERTS_TIME_OFFSET_PRELIMINARY;
+	return ERTS_TIME_OFFSET_FINAL;
     case ERTS_MULTI_TIME_WARP_MODE:
 	return ERTS_TIME_OFFSET_VOLATILE;
     default:
@@ -1073,7 +1253,7 @@ erts_finalize_time_offset(void)
 
 	erts_smp_mtx_lock(&erts_get_time_mtx);
 
-	if (!time_sup.inf.c.finalized_offset) {
+	if (erts_smp_atomic32_read_nob(&time_sup.inf.c.preliminary_offset)) {
 	    ErtsMonotonicTime mtime, new_offset;
 
 #ifdef ERTS_HAVE_OS_MONOTONIC_TIME_SUPPORT
@@ -1110,18 +1290,11 @@ erts_finalize_time_offset(void)
 	    set_time_offset(new_offset);
 	    schedule_send_time_offset_changed_notifications(new_offset);
 
-	    time_sup.inf.c.finalized_offset = ~0;
+	    erts_smp_atomic32_set_nob(&time_sup.inf.c.preliminary_offset, 0);
 	    res = ERTS_TIME_OFFSET_PRELIMINARY;
 	}
 
 	erts_smp_mtx_unlock(&erts_get_time_mtx);
-
-#ifdef ERTS_HAVE_OS_MONOTONIC_TIME_SUPPORT
-	if (res == ERTS_TIME_OFFSET_PRELIMINARY
-	    && time_sup.r.o.get_time == get_corrected_time) {
-	    late_init_time_correction();
-	}
-#endif
 
 	return res;
     }

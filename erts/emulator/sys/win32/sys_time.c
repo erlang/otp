@@ -28,6 +28,9 @@
 #include "erl_os_monotonic_time_extender.h"
 #include "erl_time.h"
 
+/* Need to look more closely at qpc before use... */
+#define ERTS_DISABLE_USE_OF_QPC_FOR_MONOTONIC_TIME 1
+
 #define LL_LITERAL(X) ERTS_I64_LITERAL(X)
 
 /******************* Routines for time measurement *********************/
@@ -362,10 +365,11 @@ sys_init_time(ErtsSysInitTimeResult *init_resp)
 	    if (!internal_state.r.o.pQueryPerformanceCounter)
 		goto get_tick_count64;
 
-	    if (pf.QuadPart < (((LONGLONG) 1) << 32)) {
-		internal_state.r.o.pcf = (Uint32) pf.QuadPart;
-		sys_hrtime_func = sys_hrtime_qpc;
-	    }
+	    if (pf.QuadPart > (((LONGLONG) 1) << 32))
+		goto get_tick_count64;
+
+	    internal_state.r.o.pcf = (Uint32) pf.QuadPart;
+	    sys_hrtime_func = sys_hrtime_qpc;
 	    
 	    /*
 	     * We only use QueryPerformanceCounter() for
@@ -375,6 +379,9 @@ sys_init_time(ErtsSysInitTimeResult *init_resp)
 	     * order between values retrieved on different threads.
 	     */
 	    if (pf.QuadPart < (LONGLONG) 1000*1000*1000)
+		goto get_tick_count64;
+
+	    if (ERTS_DISABLE_USE_OF_QPC_FOR_MONOTONIC_TIME)
 		goto get_tick_count64;
 
 	    init_resp->os_monotonic_time_info.func = "QueryPerformanceCounter";
@@ -391,6 +398,7 @@ sys_init_time(ErtsSysInitTimeResult *init_resp)
     erts_sys_time_data__.r.o.os_times = os_times_func;
     init_resp->os_monotonic_time_unit = time_unit;
     init_resp->have_os_monotonic_time = 1;
+    init_resp->have_corrected_os_monotonic_time = 0;
     init_resp->sys_clock_resolution = 1;
 
     init_resp->os_system_time_info.func = "GetSystemTime";    
