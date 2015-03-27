@@ -78,7 +78,11 @@
          service_name :: diameter:service_name(),
          apps         :: [#diameter_app{}],
          sequence     :: diameter:sequence(),
-         codec        :: list()}).
+         codec        :: [{string_decode, boolean()}
+                          | {incoming_maxlen, diameter:message_length()}]}).
+%% Note that incoming_maxlen is currently handled in diameter_peer_fsm,
+%% so that any message exceeding the maximum is discarded. Retain the
+%% option in case we want to extend the values and semantics.
 
 %% Record stored in diameter_request for each outgoing request.
 -record(request,
@@ -102,7 +106,9 @@ make_recvdata([SvcName, PeerT, Apps, SvcOpts | _]) ->
               peerT = PeerT,
               apps = Apps,
               sequence = Mask,
-              codec = [T || {K,_} = T <- SvcOpts, K == string_decode]}.
+              codec = [T || {K,_} = T <- SvcOpts,
+                            lists:member(K, [string_decode,
+                                             incoming_maxlen])]}.
 
 %% ---------------------------------------------------------------------------
 %% peer_up/1
@@ -233,6 +239,8 @@ receive_message(TPid, Pkt, Dict0, RecvData)
          Dict0,
          RecvData).
 
+%% recv/6
+
 %% Incoming request ...
 recv(true, false, TPid, Pkt, Dict0, T) ->
     spawn_request(TPid, Pkt, Dict0, T);
@@ -240,6 +248,7 @@ recv(true, false, TPid, Pkt, Dict0, T) ->
 %% ... answer to known request ...
 recv(false, #request{ref = Ref, handler = Pid} = Req, _, Pkt, Dict0, _) ->
     Pid ! {answer, Ref, Req, Dict0, Pkt};
+
 %% Note that failover could have happened prior to this message being
 %% received and triggering failback. That is, both a failover message
 %% and answer may be on their way to the handler process. In the worst
@@ -1693,6 +1702,8 @@ send({TPid, Pkt, #request{handler = Pid} = Req0, SvcName, Timeout, TRef}) ->
     end.
 
 %% recv/4
+%%
+%% Relay an answer from a remote node.
 
 recv(TPid, Pid, TRef, Ref) ->        
     receive

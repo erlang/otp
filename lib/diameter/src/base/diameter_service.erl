@@ -131,7 +131,8 @@
              | {share_peers, diameter:remotes()}       %% broadcast to
              | {use_shared_peers, diameter:remotes()}  %% use from
              | {restrict_connections, diameter:restriction()}
-             | {string_decode, boolean()}]}).
+             | {string_decode, boolean()}
+             | {incoming_maxlen, diameter:message_length()}]}).
 %% shared_peers reflects the peers broadcast from remote nodes.
 
 %% Record representing an RFC 3539 watchdog process implemented by
@@ -698,7 +699,8 @@ service_options(Opts) ->
                                                 Opts,
                                                 ?RESTRICT)},
      {spawn_opt, proplists:get_value(spawn_opt, Opts, [])},
-     {string_decode, proplists:get_value(string_decode, Opts, true)}].
+     {string_decode, proplists:get_value(string_decode, Opts, true)},
+     {incoming_maxlen, proplists:get_value(incoming_maxlen, Opts, 16#FFFFFF)}].
 %% The order of options is significant since we match against the list.
 
 mref(false = No) ->

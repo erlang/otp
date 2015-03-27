@@ -529,7 +529,7 @@ answer record and passed to a &app_handle_request;
 callback upon reception of an incoming request.</p>
 
 <p>
-In cases in which there is a choice between list() and binary() types
+In cases in which there is a choice between string() and binary() types
 for OctetString() and derived types, the representation is determined
 by the value of &mod_string_decode;.</p>
 

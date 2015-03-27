@@ -85,6 +85,12 @@
          {string_decode,
           [[true], [false]],
           [[0], [x]]},
+         {incoming_maxlen,
+          [[0], [65536], [16#FFFFFF]],
+          [[-1], [1 bsl 24], [infinity], [false]]},
+         {spawn_opt,
+          [[[]], [[monitor, link]]],
+          [[false]]},
          {invalid_option,  %% invalid service options are rejected
           [],
           [[x],
@@ -186,6 +192,9 @@
          {private,
           [[x]],
           []},
+         {spawn_opt,
+          [[[]], [[monitor, link]]],
+          [[false]]},
          {invalid_option,  %% invalid transport options are silently ignored
           [[x],
            [x,x]],

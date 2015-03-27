@@ -59,6 +59,7 @@
          send_unexpected_mandatory_decode/1,
          send_unexpected_mandatory/1,
          send_long/1,
+         send_maxlen/1,
          send_nopeer/1,
          send_noapp/1,
          send_discard/1,
@@ -182,6 +183,7 @@
          {'Acct-Application-Id', [?DIAMETER_APP_ID_ACCOUNTING]},
          {restrict_connections, false},
          {string_decode, Decode},
+         {incoming_maxlen, 1 bsl 21},
          {spawn_opt, [{min_heap_size, 5000}]}
          | [{application, [{dictionary, D},
                            {module, ?MODULE},
@@ -317,6 +319,7 @@ tc() ->
      send_unexpected_mandatory_decode,
      send_unexpected_mandatory,
      send_long,
+     send_maxlen,
      send_nopeer,
      send_noapp,
      send_discard,
@@ -634,6 +637,12 @@ send_long(Config) ->
                   {'User-Name', [lists:duplicate(1 bsl 20, $X)]}],
     ['STA', _SessionId, {'Result-Code', ?SUCCESS} | _]
         = call(Config, Req).
+
+%% Send something longer than the configure incoming_maxlen.
+send_maxlen(Config) ->
+    Req = ['STR', {'Termination-Cause', ?LOGOUT},
+                  {'User-Name', [lists:duplicate(1 bsl 21, $X)]}],
+    {timeout, _} = call(Config, Req).
 
 %% Send something for which pick_peer finds no suitable peer.
 send_nopeer(Config) ->
