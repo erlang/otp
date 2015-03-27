@@ -163,6 +163,10 @@ define(NBIF_ARG,`ifelse(eval($3 >= NR_ARG_REGS),0,`NBIF_REG_ARG($1,$3)',`NBIF_ST
 `/* #define NBIF_ARG_3_0	'NBIF_ARG(r1,3,0)` */'
 `/* #define NBIF_ARG_3_1	'NBIF_ARG(r2,3,1)` */'
 `/* #define NBIF_ARG_3_2	'NBIF_ARG(r3,3,2)` */'
+`/* #define NBIF_ARG_4_0	'NBIF_ARG(r1,4,0)` */'
+`/* #define NBIF_ARG_4_1	'NBIF_ARG(r2,4,1)` */'
+`/* #define NBIF_ARG_4_2	'NBIF_ARG(r3,4,2)` */'
+`/* #define NBIF_ARG_4_3	'NBIF_ARG(r4,4,3)` */'
 `/* #define NBIF_ARG_5_0	'NBIF_ARG(r1,5,0)` */'
 `/* #define NBIF_ARG_5_1	'NBIF_ARG(r2,5,1)` */'
 `/* #define NBIF_ARG_5_2	'NBIF_ARG(r3,5,2)` */'
@@ -186,6 +190,7 @@ define(NBIF_RET,`NBIF_RET_N(eval(RET_POP($1)))')dnl
 `/* #define NBIF_RET_1	'NBIF_RET(1)` */'
 `/* #define NBIF_RET_2	'NBIF_RET(2)` */'
 `/* #define NBIF_RET_3	'NBIF_RET(3)` */'
+`/* #define NBIF_RET_4	'NBIF_RET(4)` */'
 `/* #define NBIF_RET_5	'NBIF_RET(5)` */'
 
 dnl
