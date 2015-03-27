@@ -604,10 +604,12 @@ erl_drv_thread_create(char *name,
     ethr_thr_opts ethr_opts = ETHR_THR_OPTS_DEFAULT_INITER;
     ethr_thr_opts *use_opts;
 
-    if (!opts)
+    if (!opts && !name)
 	use_opts = NULL;
     else {
-	ethr_opts.suggested_stack_size = opts->suggested_stack_size;
+	if(opts)
+	    ethr_opts.suggested_stack_size = opts->suggested_stack_size;
+
         ethr_opts.name = name;
 	use_opts = &ethr_opts;
     }
