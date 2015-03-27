@@ -103,7 +103,7 @@ init([]) ->
 handle_call({listen, Name}, _From, State) ->
     case gen_tcp:listen(0, [{active, false}, {packet,?PPRE}]) of
        {ok, Socket} ->
-           {ok, World} = do_listen([{active, false}, binary, {packet,?PPRE}]),
+           {ok, World} = do_listen([{active, false}, binary, {packet,?PPRE}, {reuseaddr, true}]),
            {ok, TcpAddress} = get_tcp_address(Socket),
            {ok, WorldTcpAddress} = get_tcp_address(World),
            {_,Port} = WorldTcpAddress#net_address.address,
