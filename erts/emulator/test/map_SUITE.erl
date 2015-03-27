@@ -64,6 +64,7 @@
 	%% misc
 	t_hashmap_balance/1,
         t_erts_internal_order/1,
+        t_erts_internal_hash/1,
 	t_pdict/1,
 	t_ets/1,
 	t_dets/1,
@@ -115,6 +116,7 @@ all() -> [
         %% Other functions
 	t_hashmap_balance,
         t_erts_internal_order,
+        t_erts_internal_hash,
 	t_pdict,
 	t_ets,
 	t_tracing
@@ -1547,6 +1549,18 @@ t_erts_internal_order(_Config) when is_list(_Config) ->
     M1 = maps:merge(M0, #{0 => 1}),
     8  = maps:size(M1),
     1  = maps:get(0,M1),
+    ok.
+
+t_erts_internal_hash(_Config) when is_list(_Config) ->
+    K1 = 0.0,
+    K2 = 0.0/-1,
+
+    M1 = (maps:from_list([{I,I}||I<-lists:seq(1,32)]))#{ K1 => a, K2 => b },
+    b  = maps:get(K2,M1),
+
+    M2 = (maps:from_list([{I,I}||I<-lists:seq(1,32)]))#{ K2 => a, K1 => b },
+    b  = maps:get(K1,M2),
+
     ok.
 
 t_pdict(_Config) ->
