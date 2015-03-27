@@ -3541,12 +3541,9 @@ verify_rescheduling_exit(Config, ForEachData, Flags, Fix, NOTabs, NOProcs) ->
 	fun () ->
 		repeat(
 		  fun () ->
-			  {A, B, C} = now(),
-			  ?line Name = list_to_atom(
-					 TestCase
-					 ++ "-" ++ integer_to_list(A)
-					 ++ "-" ++ integer_to_list(B)
-					 ++ "-" ++ integer_to_list(C)),
+			  Uniq = erlang:unique_integer([positive]),
+			  Name = list_to_atom(TestCase ++ "-" ++
+						  integer_to_list(Uniq)),
 			  Tab = ets_new(Name, Flags),
                           ForEachData(fun(Data) -> ets:insert(Tab, Data) end),
 			  case Fix of
