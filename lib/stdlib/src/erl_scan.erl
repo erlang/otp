@@ -60,9 +60,9 @@
 
 -deprecated([{attributes_info, 1, next_major_release},
              {attributes_info, 2, next_major_release},
-             {set_attribute, 3, next_major_release},
-             {token_info, 1, next_major_release},
-             {token_info, 2, next_major_release}]).
+             {set_attribute, 3, next_major_release}]).
+%%              {token_info, 1, next_major_release},
+%%              {token_info, 2, next_major_release}]).
 
 %%% Private
 -export([continuation_location/1]).

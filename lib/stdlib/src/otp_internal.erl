@@ -606,14 +606,14 @@ obsolete_1(erl_scan, attributes_info, 2) ->
     {deprecated,
      "deprecated (will be removed in OTP 19); use "
      "erl_anno:{column,line,location,text}/1 instead"};
-obsolete_1(erl_scan, token_info, 1) ->
-    {deprecated,
-     "deprecated (will be removed in OTP 19); use "
-     "erl_scan:{category,column,line,location,symbol,text}/1 instead"};
-obsolete_1(erl_scan, token_info, 2) ->
-    {deprecated,
-     "deprecated (will be removed in OTP 19); use "
-     "erl_scan:{category,column,line,location,symbol,text}/1 instead"};
+%% obsolete_1(erl_scan, token_info, 1) ->
+%%     {deprecated,
+%%      "deprecated (will be removed in OTP 19); use "
+%%      "erl_scan:{category,column,line,location,symbol,text}/1 instead"};
+%% obsolete_1(erl_scan, token_info, 2) ->
+%%     {deprecated,
+%%      "deprecated (will be removed in OTP 19); use "
+%%      "erl_scan:{category,column,line,location,symbol,text}/1 instead"};
 obsolete_1(erl_parse, set_line, 2) ->
     {deprecated,
      "deprecated (will be removed in OTP 19); use erl_anno:set_line/2 instead"};
