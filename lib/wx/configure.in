@@ -441,19 +441,26 @@ else
     else
 	CWXWIN_PROG=`cygpath -d "$PROGRAMFILES" | cygpath -f - 2>/dev/null`
     fi
-    CWXWIN3=$CWXWIN_PROG/wxWidgets-?.*.*
-    CWXWIN4=$CWXWIN_PROG/wxMSW-?.*.*
-    CWX_DOCUMENTED="/opt/local/pgm/wxMSW-?.*.* /opt/local/pgm/wxWidgets-?.*.*"
+
+    CWXWIN3="$CWXWIN_PROG/wxWidgets-3.*.* $CWXWIN_PROG/wxWidgets-2.*.*"
+    CWXWIN4="$CWXWIN_PROG/wxMSW-3.*.* $CWXWIN_PROG/wxMSW-2.*.*"
+
+    DOC_OPT=/opt/local/pgm
+    CWX_DOCUMENTED="$DOC_OPT/wxWidgets-2.*.* $DOC_OPT/wxMSW-2.*.*"
+    CWX_DOCUMENTED="$DOC_OPT/wxWidgets-3.*.* $DOC_OPT/wxMSW-3.*.* $CWX_DOCUMENTED"
+
     case $ac_cv_sizeof_void_p in
     	 8)
-		CWX_DOCUMENTED="/opt/local64/pgm/wxMSW-?.*.* /opt/local64/pgm/wxWidgets-?.*.* $CWX_DOCUMENTED"
+		DOC_OPT64=/opt/local64/pgm
+		CWX_DOCUMENTED="$DOC_OPT64/wxWidgets-2.*.* $DOC_OPT64/wxMSW-2.*.* $CWX_DOCUMENTED"
+		CWX_DOCUMENTED="$DOC_OPT64/wxWidgets-3.*.* $DOC_OPT64/wxMSW-3.*.* $CWX_DOCUMENTED"
 		;;
          *)
 		true
 		;;
-    esac	
-			
-    CWXPATH="$CWXWIN0 $CWXWIN1 $CWXWIN2 $CWX_DOCUMENTED $CWXWIN3.* $CWXWIN4.*"
+    esac
+
+    CWXPATH="$CWXWIN0 $CWXWIN1 $CWXWIN2 $CWX_DOCUMENTED $CWXWIN3 $CWXWIN4"
 
     for dir in $CWXPATH; do
         AC_MSG_NOTICE(Checking: [$dir])
