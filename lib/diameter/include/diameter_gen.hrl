@@ -395,7 +395,7 @@ d(false, Reason, Name, Avp, {Avps, Acc}) ->
     diameter_lib:log(decode_error,
                      ?MODULE,
                      ?LINE,
-                     {Reason, Name, Avp#diameter_avp.name, Stack}),
+                     {Name, Avp#diameter_avp.name, Stack}),
     {Rec, Failed} = Acc,
     {[Avp|Avps], {Rec, [rc(Reason, Avp) | Failed]}}.
 

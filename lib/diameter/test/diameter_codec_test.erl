@@ -352,15 +352,19 @@ values('DiameterURI') ->
     {[],
      ["aaa" ++ S ++ "://diameter.se" ++ P ++ Tr ++ Pr
       || S  <- ["", "s"],
-         P  <- ["", ":1234"],
+         P  <- ["", ":1234", ":0", ":65535"],
          Tr <- ["" | [";transport=" ++ X
                       || X <- ["tcp", "sctp", "udp"]]],
          Pr <- ["" | [";protocol=" ++ X
                       || X <- ["diameter","radius","tacacs+"]]],
          Tr /= ";transport=udp"
-             orelse (Pr /= ";protocol=diameter" andalso Pr /= "")],
-     ["aaa://diameter.se;transport=udp;protocol=diameter",
+             orelse (Pr /= ";protocol=diameter" andalso Pr /= "")]
+     ++ ["aaa://" ++ lists:duplicate(255, $x)],
+     ["aaa://diameter.se:65536",
+      "aaa://diameter.se:-1",
+      "aaa://diameter.se;transport=udp;protocol=diameter",
       "aaa://diameter.se;transport=udp",
+      "aaa://" ++ lists:duplicate(256, $x),
       "aaa://:3868",
       "aaax://diameter.se",
       "aaa://diameter.se;transport=tcpx",

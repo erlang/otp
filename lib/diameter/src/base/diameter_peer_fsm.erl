@@ -125,7 +125,8 @@
                        %% outgoing DPR; boolean says whether or not
                        %% the request was sent explicitly with
                        %% diameter:call/4.
-         length_errors :: exit | handle | discard}).
+         length_errors :: exit | handle | discard,
+         incoming_maxlen :: integer() | infinity}).
 
 %% There are non-3588 states possible as a consequence of 5.6.1 of the
 %% standard and the corresponding problem for incoming CEA's: we don't
@@ -203,6 +204,7 @@ i({Ack, WPid, {M, Ref} = T, Opts, {SvcOpts, Nodes, Dict0, Svc}}) ->
     diameter_stats:reg(Ref),
     diameter_codec:setopts([{common_dictionary, Dict0} | SvcOpts]),
     {_,_} = Mask = proplists:get_value(sequence, SvcOpts),
+    Maxlen = proplists:get_value(incoming_maxlen, SvcOpts, 16#FFFFFF),
     {[Cs,Ds], Rest} = proplists:split(Opts, [capabilities_cb, disconnect_cb]),
     putr(?CB_KEY, {Ref, [F || {_,F} <- Cs]}),
     putr(?DPR_KEY, [F || {_, F} <- Ds]),
@@ -223,7 +225,8 @@ i({Ack, WPid, {M, Ref} = T, Opts, {SvcOpts, Nodes, Dict0, Svc}}) ->
            dictionary = Dict0,
            mode = M,
            service = svc(Svc, Addrs),
-           length_errors = OnLengthErr}.
+           length_errors = OnLengthErr,
+           incoming_maxlen = Maxlen}.
 %% The transport returns its local ip addresses so that different
 %% transports on the same service can use different local addresses.
 %% The local addresses are put into Host-IP-Address avps here when
@@ -326,10 +329,13 @@ handle_info(T, #state{} = State) ->
         {?MODULE, Tag, Reason}  ->
             ?LOG(stop, Tag),
             {stop, {shutdown, Reason}, State}
-    end.
+    end;
 %% The form of the throw caught here is historical. It's
 %% significant that it's not a 2-tuple, as in ?FAILURE(Reason),
 %% since these are caught elsewhere.
+
+handle_info(T, S) ->  %% started in old code
+    handle_info(T, #state{} = erlang:append_element(S, infinity)).
 
 %% Note that there's no guarantee that the service and transport
 %% capabilities are good enough to build a CER/CEA that can be
@@ -560,6 +566,12 @@ recv(Bin, S) ->
     recv(#diameter_packet{bin = Bin}, S).
 
 %% recv1/3
+
+recv1(_,
+      #diameter_packet{header = H, bin = Bin},
+      #state{incoming_maxlen = M})
+  when M < size(Bin) ->
+    invalid(false, incoming_maxlen_exceeded, {size(Bin), H});
 
 %% Incoming request after outgoing DPR: discard. Don't discard DPR, so
 %% both ends don't do so when sending simultaneously.
