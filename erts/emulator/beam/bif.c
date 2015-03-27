@@ -2930,7 +2930,7 @@ static int do_list_to_integer(Process *p, Eterm orig_list,
      Uint ui = 0;
      int skip = 0;
      int neg = 0;
-     int n = 0;
+     Sint n = 0;
      int m;
      int lg2;
      Eterm res;
@@ -3010,7 +3010,9 @@ static int do_list_to_integer(Process *p, Eterm orig_list,
          else i = (Sint)ui;
 	 res = make_small(i);
      } else {
-	 lg2 =  (n+1)*230/69+1;
+	 /* Convert from log10 to log2 by multiplying with 1/log10(2)=3.3219
+	    which we round up to (3 + 1/3) */
+	 lg2 = (n+1)*3 + (n+1)/3 + 1;
 	 m  = (lg2+D_EXP-1)/D_EXP; /* number of digits */
 	 m  = BIG_NEED_SIZE(m);    /* number of words + thing */
 
