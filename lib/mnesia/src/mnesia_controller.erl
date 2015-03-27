@@ -186,7 +186,7 @@ max_loaders() ->
 
 val(Var) ->
     case ?catch_val(Var) of
-	{'EXIT', Reason} -> mnesia_lib:other_val(Var, Reason);
+	{'EXIT', _} -> mnesia_lib:other_val(Var);
 	Value -> Value
     end.
 
@@ -241,9 +241,7 @@ do_wait_for_tables(Tabs, Timeout) ->
     end.
 
 reply_wait(Tabs) ->
-    case catch mnesia_lib:active_tables() of
-	{'EXIT', _} ->
-	    {error, {node_not_running, node()}};
+    try mnesia_lib:active_tables() of
 	Active when is_list(Active) ->
 	    case Tabs -- Active of
 		[] ->
@@ -251,6 +249,7 @@ reply_wait(Tabs) ->
 		BadTabs ->
 		    {timeout, BadTabs}
 	    end
+    catch exit:_ -> {error, {node_not_running, node()}}
     end.
 
 wait_for_tables_init(From, Tabs) ->
@@ -261,13 +260,12 @@ wait_for_tables_init(From, Tabs) ->
     exit(normal).
 
 wait_for_init(From, Tabs, Init) ->
-    case catch link(Init) of
-	{'EXIT', _} ->
-	    %% Mnesia is not started
-	    {error, {node_not_running, node()}};
+    try link(Init) of
 	true when is_pid(Init) ->
 	    cast({sync_tabs, Tabs, self()}),
 	    rec_tabs(Tabs, Tabs, From, Init)
+    catch error:_ -> %% Mnesia is not started
+	    {error, {node_not_running, node()}}
     end.
 
 sync_reply(Waiter, Tab) ->
@@ -343,7 +341,7 @@ get_network_copy(Tab, Cs) ->
     %% might be solved by using monitor in subscr instead.
     process_flag(trap_exit, true),
     Load = load_table_fun(Work),
-    Res = (catch Load()),
+    Res = ?CATCH(Load()),
     process_flag(trap_exit, false),
     call({del_other, self()}),
     case Res of
@@ -592,11 +590,8 @@ call(Msg) ->
     end.
 
 remote_call(Node, Func, Args) ->
-    case catch gen_server:call({?MODULE, Node}, {Func, Args, self()}, infinity) of
-	{'EXIT', Error} ->
-	    {error, Error};
-	Else ->
-	    Else
+    try gen_server:call({?MODULE, Node}, {Func, Args, self()}, infinity)
+    catch exit:Error -> {error, Error}
     end.
 
 multicall(Nodes, Msg) ->
@@ -677,7 +672,7 @@ handle_call(block_controller, From, State) ->
     noreply(State2);
 
 handle_call({update,Fun}, From, State) ->
-    Res = (catch Fun()),
+    Res = ?CATCH(Fun()),
     reply(From, Res),
     noreply(State);
 
@@ -1256,7 +1251,7 @@ handle_info(#sender_done{worker_pid=Pid, worker_res=Res}, State)  ->
     end;
 
 handle_info({'EXIT', Pid, R}, State) when Pid == State#state.supervisor ->
-    catch set(mnesia_status, stopping),
+    ?SAFE(set(mnesia_status, stopping)),
     case State#state.dumper_pid of
 	undefined ->
 	    dbg_out("~p was ~p~n", [?SERVER_NAME, R]),
@@ -1480,9 +1475,9 @@ orphan_tables([], _, _, LocalOrphans, RemoteMasters) ->
 
 node_has_tabs([Tab | Tabs], Node, State) when Node /= node() ->
     State2 =
-	case catch update_whereabouts(Tab, Node, State) of
-	    State1 = #state{} -> State1;
-	    {'EXIT', R} ->  %% Tab was just deleted?
+	try update_whereabouts(Tab, Node, State) of
+	    State1 = #state{} -> State1
+	catch exit:R -> %% Tab was just deleted?
 		case ?catch_val({Tab, cstruct}) of
 		    {'EXIT', _} -> State; % yes
 		    _ ->  erlang:error(R)
@@ -1768,22 +1763,17 @@ change_table_majority(Cs) ->
 
 update_where_to_wlock(Tab) ->
     WNodes = val({Tab, where_to_write}),
-    Majority = case catch val({Tab, majority}) of
-		   true -> true;
-		   _    -> false
-	       end,
+    Majority = ?catch_val({Tab, majority}) == true,
     set({Tab, where_to_wlock}, {WNodes, Majority}).
 
 %% node To now has tab loaded, but this must be undone
 %% This code is rpc:call'ed from the tab_copier process
 %% when it has *not* released it's table lock
 unannounce_add_table_copy(Tab, To) ->
-    catch del_active_replica(Tab, To),
-    case catch val({Tab , where_to_read}) of
-	To ->
-	    mnesia_lib:set_remote_where_to_read(Tab);
-	_ ->
-	    ignore
+    ?SAFE(del_active_replica(Tab, To)),
+    try To = val({Tab , where_to_read}),
+	 mnesia_lib:set_remote_where_to_read(Tab)
+    catch _:_ -> ignore
     end.
 
 user_sync_tab(Tab) ->
