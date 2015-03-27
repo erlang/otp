@@ -493,8 +493,11 @@ link_entry2(Panel,{Target,Str},Cursor) ->
     wxWindow:setToolTip(TC, ToolTip),
     TC.
 
-to_link(Tuple = {_Target, _Str}) ->
-    Tuple;
+to_link(RegName={Name, Node}) when is_atom(Name), is_atom(Node) ->
+    Str = io_lib:format("{~p,~p}", [Name, Node]),
+    {RegName, Str};
+to_link(TI = {_Target, _Identifier}) ->
+    TI;
 to_link(Target0) ->
     Target=to_str(Target0),
     {Target, Target}.
