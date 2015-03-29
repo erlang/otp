@@ -462,13 +462,10 @@ split_emu_clt([A|As], Emu, Misc, Extra, extra = Type) ->
     
 
 get_nodename(T) ->
-    {A, B, C} = now(),
     atom_to_list(T)
 	++ "-"
 	++ atom_to_list(?MODULE)
 	++ "-"
-	++ integer_to_list(A)
+	++ integer_to_list(erlang:system_time(seconds))
 	++ "-"
-	++ integer_to_list(B)
-	++ "-"
-	++ integer_to_list(C).
+	++ integer_to_list(erlang:unique_integer([positive])).
