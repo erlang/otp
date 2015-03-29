@@ -18,6 +18,7 @@
 %%
 
 -module(time_SUITE).
+-compile({nowarn_deprecated_function, {erlang,now,0}}).
 
 %% "Time is on my side." -- The Rolling Stones
 

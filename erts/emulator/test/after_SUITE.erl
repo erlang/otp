@@ -70,30 +70,23 @@ end_per_testcase(_Func, Config) ->
 t_after(Config) when is_list(Config) ->
     ?line spawn(fun frequent_process/0),
     ?line Period = test_server:minutes(1),
-    ?line Before = erlang:now(),
+    ?line Before = erlang:monotonic_time(),
     receive
 	after Period ->
-		?line After = erlang:now(),
+		?line After = erlang:monotonic_time(),
 		?line report(Period, Before, After)
 	end.
 
-
 report(Period, Before, After) ->
-    ?line Elapsed = (element(1, After)*1000000000
-		     +element(2, After)*1000
-		     +element(3, After) div 1000) -
-	(element(1,Before)*1000000000
-	 + element(2,Before)*1000 + element(3,Before) div 1000),
-    ?line case Elapsed*100 / Period of
-	      Percent when Percent > 100.10 ->
-		  ?line test_server:fail({too_inaccurate, Percent});
-	      Percent when Percent < 100.0 ->
-		  ?line test_server:fail({too_early, Percent});
-	      Percent ->
-		  ?line Comment = io_lib:format("Elapsed/expected: ~.2f %",
-						[Percent]),
-		  {comment, lists:flatten(Comment)}
-	  end.
+    case erlang:convert_time_unit(After - Before, native, 100*1000) / Period of
+	Percent when Percent > 100.10 ->
+	    test_server:fail({too_inaccurate, Percent});
+	Percent when Percent < 100.0 ->
+	    test_server:fail({too_early, Percent});
+	Percent ->
+	    Comment = io_lib:format("Elapsed/expected: ~.2f %", [Percent]),
+	    {comment, lists:flatten(Comment)}
+    end.
 
 frequent_process() ->
     receive

@@ -502,9 +502,10 @@ get_msg() ->
     end.
 
 start_slave() ->
-    ?line {A, B, C} = now(),
     ?line Pa = filename:dirname(code:which(?MODULE)),
-    ?line Name = atom_to_list(?MODULE) ++ "-" ++ integer_to_list(A+B+C),
+    ?line Name = atom_to_list(?MODULE)
+	++ "-" ++ integer_to_list(erlang:system_time(seconds))
+	++ "-" ++ integer_to_list(erlang:unique_integer([positive])),
     {ok, Node} = ?t:start_node(Name, slave, [{args, "-pa " ++ Pa}]),
     Node.
 

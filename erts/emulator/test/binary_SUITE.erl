@@ -520,7 +520,9 @@ external_size_1(Term, Size0, Limit) when Size0 < Limit ->
 external_size_1(_, _, _) -> ok.
 
 t_iolist_size(Config) when is_list(Config) ->
-    ?line Seed = now(),
+    ?line Seed = {erlang:monotonic_time(),
+		  erlang:time_offset(),
+		  erlang:unique_integer([positive])},
     ?line io:format("Seed: ~p", [Seed]),
     ?line random:seed(Seed),
     ?line Base = <<0:(1 bsl 20)/unit:8>>,
