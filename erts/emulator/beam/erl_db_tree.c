@@ -1116,7 +1116,7 @@ static int db_select_tree(Process *p, DbTable *tbl,
     sc.all_objects = mpi.all_objects;
 
     if (!mpi.got_partial && mpi.some_limitation && 
-	CMP(mpi.least,mpi.most) == 0) {
+	CMP_EQ(mpi.least,mpi.most)) {
 	doit_select(tb,mpi.save_term,&sc,0 /* direction doesn't matter */);
 	RET_TO_BIF(sc.accum,DB_ERROR_NONE);
     }
@@ -1324,7 +1324,7 @@ static int db_select_count_tree(Process *p, DbTable *tbl,
     sc.all_objects = mpi.all_objects;
 
     if (!mpi.got_partial && mpi.some_limitation && 
-	CMP(mpi.least,mpi.most) == 0) {
+	CMP_EQ(mpi.least,mpi.most)) {
 	doit_select_count(tb,mpi.save_term,&sc,0 /* dummy */);
 	RET_TO_BIF(erts_make_integer(sc.got,p),DB_ERROR_NONE);
     }
@@ -1429,7 +1429,7 @@ static int db_select_chunk_tree(Process *p, DbTable *tbl,
     sc.all_objects = mpi.all_objects;
 
     if (!mpi.got_partial && mpi.some_limitation && 
-	CMP(mpi.least,mpi.most) == 0) {
+	CMP_EQ(mpi.least,mpi.most)) {
 	doit_select(tb,mpi.save_term,&sc, 0 /* direction doesn't matter */);
 	if (sc.accum != NIL) {
 	    hp=HAlloc(p, 3);
@@ -1673,7 +1673,7 @@ static int db_select_delete_tree(Process *p, DbTable *tbl,
     sc.mp = mpi.mp;
 
     if (!mpi.got_partial && mpi.some_limitation && 
-	CMP(mpi.least,mpi.most) == 0) {
+	CMP_EQ(mpi.least,mpi.most)) {
 	doit_select_delete(tb,mpi.save_term,&sc, 0 /* direction doesn't 
 						      matter */);
 	RET_TO_BIF(erts_make_integer(sc.accum,p),DB_ERROR_NONE);
