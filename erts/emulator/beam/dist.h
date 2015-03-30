@@ -282,7 +282,7 @@ typedef struct TTBSizeContext_ {
     int level;
     Uint result;
     Eterm obj;
-    ErtsEStack estack;
+    ErtsWStack wstack;
 } TTBSizeContext;
 
 typedef struct TTBEncodeContext_ {
