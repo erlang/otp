@@ -422,8 +422,7 @@ return_to_localnode(Frame, Node) ->
     end.
 
 create_txt_dialog(Frame, Msg, Title, Style) ->
-    MD = wxMessageDialog:new(Frame, Msg, [{style, Style}]),
-    wxMessageDialog:setTitle(MD, Title),
+    MD = wxMessageDialog:new(Frame, Msg, [{style, Style}, {caption,Title}]),
     wxDialog:showModal(MD),
     wxDialog:destroy(MD).
 
