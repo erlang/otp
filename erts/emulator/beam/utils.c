@@ -1894,10 +1894,12 @@ make_internal_hash(Eterm term)
 	    {
 		FloatDef ff;
 		GET_DOUBLE(term, ff);
+                if (ff.fd == 0.0) {
+                    ff.fd = 0.0; /* ensure pos. 0.0 */
+                }
 		UINT32_HASH_2(ff.fw[0], ff.fw[1], HCONST_12);
 		goto pop_next;
 	    }
-
 	    default:
 		erl_exit(1, "Invalid tag in make_hash2(0x%X)\n", term);
 	    }
