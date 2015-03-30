@@ -28,8 +28,11 @@
 	t_update_map_expressions/1,
 	t_update_assoc/1, t_update_assoc_large/1,
         t_update_exact/1, t_update_exact_large/1,
-	t_guard_bifs/1, t_guard_sequence/1, t_guard_update/1,
-	t_guard_receive/1, t_guard_fun/1,
+	t_guard_bifs/1,
+        t_guard_sequence/1, t_guard_sequence_large/1,
+        t_guard_update/1, t_guard_update_large/1,
+	t_guard_receive/1, t_guard_receive_large/1,
+        t_guard_fun/1,
 	t_list_comprehension/1,
 	t_map_sort_literals/1,
 	t_map_size/1,
@@ -73,8 +76,11 @@ all() ->
 	t_update_map_expressions,
 	t_update_assoc, t_update_assoc_large,
         t_update_exact, t_update_exact_large,
-	t_guard_bifs, t_guard_sequence, t_guard_update,
-	t_guard_receive,t_guard_fun, t_list_comprehension,
+	t_guard_bifs,
+        t_guard_sequence, t_guard_sequence_large,
+        t_guard_update, t_guard_update_large,
+	t_guard_receive, t_guard_receive_large,
+        t_guard_fun, t_list_comprehension,
 	t_map_sort_literals,
 	t_map_size,
 	t_build_and_match_aliasing,
@@ -1153,6 +1159,75 @@ t_guard_sequence(Config) when is_list(Config) ->
 	{'EXIT',{function_clause,_}} = (catch map_guard_sequence_2(#{b=>5})),
 	ok.
 
+t_guard_sequence_large(Config) when is_list(Config) ->
+    M0 = id(#{ 10=>a0,20=>b0,30=>"c0","40"=>"d0",<<"50">>=>"e0",{["00",03]}=>"10",
+               11=>a1,21=>b1,31=>"c1","41"=>"d1",<<"51">>=>"e1",{["01",03]}=>"11",
+               12=>a2,22=>b2,32=>"c2","42"=>"d2",<<"52">>=>"e2",{["02",03]}=>"12",
+               13=>a3,23=>b3,33=>"c3","43"=>"d3",<<"53">>=>"e3",{["03",03]}=>"13",
+               14=>a4,24=>b4,34=>"c4","44"=>"d4",<<"54">>=>"e4",{["04",03]}=>"14",
+
+               15=>a5,25=>b5,35=>"c5","45"=>"d5",<<"55">>=>"e5",{["05",03]}=>"15",
+               16=>a6,26=>b6,36=>"c6","46"=>"d6",<<"56">>=>"e6",{["06",03]}=>"16",
+               17=>a7,27=>b7,37=>"c7","47"=>"d7",<<"57">>=>"e7",{["07",03]}=>"17",
+               18=>a8,28=>b8,38=>"c8","48"=>"d8",<<"58">>=>"e8",{["08",03]}=>"18",
+               19=>a9,29=>b9,39=>"c9","49"=>"d9",<<"59">>=>"e9",{["09",03]}=>"19",
+
+               10.0=>fa0,20.0=>fb0,30.0=>"fc0",
+               11.0=>fa1,21.0=>fb1,31.0=>"fc1",
+               12.0=>fa2,22.0=>fb2,32.0=>"fc2",
+               13.0=>fa3,23.0=>fb3,33.0=>"fc3",
+               14.0=>fa4,24.0=>fb4,34.0=>"fc4",
+
+               15.0=>fa5,25.0=>fb5,35.0=>"fc5",
+               16.0=>fa6,26.0=>fb6,36.0=>"fc6",
+               17.0=>fa7,27.0=>fb7,37.0=>"fc7",
+               18.0=>fa8,28.0=>fb8,38.0=>"fc8",
+               19.0=>fa9,29.0=>fb9,39.0=>"fc9",
+
+               #{ one => small, map => key } => "small map key 1",
+               #{ second => small, map => key } => "small map key 2",
+               #{ third => small, map => key } => "small map key 3",
+
+               #{ 10=>a0,20=>b0,30=>"c0","40"=>"d0",<<"50">>=>"e0",{["00"]}=>"10",
+                  11=>a1,21=>b1,31=>"c1","41"=>"d1",<<"51">>=>"e1",{["01"]}=>"11",
+                  12=>a2,22=>b2,32=>"c2","42"=>"d2",<<"52">>=>"e2",{["02"]}=>"12",
+                  13=>a3,23=>b3,33=>"c3","43"=>"d3",<<"53">>=>"e3",{["03"]}=>"13",
+                  14=>a4,24=>b4,34=>"c4","44"=>"d4",<<"54">>=>"e4",{["04"]}=>"14",
+
+                  15=>a5,25=>b5,35=>"c5","45"=>"d5",<<"55">>=>"e5",{["05"]}=>"15",
+                  16=>a6,26=>b6,36=>"c6","46"=>"d6",<<"56">>=>"e6",{["06"]}=>"16",
+                  17=>a7,27=>b7,37=>"c7","47"=>"d7",<<"57">>=>"e7",{["07"]}=>"17",
+                  18=>a8,28=>b8,38=>"c8","48"=>"d8",<<"58">>=>"e8",{["08"]}=>"18",
+                  19=>a9,29=>b9,39=>"c9","49"=>"d9",<<"59">>=>"e9",{["09"]}=>"19" } => "large map key 1",
+
+               #{ 10=>a0,20=>b0,30=>"c0","40"=>"d0",<<"50">>=>"e0",{["00"]}=>"10",
+                  11=>a1,21=>b1,31=>"c1","41"=>"d1",<<"51">>=>"e1",{["01"]}=>"11",
+                  12=>a2,22=>b2,32=>"c2","42"=>"d2",<<"52">>=>"e2",{["02"]}=>"12",
+                  13=>a3,23=>b3,33=>"c3","43"=>"d3",<<"53">>=>"e3",{["03"]}=>"13",
+                  14=>a4,24=>b4,34=>"c4","44"=>"d4",<<"54">>=>"e4",{["04"]}=>"14",
+
+                  15=>a5,25=>b5,35=>"c5","45"=>"d5",<<"55">>=>"e5",{["05"]}=>"15",
+                  k16=>a6,k26=>b6,k36=>"c6","46"=>"d6",<<"56">>=>"e6",{["06"]}=>"16",
+                  17=>a7,27=>b7,37=>"c7","47"=>"d7",<<"57">>=>"e7",{["07"]}=>"17",
+                  18=>a8,28=>b8,38=>"c8","48"=>"d8",<<"58">>=>"e8",{["08"]}=>"18",
+                  19=>a9,29=>b9,39=>"c9","49"=>"d9",<<"59">>=>"e9",{["09"]}=>"19" } => "large map key 2" }),
+
+	{1, "a"} = map_guard_sequence_1(M0#{seq=>1,val=>id("a")}),
+	{2, "b"} = map_guard_sequence_1(M0#{seq=>2,val=>id("b")}),
+	{3, "c"} = map_guard_sequence_1(M0#{seq=>3,val=>id("c")}),
+	{4, "d"} = map_guard_sequence_1(M0#{seq=>4,val=>id("d")}),
+	{5, "e"} = map_guard_sequence_1(M0#{seq=>5,val=>id("e")}),
+
+	{1,M1}       = map_guard_sequence_2(M1 = id(M0#{a=>3})),
+	{2,M2}       = map_guard_sequence_2(M2 = id(M0#{a=>4, b=>4})),
+	{3,gg,M3}    = map_guard_sequence_2(M3 = id(M0#{a=>gg, b=>4})),
+	{4,sc,sc,M4} = map_guard_sequence_2(M4 = id(M0#{a=>sc, b=>3, c=>sc2})),
+	{5,kk,kk,M5} = map_guard_sequence_2(M5 = id(M0#{a=>kk, b=>other, c=>sc2})),
+
+	{'EXIT',{function_clause,_}} = (catch map_guard_sequence_1(M0#{seq=>6,val=>id("e")})),
+	{'EXIT',{function_clause,_}} = (catch map_guard_sequence_2(M0#{b=>5})),
+        ok.
+
 map_guard_sequence_1(#{seq:=1=Seq, val:=Val}) -> {Seq,Val};
 map_guard_sequence_1(#{seq:=2=Seq, val:=Val}) -> {Seq,Val};
 map_guard_sequence_1(#{seq:=3=Seq, val:=Val}) -> {Seq,Val};
@@ -1171,6 +1246,65 @@ t_guard_update(Config) when is_list(Config) ->
     first  = map_guard_update(#{}, #{x=>first}),
     second = map_guard_update(#{y=>old}, #{x=>second,y=>old}),
     third  = map_guard_update(#{x=>old,y=>old}, #{x=>third,y=>old}),
+    ok.
+
+t_guard_update_large(Config) when is_list(Config) ->
+    M0 = id(#{ 70=>a0,80=>b0,90=>"c0","40"=>"d0",<<"50">>=>"e0",{["00",03]}=>"10",
+               71=>a1,81=>b1,91=>"c1","41"=>"d1",<<"51">>=>"e1",{["01",03]}=>"11",
+               72=>a2,82=>b2,92=>"c2","42"=>"d2",<<"52">>=>"e2",{["02",03]}=>"12",
+               73=>a3,83=>b3,93=>"c3","43"=>"d3",<<"53">>=>"e3",{["03",03]}=>"13",
+               74=>a4,84=>b4,94=>"c4","44"=>"d4",<<"54">>=>"e4",{["04",03]}=>"14",
+
+               75=>a5,85=>b5,95=>"c5","45"=>"d5",<<"55">>=>"e5",{["05",03]}=>"15",
+               76=>a6,86=>b6,96=>"c6","46"=>"d6",<<"56">>=>"e6",{["06",03]}=>"16",
+               77=>a7,87=>b7,97=>"c7","47"=>"d7",<<"57">>=>"e7",{["07",03]}=>"17",
+               78=>a8,88=>b8,98=>"c8","48"=>"d8",<<"58">>=>"e8",{["08",03]}=>"18",
+               79=>a9,89=>b9,99=>"c9","49"=>"d9",<<"59">>=>"e9",{["09",03]}=>"19",
+
+               70.0=>fa0,80.0=>fb0,90.0=>"fc0",
+               71.0=>fa1,81.0=>fb1,91.0=>"fc1",
+               72.0=>fa2,82.0=>fb2,92.0=>"fc2",
+               73.0=>fa3,83.0=>fb3,93.0=>"fc3",
+               74.0=>fa4,84.0=>fb4,94.0=>"fc4",
+
+               75.0=>fa5,85.0=>fb5,95.0=>"fc5",
+               76.0=>fa6,86.0=>fb6,96.0=>"fc6",
+               77.0=>fa7,87.0=>fb7,97.0=>"fc7",
+               78.0=>fa8,88.0=>fb8,98.0=>"fc8",
+               79.0=>fa9,89.0=>fb9,99.0=>"fc9",
+
+               #{ one => small, map => key } => "small map key 1",
+               #{ second => small, map => key } => "small map key 2",
+               #{ third => small, map => key } => "small map key 3",
+
+               #{ 10=>a0,20=>b0,30=>"c0","40"=>"d0",<<"50">>=>"e0",{["00"]}=>"10",
+                  11=>a1,21=>b1,31=>"c1","41"=>"d1",<<"51">>=>"e1",{["01"]}=>"11",
+                  12=>a2,22=>b2,32=>"c2","42"=>"d2",<<"52">>=>"e2",{["02"]}=>"12",
+                  13=>a3,23=>b3,33=>"c3","43"=>"d3",<<"53">>=>"e3",{["03"]}=>"13",
+                  14=>a4,24=>b4,34=>"c4","44"=>"d4",<<"54">>=>"e4",{["04"]}=>"14",
+
+                  15=>a5,25=>b5,35=>"c5","45"=>"d5",<<"55">>=>"e5",{["05"]}=>"15",
+                  16=>a6,26=>b6,36=>"c6","46"=>"d6",<<"56">>=>"e6",{["06"]}=>"16",
+                  17=>a7,27=>b7,37=>"c7","47"=>"d7",<<"57">>=>"e7",{["07"]}=>"17",
+                  18=>a8,28=>b8,38=>"c8","48"=>"d8",<<"58">>=>"e8",{["08"]}=>"18",
+                  19=>a9,29=>b9,39=>"c9","49"=>"d9",<<"59">>=>"e9",{["09"]}=>"19" } => "large map key 1",
+
+               #{ 10=>a0,20=>b0,30=>"c0","40"=>"d0",<<"50">>=>"e0",{["00"]}=>"10",
+                  11=>a1,21=>b1,31=>"c1","41"=>"d1",<<"51">>=>"e1",{["01"]}=>"11",
+                  12=>a2,22=>b2,32=>"c2","42"=>"d2",<<"52">>=>"e2",{["02"]}=>"12",
+                  13=>a3,23=>b3,33=>"c3","43"=>"d3",<<"53">>=>"e3",{["03"]}=>"13",
+                  14=>a4,24=>b4,34=>"c4","44"=>"d4",<<"54">>=>"e4",{["04"]}=>"14",
+
+                  15=>a5,25=>b5,35=>"c5","45"=>"d5",<<"55">>=>"e5",{["05"]}=>"15",
+                  k16=>a6,k26=>b6,k36=>"c6","46"=>"d6",<<"56">>=>"e6",{["06"]}=>"16",
+                  17=>a7,27=>b7,37=>"c7","47"=>"d7",<<"57">>=>"e7",{["07"]}=>"17",
+                  18=>a8,28=>b8,38=>"c8","48"=>"d8",<<"58">>=>"e8",{["08"]}=>"18",
+                  19=>a9,29=>b9,39=>"c9","49"=>"d9",<<"59">>=>"e9",{["09"]}=>"19" } => "large map key 2" }),
+
+
+    error  = map_guard_update(M0#{},M0#{}),
+    first  = map_guard_update(M0#{},M0#{x=>first}),
+    second = map_guard_update(M0#{y=>old}, M0#{x=>second,y=>old}),
     ok.
 
 map_guard_update(M1, M2) when M1#{x=>first}  =:= M2 -> first;
@@ -1202,6 +1336,43 @@ t_guard_receive(Config) when is_list(Config) ->
     %% cleanup
     done = call(Pid, done),
     ok.
+
+-define(t_guard_receive_large_procs, 1500).
+
+t_guard_receive_large(Config) when is_list(Config) ->
+    M = lists:foldl(fun(_,#{procs := Ps } = M) ->
+                            M#{ procs := Ps#{ spawn_link(fun() -> grecv_loop() end) => 0 }}
+                    end, #{procs => #{}, done => 0}, lists:seq(1,?t_guard_receive_large_procs)),
+    lists:foreach(fun(Pid) ->
+                          Pid ! {self(), hello}
+                  end, maps:keys(maps:get(procs,M))),
+    ok = guard_receive_large_loop(M),
+    ok.
+
+guard_receive_large_loop(#{done := ?t_guard_receive_large_procs}) ->
+    ok;
+guard_receive_large_loop(M) ->
+    receive
+        #{pid := Pid, msg := hello} ->
+            case M of
+                #{done := Count, procs := #{Pid := 150}} ->
+                    Pid ! {self(), done},
+                    guard_receive_large_loop(M#{done := Count + 1});
+                #{procs := #{Pid := Count} = Ps} ->
+                    Pid ! {self(), hello},
+                    guard_receive_large_loop(M#{procs := Ps#{Pid := Count + 1}})
+            end
+    end.
+
+grecv_loop() ->
+    receive
+        {_, done} ->
+            ok;
+        {Pid, hello} ->
+            Pid ! #{pid=>self(), msg=>hello},
+            grecv_loop()
+    end.
+
 
 call(Pid, M) ->
     Pid ! {self(), M}, receive {Pid, Res} -> Res end.
@@ -1236,6 +1407,11 @@ t_list_comprehension(Config) when is_list(Config) ->
     Ls = id([#{<<2:301>> => I, "wat" => I + 1} || I <- [1,2,3]]),
     [#{<<2:301>>:=1,"wat":=2},#{<<2:301>>:=2,"wat":=3},#{<<2:301>>:=3,"wat":=4}] = Ls,
     [{1,2},{2,3},{3,4}] = id([{I2,I1} || #{"wat" := I1, <<2:301>> := I2} <- Ls]),
+
+    Ks = lists:seq($a,$z),
+    Ms = [#{[K1,K2]=>{K1,K2}} || K1 <- Ks, K2 <- Ks],
+    [#{"aa" := {$a,$a}},#{"ab":={$a,$b}}|_] = Ms,
+    [#{"zz" := {$z,$z}},#{"zy":={$z,$y}}|_] = lists:reverse(Ms),
     ok.
 
 t_guard_fun(Config) when is_list(Config) ->
