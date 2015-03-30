@@ -6573,6 +6573,7 @@ new_map(Process* p, Eterm* reg, BeamInstr* I)
     ptr = &Arg(4);
 
     if (n > 2*MAP_SMALL_MAP_LIMIT) {
+        Eterm res;
 	if (HeapWordsLeft(p) < n) {
 	    erts_garbage_collect(p, n, reg, Arg(2));
 	}
@@ -6589,7 +6590,15 @@ new_map(Process* p, Eterm* reg, BeamInstr* I)
 	p->htop = mhp;
 
         factory.p = p;
-	return erts_hashmap_from_array(&factory, thp, n/2, 0);
+        res = erts_hashmap_from_array(&factory, thp, n/2, 0);
+        if (p->mbuf) {
+            Uint live = Arg(2);
+            reg[live] = res;
+            erts_garbage_collect(p, 0, reg, live+1);
+            res       = reg[live];
+            E = p->stop;
+        }
+        return res;
     }
 
     if (HeapWordsLeft(p) < need) {
