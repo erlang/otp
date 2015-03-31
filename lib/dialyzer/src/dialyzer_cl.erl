@@ -2,7 +2,7 @@
 %%-------------------------------------------------------------------
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2006-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -469,7 +469,7 @@ expand_dependent_modules(Md5, DiffMd5, ModDeps) ->
 		  Mod = list_to_atom(filename:basename(File, ".beam")),
 		  sets:is_element(Mod, AnalyzeMods)
 	      end,
-  {[F || {F, _} <- Md5, FilterFun(F)], RemovedMods, NewModDeps}.
+  {[F || {F, _} <- Md5, FilterFun(F)], BigSet, NewModDeps}.
 
 expand_dependent_modules_1([Mod|Mods], Included, ModDeps) ->
   case dict:find(Mod, ModDeps) of
