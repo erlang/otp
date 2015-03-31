@@ -32,6 +32,51 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Test_Server 3.8</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    When installing test suites in a cross compilation
+	    environment, ts_install was not able to read the values
+	    of the environment variables specified in the
+	    configuration file. This has been fixed.</p>
+          <p>
+	    Own Id: OTP-11441</p>
+        </item>
+        <item>
+          <p>
+	    Printouts by means of ct:log/2/3 or ct:pal/2/3 from the
+	    hook functions on_tc_fail/2 and on_tc_skip/2 would (quite
+	    unexpectedly) end up in the "unexpected i/o" log file
+	    instead of in the test case log file. This behaviour has
+	    been changed so that now, all printouts (including stdio
+	    printouts) from these hook functions will be routed to
+	    the test case log file.</p>
+          <p>
+	    Own Id: OTP-12468</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    The format of the information printed on top of the test
+	    case (and configuration function) log file has been
+	    slightly modified, mainly in order to make the start
+	    configuration data easier to read and interpret.</p>
+          <p>
+	    Own Id: OTP-12518 Aux Id: seq12808 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Test_Server 3.7.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

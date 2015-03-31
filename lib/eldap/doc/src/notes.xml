@@ -30,6 +30,42 @@
   </header>
   <p>This document describes the changes made to the Eldap application.</p>
 
+<section><title>Eldap 1.1.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Corrects that <c>eldap:close/1</c> returned a tuple
+	    instead of the specified atom <c>ok</c>.</p>
+          <p>
+	    Own Id: OTP-12349</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Clarification in the reference manual for
+	    <c>eldap:modify_dn/5</c>, <c>eldap:search/2</c> and
+	    <c>eldap:start_tls/3</c>.</p>
+          <p>
+	    Own Id: OTP-12354</p>
+        </item>
+        <item>
+          <p>
+	    The eldap test suites are extended and re-organized.</p>
+          <p>
+	    Own Id: OTP-12355</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Eldap 1.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

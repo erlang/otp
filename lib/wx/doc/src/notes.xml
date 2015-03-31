@@ -31,6 +31,21 @@
   <p>This document describes the changes made to the wxErlang
     application.</p>
 
+<section><title>Wx 1.3.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix timing related crash during wx application stop.</p>
+          <p>
+	    Own Id: OTP-12374</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Wx 1.3.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

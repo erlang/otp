@@ -42,6 +42,189 @@ first.</p>
 
 <!-- ===================================================================== -->
 
+<section><title>diameter 1.9</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Don't discard outgoing answers unnecessarily.</p>
+          <p>
+	    Answers missing a Result-Code AVP or setting an E-bit
+	    inappropriately were discarded even if encode was
+	    successful.</p>
+          <p>
+	    Own Id: OTP-11492</p>
+        </item>
+        <item>
+          <p>
+	    Increase supervision timeouts.</p>
+          <p>
+	    At diameter application shutdown, DPR could be omitted on
+	    open peer connections because of short supervision
+	    timeouts.</p>
+          <p>
+	    Own Id: OTP-12412</p>
+        </item>
+        <item>
+          <p>
+	    Fix retransmission of messages sent as header/avps list.</p>
+          <p>
+	    Extracting End-to-End and Hop-by-Hop Identifiers resulted
+	    in a function clause error, resulting in a handle_error
+	    callback.</p>
+          <p>
+	    Own Id: OTP-12415</p>
+        </item>
+        <item>
+          <p>
+	    Fix diameter_avp decode of Grouped AVPs having decode
+	    errors.</p>
+          <p>
+	    Components of such an AVP were not extracted, causing it
+	    to be represented by a single diameter_avp record instead
+	    of the intended list.</p>
+          <p>
+	    Dictionary files must be recompiled for the fix to have
+	    effect.</p>
+          <p>
+	    Own Id: OTP-12475</p>
+        </item>
+        <item>
+          <p>
+	    Fix ordering of AVPs in relayed messages.</p>
+          <p>
+	    The order was reversed relative to the received order,
+	    with a Route-Record AVP prepended.</p>
+          <p>
+	    Thanks to Andrzej Trawiński.</p>
+          <p>
+	    Own Id: OTP-12551</p>
+        </item>
+        <item>
+          <p>
+	    Fix issues with DiameterURI encode/decode.</p>
+          <p>
+	    RFC 6773 changed the default port and transport, but the
+	    RFC 3588 defaults were used even if the RFC 6733 common
+	    dictionary was in use. The RFC 3588 defaults are now only
+	    used when the common dictionary is
+	    diameter_gen_base_rfc3588.</p>
+          <p>
+	    Both RFC 3588 and 6733 disallow
+	    transport=udp;protocol=diameter. Encode of the
+	    combination now fails.</p>
+          <p>
+	    Decode of ports numbers outside the range 0-65535 and
+	    fully qualified domain names longer than 255 octets now
+	    fails.</p>
+          <p>
+	    Note that RFC 3588 is obsolete, and that there is a
+	    diameter_gen_base_rfc6733. The change in defaults is a
+	    potential interoperability problem when moving to RFC
+	    6733 with peers that do not send all URI components. The
+	    fact that 6733 allows 5xxx result codes in answer
+	    messages setting the E-bit, which RFC 3588 doesn't, is
+	    another.</p>
+          <p>
+	    Own Id: OTP-12589</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Add service_opt() string_decode.</p>
+          <p>
+	    To disable the decode of potentially large binaries to
+	    string. This prevents large strings from being copied
+	    when incoming Diameter messages are passed between
+	    processes, a vulnerability that can lead to memory being
+	    exhausted given sufficiently malicious peers.</p>
+          <p>
+	    The value is a boolean(), true being the default for
+	    backwards compatibility. Setting false causes both
+	    diameter_caps records and decoded messages to contain
+	    binary() in relevant places that previously had string():
+	    diameter_app(3) callbacks need to be prepared for the
+	    change.</p>
+          <p>
+	    The Diameter types affected are OctetString and the
+	    derived types UTF8String, DiameterIdentity, DiameterURI,
+	    IPFilterRule, and QoSFilterRule. Time and Address are
+	    unaffected.</p>
+          <p>
+	    Own Id: OTP-11952</p>
+        </item>
+        <item>
+          <p>
+	    Add transport_opt() pool_size.</p>
+          <p>
+	    To allow for pools of accepting transport processes,
+	    which can better service multiple simultaneous peer
+	    connections. The option can also be used with connecting
+	    transports, to establish multiple connections to the same
+	    peer without having to configure multiple transports.</p>
+          <p>
+	    Own Id: OTP-12428</p>
+        </item>
+        <item>
+          <p>
+	    Allow DPR to be sent with diameter:call/4.</p>
+          <p>
+	    It has been possible to send, but the answer was regarded
+	    as unsolicited and discarded. DPA now causes the
+	    transport process in question to be terminated, as for
+	    DPR that diameter itself sends.</p>
+          <p>
+	    Own Id: OTP-12542</p>
+        </item>
+        <item>
+          <p>
+	    Discard requests after DPR.</p>
+          <p>
+	    RFC 6733 is imprecise, but the tone is that messages
+	    received after DPR are an exception to be dealt with only
+	    because of the possibility of unordered delivery over
+	    SCTP. As a consequence, and because a request following
+	    DPR is unlikely to be answered due to the impending loss
+	    of the peer connection, discard outgoing requests
+	    following an outgoing or incoming DPR. Incoming requests
+	    are also discarded, with the exception of DPR itself.
+	    Answers are sent and received as usual.</p>
+          <p>
+	    Own Id: OTP-12543</p>
+        </item>
+        <item>
+          <p>
+	    Add transport_opt() dpr_timeout.</p>
+          <p>
+	    To cause a peer connection to be closed following an
+	    outgoing DPA when the peer fails to do so. It is the
+	    recipient of DPA that should close the connection
+	    according to RFC 6733.</p>
+          <p>
+	    Own Id: OTP-12609</p>
+        </item>
+        <item>
+          <p>
+	    Add service_opt() incoming_maxlen.</p>
+          <p>
+	    To bound the expected size of incoming Diameter messages.
+	    Messages larger than the specified number of bytes are
+	    discarded, to prevent a malicious peer from generating
+	    excessive load.</p>
+          <p>
+	    Own Id: OTP-12628</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>diameter 1.8</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

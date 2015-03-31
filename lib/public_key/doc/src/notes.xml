@@ -34,6 +34,21 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Public_Key 0.23</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Improve/extend support for CRL handling.</p>
+          <p>
+	    Own Id: OTP-12547 Aux Id: OTP-10362 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Public_Key 0.22.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

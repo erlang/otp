@@ -31,6 +31,21 @@
   <p>This document describes the changes made to the Syntax_Tools
     application.</p>
 
+<section><title>Syntax_Tools 1.6.18</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix bad format of error in epp_dodger:parse_file/3</p>
+          <p>
+	    Own Id: OTP-12406</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Syntax_Tools 1.6.17</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

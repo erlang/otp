@@ -31,6 +31,21 @@
   <p>This document describes the changes made to the asn1 application.</p>
 
 
+<section><title>Asn1 3.0.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>The ASN.1 compiler would crash if a SEQUENCE ended
+	    with a double set of ellipses (<c>...</c>).</p>
+          <p>
+	    Own Id: OTP-12546 Aux Id: seq12815 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Asn1 3.0.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

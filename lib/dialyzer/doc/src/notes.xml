@@ -31,6 +31,21 @@
   <p>This document describes the changes made to the Dialyzer
     application.</p>
 
+<section><title>Dialyzer 2.7.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> A bug concerning <c>map()</c> types has been fixed.
+	    </p>
+          <p>
+	    Own Id: OTP-12472</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Dialyzer 2.7.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

@@ -32,6 +32,166 @@
     <file>notes.xml</file>
     </header>
 
+<section><title>Common_Test 1.10</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The tests overview file, index.html, did not always get
+	    updated correctly after a new test run. This was because
+	    of a bug in the Common Test log cache mechanism which has
+	    now been corrected.</p>
+          <p>
+	    Own Id: OTP-11400</p>
+        </item>
+        <item>
+          <p>
+	    When a successful test case returns, Common Test should,
+	    according to the documentation, send a tc_done event to
+	    the event handlers with Result = ok in the data field.
+	    However, Common Test sets Result to the return value of
+	    the test case instead. Common Test has been modified now
+	    to comply with the documentation.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-12279 Aux Id: seq12737, OTP-12531 </p>
+        </item>
+        <item>
+          <p>
+	    A ct_telnet:expect/3 call could never be aborted before
+	    an idle_timeout, even if total_timeout had been set to a
+	    lower value (i.e. a shorter time). This problem has been
+	    fixed.</p>
+          <p>
+	    Own Id: OTP-12335</p>
+        </item>
+        <item>
+          <p>
+	    The undocumented return value {skipped,Reason} from
+	    config functions and test cases was handled
+	    inconsistently. Test cases were e.g. reported as
+	    "skipped" to CT Hook functions, but "successful" to event
+	    handlers. Now, the above return value is consistently
+	    handled the same way as {skip,Reason} and this has also
+	    been documented.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-12359 Aux Id: seq12760 </p>
+        </item>
+        <item>
+          <p>
+	    The Erlang source code to HTML generator would sometimes
+	    fail because epp:parse_erl_form/1 could not find and
+	    expand required macros in included header files. The
+	    problem has been solved by making sure common_test always
+	    passes the full include path to epp. Also, a bug that
+	    could cause erl_syntax:revert/1 to fail because of a
+	    badly formed syntax tree has been corrected.</p>
+          <p>
+	    Own Id: OTP-12419</p>
+        </item>
+        <item>
+          <p>
+	    A missing group option in the ct_run help text has been
+	    added.</p>
+          <p>
+	    Own Id: OTP-12433 Aux Id: seq12788 </p>
+        </item>
+        <item>
+          <p>
+	    Printouts by means of ct:log/2/3 or ct:pal/2/3 from the
+	    hook functions on_tc_fail/2 and on_tc_skip/2 would (quite
+	    unexpectedly) end up in the "unexpected i/o" log file
+	    instead of in the test case log file. This behaviour has
+	    been changed so that now, all printouts (including stdio
+	    printouts) from these hook functions will be routed to
+	    the test case log file.</p>
+          <p>
+	    Own Id: OTP-12468</p>
+        </item>
+        <item>
+          <p>
+	    ct_netconfc:action/3 will now - if the return type is
+	    void - accept an RPC reply on the form
+	    {ok,[simple_xml()]}, and in this event return only the
+	    atom ok.</p>
+          <p>
+	    Own Id: OTP-12491 Aux Id: seq12797 </p>
+        </item>
+        <item>
+          <p>
+	    OTP-11971 erroneously changed the handling of relative
+	    paths for incl_dirs specified in the cover spec file.
+	    This is now corrected so these are expected to be
+	    relative to the directory where the cover spec file
+	    itself is stored</p>
+          <p>
+	    Own Id: OTP-12498 Aux Id: OTP-11971 </p>
+        </item>
+        <item>
+          <p>
+	    Some test cases have been updated to use ct:sleep/1
+	    instead of timer:sleep/1. The reason being that the sleep
+	    times need to be scaled to compensate for slow execution
+	    (e.g. when cover is running).</p>
+          <p>
+	    Own Id: OTP-12574</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Common Test now exports a function,
+	    ct:get_event_mgr_ref/0, that returns the name of the
+	    Common Test event manager. This makes it possible to plug
+	    in event handlers to the event manager while tests are
+	    running (using the gen_event API).</p>
+          <p>
+	    Own Id: OTP-12506 Aux Id: seq12802 </p>
+        </item>
+        <item>
+          <p>
+	    When a test case (or configuration function) fails
+	    because of an exit signal from a linked process, Common
+	    Test previously passed only the reason for process
+	    termination to the CT post hook functions and the event
+	    handlers (in the tc_done event). This has been changed so
+	    that now the tuple {'EXIT',ReasonForProcessTermination}
+	    is passed instead. This makes it much easier in the CT
+	    post hook functions to distinguish a failure of this sort
+	    from other types of errors and from the return value of a
+	    successful test case.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-12531 Aux Id: OTP-12279 </p>
+        </item>
+        <item>
+          <p>
+	    A new feature has been introduced in ct_telnet:get_data/1
+	    that makes it possible to automatically poll the telnet
+	    connection in case an incomplete string (one that has not
+	    yet been terminated by a newline) remains in the receive
+	    buffer. The polling is controlled by two new telnet
+	    config values, which are documented in the ct_telnet
+	    reference manual. The polling mechanism is disabled by
+	    default (making the get_data/1 function backwards
+	    compatible).</p>
+          <p>
+	    Own Id: OTP-12627</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Common_Test 1.9</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

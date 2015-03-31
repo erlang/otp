@@ -30,6 +30,54 @@
   </header>
   <p>This document describes the changes made to the Kernel application.</p>
 
+<section><title>Kernel 3.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    A bug causing an infinite loop in hostname resolving has
+	    been corrected. To trigger this bug you would have to
+	    enter an bogus search method from a configuration file
+	    e.g .inetrc.</p>
+          <p>
+	    Bug pinpointed by Emil Holmström</p>
+          <p>
+	    Own Id: OTP-12133</p>
+        </item>
+        <item>
+          <p>
+	    The standard_error process now handles the getopts I/O
+	    protocol request correctly and stores its encoding in the
+	    same way as standard_io.</p>
+          <p>
+	    Also, io:put_chars(standard_error, [oops]) could
+	    previously crash the standard_error process. This is now
+	    corrected.</p>
+          <p>
+	    Own Id: OTP-12424</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Configuration parameters for the Kernel application that
+	    allows setting socket options for the distribution
+	    sockets have been added. See the application Kernel
+	    documentation; parameters 'inet_dist_listen_options' and
+	    'inet_dist_connect_options'.</p>
+          <p>
+	    Own Id: OTP-12476 Aux Id: OTP-12476 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Kernel 3.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

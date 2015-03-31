@@ -30,6 +30,23 @@
   </header>
   <p>This document describes the changes made to the Crypto application.</p>
 
+<section><title>Crypto 3.5</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Extend block_encrypt/decrypt for aes_cfb8 and aes_cfb128
+	    to accept keys of length 128, 192 and 256 bits. Before
+	    only 128 bit keys were accepted.</p>
+          <p>
+	    Own Id: OTP-12467</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Crypto 3.4.2</title>
 
     <section><title>Improvements and New Features</title>

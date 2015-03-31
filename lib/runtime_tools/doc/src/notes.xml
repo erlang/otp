@@ -31,6 +31,22 @@
   <p>This document describes the changes made to the Runtime_Tools
     application.</p>
 
+<section><title>Runtime_Tools 1.8.16</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The trace process started by <c>dbg</c> would not always
+	    terminate when <c>dbg:stop/0</c> was called.</p>
+          <p>
+	    Own Id: OTP-12517</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Runtime_Tools 1.8.15</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
