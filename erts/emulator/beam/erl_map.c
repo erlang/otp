@@ -89,7 +89,7 @@ static Eterm flatmap_from_validated_list(Process *p, Eterm list, Uint size);
 static Eterm hashmap_from_validated_list(Process *p, Eterm list, Uint size);
 static Eterm hashmap_from_unsorted_array(ErtsHeapFactory*, hxnode_t *hxns, Uint n, int reject_dupkeys);
 static Eterm hashmap_from_sorted_unique_array(ErtsHeapFactory*, hxnode_t *hxns, Uint n, int is_root);
-static Eterm hashmap_from_chunked_array(ErtsHeapFactory*, hxnode_t *hxns, Uint n, int is_root);
+static Eterm hashmap_from_chunked_array(ErtsHeapFactory*, hxnode_t *hxns, Uint n, Uint size, int is_root);
 static Eterm hashmap_info(Process *p, Eterm node);
 static Eterm hashmap_bld_tuple_uint(Uint **hpp, Uint *szp, Uint n, Uint nums[]);
 static int hxnodecmp(hxnode_t* a, hxnode_t* b);
@@ -661,7 +661,7 @@ static Eterm hashmap_from_sorted_unique_array(ErtsHeapFactory* factory,
 	ix++;
     }
 
-    res = hashmap_from_chunked_array(factory, hxns, elems, !lvl);
+    res = hashmap_from_chunked_array(factory, hxns, elems, n, !lvl);
 
     ERTS_FACTORY_HOLE_CHECK(factory);
 
@@ -669,8 +669,8 @@ static Eterm hashmap_from_sorted_unique_array(ErtsHeapFactory* factory,
 }
 
 #define HALLOC_EXTRA 200
-static Eterm hashmap_from_chunked_array(ErtsHeapFactory *factory,
-                                        hxnode_t *hxns, Uint n, int is_root) {
+static Eterm hashmap_from_chunked_array(ErtsHeapFactory *factory, hxnode_t *hxns, Uint n,
+                                        Uint size, int is_root) {
     Uint ix, d, dn, dc, slot, elems;
     Uint32 v, vp, vn, hdr;
     Uint bp, sz;
@@ -840,7 +840,7 @@ static Eterm hashmap_from_chunked_array(ErtsHeapFactory *factory,
 
     if (is_root) {
 	*hp++ = (hdr == 0xffff) ? MAP_HEADER_HAMT_HEAD_ARRAY : MAP_HEADER_HAMT_HEAD_BITMAP(hdr);
-	*hp++ = n;
+	*hp++ = size;
     } else {
 	*hp++ = MAP_HEADER_HAMT_NODE_BITMAP(hdr);
     }
