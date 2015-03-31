@@ -671,9 +671,10 @@ t_map_size(Config) when is_list(Config) ->
     false = map_is_size(M#{ "c" => 2}, 2),
 
     %% Error cases.
-    {'EXIT',{badarg,_}} = (catch map_size([])),
-    {'EXIT',{badarg,_}} = (catch map_size(<<1,2,3>>)),
-    {'EXIT',{badarg,_}} = (catch map_size(1)),
+    do_badmap(fun(T) ->
+                    {'EXIT',{{badmap,T},_}} =
+                      (catch map_size(T))
+              end),
     ok.
 
 map_is_size(M,N) when map_size(M) =:= N -> true;
@@ -849,9 +850,9 @@ t_update_map_expressions(Config) when is_list(Config) ->
     #{ a :=42, b:=42, c:=42 } = (maps:from_list([{a,1},{b,2},{c,3}]))#{ a := 42, b := 42, c := 42 },
     #{ "a" :=1, "b":=42, "c":=42 } = (maps:from_list([{"a",1},{"b",2}]))#{ "b" := 42, "c" => 42 },
 
-    %% Error cases, FIXME: should be 'badmap'?
-    {'EXIT',{{badarg,<<>>},_}} = (catch (id(<<>>))#{ a := 42, b => 2 }),
-    {'EXIT',{{badarg,[]},_}} = (catch (id([]))#{ a := 42, b => 2 }),
+    %% Error cases.
+    {'EXIT',{{badmap,<<>>},_}} = (catch (id(<<>>))#{ a := 42, b => 2 }),
+    {'EXIT',{{badmap,[]},_}} = (catch (id([]))#{ a := 42, b => 2 }),
     ok.
 
 
@@ -867,8 +868,8 @@ t_update_assoc(Config) when is_list(Config) ->
     M2 = M0#{3.0:=wrong,3.0=>new},
 
     %% Errors cases.
-    BadMap = id(badmap),
-    {'EXIT',{{badarg,BadMap},_}} = (catch BadMap#{nonexisting=>val}),
+    BadMap = id(not_a_good_map),
+    {'EXIT',{{badmap,BadMap},_}} = (catch BadMap#{nonexisting=>val}),
 
     ok.
 
@@ -936,8 +937,8 @@ t_update_assoc_large(Config) when is_list(Config) ->
     M2 = M0#{13.0:=wrong,13.0=>new},
 
     %% Errors cases.
-    BadMap = id(badmap),
-    {'EXIT',{{badarg,BadMap},_}} = (catch BadMap#{nonexisting=>M0}),
+    BadMap = id(a_bad_map),
+    {'EXIT',{{badmap,BadMap},_}} = (catch BadMap#{nonexisting=>M0}),
     ok.
 
 
@@ -954,10 +955,25 @@ t_update_exact(Config) when is_list(Config) ->
     %% M2 = M0#{3=>wrong,3.0:=new}, %% FIXME
 
     %% Errors cases.
-    {'EXIT',{badarg,_}} = (catch M0#{nonexisting:=val}),
-    {'EXIT',{badarg,_}} = (catch M0#{1.0:=v,1.0=>v2}),
-    {'EXIT',{badarg,_}} = (catch M0#{42.0:=v,42:=v2}),
-    {'EXIT',{badarg,_}} = (catch M0#{42=>v1,42.0:=v2,42:=v3}),
+    do_badmap(fun(T) ->
+		      {'EXIT',{{badmap,T},_}} =
+			  (catch T#{nonexisting=>val})
+	      end),
+    Empty = id(#{}),
+    {'EXIT',{{badkey,nonexisting},_}} = (catch Empty#{nonexisting:=val}),
+    {'EXIT',{{badkey,nonexisting},_}} = (catch M0#{nonexisting:=val}),
+    {'EXIT',{{badkey,1.0},_}} = (catch M0#{1.0:=v,1.0=>v2}),
+    {'EXIT',{{badkey,_},_}} = (catch M0#{42.0:=v,42:=v2}),
+    {'EXIT',{{badkey,_},_}} = (catch M0#{42=>v1,42.0:=v2,42:=v3}),
+
+    %% Evaluation order.
+    BadMap = id([no,map]),
+    {'EXIT',{blurf,_}} =
+	(catch BadMap#{whatever:=id(error(blurf))}),
+    {'EXIT',{blurf,_}} =
+	(catch BadMap#{id(error(blurf)):=whatever}),
+    {'EXIT',{{badmap,BadMap},_}} =
+	(catch BadMap#{nonexisting:=whatever}),
     ok.
 
 t_update_exact_large(Config) when is_list(Config) ->
@@ -1035,10 +1051,10 @@ t_update_exact_large(Config) when is_list(Config) ->
     M2 = M0#{13.0=>wrong,13.0:=new},
 
     %% Errors cases.
-    {'EXIT',{badarg,_}} = (catch M0#{nonexisting:=val}),
-    {'EXIT',{badarg,_}} = (catch M0#{1.0:=v,1.0=>v2}),
-    {'EXIT',{badarg,_}} = (catch M0#{42.0:=v,42:=v2}),
-    {'EXIT',{badarg,_}} = (catch M0#{42=>v1,42.0:=v2,42:=v3}),
+    {'EXIT',{{badkey,nonexisting},_}} = (catch M0#{nonexisting:=val}),
+    {'EXIT',{{badkey,1.0},_}} = (catch M0#{1.0:=v,1.0=>v2}),
+    {'EXIT',{{badkey,_},_}} = (catch M0#{42.0:=v,42:=v2}),
+    {'EXIT',{{badkey,_},_}} = (catch M0#{42=>v1,42.0:=v2,42:=v3}),
 
     ok.
 
@@ -1443,11 +1459,11 @@ t_bif_map_get(Config) when is_list(Config) ->
     "v4" = maps:get(<<"k2">>, M#{ <<"k2">> => "v4" }),
 
     %% error case
-    {'EXIT',{badarg, [{maps,get,_,_}|_]}} = (catch maps:get(a,[])),
-    {'EXIT',{badarg, [{maps,get,_,_}|_]}} = (catch maps:get(a,<<>>)),
-    {'EXIT',{bad_key,[{maps,get,_,_}|_]}} = (catch maps:get({1,1}, #{{1,1.0} => "tuple"})),
-    {'EXIT',{bad_key,[{maps,get,_,_}|_]}} = (catch maps:get(a,#{})),
-    {'EXIT',{bad_key,[{maps,get,_,_}|_]}} = (catch maps:get(a,#{ b=>1, c=>2})),
+    {'EXIT',{{badmap,[]},[{maps,get,_,_}|_]}} = (catch maps:get(a, [])),
+    {'EXIT',{{badmap,<<>>},[{maps,get,_,_}|_]}} = (catch maps:get(a, <<>>)),
+    {'EXIT',{{badkey,{1,1}},[{maps,get,_,_}|_]}} = (catch maps:get({1,1}, #{{1,1.0} => "tuple"})),
+    {'EXIT',{{badkey,a},[{maps,get,_,_}|_]}} = (catch maps:get(a, #{})),
+    {'EXIT',{{badkey,a},[{maps,get,_,_}|_]}} = (catch maps:get(a, #{ b=>1, c=>2})),
     ok.
 
 t_bif_map_find(Config) when is_list(Config) ->
@@ -1471,8 +1487,10 @@ t_bif_map_find(Config) when is_list(Config) ->
     error = maps:find({1.0,1}, #{ a=>a, {1,1.0} => "tuple hi"}), % reverse types in tuple key
 
 
-    {'EXIT',{badarg,[{maps,find,_,_}|_]}} = (catch maps:find(a,id([]))),
-    {'EXIT',{badarg,[{maps,find,_,_}|_]}} = (catch maps:find(a,id(<<>>))),
+    {'EXIT',{{badmap,[]},[{maps,find,_,_}|_]}} =
+	(catch maps:find(a, id([]))),
+    {'EXIT',{{badmap,<<>>},[{maps,find,_,_}|_]}} =
+	(catch maps:find(a, id(<<>>))),
     ok.
 
 
@@ -1497,8 +1515,8 @@ t_bif_map_is_key(Config) when is_list(Config) ->
     false = maps:is_key(1.0, maps:put(1, "number", M1)),
 
     %% error case
-    {'EXIT',{badarg,[{maps,is_key,_,_}|_]}} = (catch maps:is_key(a,id([]))),
-    {'EXIT',{badarg,[{maps,is_key,_,_}|_]}} = (catch maps:is_key(a,id(<<>>))),
+    {'EXIT',{{badmap,[]},[{maps,is_key,_,_}|_]}} = (catch maps:is_key(a, id([]))),
+    {'EXIT',{{badmap,<<>>},[{maps,is_key,_,_}|_]}} = (catch maps:is_key(a, id(<<>>))),
     ok.
 
 t_bif_map_keys(Config) when is_list(Config) ->
@@ -1511,11 +1529,12 @@ t_bif_map_keys(Config) when is_list(Config) ->
     [4,int,"hi",<<"key">>] = lists:sort(maps:keys(M1)),
 
     %% error case
-    {'EXIT',{badarg,[{maps,keys,_,_}|_]}} = (catch maps:keys(1 bsl 65 + 3)),
-    {'EXIT',{badarg,[{maps,keys,_,_}|_]}} = (catch maps:keys(154)),
-    {'EXIT',{badarg,[{maps,keys,_,_}|_]}} = (catch maps:keys(atom)),
-    {'EXIT',{badarg,[{maps,keys,_,_}|_]}} = (catch maps:keys([])),
-    {'EXIT',{badarg,[{maps,keys,_,_}|_]}} = (catch maps:keys(<<>>)),
+    BigNum = 1 bsl 65 + 3,
+    {'EXIT',{{badmap,BigNum},[{maps,keys,_,_}|_]}} = (catch maps:keys(BigNum)),
+    {'EXIT',{{badmap,154},[{maps,keys,_,_}|_]}} = (catch maps:keys(154)),
+    {'EXIT',{{badmap,atom},[{maps,keys,_,_}|_]}} = (catch maps:keys(atom)),
+    {'EXIT',{{badmap,[]},[{maps,keys,_,_}|_]}} = (catch maps:keys([])),
+    {'EXIT',{{badmap,<<>>},[{maps,keys,_,_}|_]}} = (catch maps:keys(<<>>)),
     ok.
 
 t_bif_map_new(Config) when is_list(Config) ->
@@ -1544,9 +1563,10 @@ t_bif_map_merge(Config) when is_list(Config) ->
 	{1,2} := "tuple", "hi" := "hello again", <<"key">> := <<"value">>} = maps:merge(M0,M1),
 
     %% error case
-    {'EXIT',{badarg,[{maps,merge,_,_}|_]}} = (catch maps:merge((1 bsl 65 + 3), <<>>)),
-    {'EXIT',{badarg,[{maps,merge,_,_}|_]}} = (catch maps:merge(<<>>, id(#{ a => 1}))),
-    {'EXIT',{badarg,[{maps,merge,_,_}|_]}} = (catch maps:merge(id(#{ a => 2}), <<>> )),
+    BigNum = 1 bsl 65 + 3,
+    {'EXIT',{{badmap,BigNum},[{maps,merge,_,_}|_]}} = (catch maps:merge(BigNum, <<>>)),
+    {'EXIT',{{badmap,<<>>},[{maps,merge,_,_}|_]}} = (catch maps:merge(<<>>, id(#{ a => 1}))),
+    {'EXIT',{{badmap,<<>>},[{maps,merge,_,_}|_]}} = (catch maps:merge(id(#{ a => 2}), <<>> )),
 
     ok.
 
@@ -1585,11 +1605,12 @@ t_bif_map_put(Config) when is_list(Config) ->
     true = is_members([number,wat,3,"hello",<<"other value">>],maps:values(M6)),
 
     %% error case
-    {'EXIT',{badarg,[{maps,put,_,_}|_]}} = (catch maps:put(1,a,1 bsl 65 + 3)),
-    {'EXIT',{badarg,[{maps,put,_,_}|_]}} = (catch maps:put(1,a,154)),
-    {'EXIT',{badarg,[{maps,put,_,_}|_]}} = (catch maps:put(1,a,atom)),
-    {'EXIT',{badarg,[{maps,put,_,_}|_]}} = (catch maps:put(1,a,[])),
-    {'EXIT',{badarg,[{maps,put,_,_}|_]}} = (catch maps:put(1,a,<<>>)),
+    BigNum = 1 bsl 65 + 3,
+    {'EXIT',{{badmap,BigNum},[{maps,put,_,_}|_]}} = (catch maps:put(1, a, BigNum)),
+    {'EXIT',{{badmap,154},[{maps,put,_,_}|_]}} = (catch maps:put(1, a, 154)),
+    {'EXIT',{{badmap,atom},[{maps,put,_,_}|_]}} = (catch maps:put(1, a, atom)),
+    {'EXIT',{{badmap,[]},[{maps,put,_,_}|_]}} = (catch maps:put(1, a, [])),
+    {'EXIT',{{badmap,<<>>},[{maps,put,_,_}|_]}} = (catch maps:put(1, a, <<>>)),
     ok.
 
 is_members(Ks,Ls) when length(Ks) =/= length(Ls) -> false;
@@ -1621,9 +1642,10 @@ t_bif_map_update(Config) when is_list(Config) ->
 	4 := number, 18446744073709551629 := wazzup} = maps:update(18446744073709551629, wazzup, M0),
 
     %% error case
-    {'EXIT',{badarg,[{maps,update,_,_}|_]}} = (catch maps:update(1,none,{})),
-    {'EXIT',{badarg,[{maps,update,_,_}|_]}} = (catch maps:update(1,none,<<"value">>)),
-    {'EXIT',{badarg,[{maps,update,_,_}|_]}} = (catch maps:update(5,none,M0)),
+    {'EXIT',{{badmap,{}},[{maps,update,_,_}|_]}} = (catch maps:update(1, none, {})),
+    {'EXIT',{{badmap,<<"value">>},[{maps,update,_,_}|_]}} =
+	(catch maps:update(1, none, <<"value">>)),
+    {'EXIT',{{badkey,5},[{maps,update,_,_}|_]}} = (catch maps:update(5, none, M0)),
 
     ok.
 
@@ -1659,12 +1681,13 @@ t_bif_map_remove(Config) when is_list(Config) ->
     #{ "hi" := "hello", int := 3, 4 := number} = maps:remove(18446744073709551629,maps:remove(<<"key">>,M0)),
 
     %% error case
-    {'EXIT',{badarg,[{maps,remove,_,_}|_]}} = (catch maps:remove(a,1 bsl 65 + 3)),
-    {'EXIT',{badarg,[{maps,remove,_,_}|_]}} = (catch maps:remove(1,154)),
-    {'EXIT',{badarg,[{maps,remove,_,_}|_]}} = (catch maps:remove(a,atom)),
-    {'EXIT',{badarg,[{maps,remove,_,_}|_]}} = (catch maps:remove(1,[])),
-    {'EXIT',{badarg,[{maps,remove,_,_}|_]}} = (catch maps:remove(a,<<>>)),
-     ok.
+    BigNum = 1 bsl 65 + 3,
+    {'EXIT',{{badmap,BigNum},[{maps,remove,_,_}|_]}} = (catch maps:remove(a, BigNum)),
+    {'EXIT',{{badmap,154},[{maps,remove,_,_}|_]}} = (catch maps:remove(1, 154)),
+    {'EXIT',{{badmap,atom},[{maps,remove,_,_}|_]}} = (catch maps:remove(a, atom)),
+    {'EXIT',{{badmap,[]},[{maps,remove,_,_}|_]}} = (catch maps:remove(1, [])),
+    {'EXIT',{{badmap,<<>>},[{maps,remove,_,_}|_]}} = (catch maps:remove(a, <<>>)),
+    ok.
 
 t_bif_map_values(Config) when is_list(Config) ->
 
@@ -1680,10 +1703,11 @@ t_bif_map_values(Config) when is_list(Config) ->
     true = is_members([number,3,"hello",<<"value">>],maps:values(M1)),
 
     %% error case
-    {'EXIT',{badarg,[{maps,values,_,_}|_]}} = (catch maps:values(1 bsl 65 + 3)),
-    {'EXIT',{badarg,[{maps,values,_,_}|_]}} = (catch maps:values(atom)),
-    {'EXIT',{badarg,[{maps,values,_,_}|_]}} = (catch maps:values([])),
-    {'EXIT',{badarg,[{maps,values,_,_}|_]}} = (catch maps:values(<<>>)),
+    BigNum = 1 bsl 65 + 3,
+    {'EXIT',{{badmap,BigNum},[{maps,values,_,_}|_]}} = (catch maps:values(BigNum)),
+    {'EXIT',{{badmap,atom},[{maps,values,_,_}|_]}} = (catch maps:values(atom)),
+    {'EXIT',{{badmap,[]},[{maps,values,_,_}|_]}} = (catch maps:values([])),
+    {'EXIT',{{badmap,<<>>},[{maps,values,_,_}|_]}} = (catch maps:values(<<>>)),
     ok.
 
 
@@ -1854,8 +1878,8 @@ t_bif_map_to_list(Config) when is_list(Config) ->
 				  <<"hi">>=>v6,3=>v7,"hi"=>v8,hi=>v9,{hi,3}=>v10})),
 
     %% error cases
-    {'EXIT', {badarg,_}} = (catch maps:to_list(id(a))),
-    {'EXIT', {badarg,_}} = (catch maps:to_list(id(42))),
+    {'EXIT', {{badmap,a},_}} = (catch maps:to_list(id(a))),
+    {'EXIT', {{badmap,42},_}} = (catch maps:to_list(id(42))),
     ok.
 
 
@@ -2071,9 +2095,9 @@ t_update_assoc_variables(Config) when is_list(Config) ->
     #{ <<0:258>> := val } = id(M0#{<<0:258>> => val}), %% binary limitation
 
     %% Errors cases.
-    BadMap = id(badmap),
-    {'EXIT',{{badarg,_},_}} = (catch BadMap#{nonexisting=>val}),
-    {'EXIT',{{badarg,_},_}} = (catch <<>>#{nonexisting=>val}),
+    BadMap = id(a_bad_map),
+    {'EXIT',{{badmap,BadMap},_}} = (catch BadMap#{nonexisting=>val}),
+    {'EXIT',{{badmap,<<>>},_}} = (catch <<>>#{nonexisting=>val}),
     ok.
 
 t_update_exact_variables(Config) when is_list(Config) ->
@@ -2101,14 +2125,14 @@ t_update_exact_variables(Config) when is_list(Config) ->
 	1.0 => new_val4 },
 
     %% Errors cases.
-    {'EXIT',{{badarg,_},_}} = (catch ((id(nil))#{ a := b })),
-    {'EXIT',{{badarg,_},_}} = (catch <<>>#{nonexisting:=val}),
+    {'EXIT',{{badmap,_},_}} = (catch ((id(nil))#{ a := b })),
+    {'EXIT',{{badmap,_},_}} = (catch <<>>#{nonexisting:=val}),
 
-    {'EXIT',{badarg,_}} = (catch M0#{nonexisting:=val}),
-    {'EXIT',{badarg,_}} = (catch M0#{1.0:=v,1.0=>v2}),
-    {'EXIT',{badarg,_}} = (catch M0#{42.0:=v,42:=v2}),
-    {'EXIT',{badarg,_}} = (catch M0#{42=>v1,42.0:=v2,42:=v3}),
-    {'EXIT',{badarg,_}} = (catch M0#{<<0:257>> := val}), %% limitation
+    {'EXIT',{{badkey,nonexisting},_}} = (catch M0#{nonexisting:=val}),
+    {'EXIT',{{badkey,1.0},_}} = (catch M0#{1.0:=v,1.0=>v2}),
+    {'EXIT',{{badkey,_},_}} = (catch M0#{42.0:=v,42:=v2}),
+    {'EXIT',{{badkey,_},_}} = (catch M0#{42=>v1,42.0:=v2,42:=v3}),
+    {'EXIT',{{badkey,_},_}} = (catch M0#{<<0:257>> := val}), %% limitation
     ok.
 
 t_nested_pattern_expressions(Config) when is_list(Config) ->
@@ -2359,6 +2383,11 @@ t_build_and_match_structure(Config) when is_list(Config) ->
     ok.
 
 
+do_badmap(Test) ->
+    Terms = [Test,fun erlang:abs/1,make_ref(),self(),0.0/id(-1),
+	     <<1:1>>,<<>>,<<1,2,3>>,
+	     [],{a,b,c},[a,b],atom,10.0,42,(1 bsl 65) + 3],
+    [Test(T) || T <- Terms].
 
 %% Use this function to avoid compile-time evaluation of an expression.
 id(I) -> I.

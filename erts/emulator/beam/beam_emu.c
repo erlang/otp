@@ -2493,7 +2493,13 @@ do {								\
 	 StoreResult(res, Arg(2));
 	 Next(5+Arg(4));
      } else {
-	 goto badarg;
+	 /*
+	  * This can only happen if the code was compiled
+	  * with the compiler in OTP 17.
+	  */
+	 c_p->freason = BADMAP;
+	 c_p->fvalue = map;
+	 goto lb_Cl_error;
      }
  }
 
@@ -2511,7 +2517,7 @@ do {								\
 	 StoreResult(res, Arg(2));
 	 Next(5+Arg(4));
      } else {
-	 goto badarg;
+	 goto lb_Cl_error;
      }
  }
 
@@ -5261,7 +5267,9 @@ Eterm error_atom[NUMBER_EXIT_CODES] = {
   am_notalive,		/* 14 */
   am_system_limit,	/* 15 */
   am_try_clause,	/* 16 */
-  am_notsup		/* 17 */
+  am_notsup,		/* 17 */
+  am_badmap,		/* 18 */
+  am_badkey,		/* 19 */
 };
 
 /*
@@ -5517,6 +5525,8 @@ expand_error_value(Process* c_p, Uint freason, Eterm Value) {
     case (GET_EXC_INDEX(EXC_TRY_CLAUSE)):
     case (GET_EXC_INDEX(EXC_BADFUN)):
     case (GET_EXC_INDEX(EXC_BADARITY)):
+    case (GET_EXC_INDEX(EXC_BADMAP)):
+    case (GET_EXC_INDEX(EXC_BADKEY)):
         /* Some common exceptions: value -> {atom, value} */
         ASSERT(is_value(Value));
 	hp = HAlloc(c_p, 3);
@@ -6814,8 +6824,11 @@ update_map_exact(Process* p, Eterm* reg, Eterm map, BeamInstr* I)
 	/* apparently the compiler does not emit is_map instructions,
 	 * bad compiler */
 
-	if (is_not_hashmap(map))
+	if (is_not_hashmap(map)) {
+	    p->freason = BADMAP;
+	    p->fvalue = map;
 	    return THE_NON_VALUE;
+	}
 
 	res = map;
 	E = p->stop;
@@ -6825,8 +6838,11 @@ update_map_exact(Process* p, Eterm* reg, Eterm map, BeamInstr* I)
 	    hx = hashmap_make_hash(new_key);
 
 	    res = erts_hashmap_insert(p, hx, new_key, val, res,  1);
-	    if (is_non_value(res))
+	    if (is_non_value(res)) {
+		p->fvalue = new_key;
+		p->freason = BADKEY;
 		return res;
+	    }
 
 	    if (p->mbuf) {
 		Uint live = Arg(3);
@@ -6849,6 +6865,9 @@ update_map_exact(Process* p, Eterm* reg, Eterm map, BeamInstr* I)
      */
 
     if (num_old == 0) {
+	E = p->stop;
+	p->freason = BADKEY;
+	GET_TERM(new_p[0], p->fvalue);
 	return THE_NON_VALUE;
     }
 
@@ -6918,6 +6937,8 @@ update_map_exact(Process* p, Eterm* reg, Eterm map, BeamInstr* I)
      * update list did not previously exist.
      */
     ASSERT(hp == p->htop + need);
+    p->freason = BADKEY;
+    p->fvalue = new_key;
     return THE_NON_VALUE;
 }
 #undef GET_TERM

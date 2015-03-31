@@ -467,7 +467,8 @@ Eterm erts_gc_map_size_1(Process* p, Eterm* reg, Uint live)
     } else if (is_hashmap(arg)) {
 	size = hashmap_size(arg);
     } else {
-	BIF_ERROR(p, BADARG);
+	p->fvalue = arg;
+	BIF_ERROR(p, BADMAP);
     }
     if (IS_USMALL(0, size)) {
 	return make_small(size);

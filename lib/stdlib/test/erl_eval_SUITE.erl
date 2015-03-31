@@ -1482,8 +1482,11 @@ eep43(Config) when is_list(Config) ->
 	  "    #{ K1 := 1, K2 := 2, K3 := 3, {2,2} := 4} = Map "
 	  "end.",
 	  #{ 1 => 1, <<42:301>> => 2, {3,<<42:301>>} => 3, {2,2} => 4}),
-    error_check("[camembert]#{}.", {badarg,[camembert]}),
+    error_check("[camembert]#{}.", {badmap,[camembert]}),
+    error_check("[camembert]#{nonexisting:=v}.", {badmap,[camembert]}),
     error_check("#{} = 1.", {badmatch,1}),
+    error_check("[]#{a=>error(bad)}.", bad),
+    error_check("(#{})#{nonexisting:=value}.", {badkey,nonexisting}),
     ok.
 
 %% Check the string in different contexts: as is; in fun; from compiled code.

@@ -122,7 +122,8 @@ BIF_RETTYPE map_size_1(BIF_ALIST_1) {
 	BIF_RET(res);
     }
 
-    BIF_ERROR(BIF_P, BADARG);
+    BIF_P->fvalue = BIF_ARG_1;
+    BIF_ERROR(BIF_P, BADMAP);
 }
 
 /* maps:to_list/1 */
@@ -150,7 +151,8 @@ BIF_RETTYPE maps_to_list_1(BIF_ALIST_1) {
 	return hashmap_to_list(BIF_P, BIF_ARG_1);
     }
 
-    BIF_ERROR(BIF_P, BADARG);
+    BIF_P->fvalue = BIF_ARG_1;
+    BIF_ERROR(BIF_P, BADMAP);
 }
 
 /* maps:find/2
@@ -217,34 +219,29 @@ BIF_RETTYPE maps_find_2(BIF_ALIST_2) {
 	}
 	BIF_RET(am_error);
     }
-    BIF_ERROR(BIF_P, BADARG);
+    BIF_P->fvalue = BIF_ARG_2;
+    BIF_ERROR(BIF_P, BADMAP);
 }
 
 /* maps:get/2
  * return value if key *matches* a key in the map
- * exception bad_key if none matches
+ * exception badkey if none matches
  */
 
 BIF_RETTYPE maps_get_2(BIF_ALIST_2) {
     if (is_map(BIF_ARG_2)) {
-	Eterm *hp;
-        Eterm error;
         const Eterm *value;
-	char *s_error;
 
         value = erts_maps_get(BIF_ARG_1, BIF_ARG_2);
         if (value) {
             BIF_RET(*value);
 	}
 
-	s_error = "bad_key";
-	error = am_atom_put(s_error, sys_strlen(s_error));
-
-	hp = HAlloc(BIF_P, 3);
-	BIF_P->fvalue = TUPLE2(hp, error, BIF_ARG_1);
-	BIF_ERROR(BIF_P, EXC_ERROR_2);
+	BIF_P->fvalue = BIF_ARG_1;
+	BIF_ERROR(BIF_P, BADKEY);
     }
-    BIF_ERROR(BIF_P, BADARG);
+    BIF_P->fvalue = BIF_ARG_2;
+    BIF_ERROR(BIF_P, BADMAP);
 }
 
 /* maps:from_list/1
@@ -911,7 +908,8 @@ BIF_RETTYPE maps_is_key_2(BIF_ALIST_2) {
     if (is_map(BIF_ARG_2)) {
 	BIF_RET(erts_maps_get(BIF_ARG_1, BIF_ARG_2) ? am_true : am_false);
     }
-    BIF_ERROR(BIF_P, BADARG);
+    BIF_P->fvalue = BIF_ARG_2;
+    BIF_ERROR(BIF_P, BADMAP);
 }
 
 /* maps:keys/1 */
@@ -939,7 +937,8 @@ BIF_RETTYPE maps_keys_1(BIF_ALIST_1) {
     } else if (is_hashmap(BIF_ARG_1)) {
 	BIF_RET(hashmap_keys(BIF_P, BIF_ARG_1));
     }
-    BIF_ERROR(BIF_P, BADARG);
+    BIF_P->fvalue = BIF_ARG_1;
+    BIF_ERROR(BIF_P, BADMAP);
 }
 /* maps:merge/2 */
 
@@ -951,6 +950,7 @@ BIF_RETTYPE maps_merge_2(BIF_ALIST_2) {
 	    /* Will always become a tree */
 	    BIF_RET(map_merge_mixed(BIF_P, BIF_ARG_1, BIF_ARG_2, 0));
 	}
+	BIF_P->fvalue = BIF_ARG_2;
     } else if (is_hashmap(BIF_ARG_1)) {
 	if (is_hashmap(BIF_ARG_2)) {
 	    BIF_RET(hashmap_merge(BIF_P, BIF_ARG_1, BIF_ARG_2));
@@ -958,8 +958,11 @@ BIF_RETTYPE maps_merge_2(BIF_ALIST_2) {
 	    /* Will always become a tree */
 	    BIF_RET(map_merge_mixed(BIF_P, BIF_ARG_2, BIF_ARG_1, 1));
 	}
+	BIF_P->fvalue = BIF_ARG_2;
+    } else {
+	BIF_P->fvalue = BIF_ARG_1;
     }
-    BIF_ERROR(BIF_P, BADARG);
+    BIF_ERROR(BIF_P, BADMAP);
 }
 
 static Eterm flatmap_merge(Process *p, Eterm nodeA, Eterm nodeB) {
@@ -1398,7 +1401,8 @@ BIF_RETTYPE maps_put_3(BIF_ALIST_3) {
     if (is_map(BIF_ARG_3)) {
 	BIF_RET(erts_maps_put(BIF_P, BIF_ARG_1, BIF_ARG_2, BIF_ARG_3));
     }
-    BIF_ERROR(BIF_P, BADARG);
+    BIF_P->fvalue = BIF_ARG_3;
+    BIF_ERROR(BIF_P, BADMAP);
 }
 
 /* maps:remove/3 */
@@ -1492,7 +1496,8 @@ BIF_RETTYPE maps_remove_2(BIF_ALIST_2) {
 	    BIF_RET(res);
 	}
     }
-    BIF_ERROR(BIF_P, BADARG);
+    BIF_P->fvalue = BIF_ARG_2;
+    BIF_ERROR(BIF_P, BADMAP);
 }
 
 int erts_maps_update(Process *p, Eterm key, Eterm value, Eterm map, Eterm *res) {
@@ -1688,13 +1693,17 @@ Eterm erts_maps_put(Process *p, Eterm key, Eterm value, Eterm map) {
 /* maps:update/3 */
 
 BIF_RETTYPE maps_update_3(BIF_ALIST_3) {
-    if (is_map(BIF_ARG_3)) {
+    if (is_not_map(BIF_ARG_3)) {
+	BIF_P->fvalue = BIF_ARG_3;
+	BIF_ERROR(BIF_P, BADMAP);
+    } else {
 	Eterm res;
 	if (erts_maps_update(BIF_P, BIF_ARG_1, BIF_ARG_2, BIF_ARG_3, &res)) {
 	    BIF_RET(res);
 	}
+	BIF_P->fvalue = BIF_ARG_1;
+	BIF_ERROR(BIF_P, BADKEY);
     }
-    BIF_ERROR(BIF_P, BADARG);
 }
 
 
@@ -1723,7 +1732,8 @@ BIF_RETTYPE maps_values_1(BIF_ALIST_1) {
     } else if (is_hashmap(BIF_ARG_1)) {
 	BIF_RET(hashmap_values(BIF_P, BIF_ARG_1));
     }
-    BIF_ERROR(BIF_P, BADARG);
+    BIF_P->fvalue = BIF_ARG_1;
+    BIF_ERROR(BIF_P, BADMAP);
 }
 
 static Eterm hashmap_to_list(Process *p, Eterm node) {
@@ -2546,8 +2556,12 @@ Uint hashmap_over_estimated_heap_size(Uint k)
 BIF_RETTYPE erts_debug_map_info_1(BIF_ALIST_1) {
     if (is_hashmap(BIF_ARG_1)) {
 	BIF_RET(hashmap_info(BIF_P,BIF_ARG_1));
+    } else if (is_flatmap(BIF_ARG_1)) {
+	BIF_ERROR(BIF_P, BADARG);
+    } else {
+	BIF_P->fvalue = BIF_ARG_1;
+	BIF_ERROR(BIF_P, BADMAP);
     }
-    BIF_ERROR(BIF_P, BADARG);
 }
 
 /*
@@ -2560,8 +2574,12 @@ BIF_RETTYPE erts_internal_map_to_tuple_keys_1(BIF_ALIST_1) {
     if (is_flatmap(BIF_ARG_1)) {
 	flatmap_t *mp = (flatmap_t*)flatmap_val(BIF_ARG_1);
 	BIF_RET(mp->keys);
+    } else if (is_hashmap(BIF_ARG_1)) {
+	BIF_ERROR(BIF_P, BADARG);
+    } else {
+	BIF_P->fvalue = BIF_ARG_1;
+	BIF_ERROR(BIF_P, BADMAP);
     }
-    BIF_ERROR(BIF_P, BADARG);
 }
 
 /*
@@ -2589,7 +2607,8 @@ BIF_RETTYPE erts_internal_map_type_1(BIF_ALIST_1) {
                 erl_exit(1, "bad header");
         }
     }
-    BIF_ERROR(BIF_P, BADARG);
+    BIF_P->fvalue = BIF_ARG_1;
+    BIF_ERROR(BIF_P, BADMAP);
 }
 
 /*
@@ -2629,8 +2648,12 @@ BIF_RETTYPE erts_internal_map_hashmap_children_1(BIF_ALIST_1) {
         hp = HAlloc(BIF_P, 2*sz);
         while(sz--) { res = CONS(hp, *ptr++, res); hp += 2; }
         BIF_RET(res);
+    } else if (is_flatmap(BIF_ARG_1)) {
+	BIF_ERROR(BIF_P, BADARG);
+    } else {
+	BIF_P->fvalue = BIF_ARG_1;
+	BIF_ERROR(BIF_P, BADMAP);
     }
-    BIF_ERROR(BIF_P, BADARG);
 }
 
 
