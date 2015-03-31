@@ -644,6 +644,17 @@ t_map_size(Config) when is_list(Config) ->
     Ks = [build_key(fun(K) -> <<1,K:32,1>> end,I)||I<-lists:seq(1,100)],
     ok = build_and_check_size(Ks,0,#{}),
 
+    %% try deep collisions
+    %% statistically we get another subtree at 50k -> 100k elements
+    %% Try to be nice and don't use too much memory in the testcase,
+
+    N  = 500000,
+    Is = lists:seq(1,N),
+    N  = map_size(maps:from_list([{I,I}||I<-Is])),
+    N  = map_size(maps:from_list([{<<I:32>>,I}||I<-Is])),
+    N  = map_size(maps:from_list([{integer_to_list(I),I}||I<-Is])),
+    N  = map_size(maps:from_list([{float(I),I}||I<-Is])),
+
     %% Error cases.
     {'EXIT',{badarg,_}} = (catch map_size([])),
     {'EXIT',{badarg,_}} = (catch map_size(<<1,2,3>>)),
