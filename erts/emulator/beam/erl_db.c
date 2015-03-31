@@ -3425,9 +3425,9 @@ static void fix_table_locked(Process* p, DbTable* tb)
     erts_refc_inc(&tb->common.ref,1);
     fix = tb->common.fixations;
     if (fix == NULL) { 
-	get_now(&(tb->common.megasec),
-		&(tb->common.sec), 
-		&(tb->common.microsec));
+	get_sys_now(&(tb->common.megasec),
+		    &(tb->common.sec), 
+		    &(tb->common.microsec));
     }
     else {
 	for (; fix != NULL; fix = fix->next) {

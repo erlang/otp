@@ -425,7 +425,7 @@ erts_garbage_collect(Process* p, int need, Eterm* objv, int nobj)
     state = erts_smp_atomic32_read_bor_nob(&p->state, ERTS_PSFLG_GC);
     off_heap_msgs = state & ERTS_PSFLG_OFF_HEAP_MSGS;
     if (erts_system_monitor_long_gc != 0) {
-	get_now(&ms1, &s1, &us1);
+	get_sys_now(&ms1, &s1, &us1);
     }
 
     ERTS_CHK_OFFHEAP(p);
@@ -478,7 +478,7 @@ erts_garbage_collect(Process* p, int need, Eterm* objv, int nobj)
 	Sint t;
 	if (erts_test_long_gc_sleep)
 	    while (0 != erts_milli_sleep(erts_test_long_gc_sleep));
-	get_now(&ms2, &s2, &us2);
+	get_sys_now(&ms2, &s2, &us2);
 	t = ms2 - ms1;
 	t = t*1000000 + s2 - s1;
 	t = t*1000 + ((Sint) (us2 - us1))/1000;

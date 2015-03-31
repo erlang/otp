@@ -376,10 +376,10 @@ do { \
     if (erts_cpu_timestamp) \
 	erts_get_now_cpu(m, s, u); \
     else \
-	get_now(m, s, u); \
+	get_sys_now(m, s, u); \
 } while (0)
 #else
-#  define GET_NOW(m, s, u) do {get_now(m, s, u);} while (0)
+#  define GET_NOW(m, s, u) do {get_sys_now(m, s, u);} while (0)
 #endif
 
 
