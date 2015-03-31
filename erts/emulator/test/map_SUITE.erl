@@ -1654,6 +1654,40 @@ t_bif_map_merge(Config) when is_list(Config) ->
     #{4 := integer, 18446744073709551629 := wat, float := 3.3, int := 3,
 	{1,2} := "tuple", "hi" := "hello again", <<"key">> := <<"value">>} = maps:merge(M0,M1),
 
+    %% try deep collisions
+    N  = 150000,
+    Is = lists:seq(1,N),
+    M2 = maps:from_list([{I,I}||I<-Is]),
+    150000 = maps:size(M2),
+    M3 = maps:from_list([{<<I:32>>,I}||I<-Is]),
+    150000 = maps:size(M3),
+    M4 = maps:merge(M2,M3),
+    300000 = maps:size(M4),
+    M5 = maps:from_list([{integer_to_list(I),I}||I<-Is]),
+    150000 = maps:size(M5),
+    M6 = maps:merge(M4,M5),
+    450000 = maps:size(M6),
+    M7 = maps:from_list([{float(I),I}||I<-Is]),
+    150000 = maps:size(M7),
+    M8 = maps:merge(M7,M6),
+    600000 = maps:size(M8),
+
+    #{      1 := 1,           "1" := 1,           <<1:32>> := 1      } = M8,
+    #{     10 := 10,         "10" := 10,         <<10:32>> := 10     } = M8,
+    #{    100 := 100,       "100" := 100,       <<100:32>> := 100    } = M8,
+    #{   1000 := 1000,     "1000" := 1000,     <<1000:32>> := 1000   } = M8,
+    #{  10000 := 10000,   "10000" := 10000,   <<10000:32>> := 10000  } = M8,
+    #{ 100000 := 100000, "100000" := 100000, <<100000:32>> := 100000 } = M8,
+
+    %% overlapping
+    M8 = maps:merge(M2,M8),
+    M8 = maps:merge(M3,M8),
+    M8 = maps:merge(M4,M8),
+    M8 = maps:merge(M5,M8),
+    M8 = maps:merge(M6,M8),
+    M8 = maps:merge(M7,M8),
+    M8 = maps:merge(M8,M8),
+
     %% error case
     {'EXIT',{badarg,[{maps,merge,_,_}|_]}} = (catch maps:merge((1 bsl 65 + 3), <<>>)),
     {'EXIT',{badarg,[{maps,merge,_,_}|_]}} = (catch maps:merge(<<>>, id(#{ a => 1}))),
