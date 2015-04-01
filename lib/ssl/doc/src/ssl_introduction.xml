@@ -34,21 +34,20 @@
   <section>
     <title>Purpose</title>
     <p>Transport Layer Security (TLS) and its predecessor, the Secure
-    Sockets Layer (SSL) are cryptographic protocols designed to
-    provide communications security over a computer network. They
-    use x.509 certificates and hence asymmetric cryptography to
-    authenticate the counterparty with whom they are communicating,
-    and to exchange a symmetric key. This session key is then used
-    to encrypt data flowing between the parties. This allows for
-    data/message confidentiality, and message authentication codes
-    for message integrity.</p>
+    Sockets Layer (SSL), are cryptographic protocols designed to
+    provide communications security over a computer network. The protocols use
+    use X.509 certificates and hence public key (asymmetric) cryptography to
+    authenticate the counterpart with whom they communicate,
+    and to exchange a symmetric key for payload encryption. The protocol provides
+    data/message confidentiality (encryption), integrity (through message authentication code checks)
+    and host verification (through certificate path validation).</p>
   </section>
 
   <section>
     <title>Prerequisites</title>
     <p>It is assumed that the reader is familiar with the Erlang
     programming language, the concepts of OTP, and has a basic
-    understanding of SSL/TSP.</p>
+    understanding of SSL/TLS.</p>
   </section>
 
 </chapter>
