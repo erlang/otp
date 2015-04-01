@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -43,7 +43,7 @@ start_link(Port, Address, SockOpts, Opts, AcceptTimeout) ->
 acceptor_init(Parent, Port, Address, SockOpts, Opts, AcceptTimeout) ->
     {_, Callback, _} =  
 	proplists:get_value(transport, Opts, {tcp, gen_tcp, tcp_closed}),
-    case (catch do_socket_listen(Callback, Port, SockOpts)) of
+    case (catch do_socket_listen(Callback, Port, [{active, false} | SockOpts])) of
 	{ok, ListenSocket} ->
 	    proc_lib:init_ack(Parent, {ok, self()}),
 	    acceptor_loop(Callback, 
