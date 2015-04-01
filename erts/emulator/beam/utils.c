@@ -1614,7 +1614,6 @@ make_internal_hash(Eterm term)
     Eterm tmp;
     DECLARE_ESTACK(s);
 
-    UseTmpHeapNoproc(2);
     hash = 0;
     for (;;) {
 	switch (primary_tag(term)) {
@@ -1919,7 +1918,6 @@ make_internal_hash(Eterm term)
 	pop_next:
 	    if (ESTACK_ISEMPTY(s)) {
 		DESTROY_ESTACK(s);
-		UnUseTmpHeapNoproc(2);
 		return hash;
 	    }
 

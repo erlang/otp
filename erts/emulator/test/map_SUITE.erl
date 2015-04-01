@@ -32,6 +32,7 @@
         t_guard_update/1, t_guard_update_large/1,
 	t_guard_receive/1, t_guard_receive_large/1,
         t_guard_fun/1,
+        t_update_deep/1,
 	t_list_comprehension/1,
 	t_map_sort_literals/1,
 	t_map_equal/1,
@@ -99,6 +100,7 @@ all() -> [
         t_guard_update, t_guard_update_large,
 	t_guard_receive, t_guard_receive_large,
         t_guard_fun, t_list_comprehension,
+        t_update_deep,
 	t_map_equal, t_map_compare,
 	t_map_sort_literals,
 
@@ -1053,6 +1055,27 @@ t_update_exact_large(Config) when is_list(Config) ->
 
     ok.
 
+t_update_deep(Config) when is_list(Config) ->
+    N = 250000,
+    M0 = maps:from_list([{integer_to_list(I),a}||I<-lists:seq(1,N)]),
+    #{ "1" := a, "10" := a, "100" := a, "1000" := a, "10000" := a } = M0,
+
+    M1 = M0#{ "1" := b, "10" := b, "100" := b, "1000" := b, "10000" := b },
+    #{ "1" := a, "10" := a, "100" := a, "1000" := a, "10000" := a } = M0,
+    #{ "1" := b, "10" := b, "100" := b, "1000" := b, "10000" := b } = M1,
+
+    M2 = M0#{ "1" => c, "10" => c, "100" => c, "1000" => c, "10000" => c },
+    #{ "1" := a, "10" := a, "100" := a, "1000" := a, "10000" := a } = M0,
+    #{ "1" := b, "10" := b, "100" := b, "1000" := b, "10000" := b } = M1,
+    #{ "1" := c, "10" := c, "100" := c, "1000" := c, "10000" := c } = M2,
+
+    M3 = M2#{ "n1" => d, "n10" => d, "n100" => d, "n1000" => d, "n10000" => d },
+    #{  "1" := a,  "10" := a,  "100" := a,  "1000" := a,  "10000" := a } = M0,
+    #{  "1" := b,  "10" := b,  "100" := b,  "1000" := b,  "10000" := b } = M1,
+    #{  "1" := c,  "10" := c,  "100" := c,  "1000" := c,  "10000" := c } = M2,
+    #{  "1" := c,  "10" := c,  "100" := c,  "1000" := c,  "10000" := c } = M3,
+    #{ "n1" := d, "n10" := d, "n100" := d, "n1000" := d, "n10000" := d } = M3,
+    ok.
 
 t_guard_bifs(Config) when is_list(Config) ->
     true   = map_guard_head(#{a=>1}),

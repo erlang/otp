@@ -392,12 +392,11 @@ static Eterm hashmap_from_validated_list(Process *p, Eterm list, Uint size) {
     Eterm item = list;
     Eterm *hp;
     Eterm *kv, res;
-    Eterm tmp[2];
     Uint32 sw, hx;
     Uint ix = 0;
     hxnode_t *hxns;
     ErtsHeapFactory factory;
-
+    DeclareTmpHeap(tmp,2,p);
     ASSERT(size > 0);
 
     hp = HAlloc(p, (2 * size));
@@ -405,6 +404,7 @@ static Eterm hashmap_from_validated_list(Process *p, Eterm list, Uint size) {
     /* create tmp hx values and leaf ptrs */
     hxns = (hxnode_t *)erts_alloc(ERTS_ALC_T_TMP, size * sizeof(hxnode_t));
 
+    UseTmpHeap(2,p);
     while(is_list(item)) {
 	res = CAR(list_val(item));
 	kv  = tuple_val(res);
@@ -417,6 +417,7 @@ static Eterm hashmap_from_validated_list(Process *p, Eterm list, Uint size) {
 	ix++;
 	item = CDR(list_val(item));
     }
+    UnUseTmpHeap(2,p);
 
     factory.p = p;
     res = hashmap_from_unsorted_array(&factory, hxns, size, 0);
@@ -625,9 +626,9 @@ static Eterm hashmap_from_sorted_unique_array(ErtsHeapFactory* factory,
     Uint i,ix,jx,elems;
     Uint32 sw, hx;
     Eterm val;
-    Eterm th[2];
     hxnode_t *tmp;
-
+    DeclareTmpHeapNoproc(th,2);
+    UseTmpHeapNoproc(2);
     ASSERT(lvl < 32);
     ix = 0;
     elems = 1;
@@ -665,6 +666,7 @@ static Eterm hashmap_from_sorted_unique_array(ErtsHeapFactory* factory,
 
     ERTS_FACTORY_HOLE_CHECK(factory);
 
+    UnUseTmpHeapNoproc(2);
     return res;
 }
 
@@ -1099,12 +1101,13 @@ static Eterm hashmap_merge(Process *p, Eterm nodeA, Eterm nodeB) {
     struct HashmapMergePStackType* sp = PSTACK_PUSH(s);
     Eterm *hp, *nhp;
     Eterm hdrA, hdrB;
-    Eterm th[2];
     Uint32 ahx, bhx;
     Uint size;  /* total key-value counter */
     int keepA = 0;
-    unsigned lvl = 0;
+    unsigned int lvl = 0;
+    DeclareTmpHeap(th,2,p);
     Eterm res = THE_NON_VALUE;
+    UseTmpHeap(2,p);
 
     /*
      * Strategy: Do depth-first traversal of both trees (at the same time)
@@ -1297,6 +1300,7 @@ recurse:
 	res = make_boxed(nhp);
     }
     PSTACK_DESTROY(s);
+    UnUseTmpHeap(2,p);
     return res;
 }
 
@@ -1315,8 +1319,9 @@ static int hash_cmp(Uint32 ha, Uint32 hb)
 
 int hashmap_key_hash_cmp(Eterm* ap, Eterm* bp)
 {
-    Eterm th[2];
-    unsigned lvl = 0;
+    unsigned int lvl = 0;
+    DeclareTmpHeapNoproc(th,2);
+    UseTmpHeapNoproc(2);
 
     if (ap && bp) {
 	ASSERT(CMP_TERM(CAR(ap), CAR(bp)) != 0);
@@ -1324,11 +1329,14 @@ int hashmap_key_hash_cmp(Eterm* ap, Eterm* bp)
 	    Uint32 ha = hashmap_restore_hash(th, lvl, CAR(ap));
 	    Uint32 hb = hashmap_restore_hash(th, lvl, CAR(bp));
 	    int cmp = hash_cmp(ha, hb);
-	    if (cmp)
+	    if (cmp) {
+                UnUseTmpHeapNoproc(2);
 		return cmp;
+            }
 	    lvl += 8;
 	}
     }
+    UnUseTmpHeapNoproc(2);
     return ap ? -1 : 1;
 }
 
@@ -1901,13 +1909,14 @@ int erts_hashmap_insert_down(Uint32 hx, Eterm key, Eterm node, Uint *sz,
 			     Uint *update_size, ErtsEStack *sp, int is_update) {
     Eterm *ptr;
     Eterm hdr, ckey;
-    Eterm th[2];
     Uint32 ix, cix, bp, hval, chx;
     Uint slot, lvl = 0, clvl;
     Uint size = 0, n = 0;
+    DeclareTmpHeapNoproc(th,2);
 
     *update_size = 1;
 
+    UseTmpHeapNoproc(2);
     for (;;) {
 	switch(primary_tag(node)) {
 	    case TAG_PRIMARY_LIST: /* LEAF NODE [K|V] */
@@ -1918,6 +1927,7 @@ int erts_hashmap_insert_down(Uint32 hx, Eterm key, Eterm node, Uint *sz,
 		    goto unroll;
 		}
 		if (is_update) {
+                    UnUseTmpHeapNoproc(2);
 		    return 0;
 		}
 		goto insert_subnodes;
@@ -1953,6 +1963,7 @@ int erts_hashmap_insert_down(Uint32 hx, Eterm key, Eterm node, Uint *sz,
 			}
 			/* not occupied */
 			if (is_update) {
+                            UnUseTmpHeapNoproc(2);
 			    return 0;
 			}
 			size += HAMT_NODE_BITMAP_SZ(n+1);
@@ -1976,6 +1987,7 @@ int erts_hashmap_insert_down(Uint32 hx, Eterm key, Eterm node, Uint *sz,
 			}
 			/* not occupied */
 			if (is_update) {
+                            UnUseTmpHeapNoproc(2);
 			    return 0;
 			}
 			size += HAMT_HEAD_BITMAP_SZ(n+1);
@@ -2009,6 +2021,7 @@ insert_subnodes:
 
 unroll:
     *sz = size + /* res cons */ 2;
+    UnUseTmpHeapNoproc(2);
     return 1;
 }
 
@@ -2151,13 +2164,14 @@ static Eterm hashmap_values(Process* p, Eterm node) {
 
 static Eterm hashmap_delete(Process *p, Uint32 hx, Eterm key, Eterm map) {
     Eterm *hp = NULL, *nhp = NULL, *hp_end = NULL;
-    Eterm th[2];
     Eterm *ptr;
     Eterm hdr, res = map, node = map;
     Uint32 ix, bp, hval;
     Uint slot, lvl = 0;
     Uint size = 0, n = 0;
     DECLARE_ESTACK(stack);
+    DeclareTmpHeapNoproc(th,2);
+    UseTmpHeapNoproc(2);
 
     for (;;) {
 	switch(primary_tag(node)) {
@@ -2268,6 +2282,7 @@ unroll:
 	erts_validate_and_sort_flatmap(mp);
 
 	DESTROY_WSTACK(wstack);
+        UnUseTmpHeapNoproc(2);
 	return make_flatmap(mp);
     }
 
@@ -2408,6 +2423,7 @@ not_found:
     DESTROY_ESTACK(stack);
     ERTS_VERIFY_UNUSED_TEMP_ALLOC(p);
     ERTS_HOLE_CHECK(p);
+    UnUseTmpHeapNoproc(2);
     return res;
 }
 
