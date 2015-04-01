@@ -30,6 +30,32 @@
   </header>
   <p>This document describes the changes made to the Tools application.</p>
 
+<section><title>Tools 2.7.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix lcnt sorting and printout of histograms.</p>
+          <p>
+	    Own Id: OTP-12364</p>
+        </item>
+        <item>
+	    <p> Fix a Unicode bug in the <c>tags</c> module. </p>
+          <p>
+	    Own Id: OTP-12567</p>
+        </item>
+        <item>
+          <p>
+	    Fix tags completion in erlang.el for GNU Emacs 23+</p>
+          <p>
+	    Own Id: OTP-12583</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Tools 2.7.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

@@ -29,6 +29,50 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Ssh 3.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    If a channel is closed by the peer while using a function
+	    with call semantics in ssh_connection.erl return {error,
+	    closed}. Document that the functions can return {error,
+	    timeout | closed} and not only ssh_request_status()</p>
+          <p>
+	    Own Id: OTP-12004</p>
+        </item>
+        <item>
+          <p>
+	    Bug that causes ssh:connect to return
+	    <c>{error,int()}</c> instead of <c>{error,timeout}</c>
+	    when ssh handshake takes too long time.</p>
+          <p>
+	    Own Id: OTP-12369</p>
+        </item>
+        <item>
+          <p>
+	    Documentation corrections. (Thanks to Rabbe Fogelholm)</p>
+          <p>
+	    Own Id: OTP-12399</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Example of ssh_connection:exec added.</p>
+          <p>
+	    Own Id: OTP-12558</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Ssh 3.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

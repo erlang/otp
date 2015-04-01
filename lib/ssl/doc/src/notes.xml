@@ -25,7 +25,80 @@
     <file>notes.xml</file>
   </header>
   <p>This document describes the changes made to the SSL application.</p>
-  <section><title>SSL 5.3.8</title>
+  <section><title>SSL 6.0</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Exclude self-signed trusted anchor certificates from
+	    certificate prospective certification path according to
+	    RFC 3280.</p>
+          <p>
+	    This will avoid some unnecessary certificate processing.</p>
+          <p>
+	    Own Id: OTP-12449</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Separate client and server session cache internally.</p>
+          <p>
+	    Avoid session table growth when client starts many
+	    connections in such a manner that many connections are
+	    started before session reuse is possible. Only save a new
+	    session in client if there is no equivalent session
+	    already stored.</p>
+          <p>
+	    Own Id: OTP-11365</p>
+        </item>
+        <item>
+          <p>
+	    The PEM cache is now validated by a background process,
+	    instead of always keeping it if it is small enough and
+	    clearing it otherwise. That strategy required that small
+	    caches where cleared by API function if a file changes on
+	    disk.</p>
+          <p>
+	    However export the API function to clear the cache as it
+	    may still be useful.</p>
+          <p>
+	    Own Id: OTP-12391</p>
+        </item>
+        <item>
+          <p>
+	    Add padding check for TLS-1.0 to remove Poodle
+	    vulnerability from TLS 1.0, also add the option
+	    padding_check. This option only affects TLS-1.0
+	    connections and if set to false it disables the block
+	    cipher padding check to be able to interoperate with
+	    legacy software.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-12420</p>
+        </item>
+        <item>
+          <p>
+	    Add support for TLS_FALLBACK_SCSV used to prevent
+	    undesired TLS version downgrades. If used by a client
+	    that is vulnerable to the POODLE attack, and the server
+	    also supports TLS_FALLBACK_SCSV, the attack can be
+	    prevented.</p>
+          <p>
+	    Own Id: OTP-12458</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SSL 5.3.8</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>

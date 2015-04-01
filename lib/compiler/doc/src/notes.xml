@@ -31,6 +31,58 @@
   <p>This document describes the changes made to the Compiler
     application.</p>
 
+<section><title>Compiler 5.0.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Matching out a map from a record and then updating the
+	    record could cause a 'badarg' exception at run-time.
+	    (Thanks to Dmitry Aleksandrov for reporting this bug.)</p>
+          <p>
+	    Own Id: OTP-12402</p>
+        </item>
+        <item>
+	    <p>The compiler would crash when compiling some complex,
+	    nonsensical guards such as:</p>
+	    <p> ... <c>when {{X}}, -X</c>...</p>
+          <p>
+	    Own Id: OTP-12410</p>
+        </item>
+        <item>
+          <p>
+	    In rare circumstances, using binary pattern in the value
+	    part of a map pattern would cause the compiler to crash.</p>
+          <p>
+	    Own Id: OTP-12414</p>
+        </item>
+        <item>
+	    <p>Case expressions where a map was wrapped in a tuple or
+	    list such as:</p>
+	    <p><c>case {a,Map} of</c><br/> <c>{a,#{k:=_}}=Tuple -&gt;
+	    Tuple</c><br/> <c>end.</c></p>
+	    <p>would be unsafely "optimized" to either cause an
+	    exception at run-time or would return an empty map.</p>
+          <p>
+	    Own Id: OTP-12451</p>
+        </item>
+        <item>
+	    <p>When a variable was compared to a literal map using
+	    the '<c>==</c>' operator, the compiler would change the
+	    operator to '<c>=:=</c>' since it is more efficient.
+	    However, this optimization is not safe if the map literal
+	    has numeric keys or values. The compiler will now only do
+	    the optimization if all keys and values are
+	    non-numeric.</p>
+          <p>
+	    Own Id: OTP-12456</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Compiler 5.0.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

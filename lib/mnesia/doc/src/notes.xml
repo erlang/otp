@@ -38,7 +38,34 @@
     thus constitutes one section in this document. The title of each
     section is the version number of Mnesia.</p>
 
-  <section><title>Mnesia 4.12.4</title>
+  <section><title>Mnesia 4.12.5</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed race condition in protocol negotiation.</p>
+          <p>
+	    Own Id: OTP-12473</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Grammar corrections. (Thanks to Derek Brown)</p>
+          <p>
+	    Own Id: OTP-12400</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Mnesia 4.12.4</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>

@@ -32,7 +32,47 @@
     <file>notes.xml</file>
   </header>
   
-  <section><title>Inets 5.10.5</title>
+  <section><title>Inets 5.10.6</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    inets: parse correctly 'Set-Cookie' header with empty
+	    value</p>
+          <p>
+	    httpc_cookie should parse cookies with empty values and
+	    no attributes set in the 'Set-Cookie' headers.</p>
+          <p>
+	    Own Id: OTP-12455</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Add parsing of URI fragments to http_uri:parse</p>
+          <p>
+	    This fixes a bug in httpc where redirection URIs could
+	    lead to bad requests if they contained fragments.</p>
+          <p>
+	    Own Id: OTP-12398</p>
+        </item>
+        <item>
+          <p>
+	    httpc: http client now ignores invalid set-cookie headers</p>
+          <p>
+	    Own Id: OTP-12430</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Inets 5.10.5</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>

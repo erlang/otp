@@ -30,6 +30,34 @@
   </header>
   <p>This document describes the changes made to the OS_Mon application.</p>
 
+<section><title>Os_Mon 2.3.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Do not crash with badmatch when integer part of loadavg
+	    has more than 2 digits.</p>
+          <p>
+	    Own Id: OTP-12581</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Fix compilation of memsup on OpenBSD.</p>
+          <p>
+	    Own Id: OTP-12404</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Os_Mon 2.3</title>
 
     <section><title>Improvements and New Features</title>

@@ -32,6 +32,21 @@
   <p>This document describes the changes made to the Debugger
     application.</p>
 
+<section><title>Debugger 4.0.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix save state which did not work on Mac.</p>
+          <p>
+	    Own Id: OTP-12378</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Debugger 4.0.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

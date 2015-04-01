@@ -30,6 +30,41 @@
   </header>
   <p>This document describes the changes made to the STDLIB application.</p>
 
+<section><title>STDLIB 2.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Behaviour of character types \d, \w and \s has always
+	    been to not match characters with value above 255, not
+	    128, i.e. they are limited to ISO-Latin-1 and not ASCII</p>
+          <p>
+	    Own Id: OTP-12521</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    c:m/1 now displays the module's MD5 sum.</p>
+          <p>
+	    Own Id: OTP-12500</p>
+        </item>
+        <item>
+          <p>
+	    Make ets:i/1 handle binary input from IO server.</p>
+          <p>
+	    Own Id: OTP-12550</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>STDLIB 2.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

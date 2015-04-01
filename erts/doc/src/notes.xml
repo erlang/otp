@@ -30,6 +30,98 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 6.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix missing quotation in the <c>LM_FIND_EMU_CC</c>
+	    <c>autoconf</c> macro which could cause build failures.</p>
+          <p>
+	    Own Id: OTP-12388</p>
+        </item>
+        <item>
+          <p>
+	    Fix erroneous printout of monitors in crashdump file.</p>
+          <p>
+	    Own Id: OTP-12537</p>
+        </item>
+        <item>
+          <p>
+	    The runtime system without SMP support could crash in the
+	    BIF <c>port_control/3</c> if the port that was being
+	    accessed died during the call to the BIF.</p>
+          <p>
+	    Own Id: OTP-12544 Aux Id: Seq12777 </p>
+        </item>
+        <item>
+          <p>
+	    Avoid corrupt oversized integer to be created from binary
+	    matching. Instead throw system_limit exception which is
+	    the correct behavior. A peculiar symptom of this bug was
+	    that bitwise operations (band, bor, bxor) on such
+	    oversized integers could return the empty list [].
+	    Credit: Mikael Pettersson, Nico Kruber</p>
+          <p>
+	    Own Id: OTP-12556</p>
+        </item>
+        <item>
+          <p>
+	    A race condition when calling <c>port_info/1</c> could
+	    cause a memory fault has been fixed.</p>
+          <p>
+	    Own Id: OTP-12587</p>
+        </item>
+        <item>
+          <p>
+	    Fix comparison of exact terms. An overflow that could
+	    cause faulty comparisons has been fixed. Comparison of
+	    exact terms is exclusively used within Maps.</p>
+          <p>
+	    Own Id: OTP-12623</p>
+        </item>
+        <item>
+          <p>
+	    Fix bug in <c>list_to_integer/1</c> for very long lists
+	    that could cause VM crash.</p>
+          <p>
+	    Own Id: OTP-12624</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Introduced a runtime system internal 64-bit API for
+	    atomic memory operations.</p>
+          <p>
+	    Own Id: OTP-12351</p>
+        </item>
+        <item>
+          <p>
+	    Add command line argument option for the initial size of
+	    process dictionaries.</p>
+          <p>
+	    Use '+hpds &lt;size&gt;' to set initial process
+	    dictionary size for spawned processes.</p>
+          <p>
+	    Own Id: OTP-12535 Aux Id: seq12809 </p>
+        </item>
+        <item>
+          <p>
+	    Fix documentation on $char for Unicode</p>
+          <p>
+	    Own Id: OTP-12545</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 6.3.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

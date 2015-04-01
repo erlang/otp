@@ -30,6 +30,55 @@
   </header>
   <p>This document describes the changes made to HiPE.</p>
 
+<section><title>Hipe 3.11.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix HiPE for ARM when Erlang VM is compiled for Thumb
+	    execution mode. This was a problem on e.g. Ubuntu which
+	    configures its system GCC to generate Thumb by default.</p>
+          <p>
+	    Own Id: OTP-12405</p>
+        </item>
+        <item>
+          <p>
+	    Reduced lock contention of dynamic function lookups (like
+	    apply) from hipe compiled code.</p>
+          <p>
+	    Own Id: OTP-12557</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Fix two bugs in HiPE compiler regarding floating-points,
+	    both leading to crash during compilation. The
+	    target-specific code generators failed to handle integer
+	    to floating-point conversion instructions with constant
+	    operands. The middle-end could use an incorrect
+	    representation for copies between floating-point
+	    registers.</p>
+          <p>
+	    Own Id: OTP-12413</p>
+        </item>
+        <item>
+          <p>
+	    Improved error handling when memory allocation for HiPE
+	    code fails.</p>
+          <p>
+	    Own Id: OTP-12448</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Hipe 3.11.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
