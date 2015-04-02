@@ -1040,6 +1040,9 @@ do_update_send_window(Channel0, Cache) ->
 get_window(#channel{send_window_size = 0
 		   } = Channel, Acc) ->
     {lists:reverse(Acc), Channel};
+get_window(#channel{send_packet_size = 0
+		   } = Channel, Acc) ->
+    {lists:reverse(Acc), Channel};
 get_window(#channel{send_buf = Buffer, 
 		    send_packet_size = PacketSize,
 		    send_window_size = WindowSize0
