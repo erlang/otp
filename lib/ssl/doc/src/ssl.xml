@@ -123,7 +123,7 @@
 	<tag><c>CallbackModule</c></tag>
 	<item><p><c>= atom()</c></p></item>
 	<tag><c>DataTag</c></tag>
-	<item><p><c>= atom()</c></p>p>
+	<item><p><c>= atom()</c></p>
 	<p>Used in socket data message.</p></item>
 	<tag><c>ClosedTag</c></tag>
 	<item><p><c>= atom()</c></p>

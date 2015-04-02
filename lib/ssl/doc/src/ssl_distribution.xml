@@ -209,7 +209,7 @@ Eshell V5.0  (abort with ^G)
     initiates a connection to another node. <c>server_</c>-prefixed 
     options are used when accepting a connection from a remote node.</p>
 
-    <p>More complex options, such as <c>verify_fun</c>c>, are currently not 
+    <p>More complex options, such as <c>verify_fun</c>, are currently not 
     available, but a mechanism to handle such options may be added in
     a future release.</p>
 
