@@ -6,12 +6,12 @@
 -include_lib("common_test/include/ct.hrl").
 -include("dialyzer_test_constants.hrl").
 
--export([suite/0, all/0, build_plt/1, update_plt/1]).
+-export([suite/0, all/0, build_plt/1, beam_tests/1, update_plt/1]).
 
 suite() ->
   [{timetrap, ?plt_timeout}].
 
-all() -> [build_plt, update_plt].
+all() -> [build_plt, beam_tests, update_plt].
 
 build_plt(Config) ->
   OutDir = ?config(priv_dir, Config),
@@ -19,6 +19,32 @@ build_plt(Config) ->
     ok   -> ok;
     fail -> ct:fail(plt_build_fail)
   end.
+
+beam_tests(Config) when is_list(Config) ->
+    Prog = <<"
+              -module(no_auto_import).
+
+              %% Copied from erl_lint_SUITE.erl, clash6
+
+              -export([size/1]).
+
+              size([]) ->
+                  0;
+              size({N,_}) ->
+                  N;
+              size([_|T]) ->
+                  1+size(T).
+             ">>,
+    Opts = [no_auto_import],
+    {ok, BeamFile} = compile(Config, Prog, no_auto_import, Opts),
+    [] = run_dialyzer([BeamFile]),
+    ok.
+
+run_dialyzer(Files) ->
+    dialyzer:run([{analysis_type, plt_build},
+                  {files, Files},
+                  {from, byte_code},
+                  {check_plt, false}]).
 
 %%% [James Fish:]
 %%% If a function is removed from a module and the module has previously
