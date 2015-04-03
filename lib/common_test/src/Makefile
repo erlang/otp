@@ -62,6 +62,7 @@ MODULES= \
 	ct_telnet_client \
 	ct_make \
 	vts \
+	ct_webtool \
 	unix_telnet \
 	ct_config \
 	ct_config_plain \
