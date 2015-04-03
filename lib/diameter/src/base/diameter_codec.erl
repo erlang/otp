@@ -640,8 +640,12 @@ split_data(Bin, Len) ->
             %% payload if this is a request. Do this (in cases that we
             %% know the type) by inducing a decode failure and letting
             %% the dictionary's decode (in diameter_gen) deal with it.
-            %% Here we don't know type. If the type isn't known, then
-            %% the decode just strips the extra bit.
+            %%
+            %% Note that the extra bit can only occur in the trailing
+            %% AVP of a message or Grouped AVP, since a faulty AVP
+            %% Length is otherwise indistinguishable from a correct
+            %% one here, since we don't know the types of the AVPs
+            %% being extracted.
             {<<0:1, Bin/binary>>, <<>>}
     end.
 
@@ -690,8 +694,8 @@ pack_avp(#diameter_avp{code = undefined, data = B})
     Len = size(<<H:5/binary, _:24, T/binary>> = <<B/binary, 0:Pad>>),
     <<H/binary, Len:24, T/binary>>;
 
-%% ... from a dictionary compiled against old code in diameter_gen ...
 %% ... when ignoring errors in Failed-AVP ...
+%% ... during a relay encode ...
 pack_avp(#diameter_avp{data = <<0:1, B/binary>>} = A) ->
     pack_avp(A#diameter_avp{data = B});
 

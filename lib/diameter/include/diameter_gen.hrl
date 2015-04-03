@@ -445,7 +445,7 @@ reset(_, _) ->
 %% undecoded. Note that the type field is 'undefined' in this case.
 
 decode_AVP(Name, Avp, {Avps, Acc}) ->
-    {[Avp | Avps], pack_AVP(Name, Avp, Acc)}.
+    {[trim(Avp) | Avps], pack_AVP(Name, Avp, Acc)}.
 
 %% rc/1
 
