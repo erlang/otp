@@ -568,14 +568,14 @@ static Eterm hashmap_from_unsorted_array(ErtsHeapFactory* factory,
 
 	    while(ix < jx) {
 		lx = ix;
-		while(ix < jx && EQ(CAR(list_val(hxns[ix].val)), CAR(list_val(hxns[lx].val)))) {
+		while(++ix < jx && EQ(CAR(list_val(hxns[ix].val)),
+				      CAR(list_val(hxns[lx].val)))) {
                     if (reject_dupkeys)
                         return THE_NON_VALUE;
 
                     if (hxns[ix].i > hxns[lx].i) {
 			lx = ix;
 		    }
-		    ix++;
 		}
 		hxns[cx].hx  = hxns[lx].hx;
 		hxns[cx].val = hxns[lx].val;
