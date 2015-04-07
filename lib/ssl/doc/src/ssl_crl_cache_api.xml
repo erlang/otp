@@ -45,12 +45,35 @@
     <p>The following data types are used in the functions below:
     </p>
     
-    <p><c>cache_ref() = opaque()</c></p> 
-    <p> dist_point() = #'DistributionPoint'{} see <seealso
-    marker="public_key:cert_records"> X509 certificates records</seealso></p>
+    <taglist>
+      
+    <tag><c>cache_ref()</c></tag> 
+    <item> = opaque()</item>
+    <tag><c>dist_point()</c></tag>
+    <item> = #'DistributionPoint'{} see <seealso
+    marker="public_key:cert_records"> X509 certificates records</seealso></item>
+    
+    </taglist>
+    
   </section>
-  
   <funcs>
+      <func>
+      <name>fresh_crl(DistributionPoint, CRL) -> FreshCRL</name>
+      <fsummary> <c>fun fresh_crl/2 </c> will be used as input option <c>update_crl</c> to
+      public_key:pkix_crls_validate/3 </fsummary>
+      <type>
+	<v> DistributionPoint = dist_point() </v>
+	<v> CRL = [<seealso
+	marker="public_key:public_key">public_key:der_encoded()</seealso>] </v>
+	<v> FreshCRL = [<seealso
+	marker="public_key:public_key">public_key:der_encoded()</seealso>] </v>
+      </type>
+      <desc>
+	<p> <c>fun fresh_crl/2 </c> will be used as input option <c>update_crl</c> to
+	<seealso marker="public_key#pkix_path_validation-3">public_key:pkix_crls_validate/3 </seealso> </p>
+      </desc>
+    </func>
+    
     <func>
       <name>lookup(DistributionPoint, DbHandle) -> not_available | CRLs </name>
       <fsummary> </fsummary>
@@ -60,7 +83,7 @@
 	<v> CRLs = [<seealso
 	   marker="public_key:public_key">public_key:der_encoded()</seealso>] </v>
 	</type>
-	<desc> <p>Lookup the CRLs belonging to the distribution point <c> Distributionpoint </c>. </p>
+	<desc> <p>Lookup the CRLs belonging to the distribution point <c> Distributionpoint</c>. </p>
 	This function may choose to only look in the cache or to follow distribution point
 	links depending on how the cache is administrated.
 	</desc>
@@ -77,23 +100,6 @@
 	<desc>
 	  <p>Select the CRLs in the cache that are issued by <c>Issuer</c> </p>
 	</desc>
-    </func>
-    
-    <func>
-      <name>fresh_crl(DistributionPoint, CRL) -> FreshCRL</name>
-      <fsummary> <c>fun fresh_crl/2 </c> will be used as input option <c>update_crl</c> to
-      public_key:pkix_crls_validate/3 </fsummary>
-      <type>
-	<v> DistributionPoint = dist_point() </v>
-	<v> CRL = [<seealso
-	marker="public_key:public_key">public_key:der_encoded()</seealso>] </v>
-	<v> FreshCRL = [<seealso
-	marker="public_key:public_key">public_key:der_encoded()</seealso>] </v>
-      </type>
-      <desc>
-	<p> <c>fun fresh_crl/2 </c> will be used as input option <c>update_crl</c> to
-	<seealso marker="public_key#pkix_path_validation-3">public_key:pkix_crls_validate/3 </seealso> </p>
-      </desc>
     </func>
   </funcs>
 </erlref>
