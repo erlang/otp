@@ -365,8 +365,15 @@ script_start1(Parent, Args) ->
 		 create_priv_dir = CreatePrivDir,
 		 starter = script},
     
+%%! --- Wed Apr  8 00:08:19 2015 --- peppe was here!
+io:format(user, "RUNNING with VTS = ~p~n", [Vts]),
+
     %% check if log files should be refreshed or go on to run tests...
     Result = run_or_refresh(Opts, Args),
+
+%%! --- Wed Apr  8 00:09:48 2015 --- peppe was here!
+io:format(user, "RETURNING NOW: ~p~n", [Result]),
+
     %% send final results to starting process waiting in script_start/0
     Parent ! {self(), Result}.
 
@@ -757,21 +764,6 @@ script_start4(Opts = #opts{tests = Tests}, Args) ->
 %%% @doc Print usage information for <code>ct_run</code>.
 script_usage() ->
     io:format("\n\nUsage:\n\n"),
-    io:format("Run tests in web based GUI:\n\n"
-	      "\tct_run -vts [-browser Browser]"
-	      "\n\t[-config ConfigFile1 ConfigFile2 .. ConfigFileN]"
-	      "\n\t[-decrypt_key Key] | [-decrypt_file KeyFile]"
-	      "\n\t[-dir TestDir1 TestDir2 .. TestDirN] |"
-	      "\n\t[-suite Suite [-case Case]]"
-	      "\n\t[-logopts LogOpt1 LogOpt2 .. LogOptN]"
-	      "\n\t[-verbosity GenVLvl | [CategoryVLvl1 .. CategoryVLvlN]]"
-	      "\n\t[-include InclDir1 InclDir2 .. InclDirN]"
-	      "\n\t[-no_auto_compile]"
-	      "\n\t[-abort_if_missing_suites]"
-	      "\n\t[-multiply_timetraps N]"
-	      "\n\t[-scale_timetraps]"
-	      "\n\t[-create_priv_dir auto_per_run | auto_per_tc | manual_per_tc]"
-	      "\n\t[-basic_html]\n\n"),
     io:format("Run tests from command line:\n\n"
 	      "\tct_run [-dir TestDir1 TestDir2 .. TestDirN] |"
 	      "\n\t[[-dir TestDir] -suite Suite1 Suite2 .. SuiteN"
@@ -831,7 +823,22 @@ script_usage() ->
     io:format("Run CT in interactive mode:\n\n"
 	      "\tct_run -shell"
 	      "\n\t[-config ConfigFile1 ConfigFile2 .. ConfigFileN]"
-	      "\n\t[-decrypt_key Key] | [-decrypt_file KeyFile]\n\n").
+	      "\n\t[-decrypt_key Key] | [-decrypt_file KeyFile]\n\n"),
+    io:format("Run tests in web based GUI:\n\n"
+	      "\tct_run -vts [-browser Browser]"
+	      "\n\t[-config ConfigFile1 ConfigFile2 .. ConfigFileN]"
+	      "\n\t[-decrypt_key Key] | [-decrypt_file KeyFile]"
+	      "\n\t[-dir TestDir1 TestDir2 .. TestDirN] |"
+	      "\n\t[-suite Suite [-case Case]]"
+	      "\n\t[-logopts LogOpt1 LogOpt2 .. LogOptN]"
+	      "\n\t[-verbosity GenVLvl | [CategoryVLvl1 .. CategoryVLvlN]]"
+	      "\n\t[-include InclDir1 InclDir2 .. InclDirN]"
+	      "\n\t[-no_auto_compile]"
+	      "\n\t[-abort_if_missing_suites]"
+	      "\n\t[-multiply_timetraps N]"
+	      "\n\t[-scale_timetraps]"
+	      "\n\t[-create_priv_dir auto_per_run | auto_per_tc | manual_per_tc]"
+	      "\n\t[-basic_html]\n\n").
 
 %%%-----------------------------------------------------------------
 %%% @hidden
