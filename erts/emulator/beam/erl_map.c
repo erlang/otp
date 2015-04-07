@@ -860,7 +860,12 @@ static Eterm hashmap_from_chunked_array(ErtsHeapFactory *factory, hxnode_t *hxns
 #undef HALLOC_EXTRA
 
 static int hxnodecmpkey(hxnode_t *a, hxnode_t *b) {
-    return CMP_TERM(CAR(list_val(a->val)), CAR(list_val(b->val)));
+    Sint c = CMP_TERM(CAR(list_val(a->val)), CAR(list_val(b->val)));
+#if ERTS_SIZEOF_ETERM <= SIZEOF_INT
+    return c;
+#else
+    return c > 0 ? 1 : (c < 0 ? -1 : 0);
+#endif
 }
 
 static int hxnodecmp(hxnode_t *a, hxnode_t *b) {
