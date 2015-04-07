@@ -129,6 +129,10 @@ test(Tests) ->
 %% <dt>`verbose'</dt>
 %% <dd>Displays more details about the running tests.</dd>
 %% </dl>
+%% <dl>
+%% <dt>`colored'</dt>
+%% <dd>Highlight the results of testing at console output.</dd>
+%% </dl>
 %%
 %% Options in the environment variable EUNIT are also included last in
 %% the option list, i.e., have lower precedence than those in `Options'.
