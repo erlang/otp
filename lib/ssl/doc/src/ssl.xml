@@ -88,20 +88,19 @@
       <item><p><c>= {verify, verify_type()}</c></p>
       <p><c>| {verify_fun, {fun(), term()}}</c></p>
       <p><c>| {fail_if_no_peer_cert, boolean()} {depth, integer()}</c></p>
-      <p><c>| {cert, der_encoded()}</c></p>
+      <p><c>| {cert, public_key:der_encoded()}</c></p>
       <p><c>| {certfile, path()}</c></p>
       <p><c>| {key, {'RSAPrivateKey'| 'DSAPrivateKey' | 'ECPrivateKey' 
-      | 'PrivateKeyInfo', der_encoded()}}</c></p>
+      | 'PrivateKeyInfo', public_key:der_encoded()}}</c></p>
       <p><c>| {keyfile, path()}</c></p>
       <p><c>| {password, string()}</c></p>
-      <p><c>| {cacerts, [der_encoded()]}</c></p>
+      <p><c>| {cacerts, [public_key:der_encoded()]}</c></p>
       <p><c>| {cacertfile, path()}</c></p>
-      <p><c>| {dh, der_encoded()}</c></p>
+      <p><c>| {dh, public_key:der_encoded()}</c></p>
       <p><c>| {dhfile, path()}</c></p>
       <p><c>| {ciphers, ciphers()}</c></p>
       <p><c>| {user_lookup_fun, {fun(), term()}}, {psk_identity, string()},
       {srp_identity, {string(), string()}}</c></p>
-      <p><c>| {ssl_imp, ssl_imp()}</c></p>
       <p><c>| {reuse_sessions, boolean()}</c></p>
       <p><c>| {reuse_session, fun()} {next_protocols_advertised, [binary()]}</c></p>
       <p><c>| {client_preferred_next_protocols, {client | server,
@@ -138,7 +137,7 @@
       <item><p><c>= string()</c></p>
       <p>Represents a file path.</p></item>
 
-      <tag><c>der_encoded()</c></tag>
+      <tag><c>public_key:der_encoded()</c></tag>
       <item><p><c>= binary()</c></p>
       <p>ASN.1 DER-encoded entity as an Erlang binary.</p></item>
 
@@ -195,7 +194,7 @@
     
     <taglist>
 
-      <tag><c>{cert, der_encoded()}</c></tag>
+      <tag><c>{cert, public_key:der_encoded()}</c></tag>
       <item><p>The DER-encoded users certificate. If this option
       is supplied, it overrides option <c>certfile</c>.</p></item>
       
@@ -203,7 +202,7 @@
       <item><p>Path to a file containing the user certificate.</p></item>
       
       <tag><c>{key, {'RSAPrivateKey'| 'DSAPrivateKey' | 'ECPrivateKey'
-      |'PrivateKeyInfo', der_encoded()}}</c></tag>
+      |'PrivateKeyInfo', public_key:der_encoded()}}</c></tag>
       <item><p>The DER-encoded user's private key. If this option 
       is supplied, it overrides option <c>keyfile</c>.</p></item>
       
@@ -217,10 +216,6 @@
       <item><p>String containing the user's password. Only used if the 
       private keyfile is password-protected.</p></item>
 
-      <tag><c>{cacerts, [der_encoded()]}</c></tag>
-      <item><p>The DER-encoded trusted certificates. If this option
-      is supplied it overrides option <c>cacertfile</c>.</p></item>
-
       <tag><c>{ciphers, ciphers()}</c></tag>
       <item><p>Supported cipher suites. The function
       <c>cipher_suites/0</c> can be used to find all ciphers that are
@@ -229,15 +224,11 @@
       (<url href="http://www.ietf.org/rfc/rfc4279.txt">RFC 4279</url> and
       <url href="http://www.ietf.org/rfc/rfc5487.txt">RFC 5487</url>), 
       Secure Remote Password 
-      (<url href="http://www.ietf.org/rfc/rfc5054.txt">RFC 5054</url>), 
+      (<url href="http://www.ietf.org/rfc/rfc5054.txt">RFC 5054</url>), RC4 cipher suites,
       and anonymous cipher suites only work if explicitly enabled by
       this option; they are supported/enabled by the peer also.
       Anonymous cipher suites are supported for testing purposes
       only and are not be used when security matters.</p></item>
-
-      <tag><c>{ssl_imp, new | old}</c></tag>
-      <item><p>Has no longer any meaning as the old implementation is 
-      removed; it is ignored.</p></item>
 
       <tag><c>{secure_renegotiate, boolean()}</c></tag>
       <item><p>Specifies if to reject renegotiation attempt that does
@@ -364,7 +355,7 @@ marker="public_key:public_key#pkix_path_validation-3">public_key:pkix_path_valid
 	<p>The CA certificates specified for the connection will be used to 
 	construct the certificate chain validating the CRLs.</p>
  	
-	<p>The CRLs will be fetched from a local or external cache
+	<p>The CRLs will be fetched from a local or external cache see
 	<seealso marker="ssl:ssl_crl_cache_api">ssl_crl_cache_api(3)</seealso>.</p>
       </item>
 
@@ -455,6 +446,10 @@ fun(srp, Username :: string(), UserState :: term()) ->
       <tag><c>{reuse_sessions, boolean()}</c></tag>
       <item><p>Specifies if the client is to try to reuse sessions
       when possible.</p></item>
+
+      <tag><c>{cacerts, [public_key:der_encoded()]}</c></tag>
+      <item><p>The DER-encoded trusted certificates. If this option
+      is supplied it overrides option <c>cacertfile</c>.</p></item>
       
       <tag><c>{cacertfile, path()}</c></tag>
       <item><p>Path to a file containing PEM-encoded CA certificates. The CA
@@ -462,7 +457,7 @@ fun(srp, Username :: string(), UserState :: term()) ->
       client certificate chain.</p>
     </item>
 
-      <tag><c>{{alpn_advertised_protocols, [binary()]}</c></tag>
+      <tag><c>{alpn_advertised_protocols, [binary()]}</c></tag>
       <item>
       <p>The list of protocols supported by the client to be sent to the
       server to be used for an Application-Layer Protocol Negotiation (ALPN).
@@ -499,7 +494,7 @@ fun(srp, Username :: string(), UserState :: term()) ->
 
       <tag><c>{psk_identity, string()}</c></tag>
       <item><p>Specifies the identity the client presents to the server.
-      The matching secret is found by calling <c>user_look_fun</c>.</p>
+      The matching secret is found by calling <c>user_lookup_fun</c>.</p>
       </item>
 
       <tag><c>{srp_identity, {Username :: string(), Password :: string()}
@@ -508,14 +503,13 @@ fun(srp, Username :: string(), UserState :: term()) ->
       to the server.</p></item>
 
       <tag><c>{server_name_indication, hostname()}</c></tag>
-      <item></item>
-      <tag><c>{server_name_indication, disable}</c></tag>
-      <item>
-        <p>Can be specified when upgrading a TCP socket to a TLS
-        socket to use the TLS Server Name Indication extension.</p>
+      <item><p>Can be specified when upgrading a TCP socket to a TLS
+        socket to use the TLS Server Name Indication extension.</p></item>
 
+	<tag><c>{server_name_indication, disable}</c></tag>
+      <item>
         <p>When starting a TLS connection without upgrade, the Server Name
-        Indication extension is sent if possible. This option can also be
+        Indication extension is sent if possible. This option can be
         used to disable that behavior.</p>
       </item>
       <tag><c>{fallback, boolean()}</c></tag>
@@ -523,7 +517,7 @@ fun(srp, Username :: string(), UserState :: term()) ->
 	<p> Send special cipher suite TLS_FALLBACK_SCSV to avoid undesired TLS version downgrade.
 	Defaults to false</p>
 	<warning><p>Note this option is not needed in normal TLS usage and should not be used
-	to implement new clients. But legacy clients that that retries connections in the following manner</p>
+	to implement new clients. But legacy clients that retries connections in the following manner</p>
 
 	<p><c> ssl:connect(Host, Port, [...{versions, ['tlsv2', 'tlsv1.1', 'tlsv1', 'sslv3']}])</c></p>
 	<p><c>  ssl:connect(Host, Port, [...{versions, [tlsv1.1', 'tlsv1', 'sslv3']}, {fallback, true}])</c></p>
@@ -545,6 +539,10 @@ fun(srp, Username :: string(), UserState :: term()) ->
     meaning in the server than in the client:</p>
 
     <taglist>
+
+      <tag><c>{cacerts, [public_key:der_encoded()]}</c></tag>
+      <item><p>The DER-encoded trusted certificates. If this option
+      is supplied it overrides option <c>cacertfile</c>.</p></item>
       
       <tag><c>{cacertfile, path()}</c></tag>
       <item><p>Path to a file containing PEM-encoded CA
@@ -555,7 +553,7 @@ fun(srp, Username :: string(), UserState :: term()) ->
       is no need to verify the client and if there are no
       intermediate CAs for the server certificate.</p></item>
   
-      <tag><c>{dh, der_encoded()}</c></tag>
+      <tag><c>{dh, public_key:der_encoded()}</c></tag>
       <item><p>The DER-encoded Diffie-Hellman parameters. If specified,
       it overrides option <c>dhfile</c>.</p></item>
 
@@ -577,7 +575,7 @@ fun(srp, Username :: string(), UserState :: term()) ->
       If set to <c>true</c>, the server fails if the client does not have
       a certificate to send, that is, sends an empty certificate. If set to
       <c>false</c>, it fails only if the client sends an invalid
-      certificate (an empty certificate is considered valid).</p>
+      certificate (an empty certificate is considered valid). Defaults to false.</p>
       </item>
 
       <tag><c>{reuse_sessions, boolean()}</c></tag>

@@ -54,10 +54,10 @@
     <p>The environment parameters can be set on the command line,
     for example:</p>
 
-    <p><c>erl ... -ssl protocol_version '[sslv3, tlsv1]' ...</c>.</p>
+    <p><c>erl -ssl protocol_version "['tlsv1.2', 'tlsv1.1']"</c></p>
 
     <taglist>
-      <tag><c><![CDATA[protocol_version = [sslv3|tlsv1] <optional>]]></c>.</tag>
+      <tag><c><![CDATA[protocol_version =  <seealso marker="kernel:error_logger">ssl:protocol()</seealso> <optional>]]></c>.</tag>
       <item><p>Protocol supported by started clients and
       servers. If this option is not set, it defaults to all
       protocols currently supported by the <c>ssl</c> application.
@@ -91,7 +91,7 @@
 
   <section>
     <title>ERROR LOGGER AND EVENT HANDLERS</title>
-    <p>The <c>ssl</c> applications has no error logger or event handlers.</p>
+    <p>The <c>ssl</c> applications uses the default <seealso marker="kernel:error_logger">OTP error logger</seealso> to log unexpected errors and TLS alerts. The logging of TLS alerts may be turned off with the <c>log_alert</c> option. </p>
   </section>
 
   <section>

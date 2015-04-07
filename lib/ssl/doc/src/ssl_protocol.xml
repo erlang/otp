@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2003</year><year>2013</year>
+      <year>2003</year><year>2015</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -105,9 +105,9 @@
    </section>
 	   
    <section>
-     <title>Authentication of Sender</title>
+     <title>Peer Authentication</title>
       
-     <p>Authentication of the sender is done by public key path
+     <p>Authentication of the peer is done by public key path
      validation as defined in RFC 3280. This means basically 
      the following:</p>
      <list type="bulleted">
@@ -115,7 +115,7 @@
        previous one.</item>
        <item>The certificates attributes are valid.</item>
        <item>The root certificate is a trusted certificate that is present 
-       in the trusted certificate database kept by the peer./</item>
+       in the trusted certificate database kept by the peer.</item>
      </list>
      
      <p>The server always sends a certificate chain as part of
