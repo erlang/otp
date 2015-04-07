@@ -345,7 +345,7 @@ marker="public_key:public_key#pkix_path_validation-3">public_key:pkix_path_valid
       </taglist>
       </item>
 
-      <tag>{crl_check, boolean() | peer | best_effort }</tag>
+      <tag><c>{crl_check, boolean() | peer | best_effort }</c></tag>
       <item>
 	Perform CRL (Certificate Revocation List) verification
 	<seealso marker="public_key:public_key#pkix_crl_validate-3">
@@ -368,12 +368,12 @@ marker="public_key:public_key#pkix_path_validation-3">public_key:pkix_path_valid
 	<seealso marker="ssl:ssl_crl_cache_api">ssl_crl_cache_api(3)</seealso>.</p>
       </item>
 
-      <tag>{crl_cache, {Module :: atom(), {DbHandle :: internal | term(), Args :: list()}}}</tag>
+      <tag><c>{crl_cache, {Module :: atom(), {DbHandle :: internal | term(), Args :: list()}}}</c></tag>
       <item>
 	<p>Module defaults to ssl_crl_cache with <c> DbHandle </c> internal and an
 	empty argument list. The following arguments may be specified for the internal cache.</p>
 	<taglist>
-	  <tag>{http, timeout()}</tag>
+	  <tag><c>{http, timeout()}</c></tag>
 	  <item>
 	    Enables fetching of CRLs specified as http URIs in<seealso 
 	    marker="public_key:cert_records"> X509 cerificate extensions.</seealso>
@@ -462,7 +462,7 @@ fun(srp, Username :: string(), UserState :: term()) ->
       client certificate chain.</p>
     </item>
 
-      <tag>{alpn_advertised_protocols, [binary()]}</tag>
+      <tag><c>{{alpn_advertised_protocols, [binary()]}</c></tag>
       <item>
       <p>The list of protocols supported by the client to be sent to the
       server to be used for an Application-Layer Protocol Negotiation (ALPN).
@@ -475,8 +475,8 @@ fun(srp, Username :: string(), UserState :: term()) ->
       <p>The negotiated protocol can be retrieved using the <c>negotiated_protocol/1</c> function.</p>
       </item>
 
-      <tag>{client_preferred_next_protocols, {Precedence :: server | client, ClientPrefs :: [binary()]}}</tag>
-      <tag>{client_preferred_next_protocols, {Precedence :: server | client, ClientPrefs :: [binary()], Default :: binary()}}</tag>
+      <tag><c>{client_preferred_next_protocols, {Precedence :: server | client, ClientPrefs :: [binary()]}}</c></tag>
+      <tag><c>{client_preferred_next_protocols, {Precedence :: server | client, ClientPrefs :: [binary()], Default :: binary()}}</c></tag>
 	   <item>
 	   <p>Indicates that the client is to try to perform Next Protocol
 	   Negotiation.</p>
@@ -518,7 +518,7 @@ fun(srp, Username :: string(), UserState :: term()) ->
         Indication extension is sent if possible. This option can also be
         used to disable that behavior.</p>
       </item>
-      <tag>{fallback, boolean()}</tag>
+      <tag><c>{fallback, boolean()}</c></tag>
       <item>
 	<p> Send special cipher suite TLS_FALLBACK_SCSV to avoid undesired TLS version downgrade.
 	Defaults to false</p>
@@ -594,7 +594,7 @@ fun(srp, Username :: string(), UserState :: term()) ->
       a DER-encoded certificate, <c>Compression</c> is an enumeration integer,
       and <c>CipherSuite</c> is of type <c>ciphersuite()</c>.</p></item>
 
-      <tag>{alpn_preferred_protocols, [binary()]}</tag>
+      <tag><c>{alpn_preferred_protocols, [binary()]}</c></tag>
       <item>
       <p>Indicates the server will try to perform Application-Layer
       Protocol Negotiation (ALPN).</p>
@@ -1066,10 +1066,10 @@ fun(srp, Username :: string(), UserState :: term()) ->
 	<p>Returns version information relevant for the <c>ssl</c>
 	application.</p>
 	<taglist>
-	  <tag>app_vsn</tag>
+	  <tag><c>app_vsn</c></tag>
 	  <item>The application version of the <c>ssl</c> application.</item>
 
-	  <tag>supported</tag>
+	  <tag><c>supported</c></tag>
 	  <item>TLS/SSL versions supported by default.
 	  Overridden by a version option on
 	  <seealso marker="#connect-2"> connect/[2,3,4]</seealso>,
@@ -1079,7 +1079,7 @@ fun(srp, Username :: string(), UserState :: term()) ->
 	  marker="#connection_info-1">ssl:connection_info/1
 	  </seealso>.</item>
   
-	  <tag>available</tag>
+	  <tag><c>available</c></tag>
 	  <item>All TLS/SSL versions supported by the <c>ssl</c> application.
 	  TLS 1.2 requires sufficient support from the <c>crypto</c>
 	  application.</item>
