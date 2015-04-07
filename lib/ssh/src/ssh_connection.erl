@@ -468,18 +468,31 @@ handle_msg(#ssh_msg_channel_window_adjust{recipient_channel = ChannelId,
 handle_msg(#ssh_msg_channel_open{channel_type = "session" = Type,
 				 sender_channel = RemoteId,
 				 initial_window_size = WindowSz,
-				 maximum_packet_size = PacketSz}, Connection0, server) ->
-   
-    try setup_session(Connection0, RemoteId,
-		     Type, WindowSz, PacketSz) of
-	Result ->
-	    Result
-    catch _:_ ->
+				 maximum_packet_size = PacketSz}, 
+	   #connection{options = SSHopts} = Connection0,
+	   server) ->
+    MinAcceptedPackSz = proplists:get_value(minimal_remote_max_packet_size, SSHopts, 0),
+    
+    if 
+	MinAcceptedPackSz =< PacketSz ->
+	    try setup_session(Connection0, RemoteId,
+			      Type, WindowSz, PacketSz) of
+		Result ->
+		    Result
+	    catch _:_ ->
+		    FailMsg = channel_open_failure_msg(RemoteId, 
+						       ?SSH_OPEN_CONNECT_FAILED,
+						       "Connection refused", "en"),
+		    {{replies, [{connection_reply, FailMsg}]},
+		     Connection0}
+	    end;
+
+	MinAcceptedPackSz > PacketSz ->
 	    FailMsg = channel_open_failure_msg(RemoteId, 
-					       ?SSH_OPEN_CONNECT_FAILED,
-					       "Connection refused", "en"),
-	    {{replies, [{connection_reply, FailMsg}]},
-	     Connection0}
+					       ?SSH_OPEN_ADMINISTRATIVELY_PROHIBITED,
+					       lists:concat(["Maximum packet size below ",MinAcceptedPackSz,
+							      " not supported"]), "en"),
+	    {{replies, [{connection_reply, FailMsg}]}, Connection0}
     end;
 
 handle_msg(#ssh_msg_channel_open{channel_type = "session",
@@ -499,42 +512,56 @@ handle_msg(#ssh_msg_channel_open{channel_type = "forwarded-tcpip" = Type,
 				 initial_window_size = RWindowSz,
 				 maximum_packet_size = RPacketSz,
 				 data = Data}, 
-	   #connection{channel_cache = Cache} = Connection0, server) ->
+	   #connection{channel_cache = Cache,
+		       options = SSHopts} = Connection0, server) ->
     <<?UINT32(ALen), Address:ALen/binary, ?UINT32(Port),
      ?UINT32(OLen), Orig:OLen/binary, ?UINT32(OrigPort)>> = Data,
     
-    case bound_channel(Address, Port, Connection0) of
-	undefined ->
+    MinAcceptedPackSz = proplists:get_value(minimal_remote_max_packet_size, SSHopts, 0),
+    
+    if 
+	MinAcceptedPackSz =< RPacketSz ->
+	    case bound_channel(Address, Port, Connection0) of
+		undefined ->
+		    FailMsg = channel_open_failure_msg(RemoteId, 
+						       ?SSH_OPEN_CONNECT_FAILED,
+						       "Connection refused", "en"),
+		    {{replies, 
+		      [{connection_reply, FailMsg}]}, Connection0};
+		ChannelPid ->
+		    {ChannelId, Connection1} = new_channel_id(Connection0),
+		    LWindowSz = ?DEFAULT_WINDOW_SIZE,
+		    LPacketSz = ?DEFAULT_PACKET_SIZE,
+		    Channel = #channel{type = Type,
+				       sys = "none",
+				       user = ChannelPid,
+				       local_id = ChannelId,
+				       recv_window_size = LWindowSz,
+				       recv_packet_size = LPacketSz,
+				       send_window_size = RWindowSz,
+				       send_packet_size = RPacketSz,
+				       send_buf = queue:new()
+				      },
+		    ssh_channel:cache_update(Cache, Channel),
+		    OpenConfMsg = channel_open_confirmation_msg(RemoteId, ChannelId,
+								LWindowSz, LPacketSz),
+		    {OpenMsg, Connection} = 
+			reply_msg(Channel, Connection1, 
+				  {open,  Channel, {forwarded_tcpip,
+						    decode_ip(Address), Port,
+						    decode_ip(Orig), OrigPort}}),
+		    {{replies, [{connection_reply, OpenConfMsg},
+				OpenMsg]}, Connection}
+	    end;
+
+	MinAcceptedPackSz > RPacketSz ->
 	    FailMsg = channel_open_failure_msg(RemoteId, 
-					       ?SSH_OPEN_CONNECT_FAILED,
-					       "Connection refused", "en"),
-	    {{replies, 
-	      [{connection_reply, FailMsg}]}, Connection0};
-	ChannelPid ->
-	    {ChannelId, Connection1} = new_channel_id(Connection0),
-	    LWindowSz = ?DEFAULT_WINDOW_SIZE,
-	    LPacketSz = ?DEFAULT_PACKET_SIZE,
-	    Channel = #channel{type = Type,
-			       sys = "none",
-			       user = ChannelPid,
-			       local_id = ChannelId,
-			       recv_window_size = LWindowSz,
-			       recv_packet_size = LPacketSz,
-			       send_window_size = RWindowSz,
-			       send_packet_size = RPacketSz,
-			       send_buf = queue:new()
-			      },
-	    ssh_channel:cache_update(Cache, Channel),
-	    OpenConfMsg = channel_open_confirmation_msg(RemoteId, ChannelId,
-							LWindowSz, LPacketSz),
-	    {OpenMsg, Connection} = 
-		reply_msg(Channel, Connection1, 
-			  {open,  Channel, {forwarded_tcpip,
-					    decode_ip(Address), Port,
-					    decode_ip(Orig), OrigPort}}),
-	    {{replies, [{connection_reply, OpenConfMsg},
-			OpenMsg]}, Connection}
+					       ?SSH_OPEN_ADMINISTRATIVELY_PROHIBITED,
+					       lists:concat(["Maximum packet size below ",MinAcceptedPackSz,
+							     " not supported"]), "en"),
+	    {{replies, [{connection_reply, FailMsg}]}, Connection0}
     end;
+
 
 handle_msg(#ssh_msg_channel_open{channel_type = "forwarded-tcpip",
 				 sender_channel = RemoteId}, 
@@ -917,7 +944,8 @@ start_channel(Cb, Id, Args, SubSysSup, Exec) ->
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
-setup_session(#connection{channel_cache = Cache} = Connection0, 
+setup_session(#connection{channel_cache = Cache
+			 } = Connection0, 
 	      RemoteId,
 	      Type, WindowSize, PacketSize) ->
     {ChannelId, Connection} = new_channel_id(Connection0),
