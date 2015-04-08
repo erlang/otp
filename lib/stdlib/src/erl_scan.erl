@@ -1145,7 +1145,7 @@ float_end(Cs, St, Line, Col, Toks, Ncs0) ->
             scan_error({illegal,float}, Line, Col, Line, Ncol, Cs)
     end.
 
-skip_comment([C|Cs], St, Line, Col, Toks, N) when C =/= $\n, ?CHAR(C) ->
+skip_comment([C|Cs], St, Line, Col, Toks, N) when C =/= $\n, C =/= $\r, ?CHAR(C) ->
     case ?UNICODE(C) of
         true ->
             skip_comment(Cs, St, Line, Col, Toks, N+1);
@@ -1158,7 +1158,7 @@ skip_comment([]=Cs, _St, Line, Col, Toks, N) ->
 skip_comment(Cs, St, Line, Col, Toks, N) ->
     scan1(Cs, St, Line, incr_column(Col, N), Toks).
 
-scan_comment([C|Cs], St, Line, Col, Toks, Ncs) when C =/= $\n, ?CHAR(C) ->
+scan_comment([C|Cs], St, Line, Col, Toks, Ncs) when C =/= $\n, C =/= $\r, ?CHAR(C) ->
     case ?UNICODE(C) of
         true ->
             scan_comment(Cs, St, Line, Col, Toks, [C|Ncs]);
