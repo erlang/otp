@@ -5059,36 +5059,40 @@ colliding_names(Name) ->
 
 grow_shrink(Config) when is_list(Config) ->
     ?line EtsMem = etsmem(),
-    ?line grow_shrink_0(lists:seq(3071, 5000), EtsMem),
+
+    Set = ets_new(a, [set]),
+    grow_shrink_0(0, 3071, 3000, 5000, Set),
+    ets:delete(Set),
+
+    %OrdSet = ets_new(a, [ordered_set]),
+    %grow_shrink_0(0, lists:seq(3071, 5000), OrdSet),
+    %ets:delete(OrdSet),
+
     ?line verify_etsmem(EtsMem).
 
-grow_shrink_0([N|Ns], EtsMem) ->
-    ?line grow_shrink_1(N, [set]),
-    ?line grow_shrink_1(N, [ordered_set]),
-    %% Verifying ets-memory here takes too long time, since
-    %% lock-free allocators were introduced...
-    %% ?line verify_etsmem(EtsMem),
-    grow_shrink_0(Ns, EtsMem);
-grow_shrink_0([], _) -> ok.
+grow_shrink_0(N, _, _, Max, _) when N >= Max ->
+    ok;
+grow_shrink_0(N0, GrowN, ShrinkN, Max, T) ->
+    N1 = grow_shrink_1(N0, GrowN, ShrinkN, T),
+    grow_shrink_0(N1, GrowN, ShrinkN, Max, T).
 
-grow_shrink_1(N, Flags) ->
-    ?line T = ets_new(a, Flags),
-    ?line grow_shrink_2(N, N, T),
-    ?line ets:delete(T).
+grow_shrink_1(N0, GrowN, ShrinkN, T) ->
+    N1 = grow_shrink_2(N0+1, N0 + GrowN, T),
+    grow_shrink_3(N1, N1 - ShrinkN, T).
 
-grow_shrink_2(0, Orig, T) ->
-    List = [{I,a} || I <- lists:seq(1, Orig)],
-    List = lists:sort(ets:tab2list(T)),
-    grow_shrink_3(Orig, T);
-grow_shrink_2(N, Orig, T) ->
+grow_shrink_2(N, GrowTo, _) when N > GrowTo ->
+    %io:format("Grown to ~p\n", [GrowTo]),
+    GrowTo;
+grow_shrink_2(N, GrowTo, T) ->
     true = ets:insert(T, {N,a}),
-    grow_shrink_2(N-1, Orig, T).
+    grow_shrink_2(N+1, GrowTo, T).
 
-grow_shrink_3(0, T) ->
-    [] = ets:tab2list(T);
-grow_shrink_3(N, T) ->
+grow_shrink_3(N, ShrinkTo, _) when N =< ShrinkTo ->
+    %io:format("Shrunk to ~p\n", [ShrinkTo]),
+    ShrinkTo;
+grow_shrink_3(N, ShrinkTo, T) ->
     true = ets:delete(T, N),
-    grow_shrink_3(N-1, T).
+    grow_shrink_3(N-1, ShrinkTo, T).
     
 grow_pseudo_deleted(doc) -> ["Grow a table that still contains pseudo-deleted objects"];
 grow_pseudo_deleted(suite) -> [];

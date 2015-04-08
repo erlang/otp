@@ -2471,10 +2471,10 @@ static int alloc_seg(DbTableHash *tb)
 */
 static int free_seg(DbTableHash *tb, int free_records)
 {
-    int seg_ix = (tb->nslots >> SEGSZ_EXP) - 1;
+    const int seg_ix = (tb->nslots >> SEGSZ_EXP) - 1;
+    struct segment** const segtab = SEGTAB(tb);
+    struct ext_segment* const top = (struct ext_segment*) segtab[seg_ix];
     int bytes;
-    struct segment** segtab = SEGTAB(tb);
-    struct ext_segment* top = (struct ext_segment*) segtab[seg_ix];
     int nrecords = 0;
 
     ASSERT(top != NULL); 
@@ -2537,7 +2537,7 @@ static int free_seg(DbTableHash *tb, int free_records)
 		 (void*)top, bytes);
 #ifdef DEBUG
     if (seg_ix > 0) {
-	if (seg_ix < tb->nsegs) SEGTAB(tb)[seg_ix] = NULL;
+        segtab[seg_ix] = NULL;
     } else {
 	SET_SEGTAB(tb, NULL);
     }
