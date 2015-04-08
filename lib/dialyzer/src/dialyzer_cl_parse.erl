@@ -509,6 +509,8 @@ warning_options_msg() ->
   -Wno_behaviours
      Suppress warnings about behaviour callbacks which drift from the published
      recommended interfaces.
+  -Wno_missing_calls
+     Suppress warnings about calls to missing functions.
   -Wno_undefined_callbacks
      Suppress warnings about behaviours that have no -callback attributes for
      their callbacks.

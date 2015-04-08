@@ -2,7 +2,7 @@
 %%-----------------------------------------------------------------------
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2006-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -46,7 +46,6 @@ build(Opts) ->
 		  ?WARN_CALLGRAPH,
 		  ?WARN_FAILING_CALL,
 		  ?WARN_BIN_CONSTRUCTION,
-		  ?WARN_CALLGRAPH,
 		  ?WARN_CONTRACT_RANGE,
 		  ?WARN_CONTRACT_TYPES,
 		  ?WARN_CONTRACT_SYNTAX,
@@ -302,6 +301,8 @@ build_warnings([Opt|Opts], Warnings) ->
 	ordsets:add_element(?WARN_RETURN_ONLY_EXIT, Warnings);
       race_conditions ->
 	ordsets:add_element(?WARN_RACE_CONDITION, Warnings);
+      no_missing_calls ->
+        ordsets:del_element(?WARN_CALLGRAPH, Warnings);
       specdiffs ->
 	S = ordsets:from_list([?WARN_CONTRACT_SUBTYPE, 
 			       ?WARN_CONTRACT_SUPERTYPE,

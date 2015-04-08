@@ -231,6 +231,8 @@
       <tag><c><![CDATA[-Wno_behaviours]]></c></tag>
       <item>Suppress warnings about behaviour callbacks which drift from the
        published recommended interfaces.</item>
+      <tag><c><![CDATA[-Wno_missing_calls]]></c></tag>
+      <item>Suppress warnings about calls to missing functions.</item>
       <tag><c><![CDATA[-Wno_undefined_callbacks]]></c></tag>
       <item>Suppress warnings about behaviours that have no
         <c>-callback</c> attributes for their callbacks.</item>
