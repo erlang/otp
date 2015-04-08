@@ -279,7 +279,7 @@ validate_mib_view(Oid, MibView) ->
     end.
 
 get_largest_family([{SubTree, Mask, Type} | T], Oid, Res) ->
-    case check_mask(Oid, SubTree, Mask) of
+    case check_mask(Oid, SubTree, snmp_view_based_acm_mib:emask2imask(Mask)) of
 	true -> get_largest_family(T, Oid, add_res(length(SubTree), SubTree,
 						   Type, Res));
 	false -> get_largest_family(T, Oid, Res)
@@ -344,7 +344,7 @@ validate_all_mib_view([], _MibView) ->
 %% intelligent.
 %%-----------------------------------------------------------------
 is_definitely_not_in_mib_view(Oid, [{SubTree, Mask,?view_included}|T]) ->
-    case check_maybe_mask(Oid, SubTree, Mask) of
+    case check_maybe_mask(Oid, SubTree, snmp_view_based_acm_mib:emask2imask(Mask)) of
 	true -> false;
 	false -> is_definitely_not_in_mib_view(Oid, T)
     end;
