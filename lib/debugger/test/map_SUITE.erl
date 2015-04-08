@@ -2219,7 +2219,7 @@ map_guard_sequence_mixed(K1,K2,M) ->
 
 t_frequency_table(Config) when is_list(Config) ->
     random:seed({13,1337,54}),  % pseudo random
-    N = 100000,
+    N = 1000,
     Ts = rand_terms(N),
     #{ n:=N, tf := Tf } = frequency_table(Ts,#{ n=>0, tf => #{}}),
     ok = check_frequency(Ts,Tf),
