@@ -816,7 +816,7 @@ next_node(D, {tree, Tree, {table_entry, _MibName}},
 	"~n   RevOidSoFar: ~p"
 	"~n   MibView:     ~p", [size(Tree), Oid, RevOidSoFar, MibView]),
     OidSoFar = lists:reverse(RevOidSoFar),
-    case snmpa_acm:is_definitely_not_in_mib_view(OidSoFar, MibView) of
+    case snmpa_acm:is_definitely_not_in_mib_view(OidSoFar ++ Oid, MibView) of
 	true -> 
 	    ?vdebug("next_node(tree,table_entry) -> not in mib view",[]),
 	    false;

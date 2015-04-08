@@ -33,6 +33,8 @@
 
 %% Internal exports
 -export([check_vacm/1]).
+%%
+-export([emask2imask/1]).
 
 
 -include("snmp_types.hrl").
