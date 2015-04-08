@@ -60,7 +60,7 @@
 -define(DEFAULT_PORT,8888).% must be >1024 or the user must be root on unix
 -define(DEFAULT_ADDR,{127,0,0,1}).
 
--define(WEBTOOL_ALIAS,{webtool,[{alias,{erl_alias,"/webtool",[webtool]}}]}).
+-define(WEBTOOL_ALIAS,{ct_webtool,[{alias,{erl_alias,"/ct_webtool",[ct_webtool]}}]}).
 -define(HEADER,"Pragma:no-cache\r\n Content-type: text/html\r\n\r\n").
 -define(HTML_HEADER,"<HTML>\r\n<HEAD>\r\n<TITLE>WebTool</TITLE>\r\n</HEAD>\r\n<BODY BGCOLOR=\"#FFFFFF\">\r\n").
 -define(HTML_HEADER_RELOAD,"<HTML>\r\n<HEAD>\r\n<TITLE>WebTool
@@ -217,10 +217,10 @@ usage() ->
 
 
 get_applications() ->
-    gen_server:call(web_tool,get_applications).
+    gen_server:call(ct_web_tool,get_applications).
     
 get_port() ->
-    gen_server:call(web_tool,get_port).
+    gen_server:call(ct_web_tool,get_port).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -253,31 +253,31 @@ start(Path,Port) when is_integer(Port)->
 	
 start(Path,Data0)->
     Data = Data0 ++ rest_of_standard_data(),
-    gen_server:start({local,web_tool},webtool,{Path,Data},[]).
+    gen_server:start({local,ct_web_tool},ct_webtool,{Path,Data},[]).
 
 stop()->
-    gen_server:call(web_tool,stoppit).
+    gen_server:call(ct_web_tool,stoppit).
 
 %----------------------------------------------------------------------
 %Web Api functions called by the web
 %----------------------------------------------------------------------
 started_tools(Env,Input)->
-    gen_server:call(web_tool,{started_tools,Env,Input}).
+    gen_server:call(ct_web_tool,{started_tools,Env,Input}).
 
 toolbar(Env,Input)->    
-    gen_server:call(web_tool,{toolbar,Env,Input}).
+    gen_server:call(ct_web_tool,{toolbar,Env,Input}).
 
 start_tools(Env,Input)->
-    gen_server:call(web_tool,{start_tools,Env,Input}).
+    gen_server:call(ct_web_tool,{start_tools,Env,Input}).
 
 stop_tools(Env,Input)->
-    gen_server:call(web_tool,{stop_tools,Env,Input}).
+    gen_server:call(ct_web_tool,{stop_tools,Env,Input}).
 %----------------------------------------------------------------------
 %Support API for other tools
 %----------------------------------------------------------------------
 
 is_localhost()->
-    gen_server:call(web_tool,is_localhost).
+    gen_server:call(ct_web_tool,is_localhost).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%                                                                  %%
@@ -341,7 +341,7 @@ init({Path,Config})->
 	true ->
 	    {ok, Table} = get_tool_files_data(),
 	    insert_app(?WEBTOOL_ALIAS, Table),
-	    case webtool_sup:start_link() of
+	    case ct_webtool_sup:start_link() of
 		{ok, Pid} ->
 		    case start_webserver(Table, Path, Config) of
 			{ok, _} ->
@@ -630,7 +630,7 @@ shutdown_apps(State)->
 %----------------------------------------------------------------------
 shutdown_supervisor(State)->
     %io:format("~n==================~n"),
-    webtool_sup:stop(State#state.supvis).
+    ct_webtool_sup:stop(State#state.supvis).
     %io:format("~n==================~n").
 
 %----------------------------------------------------------------------

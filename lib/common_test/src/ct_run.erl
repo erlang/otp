@@ -225,18 +225,24 @@ finish(Tracing, ExitStatus, Args) ->
     if ExitStatus == interactive_mode ->
 	    interactive_mode;
        true ->
-	    %% it's possible to tell CT to finish execution with a call
-	    %% to a different function than the normal halt/1 BIF
-	    %% (meant to be used mainly for reading the CT exit status)
-	    case get_start_opt(halt_with,
-			       fun([HaltMod,HaltFunc]) -> 
-				       {list_to_atom(HaltMod),
-					list_to_atom(HaltFunc)} end,
-			       Args) of
-		undefined ->
-		    halt(ExitStatus);
-		{M,F} ->
-		    apply(M, F, [ExitStatus])
+	    case get_start_opt(vts, true, Args) of
+		true ->
+		    %% VTS mode, don't halt the node
+		    ok;
+		_ ->
+		    %% it's possible to tell CT to finish execution with a call
+		    %% to a different function than the normal halt/1 BIF
+		    %% (meant to be used mainly for reading the CT exit status)
+		    case get_start_opt(halt_with,
+				       fun([HaltMod,HaltFunc]) -> 
+					       {list_to_atom(HaltMod),
+						list_to_atom(HaltFunc)} end,
+				       Args) of
+			undefined ->
+			    halt(ExitStatus);
+			{M,F} ->
+			    apply(M, F, [ExitStatus])
+		    end
 	    end
     end.
 
@@ -244,7 +250,7 @@ script_start1(Parent, Args) ->
     %% read general start flags
     Label = get_start_opt(label, fun([Lbl]) -> Lbl end, Args),
     Profile = get_start_opt(profile, fun([Prof]) -> Prof end, Args),
-    Vts = get_start_opt(vts, true, Args),
+    Vts = get_start_opt(vts, true, undefined, Args),
     Shell = get_start_opt(shell, true, Args),
     Cover = get_start_opt(cover, fun([CoverFile]) -> ?abs(CoverFile) end, Args),
     CoverStop = get_start_opt(cover_stop, 
@@ -330,8 +336,8 @@ script_start1(Parent, Args) ->
     Stylesheet = get_start_opt(stylesheet,
 			       fun([SS]) -> ?abs(SS) end, Args),
     %% basic_html - used by ct_logs
-    BasicHtml = case proplists:get_value(basic_html, Args) of
-		    undefined ->
+    BasicHtml = case {Vts,proplists:get_value(basic_html, Args)} of
+		    {undefined,undefined} ->
 			application:set_env(common_test, basic_html, false),
 			undefined;
 		    _ ->
@@ -364,15 +370,9 @@ script_start1(Parent, Args) ->
 		 scale_timetraps = ScaleTT,
 		 create_priv_dir = CreatePrivDir,
 		 starter = script},
-    
-%%! --- Wed Apr  8 00:08:19 2015 --- peppe was here!
-io:format(user, "RUNNING with VTS = ~p~n", [Vts]),
 
     %% check if log files should be refreshed or go on to run tests...
     Result = run_or_refresh(Opts, Args),
-
-%%! --- Wed Apr  8 00:09:48 2015 --- peppe was here!
-io:format(user, "RETURNING NOW: ~p~n", [Result]),
 
     %% send final results to starting process waiting in script_start/0
     Parent ! {self(), Result}.
