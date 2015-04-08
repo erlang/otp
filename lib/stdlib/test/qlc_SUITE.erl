@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -3021,8 +3021,9 @@ lookup2(Config) when is_list(Config) ->
          end, [{3,true},{4,true}])">>,
 
        <<"%% Only guards are inspected. No lookup.
-          E1 = create_ets(1, 10),
-          E2 = ets:new(join, []),
+          E1 = ets:new(e, [ordered_set]),
+          true = ets:insert(E1, [{1,1}, {2,2}, {3,3}, {4,4}, {5,5}]),
+          E2 = ets:new(join, [ordered_set]),
           true = ets:insert(E2, [{true,1},{false,2}]),
           Q = qlc:q([{X,Z} || {_,X} <- ets:table(E1),
                               {Y,Z} <- ets:table(E2),
