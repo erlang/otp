@@ -457,9 +457,9 @@ expr({'try',Anno,Es0,CaseCs0,CatchCs0,As0}, Lc) ->
     {'try',ln(Anno),Es,CaseCs,CatchCs,As};
 expr({lc,Anno,E0,Gs0}, _Lc) ->			%R8.
     Gs = lists:map(fun ({generate,L,P0,Qs}) ->
-			   {generate,L,expr(P0, false),expr(Qs, false)};
+			   {generate,L,pattern(P0),expr(Qs, false)};
 		       ({b_generate,L,P0,Qs}) -> %R12.
-			   {b_generate,L,expr(P0, false),expr(Qs, false)};
+			   {b_generate,L,pattern(P0),expr(Qs, false)};
 		       (Expr) ->
 			   case erl_lint:is_guard_test(Expr) of
 			       true -> {guard,guard([[Expr]])};
@@ -469,9 +469,9 @@ expr({lc,Anno,E0,Gs0}, _Lc) ->			%R8.
     {lc,ln(Anno),expr(E0, false),Gs};
 expr({bc,Anno,E0,Gs0}, _Lc) ->			%R12.
     Gs = lists:map(fun ({generate,L,P0,Qs}) ->
-			   {generate,L,expr(P0, false),expr(Qs, false)};
+			   {generate,L,pattern(P0),expr(Qs, false)};
 		       ({b_generate,L,P0,Qs}) -> %R12.
-			   {b_generate,L,expr(P0, false),expr(Qs, false)};
+			   {b_generate,L,pattern(P0),expr(Qs, false)};
 		       (Expr) ->
 			   case erl_lint:is_guard_test(Expr) of
 			       true -> {guard,guard([[Expr]])};
