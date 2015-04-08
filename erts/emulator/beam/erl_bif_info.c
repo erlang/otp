@@ -3747,6 +3747,20 @@ BIF_RETTYPE erts_internal_is_system_process_1(BIF_ALIST_1)
 
 static erts_smp_atomic_t hipe_test_reschedule_flag;
 
+#if defined(VALGRIND) && defined(__GNUC__)
+/* Force noinline for valgrind suppression */
+static void broken_halt_test(Eterm bif_arg_2) __attribute__((noinline));
+#endif
+
+static void broken_halt_test(Eterm bif_arg_2)
+{
+    /* Ugly ugly code used by bif_SUITE:erlang_halt/1 */
+#if defined(ERTS_HAVE_TRY_CATCH)
+    erts_get_scheduler_data()->run_queue = NULL;
+#endif
+    erl_exit(ERTS_DUMP_EXIT, "%T", bif_arg_2);
+}
+
 
 BIF_RETTYPE erts_debug_set_internal_state_2(BIF_ALIST_2)
 {
@@ -4040,11 +4054,7 @@ BIF_RETTYPE erts_debug_set_internal_state_2(BIF_ALIST_2)
 	    }
 	}
         else if (ERTS_IS_ATOM_STR("broken_halt", BIF_ARG_1)) {
-            /* Ugly ugly code used by bif_SUITE:erlang_halt/1 */
-#if defined(ERTS_HAVE_TRY_CATCH)
-	    erts_get_scheduler_data()->run_queue = NULL;
-#endif
-            erl_exit(ERTS_DUMP_EXIT, "%T", BIF_ARG_2);
+            broken_halt_test(BIF_ARG_2);
         }
 	else if (ERTS_IS_ATOM_STR("unique_monotonic_integer_state", BIF_ARG_1)) {
 	    int res = erts_debug_set_unique_monotonic_integer_state(BIF_ARG_2);
