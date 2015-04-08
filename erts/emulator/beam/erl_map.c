@@ -1947,27 +1947,32 @@ int erts_hashmap_insert_down(Uint32 hx, Eterm key, Eterm node, Uint *sz,
 		    case HAMT_SUBTAG_NODE_BITMAP:
 			hval = MAP_HEADER_VAL(hdr);
 			ix   = hashmap_index(hx);
-			bp   = 1 << ix;
-			slot = hashmap_bitcount(hval & (bp - 1));
-			n    = hashmap_bitcount(hval);
+                        bp   = 1 << ix;
+                        if (hval == 0xffff) {
+                            slot = ix;
+                            n = 16;
+                        } else {
+                            slot = hashmap_bitcount(hval & (bp - 1));
+                            n    = hashmap_bitcount(hval);
+                        }
 
-			ESTACK_PUSH4(*sp, n, bp, slot, node);
+                        ESTACK_PUSH4(*sp, n, bp, slot, node);
 
-			/* occupied */
-			if (bp & hval) {
-			    hx    = hashmap_shift_hash(th,hx,lvl,key);
-			    node  = ptr[slot+1];
-			    ASSERT(HAMT_NODE_BITMAP_SZ(n) <= 17);
-			    size += HAMT_NODE_BITMAP_SZ(n);
-			    break;
-			}
-			/* not occupied */
-			if (is_update) {
-                            UnUseTmpHeapNoproc(2);
-			    return 0;
-			}
-			size += HAMT_NODE_BITMAP_SZ(n+1);
-			goto unroll;
+                        if (!(bp & hval)) { /* not occupied */
+                            if (is_update) {
+				UnUseTmpHeapNoproc(2);
+                                return 0;
+                            }
+                            size += HAMT_NODE_BITMAP_SZ(n+1);
+                            goto unroll;
+                        }
+
+                        hx    = hashmap_shift_hash(th,hx,lvl,key);
+                        node  = ptr[slot+1];
+                        ASSERT(HAMT_NODE_BITMAP_SZ(n) <= 17);
+                        size += HAMT_NODE_BITMAP_SZ(n);
+                        break;
+
 		    case HAMT_SUBTAG_HEAD_BITMAP:
 			hval = MAP_HEADER_VAL(hdr);
 			ix   = hashmap_index(hx);
@@ -2197,21 +2202,25 @@ static Eterm hashmap_delete(Process *p, Uint32 hx, Eterm key, Eterm map) {
 			hval = MAP_HEADER_VAL(hdr);
 			ix   = hashmap_index(hx);
 			bp   = 1 << ix;
-			slot = hashmap_bitcount(hval & (bp - 1));
-			n    = hashmap_bitcount(hval);
+                        if (hval == 0xffff) {
+                            slot = ix;
+                            n = 16;
+                        } else if (bp & hval) {
+                            slot = hashmap_bitcount(hval & (bp - 1));
+                            n    = hashmap_bitcount(hval);
+                        } else {
+                            /* not occupied */
+                            goto not_found;
+                        }
 
 			ESTACK_PUSH4(stack, n, bp, slot, node);
 
-			/* occupied */
-			if (bp & hval) {
-			    hx    = hashmap_shift_hash(th,hx,lvl,key);
-			    node  = ptr[slot+1];
-			    ASSERT(HAMT_NODE_BITMAP_SZ(n) <= 17);
-			    size += HAMT_NODE_BITMAP_SZ(n);
-			    break;
-			}
-			/* not occupied */
-			goto not_found;
+                        hx    = hashmap_shift_hash(th,hx,lvl,key);
+                        node  = ptr[slot+1];
+                        ASSERT(HAMT_NODE_BITMAP_SZ(n) <= 17);
+                        size += HAMT_NODE_BITMAP_SZ(n);
+                        break;
+
 		    case HAMT_SUBTAG_HEAD_BITMAP:
 			hval = MAP_HEADER_VAL(hdr);
 			ix   = hashmap_index(hx);

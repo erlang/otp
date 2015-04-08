@@ -2911,7 +2911,7 @@ static int cmp_atoms(Eterm a, Eterm b)
  */
 Sint cmp(Eterm a, Eterm b)
 {
-    return erts_cmp(a, b, 0);
+    return erts_cmp(a, b, 0, 0);
 }
 #endif
 
@@ -2920,9 +2920,10 @@ Sint cmp(Eterm a, Eterm b)
  * exact = 0 -> arith-based compare
  */
 #if HALFWORD_HEAP
-Sint erts_cmp_rel_opt(Eterm a, Eterm* a_base, Eterm b, Eterm* b_base, int exact)
+Sint erts_cmp_rel_opt(Eterm a, Eterm* a_base, Eterm b, Eterm* b_base,
+                      int exact, int eq_only)
 #else
-Sint erts_cmp(Eterm a, Eterm b, int exact)
+Sint erts_cmp(Eterm a, Eterm b, int exact, int eq_only)
 #endif
 {
 #define PSTACK_TYPE struct erts_cmp_hashmap_state
@@ -3742,7 +3743,7 @@ pop_next:
     return 0;
 
 not_equal:
-    if (!PSTACK_IS_EMPTY(hmap_stack)) {
+    if (!PSTACK_IS_EMPTY(hmap_stack) && !eq_only) {
         WSTACK_ROLLBACK(stack, PSTACK_TOP(hmap_stack)->wstack_rollback);
         goto pop_next;
     }

@@ -167,24 +167,26 @@ int eq(Eterm, Eterm);
 #define EQ(x,y) (((x) == (y)) || (is_not_both_immed((x),(y)) && eq((x),(y))))
 
 #if HALFWORD_HEAP
-Sint erts_cmp_rel_opt(Eterm, Eterm*, Eterm, Eterm*, int);
-#define cmp_rel(A,A_BASE,B,B_BASE)       erts_cmp_rel_opt(A,A_BASE,B,B_BASE,0)
-#define cmp_rel_term(A,A_BASE,B,B_BASE)  erts_cmp_rel_opt(A,A_BASE,B,B_BASE,1)
-#define CMP(A,B)                         erts_cmp_rel_opt(A,NULL,B,NULL,0)
-#define CMP_TERM(A,B)                    erts_cmp_rel_opt(A,NULL,B,NULL,1)
+Sint erts_cmp_rel_opt(Eterm, Eterm*, Eterm, Eterm*, int, int);
+#define cmp_rel(A,A_BASE,B,B_BASE)       erts_cmp_rel_opt(A,A_BASE,B,B_BASE,0,0)
+#define cmp_rel_term(A,A_BASE,B,B_BASE)  erts_cmp_rel_opt(A,A_BASE,B,B_BASE,1,0)
+#define CMP(A,B)                         erts_cmp_rel_opt(A,NULL,B,NULL,0,0)
+#define CMP_TERM(A,B)                    erts_cmp_rel_opt(A,NULL,B,NULL,1,0)
+#define CMP_EQ_ONLY(A,B)                 erts_cmp_rel_opt(A,NULL,B,NULL,0,1)
 #else
-Sint cmp(Eterm, Eterm);
-Sint erts_cmp(Eterm, Eterm, int);
-#define cmp_rel(A,A_BASE,B,B_BASE)       erts_cmp(A,B,0)
-#define cmp_rel_term(A,A_BASE,B,B_BASE)  erts_cmp(A,B,1)
-#define CMP(A,B)                         erts_cmp(A,B,0)
-#define CMP_TERM(A,B)                    erts_cmp(A,B,1)
+Sint erts_cmp(Eterm, Eterm, int, int);
+Sint cmp(Eterm a, Eterm b);
+#define cmp_rel(A,A_BASE,B,B_BASE)       erts_cmp(A,B,0,0)
+#define cmp_rel_term(A,A_BASE,B,B_BASE)  erts_cmp(A,B,1,0)
+#define CMP(A,B)                         erts_cmp(A,B,0,0)
+#define CMP_TERM(A,B)                    erts_cmp(A,B,1,0)
+#define CMP_EQ_ONLY(A,B)                 erts_cmp(A,B,0,1)
 #endif
 
 #define cmp_lt(a,b)          (CMP((a),(b)) <  0)
 #define cmp_le(a,b)          (CMP((a),(b)) <= 0)
-#define cmp_eq(a,b)          (CMP((a),(b)) == 0)
-#define cmp_ne(a,b)          (CMP((a),(b)) != 0)
+#define cmp_eq(a,b)          (CMP_EQ_ONLY((a),(b)) == 0)
+#define cmp_ne(a,b)          (CMP_EQ_ONLY((a),(b)) != 0)
 #define cmp_ge(a,b)          (CMP((a),(b)) >= 0)
 #define cmp_gt(a,b)          (CMP((a),(b)) >  0)
 

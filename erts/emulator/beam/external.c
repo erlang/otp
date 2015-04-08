@@ -1779,7 +1779,7 @@ static void ttb_context_destructor(Binary *context_bin)
 	context->alive = 0;
 	switch (context->state) {
 	case TTBSize:
-	    DESTROY_SAVED_ESTACK(&context->s.sc.estack);
+	    DESTROY_SAVED_WSTACK(&context->s.sc.wstack);
 	    break;
 	case TTBEncode:
 	    DESTROY_SAVED_WSTACK(&context->s.ec.wstack);
@@ -1847,7 +1847,7 @@ static Eterm erts_term_to_binary_int(Process* p, Eterm Term, int level, Uint fla
 	/* Setup enough to get started */
 	context->state = TTBSize;
 	context->alive = 1;
-	context->s.sc.estack.start = NULL;
+	context->s.sc.wstack.wstart = NULL;
 	context->s.sc.flags = flags;
 	context->s.sc.level = level;
     } else {
@@ -3962,51 +3962,35 @@ static int
 encode_size_struct_int(TTBSizeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj,
 		       unsigned dflags, Sint *reds, Uint *res)
 {
-    DECLARE_ESTACK(s);
+    DECLARE_WSTACK(s);
     Uint m, i, arity;
     Uint result = 0;
     Sint r = 0;
 
     if (ctx) {
-	ESTACK_CHANGE_ALLOCATOR(s, ERTS_ALC_T_SAVED_ESTACK);
+	WSTACK_CHANGE_ALLOCATOR(s, ERTS_ALC_T_SAVED_ESTACK);
 	r = *reds;
 
-	if (ctx->estack.start) { /* restore saved stack */
-	    ESTACK_RESTORE(s, &ctx->estack);
+	if (ctx->wstack.wstart) { /* restore saved stack */
+	    WSTACK_RESTORE(s, &ctx->wstack);
 	    result = ctx->result;
 	    obj = ctx->obj;
 	}
     }
 
-    goto L_jump_start;
+#define LIST_TAIL_OP ((0 << _TAG_PRIMARY_SIZE) | TAG_PRIMARY_HEADER)
+#define TERM_ARRAY_OP(N) (((N) << _TAG_PRIMARY_SIZE) | TAG_PRIMARY_HEADER)
+#define TERM_ARRAY_OP_DEC(OP) ((OP) - (1 << _TAG_PRIMARY_SIZE))
 
- outer_loop:
-    while (!ESTACK_ISEMPTY(s)) {
-	obj = ESTACK_POP(s);
-    handle_popped_obj:
-	if (is_list(obj)) {
-	    Eterm* cons = list_val(obj);
-	    Eterm tl;
 
-	    tl = CDR(cons);
-	    obj = CAR(cons);
-	    ESTACK_PUSH(s, tl);
-	} else if (is_nil(obj)) {
-	    result++;
-	    goto outer_loop;
-	} else {
-	    /*
-	     * Other term (in the tail of a non-proper list or
-	     * in a fun's environment).
-	     */
-	}
-    
-    L_jump_start:
+    for (;;) {
+	ASSERT(!is_header(obj));
+
 	if (ctx && --r == 0) {
 	    *reds = r;
 	    ctx->obj = obj;
 	    ctx->result = result;
-	    ESTACK_SAVE(s, &ctx->estack);
+	    WSTACK_SAVE(s, &ctx->wstack);
 	    return -1;
 	}
 	switch (tag_val_def(obj)) {
@@ -4089,69 +4073,43 @@ encode_size_struct_int(TTBSizeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj,
 		result += m + 2 + 1;
 	    } else {
 		result += 5;
-		goto handle_popped_obj;
+		WSTACK_PUSH2(s, (UWord)CDR(list_val(obj)), (UWord)LIST_TAIL_OP);
+		obj = CAR(list_val(obj));
+		continue; /* big loop */
 	    }
 	    break;
 	case TUPLE_DEF:
 	    {
 		Eterm* ptr = tuple_val(obj);
-		Uint i;
 		arity = arityval(*ptr);
 		if (arity <= 0xff) {
 		    result += 1 + 1;
 		} else {
 		    result += 1 + 4;
 		}
-		for (i = 1; i <= arity; ++i) {
-		    if (is_list(ptr[i])) {
-			if ((m = is_string(ptr[i])) && (m < MAX_STRING_LEN)) {
-			    result += m + 2 + 1;
-			    continue;
-			} else {
-			    result += 5;
-			}
-		    }
-		    ESTACK_PUSH(s,ptr[i]);
+		if (arity > 1) {
+		    WSTACK_PUSH2(s, (UWord) (ptr + 2),
+				    (UWord) TERM_ARRAY_OP(arity-1));
 		}
-		goto outer_loop;
+                else if (arity == 0) {
+		    break;
+                }
+		obj = ptr[1];
+		continue; /* big loop */
 	    }
-	    break;
 	case MAP_DEF:
 	    if (is_flatmap(obj)) {
 		flatmap_t *mp = (flatmap_t*)flatmap_val(obj);
 		Uint size = flatmap_get_size(mp);
-		Uint i;
-		Eterm *ptr;
 
 		result += 1 + 4; /* tag + 4 bytes size */
 
-		/* push values first */
-		ptr = flatmap_get_values(mp);
-		for (i = size; i; i--, ptr++) {
-		    if (is_list(*ptr)) {
-			if ((m = is_string(*ptr)) && (m < MAX_STRING_LEN)) {
-			    result += m + 2 + 1;
-			    continue;
-			} else {
-			    result += 5;
-			}
-		    }
-		    ESTACK_PUSH(s,*ptr);
+                if (size) {
+		    WSTACK_PUSH4(s, (UWord) flatmap_get_values(mp),
+				    (UWord) TERM_ARRAY_OP(size),
+		                    (UWord) flatmap_get_keys(mp),
+				    (UWord) TERM_ARRAY_OP(size));
 		}
-
-		ptr = flatmap_get_keys(mp);
-		for (i = size; i; i--, ptr++) {
-		    if (is_list(*ptr)) {
-			if ((m = is_string(*ptr)) && (m < MAX_STRING_LEN)) {
-			    result += m + 2 + 1;
-			    continue;
-			} else {
-			    result += 5;
-			}
-		    }
-		    ESTACK_PUSH(s,*ptr);
-		}
-		goto outer_loop;
 	    } else {
 		Eterm *ptr;
 		Eterm hdr;
@@ -4178,35 +4136,13 @@ encode_size_struct_int(TTBSizeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj,
 		}
 
 		ptr++;
-		ESTACK_RESERVE(s, node_sz*2);
+		WSTACK_RESERVE(s, node_sz*2);
 		while(node_sz--) {
                     if (is_list(*ptr)) {
-			Eterm* leaf = list_val(*ptr);
-			if (is_not_list(CAR(leaf))) {
-			    ESTACK_FAST_PUSH(s, CAR(leaf));
-			}
-			else {
-			    if ((m = is_string(CAR(leaf))) && (m < MAX_STRING_LEN)) {
-				result += m + 2 + 1;
-			    } else {
-				result += 5;
-				ESTACK_FAST_PUSH(s, CAR(leaf));
-			    }
-			}
-			if (is_not_list(CDR(leaf))) {
-			    ESTACK_FAST_PUSH(s, CDR(leaf));
-			}
-			else {
-			    if ((m = is_string(CDR(leaf))) && (m < MAX_STRING_LEN)) {
-				result += m + 2 + 1;
-			    } else {
-				result += 5;
-				ESTACK_FAST_PUSH(s, CDR(leaf));
-			    }
-			}
-		    }
-		    else {
-			ESTACK_FAST_PUSH(s, *ptr);
+			WSTACK_FAST_PUSH(s, CAR(list_val(*ptr)));
+			WSTACK_FAST_PUSH(s, CDR(list_val(*ptr)));
+                    } else {
+			WSTACK_FAST_PUSH(s, *ptr);
 		    }
 		    ptr++;
 		}
@@ -4262,25 +4198,13 @@ encode_size_struct_int(TTBSizeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj,
 		    result += 2 * (1 + 4); /* Index + Uniq */
 		    result += 1 + (funp->num_free < 0x100 ? 1 : 4);
 		}
-		for (i = 1; i < funp->num_free; i++) {
-		    obj = funp->env[i];
-
-		    if (is_not_list(obj)) {
-			/* Push any non-list terms on the stack */
-			ESTACK_PUSH(s, obj);
-		    } else {
-			/* Lists must be handled specially. */
-			if ((m = is_string(obj)) && (m < MAX_STRING_LEN)) {
-			    result += m + 2 + 1;
-			} else {
-			    result += 5;
-			    ESTACK_PUSH(s, obj);
-			}
-		    }
+		if (funp->num_free > 1) {
+		    WSTACK_PUSH2(s, (UWord) (funp->env + 1),
+				    (UWord) TERM_ARRAY_OP(funp->num_free-1));
 		}
 		if (funp->num_free != 0) {
 		    obj = funp->env[0];
-		    goto L_jump_start;
+		    continue; /* big loop */
 		}
 		break;
 	    }
@@ -4303,11 +4227,40 @@ encode_size_struct_int(TTBSizeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj,
 	    erl_exit(1,"Internal data structure error (in encode_size_struct2)%x\n",
 		     obj);
 	}
+
+	if (WSTACK_ISEMPTY(s)) {
+	    break;
+	}
+	obj = (Eterm) WSTACK_POP(s);
+
+        if (is_header(obj)) {
+            switch (obj) {
+	    case LIST_TAIL_OP:
+		obj = (Eterm) WSTACK_POP(s);
+		if (is_list(obj)) {
+		    Eterm* cons = list_val(obj);
+
+		    WSTACK_PUSH2(s, (UWord)CDR(cons), (UWord)LIST_TAIL_OP);
+		    obj = CAR(cons);
+		}
+		break;
+
+	    case TERM_ARRAY_OP(1):
+		obj = *(Eterm*)WSTACK_POP(s);
+		break;
+	    default: { /* TERM_ARRAY_OP(N) when N > 1 */
+		Eterm* ptr = (Eterm*) WSTACK_POP(s);
+		WSTACK_PUSH2(s, (UWord) (ptr+1),
+			        (UWord) TERM_ARRAY_OP_DEC(obj));
+		obj = *ptr;
+	    }
+	    }
+	}
     }
 
-    DESTROY_ESTACK(s);
+    WSTACK_DESTROY(s);
     if (ctx) {
-	ASSERT(ctx->estack.start == NULL);
+	ASSERT(ctx->wstack.wstart == NULL);
 	*reds = r;
     }
     *res = result;

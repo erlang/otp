@@ -712,7 +712,7 @@ void erts_dsend_context_dtor(Binary* ctx_bin)
     ErtsSendContext* ctx = ERTS_MAGIC_BIN_DATA(ctx_bin);
     switch (ctx->dss.phase) {
     case ERTS_DSIG_SEND_PHASE_MSG_SIZE:
-	DESTROY_SAVED_ESTACK(&ctx->dss.u.sc.estack);
+	DESTROY_SAVED_WSTACK(&ctx->dss.u.sc.wstack);
 	break;
     case ERTS_DSIG_SEND_PHASE_MSG_ENCODE:
 	DESTROY_SAVED_WSTACK(&ctx->dss.u.ec.wstack);
@@ -1800,7 +1800,7 @@ erts_dsig_send(ErtsDSigData *dsdp, struct erts_dsig_send_context* ctx)
 	    erts_encode_dist_ext_size(ctx->ctl, ctx->flags, ctx->acmp, &ctx->data_size);
 
 	    if (is_value(ctx->msg)) {
-		ctx->u.sc.estack.start = NULL;
+		ctx->u.sc.wstack.wstart = NULL;
 		ctx->u.sc.flags = ctx->flags;
 		ctx->u.sc.level = 0;
 		ctx->phase = ERTS_DSIG_SEND_PHASE_MSG_SIZE;
