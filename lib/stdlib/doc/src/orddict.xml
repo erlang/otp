@@ -48,8 +48,11 @@
 
   <datatypes>
     <datatype>
-      <name name="orddict"/>
-      <desc><p>As returned by new/0.</p></desc>
+      <name name="orddict" n_vars="2"/>
+      <desc><p>Dictionary as returned by <c>new/0</c>.</p></desc>
+    </datatype>
+    <datatype>
+      <name name="orddict" n_vars="0"/>
     </datatype>
   </datatypes>
 
