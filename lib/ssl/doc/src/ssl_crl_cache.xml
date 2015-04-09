@@ -36,31 +36,30 @@
   
     <funcs>
       <func>
-      <name>insert(CRLSrc) -> ok | {error, Reason}</name>
-      <name>insert(URI, CRLSrc) -> ok | {error, Reason}</name>
-      <fsummary> </fsummary>
-      <type>
-	<v> CRLSrc = {file, string()} | {der, [ <seealso
-	marker="public_key:public_key"> der_encoded() </seealso> ]}</v>
-	<v> URI = http_uri:uri()</v>
-	<v> Reason = term()</v>
-      </type>
-      <desc>
+	<name>delete(Entries) -> ok |  {error, Reason} </name>
+	<fsummary> </fsummary>
+	<type>
+	  <v> Entries =  <seealso marker="inets:http_uri">http_uri:uri() </seealso> | {file, string()} | {der, [<seealso
+	  marker="public_key:public_key"> public_key:der_encoded() </seealso>]}</v>
+	  <v> Reason = term()</v>
+	</type>
+	<desc>
+	  Delete CRLs from the ssl applications local cache.
+	</desc>
+      </func>     
+      <func>
+	<name>insert(CRLSrc) -> ok | {error, Reason}</name>
+	<name>insert(URI, CRLSrc) -> ok | {error, Reason}</name>
+	<fsummary> </fsummary>
+	<type>
+	  <v> CRLSrc = {file, string()} | {der, [ <seealso
+	marker="public_key:public_key"> public_key:der_encoded() </seealso> ]}</v>
+	  <v> URI = <seealso marker="inets:http_uri">http_uri:uri() </seealso> </v>
+	  <v> Reason = term()</v>
+	</type>
+	<desc>
 	Insert CRLs into the ssl applications local cache.
-      </desc>
-    </func>
-
-     <func>
-      <name>delete(Entries) -> ok |  {error, Reason} </name>
-      <fsummary> </fsummary>
-      <type>
-	<v> Entries =  http_uri:uri() | {file, string()} | {der, [<seealso
-	marker="public_key:public_key"> der_encoded() </seealso>]}</v>
-	<v> Reason = term()</v>
-      </type>
-      <desc>
-	Delete CRLs from the ssl applications local cache.
-      </desc>
-     </func>     
+	</desc>
+      </func>
     </funcs>
 </erlref>
