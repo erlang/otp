@@ -2252,6 +2252,13 @@ t_bif_map_from_list(Config) when is_list(Config) ->
 	maps:from_list([ {{hi,3},v3}, {"hi",v0},{3,v1}, {<<"hi">>,v4}, {hi,v2},
 	    {<<"hi">>,v6}, {{hi,3},v10},{"hi",v11}, {hi,v9}, {3,v8}]),
 
+    %% repeated keys (large -> small)
+    Ps1 = [{a,I}|| I <- lists:seq(1,32)],
+    Ps2 = [{a,I}|| I <- lists:seq(33,64)],
+
+    M = maps:from_list(Ps1 ++ [{b,1},{c,1}] ++ Ps2),
+    #{ a := 64, b := 1, c := 1 } = M,
+
     %% error cases
     {'EXIT', {badarg,_}} = (catch maps:from_list(id([{a,b},b]))),
     {'EXIT', {badarg,_}} = (catch maps:from_list(id([{a,b},{b,b,3}]))),
