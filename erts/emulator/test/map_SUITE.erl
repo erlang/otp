@@ -2026,6 +2026,14 @@ t_bif_map_values(Config) when is_list(Config) ->
     true = is_members([number,3,"hello2",<<"value2">>],maps:values(M2)),
     true = is_members([number,3,"hello",<<"value">>],maps:values(M1)),
 
+    Vs = lists:seq(1000,20000),
+    M3 = maps:from_list([{K,K}||K<-Vs]),
+    M4 = maps:merge(M1,M3),
+    M5 = maps:merge(M2,M3),
+    true = is_members(Vs,maps:values(M3)),
+    true = is_members([number,3,"hello",<<"value">>]++Vs,maps:values(M4)),
+    true = is_members([number,3,"hello2",<<"value2">>]++Vs,maps:values(M5)),
+
     %% error case
     {'EXIT',{badarg,[{maps,values,_,_}|_]}} = (catch maps:values(1 bsl 65 + 3)),
     {'EXIT',{badarg,[{maps,values,_,_}|_]}} = (catch maps:values(atom)),
