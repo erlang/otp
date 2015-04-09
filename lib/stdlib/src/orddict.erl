@@ -25,11 +25,13 @@
 -export([store/3,append/3,append_list/3,update/3,update/4,update_counter/3]).
 -export([fold/3,map/2,filter/2,merge/3]).
 
--export_type([orddict/0]).
+-export_type([orddict/0, orddict/2]).
 
 %%---------------------------------------------------------------------------
 
--type orddict() :: [{Key :: term(), Value :: term()}].
+-opaque orddict() :: orddict(_, _).
+
+-opaque orddict(Key, Value) :: [{Key, Value}].
 
 %%---------------------------------------------------------------------------
 
@@ -38,8 +40,7 @@
 new() -> [].
 
 -spec is_key(Key, Orddict) -> boolean() when
-      Key :: term(),
-      Orddict :: orddict().
+      Orddict :: orddict(Key, Value :: term()).
 
 is_key(Key, [{K,_}|_]) when Key < K -> false;
 is_key(Key, [{K,_}|Dict]) when Key > K -> is_key(Key, Dict);
@@ -47,14 +48,14 @@ is_key(_Key, [{_K,_Val}|_]) -> true;		%Key == K
 is_key(_, []) -> false.
 
 -spec to_list(Orddict) -> List when
-      Orddict :: orddict(),
-      List :: [{Key :: term(), Value :: term()}].
+      Orddict :: orddict(Key, Value),
+      List :: [{Key, Value}].
 
 to_list(Dict) -> Dict.
 
 -spec from_list(List) -> Orddict when
-      List :: [{Key :: term(), Value :: term()}],
-      Orddict :: orddict().
+      List :: [{Key, Value}],
+      Orddict :: orddict(Key, Value).
 
 from_list([]) -> [];
 from_list([{_,_}]=Pair) -> Pair;
@@ -73,17 +74,13 @@ is_empty([]) -> true;
 is_empty([_|_]) -> false.
 
 -spec fetch(Key, Orddict) -> Value when
-      Key :: term(),
-      Value :: term(),
-      Orddict :: orddict().
+      Orddict :: orddict(Key, Value).
 
 fetch(Key, [{K,_}|D]) when Key > K -> fetch(Key, D);
 fetch(Key, [{K,Value}|_]) when Key == K -> Value.
 
 -spec find(Key, Orddict) -> {'ok', Value} | 'error' when
-      Key :: term(),
-      Orddict :: orddict(),
-      Value :: term().
+      Orddict :: orddict(Key, Value).
 
 find(Key, [{K,_}|_]) when Key < K -> error;
 find(Key, [{K,_}|D]) when Key > K -> find(Key, D);
@@ -91,17 +88,16 @@ find(_Key, [{_K,Value}|_]) -> {ok,Value};	%Key == K
 find(_, []) -> error.
 
 -spec fetch_keys(Orddict) -> Keys when
-      Orddict :: orddict(),
-      Keys :: [term()].
+      Orddict :: orddict(Key, Value :: term()),
+      Keys :: [Key].
 
 fetch_keys([{Key,_}|Dict]) ->
     [Key|fetch_keys(Dict)];
 fetch_keys([]) -> [].
 
 -spec erase(Key, Orddict1) -> Orddict2 when
-      Key :: term(),
-      Orddict1 :: orddict(),
-      Orddict2 :: orddict().
+      Orddict1 :: orddict(Key, Value),
+      Orddict2 :: orddict(Key, Value).
 
 erase(Key, [{K,_}=E|Dict]) when Key < K -> [E|Dict];
 erase(Key, [{K,_}=E|Dict]) when Key > K ->
@@ -110,10 +106,8 @@ erase(_Key, [{_K,_Val}|Dict]) -> Dict;		%Key == K
 erase(_, []) -> [].
 
 -spec store(Key, Value, Orddict1) -> Orddict2 when
-      Key :: term(),
-      Value :: term(),
-      Orddict1 :: orddict(),
-      Orddict2 :: orddict().
+      Orddict1 :: orddict(Key, Value),
+      Orddict2 :: orddict(Key, Value).
 
 store(Key, New, [{K,_}=E|Dict]) when Key < K ->
     [{Key,New},E|Dict];
@@ -124,10 +118,8 @@ store(Key, New, [{_K,_Old}|Dict]) ->		%Key == K
 store(Key, New, []) -> [{Key,New}].
 
 -spec append(Key, Value, Orddict1) -> Orddict2 when
-      Key :: term(),
-      Value :: term(),
-      Orddict1 :: orddict(),
-      Orddict2 :: orddict().
+      Orddict1 :: orddict(Key, Value),
+      Orddict2 :: orddict(Key, Value).
 
 append(Key, New, [{K,_}=E|Dict]) when Key < K ->
     [{Key,[New]},E|Dict];
@@ -138,10 +130,9 @@ append(Key, New, [{_K,Old}|Dict]) ->		%Key == K
 append(Key, New, []) -> [{Key,[New]}].
 
 -spec append_list(Key, ValList, Orddict1) -> Orddict2 when
-      Key :: term(),
-      ValList :: [Value :: term()],
-      Orddict1 :: orddict(),
-      Orddict2 :: orddict().
+      ValList :: [Value],
+      Orddict1 :: orddict(Key, Value),
+      Orddict2 :: orddict(Key, Value).
 
 append_list(Key, NewList, [{K,_}=E|Dict]) when Key < K ->
     [{Key,NewList},E|Dict];
@@ -153,10 +144,9 @@ append_list(Key, NewList, []) ->
     [{Key,NewList}].
 
 -spec update(Key, Fun, Orddict1) -> Orddict2 when
-      Key :: term(),
-      Fun :: fun((Value1 :: term()) -> Value2 :: term()),
-      Orddict1 :: orddict(),
-      Orddict2 :: orddict().
+      Fun :: fun((Value1 :: Value) -> Value2 :: Value),
+      Orddict1 :: orddict(Key, Value),
+      Orddict2 :: orddict(Key, Value).
 
 update(Key, Fun, [{K,_}=E|Dict]) when Key > K ->
     [E|update(Key, Fun, Dict)];
@@ -164,11 +154,10 @@ update(Key, Fun, [{K,Val}|Dict]) when Key == K ->
     [{Key,Fun(Val)}|Dict].
 
 -spec update(Key, Fun, Initial, Orddict1) -> Orddict2 when
-      Key :: term(),
-      Initial :: term(),
-      Fun :: fun((Value1 :: term()) -> Value2 :: term()),
-      Orddict1 :: orddict(),
-      Orddict2 :: orddict().
+      Initial :: Value,
+      Fun :: fun((Value1 :: Value) -> Value2 :: Value),
+      Orddict1 :: orddict(Key, Value),
+      Orddict2 :: orddict(Key, Value).
 
 update(Key, _, Init, [{K,_}=E|Dict]) when Key < K ->
     [{Key,Init},E|Dict];
@@ -179,10 +168,9 @@ update(Key, Fun, _Init, [{_K,Val}|Dict]) ->		%Key == K
 update(Key, _, Init, []) -> [{Key,Init}].
 
 -spec update_counter(Key, Increment, Orddict1) -> Orddict2 when
-      Key :: term(),
-      Increment :: number(),
-      Orddict1 :: orddict(),
-      Orddict2 :: orddict().
+      Orddict1 :: orddict(Key, Increment),
+      Orddict2 :: orddict(Key, Increment),
+      Increment :: number().
 
 update_counter(Key, Incr, [{K,_}=E|Dict]) when Key < K ->
     [{Key,Incr},E|Dict];
@@ -193,28 +181,30 @@ update_counter(Key, Incr, [{_K,Val}|Dict]) ->		%Key == K
 update_counter(Key, Incr, []) -> [{Key,Incr}].
 
 -spec fold(Fun, Acc0, Orddict) -> Acc1 when
-      Fun :: fun((Key :: term(), Value :: term(), AccIn :: term()) -> AccOut :: term()),
-      Acc0 :: term(),
-      Acc1 :: term(),
-      Orddict :: orddict().
+      Fun :: fun((Key, Value, AccIn) -> AccOut),
+      Orddict :: orddict(Key, Value),
+      Acc0 :: Acc,
+      Acc1 :: Acc,
+      AccIn :: Acc,
+      AccOut :: Acc.
 
 fold(F, Acc, [{Key,Val}|D]) ->
     fold(F, F(Key, Val, Acc), D);
 fold(F, Acc, []) when is_function(F, 3) -> Acc.
 
 -spec map(Fun, Orddict1) -> Orddict2 when
-      Fun :: fun((Key :: term(), Value1 :: term()) -> Value2 :: term()),
-      Orddict1 :: orddict(),
-      Orddict2 :: orddict().
+      Fun :: fun((Key, Value1) -> Value2),
+      Orddict1 :: orddict(Key, Value1),
+      Orddict2 :: orddict(Key, Value2).
 
 map(F, [{Key,Val}|D]) ->
     [{Key,F(Key, Val)}|map(F, D)];
 map(F, []) when is_function(F, 2) -> [].
 
 -spec filter(Pred, Orddict1) -> Orddict2 when
-      Pred :: fun((Key :: term(), Value :: term()) -> boolean()),
-      Orddict1 :: orddict(),
-      Orddict2 :: orddict().
+      Pred :: fun((Key, Value) -> boolean()),
+      Orddict1 :: orddict(Key, Value),
+      Orddict2 :: orddict(Key, Value).
 
 filter(F, [{Key,Val}=E|D]) ->
     case F(Key, Val) of
@@ -224,10 +214,10 @@ filter(F, [{Key,Val}=E|D]) ->
 filter(F, []) when is_function(F, 2) -> [].
 
 -spec merge(Fun, Orddict1, Orddict2) -> Orddict3 when
-      Fun :: fun((Key :: term(), Value1 :: term(), Value2 :: term()) -> Value :: term()),
-      Orddict1 :: orddict(),
-      Orddict2 :: orddict(),
-      Orddict3 :: orddict().
+      Fun :: fun((Key, Value1, Value2) -> Value),
+      Orddict1 :: orddict(Key, Value1),
+      Orddict2 :: orddict(Key, Value2),
+      Orddict3 :: orddict(Key, Value).
 
 merge(F, [{K1,_}=E1|D1], [{K2,_}=E2|D2]) when K1 < K2 ->
     [E1|merge(F, D1, [E2|D2])];
