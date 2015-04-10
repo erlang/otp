@@ -955,12 +955,14 @@ tail_recur:
 	UINT32_HASH_RET(external_ref_numbers(term)[0],FUNNY_NUMBER9,FUNNY_NUMBER10);
     case FLOAT_DEF: 
 	{
-	    FloatDef ff;
-	    GET_DOUBLE(term, ff);
-	    hash = hash*FUNNY_NUMBER6 + (ff.fw[0] ^ ff.fw[1]);
-	    break;
+            FloatDef ff;
+            GET_DOUBLE(term, ff);
+            if (ff.fd == 0.0f) {
+                ff.fd = 0.0f; /* ensure pos. 0.0 */
+            }
+            hash = hash*FUNNY_NUMBER6 + (ff.fw[0] ^ ff.fw[1]);
+            break;
 	}
-
     case MAKE_HASH_CDR_PRE_OP:
 	term = (Eterm) WSTACK_POP(stack);
 	if (is_not_list(term)) {
@@ -1474,6 +1476,9 @@ make_hash2(Eterm term)
 	    {
 		FloatDef ff;
 		GET_DOUBLE(term, ff);
+                if (ff.fd == 0.0f) {
+                    ff.fd = 0.0f; /* ensure pos. 0.0 */
+                }
 #if defined(WORDS_BIGENDIAN) || defined(DOUBLE_MIDDLE_ENDIAN)
 		UINT32_HASH_2(ff.fw[0], ff.fw[1], HCONST_12);
 #else
@@ -1893,8 +1898,8 @@ make_internal_hash(Eterm term)
 	    {
 		FloatDef ff;
 		GET_DOUBLE(term, ff);
-                if (ff.fd == 0.0) {
-                    ff.fd = 0.0; /* ensure pos. 0.0 */
+                if (ff.fd == 0.0f) {
+                    ff.fd = 0.0f; /* ensure pos. 0.0 */
                 }
 		UINT32_HASH_2(ff.fw[0], ff.fw[1], HCONST_12);
 		goto pop_next;
@@ -2079,12 +2084,14 @@ tail_recur:
 	break;
     case FLOAT_DEF: 
 	{
-	    FloatDef ff;
-	    GET_DOUBLE(term, ff);
-	    hash = hash*FUNNY_NUMBER6 + (ff.fw[0] ^ ff.fw[1]);
+            FloatDef ff;
+            GET_DOUBLE(term, ff);
+            if (ff.fd == 0.0f) {
+                ff.fd = 0.0f; /* ensure pos. 0.0 */
+            }
+            hash = hash*FUNNY_NUMBER6 + (ff.fw[0] ^ ff.fw[1]);
 	}
 	break;
-
     case MAKE_HASH_CDR_PRE_OP:
 	term = (Eterm) WSTACK_POP(stack);
 	if (is_not_list(term)) {
