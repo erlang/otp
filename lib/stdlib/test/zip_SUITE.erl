@@ -84,7 +84,7 @@ borderline_test(Size, TempDir) ->
     io:format("Testing size ~p", [Size]),
 
     %% Create a file and archive it.
-    {_, _, X0} = erlang:now(),
+    {_, _, X0} = erlang:timestamp(),
     file:write_file(Name, random_byte_list(X0, Size)),
     {ok, Archive} = zip:zip(Archive, [Name]),
     ok = file:delete(Name),
@@ -606,7 +606,7 @@ zip_to_binary(Config) when is_list(Config) ->
 aliases(doc) ->
     ["Test using the aliases, extract/2, table/2 and create/3"];
 aliases(Config) when is_list(Config) ->
-    {_, _, X0} = erlang:now(),
+    {_, _, X0} = erlang:timestamp(),
     Size = 100,
     B = list_to_binary(random_byte_list(X0, Size)),
     %% create

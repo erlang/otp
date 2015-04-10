@@ -1704,7 +1704,7 @@ fun_pid(Fun) ->
 get_seed() ->
     case random:seed() of
 	undefined ->
-	    now();
+	    erlang:timestamp();
 	Tuple ->
 	    Tuple
     end.

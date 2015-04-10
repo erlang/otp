@@ -374,7 +374,6 @@ performance(Mod) ->
 big_test(M) ->
     Load_Pids = start_nrev(20, M),   % Increase if more load wanted :)
  
-    apply(M, sleep, [9000]),
     LPids = spawn_timers(5, M, 10000, 5),
 
     apply(M, sleep, [4000]),
@@ -483,8 +482,7 @@ append([],X) ->
 	X.
 
 system_time() ->    
-    {M,S,U} = erlang:now(),
-    1000000*(M*1000000 + S) + U.
+    erlang:monotonic_time(micro_seconds).
 
 %% ------------------------------------------------------- %%
 

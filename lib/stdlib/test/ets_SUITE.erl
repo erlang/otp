@@ -1385,7 +1385,7 @@ random_test() ->
 	       {ok,[X]} ->
 		   X;
 	       _ ->
-		   {A,B,C} = erlang:now(),
+		   {A,B,C} = erlang:timestamp(),
 		   random:seed(A,B,C),
 		   get(random_seed)
 	   end,
@@ -3541,12 +3541,9 @@ verify_rescheduling_exit(Config, ForEachData, Flags, Fix, NOTabs, NOProcs) ->
 	fun () ->
 		repeat(
 		  fun () ->
-			  {A, B, C} = now(),
-			  ?line Name = list_to_atom(
-					 TestCase
-					 ++ "-" ++ integer_to_list(A)
-					 ++ "-" ++ integer_to_list(B)
-					 ++ "-" ++ integer_to_list(C)),
+			  Uniq = erlang:unique_integer([positive]),
+			  Name = list_to_atom(TestCase ++ "-" ++
+						  integer_to_list(Uniq)),
 			  Tab = ets_new(Name, Flags),
                           ForEachData(fun(Data) -> ets:insert(Tab, Data) end),
 			  case Fix of
@@ -4552,16 +4549,16 @@ build_table2(L1,L2,Num) ->
     T.
 
 time_match_object(Tab,Match, Res) ->
-    T1 = erlang:now(),
+    T1 = erlang:monotonic_time(micro_seconds),
     Res = ets:match_object(Tab,Match),
-    T2 = erlang:now(),
-    nowdiff(T1,T2).
+    T2 = erlang:monotonic_time(micro_seconds),
+    T2 - T1.
 
 time_match(Tab,Match) ->
-    T1 = erlang:now(),
+    T1 = erlang:monotonic_time(micro_seconds),
     ets:match(Tab,Match),
-    T2 = erlang:now(),
-    nowdiff(T1,T2).
+    T2 = erlang:monotonic_time(micro_seconds),
+    T2 - T1.
 
 seventyfive_percent_success(_,S,Fa,0) ->
     true = (S > ((S + Fa) * 0.75));
@@ -4585,11 +4582,6 @@ fifty_percent_success({M,F,A},S,Fa,N) ->
 	    fifty_percent_success({M,F,A},S+1,Fa,N-1)
     end.
 
-
-nowtonumber({Mega, Secs, Milli}) ->
-    Milli + Secs * 1000000 + Mega * 1000000000000.
-nowdiff(T1,T2) ->
-    nowtonumber(T2) - nowtonumber(T1).
 
 create_random_string(0) ->
     [];
@@ -5118,17 +5110,29 @@ grow_pseudo_deleted_do(Type) ->
     ?line Left = ets:info(T,size),
     ?line Mult = get_kept_objects(T),
     filltabstr(T,Mult),
-    my_spawn_opt(fun()-> ?line true = ets:info(T,fixed),
-			 Self ! start,
-			 io:format("Starting to filltabstr... ~p\n",[now()]),
-			 filltabstr(T,Mult,Mult+10000),
-			 io:format("Done with filltabstr. ~p\n",[now()]),
-			 Self ! done 
-		 end, [link, {scheduler,2}]),
+    my_spawn_opt(
+      fun() ->
+	      true = ets:info(T,fixed),
+	      Self ! start,
+	      io:put_chars("Starting to filltabstr...\n"),
+	      do_tc(fun() ->
+			    filltabstr(T, Mult, Mult+10000)
+		    end,
+		    fun(Elapsed) ->
+			    io:format("Done with filltabstr in ~p ms\n",
+				      [Elapsed])
+		    end),
+	      Self ! done
+      end, [link, {scheduler,2}]),
     ?line start = receive_any(),
-    io:format("Unfixing table...~p nitems=~p\n",[now(),ets:info(T,size)]),
-    ?line true = ets:safe_fixtable(T,false),
-    io:format("Unfix table done. ~p nitems=~p\n",[now(),ets:info(T,size)]),
+    io:format("Unfixing table... nitems=~p\n", [ets:info(T, size)]),
+    do_tc(fun() ->
+		  true = ets:safe_fixtable(T, false)
+	  end,
+	  fun(Elapsed) ->
+		  io:format("Unfix table done in ~p ms. nitems=~p\n",
+			    [Elapsed,ets:info(T, size)])
+	  end),
     ?line false = ets:info(T,fixed),
     ?line 0 = get_kept_objects(T),
     ?line done = receive_any(),
@@ -5158,17 +5162,28 @@ shrink_pseudo_deleted_do(Type) ->
 				     [true]}]),    
     ?line Half = ets:info(T,size),
     ?line Half = get_kept_objects(T),
-    my_spawn_opt(fun()-> ?line true = ets:info(T,fixed),
-			 Self ! start,
-			 io:format("Starting to delete... ~p\n",[now()]),
-			 del_one_by_one_set(T,1,Half+1),
-			 io:format("Done with delete. ~p\n",[now()]),
-			 Self ! done 
-		 end, [link, {scheduler,2}]),
+    my_spawn_opt(
+      fun()-> true = ets:info(T,fixed),
+	      Self ! start,
+	      io:put_chars("Starting to delete... ~p\n"),
+	      do_tc(fun() ->
+			    del_one_by_one_set(T, 1, Half+1)
+		    end,
+		    fun(Elapsed) ->
+			    io:format("Done with delete in ~p ms.\n",
+				      [Elapsed])
+				end),
+	      Self ! done
+      end, [link, {scheduler,2}]),
     ?line start = receive_any(),
-    io:format("Unfixing table...~p nitems=~p\n",[now(),ets:info(T,size)]),
-    ?line true = ets:safe_fixtable(T,false),
-    io:format("Unfix table done. ~p nitems=~p\n",[now(),ets:info(T,size)]),
+    io:format("Unfixing table... nitems=~p\n", [ets:info(T, size)]),
+    do_tc(fun() ->
+		  true = ets:safe_fixtable(T, false)
+	  end,
+	  fun(Elapsed) ->
+		  io:format("Unfix table done in ~p ms. nitems=~p\n",
+			    [Elapsed,ets:info(T, size)])
+	  end),
     ?line false = ets:info(T,fixed),
     ?line 0 = get_kept_objects(T),
     ?line done = receive_any(),
@@ -5321,30 +5336,42 @@ smp_unfix_fix_do() ->
     ?line Deleted = get_kept_objects(T),
     
     {Child, Mref} = 
-      my_spawn_opt(fun()-> ?line true = ets:info(T,fixed),
-			   Parent ! start,
-			   io:format("Child waiting for table to be unfixed... now=~p mem=~p\n",
-				     [now(),ets:info(T,memory)]),
-			   repeat_while(fun()-> ets:info(T,fixed) end),
-			   io:format("Table unfixed. Child Fixating! now=~p mem=~p\n",
-				     [now(),ets:info(T,memory)]),    
-			   ?line true = ets:safe_fixtable(T,true),
-			   repeat_while(fun(Key) when Key =< NumOfObjs -> 
-						ets:delete(T,Key), {true,Key+1};
-					   (Key) -> {false,Key}
-					end,
-					Deleted),
-			   ?line 0 = ets:info(T,size),
-			   ?line true = get_kept_objects(T) >= Left,		      
-			   ?line done = receive_any()
-		   end, 
-		   [link, monitor, {scheduler,2}]),
+	my_spawn_opt(
+	  fun()->
+		  true = ets:info(T,fixed),
+		  Parent ! start,
+		  io:format("Child waiting for table to be unfixed... mem=~p\n",
+			    [ets:info(T, memory)]),
+		  do_tc(fun() ->
+				repeat_while(fun()-> ets:info(T, fixed) end)
+			end,
+			fun(Elapsed) ->
+				io:format("Table unfixed in ~p ms."
+					  " Child Fixating! mem=~p\n",
+					  [Elapsed,ets:info(T,memory)])
+			end),
+		  true = ets:safe_fixtable(T,true),
+		  repeat_while(fun(Key) when Key =< NumOfObjs ->
+				       ets:delete(T,Key), {true,Key+1};
+				  (Key) -> {false,Key}
+			       end,
+			       Deleted),
+		  0 = ets:info(T,size),
+		  true = get_kept_objects(T) >= Left,
+		  done = receive_any()
+	  end,
+	  [link, monitor, {scheduler,2}]),
     
     ?line start = receive_any(),        
     ?line true = ets:info(T,fixed),
-    io:format("Parent starting to unfix... ~p\n",[now()]),
-    ets:safe_fixtable(T,false),
-    io:format("Parent done with unfix. ~p\n",[now()]),
+    io:put_chars("Parent starting to unfix... ~p\n"),
+    do_tc(fun() ->
+		  ets:safe_fixtable(T, false)
+	  end,
+	  fun(Elapsed) ->
+		  io:format("Parent done with unfix in ~p ms.\n",
+			    [Elapsed])
+	  end),
     Child ! done,
     {'DOWN', Mref, process, Child, normal} = receive_any(),
     ?line false = ets:info(T,fixed),
@@ -6346,3 +6373,10 @@ repeat_for_opts_atom2list(compressed) -> [compressed,void].
 ets_new(Name, Opts) ->
     %%ets:new(Name, [compressed | Opts]).
     ets:new(Name, Opts).
+
+do_tc(Do, Report) ->
+    T1 = erlang:monotonic_time(),
+    Do(),
+    T2 = erlang:monotonic_time(),
+    Elapsed = erlang:convert_time_unit(T2 - T1, native, milli_seconds),
+    Report(Elapsed).

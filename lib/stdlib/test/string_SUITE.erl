@@ -120,7 +120,7 @@ chr_rchr(suite) ->
 chr_rchr(doc) ->
     [];
 chr_rchr(Config) when is_list(Config) ->
-    ?line {_,_,X} = now(),
+    {_,_,X} = erlang:timestamp(),
     ?line 0 = string:chr("", (X rem (255-32)) + 32),
     ?line 0 = string:rchr("", (X rem (255-32)) + 32),
     ?line 1 = string:chr("x", $x),
@@ -144,7 +144,7 @@ str_rstr(suite) ->
 str_rstr(doc) ->
     [];
 str_rstr(Config) when is_list(Config) ->
-    ?line {_,_,X} = now(),
+    {_,_,X} = erlang:timestamp(),
     ?line 0 = string:str("", [(X rem (255-32)) + 32]),
     ?line 0 = string:rstr("", [(X rem (255-32)) + 32]),
     ?line 1 = string:str("x", "x"),
