@@ -2153,8 +2153,8 @@ restart:
 	    break;
         case matchMkFlatMap:
             n = *pc++;
-            ehp = HAllocX(build_proc, 1 + MAP_HEADER_FLATMAP_SZ + n, HEAP_XTRA);
-            t = *ehp++ = *--esp;
+            ehp = HAllocX(build_proc, MAP_HEADER_FLATMAP_SZ + n, HEAP_XTRA);
+            t = *--esp;
             {
                 flatmap_t *m = (flatmap_t *)ehp;
                 m->thing_word = MAP_HEADER_FLATMAP;
