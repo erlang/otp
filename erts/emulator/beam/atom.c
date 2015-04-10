@@ -382,7 +382,6 @@ erts_atom_get(const char *name, int len, Eterm* ap, ErtsAtomEncoding enc)
     int i;
     int res;
 
-    if (len >= MAX_ATOM_SZ_FROM_LATIN1) { return 0; }
     a.len = (Sint16) len;
     a.name = (byte *)name;
     if (enc == ERTS_ATOM_ENC_LATIN1) {
