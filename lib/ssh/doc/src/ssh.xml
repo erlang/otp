@@ -338,6 +338,12 @@
 	    </warning>
 	  </item>
 
+	  <tag><c><![CDATA[{minimal_remote_max_packet_size, non_negative_integer()}]]></c></tag>
+	  <item>
+	    <p>The least maximum packet size that the daemon will accept in channel open requests from the client.  The default value is 0.
+	    </p>
+	  </item>
+
 	  <tag><c><![CDATA[{key_cb, atom()}]]></c></tag>
 	  <item>
 	    <p>Module implementing the behaviour <seealso marker="ssh_server_key_api">ssh_server_key_api</seealso>.

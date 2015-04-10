@@ -1,7 +1,7 @@
 %% -*- erlang -*-
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -19,61 +19,9 @@
 
 {"%VSN%",	
  [
-  {"3.0.8", [{load_module, ssh_connection, soft_purge, soft_purge, [ssh_connection_handler]},
-	   {load_module, ssh_sftp,  soft_purge, soft_purge, [ssh_xfer]},
-	   {load_module, ssh_connection_handler,  soft_purge, soft_purge, []},
-	   {load_module, ssh,  soft_purge, soft_purge, [ssh_connection_handler]},
-	   {load_module, ssh_xfer,  soft_purge, soft_purge, []}
-	  ]},
-  {"3.0.7", [{load_module, ssh_auth, soft_purge, soft_purge, [ssh_connection_handler]},
-	     {load_module, ssh_acceptor, soft_purge, soft_purge, [ssh_connection_handler]},
-	     {load_module, ssh_channel, soft_purge, soft_purge, [ssh_connection_handler]},
-	     {load_module, ssh_connection, soft_purge, soft_purge, [ssh_connection_handler]},
-	     {load_module, ssh_connection_handler, soft_purge, soft_purge, []},
-	     {load_module, ssh_info, soft_purge, soft_purge, []},
-	     {load_module, ssh_message, soft_purge, soft_purge, [ssh_connection_handler]},
-	     {load_module, ssh_io, soft_purge, soft_purge, [ssh_connection_handler]},
-	     {load_module, ssh_sftp, soft_purge, soft_purge, [ssh_connection_handler]},
-	     {load_module, ssh_xfer, soft_purge, soft_purge, [ssh_connection_handler]}]},
-  {"3.0.6", [{load_module, ssh_auth, soft_purge, soft_purge, [ssh_connection_handler]},
-	     {load_module, ssh_acceptor, soft_purge, soft_purge, [ssh_connection_handler]},
-	     {load_module, ssh_channel, soft_purge, soft_purge, [ssh_connection_handler]},
-	     {load_module, ssh_connection, soft_purge, soft_purge, [ssh_connection_handler]},
-	     {load_module, ssh_connection_handler, soft_purge, soft_purge, []},
-	     {load_module, ssh_info, soft_purge, soft_purge, []},
-	     {load_module, ssh_message, soft_purge, soft_purge, [ssh_connection_handler]},
-	     {load_module, ssh_io, soft_purge, soft_purge, [ssh_connection_handler]},
-	     {load_module, ssh_sftp, soft_purge, soft_purge, [ssh_connection_handler]},
-	     {load_module, ssh_xfer, soft_purge, soft_purge, [ssh_connection_handler]}]},
   {<<".*">>, [{restart_application, ssh}]}
  ],
  [
-  {"3.0.8", [{load_module, ssh_connection, soft_purge, soft_purge, [ssh_connection_handler]},
-	   {load_module, ssh_sftp,  soft_purge, soft_purge, []},
-	   {load_module, ssh_connection_handler,  soft_purge, soft_purge, []},
-	   {load_module, ssh,  soft_purge, soft_purge, []},
-	   {load_module, ssh_xfer,  soft_purge, soft_purge, []}
-	  ]},
-  {"3.0.7", [{load_module, ssh_auth, soft_purge, soft_purge, [ssh_connection_handler]},
-	     {load_module, ssh_acceptor, soft_purge, soft_purge, [ssh_connection_handler]},
-	     {load_module, ssh_channel, soft_purge, soft_purge, [ssh_connection_handler]},
-	     {load_module, ssh_connection, soft_purge, soft_purge, [ssh_connection_handler]},
-	     {load_module, ssh_connection_handler, soft_purge, soft_purge, []},
-	     {load_module, ssh_info, soft_purge, soft_purge, []},
-	     {load_module, ssh_message, soft_purge, soft_purge, [ssh_connection_handler]},
-	     {load_module, ssh_io, soft_purge, soft_purge, [ssh_connection_handler]},
-	     {load_module, ssh_sftp, soft_purge, soft_purge, [ssh_connection_handler]},
-	     {load_module, ssh_xfer, soft_purge, soft_purge, [ssh_connection_handler]}]},
-  {"3.0.6", [{load_module, ssh_auth, soft_purge, soft_purge, [ssh_connection_handler]},
-	     {load_module, ssh_acceptor, soft_purge, soft_purge, [ssh_connection_handler]},
-	     {load_module, ssh_channel, soft_purge, soft_purge, [ssh_connection_handler]},
-	     {load_module, ssh_connection, soft_purge, soft_purge, [ssh_connection_handler]},
-	     {load_module, ssh_connection_handler, soft_purge, soft_purge, []},
-	     {load_module, ssh_info, soft_purge, soft_purge, []},
-	     {load_module, ssh_message, soft_purge, soft_purge, [ssh_connection_handler]},
-	     {load_module, ssh_io, soft_purge, soft_purge, [ssh_connection_handler]},
-	     {load_module, ssh_sftp, soft_purge, soft_purge, [ssh_connection_handler]},
-	     {load_module, ssh_xfer, soft_purge, soft_purge, [ssh_connection_handler]}]},
   {<<".*">>, [{restart_application, ssh}]}
  ]
 }.
