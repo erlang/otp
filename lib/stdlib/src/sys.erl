@@ -24,6 +24,7 @@
 	 get_state/1, get_state/2,
 	 replace_state/2, replace_state/3,
 	 change_code/4, change_code/5,
+	 terminate/2, terminate/3,
 	 log/2, log/3, trace/2, trace/3, statistics/2, statistics/3,
 	 log_to_file/2, log_to_file/3, no_debug/1, no_debug/2,
 	 install/2, install/3, remove/2, remove/3]).
@@ -163,6 +164,19 @@ change_code(Name, Mod, Vsn, Extra) ->
 change_code(Name, Mod, Vsn, Extra, Timeout) ->
     send_system_msg(Name, {change_code, Mod, Vsn, Extra}, Timeout).
 
+-spec terminate(Name, Reason) -> 'ok' when
+      Name :: name(),
+      Reason :: term().
+terminate(Name, Reason) ->
+    send_system_msg(Name, {terminate, Reason}).
+
+-spec terminate(Name, Reason, Timeout) -> 'ok' when
+      Name :: name(),
+      Reason :: term(),
+      Timeout :: timeout().
+terminate(Name, Reason, Timeout) ->
+    send_system_msg(Name, {terminate, Reason}, Timeout).
+
 %%-----------------------------------------------------------------
 %% Debug commands
 %%-----------------------------------------------------------------
@@ -298,6 +312,8 @@ mfa(Name, {debug, {Func, Arg2}}) ->
     {sys, Func, [Name, Arg2]};
 mfa(Name, {change_code, Mod, Vsn, Extra}) ->
     {sys, change_code, [Name, Mod, Vsn, Extra]};
+mfa(Name, {terminate, Reason}) ->
+    {sys, terminate, [Name, Reason]};
 mfa(Name, Atom) ->
     {sys, Atom, [Name]}.
 
@@ -313,7 +329,7 @@ mfa(Name, Req, Timeout) ->
 %% Returns: This function *never* returns! It calls the function
 %%          Module:system_continue(Parent, NDebug, Misc)
 %%          there the process continues the execution or
-%%          Module:system_terminate(Raeson, Parent, Debug, Misc) if
+%%          Module:system_terminate(Reason, Parent, Debug, Misc) if
 %%          the process should terminate.
 %%          The Module must export system_continue/3, system_terminate/4
 %%          and format_status/2 for status information.
@@ -339,7 +355,10 @@ handle_system_msg(SysState, Msg, From, Parent, Mod, Debug, Misc, Hib) ->
 	    suspend_loop(suspended, Parent, Mod, NDebug, NMisc, Hib);
 	{running, Reply, NDebug, NMisc} ->
 	    _ = gen:reply(From, Reply),
-            Mod:system_continue(Parent, NDebug, NMisc)
+            Mod:system_continue(Parent, NDebug, NMisc);
+	{{terminating, Reason}, Reply, NDebug, NMisc} ->
+	    _ = gen:reply(From, Reply),
+	    Mod:system_terminate(Reason, Parent, NDebug, NMisc)
     end.
 
 %%-----------------------------------------------------------------
@@ -419,6 +438,8 @@ do_cmd(SysState, get_status, Parent, Mod, Debug, Misc) ->
 do_cmd(SysState, {debug, What}, _Parent, _Mod, Debug, Misc) ->
     {Res, NDebug} = debug_cmd(What, Debug),
     {SysState, Res, NDebug, Misc};
+do_cmd(_, {terminate, Reason}, _Parent, _Mod, Debug, Misc) ->
+    {{terminating, Reason}, ok, Debug, Misc};
 do_cmd(suspended, {change_code, Module, Vsn, Extra}, _Parent,
        Mod, Debug, Misc) ->
     {Res, NMisc} = do_change_code(Mod, Module, Vsn, Extra, Misc),

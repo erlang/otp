@@ -808,6 +808,7 @@ int main(int argc, char **argv)
 		  case 'a':
 		  case 'A':
 		  case 'b':
+		  case 'C':
 		  case 'e':
 		  case 'i':
 		  case 'n':
@@ -878,6 +879,19 @@ int main(int argc, char **argv)
 			    usage(argv[i]);
 			  }
 			}
+		      }
+		      add_Eargs(argv[i]);
+		      break;
+		  case 'c':
+		      argv[i][0] = '-';
+		      if (argv[i][2] == '\0' && i+1 < argc) {
+			  if (sys_strcmp(argv[i+1], "true") == 0
+			      || sys_strcmp(argv[i+1], "false") == 0) {
+			      add_Eargs(argv[i]);
+			      add_Eargs(argv[i+1]);
+			      i++;
+			      break;
+			  }
 		      }
 		      add_Eargs(argv[i]);
 		      break;
@@ -1150,8 +1164,8 @@ usage_aux(void)
 #endif
 	  "] "
 	  "[-make] [-man [manopts] MANPAGE] [-x] [-emu_args] "
-	  "[-args_file FILENAME] [+A THREADS] [+a SIZE] [+B[c|d|i]] [+c] "
-	  "[+h HEAP_SIZE_OPTION] [+K BOOLEAN] "
+	  "[-args_file FILENAME] [+A THREADS] [+a SIZE] [+B[c|d|i]] [+c [BOOLEAN]] "
+	  "[+C MODE] [+h HEAP_SIZE_OPTION] [+K BOOLEAN] "
 	  "[+l] [+M<SUBSWITCH> <ARGUMENT>] [+P MAX_PROCS] [+Q MAX_PORTS] "
 	  "[+R COMPAT_REL] "
 	  "[+r] [+rg READER_GROUPS_LIMIT] [+s SCHEDULER_OPTION] "

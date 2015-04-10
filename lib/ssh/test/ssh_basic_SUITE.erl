@@ -715,7 +715,7 @@ ssh_connect_arg4_timeout(_Config) ->
 
     %% try to connect with a timeout, but "supervise" it
     Client = spawn(fun() ->
-			   T0 = now(),
+			   T0 = erlang:monotonic_time(),
 			   Rc = ssh:connect("localhost",Port,[],Timeout),
 			   ct:log("Client ssh:connect got ~p",[Rc]),
 			   Parent ! {done,self(),Rc,T0}
@@ -724,13 +724,12 @@ ssh_connect_arg4_timeout(_Config) ->
     %% Wait for client reaction on the connection try:
     receive
 	{done, Client, {error,timeout}, T0} ->
-	    Msp = ms_passed(T0, now()),
+	    Msp = ms_passed(T0),
 	    exit(Server,hasta_la_vista___baby),
 	    Low = 0.9*Timeout,
 	    High =  1.1*Timeout,
 	    ct:log("Timeout limits: ~.4f - ~.4f ms, timeout "
                    "was ~.4f ms, expected ~p ms",[Low,High,Msp,Timeout]),
-	    %%ct:log("Timeout limits: ~p--~p, my timeout was ~p, expected ~p",[Low,High,Msp0,Timeout]),
 	    if
 		Low<Msp, Msp<High -> ok;
 		true -> {fail, "timeout not within limits"}
@@ -749,12 +748,12 @@ ssh_connect_arg4_timeout(_Config) ->
 	    {fail, "Didn't timeout"}
     end.
 
-%% Help function
-%% N2-N1
-ms_passed(N1={_,_,M1}, N2={_,_,M2}) ->
-    {0,{0,Min,Sec}} = calendar:time_difference(calendar:now_to_local_time(N1),
-					       calendar:now_to_local_time(N2)),
-    1000 * (Min*60 + Sec + (M2-M1)/1000000).
+%% Help function, elapsed milliseconds since T0
+ms_passed(T0) ->
+    %% OTP 18
+    erlang:convert_time_unit(erlang:monotonic_time() - T0,
+			     native,
+			     micro_seconds) / 1000.
 
 %%--------------------------------------------------------------------
 ssh_connect_negtimeout_parallel(Config) -> ssh_connect_negtimeout(Config,true).

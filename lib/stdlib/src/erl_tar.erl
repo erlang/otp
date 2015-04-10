@@ -300,7 +300,7 @@ format_error(Term) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 add1(TarFile, Bin, NameInArchive, Opts) when is_binary(Bin) ->
-    Now = calendar:now_to_local_time(now()),
+    Now = calendar:now_to_local_time(erlang:timestamp()),
     Info = #file_info{size = byte_size(Bin),
 		      type = regular,
 		      access = read_write,

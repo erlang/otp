@@ -73,7 +73,6 @@
   <xi:include href="ms_transform.xml"/>
   <xi:include href="orddict.xml"/>
   <xi:include href="ordsets.xml"/>
-  <xi:include href="pg.xml"/>
   <xi:include href="pool.xml"/>
   <xi:include href="proc_lib.xml"/>
   <xi:include href="proplists.xml"/>

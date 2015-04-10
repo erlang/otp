@@ -93,6 +93,8 @@
 
 -export([old_io_protocol/1]).
 
+-export([unicode_mode/1]).
+
 %% Debug exports
 -export([create_file_slow/2, create_file/2, create_bin/2]).
 -export([verify_file/2, verify_bin/3]).
@@ -105,6 +107,7 @@
 -include_lib("test_server/include/test_server.hrl").
 -include_lib("kernel/include/file.hrl").
 
+-define(THROW_ERROR(RES), throw({fail, ?LINE, RES})).
 
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
@@ -116,7 +119,9 @@ all() ->
      delayed_write, read_ahead, segment_read, segment_write,
      ipread, pid2name, interleaved_read_write, otp_5814, otp_10852,
      large_file, large_write, read_line_1, read_line_2, read_line_3,
-     read_line_4, standard_io, old_io_protocol].
+     read_line_4, standard_io, old_io_protocol,
+     unicode_mode
+    ].
 
 groups() -> 
     [{dirs, [], [make_del_dir, cur_dir_0, cur_dir_1,
@@ -347,7 +352,152 @@ old_io_protocol(Config) when is_list(Config) ->
     [] = flush(),
     ok.
 
+unicode_mode(suite) -> [];
+unicode_mode(doc) -> [""];
+unicode_mode(Config) ->
+    Dir = {dir, ?config(priv_dir,Config)},
+    OptVariants = [[Dir],
+		   [Dir, {encoding, utf8}],
+		   [Dir, binary],
+		   [Dir, binary, {encoding, utf8}]
+		  ],
+    ReadVariants = [{read, fun(Fd) -> um_read(Fd, fun(Fd1) -> file:read(Fd1, 1024) end) end},
+		    {read_line, fun(Fd) -> um_read(Fd, fun(Fd1) -> file:read_line(Fd1) end) end}
+		    %%{pread, fun(Fd) -> file:pread(Fd, 0, 1024) end},
+		    %%{preadl, fun(Fd) -> file:pread(Fd, [{0, 1024}]) end},
+		   ],
 
+    _ = [read_write_0("ASCII: list:  Hello World", Read, Opt) ||
+	    Opt <- OptVariants, Read <- ReadVariants],
+    _ = [read_write_0("LATIN1: list: åäöÅÄÖ", Read, Opt) ||
+	    Opt <- OptVariants, Read <- ReadVariants],
+    _ = [read_write_0(<<"ASCII: bin: Hello World">>, Read, Opt) ||
+	    Opt <- OptVariants, Read <- ReadVariants],
+    _ = [read_write_0(<<"LATIN1: bin: åäöÅÄÖ">>, Read, Opt) ||
+	    Opt <- OptVariants, Read <- ReadVariants],
+    %% These will be double encoded if option is encoding utf-8
+    _ = [read_write_0(<<"UTF8: bin: Ωß"/utf8>>, Read, Opt) ||
+	    Opt <- OptVariants, Read <- ReadVariants],
+    %% These should not work (with encoding set to utf-8)
+    %%   according to file's documentation
+    _ = [read_write_0("UTF8: list: Ωß", Read, Opt) ||
+	    Opt <- OptVariants, Read <- ReadVariants],
+    ok.
+
+read_write_0(Str, {Func, ReadFun}, Options) ->
+    try
+	Res = read_write_1(Str, ReadFun, Options),
+	io:format("~p: ~ts ~p '~p'~n", [Func, Str, tl(Options), Res]),
+	ok
+    catch {fail, Line, ReadBytes = [_|_]} ->
+	    io:format("~p:~p: ~p ERROR: ~w vs~n             ~w~n  - ~p~n",
+		      [?MODULE, Line, Func, Str, ReadBytes, Options]),
+	    exit({error, ?LINE});
+	  {fail, Line, ReadBytes} ->
+	    io:format("~p:~p: ~p ERROR: ~ts vs~n             ~w~n  - ~p~n",
+		      [?MODULE, Line, Func, Str, ReadBytes, Options]),
+	    exit({error, ?LINE});
+	  error:What ->
+	    io:format("~p:??: ~p ERROR: ~p from~n  ~w~n  ~p~n",
+		      [?MODULE, Func, What, Str, Options]),
+
+	    io:format("\t~p~n", [erlang:get_stacktrace()]),
+	    exit({error, ?LINE})
+    end.
+
+read_write_1(Str0, ReadFun, [{dir,Dir}|Options]) ->
+    File = um_filename(Str0, Dir, Options),
+    Pre = "line 1\n", Post = "\nlast line\n",
+    Str = case is_list(Str0) andalso lists:max(Str0) > 255 of
+	      false ->  %% Normal case Use options
+		  {ok, FdW} = file:open(File, [write|Options]),
+		  IO = [Pre, Str0, Post],
+		  ok = file:write(FdW, IO),
+		  case is_binary(Str0) of
+		      true -> iolist_to_binary(IO);
+		      false -> lists:append(IO)
+		  end;
+	      true -> %% Test unicode lists
+		  {ok, FdW} = file:open(File, [write]),
+		  Utf8 = unicode:characters_to_binary([Pre, Str0, Post]),
+		  file:write(FdW, Utf8),
+		  {unicode, Utf8}
+	  end,
+    file:close(FdW),
+    {ok, FdR} = file:open(File, [read|Options]),
+    ReadRes = ReadFun(FdR),
+    file:close(FdR),
+    Res = um_check(Str, ReadRes, Options),
+    file:delete(File),
+    Res.
+
+
+um_read(Fd, Fun) ->
+    um_read(Fd, Fun, []).
+
+um_read(Fd, Fun, Acc) ->
+    case Fun(Fd) of
+	eof ->
+	    case is_binary(hd(Acc)) of
+		true  -> {ok, iolist_to_binary(lists:reverse(Acc))};
+		false -> {ok, lists:append(lists:reverse(Acc))}
+	    end;
+	{ok, Data} ->
+	    um_read(Fd, Fun, [Data|Acc]);
+	Error ->
+	    Error
+    end.
+
+
+um_check(Str, {ok, Str}, _) -> ok;
+um_check(Bin, {ok, Res}, _Options) when is_binary(Bin), is_list(Res) ->
+    case list_to_binary(Res) of
+	Bin -> ok;
+	_ -> ?THROW_ERROR(Res)
+    end;
+um_check(Str, {ok, Res}, _Options) when is_list(Str), is_binary(Res) ->
+    case iolist_to_binary(Str) of
+	Res -> ok;
+	_ -> ?THROW_ERROR(Res)
+    end;
+um_check({unicode, Utf8Bin}, Res, Options) ->
+    um_check_unicode(Utf8Bin, Res,
+		     proplists:get_value(binary, Options, false),
+		     proplists:get_value(encoding, Options, none));
+um_check(_Str, Res, _Options) ->
+    ?THROW_ERROR(Res).
+
+um_check_unicode(Utf8Bin, {ok, Utf8Bin}, true, none) ->
+    ok;
+um_check_unicode(Utf8Bin, {ok, List = [_|_]}, false, none) ->
+    case binary_to_list(Utf8Bin) == List of
+	true -> ok;
+	false -> ?THROW_ERROR(List)
+    end;
+um_check_unicode(_Utf8Bin, {error, {no_translation, unicode, latin1}}, _, _) ->
+    no_translation;
+um_check_unicode(_Utf8Bin, Error = {error, _}, _, _Unicode) ->
+    ?THROW_ERROR(Error);
+um_check_unicode(_Utf8Bin, {ok, _ListOrBin}, _, _UTF8_) ->
+    %% List = if is_binary(ListOrBin) -> unicode:characters_to_list(ListOrBin);
+    %% 	      true -> ListOrBin
+    %% 	   end,
+    %% io:format("In: ~w~n", [binary_to_list(Utf8Bin)]),
+    %% io:format("Ut: ~w~n", [List]),
+    ?THROW_ERROR({shoud_be, no_translation}).
+
+um_filename(Bin, Dir, Options) when is_binary(Bin) ->
+    um_filename(binary_to_list(Bin), Dir, Options);
+um_filename(Str = [_|_], Dir, Options) ->
+    Name = hd(string:tokens(Str, ":")),
+    Enc = atom_to_list(proplists:get_value(encoding, Options, latin1)),
+    File = case lists:member(binary, Options) of
+	       true ->
+		   "test_" ++ Name ++ "_bin_enc_" ++ Enc;
+	       false ->
+		   "test_" ++ Name ++ "_list_enc_" ++ Enc
+	   end,
+    filename:join(Dir, File).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 

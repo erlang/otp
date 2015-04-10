@@ -231,41 +231,58 @@ erts_free_aligned_binary_bytes(byte* buf)
 #  define CHICKEN_PAD (sizeof(void*) - 1)
 #endif
 
+/* Caller must initialize 'refc'
+*/
 ERTS_GLB_INLINE Binary *
 erts_bin_drv_alloc_fnf(Uint size)
 {
     Uint bsize = ERTS_SIZEOF_Binary(size) + CHICKEN_PAD;
-    void *res;
+    Binary *res;
+
     if (bsize < size) /* overflow */
 	return NULL;
     res = erts_alloc_fnf(ERTS_ALC_T_DRV_BINARY, bsize);
     ERTS_CHK_BIN_ALIGNMENT(res);
-    return (Binary *) res;
+    if (res) {
+	res->orig_size = size;
+	res->flags = BIN_FLAG_DRV;
+    }
+    return res;
 }
 
+/* Caller must initialize 'refc'
+*/
 ERTS_GLB_INLINE Binary *
 erts_bin_drv_alloc(Uint size)
 {
     Uint bsize = ERTS_SIZEOF_Binary(size) + CHICKEN_PAD;
-    void *res;
+    Binary *res;
+
     if (bsize < size) /* overflow */
 	erts_alloc_enomem(ERTS_ALC_T_DRV_BINARY, size);
     res = erts_alloc(ERTS_ALC_T_DRV_BINARY, bsize);
     ERTS_CHK_BIN_ALIGNMENT(res);
-    return (Binary *) res;
+    res->orig_size = size;
+    res->flags = BIN_FLAG_DRV;
+    return res;
 }
 
 
+/* Caller must initialize 'refc'
+*/
 ERTS_GLB_INLINE Binary *
 erts_bin_nrml_alloc(Uint size)
 {
     Uint bsize = ERTS_SIZEOF_Binary(size) + CHICKEN_PAD;
-    void *res;
+    Binary *res;
+
     if (bsize < size) /* overflow */
 	erts_alloc_enomem(ERTS_ALC_T_BINARY, size);
     res = erts_alloc(ERTS_ALC_T_BINARY, bsize);
     ERTS_CHK_BIN_ALIGNMENT(res);
-    return (Binary *) res;
+    res->orig_size = size;
+    res->flags = 0;
+    return res;
 }
 
 ERTS_GLB_INLINE Binary *
@@ -280,6 +297,8 @@ erts_bin_realloc_fnf(Binary *bp, Uint size)
 	return NULL;
     nbp = erts_realloc_fnf(type, (void *) bp, bsize);
     ERTS_CHK_BIN_ALIGNMENT(nbp);
+    if (nbp)
+	nbp->orig_size = size;
     return nbp;
 }
 
@@ -297,6 +316,7 @@ erts_bin_realloc(Binary *bp, Uint size)
     if (!nbp)
 	erts_realloc_enomem(type, bp, bsize);
     ERTS_CHK_BIN_ALIGNMENT(nbp);
+    nbp->orig_size = size;
     return nbp;
 }
 
@@ -329,4 +349,4 @@ erts_create_magic_binary(Uint size, void (*destructor)(Binary *))
 
 #endif /* #if ERTS_GLB_INLINE_INCL_FUNC_DEF */
 
-#endif
+#endif /* !__ERL_BINARY_H */

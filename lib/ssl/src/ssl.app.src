@@ -39,6 +39,10 @@
 	       ssl_manager,
 	       ssl_pkix_db,
 	       ssl_certificate,
+	       %% CRL handling
+	       ssl_crl,
+	       ssl_crl_cache, 
+	       ssl_crl_cache_api,
 	       %% App structure
 	       ssl_app,
 	       ssl_sup,

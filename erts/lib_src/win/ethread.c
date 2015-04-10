@@ -508,6 +508,19 @@ ethr_self(void)
     return *tid;
 }
 
+/* getname and setname are not available on windows */
+int
+ethr_getname(ethr_tid tid, char *buf, size_t len)
+{
+    return ENOSYS;
+}
+
+void
+ethr_setname(char *name)
+{
+    return;
+}
+
 int
 ethr_equal_tids(ethr_tid tid1, ethr_tid tid2)
 {

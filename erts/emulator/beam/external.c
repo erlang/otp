@@ -36,7 +36,9 @@
 #include "erl_process.h"
 #include "error.h"
 #include "external.h"
+#define ERL_WANT_HIPE_BIF_WRAPPER__
 #include "bif.h"
+#undef ERL_WANT_HIPE_BIF_WRAPPER__
 #include "big.h"
 #include "dist.h"
 #include "erl_binary.h"
@@ -498,15 +500,37 @@ byte *erts_encode_ext_dist_header_finalize(byte *ext, ErtsAtomCache *cache, Uint
     return ep;
 }
 
-Uint erts_encode_dist_ext_size(Eterm term, Uint32 flags, ErtsAtomCacheMap *acmp)
+int erts_encode_dist_ext_size(Eterm term, Uint32 flags, ErtsAtomCacheMap *acmp,
+			      Uint* szp)
 {
-    Uint sz = 0;
+    Uint sz;
+    if (encode_size_struct_int(NULL, acmp, term, flags, NULL, &sz)) {
+	return -1;
+    } else {
 #ifndef ERTS_DEBUG_USE_DIST_SEP
-    if (!(flags & DFLAG_DIST_HDR_ATOM_CACHE))
+	if (!(flags & DFLAG_DIST_HDR_ATOM_CACHE))
 #endif
-	sz++ /* VERSION_MAGIC */;
-    sz += encode_size_struct2(acmp, term, flags);
-    return sz;
+	    sz++ /* VERSION_MAGIC */;
+
+	*szp += sz;
+	return 0;
+    }
+}
+
+int erts_encode_dist_ext_size_int(Eterm term, struct erts_dsig_send_context* ctx, Uint* szp)
+{
+    Uint sz;
+    if (encode_size_struct_int(&ctx->u.sc, ctx->acmp, term, ctx->flags, &ctx->reds, &sz)) {
+	return -1;
+    } else {
+#ifndef ERTS_DEBUG_USE_DIST_SEP
+	if (!(ctx->flags & DFLAG_DIST_HDR_ATOM_CACHE))
+#endif
+	    sz++ /* VERSION_MAGIC */;
+
+	*szp += sz;
+	return 0;
+    }
 }
 
 Uint erts_encode_ext_size(Eterm term)
@@ -527,19 +551,16 @@ Uint erts_encode_ext_size_ets(Eterm term)
 }
 
 
-void erts_encode_dist_ext(Eterm term, byte **ext, Uint32 flags, ErtsAtomCacheMap *acmp)
+int erts_encode_dist_ext(Eterm term, byte **ext, Uint32 flags, ErtsAtomCacheMap *acmp,
+			  TTBEncodeContext* ctx, Sint* reds)
 {
-    byte *ep = *ext;
-#ifndef ERTS_DEBUG_USE_DIST_SEP
-    if (!(flags & DFLAG_DIST_HDR_ATOM_CACHE))
-#endif
-	*ep++ = VERSION_MAGIC;
-    ep = enc_term(acmp, term, ep, flags, NULL);
-    if (!ep)
-	erl_exit(ERTS_ABORT_EXIT,
-		 "%s:%d:erts_encode_dist_ext(): Internal data structure error\n",
-		 __FILE__, __LINE__);
-    *ext = ep;
+    if (!ctx || !ctx->wstack.wstart) {
+    #ifndef ERTS_DEBUG_USE_DIST_SEP
+	if (!(flags & DFLAG_DIST_HDR_ATOM_CACHE))
+    #endif
+	    *(*ext)++ = VERSION_MAGIC;
+    }
+    return enc_term_int(ctx, acmp, term, *ext, flags, NULL, reds, ext);
 }
 
 void erts_encode_ext(Eterm term, byte **ext)
@@ -1161,7 +1182,8 @@ typedef struct {
     Eterm* hp_end;
     int remaining_n;
     char* remaining_bytes;
-    Eterm* maps_head;
+    Eterm* maps_list;
+    struct dec_term_hamt_placeholder* hamt_list;
 } B2TDecodeContext;
 
 typedef struct {
@@ -1487,7 +1509,8 @@ static BIF_RETTYPE binary_to_term_int(Process* p, Uint32 flags, Eterm bin, Binar
             ctx->u.dc.hp_start = HAlloc(p, ctx->heap_size);
             ctx->u.dc.hp       = ctx->u.dc.hp_start;
             ctx->u.dc.hp_end   = ctx->u.dc.hp_start + ctx->heap_size;
-	    ctx->u.dc.maps_head = NULL;
+	    ctx->u.dc.maps_list = NULL;
+	    ctx->u.dc.hamt_list = NULL;
             ctx->state = B2TDecode;
             /*fall through*/
 	case B2TDecode:
@@ -1740,54 +1763,14 @@ erts_term_to_binary(Process* p, Eterm Term, int level, Uint flags) {
     return erts_term_to_binary_simple(p, Term, size, level, flags);
 }
 
-/* Define for testing */
-/* #define EXTREME_TTB_TRAPPING 1 */
+/* Define EXTREME_TTB_TRAPPING for testing in dist.h */
 
 #ifndef EXTREME_TTB_TRAPPING
-#define TERM_TO_BINARY_LOOP_FACTOR 32
 #define TERM_TO_BINARY_COMPRESS_CHUNK (1 << 18)
 #else
-#define TERM_TO_BINARY_LOOP_FACTOR 1
 #define TERM_TO_BINARY_COMPRESS_CHUNK 10
 #endif
-
-
-typedef enum { TTBSize, TTBEncode, TTBCompress } TTBState;
-typedef struct TTBSizeContext_ {
-    Uint flags;
-    int level;
-    Uint result;
-    Eterm obj;
-    ErtsEStack estack;
-} TTBSizeContext;
-
-typedef struct TTBEncodeContext_ {
-    Uint flags;
-    int level;
-    byte* ep;
-    Eterm obj;
-    ErtsWStack wstack;
-    Binary *result_bin;
-} TTBEncodeContext;
-
-typedef struct {
-    Uint real_size;
-    Uint dest_len;
-    byte *dbytes;
-    Binary *result_bin;
-    Binary *destination_bin;
-    z_stream stream;
-} TTBCompressContext;
-
-typedef struct {
-    int alive;
-    TTBState state;
-    union {
-	TTBSizeContext sc;
-	TTBEncodeContext ec;
-	TTBCompressContext cc;
-    } s;
-} TTBContext;
+#define TERM_TO_BINARY_MEMCPY_FACTOR 8
 
 static void ttb_context_destructor(Binary *context_bin)
 {
@@ -1796,7 +1779,7 @@ static void ttb_context_destructor(Binary *context_bin)
 	context->alive = 0;
 	switch (context->state) {
 	case TTBSize:
-	    DESTROY_SAVED_ESTACK(&context->s.sc.estack);
+	    DESTROY_SAVED_WSTACK(&context->s.sc.wstack);
 	    break;
 	case TTBEncode:
 	    DESTROY_SAVED_WSTACK(&context->s.ec.wstack);
@@ -1864,7 +1847,7 @@ static Eterm erts_term_to_binary_int(Process* p, Eterm Term, int level, Uint fla
 	/* Setup enough to get started */
 	context->state = TTBSize;
 	context->alive = 1;
-	context->s.sc.estack.start = NULL;
+	context->s.sc.wstack.wstart = NULL;
 	context->s.sc.flags = flags;
 	context->s.sc.level = level;
     } else {
@@ -1899,8 +1882,6 @@ static Eterm erts_term_to_binary_int(Process* p, Eterm Term, int level, Uint fla
 		}
 
 		result_bin = erts_bin_nrml_alloc(size);
-		result_bin->flags = 0;
-		result_bin->orig_size = size;
 		erts_refc_init(&result_bin->refc, 0);
 		result_bin->orig_bytes[0] = VERSION_MAGIC;
 		/* Next state immediately, no need to export context */
@@ -1925,7 +1906,6 @@ static Eterm erts_term_to_binary_int(Process* p, Eterm Term, int level, Uint fla
 		}
 		real_size = endp - bytes;
 		result_bin = erts_bin_realloc(context->s.ec.result_bin,real_size);
-		result_bin->orig_size = real_size;
 		level = context->s.ec.level;
 		BUMP_REDS(p, (initial_reds - reds) / TERM_TO_BINARY_LOOP_FACTOR);
 		if (level == 0 || real_size < 6) { /* We are done */
@@ -1962,8 +1942,6 @@ static Eterm erts_term_to_binary_int(Process* p, Eterm Term, int level, Uint fla
 		context->s.cc.result_bin = result_bin;
 
 		result_bin = erts_bin_nrml_alloc(real_size);
-		result_bin->flags = 0;
-		result_bin->orig_size = real_size;
 		erts_refc_init(&result_bin->refc, 0);
 		result_bin->orig_bytes[0] = VERSION_MAGIC;
 
@@ -2005,7 +1983,6 @@ static Eterm erts_term_to_binary_int(Process* p, Eterm Term, int level, Uint fla
 			erl_zlib_deflate_finish(&(context->s.cc.stream));
 			result_bin = erts_bin_realloc(context->s.cc.destination_bin,
 						      context->s.cc.dest_len+6);
-			result_bin->orig_size = context->s.cc.dest_len+6;
 			context->s.cc.destination_bin = NULL;
 			pb = (ProcBin *) HAlloc(p, PROC_BIN_SIZE);
 			pb->thing_word = HEADER_PROC_BIN;
@@ -2327,8 +2304,10 @@ dec_pid(ErtsDistExternal *edep, Eterm** hpp, byte* ep, ErlOffHeap* off_heap, Ete
 #define ENC_TERM ((Eterm) 0)
 #define ENC_ONE_CONS ((Eterm) 1)
 #define ENC_PATCH_FUN_SIZE ((Eterm) 2)
-#define ENC_LAST_ARRAY_ELEMENT ((Eterm) 3)
-
+#define ENC_BIN_COPY ((Eterm) 3)
+#define ENC_MAP_PAIR ((Eterm) 4)
+#define ENC_HASHMAP_NODE ((Eterm) 5)
+#define ENC_LAST_ARRAY_ELEMENT ((Eterm) 6)
 
 static byte*
 enc_term(ErtsAtomCacheMap *acmp, Eterm obj, byte* ep, Uint32 dflags,
@@ -2364,6 +2343,9 @@ enc_term_int(TTBEncodeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj, byte* ep,
 	    WSTACK_RESTORE(s, &ctx->wstack);
 	    ep = ctx->ep;
 	    obj = ctx->obj;
+	    if (is_non_value(obj)) {
+		goto outer_loop;
+	    }
 	}
     }
 
@@ -2387,8 +2369,8 @@ enc_term_int(TTBEncodeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj, byte* ep,
 
 		obj = CAR(cons);
 		tl = CDR(cons);
-		WSTACK_PUSH(s, is_list(tl) ? ENC_ONE_CONS : ENC_TERM);
-		WSTACK_PUSH(s, tl);
+		WSTACK_PUSH2(s, (is_list(tl) ? ENC_ONE_CONS : ENC_TERM),
+			     tl);
 	    }
 	    break;
 	case ENC_PATCH_FUN_SIZE:
@@ -2401,6 +2383,46 @@ enc_term_int(TTBEncodeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj, byte* ep,
 		put_int32(ep - size_p, size_p);
 	    }
 	    goto outer_loop;
+	case ENC_BIN_COPY: {
+	    Uint bits = (Uint)obj;
+	    Uint bitoffs = WSTACK_POP(s);
+	    byte* bytes = (byte*) WSTACK_POP(s);
+	    byte* dst = (byte*) WSTACK_POP(s);
+	    if (bits > r * (TERM_TO_BINARY_MEMCPY_FACTOR * 8)) {
+		Uint n = r * TERM_TO_BINARY_MEMCPY_FACTOR;
+		WSTACK_PUSH5(s, (UWord)(dst + n), (UWord)(bytes + n), bitoffs,
+			     ENC_BIN_COPY, bits - 8*n);
+		bits = 8*n;
+		copy_binary_to_buffer(dst, 0, bytes, bitoffs, bits);
+		obj = THE_NON_VALUE;
+		r = 0; /* yield */
+		break;
+	    } else {
+		copy_binary_to_buffer(dst, 0, bytes, bitoffs, bits);
+		r -= bits / (TERM_TO_BINARY_MEMCPY_FACTOR * 8);
+		goto outer_loop;
+	    }
+	}
+	case ENC_MAP_PAIR: {
+	    Uint pairs_left = obj;
+	    Eterm *vptr = (Eterm*) WSTACK_POP(s);
+	    Eterm *kptr = (Eterm*) WSTACK_POP(s);
+
+	    obj = *kptr;
+	    if (--pairs_left > 0) {
+		WSTACK_PUSH4(s, (UWord)(kptr+1), (UWord)(vptr+1),
+			     ENC_MAP_PAIR, pairs_left);
+	    }
+	    WSTACK_PUSH2(s, ENC_TERM, *vptr);
+	    break;
+	}
+	case ENC_HASHMAP_NODE:
+	    if (is_list(obj)) { /* leaf node [K|V] */
+		ptr = list_val(obj);
+		WSTACK_PUSH2(s, ENC_TERM, CDR(ptr));
+		obj = CAR(ptr);
+	    }
+	    break;
 	case ENC_LAST_ARRAY_ELEMENT:
 	    /* obj is the tuple */
 	    {
@@ -2419,17 +2441,16 @@ enc_term_int(TTBEncodeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj, byte* ep,
 #else
 		Eterm* ptr = (Eterm *) obj;
 #endif
-		WSTACK_PUSH(s, val-1);
 		obj = *ptr++;
-		WSTACK_PUSH(s, (UWord)ptr);
+		WSTACK_PUSH2(s, val-1, (UWord)ptr);
 	    }
 	    break;
 	}
 
     L_jump_start:
 
-	if (ctx && --r == 0) {
-	    *reds = r;
+	if (ctx && --r <= 0) {
+	    *reds = 0;
 	    ctx->obj = obj;
 	    ctx->ep = ep;
 	    WSTACK_SAVE(s, &ctx->wstack);
@@ -2578,39 +2599,59 @@ enc_term_int(TTBEncodeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj, byte* ep,
 		ep += 4;
 	    }
 	    if (i > 0) {
-		WSTACK_PUSH(s, ENC_LAST_ARRAY_ELEMENT+i-1);
-		WSTACK_PUSH(s, (UWord)ptr);
+		WSTACK_PUSH2(s, ENC_LAST_ARRAY_ELEMENT+i-1, (UWord)ptr);
 	    }
 	    break;
 
 	case MAP_DEF:
-	    {
-		map_t *mp = (map_t*)map_val(obj);
-		Uint size = map_get_size(mp);
+	    if (is_flatmap(obj)) {
+		flatmap_t *mp = (flatmap_t*)flatmap_val(obj);
+		Uint size = flatmap_get_size(mp);
 
 		*ep++ = MAP_EXT;
 		put_int32(size, ep); ep += 4;
 
 		if (size > 0) {
-		    Eterm *kptr = map_get_keys(mp);
-		    Eterm *vptr = map_get_values(mp);
+		    Eterm *kptr = flatmap_get_keys(mp);
+		    Eterm *vptr = flatmap_get_values(mp);
 
-		    for (i = size-1; i >= 1; i--) {
-			WSTACK_PUSH(s, ENC_TERM);
-			WSTACK_PUSH(s, (UWord) vptr[i]);
-			WSTACK_PUSH(s, ENC_TERM);
-			WSTACK_PUSH(s, (UWord) kptr[i]);
-		    }
+		    WSTACK_PUSH4(s, (UWord)kptr, (UWord)vptr,
+				 ENC_MAP_PAIR, size);
+		}
+	    } else {
+		Eterm hdr;
+		Uint node_sz;
+		ptr = boxed_val(obj);
+		hdr = *ptr;
+		ASSERT(is_header(hdr));
+		switch(hdr & _HEADER_MAP_SUBTAG_MASK) {
+		case HAMT_SUBTAG_HEAD_ARRAY:
+		    *ep++ = MAP_EXT;
+		    ptr++;
+		    put_int32(*ptr, ep); ep += 4;
+		    node_sz = 16;
+		    break;
+		case HAMT_SUBTAG_HEAD_BITMAP:
+		    *ep++ = MAP_EXT;
+		    ptr++;
+		    put_int32(*ptr, ep); ep += 4;
+		    /*fall through*/
+		case HAMT_SUBTAG_NODE_BITMAP:
+		    node_sz = hashmap_bitcount(MAP_HEADER_VAL(hdr));
+		    ASSERT(node_sz < 17);
+		    break;
+		default:
+		    erl_exit(1, "bad header\r\n");
+		}
 
-		    WSTACK_PUSH(s, ENC_TERM);
-		    WSTACK_PUSH(s, (UWord) vptr[0]);
-
-		    obj = kptr[0];
-		    goto L_jump_start;
+		ptr++;
+		WSTACK_RESERVE(s, node_sz*2);
+		while(node_sz--) {
+		    WSTACK_FAST_PUSH(s, ENC_HASHMAP_NODE);
+		    WSTACK_FAST_PUSH(s, *ptr++);
 		}
 	    }
 	    break;
-
 	case FLOAT_DEF:
 	    GET_DOUBLE(obj, f);
 	    if (dflags & DFLAG_NEW_FLOATS) {
@@ -2644,6 +2685,7 @@ enc_term_int(TTBEncodeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj, byte* ep,
 		Uint bitoffs;
 		Uint bitsize;
 		byte* bytes;
+		byte* data_dst;
 
 		ERTS_GET_BINARY_BYTES(obj, bytes, bitoffs, bitsize);
 		if (dflags & DFLAG_INTERNAL_TAGS) {
@@ -2689,7 +2731,7 @@ enc_term_int(TTBEncodeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj, byte* ep,
 		    j = binary_size(obj);
 		    put_int32(j, ep);
 		    ep += 4;
-		    copy_binary_to_buffer(ep, 0, bytes, bitoffs, 8*j);
+		    data_dst = ep;
 		    ep += j;
 		} else if (dflags & DFLAG_BIT_BINARIES) {
 		    /* Bit-level binary. */
@@ -2699,7 +2741,7 @@ enc_term_int(TTBEncodeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj, byte* ep,
 		    ep += 4;
 		    *ep++ = bitsize;
 		    ep[j] = 0;	/* Zero unused bits at end of binary */
-		    copy_binary_to_buffer(ep, 0, bytes, bitoffs, 8*j+bitsize);
+		    data_dst = ep;
 		    ep += j + 1;
 		} else {
 		    /*
@@ -2713,10 +2755,17 @@ enc_term_int(TTBEncodeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj, byte* ep,
 		    put_int32((j+1), ep);
 		    ep += 4;
 		    ep[j] = 0;	/* Zero unused bits at end of binary */
-		    copy_binary_to_buffer(ep, 0, bytes, bitoffs, 8*j+bitsize);
+		    data_dst = ep;
 		    ep += j+1;
 		    *ep++ = SMALL_INTEGER_EXT;
 		    *ep++ = bitsize;
+		}
+		if (ctx && j > r * TERM_TO_BINARY_MEMCPY_FACTOR) {
+		    WSTACK_PUSH5(s, (UWord)data_dst, (UWord)bytes, bitoffs,
+				 ENC_BIN_COPY, 8*j + bitsize);
+		} else {
+		    copy_binary_to_buffer(data_dst, 0, bytes, bitoffs,
+					  8 * j + bitsize);
 		}
 	    }
 	    break;
@@ -2746,13 +2795,12 @@ enc_term_int(TTBEncodeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj, byte* ep,
 	case FUN_DEF:
 	    {
 		ErlFunThing* funp = (ErlFunThing *) fun_val(obj);
+		int ei;
 
 		if ((dflags & DFLAG_NEW_FUN_TAGS) != 0) {
-		    int ei;
-
 		    *ep++ = NEW_FUN_EXT;
-		    WSTACK_PUSH(s, ENC_PATCH_FUN_SIZE);
-		    WSTACK_PUSH(s, (UWord) ep); /* Position for patching in size */
+		    WSTACK_PUSH2(s, ENC_PATCH_FUN_SIZE,
+				 (UWord) ep); /* Position for patching in size */
 		    ep += 4;
 		    *ep = funp->arity;
 		    ep += 1;
@@ -2766,16 +2814,6 @@ enc_term_int(TTBEncodeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj, byte* ep,
 		    ep = enc_term(acmp, make_small(funp->fe->old_index), ep, dflags, off_heap);
 		    ep = enc_term(acmp, make_small(funp->fe->old_uniq), ep, dflags, off_heap);
 		    ep = enc_pid(acmp, funp->creator, ep, dflags);
-
-		fun_env:
-		    for (ei = funp->num_free-1; ei > 0; ei--) {
-			WSTACK_PUSH(s, ENC_TERM);
-			WSTACK_PUSH(s, (UWord) funp->env[ei]);
-		    }
-		    if (funp->num_free != 0) {
-			obj = funp->env[0];
-			goto L_jump_start;
-		    }
 		} else {
 		    /*
 		     * Communicating with an obsolete erl_interface or
@@ -2807,7 +2845,13 @@ enc_term_int(TTBEncodeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj, byte* ep,
 		    *ep++ = SMALL_TUPLE_EXT;
 		    put_int8(funp->num_free, ep);
 		    ep += 1;
-		    goto fun_env;
+		}
+		for (ei = funp->num_free-1; ei > 0; ei--) {
+		    WSTACK_PUSH2(s, ENC_TERM, (UWord) funp->env[ei]);
+		}
+		if (funp->num_free != 0) {
+		    obj = funp->env[0];
+		    goto L_jump_start;
 		}
 	    }
 	    break;
@@ -2889,9 +2933,19 @@ undo_offheap_in_area(ErlOffHeap* off_heap, Eterm* start, Eterm* end)
 #endif /* DEBUG */
 }
 
+struct dec_term_hamt_placeholder
+{
+    struct dec_term_hamt_placeholder* next;
+    Eterm* objp; /* write result here */
+    Uint size;   /* nr of leafs */
+    Eterm leafs[1];
+};
+
+#define DEC_TERM_HAMT_PLACEHOLDER_SIZE \
+    (offsetof(struct dec_term_hamt_placeholder, leafs) / sizeof(Eterm))
 
 /* Decode term from external format into *objp.
-** On failure return NULL and (R13B04) *hpp will be unchanged.
+** On failure return NULL and *hpp will be unchanged.
 */
 static byte*
 dec_term(ErtsDistExternal *edep, Eterm** hpp, byte* ep, ErlOffHeap* off_heap,
@@ -2901,7 +2955,8 @@ dec_term(ErtsDistExternal *edep, Eterm** hpp, byte* ep, ErlOffHeap* off_heap,
     int n;
     ErtsAtomEncoding char_enc;
     register Eterm* hp;        /* Please don't take the address of hp */
-    Eterm *maps_head;   /* for validation of maps */
+    Eterm *maps_list;   /* for preprocessing of small maps */
+    struct dec_term_hamt_placeholder* hamt_list;   /* for preprocessing of big maps */
     Eterm* next;
     SWord reds;
 
@@ -2911,7 +2966,8 @@ dec_term(ErtsDistExternal *edep, Eterm** hpp, byte* ep, ErlOffHeap* off_heap,
         next     = ctx->u.dc.next;
         ep       = ctx->u.dc.ep;
         hpp      = &ctx->u.dc.hp;
-	maps_head = ctx->u.dc.maps_head;
+	maps_list = ctx->u.dc.maps_list;
+        hamt_list = ctx->u.dc.hamt_list;
 
         if (ctx->state != B2TDecode) {
             int n_limit = reds;
@@ -2992,7 +3048,8 @@ dec_term(ErtsDistExternal *edep, Eterm** hpp, byte* ep, ErlOffHeap* off_heap,
         reds = ERTS_SWORD_MAX;
         next = objp;
         *next = (Eterm) (UWord) NULL;
-	maps_head = NULL;
+	maps_list = NULL;
+        hamt_list = NULL;
     }
     hp = *hpp;
 
@@ -3389,8 +3446,6 @@ dec_term_atom_common:
 		} else {
 		    Binary* dbin = erts_bin_nrml_alloc(n);
 		    ProcBin* pb;
-		    dbin->flags = 0;
-		    dbin->orig_size = n;
 		    erts_refc_init(&dbin->refc, 1);
 		    pb = (ProcBin *) hp;
 		    hp += PROC_BIN_SIZE;
@@ -3398,6 +3453,7 @@ dec_term_atom_common:
 		    pb->size = n;
 		    pb->next = off_heap->first;
 		    off_heap->first = (struct erl_off_heap_header*)pb;
+                    OH_OVERHEAD(off_heap, pb->size / sizeof(Eterm));
 		    pb->val = dbin;
 		    pb->bytes = (byte*) dbin->orig_bytes;
 		    pb->flags = 0;
@@ -3443,14 +3499,13 @@ dec_term_atom_common:
 		    Binary* dbin = erts_bin_nrml_alloc(n);
 		    ProcBin* pb;
 
-		    dbin->flags = 0;
-		    dbin->orig_size = n;
 		    erts_refc_init(&dbin->refc, 1);
 		    pb = (ProcBin *) hp;
 		    pb->thing_word = HEADER_PROC_BIN;
 		    pb->size = n;
 		    pb->next = off_heap->first;
 		    off_heap->first = (struct erl_off_heap_header*)pb;
+                    OH_OVERHEAD(off_heap, pb->size / sizeof(Eterm));
 		    pb->val = dbin;
 		    pb->bytes = (byte*) dbin->orig_bytes;
 		    pb->flags = 0;
@@ -3532,46 +3587,67 @@ dec_term_atom_common:
 	    break;
 	case MAP_EXT:
 	    {
-		map_t *mp;
 		Uint32 size,n;
 		Eterm *kptr,*vptr;
 		Eterm keys;
 
 		size = get_int32(ep); ep += 4;
 
-		keys  = make_tuple(hp);
-		*hp++ = make_arityval(size);
-		hp   += size;
-		kptr = hp - 1;
+                if (size <= MAP_SMALL_MAP_LIMIT) {
+                    flatmap_t *mp;
 
-		mp    = (map_t*)hp;
-		hp   += MAP_HEADER_SIZE;
-		hp   += size;
-		vptr = hp - 1;
+                    keys  = make_tuple(hp);
+                    *hp++ = make_arityval(size);
+                    hp   += size;
+                    kptr = hp - 1;
 
-		/* kptr, last word for keys
-		 * vptr, last word for values
-		 */
+                    mp    = (flatmap_t*)hp;
+                    hp   += MAP_HEADER_FLATMAP_SZ;
+                    hp   += size;
+                    vptr = hp - 1;
 
-		/*
-		 * Use thing_word to link through decoded maps.
-		 * The list of maps is for later validation.
-		 */
+                    /* kptr, last word for keys
+                     * vptr, last word for values
+                     */
 
-		mp->thing_word = (Eterm) COMPRESS_POINTER(maps_head);
-		maps_head      = (Eterm *) mp;
+                    /*
+                     * Use thing_word to link through decoded maps.
+                     * The list of maps is for later validation.
+                     */
 
-		mp->size       = size;
-		mp->keys       = keys;
-		*objp          = make_map(mp);
+                    mp->thing_word = (Eterm) COMPRESS_POINTER(maps_list);
+                    maps_list      = (Eterm *) mp;
 
-		for (n = size; n; n--) {
-		    *vptr = (Eterm) COMPRESS_POINTER(next);
-		    *kptr = (Eterm) COMPRESS_POINTER(vptr);
-		    next  = kptr;
-		    vptr--;
-		    kptr--;
-		}
+                    mp->size       = size;
+                    mp->keys       = keys;
+                    *objp          = make_flatmap(mp);
+
+                    for (n = size; n; n--) {
+                        *vptr = (Eterm) COMPRESS_POINTER(next);
+                        *kptr = (Eterm) COMPRESS_POINTER(vptr);
+                        next  = kptr;
+                        vptr--;
+                        kptr--;
+                    }
+                }
+                else {  /* Make hamt */
+                    struct dec_term_hamt_placeholder* holder =
+                        (struct dec_term_hamt_placeholder*) hp;
+
+                    holder->next = hamt_list;
+                    hamt_list    = holder;
+                    holder->objp = objp;
+                    holder->size = size;
+
+                    hp += DEC_TERM_HAMT_PLACEHOLDER_SIZE;
+
+                    for (n = size; n; n--) {
+                        CDR(hp) = (Eterm) COMPRESS_POINTER(next);
+                        CAR(hp) = (Eterm) COMPRESS_POINTER(&CDR(hp));
+                        next = &CAR(hp);
+                        hp += 2;
+                    }
+                }
 	    }
 	    break;
 	case NEW_FUN_EXT:
@@ -3749,6 +3825,7 @@ dec_term_atom_common:
 		hp += PROC_BIN_SIZE;
 		pb->next = off_heap->first;
 		off_heap->first = (struct erl_off_heap_header*)pb;
+                OH_OVERHEAD(off_heap, pb->size / sizeof(Eterm));
 		pb->flags = 0;
 		*objp = make_binary(pb);
 		break;
@@ -3766,6 +3843,7 @@ dec_term_atom_common:
 		hp += PROC_BIN_SIZE;
 		pb->next = off_heap->first;
 		off_heap->first = (struct erl_off_heap_header*)pb;
+                OH_OVERHEAD(off_heap, pb->size / sizeof(Eterm));
 		pb->flags = 0;
 
 		sub = (ErlSubBin*)hp;
@@ -3792,7 +3870,8 @@ dec_term_atom_common:
                     ctx->u.dc.ep = ep;
                     ctx->u.dc.next = next;
                     ctx->u.dc.hp = hp;
-		    ctx->u.dc.maps_head = maps_head;
+		    ctx->u.dc.maps_list = maps_list;
+		    ctx->u.dc.hamt_list = hamt_list;
                     ctx->reds = 0;
                     return NULL;
                 }
@@ -3807,12 +3886,40 @@ dec_term_atom_common:
      * - done here for when we know it is complete.
      */
 
-    while (maps_head) {
-	next  = (Eterm *)(EXPAND_POINTER(*maps_head));
-	*maps_head = MAP_HEADER;
-	if (!erts_validate_and_sort_map((map_t*)maps_head))
+    while (maps_list) {
+	next  = (Eterm *)(EXPAND_POINTER(*maps_list));
+	*maps_list = MAP_HEADER_FLATMAP;
+	if (!erts_validate_and_sort_flatmap((flatmap_t*)maps_list))
 	    goto error;
-	maps_head  = next;
+	maps_list  = next;
+    }
+
+    /* Iterate through all the hamts and build tree nodes.
+     */
+    if (hamt_list) {
+	ErtsHeapFactory factory;
+
+	factory.p = NULL;
+        factory.hp = hp;
+	/* We assume heap will suffice (see hashmap_over_estimated_heap_size) */
+
+        do {
+	    struct dec_term_hamt_placeholder* hamt = hamt_list;
+	    *hamt->objp = erts_hashmap_from_array(&factory,
+						  hamt->leafs,
+						  hamt->size,
+						  1);
+	    if (is_non_value(*hamt->objp))
+		goto error;
+
+	    hamt_list = hamt->next;
+
+	    /* Yes, we waste a couple of heap words per hamt
+	       for the temporary placeholder */
+	    *(Eterm*)hamt = make_pos_bignum_header(DEC_TERM_HAMT_PLACEHOLDER_SIZE-1);
+        } while (hamt_list);
+
+	hp = factory.hp;
     }
 
     if (ctx) {
@@ -3855,51 +3962,35 @@ static int
 encode_size_struct_int(TTBSizeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj,
 		       unsigned dflags, Sint *reds, Uint *res)
 {
-    DECLARE_ESTACK(s);
+    DECLARE_WSTACK(s);
     Uint m, i, arity;
     Uint result = 0;
     Sint r = 0;
 
     if (ctx) {
-	ESTACK_CHANGE_ALLOCATOR(s, ERTS_ALC_T_SAVED_ESTACK);
+	WSTACK_CHANGE_ALLOCATOR(s, ERTS_ALC_T_SAVED_ESTACK);
 	r = *reds;
 
-	if (ctx->estack.start) { /* restore saved stack */
-	    ESTACK_RESTORE(s, &ctx->estack);
+	if (ctx->wstack.wstart) { /* restore saved stack */
+	    WSTACK_RESTORE(s, &ctx->wstack);
 	    result = ctx->result;
 	    obj = ctx->obj;
 	}
     }
 
-    goto L_jump_start;
+#define LIST_TAIL_OP ((0 << _TAG_PRIMARY_SIZE) | TAG_PRIMARY_HEADER)
+#define TERM_ARRAY_OP(N) (((N) << _TAG_PRIMARY_SIZE) | TAG_PRIMARY_HEADER)
+#define TERM_ARRAY_OP_DEC(OP) ((OP) - (1 << _TAG_PRIMARY_SIZE))
 
- outer_loop:
-    while (!ESTACK_ISEMPTY(s)) {
-	obj = ESTACK_POP(s);
-    handle_popped_obj:
-	if (is_list(obj)) {
-	    Eterm* cons = list_val(obj);
-	    Eterm tl;
 
-	    tl = CDR(cons);
-	    obj = CAR(cons);
-	    ESTACK_PUSH(s, tl);
-	} else if (is_nil(obj)) {
-	    result++;
-	    goto outer_loop;
-	} else {
-	    /*
-	     * Other term (in the tail of a non-proper list or
-	     * in a fun's environment).
-	     */
-	}
-    
-    L_jump_start:
+    for (;;) {
+	ASSERT(!is_header(obj));
+
 	if (ctx && --r == 0) {
 	    *reds = r;
 	    ctx->obj = obj;
 	    ctx->result = result;
-	    ESTACK_SAVE(s, &ctx->estack);
+	    WSTACK_SAVE(s, &ctx->wstack);
 	    return -1;
 	}
 	switch (tag_val_def(obj)) {
@@ -3982,70 +4073,79 @@ encode_size_struct_int(TTBSizeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj,
 		result += m + 2 + 1;
 	    } else {
 		result += 5;
-		goto handle_popped_obj;
+		WSTACK_PUSH2(s, (UWord)CDR(list_val(obj)), (UWord)LIST_TAIL_OP);
+		obj = CAR(list_val(obj));
+		continue; /* big loop */
 	    }
 	    break;
 	case TUPLE_DEF:
 	    {
 		Eterm* ptr = tuple_val(obj);
-		Uint i;
 		arity = arityval(*ptr);
 		if (arity <= 0xff) {
 		    result += 1 + 1;
 		} else {
 		    result += 1 + 4;
 		}
-		for (i = 1; i <= arity; ++i) {
-		    if (is_list(ptr[i])) {
-			if ((m = is_string(obj)) && (m < MAX_STRING_LEN)) {
-			    result += m + 2 + 1;
-			} else {
-			    result += 5;
-			}
-		    }
-		    ESTACK_PUSH(s,ptr[i]);
+		if (arity > 1) {
+		    WSTACK_PUSH2(s, (UWord) (ptr + 2),
+				    (UWord) TERM_ARRAY_OP(arity-1));
 		}
-		goto outer_loop;
+                else if (arity == 0) {
+		    break;
+                }
+		obj = ptr[1];
+		continue; /* big loop */
 	    }
-	    break;
 	case MAP_DEF:
-	    {
-		map_t *mp = (map_t*)map_val(obj);
-		Uint size = map_get_size(mp);
-		Uint i;
-		Eterm *ptr;
+	    if (is_flatmap(obj)) {
+		flatmap_t *mp = (flatmap_t*)flatmap_val(obj);
+		Uint size = flatmap_get_size(mp);
 
 		result += 1 + 4; /* tag + 4 bytes size */
 
-		/* push values first */
-		ptr = map_get_values(mp);
-		i   = size;
-		while(i--) {
-		    if (is_list(*ptr)) {
-			if ((m = is_string(*ptr)) && (m < MAX_STRING_LEN)) {
-			    result += m + 2 + 1;
-			} else {
-			    result += 5;
-			}
-		    }
-		    ESTACK_PUSH(s,*ptr);
-		    ++ptr;
+                if (size) {
+		    WSTACK_PUSH4(s, (UWord) flatmap_get_values(mp),
+				    (UWord) TERM_ARRAY_OP(size),
+		                    (UWord) flatmap_get_keys(mp),
+				    (UWord) TERM_ARRAY_OP(size));
+		}
+	    } else {
+		Eterm *ptr;
+		Eterm hdr;
+		Uint node_sz;
+		ptr = boxed_val(obj);
+		hdr = *ptr;
+		ASSERT(is_header(hdr));
+		switch(hdr & _HEADER_MAP_SUBTAG_MASK) {
+		case HAMT_SUBTAG_HEAD_ARRAY:
+		    ptr++;
+		    node_sz = 16;
+		    result += 1 + 4; /* tag + 4 bytes size */
+		    break;
+		case HAMT_SUBTAG_HEAD_BITMAP:
+		    ptr++;
+		    result += 1 + 4; /* tag + 4 bytes size */
+		    /*fall through*/
+		case HAMT_SUBTAG_NODE_BITMAP:
+		    node_sz = hashmap_bitcount(MAP_HEADER_VAL(hdr));
+		    ASSERT(node_sz < 17);
+		    break;
+		default:
+		    erl_exit(1, "bad header\r\n");
 		}
 
-		ptr = map_get_keys(mp);
-		i   = size;
-		while(i--) {
-		    if (is_list(*ptr)) {
-			if ((m = is_string(*ptr)) && (m < MAX_STRING_LEN)) {
-			    result += m + 2 + 1;
-			} else {
-			    result += 5;
-			}
+		ptr++;
+		WSTACK_RESERVE(s, node_sz*2);
+		while(node_sz--) {
+                    if (is_list(*ptr)) {
+			WSTACK_FAST_PUSH(s, CAR(list_val(*ptr)));
+			WSTACK_FAST_PUSH(s, CDR(list_val(*ptr)));
+                    } else {
+			WSTACK_FAST_PUSH(s, *ptr);
 		    }
-		    ESTACK_PUSH(s,*ptr);
-		    ++ptr;
+		    ptr++;
 		}
-		goto outer_loop;
 	    }
 	    break;
 	case FLOAT_DEF:
@@ -4098,25 +4198,13 @@ encode_size_struct_int(TTBSizeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj,
 		    result += 2 * (1 + 4); /* Index + Uniq */
 		    result += 1 + (funp->num_free < 0x100 ? 1 : 4);
 		}
-		for (i = 1; i < funp->num_free; i++) {
-		    obj = funp->env[i];
-
-		    if (is_not_list(obj)) {
-			/* Push any non-list terms on the stack */
-			ESTACK_PUSH(s, obj);
-		    } else {
-			/* Lists must be handled specially. */
-			if ((m = is_string(obj)) && (m < MAX_STRING_LEN)) {
-			    result += m + 2 + 1;
-			} else {
-			    result += 5;
-			    ESTACK_PUSH(s, obj);
-			}
-		    }
+		if (funp->num_free > 1) {
+		    WSTACK_PUSH2(s, (UWord) (funp->env + 1),
+				    (UWord) TERM_ARRAY_OP(funp->num_free-1));
 		}
 		if (funp->num_free != 0) {
 		    obj = funp->env[0];
-		    goto L_jump_start;
+		    continue; /* big loop */
 		}
 		break;
 	    }
@@ -4139,16 +4227,47 @@ encode_size_struct_int(TTBSizeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj,
 	    erl_exit(1,"Internal data structure error (in encode_size_struct2)%x\n",
 		     obj);
 	}
+
+	if (WSTACK_ISEMPTY(s)) {
+	    break;
+	}
+	obj = (Eterm) WSTACK_POP(s);
+
+        if (is_header(obj)) {
+            switch (obj) {
+	    case LIST_TAIL_OP:
+		obj = (Eterm) WSTACK_POP(s);
+		if (is_list(obj)) {
+		    Eterm* cons = list_val(obj);
+
+		    WSTACK_PUSH2(s, (UWord)CDR(cons), (UWord)LIST_TAIL_OP);
+		    obj = CAR(cons);
+		}
+		break;
+
+	    case TERM_ARRAY_OP(1):
+		obj = *(Eterm*)WSTACK_POP(s);
+		break;
+	    default: { /* TERM_ARRAY_OP(N) when N > 1 */
+		Eterm* ptr = (Eterm*) WSTACK_POP(s);
+		WSTACK_PUSH2(s, (UWord) (ptr+1),
+			        (UWord) TERM_ARRAY_OP_DEC(obj));
+		obj = *ptr;
+	    }
+	    }
+	}
     }
 
-    DESTROY_ESTACK(s);
+    WSTACK_DESTROY(s);
     if (ctx) {
-	ASSERT(ctx->estack.start == NULL);
+	ASSERT(ctx->wstack.wstart == NULL);
 	*reds = r;
     }
     *res = result;
     return 0;
 }
+
+
 
 static Sint
 decoded_size(byte *ep, byte* endp, int internal_tags, B2TContext* ctx)
@@ -4343,7 +4462,11 @@ init_done:
 	    n = get_int32(ep);
 	    ep += 4;
 	    ADDTERMS(2*n);
-	    heap_size += 3 + n + 1 + n;
+            if (n <= MAP_SMALL_MAP_LIMIT) {
+                heap_size += 3 + n + 1 + n;
+            } else {
+                heap_size += hashmap_over_estimated_heap_size(n);
+            }
 	    break;
 	case STRING_EXT:
 	    CHKSIZE(2);

@@ -37,10 +37,7 @@
 
 /* BM_TIMERS keeps track of the time spent in diferent parts of the
  * system. It only measures accual active time, not time spent in idle
- * mode. These timers requires hardware support.  For Linux, use the
- * package perfctr from user.it.uu.se/~mikpe/linux/perfctr. If this
- * package is not specified when configuring the system
- * (--with-perfctr=PATH), the Solaris hrtime_t will be used.
+ * mode. Currently, the Solaris hrtime_t will be used.
  * To add new timers look below.
  */
 #define BM_TIMERS
@@ -142,43 +139,12 @@ extern unsigned long long major_gc;
  * meassure (send time in shared heap for instance).
  */
 
-#if (defined(__i386__) || defined(__x86_64__)) && USE_PERFCTR
-#include "libperfctr.h"
+/* (Assuming Solaris) */
 
-#define BM_TIMER_T double
-
-extern struct vperfctr *system_clock;
-extern double cpu_khz;
-extern BM_TIMER_T start_time;
-
-#define BM_START_TIMER(t) start_time =                                        \
-                          (BM_TIMER_T)vperfctr_read_tsc(system_clock) /       \
-                          cpu_khz;
-
-#define BM_STOP_TIMER(t) do {                                                 \
-    BM_TIMER_T tmp = ((BM_TIMER_T)vperfctr_read_tsc(system_clock) / cpu_khz); \
-    tmp -= (start_time + timer_time);                                         \
-    t##_time += (tmp > 0 ? tmp : 0);                                          \
-} while(0)
-
-#define BM_TIME_PRINTER(str,time) do {                                 \
-    int min,sec,milli,micro;                                           \
-    BM_TIMER_T tmp = (time) * 1000;                                    \
-    micro = (uint)(tmp - ((int)(tmp / 1000)) * 1000);                  \
-    tmp /= 1000;                                                       \
-    milli = (uint)(tmp - ((int)(tmp / 1000)) * 1000);                  \
-    tmp /= 1000;                                                       \
-    sec = (uint)(tmp - ((int)(tmp / 60)) * 60);                        \
-    min = (uint)tmp / 60;                                              \
-    erts_fprintf(file,str": %d:%02d.%03d %03d\n",min,sec,milli,micro);  \
-} while(0)
-
-#else /* !USE_PERFCTR  (Assuming Solaris) */
-
-#define BM_TIMER_T hrtime_t
-#define BM_START_TIMER(t) system_clock = sys_gethrtime()
+#define BM_TIMER_T ErtsMonotonicTime
+#define BM_START_TIMER(t) system_clock = ERTS_MONOTONIC_TO_NSEC(erts_os_monotonic_time())
 #define BM_STOP_TIMER(t) do {                                        \
-    BM_TIMER_T tmp = (sys_gethrtime() - system_clock) - timer_time;  \
+    BM_TIMER_T tmp = (ERTS_MONOTONIC_TO_NSEC(erts_os_monotonic_time()) - system_clock) - timer_time;  \
     t##_time += (tmp > 0 ? tmp : 0);                                 \
 } while(0)
 
@@ -196,7 +162,6 @@ extern BM_TIMER_T start_time;
 } while(0)
 
 extern BM_TIMER_T system_clock;
-#endif /* USE_PERFCTR */
 
 extern BM_TIMER_T timer_time;
 extern BM_TIMER_T system_time;

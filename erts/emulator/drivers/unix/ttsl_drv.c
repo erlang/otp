@@ -32,6 +32,10 @@ static ErlDrvData ttysl_start(ErlDrvPort, char*);
 
 #ifdef HAVE_TERMCAP  /* else make an empty driver that can not be opened */
 
+#ifndef WANT_NONBLOCKING
+#define WANT_NONBLOCKING
+#endif
+
 #include "sys.h"
 #include <ctype.h>
 #include <stdlib.h>
@@ -39,6 +43,7 @@ static ErlDrvData ttysl_start(ErlDrvPort, char*);
 #include <string.h>
 #include <signal.h>
 #include <fcntl.h>
+#include <limits.h>
 #include <locale.h>
 #include <unistd.h>
 #include <termios.h>
@@ -55,6 +60,14 @@ static ErlDrvData ttysl_start(ErlDrvPort, char*);
 #define PRIMITIVE_UTF8_CHECK 1
 #else
 #include <langinfo.h>
+#endif
+
+#if defined IOV_MAX
+#define MAXIOV IOV_MAX
+#elif defined UIO_MAXIOV
+#define MAXIOV UIO_MAXIOV
+#else
+#define MAXIOV 16
 #endif
 
 #define TRUE 1
@@ -80,12 +93,15 @@ static volatile int cols_needs_update = FALSE;
 #define OP_INSC 2
 #define OP_DELC 3
 #define OP_BEEP 4
+#define OP_PUTC_SYNC 5
 /* Control op */
 #define CTRL_OP_GET_WINSIZE 100
 #define CTRL_OP_GET_UNICODE_STATE 101
 #define CTRL_OP_SET_UNICODE_STATE 102
 
-
+/* We use 1024 as the buf size as that was the default buf size of FILE streams
+   on all platforms that I checked. */
+#define TTY_BUFFSIZE 1024
 
 static int lbuf_size = BUFSIZ;
 static Uint32 *lbuf;		/* The current line buffer */
@@ -113,13 +129,19 @@ static int lpos;                /* The current "cursor position" in the line buf
 /* Main interface functions. */
 static void ttysl_stop(ErlDrvData);
 static void ttysl_from_erlang(ErlDrvData, char*, ErlDrvSizeT);
+static void ttysl_to_tty(ErlDrvData, ErlDrvEvent);
+static void ttysl_flush_tty(ErlDrvData);
 static void ttysl_from_tty(ErlDrvData, ErlDrvEvent);
 static void ttysl_stop_select(ErlDrvEvent, void*);
 static Sint16 get_sint16(char*);
 
 static ErlDrvPort ttysl_port;
 static int ttysl_fd;
-static FILE *ttysl_out;
+static int ttysl_terminate = 0;
+static int ttysl_send_ok = 0;
+static ErlDrvBinary *putcbuf;
+static int putcpos;
+static int putclen;
 
 /* Functions that work on the line buffer. */
 static int start_lbuf(void);
@@ -201,22 +223,22 @@ struct erl_drv_entry ttsl_driver_entry = {
     IF_IMPL(ttysl_stop),
     IF_IMPL(ttysl_from_erlang),
     IF_IMPL(ttysl_from_tty),
-    NULL,
-    "tty_sl",
-    NULL,
-    NULL,
+    IF_IMPL(ttysl_to_tty),
+    "tty_sl", /* driver_name */
+    NULL, /* finish */
+    NULL, /* handle */
     IF_IMPL(ttysl_control),
     NULL, /* timeout */
     NULL, /* outputv */
     NULL, /* ready_async */
-    NULL, /* flush */
+    IF_IMPL(ttysl_flush_tty),
     NULL, /* call */
     NULL, /* event */
     ERL_DRV_EXTENDED_MARKER,
     ERL_DRV_EXTENDED_MAJOR_VERSION,
     ERL_DRV_EXTENDED_MINOR_VERSION,
     0, /* ERL_DRV_FLAGs */
-    NULL,
+    NULL, /* handle2 */
     NULL, /* process_exit */
     IF_IMPL(ttysl_stop_select)
 };
@@ -296,8 +318,7 @@ static ErlDrvData ttysl_start(ErlDrvPort port, char* buf)
 	return ERL_DRV_ERROR_GENERAL;
     }
 
-    /* Open the terminal and set the terminal */
-    ttysl_out = fdopen(ttysl_fd, "w");
+    SET_NONBLOCKING(ttysl_fd);
 
 #ifdef PRIMITIVE_UTF8_CHECK
     setlocale(LC_CTYPE, "");  /* Set international environment, 
@@ -317,8 +338,8 @@ static ErlDrvData ttysl_start(ErlDrvPort port, char* buf)
     }
 #endif
     DEBUGLOG(("utf8_mode is %s\n",(utf8_mode) ? "on" : "off"));
-    sys_sigset(SIGCONT, cont);
-    sys_sigset(SIGWINCH, winch);
+    sys_signal(SIGCONT, cont);
+    sys_signal(SIGWINCH, winch);
 
     driver_select(port, (ErlDrvEvent)(UWord)ttysl_fd, ERL_DRV_READ|ERL_DRV_USE, 1);
     ttysl_port = port;
@@ -400,12 +421,14 @@ static void ttysl_stop(ErlDrvData ttysl_data)
 	stop_lbuf();
 	stop_termcap();
 	tty_reset(ttysl_fd);
-	driver_select(ttysl_port, (ErlDrvEvent)(UWord)ttysl_fd, ERL_DRV_READ|ERL_DRV_USE, 0);
-	sys_sigset(SIGCONT, SIG_DFL);
-	sys_sigset(SIGWINCH, SIG_DFL);
+	driver_select(ttysl_port, (ErlDrvEvent)(UWord)ttysl_fd,
+                      ERL_DRV_WRITE|ERL_DRV_READ|ERL_DRV_USE, 0);
+	sys_signal(SIGCONT, SIG_DFL);
+	sys_signal(SIGWINCH, SIG_DFL);
     }
     ttysl_port = (ErlDrvPort)-1;
     ttysl_fd = -1;
+    ttysl_terminate = 0;
     /* return TRUE; */
 }
 
@@ -650,10 +673,26 @@ static int check_buf_size(byte *s, int n)
 
 static void ttysl_from_erlang(ErlDrvData ttysl_data, char* buf, ErlDrvSizeT count)
 {
+    ErlDrvSizeT sz;
+
+    sz = driver_sizeq(ttysl_port);
+
+    putclen = count > TTY_BUFFSIZE ? TTY_BUFFSIZE : count;
+    putcbuf = driver_alloc_binary(putclen);
+    putcpos = 0;
+
     if (lpos > MAXSIZE) 
 	put_chars((byte*)"\n", 1);
 
     switch (buf[0]) {
+    case OP_PUTC_SYNC:
+        /* Using sync means that we have to send an ok to the
+           controlling process for each command call. We delay
+           sending ok if the driver queue exceeds a certain size.
+           We do not set ourselves as a busy port, as this
+           could be very bad for user_drv, if it gets blocked on
+           the port_command. */
+        /* fall through */
     case OP_PUTC:
 	DEBUGLOG(("OP: Putc(%lu)",(unsigned long) count-1));
 	if (check_buf_size((byte*)buf+1, count-1) == 0)
@@ -678,8 +717,102 @@ static void ttysl_from_erlang(ErlDrvData ttysl_data, char* buf, ErlDrvSizeT coun
 	/* Unknown op, just ignore. */
 	break;
     }
-    fflush(ttysl_out);
+
+    driver_enq_bin(ttysl_port,putcbuf,0,putcpos);
+
+    if (sz == 0) {
+        for (;;) {
+            int written, qlen;
+            SysIOVec *iov;
+
+            iov = driver_peekq(ttysl_port,&qlen);
+            if (iov)
+                written = writev(ttysl_fd, iov, qlen > MAXIOV ? MAXIOV : qlen);
+            else
+                written = 0;
+            if (written < 0) {
+                if (errno == EAGAIN) {
+                    driver_select(ttysl_port,(ErlDrvEvent)(long)ttysl_fd,
+                                  ERL_DRV_USE|ERL_DRV_WRITE,1);
+                    break;
+                } else {
+                    /* we ignore all other errors */
+                    break;
+                }
+            } else {
+                if (driver_deq(ttysl_port, written) == 0)
+                    break;
+            }
+        }
+    }
+
+    if (buf[0] == OP_PUTC_SYNC) {
+        if (driver_sizeq(ttysl_port) > TTY_BUFFSIZE && !ttysl_terminate) {
+            /* We delay sending the ack until the buffer has been consumed */
+            ttysl_send_ok = 1;
+        } else {
+            ErlDrvTermData spec[] = {
+                ERL_DRV_PORT, driver_mk_port(ttysl_port),
+                ERL_DRV_ATOM, driver_mk_atom("ok"),
+                ERL_DRV_TUPLE, 2
+            };
+            ASSERT(ttysl_send_ok == 0);
+            erl_drv_output_term(driver_mk_port(ttysl_port), spec,
+                                sizeof(spec) / sizeof(spec[0]));
+        }
+    }
+
     return; /* TRUE; */
+}
+
+static void ttysl_to_tty(ErlDrvData ttysl_data, ErlDrvEvent fd) {
+    for (;;) {
+        int written, qlen;
+        SysIOVec *iov;
+        ErlDrvSizeT sz;
+
+        iov = driver_peekq(ttysl_port,&qlen);
+        if (iov)
+            written = writev(ttysl_fd, iov, qlen > MAXIOV ? MAXIOV : qlen);
+        else
+            written = 0;
+        if (written < 0) {
+            if (errno == EAGAIN) {
+                break;
+            } else {
+                /* we ignore all other errors */
+            }
+        } else {
+            sz = driver_deq(ttysl_port, written);
+            if (sz < TTY_BUFFSIZE && ttysl_send_ok) {
+                ErlDrvTermData spec[] = {
+                    ERL_DRV_PORT, driver_mk_port(ttysl_port),
+                    ERL_DRV_ATOM, driver_mk_atom("ok"),
+                    ERL_DRV_TUPLE, 2
+                };
+                ttysl_send_ok = 0;
+                erl_drv_output_term(driver_mk_port(ttysl_port), spec,
+                                    sizeof(spec) / sizeof(spec[0]));
+            }
+            if (sz == 0) {
+                driver_select(ttysl_port,(ErlDrvEvent)(long)ttysl_fd,
+                              ERL_DRV_WRITE,0);
+                if (ttysl_terminate)
+                    /* flush has been called, which means we should terminate
+                       when queue is empty. This will not send any exit
+                       message */
+                    driver_failure_atom(ttysl_port, "normal");
+                break;
+            }
+        }
+    }
+
+    return;
+}
+
+static void ttysl_flush_tty(ErlDrvData ttysl_data) {
+    ttysl_terminate = 1;
+    return;
 }
 
 static void ttysl_from_tty(ErlDrvData ttysl_data, ErlDrvEvent fd)
@@ -1070,7 +1203,14 @@ static int write_buf(Uint32 *s, int n)
 /* The basic procedure for outputting one character. */
 static int outc(int c)
 {
-    return (int)putc(c, ttysl_out);
+    putcbuf->orig_bytes[putcpos++] = c;
+    if (putcpos == putclen) {
+        driver_enq_bin(ttysl_port,putcbuf,0,putclen);
+        putcpos = 0;
+        putclen = TTY_BUFFSIZE;
+        putcbuf = driver_alloc_binary(BUFSIZ);
+    }
+    return 1;
 }
 
 static int move_cursor(int from, int to)
@@ -1318,11 +1458,11 @@ static RETSIGTYPE suspend(int sig)
 	exit(1);
     }
 
-    sys_sigset(sig, SIG_DFL);	/* Set signal handler to default */
+    sys_signal(sig, SIG_DFL);	/* Set signal handler to default */
     sys_sigrelease(sig);	/* Allow 'sig' to come through */
     kill(getpid(), sig);	/* Send ourselves the signal */
     sys_sigblock(sig);		/* Reset to old mask */
-    sys_sigset(sig, suspend);	/* Reset signal handler */ 
+    sys_signal(sig, suspend);	/* Reset signal handler */ 
 
     if (tty_set(ttysl_fd) < 0) {
 	fprintf(stderr,"Can't set tty raw \n");

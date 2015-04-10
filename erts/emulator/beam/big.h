@@ -104,6 +104,9 @@ typedef Uint  dsize_t;	 /* Vector size type */
    : ERTS_UINT64_BIG_HEAP_SIZE__((X) >= 0 ? (X) : -(Uint64)(X)))
 #define ERTS_UINT64_HEAP_SIZE(X)				\
   (IS_USMALL(0, (X)) ? 0 : ERTS_UINT64_BIG_HEAP_SIZE__((X)))
+#define ERTS_MAX_SINT64_HEAP_SIZE (1 + 2)
+#define ERTS_MAX_UINT64_HEAP_SIZE (1 + 2)
+#define ERTS_UINT64_ARRAY_TO_BIG_MAX_HEAP_SZ(LEN) (2*(LEN)+1)
 
 #else
 
@@ -111,6 +114,9 @@ typedef Uint  dsize_t;	 /* Vector size type */
   (IS_SSMALL((X)) ? 0 : (1 + 1))
 #define ERTS_UINT64_HEAP_SIZE(X)				\
   (IS_USMALL(0, (X)) ? 0 : (1 + 1))
+#define ERTS_MAX_SINT64_HEAP_SIZE (1 + 1)
+#define ERTS_MAX_UINT64_HEAP_SIZE (1 + 1)
+#define ERTS_UINT64_ARRAY_TO_BIG_MAX_HEAP_SZ(LEN) ((LEN)+1)
 
 #endif
 
@@ -156,6 +162,7 @@ int term_to_Uint(Eterm, Uint*);
 int term_to_UWord(Eterm, UWord*);
 int term_to_Sint(Eterm, Sint*);
 #if HAVE_INT64
+Eterm erts_uint64_array_to_big(Uint **, int, int, Uint64 *);
 int term_to_Uint64(Eterm, Uint64*);
 int term_to_Sint64(Eterm, Sint64*);
 #endif

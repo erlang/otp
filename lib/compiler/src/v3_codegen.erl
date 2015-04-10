@@ -69,10 +69,8 @@
 	     stk=[],				%Stack table
 	     res=[]}).				%Reserved regs: [{reserved,I,V}]
 
-module({Mod,Exp,Attr,Forms}, Options) ->
-    put(?MODULE, Options),
+module({Mod,Exp,Attr,Forms}, _Options) ->
     {Fs,St} = functions(Forms, {atom,Mod}),
-    erase(?MODULE),
     {ok,{Mod,Exp,Attr,Fs,St#cg.lcount}}.
 
 functions(Forms, AtomMod) ->
@@ -210,7 +208,7 @@ need_heap_0([], H, Acc) ->
 
 need_heap_1(#l{ke={set,_,{binary,_}},i=I}, H) ->
     {need_heap_need(I, H),0};
-need_heap_1(#l{ke={set,_,{map,_,_}},i=I}, H) ->
+need_heap_1(#l{ke={set,_,{map,_,_,_}},i=I}, H) ->
     {need_heap_need(I, H),0};
 need_heap_1(#l{ke={set,_,Val}}, H) ->
     %% Just pass through adding to needed heap.
@@ -643,10 +641,6 @@ select_val_cg(tuple, R, [Arity,{f,Lbl}], Tf, Vf, [{label,Lbl}|Sis]) ->
     [{test,is_tuple,{f,Tf},[R]},{test,test_arity,{f,Vf},[R,Arity]}|Sis];
 select_val_cg(tuple, R, Vls, Tf, Vf, Sis) ->
     [{test,is_tuple,{f,Tf},[R]},{select_tuple_arity,R,{f,Vf},{list,Vls}}|Sis];
-select_val_cg(map, R, [_Val,{f,Lbl}], Fail, Fail, [{label,Lbl}|Sis]) ->
-    [{test,is_map,{f,Fail},[R]}|Sis];
-select_val_cg(map, R, [_Val,{f,Lbl}|_], Tf, _Vf, [{label,Lbl}|Sis]) ->
-    [{test,is_map,{f,Tf},[R]}|Sis];
 select_val_cg(Type, R, [Val, {f,Lbl}], Fail, Fail, [{label,Lbl}|Sis]) ->
     [{test,is_eq_exact,{f,Fail},[R,{Type,Val}]}|Sis];
 select_val_cg(Type, R, [Val, {f,Lbl}], Tf, Vf, [{label,Lbl}|Sis]) ->
@@ -928,7 +922,7 @@ select_extract_tuple(Src, Vs, I, Vdb, Bef, St) ->
 select_map(Scs, V, Tf, Vf, Bef, St0) ->
     Reg = fetch_var(V, Bef),
     {Is,Aft,St1} =
-	match_fmf(fun(#l{ke={val_clause,{map,_,Es},B},i=I,vdb=Vdb}, Fail, St1) ->
+	match_fmf(fun(#l{ke={val_clause,{map,exact,_,Es},B},i=I,vdb=Vdb}, Fail, St1) ->
 			  select_map_val(V, Es, B, Fail, I, Vdb, Bef, St1)
 		  end, Vf, St0, Scs),
     {[{test,is_map,{f,Tf},[Reg]}|Is],Aft,St1}.
@@ -947,27 +941,34 @@ select_extract_map(Src, Vs, Fail, I, Vdb, Bef, St) ->
     %% Assume keys are term-sorted
     Rsrc = fetch_var(Src, Bef),
 
-    {{HasKs,GetVs},Aft} = lists:foldr(fun
-	    ({map_pair,Key,{var,V}},{{HasKsi,GetVsi},Int0}) ->
+    {{HasKs,GetVs,HasVarKs,GetVarVs},Aft} = lists:foldr(fun
+	    ({map_pair,{var,K},{var,V}},{{HasKsi,GetVsi,HasVarVsi,GetVarVsi},Int0}) ->
 		case vdb_find(V, Vdb) of
 		    {V,_,L} when L =< I ->
-			{{[Key|HasKsi],GetVsi},Int0};
+			RK = fetch_var(K,Int0),
+			{{HasKsi,GetVsi,[RK|HasVarVsi],GetVarVsi},Int0};
 		    _Other ->
 			Reg1 = put_reg(V, Int0#sr.reg),
 			Int1 = Int0#sr{reg=Reg1},
-			{{HasKsi,[Key,fetch_reg(V, Reg1)|GetVsi]},Int1}
+			RK = fetch_var(K,Int0),
+			RV = fetch_reg(V,Reg1),
+			{{HasKsi,GetVsi,HasVarVsi,[[RK,RV]|GetVarVsi]},Int1}
+		end;
+	    ({map_pair,Key,{var,V}},{{HasKsi,GetVsi,HasVarVsi,GetVarVsi},Int0}) ->
+		case vdb_find(V, Vdb) of
+		    {V,_,L} when L =< I ->
+			{{[Key|HasKsi],GetVsi,HasVarVsi,GetVarVsi},Int0};
+		    _Other ->
+			Reg1 = put_reg(V, Int0#sr.reg),
+			Int1 = Int0#sr{reg=Reg1},
+			{{HasKsi,[Key,fetch_reg(V, Reg1)|GetVsi],HasVarVsi,GetVarVsi},Int1}
 		end
-	end, {{[],[]},Bef}, Vs),
+	end, {{[],[],[],[]},Bef}, Vs),
 
-    Code = case {HasKs,GetVs} of
-	{HasKs,[]} ->
-	    [{test,has_map_fields,{f,Fail},Rsrc,{list,HasKs}}];
-	{[],GetVs} ->
-	    [{get_map_elements,   {f,Fail},Rsrc,{list,GetVs}}];
-	{HasKs,GetVs} ->
-	    [{test,has_map_fields,{f,Fail},Rsrc,{list,HasKs}},
-	     {get_map_elements,   {f,Fail},Rsrc,{list,GetVs}}]
-    end,
+    Code = [{test,has_map_fields,{f,Fail},Rsrc,{list,HasKs}} || HasKs =/= []] ++
+	   [{test,has_map_fields,{f,Fail},Rsrc,{list,[K]}}   || K <- HasVarKs] ++
+	   [{get_map_elements,   {f,Fail},Rsrc,{list,GetVs}} || GetVs =/= []] ++
+	   [{get_map_elements,   {f,Fail},Rsrc,{list,[K,V]}} || [K,V] <- GetVarVs],
     {Code, Aft, St}.
 
 
@@ -1504,8 +1505,40 @@ set_cg([{var,R}], {binary,Segs}, Le, Vdb, Bef,
     %% Now generate the complete code for constructing the binary.
     Code = cg_binary(PutCode, Target, Temp, Fail, MaxRegs, Le#l.a),
     {Sis++Code,Aft,St};
+% Map single variable key
+set_cg([{var,R}], {map,Op,Map,[{map_pair,{var,_}=K,V}]}, Le, Vdb, Bef,
+       #cg{in_catch=InCatch,bfail=Bfail}=St) ->
+
+    Fail = {f,Bfail},
+    {Sis,Int0} =
+	case InCatch of
+	    true -> adjust_stack(Bef, Le#l.i, Le#l.i+1, Vdb);
+	    false -> {[],Bef}
+	end,
+    SrcReg = cg_reg_arg(Map,Int0),
+    Line = line(Le#l.a),
+
+    List = [cg_reg_arg(K,Int0),cg_reg_arg(V,Int0)],
+
+    Live = max_reg(Bef#sr.reg),
+
+    %% The target register can reuse one of the source registers.
+    Aft0 = clear_dead(Int0, Le#l.i, Vdb),
+    Aft = Aft0#sr{reg=put_reg(R, Aft0#sr.reg)},
+    Target = fetch_reg(R, Aft#sr.reg),
+
+    I = case Op of
+	assoc -> put_map_assoc;
+	exact -> put_map_exact
+    end,
+    {Sis++[Line]++[{I,Fail,SrcReg,Target,Live,{list,List}}],Aft,St};
+
+% Map (possibly) multiple literal keys
 set_cg([{var,R}], {map,Op,Map,Es}, Le, Vdb, Bef,
        #cg{in_catch=InCatch,bfail=Bfail}=St) ->
+
+    %% assert key literals
+    [] = [Var||{map_pair,{var,_}=Var,_} <- Es],
 
     Fail = {f,Bfail},
     {Sis,Int0} =
@@ -1524,9 +1557,11 @@ set_cg([{var,R}], {map,Op,Map,Es}, Le, Vdb, Bef,
     List = flatmap(fun({K,V}) -> [K,cg_reg_arg(V,Int0)] end, Pairs),
 
     Live = max_reg(Bef#sr.reg),
-    Int1 = Int0#sr{reg=put_reg(R, Int0#sr.reg)},
-    Aft = clear_dead(Int1, Le#l.i, Vdb),
-    Target = fetch_reg(R, Int1#sr.reg),
+
+    %% The target register can reuse one of the source registers.
+    Aft0 = clear_dead(Int0, Le#l.i, Vdb),
+    Aft = Aft0#sr{reg=put_reg(R, Aft0#sr.reg)},
+    Target = fetch_reg(R, Aft#sr.reg),
 
     I = case Op of
 	assoc -> put_map_assoc;

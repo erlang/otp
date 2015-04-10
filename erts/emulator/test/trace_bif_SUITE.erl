@@ -260,7 +260,9 @@ bif_process() ->
 	    apply(erlang, Name, Args),
 	    bif_process();
 	{do_time_bif} ->
-	    _ = time(),				%Assignment tells compiler to keep call.
+	    %% Match the return value to ensure that the time() call
+	    %% is not optimized away.
+	    {_,_,_} = time(),
 	    bif_process();
 	{do_statistics_bif} ->
 	    statistics(runtime),

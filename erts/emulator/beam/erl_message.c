@@ -994,7 +994,7 @@ erts_send_message(Process* sender,
 #endif
 	    );
         BM_SWAP_TIMER(send,system);
-    } else if (sender == receiver) {
+    } else if (sender == receiver && !(sender->flags & F_OFF_HEAP_MSGS)) {
 	/* Drop message if receiver has a pending exit ... */
 #ifdef ERTS_SMP
 	ErtsProcLocks need_locks = (~(*receiver_locks)
@@ -1144,5 +1144,17 @@ erts_deliver_exit_message(Eterm from, Process *to, ErtsProcLocks *to_locksp,
 #endif
 			   );
     }
+}
+
+Eterm* erts_produce_heap(ErtsHeapFactory* factory, Uint need, Uint xtra)
+{
+    Eterm* res;
+    if (factory->p) {
+        res = HAllocX(factory->p, need, xtra);
+    } else {
+        res = factory->hp;
+        factory->hp += need;
+    }
+    return res;
 }
 

@@ -78,8 +78,6 @@ s|@WITH_SCTP@||
 
 # HiPE
 s|@HIPE_ENABLED@||
-s|@PERFCTR_PATH@||
-s|@USE_PERFCTR@||
 
 # m4
 s|@OPSYS@|noopsys|

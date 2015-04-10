@@ -431,11 +431,6 @@ pass(from_core) ->
     {".core",[?pass(parse_core)|core_passes()]};
 pass(from_asm) ->
     {".S",[?pass(beam_consult_asm)|asm_passes()]};
-pass(asm) ->
-    %% TODO: remove 'asm' in 18.0
-    io:format("compile:file/2 option 'asm' has been deprecated and will be~n"
-	      "removed in the 18.0 release. Use 'from_asm' instead.~n"),
-    pass(from_asm);
 pass(from_beam) ->
     {".beam",[?pass(read_beam_file)|binary_passes()]};
 pass(_) -> none.
@@ -1300,8 +1295,9 @@ encrypt({des3_cbc=Type,Key,IVec,BlockSize}, Bin0) ->
     list_to_binary([0,length(TypeString),TypeString,Bin]).
 
 random_bytes(N) ->
-    {A,B,C} = now(),
-    _ = random:seed(A, B, C),
+    _ = random:seed(erlang:time_offset(),
+		    erlang:monotonic_time(),
+		    erlang:unique_integer()),
     random_bytes_1(N, []).
 
 random_bytes_1(0, Acc) -> Acc;

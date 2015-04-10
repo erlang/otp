@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2004-2013. All Rights Reserved.
+ * Copyright Ericsson AB 2004-2015. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -214,8 +214,6 @@ typedef OSPPDKEY ethr_tsd_key;
 /* Out own RW mutexes are probably faster, but use OSEs mutexes */
 #define ETHR_USE_OWN_RWMTX_IMPL__
 
-#define ETHR_HAVE_THREAD_NAMES
-
 #else /* No supported thread lib found */
 
 #ifdef ETHR_NO_SUPP_THR_LIB_NOT_FATAL
@@ -364,6 +362,9 @@ extern ethr_runtime_t ethr_runtime__;
 #          include "sparc64/ethread.h"
 #        endif
 #      endif
+#      if ETHR_HAVE_GCC___ATOMIC_BUILTINS
+#        include "gcc/ethread.h"
+#      endif
 #      include "libatomic_ops/ethread.h"
 #      include "gcc/ethread.h"
 #    endif
@@ -501,20 +502,17 @@ typedef struct {
 typedef struct {
     int detached;			/* boolean (default false) */
     int suggested_stack_size;		/* kilo words (default sys dependent) */
+    char *name;                         /* max 14 char long (default no-name) */
 #ifdef ETHR_OSE_THREADS
-    char *name;
     U32 coreNo;
 #endif
 } ethr_thr_opts;
 
 #if defined(ETHR_OSE_THREADS)
-/* Default ethr name is big as we want to be able to sprint stuff in there */
-#define ETHR_THR_OPTS_DEFAULT_INITER \
-   {0, -1, "ethread", 0}
+#define ETHR_THR_OPTS_DEFAULT_INITER {0, -1, NULL, 0}
 #else
-#define ETHR_THR_OPTS_DEFAULT_INITER {0, -1}
+#define ETHR_THR_OPTS_DEFAULT_INITER {0, -1, NULL}
 #endif
-
 
 #if !defined(ETHR_TRY_INLINE_FUNCS) || defined(ETHR_AUX_IMPL__)
 #  define ETHR_NEED_SPINLOCK_PROTOTYPES__
@@ -529,6 +527,8 @@ int ethr_thr_join(ethr_tid, void **);
 int ethr_thr_detach(ethr_tid);
 void ethr_thr_exit(void *);
 ethr_tid ethr_self(void);
+int ethr_getname(ethr_tid, char *, size_t);
+void ethr_setname(char *);
 int ethr_equal_tids(ethr_tid, ethr_tid);
 
 int ethr_tsd_key_create(ethr_tsd_key *,char *);
@@ -540,6 +540,7 @@ void *ethr_tsd_get(ethr_tsd_key);
 #include <signal.h>
 int ethr_sigmask(int how, const sigset_t *set, sigset_t *oset);
 int ethr_sigwait(const sigset_t *set, int *sig);
+int ethr_kill(const ethr_tid tid, const int sig);
 #endif
 
 void ethr_compiler_barrier(void);

@@ -930,20 +930,20 @@ index_update_bag(Config)when is_list(Config) ->
     [IPos] = mnesia_lib:val({Tab,index}),
     ITab = mnesia_lib:val({index_test,{index, IPos}}),
     io:format("~n Index ~p @ ~p => ~p ~n~n",[IPos,ITab, ets:tab2list(ITab)]),
-    ?match([{2,1},{2,2},{12,1}], ets:tab2list(ITab)),
+    ?match([{2,1},{2,2},{12,1}], lists:keysort(1,ets:tab2list(ITab))),
 
     ?match({atomic, ok}, mnesia:transaction(fun() -> mnesia:write(Rec5) end)),
     {atomic, R60} = mnesia:transaction(fun() -> mnesia:index_read(Tab, 2, ValPos) end),
     ?match([Rec1,Rec5,Rec2], lists:sort(R60)),
 
-    ?match([{2,1},{2,2},{12,1}], ets:tab2list(ITab)),
+    ?match([{2,1},{2,2},{12,1}], lists:keysort(1,ets:tab2list(ITab))),
 
     ?match({atomic, ok}, mnesia:transaction(fun() -> mnesia:delete_object(Rec3) end)),
     {atomic, R61} = mnesia:transaction(fun() -> mnesia:index_read(Tab, 2, ValPos) end),
     ?match([Rec1,Rec5,Rec2], lists:sort(R61)),
     {atomic, R62} = mnesia:transaction(fun() -> mnesia:index_read(Tab,12, ValPos) end),
     ?match([], lists:sort(R62)),
-    ?match([{2,1},{2,2}], ets:tab2list(ITab)),
+    ?match([{2,1},{2,2}], lists:keysort(1,ets:tab2list(ITab))),
 
     %% reset for rest of testcase
     ?match({atomic, ok}, mnesia:transaction(fun() -> mnesia:write(Rec3) end)),

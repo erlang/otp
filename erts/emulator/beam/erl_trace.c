@@ -2225,7 +2225,7 @@ trace_gc(Process *p, Eterm what)
     Eterm* limit;
 #endif
 
-    ASSERT(sizeof(values)/sizeof(*values) == sizeof(tags)/sizeof(Eterm));
+    ERTS_CT_ASSERT(sizeof(values)/sizeof(*values) == sizeof(tags)/sizeof(Eterm));
 
     UseTmpHeap(LOCAL_HEAP_SIZE,p);
 
@@ -3492,15 +3492,12 @@ init_sys_msg_dispatcher(void)
     thr_opts.coreNo   = 0;
 #endif
     thr_opts.detached = 1;
+    thr_opts.name = "sys_msg_dispatcher";
     init_smq_element_alloc();
     sys_message_queue = NULL;
     sys_message_queue_end = NULL;
     erts_smp_cnd_init(&smq_cnd);
     erts_smp_mtx_init(&smq_mtx, "sys_msg_q");
-
-#ifdef ETHR_HAVE_THREAD_NAMES
-    thr_opts.name = "sys_msg_dispatcher";
-#endif
 
     erts_smp_thr_create(&sys_msg_dispatcher_tid,
 			sys_msg_dispatcher_func,

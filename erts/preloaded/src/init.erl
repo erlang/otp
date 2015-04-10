@@ -522,6 +522,7 @@ shutdown_pids(Heart,BootPid,State) ->
     Timer = shutdown_timer(State#state.flags),
     catch shutdown(State#state.kernel,BootPid,Timer,State),
     kill_all_pids(Heart), % Even the shutdown timer.
+    cancel_all_bif_timeouts(),
     kill_all_ports(Heart),
     flush_timout(Timer).
 
@@ -580,6 +581,30 @@ resend([ExitMsg|Exits]) ->
 resend(_) ->
     ok.
 
+
+cancel_all_bif_timeouts() ->
+    TSrvs = erts_internal:get_bif_timer_servers(),
+    Ref = make_ref(),
+    {BTR, _TSrv} = erts_internal:access_bif_timer(Ref), %% Cheat...
+    request_cancel_all_bif_timeouts(Ref, BTR, TSrvs),
+    wait_response_cancel_all_bif_timeouts(Ref, BTR, TSrvs),
+    ok.
+
+request_cancel_all_bif_timeouts(_Ref, _BTR, []) ->
+    ok;
+request_cancel_all_bif_timeouts(Ref, BTR, [TSrv|TSrvs]) ->
+    TSrv ! {cancel_all_timeouts, BTR, self(), {Ref, TSrv}},
+    request_cancel_all_bif_timeouts(Ref, BTR, TSrvs).
+
+wait_response_cancel_all_bif_timeouts(_Ref, _BTR, []) ->
+    ok;
+wait_response_cancel_all_bif_timeouts(Ref, BTR, [TSrv|TSrvs]) ->
+    receive
+	{canceled_all_timeouts, {Ref, TSrv}} ->
+	    wait_response_cancel_all_bif_timeouts(Ref, BTR, TSrvs)
+    end.
+
+
 %%
 %% Kill all existing pids in the system (except init and heart).
 kill_all_pids(Heart) ->
@@ -591,12 +616,9 @@ kill_all_pids(Heart) ->
 	    kill_all_pids(Heart)  % Continue until all are really killed.
     end.
     
-%% All except zombies.
-alive_processes() ->
-    [P || P <- processes(), erlang:is_process_alive(P)].
-
+%% All except system processes.
 get_pids(Heart) ->
-    Pids = alive_processes(),
+    Pids = [P || P <- processes(), not erts_internal:is_system_process(P)],
     delete(Heart,self(),Pids).
 
 delete(Heart,Init,[Heart|Pids]) -> delete(Heart,Init,Pids);

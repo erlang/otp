@@ -663,7 +663,8 @@ check_source(S, CheckOnly) ->
     end.
 
 pre_def_macros(File) ->
-    {MegaSecs, Secs, MicroSecs} = erlang:now(),
+    {MegaSecs, Secs, MicroSecs} = erlang:timestamp(),
+    Unique = erlang:unique_integer([positive]),
     Replace = fun(Char) ->
 		      case Char of
 			  $\. -> $\_;
@@ -675,8 +676,9 @@ pre_def_macros(File) ->
 	CleanBase ++ "__" ++
         "escript__" ++
         integer_to_list(MegaSecs) ++ "__" ++
-        integer_to_list(Secs) ++ "__" ++
-        integer_to_list(MicroSecs),
+	integer_to_list(Secs) ++ "__" ++
+	integer_to_list(MicroSecs) ++ "__" ++
+	integer_to_list(Unique),
     Module = list_to_atom(ModuleStr),
     PreDefMacros = [{'MODULE', Module, redefine},
                     {'MODULE_STRING', ModuleStr, redefine}],

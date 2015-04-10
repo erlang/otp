@@ -1,0 +1,415 @@
+  PKIX1Explicit-2009
+      {iso(1) identified-organization(3) dod(6) internet(1)
+      security(5) mechanisms(5) pkix(7) id-mod(0)
+      id-mod-pkix1-explicit-02(51)}
+  DEFINITIONS EXPLICIT TAGS ::=
+  BEGIN
+
+  IMPORTS
+
+  Extensions{}, EXTENSION, ATTRIBUTE, SingleAttribute{}
+  FROM PKIX-CommonTypes-2009
+      {iso(1) identified-organization(3) dod(6) internet(1) security(5)
+      mechanisms(5) pkix(7) id-mod(0) id-mod-pkixCommon-02(57)}
+
+  AlgorithmIdentifier{}, PUBLIC-KEY, SIGNATURE-ALGORITHM
+  FROM AlgorithmInformation-2009
+      {iso(1) identified-organization(3) dod(6) internet(1) security(5)
+      mechanisms(5) pkix(7) id-mod(0)
+      id-mod-algorithmInformation-02(58)}
+
+  CertExtensions, CrlExtensions, CrlEntryExtensions
+  FROM PKIX1Implicit-2009
+      {iso(1) identified-organization(3) dod(6) internet(1) security(5)
+      mechanisms(5) pkix(7) id-mod(0) id-mod-pkix1-implicit-02(59)}
+  SignatureAlgs, PublicKeys
+  FROM PKIXAlgs-2009
+      {iso(1) identified-organization(3) dod(6)
+      internet(1) security(5) mechanisms(5) pkix(7) id-mod(0) 56}
+
+  SignatureAlgs, PublicKeys
+  FROM PKIX1-PSS-OAEP-Algorithms-2009
+      {iso(1) identified-organization(3) dod(6)
+      internet(1) security(5) mechanisms(5) pkix(7) id-mod(0)
+      id-mod-pkix1-rsa-pkalgs-02(54)}
+
+  ORAddress
+  FROM PKIX-X400Address-2009
+      {iso(1) identified-organization(3) dod(6) internet(1) security(5)
+      mechanisms(5) pkix(7) id-mod(0) id-mod-pkix1-x400address-02(60)};
+
+  id-pkix  OBJECT IDENTIFIER  ::=
+      {iso(1) identified-organization(3) dod(6) internet(1) security(5)
+      mechanisms(5) pkix(7)}
+
+  -- PKIX arcs
+
+  id-pe OBJECT IDENTIFIER  ::=  { id-pkix 1 }
+      -- arc for private certificate extensions
+  id-qt OBJECT IDENTIFIER ::= { id-pkix 2 }
+      -- arc for policy qualifier types
+  id-kp OBJECT IDENTIFIER ::= { id-pkix 3 }
+      -- arc for extended key purpose OIDs
+  id-ad OBJECT IDENTIFIER ::= { id-pkix 48 }
+      -- arc for access descriptors
+
+  -- policyQualifierIds for Internet policy qualifiers
+
+  id-qt-cps      OBJECT IDENTIFIER ::=  { id-qt 1 }
+      -- OID for CPS qualifier
+  id-qt-unotice  OBJECT IDENTIFIER ::=  { id-qt 2 }
+      -- OID for user notice qualifier
+
+  -- access descriptor definitions
+
+  id-ad-ocsp         OBJECT IDENTIFIER ::= { id-ad 1 }
+  id-ad-caIssuers    OBJECT IDENTIFIER ::= { id-ad 2 }
+  id-ad-timeStamping OBJECT IDENTIFIER ::= { id-ad 3 }
+  id-ad-caRepository OBJECT IDENTIFIER ::= { id-ad 5 }
+
+  -- attribute data types
+  AttributeType           ::=  ATTRIBUTE.&id
+
+  --  Replaced by SingleAttribute{}
+  --
+  -- AttributeTypeAndValue   ::=  SEQUENCE {
+  --    type    ATTRIBUTE.&id({SupportedAttributes}),
+  --    value   ATTRIBUTE.&Type({SupportedAttributes}{@type}) }
+  --
+
+  -- Suggested naming attributes: Definition of the following
+  --   information object set may be augmented to meet local
+  --   requirements.  Note that deleting members of the set may
+  --   prevent interoperability with conforming implementations.
+  -- All attributes are presented in pairs: the AttributeType
+  --   followed by the type definition for the corresponding
+  --   AttributeValue.
+
+  -- Arc for standard naming attributes
+
+  id-at OBJECT IDENTIFIER ::= { joint-iso-ccitt(2) ds(5) 4 }
+
+  -- Naming attributes of type X520name
+
+  id-at-name              AttributeType ::= { id-at 41 }
+  at-name ATTRIBUTE ::= { TYPE X520name IDENTIFIED BY id-at-name }
+
+  id-at-surname           AttributeType ::= { id-at 4 }
+  at-surname ATTRIBUTE ::= { TYPE X520name IDENTIFIED BY id-at-surname }
+
+  id-at-givenName         AttributeType ::= { id-at 42 }
+  at-givenName ATTRIBUTE ::=
+      { TYPE X520name IDENTIFIED BY id-at-givenName }
+
+  id-at-initials          AttributeType ::= { id-at 43 }
+  at-initials ATTRIBUTE ::=
+      { TYPE X520name IDENTIFIED BY id-at-initials }
+
+  id-at-generationQualifier AttributeType ::= { id-at 44 }
+  at-generationQualifier ATTRIBUTE ::=
+      { TYPE X520name IDENTIFIED BY id-at-generationQualifier }
+
+  -- Directory string type --
+
+  DirectoryString{INTEGER:maxSize} ::= CHOICE {
+      teletexString    TeletexString(SIZE (1..maxSize)),
+      printableString  PrintableString(SIZE (1..maxSize)),
+      bmpString        BMPString(SIZE (1..maxSize)),
+      universalString  UniversalString(SIZE (1..maxSize)),
+      uTF8String       UTF8String(SIZE (1..maxSize))
+  }
+
+  X520name ::= DirectoryString {ub-name}
+
+  -- Naming attributes of type X520CommonName
+
+  id-at-commonName        AttributeType ::= { id-at 3 }
+
+  at-x520CommonName ATTRIBUTE ::=
+      {TYPE X520CommonName IDENTIFIED BY id-at-commonName }
+
+  X520CommonName ::= DirectoryString {ub-common-name}
+
+  -- Naming attributes of type X520LocalityName
+
+  id-at-localityName      AttributeType ::= { id-at 7 }
+
+  at-x520LocalityName ATTRIBUTE ::=
+      { TYPE X520LocalityName IDENTIFIED BY id-at-localityName }
+  X520LocalityName ::= DirectoryString {ub-locality-name}
+
+  -- Naming attributes of type X520StateOrProvinceName
+
+  id-at-stateOrProvinceName AttributeType ::= { id-at 8 }
+
+  at-x520StateOrProvinceName ATTRIBUTE ::=
+      { TYPE DirectoryString {ub-state-name}
+          IDENTIFIED BY id-at-stateOrProvinceName }
+  X520StateOrProvinceName ::= DirectoryString {ub-state-name}
+
+  -- Naming attributes of type X520OrganizationName
+
+  id-at-organizationName  AttributeType ::= { id-at 10 }
+
+  at-x520OrganizationName ATTRIBUTE ::=
+      { TYPE DirectoryString {ub-organization-name}
+          IDENTIFIED BY id-at-organizationName }
+  X520OrganizationName ::= DirectoryString {ub-organization-name}
+
+  -- Naming attributes of type X520OrganizationalUnitName
+
+  id-at-organizationalUnitName AttributeType ::= { id-at 11 }
+
+  at-x520OrganizationalUnitName ATTRIBUTE ::=
+      { TYPE DirectoryString  {ub-organizational-unit-name}
+          IDENTIFIED BY id-at-organizationalUnitName }
+  X520OrganizationalUnitName ::= DirectoryString
+                                     {ub-organizational-unit-name}
+
+  -- Naming attributes of type X520Title
+
+  id-at-title             AttributeType ::= { id-at 12 }
+
+  at-x520Title ATTRIBUTE ::= { TYPE DirectoryString { ub-title }
+      IDENTIFIED BY id-at-title }
+
+  -- Naming attributes of type X520dnQualifier
+
+  id-at-dnQualifier       AttributeType ::= { id-at 46 }
+
+  at-x520dnQualifier ATTRIBUTE ::= { TYPE PrintableString
+      IDENTIFIED BY id-at-dnQualifier }
+
+  -- Naming attributes of type X520countryName (digraph from IS 3166)
+
+  id-at-countryName       AttributeType ::= { id-at 6 }
+
+  at-x520countryName ATTRIBUTE ::=  { TYPE PrintableString (SIZE (2))
+      IDENTIFIED BY id-at-countryName }
+
+  -- Naming attributes of type X520SerialNumber
+
+  id-at-serialNumber      AttributeType ::= { id-at 5 }
+
+  at-x520SerialNumber ATTRIBUTE ::=  {TYPE PrintableString
+      (SIZE (1..ub-serial-number)) IDENTIFIED BY id-at-serialNumber }
+
+  -- Naming attributes of type X520Pseudonym
+
+  id-at-pseudonym         AttributeType ::= { id-at 65 }
+
+  at-x520Pseudonym ATTRIBUTE ::= { TYPE DirectoryString {ub-pseudonym}
+      IDENTIFIED BY id-at-pseudonym }
+
+  -- Naming attributes of type DomainComponent (from RFC 2247)
+
+  id-domainComponent      AttributeType ::=
+       { itu-t(0) data(9) pss(2342) ucl(19200300) pilot(100)
+       pilotAttributeType(1) 25 }
+
+  at-domainComponent ATTRIBUTE ::= {TYPE IA5String
+      IDENTIFIED BY id-domainComponent }
+
+  -- Legacy attributes
+
+  pkcs-9 OBJECT IDENTIFIER ::=
+      { iso(1) member-body(2) us(840) rsadsi(113549) pkcs(1) 9 }
+  id-emailAddress          AttributeType ::= { pkcs-9 1 }
+
+  at-emailAddress ATTRIBUTE ::= {TYPE IA5String
+      (SIZE (1..ub-emailaddress-length)) IDENTIFIED BY
+      id-emailAddress }
+
+  -- naming data types --
+
+  Name ::= CHOICE { -- only one possibility for now --
+      rdnSequence  RDNSequence }
+
+  RDNSequence ::= SEQUENCE OF RelativeDistinguishedName
+
+  DistinguishedName ::=   RDNSequence
+
+  RelativeDistinguishedName  ::=
+      SET SIZE (1 .. MAX) OF SingleAttribute { {SupportedAttributes} }
+
+  --  These are the known name elements for a DN
+
+  SupportedAttributes ATTRIBUTE ::= {
+      at-name | at-surname | at-givenName | at-initials |
+      at-generationQualifier | at-x520CommonName |
+      at-x520LocalityName | at-x520StateOrProvinceName |
+      at-x520OrganizationName | at-x520OrganizationalUnitName |
+      at-x520Title | at-x520dnQualifier | at-x520countryName |
+      at-x520SerialNumber | at-x520Pseudonym | at-domainComponent |
+      at-emailAddress, ... }
+
+  --
+  -- Certificate- and CRL-specific structures begin here
+  --
+
+  Certificate  ::=  SIGNED{TBSCertificate}
+
+  TBSCertificate  ::=  SEQUENCE  {
+      version         [0]  Version DEFAULT v1,
+      serialNumber         CertificateSerialNumber,
+      signature            AlgorithmIdentifier{SIGNATURE-ALGORITHM,
+                                {SignatureAlgorithms}},
+      issuer               Name,
+      validity             Validity,
+      subject              Name,
+      subjectPublicKeyInfo SubjectPublicKeyInfo,
+      ... ,
+      [[2:               -- If present, version MUST be v2
+      issuerUniqueID  [1]  IMPLICIT UniqueIdentifier OPTIONAL,
+      subjectUniqueID [2]  IMPLICIT UniqueIdentifier OPTIONAL
+      ]],
+      [[3:               -- If present, version MUST be v3 --
+      extensions      [3]  Extensions{{CertExtensions}} OPTIONAL
+      ]], ... }
+
+  Version  ::=  INTEGER  {  v1(0), v2(1), v3(2)  }
+
+  CertificateSerialNumber  ::=  INTEGER
+
+  Validity ::= SEQUENCE {
+      notBefore      Time,
+      notAfter       Time  }
+
+  Time ::= CHOICE {
+      utcTime        UTCTime,
+      generalTime    GeneralizedTime }
+
+  UniqueIdentifier  ::=  BIT STRING
+
+  SubjectPublicKeyInfo  ::=  SEQUENCE  {
+      algorithm            AlgorithmIdentifier{PUBLIC-KEY,
+                               {PublicKeyAlgorithms}},
+      subjectPublicKey     BIT STRING  }
+
+  -- CRL structures
+
+  CertificateList  ::=  SIGNED{TBSCertList}
+
+  TBSCertList  ::=  SEQUENCE  {
+      version              Version OPTIONAL,
+                                 -- if present, MUST be v2
+      signature            AlgorithmIdentifier{SIGNATURE-ALGORITHM,
+                               {SignatureAlgorithms}},
+      issuer               Name,
+      thisUpdate           Time,
+      nextUpdate           Time OPTIONAL,
+      revokedCertificates  SEQUENCE SIZE (1..MAX) OF SEQUENCE {
+          userCertificate  CertificateSerialNumber,
+          revocationDate   Time,
+          ... ,
+          [[2:                  -- if present, version MUST be v2
+          crlEntryExtensions  Extensions{{CrlEntryExtensions}}
+                                  OPTIONAL
+          ]], ...
+      } OPTIONAL,
+      ... ,
+      [[2:                       -- if present, version MUST be v2
+      crlExtensions       [0] Extensions{{CrlExtensions}}
+                                  OPTIONAL
+      ]], ... }
+
+  -- Version, Time, CertificateSerialNumber, and Extensions were
+  -- defined earlier for use in the certificate structure
+
+  --
+  --  The two object sets below should be expanded to include
+  --  those algorithms which are supported by the system.
+  --
+  --  For example:
+  --  SignatureAlgorithms SIGNATURE-ALGORITHM ::= {
+  --    PKIXAlgs-2008.SignatureAlgs, ...,
+  --        - - RFC 3279 provides the base set
+  --    PKIX1-PSS-OAEP-ALGORITHMS.SignatureAlgs |
+  --        - - RFC 4055 provides extension algs
+  --    OtherModule.SignatureAlgs
+  --        - - RFC XXXX provides additional extension algs
+  --  }
+
+  SignatureAlgorithms SIGNATURE-ALGORITHM ::= {
+      PKIXAlgs-2009.SignatureAlgs, ...,
+      PKIX1-PSS-OAEP-Algorithms-2009.SignatureAlgs }
+
+  PublicKeyAlgorithms PUBLIC-KEY ::= {
+      PKIXAlgs-2009.PublicKeys, ...,
+      PKIX1-PSS-OAEP-Algorithms-2009.PublicKeys}
+
+  -- Upper Bounds
+
+  ub-state-name INTEGER ::= 128
+  ub-organization-name INTEGER ::= 64
+  ub-organizational-unit-name INTEGER ::= 64
+  ub-title INTEGER ::= 64
+  ub-serial-number INTEGER ::= 64
+  ub-pseudonym INTEGER ::= 128
+  ub-emailaddress-length INTEGER ::= 255
+  ub-locality-name INTEGER ::= 128
+  ub-common-name INTEGER ::= 64
+  ub-name INTEGER ::= 32768
+
+  -- Note - upper bounds on string types, such as TeletexString, are
+  -- measured in characters.  Excepting PrintableString or IA5String, a
+  -- significantly greater number of octets will be required to hold
+  -- such a value.  As a minimum, 16 octets or twice the specified
+  -- upper bound, whichever is the larger, should be allowed for
+  -- TeletexString.  For UTF8String or UniversalString, at least four
+  -- times the upper bound should be allowed.
+
+  -- Information object classes used in the definition
+  -- of certificates and CRLs
+
+  -- Parameterized Type SIGNED
+  --
+  -- Three different versions of doing SIGNED:
+  --  1.  Simple and close to the previous version
+  --
+  --  SIGNED{ToBeSigned} ::= SEQUENCE {
+  --    toBeSigned  ToBeSigned,
+  --    algorithm   AlgorithmIdentifier{SIGNATURE-ALGORITHM,
+  --                    {SignatureAlgorithms}},
+  --    signature   BIT STRING
+  --  }
+
+  --  2.  From Authenticated Framework
+  --
+  --  SIGNED{ToBeSigned} ::= SEQUENCE {
+  --    toBeSigned        ToBeSigned,
+  --    COMPONENTS OF SIGNATURE{ToBeSigned}
+  --  }
+  --  SIGNATURE{ToBeSigned} ::= SEQUENCE {
+  --    algorithmIdentifier   AlgorithmIdentifier,
+  --    encrypted             ENCRYPTED-HASH{ToBeSigned}
+  --  }
+  --  ENCRYPTED-HASH{ToBeSigned} ::=
+  --    BIT STRING
+  --      (CONSTRAINED BY {
+  --        shall be the result of applying a hashing procedure to
+  --        the DER-encoded (see 4.1) octets of a value of
+  --        ToBeSigned and then applying an encipherment procedure
+  --        to those octets
+  --      })
+  --
+  --
+  --  3.  A more complex version, but one that automatically ties
+  --      together both the signature algorithm and the
+  --      signature value for automatic decoding.
+  --
+  SIGNED{ToBeSigned} ::= SEQUENCE {
+     toBeSigned           ToBeSigned,
+     algorithmIdentifier  SEQUENCE {
+         algorithm        SIGNATURE-ALGORITHM.
+                            &id({SignatureAlgorithms}),
+         parameters       SIGNATURE-ALGORITHM.
+                            &Params({SignatureAlgorithms}
+                              {@algorithmIdentifier.algorithm}) OPTIONAL
+     },
+     signature BIT STRING (CONTAINING SIGNATURE-ALGORITHM.&Value(
+                              {SignatureAlgorithms}
+                              {@algorithmIdentifier.algorithm}))
+  }
+
+  END

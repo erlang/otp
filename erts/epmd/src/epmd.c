@@ -345,7 +345,7 @@ static void run_daemon(EpmdVars *g)
        inform it of that the log is closed. */
     closelog();
 
-    /* These chouldn't be needed but for safety... */
+    /* These shouldn't be needed but for safety... */
 
     open("/dev/null", O_RDONLY); /* Order is important! */
     open("/dev/null", O_WRONLY);
@@ -386,7 +386,7 @@ static void run_daemon(EpmdVars *g)
     close(1);
     close(2);
 
-    /* These chouldn't be needed but for safety... */
+    /* These shouldn't be needed but for safety... */
 
     open("nul", O_RDONLY);
     open("nul", O_WRONLY);

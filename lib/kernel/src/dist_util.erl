@@ -298,7 +298,7 @@ shutdown(_Module, _Line, _Data, Reason) ->
     exit(Reason).
 %% Use this line to debug connection.  
 %% Set net_kernel verbose = 1 as well.
-%%    exit({Reason, ?MODULE, _Line, _Data, erlang:now()}).
+%%    exit({Reason, ?MODULE, _Line, _Data, erlang:timestamp()}).
 
 
 flush_down() ->
@@ -373,7 +373,9 @@ gen_digest(Challenge, Cookie) when is_integer(Challenge), is_atom(Cookie) ->
 %% gen_challenge() returns a "random" number
 %% ---------------------------------------------------------------
 gen_challenge() ->
-    {A,B,C} = erlang:now(),
+    A = erlang:phash2([erlang:node()]),
+    B = erlang:monotonic_time(),
+    C = erlang:unique_integer(),
     {D,_}   = erlang:statistics(reductions),
     {E,_}   = erlang:statistics(runtime),
     {F,_}   = erlang:statistics(wall_clock),

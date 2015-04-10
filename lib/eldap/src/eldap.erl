@@ -12,6 +12,7 @@
 -vc('$Id$ ').
 -export([open/1,open/2,simple_bind/3,controlling_process/2,
 	 start_tls/2, start_tls/3,
+         modify_password/3, modify_password/4,
 	 getopts/2,
 	 baseObject/0,singleLevel/0,wholeSubtree/0,close/1,
 	 equalityMatch/2,greaterOrEqual/2,lessOrEqual/2,
@@ -91,6 +92,23 @@ start_tls(Handle, TlsOptions) ->
 
 start_tls(Handle, TlsOptions, Timeout) ->
     send(Handle, {start_tls,TlsOptions,Timeout}),
+    recv(Handle).
+
+%%% --------------------------------------------------------------------
+%%% Modify the password of a user.
+%%%
+%%% Dn        - Name of the entry to modify. If empty, the session user.
+%%% NewPasswd - New password. If empty, the server returns a new password.
+%%% OldPasswd - Original password for server verification, may be empty.
+%%%
+%%% Returns: ok | {ok, GenPasswd} | {error, term()}
+%%% --------------------------------------------------------------------
+modify_password(Handle, Dn, NewPasswd) ->
+    modify_password(Handle, Dn, NewPasswd, []).
+
+modify_password(Handle, Dn, NewPasswd, OldPasswd)
+  when is_pid(Handle), is_list(Dn), is_list(NewPasswd), is_list(OldPasswd) ->
+    send(Handle, {passwd_modify,optional(Dn),optional(NewPasswd),optional(OldPasswd)}),
     recv(Handle).
 
 %%% --------------------------------------------------------------------
@@ -507,6 +525,11 @@ loop(Cpid, Data) ->
 	    send(From,Res),
 	    ?MODULE:loop(Cpid, NewData);
 
+        {From, {passwd_modify,Dn,NewPasswd,OldPasswd}} ->
+            {Res,NewData} = do_passwd_modify(Data, Dn, NewPasswd, OldPasswd),
+            send(From, Res),
+            ?MODULE:loop(Cpid, NewData);
+
 	{_From, close} ->
 	    unlink(Cpid),
 	    exit(closed);
@@ -795,6 +818,60 @@ do_modify_0(Data, Obj, Mod) ->
     Resp = request(S, Data, Id, {modifyRequest, Req}),
     log2(Data, "modify reply = ~p~n", [Resp]),
     check_reply(Data#eldap{id = Id}, Resp, modifyResponse).
+
+%%% --------------------------------------------------------------------
+%%% PasswdModifyRequest
+%%% --------------------------------------------------------------------
+
+-define(PASSWD_MODIFY_OID, "1.3.6.1.4.1.4203.1.11.1").
+
+do_passwd_modify(Data, Dn, NewPasswd, OldPasswd) ->
+    case catch do_passwd_modify_0(Data, Dn, NewPasswd, OldPasswd) of
+	{error,Emsg}        -> {ldap_closed_p(Data, Emsg),Data};
+	{'EXIT',Error}      -> {ldap_closed_p(Data, Error),Data};
+	{ok,NewData}        -> {ok,NewData};
+        {ok,Passwd,NewData} -> {{ok, Passwd},NewData};
+	Else                -> {ldap_closed_p(Data, Else),Data}
+    end.
+
+do_passwd_modify_0(Data, Dn, NewPasswd, OldPasswd) ->
+    Req = #'PasswdModifyRequestValue'{userIdentity = Dn,
+                                      oldPasswd = OldPasswd,
+                                      newPasswd = NewPasswd},
+    log2(Data, "modify password request = ~p~n", [Req]),
+    {ok, Bytes} = 'ELDAPv3':encode('PasswdModifyRequestValue', Req),
+    ExtReq = #'ExtendedRequest'{requestName = ?PASSWD_MODIFY_OID,
+                             requestValue = Bytes},
+    Id = bump_id(Data),
+    log2(Data, "extended request = ~p~n", [ExtReq]),
+    Reply = request(Data#eldap.fd, Data, Id, {extendedReq, ExtReq}),
+    log2(Data, "modify password reply = ~p~n", [Reply]),
+    exec_passwd_modify_reply(Data#eldap{id = Id}, Reply).
+
+exec_passwd_modify_reply(Data, {ok,Msg}) when
+  Msg#'LDAPMessage'.messageID == Data#eldap.id ->
+    case Msg#'LDAPMessage'.protocolOp of
+	{extendedResp, Result} ->
+	    case Result#'ExtendedResponse'.resultCode of
+		success ->
+                    case Result#'ExtendedResponse'.responseValue of
+                        asn1_NOVALUE ->
+                            {ok, Data};
+                        Value ->
+                            case 'ELDAPv3':decode('PasswdModifyResponseValue', Value) of
+                                {ok,#'PasswdModifyResponseValue'{genPasswd = Passwd}} ->
+                                    {ok, Passwd, Data};
+                                Error ->
+                                    throw(Error)
+                            end
+                    end;
+		Error ->
+		    {error, {response,Error}}
+	    end;
+	Other -> {error, Other}
+    end;
+exec_passwd_modify_reply(_, Error) ->
+    {error, Error}.
 
 %%% --------------------------------------------------------------------
 %%% modifyDNRequest

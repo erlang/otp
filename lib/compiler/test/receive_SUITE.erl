@@ -187,12 +187,13 @@ ref_opt(Config) when is_list(Config) ->
     end.
 
 ref_opt_1(Config) ->
-    ?line DataDir = ?config(data_dir, Config),
-    ?line PrivDir = ?config(priv_dir, Config),
+    DataDir = ?config(data_dir, Config),
+    PrivDir = ?config(priv_dir, Config),
     Sources = filelib:wildcard(filename:join([DataDir,"ref_opt","*.{erl,S}"])),
-    ?line test_lib:p_run(fun(Src) ->
-				 do_ref_opt(Src, PrivDir)
-			 end, Sources),
+    test_lib:p_run(fun(Src) ->
+			   do_ref_opt(Src, PrivDir)
+		   end, Sources),
+    cover_recv_instructions(),
     ok.
 
 do_ref_opt(Source, PrivDir) ->
@@ -202,9 +203,9 @@ do_ref_opt(Source, PrivDir) ->
 					 {outdir,PrivDir}] ++
 					[from_asm || Ext =:= ".S" ]),
 	Base = filename:rootname(filename:basename(Source), Ext),
-    code:purge(list_to_atom(Base)),
-    BeamFile = filename:join(PrivDir, Base),
-    code:load_abs(BeamFile),
+	code:purge(list_to_atom(Base)),
+	BeamFile = filename:join(PrivDir, Base),
+	code:load_abs(BeamFile),
 	ok = Mod:Mod(),
 	{beam_file,Mod,_,_,_,Code} = beam_disasm:file(BeamFile),
 	case Base of
@@ -231,6 +232,27 @@ collect_recv_opt_instrs(Code) ->
 		    end
 		end] || {function,_,_,_,Is} <- Code],
     lists:append(L).
+
+cover_recv_instructions() ->
+    %% We want to cover the handling of recv_mark and recv_set in beam_utils.
+    %% Since those instructions are introduced in a late optimization pass,
+    %% beam_utils:live_opt() will not see them unless the compilation is
+    %% started from a .S file. The compile_SUITE:asm/1 test case will
+    %% compile all test suite files to .S and then run them through the
+    %% compiler again.
+    %%
+    %% Here will we will ensure that this modules contains recv_mark
+    %% and recv_set instructions.
+    Pid = spawn_link(fun() ->
+			     receive {Parent,Ref} ->
+				     Parent ! Ref
+			     end
+		     end),
+    Ref = make_ref(),
+    Pid ! {self(),Ref},
+    receive
+	Ref -> ok
+    end.
 
 export(Config) when is_list(Config) ->
     Ref = make_ref(),

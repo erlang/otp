@@ -108,14 +108,14 @@ peep([{test,Op,_,Ops}=I|Is], SeenTests0, Acc) ->
 	    %% has succeeded.
 	    peep(Is, gb_sets:empty(), [I|Acc]);
 	true ->
-	    Test = {Op,Ops},
-	    case gb_sets:is_element(Test, SeenTests0) of
+	    case is_test_redundant(Op, Ops, SeenTests0) of
 		true ->
-		    %% This test has already succeeded and
+		    %% This test or a similar test has already succeeded and
 		    %% is therefore redundant.
 		    peep(Is, SeenTests0, Acc);
 		false ->
 		    %% Remember that we have seen this test.
+		    Test = {Op,Ops},
 		    SeenTests = gb_sets:insert(Test, SeenTests0),
 		    peep(Is, SeenTests, [I|Acc])
 	    end
@@ -135,6 +135,15 @@ peep([I|Is], _, Acc) ->
     %% have collected about test instructions.
     peep(Is, gb_sets:empty(), [I|Acc]);
 peep([], _, Acc) -> reverse(Acc).
+
+is_test_redundant(Op, Ops, Seen) ->
+    gb_sets:is_element({Op,Ops}, Seen) orelse
+	is_test_redundant_1(Op, Ops, Seen).
+
+is_test_redundant_1(is_boolean, [R], Seen) ->
+    gb_sets:is_element({is_eq_exact,[R,{atom,false}]}, Seen) orelse
+	gb_sets:is_element({is_eq_exact,[R,{atom,true}]}, Seen);
+is_test_redundant_1(_, _, _) -> false.
 
 kill_seen(Dst, Seen0) ->
     gb_sets:from_ordset(kill_seen_1(gb_sets:to_list(Seen0), Dst)).

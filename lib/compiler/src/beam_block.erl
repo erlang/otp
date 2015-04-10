@@ -155,7 +155,8 @@ collect(remove_message)      -> {set,[],[],remove_message};
 collect({put_map,F,Op,S,D,R,{list,Puts}}) ->
     {set,[D],[S|Puts],{alloc,R,{put_map,Op,F}}};
 collect({get_map_elements,F,S,{list,Gets}}) ->
-    {set,Gets,[S],{get_map_elements,F}};
+    {Ss,Ds} = beam_utils:split_even(Gets),
+    {set,Ds,[S|Ss],{get_map_elements,F}};
 collect({'catch',R,L})       -> {set,[R],[],{'catch',L}};
 collect(fclearerror)         -> {set,[],[],fclearerror};
 collect({fcheckerror,{f,0}}) -> {set,[],[],fcheckerror};
@@ -183,7 +184,7 @@ embed_lines([], Acc) -> Acc.
 
 opt_blocks([{block,Bl0}|Is]) ->
     %% The live annotation at the beginning is not useful.
-    [{'%live',_}|Bl] = Bl0,
+    [{'%live',_,_}|Bl] = Bl0,
     [{block,opt_block(Bl)}|opt_blocks(Is)];
 opt_blocks([I|Is]) ->
     [I|opt_blocks(Is)];
@@ -251,13 +252,6 @@ combine_alloc({_,Ns,Nh1,Init}, {_,nostack,Nh2,[]})  ->
 %% opt([Instruction]) -> [Instruction]
 %%  Optimize the instruction stream inside a basic block.
 
-opt([{set,[Dst],As,{bif,Bif,Fail}}=I1,
-     {set,[Dst],[Dst],{bif,'not',Fail}}=I2|Is]) ->
-    %% Get rid of the 'not' if the operation can be inverted.
-    case inverse_comp_op(Bif) of
- 	none -> [I1,I2|opt(Is)];
- 	RevBif -> [{set,[Dst],As,{bif,RevBif,Fail}}|opt(Is)]
-    end;
 opt([{set,[X],[X],move}|Is]) -> opt(Is);
 opt([{set,_,_,{line,_}}=Line1,
      {set,[D1],[{integer,Idx1},Reg],{bif,element,{f,0}}}=I1,
@@ -268,7 +262,7 @@ opt([{set,_,_,{line,_}}=Line1,
 opt([{set,Ds0,Ss,Op}|Is0]) ->	
     {Ds,Is} = opt_moves(Ds0, Is0),
     [{set,Ds,Ss,Op}|opt(Is)];
-opt([{'%live',_}=I|Is]) ->
+opt([{'%live',_,_}=I|Is]) ->
     [I|opt(Is)];
 opt([]) -> [].
 
@@ -426,18 +420,6 @@ x_dead([], Regs) -> Regs.
 x_live([{x,N}|Rs], Regs) -> x_live(Rs, Regs bor (1 bsl N));
 x_live([_|Rs], Regs) -> x_live(Rs, Regs);
 x_live([], Regs) -> Regs.
-
-%% inverse_comp_op(Op) -> none|RevOp
-
-inverse_comp_op('=:=') -> '=/=';
-inverse_comp_op('=/=') -> '=:=';
-inverse_comp_op('==') -> '/=';
-inverse_comp_op('/=') -> '==';
-inverse_comp_op('>') -> '=<';
-inverse_comp_op('<') -> '>=';
-inverse_comp_op('>=') -> '<';
-inverse_comp_op('=<') -> '>';
-inverse_comp_op(_) -> none.
 
 %%%
 %%% Evaluation of constant bit fields.

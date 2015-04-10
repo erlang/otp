@@ -45,20 +45,10 @@
 	 del_transient/3,
 	 del_index_table/3]).
 
--import(mnesia_lib, [verbose/2]).
+-import(mnesia_lib, [val/1, verbose/2]).
 -include("mnesia.hrl").
 
 -record(index, {setorbag, pos_list}).
-
-val(Var) ->
-    case ?catch_val(Var) of
-	{'EXIT', _ReASoN_} ->
-            case mnesia_lib:other_val(Var) of
-                error -> mnesia_lib:pr_other(Var, _ReASoN_);
-                Val -> Val
-            end;
-	_VaLuE_ -> _VaLuE_ 
-    end.
 
 %% read an object list throuh its index table
 %% we assume that table Tab has index on attribute number Pos

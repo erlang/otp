@@ -34,7 +34,14 @@
 	 bad_univ_to_local/1, bad_local_to_univ/1,
 	 univ_to_seconds/1, seconds_to_univ/1,
 	 consistency/1,
-	 now_unique/1, now_update/1, timestamp/1]).
+	 now_unique/1, now_update/1, timestamp/1,
+	 time_warp_modes/1,
+	 monotonic_time_monotonicity/1,
+	 time_unit_conversion/1,
+	 signed_time_unit_conversion/1,
+	 erlang_timestamp/1]).
+
+-export([init_per_testcase/2, end_per_testcase/2]).
 
 -export([local_to_univ_utc/1]).
 
@@ -56,6 +63,12 @@
 
 -define(dst_timezone, 2).
 
+init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
+    [{testcase, Func}|Config].
+
+end_per_testcase(_Func, Config) ->
+    ok.
+
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
@@ -63,7 +76,12 @@ all() ->
      bad_univ_to_local, bad_local_to_univ, 
      univ_to_seconds, seconds_to_univ,
      consistency,
-     {group, now}, timestamp].
+     {group, now}, timestamp,
+     time_warp_modes,
+     monotonic_time_monotonicity,
+     time_unit_conversion,
+     signed_time_unit_conversion,
+     erlang_timestamp].
 
 groups() -> 
     [{now, [], [now_unique, now_update]}].
@@ -420,6 +438,368 @@ now_update1(N) when N > 0 ->
 now_update1(0) ->
     ?line test_server:fail().
 
+time_warp_modes(Config) when is_list(Config) ->
+    %% All time warp modes always supported in
+    %% combination with no time correction...
+    check_time_warp_mode(Config, false, no_time_warp),
+    check_time_warp_mode(Config, false, single_time_warp),
+    check_time_warp_mode(Config, false, multi_time_warp),
+
+    erts_debug:set_internal_state(available_internal_state, true),
+    try
+	case erts_debug:get_internal_state({check_time_config,
+					    true, no_time_warp}) of
+	    false -> ok;
+	    true -> check_time_warp_mode(Config, true, no_time_warp)
+	end,
+	case erts_debug:get_internal_state({check_time_config,
+					    true, single_time_warp}) of
+	    false -> ok;
+	    true -> check_time_warp_mode(Config, true, single_time_warp)
+	end,
+	case erts_debug:get_internal_state({check_time_config,
+					    true, multi_time_warp}) of
+	    false -> ok;
+	    true -> check_time_warp_mode(Config, true, multi_time_warp)
+	end
+    after
+	erts_debug:set_internal_state(available_internal_state, false)
+    end.
+
+check_time_warp_mode(Config, TimeCorrection, TimeWarpMode) ->
+    io:format("~n~n~n***** Testing TimeCorrection=~p TimeWarpMode=~p *****~n",
+	      [TimeCorrection, TimeWarpMode]),
+    Mon = erlang:monitor(time_offset, clock_service),
+    _ = erlang:time_offset(),
+    Start = erlang:monotonic_time(1000),
+    MonotonicityTimeout = 2000,
+    {ok, Node} = start_node(Config,
+			    "+c " ++ atom_to_list(TimeCorrection)
+			    ++ " +C " ++ atom_to_list(TimeWarpMode)),
+    StartTime = rpc:call(Node, erlang, system_info, [start_time]),
+    Me = self(),
+    MonotincityTestStarted = make_ref(),
+    MonotincityTestDone = make_ref(),
+    spawn_link(Node,
+	       fun () ->
+		       Me ! MonotincityTestStarted,
+		       cmp_times(erlang:start_timer(MonotonicityTimeout,
+						    self(),
+						    timeout),
+				 erlang:monotonic_time()),
+		       Me ! MonotincityTestDone
+	       end),
+    receive MonotincityTestStarted -> ok end,
+    check_time_offset(Node, TimeWarpMode),
+    TimeWarpMode = rpc:call(Node, erlang, system_info, [time_warp_mode]),
+    TimeCorrection = rpc:call(Node, erlang, system_info, [time_correction]),
+    receive MonotincityTestDone -> ok end,
+    MonotonicTime = rpc:call(Node, erlang, monotonic_time, []),
+    MonotonicTimeUnit = rpc:call(Node,
+				       erlang,
+				       convert_time_unit,
+				       [1, seconds, native]),
+    UpMilliSeconds = erlang:convert_time_unit(MonotonicTime - StartTime,
+					      MonotonicTimeUnit,
+					      milli_seconds),
+    io:format("UpMilliSeconds=~p~n", [UpMilliSeconds]),
+    End = erlang:monotonic_time(milli_seconds),
+    stop_node(Node),
+    try
+	true = (UpMilliSeconds > (98*MonotonicityTimeout) div 100),
+	true = (UpMilliSeconds < (102*(End-Start)) div 100)
+    catch
+	error:_ ->
+	    io:format("Uptime inconsistency", []),
+	    case {TimeCorrection, erlang:system_info(time_correction)} of
+		{true, true} ->
+		    ?t:fail(uptime_inconsistency);
+		{true, false} ->
+		    _ = erlang:time_offset(),
+		    receive
+			{'CHANGE', Mon, time_offset, clock_service, _} ->
+			    ignore
+		    after 1000 ->
+			    ?t:fail(uptime_inconsistency)
+		    end;
+		_ ->
+		    ignore
+	    end
+    end,
+    erlang:demonitor(Mon, [flush]),
+    ok.
+
+check_time_offset(Node, no_time_warp) ->
+    final = rpc:call(Node, erlang, system_info, [time_offset]),
+    final = rpc:call(Node, erlang, system_flag, [time_offset, finalize]),
+    final = rpc:call(Node, erlang, system_info, [time_offset]);
+check_time_offset(Node, single_time_warp) ->
+    preliminary = rpc:call(Node, erlang, system_info, [time_offset]),
+    preliminary = rpc:call(Node, erlang, system_flag, [time_offset, finalize]),
+    final = rpc:call(Node, erlang, system_info, [time_offset]),
+    final = rpc:call(Node, erlang, system_flag, [time_offset, finalize]);
+check_time_offset(Node, multi_time_warp) ->
+    volatile = rpc:call(Node, erlang, system_info, [time_offset]),
+    volatile = rpc:call(Node, erlang, system_flag, [time_offset, finalize]),
+    volatile = rpc:call(Node, erlang, system_info, [time_offset]).
+
+monotonic_time_monotonicity(Config) when is_list(Config) ->
+    Done = erlang:start_timer(10000,self(),timeout),
+    cmp_times(Done, erlang:monotonic_time()).
+
+cmp_times(Done, X0) ->
+    X1 = erlang:monotonic_time(),
+    X2 = erlang:monotonic_time(),
+    X3 = erlang:monotonic_time(),
+    X4 = erlang:monotonic_time(),
+    X5 = erlang:monotonic_time(),
+    true = (X0 =< X1),
+    true = (X1 =< X2),
+    true = (X2 =< X3),
+    true = (X3 =< X4),
+    true = (X4 =< X5),
+    receive
+	{timeout, Done, timeout} ->
+	    ok
+    after 0 ->
+	    cmp_times(Done, X5)
+    end.
+
+-define(CHK_RES_CONVS_TIMEOUT, 400).
+
+time_unit_conversion(Config) when is_list(Config) ->
+    Mon = erlang:monitor(time_offset, clock_service),
+    start_check_res_convs(Mon, 1000000000000),
+    start_check_res_convs(Mon, 2333333333333),
+    start_check_res_convs(Mon, 5732678356789),
+    erlang:demonitor(Mon, [flush]).
+    
+start_check_res_convs(Mon, Res) ->
+    io:format("Checking ~p time_unit~n", [Res]),
+    check_res_convs(Mon,
+		    erlang:start_timer(?CHK_RES_CONVS_TIMEOUT,
+				       self(),
+				       timeout),
+		    Res).
+    
+
+check_res_convs(Mon, Done, Res) ->
+    receive
+	{timeout, Done, timeout} ->
+	    case Res div 10 of
+		0 ->
+		    ok;
+		NewRes ->
+		    start_check_res_convs(Mon, NewRes)
+	    end
+    after 0 ->
+	    do_check_res_convs(Mon, Done, Res)
+    end.
+
+do_check_res_convs(Mon, Done, Res) ->
+    TStart = erlang:monotonic_time(),
+    T = erlang:monotonic_time(Res),
+    TEnd = erlang:monotonic_time(),
+    TMin = erlang:convert_time_unit(TStart, native, Res),
+    TMax = erlang:convert_time_unit(TEnd, native, Res),
+    %io:format("~p =< ~p =< ~p~n", [TMin, T, TEnd]),
+    true = (TMin =< T),
+    true = (TMax >= T),
+    check_time_offset_res_conv(Mon, Res),
+    check_res_convs(Mon, Done, Res).
+
+
+check_time_offset_res_conv(Mon, Res) ->
+    TORes = erlang:time_offset(Res),
+    TO = erlang:time_offset(),
+    case erlang:convert_time_unit(TO, native, Res) of
+	TORes ->
+	    ok;
+	TORes2 ->
+	    case check_time_offset_change(Mon, TO, 1000) of
+		{TO, false} ->
+		    ?t:fail({time_unit_conversion_inconsistency,
+			     TO, TORes, TORes2});
+		{_NewTO, true} ->
+		    ?t:format("time_offset changed", []),
+		    check_time_offset_res_conv(Mon, Res)
+	    end
+    end.
+
+signed_time_unit_conversion(Config) when is_list(Config) ->
+    chk_strc(1000000000, 1000000),
+    chk_strc(1000000000, 1000),
+    chk_strc(1000000000, 1),
+    chk_strc(1000000, 1000),
+    chk_strc(1000000, 1),
+    chk_strc(1000, 1),
+    chk_strc(4711, 17),
+    chk_strc(1 bsl 10, 1),
+    chk_strc(1 bsl 16, 10),
+    chk_strc(1 bsl 17, 1 bsl 8),
+    chk_strc((1 bsl 17) + 1, (1 bsl 8) - 1),
+    chk_strc(1 bsl 17, 11),
+    ok.
+
+chk_strc(Res0, Res1) ->
+    case (Res0 /= Res1) andalso (Res0 =< 1000000) andalso (Res1 =< 1000000) of
+	true ->
+	    {FromRes, ToRes} = case Res0 > Res1 of
+				   true -> {Res0, Res1};
+				   false -> {Res1, Res0}
+			       end,
+	    MinFromValuesPerToValue = FromRes div ToRes,
+	    MaxFromValuesPerToValue = ((FromRes-1) div ToRes)+1,
+	    io:format("~p -> ~p [~p, ~p]~n",
+		      [FromRes, ToRes,
+		       MinFromValuesPerToValue, MaxFromValuesPerToValue]),
+	    chk_values_per_value(FromRes, ToRes,
+				 -10*FromRes, 10*FromRes,
+				 MinFromValuesPerToValue,
+				 MaxFromValuesPerToValue,
+				 undefined, MinFromValuesPerToValue);
+	_ ->
+	    ok
+    end,
+    chk_random_values(Res0, Res1),
+    chk_random_values(Res1, Res0),
+    ok.
+
+chk_random_values(FR, TR) ->
+%    case (FR rem TR == 0) orelse (TR rem FR == 0) of
+%	true ->
+	    io:format("rand values ~p -> ~p~n", [FR, TR]),
+	    random:seed(268438039, 268440479, 268439161),
+	    Values = lists:map(fun (_) -> random:uniform(1 bsl 65) - (1 bsl 64) end,
+			       lists:seq(1, 100000)),
+	    CheckFun = fun (V) ->
+			       CV = erlang:convert_time_unit(V, FR, TR),
+			       case {(FR*CV) div TR =< V,
+				     (FR*(CV+1)) div TR >= V} of
+				   {true, true} ->
+				       ok;
+				   Failure ->
+				       ?t:fail({Failure, CV, V, FR, TR})
+			       end
+		       end,
+	    lists:foreach(CheckFun, Values).%;
+%	false -> ok
+%    end.
+		       
+
+chk_values_per_value(_FromRes, _ToRes,
+	 EndValue, EndValue,
+	 MinFromValuesPerToValue, MaxFromValuesPerToValue,
+	 _ToValue, FromValueCount) ->
+%    io:format("~p [~p]~n", [EndValue, FromValueCount]),
+    case ((MinFromValuesPerToValue =< FromValueCount)
+	  andalso (FromValueCount =< MaxFromValuesPerToValue)) of
+	false ->
+	    ?t:fail({MinFromValuesPerToValue,
+		     FromValueCount,
+		     MaxFromValuesPerToValue});
+	true ->
+	    ok
+    end;
+chk_values_per_value(FromRes, ToRes, Value, EndValue,
+		     MinFromValuesPerToValue, MaxFromValuesPerToValue,
+		     ToValue, FromValueCount) ->
+    case erlang:convert_time_unit(Value, FromRes, ToRes) of
+	ToValue ->
+	    chk_values_per_value(FromRes, ToRes,
+				 Value+1, EndValue,
+				 MinFromValuesPerToValue,
+				 MaxFromValuesPerToValue,
+				 ToValue, FromValueCount+1);
+	NewToValue ->
+	    case ((MinFromValuesPerToValue =< FromValueCount)
+		  andalso (FromValueCount =< MaxFromValuesPerToValue)) of
+		false ->
+		    ?t:fail({MinFromValuesPerToValue,
+			     FromValueCount,
+			     MaxFromValuesPerToValue});
+		true ->
+%		    io:format("~p -> ~p [~p]~n",
+%			      [Value, NewToValue, FromValueCount]),
+		    chk_values_per_value(FromRes, ToRes,
+					 Value+1, EndValue,
+					 MinFromValuesPerToValue,
+					 MaxFromValuesPerToValue,
+					 NewToValue, 1)
+	    end
+    end.
+
+erlang_timestamp(Config) when is_list(Config) ->
+    Mon = erlang:monitor(time_offset, clock_service),
+    {TO, _} = check_time_offset_change(Mon,
+				       erlang:time_offset(),
+				       0),
+    Done = erlang:start_timer(10000,self(),timeout),
+    ok = check_erlang_timestamp(Done, Mon, TO).
+
+check_erlang_timestamp(Done, Mon, TO) ->
+    receive
+	{timeout, Done, timeout} ->
+	    erlang:demonitor(Mon, [flush]),
+	    ok
+    after 0 ->
+	    do_check_erlang_timestamp(Done, Mon, TO)
+    end.
+
+do_check_erlang_timestamp(Done, Mon, TO) ->
+    MinMon = erlang:monotonic_time(),
+    {MegaSec, Sec, MicroSec} = erlang:timestamp(),
+    MaxMon = erlang:monotonic_time(),
+    TsMin = erlang:convert_time_unit(MinMon+TO,
+				     native,
+				     micro_seconds),
+    TsMax = erlang:convert_time_unit(MaxMon+TO,
+				     native,
+				     micro_seconds),
+    TsTime = (MegaSec*1000000+Sec)*1000000+MicroSec,
+    case (TsMin =< TsTime) andalso (TsTime =< TsMax) of
+	true ->
+	    NewTO = case erlang:time_offset() of
+			TO ->
+			    TO;
+			_ ->
+			    check_time_offset_change(Mon, TO, 0)
+		    end,
+	    check_erlang_timestamp(Done, Mon, NewTO);
+	false ->
+	    io:format("TsMin=~p TsTime=~p TsMax=~p~n", [TsMin, TsTime, TsMax]),
+	    ?t:format("Detected inconsistency; "
+		      "checking for time_offset change...", []),
+	    case check_time_offset_change(Mon, TO, 1000) of
+		{TO, false} ->
+		    ?t:fail(timestamp_inconsistency);
+		{NewTO, true} ->
+		    ?t:format("time_offset changed", []),
+		    check_erlang_timestamp(Done, Mon, NewTO)
+	    end
+    end.
+
+check_time_offset_change(Mon, TO, Wait) ->
+    process_changed_time_offset(Mon, TO, false, Wait).
+
+process_changed_time_offset(Mon, TO, Changed, Wait) ->
+    receive
+	{'CHANGE', Mon, time_offset, clock_service, NewTO} ->
+	    process_changed_time_offset(Mon, NewTO, true, Wait)
+    after Wait ->
+	    case erlang:time_offset() of
+		TO ->
+		    {TO, Changed};
+		_OtherTO ->
+		    receive
+			{'CHANGE', Mon, time_offset, clock_service, NewTO} ->
+			    process_changed_time_offset(Mon, NewTO, true, Wait)
+		    end
+	    end
+    end.
+    
+
+
 %% Returns the test data: a list of {Utc, Local} tuples.
 
 test_data() ->
@@ -554,4 +934,25 @@ bad_dates() ->
 
      {{1996, 4, 30}, {12, 0, -1}},		% Sec
      {{1996, 4, 30}, {12, 0, 60}}].
-     
+
+start_node(Config) ->
+    start_node(Config, "").
+
+start_node(Config, Args) ->
+    TestCase = ?config(testcase, Config),
+    PA = filename:dirname(code:which(?MODULE)),
+    ESTime = erlang:monotonic_time(1) + erlang:time_offset(1),
+    Unique = erlang:unique_integer([positive]),
+    Name = list_to_atom(atom_to_list(?MODULE)
+			++ "-"
+			++ atom_to_list(TestCase)
+			++ "-"
+			++ integer_to_list(ESTime)
+			++ "-"
+			++ integer_to_list(Unique)),
+    test_server:start_node(Name,
+			   slave,
+			   [{args, "-pa " ++ PA ++ " " ++ Args}]).
+
+stop_node(Node) ->
+    test_server:stop_node(Node).

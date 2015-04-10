@@ -269,6 +269,7 @@ type    BUSY_CALLER_TAB	SHORT_LIVED	SYSTEM		busy_caller_table
 type    BUSY_CALLER	SHORT_LIVED	SYSTEM		busy_caller
 type	PROC_SYS_TSK	SHORT_LIVED	PROCESSES	proc_sys_task
 type	PROC_SYS_TSK_QS	SHORT_LIVED	PROCESSES	proc_sys_task_queues
+type    NEW_TIME_OFFSET	SHORT_LIVED	SYSTEM		new_time_offset
 
 +if threads_no_smp
 # Need thread safe allocs, but std_alloc and fix_alloc are not;
@@ -364,6 +365,7 @@ type	AINFO_REQ	STANDARD_LOW	SYSTEM		alloc_info_request
 type	SCHED_WTIME_REQ	STANDARD_LOW	SYSTEM		sched_wall_time_request
 type	GC_INFO_REQ	STANDARD_LOW	SYSTEM		gc_info_request
 type	PORT_DATA_HEAP	STANDARD_LOW	SYSTEM		port_data_heap
+type	BIF_TIMER_DATA	LONG_LIVED_LOW	SYSTEM		bif_timer_data
 
 +else # "fullword"
 
@@ -384,6 +386,7 @@ type	AINFO_REQ	SHORT_LIVED	SYSTEM		alloc_info_request
 type	SCHED_WTIME_REQ	SHORT_LIVED	SYSTEM		sched_wall_time_request
 type	GC_INFO_REQ	SHORT_LIVED	SYSTEM		gc_info_request
 type	PORT_DATA_HEAP	STANDARD	SYSTEM		port_data_heap
+type	BIF_TIMER_DATA	LONG_LIVED	SYSTEM		bif_timer_data
 
 +endif
 
@@ -415,6 +418,8 @@ type	CS_PROG_PATH	LONG_LIVED	SYSTEM		cs_prog_path
 type	ENVIRONMENT	TEMPORARY	SYSTEM		environment
 type	PUTENV_STR	SYSTEM		SYSTEM		putenv_string
 type	PRT_REP_EXIT	STANDARD	SYSTEM		port_report_exit
+type	SYS_BLOCKING	STANDARD	SYSTEM		sys_blocking
+type	SYS_WRITE_BUF	TEMPORARY	SYSTEM		sys_write_buf
 
 +endif
 

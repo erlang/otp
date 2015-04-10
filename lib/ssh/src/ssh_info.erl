@@ -179,7 +179,7 @@ line(Len, Char) ->
 	    
 
 datetime() ->
-    {{YYYY,MM,DD}, {H,M,S}} = calendar:now_to_universal_time(now()),
+    {{YYYY,MM,DD}, {H,M,S}} = calendar:now_to_universal_time(erlang:timestamp()),
     lists:flatten(io_lib:format('~4w-~2..0w-~2..0w ~2..0w:~2..0w:~2..0w UTC',[YYYY,MM,DD, H,M,S])).
 
 

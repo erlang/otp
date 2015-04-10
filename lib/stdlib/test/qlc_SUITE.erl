@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -3021,8 +3021,9 @@ lookup2(Config) when is_list(Config) ->
          end, [{3,true},{4,true}])">>,
 
        <<"%% Only guards are inspected. No lookup.
-          E1 = create_ets(1, 10),
-          E2 = ets:new(join, []),
+          E1 = ets:new(e, [ordered_set]),
+          true = ets:insert(E1, [{1,1}, {2,2}, {3,3}, {4,4}, {5,5}]),
+          E2 = ets:new(join, [ordered_set]),
           true = ets:insert(E2, [{true,1},{false,2}]),
           Q = qlc:q([{X,Z} || {_,X} <- ets:table(E1),
                               {Y,Z} <- ets:table(E2),
@@ -3418,7 +3419,8 @@ lookup2(Config) when is_list(Config) ->
            end, [{1},{2}])">>
 
        ],
-    ?line run(Config, Ts),
+
+    ok = run(Config, Ts),
 
     TsR = [
        %% is_record/2,3:
@@ -3456,7 +3458,8 @@ lookup2(Config) when is_list(Config) ->
          end, [{keypos,1}], [#r{}])">>
 
        ],
-    ?line run(Config, <<"-record(r, {a}).\n">>, TsR),
+
+    ok = run(Config, <<"-record(r, {a}).\n">>, TsR),
 
     Ts2 = [
        <<"etsc(fun(E) ->
@@ -3566,7 +3569,6 @@ lookup2(Config) when is_list(Config) ->
                        [{1,2},{2,2}] = qlc:e(Q),
                        [2] = lookup_keys(Q)
                end, [{keypos,1}], [{1},{2},{3}])">>,
-
        <<"%% Matchspec only. No cache.
           etsc(fun(E) ->
                        Q = qlc:q([{X,Y} ||
@@ -3578,7 +3580,7 @@ lookup2(Config) when is_list(Config) ->
                                {generate,_,
                                 {table,{ets,_,[_,[{traverse,_}]]}}}],[]} = 
                                        i(Q),
-                       [{1,2},{1,3},{2,2},{2,3}] = qlc:e(Q),
+                       [{1,2},{1,3},{2,2},{2,3}] = lists:sort(qlc:e(Q)),
                        false = lookup_keys(Q)
                end, [{keypos,1}], [{1},{2},{3}])">>,
        <<"%% Matchspec only. Cache
@@ -3592,7 +3594,7 @@ lookup2(Config) when is_list(Config) ->
                             {generate,_,{qlc,_,
                            [{generate,_,{table,{ets,_,[_,[{traverse,_}]]}}}],
                           [{cache,ets}]}}],[]} = i(Q),
-                       [{1,2},{1,3},{2,2},{2,3}] = qlc:e(Q),
+                       [{1,2},{1,3},{2,2},{2,3}] = lists:sort(qlc:e(Q)),
                        false = lookup_keys(Q)
                end, [{keypos,1}], [{1},{2},{3}])">>,
        <<"%% An empty list. Always unique and cached.
@@ -3645,7 +3647,7 @@ lookup2(Config) when is_list(Config) ->
 
       ],
 
-    ?line run(Config, Ts2),
+    ok = run(Config, Ts2),
 
     LTs = [
        <<"etsc(fun(E) ->
@@ -3677,7 +3679,8 @@ lookup2(Config) when is_list(Config) ->
                end, [{1,a},{2,b}])">>
 
        ],
-    ?line run(Config, LTs),
+
+    ok = run(Config, LTs),
 
     ok.
 
@@ -7891,7 +7894,7 @@ run_test(Config, Extra, {cres, Body, Opts, ExpectedCompileReturn}) ->
     {module, _} = code:load_abs(AbsFile, Mod),
 
     Ms0 = erlang:process_info(self(),messages),
-    Before = {get(), pps(), ets:all(), Ms0},
+    Before = {{get(), ets:all(), Ms0}, pps()},
 
     %% Prepare the check that the qlc module does not call qlc_pt.
     _ = [unload_pt() || {file, Name} <- [code:is_loaded(qlc_pt)], 
@@ -7921,12 +7924,29 @@ run_test(Config, Extra, {cres, Body, Opts, ExpectedCompileReturn}) ->
 run_test(Config, Extra, Body) ->
     run_test(Config, Extra, {cres,Body,[]}).
 
-wait_for_expected(R, Before, SourceFile, Wait) ->
+wait_for_expected(R, {Strict0,PPS0}=Before, SourceFile, Wait) ->
     Ms = erlang:process_info(self(),messages),
-    After = {get(), pps(), ets:all(), Ms},
+    After = {_,PPS1} = {{get(), ets:all(), Ms}, pps()},
     case {R, After} of
         {ok, Before} ->
             ok;
+        {ok, {Strict0,_}} ->
+            {Ports0,Procs0} = PPS0,
+            {Ports1,Procs1} = PPS1,
+            case {Ports1 -- Ports0, Procs1 -- Procs0} of
+                {[], []} -> ok;
+                _ when Wait ->
+                    timer:sleep(1000),
+                    wait_for_expected(R, Before, SourceFile, false);
+                {PortsDiff,ProcsDiff} ->
+                    io:format("failure, got ~p~n, expected ~p\n",
+                              [PPS1, PPS0]),
+                    show("Old port", Ports0 -- Ports1),
+                    show("New port", PortsDiff),
+                    show("Old proc", Procs0 -- Procs1),
+                    show("New proc", ProcsDiff),
+                    fail(SourceFile)
+            end;
         _ when Wait ->
             timer:sleep(1000),
             wait_for_expected(R, Before, SourceFile, false);
@@ -7993,7 +8013,7 @@ compile_file(Config, Test0, Opts0) ->
     case compile:file(File, Opts) of
         {ok, _M, Ws} -> warnings(File, Ws);
         {error, [{File,Es}], []} -> {errors, Es, []};
-        {error, [{File,Es}], [{File,Ws}]} -> {error, Es, Ws}
+        {error, [{File,Es}], [{File,Ws}]} -> {errors, Es, Ws}
     end.
 
 comp_compare(T, T) ->
@@ -8058,6 +8078,17 @@ filename(Name, Config) when is_atom(Name) ->
 filename(Name, Config) ->
     filename:join(?privdir, Name).
 
+show(_S, []) ->
+    ok;
+show(S, [{Pid, Name, InitCall}|Pids]) when is_pid(Pid) ->
+    io:format("~s: ~w (~w), ~w: ~p~n",
+              [S, Pid, proc_reg_name(Name), InitCall,
+               erlang:process_info(Pid)]),
+    show(S, Pids);
+show(S, [{Port, _}|Ports]) when is_port(Port)->
+    io:format("~s: ~w: ~p~n", [S, Port, erlang:port_info(Port)]),
+    show(S, Ports).
+
 pps() ->
     {port_list(), process_list()}.
 
@@ -8069,6 +8100,9 @@ process_list() ->
     [{P,process_info(P, registered_name),
       safe_second_element(process_info(P, initial_call))} || 
         P <- processes(), is_process_alive(P)].
+
+proc_reg_name({registered_name, Name}) -> Name;
+proc_reg_name([]) -> no_reg_name.
 
 safe_second_element({_,Info}) -> Info;
 safe_second_element(Other) -> Other.

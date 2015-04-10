@@ -81,9 +81,19 @@
 	 module :: atom(),
 	 val :: atom()}).
 
--record(state,{module,mname,type,tname,value,vname,erule,parameters=[],
-	       inputmodules,abscomppath=[],recordtopname=[],options,
-	       sourcedir}).
+-record(state,
+	{module,
+	 mname,
+	 tname,
+	 erule,
+	 parameters=[],
+	 inputmodules=[],
+	 abscomppath=[],
+	 recordtopname=[],
+	 options,
+	 sourcedir,
+	 error_context				%Top-level thingie (contains line numbers)
+	}).
 
 %% state record used by back-end at partial decode
 %% active is set to 'yes' when a partial decode function is generated.

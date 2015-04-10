@@ -5,8 +5,8 @@
 
 -export_type([array/0, digraph/0, gb_set/0]).
 
-%% Before Erlang/OTP 17.0 local re-definitions of pre-defined opaque
-%% types were ignored but did not generate any warning.
+%% Since Erlang/OTP 18.0 array() and so on are no longer pre-defined,
+%% so there is nothing special about them at all.
 -opaque array() :: atom().
 -opaque digraph() :: atom().
 -opaque gb_set() :: atom().

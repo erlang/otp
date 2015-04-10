@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2014. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -31,7 +31,7 @@
 	 printable_range/1,
 	 io_lib_print_binary_depth_one/1, otp_10302/1, otp_10755/1,
          otp_10836/1, io_lib_width_too_small/1,
-         io_with_huge_message_queue/1]).
+         io_with_huge_message_queue/1, format_string/1]).
 
 -export([pretty/2]).
 
@@ -71,7 +71,8 @@ all() ->
      io_fread_newlines, otp_8989, io_lib_fread_literal,
      printable_range,
      io_lib_print_binary_depth_one, otp_10302, otp_10755, otp_10836,
-     io_lib_width_too_small, io_with_huge_message_queue].
+     io_lib_width_too_small, io_with_huge_message_queue,
+     format_string].
 
 groups() -> 
     [].
@@ -1035,7 +1036,14 @@ rp(Term, Col, Ll, D, M, RF) ->
     lists:flatten(io_lib:format("~s", [R])).
 
 fmt(Fmt, Args) ->
-    lists:flatten(io_lib:format(Fmt, Args)).
+    FormatList = io_lib:scan_format(Fmt, Args),
+    {Fmt2, Args2} = io_lib:unscan_format(FormatList),
+    Chars1 = lists:flatten(io_lib:build_text(FormatList)),
+    Chars2 = lists:flatten(io_lib:format(Fmt2, Args2)),
+    Chars3 = lists:flatten(io_lib:format(Fmt, Args)),
+    Chars1 = Chars2,
+    Chars2 = Chars3,
+    Chars3.
 
 rfd(a, 0) ->
     [];
@@ -2261,3 +2269,9 @@ writes(0, _) -> ok;
 writes(N, F1) ->
     file:write(F1, "hello\n"),
     writes(N - 1, F1).
+
+format_string(Config) ->
+    %% All but padding is tested by fmt/2.
+    "xxxxxxsssx" = fmt("~10.4.xs", ["sss"]),
+    "xxxxxxsssx" = fmt("~10.4.*s", [$x, "sss"]),
+    ok.

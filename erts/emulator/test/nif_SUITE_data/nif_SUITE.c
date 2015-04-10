@@ -1717,8 +1717,9 @@ static ERL_NIF_TERM sorted_list_from_maps_nif(ErlNifEnv* env, int argc, const ER
 	return enif_make_int(env, __LINE__);
 
     cnt = 0;
+    next_ret = 1;
     while(enif_map_iterator_get_pair(env,&iter_f,&key,&value)) {
-	if (cnt && !next_ret)
+	if (!next_ret)
 	    return enif_make_int(env, __LINE__);
 	list_f = enif_make_list_cell(env, enif_make_tuple2(env, key, value), list_f);
 	next_ret = enif_map_iterator_next(env,&iter_f);
@@ -1731,8 +1732,9 @@ static ERL_NIF_TERM sorted_list_from_maps_nif(ErlNifEnv* env, int argc, const ER
 	return enif_make_int(env, __LINE__);
 
     cnt = 0;
+    prev_ret = 1;
     while(enif_map_iterator_get_pair(env,&iter_b,&key,&value)) {
-	if (cnt && !prev_ret)
+	if (!prev_ret)
 	    return enif_make_int(env, __LINE__);
 
 	/* Test that iter_f can step "backwards" */
@@ -1744,6 +1746,7 @@ static ERL_NIF_TERM sorted_list_from_maps_nif(ErlNifEnv* env, int argc, const ER
 
 	list_b = enif_make_list_cell(env, enif_make_tuple2(env, key, value), list_b);
 	prev_ret = enif_map_iterator_prev(env,&iter_b);
+	cnt++;
     }
 
     if (cnt) {

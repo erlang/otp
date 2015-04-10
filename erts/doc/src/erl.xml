@@ -495,24 +495,35 @@
           <c><![CDATA[werl]]></c>, not <c><![CDATA[erl]]></c> (<c><![CDATA[oldshell]]></c>). Note also that
           <c><![CDATA[Ctrl-Break]]></c> is used instead of <c><![CDATA[Ctrl-C]]></c> on Windows.</p>
       </item>
-      <tag><marker id="+c"><c><![CDATA[+c]]></c></marker></tag>
+      <tag><marker id="+c"><c><![CDATA[+c true | false]]></c></marker></tag>
       <item>
-        <p>Disable compensation for sudden changes of system time.</p>
-        <p>Normally, <c><![CDATA[erlang:now/0]]></c> will not immediately reflect
-          sudden changes in the system time, in order to keep timers
-          (including <c><![CDATA[receive-after]]></c>) working. Instead, the time
-          maintained by <c><![CDATA[erlang:now/0]]></c> is slowly adjusted towards
-          the new system time. (Slowly means in one percent adjustments;
-          if the time is off by one minute, the time will be adjusted
-          in 100 minutes.)</p>
-        <p>When the <c><![CDATA[+c]]></c> option is given, this slow adjustment
-          will not take place. Instead <c><![CDATA[erlang:now/0]]></c> will always
-          reflect the current system time. Note that timers are based
-          on <c><![CDATA[erlang:now/0]]></c>. If the system time jumps, timers
-          then time out at the wrong time.</p>
-        <p><em>NOTE</em>: You can check whether the adjustment is enabled or
-          disabled by calling
-	  <seealso marker="erlang#system_info_tolerant_timeofday">erlang:system_info(tolerant_timeofday)</seealso>.</p>
+        <p>Enable or disable
+	<seealso marker="time_correction#Time_Correction">time correction</seealso>:</p>
+	<taglist>
+	  <tag><c>true</c></tag>
+	  <item><p>Enable time correction. This is the default if
+	  time correction is supported on the specific platform.</p></item>
+
+	  <tag><c>false</c></tag>
+	  <item><p>Disable time correction.</p></item>
+	</taglist>
+	<p>For backwards compatibility, the boolean value can be omitted.
+	This is interpreted as <c>+c false</c>.
+	</p>
+      </item>
+      <tag><marker id="+C_"><c><![CDATA[+C no_time_warp | single_time_warp | multi_time_warp]]></c></marker></tag>
+      <item>
+        <p>Set
+	<seealso marker="time_correction#Time_Warp_Modes">time warp mode</seealso>:
+	</p>
+	<taglist>
+	  <tag><c>no_time_warp</c></tag>
+	  <item><p><seealso marker="time_correction#No_Time_Warp_Mode">No Time Warp Mode</seealso> (the default)</p></item>
+	  <tag><c>single_time_warp</c></tag>
+	  <item><p><seealso marker="time_correction#Single_Time_Warp_Mode">Single Time Warp Mode</seealso></p></item>
+	  <tag><c>multi_time_warp</c></tag>
+	  <item><p><seealso marker="time_correction#Multi_Time_Warp_Mode">Multi Time Warp Mode</seealso></p></item>
+	</taglist>
       </item>
       <tag><c><![CDATA[+d]]></c></tag>
       <item>
@@ -1150,9 +1161,9 @@
           <tag><marker id="+secio"><c>+secio true|false</c></marker></tag>
           <item>
 	    <p>Enable or disable eager check I/O scheduling. The default
-	    is currently <c>false</c>, but will most likely be changed
-	    to <c>true</c> in OTP 18. The behaviour before this flag
-	    was introduced corresponds to <c>+secio false</c>.</p>
+	    is currently <c>true</c>. The default was changed from <c>false</c>
+	    to <c>true</c> as of erts version 7.0. The behaviour before this
+	    flag was introduced corresponds to <c>+secio false</c>.</p>
 	    <p>The flag effects when schedulers will check for I/O
 	    operations possible to execute, and when such I/O operations
 	    will execute. As the name of the parameter implies,

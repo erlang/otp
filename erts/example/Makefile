@@ -30,7 +30,7 @@ CFLAGS += $(OUR_C_FLAGS)
 CXXFLAGS += $(OUR_C_FLAGS)
 
 TARGETS = pg_sync.beam pg_async.beam pg_sync.so pg_async.so \
-next_perm.so next_perm.beam
+next_perm.so next_perm.beam time_compat.beam
 
 all: $(TARGETS)
 

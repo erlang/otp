@@ -84,6 +84,15 @@
 -type dial_warning() :: {dial_warn_tag(), file_line(), {atom(), [term()]}}.
 
 %%
+%% This is the representation of each warning before suppressions have
+%% been applied
+%%
+-type m_or_mfa()     :: module() % warnings not associated with any function
+                      | mfa().
+-type warning_info() :: {file:filename(), non_neg_integer(), m_or_mfa()}.
+-type raw_warning()  :: {dial_warn_tag(), warning_info(), {atom(), [term()]}}.
+
+%%
 %% This is the representation of dialyzer's internal errors
 %%
 -type dial_error()   :: any().    %% XXX: underspecified
@@ -103,6 +112,7 @@
 -type fopt()          :: 'basename' | 'fullpath'.
 -type format()        :: 'formatted' | 'raw'.
 -type label()	      :: non_neg_integer().
+-type dial_warn_tags():: ordsets:ordset(dial_warn_tag()).
 -type rep_mode()      :: 'quiet' | 'normal' | 'verbose'.
 -type start_from()    :: 'byte_code' | 'src_code'.
 -type mfa_or_funlbl() :: label() | mfa().
@@ -138,7 +148,7 @@
 		  init_plts       = []	           :: [file:filename()],
 		  include_dirs    = []		   :: [file:filename()],
 		  output_plt      = none           :: 'none' | file:filename(),
-		  legal_warnings  = ordsets:new()  :: ordsets:ordset(dial_warn_tag()),
+		  legal_warnings  = ordsets:new()  :: dial_warn_tags(),
 		  report_mode     = normal	   :: rep_mode(),
 		  erlang_mode     = false	   :: boolean(),
 		  use_contracts   = true           :: boolean(),

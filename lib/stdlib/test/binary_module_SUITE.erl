@@ -506,12 +506,35 @@ do_interesting(Module) ->
     ?line [<<1,2,3>>,<<6>>] = Module:split(<<1,2,3,4,5,6,7,8>>,
 					   [<<4,5>>,<<7>>,<<8>>],
 					   [global,trim]),
+    ?line [<<1,2,3>>,<<6>>] = Module:split(<<1,2,3,4,5,6,7,8>>,
+					   [<<4,5>>,<<7>>,<<8>>],
+					   [global,trim_all]),
     ?line [<<1,2,3,4,5,6,7,8>>] = Module:split(<<1,2,3,4,5,6,7,8>>,
 					       [<<4,5>>,<<7>>,<<8>>],
 					       [global,trim,{scope,{0,4}}]),
     ?line [<<1,2,3>>,<<6,7,8>>] = Module:split(<<1,2,3,4,5,6,7,8>>,
 					       [<<4,5>>,<<7>>,<<8>>],
 					       [global,trim,{scope,{0,5}}]),
+
+    ?line [<<>>,<<>>,<<3>>,<<6,7,8>>] = Module:split(<<1,2,3,4,5,6,7,8>>,
+					   [<<1>>,<<2>>,<<4,5>>],
+					   [global,trim]),
+    ?line [<<3>>,<<6,7,8>>] = Module:split(<<1,2,3,4,5,6,7,8>>,
+					   [<<1>>,<<2>>,<<4,5>>],
+					   [global,trim_all]),
+
+    ?line [<<1,2,3>>,<<>>,<<7,8>>] = Module:split(<<1,2,3,4,5,6,7,8>>,
+					   [<<4,5>>,<<6>>],
+					   [global,trim]),
+    ?line [<<1,2,3>>,<<7,8>>] = Module:split(<<1,2,3,4,5,6,7,8>>,
+					   [<<4,5>>,<<6>>],
+					   [global,trim_all]),
+    ?line [<<>>,<<>>,<<3>>,<<>>,<<6>>] = Module:split(<<1,2,3,4,5,6,7,8>>,
+					   [<<1>>,<<2>>,<<4>>,<<5>>,<<7>>,<<8>>],
+					   [global,trim]),
+    ?line [<<3>>,<<6>>] = Module:split(<<1,2,3,4,5,6,7,8>>,
+					   [<<1>>,<<2>>,<<4>>,<<5>>,<<7>>,<<8>>],
+					   [global,trim_all]),
     ?line badarg = ?MASK_ERROR(
 		      Module:replace(<<1,2,3,4,5,6,7,8>>,
 				     [<<4,5>>,<<7>>,<<8>>],<<99>>,
@@ -1247,6 +1270,8 @@ do_random_split_comp(N,NeedleRange,HaystackRange) ->
     true = do_split_comp(Needle,Haystack,[]),
     true = do_split_comp(Needle,Haystack,[global]),
     true = do_split_comp(Needle,Haystack,[global,trim]),
+    true = do_split_comp(Needle,Haystack,[global,trim_all]),
+    true = do_split_comp(Needle,Haystack,[global,trim,trim_all]),
     do_random_split_comp(N-1,NeedleRange,HaystackRange).
 do_random_split_comp2(0,_,_) ->
     ok;
@@ -1257,6 +1282,9 @@ do_random_split_comp2(N,NeedleRange,HaystackRange) ->
 		  _ <- lists:duplicate(NumNeedles,a)],
     true = do_split_comp(Needles,Haystack,[]),
     true = do_split_comp(Needles,Haystack,[global]),
+    true = do_split_comp(Needles,Haystack,[global,trim]),
+    true = do_split_comp(Needles,Haystack,[global,trim_all]),
+    true = do_split_comp(Needles,Haystack,[global,trim,trim_all]),
     do_random_split_comp2(N-1,NeedleRange,HaystackRange).
 
 do_split_comp(N,H,Opts) ->

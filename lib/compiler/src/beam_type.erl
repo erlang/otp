@@ -106,6 +106,20 @@ simplify_basic_1([{test,test_arity,_,[R,Arity]}=I|Is], Ts0, Acc) ->
 	    Ts = update(I, Ts0),
 	    simplify_basic_1(Is, Ts, [I|Acc])
     end;
+simplify_basic_1([{test,is_map,_,[R]}=I|Is], Ts0, Acc) ->
+    case tdb_find(R, Ts0) of
+	map -> simplify_basic_1(Is, Ts0, Acc);
+	_Other ->
+	    Ts = update(I, Ts0),
+	    simplify_basic_1(Is, Ts, [I|Acc])
+    end;
+simplify_basic_1([{test,is_nonempty_list,_,[R]}=I|Is], Ts0, Acc) ->
+    case tdb_find(R, Ts0) of
+	nonempty_list -> simplify_basic_1(Is, Ts0, Acc);
+	_Other ->
+	    Ts = update(I, Ts0),
+	    simplify_basic_1(Is, Ts, [I|Acc])
+    end;
 simplify_basic_1([{test,is_eq_exact,Fail,[R,{atom,_}=Atom]}=I|Is0], Ts0, Acc0) ->
     Acc = case tdb_find(R, Ts0) of
 	      {atom,_}=Atom -> Acc0;
@@ -230,7 +244,7 @@ clearerror([], OrigIs) -> [{set,[],[],fclearerror}|OrigIs].
 %%  Combine two blocks and eliminate any move instructions that assign
 %%  to registers that are killed later in the block.
 %%
-merge_blocks(B1, [{'%live',_}|B2]) ->
+merge_blocks(B1, [{'%live',_,_}|B2]) ->
     merge_blocks_1(B1++[{set,[],[],stop_here}|B2]).
 
 merge_blocks_1([{set,[],_,stop_here}|Is]) -> Is;
@@ -315,27 +329,27 @@ build_alloc(Words, Floats) -> {alloc,[{words,Words},{floats,Floats}]}.
 
 %% flt_liveness([Instruction]) -> [Instruction]
 %%  (Re)calculate the number of live registers for each heap allocation
-%%  function. We base liveness of the number of live registers at
-%%  entry to the instruction sequence.
+%%  function. We base liveness of the number of register map at the
+%%  beginning of the instruction sequence.
 %%
 %%  A 'not_possible' term will be thrown if the set of live registers
 %%  is not continous at an allocation function (e.g. if {x,0} and {x,2}
 %%  are live, but not {x,1}).
 
-flt_liveness([{'%live',Live}=LiveInstr|Is]) ->
-    flt_liveness_1(Is, init_regs(Live), [LiveInstr]).
+flt_liveness([{'%live',_Live,Regs}=LiveInstr|Is]) ->
+    flt_liveness_1(Is, Regs, [LiveInstr]).
 
-flt_liveness_1([{set,Ds,Ss,{alloc,_,Alloc}}|Is], Regs0, Acc) ->
-    Live = live_regs(Regs0),
+flt_liveness_1([{set,Ds,Ss,{alloc,Live0,Alloc}}|Is], Regs0, Acc) ->
+    Live = min(Live0, live_regs(Regs0)),
     I = {set,Ds,Ss,{alloc,Live,Alloc}},
-    Regs = foldl(fun(R, A) -> set_live(R, A) end, Regs0, Ds),
+    Regs1 = init_regs(Live),
+    Regs = x_live(Ds, Regs1),
     flt_liveness_1(Is, Regs, [I|Acc]);
 flt_liveness_1([{set,Ds,_,_}=I|Is], Regs0, Acc) ->
-    Regs = foldl(fun(R, A) -> set_live(R, A) end, Regs0, Ds),
+    Regs = x_live(Ds, Regs0),
     flt_liveness_1(Is, Regs, [I|Acc]);
-flt_liveness_1([{'%live',_}=I|Is], Regs, Acc) ->
-    flt_liveness_1(Is, Regs, [I|Acc]);
-flt_liveness_1([], _Regs, Acc) -> reverse(Acc).
+flt_liveness_1([{'%live',_,_}], _Regs, Acc) ->
+    reverse(Acc).
 
 init_regs(Live) ->
     (1 bsl Live) - 1.
@@ -350,14 +364,15 @@ live_regs_1(R, N) ->
 	1 -> live_regs_1(R bsr 1, N+1)
     end.
 
-set_live({x,X}, Regs) -> Regs bor (1 bsl X);
-set_live(_, Regs) -> Regs.
+x_live([{x,N}|Rs], Regs) -> x_live(Rs, Regs bor (1 bsl N));
+x_live([_|Rs], Regs) -> x_live(Rs, Regs);
+x_live([], Regs) -> Regs.
 
 %% update(Instruction, TypeDb) -> NewTypeDb
 %%  Update the type database to account for executing an instruction.
 %%
 %%  First the cases for instructions inside basic blocks.
-update({'%live',_}, Ts) -> Ts;
+update({'%live',_,_}, Ts) -> Ts;
 update({set,[D],[S],move}, Ts) ->
     tdb_copy(S, D, Ts);
 update({set,[D],[{integer,I},Reg],{bif,element,_}}, Ts0) ->
@@ -402,6 +417,10 @@ update({test,is_float,_Fail,[Src]}, Ts0) ->
     tdb_update([{Src,float}], Ts0);
 update({test,test_arity,_Fail,[Src,Arity]}, Ts0) ->
     tdb_update([{Src,{tuple,Arity,[]}}], Ts0);
+update({test,is_map,_Fail,[Src]}, Ts0) ->
+    tdb_update([{Src,map}], Ts0);
+update({test,is_nonempty_list,_Fail,[Src]}, Ts0) ->
+    tdb_update([{Src,nonempty_list}], Ts0);
 update({test,is_eq_exact,_,[Reg,{atom,_}=Atom]}, Ts) ->
     case tdb_find(Reg, Ts) of
 	error ->
@@ -451,6 +470,7 @@ is_math_bif(erf, 1) -> true;
 is_math_bif(erfc, 1) -> true;
 is_math_bif(exp, 1) -> true;
 is_math_bif(log, 1) -> true;
+is_math_bif(log2, 1) -> true;
 is_math_bif(log10, 1) -> true;
 is_math_bif(sqrt, 1) -> true;
 is_math_bif(atan2, 2) -> true;
@@ -710,6 +730,8 @@ merge_type_info(NewType, _) ->
     verify_type(NewType),
     NewType.
 
+verify_type(map) -> ok;
+verify_type(nonempty_list) -> ok;
 verify_type({tuple,Sz,[]}) when is_integer(Sz) -> ok;
 verify_type({tuple,Sz,[_]}) when is_integer(Sz) -> ok;
 verify_type({tuple_element,_,_}) -> ok;

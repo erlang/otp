@@ -445,21 +445,15 @@ open(Item, ModeList) when is_list(ModeList) ->
     case lists:member(raw, ModeList) of
 	%% Raw file, use ?PRIM_FILE to handle this file
 	true ->
-	    %% check if raw file mode is disabled
-	    case catch application:get_env(kernel, raw_files) of
-		{ok,false} ->
-		    open(Item, lists:delete(raw, ModeList));
-		_ ->				% undefined | {ok,true}
-		    Args = [file_name(Item) | ModeList],
-		    case check_args(Args) of
-			ok ->
-			    [FileName | _] = Args,
-			    %% We rely on the returned Handle (in {ok, Handle})
-			    %% being a pid() or a #file_descriptor{}
-			    ?PRIM_FILE:open(FileName, ModeList);
-			Error ->
-			    Error
-		    end
+            Args = [file_name(Item) | ModeList],
+            case check_args(Args) of
+                ok ->
+                    [FileName | _] = Args,
+                    %% We rely on the returned Handle (in {ok, Handle})
+                    %% being a pid() or a #file_descriptor{}
+                    ?PRIM_FILE:open(FileName, ModeList);
+                Error ->
+                    Error
 	    end;
 	false ->
 	    case lists:member(ram, ModeList) of

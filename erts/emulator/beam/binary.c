@@ -26,7 +26,9 @@
 #include "global.h"
 #include "erl_process.h"
 #include "error.h"
+#define ERL_WANT_HIPE_BIF_WRAPPER__
 #include "bif.h"
+#undef ERL_WANT_HIPE_BIF_WRAPPER__
 #include "big.h"
 #include "erl_binary.h"
 #include "erl_bits.h"
@@ -83,8 +85,6 @@ new_binary(Process *p, byte *buf, Uint len)
      * Allocate the binary struct itself.
      */
     bptr = erts_bin_nrml_alloc(len);
-    bptr->flags = 0;
-    bptr->orig_size = len;
     erts_refc_init(&bptr->refc, 1);
     if (buf != NULL) {
 	sys_memcpy(bptr->orig_bytes, buf, len);
@@ -122,8 +122,6 @@ Eterm erts_new_mso_binary(Process *p, byte *buf, int len)
      * Allocate the binary struct itself.
      */
     bptr = erts_bin_nrml_alloc(len);
-    bptr->flags = 0;
-    bptr->orig_size = len;
     erts_refc_init(&bptr->refc, 1);
     if (buf != NULL) {
 	sys_memcpy(bptr->orig_bytes, buf, len);
@@ -177,7 +175,6 @@ erts_realloc_binary(Eterm bin, size_t size)
     } else {			/* REFC */
 	ProcBin* pb = (ProcBin *) bval;
 	Binary* newbin = erts_bin_realloc(pb->val, size);
-	newbin->orig_size = size;
 	pb->val = newbin;
 	pb->size = size;
 	pb->bytes = (byte*) newbin->orig_bytes;

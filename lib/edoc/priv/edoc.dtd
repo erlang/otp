@@ -2,19 +2,12 @@
 <!-- EDoc DTD Version 0.3 -->
 
 <!ELEMENT overview (title, description?, author*, copyright?, version?,
-                    since?, see*, reference*, todo?, packages, modules)>
+                    since?, see*, reference*, todo?, modules)>
 <!ATTLIST overview
   root CDATA #IMPLIED
   encoding CDATA #IMPLIED>
 
 <!ELEMENT title (#PCDATA)>
-
-<!ELEMENT package (description?, author*, copyright?, version?,
-		   since?, deprecated?, see*, reference*, todo?,
-		   modules)>
-<!ATTLIST package
-  name CDATA #REQUIRED
-  root CDATA #IMPLIED>
 
 <!ELEMENT modules (module+)>
 

@@ -72,7 +72,8 @@
 
 -record(c_map, {anno=[],
 		arg=#c_literal{val=#{}} :: cerl:c_var() | cerl:c_literal(),
-		es :: [cerl:c_map_pair()]}).
+		es :: [cerl:c_map_pair()],
+		is_pat=false :: boolean()}).
 
 -record(c_map_pair, {anno=[],
 	             op :: #c_literal{val::'assoc'} | #c_literal{val::'exact'},

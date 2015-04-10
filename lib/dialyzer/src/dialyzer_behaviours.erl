@@ -52,7 +52,7 @@
 
 -spec check_callbacks(module(), [{cerl:cerl(), cerl:cerl()}], rectab(),
 		      dialyzer_plt:plt(),
-		      dialyzer_codeserver:codeserver()) -> [dial_warning()].
+		      dialyzer_codeserver:codeserver()) -> [raw_warning()].
 
 check_callbacks(Module, Attrs, Records, Plt, Codeserver) ->
   {Behaviours, BehLines} = get_behaviours(Attrs),
@@ -65,7 +65,7 @@ check_callbacks(Module, Attrs, Records, Plt, Codeserver) ->
       State = #state{plt = Plt, filename = File, behlines = BehLines,
 		     codeserver = Codeserver, records = Records},
       Warnings = get_warnings(Module, Behaviours, State),
-      [add_tag_file_line(Module, W, State) || W <- Warnings]
+      [add_tag_warning_info(Module, W, State) || W <- Warnings]
   end.
 
 %%--------------------------------------------------------------------
@@ -102,14 +102,18 @@ check_all_callbacks(Module, Behaviour, [Cb|Rest],
 		    #state{plt = Plt, codeserver = Codeserver,
 			   records = Records} = State, Acc) ->
   {{Behaviour, Function, Arity},
-   {{_BehFile, _BehLine}, Callback}} = Cb,
+   {{_BehFile, _BehLine}, Callback, Xtra}} = Cb,
   CbMFA = {Module, Function, Arity},
   CbReturnType = dialyzer_contracts:get_contract_return(Callback),
   CbArgTypes = dialyzer_contracts:get_contract_args(Callback),
   Acc0 = Acc,
   Acc1 = 
     case dialyzer_plt:lookup(Plt, CbMFA) of
-      'none' -> [{callback_missing, [Behaviour, Function, Arity]}|Acc0];
+      'none' ->
+        case lists:member(optional_callback, Xtra) of
+          true -> Acc0;
+          false -> [{callback_missing, [Behaviour, Function, Arity]}|Acc0]
+        end;
       {'value', RetArgTypes} ->
 	Acc00 = Acc0,
 	{ReturnType, ArgTypes} = RetArgTypes,
@@ -137,7 +141,7 @@ check_all_callbacks(Module, Behaviour, [Cb|Rest],
   Acc2 =
     case dialyzer_codeserver:lookup_mfa_contract(CbMFA, Codeserver) of
       'error' -> Acc1;
-      {ok, {{File, Line}, Contract}} ->
+      {ok, {{File, Line}, Contract, _Xtra}} ->
 	Acc10 = Acc1,
 	SpecReturnType0 = dialyzer_contracts:get_contract_return(Contract),
 	SpecArgTypes0 = dialyzer_contracts:get_contract_args(Contract),
@@ -189,7 +193,7 @@ find_mismatching_args(Kind, [Type|Rest], [CbType|CbRest], Behaviour,
 			    Arity, Records, N+1, NewAcc)
   end.
 
-add_tag_file_line(_Module, {Tag, [B|_R]} = Warn, State)
+add_tag_warning_info(Module, {Tag, [B|_R]} = Warn, State)
   when Tag =:= callback_missing;
        Tag =:= callback_info_missing ->
   {B, Line} = lists:keyfind(B, 1, State#state.behlines),
@@ -198,18 +202,18 @@ add_tag_file_line(_Module, {Tag, [B|_R]} = Warn, State)
       callback_missing -> ?WARN_BEHAVIOUR;
       callback_info_missing -> ?WARN_UNDEFINED_CALLBACK
     end,
-  {Category, {State#state.filename, Line}, Warn};
-add_tag_file_line(_Module, {Tag, [File, Line|R]}, _State)
+  {Category, {State#state.filename, Line, Module}, Warn};
+add_tag_warning_info(Module, {Tag, [File, Line|R]}, _State)
   when Tag =:= callback_spec_type_mismatch;
        Tag =:= callback_spec_arg_type_mismatch ->
-  {?WARN_BEHAVIOUR, {File, Line}, {Tag, R}};
-add_tag_file_line(Module, {_Tag, [_B, Fun, Arity|_R]} = Warn, State) ->
+  {?WARN_BEHAVIOUR, {File, Line, Module}, {Tag, R}};
+add_tag_warning_info(Module, {_Tag, [_B, Fun, Arity|_R]} = Warn, State) ->
   {_A, FunCode} =
     dialyzer_codeserver:lookup_mfa_code({Module, Fun, Arity},
 					State#state.codeserver),
   Anns = cerl:get_ann(FunCode),
-  FileLine = {get_file(Anns), get_line(Anns)},
-  {?WARN_BEHAVIOUR, FileLine, Warn}.
+  WarningInfo = {get_file(Anns), get_line(Anns), {Module, Fun, Arity}},
+  {?WARN_BEHAVIOUR, WarningInfo, Warn}.
 
 get_line([Line|_]) when is_integer(Line) -> Line;
 get_line([_|Tail]) -> get_line(Tail);

@@ -23,7 +23,7 @@
          bad_zip/1, unzip_from_binary/1, unzip_to_binary/1,
          zip_to_binary/1,
          unzip_options/1, zip_options/1, list_dir_options/1, aliases/1,
-         openzip_api/1, zip_api/1, unzip_jar/1,
+         openzip_api/1, zip_api/1, open_leak/1, unzip_jar/1,
          compress_control/1,
 	 foldl/1]).
 
@@ -38,7 +38,7 @@ all() ->
     [borderline, atomic, bad_zip, unzip_from_binary,
      unzip_to_binary, zip_to_binary, unzip_options,
      zip_options, list_dir_options, aliases, openzip_api,
-     zip_api, unzip_jar, compress_control, foldl].
+     zip_api, open_leak, unzip_jar, compress_control, foldl].
 
 groups() -> 
     [].
@@ -318,7 +318,45 @@ zip_api(Config) when is_list(Config) ->
     %% Clean up.
     delete_files([Names]),
 
+   ok.
+
+open_leak(doc) ->
+    ["Test that zip doesn't leak processes and ports where the "
+     "controlling process dies without closing an zip opened with "
+     "zip:zip_open/1."];
+open_leak(suite) -> [];
+open_leak(Config) when is_list(Config) ->
+    %% Create a zip archive
+    Zip = "zip.zip",
+    {ok, Zip} = zip:zip(Zip, [], []),
+
+    %% Open archive in a another process that dies immediately.
+    ZipSrv = spawn_zip(Zip, [memory]),
+
+    %% Expect the ZipSrv process to die soon after.
+    true = spawned_zip_dead(ZipSrv),
+
+    %% Clean up.
+    delete_files([Zip]),
+
     ok.
+
+spawn_zip(Zip, Options) ->
+    Self = self(),
+    spawn(fun() -> Self ! zip:zip_open(Zip, Options) end),
+    receive
+        {ok, ZipSrv} ->
+            ZipSrv
+    end.
+
+spawned_zip_dead(ZipSrv) ->
+    Ref = monitor(process, ZipSrv),
+    receive
+        {'DOWN', Ref, _, ZipSrv, _} ->
+            true
+    after 1000 ->
+            false
+    end.
 
 unzip_options(doc) ->
     ["Test options for unzip, only cwd and file_list currently"];

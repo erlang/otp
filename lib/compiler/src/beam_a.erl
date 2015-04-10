@@ -54,6 +54,9 @@ rename_instrs([{call_only,A,F}|Is]) ->
     [{call,A,F},return|rename_instrs(Is)];
 rename_instrs([{call_ext_only,A,F}|Is]) ->
     [{call_ext,A,F},return|rename_instrs(Is)];
+rename_instrs([{'%live',_}|Is]) ->
+    %% When compiling from old .S files.
+    rename_instrs(Is);
 rename_instrs([I|Is]) ->
     [rename_instr(I)|rename_instrs(Is)];
 rename_instrs([]) -> [].

@@ -36,6 +36,9 @@
 	 get_state/1, replace_state/1, call_with_huge_message_queue/1
 	]).
 
+-export([stop1/1, stop2/1, stop3/1, stop4/1, stop5/1, stop6/1, stop7/1,
+	 stop8/1, stop9/1, stop10/1]).
+
 % spawn export
 -export([spec_init_local/2, spec_init_global/2, spec_init_via/2,
 	 spec_init_default_timeout/2, spec_init_global_default_timeout/2,
@@ -51,7 +54,7 @@
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    [start, crash, call, cast, cast_fast, info, abcast,
+    [start, {group,stop}, crash, call, cast, cast_fast, info, abcast,
      multicall, multicall_down, call_remote1, call_remote2,
      call_remote3, call_remote_n1, call_remote_n2,
      call_remote_n3, spec_init,
@@ -63,7 +66,8 @@ all() ->
      call_with_huge_message_queue].
 
 groups() -> 
-    [].
+    [{stop, [],
+      [stop1, stop2, stop3, stop4, stop5, stop6, stop7, stop8, stop9, stop10]}].
 
 init_per_suite(Config) ->
     Config.
@@ -235,6 +239,105 @@ start(Config) when is_list(Config) ->
     test_server:messages_get(),
 
     process_flag(trap_exit, OldFl),
+    ok.
+
+%% Anonymous, reason 'normal'
+stop1(_Config) ->
+    {ok, Pid} = gen_server:start(?MODULE, [], []),
+    ok = gen_server:stop(Pid),
+    false = erlang:is_process_alive(Pid),
+    {'EXIT',noproc} = (catch gen_server:stop(Pid)),
+    ok.
+
+%% Anonymous, other reason
+stop2(_Config) ->
+    {ok,Pid} = gen_server:start(?MODULE, [], []),
+    ok = gen_server:stop(Pid, other_reason, infinity),
+    false = erlang:is_process_alive(Pid),
+    ok.
+
+%% Anonymous, invalid timeout
+stop3(_Config) ->
+    {ok,Pid} = gen_server:start(?MODULE, [], []),
+    {'EXIT',_} = (catch gen_server:stop(Pid, other_reason, invalid_timeout)),
+    true = erlang:is_process_alive(Pid),
+    ok = gen_server:stop(Pid),
+    false = erlang:is_process_alive(Pid),
+    ok.
+
+%% Registered name
+stop4(_Config) ->
+    {ok,Pid} = gen_server:start({local,to_stop},?MODULE, [], []),
+    ok = gen_server:stop(to_stop),
+    false = erlang:is_process_alive(Pid),
+    {'EXIT',noproc} = (catch gen_server:stop(to_stop)),
+    ok.
+
+%% Registered name and local node
+stop5(_Config) ->
+    {ok,Pid} = gen_server:start({local,to_stop},?MODULE, [], []),
+    ok = gen_server:stop({to_stop,node()}),
+    false = erlang:is_process_alive(Pid),
+    {'EXIT',noproc} = (catch gen_server:stop({to_stop,node()})),
+    ok.
+
+%% Globally registered name
+stop6(_Config) ->
+    {ok, Pid} = gen_server:start({global, to_stop}, ?MODULE, [], []),
+    ok = gen_server:stop({global,to_stop}),
+    false = erlang:is_process_alive(Pid),
+    {'EXIT',noproc} = (catch gen_server:stop({global,to_stop})),
+    ok.
+
+%% 'via' registered name
+stop7(_Config) ->
+    dummy_via:reset(),
+    {ok, Pid} = gen_server:start({via, dummy_via, to_stop},
+				  ?MODULE, [], []),
+    ok = gen_server:stop({via, dummy_via, to_stop}),
+    false = erlang:is_process_alive(Pid),
+    {'EXIT',noproc} = (catch gen_server:stop({via, dummy_via, to_stop})),
+    ok.
+
+%% Anonymous on remote node
+stop8(_Config) ->
+    {ok,Node} = test_server:start_node(gen_server_SUITE_stop8,slave,[]),
+    Dir = filename:dirname(code:which(?MODULE)),
+    rpc:call(Node,code,add_path,[Dir]),
+    {ok, Pid} = rpc:call(Node,gen_server,start,[?MODULE,[],[]]),
+    ok = gen_server:stop(Pid),
+    false = rpc:call(Node,erlang,is_process_alive,[Pid]),
+    {'EXIT',noproc} = (catch gen_server:stop(Pid)),
+    true = test_server:stop_node(Node),
+    {'EXIT',{{nodedown,Node},_}} = (catch gen_server:stop(Pid)),
+    ok.
+
+%% Registered name on remote node
+stop9(_Config) ->
+    {ok,Node} = test_server:start_node(gen_server_SUITE_stop9,slave,[]),
+    Dir = filename:dirname(code:which(?MODULE)),
+    rpc:call(Node,code,add_path,[Dir]),
+    {ok, Pid} = rpc:call(Node,gen_server,start,[{local,to_stop},?MODULE,[],[]]),
+    ok = gen_server:stop({to_stop,Node}),
+    undefined = rpc:call(Node,erlang,whereis,[to_stop]),
+    false = rpc:call(Node,erlang,is_process_alive,[Pid]),
+    {'EXIT',noproc} = (catch gen_server:stop({to_stop,Node})),
+    true = test_server:stop_node(Node),
+    {'EXIT',{{nodedown,Node},_}} = (catch gen_server:stop({to_stop,Node})),
+    ok.
+
+%% Globally registered name on remote node
+stop10(_Config) ->
+    {ok,Node} = test_server:start_node(gen_server_SUITE_stop10,slave,[]),
+    Dir = filename:dirname(code:which(?MODULE)),
+    rpc:call(Node,code,add_path,[Dir]),
+    {ok, Pid} = rpc:call(Node,gen_server,start,[{global,to_stop},?MODULE,[],[]]),
+    global:sync(),
+    ok = gen_server:stop({global,to_stop}),
+    false = rpc:call(Node,erlang,is_process_alive,[Pid]),
+    {'EXIT',noproc} = (catch gen_server:stop({global,to_stop})),
+    true = test_server:stop_node(Node),
+    {'EXIT',noproc} = (catch gen_server:stop({global,to_stop})),
     ok.
 
 crash(Config) when is_list(Config) ->

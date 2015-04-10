@@ -459,23 +459,25 @@ Eterm erts_gc_byte_size_1(Process* p, Eterm* reg, Uint live)
 Eterm erts_gc_map_size_1(Process* p, Eterm* reg, Uint live)
 {
     Eterm arg = reg[live];
-    if (is_map(arg)) {
-	map_t *mp = (map_t*)map_val(arg);
-	Uint size = map_get_size(mp);
-	if (IS_USMALL(0, size)) {
-	    return make_small(size);
-	} else {
-	    Eterm* hp;
-	    if (ERTS_NEED_GC(p, BIG_UINT_HEAP_SIZE)) {
-		erts_garbage_collect(p, BIG_UINT_HEAP_SIZE, reg, live);
-	    }
-	    hp = p->htop;
-	    p->htop += BIG_UINT_HEAP_SIZE;
-	    return uint_to_big(size, hp);
-	}
+    Eterm* hp;
+    Uint size;
+    if (is_flatmap(arg)) {
+	flatmap_t *mp = (flatmap_t*)flatmap_val(arg);
+	size = flatmap_get_size(mp);
+    } else if (is_hashmap(arg)) {
+	size = hashmap_size(arg);
     } else {
 	BIF_ERROR(p, BADARG);
     }
+    if (IS_USMALL(0, size)) {
+	return make_small(size);
+    }
+    if (ERTS_NEED_GC(p, BIG_UINT_HEAP_SIZE)) {
+	erts_garbage_collect(p, BIG_UINT_HEAP_SIZE, reg, live);
+    }
+    hp = p->htop;
+    p->htop += BIG_UINT_HEAP_SIZE;
+    return uint_to_big(size, hp);
 }
 
 Eterm erts_gc_abs_1(Process* p, Eterm* reg, Uint live)
