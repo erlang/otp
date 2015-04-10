@@ -146,14 +146,10 @@ define etp-1
         etp-immediate-1 ($arg0)
       else
         # (($arg0) & 0x3) == 0
-        if (($arg0) == 0x0)
+        if (($arg0) == etp_the_non_value)
           printf "<the non-value>"
         else
-          if (($arg0) == 0x4)
-            printf "<the non-value debug>"
-          else
-            etp-cp-1 ($arg0)
-          end
+          etp-cp-1 ($arg0)
         end
       end
     end
