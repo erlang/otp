@@ -2034,6 +2034,14 @@ t_bif_map_values(Config) when is_list(Config) ->
     true = is_members([number,3,"hello2",<<"value2">>],maps:values(M2)),
     true = is_members([number,3,"hello",<<"value">>],maps:values(M1)),
 
+    Vs = lists:seq(1000,20000),
+    M3 = maps:from_list([{K,K}||K<-Vs]),
+    M4 = maps:merge(M1,M3),
+    M5 = maps:merge(M2,M3),
+    true = is_members(Vs,maps:values(M3)),
+    true = is_members([number,3,"hello",<<"value">>]++Vs,maps:values(M4)),
+    true = is_members([number,3,"hello2",<<"value2">>]++Vs,maps:values(M5)),
+
     %% error case
     {'EXIT',{badarg,[{maps,values,_,_}|_]}} = (catch maps:values(1 bsl 65 + 3)),
     {'EXIT',{badarg,[{maps,values,_,_}|_]}} = (catch maps:values(atom)),
@@ -2259,6 +2267,13 @@ t_bif_map_from_list(Config) when is_list(Config) ->
     #{<<"hi">>:=v6,3:=v8,"hi":=v11,hi:=v9,{hi,3}:=v10} =
 	maps:from_list([ {{hi,3},v3}, {"hi",v0},{3,v1}, {<<"hi">>,v4}, {hi,v2},
 	    {<<"hi">>,v6}, {{hi,3},v10},{"hi",v11}, {hi,v9}, {3,v8}]),
+
+    %% repeated keys (large -> small)
+    Ps1 = [{a,I}|| I <- lists:seq(1,32)],
+    Ps2 = [{a,I}|| I <- lists:seq(33,64)],
+
+    M = maps:from_list(Ps1 ++ [{b,1},{c,1}] ++ Ps2),
+    #{ a := 64, b := 1, c := 1 } = M,
 
     %% error cases
     {'EXIT', {badarg,_}} = (catch maps:from_list(id([{a,b},b]))),

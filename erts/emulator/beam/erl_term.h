@@ -298,7 +298,6 @@ _ET_DECLARE_CHECKED(Uint,atom_val,Eterm)
 /* header (arityval or thing) access methods */
 #define _make_header(sz,tag) ((Uint)(((Uint)(sz) << _HEADER_ARITY_OFFS) + (tag)))
 #define is_header(x)	(((x) & _TAG_PRIMARY_MASK) == TAG_PRIMARY_HEADER)
-//#define _unchecked_header_arity(x)	((x) >> _HEADER_ARITY_OFFS)
 #define _unchecked_header_arity(x) \
     (is_map_header(x) ? MAP_HEADER_ARITY(x) : ((x) >> _HEADER_ARITY_OFFS))
 _ET_DECLARE_CHECKED(Uint,header_arity,Eterm)
