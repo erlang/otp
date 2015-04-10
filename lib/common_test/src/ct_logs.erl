@@ -1908,13 +1908,14 @@ sort_all_runs(Dirs) ->
 sort_ct_runs(Dirs) ->
     %% Directory naming: <Prefix>.NodeName.Date_Time[/...]
     %% Sort on Date_Time string: "YYYY-MM-DD_HH.MM.SS"
-    lists:sort(fun(Dir1,Dir2) ->
-		       [_Prefix,_Node1,DateHH1,MM1,SS1] =
-			   string:tokens(filename:dirname(Dir1),[$.]),
-		       [_Prefix,_Node2,DateHH2,MM2,SS2] =
-			   string:tokens(filename:dirname(Dir2),[$.]),
-		       {DateHH1,MM1,SS1} =< {DateHH2,MM2,SS2}
-	       end, Dirs).
+    lists:sort(
+      fun(Dir1,Dir2) ->
+	      [SS1,MM1,DateHH1 | _] =
+		  lists:reverse(string:tokens(filename:dirname(Dir1),[$.])),
+	      [SS2,MM2,DateHH2 | _] =
+		  lists:reverse(string:tokens(filename:dirname(Dir2),[$.])),
+	      {DateHH1,MM1,SS1} =< {DateHH2,MM2,SS2}
+      end, Dirs).
 
 dir_diff_all_runs(Dirs, LogCache) ->
     case LogCache#log_cache.all_runs of
