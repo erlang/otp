@@ -679,7 +679,35 @@ static Eterm hashmap_from_chunked_array(ErtsHeapFactory *factory, hxnode_t *hxns
     DECLARE_ESTACK(stack);
     Eterm res = NIL, *hp = NULL, *nhp;
 
-    ASSERT(n > 1);
+
+    /* if we get here with only one element then
+     * we have eight levels of collisions
+     */
+
+    if (n == 1) {
+	res = hxns[0].val;
+	v   = hxns[0].hx;
+	for (d = 7; d > 0; d--) {
+	    slot  = maskval(v,d);
+	    hp    = erts_produce_heap(factory, HAMT_NODE_BITMAP_SZ(1), HALLOC_EXTRA);
+	    hp[0] = MAP_HEADER_HAMT_NODE_BITMAP(1 << slot);
+	    hp[1] = res;
+	    res   = make_hashmap(hp);
+	}
+
+	slot  = maskval(v,0);
+	hp    = erts_produce_heap(factory, (is_root ? 3 : 2), 0);
+
+	if (is_root) {
+	    hp[0] = MAP_HEADER_HAMT_HEAD_BITMAP(1 << slot);
+	    hp[1] = size;
+	    hp[2] = res;
+	} else {
+	    hp[0] = MAP_HEADER_HAMT_NODE_BITMAP(1 << slot);
+	    hp[1] = res;
+	}
+	return make_hashmap(hp);
+    }
 
     /* push initial nodes on the stack,
      * this is the starting depth */

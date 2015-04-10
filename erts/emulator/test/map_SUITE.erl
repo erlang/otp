@@ -1888,11 +1888,19 @@ t_bif_map_merge(Config) when is_list(Config) ->
     M8 = maps:merge(M7,M8),
     M8 = maps:merge(M8,M8),
 
+    %% maps:merge/2 and mixed
+
+    Ks1 = [764492191,2361333849], %% deep collision
+    Ks2 = lists:seq(1,33),
+    M9  = maps:from_list([{K,K}||K <- Ks1]),
+    M10 = maps:from_list([{K,K}||K <- Ks2]),
+    M11 = maps:merge(M9,M10),
+    ok = check_keys_exist(Ks1 ++ Ks2, M11),
+
     %% error case
     {'EXIT',{badarg,[{maps,merge,_,_}|_]}} = (catch maps:merge((1 bsl 65 + 3), <<>>)),
     {'EXIT',{badarg,[{maps,merge,_,_}|_]}} = (catch maps:merge(<<>>, id(#{ a => 1}))),
     {'EXIT',{badarg,[{maps,merge,_,_}|_]}} = (catch maps:merge(id(#{ a => 2}), <<>> )),
-
     ok.
 
 
