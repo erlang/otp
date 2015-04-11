@@ -394,7 +394,7 @@
       </type>
       <desc>
         <p>Utility function that starts crypto, public_key and the SSH
-	application. Defult type is temporary.
+	application. Default type is temporary.
 	See also <seealso marker="kernel:application">application(3)</seealso>
 	</p>
       </desc>
