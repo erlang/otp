@@ -50,8 +50,7 @@ build(Opts) ->
 		  ?WARN_CONTRACT_TYPES,
 		  ?WARN_CONTRACT_SYNTAX,
 		  ?WARN_BEHAVIOUR,
-		  ?WARN_UNDEFINED_CALLBACK,
-                  ?WARN_UNKNOWN],
+		  ?WARN_UNDEFINED_CALLBACK],
   DefaultWarns1 = ordsets:from_list(DefaultWarns),
   InitPlt = dialyzer_plt:get_default_plt(),
   DefaultOpts = #options{},
@@ -312,8 +311,8 @@ build_warnings([Opt|Opts], Warnings) ->
 	ordsets:add_element(?WARN_CONTRACT_SUBTYPE, Warnings);
       underspecs ->
 	ordsets:add_element(?WARN_CONTRACT_SUPERTYPE, Warnings);
-      no_unknown ->
-	ordsets:del_element(?WARN_UNKNOWN, Warnings);
+      unknown ->
+	ordsets:add_element(?WARN_UNKNOWN, Warnings);
       OtherAtom ->
 	bad_option("Unknown dialyzer warning option", OtherAtom)
     end,

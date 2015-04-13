@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2006</year><year>2014</year>
+      <year>2006</year><year>2015</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -248,9 +248,16 @@
       analysis that finds data races performs intra-procedural data flow analysis
       and can sometimes explode in time. Enable it at your own risk.
       </item>
-      <tag><c><![CDATA[-Wunderspecs]]></c>***</tag>
+i      <tag><c><![CDATA[-Wunderspecs]]></c>***</tag>
       <item>Warn about underspecified functions
       (the -spec is strictly more allowing than the success typing).</item>
+      <tag><c><![CDATA[-Wunknown]]></c>***</tag>
+      <item>Let warnings about unknown functions and types affect the
+      exit status of the command line version. The default is to ignore
+      warnings about unknown functions and types when setting the exit
+      status. When using the Dialyzer from Erlang, warnings about unknown
+      functions and types are returned; the default is not to return
+      these warnings.</item>
     </taglist>
     <p>The following options are also available but their use is not
       recommended: (they are mostly for Dialyzer developers and internal
@@ -384,7 +391,8 @@ WarnOpts :: no_return
           | race_conditions
           | overspecs
           | underspecs
-          | specdiffs</code>
+          | specdiffs
+          | unknown</code>
       </desc>
     </func>
     <func>
@@ -418,6 +426,7 @@ Tag :: 'warn_behaviour'
      | 'warn_return_only_exit'
      | 'warn_umatched_return'
      | 'warn_undefined_callbacks'
+     | 'warn_unknown'
 Id = {File :: string(), Line :: integer()}
 Msg = msg() -- Undefined</code>
       </desc>
