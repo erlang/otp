@@ -1969,22 +1969,7 @@ final_tests(Tests, Skip, Bad) ->
 
 final_tests1([{TestDir,Suites,_}|Tests], Final, Skip, Bad) when
       is_list(Suites), is_atom(hd(Suites)) ->
-%     Separate =
-% 	fun(S,{DoSuite,Dont}) ->		
-% 		case lists:keymember({TestDir,S},1,Bad) of
-% 		    false ->	
-% 			{[S|DoSuite],Dont};
-% 		    true ->	
-% 			SkipIt = {TestDir,S,"Make failed"},
-% 			{DoSuite,Dont++[SkipIt]}
-% 		end
-% 	end,
-	
-%     {DoSuites,Skip1} =
-% 	lists:foldl(Separate,{[],Skip},Suites),
-%     Do = {TestDir,lists:reverse(DoSuites),all},
-
-    Skip1 = [{TD,S,"Make failed"} || {{TD,S},_} <- Bad, S1 <- Suites,
+    Skip1 = [{TD,S,make_failed} || {{TD,S},_} <- Bad, S1 <- Suites,
 				     S == S1, TD == TestDir],
     Final1 = [{TestDir,S,all} || S <- Suites],
     final_tests1(Tests, lists:reverse(Final1)++Final, Skip++Skip1, Bad);
@@ -1997,7 +1982,7 @@ final_tests1([{TestDir,all,all}|Tests], Final, Skip, Bad) ->
 	    false ->
 		[]
 	end,
-    Missing = [{TestDir,S,"Make failed"} || S <- MissingSuites],
+    Missing = [{TestDir,S,make_failed} || S <- MissingSuites],
     Final1 = [{TestDir,all,all}|Final],
     final_tests1(Tests, Final1, Skip++Missing, Bad);
 
@@ -2009,7 +1994,7 @@ final_tests1([{TestDir,Suite,GrsOrCs}|Tests], Final, Skip, Bad) when
       is_list(GrsOrCs) ->
     case lists:keymember({TestDir,Suite}, 1, Bad) of
 	true ->
-	    Skip1 = Skip ++ [{TestDir,Suite,all,"Make failed"}],
+	    Skip1 = Skip ++ [{TestDir,Suite,all,make_failed}],
 	    final_tests1(Tests, [{TestDir,Suite,all}|Final], Skip1, Bad);
 	false ->
 	    GrsOrCs1 =
