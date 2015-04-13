@@ -408,6 +408,7 @@ erts_sys_pre_init(void)
     sigemptyset(&thr_create_sigmask);
     sigaddset(&thr_create_sigmask, SIGINT);   /* block interrupt */
     sigaddset(&thr_create_sigmask, SIGTERM);  /* block terminate signal */
+    sigaddset(&thr_create_sigmask, SIGHUP);   /* block sighups */
     sigaddset(&thr_create_sigmask, SIGUSR1);  /* block user defined signal */
 #endif
 
@@ -625,6 +626,28 @@ int erts_sys_prepare_crash_dump(int secs)
     return prepare_crash_dump(secs);
 }
 
+static void signal_notify_requested(Eterm type) {
+    Process* p = NULL;
+    Eterm msg, *hp;
+    ErtsProcLocks locks = 0;
+    ErlOffHeap *ohp;
+
+    Eterm id = erts_whereis_name_to_id(NULL, am_erl_signal_server);
+
+    if ((p = (erts_pid2proc_opt(NULL, 0, id, 0, ERTS_P2P_FLG_INC_REFC))) != NULL) {
+        ErtsMessage *msgp = erts_alloc_message_heap(p, &locks, 3, &hp, &ohp);
+
+        /* erl_signal_server ! {notify, sighup} */
+        msg = TUPLE2(hp, am_notify, type);
+        erts_queue_message(p, locks, msgp, msg, am_system);
+
+        if (locks)
+            erts_smp_proc_unlock(p, locks);
+        erts_proc_dec_refc(p);
+    }
+}
+
+
 static ERTS_INLINE void
 break_requested(void)
 {
@@ -783,10 +806,24 @@ static RETSIGTYPE do_quit(int signum)
 #endif
 }
 
+#if (defined(SIG_SIGSET) || defined(SIG_SIGNAL))
+static RETSIGTYPE request_sighup(void)
+#else
+static RETSIGTYPE request_sighup(int signum)
+#endif
+{
+#ifdef ERTS_SMP
+    smp_sig_notify('H');
+#else
+    signal_notify_requested(am_sighup);
+#endif
+}
+
 /* Disable break */
 void erts_set_ignore_break(void) {
     sys_signal(SIGINT,  SIG_IGN);
     sys_signal(SIGTERM, SIG_IGN);
+    sys_signal(SIGHUP,  SIG_IGN);
     sys_signal(SIGQUIT, SIG_IGN);
     sys_signal(SIGTSTP, SIG_IGN);
 }
@@ -813,6 +850,7 @@ void init_break_handler(void)
 {
    sys_signal(SIGINT, request_break);
    sys_signal(SIGTERM, request_stop);
+   sys_signal(SIGHUP, request_sighup);
 #ifndef ETHR_UNUSABLE_SIGUSRX
    sys_signal(SIGUSR1, user_signal1);
 #endif /* #ifndef ETHR_UNUSABLE_SIGUSRX */
@@ -1288,6 +1326,9 @@ signal_dispatcher_thread_func(void *unused)
 	     */
 	    switch (buf[i]) {
 	    case 0: /* Emulator initialized */
+                break;
+            case 'H': /* SIGHUP */
+                signal_notify_requested(am_sighup);
                 break;
 	    case 'S': /* SIGTERM */
 		stop_requested();

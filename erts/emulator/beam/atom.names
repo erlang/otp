@@ -239,6 +239,7 @@ atom Eq='=:='
 atom Eqeq='=='
 atom erl_tracer
 atom erlang
+atom erl_signal_server
 atom ERROR='ERROR'
 atom error_handler
 atom error_logger
@@ -590,6 +591,7 @@ atom set_tcw
 atom set_tcw_fake
 atom separate
 atom shared
+atom sighup
 atom silent
 atom size
 atom sl_alloc
