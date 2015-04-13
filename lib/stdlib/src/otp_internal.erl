@@ -596,7 +596,7 @@ obsolete_1(core_lib, is_literal_list, 1) ->
 obsolete_1(core_lib, literal_value, 1) ->
     {deprecated,{core_lib,concrete,1}};
 obsolete_1(ssl, negotiated_next_protocol, 1) ->
-    {deprecated,{ssl,negotiated_protocol}};
+    {deprecated,{ssl,negotiated_protocol,1}};
 
 obsolete_1(_, _, _) ->
     no.
