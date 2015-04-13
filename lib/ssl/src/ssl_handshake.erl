@@ -578,11 +578,10 @@ prf({3,_N}, Secret, Label, Seed, WantedLength) ->
 %%--------------------------------------------------------------------
 select_hashsign(_, undefined, _Version) ->
     {null, anon};
-select_hashsign(undefined,  Cert, Version) ->
-    #'OTPCertificate'{tbsCertificate = TBSCert} = public_key:pkix_decode_cert(Cert, otp),
-    #'OTPSubjectPublicKeyInfo'{algorithm = {_,Algo, _}} = TBSCert#'OTPTBSCertificate'.subjectPublicKeyInfo,
-    select_hashsign_algs(undefined, Algo, Version);
-select_hashsign(#hash_sign_algos{hash_sign_algos = HashSigns}, Cert, Version) ->
+%% The signature_algorithms extension was introduced with TLS 1.2. Ignore it if we have
+%% negotiated a lower version.
+select_hashsign(#hash_sign_algos{hash_sign_algos = HashSigns}, Cert, {Major, Minor} = Version)
+  when Major >= 3 andalso Minor >= 3 ->
     #'OTPCertificate'{tbsCertificate = TBSCert} =public_key:pkix_decode_cert(Cert, otp),
     #'OTPSubjectPublicKeyInfo'{algorithm = {_,Algo, _}} = TBSCert#'OTPTBSCertificate'.subjectPublicKeyInfo,
     DefaultHashSign = {_, Sign} = select_hashsign_algs(undefined, Algo, Version),
@@ -600,7 +599,11 @@ select_hashsign(#hash_sign_algos{hash_sign_algos = HashSigns}, Cert, Version) ->
 	    DefaultHashSign;
 	[HashSign| _] ->
 	    HashSign
-    end.
+    end;
+select_hashsign(_, Cert, Version) ->
+    #'OTPCertificate'{tbsCertificate = TBSCert} = public_key:pkix_decode_cert(Cert, otp),
+    #'OTPSubjectPublicKeyInfo'{algorithm = {_,Algo, _}} = TBSCert#'OTPTBSCertificate'.subjectPublicKeyInfo,
+    select_hashsign_algs(undefined, Algo, Version).
 
 %%--------------------------------------------------------------------
 -spec select_hashsign_algs(#hash_sign_algos{}| undefined, oid(), ssl_record:ssl_version()) ->
