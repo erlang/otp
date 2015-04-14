@@ -2072,13 +2072,13 @@ create_config(Config, Access, FileName) ->
 		"Modules mod_alias mod_htaccess mod_auth "
 		    "mod_security "
 		    "mod_responsecontrol mod_trace mod_esi "
-		    "mod_actions mod_cgi mod_include mod_dir "
+		    "mod_actions mod_cgi mod_dir "
 		    "mod_range mod_get "
 		    "mod_head mod_log mod_disk_log";
 	    _ ->
 		"Modules mod_alias mod_auth mod_security "
 		    "mod_responsecontrol mod_trace mod_esi "
-		    "mod_actions mod_cgi mod_include mod_dir "
+		    "mod_actions mod_cgi mod_dir "
 			   "mod_range mod_get "
 		    "mod_head mod_log mod_disk_log"
 	end,
@@ -2436,7 +2436,7 @@ create_ipv6_config(Config, FileName, Ipv6Address) ->
     MaxHdrAct    = io_lib:format("~p", [close]),
   
     Mod_order = "Modules mod_alias mod_auth mod_esi mod_actions mod_cgi" 
-	" mod_include mod_dir mod_get mod_head" 
+	" mod_dir mod_get mod_head" 
 	" mod_log mod_disk_log mod_trace",
 	    
     SSL =
