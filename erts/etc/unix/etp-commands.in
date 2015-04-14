@@ -351,7 +351,32 @@ define etp-boxed-1
         etp-array-1 ((Eterm*)(($arg0)&~0x3)) ($arg1) ($arg1) \
                     1 ((((Eterm*)(($arg0)&~0x3))[0]>>6)+1) '}'
       else
-        etp-boxed-immediate-1 ($arg0)
+        if (((Eterm*)(($arg0) & ~0x3))[0] & 0x3c) == 0x3c
+	  # A map
+	  if (((Eterm*)(($arg0) & ~0x3))[0] & 0xc0) == 0x0
+	    # Flat map
+	    printf "#{Keys:"
+	    etp-1 ((flatmap_t*)(($arg0)&~0x3))->keys (($arg1)+1)
+	    printf " Values:{"
+	    etp-array-1 ((Eterm*)(($arg0)&~0x3)+3) ($arg1) ($arg1) \
+                        0 ((flatmap_t*)(($arg0)&~0x3))->size '}'
+	    printf "}"
+          else
+	    # Hashmap
+            printf "#<%x>{", (((((Eterm*)(($arg0)&~0x3))[0])>>(6+2+8))&0xffff)
+	    if (((Eterm*)(($arg0) & ~0x3))[0] & 0xc0) >= 0x80
+              # head bitmap/array
+	      etp-bitmap-array-1 ((Eterm*)(($arg0)&~0x3)+2) ($arg1) ($arg1) \
+                        0 (((((Eterm*)(($arg0)&~0x3))[0])>>(6+2+8))&0xffff) '}'
+            else
+              # node bitmap
+	      etp-bitmap-array-1 ((Eterm*)(($arg0)&~0x3)+1) ($arg1) ($arg1) \
+                        0 (((((Eterm*)(($arg0)&~0x3))[0])>>(6+2+8))&0xffff) '}'
+            end
+	  end
+        else
+          etp-boxed-immediate-1 ($arg0)
+        end
       end
     end
   end
@@ -474,6 +499,36 @@ define etp-array-1
   end
 end
 
+define etp-bitmap-array-1
+# Args: Eterm* p, int depth, int width, int pos, int bitmap, int end_char
+#
+# Reentrant
+#
+# Same as etp-array-1 with size = bitcount(bitmap)
+#
+  if ($arg4) & 1 != 0
+    if (($arg1) < $etp_max_depth) && (($arg2) < $etp_max_depth)
+      etp-1 (($arg0)[($arg3)]) (($arg1)+1)
+      if (($arg4) & (($arg4)-1)) != 0
+        printf ","
+      end
+      etp-bitmap-array-1 ($arg0) ($arg1) (($arg2)+1) (($arg3)+1) (($arg4)>>1) ($arg5)
+    else
+      printf "...%c", ($arg5)
+    end
+  else
+    if ($arg4) == 0
+      printf "%c", ($arg5)
+    else
+      etp-bitmap-array-1 $arg0 $arg1 $arg2 $arg3 (($arg4)>>1) $arg5
+
+      # WARNING: One might be tempted to optimize the bitcounting here
+      # by passing the bitmap argument as ($arg4 & ($arg4 - 1)). This is a very
+      # bad idea as arguments are passed as string substitution.
+      # The size of $arg4 would thus grow exponentially for each recursion.
+    end
+  end
+end
 
 
 #define etpa-1
