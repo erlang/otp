@@ -258,11 +258,17 @@ ErlHeapFragment* erts_resize_message_buffer(ErlHeapFragment *, Uint,
 					    Eterm *, Uint);
 void free_message_buffer(ErlHeapFragment *);
 void erts_queue_dist_message(Process*, ErtsProcLocks*, ErtsDistExternal *, Eterm);
-void erts_queue_message(Process*, ErtsProcLocks*, ErlHeapFragment*, Eterm, Eterm
 #ifdef USE_VM_PROBES
-		   , Eterm dt_utag
+void erts_queue_message_probe(Process*, ErtsProcLocks*, ErlHeapFragment*,
+                              Eterm message, Eterm seq_trace_token, Eterm dt_utag);
+#define erts_queue_message(RP,RL,BP,Msg,SEQ) \
+    erts_queue_message_probe((RP),(RL),(BP),(Msg),(SEQ),NIL)
+#else
+void erts_queue_message(Process*, ErtsProcLocks*, ErlHeapFragment*,
+                        Eterm message, Eterm seq_trace_token);
+#define erts_queue_message_probe(RP,RL,BP,Msg,SEQ,TAG) \
+    erts_queue_message((RP),(RL),(BP),(Msg),(SEQ))
 #endif
-);
 void erts_deliver_exit_message(Eterm, Process*, ErtsProcLocks *, Eterm, Eterm);
 Sint erts_send_message(Process*, Process*, ErtsProcLocks*, Eterm, unsigned);
 void erts_link_mbuf_to_proc(Process *proc, ErlHeapFragment *bp);
