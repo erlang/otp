@@ -61,15 +61,6 @@ blockify(Is) ->
 blockify([{loop_rec,{f,Fail},{x,0}},{loop_rec_end,_Lbl},{label,Fail}|Is], Acc) ->
     %% Useless instruction sequence.
     blockify(Is, Acc);
-
-%% New bit syntax matching.
-blockify([{bs_save2,R,Point}=I,{bs_restore2,R,Point}|Is], Acc) ->
-    blockify([I|Is], Acc);
-blockify([{bs_save2,R,Point}=I,{test,is_eq_exact,_,_}=Test,
-	  {bs_restore2,R,Point}|Is], Acc) ->
-    blockify([I,Test|Is], Acc);
-
-%% Do other peep-hole optimizations.
 blockify([{test,is_atom,{f,Fail},[Reg]}=I|
 	  [{select,select_val,Reg,{f,Fail},
 	    [{atom,false},{f,_}=BrFalse,

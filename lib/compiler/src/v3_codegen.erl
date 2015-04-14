@@ -121,23 +121,14 @@ cg_fun(Les, Hvs, Vdb, AtomMod, NameArity, Anno, St0) ->
 					   put_reg(V, Reg)
 				   end, [], Hvs),
 			 stk=[]}, 0, Vdb),
-    {B0,_Aft,St} = cg_list(Les, 0, Vdb, Bef,
+    {B,_Aft,St} = cg_list(Les, 0, Vdb, Bef,
 			  St3#cg{bfail=0,
 				 ultimate_failure=UltimateMatchFail,
 				 is_top_block=true}),
-    B = fix_bs_match_strings(B0),
     {Name,Arity} = NameArity,
     Asm = [{label,Fi},line(Anno),{func_info,AtomMod,{atom,Name},Arity},
 	   {label,Fl}|B++[{label,UltimateMatchFail},if_end]],
     {Asm,Fl,St}.
-
-fix_bs_match_strings([{test,bs_match_string,F,[Ctx,BinList]}|Is])
-  when is_list(BinList) ->
-    I = {test,bs_match_string,F,[Ctx,list_to_bitstring(BinList)]},
-    [I|fix_bs_match_strings(Is)];
-fix_bs_match_strings([I|Is]) ->
-    [I|fix_bs_match_strings(Is)];
-fix_bs_match_strings([]) -> [].
 
 %% cg(Lkexpr, Vdb, StackReg, State) -> {[Ainstr],StackReg,State}.
 %%  Generate code for a kexpr.
@@ -717,22 +708,37 @@ select_nil(#l{ke={val_clause,nil,B}}, V, Tf, Vf, Bef, St0) ->
 select_binary(#l{ke={val_clause,{binary,{var,V}},B},i=I,vdb=Vdb},
 	      V, Tf, Vf, Bef, St0) ->
     Int0 = clear_dead(Bef#sr{reg=Bef#sr.reg}, I, Vdb),
-    {Bis,Aft,St1} = match_cg(B, Vf, Int0, St0),
+    {Bis0,Aft,St1} = match_cg(B, Vf, Int0, St0),
     CtxReg = fetch_var(V, Int0),
     Live = max_reg(Bef#sr.reg),
-    {[{test,bs_start_match2,{f,Tf},Live,[CtxReg,V],CtxReg},
-      {bs_save2,CtxReg,{V,V}}|Bis],
-     Aft,St1};
+    Bis1 = [{test,bs_start_match2,{f,Tf},Live,[CtxReg,V],CtxReg},
+	    {bs_save2,CtxReg,{V,V}}|Bis0],
+    Bis = finish_select_binary(Bis1),
+    {Bis,Aft,St1};
 select_binary(#l{ke={val_clause,{binary,{var,Ivar}},B},i=I,vdb=Vdb},
 	      V, Tf, Vf, Bef, St0) ->
     Regs = put_reg(Ivar, Bef#sr.reg),
     Int0 = clear_dead(Bef#sr{reg=Regs}, I, Vdb),
-    {Bis,Aft,St1} = match_cg(B, Vf, Int0, St0),
+    {Bis0,Aft,St1} = match_cg(B, Vf, Int0, St0),
     CtxReg = fetch_var(Ivar, Int0),
     Live = max_reg(Bef#sr.reg),
-    {[{test,bs_start_match2,{f,Tf},Live,[fetch_var(V, Bef),Ivar],CtxReg},
-      {bs_save2,CtxReg,{Ivar,Ivar}}|Bis],
-     Aft,St1}.
+    Bis1 = [{test,bs_start_match2,{f,Tf},Live,[fetch_var(V, Bef),Ivar],CtxReg},
+	    {bs_save2,CtxReg,{Ivar,Ivar}}|Bis0],
+    Bis = finish_select_binary(Bis1),
+    {Bis,Aft,St1}.
+
+finish_select_binary([{bs_save2,R,Point}=I,{bs_restore2,R,Point}|Is]) ->
+    [I|finish_select_binary(Is)];
+finish_select_binary([{bs_save2,R,Point}=I,{test,is_eq_exact,_,_}=Test,
+		      {bs_restore2,R,Point}|Is]) ->
+    [I,Test|finish_select_binary(Is)];
+finish_select_binary([{test,bs_match_string,F,[Ctx,BinList]}|Is])
+  when is_list(BinList) ->
+    I = {test,bs_match_string,F,[Ctx,list_to_bitstring(BinList)]},
+    [I|finish_select_binary(Is)];
+finish_select_binary([I|Is]) ->
+    [I|finish_select_binary(Is)];
+finish_select_binary([]) -> [].
 
 %% New instructions for selection of binary segments.
 
