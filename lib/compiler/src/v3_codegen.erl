@@ -584,7 +584,7 @@ top_level_block(Keis, Bef, MaxRegs, _St) ->
 			(return) ->
 			    [{deallocate,FrameSz},return];
 			(Tuple) when is_tuple(Tuple) ->
-			    [turn_yregs(tuple_size(Tuple), Tuple, MaxY)];
+			    [turn_yregs(Tuple, MaxY)];
 			(Other) ->
 			    [Other]
 		    end, Keis),
@@ -596,14 +596,49 @@ top_level_block(Keis, Bef, MaxRegs, _St) ->
 %%   catches work.  The code generation algorithm gives a lower register
 %%   number to the outer catch, which is wrong.
 
-turn_yregs(0, Tp, _) -> Tp;
-turn_yregs(El, Tp, MaxY) ->
-    turn_yregs(El-1,setelement(El,Tp,turn_yreg(element(El,Tp),MaxY)),MaxY).
+turn_yregs({call,_,_}=I, _MaxY) -> I;
+turn_yregs({call_ext,_,_}=I, _MaxY) -> I;
+turn_yregs({jump,_}=I, _MaxY) -> I;
+turn_yregs({label,_}=I, _MaxY) -> I;
+turn_yregs({line,_}=I, _MaxY) -> I;
+turn_yregs({test_heap,_,_}=I, _MaxY) -> I;
+turn_yregs({bif,Op,F,A,B}, MaxY) ->
+    {bif,Op,F,turn_yreg(A, MaxY),turn_yreg(B, MaxY)};
+turn_yregs({gc_bif,Op,F,Live,A,B}, MaxY) when is_integer(Live) ->
+    {gc_bif,Op,F,Live,turn_yreg(A, MaxY),turn_yreg(B, MaxY)};
+turn_yregs({get_tuple_element,S,N,D}, MaxY) ->
+    {get_tuple_element,turn_yreg(S, MaxY),N,turn_yreg(D, MaxY)};
+turn_yregs({put_tuple,Arity,D}, MaxY) ->
+    {put_tuple,Arity,turn_yreg(D, MaxY)};
+turn_yregs({select_val,R,F,L}, MaxY) ->
+    {select_val,turn_yreg(R, MaxY),F,L};
+turn_yregs({test,Op,F,L}, MaxY) ->
+    {test,Op,F,turn_yreg(L, MaxY)};
+turn_yregs({test,Op,F,Live,A,B}, MaxY) when is_integer(Live) ->
+    {test,Op,F,Live,turn_yreg(A, MaxY),turn_yreg(B, MaxY)};
+turn_yregs({Op,A}, MaxY) ->
+    {Op,turn_yreg(A, MaxY)};
+turn_yregs({Op,A,B}, MaxY) ->
+    {Op,turn_yreg(A, MaxY),turn_yreg(B, MaxY)};
+turn_yregs({Op,A,B,C}, MaxY) ->
+    {Op,turn_yreg(A, MaxY),turn_yreg(B, MaxY),turn_yreg(C, MaxY)};
+turn_yregs(Tuple, MaxY) ->
+    turn_yregs(tuple_size(Tuple), Tuple, MaxY).
 
-turn_yreg({yy,YY},MaxY) -> {y,MaxY-YY};
-turn_yreg({list,Ls},MaxY) -> {list, turn_yreg(Ls,MaxY)};
-turn_yreg(Ts,MaxY) when is_list(Ts) -> [turn_yreg(T,MaxY)||T<-Ts];
-turn_yreg(Other,_MaxY) -> Other.
+turn_yregs(1, Tp, _) ->
+    Tp;
+turn_yregs(N, Tp, MaxY) ->
+    E = turn_yreg(element(N, Tp), MaxY),
+    turn_yregs(N-1, setelement(N, Tp, E), MaxY).
+
+turn_yreg({yy,YY}, MaxY) ->
+    {y,MaxY-YY};
+turn_yreg({list,Ls},MaxY) ->
+    {list,turn_yreg(Ls, MaxY)};
+turn_yreg([_|_]=Ts, MaxY) ->
+    [turn_yreg(T, MaxY) || T <- Ts];
+turn_yreg(Other, _MaxY) ->
+    Other.
 
 %% select_cg(Sclause, V, TypeFail, ValueFail, StackReg, State) ->
 %%      {Is,StackReg,State}.
