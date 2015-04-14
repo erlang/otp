@@ -66,34 +66,6 @@
       </list>
       </warning>
 
-     <p>The NIF concept is officially supported from R14B. NIF source code
-     written for earlier experimental versions might need adaption to run on R14B
-     or later versions:</p>
-     <list>
-       <item>No incompatible changes between <em>R14B</em> and R14A.</item>
-       <item>Incompatible changes between <em>R14A</em> and R13B04:
-       <list>
-	 <item>Environment argument removed for <c>enif_alloc</c>,
-	 <c>enif_realloc</c>, <c>enif_free</c>, <c>enif_alloc_binary</c>,
-	 <c>enif_realloc_binary</c>, <c>enif_release_binary</c>,
-	 <c>enif_alloc_resource</c>, <c>enif_release_resource</c>,
-	 <c>enif_is_identical</c> and <c>enif_compare</c>.</item>
-	 <item>Character encoding argument added to <c>enif_get_atom</c>
-	 and <c>enif_make_existing_atom</c>.</item>
-	 <item>Module argument added to <c>enif_open_resource_type</c>
-	 while changing name spaces of resource types from global to module local.</item>
-       </list>
-     </item>
-     <item>Incompatible changes between <em>R13B04</em> and R13B03:
-     <list>
-       <item>The function prototypes of the NIFs have  changed to expect <c>argc</c> and <c>argv</c>
-       arguments. The arity of a NIF is by that no longer limited to 3.</item>
-       <item><c>enif_get_data</c> renamed as <c>enif_priv_data</c>.</item>
-       <item><c>enif_make_string</c> got a third argument for character encoding.</item>
-     </list>
-     </item>
-    </list>
-
     <p>A minimal example of a NIF library can look like this:</p>
       <p/>
       <code type="none">
