@@ -892,6 +892,7 @@ static ERL_NIF_TERM check_is_exception(ErlNifEnv* env, int argc, const ERL_NIF_T
     ERL_NIF_TERM badarg = enif_make_badarg(env);
     if (enif_is_exception(env, error_atom)) return error_atom;
     if (!enif_is_exception(env, badarg)) return error_atom;
+    if (!enif_has_pending_exception(env)) return error_atom;
     return badarg;
 }
 
@@ -1692,6 +1693,7 @@ static ERL_NIF_TERM call_nif_nan_or_inf(ErlNifEnv* env, int argc, const ERL_NIF_
     }
     res = enif_make_double(env, val);
     assert(enif_is_exception(env, res));
+    assert(enif_has_pending_exception(env));
     if (strcmp(arg, "tuple") == 0) {
         return enif_make_tuple2(env, argv[0], res);
     } else {

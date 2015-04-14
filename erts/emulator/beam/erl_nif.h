@@ -46,9 +46,10 @@
 **           remove enif_schedule_dirty_nif, enif_schedule_dirty_nif_finalizer, enif_dirty_nif_finalizer
 **           add ErlNifEntry options
 **           add ErlNifFunc flags
+** 2.8: 18.0 add enif_has_pending_exception
 */
 #define ERL_NIF_MAJOR_VERSION 2
-#define ERL_NIF_MINOR_VERSION 7
+#define ERL_NIF_MINOR_VERSION 8
 
 /*
  * The emulator will refuse to load a nif-lib with a major version

@@ -806,6 +806,12 @@ typedef enum {
       and return true, or return false if <c>term</c> is not an unsigned integer or is
       outside the bounds of type <c>unsigned long</c>.</p></desc>
     </func>
+    <func><name><ret>int</ret><nametext>enif_has_pending_exception(ErlNifEnv* env)</nametext></name>
+      <fsummary>Check if an exception has been raised.</fsummary>
+      <desc><p>Return true if a pending exception is associated
+      with the environment <c>env</c>. The only possible exception is currently
+      <c>badarg</c> (see <seealso marker="#enif_make_badarg">enif_make_badarg</seealso>).</p></desc>
+    </func>
     <func><name><ret>int</ret><nametext>enif_inspect_binary(ErlNifEnv* env, ERL_NIF_TERM bin_term, ErlNifBinary* bin)</nametext></name>
       <fsummary>Inspect the content of a binary</fsummary>
       <desc><p>Initialize the structure pointed to by <c>bin</c> with 
@@ -923,6 +929,8 @@ typedef enum {
       or be passed to
       <seealso marker="#enif_is_exception">enif_is_exception</seealso>, but
       not to any other NIF API function.</p>
+      <p>See also: <seealso marker="#enif_has_pending_exception">enif_has_pending_exception</seealso>.
+      </p>
       <note><p>In earlier versions (older than erts-7.0, OTP 18) the return value
       from <c>enif_make_badarg</c> had to be returned from the NIF. This
       requirement is now lifted as the return value from the NIF is ignored

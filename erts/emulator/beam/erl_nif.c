@@ -747,6 +747,11 @@ Eterm enif_make_badarg(ErlNifEnv* env)
     BIF_ERROR(env->proc, BADARG);
 }
 
+int enif_has_pending_exception(ErlNifEnv* env)
+{
+    return env->exception_thrown;
+}
+
 int enif_get_atom(ErlNifEnv* env, Eterm atom, char* buf, unsigned len,
 		  ErlNifCharEncoding encoding)
 {
