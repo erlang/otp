@@ -1158,7 +1158,10 @@ run_all_specs([{Specs,TS} | TSs], Opts, StartOpts, TotResult) ->
     log_ts_names(Specs),
     Combined = #opts{config = TSConfig} = combine_test_opts(TS, Specs, Opts),
     AllConfig = merge_vals([Opts#opts.config, TSConfig]),
-    try run_one_spec(TS, Combined#opts{config = AllConfig}, StartOpts) of
+    try run_one_spec(TS, 
+		     Combined#opts{config = AllConfig,
+				   current_testspec=TS},
+		     StartOpts) of
 	Result ->
 	    run_all_specs(TSs, Opts, StartOpts, [Result | TotResult])		
     catch
