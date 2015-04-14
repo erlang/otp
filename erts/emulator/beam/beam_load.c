@@ -5695,7 +5695,11 @@ md5_of_module(Process* p, /* Process whose heap to use. */
 	return THE_NON_VALUE;
     }
     code = modp->curr.code;
-    res = new_binary(p, (byte *) code[MI_MD5_PTR], MD5_SIZE);
+    if (code[MI_MD5_PTR] != 0) {
+      res = new_binary(p, (byte *) code[MI_MD5_PTR], MD5_SIZE);
+    } else {
+      res = am_undefined;
+    }
     return res;
 }
 
