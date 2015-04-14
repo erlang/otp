@@ -243,7 +243,7 @@ key_exchange(client, _Version, {dh, PublicKey}) ->
 		dh_public = PublicKey}
 	       };
 
-key_exchange(client, _Version, {ecdh, #'ECPrivateKey'{publicKey = {0, ECPublicKey}}}) ->
+key_exchange(client, _Version, {ecdh, #'ECPrivateKey'{publicKey =  ECPublicKey}}) ->
     #client_key_exchange{
 	      exchange_keys = #client_ec_diffie_hellman_public{
 		dh_public = ECPublicKey}
@@ -284,7 +284,7 @@ key_exchange(server, Version, {dh, {PublicKey, _},
     enc_server_key_exchange(Version, ServerDHParams, HashSign,
 			    ClientRandom, ServerRandom, PrivateKey);
 
-key_exchange(server, Version, {ecdh,  #'ECPrivateKey'{publicKey =  {0, ECPublicKey},
+key_exchange(server, Version, {ecdh,  #'ECPrivateKey'{publicKey =  ECPublicKey,
 						      parameters = ECCurve}, HashSign,
 			       ClientRandom, ServerRandom, PrivateKey}) ->
     ServerECParams = #server_ecdh_params{curve = ECCurve, public = ECPublicKey},
