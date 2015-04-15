@@ -967,7 +967,7 @@ ERL_NIF_TERM enif_make_uint64(ErlNifEnv* env, ErlNifUInt64 i)
 ERL_NIF_TERM enif_make_double(ErlNifEnv* env, double d)
 {
     Eterm* hp;
-    if (!isfinite(d))
+    if (!erts_isfinite(d))
         return enif_make_badarg(env);
     hp = alloc_heap(env,FLOAT_SIZE_OBJECT);
     FloatDef f;

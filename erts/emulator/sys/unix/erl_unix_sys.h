@@ -247,6 +247,8 @@ extern void sys_stop_cat(void);
 #  define HAVE_ISFINITE
 #endif
 
+#define erts_isfinite isfinite
+
 #ifdef NO_FPE_SIGNALS
 
 #define erts_get_current_fp_exception() NULL
