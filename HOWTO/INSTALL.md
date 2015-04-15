@@ -210,6 +210,14 @@ the `$PATH`.
 
     $ export PATH=$ERL_TOP/bin:$PATH     # Assuming bash/sh
 
+For the FOP print formatter, two steps must be taken:
+
+*   Adding the location of your installation of `fop` in `$FOP_HOME`.
+
+        $ export FOP_HOME=/path/to/fop/dir # Assuming bash/sh
+
+*   Adding the `fop` script (in `$FOP_HOME`) to your `$PATH`, either by adding `$FOP_HOME` to `$PATH`, or by copying the `fop` script to a directory already in your `$PATH`.
+
 Build the documentation.
 
     $ make docs
