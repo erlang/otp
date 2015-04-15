@@ -2922,15 +2922,44 @@ Sint cmp(Eterm a, Eterm b)
 }
 #endif
 
+#if HALFWORD_HEAP
+static Sint erts_cmp_compound_rel_opt(Eterm a, Eterm* a_base,
+                                     Eterm b, Eterm* b_base,
+                                     int exact, int eq_only);
+#else
+static Sint erts_cmp_compound(Eterm a, Eterm b, int exact, int eq_only);
+#endif
+
+#if HALFWORD_HEAP
+Sint erts_cmp(Eterm a, Eterm* a_base,
+              Eterm b, Eterm* b_base,
+              int exact, int eq_only)
+#else
+Sint erts_cmp(Eterm a, Eterm b, int exact, int eq_only)
+#endif
+{
+    if (is_atom(a) && is_atom(b)) {
+        return cmp_atoms(a, b);
+    } else if (is_both_small(a, b)) {
+        return (signed_val(a) - signed_val(b));
+    }
+#if HALFWORD_HEAP
+    return erts_cmp_compound(a,a_base,b,b_base,exact,eq_only);
+#else
+    return erts_cmp_compound(a,b,exact,eq_only);
+#endif
+}
+
+
 /* erts_cmp(Eterm a, Eterm b, int exact)
  * exact = 1 -> term-based compare
  * exact = 0 -> arith-based compare
  */
 #if HALFWORD_HEAP
-Sint erts_cmp_rel_opt(Eterm a, Eterm* a_base, Eterm b, Eterm* b_base,
+static Sint erts_cmp_compound_rel_opt(Eterm a, Eterm* a_base, Eterm b, Eterm* b_base,
                       int exact, int eq_only)
 #else
-Sint erts_cmp(Eterm a, Eterm b, int exact, int eq_only)
+static Sint erts_cmp_compound(Eterm a, Eterm b, int exact, int eq_only)
 #endif
 {
 #define PSTACK_TYPE struct erts_cmp_hashmap_state
