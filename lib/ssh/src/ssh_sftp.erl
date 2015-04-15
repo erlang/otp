@@ -111,7 +111,7 @@ start_channel(Cm, Opts) when is_pid(Cm) ->
 			    TimeOut
 		    end;
 		{error, Reason} ->
-		    {error, Reason};
+		    {error, format_channel_start_error(Reason)};
 		ignore ->
 		    {error, ignore}
 	    end;
@@ -136,7 +136,7 @@ start_channel(Host, Port, Opts) ->
 			    TimeOut
 		    end;
 		{error, Reason} ->
-		    {error, Reason};
+		    {error, format_channel_start_error(Reason)};
 		ignore ->
 		    {error, ignore}
 	    end;
@@ -491,9 +491,9 @@ init([Cm, ChannelId, Options]) ->
 			inf = new_inf(),
 			opts = Options}};
 	failure ->
-	    {stop, "server failed to start sftp subsystem"};
+	    {stop, {shutdown, "server failed to start sftp subsystem"}};
 	Error ->
-	    {stop, Error}
+	    {stop, {shutdown, Error}}
     end.
     
 %%--------------------------------------------------------------------
@@ -1412,3 +1412,8 @@ open_buf1(Pid, BufInfo0, FileOpTimeout, CryptoState, ChunkSize) ->
     BufHandle = make_ref(),
     call(Pid, {put_bufinf,BufHandle,BufInfo}, FileOpTimeout),
     {ok,BufHandle}.
+
+format_channel_start_error({shutdown, Reason}) ->
+    Reason;
+format_channel_start_error(Reason) ->
+    Reason.
