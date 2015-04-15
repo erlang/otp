@@ -1063,32 +1063,31 @@ get_all_cases1(_, []) ->
 get_all(Mod, ConfTests) ->	
     case catch apply(Mod, all, []) of
 	{'EXIT',{undef,[{Mod,all,[],_} | _]}} ->
-	    Reason = list_to_atom(atom_to_list(Mod)++":all/0 is missing"),
-	    %% this makes test_server call error_in_suite as first
-	    %% (and only) test case so we can report Reason properly
-	    [{?MODULE,error_in_suite,[[{error,Reason}]]}];
-	{'EXIT',ExitReason} ->
 	    Reason =
 		case code:which(Mod) of
 		    non_existing ->
 			list_to_atom(atom_to_list(Mod)++
 					 " can not be compiled or loaded");
 		    _ ->
-			case ct_util:get_testdata({error_in_suite,Mod}) of
-			    undefined ->
-				ErrStr = io_lib:format("~n*** ERROR *** "
-						       "~w:all/0 failed: ~p~n",
-						       [Mod,ExitReason]),
-				io:format(user, ErrStr, []),
-				%% save the error info so it doesn't
-				%% get printed twice
-				ct_util:set_testdata_async({{error_in_suite,Mod},
-							    ExitReason});
-			    _ExitReason ->
-				ct_util:delete_testdata({error_in_suite,Mod})
-			end,
-			list_to_atom(atom_to_list(Mod)++":all/0 failed")
+			list_to_atom(atom_to_list(Mod)++":all/0 is missing")
 		end,
+	    %% this makes test_server call error_in_suite as first
+	    %% (and only) test case so we can report Reason properly
+	    [{?MODULE,error_in_suite,[[{error,Reason}]]}];
+	{'EXIT',ExitReason} ->
+	    case ct_util:get_testdata({error_in_suite,Mod}) of
+		undefined ->
+		    ErrStr = io_lib:format("~n*** ERROR *** "
+					   "~w:all/0 failed: ~p~n",
+					   [Mod,ExitReason]),
+		    io:format(user, ErrStr, []),
+		    %% save the error info so it doesn't get printed twice
+		    ct_util:set_testdata_async({{error_in_suite,Mod},
+						ExitReason});
+		_ExitReason ->
+		    ct_util:delete_testdata({error_in_suite,Mod})
+	    end,
+	    Reason = list_to_atom(atom_to_list(Mod)++":all/0 failed"),
 	    %% this makes test_server call error_in_suite as first
 	    %% (and only) test case so we can report Reason properly
 	    [{?MODULE,error_in_suite,[[{error,Reason}]]}];
