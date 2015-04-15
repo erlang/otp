@@ -34,7 +34,8 @@
 	 otp_7188/1,otp_7233/1,otp_7240/1,otp_7498/1,
 	 match_string/1,zero_width/1,bad_size/1,haystack/1,
 	 cover_beam_bool/1,matched_out_size/1,follow_fail_branch/1,
-	 no_partition/1,calling_a_binary/1,binary_in_map/1]).
+	 no_partition/1,calling_a_binary/1,binary_in_map/1,
+	 match_string_opt/1]).
 
 -export([coverage_id/1,coverage_external_ignore/2]).
 
@@ -59,7 +60,8 @@ groups() ->
        matching_and_andalso,otp_7188,otp_7233,otp_7240,
        otp_7498,match_string,zero_width,bad_size,haystack,
        cover_beam_bool,matched_out_size,follow_fail_branch,
-       no_partition,calling_a_binary,binary_in_map]}].
+       no_partition,calling_a_binary,binary_in_map,
+       match_string_opt]}].
 
 
 init_per_suite(Config) ->
@@ -1213,6 +1215,14 @@ match_binary_in_map(Map) ->
 	    #{key := <<42:N>>} = Map,
 	    ok
     end.
+
+match_string_opt(Config) when is_list(Config) ->
+    {x,<<1,2,3>>,{<<1>>,{v,<<1,2,3>>}}} =
+	do_match_string_opt({<<1>>,{v,<<1,2,3>>}}),
+    ok.
+
+do_match_string_opt({<<1>>,{v,V}}=T) ->
+    {x,V,T}.
 
 
 check(F, R) ->
