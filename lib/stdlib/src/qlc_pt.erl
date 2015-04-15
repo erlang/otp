@@ -229,9 +229,15 @@ mforms(Tag, L) ->
 %% Avoid duplicated lint warnings and lint errors. Care has been taken
 %% not to introduce unused variables in the transformed code.
 %%
-no_duplicates(Forms, Errors, Warnings0, ExtraWarnings, Options) ->
+no_duplicates(Forms, Errors, Warnings0, ExtraWarnings0, Options) ->
     %% Some mistakes such as "{X} =:= {}" are found by strong
     %% validation as well as by qlc. Prefer the warnings from qlc:
+    %%  The Compiler and qlc do not agree on the location of errors.
+    %%  For now, qlc's messages about failing patterns and filters
+    %%  are ignored.
+    ExtraWarnings = [W || W={_File,[{_,qlc,Tag}]} <-
+                              ExtraWarnings0,
+                    not lists:member(Tag, [nomatch_pattern,nomatch_filter])],
     Warnings1 = mforms(Warnings0) --
         ([{File,[{L,v3_core,nomatch}]} ||
              {File,[{L,qlc,M}]} <- mforms(ExtraWarnings),
