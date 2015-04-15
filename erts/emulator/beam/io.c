@@ -5581,7 +5581,9 @@ driver_deliver_term(Eterm to, ErlDrvTermData* data, int len)
 
 	    mess = make_float(hp);
 	    f.fd = *((double *) ptr[0]);
-	    PUT_DOUBLE(f, hp);
+            if (!erts_isfinite(f.fd))
+                ERTS_DDT_FAIL;
+            PUT_DOUBLE(f, hp);
 	    hp += FLOAT_SIZE_OBJECT;
 	    ptr++;
 	    break;
