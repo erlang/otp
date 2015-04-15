@@ -33,6 +33,11 @@
 	 cross_cover_analyse/1,
 	 compile_testcases/0, compile_testcases/1,
 	 help/0]).
+
+%% Functions kept for backwards compatibility
+-export([bench/0, bench/1, bench/2, benchmarks/0,
+	 smoke_test/0, smoke_test/1,smoke_test/2, smoke_tests/0]).
+
 -export([i/0, l/1, r/0, r/1, r/2, r/3]).
 
 %%%----------------------------------------------------------------------
@@ -510,7 +515,7 @@ run_category(TestCategory) when is_atom(TestCategory) ->
 %% run_category/2
 run_category(TestCategory, Opts) when is_atom(TestCategory),
 				      is_list(Opts) ->
-    case ts:tests() of
+    case ts:tests(TestCategory) of
 	[] ->
 	    {error, no_tests_available};
 	Apps ->
@@ -529,6 +534,38 @@ run_category(App, TestCategory, Opts) ->
     Opts1 = [{test_category,TestCategory} | Opts],
     run_some(Apps, Opts1).
 
+%%-----------------------------------------------------------------
+%% Functions kept for backwards compatibility
+
+bench() ->
+    run_category(bench, []).
+bench(Opts) when is_list(Opts) ->
+    run_category(bench, Opts);
+bench(App) ->
+    run_category(App, bench, []).
+bench(App, Opts) when is_atom(App) ->
+    run_category(App, bench, Opts);
+bench(Apps, Opts) when is_list(Apps) ->
+    run_category(Apps, bench, Opts).
+
+benchmarks() ->
+    tests(bench).
+
+smoke_test() ->
+    run_category(smoke, []).
+smoke_test(Opts) when is_list(Opts) ->
+    run_category(smoke, Opts);
+smoke_test(App) ->
+    run_category(App, smoke, []).
+smoke_test(App, Opts) when is_atom(App) ->
+    run_category(App, smoke, Opts);
+smoke_test(Apps, Opts) when is_list(Apps) ->
+    run_category(Apps, smoke, Opts).
+
+smoke_tests() ->
+    tests(smoke).
+
+%%-----------------------------------------------------------------
 
 is_list_of_suites(List) ->
     lists:all(fun(Suite) ->

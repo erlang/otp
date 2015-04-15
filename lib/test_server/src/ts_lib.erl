@@ -98,7 +98,7 @@ specialized_specs(Dir,PostFix) ->
     sort_tests([begin
 		    DirPart = filename:dirname(Name),
 		    AppTest = hd(lists:reverse(filename:split(DirPart))),
-		    string:substr(AppTest, 1, length(AppTest)-5)
+		    list_to_atom(string:substr(AppTest, 1, length(AppTest)-5))
 		end || Name <- Specs]).
 
 specs(Dir) ->
