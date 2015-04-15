@@ -396,7 +396,8 @@ nomatch(Config) when is_list(Config) ->
               qlc:q([3 || {3=4} <- []]).
         ">>,
         [],
-        {warnings,[{{2,27},qlc,nomatch_pattern}]}},
+        %% {warnings,[{{2,27},qlc,nomatch_pattern}]}},
+        {warnings,[{2,v3_core,nomatch}]}},
 
        {nomatch2,
         <<"nomatch() ->
@@ -407,7 +408,8 @@ nomatch(Config) when is_list(Config) ->
           end, [{1},{2}]).
         ">>,
         [],
-        {warnings,[{{3,33},qlc,nomatch_pattern}]}},
+        %% {warnings,[{{3,33},qlc,nomatch_pattern}]}},
+        {warnings,[{3,v3_core,nomatch}]}},
  
        {nomatch3,
         <<"nomatch() ->
@@ -419,7 +421,8 @@ nomatch(Config) when is_list(Config) ->
                     end, [{1,2},{2,3}]).
         ">>,
         [],
-        {warnings,[{{3,52},qlc,nomatch_pattern}]}},
+        %% {warnings,[{{3,52},qlc,nomatch_pattern}]}},
+        {warnings,[{3,v3_core,nomatch}]}},
 
        {nomatch4,
         <<"nomatch() ->
@@ -2908,7 +2911,8 @@ lookup1(Config) when is_list(Config) ->
                  [] = qlc:e(Q),
                  false = lookup_keys(Q)
          end, [{1},{a}])">>,
-       {warnings,[{{2,37},qlc,nomatch_pattern}]}},
+        %% {warnings,[{{2,37},qlc,nomatch_pattern}]}},
+        []},
 
        <<"etsc(fun(E) ->
                 Q = qlc:q([X || {X=X,Y=Y}={Y=Y,X=X} <- ets:table(E), 
@@ -2936,7 +2940,8 @@ lookup1(Config) when is_list(Config) ->
                  [] = qlc:e(Q),
                  false = lookup_keys(Q)
          end, [{a},{b}])">>,
-        {warnings,[{{2,35},qlc,nomatch_pattern}]}},
+        %% {warnings,[{{2,35},qlc,nomatch_pattern}]}},
+        []},
 
        {cres,
         <<"etsc(fun(E) ->
@@ -2944,7 +2949,8 @@ lookup1(Config) when is_list(Config) ->
                  [] = qlc:e(Q),
                  false = lookup_keys(Q)
          end, [{a},{b}])">>,
-        {warnings,[{{2,35},qlc,nomatch_pattern}]}},
+        %% {warnings,[{{2,35},qlc,nomatch_pattern}]}},
+        []},
 
        <<"etsc(fun(E) ->
                 Q = qlc:q([X || X = <<X>> <- ets:table(E)]),
@@ -2991,7 +2997,8 @@ lookup1(Config) when is_list(Config) ->
                  [] = qlc:e(Q),
                  false = lookup_keys(Q)
          end, [{a,b,c},{d,e,f}])">>,
-        {warnings,[{{2,34},qlc,nomatch_pattern}]}}
+        %% {warnings,[{{2,34},qlc,nomatch_pattern}]}}
+        []}
 
        ],
     ?line run(Config, Ts),
@@ -3055,7 +3062,8 @@ lookup2(Config) when is_list(Config) ->
                  [] = qlc:e(Q),
                  false = lookup_keys(Q)
          end, [{1}, {2}])">>,
-        {warnings,[{{3,46},qlc,nomatch_filter}]}},
+        %% {warnings,[{{3,46},qlc,nomatch_filter}]}},
+        []},
 
        {cres,
         <<"etsc(fun(E) ->
@@ -3064,7 +3072,8 @@ lookup2(Config) when is_list(Config) ->
                 [] = qlc:e(Q),
                 false = lookup_keys(Q)
         end, [{1}, {2}])">>,
-        {warnings,[{{3,43},qlc,nomatch_filter}]}},
+        %% {warnings,[{{3,43},qlc,nomatch_filter}]}},
+        []},
 
        {cres,
         <<"etsc(fun(E) ->
@@ -3073,7 +3082,8 @@ lookup2(Config) when is_list(Config) ->
                  [] = qlc:e(Q),
                  false = lookup_keys(Q)
          end, [{1}, {2}])">>,
-        {warnings,[{{3,48},qlc,nomatch_filter}]}},
+        %% {warnings,[{{3,48},qlc,nomatch_filter}]}},
+        []},
 
        <<"etsc(fun(E) ->
                 Q = qlc:q([{X,Y} || {X,Y} <- ets:table(E), 
@@ -3088,7 +3098,8 @@ lookup2(Config) when is_list(Config) ->
                  [] = qlc:e(Q),
                  false = lookup_keys(Q)
          end, [{[3]},{[3,4]}])">>,
-        {warnings,[{{2,61},qlc,nomatch_filter}]}},
+        %% {warnings,[{{2,61},qlc,nomatch_filter}]}},
+        []},
 
        <<"etsc(fun(E) ->
                 U = 18, 
@@ -3120,7 +3131,8 @@ lookup2(Config) when is_list(Config) ->
                  [] = lists:sort(qlc:e(Q)),
                  false = lookup_keys(Q)
          end, [{2},{3},{4},{8}])">>,
-        {warnings,[{{4,44},qlc,nomatch_filter}]}},
+        %% {warnings,[{{4,44},qlc,nomatch_filter}]}},
+        []},
 
        {cres,
         <<"etsc(fun(E) ->
@@ -3130,7 +3142,8 @@ lookup2(Config) when is_list(Config) ->
                  [] = lists:sort(qlc:e(Q)),
                  false = lookup_keys(Q)
          end, [{2},{3},{4},{8}])">>,
-        {warnings,[{{4,35},qlc,nomatch_filter}]}},
+        %% {warnings,[{{4,35},qlc,nomatch_filter}]}},
+        []},
 
        <<"F = fun(U) ->
                 Q = qlc:q([X || {X} <- [a,b,c], 
@@ -3146,7 +3159,8 @@ lookup2(Config) when is_list(Config) ->
                  [] = qlc:e(Q),
                  false = lookup_keys(Q)
            end, [{1,1},{2,1}])">>,
-        {warnings,[{{2,61},qlc,nomatch_filter}]}},
+        %% {warnings,[{{2,61},qlc,nomatch_filter}]}},
+        []},
 
        <<"Two = 2.0,
           etsc(fun(E) ->
@@ -3207,8 +3221,10 @@ lookup2(Config) when is_list(Config) ->
                  [] = qlc:e(Q),
                  false = lookup_keys(Q)
          end, [{1,b},{2,3}])">>,
+        %% {warnings,[{2,sys_core_fold,nomatch_guard},
+	%% 	   {3,qlc,nomatch_filter},
+	%% 	   {3,sys_core_fold,{eval_failure,badarg}}]}},
         {warnings,[{2,sys_core_fold,nomatch_guard},
-		   {3,qlc,nomatch_filter},
 		   {3,sys_core_fold,{eval_failure,badarg}}]}},
 
        <<"etsc(fun(E) ->
@@ -3231,7 +3247,8 @@ lookup2(Config) when is_list(Config) ->
                  [] = qlc:e(Q),
                  false = lookup_keys(Q)
          end, [{{1}},{{2}}])">>,
-        {warnings,[{{4,47},qlc,nomatch_filter}]}},
+        %% {warnings,[{{4,47},qlc,nomatch_filter}]}},
+        []},
 
        {cres,
         <<"etsc(fun(E) ->
@@ -3241,7 +3258,8 @@ lookup2(Config) when is_list(Config) ->
                  [] = qlc:e(Q),
                  false = lookup_keys(Q)
          end, [{{1}},{{2}}])">>,
-        {warnings,[{{4,47},qlc,nomatch_filter}]}},
+        %% {warnings,[{{4,47},qlc,nomatch_filter}]}},
+        []},
 
        <<"etsc(fun(E) ->
                 Q = qlc:q([X || {X} <- ets:table(E),
@@ -3301,7 +3319,8 @@ lookup2(Config) when is_list(Config) ->
                  [] = qlc:e(Q),
                  false = lookup_keys(Q)
          end, [{3}, {4}])">>,
-        {warnings,[{{3,44},qlc,nomatch_filter}]}},
+        %% {warnings,[{{3,44},qlc,nomatch_filter}]}},
+        []},
 
        <<"etsc(fun(E) ->
                 Q = qlc:q([X || {{X,Y}} <- ets:table(E), 
@@ -3706,7 +3725,8 @@ lookup_rec(Config) when is_list(Config) ->
                  [] = qlc:e(Q),
                  false = lookup_keys(Q)
              end, [{keypos,2}], [#r{a = 17}, #r{a = 3}, #r{a = 5}])">>,
-        {warnings,[{{4,44},qlc,nomatch_filter}]}},
+        %% {warnings,[{{4,44},qlc,nomatch_filter}]}},
+        []},
 
       <<"%% Compares an integer and a float.
          etsc(fun(E) ->
@@ -4010,7 +4030,8 @@ skip_filters(Config) when is_list(Config) ->
                   [] = qlc:e(Q),
                   false = lookup_keys(Q)
           end, [{1,1},{2,0}])">>,
-        {warnings,[{{4,37},qlc,nomatch_filter}]}},
+        %% {warnings,[{{4,37},qlc,nomatch_filter}]}},
+        []},
 
        <<"etsc(fun(E) ->
                  Q = qlc:q([{A,B,C} ||
@@ -6223,8 +6244,9 @@ otp_7238(Config) when is_list(Config) ->
         <<"nomatch_1() ->
                {qlc:q([X || X={X} <- []]), [t || \"a\"=\"b\" <- []]}.">>,
         [],
-        {warnings,[{{2,30},qlc,nomatch_pattern},
-                   {{2,44},v3_core,nomatch}]}},
+        %% {warnings,[{{2,30},qlc,nomatch_pattern},
+        %%            {{2,44},v3_core,nomatch}]}},
+        {warnings,[{2,v3_core,nomatch}]}},
 
        %% Not found by qlc...
        {nomatch_2,
@@ -6237,7 +6259,8 @@ otp_7238(Config) when is_list(Config) ->
         <<"nomatch_3() ->
                qlc:q([t || [$a, $b] = \"ba\" <- []]).">>,
         [],
-        {warnings,[{{2,37},qlc,nomatch_pattern}]}},
+        %% {warnings,[{{2,37},qlc,nomatch_pattern}]}},
+        {warnings,[{2,v3_core,nomatch}]}},
 
        %% Not found by qlc...
        {nomatch_4,
@@ -6258,44 +6281,51 @@ otp_7238(Config) when is_list(Config) ->
                qlc:q([X || X <- [],
                            X =:= {X}]).">>,
         [],
-        {warnings,[{{3,30},qlc,nomatch_filter}]}},
+        %% {warnings,[{{3,30},qlc,nomatch_filter}]}},
+        []},
 
        {nomatch_7,
         <<"nomatch_7() ->
                qlc:q([X || {X=Y,{Y}=X} <- []]).">>,
         [],
-        {warnings,[{{2,28},qlc,nomatch_pattern}]}},
+        %% {warnings,[{{2,28},qlc,nomatch_pattern}]}},
+        []},
 
        {nomatch_8,
         <<"nomatch_8() ->
                qlc:q([X || {X={},X=[]} <- []]).">>,
         [],
-        {warnings,[{{2,28},qlc,nomatch_pattern}]}},
+        %% {warnings,[{{2,28},qlc,nomatch_pattern}]}},
+        []},
 
        {nomatch_9,
         <<"nomatch_9() ->
                qlc:q([X || X <- [], X =:= {}, X =:= []]).">>,
         [],
-        {warnings,[{{2,49},qlc,nomatch_filter}]}},
+        %% {warnings,[{{2,49},qlc,nomatch_filter}]}},
+        []},
 
        {nomatch_10,
         <<"nomatch_10() ->
                qlc:q([X || X <- [],
                            ((X =:= 1) or (X =:= 2)) and (X =:= 3)]).">>,
         [],
-        {warnings,[{{3,53},qlc,nomatch_filter}]}},
+        %% {warnings,[{{3,53},qlc,nomatch_filter}]}},
+        []},
 
        {nomatch_11,
         <<"nomatch_11() ->
                qlc:q([X || X <- [], x =:= []]).">>,
         [],
-        {warnings,[{{2,39},qlc,nomatch_filter}]}},
+        %% {warnings,[{{2,39},qlc,nomatch_filter}]}},
+        {warnings,[{2,sys_core_fold,nomatch_guard}]}},
 
        {nomatch_12,
         <<"nomatch_12() ->
                qlc:q([X || X={} <- [], X =:= []]).">>,
         [],
-        {warnings,[{{2,42},qlc,nomatch_filter}]}},
+        %% {warnings,[{{2,42},qlc,nomatch_filter}]}},
+        []},
 
        {nomatch_13,
         <<"nomatch_13() ->
@@ -6303,8 +6333,9 @@ otp_7238(Config) when is_list(Config) ->
                            X={X} <- [], 
                            Y={Y} <- []]).">>,
         [],
-        {warnings,[{{3,29},qlc,nomatch_pattern},
-                   {{4,29},qlc,nomatch_pattern}]}},
+        %% {warnings,[{{3,29},qlc,nomatch_pattern},
+        %%            {{4,29},qlc,nomatch_pattern}]}},
+        []},
 
        {nomatch_14,
         <<"nomatch_14() ->
@@ -6312,7 +6343,8 @@ otp_7238(Config) when is_list(Config) ->
                            1 > 0,
                            1 > X]).">>,
         [],
-        {warnings,[{{2,29},qlc,nomatch_pattern}]}},
+        %% {warnings,[{{2,29},qlc,nomatch_pattern}]}},
+        []},
 
        {nomatch_15,
         <<"nomatch_15() ->
@@ -6321,7 +6353,8 @@ otp_7238(Config) when is_list(Config) ->
                               1 > 0,
                               1 > X]).">>,
         [],
-        {warnings,[{{2,32},qlc,nomatch_pattern}]}},
+        %% {warnings,[{{2,32},qlc,nomatch_pattern}]}},
+        []},
 
        %% Template warning.
        {nomatch_template1,
@@ -6559,18 +6592,19 @@ otp_7238(Config) when is_list(Config) ->
     ?line run(Config, T2),
 
     T3 = [
-       {nomatch_6,
-        <<"nomatch_6() ->
-               qlc:q([X || X <- [],
-                           X =:= {X}]).">>,
-        [],
-        {[],["filter evaluates to 'false'"]}},
+%%        {nomatch_6,
+%%         <<"nomatch_6() ->
+%%                qlc:q([X || X <- [],
+%%                            X =:= {X}]).">>,
+%%         [],
+%%         {[],["filter evaluates to 'false'"]}},
 
-       {nomatch_7,
-        <<"nomatch_7() ->
-               qlc:q([X || {X=Y,{Y}=X} <- []]).">>,
-        [],
-        {[],["pattern cannot possibly match"]}}],
+%%        {nomatch_7,
+%%         <<"nomatch_7() ->
+%%                qlc:q([X || {X=Y,{Y}=X} <- []]).">>,
+%%         [],
+%%         {[],["pattern cannot possibly match"]}}
+       ],
     ?line compile_format(Config, T3),
 
     %% *Very* simple test - just check that it doesn't crash.
