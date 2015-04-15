@@ -2502,7 +2502,7 @@ static ERL_NIF_TERM aes_cbc_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
     ErlNifBinary key_bin, ivec_bin, data_bin;
     unsigned char ivec[16];
     int enc, i = 0, outlen = 0;
-    EVP_CIPHER_CTX *ctx = NULL;
+    EVP_CIPHER_CTX ctx;
     const EVP_CIPHER *cipher = NULL;
     unsigned char* ret_ptr;
     ERL_NIF_TERM ret;
@@ -2524,8 +2524,7 @@ static ERL_NIF_TERM aes_cbc_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
     else
 	enc = 0;
 
-    if (!(ctx = EVP_CIPHER_CTX_new()))
-	return enif_make_badarg(env);
+    EVP_CIPHER_CTX_init(&ctx);
 
     if (key_bin.size == 16)
 	cipher = EVP_aes_128_cbc();
@@ -2538,20 +2537,20 @@ static ERL_NIF_TERM aes_cbc_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
        at the end of the buffer for EVP calls. let's be safe */
     ret_ptr = enif_make_new_binary(env, data_bin.size + 16*3, &ret);
 
-    if (EVP_CipherInit_ex(ctx, cipher, NULL, key_bin.data, ivec, enc) != 1)
+    if (EVP_CipherInit_ex(&ctx, cipher, NULL, key_bin.data, ivec, enc) != 1)
 	return enif_make_badarg(env);
 
     /* disable padding, we only handle whole blocks */
-    EVP_CIPHER_CTX_set_padding(ctx, 0);
+    EVP_CIPHER_CTX_set_padding(&ctx, 0);
 
-    if (EVP_CipherUpdate(ctx, ret_ptr, &i, data_bin.data, data_bin.size) != 1)
+    if (EVP_CipherUpdate(&ctx, ret_ptr, &i, data_bin.data, data_bin.size) != 1)
 	return enif_make_badarg(env);
     outlen += i;
-    if (EVP_CipherFinal_ex(ctx, ret_ptr + outlen, &i) != 1)
+    if (EVP_CipherFinal_ex(&ctx, ret_ptr + outlen, &i) != 1)
 	return enif_make_badarg(env);
     outlen += i;
 
-    EVP_CIPHER_CTX_free(ctx);
+    EVP_CIPHER_CTX_cleanup(&ctx);
 
     CONSUME_REDS(env,data_bin);
 
