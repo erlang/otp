@@ -1660,6 +1660,13 @@ static ERL_NIF_TERM call_nif_exception(ErlNifEnv* env, int argc, const ERL_NIF_T
     return enif_make_atom(env, "ok");
 }
 
+#if !defined(NAN) || !defined(INFINITY)
+double zero(void)
+{
+    return 0.0;
+}
+#endif
+
 static ERL_NIF_TERM call_nif_nan_or_inf(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
     double val;
@@ -1673,14 +1680,14 @@ static ERL_NIF_TERM call_nif_nan_or_inf(ErlNifEnv* env, int argc, const ERL_NIF_
 #ifdef NAN
         val = NAN;
 #else
-        val = 0.0/0.0;
+        val = 0.0/zero();
 #endif
     } else {
         /* Verify that enif_make_double raises a badarg for NaN and infinity */
 #ifdef INFINITY
         val = INFINITY;
 #else
-        val = 1.0/0.0;
+        val = 1.0/zero();
 #endif
     }
     res = enif_make_double(env, val);
