@@ -315,7 +315,7 @@ text/plain	asc txt
       </item>
 
       <marker id="prop_server_tokens"></marker>
-      <tag>{server_tokens, prod|major|minor|minimal|os|full|{private, string()}}</tag>
+      <tag>{server_tokens, none|prod|major|minor|minimal|os|full|{private, string()}}</tag>
       <item>
 	<p>ServerTokens defines how the value of the server header 
 	should look. </p>
@@ -323,6 +323,7 @@ text/plain	asc txt
 	here is what the server header string could look like for
 	the different values of server-tokens:  </p>
 	<pre>
+none                  ""  % A Server: header will not be generated
 prod                  "inets"
 major                 "inets/5"
 minor                 "inets/5.8"
