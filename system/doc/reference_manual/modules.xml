@@ -289,7 +289,9 @@ behaviour_info(callbacks) -> Callbacks.</pre>
 
         <tag><c>md5</c></tag>
 	  <item>
-	  <p>Returns a binary representing the MD5 checksum of the module.</p>
+	  <p>Returns a binary representing the MD5 checksum of the module.
+          If the module has native code loaded, this will be the MD5 of the
+          native code, not the BEAM bytecode.</p>
 	  </item>
 
         <tag><c>exports</c></tag>
