@@ -102,14 +102,8 @@ static int hxnodecmpkey(hxnode_t* a, hxnode_t* b);
 
 BIF_RETTYPE map_size_1(BIF_ALIST_1) {
     if (is_flatmap(BIF_ARG_1)) {
-	Eterm *hp;
-	Uint hsz  = 0;
 	flatmap_t *mp = (flatmap_t*)flatmap_val(BIF_ARG_1);
-	Uint n    = flatmap_get_size(mp);
-
-	erts_bld_uint(NULL, &hsz, n);
-	hp = HAlloc(BIF_P, hsz);
-	BIF_RET(erts_bld_uint(&hp, NULL, n));
+	BIF_RET(make_small(flatmap_get_size(mp)));
     } else if (is_hashmap(BIF_ARG_1)) {
 	Eterm *head, *hp, res;
 	Uint size, hsz=0;
