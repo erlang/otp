@@ -231,8 +231,15 @@ staticBoxSizer(Config) ->
 
 
 clipboard(TestInfo) when is_atom(TestInfo) -> wx_test_lib:tc_info(TestInfo);
-clipboard(_Config) ->
-    wx:new(),
+clipboard(Config) ->
+    Wx = wx:new(),
+    Frame = wxFrame:new(Wx, ?wxID_ANY, "Main Frame"),
+    Ctrl = wxTextCtrl:new(Frame, ?wxID_ANY, [{size, {600,400}}, {style, ?wxTE_MULTILINE}]),
+    wxTextCtrl:connect(Ctrl, command_text_copy, [{skip, true}]),
+    wxTextCtrl:connect(Ctrl, command_text_cut, [{skip, true}]),
+    wxTextCtrl:connect(Ctrl, command_text_paste, [{skip, true}]),
+    wxWindow:show(Frame),
+
     CB = ?mt(wxClipboard, wxClipboard:get()),
     wxClipboard:usePrimarySelection(CB),
     ?m(false, wx:is_null(CB)),
@@ -271,7 +278,8 @@ clipboard(_Config) ->
     ?log("Flushing ~n",[]),
     wxClipboard:flush(CB),
     ?log("Stopping ~n",[]),
-    ok.
+    wx_test_lib:wx_destroy(Frame,Config).
+
 
 helpFrame(TestInfo) when is_atom(TestInfo) -> wx_test_lib:tc_info(TestInfo);
 helpFrame(Config) ->
