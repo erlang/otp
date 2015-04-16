@@ -785,8 +785,15 @@ fix_mime_types(ConfigList0) ->
 			  [{"html","text/html"},{"htm","text/html"}]} 
 			 | ConfigList0]
 		end;
-	_ ->
-	    ConfigList0
+    MimeTypes ->
+        case filelib:is_file(MimeTypes) of
+            true ->
+                {ok, MimeTypesList} = load_mime_types(MimeTypes),
+                ConfigList = proplists:delete(mime_types, ConfigList0),
+                [{mime_types, MimeTypesList} | ConfigList];
+            false ->
+                ConfigList0
+        end
     end.
 
 store({mime_types,MimeTypesList},ConfigList) ->
