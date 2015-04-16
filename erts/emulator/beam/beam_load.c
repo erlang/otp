@@ -6225,6 +6225,7 @@ erts_make_stub_module(Process* p, Eterm Mod, Eterm Beam, Eterm Info)
     LoaderState* stp;
     BeamInstr Funcs;
     BeamInstr Patchlist;
+    Eterm MD5Bin;
     Eterm* tp;
     BeamInstr* code = NULL;
     BeamInstr* ptrs;
@@ -6253,12 +6254,15 @@ erts_make_stub_module(Process* p, Eterm Mod, Eterm Beam, Eterm Info)
 	goto error;
     }
     tp = tuple_val(Info);
-    if (tp[0] != make_arityval(2)) {
+    if (tp[0] != make_arityval(3)) {
       goto error;
     }
     Funcs = tp[1];
-    Patchlist = tp[2];        
-   
+    Patchlist = tp[2];
+    MD5Bin = tp[3];
+    if (is_not_binary(MD5Bin) || (binary_size(MD5Bin) != MD5_SIZE)) {
+	goto error;
+    }
     if ((n = erts_list_length(Funcs)) < 0) {
 	goto error;
     }
@@ -6308,6 +6312,7 @@ erts_make_stub_module(Process* p, Eterm Mod, Eterm Beam, Eterm Info)
     code_size = ((WORDS_PER_FUNCTION+1)*n + MI_FUNCTIONS + 2) * sizeof(BeamInstr);
     code_size += stp->chunks[ATTR_CHUNK].size;
     code_size += stp->chunks[COMPILE_CHUNK].size;
+    code_size += MD5_SIZE;
     code = erts_alloc_fnf(ERTS_ALC_T_CODE, code_size);
     if (!code) {
 	goto error;
@@ -6413,6 +6418,15 @@ erts_make_stub_module(Process* p, Eterm Mod, Eterm Beam, Eterm Info)
 			  code+MI_COMPILE_SIZE_ON_HEAP);
     if (info == NULL) {
 	goto error;
+    }
+    {
+      byte *tmp = NULL;
+      byte *md5 = NULL;
+      if ((md5 = erts_get_aligned_binary_bytes(MD5Bin, &tmp)) != NULL) {
+        sys_memcpy(info, md5, MD5_SIZE);
+        code[MI_MD5_PTR] = (BeamInstr) info;
+      }
+      erts_free_aligned_binary_bytes(tmp);
     }
 
     /*
