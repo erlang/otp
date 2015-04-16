@@ -52,6 +52,12 @@ all() ->
      ssh_connect_arg4_timeout,
      packet_size_zero,
      ssh_daemon_minimal_remote_max_packet_size_option,
+     id_string_no_opt_client,
+     id_string_own_string_client,
+     id_string_random_client,
+     id_string_no_opt_server,
+     id_string_own_string_server,
+     id_string_random_server,
      {group, hardening_tests}
     ].
 
@@ -817,6 +823,66 @@ ssh_daemon_minimal_remote_max_packet_size_option(Config) ->
     ssh:stop_daemon(Server).
     
 %%--------------------------------------------------------------------
+id_string_no_opt_client(Config) ->
+    {Server, Host, Port} = fake_daemon(Config),
+    {error,_} = ssh:connect(Host, Port, []),
+    receive
+	{id,Server,"SSH-2.0-Erlang/"++Vsn} ->
+	    true = expected_ssh_vsn(Vsn);
+	{id,Server,Other} ->
+	    ct:fail("Unexpected id: ~s.",[Other])
+    end.
+
+%%--------------------------------------------------------------------
+id_string_own_string_client(Config) ->
+    {Server, Host, Port} = fake_daemon(Config),
+    {error,_} = ssh:connect(Host, Port, [{id_string,"Pelle"}]),
+    receive
+	{id,Server,"SSH-2.0-Pelle\r\n"} ->
+	    ok;
+	{id,Server,Other} ->
+	    ct:fail("Unexpected id: ~s.",[Other])
+    end.
+
+%%--------------------------------------------------------------------
+id_string_random_client(Config) ->
+    {Server, Host, Port} = fake_daemon(Config),
+    {error,_} = ssh:connect(Host, Port, [{id_string,random}]),
+    receive
+	{id,Server,Id="SSH-2.0-Erlang"++_} ->
+	    ct:fail("Unexpected id: ~s.",[Id]);
+	{id,Server,Rnd="SSH-2.0-"++_} ->
+	    ct:log("Got ~s.",[Rnd]);
+	{id,Server,Id} ->
+	    ct:fail("Unexpected id: ~s.",[Id])
+    end.
+
+%%--------------------------------------------------------------------
+id_string_no_opt_server(Config) ->
+    {_Server, Host, Port} = std_daemon(Config, []),
+    {ok,S1}=gen_tcp:connect(Host,Port,[{active,false}]),
+    {ok,"SSH-2.0-Erlang/"++Vsn} = gen_tcp:recv(S1, 0, 2000),
+    true = expected_ssh_vsn(Vsn).
+
+%%--------------------------------------------------------------------
+id_string_own_string_server(Config) ->
+    {_Server, Host, Port} = std_daemon(Config, [{id_string,"Olle"}]),
+    {ok,S1}=gen_tcp:connect(Host,Port,[{active,false}]),
+    {ok,"SSH-2.0-Olle\r\n"} = gen_tcp:recv(S1, 0, 2000).
+
+%%--------------------------------------------------------------------
+id_string_random_server(Config) ->
+    {_Server, Host, Port} = std_daemon(Config, [{id_string,random}]),
+    {ok,S1}=gen_tcp:connect(Host,Port,[{active,false}]),
+    {ok,"SSH-2.0-"++Rnd} = gen_tcp:recv(S1, 0, 2000),
+    case Rnd of
+	"Erlang"++_ -> ct:log("Id=~p",[Rnd]),
+		       {fail,got_default_id};
+	"Olle\r\n" -> {fail,got_previous_tests_value};
+	_ -> ct:log("Got ~s.",[Rnd])
+    end.
+
+%%--------------------------------------------------------------------
 ssh_connect_negtimeout_parallel(Config) -> ssh_connect_negtimeout(Config,true).
 ssh_connect_negtimeout_sequential(Config) -> ssh_connect_negtimeout(Config,false).
     
@@ -1095,3 +1161,46 @@ do_shell(IO, Shell) ->
     %% 	{'EXIT', Shell, killed} ->
     %% 	    ok
     %% end.
+
+
+std_daemon(Config, ExtraOpts) ->
+    SystemDir = ?config(data_dir, Config),
+    PrivDir = ?config(priv_dir, Config), 
+    UserDir = filename:join(PrivDir, nopubkey), % to make sure we don't use public-key-auth
+    file:make_dir(UserDir),
+    {_Server, _Host, _Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
+						   {user_dir, UserDir},
+						   {failfun, fun ssh_test_lib:failfun/2} | ExtraOpts]).
+
+expected_ssh_vsn(Str) ->
+    try
+	{ok,L} = application:get_all_key(ssh),
+	proplists:get_value(vsn,L,"")++"\r\n"
+    of
+	Str -> true;
+	"\r\n" -> true;
+	_ -> false
+    catch
+	_:_ -> true %% ssh not started so we dont't know
+    end.
+	    
+	    
+fake_daemon(_Config) ->
+    Parent = self(),
+    %% start the server
+    Server = spawn(fun() ->
+			   {ok,Sl} = gen_tcp:listen(0,[]),
+			   {ok,{Host,Port}} = inet:sockname(Sl),
+			   Parent ! {sockname,self(),Host,Port},
+			   Rsa = gen_tcp:accept(Sl),
+			   ct:log("Server gen_tcp:accept got ~p",[Rsa]),
+			   {ok,S} = Rsa,
+			   receive
+			       {tcp, S, Id} -> Parent ! {id,self(),Id}
+			   end
+		   end),
+    %% Get listening host and port
+    receive
+	{sockname,Server,ServerHost,ServerPort} -> {Server, ServerHost, ServerPort}
+    end.
+
