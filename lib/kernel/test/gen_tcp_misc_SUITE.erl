@@ -35,7 +35,7 @@
 	 show_econnreset_passive/1, econnreset_after_sync_send/1,
 	 econnreset_after_async_send_active/1,
 	 econnreset_after_async_send_active_once/1,
-	 econnreset_after_async_send_passive/1,
+	 econnreset_after_async_send_passive/1, linger_zero/1,
 	 default_options/1, http_bad_packet/1, 
 	 busy_send/1, busy_disconnect_passive/1, busy_disconnect_active/1,
 	 fill_sendq/1, partial_recv_and_close/1, 
@@ -101,7 +101,7 @@ all() ->
      show_econnreset_passive, econnreset_after_sync_send,
      econnreset_after_async_send_active,
      econnreset_after_async_send_active_once,
-     econnreset_after_async_send_passive,
+     econnreset_after_async_send_passive, linger_zero,
      default_options, http_bad_packet, busy_send,
      busy_disconnect_passive, busy_disconnect_active,
      fill_sendq, partial_recv_and_close,
@@ -1357,6 +1357,39 @@ econnreset_after_async_send_passive(Config) when is_list(Config) ->
     ok = gen_tcp:close(S1),
     ok = ?t:sleep(20),
     {error, econnreset} = gen_tcp:recv(Client1, 0).
+
+%%
+%% Test {linger {true, 0}} aborts a connection
+%%
+
+linger_zero(Config) when is_list(Config) ->
+    %% All the econnreset tests will prove that {linger, {true, 0}} aborts
+    %% a connection when the driver queue is empty. We will test here
+    %% that it also works when the driver queue is not empty.
+    {OS, _} = os:type(),
+    {ok, L} = gen_tcp:listen(0, [{active, false},
+				 {recbuf, 4096},
+				 {show_econnreset, true}]),
+    {ok, Port} = inet:port(L),
+    {ok, Client} = gen_tcp:connect(localhost, Port,
+				   [{active, false},
+				    {sndbuf, 4096}]),
+    {ok, S} = gen_tcp:accept(L),
+    ok = gen_tcp:close(L),
+    PayloadSize = 1024 * 1024,
+    Payload = lists:duplicate(PayloadSize, $.),
+    ok = gen_tcp:send(Client, Payload),
+    case erlang:port_info(Client, queue_size) of
+	{queue_size, N} when N > 0 -> ok;
+	{queue_size, 0} when OS =:= win32 -> ok;
+	{queue_size, 0} = T -> ?t:fail(T)
+    end,
+    ok = inet:setopts(Client, [{linger, {true, 0}}]),
+    ok = gen_tcp:close(Client),
+    ok = ?t:sleep(1),
+    undefined = erlang:port_info(Client, connected),
+    {error, econnreset} = gen_tcp:recv(S, PayloadSize).
+
 
 %% Thanks to Luke Gorrie. Tests for a very specific problem with 
 %% corrupt data. The testcase will be killed by the timetrap timeout

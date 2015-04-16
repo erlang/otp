@@ -838,6 +838,7 @@ static int my_strncasecmp(const char *s1, const char *s2, size_t n)
 #define TCP_ADDF_SHOW_ECONNRESET   64 /* Tell user about incoming RST */
 #define TCP_ADDF_DELAYED_ECONNRESET 128 /* An ECONNRESET error occured on send or shutdown */
 #define TCP_ADDF_SHUTDOWN_WR_DONE 256 /* A shutdown(sock, SHUT_WR) or SHUT_RDWR was made */
+#define TCP_ADDF_LINGER_ZERO 	  512 /* Discard driver queue on port close */
 
 /* *_REQ_* replies */
 #define INET_REP_ERROR       0
@@ -6318,6 +6319,13 @@ static int inet_set_opts(inet_descriptor* desc, char* ptr, int len)
 	    arg_sz = sizeof(li_val);
 	    DEBUGF(("inet_set_opts(%ld): s=%d, SO_LINGER=%d,%d",
 		    (long)desc->port, desc->s, li_val.l_onoff,li_val.l_linger));
+	    if (desc->sprotocol == IPPROTO_TCP) {
+		tcp_descriptor* tdesc = (tcp_descriptor*) desc;
+		if (li_val.l_onoff && li_val.l_linger == 0)
+		    tdesc->tcp_add_flags |= TCP_ADDF_LINGER_ZERO;
+		else
+		    tdesc->tcp_add_flags &= ~TCP_ADDF_LINGER_ZERO;
+	    }
 	    break;
 
 	case INET_OPT_PRIORITY: 
@@ -9699,6 +9707,8 @@ static void tcp_inet_flush(ErlDrvData e)
 	/* Discard send queue to avoid hanging port (OTP-7615) */
 	tcp_clear_output(desc);
     }
+    if (desc->tcp_add_flags & TCP_ADDF_LINGER_ZERO)
+	tcp_clear_output(desc);
 }
 
 static void tcp_inet_process_exit(ErlDrvData e, ErlDrvMonitor *monitorp) 

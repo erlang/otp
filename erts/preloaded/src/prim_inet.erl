@@ -146,11 +146,16 @@ shutdown_1(S, How) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 close(S) when is_port(S) ->
-    case subscribe(S, [subs_empty_out_q]) of
-	{ok, [{subs_empty_out_q,N}]} when N > 0 ->
-	    close_pend_loop(S, N);   %% wait for pending output to be sent
+    case getopt(S, linger) of
+    	{ok,{true,0}} -> 
+	    close_port(S);
 	_ ->
-	    close_port(S)
+	    case subscribe(S, [subs_empty_out_q]) of
+		{ok, [{subs_empty_out_q,N}]} when N > 0 ->
+		    close_pend_loop(S, N);   %% wait for pending output to be sent
+		_ ->
+		    close_port(S)
+	    end
     end.
 
 close_pend_loop(S, N) ->
