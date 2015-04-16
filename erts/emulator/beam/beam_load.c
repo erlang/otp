@@ -36,6 +36,7 @@
 #include "beam_catches.h"
 #include "erl_binary.h"
 #include "erl_zlib.h"
+#include "erl_map.h"
 
 #ifdef HIPE
 #include "hipe_bif0.h"
@@ -4051,8 +4052,139 @@ tuple_append_put(LoaderState* stp, GenOpArg Arity, GenOpArg Dst,
 }
 
 /*
+ * Predicate to test whether the given literal is a map.
+ */
+
+static int
+literal_is_map(LoaderState* stp, GenOpArg Lit)
+{
+    Eterm term;
+
+    ASSERT(Lit.type == TAG_q);
+    term = stp->literals[Lit.val].term;
+    return is_map(term);
+}
+
+/*
+ * Predicate to test whether the given literal is an empty map.
+ */
+
+static int
+is_empty_map(LoaderState* stp, GenOpArg Lit)
+{
+    Eterm term;
+
+    if (Lit.type != TAG_q) {
+	return 0;
+    }
+    term = stp->literals[Lit.val].term;
+    return is_flatmap(term) && flatmap_get_size(flatmap_val(term)) == 0;
+}
+
+/*
+ * Pseudo predicate map_key_sort that will sort the Rest operand for
+ * map instructions as a side effect.
+ */
+
+typedef struct SortGenOpArg {
+    Eterm term;			/* Term to use for comparing  */
+    GenOpArg arg;		/* Original data */
+} SortGenOpArg;
+
+static int
+genopargtermcompare(SortGenOpArg* a, SortGenOpArg* b)
+{
+    return CMP_TERM(a->term, b->term);
+}
+
+static int
+map_key_sort(LoaderState* stp, GenOpArg Size, GenOpArg* Rest)
+{
+    SortGenOpArg* t;
+    unsigned size = Size.val;
+    unsigned i;
+
+    if (size == 2) {
+	return 1;		/* Already sorted. */
+    }
+
+
+    t = (SortGenOpArg *) erts_alloc(ERTS_ALC_T_TMP, size*sizeof(SortGenOpArg));
+
+    /*
+     * Copy original data and sort keys to a temporary array.
+     */
+    for (i = 0; i < size; i += 2) {
+	t[i].arg = Rest[i];
+	switch (Rest[i].type) {
+	case TAG_a:
+	    t[i].term = Rest[i].val;
+	    ASSERT(is_atom(t[i].term));
+	    break;
+	case TAG_i:
+	    t[i].term = make_small(Rest[i].val);
+	    break;
+	case TAG_n:
+	    t[i].term = NIL;
+	    break;
+	case TAG_q:
+	    t[i].term = stp->literals[Rest[i].val].term;
+	    break;
+	default:
+	    /*
+	     * Not a literal key. Not allowed. Only a single
+	     * variable key is allowed in each map instruction.
+	     */
+	    erts_free(ERTS_ALC_T_TMP, (void *) t);
+	    return 0;
+	}
+#ifdef DEBUG
+	t[i+1].term = THE_NON_VALUE;
+#endif
+	t[i+1].arg = Rest[i+1];
+    }
+
+    /*
+     * Sort the temporary array.
+     */
+    qsort((void *) t, size / 2, 2 * sizeof(SortGenOpArg),
+	  (int (*)(const void *, const void *)) genopargtermcompare);
+
+    /*
+     * Copy back the sorted, original data.
+     */
+    for (i = 0; i < size; i++) {
+	Rest[i] = t[i].arg;
+    }
+
+    erts_free(ERTS_ALC_T_TMP, (void *) t);
+    return 1;
+}
+
+static int
+hash_genop_arg(LoaderState* stp, GenOpArg Key, Uint32* hx)
+{
+    switch (Key.type) {
+    case TAG_a:
+	*hx = hashmap_make_hash(Key.val);
+	return 1;
+    case TAG_i:
+	*hx = hashmap_make_hash(make_small(Key.val));
+	return 1;
+    case TAG_n:
+	*hx = hashmap_make_hash(NIL);
+	return 1;
+    case TAG_q:
+	*hx = hashmap_make_hash(stp->literals[Key.val].term);
+	return 1;
+    default:
+	return 0;
+    }
+}
+
+/*
  * Replace a get_map_elements with one key to an instruction with one
- * element
+ * element.
  */
 
 static GenOp*
@@ -4060,37 +4192,99 @@ gen_get_map_element(LoaderState* stp, GenOpArg Fail, GenOpArg Src,
 		    GenOpArg Size, GenOpArg* Rest)
 {
     GenOp* op;
+    GenOpArg Key;
+    Uint32 hx = 0;
 
     ASSERT(Size.type == TAG_u);
 
     NEW_GENOP(stp, op);
     op->next = NULL;
-    op->op = genop_get_map_element_4;
-    op->arity = 4;
-
     op->a[0] = Fail;
     op->a[1] = Src;
     op->a[2] = Rest[0];
-    op->a[3] = Rest[1];
+
+    Key = Rest[0];
+    if (hash_genop_arg(stp, Key, &hx)) {
+	op->arity = 5;
+	op->op = genop_i_get_map_element_hash_5;
+	op->a[3].type = TAG_u;
+	op->a[3].val = (BeamInstr) hx;
+	op->a[4] = Rest[1];
+    } else {
+	op->arity = 4;
+	op->op = genop_i_get_map_element_4;
+	op->a[3] = Rest[1];
+    }
     return op;
 }
 
 static GenOp*
-gen_has_map_field(LoaderState* stp, GenOpArg Fail, GenOpArg Src,
-		    GenOpArg Size, GenOpArg* Rest)
+gen_get_map_elements(LoaderState* stp, GenOpArg Fail, GenOpArg Src,
+		     GenOpArg Size, GenOpArg* Rest)
 {
     GenOp* op;
+    Uint32 hx;
+    Uint i;
+    GenOpArg* dst;
+#ifdef DEBUG
+    int good_hash;
+#endif
 
     ASSERT(Size.type == TAG_u);
 
     NEW_GENOP(stp, op);
+    op->op = genop_i_get_map_elements_3;
+    GENOP_ARITY(op, 3 + 3*(Size.val/2));
     op->next = NULL;
-    op->op = genop_has_map_field_3;
-    op->arity = 4;
+    op->a[0] = Fail;
+    op->a[1] = Src;
+    op->a[2].type = TAG_u;
+    op->a[2].val = 3*(Size.val/2);
+
+    dst = op->a+3;
+    for (i = 0; i < Size.val / 2; i++) {
+	dst[0] = Rest[2*i];
+	dst[1] = Rest[2*i+1];
+#ifdef DEBUG
+	good_hash =
+#endif
+	    hash_genop_arg(stp, dst[0], &hx);
+#ifdef DEBUG
+	ASSERT(good_hash);
+#endif
+	dst[2].type = TAG_u;
+	dst[2].val = (BeamInstr) hx;
+	dst += 3;
+    }
+    return op;
+}
+
+static GenOp*
+gen_has_map_fields(LoaderState* stp, GenOpArg Fail, GenOpArg Src,
+		   GenOpArg Size, GenOpArg* Rest)
+{
+    GenOp* op;
+    Uint i;
+    Uint n;
+
+    ASSERT(Size.type == TAG_u);
+    n = Size.val;
+
+    NEW_GENOP(stp, op);
+    GENOP_ARITY(op, 3 + 2*n);
+    op->next = NULL;
+    op->op = genop_get_map_elements_3;
 
     op->a[0] = Fail;
     op->a[1] = Src;
-    op->a[2] = Rest[0];
+    op->a[2].type = TAG_u;
+    op->a[2].val = 2*n;
+
+    for (i = 0; i < n; i++) {
+	op->a[3+2*i] = Rest[i];
+	op->a[3+2*i+1].type = TAG_x;
+	op->a[3+2*i+1].val = 0;	/* x(0); normally not used */
+    }
     return op;
 }
 

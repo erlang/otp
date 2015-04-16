@@ -70,7 +70,8 @@
 -export([module/2,format_error/1]).
 
 -import(lists, [map/2,foldl/3,foldr/3,mapfoldl/3,all/2,any/2,
-		reverse/1,reverse/2,member/2,nth/2,flatten/1,unzip/1]).
+		reverse/1,reverse/2,member/2,nth/2,flatten/1,
+		unzip/1,keyfind/3]).
 
 -import(cerl, [ann_c_cons/3,ann_c_map/3,ann_c_tuple/2]).
 
@@ -1624,12 +1625,11 @@ eval_case(Case, _) -> Case.
 
 eval_case_warn(#c_primop{anno=Anno,
 			 name=#c_literal{val=match_fail},
-			 args=[#c_literal{val=Reason}]}=Core)
-  when is_atom(Reason) ->
-    case member(eval_failure, Anno) of
+			 args=[_]}=Core) ->
+    case keyfind(eval_failure, 1, Anno) of
 	false ->
 	    ok;
-	true ->
+	{eval_failure,Reason} ->
 	    %% Example: M = not_map, M#{k:=v}
 	    add_warning(Core, {eval_failure,Reason})
     end;

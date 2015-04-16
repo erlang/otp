@@ -140,7 +140,13 @@
 #define EXC_NOTSUP		((17 << 8) | EXC_ERROR)
 					/* Not supported */
 
-#define NUMBER_EXIT_CODES 18	/* The number of exit code indices */
+#define EXC_BADMAP		((18 << 8) | EXC_ERROR)
+					/* Bad map */
+
+#define EXC_BADKEY		((19 << 8) | EXC_ERROR)
+					/* Bad key in map */
+
+#define NUMBER_EXIT_CODES 20	/* The number of exit code indices */
 
 /*
  * Internal pseudo-error codes.
@@ -152,6 +158,8 @@
  */
 #define BADARG EXC_BADARG
 #define BADARITH EXC_BADARITH
+#define BADKEY EXC_BADKEY
+#define BADMAP EXC_BADMAP
 #define BADMATCH EXC_BADMATCH
 #define SYSTEM_LIMIT EXC_SYSTEM_LIMIT
 

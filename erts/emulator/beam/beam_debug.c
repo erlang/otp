@@ -661,10 +661,9 @@ print_op(int to, void *to_arg, int op, int size, BeamInstr* addr)
     case op_i_put_tuple_rI:
     case op_i_put_tuple_xI:
     case op_i_put_tuple_yI:
-    case op_new_map_jdII:
+    case op_new_map_dII:
     case op_update_map_assoc_jsdII:
     case op_update_map_exact_jsdII:
-    case op_i_has_map_fields_fsI:
     case op_i_get_map_elements_fsI:
 	{
 	    int n = unpacked[-1];

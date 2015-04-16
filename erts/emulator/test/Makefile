@@ -125,7 +125,8 @@ NO_OPT= bs_bincomp \
 	bs_match_tail \
 	bs_match_misc \
 	bs_utf \
-	guard
+	guard \
+	map
 
 NATIVE= hibernate
 

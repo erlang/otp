@@ -667,7 +667,7 @@ valfun_4({test,test_arity,{f,Lbl},[Tuple,Sz]}, Vst) when is_integer(Sz) ->
     set_type_reg({tuple,Sz}, Tuple, branch_state(Lbl, Vst));
 valfun_4({test,has_map_fields,{f,Lbl},Src,{list,List}}, Vst) ->
     assert_type(map, Src, Vst),
-    assert_strict_literal_termorder(List),
+    assert_unique_map_keys(List),
     branch_state(Lbl, Vst);
 valfun_4({test,is_map,{f,Lbl},[Src]}, Vst0) ->
     Vst = branch_state(Lbl, Vst0),
@@ -774,7 +774,7 @@ verify_get_map(Fail, Src, List, Vst0) ->
     assert_type(map, Src, Vst0),
     Vst1 = branch_state(Fail, Vst0),
     Keys = extract_map_keys(List),
-    assert_strict_literal_termorder(Keys),
+    assert_unique_map_keys(Keys),
     verify_get_map_pair(List,Vst0,Vst1).
 
 extract_map_keys([Key,_Val|T]) ->
@@ -794,6 +794,8 @@ verify_put_map(Fail, Src, Dst, Live, List, Vst0) ->
     Vst1 = heap_alloc(0, Vst0),
     Vst2 = branch_state(Fail, Vst1),
     Vst = prune_x_regs(Live, Vst2),
+    Keys = extract_map_keys(List),
+    assert_unique_map_keys(Keys),
     set_type_reg(map, Dst, Vst).
 
 %%
@@ -1007,28 +1009,22 @@ assert_freg_set(Fr, _) -> error({bad_source,Fr}).
 
 %% A single item list may be either a list or a register.
 %%
-%% A list with more than item must contain literals in
-%% ascending term order.
+%% A list with more than item must contain unique literals.
 %%
 %% An empty list is not allowed.
 
-assert_strict_literal_termorder([]) ->
+assert_unique_map_keys([]) ->
     %% There is no reason to use the get_map_elements and
     %% has_map_fields instructions with empty lists.
     error(empty_field_list);
-assert_strict_literal_termorder([_]) ->
+assert_unique_map_keys([_]) ->
     ok;
-assert_strict_literal_termorder([_,_|_]=Ls) ->
+assert_unique_map_keys([_,_|_]=Ls) ->
     Vs = [get_literal(L) || L <- Ls],
-    case check_strict_value_termorder(Vs) of
-	true ->  ok;
-	false -> error(not_strict_order)
+    case length(Vs) =:= sets:size(sets:from_list(Vs)) of
+	true -> ok;
+	false -> error(keys_not_unique)
     end.
-
-check_strict_value_termorder([V1|[V2|_]=Vs]) ->
-    erts_internal:cmp_term(V1, V2) < 0 andalso
-	check_strict_value_termorder(Vs);
-check_strict_value_termorder([_]) -> true.
 
 %%%
 %%% New binary matching instructions.

@@ -583,7 +583,7 @@ maps(Config) when is_list(Config) ->
 		 ok.
            ">>,
            [],
-	   {warnings,[{4,sys_core_fold,{eval_failure,badarg}}]}},
+	   {warnings,[{4,sys_core_fold,{eval_failure,badmap}}]}},
 	   {bad_map_src2,
            <<"
              t() ->
@@ -601,7 +601,7 @@ maps(Config) when is_list(Config) ->
 		 ok.
            ">>,
            [],
-	   {warnings,[{3,v3_core,bad_map}]}},
+	   {warnings,[{3,v3_core,badmap}]}},
 	   {ok_map_literal_key,
            <<"
              t() ->

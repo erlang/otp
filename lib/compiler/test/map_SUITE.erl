@@ -37,6 +37,7 @@
 	t_map_sort_literals/1,
 	t_map_size/1,
 	t_build_and_match_aliasing/1,
+	t_is_map/1,
 
 	%% variables
 	t_build_and_match_variables/1,
@@ -84,6 +85,7 @@ all() ->
 	t_map_sort_literals,
 	t_map_size,
 	t_build_and_match_aliasing,
+	t_is_map,
 
 	%% variables
 	t_build_and_match_variables,
@@ -667,13 +669,24 @@ t_map_size(Config) when is_list(Config) ->
     false = map_is_size(M#{ "c" => 2}, 2),
 
     %% Error cases.
-    {'EXIT',{badarg,_}} = (catch map_size([])),
-    {'EXIT',{badarg,_}} = (catch map_size(<<1,2,3>>)),
-    {'EXIT',{badarg,_}} = (catch map_size(1)),
+    {'EXIT',{{badmap,[]},_}} = (catch map_size([])),
+    {'EXIT',{{badmap,<<1,2,3>>},_}} = (catch map_size(<<1,2,3>>)),
+    {'EXIT',{{badmap,1},_}} = (catch map_size(1)),
     ok.
 
 map_is_size(M,N) when map_size(M) =:= N -> true;
 map_is_size(_,_) -> false.
+
+t_is_map(Config) when is_list(Config) ->
+    true = is_map(#{}),
+    true = is_map(#{a=>1}),
+    false = is_map({a,b}),
+    false = is_map(x),
+    if is_map(#{}) -> ok end,
+    if is_map(#{b=>1}) -> ok end,
+    if not is_map([1,2,3]) -> ok end,
+    if not is_map(x) -> ok end,
+    ok.
 
 % test map updates without matching
 t_update_literals(Config) when is_list(Config) ->
@@ -861,9 +874,9 @@ t_update_map_expressions(Config) when is_list(Config) ->
 
     #{ "a" := b } = F(),
 
-    %% Error cases, FIXME: should be 'badmap'?
-    {'EXIT',{badarg,_}} = (catch (id(<<>>))#{ a := 42, b => 2 }),
-    {'EXIT',{badarg,_}} = (catch (id([]))#{ a := 42, b => 2 }),
+    %% Error cases.
+    {'EXIT',{{badmap,<<>>},_}} = (catch (id(<<>>))#{ a := 42, b => 2 }),
+    {'EXIT',{{badmap,[]},_}} = (catch (id([]))#{ a := 42, b => 2 }),
     ok.
 
 
@@ -884,8 +897,14 @@ t_update_assoc(Config) when is_list(Config) ->
 
     %% Errors cases.
     BadMap = id(badmap),
-    {'EXIT',{badarg,_}} = (catch BadMap#{nonexisting=>val}),
-    {'EXIT',{badarg,_}} = (catch <<>>#{nonexisting=>val}),
+    {'EXIT',{{badmap,BadMap},_}} = (catch BadMap#{nonexisting=>val}),
+    {'EXIT',{{badmap,<<>>},_}} = (catch <<>>#{nonexisting=>val}),
+
+    %% Evaluation order.
+    {'EXIT',{blurf,_}} =
+	(catch BadMap#{whatever=>id(error(blurf))}),
+    {'EXIT',{blurf,_}} =
+	(catch BadMap#{id(error(blurf))=>whatever}),
     ok.
 
 t_update_assoc_large(Config) when is_list(Config) ->
@@ -952,8 +971,8 @@ t_update_assoc_large(Config) when is_list(Config) ->
     M2 = M0#{13.0:=wrong,13.0=>new},
 
     %% Errors cases.
-    BadMap = id(badmap),
-    {'EXIT',{badarg,_}} = (catch BadMap#{nonexisting=>M0}),
+    BadMap = id({no,map}),
+    {'EXIT',{{badmap,BadMap},_}} = (catch BadMap#{nonexisting=>M0}),
     ok.
 
 
@@ -978,19 +997,29 @@ t_update_exact(Config) when is_list(Config) ->
 	1.0 => new_val4 },
 
     %% Errors cases.
-    {'EXIT',{badarg,_}} = (catch ((id(nil))#{ a := b })),
-    {'EXIT',{badarg,_}} = (catch M0#{nonexisting:=val}),
-    {'EXIT',{badarg,_}} = (catch M0#{1.0:=v,1.0=>v2}),
-    {'EXIT',{badarg,_}} = (catch M0#{42.0:=v,42:=v2}),
-    {'EXIT',{badarg,_}} = (catch M0#{42=>v1,42.0:=v2,42:=v3}),
-    {'EXIT',{badarg,_}} = (catch <<>>#{nonexisting:=val}),
-    {'EXIT',{badarg,_}} = (catch M0#{<<0:257>> := val}), %% limitation
+    {'EXIT',{{badmap,nil},_}} = (catch ((id(nil))#{ a := b })),
+    {'EXIT',{{badkey,nonexisting},_}} = (catch M0#{nonexisting:=val}),
+    {'EXIT',{{badkey,1.0},_}} = (catch M0#{1.0:=v,1.0=>v2}),
+    {'EXIT',{{badkey,42},_}} = (catch M0#{42.0:=v,42:=v2}),
+    {'EXIT',{{badkey,42.0},_}} = (catch M0#{42=>v1,42.0:=v2,42:=v3}),
+    {'EXIT',{{badmap,<<>>},_}} = (catch <<>>#{nonexisting:=val}),
+    {'EXIT',{{badkey,<<0:257>>},_}} =
+	(catch M0#{<<0:257>> := val}),		%limitation
 
     %% A workaround for a bug allowed an empty map to be updated.
-    {'EXIT',{badarg,_}} = (catch (id(#{}))#{a:=1}),
-    {'EXIT',{badarg,_}} = (catch #{}#{a:=1}),
+    {'EXIT',{{badkey,a},_}} = (catch (id(#{}))#{a:=1}),
+    {'EXIT',{{badkey,a},_}} = (catch #{}#{a:=1}),
     Empty = #{},
-    {'EXIT',{badarg,_}} = (catch Empty#{a:=1}),
+    {'EXIT',{{badkey,a},_}} = (catch Empty#{a:=1}),
+
+    %% Evaluation order.
+    BadMap = id([no,map]),
+    {'EXIT',{blurf,_}} =
+	(catch BadMap#{whatever:=id(error(blurf))}),
+    {'EXIT',{blurf,_}} =
+	(catch BadMap#{id(error(blurf)):=whatever}),
+    {'EXIT',{{badmap,BadMap},_}} =
+	(catch BadMap#{id(nonexisting):=whatever}),
     ok.
 
 t_update_exact_large(Config) when is_list(Config) ->
@@ -1068,10 +1097,10 @@ t_update_exact_large(Config) when is_list(Config) ->
     M2 = M0#{13.0=>wrong,13.0:=new},
 
     %% Errors cases.
-    {'EXIT',{badarg,_}} = (catch M0#{nonexisting:=val}),
-    {'EXIT',{badarg,_}} = (catch M0#{1.0:=v,1.0=>v2}),
-    {'EXIT',{badarg,_}} = (catch M0#{42.0:=v,42:=v2}),
-    {'EXIT',{badarg,_}} = (catch M0#{42=>v1,42.0:=v2,42:=v3}),
+    {'EXIT',{{badkey,nonexisting},_}} = (catch M0#{nonexisting:=val}),
+    {'EXIT',{{badkey,1.0},_}} = (catch M0#{1.0:=v,1.0=>v2}),
+    {'EXIT',{{badkey,42},_}} = (catch M0#{42.0:=v,42:=v2}),
+    {'EXIT',{{badkey,42.0},_}} = (catch M0#{42=>v1,42.0:=v2,42:=v3}),
 
     ok.
 
@@ -1653,8 +1682,8 @@ t_update_assoc_variables(Config) when is_list(Config) ->
 
     %% Errors cases.
     BadMap = id(badmap),
-    {'EXIT',{badarg,_}} = (catch BadMap#{nonexisting=>val}),
-    {'EXIT',{badarg,_}} = (catch <<>>#{nonexisting=>val}),
+    {'EXIT',{{badmap,BadMap},_}} = (catch BadMap#{nonexisting=>val}),
+    {'EXIT',{{badmap,<<>>},_}} = (catch <<>>#{nonexisting=>val}),
     ok.
 
 t_update_exact_variables(Config) when is_list(Config) ->
@@ -1684,13 +1713,14 @@ t_update_exact_variables(Config) when is_list(Config) ->
     #{ "wat" := 3, 2 := a } = id(#{ "wat" => 1, K2 => 2 }#{ K2 := a, "wat" := 3 }),
 
     %% Errors cases.
-    {'EXIT',{badarg,_}} = (catch ((id(nil))#{ a := b })),
-    {'EXIT',{badarg,_}} = (catch M0#{nonexisting:=val}),
-    {'EXIT',{badarg,_}} = (catch M0#{1.0:=v,1.0=>v2}),
-    {'EXIT',{badarg,_}} = (catch M0#{42.0:=v,42:=v2}),
-    {'EXIT',{badarg,_}} = (catch M0#{42=>v1,42.0:=v2,42:=v3}),
-    {'EXIT',{badarg,_}} = (catch <<>>#{nonexisting:=val}),
-    {'EXIT',{badarg,_}} = (catch M0#{<<0:257>> := val}), %% limitation
+    {'EXIT',{{badmap,nil},_}} = (catch ((id(nil))#{ a := b })),
+    {'EXIT',{{badkey,nonexisting},_}} = (catch M0#{nonexisting:=val}),
+    {'EXIT',{{badkey,1.0},_}} = (catch M0#{1.0:=v,1.0=>v2}),
+    {'EXIT',{{badkey,42},_}} = (catch M0#{42.0:=v,42:=v2}),
+    {'EXIT',{{badkey,42.0},_}} = (catch M0#{42=>v1,42.0:=v2,42:=v3}),
+    {'EXIT',{{badmap,<<>>},_}} = (catch <<>>#{nonexisting:=val}),
+    {'EXIT',{{badkey,<<0:257>>},_}} =
+	(catch M0#{<<0:257>> := val}),		%limitation
     ok.
 
 t_nested_pattern_expressions(Config) when is_list(Config) ->

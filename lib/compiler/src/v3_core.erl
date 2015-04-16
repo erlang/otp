@@ -538,19 +538,8 @@ expr({tuple,L,Es0}, St0) ->
     {annotate_tuple(A, Es1, St1),Eps,St1};
 expr({map,L,Es0}, St0) ->
     map_build_pairs(#c_literal{val=#{}}, Es0, full_anno(L, St0), St0);
-expr({map,L,M0,Es0}, St0) ->
-    try expr_map(M0,Es0,lineno_anno(L, St0),St0) of
-	{_,_,_}=Res -> Res
-    catch
-	throw:{bad_map,Warning} ->
-	    St = add_warning(L, Warning, St0),
-	    LineAnno = lineno_anno(L, St),
-	    As = [#c_literal{anno=LineAnno,val=badarg}],
-	    {#icall{anno=#a{anno=LineAnno},	%Must have an #a{}
-		    module=#c_literal{anno=LineAnno,val=erlang},
-		    name=#c_literal{anno=LineAnno,val=error},
-		    args=As},[],St}
-    end;
+expr({map,L,M,Es}, St) ->
+    expr_map(M, Es, L, St);
 expr({bin,L,Es0}, St0) ->
     try expr_bin(Es0, full_anno(L, St0), St0) of
 	{_,_,_}=Res -> Res
@@ -758,11 +747,14 @@ make_bool_switch_guard(L, E, V, T, F) ->
       {clause,NegL,[V],[],[V]}
      ]}.
 
-expr_map(M0, Es0, A, St0) ->
+expr_map(M0, Es0, L, St0) ->
     {M1,Eps0,St1} = safe(M0, St0),
+    Badmap = badmap_term(M1, St1),
+    A = lineno_anno(L, St1),
+    Fc = fail_clause([], [{eval_failure,badmap}|A], Badmap),
     case is_valid_map_src(M1) of
 	true ->
-	    {M2,Eps1,St2} = map_build_pairs(M1, Es0, A, St1),
+	    {M2,Eps1,St2} = map_build_pairs(M1, Es0, full_anno(L, St1), St1),
 	    M3 = case Es0 of
 		     [] -> M1;
 		     [_|_] -> M2
@@ -775,12 +767,22 @@ expr_map(M0, Es0, A, St0) ->
 			           name=#c_literal{anno=A,val=is_map},
 				   args=[M1]}],
 		     body=[M3]}],
-	    Fc = fail_clause([], [eval_failure|A], #c_literal{val=badarg}),
 	    Eps = Eps0 ++ Eps1,
 	    {#icase{anno=#a{anno=A},args=[],clauses=Cs,fc=Fc},Eps,St2};
 	false ->
-	    throw({bad_map,bad_map})
+	    %% Not a map source. The update will always fail.
+	    St2 = add_warning(L, badmap, St1),
+	    #iclause{body=[Fail]} = Fc,
+	    {Fail,Eps0,St2}
     end.
+
+badmap_term(_Map, #core{in_guard=true}) ->
+    %% The code generator cannot handle complex error reasons
+    %% in guards. But the exact error reason does not matter anyway
+    %% since it is not user-visible.
+    #c_literal{val=badmap};
+badmap_term(Map, #core{in_guard=false}) ->
+    #c_tuple{es=[#c_literal{val=badmap},Map]}.
 
 map_build_pairs(Map, Es0, Ann, St0) ->
     {Es,Pre,St1} = map_build_pairs_1(Es0, St0),
@@ -2395,7 +2397,7 @@ format_error(nomatch) ->
     "pattern cannot possibly match";
 format_error(bad_binary) ->
     "binary construction will fail because of a type mismatch";
-format_error(bad_map) ->
+format_error(badmap) ->
     "map construction will fail because of a type mismatch".
 
 add_warning(Line, Term, #core{ws=Ws,file=[{file,File}]}=St) when Line >= 0 ->

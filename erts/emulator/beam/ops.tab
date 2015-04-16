@@ -1473,79 +1473,67 @@ apply_last I P
 # Map instructions in R17.
 #
 
-put_map_assoc F n Dst Live Size Rest=* => new_map F Dst Live Size Rest
-put_map_assoc F Src=s Dst Live Size Rest=* => \
+sorted_put_map_assoc/5
+put_map_assoc F Map Dst Live Size Rest=* | map_key_sort(Size, Rest) => \
+  sorted_put_map_assoc F Map Dst Live Size Rest
+
+sorted_put_map_exact/5
+put_map_exact F Map Dst Live Size Rest=* | map_key_sort(Size, Rest) => \
+  sorted_put_map_exact F Map Dst Live Size Rest
+
+sorted_put_map_assoc j Map Dst Live Size Rest=* | is_empty_map(Map) => \
+   new_map Dst Live Size Rest
+sorted_put_map_assoc F Src=s Dst Live Size Rest=* => \
 	       update_map_assoc F Src Dst Live Size Rest
-put_map_assoc F Src Dst Live Size Rest=* => \
+sorted_put_map_assoc F Src Dst Live Size Rest=* => \
 	       move Src x | update_map_assoc F x Dst Live Size Rest
-put_map_exact F n Dst Live Size Rest=* => new_map F Dst Live Size Rest
-put_map_exact F Src=s Dst Live Size Rest=* => \
+
+sorted_put_map_exact F Src=s Dst Live Size Rest=* => \
 	      update_map_exact F Src Dst Live Size Rest
-put_map_exact F Src Dst Live Size Rest=* => \
+sorted_put_map_exact F Src Dst Live Size Rest=* => \
 	      move Src x | update_map_exact F x Dst Live Size Rest
 
-new_map j d I I
+new_map d I I
 update_map_assoc j s d I I
 update_map_exact j s d I I
 
-is_map Fail Literal=q => move Literal x | is_map Fail x
-is_map Fail c => jump Fail
+is_map Fail Lit=q | literal_is_map(Lit) =>
+is_map Fail cq => jump Fail
 
 %macro: is_map IsMap -fail_action
 is_map f r
 is_map f x
 is_map f y
 
-## Transform has_map_field(s) #{ K1 := _, K2 := _ }
+## Transform has_map_fields #{ K1 := _, K2 := _ } to has_map_elements
 
-has_map_field/3
-
-has_map_fields Fail Src Size=u==1 Rest=* => gen_has_map_field(Fail,Src,Size,Rest)
-has_map_fields Fail Src Size Rest=* => i_has_map_fields Fail Src Size Rest
-
-i_has_map_fields f s I
-
-has_map_field Fail Src=rxy Key=arxy => i_has_map_field Fail Src Key
-has_map_field Fail Src Key => move Key x | i_has_map_field Fail Src x
-
-%macro: i_has_map_field HasMapField -fail_action
-i_has_map_field f r a
-i_has_map_field f x a
-i_has_map_field f y a
-i_has_map_field f r r
-i_has_map_field f x r
-i_has_map_field f y r
-i_has_map_field f r x
-i_has_map_field f x x
-i_has_map_field f y x
-i_has_map_field f r y
-i_has_map_field f x y
-i_has_map_field f y y
+has_map_fields Fail Src Size Rest=* => \
+   gen_has_map_fields(Fail, Src, Size, Rest)
 
 ## Transform get_map_elements(s) #{ K1 := V1, K2 := V2 }
 
-get_map_element/4
-
-get_map_elements Fail Src=rxy Size=u==2 Rest=* => gen_get_map_element(Fail,Src,Size,Rest)
-get_map_elements Fail Src Size Rest=* => i_get_map_elements Fail Src Size Rest
+get_map_elements Fail Src=rxy Size=u==2 Rest=* => \
+    gen_get_map_element(Fail, Src, Size, Rest)
+get_map_elements Fail Src Size Rest=* | map_key_sort(Size, Rest) => \
+   gen_get_map_elements(Fail, Src, Size, Rest)
 
 i_get_map_elements f s I
 
-get_map_element Fail Src=rxy Key=ax Dst => i_get_map_element Fail Src Key Dst
-get_map_element Fail Src=rxy Key=rycq Dst => \
+i_get_map_element Fail Src=rxy Key=ry Dst => \
     move Key x | i_get_map_element Fail Src x Dst
-get_map_element Fail Src Key Dst => jump Fail
+
+%macro: i_get_map_element_hash GetMapElementHash -fail_action
+i_get_map_element_hash f r c I r
+i_get_map_element_hash f x c I r
+i_get_map_element_hash f y c I r
+i_get_map_element_hash f r c I x
+i_get_map_element_hash f x c I x
+i_get_map_element_hash f y c I x
+i_get_map_element_hash f r c I y
+i_get_map_element_hash f x c I y
+i_get_map_element_hash f y c I y
 
 %macro: i_get_map_element GetMapElement -fail_action
-i_get_map_element f r a r
-i_get_map_element f x a r
-i_get_map_element f y a r
-i_get_map_element f r a x
-i_get_map_element f x a x
-i_get_map_element f y a x
-i_get_map_element f r a y
-i_get_map_element f x a y
-i_get_map_element f y a y
 i_get_map_element f r x r
 i_get_map_element f x x r
 i_get_map_element f y x r

@@ -13,7 +13,7 @@
     {func_info,{atom,map_field_lists},{atom,x},1}.
   {label,2}.
     {test,is_map,{f,1},[{x,0}]}.
-    {test,has_map_fields,{f,1},{x,0},{list,[{atom,z},{atom,a}]}}.
+    {test,has_map_fields,{f,1},{x,0},{list,[{atom,a},{atom,a}]}}.
     {move,{atom,ok},{x,0}}.
     return.
 

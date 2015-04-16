@@ -1549,11 +1549,8 @@ set_cg([{var,R}], {map,Op,Map,Es}, Le, Vdb, Bef,
     SrcReg = cg_reg_arg(Map,Int0),
     Line = line(Le#l.a),
 
-    %% The instruction needs to store keys in term sorted order
-    %% All keys has to be unique here
-    Pairs = map_pair_strip_and_termsort(Es),
-
     %% fetch registers for values to be put into the map
+    Pairs = [{K,V} || {_,K,V} <- Es],
     List = flatmap(fun({K,V}) -> [K,cg_reg_arg(V,Int0)] end, Pairs),
 
     Live = max_reg(Bef#sr.reg),
@@ -1579,16 +1576,6 @@ set_cg([{var,R}], Con, Le, Vdb, Bef, St) ->
 		  [{move,cg_reg_arg(Other, Int),Ret}]
 	  end,
     {Ais,clear_dead(Int, Le#l.i, Vdb),St}.
-
-map_pair_strip_and_termsort(Es) ->
-    %% format in
-    %%    [{map_pair,K,V}]
-    %% where K is for example {integer, 1} and we want to sort on 1.
-    Ls = [{K,V}||{_,K,V}<-Es],
-    lists:sort(fun ({{_,A},_}, {{_,B},_}) -> erts_internal:cmp_term(A,B) =< 0;
-                   ({nil,_},   {{_,B},_}) -> [] =< B;
-                   ({{_,A},_}, {nil,_})   -> A =< []
-               end, Ls).
 
 %%%
 %%% Code generation for constructing binaries.

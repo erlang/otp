@@ -1027,6 +1027,7 @@ _ET_DECLARE_CHECKED(struct erl_node_*,external_ref_node,Eterm)
 
 #define is_map_header(x)       (((x) & (_TAG_HEADER_MASK)) == _TAG_HEADER_MAP)
 #define is_map(x)              (is_boxed((x)) && is_map_header(*boxed_val(x)))
+#define is_not_map(x)          (!is_map(x))
 #define is_map_rel(RTERM,BASE) is_map(rterm2wterm(RTERM,BASE))
 
 /* number tests */

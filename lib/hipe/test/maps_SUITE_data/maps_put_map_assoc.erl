@@ -8,7 +8,7 @@ test() ->
   true  = assoc_guard(#{}),
   false = assoc_guard(not_a_map),
   #{a := true} = assoc_update(#{}),
-  {'EXIT', {badarg, [{?MODULE, assoc_update, 1, _}|_]}}
+  {'EXIT', {{badmap, not_a_map}, [{?MODULE, assoc_update, 1, _}|_]}}
     = (catch assoc_update(not_a_map)),
   ok = assoc_guard_clause(#{}),
   {'EXIT', {function_clause, [{?MODULE, assoc_guard_clause, _, _}|_]}}
