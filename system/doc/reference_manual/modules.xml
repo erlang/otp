@@ -246,7 +246,8 @@ behaviour_info(callbacks) -> Callbacks.</pre>
       a list of <c>{Key,Value}</c> tuples with information about
       the module. Currently, the list contain tuples with the following
       <c>Key</c>s: <c>module</c>, <c>attributes</c>, <c>compile</c>,
-      <c>exports</c> and <c>md5</c>. The order and number of tuples
+      <c>exports</c>, <c>md5</c> and <c>native</c>.
+      The order and number of tuples
       may change without prior notice.</p>
     </section>
 
@@ -301,6 +302,13 @@ behaviour_info(callbacks) -> Callbacks.</pre>
 	  <item>
 	  <p>Returns a list of <c>{Name,Arity}</c> tuples with
 	  all functions in the module.</p>
+	  </item>
+
+        <tag><c>native</c></tag>
+	  <item>
+	  <p>Return <c>true</c> if the module has native compiled code.
+          Return <c>false</c> otherwise. In a system compiled without HiPE
+          support, the result is always <c>false</c></p>
 	  </item>
       </taglist>
     </section>

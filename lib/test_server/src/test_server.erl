@@ -2469,11 +2469,7 @@ appup_test(App) ->
 %% Checks wether the module is natively compiled or not.
 
 is_native(Mod) ->
-    case catch Mod:module_info(native_addresses) of
-	[_|_] -> true;
-	_Other -> false
-    end.
-
+    (catch Mod:module_info(native)) =:= true.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% comment(String) -> ok

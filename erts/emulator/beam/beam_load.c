@@ -529,6 +529,7 @@ static Eterm functions_in_module(Process* p, Eterm mod);
 static Eterm attributes_for_module(Process* p, Eterm mod);
 static Eterm compilation_info_for_module(Process* p, Eterm mod);
 static Eterm md5_of_module(Process* p, Eterm mod);
+static Eterm has_native(Process* p, Eterm mod);
 static Eterm native_addresses(Process* p, Eterm mod);
 int patch_funentries(Eterm Patchlist);
 int patch(Eterm Addresses, Uint fe);
@@ -5210,6 +5211,9 @@ erts_module_info_0(Process* p, Eterm module)
     list = CONS(hp, tup, list)
 
     BUILD_INFO(am_md5);
+#ifdef HIPE
+    BUILD_INFO(am_native);
+#endif
     BUILD_INFO(am_compile);
     BUILD_INFO(am_attributes);
     BUILD_INFO(am_exports);
@@ -5235,6 +5239,8 @@ erts_module_info_1(Process* p, Eterm module, Eterm what)
 	return compilation_info_for_module(p, module);
     } else if (what == am_native_addresses) {
 	return native_addresses(p, module);
+    } else if (what == am_native) {
+	return has_native(p, module);
     }
     return THE_NON_VALUE;
 }
@@ -5292,6 +5298,53 @@ functions_in_module(Process* p, /* Process whose heap to use. */
     }
     HRelease(p, hp_end, hp);
     return result;
+}
+
+/*
+ * Returns 'true' if mod has any native compiled functions, otherwise 'false'
+ */
+
+static Eterm
+has_native(Process* p, Eterm mod)
+{
+    Eterm result = am_false;
+#ifdef HIPE
+    Module* modp;
+
+    if (is_not_atom(mod)) {
+        return THE_NON_VALUE;
+    }
+
+    modp = erts_get_module(mod, erts_active_code_ix());
+    if (modp == NULL) {
+        return THE_NON_VALUE;
+    }
+
+    if (erts_is_module_native(modp->curr.code)) {
+      result = am_true;
+    }
+#endif
+    return result;
+}
+
+int
+erts_is_module_native(BeamInstr* code)
+{
+    Uint i, num_functions;
+
+    /* Check NativeAdress of first real function in module */
+    if (code != NULL) {
+        num_functions = code[MI_NUM_FUNCTIONS];
+        for (i=0; i<num_functions; i++) {
+            BeamInstr* func_info = (BeamInstr *) code[MI_FUNCTIONS+i];
+            Eterm name = (Eterm) func_info[3];
+            if (is_atom(name)) {
+                return func_info[1] != 0;
+            }
+            else ASSERT(is_nil(name)); /* ignore BIF stubs */
+        }
+    }
+    return 0;
 }
 
 /*
