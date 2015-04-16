@@ -107,8 +107,8 @@
       [binary()]} | {client | server, [binary()], binary()}}</c></p>
       <p><c>| {log_alert, boolean()}</c></p>
       <p><c>| {server_name_indication, hostname() | disable}</c></p>
-      <p><c>| {sni_hosts, [{hostname(), ssloptions()}]}</c></p></item>
- 
+      <p><c>| {sni_hosts, [{hostname(), ssloptions()}]}</c></p>
+      <p><c>| {sni_fun, SNIfun::fun()}</c></p></item>
 
       <tag><c>transportoption()</c></tag>
       <item><p><c>= {cb_info, {CallbackModule::atom(), DataTag::atom(),
@@ -184,6 +184,9 @@
       <tag><c>srp_param_type()</c></tag>
       <item><p><c>= srp_1024 | srp_1536 | srp_2048 | srp_3072
       | srp_4096 | srp_6144 | srp_8192</c></p></item>
+
+      <tag><c>SNIfun::fun()</c></tag>
+      <item><p><c>= fun(ServerName :: string()) -> ssloptions()</c></p></item>
 
     </taglist>
   </section>
@@ -629,7 +632,21 @@ fun(srp, Username :: string(), UserState :: term()) ->
       <tag><c>{sni_hosts, [{hostname(), ssloptions()}]}</c></tag>
       <item><p>If the server receives a SNI (Server Name Indication) from the client
       matching a host listed in the <c>sni_hosts</c> option, the speicific options for
-      that host will override previously specified options.</p></item>
+      that host will override previously specified options.
+
+      The option <c>sni_fun</c>, and <c>sni_hosts</c> are mutually exclusive.</p></item>
+
+      <tag><c>{sni_fun, SNIfun::fun()}</c></tag>
+      <item><p>If the server receives a SNI (Server Name Indication) from the client,
+      the given function will be called to retrive <c>ssloptions()</c> for indicated server.
+      These options will be merged into predefined <c>ssloptions()</c>.
+
+      The function should be defined as:
+        <c>fun(ServerName :: string()) -> ssloptions()</c>
+      and can be specified as a fun or as named <c>fun module:function/1</c>
+
+      The option <c>sni_fun</c>, and <c>sni_hosts</c> are mutually exclusive.</p></item>
+
     </taglist>
   </section>
   

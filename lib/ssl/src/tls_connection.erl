@@ -400,12 +400,19 @@ initial_state(Role, Host, Port, Socket, {SSLOptions, SocketOptions, Tracker}, Us
 
 
 update_ssl_options_from_sni(OrigSSLOptions, SNIHostname) ->
-	case proplists:get_value(SNIHostname, OrigSSLOptions#ssl_options.sni_hosts) of
-		undefined ->
-			undefined;
-		SSLOption ->
-			ssl:handle_options(SSLOption, OrigSSLOptions)
-	end.
+    SSLOption = 
+    case OrigSSLOptions#ssl_options.sni_fun of
+        {} ->
+            proplists:get_value(SNIHostname, OrigSSLOptions#ssl_options.sni_hosts);
+        SNIFun ->
+            SNIFun(SNIHostname)
+    end,
+    case SSLOption of
+        undefined ->
+            undefined;
+        _ ->
+            ssl:handle_options(SSLOption, OrigSSLOptions)
+    end.
 
 next_state(Current,_, #alert{} = Alert, #state{negotiated_version = Version} = State) ->
     handle_own_alert(Alert, Version, Current, State);
@@ -454,7 +461,6 @@ next_state(Current, Next, #ssl_tls{type = ?HANDSHAKE, fragment = Data},
                          undefined ->
                              State0;
                          #sni{hostname = Hostname} ->
-                             OrigSSLOptions = State0#state.ssl_options,
                              NewOptions = update_ssl_options_from_sni(State0#state.ssl_options, Hostname),
                              case NewOptions of
                                  undefined ->

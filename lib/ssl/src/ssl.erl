@@ -700,6 +700,7 @@ handle_options(Opts0) ->
 		    log_alert = handle_option(log_alert, Opts, true),
 		    server_name_indication = handle_option(server_name_indication, Opts, undefined),
 		    sni_hosts = handle_option(sni_hosts, Opts, []),
+		    sni_fun = handle_option(sni_fun, Opts, {}),
 		    honor_cipher_order = handle_option(honor_cipher_order, Opts, false),
 		    protocol = proplists:get_value(protocol, Opts, tls),
 		    padding_check =  proplists:get_value(padding_check, Opts, true),
@@ -716,7 +717,7 @@ handle_options(Opts0) ->
 		  user_lookup_fun, psk_identity, srp_identity, ciphers,
 		  reuse_session, reuse_sessions, ssl_imp,
 		  cb_info, renegotiate_at, secure_renegotiate, hibernate_after,
-		  erl_dist, alpn_advertised_protocols, sni_hosts,
+		  erl_dist, alpn_advertised_protocols, sni_hosts, sni_fun,
 		  alpn_preferred_protocols, next_protocols_advertised,
 		  client_preferred_next_protocols, log_alert,
 		  server_name_indication, honor_cipher_order, padding_check, crl_check, crl_cache,
@@ -733,6 +734,18 @@ handle_options(Opts0) ->
 		 inet_user = SockOpts, transport_info = CbInfo, connection_cb = ConnetionCb
 		}}.
 
+handle_option(sni_fun, Opts, Default) ->
+    OptFun = validate_option(sni_fun,
+                             proplists:get_value(sni_fun, Opts, Default)),
+    OptHosts = proplists:get_value(sni_hosts, Opts, undefined),
+    case {OptFun, OptHosts} of
+        {Default, _} ->
+            Default;
+        {_, undefined} ->
+            OptFun;
+        _ ->
+            throw({error, {conflict_options, [sni_fun, sni_hosts]}})
+    end;
 handle_option(OptionName, Opts, Default) ->
     validate_option(OptionName,
 		    proplists:get_value(OptionName, Opts, Default)).
@@ -920,6 +933,10 @@ validate_option(sni_hosts, [{Hostname, SSLOptions} | Tail]) when is_list(Hostnam
 		_ ->
 			throw({error, {options, {sni_hosts, RecursiveSNIOptions}}})
 	end;
+validate_option(sni_fun, {}) ->
+    {};
+validate_option(sni_fun, Fun) when is_function(Fun) ->
+    Fun;
 validate_option(honor_cipher_order, Value) when is_boolean(Value) ->
     Value;
 validate_option(padding_check, Value) when is_boolean(Value) ->

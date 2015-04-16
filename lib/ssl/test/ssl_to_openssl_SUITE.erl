@@ -102,9 +102,12 @@ npn_tests() ->
      erlang_client_openssl_server_npn_only_server].
 
 sni_server_tests() ->
-    [erlang_server_oepnssl_client_sni_match,
+    [erlang_server_openssl_client_sni_match,
+     erlang_server_openssl_client_sni_match_fun,
      erlang_server_openssl_client_sni_no_match,
-     erlang_server_openssl_client_sni_no_header].
+     erlang_server_openssl_client_sni_no_match_fun,
+     erlang_server_openssl_client_sni_no_header,
+     erlang_server_openssl_client_sni_no_header_fun].
 
 
 init_per_suite(Config0) ->
@@ -230,7 +233,10 @@ special_init(TestCase, Config)
 special_init(TestCase, Config)
   when TestCase == erlang_server_openssl_client_sni_match;
        TestCase == erlang_server_openssl_client_sni_no_match;
-       TestCase == erlang_server_openssl_client_sni_no_header ->
+       TestCase == erlang_server_openssl_client_sni_no_header;
+       TestCase == erlang_server_openssl_client_sni_match_fun;
+       TestCase == erlang_server_openssl_client_sni_no_match_fun;
+       TestCase == erlang_server_openssl_client_sni_no_header_fun ->
     check_openssl_sni_support(Config);
 
 special_init(_, Config) ->
@@ -1196,11 +1202,20 @@ erlang_server_openssl_client_npn_only_client(Config) when is_list(Config) ->
 erlang_server_openssl_client_sni_no_header(Config) when is_list(Config) ->
     erlang_server_openssl_client_sni_test(Config, undefined, undefined, "server").
 
+erlang_server_openssl_client_sni_no_header_fun(Config) when is_list(Config) ->
+    erlang_server_openssl_client_sni_test_sni_fun(Config, undefined, undefined, "server").
+
 erlang_server_openssl_client_sni_match(Config) when is_list(Config) ->
     erlang_server_openssl_client_sni_test(Config, "a.server", "a.server", "a.server").
 
+erlang_server_openssl_client_sni_match_fun(Config) when is_list(Config) ->
+    erlang_server_openssl_client_sni_test_sni_fun(Config, "a.server", "a.server", "a.server").
+
 erlang_server_openssl_client_sni_no_match(Config) when is_list(Config) ->
     erlang_server_openssl_client_sni_test(Config, "c.server", undefined, "server").
+
+erlang_server_openssl_client_sni_no_match_fun(Config) when is_list(Config) ->
+    erlang_server_openssl_client_sni_test_sni_fun(Config, "c.server", undefined, "server").
 
 
 %%--------------------------------------------------------------------
@@ -1284,6 +1299,31 @@ erlang_server_openssl_client_sni_test(Config, SNIHostname, ExpectedSNIHostname, 
     ssl_test_lib:close(Server),
     ok.
 
+
+erlang_server_openssl_client_sni_test_sni_fun(Config, SNIHostname, ExpectedSNIHostname, ExpectedCN) ->
+    ct:log("Start running handshake for sni_fun, Config: ~p, SNIHostname: ~p, ExpectedSNIHostname: ~p, ExpectedCN: ~p", [Config, SNIHostname, ExpectedSNIHostname, ExpectedCN]),
+    [{sni_hosts, ServerSNIConf}] = ?config(sni_server_opts, Config),
+    SNIFun = fun(Domain) -> proplists:get_value(Domain, ServerSNIConf, undefined) end,
+    ServerOptions = ?config(server_opts, Config) ++ [{sni_fun, SNIFun}],
+    {_, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+                                        {from, self()}, {mfa, {?MODULE, send_and_hostname, []}},
+                                        {options, ServerOptions}]),
+    Port = ssl_test_lib:inet_port(Server),
+    ClientCommand = case SNIHostname of
+                        undefined ->
+                            "openssl s_client -connect " ++ Hostname ++ ":" ++ integer_to_list(Port);
+                        _ ->
+                            "openssl s_client -connect " ++ Hostname ++ ":" ++ integer_to_list(Port) ++ " -servername " ++ SNIHostname
+                    end,
+    ct:log("Options: ~p", [[ServerOptions, ClientCommand]]),
+    ClientPort = open_port({spawn, ClientCommand}, [stderr_to_stdout]),
+    ssl_test_lib:check_result(Server, ExpectedSNIHostname),
+    ExpectedClientOutput = ["OK", "/CN=" ++ ExpectedCN ++ "/"],
+    ok = client_read_bulk(ClientPort, ExpectedClientOutput),
+    ssl_test_lib:close_port(ClientPort),
+    ssl_test_lib:close(Server),
+    ok.
 
 
 cipher(CipherSuite, Version, Config, ClientOpts, ServerOpts) ->
