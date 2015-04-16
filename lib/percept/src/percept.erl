@@ -319,10 +319,6 @@ get_webserver_config(Servername, Port) when is_list(Servername), is_integer(Port
 	{alias,{"/images/", filename:join([Root, "images"]) ++ "/"}},
 	{alias,{"/css/", filename:join([Root, "css"]) ++ "/"}},
 	
-	% Logs
-	%{transfer_log, filename:join([Path, "logs", "transfer.log"])},
-	%{error_log, filename:join([Path, "logs", "error.log"])},
-	
 	% Configs
 	{default_type,"text/plain"},
 	{directory_index,["index.html"]},
@@ -331,12 +327,9 @@ get_webserver_config(Servername, Port) when is_list(Servername), is_integer(Port
 	          mod_esi,
 	          mod_actions,
 	          mod_cgi,
-	          mod_include,
 	          mod_dir,
 	          mod_get,
 	          mod_head
-	%          mod_log,
-	%          mod_disk_log
 	]},
 	{com_type,ip_comm},
 	{server_name, Servername},
