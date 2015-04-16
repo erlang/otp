@@ -606,7 +606,7 @@ standard_passes() ->
      {iff,'to_exp',{done,"E"}},
 
      %% Conversion to Core Erlang.
-     ?pass(core_module),
+     {pass,v3_core},
      {iff,'dcore',{listing,"core"}},
      {iff,'to_core0',{done,"core"}}
      | core_passes()].
@@ -618,7 +618,7 @@ core_passes() ->
       [{unless,no_copt,
        [{core_old_inliner,fun test_old_inliner/1,fun core_old_inliner/1},
 	{iff,doldinline,{listing,"oldinline"}},
-	?pass(core_fold_module),
+	{pass,sys_core_fold},
 	{iff,dcorefold,{listing,"corefold"}},
 	{core_inline_module,fun test_core_inliner/1,fun core_inline_module/1},
 	{iff,dinline,{listing,"inline"}},
@@ -631,14 +631,14 @@ core_passes() ->
 
 kernel_passes() ->
     %% Destructive setelement/3 optimization and core lint.
-    [?pass(core_dsetel_module),
+    [{pass,sys_core_dsetel},
      {iff,dsetel,{listing,"dsetel"}},
 
      {iff,clint,?pass(core_lint_module)},
      {iff,core,?pass(save_core_code)},
 
      %% Kernel Erlang and code generation.
-     ?pass(kernel_module),
+     {pass,v3_kernel},
      {iff,dkern,{listing,"kernel"}},
      {iff,'to_kernel',{done,"kernel"}},
      {pass,v3_life},
@@ -1176,14 +1176,6 @@ expand_module(#compile{code=Code,options=Opts0}=St0) ->
     Opts = expand_opts(Opts1),
     {ok,St0#compile{module=Mod,options=Opts,code={Mod,Exp,Forms}}}.
 
-core_module(#compile{code=Code0,options=Opts}=St) ->
-    {ok,Code,Ws} = v3_core:module(Code0, Opts),
-    {ok,St#compile{code=Code,warnings=St#compile.warnings ++ Ws}}.
-
-core_fold_module(#compile{code=Code0,options=Opts,warnings=Warns}=St) ->
-    {ok,Code,Ws} = sys_core_fold:module(Code0, Opts),
-    {ok,St#compile{code=Code,warnings=Warns ++ Ws}}.
-
 core_fold_module_after_inlining(#compile{code=Code0,options=Opts}=St) ->
     %% Inlining may produce code that generates spurious warnings.
     %% Ignore all warnings.
@@ -1218,14 +1210,6 @@ core_old_inliner(#compile{code=Code0,options=Opts}=St) ->
 core_inline_module(#compile{code=Code0,options=Opts}=St) ->
     Code = cerl_inline:core_transform(Code0, Opts),
     {ok,St#compile{code=Code}}.
-
-core_dsetel_module(#compile{code=Code0,options=Opts}=St) ->
-    {ok,Code} = sys_core_dsetel:module(Code0, Opts),
-    {ok,St#compile{code=Code}}.
-
-kernel_module(#compile{code=Code0,options=Opts}=St) ->
-    {ok,Code,Ws} = v3_kernel:module(Code0, Opts),
-    {ok,St#compile{code=Code,warnings=St#compile.warnings ++ Ws}}.
 
 save_abstract_code(#compile{ifile=File}=St) ->
     case abstract_code(St) of
