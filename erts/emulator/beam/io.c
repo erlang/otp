@@ -1430,15 +1430,7 @@ queue_port_sched_op_reply(Process *rp,
 	    bp = erts_resize_message_buffer(bp, used_h_size, &msg, 1);
     }
 
-    erts_queue_message(rp,
-		       rp_locksp,
-		       bp,
-		       msg,
-		       NIL
-#ifdef USE_VM_PROBES
-		       , NIL
-#endif
-	);
+    erts_queue_message(rp, rp_locksp, bp, msg, NIL);
 }
 
 static void
@@ -3086,11 +3078,7 @@ deliver_result(Eterm sender, Eterm pid, Eterm res)
 	hp = erts_alloc_message_heap(sz_res + 3, &bp, &ohp, rp, &rp_locks);
 	res = copy_struct(res, sz_res, &hp, ohp);
 	tuple = TUPLE2(hp, sender, res);
-	erts_queue_message(rp, &rp_locks, bp, tuple, NIL
-#ifdef USE_VM_PROBES
-			   , NIL
-#endif
-			   );
+	erts_queue_message(rp, &rp_locks, bp, tuple, NIL);
 
 	if (rp_locks)
 	    erts_smp_proc_unlock(rp, rp_locks);
@@ -3186,11 +3174,7 @@ static void deliver_read_message(Port* prt, erts_aint32_t state, Eterm to,
     tuple = TUPLE2(hp, prt->common.id, tuple);
     hp += 3;
 
-    erts_queue_message(rp, &rp_locks, bp, tuple, am_undefined
-#ifdef USE_VM_PROBES
-			   , NIL
-#endif
-		       );
+    erts_queue_message(rp, &rp_locks, bp, tuple, am_undefined);
     if (rp_locks)
 	erts_smp_proc_unlock(rp, rp_locks);
     if (!scheduler)
@@ -3357,11 +3341,7 @@ deliver_vec_message(Port* prt,			/* Port */
     tuple = TUPLE2(hp, prt->common.id, tuple);
     hp += 3;
 
-    erts_queue_message(rp, &rp_locks, bp, tuple, am_undefined
-#ifdef USE_VM_PROBES
-		       , NIL
-#endif
-		       );
+    erts_queue_message(rp, &rp_locks, bp, tuple, am_undefined);
     erts_smp_proc_unlock(rp, rp_locks);
     if (!scheduler)
 	erts_smp_proc_dec_refc(rp);
@@ -5061,11 +5041,7 @@ void driver_report_exit(ErlDrvPort ix, int status)
    hp += 3;
    tuple = TUPLE2(hp, prt->common.id, tuple);
 
-   erts_queue_message(rp, &rp_locks, bp, tuple, am_undefined
-#ifdef USE_VM_PROBES
-		      , NIL
-#endif
-		      );
+   erts_queue_message(rp, &rp_locks, bp, tuple, am_undefined);
 
    erts_smp_proc_unlock(rp, rp_locks);
    if (!scheduler)
@@ -5665,11 +5641,7 @@ driver_deliver_term(Eterm to, ErlDrvTermData* data, int len)
 	    HRelease(rp, hp_end, hp);	    
 	}
 	/* send message */
-	erts_queue_message(rp, &rp_locks, bp, mess, am_undefined
-#ifdef USE_VM_PROBES
-			   , NIL
-#endif
-			   );
+	erts_queue_message(rp, &rp_locks, bp, mess, am_undefined);
     }
     else {
 	if (b2t.ix > b2t.used)

@@ -388,11 +388,7 @@ static void doit_node_link_net_exits(ErtsLink *lnk, void *vnecp)
 	    Eterm tup;
 	    Eterm *hp = erts_alloc_message_heap(3,&bp,&ohp,rp,&rp_locks);
 	    tup = TUPLE2(hp, am_nodedown, name);
-	    erts_queue_message(rp, &rp_locks, bp, tup, NIL
-#ifdef USE_VM_PROBES
-			       , NIL
-#endif
-			       );
+	    erts_queue_message(rp, &rp_locks, bp, tup, NIL);
 	}
 	erts_smp_proc_unlock(rp, rp_locks);
     }
@@ -3325,11 +3321,7 @@ send_nodes_mon_msg(Process *rp,
     }
 
     ASSERT(hend == hp);
-    erts_queue_message(rp, rp_locksp, bp, msg, NIL
-#ifdef USE_VM_PROBES
-		       , NIL
-#endif
-		       );
+    erts_queue_message(rp, rp_locksp, bp, msg, NIL);
 }
 
 static void

@@ -1077,16 +1077,32 @@ init_emulator(void)
         DTRACE2(nif_return, process_name, mfa);                 \
     }
 
+#define DTRACE_GLOBAL_CALL_FROM_EXPORT(p,e)                                                    \
+    do {                                                                                       \
+        if (DTRACE_ENABLED(global_function_entry)) {                                           \
+            BeamInstr* fp = (BeamInstr *) (((Export *) (e))->addressv[erts_active_code_ix()]); \
+            DTRACE_GLOBAL_CALL((p), (Eterm)fp[-3], (Eterm)fp[-2], fp[-1]);                     \
+        }                                                                                      \
+    } while(0)
+
+#define DTRACE_RETURN_FROM_PC(p)                                                        \
+    do {                                                                                \
+        BeamInstr* fp;                                                                  \
+        if (DTRACE_ENABLED(function_return) && (fp = find_function_from_pc((p)->cp))) { \
+            DTRACE_RETURN((p), (Eterm)fp[0], (Eterm)fp[1], (Uint)fp[2]);                \
+        }                                                                               \
+    } while(0)
+
 #else /* USE_VM_PROBES */
-
-#define DTRACE_LOCAL_CALL(p, m, f, a)  do {} while (0)
-#define DTRACE_GLOBAL_CALL(p, m, f, a) do {} while (0)
-#define DTRACE_RETURN(p, m, f, a)      do {} while (0)
-#define DTRACE_BIF_ENTRY(p, m, f, a)   do {} while (0)
-#define DTRACE_BIF_RETURN(p, m, f, a)  do {} while (0)
-#define DTRACE_NIF_ENTRY(p, m, f, a)   do {} while (0)
-#define DTRACE_NIF_RETURN(p, m, f, a)  do {} while (0)
-
+#define DTRACE_LOCAL_CALL(p, m, f, a)        do {} while (0)
+#define DTRACE_GLOBAL_CALL(p, m, f, a)       do {} while (0)
+#define DTRACE_GLOBAL_CALL_FROM_EXPORT(p, e) do {} while (0)
+#define DTRACE_RETURN(p, m, f, a)            do {} while (0)
+#define DTRACE_RETURN_FROM_PC(p)             do {} while (0)
+#define DTRACE_BIF_ENTRY(p, m, f, a)         do {} while (0)
+#define DTRACE_BIF_RETURN(p, m, f, a)        do {} while (0)
+#define DTRACE_NIF_ENTRY(p, m, f, a)         do {} while (0)
+#define DTRACE_NIF_RETURN(p, m, f, a)        do {} while (0)
 #endif /* USE_VM_PROBES */
 
 /*
@@ -1523,12 +1539,7 @@ void process_main(void)
      * is not loaded, it points to code which will invoke the error handler
      * (see lb_call_error_handler below).
      */
-#ifdef USE_VM_CALL_PROBES
-    if (DTRACE_ENABLED(global_function_entry)) {
-	BeamInstr* fp = (BeamInstr *) (((Export *) Arg(0))->addressv[erts_active_code_ix()]);
-	DTRACE_GLOBAL_CALL(c_p, (Eterm)fp[-3], (Eterm)fp[-2], fp[-1]);
-    }
-#endif
+    DTRACE_GLOBAL_CALL_FROM_EXPORT(c_p, Arg(0));
     Dispatchx();
 
  OpCase(i_move_call_ext_cre): {
@@ -1538,12 +1549,7 @@ void process_main(void)
  /* FALL THROUGH */
  OpCase(i_call_ext_e):
     SET_CP(c_p, I+2);
-#ifdef USE_VM_CALL_PROBES
-    if (DTRACE_ENABLED(global_function_entry)) {
-	BeamInstr* fp = (BeamInstr *) (((Export *) Arg(0))->addressv[erts_active_code_ix()]);
-	DTRACE_GLOBAL_CALL(c_p, (Eterm)fp[-3], (Eterm)fp[-2], fp[-1]);
-    }
-#endif
+    DTRACE_GLOBAL_CALL_FROM_EXPORT(c_p, Arg(0));
     Dispatchx();
 
  OpCase(i_move_call_ext_only_ecr): {
@@ -1551,12 +1557,7 @@ void process_main(void)
  }
  /* FALL THROUGH */
  OpCase(i_call_ext_only_e):
-#ifdef USE_VM_CALL_PROBES
-    if (DTRACE_ENABLED(global_function_entry)) {
-	BeamInstr* fp = (BeamInstr *) (((Export *) Arg(0))->addressv[erts_active_code_ix()]);
-	DTRACE_GLOBAL_CALL(c_p, (Eterm)fp[-3], (Eterm)fp[-2], fp[-1]);
-    }
-#endif
+    DTRACE_GLOBAL_CALL_FROM_EXPORT(c_p, Arg(0));
     Dispatchx();
 
  OpCase(init_y): {
@@ -1590,18 +1591,9 @@ void process_main(void)
 	Next(1);
     }
 
-
  OpCase(return): {
-#ifdef USE_VM_CALL_PROBES
-    BeamInstr* fptr;
-#endif
     SET_I(c_p->cp);
-
-#ifdef USE_VM_CALL_PROBES
-    if (DTRACE_ENABLED(function_return) && (fptr = find_function_from_pc(c_p->cp))) {
-        DTRACE_RETURN(c_p, (Eterm)fptr[0], (Eterm)fptr[1], (Uint)fptr[2]);
-    }
-#endif
+    DTRACE_RETURN_FROM_PC(c_p);
     /*
      * We must clear the CP to make sure that a stale value do not
      * create a false module dependcy preventing code upgrading.
@@ -6087,13 +6079,7 @@ apply(Process* p, Eterm module, Eterm function, Eterm args, Eterm* reg)
     } else if (ERTS_PROC_GET_SAVED_CALLS_BUF(p)) {
 	save_calls(p, ep);
     }
-
-#ifdef USE_VM_CALL_PROBES
-    if (DTRACE_ENABLED(global_function_entry)) {
-        BeamInstr *fptr = (BeamInstr *) ep->addressv[erts_active_code_ix()];
-	DTRACE_GLOBAL_CALL(p, (Eterm)fptr[-3], (Eterm)fptr[-2], (Uint)fptr[-1]);
-    }
-#endif
+    DTRACE_GLOBAL_CALL_FROM_EXPORT(p, ep);
     return ep->addressv[erts_active_code_ix()];
 }
 
@@ -6142,13 +6128,7 @@ fixed_apply(Process* p, Eterm* reg, Uint arity)
     } else if (ERTS_PROC_GET_SAVED_CALLS_BUF(p)) {
 	save_calls(p, ep);
     }
-
-#ifdef USE_VM_CALL_PROBES
-    if (DTRACE_ENABLED(global_function_entry)) {
-        BeamInstr *fptr = (BeamInstr *)  ep->addressv[erts_active_code_ix()];
-	DTRACE_GLOBAL_CALL(p, (Eterm)fptr[-3], (Eterm)fptr[-2], (Uint)fptr[-1]);
-    }
-#endif
+    DTRACE_GLOBAL_CALL_FROM_EXPORT(p, ep);
     return ep->addressv[erts_active_code_ix()];
 }
 
