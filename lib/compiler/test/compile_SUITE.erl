@@ -102,6 +102,8 @@ file_1(Config) when is_list(Config) ->
     ?line compile_and_verify(Simple, Target, [debug_info]),
     ?line {ok,simple} = compile:file(Simple, [no_line_info]), %Coverage
 
+    {ok,simple} = compile:file(Simple, [{eprof,beam_z}]), %Coverage
+
     ?line ok = file:set_cwd(Cwd),
     ?line true = exists(Target),
     ?line passed = run(Target, test, []),

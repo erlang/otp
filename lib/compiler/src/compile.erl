@@ -285,11 +285,20 @@ internal_comp(Passes, File, Suffix, St0) ->
     St1 = St0#compile{filename=File, dir=Dir, base=Base,
 		      ifile=erlfile(Dir, Base, Suffix),
 		      ofile=objfile(Base, St0)},
-    Run = case member(time, St1#compile.options) of
-	      true  ->
-		  io:format("Compiling ~tp\n", [File]),
-		  fun run_tc/2;
-	      false -> fun({_Name,Fun}, St) -> catch Fun(St) end
+    Opts = St1#compile.options,
+    Run0 = case member(time, Opts) of
+	       true  ->
+		   io:format("Compiling ~tp\n", [File]),
+		   fun run_tc/2;
+	       false -> fun({_Name,Fun}, St) -> catch Fun(St) end
+	   end,
+    Run = case keyfind(eprof, 1, Opts) of
+	      {eprof,EprofPass} ->
+		  fun(P, St) ->
+			  run_eprof(P, EprofPass, St)
+		  end;
+	      false ->
+		  Run0
 	  end,
     case fold_comp(Passes, Run, St1) of
 	{ok,St2} -> comp_ret_ok(St2);
@@ -330,6 +339,16 @@ run_tc({Name,Fun}, St) ->
     io:format(" ~-30s: ~10.2f s ~12s\n",
 	      [Name,(After_c-Before_c) / 1000,Mem]),
     Val.
+
+run_eprof({Name,Fun}, Name, St) ->
+    io:format("~p: Running eprof\n", [Name]),
+    eprof:start_profiling([self()]),
+    Val = (catch Fun(St)),
+    eprof:stop_profiling(),
+    eprof:analyze(),
+    Val;
+run_eprof({_,Fun}, _, St) ->
+    catch Fun(St).
 
 comp_ret_ok(#compile{code=Code,warnings=Warn0,module=Mod,options=Opts}=St) ->
     case werror(St) of
