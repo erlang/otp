@@ -508,12 +508,12 @@ init([Cm, ChannelId, Options]) ->
 %%--------------------------------------------------------------------
 handle_call({{timeout, infinity}, wait_for_version_negotiation}, From,
 	    #state{xf = #ssh_xfer{vsn = undefined} = Xf} = State) ->
-    {noreply, State#state{xf = Xf#ssh_xfer{vsn = From}}}; 
+    {noreply, State#state{xf = Xf#ssh_xfer{vsn = {wait, From, undefined}}}};
 
 handle_call({{timeout, Timeout}, wait_for_version_negotiation}, From,
 	    #state{xf = #ssh_xfer{vsn = undefined} = Xf} = State) ->
-    timer:send_after(Timeout, {timeout, undefined, From}),
-    {noreply, State#state{xf = Xf#ssh_xfer{vsn = From}}}; 
+    TRef = erlang:send_after(Timeout, self(), {timeout, undefined, From}),
+    {noreply, State#state{xf = Xf#ssh_xfer{vsn = {wait, From, TRef}}}};
 
 handle_call({_, wait_for_version_negotiation}, _, State) ->
     {reply, ok, State};
@@ -865,7 +865,12 @@ do_handle_reply(#state{xf = Xf} = State,
     case Xf#ssh_xfer.vsn of
 	undefined ->
 	    ok;
-	From ->
+	{wait, From, TRef} ->
+	    if is_reference(TRef) ->
+		    erlang:cancel_timer(TRef);
+	       true ->
+		    ok
+	    end,
 	    ssh_channel:reply(From, ok)
     end,    
     State#state{xf = Xf#ssh_xfer{vsn = Version, ext = Ext}, rep_buf = Rest};
