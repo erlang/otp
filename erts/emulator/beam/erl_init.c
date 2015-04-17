@@ -1955,11 +1955,6 @@ erl_start(int argc, char **argv)
 		goto time_correction_false;
 	    else if (sys_strcmp(argv[i]+2, "true") == 0)
 		goto time_correction_true;
-#ifdef ERTS_OPCODE_COUNTER_SUPPORT
-	    else if (argv[i][2] == 'i') { /* -ci: undcoumented option*/
-		count_instructions = 1;
-	    }
-#endif
 	    else if (argv[i][2] == '\0') {
 		if (i + 1 >= argc)
 		    goto time_correction_false;
