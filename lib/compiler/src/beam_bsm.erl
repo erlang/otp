@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2007-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2015. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -615,7 +615,7 @@ collect_warnings_instr([_|Is], D, Acc) ->
 collect_warnings_instr([], _, Acc) -> Acc.
 
 add_warning(Term, Anno, Ws) ->
-    Line = abs(get_line(Anno)),
+    Line = get_line(Anno),
     File = get_file(Anno),
     [{File,[{Line,?MODULE,Term}]}|Ws].
 

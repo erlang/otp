@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2001-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -1373,10 +1373,11 @@ literal_type_tests_1(Config) ->
 			    [{is_function,L1,L2} || 
 				L1 <- literals(), L2 <- literals()]),
     ?line Mod = literal_test,
-    ?line Func = {function, 0, test, 0, [{clause,0,[],[],Tests}]},
-    ?line Form = [{attribute,0,module,Mod},
-		  {attribute,0,compile,export_all},
-		  Func, {eof,0}],
+    Anno = erl_anno:new(0),
+    Func = {function, Anno, test, 0, [{clause,Anno,[],[],Tests}]},
+    Form = [{attribute,Anno,module,Mod},
+            {attribute,Anno,compile,export_all},
+            Func, {eof,Anno}],
 
     %% Print generated code for inspection.
     ?line lists:foreach(fun (F) -> io:put_chars([erl_pp:form(F),"\n"]) end, Form),
@@ -1411,7 +1412,8 @@ test(T, L) ->
     {ok,Toks,_Line} = erl_scan:string(S),
     {ok,E} = erl_parse:parse_exprs(Toks),
     {value,Val,_Bs} = erl_eval:exprs(E, []),
-    {match,0,{atom,0,Val},hd(E)}.
+    Anno = erl_anno:new(0),
+    {match,Anno,{atom,Anno,Val},hd(E)}.
 
 test(T, L1, L2) ->
     S0 = io_lib:format("begin io:format(\"~~p~n\", [{~p,~p,~p}]), if ~w(~w, ~w) -> true; true -> false end end. ", [T,L1,L2,T,L1,L2]),
@@ -1419,7 +1421,8 @@ test(T, L1, L2) ->
     {ok,Toks,_Line} = erl_scan:string(S),
     {ok,E} = erl_parse:parse_exprs(Toks),
     {value,Val,_Bs} = erl_eval:exprs(E, []),
-    {match,0,{atom,0,Val},hd(E)}.
+    Anno = erl_anno:new(0),
+    {match,Anno,{atom,Anno,Val},hd(E)}.
 
 smoke_disasm(Config, Mod, Bin) ->
     Priv = ?config(priv_dir, Config),

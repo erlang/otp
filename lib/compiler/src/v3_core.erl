@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2014. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -82,8 +82,6 @@
 	       ann_c_map/3]).
 
 -include("core_parse.hrl").
-
--define(REC_OFFSET, 100000000). % Also in erl_expand_records.
 
 %% Internal core expressions and help functions.
 %% N.B. annotations fields in place as normal Core expressions.
@@ -170,8 +168,10 @@ form({attribute,_,file,{File,_Line}}, {Fs,As,Ws,_}, _Opts) ->
 form({attribute,_,_,_}=F, {Fs,As,Ws,File}, _Opts) ->
     {Fs,[attribute(F)|As],Ws,File}.
 
-attribute({attribute,Line,Name,Val}) ->
-    {#c_literal{val=Name, anno=[Line]}, #c_literal{val=Val, anno=[Line]}}.
+attribute(Attribute) ->
+    Fun = fun(A) ->  [erl_anno:location(A)] end,
+    {attribute,Line,Name,Val} = erl_parse:map_anno(Fun, Attribute),
+    {#c_literal{val=Name, anno=Line}, #c_literal{val=Val, anno=Line}}.
 
 %% function_dump(module_info,_,_,_) -> ok;
 %% function_dump(Name,Arity,Format,Terms) ->
@@ -740,7 +740,7 @@ make_bool_switch(L, E, V, T, F, #core{}) ->
     make_bool_switch_body(L, E, V, T, F).
 
 make_bool_switch_body(L, E, V, T, F) ->
-    NegL = neg_line(abs_line(L)),
+    NegL = no_compiler_warning(L),
     Error = {tuple,NegL,[{atom,NegL,badarg},V]},
     {'case',NegL,E,
      [{clause,NegL,[{atom,NegL,true}],[],[T]},
@@ -751,7 +751,7 @@ make_bool_switch_body(L, E, V, T, F) ->
 
 make_bool_switch_guard(_, E, _, {atom,_,true}, {atom,_,false}) -> E;
 make_bool_switch_guard(L, E, V, T, F) ->
-    NegL = neg_line(abs_line(L)),
+    NegL = no_compiler_warning(L),
     {'case',NegL,E,
      [{clause,NegL,[{atom,NegL,true}],[],[T]},
       {clause,NegL,[{atom,NegL,false}],[],[F]},
@@ -917,7 +917,7 @@ verify_suitable_fields([]) -> ok.
 %% (We don't need an exact result for this purpose.)
 
 count_bits(Int) -> 
-    count_bits_1(abs_line(Int), 64).
+    count_bits_1(abs(Int), 64).
 
 count_bits_1(0, Bits) -> Bits;
 count_bits_1(Int, Bits) -> count_bits_1(Int bsr 64, Bits+64).
@@ -2309,22 +2309,15 @@ bitstr_vars(Segs, Vs) ->
  		  lit_vars(V, lit_vars(S, Vs0))
 	  end, Vs, Segs).
 
-record_anno(L, St) when L >= ?REC_OFFSET ->
-    case member(dialyzer, St#core.opts) of
-        true ->
-            [record | lineno_anno(L - ?REC_OFFSET, St)];
-        false ->
-            full_anno(L, St)
-    end;
-record_anno(L, St) when L < -?REC_OFFSET ->
-    case member(dialyzer, St#core.opts) of
-        true ->
-            [record | lineno_anno(L + ?REC_OFFSET, St)];
-        false ->
-            full_anno(L, St)
-    end;
 record_anno(L, St) ->
-    full_anno(L, St).
+    case
+        erl_anno:record(L) andalso member(dialyzer, St#core.opts)
+    of
+        true ->
+            [record | lineno_anno(L, St)];
+        false ->
+            full_anno(L, St)
+    end.
 
 full_anno(L, #core{wanted=false}=St) ->
     [result_not_wanted|lineno_anno(L, St)];
@@ -2332,13 +2325,10 @@ full_anno(L, #core{wanted=true}=St) ->
     lineno_anno(L, St).
 
 lineno_anno(L, St) ->
-    {line, Line} = erl_parse:get_attribute(L, line),
-    if
-	Line < 0 ->
-	    [-Line] ++ St#core.file ++ [compiler_generated];
-	true ->
-	    [Line] ++ St#core.file
-    end.
+    Line = erl_anno:line(L),
+    Generated = erl_anno:generated(L),
+    CompilerGenerated = [compiler_generated || Generated],
+    [Line] ++ St#core.file ++ CompilerGenerated.
 
 get_lineno_anno(Ce) ->
     case get_anno(Ce) of
@@ -2346,15 +2336,8 @@ get_lineno_anno(Ce) ->
 	A when is_list(A) -> A
     end.
 
-location(L) ->
-    {location,Location} = erl_parse:get_attribute(L, location),
-    Location.
-
-abs_line(L) ->
-    erl_parse:set_line(L, fun(Line) -> abs(Line) end).
-
-neg_line(L) ->
-    erl_parse:set_line(L, fun(Line) -> -abs(Line) end).
+no_compiler_warning(Anno) ->
+    erl_anno:set_generated(true, Anno).
 
 %%
 %% The following three functions are used both with cerl:cerl() and with i()'s
@@ -2398,6 +2381,10 @@ format_error(bad_binary) ->
 format_error(bad_map) ->
     "map construction will fail because of a type mismatch".
 
-add_warning(Line, Term, #core{ws=Ws,file=[{file,File}]}=St) when Line >= 0 ->
-    St#core{ws=[{File,[{location(Line),?MODULE,Term}]}|Ws]};
-add_warning(_, _, St) -> St.
+add_warning(Anno, Term, #core{ws=Ws,file=[{file,File}]}=St) ->
+    case erl_anno:generated(Anno) of
+        false ->
+            St#core{ws=[{File,[{erl_anno:location(Anno),?MODULE,Term}]}|Ws]};
+        true ->
+            St
+    end.

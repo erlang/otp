@@ -1545,7 +1545,7 @@ out_action_code(File, XrlFile, {_A,Code,_Vars,Name,Args,ArgsChars}) ->
     %% Should set the file to the .erl file, but instead assumes that
     %% ?LEEXINC is syntactically correct.
     io:fwrite(File, "\n-compile({inline,~w/~w}).\n", [Name, length(Args)]),
-    {line, L} = erl_scan:token_info(hd(Code), line),
+    L = erl_scan:line(hd(Code)),
     output_file_directive(File, XrlFile, L-2),
     io:fwrite(File, "~s(~s) ->~n", [Name, ArgsChars]),
     io:fwrite(File, "    ~s\n", [pp_tokens(Code, L)]).
@@ -1557,7 +1557,7 @@ pp_tokens(Tokens, Line0) -> pp_tokens(Tokens, Line0, none).
     
 pp_tokens([], _Line0, _) -> [];
 pp_tokens([T | Ts], Line0, Prev) ->
-    {line, Line} = erl_scan:token_info(T, line),
+    Line = erl_scan:line(T),
     [pp_sep(Line, Line0, Prev, T), pp_symbol(T) | pp_tokens(Ts, Line, T)].
 
 pp_symbol({var,_,Var}) -> atom_to_list(Var);

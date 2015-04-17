@@ -11,6 +11,7 @@
   <xi:include href="../specs/specs_digraph.xml"/>
   <xi:include href="../specs/specs_digraph_utils.xml"/>
   <xi:include href="../specs/specs_epp.xml"/>
+  <xi:include href="../specs/specs_erl_anno.xml"/>
   <xi:include href="../specs/specs_erl_eval.xml"/>
   <xi:include href="../specs/specs_erl_expand_records.xml"/>
   <xi:include href="../specs/specs_erl_id_trans.xml"/>

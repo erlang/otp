@@ -385,10 +385,11 @@ get_optional_callbacks(Abs) ->
 %%  - Constraint is of the form {subtype, T1, T2} where T1 and T2
 %%    are erl_types:erl_type()
 
-get_spec_info([{attribute, Ln, Contract, {Id, TypeSpec}}|Left],
+get_spec_info([{attribute, Attr, Contract, {Id, TypeSpec}}|Left],
 	      SpecDict, CallbackDict, RecordsDict, ModName, OptCb, File)
   when ((Contract =:= 'spec') or (Contract =:= 'callback')),
        is_list(TypeSpec) ->
+  Ln = erl_anno:line(Attr),
   MFA = case Id of
 	  {_, _, _} = T -> T;
 	  {F, A} -> {ModName, F, A}
@@ -519,7 +520,7 @@ get_options1([], Warnings) ->
   Warnings.
 
 -type collected_attribute() ::
-        {Args :: term(), erl_scan:line(), file:filename()}.
+        {Args :: term(), erl_anno:line(), file:filename()}.
 
 collect_attribute(Abs, Tag) ->
   collect_attribute(Abs, Tag, "nofile").
@@ -643,7 +644,7 @@ get_options_with_tag(Tag, Abs) ->
 
 %% Check F/A, and collect (unchecked) warning tags with line and file.
 -spec check_fa_list([collected_attribute()], atom(), [fa()]) ->
-                       [{{atom(), erl_scan:line(), file:filename()},fa()}].
+                       [{{atom(), erl_anno:line(), file:filename()},fa()}].
 
 check_fa_list(AttrFile, Tag, Functions) ->
   FuncTab = gb_sets:from_list(Functions),

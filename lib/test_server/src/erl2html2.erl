@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2015. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -118,8 +118,9 @@ parse_preprocessed_file(Epp,File,InCorrectFile) ->
 		{attribute,_,file,{_OtherFile,_}} ->
 		    parse_preprocessed_file(Epp,File,false);
 		{function,L,F,A,[_|C]} when InCorrectFile ->
-		    Clauses = [{clause,CL} || {clause,CL,_,_,_} <- C],
-		    [{atom_to_list(F),A,L} | Clauses] ++
+		    Clauses = [{clause,get_line(CL)} ||
+                                  {clause,CL,_,_,_} <- C],
+		    [{atom_to_list(F),A,get_line(L)} | Clauses] ++
 			parse_preprocessed_file(Epp,File,true);
 		_ ->
 		    parse_preprocessed_file(Epp,File,InCorrectFile)
@@ -147,8 +148,9 @@ parse_non_preprocessed_file(Epp, File, Location) ->
 	{ok,Tree,Location1} ->
 	    try erl_syntax:revert(Tree) of
 		{function,L,F,A,[_|C]} ->
-		    Clauses = [{clause,CL} || {clause,CL,_,_,_} <- C],
-		    [{atom_to_list(F),A,L} | Clauses] ++
+		    Clauses = [{clause,get_line(CL)} ||
+                                  {clause,CL,_,_,_} <- C],
+		    [{atom_to_list(F),A,get_line(L)} | Clauses] ++
 			parse_non_preprocessed_file(Epp, File, Location1);
 		_ ->
 		    parse_non_preprocessed_file(Epp, File, Location1)
@@ -160,6 +162,9 @@ parse_non_preprocessed_file(Epp, File, Location) ->
 	{eof,_Location} ->
 	    []
     end.
+
+get_line(Anno) ->
+    erl_anno:line(Anno).
 
 %%%-----------------------------------------------------------------
 %%% Add a link target for each line and one for each function definition.

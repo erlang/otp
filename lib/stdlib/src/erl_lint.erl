@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2014. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -33,6 +33,8 @@
 -export([modify_line/2]).
 
 -import(lists, [member/2,map/2,foldl/3,foldr/3,mapfoldl/3,all/2,reverse/1]).
+
+-deprecated([{modify_line, 2, next_major_release}]).
 
 %% bool_option(OnOpt, OffOpt, Default, Options) -> boolean().
 %% value_option(Flag, Default, Options) -> Value.
@@ -76,7 +78,7 @@ value_option(Flag, Default, On, OnVal, Off, OffVal, Opts) ->
 %%-define(DEBUGF(X,Y), io:format(X, Y)).
 -define(DEBUGF(X,Y), void).
 
--type line() :: erl_scan:line().     % a convenient alias
+-type line() :: erl_anno:line().     % a convenient alias
 -type fa()   :: {atom(), arity()}.   % function+arity
 -type ta()   :: {atom(), arity()}.   % type+arity
 
@@ -111,7 +113,8 @@ value_option(Flag, Default, On, OnVal, Off, OffVal, Opts) ->
                defined=gb_sets:empty()          %Defined fuctions
                    :: gb_sets:set(fa()),
 	       on_load=[] :: [fa()],		%On-load function
-	       on_load_line=0 :: line(),	%Line for on_load
+	       on_load_line=erl_anno:new(0)	%Line for on_load
+                   :: erl_anno:anno(),
 	       clashes=[],			%Exported functions named as BIFs
                not_deprecated=[],               %Not considered deprecated
                func=[],                         %Current function
@@ -140,7 +143,7 @@ value_option(Flag, Default, On, OnVal, Off, OffVal, Opts) ->
 
 -type lint_state() :: #lint{}.
 -type error_description() :: term().
--type error_info() :: {erl_scan:line(), module(), error_description()}.
+-type error_info() :: {erl_anno:line(), module(), error_description()}.
 
 %% format_error(Error)
 %%  Return a string describing the error.
@@ -227,6 +230,8 @@ format_error({deprecated, MFA, ReplacementMFA, Rel}) ->
 		  [format_mfa(MFA), Rel, format_mfa(ReplacementMFA)]);
 format_error({deprecated, {M1, F1, A1}, String}) when is_list(String) ->
     io_lib:format("~p:~p/~p: ~s", [M1, F1, A1, String]);
+format_error({deprecated_type, {M1, F1, A1}, String}) when is_list(String) ->
+    io_lib:format("~p:~p~s: ~s", [M1, F1, gen_type_paren(A1), String]);
 format_error({removed, MFA, ReplacementMFA, Rel}) ->
     io_lib:format("call to ~s will fail, since it was removed in ~s; "
 		  "use ~s", [format_mfa(MFA), Rel, format_mfa(ReplacementMFA)]);
@@ -425,13 +430,13 @@ exprs(Exprs, BindingsList) ->
 
 exprs_opt(Exprs, BindingsList, Opts) ->
     {St0,Vs} = foldl(fun({{record,_SequenceNumber,_Name},Attr0}, {St1,Vs1}) ->
-                             Attr = zip_file_and_line(Attr0, "none"),
+                             Attr = set_file(Attr0, "none"),
 			     {attribute_state(Attr, St1),Vs1};
                         ({V,_}, {St1,Vs1}) ->
 			     {St1,[{V,{bound,unused,[]}} | Vs1]}
 		     end, {start("nofile",Opts),[]}, BindingsList),
     Vt = orddict:from_list(Vs),
-    {_Evt,St} = exprs(zip_file_and_line(Exprs, "nofile"), Vt, St0),
+    {_Evt,St} = exprs(set_file(Exprs, "nofile"), Vt, St0),
     return_status(St).
 
 used_vars(Exprs, BindingsList) ->
@@ -439,7 +444,7 @@ used_vars(Exprs, BindingsList) ->
 		  ({V,_Val}, Vs0) -> [{V,{bound,unused,[]}} | Vs0]
 	       end, [], BindingsList),
     Vt = orddict:from_list(Vs),
-    {Evt,_St} = exprs(zip_file_and_line(Exprs, "nofile"), Vt, start()),
+    {Evt,_St} = exprs(set_file(Exprs, "nofile"), Vt, start()),
     {ok, foldl(fun({V,{_,used,_}}, L) -> [V | L];
                   (_, L) -> L
 	       end, [], Evt)}.
@@ -605,8 +610,8 @@ pack_warnings(Ws) ->
 
 add_error(E, St) -> St#lint{errors=[{St#lint.file,E}|St#lint.errors]}.
 
-add_error(FileLine, E, St) ->
-    {File,Location} = loc(FileLine),
+add_error(Anno, E, St) ->
+    {File,Location} = loc(Anno),
     add_error({Location,erl_lint,E}, St#lint{file = File}).
 
 add_warning(W, St) -> St#lint{warnings=[{St#lint.file,W}|St#lint.warnings]}.
@@ -615,22 +620,19 @@ add_warning(FileLine, W, St) ->
     {File,Location} = loc(FileLine),
     add_warning({Location,erl_lint,W}, St#lint{file = File}).
 
-loc(L) ->
-    case erl_parse:get_attribute(L, location) of
-        {location,{{File,Line},Column}} ->
-            {File,{Line,Column}};
-        {location,{File,Line}} ->
-            {File,Line}
-    end.
+loc(Anno) ->
+    File = erl_anno:file(Anno),
+    Location = erl_anno:location(Anno),
+    {File,Location}.
 
 %% forms([Form], State) -> State'
 
 forms(Forms0, St0) ->
     Forms = eval_file_attribute(Forms0, St0),
+    %% Annotations from now on include the 'file' item.
     Locals = local_functions(Forms),
     AutoImportSuppressed = auto_import_suppressed(St0#lint.compile),
     StDeprecated = disallowed_compile_flags(Forms,St0),
-    %% Line numbers are from now on pairs {File,Line}.
     St1 = includes_qlc_hrl(Forms, StDeprecated#lint{locals = Locals,
 						    no_auto = AutoImportSuppressed}),
     St2 = bif_clashes(Forms, St1),
@@ -666,15 +668,14 @@ eval_file_attribute(Forms, St) ->
 eval_file_attr([{attribute,_L,file,{File,_Line}}=Form | Forms], _File) ->
     [Form | eval_file_attr(Forms, File)];
 eval_file_attr([Form0 | Forms], File) ->
-    Form = zip_file_and_line(Form0, File),
+    Form = set_file(Form0, File),
     [Form | eval_file_attr(Forms, File)];
 eval_file_attr([], _File) ->
     [].
 
-zip_file_and_line(T, File) ->
-    F0 = fun(Line) -> {File,Line} end,
-    F = fun(L) -> erl_parse:set_line(L, F0) end,
-    modify_line(T, F).
+set_file(T, File) ->
+    F = fun(Anno) -> erl_anno:set_file(File, Anno) end,
+    erl_parse:map_anno(F, T).
 
 %% form(Form, State) -> State'
 %%  Check a form returning the updated State. Handle generic cases here.
@@ -796,9 +797,11 @@ not_deprecated(Forms, St0) ->
 disallowed_compile_flags(Forms, St0) ->
     %% There are (still) no line numbers in St0#lint.compile.
     Errors0 =  [ {St0#lint.file,{L,erl_lint,disallowed_nowarn_bif_clash}} ||
-		    {attribute,[{line,{_,L}}],compile,nowarn_bif_clash} <- Forms ],
+		    {attribute,A,compile,nowarn_bif_clash} <- Forms,
+                   {_,L} <- [loc(A)] ],
     Errors1 = [ {St0#lint.file,{L,erl_lint,disallowed_nowarn_bif_clash}} ||
-		    {attribute,[{line,{_,L}}],compile,{nowarn_bif_clash, {_,_}}} <- Forms ],
+		    {attribute,A,compile,{nowarn_bif_clash, {_,_}}} <- Forms,
+                   {_,L} <- [loc(A)] ],
     Disabled = (not is_warn_enabled(bif_clash, St0)),
     Errors = if
 		   Disabled andalso Errors0 =:= [] ->
@@ -1299,7 +1302,7 @@ imported(F, A, St) ->
         error -> no
     end.
 
--spec on_load(line(), fa(), lint_state()) -> lint_state().
+-spec on_load(erl_anno:anno(), fa(), lint_state()) -> lint_state().
 %%  Check an on_load directive and remember it.
 
 on_load(Line, {Name,Arity}=Fa, #lint{on_load=OnLoad0}=St0)
@@ -1954,10 +1957,10 @@ is_guard_test(E) ->
 is_guard_test(Expression, Forms) ->
     RecordAttributes = [A || A = {attribute, _, record, _D} <- Forms],
     St0 = foldl(fun(Attr0, St1) ->
-                        Attr = zip_file_and_line(Attr0, "none"),
+                        Attr = set_file(Attr0, "none"),
                         attribute_state(Attr, St1)
                 end, start(), RecordAttributes),
-    is_guard_test2(zip_file_and_line(Expression, "nofile"), St0#lint.records).
+    is_guard_test2(set_file(Expression, "nofile"), St0#lint.records).
 
 %% is_guard_test2(Expression, RecordDefs :: dict:dict()) -> boolean().
 is_guard_test2({call,Line,{atom,Lr,record},[E,A]}, RDs) ->
@@ -2619,7 +2622,7 @@ type_def(_Attr, _Line, {record, _RecName}, Fields, [], St0) ->
     %% The record field names and such are checked in the record format.
     %% We only need to check the types.
     Types = [T || {typed_record_field, _, T} <- Fields],
-    check_type({type, -1, product, Types}, St0);
+    check_type({type, nowarn(), product, Types}, St0);
 type_def(Attr, Line, TypeName, ProtoType, Args, St0) ->
     TypeDefs = St0#lint.types,
     Arity = length(Args),
@@ -2628,7 +2631,7 @@ type_def(Attr, Line, TypeName, ProtoType, Args, St0) ->
     StoreType =
         fun(St) ->
                 NewDefs = dict:store(TypePair, Info, TypeDefs),
-                CheckType = {type, -1, product, [ProtoType|Args]},
+                CheckType = {type, nowarn(), product, [ProtoType|Args]},
                 check_type(CheckType, St#lint{types=NewDefs})
         end,
     case is_default_type(TypePair) of
@@ -2684,7 +2687,9 @@ check_type({ann_type, _L, [_Var, Type]}, SeenVars, St) ->
 check_type({paren_type, _L, [Type]}, SeenVars, St) ->
     check_type(Type, SeenVars, St);
 check_type({remote_type, L, [{atom, _, Mod}, {atom, _, Name}, Args]},
-	   SeenVars, #lint{module=CurrentMod} = St) ->
+	   SeenVars, St0) ->
+    St = deprecated_type(L, Mod, Name, Args, St0),
+    CurrentMod = St#lint.module,
     case Mod =:= CurrentMod of
 	true -> check_type({user_type, L, Name, Args}, SeenVars, St);
 	false ->
@@ -2712,7 +2717,7 @@ check_type({type, L, 'fun', [Dom, Range]}, SeenVars, St) ->
 	    {type, _, any} -> St;
 	    _ -> add_error(L, {type_syntax, 'fun'}, St)
 	end,
-    check_type({type, -1, product, [Dom, Range]}, SeenVars, St1);
+    check_type({type, nowarn(), product, [Dom, Range]}, SeenVars, St1);
 check_type({type, L, range, [From, To]}, SeenVars, St) ->
     St1 =
 	case {erl_eval:partial_eval(From), erl_eval:partial_eval(To)} of
@@ -2729,7 +2734,7 @@ check_type({type, _L, map, Pairs}, SeenVars, St) ->
 			check_type(Pair, AccSeenVars, AccSt)
 		end, {SeenVars, St}, Pairs);
 check_type({type, _L, map_field_assoc, [Dom, Range]}, SeenVars, St) ->
-    check_type({type, -1, product, [Dom, Range]}, SeenVars, St);
+    check_type({type, nowarn(), product, [Dom, Range]}, SeenVars, St);
 check_type({type, _L, tuple, any}, SeenVars, St) -> {SeenVars, St};
 check_type({type, _L, any}, SeenVars, St) -> {SeenVars, St};
 check_type({type, L, binary, [Base, Unit]}, SeenVars, St) ->
@@ -2772,7 +2777,7 @@ check_type({type, La, TypeName, Args}, SeenVars, St) ->
                 end;
             _ -> St
         end,
-    check_type({type, -1, product, Args}, SeenVars, St1);
+    check_type({type, nowarn(), product, Args}, SeenVars, St1);
 check_type({user_type, L, TypeName, Args}, SeenVars, St) ->
     Arity = length(Args),
     TypePair = {TypeName, Arity},
@@ -2919,10 +2924,15 @@ check_specs([FunType|Left], Arity, St0) ->
 	      true -> St0;
 	      false -> add_error(L, spec_wrong_arity, St0)
 	  end,
-    St2 = check_type({type, -1, product, [FunType1|CTypes]}, St1),
+    St2 = check_type({type, nowarn(), product, [FunType1|CTypes]}, St1),
     check_specs(Left, Arity, St2);
 check_specs([], _Arity, St) ->
     St.
+
+nowarn() ->
+    A0 = erl_anno:new(0),
+    A1 = erl_anno:set_generated(true, A0),
+    erl_anno:set_file("", A1).
 
 check_specs_without_function(#lint{module=Mod,defined=Funcs,specs=Specs}=St) ->
     Fun = fun({M, F, A}, Line, AccSt) when M =:= Mod ->
@@ -3452,58 +3462,15 @@ vt_no_unused(Vt) -> [V || {_,{_,U,_L}}=V <- Vt, U =/= unused].
 %% copy_expr(Expr, Line) -> Expr.
 %%  Make a copy of Expr converting all line numbers to Line.
 
-copy_expr(Expr, Line) ->
-    modify_line(Expr, fun(_L) -> Line end).
+copy_expr(Expr, Anno) ->
+    erl_parse:map_anno(fun(_A) -> Anno end, Expr).
 
 %% modify_line(Form, Fun) -> Form
 %% modify_line(Expression, Fun) -> Expression
 %%  Applies Fun to each line number occurrence.
 
 modify_line(T, F0) ->
-    modify_line1(T, F0).
-
-%% Forms.
-modify_line1({function,F,A}, _Mf) -> {function,F,A};
-modify_line1({function,M,F,A}, Mf) ->
-    {function,modify_line1(M, Mf),modify_line1(F, Mf),modify_line1(A, Mf)};
-modify_line1({attribute,L,record,{Name,Fields}}, Mf) ->
-    {attribute,Mf(L),record,{Name,modify_line1(Fields, Mf)}};
-modify_line1({attribute,L,spec,{Fun,Types}}, Mf) ->
-    {attribute,Mf(L),spec,{Fun,modify_line1(Types, Mf)}};
-modify_line1({attribute,L,callback,{Fun,Types}}, Mf) ->
-    {attribute,Mf(L),callback,{Fun,modify_line1(Types, Mf)}};
-modify_line1({attribute,L,type,{TypeName,TypeDef,Args}}, Mf) ->
-    {attribute,Mf(L),type,{TypeName,modify_line1(TypeDef, Mf),
-			   modify_line1(Args, Mf)}};
-modify_line1({attribute,L,opaque,{TypeName,TypeDef,Args}}, Mf) ->
-    {attribute,Mf(L),opaque,{TypeName,modify_line1(TypeDef, Mf),
-                             modify_line1(Args, Mf)}};
-modify_line1({attribute,L,Attr,Val}, Mf) -> {attribute,Mf(L),Attr,Val};
-modify_line1({warning,W}, _Mf) -> {warning,W};
-modify_line1({error,W}, _Mf) -> {error,W};
-%% Expressions.
-modify_line1({clauses,Cs}, Mf) -> {clauses,modify_line1(Cs, Mf)};
-modify_line1({typed_record_field,Field,Type}, Mf) ->
-    {typed_record_field,modify_line1(Field, Mf),modify_line1(Type, Mf)};
-modify_line1({Tag,L}, Mf) -> {Tag,Mf(L)};
-modify_line1({Tag,L,E1}, Mf) ->
-    {Tag,Mf(L),modify_line1(E1, Mf)};
-modify_line1({Tag,L,E1,E2}, Mf) ->
-    {Tag,Mf(L),modify_line1(E1, Mf),modify_line1(E2, Mf)};
-modify_line1({bin_element,L,E1,E2,TSL}, Mf) ->
-    {bin_element,Mf(L),modify_line1(E1, Mf),modify_line1(E2, Mf), TSL};
-modify_line1({Tag,L,E1,E2,E3}, Mf) ->
-    {Tag,Mf(L),modify_line1(E1, Mf),modify_line1(E2, Mf),modify_line1(E3, Mf)};
-modify_line1({Tag,L,E1,E2,E3,E4}, Mf) ->
-    {Tag,Mf(L),
-     modify_line1(E1, Mf),
-     modify_line1(E2, Mf),
-     modify_line1(E3, Mf),
-     modify_line1(E4, Mf)};
-modify_line1([H|T], Mf) ->
-    [modify_line1(H, Mf)|modify_line1(T, Mf)];
-modify_line1([], _Mf) -> [];
-modify_line1(E, _Mf) when not is_tuple(E), not is_list(E) -> E.
+    erl_parse:map_anno(F0, T).
 
 %% Check a record_info call. We have already checked that it is not
 %% shadowed by an import.
@@ -3571,6 +3538,20 @@ deprecated_function(Line, M, F, As, St) ->
 	    add_warning(Line, {removed, MFA, Replacement, Rel}, St);
         no ->
 	    St
+    end.
+
+deprecated_type(L, M, N, As, St) ->
+    NAs = length(As),
+    case otp_internal:obsolete_type(M, N, NAs) of
+        {deprecated, String} when is_list(String) ->
+            case is_warn_enabled(deprecated_type, St) of
+                true ->
+                    add_warning(L, {deprecated_type, {M,N,NAs}, String}, St);
+                false ->
+                    St
+            end;
+        no ->
+            St
     end.
 
 obsolete_guard({call,Line,{atom,Lr,F},As}, St0) ->

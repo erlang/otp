@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2000-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -652,7 +652,13 @@ chunk_to_data(abstract_code=Id, Chunk, File, _Cs, AtomTable, Mod) ->
 		{'EXIT', _} ->
 		    error({invalid_chunk, File, chunk_name_to_id(Id, File)});
 		Term ->
-		    {AtomTable, {Id, Term}}
+                    try
+                        {AtomTable, {Id, anno_from_term(Term)}}
+                    catch
+                        _:_ ->
+                            error({invalid_chunk, File,
+                                   chunk_name_to_id(Id, File)})
+                    end
 	    end
     end;
 chunk_to_data(atoms=Id, _Chunk, _File, Cs, AtomTable0, _Mod) ->
@@ -878,7 +884,22 @@ decrypt_abst(Type, Module, File, Id, AtomTable, Bin) ->
 decrypt_abst_1({Type,Key,IVec,_BlockSize}, Bin) ->
     ok = start_crypto(),
     NewBin = crypto:block_decrypt(Type, Key, IVec, Bin),
-    binary_to_term(NewBin).
+    Term = binary_to_term(NewBin),
+    anno_from_term(Term).
+
+anno_from_term({raw_abstract_v1, Forms}) ->
+    {raw_abstract_v1, anno_from_forms(Forms)};
+anno_from_term({Tag, Forms}) when Tag =:= abstract_v1; Tag =:= abstract_v2 ->
+    try {Tag, anno_from_forms(Forms)}
+    catch
+        _:_ ->
+            {Tag, Forms}
+    end;
+anno_from_term(T) ->
+    T.
+
+anno_from_forms(Forms) ->
+    [erl_parse:anno_from_term(Form) || Form <- Forms].
 
 start_crypto() ->
     case crypto:start() of
