@@ -612,12 +612,14 @@ is_reg_used_at_1(R, Lbl, St0) ->
     end.
 
 index_labels_1([{label,Lbl}|Is0], Acc) ->
-    Is = lists:dropwhile(fun({label,_}) -> true;
-			    (_) -> false end, Is0),
+    Is = drop_labels(Is0),
     index_labels_1(Is0, [{Lbl,Is}|Acc]);
 index_labels_1([_|Is], Acc) ->
     index_labels_1(Is, Acc);
 index_labels_1([], Acc) -> gb_trees:from_orddict(sort(Acc)).
+
+drop_labels([{label,_}|Is]) -> drop_labels(Is);
+drop_labels(Is) -> Is.
 
 %% Help functions for combine_heap_needs.
 
