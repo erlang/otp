@@ -458,22 +458,12 @@ sign(Digest, none, #'DSAPrivateKey'{} = Key) ->
 	     | dsa_public_key() | ec_public_key()) -> boolean().
 %% Description: Verifies a digital signature.
 %%--------------------------------------------------------------------
-verify(DigestOrPlainText, DigestType, Signature,
-       #'RSAPublicKey'{modulus = Mod, publicExponent = Exp}) ->
-    crypto:verify(rsa, DigestType, DigestOrPlainText, Signature,
-		  [Exp, Mod]);
-
-verify(DigestOrPlaintext, DigestType, Signature, {#'ECPoint'{point = Point}, Param}) ->
-    ECCurve = ec_curve_spec(Param),
-    crypto:verify(ecdsa, DigestType, DigestOrPlaintext, Signature, [Point, ECCurve]);
-
-%% Backwards compatibility
-verify(Digest, none, Signature, {_,  #'Dss-Parms'{}} = Key ) ->
-    verify({digest,Digest}, sha, Signature, Key);
-
-verify(DigestOrPlainText, sha = DigestType, Signature, {Key,  #'Dss-Parms'{p = P, q = Q, g = G}})
-  when is_integer(Key), is_binary(Signature) ->
-    crypto:verify(dss, DigestType, DigestOrPlainText, Signature, [P, Q, G, Key]).
+verify(DigestOrPlainText, DigestType, Signature, Key) when is_binary(Signature) ->
+    do_verify(DigestOrPlainText, DigestType, Signature, Key);
+verify(_,_,_,_) -> 
+    %% If Signature is a bitstring and not a binary we know already at this
+    %% point that the signature is invalid.
+    false.
 
 %%--------------------------------------------------------------------
 -spec pkix_dist_point(der_encoded() | #'OTPCertificate'{}) -> 
@@ -753,6 +743,23 @@ ssh_encode(Entries, Type) when is_list(Entries),
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
+do_verify(DigestOrPlainText, DigestType, Signature,
+       #'RSAPublicKey'{modulus = Mod, publicExponent = Exp}) ->
+    crypto:verify(rsa, DigestType, DigestOrPlainText, Signature,
+		  [Exp, Mod]);
+
+do_verify(DigestOrPlaintext, DigestType, Signature, {#'ECPoint'{point = Point}, Param}) ->
+    ECCurve = ec_curve_spec(Param),
+    crypto:verify(ecdsa, DigestType, DigestOrPlaintext, Signature, [Point, ECCurve]);
+
+%% Backwards compatibility
+do_verify(Digest, none, Signature, {_,  #'Dss-Parms'{}} = Key ) ->
+    verify({digest,Digest}, sha, Signature, Key);
+
+do_verify(DigestOrPlainText, sha = DigestType, Signature, {Key,  #'Dss-Parms'{p = P, q = Q, g = G}})
+  when is_integer(Key), is_binary(Signature) ->
+    crypto:verify(dss, DigestType, DigestOrPlainText, Signature, [P, Q, G, Key]).
+
 do_pem_entry_encode(Asn1Type, Entity, CipherInfo, Password) ->
     Der = der_encode(Asn1Type, Entity),
     DecryptDer = pubkey_pem:cipher(Der, CipherInfo, Password),
