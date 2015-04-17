@@ -392,14 +392,59 @@ i_is_ne_exact_literal x f c
 i_is_ne_exact_literal y f c
 
 #
+# Common Compare Specializations
+# We don't do all of them since we want
+# to keep the instruction set small-ish
+#
+
+is_eq_exact Lbl S1=xy S2=r => is_eq_exact Lbl S2 S1
+is_eq_exact Lbl S1=rx S2=xy => i_is_eq_exact_spec Lbl S1 S2
+%macro: i_is_eq_exact_spec EqualExact -fail_action
+
+i_is_eq_exact_spec f x x
+i_is_eq_exact_spec f x y
+i_is_eq_exact_spec f r x
+i_is_eq_exact_spec f r y
+%cold
+i_is_eq_exact_spec f r r
+%hot
+
+is_lt Lbl S1=rxc S2=rxc  => i_is_lt_spec Lbl S1 S2
+
+%macro: i_is_lt_spec IsLessThan -fail_action
+
+i_is_lt_spec f x x
+i_is_lt_spec f x r
+i_is_lt_spec f x c
+i_is_lt_spec f r x
+i_is_lt_spec f r c
+i_is_lt_spec f c x
+i_is_lt_spec f c r
+%cold
+i_is_lt_spec f r r
+i_is_lt_spec f c c
+%hot
+
+is_ge Lbl S1=xc S2=xc => i_is_ge_spec Lbl S1 S2
+
+%macro: i_is_ge_spec IsGreaterEqual -fail_action
+
+i_is_ge_spec f x x
+i_is_ge_spec f x c
+i_is_ge_spec f c x
+%cold
+i_is_ge_spec f c c
+%hot
+
+#
 # All other comparisons.
 #
 
 is_eq_exact Lbl S1 S2 => i_fetch S1 S2 | i_is_eq_exact Lbl
 is_ne_exact Lbl S1 S2 => i_fetch S1 S2 | i_is_ne_exact Lbl
 
-is_ge Lbl S1 S2 => i_fetch S1 S2 | i_is_ge Lbl
 is_lt Lbl S1 S2 => i_fetch S1 S2 | i_is_lt Lbl
+is_ge Lbl S1 S2 => i_fetch S1 S2 | i_is_ge Lbl
 is_eq Lbl S1 S2 => i_fetch S1 S2 | i_is_eq Lbl
 is_ne Lbl S1 S2 => i_fetch S1 S2 | i_is_ne Lbl
 
@@ -493,7 +538,6 @@ put_list s s d
 %hot
 
 %macro: i_fetch FetchArgs -pack
-i_fetch c c
 i_fetch c r
 i_fetch c x
 i_fetch c y
@@ -510,6 +554,7 @@ i_fetch y x
 i_fetch y y
 
 %cold
+i_fetch c c
 i_fetch s s
 %hot
 
