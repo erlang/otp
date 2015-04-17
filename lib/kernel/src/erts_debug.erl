@@ -20,7 +20,7 @@
 
 %% Low-level debugging support. EXPERIMENTAL!
 
--export([size/1,df/1,df/2,df/3]).
+-export([size/1,df/1,df/2,df/3,ic/1]).
 
 %% This module contains the following *experimental* BIFs:
 %%   disassemble/1
@@ -113,6 +113,19 @@ get_internal_state(_) ->
 
 instructions() ->
     erlang:nif_error(undef).
+
+-spec ic(F) -> Result when
+      F :: function(),
+      Result :: term().
+
+ic(F) when is_function(F) ->
+    Is0 = erlang:system_info(instruction_counts),
+    R   = F(),
+    Is1 = erlang:system_info(instruction_counts),
+    Is  = lists:keysort(2,[{I,C1 - C0}||{{I,C1},{I,C0}} <- lists:zip(Is1,Is0)]),
+    _   = [io:format("~12w ~w~n", [C,I])||{I,C}<-Is],
+    io:format("Total: ~w~n",[lists:sum([C||{_I,C}<-Is])]),
+    R.
 
 -spec lock_counters(info) -> term();
                       (clear) -> ok;
