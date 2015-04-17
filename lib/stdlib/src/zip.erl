@@ -1150,7 +1150,7 @@ server_loop(Parent, OpenZip) ->
 	    From ! {self(), OpenZip},
 	    server_loop(Parent, OpenZip);
         {'EXIT', Parent, Reason} ->
-            openzip_close(OpenZip),
+            _ = openzip_close(OpenZip),
             exit({parent_died, Reason});
 	_ ->
 	    {error, bad_msg}
