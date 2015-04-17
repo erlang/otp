@@ -132,10 +132,10 @@ build_file(Code, Attr, Dict, NumLabels, NumFuncs, Abst, SourceFile, Opts) ->
     LiteralChunk = case beam_dict:literal_table(Dict) of
 		       {0,[]} -> [];
 		       {NumLiterals,LitTab0} ->
-			   LitTab1 = iolist_to_binary(LitTab0),
-			   LitTab2 = <<NumLiterals:32,LitTab1/binary>>,
-			   LitTab = iolist_to_binary(zlib:compress(LitTab2)),
-			   chunk(<<"LitT">>, <<(byte_size(LitTab2)):32>>, LitTab)
+			   LitTab1 = [<<NumLiterals:32>>,LitTab0],
+			   LitTab = zlib:compress(LitTab1),
+			   chunk(<<"LitT">>, <<(iolist_size(LitTab1)):32>>,
+				 LitTab)
 		   end,
 
     %% Create the line chunk.
