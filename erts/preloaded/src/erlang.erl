@@ -1931,7 +1931,7 @@ element(_N, _Tuple) ->
 %% Not documented
 -spec erlang:get_module_info(Module, Item) -> ModuleInfo when
       Module :: atom(),
-      Item :: module | imports | exports | functions | attributes | compile | native_addresses | md5,
+      Item :: module | exports | functions | attributes | compile | native_addresses | md5,
       ModuleInfo :: atom() | [] | [{atom(), arity()}] | [{atom(), term()}] | [{atom(), arity(), integer()}].
 get_module_info(_Module, _Item) ->
     erlang:nif_error(undefined).
