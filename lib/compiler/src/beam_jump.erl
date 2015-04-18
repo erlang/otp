@@ -127,7 +127,7 @@
 %%% on the program state.
 %%% 
 
--import(lists, [reverse/1,reverse/2,foldl/3,dropwhile/2]).
+-import(lists, [reverse/1,reverse/2,foldl/3]).
 
 module({Mod,Exp,Attr,Fs0,Lc}, _Opt) ->
     Fs = [function(F) || F <- Fs0],
@@ -509,10 +509,7 @@ rem_unused([{label,Lbl}=I|Is0], Used, [Prev|_]=Acc) ->
     case gb_sets:is_member(Lbl, Used) of
 	false ->
 	    Is = case is_unreachable_after(Prev) of
-		     true ->
-			 dropwhile(fun({label,_}) -> false;
-				      (_) -> true
-				   end, Is0);
+		     true -> drop_upto_label(Is0);
 		     false -> Is0
 		 end,
 	    rem_unused(Is, Used, Acc);
@@ -532,6 +529,10 @@ initial_labels([{label,Lbl}|Is], Acc) ->
     initial_labels(Is, [Lbl|Acc]);
 initial_labels([{func_info,_,_,_},{label,Lbl}|_], Acc) ->
     gb_sets:from_list([Lbl|Acc]).
+
+drop_upto_label([{label,_}|_]=Is) -> Is;
+drop_upto_label([_|Is]) -> drop_upto_label(Is);
+drop_upto_label([]) -> [].
 
 %% ulbl(Instruction, UsedGbSet) -> UsedGbSet'
 %%  Update the gb_set UsedGbSet with any function-local labels
