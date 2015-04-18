@@ -459,8 +459,8 @@ count_bits_matched([{test,_,_,_,[_,Sz,U,{field_flags,_}],_}|Is], SavePoint, Bits
 	{integer,N} -> count_bits_matched(Is, SavePoint, Bits+N*U);
 	_ -> count_bits_matched(Is, SavePoint, Bits)
     end;
-count_bits_matched([{test,bs_match_string,_,[_,Bits,_]}|Is], SavePoint, Bits0) ->
-    count_bits_matched(Is, SavePoint, Bits0+Bits);
+count_bits_matched([{test,bs_match_string,_,[_,Bs]}|Is], SavePoint, Bits) ->
+    count_bits_matched(Is, SavePoint, Bits+bit_size(Bs));
 count_bits_matched([{test,_,_,_}|Is], SavePoint, Bits) ->
     count_bits_matched(Is, SavePoint, Bits);
 count_bits_matched([{bs_save2,Reg,SavePoint}|_], {Reg,SavePoint}, Bits) ->
