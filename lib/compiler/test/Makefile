@@ -35,6 +35,7 @@ MODULES= \
 	record_SUITE \
 	trycatch_SUITE \
 	warnings_SUITE \
+	z_SUITE \
 	test_lib
 
 NO_OPT= \
