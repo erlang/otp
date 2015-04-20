@@ -24,7 +24,7 @@
 	 init_per_group/2,end_per_group/2,
 	 init_per_testcase/2,end_per_testcase/2,
 	 fun_shadow/1,int_float/1,otp_5269/1,null_fields/1,wiger/1,
-	 bin_tail/1,save_restore/1,shadowed_size_var/1,
+	 bin_tail/1,save_restore/1,
 	 partitioned_bs_match/1,function_clause/1,
 	 unit/1,shared_sub_bins/1,bin_and_float/1,
 	 dec_subidentifiers/1,skip_optional_tag/1,
@@ -50,7 +50,7 @@ all() ->
 groups() -> 
     [{p,[parallel],
       [fun_shadow,int_float,otp_5269,null_fields,wiger,
-       bin_tail,save_restore,shadowed_size_var,
+       bin_tail,save_restore,
        partitioned_bs_match,function_clause,unit,
        shared_sub_bins,bin_and_float,dec_subidentifiers,
        skip_optional_tag,wfbm,degenerated_match,bs_sum,
@@ -321,16 +321,6 @@ ooo(<<Char,         Tail/binary>>) -> {[Char],Tail}.
 bad_float_unpack_match(<<F:64/float>>) -> F;
 bad_float_unpack_match(<<I:64/integer-signed>>) -> I.
 
-
-shadowed_size_var(Config) when is_list(Config) ->
-    ?line PrivDir = ?config(priv_dir, Config),
-    ?line Dir = filename:dirname(code:which(?MODULE)),
-    ?line Core = filename:join(Dir, "bs_shadowed_size_var"),
-    ?line Opts = [from_core,{outdir,PrivDir}|test_lib:opt_opts(?MODULE)],
-    ?line io:format("~p", [Opts]),
-    ?line {ok,Mod} = c:c(Core, Opts),
-    ?line [42|<<"abcde">>] = Mod:filter_essentials([<<42:32>>|<<5:32,"abcde">>]),
-    ok.
 
 partitioned_bs_match(Config) when is_list(Config) ->
     ?line <<1,2,3>> = partitioned_bs_match(blurf, <<42,1,2,3>>),

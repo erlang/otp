@@ -232,7 +232,7 @@ eq(Config) when is_list(Config) ->
 %% OTP-7117.
 nested_call_in_case(Config) when is_list(Config) ->
     PrivDir = ?config(priv_dir, Config),
-    Dir = filename:dirname(code:which(?MODULE)),
+    Dir = test_lib:get_data_dir(Config),
     Core = filename:join(Dir, "nested_call_in_case"),
     Opts = [from_core,{outdir,PrivDir}|test_lib:opt_opts(?MODULE)],
     io:format("~p", [Opts]),
@@ -347,7 +347,7 @@ bsm_an_inlined(_, _) -> error.
 
 unused_multiple_values_error(Config) when is_list(Config) ->
     PrivDir = ?config(priv_dir, Config),
-    Dir = filename:dirname(code:which(?MODULE)),
+    Dir = test_lib:get_data_dir(Config),
     Core = filename:join(Dir, "unused_multiple_values_error"),
     Opts = [no_copt,clint,return,from_core,{outdir,PrivDir}
 	   |test_lib:opt_opts(?MODULE)],

@@ -79,12 +79,6 @@ INLINE= \
 	receive \
 	record
 
-CORE_MODULES = \
-	bs_shadowed_size_var \
-	unused_multiple_values_error \
-	nested_call_in_case
-
-
 NO_OPT_MODULES= $(NO_OPT:%=%_no_opt_SUITE)
 NO_OPT_ERL_FILES= $(NO_OPT_MODULES:%=%.erl)
 POST_OPT_MODULES= $(NO_OPT:%=%_post_opt_SUITE)
@@ -93,8 +87,6 @@ INLINE_MODULES= $(INLINE:%=%_inline_SUITE)
 INLINE_ERL_FILES= $(INLINE_MODULES:%=%.erl)
 
 ERL_FILES= $(MODULES:%=%.erl)
-
-CORE_FILES= $(CORE_MODULES:%=%.core)
 
 ##TARGET_FILES= $(MODULES:%=$(EBIN)/%.$(EMULATOR))
 ##INSTALL_PROGS= $(TARGET_FILES)
@@ -162,7 +154,7 @@ release_spec: opt
 release_tests_spec: make_emakefile
 	$(INSTALL_DIR) "$(RELSYSDIR)"
 	$(INSTALL_DATA) compiler.spec compiler.cover \
-		$(EMAKEFILE) $(ERL_FILES) $(CORE_FILES) "$(RELSYSDIR)"
+		$(EMAKEFILE) $(ERL_FILES) "$(RELSYSDIR)"
 	$(INSTALL_DATA) $(NO_OPT_ERL_FILES) $(POST_OPT_ERL_FILES) \
 		$(INLINE_ERL_FILES) "$(RELSYSDIR)"
 	chmod -R u+w "$(RELSYSDIR)"

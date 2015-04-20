@@ -16,6 +16,3 @@ module 'nested_call_in_case' ['a'/2]
             -| ['compiler_generated'] )
         end
 end
-
-
-
