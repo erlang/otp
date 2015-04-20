@@ -98,7 +98,7 @@ semantics, please see <url
 #'Certificate'{
 		tbsCertificate,        % #'TBSCertificate'{}
 		signatureAlgorithm,    % #'AlgorithmIdentifier'{} 
-		signature              % {0, binary()} - ASN1 compact bitstring
+		signature              % bitstring()
 	       }.
 
 #'TBSCertificate'{
@@ -124,7 +124,7 @@ semantics, please see <url
 #'OTPCertificate'{
 		tbsCertificate,        % #'OTPTBSCertificate'{}
 		signatureAlgorithm,    % #'SignatureAlgorithm'
-		signature              % {0, binary()} - ASN1 compact bitstring
+		signature              % bitstring()
 	       }.
 
 #'OTPTBSCertificate'{
@@ -542,7 +542,7 @@ oid names see table below. Ex: ?'id-dsa-with-sha1'</p>
 #'CertificateList'{
           tbsCertList,        % #'TBSCertList{}
           signatureAlgorithm, % #'AlgorithmIdentifier'{} 
-          signature           % {0, binary()} - ASN1 compact bitstring
+          signature           % bitstring()
 	  }).
 
 #'TBSCertList'{
@@ -654,7 +654,7 @@ oid names see table below. Ex: ?'id-dsa-with-sha1'</p>
 #'CertificationRequest'{
           certificationRequestInfo #'CertificationRequestInfo'{},
 	  signatureAlgorithm	   #'CertificationRequest_signatureAlgorithm'{}}.
-	  signature                {0, binary()} - ASN1 compact bitstring
+	  signature                bitstring()
 	  }
 
 #'CertificationRequestInfo'{
@@ -666,7 +666,7 @@ oid names see table below. Ex: ?'id-dsa-with-sha1'</p>
 
 #'CertificationRequestInfo_subjectPKInfo'{
           algorithm		#'CertificationRequestInfo_subjectPKInfo_algorithm'{}
-	  subjectPublicKey 	 {0, binary()} - ASN1 compact bitstring
+	  subjectPublicKey 	 bitstring()
 	  }
 
 #'CertificationRequestInfo_subjectPKInfo_algorithm'{
