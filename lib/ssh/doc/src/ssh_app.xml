@@ -52,7 +52,7 @@
     <title>CONFIGURATION</title>
 
     <p>The <c>ssh</c> application does not have an application-
-    specific configuration file, as described in application(3).
+    specific configuration file, as described in <seealso marker="kernel:application">application(3)</seealso>.
     However, by default it use the following configuration files
     from OpenSSH:</p>
     <list type="bulleted">
@@ -109,12 +109,12 @@
   </section>
   <section>
     <title>ERROR LOGGER AND EVENT HANDLERS</title>
-    <p>The <c>ssh</c> application has no error logger or event handlers.</p>
+    <p>The <c>ssh</c> application uses the default <seealso marker="kernel:error_logger">OTP error logger</seealso> to log unexpected errors or print information about special events.</p>
   </section>
 
   <section>
     <title>SEE ALSO</title>
-    <p>application(3)</p>
+    <p><seealso marker="kernel:application">application(3)</seealso></p>
   </section>
 
 </appref>
