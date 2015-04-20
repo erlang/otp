@@ -43,10 +43,10 @@
 
 -export([chunk_name/1,
 	 %% Only the code and code_server modules may call the entries below!
-	 load_native_code/2,
-	 post_beam_load/1,
-	 load_module/3,
-	 load/2]).
+	 load_native_code/3,
+	 post_beam_load/2,
+	 load_module/4,
+	 load/3]).
 
 %%-define(DEBUG,true).
 -define(DO_ASSERT,true).
@@ -91,56 +91,48 @@ word_size(Architecture) ->
 
 %%========================================================================
 
--spec load_native_code(Mod, binary()) -> 'no_native' | {'module', Mod}
-					  when Mod :: atom().
+-spec load_native_code(Mod, binary(), hipe_architecture()) ->
+                          'no_native' | {'module', Mod} when Mod :: atom().
 %% @doc
 %%    Loads the native code of a module Mod.
 %%    Returns {module,Mod} on success (for compatibility with
 %%    code:load_file/1) and the atom `no_native' on failure.
 
-load_native_code(Mod, Bin) when is_atom(Mod), is_binary(Bin) ->
-  Architecture = erlang:system_info(hipe_architecture),
-  try chunk_name(Architecture) of
-    ChunkTag ->
-      %% patch_to_emu(Mod),
-      case code:get_chunk(Bin, ChunkTag) of
-	undefined -> no_native;
-	NativeCode when is_binary(NativeCode) ->
-         erlang:system_flag(multi_scheduling, block),
-         try
-           OldReferencesToPatch = patch_to_emu_step1(Mod),
-           case load_module(Mod, NativeCode, Bin, OldReferencesToPatch) of
-             bad_crc -> no_native;
-             Result -> Result
-           end
-         after
-           erlang:system_flag(multi_scheduling, unblock)
-	  end
+load_native_code(_Mod, _Bin, undefined) ->
+  no_native;
+load_native_code(Mod, Bin, Architecture) when is_atom(Mod), is_binary(Bin) ->
+  %% patch_to_emu(Mod),
+  case code:get_chunk(Bin, chunk_name(Architecture)) of
+    undefined -> no_native;
+    NativeCode when is_binary(NativeCode) ->
+      erlang:system_flag(multi_scheduling, block),
+      try
+        OldReferencesToPatch = patch_to_emu_step1(Mod),
+        case load_module(Mod, NativeCode, Bin, OldReferencesToPatch,
+                         Architecture) of
+          bad_crc -> no_native;
+          Result -> Result
+        end
+      after
+        erlang:system_flag(multi_scheduling, unblock)
       end
-  catch
-    _:_ ->
-      %% Unknown HiPE architecture. Can't happen (in principle).
-      no_native
   end.
 
 %%========================================================================
 
--spec post_beam_load(atom()) -> 'ok'.
+-spec post_beam_load(atom(), hipe_architecture()) -> 'ok'.
 
-post_beam_load(Mod) when is_atom(Mod) ->
-  Architecture = erlang:system_info(hipe_architecture),
-  try chunk_name(Architecture) of
-    _ChunkTag ->
-      erlang:system_flag(multi_scheduling, block),
-      try
-       patch_to_emu(Mod)
-      after
-       erlang:system_flag(multi_scheduling, unblock)
-      end
-  catch
-    _:_ ->
-      ok
-  end.
+%% does nothing on a hipe-disabled system
+post_beam_load(_Mod, undefined) ->
+  ok;
+post_beam_load(Mod, _) when is_atom(Mod) ->
+  erlang:system_flag(multi_scheduling, block),
+  try
+    patch_to_emu(Mod)
+  after
+    erlang:system_flag(multi_scheduling, unblock)
+  end,
+  ok.
 
 %%========================================================================
 
@@ -155,46 +147,48 @@ version_check(Version, Mod) when is_atom(Mod) ->
 
 %%========================================================================
 
--spec load_module(Mod, binary(), _) -> 'bad_crc' | {'module', Mod}
-					when Mod :: atom().
-load_module(Mod, Bin, Beam) ->
+-spec load_module(Mod, binary(), _, hipe_architecture()) ->
+                     'bad_crc' | {'module', Mod} when Mod :: atom().
+
+load_module(Mod, Bin, Beam, Architecture) ->
   erlang:system_flag(multi_scheduling, block),
   try
-    load_module_nosmp(Mod, Bin, Beam)
+    load_module_nosmp(Mod, Bin, Beam, Architecture)
   after
     erlang:system_flag(multi_scheduling, unblock)
   end.
 
-load_module_nosmp(Mod, Bin, Beam) ->
-  load_module(Mod, Bin, Beam, []).
+load_module_nosmp(Mod, Bin, Beam, Architecture) ->
+  load_module(Mod, Bin, Beam, [], Architecture).
 
-load_module(Mod, Bin, Beam, OldReferencesToPatch) ->
+load_module(Mod, Bin, Beam, OldReferencesToPatch, Architecture) ->
   ?debug_msg("************ Loading Module ~w ************\n",[Mod]),
   %% Loading a whole module, let the BEAM loader patch closures.
   put(hipe_patch_closures, false),
-  load_common(Mod, Bin, Beam, OldReferencesToPatch).
+  load_common(Mod, Bin, Beam, OldReferencesToPatch, Architecture).
 
 %%========================================================================
 
--spec load(Mod, binary()) -> 'bad_crc' | {'module', Mod} when Mod :: atom().
+-spec load(Mod, binary(), hipe_architecture()) ->
+              'bad_crc' | {'module', Mod} when Mod :: atom().
 
-load(Mod, Bin) ->
+load(Mod, Bin, Architecture) ->
   erlang:system_flag(multi_scheduling, block),
   try
-    load_nosmp(Mod, Bin)
+    load_nosmp(Mod, Bin, Architecture)
   after
     erlang:system_flag(multi_scheduling, unblock)
   end.
 
-load_nosmp(Mod, Bin) ->
+load_nosmp(Mod, Bin, Architecture) ->
   ?debug_msg("********* Loading funs in module ~w *********\n",[Mod]),
   %% Loading just some functions in a module; patch closures separately.
   put(hipe_patch_closures, true),
-  load_common(Mod, Bin, [], []).
+  load_common(Mod, Bin, [], [], Architecture).
 
 %%------------------------------------------------------------------------
 
-load_common(Mod, Bin, Beam, OldReferencesToPatch) ->
+load_common(Mod, Bin, Beam, OldReferencesToPatch, Architecture) ->
   %% Unpack the binary.
   [{Version, CheckSum},
    ConstAlign, ConstSize, ConstMap, LabelMap, ExportMap,
@@ -219,7 +213,6 @@ load_common(Mod, Bin, Beam, OldReferencesToPatch) ->
       bad_crc;
     true ->
       put(closures_to_patch, []),
-      Architecture=erlang:system_info(hipe_architecture),
       WordSize = word_size(Architecture),
       WriteWord = write_word_fun(WordSize),
       %% Create data segment
@@ -834,7 +827,7 @@ address_to_mfa_lth(_Address, [], Prev) ->
 
 %%----------------------------------------------------------------
 %% Change callers of the given module to instead trap to BEAM.
-%% load_native_code/2 calls this just before loading native code.
+%% load_native_code/3 calls this just before loading native code.
 %%
 patch_to_emu(Mod) ->
   patch_to_emu_step2(patch_to_emu_step1(Mod)).
