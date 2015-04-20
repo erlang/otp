@@ -835,6 +835,7 @@ static int my_strncasecmp(const char *s1, const char *s2, size_t n)
 #define TCP_ADDF_PENDING_SHUT_RDWR 32 /* Call shutdown(sock, SHUT_RDWR) when queue empties */
 #define TCP_ADDF_PENDING_SHUTDOWN \
 		(TCP_ADDF_PENDING_SHUT_WR | TCP_ADDF_PENDING_SHUT_RDWR)
+#define TCP_ADDF_SHOW_ECONNRESET   64 /* Tell user about incoming RST */
 
 /* *_REQ_* replies */
 #define INET_REP_ERROR       0
@@ -879,6 +880,7 @@ static int my_strncasecmp(const char *s1, const char *s2, size_t n)
 #define INET_LOPT_MSGQ_HIWTRMRK     36  /* set local msgq high watermark */
 #define INET_LOPT_MSGQ_LOWTRMRK     37  /* set local msgq low watermark */
 #define INET_LOPT_NETNS             38  /* Network namespace pathname */
+#define INET_LOPT_TCP_SHOW_ECONNRESET 39  /* tell user about incoming RST */
 /* SCTP options: a separate range, from 100: */
 #define SCTP_OPT_RTOINFO		100
 #define SCTP_OPT_ASSOCINFO		101
@@ -6255,6 +6257,16 @@ static int inet_set_opts(inet_descriptor* desc, char* ptr, int len)
 	    continue;
 #endif
 
+	case INET_LOPT_TCP_SHOW_ECONNRESET:
+	    if (desc->sprotocol == IPPROTO_TCP) {
+		tcp_descriptor* tdesc = (tcp_descriptor*) desc;
+		if (ival)
+		    tdesc->tcp_add_flags |= TCP_ADDF_SHOW_ECONNRESET;
+		else
+		    tdesc->tcp_add_flags &= ~TCP_ADDF_SHOW_ECONNRESET;
+	    }
+	    continue;
+
 	case INET_OPT_REUSEADDR: 
 #ifdef __WIN32__
 	    continue;  /* Bjorn says */
@@ -7233,6 +7245,17 @@ static ErlDrvSSizeT inet_fill_opts(inet_descriptor* desc,
 	    }
 	    continue;
 #endif
+
+	case INET_LOPT_TCP_SHOW_ECONNRESET:
+	    if (desc->sprotocol == IPPROTO_TCP) {
+		tcp_descriptor* tdesc = (tcp_descriptor*) desc;
+		*ptr++ = opt;
+		ival = !!(tdesc->tcp_add_flags & TCP_ADDF_SHOW_ECONNRESET);
+		put_int32(ival, ptr);
+	    } else {
+		TRUNCATE_TO(0,ptr);
+	    }
+	    continue;
 
 	case INET_OPT_PRIORITY:
 #ifdef SO_PRIORITY
@@ -9077,6 +9100,11 @@ static tcp_descriptor* tcp_inet_copy(tcp_descriptor* desc,SOCKET s,
     copy_desc->low           = desc->low;
     copy_desc->send_timeout  = desc->send_timeout;
     copy_desc->send_timeout_close = desc->send_timeout_close;
+
+    if (desc->tcp_add_flags & TCP_ADDF_SHOW_ECONNRESET)
+	copy_desc->tcp_add_flags |= TCP_ADDF_SHOW_ECONNRESET;
+    else
+	copy_desc->tcp_add_flags &= ~TCP_ADDF_SHOW_ECONNRESET;
     
     /* The new port will be linked and connected to the original caller */
     port = driver_create_port(port, owner, "tcp_inet", (ErlDrvData) copy_desc);
@@ -10014,7 +10042,10 @@ static int tcp_recv(tcp_descriptor* desc, int request_len)
 	int err = sock_errno();
 	if (err == ECONNRESET) {
 	    DEBUGF((" => detected close (connreset)\r\n"));
-	    return tcp_recv_closed(desc);
+	    if (desc->tcp_add_flags & TCP_ADDF_SHOW_ECONNRESET)
+		return tcp_recv_error(desc, err);
+	    else
+		return tcp_recv_closed(desc);
 	}
 	if (err == ERRNO_BLOCK) {
 	    DEBUGF((" => would block\r\n"));
@@ -10226,7 +10257,19 @@ static void tcp_inet_event(ErlDrvData e, ErlDrvEvent event)
     if (netEv.lNetworkEvents & FD_CLOSE) {
 	/* error in err = netEv.iErrorCode[FD_CLOSE_BIT] */
 	DEBUGF(("Detected close in %s, line %d\r\n", __FILE__, __LINE__));
-	tcp_recv_closed(desc);
+	if (desc->tcp_add_flags & TCP_ADDF_SHOW_ECONNRESET) {
+	    err = netEv.iErrorCode[FD_CLOSE_BIT];
+	    if (err == ECONNRESET)
+		tcp_recv_error(desc, err);
+	    else if (err == ECONNABORTED && IS_CONNECTED(INETP(desc))) {
+		/* translate this error to ECONNRESET */
+		tcp_recv_error(desc, ECONNRESET);
+	    }
+	    else
+		tcp_recv_closed(desc);
+	}
+	else
+	    tcp_recv_closed(desc);
     }
     DEBUGF(("tcp_inet_event(%ld) }\r\n", (long)desc->inet.port));
     return;
