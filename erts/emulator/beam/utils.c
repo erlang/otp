@@ -2920,16 +2920,16 @@ Sint cmp(Eterm a, Eterm b)
 
 #if HALFWORD_HEAP
 static Sint erts_cmp_compound_rel_opt(Eterm a, Eterm* a_base,
-                                     Eterm b, Eterm* b_base,
-                                     int exact, int eq_only);
+                                      Eterm b, Eterm* b_base,
+                                      int exact, int eq_only);
 #else
 static Sint erts_cmp_compound(Eterm a, Eterm b, int exact, int eq_only);
 #endif
 
 #if HALFWORD_HEAP
-Sint erts_cmp(Eterm a, Eterm* a_base,
-              Eterm b, Eterm* b_base,
-              int exact, int eq_only)
+Sint erts_cmp_rel_opt(Eterm a, Eterm* a_base,
+                      Eterm b, Eterm* b_base,
+                      int exact, int eq_only)
 #else
 Sint erts_cmp(Eterm a, Eterm b, int exact, int eq_only)
 #endif
@@ -2940,7 +2940,7 @@ Sint erts_cmp(Eterm a, Eterm b, int exact, int eq_only)
         return (signed_val(a) - signed_val(b));
     }
 #if HALFWORD_HEAP
-    return erts_cmp_compound(a,a_base,b,b_base,exact,eq_only);
+    return erts_cmp_compound_rel_opt(a,a_base,b,b_base,exact,eq_only);
 #else
     return erts_cmp_compound(a,b,exact,eq_only);
 #endif
@@ -2952,8 +2952,9 @@ Sint erts_cmp(Eterm a, Eterm b, int exact, int eq_only)
  * exact = 0 -> arith-based compare
  */
 #if HALFWORD_HEAP
-static Sint erts_cmp_compound_rel_opt(Eterm a, Eterm* a_base, Eterm b, Eterm* b_base,
-                      int exact, int eq_only)
+static Sint erts_cmp_compound_rel_opt(Eterm a, Eterm* a_base,
+                                      Eterm b, Eterm* b_base,
+                                      int exact, int eq_only)
 #else
 static Sint erts_cmp_compound(Eterm a, Eterm b, int exact, int eq_only)
 #endif
