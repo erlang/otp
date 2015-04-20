@@ -1404,7 +1404,7 @@ add_restart([], _, _) ->
     [].
 
 inPeriod(Time, Now, Period) ->
-    case Time - Now of
+    case Now - Time of
 	T when T > Period ->
 	    false;
 	_ ->
