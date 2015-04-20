@@ -117,11 +117,12 @@
 
 #define HEART_COMMAND_ENV          "HEART_COMMAND"
 #define ERL_CRASH_DUMP_SECONDS_ENV "ERL_CRASH_DUMP_SECONDS"
+#define HEART_KILL_SIGNAL          "HEART_KILL_SIGNAL"
 
-#define MSG_HDR_SIZE        2
-#define MSG_HDR_PLUS_OP_SIZE 3
-#define MSG_BODY_SIZE      2048
-#define MSG_TOTAL_SIZE     2050
+#define MSG_HDR_SIZE         (2)
+#define MSG_HDR_PLUS_OP_SIZE (3)
+#define MSG_BODY_SIZE        (2048)
+#define MSG_TOTAL_SIZE       (2050)
 
 unsigned char cmd[MSG_BODY_SIZE];
 
@@ -555,14 +556,22 @@ kill_old_erlang(void){
 static void 
 kill_old_erlang(void){
     pid_t pid;
-    int i;
-    int res;
+    int i, res;
+    int sig = SIGKILL;
+    char *sigenv = NULL;
+
+    sigenv = get_env(HEART_KILL_SIGNAL);
+    if (sigenv && strcmp(sigenv, "SIGABRT") == 0) {
+        print_error("kill signal SIGABRT requested");
+        sig = SIGABRT;
+    }
+
     if(heart_beat_kill_pid != 0){
 	pid = (pid_t) heart_beat_kill_pid;
-	res = kill(pid,SIGKILL);
+	res = kill(pid,sig);
 	for(i=0; i < 5 && res == 0; ++i){
 	    sleep(1);
-	    res = kill(pid,SIGKILL);
+	    res = kill(pid,sig);
 	}
 	if(errno != ESRCH){
 	    print_error("Unable to kill old process, "
