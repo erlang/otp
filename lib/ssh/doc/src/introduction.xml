@@ -42,11 +42,11 @@
     client and server. The protocol also provides privacy, integrity,
     server authentication, and man-in-the-middle protection.</p>
 
-    <p>The <c>ssh</c> application is an implementation of the SSH Transport
-    Layer Protocol in Erlang. It provides the following:</p>
+    <p>The <c>ssh</c> application is an implementation of the SSH Transport, Connection and Authentication
+    Layer Protocols in Erlang. It provides the following:</p>
     <list type="bulleted">
-      <item>API functions to write customized SSH clients and servers</item>
-      <item>The Erlang shell available through SSH</item>
+      <item>API functions to write customized SSH clients and servers applications</item>
+      <item>The Erlang shell available over SSH</item>
       <item>An SFTP client (<seealso marker="ssh_sftp">ssh_sftp</seealso>)
       and server (<seealso marker="ssh_sftp">ssh_sftpd</seealso>)</item>
     </list>
