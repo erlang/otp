@@ -61,14 +61,12 @@
       1>  ssh:start().
       ok
       2> {ok, S} = ssh:shell("tarlop").
-      >pwd
+      otptest@tarlop:> pwd
       /home/otptest
-      >exit
+      otptest@tarlop:> exit
       logout
       3>
     </code>
-    <p>Notice that this is a simple client that is not expected to be as
-    fancy as the <em>openssh</em> client.</p>
   </section>
 
   <section>
