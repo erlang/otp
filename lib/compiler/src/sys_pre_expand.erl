@@ -38,7 +38,6 @@
 -record(expand, {module=[],                     %Module name
                  exports=[],                    %Exports
                  imports=[],                    %Imports
-                 compile=[],                    %Compile flags
                  attributes=[],                 %Attributes
                  callbacks=[],                  %Callbacks
                  optional_callbacks=[] :: [fa()],  %Optional callbacks
@@ -46,9 +45,7 @@
                  vcount=0,                      %Variable counter
                  func=[],                       %Current function
                  arity=[],                      %Arity for current function
-                 fcount=0,                      %Local fun count
-                 bitdefault,
-                 bittypes
+                 fcount=0			%Local fun count
                 }).
 
 %% module(Forms, CompileOptions)
@@ -69,15 +66,12 @@ module(Fs0, Opts0) ->
 
     %% Build initial expand record.
     St0 = #expand{exports=PreExp,
-                  compile=Opts,
-                  defined=PreExp,
-                  bitdefault = erl_bits:system_bitdefault(),
-                  bittypes = erl_bits:system_bittypes()
+                  defined=PreExp
                  },
     %% Expand the functions.
     {Tfs,St1} = forms(Fs, define_functions(Fs, St0)),
     %% Get the correct list of exported functions.
-    Exports = case member(export_all, St1#expand.compile) of
+    Exports = case member(export_all, Opts) of
                   true -> gb_sets:to_list(St1#expand.defined);
                   false -> St1#expand.exports
               end,
@@ -85,7 +79,7 @@ module(Fs0, Opts0) ->
     {Ats,St3} = module_attrs(St1#expand{exports = Exports}),
     {Mfs,St4} = module_predef_funcs(St3),
     {St4#expand.module, St4#expand.exports, Ats ++ Tfs ++ Mfs,
-     St4#expand.compile}.
+     Opts}.
 
 compiler_options(Forms) ->
     lists:flatten([C || {attribute,_,compile,C} <- Forms]).
