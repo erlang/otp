@@ -320,15 +320,14 @@ fold_comp([{Name,Pass}|Ps], Run, St0) ->
 fold_comp([], _Run, St) -> {ok,St}.
 
 run_tc({Name,Fun}, St) ->
-    Before0 = statistics(runtime),
+    T1 = erlang:monotonic_time(),
     Val = (catch Fun(St)),
-    After0 = statistics(runtime),
-    {Before_c, _} = Before0,
-    {After_c, _} = After0,
+    T2 = erlang:monotonic_time(),
+    Elapsed = erlang:convert_time_unit(T2 - T1, native, milli_seconds),
     Mem0 = erts_debug:flat_size(Val)*erlang:system_info(wordsize),
     Mem = lists:flatten(io_lib:format("~.1f kB", [Mem0/1024])),
-    io:format(" ~-30s: ~10.2f s ~12s\n",
-	      [Name,(After_c-Before_c) / 1000,Mem]),
+    io:format(" ~-30s: ~10.3f s ~12s\n",
+	      [Name,Elapsed/1000,Mem]),
     Val.
 
 comp_ret_ok(#compile{code=Code,warnings=Warn0,module=Mod,options=Opts}=St) ->
