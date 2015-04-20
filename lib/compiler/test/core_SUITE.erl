@@ -87,4 +87,7 @@ try_it(Mod, Conf) ->
 compile_and_load(Src, Opts) ->
     {ok,Mod,Bin} = compile:file(Src, [from_core,report,time,binary|Opts]),
     {module,Mod} = code:load_binary(Mod, Mod, Bin),
-    ok = Mod:Mod().
+    ok = Mod:Mod(),
+    _ = code:delete(Mod),
+    _ = code:purge(Mod),
+    ok.
