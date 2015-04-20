@@ -704,6 +704,7 @@ get_base(Orig,Base) ->
    hipe_rtl:mk_alu(Base, Orig, 'add', hipe_rtl:mk_imm(?HEAP_BIN_DATA-2)),
    hipe_rtl:mk_goto(hipe_rtl:label_name(EndLbl)),
    REFCLbl,
+   hipe_rtl:mk_call([], emasculate_binary, [Orig], [], [], 'not_remote'),
    hipe_rtl:mk_load(Base, Orig, hipe_rtl:mk_imm(?PROC_BIN_BYTES-2)),
    EndLbl].
 

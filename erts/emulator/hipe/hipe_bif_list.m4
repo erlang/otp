@@ -250,6 +250,8 @@ gc_bif_interface_0(nbif_check_get_msg, hipe_check_get_msg)
 nocons_nofail_primop_interface_0(nbif_emulate_fpe, hipe_emulate_fpe)
 #endif
 
+noproc_primop_interface_1(nbif_emasculate_binary, hipe_emasculate_binary)
+
 /*
  * SMP-specific stuff
  */
