@@ -104,6 +104,7 @@ MODULES= \
 	qlc \
 	qlc_pt \
 	queue \
+	rand \
 	random \
 	sets \
 	shell \
