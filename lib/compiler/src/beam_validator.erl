@@ -411,37 +411,33 @@ valfun_1({'try',Dst,{f,Fail}}, Vst0) ->
     Vst = #vst{current=#st{ct=Fails}=St} = 
 	set_type_y({trytag,[Fail]}, Dst, Vst0),
     Vst#vst{current=St#st{ct=[[Fail]|Fails]}};
-valfun_1({catch_end,Reg}, #vst{current=#st{ct=[Fail|Fails]}=St0}=Vst0) ->
+valfun_1({catch_end,Reg}, #vst{current=#st{ct=[Fail|Fails]}}=Vst0) ->
     case get_special_y_type(Reg, Vst0) of
 	{catchtag,Fail} ->
-	    Vst = #vst{current=St} = 
-		set_type_y(initialized_ct, Reg, 
-			   Vst0#vst{current=St0#st{ct=Fails}}),
+	    Vst = #vst{current=St} = set_catch_end(Reg, Vst0),
 	    Xs = gb_trees_from_list([{0,term}]),
-	    Vst#vst{current=St#st{x=Xs,fls=undefined}};
+	    Vst#vst{current=St#st{x=Xs,ct=Fails,fls=undefined}};
 	Type ->
 	    error({bad_type,Type})
     end;
-valfun_1({try_end,Reg}, #vst{current=#st{ct=[Fail|Fails]}=St}=Vst0) ->
+valfun_1({try_end,Reg}, #vst{current=#st{ct=[Fail|Fails]}=St0}=Vst0) ->
     case get_special_y_type(Reg, Vst0) of
 	{trytag,Fail} ->
 	    Vst = case Fail of
 		      [FailLabel] -> branch_state(FailLabel, Vst0);
 		      _ -> Vst0
 		  end,
-	    set_type_reg(initialized_ct, Reg, 
-			 Vst#vst{current=St#st{ct=Fails,fls=undefined}});
+	    St = St0#st{ct=Fails,fls=undefined},
+	    set_catch_end(Reg, Vst#vst{current=St});
 	Type ->
 	    error({bad_type,Type})
     end;
-valfun_1({try_case,Reg}, #vst{current=#st{ct=[Fail|Fails]}=St0}=Vst0) ->
+valfun_1({try_case,Reg}, #vst{current=#st{ct=[Fail|Fails]}}=Vst0) ->
     case get_special_y_type(Reg, Vst0) of
 	{trytag,Fail} ->
-	    Vst = #vst{current=St} = 
-		set_type_y(initialized_ct, Reg, 
-			   Vst0#vst{current=St0#st{ct=Fails}}),
-	    Xs = gb_trees_from_list([{0,{atom,[]}},{1,term},{2,term}]), %XXX
-	    Vst#vst{current=St#st{x=Xs,fls=undefined}};
+	    Vst = #vst{current=St} = set_catch_end(Reg, Vst0),
+	    Xs = gb_trees_from_list([{0,{atom,[]}},{1,term},{2,term}]),
+	    Vst#vst{current=St#st{x=Xs,ct=Fails,fls=undefined}};
 	Type ->
 	    error({bad_type,Type})
     end;
@@ -1135,34 +1131,25 @@ set_type_reg(Type, {x,X}, #vst{current=#st{x=Xs}=St}=Vst)
 set_type_reg(Type, Reg, Vst) ->
     set_type_y(Type, Reg, Vst).
 
-set_type_y(Type, {y,Y}=Reg, #vst{current=#st{y=Ys0,numy=NumY}=St}=Vst) 
+set_type_y(Type, {y,Y}=Reg, #vst{current=#st{y=Ys0}=St}=Vst)
   when is_integer(Y), 0 =< Y ->
     limit_check(Y),
-    case {Y,NumY} of
-	{_,none} ->
-	    error({no_stack_frame,Reg});
-	{_,_} when Y > NumY ->
-	    error({y_reg_out_of_range,Reg,NumY});
-	{_,_} ->
-	    Ys = if  Type =:= initialized_ct ->
-			 gb_trees:enter(Y, initialized, Ys0);
-		     true ->
-			 case gb_trees:lookup(Y, Ys0) of
-			     none -> 
-				 gb_trees:insert(Y, Type, Ys0);
-			     {value,uinitialized} ->
-				 gb_trees:insert(Y, Type, Ys0);
-			     {value,{catchtag,_}=Tag} ->
-				 error(Tag);
-			     {value,{trytag,_}=Tag} ->
-				 error(Tag);
-			     {value,_} ->
-				 gb_trees:update(Y, Type, Ys0)
-			 end
-		 end,
-	    Vst#vst{current=St#st{y=Ys}}
-    end;
+    Ys = case gb_trees:lookup(Y, Ys0) of
+	     none ->
+		 error({invalid_store,Reg,Type});
+	     {value,{catchtag,_}=Tag} ->
+		 error(Tag);
+	     {value,{trytag,_}=Tag} ->
+		 error(Tag);
+	     {value,_} ->
+		 gb_trees:update(Y, Type, Ys0)
+	 end,
+    Vst#vst{current=St#st{y=Ys}};
 set_type_y(Type, Reg, #vst{}) -> error({invalid_store,Reg,Type}).
+
+set_catch_end({y,Y}, #vst{current=#st{y=Ys0}=St}=Vst) ->
+    Ys = gb_trees:update(Y, initialized, Ys0),
+    Vst#vst{current=St#st{y=Ys}}.
 
 assert_term(Src, Vst) ->
     get_term_type(Src, Vst),
