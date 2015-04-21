@@ -1031,9 +1031,9 @@ void hipe_emulate_fpe(Process* p)
 void hipe_emasculate_binary(Eterm bin)
 {
     ProcBin* pb = (ProcBin *) boxed_val(bin);
-    if (pb->thing_word == HEADER_PROC_BIN && pb->flags != 0) {
-	erts_emasculate_writable_binary(pb);
-    }
+    ASSERT(pb->thing_word == HEADER_PROC_BIN);
+    ASSERT(pb->flags != 0);
+    erts_emasculate_writable_binary(pb);
 }
 
 #if 0 /* XXX: unused */
