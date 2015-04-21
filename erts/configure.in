@@ -631,7 +631,7 @@ fi
 case $chk_opsys_ in
     win32)			OPSYS=win32;;
     solaris2.*|SunOS5.*)	OPSYS=sol2;;
-    linux|Linux)		OPSYS=linux;;
+    linux*|Linux)		OPSYS=linux;;
     darwin|Darwin)		OPSYS=darwin;;
     freebsd|FreeBSD)		OPSYS=freebsd;;
     *)				OPSYS=noopsys
