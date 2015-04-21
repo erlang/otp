@@ -44,6 +44,7 @@ $(HTMLDIR)/index.html: $(XML_FILES) $(SPECS_FILES)
           --stringparam gendate "$$date" \
           --stringparam appname "$(APPLICATION)" \
           --stringparam appver "$(VSN)" \
+	  --stringparam extra_front_page_info "$(DOC_EXTRA_FRONT_PAGE_INFO)" \
 	  --stringparam stylesheet "$(CSS_FILE)" \
 	  --stringparam winprefix "$(WINPREFIX)" \
 	  --stringparam logo "$(HTMLLOGO_FILE)" \
@@ -64,6 +65,7 @@ $(HTMLDIR)/users_guide.html: $(XML_FILES)
 		--stringparam gendate "$$date" \
 	        --stringparam appname "$(APPLICATION)" \
 	        --stringparam appver "$(VSN)" \
+	        --stringparam extra_front_page_info "$(DOC_EXTRA_FRONT_PAGE_INFO)" \
 		--stringparam stylesheet "$(CSS_FILE)" \
 		--stringparam winprefix "$(WINPREFIX)" \
 		--stringparam logo "$(HTMLLOGO_FILE)" \
@@ -80,6 +82,7 @@ $(HTMLDIR)/users_guide.html: $(XML_FILES)
          --stringparam gendate "$$date" \
          --stringparam appname "$(APPLICATION)" \
          --stringparam appver "$(VSN)" \
+	 --stringparam extra_front_page_info "$(DOC_EXTRA_FRONT_PAGE_INFO)" \
 	 --stringparam logo "$(PDFLOGO_FILE)" \
 	 --stringparam pdfcolor "$(PDFCOLOR)" \
          --xinclude $(TOP_SPECS_PARAM) \
