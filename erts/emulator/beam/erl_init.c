@@ -118,6 +118,8 @@ const int etp_big_endian = 1;
 #else
 const int etp_big_endian = 0;
 #endif
+const Eterm etp_the_non_value = THE_NON_VALUE;
+
 /*
  * Note about VxWorks: All variables must be initialized by executable code,
  * not by an initializer. Otherwise a new instance of the emulator will
