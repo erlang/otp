@@ -1634,8 +1634,6 @@ return_type_1(M, F, A, _) when is_atom(M), is_atom(F), is_integer(A), A >= 0 ->
 
 return_type_erl(exit, 1) -> exception;
 return_type_erl(throw, 1) -> exception;
-return_type_erl(fault, 1) -> exception;
-return_type_erl(fault, 2) -> exception;
 return_type_erl(error, 1) -> exception;
 return_type_erl(error, 2) -> exception;
 return_type_erl(F, A) when is_atom(F), is_integer(A), A >= 0 -> term.
