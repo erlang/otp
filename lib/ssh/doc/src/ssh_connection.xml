@@ -233,7 +233,7 @@
 
        <note><p>This function is called by the <c>ssh_channel</c>
        behavior when the channel is terminated, see <seealso
-       marker="ssh_channel"> ssh_channel(3) </seealso>. Thus, channels implemented
+       marker="ssh_channel"> ssh_channel(3)</seealso>. Thus, channels implemented
        with the behavior are not to call this function explicitly.</p></note>
      </desc>
    </func>
