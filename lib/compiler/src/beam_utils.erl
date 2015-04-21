@@ -344,14 +344,10 @@ check_liveness(R, [{call_ext,Live,_}=I|Is], St) ->
 		false ->
 		    check_liveness(R, Is, St);
 		true ->
-		    %% We must make sure we don't check beyond this instruction
-		    %% or we will fall through into random unrelated code and
-		    %% get stuck in a loop.
-		    %%
-		    %% We don't want to overwrite a 'catch', so consider this
-		    %% register in use.
-		    %% 
-		    {used,St}
+		    %% We must make sure we don't check beyond this
+		    %% instruction or we will fall through into random
+		    %% unrelated code and get stuck in a loop.
+		    {killed,St}
 	    end
     end;
 check_liveness(R, [{call_fun,Live}|Is], St) ->
