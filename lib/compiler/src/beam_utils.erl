@@ -468,6 +468,22 @@ check_liveness(R, [{loop_rec_end,{f,Fail}}|_], St) ->
     check_liveness_at(R, Fail, St);
 check_liveness(R, [{line,_}|Is], St) ->
     check_liveness(R, Is, St);
+check_liveness(R, [{get_map_elements,{f,Fail},S,{list,L}}|Is], St0) ->
+    {Ss,Ds} = split_even(L),
+    case member(R, [S|Ss]) of
+	true ->
+	    {used,St0};
+	false ->
+	    case check_liveness_at(R, Fail, St0) of
+		{killed,St}=Killed ->
+		    case member(R, Ds) of
+			true -> Killed;
+			false -> check_liveness(R, Is, St)
+		    end;
+		Other ->
+		    Other
+	    end
+    end;
 check_liveness(_R, Is, St) when is_list(Is) ->
 %%     case Is of
 %% 	[I|_] ->
