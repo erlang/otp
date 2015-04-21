@@ -37,7 +37,7 @@
     the callbacks defined in this behavior, the public key handling of an SSH client can
     be customized. By default the <c>ssh</c> application implements this behavior
     with help of the standard OpenSSH files,
-    see the <seealso marker="SSH_app"> ssh(6)</seealso> application.</p>
+    see the <seealso marker="SSH_app"> ssh(6)</seealso> application manual.</p>
   </description>
 
   <section>
