@@ -1362,13 +1362,13 @@ merge_states(L, St, Branched) when L =/= 0 ->
 	{value,OtherSt} -> merge_states_1(St, OtherSt)
     end.
 
-merge_states_1(#st{x=Xs0,y=Ys0,numy=NumY0,h=H0,ct=Ct0}=St,
+merge_states_1(#st{x=Xs0,y=Ys0,numy=NumY0,h=H0,ct=Ct0},
 	       #st{x=Xs1,y=Ys1,numy=NumY1,h=H1,ct=Ct1}) ->
     NumY = merge_stk(NumY0, NumY1),
     Xs = merge_regs(Xs0, Xs1),
     Ys = merge_y_regs(Ys0, Ys1),
     Ct = merge_ct(Ct0, Ct1),
-    St#st{x=Xs,y=Ys,numy=NumY,h=min(H0, H1),ct=Ct}.
+    #st{x=Xs,y=Ys,numy=NumY,h=min(H0, H1),ct=Ct}.
 
 merge_stk(S, S) -> S;
 merge_stk(_, _) -> undecided.
