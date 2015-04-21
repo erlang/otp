@@ -1398,20 +1398,24 @@ merge_regs_1([], [_|_]) -> [];
 merge_regs_1([_|_], []) -> [].
 
 merge_y_regs(Rs0, Rs1) ->
-    Rs = merge_y_regs_1(gb_trees:to_list(Rs0), gb_trees:to_list(Rs1)),
-    gb_trees_from_list(Rs).
+    case {gb_trees:size(Rs0),gb_trees:size(Rs1)} of
+	{Sz0,Sz1} when Sz0 < Sz1 ->
+	    merge_y_regs_1(Sz0-1, Rs1, Rs0);
+	{_,Sz1} ->
+	    merge_y_regs_1(Sz1-1, Rs0, Rs1)
+    end.
 
-merge_y_regs_1([Same|Rs1], [Same|Rs2]) ->
-    [Same|merge_y_regs_1(Rs1, Rs2)];
-merge_y_regs_1([{R1,_}|Rs1], [{R2,_}|_]=Rs2) when R1 < R2 ->
-    [{R1,uninitialized}|merge_y_regs_1(Rs1, Rs2)];
-merge_y_regs_1([{R1,_}|_]=Rs1, [{R2,_}|Rs2]) when R1 > R2 ->
-    [{R2,uninitialized}|merge_y_regs_1(Rs1, Rs2)];
-merge_y_regs_1([{R,Type1}|Rs1], [{R,Type2}|Rs2]) ->
-    [{R,merge_types(Type1, Type2)}|merge_y_regs_1(Rs1, Rs2)];
-merge_y_regs_1([], []) -> [];
-merge_y_regs_1([], [_|_]=Rs) -> Rs;
-merge_y_regs_1([_|_]=Rs, []) -> Rs.
+merge_y_regs_1(Y, S, Regs0) when Y >= 0 ->
+    Type0 = gb_trees:get(Y, Regs0),
+    case gb_trees:get(Y, S) of
+	Type0 ->
+	    merge_y_regs_1(Y-1, S, Regs0);
+	Type1 ->
+	    Type = merge_types(Type0, Type1),
+	    Regs = gb_trees:update(Y, Type, Regs0),
+	    merge_y_regs_1(Y-1, S, Regs)
+    end;
+merge_y_regs_1(_, _, Regs) -> Regs.
 
 %% merge_types(Type1, Type2) -> Type
 %%  Return the most specific type possible.
