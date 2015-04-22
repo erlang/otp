@@ -1614,6 +1614,8 @@ t_tuple_size(Config) when is_list(Config) ->
     ?line {ok,Mod,Code} = compile:file(File, [from_asm,binary]),
     ?line code:load_binary(Mod, File, Code),
     ?line 14 = Mod:t({1,2,3,4}),
+    _ = code:delete(Mod),
+    _ = code:purge(Mod),
     
     ok.
 

@@ -184,14 +184,6 @@ function_replace([{function,Name,Arity,Entry,Asm0}|Fs], Dict, Acc) ->
     function_replace(Fs, Dict, [{function,Name,Arity,Entry,Asm}|Acc]);
 function_replace([], _, Acc) -> Acc.
 
-replace([{test,bs_match_string=Op,{f,Lbl},[Ctx,Bin0]}|Is], Acc, D) ->
-    Bits = bit_size(Bin0),
-    Bin = case Bits rem 8 of
-	      0 -> Bin0;
-	      Rem -> <<Bin0/bitstring,0:(8-Rem)>>
-	  end,
-    I = {test,Op,{f,label(Lbl, D)},[Ctx,Bits,{string,binary_to_list(Bin)}]},
-    replace(Is, [I|Acc], D);
 replace([{test,Test,{f,Lbl},Ops}|Is], Acc, D) ->
     replace(Is, [{test,Test,{f,label(Lbl, D)},Ops}|Acc], D);
 replace([{test,Test,{f,Lbl},Live,Ops,Dst}|Is], Acc, D) ->

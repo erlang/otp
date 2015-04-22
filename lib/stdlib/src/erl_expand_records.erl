@@ -384,21 +384,11 @@ expr({call,Line,{tuple,_,[{atom,_,erlang},{atom,_,is_record}]},
 expr({call,Line,{atom,_La,N}=Atom,As0}, St0) ->
     {As,St1} = expr_list(As0, St0),
     Ar = length(As),
-    case erl_internal:bif(N, Ar) of
-        true ->
-            {{call,Line,Atom,As},St1};
-        false ->
-            case imported(N, Ar, St1) of
-                {yes,_Mod} ->
-                    {{call,Line,Atom,As},St1};
-                no ->
-                    case {N,Ar} of
-                        {record_info,2} ->
-                            record_info_call(Line, As, St1);
-                        _ ->
-                            {{call,Line,Atom,As},St1}
-                    end
-            end
+    case {N,Ar} =:= {record_info,2} andalso not imported(N, Ar, St1) of
+	true ->
+	    record_info_call(Line, As, St1);
+	false ->
+	    {{call,Line,Atom,As},St1}
     end;
 expr({call,Line,{remote,Lr,M,F},As0}, St0) ->
     {[M1,F1 | As1],St1} = expr_list([M,F | As0], St0),
@@ -832,10 +822,7 @@ add_imports(Mod, [F | Fs], Is) ->
 add_imports(_, [], Is) -> Is.
 
 imported(F, A, St) ->
-    case orddict:find({F,A}, St#exprec.imports) of
-        {ok,Mod} -> {yes,Mod};
-        error -> no
-    end.
+    orddict:is_key({F,A}, St#exprec.imports).
 
 %%%
 %%% Replace is_record/3 in guards with matching if possible.

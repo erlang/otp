@@ -121,23 +121,14 @@ cg_fun(Les, Hvs, Vdb, AtomMod, NameArity, Anno, St0) ->
 					   put_reg(V, Reg)
 				   end, [], Hvs),
 			 stk=[]}, 0, Vdb),
-    {B0,_Aft,St} = cg_list(Les, 0, Vdb, Bef,
+    {B,_Aft,St} = cg_list(Les, 0, Vdb, Bef,
 			  St3#cg{bfail=0,
 				 ultimate_failure=UltimateMatchFail,
 				 is_top_block=true}),
-    B = fix_bs_match_strings(B0),
     {Name,Arity} = NameArity,
     Asm = [{label,Fi},line(Anno),{func_info,AtomMod,{atom,Name},Arity},
 	   {label,Fl}|B++[{label,UltimateMatchFail},if_end]],
     {Asm,Fl,St}.
-
-fix_bs_match_strings([{test,bs_match_string,F,[Ctx,BinList]}|Is])
-  when is_list(BinList) ->
-    I = {test,bs_match_string,F,[Ctx,list_to_bitstring(BinList)]},
-    [I|fix_bs_match_strings(Is)];
-fix_bs_match_strings([I|Is]) ->
-    [I|fix_bs_match_strings(Is)];
-fix_bs_match_strings([]) -> [].
 
 %% cg(Lkexpr, Vdb, StackReg, State) -> {[Ainstr],StackReg,State}.
 %%  Generate code for a kexpr.
@@ -584,7 +575,7 @@ top_level_block(Keis, Bef, MaxRegs, _St) ->
 			(return) ->
 			    [{deallocate,FrameSz},return];
 			(Tuple) when is_tuple(Tuple) ->
-			    [turn_yregs(tuple_size(Tuple), Tuple, MaxY)];
+			    [turn_yregs(Tuple, MaxY)];
 			(Other) ->
 			    [Other]
 		    end, Keis),
@@ -596,14 +587,49 @@ top_level_block(Keis, Bef, MaxRegs, _St) ->
 %%   catches work.  The code generation algorithm gives a lower register
 %%   number to the outer catch, which is wrong.
 
-turn_yregs(0, Tp, _) -> Tp;
-turn_yregs(El, Tp, MaxY) ->
-    turn_yregs(El-1,setelement(El,Tp,turn_yreg(element(El,Tp),MaxY)),MaxY).
+turn_yregs({call,_,_}=I, _MaxY) -> I;
+turn_yregs({call_ext,_,_}=I, _MaxY) -> I;
+turn_yregs({jump,_}=I, _MaxY) -> I;
+turn_yregs({label,_}=I, _MaxY) -> I;
+turn_yregs({line,_}=I, _MaxY) -> I;
+turn_yregs({test_heap,_,_}=I, _MaxY) -> I;
+turn_yregs({bif,Op,F,A,B}, MaxY) ->
+    {bif,Op,F,turn_yreg(A, MaxY),turn_yreg(B, MaxY)};
+turn_yregs({gc_bif,Op,F,Live,A,B}, MaxY) when is_integer(Live) ->
+    {gc_bif,Op,F,Live,turn_yreg(A, MaxY),turn_yreg(B, MaxY)};
+turn_yregs({get_tuple_element,S,N,D}, MaxY) ->
+    {get_tuple_element,turn_yreg(S, MaxY),N,turn_yreg(D, MaxY)};
+turn_yregs({put_tuple,Arity,D}, MaxY) ->
+    {put_tuple,Arity,turn_yreg(D, MaxY)};
+turn_yregs({select_val,R,F,L}, MaxY) ->
+    {select_val,turn_yreg(R, MaxY),F,L};
+turn_yregs({test,Op,F,L}, MaxY) ->
+    {test,Op,F,turn_yreg(L, MaxY)};
+turn_yregs({test,Op,F,Live,A,B}, MaxY) when is_integer(Live) ->
+    {test,Op,F,Live,turn_yreg(A, MaxY),turn_yreg(B, MaxY)};
+turn_yregs({Op,A}, MaxY) ->
+    {Op,turn_yreg(A, MaxY)};
+turn_yregs({Op,A,B}, MaxY) ->
+    {Op,turn_yreg(A, MaxY),turn_yreg(B, MaxY)};
+turn_yregs({Op,A,B,C}, MaxY) ->
+    {Op,turn_yreg(A, MaxY),turn_yreg(B, MaxY),turn_yreg(C, MaxY)};
+turn_yregs(Tuple, MaxY) ->
+    turn_yregs(tuple_size(Tuple), Tuple, MaxY).
 
-turn_yreg({yy,YY},MaxY) -> {y,MaxY-YY};
-turn_yreg({list,Ls},MaxY) -> {list, turn_yreg(Ls,MaxY)};
-turn_yreg(Ts,MaxY) when is_list(Ts) -> [turn_yreg(T,MaxY)||T<-Ts];
-turn_yreg(Other,_MaxY) -> Other.
+turn_yregs(1, Tp, _) ->
+    Tp;
+turn_yregs(N, Tp, MaxY) ->
+    E = turn_yreg(element(N, Tp), MaxY),
+    turn_yregs(N-1, setelement(N, Tp, E), MaxY).
+
+turn_yreg({yy,YY}, MaxY) ->
+    {y,MaxY-YY};
+turn_yreg({list,Ls},MaxY) ->
+    {list,turn_yreg(Ls, MaxY)};
+turn_yreg([_|_]=Ts, MaxY) ->
+    [turn_yreg(T, MaxY) || T <- Ts];
+turn_yreg(Other, _MaxY) ->
+    Other.
 
 %% select_cg(Sclause, V, TypeFail, ValueFail, StackReg, State) ->
 %%      {Is,StackReg,State}.
@@ -682,22 +708,37 @@ select_nil(#l{ke={val_clause,nil,B}}, V, Tf, Vf, Bef, St0) ->
 select_binary(#l{ke={val_clause,{binary,{var,V}},B},i=I,vdb=Vdb},
 	      V, Tf, Vf, Bef, St0) ->
     Int0 = clear_dead(Bef#sr{reg=Bef#sr.reg}, I, Vdb),
-    {Bis,Aft,St1} = match_cg(B, Vf, Int0, St0),
+    {Bis0,Aft,St1} = match_cg(B, Vf, Int0, St0),
     CtxReg = fetch_var(V, Int0),
     Live = max_reg(Bef#sr.reg),
-    {[{test,bs_start_match2,{f,Tf},Live,[CtxReg,V],CtxReg},
-      {bs_save2,CtxReg,{V,V}}|Bis],
-     Aft,St1};
+    Bis1 = [{test,bs_start_match2,{f,Tf},Live,[CtxReg,V],CtxReg},
+	    {bs_save2,CtxReg,{V,V}}|Bis0],
+    Bis = finish_select_binary(Bis1),
+    {Bis,Aft,St1};
 select_binary(#l{ke={val_clause,{binary,{var,Ivar}},B},i=I,vdb=Vdb},
 	      V, Tf, Vf, Bef, St0) ->
     Regs = put_reg(Ivar, Bef#sr.reg),
     Int0 = clear_dead(Bef#sr{reg=Regs}, I, Vdb),
-    {Bis,Aft,St1} = match_cg(B, Vf, Int0, St0),
+    {Bis0,Aft,St1} = match_cg(B, Vf, Int0, St0),
     CtxReg = fetch_var(Ivar, Int0),
     Live = max_reg(Bef#sr.reg),
-    {[{test,bs_start_match2,{f,Tf},Live,[fetch_var(V, Bef),Ivar],CtxReg},
-      {bs_save2,CtxReg,{Ivar,Ivar}}|Bis],
-     Aft,St1}.
+    Bis1 = [{test,bs_start_match2,{f,Tf},Live,[fetch_var(V, Bef),Ivar],CtxReg},
+	    {bs_save2,CtxReg,{Ivar,Ivar}}|Bis0],
+    Bis = finish_select_binary(Bis1),
+    {Bis,Aft,St1}.
+
+finish_select_binary([{bs_save2,R,Point}=I,{bs_restore2,R,Point}|Is]) ->
+    [I|finish_select_binary(Is)];
+finish_select_binary([{bs_save2,R,Point}=I,{test,is_eq_exact,_,_}=Test,
+		      {bs_restore2,R,Point}|Is]) ->
+    [I,Test|finish_select_binary(Is)];
+finish_select_binary([{test,bs_match_string,F,[Ctx,BinList]}|Is])
+  when is_list(BinList) ->
+    I = {test,bs_match_string,F,[Ctx,list_to_bitstring(BinList)]},
+    [I|finish_select_binary(Is)];
+finish_select_binary([I|Is]) ->
+    [I|finish_select_binary(Is)];
+finish_select_binary([]) -> [].
 
 %% New instructions for selection of binary segments.
 

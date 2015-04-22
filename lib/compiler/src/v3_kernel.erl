@@ -836,12 +836,23 @@ get_vsub(V, Vsub) ->
 set_vsub(V, S, Vsub) ->
     orddict:store(V, S, Vsub).
 
-subst_vsub(V, S, Vsub0) ->
-    %% Fold chained substitutions.
-    Vsub1 = orddict:map(fun (_, V1) when V1 =:= V -> S;
-			    (_, V1) -> V1
-			end, Vsub0),
-    orddict:store(V, S, Vsub1).
+subst_vsub(Key, New, [{K,Key}|Dict]) ->
+    %% Fold chained substitution.
+    [{K,New}|subst_vsub(Key, New, Dict)];
+subst_vsub(Key, New, [{K,_}|_]=Dict) when Key < K ->
+    %% Insert the new substitution here, and continue
+    %% look for chained substitutions.
+    [{Key,New}|subst_vsub_1(Key, New, Dict)];
+subst_vsub(Key, New, [{K,_}=E|Dict]) when Key > K ->
+    [E|subst_vsub(Key, New, Dict)];
+subst_vsub(Key, New, []) -> [{Key,New}].
+
+subst_vsub_1(V, S, [{K,V}|Dict]) ->
+    %% Fold chained substitution.
+    [{K,S}|subst_vsub_1(V, S, Dict)];
+subst_vsub_1(V, S, [E|Dict]) ->
+    [E|subst_vsub_1(V, S, Dict)];
+subst_vsub_1(_, _, []) -> [].
 
 get_fsub(F, A, Fsub) ->
     case orddict:find({F,A}, Fsub) of

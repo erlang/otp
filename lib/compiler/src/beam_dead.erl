@@ -255,6 +255,16 @@ backward([{jump,{f,To}}=J|[{bif,Op,_,Ops,Reg}|Is]=Is0], D, Acc) ->
     catch
 	throw:not_possible -> backward(Is0, D, [J|Acc])
     end;
+backward([{test,bs_start_match2,F,_,[R,_],Ctxt}=I|Is], D,
+	 [{test,bs_match_string,F,[Ctxt,Bs]},
+	  {test,bs_test_tail2,F,[Ctxt,0]}|Acc0]=Acc) ->
+    case beam_utils:is_killed(Ctxt, Acc0, D) of
+	true ->
+	    Eq = {test,is_eq_exact,F,[R,{literal,Bs}]},
+	    backward(Is, D, [Eq|Acc0]);
+	false ->
+	    backward(Is, D, [I|Acc])
+    end;
 backward([{test,bs_start_match2,{f,To0},Live,[Src|_]=Info,Dst}|Is], D, Acc) ->
     To = shortcut_bs_start_match(To0, Src, D),
     I = {test,bs_start_match2,{f,To},Live,Info,Dst},
@@ -459,8 +469,8 @@ count_bits_matched([{test,_,_,_,[_,Sz,U,{field_flags,_}],_}|Is], SavePoint, Bits
 	{integer,N} -> count_bits_matched(Is, SavePoint, Bits+N*U);
 	_ -> count_bits_matched(Is, SavePoint, Bits)
     end;
-count_bits_matched([{test,bs_match_string,_,[_,Bits,_]}|Is], SavePoint, Bits0) ->
-    count_bits_matched(Is, SavePoint, Bits0+Bits);
+count_bits_matched([{test,bs_match_string,_,[_,Bs]}|Is], SavePoint, Bits) ->
+    count_bits_matched(Is, SavePoint, Bits+bit_size(Bs));
 count_bits_matched([{test,_,_,_}|Is], SavePoint, Bits) ->
     count_bits_matched(Is, SavePoint, Bits);
 count_bits_matched([{bs_save2,Reg,SavePoint}|_], {Reg,SavePoint}, Bits) ->

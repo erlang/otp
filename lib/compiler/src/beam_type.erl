@@ -149,9 +149,10 @@ simplify_basic_1([], Ts, Acc) ->
 %%
 simplify_float(Is0, Ts0) ->
     {Is1,Ts} = simplify_float_1(Is0, Ts0, [], []),
-    Is2 = flt_need_heap(Is1),
+    Is2 = opt_fmoves(Is1, []),
+    Is3 = flt_need_heap(Is2),
     try
-	{flt_liveness(Is2),Ts}
+	{flt_liveness(Is3),Ts}
     catch
 	throw:not_possible -> not_possible
     end.
@@ -202,14 +203,15 @@ simplify_float_1([{set,_,_,{'catch',_}}=I|Is]=Is0, _Ts, Rs0, Acc0) ->
     simplify_float_1(Is, tdb_new(), Rs0, [I|Acc]);
 simplify_float_1([{set,_,_,{line,_}}=I|Is], Ts, Rs, Acc) ->
     simplify_float_1(Is, Ts, Rs, [I|Acc]);
+simplify_float_1([I|Is], Ts0, [], Acc) ->
+    Ts = update(I, Ts0),
+    simplify_float_1(Is, Ts, [], [I|Acc]);
 simplify_float_1([I|Is]=Is0, Ts0, Rs0, Acc0) ->
     Ts = update(I, Ts0),
     {Rs,Acc} = flush(Rs0, Is0, Acc0),
     simplify_float_1(Is, Ts, Rs, [I|checkerror(Acc)]);
-simplify_float_1([], Ts, Rs, Acc0) ->
-    Acc = checkerror(Acc0),
-    Is0 = reverse(flush_all(Rs, [], Acc)),
-    Is = opt_fmoves(Is0, []),
+simplify_float_1([], Ts, [], Acc) ->
+    Is = reverse(Acc),
     {Is,Ts}.
 
 coerce_to_float({integer,I}=Int) ->

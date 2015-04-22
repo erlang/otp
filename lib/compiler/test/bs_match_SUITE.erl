@@ -24,7 +24,7 @@
 	 init_per_group/2,end_per_group/2,
 	 init_per_testcase/2,end_per_testcase/2,
 	 fun_shadow/1,int_float/1,otp_5269/1,null_fields/1,wiger/1,
-	 bin_tail/1,save_restore/1,shadowed_size_var/1,
+	 bin_tail/1,save_restore/1,
 	 partitioned_bs_match/1,function_clause/1,
 	 unit/1,shared_sub_bins/1,bin_and_float/1,
 	 dec_subidentifiers/1,skip_optional_tag/1,
@@ -34,7 +34,8 @@
 	 otp_7188/1,otp_7233/1,otp_7240/1,otp_7498/1,
 	 match_string/1,zero_width/1,bad_size/1,haystack/1,
 	 cover_beam_bool/1,matched_out_size/1,follow_fail_branch/1,
-	 no_partition/1,calling_a_binary/1,binary_in_map/1]).
+	 no_partition/1,calling_a_binary/1,binary_in_map/1,
+	 match_string_opt/1]).
 
 -export([coverage_id/1,coverage_external_ignore/2]).
 
@@ -50,7 +51,7 @@ all() ->
 groups() -> 
     [{p,[parallel],
       [fun_shadow,int_float,otp_5269,null_fields,wiger,
-       bin_tail,save_restore,shadowed_size_var,
+       bin_tail,save_restore,
        partitioned_bs_match,function_clause,unit,
        shared_sub_bins,bin_and_float,dec_subidentifiers,
        skip_optional_tag,wfbm,degenerated_match,bs_sum,
@@ -59,7 +60,8 @@ groups() ->
        matching_and_andalso,otp_7188,otp_7233,otp_7240,
        otp_7498,match_string,zero_width,bad_size,haystack,
        cover_beam_bool,matched_out_size,follow_fail_branch,
-       no_partition,calling_a_binary,binary_in_map]}].
+       no_partition,calling_a_binary,binary_in_map,
+       match_string_opt]}].
 
 
 init_per_suite(Config) ->
@@ -321,16 +323,6 @@ ooo(<<Char,         Tail/binary>>) -> {[Char],Tail}.
 bad_float_unpack_match(<<F:64/float>>) -> F;
 bad_float_unpack_match(<<I:64/integer-signed>>) -> I.
 
-
-shadowed_size_var(Config) when is_list(Config) ->
-    ?line PrivDir = ?config(priv_dir, Config),
-    ?line Dir = filename:dirname(code:which(?MODULE)),
-    ?line Core = filename:join(Dir, "bs_shadowed_size_var"),
-    ?line Opts = [from_core,{outdir,PrivDir}|test_lib:opt_opts(?MODULE)],
-    ?line io:format("~p", [Opts]),
-    ?line {ok,Mod} = c:c(Core, Opts),
-    ?line [42|<<"abcde">>] = Mod:filter_essentials([<<42:32>>|<<5:32,"abcde">>]),
-    ok.
 
 partitioned_bs_match(Config) when is_list(Config) ->
     ?line <<1,2,3>> = partitioned_bs_match(blurf, <<42,1,2,3>>),
@@ -1223,6 +1215,14 @@ match_binary_in_map(Map) ->
 	    #{key := <<42:N>>} = Map,
 	    ok
     end.
+
+match_string_opt(Config) when is_list(Config) ->
+    {x,<<1,2,3>>,{<<1>>,{v,<<1,2,3>>}}} =
+	do_match_string_opt({<<1>>,{v,<<1,2,3>>}}),
+    ok.
+
+do_match_string_opt({<<1>>,{v,V}}=T) ->
+    {x,V,T}.
 
 
 check(F, R) ->

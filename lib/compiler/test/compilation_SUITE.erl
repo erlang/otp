@@ -309,8 +309,8 @@ load_and_call(Out, Module) ->
     %% Smoke-test of beam disassembler.
     ?line test_lib:smoke_disasm(Module),
 
-    ?line true = erlang:delete_module(Module),
-    ?line true = erlang:purge_module(Module),
+    _ = code:delete(Module),
+    _ = code:purge(Module),
 
     %% Restore state of trap_exit just in case. (Since the compiler
     %% uses a temporary process, we will get {'EXIT',Pid,normal} messages
