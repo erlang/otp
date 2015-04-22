@@ -1403,13 +1403,8 @@ add_restart([R|Restarts], Now, Period) ->
 add_restart([], _, _) ->
     [].
 
-inPeriod(Time, Now, Period) ->
-    case Time - Now of
-	T when T > Period ->
-	    false;
-	_ ->
-	    true
-    end.
+inPeriod(Then, Now, Period) ->
+    Now =< Then + Period.
 
 %%% ------------------------------------------------------
 %%% Error and progress reporting.

@@ -53,7 +53,8 @@
 	  temporary_abnormal/1, temporary_bystander/1]).
 
 %% Restart strategy tests 
--export([ one_for_one/1,
+-export([ multiple_restarts/1,
+	  one_for_one/1,
 	  one_for_one_escalation/1, one_for_all/1,
 	  one_for_all_escalation/1, one_for_all_other_child_fails_restart/1,
 	  simple_one_for_one/1, simple_one_for_one_escalation/1,
@@ -78,6 +79,7 @@ suite() ->
 all() -> 
     [{group, sup_start}, {group, sup_start_map}, {group, sup_stop}, child_adm,
      child_adm_simple, extra_return, child_specs, sup_flags,
+     multiple_restarts,
      {group, restart_one_for_one},
      {group, restart_one_for_all},
      {group, restart_simple_one_for_one},
@@ -871,6 +873,39 @@ temporary_bystander(_Config) ->
     %% Child2 has not been restarted
     [{child1, _, _, _}] = supervisor:which_children(SupPid1),
     [{child1, _, _, _}] = supervisor:which_children(SupPid2).
+
+%%-------------------------------------------------------------------------
+%% Test restarting a process multiple times, being careful not
+%% to exceed the maximum restart frquency.
+multiple_restarts(Config) when is_list(Config) ->
+    process_flag(trap_exit, true),
+    Child1 = #{id => child1,
+	       start => {supervisor_1, start_child, []},
+	       restart => permanent,
+	       shutdown => brutal_kill,
+	       type => worker,
+	       modules => []},
+    SupFlags = #{strategy => one_for_one,
+		 intensity => 1,
+		 period => 1},
+    {ok, SupPid} = start_link({ok, {SupFlags, []}}),
+    {ok, CPid1} = supervisor:start_child(sup_test, Child1),
+
+    %% Terminate the process several times, but being careful
+    %% not to exceed the maximum restart intensity.
+    terminate(SupPid, CPid1, child1, abnormal),
+    _ = [begin
+	     receive after 2100 -> ok end,
+	     [{_, Pid, _, _}|_] = supervisor:which_children(sup_test),
+	     terminate(SupPid, Pid, child1, abnormal)
+	 end || _ <- [1,2,3]],
+
+    %% Verify that the supervisor is still alive and clean up.
+    ok = supervisor:terminate_child(SupPid, child1),
+    ok = supervisor:delete_child(SupPid, child1),
+    exit(SupPid, kill),
+    ok.
+
 
 %%-------------------------------------------------------------------------
 %% Test the one_for_one base case.
