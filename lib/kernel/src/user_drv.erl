@@ -134,9 +134,6 @@ server1(Iport, Oport, Shell) ->
 				      [erlang:system_info(system_version)]))},
 	       Iport, Oport),
 
-    %% Init edlin used by switch command
-    edlin:init(),
-
     %% Enter the server loop.
     server_loop(Iport, Oport, Curr, User, Gr, queue:new()).
 
@@ -319,6 +316,9 @@ handle_escape(Iport, Oport, User, Gr, IOQueue) ->
 
 	_ ->					% {ok,jcl} | undefined
 	    io_request({put_chars,unicode,"\nUser switch command\n"}, Iport, Oport),
+	    %% init edlin used by switch command and have it copy the
+	    %% text buffer from current group process
+	    edlin:init(gr_cur_pid(Gr)),
 	    server_loop(Iport, Oport, User, switch_loop(Iport, Oport, Gr), IOQueue)
     end.
 
