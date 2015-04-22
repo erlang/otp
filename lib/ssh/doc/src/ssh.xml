@@ -37,7 +37,7 @@
     <title>SSH</title>
 
     <list type="bulleted">
-      <item>SSH requires the <c>crypto</c> and <c>public_key</c> applications.</item>
+      <item>For application dependencies see <seealso marker="SSH_app"> ssh(6)</seealso> </item>
       <item>Supported SSH version is 2.0.</item>
       <item>Supported MAC algorithms: hmac-sha2-256 and hmac-sha1.</item>
       <item>Supported encryption algorithms: aes128-ctr, aes128-cb and 3des-cbc.</item>
