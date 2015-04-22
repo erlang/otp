@@ -163,7 +163,7 @@
       </type>
       <desc>
         <p>Deletes the file specified by <c><![CDATA[Name]]></c>, like
-          <c><![CDATA[file:delete/1]]></c>.</p>
+	   <seealso marker="file#delete-1">file:delete/1</seealso></p>
       </desc>
     </func>
 
@@ -231,7 +231,8 @@
       </type>
       <desc>
         <p>Creates a symbolic link pointing to <c><![CDATA[Target]]></c> with the
-          name <c><![CDATA[Name]]></c>, like <c><![CDATA[file:make_symlink/2]]></c>.</p>
+          name <c><![CDATA[Name]]></c>, like
+	   <seealso marker="file#make_symlink-2">file:make_symlink/2</seealso></p>
       </desc>
     </func>
 
@@ -504,7 +505,8 @@
       </type>
       <desc>
         <p>Reads a file from the server, and returns the data in a binary,
-          like <c><![CDATA[file:read_file/1]]></c>.</p>
+          like
+	   <seealso marker="file#read_file-1">file:read_file/1</seealso></p>
       </desc>
     </func>
 
@@ -523,7 +525,7 @@
       <desc>
         <p>Returns a <c><![CDATA[file_info]]></c> record from the file specified by
           <c><![CDATA[Name]]></c> or <c><![CDATA[Handle]]></c>,
-	like <c><![CDATA[file:read_file_info/2]]></c>.</p>
+	like <seealso marker="file#read_file_info-2">file:read_file_info/2</seealso></p>
       </desc>
     </func>
 
@@ -539,7 +541,8 @@
       </type>
       <desc>
         <p>Reads the link target from the symbolic link specified
-          by <c><![CDATA[name]]></c>, like <c><![CDATA[file:read_link/1]]></c>.</p>
+          by <c><![CDATA[name]]></c>, like
+	  <seealso marker="file#read_link-1">file:read_link/1</seealso></p>
       </desc>
     </func>
 
@@ -558,7 +561,7 @@
       <desc>
         <p>Returns a <c><![CDATA[file_info]]></c> record from the symbolic
           link specified by <c><![CDATA[Name]]></c> or <c><![CDATA[Handle]]></c>, like
-          <c><![CDATA[file:read_link_info/2]]></c>.</p>
+	<seealso marker="file#read_link_info-2">file:read_link_info/2</seealso></p>
       </desc>
     </func>
 
@@ -575,7 +578,8 @@
       </type>
       <desc>
         <p>Renames a file named <c><![CDATA[OldName]]></c> and gives it the name
-          <c><![CDATA[NewName]]></c>, like <c><![CDATA[file:rename/2]]></c>.</p>
+          <c><![CDATA[NewName]]></c>, like
+	    <seealso marker="file#rename-2">file:rename/2</seealso></p>
       </desc>
     </func>
 
@@ -649,9 +653,10 @@
         <v>Reason = term()</v>
       </type>
       <desc>
-        <p>Writes a file to the server, like
-        <c><![CDATA[file:write_file/2]]></c>. The file is created if
-        it does not exist. The file is overwritten if it exists.</p>
+        <p>Writes a file to the server, like <seealso
+        marker="file#write_file-2">file:write_file/2</seealso> The
+        file is created if it does not exist. The file is overwritten
+        if it exists.</p>
       </desc>
     </func>
 
@@ -699,7 +704,8 @@
       </type>
       <desc>
         <p>Writes file information from a <c><![CDATA[file_info]]></c> record to the
-          file specified by <c><![CDATA[Name]]></c>, like <c><![CDATA[file:write_file_info]]></c>.</p>
+          file specified by <c><![CDATA[Name]]></c>, like
+	   <seealso marker="file#write_file_info-2">file:write_file_info/[2,3]</seealso></p>
       </desc>
     </func>
   </funcs>
