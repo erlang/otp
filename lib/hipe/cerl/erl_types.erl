@@ -2636,15 +2636,19 @@ inf_collect(_T1, [], _Opaques, OpL) ->
 combine(S, T1, T2) ->
   #opaque{mod = Mod1, name = Name1, args = Args1} = T1,
   #opaque{mod = Mod2, name = Name2, args = Args2} = T2,
+  Comb1 = comb(Mod1, Name1, Args1, S, T1),
   case is_same_type_name({Mod1, Name1, Args1}, {Mod2, Name2, Args2}) of
-    true  -> [comb(Mod1, Name1, Args1, S, T1)];
-    false -> [comb(Mod1, Name1, Args1, S, T1), comb(Mod2, Name2, Args2, S, T2)]
+    true  -> Comb1;
+    false -> Comb1 ++ comb(Mod2, Name2, Args2, S, T2)
   end.
 
 comb(Mod, Name, Args, S, T) ->
   case is_same_name(Mod, Name, Args, S) of
-    true -> S;
-    false -> T#opaque{struct = S}
+    true ->
+      ?opaque(Set) = S,
+      Set;
+    false ->
+      [T#opaque{struct = S}]
   end.
 
 is_same_name(Mod1, Name1, Args1,
