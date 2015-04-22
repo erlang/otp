@@ -44,12 +44,34 @@
 
 versions(client, Options)->
     Vsn = proplists:get_value(vsn, Options, ?DEFAULT_CLIENT_VERSION),
-    Version = format_version(Vsn),
-    {Vsn, Version};
+    {Vsn, format_version(Vsn, software_version(Options))};
 versions(server, Options) ->
     Vsn = proplists:get_value(vsn, Options, ?DEFAULT_SERVER_VERSION),
-    Version = format_version(Vsn),
-    {Vsn, Version}.
+    {Vsn, format_version(Vsn, software_version(Options))}.
+
+software_version(Options) -> 
+    case proplists:get_value(id_string, Options) of
+	undefined ->
+	    "Erlang"++ssh_vsn();
+	{random,Nlo,Nup} ->
+	    random_id(Nlo,Nup);
+	ID ->
+	    ID
+    end.
+
+ssh_vsn() ->
+    try {ok,L} = application:get_all_key(ssh),
+	 proplists:get_value(vsn,L,"")
+    of 
+	"" -> "";
+	VSN when is_list(VSN) -> "/" ++ VSN;
+	_ -> ""
+    catch
+	_:_ -> ""
+    end.
+    
+random_id(Nlo, Nup) -> 
+    [crypto:rand_uniform($a,$z+1) || _<- lists:duplicate(crypto:rand_uniform(Nlo,Nup+1),x)  ].
 
 hello_version_msg(Data) ->
     [Data,"\r\n"].
@@ -77,9 +99,9 @@ is_valid_mac(Mac, Data, #ssh{recv_mac = Algorithm,
 yes_no(Ssh, Prompt)  ->
     (Ssh#ssh.io_cb):yes_no(Prompt, Ssh).
 
-format_version({Major,Minor}) ->
+format_version({Major,Minor}, SoftwareVersion) ->
     "SSH-" ++ integer_to_list(Major) ++ "." ++ 
-	integer_to_list(Minor) ++ "-Erlang".
+	integer_to_list(Minor) ++ "-" ++ SoftwareVersion.
 
 handle_hello_version(Version) ->
     try
