@@ -27,6 +27,10 @@ include ../../vsn.mk
 VSN=$(TEST_SERVER_VSN)
 APPLICATION=test_server
 
+DOC_EXTRA_FRONT_PAGE_INFO=Important note: \
+The Test Server application is obsolete and will be removed \
+in the next major OTP release
+
 # ----------------------------------------------------
 # Release directory specification
 # ----------------------------------------------------
