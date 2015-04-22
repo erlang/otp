@@ -3516,6 +3516,8 @@ do {								\
 		erts_pre_nif(&env, c_p, (struct erl_module_nif*)I[2]);
 		reg[0] = r(0);
 		nif_bif_result = (*fp)(&env, bif_nif_arity, reg);
+		if (env.exception_thrown)
+		    nif_bif_result = THE_NON_VALUE;
 		erts_post_nif(&env);
 	    }
 	    ASSERT(!ERTS_PROC_IS_EXITING(c_p) || is_non_value(nif_bif_result));

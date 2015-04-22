@@ -66,34 +66,6 @@
       </list>
       </warning>
 
-     <p>The NIF concept is officially supported from R14B. NIF source code
-     written for earlier experimental versions might need adaption to run on R14B
-     or later versions:</p>
-     <list>
-       <item>No incompatible changes between <em>R14B</em> and R14A.</item>
-       <item>Incompatible changes between <em>R14A</em> and R13B04:
-       <list>
-	 <item>Environment argument removed for <c>enif_alloc</c>,
-	 <c>enif_realloc</c>, <c>enif_free</c>, <c>enif_alloc_binary</c>,
-	 <c>enif_realloc_binary</c>, <c>enif_release_binary</c>,
-	 <c>enif_alloc_resource</c>, <c>enif_release_resource</c>,
-	 <c>enif_is_identical</c> and <c>enif_compare</c>.</item>
-	 <item>Character encoding argument added to <c>enif_get_atom</c>
-	 and <c>enif_make_existing_atom</c>.</item>
-	 <item>Module argument added to <c>enif_open_resource_type</c>
-	 while changing name spaces of resource types from global to module local.</item>
-       </list>
-     </item>
-     <item>Incompatible changes between <em>R13B04</em> and R13B03:
-     <list>
-       <item>The function prototypes of the NIFs have  changed to expect <c>argc</c> and <c>argv</c>
-       arguments. The arity of a NIF is by that no longer limited to 3.</item>
-       <item><c>enif_get_data</c> renamed as <c>enif_priv_data</c>.</item>
-       <item><c>enif_make_string</c> got a third argument for character encoding.</item>
-     </list>
-     </item>
-    </list>
-
     <p>A minimal example of a NIF library can look like this:</p>
       <p/>
       <code type="none">
@@ -806,6 +778,12 @@ typedef enum {
       and return true, or return false if <c>term</c> is not an unsigned integer or is
       outside the bounds of type <c>unsigned long</c>.</p></desc>
     </func>
+    <func><name><ret>int</ret><nametext>enif_has_pending_exception(ErlNifEnv* env)</nametext></name>
+      <fsummary>Check if an exception has been raised.</fsummary>
+      <desc><p>Return true if a pending exception is associated
+      with the environment <c>env</c>. The only possible exception is currently
+      <c>badarg</c> (see <seealso marker="#enif_make_badarg">enif_make_badarg</seealso>).</p></desc>
+    </func>
     <func><name><ret>int</ret><nametext>enif_inspect_binary(ErlNifEnv* env, ERL_NIF_TERM bin_term, ErlNifBinary* bin)</nametext></name>
       <fsummary>Inspect the content of a binary</fsummary>
       <desc><p>Initialize the structure pointed to by <c>bin</c> with 
@@ -898,23 +876,37 @@ typedef enum {
     <func><name><ret>ERL_NIF_TERM</ret><nametext>enif_make_atom(ErlNifEnv* env, const char* name)</nametext></name>
       <fsummary>Create an atom term</fsummary>
       <desc><p>Create an atom term from the null-terminated C-string <c>name</c>
-      with iso-latin-1 encoding.</p></desc>
+      with iso-latin-1 encoding. If the length of <c>name</c> exceeds the maximum length
+      allowed for an atom (255 characters), <c>enif_make_atom</c> invokes
+      <seealso marker="#enif_make_badarg">enif_make_badarg</seealso>.
+      </p></desc>
     </func>
     <func><name><ret>ERL_NIF_TERM</ret><nametext>enif_make_atom_len(ErlNifEnv* env, const char* name, size_t len)</nametext></name>
       <fsummary>Create an atom term</fsummary>
       <desc><p>Create an atom term from the string <c>name</c> with length <c>len</c>.
-      Null-characters are treated as any other characters.</p></desc>
+      Null-characters are treated as any other characters. If <c>len</c> is greater than the maximum length
+      allowed for an atom (255 characters), <c>enif_make_atom</c> invokes
+      <seealso marker="#enif_make_badarg">enif_make_badarg</seealso>.
+      </p></desc>
     </func>
     <func><name><ret>ERL_NIF_TERM</ret><nametext>enif_make_badarg(ErlNifEnv* env)</nametext></name>
       <fsummary>Make a badarg exception.</fsummary>
-      <desc><p>Make a badarg exception to be returned from a NIF, and set
-      an associated exception reason in <c>env</c>. If
-      <c>enif_make_badarg</c> is called, the term it returns <em>must</em>
-      be returned from the function that called it. No other return value
-      is allowed. Also, the term returned from <c>enif_make_badarg</c> may
-      be passed only to
-      <seealso marker="#enif_is_exception">enif_is_exception</seealso> and
-      not to any other NIF API function.</p></desc>
+      <desc><p>Make a badarg exception to be returned from a NIF, and associate
+      it with the environment <c>env</c>. Once a NIF or any function
+      it calls invokes <c>enif_make_badarg</c>, the runtime ensures that a
+      <c>badarg</c> exception is raised when the NIF returns, even if the NIF
+      attempts to return a non-exception term instead.
+      The return value from <c>enif_make_badarg</c> may only be used as
+      return value from the NIF that invoked it (direct or indirectly)
+      or be passed to
+      <seealso marker="#enif_is_exception">enif_is_exception</seealso>, but
+      not to any other NIF API function.</p>
+      <p>See also: <seealso marker="#enif_has_pending_exception">enif_has_pending_exception</seealso>.
+      </p>
+      <note><p>In earlier versions (older than erts-7.0, OTP 18) the return value
+      from <c>enif_make_badarg</c> had to be returned from the NIF. This
+      requirement is now lifted as the return value from the NIF is ignored
+      if <c>enif_make_badarg</c> has been invoked.</p></note></desc>
     </func>
     <func><name><ret>ERL_NIF_TERM</ret><nametext>enif_make_binary(ErlNifEnv* env, ErlNifBinary* bin)</nametext></name>
       <fsummary>Make a binary term.</fsummary>
@@ -931,7 +923,10 @@ typedef enum {
     </func>
     <func><name><ret>ERL_NIF_TERM</ret><nametext>enif_make_double(ErlNifEnv* env, double d)</nametext></name>
       <fsummary>Create a floating-point term</fsummary>
-      <desc><p>Create a floating-point term from a <c>double</c>.</p></desc>
+      <desc><p>Create a floating-point term from a <c>double</c>. If the <c>double</c> argument is
+      not finite or is NaN, <c>enif_make_double</c> invokes
+      <seealso marker="#enif_make_badarg">enif_make_badarg</seealso>.
+      </p></desc>
     </func>
     <func><name><ret>int</ret><nametext>enif_make_existing_atom(ErlNifEnv* env, const char* name, ERL_NIF_TERM* atom, ErlNifCharEncoding encode)</nametext></name>
       <fsummary>Create an existing atom term</fsummary>
@@ -939,7 +934,9 @@ typedef enum {
       the null-terminated C-string <c>name</c> with encoding
       <seealso marker="#ErlNifCharEncoding">encode</seealso>. If the atom
       already exists store the term in <c>*atom</c> and return true, otherwise
-      return false.</p></desc>
+      return false. If the length of <c>name</c> exceeds the maximum length
+      allowed for an atom (255 characters), <c>enif_make_existing_atom</c>
+      returns false.</p></desc>
     </func>
     <func><name><ret>int</ret><nametext>enif_make_existing_atom_len(ErlNifEnv* env, const char* name, size_t len, ERL_NIF_TERM* atom, ErlNifCharEncoding encoding)</nametext></name>
       <fsummary>Create an existing atom term</fsummary>
@@ -947,7 +944,9 @@ typedef enum {
       string <c>name</c> with length <c>len</c> and encoding
       <seealso marker="#ErlNifCharEncoding">encode</seealso>. Null-characters
       are treated as any other characters. If the atom already exists store the term
-      in <c>*atom</c> and return true, otherwise return false.</p></desc>
+      in <c>*atom</c> and return true, otherwise return false. If <c>len</c> is greater
+      than the maximum length allowed for an atom (255 characters),
+      <c>enif_make_existing_atom_len</c> returns false.</p></desc>
     </func>
     <func><name><ret>ERL_NIF_TERM</ret><nametext>enif_make_int(ErlNifEnv* env, int i)</nametext></name>
       <fsummary>Create an integer term</fsummary>

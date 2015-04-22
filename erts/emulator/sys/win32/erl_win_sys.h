@@ -267,6 +267,8 @@ extern volatile int erl_fp_exception;
 int _finite(double x);
 #endif
 
+#define erts_isfinite _finite
+
 /*#define NO_FPE_SIGNALS*/
 #define erts_get_current_fp_exception() NULL
 #define __ERTS_FP_CHECK_INIT(fpexnp) do {} while (0)
