@@ -1503,6 +1503,40 @@ void process_main(void)
 	Next(2);
     }
 
+ OpCase(move_window3_xxxy): {
+     BeamInstr *next;
+     Eterm *y;
+     PreFetch(4, next);
+     y = (Eterm *)(((unsigned char *)E) + (Arg(3)));
+     y[0] = xb(Arg(0));
+     y[1] = xb(Arg(1));
+     y[2] = xb(Arg(2));
+     NextPF(4, next);
+ }
+ OpCase(move_window4_xxxxy): {
+     BeamInstr *next;
+     Eterm *y;
+     PreFetch(5, next);
+     y = (Eterm *)(((unsigned char *)E) + (Arg(4)));
+     y[0] = xb(Arg(0));
+     y[1] = xb(Arg(1));
+     y[2] = xb(Arg(2));
+     y[3] = xb(Arg(3));
+     NextPF(5, next);
+ }
+ OpCase(move_window5_xxxxxy): {
+     BeamInstr *next;
+     Eterm *y;
+     PreFetch(6, next);
+     y = (Eterm *)(((unsigned char *)E) + (Arg(5)));
+     y[0] = xb(Arg(0));
+     y[1] = xb(Arg(1));
+     y[2] = xb(Arg(2));
+     y[3] = xb(Arg(3));
+     y[4] = xb(Arg(4));
+     NextPF(6, next);
+ }
+
  OpCase(i_move_call_only_fcr): {
      r(0) = Arg(1);
  }
