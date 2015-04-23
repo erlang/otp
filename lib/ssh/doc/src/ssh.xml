@@ -106,9 +106,9 @@
 	<d><c><![CDATA[22]]></c> is default, the assigned well-known port
 	number for SSH.</d>
 	<v>Options = [{Option, Value}]</v>
-	<v>Timeout = infinity | integer(milliseconds)</v>
-	<d>Negotiation time-out. For connection time-out, use option
-	<c>{connect_timeout, timeout()}</c>.</d>
+	<v>Timeout = infinity | integer()</v>
+	<d>Negotiation time-out in milli-seconds. The default value is <c>infinity</c>.
+	For connection time-out, use option <c>{connect_timeout, timeout()}</c>.</d>
       </type>
       <desc>
 	<p>Connects to an SSH server. No channel is started. This is done
@@ -177,7 +177,8 @@
 	  <tag><c><![CDATA[{connect_timeout, timeout()}]]></c></tag>
 	  <item>
 	    <p>Sets a time-out on the transport layer
-	    connection. Defaults to <c>infinity</c>.</p>
+	    connection. For <c>gen_tcp</c> the time is in milli-seconds and the default value is
+	    <c>infinity</c>.</p>
 	  </item>
 	  <tag><c><![CDATA[{user, string()}]]></c></tag>
           <item>

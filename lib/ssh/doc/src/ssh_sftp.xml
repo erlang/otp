@@ -46,7 +46,7 @@
       <tag><c>ssh_connection_ref()</c></tag>
       <item><p>Opaque to the user, returned by <c>ssh:connect/3</c></p></item>
       <tag><c>timeout()</c></tag>
-      <item><p>= <c>infinity | integer() in milliseconds</c></p></item>
+      <item><p>= <c>infinity | integer() in milliseconds. Default infinity.</c></p></item>
     </taglist>
    </section>
 
