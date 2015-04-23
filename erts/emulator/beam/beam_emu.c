@@ -2885,6 +2885,23 @@ do {								\
      goto do_big_arith2;
  }
 
+#define DO_BIG_ARITH(Func,Arg1,Arg2)     \
+    do {                                 \
+        Uint live = Arg(1);              \
+        SWAPOUT;                         \
+        reg[0] = r(0);                   \
+        reg[live] = (Arg1);              \
+        reg[live+1] = (Arg2);            \
+        result = (Func)(c_p, reg, live); \
+        r(0) = reg[0];                   \
+        SWAPIN;                          \
+        ERTS_HOLE_CHECK(c_p);            \
+        if (is_value(result)) {          \
+            StoreBifResult(4,result);    \
+        }                                \
+        goto lb_Cl_error;                \
+    } while(0)
+
  OpCase(i_rem_jId):
  {
      Eterm result;
@@ -2899,6 +2916,22 @@ do {								\
 	 goto do_big_arith2;
      }
  }
+
+ OpCase(i_band_jIxcd):
+ {
+     Eterm result;
+
+     if (is_both_small(xb(Arg(2)), Arg(3))) {
+         /*
+          * No need to untag -- TAG & TAG == TAG.
+          */
+         result = xb(Arg(2)) & Arg(3);
+         StoreBifResult(4, result);
+     }
+     DO_BIG_ARITH(ARITH_FUNC(band),xb(Arg(2)),Arg(3));
+ }
+
+#undef DO_BIG_ARITH
 
  OpCase(i_band_jId):
  {

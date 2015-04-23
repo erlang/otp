@@ -1663,6 +1663,7 @@ gc_bif2 Fail I u$bif:erlang:rem/2 S1 S2 Dst=d => i_fetch S1 S2 | i_rem Fail I Ds
 gc_bif2 Fail I u$bif:erlang:bsl/2 S1 S2 Dst=d => i_fetch S1 S2 | i_bsl Fail I Dst
 gc_bif2 Fail I u$bif:erlang:bsr/2 S1 S2 Dst=d => i_fetch S1 S2 | i_bsr Fail I Dst
 
+gc_bif2 Fail I u$bif:erlang:band/2 S1=x S2=c Dst=d => i_band Fail I S1 S2 Dst
 gc_bif2 Fail I u$bif:erlang:band/2 S1 S2 Dst=d => i_fetch S1 S2 | i_band Fail I Dst
 gc_bif2 Fail I u$bif:erlang:bor/2 S1 S2 Dst=d => i_fetch S1 S2 | i_bor Fail I Dst
 gc_bif2 Fail I u$bif:erlang:bxor/2 S1 S2 Dst=d => i_fetch S1 S2 | i_bxor Fail I Dst
@@ -1686,6 +1687,7 @@ i_rem j I d
 i_bsl j I d
 i_bsr j I d
 
+i_band j I x c d
 i_band j I d
 i_bor j I d
 i_bxor j I d
