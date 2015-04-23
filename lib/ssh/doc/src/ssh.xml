@@ -229,7 +229,7 @@
 	<v>Value = [option_value()] </v>
 	<v>option_value() = {{Major::integer(), Minor::integer()}, VersionString::string()} |
 	User::string() |  Peer::{inet:hostname(), {inet::ip_adress(), inet::port_number()}} |
-	Sockname::{inet::ip_adress(), inet::port_number()} () </v>
+	Sockname::{inet::ip_adress(), inet::port_number()}</v>
       </type>
       <desc>
         <p>Retrieves information about a connection.</p>
