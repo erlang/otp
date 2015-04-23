@@ -2902,6 +2902,19 @@ do {								\
         goto lb_Cl_error;                \
     } while(0)
 
+ OpCase(i_rem_jIxxd):
+ {
+     Eterm result;
+
+     if (xb(Arg(3)) == SMALL_ZERO) {
+	 goto badarith;
+     } else if (is_both_small(xb(Arg(2)), xb(Arg(3)))) {
+	 result = make_small(signed_val(xb(Arg(2))) % signed_val(xb(Arg(3))));
+         StoreBifResult(4, result);
+     }
+     DO_BIG_ARITH(ARITH_FUNC(int_rem),xb(Arg(2)),xb(Arg(3)));
+ }
+
  OpCase(i_rem_jId):
  {
      Eterm result;
