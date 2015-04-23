@@ -287,8 +287,11 @@ create_header(ConfigDb, KeyValueTupleHeaders) ->
     ContentType = "text/html", 
     Server      = server(ConfigDb),
     NewHeaders  = add_default_headers([{"date",         Date},
-				       {"content-type", ContentType},
-				       {"server",       Server}], 
+				       {"content-type", ContentType}
+				       | if Server=="" -> [];
+					    true -> [{"server",       Server}]
+					 end
+				      ], 
 				       KeyValueTupleHeaders),
     lists:map(fun fix_header/1, NewHeaders).
 

@@ -219,14 +219,14 @@ load("ServerName " ++ ServerName, []) ->
 
 load("ServerTokens " ++ ServerTokens, []) ->
     %% These are the valid *plain* server tokens: 
-    %%     sprod, major, minor, minimum, os, full
+    %%     none, prod, major, minor, minimum, os, full
     %% It can also be a "private" server token: private:<any string>
     case string:tokens(ServerTokens, [$:]) of
 	["private", Private] ->
 	    {ok,[], {server_tokens, clean(Private)}};
 	[TokStr] ->
 	    Tok = list_to_atom(clean(TokStr)),
-	    case lists:member(Tok, [prod, major, minor, minimum, os, full]) of
+	    case lists:member(Tok, [none, prod, major, minor, minimum, os, full]) of
 		true ->
 		    {ok,[], {server_tokens, Tok}};
 		false ->
@@ -850,6 +850,8 @@ server(full = _ServerTokens) ->
     OS = os_info(full), 
     lists:flatten(
       io_lib:format("~s ~s OTP/~s", [?SERVER_SOFTWARE, OS, OTPRelease]));
+server(none = _ServerTokens) ->
+    "";
 server({private, Server} = _ServerTokens) when is_list(Server) -> 
     %% The user provide its own 
     Server;
@@ -1299,7 +1301,7 @@ ssl_ca_certificate_file(ConfigDB) ->
     end.
 
 plain_server_tokens() ->
-    [prod, major, minor, minimum, os, full].
+    [none, prod, major, minor, minimum, os, full].
 
 error_report(Where,M,F,Error) ->
     error_logger:error_report([{?MODULE, Where}, 

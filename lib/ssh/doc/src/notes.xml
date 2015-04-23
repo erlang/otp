@@ -29,6 +29,27 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Ssh 3.2.2</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    New option <c>id_string</c> for <c>ssh:daemon</c> and
+	    <c>ssh:connect</c> for limiting banner grabbing attempts.</p>
+          <p>
+	    The possible values are: <c>{id_string,string()}</c> and
+	    <c>{id_string,random}</c>. The latter will make ssh
+	    generate a random nonsence id-string for each new
+	    connection.</p>
+          <p>
+	    Own Id: OTP-12659</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Ssh 3.2.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

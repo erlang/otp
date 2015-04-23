@@ -32,7 +32,28 @@
     <file>notes.xml</file>
   </header>
   
-  <section><title>Inets 5.10.6</title>
+  <section><title>Inets 5.10.7</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    New value in <c>server_tokens</c> config for limiting
+	    banner grabbing attempts. </p>
+          <p>
+	    By setting <c>{server_tokens, none}</c> in
+	    <c>ServiceConfig</c> for <c>inets:start(httpd,
+	    ServiceConfig)</c>, the "Server:" header will not be set
+	    in messages from the server.</p>
+          <p>
+	    Own Id: OTP-12661 Aux Id: seq12840 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Inets 5.10.6</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>
