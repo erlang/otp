@@ -898,12 +898,14 @@ typedef enum {
     <func><name><ret>ERL_NIF_TERM</ret><nametext>enif_make_atom(ErlNifEnv* env, const char* name)</nametext></name>
       <fsummary>Create an atom term</fsummary>
       <desc><p>Create an atom term from the null-terminated C-string <c>name</c>
-      with iso-latin-1 encoding.</p></desc>
+      with iso-latin-1 encoding. If the length of <c>name</c> exceeds the maximum length
+      allowed for an atom, <c>enif_make_atom</c> returns a <c>badarg</c> exception.</p></desc>
     </func>
     <func><name><ret>ERL_NIF_TERM</ret><nametext>enif_make_atom_len(ErlNifEnv* env, const char* name, size_t len)</nametext></name>
       <fsummary>Create an atom term</fsummary>
       <desc><p>Create an atom term from the string <c>name</c> with length <c>len</c>.
-      Null-characters are treated as any other characters.</p></desc>
+      Null-characters are treated as any other characters. If <c>len</c> is greater than the maximum length
+      allowed for an atom, <c>enif_make_atom</c> returns a <c>badarg</c> exception.</p></desc>
     </func>
     <func><name><ret>ERL_NIF_TERM</ret><nametext>enif_make_badarg(ErlNifEnv* env)</nametext></name>
       <fsummary>Make a badarg exception.</fsummary>
@@ -911,8 +913,10 @@ typedef enum {
       an associated exception reason in <c>env</c>. If
       <c>enif_make_badarg</c> is called, the term it returns <em>must</em>
       be returned from the function that called it. No other return value
-      is allowed. Also, the term returned from <c>enif_make_badarg</c> may
-      be passed only to
+      is allowed. Once a NIF or any function it calls invokes <c>enif_make_badarg</c>,
+      the runtime ensures that a <c>badarg</c> exception is raised when the NIF
+      returns, even if the NIF attempts to return a non-exception term instead.
+      Also, the term returned from <c>enif_make_badarg</c> may be passed only to
       <seealso marker="#enif_is_exception">enif_is_exception</seealso> and
       not to any other NIF API function.</p></desc>
     </func>
@@ -931,7 +935,9 @@ typedef enum {
     </func>
     <func><name><ret>ERL_NIF_TERM</ret><nametext>enif_make_double(ErlNifEnv* env, double d)</nametext></name>
       <fsummary>Create a floating-point term</fsummary>
-      <desc><p>Create a floating-point term from a <c>double</c>.</p></desc>
+      <desc><p>Create a floating-point term from a <c>double</c>. If the <c>double</c> argument is
+      not finite or is NaN, <c>enif_make_double</c> returns a <c>badarg</c> exception.</p>
+      </desc>
     </func>
     <func><name><ret>int</ret><nametext>enif_make_existing_atom(ErlNifEnv* env, const char* name, ERL_NIF_TERM* atom, ErlNifCharEncoding encode)</nametext></name>
       <fsummary>Create an existing atom term</fsummary>
@@ -939,7 +945,8 @@ typedef enum {
       the null-terminated C-string <c>name</c> with encoding
       <seealso marker="#ErlNifCharEncoding">encode</seealso>. If the atom
       already exists store the term in <c>*atom</c> and return true, otherwise
-      return false.</p></desc>
+      return false. If the length of <c>name</c> exceeds the maximum length
+      allowed for an atom, <c>enif_make_existing_atom</c> returns false.</p></desc>
     </func>
     <func><name><ret>int</ret><nametext>enif_make_existing_atom_len(ErlNifEnv* env, const char* name, size_t len, ERL_NIF_TERM* atom, ErlNifCharEncoding encoding)</nametext></name>
       <fsummary>Create an existing atom term</fsummary>
@@ -947,7 +954,9 @@ typedef enum {
       string <c>name</c> with length <c>len</c> and encoding
       <seealso marker="#ErlNifCharEncoding">encode</seealso>. Null-characters
       are treated as any other characters. If the atom already exists store the term
-      in <c>*atom</c> and return true, otherwise return false.</p></desc>
+      in <c>*atom</c> and return true, otherwise return false. If <c>len</c> is greater
+      than the maximum length allowed for an atom, <c>enif_make_existing_atom_len</c>
+      returns false.</p></desc>
     </func>
     <func><name><ret>ERL_NIF_TERM</ret><nametext>enif_make_int(ErlNifEnv* env, int i)</nametext></name>
       <fsummary>Create an integer term</fsummary>
