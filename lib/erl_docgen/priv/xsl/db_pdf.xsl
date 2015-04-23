@@ -671,6 +671,10 @@
         <fo:block xsl:use-attribute-sets="cover.version">
           <xsl:value-of select="$gendate"/>
         </fo:block>
+        <fo:block xsl:use-attribute-sets="cover.extrainfo">
+          <xsl:value-of select="$extra_front_page_info"/>
+        </fo:block>
+
 
         <!-- Inner cover (copyright notice) -->
         <fo:block break-before="page"
