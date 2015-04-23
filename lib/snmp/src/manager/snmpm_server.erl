@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -2116,7 +2116,8 @@ do_handle_agent(DefUserId, DefMod,
 	    ok;
 
 	InvalidResult ->
-	    CallbackArgs = [Domain, Addr, Type, SnmpInfo, DefData],
+	    CallbackArgs =
+		[Domain_or_Ip, Addr_or_Port, Type, SnmpInfo, DefData],
 	    handle_invalid_result(handle_agent, CallbackArgs, InvalidResult) 
 
     catch
@@ -2212,7 +2213,8 @@ do_handle_agent(DefUserId, DefMod,
 	    end;
 	
 	T:E ->
-	    CallbackArgs = [Domain, Addr, Type, SnmpInfo, DefData],
+	    CallbackArgs =
+		[Domain_or_Ip, Addr_or_Port, Type, SnmpInfo, DefData],
 	    handle_invalid_result(handle_agent, CallbackArgs, T, E)
 	    
     end.

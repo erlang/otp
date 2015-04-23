@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -330,7 +330,7 @@ socket_params(Domain, {IpAddr, IpPort} = Addr, BindTo, CommonSocketOpts) ->
 	end,
     case Family of
 	inet ->
-	    case init:get_argument(snmp_fd) of
+	    case init:get_argument(snmpm_fd) of
 		{ok, [[FdStr]]} ->
 		    Fd = list_to_integer(FdStr),
 		    case BindTo of
