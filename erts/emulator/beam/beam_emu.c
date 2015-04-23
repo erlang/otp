@@ -1505,35 +1505,47 @@ void process_main(void)
 
  OpCase(move_window3_xxxy): {
      BeamInstr *next;
-     Eterm *y;
+     Eterm xt0, xt1, xt2;
+     Eterm *y = (Eterm *)(((unsigned char *)E) + (Arg(3)));
      PreFetch(4, next);
-     y = (Eterm *)(((unsigned char *)E) + (Arg(3)));
-     y[0] = xb(Arg(0));
-     y[1] = xb(Arg(1));
-     y[2] = xb(Arg(2));
+     xt0  = xb(Arg(0));
+     xt1  = xb(Arg(1));
+     xt2  = xb(Arg(2));
+     y[0] = xt0;
+     y[1] = xt1;
+     y[2] = xt2;
      NextPF(4, next);
  }
  OpCase(move_window4_xxxxy): {
      BeamInstr *next;
-     Eterm *y;
+     Eterm xt0, xt1, xt2, xt3;
+     Eterm *y = (Eterm *)(((unsigned char *)E) + (Arg(4)));
      PreFetch(5, next);
-     y = (Eterm *)(((unsigned char *)E) + (Arg(4)));
-     y[0] = xb(Arg(0));
-     y[1] = xb(Arg(1));
-     y[2] = xb(Arg(2));
-     y[3] = xb(Arg(3));
+     xt0  = xb(Arg(0));
+     xt1  = xb(Arg(1));
+     xt2  = xb(Arg(2));
+     xt3  = xb(Arg(3));
+     y[0] = xt0;
+     y[1] = xt1;
+     y[2] = xt2;
+     y[3] = xt3;
      NextPF(5, next);
  }
  OpCase(move_window5_xxxxxy): {
      BeamInstr *next;
-     Eterm *y;
+     Eterm xt0, xt1, xt2, xt3, xt4;
+     Eterm *y = (Eterm *)(((unsigned char *)E) + (Arg(5)));
      PreFetch(6, next);
-     y = (Eterm *)(((unsigned char *)E) + (Arg(5)));
-     y[0] = xb(Arg(0));
-     y[1] = xb(Arg(1));
-     y[2] = xb(Arg(2));
-     y[3] = xb(Arg(3));
-     y[4] = xb(Arg(4));
+     xt0  = xb(Arg(0));
+     xt1  = xb(Arg(1));
+     xt2  = xb(Arg(2));
+     xt3  = xb(Arg(3));
+     xt4  = xb(Arg(4));
+     y[0] = xt0;
+     y[1] = xt1;
+     y[2] = xt2;
+     y[3] = xt3;
+     y[4] = xt4;
      NextPF(6, next);
  }
 
