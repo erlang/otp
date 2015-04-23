@@ -39,7 +39,7 @@
 
 -define(TELNET_PORT, 23).
 -define(OPEN_TIMEOUT,10000).
--define(IDLE_TIMEOUT,10000).
+-define(IDLE_TIMEOUT,8000).
 
 %% telnet control characters
 -define(SE,	240).
