@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="utf-8" ?>
-<!DOCTYPE application SYSTEM "application.dtd">
+<!DOCTYPE part SYSTEM "part.dtd">
 
-<application xmlns:xi="http://www.w3.org/2001/XInclude">
+<part xmlns:xi="http://www.w3.org/2001/XInclude">
   <header>
     <copyright>
       <year>2008</year>
-      <year>2013</year>
+      <year>2014</year>
       <holder>Ericsson AB, All Rights Reserved</holder>
     </copyright>
     <legalnotice>
@@ -23,21 +23,25 @@
   The Initial Developer of the Original Code is Ericsson AB.
     </legalnotice>
 
-    <title>public_key Reference Manual</title>
-    <prepared>Ingela Anderton Andin</prepared>
+    <title>Records</title>
+    <prepared>Tommy Månevik</prepared>
     <docno></docno>
-    <date>2008-01-22</date>
+    <date>2015-04-01</date>
     <rev></rev>
-    <file>ref_man.xml</file>
+    <file>records.xml</file>
   </header>
   <description>
-    <p>The <c>public_key</c> application provides functions to handle public-key infrastructure
-    from RFC 3280 (X.509 certificates) and parts of the PKCS standard.
+    <p>This section describes Erlang records derived from ASN.1 specifications, 
+    used to handle the following:
     </p>
+    <list type="bulleted">
+      <item>Public and private keys</item>
+      <item><c>X509 certificates</c> and <c>CertificationRequest</c></item>
+    </list>
   </description>
-  <xi:include href="public_key.xml"/>
-</application>
-
-
-
+ 
+  <xi:include href="public_key_records.xml"/>
+  <xi:include href="cert_records.xml"/>
+ 
+</part>
 

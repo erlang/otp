@@ -23,7 +23,7 @@
   The Initial Developer of the Original Code is Ericsson AB.
     </legalnotice>
 
-    <title>Public key records</title>
+    <title>Public-Key Records</title>
     <prepared>Ingela Anderton Andin</prepared>
     <responsible></responsible>
     <docno></docno>
@@ -34,14 +34,14 @@
     <file>public_key_records.xml</file>
   </header>
     
-  <p>This chapter briefly describes Erlang records derived from ASN1
+  <p>This section briefly describes Erlang records derived from ASN.1
   specifications used to handle public and private keys.
-  The intent is to describe the data types
-  and not to specify the semantics of each component. For information on the
-  semantics, please see the relevant standards and RFCs.</p>
+  The scope is to describe the data types of each component,
+  not the semantics. For information on the
+  semantics, refer to the relevant standards and RFCs.</p>
 
   <p>Use the following include directive to get access to the
-  records and constant macros described in the following sections.</p>
+  records and constant macros described in the following sections:</p>
   
   <code> -include_lib("public_key/include/public_key.hrl"). </code>
 
@@ -49,13 +49,15 @@
      <title>Common Data Types</title>   
 
     <p>Common non-standard Erlang
-    data types used to described the record fields in the
-    below sections are defined in <seealso
-    marker="public_key">public key reference manual </seealso></p>
+    data types used to describe the record fields in the
+    following sections are defined in the <c>public_key</c> <seealso
+    marker="public_key">Reference Manual</seealso>.</p>
   </section>
 
   <section>
-    <title>RSA as defined by the PKCS-1 standard and  <url href="http://www.ietf.org/rfc/rfc3447.txt"> RFC 3447 </url></title>
+    <title>The RSA According to PKCS-1 and RFC 3447</title>
+    <p>RSA as defined by the PKCS-1 standard and <url href="http://www.ietf.org/rfc/rfc3447.txt"> 
+    RFC 3447 </url> follows:</p>
     
     <code>
 #'RSAPublicKey'{
@@ -80,15 +82,15 @@
 	prime,           % integer()
 	exponent,        % integer()
 	coefficient      % integer()
- 	 }.	 
-    </code>
+ 	 }.	 </code>
 
   </section>
 
   <section>
-    <title>DSA as defined by
-    <url href="http://csrc.nist.gov/publications/fips/fips186-3/fips_186-3.pdf">  Digital Signature Standard (NIST FIPS PUB 186-2) </url>
-    </title>
+    <title>DSA According to DSS</title>
+    <p>The DSA as defined by the
+    <url href="http://csrc.nist.gov/publications/fips/fips186-3/fips_186-3.pdf">  
+    Digital Signature Standard (DSS), NIST FIPS PUB 186-2</url> follows:</p>
     
     <code>	 
 #'DSAPrivateKey',{
@@ -104,13 +106,13 @@
          p,         % integer()
 	 q,         % integer()
 	 g          % integer()
-	 }. 
-    </code>
+	 }. </code>
   </section>
 
   <section>
-       <title>ECC (Elliptic Curve) <url href="http://www.ietf.org/rfc/rfc3447.txt"> RFC 5480 </url> 
-    </title>
+       <title>ECC According to RFC 5480</title>
+       <p>The Elliptic Curve (ECC) as defined by <url href="http://www.ietf.org/rfc/rfc3447.txt"> 
+       RFC 5480 </url> follows:</p>
     
     <code>	 
 #'ECPrivateKey'{
