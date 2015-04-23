@@ -1138,6 +1138,31 @@
     </fo:block>
   </xsl:template>
 
+  <!-- Do -->
+  <xsl:template match="do">
+    <xsl:param name="partnum"/>
+    <fo:block xsl:use-attribute-sets="do">
+        <fo:block xsl:use-attribute-sets="note-warning-title">
+            <xsl:text>Do:</xsl:text>
+        </fo:block>
+      <xsl:apply-templates>
+        <xsl:with-param name="partnum" select="$partnum"/>
+      </xsl:apply-templates>
+    </fo:block>
+  </xsl:template>
+
+  <!-- Dont -->
+  <xsl:template match="dont">
+    <xsl:param name="partnum"/>
+    <fo:block xsl:use-attribute-sets="dont">
+        <fo:block xsl:use-attribute-sets="note-warning-title">
+            <xsl:text>Don't:</xsl:text>
+        </fo:block>
+      <xsl:apply-templates>
+        <xsl:with-param name="partnum" select="$partnum"/>
+      </xsl:apply-templates>
+    </fo:block>
+  </xsl:template>
 
  <!-- Paragraph -->
   <xsl:template match="p">

@@ -246,18 +246,14 @@ expr({record,_,_,Name,_}, _Bs, _Lf, _Ef, _RBs) ->
 %% map
 expr({map,_,Binding,Es}, Bs0, Lf, Ef, RBs) ->
     {value, Map0, Bs1} = expr(Binding, Bs0, Lf, Ef, none),
-    case Map0 of
-        #{} ->
-            {Vs,Bs2} = eval_map_fields(Es, Bs0, Lf, Ef),
-            Map1 = lists:foldl(fun ({map_assoc,K,V}, Mi) ->
-                                       maps:put(K, V, Mi);
-                                   ({map_exact,K,V}, Mi) ->
-                                       maps:update(K, V, Mi)
-                               end, Map0, Vs),
-            ret_expr(Map1, merge_bindings(Bs2, Bs1), RBs);
-        _ ->
-            erlang:raise(error, {badarg,Map0}, stacktrace())
-    end;
+    {Vs,Bs2} = eval_map_fields(Es, Bs0, Lf, Ef),
+    _ = maps:put(k, v, Map0),			%Validate map.
+    Map1 = lists:foldl(fun ({map_assoc,K,V}, Mi) ->
+			       maps:put(K, V, Mi);
+			   ({map_exact,K,V}, Mi) ->
+			       maps:update(K, V, Mi)
+		       end, Map0, Vs),
+    ret_expr(Map1, merge_bindings(Bs2, Bs1), RBs);
 expr({map,_,Es}, Bs0, Lf, Ef, RBs) ->
     {Vs,Bs} = eval_map_fields(Es, Bs0, Lf, Ef),
     ret_expr(lists:foldl(fun
@@ -1172,7 +1168,7 @@ match_tuple([], _, _, Bs, _BBs) ->
 
 match_map([{map_field_exact, _, K, V}|Fs], Map, Bs0, BBs) ->
     Vm = try
-	{value, Ke, _} = expr(K, new_bindings()),
+	{value, Ke, _} = expr(K, Bs0),
 	maps:get(Ke,Map)
     catch error:_ ->
 	throw(nomatch)

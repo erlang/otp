@@ -1341,23 +1341,23 @@ i_bitstr(E, Ren, Env, S) ->
     S3 = count_size(weight(bitstr), S2),
     {update_c_bitstr(E, Val, Size, Unit, Type, Flags), S3}.
 
-i_map(E, Ctx, Ren, Env, S) ->
+i_map(E, Ctx, Ren, Env, S0) ->
     %% Visit the segments for value.
-    {M1, S1} = i(map_arg(E), value, Ren, Env, S),
+    {M1, S1} = i(map_arg(E), value, Ren, Env, S0),
     {Es, S2} = mapfoldl(fun (E, S) ->
 		i_map_pair(E, Ctx, Ren, Env, S)
 	end, S1, map_es(E)),
     S3 = count_size(weight(map), S2),
     {update_c_map(E, M1,Es), S3}.
 
-i_map_pair(E, Ctx, Ren, Env, S) ->
-    %% It is not necessary to visit the Op and Key fields,
-    %% since these are always literals.
-    {Val, S1} = i(map_pair_val(E), Ctx, Ren, Env, S),
+i_map_pair(E, Ctx, Ren, Env, S0) ->
+    %% It is not necessary to visit the Op field
+    %% since it is always a literal.
+    {Key, S1} = i(map_pair_key(E), value, Ren, Env, S0),
+    {Val, S2} = i(map_pair_val(E), Ctx, Ren, Env, S1),
     Op = map_pair_op(E),
-    Key = map_pair_key(E),
-    S2 = count_size(weight(map_pair), S1),
-    {update_c_map_pair(E, Op, Key, Val), S2}.
+    S3 = count_size(weight(map_pair), S2),
+    {update_c_map_pair(E, Op, Key, Val), S3}.
 
 
 %% This is a simplified version of `i_pattern', for lists of parameter
@@ -1420,15 +1420,11 @@ i_pattern(E, Ren, Env, Ren0, Env0, S) ->
 	    S2 = count_size(weight(binary), S1),
 	    {update_c_binary(E, Es), S2};
 	map ->
-	    %% map patterns should not have args
-	    M = map_arg(E),
-
 	    {Es, S1} = mapfoldl(fun (E, S) ->
 			i_map_pair_pattern(E, Ren, Env, Ren0, Env0, S)
-		end,
-		S, map_es(E)),
+		end, S, map_es(E)),
 	    S2 = count_size(weight(map), S1),
-	    {update_c_map(E, M, Es), S2};
+	    {update_c_map(E, map_arg(E), Es), S2};
 	_ ->
 	    case is_literal(E) of
 		true ->
@@ -1464,12 +1460,12 @@ i_bitstr_pattern(E, Ren, Env, Ren0, Env0, S) ->
 
 i_map_pair_pattern(E, Ren, Env, Ren0, Env0, S) ->
     %% It is not necessary to visit the Op it is always a literal.
-    %% Same goes for Key
-    {Val, S1} = i_pattern(map_pair_val(E), Ren, Env, Ren0, Env0, S),
+    %% Key is an expression
+    {Key, S1} = i(map_pair_key(E), value, Ren0, Env0, S),
+    {Val, S2} = i_pattern(map_pair_val(E), Ren, Env, Ren0, Env0, S1),
     Op = map_pair_op(E), %% should be 'exact' literal
-    Key  = map_pair_key(E),
-    S2 = count_size(weight(map_pair), S1),
-    {update_c_map_pair(E, Op, Key, Val), S2}.
+    S3 = count_size(weight(map_pair), S2),
+    {update_c_map_pair(E, Op, Key, Val), S3}.
 
 
 %% ---------------------------------------------------------------------

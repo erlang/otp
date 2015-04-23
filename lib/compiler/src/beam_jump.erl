@@ -127,7 +127,7 @@
 %%% on the program state.
 %%% 
 
--import(lists, [reverse/1,reverse/2,foldl/3,dropwhile/2]).
+-import(lists, [reverse/1,reverse/2,foldl/3]).
 
 module({Mod,Exp,Attr,Fs0,Lc}, _Opt) ->
     Fs = [function(F) || F <- Fs0],
@@ -166,6 +166,12 @@ share_1([{label,L}=Lbl|Is], Dict0, Seq, Acc) ->
     end;
 share_1([{func_info,_,_,_}=I|Is], _, [], Acc) ->
     reverse(Is, [I|Acc]);
+share_1([{'try',_,_}=I|Is], Dict0, Seq, Acc) ->
+    Dict = clean_non_sharable(Dict0),
+    share_1(Is, Dict, [I|Seq], Acc);
+share_1([{try_case,_}=I|Is], Dict0, Seq, Acc) ->
+    Dict = clean_non_sharable(Dict0),
+    share_1(Is, Dict, [I|Seq], Acc);
 share_1([I|Is], Dict, Seq, Acc) ->
     case is_unreachable_after(I) of
 	false ->
@@ -174,6 +180,24 @@ share_1([I|Is], Dict, Seq, Acc) ->
 	    share_1(Is, Dict, [I], Acc)
     end.
 
+clean_non_sharable(Dict) ->
+    %% We are passing in or out of a 'try' block. Remove
+    %% sequences that should not shared over the boundaries
+    %% of a 'try' block. Since the end of the sequence must match,
+    %% the only possible match between a sequence outside and
+    %% a sequence inside the 'try' block is a sequence that ends
+    %% with an instruction that causes an exception. Any sequence
+    %% that causes an exception must contain a line/1 instruction.
+    dict:filter(fun(K, _V) -> sharable_with_try(K) end, Dict).
+
+sharable_with_try([{line,_}|_]) ->
+    %% This sequence may cause an exception and may potentially
+    %% match a sequence on the other side of the 'try' block
+    %% boundary.
+    false;
+sharable_with_try([_|Is]) ->
+    sharable_with_try(Is);
+sharable_with_try([]) -> true.
 
 %% Eliminate all fallthroughs. Return the result reversed.
 
@@ -295,12 +319,6 @@ opt([{test,_,{f,_}=Lbl,_,_,_}=I|Is], Acc, St) ->
     opt(Is, [I|Acc], label_used(Lbl, St));
 opt([{select,_,_R,Fail,Vls}=I|Is], Acc, St) ->
     skip_unreachable(Is, [I|Acc], label_used([Fail|Vls], St));
-opt([{label,L}=I|Is], Acc, #st{entry=L}=St) ->
-    %% NEVER move the entry label.
-    opt(Is, [I|Acc], St);
-opt([{label,L1},{jump,{f,L2}}=I|Is], [Prev|Acc], St0) ->
-    St = St0#st{mlbl=dict:append(L2, L1, St0#st.mlbl)},
-    opt([Prev,I|Is], Acc, label_used({f,L2}, St));
 opt([{label,Lbl}=I|Is], Acc, #st{mlbl=Mlbl}=St0) ->
     case dict:find(Lbl, Mlbl) of
 	{ok,Lbls} ->
@@ -310,9 +328,20 @@ opt([{label,Lbl}=I|Is], Acc, #st{mlbl=Mlbl}=St0) ->
 	    insert_labels([Lbl|Lbls], Is, Acc, St);
 	error -> opt(Is, [I|Acc], St0)
     end;
-opt([{jump,{f,Lbl}},{label,Lbl}=I|Is], Acc, St) ->
-    opt([I|Is], Acc, St);
-opt([{jump,Lbl}=I|Is], Acc, St) ->
+opt([{jump,{f,_}=X}|[{label,_},{jump,X}|_]=Is], Acc, St) ->
+    opt(Is, Acc, St);
+opt([{jump,{f,Lbl}}|[{label,Lbl}|_]=Is], Acc, St) ->
+    opt(Is, Acc, St);
+opt([{jump,{f,L}=Lbl}=I|Is], Acc0, #st{mlbl=Mlbl0}=St0) ->
+    %% All labels before this jump instruction should now be
+    %% moved to the location of the jump's target.
+    {Lbls,Acc} = collect_labels(Acc0, St0),
+    St = case Lbls of
+	     [] -> St0;
+	     [_|_] ->
+		 Mlbl = dict:append_list(L, Lbls, Mlbl0),
+		 St0#st{mlbl=Mlbl}
+	 end,
     skip_unreachable(Is, [I|Acc], label_used(Lbl, St));
 %% Optimization: quickly handle some common instructions that don't
 %% have any failure labels and where is_unreachable_after(I) =:= false.
@@ -348,6 +377,17 @@ insert_fc_labels([L|Ls], Mlbl, Acc0) ->
 	    insert_fc_labels(Lbls++Ls, Mlbl, Acc)
     end;
 insert_fc_labels([], _, Acc) -> Acc.
+
+collect_labels(Is, #st{entry=Entry}) ->
+    collect_labels_1(Is, Entry, []).
+
+collect_labels_1([{label,Entry}|_]=Is, Entry, Acc) ->
+    %% Never move the entry label.
+    {Acc,Is};
+collect_labels_1([{label,L}|Is], Entry, Acc) ->
+    collect_labels_1(Is, Entry, [L|Acc]);
+collect_labels_1(Is, _Entry, Acc) ->
+    {Acc,Is}.
 
 %% label_defined(Is, Label) -> true | false.
 %%  Test whether the label Label is defined at the start of the instruction
@@ -435,14 +475,14 @@ is_label_used_in(Lbl, Is) ->
     is_label_used_in_1(Is, Lbl, gb_sets:empty()).
 
 is_label_used_in_1([{block,Block}|Is], Lbl, Empty) ->
-    lists:any(fun(I) -> is_label_used_in_2(I, Lbl) end, Block)
+    lists:any(fun(I) -> is_label_used_in_block(I, Lbl) end, Block)
 	orelse is_label_used_in_1(Is, Lbl, Empty);
 is_label_used_in_1([I|Is], Lbl, Empty) ->
     Used = ulbl(I, Empty),
     gb_sets:is_member(Lbl, Used) orelse is_label_used_in_1(Is, Lbl, Empty);
 is_label_used_in_1([], _, _) -> false.
 
-is_label_used_in_2({set,_,_,Info}, Lbl) ->
+is_label_used_in_block({set,_,_,Info}, Lbl) ->
     case Info of
 	{bif,_,{f,F}} -> F =:= Lbl;
 	{alloc,_,{gc_bif,_,{f,F}}} -> F =:= Lbl;
@@ -452,7 +492,6 @@ is_label_used_in_2({set,_,_,Info}, Lbl) ->
 	{put_tuple,_} -> false;
 	{get_tuple_element,_} -> false;
 	{set_tuple_element,_} -> false;
-        {get_map_elements,{f,F}} -> F =:= Lbl;
 	{line,_} -> false;
 	_ when is_atom(Info) -> false
     end.
@@ -470,10 +509,7 @@ rem_unused([{label,Lbl}=I|Is0], Used, [Prev|_]=Acc) ->
     case gb_sets:is_member(Lbl, Used) of
 	false ->
 	    Is = case is_unreachable_after(Prev) of
-		     true ->
-			 dropwhile(fun({label,_}) -> false;
-				      (_) -> true
-				   end, Is0);
+		     true -> drop_upto_label(Is0);
 		     false -> Is0
 		 end,
 	    rem_unused(Is, Used, Acc);
@@ -493,6 +529,10 @@ initial_labels([{label,Lbl}|Is], Acc) ->
     initial_labels(Is, [Lbl|Acc]);
 initial_labels([{func_info,_,_,_},{label,Lbl}|_], Acc) ->
     gb_sets:from_list([Lbl|Acc]).
+
+drop_upto_label([{label,_}|_]=Is) -> Is;
+drop_upto_label([_|Is]) -> drop_upto_label(Is);
+drop_upto_label([]) -> [].
 
 %% ulbl(Instruction, UsedGbSet) -> UsedGbSet'
 %%  Update the gb_set UsedGbSet with any function-local labels

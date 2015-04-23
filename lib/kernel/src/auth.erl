@@ -370,8 +370,8 @@ check_cookie1([], Result) ->
 %% Creates a new, random cookie. 
    
 create_cookie(Name) ->
-    {_, S1, S2} = now(),
-    Seed = S2*10000+S1,
+    Seed = abs(erlang:monotonic_time()
+	       bxor erlang:unique_integer()),
     Cookie = random_cookie(20, Seed, []),
     case file:open(Name, [write, raw]) of
 	{ok, File} ->

@@ -27,7 +27,7 @@
 
 -module(edoc_layout).
 
--export([module/2, package/2, overview/2, type/1]).
+-export([module/2, overview/2, type/1]).
 
 -import(edoc_report, [report/2]).
 
@@ -701,6 +701,8 @@ deprecated(Es, S) ->
     end.
 
 behaviours(Es, Name) ->
+    CBs = get_content(callbacks, Es),
+    OCBs = get_content(optional_callbacks, Es),
     (case get_elem(behaviour, Es) of
 	 [] -> [];
 	 Es1 ->
@@ -709,13 +711,24 @@ behaviours(Es, Name) ->
 	      ?NL]
      end
      ++
-     case get_content(callbacks, Es) of
-	 [] -> [];
-	 Es1 ->
+     if CBs =:= [], OCBs =:= [] ->
+             [];
+	 true ->
+             Req = if CBs =:= [] ->
+                       [];
+                       true ->
+                           [br, " Required callback functions: "]
+                           ++ seq(fun callback/1, CBs, ["."])
+                   end,
+             Opt = if OCBs =:= [] ->
+                       [];
+                       true ->
+                           [br, " Optional callback functions: "]
+                           ++ seq(fun callback/1, OCBs, ["."])
+                   end,
 	     [{p, ([{b, ["This module defines the ", {tt, [Name]},
-			 " behaviour."]},
-		    br, " Required callback functions: "]
-		   ++ seq(fun callback/1, Es1, ["."]))},
+			 " behaviour."]}]
+                   ++ Req ++ Opt)},
 	      ?NL]
      end).
 
@@ -965,9 +978,6 @@ get_text(Name, Es) ->
 local_label(R) ->
     "#" ++ R.
 
-xhtml(Title, CSS, Body) ->
-    xhtml(Title, CSS, Body, "latin1").
-
 xhtml(Title, CSS, Body, Encoding) ->
     EncString = case Encoding of
                     "latin1" -> "ISO-8859-1";
@@ -996,27 +1006,6 @@ type(E, Ds) ->
     Opts = [],
     xmerl:export_simple_content(t_utype_elem(E) ++ local_defs(Ds, Opts),
 				?HTML_EXPORT).
-
-package(E=#xmlElement{name = package, content = Es}, Options) ->
-    Opts = init_opts(E, Options),
-    Name = get_text(packageName, Es),
-    Title = ["Package ", Name],
-    Desc = get_content(description, Es),
-%    ShortDesc = get_content(briefDescription, Desc),
-    FullDesc = get_content(fullDescription, Desc),
-    Body = ([?NL, {h1, [Title]}, ?NL]
-%	    ++ ShortDesc
-	    ++ copyright(Es)
-	    ++ deprecated(Es, "package")
-	    ++ version(Es)
-	    ++ since(Es)
-	    ++ authors(Es)
-	    ++ references(Es)
-	    ++ sees(Es)
-	    ++ todos(Es)
-	    ++ FullDesc),
-    XML = xhtml(Title, stylesheet(Opts), Body),
-    xmerl:export_simple(XML, ?HTML_EXPORT, []).
 
 overview(E=#xmlElement{name = overview, content = Es}, Options) ->
     Opts = init_opts(E, Options),

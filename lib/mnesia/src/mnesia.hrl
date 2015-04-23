@@ -39,7 +39,12 @@
 -define(ets_delete_table(Tab), ets:delete(Tab)).
 -define(ets_fixtable(Tab, Bool), ets:fixtable(Tab, Bool)).
 
--define(catch_val(Var), (catch ?ets_lookup_element(mnesia_gvar, Var, 2))).
+
+-define(SAFE(OP), try (OP) catch error:_ -> ok end).
+-define(CATCH(OP), try (OP) catch _:_Reason -> {'EXIT', _Reason} end).
+
+-define(catch_val(Var), (try ?ets_lookup_element(mnesia_gvar, Var, 2)
+			 catch error:_ -> {'EXIT', {badarg, []}} end)).
 
 %% It's important that counter is first, since we compare tid's
 
@@ -53,7 +58,9 @@
          up_stores = [],  %% list of upper layer stores for nested trans
          level = 1}).     %% transaction level
 
--define(unique_cookie, {erlang:now(), node()}).
+-define(unique_cookie, {{erlang:monotonic_time() + erlang:time_offset(),
+			 erlang:unique_integer(),1},
+			node()}).
 
 -record(cstruct, {name,                            % Atom
 		  type = set,                      % set | bag

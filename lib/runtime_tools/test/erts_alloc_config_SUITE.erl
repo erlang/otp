@@ -79,12 +79,7 @@ basic(Config) when is_list(Config) ->
     SbctMod = " +MBsbct 1024 +MHsbct 4096",
 
     %% Make sure we have enabled allocators
-    ZFlgs = case os:getenv("ERL_ZFLAGS") of
-		FlgString when is_list(FlgString) ->
-		    FlgString;
-		_ ->
-		    ""
-	    end ++ " +Mea max +Mea config",
+    ZFlgs = os:getenv("ERL_ZFLAGS", "") ++ " +Mea max +Mea config",
 
     ?line os:putenv("ERL_ZFLAGS", ZFlgs ++ SbctMod),
 

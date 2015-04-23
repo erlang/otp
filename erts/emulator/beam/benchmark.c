@@ -37,37 +37,9 @@ unsigned long long major_gc;
 
 #ifdef BM_TIMERS
 
-#if (defined(__i386__) || defined(__x86_64__)) && USE_PERFCTR
-
-#include "libperfctr.h"
-struct vperfctr *system_clock;
-double cpu_khz;
-BM_NEW_TIMER(start);
-
-static double get_hrvtime(void)
-{
-    unsigned long long ticks;
-    double milli_seconds;
-
-    ticks = vperfctr_read_tsc(system_clock);
-    milli_seconds = (double)ticks / cpu_khz;
-    return milli_seconds;
-}
-
-static void stop_hrvtime(void)
-{
-    if(system_clock)
-    {
-	vperfctr_stop(system_clock);
-	vperfctr_close(system_clock);
-	system_clock = NULL;
-    }
-}
-
-#else /* not perfctr, asuming Solaris */
+/* assuming Solaris */
 #include <time.h>
 BM_TIMER_T system_clock;
-#endif
 
 unsigned long local_pause_times[MAX_PAUSE_TIME];
 unsigned long pause_times[MAX_PAUSE_TIME];
@@ -117,40 +89,6 @@ unsigned long long message_sizes[1000];
 void init_benchmarking()
 {
 #ifdef BM_TIMERS
-#if (defined(__i386__) || defined(__x86_64__)) && USE_PERFCTR
-    /* pass `--with-perfctr=/path/to/perfctr' when configuring */
-    struct perfctr_info info;
-    struct vperfctr_control control;
-    int i;
-
-    system_clock = vperfctr_open();
-    if (system_clock != NULL)
-    {
-        if (vperfctr_info(system_clock,&info) >= 0)
-        {
-            cpu_khz = (double)info.cpu_khz;
-            if (info.cpu_features & PERFCTR_FEATURE_RDTSC)
-            {
-                memset(&control,0,sizeof control);
-                control.cpu_control.tsc_on = 1;
-            }
-        }
-        if (vperfctr_control(system_clock,&control) < 0)
-        {
-            vperfctr_close(system_clock);
-            system_clock = NULL;
-        }
-    }
-
-    for (i = 0; i < 1000; i++)
-    {
-        BM_START_TIMER(system);
-        BM_STOP_TIMER(system);
-    }
-
-    timer_time = system_time / 1000;
-    start_time = 0;
-#else
     int i;
     for (i = 0; i < 1000; i++)
     {
@@ -158,7 +96,6 @@ void init_benchmarking()
         BM_STOP_TIMER(system);
     }
     timer_time = system_time / 1000;
-#endif
 
     for (i = 0; i < MAX_PAUSE_TIME; i++) {
         local_pause_times[i] = 0;

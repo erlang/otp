@@ -33,7 +33,7 @@ all() ->
     [{group,p}].
 
 groups() -> 
-    [{p,test_lib:parallel(),
+    [{p,[parallel],
       [t_case,t_and_or,t_andalso,t_orelse,inside,overlap,
        combined,in_case,before_and_inside_if]}].
 
@@ -173,7 +173,13 @@ t_and_or(Config) when is_list(Config) ->
 
     true = (fun (X = true) when X or true or X -> true end)(True),
 
-   ok.
+    Tuple = id({a,b}),
+    case Tuple of
+	{_,_} ->
+	    {'EXIT',{badarg,_}} = (catch true and Tuple)
+    end,
+
+    ok.
 
 t_andalso(Config) when is_list(Config) ->
     Bs = [true,false],
@@ -364,6 +370,11 @@ combined(Config) when is_list(Config) ->
     ?line true = ?COMB(false, blurf, true),
     ?line true = ?COMB(true, true, blurf),
 
+    false = simple_comb(false, false),
+    false = simple_comb(false, true),
+    false = simple_comb(true, false),
+    true = simple_comb(true, true),
+
     ok.
 -undef(COMB).
 
@@ -389,6 +400,13 @@ comb(A, B, C) ->
 	      true -> false
 	  end,
     id(Res).
+
+simple_comb(A, B) ->
+    %% Use Res twice, to ensure that a careless optimization of 'not'
+    %% doesn't leave Res as a free variable.
+    Res = A andalso B,
+    _ = id(not Res),
+    Res.
 
 %% Test that a boolean expression in a case expression is properly
 %% optimized (in particular, that the error behaviour is correct).

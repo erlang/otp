@@ -84,8 +84,12 @@ validate_tab({Tabname, RecName, List}) ->
 validate_tab(_) -> error(badtab).
 
 make_tabs([{Tab, Def} | Tail]) ->
-    case catch mnesia:table_info(Tab, where_to_read) of
-	{'EXIT', _} -> %% non-existing table
+    try mnesia:table_info(Tab, where_to_read) of
+	Node ->
+	    io:format("** Table ~w already exists on ~p, just entering data~n",
+		      [Tab, Node]),
+	    make_tabs(Tail)
+    catch exit:_ -> %% non-existing table
 	    case mnesia:create_table(Tab, Def) of
 		{aborted, Reason} ->
 		    io:format("** Failed to create table ~w ~n"
@@ -95,11 +99,7 @@ make_tabs([{Tab, Def} | Tail]) ->
 		_ -> 
 		    io:format("New table ~w~n", [Tab]),
 		    make_tabs(Tail)
-	    end;
-	Node ->
-	    io:format("** Table ~w already exists on ~p, just entering data~n",
-		      [Tab, Node]),
-	    make_tabs(Tail)
+	    end
     end;
 
 make_tabs([]) -> 
@@ -118,11 +118,9 @@ load_data(L) ->
 parse(File) ->
     case file(File) of
 	{ok, Terms} ->
-	    case catch collect(Terms) of
-		{error, X} ->
-		    {error, X};
-		Other ->
-		    {ok, Other}
+	    try collect(Terms) of
+		Other -> {ok, Other}
+	    catch throw:Error -> Error
 	    end;
 	Other ->
 	    Other

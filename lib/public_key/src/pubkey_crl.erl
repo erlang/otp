@@ -473,7 +473,7 @@ check_crl_num(_,_) ->
 extension_value(Extension, ExtType, Extensions) ->
     case pubkey_cert:select_extension(Extension, Extensions) of
 	#'Extension'{extnValue = Value} ->
-	    public_key:der_decode(ExtType, list_to_binary(Value));
+	    public_key:der_decode(ExtType, iolist_to_binary(Value));
 	_ ->
 	    undefined
     end.
@@ -565,7 +565,7 @@ verify_crl_signature(CRL, DerCRL, Key, KeyParams) ->
 			      {Key, KeyParams})
     end.
 extract_crl_verify_data(CRL, DerCRL) ->
-    {0, Signature} = CRL#'CertificateList'.signature,
+    Signature = CRL#'CertificateList'.signature,
     #'AlgorithmIdentifier'{algorithm = SigAlg} =
 	CRL#'CertificateList'.signatureAlgorithm,
     PlainText = encoded_tbs_crl(DerCRL),

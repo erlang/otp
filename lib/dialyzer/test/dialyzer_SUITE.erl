@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2014. All Rights Reserved.
+%% Copyright Ericsson AB 2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -30,12 +30,12 @@
 -export([init_per_testcase/2, end_per_testcase/2]).
 
 %% Test cases must be exported.
--export([app_test/1, appup_test/1, beam_tests/1]).
+-export([app_test/1, appup_test/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() ->
-    [app_test, appup_test, beam_tests].
+    [app_test, appup_test].
 
 groups() ->
     [].
@@ -75,38 +75,3 @@ app_test(Config) when is_list(Config) ->
 %% Test that the .appup file does not contain any `basic' errors
 appup_test(Config) when is_list(Config) ->
     ok = ?t:appup_test(dialyzer).
-
-beam_tests(Config) when is_list(Config) ->
-    Prog = <<"
-              -module(no_auto_import).
-
-              %% Copied from erl_lint_SUITE.erl, clash6
-
-              -export([size/1]).
-
-              size([]) ->
-                  0;
-              size({N,_}) ->
-                  N;
-              size([_|T]) ->
-                  1+size(T).
-             ">>,
-    Opts = [no_auto_import],
-    {ok, BeamFile} = compile(Config, Prog, no_auto_import, Opts),
-    [] = run_dialyzer([BeamFile]),
-    ok.
-
-compile(Config, Prog, Module, CompileOpts) ->
-    Source = lists:concat([Module, ".erl"]),
-    PrivDir = ?config(priv_dir,Config),
-    Filename = filename:join([PrivDir, Source]),
-    ok = file:write_file(Filename, Prog),
-    Opts = [{outdir, PrivDir}, debug_info | CompileOpts],
-    {ok, Module} = compile:file(Filename, Opts),
-    {ok, filename:join([PrivDir, lists:concat([Module, ".beam"])])}.
-
-run_dialyzer(Files) ->
-    dialyzer:run([{analysis_type, plt_build},
-                  {files, Files},
-                  {from, byte_code},
-                  {check_plt, false}]).

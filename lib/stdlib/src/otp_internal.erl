@@ -59,6 +59,11 @@ obsolete_1(erl_eval, arg_list, 3) ->
 obsolete_1(erlang, hash, 2) ->
     {deprecated, {erlang, phash2, 2}};
 
+obsolete_1(erlang, now, 0) ->
+    {deprecated,
+     "Deprecated BIF. See the \"Time and Time Correction in Erlang\" "
+     "chapter of the ERTS User's Guide for more information."};
+
 obsolete_1(calendar, local_time_to_universal_time, 1) ->
     {deprecated, {calendar, local_time_to_universal_time_dst, 1}};
 
@@ -577,8 +582,21 @@ obsolete_1(asn1rt, utf8_binary_to_list, 1) ->
     {deprecated,{unicode,characters_to_list,1}};
 obsolete_1(asn1rt, utf8_list_to_binary, 1) ->
     {deprecated,{unicode,characters_to_binary,1}};
-obsolete_1(pg, _, _) ->
-    {deprecated,"deprecated; will be removed in OTP 18"};
+
+%% Added in OTP 18.
+obsolete_1(core_lib, get_anno, 1) ->
+    {deprecated,{cerl,get_ann,1}};
+obsolete_1(core_lib, set_anno, 2) ->
+    {deprecated,{cerl,set_ann,2}};
+obsolete_1(core_lib, is_literal, 1) ->
+    {deprecated,{cerl,is_literal,1}};
+obsolete_1(core_lib, is_literal_list, 1) ->
+    {deprecated,"deprecated; use lists:all(fun cerl:is_literal/1, L)"
+     " instead"};
+obsolete_1(core_lib, literal_value, 1) ->
+    {deprecated,{core_lib,concrete,1}};
+obsolete_1(ssl, negotiated_next_protocol, 1) ->
+    {deprecated,{ssl,negotiated_protocol,1}};
 
 obsolete_1(_, _, _) ->
     no.

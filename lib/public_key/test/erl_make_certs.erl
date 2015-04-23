@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2011-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -114,7 +114,7 @@ verify_signature(DerEncodedCert, DerKey, _KeyParams) ->
 	#'DSAPrivateKey'{p=P, q=Q, g=G, y=Y} ->
 	    public_key:pkix_verify(DerEncodedCert, {Y, #'Dss-Parms'{p=P, q=Q, g=G}});
 	#'ECPrivateKey'{version = _Version, privateKey = _PrivKey,
-			parameters = Params, publicKey = {0, PubKey}} ->
+			parameters = Params, publicKey = PubKey} ->
 	    public_key:pkix_verify(DerEncodedCert, {#'ECPoint'{point = PubKey}, Params})
     end.
 
@@ -204,7 +204,7 @@ issuer_der(Issuer) ->
     Subject.
 
 subject(undefined, IsRootCA) ->
-    User = if IsRootCA -> "RootCA"; true -> user() end,
+    User = if IsRootCA -> "RootCA"; true -> os:getenv("USER", "test_user") end,
     Opts = [{email, User ++ "@erlang.org"},
 	    {name, User},
 	    {city, "Stockholm"},
@@ -214,14 +214,6 @@ subject(undefined, IsRootCA) ->
     subject(Opts);
 subject(Opts, _) ->
     subject(Opts).
-
-user() ->
-    case os:getenv("USER") of
-	false ->
-	    "test_user";
-	User ->
-	    User
-    end.
 
 subject(SubjectOpts) when is_list(SubjectOpts) ->
     Encode = fun(Opt) ->
@@ -267,9 +259,8 @@ default_extensions(Exts) ->
     Filter = fun({Key, _}, D) -> lists:keydelete(Key, 1, D) end,
     Exts ++ lists:foldl(Filter, Def, Exts).
        	
-
-
 extension({_, undefined}) -> [];
+
 extension({basic_constraints, Data}) ->
     case Data of
 	default ->
@@ -286,9 +277,11 @@ extension({basic_constraints, Data}) ->
 	    #'Extension'{extnID = ?'id-ce-basicConstraints',
 			 extnValue = Data}
     end;
+
 extension({key_usage, default}) ->
     #'Extension'{extnID = ?'id-ce-keyUsage',
 		 extnValue = [keyCertSign], critical = true};
+
 extension({Id, Data, Critical}) ->
     #'Extension'{extnID = Id, extnValue = Data, critical = Critical}.
 
@@ -305,7 +298,7 @@ publickey(#'DSAPrivateKey'{p=P, q=Q, g=G, y=Y}) ->
 publickey(#'ECPrivateKey'{version = _Version,
 			  privateKey = _PrivKey,
 			  parameters = Params,
-			  publicKey = {0, PubKey}}) ->
+			  publicKey = PubKey}) ->
     Algo = #'PublicKeyAlgorithm'{algorithm= ?'id-ecPublicKey', parameters=Params},
     #'OTPSubjectPublicKeyInfo'{algorithm = Algo,
 			       subjectPublicKey = #'ECPoint'{point = PubKey}}.
@@ -330,14 +323,14 @@ sign_algorithm(#'RSAPrivateKey'{}, Opts) ->
     {Type, 'NULL'};
 sign_algorithm(#'DSAPrivateKey'{p=P, q=Q, g=G}, _Opts) ->
     {?'id-dsa-with-sha1', {params,#'Dss-Parms'{p=P, q=Q, g=G}}};
-sign_algorithm(#'ECPrivateKey'{}, Opts) ->
+sign_algorithm(#'ECPrivateKey'{parameters = Parms}, Opts) ->
     Type = case proplists:get_value(digest, Opts, sha1) of
 	       sha1 ->   ?'ecdsa-with-SHA1';
 	       sha512 -> ?'ecdsa-with-SHA512';
 	       sha384 -> ?'ecdsa-with-SHA384';
 	       sha256 -> ?'ecdsa-with-SHA256'
 	   end,
-    {Type, 'NULL'}.
+    {Type, Parms}.
 
 make_key(rsa, _Opts) ->
     %% (OBS: for testing only)
@@ -414,9 +407,9 @@ gen_ec2(CurveId) ->
      {PubKey, PrivKey} = crypto:generate_key(ecdh, CurveId),
 
     #'ECPrivateKey'{version = 1,
-		    privateKey = binary_to_list(PrivKey),
+		    privateKey = PrivKey,
 		    parameters = {namedCurve, pubkey_cert_records:namedCurves(CurveId)},
-		    publicKey = {0, PubKey}}.
+		    publicKey = PubKey}.
 
 %% See fips_186-3.pdf
 dsa_search(T, P0, Q, Iter) when Iter > 0 ->
@@ -484,6 +477,4 @@ pem_to_der(File) ->
 der_to_pem(File, Entries) ->
     PemBin = public_key:pem_encode(Entries),
     file:write_file(File, PemBin).
-
-
 

@@ -2,7 +2,7 @@ dnl Process this file with autoconf to produce a configure script. -*-m4-*-
 
 dnl %CopyrightBegin%
 dnl
-dnl Copyright Ericsson AB 1997-2014. All Rights Reserved.
+dnl Copyright Ericsson AB 1997-2015. All Rights Reserved.
 dnl
 dnl The contents of this file are subject to the Erlang Public License,
 dnl Version 1.1, (the "License"); you may not use this file except in
@@ -263,24 +263,6 @@ AS_HELP_STRING([--enable-m32-build],
 	enable_m32_build=yes ;;
   esac
 ],enable_m32_build=no)
-
-AC_SUBST(PERFCTR_PATH)
-AC_ARG_WITH(perfctr,
-AS_HELP_STRING([--with-perfctr=PATH],
-               [specify location of perfctr include and lib])
-AS_HELP_STRING([--without-perfctr], [don't use perfctr (default)]))
-
-if test "x$with_perfctr" = "xno" -o "x$with_perfctr" = "x" ; then
-    PERFCTR_PATH=
-else
-    if test ! -f "$with_perfctr/usr.lib/libperfctr.a" ; then
-	AC_MSG_ERROR(Invalid path to option --with-perfctr=PATH)
-    fi
-    PERFCTR_PATH="$with_perfctr"
-    AC_DEFINE(USE_PERFCTR,[1],
-              [Define to enable hrvtime() on Linux systems with perfctr extension])
-fi
-
 
 AC_ARG_WITH(dynamic-trace,
 AS_HELP_STRING([--with-dynamic-trace={dtrace|systemtap}],
@@ -649,7 +631,7 @@ fi
 case $chk_opsys_ in
     win32)			OPSYS=win32;;
     solaris2.*|SunOS5.*)	OPSYS=sol2;;
-    linux|Linux)		OPSYS=linux;;
+    linux*|Linux)		OPSYS=linux;;
     darwin|Darwin)		OPSYS=darwin;;
     freebsd|FreeBSD)		OPSYS=freebsd;;
     *)				OPSYS=noopsys
@@ -1123,10 +1105,31 @@ if test $ERTS_BUILD_SMP_EMU = yes; then
 
 	case "$ethr_have_native_atomics-$smp_require_native_atomics-$ethr_have_native_spinlock" in
 	  yes-*)
+		if test "$ethr_native_atomic_implementation" = "gcc_sync"; then
+		    test -f "$ERL_TOP/erts/CONF_INFO" ||
+			echo "" > "$ERL_TOP/erts/CONF_INFO"
+		    cat >> $ERL_TOP/erts/CONF_INFO <<EOF
+
+                 WARNING:
+                   Only gcc's __sync_* builtins available for
+                   atomic memory access. This will cause lots
+                   of expensive and unnecessary memory barrier
+                   instructions to be issued which will make
+                   the performance of the runtime system
+                   suffer. You are *strongly* advised to
+                   upgrade to a gcc version that supports the
+                   __atomic_* builtins (at least gcc version
+                   4.7) or build with libatomic_ops. See the
+                   "Atomic Memory Operations and the VM"
+		   chapter of \$ERL_TOP/HOWTO/INSTALL.md for
+                   more information.
+
+EOF
+		fi
 		;;
 
 	  no-yes-*)
-		AC_MSG_ERROR([No native atomic implementation found. See Configuring section in INSTALL.md for more information.])
+		AC_MSG_ERROR([No native atomic implementation found. See the \"Atomic Memory Operations and the VM\" chapter of \$ERL_TOP/HOWTO/INSTALL.md for more information.])
 		;;
 
 	  no-no-yes)
@@ -3503,19 +3506,6 @@ fi
 AC_SUBST(NATIVE_LIBS_ENABLED)
 
 #
-# Check if HiPE should use a standard installation of perfctr.
-#
-AC_SUBST(USE_PERFCTR)
-if test "x$HIPE_ENABLED" = "xyes" ; then
-  if test "x$with_perfctr" = "x" ; then
-      AC_CHECK_LIB(perfctr, vperfctr_info, [USE_PERFCTR=1
-	  AC_DEFINE(USE_PERFCTR,[1],[Define to enable hrvtime() on Linux systems with perfctr extension])])
-  elif test "x$with_perfctr" != "xno" ; then
-      USE_PERFCTR=1
-  fi
-fi
-
-#
 # Check for working poll().
 #
 AC_MSG_CHECKING([for working poll()])
@@ -4903,6 +4893,11 @@ esac
 CFLAGS="$CFLAGS $sanitizers"
 LDFLAGS="$LDFLAGS $sanitizers"
 ])
+
+dnl ----------------------------------------------------------------------
+dnl Check for log2
+dnl ----------------------------------------------------------------------
+AC_CHECK_FUNCS([log2])
 
 dnl ----------------------------------------------------------------------
 dnl Output the result.

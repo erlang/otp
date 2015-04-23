@@ -84,13 +84,11 @@ aes_decipher_good(Config) when is_list(Config) ->
     decipher_check_good(HashSz, CipherState, {3,3}).
 
 %%--------------------------------------------------------------------
-
 aes_decipher_fail() ->
     [{doc,"Decipher a known cryptotext using a incorrect key"}].
 
 aes_decipher_fail(Config) when is_list(Config) ->
     HashSz = 32,
-
     CipherState = incorrect_cipher_state(),
     decipher_check_fail(HashSz, CipherState, {3,0}),
     decipher_check_fail(HashSz, CipherState, {3,1}),
@@ -111,36 +109,36 @@ padding_test(Config) when is_list(Config)  ->
 %%--------------------------------------------------------------------
 decipher_check_good(HashSz, CipherState, Version) ->
     {Content, NextIV, Mac} = content_nextiv_mac(Version),
-    {Content, Mac,  #cipher_state{iv = NextIV}} = 
-	ssl_cipher:decipher(?AES, HashSz, CipherState, aes_fragment(Version), Version, true).
+    {Content, Mac, _} = 
+	ssl_cipher:decipher(?AES_CBC, HashSz, CipherState, aes_fragment(Version), Version, true).
 
 decipher_check_fail(HashSz, CipherState, Version) ->
     {Content, NextIV, Mac} = content_nextiv_mac(Version),
     true = {Content, Mac, #cipher_state{iv = NextIV}} =/= 
-	ssl_cipher:decipher(?AES, HashSz, CipherState, aes_fragment(Version), Version, true).
+	ssl_cipher:decipher(?AES_CBC, HashSz, CipherState, aes_fragment(Version), Version, true).
 
 pad_test(HashSz, CipherState, {3,0} = Version) ->
     %% 3.0 does not have padding test
     {Content, NextIV, Mac} = badpad_content_nextiv_mac(Version),
     {Content, Mac, #cipher_state{iv = NextIV}} = 
-	ssl_cipher:decipher(?AES, HashSz, CipherState, badpad_aes_fragment({3,0}), {3,0}, true),    
+	ssl_cipher:decipher(?AES_CBC, HashSz, CipherState, badpad_aes_fragment({3,0}), {3,0}, true),    
     {Content, Mac, #cipher_state{iv = NextIV}} = 
-	ssl_cipher:decipher(?AES, HashSz, CipherState, badpad_aes_fragment({3,0}), {3,0}, false);
+	ssl_cipher:decipher(?AES_CBC, HashSz, CipherState, badpad_aes_fragment({3,0}), {3,0}, false);
 pad_test(HashSz, CipherState, {3,1} = Version) ->
     %% 3.1 should have padding test, but may be disabled
     {Content, NextIV, Mac} = badpad_content_nextiv_mac(Version),
     BadCont = badpad_content(Content),
     {Content, Mac, #cipher_state{iv = NextIV}} = 
-	ssl_cipher:decipher(?AES, HashSz, CipherState, badpad_aes_fragment({3,1}) , {3,1}, false),
+	ssl_cipher:decipher(?AES_CBC, HashSz, CipherState, badpad_aes_fragment({3,1}) , {3,1}, false),
     {BadCont, Mac, #cipher_state{iv = NextIV}} = 
-	ssl_cipher:decipher(?AES, HashSz, CipherState, badpad_aes_fragment({3,1}), {3,1}, true);
+	ssl_cipher:decipher(?AES_CBC, HashSz, CipherState, badpad_aes_fragment({3,1}), {3,1}, true);
 pad_test(HashSz, CipherState, Version) ->
     %% 3.2 and 3.3 must have padding test
     {Content, NextIV, Mac} = badpad_content_nextiv_mac(Version),
     BadCont = badpad_content(Content),
-    {BadCont, Mac, #cipher_state{iv = NextIV}} = ssl_cipher:decipher(?AES, HashSz, CipherState, 
+    {BadCont, Mac, #cipher_state{iv = NextIV}} = ssl_cipher:decipher(?AES_CBC, HashSz, CipherState, 
 									      badpad_aes_fragment(Version), Version, false),
-    {BadCont, Mac, #cipher_state{iv = NextIV}} = ssl_cipher:decipher(?AES, HashSz, CipherState,  
+    {BadCont, Mac, #cipher_state{iv = NextIV}} = ssl_cipher:decipher(?AES_CBC, HashSz, CipherState,  
 								     badpad_aes_fragment(Version), Version, true).
     
 aes_fragment({3,N}) when N == 0; N == 1->
@@ -164,7 +162,7 @@ badpad_aes_fragment(_) ->
 
 content_nextiv_mac({3,N})  when N == 0; N == 1 ->
     {<<"HELLO\n">>,
-     <<33,0, 177,251, 91,44, 247,53, 183,198, 165,63, 20,194, 159,107>>,
+     <<72,196,247,97,62,213,222,109,210,204,217,186,172,184, 197,148>>,
      <<71,136,212,107,223,200,70,232,127,116,148,205,232,35,158,113,237,174,15,217,192,168,35,8,6,107,107,233,25,174,90,111>>};
 content_nextiv_mac(_) ->
     {<<"HELLO\n">>,
@@ -193,3 +191,4 @@ correct_cipher_state() ->
 incorrect_cipher_state() ->
     #cipher_state{iv = <<59,201,85,117,188,206,224,136,5,109,46,70,104,79,4,9>>,
 		  key = <<72,196,247,97,62,213,222,109,210,204,217,186,172,184,197,254>>}.
+    

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2006-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -42,7 +42,6 @@
 -export([ func/1, call/1, recs/1, try_catch/1, if_then/1,
 	  receive_after/1, bits/1, head_tail/1,
 	  cond1/1, block/1, case1/1, ops/1, messages/1,
-	  old_mnemosyne_syntax/1,
 	  import_export/1, misc_attrs/1, dialyzer_attrs/1,
 	  hook/1,
 	  neg_indent/1,
@@ -50,7 +49,7 @@
 
 	  otp_6321/1, otp_6911/1, otp_6914/1, otp_8150/1, otp_8238/1,
 	  otp_8473/1, otp_8522/1, otp_8567/1, otp_8664/1, otp_9147/1,
-          otp_10302/1, otp_10820/1, otp_11100/1]).
+          otp_10302/1, otp_10820/1, otp_11100/1, otp_11861/1]).
 
 %% Internal export.
 -export([ehook/6]).
@@ -77,13 +76,13 @@ groups() ->
     [{expr, [],
       [func, call, recs, try_catch, if_then, receive_after,
        bits, head_tail, cond1, block, case1, ops,
-       messages, old_mnemosyne_syntax, maps_syntax
+       messages, maps_syntax
     ]},
      {attributes, [], [misc_attrs, import_export, dialyzer_attrs]},
      {tickets, [],
       [otp_6321, otp_6911, otp_6914, otp_8150, otp_8238,
        otp_8473, otp_8522, otp_8567, otp_8664, otp_9147,
-       otp_10302, otp_10820, otp_11100]}].
+       otp_10302, otp_10820, otp_11100, otp_11861]}].
 
 init_per_suite(Config) ->
     Config.
@@ -561,27 +560,6 @@ messages(Config) when is_list(Config) ->
     ?line true = "\n" =:= lists:flatten(erl_pp:form({eof,0})),
     ok.
 
-old_mnemosyne_syntax(Config) when is_list(Config) ->
-    %% Since we have kept the ':-' token,
-    %% better test that we can pretty print it.
-    R = {rule,12,sales,2,
-         [{clause,12,
-           [{var,12,'E'},{atom,12,employee}],
-           [],
-           [{generate,13,
-             {var,13,'E'},
-             {call,13,{atom,13,table},[{atom,13,employee}]}},
-            {match,14,
-             {record_field,14,{var,14,'E'},{atom,14,salary}},
-             {atom,14,sales}}]}]},
-    ?line "sales(E, employee) :-\n"
-          "    E <- table(employee),\n"
-          "    E.salary = sales.\n" =
-        lists:flatten(erl_pp:form(R)),
-    ok.
-
-
-
 import_export(suite) ->
     [];
 import_export(Config) when is_list(Config) ->
@@ -663,26 +641,6 @@ do_hook(HookFun) ->
     ?line true = AChars =:= lists:flatten(AChars2),
     AFormChars = erl_pp:form(A, H),
     ?line true = AChars =:= lists:flatten(AFormChars),
-
-    R = {rule,0,sales,0,
-         [{clause,0,[{var,0,'E'},{atom,0,employee}],[],
-           [{generate,2,{var,2,'E'},
-             {call,2,{atom,2,table},[{atom,2,employee}]}},
-            {match,3,
-             {record_field,3,{var,3,'E'},{atom,3,salary}},
-             {foo,Expr}}]}]},
-    RChars = lists:flatten(erl_pp:rule(R, H)),
-    R2 = {rule,0,sales,0,
-          [{clause,0,[{var,0,'E'},{atom,0,employee}],[],
-            [{generate,2,{var,2,'E'},
-              {call,2,{atom,2,table},[{atom,2,employee}]}},
-             {match,3,
-              {record_field,3,{var,3,'E'},{atom,3,salary}},
-              {call,0,{atom,0,foo},[Expr2]}}]}]},
-    RChars2 = erl_pp:rule(R2),
-    ?line true = RChars =:= lists:flatten(RChars2),
-    ARChars = erl_pp:form(R, H),
-    ?line true = RChars =:= lists:flatten(ARChars),
 
     ?line "INVALID-FORM:{foo,bar}:" = lists:flatten(erl_pp:expr({foo,bar})),
 
@@ -874,6 +832,7 @@ type_examples() ->
      {ex3,<<"-type paren() :: (ann2()). ">>},
      {ex4,<<"-type t1() :: atom(). ">>},
      {ex5,<<"-type t2() :: [t1()]. ">>},
+     {ex56,<<"-type integer(A) :: A. ">>},
      {ex6,<<"-type t3(Atom) :: integer(Atom). ">>},
      {ex7,<<"-type '\\'t::4'() :: t3('\\'foobar'). ">>},
      {ex8,<<"-type t5() :: {t1(), t3(foo)}. ">>},
@@ -1204,8 +1163,18 @@ otp_11100(Config) when is_list(Config) ->
              []}}),
     ok.
 
+otp_11861(doc) ->
+    "OTP-11861. behaviour_info() and -callback.";
+otp_11861(suite) -> [];
+otp_11861(Config) when is_list(Config) ->
+    "-optional_callbacks([bar/0]).\n" =
+        pf({attribute,3,optional_callbacks,[{bar,0}]}),
+    "-optional_callbacks([{bar,1,bad}]).\n" =
+        pf({attribute,4,optional_callbacks,[{bar,1,bad}]}),
+    ok.
+
 pf(Form) ->
-    lists:flatten(erl_pp:form(Form,none)).
+    lists:flatten(erl_pp:form(Form, none)).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 

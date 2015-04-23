@@ -1,7 +1,7 @@
 ;;
 ;; %CopyrightBegin%
 ;;
-;; Copyright Ericsson AB 2010. All Rights Reserved.
+;; Copyright Ericsson AB 2010-2014. All Rights Reserved.
 ;;
 ;; The contents of this file are subject to the Erlang Public License,
 ;; Version 1.1, (the "License"); you may not use this file except in
@@ -352,26 +352,25 @@ Please see the function `tempo-define-template'.")
     "%% @doc" n
     "%% Whenever a supervisor is started using supervisor:start_link/[2,3]," n
     "%% this function is called by the new process to find out about" n
-    "%% restart strategy, maximum restart frequency and child" n
+    "%% restart strategy, maximum restart intensity, and child" n
     "%% specifications." n
     "%%" n
     "%% @spec init(Args) -> {ok, {SupFlags, [ChildSpec]}} |" n
     "%%                     ignore |" n
     "%%                     {error, Reason}" n
     (erlang-skel-separator-end 2)
-    "init([]) ->" n>
-    "RestartStrategy = one_for_one," n>
-    "MaxRestarts = 1000," n>
-    "MaxSecondsBetweenRestarts = 3600," n
+    "init([]) ->" n
     "" n>
-    "SupFlags = {RestartStrategy, MaxRestarts, MaxSecondsBetweenRestarts}," n
+    "SupFlags = #{strategy => one_for_one," n>
+    "intensity => 1," n>
+    "period => 5}," n
     "" n>
-    "Restart = permanent," n>
-    "Shutdown = 2000," n>
-    "Type = worker," n
-    "" n>
-    "AChild = {'AName', {'AModule', start_link, []}," n>
-    "Restart, Shutdown, Type, ['AModule']}," n
+    "AChild = #{id => 'AName'," n>
+    "start => {'AModule', start_link, []}," n>
+    "restart => permanent," n>
+    "shutdown => 5000," n>
+    "type => worker," n>
+    "modules => ['AModule']}," n
     "" n>
     "{ok, {SupFlags, [AChild]}}." n
     n
@@ -379,7 +378,7 @@ Please see the function `tempo-define-template'.")
     "%%% Internal functions" n
     (erlang-skel-double-separator-end 3)
     )
-  "*The template of an supervisor behaviour.
+  "*The template of a supervisor behaviour.
 Please see the function `tempo-define-template'.")
 
 (defvar erlang-skel-supervisor-bridge
@@ -449,7 +448,7 @@ Please see the function `tempo-define-template'.")
     "%%% Internal functions" n
     (erlang-skel-double-separator-end 3)
     )
-  "*The template of an supervisor_bridge behaviour.
+  "*The template of a supervisor_bridge behaviour.
 Please see the function `tempo-define-template'.")
 
 (defvar erlang-skel-generic-server

@@ -76,7 +76,7 @@
 
 /* histogram */
 #define ERTS_LCNT_HISTOGRAM_MAX_NS    (((unsigned long)1LL << 28) - 1)
-#if 0 || defined(HAVE_GETHRTIME)
+#if 0 || defined(ERTS_HAVE_OS_MONOTONIC_TIME_SUPPORT)
 #define ERTS_LCNT_HISTOGRAM_SLOT_SIZE (30)
 #define ERTS_LCNT_HISTOGRAM_RSHIFT    (0)
 #else

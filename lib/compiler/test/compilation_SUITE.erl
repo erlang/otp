@@ -309,8 +309,8 @@ load_and_call(Out, Module) ->
     %% Smoke-test of beam disassembler.
     ?line test_lib:smoke_disasm(Module),
 
-    ?line true = erlang:delete_module(Module),
-    ?line true = erlang:purge_module(Module),
+    _ = code:delete(Module),
+    _ = code:purge(Module),
 
     %% Restore state of trap_exit just in case. (Since the compiler
     %% uses a temporary process, we will get {'EXIT',Pid,normal} messages
@@ -436,7 +436,7 @@ self_compile_1(Config, Prefix, Opts) ->
     %% Compile the compiler. (In this node to get better coverage.)
     ?line CompA = make_compiler_dir(Priv, Prefix++"compiler_a"),
     ?line VsnA = Version ++ ".0",
-    ?line compile_compiler(compiler_src(), CompA, VsnA, [clint|Opts]),
+    compile_compiler(compiler_src(), CompA, VsnA, [clint0,clint|Opts]),
 
     %% Compile the compiler again using the newly compiled compiler.
     %% (In another node because reloading the compiler would disturb cover.)
@@ -611,12 +611,10 @@ otp_7345(Config) when is_list(Config) ->
 
 otp_7345(ObjRef, _RdEnv, Args) ->
     Cid = ObjRef#contextId.cid,
-    _DpRef =
-	#dpRef{cid = Cid,
+    _ =	#dpRef{cid = Cid,
 		     ms_device_context_id = cid_id,
 		     tlli = #ptmsi{value = 0}},
-    _QosProfile =
-	#qosProfileBssgp{peak_bit_rate_msb = 0,
+    _ =	#qosProfileBssgp{peak_bit_rate_msb = 0,
 			 peak_bit_rate_lsb = 80,
 			 t_a_precedence = 49},
     [Cpdu|_] = Args,

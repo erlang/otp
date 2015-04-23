@@ -113,13 +113,7 @@ init() ->
 	{unix,_} ->
 	    %% The Etc variable enables us to run tests with other 
 	    %% configuration files than the normal ones 
-	    Etc =
-		case os:getenv("ERL_INET_ETC_DIR") of
-		    false ->
-			?DEFAULT_ETC;
-		    _EtcDir ->
-			_EtcDir
-		end,
+	    Etc = os:getenv("ERL_INET_ETC_DIR", ?DEFAULT_ETC),
 	    case inet_db:res_option(resolv_conf) of
 		undefined ->
 		    inet_db:res_option(
@@ -152,11 +146,7 @@ erl_dist_mode() ->
 do_load_resolv({unix,Type}, longnames) ->
     %% The Etc variable enables us to run tests with other 
     %% configuration files than the normal ones 
-    Etc = case os:getenv("ERL_INET_ETC_DIR") of
-	      false -> ?DEFAULT_ETC;
-	      _EtcDir -> 
-		  _EtcDir				 
-	  end,
+    Etc = os:getenv("ERL_INET_ETC_DIR", ?DEFAULT_ETC),
     load_resolv(filename:join(Etc, ?DEFAULT_RESOLV), resolv),
     case Type of
 	freebsd ->	    %% we may have to check version (2.2.2)
@@ -307,10 +297,7 @@ load_hosts(File,Os) ->
 win32_load_from_registry(Type) ->
     %% The TcpReg variable enables us to run tests with other registry configurations than
     %% the normal ones 
-    TcpReg = case os:getenv("ERL_INET_ETC_DIR") of
-		 false -> [];
-		 _TReg -> _TReg
-	     end,
+    TcpReg = os:getenv("ERL_INET_ETC_DIR", ""),
     {ok, Reg} = win32reg:open([read]),
     {TcpIp,HFileKey} =
     case Type of

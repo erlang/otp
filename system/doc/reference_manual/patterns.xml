@@ -40,7 +40,7 @@
       <seealso marker="expressions#term">term</seealso>. If
       the matching succeeds, any unbound variables in the pattern
       become bound. If the matching fails, a run-time error occurs.</p>
-    <p>Examples:</p>
+    <p><em>Examples:</em></p>
     <pre>
 1> <input>X.</input>
 ** 1: variable 'X' is unbound **

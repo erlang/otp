@@ -24,7 +24,9 @@
 	 dehydrated_itracer/1,nested_tries/1,
 	 seq_in_guard/1,make_effect_seq/1,eval_is_boolean/1,
 	 unsafe_case/1,nomatch_shadow/1,reversed_annos/1,
-	 map_core_test/1,eval_case/1,bad_boolean_guard/1]).
+	 map_core_test/1,eval_case/1,bad_boolean_guard/1,
+	 bs_shadowed_size_var/1
+	]).
 
 -include_lib("test_server/include/test_server.hrl").
 
@@ -50,7 +52,8 @@ groups() ->
     [{p,test_lib:parallel(),
       [dehydrated_itracer,nested_tries,seq_in_guard,make_effect_seq,
        eval_is_boolean,unsafe_case,nomatch_shadow,reversed_annos,
-       map_core_test,eval_case,bad_boolean_guard
+       map_core_test,eval_case,bad_boolean_guard,
+       bs_shadowed_size_var
    ]}].
 
 
@@ -78,6 +81,8 @@ end_per_group(_GroupName, Config) ->
 ?comp(map_core_test).
 ?comp(eval_case).
 ?comp(bad_boolean_guard).
+?comp(bs_shadowed_size_var).
+
 
 try_it(Mod, Conf) ->
     Src = filename:join(?config(data_dir, Conf), atom_to_list(Mod)),
@@ -87,4 +92,7 @@ try_it(Mod, Conf) ->
 compile_and_load(Src, Opts) ->
     {ok,Mod,Bin} = compile:file(Src, [from_core,report,time,binary|Opts]),
     {module,Mod} = code:load_binary(Mod, Mod, Bin),
-    ok = Mod:Mod().
+    ok = Mod:Mod(),
+    _ = code:delete(Mod),
+    _ = code:purge(Mod),
+    ok.

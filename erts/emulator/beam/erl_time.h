@@ -20,11 +20,16 @@
 #ifndef ERL_TIME_H__
 #define ERL_TIME_H__
 
-#define ERTS_SHORT_TIME_T_MAX ERTS_AINT32_T_MAX
-#define ERTS_SHORT_TIME_T_MIN ERTS_AINT32_T_MIN
-typedef erts_aint32_t erts_short_time_t;
+#if defined(DEBUG) || 0
+#define ERTS_TIME_ASSERT(B) ERTS_ASSERT(B)
+#else
+#define ERTS_TIME_ASSERT(B) ((void) 1)
+#endif
 
-extern erts_smp_atomic32_t do_time;	/* set at clock interrupt */
+typedef struct ErtsTimerWheel_ ErtsTimerWheel;
+typedef erts_atomic64_t * ErtsNextTimeoutRef;
+extern ErtsTimerWheel *erts_default_timer_wheel;
+
 extern SysTimeval erts_first_emu_time;
 
 /*
@@ -34,8 +39,8 @@ typedef struct erl_timer {
     struct erl_timer* next;	/* next entry tiw slot or chain */
     struct erl_timer* prev;	/* prev entry tiw slot or chain */
     Uint slot;			/* slot in timer wheel */
-    Uint count;			/* number of loops remaining */
-    int    active;		/* 1=activated, 0=deactivated */
+    erts_smp_atomic_t wheel;
+    ErtsMonotonicTime timeout_pos; /* Timeout in absolute clock ticks */
     /* called when timeout */
     void (*timeout)(void*);
     /* called when cancel (may be NULL) */
@@ -62,7 +67,6 @@ union ErtsSmpPTimer_ {
     ErtsSmpPTimer *next;
 };
 
-
 void erts_create_smp_ptimer(ErtsSmpPTimer **timer_ref,
 			    Eterm id,
 			    ErlTimeoutProc timeout_func,
@@ -70,36 +74,42 @@ void erts_create_smp_ptimer(ErtsSmpPTimer **timer_ref,
 void erts_cancel_smp_ptimer(ErtsSmpPTimer *ptimer);
 #endif
 
+void erts_monitor_time_offset(Eterm id, Eterm ref);
+int erts_demonitor_time_offset(Eterm ref);
+
+void erts_late_init_time_sup(void);
+
 /* timer-wheel api */
 
-void erts_init_time(void);
+ErtsTimerWheel *erts_create_timer_wheel(int);
+ErtsNextTimeoutRef erts_get_next_timeout_reference(ErtsTimerWheel *);
+void erts_init_time(int time_correction, ErtsTimeWarpMode time_warp_mode);
 void erts_set_timer(ErlTimer*, ErlTimeoutProc, ErlCancelProc, void*, Uint);
 void erts_cancel_timer(ErlTimer*);
-void erts_bump_timer(erts_short_time_t);
-Uint erts_timer_wheel_memory_size(void);
 Uint erts_time_left(ErlTimer *);
-erts_short_time_t erts_next_time(void);
+void erts_bump_timers(ErtsTimerWheel *, ErtsMonotonicTime);
+Uint erts_timer_wheel_memory_size(void);
 
 #ifdef DEBUG
 void erts_p_slpq(void);
 #endif
 
-ERTS_GLB_INLINE erts_short_time_t erts_do_time_read_and_reset(void);
-ERTS_GLB_INLINE void erts_do_time_add(erts_short_time_t);
+ErtsMonotonicTime erts_check_next_timeout_time(ErtsTimerWheel *,
+					       ErtsMonotonicTime);
+
+ERTS_GLB_INLINE void erts_init_timer(ErlTimer *p);
+ERTS_GLB_INLINE ErtsMonotonicTime erts_next_timeout_time(ErtsNextTimeoutRef);
 
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
 
-ERTS_GLB_INLINE erts_short_time_t erts_do_time_read_and_reset(void)
+ERTS_GLB_INLINE void erts_init_timer(ErlTimer *p)
 {
-    erts_short_time_t time = erts_smp_atomic32_xchg_acqb(&do_time, 0);
-    if (time < 0)
-	erl_exit(ERTS_ABORT_EXIT, "Internal time management error\n");
-    return time;
+    erts_smp_atomic_init_nob(&p->wheel, (erts_aint_t) NULL);
 }
 
-ERTS_GLB_INLINE void erts_do_time_add(erts_short_time_t elapsed)
+ERTS_GLB_INLINE ErtsMonotonicTime erts_next_timeout_time(ErtsNextTimeoutRef nxt_tmo_ref)
 {
-    erts_smp_atomic32_add_relb(&do_time, elapsed);
+    return (ErtsMonotonicTime) erts_atomic64_read_acqb((erts_atomic64_t *) nxt_tmo_ref);
 }
 
 #endif /* #if ERTS_GLB_INLINE_INCL_FUNC_DEF */
@@ -107,7 +117,7 @@ ERTS_GLB_INLINE void erts_do_time_add(erts_short_time_t elapsed)
 
 /* time_sup */
 
-#if (defined(HAVE_GETHRVTIME) || defined(HAVE_CLOCK_GETTIME))
+#if (defined(HAVE_GETHRVTIME) || defined(HAVE_CLOCK_GETTIME_CPU_TIME))
 #  ifndef HAVE_ERTS_NOW_CPU
 #    define HAVE_ERTS_NOW_CPU
 #    ifdef HAVE_GETHRVTIME
@@ -121,25 +131,220 @@ void erts_get_now_cpu(Uint* megasec, Uint* sec, Uint* microsec);
 typedef UWord erts_approx_time_t;
 erts_approx_time_t erts_get_approx_time(void);
 
-void erts_get_timeval(SysTimeval *tv);
-erts_time_t erts_get_time(void);
+int erts_has_time_correction(void);
+int erts_check_time_adj_support(int time_correction,
+				ErtsTimeWarpMode time_warp_mode);
 
-ERTS_GLB_INLINE int erts_cmp_timeval(SysTimeval *t1p, SysTimeval *t2p);
+ErtsTimeWarpMode erts_time_warp_mode(void);
+
+typedef enum {
+    ERTS_TIME_OFFSET_PRELIMINARY,
+    ERTS_TIME_OFFSET_FINAL,
+    ERTS_TIME_OFFSET_VOLATILE
+} ErtsTimeOffsetState;
+
+ErtsTimeOffsetState erts_time_offset_state(void); 
+ErtsTimeOffsetState erts_finalize_time_offset(void); 
+struct process;
+Eterm erts_get_monotonic_start_time(struct process *c_p);
+Eterm erts_monotonic_time_source(struct process*c_p);
+Eterm erts_system_time_source(struct process*c_p);
+
+#ifdef SYS_CLOCK_RESOLUTION
+#define ERTS_CLKTCK_RESOLUTION ((ErtsMonotonicTime) (SYS_CLOCK_RESOLUTION*1000))
+#else
+#define ERTS_CLKTCK_RESOLUTION (erts_time_sup__.r.o.clktck_resolution)
+#endif
+
+struct erts_time_sup_read_only__ {
+    ErtsMonotonicTime monotonic_time_unit;
+#ifndef SYS_CLOCK_RESOLUTION
+    ErtsMonotonicTime clktck_resolution;
+#endif
+};
+
+typedef struct {
+    union {
+	struct erts_time_sup_read_only__ o;
+	char align__[(((sizeof(struct erts_time_sup_read_only__) - 1)
+		       / ASSUMED_CACHE_LINE_SIZE) + 1)
+		     * ASSUMED_CACHE_LINE_SIZE];
+    } r;
+} ErtsTimeSupData;
+
+extern ErtsTimeSupData erts_time_sup__;
+
+ERTS_GLB_INLINE Uint64
+erts_time_unit_conversion(Uint64 value,
+			  Uint32 from_time_unit,
+			  Uint32 to_time_unit);
 
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
 
-ERTS_GLB_INLINE int
-erts_cmp_timeval(SysTimeval *t1p, SysTimeval *t2p)
+ERTS_GLB_INLINE Uint64
+erts_time_unit_conversion(Uint64 value,
+			  Uint32 from_time_unit,
+			  Uint32 to_time_unit)
 {
-    if (t1p->tv_sec == t2p->tv_sec) {
-	if (t1p->tv_usec < t2p->tv_usec)
-	    return -1;
-	else if (t1p->tv_usec > t2p->tv_usec)
-	    return 1;
-	return 0;
-    }
-    return t1p->tv_sec < t2p->tv_sec ? -1 : 1;
+    Uint64 high, low, result;
+    if (value <= ~((Uint64) 0)/to_time_unit)
+	return (value*to_time_unit)/from_time_unit;
+
+    low = value & ((Uint64) 0xffffffff);
+    high = (value >> 32) & ((Uint64) 0xffffffff);
+
+    low *= to_time_unit;
+    high *= to_time_unit;
+
+    high += (low >> 32) & ((Uint64) 0xffffffff);
+    low &= ((Uint64) 0xffffffff);
+
+    result = high % from_time_unit;
+    high /= from_time_unit;
+    high <<= 32;
+
+    result <<= 32;
+    result += low;
+    result /= from_time_unit;
+    result += high;
+
+    return result;
 }
 
-#endif /* #if ERTS_GLB_INLINE_INCL_FUNC_DEF */
+#endif /* ERTS_GLB_INLINE_INCL_FUNC_DEF */
+
+#if ERTS_COMPILE_TIME_MONOTONIC_TIME_UNIT
+
+/*
+ * If the monotonic time unit is a compile time constant,
+ * it is assumed (and need) to be a power of 10.
+ */
+
+#if ERTS_COMPILE_TIME_MONOTONIC_TIME_UNIT < 1000*1000
+#  error Compile time time unit needs to be at least 1000000
+#endif
+
+#define ERTS_MONOTONIC_TIME_UNIT \
+    ((ErtsMonotonicTime) ERTS_COMPILE_TIME_MONOTONIC_TIME_UNIT)
+
+#if ERTS_COMPILE_TIME_MONOTONIC_TIME_UNIT == 1000*1000*1000
+/* Nano-second time unit */
+
+#define ERTS_MONOTONIC_TO_SEC__(NSEC) ((NSEC) / (1000*1000*1000))
+#define ERTS_MONOTONIC_TO_MSEC__(NSEC) ((NSEC) / (1000*1000))
+#define ERTS_MONOTONIC_TO_USEC__(NSEC) ((NSEC) / 1000)
+#define ERTS_MONOTONIC_TO_NSEC__(NSEC) (NSEC)
+
+#define ERTS_SEC_TO_MONOTONIC__(SEC) (((ErtsMonotonicTime) (SEC))*(1000*1000*1000))
+#define ERTS_MSEC_TO_MONOTONIC__(MSEC) (((ErtsMonotonicTime) (MSEC))*(1000*1000))
+#define ERTS_USEC_TO_MONOTONIC__(USEC) (((ErtsMonotonicTime) (USEC))*1000)
+#define ERTS_NSEC_TO_MONOTONIC__(NSEC) ((ErtsMonotonicTime) (NSEC))
+
+#elif ERTS_COMPILE_TIME_MONOTONIC_TIME_UNIT == 1000*1000
+/* Micro-second time unit */
+
+#define ERTS_MONOTONIC_TO_SEC__(USEC) ((USEC) / (1000*1000))
+#define ERTS_MONOTONIC_TO_MSEC__(USEC) ((USEC) / 1000)
+#define ERTS_MONOTONIC_TO_USEC__(USEC) (USEC)
+#define ERTS_MONOTONIC_TO_NSEC__(USEC) ((USEC)*1000)
+
+#define ERTS_SEC_TO_MONOTONIC__(SEC) (((ErtsMonotonicTime) (SEC))*(1000*1000))
+#define ERTS_MSEC_TO_MONOTONIC__(MSEC) (((ErtsMonotonicTime) (MSEC))*1000)
+#define ERTS_USEC_TO_MONOTONIC__(USEC) ((ErtsMonotonicTime) (USEC))
+#define ERTS_NSEC_TO_MONOTONIC__(NSEC) (((ErtsMonotonicTime) (NSEC))/1000)
+
+#else
+#error Missing implementation for monotonic time unit
+#endif
+
+#define ERTS_MONOTONIC_TO_CLKTCKS__(MON) \
+    ((MON) / (ERTS_MONOTONIC_TIME_UNIT/ERTS_CLKTCK_RESOLUTION))
+#define ERTS_CLKTCKS_TO_MONOTONIC__(TCKS) \
+    ((TCKS) * (ERTS_MONOTONIC_TIME_UNIT/ERTS_CLKTCK_RESOLUTION))
+
+#else /* !ERTS_COMPILE_TIME_MONOTONIC_TIME_UNIT */
+
+#define ERTS_MONOTONIC_TIME_UNIT (erts_time_sup__.r.o.monotonic_time_unit)
+
+#define ERTS_CONV_FROM_MON_UNIT___(M, TO)				\
+    ((ErtsMonotonicTime)						\
+     erts_time_unit_conversion((Uint64) (M),				\
+			       (Uint32) ERTS_MONOTONIC_TIME_UNIT,	\
+			       (Uint32) (TO)))
+
+#define ERTS_CONV_TO_MON_UNIT___(M, FROM)				\
+    ((ErtsMonotonicTime)						\
+     erts_time_unit_conversion((Uint64) (M),				\
+			       (Uint32) (FROM),				\
+			       (Uint32) ERTS_MONOTONIC_TIME_UNIT))	\
+
+#define ERTS_MONOTONIC_TO_SEC__(M) \
+    ERTS_CONV_FROM_MON_UNIT___((M), 1)
+#define ERTS_MONOTONIC_TO_MSEC__(M) \
+    ERTS_CONV_FROM_MON_UNIT___((M), 1000)
+#define ERTS_MONOTONIC_TO_USEC__(M) \
+    ERTS_CONV_FROM_MON_UNIT___((M), 1000*1000)
+#define ERTS_MONOTONIC_TO_NSEC__(M) \
+    ERTS_CONV_FROM_MON_UNIT___((M), 1000*1000*1000)
+
+#define ERTS_SEC_TO_MONOTONIC__(SEC) \
+    ERTS_CONV_TO_MON_UNIT___((SEC), 1)
+#define ERTS_MSEC_TO_MONOTONIC__(MSEC) \
+    ERTS_CONV_TO_MON_UNIT___((MSEC), 1000)
+#define ERTS_USEC_TO_MONOTONIC__(USEC) \
+    ERTS_CONV_TO_MON_UNIT___((USEC), 1000*1000)
+#define ERTS_NSEC_TO_MONOTONIC__(NSEC) \
+    ERTS_CONV_TO_MON_UNIT___((NSEC), 1000*1000*1000)
+
+#define ERTS_MONOTONIC_TO_CLKTCKS__(MON) \
+    ERTS_CONV_FROM_MON_UNIT___((MON), ERTS_CLKTCK_RESOLUTION)
+#define ERTS_CLKTCKS_TO_MONOTONIC__(TCKS) \
+    ERTS_CONV_TO_MON_UNIT___((TCKS), ERTS_CLKTCK_RESOLUTION)
+
+#endif /* !ERTS_COMPILE_TIME_MONOTONIC_TIME_UNIT */
+
+#define ERTS_MSEC_TO_CLKTCKS__(MON) \
+    ((MON) * (ERTS_CLKTCK_RESOLUTION/1000))
+#define ERTS_CLKTCKS_TO_MSEC__(TCKS) \
+    ((TCKS) / (ERTS_CLKTCK_RESOLUTION/1000))
+
+#define ERTS_MONOTONIC_TO_SEC(X)	\
+    (ERTS_TIME_ASSERT((X) >= 0),	\
+     ERTS_MONOTONIC_TO_SEC__((X)))
+#define ERTS_MONOTONIC_TO_MSEC(X)	\
+    (ERTS_TIME_ASSERT((X) >= 0),	\
+     ERTS_MONOTONIC_TO_MSEC__((X)))
+#define ERTS_MONOTONIC_TO_USEC(X)	\
+    (ERTS_TIME_ASSERT((X) >= 0),	\
+     ERTS_MONOTONIC_TO_USEC__((X)))
+#define ERTS_MONOTONIC_TO_NSEC(X)	\
+    (ERTS_TIME_ASSERT((X) >= 0),	\
+     ERTS_MONOTONIC_TO_NSEC__((X)))
+#define ERTS_SEC_TO_MONOTONIC(X)	\
+    (ERTS_TIME_ASSERT((X) >= 0),	\
+     ERTS_SEC_TO_MONOTONIC__((X)))
+#define ERTS_MSEC_TO_MONOTONIC(X)	\
+    (ERTS_TIME_ASSERT((X) >= 0),	\
+     ERTS_MSEC_TO_MONOTONIC__((X)))
+#define ERTS_USEC_TO_MONOTONIC(X)	\
+    (ERTS_TIME_ASSERT((X) >= 0),	\
+     ERTS_USEC_TO_MONOTONIC__((X)))
+#define ERTS_NSEC_TO_MONOTONIC(X)	\
+    (ERTS_TIME_ASSERT((X) >= 0),	\
+     ERTS_NSEC_TO_MONOTONIC__((X)))
+
+#define ERTS_MONOTONIC_TO_CLKTCKS(X) \
+    (ERTS_TIME_ASSERT((X) >= 0),		\
+     ERTS_MONOTONIC_TO_CLKTCKS__((X)))
+#define ERTS_CLKTCKS_TO_MONOTONIC(X) \
+    (ERTS_TIME_ASSERT((X) >= 0),		\
+     ERTS_CLKTCKS_TO_MONOTONIC__((X)))
+
+#define ERTS_MSEC_TO_CLKTCKS(X) \
+    (ERTS_TIME_ASSERT((X) >= 0),		\
+     ERTS_MSEC_TO_CLKTCKS__((X)))
+#define ERTS_CLKTCKS_TO_MSEC(X) \
+    (ERTS_TIME_ASSERT((X) >= 0),		\
+     ERTS_CLKTCKS_TO_MSEC__((X)))
+
 #endif /* ERL_TIME_H__ */

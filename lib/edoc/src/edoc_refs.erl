@@ -27,10 +27,9 @@
 
 -module(edoc_refs).
 
--export([app/1, app/2, package/1, module/1, module/2, module/3,
+-export([app/1, app/2, module/1, module/2, module/3,
 	 function/2, function/3, function/4, type/1, type/2, type/3,
-	 to_string/1, to_label/1, get_uri/2, is_top/2,
-	 relative_module_path/2, relative_package_path/2]).
+	 to_string/1, to_label/1, get_uri/2, is_top/2]).
 
 -import(edoc_lib, [join_uri/2, escape_uri/1]).
 
@@ -55,9 +54,6 @@ module(M, Ref) ->
 
 module(App, M, Ref) ->
     app(App, module(M, Ref)).
-
-package(P) ->
-    {package, P}.
 
 function(F, A) ->
     {function, F, A}.
@@ -88,8 +84,6 @@ to_string({module, M}) ->
     atom_to_list(M) ;
 to_string({module, M, Ref}) ->
     atom_to_list(M) ++ ":" ++ to_string(Ref);
-to_string({package, P}) ->
-    atom_to_list(P) ++ ".*";
 to_string({function, F, A}) ->
     atom_to_list(F) ++ "/" ++ integer_to_list(A);
 to_string({type, T}) ->
@@ -111,43 +105,25 @@ get_uri({module, M, Ref}, Env) ->
     module_ref(M, Env) ++ "#" ++ to_label(Ref);
 get_uri({module, M}, Env) ->
     module_ref(M, Env);
-get_uri({package, P}, Env) ->
-    package_ref(P, Env);
 get_uri(Ref, _Env) ->
     "#" ++ to_label(Ref).
 
 abs_uri({module, M}, Env) ->
     module_absref(M, Env);
 abs_uri({module, M, Ref}, Env) ->
-    module_absref(M, Env) ++ "#" ++ to_label(Ref);
-abs_uri({package, P}, Env) ->
-    package_absref(P, Env).
+    module_absref(M, Env) ++ "#" ++ to_label(Ref).
 
 module_ref(M, Env) ->
     case (Env#env.modules)(M) of
 	"" ->
 	    File = atom_to_list(M) ++ Env#env.file_suffix,
-	    Path = relative_module_path(M, Env#env.package),
-	    join_uri(Path, escape_uri(File));
+	    escape_uri(File);
 	Base ->
 	    join_uri(Base, module_absref(M, Env))
     end.
 
 module_absref(M, Env) ->
     escape_uri(atom_to_list(M)) ++ escape_uri(Env#env.file_suffix).
-
-package_ref(P, Env) ->
-    case (Env#env.packages)(P) of
-	"" ->
-	    join_uri(relative_package_path(P, Env#env.package),
-		     escape_uri(Env#env.package_summary));
-	Base ->
-	    join_uri(Base, package_absref(P, Env))
-    end.
-
-package_absref(P, Env) ->
-    join_uri(escape_uri(atom_to_list(P)),
-	     escape_uri(Env#env.package_summary)).
 
 app_ref(A, Env) ->
     case (Env#env.apps)(A) of
@@ -166,43 +142,3 @@ is_top({app, _App}, _Env) ->
 is_top(_Ref, _Env) ->
     false.
 
-%% Each segment of a path must be separately escaped before joining.
-
-join_segments([S]) ->
-    escape_uri(S);
-join_segments([S | Ss]) ->
-    join_uri(escape_uri(S), join_segments(Ss)).
-
-%% 'From' is always the "current package" here:
-
-%% The empty string is returned if the To module has only one segment,
-%% implying a local reference.
-
-relative_module_path(_To, _From) ->
-    "".
-
-relative_package_path(To, From) ->
-    relative_path([atom_to_list(To)], [atom_to_list(From)]).
-
-%% This takes two lists of path segments (From, To). Note that an empty
-%% string will be returned if the paths are the same. Empty leading
-%% segments are stripped from both paths.
-
-relative_path(Ts, ["" | Fs]) ->
-    relative_path(Ts, Fs);
-relative_path(["" | Ts], Fs) ->
-    relative_path(Ts, Fs);
-relative_path(Ts, Fs) ->
-    relative_path_1(Ts, Fs).
-
-relative_path_1([T | Ts], [F | Fs]) when F == T ->
-    relative_path_1(Ts, Fs);
-relative_path_1(Ts, Fs) ->
-    relative_path_2(Fs, Ts).
-
-relative_path_2([_F | Fs], Ts) ->
-    relative_path_2(Fs, [".." | Ts]);
-relative_path_2([], []) ->
-    "";
-relative_path_2([], Ts) ->
-    join_segments(Ts).

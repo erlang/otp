@@ -22,7 +22,8 @@
 	 init_per_group/2,end_per_group/2,
 	 pmatch/1,mixed/1,aliases/1,match_in_call/1,
 	 untuplify/1,shortcut_boolean/1,letify_guard/1,
-	 selectify/1,underscore/1,match_map/1,coverage/1]).
+	 selectify/1,underscore/1,match_map/1,map_vars_used/1,
+      coverage/1]).
 	 
 -include_lib("test_server/include/test_server.hrl").
 
@@ -33,10 +34,10 @@ all() ->
     [{group,p}].
 
 groups() -> 
-    [{p,test_lib:parallel(),
+    [{p,[parallel],
       [pmatch,mixed,aliases,match_in_call,untuplify,
        shortcut_boolean,letify_guard,selectify,
-       underscore,match_map,coverage]}].
+       underscore,match_map,map_vars_used,coverage]}].
 
 
 init_per_suite(Config) ->
@@ -140,6 +141,13 @@ aliases(Config) when is_list(Config) ->
     ?line {a,b} = list_alias2([a,b]),
     ?line {a,b} = list_alias3([a,b]),
 
+    %% Non-matching aliases.
+    none = mixed_aliases(<<42>>),
+    none = mixed_aliases([b]),
+    none = mixed_aliases([d]),
+    none = mixed_aliases({a,42}),
+    none = mixed_aliases(42),
+
     ok.
 
 str_alias(V) ->
@@ -242,6 +250,12 @@ list_alias2([X,Y]=[a,b]) ->
 
 list_alias3([X,b]=[a,Y]) ->
     {X,Y}.
+
+mixed_aliases(<<X:8>> = x) -> {a,X};
+mixed_aliases([b] = <<X:8>>) -> {b,X};
+mixed_aliases(<<X:8>> = {a,X}) -> {c,X};
+mixed_aliases([X] = <<X:8>>) -> {d,X};
+mixed_aliases(_) -> none.
 
 %% OTP-7018.
 
@@ -417,6 +431,18 @@ do_match_map_2(Map) ->
     case {a,Map} of
 	{a,#{k:=_}}=Tuple ->
 	    Tuple
+    end.
+
+map_vars_used(Config) when is_list(Config) ->
+    {some,value} = do_map_vars_used(a, b, #{{a,b}=>42,v=>{some,value}}),
+    ok.
+
+do_map_vars_used(X, Y, Map) ->
+    case {X,Y} of
+	T ->
+	    %% core_lib:is_var_used/2 would not consider T used.
+	    #{T:=42,v:=Val} = Map,
+	    Val
     end.
 
 coverage(Config) when is_list(Config) ->

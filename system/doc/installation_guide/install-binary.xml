@@ -33,25 +33,23 @@
   </header>
   <section>
     <title>Windows</title>
+    <p>The system is delivered as a Windows Installer executable.
+    Get it from http://www.erlang.org/download.html</p>
 
     <section>
-      <title>Introduction</title>
-      <p>The system is delivered as a Windows Installer executable.
-        Get it from our <url href="http://www.erlang.org/download.html">download page</url>.</p>
-    </section>
-
-    <section>
-      <title>Installation</title>
-      <p>The installation procedure is is automated. Double-click the
+      <title>Installing</title>
+      <p>The installation procedure is automated. Double-click the
         <c>.exe</c> file icon and follow the instructions.</p>
     </section>
+
     <section>
-    <title>Verification</title>
+    <title>Verifying</title>
     <list type="bulleted">
       <item>
         <p>Start Erlang/OTP by double-clicking on the Erlang shortcut icon on the
           desktop.</p>
-        <p>Expect a command line window to pop up with an output looking something like this:</p>
+        <p>Expect a command-line window to pop up with an output looking
+	something like this:</p>
         <pre>
   Erlang/OTP 17 [erts-6.0] [64-bit] [smp:2:2]
 
@@ -59,12 +57,12 @@
   1></pre>
       </item>
       <item>
-        <p>Exit by entering the command <c>halt()</c>,</p>
+        <p>Exit by entering the command <c>halt()</c>.</p>
         <pre>
   2> <input>halt().</input></pre>
-        <p>which will close the Erlang/OTP shell. </p>
+        <p>This closes the Erlang/OTP shell.</p>
       </item>
     </list>
-  </section>
+    </section>
   </section>
 </chapter>

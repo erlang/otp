@@ -28,7 +28,7 @@
 Nonterminals
 start spec func_type utype_list utype_tuple utypes utype ptypes ptype
 nutype function_name where_defs defs defs2 def typedef etype
-throws qname ref aref mref lref pref var_list vars fields field
+throws qname ref aref mref lref var_list vars fields field
 utype_map utype_map_fields utype_map_field
 futype_list bin_base_type bin_unit_type.
 
@@ -207,13 +207,10 @@ typedef -> atom var_list '=' utype where_defs:
 ref -> aref: '$1'.
 ref -> mref: '$1'.
 ref -> lref: '$1'.
-ref -> pref: '$1'.
 
 aref -> '//' atom:
     edoc_refs:app(tok_val('$2')).
 aref -> '//' atom '/' mref:
-    edoc_refs:app(tok_val('$2'), '$4').
-aref -> '//' atom '/' pref:
     edoc_refs:app(tok_val('$2'), '$4').
 
 mref -> qname ':' atom '/' integer:
@@ -222,9 +219,6 @@ mref -> qname ':' atom '(' ')':
     edoc_refs:type(qname('$1'), tok_val('$3')).
 mref -> qname:
     edoc_refs:module(qname('$1')).
-
-pref -> qname '.' '*':
-    edoc_refs:package(qname('$1')).
 
 lref -> atom '/' integer:
     edoc_refs:function(tok_val('$1'), tok_val('$3')).
@@ -399,7 +393,7 @@ parse_typedef_1(S, L) ->
 
 %% @doc Parses a <a
 %% href="overview-summary.html#References">reference</a> to a module,
-%% package, function, type, or application
+%% function, type, or application
 
 parse_ref(S, L) ->
     case edoc_scanner:string(S, L) of

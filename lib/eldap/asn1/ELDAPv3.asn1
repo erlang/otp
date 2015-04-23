@@ -274,5 +274,17 @@ IntermediateResponse ::= [APPLICATION 25] SEQUENCE {
      responseName     [0] LDAPOID OPTIONAL,
      responseValue    [1] OCTET STRING OPTIONAL }
 
+-- Extended syntax for Password Modify (RFC 3062, Section 2)
+
+-- passwdModifyOID OBJECT IDENTIFIER ::= 1.3.6.1.4.1.4203.1.11.1
+
+PasswdModifyRequestValue ::= SEQUENCE {
+     userIdentity     [0]  OCTET STRING OPTIONAL,
+     oldPasswd        [1]  OCTET STRING OPTIONAL,
+     newPasswd        [2]  OCTET STRING OPTIONAL }
+
+PasswdModifyResponseValue ::= SEQUENCE {
+     genPasswd        [0]     OCTET STRING OPTIONAL }
+
 END
 

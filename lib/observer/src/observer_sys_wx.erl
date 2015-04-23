@@ -37,7 +37,6 @@
 	 parent_notebook,
 	 panel, sizer,
 	 menubar,
-	 alloc,
 	 fields,
 	 timer}).
 
@@ -48,7 +47,6 @@ start_link(Notebook, Parent) ->
 
 init([Notebook, Parent]) ->
     SysInfo = observer_backend:sys_info(),
-    AllocInfo = proplists:get_value(alloc_info, SysInfo, []),
     {Info, Stat} = info_fields(),
     Panel = wxPanel:new(Notebook),
     Sizer = wxBoxSizer:new(?wxVERTICAL),
@@ -60,16 +58,13 @@ init([Notebook, Parent]) ->
     wxSizer:add(TopSizer, FPanel0, [{flag, ?wxEXPAND}, {proportion, 1}]),
     wxSizer:add(TopSizer, FPanel1, [{flag, ?wxEXPAND}, {proportion, 1}]),
     BorderFlags = ?wxLEFT bor ?wxRIGHT,
-    {MemPanel, MemoryInfo} = create_mem_info(Panel, AllocInfo),
     wxSizer:add(Sizer, TopSizer, [{flag, ?wxEXPAND bor BorderFlags bor ?wxTOP},
 				  {proportion, 0}, {border, 5}]),
-    wxSizer:add(Sizer, MemPanel, [{flag, ?wxEXPAND bor BorderFlags bor ?wxBOTTOM},
-				    {proportion, 1}, {border, 5}]),
     wxPanel:setSizer(Panel, Sizer),
     Timer = observer_lib:start_timer(10),
     {Panel, #sys_wx_state{parent=Parent,
 			  parent_notebook=Notebook,
-			  panel=Panel, sizer=Sizer, alloc=MemoryInfo,
+			  panel=Panel, sizer=Sizer,
 			  timer=Timer, fields=Fields0 ++ Fields1}}.
 
 create_sys_menu(Parent) ->
@@ -77,90 +72,12 @@ create_sys_menu(Parent) ->
 		     #create_menu{id = ?ID_REFRESH_INTERVAL, text = "Refresh interval"}]},
     observer_wx:create_menus(Parent, [View]).
 
-update_syspage(#sys_wx_state{node = Node, fields=Fields, sizer=Sizer, alloc=AllocCtrl}) ->
+update_syspage(#sys_wx_state{node = Node, fields=Fields, sizer=Sizer}) ->
     SysInfo = observer_wx:try_rpc(Node, observer_backend, sys_info, []),
-    AllocInfo = proplists:get_value(alloc_info, SysInfo, []),
     {Info, Stat} = info_fields(),
     observer_lib:update_info(Fields, observer_lib:fill_info(Info, SysInfo) ++
 				 observer_lib:fill_info(Stat, SysInfo)),
-    update_alloc(AllocCtrl, AllocInfo),
     wxSizer:layout(Sizer).
-
-create_mem_info(Parent, Fields) ->
-    Panel = wxPanel:new(Parent),
-    wxWindow:setBackgroundColour(Panel, {255,255,255}),
-    Style = ?wxLC_REPORT bor ?wxLC_SINGLE_SEL bor ?wxLC_HRULES bor ?wxLC_VRULES,
-    Grid = wxListCtrl:new(Panel, [{style, Style}]),
-    Li = wxListItem:new(),
-    AddListEntry = fun({Name, Align, DefSize}, Col) ->
-			   wxListItem:setText(Li, Name),
-			   wxListItem:setAlign(Li, Align),
-			   wxListCtrl:insertColumn(Grid, Col, Li),
-			   wxListCtrl:setColumnWidth(Grid, Col, DefSize),
-			   Col + 1
-		   end,
-    ListItems = [{"Allocator Type",  ?wxLIST_FORMAT_LEFT,  200},
-		 {"Block size (kB)",  ?wxLIST_FORMAT_RIGHT, 150},
-		 {"Carrier size (kB)",?wxLIST_FORMAT_RIGHT, 150}],
-    lists:foldl(AddListEntry, 0, ListItems),
-    wxListItem:destroy(Li),
-    update_alloc(Grid, Fields),
-
-    Sizer = wxBoxSizer:new(?wxVERTICAL),
-    wxSizer:add(Sizer, Grid, [{flag, ?wxEXPAND bor ?wxLEFT bor ?wxRIGHT},
-			      {border, 5}, {proportion, 1}]),
-    wxWindow:setSizerAndFit(Panel, Sizer),
-    {Panel, Grid}.
-
-update_alloc(Grid, AllocInfo) ->
-    Fields = alloc_info(AllocInfo, [], 0, 0, true),
-    wxListCtrl:deleteAllItems(Grid),
-    Update = fun({Name, BS, CS}, Row) ->
-		     wxListCtrl:insertItem(Grid, Row, ""),
-		     wxListCtrl:setItem(Grid, Row, 0, observer_lib:to_str(Name)),
-		     wxListCtrl:setItem(Grid, Row, 1, observer_lib:to_str(BS div 1024)),
-		     wxListCtrl:setItem(Grid, Row, 2, observer_lib:to_str(CS div 1024)),
-		     Row + 1
-	     end,
-    lists:foldl(Update, 0, Fields),
-    Fields.
-
-alloc_info([{Type,Instances}|Allocators],TypeAcc,TotalBS,TotalCS,IncludeTotal) ->
-    {BS,CS,NewTotalBS,NewTotalCS,NewIncludeTotal} =
-	sum_alloc_instances(Instances,0,0,TotalBS,TotalCS),
-    alloc_info(Allocators,[{Type,BS,CS}|TypeAcc],NewTotalBS,NewTotalCS,
-	       IncludeTotal andalso NewIncludeTotal);
-alloc_info([],TypeAcc,TotalBS,TotalCS,IncludeTotal) ->
-    Types = [X || X={_,BS,CS} <- TypeAcc, (BS>0 orelse CS>0)],
-    case IncludeTotal of
-	true ->
-	    [{total,TotalBS,TotalCS} | lists:reverse(Types)];
-	false ->
-	    lists:reverse(Types)
-    end.
-
-sum_alloc_instances(false,BS,CS,TotalBS,TotalCS) ->
-    {BS,CS,TotalBS,TotalCS,false};
-sum_alloc_instances([{_,_,Data}|Instances],BS,CS,TotalBS,TotalCS) ->
-    {NewBS,NewCS,NewTotalBS,NewTotalCS} =
-	sum_alloc_one_instance(Data,BS,CS,TotalBS,TotalCS),
-    sum_alloc_instances(Instances,NewBS,NewCS,NewTotalBS,NewTotalCS);
-sum_alloc_instances([],BS,CS,TotalBS,TotalCS) ->
-    {BS,CS,TotalBS,TotalCS,true}.
-
-sum_alloc_one_instance([{sbmbcs,[{blocks_size,BS,_,_},{carriers_size,CS,_,_}]}|
-			Rest],OldBS,OldCS,TotalBS,TotalCS) ->
-    sum_alloc_one_instance(Rest,OldBS+BS,OldCS+CS,TotalBS,TotalCS);
-sum_alloc_one_instance([{_,[{blocks_size,BS,_,_},{carriers_size,CS,_,_}]}|
-			Rest],OldBS,OldCS,TotalBS,TotalCS) ->
-    sum_alloc_one_instance(Rest,OldBS+BS,OldCS+CS,TotalBS+BS,TotalCS+CS);
-sum_alloc_one_instance([{_,[{blocks_size,BS},{carriers_size,CS}]}|
-			Rest],OldBS,OldCS,TotalBS,TotalCS) ->
-    sum_alloc_one_instance(Rest,OldBS+BS,OldCS+CS,TotalBS+BS,TotalCS+CS);
-sum_alloc_one_instance([_|Rest],BS,CS,TotalBS,TotalCS) ->
-    sum_alloc_one_instance(Rest,BS,CS,TotalBS,TotalCS);
-sum_alloc_one_instance([],BS,CS,TotalBS,TotalCS) ->
-    {BS,CS,TotalBS,TotalCS}.
 
 info_fields() ->
     Info = [{"System and Architecture",

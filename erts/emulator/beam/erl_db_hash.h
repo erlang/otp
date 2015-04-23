@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 1998-2013. All Rights Reserved.
+ * Copyright Ericsson AB 1998-2014. All Rights Reserved.
  * 
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -42,7 +42,7 @@ typedef struct hash_db_term {
 typedef struct db_table_hash_fine_locks {
     union {
 	erts_smp_rwmtx_t lck;
-	byte _cache_line_alignment[64];
+	byte _cache_line_alignment[ERTS_ALC_CACHE_LINE_ALIGN_SIZE(sizeof(erts_smp_rwmtx_t))];
     }lck_vec[DB_HASH_LOCK_CNT];
 } DbTableHashFineLocks;
 
@@ -104,6 +104,7 @@ typedef struct {
     float std_dev_expected;
     int max_chain_len;
     int min_chain_len;
+    int kept_items;
 }DbHashStats;
 
 void db_calc_stats_hash(DbTableHash* tb, DbHashStats*);

@@ -71,7 +71,8 @@
          rename/2, safe_fixtable/2, select/1, select/2, select/3,
          select_count/2, select_delete/2, select_reverse/1,
          select_reverse/2, select_reverse/3, setopts/2, slot/2,
-         update_counter/3, update_element/3]).
+         take/2,
+         update_counter/3, update_counter/4, update_element/3]).
 
 -spec all() -> [Tab] when
       Tab :: tab().
@@ -133,7 +134,9 @@ give_away(_, _, _) ->
                  | {owner, pid()}
                  | {protection, access()}
                  | {size, non_neg_integer()}
-                 | {type, type()}.
+                 | {type, type()}
+		 | {write_concurrency, boolean()}
+		 | {read_concurrency, boolean()}.
 
 info(_) ->
     erlang:nif_error(undef).
@@ -142,7 +145,8 @@ info(_) ->
       Tab :: tab(),
       Item :: compressed | fixed | heir | keypos | memory
             | name | named_table | node | owner | protection
-            | safe_fixed | size | stats | type,
+            | safe_fixed | size | stats | type
+	    | write_concurrency | read_concurrency,
       Value :: term().
 
 info(_, _) ->
@@ -400,6 +404,14 @@ setopts(_, _) ->
 slot(_, _) ->
     erlang:nif_error(undef).
 
+-spec take(Tab, Key) -> [Object] when
+      Tab :: tab(),
+      Key :: term(),
+      Object :: tuple().
+
+take(_, _) ->
+    erlang:nif_error(undef).
+
 -spec update_counter(Tab, Key, UpdateOp) -> Result when
       Tab :: tab(),
       Key :: term(),
@@ -425,6 +437,38 @@ slot(_, _) ->
       Result :: integer().
 
 update_counter(_, _, _) ->
+    erlang:nif_error(undef).
+
+-spec update_counter(Tab, Key, UpdateOp, Default) -> Result when
+                        Tab :: tab(),
+                        Key :: term(),
+                        UpdateOp :: {Pos, Incr}
+                                  | {Pos, Incr, Threshold, SetValue},
+                        Pos :: integer(),
+                        Incr :: integer(),
+                        Threshold :: integer(),
+                        SetValue :: integer(),
+                        Result :: integer(),
+                        Default :: tuple();
+                    (Tab, Key, [UpdateOp], Default) -> [Result] when
+                        Tab :: tab(),
+                        Key :: term(),
+                        UpdateOp :: {Pos, Incr}
+                                  | {Pos, Incr, Threshold, SetValue},
+                        Pos :: integer(),
+                        Incr :: integer(),
+                        Threshold :: integer(),
+                        SetValue :: integer(),
+                        Result :: integer(),
+                        Default :: tuple();
+                    (Tab, Key, Incr, Default) -> Result when
+                        Tab :: tab(),
+                        Key :: term(),
+                        Incr :: integer(),
+                        Result :: integer(),
+                        Default :: tuple().
+
+update_counter(_, _, _, _) ->
     erlang:nif_error(undef).
 
 -spec update_element(Tab, Key, ElementSpec :: {Pos, Value}) -> boolean() when

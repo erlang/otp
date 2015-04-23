@@ -30,15 +30,6 @@
 
 -include("mnesia.hrl").
 
-val(Var) ->
-    case ?catch_val(Var) of
-	{'EXIT', _ReASoN_} ->
-            case mnesia_lib:other_val(Var) of
-                error -> mnesia_lib:pr_other(Var, _ReASoN_);
-                Val -> Val
-            end;
-	_VaLuE_ -> _VaLuE_ 
-    end.
 
 check_ustruct([]) ->
     true;  %% default value, not SNMP'ified
@@ -85,12 +76,12 @@ delete_table(_MnesiaTab, Tree) ->
 %%-----------------------------------------------------------------
    
 update({clear_table, MnesiaTab}) ->
-    Tree = val({MnesiaTab, {index, snmp}}),
+    Tree = mnesia_lib:val({MnesiaTab, {index, snmp}}),
     b_clear(Tree),
     ok;
     
 update({Op, MnesiaTab, MnesiaKey, SnmpKey}) ->
-    Tree = val({MnesiaTab, {index, snmp}}),
+    Tree = mnesia_lib:val({MnesiaTab, {index, snmp}}),
     update(Op, Tree, MnesiaKey, SnmpKey).
 
 update(Op, Tree, MnesiaKey, SnmpKey) ->
@@ -120,7 +111,7 @@ update(Op, Tree, MnesiaKey, SnmpKey) ->
 %%-----------------------------------------------------------------
 
 key_to_oid(Tab,Key) ->
-    Types = val({Tab,snmp}),
+    Types = mnesia_lib:val({Tab,snmp}),
     key_to_oid(Tab, Key, Types).
 	     
 key_to_oid(Tab, Key, [{key, Types}]) ->
@@ -144,7 +135,7 @@ keys_to_oid(N, Key, Oid, Types) ->
 %% This can be lookup up in tree but that might be on a remote node.
 %% It's probably faster to look it up, but use when it migth be remote 
 oid_to_key(Oid, Tab) ->
-    [{key, Types}] = val({Tab,snmp}),
+    [{key, Types}] = mnesia_lib:val({Tab,snmp}),
     oid_to_key_1(Types, Oid). 
 
 oid_to_key_1(integer, [Key])  -> Key;

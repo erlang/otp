@@ -92,10 +92,16 @@ CFLAGS += -DERTS_FRMPTR
 OMIT_OMIT_FP=yes
 PRE_LD=
 else
+ifeq ($(TYPE),icount)
+TYPE_SUFFIX = .icount
+CFLAGS += -DERTS_OPCODE_COUNTER_SUPPORT
+PRE_LD=
+else
 override TYPE=opt
 OMIT_FP=true
 TYPE_SUFFIX=
 PRE_LD=
+endif
 endif
 endif
 endif

@@ -85,9 +85,9 @@
 -type race_tag()   :: 'whereis_register' | 'whereis_unregister'
                     | 'ets_lookup_insert' | 'mnesia_dirty_read_write'.
 
-%% The following type is similar to the dial_warning() type but has a
+%% The following type is similar to the raw_warning() type but has a
 %% tag which is local to this module and is not propagated to outside
--type dial_race_warning() :: {race_warn_tag(), file_line(), {atom(), [term()]}}.
+-type dial_race_warning() :: {race_warn_tag(), warning_info(), {atom(), [term()]}}.
 -type race_warn_tag() :: ?WARN_WHEREIS_REGISTER | ?WARN_WHEREIS_UNREGISTER
                       | ?WARN_ETS_LOOKUP_INSERT | ?WARN_MNESIA_DIRTY_READ_WRITE.
 
@@ -312,10 +312,13 @@ race(State) ->
         DepList = fixup_race_list(RaceWarnTag, VarArgs, State1),
         {State2, RaceWarn} =
           get_race_warn(Fun, Args, ArgTypes, DepList, State),
+        {File, Line} = FileLine,
+        CurrMFA = dialyzer_dataflow:state__find_function(CurrFun, State),
+        WarningInfo = {File, Line, CurrMFA},
         race(
           state__add_race_warning(
             state__renew_race_tags(T, State2), RaceWarn, RaceWarnTag,
-            FileLine))
+            WarningInfo))
     end,
   state__renew_race_tags([], RetState).
 
@@ -2324,7 +2327,7 @@ get_race_warnings_helper(Warnings, State) ->
     [] ->
       {dialyzer_dataflow:state__get_races(State), State};
     [H|T] ->
-      {RaceWarnTag, FileLine, {race_condition, [M, F, A, AT, S, DepList]}} = H,
+      {RaceWarnTag, WarningInfo, {race_condition, [M, F, A, AT, S, DepList]}} = H,
       Reason =
         case RaceWarnTag of
           ?WARN_WHEREIS_REGISTER ->
@@ -2347,7 +2350,7 @@ get_race_warnings_helper(Warnings, State) ->
                        "caused by its combination with ")
         end,
       W =
-        {?WARN_RACE_CONDITION, FileLine,
+        {?WARN_RACE_CONDITION, WarningInfo,
          {race_condition,
           [M, F, dialyzer_dataflow:format_args(A, AT, S), Reason]}},
       get_race_warnings_helper(T,
@@ -2377,12 +2380,12 @@ get_reason(DependencyList, Reason) ->
       end
   end.
 
-state__add_race_warning(State, RaceWarn, RaceWarnTag, FileLine) ->
+state__add_race_warning(State, RaceWarn, RaceWarnTag, WarningInfo) ->
   case RaceWarn of
     no_race -> State;
     _Else ->
       Races = dialyzer_dataflow:state__get_races(State),
-      Warn = {RaceWarnTag, FileLine, RaceWarn},
+      Warn = {RaceWarnTag, WarningInfo, RaceWarn},
       dialyzer_dataflow:state__put_races(add_race_warning(Warn, Races), State)
   end.
 

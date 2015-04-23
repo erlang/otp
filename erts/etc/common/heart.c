@@ -109,7 +109,7 @@
 #  include <sys/time.h>
 #  include <unistd.h>
 #  include <signal.h>
-#  if defined(CORRECT_USING_TIMES)
+#  if defined(OS_MONOTONIC_TIME_USING_TIMES)
 #    include <sys/times.h>
 #    include <limits.h>
 #  endif
@@ -1084,9 +1084,9 @@ time_t timestamp(time_t *res)
     return r;
 }
 
-#elif defined(HAVE_GETHRTIME)  || defined(GETHRTIME_WITH_CLOCK_GETTIME)
+#elif defined(OS_MONOTONIC_TIME_USING_GETHRTIME) || defined(OS_MONOTONIC_TIME_USING_CLOCK_GETTIME)
 
-#if defined(GETHRTIME_WITH_CLOCK_GETTIME)
+#if defined(OS_MONOTONIC_TIME_USING_CLOCK_GETTIME)
 typedef long long SysHrTime;
 
 SysHrTime sys_gethrtime(void);
@@ -1095,7 +1095,7 @@ SysHrTime sys_gethrtime(void)
 {
     struct timespec ts;
     long long result;
-    if (clock_gettime(CLOCK_MONOTONIC,&ts) != 0) {
+    if (clock_gettime(MONOTONIC_CLOCK_ID,&ts) != 0) {
 	print_error("Fatal, could not get clock_monotonic value, terminating! "
 		    "errno = %d\n", errno);
 	exit(1);
@@ -1122,7 +1122,7 @@ time_t timestamp(time_t *res)
     return r;
 }
 
-#elif defined(CORRECT_USING_TIMES)
+#elif defined(OS_MONOTONIC_TIME_USING_TIMES)
 
 #  ifdef NO_SYSCONF
 #    include <sys/param.h>

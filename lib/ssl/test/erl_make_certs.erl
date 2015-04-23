@@ -114,7 +114,7 @@ verify_signature(DerEncodedCert, DerKey, _KeyParams) ->
 	#'DSAPrivateKey'{p=P, q=Q, g=G, y=Y} ->
 	    public_key:pkix_verify(DerEncodedCert, {Y, #'Dss-Parms'{p=P, q=Q, g=G}});
 	#'ECPrivateKey'{version = _Version, privateKey = _PrivKey,
-			parameters = Params, publicKey = {0, PubKey}} ->
+			parameters = Params, publicKey = PubKey} ->
 	    public_key:pkix_verify(DerEncodedCert, {#'ECPoint'{point = PubKey}, Params})
     end.
 
@@ -204,7 +204,7 @@ issuer_der(Issuer) ->
     Subject.
 
 subject(undefined, IsRootCA) ->
-    User = if IsRootCA -> "RootCA"; true -> user() end,
+    User = if IsRootCA -> "RootCA"; true -> os:getenv("USER", "test_user") end,
     Opts = [{email, User ++ "@erlang.org"},
 	    {name, User},
 	    {city, "Stockholm"},
@@ -214,14 +214,6 @@ subject(undefined, IsRootCA) ->
     subject(Opts);
 subject(Opts, _) ->
     subject(Opts).
-
-user() ->
-    case os:getenv("USER") of
-	false ->
-	    "test_user";
-	User ->
-	    User
-    end.
 
 subject(SubjectOpts) when is_list(SubjectOpts) ->
     Encode = fun(Opt) ->
@@ -300,7 +292,7 @@ publickey(#'DSAPrivateKey'{p=P, q=Q, g=G, y=Y}) ->
 publickey(#'ECPrivateKey'{version = _Version,
 			  privateKey = _PrivKey,
 			  parameters = Params,
-			  publicKey = {0, PubKey}}) ->
+			  publicKey = PubKey}) ->
     Algo = #'PublicKeyAlgorithm'{algorithm= ?'id-ecPublicKey', parameters=Params},
     #'OTPSubjectPublicKeyInfo'{algorithm = Algo,
 			       subjectPublicKey = #'ECPoint'{point = PubKey}}.
@@ -409,9 +401,9 @@ gen_ec2(CurveId) ->
      {PubKey, PrivKey} = crypto:generate_key(ecdh, CurveId),
 
     #'ECPrivateKey'{version = 1,
-		    privateKey = binary_to_list(PrivKey),
+		    privateKey = PrivKey,
 		    parameters = {namedCurve, pubkey_cert_records:namedCurves(CurveId)},
-		    publicKey = {0, PubKey}}.
+		    publicKey = PubKey}.
 
 %% See fips_186-3.pdf
 dsa_search(T, P0, Q, Iter) when Iter > 0 ->

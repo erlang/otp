@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2005-2013. All Rights Reserved.
+ * Copyright Ericsson AB 2005-2014. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -25,6 +25,7 @@
 #include "sys.h"
 #include "big.h"
 #include "erl_map.h"
+#include "erl_binary.h"
 
 #define PRINT_CHAR(CNT, FN, ARG, C)					\
 do {									\
@@ -138,6 +139,25 @@ is_printable_string(Eterm list, Eterm* base)
     return 0;
 }
 
+static int is_printable_ascii(byte* bytep, Uint bytesize, Uint bitoffs)
+{
+    if (!bitoffs) {
+	while (bytesize--) {
+	    if (*bytep < ' ' || *bytep >= 127)
+		return 0;
+	    bytep++;
+	}
+    } else {
+	while (bytesize--) {
+	    byte octet = (bytep[0] << bitoffs) | (bytep[1] >> (8-bitoffs));
+	    if (octet < ' ' || octet >= 127)
+		return 0;
+	    bytep++;
+	}
+    }
+    return 1;
+}
+
 /* print a atom doing what quoting is necessary */
 static int print_atom_name(fmtfn_t fn, void* arg, Eterm atom, long *dcount)
 {
@@ -227,6 +247,17 @@ static int print_atom_name(fmtfn_t fn, void* arg, Eterm atom, long *dcount)
 #define PRT_PATCH_FUN_SIZE     ((Eterm) 7)
 #define PRT_LAST_ARRAY_ELEMENT ((Eterm) 8) /* Note! Must be last... */
 
+#if 0
+static char *format_binary(Uint16 x, char *b) {
+    int z;
+    b[16] = '\0';
+    for (z = 0; z < 16; z++) { 
+	b[15-z] = ((x>>z) & 0x1) ? '1' : '0'; 
+    }
+    return b;
+}
+#endif
+
 static int
 print_term(fmtfn_t fn, void* arg, Eterm obj, long *dcount,
 	   Eterm* obj_base) /* ignored if !HALFWORD_HEAP */
@@ -283,13 +314,9 @@ print_term(fmtfn_t fn, void* arg, Eterm obj, long *dcount,
 		    tl = CDR(cons);
 		    if (is_not_nil(tl)) {
 			if (is_list(tl)) {
-			    WSTACK_PUSH(s, tl);
-			    WSTACK_PUSH(s, PRT_ONE_CONS);
-			    WSTACK_PUSH(s, PRT_COMMA);
+			    WSTACK_PUSH3(s, tl, PRT_ONE_CONS, PRT_COMMA);
 			} else {
-			    WSTACK_PUSH(s, tl);
-			    WSTACK_PUSH(s, PRT_TERM);
-			    WSTACK_PUSH(s, PRT_BAR);
+			    WSTACK_PUSH3(s, tl, PRT_TERM, PRT_BAR);
 			}
 		    }
 		}
@@ -299,9 +326,7 @@ print_term(fmtfn_t fn, void* arg, Eterm obj, long *dcount,
 		break;
 	    default:		/* PRT_LAST_ARRAY_ELEMENT+1 and upwards */
 		obj = *popped.ptr;
-	        WSTACK_PUSH(s, (UWord) (popped.ptr + 1));
-		WSTACK_PUSH(s, val-1);
-		WSTACK_PUSH(s, PRT_COMMA);
+	        WSTACK_PUSH3(s, (UWord) (popped.ptr + 1), val-1, PRT_COMMA);
 		break;
 	    }
 	    break;
@@ -431,8 +456,7 @@ print_term(fmtfn_t fn, void* arg, Eterm obj, long *dcount,
 	    WSTACK_PUSH(s,PRT_CLOSE_TUPLE);
 	    ++nobj;
 	    if (i > 0) {
-		WSTACK_PUSH(s, (UWord) nobj);
-		WSTACK_PUSH(s, PRT_LAST_ARRAY_ELEMENT+i-1);
+		WSTACK_PUSH2(s, (UWord) nobj, PRT_LAST_ARRAY_ELEMENT+i-1);
 	    }
 	    break;
 	case FLOAT_DEF: {
@@ -446,13 +470,65 @@ print_term(fmtfn_t fn, void* arg, Eterm obj, long *dcount,
 		PRINT_STRING(res, fn, arg, "#MatchState");
 	    }
 	    else {
-		ProcBin* pb = (ProcBin *) binary_val(wobj);
-		if (pb->size == 1)
-		    PRINT_STRING(res, fn, arg, "<<1 byte>>");
-		else {
+		byte* bytep;
+		Uint bytesize = binary_size_rel(obj,obj_base);
+		Uint bitoffs;
+		Uint bitsize;
+		byte octet;
+		ERTS_GET_BINARY_BYTES_REL(obj, bytep, bitoffs, bitsize, obj_base);
+
+		if (bitsize || !bytesize
+		    || !is_printable_ascii(bytep, bytesize, bitoffs)) {
+		    int is_first = 1;
 		    PRINT_STRING(res, fn, arg, "<<");
-		    PRINT_UWORD(res, fn, arg, 'u', 0, 1, (ErlPfUWord) pb->size);
-		    PRINT_STRING(res, fn, arg, " bytes>>");
+		    while (bytesize) {
+			if (is_first)
+			    is_first = 0;
+			else
+			    PRINT_CHAR(res, fn, arg, ',');
+			if (bitoffs)
+			    octet = (bytep[0] << bitoffs) | (bytep[1] >> (8-bitoffs));
+			else
+			    octet = bytep[0];
+			PRINT_UWORD(res, fn, arg, 'u', 0, 1, octet);
+			++bytep;
+			--bytesize;
+		    }
+		    if (bitsize) {
+			Uint bits = bitoffs + bitsize;
+			octet = bytep[0];
+			if (bits < 8)
+			    octet >>= 8 - bits;
+			else if (bits > 8) {
+			    bits -= 8;  /* bits in last byte */
+			    octet <<= bits;
+			    octet |= bytep[1] >> (8 - bits);
+			}
+			octet &= (1 << bitsize) - 1;
+			if (is_first)
+			    is_first = 0;
+			else
+			    PRINT_CHAR(res, fn, arg, ',');
+			PRINT_UWORD(res, fn, arg, 'u', 0, 1, octet);
+			PRINT_CHAR(res, fn, arg, ':');
+			PRINT_UWORD(res, fn, arg, 'u', 0, 1, bitsize);
+		    }
+		    PRINT_STRING(res, fn, arg, ">>");
+		}
+		else {
+		    PRINT_STRING(res, fn, arg, "<<\"");
+		    while (bytesize) {
+			if (bitoffs)
+			    octet = (bytep[0] << bitoffs) | (bytep[1] >> (8-bitoffs));
+			else
+			    octet = bytep[0];
+			if (octet == '"')
+			    PRINT_CHAR(res, fn, arg, '\\');
+			PRINT_CHAR(res, fn, arg, octet);
+			++bytep;
+			--bytesize;
+		    }
+		    PRINT_STRING(res, fn, arg, "\">>");
 		}
 	    }
 	    break;
@@ -489,37 +565,74 @@ print_term(fmtfn_t fn, void* arg, Eterm obj, long *dcount,
 	    }
 	    break;
 	case MAP_DEF:
-	    {
-		Uint n;
-		Eterm *ks, *vs;
-		map_t *mp = (map_t *)map_val(wobj);
-		n  = map_get_size(mp);
-		ks = map_get_keys(mp);
-		vs = map_get_values(mp);
+            if (is_flatmap(wobj)) {
+                Uint n;
+                Eterm *ks, *vs;
+                flatmap_t *mp = (flatmap_t *)flatmap_val(wobj);
+                n  = flatmap_get_size(mp);
+                ks = flatmap_get_keys(mp);
+                vs = flatmap_get_values(mp);
 
-		PRINT_CHAR(res, fn, arg, '#');
-		PRINT_CHAR(res, fn, arg, '{');
-		WSTACK_PUSH(s, PRT_CLOSE_TUPLE);
-		if (n > 0) {
-		    n--;
-		    WSTACK_PUSH(s, vs[n]);
-		    WSTACK_PUSH(s, PRT_TERM);
-		    WSTACK_PUSH(s, PRT_ASSOC);
-		    WSTACK_PUSH(s, ks[n]);
-		    WSTACK_PUSH(s, PRT_TERM);
-
-		    while (n--) {
-			WSTACK_PUSH(s, PRT_COMMA);
-			WSTACK_PUSH(s, vs[n]);
-			WSTACK_PUSH(s, PRT_TERM);
-			WSTACK_PUSH(s, PRT_ASSOC);
-			WSTACK_PUSH(s, ks[n]);
-			WSTACK_PUSH(s, PRT_TERM);
-		    }
-		}
-	    }
-	    break;
-	default:
+                PRINT_CHAR(res, fn, arg, '#');
+                PRINT_CHAR(res, fn, arg, '{');
+                WSTACK_PUSH(s, PRT_CLOSE_TUPLE);
+                if (n > 0) {
+                    n--;
+                    WSTACK_PUSH5(s, vs[n], PRT_TERM, PRT_ASSOC, ks[n], PRT_TERM);
+                    while (n--) {
+                        WSTACK_PUSH6(s, PRT_COMMA, vs[n], PRT_TERM, PRT_ASSOC,
+                                ks[n], PRT_TERM);
+                    }
+                }
+            } else {
+                Uint n, mapval;
+                Eterm *head;
+                head = hashmap_val(wobj);
+                mapval = MAP_HEADER_VAL(*head);
+                switch (MAP_HEADER_TYPE(*head)) {
+                case MAP_HEADER_TAG_HAMT_HEAD_ARRAY:
+                case MAP_HEADER_TAG_HAMT_HEAD_BITMAP:
+                    PRINT_STRING(res, fn, arg, "#<");
+                    PRINT_UWORD(res, fn, arg, 'x', 0, 1, mapval);
+                    PRINT_STRING(res, fn, arg, ">{");
+                    WSTACK_PUSH(s,PRT_CLOSE_TUPLE);
+                    n = hashmap_bitcount(mapval);
+                    ASSERT(n < 17);
+                    head += 2;
+                    if (n > 0) {
+                        n--;
+                        WSTACK_PUSH(s, head[n]);
+                        WSTACK_PUSH(s, PRT_TERM);
+                        while (n--) {
+                            WSTACK_PUSH(s, PRT_COMMA);
+                            WSTACK_PUSH(s, head[n]);
+                            WSTACK_PUSH(s, PRT_TERM);
+                        }
+                    }
+                    break;
+                case MAP_HEADER_TAG_HAMT_NODE_BITMAP:
+                    n = hashmap_bitcount(mapval);
+                    head++;
+                    PRINT_CHAR(res, fn, arg, '<');
+                    PRINT_UWORD(res, fn, arg, 'x', 0, 1, mapval);
+                    PRINT_STRING(res, fn, arg, ">{");
+                    WSTACK_PUSH(s,PRT_CLOSE_TUPLE);
+                    ASSERT(n < 17);
+                    if (n > 0) {
+                        n--;
+                        WSTACK_PUSH(s, head[n]);
+                        WSTACK_PUSH(s, PRT_TERM);
+                        while (n--) {
+                            WSTACK_PUSH(s, PRT_COMMA);
+                            WSTACK_PUSH(s, head[n]);
+                            WSTACK_PUSH(s, PRT_TERM);
+                        }
+                    }
+                    break;
+                }
+            }
+            break;
+        default:
 	    PRINT_STRING(res, fn, arg, "<unknown:");
 	    PRINT_POINTER(res, fn, arg, wobj);
 	    PRINT_CHAR(res, fn, arg, '>');
@@ -528,17 +641,17 @@ print_term(fmtfn_t fn, void* arg, Eterm obj, long *dcount,
     }
 
  L_done:
-    
     DESTROY_WSTACK(s);
     return res;
 }
+
 
 int
 erts_printf_term(fmtfn_t fn, void* arg, ErlPfEterm term, long precision,
 		 ErlPfEterm* term_base)
 {
     int res;
-    ASSERT(sizeof(ErlPfEterm) == sizeof(Eterm));
+    ERTS_CT_ASSERT(sizeof(ErlPfEterm) == sizeof(Eterm));
 
     res = print_term(fn, arg, (Eterm)term, &precision, (Eterm*)term_base);
     if (res < 0)

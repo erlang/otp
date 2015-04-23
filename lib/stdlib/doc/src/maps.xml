@@ -40,6 +40,9 @@
 					Returns a tuple <c>{ok, Value}</c> where <c><anno>Value</anno></c> is the value associated with <c><anno>Key</anno></c>,
 					or <c>error</c> if no value is associated with <c><anno>Key</anno></c> in <c><anno>Map</anno></c>. 
 				</p>
+				<p>
+					The call will fail with a <c>{badmap,Map}</c> exception if <c><anno>Map</anno></c> is not a map.
+				</p>
 				<p>Example:</p>
 				<code type="none">
 > Map = #{"hi" => 42},
@@ -95,8 +98,10 @@
 				<p>
 					Returns the value <c><anno>Value</anno></c> associated with <c><anno>Key</anno></c> if
 					<c><anno>Map</anno></c> contains <c><anno>Key</anno></c>.
-					If no value is associated with <c><anno>Key</anno></c> then the call will
-					fail with an exception.
+				</p>
+				<p>
+					The call will fail with a <c>{badmap,Map}</c> exception if <c><anno>Map</anno></c> is not a map,
+					or with a <c>{badkey,Key}</c> exception if no value is associated with <c><anno>Key</anno></c>.
 				</p>
 				<p>Example:</p>
 				<code type="none">
@@ -116,6 +121,10 @@
 					<c><anno>Map</anno></c> contains <c><anno>Key</anno></c>.
 					If no value is associated with <c><anno>Key</anno></c> then returns <c><anno>Default</anno></c>.
 				</p>
+				<p>
+					The call will fail with a <c>{badmap,Map}</c> exception if <c><anno>Map</anno></c> is not a map.
+
+				</p>
 				<p>Example:</p>
 				<code type="none">
 > Map = #{ key1 => val1, key2 => val2 }.
@@ -134,7 +143,9 @@ val1
 				<p>
 					Returns <c>true</c> if map <c><anno>Map</anno></c> contains <c><anno>Key</anno></c> and returns
 					<c>false</c> if it does not contain the <c><anno>Key</anno></c>.
-					The function will fail with an exception if <c><anno>Map</anno></c> is not a Map.
+				</p>
+				<p>
+					The call will fail with a <c>{badmap,Map}</c> exception if <c><anno>Map</anno></c> is not a map.
 				</p>
 				<p>Example:</p>
 				<code type="none">
@@ -153,6 +164,9 @@ false</code>
 			<desc>
 				<p>
 					Returns a complete list of keys, in arbitrary order, which resides within <c><anno>Map</anno></c>.
+				</p>
+				<p>
+					The call will fail with a <c>{badmap,Map}</c> exception if <c><anno>Map</anno></c> is not a map.
 				</p>
 				<p>Example:</p>
 				<code type="none">
@@ -189,6 +203,10 @@ false</code>
 					Merges two maps into a single map <c><anno>Map3</anno></c>. If two keys exists in both maps the
 					value in <c><anno>Map1</anno></c> will be superseded by the value in <c><anno>Map2</anno></c>.
 				</p>
+				<p>
+					The call will fail with a <c>{badmap,Map}</c> exception if <c><anno>Map1</anno></c> or
+					<c><anno>Map2</anno></c> is not a map.
+				</p>
 				<p>Example:</p>
 				<code type="none">
 > Map1 = #{a => "value_one", b => "value_two"},
@@ -222,6 +240,10 @@ false</code>
 					replaced by value <c><anno>Value</anno></c>. The function returns a new map <c><anno>Map2</anno></c> containing the new association and
 					the old associations in <c><anno>Map1</anno></c>.
 				</p>
+				<p>
+					The call will fail with a <c>{badmap,Map}</c> exception if <c><anno>Map1</anno></c> is not a map.
+				</p>
+
 				<p>Example:</p>
 				<code type="none">
 > Map = #{"a" => 1}.
@@ -240,6 +262,9 @@ false</code>
 				<p>
 					The function removes the <c><anno>Key</anno></c>, if it exists, and its associated value from
 					<c><anno>Map1</anno></c> and returns a new map <c><anno>Map2</anno></c> without key <c><anno>Key</anno></c>.
+				</p>
+				<p>
+					The call will fail with a <c>{badmap,Map}</c> exception if <c><anno>Map1</anno></c> is not a map.
 				</p>
 				<p>Example:</p>
 				<code type="none">
@@ -276,6 +301,9 @@ false</code>
 					The fuction returns a list of pairs representing the key-value associations of <c><anno>Map</anno></c>,
 					where the pairs, <c>[{K1,V1}, ..., {Kn,Vn}]</c>, are returned in arbitrary order.
 				</p>
+				<p>
+					The call will fail with a <c>{badmap,Map}</c> exception if <c><anno>Map</anno></c> is not a map.
+				</p>
 				<p>Example:</p>
 				<code type="none">
 > Map = #{42 => value_three,1337 => "value two","a" => 1},
@@ -291,8 +319,11 @@ false</code>
 				<p>
 					If <c><anno>Key</anno></c> exists in <c><anno>Map1</anno></c> the old associated value is
 					replaced by value <c><anno>Value</anno></c>. The function returns a new map <c><anno>Map2</anno></c> containing
-					the new associated value. If <c><anno>Key</anno></c> does not exist in <c><anno>Map1</anno></c> an exception is
-					generated.
+					the new associated value.
+				</p>
+				<p>
+					The call will fail with a <c>{badmap,Map}</c> exception if <c><anno>Map1</anno></c> is not a map,
+					or with a <c>{badkey,Key}</c> exception if no value is associated with <c><anno>Key</anno></c>.
 				</p>
 				<p>Example:</p>
 				<code type="none">
@@ -309,6 +340,9 @@ false</code>
 			<desc>
 				<p>
 					Returns a complete list of values, in arbitrary order, contained in map <c>M</c>.
+				</p>
+				<p>
+					The call will fail with a <c>{badmap,Map}</c> exception if <c><anno>Map</anno></c> is not a map.
 				</p>
 				<p>Example:</p>
 				<code type="none">

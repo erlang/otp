@@ -73,7 +73,7 @@ loop(Iteration)->
 		[{localtime, [{date, D}, {time, T}]},
 		 {node, erlang:node()},
 		 {config_server_iteration, Iteration},
-		 {now, erlang:now()},
+		 {now, os:timestamp()},
 		 {config_server_pid, self()},
 		 {config_server_vsn, ?vsn}],
 	    Config2 = if Iteration rem 2 == 0->

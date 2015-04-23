@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2008-2014. All Rights Reserved.
+ * Copyright Ericsson AB 2008-2015. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -394,7 +394,11 @@ case 167: {// wxMouseEvent
  rt.addBool(ev->m_controlDown);
  rt.addBool(ev->m_shiftDown);
  rt.addBool(ev->m_altDown);
+#if wxCHECK_VERSION(2,9,0) && defined(_MACOSX)
+ rt.addBool(ev->m_rawControlDown);
+#else
  rt.addBool(ev->m_metaDown);
+#endif
  rt.addInt(ev->m_wheelRotation);
  rt.addInt(ev->m_wheelDelta);
  rt.addInt(ev->m_linesPerAction);
@@ -419,7 +423,11 @@ case 169: {// wxKeyEvent
  rt.addBool(ev->m_controlDown);
  rt.addBool(ev->m_shiftDown);
  rt.addBool(ev->m_altDown);
+#if wxCHECK_VERSION(2,9,0) && defined(_MACOSX)
+ rt.addBool(ev->m_rawControlDown);
+#else
  rt.addBool(ev->m_metaDown);
+#endif
 #if !wxCHECK_VERSION(2,9,0)
  rt.addBool(ev->m_scanCode);
 #else

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -22,7 +22,7 @@
 %%% the parser. It does not always produce pretty code.
 
 -export([form/1,form/2,
-         attribute/1,attribute/2,function/1,function/2,rule/1,rule/2,
+         attribute/1,attribute/2,function/1,function/2,
          guard/1,guard/2,exprs/1,exprs/2,exprs/3,expr/1,expr/2,expr/3,expr/4]).
 
 -import(lists, [append/1,foldr/3,mapfoldl/3,reverse/1,reverse/2]).
@@ -90,12 +90,6 @@ function(F) ->
 
 function(F, Options) ->
     frmt(lfunction(F, options(Options)), state(Options)).
-
-rule(R) ->
-    rule(R, none).
-
-rule(R, Options) ->
-    frmt(lrule(R, options(Options)), state(Options)).
 
 -spec(guard(Guard) -> io_lib:chars() when
       Guard :: [erl_parse:abstract_expr()]).
@@ -199,8 +193,6 @@ lform({attribute,Line,Name,Arg}, Opts, State) ->
     lattribute({attribute,Line,Name,Arg}, Opts, State);
 lform({function,Line,Name,Arity,Clauses}, Opts, _State) ->
     lfunction({function,Line,Name,Arity,Clauses}, Opts);
-lform({rule,Line,Name,Arity,Clauses}, Opts, _State) ->
-    lrule({rule,Line,Name,Arity,Clauses}, Opts);
 %% These are specials to make it easier for the compiler.
 lform({error,E}, _Opts, _State) ->
     leaf(format("~p\n", [{error,E}]));
@@ -232,13 +224,21 @@ lattribute(import, Name, _Opts, _State) when is_list(Name) ->
     attr("import", [{var,0,pname(Name)}]);
 lattribute(import, {From,Falist}, _Opts, _State) ->
     attr("import",[{var,0,pname(From)},falist(Falist)]);
+lattribute(optional_callbacks, Falist, Opts, _State) ->
+    ArgL = try falist(Falist)
+           catch _:_ -> abstract(Falist, Opts)
+           end,
+    call({var,0,"-optional_callbacks"}, [ArgL], 0, options(none));
 lattribute(file, {Name,Line}, _Opts, State) ->
     attr("file", [{var,0,(State#pp.string_fun)(Name)},{integer,0,Line}]);
 lattribute(record, {Name,Is}, Opts, _State) ->
     Nl = leaf(format("-record(~w,", [Name])),
     [{first,Nl,record_fields(Is, Opts)},$)];
-lattribute(Name, Arg, #options{encoding = Encoding}, _State) ->
-    attr(write(Name), [erl_parse:abstract(Arg, [{encoding,Encoding}])]).
+lattribute(Name, Arg, Options, _State) ->
+    attr(write(Name), [abstract(Arg, Options)]).
+
+abstract(Arg, #options{encoding = Encoding}) ->
+    erl_parse:abstract(Arg, [{encoding,Encoding}]).
 
 typeattr(Tag, {TypeName,Type,Args}, _Opts) ->
     {first,leaf("-"++atom_to_list(Tag)++" "),
@@ -277,6 +277,9 @@ ltype({type,_,'fun',[{type,_,any},_]}=FunType) ->
 ltype({type,_Line,'fun',[{type,_,product,_},_]}=FunType) ->
     [fun_type(['fun',$(], FunType),$)];
 ltype({type,Line,T,Ts}) ->
+    %% Compatibility. Before 18.0.
+    simple_type({atom,Line,T}, Ts);
+ltype({user_type,Line,T,Ts}) ->
     simple_type({atom,Line,T}, Ts);
 ltype({remote_type,Line,[M,F,Ts]}) ->
     simple_type({remote,Line,M,F}, Ts);
@@ -299,7 +302,7 @@ map_type(Fs) ->
 map_pair_types(Fs) ->
     tuple_type(Fs, fun map_pair_type/1).
 
-map_pair_type({type,_Line,map_field_assoc,Ktype,Vtype}) ->
+map_pair_type({type,_Line,map_field_assoc,[Ktype,Vtype]}) ->
     map_assoc_typed(ltype(Ktype), Vtype).
 
 map_assoc_typed(B, {type,_,union,Ts}) ->
@@ -406,19 +409,6 @@ func_clause(Name, {clause,Line,Head,Guard,Body}, Opts) ->
     Gl = guard_when(Hl, Guard, Opts),
     Bl = body(Body, Opts),
     {step,Gl,Bl}.
-
-lrule({rule,_Line,Name,_Arity,Cs}, Opts) ->
-    Cll = nl_clauses(fun (C, H) -> rule_clause(Name, C, H) end, $;, Opts, Cs),
-    [Cll,leaf(".\n")].
-
-rule_clause(Name, {clause,Line,Head,Guard,Body}, Opts) ->
-    Hl = call({atom,Line,Name}, Head, 0, Opts),
-    Gl = guard_when(Hl, Guard, Opts, leaf(" :-")),
-    Bl = rule_body(Body, Opts),
-    {step,Gl,Bl}.
-
-rule_body(Es, Opts) ->
-    lc_quals(Es, Opts).
 
 guard_when(Before, Guard, Opts) ->
     guard_when(Before, Guard, Opts, ' ->').

@@ -42,7 +42,6 @@ function_call argument_list
 exprs guard
 atomic strings
 prefix_op mult_op add_op list_op comp_op
-rule rule_clauses rule_clause rule_body
 binary bin_elements bin_element bit_expr
 opt_bit_size_expr bit_size_expr opt_bit_type_list bit_type_list bit_type
 top_type top_type_100 top_types type typed_expr typed_attr_val
@@ -54,7 +53,7 @@ bin_base_type bin_unit_type type_200 type_300 type_400 type_500.
 Terminals
 char integer float atom string var
 
-'(' ')' ',' '->' ':-' '{' '}' '[' ']' '|' '||' '<-' ';' ':' '#' '.'
+'(' ')' ',' '->' '{' '}' '[' ']' '|' '||' '<-' ';' ':' '#' '.'
 'after' 'begin' 'case' 'try' 'catch' 'end' 'fun' 'if' 'of' 'receive' 'when'
 'andalso' 'orelse'
 'bnot' 'not'
@@ -73,7 +72,6 @@ Rootsymbol form.
 
 form -> attribute dot : '$1'.
 form -> function dot : '$1'.
-form -> rule dot : '$1'.
 
 attribute -> '-' atom attr_val               : build_attribute('$2', '$3').
 attribute -> '-' atom typed_attr_val         : build_typed_attribute('$2','$3').
@@ -146,8 +144,7 @@ type -> '(' top_type ')'                  : {paren_type, ?line('$2'), ['$2']}.
 type -> var                               : '$1'.
 type -> atom                              : '$1'.
 type -> atom '(' ')'                      : build_gen_type('$1').
-type -> atom '(' top_types ')'            : {type, ?line('$1'),
-                                             normalise('$1'), '$3'}.
+type -> atom '(' top_types ')'            : build_type('$1', '$3').
 type -> atom ':' atom '(' ')'             : {remote_type, ?line('$1'),
                                              ['$1', '$3', []]}.
 type -> atom ':' atom '(' top_types ')'   : {remote_type, ?line('$1'),
@@ -181,7 +178,7 @@ fun_type -> '(' top_types ')' '->' top_type
 
 map_pair_types -> map_pair_type                    : ['$1'].
 map_pair_types -> map_pair_type ',' map_pair_types : ['$1'|'$3'].
-map_pair_type  -> top_type '=>' top_type           : {type, ?line('$2'), map_field_assoc,'$1','$3'}.
+map_pair_type  -> top_type '=>' top_type           : {type, ?line('$2'), map_field_assoc,['$1','$3']}.
 
 field_types -> field_type                 : ['$1'].
 field_types -> field_type ',' field_types : ['$1'|'$3'].
@@ -521,17 +518,6 @@ comp_op -> '>' : '$1'.
 comp_op -> '=:=' : '$1'.
 comp_op -> '=/=' : '$1'.
 
-rule -> rule_clauses : build_rule('$1').
-
-rule_clauses -> rule_clause : ['$1'].
-rule_clauses -> rule_clause ';' rule_clauses : ['$1'|'$3'].
-
-rule_clause -> atom clause_args clause_guard rule_body :
-	{clause,?line('$1'),element(3, '$1'),'$2','$3','$4'}.
-
-rule_body -> ':-' lc_exprs: '$2'.
-
-
 Erlang code.
 
 -export([parse_form/1,parse_exprs/1,parse_term/1]).
@@ -665,6 +651,8 @@ find_arity_from_specs([Spec|_]) ->
     {type, _, 'fun', [{type, _, product, Args},_]} = Fun,
     length(Args).
 
+build_def({var, L, '_'}, _Types) ->
+    ret_err(L, "bad type variable");
 build_def(LHS, Types) ->
     IsSubType = {atom, ?line(LHS), is_subtype},
     {type, ?line(LHS), constraint, [IsSubType, [LHS, Types]]}.
@@ -684,7 +672,8 @@ build_gen_type({atom, La, tuple}) ->
 build_gen_type({atom, La, map}) ->
     {type, La, map, any};
 build_gen_type({atom, La, Name}) ->
-    {type, La, Name, []}.
+    Tag = type_tag(Name, 0),
+    {Tag, La, Name, []}.
 
 build_bin_type([{var, _, '_'}|Left], Int) ->
     build_bin_type(Left, Int);
@@ -692,6 +681,16 @@ build_bin_type([], Int) ->
     skip_paren(Int);
 build_bin_type([{var, La, _}|_], _) ->
     ret_err(La, "Bad binary type").
+
+build_type({atom, L, Name}, Types) ->
+    Tag = type_tag(Name, length(Types)),
+    {Tag, L, Name, Types}.
+
+type_tag(TypeName, NumberOfTypeVariables) ->
+    case erl_internal:is_type(TypeName, NumberOfTypeVariables) of
+        true -> type;
+        false -> user_type
+    end.
 
 %% build_attribute(AttrName, AttrValue) ->
 %%	{attribute,Line,module,Module}
@@ -833,13 +832,6 @@ build_function(Cs) ->
     Name = element(3, hd(Cs)),
     Arity = length(element(4, hd(Cs))),
     {function,?line(hd(Cs)),Name,Arity,check_clauses(Cs, Name, Arity)}.
-
-%% build_rule([Clause]) -> {rule,Line,Name,Arity,[Clause]'}
-
-build_rule(Cs) ->
-    Name = element(3, hd(Cs)),
-    Arity = length(element(4, hd(Cs))),
-    {rule,?line(hd(Cs)),Name,Arity,check_clauses(Cs, Name, Arity)}.
 
 %% build_fun(Line, [Clause]) -> {'fun',Line,{clauses,[Clause]}}.
 

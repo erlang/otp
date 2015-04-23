@@ -40,10 +40,6 @@ std_macros(Env) ->
 	true -> [{module, atom_to_list(Env#env.module)}]
      end
      ++
-     if Env#env.package =:= [] -> [];
-	true -> [{package, atom_to_list(Env#env.package)}]
-     end
-     ++
      [{date, fun date_macro/3},
       {docRoot, Env#env.root},
       {link, fun link_macro/3},

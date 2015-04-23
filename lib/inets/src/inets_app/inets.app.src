@@ -1,7 +1,7 @@
 %% This is an -*- erlang -*- file.
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2014. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -26,7 +26,9 @@
             inets_app,
 	    inets_service,	                  
 	    inets_regexp,	                  
-	    inets_trace,	                  
+	    inets_trace,
+            inets_lib,
+            inets_time_compat,
 
             %% FTP
             ftp,
@@ -90,7 +92,6 @@
             mod_get,
             mod_head,
             mod_htaccess,
-            mod_include,
             mod_log,
             mod_range,
             mod_responsecontrol,

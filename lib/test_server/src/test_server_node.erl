@@ -618,9 +618,8 @@ do_quote_progname([Prog,Arg|Args]) ->
     end.
 
 random_element(L) ->
-    {A,B,C} = now(),
-    E = lists:sum([A,B,C]) rem length(L),
-    lists:nth(E+1, L).
+    random:seed(os:timestamp()),
+    lists:nth(random:uniform(length(L)), L).
 
 find_release(latest) ->
     "/usr/local/otp/releases/latest/bin/erl";

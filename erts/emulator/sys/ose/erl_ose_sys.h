@@ -112,6 +112,8 @@ extern clock_t sys_times(SysTimes *buffer);
 /* No use in having other resolutions than 1 Ms. */
 #define SYS_CLOCK_RESOLUTION 1
 
+#define erts_isfinite finite
+
 #ifdef NO_FPE_SIGNALS
 
 #define erts_get_current_fp_exception() NULL

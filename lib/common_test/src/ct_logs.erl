@@ -73,6 +73,8 @@
 
 -define(abs(Name), filename:absname(Name)).
 
+-define(now, os:timestamp()).
+
 -record(log_cache, {version,
 		    all_runs = [],
 		    tests = []}).
@@ -311,7 +313,7 @@ unregister_groupleader(Pid) ->
 %%% data to log (as in <code>io:format(Format,Args)</code>).</p>
 log(Heading,Format,Args) ->
     cast({log,sync,self(),group_leader(),ct_internal,?MAX_IMPORTANCE,
-	  [{int_header(),[log_timestamp(now()),Heading]},
+	  [{int_header(),[log_timestamp(?now),Heading]},
 	   {Format,Args},
 	   {int_footer(),[]}]}),
     ok.
@@ -333,7 +335,7 @@ log(Heading,Format,Args) ->
 %%% @see end_log/0
 start_log(Heading) ->
     cast({log,sync,self(),group_leader(),ct_internal,?MAX_IMPORTANCE,
-	  [{int_header(),[log_timestamp(now()),Heading]}]}),
+	  [{int_header(),[log_timestamp(?now),Heading]}]}),
     ok.
 
 %%%-----------------------------------------------------------------
@@ -491,11 +493,11 @@ tc_print(Category,Importance,Format,Args) ->
 get_heading(default) ->
     io_lib:format("\n-----------------------------"
 		  "-----------------------\n~s\n",
-		  [log_timestamp(now())]);
+		  [log_timestamp(?now)]);
 get_heading(Category) ->
     io_lib:format("\n-----------------------------"
 		  "-----------------------\n~s  ~w\n",
-		  [log_timestamp(now()),Category]).    
+		  [log_timestamp(?now),Category]).    
     
 
 %%%-----------------------------------------------------------------
@@ -553,13 +555,13 @@ div_header(Class) ->
     div_header(Class,"User").
 div_header(Class,Printer) ->
     "\n<div class=\"" ++ atom_to_list(Class) ++ "\"><b>*** " ++ Printer ++
-    " " ++ log_timestamp(now()) ++ " ***</b>".
+    " " ++ log_timestamp(?now) ++ " ***</b>".
 div_footer() ->
     "</div>".
 
 
 maybe_log_timestamp() ->
-    {MS,S,US} = now(),
+    {MS,S,US} = ?now,
     case get(log_timestamp) of
 	{MS,S,_} ->
 	    ok;
@@ -686,7 +688,7 @@ logger(Parent, Mode, Verbosity) ->
     make_last_run_index(Time),
     CtLogFd = open_ctlog(?misc_io_log),
     io:format(CtLogFd,int_header()++int_footer(),
-	      [log_timestamp(now()),"Common Test Logger started"]),
+	      [log_timestamp(?now),"Common Test Logger started"]),
     Parent ! {started,self(),{Time,filename:absname("")}},
     set_evmgr_gl(CtLogFd),
 
@@ -835,7 +837,7 @@ logger_loop(State) ->
 	stop ->
 	    io:format(State#logger_state.ct_log_fd,
 		      int_header()++int_footer(),
-		      [log_timestamp(now()),"Common Test Logger finished"]),
+		      [log_timestamp(?now),"Common Test Logger finished"]),
 	    close_ctlog(State#logger_state.ct_log_fd),
 	    ok
     end.
@@ -1908,13 +1910,14 @@ sort_all_runs(Dirs) ->
 sort_ct_runs(Dirs) ->
     %% Directory naming: <Prefix>.NodeName.Date_Time[/...]
     %% Sort on Date_Time string: "YYYY-MM-DD_HH.MM.SS"
-    lists:sort(fun(Dir1,Dir2) ->
-		       [_Prefix,_Node1,DateHH1,MM1,SS1] =
-			   string:tokens(filename:dirname(Dir1),[$.]),
-		       [_Prefix,_Node2,DateHH2,MM2,SS2] =
-			   string:tokens(filename:dirname(Dir2),[$.]),
-		       {DateHH1,MM1,SS1} =< {DateHH2,MM2,SS2}
-	       end, Dirs).
+    lists:sort(
+      fun(Dir1,Dir2) ->
+	      [SS1,MM1,DateHH1 | _] =
+		  lists:reverse(string:tokens(filename:dirname(Dir1),[$.])),
+	      [SS2,MM2,DateHH2 | _] =
+		  lists:reverse(string:tokens(filename:dirname(Dir2),[$.])),
+	      {DateHH1,MM1,SS1} =< {DateHH2,MM2,SS2}
+      end, Dirs).
 
 dir_diff_all_runs(Dirs, LogCache) ->
     case LogCache#log_cache.all_runs of

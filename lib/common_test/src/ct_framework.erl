@@ -873,8 +873,8 @@ error_notification(Mod,Func,_Args,{Error,Loc}) ->
     end,
 
     PrintErr = fun(ErrFormat, ErrArgs) ->
-		       Div = "~n- - - - - - - - - - - - - - - - "
-			   "- - - - - - - - - -~n",
+		       Div = "~n- - - - - - - - - - - - - - - - - - - "
+			     "- - - - - - - - - - - - - - - - - - - - -~n",
 		       io:format(user, lists:concat([Div,ErrFormat,Div,"~n"]),
 				 ErrArgs),
 		       Link =
@@ -1063,8 +1063,14 @@ get_all_cases1(_, []) ->
 get_all(Mod, ConfTests) ->	
     case catch apply(Mod, all, []) of
 	{'EXIT',_} ->
-	    Reason = 
-		list_to_atom(atom_to_list(Mod)++":all/0 is missing"),
+	    Reason =
+		case code:which(Mod) of
+		    non_existing ->
+			list_to_atom(atom_to_list(Mod)++
+				     " can not be compiled or loaded");
+		    _ ->
+			list_to_atom(atom_to_list(Mod)++":all/0 is missing")
+		end,
 	    %% this makes test_server call error_in_suite as first
 	    %% (and only) test case so we can report Reason properly
 	    [{?MODULE,error_in_suite,[[{error,Reason}]]}];
