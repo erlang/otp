@@ -28,7 +28,7 @@
 
 -include("beam_disasm.hrl").
 
--import(lists, [reverse/1,foldl/3,foreach/2,member/2,dropwhile/2]).
+-import(lists, [reverse/1,foldl/3,foreach/2,dropwhile/2]).
 
 -define(MAXREG, 1024).
 
@@ -153,7 +153,6 @@ validate_0(Module, [{function,Name,Ar,Entry,Code}|Fs], Ft) ->
 	 hf=0,				%Available heap size for floats.
 	 fls=undefined,			%Floating point state.
 	 ct=[],				%List of hot catch/try labels
-	 bits=undefined,	        %Number of bits in bit syntax binary.
 	 setelem=false			%Previous instruction was setelement/3.
 	}).
 
@@ -696,8 +695,7 @@ valfun_4({bs_init2,{f,Fail},Sz,Heap,Live,_,Dst}, Vst0) ->
     end,
     Vst1 = heap_alloc(Heap, Vst0),
     Vst2 = branch_state(Fail, Vst1),
-    Vst3 = prune_x_regs(Live, Vst2),
-    Vst = bs_zero_bits(Vst3),
+    Vst = prune_x_regs(Live, Vst2),
     set_type_reg(binary, Dst, Vst);
 valfun_4({bs_init_bits,{f,Fail},Sz,Heap,Live,_,Dst}, Vst0) ->
     verify_live(Live, Vst0),
@@ -709,8 +707,7 @@ valfun_4({bs_init_bits,{f,Fail},Sz,Heap,Live,_,Dst}, Vst0) ->
     end,
     Vst1 = heap_alloc(Heap, Vst0),
     Vst2 = branch_state(Fail, Vst1),
-    Vst3 = prune_x_regs(Live, Vst2),
-    Vst = bs_zero_bits(Vst3),
+    Vst = prune_x_regs(Live, Vst2),
     set_type_reg(binary, Dst, Vst);
 valfun_4({bs_append,{f,Fail},Bits,Heap,Live,_Unit,Bin,_Flags,Dst}, Vst0) ->
     verify_live(Live, Vst0),
@@ -718,43 +715,35 @@ valfun_4({bs_append,{f,Fail},Bits,Heap,Live,_Unit,Bin,_Flags,Dst}, Vst0) ->
     assert_term(Bin, Vst0),
     Vst1 = heap_alloc(Heap, Vst0),
     Vst2 = branch_state(Fail, Vst1),
-    Vst3 = prune_x_regs(Live, Vst2),
-    Vst = bs_zero_bits(Vst3),
+    Vst = prune_x_regs(Live, Vst2),
     set_type_reg(binary, Dst, Vst);
 valfun_4({bs_private_append,{f,Fail},Bits,_Unit,Bin,_Flags,Dst}, Vst0) ->
     assert_term(Bits, Vst0),
     assert_term(Bin, Vst0),
-    Vst1 = branch_state(Fail, Vst0),
-    Vst = bs_zero_bits(Vst1),
+    Vst = branch_state(Fail, Vst0),
     set_type_reg(binary, Dst, Vst);
 valfun_4({bs_put_string,Sz,_}, Vst) when is_integer(Sz) ->
     Vst;
-valfun_4({bs_put_binary,{f,Fail},Sz,_,_,Src}=I, Vst0) ->
-    assert_term(Sz, Vst0),
-    assert_term(Src, Vst0),
-    Vst = bs_align_check(I, Vst0),
+valfun_4({bs_put_binary,{f,Fail},Sz,_,_,Src}, Vst) ->
+    assert_term(Sz, Vst),
+    assert_term(Src, Vst),
     branch_state(Fail, Vst);
-valfun_4({bs_put_float,{f,Fail},Sz,_,_,Src}=I, Vst0) ->
-    assert_term(Sz, Vst0),
-    assert_term(Src, Vst0),
-    Vst = bs_align_check(I, Vst0),
+valfun_4({bs_put_float,{f,Fail},Sz,_,_,Src}, Vst) ->
+    assert_term(Sz, Vst),
+    assert_term(Src, Vst),
     branch_state(Fail, Vst);
-valfun_4({bs_put_integer,{f,Fail},Sz,_,_,Src}=I, Vst0) ->
-    assert_term(Sz, Vst0),
-    assert_term(Src, Vst0),
-    Vst = bs_align_check(I, Vst0),
+valfun_4({bs_put_integer,{f,Fail},Sz,_,_,Src}, Vst) ->
+    assert_term(Sz, Vst),
+    assert_term(Src, Vst),
     branch_state(Fail, Vst);
-valfun_4({bs_put_utf8,{f,Fail},_,Src}=I, Vst0) ->
-    assert_term(Src, Vst0),
-    Vst = bs_align_check(I, Vst0),
+valfun_4({bs_put_utf8,{f,Fail},_,Src}, Vst) ->
+    assert_term(Src, Vst),
     branch_state(Fail, Vst);
-valfun_4({bs_put_utf16,{f,Fail},_,Src}=I, Vst0) ->
-    assert_term(Src, Vst0),
-    Vst = bs_align_check(I, Vst0),
+valfun_4({bs_put_utf16,{f,Fail},_,Src}, Vst) ->
+    assert_term(Src, Vst),
     branch_state(Fail, Vst);
-valfun_4({bs_put_utf32,{f,Fail},_,Src}=I, Vst0) ->
-    assert_term(Src, Vst0),
-    Vst = bs_align_check(I, Vst0),
+valfun_4({bs_put_utf32,{f,Fail},_,Src}, Vst) ->
+    assert_term(Src, Vst),
     branch_state(Fail, Vst);
 %% Map instructions.
 valfun_4({put_map_assoc,{f,Fail},Src,Dst,Live,{list,List}}, Vst) ->
@@ -1067,55 +1056,7 @@ bsm_restore(Reg, SavePoint, Vst) ->
 	    end;
 	_ -> error({illegal_restore,SavePoint,range})
     end.
-    
 
-%%%
-%%% Validation of alignment in the bit syntax. (Currently, construction only.)
-%%%
-%%% We make sure that the aligned flag is only set when we can be sure of the
-%%% aligment.
-%%%
-
-bs_zero_bits(#vst{current=St}=Vst) ->
-    Vst#vst{current=St#st{bits=0}}.
-
-bs_align_check({bs_put_utf8,_,Flags,_}, #vst{current=#st{}=St}=Vst) ->
-    bs_verify_flags(Flags, St),
-    Vst;
-bs_align_check({bs_put_utf16,_,Flags,_}, #vst{current=#st{}=St}=Vst) ->
-    bs_verify_flags(Flags, St),
-    Vst;
-bs_align_check({bs_put_utf32,_,Flags,_}, #vst{current=#st{}=St}=Vst) ->
-    bs_verify_flags(Flags, St),
-    Vst;
-bs_align_check({_,_,Sz,U,Flags,_}, #vst{current=#st{bits=Bits}=St}=Vst) ->
-    bs_verify_flags(Flags, St),
-    bs_update_bits(Bits, Sz, U, St, Vst).
-
-bs_update_bits(undefined, _, _, _, Vst) -> Vst;
-bs_update_bits(Bits0, {integer,Sz}, U, St, Vst) ->
-    Bits = Bits0 + U*Sz,
-    Vst#vst{current=St#st{bits=Bits}};
-bs_update_bits(_, {atom,all}, _, _, Vst) ->
-    %% A binary will not change the alignment.
-    Vst;
-bs_update_bits(_, _, U, _, Vst) when U rem 8 =:= 0 ->
-    %% Units of 8, 16, and so on will not change the aligment.
-    Vst;
-bs_update_bits(_, _, _, St, Vst) ->
-    %% We can no longer be sure about aligment.
-    Vst#vst{current=St#st{bits=undefined}}.
-
-bs_verify_flags({field_flags,Fl}, #st{bits=Bits}) ->
-    case bs_is_aligned(Fl) of
-	false -> ok;
-	true when is_integer(Bits), Bits rem 8 =:= 0 -> ok;
-	true -> error({aligned_flag_set,{bits,Bits}})
-    end.
-
-bs_is_aligned(Fl) when is_integer(Fl) -> Fl band 1 =:= 1;
-bs_is_aligned(Fl) when is_list(Fl) -> member(aligned, Fl).
-    
 %%%
 %%% Keeping track of types.
 %%%

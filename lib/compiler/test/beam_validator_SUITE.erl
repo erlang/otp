@@ -28,7 +28,7 @@
 	 overwrite_catchtag/1,overwrite_trytag/1,accessing_tags/1,bad_catch_try/1,
 	 cons_guard/1,
 	 freg_range/1,freg_uninit/1,freg_state/1,
-	 bad_bin_match/1,bin_aligned/1,bad_dsetel/1,
+	 bad_bin_match/1,bad_dsetel/1,
 	 state_after_fault_in_catch/1,no_exception_in_catch/1,
 	 undef_label/1,illegal_instruction/1,failing_gc_guard_bif/1,
 	 map_field_lists/1]).
@@ -57,7 +57,7 @@ groups() ->
        unsafe_catch,dead_code,
        overwrite_catchtag,overwrite_trytag,accessing_tags,
        bad_catch_try,cons_guard,freg_range,freg_uninit,
-       freg_state,bad_bin_match,bin_aligned,bad_dsetel,
+       freg_state,bad_bin_match,bad_dsetel,
        state_after_fault_in_catch,no_exception_in_catch,
        undef_label,illegal_instruction,failing_gc_guard_bif,
        map_field_lists]}].
@@ -178,7 +178,7 @@ unsafe_catch(Config) when is_list(Config) ->
     ?line
 	[{{t,small,2},
 	  {{bs_put_integer,{f,0},{integer,16},1,
-	    {field_flags,[aligned,unsigned,big]},{y,0}},
+	    {field_flags,[unsigned,big]},{y,0}},
 	   20,
 	   {unassigned,{y,0}}}}] = Errors,
     ok.
@@ -298,19 +298,6 @@ bad_bin_match(Config) when is_list(Config) ->
 	[{{t,t,1},{return,5,{match_context,{x,0}}}}] =
 		do_val(bad_bin_match, Config),
 	ok.
-
-bin_aligned(Config) when is_list(Config) ->
-    Errors = do_val(bin_aligned, Config),
-    ?line
-	[{{t,decode,1},
-	  {{bs_put_integer,{f,0},
-	    {integer,5},
-	    1,
-	    {field_flags,[unsigned,big,aligned]},
-	    {integer,0}},
-	   10,
-	   {aligned_flag_set,{bits,3}}}}] = Errors,
-    ok.
 
 bad_dsetel(Config) when is_list(Config) ->
     Errors = do_val(bad_dsetel, Config),
