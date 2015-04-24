@@ -2938,6 +2938,11 @@ Sint erts_cmp(Eterm a, Eterm b, int exact, int eq_only)
         return cmp_atoms(a, b);
     } else if (is_both_small(a, b)) {
         return (signed_val(a) - signed_val(b));
+    } else if (is_float_rel(a, a_base) && is_float_rel(b, b_base)) {
+        FloatDef af, bf;
+        GET_DOUBLE_REL(a, af, a_base);
+        GET_DOUBLE_REL(b, bf, b_base);
+        return float_comp(af.fd, bf.fd);
     }
 #if HALFWORD_HEAP
     return erts_cmp_compound_rel_opt(a,a_base,b,b_base,exact,eq_only);
