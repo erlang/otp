@@ -64,9 +64,6 @@
     </datatype>
     <datatype>
       <name name="tree" n_vars="0"/>
-      <desc>
-        <p><c>tree()</c> is equivalent to <c>tree(term(), term())</c>.</p>
-      </desc>
     </datatype>
     <datatype>
       <name name="iter" n_vars="2"/>
@@ -74,9 +71,6 @@
     </datatype>
     <datatype>
       <name name="iter" n_vars="0"/>
-      <desc>
-        <p><c>iter()</c> is equivalent to <c>iter(term(), term())</c>.</p>
-      </desc>
     </datatype>
   </datatypes>
   <funcs>

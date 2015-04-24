@@ -160,11 +160,10 @@
 
 -type gb_tree_node(K, V) :: 'nil'
                           | {K, V, gb_tree_node(K, V), gb_tree_node(K, V)}.
--type gb_tree_node() :: gb_tree_node(_, _).
 -opaque tree(Key, Value) :: {non_neg_integer(), gb_tree_node(Key, Value)}.
--opaque tree() :: tree(_, _).
+-type tree() :: tree(_, _).
 -opaque iter(Key, Value) :: [gb_tree_node(Key, Value)].
--opaque iter() :: [gb_tree_node()].
+-type iter() :: iter(_, _).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 

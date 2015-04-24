@@ -93,9 +93,6 @@ the default value cannot be confused with the values of set entries.</p>
   </datatype>
   <datatype>
     <name name="array" n_vars="0"/>
-    <desc>
-      <p><c>array()</c> is equivalent to <c>array(term())</c>.</p>
-    </desc>
   </datatype>
   <datatype>
     <name name="array_indx"/>

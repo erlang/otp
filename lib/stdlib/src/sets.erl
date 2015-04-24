@@ -70,7 +70,7 @@
 	 segs                :: segs(_)			% Segments
 	}).
 
--opaque set() :: set(_).
+-type set() :: set(_).
 
 -opaque set(Element) :: #set{segs :: segs(Element)}.
 
