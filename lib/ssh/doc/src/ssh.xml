@@ -41,6 +41,7 @@
       <item>Supported SSH version is 2.0.</item>
       <item>Supported MAC algorithms: hmac-sha2-256 and hmac-sha1.</item>
       <item>Supported encryption algorithms: aes128-ctr, aes128-cb and 3des-cbc.</item>
+      <item>Supported key exchange algorithms: diffie-hellman-group1-sha1.</item>
       <item>Supports unicode filenames if the emulator and the underlaying OS support it.
       See section DESCRIPTION in the
       <seealso marker="kernel:file">file</seealso> manual page in <c>kernel</c>
@@ -105,9 +106,9 @@
 	<d><c><![CDATA[22]]></c> is default, the assigned well-known port
 	number for SSH.</d>
 	<v>Options = [{Option, Value}]</v>
-	<v>Timeout = infinity | integer(milliseconds)</v>
-	<d>Negotiation time-out. For connection time-out, use option
-	<c>{connect_timeout, timeout()}</c>.</d>
+	<v>Timeout = infinity | integer()</v>
+	<d>Negotiation time-out in milli-seconds. The default value is <c>infinity</c>.
+	For connection time-out, use option <c>{connect_timeout, timeout()}</c>.</d>
       </type>
       <desc>
 	<p>Connects to an SSH server. No channel is started. This is done
@@ -176,7 +177,8 @@
 	  <tag><c><![CDATA[{connect_timeout, timeout()}]]></c></tag>
 	  <item>
 	    <p>Sets a time-out on the transport layer
-	    connection. Defaults to <c>infinity</c>.</p>
+	    connection. For <c>gen_tcp</c> the time is in milli-seconds and the default value is
+	    <c>infinity</c>.</p>
 	  </item>
 	  <tag><c><![CDATA[{user, string()}]]></c></tag>
           <item>
@@ -238,7 +240,7 @@
 	<v>Value = [option_value()] </v>
 	<v>option_value() = {{Major::integer(), Minor::integer()}, VersionString::string()} |
 	User::string() |  Peer::{inet:hostname(), {inet::ip_adress(), inet::port_number()}} |
-	Sockname::{inet::ip_adress(), inet::port_number()} () </v>
+	Sockname::{inet::ip_adress(), inet::port_number()}</v>
       </type>
       <desc>
         <p>Retrieves information about a connection.</p>

@@ -102,8 +102,8 @@
     <code type="erl">
       1> ssh:start().
       ok
-      2> {ok, Sshd} = ssh:daemon(8989,  [{system_dir, "/tmp/ssh_daemon"},
-      {user_dir, "/tmp/otptest_user/.ssh"}]).
+      2> {ok, Sshd} = ssh:daemon(8989, [{system_dir, "/tmp/ssh_daemon"},
+                                        {user_dir, "/tmp/otptest_user/.ssh"}]).
       {ok,&lt;0.54.0>}
       3>
     </code>
@@ -154,8 +154,8 @@
 
     <note><p>The number of received messages in this example depends on which OS
     and which shell that is used on the machine running the <c>ssh</c> daemon.
-    See also <seealso marker="ssh_connection#exec-4">ssh_connection:exec/4</seealso>
-    </p>.</note>
+    See also <seealso marker="ssh_connection#exec-4">ssh_connection:exec/4</seealso>.
+    </p></note>
 
     <p>Do a one-time execution of a remote command over <c>ssh</c>:</p>
 
@@ -194,9 +194,10 @@
     <code type="erl" >
       1> ssh:start().
       ok
-      2> ssh:daemon(8989,  [{system_dir, "/tmp/ssh_daemon"},
-         {user_dir, "/tmp/otptest_user/.ssh"},
-         {subsystems, [ssh_sftpd:subsystem_spec([{cwd, "/tmp/sftp/example"}])]}]).
+      2> ssh:daemon(8989, [{system_dir, "/tmp/ssh_daemon"},
+                           {user_dir, "/tmp/otptest_user/.ssh"},
+                           {subsystems, [ssh_sftpd:subsystem_spec([{cwd, "/tmp/sftp/example"}])
+                                        ]}]).
       {ok,&lt;0.54.0>}
       3>
     </code>
@@ -248,50 +249,50 @@
 
     <p>The previous write and read example can be extended with encryption and decryption as follows:</p>
     <code type="erlang">
-      %% First three parameters depending on which crypto type we select:
-      Key = &lt;&lt;"This is a 256 bit key. abcdefghi">>,
-      Ivec0 = crypto:rand_bytes(16),
-      DataSize = 1024,  % DataSize rem 16 = 0 for aes_cbc
+%% First three parameters depending on which crypto type we select:
+Key = &lt;&lt;"This is a 256 bit key. abcdefghi">>,
+Ivec0 = crypto:rand_bytes(16),
+DataSize = 1024,  % DataSize rem 16 = 0 for aes_cbc
 
-      %% Initialization of the CryptoState, in this case it is the Ivector.
-      InitFun = fun() -> {ok, Ivec0, DataSize} end,
+%% Initialization of the CryptoState, in this case it is the Ivector.
+InitFun = fun() -> {ok, Ivec0, DataSize} end,
 
-      %% How to encrypt:
-      EncryptFun =
-      fun(PlainBin,Ivec) ->
-      EncryptedBin = crypto:block_encrypt(aes_cbc256, Key, Ivec, PlainBin),
-      {ok, EncryptedBin, crypto:next_iv(aes_cbc,EncryptedBin)}
-      end,
+%% How to encrypt:
+EncryptFun =
+    fun(PlainBin,Ivec) ->
+        EncryptedBin = crypto:block_encrypt(aes_cbc256, Key, Ivec, PlainBin),
+        {ok, EncryptedBin, crypto:next_iv(aes_cbc,EncryptedBin)}
+    end,
 
-      %% What to do with the very last block:
-      CloseFun =
-      fun(PlainBin, Ivec) ->
-      EncryptedBin = crypto:block_encrypt(aes_cbc256, Key, Ivec,
-      pad(16,PlainBin) %% Last chunk
-      ),
-      {ok, EncryptedBin}
-      end,
+%% What to do with the very last block:
+CloseFun =
+    fun(PlainBin, Ivec) ->
+        EncryptedBin = crypto:block_encrypt(aes_cbc256, Key, Ivec,
+                                            pad(16,PlainBin) %% Last chunk
+                                           ),
+       {ok, EncryptedBin}
+    end,
 
-      Cw = {InitFun,EncryptFun,CloseFun},
-      {ok,HandleWrite} = ssh_sftp:open_tar(ChannelPid, ?tar_file_name, [write,{crypto,Cw}]),
-      ok = erl_tar:add(HandleWrite, .... ),
-      ok = erl_tar:add(HandleWrite, .... ),
-      ...
-      ok = erl_tar:add(HandleWrite, .... ),
-      ok = erl_tar:close(HandleWrite),
+Cw = {InitFun,EncryptFun,CloseFun},
+{ok,HandleWrite} = ssh_sftp:open_tar(ChannelPid, ?tar_file_name, [write,{crypto,Cw}]),
+ok = erl_tar:add(HandleWrite, .... ),
+ok = erl_tar:add(HandleWrite, .... ),
+...
+ok = erl_tar:add(HandleWrite, .... ),
+ok = erl_tar:close(HandleWrite),
 
-      %% And for decryption (in this crypto example we could use the same InitFun
-      %% as for encryption):
-      DecryptFun =
-      fun(EncryptedBin,Ivec) ->
-      PlainBin = crypto:block_decrypt(aes_cbc256, Key, Ivec, EncryptedBin),
-      {ok, PlainBin, crypto:next_iv(aes_cbc,EncryptedBin)}
-      end,
+%% And for decryption (in this crypto example we could use the same InitFun
+%% as for encryption):
+DecryptFun =
+    fun(EncryptedBin,Ivec) ->
+        PlainBin = crypto:block_decrypt(aes_cbc256, Key, Ivec, EncryptedBin),
+       {ok, PlainBin, crypto:next_iv(aes_cbc,EncryptedBin)}
+    end,
 
-      Cr = {InitFun,DecryptFun},
-      {ok,HandleRead} = ssh_sftp:open_tar(ChannelPid, ?tar_file_name, [read,{crypto,Cw}]),
-      {ok,NameValueList} = erl_tar:extract(HandleRead,[memory]),
-      ok = erl_tar:close(HandleRead),
+Cr = {InitFun,DecryptFun},
+{ok,HandleRead} = ssh_sftp:open_tar(ChannelPid, ?tar_file_name, [read,{crypto,Cw}]),
+{ok,NameValueList} = erl_tar:extract(HandleRead,[memory]),
+ok = erl_tar:close(HandleRead),
     </code>
   </section>
 
@@ -360,9 +361,9 @@ terminate(_Reason, _State) ->
  <code type="erl" >
    1> ssh:start().
    ok
-   2>  ssh:daemon(8989, [{system_dir, "/tmp/ssh_daemon"},
-   {user_dir, "/tmp/otptest_user/.ssh"}
-   {subsystems, [{"echo_n", {ssh_echo_server, [10]}}]}]).
+   2> ssh:daemon(8989, [{system_dir, "/tmp/ssh_daemon"},
+                        {user_dir, "/tmp/otptest_user/.ssh"}
+                        {subsystems, [{"echo_n", {ssh_echo_server, [10]}}]}]).
    {ok,&lt;0.54.0>}
    3>
  </code>
