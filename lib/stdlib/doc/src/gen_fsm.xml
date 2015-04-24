@@ -503,7 +503,7 @@ gen_fsm:sync_send_all_state_event -----> Module:handle_sync_event/4
         <v>&nbsp;&nbsp;| {stop,Reason,NewStateData}</v>
         <v>&nbsp;NextStateName = atom()</v>
         <v>&nbsp;NewStateData = term()</v>
-        <v>&nbsp;Timeout = int()>0 | infinity</v>
+        <v>&nbsp;Timeout = int()>=0 | infinity</v>
         <v>&nbsp;Reason = term()</v>
       </type>
       <desc>
