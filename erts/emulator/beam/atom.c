@@ -240,7 +240,7 @@ erts_atom_put(const byte *name, int len, ErtsAtomEncoding enc, int trunc)
     byte utf8_copy[MAX_ATOM_SZ_FROM_LATIN1];
     const byte *text = name;
     int tlen = len;
-    Sint no_latin1_chars;
+    Sint no_latin1_chars = 0;
     Atom a;
     int aix;
 

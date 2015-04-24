@@ -400,7 +400,7 @@ erts_garbage_collect(Process* p, int need, Eterm* objv, int nobj)
 {
     Uint reclaimed_now = 0;
     int done = 0;
-    Uint ms1, s1, us1;
+    Uint ms1 = 0, s1 = 0, us1 = 0;
     ErtsSchedulerData *esdp;
 #ifdef USE_VM_PROBES
     DTRACE_CHARBUF(pidbuf, DTRACE_TERM_BUF_SIZE);
@@ -677,7 +677,7 @@ erts_garbage_collect_literals(Process* p, Eterm* literals,
     Uint area_size;
     Eterm* old_htop;
     Uint n;
-    struct erl_off_heap_header** prev;
+    struct erl_off_heap_header** prev = NULL;
 
     if (p->flags & F_DISABLE_GC)
 	return;

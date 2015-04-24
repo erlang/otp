@@ -1788,7 +1788,7 @@ remap_move(Uint32 flags, void *ptr, UWord old_size, UWord *sizep)
 void *
 erts_mremap(Uint32 flags, void *ptr, UWord old_size, UWord *sizep)
 {
-    void *new_ptr;
+    void *new_ptr = NULL;
     Uint32 superaligned;
     UWord asize;
 

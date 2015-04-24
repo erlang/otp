@@ -2758,7 +2758,7 @@ erts_allocator_options(void *proc)
 #if HAVE_ERTS_MSEG
     int use_mseg = 0;
 #endif
-    Uint sz, *szp, *hp, **hpp;
+    Uint sz, *szp, *hp = NULL, **hpp;
     Eterm res, features, settings;
     Eterm atoms[ERTS_ALC_A_MAX-ERTS_ALC_A_MIN+7];
     Uint terms[ERTS_ALC_A_MAX-ERTS_ALC_A_MIN+7];
@@ -2961,7 +2961,7 @@ reply_alloc_info(void *vair)
     int global_instances = air->req_sched == sched_id;
     ErtsProcLocks rp_locks;
     Process *rp = air->proc;
-    Eterm ref_copy = NIL, ai_list, msg;
+    Eterm ref_copy = NIL, ai_list, msg = NIL;
     Eterm *hp = NULL, *hp_end = NULL, *hp_start = NULL;
     Eterm **hpp;
     Uint sz, *szp;

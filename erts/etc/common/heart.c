@@ -292,9 +292,9 @@ free_env_val(char *value)
  */
 static void get_arguments(int argc, char** argv) {
     int i = 1;
-    int h;
-    int w;
-    unsigned long p;
+    int h = 0;
+    int w = 0;
+    unsigned long p = 0;
 
     while (i < argc) {
 	switch (argv[i][0]) {

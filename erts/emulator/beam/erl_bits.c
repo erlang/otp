@@ -451,8 +451,8 @@ Eterm
 erts_bs_get_float_2(Process *p, Uint num_bits, unsigned flags, ErlBinMatchBuffer* mb)
 {
     Eterm* hp;
-    float f32;
-    double f64;
+    float  f32 = 0.0f;
+    double f64 = 0.0;
     byte* fptr;
     FloatDef f;
 

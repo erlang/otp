@@ -616,7 +616,7 @@ BIF_RETTYPE port_get_data_1(BIF_ALIST_1)
 static Port *
 open_port(Process* p, Eterm name, Eterm settings, int *err_typep, int *err_nump)
 {
-    int i;
+    int i = 0;
     Eterm option;
     Uint arity;
     Eterm* tp;

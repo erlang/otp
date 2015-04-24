@@ -2920,7 +2920,7 @@ static int
 get_othercase_range(pcre_uint32 *cptr, pcre_uint32 d, pcre_uint32 *ocptr,
   pcre_uint32 *odptr)
 {
-pcre_uint32 c, othercase, next;
+pcre_uint32 c, othercase = 0, next;
 unsigned int co;
 
 /* Find the first character that has an other case. If it has multiple other
