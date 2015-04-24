@@ -1660,7 +1660,9 @@ gc_bif2 p Live u$bif:erlang:sminus/2 Reg=d Int=i Dst | \
 # GCing arithmetic instructions.
 #
 
+gc_bif2 Fail I u$bif:erlang:splus/2 S1=x S2=x Dst=d => i_plus Fail I S1 S2 Dst
 gc_bif2 Fail I u$bif:erlang:splus/2 S1 S2 Dst=d => i_fetch S1 S2 | i_plus Fail I Dst
+gc_bif2 Fail I u$bif:erlang:sminus/2 S1=x S2=x Dst=d => i_minus Fail I S1 S2 Dst
 gc_bif2 Fail I u$bif:erlang:sminus/2 S1 S2 Dst=d => i_fetch S1 S2 | i_minus Fail I Dst
 gc_bif2 Fail I u$bif:erlang:stimes/2 S1 S2 Dst=d => i_fetch S1 S2 | i_times Fail I Dst
 gc_bif2 Fail I u$bif:erlang:div/2 S1 S2 Dst=d => i_fetch S1 S2 | i_m_div Fail I Dst
@@ -1686,7 +1688,9 @@ i_increment r I I d
 i_increment x I I d
 i_increment y I I d
 
+i_plus j I x x d
 i_plus j I d
+i_minus j I x x d
 i_minus j I d
 i_times j I d
 i_m_div j I d

@@ -1393,7 +1393,39 @@ void process_main(void)
 	    ASSERT(c_p->freason != BADMATCH || is_value(c_p->fvalue));
 	    goto find_func_info;
 	}
-	    
+
+#define DO_BIG_ARITH(Func,Arg1,Arg2)     \
+    do {                                 \
+        Uint live = Arg(1);              \
+        SWAPOUT;                         \
+        reg[0] = r(0);                   \
+        reg[live] = (Arg1);              \
+        reg[live+1] = (Arg2);            \
+        result = (Func)(c_p, reg, live); \
+        r(0) = reg[0];                   \
+        SWAPIN;                          \
+        ERTS_HOLE_CHECK(c_p);            \
+        if (is_value(result)) {          \
+            StoreBifResult(4,result);    \
+        }                                \
+        goto lb_Cl_error;                \
+    } while(0)
+
+ OpCase(i_plus_jIxxd):
+ {
+     Eterm result;
+
+     if (is_both_small(xb(Arg(2)), xb(Arg(3)))) {
+	 Sint i = signed_val(xb(Arg(2))) + signed_val(xb(Arg(3)));
+	 ASSERT(MY_IS_SSMALL(i) == IS_SSMALL(i));
+	 if (MY_IS_SSMALL(i)) {
+	     result = make_small(i);
+             StoreBifResult(4, result);
+	 }
+     }
+     DO_BIG_ARITH(ARITH_FUNC(mixed_plus), xb(Arg(2)), xb(Arg(3)));
+ }
+
  OpCase(i_plus_jId):
  {
      Eterm result;
@@ -1405,10 +1437,24 @@ void process_main(void)
 	     result = make_small(i);
 	     STORE_ARITH_RESULT(result);
 	 }
-     
      }
      arith_func = ARITH_FUNC(mixed_plus);
      goto do_big_arith2;
+ }
+
+ OpCase(i_minus_jIxxd):
+ {
+     Eterm result;
+
+     if (is_both_small(xb(Arg(2)), xb(Arg(3)))) {
+	 Sint i = signed_val(xb(Arg(2))) - signed_val(xb(Arg(3)));
+	 ASSERT(MY_IS_SSMALL(i) == IS_SSMALL(i));
+	 if (MY_IS_SSMALL(i)) {
+	     result = make_small(i);
+             StoreBifResult(4, result);
+	 }
+     }
+     DO_BIG_ARITH(ARITH_FUNC(mixed_minus), xb(Arg(2)), xb(Arg(3)));
  }
 
  OpCase(i_minus_jId):
@@ -2885,23 +2931,6 @@ do {								\
      goto do_big_arith2;
  }
 
-#define DO_BIG_ARITH(Func,Arg1,Arg2)     \
-    do {                                 \
-        Uint live = Arg(1);              \
-        SWAPOUT;                         \
-        reg[0] = r(0);                   \
-        reg[live] = (Arg1);              \
-        reg[live+1] = (Arg2);            \
-        result = (Func)(c_p, reg, live); \
-        r(0) = reg[0];                   \
-        SWAPIN;                          \
-        ERTS_HOLE_CHECK(c_p);            \
-        if (is_value(result)) {          \
-            StoreBifResult(4,result);    \
-        }                                \
-        goto lb_Cl_error;                \
-    } while(0)
-
  OpCase(i_rem_jIxxd):
  {
      Eterm result;
@@ -2944,8 +2973,6 @@ do {								\
      DO_BIG_ARITH(ARITH_FUNC(band),xb(Arg(2)),Arg(3));
  }
 
-#undef DO_BIG_ARITH
-
  OpCase(i_band_jId):
  {
      Eterm result;
@@ -2960,6 +2987,8 @@ do {								\
      arith_func = ARITH_FUNC(band);
      goto do_big_arith2;
  }
+
+#undef DO_BIG_ARITH
 
  do_big_arith2:
  {
