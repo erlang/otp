@@ -46,13 +46,8 @@
       <item><em>Exclusive decode</em></item>
       <item><em>Selected decode</em></item>
     </list>
-  <p>So far this functionality is only provided when using the
-    optimized <c>BER_BIN</c> version, that is, when compiling with
-    options <c>ber_bin</c> and <c>optimize</c>. It also works
-    with option<c>nif</c>. We do not intent to make this functionality
-    available in the default <c>BER</c> version, but possibly in the
-    <c>PER_BIN</c> version (<c>per_bin</c>).
-    </p>
+  <p>This functionality is only provided when using <c>BER</c>
+  (option <c>ber</c>).</p>
 
   <section>
     <title>Exclusive Decode</title>
@@ -213,9 +208,9 @@ Name = atom()</pre>
       <p>Compiling <c>GUI.asn</c> including the configuration file is done
         as follows:</p>
       <pre>
-unix> erlc -bber_bin +optimize +asn1config GUI.asn
+unix> erlc -bber +asn1config GUI.asn
 
-erlang> asn1ct:compile('GUI',[ber_bin,optimize,asn1config]).</pre>
+erlang> asn1ct:compile('GUI', [ber,asn1config]).</pre>
       <p>The module can be used as follows:</p>
       <pre>
 1> Button_Msg = {'Button',123,true}.
