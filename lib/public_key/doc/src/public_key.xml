@@ -73,8 +73,7 @@
     <!--     except #policy_tree_node{}  -->
     are generated from ASN.1 specifications
     and are documented in the User's Guide. See <seealso 
-    marker="public_key_records">Public-key Records</seealso> and <seealso 
-    marker="cert_records">X.509 Certificate Records</seealso>. 
+    marker="public_key_records">Public-key Records</seealso>.
     </p></note>
     
     <p>Use the following include directive to get access to the 
