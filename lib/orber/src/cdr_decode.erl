@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2015. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -1110,8 +1110,7 @@ ifrid_to_name(Id, Type) ->
 				      [?LINE, Id, Type], ?DEBUG_LEVEL),
 			    corba:raise(#'MARSHAL'{completion_status=?COMPLETED_MAYBE});
 			Nodes ->
-			    {A,B,C} = now(),
-			    random:seed(A,B,C),
+			    random:seed(rlang:monotonic_time(), erlang:current_time_offset(), rlang:unique_integer()),
 			    L = length(Nodes),
 			    IFR = get_ifr_node(Nodes, random:uniform(L), L),
 			    list_to_atom('OrberApp_IFR':get_absolute_name(IFR, Id))
@@ -1260,8 +1259,7 @@ get_user_exception_type(TypeId) ->
 						   completion_status=?COMPLETED_MAYBE})
 		    end;
 		Nodes ->
-		    {A,B,C} = now(),
-		    random:seed(A,B,C),
+		    random:seed(rlang:monotonic_time(), erlang:current_time_offset(), rlang:unique_integer()),
 		    L = length(Nodes),
 		    IFR = get_ifr_node(Nodes, random:uniform(L), L),
 		    'OrberApp_IFR':get_user_exception_type(IFR, TypeId)

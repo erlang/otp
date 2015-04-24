@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2015. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -145,8 +145,8 @@ create(_Self, State, TimeOut) when is_integer(TimeOut) ->
 	_ ->
 	    if
 		TimeOut > 0 ->
-		    {MegaSecs, Secs, _Microsecs} = erlang:now(),
-		    EState2 = ?tr_set_alarm(EState, MegaSecs*1000000+Secs+TimeOut),
+		    TimeStampSec = erlang:monotonic_time(seconds),
+		    EState2 = ?tr_set_alarm(EState, TimeStampSec+TimeOut),
 		    EState3 = ?tr_set_timeout(EState2, TimeOut*1000),
 		    ETraP = ?tr_start_child(?SUP_ETRAP(EState3)),
 		    {reply, ETraP, State};

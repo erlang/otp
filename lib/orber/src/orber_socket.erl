@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2011. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -167,8 +167,7 @@ multi_connect([CurrentPort|Rest], Retries, ssl, Host, Port, Options, Timeout) ->
 get_port_sequence(Min, Max) ->
     case orber_env:iiop_out_ports_random() of
 	true ->
-	    {A1,A2,A3} = now(),
-	    random:seed(A1, A2, A3),
+	    random:seed(rlang:monotonic_time(), erlang:current_time_offset(), rlang:unique_integer()),
 	    Seq = lists:seq(Min, Max),
 	    random_sequence((Max - Min) + 1, Seq, []);
 	_ ->
