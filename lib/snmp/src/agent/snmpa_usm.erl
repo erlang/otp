@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -645,8 +645,9 @@ get_des_salt() ->
 		ets:insert(snmp_agent_table, {usm_des_salt, 0}),
 		0;
 	    _ -> % it doesn't exist, initialize
-		{A1,A2,A3} = erlang:now(),
-		random:seed(A1,A2,A3),
+                random:seed(erlang:phash2([node()]),
+                            erlang:monotonic_time(),
+                            erlang:unique_integer()),
 		R = random:uniform(4294967295),
 		ets:insert(snmp_agent_table, {usm_des_salt, R}),
 		R
@@ -677,8 +678,9 @@ get_aes_salt() ->
 		ets:insert(snmp_agent_table, {usm_aes_salt, 0}),
 		0;
 	    _ -> % it doesn't exist, initialize
-		{A1,A2,A3} = erlang:now(),
-		random:seed(A1,A2,A3),
+                random:seed(erlang:phash2([node()]),
+                            erlang:monotonic_time(),
+                            erlang:unique_integer()),
 		R = random:uniform(36893488147419103231),
 		ets:insert(snmp_agent_table, {usm_aes_salt, R}),
 		R

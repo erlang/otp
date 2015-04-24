@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1998-2014. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2015. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -346,13 +346,6 @@ check_target_params(X) ->
     error({invalid_target_params, X}).
 
 
-
-%% maybe_create_table(Name) ->
-%%     case snmpa_local_db:table_exists(db(Name)) of
-%% 	true -> ok;
-%% 	_ -> snmpa_local_db:table_create(db(Name))
-%%     end.
-
 init_tabs(Addrs, Params) ->
     ?vdebug("create target address table",[]),
     AddrDB = db(snmpTargetAddrTable),
@@ -679,8 +672,9 @@ snmpTargetSpinLock(print) ->
     
 snmpTargetSpinLock(new) ->
     snmp_generic:variable_func(new, {snmpTargetSpinLock, volatile}),
-    {A1,A2,A3} = erlang:now(),
-    random:seed(A1,A2,A3),
+    random:seed(erlang:phash2([node()]),
+                erlang:monotonic_time(),
+                erlang:unique_integer()),
     Val = random:uniform(2147483648) - 1,
     snmp_generic:variable_func(set, Val, {snmpTargetSpinLock, volatile});
 
@@ -1080,5 +1074,3 @@ error(Reason) ->
 
 config_err(F, A) ->
     snmpa_error:config_err("[TARGET-MIB]: " ++ F, A).
-
-

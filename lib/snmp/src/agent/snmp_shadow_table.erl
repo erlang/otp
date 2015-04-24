@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2015. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -76,7 +76,7 @@ delete_time_stamp_table() ->
     end.
 
 update(Name, UpdateFunc, Interval) ->
-    CurrentTime = get_time(),
+    CurrentTime = snmp_misc:now(ms),
     case mnesia:dirty_read({time_stamp, Name}) of
 	[#time_stamp{data = Expire}] when CurrentTime =< Expire -> ok;
 	_ ->
@@ -117,9 +117,6 @@ table_func(Op, RowIndex, Cols,
     update(Name, UpdateFunc, Interval),
     snmp_generic:table_func(Op, RowIndex, Cols, {Name, mnesia}).
 
-get_time() ->
-    {M,S,U} = erlang:now(),
-    1000000000 * M + 1000 * S + (U div 1000).
 
 %%-----------------------------------------------------------------
 %% Urrk.
@@ -183,5 +180,3 @@ delete_table(Tab) ->
 
 error_msg(F, A) ->
     ?snmpa_error(F, A).
-
-
