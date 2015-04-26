@@ -338,8 +338,16 @@ integer_encoding_1(Config) ->
 
     ?line do_integer_encoding(-(id(1) bsl 10000), Src, Data),
     ?line do_integer_encoding(id(1) bsl 10000, Src, Data),
-    ?line do_integer_encoding(2048, 0, Src, Data),
-
+    do_integer_encoding(1024, 0, Src, Data),
+    _ = [begin
+	     B = 1 bsl I,
+	     do_integer_encoding(-B-1, Src, Data),
+	     do_integer_encoding(-B, Src, Data),
+	     do_integer_encoding(-B+1, Src, Data),
+	     do_integer_encoding(B-1, Src, Data),
+	     do_integer_encoding(B, Src, Data),
+	     do_integer_encoding(B+1, Src, Data)
+	 end || I <- lists:seq(1, 128)],
     io:put_chars(Src, "Last].\n\n"),
     ?line ok = file:close(Src),
     io:put_chars(Data, "0].\n\n"),
@@ -372,11 +380,9 @@ do_integer_encoding(N, I0, Src, Data) ->
 
 do_integer_encoding(I, Src, Data) ->
     Str = integer_to_list(I),
-    io:put_chars(Src, Str),
-    io:put_chars(Src, ", \n"),
-    io:put_chars(Data, Str),
-    io:put_chars(Data, ", \n").
-    
+    io:put_chars(Src, [Str,",\n"]),
+    io:put_chars(Data, [Str,",\n"]).
+
     
 id(I) -> I.
     
