@@ -128,8 +128,7 @@ empty_label_index() ->
 %%  Add an index for a label.
 
 index_label(Lbl, Is0, Acc) ->
-    Is = lists:dropwhile(fun({label,_}) -> true;
-			    (_) -> false end, Is0),
+    Is = drop_labels(Is0),
     gb_trees:enter(Lbl, Is, Acc).
 
 
