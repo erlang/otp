@@ -24,7 +24,7 @@
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2,
 	 init_per_testcase/2,end_per_testcase/2,
-	 exports/1,functions/1,native/1,info/1]).
+	 exports/1,functions/1,deleted/1,native/1,info/1]).
 
 %%-compile(native).
 
@@ -53,7 +53,7 @@ end_per_group(_GroupName, Config) ->
 
 
 modules() ->
-    [exports, functions, native, info].
+    [exports, functions, deleted, native, info].
 
 init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
     Dog = ?t:timetrap(?t:minutes(3)),
@@ -91,6 +91,23 @@ exports(Config) when is_list(Config) ->
 functions(Config) when is_list(Config) ->
     ?line All = all_functions(),
     ?line All = lists:sort(?MODULE:module_info(functions)),
+    ok.
+
+%% Test that deleted modules cause badarg
+deleted(Config) when is_list(Config) ->
+    ?line Data = ?config(data_dir, Config),
+    ?line File = filename:join(Data, "module_info_test"),
+    ?line {ok,module_info_test,Code} = compile:file(File, [binary]),
+    ?line {module,module_info_test} = erlang:load_module(module_info_test, Code),
+    ?line 17 = module_info_test:f(),
+    ?line [_|_] = erlang:get_module_info(module_info_test, attributes),
+    ?line [_|_] = erlang:get_module_info(module_info_test),
+    ?line erlang:delete_module(module_info_test),
+    ?line {'EXIT',{undef, _}} = (catch module_info_test:f()),
+    ?line {'EXIT',{badarg, _}} =
+        (catch erlang:get_module_info(module_info_test, attributes)),
+    ?line {'EXIT',{badarg, _}} =
+        (catch erlang:get_module_info(module_info_test)),
     ok.
 
 %% Test that the list of exported functions from this module is correct.
