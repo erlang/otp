@@ -57,7 +57,8 @@
 	 get_specs/4,
 	 to_file/4,
 	 get_mini_plt/1,
-	 restore_full_plt/2
+	 restore_full_plt/2,
+         relocate/3
 	]).
 
 %% Debug utilities
@@ -107,6 +108,8 @@
                    exported_types = sets:new() :: sets:set(),
 		   mod_deps                    :: mod_deps(),
 		   implementation_md5 = []     :: [file_md5()]}).
+
+-type file_plt() :: #file_plt{}.
 
 %%----------------------------------------------------------------------
 
@@ -381,6 +384,11 @@ to_file(FileName,
                      exported_types = ExpTypes,
 		     mod_deps = NewModDeps,
 		     implementation_md5 = ImplMd5},
+  record_to_file(FileName, Record).
+
+-spec record_to_file(file:filename(), file_plt()) -> 'ok'.
+
+record_to_file(FileName, Record) ->
   Bin = term_to_binary(Record, [compressed]),
   case file:write_file(FileName, Bin) of
     ok -> ok;
@@ -536,6 +544,85 @@ restore_full_plt(#mini_plt{info = ETSInfo, contracts = ETSContracts}, Plt) ->
   Plt#plt{info = Info, contracts = Contracts};
 restore_full_plt(undefined, undefined) ->
   undefined.
+
+
+-spec relocate(file:filename(),
+               file:filename(),
+               file:filename() | [file:filename()]) -> 'ok'.
+
+relocate(OldFile, NewFile, BaseDirs=[H|_]) when is_list(H) ->
+  {ok, OldPlt} = get_record_from_file(OldFile),
+  FileMD5 = relocate_list(BaseDirs, OldPlt#file_plt.file_md5_list),
+  ImplMD5 = relocate_list(BaseDirs, OldPlt#file_plt.implementation_md5),
+  NewPlt = OldPlt#file_plt{file_md5_list = FileMD5,
+                           implementation_md5 = ImplMD5},
+  record_to_file(NewFile, NewPlt);
+relocate(OldFile, NewFile, BaseDir) ->
+  relocate(OldFile, NewFile, [BaseDir]).
+
+-spec relocate_list([file:filename()], [file_md5()]) ->
+                       [file_md5()].
+
+relocate_list(BaseDirs, Files) ->
+  [relocate_file(BaseDirs ++ [""], File, MD5) || {File, MD5} <- Files].
+
+-spec relocate_file([file:filename()], file:filename(), binary()) ->
+                       file_md5().
+
+relocate_file([], File, _) ->
+  plt_error(io_lib:format("Unable to relocate ~s", [File]));
+relocate_file([BaseDir|T], File, MD5) ->
+  case locate_file(BaseDir, File, MD5) of
+    {ok, NewFile} -> {NewFile, MD5};
+    _ -> relocate_file(T, File, MD5)
+  end.
+
+-spec locate_file(file:filename(), file:filename(), binary()) ->
+                     {ok, file:filename()} | 'not_found'.
+
+locate_file(BaseDir, File, MD5) ->
+  Candidates = locate_candidates(BaseDir, File),
+  locate_file(Candidates, MD5).
+
+-spec locate_candidates(file:filename(), file:filename()) ->
+                           [file:filename()].
+
+locate_candidates(BaseDir, File) ->
+  [BaseName | Rest] = lists:reverse(filename:split(File)),
+  lists:reverse(locate_candidates(BaseDir, BaseName, Rest)).
+
+-spec locate_candidates(file:filename(),
+                        file:filename(),
+                        [file:filename()]) -> [file:filename()].
+
+locate_candidates(_, _, []) ->
+  [];
+locate_candidates(BaseDir, Suffix, [H|T]) ->
+  File = filename:join(BaseDir, Suffix),
+  [File | locate_candidates(BaseDir, filename:join(H, Suffix), T)].
+
+-spec locate_file([file:filename()], binary()) ->
+                     {ok, file:filename()} | 'not_found'.
+
+locate_file([], _) ->
+  not_found;
+locate_file([H|T], MD5) ->
+  case md5_from_file(H) of
+    {ok, MD5} ->
+      {ok, H};
+    _ ->
+      locate_file(T, MD5)
+  end.
+
+-spec md5_from_file(file:filename()) -> {'ok', binary()} | false.
+
+md5_from_file(File) ->
+  try compute_md5_from_file(File) of
+      MD5 -> {ok, MD5}
+  catch
+    throw:{dialyzer_error, _} -> false
+  end.
+
 
 %%---------------------------------------------------------------------------
 %% Edoc
