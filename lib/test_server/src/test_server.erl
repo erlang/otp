@@ -1822,7 +1822,7 @@ time_ms_check(Other) ->
 time_ms_apply(Func, TCPid, MultAndScale) ->
     {_,GL} = process_info(TCPid, group_leader),
     WhoAmI = self(),				% either TC or IO server
-    T0 = os:timestamp(),
+    T0 = erlang:monotonic_time(),
     UserTTSup = 
 	spawn(fun() -> 
 		      user_timetrap_supervisor(Func, WhoAmI, TCPid,
@@ -1855,7 +1855,8 @@ user_timetrap_supervisor(Func, Spawner, TCPid, GL, T0, MultAndScale) ->
     receive
 	{UserTT,Result} ->
 	    demonitor(MonRef, [flush]),
-	    Elapsed = trunc(timer:now_diff(os:timestamp(), T0) / 1000),
+	    T1 = erlang:monotonic_time(),
+	    Elapsed = erlang:convert_time_unit(T1-T0, native, milli_seconds),
 	    try time_ms_check(Result) of
 		TimeVal ->
 		    %% this is the new timetrap value to set (return value
@@ -1923,7 +1924,7 @@ update_user_timetraps(TCPid, StartTime) ->
 			proplists:delete(TCPid, UserTTs)),
 		    proceed;
 		{OtherUserTTSup,OtherStartTime} ->
-		    case timer:now_diff(OtherStartTime, StartTime) of
+		    case OtherStartTime - StartTime of
 			Diff when Diff >= 0 ->
 			    ignore;
 			_ ->

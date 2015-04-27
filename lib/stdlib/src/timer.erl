@@ -161,10 +161,11 @@ sleep(T) ->
       Time :: integer(),
       Value :: term().
 tc(F) ->
-    Before = os:timestamp(),
+    T1 = erlang:monotonic_time(),
     Val = F(),
-    After = os:timestamp(),
-    {now_diff(After, Before), Val}.
+    T2 = erlang:monotonic_time(),
+    Time = erlang:convert_time_unit(T2 - T1, native, micro_seconds),
+    {Time, Val}.
 
 %%
 %% Measure the execution time (in microseconds) for Fun(Args).
@@ -175,10 +176,11 @@ tc(F) ->
       Time :: integer(),
       Value :: term().
 tc(F, A) ->
-    Before = os:timestamp(),
+    T1 = erlang:monotonic_time(),
     Val = apply(F, A),
-    After = os:timestamp(),
-    {now_diff(After, Before), Val}.
+    T2 = erlang:monotonic_time(),
+    Time = erlang:convert_time_unit(T2 - T1, native, micro_seconds),
+    {Time, Val}.
 
 %%
 %% Measure the execution time (in microseconds) for an MFA.
@@ -190,10 +192,11 @@ tc(F, A) ->
       Time :: integer(),
       Value :: term().
 tc(M, F, A) ->
-    Before = os:timestamp(),
+    T1 = erlang:monotonic_time(),
     Val = apply(M, F, A),
-    After = os:timestamp(),
-    {now_diff(After, Before), Val}.
+    T2 = erlang:monotonic_time(),
+    Time = erlang:convert_time_unit(T2 - T1, native, micro_seconds),
+    {Time, Val}.
 
 %%
 %% Calculate the time difference (in microseconds) of two
