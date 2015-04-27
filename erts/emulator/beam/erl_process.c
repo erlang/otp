@@ -4956,9 +4956,11 @@ wakeup_other_check(ErtsRunQueue *rq, Uint32 flags)
 				 + ERTS_WAKEUP_OTHER_FIXED_INC);
 	    if (rq->wakeup_other > wakeup_other.limit) {
 #ifdef ERTS_DIRTY_SCHEDULERS
-		if (ERTS_RUNQ_IX_IS_DIRTY(rq->ix) && rq->waiting)
-		    wake_dirty_schedulers(rq, 1);
-		else
+		if (ERTS_RUNQ_IX_IS_DIRTY(rq->ix)) {
+		    if (rq->waiting) {
+			wake_dirty_schedulers(rq, 1);
+		    }
+		} else
 #endif
 		{
 		    int empty_rqs =
