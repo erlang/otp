@@ -368,9 +368,9 @@ run_micro(Top, M, DataDir) ->
 apply_micro(M) ->
     {GC0, Words0, _} = statistics(garbage_collection),
     statistics(reductions),
-    Before = erlang:monotonic_time(),
+    Before = monotonic_time(),
     Compensate = apply_micro(M#micro.function, M#micro.loops),
-    After = erlang:monotonic_time(),
+    After = monotonic_time(),
     {GC1, Words1, _} = statistics(garbage_collection),
     {_, Reds} = statistics(reductions),
     Elapsed = subtr(Before, After),
@@ -387,9 +387,13 @@ apply_micro(M) ->
      {kilo_reductions, Reds div 1000},
      {gc_intensity, gci(Elapsed, GC1 - GC0, Words1 - Words0)}].
 
+monotonic_time() ->
+    try erlang:monotonic_time() catch error:undef -> erlang:now() end.
 
-subtr(Before, After) ->
-    erlang:convert_time_unit(After-Before, native, micro_seconds).
+subtr(Before, After) when is_integer(Before), is_integer(After) ->
+    erlang:convert_time_unit(After-Before, native, micro_seconds);
+subtr({_,_,_}=Before, {_,_,_}=After) ->
+    timer:now_diff(After, Before).
 
 gci(Micros, Words, Gcs) ->
     ((256 * Gcs) / Micros) + (Words / Micros).
@@ -628,10 +632,10 @@ tup_trav(T, P, End) ->
 %% Port I/O
 port_io(I) ->
     EstoneCat = get(estone_cat),
-    Before = erlang:monotonic_time(),
+    Before = monotonic_time(),
     Pps = make_port_pids(5, I, EstoneCat),  %% 5 ports
     send_procs(Pps, go),
-    After = erlang:monotonic_time(),
+    After = monotonic_time(),
     wait_for_pids(Pps),
     subtr(Before, After).
 
@@ -849,10 +853,10 @@ handle_call(_From, State, [abc]) ->
 
 %% Binary handling, creating, manipulating and sending binaries
 binary_h(I) ->
-    Before = erlang:monotonic_time(),
+    Before = monotonic_time(),
     P = spawn(?MODULE, echo, [self()]),
     B = list_to_binary(lists:duplicate(2000, 5)),
-    After = erlang:monotonic_time(),
+    After = monotonic_time(),
     Compensate = subtr(Before, After),
     binary_h_2(I, P, B),
     Compensate.
