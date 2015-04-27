@@ -656,15 +656,15 @@ return_value(State = #cl_state{erlang_mode = ErlangMode,
 			       mod_deps = ModDeps,
 			       output_plt = OutputPlt,
 			       plt_info = PltInfo,
-			       stored_warnings = StoredWarnings,
-                               legal_warnings = LegalWarnings},
+			       stored_warnings = StoredWarnings},
 	     Plt) ->
   case OutputPlt =:= none of
     true -> ok;
     false -> dialyzer_plt:to_file(OutputPlt, Plt, ModDeps, PltInfo)
   end,
+  UnknownWarnings = unknown_warnings(State),
   RetValue =
-    case StoredWarnings =:= [] of
+    case StoredWarnings =:= [] andalso UnknownWarnings =:= [] of
       true -> ?RET_NOTHING_SUSPICIOUS;
       false -> ?RET_DISCREPANCIES
     end,
@@ -677,21 +677,21 @@ return_value(State = #cl_state{erlang_mode = ErlangMode,
       maybe_close_output_file(State),
       {RetValue, []};
     true -> 
-      Unknown =
-        case ordsets:is_element(?WARN_UNKNOWN, LegalWarnings) of
-          true ->
-            unknown_functions(State) ++
-              unknown_types(State) ++
-              unknown_behaviours(State);
-          false -> []
-        end,
-      WarningInfo = {_Filename = "", _Line = 0, _MorMFA = ''},
-      UnknownWarnings =
-        [{?WARN_UNKNOWN, WarningInfo, W} || W <- Unknown],
       AllWarnings =
         UnknownWarnings ++ process_warnings(StoredWarnings),
       {RetValue, set_warning_id(AllWarnings)}
   end.
+
+unknown_warnings(State = #cl_state{legal_warnings = LegalWarnings}) ->
+  Unknown = case ordsets:is_element(?WARN_UNKNOWN, LegalWarnings) of
+              true ->
+                unknown_functions(State) ++
+                  unknown_types(State) ++
+                  unknown_behaviours(State);
+              false -> []
+            end,
+  WarningInfo = {_Filename = "", _Line = 0, _MorMFA = ''},
+  [{?WARN_UNKNOWN, WarningInfo, W} || W <- Unknown].
 
 unknown_functions(#cl_state{external_calls = Calls}) ->
   [{unknown_function, MFA} || MFA <- Calls].
@@ -706,10 +706,8 @@ print_ext_calls(#cl_state{report_mode = quiet}) ->
 print_ext_calls(#cl_state{output = Output,
 			  external_calls = Calls,
 			  stored_warnings = Warnings,
-			  output_format = Format,
-                          legal_warnings = LegalWarnings}) ->
-  case not ordsets:is_element(?WARN_UNKNOWN, LegalWarnings)
-    orelse Calls =:= [] of
+			  output_format = Format}) ->
+  case Calls =:= [] of
     true -> ok;
     false ->
       case Warnings =:= [] of
@@ -741,10 +739,8 @@ print_ext_types(#cl_state{output = Output,
                           external_calls = Calls,
                           external_types = Types,
                           stored_warnings = Warnings,
-                          output_format = Format,
-                          legal_warnings = LegalWarnings}) ->
-  case not ordsets:is_element(?WARN_UNKNOWN, LegalWarnings)
-    orelse Types =:= [] of
+                          output_format = Format}) ->
+  case Types =:= [] of
     true -> ok;
     false ->
       case Warnings =:= [] andalso Calls =:= [] of

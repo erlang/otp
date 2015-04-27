@@ -2,7 +2,7 @@
 %%--------------------------------------------------------------------
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2006-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -586,7 +586,8 @@ send_codeserver_plt(Parent, CServer, Plt ) ->
 
 send_bad_calls(Parent, BadCalls, CodeServer) ->
   FormatedBadCalls = format_bad_calls(BadCalls, CodeServer, []),
-  send_warnings(Parent, FormatedBadCalls).
+  Warnings = filter_warnings(FormatedBadCalls, CodeServer),
+  send_warnings(Parent, Warnings).
 
 send_mod_deps(Parent, ModuleDeps) ->
   Parent ! {self(), mod_deps, ModuleDeps},
