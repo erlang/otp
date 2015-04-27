@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2001-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2015. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -207,21 +207,19 @@
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-%%% gb_sets:set() in OTP 17 only.
-
 -spec empty() -> Set when
-      Set :: gb_sets:set().
+      Set :: set().
 
 empty() ->
     {0, nil}.
 
 -spec new() -> Set when
-      Set :: gb_sets:set().
+      Set :: set().
 
 new() -> empty().
 
 -spec is_empty(Set) -> boolean() when
-      Set :: gb_sets:set().
+      Set :: set().
 
 is_empty({0, nil}) ->
     true;
@@ -229,7 +227,7 @@ is_empty(_) ->
     false.
 
 -spec size(Set) -> non_neg_integer() when
-      Set :: gb_sets:set().
+      Set :: set().
 
 size({Size, _}) ->
     Size.
