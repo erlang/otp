@@ -32,8 +32,8 @@ public class OtpPeer extends AbstractNode {
                          * common protocol version we both support
                          */
 
-    OtpPeer() {
-        super();
+    OtpPeer(final OtpTransportFactory transportFactory) {
+        super(transportFactory);
     }
 
     /**
@@ -44,6 +44,19 @@ public class OtpPeer extends AbstractNode {
      */
     public OtpPeer(final String node) {
         super(node);
+    }
+
+    /**
+     * Create a peer node with custom transport factory.
+     *
+     * @param node
+     *            the name of the node.
+     * @param transportFactory
+     *            custom transport factory
+     */
+    public OtpPeer(final String node, final OtpTransportFactory
+            transportFactory) {
+        super(node, transportFactory);
     }
 
     /**

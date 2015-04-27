@@ -21,6 +21,7 @@ package com.ericsson.otp.erlang;
 // import java.io.OutputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.io.UnsupportedEncodingException;
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -200,6 +201,16 @@ public class OtpOutputStream extends ByteArrayOutputStream {
         ensureCapacity(super.count + len);
         System.arraycopy(b, off, super.buf, super.count, len);
         super.count += len;
+    }
+
+    @Override
+    public synchronized void writeTo(OutputStream out) throws IOException {
+        super.writeTo(out);
+    }
+
+    public synchronized void writeToAndFlush(OutputStream out) throws IOException {
+        super.writeTo(out);
+        out.flush();
     }
 
     /**
@@ -887,7 +898,7 @@ public class OtpOutputStream extends ByteArrayOutputStream {
         if (oos.size() < 5) {
             // fast path for small terms
             try {
-                oos.writeTo(this);
+                oos.writeToAndFlush(this);
                 // if the term is written as a compressed term, the output
                 // stream is closed, so we do this here, too
                 close();
