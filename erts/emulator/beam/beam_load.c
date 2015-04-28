@@ -3172,7 +3172,11 @@ gen_increment_from_minus(LoaderState* stp, GenOpArg Reg, GenOpArg Integer,
 static int
 negation_is_small(LoaderState* stp, GenOpArg Int)
 {
-    return Int.type == TAG_i && IS_SSMALL(-Int.val);
+    /* Check for the rare case of overflow in BeamInstr (UWord) -> Sint
+     * Cast to the correct type before using IS_SSMALL (Sint) */
+    return Int.type == TAG_i &&
+           !(Int.val & ~((((BeamInstr)1) << ((sizeof(Sint)*8)-1))-1)) &&
+           IS_SSMALL(-((Sint)Int.val));
 }
 
 

@@ -562,7 +562,8 @@ void** beam_ops;
        Store(term, Dst);           \
    } while (0)
 
-#define Move2(src1, dst1, src2, dst2) dst1 = (src1); dst2 = (src2)
+#define Move2(S1, D1, S2, D2) D1 = (S1); D2 = (S2)
+#define Move3(S1, D1, S2, D2, S3, D3) D1 = (S1); D2 = (S2); D3 = (S3)
 
 #define MoveGenDest(src, dstp) \
    if ((dstp) == NULL) { r(0) = (src); } else { *(dstp) = src; }
@@ -662,6 +663,9 @@ void** beam_ops;
 
 #define EqualImmed(X, Y, Action) if (X != Y) { Action; }
 #define NotEqualImmed(X, Y, Action) if (X == Y) { Action; }
+#define EqualExact(X, Y, Action) if (!EQ(X,Y)) { Action; }
+#define IsLessThan(X, Y, Action) if (CMP_GE(X, Y)) { Action; }
+#define IsGreaterEqual(X, Y, Action) if (CMP_LT(X, Y)) { Action; }
 
 #define IsFloat(Src, Fail) if (is_not_float(Src)) { Fail; }
 
@@ -1389,7 +1393,39 @@ void process_main(void)
 	    ASSERT(c_p->freason != BADMATCH || is_value(c_p->fvalue));
 	    goto find_func_info;
 	}
-	    
+
+#define DO_BIG_ARITH(Func,Arg1,Arg2)     \
+    do {                                 \
+        Uint live = Arg(1);              \
+        SWAPOUT;                         \
+        reg[0] = r(0);                   \
+        reg[live] = (Arg1);              \
+        reg[live+1] = (Arg2);            \
+        result = (Func)(c_p, reg, live); \
+        r(0) = reg[0];                   \
+        SWAPIN;                          \
+        ERTS_HOLE_CHECK(c_p);            \
+        if (is_value(result)) {          \
+            StoreBifResult(4,result);    \
+        }                                \
+        goto lb_Cl_error;                \
+    } while(0)
+
+ OpCase(i_plus_jIxxd):
+ {
+     Eterm result;
+
+     if (is_both_small(xb(Arg(2)), xb(Arg(3)))) {
+	 Sint i = signed_val(xb(Arg(2))) + signed_val(xb(Arg(3)));
+	 ASSERT(MY_IS_SSMALL(i) == IS_SSMALL(i));
+	 if (MY_IS_SSMALL(i)) {
+	     result = make_small(i);
+             StoreBifResult(4, result);
+	 }
+     }
+     DO_BIG_ARITH(ARITH_FUNC(mixed_plus), xb(Arg(2)), xb(Arg(3)));
+ }
+
  OpCase(i_plus_jId):
  {
      Eterm result;
@@ -1401,10 +1437,24 @@ void process_main(void)
 	     result = make_small(i);
 	     STORE_ARITH_RESULT(result);
 	 }
-     
      }
      arith_func = ARITH_FUNC(mixed_plus);
      goto do_big_arith2;
+ }
+
+ OpCase(i_minus_jIxxd):
+ {
+     Eterm result;
+
+     if (is_both_small(xb(Arg(2)), xb(Arg(3)))) {
+	 Sint i = signed_val(xb(Arg(2))) - signed_val(xb(Arg(3)));
+	 ASSERT(MY_IS_SSMALL(i) == IS_SSMALL(i));
+	 if (MY_IS_SSMALL(i)) {
+	     result = make_small(i);
+             StoreBifResult(4, result);
+	 }
+     }
+     DO_BIG_ARITH(ARITH_FUNC(mixed_minus), xb(Arg(2)), xb(Arg(3)));
  }
 
  OpCase(i_minus_jId):
@@ -1498,6 +1548,52 @@ void process_main(void)
 	}
 	Next(2);
     }
+
+ OpCase(move_window3_xxxy): {
+     BeamInstr *next;
+     Eterm xt0, xt1, xt2;
+     Eterm *y = (Eterm *)(((unsigned char *)E) + (Arg(3)));
+     PreFetch(4, next);
+     xt0  = xb(Arg(0));
+     xt1  = xb(Arg(1));
+     xt2  = xb(Arg(2));
+     y[0] = xt0;
+     y[1] = xt1;
+     y[2] = xt2;
+     NextPF(4, next);
+ }
+ OpCase(move_window4_xxxxy): {
+     BeamInstr *next;
+     Eterm xt0, xt1, xt2, xt3;
+     Eterm *y = (Eterm *)(((unsigned char *)E) + (Arg(4)));
+     PreFetch(5, next);
+     xt0  = xb(Arg(0));
+     xt1  = xb(Arg(1));
+     xt2  = xb(Arg(2));
+     xt3  = xb(Arg(3));
+     y[0] = xt0;
+     y[1] = xt1;
+     y[2] = xt2;
+     y[3] = xt3;
+     NextPF(5, next);
+ }
+ OpCase(move_window5_xxxxxy): {
+     BeamInstr *next;
+     Eterm xt0, xt1, xt2, xt3, xt4;
+     Eterm *y = (Eterm *)(((unsigned char *)E) + (Arg(5)));
+     PreFetch(6, next);
+     xt0  = xb(Arg(0));
+     xt1  = xb(Arg(1));
+     xt2  = xb(Arg(2));
+     xt3  = xb(Arg(3));
+     xt4  = xb(Arg(4));
+     y[0] = xt0;
+     y[1] = xt1;
+     y[2] = xt2;
+     y[3] = xt3;
+     y[4] = xt4;
+     NextPF(6, next);
+ }
 
  OpCase(i_move_call_only_fcr): {
      r(0) = Arg(1);
@@ -2835,6 +2931,19 @@ do {								\
      goto do_big_arith2;
  }
 
+ OpCase(i_rem_jIxxd):
+ {
+     Eterm result;
+
+     if (xb(Arg(3)) == SMALL_ZERO) {
+	 goto badarith;
+     } else if (is_both_small(xb(Arg(2)), xb(Arg(3)))) {
+	 result = make_small(signed_val(xb(Arg(2))) % signed_val(xb(Arg(3))));
+         StoreBifResult(4, result);
+     }
+     DO_BIG_ARITH(ARITH_FUNC(int_rem),xb(Arg(2)),xb(Arg(3)));
+ }
+
  OpCase(i_rem_jId):
  {
      Eterm result;
@@ -2848,6 +2957,20 @@ do {								\
 	 arith_func = ARITH_FUNC(int_rem);
 	 goto do_big_arith2;
      }
+ }
+
+ OpCase(i_band_jIxcd):
+ {
+     Eterm result;
+
+     if (is_both_small(xb(Arg(2)), Arg(3))) {
+         /*
+          * No need to untag -- TAG & TAG == TAG.
+          */
+         result = xb(Arg(2)) & Arg(3);
+         StoreBifResult(4, result);
+     }
+     DO_BIG_ARITH(ARITH_FUNC(band),xb(Arg(2)),Arg(3));
  }
 
  OpCase(i_band_jId):
@@ -2864,6 +2987,8 @@ do {								\
      arith_func = ARITH_FUNC(band);
      goto do_big_arith2;
  }
+
+#undef DO_BIG_ARITH
 
  do_big_arith2:
  {

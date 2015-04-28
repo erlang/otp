@@ -298,9 +298,48 @@ move_jump f c
 move_jump f x
 move_jump f y
 
+
+# Movement to and from the stack is common
+# Try to pack as much as we can into one instruction
+
+# Window move
+move_window/5
+move_window/6
+
+# x -> y
+
+move S1=r S2=y | move X1=x Y1=y => move2 S1 S2 X1 Y1
+
+move X1=x Y1=y | move X2=x Y2=y | move X3=x Y3=y | succ(Y1,Y2) | succ(Y2,Y3) => \
+    move_window X1 X2 X3 Y1 Y3
+
+move_window X1=x X2=x X3=x Y1=y Y3=y | move X4=x Y4=y | succ(Y3,Y4) => \
+    move_window X1 X2 X3 X4 Y1 Y4
+
+move_window X1=x X2=x X3=x X4=x Y1=y Y4=y | move X5=x Y5=y | succ(Y4,Y5) => \
+    move_window5 X1 X2 X3 X4 X5 Y1
+
+move_window X1=x X2=x X3=x Y1=y Y3=y => move_window3 X1 X2 X3 Y1
+move_window X1=x X2=x X3=x X4=x Y1=y Y4=y => move_window4 X1 X2 X3 X4 Y1
+
+move_window3 x x x y
+move_window4 x x x x y
+move_window5 x x x x x y
+
 move X1=x Y1=y | move X2=x Y2=y => move2 X1 Y1 X2 Y2
 move Y1=y X1=x | move Y2=y X2=x => move2 Y1 X1 Y2 X2
 move X1=x X2=x | move X3=x X4=x => move2 X1 X2 X3 X4
+
+move S1=x S2=r | move S3=x S4=x => move2 S1 S2 S3 S4
+move S1=x S2=r | move X1=x Y1=y => move2 S1 S2 X1 Y1
+move S1=y S2=r | move X1=x Y1=y => move2 S1 S2 X1 Y1
+
+move Y1=y X1=x | move S1=r D1=x => move2 Y1 X1 S1 D1
+move S1=r D1=x | move Y1=y X1=x => move2 S1 D1 Y1 X1
+
+move2 X1=x Y1=y X2=x Y2=y | move X3=x Y3=y => move3 X1 Y1 X2 Y2 X3 Y3
+move2 Y1=y X1=x Y2=y X2=x | move Y3=y X3=x => move3 Y1 X1 Y2 X2 Y3 X3
+move2 X1=x X2=x X3=x X4=x | move X5=x X6=x => move3 X1 X2 X3 X4 X5 X6
 
 move C=aiq X=x==1 => move_x1 C
 move C=aiq X=x==2 => move_x2 C
@@ -312,6 +351,20 @@ move_x2 c
 move2 x y x y
 move2 y x y x
 move2 x x x x
+
+move2 x r x x
+
+move2 x r x y
+move2 r y x y
+move2 y r x y
+
+move2 r x y x
+move2 y x r x
+
+%macro: move3 Move3
+move3 x y x y x y
+move3 y x y x y x
+move3 x x x x x x
 
 # The compiler almost never generates a "move Literal y(Y)" instruction,
 # so let's cheat if we encounter one.
@@ -392,14 +445,59 @@ i_is_ne_exact_literal x f c
 i_is_ne_exact_literal y f c
 
 #
+# Common Compare Specializations
+# We don't do all of them since we want
+# to keep the instruction set small-ish
+#
+
+is_eq_exact Lbl S1=xy S2=r => is_eq_exact Lbl S2 S1
+is_eq_exact Lbl S1=rx S2=xy => i_is_eq_exact_spec Lbl S1 S2
+%macro: i_is_eq_exact_spec EqualExact -fail_action
+
+i_is_eq_exact_spec f x x
+i_is_eq_exact_spec f x y
+i_is_eq_exact_spec f r x
+i_is_eq_exact_spec f r y
+%cold
+i_is_eq_exact_spec f r r
+%hot
+
+is_lt Lbl S1=rxc S2=rxc  => i_is_lt_spec Lbl S1 S2
+
+%macro: i_is_lt_spec IsLessThan -fail_action
+
+i_is_lt_spec f x x
+i_is_lt_spec f x r
+i_is_lt_spec f x c
+i_is_lt_spec f r x
+i_is_lt_spec f r c
+i_is_lt_spec f c x
+i_is_lt_spec f c r
+%cold
+i_is_lt_spec f r r
+i_is_lt_spec f c c
+%hot
+
+is_ge Lbl S1=xc S2=xc => i_is_ge_spec Lbl S1 S2
+
+%macro: i_is_ge_spec IsGreaterEqual -fail_action
+
+i_is_ge_spec f x x
+i_is_ge_spec f x c
+i_is_ge_spec f c x
+%cold
+i_is_ge_spec f c c
+%hot
+
+#
 # All other comparisons.
 #
 
 is_eq_exact Lbl S1 S2 => i_fetch S1 S2 | i_is_eq_exact Lbl
 is_ne_exact Lbl S1 S2 => i_fetch S1 S2 | i_is_ne_exact Lbl
 
-is_ge Lbl S1 S2 => i_fetch S1 S2 | i_is_ge Lbl
 is_lt Lbl S1 S2 => i_fetch S1 S2 | i_is_lt Lbl
+is_ge Lbl S1 S2 => i_fetch S1 S2 | i_is_ge Lbl
 is_eq Lbl S1 S2 => i_fetch S1 S2 | i_is_eq Lbl
 is_ne Lbl S1 S2 => i_fetch S1 S2 | i_is_ne Lbl
 
@@ -493,7 +591,6 @@ put_list s s d
 %hot
 
 %macro: i_fetch FetchArgs -pack
-i_fetch c c
 i_fetch c r
 i_fetch c x
 i_fetch c y
@@ -510,6 +607,7 @@ i_fetch y x
 i_fetch y y
 
 %cold
+i_fetch c c
 i_fetch s s
 %hot
 
@@ -1562,17 +1660,21 @@ gc_bif2 p Live u$bif:erlang:sminus/2 Reg=d Int=i Dst | \
 # GCing arithmetic instructions.
 #
 
+gc_bif2 Fail I u$bif:erlang:splus/2 S1=x S2=x Dst=d => i_plus Fail I S1 S2 Dst
 gc_bif2 Fail I u$bif:erlang:splus/2 S1 S2 Dst=d => i_fetch S1 S2 | i_plus Fail I Dst
+gc_bif2 Fail I u$bif:erlang:sminus/2 S1=x S2=x Dst=d => i_minus Fail I S1 S2 Dst
 gc_bif2 Fail I u$bif:erlang:sminus/2 S1 S2 Dst=d => i_fetch S1 S2 | i_minus Fail I Dst
 gc_bif2 Fail I u$bif:erlang:stimes/2 S1 S2 Dst=d => i_fetch S1 S2 | i_times Fail I Dst
 gc_bif2 Fail I u$bif:erlang:div/2 S1 S2 Dst=d => i_fetch S1 S2 | i_m_div Fail I Dst
 
 gc_bif2 Fail I u$bif:erlang:intdiv/2 S1 S2 Dst=d => i_fetch S1 S2 | i_int_div Fail I Dst
+gc_bif2 Fail I u$bif:erlang:rem/2 S1=x S2=x Dst=d => i_rem Fail I S1 S2 Dst
 gc_bif2 Fail I u$bif:erlang:rem/2 S1 S2 Dst=d => i_fetch S1 S2 | i_rem Fail I Dst
 
 gc_bif2 Fail I u$bif:erlang:bsl/2 S1 S2 Dst=d => i_fetch S1 S2 | i_bsl Fail I Dst
 gc_bif2 Fail I u$bif:erlang:bsr/2 S1 S2 Dst=d => i_fetch S1 S2 | i_bsr Fail I Dst
 
+gc_bif2 Fail I u$bif:erlang:band/2 S1=x S2=c Dst=d => i_band Fail I S1 S2 Dst
 gc_bif2 Fail I u$bif:erlang:band/2 S1 S2 Dst=d => i_fetch S1 S2 | i_band Fail I Dst
 gc_bif2 Fail I u$bif:erlang:bor/2 S1 S2 Dst=d => i_fetch S1 S2 | i_bor Fail I Dst
 gc_bif2 Fail I u$bif:erlang:bxor/2 S1 S2 Dst=d => i_fetch S1 S2 | i_bxor Fail I Dst
@@ -1586,16 +1688,20 @@ i_increment r I I d
 i_increment x I I d
 i_increment y I I d
 
+i_plus j I x x d
 i_plus j I d
+i_minus j I x x d
 i_minus j I d
 i_times j I d
 i_m_div j I d
 i_int_div j I d
+i_rem j I x x d
 i_rem j I d
 
 i_bsl j I d
 i_bsr j I d
 
+i_band j I x c d
 i_band j I d
 i_bor j I d
 i_bxor j I d
