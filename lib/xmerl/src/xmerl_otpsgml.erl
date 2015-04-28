@@ -34,6 +34,7 @@
 		    export_text/1]).
 
 -include("xmerl.hrl").
+-include("xmerl_internal.hrl").
 
 
 '#xml-inheritance#'() -> [xmerl_sgml].
@@ -58,7 +59,7 @@
 %% the scope of a markup is not extended by mistake.)
 
 '#element#'(Tag, Data, Attrs, _Parents, _E) ->
-%    io:format("parents:\n~p\n",[_Parents]),
+%    ?dbg("parents:\n~p\n",[_Parents]),
     case convert_tag(Tag,Attrs) of
 	{false,NewTag,NewAttrs} ->
 	    markup(NewTag, NewAttrs, Data);
@@ -108,7 +109,7 @@ convert_aref([#xmlAttribute{name = href, value = V}|_Rest]) ->
 	    seealso
     end;
 convert_aref([#xmlAttribute{name = K}|Rest]) ->
-    io:format("Warning: ignoring attribute \'~p\' for tag \'a\'\n",[K]),
+    error_logger:warning_msg("ignoring attribute \'~p\' for tag \'a\'\n",[K]),
     convert_aref(Rest).
 convert_aref_attrs(url,Attrs) ->
     Attrs;
@@ -130,7 +131,7 @@ html_content([_H|T]) ->
 % convert_seealso_attrs([#xmlAttribute{name = href, value = V} = A|Rest]) ->
 %     [A#xmlAttribute{name=marker,value=normalize_web_ref(V)}|convert_seealso_attrs(Rest)];
 % convert_seealso_attrs([#xmlAttribute{name = K}|Rest]) ->
-%     io:format("Warning: ignoring attribute \'~p\' for tag \'a\'\n",[K]),
+%     error_logger:warning_msg("ignoring attribute \'~p\' for tag \'a\'\n",[K]),
 %     convert_seealso_attrs(Rest);
 % convert_seealso_attrs([]) ->
 %     [].

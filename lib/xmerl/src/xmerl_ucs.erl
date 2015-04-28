@@ -227,7 +227,7 @@ from_ucs4be(<<Ch:32/big-signed-integer, Rest/binary>>,Acc,Tail) ->
 from_ucs4be(<<>>,Acc,Tail) ->
     lists:reverse(Acc,Tail);
 from_ucs4be(Bin,Acc,Tail) ->
-    io:format("ucs Error: Bin=~p~n     Acc=~p~n     Tail=~p~n",[Bin,Acc,Tail]),
+    ucs_error(Bin,Acc,Tail),
     {error,not_ucs4be}.
 
 char_to_ucs4le(Ch) ->
@@ -247,7 +247,7 @@ from_ucs4le(<<Ch:32/little-signed-integer, Rest/binary>>,Acc,Tail) ->
 from_ucs4le(<<>>,Acc,Tail) ->
     lists:reverse(Acc,Tail);
 from_ucs4le(Bin,Acc,Tail) ->
-    io:format("ucs Error: Bin=~p~n     Acc=~p~n     Tail=~p~n",[Bin,Acc,Tail]),
+    ucs_error(Bin,Acc,Tail),
     {error,not_ucs4le}.
 
 
@@ -269,7 +269,7 @@ from_ucs2be(<<Ch:16/big-signed-integer, Rest/binary>>,Acc,Tail) ->
 from_ucs2be(<<>>,Acc,Tail) ->
     lists:reverse(Acc,Tail);
 from_ucs2be(Bin,Acc,Tail) ->
-    io:format("ucs Error: Bin=~p~n     Acc=~p~n     Tail=~p~n",[Bin,Acc,Tail]),
+    ucs_error(Bin,Acc,Tail),
     {error,not_ucs2be}.
 
 char_to_ucs2le(Ch) ->
@@ -287,7 +287,7 @@ from_ucs2le(<<Ch:16/little-signed-integer, Rest/binary>>,Acc,Tail) ->
 from_ucs2le(<<>>,Acc,Tail) ->
     lists:reverse(Acc,Tail);
 from_ucs2le(Bin,Acc,Tail) ->
-    io:format("ucs Error: Bin=~p~n     Acc=~p~n     Tail=~p~n",[Bin,Acc,Tail]),
+    ucs_error(Bin,Acc,Tail),
     {error,not_ucs2le}.
 
 
@@ -331,7 +331,7 @@ from_utf16be(<<Hi:16/big-unsigned-integer, Lo:16/big-unsigned-integer,
 from_utf16be(<<>>,Acc,Tail) ->
     lists:reverse(Acc,Tail);
 from_utf16be(Bin,Acc,Tail) ->
-    io:format("ucs Error: Bin=~p~n     Acc=~p~n     Tail=~p~n",[Bin,Acc,Tail]),
+    ucs_error(Bin,Acc,Tail),
     {error,not_utf16be}.
 
 char_to_utf16le(Ch) when is_integer(Ch), Ch >= 0 ->
@@ -363,7 +363,7 @@ from_utf16le(<<Hi:16/little-unsigned-integer, Lo:16/little-unsigned-integer,
 from_utf16le(<<>>,Acc,Tail) ->
     lists:reverse(Acc,Tail);
 from_utf16le(Bin,Acc,Tail) ->
-    io:format("ucs Error: Bin=~p~n     Acc=~p~n     Tail=~p~n",[Bin,Acc,Tail]),
+    ucs_error(Bin,Acc,Tail),
     {error,not_utf16le}.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -571,3 +571,6 @@ test_charset(Fun,Input) ->
 	    false
     end.
 
+ucs_error(Bin,Acc,Tail) ->
+    error_logger:error_msg("~w: Bin=~p~n     Acc=~p~n     Tail=~p~n",
+                           [?MODULE,Bin,Acc,Tail]).

@@ -31,6 +31,7 @@
 -import(xmerl_lib, [markup/3, empty_tag/2, export_text/1]).
 
 -include("xmerl.hrl").
+-include("xmerl_internal.hrl").
 
 
 '#xml-inheritance#'() -> [].
@@ -39,7 +40,7 @@
 %% The '#text#' function is called for every text segment.
 
 '#text#'(Text) ->
-%io:format("Text=~p~n",[Text]),
+%?dbg("Text=~p~n",[Text]),
     export_text(Text).
 
 
@@ -55,8 +56,8 @@
 %% The '#element#' function is the default handler for XML elements.
 
 '#element#'(Tag, [], Attrs, _Parents, _E) ->
-%io:format("Empty Tag=~p~n",[Tag]),
+%?dbg("Empty Tag=~p~n",[Tag]),
     empty_tag(Tag, Attrs);
 '#element#'(Tag, Data, Attrs, _Parents, _E) ->
-%io:format("Tag=~p~n",[Tag]),
+%?dbg("Tag=~p~n",[Tag]),
     markup(Tag, Attrs, Data).

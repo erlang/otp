@@ -28,6 +28,7 @@
 %% Include files
 %%----------------------------------------------------------------------
 -include("xmerl_sax_old_dom.hrl").
+-include("xmerl_internal.hrl").
 
 %%----------------------------------------------------------------------
 %% External exports
@@ -127,7 +128,7 @@ build_dom(endDocument,
 	    State#xmerl_sax_simple_dom_state{dom=[Decl, {Tag, Attributes, 
 						   lists:reverse(Content)}]};
 	_ ->
-	    io:format("~p\n", [D]),
+	    ?dbg("~p\n", [D]),
 	    ?error("we're not at end the document when endDocument event is encountered.")
     end;
 

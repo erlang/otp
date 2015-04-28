@@ -381,7 +381,7 @@ initiate_state2(S,[{target_namespace,_NS}|T]) ->
 %%    initiate_state2(S#xsd_state{targetNamespace=if_list_to_atom(NS)},T);
     initiate_state2(S,T); %% used in validation phase
 initiate_state2(S,[H|T]) ->
-    error_msg("Invalid option: ~p~n",[H]),
+    error_msg("~w: invalid option: ~p~n",[?MODULE, H]),
     initiate_state2(S,T).
 
 validation_options(S,[{target_namespace,NS}|T]) ->
@@ -5391,7 +5391,7 @@ search_attribute(_,{Name,_,_},SchemaAtts) ->
     end.
 
 error_msg(Format,Args) ->
-    io:format(Format,Args).
+    error_logger:error_msg(Format,Args).
 
 
 add_once(El,L) ->
@@ -5425,7 +5425,7 @@ add_key_once(Key,N,El,L) ->
 %%     "/"++filename:join(L).
 
 %% mk_xml_path(Parents,Type,Pos) ->
-%% %%    io:format("mk_xml_path: Parents = ~p~n",[Parents]),
+%% %%    ?dbg("mk_xml_path: Parents = ~p~n",[Parents]),
 %%     {filename:join([[io_lib:format("/~w(~w)",[X,Y])||{X,Y}<-Parents],Type]),Pos}.
 
 %% @spec format_error(Errors) -> Result

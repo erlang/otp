@@ -23,7 +23,7 @@
 
 
 -include("xmerl.hrl").		% record def, macros
-
+-include("xmerl_internal.hrl").
 
 
 %% +type validate(xmerl_scanner(),xmlElement())->
@@ -300,7 +300,7 @@ test_attribute_value('NMTOKEN',#xmlAttribute{name=Name,value=V}=Attr,
 		    true->
 			ok;
 		    false->
-			%%io:format("Warning*** nmtoken,value_incorrect:  ~p~n",[V]),
+			%%?dbg("nmtoken,value_incorrect:  ~p~n",[V]),
 			exit({error,{invalid_value_nmtoken,Name,V}})
 		end
 	end,
@@ -381,7 +381,7 @@ test_attribute_value({Type,L},#xmlAttribute{value=Value}=Attr,Default,_S)
 	    exit({error,{duplicate_tokens_not_allowed,{list,L}}})
     end;
 test_attribute_value(_Rule,Attr,_,_) ->
-%    io:format("Attr Value*****~nRule~p~nValue~p~n",[Rule,Attr]),
+%    ?dbg("Attr Value*****~nRule~p~nValue~p~n",[Rule,Attr]),
     Attr.
 
 
@@ -423,11 +423,11 @@ parse({'+',SubRule}, XMLS, Rules, WSaction, S) ->
 parse({choice,CHOICE}, XMLS, Rules, WSaction, S)->
 %    case XMLS of
 %	[] ->
-%	    io:format("~p~n",[{choice,CHOICE,[]}]);
+%	    ?dbg("~p~n",[{choice,CHOICE,[]}]);
 %	[#xmlElement{name=Name,pos=Pos}|_] ->
-%	    io:format("~p~n",[{choice,CHOICE,{Name,Pos}}]);
+%	    ?dbg("~p~n",[{choice,CHOICE,{Name,Pos}}]);
 %	[#xmlText{value=V}|_] ->
-%	    io:format("~p~n",[{choice,CHOICE,{text,V}}])
+%	    ?dbg("~p~n",[{choice,CHOICE,{text,V}}])
 %    end,
     choice(CHOICE, XMLS, Rules, WSaction, S);
 parse(empty, [], _Rules, _WSaction, _S) ->
@@ -550,10 +550,10 @@ star(Rule,XMLS,Rules,WSaction,Tree,S) ->
     {WS,XMLS1} = whitespace_action(XMLS,WSaction),
     case parse(Rule,XMLS1,Rules,WSaction,S) of
 	{error, _E, {{next,N},{act,A}}}->
-	    %%io:format("Error~p~n",[_E]),
+	    %%?dbg("Error~p~n",[_E]),
 	    {WS++Tree++A,N};
 	{error, _E}->
-	    %%io:format("Error~p~n",[_E]),
+	    %%?dbg("Error~p~n",[_E]),
 %	    {WS++[Tree],[]};
 	    case  whitespace_action(XMLS,ws_action(WSaction,remove)) of
 		{[],_} ->

@@ -80,17 +80,17 @@ stream_sax(Fname, CallBack, UserState,Options) ->
     HookF=
 	fun(ParsedEntity, S) ->
 		{CBs,Arg}=xmerl_scan:user_state(S),
-%		io:format("stream_sax Arg=~p~n",[Arg]),
+%		?dbg("stream_sax Arg=~p~n",[Arg]),
 		case ParsedEntity of
 		    #xmlComment{} -> % Toss away comments...
 			{[],S};
 		    _ ->  % Use callback module for the rest
-%		io:format("stream_sax ParsedEntity=~p~n",[ParsedEntity]),
+%		?dbg("stream_sax ParsedEntity=~p~n",[ParsedEntity]),
 			case xmerl:export_element(ParsedEntity,CBs,Arg) of
 			    {error,Reason} ->
 				throw({error,Reason});
 			    Resp ->
-%		io:format("stream_sax Resp=~p~n",[Resp]),
+%		?dbg("stream_sax Resp=~p~n",[Resp]),
 				{Resp,xmerl_scan:user_state({CBs,Resp},S)}
 			end
 		end
