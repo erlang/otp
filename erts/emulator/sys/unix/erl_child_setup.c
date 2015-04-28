@@ -55,7 +55,7 @@ void sys_sigrelease(int sig)
 #endif /* !SIG_SIGSET */
 
 #if defined(__ANDROID__)
-int __system_properties_fd(void);
+static int system_properties_fd(void);
 #endif /* __ANDROID__ */
 
 #if defined(__ANDROID__)
@@ -104,9 +104,12 @@ main(int argc, char *argv[])
 #if defined(HAVE_CLOSEFROM)
     closefrom(from);
 #elif defined(__ANDROID__)
-    for (i = from; i <= to; i++) {
-	if (i!=__system_properties_fd)
-	    (void) close(i);
+    if (from <= to) {
+	int spfd = system_properties_fd();
+	for (i = from; i <= to; i++) {
+	    if (i != spfd)
+		(void) close(i);
+	}
     }
 #else
     for (i = from; i <= to; i++)
@@ -143,9 +146,9 @@ main(int argc, char *argv[])
 }
 
 #if defined(__ANDROID__)
-int __system_properties_fd(void)
+static int system_properties_fd(void)
 {
-    int s, fd;
+    int fd;
     char *env;
 
     env = getenv("ANDROID_PROPERTY_WORKSPACE");
@@ -156,4 +159,3 @@ int __system_properties_fd(void)
     return fd;
 }
 #endif /* __ANDROID__ */
-
