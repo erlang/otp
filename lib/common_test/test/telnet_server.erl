@@ -242,6 +242,12 @@ do_handle_data("echo_loop " ++ Data,State) ->
     ReturnData = string:join(Lines,"\n"),
     send_loop(list_to_integer(TStr),ReturnData,State),
     {ok,State};
+do_handle_data("echo_delayed_prompt "++Data,State) ->
+    [MsStr|EchoData] = string:tokens(Data, " "),
+    send(string:join(EchoData,"\n"),State),
+    ct:sleep(list_to_integer(MsStr)),
+    send("\r\n> ",State),
+    {ok,State};
 do_handle_data("disconnect_after " ++WaitStr,State) ->
     Wait = list_to_integer(string:strip(WaitStr,right,$\n)),
     dbg("Server will close connection in ~w ms...", [Wait]),
