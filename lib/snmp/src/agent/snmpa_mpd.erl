@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2014. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -75,8 +75,9 @@
 init(Vsns) ->
     ?vlog("init -> entry with"
 	"~n   Vsns: ~p", [Vsns]),
-    {A,B,C} = erlang:now(),
-    random:seed(A,B,C),
+    random:seed(erlang:phash2([node()]),
+                erlang:monotonic_time(),
+                erlang:unique_integer()),
     ets:insert(snmp_agent_table, {msg_id, random:uniform(2147483647)}),
     ets:insert(snmp_agent_table, {req_id, random:uniform(2147483647)}),
     init_counters(),
@@ -771,21 +772,7 @@ generate_v3_report_msg(MsgID, MsgSecurityModel, Data, LocalEngineID,
 			   ContextEngineID, ContextName, SecData}, 
 			  LocalEngineID, Log).
 
-%% req_id(#scopedPdu{data = #pdu{request_id = ReqId}}) ->
-%%     ?vtrace("Report ReqId: ~p",[ReqId]),
-%%     ReqId;
-%% req_id(_) ->
-%%     0. % RFC2572, 7.1.3.c.4
 
-    
-%% maybe_generate_discovery1_report_msg() ->
-%%     case (catch DiscoveryHandler:handle_discovery1(Ip, Udp, EngineId)) of
-%% 	{ok, Entry} when is_record(Entry, snmp_discovery_data1) ->
-%% 	    ok;
-%% 	ignore ->
-%% 	    ok;
-%% 	{error, Reason} ->
-	    
 %% Response to stage 1 discovery message (terminating, i.e. from the manager)
 generate_discovery1_report_msg(MsgID, MsgSecurityModel, 
 			       SecName, SecLevel, 

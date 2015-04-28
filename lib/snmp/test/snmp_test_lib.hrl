@@ -1,8 +1,8 @@
-%%<copyright>
-%% <year>2002-2014</year>
-%% <holder>Ericsson AB, All Rights Reserved</holder>
-%%</copyright>
-%%<legalnotice>
+%%
+%% %CopyrightBegin%
+%%
+%% Copyright Ericsson AB 2002-2015. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
@@ -15,7 +15,7 @@
 %% under the License.
 %%
 %% The Initial Developer of the Original Code is Ericsson AB.
-%%</legalnotice>
+%% %CopyrightEnd%
 %%
 %%----------------------------------------------------------------------
 %% Purpose: Define common macros for testing
@@ -73,8 +73,6 @@
 -endif.
 
 -define(SLEEP(MSEC),    snmp_test_lib:sleep(MSEC)).
--define(M(),            snmp_test_lib:millis()).
--define(MDIFF(A,B),     snmp_test_lib:millis_diff(A,B)).
 
 %% - Process utility macros - 
 
@@ -149,4 +147,3 @@
 
 -define(PRINT(P,F,A),
 	snmp_test_lib:print(P,?MODULE,?LINE,F,A)).
-

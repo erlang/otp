@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2014. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -188,8 +188,9 @@ receive_trap(Timeout) ->
 init({Options, CallerPid}) ->
     put(sname,     mgr),
     put(verbosity, debug), 
-    {A1,A2,A3} = erlang:now(),
-    random:seed(A1,A2,A3),
+    random:seed(erlang:phash2([node()]),
+                erlang:monotonic_time(),
+                erlang:unique_integer()),
     case (catch is_options_ok(Options)) of
 	true ->
 	    put(debug, get_value(debug, Options, false)),
@@ -1135,4 +1136,3 @@ d(_,_F,_A) ->
 
 formated_timestamp() ->
     snmp_test_lib:formated_timestamp().
-
