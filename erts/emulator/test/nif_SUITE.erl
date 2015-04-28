@@ -1387,7 +1387,7 @@ is_checks(Config) when is_list(Config) ->
 			self(), hd(erlang:ports()), [], [1,9,9,8],
 			{hejsan, "hejsan", [$h,"ejs",<<"an">>]}, -18446744073709551616.2e2),
     try
-        ?line error = check_is_exception(),
+        ?line check_is_exception(),
         ?line throw(expected_badarg)
     catch
         error:badarg ->
@@ -1599,9 +1599,9 @@ dirty_nif_exception(Config) when is_list(Config) ->
 	N when is_integer(N) ->
 	    ensure_lib_loaded(Config),
 	    try
-		%% this checks that the expected exception
-		%% occurs when the NIF returns the result
-		%% of enif_make_badarg directly
+		%% this checks that the expected exception occurs when the
+		%% dirty NIF returns the result of enif_make_badarg
+		%% directly
 	        call_dirty_nif_exception(1),
 	        ?t:fail(expected_badarg)
 	    catch
@@ -1611,10 +1611,9 @@ dirty_nif_exception(Config) when is_list(Config) ->
 		    ok
 	    end,
 	    try
-		%% this checks that the expected exception
-		%% occurs when the NIF calls enif_make_badarg
-		%% at some point but then returns a value that
-		%% isn't an exception
+		%% this checks that the expected exception occurs when the
+		%% dirty NIF calls enif_make_badarg at some point but then
+		%% returns a value that isn't an exception
 	        call_dirty_nif_exception(0),
 	        ?t:fail(expected_badarg)
 	    catch
@@ -1631,6 +1630,9 @@ dirty_nif_exception(Config) when is_list(Config) ->
 nif_exception(Config) when is_list(Config) ->
     ensure_lib_loaded(Config),
     try
+	%% this checks that the expected exception occurs when the NIF
+	%% calls enif_make_badarg at some point but then tries to return a
+	%% value that isn't an exception
 	call_nif_exception(),
 	?t:fail(expected_badarg)
     catch

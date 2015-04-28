@@ -883,16 +883,19 @@ static ERL_NIF_TERM check_is(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]
  *
  * This function is separate from check_is because it calls enif_make_badarg
  * and so it must return the badarg exception as its return value. Thus, the
- * badarg exception indicates success. Failure is indicated by returning an
- * error atom.
+ * badarg exception indicates success.
  */
 static ERL_NIF_TERM check_is_exception(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
+    ERL_NIF_TERM badarg, exc_term;
     ERL_NIF_TERM error_atom = enif_make_atom(env, "error");
-    ERL_NIF_TERM badarg = enif_make_badarg(env);
-    if (enif_is_exception(env, error_atom)) return error_atom;
-    if (!enif_is_exception(env, badarg)) return error_atom;
-    if (!enif_has_pending_exception(env)) return error_atom;
+    ERL_NIF_TERM badarg_atom = enif_make_atom(env, "badarg");
+    assert(!enif_is_exception(env, error_atom));
+    badarg = enif_make_badarg(env);
+    assert(enif_is_exception(env, badarg));
+    assert(enif_has_pending_exception(env, NULL));
+    assert(enif_has_pending_exception(env, &exc_term));
+    assert(enif_is_identical(exc_term, badarg_atom));
     return badarg;
 }
 
@@ -1621,7 +1624,7 @@ static ERL_NIF_TERM call_dirty_nif_exception(ErlNifEnv* env, int argc, const ERL
 	for (i = 1; i < 255; i++)
 	    args[i] = enif_make_int(env, i);
 	return enif_schedule_nif(env, "call_dirty_nif_exception", ERL_NIF_DIRTY_JOB_CPU_BOUND,
-				 call_dirty_nif_exception, 255, argv);
+				 call_dirty_nif_exception, 255, args);
     }
     case 2: {
         int return_badarg_directly;
@@ -1660,7 +1663,13 @@ static ERL_NIF_TERM call_dirty_nif_zero_args(ErlNifEnv* env, int argc, const ERL
  */
 static ERL_NIF_TERM call_nif_exception(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
+    ERL_NIF_TERM exc_term;
+    ERL_NIF_TERM badarg_atom = enif_make_atom(env, "badarg");
+
     /* ignore return value */ enif_make_badarg(env);
+    assert(enif_has_pending_exception(env, NULL));
+    assert(enif_has_pending_exception(env, &exc_term));
+    assert(enif_is_identical(badarg_atom, exc_term));
     return enif_make_atom(env, "ok");
 }
 
@@ -1696,7 +1705,7 @@ static ERL_NIF_TERM call_nif_nan_or_inf(ErlNifEnv* env, int argc, const ERL_NIF_
     }
     res = enif_make_double(env, val);
     assert(enif_is_exception(env, res));
-    assert(enif_has_pending_exception(env));
+    assert(enif_has_pending_exception(env, NULL));
     if (strcmp(arg, "tuple") == 0) {
         return enif_make_tuple2(env, argv[0], res);
     } else {

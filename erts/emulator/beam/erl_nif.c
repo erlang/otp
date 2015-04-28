@@ -741,8 +741,11 @@ Eterm enif_make_badarg(ErlNifEnv* env)
     BIF_ERROR(env->proc, BADARG);
 }
 
-int enif_has_pending_exception(ErlNifEnv* env)
+int enif_has_pending_exception(ErlNifEnv* env, ERL_NIF_TERM* reason)
 {
+    if (env->exception_thrown && reason != NULL) {
+	*reason = am_badarg;
+    }
     return env->exception_thrown;
 }
 
