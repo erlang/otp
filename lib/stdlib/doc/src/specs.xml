@@ -44,6 +44,7 @@
   <xi:include href="../specs/specs_proplists.xml"/>
   <xi:include href="../specs/specs_qlc.xml"/>
   <xi:include href="../specs/specs_queue.xml"/>
+  <xi:include href="../specs/specs_rand.xml"/>
   <xi:include href="../specs/specs_random.xml"/>
   <xi:include href="../specs/specs_re.xml"/>
   <xi:include href="../specs/specs_sets.xml"/>

@@ -139,6 +139,7 @@ api_eq(_Config) ->
     Algs = algs(),
     Small = fun(Alg) ->
 		    Seed = rand:seed(Alg),
+		    io:format("Seed ~p~n",[rand:export_seed_s(Seed)]),
 		    api_eq_1(Seed)
 	    end,
     _ = [Small(Alg) || Alg <- Algs],
@@ -150,28 +151,31 @@ api_eq_1(S00) ->
 		    V0 = rand:uniform(),
 		    {V1, S1} = rand:uniform_s(1000000, S0),
 		    V1 = rand:uniform(1000000),
-		    S1
+		    {V2, S2} = rand:normal_s(S1),
+		    V2 = rand:normal(),
+		    S2
 	    end,
     S1 = lists:foldl(Check, S00, lists:seq(1, 200)),
     S1 = get(rand_seed),
-    Exported = rand:export_seed(),
-    Exported = rand:export_seed_s(S1),
     {V0, S2} = rand:uniform_s(S1),
     V0 = rand:uniform(),
+    S2 = get(rand_seed),
+
+    Exported = rand:export_seed(),
+    Exported = rand:export_seed_s(S2),
 
     S3 = lists:foldl(Check, S2, lists:seq(1, 200)),
-    S1 = rand:seed(Exported),
-    S1 = rand:seed_s(Exported),
+    S3 = get(rand_seed),
 
-    S4 = lists:foldl(Check, S1, lists:seq(1, 200)),
-
+    S4 = lists:foldl(Check, S3, lists:seq(1, 200)),
+    S4 = get(rand_seed),
     %% Verify that we do not have loops
     false = S1 =:= S2,
     false = S2 =:= S3,
     false = S3 =:= S4,
 
-    S1 = rand:seed(Exported),
-    S4 = lists:foldl(Check, S1, lists:seq(1, 200)),
+    S2 = rand:seed(Exported),
+    S3 = lists:foldl(Check, S2, lists:seq(1, 200)),
     ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -183,14 +187,16 @@ interval_int(suite) ->
 interval_int(Config) when is_list(Config) ->
     Algs = algs(),
     Small = fun(Alg) ->
-		    _ = rand:seed(Alg),
+		    Seed = rand:seed(Alg),
+		    io:format("Seed ~p~n",[rand:export_seed_s(Seed)]),
 		    Max = interval_int_1(100000, 7, 0),
 		    Max =:= 7 orelse exit({7, Alg, Max})
 	    end,
     _ = [Small(Alg) || Alg <- Algs],
     %% Test large integers
     Large = fun(Alg) ->
-		    _ = rand:seed(Alg),
+		    Seed = rand:seed(Alg),
+		    io:format("Seed ~p~n",[rand:export_seed_s(Seed)]),
 		    Max = interval_int_1(100000, 1 bsl 128, 0),
 		    Max > 1 bsl 64 orelse exit({large, Alg, Max})
 	    end,
@@ -287,18 +293,21 @@ gen(_, _, Acc) -> lists:reverse(Acc).
 basic_stats(doc) -> ["Check that the algorithms generate sound values."];
 basic_stats(suite) -> [];
 basic_stats(Config) when is_list(Config) ->
-    [basic_stats_1(?LOOP, rand:seed_s(Alg), 0.0, array:new([{default, 0}]))
+    io:format("Testing uniform~n",[]),
+    [basic_uniform_1(?LOOP, rand:seed_s(Alg), 0.0, array:new([{default, 0}]))
      || Alg <- algs()],
-    [basic_stats_2(?LOOP, rand:seed_s(Alg), 0, array:new([{default, 0}]))
+    [basic_uniform_2(?LOOP, rand:seed_s(Alg), 0, array:new([{default, 0}]))
      || Alg <- algs()],
+    io:format("Testing normal~n",[]),
+    [basic_normal_1(?LOOP, rand:seed_s(Alg), 0, 0) || Alg <- algs()],
     ok.
 
-basic_stats_1(N, S0, Sum, A0) when N > 0 ->
+basic_uniform_1(N, S0, Sum, A0) when N > 0 ->
     {X,S} = rand:uniform_s(S0),
     I = trunc(X*100),
     A = array:set(I, 1+array:get(I,A0), A0),
-    basic_stats_1(N-1, S, Sum+X, A);
-basic_stats_1(0, {#{type:=Alg}, _}, Sum, A) ->
+    basic_uniform_1(N-1, S, Sum+X, A);
+basic_uniform_1(0, {#{type:=Alg}, _}, Sum, A) ->
     AverN = Sum / ?LOOP,
     io:format("~.10w: Average: ~.4f~n", [Alg, AverN]),
     Counters = array:to_list(A),
@@ -313,11 +322,11 @@ basic_stats_1(0, {#{type:=Alg}, _}, Sum, A) ->
     abs(?LOOP div 100 - Max) < 1000 orelse test_server:fail({max, Alg, Max}),
     ok.
 
-basic_stats_2(N, S0, Sum, A0) when N > 0 ->
+basic_uniform_2(N, S0, Sum, A0) when N > 0 ->
     {X,S} = rand:uniform_s(100, S0),
     A = array:set(X-1, 1+array:get(X-1,A0), A0),
-    basic_stats_2(N-1, S, Sum+X, A);
-basic_stats_2(0, {#{type:=Alg}, _}, Sum, A) ->
+    basic_uniform_2(N-1, S, Sum+X, A);
+basic_uniform_2(0, {#{type:=Alg}, _}, Sum, A) ->
     AverN = Sum / ?LOOP,
     io:format("~.10w: Average: ~.4f~n", [Alg, AverN]),
     Counters = tl(array:to_list(A)),
@@ -330,6 +339,19 @@ basic_stats_2(0, {#{type:=Alg}, _}, Sum, A) ->
     abs(50.5 - AverN) < 0.5 orelse test_server:fail({average, Alg, AverN}),
     abs(?LOOP div 100 - Min) < 1000 orelse test_server:fail({min, Alg, Min}),
     abs(?LOOP div 100 - Max) < 1000 orelse test_server:fail({max, Alg, Max}),
+    ok.
+
+basic_normal_1(N, S0, Sum, Sq) when N > 0 ->
+    {X,S} = rand:normal_s(S0),
+    basic_normal_1(N-1, S, X+Sum, X*X+Sq);
+basic_normal_1(0, {#{type:=Alg}, _}, Sum, SumSq) ->
+    Mean = Sum / ?LOOP,
+    StdDev =  math:sqrt((SumSq - (Sum*Sum/?LOOP))/(?LOOP - 1)),
+    io:format("~.10w: Average: ~7.4f StdDev ~6.4f~n", [Alg, Mean, StdDev]),
+    %% Verify that the basic statistics are ok
+    %% be gentle we don't want to see to many failing tests
+    abs(Mean) < 0.005 orelse test_server:fail({average, Alg, Mean}),
+    abs(StdDev - 1.0) < 0.005 orelse test_server:fail({stddev, Alg, StdDev}),
     ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -349,10 +371,11 @@ plugin(Config) when is_list(Config) ->
 %% Test implementation
 crypto_seed() ->
     {#{type=>crypto,
+       max=>(1 bsl 64)-1,
+       next=>fun crypto_next/1,
        uniform=>fun crypto_uniform/1,
        uniform_n=>fun crypto_uniform_n/2},
      <<>>}.
-
 
 %% Be fair and create bignums i.e. 64bits otherwise use 58bits
 crypto_next(<<Num:64, Bin/binary>>) ->
@@ -377,15 +400,21 @@ crypto_uniform_n(N, State0) ->
 measure(Suite) when is_atom(Suite) -> [];
 measure(_Config) ->
     Algos = [crypto64|algs()],
-    io:format("RNG integer performance~n",[]),
-    _ = [measure_1(Algo, fun(State) -> rand:uniform_s(10000, State) end) || Algo <- Algos],
-    io:format("RNG float performance~n",[]),
-    _ = [measure_1(Algo, fun(State) -> rand:uniform_s(State) end) || Algo <- Algos],
+    io:format("RNG uniform integer performance~n",[]),
+    _ = measure_1(random, fun(State) -> {int, random:uniform_s(10000, State)} end),
+    _ = [measure_1(Algo, fun(State) -> {int, rand:uniform_s(10000, State)} end) || Algo <- Algos],
+    io:format("RNG uniform float performance~n",[]),
+    _ = measure_1(random, fun(State) -> {uniform, random:uniform_s(State)} end),
+    _ = [measure_1(Algo, fun(State) -> {uniform, rand:uniform_s(State)} end) || Algo <- Algos],
+    io:format("RNG normal float performance~n",[]),
+    io:format("~.10w: not implemented (too few bits)~n", [random]),
+    _ = [measure_1(Algo, fun(State) -> {normal, rand:normal_s(State)} end) || Algo <- Algos],
     ok.
 
 measure_1(Algo, Gen) ->
     Parent = self(),
     Seed = fun(crypto64) -> crypto_seed();
+	      (random) -> random:seed(os:timestamp()), get(random_seed);
 	      (Alg) -> rand:seed_s(Alg)
 	   end,
 
@@ -402,10 +431,12 @@ measure_1(Algo, Gen) ->
 
 measure_2(N, State0, Fun) when N > 0 ->
     case Fun(State0) of
-	{Random, State}
+	{int, {Random, State}}
 	  when is_integer(Random), Random >= 1, Random =< 100000 ->
 	    measure_2(N-1, State, Fun);
-	{Random, State} when is_float(Random), Random > 0, Random < 1 ->
+	{uniform, {Random, State}} when is_float(Random), Random > 0, Random < 1 ->
+	    measure_2(N-1, State, Fun);
+	{normal, {Random, State}} when is_float(Random) ->
 	    measure_2(N-1, State, Fun);
 	Res ->
 	    exit({error, Res, State0})

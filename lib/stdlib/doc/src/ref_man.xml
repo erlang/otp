@@ -78,6 +78,7 @@
   <xi:include href="proplists.xml"/>
   <xi:include href="qlc.xml"/>
   <xi:include href="queue.xml"/>
+  <xi:include href="rand.xml"/>
   <xi:include href="random.xml"/>
   <xi:include href="re.xml"/>
   <xi:include href="sets.xml"/>
