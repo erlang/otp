@@ -140,7 +140,7 @@ init(Pid, Parent, Meta, TraceWin, BackTrace, Strings) ->
 
     int:meta(Meta, trace, State3#state.trace),
 
-    gui_enable_updown(stack_trace, {1,1}),
+    gui_enable_updown(State3#state.stack_trace, {1,1}),
     gui_enable_btrace(false, false),
     dbg_wx_trace_win:display(Win,idle),
 
