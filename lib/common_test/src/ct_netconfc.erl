@@ -1118,7 +1118,9 @@ handle_msg({Ref,timeout},#state{pending=Pending} = State) ->
 	    close_session -> stop;
 	    _ -> noreply
 	end,
-    {R,State#state{pending=Pending1}}.
+    %% Halfhearted try to get in correct state, this matches
+    %% the implementation before this patch
+    {R,State#state{pending=Pending1, buff= <<>>}}.
 
 %% @private
 %% Called by ct_util_server to close registered connections before terminate.
@@ -1308,72 +1310,54 @@ to_xml_doc(Simple) ->
 
 %%%-----------------------------------------------------------------
 %%% Parse and handle received XML data
-handle_data(NewData,#state{connection=Connection,buff=Buff} = State) ->
+handle_data(NewData,#state{connection=Connection,buff=Buff0} = State0) ->
     log(Connection,recv,NewData),
-    Data = <<Buff/binary,NewData/binary>>,
-    case xmerl_sax_parser:stream(<<>>,
-				 [{continuation_fun,fun sax_cont/1},
-				  {continuation_state,{Data,Connection,false}},
-				  {event_fun,fun sax_event/3},
-				  {event_state,[]}]) of
-	{ok, Simple, Rest} ->
-	    decode(Simple,State#state{buff=Rest});
-	{fatal_error,_Loc,Reason,_EndTags,_EventState} ->
-	    ?error(Connection#connection.name,[{parse_error,Reason},
-					       {buffer,Buff},
-					       {new_data,NewData}]),
-	    case Reason of
-		{could_not_fetch_data,Msg} ->
-		    handle_msg(Msg,State#state{buff = <<>>});
-		_Other ->
-		    Pending1 =
-			case State#state.pending of
-			    [] ->
-				[];
-			    Pending ->
-				%% Assuming the first request gets the
-				%% first answer
-				P=#pending{tref=TRef,caller=Caller} =
-				    lists:last(Pending),
-				_ = timer:cancel(TRef),
-				Reason1 = {failed_to_parse_received_data,Reason},
-				ct_gen_conn:return(Caller,{error,Reason1}),
-				lists:delete(P,Pending)
-			end,
-		    {noreply,State#state{pending=Pending1,buff = <<>>}}
+    Data = append_wo_initial_nl(Buff0,NewData),
+    case binary:split(Data,[?END_TAG],[]) of
+	[_NoEndTagFound] ->
+	    {noreply, State0#state{buff=Data}};
+	[FirstMsg,Buff1] ->
+	    SaxArgs = [{event_fun,fun sax_event/3}, {event_state,[]}],
+	    case xmerl_sax_parser:stream(FirstMsg, SaxArgs) of
+		{ok, Simple, _Thrash} ->
+		    case decode(Simple, State0#state{buff=Buff1}) of
+			{noreply, #state{buff=Buff} = State} when Buff =/= <<>> ->
+			    %% Recurse if we have more data in buffer
+			    handle_data(<<>>, State);
+			Other ->
+			    Other
+		    end;
+		{fatal_error,_Loc,Reason,_EndTags,_EventState} ->
+		    ?error(Connection#connection.name,
+			   [{parse_error,Reason},
+			    {buffer, Buff0},
+			    {new_data,NewData}]),
+		    handle_error(Reason, State0#state{buff= <<>>})
 	    end
     end.
 
-%%%-----------------------------------------------------------------
-%%% Parsing of XML data
-%% Contiuation function for the sax parser
-sax_cont(done) ->
-    {<<>>,done};
-sax_cont({Data,Connection,false}) ->
-    case binary:split(Data,[?END_TAG],[]) of
-	[All] ->
-	    %% No end tag found. Remove what could be a part
-	    %% of an end tag from the data and save for next
-	    %% iteration
-	    SafeSize = size(All)-5,
-	    <<New:SafeSize/binary,Save:5/binary>> = All,
-	    {New,{Save,Connection,true}};
-	[_Msg,_Rest]=Msgs ->
-	    %% We have at least one full message. Any excess data will
-	    %% be returned from xmerl_sax_parser:stream/2 in the Rest
-	    %% parameter.
-	    {list_to_binary(Msgs),done}
-    end;
-sax_cont({Data,Connection,true}) ->
-    case ssh_receive_data() of
-	{ok,Bin} ->
-	    log(Connection,recv,Bin),
-	    sax_cont({<<Data/binary,Bin/binary>>,Connection,false});
-	{error,Reason} ->
-	    throw({could_not_fetch_data,Reason})
-    end.
+%% xml does not accept a leading nl and some netconf server add a nl after
+%% each ?END_TAG, ignore them
+append_wo_initial_nl(<<>>,NewData) -> NewData;
+append_wo_initial_nl(<<"\n", Data/binary>>, NewData) ->
+    append_wo_initial_nl(Data, NewData);
+append_wo_initial_nl(Data, NewData) ->
+    <<Data/binary, NewData/binary>>.
 
-
+handle_error(Reason, State) ->
+    Pending1 = case State#state.pending of
+		   [] -> [];
+		   Pending ->
+		       %% Assuming the first request gets the
+		       %% first answer
+		       P=#pending{tref=TRef,caller=Caller} =
+			   lists:last(Pending),
+		       _ = timer:cancel(TRef),
+		       Reason1 = {failed_to_parse_received_data,Reason},
+		       ct_gen_conn:return(Caller,{error,Reason1}),
+		       lists:delete(P,Pending)
+	       end,
+    {noreply, State#state{pending=Pending1}}.
 
 %% Event function for the sax parser. It builds a simple XML structure.
 %% Care is taken to keep namespace attributes and prefixes as in the original XML.
@@ -1836,16 +1820,6 @@ get_tag([]) ->
 
 %%%-----------------------------------------------------------------
 %%% SSH stuff
-ssh_receive_data() ->
-    receive
-	{ssh_cm, CM, {data, Ch, _Type, Data}} ->
-	    ssh_connection:adjust_window(CM,Ch,size(Data)),
-	    {ok, Data};
-        {ssh_cm, _CM, {Closed, _Ch}} = X when Closed == closed; Closed == eof ->
-            {error,X};
-	{_Ref,timeout} = X ->
-	    {error,X}
-    end.
 
 ssh_open(#options{host=Host,timeout=Timeout,port=Port,ssh=SshOpts,name=Name}) ->
     case ssh:connect(Host, Port,
