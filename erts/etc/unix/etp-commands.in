@@ -3634,7 +3634,7 @@ define etp-carrier-blocks
     printf "Free      blocks: %u\n", $etp_fblk_cnt
   end
   if $etp_error_cnt
-    printf "%u ERRORs reported above\n", $etp-error-cnt
+    printf "%u ERRORs reported above\n", $etp_error_cnt
   end
 end
 
