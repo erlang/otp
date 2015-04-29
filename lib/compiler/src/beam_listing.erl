@@ -46,8 +46,8 @@ module(Stream, {Mod,Exp,Attr,Code,NumLabels}) ->
       fun ({function,Name,Arity,Entry,Asm}) ->
 	      io:format(Stream, "\n\n{function, ~w, ~w, ~w}.\n",
 			[Name, Arity, Entry]),
-	      foreach(fun(Op) -> print_op(Stream, Op) end, Asm) end,
-      Code);
+	      io:put_chars(Stream, format_asm(Asm))
+      end, Code);
 module(Stream, {Mod,Exp,Inter}) ->
     %% Other kinds of intermediate formats.
     io:fwrite(Stream, "~w.~n~p.~n", [Mod,Exp]),
@@ -56,10 +56,11 @@ module(Stream, [_|_]=Fs) ->
     %% Form-based abstract format.
     foreach(fun (F) -> io:format(Stream, "~p.\n", [F]) end, Fs).
 
-print_op(Stream, Label) when element(1, Label) == label ->
-    io:format(Stream, "  ~p.\n", [Label]);
-print_op(Stream, Op) ->
-    io:format(Stream, "    ~p.\n", [Op]).
+format_asm([{label,L}|Is]) ->
+    ["  {label,",integer_to_list(L),"}.\n"|format_asm(Is)];
+format_asm([I|Is]) ->
+    [io_lib:format("    ~p", [I]),".\n"|format_asm(Is)];
+format_asm([]) -> [].
 
 function(File, {function,Name,Arity,Args,Body,Vdb,_Anno}) ->
     io:nl(File),

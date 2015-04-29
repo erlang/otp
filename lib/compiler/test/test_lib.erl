@@ -57,10 +57,8 @@ parallel() ->
     end.
 
 uniq() ->
-    U0 = erlang:ref_to_list(make_ref()),
-    U1 = re:replace(U0, "^#Ref", ""),
-    U = re:replace(U1, "[^[A-Za-z0-9_]+", "_", [global]),
-    re:replace(U, "_*$", "", [{return,list}]).
+    U = erlang:unique_integer([positive]),
+    "_" ++ integer_to_list(U).
 
 %% Retrieve the "interesting" compiler options (options for optimization
 %% and compatibility) for the given module.

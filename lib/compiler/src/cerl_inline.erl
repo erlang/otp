@@ -445,15 +445,14 @@ i_var_1(R, Opnd, Ctxt, Env, S) ->
 	    residualize_var(R, S);
 	false ->
 	    S1 = st__mark_inner_pending(L, S),
-	    case catch {ok, visit(Opnd, S1)} of
-		{ok, {E, S2}} ->
+	    try visit(Opnd, S1) of
+		{E, S2} ->
 		    %% Note that we pass the current environment and
 		    %% context to `copy', but not the current renaming.
 		    S3 = st__clear_inner_pending(L, S2),
-		    copy(R, Opnd, E, Ctxt, Env, S3);
-		{'EXIT', X} ->
-		    exit(X);
-		X ->
+		    copy(R, Opnd, E, Ctxt, Env, S3)
+	    catch
+		throw:X ->
  		    %% If we use destructive update for the
  		    %% `inner-pending' flag, we must make sure to clear
  		    %% it also if we make a nonlocal return.
@@ -1128,8 +1127,8 @@ i_call_3(M, F, As, E, Ctxt, Env, S) ->
     %% Note that we extract the results of argument expessions here; the
     %% expressions could still be sequences with side effects.
     Vs = [concrete(result(A)) || A <- As],
-    case catch {ok, apply(atom_val(M), atom_val(F), Vs)} of
-	{ok, V} ->
+    try apply(atom_val(M), atom_val(F), Vs) of
+	V ->
 	    %% Evaluation completed normally - try to turn the result
 	    %% back into a syntax tree (representing a literal).
 	    case is_literal_term(V) of
@@ -1142,8 +1141,9 @@ i_call_3(M, F, As, E, Ctxt, Env, S) ->
 		false ->
 		    %% The result could not be represented as a literal.
 		    i_call_4(M, F, As, E, Ctxt, Env, S)
-	    end;
-	_ ->
+	    end
+    catch
+	error:_ ->
 	    %% The evaluation attempt did not complete normally.
 	    i_call_4(M, F, As, E, Ctxt, Env, S)
     end.
@@ -1736,12 +1736,11 @@ copy_1(R, Opnd, E, Ctxt, Env, S) ->
 
 copy_inline(R, Opnd, E, Ctxt, Env, S) ->
     S1 = st__mark_outer_pending(Opnd#opnd.loc, S),
-    case catch {ok, copy_inline_1(R, E, Ctxt, Env, S1)} of
-        {ok, {E1, S2}} ->
-            {E1, st__clear_outer_pending(Opnd#opnd.loc, S2)};
-        {'EXIT', X} ->
-            exit(X);
-        X ->
+    try copy_inline_1(R, E, Ctxt, Env, S1) of
+        {E1, S2} ->
+            {E1, st__clear_outer_pending(Opnd#opnd.loc, S2)}
+    catch
+        throw:X ->
  	    %% If we use destructive update for the `outer-pending'
  	    %% flag, we must make sure to clear it upon a nonlocal
  	    %% return.
@@ -1758,19 +1757,16 @@ copy_inline_1(R, E, Ctxt, Env, S) ->
             copy_inline_2(R, E, Ctxt, Env, S);
         false ->
             S1 = new_active_effort(get_effort_limit(S), S),
-            case catch {ok, copy_inline_2(R, E, Ctxt, Env, S1)} of
-                {ok, {E1, S2}} ->
+            try copy_inline_2(R, E, Ctxt, Env, S1) of
+                {E1, S2} ->
                     %% Revert to the old effort counter.
-                    {E1, revert_effort(S, S2)};
-                {counter_exceeded, effort, _} ->
+                    {E1, revert_effort(S, S2)}
+	    catch
+                throw:{counter_exceeded, effort, _} ->
                     %% Aborted this inlining attempt because too much
                     %% effort was spent. Residualize the variable and
                     %% revert to the previous state.
-                    residualize_var(R, S);
-                {'EXIT', X} ->
-                    exit(X);
-                X ->
-                    throw(X)
+                    residualize_var(R, S)
             end
     end.
 
@@ -1796,11 +1792,12 @@ copy_inline_2(R, E, Ctxt, Env, S) ->
     %% close to zero at this point. (This is an extension to the
     %% original algorithm.)
     S1 = new_active_size(Limit + apply_size(length(Ctxt#app.opnds)), S),
-    case catch {ok, inline(E, Ctxt, ren__identity(), Env, S1)} of
-        {ok, {E1, S2}} ->
+    try inline(E, Ctxt, ren__identity(), Env, S1) of
+        {E1, S2} ->
             %% Revert to the old size counter.
-            {E1, revert_size(S, S2)};
-        {counter_exceeded, size, S2} ->
+            {E1, revert_size(S, S2)}
+    catch
+        throw:{counter_exceeded, size, S2} ->
             %% Aborted this inlining attempt because it got too big.
             %% Residualize the variable and revert to the old size
             %% counter. (It is important that we do not also revert the
@@ -1813,11 +1810,7 @@ copy_inline_2(R, E, Ctxt, Env, S) ->
   	    %% must make sure to clear the flags of any nested
   	    %% app-contexts upon aborting; see `inline' for details.
  	    S4 = reset_nested_apps(Ctxt, S3),    % for effect
-            residualize_var(R, S4);
-        {'EXIT', X} ->
-            exit(X);
-        X ->
-            throw(X)
+            residualize_var(R, S4)
     end.
 
 reset_nested_apps(#app{ctxt = Ctxt, loc = L}, S) ->

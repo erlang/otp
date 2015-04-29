@@ -869,10 +869,10 @@ constant_bin_1(Es) ->
 		 ({float,_,F}, B) -> {value,F,B};
 		 ({atom,_,undefined}, B) -> {value,undefined,B}
 	      end,
-    case catch eval_bits:expr_grp(Es, EmptyBindings, EvalFun) of
+    try eval_bits:expr_grp(Es, EmptyBindings, EvalFun) of
 	{value,Bin,EmptyBindings} ->
-	    Bin;
-	_ ->
+	    Bin
+    catch error:_ ->
 	    error
     end.
 

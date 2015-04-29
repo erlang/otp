@@ -733,6 +733,12 @@ no_warnings(Config) when is_list(Config) ->
 	          false -> Var;
                   true -> []
                 end.
+
+              c() ->
+                R0 = {r,\"abc\",undefined,os:timestamp()}, %No warning.
+                case R0 of
+	          {r,V1,_V2,V3} -> {r,V1,\"def\",V3}
+                end.
            ">>,
            [],
            []}],

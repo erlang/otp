@@ -28,7 +28,7 @@
 	 overwrite_catchtag/1,overwrite_trytag/1,accessing_tags/1,bad_catch_try/1,
 	 cons_guard/1,
 	 freg_range/1,freg_uninit/1,freg_state/1,
-	 bad_bin_match/1,bin_aligned/1,bad_dsetel/1,
+	 bad_bin_match/1,bad_dsetel/1,
 	 state_after_fault_in_catch/1,no_exception_in_catch/1,
 	 undef_label/1,illegal_instruction/1,failing_gc_guard_bif/1,
 	 map_field_lists/1]).
@@ -57,7 +57,7 @@ groups() ->
        unsafe_catch,dead_code,
        overwrite_catchtag,overwrite_trytag,accessing_tags,
        bad_catch_try,cons_guard,freg_range,freg_uninit,
-       freg_state,bad_bin_match,bin_aligned,bad_dsetel,
+       freg_state,bad_bin_match,bad_dsetel,
        state_after_fault_in_catch,no_exception_in_catch,
        undef_label,illegal_instruction,failing_gc_guard_bif,
        map_field_lists]}].
@@ -178,7 +178,7 @@ unsafe_catch(Config) when is_list(Config) ->
     ?line
 	[{{t,small,2},
 	  {{bs_put_integer,{f,0},{integer,16},1,
-	    {field_flags,[aligned,unsigned,big]},{y,0}},
+	    {field_flags,[unsigned,big]},{y,0}},
 	   20,
 	   {unassigned,{y,0}}}}] = Errors,
     ok.
@@ -211,20 +211,21 @@ accessing_tags(Config) when is_list(Config) ->
 
 bad_catch_try(Config) when is_list(Config) ->
     Errors = do_val(bad_catch_try, Config),
-    ?line [{{bad_catch_try,bad_1,1},
-	    {{'catch',{x,0},{f,3}},
-	     5,{invalid_store,{x,0},{catchtag,[3]}}}},
-	   {{bad_catch_try,bad_2,1},
-	    {{catch_end,{x,9}},
-	     8,{source_not_y_reg,{x,9}}}},
-	   {{bad_catch_try,bad_3,1},
-	    {{catch_end,{y,1}},9,{bad_type,{atom,kalle}}}},
-	   {{bad_catch_try,bad_4,1},
-	    {{'try',{x,0},{f,15}},5,{invalid_store,{x,0},{trytag,[15]}}}},
-	   {{bad_catch_try,bad_5,1},
-	    {{try_case,{y,1}},12,{bad_type,term}}},
-	   {{bad_catch_try,bad_6,1},
-	    {{try_end,{y,1}},8,{bad_type,{integer,1}}}}] = Errors,
+    [{{bad_catch_try,bad_1,1},
+      {{'catch',{x,0},{f,3}},
+       5,{invalid_store,{x,0},{catchtag,[3]}}}},
+     {{bad_catch_try,bad_2,1},
+      {{catch_end,{x,9}},
+       8,{source_not_y_reg,{x,9}}}},
+     {{bad_catch_try,bad_3,1},
+      {{catch_end,{y,1}},9,{bad_type,{atom,kalle}}}},
+     {{bad_catch_try,bad_4,1},
+      {{'try',{x,0},{f,15}},5,{invalid_store,{x,0},{trytag,[15]}}}},
+     {{bad_catch_try,bad_5,1},
+      {{try_case,{y,1}},12,{bad_type,term}}},
+     {{bad_catch_try,bad_6,1},
+      {{move,{integer,1},{y,1}},7,
+       {invalid_store,{y,1},{integer,1}}}}] = Errors,
     ok.
 
 cons_guard(Config) when is_list(Config) ->
@@ -297,19 +298,6 @@ bad_bin_match(Config) when is_list(Config) ->
 	[{{t,t,1},{return,5,{match_context,{x,0}}}}] =
 		do_val(bad_bin_match, Config),
 	ok.
-
-bin_aligned(Config) when is_list(Config) ->
-    Errors = do_val(bin_aligned, Config),
-    ?line
-	[{{t,decode,1},
-	  {{bs_put_integer,{f,0},
-	    {integer,5},
-	    1,
-	    {field_flags,[unsigned,big,aligned]},
-	    {integer,0}},
-	   10,
-	   {aligned_flag_set,{bits,3}}}}] = Errors,
-    ok.
 
 bad_dsetel(Config) when is_list(Config) ->
     Errors = do_val(bad_dsetel, Config),

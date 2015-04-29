@@ -2140,9 +2140,11 @@ put_stack(Val, [free|Stk]) -> [{Val}|Stk];
 put_stack(Val, [NotFree|Stk]) -> [NotFree|put_stack(Val, Stk)].
 
 put_stack_carefully(Val, Stk0) ->
-    case catch put_stack_carefully1(Val, Stk0) of
-	error -> error;
-	Stk1 when is_list(Stk1) -> Stk1
+    try
+	put_stack_carefully1(Val, Stk0)
+    catch
+	throw:error ->
+	    error
     end.
 
 put_stack_carefully1(_, []) -> throw(error);

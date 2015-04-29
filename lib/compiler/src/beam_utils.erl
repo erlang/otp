@@ -128,8 +128,7 @@ empty_label_index() ->
 %%  Add an index for a label.
 
 index_label(Lbl, Is0, Acc) ->
-    Is = lists:dropwhile(fun({label,_}) -> true;
-			    (_) -> false end, Is0),
+    Is = drop_labels(Is0),
     gb_trees:enter(Lbl, Is, Acc).
 
 
@@ -344,14 +343,10 @@ check_liveness(R, [{call_ext,Live,_}=I|Is], St) ->
 		false ->
 		    check_liveness(R, Is, St);
 		true ->
-		    %% We must make sure we don't check beyond this instruction
-		    %% or we will fall through into random unrelated code and
-		    %% get stuck in a loop.
-		    %%
-		    %% We don't want to overwrite a 'catch', so consider this
-		    %% register in use.
-		    %% 
-		    {used,St}
+		    %% We must make sure we don't check beyond this
+		    %% instruction or we will fall through into random
+		    %% unrelated code and get stuck in a loop.
+		    {killed,St}
 	    end
     end;
 check_liveness(R, [{call_fun,Live}|Is], St) ->
@@ -472,6 +467,22 @@ check_liveness(R, [{loop_rec_end,{f,Fail}}|_], St) ->
     check_liveness_at(R, Fail, St);
 check_liveness(R, [{line,_}|Is], St) ->
     check_liveness(R, Is, St);
+check_liveness(R, [{get_map_elements,{f,Fail},S,{list,L}}|Is], St0) ->
+    {Ss,Ds} = split_even(L),
+    case member(R, [S|Ss]) of
+	true ->
+	    {used,St0};
+	false ->
+	    case check_liveness_at(R, Fail, St0) of
+		{killed,St}=Killed ->
+		    case member(R, Ds) of
+			true -> Killed;
+			false -> check_liveness(R, Is, St)
+		    end;
+		Other ->
+		    Other
+	    end
+    end;
 check_liveness(_R, Is, St) when is_list(Is) ->
 %%     case Is of
 %% 	[I|_] ->

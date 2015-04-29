@@ -65,7 +65,7 @@ new() ->
 %% Remember the highest opcode.
 -spec opcode(non_neg_integer(), bdict()) -> bdict().
 
-opcode(Op, Dict) when Dict#asm.highest_opcode > Op -> Dict;
+opcode(Op, Dict) when Dict#asm.highest_opcode >= Op -> Dict;
 opcode(Op, Dict) -> Dict#asm{highest_opcode=Op}.
 
 %% Returns the highest opcode encountered.

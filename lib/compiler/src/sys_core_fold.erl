@@ -2532,17 +2532,34 @@ maybe_suppress_warnings(Arg, _, _, effect) ->
     %% Don't suppress any warnings in effect context.
     Arg;
 maybe_suppress_warnings(Arg, Vs, PrevBody, value) ->
-    case suppress_warning(Arg) of
+    case should_suppress_warning(Arg) of
 	true ->
 	    Arg;				%Already suppressed.
 	false ->
 	    case is_any_var_used(Vs, PrevBody) of
 		true ->
-		    cerl:set_ann(Arg, [compiler_generated]);
+		    suppress_warning([Arg]);
 		false ->
 		    Arg
 	    end
     end.
+
+%% Suppress warnings for a Core Erlang expression whose value will
+%% be ignored.
+suppress_warning([H|T]) ->
+    case cerl:is_literal(H) of
+	true ->
+	    suppress_warning(T);
+	false ->
+	    case cerl:is_data(H) of
+		true ->
+		    suppress_warning(cerl:data_es(H) ++ T);
+		false ->
+		    Arg = cerl:set_ann(H, [compiler_generated]),
+		    cerl:c_seq(Arg, suppress_warning(T))
+	    end
+    end;
+suppress_warning([]) -> void().
 
 move_case_into_arg(#c_case{arg=#c_let{vars=OuterVars0,arg=OuterArg,
                                       body=InnerArg0}=Outer,
@@ -3093,7 +3110,7 @@ add_bin_opt_info(Core, Term) ->
     end.
 
 add_warning(Core, Term) ->
-    case suppress_warning(Core) of
+    case should_suppress_warning(Core) of
 	true ->
 	    ok;
 	false ->
@@ -3118,7 +3135,7 @@ get_file([{file,File}|_]) -> File;
 get_file([_|T]) -> get_file(T);
 get_file([]) -> "no_file". % should not happen
 
-suppress_warning(Core) ->
+should_suppress_warning(Core) ->
     is_compiler_generated(Core) orelse
 	is_result_unwanted(Core).
 
