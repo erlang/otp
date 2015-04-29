@@ -693,8 +693,8 @@ mod_init_is_included(ModTab, M, ModCond, AppCond, Default, App, Sys, Status) ->
     Status2 =
 	case ets:lookup(ModTab,M#mod.name) of
 	    [Existing] ->
-		case {Existing#mod.is_included,IsIncl} of
-		    {false,_} ->
+		case {Existing#mod.is_included, IsIncl} of
+                    {false, _} ->
 			ets:insert(ModTab, M2),
 			reltool_utils:add_warning(
 			  "Module ~w exists in applications ~w and ~w. "
@@ -702,15 +702,23 @@ mod_init_is_included(ModTab, M, ModCond, AppCond, Default, App, Sys, Status) ->
 			  [M#mod.name, Existing#mod.app_name,
 			   M#mod.app_name, M#mod.app_name],
 			  Status);
-		    {_,false} ->
-			%% Don't insert in ModTab - using Existing
+                    {_, false} ->
+                        %% Don't insert in ModTab - using Existing
 			reltool_utils:add_warning(
 			  "Module ~w exists in applications ~w and ~w. "
 			  "Using module from application ~w.",
 			  [M#mod.name, Existing#mod.app_name,
-			   M#mod.app_name,Existing#mod.app_name],
+			   M#mod.app_name, Existing#mod.app_name],
 			  Status);
-		    {_,_} ->
+%%                     {_, undefined} ->
+%%                         %% Don't insert in ModTab - using Existing
+%% 			reltool_utils:add_warning(
+%% 			  "Module ~w exists in applications ~w and ~w. "
+%% 			  "Using module from application ~w.",
+%% 			  [M#mod.name, Existing#mod.app_name,
+%% 			   M#mod.app_name, Existing#mod.app_name],
+%% 			  Status);
+		    {_, _} ->
 			reltool_utils:throw_error(
 			  "Module ~w potentially included by two different "
 			  "applications: ~w and ~w.",
