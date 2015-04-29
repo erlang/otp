@@ -297,6 +297,54 @@ public class OtpErlangList extends OtpErlangObject implements
         return getLastTail().equals(l.getLastTail());
     }
 
+    @Override
+    public <T> boolean match(final OtpErlangObject term, final T bindings) {
+        if (!(term instanceof OtpErlangList)) {
+            return false;
+        }
+        final OtpErlangList that = (OtpErlangList) term;
+
+        final int thisArity = this.arity();
+        final int thatArity = that.arity();
+        final OtpErlangObject thisTail = this.getLastTail();
+        final OtpErlangObject thatTail = that.getLastTail();
+
+        if (thisTail == null) {
+            if (thisArity != thatArity || thatTail != null) {
+                return false;
+            }
+        } else {
+            if (thisArity > thatArity) {
+                return false;
+            }
+        }
+        for (int i = 0; i < thisArity; i++) {
+            if (!elementAt(i).match(that.elementAt(i), bindings)) {
+                return false;
+            }
+        }
+        if (thisTail == null) {
+            return true;
+        }
+        return thisTail.match(that.getNthTail(thisArity), bindings);
+    }
+
+    @Override
+    public <T> OtpErlangObject bind(final T binds) throws OtpErlangException {
+        final OtpErlangList list = (OtpErlangList) this.clone();
+
+        final int a = list.elems.length;
+        for (int i = 0; i < a; i++) {
+            list.elems[i] = list.elems[i].bind(binds);
+        }
+
+        if (list.lastTail != null) {
+            list.lastTail = list.lastTail.bind(binds);
+        }
+
+        return list;
+    }
+
     public OtpErlangObject getLastTail() {
         return lastTail;
     }

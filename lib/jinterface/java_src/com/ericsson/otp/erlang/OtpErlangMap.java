@@ -18,6 +18,11 @@
  */
 package com.ericsson.otp.erlang;
 
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Set;
+
 /**
  * Provides a Java representation of Erlang maps. Maps are created from one or
  * more arbitrary Erlang terms.
@@ -31,10 +36,14 @@ public class OtpErlangMap extends OtpErlangObject {
     // don't change this!
     private static final long serialVersionUID = -6410770117696198497L;
 
-    private static final OtpErlangObject[] NO_ELEMENTS = new OtpErlangObject[0];
+    private HashMap<OtpErlangObject, OtpErlangObject> map;
 
-    private OtpErlangObject[] keys = NO_ELEMENTS;
-    private OtpErlangObject[] values = NO_ELEMENTS;
+    /**
+     * Create an empty map.
+     */
+    public OtpErlangMap() {
+        map = new HashMap<OtpErlangObject, OtpErlangObject>();
+    }
 
     /**
      * Create a map from an array of keys and an array of values.
@@ -82,30 +91,20 @@ public class OtpErlangMap extends OtpErlangObject {
         } else if (kcount != vcount) {
             throw new java.lang.IllegalArgumentException(
                     "Map keys and values must have same arity");
-        } else if (vcount < 1) {
-            this.keys = NO_ELEMENTS;
-            this.values = NO_ELEMENTS;
-        } else {
-            this.keys = new OtpErlangObject[vcount];
-            for (int i = 0; i < vcount; i++) {
-                if (keys[kstart + i] != null) {
-                    this.keys[i] = keys[kstart + i];
-                } else {
-                    throw new java.lang.IllegalArgumentException(
-                            "Map key cannot be null (element" + (kstart + i)
-                                    + ")");
-                }
+        }
+        map = new HashMap<OtpErlangObject, OtpErlangObject>(vcount);
+        OtpErlangObject key, val;
+        for (int i = 0; i < vcount; i++) {
+            if ((key = keys[kstart + i]) == null) {
+                throw new java.lang.IllegalArgumentException(
+                        "Map key cannot be null (element" + (kstart + i) + ")");
             }
-            this.values = new OtpErlangObject[vcount];
-            for (int i = 0; i < vcount; i++) {
-                if (values[vstart + i] != null) {
-                    this.values[i] = values[vstart + i];
-                } else {
-                    throw new java.lang.IllegalArgumentException(
-                            "Map value cannot be null (element" + (vstart + i)
-                                    + ")");
-                }
+            if ((val = values[vstart + i]) == null) {
+                throw new java.lang.IllegalArgumentException(
+                        "Map value cannot be null (element" + (vstart + i)
+                                + ")");
             }
+            put(key, val);
         }
     }
 
@@ -125,16 +124,15 @@ public class OtpErlangMap extends OtpErlangObject {
         final int arity = buf.read_map_head();
 
         if (arity > 0) {
-            keys = new OtpErlangObject[arity];
-            values = new OtpErlangObject[arity];
-
+            map = new HashMap<OtpErlangObject, OtpErlangObject>(arity);
             for (int i = 0; i < arity; i++) {
-                keys[i] = buf.read_any();
-                values[i] = buf.read_any();
+                OtpErlangObject key, val;
+                key = buf.read_any();
+                val = buf.read_any();
+                put(key, val);
             }
         } else {
-            keys = NO_ELEMENTS;
-            values = NO_ELEMENTS;
+            map = new HashMap<OtpErlangObject, OtpErlangObject>();
         }
     }
 
@@ -144,7 +142,33 @@ public class OtpErlangMap extends OtpErlangObject {
      * @return the number of elements contained in the map.
      */
     public int arity() {
-        return keys.length;
+        return map.size();
+    }
+
+    /**
+     * Put value corresponding to key into the map. For detailed behavior
+     * description see {@link Map#put(Object, Object)}.
+     *
+     * @param key
+     *            key to associate value with
+     * @param value
+     *            value to associate with key
+     * @return previous value associated with key or null
+     */
+    public OtpErlangObject put(final OtpErlangObject key,
+            final OtpErlangObject value) {
+        return map.put(key, value);
+    }
+
+    /**
+     * removes mapping for the key if present.
+     *
+     * @param key
+     *            key for which mapping is to be remove
+     * @return value associated with key or null
+     */
+    public OtpErlangObject remove(final OtpErlangObject key) {
+        return map.remove(key);
     }
 
     /**
@@ -156,15 +180,7 @@ public class OtpErlangMap extends OtpErlangObject {
      * @return the requested value, of null if key is not a valid key.
      */
     public OtpErlangObject get(final OtpErlangObject key) {
-        if (key == null) {
-            return null;
-        }
-        for (int i = 0; i < keys.length; i++) {
-            if (key.equals(keys[i])) {
-                return values[i];
-            }
-        }
-        return null;
+        return map.get(key);
     }
 
     /**
@@ -173,9 +189,7 @@ public class OtpErlangMap extends OtpErlangObject {
      * @return an array containing all of the map's keys.
      */
     public OtpErlangObject[] keys() {
-        final OtpErlangObject[] res = new OtpErlangObject[arity()];
-        System.arraycopy(keys, 0, res, 0, res.length);
-        return res;
+        return map.keySet().toArray(new OtpErlangObject[arity()]);
     }
 
     /**
@@ -184,9 +198,16 @@ public class OtpErlangMap extends OtpErlangObject {
      * @return an array containing all of the map's values.
      */
     public OtpErlangObject[] values() {
-        final OtpErlangObject[] res = new OtpErlangObject[arity()];
-        System.arraycopy(values, 0, res, 0, res.length);
-        return res;
+        return map.values().toArray(new OtpErlangObject[arity()]);
+    }
+
+    /**
+     * make Set view of the map key-value pairs
+     *
+     * @return a set containing key-value pairs
+     */
+    public Set<Entry<OtpErlangObject, OtpErlangObject>> entrySet() {
+        return map.entrySet();
     }
 
     /**
@@ -196,19 +217,20 @@ public class OtpErlangMap extends OtpErlangObject {
      */
     @Override
     public String toString() {
-        int i;
         final StringBuffer s = new StringBuffer();
-        final int arity = values.length;
 
         s.append("#{");
 
-        for (i = 0; i < arity; i++) {
-            if (i > 0) {
+        boolean first = true;
+        for (final Map.Entry<OtpErlangObject, OtpErlangObject> e : entrySet()) {
+            if (first) {
+                first = false;
+            } else {
                 s.append(",");
             }
-            s.append(keys[i].toString());
+            s.append(e.getKey().toString());
             s.append(" => ");
-            s.append(values[i].toString());
+            s.append(e.getValue().toString());
         }
 
         s.append("}");
@@ -224,13 +246,13 @@ public class OtpErlangMap extends OtpErlangObject {
      */
     @Override
     public void encode(final OtpOutputStream buf) {
-        final int arity = values.length;
+        final int arity = arity();
 
         buf.write_map_head(arity);
 
-        for (int i = 0; i < arity; i++) {
-            buf.write_any(keys[i]);
-            buf.write_any(values[i]);
+        for (final Map.Entry<OtpErlangObject, OtpErlangObject> e : entrySet()) {
+            buf.write_any(e.getKey());
+            buf.write_any(e.getValue());
         }
     }
 
@@ -256,15 +278,17 @@ public class OtpErlangMap extends OtpErlangObject {
         if (a != t.arity()) {
             return false;
         }
-
-        for (int i = 0; i < a; i++) {
-            if (!keys[i].equals(t.keys[i])) {
-                return false; // early exit
-            }
+        if (a == 0) {
+            return true;
         }
-        for (int i = 0; i < a; i++) {
-            if (!values[i].equals(t.values[i])) {
-                return false; // early exit
+
+        OtpErlangObject key, val;
+        for (final Map.Entry<OtpErlangObject, OtpErlangObject> e : entrySet()) {
+            key = e.getKey();
+            val = e.getValue();
+            final OtpErlangObject v = t.get(key);
+            if (v == null || !val.equals(v)) {
+                return false;
             }
         }
 
@@ -272,23 +296,60 @@ public class OtpErlangMap extends OtpErlangObject {
     }
 
     @Override
+    public <T> boolean match(final OtpErlangObject term, final T binds) {
+        if (!(term instanceof OtpErlangMap)) {
+            return false;
+        }
+
+        final OtpErlangMap t = (OtpErlangMap) term;
+        final int a = arity();
+
+        if (a > t.arity()) {
+            return false;
+        }
+        if (a == 0) {
+            return true;
+        }
+
+        OtpErlangObject key, val;
+        for (final Map.Entry<OtpErlangObject, OtpErlangObject> e : entrySet()) {
+            key = e.getKey();
+            val = e.getValue();
+            final OtpErlangObject v = t.get(key);
+            if (v == null || !val.match(v, binds)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    @Override
+    public <T> OtpErlangObject bind(final T binds) throws OtpErlangException {
+        final OtpErlangMap ret = new OtpErlangMap();
+
+        OtpErlangObject key, val;
+        for (final Map.Entry<OtpErlangObject, OtpErlangObject> e : entrySet()) {
+            key = e.getKey();
+            val = e.getValue();
+            ret.put(key, val.bind(binds));
+        }
+
+        return ret;
+    }
+
+    @Override
     protected int doHashCode() {
         final OtpErlangObject.Hash hash = new OtpErlangObject.Hash(9);
-        final int a = arity();
-        hash.combine(a);
-        for (int i = 0; i < a; i++) {
-            hash.combine(keys[i].hashCode());
-        }
-        for (int i = 0; i < a; i++) {
-            hash.combine(values[i].hashCode());
-        }
+        hash.combine(map.hashCode());
         return hash.valueOf();
     }
 
     @Override
+    @SuppressWarnings("unchecked")
     public Object clone() {
         final OtpErlangMap newMap = (OtpErlangMap) super.clone();
-        newMap.values = values.clone();
+        newMap.map = (HashMap<OtpErlangObject, OtpErlangObject>) map.clone();
         return newMap;
     }
 }
