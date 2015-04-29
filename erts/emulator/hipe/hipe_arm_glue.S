@@ -330,6 +330,12 @@ nbif_2_gc_after_bif:
 	.type	nbif_3_gc_after_bif, %function
 nbif_3_gc_after_bif:
 	mov	r1, #3
+	b	.gc_after_bif
+
+	.global	nbif_4_gc_after_bif
+	.type	nbif_4_gc_after_bif, %function
+nbif_4_gc_after_bif:
+	mov	r1, #4
 	/*FALLTHROUGH*/
 .gc_after_bif:
 	str	r1, [P, #P_NARITY]
@@ -376,6 +382,12 @@ nbif_2_simple_exception:
 	.type	nbif_3_simple_exception, %function
 nbif_3_simple_exception:
 	mov	r1, #3
+	b	.nbif_simple_exception
+
+	.global	nbif_4_simple_exception
+	.type	nbif_4_simple_exception, %function
+nbif_4_simple_exception:
+	mov	r1, #4
 	/*FALLTHROUGH*/
 .nbif_simple_exception:
 	ldr	r0, [P, #P_FREASON]

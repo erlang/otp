@@ -510,22 +510,26 @@ CSYM(nbif_4_gc_after_bif):
 CSYM(nbif_0_simple_exception):
 	li	r4, 0
 	b	.nbif_simple_exception
+
 	OPD(nbif_1_simple_exception)
 	GLOBAL(CSYM(nbif_1_simple_exception))
 CSYM(nbif_1_simple_exception):
 	li	r4, 1
 	b	.nbif_simple_exception
+
 	OPD(nbif_2_simple_exception)
 	GLOBAL(CSYM(nbif_2_simple_exception))
 CSYM(nbif_2_simple_exception):
 	li	r4, 2
 	b	.nbif_simple_exception
+
 	OPD(nbif_3_simple_exception)
 	GLOBAL(CSYM(nbif_3_simple_exception))
 CSYM(nbif_3_simple_exception):
 	li	r4, 3
 	b	.nbif_simple_exception
-	OPD(nbif_3_simple_exception)
+
+	OPD(nbif_4_simple_exception)
 	GLOBAL(CSYM(nbif_4_simple_exception))
 CSYM(nbif_4_simple_exception):
 	li	r4, 4
