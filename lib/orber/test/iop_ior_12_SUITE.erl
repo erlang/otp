@@ -202,4 +202,6 @@ corba_fake_mk_objkey(Id, 'registered', RegName) when is_atom(RegName) ->
     {Id, 'registered', RegName, term_to_binary(undefined), 0, 0}.
 
 make_objkey() ->
-    term_to_binary({now(), node()}).
+    term_to_binary({{erlang:system_time(), 
+		     erlang:unique_integer()}, 
+		    node()}).
