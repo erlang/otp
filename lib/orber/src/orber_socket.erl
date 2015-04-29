@@ -167,7 +167,6 @@ multi_connect([CurrentPort|Rest], Retries, ssl, Host, Port, Options, Timeout) ->
 get_port_sequence(Min, Max) ->
     case orber_env:iiop_out_ports_random() of
 	true ->
-	    random:seed(rlang:monotonic_time(), erlang:current_time_offset(), rlang:unique_integer()),
 	    Seq = lists:seq(Min, Max),
 	    random_sequence((Max - Min) + 1, Seq, []);
 	_ ->
@@ -177,7 +176,7 @@ get_port_sequence(Min, Max) ->
 random_sequence(0, _, Acc) ->
     Acc;
 random_sequence(Length, Seq, Acc) ->
-    Nth = random:uniform(Length),
+    Nth = rand:uniform(Length),
     Value = lists:nth(Nth, Seq),
     NewSeq = lists:delete(Value, Seq),
     random_sequence(Length-1, NewSeq, [Value|Acc]).
