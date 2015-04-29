@@ -61,32 +61,36 @@ timetrap(Timeout0, ReportTVal, Scale, Pid) ->
     TruncTO = trunc(Timeout),
     receive
     after TruncTO ->
-	    case is_process_alive(Pid) of
-		true ->
-		    TimeToReport = if Timeout0 == ReportTVal -> TruncTO;
-				      true -> ReportTVal end,
-		    MFLs = test_server:get_loc(Pid),
-		    Mon = erlang:monitor(process, Pid),
-		    Trap = {timetrap_timeout,TimeToReport,MFLs},
-		    exit(Pid, Trap),
-		    receive
-			{'DOWN', Mon, process, Pid, _} ->
-			    ok
-		    after 10000 ->
-			    %% Pid is probably trapping exits, hit it harder...
-			    catch error_logger:warning_msg(
-				    "Testcase process ~w not "
-				    "responding to timetrap "
-				    "timeout:~n"
-				    "  ~p.~n"
-				    "Killing testcase...~n",
-				    [Pid, Trap]),
-			    exit(Pid, kill)
-		    end;
-		false ->
-		    ok
-	    end
+	    kill_the_process(Pid, Timeout0, TruncTO, ReportTVal)
     end.
+
+kill_the_process(Pid, Timeout0, TruncTO, ReportTVal) ->
+    case is_process_alive(Pid) of
+	true ->
+	    TimeToReport = if Timeout0 == ReportTVal -> TruncTO;
+			      true -> ReportTVal end,
+	    MFLs = test_server:get_loc(Pid),
+	    Mon = erlang:monitor(process, Pid),
+	    Trap = {timetrap_timeout,TimeToReport,MFLs},
+	    exit(Pid, Trap),
+	    receive
+		{'DOWN', Mon, process, Pid, _} ->
+		    ok
+	    after 10000 ->
+		    %% Pid is probably trapping exits, hit it harder...
+		    catch error_logger:warning_msg(
+			    "Testcase process ~w not "
+			    "responding to timetrap "
+			    "timeout:~n"
+			    "  ~p.~n"
+			    "Killing testcase...~n",
+			    [Pid, Trap]),
+		    exit(Pid, kill)
+	    end;
+	false ->
+	    ok
+    end.
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% timetrap_cancel(Handle) -> ok
@@ -812,10 +816,19 @@ format_loc1({Mod,Func,Line}) ->
     case {lists:member(no_src, get(test_server_logopts)),
 	  lists:reverse(ModStr)} of
 	{false,[$E,$T,$I,$U,$S,$_|_]}  ->
-	    io_lib:format("{~w,~w,<a href=\"~ts~ts#~w\">~w</a>}",
+	    Link = if is_integer(Line) ->
+			   integer_to_list(Line);
+		      Line == last_expr ->
+			   list_to_atom(atom_to_list(Func)++"-last_expr");
+		      is_atom(Line) ->
+			   atom_to_list(Line);
+		      true ->
+			   Line
+		   end,
+	    io_lib:format("{~w,~w,<a href=\"~ts~ts#~s\">~w</a>}",
 			  [Mod,Func,
 			   test_server_ctrl:uri_encode(downcase(ModStr)),
-			   ?src_listing_ext,Line,Line]);
+			   ?src_listing_ext,Link,Line]);
 	_ ->
 	    io_lib:format("{~w,~w,~w}",[Mod,Func,Line])
     end.
