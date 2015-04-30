@@ -2,7 +2,7 @@
 %% 
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -39,6 +39,7 @@
 	     edlin_expand,
 	     epp,
 	     eval_bits,
+             erl_anno,
 	     erl_bits,
 	     erl_compile,
 	     erl_eval,
