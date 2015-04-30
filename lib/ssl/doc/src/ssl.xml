@@ -338,7 +338,7 @@ marker="public_key:public_key#pkix_path_validation-3">public_key:pkix_path_valid
       <tag><c>{crl_check, boolean() | peer | best_effort }</c></tag>
       <item>
 	Perform CRL (Certificate Revocation List) verification
-	<seealso marker="public_key:public_key#pkix_crl_validate-3">
+	<seealso marker="public_key:public_key#pkix_crls_validate-3">
 	(public_key:pkix_crls_validate/3)</seealso> on all the certificates during the path validation
 	<seealso
 	    marker="public_key:public_key#pkix_path_validation-3">(public_key:pkix_path_validation/3)
@@ -375,7 +375,8 @@ marker="public_key:public_key#pkix_path_validation-3">public_key:pkix_path_valid
       <tag><c>{partial_chain, fun(Chain::[DerCert]) -> {trusted_ca, DerCert} |
       unknown_ca }</c></tag>
       <item><p>Claim an intermediate CA in the chain as trusted. TLS then
-      performs <c>public_key:pkix_path_validation/3</c>
+      performs <seealso
+      marker="public_key:public_key#pkix_path_validation-3">public_key:pkix_path_validation/3</seealso>
       with the selected CA as trusted anchor and the rest of the chain.</p></item>
 
       <tag><c>{versions, [protocol()]}</c></tag>

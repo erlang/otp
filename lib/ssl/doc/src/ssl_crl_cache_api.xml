@@ -70,7 +70,7 @@
       </type>
       <desc>
 	<p> <c>fun fresh_crl/2 </c> will be used as input option <c>update_crl</c> to
-	<seealso marker="public_key#pkix_path_validation-3">public_key:pkix_crls_validate/3 </seealso> </p>
+	<seealso marker="public_key:public_key#pkix_crls_validate-3">public_key:pkix_crls_validate/3 </seealso> </p>
       </desc>
     </func>
     

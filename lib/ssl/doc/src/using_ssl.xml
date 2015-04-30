@@ -32,10 +32,10 @@
     <file>using_ssl.xml</file>
   </header>
   <p>To see relevant version information for ssl, call
-  <seealso marker="ssl:versions-0"><c>ssl:versions/0</c></seealso>
+  <seealso marker="ssl:ssl#versions-0"><c>ssl:versions/0</c></seealso>
   .</p>
     
-  <p>To see all supported cipher suites, call  <seealso marker="ssl:cipher_suites-1"><c>ssl:cipher_suites(all)</c> </seealso>. 
+  <p>To see all supported cipher suites, call  <seealso marker="ssl:ssl#cipher_suites-1"><c>ssl:cipher_suites(all)</c> </seealso>. 
   The available cipher suites for a connection depend on your certificate. 
   Specific cipher suites that you want your connection to use can also be 
   specified. Default is to use the strongest available.</p>
