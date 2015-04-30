@@ -30,6 +30,7 @@
 	 is_leap_year/1,
 	 iso_week_number/0,
 	 iso_week_number/1,
+   iso_week_to_date/3,
 	 last_day_of_the_month/2,
 	 local_time/0, 
 	 local_time_to_universal_time/1, 
@@ -190,6 +191,28 @@ is_leap_year1(Year) when Year rem 400 =:= 0 ->
     true;
 is_leap_year1(_) -> false.
 
+%%
+%% Calculates the date for an iso week number, year and day of the week.
+%%
+-spec(iso_week_to_date(year(), weeknum(), daynum()) -> date()).
+iso_week_to_date(Year, WeekNo, WeekDay) ->
+    DayNum = day_of_the_week({Year, 1, 4}),
+    DayOfYear = (WeekNo * 7) + WeekDay - (DayNum + 3),
+    ExtraDay = case is_leap_year(Year) of
+      true ->
+		       1;
+		  false ->
+		       0
+	  end,
+    {Month, Day} = year_day_to_date2(ExtraDay, DayOfYear),
+    case {Day > 31, Day < 0} of
+      {true, _} ->
+        {Year + 1, 1, Day - 31};
+      {_, true} ->
+        {Year - 1, 12, 31 + Day};
+      _ ->
+        {Year, Month, Day}
+    end.
 
 %%
 %% Calculates the iso week number for the current date.
@@ -198,7 +221,6 @@ is_leap_year1(_) -> false.
 iso_week_number() ->
     {Date, _} = local_time(),
     iso_week_number(Date).
-
 
 %%
 %% Calculates the iso week number for the given date.
