@@ -32,19 +32,19 @@
     <file>ssl_protocol.xml</file>
   </header>
   
-  <p>The Erlang <c>ssl</c> application implements the SSL/TLS protocol
+  <p>The Erlang SSL application implements the SSL/TLS protocol
   for the currently supported versions,  see the
   <seealso marker="ssl">ssl(3)</seealso> manual page.
   </p>
 
-  <p>By default <c>ssl</c> is run over the TCP/IP protocol even
+  <p>By default SSL/TLS is run over the TCP/IP protocol even
   though you can plug in any other reliable transport protocol
   with the same Application Programming Interface (API) as the
-  <c>gen_tcp</c> module in <c>kernel</c>.</p>
+  <c>gen_tcp</c> module in Kernel.</p>
   
   <p>If a client and a server wants to use an upgrade mechanism, such as
   defined by RFC 2817, to upgrade a regular TCP/IP connection to an SSL
-  connection, this is supported by the Erlang <c>ssl</c> API. This can be 
+  connection, this is supported by the Erlang SSL application API. This can be 
   useful for, for example, supporting HTTP and HTTPS on the same port and
   implementing virtual hosting.
   </p>
@@ -143,7 +143,7 @@
      connections. Sessions are used to avoid the expensive negotiation
      of new security parameters for each connection."</p>
 
-     <p>Session data is by default kept by the <c>ssl</c> application in a
+     <p>Session data is by default kept by the SSL application in a
      memory storage, hence session data is lost at application
      restart or takeover. Users can define their own callback module
      to handle session data storage if persistent data storage is

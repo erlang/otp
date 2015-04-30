@@ -45,7 +45,7 @@
       but can be configured.</item>
       <item>Ephemeral Diffie-Hellman cipher suites are supported,
       but not Diffie Hellman Certificates cipher suites.</item>
-      <item>Elliptic Curve cipher suites are supported if the <c>crypto</c> 
+      <item>Elliptic Curve cipher suites are supported if the Crypto 
       application supports it and named curves are used.
       </item>
       <item>Export cipher suites are not supported as the
@@ -63,7 +63,7 @@
   
   <section>
     <title>DATA TYPES</title>
-    <p>The following data types are used in the functions for <c>ssl</c>:</p>
+    <p>The following data types are used in the functions for SSL:</p>
 
     <taglist>
 
@@ -81,7 +81,7 @@
       <p>For valid options, see the
       <seealso marker="kernel:inet">inet(3)</seealso> and
       <seealso marker="kernel:gen_tcp">gen_tcp(3)</seealso> manual pages
-      in <c>kernel</c>.</p></item>
+      in Kernel.</p></item>
 
       <tag><c>ssloption()</c></tag>
       <item><p><c>= {verify, verify_type()}</c></p>
@@ -261,7 +261,7 @@ atom()}} |
 	</code>
 
 	<p>The verification fun is called during the X509-path
-	validation when an error or an extension unknown to the <c>ssl</c>
+	validation when an error or an extension unknown to the SSL
 	application is encountered. It is also called
 	when a certificate is considered valid by the path validation
 	to allow access to each certificate in the path to the user
@@ -382,7 +382,7 @@ marker="public_key:public_key#pkix_path_validation-3">public_key:pkix_path_valid
       <item><p>TLS protocol versions supported by started clients and servers.
       This option overrides the application environment option
       <c>protocol_version</c>. If the environment option is not set, it defaults
-      to all versions, except SSL-3.0, supported by the <c>ssl</c> application.
+      to all versions, except SSL-3.0, supported by the SSL application.
       See also <seealso marker="ssl:ssl_app">ssl(6).</seealso></p></item>
 
       <tag><c>{hibernate_after, integer()|undefined}</c></tag>
@@ -999,21 +999,21 @@ fun(srp, Username :: string(), UserState :: term()) ->
     <func>
       <name>start() -> </name>
       <name>start(Type) -> ok | {error, Reason}</name>
-      <fsummary>Starts the <c>ssl</c>application.</fsummary>
+      <fsummary>Starts the SSL application.</fsummary>
       <type>
         <v>Type = permanent | transient | temporary</v>
       </type>
       <desc>
-        <p>Starts the <c>ssl</c> application. Default type
+        <p>Starts the SSL application. Default type
           is <c>temporary</c>.</p>
       </desc>
     </func>
 
     <func>
       <name>stop() -> ok </name>
-      <fsummary>Stops the <c>ssl</c> application.</fsummary>
+      <fsummary>Stops the SSL application.</fsummary>
       <desc>
-        <p>Stops the <c>ssl</c> application.</p>
+        <p>Stops the SSL application.</p>
       </desc>
     </func>
 
@@ -1055,16 +1055,16 @@ fun(srp, Username :: string(), UserState :: term()) ->
     <func>
       <name>versions() -> [versions_info()]</name>
       <fsummary>Returns version information relevant for the
-	<c>ssl</c> application.</fsummary>
+	SSL application.</fsummary>
       <type>
 	<v>versions_info() = {app_vsn, string()} | {supported | available, [protocol()] </v>
       </type>
       <desc>
-	<p>Returns version information relevant for the <c>ssl</c>
+	<p>Returns version information relevant for the SSL
 	application.</p>
 	<taglist>
 	  <tag><c>app_vsn</c></tag>
-	  <item>The application version of the <c>ssl</c> application.</item>
+	  <item>The application version of the SSL application.</item>
 
 	  <tag><c>supported</c></tag>
 	  <item>TLS/SSL versions supported by default.
@@ -1077,8 +1077,8 @@ fun(srp, Username :: string(), UserState :: term()) ->
 	  </seealso>.</item>
   
 	  <tag><c>available</c></tag>
-	  <item>All TLS/SSL versions supported by the <c>ssl</c> application.
-	  TLS 1.2 requires sufficient support from the <c>crypto</c>
+	  <item>All TLS/SSL versions supported by the SSL application.
+	  TLS 1.2 requires sufficient support from the Crypto
 	  application.</item>
 	</taglist>
       </desc>
@@ -1094,4 +1094,3 @@ fun(srp, Username :: string(), UserState :: term()) ->
   </section>
 
 </erlref>
-
