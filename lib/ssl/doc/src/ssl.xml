@@ -83,7 +83,7 @@
       <seealso marker="kernel:gen_tcp">gen_tcp(3)</seealso> manual pages
       in Kernel.</p></item>
 
-      <tag><c>ssloption()</c></tag>
+      <tag><marker id="type-ssloption"></marker><c>ssloption()</c></tag>
       <item><p><c>= {verify, verify_type()}</c></p>
       <p><c>| {verify_fun, {fun(), term()}}</c></p>
       <p><c>| {fail_if_no_peer_cert, boolean()} {depth, integer()}</c></p>
