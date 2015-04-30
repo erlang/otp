@@ -1536,9 +1536,12 @@ static ERL_NIF_TERM nif_sched1(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
 
 static ERL_NIF_TERM call_nif_schedule(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
+    ERL_NIF_TERM result;
     if (argc != 2)
 	return enif_make_atom(env, "false");
-    return enif_schedule_nif(env, "nif_sched1", 0, nif_sched1, argc, argv);
+    result = enif_schedule_nif(env, "nif_sched1", 0, nif_sched1, argc, argv);
+    assert(!enif_is_exception(env, result));
+    return result;
 }
 
 #ifdef ERL_NIF_DIRTY_SCHEDULER_SUPPORT

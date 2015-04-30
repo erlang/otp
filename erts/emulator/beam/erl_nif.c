@@ -445,7 +445,7 @@ int enif_is_list(ErlNifEnv* env, ERL_NIF_TERM term)
 
 int enif_is_exception(ErlNifEnv* env, ERL_NIF_TERM term)
 {
-    return term == THE_NON_VALUE;
+    return env->exception_thrown && term == THE_NON_VALUE;
 }
 
 int enif_is_number(ErlNifEnv* env, ERL_NIF_TERM term)
@@ -1843,6 +1843,7 @@ execute_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     NifExport* ep;
     ERL_NIF_TERM result;
 
+    ASSERT(!env->exception_thrown);
     ep = (NifExport*) ERTS_PROC_GET_NIF_TRAP_EXPORT(proc);
     ASSERT(ep);
     ep->fp = NULL;
@@ -1855,7 +1856,7 @@ execute_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
      * which case we need to restore the original NIF MFA.
      */
     if (ep->fp == NULL)
-	restore_nif_mfa(proc, ep, is_non_value(result) && proc->freason != TRAP);
+	restore_nif_mfa(proc, ep, env->exception_thrown);
     return result;
 }
 
