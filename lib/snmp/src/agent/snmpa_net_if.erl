@@ -297,14 +297,14 @@ socket_open(snmpUDPDomain = Domain, [IpPort | Opts]) ->
 	    Fd = list_to_integer(FdStr),
 	    ?vdebug("socket_open(~p, [~p | ~p]) Fd: ~p",
 		    [Domain, IpPort, Opts, Fd]),
-	    gen_udp_open(IpPort, [{fd, Fd} | Opts]);
+	    gen_udp_open(0, [{fd, Fd} | Opts]);
 	error ->
 	    case init:get_argument(snmpa_fd) of
 		{ok, [[FdStr]]} ->
 		    Fd = list_to_integer(FdStr),
 		    ?vdebug("socket_open(~p, [~p | ~p]) Fd: ~p",
 			    [Domain, IpPort, Opts, Fd]),
-		    gen_udp_open(IpPort, [{fd, Fd} | Opts]);
+		    gen_udp_open(0, [{fd, Fd} | Opts]);
 		error ->
 		    ?vdebug("socket_open(~p, [~p | ~p])",
 			    [Domain, IpPort, Opts]),
@@ -1447,39 +1447,38 @@ get_counters([Counter|Counters], Acc) ->
 %% ----------------------------------------------------------------
 
 socket_opts(Domain, {IpAddr, IpPort}, Opts) ->
-    case get_bind_to_ip_address(Opts) of
-	true ->
-	    [IpPort, % Picked off at socket open, separate argument
-	     binary,
-	     {ip, IpAddr}];
-	_ ->
-	    [0, % Picked off at socket open, separate argument
-	     binary]
-    end ++
-	case snmp_conf:tdomain_to_family(Domain) of
-	    inet6 = Family ->
-		[Family, {ipv6_v6only, true}];
-	    Family ->
-		[Family]
-	end ++
-	case get_no_reuse_address(Opts) of
-	    false ->
-		[{reuseaddr, true}];
-	    _ ->
-		[]
-	end ++
-	case get_recbuf(Opts) of
-	    use_default ->
-		[];
-	    Sz ->
-		[{recbuf, Sz}]
-	end ++
-	case get_sndbuf(Opts) of
-	    use_default ->
-		[];
-	    Sz ->
-		[{sndbuf, Sz}]
-	end.
+    [IpPort, % Picked off at socket open, separate argument
+     binary
+     |   case snmp_conf:tdomain_to_family(Domain) of
+	     inet6 = Family ->
+		 [Family, {ipv6_v6only, true}];
+	     Family ->
+		 [Family]
+	 end ++
+	 case get_bind_to_ip_address(Opts) of
+	     true ->
+		 [{ip, IpAddr}];
+	     _ ->
+		 []
+	 end ++
+	 case get_no_reuse_address(Opts) of
+	     false ->
+		 [{reuseaddr, true}];
+	     _ ->
+		 []
+	 end ++
+	 case get_recbuf(Opts) of
+	     use_default ->
+		 [];
+	     Sz ->
+		 [{recbuf, Sz}]
+	 end ++
+	 case get_sndbuf(Opts) of
+	     use_default ->
+		 [];
+	     Sz ->
+		 [{sndbuf, Sz}]
+	 end].
 
 
 %% ----------------------------------------------------------------
