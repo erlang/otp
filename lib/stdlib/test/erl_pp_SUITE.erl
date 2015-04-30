@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2006-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -490,7 +490,7 @@ cond1(Config) when is_list(Config) ->
                     [{cons,3,{atom,3,a},{cons,3,{atom,3,b},{nil,3}}}]},
                    {clause,4,[],[[{atom,4,true}]],
                     [{tuple,5,[{atom,5,x},{atom,5,y}]}]}]},
-    ?line CChars = lists:flatten(erl_pp:expr(C)),
+    CChars = flat_expr1(C),
 %    ?line "cond {foo,bar} -> [a,b]; true -> {x,y} end" = CChars,
     ?line "cond\n"
           "    {foo,bar} ->\n"
@@ -557,7 +557,7 @@ messages(Config) when is_list(Config) ->
         lists:flatten(erl_pp:form({error,{some,"error"}})),
     ?line true = "{warning,{some,\"warning\"}}\n" =:=
         lists:flatten(erl_pp:form({warning,{some,"warning"}})),
-    ?line true = "\n" =:= lists:flatten(erl_pp:form({eof,0})),
+    "\n" = flat_form({eof,0}),
     ok.
 
 import_export(suite) ->
@@ -616,27 +616,29 @@ hook(Config) when is_list(Config) ->
 do_hook(HookFun) ->
     Lc = parse_expr(binary_to_list(<<"[X || X <- [1,2,3]].">>)),
     H = HookFun(fun hook/4),
-    Expr = {call,0,{atom,0,fff},[{foo,Lc},{foo,Lc},{foo,Lc}]},
+    A0 = erl_anno:new(0),
+    Expr = {call,A0,{atom,A0,fff},[{foo,Lc},{foo,Lc},{foo,Lc}]},
     EChars = lists:flatten(erl_pp:expr(Expr, 0, H)),
-    Call = {call,0,{atom,0,foo},[Lc]},
-    Expr2 = {call,0,{atom,0,fff},[Call,Call,Call]},
+    Call = {call,A0,{atom,A0,foo},[Lc]},
+    Expr2 = {call,A0,{atom,A0,fff},[Call,Call,Call]},
     EChars2 = erl_pp:exprs([Expr2]),
     ?line true = EChars =:= lists:flatten(EChars2),
 
     EsChars = erl_pp:exprs([Expr], H),
     ?line true = EChars =:= lists:flatten(EsChars),
 
-    F = {function,1,ffff,0,[{clause,1,[],[],[Expr]}]},
+    A1 = erl_anno:new(1),
+    F = {function,A1,ffff,0,[{clause,A1,[],[],[Expr]}]},
     FuncChars = lists:flatten(erl_pp:function(F, H)),
-    F2 = {function,1,ffff,0,[{clause,1,[],[],[Expr2]}]},
+    F2 = {function,A1,ffff,0,[{clause,A1,[],[],[Expr2]}]},
     FuncChars2 = erl_pp:function(F2),
     ?line true = FuncChars =:= lists:flatten(FuncChars2),
     FFormChars = erl_pp:form(F, H),
     ?line true = FuncChars =:= lists:flatten(FFormChars),
 
-    A = {attribute,1,record,{r,[{record_field,1,{atom,1,a},Expr}]}},
+    A = {attribute,A1,record,{r,[{record_field,A1,{atom,A1,a},Expr}]}},
     AChars = lists:flatten(erl_pp:attribute(A, H)),
-    A2 = {attribute,1,record,{r,[{record_field,1,{atom,1,a},Expr2}]}},
+    A2 = {attribute,A1,record,{r,[{record_field,A1,{atom,A1,a},Expr2}]}},
     AChars2 = erl_pp:attribute(A2),
     ?line true = AChars =:= lists:flatten(AChars2),
     AFormChars = erl_pp:form(A, H),
@@ -645,10 +647,10 @@ do_hook(HookFun) ->
     ?line "INVALID-FORM:{foo,bar}:" = lists:flatten(erl_pp:expr({foo,bar})),
 
     %% A list (as before R6), not a list of lists.
-    G = [{op,1,'>',{atom,1,a},{foo,{atom,1,b}}}], % not a proper guard
+    G = [{op,A1,'>',{atom,A1,a},{foo,{atom,A1,b}}}], % not a proper guard
     GChars = lists:flatten(erl_pp:guard(G, H)),
-    G2 = [{op,1,'>',{atom,1,a},
-           {call,0,{atom,0,foo},[{atom,1,b}]}}], % not a proper guard
+    G2 = [{op,A1,'>',{atom,A1,a},
+           {call,A0,{atom,A0,foo},[{atom,A1,b}]}}], % not a proper guard
     GChars2 = erl_pp:guard(G2),
     ?line true = GChars =:= lists:flatten(GChars2),
 
@@ -659,14 +661,14 @@ do_hook(HookFun) ->
     ?line true = EChars =:= lists:flatten(XEChars2),
 
     %% Note: no leading spaces before "begin".
-    Block = {block,0,[{match,0,{var,0,'A'},{integer,0,3}},
-                      {atom,0,true}]},
+    Block = {block,A0,[{match,A0,{var,A0,'A'},{integer,A0,3}},
+                      {atom,A0,true}]},
     ?line "begin\n                     A =" ++ _ =
                lists:flatten(erl_pp:expr(Block, 17, none)),
 
     %% Special...
     ?line true =
-        "{some,value}" =:= lists:flatten(erl_pp:expr({value,0,{some,value}})),
+        "{some,value}" =:= lists:flatten(erl_pp:expr({value,A0,{some,value}})),
 
     %% Silly...
     ?line true =
@@ -674,8 +676,8 @@ do_hook(HookFun) ->
               flat_expr({'if',0,[{clause,0,[],[],[{atom,0,0}]}]}),
 
     %% More compatibility: before R6
-    OldIf = {'if',0,[{clause,0,[],[{atom,0,true}],[{atom,0,b}]}]},
-    NewIf = {'if',0,[{clause,0,[],[[{atom,0,true}]],[{atom,0,b}]}]},
+    OldIf = {'if',A0,[{clause,A0,[],[{atom,A0,true}],[{atom,A0,b}]}]},
+    NewIf = {'if',A0,[{clause,A0,[],[[{atom,A0,true}]],[{atom,A0,b}]}]},
     OldIfChars = lists:flatten(erl_pp:expr(OldIf)),
     NewIfChars = lists:flatten(erl_pp:expr(NewIf)),
     ?line true = OldIfChars =:= NewIfChars,
@@ -691,7 +693,8 @@ ehook(HE, I, P, H, foo, bar) ->
     hook(HE, I, P, H).
 
 hook({foo,E}, I, P, H) ->
-    erl_pp:expr({call,0,{atom,0,foo},[E]}, I, P, H).
+    A = erl_anno:new(0),
+    erl_pp:expr({call,A,{atom,A,foo},[E]}, I, P, H).
 
 neg_indent(suite) ->
     [];
@@ -774,7 +777,7 @@ otp_6911(Config) when is_list(Config) ->
              {var,6,'X'},
              [{clause,7,[{atom,7,true}],[],[{integer,7,12}]},
               {clause,8,[{atom,8,false}],[],[{integer,8,14}]}]}]}]},
-    ?line Chars = lists:flatten(erl_pp:form(F)),
+    Chars = flat_form(F),
     ?line "thomas(X) ->\n"
           "    case X of\n"
           "        true ->\n"
@@ -1084,10 +1087,11 @@ otp_10302(Config) when is_list(Config) ->
 
     Opts = [{hook, fun unicode_hook/4},{encoding,unicode}],
     Lc = parse_expr("[X || X <- [\"\x{400}\",\"\xFF\"]]."),
-    Expr = {call,0,{atom,0,fff},[{foo,{foo,Lc}},{foo,{foo,Lc}}]},
+    A0 = erl_anno:new(0),
+    Expr = {call,A0,{atom,A0,fff},[{foo,{foo,Lc}},{foo,{foo,Lc}}]},
     EChars = lists:flatten(erl_pp:expr(Expr, 0, Opts)),
-    Call = {call,0,{atom,0,foo},[{call,0,{atom,0,foo},[Lc]}]},
-    Expr2 = {call,0,{atom,0,fff},[Call,Call]},
+    Call = {call,A0,{atom,A0,foo},[{call,A0,{atom,A0,foo},[Lc]}]},
+    Expr2 = {call,A0,{atom,A0,fff},[Call,Call]},
     EChars2 = erl_pp:exprs([Expr2], U),
     EChars = lists:flatten(EChars2),
     [$\x{400},$\x{400}] = [C || C <- EChars, C > 255],
@@ -1097,7 +1101,8 @@ otp_10302(Config) when is_list(Config) ->
     ok.
 
 unicode_hook({foo,E}, I, P, H) ->
-    erl_pp:expr({call,0,{atom,0,foo},[E]}, I, P, H).
+    A = erl_anno:new(0),
+    erl_pp:expr({call,A,{atom,A,foo},[E]}, I, P, H).
 
 otp_10820(doc) ->
     "OTP-10820. Unicode filenames.";
@@ -1137,29 +1142,30 @@ otp_11100(Config) when is_list(Config) ->
     %% Cannot trigger the use of the hook function with export/import.
     "-export([{fy,a}/b]).\n" =
         pf({attribute,1,export,[{{fy,a},b}]}),
+    A1 = erl_anno:new(1),
     "-type foo() :: integer(INVALID-FORM:{foo,bar}:).\n" =
-        pf({attribute,1,type,{foo,{type,1,integer,[{foo,bar}]},[]}}),
-    pf({attribute,1,type,
-        {a,{type,1,range,[{integer,1,1},{foo,bar}]},[]}}),
+        pf({attribute,A1,type,{foo,{type,A1,integer,[{foo,bar}]},[]}}),
+    pf({attribute,A1,type,
+        {a,{type,A1,range,[{integer,A1,1},{foo,bar}]},[]}}),
     "-type foo(INVALID-FORM:{foo,bar}:) :: A.\n" =
-        pf({attribute,1,type,{foo,{var,1,'A'},[{foo,bar}]}}),
+        pf({attribute,A1,type,{foo,{var,A1,'A'},[{foo,bar}]}}),
     "-type foo() :: (INVALID-FORM:{foo,bar}: :: []).\n" =
-        pf({attribute,1,type,
-            {foo,{paren_type,1,
-                  [{ann_type,1,[{foo,bar},{type,1,nil,[]}]}]},
+        pf({attribute,A1,type,
+            {foo,{paren_type,A1,
+                  [{ann_type,A1,[{foo,bar},{type,A1,nil,[]}]}]},
              []}}),
     "-type foo() :: <<_:INVALID-FORM:{foo,bar}:>>.\n" =
-        pf({attribute,1,type,
-            {foo,{type,1,binary,[{foo,bar},{integer,1,0}]},[]}}),
+        pf({attribute,A1,type,
+            {foo,{type,A1,binary,[{foo,bar},{integer,A1,0}]},[]}}),
     "-type foo() :: <<_:10, _:_*INVALID-FORM:{foo,bar}:>>.\n" =
-        pf({attribute,1,type,
-            {foo,{type,1,binary,[{integer,1,10},{foo,bar}]},[]}}),
+        pf({attribute,A1,type,
+            {foo,{type,A1,binary,[{integer,A1,10},{foo,bar}]},[]}}),
     "-type foo() :: #r{INVALID-FORM:{foo,bar}: :: integer()}.\n" =
-        pf({attribute,1,type,
-            {foo,{type,1,record,
-                  [{atom,1,r},
-                   {type,1,field_type,
-                    [{foo,bar},{type,1,integer,[]}]}]},
+        pf({attribute,A1,type,
+            {foo,{type,A1,record,
+                  [{atom,A1,r},
+                   {type,A1,field_type,
+                    [{foo,bar},{type,A1,integer,[]}]}]},
              []}}),
     ok.
 
@@ -1239,8 +1245,17 @@ strip_module_info(Bin) ->
     <<R:Start/binary,_/binary>> = Bin,
     R.
 
-flat_expr(Expr) ->
+flat_expr1(Expr0) ->
+    Expr = erl_parse:new_anno(Expr0),
+    lists:flatten(erl_pp:expr(Expr)).
+
+flat_expr(Expr0) ->
+    Expr = erl_parse:new_anno(Expr0),
     lists:flatten(erl_pp:expr(Expr, -1, none)).
+
+flat_form(Form0) ->
+    Form = erl_parse:new_anno(Form0),
+    lists:flatten(erl_pp:form(Form)).
 
 pp_forms(Bin) ->
     pp_forms(Bin, none).

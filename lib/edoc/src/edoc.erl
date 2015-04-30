@@ -689,13 +689,12 @@ scan_and_parse(Epp) ->
 
 fix_last_line(Toks0) ->
     Toks1 = lists:reverse(Toks0),
-    {line, LastLine} = erl_scan:token_info(hd(Toks1), line),
+    LastLine = erl_scan:line(hd(Toks1)),
     fll(Toks1, LastLine, []).
 
-fll([{Category, Attributes0, Symbol} | L], LastLine, Ts) ->
-    F = fun(_OldLine) -> LastLine end,
-    Attributes = erl_scan:set_attribute(line, Attributes0, F),
-    lists:reverse(L, [{Category, Attributes, Symbol} | Ts]);
+fll([{Category, Anno0, Symbol} | L], LastLine, Ts) ->
+    Anno = erl_anno:set_line(LastLine, Anno0),
+    lists:reverse(L, [{Category, Anno, Symbol} | Ts]);
 fll([T | L], LastLine, Ts) ->
     fll(L, LastLine, [T | Ts]);
 fll(L, _LastLine, Ts) ->

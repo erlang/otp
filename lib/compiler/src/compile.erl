@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -41,7 +41,7 @@
 
 -type option() :: atom() | {atom(), term()} | {'d', atom(), term()}.
 
--type err_info() :: {erl_scan:line() | 'none',
+-type err_info() :: {erl_anno:line() | 'none',
 		     module(), term()}. %% ErrorDescriptor
 -type errors()   :: [{file:filename(), [err_info()]}].
 -type warnings() :: [{file:filename(), [err_info()]}].
@@ -132,7 +132,8 @@ env_default_opts() ->
 	Str when is_list(Str) ->
 	    case erl_scan:string(Str) of
 		{ok,Tokens,_} ->
-		    case erl_parse:parse_term(Tokens ++ [{dot, 1}]) of
+                    Dot = {dot, erl_anno:new(1)},
+		    case erl_parse:parse_term(Tokens ++ [Dot]) of
 			{ok,List} when is_list(List) -> List;
 			{ok,Term} -> [Term];
 			{error,_Reason} ->
@@ -1237,7 +1238,8 @@ save_abstract_code(#compile{ifile=File}=St) ->
 	    {error,St#compile{errors=St#compile.errors ++ [{File,Es}]}}
     end.
 
-abstract_code(#compile{code=Code,options=Opts,ofile=OFile}) ->
+abstract_code(#compile{code=Code0,options=Opts,ofile=OFile}) ->
+    Code = erl_parse:anno_to_term(Code0),
     Abstr = erlang:term_to_binary({raw_abstract_v1,Code}, [compressed]),
     case member(encrypt_debug_info, Opts) of
 	true ->

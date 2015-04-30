@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2014. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -115,7 +115,8 @@ is_fa_list(_) -> false.
 module_predef_funcs(St) ->
     {Mpf1,St1}=module_predef_func_beh_info(St),
     {Mpf2,St2}=module_predef_funcs_mod_info(St1),
-    {Mpf1++Mpf2,St2}.
+    Mpf = [erl_parse:new_anno(F) || F <- Mpf1++Mpf2],
+    {Mpf,St2}.
 
 module_predef_func_beh_info(#expand{callbacks=[]}=St) ->
     {[], St};

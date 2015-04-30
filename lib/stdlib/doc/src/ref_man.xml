@@ -4,7 +4,7 @@
 <application xmlns:xi="http://www.w3.org/2001/XInclude">
   <header>
     <copyright>
-      <year>1996</year><year>2013</year>
+      <year>1996</year><year>2015</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -45,6 +45,7 @@
   <xi:include href="digraph.xml"/>
   <xi:include href="digraph_utils.xml"/>
   <xi:include href="epp.xml"/>
+  <xi:include href="erl_anno.xml"/>
   <xi:include href="erl_eval.xml"/>
   <xi:include href="erl_expand_records.xml"/>
   <xi:include href="erl_id_trans.xml"/>

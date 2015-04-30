@@ -342,7 +342,7 @@ parse_typedef(Data, Line, _Env, Where) ->
 	    Def
     end.
 
--type line() :: erl_scan:line().
+-type line() :: erl_anno:line().
 
 -spec parse_file(_, line(), _, _) -> no_return().
 

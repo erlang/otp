@@ -136,7 +136,7 @@
 -define(SERVER, cover_server).
 
 %% Line doesn't matter.
--define(BLOCK(Expr), {block,0,[Expr]}).
+-define(BLOCK(Expr), {block,erl_anno:new(0),[Expr]}).
 -define(BLOCK1(Expr), 
         if 
             element(1, Expr) =:= block ->
@@ -1626,18 +1626,18 @@ expand({clause,Line,Pattern,Guards,Body}, Vs, N) ->
 expand({op,_Line,'andalso',ExprL,ExprR}, Vs, N) ->
     {ExpandedExprL,N2} = expand(ExprL, Vs, N),
     {ExpandedExprR,N3} = expand(ExprR, Vs, N2),
-    LineL = element(2, ExpandedExprL),
+    Anno = element(2, ExpandedExprL),
     {bool_switch(ExpandedExprL, 
                  ExpandedExprR,
-                 {atom,LineL,false},
+                 {atom,Anno,false},
                  Vs, N3),
      N3 + 1};
 expand({op,_Line,'orelse',ExprL,ExprR}, Vs, N) ->
     {ExpandedExprL,N2} = expand(ExprL, Vs, N),
     {ExpandedExprR,N3} = expand(ExprR, Vs, N2),
-    LineL = element(2, ExpandedExprL),
+    Anno = element(2, ExpandedExprL),
     {bool_switch(ExpandedExprL,
-                 {atom,LineL,true},
+                 {atom,Anno,true},
                  ExpandedExprR,
                  Vs, N3),
      N3 + 1};
@@ -1746,7 +1746,7 @@ munge_body(Expr, Vars) ->
 
 munge_body([Expr|Body], Vars, MungedBody, LastExprBumpLines) ->
     %% Here is the place to add a call to cover:bump/6!
-    Line = element(2, Expr),
+    Line = erl_anno:line(element(2, Expr)),
     Lines = Vars#vars.lines,
     case lists:member(Line,Lines) of
 	true -> % already a bump at this line
@@ -1882,17 +1882,18 @@ fix_cls([Cl | Cls], Line, Bump) ->
         false ->
             {clause,CL,P,G,Body} = Cl,
             UniqueVarName = list_to_atom(lists:concat(["$cover$ ",Line])),
-            V = {var,0,UniqueVarName},
+            A = erl_anno:new(0),
+            V = {var,A,UniqueVarName},
             [Last|Rest] = lists:reverse(Body),
-            Body1 = lists:reverse(Rest, [{match,0,V,Last},Bump,V]),
+            Body1 = lists:reverse(Rest, [{match,A,V,Last},Bump,V]),
             [{clause,CL,P,G,Body1} | fix_cls(Cls, Line, Bump)]
     end.
 
 bumps_line(E, L) ->
     try bumps_line1(E, L) catch true -> true end.
 
-bumps_line1({call,0,{remote,0,{atom,0,ets},{atom,0,update_counter}},
-             [{atom,0,?COVER_TABLE},{tuple,0,[_,_,_,_,_,{integer,0,Line}]},_]},
+bumps_line1({call,_,{remote,_,{atom,_,ets},{atom,_,update_counter}},
+             [{atom,_,?COVER_TABLE},{tuple,_,[_,_,_,_,_,{integer,_,Line}]},_]},
             Line) ->
     throw(true);
 bumps_line1([E | Es], Line) ->
@@ -1906,15 +1907,16 @@ bumps_line1(_, _) ->
 %%% End of fix of last expression.
 
 bump_call(Vars, Line) ->
-    {call,0,{remote,0,{atom,0,ets},{atom,0,update_counter}},
-     [{atom,0,?COVER_TABLE},
-      {tuple,0,[{atom,0,?BUMP_REC_NAME},
-                {atom,0,Vars#vars.module},
-                {atom,0,Vars#vars.function},
-                {integer,0,Vars#vars.arity},
-                {integer,0,Vars#vars.clause},
-                {integer,0,Line}]},
-      {integer,0,1}]}.
+    A = erl_anno:new(0),
+    {call,A,{remote,A,{atom,A,ets},{atom,A,update_counter}},
+     [{atom,A,?COVER_TABLE},
+      {tuple,A,[{atom,A,?BUMP_REC_NAME},
+                {atom,A,Vars#vars.module},
+                {atom,A,Vars#vars.function},
+                {integer,A,Vars#vars.arity},
+                {integer,A,Vars#vars.clause},
+                {integer,A,Line}]},
+      {integer,A,1}]}.
 
 munge_expr({match,Line,ExprL,ExprR}, Vars) ->
     {MungedExprL, Vars2} = munge_expr(ExprL, Vars),
