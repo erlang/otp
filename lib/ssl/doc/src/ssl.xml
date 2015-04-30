@@ -37,8 +37,7 @@
     <title>SSL</title>
 
     <list type="bulleted">
-      <item><c>ssl</c> requires the <c>crypto</c> and <c>public_key</c> 
-      applications.</item>
+      <item>For application dependencies see <seealso marker="ssl_app"> ssl(6)</seealso> </item>
       <item>Supported SSL/TLS-versions are SSL-3.0, TLS-1.0,
       TLS-1.1, and TLS-1.2.</item>
       <item>For security reasons SSL-2.0 is not supported.</item>
