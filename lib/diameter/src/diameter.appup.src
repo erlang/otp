@@ -84,7 +84,14 @@
                {load_module, diameter_gen_relay},
                {update, diameter_transport_sup, supervisor},
                {update, diameter_service_sup, supervisor},
-               {update, diameter_sup, supervisor}]}
+               {update, diameter_sup, supervisor}]},
+  {"1.9",     [{load_module, diameter_codec},      %% 17.5
+               {load_module, diameter_traffic},
+               {load_module, diameter_gen_base_rfc6733},
+               {load_module, diameter_gen_acct_rfc6733},
+               {load_module, diameter_gen_base_rfc3588},
+               {load_module, diameter_gen_base_accounting},
+               {load_module, diameter_gen_relay}]}
  ],
  [
   {"0.9",     [{restart_application, diameter}]},
@@ -151,6 +158,13 @@
                {load_module, diameter_session},
                {load_module, diameter_reg},
                {load_module, diameter_peer},
-               {load_module, diameter_lib}]}
+               {load_module, diameter_lib}]},
+  {"1.9",     [{load_module, diameter_gen_relay},
+               {load_module, diameter_gen_base_accounting},
+               {load_module, diameter_gen_base_rfc3588},
+               {load_module, diameter_gen_acct_rfc6733},
+               {load_module, diameter_gen_base_rfc6733},
+               {load_module, diameter_traffic},
+               {load_module, diameter_codec}]}
  ]
 }.
