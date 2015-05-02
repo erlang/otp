@@ -249,11 +249,10 @@ release() ->
     end.
 
 unversion(App) ->
-    T = lists:dropwhile(fun is_vsn_ch/1, lists:reverse(App)),
-    lists:reverse(case T of [$-|TT] -> TT; _ -> T end).
-
-is_vsn_ch(C) ->
-    $0 =< C andalso C =< $9 orelse $. == C.
+    {Name, [$-|Vsn]} = lists:splitwith(fun(C) -> C /= $- end, App),
+    true = is_app(Name), %% assert
+    Vsn = vsn_str(Vsn),  %%
+    Name.
 
 app('$M_EXPR') -> %% could be anything but assume it's ok
     "erts";
@@ -322,11 +321,11 @@ acc_rel(Dir, Rel, {Vsn, _}, Acc) ->
 
 %% Write a rel file and return its name.
 write_rel(Dir, [Erts | Apps], Vsn) ->
-    true = is_vsn(Vsn),
-    Name = "diameter_test_" ++ Vsn,
+    VS = vsn_str(Vsn),
+    Name = "diameter_test_" ++ VS,
     ok = write_file(filename:join([Dir, Name ++ ".rel"]),
                     {release,
-                     {"diameter " ++ Vsn ++ " test release", Vsn},
+                     {"diameter " ++ VS ++ " test release", VS},
                      Erts,
                      Apps}),
     Name.
@@ -341,10 +340,34 @@ fetch(Key, List) ->
 write_file(Path, T) ->
     file:write_file(Path, io_lib:format("~p.", [T])).
 
-%% Is a version string of the expected form? Return the argument
-%% itself for 'false' for a useful badmatch.
+%% Is a version string of the expected form?
 is_vsn(V) ->
-    is_list(V)
-        andalso length(V) == string:span(V, "0123456789.")
-        andalso V == string:join(string:tokens(V, [$.]), ".")  %% no ".."
-        orelse {error, V}.
+    V = vsn_str(V),
+    true.
+
+%% Turn a from/to version in appup to a version string after ensuring
+%% that it's valid version number of regexp. In the regexp case, the
+%% regexp itself becomes the version string since there's no
+%% requirement that a version in appup be anything but a string. The
+%% restrictions placed on string-valued version numbers (that they be
+%% '.'-separated integers) are our own.
+
+vsn_str(S)
+  when is_list(S) ->
+    {_, match}   = {S, match(S, "^(0|[1-9][0-9]*)(\\.(0|[1-9][0-9]*))*$")},
+    {_, nomatch} = {S, match(S, "\\.0\\.0$")},
+    S;
+
+vsn_str(B)
+  when is_binary(B) ->
+    {ok, _} = re:compile(B),
+    binary_to_list(B).
+
+match(S, RE) ->
+    re:run(S, RE, [{capture, none}]).
+
+%% Is an application name of the expected form?
+is_app(S)
+  when is_list(S) ->
+    {_, match} = {S, match(S, "^([a-z]([a-z_]*|[a-zA-Z]*))$")},
+    true.
