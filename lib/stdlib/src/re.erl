@@ -131,8 +131,8 @@ split(Subject,RE) ->
 
 split(Subject,RE,Options) ->
     try
-    {NewOpt,Convert,Unicode,Limit,Strip,Group} =
-	process_split_params(Options,iodata,false,-1,false,false),
+    {NewOpt,Convert,Unicode,Limit,Strip,Group,StripAll} =
+	process_split_params(Options,iodata,false,-1,false,false,false),
     FlatSubject = to_binary(Subject, Unicode),
     case compile_split(RE,NewOpt) of
 	{error,_Err} ->
@@ -152,12 +152,14 @@ split(Subject,RE,Options) ->
 		{match, Matches} ->
 		    Res = do_split(FlatSubject, 0, Matches, NumSub, 
 				   Limit, Group),
-		    Stripped = case Strip of
-				   true ->
-				       backstrip_empty(Res,Group);
-				   false ->
-				       Res
-			       end,
+		    Stripped = if
+                           StripAll ->
+                               stripall_empty(Res,Group);
+                           Strip ->
+                               backstrip_empty(Res,Group);
+                           true ->
+                               Res
+                       end,
 		    convert_any_split_result(Stripped, Convert, Unicode, Group)
 	    end
     end
@@ -169,6 +171,26 @@ split(Subject,RE,Options) ->
 	error:badarg ->
 	    erlang:error(badarg,[Subject,RE,Options])
     end.
+
+stripall_empty(List, false) ->
+    do_stripall_empty(List);
+stripall_empty(List, true) ->
+    do_stripall_empty_g(List).
+
+do_stripall_empty_g([]) ->
+    [];
+do_stripall_empty_g([H|T]) ->
+    case do_stripall_empty(H) of
+		[]    -> do_stripall_empty_g(T);
+		Other -> [Other|do_stripall_empty_g(T)]
+    end.
+
+do_stripall_empty([]) ->
+    [];
+do_stripall_empty([<<>>|T]) ->
+    do_stripall_empty(T);
+do_stripall_empty([H|T]) ->
+    [H|do_stripall_empty(T)].
 
 backstrip_empty(List, false) ->
     do_backstrip_empty(List);
@@ -389,42 +411,44 @@ process_repl_params([H|T],C,U) ->
     {NT,NC,NU} = process_repl_params(T,C,U),
     {[H|NT],NC,NU}.
 
-process_split_params([],Convert,Unicode,Limit,Strip,Group) ->
-    {[],Convert,Unicode,Limit,Strip,Group};
-process_split_params([unicode|T],C,_U,L,S,G) ->
-    {NT,NC,NU,NL,NS,NG} = process_split_params(T,C,true,L,S,G), 
-    {[unicode|NT],NC,NU,NL,NS,NG};
-process_split_params([trim|T],C,U,_L,_S,G) ->
-    process_split_params(T,C,U,-1,true,G); 
-process_split_params([{parts,0}|T],C,U,_L,_S,G) ->
-    process_split_params(T,C,U,-1,true,G); 
-process_split_params([{parts,N}|T],C,U,_L,_S,G) when is_integer(N), N >= 1 ->
-    process_split_params(T,C,U,N-1,false,G); 
-process_split_params([{parts,infinity}|T],C,U,_L,_S,G) ->
-    process_split_params(T,C,U,-1,false,G); 
-process_split_params([{parts,_}|_],_,_,_,_,_) ->
-    throw(badopt); 
-process_split_params([group|T],C,U,L,S,_G) ->
-    process_split_params(T,C,U,L,S,true); 
-process_split_params([global|_],_,_,_,_,_) ->
+process_split_params([],Convert,Unicode,Limit,Strip,Group,StripAll) ->
+    {[],Convert,Unicode,Limit,Strip,Group,StripAll};
+process_split_params([unicode|T],C,_U,L,S,G,R) ->
+    {NT,NC,NU,NL,NS,NG,NR} = process_split_params(T,C,true,L,S,G,R),
+    {[unicode|NT],NC,NU,NL,NS,NG,NR};
+process_split_params([trim|T],C,U,_L,_S,G,R) ->
+    process_split_params(T,C,U,-1,true,G,R);
+process_split_params([trim_all|T],C,U,_L,S,G,_R) ->
+    process_split_params(T,C,U,-1,S,G,true);
+process_split_params([{parts,0}|T],C,U,_L,_S,G,R) ->
+    process_split_params(T,C,U,-1,true,G,R);
+process_split_params([{parts,N}|T],C,U,_L,_S,G,R) when is_integer(N), N >= 1 ->
+    process_split_params(T,C,U,N-1,false,G,R);
+process_split_params([{parts,infinity}|T],C,U,_L,_S,G,R) ->
+    process_split_params(T,C,U,-1,false,G,R);
+process_split_params([{parts,_}|_],_,_,_,_,_,_) ->
     throw(badopt);
-process_split_params([report_errors|_],_,_,_,_,_) ->
+process_split_params([group|T],C,U,L,S,_G,R) ->
+    process_split_params(T,C,U,L,S,true,R);
+process_split_params([global|_],_,_,_,_,_,_) ->
     throw(badopt);
-process_split_params([{capture,_,_}|_],_,_,_,_,_) ->
+process_split_params([report_errors|_],_,_,_,_,_,_) ->
     throw(badopt);
-process_split_params([{capture,_}|_],_,_,_,_,_) ->
+process_split_params([{capture,_,_}|_],_,_,_,_,_,_) ->
     throw(badopt);
-process_split_params([{return,iodata}|T],_C,U,L,S,G) ->
-    process_split_params(T,iodata,U,L,S,G);
-process_split_params([{return,list}|T],_C,U,L,S,G) ->
-    process_split_params(T,list,U,L,S,G);
-process_split_params([{return,binary}|T],_C,U,L,S,G) ->
-    process_split_params(T,binary,U,L,S,G);
-process_split_params([{return,_}|_],_,_,_,_,_) ->
+process_split_params([{capture,_}|_],_,_,_,_,_,_) ->
     throw(badopt);
-process_split_params([H|T],C,U,L,S,G) ->
-    {NT,NC,NU,NL,NS,NG} = process_split_params(T,C,U,L,S,G),
-    {[H|NT],NC,NU,NL,NS,NG}.
+process_split_params([{return,iodata}|T],_C,U,L,S,G,R) ->
+    process_split_params(T,iodata,U,L,S,G,R);
+process_split_params([{return,list}|T],_C,U,L,S,G,R) ->
+    process_split_params(T,list,U,L,S,G,R);
+process_split_params([{return,binary}|T],_C,U,L,S,G,R) ->
+    process_split_params(T,binary,U,L,S,G,R);
+process_split_params([{return,_}|_],_,_,_,_,_,_) ->
+    throw(badopt);
+process_split_params([H|T],C,U,L,S,G,R) ->
+    {NT,NC,NU,NL,NS,NG,NR} = process_split_params(T,C,U,L,S,G,R),
+    {[H|NT],NC,NU,NL,NS,NG,NR}.
 
 apply_mlist(Subject,Replacement,Mlist) ->
     do_mlist(Subject,Subject,0,precomp_repl(Replacement), Mlist).

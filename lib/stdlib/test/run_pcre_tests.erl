@@ -1063,6 +1063,21 @@ dumponesplit(F,{RE,Line,O,TS}) ->
 			    dsafe(safe(Str)),
 			    dsafe2(safe(RE)),
 			    NO++[{parts,2}]]),
+
+		 %% Use a special separator here ('§') to avoid conflicts
+		 io:format(F,"perl -e '$x = join(\"§\",split(/~s/~s,\"~s\",-1)); "
+			   "$x =~~ s/(^§+|§+$)//g; $x =~~ s/§§+/§/g; $x =~~ s/§/:/g; "
+			   "$x =~~ s/\\\\/\\\\\\\\/g; $x =~~ s/\\\"/\\\\\"/g; "
+			   "print \"    <<\\\"$x\\\">> = "
+			   "iolist_to_binary(join(re:split(\\\"~s\\\","
+			   "\\\"~s\\\",~p))), \\n\";'~n",
+			   [zsafe(safe(RE)),
+			    SSS,
+			    ysafe(safe(Str)),
+			    dsafe(safe(Str)),
+			    dsafe2(safe(RE)),
+			    NO++[trim_all]]),
+
 		 io:format(F,"perl -e '$x = join(\":\",split(/~s/~s,\"~s\",-1)); "
 			   "$x =~~ s/\\\\/\\\\\\\\/g; $x =~~ s/\\\"/\\\\\"/g; "
 			   "print \"    <<\\\"$x\\\">> = "
