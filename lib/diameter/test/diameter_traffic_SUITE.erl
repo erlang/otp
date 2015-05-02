@@ -41,6 +41,7 @@
          send_eval/1,
          send_bad_answer/1,
          send_protocol_error/1,
+         send_experimental_result/1,
          send_arbitrary/1,
          send_unknown/1,
          send_unknown_short/1,
@@ -301,6 +302,7 @@ tc() ->
      send_eval,
      send_bad_answer,
      send_protocol_error,
+     send_experimental_result,
      send_arbitrary,
      send_unknown,
      send_unknown_short,
@@ -478,6 +480,14 @@ send_protocol_error(Config) ->
                   {'Accounting-Record-Number', 4}],
 
     ?answer_message(?TOO_BUSY)
+        = call(Config, Req).
+
+%% Send a 3xxx Experimental-Result in an answer not setting the E-bit
+%% and missing a Result-Code.
+send_experimental_result(Config) ->
+    Req = ['ACR', {'Accounting-Record-Type', ?EVENT_RECORD},
+                  {'Accounting-Record-Number', 5}],
+    ['ACA', _SessionId | _]
         = call(Config, Req).
 
 %% Send an ASR with an arbitrary non-mandatory AVP and expect success
@@ -1144,6 +1154,13 @@ answer(Pkt, Req, _Peer, Name, #group{client_dict0 = Dict0}) ->
     [R | Vs] = Dict:'#get-'(answer(Ans, Es, Name)),
     [Dict:rec2msg(R) | Vs].
 
+%% Missing Result-Codec and inapproriate Experimental-Result-Code.
+answer(Rec, Es, send_experimental_result) ->
+    [{5004, #diameter_avp{name = 'Experimental-Result'}},
+     {5005, #diameter_avp{name = 'Result-Code'}}]
+        =  Es,
+    Rec;
+
 %% An inappropriate E-bit results in a decode error ...
 answer(Rec, Es, send_bad_answer) ->
     [{5004, #diameter_avp{name = 'Result-Code'}} | _] = Es,
@@ -1175,7 +1192,9 @@ handle_error(Reason, _Req, [$C|_], _Peer, _, _Time) ->
 %% Note that diameter will set Result-Code and Failed-AVPs if
 %% #diameter_packet.errors is non-null.
 
-handle_request(#diameter_packet{header = H, msg = M}, _, {_Ref, Caps}) ->
+handle_request(#diameter_packet{header = H, msg = M, avps = As},
+               _,
+               {_Ref, Caps}) ->
     #diameter_header{end_to_end_id = EI,
                      hop_by_hop_id = HI}
         = H,
@@ -1183,10 +1202,12 @@ handle_request(#diameter_packet{header = H, msg = M}, _, {_Ref, Caps}) ->
     V = EI bsr B,  %% assert
     V = HI bsr B,  %%
     #diameter_caps{origin_state_id = {_,[Id]}} = Caps,
-    answer(origin(Id), request(M, Caps)).
+    answer(origin(Id), request(M, [H|As], Caps)).
 
 answer(T, {Tag, Action, Post}) ->
     {Tag, answer(T, Action), Post};
+answer(_, {reply, [#diameter_header{} | _]} = T) ->
+    T;
 answer({A,C}, {reply, Ans}) ->
     answer(C, {reply, msg(Ans, A, diameter_gen_base_rfc3588)});
 answer(pkt, {reply, Ans})
@@ -1194,6 +1215,41 @@ answer(pkt, {reply, Ans})
     {reply, #diameter_packet{msg = Ans}};
 answer(_, T) ->
     T.
+
+%% request/3
+
+%% send_experimental_result
+request(#diameter_base_accounting_ACR{'Accounting-Record-Number' = 5},
+        [Hdr | Avps],
+        #diameter_caps{origin_host = {OH, _},
+                       origin_realm = {OR, _}}) ->
+    [H,R|T] = [A || N <- ['Origin-Host',
+                          'Origin-Realm',
+                          'Session-Id',
+                          'Accounting-Record-Type',
+                          'Accounting-Record-Number'],
+                    #diameter_avp{} = A
+                        <- [lists:keyfind(N, #diameter_avp.name, Avps)]],
+    Ans = [Hdr#diameter_header{is_request = false},
+           H#diameter_avp{data = OH},
+           R#diameter_avp{data = OR},
+           #diameter_avp{name = 'Experimental-Result',
+                         code = 297,
+                         need_encryption = false,
+                         data = [#diameter_avp{data = {?DIAMETER_DICT_COMMON,
+                                                       'Vendor-Id',
+                                                       123}},
+                                 #diameter_avp{data
+                                               = {?DIAMETER_DICT_COMMON,
+                                                  'Experimental-Result-Code',
+                                                  3987}}]}
+           | T],
+    {reply, Ans};
+
+request(Msg, _Avps, Caps) ->
+    request(Msg, Caps).
+
+%% request/2
 
 %% send_nok
 request(#diameter_base_accounting_ACR{'Accounting-Record-Number' = 0},
