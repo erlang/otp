@@ -32,7 +32,10 @@
 	 otp_3924/1, otp_3924_sender/4, closed_socket/1,
 	 shutdown_active/1, shutdown_passive/1, shutdown_pending/1,
 	 show_econnreset_active/1, show_econnreset_active_once/1,
-	 show_econnreset_passive/1,
+	 show_econnreset_passive/1, econnreset_after_sync_send/1,
+	 econnreset_after_async_send_active/1,
+	 econnreset_after_async_send_active_once/1,
+	 econnreset_after_async_send_passive/1,
 	 default_options/1, http_bad_packet/1, 
 	 busy_send/1, busy_disconnect_passive/1, busy_disconnect_active/1,
 	 fill_sendq/1, partial_recv_and_close/1, 
@@ -95,7 +98,10 @@ all() ->
      accept_closed_by_other_process, otp_3924, closed_socket,
      shutdown_active, shutdown_passive, shutdown_pending,
      show_econnreset_active, show_econnreset_active_once,
-     show_econnreset_passive,
+     show_econnreset_passive, econnreset_after_sync_send,
+     econnreset_after_async_send_active,
+     econnreset_after_async_send_active_once,
+     econnreset_after_async_send_passive,
      default_options, http_bad_packet, busy_send,
      busy_disconnect_passive, busy_disconnect_active,
      fill_sendq, partial_recv_and_close,
@@ -1192,6 +1198,175 @@ show_econnreset_passive(Config) when is_list(Config) ->
     ?line ok = ?t:sleep(1),
     ?line {error, econnreset} = gen_tcp:recv(Client1, 0).
 
+econnreset_after_sync_send(Config) when is_list(Config) ->
+    %% First confirm everything works with option turned off.
+    ?line {ok, L} = gen_tcp:listen(0, [{active, false}]),
+    ?line {ok, Port} = inet:port(L),
+    ?line {ok, Client} = gen_tcp:connect(localhost, Port, [{active, false}]),
+    ?line {ok, S} = gen_tcp:accept(L),
+    ?line ok = gen_tcp:close(L),
+    ?line ok = inet:setopts(S, [{linger, {true, 0}}]),
+    ?line ok = gen_tcp:close(S),
+    ?line ok = ?t:sleep(20),
+    ?line {error, closed} = gen_tcp:send(Client, "Whatever"),
+
+    %% Now test with option switched on.
+    ?line {ok, L1} = gen_tcp:listen(0, [{active, false}]),
+    ?line {ok, Port1} = inet:port(L1),
+    ?line {ok, Client1} = gen_tcp:connect(localhost, Port1,
+					  [{active, false},
+					   {show_econnreset, true}]),
+    ?line {ok, S1} = gen_tcp:accept(L1),
+    ?line ok = gen_tcp:close(L1),
+    ?line ok = inet:setopts(S1, [{linger, {true, 0}}]),
+    ?line ok = gen_tcp:close(S1),
+    ?line ok = ?t:sleep(20),
+    ?line {error, econnreset} = gen_tcp:send(Client1, "Whatever").
+
+econnreset_after_async_send_active(Config) when is_list(Config) ->
+    ?line {OS, _} = os:type(),
+    ?line Payload = lists:duplicate(1024 * 1024, $.),
+
+    %% First confirm everything works with option turned off.
+    ?line {ok, L} = gen_tcp:listen(0, [{active, false}, {recbuf, 4096}]),
+    ?line {ok, Port} = inet:port(L),
+    ?line {ok, Client} = gen_tcp:connect(localhost, Port, [{sndbuf, 4096}]),
+    ?line {ok, S} = gen_tcp:accept(L),
+    ?line ok = gen_tcp:close(L),
+    ?line ok = gen_tcp:send(Client, Payload),
+    ?line case erlang:port_info(Client, queue_size) of
+	      {queue_size, N} when N > 0 -> ok;
+	      {queue_size, 0} when OS =:= win32 -> ok;
+	      {queue_size, 0} = T -> ?t:fail(T)
+	  end,
+    ?line ok = gen_tcp:send(S, "Whatever"),
+    ?line ok = ?t:sleep(20),
+    ?line ok = inet:setopts(S, [{linger, {true, 0}}]),
+    ?line ok = gen_tcp:close(S),
+    ?line ok = ?t:sleep(20),
+    ?line receive
+	      {tcp, Client, "Whatever"} ->
+		  ?line receive
+			    {tcp_closed, Client} ->
+				ok;
+			    Other1 ->
+				?t:fail({unexpected1, Other1})
+			end;
+	      Other2 ->
+		  ?t:fail({unexpected2, Other2})
+	  end,
+
+    %% Now test with option switched on.
+    ?line {ok, L1} = gen_tcp:listen(0, [{active, false}, {recbuf, 4096}]),
+    ?line {ok, Port1} = inet:port(L1),
+    ?line {ok, Client1} = gen_tcp:connect(localhost, Port1,
+					  [{sndbuf, 4096},
+					   {show_econnreset, true}]),
+    ?line {ok, S1} = gen_tcp:accept(L1),
+    ?line ok = gen_tcp:close(L1),
+    ?line ok = gen_tcp:send(Client1, Payload),
+    ?line case erlang:port_info(Client1, queue_size) of
+	      {queue_size, N1} when N1 > 0 -> ok;
+	      {queue_size, 0} when OS =:= win32 -> ok;
+	      {queue_size, 0} = T1 -> ?t:fail(T1)
+	  end,
+    ?line ok = gen_tcp:send(S1, "Whatever"),
+    ?line ok = ?t:sleep(20),
+    ?line ok = inet:setopts(S1, [{linger, {true, 0}}]),
+    ?line ok = gen_tcp:close(S1),
+    ?line ok = ?t:sleep(20),
+    ?line receive
+	      {tcp, Client1, "Whatever"} ->
+		  ?line receive
+			    {tcp_error, Client1, econnreset} ->
+				?line receive
+					  {tcp_closed, Client1} ->
+					      ok;
+					  Other3 ->
+					      ?t:fail({unexpected3, Other3})
+				      end;
+			    Other4 ->
+				?t:fail({unexpected4, Other4})
+			end;
+	      Other5 ->
+		  ?t:fail({unexpected5, Other5})
+	  end.
+
+econnreset_after_async_send_active_once(Config) when is_list(Config) ->
+    ?line {OS, _} = os:type(),
+    ?line {ok, L} = gen_tcp:listen(0, [{active, false}, {recbuf, 4096}]),
+    ?line {ok, Port} = inet:port(L),
+    ?line {ok, Client} = gen_tcp:connect(localhost, Port,
+					 [{active, false},
+					  {sndbuf, 4096},
+					  {show_econnreset, true}]),
+    ?line {ok,S} = gen_tcp:accept(L),
+    ?line ok = gen_tcp:close(L),
+    ?line Payload = lists:duplicate(1024 * 1024, $.),
+    ?line ok = gen_tcp:send(Client, Payload),
+    ?line case erlang:port_info(Client, queue_size) of
+	      {queue_size, N} when N > 0 -> ok;
+	      {queue_size, 0} when OS =:= win32 -> ok;
+	      {queue_size, 0} = T -> ?t:fail(T)
+	  end,
+    ?line ok = gen_tcp:send(S, "Whatever"),
+    ?line ok = ?t:sleep(20),
+    ?line ok = inet:setopts(S, [{linger, {true, 0}}]),
+    ?line ok = gen_tcp:close(S),
+    ?line ok = ?t:sleep(20),
+    ?line ok = receive Msg -> {unexpected_msg, Msg} after 0 -> ok end,
+    ?line ok = inet:setopts(Client, [{active, once}]),
+    ?line receive
+	      {tcp_error, Client, econnreset} ->
+		  ?line receive
+			    {tcp_closed, Client} ->
+				ok;
+			    Other ->
+				?t:fail({unexpected1, Other})
+			end;
+	      Other ->
+		  ?t:fail({unexpected2, Other})
+	  end.
+
+econnreset_after_async_send_passive(Config) when is_list(Config) ->
+    ?line {OS, _} = os:type(),
+    ?line Payload = lists:duplicate(1024 * 1024, $.),
+
+    %% First confirm everything works with option turned off.
+    ?line {ok, L} = gen_tcp:listen(0, [{active, false}, {recbuf, 4096}]),
+    ?line {ok, Port} = inet:port(L),
+    ?line {ok, Client} = gen_tcp:connect(localhost, Port,
+					 [{active, false},
+					  {sndbuf, 4096}]),
+    ?line {ok, S} = gen_tcp:accept(L),
+    ?line ok = gen_tcp:close(L),
+    ?line ok = inet:setopts(S, [{linger, {true, 0}}]),
+    ?line ok = gen_tcp:send(S, "Whatever"),
+    ?line ok = gen_tcp:send(Client, Payload),
+    ?line case erlang:port_info(Client, queue_size) of
+	      {queue_size, N} when N > 0 -> ok;
+	      {queue_size, 0} when OS =:= win32 -> ok;
+	      {queue_size, 0} = T -> ?t:fail(T)
+	  end,
+    ?line ok = gen_tcp:close(S),
+    ?line ok = ?t:sleep(20),
+    ?line {error, closed} = gen_tcp:recv(Client, 0),
+
+    %% Now test with option switched on.
+    ?line {ok, L1} = gen_tcp:listen(0, [{active, false}, {recbuf, 4096}]),
+    ?line {ok, Port1} = inet:port(L1),
+    ?line {ok, Client1} = gen_tcp:connect(localhost, Port1,
+					 [{active, false},
+					  {sndbuf, 4096},
+					  {show_econnreset, true}]),
+    ?line {ok, S1} = gen_tcp:accept(L1),
+    ?line ok = gen_tcp:close(L1),
+    ?line ok = inet:setopts(S1, [{linger, {true, 0}}]),
+    ?line ok = gen_tcp:send(S1, "Whatever"),
+    ?line ok = gen_tcp:send(Client1, Payload),
+    ?line ok = gen_tcp:close(S1),
+    ?line ok = ?t:sleep(20),
+    ?line {error, econnreset} = gen_tcp:recv(Client1, 0).
 
 %% Thanks to Luke Gorrie. Tests for a very specific problem with 
 %% corrupt data. The testcase will be killed by the timetrap timeout
