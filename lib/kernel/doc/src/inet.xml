@@ -1056,7 +1056,10 @@ setcap cap_sys_admin,cap_sys_ptrace,cap_dac_read_search+epi beam.smp
               active mode, the controlling process will receive a
               <c>{tcp_error, Socket, econnreset}</c> message
               before the usual <c>{tcp_closed, Socket}</c>, as is
-              the case for any other socket error.</p>
+              the case for any other socket error. Calls to
+              <seealso marker="gen_tcp#send/2">gen_tcp:send/2</seealso>
+              will also return <c>{error, econnreset}</c> when it
+              is detected that a TCP peer has sent an RST.</p>
             <p>A connected socket returned from
               <seealso marker="gen_tcp#accept/1">gen_tcp:accept/1</seealso>
               will inherit the <c>show_econnreset</c> setting from the
