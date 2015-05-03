@@ -85,7 +85,7 @@ static void set_current_fp_exception(unsigned long pc)
 
 void erts_fp_check_init_error(volatile unsigned long *fpexnp)
 {
-    char buf[64];
+    char buf[128];
     snprintf(buf, sizeof buf, "ERTS_FP_CHECK_INIT at %p: detected unhandled FPE at %p\r\n",
 	     __builtin_return_address(0), (void*)*fpexnp);
     if (write(2, buf, strlen(buf)) <= 0)
