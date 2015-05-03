@@ -1006,8 +1006,8 @@ static int conn_open(EpmdVars *g,int fd)
 
   for (i = 0; i < g->max_conn; i++) {
     if (g->conn[i].open == EPMD_FALSE) {
-      struct sockaddr_in si;
-      struct sockaddr_in di;
+      struct EPMD_SOCKADDR_IN si;
+      struct EPMD_SOCKADDR_IN di;
 #ifdef HAVE_SOCKLEN_T
       socklen_t st;
 #else
@@ -1031,6 +1031,7 @@ static int conn_open(EpmdVars *g,int fd)
 	  /* Failure to get peername is regarded as non local host */
 	  s->local_peer = EPMD_FALSE;
       } else {
+#ifndef EPMD6
 	  /* Only 127.x.x.x and connections from the host's IP address
 	     allowed, no false positives */
 	  s->local_peer =
@@ -1038,6 +1039,13 @@ static int conn_open(EpmdVars *g,int fd)
 	       0x7F000000U) ||
 	       (getsockname(s->fd,(struct sockaddr*) &di,&st) ?
 	       EPMD_FALSE : si.sin_addr.s_addr == di.sin_addr.s_addr));
+#else
+	  /* IPv6 loopback is ::1/128, so no netmask math needed */
+	  s->local_peer =
+	      (IS_ADDR_LOOPBACK(si.sin6_addr) ||
+	       (getsockname(s->fd,(struct sockaddr*) &di,&st) ? EPMD_FALSE :
+		(memcmp(si.sin6_addr.s6_addr, di.sin6_addr.s6_addr, 16) == 0)));
+#endif
       }
       dbg_tty_printf(g,2,(s->local_peer) ? "Local peer connected" :
 		     "Non-local peer connected");
