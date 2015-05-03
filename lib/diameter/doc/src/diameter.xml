@@ -1820,7 +1820,8 @@ The information presented here is as in the <c>connect</c> case except
 that the client connections are grouped under an <c>accept</c> tuple.</p>
 
 <p>
-Whether or not the &transport_opt; <c>pool_size</c> affects the format
+Whether or not the &transport_opt; <c>pool_size</c> has been
+configured affects the format
 of the listing in the case of a connecting transport, since a value
 greater than 1 implies multiple transport processes for the same
 <c>&transport_ref;</c>, as in the listening case.
