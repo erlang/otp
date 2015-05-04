@@ -44,7 +44,7 @@
 	  <v> Reason = term()</v>
 	</type>
 	<desc>
-	  Delete CRLs from the ssl applications local cache.
+	  <p>Delete CRLs from the ssl applications local cache. </p>
 	</desc>
       </func>     
       <func>
@@ -58,7 +58,7 @@
 	  <v> Reason = term()</v>
 	</type>
 	<desc>
-	Insert CRLs into the ssl applications local cache.
+	 <p>Insert CRLs into the ssl applications local cache. </p>
 	</desc>
       </func>
     </funcs>
