@@ -419,7 +419,12 @@ type	ENVIRONMENT	TEMPORARY	SYSTEM		environment
 type	PUTENV_STR	SYSTEM		SYSTEM		putenv_string
 type	PRT_REP_EXIT	STANDARD	SYSTEM		port_report_exit
 type	SYS_BLOCKING	STANDARD	SYSTEM		sys_blocking
+
++if smp
 type	SYS_WRITE_BUF	TEMPORARY	SYSTEM		sys_write_buf
++else
+type	SYS_WRITE_BUF	BINARY		SYSTEM		sys_write_buf
++endif
 
 +endif
 
