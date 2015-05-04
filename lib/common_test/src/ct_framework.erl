@@ -113,6 +113,7 @@ init_tc1(?MODULE,_,error_in_suite,[Config0]) when is_list(Config0) ->
     ct_event:notify(#event{name=tc_start,
 			   node=node(),
 			   data={?MODULE,error_in_suite}}),
+    ct_suite_init(?MODULE, error_in_suite, [], Config0),
     case ?val(error, Config0) of
 	undefined ->
 	    {fail,"unknown_error_in_suite"};
@@ -635,7 +636,20 @@ try_set_default(Name,Key,Info,Where) ->
 end_tc(Mod, Fun, Args) ->
     %% Have to keep end_tc/3 for backwards compatibility issues
     end_tc(Mod, Fun, Args, '$end_tc_dummy').
-end_tc(?MODULE,error_in_suite,_, _) ->		% bad start!
+end_tc(?MODULE,error_in_suite,{Result,[Args]},Return) ->
+    %% this clause gets called if CT has encountered a suite that
+    %% can't be executed
+    FinalNotify =
+	case ct_hooks:end_tc(?MODULE, error_in_suite, Args, Result, Return) of
+	    '$ct_no_change' ->
+		Result;
+	    HookResult ->
+		HookResult
+	end,
+    Event = #event{name=tc_done,
+		   node=node(),
+		   data={?MODULE,error_in_suite,tag(FinalNotify)}},
+    ct_event:sync_notify(Event),
     ok;
 end_tc(Mod,Func,{TCPid,Result,[Args]}, Return) when is_pid(TCPid) ->
     end_tc(Mod,Func,TCPid,Result,Args,Return);
@@ -1310,6 +1324,8 @@ report(What,Data) ->
 	    end,
 	    ct_logs:unregister_groupleader(ReportingPid),
 	    case {Func,Result} of
+		{error_in_suite,_} when Suite == ?MODULE ->
+		    ok;
 		{init_per_suite,_} ->
 		    ok;
 		{end_per_suite,_} ->

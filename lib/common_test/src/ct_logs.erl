@@ -2054,6 +2054,13 @@ runentry(Dir, Totals={Node,Label,Logs,
 					     ?testname_width-3)),
 		lists:flatten(io_lib:format("~ts...",[Trunc]))
 	end,
+    TotMissingStr =
+	if NotBuilt > 0 ->
+		["<font color=\"red\">",
+		 integer_to_list(NotBuilt),"</font>"];
+	   true ->
+		integer_to_list(NotBuilt)
+	end,
     Total = TotSucc+TotFail+AllSkip,
     A = xhtml(["<td align=center><font size=\"-1\">",Node,
 	       "</font></td>\n",
@@ -2073,7 +2080,7 @@ runentry(Dir, Totals={Node,Label,Logs,
 	 "<td align=right>",TotFailStr,"</td>\n",
 	 "<td align=right>",integer_to_list(AllSkip),
 	 " (",UserSkipStr,"/",AutoSkipStr,")</td>\n",
-	 "<td align=right>",integer_to_list(NotBuilt),"</td>\n"],
+	 "<td align=right>",TotMissingStr,"</td>\n"],
     TotalsStr = A++B++C,
     
     XHTML = [xhtml("<tr>\n", ["<tr class=\"",odd_or_even(),"\">\n"]),

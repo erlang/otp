@@ -4776,17 +4776,25 @@ collect_case_subcases(Mod, Case, SubCases, St0, Mode) ->
 collect_files(Dir, Pattern, St, Mode) ->
     {ok,Cwd} = file:get_cwd(),
     Dir1 = filename:join(Cwd, Dir),
-    Wc = filename:join([Dir1,Pattern++code:objfile_extension()]),
+    Wc = filename:join([Dir1,Pattern++"{.erl,"++code:objfile_extension()++"}"]),
     case catch filelib:wildcard(Wc) of
 	{'EXIT', Reason} ->
 	    io:format("Could not collect files: ~p~n", [Reason]),
 	    {error,{collect_fail,Dir,Pattern}};
-	Mods0 ->
-	    Mods = [{path_to_module(Mod),all} || Mod <- lists:sort(Mods0)],
-	    collect_cases(Mods, St, Mode)
+	Files ->
+	    %% convert to module names and remove duplicates
+	    Mods = lists:foldl(fun(File, Acc) ->
+				       Mod = fullname_to_mod(File),
+				       case lists:member(Mod, Acc) of
+					   true  -> Acc;
+					   false -> [Mod | Acc]
+				       end
+			       end, [], Files),
+	    Tests = [{Mod,all} || Mod <- lists:sort(Mods)],
+	    collect_cases(Tests, St, Mode)
     end.
 
-path_to_module(Path) when is_list(Path) ->
+fullname_to_mod(Path) when is_list(Path) ->
     %% If this is called with a binary, then we are probably in +fnu
     %% mode and have found a beam file with name encoded as latin1. We
     %% will let this crash since it can not work to load such a module
