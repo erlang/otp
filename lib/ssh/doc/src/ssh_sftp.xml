@@ -74,6 +74,24 @@
       </func>
 
       <func>
+	<name>apwrite(ChannelPid, Handle, Position, Data) -> ok | {error, Reason}</name>
+	<fsummary>Writes asynchronously to an open file.</fsummary>
+	<type>
+	  <v>ChannelPid = pid()</v>
+	  <v>Handle = term()</v>
+	  <v>Position = integer()</v>
+	  <v>Len = integer()</v>
+	  <v>Data = binary()</v>
+	  <v>Timeout = timeout()</v>
+	  <v>Reason = term()</v>
+	</type>
+	<desc>
+	  <p><c><![CDATA[apwrite]]></c> writes on a specified position, combining
+          the <c><![CDATA[position]]></c> and <c><![CDATA[awrite]]></c> operations.</p>
+	<p><seealso marker="#awrite-3">ssh_sftp:awrite/3</seealso> </p></desc>
+      </func>
+      
+      <func>
 	<name>aread(ChannelPid, Handle, Len) -> {async, N} | {error, Error}</name>
 	<fsummary>Reads asynchronously from an open file.</fsummary>
 	<type>
@@ -95,23 +113,7 @@
       </desc>
     </func>
 
-    <func>
-      <name>apwrite(ChannelPid, Handle, Position, Data) -> ok | {error, Reason}</name>
-      <fsummary>Writes asynchronously to an open file.</fsummary>
-      <type>
-        <v>ChannelPid = pid()</v>
-        <v>Handle = term()</v>
-        <v>Position = integer()</v>
-        <v>Len = integer()</v>
-        <v>Data = binary()</v>
-	<v>Timeout = timeout()</v>
-        <v>Reason = term()</v>
-      </type>
-      <desc>
-	  <p><c><![CDATA[apwrite]]></c> writes on a specified position, combining
-          the <c><![CDATA[position]]></c> and <c><![CDATA[awrite]]></c> operations.</p>
-	  <p><seealso marker="#awrite-3">ssh_sftp:awrite/3</seealso> </p></desc>
-      </func>
+  
 
     <func>
       <name>awrite(ChannelPid, Handle, Data) -> ok | {error, Reason}</name>
@@ -585,6 +587,37 @@
     </func>
 
     <func>
+      <name>write(ChannelPid, Handle, Data) -></name>
+      <name>write(ChannelPid, Handle, Data, Timeout) -> ok | {error, Error}</name>
+      <fsummary>Writes to an open file.</fsummary>
+      <type>
+        <v>ChannelPid = pid()</v>
+        <v>Handle = term()</v>
+        <v>Position = integer()</v>
+        <v>Data = iolist()</v>
+	<v>Timeout = timeout()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Writes <c><![CDATA[data]]></c> to the file referenced by <c><![CDATA[Handle]]></c>.
+	The file is to be opened with <c><![CDATA[write]]></c> or <c><![CDATA[append]]></c>
+	flag. Returns <c><![CDATA[ok]]></c> if successful or <c><![CDATA[{error, Reason}]]></c>
+	otherwise.</p>
+        <p>Typical error reasons:</p>
+        <taglist>
+          <tag><c><![CDATA[ebadf]]></c></tag>
+          <item>
+            <p>File is not opened for writing.</p>
+          </item>
+          <tag><c><![CDATA[enospc]]></c></tag>
+          <item>
+            <p>No space is left on the device.</p>
+          </item>
+        </taglist>
+      </desc>
+    </func>
+    
+    <func>
       <name>write_file(ChannelPid, File, Iolist) -></name>
       <name>write_file(ChannelPid, File, Iolist, Timeout) -> ok | {error, Reason}</name>
       <fsummary>Writes a file.</fsummary>
@@ -602,38 +635,7 @@
         if it exists.</p>
       </desc>
     </func>
-
-    <func>
-      <name>write(ChannelPid, Handle, Data) -></name>
-      <name>write(ChannelPid, Handle, Data, Timeout) -> ok | {error, Error}</name>
-      <fsummary>Writes to an open file.</fsummary>
-      <type>
-        <v>ChannelPid = pid()</v>
-        <v>Handle = term()</v>
-        <v>Position = integer()</v>
-        <v>Data = iolist()</v>
-	<v>Timeout = timeout()</v>
-        <v>Reason = term()</v>
-      </type>
-      <desc>
-        <p>Writes <c><![CDATA[data]]></c> to the file referenced by <c><![CDATA[Handle]]></c>.
-          The file is to be opened with <c><![CDATA[write]]></c> or <c><![CDATA[append]]></c>
-          flag. Returns <c><![CDATA[ok]]></c> if successful or <c><![CDATA[{error, Reason}]]></c>
-          otherwise.</p>
-        <p>Typical error reasons:</p>
-        <taglist>
-          <tag><c><![CDATA[ebadf]]></c></tag>
-          <item>
-            <p>File is not opened for writing.</p>
-          </item>
-          <tag><c><![CDATA[enospc]]></c></tag>
-          <item>
-            <p>No space is left on the device.</p>
-          </item>
-        </taglist>
-      </desc>
-    </func>
-
+    
     <func>
       <name>write_file_info(ChannelPid, Name, Info) -></name>
       <name>write_file_info(ChannelPid, Name, Info, Timeout) -> ok | {error, Reason}</name>
@@ -647,11 +649,11 @@
       </type>
       <desc>
         <p>Writes file information from a <c><![CDATA[file_info]]></c> record to the
-          file specified by <c><![CDATA[Name]]></c>, like
-	   <seealso marker="kernel:file#write_file_info-2">file:write_file_info/[2,3]</seealso></p>
+	file specified by <c><![CDATA[Name]]></c>, like
+	<seealso marker="kernel:file#write_file_info-2">file:write_file_info/[2,3]</seealso></p>
       </desc>
     </func>
   </funcs>
-   
+  
 </erlref>
 
