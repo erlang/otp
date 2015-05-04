@@ -77,7 +77,8 @@
 	       multiply_timetraps = 1,
 	       scale_timetraps = false,
 	       create_priv_dir,
-	       testspecs = [],
+	       testspec_files = [],
+	       current_testspec,
 	       tests,
 	       starter}).
 
@@ -485,8 +486,11 @@ execute_one_spec(TS, Opts, Args) ->
     case check_and_install_configfiles(AllConfig, TheLogDir, Opts) of
 	ok ->      % read tests from spec
 	    {Run,Skip} = ct_testspec:prepare_tests(TS, node()),
-	    do_run(Run, Skip, Opts#opts{config=AllConfig,
-					logdir=TheLogDir}, Args);
+	    Result = do_run(Run, Skip, Opts#opts{config=AllConfig,
+						 logdir=TheLogDir,
+						 current_testspec=TS}, Args),
+	    ct_util:delete_testdata(testspec),
+	    Result;
 	Error ->
 	    Error
     end.
@@ -577,7 +581,7 @@ combine_test_opts(TS, Specs, Opts) ->
 
     Opts#opts{label = Label,
 	      profile = Profile,
-	      testspecs = Specs,
+	      testspec_files = Specs,
 	      cover = Cover,
 	      cover_stop = CoverStop,
 	      logdir = which(logdir, LogDir),
@@ -702,7 +706,7 @@ script_start4(#opts{label = Label, profile = Profile,
 		    logopts = LogOpts,
 		    verbosity = Verbosity,
 		    enable_builtin_hooks = EnableBuiltinHooks,
-		    logdir = LogDir, testspecs = Specs}, _Args) ->
+		    logdir = LogDir, testspec_files = Specs}, _Args) ->
 
     %% label - used by ct_logs
     application:set_env(common_test, test_label, Label),
@@ -1103,7 +1107,7 @@ run_test2(StartOpts) ->
 	undefined ->
 	    case lists:keysearch(prepared_tests, 1, StartOpts) of
 		{value,{_,{Run,Skip},Specs}} ->	% use prepared tests
-		    run_prepared(Run, Skip, Opts#opts{testspecs = Specs},
+		    run_prepared(Run, Skip, Opts#opts{testspec_files = Specs},
 				 StartOpts);
 		false ->
 		    run_dir(Opts, StartOpts)
@@ -1111,11 +1115,11 @@ run_test2(StartOpts) ->
 	Specs ->
 	    Relaxed = get_start_opt(allow_user_terms, value, false, StartOpts),
 	    %% using testspec(s) as input for test
-	    run_spec_file(Relaxed, Opts#opts{testspecs = Specs}, StartOpts)
+	    run_spec_file(Relaxed, Opts#opts{testspec_files = Specs}, StartOpts)
     end.
 
 run_spec_file(Relaxed,
-	      Opts = #opts{testspecs = Specs},
+	      Opts = #opts{testspec_files = Specs},
 	      StartOpts) ->
     Specs1 = case Specs of
 		 [X|_] when is_integer(X) -> [Specs];
@@ -1154,7 +1158,10 @@ run_all_specs([{Specs,TS} | TSs], Opts, StartOpts, TotResult) ->
     log_ts_names(Specs),
     Combined = #opts{config = TSConfig} = combine_test_opts(TS, Specs, Opts),
     AllConfig = merge_vals([Opts#opts.config, TSConfig]),
-    try run_one_spec(TS, Combined#opts{config = AllConfig}, StartOpts) of
+    try run_one_spec(TS, 
+		     Combined#opts{config = AllConfig,
+				   current_testspec=TS},
+		     StartOpts) of
 	Result ->
 	    run_all_specs(TSs, Opts, StartOpts, [Result | TotResult])		
     catch
@@ -1399,7 +1406,7 @@ run_testspec2(TestSpec) ->
 	    case check_and_install_configfiles(
 		   Opts#opts.config, LogDir1, Opts) of
 		ok ->
-		    Opts1 = Opts#opts{testspecs = [],
+		    Opts1 = Opts#opts{testspec_files = [],
 				      logdir = LogDir1,
 				      include = AllInclude},
 		    {Run,Skip} = ct_testspec:prepare_tests(TS, node()),
@@ -1706,6 +1713,9 @@ compile_and_run(Tests, Skip, Opts, Args) ->
     ct_util:set_testdata({stylesheet,Opts#opts.stylesheet}),
     %% save logopts
     ct_util:set_testdata({logopts,Opts#opts.logopts}),
+    %% save info about current testspec (testspec record or undefined)
+    ct_util:set_testdata({testspec,Opts#opts.current_testspec}),
+
     %% enable silent connections
     case Opts#opts.silent_connections of
 	[] ->
@@ -1720,7 +1730,7 @@ compile_and_run(Tests, Skip, Opts, Args) ->
 		    ct_logs:log("Silent connections", "~p", [Conns])
 	    end
     end,
-    log_ts_names(Opts#opts.testspecs),
+    log_ts_names(Opts#opts.testspec_files),
     TestSuites = suite_tuples(Tests),
     
     {_TestSuites1,SuiteMakeErrors,AllMakeErrors} =
