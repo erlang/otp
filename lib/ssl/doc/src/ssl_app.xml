@@ -35,21 +35,21 @@
   <description></description>
   <section>
     <title>DEPENDENCIES</title>
-    <p>The <c>ssl</c> application uses the <c>public_key</c> and
-    <c>crypto</c> application to handle public keys and encryption, hence
-    these applications must be loaded for the <c>ssl</c> application to work. 
+    <p>The SSL application uses the <c>public_key</c> and
+    Crypto application to handle public keys and encryption, hence
+    these applications must be loaded for the SSL application to work. 
     In an embedded environment this means they must be started with
-    <c>application:start/[1,2]</c> before the <c>ssl</c> application is 
+    <c>application:start/[1,2]</c> before the SSL application is 
     started.</p>
   </section>
 
   <section>
     <title>CONFIGURATION</title>
     <p>The application environment configuration parameters in this section 
-    are defined for the <c>ssl</c> application. For more information 
+    are defined for the SSL application. For more information 
     about configuration parameters, see the 
     <seealso marker="kernel:application">application(3)</seealso>
-    manual page in <c>kernel</c>.</p>
+    manual page in Kernel.</p>
 
     <p>The environment parameters can be set on the command line,
     for example:</p>
@@ -60,7 +60,7 @@
       <tag><c><![CDATA[protocol_version =  <seealso marker="kernel:error_logger">ssl:protocol()</seealso> <optional>]]></c>.</tag>
       <item><p>Protocol supported by started clients and
       servers. If this option is not set, it defaults to all
-      protocols currently supported by the <c>ssl</c> application.
+      protocols currently supported by the SSL application.
       This option can be overridden by the version option
       to <c>ssl:connect/[2,3]</c> and <c>ssl:listen/2</c>.</p></item>
 
@@ -91,7 +91,7 @@
 
   <section>
     <title>ERROR LOGGER AND EVENT HANDLERS</title>
-    <p>The <c>ssl</c> applications uses the default <seealso marker="kernel:error_logger">OTP error logger</seealso> to log unexpected errors and TLS alerts. The logging of TLS alerts may be turned off with the <c>log_alert</c> option. </p>
+    <p>The SSL application uses the default <seealso marker="kernel:error_logger">OTP error logger</seealso> to log unexpected errors and TLS alerts. The logging of TLS alerts may be turned off with the <c>log_alert</c> option. </p>
   </section>
 
   <section>

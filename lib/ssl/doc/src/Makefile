@@ -37,7 +37,7 @@ RELSYSDIR = $(RELEASE_PATH)/lib/$(APPLICATION)-$(VSN)
 # Target Specs
 # ----------------------------------------------------
 XML_APPLICATION_FILES = refman.xml
-XML_REF3_FILES = ssl.xml ssl_crl_cache.xml ssl_crl_cache.xml ssl_session_cache_api.xml 
+XML_REF3_FILES = ssl.xml ssl_crl_cache.xml ssl_crl_cache_api.xml ssl_session_cache_api.xml 
 XML_REF6_FILES = ssl_app.xml
 
 XML_PART_FILES = release_notes.xml usersguide.xml

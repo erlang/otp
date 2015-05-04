@@ -108,8 +108,8 @@
 	API functions. Is called by the cache handling processes
 	<c>init</c> function, hence putting the same requirements on it
 	as a normal process <c>init</c> function. This function is
-	called twice when starting the <c>ssl</c> application, once with
-	the role client and once with the role server, as the <c>ssl</c>
+	called twice when starting the SSL application, once with
+	the role client and once with the role server, as the SSL
 	application must be prepared to take on both roles.
 	</p>
       </desc>

@@ -29,7 +29,7 @@
     <p>
       Implements an internal CRL (Certificate Revocation List) cache.
       In addition to implementing the <seealso
-      marker="ssl_cache_crl_api"> ssl_cache_crl_api</seealso> behaviour
+      marker="ssl_crl_cache_api"> ssl_crl_cache_api</seealso> behaviour
       the following functions are available.
     </p>
   </description>
@@ -44,7 +44,7 @@
 	  <v> Reason = term()</v>
 	</type>
 	<desc>
-	  Delete CRLs from the ssl applications local cache.
+	  <p>Delete CRLs from the ssl applications local cache. </p>
 	</desc>
       </func>     
       <func>
@@ -58,7 +58,7 @@
 	  <v> Reason = term()</v>
 	</type>
 	<desc>
-	Insert CRLs into the ssl applications local cache.
+	 <p>Insert CRLs into the ssl applications local cache. </p>
 	</desc>
       </func>
     </funcs>

@@ -38,11 +38,11 @@
       connection-based protocol as bearer. However, a module that 
       implements the protocol-specific parts of the connection setup is 
       needed. The default distribution module is <c>inet_tcp_dist</c> 
-      in the <c>kernel</c> application. When starting an
+      in the Kernel application. When starting an
       Erlang node distributed, <c>net_kernel</c> uses this module to
       set up listen ports and connections.</p>
 
-      <p>In the <c>ssl</c> application, an exra distribution
+      <p>In the SSL application, an exra distribution
       module, <c>inet_tls_dist</c>, can be used as an
       alternative. All distribution connections will use SSL and
       all participating Erlang nodes in a distributed system must use
@@ -57,7 +57,7 @@
 
       <list type="bulleted">
       <item><em>Step 1:</em> Build boot scripts including the
-      <c>ssl</c> application.</item>
+      SSL application.</item>
       <item><em>Step 2:</em> Specify the distribution module for 
       <c>net_kernel</c>.</item>
       <item><em>Step 3:</em> Specify the security options and other 
@@ -74,8 +74,8 @@
       see the <c>sasl</c> documentation. This is only an example of
       what can be done.</p>
 
-      <p>The simplest boot script possible includes only the <c>kernel</c> 
-      and <c>stdlib</c> applications. Such a script is located in the 
+      <p>The simplest boot script possible includes only the Kernel 
+      and STDLIB applications. Such a script is located in the 
       <c>bin</c> directory of the Erlang distribution. The source for the 
       script is found under the Erlang installation top directory under
       <c><![CDATA[releases/<OTP version>/start_clean.rel]]></c>.</p>
@@ -84,12 +84,12 @@
       <list type="bulleted">
 	<item><p>Copy that script to another location (and preferably another 
       name).</p></item>
-        <item><p>Add the applications <c>crypto</c>, <c>public_key</c>, and 
-	<c>ssl</c> with their current version numbers after the 
-	<c>stdlib</c>application.</p></item>
+        <item><p>Add the applications Crypto, Public Key, and 
+	SSL with their current version numbers after the 
+	STDLIB application.</p></item>
       </list>
 
-    <p>The following shows an example <c>.rel</c> file with <c>ssl</c> 
+    <p>The following shows an example <c>.rel</c> file with SSL 
     added:</p>
     <code type="none">
       {release, {"OTP  APN 181 01","R15A"}, {erts, "5.9"},
@@ -132,27 +132,27 @@ Eshell V5.0  (abort with ^G)
 1> whereis(ssl_manager).
 <0.41.0>    ]]></code>
 
-    <p>The <c>whereis</c> function-call verifies that the <c>ssl</c> 
+    <p>The <c>whereis</c> function-call verifies that the SSL 
       application is started.</p>
 
       <p>As an alternative to building a bootscript, you can explicitly
-      add the path to the <c>ssl</c> <c>ebin</c> directory on the command
+      add the path to the SSL <c>ebin</c> directory on the command
       line. This is done with command-line option <c>-pa</c>. This
-      works as the <c>ssl</c> application does not need to be started for the
-      distribution to come up, as a clone of the <c>ssl</c> application is
-      hooked into the <c>kernel</c> application. So, as long as the
-      <c>ssl</c> application code can be reached, the distribution starts. 
+      works as the SSL application does not need to be started for the
+      distribution to come up, as a clone of the SSL application is
+      hooked into the Kernel application. So, as long as the
+      SSL application code can be reached, the distribution starts. 
       The <c>-pa</c> method is only recommended for testing purposes.</p>
 
-      <note><p>The clone of the <c>ssl</c> application must
+      <note><p>The clone of the SSL application must
       enable the use of the SSL code in such an early bootstage as
       needed to set up the distribution. However, this makes it
-      impossible to soft upgrade the <c>ssl</c> application.</p></note>
+      impossible to soft upgrade the SSL application.</p></note>
   </section>
 
   <section>
     <title>Specifying Distribution Module for net_kernel</title>
-    <p>The distribution module for <c>ssl</c> is named <c>inet_tls_dist</c>
+    <p>The distribution module for SSL is named <c>inet_tls_dist</c>
       and is specified on the command line with option <c>-proto_dist</c>.
       The argument to <c>-proto_dist</c> is to be the module
       name without suffix <c>_dist</c>. So, this distribution
@@ -172,7 +172,7 @@ Eshell V5.0  (abort with ^G)
 (ssl_test@myhost)1>     </code>
 
     <p>However, a node started in this way refuses to talk
-      to other nodes, as no <c>ssl</c> parameters are supplied
+      to other nodes, as no SSL parameters are supplied
       (see the next section).</p>
   </section>
 
