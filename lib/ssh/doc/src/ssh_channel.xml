@@ -259,7 +259,7 @@
 	<v>State = term()</v>
 	<d>Internal state of the channel.</d>
         <v>Extra = term()</v>
-	<d>Passed “as-is” from the <c>{advanced,Extra}</c>
+	<d>Passed "as-is" from the <c>{advanced,Extra}</c>
 	part of the update instruction.</d>
       </type>
       <desc>
