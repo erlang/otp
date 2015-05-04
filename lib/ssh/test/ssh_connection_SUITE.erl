@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -76,12 +76,13 @@ end_per_suite(_Config) ->
     crypto:stop().
 
 %%--------------------------------------------------------------------
-init_per_group(openssh, _Config) ->
+init_per_group(openssh, Config) ->
     case gen_tcp:connect("localhost", 22, []) of
 	{error,econnrefused} ->
 	    {skip,"No openssh deamon"};
 	{ok, Socket} ->
-	    gen_tcp:close(Socket)
+	    gen_tcp:close(Socket),
+	    ssh_test_lib:openssh_sanity_check(Config)
     end;
 init_per_group(_, Config) ->
     Config.
@@ -93,7 +94,7 @@ end_per_group(_, Config) ->
 init_per_testcase(_TestCase, Config) ->
     %% To make sure we start clean as it is not certain that
     %% end_per_testcase will be run!
-    ssh:stop(),
+    end_per_testcase(Config),
     ssh:start(),
     Config.
 

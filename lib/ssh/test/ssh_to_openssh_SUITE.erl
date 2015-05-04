@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -66,7 +66,7 @@ init_per_suite(Config) ->
 		{error,econnrefused} ->
 		    {skip,"No openssh deamon"};
 		_ ->
-		    Config
+		    ssh_test_lib:openssh_sanity_check(Config)
 	    end;
 	_Else ->
 	    {skip,"Could not start crypto!"}
