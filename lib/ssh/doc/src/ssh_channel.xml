@@ -88,7 +88,7 @@
       <fsummary>Makes a synchronous call to a channel.</fsummary>
       <type>
 	<v>ChannelRef = pid() </v>
-	<d>As returned by <c>start_link/4</c></d>
+	<d>As returned by <seealso marker = "#start_link-4">ssh_channel:start_link/4</seealso></d>
 	<v>Msg = term()</v>
 	<v>Timeout = timeout()</v>
 	<v>Reply = term()</v>
@@ -112,7 +112,7 @@
 	ChannelRef and returns ok.</fsummary>
       <type>
 	<v>ChannelRef = pid()</v>
-	<d>As returned by <c>start_link/4</c></d>
+	<d>As returned by <seealso marker = "#start_link-4">ssh_channel:start_link/4</seealso></d>
 	<v>Msg = term()</v>
       </type>
       <desc>
@@ -129,8 +129,8 @@
       <name>enter_loop(State) -> _ </name>
       <fsummary>Makes an existing process an ssh_channel process.</fsummary>
       <type>
-	<v>State = term() - as returned by
-	<seealso marker = "#init-1">ssh_channel:init/1</seealso></v>
+	<v>State = term()</v>
+	<d>as returned by <seealso marker = "#init-1">ssh_channel:init/1</seealso></d>
       </type>
       <desc>
 	<p>Makes an existing process an <c>ssh_channel</c>
@@ -188,7 +188,7 @@
       <name>reply(Client, Reply) -> _</name>
       <fsummary>Sends a reply to a client.</fsummary>
       <type>
-        <v>Client - opaque to the user, see explanation below</v>
+        <v>Client = opaque()</v>
         <v>Reply = term()</v>
       </type>
       <desc>
@@ -313,13 +313,15 @@
       <c>ssh_channel:call/[2,3]</c>.</fsummary>
       <type>
 	<v>Msg = term()</v>
-	<v>From = Opaque to the user, is to be used as argument to
-	ssh_channel:reply/2</v>
+	<v>From = opaque()</v>
+	<d>Is to be used as argument to
+	<seealso marker="#reply-2">ssh_channel:reply/2</seealso></d>
 	<v>State = term()</v>
 	<v>Result = {reply, Reply, NewState} | {reply, Reply, NewState, timeout()}
 	| {noreply, NewState} | {noreply , NewState, timeout()}
 	| {stop, Reason, Reply, NewState} | {stop, Reason, NewState} </v>
-	<v>Reply = term() - will be the return value of ssh_channel:call/[2,3]</v>
+	<v>Reply = term()</v>
+	<d>Will be the return value of <seealso marker="#call-2">ssh_channel:call/[2,3]</seealso></d>
 	<v>NewState = term()</v>
 	<v>Reason = term()</v>
       </type>
@@ -418,7 +420,7 @@
     <func>
       <name>Module:terminate(Reason, State) -> _</name>
       <fsummary>Does cleaning up before channel process termination.
-</fsummary>
+      </fsummary>
       <type>
 	<v>Reason = term()</v>
 	<v>State = term()</v>
