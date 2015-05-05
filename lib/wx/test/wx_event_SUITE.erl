@@ -379,25 +379,29 @@ recursive(Config) ->
     Frame = wxFrame:new(Wx, ?wxID_ANY, "Connect in callback"),
     Panel = wxPanel:new(Frame, []),
     Sz = wxBoxSizer:new(?wxVERTICAL),
-    ListBox = wxListBox:new(Panel, ?wxID_ANY, [{choices, ["foo", "bar", "baz"]}]),
-    wxSizer:add(Sz, ListBox, [{proportion, 1},{flag, ?wxEXPAND}]),
-    wxWindow:setSizer(Panel, Sz),
-    wxListBox:connect(ListBox, command_listbox_selected,
-		      [{callback,
-			fun(#wx{event=#wxCommand{commandInt=Id}}, _) ->
-				io:format("Selected ~p~n",[Id])
-			end}]),
-    wxListBox:setSelection(ListBox, 0),
-    wxListBox:connect(ListBox, size,
-		      [{callback,
-			fun(#wx{event=#wxSize{}}, _) ->
-				io:format("Size init ~n",[]),
-				case wxListBox:getCount(ListBox) > 0 of
-				    true ->  wxListBox:delete(ListBox, 0);
-				    false -> ok
-				end,
-				io:format("Size done ~n",[])
-			end}]),
+    Ctrl1 = wxTextCtrl:new(Panel, ?wxID_ANY, [{size, {300, -1}}]),
+    Ctrl2 = wxTextCtrl:new(Panel, ?wxID_ANY, [{size, {300, -1}}]),
+    wxSizer:add(Sz, Ctrl1, [{proportion, 1},{flag, ?wxEXPAND}]),
+    wxSizer:add(Sz, Ctrl2, [{proportion, 1},{flag, ?wxEXPAND}]),
+    wxWindow:setSizerAndFit(Panel, Sz),
+
+    CB1 =  fun(#wx{event=#wxCommand{cmdString=String}}, _) ->
+		   io:format(" CB1: ~s~n",[String]),
+		   wxTextCtrl:setValue(Ctrl2, io_lib:format("from CB1 ~s", [String]))
+	   end,
+    CB2 =  fun(#wx{event=#wxCommand{cmdString=String}}, _) ->
+		   io:format("    CB2: ~s~n",[String]),
+		   ok
+	   end,
+    wxTextCtrl:connect(Ctrl1, command_text_updated, [{callback,CB1}]),
+    wxTextCtrl:connect(Ctrl2, command_text_updated, [{callback,CB2}]),
+    wxFrame:connect(Frame, size,
+		    [{callback,
+		      fun(#wx{event=#wxSize{size=Size}}, _) ->
+			      io:format("Size init: ~s ~n",[wxTextCtrl:getValue(Ctrl2)]),
+			      wxTextCtrl:setValue(Ctrl1, io_lib:format("Size ~p", [Size])),
+			      io:format("Size done: ~s ~n",[wxTextCtrl:getValue(Ctrl2)])
+		      end}]),
     wxFrame:show(Frame),
     wx_test_lib:flush(),
 

@@ -60,8 +60,8 @@ public:
 #endif
   void shutdown(wxeMetaCommand& event);
 
-  int dispatch(wxList *, int, int);
-  void dispatch_cb(wxList * batch, wxList * temp, ErlDrvTermData process);
+  int dispatch(wxeFifo *, int, int);
+  void dispatch_cb(wxeFifo * batch, wxeFifo * temp, ErlDrvTermData process);
 
   void wxe_dispatch(wxeCommand& event);
 
@@ -93,7 +93,7 @@ public:
 
   int recurse_level;
   wxList * delayed_cleanup;
-  wxList * delayed_delete;
+  wxeFifo * delayed_delete;
   // Temp container for callbacks
   char *cb_buff;
   int  cb_len;

@@ -197,8 +197,8 @@ gen_funcs(Defs) ->
     w("       if(recurse_level > 1 && refd->type != 4) {~n"),
     w("          delayed_delete->Append(Ecmd.Save());~n"),
     w("       } else {~n"),
-    w("          ((WxeApp *) wxTheApp)->clearPtr(This);~n"),
-    w("          delete_object(This, refd); }~n"),
+    w("          delete_object(This, refd);~n"),
+    w("          ((WxeApp *) wxTheApp)->clearPtr(This);}~n"),
     w("  } } break;~n"),
     w("  case WXE_REGISTER_OBJECT: {~n"
       "     registerPid(bp, Ecmd.caller, memenv);~n"

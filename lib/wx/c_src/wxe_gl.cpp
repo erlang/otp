@@ -135,8 +135,12 @@ void deleteActiveGL(wxGLCanvas *canvas)
 void gl_dispatch(int op, char *bp,ErlDrvTermData caller,WXEBinRef *bins[]){
   if(caller != gl_active) {
     wxGLCanvas * current = glc[caller];
-    if(current) { gl_active = caller; current->SetCurrent();}
-    else {
+    if(current) {
+      if(current != glc[gl_active]) {
+	gl_active = caller;
+	current->SetCurrent();
+      }
+    } else {
       ErlDrvTermData rt[] = // Error msg
 	{ERL_DRV_ATOM, driver_mk_atom((char *) "_egl_error_"),
 	 ERL_DRV_INT,  (ErlDrvTermData) op,
