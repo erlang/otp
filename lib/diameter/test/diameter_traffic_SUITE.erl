@@ -707,9 +707,8 @@ send_timeout(Config) ->
 %% received the Session-Id.
 send_error(Config) ->
     Req = ['RAR', {'Re-Auth-Request-Type', ?AUTHORIZE_AUTHENTICATE}],
-    ?answer_message(SId, ?TOO_BUSY)
-        = call(Config, Req),
-    true = undefined /= SId.
+    ?answer_message([_], ?TOO_BUSY)
+        = call(Config, Req).
 
 %% Send a request with the detached option and receive it as a message
 %% from handle_answer instead.
