@@ -213,9 +213,9 @@ void hipe_print_pcb(Process *p)
     U("seq..clock ", seq_trace_clock);
     U("seq..astcnt", seq_trace_lastcnt);
     U("seq..token ", seq_trace_token);
-    U("intial[0]  ", initial[0]);
-    U("intial[1]  ", initial[1]);
-    U("intial[2]  ", initial[2]);
+    U("intial[0]  ", u.initial[0]);
+    U("intial[1]  ", u.initial[1]);
+    U("intial[2]  ", u.initial[2]);
     P("current    ", current);
     P("cp         ", cp);
     P("i          ", i);

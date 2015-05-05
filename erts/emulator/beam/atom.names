@@ -68,6 +68,7 @@ atom aborted
 atom abs_path
 atom absoluteURI
 atom ac
+atom accessor
 atom active
 atom all
 atom all_but_first
@@ -94,12 +95,14 @@ atom args
 atom arg0
 atom arity
 atom asn1
+atom async
 atom asynchronous
 atom atom
 atom atom_used
 atom attributes
 atom await_port_send_result
 atom await_proc_exit
+atom await_result
 atom await_sched_wall_time_modifications
 atom awaiting_load
 atom awaiting_unload

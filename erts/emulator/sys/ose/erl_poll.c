@@ -506,7 +506,7 @@ int erts_poll_wait(ErtsPollSet ps,
     }
     else {
 	ErtsMonotonicTime current_time, diff_time;
-	current_time = erts_get_monotonic_time();
+	current_time = erts_get_monotonic_time(NULL);
 	diff_time = timeout_time - current_time;
 	if (diff_time <= 0)
 	    goto no_timeout;

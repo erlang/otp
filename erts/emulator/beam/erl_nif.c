@@ -335,7 +335,7 @@ int enif_send(ErlNifEnv* env, const ErlNifPid* to_pid,
     rp = (scheduler
 	  ? erts_proc_lookup(receiver)
 	  : erts_pid2proc_opt(c_p, ERTS_PROC_LOCK_MAIN,
-			      receiver, rp_locks, ERTS_P2P_FLG_SMP_INC_REFC));
+			      receiver, rp_locks, ERTS_P2P_FLG_INC_REFC));
     if (rp == NULL) {
 	ASSERT(env == NULL || receiver != c_p->common.id);
 	return 0;
@@ -367,7 +367,7 @@ int enif_send(ErlNifEnv* env, const ErlNifPid* to_pid,
     if (rp_locks)
 	erts_smp_proc_unlock(rp, rp_locks);
     if (!scheduler)
-	erts_smp_proc_dec_refc(rp);
+	erts_proc_dec_refc(rp);
     if (flush_me) {
 	cache_env(env);
     }

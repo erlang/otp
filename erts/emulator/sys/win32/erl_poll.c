@@ -454,7 +454,7 @@ poll_wait_timeout(ErtsPollSet ps, ErtsMonotonicTime timeout_time)
 	return (DWORD) 0;
     }
 
-    current_time = erts_get_monotonic_time();
+    current_time = erts_get_monotonic_time(NULL);
     diff_time = timeout_time - current_time;
     if (diff_time <= 0)
 	goto no_timeout;

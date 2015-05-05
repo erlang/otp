@@ -269,7 +269,10 @@ erts_whereis_name_to_id(Process *c_p, Eterm name)
 #ifdef ERTS_SMP
     ErtsProcLocks c_p_locks = c_p ? ERTS_PROC_LOCK_MAIN : 0;
 
-    ERTS_SMP_CHK_HAVE_ONLY_MAIN_PROC_LOCK(c_p);
+#ifdef ERTS_ENABLE_LOCK_CHECK
+    if (c_p) ERTS_SMP_CHK_HAVE_ONLY_MAIN_PROC_LOCK(c_p);
+#endif
+
     reg_safe_read_lock(c_p, &c_p_locks);
     if (c_p && !c_p_locks)
         erts_smp_proc_lock(c_p, ERTS_PROC_LOCK_MAIN);
@@ -380,8 +383,6 @@ erts_whereis_name(Process *c_p,
 			erts_smp_proc_unlock(rp->p, need_locks);
 		    *proc = NULL;
 		}
-		if (*proc && (flags & ERTS_P2P_FLG_SMP_INC_REFC))
-		    erts_smp_proc_inc_refc(rp->p);
 	    }
 #else
 	    if (rp->p
@@ -390,6 +391,8 @@ erts_whereis_name(Process *c_p,
 	    else
 		*proc = NULL;
 #endif
+	    if (*proc && (flags & ERTS_P2P_FLG_INC_REFC))
+		erts_proc_inc_refc(*proc);
 	}
     }
 

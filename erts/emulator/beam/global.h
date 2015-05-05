@@ -1305,8 +1305,7 @@ erts_alloc_message_heap_state(Uint size,
     state = erts_smp_atomic32_read_acqb(&receiver->state);
     if (statep)
 	*statep = state;
-    if (state & (ERTS_PSFLG_OFF_HEAP_MSGS
-		 | ERTS_PSFLG_EXITING
+    if (state & (ERTS_PSFLG_EXITING
 		 | ERTS_PSFLG_PENDING_EXIT))
 	goto allocate_in_mbuf;
 #endif
@@ -1327,8 +1326,7 @@ erts_alloc_message_heap_state(Uint size,
 	state = erts_smp_atomic32_read_nob(&receiver->state);
 	if (statep)
 	    *statep = state;
-	if ((state & (ERTS_PSFLG_OFF_HEAP_MSGS
-		      | ERTS_PSFLG_EXITING
+	if ((state & (ERTS_PSFLG_EXITING
 		      | ERTS_PSFLG_PENDING_EXIT))
 	    || (receiver->flags & F_DISABLE_GC)
 	    || HEAP_LIMIT(receiver) - HEAP_TOP(receiver) <= size) {

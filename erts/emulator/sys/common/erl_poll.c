@@ -2026,7 +2026,7 @@ get_timeout(ErtsPollSet ps,
     }
     else {
 	ErtsMonotonicTime diff_time, current_time;
-	current_time = erts_get_monotonic_time();
+	current_time = erts_get_monotonic_time(NULL);
 	diff_time = timeout_time - current_time;
 	if (diff_time <= 0) {
 	    save_timeout_time = ERTS_MONOTONIC_TIME_MIN;

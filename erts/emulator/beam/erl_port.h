@@ -350,6 +350,7 @@ int erts_lc_is_port_locked(Port *);
 ERTS_GLB_INLINE void erts_port_inc_refc(Port *prt);
 ERTS_GLB_INLINE void erts_port_dec_refc(Port *prt);
 ERTS_GLB_INLINE void erts_port_add_refc(Port *prt, Sint32 add_refc);
+ERTS_GLB_INLINE Sint erts_port_read_refc(Port *prt);
 
 ERTS_GLB_INLINE int erts_smp_port_trylock(Port *prt);
 ERTS_GLB_INLINE void erts_smp_port_lock(Port *prt);
@@ -359,37 +360,26 @@ ERTS_GLB_INLINE void erts_smp_port_unlock(Port *prt);
 
 ERTS_GLB_INLINE void erts_port_inc_refc(Port *prt)
 {
-#ifdef ERTS_SMP
-    erts_ptab_inc_refc(&prt->common);
-#else
-    erts_atomic32_inc_nob(&prt->refc);
-#endif
+    erts_ptab_atmc_inc_refc(&prt->common);
 }
 
 ERTS_GLB_INLINE void erts_port_dec_refc(Port *prt)
 {
-#ifdef ERTS_SMP
-    int referred = erts_ptab_dec_test_refc(&prt->common);
+    int referred = erts_ptab_atmc_dec_test_refc(&prt->common);
     if (!referred)
 	erts_port_free(prt);
-#else
-    int refc = erts_atomic32_dec_read_nob(&prt->refc);
-    if (refc == 0)
-	erts_port_free(prt);	
-#endif
 }
 
 ERTS_GLB_INLINE void erts_port_add_refc(Port *prt, Sint32 add_refc)
 {
-#ifdef ERTS_SMP
-    int referred = erts_ptab_add_test_refc(&prt->common, add_refc);
+    int referred = erts_ptab_atmc_add_test_refc(&prt->common, add_refc);
     if (!referred)
 	erts_port_free(prt);
-#else
-    int refc = erts_atomic32_add_read_nob(&prt->refc, add_refc);
-    if (refc == 0)
-	erts_port_free(prt);	
-#endif
+}
+
+ERTS_GLB_INLINE Sint erts_port_read_refc(Port *prt)
+{
+    return erts_ptab_atmc_read_refc(&prt->common);
 }
 
 ERTS_GLB_INLINE int

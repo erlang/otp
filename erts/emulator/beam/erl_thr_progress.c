@@ -1360,6 +1360,7 @@ erts_thr_progress_fatal_error_wait(SWord timeout) {
     erts_aint32_t bc;
     SWord time_left = timeout;
     ErtsMonotonicTime timeout_time;
+    ErtsSchedulerData *esdp = erts_get_scheduler_data();
 
     /*
      * Counting poll intervals may give us a too long timeout
@@ -1367,7 +1368,7 @@ erts_thr_progress_fatal_error_wait(SWord timeout) {
      * this. In case we havn't got time correction this may
      * however fail too...
      */
-    timeout_time = erts_get_monotonic_time();
+    timeout_time = erts_get_monotonic_time(esdp);
     timeout_time += ERTS_MSEC_TO_MONOTONIC((ErtsMonotonicTime) timeout);
 
     while (1) {
@@ -1378,7 +1379,7 @@ erts_thr_progress_fatal_error_wait(SWord timeout) {
 	    break; /* Succefully blocked all managed threads */
 	if (time_left <= 0)
 	    break; /* Timeout */
-	if (timeout_time <= erts_get_monotonic_time())
+	if (timeout_time <= erts_get_monotonic_time(esdp))
 	    break; /* Timeout */
     }
 }
