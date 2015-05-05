@@ -445,7 +445,7 @@ send_ok(Config) ->
     Req = ['ACR', {'Accounting-Record-Type', ?EVENT_RECORD},
                   {'Accounting-Record-Number', 1}],
 
-    ['ACA', _SessionId, {'Result-Code', ?SUCCESS} | _]
+    ['ACA', {'Session-Id', _}, {'Result-Code', ?SUCCESS} | _]
         = call(Config, Req).
 
 %% Send an accounting ACR that the server answers badly to.
@@ -461,7 +461,7 @@ send_eval(Config) ->
     Req = ['ACR', {'Accounting-Record-Type', ?EVENT_RECORD},
                   {'Accounting-Record-Number', 3}],
 
-    ['ACA', _SessionId, {'Result-Code', ?SUCCESS} | _]
+    ['ACA', {'Session-Id', _}, {'Result-Code', ?SUCCESS} | _]
         = call(Config, Req).
 
 %% Send an accounting ACR that the server tries to answer with an
@@ -487,7 +487,7 @@ send_protocol_error(Config) ->
 send_experimental_result(Config) ->
     Req = ['ACR', {'Accounting-Record-Type', ?EVENT_RECORD},
                   {'Accounting-Record-Number', 5}],
-    ['ACA', _SessionId | _]
+    ['ACA', {'Session-Id', _} | _]
         = call(Config, Req).
 
 %% Send an ASR with an arbitrary non-mandatory AVP and expect success
@@ -495,7 +495,7 @@ send_experimental_result(Config) ->
 send_arbitrary(Config) ->
     Req = ['ASR', {'AVP', [#diameter_avp{name = 'Product-Name',
                                          value = "XXX"}]}],
-    ['ASA', _SessionId, {'Result-Code', ?SUCCESS} | Avps]
+    ['ASA', {'Session-Id', _}, {'Result-Code', ?SUCCESS} | Avps]
         = call(Config, Req),
     {'AVP', [#diameter_avp{name = 'Product-Name',
                            value = V}]}
@@ -507,7 +507,7 @@ send_unknown(Config) ->
     Req = ['ASR', {'AVP', [#diameter_avp{code = 999,
                                          is_mandatory = false,
                                          data = <<17>>}]}],
-    ['ASA', _SessionId, {'Result-Code', ?SUCCESS} | Avps]
+    ['ASA', {'Session-Id', _}, {'Result-Code', ?SUCCESS} | Avps]
         = call(Config, Req),
     {'AVP', [#diameter_avp{code = 999,
                            is_mandatory = false,
@@ -523,7 +523,7 @@ send_unknown_short(Config, M, RC) ->
     Req = ['ASR', {'AVP', [#diameter_avp{code = 999,
                                          is_mandatory = M,
                                          data = <<17>>}]}],
-    ['ASA', _SessionId, {'Result-Code', RC} | Avps]
+    ['ASA', {'Session-Id', _}, {'Result-Code', RC} | Avps]
         = call(Config, Req),
     [#'diameter_base_Failed-AVP'{'AVP' = As}]
         = proplists:get_value('Failed-AVP', Avps),
@@ -537,7 +537,7 @@ send_unknown_mandatory(Config) ->
     Req = ['ASR', {'AVP', [#diameter_avp{code = 999,
                                          is_mandatory = true,
                                          data = <<17>>}]}],
-    ['ASA', _SessionId, {'Result-Code', ?AVP_UNSUPPORTED} | Avps]
+    ['ASA', {'Session-Id', _}, {'Result-Code', ?AVP_UNSUPPORTED} | Avps]
         = call(Config, Req),
     [#'diameter_base_Failed-AVP'{'AVP' = As}]
         = proplists:get_value('Failed-AVP', Avps),
@@ -557,7 +557,7 @@ send_unexpected_mandatory_decode(Config) ->
     Req = ['ASR', {'AVP', [#diameter_avp{code = 27,  %% Session-Timeout
                                          is_mandatory = true,
                                          data = <<12:32>>}]}],
-    ['ASA', _SessionId, {'Result-Code', ?AVP_UNSUPPORTED} | Avps]
+    ['ASA', {'Session-Id', _}, {'Result-Code', ?AVP_UNSUPPORTED} | Avps]
         = call(Config, Req),
     [#'diameter_base_Failed-AVP'{'AVP' = As}]
         = proplists:get_value('Failed-AVP', Avps),
@@ -593,7 +593,7 @@ send_error_bit(Config) ->
 %% Send a bad version and check that we get 5011.
 send_unsupported_version(Config) ->
     Req = ['STR', {'Termination-Cause', ?LOGOUT}],
-    ['STA', _SessionId, {'Result-Code', ?UNSUPPORTED_VERSION} | _]
+    ['STA', {'Session-Id', _}, {'Result-Code', ?UNSUPPORTED_VERSION} | _]
         = call(Config, Req).
 
 %% Send a request containing an AVP length > data size.
@@ -613,14 +613,14 @@ send_zero_avp_length(Config) ->
 send_invalid_avp_length(Config) ->
     Req = ['STR', {'Termination-Cause', ?LOGOUT}],
 
-    ['STA', _SessionId,
+    ['STA', {'Session-Id', _},
             {'Result-Code', ?INVALID_AVP_LENGTH},
-            _OriginHost,
-            _OriginRealm,
-            _UserName,
-            _Class,
-            _ErrorMessage,
-            _ErrorReportingHost,
+            {'Origin-Host', _},
+            {'Origin-Realm', _},
+            {'User-Name', _},
+            {'Class', _},
+            {'Error-Message', _},
+            {'Error-Reporting-Host', _},
             {'Failed-AVP', [#'diameter_base_Failed-AVP'{'AVP' = [_]}]}
           | _]
         = call(Config, Req).
@@ -638,14 +638,14 @@ send_invalid_reject(Config) ->
 send_unexpected_mandatory(Config) ->
     Req = ['STR', {'Termination-Cause', ?LOGOUT}],
 
-    ['STA', _SessionId, {'Result-Code', ?AVP_UNSUPPORTED} | _]
+    ['STA', {'Session-Id', _}, {'Result-Code', ?AVP_UNSUPPORTED} | _]
         = call(Config, Req).
 
 %% Send something long that will be fragmented by TCP.
 send_long(Config) ->
     Req = ['STR', {'Termination-Cause', ?LOGOUT},
                   {'User-Name', [lists:duplicate(1 bsl 20, $X)]}],
-    ['STA', _SessionId, {'Result-Code', ?SUCCESS} | _]
+    ['STA', {'Session-Id', _}, {'Result-Code', ?SUCCESS} | _]
         = call(Config, Req).
 
 %% Send something longer than the configure incoming_maxlen.
@@ -687,7 +687,7 @@ send_any_2(Config) ->
 send_all_1(Config) ->
     Req = ['STR', {'Termination-Cause', ?LOGOUT}],
     Realm = lists:foldr(fun(C,A) -> [C,A] end, [], ?REALM),
-    ['STA', _SessionId, {'Result-Code', ?SUCCESS} | _]
+    ['STA', {'Session-Id', _}, {'Result-Code', ?SUCCESS} | _]
         = call(Config, Req, [{filter, {all, [{host, any},
                                              {realm, Realm}]}}]).
 send_all_2(Config) ->
@@ -718,7 +718,7 @@ send_detach(Config) ->
     Ref = make_ref(),
     ok = call(Config, Req, [{extra, [{self(), Ref}]}, detach]),
     Ans = receive {Ref, T} -> T end,
-    ['STA', _SessionId, {'Result-Code', ?SUCCESS} | _]
+    ['STA', {'Session-Id', _}, {'Result-Code', ?SUCCESS} | _]
         = Ans.
 
 %% Send a request which can't be encoded and expect {error, encode}.
@@ -731,11 +731,11 @@ send_destination_1(Config) ->
         = group(Config),
     Req = ['STR', {'Termination-Cause', ?LOGOUT},
                   {'Destination-Host', [?HOST(SN, ?REALM)]}],
-    ['STA', _SessionId, {'Result-Code', ?SUCCESS} | _]
+    ['STA', {'Session-Id', _}, {'Result-Code', ?SUCCESS} | _]
         = call(Config, Req, [{filter, {all, [host, realm]}}]).
 send_destination_2(Config) ->
     Req = ['STR', {'Termination-Cause', ?LOGOUT}],
-    ['STA', _SessionId, {'Result-Code', ?SUCCESS} | _]
+    ['STA', {'Session-Id', _}, {'Result-Code', ?SUCCESS} | _]
         = call(Config, Req, [{filter, {all, [host, realm]}}]).
 
 %% Send with filtering on and expect failure when specifying an
@@ -799,7 +799,7 @@ send_bad_filter(Config, F) ->
 %% Specify multiple filter options and expect them be conjunctive.
 send_multiple_filters_1(Config) ->
     Fun = fun(#diameter_caps{}) -> true end,
-    ['STA', _SessionId, {'Result-Code', ?SUCCESS} | _]
+    ['STA', {'Session-Id', _}, {'Result-Code', ?SUCCESS} | _]
         = send_multiple_filters(Config, [host, {eval, Fun}]).
 send_multiple_filters_2(Config) ->
     E = {erlang, is_tuple, []},
@@ -810,7 +810,7 @@ send_multiple_filters_3(Config) ->
     E2 = {erlang, is_tuple, []},
     E3 = {erlang, is_record, [diameter_caps]},
     E4 = [{erlang, is_record, []}, diameter_caps],
-    ['STA', _SessionId, {'Result-Code', ?SUCCESS} | _]
+    ['STA', {'Session-Id', _}, {'Result-Code', ?SUCCESS} | _]
         = send_multiple_filters(Config, [{eval, E} || E <- [E1,E2,E3,E4]]).
 
 send_multiple_filters(Config, Fs) ->
@@ -821,7 +821,7 @@ send_multiple_filters(Config, Fs) ->
 %% only the return value from the prepare_request callback being
 %% significant.
 send_anything(Config) ->
-    ['STA', _SessionId, {'Result-Code', ?SUCCESS} | _]
+    ['STA', {'Session-Id', _}, {'Result-Code', ?SUCCESS} | _]
         = call(Config, anything).
 
 %% ===========================================================================
