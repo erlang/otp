@@ -70,9 +70,27 @@
 
 	<desc><p>The <c><![CDATA[apread]]></c> function reads from a specified position,
 	combining the <c><![CDATA[position]]></c> and <c><![CDATA[aread]]></c> functions.</p>
-	<p><seealso marker="#apread/3">ssh_sftp:apread/4</seealso></p> </desc>
+	<p><seealso marker="#apread-4">ssh_sftp:apread/4</seealso></p> </desc>
       </func>
 
+      <func>
+	<name>apwrite(ChannelPid, Handle, Position, Data) -> ok | {error, Reason}</name>
+	<fsummary>Writes asynchronously to an open file.</fsummary>
+	<type>
+	  <v>ChannelPid = pid()</v>
+	  <v>Handle = term()</v>
+	  <v>Position = integer()</v>
+	  <v>Len = integer()</v>
+	  <v>Data = binary()</v>
+	  <v>Timeout = timeout()</v>
+	  <v>Reason = term()</v>
+	</type>
+	<desc>
+	  <p><c><![CDATA[apwrite]]></c> writes on a specified position, combining
+          the <c><![CDATA[position]]></c> and <c><![CDATA[awrite]]></c> operations.</p>
+	<p><seealso marker="#awrite-3">ssh_sftp:awrite/3</seealso> </p></desc>
+      </func>
+      
       <func>
 	<name>aread(ChannelPid, Handle, Len) -> {async, N} | {error, Error}</name>
 	<fsummary>Reads asynchronously from an open file.</fsummary>
@@ -95,23 +113,7 @@
       </desc>
     </func>
 
-    <func>
-      <name>apwrite(ChannelPid, Handle, Position, Data) -> ok | {error, Reason}</name>
-      <fsummary>Writes asynchronously to an open file.</fsummary>
-      <type>
-        <v>ChannelPid = pid()</v>
-        <v>Handle = term()</v>
-        <v>Position = integer()</v>
-        <v>Len = integer()</v>
-        <v>Data = binary()</v>
-	<v>Timeout = timeout()</v>
-        <v>Reason = term()</v>
-      </type>
-      <desc>
-	  <p><c><![CDATA[apwrite]]></c> writes on a specified position, combining
-          the <c><![CDATA[position]]></c> and <c><![CDATA[awrite]]></c> operations.</p>
-	  <p><seealso marker="#awrite/3">ssh_sftp:awrite/3</seealso> </p></desc>
-      </func>
+  
 
     <func>
       <name>awrite(ChannelPid, Handle, Data) -> ok | {error, Reason}</name>
@@ -163,7 +165,7 @@
       </type>
       <desc>
         <p>Deletes the file specified by <c><![CDATA[Name]]></c>, like
-	   <seealso marker="kernel:file#delete/1">file:delete/1</seealso></p>
+	   <seealso marker="kernel:file#delete-1">file:delete/1</seealso></p>
       </desc>
     </func>
 
@@ -232,7 +234,7 @@
       <desc>
         <p>Creates a symbolic link pointing to <c><![CDATA[Target]]></c> with the
           name <c><![CDATA[Name]]></c>, like
-	   <seealso marker="kernel:file#make_symlink/2">file:make_symlink/2</seealso></p>
+	   <seealso marker="kernel:file#make_symlink-2">file:make_symlink/2</seealso></p>
       </desc>
     </func>
 
@@ -297,7 +299,7 @@
       <desc>
         <p>Opens a handle to a tar file on the server, associated with <c>ChannelPid</c>.
 	The handle can be used for remote tar creation and extraction, as defined by the
-	<seealso marker="stdlib:erl_tar#init/3">erl_tar:init/3</seealso> function.
+	<seealso marker="stdlib:erl_tar#init-3">erl_tar:init/3</seealso> function.
 	</p>
 
 	<p> For code exampel see Section
@@ -387,7 +389,7 @@
       <desc>
 	<p>The <c><![CDATA[pread]]></c> function reads from a specified position,
 	combining the <c><![CDATA[position]]></c> and <c><![CDATA[read]]></c> functions.</p>
-	<p><seealso marker="#read/4">ssh_sftp:read/4</seealso></p>
+	<p><seealso marker="#read-4">ssh_sftp:read/4</seealso></p>
       </desc>
     </func>
 
@@ -406,7 +408,7 @@
       <desc>
 	<p>The <c><![CDATA[pread]]></c> function writes to a specified position,
 	combining the <c><![CDATA[position]]></c> and <c><![CDATA[write]]></c> functions.</p>
-	<p><seealso marker="#write/3">ssh_sftp:write/3</seealso></p>
+	<p><seealso marker="#write-3">ssh_sftp:write/3</seealso></p>
       </desc>
     </func>
 
@@ -449,7 +451,7 @@
       <desc>
         <p>Reads a file from the server, and returns the data in a binary,
           like
-	   <seealso marker="kernel:file#read_file/1">file:read_file/1</seealso></p>
+	   <seealso marker="kernel:file#read_file-1">file:read_file/1</seealso></p>
       </desc>
     </func>
 
@@ -468,7 +470,7 @@
       <desc>
         <p>Returns a <c><![CDATA[file_info]]></c> record from the file specified by
           <c><![CDATA[Name]]></c> or <c><![CDATA[Handle]]></c>,
-	like <seealso marker="kernel:file#read_file_info/2">file:read_file_info/2</seealso></p>
+	like <seealso marker="kernel:file#read_file_info-2">file:read_file_info/2</seealso></p>
       </desc>
     </func>
 
@@ -485,7 +487,7 @@
       <desc>
         <p>Reads the link target from the symbolic link specified
           by <c><![CDATA[name]]></c>, like
-	  <seealso marker="kernel:file#read_link/1">file:read_link/1</seealso></p>
+	  <seealso marker="kernel:file#read_link-1">file:read_link/1</seealso></p>
       </desc>
     </func>
 
@@ -504,7 +506,7 @@
       <desc>
         <p>Returns a <c><![CDATA[file_info]]></c> record from the symbolic
           link specified by <c><![CDATA[Name]]></c> or <c><![CDATA[Handle]]></c>, like
-	<seealso marker="kernel:file#read_link_info/2">file:read_link_info/2</seealso></p>
+	<seealso marker="kernel:file#read_link_info-2">file:read_link_info/2</seealso></p>
       </desc>
     </func>
 
@@ -522,7 +524,7 @@
       <desc>
         <p>Renames a file named <c><![CDATA[OldName]]></c> and gives it the name
           <c><![CDATA[NewName]]></c>, like
-	    <seealso marker="kernel:file#rename/2">file:rename/2</seealso></p>
+	    <seealso marker="kernel:file#rename-2">file:rename/2</seealso></p>
       </desc>
     </func>
 
@@ -580,26 +582,7 @@
       </type>
       <desc>
 	<p>Stops an SFTP channel. Does not close the SSH connection.
-	Use <seealso marker="ssh#close/1">ssh:close/1</seealso> to close it.</p>
-      </desc>
-    </func>
-
-    <func>
-      <name>write_file(ChannelPid, File, Iolist) -></name>
-      <name>write_file(ChannelPid, File, Iolist, Timeout) -> ok | {error, Reason}</name>
-      <fsummary>Writes a file.</fsummary>
-      <type>
-        <v>ChannelPid = pid()</v>
-        <v>File = string()</v>
-        <v>Iolist = iolist()</v>
-	<v>Timeout = timeout()</v>
-        <v>Reason = term()</v>
-      </type>
-      <desc>
-        <p>Writes a file to the server, like <seealso
-        marker="kernel:file#write_file/2">file:write_file/2</seealso> The
-        file is created if it does not exist. The file is overwritten
-        if it exists.</p>
+	Use <seealso marker="ssh#close-1">ssh:close/1</seealso> to close it.</p>
       </desc>
     </func>
 
@@ -617,9 +600,9 @@
       </type>
       <desc>
         <p>Writes <c><![CDATA[data]]></c> to the file referenced by <c><![CDATA[Handle]]></c>.
-          The file is to be opened with <c><![CDATA[write]]></c> or <c><![CDATA[append]]></c>
-          flag. Returns <c><![CDATA[ok]]></c> if successful or <c><![CDATA[{error, Reason}]]></c>
-          otherwise.</p>
+	The file is to be opened with <c><![CDATA[write]]></c> or <c><![CDATA[append]]></c>
+	flag. Returns <c><![CDATA[ok]]></c> if successful or <c><![CDATA[{error, Reason}]]></c>
+	otherwise.</p>
         <p>Typical error reasons:</p>
         <taglist>
           <tag><c><![CDATA[ebadf]]></c></tag>
@@ -633,7 +616,26 @@
         </taglist>
       </desc>
     </func>
-
+    
+    <func>
+      <name>write_file(ChannelPid, File, Iolist) -></name>
+      <name>write_file(ChannelPid, File, Iolist, Timeout) -> ok | {error, Reason}</name>
+      <fsummary>Writes a file.</fsummary>
+      <type>
+        <v>ChannelPid = pid()</v>
+        <v>File = string()</v>
+        <v>Iolist = iolist()</v>
+	<v>Timeout = timeout()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Writes a file to the server, like <seealso
+        marker="kernel:file#write_file-2">file:write_file/2</seealso> The
+        file is created if it does not exist. The file is overwritten
+        if it exists.</p>
+      </desc>
+    </func>
+    
     <func>
       <name>write_file_info(ChannelPid, Name, Info) -></name>
       <name>write_file_info(ChannelPid, Name, Info, Timeout) -> ok | {error, Reason}</name>
@@ -647,11 +649,11 @@
       </type>
       <desc>
         <p>Writes file information from a <c><![CDATA[file_info]]></c> record to the
-          file specified by <c><![CDATA[Name]]></c>, like
-	   <seealso marker="kernel:file#write_file_info/2">file:write_file_info/[2,3]</seealso></p>
+	file specified by <c><![CDATA[Name]]></c>, like
+	<seealso marker="kernel:file#write_file_info-2">file:write_file_info/[2,3]</seealso></p>
       </desc>
     </func>
   </funcs>
-   
+  
 </erlref>
 
