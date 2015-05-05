@@ -700,7 +700,7 @@ handle_options(Opts0) ->
 		    log_alert = handle_option(log_alert, Opts, true),
 		    server_name_indication = handle_option(server_name_indication, Opts, undefined),
 		    sni_hosts = handle_option(sni_hosts, Opts, []),
-		    sni_fun = handle_option(sni_fun, Opts, {}),
+		    sni_fun = handle_option(sni_fun, Opts, undefined),
 		    honor_cipher_order = handle_option(honor_cipher_order, Opts, false),
 		    protocol = proplists:get_value(protocol, Opts, tls),
 		    padding_check =  proplists:get_value(padding_check, Opts, true),
@@ -933,8 +933,8 @@ validate_option(sni_hosts, [{Hostname, SSLOptions} | Tail]) when is_list(Hostnam
 		_ ->
 			throw({error, {options, {sni_hosts, RecursiveSNIOptions}}})
 	end;
-validate_option(sni_fun, {}) ->
-    {};
+validate_option(sni_fun, undefined) ->
+    undefined;
 validate_option(sni_fun, Fun) when is_function(Fun) ->
     Fun;
 validate_option(honor_cipher_order, Value) when is_boolean(Value) ->

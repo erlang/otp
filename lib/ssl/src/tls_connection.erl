@@ -401,12 +401,13 @@ initial_state(Role, Host, Port, Socket, {SSLOptions, SocketOptions, Tracker}, Us
 
 update_ssl_options_from_sni(OrigSSLOptions, SNIHostname) ->
     SSLOption = 
-    case OrigSSLOptions#ssl_options.sni_fun of
-        {} ->
-            proplists:get_value(SNIHostname, OrigSSLOptions#ssl_options.sni_hosts);
-        SNIFun ->
-            SNIFun(SNIHostname)
-    end,
+	case OrigSSLOptions#ssl_options.sni_fun of
+	    undefined ->
+		proplists:get_value(SNIHostname, 
+				    OrigSSLOptions#ssl_options.sni_hosts);
+	    SNIFun ->
+		SNIFun(SNIHostname)
+	end,
     case SSLOption of
         undefined ->
             undefined;
@@ -442,50 +443,22 @@ next_state(Current, Next, #ssl_tls{type = ?HANDSHAKE, fragment = Data},
    		%% This message should not be included in handshake
    		%% message hashes. Already in negotiation so it will be ignored!
    		?MODULE:SName(Packet, State);
-	   ({#client_hello{} = Packet, Raw}, {next_state, connection = SName, State}) ->
+	   ({#client_hello{} = Packet, Raw}, {next_state, connection = SName, HState0}) ->
+		HState = handle_sni_extension(Packet, HState0),
 		Version = Packet#client_hello.client_version,
 		Hs0 = ssl_handshake:init_handshake_history(),
 		Hs1 = ssl_handshake:update_handshake_history(Hs0, Raw),
-		?MODULE:SName(Packet, State#state{tls_handshake_history=Hs1,
-   						  renegotiation = {true, peer}});
-	   ({Packet, Raw}, {next_state, SName, State = #state{tls_handshake_history=Hs0}}) ->
+		?MODULE:SName(Packet, HState#state{tls_handshake_history=Hs1,
+						   renegotiation = {true, peer}});
+	   ({Packet, Raw}, {next_state, SName, HState0 = #state{tls_handshake_history=Hs0}}) ->
+		HState = handle_sni_extension(Packet, HState0),
 		Hs1 = ssl_handshake:update_handshake_history(Hs0, Raw),
-		?MODULE:SName(Packet, State#state{tls_handshake_history=Hs1});
+		?MODULE:SName(Packet, HState#state{tls_handshake_history=Hs1});
    	   (_, StopState) -> StopState
    	end,
     try
 	{Packets, Buf} = tls_handshake:get_tls_handshake(Version,Data,Buf0),
-    State1 = case Packets of
-                 [{#client_hello{extensions=HelloExtensions} = ClientHello, _}] ->
-                     case HelloExtensions#hello_extensions.sni of
-                         undefined ->
-                             State0;
-                         #sni{hostname = Hostname} ->
-                             NewOptions = update_ssl_options_from_sni(State0#state.ssl_options, Hostname),
-                             case NewOptions of
-                                 undefined ->
-                                     State0;
-                                 _ ->
-                                     {ok, Ref, CertDbHandle, FileRefHandle, CacheHandle, CRLDbHandle, OwnCert, Key, DHParams} = 
-                                     ssl_config:init(NewOptions, State0#state.role),
-                                     State0#state{
-                                       session = State0#state.session#session{own_certificate = OwnCert},
-                                       file_ref_db = FileRefHandle,
-                                       cert_db_ref = Ref,
-                                       cert_db = CertDbHandle,
-                                       crl_db = CRLDbHandle,
-                                       session_cache = CacheHandle,
-                                       private_key = Key,
-                                       diffie_hellman_params = DHParams,
-                                       ssl_options = NewOptions,
-                                       sni_hostname = Hostname
-                                      }
-                             end
-                     end;
-                 _ ->
-                     State0
-             end,
-	State = State1#state{protocol_buffers =
+	State = State0#state{protocol_buffers =
 				 Buffers#protocol_buffers{tls_packets = Packets,
 							  tls_handshake_buffer = Buf}},
 	handle_tls_handshake(Handle, Next, State)
@@ -1027,3 +1000,32 @@ convert_options_partial_chain(Options, up) ->
     list_to_tuple(Head ++ [{partial_chain, fun(_) -> unknown_ca end}] ++ Tail);
 convert_options_partial_chain(Options, down) ->
     list_to_tuple(proplists:delete(partial_chain, tuple_to_list(Options))).
+
+handle_sni_extension(#client_hello{extensions = HelloExtensions}, State0) ->
+    case HelloExtensions#hello_extensions.sni of
+	undefined ->
+	    State0;
+	#sni{hostname = Hostname} ->
+	    NewOptions = update_ssl_options_from_sni(State0#state.ssl_options, Hostname),
+	    case NewOptions of
+		undefined ->
+		    State0;
+		_ ->
+		    {ok, Ref, CertDbHandle, FileRefHandle, CacheHandle, CRLDbHandle, OwnCert, Key, DHParams} = 
+			ssl_config:init(NewOptions, State0#state.role),
+		    State0#state{
+		      session = State0#state.session#session{own_certificate = OwnCert},
+		      file_ref_db = FileRefHandle,
+		      cert_db_ref = Ref,
+		      cert_db = CertDbHandle,
+		      crl_db = CRLDbHandle,
+		      session_cache = CacheHandle,
+		      private_key = Key,
+		      diffie_hellman_params = DHParams,
+		      ssl_options = NewOptions,
+		      sni_hostname = Hostname
+		     }
+	    end
+    end;
+handle_sni_extension(_, State0) ->
+    State0.
