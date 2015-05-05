@@ -164,7 +164,7 @@ hello_from_server_first(Config) ->
     {ok,Client} = ct_netconfc:only_open(?DEFAULT_SSH_OPTS(DataDir)),
     ct:sleep(500),
     ?NS:expect(hello),
-    ?ok = ct_netconfc:hello(Client),
+    ?ok = ct_netconfc:hello(Client, [{capability, ["urn:com:ericsson:ebase:1.1.0"]}], infinity),
     ?NS:expect_do_reply('close-session',close,ok),
     ?ok = ct_netconfc:close_session(Client),
     ok.
