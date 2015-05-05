@@ -583,13 +583,11 @@ t_find_opaque_mismatch_list([H|T]) ->
 %% calling t_contains_opaque/2 is that the traversal stops when
 %% there is a mismatch which means that unknown opaque types "below"
 %% the mismatch are not found.
-%% XXX. Returns one element even if both oparands contain opaque types.
-%% XXX. Slow since t_inf() is called but the results are ignored.
 t_find_unknown_opaque(_T1, _T2, 'universe') -> [];
 t_find_unknown_opaque(T1, T2, Opaques) ->
   try t_inf(T1, T2, {match, Opaques}) of
     _ -> []
-  catch throw:N when is_integer(N) -> [N]
+  catch throw:{pos, Ns} -> Ns
   end.
 
 -spec t_decorate_with_opaque(erl_type(), erl_type(), [erl_type()]) -> erl_type().
@@ -2608,7 +2606,7 @@ inf_opaque1(T1, ?opaque(Set2)=T2, Pos, Opaques) ->
   end.
 
 inf_is_opaque_type(T, Pos, {match, Opaques}) ->
-  is_opaque_type(T, Opaques) orelse throw(Pos);
+  is_opaque_type(T, Opaques) orelse throw({pos, [Pos]});
 inf_is_opaque_type(T, _Pos, Opaques) ->
   is_opaque_type(T, Opaques).
 
@@ -2650,8 +2648,8 @@ can_combine_opaque_names(_, _, _, _) -> false.
 %% Note: two parameterized opaque types are not the same if their
 %% actual parameters differ
 inf_opaque(Set1, Set2, Opaques) ->
-  List1 = inf_look_up(Set1, 1, Opaques),
-  List2 = inf_look_up(Set2, 2, Opaques),
+  List1 = inf_look_up(Set1, Opaques),
+  List2 = inf_look_up(Set2, Opaques),
   List0 = [combine(Inf, T1, T2) ||
             {Is1, ModNameArgs1, T1} <- List1,
             {Is2, ModNameArgs2, T2} <- List2,
@@ -2662,14 +2660,14 @@ inf_opaque(Set1, Set2, Opaques) ->
   sup_opaque(List).
 
 %% Optimization: do just one lookup.
-inf_look_up(Set, Pos, Opaques) ->
-  [{Opaques =:= 'universe' orelse inf_is_opaque_type2(T, Pos, Opaques),
+inf_look_up(Set, Opaques) ->
+  [{Opaques =:= 'universe' orelse inf_is_opaque_type2(T, Opaques),
     {M, N, Args}, T} ||
     #opaque{mod = M, name = N, args = Args} = T <- set_to_list(Set)].
 
-inf_is_opaque_type2(T, Pos, {match, Opaques}) ->
-  is_opaque_type2(T, Opaques) orelse throw(Pos);
-inf_is_opaque_type2(T, _Pos, Opaques) ->
+inf_is_opaque_type2(T, {match, Opaques}) ->
+  is_opaque_type2(T, Opaques);
+inf_is_opaque_type2(T, Opaques) ->
   is_opaque_type2(T, Opaques).
 
 inf_opaque_types(IsOpaque1, ModNameArgs1, T1,
@@ -2686,6 +2684,8 @@ inf_opaque_types(IsOpaque1, ModNameArgs1, T1,
         {true, true}  -> t_inf(S1, S2, Opaques);
         {true, false} -> t_inf(S1, ?opaque(set_singleton(T2)), Opaques);
         {false, true} -> t_inf(?opaque(set_singleton(T1)), S2, Opaques);
+        {false, false} when element(1, Opaques) =:= match ->
+          throw({pos, [1, 2]});
         {false, false} -> t_none()
       end
   end.
@@ -2801,7 +2801,7 @@ inf_union(U1, U2, Opaques) ->
   {Union, ThrowList3} = inf_union(U1, U2, 0, [], [], Opaques),
   ThrowList = lists:merge3(ThrowList1, ThrowList2, ThrowList3),
   case t_sup([O1, O2, Union]) of
-    ?none when ThrowList =/= [] -> throw(hd(ThrowList));
+    ?none when ThrowList =/= [] -> throw({pos, lists:usort(ThrowList)});
     Sup -> Sup
   end.
 
@@ -2813,8 +2813,8 @@ inf_union_collect([E|L], Opaque, InfFun, InfList, ThrowList) ->
   try InfFun(E, Opaque)of
     Inf ->
       inf_union_collect(L, Opaque, InfFun, [Inf|InfList], ThrowList)
-  catch throw:N when is_integer(N) ->
-      inf_union_collect(L, Opaque, InfFun, InfList, [N|ThrowList])
+  catch throw:{pos, Ns} ->
+      inf_union_collect(L, Opaque, InfFun, InfList, Ns ++ ThrowList)
   end.
 
 inf_union([?none|Left1], [?none|Left2], N, Acc, ThrowList, Opaques) ->
@@ -2823,8 +2823,8 @@ inf_union([T1|Left1], [T2|Left2], N, Acc, ThrowList, Opaques) ->
   try t_inf(T1, T2, Opaques) of
     ?none -> inf_union(Left1, Left2, N, [?none|Acc], ThrowList, Opaques);
     T     -> inf_union(Left1, Left2, N+1, [T|Acc], ThrowList, Opaques)
-  catch throw:N when is_integer(N) ->
-      inf_union(Left1, Left2, N, [?none|Acc], [N|ThrowList], Opaques)
+  catch throw:{pos, Ns} ->
+      inf_union(Left1, Left2, N, [?none|Acc], Ns ++ ThrowList, Opaques)
   end;
 inf_union([], [], N, Acc, ThrowList, _Opaques) ->
   if N =:= 0 -> {?none, ThrowList};
