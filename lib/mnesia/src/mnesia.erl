@@ -306,6 +306,8 @@ ms() ->
 
 -spec abort(_) -> no_return().
 
+abort(Reason = {aborted, _}) ->
+    exit(Reason);
 abort(Reason) ->
     exit({aborted, Reason}).
 
@@ -1626,13 +1628,7 @@ dirty_read(Oid) ->
 
 dirty_read(Tab, Key)
   when is_atom(Tab), Tab /= schema ->
-%%    case catch ?ets_lookup(Tab, Key) of
-%%        {'EXIT', _} ->
-            %% Bad luck, we have to perform a real lookup
-            dirty_rpc(Tab, mnesia_lib, db_get, [Tab, Key]);
-%%        Val ->
-%%            Val
-%%    end;
+    dirty_rpc(Tab, mnesia_lib, db_get, [Tab, Key]);
 dirty_read(Tab, _Key) ->
     abort({bad_type, Tab}).
 
