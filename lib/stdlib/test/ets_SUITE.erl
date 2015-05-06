@@ -3821,46 +3821,45 @@ match_object(Config) when is_list(Config) ->
     repeat_for_opts(match_object_do).
 
 match_object_do(Opts) ->
-    ?line EtsMem = etsmem(),
-    ?line Tab = ets_new(foobar, Opts),
-    ?line fill_tab(Tab, foo),
-    ?line ets:insert(Tab, {{one, 4}, 4}),
-    ?line ets:insert(Tab,{{one,5},5}),
-    ?line ets:insert(Tab,{{two,4},4}),
-    ?line ets:insert(Tab,{{two,5},6}),
-    ?line ets:insert(Tab, {#{camembert=>cabécou},7}),
-    ?line case ets:match_object(Tab, {{one, '_'}, '$0'}) of
+    EtsMem = etsmem(),
+    Tab = ets_new(foobar, Opts),
+    fill_tab(Tab, foo),
+    ets:insert(Tab, {{one, 4}, 4}),
+    ets:insert(Tab,{{one,5},5}),
+    ets:insert(Tab,{{two,4},4}),
+    ets:insert(Tab,{{two,5},6}),
+    ets:insert(Tab, {#{camembert=>cabécou},7}),
+    case ets:match_object(Tab, {{one, '_'}, '$0'}) of
 	[{{one,5},5},{{one,4},4}] -> ok;
 	[{{one,4},4},{{one,5},5}] -> ok;
 	_ -> ?t:fail("ets:match_object() returned something funny.")
     end,
-    ?line case ets:match_object(Tab, {{two, '$1'}, '$0'}) of
+    case ets:match_object(Tab, {{two, '$1'}, '$0'}) of
 	[{{two,5},6},{{two,4},4}] -> ok;
 	[{{two,4},4},{{two,5},6}] -> ok;
 	_ -> ?t:fail("ets:match_object() returned something funny.")
     end,
-    ?line case ets:match_object(Tab, {{two, '$9'}, '$4'}) of
+    case ets:match_object(Tab, {{two, '$9'}, '$4'}) of
 	[{{two,5},6},{{two,4},4}] -> ok;
 	[{{two,4},4},{{two,5},6}] -> ok;
 	_ -> ?t:fail("ets:match_object() returned something funny.")
     end,
-    ?line case ets:match_object(Tab, {{two, '$9'}, '$22'}) of
+    case ets:match_object(Tab, {{two, '$9'}, '$22'}) of
 	[{{two,5},6},{{two,4},4}] -> ok;
 	[{{two,4},4},{{two,5},6}] -> ok;
 	_ -> ?t:fail("ets:match_object() returned something funny.")
     end,
     % Check that maps are inspected for variables.
-    [{#{camembert:=cabécou},7}] =
-        ets:match_object(Tab, {#{camembert=>'_'},7}),
+    [{#{camembert:=cabécou},7}] = ets:match_object(Tab, {#{camembert=>'_'},7}),
     {'EXIT',{badarg,_}} = (catch ets:match_object(Tab, {#{'$1'=>'_'},7})),
     % Check that unsucessful match returns an empty list.
-    ?line [] = ets:match_object(Tab, {{three,'$0'}, '$92'}),
+    [] = ets:match_object(Tab, {{three,'$0'}, '$92'}),
     % Check that '$0' equals '_'.
     Len = length(ets:match_object(Tab, '$0')),
     Len = length(ets:match_object(Tab, '_')),
-    ?line if Len > 4 -> ok end,
-    ?line true = ets:delete(Tab),
-    ?line verify_etsmem(EtsMem).
+    if Len > 4 -> ok end,
+    true = ets:delete(Tab),
+    verify_etsmem(EtsMem).
 
 match_object2(suite) -> [];
 match_object2(doc) -> ["Tests that db_match_object does not generate "
