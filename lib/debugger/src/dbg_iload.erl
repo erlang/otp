@@ -290,8 +290,7 @@ gexpr({tuple,Anno,Es0}) ->
     Es1 = gexpr_list(Es0),
     {tuple,ln(Anno),Es1};
 gexpr({map,Anno,Fs0}) ->
-    Fs1 = map_fields(Fs0, fun gexpr/1),
-    {map,ln(Anno),Fs1};
+    new_map(Fs0, Anno, fun gexpr/1);
 gexpr({map,Anno,E0,Fs0}) ->
     E1 = gexpr(E0),
     Fs1 = map_fields(Fs0, fun gexpr/1),
@@ -358,9 +357,8 @@ expr({cons,Anno,H0,T0}, _Lc) ->
 expr({tuple,Anno,Es0}, _Lc) ->
     Es1 = expr_list(Es0),
     {tuple,ln(Anno),Es1};
-expr({map,Anno,Fs0}, _Lc) ->
-    Fs1 = map_fields(Fs0),
-    {map,ln(Anno),Fs1};
+expr({map,Anno,Fs}, _Lc) ->
+    new_map(Fs, Anno, fun (E) -> expr(E, false) end);
 expr({map,Anno,E0,Fs0}, _Lc) ->
     E1 = expr(E0, false),
     Fs1 = map_fields(Fs0),
@@ -457,9 +455,9 @@ expr({'try',Anno,Es0,CaseCs0,CatchCs0,As0}, Lc) ->
     {'try',ln(Anno),Es,CaseCs,CatchCs,As};
 expr({lc,Anno,E0,Gs0}, _Lc) ->			%R8.
     Gs = lists:map(fun ({generate,L,P0,Qs}) ->
-			   {generate,L,expr(P0, false),expr(Qs, false)};
+			   {generate,L,pattern(P0),expr(Qs, false)};
 		       ({b_generate,L,P0,Qs}) -> %R12.
-			   {b_generate,L,expr(P0, false),expr(Qs, false)};
+			   {b_generate,L,pattern(P0),expr(Qs, false)};
 		       (Expr) ->
 			   case erl_lint:is_guard_test(Expr) of
 			       true -> {guard,guard([[Expr]])};
@@ -469,9 +467,9 @@ expr({lc,Anno,E0,Gs0}, _Lc) ->			%R8.
     {lc,ln(Anno),expr(E0, false),Gs};
 expr({bc,Anno,E0,Gs0}, _Lc) ->			%R12.
     Gs = lists:map(fun ({generate,L,P0,Qs}) ->
-			   {generate,L,expr(P0, false),expr(Qs, false)};
+			   {generate,L,pattern(P0),expr(Qs, false)};
 		       ({b_generate,L,P0,Qs}) -> %R12.
-			   {b_generate,L,expr(P0, false),expr(Qs, false)};
+			   {b_generate,L,pattern(P0),expr(Qs, false)};
 		       (Expr) ->
 			   case erl_lint:is_guard_test(Expr) of
 			       true -> {guard,guard([[Expr]])};
@@ -537,6 +535,24 @@ icr_clauses([], _) -> [].
 fun_clauses([{clause,A,H,G,B}|Cs]) ->
     [{clause,ln(A),head(H),guard(G),exprs(B, true)}|fun_clauses(Cs)];
 fun_clauses([]) -> [].
+
+
+new_map(Fs0, Anno, F) ->
+    Line = ln(Anno),
+    Fs1 = map_fields(Fs0, F),
+    Fs2 = [{ln(A),K,V} || {map_field_assoc,A,K,V} <- Fs1],
+    try
+	{value,Line,map_literal(Fs2, #{})}
+    catch
+	throw:not_literal ->
+	    {map,Line,Fs2}
+    end.
+
+map_literal([{_,{value,_,K},{value,_,V}}|T], M) ->
+    map_literal(T, maps:put(K, V, M));
+map_literal([_|_], _) ->
+    throw(not_literal);
+map_literal([], M) -> M.
 
 map_fields(Fs) ->
     map_fields(Fs, fun (E) -> expr(E, false) end).
