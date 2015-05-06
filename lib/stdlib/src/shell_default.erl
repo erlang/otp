@@ -22,7 +22,7 @@
 
 -module(shell_default).
 
--export([help/0,lc/1,c/1,c/2,nc/1,nl/1,l/1,i/0,pid/3,i/3,m/0,m/1,
+-export([help/0,p/1,lc/1,c/1,c/2,nc/1,nl/1,l/1,i/0,pid/3,i/3,m/0,m/1,
          memory/0,memory/1,
 	 erlangrc/1,bi/1, regs/0, flush/0,pwd/0,ls/0,ls/1,cd/1, 
          y/1, y/2,
@@ -88,6 +88,7 @@ nc(X)     	-> c:nc(X).
 ni()            -> c:ni().
 nl(Mod) 	-> c:nl(Mod).
 nregs()         -> c:nregs().
+p(T)            -> c:p(T).
 pid(X,Y,Z) 	-> c:pid(X,Y,Z).
 pwd()           -> c:pwd().
 q()		-> c:q().

@@ -22,7 +22,7 @@
 
 %% Avoid warning for local function error/2 clashing with autoimported BIF.
 -compile({no_auto_import,[error/2]}).
--export([help/0,lc/1,c/1,c/2,nc/1,nc/2, nl/1,l/1,i/0,i/1,ni/0,
+-export([help/0,p/1,lc/1,c/1,c/2,nc/1,nc/2, nl/1,l/1,i/0,i/1,ni/0,
          y/1, y/2,
 	 lc_batch/0, lc_batch/1,
 	 i/3,pid/3,m/0,m/1,
@@ -60,6 +60,7 @@ help() ->
 		   "memory(T)  -- memory allocation information of type <T>\n"
 		   "nc(File)   -- compile and load code in <File> on all nodes\n"
 		   "nl(Module) -- load module on all nodes\n"
+		   "p(T)       -- print the fully-expanded term T\n"
 		   "pid(X,Y,Z) -- convert X,Y,Z to a Pid\n"
 		   "pwd()      -- print working directory\n"
 		   "q()        -- quit - shorthand for init:stop()\n"
@@ -67,6 +68,13 @@ help() ->
 		   "nregs()    -- information about all registered processes\n"
 		   "xm(M)      -- cross reference check a module\n"
 		   "y(File)    -- generate a Yecc parser\n">>).
+
+%% p(Term)
+%%  Print a term.
+
+p(Term) ->
+	_ = erlang:display(Term),
+	ok.
 
 %% c(FileName)
 %%  Compile a file/module.
