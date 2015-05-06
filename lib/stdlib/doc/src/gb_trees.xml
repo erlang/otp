@@ -188,7 +188,7 @@
       <desc>
         <p>Returns an iterator that can be used for traversing the
             entries of <c><anno>Tree</anno></c>; see <c>next/1</c>. The main
-            difference with regular iterator that it finds firts key greater
+            difference with regular iterator that it finds first key greater
             of equal <c><anno>Key</anno></c> and then traverse
             remaining tree.</p>
       </desc>
