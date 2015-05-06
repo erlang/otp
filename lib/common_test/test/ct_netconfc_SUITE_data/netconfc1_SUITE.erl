@@ -150,7 +150,7 @@ hello_from_server_first(Config) ->
     {ok,Client} = ct_netconfc:only_open(?DEFAULT_SSH_OPTS(DataDir)),
     ct:sleep(500),
     ?NS:expect(hello),
-    ?ok = ct_netconfc:hello(Client),
+    ?ok = ct_netconfc:hello(Client, [{capability, ["urn:com:ericsson:ebase:1.1.0"]}], infinity),
     ?NS:expect_do_reply('close-session',close,ok),
     ?ok = ct_netconfc:close_session(Client),
     ok.
@@ -488,13 +488,16 @@ action(Config) ->
     Data = [{myactionreturn,[{xmlns,"myns"}],["value"]}],
     %% test either to receive {data,Data} or {ok,Data},
     %% both need to be handled
-    {Reply,RetVal} = case element(3, now()) rem 2 of
-			 0 -> {{data,Data},{ok,Data}};
-			 1 -> {{ok,Data},ok}
-		     end,
-    ct:log("Client will receive {~w,Data}", [element(1,Reply)]),
-    ?NS:expect_reply(action,Reply),
-    RetVal = ct_netconfc:action(Client,{myaction,[{xmlns,"myns"}],[]}),
+    ct:log("Client will receive {~w,~p}", [data,Data]),
+    ct:log("Expecting ~p", [{ok, Data}]),
+    ?NS:expect_reply(action,{data, Data}),
+    {ok, Data} = ct_netconfc:action(Client,{myaction,[{xmlns,"myns"}],[]}),
+
+    ct:log("Client will receive {~w,~p}", [ok,Data]),
+    ct:log("Expecting ~p", [ok]),
+    ?NS:expect_reply(action,{ok, Data}),
+    ok = ct_netconfc:action(Client,{myaction,[{xmlns,"myns"}],[]}),
+
     ?NS:expect_do_reply('close-session',close,ok),
     ?ok = ct_netconfc:close_session(Client),
     ok.

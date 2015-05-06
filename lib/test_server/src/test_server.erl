@@ -1313,12 +1313,30 @@ get_loc(Pid) ->
     Stk = [rewrite_loc_item(Loc) || Loc <- Stk0],
     case get(test_server_loc) of
 	[{Suite,Case}] ->
-	    %% location info unknown, check if {Suite,Case,Line}
-	    %% is available in stacktrace. and if so, use stacktrace
-	    %% instead of current test_server_loc
+	    %% Location info unknown, check if {Suite,Case,Line}
+	    %% is available in stacktrace and if so, use stacktrace
+	    %% instead of current test_server_loc.
+	    %% If location is the last expression in a test case
+	    %% function, the info is not available due to tail call
+	    %% elimination. We need to check if the test case has been
+	    %% called by ts_tc/3 and, if so, insert the test case info
+	    %% at that position.
 	    case [match || {S,C,_L} <- Stk, S == Suite, C == Case] of
-		[match|_] -> put(test_server_loc, Stk);
-		_         -> ok
+		[match|_] ->
+		    put(test_server_loc, Stk);
+		_ ->
+		    {PreTC,PostTC} =
+			lists:splitwith(fun({test_server,ts_tc,_}) ->
+						false;
+					   (_) ->
+						true
+					end, Stk),
+		    if PostTC == [] ->
+			    ok;
+		       true ->
+			    put(test_server_loc,
+				PreTC++[{Suite,Case,last_expr} | PostTC])
+		    end
 	    end;
 	_ ->
 	    put(test_server_loc, Stk)
@@ -1380,7 +1398,10 @@ lookup_config(Key,Config) ->
 	    undefined
     end.
 
-%% timer:tc/3
+%%
+%% IMPORTANT: get_loc/1 uses the name of this function when analysing
+%% stack traces. If the name changes, get_loc/1 must be updated!
+%%
 ts_tc(M, F, A) ->
     Before = erlang:monotonic_time(),
     Result = try

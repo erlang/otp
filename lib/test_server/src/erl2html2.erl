@@ -117,10 +117,11 @@ parse_preprocessed_file(Epp,File,InCorrectFile) ->
 		    parse_preprocessed_file(Epp,File,true);
 		{attribute,_,file,{_OtherFile,_}} ->
 		    parse_preprocessed_file(Epp,File,false);
-		{function,L,F,A,[_|C]} when InCorrectFile ->
+                {function,L,F,A,Cs} when InCorrectFile ->
+                    {CLs,LastCL} = find_clause_lines(Cs, []),
 		    Clauses = [{clause,get_line(CL)} ||
-                                  {clause,CL,_,_,_} <- C],
-		    [{atom_to_list(F),A,get_line(L)} | Clauses] ++
+                                  {clause,CL,_,_,_} <- tl(CLs)],
+		    [{atom_to_list(F),A,get_line(L),get_line(LastCL)} | Clauses] ++
 			parse_preprocessed_file(Epp,File,true);
 		_ ->
 		    parse_preprocessed_file(Epp,File,InCorrectFile)
@@ -147,10 +148,11 @@ parse_non_preprocessed_file(Epp, File, Location) ->
     case epp_dodger:parse_form(Epp, Location) of
 	{ok,Tree,Location1} ->
 	    try erl_syntax:revert(Tree) of
-		{function,L,F,A,[_|C]} ->
-		    Clauses = [{clause,get_line(CL)} ||
-                                  {clause,CL,_,_,_} <- C],
-		    [{atom_to_list(F),A,get_line(L)} | Clauses] ++
+                {function,L,F,A,Cs} ->
+                    {CLs,LastCL} = find_clause_lines(Cs, []),
+                    Clauses = [{clause,get_line(CL)} ||
+                                  {clause,CL,_,_,_} <- tl(CLs)],
+                    [{atom_to_list(F),A,get_line(L),get_line(LastCL)} | Clauses] ++
 			parse_non_preprocessed_file(Epp, File, Location1);
 		_ ->
 		    parse_non_preprocessed_file(Epp, File, Location1)
@@ -167,22 +169,48 @@ get_line(Anno) ->
     erl_anno:line(Anno).
 
 %%%-----------------------------------------------------------------
-%%% Add a link target for each line and one for each function definition.
-build_html(SFd,DFd,Encoding,Functions) ->
-    build_html(SFd,DFd,Encoding,file:read_line(SFd),1,Functions,false).
+%%% Find the line number of the last expression in the function
+find_clause_lines([{clause,CL,_Params,_Op,Exprs}], CLs) -> % last clause
+    try tuple_to_list(lists:last(Exprs)) of
+	[_Type,ExprLine | _] ->
+	    {lists:reverse([{clause,CL}|CLs]), ExprLine};
+	_ ->
+	    {lists:reverse([{clause,CL}|CLs]), CL}
+    catch
+	_:_ ->
+	    {lists:reverse([{clause,CL}|CLs]), CL}
+    end;
 
-build_html(SFd,DFd,Encoding,{ok,Str},L,[{F,A,L}|Functions],_IsFuncDef) ->
+find_clause_lines([{clause,CL,_Params,_Op,_Exprs} | Cs], CLs) ->
+    find_clause_lines(Cs, [{clause,CL}|CLs]).
+
+%%%-----------------------------------------------------------------
+%%% Add a link target for each line and one for each function definition.
+build_html(SFd,DFd,Encoding,FuncsAndCs) ->
+    build_html(SFd,DFd,Encoding,file:read_line(SFd),1,FuncsAndCs,
+	       false,undefined).
+
+%% function start line found
+build_html(SFd,DFd,Enc,{ok,Str},L0,[{F,A,L0,LastL}|FuncsAndCs],
+	   _IsFuncDef,_FAndLastL) ->
     FALink = test_server_ctrl:uri_encode(F++"-"++integer_to_list(A),utf8),
-    file:write(DFd,["<a name=\"",to_raw_list(FALink,Encoding),"\"/>"]),
-    build_html(SFd,DFd,Encoding,{ok,Str},L,Functions,true);
-build_html(SFd,DFd,Encoding,{ok,Str},L,[{clause,L}|Functions],_IsFuncDef) ->
-    build_html(SFd,DFd,Encoding,{ok,Str},L,Functions,true);
-build_html(SFd,DFd,Encoding,{ok,Str},L,Functions,IsFuncDef) ->
+    file:write(DFd,["<a name=\"",to_raw_list(FALink,Enc),"\"/>"]),
+    build_html(SFd,DFd,Enc,{ok,Str},L0,FuncsAndCs,true,{F,LastL});
+%% line of last expression in function found
+build_html(SFd,DFd,Enc,{ok,Str},LastL,FuncsAndCs,_IsFuncDef,{F,LastL}) ->
+    LastLineLink = test_server_ctrl:uri_encode(F++"-last_expr",utf8),
+	    file:write(DFd,["<a name=\"",
+			    to_raw_list(LastLineLink,Enc),"\"/>"]),
+    build_html(SFd,DFd,Enc,{ok,Str},LastL,FuncsAndCs,true,undefined);
+build_html(SFd,DFd,Enc,{ok,Str},L,[{clause,L}|FuncsAndCs],
+	   _IsFuncDef,FAndLastL) ->
+    build_html(SFd,DFd,Enc,{ok,Str},L,FuncsAndCs,true,FAndLastL);
+build_html(SFd,DFd,Enc,{ok,Str},L,FuncsAndCs,IsFuncDef,FAndLastL) ->
     LStr = line_number(L),
     Str1 = line(Str,IsFuncDef),
     file:write(DFd,[LStr,Str1]),
-    build_html(SFd,DFd,Encoding,file:read_line(SFd),L+1,Functions,false);
-build_html(_SFd,_DFd,_Encoding,eof,L,_Functions,_IsFuncDef) ->
+    build_html(SFd,DFd,Enc,file:read_line(SFd),L+1,FuncsAndCs,false,FAndLastL);
+build_html(_SFd,_DFd,_Enc,eof,L,_FuncsAndCs,_IsFuncDef,_FAndLastL) ->
     L.
 
 line_number(L) ->

@@ -486,7 +486,8 @@ expect(Connection,Patterns) ->
 %%%      Opts = [Opt]
 %%%      Opt = {idle_timeout,IdleTimeout} | {total_timeout,TotalTimeout} |
 %%%            repeat | {repeat,N} | sequence | {halt,HaltPatterns} |
-%%%            ignore_prompt | no_prompt_check
+%%%            ignore_prompt | no_prompt_check | wait_for_prompt |
+%%%            {wait_for_prompt,Prompt}
 %%%      IdleTimeout = infinity | integer()
 %%%      TotalTimeout = infinity | integer()
 %%%      N = integer()
@@ -499,9 +500,9 @@ expect(Connection,Patterns) ->
 %%%
 %%% @doc Get data from telnet and wait for the expected pattern.
 %%%
-%%% <p><code>Pattern</code> can be a POSIX regular expression. If more
-%%% than one pattern is given, the function returns when the first
-%%% match is found.</p>
+%%% <p><code>Pattern</code> can be a POSIX regular expression. The function
+%%% returns as soon as a pattern has been successfully matched (at least one,
+%%% in the case of multiple patterns).</p>
 %%%
 %%% <p><code>RxMatch</code> is a list of matched strings. It looks
 %%% like this: <code>[FullMatch, SubMatch1, SubMatch2, ...]</code>
@@ -524,10 +525,13 @@ expect(Connection,Patterns) ->
 %%% milliseconds, <code>{error,timeout}</code> is returned. The default
 %%% value is <code>infinity</code> (i.e. no time limit).</p>
 %%%
-%%% <p>The function will always return when a prompt is found, unless
-%%% any of the <code>ignore_prompt</code> or
-%%% <code>no_prompt_check</code> options are used, in which case it
-%%% will return when a match is found or after a timeout.</p>
+%%% <p>The function will return when a prompt is received, even if no
+%%% pattern has yet been matched. In this event,
+%%% <code>{error,{prompt,Prompt}}</code> is returned.
+%%% However, this behaviour may be modified with the
+%%% <code>ignore_prompt</code> or <code>no_prompt_check</code> option, which
+%%% tells <code>expect</code> to return only when a match is found or after a
+%%% timeout.</p>
 %%%
 %%% <p>If the <code>ignore_prompt</code> option is used,
 %%% <code>ct_telnet</code> will ignore any prompt found. This option
@@ -540,6 +544,13 @@ expect(Connection,Patterns) ->
 %%% <code>ct_telnet</code> will not search for a prompt at all. This
 %%% is useful if, for instance, the <code>Pattern</code> itself
 %%% matches the prompt.</p>
+%%%
+%%% <p>The <code>wait_for_prompt</code> option forces <code>ct_telnet</code>
+%%% to wait until the prompt string has been received before returning
+%%% (even if a pattern has already been matched). This is equal to calling:
+%%% <code>expect(Conn, Patterns++[{prompt,Prompt}], [sequence|Opts])</code>.
+%%% Note that <code>idle_timeout</code> and <code>total_timeout</code>
+%%% may abort the operation of waiting for prompt.</p>
 %%%
 %%% <p>The <code>repeat</code> option indicates that the pattern(s)
 %%% shall be matched multiple times. If <code>N</code> is given, the
@@ -653,18 +664,21 @@ handle_msg({cmd,Cmd,Opts},State) ->
     start_gen_log(heading(cmd,State#state.name)),
     log(State,cmd,"Cmd: ~p",[Cmd]),
 
+    %% whatever is in the buffer from previous operations
+    %% will be ignored as we go ahead with this telnet cmd
+
     debug_cont_gen_log("Throwing Buffer:",[]),
     debug_log_lines(State#state.buffer),
 
     case {State#state.type,State#state.prompt} of
-	{ts,_} -> 
+	{ts,_} ->
 	    silent_teln_expect(State#state.name,
 			       State#state.teln_pid,
 			       State#state.buffer,
 			       prompt,
 			       State#state.prx,
 			       [{idle_timeout,2000}]);
-	{ip,false} -> 
+	{ip,false} ->
 	    silent_teln_expect(State#state.name,
 			       State#state.teln_pid,
 			       State#state.buffer,
@@ -1029,10 +1043,12 @@ teln_expect(Name,Pid,Data,Pattern0,Prx,Opts) ->
 	end,
 
     PromptCheck = get_prompt_check(Opts),
-    Seq = get_seq(Opts),
-    Pattern = convert_pattern(Pattern0,Seq),
 
-    {IdleTimeout,TotalTimeout} = get_timeouts(Opts),
+    {WaitForPrompt,Pattern1,Opts1} = wait_for_prompt(Pattern0,Opts),
+
+    Seq = get_seq(Opts1),
+    Pattern2 = convert_pattern(Pattern1,Seq),
+    {IdleTimeout,TotalTimeout} = get_timeouts(Opts1),
 
     EO = #eo{teln_pid=Pid,
 	     prx=Prx,
@@ -1042,9 +1058,16 @@ teln_expect(Name,Pid,Data,Pattern0,Prx,Opts) ->
 	     haltpatterns=HaltPatterns,
 	     prompt_check=PromptCheck},
     
-    case get_repeat(Opts) of
+    case get_repeat(Opts1) of
 	false ->
-	    case teln_expect1(Name,Pid,Data,Pattern,[],EO) of
+	    case teln_expect1(Name,Pid,Data,Pattern2,[],EO) of
+		{ok,Matched,Rest} when WaitForPrompt ->
+		    case lists:reverse(Matched) of
+			[{prompt,_},Matched1] ->
+			    {ok,Matched1,Rest};
+			[{prompt,_}|Matched1] ->
+			    {ok,lists:reverse(Matched1),Rest}
+		    end;
 		{ok,Matched,Rest} ->
 		    {ok,Matched,Rest};
 		{halt,Why,Rest} ->
@@ -1054,7 +1077,7 @@ teln_expect(Name,Pid,Data,Pattern0,Prx,Opts) ->
 	    end;
 	N ->
 	    EO1 = EO#eo{repeat=N},
-	    repeat_expect(Name,Pid,Data,Pattern,[],EO1)
+	    repeat_expect(Name,Pid,Data,Pattern2,[],EO1)
     end.
 
 convert_pattern(Pattern,Seq) 
@@ -1117,6 +1140,40 @@ get_ignore_prompt(Opts) ->
     lists:member(ignore_prompt,Opts).
 get_prompt_check(Opts) ->
     not lists:member(no_prompt_check,Opts).
+
+wait_for_prompt(Pattern, Opts) ->
+    case lists:member(wait_for_prompt, Opts) of
+	true ->
+	    wait_for_prompt1(prompt, Pattern,
+			     lists:delete(wait_for_prompt,Opts));
+	false ->
+	    case proplists:get_value(wait_for_prompt, Opts) of
+		undefined ->
+		    {false,Pattern,Opts};
+		PromptStr ->
+		    wait_for_prompt1({prompt,PromptStr}, Pattern,
+				     proplists:delete(wait_for_prompt,Opts))
+	    end
+    end.
+
+wait_for_prompt1(Prompt, [Ch|_] = Pattern, Opts) when is_integer(Ch) ->
+    wait_for_prompt2(Prompt, [Pattern], Opts);
+wait_for_prompt1(Prompt, Pattern, Opts) when is_list(Pattern) ->
+    wait_for_prompt2(Prompt, Pattern, Opts);
+wait_for_prompt1(Prompt, Pattern, Opts) ->
+    wait_for_prompt2(Prompt, [Pattern], Opts).
+
+wait_for_prompt2(Prompt, Pattern, Opts) ->
+    Pattern1 = case lists:reverse(Pattern) of
+		   [prompt|_]     -> Pattern;
+		   [{prompt,_}|_] -> Pattern;
+		   _              -> Pattern ++ [Prompt]
+	       end,
+    Opts1 = case lists:member(sequence, Opts) of
+		true ->  Opts;
+		false -> [sequence|Opts]
+	    end,
+    {true,Pattern1,Opts1}.
 
 %% Repeat either single or sequence. All match results are accumulated
 %% and returned when a halt condition is fulllfilled.
@@ -1210,7 +1267,7 @@ get_data1(Pid) ->
 %% 1) Single expect.
 %% First the whole data chunk is searched for a prompt (to avoid doing
 %% a regexp match for the prompt at each line).
-%% If we are searching for anyting else, the datachunk is split into
+%% If we are searching for anything else, the datachunk is split into
 %% lines and each line is matched against each pattern.
 
 %% one_expect: split data chunk at prompts
@@ -1227,7 +1284,7 @@ one_expect(Name,Pid,Data,Pattern,EO) ->
 		    log(name_or_pid(Name,Pid),"PROMPT: ~ts",[PromptType]),
 		    {match,{prompt,PromptType},Rest};
 		[{prompt,_OtherPromptType}] ->
-		    %% Only searching for one specific prompt, not thisone
+		    %% Only searching for one specific prompt, not this one
 		    log_lines(Name,Pid,UptoPrompt),
 		    {nomatch,Rest};
 		_ ->

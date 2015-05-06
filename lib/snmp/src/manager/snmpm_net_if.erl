@@ -330,7 +330,7 @@ socket_params(Domain, {IpAddr, IpPort} = Addr, BindTo, CommonSocketOpts) ->
 	end,
     case Family of
 	inet ->
-	    case init:get_argument(snmp_fd) of
+	    case init:get_argument(snmpm_fd) of
 		{ok, [[FdStr]]} ->
 		    Fd = list_to_integer(FdStr),
 		    case BindTo of

@@ -41,6 +41,7 @@
          send_eval/1,
          send_bad_answer/1,
          send_protocol_error/1,
+         send_experimental_result/1,
          send_arbitrary/1,
          send_unknown/1,
          send_unknown_short/1,
@@ -301,6 +302,7 @@ tc() ->
      send_eval,
      send_bad_answer,
      send_protocol_error,
+     send_experimental_result,
      send_arbitrary,
      send_unknown,
      send_unknown_short,
@@ -443,7 +445,7 @@ send_ok(Config) ->
     Req = ['ACR', {'Accounting-Record-Type', ?EVENT_RECORD},
                   {'Accounting-Record-Number', 1}],
 
-    ['ACA', _SessionId, {'Result-Code', ?SUCCESS} | _]
+    ['ACA', {'Session-Id', _}, {'Result-Code', ?SUCCESS} | _]
         = call(Config, Req).
 
 %% Send an accounting ACR that the server answers badly to.
@@ -459,7 +461,7 @@ send_eval(Config) ->
     Req = ['ACR', {'Accounting-Record-Type', ?EVENT_RECORD},
                   {'Accounting-Record-Number', 3}],
 
-    ['ACA', _SessionId, {'Result-Code', ?SUCCESS} | _]
+    ['ACA', {'Session-Id', _}, {'Result-Code', ?SUCCESS} | _]
         = call(Config, Req).
 
 %% Send an accounting ACR that the server tries to answer with an
@@ -480,12 +482,20 @@ send_protocol_error(Config) ->
     ?answer_message(?TOO_BUSY)
         = call(Config, Req).
 
+%% Send a 3xxx Experimental-Result in an answer not setting the E-bit
+%% and missing a Result-Code.
+send_experimental_result(Config) ->
+    Req = ['ACR', {'Accounting-Record-Type', ?EVENT_RECORD},
+                  {'Accounting-Record-Number', 5}],
+    ['ACA', {'Session-Id', _} | _]
+        = call(Config, Req).
+
 %% Send an ASR with an arbitrary non-mandatory AVP and expect success
 %% and the same AVP in the reply.
 send_arbitrary(Config) ->
     Req = ['ASR', {'AVP', [#diameter_avp{name = 'Product-Name',
                                          value = "XXX"}]}],
-    ['ASA', _SessionId, {'Result-Code', ?SUCCESS} | Avps]
+    ['ASA', {'Session-Id', _}, {'Result-Code', ?SUCCESS} | Avps]
         = call(Config, Req),
     {'AVP', [#diameter_avp{name = 'Product-Name',
                            value = V}]}
@@ -497,7 +507,7 @@ send_unknown(Config) ->
     Req = ['ASR', {'AVP', [#diameter_avp{code = 999,
                                          is_mandatory = false,
                                          data = <<17>>}]}],
-    ['ASA', _SessionId, {'Result-Code', ?SUCCESS} | Avps]
+    ['ASA', {'Session-Id', _}, {'Result-Code', ?SUCCESS} | Avps]
         = call(Config, Req),
     {'AVP', [#diameter_avp{code = 999,
                            is_mandatory = false,
@@ -513,7 +523,7 @@ send_unknown_short(Config, M, RC) ->
     Req = ['ASR', {'AVP', [#diameter_avp{code = 999,
                                          is_mandatory = M,
                                          data = <<17>>}]}],
-    ['ASA', _SessionId, {'Result-Code', RC} | Avps]
+    ['ASA', {'Session-Id', _}, {'Result-Code', RC} | Avps]
         = call(Config, Req),
     [#'diameter_base_Failed-AVP'{'AVP' = As}]
         = proplists:get_value('Failed-AVP', Avps),
@@ -527,7 +537,7 @@ send_unknown_mandatory(Config) ->
     Req = ['ASR', {'AVP', [#diameter_avp{code = 999,
                                          is_mandatory = true,
                                          data = <<17>>}]}],
-    ['ASA', _SessionId, {'Result-Code', ?AVP_UNSUPPORTED} | Avps]
+    ['ASA', {'Session-Id', _}, {'Result-Code', ?AVP_UNSUPPORTED} | Avps]
         = call(Config, Req),
     [#'diameter_base_Failed-AVP'{'AVP' = As}]
         = proplists:get_value('Failed-AVP', Avps),
@@ -547,7 +557,7 @@ send_unexpected_mandatory_decode(Config) ->
     Req = ['ASR', {'AVP', [#diameter_avp{code = 27,  %% Session-Timeout
                                          is_mandatory = true,
                                          data = <<12:32>>}]}],
-    ['ASA', _SessionId, {'Result-Code', ?AVP_UNSUPPORTED} | Avps]
+    ['ASA', {'Session-Id', _}, {'Result-Code', ?AVP_UNSUPPORTED} | Avps]
         = call(Config, Req),
     [#'diameter_base_Failed-AVP'{'AVP' = As}]
         = proplists:get_value('Failed-AVP', Avps),
@@ -583,7 +593,7 @@ send_error_bit(Config) ->
 %% Send a bad version and check that we get 5011.
 send_unsupported_version(Config) ->
     Req = ['STR', {'Termination-Cause', ?LOGOUT}],
-    ['STA', _SessionId, {'Result-Code', ?UNSUPPORTED_VERSION} | _]
+    ['STA', {'Session-Id', _}, {'Result-Code', ?UNSUPPORTED_VERSION} | _]
         = call(Config, Req).
 
 %% Send a request containing an AVP length > data size.
@@ -603,14 +613,14 @@ send_zero_avp_length(Config) ->
 send_invalid_avp_length(Config) ->
     Req = ['STR', {'Termination-Cause', ?LOGOUT}],
 
-    ['STA', _SessionId,
+    ['STA', {'Session-Id', _},
             {'Result-Code', ?INVALID_AVP_LENGTH},
-            _OriginHost,
-            _OriginRealm,
-            _UserName,
-            _Class,
-            _ErrorMessage,
-            _ErrorReportingHost,
+            {'Origin-Host', _},
+            {'Origin-Realm', _},
+            {'User-Name', _},
+            {'Class', _},
+            {'Error-Message', _},
+            {'Error-Reporting-Host', _},
             {'Failed-AVP', [#'diameter_base_Failed-AVP'{'AVP' = [_]}]}
           | _]
         = call(Config, Req).
@@ -628,14 +638,14 @@ send_invalid_reject(Config) ->
 send_unexpected_mandatory(Config) ->
     Req = ['STR', {'Termination-Cause', ?LOGOUT}],
 
-    ['STA', _SessionId, {'Result-Code', ?AVP_UNSUPPORTED} | _]
+    ['STA', {'Session-Id', _}, {'Result-Code', ?AVP_UNSUPPORTED} | _]
         = call(Config, Req).
 
 %% Send something long that will be fragmented by TCP.
 send_long(Config) ->
     Req = ['STR', {'Termination-Cause', ?LOGOUT},
                   {'User-Name', [lists:duplicate(1 bsl 20, $X)]}],
-    ['STA', _SessionId, {'Result-Code', ?SUCCESS} | _]
+    ['STA', {'Session-Id', _}, {'Result-Code', ?SUCCESS} | _]
         = call(Config, Req).
 
 %% Send something longer than the configure incoming_maxlen.
@@ -677,7 +687,7 @@ send_any_2(Config) ->
 send_all_1(Config) ->
     Req = ['STR', {'Termination-Cause', ?LOGOUT}],
     Realm = lists:foldr(fun(C,A) -> [C,A] end, [], ?REALM),
-    ['STA', _SessionId, {'Result-Code', ?SUCCESS} | _]
+    ['STA', {'Session-Id', _}, {'Result-Code', ?SUCCESS} | _]
         = call(Config, Req, [{filter, {all, [{host, any},
                                              {realm, Realm}]}}]).
 send_all_2(Config) ->
@@ -697,9 +707,8 @@ send_timeout(Config) ->
 %% received the Session-Id.
 send_error(Config) ->
     Req = ['RAR', {'Re-Auth-Request-Type', ?AUTHORIZE_AUTHENTICATE}],
-    ?answer_message(SId, ?TOO_BUSY)
-        = call(Config, Req),
-    true = undefined /= SId.
+    ?answer_message([_], ?TOO_BUSY)
+        = call(Config, Req).
 
 %% Send a request with the detached option and receive it as a message
 %% from handle_answer instead.
@@ -708,7 +717,7 @@ send_detach(Config) ->
     Ref = make_ref(),
     ok = call(Config, Req, [{extra, [{self(), Ref}]}, detach]),
     Ans = receive {Ref, T} -> T end,
-    ['STA', _SessionId, {'Result-Code', ?SUCCESS} | _]
+    ['STA', {'Session-Id', _}, {'Result-Code', ?SUCCESS} | _]
         = Ans.
 
 %% Send a request which can't be encoded and expect {error, encode}.
@@ -721,11 +730,11 @@ send_destination_1(Config) ->
         = group(Config),
     Req = ['STR', {'Termination-Cause', ?LOGOUT},
                   {'Destination-Host', [?HOST(SN, ?REALM)]}],
-    ['STA', _SessionId, {'Result-Code', ?SUCCESS} | _]
+    ['STA', {'Session-Id', _}, {'Result-Code', ?SUCCESS} | _]
         = call(Config, Req, [{filter, {all, [host, realm]}}]).
 send_destination_2(Config) ->
     Req = ['STR', {'Termination-Cause', ?LOGOUT}],
-    ['STA', _SessionId, {'Result-Code', ?SUCCESS} | _]
+    ['STA', {'Session-Id', _}, {'Result-Code', ?SUCCESS} | _]
         = call(Config, Req, [{filter, {all, [host, realm]}}]).
 
 %% Send with filtering on and expect failure when specifying an
@@ -789,7 +798,7 @@ send_bad_filter(Config, F) ->
 %% Specify multiple filter options and expect them be conjunctive.
 send_multiple_filters_1(Config) ->
     Fun = fun(#diameter_caps{}) -> true end,
-    ['STA', _SessionId, {'Result-Code', ?SUCCESS} | _]
+    ['STA', {'Session-Id', _}, {'Result-Code', ?SUCCESS} | _]
         = send_multiple_filters(Config, [host, {eval, Fun}]).
 send_multiple_filters_2(Config) ->
     E = {erlang, is_tuple, []},
@@ -800,7 +809,7 @@ send_multiple_filters_3(Config) ->
     E2 = {erlang, is_tuple, []},
     E3 = {erlang, is_record, [diameter_caps]},
     E4 = [{erlang, is_record, []}, diameter_caps],
-    ['STA', _SessionId, {'Result-Code', ?SUCCESS} | _]
+    ['STA', {'Session-Id', _}, {'Result-Code', ?SUCCESS} | _]
         = send_multiple_filters(Config, [{eval, E} || E <- [E1,E2,E3,E4]]).
 
 send_multiple_filters(Config, Fs) ->
@@ -811,7 +820,7 @@ send_multiple_filters(Config, Fs) ->
 %% only the return value from the prepare_request callback being
 %% significant.
 send_anything(Config) ->
-    ['STA', _SessionId, {'Result-Code', ?SUCCESS} | _]
+    ['STA', {'Session-Id', _}, {'Result-Code', ?SUCCESS} | _]
         = call(Config, anything).
 
 %% ===========================================================================
@@ -1144,6 +1153,13 @@ answer(Pkt, Req, _Peer, Name, #group{client_dict0 = Dict0}) ->
     [R | Vs] = Dict:'#get-'(answer(Ans, Es, Name)),
     [Dict:rec2msg(R) | Vs].
 
+%% Missing Result-Codec and inapproriate Experimental-Result-Code.
+answer(Rec, Es, send_experimental_result) ->
+    [{5004, #diameter_avp{name = 'Experimental-Result'}},
+     {5005, #diameter_avp{name = 'Result-Code'}}]
+        =  Es,
+    Rec;
+
 %% An inappropriate E-bit results in a decode error ...
 answer(Rec, Es, send_bad_answer) ->
     [{5004, #diameter_avp{name = 'Result-Code'}} | _] = Es,
@@ -1175,7 +1191,9 @@ handle_error(Reason, _Req, [$C|_], _Peer, _, _Time) ->
 %% Note that diameter will set Result-Code and Failed-AVPs if
 %% #diameter_packet.errors is non-null.
 
-handle_request(#diameter_packet{header = H, msg = M}, _, {_Ref, Caps}) ->
+handle_request(#diameter_packet{header = H, msg = M, avps = As},
+               _,
+               {_Ref, Caps}) ->
     #diameter_header{end_to_end_id = EI,
                      hop_by_hop_id = HI}
         = H,
@@ -1183,10 +1201,12 @@ handle_request(#diameter_packet{header = H, msg = M}, _, {_Ref, Caps}) ->
     V = EI bsr B,  %% assert
     V = HI bsr B,  %%
     #diameter_caps{origin_state_id = {_,[Id]}} = Caps,
-    answer(origin(Id), request(M, Caps)).
+    answer(origin(Id), request(M, [H|As], Caps)).
 
 answer(T, {Tag, Action, Post}) ->
     {Tag, answer(T, Action), Post};
+answer(_, {reply, [#diameter_header{} | _]} = T) ->
+    T;
 answer({A,C}, {reply, Ans}) ->
     answer(C, {reply, msg(Ans, A, diameter_gen_base_rfc3588)});
 answer(pkt, {reply, Ans})
@@ -1194,6 +1214,41 @@ answer(pkt, {reply, Ans})
     {reply, #diameter_packet{msg = Ans}};
 answer(_, T) ->
     T.
+
+%% request/3
+
+%% send_experimental_result
+request(#diameter_base_accounting_ACR{'Accounting-Record-Number' = 5},
+        [Hdr | Avps],
+        #diameter_caps{origin_host = {OH, _},
+                       origin_realm = {OR, _}}) ->
+    [H,R|T] = [A || N <- ['Origin-Host',
+                          'Origin-Realm',
+                          'Session-Id',
+                          'Accounting-Record-Type',
+                          'Accounting-Record-Number'],
+                    #diameter_avp{} = A
+                        <- [lists:keyfind(N, #diameter_avp.name, Avps)]],
+    Ans = [Hdr#diameter_header{is_request = false},
+           H#diameter_avp{data = OH},
+           R#diameter_avp{data = OR},
+           #diameter_avp{name = 'Experimental-Result',
+                         code = 297,
+                         need_encryption = false,
+                         data = [#diameter_avp{data = {?DIAMETER_DICT_COMMON,
+                                                       'Vendor-Id',
+                                                       123}},
+                                 #diameter_avp{data
+                                               = {?DIAMETER_DICT_COMMON,
+                                                  'Experimental-Result-Code',
+                                                  3987}}]}
+           | T],
+    {reply, Ans};
+
+request(Msg, _Avps, Caps) ->
+    request(Msg, Caps).
+
+%% request/2
 
 %% send_nok
 request(#diameter_base_accounting_ACR{'Accounting-Record-Number' = 0},

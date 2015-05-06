@@ -980,8 +980,8 @@ answer_message(OH, OR, RC, Dict0, #diameter_packet{avps = Avps,
 session_id(Code, Vid, Dict0, Avps)
   when is_list(Avps) ->
     try
-        {value, #diameter_avp{data = D}} = find_avp(Code, Vid, Avps),
-        [{'Session-Id', [Dict0:avp(decode, D, 'Session-Id')]}]
+        #diameter_avp{data = Bin} = find_avp(Code, Vid, Avps),
+        [{'Session-Id', [Dict0:avp(decode, Bin, 'Session-Id')]}]
     catch
         error: _ ->
             []
@@ -998,26 +998,17 @@ failed_avp(_, [] = No) ->
 
 %% find_avp/3
 
-find_avp(Code, Vid, Avps)
-  when is_integer(Code), (undefined == Vid orelse is_integer(Vid)) ->
-    find(fun(A) -> is_avp(Code, Vid, A) end, Avps).
+%% Grouped ...
+find_avp(Code, VId, [[#diameter_avp{code = Code, vendor_id = VId} | _] = As
+                     | _]) ->
+    As;
 
-%% The final argument here could be a list of AVP's, depending on the case,
-%% but we're only searching at the top level.
-is_avp(Code, Vid, #diameter_avp{code = Code, vendor_id = Vid}) ->
-    true;
-is_avp(_, _, _) ->
-    false.
+%% ... or not.
+find_avp(Code, VId, [#diameter_avp{code = Code, vendor_id = VId} = A | _]) ->
+    A;
 
-find(_, []) ->
-    false;
-find(Pred, [H|T]) ->
-    case Pred(H) of
-        true ->
-            {value, H};
-        false ->
-            find(Pred, T)
-    end.
+find_avp(Code, VId, [_ | Avps]) ->
+    find_avp(Code, VId, Avps).
 
 %% 7.  Error Handling
 %%
@@ -1086,7 +1077,6 @@ incr_result(_, #diameter_packet{msg = undefined = No}, _, _) ->
 incr_result(Dir, Pkt, TPid, {Dict, AppDict, Dict0}) ->
     #diameter_packet{header = #diameter_header{is_error = E}
                             = Hdr,
-                     msg = Msg,
                      errors = Es}
         = Pkt,
 
@@ -1096,13 +1086,13 @@ incr_result(Dir, Pkt, TPid, {Dict, AppDict, Dict0}) ->
     recv /= Dir orelse [] == Es orelse incr_error(Dir, Id, TPid, AppDict),
 
     %% Exit on a missing result code.
-    T = rc_counter(Dict, Msg),
+    T = rc_counter(Dict, Dir, Pkt),
     T == false andalso ?LOGX(no_result_code, {Dict, Dir, Hdr}),
-    {Ctr, RC} = T,
+    {Ctr, RC, Avp} = T,
 
     %% Or on an inappropriate value.
     is_result(RC, E, Dict0)
-        orelse ?LOGX(invalid_error_bit, {Dict, Dir, Hdr, RC}),
+        orelse ?LOGX(invalid_error_bit, {Dict, Dir, Hdr, Avp}),
 
     incr(TPid, {Id, Dir, Ctr}),
     Ctr.
@@ -1116,18 +1106,14 @@ msg_id(#diameter_packet{header = H}, Dict) ->
 %% there are 2^32 (application ids) * 2^24 (command codes) = 2^56
 %% pairs for an attacker to choose from.
 msg_id(Hdr, Dict) ->
-    {_ApplId, Code, R} = Id = diameter_codec:msg_id(Hdr),
-    case Dict:msg_name(Code, 0 == R) of
-        '' ->
-            unknown(Dict:id(), R);
-        _ ->
-            Id
+    {Aid, Code, R} = Id = diameter_codec:msg_id(Hdr),
+    if Aid == ?APP_ID_RELAY ->
+            {relay, R};
+       true ->
+            choose(Aid /= Dict:id() orelse '' == Dict:msg_name(Code, 0 == R),
+                   unknown,
+                   Id)
     end.
-
-unknown(?APP_ID_RELAY, R) ->
-    {relay, R};
-unknown(_, _) ->
-    unknown.
 
 %% No E-bit: can't be 3xxx.
 is_result(RC, false, _Dict0) ->
@@ -1148,7 +1134,7 @@ is_result(RC, true, _) ->
 incr(TPid, Counter) ->
     diameter_stats:incr(Counter, TPid, 1).
 
-%% rc_counter/2
+%% rc_counter/3
 
 %% RFC 3588, 7.6:
 %%
@@ -1156,39 +1142,45 @@ incr(TPid, Counter) ->
 %%   applications MUST include either one Result-Code AVP or one
 %%   Experimental-Result AVP.
 
+rc_counter(Dict, recv, #diameter_packet{header = H, avps = As}) ->
+    rc_counter(Dict, [H|As]);
+
+rc_counter(Dict, _, #diameter_packet{msg = Msg}) ->
+    rc_counter(Dict, Msg).
+
 rc_counter(Dict, Msg) ->
-    rcc(Dict, Msg, int(get_avp_value(Dict, 'Result-Code', Msg))).
+    rcc(get_result(Dict, Msg)).
 
-rcc(Dict, Msg, undefined) ->
-    rcc(get_avp_value(Dict, 'Experimental-Result', Msg));
-
-rcc(_, _, N)
+rcc(#diameter_avp{name = 'Result-Code' = Name, value = N} = A)
   when is_integer(N) ->
-    {{'Result-Code', N}, N}.
+    {{Name, N}, N, A};
 
-%% Outgoing answers may be in any of the forms messages can be sent
-%% in. Incoming messages will be records. We're assuming here that the
-%% arity of the result code AVP's is 0 or 1.
+rcc(#diameter_avp{name = 'Result-Code' = Name, value = [N|_]} = A)
+  when is_integer(N) ->
+    {{Name, N}, N, A};
 
-rcc([{_,_,N} = T | _])
+rcc(#diameter_avp{name = 'Experimental-Result', value = {_,_,N} = T} = A)
   when is_integer(N) ->
-    {T,N};
-rcc({_,_,N} = T)
+    {T, N, A};
+
+rcc(#diameter_avp{name = 'Experimental-Result', value = [{_,_,N} = T|_]} = A)
   when is_integer(N) ->
-    {T,N};
+    {T, N, A};
+
 rcc(_) ->
     false.
 
-%% Extract the first good looking integer. There's no guarantee
-%% that what we're looking for has arity 1.
-int([N|_])
-  when is_integer(N) ->
-    N;
-int(N)
-  when is_integer(N) ->
-    N;
-int(_) ->
-    undefined.
+%% get_result/2
+
+get_result(Dict, Msg) ->
+    try
+        [throw(A) || N <- ['Result-Code', 'Experimental-Result'],
+                     #diameter_avp{} = A <- [get_avp(Dict, N, Msg)]]
+    of
+        [] -> false
+    catch
+        #diameter_avp{} = A -> A
+    end.
 
 x(T) ->
     exit(T).
@@ -1528,10 +1520,10 @@ handle_A(Pkt, SvcName, Dict, Dict0, App, #request{transport = TPid} = Req) ->
             %% a missing AVP. If both are optional in the dictionary
             %% then this isn't a decode error: just continue on.
             answer(Pkt, SvcName, App, Req);
-        exit: {invalid_error_bit, {_, _, _, RC}} ->
+        exit: {invalid_error_bit, {_, _, _, Avp}} ->
             #diameter_packet{errors = Es}
                 = Pkt,
-            E = {5004, #diameter_avp{name = 'Result-Code', value = RC}},
+            E = {5004, Avp},
             answer(Pkt#diameter_packet{errors = [E|Es]}, SvcName, App, Req)
     end.
 
@@ -1868,7 +1860,7 @@ str([]) ->
 str(T) ->
     T.
 
-%% get_avp_value/3
+%% get_avp/3
 %%
 %% Find an AVP in a message of one of three forms:
 %%
@@ -1885,47 +1877,71 @@ str(T) ->
 %% look for are in the common dictionary. This is required since the
 %% relay dictionary doesn't inherit the common dictionary (which maybe
 %% it should).
-get_avp_value(?RELAY, Name, Msg) ->
-    get_avp_value(?BASE, Name, Msg);
+get_avp(?RELAY, Name, Msg) ->
+    get_avp(?BASE, Name, Msg);
 
-%% Message sent as a header/avps list, probably a relay case but not
-%% necessarily.
-get_avp_value(Dict, Name, [#diameter_header{} | Avps]) ->
+%% Message as a header/avps list.
+get_avp(Dict, Name, [#diameter_header{} | Avps]) ->
     try
         {Code, _, VId} = Dict:avp_header(Name),
-        [A|_] = lists:dropwhile(fun(#diameter_avp{code = C, vendor_id = V}) ->
-                                        C /= Code orelse V /= VId
-                                end,
-                                Avps),
-        avp_decode(Dict, Name, A)
+        find_avp(Code, VId, Avps)
+    of
+        A ->
+            avp_decode(Dict, Name, ungroup(A))
     catch
         error: _ ->
             undefined
     end;
 
 %% Outgoing message as a name/values list.
-get_avp_value(_, Name, [_MsgName | Avps]) ->
+get_avp(_, Name, [_MsgName | Avps]) ->
     case lists:keyfind(Name, 1, Avps) of
         {_, V} ->
-            V;
+            #diameter_avp{name = Name, value = V};
         _ ->
             undefined
     end;
 
 %% Message is typically a record but not necessarily.
-get_avp_value(Dict, Name, Rec) ->
+get_avp(Dict, Name, Rec) ->
     try
-        Dict:'#get-'(Name, Rec)
+        #diameter_avp{name = Name, value = Dict:'#get-'(Name, Rec)}
     catch
         error:_ ->
             undefined
     end.
 
+%% get_avp_value/3
+
+get_avp_value(Dict, Name, Msg) ->
+    case get_avp(Dict, Name, Msg) of
+        #diameter_avp{value = V} ->
+            V;
+        undefined = No ->
+            No
+    end.
+
+%% ungroup/1
+
+ungroup([Avp|_]) ->
+    Avp;
+ungroup(Avp) ->
+    Avp.
+
+%% avp_decode/3
+
 avp_decode(Dict, Name, #diameter_avp{value = undefined,
-                                     data = Bin}) ->
-    Dict:avp(decode, Bin, Name);
-avp_decode(_, _, #diameter_avp{value = V}) ->
-    V.
+                                     data = Bin}
+                       = Avp) ->
+    try Dict:avp(decode, Bin, Name) of
+        V ->
+            Avp#diameter_avp{value = V}
+    catch
+        error:_ ->
+            Avp
+    end;
+avp_decode(_, _, #diameter_avp{} = Avp) ->
+    Avp.
 
 cb(#diameter_app{module = [_|_] = M}, F, A) ->
     eval(M, F, A);

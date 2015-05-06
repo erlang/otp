@@ -297,14 +297,14 @@ socket_open(snmpUDPDomain = Domain, [IpPort | Opts]) ->
 	    Fd = list_to_integer(FdStr),
 	    ?vdebug("socket_open(~p, [~p | ~p]) Fd: ~p",
 		    [Domain, IpPort, Opts, Fd]),
-	    gen_udp_open(IpPort, [{fd, Fd} | Opts]);
+	    gen_udp_open(0, [{fd, Fd} | Opts]);
 	error ->
 	    case init:get_argument(snmpa_fd) of
 		{ok, [[FdStr]]} ->
 		    Fd = list_to_integer(FdStr),
 		    ?vdebug("socket_open(~p, [~p | ~p]) Fd: ~p",
 			    [Domain, IpPort, Opts, Fd]),
-		    gen_udp_open(IpPort, [{fd, Fd} | Opts]);
+		    gen_udp_open(0, [{fd, Fd} | Opts]);
 		error ->
 		    ?vdebug("socket_open(~p, [~p | ~p])",
 			    [Domain, IpPort, Opts]),

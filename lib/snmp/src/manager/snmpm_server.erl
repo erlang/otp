@@ -2022,7 +2022,8 @@ do_handle_agent(DefUserId, DefMod,
 	    ok;
 
 	InvalidResult ->
-	    CallbackArgs = [Domain, Addr, Type, SnmpInfo, DefData],
+	    CallbackArgs =
+		[Domain_or_Ip, Addr_or_Port, Type, SnmpInfo, DefData],
 	    handle_invalid_result(handle_agent, CallbackArgs, InvalidResult) 
 
     catch
@@ -2118,7 +2119,8 @@ do_handle_agent(DefUserId, DefMod,
 	    end;
 	
 	T:E ->
-	    CallbackArgs = [Domain, Addr, Type, SnmpInfo, DefData],
+	    CallbackArgs =
+		[Domain_or_Ip, Addr_or_Port, Type, SnmpInfo, DefData],
 	    handle_invalid_result(handle_agent, CallbackArgs, T, E)
 	    
     end.

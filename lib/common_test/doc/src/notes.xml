@@ -32,6 +32,66 @@
     <file>notes.xml</file>
     </header>
 
+<section><title>Common_Test 1.10.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    A fault in the Common Test logger process, that caused
+	    the application to crash when running on a long name
+	    node, has been corrected.</p>
+          <p>
+	    Own Id: OTP-12643</p>
+        </item>
+        <item>
+          <p>
+	    A 'wait_for_prompt' option in ct_telnet:expect/3 has been
+	    introduced which forces the function to not return until
+	    a prompt string has been received, even if other expect
+	    patterns have already been found.</p>
+          <p>
+	    Own Id: OTP-12688 Aux Id: seq12818 </p>
+        </item>
+        <item>
+          <p>
+	    If the last expression in a test case causes a timetrap
+	    timeout, the stack trace is ignored and not printed to
+	    the test case log file. This happens because the
+	    {Suite,TestCase,Line} info is not available in the stack
+	    trace in this scenario, due to tail call elimination.
+	    Common Test has been modified to handle this situation by
+	    inserting a {Suite,TestCase,last_expr} tuple in the
+	    correct place and printing the stack trace as expected.</p>
+          <p>
+	    Own Id: OTP-12697 Aux Id: seq12848 </p>
+        </item>
+        <item>
+          <p>
+	    Fixed a buffer problem in ct_netconfc which could cause
+	    that some messages where buffered forever.</p>
+          <p>
+	    Own Id: OTP-12698 Aux Id: seq12844 </p>
+        </item>
+        <item>
+          <p>
+	    The VTS mode in Common Test has been modified to use a
+	    private version of the Webtool application (ct_webtool).</p>
+          <p>
+	    Own Id: OTP-12704 Aux Id: OTP-10922 </p>
+        </item>
+        <item>
+          <p>
+	    Add possibility to add user capabilities in
+	    <c>ct_netconfc:hello/3</c>.</p>
+          <p>
+	    Own Id: OTP-12707 Aux Id: seq12846 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Common_Test 1.10</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

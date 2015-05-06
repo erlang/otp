@@ -239,7 +239,7 @@ int main(int argc, char** argv)
      */
 
     if (ct_mode == VTS_MODE) {
-	PUSH4("-s", "webtool", "script_start", "vts");
+	PUSH4("-s", "ct_webtool", "script_start", "vts");
 	if (browser[0] != '\0') PUSH(browser);
 	PUSH3("-s", "ct_run", "script_start");
     }
