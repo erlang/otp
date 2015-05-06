@@ -1106,18 +1106,14 @@ msg_id(#diameter_packet{header = H}, Dict) ->
 %% there are 2^32 (application ids) * 2^24 (command codes) = 2^56
 %% pairs for an attacker to choose from.
 msg_id(Hdr, Dict) ->
-    {_ApplId, Code, R} = Id = diameter_codec:msg_id(Hdr),
-    case Dict:msg_name(Code, 0 == R) of
-        '' ->
-            unknown(Dict:id(), R);
-        _ ->
-            Id
+    {Aid, Code, R} = Id = diameter_codec:msg_id(Hdr),
+    if Aid == ?APP_ID_RELAY ->
+            {relay, R};
+       true ->
+            choose(Aid /= Dict:id() orelse '' == Dict:msg_name(Code, 0 == R),
+                   unknown,
+                   Id)
     end.
-
-unknown(?APP_ID_RELAY, R) ->
-    {relay, R};
-unknown(_, _) ->
-    unknown.
 
 %% No E-bit: can't be 3xxx.
 is_result(RC, false, _Dict0) ->
