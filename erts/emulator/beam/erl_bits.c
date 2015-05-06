@@ -165,6 +165,26 @@ erts_bs_start_match_2(Process *p, Eterm Binary, Uint Max)
     return make_matchstate(ms);
 }
 
+#ifdef DEBUG
+# define CHECK_MATCH_BUFFER(MB) check_match_buffer(MB)
+
+static void check_match_buffer(ErlBinMatchBuffer* mb)
+{
+    Eterm realbin;
+    Uint byteoffs;
+    byte* bytes, bitoffs, bitsz;
+    ProcBin* pb;
+    ERTS_GET_REAL_BIN(mb->orig, realbin, byteoffs, bitoffs, bitsz);
+    bytes = binary_bytes(realbin) + byteoffs;
+    ERTS_ASSERT(mb->base >= bytes && mb->base <= (bytes + binary_size(mb->orig)));
+    pb = (ProcBin *) boxed_val(realbin);
+    if (pb->thing_word == HEADER_PROC_BIN)
+        ERTS_ASSERT(pb->flags == 0);
+}
+#else
+# define CHECK_MATCH_BUFFER(MB)
+#endif
+
 Eterm
 erts_bs_get_integer_2(Process *p, Uint num_bits, unsigned flags, ErlBinMatchBuffer* mb)
 {
@@ -185,6 +205,7 @@ erts_bs_get_integer_2(Process *p, Uint num_bits, unsigned flags, ErlBinMatchBuff
 	return SMALL_ZERO;
     }
     
+    CHECK_MATCH_BUFFER(mb);
     if (mb->size - mb->offset < num_bits) {	/* Asked for too many bits.  */
 	return THE_NON_VALUE;
     }
@@ -425,6 +446,7 @@ erts_bs_get_binary_2(Process *p, Uint num_bits, unsigned flags, ErlBinMatchBuffe
 {
     ErlSubBin* sb;
 
+    CHECK_MATCH_BUFFER(mb);
     if (mb->size - mb->offset < num_bits) {	/* Asked for too many bits.  */
 	return THE_NON_VALUE;
     }
@@ -456,6 +478,7 @@ erts_bs_get_float_2(Process *p, Uint num_bits, unsigned flags, ErlBinMatchBuffer
     byte* fptr;
     FloatDef f;
 
+    CHECK_MATCH_BUFFER(mb);
     if (num_bits == 0) {
 	f.fd = 0.0;
 	hp = HeapOnlyAlloc(p, FLOAT_SIZE_OBJECT);
@@ -509,6 +532,8 @@ erts_bs_get_binary_all_2(Process *p, ErlBinMatchBuffer* mb)
 {
     ErlSubBin* sb;
     Uint size;
+
+    CHECK_MATCH_BUFFER(mb);
     size =  mb->size-mb->offset;
     sb = (ErlSubBin *) HeapOnlyAlloc(p, ERL_SUB_BIN_SIZE);
     sb->thing_word = HEADER_SUB_BIN;
@@ -1595,6 +1620,7 @@ erts_bs_get_unaligned_uint32(ErlBinMatchBuffer* mb)
     byte* LSB;
     byte* MSB;
 	
+    CHECK_MATCH_BUFFER(mb);
     ASSERT((mb->offset & 7) != 0);
     ASSERT(mb->size - mb->offset >= 32);
 
@@ -1653,6 +1679,8 @@ erts_bs_get_utf8(ErlBinMatchBuffer* mb)
 	9,9,1,1,1,1,1,1,1,1,1,1,1,1,1,1, 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
 	2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2, 3,3,3,3,3,3,3,3,9,9,9,9,9,9,9,9
     };
+
+    CHECK_MATCH_BUFFER(mb);
 
     if ((remaining_bits = mb->size - mb->offset) < 8) {
 	return THE_NON_VALUE;
@@ -1738,6 +1766,7 @@ erts_bs_get_utf16(ErlBinMatchBuffer* mb, Uint flags)
 	return THE_NON_VALUE;
     }
 
+    CHECK_MATCH_BUFFER(mb);
     /*
      * Set up the pointer to the source bytes.
      */
