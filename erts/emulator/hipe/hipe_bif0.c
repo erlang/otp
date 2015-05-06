@@ -1028,6 +1028,14 @@ void hipe_emulate_fpe(Process* p)
 }
 #endif
 
+void hipe_emasculate_binary(Eterm bin)
+{
+    ProcBin* pb = (ProcBin *) boxed_val(bin);
+    ASSERT(pb->thing_word == HEADER_PROC_BIN);
+    ASSERT(pb->flags != 0);
+    erts_emasculate_writable_binary(pb);
+}
+
 #if 0 /* XXX: unused */
 /*
  * At least parts of this should be inlined in native code.
