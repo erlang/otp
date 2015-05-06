@@ -3824,7 +3824,7 @@ match_object_do(Opts) ->
     EtsMem = etsmem(),
     Tab = ets_new(foobar, Opts),
     fill_tab(Tab, foo),
-    ets:insert(Tab, {{one, 4}, 4}),
+    ets:insert(Tab,{{one,4},4}),
     ets:insert(Tab,{{one,5},5}),
     ets:insert(Tab,{{two,4},4}),
     ets:insert(Tab,{{two,5},6}),
@@ -3832,6 +3832,11 @@ match_object_do(Opts) ->
     ets:insert(Tab, {#{"hi"=>"hello","wazzup"=>"awesome","1337"=>"42"},8}),
     ets:insert(Tab, {#{"hi"=>"hello",#{"wazzup"=>3}=>"awesome","1337"=>"42"},9}),
     ets:insert(Tab, {#{"hi"=>"hello","wazzup"=>#{"awesome"=>3},"1337"=>"42"},10}),
+    Is = lists:seq(1,100),
+    M1 = maps:from_list([{I,I}||I <- Is]),
+    M2 = maps:from_list([{I,"hi"}||I <- Is]),
+    ets:insert(Tab, {M1,11}),
+    ets:insert(Tab, {M2,12}),
 
     case ets:match_object(Tab, {{one, '_'}, '$0'}) of
 	[{{one,5},5},{{one,4},4}] -> ok;
@@ -3853,6 +3858,7 @@ match_object_do(Opts) ->
 	[{{two,4},4},{{two,5},6}] -> ok;
 	_ -> ?t:fail("ets:match_object() returned something funny.")
     end,
+
     % Check that maps are inspected for variables.
     [{#{camembert:=cabécou},7}] = ets:match_object(Tab, {#{camembert=>'_'},7}),
 
@@ -3881,8 +3887,18 @@ match_object_do(Opts) ->
         _ -> ?t:fail("ets:match_object() returned something funny.")
     end,
 
+    %% match large maps
+    [{#{1:=1,2:=2,99:=99,100:=100},11}] = ets:match_object(Tab, {M1,11}),
+    [{#{1:="hi",2:="hi",99:="hi",100:="hi"},12}] = ets:match_object(Tab, {M2,12}),
+    case ets:match_object(Tab, {#{1=>'_',2=>'_'},'_'}) of
+        %% only match a part of the map
+        [{#{1:=1,5:=5,99:=99,100:=100},11},{#{1:="hi",6:="hi",99:="hi"},12}] -> ok;
+        [{#{1:="hi",2:="hi",59:="hi"},12},{#{1:=1,2:=2,39:=39,100:=100},11}] -> ok;
+        _ -> ?t:fail("ets:match_object() returned something funny.")
+    end,
     {'EXIT',{badarg,_}} = (catch ets:match_object(Tab, {#{'$1'=>'_'},7})),
-    % Check that unsucessful match returns an empty list.
+
+    % Check that unsuccessful match returns an empty list.
     [] = ets:match_object(Tab, {{three,'$0'}, '$92'}),
     % Check that '$0' equals '_'.
     Len = length(ets:match_object(Tab, '$0')),
