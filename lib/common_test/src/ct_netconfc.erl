@@ -172,6 +172,7 @@
 	 only_open/2,
 	 hello/1,
 	 hello/2,
+	 hello/3,
 	 close_session/1,
 	 close_session/2,
 	 kill_session/2,
@@ -456,23 +457,35 @@ only_open(KeyOrName, ExtraOpts) ->
 
 %%----------------------------------------------------------------------
 %% @spec hello(Client) -> Result
-%% @equiv hello(Client, infinity)
+%% @equiv hello(Client, [], infinity)
 hello(Client) ->
-    hello(Client,?DEFAULT_TIMEOUT).
+    hello(Client,[],?DEFAULT_TIMEOUT).
 
 %%----------------------------------------------------------------------
 -spec hello(Client,Timeout) -> Result when
       Client :: handle(),
       Timeout :: timeout(),
       Result :: ok | {error,error_reason()}.
+%% @spec hello(Client, Timeout) -> Result
+%% @equiv hello(Client, [], Timeout)
+hello(Client,Timeout) ->
+    hello(Client,[],Timeout).
+
+%%----------------------------------------------------------------------
+-spec hello(Client,Options,Timeout) -> Result when
+      Client :: handle(),
+      Options :: [{capability, [string()]}],
+      Timeout :: timeout(),
+      Result :: ok | {error,error_reason()}.
 %% @doc Exchange `hello' messages with the server.
 %%
-%% Sends a `hello' message to the server and waits for the return.
-%%
+%% Adds optional capabilities and sends a `hello' message to the
+%% server and waits for the return.
 %% @end
 %%----------------------------------------------------------------------
-hello(Client,Timeout) ->
-    call(Client, {hello, Timeout}).
+hello(Client,Options,Timeout) ->
+    call(Client, {hello, Options, Timeout}).
+
 
 %%----------------------------------------------------------------------
 %% @spec get_session_id(Client) -> Result
@@ -1040,9 +1053,9 @@ terminate(_, #state{connection=Connection}) ->
     ok.
 
 %% @private
-handle_msg({hello,Timeout}, From,
+handle_msg({hello, Options, Timeout}, From,
 	   #state{connection=Connection,hello_status=HelloStatus} = State) ->
-    case do_send(Connection, client_hello()) of
+    case do_send(Connection, client_hello(Options)) of
 	ok ->
 	    case HelloStatus of
 		undefined ->
@@ -1224,10 +1237,14 @@ set_request_timer(T) ->
 
 
 %%%-----------------------------------------------------------------
-client_hello() ->
+client_hello(Options) when is_list(Options) ->
+    UserCaps = [{capability, UserCap} ||
+		   {capability, UserCap} <- Options,
+		   is_list(hd(UserCap))],
     {hello, ?NETCONF_NAMESPACE_ATTR,
      [{capabilities,
-       [{capability,[?NETCONF_BASE_CAP++?NETCONF_BASE_CAP_VSN]}]}]}.
+       [{capability,[?NETCONF_BASE_CAP++?NETCONF_BASE_CAP_VSN]}|
+	UserCaps]}]}.
 
 %%%-----------------------------------------------------------------
 
