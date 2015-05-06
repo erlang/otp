@@ -33,7 +33,40 @@
   </header>
 
 
-  <section>
+  <section><title>SNMP 5.1.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    A bug in the SNMP Agent has been corrected; when opening
+	    a port using the command line argument -snmpa_fd the Port
+	    should be 0 when calling gen_udp:open.</p>
+          <p>
+	    A bug in the SNMP manager has been corrected; it should
+	    not look at the -snmp_fd command line argument, but
+	    instead at -snmpm_fd.</p>
+          <p>
+	    Own Id: OTP-12669 Aux Id: seq12841 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Improved cryptocraphic capability.</p>
+          <p>
+	    Own Id: OTP-12452</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section>
     <title>SNMP Development Toolkit 5.1.1</title>
     <p>Version 5.1.1 supports code replacement in runtime from/to
     version 5.1. </p>

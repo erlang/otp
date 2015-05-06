@@ -42,6 +42,47 @@ first.</p>
 
 <!-- ===================================================================== -->
 
+<section><title>diameter 1.9.1</title>
+
+    <section><title>Known Bugs and Problems</title>
+      <list>
+        <item>
+          <p>
+	    Don't leave extra bit in decoded AVP data.</p>
+          <p>
+	    OTP-12074 in OTP 17.3 missed one case: a length error on
+	    a trailing AVP unknown to the dictionary in question.</p>
+          <p>
+	    Own Id: OTP-12642</p>
+        </item>
+        <item>
+          <p>
+	    Don't confuse Result-Code and Experimental-Result</p>
+          <p>
+	    The errors field of a decoded diameter_packet record was
+	    populated with a Result-Code AVP when an
+	    Experimental-Result containing a 3xxx Result-Code was
+	    received in an answer not setting the E-bit. The correct
+	    AVP is now extracted from the incoming message.</p>
+          <p>
+	    Own Id: OTP-12654 Aux Id: seq12851 </p>
+        </item>
+        <item>
+          <p>
+	    Don't count on unknown Application Id.</p>
+          <p>
+	    OTP-11721 in OTP 17.1 missed the case of an Application
+	    Id not agreeing with that of the dictionary in question,
+	    causing counters to be accumulated on keys containing the
+	    unknown id.</p>
+          <p>
+	    Own Id: OTP-12701</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>diameter 1.9</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
