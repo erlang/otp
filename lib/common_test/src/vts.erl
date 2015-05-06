@@ -63,21 +63,21 @@
 %%%-----------------------------------------------------------------
 %%% User API
 start() ->
-    webtool:start(),
-    webtool:start_tools([],"app=vts").
+    ct_webtool:start(),
+    ct_webtool:start_tools([],"app=vts").
 
 init_data(ConfigFiles,EvHandlers,LogDir,LogOpts,Tests) ->
     call({init_data,ConfigFiles,EvHandlers,LogDir,LogOpts,Tests}).
 
 stop() ->
-    webtool:stop_tools([],"app=vts"),
-    webtool:stop().
+    ct_webtool:stop_tools([],"app=vts"),
+    ct_webtool:stop().
 
 report(What,Data) ->
     call({report,What,Data}).
 
 %%%-----------------------------------------------------------------
-%%% Return config data used by webtool
+%%% Return config data used by ct_webtool
 config_data() ->
     {ok,LogDir} =
 	case lists:keysearch(logdir,1,init:get_arguments()) of
