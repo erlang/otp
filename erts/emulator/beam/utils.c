@@ -958,7 +958,8 @@ tail_recur:
             FloatDef ff;
             GET_DOUBLE(term, ff);
             if (ff.fd == 0.0f) {
-                ff.fd = 0.0f; /* ensure pos. 0.0 */
+                /* ensure positive 0.0 */
+                ff.fd = erts_get_positive_zero_float();
             }
             hash = hash*FUNNY_NUMBER6 + (ff.fw[0] ^ ff.fw[1]);
             break;
@@ -1477,7 +1478,8 @@ make_hash2(Eterm term)
 		FloatDef ff;
 		GET_DOUBLE(term, ff);
                 if (ff.fd == 0.0f) {
-                    ff.fd = 0.0f; /* ensure pos. 0.0 */
+                    /* ensure positive 0.0 */
+                    ff.fd = erts_get_positive_zero_float();
                 }
 #if defined(WORDS_BIGENDIAN) || defined(DOUBLE_MIDDLE_ENDIAN)
 		UINT32_HASH_2(ff.fw[0], ff.fw[1], HCONST_12);
@@ -1899,7 +1901,8 @@ make_internal_hash(Eterm term)
 		FloatDef ff;
 		GET_DOUBLE(term, ff);
                 if (ff.fd == 0.0f) {
-                    ff.fd = 0.0f; /* ensure pos. 0.0 */
+                    /* ensure positive 0.0 */
+                    ff.fd = erts_get_positive_zero_float();
                 }
 		UINT32_HASH_2(ff.fw[0], ff.fw[1], HCONST_12);
 		goto pop_next;
@@ -2087,7 +2090,8 @@ tail_recur:
             FloatDef ff;
             GET_DOUBLE(term, ff);
             if (ff.fd == 0.0f) {
-                ff.fd = 0.0f; /* ensure pos. 0.0 */
+                /* ensure positive 0.0 */
+                ff.fd = erts_get_positive_zero_float();
             }
             hash = hash*FUNNY_NUMBER6 + (ff.fw[0] ^ ff.fw[1]);
 	}
