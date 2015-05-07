@@ -1,3 +1,3 @@
 
 relevant_record_warning.erl:22: Function test/1 has no local return
-relevant_record_warning.erl:23: Record construction #r{field::<<_:8>>} violates the declared type of field field::'binary' | 'undefined'
+relevant_record_warning.erl:23: Record construction #r{field::<<_:8>>} violates the declared type of field field::'binary'

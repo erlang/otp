@@ -247,12 +247,6 @@
         <item>If V is <c><![CDATA[A = E]]></c>, then
          Rep(V) = <c><![CDATA[{record_field,LINE,Rep(A),Rep(E)}]]></c>.</item>
         <item>If V is <c><![CDATA[A :: T]]></c>, where <c><![CDATA[A]]></c> is
-         an atom and <c><![CDATA[T]]></c> is a type and it does not contain
-         <c><![CDATA[undefined]]></c> syntactically, then Rep(V) =
-         <c><![CDATA[{typed_record_field,{record_field,LINE,Rep(A)},Rep(undefined | T)}]]></c>.
-         Note that if <![CDATA[T]]> is an annotated type, it will be wrapped in
-         parentheses.</item>
-        <item>If V is <c><![CDATA[A :: T]]></c>, where <c><![CDATA[A]]></c> is
          an atom and <c><![CDATA[T]]></c> is a type, then Rep(V) =
          <c><![CDATA[{typed_record_field,{record_field,LINE,Rep(A)},Rep(T)}]]></c>.
          </item>

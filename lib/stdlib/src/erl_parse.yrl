@@ -790,30 +790,10 @@ record_fields([{match,_Am,{atom,Aa,A},Expr}|Fields]) ->
     [{record_field,Aa,{atom,Aa,A},Expr}|record_fields(Fields)];
 record_fields([{typed,Expr,TypeInfo}|Fields]) ->
     [Field] = record_fields([Expr]),
-    TypeInfo1 =
-	case Expr of
-	    {match, _, _, _} -> TypeInfo; %% If we have an initializer.
-	    {atom, Aa, _} ->
-                case has_undefined(TypeInfo) of
-                    false ->
-                        lift_unions(abstract2(undefined, Aa), TypeInfo);
-                    true ->
-                        TypeInfo
-                end
-	end,
-    [{typed_record_field,Field,TypeInfo1}|record_fields(Fields)];
+    [{typed_record_field,Field,TypeInfo}|record_fields(Fields)];
 record_fields([Other|_Fields]) ->
     ret_err(?anno(Other), "bad record field");
 record_fields([]) -> [].
-
-has_undefined({atom,_,undefined}) ->
-    true;
-has_undefined({ann_type,_,[_,T]}) ->
-    has_undefined(T);
-has_undefined({type,_,union,Ts}) ->
-    lists:any(fun has_undefined/1, Ts);
-has_undefined(_) ->
-    false.
 
 term(Expr) ->
     try normalise(Expr)

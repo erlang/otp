@@ -18,7 +18,7 @@ rec_api.erl:104: Matching of pattern {'r2', 10} tagged with a record name violat
 rec_api.erl:113: The attempt to match a term of type #r3{f1::queue:queue(_)} against the pattern {'r3', 'a'} breaks the opaqueness of queue:queue(_)
 rec_api.erl:118: Record construction #r3{f1::10} violates the declared type of field f1::queue:queue(_)
 rec_api.erl:123: The attempt to match a term of type #r3{f1::10} against the pattern {'r3', 10} breaks the opaqueness of queue:queue(_)
-rec_api.erl:24: Record construction #r1{f1::10} violates the declared type of field f1::'undefined' | rec_api:a()
+rec_api.erl:24: Record construction #r1{f1::10} violates the declared type of field f1::rec_api:a()
 rec_api.erl:29: Matching of pattern {'r1', 10} tagged with a record name violates the declared type of #r1{f1::10}
 rec_api.erl:33: The attempt to match a term of type rec_adt:r1() against the pattern {'r1', 'a'} breaks the opaqueness of the term
 rec_api.erl:35: Invalid type specification for function rec_api:adt_t1/1. The success typing is (#r1{f1::'a'}) -> #r1{f1::'a'}

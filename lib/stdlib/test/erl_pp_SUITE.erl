@@ -928,7 +928,9 @@ otp_8522(Config) when is_list(Config) ->
     ?line {ok, _} = compile:file(FileName, [{outdir,?privdir},debug_info]),
     BF = filename("otp_8522", Config),
     ?line {ok, A} = beam_lib:chunks(BF, [abstract_code]),
-    ?line 5 = count_atom(A, undefined),
+    %% OTP-12719: Since 'undefined' is no longer added by the Erlang
+    %% Parser, the number of 'undefined' is 4. It used to be 5.
+    ?line 4 = count_atom(A, undefined),
     ok.
 
 count_atom(A, A) ->
@@ -1062,7 +1064,7 @@ otp_9147(Config) when is_list(Config) ->
     ?line {ok, Bin} = file:read_file(PFileName),
     %% The parentheses around "F1 :: a | b" are new (bugfix).
     ?line true = 
-        lists:member("-record(undef,{f1 :: undefined | (F1 :: a | b)}).",
+        lists:member("-record(undef,{f1 :: F1 :: a | b}).",
                      string:tokens(binary_to_list(Bin), "\n")),
     ok.
 
