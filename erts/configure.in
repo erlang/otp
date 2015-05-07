@@ -4734,12 +4734,12 @@ fi
 
 AC_CHECK_PROGS(JAVAC, $check_javac)
 if test -n "$JAVAC"; then
-  dnl Make sure it's at least JDK 1.5
-  AC_CACHE_CHECK(for JDK version 1.5, 
-     ac_cv_prog_javac_ver_1_5,
+  dnl Make sure it's at least JDK 1.6
+  AC_CACHE_CHECK(for JDK version 1.6, 
+     ac_cv_prog_javac_ver_1_6,
      [ERL_TRY_LINK_JAVA([], [for (String i : args);],
-        ac_cv_prog_javac_ver_1_5=yes, ac_cv_prog_javac_ver_1_5=no)])
-  if test $ac_cv_prog_javac_ver_1_5 = no; then
+        ac_cv_prog_javac_ver_1_6=yes, ac_cv_prog_javac_ver_1_6=no)])
+  if test $ac_cv_prog_javac_ver_1_6 = no; then
     unset -v JAVAC
   fi
 fi
