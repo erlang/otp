@@ -867,6 +867,9 @@ void print_process_info(int, void *, Process*);
 void info(int, void *);
 void loaded(int, void *);
 
+/* erl_arith.c */
+double erts_get_positive_zero_float(void);
+
 /* config.c */
 
 __decl_noreturn void __noreturn erl_exit(int n, char*, ...);
