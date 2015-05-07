@@ -96,6 +96,15 @@
       <p><c>| privilegeWithdrawn</c></p>
       <p><c>| aACompromise</c></p>
       </item>
+
+      <tag><c>OID_macro()</c></tag>
+      <item>= <p><c>?OID_name() </c></p>
+      </item>
+      
+      <tag><c>OID_name()</c></tag>
+      <item>= <p><c>atom()</c></p>
+      </item>
+      
     </taglist>
 
   </section>
@@ -196,7 +205,7 @@
   <section>
     <title>PKIX Certificates</title>   
     <p>Erlang representation of PKIX certificates derived from ASN.1 
-    specifications see also <url href="http://www.ietf.org/rfc/rfc5280.txt">X509 certificates (RFC 5280)</url> are as follows:</p>
+    specifications see also <url href="http://www.ietf.org/rfc/rfc5280.txt">X509 certificates (RFC 5280)</url>, also referred to as <c>plain</c> type,  are as follows:</p>
 <code>
 #'Certificate'{
 		tbsCertificate,        % #'TBSCertificate'{}
@@ -222,6 +231,8 @@
 	  parameters  % der_encoded()
 	 }.</code>
 
+<p>Erlang alternate representation of PKIX certificate, also referred to as <c>otp</c> type</p>
+	 
 <code>
 #'OTPCertificate'{
 		tbsCertificate,        % #'OTPTBSCertificate'{}
@@ -247,8 +258,8 @@
 	  parameters  % asn1_novalue | #'Dss-Parms'{}
 	 }.</code>
 
-<p>Here, <c>id_signature_algorithm()</c> = ?OID name, for available OID names, for example 
-<c>?id-dsa-with-sha1</c>. That is, by prepending "?" to the OID name, represented as an Erlang atom.</p>
+<p><c>id_signature_algorithm() = OID_macro()</c></p>
+
 <p>The available OID names are as follows:</p>
 <table>
   <row>

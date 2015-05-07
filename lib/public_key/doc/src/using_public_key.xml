@@ -381,7 +381,9 @@ Msg = public_key:decrypt_public(RsaEncrypted, PublicKey),</code>
 Msg = public_key:decrypt_private(RsaEncrypted, PrivateKey),</code>
 
       <note><p>You normally do only one of the encrypt or decrypt operations, 
-      and the peer does the other.</p></note>
+      and the peer does the other. This normaly used in legacy applications
+      as a primitive digital signature.
+      </p></note>
 
   </section>
 
