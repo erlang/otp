@@ -3896,7 +3896,15 @@ match_object_do(Opts) ->
         [{#{1:="hi",2:="hi",59:="hi"},12},{#{1:=1,2:=2,39:=39,100:=100},11}] -> ok;
         _ -> ?t:fail("ets:match_object() returned something funny.")
     end,
+    case ets:match_object(Tab, {maps:from_list([{I,'_'}||I<-Is]),'_'}) of
+        %% only match a part of the map
+        [{#{1:=1,5:=5,99:=99,100:=100},11},{#{1:="hi",6:="hi",99:="hi"},12}] -> ok;
+        [{#{1:="hi",2:="hi",59:="hi"},12},{#{1:=1,2:=2,39:=39,100:=100},11}] -> ok;
+        _ -> ?t:fail("ets:match_object() returned something funny.")
+    end,
     {'EXIT',{badarg,_}} = (catch ets:match_object(Tab, {#{'$1'=>'_'},7})),
+    Mve = maps:from_list([{list_to_atom([$$|integer_to_list(I)]),'_'}||I<-Is]),
+    {'EXIT',{badarg,_}} = (catch ets:match_object(Tab, {Mve,11})),
 
     % Check that unsuccessful match returns an empty list.
     [] = ets:match_object(Tab, {{three,'$0'}, '$92'}),
