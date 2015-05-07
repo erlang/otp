@@ -87,6 +87,19 @@
         <cell>2 words + the size of each element.</cell>
       </row>
       <row>
+        <cell>Small Map</cell>
+        <cell>4 words + 2 words per entry (key and value) + the size of each key and value pair.</cell>
+      </row>
+      <row>
+        <cell>Large Map</cell>
+        <cell>
+            At least, 2 words + 2 x <c>N</c> words + 2 x log16(<c>N</c>) words +
+            the size of each key and value pair, where <c>N</c> is the number of pairs in the Map.
+            A large Map is represented as a tree internally where each node in the tree is a
+            "sparse tuple" of arity 16.
+        </cell>
+      </row>
+      <row>
         <cell>Pid</cell>
         <cell>1 word for a process identifier from the current local node
 	+ 5 words for a process identifier from another node.<br></br>
