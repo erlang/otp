@@ -37,6 +37,7 @@
 	  sup_start_ignore_child/1, sup_start_ignore_temporary_child/1,
 	  sup_start_ignore_temporary_child_start_child/1,
 	  sup_start_ignore_temporary_child_start_child_simple/1,
+	  sup_start_ignore_permanent_child_start_child_simple/1,
 	  sup_start_error_return/1, sup_start_fail/1, sup_stop_infinity/1,
 	  sup_stop_timeout/1, sup_stop_brutal_kill/1, child_adm/1,
 	  child_adm_simple/1, child_specs/1, extra_return/1]).
@@ -93,6 +94,7 @@ groups() ->
        sup_start_ignore_child, sup_start_ignore_temporary_child,
        sup_start_ignore_temporary_child_start_child,
        sup_start_ignore_temporary_child_start_child_simple,
+       sup_start_ignore_permanent_child_start_child_simple,
        sup_start_error_return, sup_start_fail]},
      {sup_stop, [],
       [sup_stop_infinity, sup_stop_timeout,
@@ -241,6 +243,27 @@ sup_start_ignore_temporary_child_start_child_simple(Config)
     [{undefined, CPid2, worker, []}] = supervisor:which_children(sup_test),
     [1,1,0,1] = get_child_counts(sup_test).
 
+%%-------------------------------------------------------------------------
+%% Tests what happens if child's init-callback returns ignore for a
+%% permanent child when child is started with start_child/2, and the
+%% supervisor is simple_one_for_one.
+%% Child spec shall NOT be saved!!!
+sup_start_ignore_permanent_child_start_child_simple(Config)
+  when is_list(Config) ->
+    process_flag(trap_exit, true),
+    Child1 = {child1, {supervisor_1, start_child, [ignore]},
+	      permanent, 1000, worker, []},
+    {ok, Pid}  = start_link({ok, {{simple_one_for_one, 2, 3600}, [Child1]}}),
+
+    {ok, undefined} = supervisor:start_child(sup_test, []),
+    {ok, CPid2} = supervisor:start_child(sup_test, []),
+
+    [{undefined, CPid2, worker, []}] = supervisor:which_children(sup_test),
+    [1,1,0,1] = get_child_counts(sup_test),
+
+    %% Regression test: check that the supervisor terminates without error.
+    exit(Pid, shutdown),
+    check_exit_reason(Pid, shutdown).
 %%-------------------------------------------------------------------------
 %% Tests what happens if init-callback returns a invalid value.
 sup_start_error_return(Config) when is_list(Config) ->
