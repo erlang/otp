@@ -600,6 +600,7 @@ erts_dsprintf_buf_t *erts_create_logger_dsbuf(void);
 int erts_send_info_to_logger(Eterm, erts_dsprintf_buf_t *);
 int erts_send_warning_to_logger(Eterm, erts_dsprintf_buf_t *);
 int erts_send_error_to_logger(Eterm, erts_dsprintf_buf_t *);
+int erts_send_error_term_to_logger(Eterm, erts_dsprintf_buf_t *, Eterm);
 int erts_send_info_to_logger_str(Eterm, char *); 
 int erts_send_warning_to_logger_str(Eterm, char *);
 int erts_send_error_to_logger_str(Eterm, char *);

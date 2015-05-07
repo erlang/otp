@@ -5476,18 +5476,35 @@ next_catch(Process* c_p, Eterm *reg) {
 static void
 terminate_proc(Process* c_p, Eterm Value)
 {
+    Eterm *hp;
+    Eterm Args = NIL;
+
     /* Add a stacktrace if this is an error. */
     if (GET_EXC_CLASS(c_p->freason) == EXTAG_ERROR) {
         Value = add_stacktrace(c_p, Value, c_p->ftrace);
     }
     /* EXF_LOG is a primary exception flag */
     if (c_p->freason & EXF_LOG) {
+	int alive = erts_is_alive;
 	erts_dsprintf_buf_t *dsbufp = erts_create_logger_dsbuf();
-	erts_dsprintf(dsbufp, "Error in process %T ", c_p->common.id);
-	if (erts_is_alive)
-	    erts_dsprintf(dsbufp, "on node %T ", erts_this_node->sysname);
-	erts_dsprintf(dsbufp,"with exit value: %0.*T\n", display_items, Value);
-	erts_send_error_to_logger(c_p->group_leader, dsbufp);
+
+        /* Build the format message */
+	erts_dsprintf(dsbufp, "Error in process ~p ");
+	if (alive)
+	    erts_dsprintf(dsbufp, "on node ~p ");
+	erts_dsprintf(dsbufp, "with exit value:~n~p~n");
+
+        /* Build the args in reverse order */
+	hp = HAlloc(c_p, 2);
+	Args = CONS(hp, Value, Args);
+	if (alive) {
+	    hp = HAlloc(c_p, 2);
+	    Args = CONS(hp, erts_this_node->sysname, Args);
+	}
+	hp = HAlloc(c_p, 2);
+	Args = CONS(hp, c_p->common.id, Args);
+
+	erts_send_error_term_to_logger(c_p->group_leader, dsbufp, Args);
     }
     /*
      * If we use a shared heap, the process will be garbage-collected.
