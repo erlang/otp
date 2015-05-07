@@ -5,7 +5,7 @@
   <header>
     <copyright>
       <year>2008</year>
-      <year>2014</year>
+      <year>2015</year>
       <holder>Ericsson AB, All Rights Reserved</holder>
     </copyright>
     <legalnotice>
@@ -50,7 +50,7 @@
 
     <p>Common non-standard Erlang
     data types used to describe the record fields in the
-    following sections and which are not defined in the <c>public_key</c> <seealso
+    following sections and which are not defined in the Public Key <seealso
     marker="public_key">Reference Manual</seealso>
     follows here:</p>
     
@@ -772,7 +772,7 @@ are as follows:</p>
        <p>Here:</p>
        <taglist>
       <tag><c>crl_reason()</c></tag>
-      <item>= <p><c>unspecified</c>c></p>
+      <item>= <p><c>unspecified</c></p>
       <p><c>| keyCompromise</c></p>
       <p><c>| cACompromise</c></p>
       <p><c>| affiliationChanged</c></p>

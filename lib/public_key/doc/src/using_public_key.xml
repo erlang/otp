@@ -30,8 +30,8 @@
   </header>
 
   <p>This section describes examples of how to use the 
-    <c>public_key</c> API. Keys and certificates used in the following 
-    sections are generated only for testing the <c>public_key</c> 
+    Public Key API. Keys and certificates used in the following 
+    sections are generated only for testing the Public Key 
     application.</p>
 
     <p>Some shell printouts in the following examples
@@ -43,14 +43,15 @@
     <p>Public-key data (keys, certificates, and so on) can be stored in 
     Privacy Enhanced Mail (PEM) format. 
     The PEM files have the following structure:</p>
-
-    <code>&lt;text&gt;
-	-----BEGIN &lt;SOMETHING&gt;-----
-	&lt;Attribute&gt; : &lt;Value&gt;
-	&lt;Base64 encoded DER data&gt;
-	-----END &lt;SOMETHING&gt;-----
-	&lt;text&gt;</code>
-
+    
+    <code>
+    &lt;text&gt;
+    -----BEGIN &lt;SOMETHING&gt;-----
+    &lt;Attribute&gt; : &lt;Value&gt;
+    &lt;Base64 encoded DER data&gt;
+    -----END &lt;SOMETHING&gt;-----
+    &lt;text&gt;</code>
+    
     <p>A file can contain several <c>BEGIN/END</c> blocks. Text lines between
     blocks are ignored. Attributes, if present, are ignored except
     for <c>Proc-Type</c> and <c>DEK-Info</c>, which are used when <c>DER</c> 
@@ -59,7 +60,7 @@
     <section>
       <title>DSA Private Key</title>
       <p>A DSA private key can look as follows:</p>
-      <note><p>File handling is not done by the <c>public_key</c> application.</p></note>
+      <note><p>File handling is not done by the Public Key application.</p></note>
       
       <code>1> {ok, PemBin} = file:read_file("dsa.pem").
 {ok,&lt;&lt;"-----BEGIN DSA PRIVATE KEY-----\nMIIBuw"...&gt;&gt;}</code>
@@ -364,7 +365,7 @@ ok</code>
 
 <section>
       <title>RSA Public-Key Cryptography</title>
-       <p>Suppose you have the followwing private key and a corresponding public key:</p>
+       <p>Suppose you have the following private key and a corresponding public key:</p>
        <list type="bulleted">
 	 <item><c>PrivateKey = #'RSAPrivateKey{}'</c> and 
 	 the plaintext <c>Msg = binary()</c></item>

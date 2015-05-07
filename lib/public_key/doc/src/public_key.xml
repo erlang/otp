@@ -43,9 +43,9 @@
     <title>public_key</title>
 
     <list type="bulleted">
-      <item><c>public_key</c> requires the <c>crypto</c> and <c>ASN.1</c> applications, 
-      the latter as OTP R16 (hopefully the runtime dependency on <c>ASN.1</c> will
-     be removed again in the future).</item>
+      <item> Public Key requires the Crypto and ASN1 applications, 
+      the latter as OTP R16 (hopefully the runtime dependency on ASN1 will
+      be removed again in the future).</item>
 
       <item>Supports <url href="http://www.ietf.org/rfc/rfc5280.txt">RFC 5280 </url> -
       Internet X.509 Public-Key Infrastructure Certificate and Certificate Revocation List 
@@ -268,7 +268,7 @@
     <fsummary>Decodes a public-key ASN.1 DER encoded entity.</fsummary>
     <type>
       <v>Asn1Type = atom()</v>
-      <d>ASN.1 type present in the <c>public_key</c> applications
+      <d>ASN.1 type present in the Public Key applications
       ASN.1 specifications.</d>
       <v>Der = der_encoded()</v>
     </type> 
@@ -282,7 +282,7 @@
     <fsummary>Encodes a public-key entity with ASN.1 DER encoding.</fsummary>
     <type>
       <v>Asn1Type = atom()</v>
-      <d>ASN.1 type present in the public_key applications
+      <d>ASN.1 type present in the Public Key applications
 	 ASN.1 specifications.</d>
       <v>Entity = term()</v>
       <d>Erlang representation of <c>Asn1Type</c></d>
@@ -626,7 +626,7 @@ fun(OtpCert :: #'OTPCertificate'{},
 
 	  <p>The fun uses the information in the distribution point to access
 	  the latest possible version of the CRL. If this fun is not specified,
-	  <c>public_key</c> uses the default implementation:
+	  Public Key uses the default implementation:
 	  </p>
 	  <code> fun(_DP, CRL) -> CRL end</code>
 	</item>
