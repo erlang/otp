@@ -160,7 +160,7 @@
     <code>	 
 #'ECPrivateKey'{
           version,       % integer()
-	  privateKey,    % octet_string()  
+	  privateKey,    % binary()  
 	  parameters,    % der_encoded() - {'EcpkParameters', #'ECParameters'{}} |
 	                                   {'EcpkParameters', {namedCurve, oid()}} |
 	                                   {'EcpkParameters', 'NULL'} % Inherited by CA
@@ -171,14 +171,14 @@
       version,    % integer()
       fieldID,    % #'FieldID'{}
       curve,      % #'Curve'{}
-      base,       % octet_string()       
+      base,       % binary()       
       order,      % integer()        
       cofactor    % integer()
       }.
       
 #'Curve'{
-	a,        % octet_string()
-	b,        % octet_string() 
+	a,        % binary()
+	b,        % binary() 
 	seed      % bitstring() - optional
 
 	}.
@@ -189,7 +189,7 @@
 	}.
 
 #'ECPoint'{
-      point %  octet_string() - the public key
+      point %  binary() - the public key
       }.</code>
   </section>
 
@@ -201,7 +201,7 @@
 #'Certificate'{
 		tbsCertificate,        % #'TBSCertificate'{}
 		signatureAlgorithm,    % #'AlgorithmIdentifier'{} 
-		signature              % {0, binary()} - ASN1 compact bitstring
+		signature              % bitstring()
 	       }.
 
 #'TBSCertificate'{
@@ -226,7 +226,7 @@
 #'OTPCertificate'{
 		tbsCertificate,        % #'OTPTBSCertificate'{}
 		signatureAlgorithm,    % #'SignatureAlgorithm'
-		signature              % {0, binary()} - ASN1 compact bitstring
+		signature              % bitstring()
 	       }.
 
 #'OTPTBSCertificate'{
@@ -664,7 +664,7 @@ are as follows:</p>
 #'CertificateList'{
           tbsCertList,        % #'TBSCertList{}
           signatureAlgorithm, % #'AlgorithmIdentifier'{} 
-          signature           % {0, binary()} - ASN1 compact bitstring
+          signature           % bitstring()
 	  }).
 
 #'TBSCertList'{
@@ -796,7 +796,7 @@ are as follows:</p>
 #'CertificationRequest'{
           certificationRequestInfo #'CertificationRequestInfo'{},
 	  signatureAlgorithm	   #'CertificationRequest_signatureAlgorithm'{}}.
-	  signature                {0, binary()} - ASN1 compact bitstring
+	  signature                bitstring()
 	  }
 
 #'CertificationRequestInfo'{
@@ -808,7 +808,7 @@ are as follows:</p>
 
 #'CertificationRequestInfo_subjectPKInfo'{
           algorithm		#'CertificationRequestInfo_subjectPKInfo_algorithm'{}
-	  subjectPublicKey 	 {0, binary()} - ASN1 compact bitstring
+	  subjectPublicKey 	  bitstring()
 	  }
 
 #'CertificationRequestInfo_subjectPKInfo_algorithm'{

@@ -212,9 +212,8 @@
             algorithm = {1,2,840,113549,1,1,5},
             parameters = &lt;&lt;5,0&gt;&gt;},
     signature =
-        {0,
-         &lt;&lt;163,186,7,163,216,152,63,47,154,234,139,73,154,96,120,
-           165,2,52,196,195,109,167,192,...&gt;&gt;}}</code>
+    &lt;&lt;163,186,7,163,216,152,63,47,154,234,139,73,154,96,120,
+    165,2,52,196,195,109,167,192,...&gt;&gt;}</code>
 
       <p>Parts of certificates can be decoded with
       <c>public_key:der_decode/2</c>, using the ASN.1 type of that part.
@@ -317,9 +316,8 @@
             algorithm = {1,2,840,113549,1,1,5},
             parameters = 'NULL'},
     signature =
-        {0,
          &lt;&lt;163,186,7,163,216,152,63,47,154,234,139,73,154,96,120,
-           165,2,52,196,195,109,167,192,...&gt;&gt;}}</code>
+           165,2,52,196,195,109,167,192,...&gt;&gt;}</code>
 
       <p>This call is equivalent to <c>public_key:pem_entry_decode(CertEntry1)</c>:</p>
       <code>5> public_key:pkix_decode_cert(DerCert, plain).
