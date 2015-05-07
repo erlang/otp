@@ -157,6 +157,7 @@ ERL_NIF_API_FUNC_DECL(int, enif_map_iterator_prev, (ErlNifEnv *env, ErlNifMapIte
 ERL_NIF_API_FUNC_DECL(int, enif_map_iterator_get_pair, (ErlNifEnv *env, ErlNifMapIterator *iter, ERL_NIF_TERM *key, ERL_NIF_TERM *value));
 ERL_NIF_API_FUNC_DECL(ERL_NIF_TERM,enif_schedule_nif,(ErlNifEnv*,const char*,int,ERL_NIF_TERM (*)(ErlNifEnv*,int,const ERL_NIF_TERM[]),int,const ERL_NIF_TERM[]));
 ERL_NIF_API_FUNC_DECL(int, enif_has_pending_exception, (ErlNifEnv *env, ERL_NIF_TERM* reason));
+ERL_NIF_API_FUNC_DECL(ERL_NIF_TERM, enif_raise_exception, (ErlNifEnv *env, ERL_NIF_TERM reason));
 
 /*
 ** ADD NEW ENTRIES HERE (before this comment) !!!
@@ -307,6 +308,7 @@ ERL_NIF_API_FUNC_DECL(int,enif_is_on_dirty_scheduler,(ErlNifEnv*));
 #  define enif_map_iterator_get_pair ERL_NIF_API_FUNC_MACRO(enif_map_iterator_get_pair)
 #  define enif_schedule_nif ERL_NIF_API_FUNC_MACRO(enif_schedule_nif)
 #  define enif_has_pending_exception ERL_NIF_API_FUNC_MACRO(enif_has_pending_exception)
+#  define enif_raise_exception ERL_NIF_API_FUNC_MACRO(enif_raise_exception)
 
 /*
 ** ADD NEW ENTRIES HERE (before this comment)

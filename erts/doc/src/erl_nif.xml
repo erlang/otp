@@ -787,7 +787,8 @@ typedef enum {
       <seealso marker="#enif_make_badarg">enif_make_badarg</seealso> is called to set a
       pending <c>badarg</c> exception, a subsequent call to <c>enif_has_pending_exception(env, &amp;reason)</c>
       will set <c>reason</c> to the atom <c>badarg</c>, then return true.</p>
-      <p>See also: <seealso marker="#enif_make_badarg">enif_make_badarg</seealso>.</p>
+      <p>See also: <seealso marker="#enif_make_badarg">enif_make_badarg</seealso>
+      and <seealso marker="#enif_raise_exception">enif_raise_exception</seealso>.</p>
       </desc>
     </func>
     <func><name><ret>int</ret><nametext>enif_inspect_binary(ErlNifEnv* env, ERL_NIF_TERM bin_term, ErlNifBinary* bin)</nametext></name>
@@ -902,12 +903,13 @@ typedef enum {
       it calls invokes <c>enif_make_badarg</c>, the runtime ensures that a
       <c>badarg</c> exception is raised when the NIF returns, even if the NIF
       attempts to return a non-exception term instead.
-      The return value from <c>enif_make_badarg</c> may only be used as
-      return value from the NIF that invoked it (direct or indirectly)
+      The return value from <c>enif_make_badarg</c> may be used only as the
+      return value from the NIF that invoked it (directly or indirectly)
       or be passed to
       <seealso marker="#enif_is_exception">enif_is_exception</seealso>, but
       not to any other NIF API function.</p>
-      <p>See also: <seealso marker="#enif_has_pending_exception">enif_has_pending_exception</seealso>.
+      <p>See also: <seealso marker="#enif_has_pending_exception">enif_has_pending_exception</seealso>
+      and <seealso marker="#enif_raise_exception">enif_raise_exception</seealso>
       </p>
       <note><p>In earlier versions (older than erts-7.0, OTP 18) the return value
       from <c>enif_make_badarg</c> had to be returned from the NIF. This
@@ -1173,6 +1175,19 @@ typedef enum {
       <desc><p>Return the pointer to the private data that was set by <c>load</c>,
       <c>reload</c> or <c>upgrade</c>.</p>
       <p>Was previously named <c>enif_get_data</c>.</p></desc>
+    </func>
+    <func><name><ret>ERL_NIF_TERM</ret><nametext>enif_raise_exception(ErlNifEnv* env, ERL_NIF_TERM reason)</nametext></name>
+      <fsummary>Raise a NIF error exception</fsummary>
+      <desc><p>Create an error exception with the term <c>reason</c> to be returned from a NIF,
+      and associate it with the environment <c>env</c>. Once a NIF or any function it calls
+      invokes <c>enif_raise_exception</c>, the runtime ensures that the exception it creates
+      is raised when the NIF returns, even if the NIF attempts to return a non-exception
+      term instead. The return value from <c>enif_raise_exception</c> may be used only as
+      the return value from the NIF that invoked it (directly or indirectly) or be passed
+      to <seealso marker="#enif_is_exception">enif_is_exception</seealso>, but
+      not to any other NIF API function.</p>
+      <p>See also: <seealso marker="#enif_has_pending_exception">enif_has_pending_exception</seealso>
+      and <seealso marker="#enif_make_badarg">enif_make_badarg</seealso>.</p></desc>
     </func>
     <func><name><ret>int</ret><nametext>enif_realloc_binary(ErlNifBinary* bin, size_t size)</nametext></name>
       <fsummary>Change the size of a binary.</fsummary>

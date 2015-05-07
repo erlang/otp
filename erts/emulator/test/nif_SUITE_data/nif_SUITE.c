@@ -1618,13 +1618,18 @@ static ERL_NIF_TERM call_dirty_nif_exception(ErlNifEnv* env, int argc, const ERL
 {
     switch (argc) {
     case 1: {
-	ERL_NIF_TERM args[255];
-	int i;
-	args[0] = argv[0];
-	for (i = 1; i < 255; i++)
-	    args[i] = enif_make_int(env, i);
-	return enif_schedule_nif(env, "call_dirty_nif_exception", ERL_NIF_DIRTY_JOB_CPU_BOUND,
-				 call_dirty_nif_exception, 255, args);
+	int arg;
+	if (enif_get_int(env, argv[0], &arg) && arg < 2) {
+	    ERL_NIF_TERM args[255];
+	    int i;
+	    args[0] = argv[0];
+	    for (i = 1; i < 255; i++)
+		args[i] = enif_make_int(env, i);
+	    return enif_schedule_nif(env, "call_dirty_nif_exception", ERL_NIF_DIRTY_JOB_CPU_BOUND,
+				     call_dirty_nif_exception, 255, args);
+	} else {
+	    return enif_raise_exception(env, argv[0]);
+	}
     }
     case 2: {
         int return_badarg_directly;
@@ -1657,20 +1662,32 @@ static ERL_NIF_TERM call_dirty_nif_zero_args(ErlNifEnv* env, int argc, const ERL
 #endif
 
 /*
- * Call enif_make_badarg, but don't return its return value. Instead,
- * return ok.  Result should still be a badarg exception for the erlang
- * caller.
+ * If argv[0] is the integer 0, call enif_make_badarg, but don't return its
+ * return value. Instead, return ok.  Result should still be a badarg
+ * exception for the erlang caller.
+ *
+ * For any other value of argv[0], use it as an exception term and return
+ * the exception.
  */
 static ERL_NIF_TERM call_nif_exception(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
     ERL_NIF_TERM exc_term;
     ERL_NIF_TERM badarg_atom = enif_make_atom(env, "badarg");
+    int arg;
 
-    /* ignore return value */ enif_make_badarg(env);
-    assert(enif_has_pending_exception(env, NULL));
-    assert(enif_has_pending_exception(env, &exc_term));
-    assert(enif_is_identical(badarg_atom, exc_term));
-    return enif_make_atom(env, "ok");
+    if (enif_get_int(env, argv[0], &arg) && arg == 0) {
+	/* ignore return value */ enif_make_badarg(env);
+	assert(enif_has_pending_exception(env, NULL));
+	assert(enif_has_pending_exception(env, &exc_term));
+	assert(enif_is_identical(badarg_atom, exc_term));
+	return enif_make_atom(env, "ok");
+    } else {
+	ERL_NIF_TERM exc_retval = enif_raise_exception(env, argv[0]);
+	assert(enif_has_pending_exception(env, NULL));
+	assert(enif_has_pending_exception(env, &exc_term));
+	assert(enif_is_identical(argv[0], exc_term));
+	return exc_retval;
+    }
 }
 
 #if !defined(NAN) || !defined(INFINITY)
@@ -1925,7 +1942,7 @@ static ErlNifFunc nif_funcs[] =
     {"call_dirty_nif_exception", 1, call_dirty_nif_exception, ERL_NIF_DIRTY_JOB_IO_BOUND},
     {"call_dirty_nif_zero_args", 0, call_dirty_nif_zero_args, ERL_NIF_DIRTY_JOB_CPU_BOUND},
 #endif
-    {"call_nif_exception", 0, call_nif_exception},
+    {"call_nif_exception", 1, call_nif_exception},
     {"call_nif_nan_or_inf", 1, call_nif_nan_or_inf},
     {"call_nif_atom_too_long", 1, call_nif_atom_too_long},
     {"is_map_nif", 1, is_map_nif},
