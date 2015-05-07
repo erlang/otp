@@ -3411,6 +3411,11 @@ int db_has_variable(Eterm node) {
                 while (size--) {
                     ESTACK_PUSH(s, *(values++));
                 }
+            } else if (is_map(node)) { /* other map-nodes or map-heads */
+                Eterm *ptr = hashmap_val(node);
+                int i = hashmap_bitcount(MAP_HEADER_VAL(*ptr));
+                ptr += MAP_HEADER_ARITY(*ptr);
+                while(i--) { ESTACK_PUSH(s, *++ptr); }
             }
 	    break;
 	case TAG_PRIMARY_IMMED1:
