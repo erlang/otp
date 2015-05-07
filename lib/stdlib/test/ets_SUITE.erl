@@ -3829,6 +3829,10 @@ match_object_do(Opts) ->
     ets:insert(Tab,{{two,4},4}),
     ets:insert(Tab,{{two,5},6}),
     ets:insert(Tab, {#{camembert=>cabécou},7}),
+    ets:insert(Tab, {#{"hi"=>"hello","wazzup"=>"awesome","1337"=>"42"},8}),
+    ets:insert(Tab, {#{"hi"=>"hello",#{"wazzup"=>3}=>"awesome","1337"=>"42"},9}),
+    ets:insert(Tab, {#{"hi"=>"hello","wazzup"=>#{"awesome"=>3},"1337"=>"42"},10}),
+
     case ets:match_object(Tab, {{one, '_'}, '$0'}) of
 	[{{one,5},5},{{one,4},4}] -> ok;
 	[{{one,4},4},{{one,5},5}] -> ok;
@@ -3851,6 +3855,32 @@ match_object_do(Opts) ->
     end,
     % Check that maps are inspected for variables.
     [{#{camembert:=cabécou},7}] = ets:match_object(Tab, {#{camembert=>'_'},7}),
+
+    [{#{"hi":="hello",#{"wazzup"=>3}:="awesome","1337":="42"},9}] =
+        ets:match_object(Tab, {#{#{"wazzup"=>3}=>"awesome","hi"=>"hello","1337"=>"42"},9}),
+    [{#{"hi":="hello",#{"wazzup"=>3}:="awesome","1337":="42"},9}] =
+        ets:match_object(Tab, {#{#{"wazzup"=>3}=>"awesome","hi"=>"hello","1337"=>'_'},'_'}),
+    [{#{"hi":="hello","wazzup":=#{"awesome":=3},"1337":="42"},10}] =
+        ets:match_object(Tab, {#{"wazzup"=>'_',"hi"=>'_',"1337"=>'_'},10}),
+
+    %% multiple patterns
+    Pat = {{#{#{"wazzup"=>3}=>"awesome","hi"=>"hello","1337"=>'_'},'$1'},[{is_integer,'$1'}],['$_']},
+    [{#{"hi":="hello",#{"wazzup"=>3}:="awesome","1337":="42"},9}] =
+        ets:select(Tab, [Pat,Pat,Pat,Pat]),
+    case ets:match_object(Tab, {#{"hi"=>"hello","wazzup"=>'_',"1337"=>"42"},'_'}) of
+        [{#{"1337" := "42","hi" := "hello","wazzup" := "awesome"},8},
+         {#{"1337" := "42","hi" := "hello","wazzup" := #{"awesome" := 3}},10}] -> ok;
+        [{#{"1337" := "42","hi" := "hello","wazzup" := #{"awesome" := 3}},10},
+         {#{"1337" := "42","hi" := "hello","wazzup" := "awesome"},8}] -> ok;
+        _ -> ?t:fail("ets:match_object() returned something funny.")
+    end,
+    case ets:match_object(Tab, {#{"hi"=>'_'},'_'}) of
+        [{#{"1337":="42", "hi":="hello"},_},
+         {#{"1337":="42", "hi":="hello"},_},
+         {#{"1337":="42", "hi":="hello"},_}] -> ok;
+        _ -> ?t:fail("ets:match_object() returned something funny.")
+    end,
+
     {'EXIT',{badarg,_}} = (catch ets:match_object(Tab, {#{'$1'=>'_'},7})),
     % Check that unsucessful match returns an empty list.
     [] = ets:match_object(Tab, {{three,'$0'}, '$92'}),
