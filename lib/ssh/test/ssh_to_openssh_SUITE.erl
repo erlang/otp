@@ -545,6 +545,7 @@ receive_hej() ->
 receive_logout() ->
     receive
 	<<"logout">> ->
+	    extra_logout(),
 	    receive
 		<<"Connection closed">> ->
 		    ok
@@ -562,6 +563,14 @@ receive_normal_exit(Shell) ->
 	    receive_normal_exit(Shell);
 	Other ->
 	    ct:fail({unexpected_msg, Other})
+    end.
+
+extra_logout() ->
+    receive 	
+	<<"logout">> ->
+	    ok
+    after 500 -> 
+	    ok
     end.
 
 %%--------------------------------------------------------------------
