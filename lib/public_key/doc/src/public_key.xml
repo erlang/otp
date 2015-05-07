@@ -292,6 +292,33 @@
   </desc> 
   </func>
 
+    <func>
+    <name>encrypt_private(PlainText, Key) -> binary()</name>
+    <fsummary>Public-key encryption using the private key.</fsummary>
+    <type>
+      <v>PlainText = binary()</v>
+      <v>Key = rsa_private_key()</v> 
+  </type> 
+  <desc> 
+    <p>Public-key encryption using the private key.
+     See also <seealso
+	marker="crypto:crypto#private_encrypt/4">crypto:private_encrypt/4</seealso>.</p> 
+  </desc> 
+  </func>   
+
+  <func>
+    <name>encrypt_public(PlainText, Key) -> binary()</name>
+    <fsummary>Public-key encryption using the public key.</fsummary>
+    <type>
+      <v>PlainText = binary()</v>
+      <v>Key = rsa_public_key()</v> 
+  </type> 
+  <desc> 
+    <p>Public-key encryption using the public key. See also <seealso
+	marker="crypto:crypto#public_encrypt/4">crypto:public_encrypt/4</seealso>.</p> 
+  </desc> 
+  </func>   
+  
   <func>
     <name>generate_key(Params) -> {Public::binary(), Private::binary()}  | #'ECPrivateKey'{} </name>
     <fsummary>Generates a new keypair.</fsummary>
@@ -364,33 +391,6 @@
     <p>Creates a PEM entry that can be feed to <c>pem_encode/1</c>.</p>
   </desc> 
   </func>
-
-  <func>
-    <name>encrypt_private(PlainText, Key) -> binary()</name>
-    <fsummary>Public-key encryption using the private key.</fsummary>
-    <type>
-      <v>PlainText = binary()</v>
-      <v>Key = rsa_private_key()</v> 
-  </type> 
-  <desc> 
-    <p>Public-key encryption using the private key.
-     See also <seealso
-	marker="crypto:crypto#private_encrypt/4">crypto:private_encrypt/4</seealso>.</p> 
-  </desc> 
-  </func>   
-
-  <func>
-    <name>encrypt_public(PlainText, Key) -> binary()</name>
-    <fsummary>Public-key encryption using the public key.</fsummary>
-    <type>
-      <v>PlainText = binary()</v>
-      <v>Key = rsa_public_key()</v> 
-  </type> 
-  <desc> 
-    <p>Public-key encryption using the public key. See also <seealso
-	marker="crypto:crypto#public_encrypt/4">crypto:public_encrypt/4</seealso>.</p> 
-  </desc> 
-  </func>   
   
   <func>
     <name>pkix_decode_cert(Cert, otp|plain) ->  #'Certificate'{} | #'OTPCertificate'{}</name>
