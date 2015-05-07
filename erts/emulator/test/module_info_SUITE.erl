@@ -94,12 +94,15 @@ functions(Config) when is_list(Config) ->
     ok.
 
 %% Test that the list of exported functions from this module is correct.
+%% Verify that module_info(native) works.
 native(Config) when is_list(Config) ->
     ?line All = all_functions(),
     ?line case ?MODULE:module_info(native_addresses) of
 	      [] ->
+                  ?line false = ?MODULE:module_info(native),
 		  {comment,"no native functions"};
 	      L ->
+                  ?line true = ?MODULE:module_info(native),
 		  %% Verify that all functions have unique addresses.
 		  ?line S0 = sofs:set(L, [{name,arity,addr}]),
 		  ?line S1 = sofs:projection({external,fun ?MODULE:native_proj/1}, S0),
