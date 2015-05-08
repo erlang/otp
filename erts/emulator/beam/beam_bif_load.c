@@ -368,7 +368,7 @@ staging_epilogue(Process* c_p, int commit, Eterm res, int is_blocking,
 	ASSERT(commiter_state.stager == NULL);
 	commiter_state.stager = c_p;
 	erts_schedule_thr_prgr_later_op(smp_code_ix_commiter, NULL, &commiter_state.lop);
-	erts_smp_proc_inc_refc(c_p);
+	erts_proc_inc_refc(c_p);
 	erts_suspend(c_p, ERTS_PROC_LOCK_MAIN, NULL);
 	/*
 	 * smp_code_ix_commiter() will do the rest "later"
@@ -395,7 +395,7 @@ static void smp_code_ix_commiter(void* null)
 	erts_resume(p, ERTS_PROC_LOCK_STATUS);
     }
     erts_smp_proc_unlock(p, ERTS_PROC_LOCK_STATUS);
-    erts_smp_proc_dec_refc(p);
+    erts_proc_dec_refc(p);
 }
 #endif /* ERTS_SMP */
 

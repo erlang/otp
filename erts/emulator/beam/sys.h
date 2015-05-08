@@ -776,8 +776,6 @@ extern char *erts_sys_ddll_error(int code);
 /*
  * System interfaces for startup.
  */
-#include "erl_time.h"
-
 void erts_sys_schedule_interrupt(int set);
 #ifdef ERTS_SMP
 void erts_sys_schedule_interrupt_timed(int, ErtsMonotonicTime);
@@ -819,7 +817,8 @@ int univ_to_local(
 int local_to_univ(Sint *year, Sint *month, Sint *day, 
 		  Sint *hour, Sint *minute, Sint *second, int isdst);
 void get_now(Uint*, Uint*, Uint*);
-ErtsMonotonicTime erts_get_monotonic_time(void);
+struct ErtsSchedulerData_;
+ErtsMonotonicTime erts_get_monotonic_time(struct ErtsSchedulerData_ *);
 void get_sys_now(Uint*, Uint*, Uint*);
 void set_break_quit(void (*)(void), void (*)(void));
 

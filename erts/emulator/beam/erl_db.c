@@ -620,7 +620,7 @@ BIF_RETTYPE ets_safe_fixtable_2(BIF_ALIST_2)
     erts_fprintf(stderr,
 		"ets:safe_fixtable(%T,%T); Process: %T, initial: %T:%T/%bpu\n",
 		BIF_ARG_1, BIF_ARG_2, BIF_P->common.id,
-		BIF_P->initial[0], BIF_P->initial[1], BIF_P->initial[2]);
+		BIF_P->u.initial[0], BIF_P->u.initial[1], BIF_P->u.initial[2]);
 #endif
     kind = (BIF_ARG_2 == am_true) ? LCK_READ : LCK_WRITE_REC; 
 
@@ -1247,7 +1247,7 @@ BIF_RETTYPE ets_rename_2(BIF_ALIST_2)
     erts_fprintf(stderr,
 		"ets:rename(%T,%T); Process: %T, initial: %T:%T/%bpu\n",
 		BIF_ARG_1, BIF_ARG_2, BIF_P->common.id,
-		BIF_P->initial[0], BIF_P->initial[1], BIF_P->initial[2]);
+		BIF_P->u.initial[0], BIF_P->u.initial[1], BIF_P->u.initial[2]);
 #endif
 
 
@@ -1563,7 +1563,7 @@ BIF_RETTYPE ets_new_2(BIF_ALIST_2)
     erts_fprintf(stderr,
 		"ets:new(%T,%T)=%T; Process: %T, initial: %T:%T/%bpu\n",
 		 BIF_ARG_1, BIF_ARG_2, ret, BIF_P->common.id,
-		 BIF_P->initial[0], BIF_P->initial[1], BIF_P->initial[2]);
+		 BIF_P->u.initial[0], BIF_P->u.initial[1], BIF_P->u.initial[2]);
 	erts_fprintf(stderr, "ets: new: meta_pid_to_tab common.memory_size = %ld\n",
 		     erts_smp_atomic_read_nob(&meta_pid_to_tab->common.memory_size));
 	erts_fprintf(stderr, "ets: new: meta_pid_to_fixed_tab common.memory_size = %ld\n",
@@ -1696,7 +1696,7 @@ BIF_RETTYPE ets_delete_1(BIF_ALIST_1)
     erts_fprintf(stderr,
 		"ets:delete(%T); Process: %T, initial: %T:%T/%bpu\n",
 		BIF_ARG_1, BIF_P->common.id,
-		BIF_P->initial[0], BIF_P->initial[1], BIF_P->initial[2]);
+		BIF_P->u.initial[0], BIF_P->u.initial[1], BIF_P->u.initial[2]);
 #endif
 
     CHECK_TABLES();

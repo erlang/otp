@@ -97,10 +97,10 @@ typedef struct {
 
 static Uint setup_rootset(Process*, Eterm*, int, Rootset*);
 static void cleanup_rootset(Rootset *rootset);
-static Uint combined_message_size(Process* p, int off_heap_msgs);
+static Uint combined_message_size(Process* p);
 static void remove_message_buffers(Process* p);
-static int major_collection(Process* p, int need, Eterm* objv, int nobj, Uint *recl, int off_heap_msgs);
-static int minor_collection(Process* p, int need, Eterm* objv, int nobj, Uint *recl, int off_heap_msgs);
+static int major_collection(Process* p, int need, Eterm* objv, int nobj, Uint *recl);
+static int minor_collection(Process* p, int need, Eterm* objv, int nobj, Uint *recl);
 static void do_minor(Process *p, Uint new_sz, Eterm* objv, int nobj);
 static Eterm* sweep_rootset(Rootset *rootset, Eterm* htop, char* src, Uint src_size);
 static Eterm* sweep_one_area(Eterm* n_hp, Eterm* n_htop, char* src, Uint src_size);
@@ -403,9 +403,7 @@ erts_garbage_collect(Process* p, int need, Eterm* objv, int nobj)
 {
     Uint reclaimed_now = 0;
     int done = 0;
-    int off_heap_msgs;
     ErtsMonotonicTime start_time = 0; /* Shut up faulty warning... */
-    erts_aint32_t state;
     ErtsSchedulerData *esdp;
 #ifdef USE_VM_PROBES
     DTRACE_CHARBUF(pidbuf, DTRACE_TERM_BUF_SIZE);
@@ -422,10 +420,9 @@ erts_garbage_collect(Process* p, int need, Eterm* objv, int nobj)
         trace_gc(p, am_gc_start);
     }
 
-    state = erts_smp_atomic32_read_bor_nob(&p->state, ERTS_PSFLG_GC);
-    off_heap_msgs = state & ERTS_PSFLG_OFF_HEAP_MSGS;
+    (void) erts_smp_atomic32_read_bor_nob(&p->state, ERTS_PSFLG_GC);
     if (erts_system_monitor_long_gc != 0)
-	start_time = erts_get_monotonic_time();
+	start_time = erts_get_monotonic_time(esdp);
 
     ERTS_CHK_OFFHEAP(p);
 
@@ -448,11 +445,11 @@ erts_garbage_collect(Process* p, int need, Eterm* objv, int nobj)
     while (!done) {
 	if ((FLAGS(p) & F_NEED_FULLSWEEP) != 0) {
 	    DTRACE2(gc_major_start, pidbuf, need);
-	    done = major_collection(p, need, objv, nobj, &reclaimed_now, off_heap_msgs);
+	    done = major_collection(p, need, objv, nobj, &reclaimed_now);
 	    DTRACE2(gc_major_end, pidbuf, reclaimed_now);
 	} else {
 	    DTRACE2(gc_minor_start, pidbuf, need);
-	    done = minor_collection(p, need, objv, nobj, &reclaimed_now, off_heap_msgs);
+	    done = minor_collection(p, need, objv, nobj, &reclaimed_now);
 	    DTRACE2(gc_minor_end, pidbuf, reclaimed_now);
 	}
     }
@@ -477,7 +474,7 @@ erts_garbage_collect(Process* p, int need, Eterm* objv, int nobj)
 	Uint gc_time;
 	if (erts_test_long_gc_sleep)
 	    while (0 != erts_milli_sleep(erts_test_long_gc_sleep));
-	end_time = erts_get_monotonic_time();
+	end_time = erts_get_monotonic_time(esdp);
 	gc_time = (Uint) ERTS_MONOTONIC_TO_MSEC(end_time - start_time);
 	if (gc_time && gc_time > erts_system_monitor_long_gc) {
 	    monitor_long_gc(p, gc_time);
@@ -833,7 +830,7 @@ erts_garbage_collect_literals(Process* p, Eterm* literals,
 }
 
 static int
-minor_collection(Process* p, int need, Eterm* objv, int nobj, Uint *recl, int off_heap_msgs)
+minor_collection(Process* p, int need, Eterm* objv, int nobj, Uint *recl)
 {
     Uint mature = HIGH_WATER(p) - HEAP_START(p);
 
@@ -872,22 +869,20 @@ minor_collection(Process* p, int need, Eterm* objv, int nobj, Uint *recl, int of
 	Uint size_after;
 	Uint need_after;
 	Uint stack_size = STACK_SZ_ON_HEAP(p);
-	Uint fragments = MBUF_SIZE(p) + combined_message_size(p, off_heap_msgs);
+	Uint fragments = MBUF_SIZE(p) + combined_message_size(p);
 	Uint size_before = fragments + (HEAP_TOP(p) - HEAP_START(p));
 	Uint new_sz = next_heap_size(p, HEAP_SIZE(p) + fragments, 0);
 
         do_minor(p, new_sz, objv, nobj);
 
-	if (!off_heap_msgs) {
-	    /*
-	     * Copy newly received message onto the end of the new heap.
-	     */
-	    ErtsGcQuickSanityCheck(p);
-	    for (msgp = p->msg.first; msgp; msgp = msgp->next) {
-		if (msgp->data.attached) {
-		    erts_move_msg_attached_data_to_heap(&p->htop, &p->off_heap, msgp);
-		    ErtsGcQuickSanityCheck(p);
-		}
+	/*
+	 * Copy newly received message onto the end of the new heap.
+	 */
+	ErtsGcQuickSanityCheck(p);
+	for (msgp = p->msg.first; msgp; msgp = msgp->next) {
+	    if (msgp->data.attached) {
+		erts_move_msg_attached_data_to_heap(&p->htop, &p->off_heap, msgp);
+		ErtsGcQuickSanityCheck(p);
 	    }
 	}
 	ErtsGcQuickSanityCheck(p);
@@ -1213,7 +1208,7 @@ do_minor(Process *p, Uint new_sz, Eterm* objv, int nobj)
  */
 
 static int
-major_collection(Process* p, int need, Eterm* objv, int nobj, Uint *recl, int off_heap_msgs)
+major_collection(Process* p, int need, Eterm* objv, int nobj, Uint *recl)
 {
     Rootset rootset;
     Roots* roots;
@@ -1226,7 +1221,7 @@ major_collection(Process* p, int need, Eterm* objv, int nobj, Uint *recl, int of
     Uint oh_size = (char *) OLD_HTOP(p) - oh;
     Uint n;
     Uint new_sz;
-    Uint fragments = MBUF_SIZE(p) + combined_message_size(p, off_heap_msgs);
+    Uint fragments = MBUF_SIZE(p) + combined_message_size(p);
 
     size_before = fragments + (HEAP_TOP(p) - HEAP_START(p));
 
@@ -1436,7 +1431,7 @@ major_collection(Process* p, int need, Eterm* objv, int nobj, Uint *recl, int of
 
     ErtsGcQuickSanityCheck(p);
 
-    if (!off_heap_msgs) {
+    {
 	ErlMessage *msgp;
 	/*
 	 * Copy newly received message onto the end of the new heap.
@@ -1506,13 +1501,10 @@ adjust_after_fullsweep(Process *p, Uint size_before, int need, Eterm *objv, int 
  * mbuf list.
  */
 static Uint
-combined_message_size(Process* p, int off_heap_msgs)
+combined_message_size(Process* p)
 {
     Uint sz;
     ErlMessage *msgp;
-
-    if (off_heap_msgs)
-	return 0;
 
     for (sz = 0, msgp = p->msg.first; msgp; msgp = msgp->next) {
 	if (msgp->data.attached)
@@ -2662,7 +2654,7 @@ reply_gc_info(void *vgcirp)
     if (rp_locks)
 	erts_smp_proc_unlock(rp, rp_locks);
 
-    erts_smp_proc_dec_refc(rp);
+    erts_proc_dec_refc(rp);
 
     if (erts_smp_atomic32_dec_read_nob(&gcirp->refc) == 0)
 	gcireq_free(vgcirp);
@@ -2686,7 +2678,7 @@ erts_gc_info_request(Process *c_p)
     erts_smp_atomic32_init_nob(&gcirp->refc,
 			       (erts_aint32_t) erts_no_schedulers);
 
-    erts_smp_proc_add_refc(c_p, (Sint32) erts_no_schedulers);
+    erts_proc_add_refc(c_p, (Sint) erts_no_schedulers);
 
 #ifdef ERTS_SMP
     if (erts_no_schedulers > 1)

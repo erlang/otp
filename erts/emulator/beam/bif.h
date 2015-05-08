@@ -20,6 +20,7 @@
 #ifndef __BIF_H__
 #define __BIF_H__
 
+extern Export *erts_await_result;
 extern Export* erts_format_cpu_topology_trap;
 extern Export *erts_convert_time_unit_trap;
 

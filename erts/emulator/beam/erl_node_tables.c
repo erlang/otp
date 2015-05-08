@@ -1469,7 +1469,7 @@ setup_reference_table(void)
     erts_db_foreach_table(insert_ets_table, NULL);
 
     /* Insert all bif timers */
-    erts_bif_timer_foreach(insert_bif_timer, NULL);
+    erts_debug_bif_timer_foreach(insert_bif_timer, NULL);
 
     /* Insert node table (references to dist) */
     hash_foreach(&erts_node_table, insert_erl_node, NULL);

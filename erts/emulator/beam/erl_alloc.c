@@ -39,7 +39,7 @@
 #include "erl_instrument.h"
 #include "erl_mseg.h"
 #include "erl_monitors.h"
-#include "erl_bif_timer.h"
+#include "erl_hl_timer.h"
 #include "erl_cpu_topology.h"
 #include "erl_thr_queue.h"
 #if defined(ERTS_ALC_T_DRV_SEL_D_STATE) || defined(ERTS_ALC_T_DRV_EV_D_STATE)
@@ -575,6 +575,15 @@ erts_alloc_init(int *argc, char **argv, ErtsAllocInitOpts *eaiop)
     fix_type_sizes[ERTS_ALC_FIX_TYPE_IX(ERTS_ALC_T_THR_Q_EL_SL)]
 	= sizeof(ErtsThrQElement_t);
 #endif
+    fix_type_sizes[ERTS_ALC_FIX_TYPE_IX(ERTS_ALC_T_LL_PTIMER)]
+	= erts_timer_type_size(ERTS_ALC_T_LL_PTIMER);
+    fix_type_sizes[ERTS_ALC_FIX_TYPE_IX(ERTS_ALC_T_HL_PTIMER)]
+	= erts_timer_type_size(ERTS_ALC_T_HL_PTIMER);
+    fix_type_sizes[ERTS_ALC_FIX_TYPE_IX(ERTS_ALC_T_BIF_TIMER)]
+	= erts_timer_type_size(ERTS_ALC_T_BIF_TIMER);
+    fix_type_sizes[ERTS_ALC_FIX_TYPE_IX(ERTS_ALC_T_ABIF_TIMER)]
+	= erts_timer_type_size(ERTS_ALC_T_ABIF_TIMER);
+
 #ifdef HARD_DEBUG
     hdbg_init();
 #endif
@@ -3186,7 +3195,7 @@ reply_alloc_info(void *vair)
 	rp_locks &= ~ERTS_PROC_LOCK_MAIN;
  
     erts_smp_proc_unlock(rp, rp_locks);
-    erts_smp_proc_dec_refc(rp);
+    erts_proc_dec_refc(rp);
 
     if (erts_smp_atomic32_dec_read_nob(&air->refc) == 0)
 	aireq_free(air);
@@ -3260,7 +3269,7 @@ erts_request_alloc_info(struct process *c_p,
     erts_smp_atomic32_init_nob(&air->refc,
 			       (erts_aint32_t) erts_no_schedulers);
 
-    erts_smp_proc_add_refc(c_p, (Sint32) erts_no_schedulers);
+    erts_proc_add_refc(c_p, (Sint) erts_no_schedulers);
 
 #ifdef ERTS_SMP
     if (erts_no_schedulers > 1)

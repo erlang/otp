@@ -38,6 +38,8 @@
 #include "erl_check_io.h"
 #include "erl_thr_progress.h"
 #include "dtrace-wrapper.h"
+#define ERTS_WANT_TIMER_WHEEL_API
+#include "erl_time.h"
 
 #ifdef ERTS_SYS_CONTINOUS_FD_NUMBERS
 #else
@@ -1616,8 +1618,7 @@ ERTS_CIO_EXPORT(erts_check_io)(int do_wait)
 
     /* Figure out timeout value */
     timeout_time = (do_wait
-		    ? erts_check_next_timeout_time(esdp->timer_wheel,
-						   ERTS_SEC_TO_MONOTONIC(10*60))
+		    ? erts_check_next_timeout_time(esdp)
 		    : ERTS_POLL_NO_TIMEOUT /* poll only */);
 
     /*

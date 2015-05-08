@@ -36,7 +36,7 @@
 #include "atom.h"
 #include "beam_load.h"
 #include "erl_instrument.h"
-#include "erl_bif_timer.h"
+#include "erl_hl_timer.h"
 #include "erl_thr_progress.h"
 
 /* Forward declarations -- should really appear somewhere else */
@@ -108,7 +108,7 @@ process_killer(void)
 		case 'k': {
 		    ErtsProcLocks rp_locks = ERTS_PROC_LOCKS_XSIG_SEND;
 		    erts_aint32_t state;
-		    erts_smp_proc_inc_refc(rp);
+		    erts_proc_inc_refc(rp);
 		    erts_smp_proc_lock(rp, rp_locks);
 		    state = erts_smp_atomic32_read_acqb(&rp->state);
 		    if (state & (ERTS_PSFLG_FREE
@@ -131,7 +131,7 @@ process_killer(void)
 						     0);
 		    }
 		    erts_smp_proc_unlock(rp, rp_locks);
-		    erts_smp_proc_dec_refc(rp);
+		    erts_proc_dec_refc(rp);
 		}
 		case 'n': br = 1; break;
 		case 'r': return;
@@ -227,9 +227,9 @@ print_process_info(int to, void *to_arg, Process *p)
      * Display the initial function name
      */
     erts_print(to, to_arg, "Spawned as: %T:%T/%bpu\n",
-	       p->initial[INITIAL_MOD],
-	       p->initial[INITIAL_FUN],
-	       p->initial[INITIAL_ARI]);
+	       p->u.initial[INITIAL_MOD],
+	       p->u.initial[INITIAL_FUN],
+	       p->u.initial[INITIAL_ARI]);
     
     if (p->current != NULL) {
 	if (running) {

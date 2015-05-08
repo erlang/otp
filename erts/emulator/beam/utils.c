@@ -50,6 +50,8 @@
 #include "erl_ptab.h"
 #include "erl_check_io.h"
 #include "erl_bif_unique.h"
+#define ERTS_WANT_TIMER_WHEEL_API
+#include "erl_time.h"
 #ifdef HIPE
 #  include "hipe_mode_switch.h"
 #endif
@@ -4441,145 +4443,6 @@ is_string(Eterm list)
     return 0;
 }
 
-#ifdef ERTS_SMP
-
-/*
- * Process and Port timers in smp case
- */
-
-ERTS_SCHED_PREF_PRE_ALLOC_IMPL(ptimer_pre, ErtsSmpPTimer, 1000)
-
-#define ERTS_PTMR_FLGS_ALLCD_SIZE \
-  2
-#define ERTS_PTMR_FLGS_ALLCD_MASK \
-  ((((Uint32) 1) << ERTS_PTMR_FLGS_ALLCD_SIZE) - 1)
-
-#define ERTS_PTMR_FLGS_PREALLCD	((Uint32) 1)
-#define ERTS_PTMR_FLGS_SLALLCD	((Uint32) 2)
-#define ERTS_PTMR_FLGS_LLALLCD	((Uint32) 3)
-#define ERTS_PTMR_FLG_CANCELLED	(((Uint32) 1) << (ERTS_PTMR_FLGS_ALLCD_SIZE+0))
-
-static void
-init_ptimers(void)
-{
-    init_ptimer_pre_alloc();
-}
-
-static ERTS_INLINE void
-free_ptimer(ErtsSmpPTimer *ptimer)
-{
-    switch (ptimer->timer.flags & ERTS_PTMR_FLGS_ALLCD_MASK) {
-    case ERTS_PTMR_FLGS_PREALLCD:
-	(void) ptimer_pre_free(ptimer);
-	break;
-    case ERTS_PTMR_FLGS_SLALLCD:
-	erts_free(ERTS_ALC_T_SL_PTIMER, (void *) ptimer);
-	break;
-    case ERTS_PTMR_FLGS_LLALLCD:
-	erts_free(ERTS_ALC_T_LL_PTIMER, (void *) ptimer);
-	break;
-    default:
-	erl_exit(ERTS_ABORT_EXIT,
-		 "Internal error: Bad ptimer alloc type\n");
-	break;
-    }
-}
-
-/* Callback for process timeout cancelled */
-static void
-ptimer_cancelled(ErtsSmpPTimer *ptimer)
-{
-    free_ptimer(ptimer);
-}
-
-/* Callback for process timeout */
-static void
-ptimer_timeout(ErtsSmpPTimer *ptimer)
-{
-    if (is_internal_pid(ptimer->timer.id)) {
-	Process *p;
-	p = erts_pid2proc_opt(NULL,
-			      0,
-			      ptimer->timer.id,
-			      ERTS_PROC_LOCK_MAIN|ERTS_PROC_LOCK_STATUS,
-			      ERTS_P2P_FLG_ALLOW_OTHER_X);
-	if (p) {
-	    if (!ERTS_PROC_IS_EXITING(p)
-		&& !(ptimer->timer.flags & ERTS_PTMR_FLG_CANCELLED)) {
-		ASSERT(*ptimer->timer.timer_ref == ptimer);
-		*ptimer->timer.timer_ref = NULL;
-		(*ptimer->timer.timeout_func)(p);
-	    }
-	    erts_smp_proc_unlock(p, ERTS_PROC_LOCK_MAIN|ERTS_PROC_LOCK_STATUS);
-	}
-    }
-    else {
-	Port *p;
-	ASSERT(is_internal_port(ptimer->timer.id));
-	p = erts_id2port_sflgs(ptimer->timer.id,
-			       NULL,
-			       0,
-			       ERTS_PORT_SFLGS_DEAD);
-	if (p) {
-	    if (!(ptimer->timer.flags & ERTS_PTMR_FLG_CANCELLED)) {
-		ASSERT(*ptimer->timer.timer_ref == ptimer);
-		*ptimer->timer.timer_ref = NULL;
-		(*ptimer->timer.timeout_func)(p);
-	    }
-	    erts_port_release(p);
-	}
-    }
-    free_ptimer(ptimer);
-}
-
-void
-erts_create_smp_ptimer(ErtsSmpPTimer **timer_ref,
-		       Eterm id,
-		       ErlTimeoutProc timeout_func,
-		       Uint timeout)
-{
-    ErtsSmpPTimer *res = ptimer_pre_alloc();
-    if (res)
-	res->timer.flags = ERTS_PTMR_FLGS_PREALLCD;
-    else {
-	if (timeout < ERTS_ALC_MIN_LONG_LIVED_TIME) {
-	    res = erts_alloc(ERTS_ALC_T_SL_PTIMER, sizeof(ErtsSmpPTimer));
-	    res->timer.flags = ERTS_PTMR_FLGS_SLALLCD;
-	}
-	else {
-	    res = erts_alloc(ERTS_ALC_T_LL_PTIMER, sizeof(ErtsSmpPTimer));
-	    res->timer.flags = ERTS_PTMR_FLGS_LLALLCD;
-	}
-    }
-    res->timer.timeout_func = timeout_func;
-    res->timer.timer_ref = timer_ref;
-    res->timer.id = id;
-    erts_init_timer(&res->timer.tm);
-
-    ASSERT(!*timer_ref);
-
-    *timer_ref = res;
-
-    erts_set_timer(&res->timer.tm,
-		  (ErlTimeoutProc) ptimer_timeout,
-		  (ErlCancelProc) ptimer_cancelled,
-		  (void*) res,
-		  timeout);
-}
-
-void
-erts_cancel_smp_ptimer(ErtsSmpPTimer *ptimer)
-{
-    if (ptimer) {
-	ASSERT(*ptimer->timer.timer_ref == ptimer);
-	*ptimer->timer.timer_ref = NULL;
-	ptimer->timer.flags |= ERTS_PTMR_FLG_CANCELLED;
-	erts_cancel_timer(&ptimer->timer.tm);
-    }
-}
-
-#endif
-
 static int trim_threshold;
 static int top_pad;
 static int mmap_threshold;
@@ -4589,9 +4452,7 @@ Uint tot_bin_allocated;
 
 void erts_init_utils(void)
 {
-#ifdef ERTS_SMP
-    init_ptimers();
-#endif
+
 }
 
 void erts_init_utils_mem(void) 

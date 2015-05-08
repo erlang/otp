@@ -1054,9 +1054,9 @@ process_info_aux(Process *BIF_P,
     case am_initial_call:
 	hp = HAlloc(BIF_P, 3+4);
 	res = TUPLE3(hp,
-		     rp->initial[INITIAL_MOD],
-		     rp->initial[INITIAL_FUN],
-		     make_small(rp->initial[INITIAL_ARI]));
+		     rp->u.initial[INITIAL_MOD],
+		     rp->u.initial[INITIAL_FUN],
+		     make_small(rp->u.initial[INITIAL_ARI]));
 	hp += 4;
 	break;
 
@@ -2129,6 +2129,8 @@ BIF_RETTYPE system_info_1(BIF_ALIST_1)
 	BIF_RET(erts_has_time_correction() ? am_true : am_false);
     } else if (ERTS_IS_ATOM_STR("start_time", BIF_ARG_1)) {
 	BIF_RET(erts_get_monotonic_start_time(BIF_P));
+    } else if (ERTS_IS_ATOM_STR("end_time", BIF_ARG_1)) {
+	BIF_RET(erts_get_monotonic_end_time(BIF_P));
     } else if (ERTS_IS_ATOM_STR("time_warp_mode", BIF_ARG_1)) {
 	switch (erts_time_warp_mode()) {
 	case ERTS_NO_TIME_WARP_MODE: {

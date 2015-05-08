@@ -171,11 +171,6 @@ bif erts_internal:map_hashmap_children/1
 
 bif erts_internal:time_unit/0
 
-bif erts_internal:get_bif_timer_servers/0
-bif erts_internal:create_bif_timer/0
-bif erts_internal:access_bif_timer/1
-
-bif erts_internal:monitor_process/2
 bif erts_internal:is_system_process/1
 
 # inet_db support
@@ -219,6 +214,15 @@ bif math:log10/1
 bif math:sqrt/1
 bif math:atan2/2
 bif math:pow/2
+
+bif erlang:start_timer/3
+bif erlang:start_timer/4
+bif erlang:send_after/3
+bif erlang:send_after/4
+bif erlang:cancel_timer/1
+bif erlang:cancel_timer/2
+bif erlang:read_timer/1
+bif erlang:read_timer/2
 
 bif erlang:make_tuple/2
 bif erlang:append_element/2

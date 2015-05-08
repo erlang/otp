@@ -91,6 +91,7 @@ static erts_lc_lock_order_t erts_lock_order[] = {
     {   "driver_list",                          NULL                    },
     {	"proc_link",				"pid"			},
     {	"proc_msgq",				"pid"			},
+    {	"proc_btm",				"pid"			},
     {	"dist_entry",				"address"		},
     {	"dist_entry_links",			"address"		},
     {   "code_write_permission",                NULL                    },

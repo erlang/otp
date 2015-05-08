@@ -163,9 +163,13 @@ type	MSG_ROOTS	TEMPORARY	PROCESSES	msg_roots
 type	ROOTSET		TEMPORARY	PROCESSES	root_set
 type	LOADER_TMP	TEMPORARY	CODE		loader_tmp
 type	PREPARED_CODE	SHORT_LIVED	CODE		prepared_code
-type	BIF_TIMER_TABLE	LONG_LIVED	SYSTEM		bif_timer_table
-type	SL_BIF_TIMER	SHORT_LIVED	PROCESSES	bif_timer_sl
-type	LL_BIF_TIMER	STANDARD	PROCESSES	bif_timer_ll
+type	TIMER_SERVICE	LONG_LIVED	SYSTEM		timer_service
+type    LL_PTIMER	FIXED_SIZE	PROCESSES	ll_ptimer
+type    HL_PTIMER	FIXED_SIZE	PROCESSES	hl_ptimer
+type    BIF_TIMER	FIXED_SIZE	PROCESSES	bif_timer
+type    ABIF_TIMER	FIXED_SIZE	PROCESSES	accessor_bif_timer
+type    TIMER_REQUEST	SHORT_LIVED	PROCESSES	timer_request
+type    BTM_YIELD_STATE	SHORT_LIVED	PROCESSES	btm_yield_state
 type	REG_TABLE	STANDARD	SYSTEM		reg_tab
 type	FUN_TABLE	STANDARD	CODE		fun_tab
 type	DIST_TABLE	STANDARD	SYSTEM		dist_tab
@@ -324,8 +328,6 @@ type	ACTIVE_PROCS	STANDARD	PROCESSES	active_procs
 +endif
 
 +if smp
-type	SL_PTIMER	SHORT_LIVED	SYSTEM		ptimer_sl
-type	LL_PTIMER	STANDARD	SYSTEM		ptimer_ll
 type	SYS_MSG_Q	SHORT_LIVED	PROCESSES	system_messages_queue
 type	FP_EXCEPTION	LONG_LIVED	SYSTEM		fp_exception
 type	LL_MPATHS	LONG_LIVED	SYSTEM		ll_migration_paths
@@ -365,7 +367,6 @@ type	AINFO_REQ	STANDARD_LOW	SYSTEM		alloc_info_request
 type	SCHED_WTIME_REQ	STANDARD_LOW	SYSTEM		sched_wall_time_request
 type	GC_INFO_REQ	STANDARD_LOW	SYSTEM		gc_info_request
 type	PORT_DATA_HEAP	STANDARD_LOW	SYSTEM		port_data_heap
-type	BIF_TIMER_DATA	LONG_LIVED_LOW	SYSTEM		bif_timer_data
 
 +else # "fullword"
 
@@ -386,7 +387,6 @@ type	AINFO_REQ	SHORT_LIVED	SYSTEM		alloc_info_request
 type	SCHED_WTIME_REQ	SHORT_LIVED	SYSTEM		sched_wall_time_request
 type	GC_INFO_REQ	SHORT_LIVED	SYSTEM		gc_info_request
 type	PORT_DATA_HEAP	STANDARD	SYSTEM		port_data_heap
-type	BIF_TIMER_DATA	LONG_LIVED	SYSTEM		bif_timer_data
 
 +endif
 
