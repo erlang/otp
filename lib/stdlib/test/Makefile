@@ -54,6 +54,7 @@ MODULES= \
 	proc_lib_SUITE \
 	qlc_SUITE \
 	queue_SUITE \
+	rand_SUITE \
 	random_SUITE \
 	re_SUITE \
 	run_pcre_tests \
