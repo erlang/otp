@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -315,7 +315,9 @@
 			       {tty, false},
 			       {logfile, false},
 			       {server_options, []}]).
--define(not_CreateDBKey, term_to_binary({now(), node()})).
+-define(not_CreateDBKey, term_to_binary({{erlang:system_time(), 
+					  erlang:unique_integer()}, 
+					node()})).
 
 -define(DEBUG_LEVEL, 3).
 

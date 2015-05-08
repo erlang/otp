@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2015. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -1110,10 +1110,8 @@ ifrid_to_name(Id, Type) ->
 				      [?LINE, Id, Type], ?DEBUG_LEVEL),
 			    corba:raise(#'MARSHAL'{completion_status=?COMPLETED_MAYBE});
 			Nodes ->
-			    {A,B,C} = now(),
-			    random:seed(A,B,C),
 			    L = length(Nodes),
-			    IFR = get_ifr_node(Nodes, random:uniform(L), L),
+			    IFR = get_ifr_node(Nodes, rand:uniform(L), L),
 			    list_to_atom('OrberApp_IFR':get_absolute_name(IFR, Id))
 		    end;
 		{'EXIT', Other} ->
@@ -1176,7 +1174,7 @@ get_ifr_node(Nodes, N, L) ->
 	_ ->
 	    %% Not able to commincate with the node. Try next one.
 	    NewL = L-1,
-	    get_ifr_node(lists:delete(Node, Nodes), random:uniform(NewL), NewL)
+	    get_ifr_node(lists:delete(Node, Nodes), rand:uniform(NewL), NewL)
     end.
 
     
@@ -1260,10 +1258,8 @@ get_user_exception_type(TypeId) ->
 						   completion_status=?COMPLETED_MAYBE})
 		    end;
 		Nodes ->
-		    {A,B,C} = now(),
-		    random:seed(A,B,C),
 		    L = length(Nodes),
-		    IFR = get_ifr_node(Nodes, random:uniform(L), L),
+		    IFR = get_ifr_node(Nodes, rand:uniform(L), L),
 		    'OrberApp_IFR':get_user_exception_type(IFR, TypeId)
 	    end
     end.

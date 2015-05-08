@@ -922,9 +922,9 @@ max_requests(Node, Host, Port) ->
     spawn(orber_test_server, pseudo_call_delay, [Obj, 15000]),
     %% Wait for a second to be sure that the previous request has been sent
     timer:sleep(1000),
-    {MegaSecsB, Before, _} = now(),
+    {MegaSecsB, Before, _} = erlang:timestamp(),
     pseudo_calls(5, Obj),
-    {MegaSecsA, After, _} = now(),
+    {MegaSecsA, After, _} = erlang:timestamp(),
     %% Normally we we can perform hundreds of pseudo-calls per second. Hence,
     %% if we add 8 seconds to 'Before' it should still be less since we only
     %% allow one request at a time to the target ORB.

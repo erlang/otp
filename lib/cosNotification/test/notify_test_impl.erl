@@ -289,10 +289,10 @@ disconnect_pull_supplier(_Self, State) ->
 %%--------------- LOCAL FUNCTIONS ----------------------------
 
 delay(Obj, Event, Time, Mod, F) ->
-    io:format("notify_test:delay(~p)  TIME: ~p~n",[Event, now()]),
+    io:format("notify_test:delay(~p)  TIME: ~p~n",[Event, erlang:timestamp()]),
     timer:sleep(Time),
     Mod:F(Obj, Event),
-    io:format("notify_test:delay() DONE: ~p~n",[now()]),
+    io:format("notify_test:delay() DONE: ~p~n",[erlang:timestamp()]),
     ok.
 
 %%--------------- END OF MODULE ------------------------------
