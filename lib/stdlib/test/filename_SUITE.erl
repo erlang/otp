@@ -395,6 +395,8 @@ split(Config) when is_list(Config) ->
     ?line ["foo", "bar", "hello"]= filename:split("foo////bar//hello"),
     ?line ["foo", "bar", "hello"]= filename:split(["foo//",'//bar//h',"ello"]),
     ?line ["foo", "bar", "hello"]= filename:split(["foo//",'//bar//h'|ello]),
+    ["/"] = filename:split("/"),
+    [] = filename:split(""),
     case os:type() of
        {win32,_} ->
 	    ?line ["a:/","msdev","include"] =
@@ -767,6 +769,8 @@ split_bin(Config) when is_list(Config) ->
     [<<"/">>,<<"usr">>,<<"local">>,<<"bin">>] = filename:split(<<"/usr/local/bin">>),
     [<<"foo">>,<<"bar">>]= filename:split(<<"foo/bar">>),
     [<<"foo">>, <<"bar">>, <<"hello">>]= filename:split(<<"foo////bar//hello">>),
+    [<<"/">>] = filename:split(<<"/">>),
+    [] = filename:split(<<"">>),
     case os:type() of
        {win32,_} ->
 	    [<<"a:/">>,<<"msdev">>,<<"include">>] =
