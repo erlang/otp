@@ -126,6 +126,11 @@ span.code        { font-family: Courier, monospace; font-weight: normal }
   background-color:#eeeeff;
   padding: 0px 10px;
 }
+.extrafrontpageinfo {
+  color: #C00;
+  font-weight: bold;
+  font-size: 120%;
+}
 
 pre          { font-family: Courier, monospace; font-weight: normal }
 

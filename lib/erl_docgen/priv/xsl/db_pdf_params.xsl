@@ -98,6 +98,14 @@
     <xsl:attribute name="text-align">end</xsl:attribute>
   </xsl:attribute-set>
 
+  <xsl:attribute-set name="cover.extrainfo">
+    <xsl:attribute name="padding-before">2.5em</xsl:attribute>
+    <xsl:attribute name="font-size">1.33em</xsl:attribute>
+    <xsl:attribute name="font-weight">bold</xsl:attribute>
+    <xsl:attribute name="color">#C00</xsl:attribute>
+    <xsl:attribute name="text-align">end</xsl:attribute>
+  </xsl:attribute-set>
+
   <xsl:attribute-set name="cover.inner.copyright">
     <xsl:attribute name="border-before-style">solid</xsl:attribute>
     <xsl:attribute name="border-before-width">1pt</xsl:attribute>
