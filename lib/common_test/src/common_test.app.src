@@ -63,9 +63,10 @@
 		ct_master_logs]},
   {applications, [kernel,stdlib]},
   {env, []},
-  {runtime_dependencies,["xmerl-1.3.7","webtool-0.8.10","tools-2.6.14",
-			 "test_server-3.7.1","stdlib-2.0","ssh-3.0.1",
-			 "snmp-4.25.1","sasl-2.4","runtime_tools-1.8.14",
-			 "kernel-3.0","inets-5.10","erts-6.0",
-			 "debugger-4.0","crypto-3.3","compiler-5.0"]}]}.
+  {runtime_dependencies,["xmerl-1.3.8","tools-2.8",
+			 "test_server-3.9","stdlib-2.5","ssh-4.0",
+			 "snmp-5.1.2","sasl-2.4.2","runtime_tools-1.8.16",
+			 "kernel-4.0","inets-6.0","erts-7.0",
+			 "debugger-4.1","crypto-3.6","compiler-6.0",
+			 "observer-2.1"]}]}.
 
