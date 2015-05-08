@@ -1120,26 +1120,18 @@ wait_until(Pred) ->
 	false -> receive after 100 -> wait_until(Pred) end
     end.
 
+get_nodefirstname_string() ->
+    atom_to_list(?MODULE)
+	++ "-"
+	++ integer_to_list(erlang:system_time(seconds))
+	++ "-"
+	++ integer_to_list(erlang:unique_integer([positive])).
 
 get_nodefirstname() ->
-    {A, B, C} = now(),
-    list_to_atom(atom_to_list(?MODULE)
-		 ++ "-"
-		 ++ integer_to_list(A)
-		 ++ "-"
-		 ++ integer_to_list(B)
-		 ++ "-"
-		 ++ integer_to_list(C)).
+    list_to_atom(get_nodefirstname_string()).
 
 get_nodename() ->
-    {A, B, C} = now(),
-    list_to_atom(atom_to_list(?MODULE)
-		 ++ "-"
-		 ++ integer_to_list(A)
-		 ++ "-"
-		 ++ integer_to_list(B)
-		 ++ "-"
-		 ++ integer_to_list(C)
+    list_to_atom(get_nodefirstname_string()
 		 ++ "@"
 		 ++ hostname()).
     

@@ -1190,7 +1190,9 @@ send3(Config) when is_list(Config) ->
     %% Let a number of processes send random message blobs between each other
     %% using enif_send. Kill and spawn new ones randomly to keep a ~constant
     %% number of workers running.
-    Seed = now(),
+    Seed = {erlang:monotonic_time(),
+	    erlang:time_offset(),
+	    erlang:unique_integer()},
     io:format("seed: ~p\n",[Seed]), 
     random:seed(Seed),    
     ets:new(nif_SUITE,[named_table,public]),

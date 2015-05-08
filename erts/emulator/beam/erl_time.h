@@ -26,6 +26,12 @@
 #define ERTS_TIME_ASSERT(B) ((void) 1)
 #endif
 
+typedef enum {
+    ERTS_NO_TIME_WARP_MODE,
+    ERTS_SINGLE_TIME_WARP_MODE,
+    ERTS_MULTI_TIME_WARP_MODE
+} ErtsTimeWarpMode;
+
 typedef struct ErtsTimerWheel_ ErtsTimerWheel;
 typedef erts_atomic64_t * ErtsNextTimeoutRef;
 extern ErtsTimerWheel *erts_default_timer_wheel;
@@ -38,7 +44,6 @@ extern SysTimeval erts_first_emu_time;
 typedef struct erl_timer {
     struct erl_timer* next;	/* next entry tiw slot or chain */
     struct erl_timer* prev;	/* prev entry tiw slot or chain */
-    Uint slot;			/* slot in timer wheel */
     erts_smp_atomic_t wheel;
     ErtsMonotonicTime timeout_pos; /* Timeout in absolute clock ticks */
     /* called when timeout */
@@ -46,6 +51,7 @@ typedef struct erl_timer {
     /* called when cancel (may be NULL) */
     void (*cancel)(void*);
     void* arg;        /* argument to timeout/cancel procs */
+    int slot;			/* slot in timer wheel */
 } ErlTimer;
 
 typedef void (*ErlTimeoutProc)(void*);
@@ -77,6 +83,7 @@ void erts_cancel_smp_ptimer(ErtsSmpPTimer *ptimer);
 void erts_monitor_time_offset(Eterm id, Eterm ref);
 int erts_demonitor_time_offset(Eterm ref);
 
+int erts_init_time_sup(int, ErtsTimeWarpMode);
 void erts_late_init_time_sup(void);
 
 /* timer-wheel api */

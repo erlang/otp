@@ -441,10 +441,10 @@ hammer_ets_rwlock_test(XOpts, UW, C, N, NP, SC) ->
 										      receive after infinity -> ok end
 									      end) | Ps0]
 							 end,
-						    Start = now(),
+						    Start = erlang:monotonic_time(),
 						    lists:foreach(fun (P) -> P ! go end, Ps),
 						    lists:foreach(fun (P) -> receive {done, P} -> ok end end, Ps),
-						    Stop = now(),
+						    Stop = erlang:monotonic_time(),
 						    lists:foreach(fun (P) ->
 									  unlink(P),
 									  exit(P, bang),
@@ -453,7 +453,7 @@ hammer_ets_rwlock_test(XOpts, UW, C, N, NP, SC) ->
 									      {'DOWN', M, process, P, _} -> ok
 									  end
 								  end, Ps),
-						    Res = timer:now_diff(Stop, Start)/1000000,
+						    Res = (Stop-Start)/erlang:convert_time_unit(1,seconds,native),
 						    Caller ! {?MODULE, self(), Res}
 					    end,
 					TP = spawn_link(T),

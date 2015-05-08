@@ -137,6 +137,14 @@
       <p>The correctness of time values.</p>
     </section>
 
+    <marker id="Time_Warp"/>
+    <section>
+      <title>Time Warp</title>
+      <p>A time warp is a leap forwards or backwards in time. That
+      is, the difference of time values taken before and after the
+      time warp will not correspond to the actual elapsed time.</p>
+    </section>
+
     <marker id="OS_System_Time"/>
     <section>
       <title>OS System Time</title>
@@ -146,7 +154,7 @@
       <seealso marker="kernel:os#system_time/0"><c>os:system_time()</c></seealso>.
       This may or may not be an accurate view of POSIX time. This time
       may typically be adjusted both backwards and forwards without
-      limitation. That is, huge leaps both backwards and forwards in time
+      limitation. That is, <seealso marker="#Time_Warp">time warps</seealso>
       may be observed. You can get information about the Erlang runtime
       system's source of OS system time by calling
       <seealso marker="erlang#system_info_os_system_time_source"><c>erlang:system_info(os_system_time_source)</c></seealso>.</p>
@@ -159,12 +167,12 @@
       system. This time does not leap and have a relatively steady
       frequency although not completely correct. However, it is not
       uncommon that the OS monotonic time stops if the system is
-      suspended. This time typically increase since some unspecified
-      point in time that is not connected to
-      <seealso marker="#OS_System_Time">OS system time</seealso>. Note that
-      this type of time is not necessarily provided by all operating
-      systems. You can get information about the Erlang runtime
-      system's source of OS monotonic time by calling
+      suspended. This time typically increase since some
+      unspecified point in time that is not connected to
+      <seealso marker="#OS_System_Time">OS system time</seealso>. Note
+      that this type of time is not necessarily provided by all
+      operating systems. You can get information about the Erlang
+      runtime system's source of OS monotonic time by calling
       <seealso marker="erlang#system_info_os_monotonic_time_source"><c>erlang:system_info(os_monotonic_time_source)</c></seealso>.</p>
     </section>
 
@@ -177,9 +185,11 @@
       <seealso marker="erlang#system_time/0"><c>erlang:system_time()</c></seealso>.
       This time may or may not be an accurate view of POSIX time, and may
       or may not align with <seealso marker="#OS_System_Time">OS system
-      time</seealso>.  The <seealso marker="#Time_Warp_Modes">time
-      warp mode</seealso> determines how it behaves when OS system
-      time suddenly change.</p>
+      time</seealso>. The runtime system works towards aligning the two
+      system times. Depending on <seealso marker="#Time_Warp_Modes">time
+      warp mode</seealso> used, this may be achieved by letting the Erlang
+      system time perform a <seealso marker="#Time_Warp">time
+      warp</seealso>.</p>
     </section>
 
     <marker id="Erlang_Monotonic_Time"/>
@@ -217,12 +227,6 @@
       offset can be retrieved by calling
       <seealso marker="erlang#time_offset/0"><c>erlang:time_offset/0</c></seealso>.
       </p>
-    </section>
-
-    <marker id="Time_Warp"/>
-    <section>
-      <title>Time Warp</title>
-      <p>A time warp is a leap forwards or backwards in time.</p>
     </section>
 
   </section>
@@ -332,7 +336,7 @@
   <section>
     <title>Time Warp Safe Code</title>
     <p>Time warp safe code is code that is able to handle
-    a time warp of
+    a <seealso marker="#Time_Warp">time warp</seealso> of
     <seealso marker="#Erlang_System_Time">Erlang system time</seealso>.
     </p>
 
@@ -378,11 +382,11 @@
       <p>The time offset is determined at runtime system start
       and will after this not change. This is the default behavior.
       Not because it is the best mode (which it isn't). It is
-      default only because this is how the runtime system always
-      has behaved until ERTS version 7.0, and you have to ensure
-      that your Erlang code that may execute during a time warp is
-      <seealso marker="#Time_Warp_Safe_Code">time warp safe</seealso>
-      before you can enable other modes.</p>
+      default <em>only</em> because this is how the runtime system
+      always has behaved up until ERTS version 7.0, and you have to
+      ensure that your Erlang code that may execute during a time
+      warp is <seealso marker="#Time_Warp_Safe_Code">time warp
+      safe</seealso> before you can enable other modes.</p>
 
       <p>Since the time offset is not allowed to change, time
       correction needs to adjust the frequency of the Erlang
@@ -422,9 +426,9 @@
       system time has been corrected, you may want to use the single
       time warp mode. Note that there are limitations to when you can
       execute time warp unsafe code using this mode. If it is possible
-      to only utilize time warp safe code, it is much better to use
-      the <seealso marker="#Multi_Time_Warp_Mode">multi time warp
-      mode</seealso> instead.
+      to only utilize time warp safe code, it is <em>much</em> better
+      to use the <seealso marker="#Multi_Time_Warp_Mode">multi time
+      warp mode</seealso> instead.
       </p>
 
       <p>Using the single time warp mode, the time offset is
@@ -438,12 +442,14 @@
 	  current OS system time is determined. This offset will
 	  from now on be fixed during the whole preliminary phase.</p>
 
-	  <p>If time correction is enabled, the Erlang
-	  monotonic clock will only use the OS monotonic time as
-	  time source during this phase. That is, during the
-	  preliminary phase changes in OS system time will have
-	  no effect on Erlang system time and/or Erlang
-	  monotonic time what so ever.</p>
+	  <p>If time correction is enabled, adjustments to the
+	  Erlang monotonic clock will be made to keep its
+	  frequency as correct as possible, but <em>no</em>
+	  adjustments will be made trying to align Erlang system
+	  time and OS system time. That is, during the preliminary
+	  Erlang system time and OS system time might diverge
+	  from each other, and no attempt to prevent this will
+	  be made.</p>
 
 	  <p>If time correction is disabled, changes in OS system
 	  time will effect the monotonic clock the same way as
@@ -462,15 +468,16 @@
 
 	  <p>During finalization, the time offset is adjusted and
 	  fixated so that current Erlang system time align with
-	  current OS system time. Since the time offset
-	  may be changed, the Erlang system time may do
-	  a time warp at this point. The time offset will from
-	  now on be fixed until the runtime system terminates.
-	  If time correction has been enabled, the time correction
-	  also begins when this phase begins. When the system is
-	  in the final phase it behaves exactly as in the
-	  <seealso marker="#No_Time_Warp_Mode">no time warp
-	  mode</seealso>.</p>
+	  current OS system time. Since the time offset may
+	  change during the finalization, the Erlang system time
+	  may do a time warp at this point. The time offset will
+	  from now on be fixed until the runtime system terminates.
+	  If time correction has been enabled, the time
+	  correction will from now on also make adjustments
+	  in order to align Erlang system time with OS system
+	  time. When the system is in the final phase it behaves
+	  exactly as in the <seealso marker="#No_Time_Warp_Mode">no
+	  time warp mode</seealso>.</p>
 
 	</item>
       </taglist>

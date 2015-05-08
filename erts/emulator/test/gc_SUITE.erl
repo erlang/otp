@@ -77,7 +77,7 @@ grow_heap1(List, MaxLen, CurLen, up) ->
 grow_heap1([], _MaxLen, _, down) ->
     ok;
 grow_heap1([_|List], MaxLen, CurLen, down) ->
-    {_,_,C} = erlang:now(),
+    C=erlang:unique_integer([positive]),
     Num     = C rem (length(List))+1,
     Elem    = lists:nth(Num, List),
     NewList = lists:delete(Elem, List),
@@ -136,7 +136,7 @@ grow_stack_heap1(List, MaxLen, CurLen, up) ->
 grow_stack_heap1([], _MaxLen, _, down) -> ok;
 grow_stack_heap1([_|List], MaxLen, CurLen, down) ->
     grow_stack1(CurLen*2,0),
-    {_,_,C}=erlang:now(),
+    C=erlang:unique_integer([positive]),
     Num=C rem (length(List))+1,
     Elem=lists:nth(Num, List),
     NewList=lists:delete(Elem, List),
@@ -146,8 +146,8 @@ grow_stack_heap1([_|List], MaxLen, CurLen, down) ->
 
 %% Create an arbitrary element/term.
 make_arbit() ->
-    {AA,BB,CC}=erlang:now(),
-    A=AA+1, B=BB+1, C=CC+1,
+    {AA,BB,CC}=erlang:timestamp(),
+    A=AA+1, B=BB+1, C=(CC+erlang:unique_integer([positive])) rem 1000000 + 1,
     New =
 	case C rem 9 of
 	    0 -> make_string((B div C) +5);
@@ -171,7 +171,7 @@ make_string(Length) ->
 make_string(_, 0, Acc) ->
     Acc;
 make_string(Alph, Length, Acc) ->
-    {_,_,C}=erlang:now(),
+    C=erlang:unique_integer([positive]),
     Pos=1+(Length*C rem length(Alph)),
     make_string(Alph, Length-1, 
 		[lists:nth(Pos,Alph)|Acc]).
