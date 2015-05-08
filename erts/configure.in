@@ -2908,6 +2908,10 @@ else
 #include <signal.h>
 #include <stdlib.h>
 
+#if defined(__clang__) || defined(__llvm__)
+#error "Clang/LLVM generates broken code for FP exceptions"
+#endif
+
 volatile int erl_fp_exception;
 
 /*
