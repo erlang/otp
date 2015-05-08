@@ -2753,7 +2753,7 @@ raise(Name, Amount) ->
         <p>Since Mnesia detects deadlocks, a transaction can be
           restarted any number of times.  This function will attempt a restart as specified in
           <c>Retries</c>. <c>Retries</c> must
-          be an integer greater than 0 or the atom <c>infinity</c>. Default is
+          be an integer greater than or equal to 0 or the atom <c>infinity</c>. Default is
           <c>infinity</c>.</p>
       </desc>
     </func>
