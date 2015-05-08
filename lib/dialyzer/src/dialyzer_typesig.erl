@@ -1579,11 +1579,11 @@ get_bif_constr({M, F, A} = _BIF, Dst, Args, _State) ->
 eval_inv_arith('+', _Pos, Dst, Arg) ->
   bif_return(erlang, '-', 2, [Dst, Arg]);
 eval_inv_arith('*', _Pos, Dst, Arg) ->
-  case t_number_vals(Arg) of
-    [0] -> t_integer();
-    _ ->
+  Zero = t_from_term(0),
+  case t_is_none(t_inf(Arg, Zero)) of
+    false -> t_integer();
+    true ->
       TmpRet = bif_return(erlang, 'div', 2, [Dst, Arg]),
-      Zero = t_from_term(0),
       %% If 0 is not part of the result, it cannot be part of the argument.
       case t_is_subtype(Zero, Dst) of
 	false -> t_subtract(TmpRet, Zero);
