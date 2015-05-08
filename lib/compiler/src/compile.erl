@@ -920,28 +920,35 @@ transform_module(#compile{options=Opt,code=Code0}=St0) ->
 
 foldl_transform(St, [T|Ts]) ->
     Name = "transform " ++ atom_to_list(T),
-    Fun = fun(S) -> T:parse_transform(S#compile.code, S#compile.options) end,
-    Run = case member(time, St#compile.options) of
-	      true  -> fun run_tc/2;
-	      false -> fun({_Name,F}, S) -> catch F(S) end
-	  end,
-    case Run({Name, Fun}, St) of
-	{error,Es,Ws} ->
-	    {error,St#compile{warnings=St#compile.warnings ++ Ws,
-			      errors=St#compile.errors ++ Es}};
-	{'EXIT',{undef,_}} ->
-	    Es = [{St#compile.ifile,[{none,compile,
-				      {undef_parse_transform,T}}]}],
-	    {error,St#compile{errors=St#compile.errors ++ Es}};
-	{'EXIT',R} ->
-	    Es = [{St#compile.ifile,[{none,compile,{parse_transform,T,R}}]}],
-	    {error,St#compile{errors=St#compile.errors ++ Es}};
-	{warning, Forms, Ws} ->
-	    foldl_transform(
-	      St#compile{code=Forms,
-			 warnings=St#compile.warnings ++ Ws}, Ts);
-	Forms ->
-	    foldl_transform(St#compile{code=Forms}, Ts)
+    case code:ensure_loaded(T) =:= {module,T} andalso
+                erlang:function_exported(T, parse_transform, 2) of
+        true ->
+            Fun = fun(S) ->
+                         T:parse_transform(S#compile.code, S#compile.options)
+                  end,
+            Run = case member(time, St#compile.options) of
+                      true  -> fun run_tc/2;
+                      false -> fun({_Name,F}, S) -> catch F(S) end
+                  end,
+            case Run({Name, Fun}, St) of
+                {error,Es,Ws} ->
+                    {error,St#compile{warnings=St#compile.warnings ++ Ws,
+                                      errors=St#compile.errors ++ Es}};
+                {'EXIT',R} ->
+                    Es = [{St#compile.ifile,[{none,compile,
+                                              {parse_transform,T,R}}]}],
+                    {error,St#compile{errors=St#compile.errors ++ Es}};
+                {warning, Forms, Ws} ->
+                    foldl_transform(
+                      St#compile{code=Forms,
+                                 warnings=St#compile.warnings ++ Ws}, Ts);
+                Forms ->
+                    foldl_transform(St#compile{code=Forms}, Ts)
+            end;
+        false ->
+            Es = [{St#compile.ifile,[{none,compile,
+                                      {undef_parse_transform,T}}]}],
+            {error,St#compile{errors=St#compile.errors ++ Es}}
     end;
 foldl_transform(St, []) -> {ok,St}.
 
