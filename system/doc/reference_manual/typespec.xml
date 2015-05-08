@@ -232,6 +232,9 @@
       <cell><c>arity()</c></cell><cell><c>0..255</c></cell>
     </row>
     <row>
+      <cell><c>identifier()</c></cell><cell><c>pid() | port() | reference()</c></cell>
+    </row>
+    <row>
       <cell><c>node()</c></cell><cell><c>atom()</c></cell>
     </row>
     <row>

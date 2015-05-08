@@ -67,7 +67,6 @@
 	 t_cons/2,
 	 t_cons_hd/1, t_cons_hd/2,
 	 t_cons_tl/1, t_cons_tl/2,
-	 t_constant/0,
          t_contains_opaque/1, t_contains_opaque/2,
          t_decorate_with_opaque/3,
 	 t_elements/1,
@@ -118,7 +117,6 @@
 	 %% t_is_byte/1,
 	 %% t_is_char/1,
 	 t_is_cons/1, t_is_cons/2,
-	 t_is_constant/1,
 	 t_is_equal/2,
 	 t_is_fixnum/1,
 	 t_is_float/1, t_is_float/2,
@@ -1747,17 +1745,6 @@ is_tuple1(_) -> false.
 
 t_bitstrlist() ->
   t_iolist(1, t_bitstr()).
-
-%% XXX. To be removed.
--spec t_constant() -> erl_type().
-
-t_constant() ->
-  t_sup([t_number(), t_identifier(), t_atom(), t_fun(), t_binary()]).
-
--spec t_is_constant(erl_type()) -> boolean().
-
-t_is_constant(X) ->
-  t_is_subtype(X, t_constant()).
 
 -spec t_arity() -> erl_type().
 
