@@ -38,7 +38,7 @@
     PKCS</url> standard.</p>
   </description>
   <xi:include href="introduction.xml"/>
-  <xi:include href="records.xml"/>
+  <xi:include href="public_key_records.xml"/>
   <xi:include href="using_public_key.xml"/>
 </part>
 

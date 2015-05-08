@@ -42,7 +42,7 @@ XML_REF6_FILES =
 XML_PART_FILES = part.xml part_notes.xml
 XML_CHAPTER_FILES = \
 	introduction.xml \
-        records.xml \
+        public_key_records.xml \
 	using_public_key.xml \
 	notes.xml
 

@@ -268,7 +268,7 @@ atom()}} |
 	application. It differentiates between the peer
 	certificate and the CA certificates by using <c>valid_peer</c> or
 	<c>valid</c> as second argument to the verification fun. See the
-	<seealso marker="public_key:cert_records">public_key User's
+	<seealso marker="public_key:public_key_records">public_key User's
 	Guide</seealso> for definition of <c>#'OTPCertificate'{}</c> and
 	<c>#'Extension'{}</c>.</p>
 
@@ -364,10 +364,10 @@ marker="public_key:public_key#pkix_path_validation-3">public_key:pkix_path_valid
 	empty argument list. The following arguments may be specified for the internal cache.</p>
 	<taglist>
 	  <tag><c>{http, timeout()}</c></tag>
-	  <item>
+	  <item><p>
 	    Enables fetching of CRLs specified as http URIs in<seealso 
-	    marker="public_key:cert_records"> X509 cerificate extensions.</seealso>
-	    Requires the OTP inets application.
+	    marker="public_key:public_key_records"> X509 cerificate extensions.</seealso>
+	    Requires the OTP inets application.</p>
 	  </item>	    
 	</taglist>    
       </item>
