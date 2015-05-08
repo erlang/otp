@@ -525,12 +525,15 @@ static void new_literal_patch(LoaderState* stp, int pos);
 static void new_string_patch(LoaderState* stp, int pos);
 static Uint new_literal(LoaderState* stp, Eterm** hpp, Uint heap_size);
 static int genopargcompare(GenOpArg* a, GenOpArg* b);
-static Eterm exported_from_module(Process* p, Eterm mod);
-static Eterm functions_in_module(Process* p, Eterm mod);
-static Eterm attributes_for_module(Process* p, Eterm mod);
-static Eterm compilation_info_for_module(Process* p, Eterm mod);
-static Eterm md5_of_module(Process* p, Eterm mod);
-static Eterm native_addresses(Process* p, Eterm mod);
+static Eterm get_module_info(Process* p, ErtsCodeIndex code_ix,
+                             BeamInstr* code, Eterm module, Eterm what);
+static Eterm exported_from_module(Process* p, ErtsCodeIndex code_ix,
+                                  Eterm mod);
+static Eterm functions_in_module(Process* p, BeamInstr* code);
+static Eterm attributes_for_module(Process* p, BeamInstr* code);
+static Eterm compilation_info_for_module(Process* p, BeamInstr* code);
+static Eterm md5_of_module(Process* p, BeamInstr* code);
+static Eterm native_addresses(Process* p, BeamInstr* code);
 int patch_funentries(Eterm Patchlist);
 int patch(Eterm Addresses, Uint fe);
 static int safe_mul(UWord a, UWord b, UWord* resp);
@@ -5388,6 +5391,9 @@ new_literal(LoaderState* stp, Eterm** hpp, Uint heap_size)
 Eterm
 erts_module_info_0(Process* p, Eterm module)
 {
+    Module* modp;
+    ErtsCodeIndex code_ix = erts_active_code_ix();
+    BeamInstr* code;
     Eterm *hp;
     Eterm list = NIL;
     Eterm tup;
@@ -5396,12 +5402,18 @@ erts_module_info_0(Process* p, Eterm module)
 	return THE_NON_VALUE;
     }
 
-    if (erts_get_module(module, erts_active_code_ix()) == NULL) {
+    modp = erts_get_module(module, code_ix);
+    if (modp == NULL) {
 	return THE_NON_VALUE;
     }
 
+    code = modp->curr.code;
+    if (code == NULL) {
+        return THE_NON_VALUE;
+    }
+
 #define BUILD_INFO(What) \
-    tup = erts_module_info_1(p, module, What); \
+    tup = get_module_info(p, code_ix, code, module, What); \
     hp = HAlloc(p, 5); \
     tup = TUPLE2(hp, What, tup); \
     hp += 3; \
@@ -5419,20 +5431,45 @@ erts_module_info_0(Process* p, Eterm module)
 Eterm
 erts_module_info_1(Process* p, Eterm module, Eterm what)
 {
+    Module* modp;
+    ErtsCodeIndex code_ix = erts_active_code_ix();
+    BeamInstr* code;
+
+    if (is_not_atom(module)) {
+        return THE_NON_VALUE;
+    }
+
+    modp = erts_get_module(module, code_ix);
+    if (modp == NULL) {
+        return THE_NON_VALUE;
+    }
+
+    code = modp->curr.code;
+    if (code == NULL) {
+        return THE_NON_VALUE;
+    }
+
+    return get_module_info(p, code_ix, code, module, what);
+}
+
+static Eterm
+get_module_info(Process* p, ErtsCodeIndex code_ix, BeamInstr* code,
+                Eterm module, Eterm what)
+{
     if (what == am_module) {
 	return module;
     } else if (what == am_md5) {
-	return md5_of_module(p, module);
+	return md5_of_module(p, code);
     } else if (what == am_exports) {
-	return exported_from_module(p, module);
+	return exported_from_module(p, code_ix, module);
     } else if (what == am_functions) {
-	return functions_in_module(p, module);
+	return functions_in_module(p, code);
     } else if (what == am_attributes) {
-	return attributes_for_module(p, module);
+	return attributes_for_module(p, code);
     } else if (what == am_compile) {
-	return compilation_info_for_module(p, module);
+	return compilation_info_for_module(p, code);
     } else if (what == am_native_addresses) {
-	return native_addresses(p, module);
+	return native_addresses(p, code);
     }
     return THE_NON_VALUE;
 }
@@ -5440,16 +5477,12 @@ erts_module_info_1(Process* p, Eterm module, Eterm what)
 /*
  * Builds a list of all functions in the given module:
  *     [{Name, Arity},...]
- *
- * Returns a tagged term, or 0 on error.
  */
 
 Eterm
 functions_in_module(Process* p, /* Process whose heap to use. */
-		     Eterm mod) /* Tagged atom for module. */
+		    BeamInstr* code)
 {
-    Module* modp;
-    BeamInstr* code;
     int i;
     Uint num_functions;
     Uint need;
@@ -5457,15 +5490,6 @@ functions_in_module(Process* p, /* Process whose heap to use. */
     Eterm* hp_end;
     Eterm result = NIL;
 
-    if (is_not_atom(mod)) {
-	return THE_NON_VALUE;
-    }
-
-    modp = erts_get_module(mod, erts_active_code_ix());
-    if (modp == NULL) {
-	return THE_NON_VALUE;
-    }
-    code = modp->curr.code;
     num_functions = code[MI_NUM_FUNCTIONS];
     need = 5*num_functions;
     hp = HAlloc(p, need);
@@ -5495,15 +5519,11 @@ functions_in_module(Process* p, /* Process whose heap to use. */
 /*
  * Builds a list of all functions including native addresses.
  *     [{Name,Arity,NativeAddress},...]
- *
- * Returns a tagged term, or 0 on error.
  */
 
 static Eterm
-native_addresses(Process* p, Eterm mod)
+native_addresses(Process* p, BeamInstr* code)
 {
-    Module* modp;
-    BeamInstr* code;
     int i;
     Eterm* hp;
     Uint num_functions;
@@ -5511,16 +5531,6 @@ native_addresses(Process* p, Eterm mod)
     Eterm* hp_end;
     Eterm result = NIL;
 
-    if (is_not_atom(mod)) {
-	return THE_NON_VALUE;
-    }
-
-    modp = erts_get_module(mod, erts_active_code_ix());
-    if (modp == NULL) {
-	return THE_NON_VALUE;
-    }
-
-    code = modp->curr.code;
     num_functions = code[MI_NUM_FUNCTIONS];
     need = (6+BIG_UINT_HEAP_SIZE)*num_functions;
     hp = HAlloc(p, need);
@@ -5547,25 +5557,18 @@ native_addresses(Process* p, Eterm mod)
 /*
  * Builds a list of all exported functions in the given module:
  *     [{Name, Arity},...]
- *
- * Returns a tagged term, or 0 on error.
  */
 
 Eterm
 exported_from_module(Process* p, /* Process whose heap to use. */
+                     ErtsCodeIndex code_ix,
 		     Eterm mod) /* Tagged atom for module. */
 {
     int i;
     Eterm* hp = NULL;
     Eterm* hend = NULL;
     Eterm result = NIL;
-    ErtsCodeIndex code_ix;
 
-    if (is_not_atom(mod)) {
-	return THE_NON_VALUE;
-    }
-
-    code_ix = erts_active_code_ix();
     for (i = 0; i < export_list_size(code_ix); i++) {
 	Export* ep = export_list(i,code_ix);
 	
@@ -5595,31 +5598,17 @@ exported_from_module(Process* p, /* Process whose heap to use. */
 
 /*
  * Returns a list of all attributes for the module.
- *
- * Returns a tagged term, or 0 on error.
  */
 
 Eterm
 attributes_for_module(Process* p, /* Process whose heap to use. */
-		      Eterm mod) /* Tagged atom for module. */
-
+                      BeamInstr* code)
 {
-    Module* modp;
-    BeamInstr* code;
     Eterm* hp;
     byte* ext;
     Eterm result = NIL;
     Eterm* end;
 
-    if (is_not_atom(mod)) {
-	return THE_NON_VALUE;
-    }
-
-    modp = erts_get_module(mod, erts_active_code_ix());
-    if (modp == NULL) {
-	return THE_NON_VALUE;
-    }
-    code = modp->curr.code;
     ext = (byte *) code[MI_ATTR_PTR];
     if (ext != NULL) {
 	hp = HAlloc(p, code[MI_ATTR_SIZE_ON_HEAP]);
@@ -5635,30 +5624,17 @@ attributes_for_module(Process* p, /* Process whose heap to use. */
 
 /*
  * Returns a list containing compilation information.
- *
- * Returns a tagged term, or 0 on error.
  */
 
 Eterm
 compilation_info_for_module(Process* p, /* Process whose heap to use. */
-			    Eterm mod) /* Tagged atom for module. */
+                            BeamInstr* code)
 {
-    Module* modp;
-    BeamInstr* code;
     Eterm* hp;
     byte* ext;
     Eterm result = NIL;
     Eterm* end;
 
-    if (is_not_atom(mod)) {
-	return THE_NON_VALUE;
-    }
-
-    modp = erts_get_module(mod, erts_active_code_ix());
-    if (modp == NULL) {
-	return THE_NON_VALUE;
-    }
-    code = modp->curr.code;
     ext = (byte *) code[MI_COMPILE_PTR];
     if (ext != NULL) {
 	hp = HAlloc(p, code[MI_COMPILE_SIZE_ON_HEAP]);
@@ -5674,29 +5650,13 @@ compilation_info_for_module(Process* p, /* Process whose heap to use. */
 
 /*
  * Returns the MD5 checksum for a module
- *
- * Returns a tagged term, or 0 on error.
  */
 
 Eterm
 md5_of_module(Process* p, /* Process whose heap to use. */
-              Eterm mod) /* Tagged atom for module. */
+              BeamInstr* code)
 {
-    Module* modp;
-    BeamInstr* code;
-    Eterm res = NIL;
-
-    if (is_not_atom(mod)) {
-	return THE_NON_VALUE;
-    }
-
-    modp = erts_get_module(mod, erts_active_code_ix());
-    if (modp == NULL) {
-	return THE_NON_VALUE;
-    }
-    code = modp->curr.code;
-    res = new_binary(p, (byte *) code[MI_MD5_PTR], MD5_SIZE);
-    return res;
+    return new_binary(p, (byte *) code[MI_MD5_PTR], MD5_SIZE);
 }
 
 /*
