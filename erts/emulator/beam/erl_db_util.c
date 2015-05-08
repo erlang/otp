@@ -2039,7 +2039,7 @@ restart:
             break;
         case matchKey:
             t = (Eterm) *pc++;
-            tp = erts_maps_get_rel(t, make_flatmap_rel(ep, base), base);
+            tp = erts_maps_get_rel(t, make_boxed_rel(ep, base), base);
             if (!tp) {
                 FAIL();
             }

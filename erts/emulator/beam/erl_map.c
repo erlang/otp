@@ -1884,7 +1884,7 @@ erts_hashmap_get(Uint32 hx, Eterm key, Eterm node)
     UseTmpHeapNoproc(2);
 
     ASSERT(is_boxed(node));
-    ptr = boxed_val(node);
+    ptr = boxed_val_rel(node, map_base);
     hdr = *ptr;
     ASSERT(is_header(hdr));
     ASSERT(is_hashmap_header_head(hdr));
@@ -1905,8 +1905,7 @@ erts_hashmap_get(Uint32 hx, Eterm key, Eterm node)
         node  = ptr[ix+1];
 
         if (is_list(node)) { /* LEAF NODE [K|V] */
-            ptr = list_val(node);
-
+            ptr = list_val_rel(node,map_base);
             res = eq_rel(CAR(ptr), map_base, key, NULL) ? &(CDR(ptr)) : NULL;
             break;
         }
@@ -1914,7 +1913,7 @@ erts_hashmap_get(Uint32 hx, Eterm key, Eterm node)
         hx = hashmap_shift_hash(th,hx,lvl,key);
 
         ASSERT(is_boxed(node));
-        ptr = boxed_val(node);
+        ptr = boxed_val_rel(node, map_base);
         hdr = *ptr;
         ASSERT(is_header(hdr));
         ASSERT(!is_hashmap_header_head(hdr));
