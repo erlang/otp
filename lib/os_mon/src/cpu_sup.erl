@@ -121,7 +121,7 @@ util(Args) when is_list (Args) ->
 util(_) ->
     erlang:error(badarg).
 
--spec util() -> float().
+-spec util() -> float() | {'error', any()}.
 
 util() ->
     case util([]) of
