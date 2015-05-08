@@ -339,7 +339,7 @@ false</code>
 			<fsummary></fsummary>
 			<desc>
 				<p>
-					Returns a complete list of values, in arbitrary order, contained in map <c>M</c>.
+					Returns a complete list of values, in arbitrary order, contained in map <c>Map</c>.
 				</p>
 				<p>
 					The call will fail with a <c>{badmap,Map}</c> exception if <c><anno>Map</anno></c> is not a map.
