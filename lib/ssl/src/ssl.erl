@@ -38,11 +38,13 @@
 %% SSL/TLS protocol handling
 -export([cipher_suites/0, cipher_suites/1, suite_definition/1,
 	 connection_info/1, versions/0, session_info/1, format_error/1,
-	 renegotiate/1, prf/5, negotiated_protocol/1, negotiated_next_protocol/1]).
+     renegotiate/1, prf/5, negotiated_protocol/1, negotiated_next_protocol/1,
+	 connection_information/1, connection_information/2]).
 %% Misc
--export([random_bytes/1]).
+-export([random_bytes/1, handle_options/2]).
 
 -deprecated({negotiated_next_protocol, 1, next_major_release}).
+-deprecated({connection_info, 1, next_major_release}).
 
 -include("ssl_api.hrl").
 -include("ssl_internal.hrl").
@@ -286,16 +288,42 @@ controlling_process(#sslsocket{pid = {Listen,
 				   is_pid(NewOwner) ->
     Transport:controlling_process(Listen, NewOwner).
 
+
+%%--------------------------------------------------------------------
+-spec connection_information(#sslsocket{}) -> {ok, list()} | {error, reason()}.
+%%
+%% Description: Return SSL information for the connection
+%%--------------------------------------------------------------------
+connection_information(#sslsocket{pid = Pid}) when is_pid(Pid) -> ssl_connection:connection_information(Pid);
+connection_information(#sslsocket{pid = {Listen, _}}) when is_port(Listen) -> {error, enotconn}.
+
+
+%%--------------------------------------------------------------------
+-spec connection_information(#sslsocket{}, [atom]) -> {ok, list()} | {error, reason()}.
+%%
+%% Description: Return SSL information for the connection
+%%--------------------------------------------------------------------
+connection_information(#sslsocket{} = SSLSocket, Items) -> 
+    case connection_information(SSLSocket) of
+        {ok, I} ->
+            {ok, lists:filter(fun({K, _}) -> lists:foldl(fun(K1, Acc) when K1 =:= K -> Acc +  1; (_, Acc) -> Acc end, 0, Items) > 0 end, I)};
+        E ->
+            E
+    end.
+
 %%--------------------------------------------------------------------
 -spec connection_info(#sslsocket{}) -> 	{ok, {tls_record:tls_atom_version(), ssl_cipher:erl_cipher_suite()}} |
 					{error, reason()}.
 %%
 %% Description: Returns ssl protocol and cipher used for the connection
 %%--------------------------------------------------------------------
-connection_info(#sslsocket{pid = Pid}) when is_pid(Pid) ->
-    ssl_connection:info(Pid);
-connection_info(#sslsocket{pid = {Listen, _}}) when is_port(Listen) ->
-    {error, enotconn}.
+connection_info(#sslsocket{} = SSLSocket) ->
+    case connection_information(SSLSocket) of
+        {ok, Result} ->
+            {ok, {proplists:get_value(protocol, Result), proplists:get_value(cipher_suite, Result)}};
+        Error ->
+            Error
+    end.
 
 %%--------------------------------------------------------------------
 -spec peername(#sslsocket{}) -> {ok, {inet:ip_address(), inet:port_number()}} | {error, reason()}.
@@ -671,6 +699,8 @@ handle_options(Opts0) ->
 			  handle_option(client_preferred_next_protocols, Opts, undefined)),
 		    log_alert = handle_option(log_alert, Opts, true),
 		    server_name_indication = handle_option(server_name_indication, Opts, undefined),
+		    sni_hosts = handle_option(sni_hosts, Opts, []),
+		    sni_fun = handle_option(sni_fun, Opts, {}),
 		    honor_cipher_order = handle_option(honor_cipher_order, Opts, false),
 		    protocol = proplists:get_value(protocol, Opts, tls),
 		    padding_check =  proplists:get_value(padding_check, Opts, true),
@@ -687,7 +717,7 @@ handle_options(Opts0) ->
 		  user_lookup_fun, psk_identity, srp_identity, ciphers,
 		  reuse_session, reuse_sessions, ssl_imp,
 		  cb_info, renegotiate_at, secure_renegotiate, hibernate_after,
-		  erl_dist, alpn_advertised_protocols,
+		  erl_dist, alpn_advertised_protocols, sni_hosts, sni_fun,
 		  alpn_preferred_protocols, next_protocols_advertised,
 		  client_preferred_next_protocols, log_alert,
 		  server_name_indication, honor_cipher_order, padding_check, crl_check, crl_cache,
@@ -704,6 +734,18 @@ handle_options(Opts0) ->
 		 inet_user = SockOpts, transport_info = CbInfo, connection_cb = ConnetionCb
 		}}.
 
+handle_option(sni_fun, Opts, Default) ->
+    OptFun = validate_option(sni_fun,
+                             proplists:get_value(sni_fun, Opts, Default)),
+    OptHosts = proplists:get_value(sni_hosts, Opts, undefined),
+    case {OptFun, OptHosts} of
+        {Default, _} ->
+            Default;
+        {_, undefined} ->
+            OptFun;
+        _ ->
+            throw({error, {conflict_options, [sni_fun, sni_hosts]}})
+    end;
 handle_option(OptionName, Opts, Default) ->
     validate_option(OptionName,
 		    proplists:get_value(OptionName, Opts, Default)).
@@ -881,6 +923,20 @@ validate_option(server_name_indication, disable) ->
     disable;
 validate_option(server_name_indication, undefined) ->
     undefined;
+validate_option(sni_hosts, []) ->
+    [];
+validate_option(sni_hosts, [{Hostname, SSLOptions} | Tail]) when is_list(Hostname) ->
+	RecursiveSNIOptions = proplists:get_value(sni_hosts, SSLOptions, undefined),
+	case RecursiveSNIOptions of
+		undefined ->
+			[{Hostname, validate_options(SSLOptions)} | validate_option(sni_hosts, Tail)];
+		_ ->
+			throw({error, {options, {sni_hosts, RecursiveSNIOptions}}})
+	end;
+validate_option(sni_fun, {}) ->
+    {};
+validate_option(sni_fun, Fun) when is_function(Fun) ->
+    Fun;
 validate_option(honor_cipher_order, Value) when is_boolean(Value) ->
     Value;
 validate_option(padding_check, Value) when is_boolean(Value) ->
@@ -895,6 +951,12 @@ validate_option(crl_cache, {Cb, {_Handle, Options}} = Value) when is_atom(Cb) an
     Value;
 validate_option(Opt, Value) ->
     throw({error, {options, {Opt, Value}}}).
+
+
+validate_options([]) ->
+	[];
+validate_options([{Opt, Value} | Tail]) ->
+	[{Opt, validate_option(Opt, Value)} | validate_options(Tail)].
 
 validate_npn_ordering(client) ->
     ok;

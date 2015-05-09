@@ -105,7 +105,9 @@
       <p><c>| {client_preferred_next_protocols, {client | server,
       [binary()]} | {client | server, [binary()], binary()}}</c></p>
       <p><c>| {log_alert, boolean()}</c></p>
-      <p><c>| {server_name_indication, hostname() | disable}</c></p></item>
+      <p><c>| {server_name_indication, hostname() | disable}</c></p>
+      <p><c>| {sni_hosts, [{hostname(), ssloptions()}]}</c></p>
+      <p><c>| {sni_fun, SNIfun::fun()}</c></p></item>
 
       <tag><c>transportoption()</c></tag>
       <item><p><c>= {cb_info, {CallbackModule::atom(), DataTag::atom(),
@@ -181,6 +183,9 @@
       <tag><c>srp_param_type()</c></tag>
       <item><p><c>= srp_1024 | srp_1536 | srp_2048 | srp_3072
       | srp_4096 | srp_6144 | srp_8192</c></p></item>
+
+      <tag><c>SNIfun::fun()</c></tag>
+      <item><p><c>= fun(ServerName :: string()) -> ssloptions()</c></p></item>
 
     </taglist>
   </section>
@@ -624,7 +629,24 @@ fun(srp, Username :: string(), UserState :: term()) ->
       selection. If set to <c>false</c> (the default), use the client
       preference.</p></item>
 
-      
+      <tag><c>{sni_hosts, [{hostname(), ssloptions()}]}</c></tag>
+      <item><p>If the server receives a SNI (Server Name Indication) from the client
+      matching a host listed in the <c>sni_hosts</c> option, the speicific options for
+      that host will override previously specified options.
+
+      The option <c>sni_fun</c>, and <c>sni_hosts</c> are mutually exclusive.</p></item>
+
+      <tag><c>{sni_fun, SNIfun::fun()}</c></tag>
+      <item><p>If the server receives a SNI (Server Name Indication) from the client,
+      the given function will be called to retrive <c>ssloptions()</c> for indicated server.
+      These options will be merged into predefined <c>ssloptions()</c>.
+
+      The function should be defined as:
+        <c>fun(ServerName :: string()) -> ssloptions()</c>
+      and can be specified as a fun or as named <c>fun module:function/1</c>
+
+      The option <c>sni_fun</c>, and <c>sni_hosts</c> are mutually exclusive.</p></item>
+
     </taglist>
   </section>
   
@@ -748,6 +770,45 @@ fun(srp, Username :: string(), UserState :: term()) ->
 	<desc><p>Assigns a new controlling process to the SSL socket. A
 	controlling process is the owner of an SSL socket, and receives
 	all messages from the socket.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>connection_information(SslSocket) ->
+        {ok, Info} |  {error, Reason} </name>
+      <fsummary>Returns all the connection information.
+      </fsummary>
+      <type>
+        <v>Info = [InfoTuple]</v>
+        <v>InfoTuple = {protocol, Protocol} | {cipher_suite, CipherSuite} | {sni_hostname, SNIHostname}</v>
+        <v>CipherSuite = ciphersuite()</v>
+        <v>ProtocolVersion = protocol()</v>
+        <v>SNIHostname = string()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc><p>Return all the connection information containing negotiated protocol version, cipher suite, and the hostname of SNI extension.
+      Info will be a proplists containing all the connection information on success, otherwise <c>{error, Reason}</c> will be returned.</p> 
+      </desc>
+    </func>
+
+    <func>
+      <name>connection_information(SslSocket, Items) ->
+        {ok, Info} |  {error, Reason} </name>
+      <fsummary>Returns the requested connection information.
+      </fsummary>
+      <type>
+        <v>Items = [Item]</v>
+        <v>Item = protocol | cipher_suite | sni_hostname</v>
+        <v>Info = [InfoTuple]</v>
+        <v>InfoTuple = {protocol, Protocol} | {cipher_suite, CipherSuite} | {sni_hostname, SNIHostname}</v>
+        <v>CipherSuite = ciphersuite()</v>
+        <v>ProtocolVersion = protocol()</v>
+        <v>SNIHostname = string()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc><p>Returns the connection information you requested. The connection information you can request contains protocol, cipher_suite, and sni_hostname.
+      <c>{ok, Info}</c> will be returned if it executes sucessfully. The Info is a proplists containing the information you requested.
+      Otherwise, <c>{error, Reason}</c> will be returned.</p>
       </desc>
     </func>
 

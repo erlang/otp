@@ -398,6 +398,22 @@ initial_state(Role, Host, Port, Socket, {SSLOptions, SocketOptions, Tracker}, Us
 	   tracker = Tracker
 	  }.
 
+
+update_ssl_options_from_sni(OrigSSLOptions, SNIHostname) ->
+    SSLOption = 
+    case OrigSSLOptions#ssl_options.sni_fun of
+        {} ->
+            proplists:get_value(SNIHostname, OrigSSLOptions#ssl_options.sni_hosts);
+        SNIFun ->
+            SNIFun(SNIHostname)
+    end,
+    case SSLOption of
+        undefined ->
+            undefined;
+        _ ->
+            ssl:handle_options(SSLOption, OrigSSLOptions)
+    end.
+
 next_state(Current,_, #alert{} = Alert, #state{negotiated_version = Version} = State) ->
     handle_own_alert(Alert, Version, Current, State);
 
@@ -439,7 +455,37 @@ next_state(Current, Next, #ssl_tls{type = ?HANDSHAKE, fragment = Data},
    	end,
     try
 	{Packets, Buf} = tls_handshake:get_tls_handshake(Version,Data,Buf0),
-	State = State0#state{protocol_buffers =
+    State1 = case Packets of
+                 [{#client_hello{extensions=HelloExtensions} = ClientHello, _}] ->
+                     case HelloExtensions#hello_extensions.sni of
+                         undefined ->
+                             State0;
+                         #sni{hostname = Hostname} ->
+                             NewOptions = update_ssl_options_from_sni(State0#state.ssl_options, Hostname),
+                             case NewOptions of
+                                 undefined ->
+                                     State0;
+                                 _ ->
+                                     {ok, Ref, CertDbHandle, FileRefHandle, CacheHandle, CRLDbHandle, OwnCert, Key, DHParams} = 
+                                     ssl_config:init(NewOptions, State0#state.role),
+                                     State0#state{
+                                       session = State0#state.session#session{own_certificate = OwnCert},
+                                       file_ref_db = FileRefHandle,
+                                       cert_db_ref = Ref,
+                                       cert_db = CertDbHandle,
+                                       crl_db = CRLDbHandle,
+                                       session_cache = CacheHandle,
+                                       private_key = Key,
+                                       diffie_hellman_params = DHParams,
+                                       ssl_options = NewOptions,
+                                       sni_hostname = Hostname
+                                      }
+                             end
+                     end;
+                 _ ->
+                     State0
+             end,
+	State = State1#state{protocol_buffers =
 				 Buffers#protocol_buffers{tls_packets = Packets,
 							  tls_handshake_buffer = Buf}},
 	handle_tls_handshake(Handle, Next, State)
