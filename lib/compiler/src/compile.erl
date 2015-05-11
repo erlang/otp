@@ -342,10 +342,10 @@ run_tc({Name,Fun}, St) ->
 
 run_eprof({Name,Fun}, Name, St) ->
     io:format("~p: Running eprof\n", [Name]),
-    eprof:start_profiling([self()]),
+    c:appcall(tools, eprof, start_profiling, [[self()]]),
     Val = (catch Fun(St)),
-    eprof:stop_profiling(),
-    eprof:analyze(),
+    c:appcall(tools, eprof, stop_profiling, []),
+    c:appcall(tools, eprof, analyze, []),
     Val;
 run_eprof({_,Fun}, _, St) ->
     catch Fun(St).
