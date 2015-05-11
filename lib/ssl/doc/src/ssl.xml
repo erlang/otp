@@ -67,15 +67,15 @@
 
     <taglist>
 
-      <tag><c>boolean()</c></tag>
-      <item><p><c>= true | false</c></p></item>
+      <tag><c>boolean() =</c></tag>
+      <item><p><c>true | false</c></p></item>
 
-      <tag><c>option()</c></tag>
-      <item><p><c>= socketoption() | ssloption() | transportoption()</c></p>
+      <tag><c>option() =</c></tag>
+      <item><p><c>socketoption() | ssloption() | transportoption()</c></p>
       </item>
 
-      <tag><c>socketoption()</c></tag>
-      <item><p><c>= proplists:property()</c></p>
+      <tag><c>socketoption() =</c></tag>
+      <item><p><c>proplists:property()</c></p>
       <p>The default socket options are
       <c>[{mode,list},{packet, 0},{header, 0},{active, true}]</c>.</p>
       <p>For valid options, see the
@@ -83,32 +83,34 @@
       <seealso marker="kernel:gen_tcp">gen_tcp(3)</seealso> manual pages
       in Kernel.</p></item>
 
-      <tag><marker id="type-ssloption"></marker><c>ssloption()</c></tag>
-      <item><p><c>= {verify, verify_type()}</c></p>
-      <p><c>| {verify_fun, {fun(), term()}}</c></p>
-      <p><c>| {fail_if_no_peer_cert, boolean()} {depth, integer()}</c></p>
-      <p><c>| {cert, public_key:der_encoded()}</c></p>
-      <p><c>| {certfile, path()}</c></p>
-      <p><c>| {key, {'RSAPrivateKey'| 'DSAPrivateKey' | 'ECPrivateKey' 
-      | 'PrivateKeyInfo', public_key:der_encoded()}}</c></p>
-      <p><c>| {keyfile, path()}</c></p>
-      <p><c>| {password, string()}</c></p>
-      <p><c>| {cacerts, [public_key:der_encoded()]}</c></p>
-      <p><c>| {cacertfile, path()}</c></p>
-      <p><c>| {dh, public_key:der_encoded()}</c></p>
-      <p><c>| {dhfile, path()}</c></p>
-      <p><c>| {ciphers, ciphers()}</c></p>
-      <p><c>| {user_lookup_fun, {fun(), term()}}, {psk_identity, string()},
-      {srp_identity, {string(), string()}}</c></p>
-      <p><c>| {reuse_sessions, boolean()}</c></p>
-      <p><c>| {reuse_session, fun()} {next_protocols_advertised, [binary()]}</c></p>
-      <p><c>| {client_preferred_next_protocols, {client | server,
-      [binary()]} | {client | server, [binary()], binary()}}</c></p>
-      <p><c>| {log_alert, boolean()}</c></p>
-      <p><c>| {server_name_indication, hostname() | disable}</c></p></item>
-
-      <tag><c>transportoption()</c></tag>
-      <item><p><c>= {cb_info, {CallbackModule::atom(), DataTag::atom(),
+      <tag><marker id="type-ssloption"></marker><c>ssloption() =</c></tag>
+      <item>
+	<p><c>{verify, verify_type()}</c></p>
+	<p><c>| {verify_fun, {fun(), term()}}</c></p>
+	<p><c>| {fail_if_no_peer_cert, boolean()} {depth, integer()}</c></p>
+	<p><c>| {cert, public_key:der_encoded()}</c></p>
+	<p><c>| {certfile, path()}</c></p>
+	<p><c>| {key, {'RSAPrivateKey'| 'DSAPrivateKey' | 'ECPrivateKey' 
+	| 'PrivateKeyInfo', public_key:der_encoded()}}</c></p>
+	<p><c>| {keyfile, path()}</c></p>
+	<p><c>| {password, string()}</c></p>
+	<p><c>| {cacerts, [public_key:der_encoded()]}</c></p>
+	<p><c>| {cacertfile, path()}</c></p>
+	<p><c>| {dh, public_key:der_encoded()}</c></p>
+	<p><c>| {dhfile, path()}</c></p>
+	<p><c>| {ciphers, ciphers()}</c></p>
+	<p><c>| {user_lookup_fun, {fun(), term()}}, {psk_identity, string()},
+	{srp_identity, {string(), string()}}</c></p>
+	<p><c>| {reuse_sessions, boolean()}</c></p>
+	<p><c>| {reuse_session, fun()} {next_protocols_advertised, [binary()]}</c></p>
+	<p><c>| {client_preferred_next_protocols, {client | server,
+	[binary()]} | {client | server, [binary()], binary()}}</c></p>
+	<p><c>| {log_alert, boolean()}</c></p>
+      <p><c>| {server_name_indication, hostname() | disable}</c></p>
+      </item>
+      
+      <tag><c>transportoption() =</c></tag>
+      <item><p><c>{cb_info, {CallbackModule::atom(), DataTag::atom(),
       ClosedTag::atom(), ErrTag:atom()}}</c></p>
       <p>Defaults to <c>{gen_tcp, tcp, tcp_closed, tcp_error}</c>. Can be used
       to customize the transport layer. The callback module must implement a
@@ -129,57 +131,57 @@
       </taglist>
       </item>
 
-      <tag><c>verify_type()</c></tag>
-      <item><p><c>= verify_none | verify_peer</c></p></item>
+      <tag><c>verify_type() =</c></tag>
+      <item><p><c>verify_none | verify_peer</c></p></item>
 
-      <tag><c>path()</c></tag>
-      <item><p><c>= string()</c></p>
+      <tag><c>path() =</c></tag>
+      <item><p><c>string()</c></p>
       <p>Represents a file path.</p></item>
 
-      <tag><c>public_key:der_encoded()</c></tag>
-      <item><p><c>= binary()</c></p>
+      <tag><c>public_key:der_encoded() =</c></tag>
+      <item><p><c>binary()</c></p>
       <p>ASN.1 DER-encoded entity as an Erlang binary.</p></item>
 
-      <tag><c>host()</c></tag>
-      <item><p><c>= hostname() | ipaddress()</c></p></item>
+      <tag><c>host() =</c></tag>
+      <item><p><c>hostname() | ipaddress()</c></p></item>
 
-      <tag><c>hostname()</c></tag>
-      <item><p><c>= string()</c></p></item>
+      <tag><c>hostname() =</c></tag>
+      <item><p><c>string()</c></p></item>
 
-      <tag><c>ip_address()</c></tag>
-      <item><p><c>= {N1,N2,N3,N4} % IPv4 | {K1,K2,K3,K4,K5,K6,K7,K8} % IPv6
+      <tag><c>ip_address() =</c></tag>
+      <item><p><c>{N1,N2,N3,N4} % IPv4 | {K1,K2,K3,K4,K5,K6,K7,K8} % IPv6
       </c></p></item>
 
-      <tag><c>sslsocket()</c></tag>
-      <item><p>Opaque to the user.</p></item>
+      <tag><c>sslsocket() =</c></tag>
+      <item><p>opaque()</p></item>
 
-      <tag><c>protocol()</c></tag>
-      <item><p><c>= sslv3 | tlsv1 | 'tlsv1.1' | 'tlsv1.2'</c></p></item>
+      <tag><c>protocol() =</c></tag>
+      <item><p><c>sslv3 | tlsv1 | 'tlsv1.1' | 'tlsv1.2'</c></p></item>
 
-      <tag><c>ciphers()</c></tag>
+      <tag><c>ciphers() =</c></tag>
       <item><p><c>= [ciphersuite()] | string()</c></p>
       <p>According to old API.</p></item>
 
-      <tag><c>ciphersuite()</c></tag>
-      <item><p><c>= {key_exchange(), cipher(), hash()}</c></p></item>
+      <tag><c>ciphersuite() =</c></tag>
+      <item><p><c>{key_exchange(), cipher(), hash()}</c></p></item>
 
-      <tag><c>key_exchange()</c></tag>
-      <item><p><c>= rsa | dhe_dss | dhe_rsa | dh_anon | psk | dhe_psk
+      <tag><c>key_exchange()=</c></tag>
+      <item><p><c>rsa | dhe_dss | dhe_rsa | dh_anon | psk | dhe_psk
       | rsa_psk | srp_anon | srp_dss | srp_rsa | ecdh_anon | ecdh_ecdsa
       | ecdhe_ecdsa | ecdh_rsa | ecdhe_rsa</c></p></item>
 
-      <tag><c>cipher()</c></tag>
-      <item><p><c>= rc4_128 | des_cbc | '3des_ede_cbc'
+      <tag><c>cipher() =</c></tag>
+      <item><p><c>rc4_128 | des_cbc | '3des_ede_cbc'
       | aes_128_cbc | aes_256_cbc | aes_128_gcm | aes_256_gcm</c></p></item>
 
-      <tag><c>hash()</c></tag>
-      <item><p><c>= md5 | sha</c></p></item>
+      <tag><c>hash() =</c></tag>
+      <item><p><c>md5 | sha</c></p></item>
 
-      <tag><c>prf_random()</c></tag>
-      <item><p><c>= client_random | server_random</c></p></item>
+      <tag><c>prf_random() =</c></tag>
+      <item><p><c>client_random | server_random</c></p></item>
 
-      <tag><c>srp_param_type()</c></tag>
-      <item><p><c>= srp_1024 | srp_1536 | srp_2048 | srp_3072
+      <tag><c>srp_param_type() =</c></tag>
+      <item><p><c>srp_1024 | srp_1536 | srp_2048 | srp_3072
       | srp_4096 | srp_6144 | srp_8192</c></p></item>
 
     </taglist>
