@@ -4705,9 +4705,18 @@ AC_CHECK_LIB(kstat, kstat_open, [
 	CPU_SUP_LIBS="$CPU_SUP_LIBS -lkstat"
 	])
 
+AC_CHECK_LIB(kvm, kvm_open, [
+	os_mon_programs="$os_mon_programs cpu_sup"
+	CPU_SUP_LIBS="$CPU_SUP_LIBS -lkvm"
+	])
+
 case $host_os in
 	solaris2*)
 		os_mon_programs="$os_mon_programs ferrule mod_syslog" ;;
+	darwin*)
+		os_mon_programs="$os_mon_programs cpu_sup" ;;
+	openbsd*)
+		os_mon_programs="$os_mon_programs cpu_sup" ;;
 	linux*)
 		os_mon_programs="$os_mon_programs cpu_sup" ;;
 esac
