@@ -2331,6 +2331,22 @@ erts_memory(int *print_to_p, void *print_to_arg, void *proc, Eterm earg)
 		       &size.processes_used,
 		       fi,
 		       ERTS_ALC_T_MSG_REF);
+	add_fix_values(&size.processes,
+		       &size.processes_used,
+		       fi,
+		       ERTS_ALC_T_LL_PTIMER);
+	add_fix_values(&size.processes,
+		       &size.processes_used,
+		       fi,
+		       ERTS_ALC_T_HL_PTIMER);
+	add_fix_values(&size.processes,
+		       &size.processes_used,
+		       fi,
+		       ERTS_ALC_T_BIF_TIMER);
+	add_fix_values(&size.processes,
+		       &size.processes_used,
+		       fi,
+		       ERTS_ALC_T_ABIF_TIMER);
     }
 
     if (want.atom || want.atom_used) {

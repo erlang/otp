@@ -27,7 +27,8 @@
 	 init_per_group/2,end_per_group/2, 
 	 t_after/1, receive_after/1, receive_after_big/1,
 	 receive_after_errors/1, receive_var_zero/1, receive_zero/1,
-	 multi_timeout/1, receive_after_32bit/1]).
+	 multi_timeout/1, receive_after_32bit/1,
+	 receive_after_blast/1]).
 
 -export([init_per_testcase/2, end_per_testcase/2]).
 
@@ -40,7 +41,7 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 all() -> 
     [t_after, receive_after, receive_after_big,
      receive_after_errors, receive_var_zero, receive_zero,
-     multi_timeout, receive_after_32bit].
+     multi_timeout, receive_after_32bit, receive_after_blast].
 
 groups() -> 
     [].
@@ -244,4 +245,26 @@ recv_after_32bit(I, T) when I rem 2 =:= 0 ->
     receive after T -> exit(timeout) end;
 recv_after_32bit(_, _) ->
     receive after 16#ffffFFFF -> exit(timeout) end.
-		    
+
+blaster() ->
+    receive
+	{go, TimeoutTime} ->
+	    Tmo = TimeoutTime - erlang:monotonic_time(milli_seconds),
+	    receive after Tmo -> ok end
+    end.
+
+spawn_blasters(0) ->
+    [];
+spawn_blasters(N) ->
+    [spawn_monitor(fun () -> blaster() end)|spawn_blasters(N-1)].
+
+receive_after_blast(Config) when is_list(Config) ->
+    PMs = spawn_blasters(10000),
+    TimeoutTime = erlang:monotonic_time(milli_seconds) + 5000,
+    lists:foreach(fun ({P, _}) -> P ! {go, TimeoutTime} end, PMs),
+    lists:foreach(fun ({P, M}) ->
+			  receive
+			      {'DOWN', M, process, P, normal} ->
+				  ok
+			  end
+		  end, PMs).

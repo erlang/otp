@@ -135,39 +135,40 @@ struct ErtsTimerWheel_ {
     ErtsMonotonicTime next_timeout_time;
 };
 
-/* get the time (in units of TIW_ITIME) to the next timeout,
-   or -1 if there are no timeouts                     */
-
 static ERTS_INLINE ErtsMonotonicTime
-find_next_timeout(ErtsTimerWheel *tiw,
-		  ErtsMonotonicTime curr_time,
-		  ErtsMonotonicTime max_search_time)
+find_next_timeout(ErtsSchedulerData *esdp,
+		  ErtsTimerWheel *tiw,
+		  int search_all,
+		  ErtsMonotonicTime curr_time,       /* When !search_all */
+		  ErtsMonotonicTime max_search_time) /* When !search_all */
 {
     int start_ix, tiw_pos_ix;
     ErtsTWheelTimer *p;
-    int true_min_timeout;
+    int true_min_timeout = 0;
     ErtsMonotonicTime min_timeout, min_timeout_pos, slot_timeout_pos;
 
-    if (tiw->true_next_timeout_time)
-	return tiw->next_timeout_time;
-
     if (tiw->nto == 0) { /* no timeouts in wheel */
-	true_min_timeout = 0;
-	min_timeout_pos = ERTS_MONOTONIC_TO_CLKTCKS(curr_time + ERTS_MONOTONIC_DAY);
+	if (!search_all)
+	    min_timeout_pos = tiw->pos;
+	else {
+	    curr_time = erts_get_monotonic_time(esdp);
+	    tiw->pos = min_timeout_pos = ERTS_MONOTONIC_TO_CLKTCKS(curr_time);
+	}
+	min_timeout_pos += ERTS_MONOTONIC_TO_CLKTCKS(ERTS_MONOTONIC_DAY);
 	goto found_next;
     }
 
-    slot_timeout_pos = tiw->pos;
-    min_timeout_pos = ERTS_MONOTONIC_TO_CLKTCKS(curr_time + max_search_time);
+    slot_timeout_pos = min_timeout_pos = tiw->pos;
+    if (search_all)
+	min_timeout_pos += ERTS_MONOTONIC_TO_CLKTCKS(ERTS_MONOTONIC_DAY);
+    else
+	min_timeout_pos = ERTS_MONOTONIC_TO_CLKTCKS(curr_time + max_search_time);
 
     start_ix = tiw_pos_ix = (int) (tiw->pos & (ERTS_TIW_SIZE-1));
 
     do {
-	slot_timeout_pos++;
-	if (slot_timeout_pos >= min_timeout_pos) {
-	    true_min_timeout = 0;
+	if (++slot_timeout_pos >= min_timeout_pos)
 	    break;
-	}
 
 	p = tiw->w[tiw_pos_ix];
 
@@ -269,24 +270,16 @@ remove_timer(ErtsTimerWheel *tiw, ErtsTWheelTimer *p)
 
     p->slot = ERTS_TWHEEL_SLOT_INACTIVE;
 
-#if 0
-    p->next = NULL;
-    p->prev = NULL;
-#endif
-
     tiw->nto--;
 }
 
 ErtsMonotonicTime
 erts_check_next_timeout_time(ErtsSchedulerData *esdp)
 {
-    /*
-     * Called before a scheduler is about to wait. We wont
-     * check more than 10 minutes into the future.
-     */
-    return find_next_timeout(esdp->timer_wheel,
-			     erts_get_monotonic_time(esdp),
-			     ERTS_SEC_TO_MONOTONIC(10*60));
+    ErtsTimerWheel *tiw = esdp->timer_wheel;
+    if (tiw->true_next_timeout_time)
+	return tiw->next_timeout_time;
+    return find_next_timeout(esdp, tiw, 1, 0, 0);
 }
 
 #ifndef ERTS_TW_DEBUG
@@ -330,14 +323,11 @@ timeout_timer(ErtsTWheelTimer *p)
 {
     ErlTimeoutProc timeout;
     void *arg;
-#if 0
-    p->next = NULL;
-    p->prev = NULL;
-#endif
     p->slot = ERTS_TWHEEL_SLOT_INACTIVE;
     timeout = p->u.func.timeout;
     arg = p->u.func.arg;
     (*timeout)(arg);
+    ASSERT_NO_LOCKED_LOCKS;
 }
 
 void
@@ -508,7 +498,7 @@ erts_bump_timers(ErtsTimerWheel *tiw, ErtsMonotonicTime curr_time)
     tiw->next_timeout_time = curr_time + ERTS_MONOTONIC_DAY;
 
     /* Search at most two seconds ahead... */
-    (void) find_next_timeout(tiw, curr_time, ERTS_SEC_TO_MONOTONIC(2));
+    (void) find_next_timeout(NULL, tiw, 0, curr_time, ERTS_SEC_TO_MONOTONIC(2));
 }
 
 Uint

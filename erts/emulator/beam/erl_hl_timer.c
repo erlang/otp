@@ -850,8 +850,6 @@ hl_timer_destroy(ErtsHLTimer *tmr)
     if (!(roflgs & ERTS_TMR_ROFLG_BIF_TMR))
 	erts_free(ERTS_ALC_T_HL_PTIMER, tmr);
     else {
-	if (tmr->btm.bp)
-	    free_message_buffer(tmr->btm.bp);
 	if (roflgs & ERTS_TMR_ROFLG_PRE_ALC)
 	    bif_timer_pre_free(tmr);
 	else if (roflgs & ERTS_TMR_ROFLG_ABIF_TMR)
@@ -898,10 +896,6 @@ schedule_hl_timer_destroy(ErtsHLTimer *tmr, Uint32 roflgs)
 	 * Message buffer can be dropped at
 	 * once...
 	 */
-	if (tmr->btm.bp) {
-	    free_message_buffer(tmr->btm.bp);
-	    tmr->btm.bp = NULL;
-	}
 	size = sizeof(ErtsHLTimer);
     }
 
@@ -1121,6 +1115,7 @@ hlt_bif_timer_timeout(ErtsHLTimer *tmr, Uint32 roflgs)
 {
     ErtsProcLocks proc_locks = ERTS_PROC_LOCKS_MSG_SEND;
     Process *proc;
+    int queued_message = 0;
     int dec_refc = 0;
     Uint32 is_reg_name = (roflgs & ERTS_TMR_ROFLG_REG_NAME);
     ERTS_HLT_ASSERT(roflgs & ERTS_TMR_ROFLG_BIF_TMR);
@@ -1159,6 +1154,7 @@ hlt_bif_timer_timeout(ErtsHLTimer *tmr, Uint32 roflgs)
 #endif
 		);
 	    erts_smp_proc_unlock(proc, ERTS_PROC_LOCKS_MSG_SEND);
+	    queued_message = 1;
 	    proc_locks &= ~ERTS_PROC_LOCKS_MSG_SEND;
 	    tmr->btm.bp = NULL;
 	    if (tmr->btm.proc_tree.parent != ERTS_HLT_PFIELD_NOT_IN_TABLE) {
@@ -1172,6 +1168,8 @@ hlt_bif_timer_timeout(ErtsHLTimer *tmr, Uint32 roflgs)
 	if (dec_refc)
 	    hl_timer_pre_dec_refc(tmr);
     }
+    if (!queued_message && tmr->btm.bp)
+	free_message_buffer(tmr->btm.bp);
 }
 
 static ERTS_INLINE void
@@ -1689,6 +1687,8 @@ setup_bif_timer(Process *c_p, ErtsMonotonicTime timeout_pos,
 					  rcvr, ERTS_PROC_LOCK_BTM,
 					  ERTS_P2P_FLG_INC_REFC);
 	if (!proc) {
+	    if (tmr->btm.bp)
+		free_message_buffer(tmr->btm.bp);
 	    hlt_delete_timer(esdp, tmr);
 	    hl_timer_destroy(tmr);
 	}
@@ -1720,6 +1720,9 @@ cancel_bif_timer(ErtsHLTimer *tmr)
 					   ERTS_TMR_STATE_ACTIVE);
     if (state != ERTS_TMR_STATE_ACTIVE)
 	return 0;
+
+    if (tmr->btm.bp)
+	free_message_buffer(tmr->btm.bp);
 
     res = -1;
 
@@ -1834,18 +1837,25 @@ access_sched_local_btm(Process *c_p, Eterm pid,
 	if (!async)
 	    hsz += REF_THING_SIZE;
 	else {
-	    if (is_non_value(tref))
+	    if (is_non_value(tref) || proc != c_p)
 		hsz += REF_THING_SIZE;
 	    hsz += 1; /* upgrade to 3-tuple */
 	}
 	if (time_left > (Sint64) MAX_SMALL)
 	    hsz += ERTS_SINT64_HEAP_SIZE(time_left);
 
-	hp = erts_alloc_message_heap(hsz,
-				     &bp,
-				     &ohp,
-				     proc,
-				     &proc_locks);
+	if (proc == c_p) {
+	    bp = NULL;
+	    ohp = NULL;
+	    hp = HAlloc(c_p, hsz);
+	}
+	else {
+	    hp = erts_alloc_message_heap(hsz,
+					 &bp,
+					 &ohp,
+					 proc,
+					 &proc_locks);
+	}
 
 #ifdef ERTS_HLT_DEBUG
 	hp_end = hp + hsz;
@@ -1871,7 +1881,7 @@ access_sched_local_btm(Process *c_p, Eterm pid,
 	}
 	else {
 	    Eterm tag = cancel ? am_cancel_timer : am_read_timer;
-	    if (is_value(tref))
+	    if (is_value(tref) && proc == c_p)
 		ref = tref;
 	    else {
 		write_ref_thing(hp,
@@ -1987,8 +1997,6 @@ try_access_sched_remote_btm(ErtsSchedulerData *esdp,
     }
     else {
 	Eterm tag, res, msg;
-	ErlOffHeap *ohp;
-	ErlHeapFragment* bp;
 	Uint hsz;
 	Eterm *hp;
 	ErtsProcLocks proc_locks = ERTS_PROC_LOCK_MAIN;
@@ -1997,11 +2005,7 @@ try_access_sched_remote_btm(ErtsSchedulerData *esdp,
 	if (time_left > (Sint64) MAX_SMALL)
 	    hsz += ERTS_SINT64_HEAP_SIZE(time_left);
 
-	hp = erts_alloc_message_heap(hsz,
-				     &bp,
-				     &ohp,
-				     c_p,
-				     &proc_locks);
+	hp = HAlloc(c_p, hsz);
 	if (cancel)
 	    tag = am_cancel_timer;
 	else
@@ -2016,7 +2020,7 @@ try_access_sched_remote_btm(ErtsSchedulerData *esdp,
 
 	msg = TUPLE3(hp, tag, tref, res);
 
-	erts_queue_message(c_p, &proc_locks, bp,
+	erts_queue_message(c_p, &proc_locks, NULL,
 			   msg, NIL
 #ifdef USE_VM_PROBES
 			   , NIL
@@ -2166,7 +2170,7 @@ parse_bif_timer_options(Eterm option_list, int *async, int *info,
     if (async)
 	*async = 0;
     if (info)
-	*info = 0;
+	*info = 1;
     if (abs)
 	*abs = 0;
     if (accessor)
@@ -2235,13 +2239,19 @@ exit_cancel_bif_timer(ErtsHLTimer *tmr, void *vesdp)
     tmr->btm.proc_tree.parent = ERTS_HLT_PFIELD_NOT_IN_TABLE;
 
     if (sid == (Uint32) esdp->no) {
-	if (state == ERTS_TMR_STATE_ACTIVE)
+	if (state == ERTS_TMR_STATE_ACTIVE) {
+	    if (tmr->btm.bp)
+		free_message_buffer(tmr->btm.bp);
 	    hlt_delete_timer(esdp, tmr);
+	}
 	hl_timer_dec_refc(tmr, roflgs);
     }
     else {
-	if (state == ERTS_TMR_STATE_ACTIVE)
+	if (state == ERTS_TMR_STATE_ACTIVE) {
+	    if (tmr->btm.bp)
+		free_message_buffer(tmr->btm.bp);
 	    queue_canceled_timer(esdp, sid, (ErtsTimer *) tmr);
+	}
 	else
 	    hl_timer_dec_refc(tmr, roflgs);
     }
@@ -2415,7 +2425,7 @@ BIF_RETTYPE send_after_3(BIF_ALIST_3)
     tres = parse_timeout_pos(ERTS_PROC_GET_SCHDATA(BIF_P), BIF_ARG_1, NULL,
 			     0, &timeout_pos, &short_time);
     if (tres != 0)
-	BIF_ERROR(BIF_P, tres < 0 ? BADARG : SYSTEM_LIMIT);
+	BIF_ERROR(BIF_P, BADARG);
 
     return setup_bif_timer(BIF_P, timeout_pos, short_time,
 			   BIF_ARG_2, BIF_ARG_2, BIF_ARG_3, 0);
@@ -2433,7 +2443,7 @@ BIF_RETTYPE send_after_4(BIF_ALIST_4)
     tres = parse_timeout_pos(ERTS_PROC_GET_SCHDATA(BIF_P), BIF_ARG_1, NULL,
 			     abs, &timeout_pos, &short_time);
     if (tres != 0)
-	BIF_ERROR(BIF_P, tres < 0 ? BADARG : SYSTEM_LIMIT);
+	BIF_ERROR(BIF_P, BADARG);
 
     return setup_bif_timer(BIF_P, timeout_pos, short_time,
 			   BIF_ARG_2, accessor, BIF_ARG_3, 0);
@@ -2447,7 +2457,7 @@ BIF_RETTYPE start_timer_3(BIF_ALIST_3)
     tres = parse_timeout_pos(ERTS_PROC_GET_SCHDATA(BIF_P), BIF_ARG_1, NULL,
 			     0, &timeout_pos, &short_time);
     if (tres != 0)
-	BIF_ERROR(BIF_P, tres < 0 ? BADARG : SYSTEM_LIMIT);
+	BIF_ERROR(BIF_P, BADARG);
 
     return setup_bif_timer(BIF_P, timeout_pos, short_time,
 			   BIF_ARG_2, BIF_ARG_2, BIF_ARG_3, !0);
@@ -2465,7 +2475,7 @@ BIF_RETTYPE start_timer_4(BIF_ALIST_4)
     tres = parse_timeout_pos(ERTS_PROC_GET_SCHDATA(BIF_P), BIF_ARG_1, NULL,
 			     abs, &timeout_pos, &short_time);
     if (tres != 0)
-	BIF_ERROR(BIF_P, tres < 0 ? BADARG : SYSTEM_LIMIT);
+	BIF_ERROR(BIF_P, BADARG);
 
     return setup_bif_timer(BIF_P, timeout_pos, short_time,
 			   BIF_ARG_2, accessor, BIF_ARG_3, !0);
