@@ -559,11 +559,13 @@ userauth(#ssh_msg_userauth_banner{message = Msg},
 -spec connected({#ssh_msg_kexinit{}, binary()}, %%| %% #ssh_msg_kexdh_init{},
 		 #state{}) -> gen_fsm_state_return().
 %%--------------------------------------------------------------------
-connected({#ssh_msg_kexinit{}, _Payload} = Event, State) ->
-    kexinit(Event, State#state{renegotiate = true}).
-%% ;
-%% connected(#ssh_msg_kexdh_init{} = Event, State) ->
-%%     key_exchange(Event, State#state{renegotiate = true}).
+connected({#ssh_msg_kexinit{}, _Payload} = Event, #state{ssh_params = Ssh0} = State0) ->
+    {KeyInitMsg, SshPacket, Ssh} = ssh_transport:key_exchange_init_msg(Ssh0),
+    State = State0#state{ssh_params = Ssh,
+			 key_exchange_init_msg = KeyInitMsg,
+			 renegotiate = true},
+    send_msg(SshPacket, State),
+    kexinit(Event, State).
 
 %%--------------------------------------------------------------------
 -spec handle_event(#ssh_msg_disconnect{} | #ssh_msg_ignore{} | #ssh_msg_debug{} |
