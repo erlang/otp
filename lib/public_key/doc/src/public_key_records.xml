@@ -55,17 +55,17 @@
     follows here:</p>
     
     <taglist>
-      <tag><c>time()</c></tag>
-      <item><p>= <c>uct_time() | general_time()</c></p></item>
+      <tag><c>time() =</c></tag>
+      <item><p><c>uct_time() | general_time()</c></p></item>
 
-      <tag><c>uct_time()</c></tag>
-      <item><p>= <c>{utcTime, "YYMMDDHHMMSSZ"}</c></p></item>
+      <tag><c>uct_time() =</c></tag>
+      <item><p><c>{utcTime, "YYMMDDHHMMSSZ"}</c></p></item>
 
-      <tag><c>general_time()</c></tag>
-      <item><p>= <c>{generalTime, "YYYYMMDDHHMMSSZ"}</c></p></item>
+      <tag><c>general_time() =</c></tag>
+      <item><p><c>{generalTime, "YYYYMMDDHHMMSSZ"}</c></p></item>
  
-      <tag><c>general_name()</c></tag>
-      <item>= <p><c>{rfc822Name, string()}</c></p>
+      <tag><c>general_name() =</c></tag>
+      <item><p><c>{rfc822Name, string()}</c></p>
       <p><c>| {dNSName, string()}</c></p>
       <p><c>| {x400Address, string()}</c></p>
       <p><c>| {directoryName, {rdnSequence, [#AttributeTypeAndValue'{}]}}</c></p>
@@ -77,16 +77,16 @@
       <p><c>| {otherName, term()}</c></p>
       </item>
 
-      <tag><c>special_string()</c></tag>
-      <item>= <p><c>{teletexString, string()}</c></p>
+      <tag><c>special_string() =</c></tag>
+      <item><p><c>{teletexString, string()}</c></p>
       <p><c>| {printableString, string()}</c></p>
       <p><c>| {universalString, string()}</c></p>
       <p><c>| {utf8String, binary()}</c></p>
       <p><c>| {bmpString, string()}</c></p>
       </item>
 
-      <tag><c>dist_reason()</c></tag>
-      <item>= <p><c>unused</c></p>
+      <tag><c>dist_reason() =</c></tag>
+      <item><p><c>unused</c></p>
       <p><c>| keyCompromise</c></p>
       <p><c>| cACompromise</c></p>
       <p><c>| affiliationChanged</c></p>
@@ -97,12 +97,12 @@
       <p><c>| aACompromise</c></p>
       </item>
 
-      <tag><c>OID_macro()</c></tag>
-      <item>= <p><c>?OID_name() </c></p>
+      <tag><c>OID_macro() =</c></tag>
+      <item><p><c>?OID_name()</c></p>
       </item>
       
-      <tag><c>OID_name()</c></tag>
-      <item>= <p><c>atom()</c></p>
+      <tag><c>OID_name() =</c></tag>
+      <item><p><c>atom()</c></p>
       </item>
       
     </taglist>
