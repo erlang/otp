@@ -896,9 +896,9 @@ client_timeout(Fun, Config) ->
     T = 1000,
     case eldap:open([Host], [{timeout,T},{port,Port}|Opts]) of
 	{ok,H} ->
-	    T0 = now(),
+	    T0 = erlang:monotonic_time(),
 	    {error,{gen_tcp_error,timeout}} = Fun(H),
-	    T_op = diff(T0,now()),
+	    T_op = ms_passed(T0),
 	    ct:log("Time = ~p, Timeout spec = ~p",[T_op,T]),
 	    if
 		T_op < T ->
@@ -910,8 +910,12 @@ client_timeout(Fun, Config) ->
 	Other -> ct:fail("eldap:open failed: ~p",[Other])
     end.
 
-diff({M1,S1,U1},{M2,S2,U2}) ->
-    ( ((M2-M1)*1000 + (S2-S1))*1000 + (U2-U1) ).
+%% Help function, elapsed milliseconds since T0
+ms_passed(T0) ->
+    %% OTP 18
+    erlang:convert_time_unit(erlang:monotonic_time() - T0,
+			     native,
+			     micro_seconds) / 1000.
 
 %%%----------------------------------------------------------------
 init_ssl_certs_et_al(Config) ->
