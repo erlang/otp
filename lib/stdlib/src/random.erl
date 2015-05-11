@@ -57,11 +57,17 @@ seed() ->
 %% seed({A1, A2, A3}) 
 %%  Seed random number generation 
 
--spec seed({A1, A2, A3}) -> 'undefined' | ran() when
+-spec seed(SValue) -> 'undefined' | ran() when
+      SValue :: {A1, A2, A3} | integer(),
       A1 :: integer(),
       A2 :: integer(),
       A3 :: integer().
 
+seed(Int) when is_integer(Int) ->
+    A1 = (Int bsr 16) band 16#fffffff,
+    A2 = Int band 16#ffffff,
+    A3 = (Int bsr 36) bor (A2 bsr 16),
+    seed(A1, A2, A3);
 seed({A1, A2, A3}) ->
     seed(A1, A2, A3).
 

@@ -352,8 +352,9 @@ random_unnamed_bit_string(M, C) ->
 %%     end.
 
 random(Upper) ->
-    {A1,A2,A3} = erlang:now(),
-    _ = random:seed(A1, A2, A3),
+    _ = random:seed(erlang:phash2([erlang:node()]),
+		    erlang:monotonic_time(),
+		    erlang:unique_integer()),
     random:uniform(Upper).
 
 size_random(C) ->

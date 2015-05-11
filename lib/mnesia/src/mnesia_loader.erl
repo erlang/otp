@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1998-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -35,7 +35,7 @@
 
 val(Var) ->
     case ?catch_val(Var) of
-	{'EXIT', Reason} -> mnesia_lib:other_val(Var, Reason);
+	{'EXIT', _} -> mnesia_lib:other_val(Var);
 	Value -> Value
     end.
 
@@ -69,9 +69,10 @@ do_get_disc_copy2(Tab, Reason, Storage, Type) when Storage == disc_copies ->
 	    ignore;
 	_ ->
 	    mnesia_monitor:mktab(Tab, Args),
-	    Count = mnesia_log:dcd2ets(Tab, Repair),
-	    case ets:info(Tab, size) of
-		X when X < Count * 4 ->
+	    _Count = mnesia_log:dcd2ets(Tab, Repair),
+	    case mnesia_monitor:get_env(dump_disc_copies_at_startup)
+		andalso mnesia_dumper:needs_dump_ets(Tab) of
+		true ->
 		    ok = mnesia_log:ets2dcd(Tab);
 		_ ->
 		    ignore
@@ -331,7 +332,7 @@ wait_on_load_complete(Pid) ->
 	{Pid, Res} ->
 	    Res;
 	{'EXIT', Pid, Reason} ->
-	    exit(Reason);
+	    error(Reason);
 	Else ->
 	    Pid ! Else,
 	    wait_on_load_complete(Pid)
@@ -441,18 +442,18 @@ init_table(Tab, disc_only_copies, Fun, DetsInfo,Sender) ->
     ErtsVer = erlang:system_info(version),
     case DetsInfo of
 	{ErtsVer, DetsData}  ->
-	    Res = (catch dets:is_compatible_bchunk_format(Tab, DetsData)),
-	    case Res of
-		{'EXIT',{undef,[{dets,_,_,_}|_]}} ->
-		    Sender ! {self(), {old_protocol, Tab}},
-		    dets:init_table(Tab, Fun);  %% Old dets version
-		{'EXIT', What} ->
-		    exit(What);
+	    try dets:is_compatible_bchunk_format(Tab, DetsData) of
 		false ->
 		    Sender ! {self(), {old_protocol, Tab}},
 		    dets:init_table(Tab, Fun);  %% Old dets version
 		true ->
 		    dets:init_table(Tab, Fun, [{format, bchunk}])
+	    catch
+		error:{undef,[{dets,_,_,_}|_]} ->
+		    Sender ! {self(), {old_protocol, Tab}},
+		    dets:init_table(Tab, Fun);  %% Old dets version
+		error:What ->
+		    What
 	    end;
 	Old when Old /= false ->
 	    Sender ! {self(), {old_protocol, Tab}},
@@ -461,10 +462,10 @@ init_table(Tab, disc_only_copies, Fun, DetsInfo,Sender) ->
 	    dets:init_table(Tab, Fun)
     end;
 init_table(Tab, _, Fun, _DetsInfo,_) ->
-    case catch ets:init_table(Tab, Fun) of
-	true ->
-	    ok;
-	{'EXIT', Else} -> Else
+    try
+	true = ets:init_table(Tab, Fun),
+	ok
+    catch _:Else -> {Else, erlang:get_stacktrace()}
     end.
 
 
@@ -571,9 +572,9 @@ handle_last({ram_copies, Tab}, _Type, DatBin) ->
 down(Tab, Storage) ->
     case Storage of
 	ram_copies ->
-	    catch ?ets_delete_table(Tab);
+	    ?SAFE(?ets_delete_table(Tab));
 	disc_copies ->
-	    catch ?ets_delete_table(Tab);
+	    ?SAFE(?ets_delete_table(Tab));
 	disc_only_copies ->
 	    TmpFile = mnesia_lib:tab2tmp(Tab),
 	    mnesia_lib:dets_sync_close(Tab),
@@ -657,26 +658,23 @@ send_table(Pid, Tab, RemoteS) ->
 	    {Init, Chunk} = reader_funcs(UseDetsChunk, Tab, Storage, KeysPerTransfer),
 
 	    SendIt = fun() ->
-			     prepare_copy(Pid, Tab, Storage),
+			     {atomic, ok} = prepare_copy(Pid, Tab, Storage),
 			     send_more(Pid, 1, Chunk, Init(), Tab),
 			     finish_copy(Pid, Tab, Storage, RemoteS)
 		     end,
 
-	    case catch SendIt() of
-		receiver_died ->
+	    try SendIt() of
+		{_, receiver_died} -> ok;
+		{atomic, no_more} ->  ok
+	    catch
+		throw:receiver_died ->
 		    cleanup_tab_copier(Pid, Storage, Tab),
-		    unlink(whereis(mnesia_tm)),
 		    ok;
-		{_, receiver_died} ->
-		    unlink(whereis(mnesia_tm)),
-		    ok;
-		{atomic, no_more} ->
-		    unlink(whereis(mnesia_tm)),
-		    ok;
-		Reason ->
+		error:Reason -> %% Prepare failed
 		    cleanup_tab_copier(Pid, Storage, Tab),
-		    unlink(whereis(mnesia_tm)),
-		    {error, Reason}
+		    {error, {tab_copier, Tab, {Reason, erlang:get_stacktrace()}}}
+	    after
+		unlink(whereis(mnesia_tm))
 	    end
     end.
 
@@ -689,12 +687,7 @@ prepare_copy(Pid, Tab, Storage) ->
 		mnesia_lib:db_fixtable(Storage, Tab, true),
 		ok
 	end,
-    case mnesia:transaction(Trans) of
-	{atomic, ok} ->
-	    ok;
-	{aborted, Reason} ->
-	    exit({tab_copier_prepare, Tab, Reason})
-    end.
+    mnesia:transaction(Trans).
 
 update_where_to_write(Tab, Node) ->
     case val({Tab, access_mode}) of
@@ -827,6 +820,6 @@ dat2bin(_Tab, _LocalS, _RemoteS) ->
     nobin.
 
 handle_exit(Pid, Reason) when node(Pid) == node() ->
-    exit(Reason);
+    error(Reason);
 handle_exit(_Pid, _Reason) ->  %% Not from our node, this will be handled by
     ignore.                  %% mnesia_down soon.

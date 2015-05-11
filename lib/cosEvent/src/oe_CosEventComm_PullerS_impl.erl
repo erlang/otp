@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2001-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2015. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -251,7 +251,8 @@ send_sync(_OE_This, _OE_From, State, Any) ->
 store_event(DB, Max, Event) ->
     case ets:info(DB, size) of
 	CurrentSize when CurrentSize < Max -> 
-	    ets:insert(DB, {now(), Event}); 
+	    ets:insert(DB, {{erlang:system_time(), erlang:unique_integer([positive])},
+			    Event}); 
 	_ ->
 	    orber:dbg("[~p] oe_CosEventComm_PullerS:store_event(~p); DB full drop event.", 
 		      [?LINE, Event], ?DEBUG_LEVEL),

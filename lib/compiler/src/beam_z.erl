@@ -74,22 +74,21 @@ undo_rename({bs_init,F,{I,Extra,U,Flags},Live,[Sz,Src],Dst}) ->
     {I,F,Sz,Extra,Live,U,Src,Flags,Dst};
 undo_rename({bs_init,_,bs_init_writable=I,_,_,_}) ->
     I;
+undo_rename({test,bs_match_string=Op,F,[Ctx,Bin0]}) ->
+    Bits = bit_size(Bin0),
+    Bin = case Bits rem 8 of
+	      0 -> Bin0;
+	      Rem -> <<Bin0/bitstring,0:(8-Rem)>>
+	  end,
+    {test,Op,F,[Ctx,Bits,{string,binary_to_list(Bin)}]};
 undo_rename({put_map,Fail,assoc,S,D,R,L}) ->
     {put_map_assoc,Fail,S,D,R,L};
 undo_rename({put_map,Fail,exact,S,D,R,L}) ->
     {put_map_exact,Fail,S,D,R,L};
 undo_rename({test,has_map_fields,Fail,[Src|List]}) ->
-    {test,has_map_fields,Fail,Src,{list,[to_typed_literal(V)||V<-List]}};
-undo_rename({get_map_elements,Fail,Src,{list, List}}) ->
-    {get_map_elements,Fail,Src,{list,[to_typed_literal(V)||V<-List]}};
+    {test,has_map_fields,Fail,Src,{list,List}};
+undo_rename({get_map_elements,Fail,Src,{list,List}}) ->
+    {get_map_elements,Fail,Src,{list,List}};
 undo_rename({select,I,Reg,Fail,List}) ->
     {I,Reg,Fail,{list,List}};
 undo_rename(I) -> I.
-
-%% to_typed_literal(Arg)
-%% transform Arg to specific literal i.e. float | integer | atom if applicable
-to_typed_literal({literal, V}) when is_float(V) -> {float, V};
-to_typed_literal({literal, V}) when is_atom(V) -> {atom, V};
-to_typed_literal({literal, V}) when is_integer(V) -> {integer, V};
-to_typed_literal({literal, []}) -> nil;
-to_typed_literal(V) -> V.

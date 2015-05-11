@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -358,3 +358,16 @@ do_inet_port(Node) ->
     {ok, Socket} = rpc:call(Node, gen_tcp, listen, [0, [{reuseaddr, true}]]),
     {ok, Port} = rpc:call(Node, inet, port, [Socket]),
     {Port, Socket}.
+
+openssh_sanity_check(Config) ->
+    ssh:start(),
+    case ssh:connect("localhost", 22, []) of
+	{ok, Pid} ->
+	    ssh:close(Pid),
+	    ssh:stop(),
+	    Config;
+	Err ->
+	    Str = lists:append(io_lib:format("~p", [Err])),
+	    ssh:stop(),
+	    {skip, Str}
+    end.

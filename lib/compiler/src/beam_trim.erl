@@ -172,6 +172,10 @@ remap([{bif,Name,Fail,Ss,D}|Is], Map, Acc) ->
 remap([{gc_bif,Name,Fail,Live,Ss,D}|Is], Map, Acc) ->
     I = {gc_bif,Name,Fail,Live,[Map(S) || S <- Ss],Map(D)},
     remap(Is, Map, [I|Acc]);
+remap([{get_map_elements,Fail,M,{list,L0}}|Is], Map, Acc) ->
+    L = [Map(E) || E <- L0],
+    I = {get_map_elements,Fail,Map(M),{list,L}},
+    remap(Is, Map, [I|Acc]);
 remap([{bs_init,Fail,Info,Live,Ss0,Dst0}|Is], Map, Acc) ->
     Ss = [Map(Src) || Src <- Ss0],
     Dst = Map(Dst0),
@@ -275,6 +279,8 @@ frame_size([{kill,_}|Is], Safe) ->
     frame_size(Is, Safe);
 frame_size([{make_fun2,_,_,_,_}|Is], Safe) ->
     frame_size(Is, Safe);
+frame_size([{get_map_elements,{f,L},_,_}|Is], Safe) ->
+    frame_size_branch(L, Is, Safe);
 frame_size([{deallocate,N}|_], _) -> N;
 frame_size([{line,_}|Is], Safe) ->
     frame_size(Is, Safe);

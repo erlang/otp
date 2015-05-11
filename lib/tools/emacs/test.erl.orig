@@ -32,6 +32,14 @@
 -module(test).
 -compile(export_all).
 
+%% Used to cause an "Unbalanced parentheses" error.
+foo(M) ->
+M#{a :=<<"a">>
+,b:=1}.
+foo() ->
+#{a =><<"a">>
+,b=>1}.
+
 %% Module attributes should be highlighted
 
 -export([t/1]).

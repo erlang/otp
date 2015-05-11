@@ -127,7 +127,6 @@ http_get() ->
      get, 
      %%actions, Add configuration so that this test mod_action
      esi, 
-     ssi, 
      content_length, 
      bad_hex, 
      missing_CR,
@@ -551,22 +550,6 @@ ipv6(Config) when is_list(Config) ->
 	     {skip, "Host does not support IPv6"}
      end.
 
-%%-------------------------------------------------------------------------
-ssi() ->
-    [{doc, "HTTP GET server side include test"}].
-ssi(Config) when is_list(Config) -> 
-    Version = ?config(http_version, Config),
-    Host = ?config(host, Config),
-    Type = ?config(type, Config),
-    ok = httpd_test_lib:verify_request(?config(type, Config), Host, ?config(port, Config),  
-				       transport_opts(Type, Config),
-				       ?config(node, Config),
-				       http_request("GET /fsize.shtml ", Version, Host),
-				       [{statuscode, 200},
-					{header, "Content-Type", "text/html"},
-					{header, "Date"},
-					{header, "Server"},
-				       	{version, Version}]).
 %%-------------------------------------------------------------------------
 htaccess_1_1(Config) when is_list(Config) -> 
     htaccess([{http_version, "HTTP/1.1"} | Config]).

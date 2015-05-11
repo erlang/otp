@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -2169,7 +2169,6 @@ register_usm_user_using_function(Conf) when is_list(Conf) ->
     %% --
     p("done"),
     ok.
-%%    ?SKIP(not_yet_implemented).
 
 
 %% 
@@ -2259,8 +2258,9 @@ create_and_increment(Conf) when is_list(Conf) ->
     ?line {ok, _Pid} = snmpm_config:start_link(Opts),
 
     %% Random init
-    {A,B,C} = erlang:now(),
-    random:seed(A,B,C),
+    random:seed(erlang:phash2([node()]),
+                erlang:monotonic_time(),
+                erlang:unique_integer()),
 
     StartVal = random:uniform(2147483647),
     IncVal   = 42, 

@@ -37,7 +37,7 @@ all() ->
     [{group,p}].
 
 groups() -> 
-    [{p,test_lib:parallel(),
+    [{p,[parallel],
       [misc,horrid_match,test_bitstr,test_bit_size,
        asymmetric_tests,big_asymmetric_tests,
        binary_to_and_from_list,big_binary_to_and_from_list,

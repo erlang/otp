@@ -33,4 +33,5 @@ void erts_cancel_bif_timers(Process *p, ErtsProcLocks plocks);
 void erts_bif_timer_init(void);
 void erts_bif_timer_foreach(void (*func)(Eterm,Eterm,ErlHeapFragment *,void *),
 			    void *arg);
+void erts_bif_timer_start_servers(Eterm);
 #endif

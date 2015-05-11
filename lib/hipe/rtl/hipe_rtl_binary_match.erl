@@ -697,13 +697,22 @@ get_binary_bytes(Binary, BinSize, Base, Offset, Orig,
 %%%%%%%%%%%%%%%%%%%%%%%%% UTILS %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 get_base(Orig,Base) ->
-  [HeapLbl,REFCLbl,EndLbl] = create_lbls(3),
+  [HeapLbl,REFCLbl,WritableLbl,NotWritableLbl,EndLbl] = create_lbls(5),
+  Flags = hipe_rtl:mk_new_reg_gcsafe(),
+
   [hipe_tagscheme:test_heap_binary(Orig, hipe_rtl:label_name(HeapLbl),
 				   hipe_rtl:label_name(REFCLbl)),
    HeapLbl,
    hipe_rtl:mk_alu(Base, Orig, 'add', hipe_rtl:mk_imm(?HEAP_BIN_DATA-2)),
    hipe_rtl:mk_goto(hipe_rtl:label_name(EndLbl)),
    REFCLbl,
+   get_field_from_term({proc_bin, flags}, Orig, Flags),
+   hipe_rtl:mk_branch(Flags, 'ne', hipe_rtl:mk_imm(0),
+		      hipe_rtl:label_name(WritableLbl),
+		      hipe_rtl:label_name(NotWritableLbl)),
+   WritableLbl,
+   hipe_rtl:mk_call([], emasculate_binary, [Orig], [], [], 'not_remote'),
+   NotWritableLbl,
    hipe_rtl:mk_load(Base, Orig, hipe_rtl:mk_imm(?PROC_BIN_BYTES-2)),
    EndLbl].
 

@@ -28,6 +28,7 @@
 -include_lib("common_test/include/ct.hrl").
 -include("inets_test_lib.hrl").
 -include("http_internal.hrl").
+-include("httpc_internal.hrl").
 %% Note: This directive should only be used in test suites.
 -compile(export_all).
 
@@ -106,6 +107,7 @@ only_simulated() ->
      empty_response_header,
      remote_socket_close,
      remote_socket_close_async,
+     process_leak_on_keepalive,
      transfer_encoding,
      transfer_encoding_identity,
      redirect_loop,
@@ -910,6 +912,33 @@ remote_socket_close_async(Config) when is_list(Config) ->
 	{http, {RequestId, {error, socket_closed_remotely}}} ->
 	    ok
     end.
+
+%%-------------------------------------------------------------------------
+
+process_leak_on_keepalive(Config) ->
+    {ok, ClosedSocket} = gen_tcp:listen(6666, [{active, false}]),
+    ok = gen_tcp:close(ClosedSocket),
+    Request  = {url(group_name(Config), "/dummy.html", Config), []},
+    HttpcHandlers0 = supervisor:which_children(httpc_handler_sup),
+    {ok, {{_, 200, _}, _, Body}} = httpc:request(get, Request, [], []),
+    HttpcHandlers1 = supervisor:which_children(httpc_handler_sup),
+    ChildrenCount = supervisor:count_children(httpc_handler_sup),
+    %% Assuming that the new handler will be selected for keep_alive
+    %% which could not be the case if other handlers existed
+    [{undefined, Pid, worker, [httpc_handler]}] =
+        ordsets:to_list(
+          ordsets:subtract(ordsets:from_list(HttpcHandlers1),
+                           ordsets:from_list(HttpcHandlers0))),
+    sys:replace_state(
+      Pid, fun (State) ->
+                   Session = element(3, State),
+                   setelement(3, State, Session#session{socket=ClosedSocket})
+           end),
+    {ok, {{_, 200, _}, _, Body}} = httpc:request(get, Request, [], []),
+    %% bad handler with the closed socket should get replaced by
+    %% the new one, so children count should stay the same
+    ChildrenCount = supervisor:count_children(httpc_handler_sup),
+    ok.
 
 %%-------------------------------------------------------------------------
 
@@ -1904,12 +1933,13 @@ run_clients(NumClients, ServerPort, SeqNumServer) ->
 wait4clients([], _Timeout) ->
     ok;
 wait4clients(Clients, Timeout) when Timeout > 0 ->
-    Time = now_ms(),
+    Time = inets_time_compat:monotonic_time(),
+
     receive
 	{'DOWN', _MRef, process, Pid, normal} ->
 	    {value, {Id, _, _}} = lists:keysearch(Pid, 2, Clients),
 	    NewClients = lists:keydelete(Id, 1, Clients),
-	    wait4clients(NewClients, Timeout - (now_ms() - Time));
+	    wait4clients(NewClients, Timeout - inets_lib:millisec_passed(Time));
 	{'DOWN', _MRef, process, Pid, Reason} ->
 	    {value, {Id, _, _}} = lists:keysearch(Pid, 2, Clients),
 	    ct:fail({bad_client_termination, Id, Reason})
@@ -2002,14 +2032,10 @@ parse_connection_type(Request) ->
 	"keep-alive" -> keep_alive
     end.
 
-%% Time in milli seconds
-now_ms() ->
-    {A,B,C} = erlang:now(),
-    A*1000000000+B*1000+(C div 1000).
-
 set_random_seed() ->
-    {_, _, Micros} = now(),
-    A = erlang:phash2([make_ref(), self(), Micros]),
+    Unique = inets_time_compat:unique_integer(),
+
+    A = erlang:phash2([make_ref(), self(), Unique]),
     random:seed(A, A, A).
 
 

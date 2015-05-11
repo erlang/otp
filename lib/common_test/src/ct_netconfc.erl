@@ -191,6 +191,7 @@
 	 get_config/4,
 	 edit_config/3,
 	 edit_config/4,
+	 edit_config/5,
 	 delete_config/2,
 	 delete_config/3,
 	 copy_config/3,
@@ -691,15 +692,39 @@ get_config(Client, Source, Filter, Timeout) ->
 
 %%----------------------------------------------------------------------
 %% @spec edit_config(Client, Target, Config) -> Result
-%% @equiv edit_config(Client, Target, Config, infinity)
+%% @equiv edit_config(Client, Target, Config, [], infinity)
 edit_config(Client, Target, Config) ->
     edit_config(Client, Target, Config, ?DEFAULT_TIMEOUT).
 
 %%----------------------------------------------------------------------
--spec edit_config(Client, Target, Config, Timeout) -> Result when
+-spec edit_config(Client, Target, Config, OptParamsOrTimeout) -> Result when
       Client :: client(),
       Target :: netconf_db(),
       Config :: simple_xml(),
+      OptParamsOrTimeout :: [simple_xml()] | timeout(),
+      Result :: ok | {error,error_reason()}.
+%% @doc
+%%
+%% If `OptParamsOrTimeout' is a timeout value, then this is
+%% equivalent to {@link edit_config/5. edit_config(Client, Target,
+%% Config, [], Timeout)}.
+%%
+%% If `OptParamsOrTimeout' is a list of simple XML, then this is
+%% equivalent to {@link edit_config/5. edit_config(Client, Target,
+%% Config, OptParams, infinity)}.
+%%
+%% @end
+edit_config(Client, Target, Config, Timeout) when ?is_timeout(Timeout) ->
+    edit_config(Client, Target, Config, [], Timeout);
+edit_config(Client, Target, Config, OptParams) when is_list(OptParams) ->
+    edit_config(Client, Target, Config, OptParams, ?DEFAULT_TIMEOUT).
+
+%%----------------------------------------------------------------------
+-spec edit_config(Client, Target, Config, OptParams, Timeout) -> Result when
+      Client :: client(),
+      Target :: netconf_db(),
+      Config :: simple_xml(),
+      OptParams :: [simple_xml()],
       Timeout :: timeout(),
       Result :: ok | {error,error_reason()}.
 %% @doc Edit configuration data.
@@ -708,10 +733,20 @@ edit_config(Client, Target, Config) ->
 %% include `:candidate' or `:startup' in its list of
 %% capabilities.
 %%
+%% `OptParams' can be used for specifying optional parameters
+%% (`default-operation', `test-option' or `error-option') that will be
+%% added to the `edit-config' request. The value must be a list
+%% containing valid simple XML, for example
+%%
+%% ```
+%% [{'default-operation', ["none"]},
+%%  {'error-option', ["rollback-on-error"]}]
+%%'''
+%%
 %% @end
 %%----------------------------------------------------------------------
-edit_config(Client, Target, Config, Timeout) ->
-    call(Client, {send_rpc_op, edit_config, [Target,Config], Timeout}).
+edit_config(Client, Target, Config, OptParams, Timeout) ->
+    call(Client, {send_rpc_op, edit_config, [Target,Config,OptParams], Timeout}).
 
 
 %%----------------------------------------------------------------------
@@ -1100,6 +1135,7 @@ handle_msg({get_event_streams=Op,Streams,Timeout}, From, State) ->
     SimpleXml = encode_rpc_operation(get,[Filter]),
     do_send_rpc(Op, SimpleXml, Timeout, From, State).
 
+%% @private
 handle_msg({ssh_cm, CM, {data, Ch, _Type, Data}}, State) ->
     ssh_connection:adjust_window(CM,Ch,size(Data)),
     handle_data(Data, State);
@@ -1254,8 +1290,8 @@ encode_rpc_operation(get,[Filter]) ->
     {get,filter(Filter)};
 encode_rpc_operation(get_config,[Source,Filter]) ->
     {'get-config',[{source,[Source]}] ++ filter(Filter)};
-encode_rpc_operation(edit_config,[Target,Config]) ->
-    {'edit-config',[{target,[Target]},{config,[Config]}]};
+encode_rpc_operation(edit_config,[Target,Config,OptParams]) ->
+    {'edit-config',[{target,[Target]}] ++ OptParams ++ [{config,[Config]}]};
 encode_rpc_operation(delete_config,[Target]) ->
     {'delete-config',[{target,[Target]}]};
 encode_rpc_operation(copy_config,[Target,Source]) ->
@@ -1712,6 +1748,7 @@ log(#connection{host=Host,port=Port,name=Name},Action,Data) ->
 
 
 %% Log callback - called from the error handler process
+%% @private
 format_data(How,Data) ->
     %% Assuming that the data is encoded as UTF-8.  If it is not, then
     %% the printout might be wrong, but the format function will not

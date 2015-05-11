@@ -143,8 +143,7 @@ decode_encrypted_private_keyinfo(Der) ->
 			       encryptedData = Data} = 
 	public_key:der_decode('EncryptedPrivateKeyInfo', Der),
     DecryptParams = pubkey_pbe:decrypt_parameters(AlgorithmInfo), 
-    {'PrivateKeyInfo', iolist_to_binary(Data), DecryptParams}.
-
+    {'PrivateKeyInfo', Data, DecryptParams}.
 
 encode_encrypted_private_keyinfo(EncData, EncryptParmams) ->
     AlgorithmInfo = pubkey_pbe:encrypt_parameters(EncryptParmams),

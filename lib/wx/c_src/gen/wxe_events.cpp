@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2008-2014. All Rights Reserved.
+ * Copyright Ericsson AB 2008-2015. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -375,10 +375,13 @@ case 165: {// wxScrollEvent or wxSpinEvent
   break;
 }
 case 166: {// wxScrollWinEvent
+ wxScrollWinEvent * ev = (wxScrollWinEvent *) event;
     evClass = (char*)"wxScrollWinEvent";
     rt.addAtom((char*)"wxScrollWin");
     rt.addAtom(Etype->eName);
-    rt.addTupleCount(2);
+ rt.addInt(ev->GetPosition());
+ rt.addInt(ev->GetOrientation());
+    rt.addTupleCount(4);
   break;
 }
 case 167: {// wxMouseEvent
@@ -394,7 +397,11 @@ case 167: {// wxMouseEvent
  rt.addBool(ev->m_controlDown);
  rt.addBool(ev->m_shiftDown);
  rt.addBool(ev->m_altDown);
+#if wxCHECK_VERSION(2,9,0) && defined(_MACOSX)
+ rt.addBool(ev->m_rawControlDown);
+#else
  rt.addBool(ev->m_metaDown);
+#endif
  rt.addInt(ev->m_wheelRotation);
  rt.addInt(ev->m_wheelDelta);
  rt.addInt(ev->m_linesPerAction);
@@ -402,10 +409,16 @@ case 167: {// wxMouseEvent
   break;
 }
 case 168: {// wxSetCursorEvent
+ wxSetCursorEvent * ev = (wxSetCursorEvent *) event;
+ wxCursor * GetCursor = new wxCursor(ev->GetCursor());
+ app->newPtr((void *) GetCursor,3, memenv);
     evClass = (char*)"wxSetCursorEvent";
     rt.addAtom((char*)"wxSetCursor");
     rt.addAtom(Etype->eName);
-    rt.addTupleCount(2);
+ rt.addInt(ev->GetX());
+ rt.addInt(ev->GetY());
+ rt.addRef(getRef((void *)GetCursor,memenv), "wxCursor");
+    rt.addTupleCount(5);
   break;
 }
 case 169: {// wxKeyEvent
@@ -419,7 +432,11 @@ case 169: {// wxKeyEvent
  rt.addBool(ev->m_controlDown);
  rt.addBool(ev->m_shiftDown);
  rt.addBool(ev->m_altDown);
+#if wxCHECK_VERSION(2,9,0) && defined(_MACOSX)
+ rt.addBool(ev->m_rawControlDown);
+#else
  rt.addBool(ev->m_metaDown);
+#endif
 #if !wxCHECK_VERSION(2,9,0)
  rt.addBool(ev->m_scanCode);
 #else
@@ -442,10 +459,13 @@ case 170: {// wxSizeEvent
   break;
 }
 case 171: {// wxMoveEvent
+ wxMoveEvent * ev = (wxMoveEvent *) event;
     evClass = (char*)"wxMoveEvent";
     rt.addAtom((char*)"wxMove");
     rt.addAtom(Etype->eName);
-    rt.addTupleCount(2);
+ rt.add(ev->GetPosition());
+ rt.add(ev->GetRect());
+    rt.addTupleCount(4);
   break;
 }
 case 172: {// wxPaintEvent
@@ -466,10 +486,13 @@ case 173: {// wxEraseEvent
   break;
 }
 case 174: {// wxFocusEvent
+ wxFocusEvent * ev = (wxFocusEvent *) event;
+ wxWindow * GetWindow = ev->GetWindow();
     evClass = (char*)"wxFocusEvent";
     rt.addAtom((char*)"wxFocus");
     rt.addAtom(Etype->eName);
-    rt.addTupleCount(2);
+ rt.addRef(getRef((void *)GetWindow,memenv), "wxWindow");
+    rt.addTupleCount(3);
   break;
 }
 case 175: {// wxChildFocusEvent
@@ -480,10 +503,14 @@ case 175: {// wxChildFocusEvent
   break;
 }
 case 176: {// wxMenuEvent
+ wxMenuEvent * ev = (wxMenuEvent *) event;
+ wxMenu * GetMenu = ev->GetMenu();
     evClass = (char*)"wxMenuEvent";
     rt.addAtom((char*)"wxMenu");
     rt.addAtom(Etype->eName);
-    rt.addTupleCount(2);
+ rt.addInt(ev->GetMenuId());
+ rt.addRef(getRef((void *)GetMenu,memenv), "wxMenu");
+    rt.addTupleCount(4);
   break;
 }
 case 177: {// wxCloseEvent
@@ -494,17 +521,21 @@ case 177: {// wxCloseEvent
   break;
 }
 case 178: {// wxShowEvent
+ wxShowEvent * ev = (wxShowEvent *) event;
     evClass = (char*)"wxShowEvent";
     rt.addAtom((char*)"wxShow");
     rt.addAtom(Etype->eName);
-    rt.addTupleCount(2);
+ rt.addBool(ev->GetShow());
+    rt.addTupleCount(3);
   break;
 }
 case 179: {// wxIconizeEvent
+ wxIconizeEvent * ev = (wxIconizeEvent *) event;
     evClass = (char*)"wxIconizeEvent";
     rt.addAtom((char*)"wxIconize");
     rt.addAtom(Etype->eName);
-    rt.addTupleCount(2);
+ rt.addBool(ev->Iconized());
+    rt.addTupleCount(3);
   break;
 }
 case 180: {// wxMaximizeEvent
@@ -515,10 +546,16 @@ case 180: {// wxMaximizeEvent
   break;
 }
 case 181: {// wxJoystickEvent
+ wxJoystickEvent * ev = (wxJoystickEvent *) event;
     evClass = (char*)"wxJoystickEvent";
     rt.addAtom((char*)"wxJoystick");
     rt.addAtom(Etype->eName);
-    rt.addTupleCount(2);
+ rt.add(ev->GetPosition());
+ rt.addInt(ev->GetZPosition());
+ rt.addInt(ev->GetButtonChange());
+ rt.addInt(ev->GetButtonState());
+ rt.addInt(ev->GetJoystick());
+    rt.addTupleCount(7);
   break;
 }
 case 182: {// wxUpdateUIEvent
@@ -595,10 +632,12 @@ case 191: {// wxHelpEvent
   break;
 }
 case 192: {// wxContextMenuEvent
+ wxContextMenuEvent * ev = (wxContextMenuEvent *) event;
     evClass = (char*)"wxContextMenuEvent";
     rt.addAtom((char*)"wxContextMenu");
     rt.addAtom(Etype->eName);
-    rt.addTupleCount(2);
+ rt.add(ev->GetPosition());
+    rt.addTupleCount(3);
   break;
 }
 case 193: {// wxIdleEvent
@@ -659,10 +698,13 @@ case 198: {// wxDateEvent
   break;
 }
 case 199: {// wxCalendarEvent
+ wxCalendarEvent * ev = (wxCalendarEvent *) event;
     evClass = (char*)"wxCalendarEvent";
     rt.addAtom((char*)"wxCalendar");
     rt.addAtom(Etype->eName);
-    rt.addTupleCount(2);
+ rt.addInt(ev->GetWeekDay());
+ rt.add(ev->GetDate());
+    rt.addTupleCount(4);
   break;
 }
 case 200: {// wxFileDirPickerEvent
@@ -734,10 +776,13 @@ case 209: {// wxTreeEvent
   break;
 }
 case 210: {// wxNotebookEvent
+ wxNotebookEvent * ev = (wxNotebookEvent *) event;
     evClass = (char*)"wxNotebookEvent";
     rt.addAtom((char*)"wxNotebook");
     rt.addAtom(Etype->eName);
-    rt.addTupleCount(2);
+ rt.addInt(ev->GetSelection());
+ rt.addInt(ev->GetOldSelection());
+    rt.addTupleCount(4);
   break;
 }
 case 216: {// wxClipboardTextEvent

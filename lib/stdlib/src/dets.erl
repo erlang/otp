@@ -1963,7 +1963,7 @@ do_safe_fixtable(Head, Pid, true) ->
     case Head#head.fixed of 
 	false -> 
 	    link(Pid),
-	    Fixed = {erlang:now(), [{Pid, 1}]},
+	    Fixed = {utime_now(), [{Pid, 1}]},
 	    Ftab = dets_utils:get_freelists(Head),
 	    Head#head{fixed = Fixed, freelists = {Ftab, Ftab}};
 	{TimeStamp, Counters} ->
@@ -3088,14 +3088,14 @@ update_cache(Head, ToAdd) ->
 	    {Head1, Found, []};
 	Cache#cache.wrtime =:= undefined ->
 	    %% Empty cache. Schedule a delayed write.
-	    Now = now(), Me = self(),
+	    Now = time_now(), Me = self(),
 	    Call = ?DETS_CALL(Me, {delayed_write, Now}),
 	    erlang:send_after(Cache#cache.delay, Me, Call),
 	    {Head1#head{cache = NewCache#cache{wrtime = Now}}, Found, []};
 	Size0 =:= 0 ->
 	    %% Empty cache that has been written after the
 	    %% currently scheduled delayed write.
-	    {Head1#head{cache = NewCache#cache{wrtime = now()}}, Found, []};
+	    {Head1#head{cache = NewCache#cache{wrtime = time_now()}}, Found, []};
 	true ->
 	    %% Cache is not empty, delayed write has been scheduled.
 	    {Head1, Found, []}
@@ -3158,11 +3158,7 @@ delayed_write(Head, WrTime) ->
 		    Head#head{cache = NewCache};
 		true ->
 		    %% Yes, schedule a new delayed write.
-		    {MS1,S1,M1} = WrTime,
-		    {MS2,S2,M2} = LastWrTime,
-		    WrT = M1+1000000*(S1+1000000*MS1),
-		    LastWrT = M2+1000000*(S2+1000000*MS2),
-		    When = round((LastWrT - WrT)/1000), Me = self(),
+		    When = round((LastWrTime - WrTime)/1000), Me = self(),
 		    Call = ?DETS_CALL(Me, {delayed_write, LastWrTime}),
 		    erlang:send_after(When, Me, Call),
 		    Head
@@ -3273,6 +3269,16 @@ err(Error) ->
 	undefined  ->
 	    Error
     end.
+
+-compile({inline, [time_now/0]}).
+time_now() ->
+    erlang:monotonic_time(1000000).
+
+-compile({inline, [utime_now/0]}).
+utime_now() ->
+    Time = time_now(),
+    UniqueCounter = erlang:unique_integer([monotonic]),
+    {Time, UniqueCounter}.
 
 %%%%%%%%%%%%%%%%%  DEBUG functions %%%%%%%%%%%%%%%%
 

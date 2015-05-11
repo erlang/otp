@@ -58,6 +58,8 @@ int ethr_event_init(ethr_event *e);
 int ethr_event_destroy(ethr_event *e);
 int ethr_event_wait(ethr_event *e);
 int ethr_event_swait(ethr_event *e, int spincount);
+int ethr_event_twait(ethr_event *e, ethr_sint64_t timeout);
+int ethr_event_stwait(ethr_event *e, int spincount, ethr_sint64_t timeout);
 #if !defined(ETHR_TRY_INLINE_FUNCS) || defined(ETHR_EVENT_IMPL__)
 void ethr_event_set(ethr_event *e);
 void ethr_event_reset(ethr_event *e);

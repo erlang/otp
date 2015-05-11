@@ -39,7 +39,7 @@ all() ->
     [{group,p}].
 
 groups() -> 
-    [{p,test_lib:parallel(),
+    [{p,[parallel],
       [two,test1,fail,float_bin,in_guard,in_catch,
        nasty_literals,side_effect,opt,otp_7556,float_arith,
        otp_8054]}].

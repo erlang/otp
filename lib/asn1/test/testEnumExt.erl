@@ -78,6 +78,9 @@ common(Erule) ->
 
     v_roundtrip(Erule, 'SeqBig', {'SeqBig',true,e40,9357}),
     v_roundtrip(Erule, 'SeqBig', {'SeqBig',true,e80,9357}),
+
+    v_roundtrip(Erule, 'EnumSkip', d),
+
     ok.
 
 roundtrip(Type, Value) ->
@@ -85,11 +88,20 @@ roundtrip(Type, Value) ->
 
 v_roundtrip(Erule, Type, Value) ->
     Encoded = roundtrip(Type, Value),
-    Encoded = asn1_test_lib:hex_to_bin(v(Erule, Value)).
+    Encoded = asn1_test_lib:hex_to_bin(v(Erule, Type, Value)).
 
-v(ber, {'SeqBig',true,e40,9357}) -> "300A8001 FF810141 8202248D";
-v(ber, {'SeqBig',true,e80,9357}) -> "300B8001 FF810200 81820224 8D";
-v(per, {'SeqBig',true,e40,9357}) -> "E0014002 248D";
-v(per, {'SeqBig',true,e80,9357}) -> "E0018002 248D";
-v(uper, {'SeqBig',true,e40,9357}) -> "E0280044 91A0";
-v(uper, {'SeqBig',true,e80,9357}) -> "E0300044 91A0".
+v(Erule, 'SeqBig', Value) ->
+    v_seq_big(Erule, Value);
+v(Erule, 'EnumSkip', Value) ->
+    v_enum_skip(Erule, Value).
+
+v_seq_big(ber, {'SeqBig',true,e40,9357}) -> "300A8001 FF810141 8202248D";
+v_seq_big(ber, {'SeqBig',true,e80,9357}) -> "300B8001 FF810200 81820224 8D";
+v_seq_big(per, {'SeqBig',true,e40,9357}) -> "E0014002 248D";
+v_seq_big(per, {'SeqBig',true,e80,9357}) -> "E0018002 248D";
+v_seq_big(uper, {'SeqBig',true,e40,9357}) -> "E0280044 91A0";
+v_seq_big(uper, {'SeqBig',true,e80,9357}) -> "E0300044 91A0".
+
+v_enum_skip(per, d) -> "82";
+v_enum_skip(uper, d) -> "82";
+v_enum_skip(ber, d) -> "0A0103".

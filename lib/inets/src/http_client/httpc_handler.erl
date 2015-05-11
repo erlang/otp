@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2002-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2015. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -316,8 +316,9 @@ handle_call(#request{address = Addr} = Request, _,
                     {reply, ok, State}
             end;
         {error, Reason} ->
-            ?hcri("failed sending request", [{reason, Reason}]),
-            {reply, {pipeline_failed, Reason}, State0}
+		    ?hcri("failed sending request", [{reason, Reason}]),
+            NewPipeline = queue:in(Request, State0#state.pipeline),
+            {stop, shutdown, {pipeline_failed, Reason}, State0#state{pipeline = NewPipeline}}
     end;
 
 handle_call(#request{address = Addr} = Request, _, 
@@ -355,25 +356,25 @@ handle_call(#request{address = Addr} = Request, _,
 	    ?hcrd("no current request", []),
 	    cancel_timer(Timers#timers.queue_timer,
 			 timeout_queue),
+	    NewTimers = Timers#timers{queue_timer = undefined},
+	    State1 = State0#state{timers = NewTimers},
 	    Address = handle_proxy(Addr, Proxy),
 	    case httpc_request:send(Address, Session, Request) of
 		ok ->
 		    ?hcrd("request sent", []),
 
 		    %% Activate the request time out for the new request
-		    State1 =
-			activate_request_timeout(State0#state{request = Request}),
-		    NewTimers = State1#state.timers,
+		    State2 =
+			activate_request_timeout(State1#state{request = Request}),
 		    NewSession =
 			Session#session{queue_length = 1,
 					client_close = ClientClose},
 		    insert_session(NewSession, ProfileName),
-		    State = init_wait_for_response_state(Request, State1#state{session = NewSession,
-								      timers = NewTimers}),
+		    State = init_wait_for_response_state(Request, State2#state{session = NewSession}),
 		    {reply, ok, State};
 		{error, Reason} ->
 		    ?hcri("failed sending request", [{reason, Reason}]),
-		    {reply, {request_failed, Reason}, State0}
+		    {stop, shutdown, {keepalive_failed, Reason}, State1}
 	    end
     end;
 
@@ -1121,7 +1122,7 @@ handle_http_body(Body, #state{headers       = Headers,
                            handle_response(State#state{headers = NewHeaders,
                                                 body    = NewBody});
                         _ ->
-                           {NewBody2, NewRequest} =
+                           {NewBody2, _NewRequest} =
                                 stream(NewBody, Request, Code),
                            handle_response(State#state{headers = NewHeaders,
                                        body    = NewBody2})
@@ -1329,7 +1330,7 @@ handle_keep_alive_queue(#state{status       = keep_alive,
 					     Session, <<>>,
 					     State#state{keep_alive = KeepAlive});
 			{error, Reason} ->
-			    {reply, {keep_alive_failed, Reason}, State}
+			    {stop, shutdown, {keepalive_failed, Reason}, State}
 		    end
 	    end
     end.
@@ -1850,6 +1851,7 @@ update_session(ProfileName, #session{id = SessionId} = Session, Pos, Value) ->
 	    Session2 = erlang:setelement(Pos, Session, Value),
 	    insert_session(Session2, ProfileName);
 	  T:E ->
+            Stacktrace = erlang:get_stacktrace(),
             error_logger:error_msg("Failed updating session: "
                                    "~n   ProfileName: ~p"
                                    "~n   SessionId:   ~p"
@@ -1873,7 +1875,7 @@ update_session(ProfileName, #session{id = SessionId} = Session, Pos, Value) ->
                    {value,      Value}, 
                    {etype,      T}, 
                    {error,      E}, 
-                   {stacktrace, erlang:get_stacktrace()}]})	    
+                   {stacktrace, Stacktrace}]})
     end.
 
 

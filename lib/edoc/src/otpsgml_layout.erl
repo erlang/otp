@@ -28,7 +28,7 @@
 
 -module(otpsgml_layout).
 
--export([module/2, package/2, overview/2,type/1]).
+-export([module/2, overview/2,type/1]).
 
 -import(edoc_report, [report/2]).
 
@@ -811,27 +811,6 @@ xml(Title, CSS, Body) ->
      xmerl:export_simple_content(t_utype_elem(E) ++ local_defs(Ds),
  				?SGML_EXPORT).
 
-
-package(E=#xmlElement{name = package, content = Es}, Options) ->
-    Opts = init_opts(E, Options),
-    Name = get_text(packageName, Es),
-    Title = io_lib:fwrite("Package ~s", [Name]),
-    Desc = get_content(description, Es),
-%    ShortDesc = get_content(briefDescription, Desc),
-    FullDesc = get_content(fullDescription, Desc),
-    Body = ([?NL, {h1, [Title]}, ?NL]
-%	    ++ ShortDesc
-	    ++ copyright(Es)
-	    ++ deprecated(Es, "package")
-	    ++ version(Es)
-	    ++ since(Es)
-	    ++ authors(Es)
-	    ++ references(Es)
-	    ++ sees(Es)
-	    ++ FullDesc),
-    XML = xml(Title, stylesheet(Opts), Body),
-    xmerl:export_simple([XML], ?SGML_EXPORT, []).
-
 overview(E=#xmlElement{name = overview, content = Es}, Options) ->
     Opts = init_opts(E, Options),
     Title = get_text(title, Es),
@@ -843,6 +822,7 @@ overview(E=#xmlElement{name = overview, content = Es}, Options) ->
 	    ++ copyright(Es)
 	    ++ version(Es)
 	    ++ since(Es)
+	    ++ deprecated(Es, "application")
 	    ++ authors(Es)
 	    ++ references(Es)
 	    ++ sees(Es)

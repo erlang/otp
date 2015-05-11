@@ -49,6 +49,10 @@
 #include "beam_bp.h"
 #include "erl_ptab.h"
 #include "erl_check_io.h"
+#include "erl_bif_unique.h"
+#ifdef HIPE
+#  include "hipe_mode_switch.h"
+#endif
 
 #undef M_TRIM_THRESHOLD
 #undef M_TOP_PAD
@@ -187,12 +191,18 @@ erts_set_hole_marker(Eterm* ptr, Uint sz)
  * Helper function for the ESTACK macros defined in global.h.
  */
 void
-erl_grow_estack(ErtsEStack* s, Eterm* default_estack)
+erl_grow_estack(ErtsEStack* s, Uint need)
 {
     Uint old_size = (s->end - s->start);
-    Uint new_size = old_size * 2;
+    Uint new_size;
     Uint sp_offs = s->sp - s->start;
-    if (s->start != default_estack) {
+
+    if (need < old_size)
+	new_size = 2*old_size;
+    else
+	new_size = ((need / old_size) + 2) * old_size;
+
+    if (s->start != s->edefault) {
 	s->start = erts_realloc(s->alloc_type, s->start,
 				new_size*sizeof(Eterm));
     } else {
@@ -207,12 +217,18 @@ erl_grow_estack(ErtsEStack* s, Eterm* default_estack)
  * Helper function for the WSTACK macros defined in global.h.
  */
 void
-erl_grow_wstack(ErtsWStack* s, UWord* default_wstack)
+erl_grow_wstack(ErtsWStack* s, Uint need)
 {
     Uint old_size = (s->wend - s->wstart);
-    Uint new_size = old_size * 2;
+    Uint new_size;
     Uint sp_offs = s->wsp - s->wstart;
-    if (s->wstart != default_wstack) {
+
+    if (need < old_size)
+	new_size = 2 * old_size;
+    else
+	new_size = ((need / old_size) + 2) * old_size;
+
+    if (s->wstart != s->wdefault) {
 	s->wstart = erts_realloc(s->alloc_type, s->wstart,
 				 new_size*sizeof(UWord));
     } else {
@@ -222,6 +238,32 @@ erl_grow_wstack(ErtsWStack* s, UWord* default_wstack)
     }
     s->wend = s->wstart + new_size;
     s->wsp = s->wstart + sp_offs;
+}
+
+/*
+ * Helper function for the PSTACK macros defined in global.h.
+ */
+void
+erl_grow_pstack(ErtsPStack* s, void* default_pstack, unsigned need_bytes)
+{
+    Uint old_size = s->pend - s->pstart;
+    Uint new_size;
+    Uint sp_offs = s->psp - s->pstart;
+
+    if (need_bytes < old_size)
+	new_size = 2 * old_size;
+    else
+	new_size = ((need_bytes / old_size) + 2) * old_size;
+
+    if (s->pstart != default_pstack) {
+	s->pstart = erts_realloc(s->alloc_type, s->pstart, new_size);
+    } else {
+	byte* new_ptr = erts_alloc(s->alloc_type, new_size);
+	sys_memcpy(new_ptr, s->pstart, old_size);
+	s->pstart = new_ptr;
+    }
+    s->pend = s->pstart + new_size;
+    s->psp = s->pstart + sp_offs;
 }
 
 /* CTYPE macros */
@@ -309,6 +351,17 @@ int erts_fit_in_bits_int64(Sint64 value)
 int erts_fit_in_bits_int32(Sint32 value)
 {
     return fit_in_bits((Sint64) (Uint32) value, 4);
+}
+
+int erts_fit_in_bits_uint(Uint value)
+{
+#if ERTS_SIZEOF_ETERM == 4
+    return fit_in_bits((Sint64) (Uint32) value, 4);
+#elif ERTS_SIZEOF_ETERM == 8
+    return fit_in_bits(value, 5);
+#else
+# error "No way, Jose"
+#endif
 }
 
 int
@@ -789,10 +842,10 @@ Uint32 make_hash(Eterm term_arg)
     unsigned op;
 
     /* Must not collide with the real tag_val_def's: */
-#define MAKE_HASH_TUPLE_OP 0x11
-#define MAKE_HASH_TERM_ARRAY_OP 0x12
-#define MAKE_HASH_CDR_PRE_OP 0x13
-#define	MAKE_HASH_CDR_POST_OP 0x14
+#define MAKE_HASH_TUPLE_OP      (FIRST_VACANT_TAG_DEF)
+#define MAKE_HASH_TERM_ARRAY_OP (FIRST_VACANT_TAG_DEF+1)
+#define MAKE_HASH_CDR_PRE_OP    (FIRST_VACANT_TAG_DEF+2)
+#define MAKE_HASH_CDR_POST_OP   (FIRST_VACANT_TAG_DEF+3)
 
     /* 
     ** Convenience macro for calculating a bytewise hash on an unsigned 32 bit 
@@ -902,12 +955,15 @@ tail_recur:
 	UINT32_HASH_RET(external_ref_numbers(term)[0],FUNNY_NUMBER9,FUNNY_NUMBER10);
     case FLOAT_DEF: 
 	{
-	    FloatDef ff;
-	    GET_DOUBLE(term, ff);
-	    hash = hash*FUNNY_NUMBER6 + (ff.fw[0] ^ ff.fw[1]);
-	    break;
+            FloatDef ff;
+            GET_DOUBLE(term, ff);
+            if (ff.fd == 0.0f) {
+                /* ensure positive 0.0 */
+                ff.fd = erts_get_positive_zero_float();
+            }
+            hash = hash*FUNNY_NUMBER6 + (ff.fw[0] ^ ff.fw[1]);
+            break;
 	}
-
     case MAKE_HASH_CDR_PRE_OP:
 	term = (Eterm) WSTACK_POP(stack);
 	if (is_not_list(term)) {
@@ -972,23 +1028,8 @@ tail_recur:
 	    break;
 	}	
     case MAP_DEF:
-	{
-	    map_t *mp = (map_t *)map_val(term);
-	    int size  = map_get_size(mp);
-	    Eterm *ks = map_get_keys(mp);
-	    Eterm *vs = map_get_values(mp);
-
-	    /* Use a prime with size to remedy some of
-	     * the {} and <<>> hash problems */
-	    hash = hash*FUNNY_NUMBER13 + FUNNY_NUMBER14 + size;
-	    if (size == 0)
-		break;
-
-	    /* push values first */
-	    WSTACK_PUSH3(stack, (UWord)vs, (UWord) size, MAKE_HASH_TERM_ARRAY_OP);
-	    WSTACK_PUSH3(stack, (UWord)ks, (UWord) size, MAKE_HASH_TERM_ARRAY_OP);
-	    break;
-	}
+        hash = hash*FUNNY_NUMBER13 + FUNNY_NUMBER14 + make_hash2(term);
+        break;
     case TUPLE_DEF: 
 	{
 	    Eterm* ptr = tuple_val(term);
@@ -1092,9 +1133,10 @@ Uint32
 make_hash2(Eterm term)
 {
     Uint32 hash;
-    Uint32 hash_xor_keys   = 0;
-    Uint32 hash_xor_values = 0;
+    Uint32 hash_xor_pairs;
     DeclareTmpHeapNoproc(tmp_big,2);
+
+    ERTS_UNDEF(hash_xor_pairs, 0);
 
 /* (HCONST * {2, ..., 16}) mod 2^32 */
 #define HCONST_2 0x3c6ef372UL
@@ -1112,10 +1154,15 @@ make_hash2(Eterm term)
 #define HCONST_14 0xa708a81eUL
 #define HCONST_15 0x454021d7UL
 #define HCONST_16 0xe3779b90UL
+#define HCONST_17 0x81af1549UL
+#define HCONST_18 0x1fe68f02UL
+#define HCONST_19 0xbe1e08bbUL
+#define HCONST_20 0x5c558274UL
+#define HCONST_21 0xfa8cfc2dUL
 
 #define HASH_MAP_TAIL (_make_header(1,_TAG_HEADER_REF))
-#define HASH_MAP_KEY  (_make_header(2,_TAG_HEADER_REF))
-#define HASH_MAP_VAL  (_make_header(3,_TAG_HEADER_REF))
+#define HASH_MAP_PAIR (_make_header(2,_TAG_HEADER_REF))
+#define HASH_CDR      (_make_header(3,_TAG_HEADER_REF))
 
 #define UINT32_HASH_2(Expr1, Expr2, AConst)       \
          do {                                     \
@@ -1138,6 +1185,13 @@ make_hash2(Eterm term)
 	} while(0)
 
 #define IS_SSMALL28(x) (((Uint) (((x) >> (28-1)) + 1)) < 2)
+
+#ifdef ARCH_64
+#  define POINTER_HASH(Ptr, AConst) UINT32_HASH_2((Uint32)(UWord)(Ptr), (((UWord)(Ptr)) >> 32), AConst)
+#else
+#  define POINTER_HASH(Ptr, AConst) UINT32_HASH(Ptr, AConst)
+#endif
+
     /* Optimization. Simple cases before declaration of estack. */
     if (primary_tag(term) == TAG_PRIMARY_IMMED1) {
 	switch (term & _TAG_IMMED1_MASK) {
@@ -1192,9 +1246,9 @@ make_hash2(Eterm term)
 	    if (c > 0)
 		UINT32_HASH(sh, HCONST_4);
 	    if (is_list(term)) {
-		term = *ptr;
-		tmp = *++ptr;
-		ESTACK_PUSH(s, tmp);	    
+		tmp = CDR(ptr);
+                ESTACK_PUSH(s, tmp);
+		term = CAR(ptr);
 	    }
 	}
 	break;
@@ -1211,51 +1265,90 @@ make_hash2(Eterm term)
 		UINT32_HASH(arity, HCONST_9);
 		if (arity == 0) /* Empty tuple */ 
 		    goto hash2_common;
-		for (i = arity; i >= 1; i--) {
-		    tmp = elem[i];
-		    ESTACK_PUSH(s, tmp);
+		for (i = arity; ; i--) {
+		    term = elem[i];
+                    if (i == 1)
+                        break;
+                    ESTACK_PUSH(s, term);
 		}
-		goto hash2_common;
 	    }
 	    break;
-	    case MAP_SUBTAG:
-	    {
-		map_t *mp = (map_t *)map_val(term);
-		int i;
-		int size  = map_get_size(mp);
-		Eterm *ks = map_get_keys(mp);
-		Eterm *vs = map_get_values(mp);
-		UINT32_HASH(size, HCONST_16);
-		if (size == 0) {
-		    goto hash2_common;
-		}
-		ESTACK_PUSH(s, hash_xor_values);
-		ESTACK_PUSH(s, hash_xor_keys);
-		ESTACK_PUSH(s, hash);
-		ESTACK_PUSH(s, HASH_MAP_TAIL);
-		hash = 0;
-		hash_xor_keys = 0;
-		hash_xor_values = 0;
-		for (i = size - 1; i >= 0; i--) {
-		    tmp = vs[i];
-		    ESTACK_PUSH(s, HASH_MAP_VAL);
-		    ESTACK_PUSH(s, tmp);
-		}
-		/* We do not want to expose the tuple representation.
-		 * Do not push the keys as a tuple.
-		 */
-		for (i = size - 1; i >= 0; i--) {
-		    tmp = ks[i];
-		    ESTACK_PUSH(s, HASH_MAP_KEY);
-		    ESTACK_PUSH(s, tmp);
-		}
-		goto hash2_common;
-	    }
-	    break;
+            case MAP_SUBTAG:
+            {
+                Eterm* ptr = boxed_val(term) + 1;
+                Uint size;
+                int i;
+                switch (hdr & _HEADER_MAP_SUBTAG_MASK) {
+                case HAMT_SUBTAG_HEAD_FLATMAP:
+                {
+                    flatmap_t *mp = (flatmap_t *)flatmap_val(term);
+                    Eterm *ks = flatmap_get_keys(mp);
+                    Eterm *vs = flatmap_get_values(mp);
+                    size      = flatmap_get_size(mp);
+                    UINT32_HASH(size, HCONST_16);
+                    if (size == 0)
+                        goto hash2_common;
+
+                    /* We want a portable hash function that is *independent* of
+                     * the order in which keys and values are encountered.
+                     * We therefore calculate context independent hashes for all    				      .
+                     * key-value pairs and then xor them together.
+                     */
+                    ESTACK_PUSH(s, hash_xor_pairs);
+                    ESTACK_PUSH(s, hash);
+                    ESTACK_PUSH(s, HASH_MAP_TAIL);
+                    hash = 0;
+                    hash_xor_pairs = 0;
+                    for (i = size - 1; i >= 0; i--) {
+                        ESTACK_PUSH(s, HASH_MAP_PAIR);
+                        ESTACK_PUSH(s, vs[i]);
+                        ESTACK_PUSH(s, ks[i]);
+                    }
+                    goto hash2_common;
+                }
+
+                case HAMT_SUBTAG_HEAD_ARRAY:
+                case HAMT_SUBTAG_HEAD_BITMAP:
+                    size = *ptr++;
+                    UINT32_HASH(size, HCONST_16);
+                    if (size == 0)
+                        goto hash2_common;
+                    ESTACK_PUSH(s, hash_xor_pairs);
+                    ESTACK_PUSH(s, hash);
+                    ESTACK_PUSH(s, HASH_MAP_TAIL);
+                    hash = 0;
+                    hash_xor_pairs = 0;
+                }
+                switch (hdr & _HEADER_MAP_SUBTAG_MASK) {
+                case HAMT_SUBTAG_HEAD_ARRAY:
+                    i = 16;
+                    break;
+                case HAMT_SUBTAG_HEAD_BITMAP:
+                case HAMT_SUBTAG_NODE_BITMAP:
+                    i = hashmap_bitcount(MAP_HEADER_VAL(hdr));
+                    break;
+                default:
+                    erl_exit(1, "bad header");
+                }
+                while (i) {
+                    if (is_list(*ptr)) {
+                        Eterm* cons = list_val(*ptr);
+                        ESTACK_PUSH(s, HASH_MAP_PAIR);
+                        ESTACK_PUSH(s, CDR(cons));
+                        ESTACK_PUSH(s, CAR(cons));
+                    }
+                    else {
+                        ASSERT(is_boxed(*ptr));
+                        ESTACK_PUSH(s, *ptr);
+                    }
+                    i--; ptr++;
+                }
+                goto hash2_common;
+            }
+            break;
 	    case EXPORT_SUBTAG:
 	    {
 		Export* ep = *((Export **) (export_val(term) + 1));
-
 		UINT32_HASH_2
 		    (ep->code[2], 
 		     atom_tab(atom_val(ep->code[0]))->slot.bucket.hvalue,
@@ -1270,7 +1363,6 @@ make_hash2(Eterm term)
 	    {
 		ErlFunThing* funp = (ErlFunThing *) fun_val(term);
 		Uint num_free = funp->num_free;
-
 		UINT32_HASH_2
 		    (num_free, 
 		     atom_tab(atom_val(funp->fe->module))->slot.bucket.hvalue,
@@ -1351,7 +1443,8 @@ make_hash2(Eterm term)
 		do {
 		    Uint t;
 		    Uint32 x, y;
-		    t = i < n ? BIG_DIGIT(ptr, i++) : 0;
+                    ASSERT(i < n);
+		    t = BIG_DIGIT(ptr, i++);
 		    x = t & 0xffffffff;
 		    y = t >> 32;
 		    UINT32_HASH_2(x, y, con);
@@ -1384,6 +1477,10 @@ make_hash2(Eterm term)
 	    {
 		FloatDef ff;
 		GET_DOUBLE(term, ff);
+                if (ff.fd == 0.0f) {
+                    /* ensure positive 0.0 */
+                    ff.fd = erts_get_positive_zero_float();
+                }
 #if defined(WORDS_BIGENDIAN) || defined(DOUBLE_MIDDLE_ENDIAN)
 		UINT32_HASH_2(ff.fw[0], ff.fw[1], HCONST_12);
 #else
@@ -1459,18 +1556,12 @@ make_hash2(Eterm term)
 	    switch (term) {
 		case HASH_MAP_TAIL: {
 		    hash = (Uint32) ESTACK_POP(s);
-		    UINT32_HASH(hash_xor_keys, HCONST_16);
-		    UINT32_HASH(hash_xor_values, HCONST_16);
-		    hash_xor_keys = (Uint32) ESTACK_POP(s);
-		    hash_xor_values = (Uint32) ESTACK_POP(s);
+                    UINT32_HASH(hash_xor_pairs, HCONST_19);
+		    hash_xor_pairs = (Uint32) ESTACK_POP(s);
 		    goto hash2_common;
 		}
-		case HASH_MAP_KEY:
-		    hash_xor_keys ^= hash;
-		    hash = 0;
-		    goto hash2_common;
-		case HASH_MAP_VAL:
-		    hash_xor_values ^= hash;
+		case HASH_MAP_PAIR:
+		    hash_xor_pairs ^= hash;
 		    hash = 0;
 		    goto hash2_common;
 		default:
@@ -1479,10 +1570,393 @@ make_hash2(Eterm term)
 	}
     }
     }
+}
 
+/* Term hash function for internal use.
+ *
+ * Limitation #1: Is not "portable" in any way between different VM instances.
+ *
+ * Limitation #2: The hash value is only valid as long as the term exists
+ * somewhere in the VM. Why? Because external pids, ports and refs are hashed
+ * by mixing the node *pointer* value. If a node disappears and later reappears
+ * with a new ErlNode struct, externals from that node will hash different than
+ * before.
+ *
+ * One IMPORTANT property must hold (for hamt).
+ * EVERY BIT of the term that is significant for equality (see EQ)
+ * MUST BE USED AS INPUT FOR THE HASH. Two different terms must always have a
+ * chance of hashing different when salted: hash([Salt|A]) vs hash([Salt|B]).
+ *
+ * This is why we can not use cached hash values for atoms for example.
+ *
+ */
+
+#define CONST_HASH(AConst)                              \
+do {  /* Lightweight mixing of constant (type info) */  \
+    hash ^= AConst;                                     \
+    hash = (hash << 17) ^ (hash >> (32-17));            \
+} while (0)
+
+Uint32
+make_internal_hash(Eterm term)
+{
+    Uint32 hash;
+    Uint32 hash_xor_pairs;
+
+    ERTS_UNDEF(hash_xor_pairs, 0);
+
+    /* Optimization. Simple cases before declaration of estack. */
+    if (primary_tag(term) == TAG_PRIMARY_IMMED1) {
+        hash = 0;
+    #if ERTS_SIZEOF_ETERM == 8
+        UINT32_HASH_2((Uint32)term, (Uint32)(term >> 32), HCONST);
+    #elif ERTS_SIZEOF_ETERM == 4
+        UINT32_HASH(term, HCONST);
+    #else
+    #  error "No you don't"
+    #endif
+        return hash;
+    }
+    {
+    Eterm tmp;
+    DECLARE_ESTACK(s);
+
+    hash = 0;
+    for (;;) {
+	switch (primary_tag(term)) {
+	case TAG_PRIMARY_LIST:
+	{
+	    int c = 0;
+	    Uint32 sh = 0;
+	    Eterm* ptr = list_val(term);
+	    while (is_byte(*ptr)) {
+		/* Optimization for strings. */
+		sh = (sh << 8) + unsigned_val(*ptr);
+		if (c == 3) {
+		    UINT32_HASH(sh, HCONST_4);
+		    c = sh = 0;
+		} else {
+		    c++;
+		}
+		term = CDR(ptr);
+		if (is_not_list(term))
+		    break;
+		ptr = list_val(term);
+	    }
+	    if (c > 0)
+		UINT32_HASH(sh, HCONST_4);
+	    if (is_list(term)) {
+		tmp = CDR(ptr);
+                CONST_HASH(HCONST_17);  /* Hash CAR in cons cell */
+                ESTACK_PUSH(s, tmp);
+                if (is_not_list(tmp)) {
+                    ESTACK_PUSH(s, HASH_CDR);
+                }
+		term = CAR(ptr);
+	    }
+	}
+	break;
+	case TAG_PRIMARY_BOXED:
+	{
+	    Eterm hdr = *boxed_val(term);
+	    ASSERT(is_header(hdr));
+	    switch (hdr & _TAG_HEADER_MASK) {
+	    case ARITYVAL_SUBTAG:
+	    {
+		int i;
+		int arity = header_arity(hdr);
+		Eterm* elem = tuple_val(term);
+		UINT32_HASH(arity, HCONST_9);
+		if (arity == 0) /* Empty tuple */
+		    goto pop_next;
+		for (i = arity; ; i--) {
+		    term = elem[i];
+                    if (i == 1)
+                        break;
+                    ESTACK_PUSH(s, term);
+		}
+	    }
+	    break;
+
+            case MAP_SUBTAG:
+            {
+                Eterm* ptr = boxed_val(term) + 1;
+                Uint size;
+                int i;
+                switch (hdr & _HEADER_MAP_SUBTAG_MASK) {
+                case HAMT_SUBTAG_HEAD_FLATMAP:
+                {
+                    flatmap_t *mp = (flatmap_t *)flatmap_val(term);
+                    Eterm *ks = flatmap_get_keys(mp);
+                    Eterm *vs = flatmap_get_values(mp);
+                    size      = flatmap_get_size(mp);
+                    UINT32_HASH(size, HCONST_16);
+                    if (size == 0)
+                        goto pop_next;
+
+                    /* We want a hash function that is *independent* of
+                     * the order in which keys and values are encountered.
+                     * We therefore calculate context independent hashes for all    				      .
+                     * key-value pairs and then xor them together.
+                     */
+                    ESTACK_PUSH(s, hash_xor_pairs);
+                    ESTACK_PUSH(s, hash);
+                    ESTACK_PUSH(s, HASH_MAP_TAIL);
+                    hash = 0;
+                    hash_xor_pairs = 0;
+                    for (i = size - 1; i >= 0; i--) {
+                        ESTACK_PUSH(s, HASH_MAP_PAIR);
+                        ESTACK_PUSH(s, vs[i]);
+                        ESTACK_PUSH(s, ks[i]);
+                    }
+                    goto pop_next;
+                }
+                case HAMT_SUBTAG_HEAD_ARRAY:
+                case HAMT_SUBTAG_HEAD_BITMAP:
+                    size = *ptr++;
+                    UINT32_HASH(size, HCONST_16);
+                    if (size == 0)
+                        goto pop_next;
+                    ESTACK_PUSH(s, hash_xor_pairs);
+                    ESTACK_PUSH(s, hash);
+                    ESTACK_PUSH(s, HASH_MAP_TAIL);
+                    hash = 0;
+                    hash_xor_pairs = 0;
+                }
+                switch (hdr & _HEADER_MAP_SUBTAG_MASK) {
+                case HAMT_SUBTAG_HEAD_ARRAY:
+                    i = 16;
+                    break;
+                case HAMT_SUBTAG_HEAD_BITMAP:
+                case HAMT_SUBTAG_NODE_BITMAP:
+                    i = hashmap_bitcount(MAP_HEADER_VAL(hdr));
+                    break;
+                default:
+                    erl_exit(1, "bad header");
+                }
+                while (i) {
+                    if (is_list(*ptr)) {
+                        Eterm* cons = list_val(*ptr);
+                        ESTACK_PUSH(s, HASH_MAP_PAIR);
+                        ESTACK_PUSH(s, CDR(cons));
+                        ESTACK_PUSH(s, CAR(cons));
+                    }
+                    else {
+                        ASSERT(is_boxed(*ptr));
+                        ESTACK_PUSH(s, *ptr);
+                    }
+                    i--; ptr++;
+                }
+                goto pop_next;
+            }
+            break;
+	    case EXPORT_SUBTAG:
+	    {
+		Export* ep = *((Export **) (export_val(term) + 1));
+                /* Assumes Export entries never moves */
+                POINTER_HASH(ep, HCONST_14);
+		goto pop_next;
+	    }
+
+	    case FUN_SUBTAG:
+	    {
+		ErlFunThing* funp = (ErlFunThing *) fun_val(term);
+		Uint num_free = funp->num_free;
+                UINT32_HASH_2(num_free, funp->fe->module, HCONST_20);
+                UINT32_HASH_2(funp->fe->old_index, funp->fe->old_uniq, HCONST_21);
+		if (num_free == 0) {
+		    goto pop_next;
+		} else {
+		    Eterm* bptr = funp->env + num_free - 1;
+		    while (num_free-- > 1) {
+			term = *bptr--;
+			ESTACK_PUSH(s, term);
+		    }
+		    term = *bptr;
+		}
+	    }
+	    break;
+	    case REFC_BINARY_SUBTAG:
+	    case HEAP_BINARY_SUBTAG:
+	    case SUB_BINARY_SUBTAG:
+	    {
+		byte* bptr;
+		unsigned sz = binary_size(term);
+		Uint32 con = HCONST_13 + hash;
+		Uint bitoffs;
+		Uint bitsize;
+
+		ERTS_GET_BINARY_BYTES(term, bptr, bitoffs, bitsize);
+		if (sz == 0 && bitsize == 0) {
+		    hash = con;
+		} else {
+		    if (bitoffs == 0) {
+			hash = block_hash(bptr, sz, con);
+			if (bitsize > 0) {
+			    UINT32_HASH_2(bitsize, (bptr[sz] >> (8 - bitsize)),
+					  HCONST_15);
+			}
+		    } else {
+			byte* buf = (byte *) erts_alloc(ERTS_ALC_T_TMP,
+							sz + (bitsize != 0));
+			erts_copy_bits(bptr, bitoffs, 1, buf, 0, 1, sz*8+bitsize);
+			hash = block_hash(buf, sz, con);
+			if (bitsize > 0) {
+			    UINT32_HASH_2(bitsize, (buf[sz] >> (8 - bitsize)),
+					  HCONST_15);
+			}
+			erts_free(ERTS_ALC_T_TMP, (void *) buf);
+		    }
+		}
+		goto pop_next;
+	    }
+	    break;
+	    case POS_BIG_SUBTAG:
+	    case NEG_BIG_SUBTAG:
+	    {
+		Eterm* ptr = big_val(term);
+		Uint i = 0;
+		Uint n = BIG_SIZE(ptr);
+		Uint32 con = BIG_SIGN(ptr) ? HCONST_10 : HCONST_11;
+#if D_EXP == 16
+		do {
+		    Uint32 x, y;
+		    x = i < n ? BIG_DIGIT(ptr, i++) : 0;
+		    x += (Uint32)(i < n ? BIG_DIGIT(ptr, i++) : 0) << 16;
+		    y = i < n ? BIG_DIGIT(ptr, i++) : 0;
+		    y += (Uint32)(i < n ? BIG_DIGIT(ptr, i++) : 0) << 16;
+		    UINT32_HASH_2(x, y, con);
+		} while (i < n);
+#elif D_EXP == 32
+		do {
+		    Uint32 x, y;
+		    x = i < n ? BIG_DIGIT(ptr, i++) : 0;
+		    y = i < n ? BIG_DIGIT(ptr, i++) : 0;
+		    UINT32_HASH_2(x, y, con);
+		} while (i < n);
+#elif D_EXP == 64
+		do {
+		    Uint t;
+		    Uint32 x, y;
+                    ASSERT(i < n);
+		    t = BIG_DIGIT(ptr, i++);
+		    x = t & 0xffffffff;
+		    y = t >> 32;
+		    UINT32_HASH_2(x, y, con);
+		} while (i < n);
+#else
+#error "unsupported D_EXP size"
+#endif
+		goto pop_next;
+	    }
+	    break;
+	    case REF_SUBTAG:
+		UINT32_HASH(internal_ref_numbers(term)[0], HCONST_7);
+                ASSERT(internal_ref_no_of_numbers(term) == 3);
+                UINT32_HASH_2(internal_ref_numbers(term)[1],
+                              internal_ref_numbers(term)[2], HCONST_8);
+                goto pop_next;
+
+            case EXTERNAL_REF_SUBTAG:
+            {
+                ExternalThing* thing = external_thing_ptr(term);
+
+                ASSERT(external_thing_ref_no_of_numbers(thing) == 3);
+                /* See limitation #2 */
+            #ifdef ARCH_64
+                POINTER_HASH(thing->node, HCONST_7);
+                UINT32_HASH(external_thing_ref_numbers(thing)[0], HCONST_7);
+            #else
+                UINT32_HASH_2(thing->node,
+                              external_thing_ref_numbers(thing)[0], HCONST_7);
+            #endif
+                UINT32_HASH_2(external_thing_ref_numbers(thing)[1],
+                              external_thing_ref_numbers(thing)[2], HCONST_8);
+                goto pop_next;
+            }
+            case EXTERNAL_PID_SUBTAG: {
+                ExternalThing* thing = external_thing_ptr(term);
+                /* See limitation #2 */
+            #ifdef ARCH_64
+                POINTER_HASH(thing->node, HCONST_5);
+                UINT32_HASH(thing->data.ui[0], HCONST_5);
+            #else
+                UINT32_HASH_2(thing->node, thing->data.ui[0], HCONST_5);
+            #endif
+		goto pop_next;
+            }
+	    case EXTERNAL_PORT_SUBTAG: {
+                ExternalThing* thing = external_thing_ptr(term);
+                /* See limitation #2 */
+            #ifdef ARCH_64
+                POINTER_HASH(thing->node, HCONST_6);
+                UINT32_HASH(thing->data.ui[0], HCONST_6);
+            #else
+                UINT32_HASH_2(thing->node, thing->data.ui[0], HCONST_6);
+            #endif
+		goto pop_next;
+            }
+	    case FLOAT_SUBTAG:
+	    {
+		FloatDef ff;
+		GET_DOUBLE(term, ff);
+                if (ff.fd == 0.0f) {
+                    /* ensure positive 0.0 */
+                    ff.fd = erts_get_positive_zero_float();
+                }
+		UINT32_HASH_2(ff.fw[0], ff.fw[1], HCONST_12);
+		goto pop_next;
+	    }
+	    default:
+		erl_exit(1, "Invalid tag in make_hash2(0x%X)\n", term);
+	    }
+	}
+	break;
+        case TAG_PRIMARY_IMMED1:
+        #if ERTS_SIZEOF_ETERM == 8
+            UINT32_HASH_2((Uint32)term, (Uint32)(term >> 32), HCONST);
+        #else
+            UINT32_HASH(term, HCONST);
+        #endif
+            goto pop_next;
+
+	default:
+	    erl_exit(1, "Invalid tag in make_hash2(0x%X)\n", term);
+
+	pop_next:
+	    if (ESTACK_ISEMPTY(s)) {
+		DESTROY_ESTACK(s);
+		return hash;
+	    }
+
+	    term = ESTACK_POP(s);
+
+	    switch (term) {
+		case HASH_MAP_TAIL: {
+		    hash = (Uint32) ESTACK_POP(s);
+                    UINT32_HASH(hash_xor_pairs, HCONST_19);
+		    hash_xor_pairs = (Uint32) ESTACK_POP(s);
+		    goto pop_next;
+		}
+		case HASH_MAP_PAIR:
+		    hash_xor_pairs ^= hash;
+		    hash = 0;
+		    goto pop_next;
+
+	        case HASH_CDR:
+		    CONST_HASH(HCONST_18);   /* Hash CDR i cons cell */
+		    goto pop_next;
+		default:
+		    break;
+	    }
+	}
+    }
+    }
+
+#undef CONST_HASH
 #undef HASH_MAP_TAIL
-#undef HASH_MAP_KEY
-#undef HASH_MAP_VAL
+#undef HASH_MAP_PAIR
+#undef HASH_CDR
 
 #undef UINT32_HASH_2
 #undef UINT32_HASH
@@ -1613,12 +2087,15 @@ tail_recur:
 	break;
     case FLOAT_DEF: 
 	{
-	    FloatDef ff;
-	    GET_DOUBLE(term, ff);
-	    hash = hash*FUNNY_NUMBER6 + (ff.fw[0] ^ ff.fw[1]);
+            FloatDef ff;
+            GET_DOUBLE(term, ff);
+            if (ff.fd == 0.0f) {
+                /* ensure positive 0.0 */
+                ff.fd = erts_get_positive_zero_float();
+            }
+            hash = hash*FUNNY_NUMBER6 + (ff.fw[0] ^ ff.fw[1]);
 	}
 	break;
-
     case MAKE_HASH_CDR_PRE_OP:
 	term = (Eterm) WSTACK_POP(stack);
 	if (is_not_list(term)) {
@@ -1699,23 +2176,8 @@ tail_recur:
 	break;
 
     case MAP_DEF:
-	{
-	    map_t *mp = (map_t *)map_val(term);
-	    int size  = map_get_size(mp);
-	    Eterm *ks = map_get_keys(mp);
-	    Eterm *vs = map_get_values(mp);
-
-	    /* Use a prime with size to remedy some of
-	     * the {} and <<>> hash problems */
-	    hash = hash*FUNNY_NUMBER13 + FUNNY_NUMBER14 + size;
-	    if (size == 0)
-		break;
-
-	    /* push values first */
-	    WSTACK_PUSH3(stack, (UWord)vs, (UWord) size, MAKE_HASH_TERM_ARRAY_OP);
-	    WSTACK_PUSH3(stack, (UWord)ks, (UWord) size, MAKE_HASH_TERM_ARRAY_OP);
-	    break;
-	}
+        hash = hash*FUNNY_NUMBER13 + FUNNY_NUMBER14 + make_hash2(term);
+        break;
     case TUPLE_DEF: 
 	{
 	    Eterm* ptr = tuple_val(term);
@@ -1847,11 +2309,7 @@ static int do_send_to_logger(Eterm tag, Eterm gleader, char *buf, int len)
 	erts_queue_error_logger_message(from, tuple3, bp);
     }
 #else
-    erts_queue_message(p, NULL /* only used for smp build */, bp, tuple3, NIL
-#ifdef USE_VM_PROBES
-		       , NIL
-#endif
-		       );
+    erts_queue_message(p, NULL /* only used for smp build */, bp, tuple3, NIL);
 #endif
     return 0;
 }
@@ -2120,22 +2578,6 @@ tailrecur_ne:
 		    ++bb;
 		    goto term_array;
 		}
-	    case MAP_SUBTAG:
-		{
-		    aa = map_val_rel(a, a_base);
-		    if (!is_boxed(b) || *boxed_val_rel(b,b_base) != *aa)
-			goto not_equal;
-		    bb = map_val_rel(b,b_base);
-		    sz = map_get_size((map_t*)aa);
-
-		    if (sz != map_get_size((map_t*)bb)) goto not_equal;
-		    if (sz == 0) goto pop_next;
-
-		    aa += 2;
-		    bb += 2;
-		    sz += 1; /* increment for tuple-keys */
-		    goto term_array;
-		}
 	    case REFC_BINARY_SUBTAG:
 	    case HEAP_BINARY_SUBTAG:
 	    case SUB_BINARY_SUBTAG:
@@ -2327,6 +2769,46 @@ tailrecur_ne:
 		    }
 		    break; /* not equal */
 		}
+	    case MAP_SUBTAG:
+                if (is_flatmap_rel(a, a_base)) {
+		    aa = flatmap_val_rel(a, a_base);
+		    if (!is_boxed(b) || *boxed_val_rel(b,b_base) != *aa)
+			goto not_equal;
+		    bb = flatmap_val_rel(b,b_base);
+		    sz = flatmap_get_size((flatmap_t*)aa);
+
+		    if (sz != flatmap_get_size((flatmap_t*)bb)) goto not_equal;
+		    if (sz == 0) goto pop_next;
+
+		    aa += 2;
+		    bb += 2;
+		    sz += 1; /* increment for tuple-keys */
+		    goto term_array;
+
+                } else {
+		    if (!is_boxed(b) || *boxed_val_rel(b,b_base) != hdr)
+			goto not_equal;
+
+		    aa = hashmap_val_rel(a, a_base) + 1;
+		    bb = hashmap_val_rel(b, b_base) + 1;
+		    switch (hdr & _HEADER_MAP_SUBTAG_MASK) {
+		    case HAMT_SUBTAG_HEAD_ARRAY:
+			aa++; bb++;
+			sz = 16;
+			break;
+		    case HAMT_SUBTAG_HEAD_BITMAP:
+			aa++; bb++;
+		    case HAMT_SUBTAG_NODE_BITMAP:
+			sz = hashmap_bitcount(MAP_HEADER_VAL(hdr));
+			ASSERT(sz > 0 && sz < 17);
+			break;
+		    default:
+			erl_exit(1, "Unknown hashmap subsubtag\n");
+		    }
+		    goto term_array;
+		}
+	    default:
+		ASSERT(!"Unknown boxed subtab in EQ");
 	    }
 	    break;
 	}
@@ -2436,21 +2918,68 @@ static int cmp_atoms(Eterm a, Eterm b)
  */
 Sint cmp(Eterm a, Eterm b)
 {
-    return erts_cmp(a, b, 0);
+    return erts_cmp(a, b, 0, 0);
 }
 #endif
+
+#if HALFWORD_HEAP
+static Sint erts_cmp_compound_rel_opt(Eterm a, Eterm* a_base,
+                                      Eterm b, Eterm* b_base,
+                                      int exact, int eq_only);
+#else
+static Sint erts_cmp_compound(Eterm a, Eterm b, int exact, int eq_only);
+#endif
+
+#if HALFWORD_HEAP
+Sint erts_cmp_rel_opt(Eterm a, Eterm* a_base,
+                      Eterm b, Eterm* b_base,
+                      int exact, int eq_only)
+#else
+Sint erts_cmp(Eterm a, Eterm b, int exact, int eq_only)
+#endif
+{
+    if (is_atom(a) && is_atom(b)) {
+        return cmp_atoms(a, b);
+    } else if (is_both_small(a, b)) {
+        return (signed_val(a) - signed_val(b));
+    } else if (is_float_rel(a, a_base) && is_float_rel(b, b_base)) {
+        FloatDef af, bf;
+        GET_DOUBLE_REL(a, af, a_base);
+        GET_DOUBLE_REL(b, bf, b_base);
+        return float_comp(af.fd, bf.fd);
+    }
+#if HALFWORD_HEAP
+    return erts_cmp_compound_rel_opt(a,a_base,b,b_base,exact,eq_only);
+#else
+    return erts_cmp_compound(a,b,exact,eq_only);
+#endif
+}
+
 
 /* erts_cmp(Eterm a, Eterm b, int exact)
  * exact = 1 -> term-based compare
  * exact = 0 -> arith-based compare
  */
 #if HALFWORD_HEAP
-Sint erts_cmp_rel_opt(Eterm a, Eterm* a_base, Eterm b, Eterm* b_base, int exact)
+static Sint erts_cmp_compound_rel_opt(Eterm a, Eterm* a_base,
+                                      Eterm b, Eterm* b_base,
+                                      int exact, int eq_only)
 #else
-Sint erts_cmp(Eterm a, Eterm b, int exact)
+static Sint erts_cmp_compound(Eterm a, Eterm b, int exact, int eq_only)
 #endif
 {
-    DECLARE_WSTACK(stack);
+#define PSTACK_TYPE struct erts_cmp_hashmap_state
+    struct erts_cmp_hashmap_state {
+        Sint wstack_rollback;
+        int was_exact;
+        Eterm *ap;
+        Eterm *bp;
+        Eterm min_key;
+        Sint cmp_res;   /* result so far -1,0,+1 */
+    };
+    PSTACK_DECLARE(hmap_stack, 1);
+    WSTACK_DECLARE(stack);
+    WSTACK_DECLARE(b_stack); /* only used by hashmaps */
     Eterm* aa;
     Eterm* bb;
     int i;
@@ -2465,6 +2994,26 @@ Sint erts_cmp(Eterm a, Eterm b, int exact)
     Uint blen;
     Uint32 *anum;
     Uint32 *bnum;
+
+/* The WSTACK contains naked Eterms and Operations marked with header-tags */
+#define OP_BITS 4
+#define OP_MASK 0xF
+#define TERM_ARRAY_OP                 0
+#define SWITCH_EXACT_OFF_OP           1
+#define HASHMAP_PHASE1_ARE_KEYS_EQUAL 2
+#define HASHMAP_PHASE1_IS_MIN_KEY     3
+#define HASHMAP_PHASE1_CMP_VALUES     4
+#define HASHMAP_PHASE2_ARE_KEYS_EQUAL 5
+#define HASHMAP_PHASE2_IS_MIN_KEY_A   6
+#define HASHMAP_PHASE2_IS_MIN_KEY_B   7
+
+
+#define OP_WORD(OP)  (((OP)  << _TAG_PRIMARY_SIZE) | TAG_PRIMARY_HEADER)
+#define TERM_ARRAY_OP_WORD(SZ) OP_WORD(((SZ) << OP_BITS) | TERM_ARRAY_OP)
+
+#define GET_OP(WORD) (ASSERT(is_header(WORD)), ((WORD) >> _TAG_PRIMARY_SIZE) & OP_MASK)
+#define GET_OP_ARG(WORD) (ASSERT(is_header(WORD)), ((WORD) >> (OP_BITS + _TAG_PRIMARY_SIZE)))
+
 
 #define RETURN_NEQ(cmp) { j=(cmp); ASSERT(j != 0); goto not_equal; }
 #define ON_CMP_GOTO(cmp) if ((j=(cmp)) == 0) goto pop_next; else goto not_equal
@@ -2481,6 +3030,8 @@ Sint erts_cmp(Eterm a, Eterm b, int exact)
     } while (0)
 
 
+bodyrecur:
+    j = 0;
 tailrecur:
     if (is_same(a,a_base,b,b_base)) {	/* Equal values or pointers. */
 	goto pop_next;
@@ -2607,25 +3158,96 @@ tailrecur_ne:
 		++aa;
 		++bb;
 		goto term_array;
-	    case (_TAG_HEADER_MAP >> _TAG_PRIMARY_SIZE) :
-		if (!is_map_rel(b,b_base)) {
-		    a_tag = MAP_DEF;
-		    goto mixed_types;
-		}
-		aa = (Eterm *)map_val_rel(a,a_base);
-		bb = (Eterm *)map_val_rel(b,b_base);
+            case (_TAG_HEADER_MAP >> _TAG_PRIMARY_SIZE) :
+		{
+                    struct erts_cmp_hashmap_state* sp;
+                    if (is_flatmap_header(ahdr)) {
+                        if (!is_flatmap_rel(b,b_base)) {
+                            if (is_hashmap_rel(b,b_base)) {
+                                aa = (Eterm *)flatmap_val_rel(a,a_base);
+                                i = flatmap_get_size((flatmap_t*)aa) - hashmap_size_rel(b,b_base);
+                                ASSERT(i != 0);
+                                RETURN_NEQ(i);
+                            }
+                            a_tag = MAP_DEF;
+                            goto mixed_types;
+                        }
+                        aa = (Eterm *)flatmap_val_rel(a,a_base);
+                        bb = (Eterm *)flatmap_val_rel(b,b_base);
 
-		i = map_get_size((map_t*)aa);
-		if (i != map_get_size((map_t*)bb)) {
-		    RETURN_NEQ((int)(i - map_get_size((map_t*)bb)));
+                        i = flatmap_get_size((flatmap_t*)aa);
+                        if (i != flatmap_get_size((flatmap_t*)bb)) {
+                            RETURN_NEQ((int)(i - flatmap_get_size((flatmap_t*)bb)));
+                        }
+                        if (i == 0) {
+                            goto pop_next;
+                        }
+                        aa += 2;
+                        bb += 2;
+                        if (exact) {
+                            i  += 1; /* increment for tuple-keys */
+                            goto term_array;
+                        }
+                        else {
+                            /* Value array */
+                            WSTACK_PUSH3(stack,(UWord)(bb+1),(UWord)(aa+1),TERM_ARRAY_OP_WORD(i));
+                            /* Switch back from 'exact' key compare */
+                            WSTACK_PUSH(stack,OP_WORD(SWITCH_EXACT_OFF_OP));
+                            /* Now do 'exact' compare of key tuples */
+                            a = *aa;
+                            b = *bb;
+                            exact = 1;
+                            goto bodyrecur;
+                        }
+                    }
+		    if (!is_hashmap_rel(b,b_base)) {
+                        if (is_flatmap_rel(b,b_base)) {
+                            bb = (Eterm *)flatmap_val_rel(b,b_base);
+                            i = hashmap_size_rel(a,a_base) - flatmap_get_size((flatmap_t*)bb);
+                            ASSERT(i != 0);
+                            RETURN_NEQ(i);
+                        }
+			a_tag = MAP_DEF;
+			goto mixed_types;
+		    }
+		    i = hashmap_size_rel(a,a_base) - hashmap_size_rel(b,b_base);
+		    if (i) {
+			RETURN_NEQ(i);
+		    }
+                    if (hashmap_size_rel(a,a_base) == 0) {
+                        goto pop_next;
+                    }
+
+                /* Hashmap compare strategy:
+                   Phase 1. While keys are identical
+                     Do synchronous stepping through leafs of both trees in hash
+                     order. Maintain value compare result of minimal key.
+
+                   Phase 2. If key diff was found in phase 1
+                     Ignore values from now on.
+                     Continue iterate trees by always advancing the one
+                     lagging behind hash-wise. Identical keys are skipped.
+                     A minimal key can only be candidate as tie-breaker if we
+                     have passed that hash value in the other tree (which means
+                     the key did not exist in the other tree).
+                */
+
+                    sp = PSTACK_PUSH(hmap_stack);
+                    hashmap_iterator_init(&stack, a, 0);
+                    hashmap_iterator_init(&b_stack, b, 0);
+                    sp->ap = hashmap_iterator_next(&stack);
+                    sp->bp = hashmap_iterator_next(&b_stack);
+                    sp->cmp_res = 0;
+                    ASSERT(sp->ap && sp->bp);
+
+                    a = CAR(sp->ap);
+                    b = CAR(sp->bp);
+                    sp->was_exact = exact;
+                    exact = 1;
+                    WSTACK_PUSH(stack, OP_WORD(HASHMAP_PHASE1_ARE_KEYS_EQUAL));
+                    sp->wstack_rollback = WSTACK_COUNT(stack);
+                    goto bodyrecur;
 		}
-		if (i == 0) {
-		    goto pop_next;
-		}
-		aa += 2;
-		bb += 2;
-		i  += 1; /* increment for tuple-keys */
-		goto term_array;
 	    case (_TAG_HEADER_FLOAT >> _TAG_PRIMARY_SIZE):
 		if (!is_float_rel(b,b_base)) {
 		    a_tag = FLOAT_DEF;
@@ -2985,8 +3607,7 @@ term_array: /* arrays in 'aa' and 'bb', length in 'i' */
 		    goto not_equal;
 		}
 	    } else {
-		/* (ab)Use TAG_PRIMARY_HEADER to recognize a term_array */
-		WSTACK_PUSH3(stack, i, (UWord)bb, (UWord)aa | TAG_PRIMARY_HEADER);
+		WSTACK_PUSH3(stack, (UWord)bb, (UWord)aa, TERM_ARRAY_OP_WORD(i));
 		goto tailrecur_ne;
 	    }
 	}
@@ -2998,22 +3619,179 @@ term_array: /* arrays in 'aa' and 'bb', length in 'i' */
 pop_next:
     if (!WSTACK_ISEMPTY(stack)) {
 	UWord something = WSTACK_POP(stack);
-	if (primary_tag((Eterm) something) == TAG_PRIMARY_HEADER) { /* a term_array */
-	    aa = (Eterm*) something;
-	    bb = (Eterm*) WSTACK_POP(stack);
-	    i = WSTACK_POP(stack);
-	    goto term_array;
+        struct erts_cmp_hashmap_state* sp;
+	if (primary_tag((Eterm) something) == TAG_PRIMARY_HEADER) { /* an operation */
+	    switch (GET_OP(something)) {
+	    case TERM_ARRAY_OP:
+		i = GET_OP_ARG(something);
+		aa = (Eterm*)WSTACK_POP(stack);
+		bb = (Eterm*) WSTACK_POP(stack);
+		goto term_array;
+
+	    case SWITCH_EXACT_OFF_OP:
+		/* Done with exact compare of map keys, switch back */
+		ASSERT(exact);
+		exact = 0;
+		goto pop_next;
+
+            case HASHMAP_PHASE1_ARE_KEYS_EQUAL: {
+                sp = PSTACK_TOP(hmap_stack);
+                if (j) {
+                    /* Key diff found, enter phase 2 */
+                    if (hashmap_key_hash_cmp(sp->ap, sp->bp) < 0) {
+                        sp->min_key = CAR(sp->ap);
+                        sp->cmp_res = -1;
+                        sp->ap = hashmap_iterator_next(&stack);
+                    }
+                    else {
+                        sp->min_key = CAR(sp->bp);
+                        sp->cmp_res = 1;
+                        sp->bp = hashmap_iterator_next(&b_stack);
+                    }
+                    exact = 1; /* only exact key compares in phase 2 */
+                    goto case_HASHMAP_PHASE2_LOOP;
+                }
+
+                /* No key diff found so far, compare values if min key */
+
+                if (sp->cmp_res) {
+                    a = CAR(sp->ap);
+                    b = sp->min_key;
+                    exact = 1;
+                    WSTACK_PUSH(stack, OP_WORD(HASHMAP_PHASE1_IS_MIN_KEY));
+                    sp->wstack_rollback = WSTACK_COUNT(stack);
+                    goto bodyrecur;
+                }
+                /* no min key-value found yet */
+                a = CDR(sp->ap);
+                b = CDR(sp->bp);
+                exact = sp->was_exact;
+                WSTACK_PUSH(stack, OP_WORD(HASHMAP_PHASE1_CMP_VALUES));
+                sp->wstack_rollback = WSTACK_COUNT(stack);
+                goto bodyrecur;
+            }
+            case HASHMAP_PHASE1_IS_MIN_KEY:
+                sp = PSTACK_TOP(hmap_stack);
+                if (j < 0) {
+                    a = CDR(sp->ap);
+                    b = CDR(sp->bp);
+                    exact = sp->was_exact;
+                    WSTACK_PUSH(stack, OP_WORD(HASHMAP_PHASE1_CMP_VALUES));
+                    sp->wstack_rollback = WSTACK_COUNT(stack);
+                    goto bodyrecur;
+                }
+                goto case_HASHMAP_PHASE1_LOOP;
+
+            case HASHMAP_PHASE1_CMP_VALUES:
+                sp = PSTACK_TOP(hmap_stack);
+                if (j) {
+                    sp->cmp_res = j;
+                    sp->min_key = CAR(sp->ap);
+                }
+            case_HASHMAP_PHASE1_LOOP:
+                sp->ap = hashmap_iterator_next(&stack);
+                sp->bp = hashmap_iterator_next(&b_stack);
+                if (!sp->ap) {
+                    /* end of maps with identical keys */
+                    ASSERT(!sp->bp);
+                    j = sp->cmp_res;
+                    exact = sp->was_exact;
+                    (void) PSTACK_POP(hmap_stack);
+                    ON_CMP_GOTO(j);
+                }
+                a = CAR(sp->ap);
+                b = CAR(sp->bp);
+                exact = 1;
+                WSTACK_PUSH(stack, OP_WORD(HASHMAP_PHASE1_ARE_KEYS_EQUAL));
+                sp->wstack_rollback = WSTACK_COUNT(stack);
+                goto bodyrecur;
+
+            case_HASHMAP_PHASE2_LOOP:
+                if (sp->ap && sp->bp) {
+                    a = CAR(sp->ap);
+                    b = CAR(sp->bp);
+                    ASSERT(exact);
+                    WSTACK_PUSH(stack, OP_WORD(HASHMAP_PHASE2_ARE_KEYS_EQUAL));
+                    sp->wstack_rollback = WSTACK_COUNT(stack);
+                    goto bodyrecur;
+                }
+                goto case_HASHMAP_PHASE2_NEXT_STEP;
+
+            case HASHMAP_PHASE2_ARE_KEYS_EQUAL:
+                sp = PSTACK_TOP(hmap_stack);
+                if (j == 0) {
+                    /* keys are equal, skip them */
+                    sp->ap = hashmap_iterator_next(&stack);
+                    sp->bp = hashmap_iterator_next(&b_stack);
+                    goto case_HASHMAP_PHASE2_LOOP;
+                }
+                /* fall through */
+            case_HASHMAP_PHASE2_NEXT_STEP:
+                if (sp->ap || sp->bp) {
+                    if (hashmap_key_hash_cmp(sp->ap, sp->bp) < 0) {
+                        ASSERT(sp->ap);
+                        a = CAR(sp->ap);
+                        b = sp->min_key;
+                        ASSERT(exact);
+                        WSTACK_PUSH(stack, OP_WORD(HASHMAP_PHASE2_IS_MIN_KEY_A));
+                    }
+                    else { /* hash_cmp > 0 */
+                        ASSERT(sp->bp);
+                        a = CAR(sp->bp);
+                        b = sp->min_key;
+                        ASSERT(exact);
+                        WSTACK_PUSH(stack, OP_WORD(HASHMAP_PHASE2_IS_MIN_KEY_B));
+                    }
+                    sp->wstack_rollback = WSTACK_COUNT(stack);
+                    goto bodyrecur;
+                }
+                /* End of both maps */
+                j = sp->cmp_res;
+                exact = sp->was_exact;
+                (void) PSTACK_POP(hmap_stack);
+                ON_CMP_GOTO(j);
+
+            case HASHMAP_PHASE2_IS_MIN_KEY_A:
+                sp = PSTACK_TOP(hmap_stack);
+                if (j < 0) {
+                    sp->min_key = CAR(sp->ap);
+                    sp->cmp_res = -1;
+                }
+                sp->ap = hashmap_iterator_next(&stack);
+                goto case_HASHMAP_PHASE2_LOOP;
+
+            case HASHMAP_PHASE2_IS_MIN_KEY_B:
+                sp = PSTACK_TOP(hmap_stack);
+                if (j < 0) {
+                    sp->min_key = CAR(sp->bp);
+                    sp->cmp_res = 1;
+                }
+                sp->bp = hashmap_iterator_next(&b_stack);
+                goto case_HASHMAP_PHASE2_LOOP;
+
+            default:
+                ASSERT(!"Invalid cmp op");
+            } /* switch */
 	}
 	a = (Eterm) something;
 	b = (Eterm) WSTACK_POP(stack);
 	goto tailrecur;
     }
 
-    DESTROY_WSTACK(stack);
+    ASSERT(PSTACK_IS_EMPTY(hmap_stack));
+    PSTACK_DESTROY(hmap_stack);
+    WSTACK_DESTROY(stack);
+    WSTACK_DESTROY(b_stack);
     return 0;
 
 not_equal:
-    DESTROY_WSTACK(stack);
+    if (!PSTACK_IS_EMPTY(hmap_stack) && !eq_only) {
+        WSTACK_ROLLBACK(stack, PSTACK_TOP(hmap_stack)->wstack_rollback);
+        goto pop_next;
+    }
+    PSTACK_DESTROY(hmap_stack);
+    WSTACK_DESTROY(stack);
+    WSTACK_DESTROY(b_stack);
     return j;
 
 #undef CMP_NODES
@@ -3776,7 +4554,7 @@ erts_create_smp_ptimer(ErtsSmpPTimer **timer_ref,
     res->timer.timeout_func = timeout_func;
     res->timer.timer_ref = timer_ref;
     res->timer.id = id;
-    res->timer.tm.active = 0; /* MUST be initalized */
+    erts_init_timer(&res->timer.tm);
 
     ASSERT(!*timer_ref);
 
@@ -4353,8 +5131,8 @@ erts_smp_ensure_later_interval_acqb(erts_interval_t *icp, Uint64 ic)
  */
 Uint64 erts_timestamp_millis(void)
 {
-#ifdef HAVE_GETHRTIME
-    return (Uint64) (sys_gethrtime() / 1000000);
+#ifdef ERTS_HAVE_OS_MONOTONIC_TIME_SUPPORT
+    return ERTS_MONOTONIC_TO_MSEC(erts_os_monotonic_time());
 #else
     Uint64 res;
     SysTimeval tv;

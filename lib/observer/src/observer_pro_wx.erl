@@ -578,7 +578,7 @@ get_row(From, Row, pid, Info) ->
 	  end,
     From ! {self(), Pid};
 get_row(From, Row, Col, Info) ->
-    Data = case Row > array:size(Info) of
+    Data = case Row >= array:size(Info) of
 	       true ->
 		   "";
 	       false ->

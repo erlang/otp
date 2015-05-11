@@ -32,7 +32,6 @@
 %% {load_module, Mod, PrePurge, PostPurge, [Mod]}
 %% {add_module, Mod}
 %% {add_module, Mod, [Mod]}
-%% {remove_module, Mod, PrePurge, PostPurge, [Mod]}
 %% {restart_application, Appl}
 %% {add_application, Appl, Type}
 %% {remove_application, Appl}
@@ -59,7 +58,7 @@
 
 %% High-level instructions that contain dependencies
 %%
--define(DEP_INSTRS, [update, load_module, add_module, remove_module]).
+-define(DEP_INSTRS, [update, load_module, add_module, delete_module]).
 
 %%-----------------------------------------------------------------
 %% translate_scripts(Scripts, Appls, PreAppls) -> Res
@@ -107,9 +106,6 @@ expand_script([I|Script]) ->
 	     {update, Mod, Change, Mods} when Change==soft,
 					      is_list(Mods) ->
 		 {update, Mod, Change, brutal_purge,brutal_purge, Mods};
-	     {delete_module, Mod} ->
-		 [{remove, {Mod, brutal_purge, brutal_purge}},
-		  {purge, [Mod]}];
 	     {add_application, Application} ->
 		 {add_application, Application, permanent};
 	     _ ->
@@ -301,6 +297,8 @@ normalize_instrs(Script) ->
 		       PostPurge, Mods};
 		 ({add_module, Mod}) ->
 		      {add_module, Mod, []};
+		 ({delete_module, Mod}) ->
+		      {delete_module, Mod, []};
 		 (I) ->
 		      I
 	      end, Script).
@@ -412,7 +410,7 @@ translate_add_module_instrs(Before, After) ->
 %%-----------------------------------------------------------------
 
 %%-----------------------------------------------------------------
-%% Translates update, load_module and remove_module, and reorder the
+%% Translates update, load_module and delete_module, and reorder the
 %% instructions according to dependencies. Leaves other instructions
 %% unchanged.
 %%-----------------------------------------------------------------
@@ -538,7 +536,7 @@ get_dependent_instructions(G, WCs, Mod) ->
 %% Instructions are in order of dependency.
 %% Appls = [#application]
 %%
-%% Instructions translated are: update, load_module, and remove_module 
+%% Instructions translated are: update, load_module, and delete_module
 %%
 %% Before =	[{load_object_code, ...}]
 %% After = 	[{suspend, ...}] ++ CodeInstrs ++ [{resume, ...}]
@@ -576,17 +574,19 @@ translate_dep_to_low(Mode, Instructions, Appls) ->
 				end, RevUpdateMods)}]
 	end,
 
-    LoadRemoveInstrs = 
+    LoadRemoveInstrs0 =
 	filtermap(fun({update, Mod, _, _, _, PreP, PostP, _}) ->
 			  {true, {load, {Mod, PreP, PostP}}};
 		     ({load_module, Mod, PreP, PostP, _}) ->
 			  {true, {load, {Mod, PreP, PostP}}};
-		     ({remove_module, Mod, PreP, PostP, _}) ->
-			  {true, {remove, {Mod, PreP, PostP}}};
+		     ({delete_module, Mod, _}) ->
+			  {true,[{remove, {Mod, brutal_purge, brutal_purge}},
+				 {purge, [Mod]}]};
 		     (_) -> false
 		  end,
 		  Instructions),
-    RevLoadRemoveInstrs = lists:reverse(LoadRemoveInstrs),
+    LoadRemoveInstrs = lists:flatten(LoadRemoveInstrs0),
+    RevLoadRemoveInstrs = lists:flatten(lists:reverse(LoadRemoveInstrs0)),
 
     %% The order of loading object code is unimportant. The order
     %% chosen is the order of dependency.
@@ -781,10 +781,10 @@ check_op({add_module, Mod, Mods}) ->
     check_mod(Mod),
     check_list(Mods),
     lists:foreach(fun(M) -> check_mod(M) end, Mods);
-check_op({remove_module, Mod, PrePurge, PostPurge, Mods}) ->
+check_op({delete_module, Mod}) ->
+    check_mod(Mod);
+check_op({delete_module, Mod, Mods}) ->
     check_mod(Mod),
-    check_purge(PrePurge),
-    check_purge(PostPurge),
     check_list(Mods),
     lists:foreach(fun(M) -> check_mod(M) end, Mods);
 check_op({remove_application, Appl}) ->

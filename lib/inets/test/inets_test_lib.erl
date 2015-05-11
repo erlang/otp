@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2001-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -498,13 +498,6 @@ close(essl,Socket) ->
 close(ip_comm,Socket) ->
     catch gen_tcp:close(Socket).
 
-millis() ->
-    erlang:now().
-
-millis_diff(A,B) ->
-    T1 = (element(1,A)*1000000) + element(2,A) + (element(3,A)/1000000),
-    T2 = (element(1,B)*1000000) + element(2,B) + (element(3,B)/1000000),
-    T1 - T2.
 
 hours(N)   -> trunc(N * 1000 * 60 * 60).
 minutes(N) -> trunc(N * 1000 * 60).
@@ -546,7 +539,7 @@ flush() ->
 tsp(F) ->
     tsp(F, []).
 tsp(F, A) ->
-    Timestamp = formated_timestamp(), 
+    Timestamp = inets_lib:formated_timestamp(),
     ct:pal("*** ~s ~p ~p " ++ F ++ "~n", 
 		       [Timestamp, node(), self() | A]).
 
@@ -558,18 +551,6 @@ tss(Time) ->
 
 timestamp() ->
     http_util:timestamp().
-
-formated_timestamp() ->
-    format_timestamp( os:timestamp() ).
-
-format_timestamp({_N1, _N2, N3} = Now) ->
-    {Date, Time}   = calendar:now_to_datetime(Now),
-    {YYYY,MM,DD}   = Date,
-    {Hour,Min,Sec} = Time,
-    FormatDate =
-        io_lib:format("~.4w:~.2.0w:~.2.0w ~.2.0w:~.2.0w:~.2.0w 4~w",
-                      [YYYY,MM,DD,Hour,Min,Sec,round(N3/1000)]),
-    lists:flatten(FormatDate).
 
 start_apps(Apps) ->
     lists:foreach(fun(App) ->

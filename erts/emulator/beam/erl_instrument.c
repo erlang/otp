@@ -1226,7 +1226,7 @@ erts_instr_init(int stat, int map_stat)
     mem_anchor = NULL;
 
     /* Install instrumentation functions */
-    ASSERT(sizeof(erts_allctrs) == sizeof(real_allctrs));
+    ERTS_CT_ASSERT(sizeof(erts_allctrs) == sizeof(real_allctrs));
 
     sys_memcpy((void *)real_allctrs,(void *)erts_allctrs,sizeof(erts_allctrs));
 

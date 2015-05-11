@@ -28,8 +28,9 @@
     <rev></rev>
   </header>
   <description>
-    <p>This chapter contains examples on using records, funs, list
-      comprehensions and the bit syntax.</p>
+ <marker id="programming examples"></marker>
+    <p>This section contains examples on using records, funs, list
+      comprehensions, and the bit syntax.</p>
   </description>
   <xi:include href="records.xml"/>
   <xi:include href="funs.xml"/>

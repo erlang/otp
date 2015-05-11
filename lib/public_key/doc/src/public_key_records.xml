@@ -115,7 +115,7 @@
     <code>	 
 #'ECPrivateKey'{
           version,       % integer()
-	  privateKey,    % octet_string()  
+	  privateKey,    % binary()
 	  parameters,    % der_encoded() - {'EcpkParameters', #'ECParameters'{}} |
 	                                   {'EcpkParameters', {namedCurve, oid()}} |
 	                                   {'EcpkParameters', 'NULL'} % Inherited by CA
@@ -126,14 +126,14 @@
       version,    % integer()
       fieldID,    % #'FieldID'{}
       curve,      % #'Curve'{}
-      base,       % octet_string()       
+      base,       % binary()
       order,      % integer()        
       cofactor    % integer()
       }.
       
 #'Curve'{
-	a,        % octet_string()
-	b,        % octet_string() 
+	a,        % binary()
+	b,        % binary()
 	seed      % bitstring() - optional
 
 	}.
@@ -144,7 +144,7 @@
 	}.
 
 #'ECPoint'{
-      point %  octet_string() - the public key
+      point % binary() - the public key
       }.
 
     </code>

@@ -792,16 +792,11 @@ keep_form(Form, Used, Opts) ->
             N = erl_syntax_lib:analyze_function(Form),
             case sets:is_element(N, Used) of
                 false ->
-                    report_removed_def("function", N, Form, Opts),
-                    false;
-                true ->
-                    true
-            end;
-        rule ->
-            N = erl_syntax_lib:analyze_rule(Form),
-            case sets:is_element(N, Used) of
-                false ->
-                    report_removed_def("rule", N, Form, Opts),
+                    {F, A} = N,
+                    File = proplists:get_value(file, Opts, ""),
+                    report({File, erl_syntax:get_pos(Form),
+                            "removing unused function `~w/~w'."},
+                           [F, A], Opts),
                     false;
                 true ->
                     true
@@ -823,22 +818,12 @@ keep_form(Form, Used, Opts) ->
             true
     end.
 
-report_removed_def(Type, {N, A}, Form, Opts) ->
-    File = proplists:get_value(file, Opts, ""),
-    report({File, erl_syntax:get_pos(Form),
-	    "removing unused ~s `~w/~w'."},
-	   [Type, N, A], Opts).
-
 collect_functions(Forms) ->
     lists:foldl(
       fun (F, {Names, Defs}) ->
               case erl_syntax:type(F) of
                   function ->
                       N = erl_syntax_lib:analyze_function(F),
-                      {sets:add_element(N, Names),
-                       dict:store(N, {F, []}, Defs)};
-                  rule ->
-                      N = erl_syntax_lib:analyze_rule(F),
                       {sets:add_element(N, Names),
                        dict:store(N, {F, []}, Defs)};
                   _ ->
@@ -852,11 +837,6 @@ update_forms([F | Fs], Defs, Imports, Opts) ->
     case erl_syntax:type(F) of
         function ->
             N = erl_syntax_lib:analyze_function(F),
-            {F1, Fs1} = dict:fetch(N, Defs),
-            [F1 | lists:reverse(Fs1)] ++ update_forms(Fs, Defs, Imports,
-                                                      Opts);
-        rule ->
-            N = erl_syntax_lib:analyze_rule(F),
             {F1, Fs1} = dict:fetch(N, Defs),
             [F1 | lists:reverse(Fs1)] ++ update_forms(Fs, Defs, Imports,
                                                       Opts);

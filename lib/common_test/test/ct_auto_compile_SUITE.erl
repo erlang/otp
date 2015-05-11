@@ -108,6 +108,8 @@ ac_spec(Config) when is_list(Config) ->
     PrivDir = ?config(priv_dir, Config),
     file:copy(filename:join(DataDir, "bad_SUITE.erl"),
 	      filename:join(PrivDir, "bad_SUITE.erl")),
+    Suite = filename:join(DataDir, "dummy_SUITE"),
+    compile:file(Suite, [{outdir,PrivDir}]),
     TestSpec = [{label,ac_spec},
 		{auto_compile,false},
 		{suites,PrivDir,all}],
@@ -160,28 +162,34 @@ events_to_check(Test, N) ->
 
 test_events(ac_flag) ->
     [
-     {ct_test_support_eh,start_logging,{'DEF','RUNDIR'}},
-     {ct_test_support_eh,test_start,{'DEF',{'START_TIME','LOGDIR'}}},
-     {ct_test_support_eh,start_info,{1,1,3}},
-     {ct_test_support_eh,tc_start,{dummy_SUITE,init_per_suite}},
-     {ct_test_support_eh,tc_done,{dummy_SUITE,init_per_suite,ok}},
-     {ct_test_support_eh,test_stats,{1,1,{1,0}}},
-     {ct_test_support_eh,tc_start,{dummy_SUITE,end_per_suite}},
-     {ct_test_support_eh,tc_done,{dummy_SUITE,end_per_suite,ok}},
-     {ct_test_support_eh,test_done,{'DEF','STOP_TIME'}},
-     {ct_test_support_eh,stop_logging,[]}
+     {?eh,start_logging,{'DEF','RUNDIR'}},
+     {?eh,test_start,{'DEF',{'START_TIME','LOGDIR'}}},
+     {?eh,start_info,{1,1,3}},
+     {?eh,tc_start,{ct_framework,error_in_suite}},
+     {?eh,tc_done,{ct_framework,error_in_suite,
+       {failed,{error,'bad_SUITE can not be compiled or loaded'}}}},
+     {?eh,tc_start,{dummy_SUITE,init_per_suite}},
+     {?eh,tc_done,{dummy_SUITE,init_per_suite,ok}},
+     {?eh,test_stats,{1,1,{1,0}}},
+     {?eh,tc_start,{dummy_SUITE,end_per_suite}},
+     {?eh,tc_done,{dummy_SUITE,end_per_suite,ok}},
+     {?eh,test_done,{'DEF','STOP_TIME'}},
+     {?eh,stop_logging,[]}
     ];
 
 test_events(ac_spec) ->
     [
-     {ct_test_support_eh,start_logging,{'DEF','RUNDIR'}},
-     {ct_test_support_eh,test_start,{'DEF',{'START_TIME','LOGDIR'}}},
-     {ct_test_support_eh,start_info,{1,1,3}},
-     {ct_test_support_eh,tc_start,{dummy_SUITE,init_per_suite}},
-     {ct_test_support_eh,tc_done,{dummy_SUITE,init_per_suite,ok}},
-     {ct_test_support_eh,test_stats,{1,1,{1,0}}},
-     {ct_test_support_eh,tc_start,{dummy_SUITE,end_per_suite}},
-     {ct_test_support_eh,tc_done,{dummy_SUITE,end_per_suite,ok}},
-     {ct_test_support_eh,test_done,{'DEF','STOP_TIME'}},
-     {ct_test_support_eh,stop_logging,[]}
+     {?eh,start_logging,{'DEF','RUNDIR'}},
+     {?eh,test_start,{'DEF',{'START_TIME','LOGDIR'}}},
+     {?eh,start_info,{1,1,3}},
+     {?eh,tc_start,{ct_framework,error_in_suite}},
+     {?eh,tc_done,{ct_framework,error_in_suite,
+       {failed,{error,'bad_SUITE can not be compiled or loaded'}}}},
+     {?eh,tc_start,{dummy_SUITE,init_per_suite}},
+     {?eh,tc_done,{dummy_SUITE,init_per_suite,ok}},
+     {?eh,test_stats,{1,1,{1,0}}},
+     {?eh,tc_start,{dummy_SUITE,end_per_suite}},
+     {?eh,tc_done,{dummy_SUITE,end_per_suite,ok}},
+     {?eh,test_done,{'DEF','STOP_TIME'}},
+     {?eh,stop_logging,[]}
     ].

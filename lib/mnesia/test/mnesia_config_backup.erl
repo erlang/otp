@@ -90,7 +90,8 @@ open_read(Name) ->
 	    List = lists:reverse(ReverseList),
 	    {ok, #backup{name = Name, mode = read, items = List}};
 	{error, Reason} ->
-	    {error, {open_read, Reason}}
+	    %% {error, {open_read, Reason}}
+	    {Reason, error} %% Testing error handling in mnesia
     end.
 
 read(Opaque) when Opaque#backup.mode == read ->

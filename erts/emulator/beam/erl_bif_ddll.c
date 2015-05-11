@@ -45,6 +45,7 @@
 #include "big.h"
 #include "dist.h"
 #include "erl_version.h"
+#include "erl_bif_unique.h"
 #include "dtrace-wrapper.h"
 
 #ifdef ERTS_SMP
@@ -1730,11 +1731,7 @@ static void notify_proc(Process *proc, Eterm ref, Eterm driver_name, Eterm type,
 	hp += REF_THING_SIZE;
 	mess = TUPLE5(hp,type,r,am_driver,driver_name,tag);
     }
-    erts_queue_message(proc, &rp_locks, bp, mess, am_undefined
-#ifdef USE_VM_PROBES
-		       , NIL
-#endif
-		       );
+    erts_queue_message(proc, &rp_locks, bp, mess, am_undefined);
     erts_smp_proc_unlock(proc, rp_locks);
     ERTS_SMP_CHK_NO_PROC_LOCKS;
 }

@@ -1584,11 +1584,7 @@ gen_put_map_instrs(exists, Op, TempMapVar, Dst, FailLbl, Pairs, Env) ->
       end,
   {[IsMapCode, TrueLabel, PutInstructions, ReturnLbl], Env1};
 gen_put_map_instrs(new, Op, TempMapVar, Dst, new, Pairs, Env) ->
-  TrueLabel = mk_label(new),
   FailLbl = mk_label(new),
-  IsMapCode = hipe_icode:mk_type([TempMapVar], map,
-				 hipe_icode:label_name(TrueLabel),
-				 hipe_icode:label_name(FailLbl)),
   DstMapVar = mk_var(Dst),
   {ReturnLbl, PutInstructions, Env1}
     = case Op of
@@ -1596,10 +1592,10 @@ gen_put_map_instrs(new, Op, TempMapVar, Dst, new, Pairs, Env) ->
 	  trans_put_map_assoc(TempMapVar, DstMapVar, Pairs, Env, []);
 	exact ->
 	  trans_put_map_exact(TempMapVar, DstMapVar,
-	    hipe_icode:label_name(FailLbl), Pairs, Env, [])
+			      none, Pairs, Env, [])
       end,
   Fail = hipe_icode:mk_fail([hipe_icode:mk_const(badarg)], error),
-  {[IsMapCode, TrueLabel, PutInstructions, FailLbl, Fail, ReturnLbl], Env1}.
+  {[PutInstructions, FailLbl, Fail, ReturnLbl], Env1}.
 
 %%-----------------------------------------------------------------------
 %% This function generates the instructions needed to insert several
@@ -1629,6 +1625,13 @@ trans_put_map_exact(MapVar, DestMapVar, _FLbl, [], Env, Acc) ->
   ReturnLbl = mk_label(new),
   GotoReturn = hipe_icode:mk_goto(hipe_icode:label_name(ReturnLbl)),
   {ReturnLbl, lists:reverse([GotoReturn, MoveToReturnVar | Acc]), Env};
+trans_put_map_exact(MapVar, DestMapVar, none, [Key, Value | Rest], Env, Acc) ->
+  {MoveKey, KeyVar, Env1} = mk_move_and_var(Key, Env),
+  {MoveVal, ValVar, Env2} = mk_move_and_var(Value, Env1),
+  BifCallPut = hipe_icode:mk_call([MapVar], maps, update,
+				  [KeyVar, ValVar, MapVar], remote),
+  Acc1 = [BifCallPut, MoveVal, MoveKey | Acc],
+  trans_put_map_exact(MapVar, DestMapVar, none, Rest, Env2, Acc1);
 trans_put_map_exact(MapVar, DestMapVar, FLbl, [Key, Value | Rest], Env, Acc) ->
   SuccLbl = mk_label(new),
   {MoveKey, KeyVar, Env1} = mk_move_and_var(Key, Env),

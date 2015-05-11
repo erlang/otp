@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2014. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -202,14 +202,7 @@ spec_proc(Mod) ->
 		       {Mod,system_get_state},{throw,fail}},_}} ->
 		 ok
 	 end,
-    Mod:stop(),
-    WaitForUnregister = fun W() ->
-		       case whereis(Mod) of
-			   undefined -> ok;
-			   _ -> timer:sleep(10), W()
-		       end
-	       end,
-    WaitForUnregister(),
+    ok = sys:terminate(Mod, normal),
     {ok,_} = Mod:start_link(4),
     ok = case catch sys:replace_state(Mod, fun(_) -> {} end) of
 	     {} ->
@@ -218,8 +211,7 @@ spec_proc(Mod) ->
 		       {Mod,system_replace_state},{throw,fail}},_}} ->
 		 ok
 	 end,
-    Mod:stop(),
-    WaitForUnregister(),
+    ok = sys:terminate(Mod, normal),
     {ok,_} = Mod:start_link(4),
     StateFun = fun(_) -> error(fail) end,
     ok = case catch sys:replace_state(Mod, StateFun) of
@@ -231,7 +223,7 @@ spec_proc(Mod) ->
 	     {'EXIT',{{callback_failed,StateFun,{error,fail}},_}} ->
 		 ok
 	 end,
-    Mod:stop().
+    ok = sys:terminate(Mod, normal).
 
 %%%%%%%%%%%%%%%%%%%%
 %% Dummy server

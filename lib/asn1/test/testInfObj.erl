@@ -74,6 +74,12 @@ main(_Erule) ->
 	      {'ConstructedPdu',7,[]}),
     roundtrip('InfObj', 'ConstructedPdu',
 	      {'ConstructedPdu',7,[64,1,19,17,35]}),
+    {'ConstructedPdu',8,[{_,-15,35},{_,533,-70}]} =
+	enc_dec('InfObj', 'ConstructedPdu',
+		{'ConstructedPdu',8,[{'_',-15,35},{'_',533,-70}]}),
+    {'ConstructedPdu',9,[{RecTag9,-15,35},{RecTag9,533,-70}]} =
+	enc_dec('InfObj', 'ConstructedPdu',
+		{'ConstructedPdu',9,[{'_',-15,35},{'_',533,-70}]}),
 
     roundtrip('InfObj', 'ConstructedSet',
 	      {'ConstructedSet',1,{'CONSTRUCTED-DEFAULT_Type',-2001,true}}),
@@ -96,6 +102,12 @@ main(_Erule) ->
 	      {'ConstructedSet',7,[]}),
     roundtrip('InfObj', 'ConstructedSet',
 	      {'ConstructedSet',7,[64,1,19,17,35]}),
+    {'ConstructedSet',8,[{_,-15,35},{_,533,-70}]} =
+	enc_dec('InfObj', 'ConstructedSet',
+		{'ConstructedSet',8,[{'_',-15,35},{'_',533,-70}]}),
+    {'ConstructedSet',9,[{_,-15,35},{_,533,-70}]} =
+	enc_dec('InfObj', 'ConstructedSet',
+		{'ConstructedSet',9,[{'_',-15,35},{'_',533,-70}]}),
 
     roundtrip('InfObj', 'Seq2',
 	      {'Seq2',42,[true,false,false,true],
@@ -126,11 +138,36 @@ main(_Erule) ->
     test_objset('OstSeq45', [4,5]),
     test_objset('OstSeq12345', [1,2,3,4,5]),
 
+    test_objset('OstSeq12Except', [1,2]),
+    test_objset('OstSeq123Except', [1,2]),
+
     test_objset('ExOstSeq12', [1,2]),
     test_objset('ExOstSeq123', [1,2,3]),
-    %%test_objset('ExOstSeq1234', [1,2,3,4]),
+    test_objset('ExOstSeq1234', [1,2,3,4]),
     test_objset('ExOstSeq45', [4,5]),
     test_objset('ExOstSeq12345', [1,2,3,4,5]),
+
+    test_objset('ExOstSeq12Except', [1,2]),
+    test_objset('ExOstSeq123Except', [1,2]),
+
+    roundtrip('InfObj', 'ExtClassSeq', {'ExtClassSeq', 4}),
+
+    {1,2,42} = 'InfObj':'value-1'(),
+    {1,2,42,25} = 'InfObj':'value-2'(),
+    {100,101} = 'InfObj':'value-3'(),
+    {1,2,100,101} = 'InfObj':'value-4'(),
+
+    roundtrip('InfObj', 'Rdn', {'Rdn',{2,5,4,41},"abc"}),
+
+    roundtrip('InfObj', 'TiAliasSeq',
+	      {'TiAliasSeq',{'TiAliasSeq_prf',{2,1,2},'NULL'}}),
+
+    roundtrip('InfObj', 'ContentInfo',
+	      {'ContentInfo',{2,7,8,9},"string"}),
+    {2,7,8,9} = 'InfObj':'id-content-type'(),
+
+    <<2#1011:4>> = 'InfObj':'tricky-bit-string'(),
+    <<16#CAFE:16>> = 'InfObj':'tricky-octet-string'(),
 
     ok.
 

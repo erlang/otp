@@ -354,29 +354,29 @@ match(P, E, Bs) ->
 			    {false, Bs}
 		    end
 	    end;
-    map ->
-        %% The most we can do is to say "definitely no match" if a
-        %% map pattern is matched against non-map data.
-        case E of
-            any ->
-                {false, Bs};
-            _ ->
-                case type(E) of
-		    literal ->
-			case is_map(concrete(E)) of
-			    false ->
-				none;
-			    true ->
-				{false, Bs}
-			end;
-                    cons ->
-                        none;
-                    tuple ->
-                        none;
-                    _ ->
-                        {false, Bs}
-                end
-        end;
+	map ->
+	    %% The most we can do is to say "definitely no match" if a
+	    %% map pattern is matched against non-map data.
+	    case E of
+		any ->
+		    {false, Bs};
+		_ ->
+		    case type(E) of
+			literal ->
+			    case is_map(concrete(E)) of
+				false ->
+				    none;
+				true ->
+				    {false, Bs}
+			    end;
+			cons ->
+			    none;
+			tuple ->
+			    none;
+			_ ->
+			    {false, Bs}
+		    end
+	    end;
 	_ ->
 	    match_1(P, E, Bs)
     end.

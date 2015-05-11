@@ -87,6 +87,41 @@ void (*erts_printf_unblock_fpe)(int) = NULL;
 #	define FWRITE fwrite
 #endif
 
+/* We use write for stdout and stderr as they could be
+   set to non-blocking by shell drivers, and non-blocking
+   FILE * functions work unpredictably as best */
+static int
+printf_putc(int c, FILE *stream) {
+    if ((FILE*)stream == stdout || (FILE*)stream == stderr) {
+        int fd = stream == stdout ? fileno(stdout) : fileno(stderr);
+        /* cast to a char here, because write expects bytes. */
+        unsigned char buf[1] = { c };
+        int res;
+        do {
+            res = write(fd, buf, 1);
+        } while (res == -1 && (errno == EAGAIN || errno == EINTR));
+        if (res == -1) return EOF;
+        return res;
+    }
+
+    return PUTC(c, stream);
+}
+
+static size_t
+printf_fwrite(const void *ptr, size_t size, size_t nitems,
+          FILE *stream) {
+    if ((FILE*)stream == stdout || (FILE*)stream == stderr) {
+        int fd = stream == stdout ? fileno(stdout) : fileno(stderr);
+        int res;
+        do {
+            res = write(fd, ptr, size*nitems);
+        } while (res == -1 && (errno == EAGAIN || errno == EINTR));
+        if (res == -1) return 0;
+        return res;
+    }
+    return FWRITE(ptr, size, nitems, stream);
+}
+
 static int
 get_error_result(void)
 {
@@ -103,10 +138,10 @@ write_f_add_cr(void *vfp, char* buf, size_t len)
     size_t i;
     ASSERT(vfp);
     for (i = 0; i < len; i++) {
-	if (buf[i] == '\n' && PUTC('\r', (FILE *) vfp) == EOF)
-	    return get_error_result();
-	if (PUTC(buf[i], (FILE *) vfp) == EOF)
-	    return get_error_result();
+        if (buf[i] == '\n' && printf_putc('\r', (FILE *) vfp) == EOF)
+            return get_error_result();
+        if (printf_putc(buf[i], (FILE *) vfp) == EOF)
+            return get_error_result();
     }
     return len;
 }
@@ -119,12 +154,12 @@ write_f(void *vfp, char* buf, size_t len)
     if (len <= 64) { /* Try to optimize writes of small bufs. */
 	int i;
 	for (i = 0; i < len; i++)
-	    if (PUTC(buf[i], (FILE *) vfp) == EOF)
+	    if (printf_putc(buf[i], (FILE *) vfp) == EOF)
 		return get_error_result();
     }
     else
 #endif
-    if (FWRITE((void *) buf, sizeof(char), len, (FILE *) vfp) != len)
+    if (printf_fwrite((void *) buf, sizeof(char), len, (FILE *) vfp) != len)
 	return get_error_result();
     return len;
 }

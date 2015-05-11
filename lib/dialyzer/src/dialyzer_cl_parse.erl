@@ -2,7 +2,7 @@
 %%-----------------------------------------------------------------------
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2006-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -509,6 +509,8 @@ warning_options_msg() ->
   -Wno_behaviours
      Suppress warnings about behaviour callbacks which drift from the published
      recommended interfaces.
+  -Wno_missing_calls
+     Suppress warnings about calls to missing functions.
   -Wno_undefined_callbacks
      Suppress warnings about behaviours that have no -callback attributes for
      their callbacks.
@@ -522,6 +524,13 @@ warning_options_msg() ->
   -Wunderspecs ***
      Warn about underspecified functions
      (those whose -spec is strictly more allowing than the success typing).
+  -Wunknown ***
+     Let warnings about unknown functions and types affect the
+     exit status of the command line version. The default is to ignore
+     warnings about unknown functions and types when setting the exit
+     status. When using the Dialyzer from Erlang, warnings about unknown
+     functions and types are returned; the default is not to return
+     such warnings.
 
 The following options are also available but their use is not recommended:
 (they are mostly for Dialyzer developers and internal debugging)

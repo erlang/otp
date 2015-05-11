@@ -41,8 +41,12 @@ suite() ->
 %% @end
 %%--------------------------------------------------------------------
 init_per_suite(Config) ->
+
+    TCName = ct:get_config(tcname),
+    CfgFiles = ct:get_config(file,undefined,[all]),
+
     %% verify that expected config file can be read
-    case {ct:get_config(tcname),ct:get_config(file,undefined,[all])} of
+    case {TCName,CfgFiles} of
 	{start_separate,[cfg11]} -> ok;
 	{start_join,[cfg11,cfg21]} -> ok;
 	{incl_separate1,[cfg11]} -> ok;
@@ -56,6 +60,28 @@ init_per_suite(Config) ->
 	_ -> ok
 
     end,
+
+    %% test the get_testspec_terms functionality
+    if CfgFiles /= undefined ->
+	    TSTerms = case ct:get_testspec_terms() of
+			  undefined -> exit('testspec should not be undefined');
+			  Result -> Result
+		      end,
+	    true = lists:keymember(config, 1, TSTerms),
+	    {config,TSCfgFiles} = ct:get_testspec_terms(config),
+	    [{config,TSCfgFiles},{tests,Tests}] = 
+		ct:get_testspec_terms([config,tests]),
+	    CfgNames = [list_to_atom(filename:basename(TSCfgFile)) ||
+			   {Node,TSCfgFile} <- TSCfgFiles, Node == node()],
+	    true = (length(CfgNames) == length(CfgFiles)),
+	    [true = lists:member(CfgName,CfgFiles) || CfgName <- CfgNames],
+	    true = lists:any(fun({{_Node,_Dir},Suites}) ->
+				     lists:keymember(?MODULE, 1, Suites)
+			     end, Tests);
+       true ->
+	    ok
+    end,
+
     Config.
 
 %%--------------------------------------------------------------------

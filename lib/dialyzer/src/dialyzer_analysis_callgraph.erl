@@ -2,7 +2,7 @@
 %%--------------------------------------------------------------------
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2006-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -39,8 +39,6 @@
 	      one_file_result/0,
 	      compile_result/0]).
 
--export_type([no_warn_unused/0]).
-
 -include("dialyzer.hrl").
 
 -record(analysis_state,
@@ -50,8 +48,9 @@
 	  defines        = []           :: [dial_define()],
 	  doc_plt                       :: dialyzer_plt:plt(),
 	  include_dirs   = []           :: [file:filename()],
-	  no_warn_unused                :: no_warn_unused(),
 	  parent                        :: pid(),
+          legal_warnings                :: % command line options
+                                           [dial_warn_tag()],
 	  plt                           :: dialyzer_plt:plt(),
 	  start_from     = byte_code    :: start_from(),
 	  use_contracts  = true         :: boolean(),
@@ -59,9 +58,10 @@
           solvers                       :: [solver()]
 	 }).
 
--record(server_state, {parent :: pid(), legal_warnings :: [dial_warn_tag()]}).
-
--type no_warn_unused()  :: sets:set(mfa()).
+-record(server_state,
+        {
+          parent :: pid()
+         }).
 
 %%--------------------------------------------------------------------
 %% Main
@@ -75,24 +75,24 @@ start(Parent, LegalWarnings, Analysis) ->
   Analysis0 =
     Analysis#analysis{race_detection = RacesOn, timing_server = TimingServer},
   Analysis1 = expand_files(Analysis0),
-  Analysis2 = run_analysis(Analysis1),
-  State = #server_state{parent = Parent, legal_warnings = LegalWarnings},
+  Analysis2 = run_analysis(Analysis1, LegalWarnings),
+  State = #server_state{parent = Parent},
   loop(State, Analysis2, none),
   dialyzer_timing:stop(TimingServer).
 
-run_analysis(Analysis) ->
+run_analysis(Analysis, LegalWarnings) ->
   Self = self(),
-  Fun = fun() -> analysis_start(Self, Analysis) end,
+  Fun = fun() -> analysis_start(Self, Analysis, LegalWarnings) end,
   Analysis#analysis{analysis_pid = spawn_link(Fun)}.
 
-loop(#server_state{parent = Parent, legal_warnings = LegalWarnings} = State,
+loop(#server_state{parent = Parent} = State,
      #analysis{analysis_pid = AnalPid} = Analysis, ExtCalls) ->
   receive
     {AnalPid, log, LogMsg} ->
       send_log(Parent, LogMsg),
       loop(State, Analysis, ExtCalls);
     {AnalPid, warnings, Warnings} ->
-      case filter_warnings(LegalWarnings, Warnings) of
+      case Warnings of
 	[] -> ok;
 	SendWarnings ->
 	  send_warnings(Parent, SendWarnings)
@@ -129,7 +129,7 @@ loop(#server_state{parent = Parent, legal_warnings = LegalWarnings} = State,
 %% The Analysis
 %%--------------------------------------------------------------------
 
-analysis_start(Parent, Analysis) ->
+analysis_start(Parent, Analysis, LegalWarnings) ->
   CServer = dialyzer_codeserver:new(),
   Plt = Analysis#analysis.plt,
   State = #analysis_state{codeserver = CServer,
@@ -139,13 +139,14 @@ analysis_start(Parent, Analysis) ->
 			  include_dirs = Analysis#analysis.include_dirs,
 			  plt = Plt,
 			  parent = Parent,
+                          legal_warnings = LegalWarnings,
 			  start_from = Analysis#analysis.start_from,
 			  use_contracts = Analysis#analysis.use_contracts,
 			  timing_server = Analysis#analysis.timing_server,
                           solvers = Analysis#analysis.solvers
 			 },
   Files = ordsets:from_list(Analysis#analysis.files),
-  {Callgraph, NoWarn, TmpCServer0} = compile_and_store(Files, State),
+  {Callgraph, TmpCServer0} = compile_and_store(Files, State),
   %% Remote type postprocessing
   NewCServer =
     try
@@ -177,7 +178,6 @@ analysis_start(Parent, Analysis) ->
   State0 = State#analysis_state{plt = NewPlt1},
   dump_callgraph(Callgraph, State0, Analysis),
   State1 = State0#analysis_state{codeserver = NewCServer},
-  State2 = State1#analysis_state{no_warn_unused = NoWarn},
   %% Remove all old versions of the files being analyzed
   AllNodes = dialyzer_callgraph:all_nodes(Callgraph),
   Plt1 = dialyzer_plt:delete_list(NewPlt1, AllNodes),
@@ -187,14 +187,14 @@ analysis_start(Parent, Analysis) ->
       true -> dialyzer_callgraph:put_race_detection(true, Callgraph);
       false -> Callgraph
     end,
-  State3 = analyze_callgraph(NewCallgraph, State2#analysis_state{plt = Plt1}),
+  State2 = analyze_callgraph(NewCallgraph, State1#analysis_state{plt = Plt1}),
   dialyzer_callgraph:dispose_race_server(NewCallgraph),
   rcv_and_send_ext_types(Parent),
   NonExports = sets:subtract(sets:from_list(AllNodes), Exports),
   NonExportsList = sets:to_list(NonExports),
-  Plt2 = dialyzer_plt:delete_list(State3#analysis_state.plt, NonExportsList),
-  send_codeserver_plt(Parent, CServer, State3#analysis_state.plt),
-  send_analysis_done(Parent, Plt2, State3#analysis_state.doc_plt).
+  Plt2 = dialyzer_plt:delete_list(State2#analysis_state.plt, NonExportsList),
+  send_codeserver_plt(Parent, CServer, State2#analysis_state.plt),
+  send_analysis_done(Parent, Plt2, State2#analysis_state.doc_plt).
 
 analyze_callgraph(Callgraph, #analysis_state{codeserver = Codeserver,
 					     doc_plt = DocPlt,
@@ -210,11 +210,11 @@ analyze_callgraph(Callgraph, #analysis_state{codeserver = Codeserver,
 						  TimingServer, Solvers, Parent),
 	{NewPlt0, DocPlt};
       succ_typings ->
-	NoWarn = State#analysis_state.no_warn_unused,
 	{Warnings, NewPlt0, NewDocPlt0} =
 	  dialyzer_succ_typings:get_warnings(Callgraph, Plt, DocPlt, Codeserver,
-					     NoWarn, TimingServer, Solvers, Parent),
-	send_warnings(State#analysis_state.parent, Warnings),
+					     TimingServer, Solvers, Parent),
+        Warnings1 = filter_warnings(Warnings, Codeserver),
+	send_warnings(State#analysis_state.parent, Warnings1),
 	{NewPlt0, NewDocPlt0}
     end,
   dialyzer_callgraph:delete(Callgraph),
@@ -230,19 +230,22 @@ analyze_callgraph(Callgraph, #analysis_state{codeserver = Codeserver,
 	  defines       = []        :: [dial_define()],
 	  include_dirs  = []        :: [file:filename()],
 	  start_from    = byte_code :: start_from(),
-	  use_contracts = true      :: boolean()
+	  use_contracts = true      :: boolean(),
+          legal_warnings            :: [dial_warn_tag()]
 	 }).
 
 make_compile_init(#analysis_state{codeserver = Codeserver,
 				  defines = Defs,
 				  include_dirs = Dirs,
 				  use_contracts = UseContracts,
+                                  legal_warnings = LegalWarnings,
 				  start_from = StartFrom}, Callgraph) ->
   #compile_init{callgraph = Callgraph,
 		codeserver = Codeserver,
 		defines = [{d, Macro, Val} || {Macro, Val} <- Defs],
 		include_dirs = [{i, D} || D <- Dirs],
 		use_contracts = UseContracts,
+                legal_warnings = LegalWarnings,
 		start_from = StartFrom}.
 
 compile_and_store(Files, #analysis_state{codeserver = CServer,
@@ -252,7 +255,7 @@ compile_and_store(Files, #analysis_state{codeserver = CServer,
   {T1, _} = statistics(wall_clock),
   Callgraph = dialyzer_callgraph:new(),
   CompileInit = make_compile_init(State, Callgraph),
-  {{Failed, NoWarn, Modules}, NextLabel} =
+  {{Failed, Modules}, NextLabel} =
     ?timing(Timing, "compile", _C1,
 	    dialyzer_coordinator:parallel_job(compile, Files,
 					      CompileInit, Timing)),
@@ -281,34 +284,34 @@ compile_and_store(Files, #analysis_state{codeserver = CServer,
   {T3, _} = statistics(wall_clock),
   Msg2 = io_lib:format("done in ~.2f secs\n", [(T3-T2)/1000]),
   send_log(Parent, Msg2),
-  {Callgraph, sets:from_list(NoWarn), CServer2}.
+  {Callgraph, CServer2}.
 
 -type compile_init_data() :: #compile_init{}.
 -type error_reason()      :: string().
--type compile_result()    :: {[{file:filename(), error_reason()}], [mfa()],
+-type compile_result()    :: {[{file:filename(), error_reason()}],
 			      [module()]}. %%opaque
 -type one_file_result()   :: {error, error_reason()} |
 			     {ok, [dialyzer_callgraph:callgraph_edge()],
-			      [mfa_or_funlbl()], [mfa()], module()}. %%opaque
--type compile_mid_data()  :: {module(), cerl:cerl(), [mfa()],
+			      [mfa_or_funlbl()], module()}. %%opaque
+-type compile_mid_data()  :: {module(), cerl:cerl(),
 			      dialyzer_callgraph:callgraph(),
 			      dialyzer_codeserver:codeserver()}.
 
 -spec compile_init_result() -> compile_result().
 
-compile_init_result() -> {[], [], []}.
+compile_init_result() -> {[], []}.
 
 -spec add_to_result(file:filename(), one_file_result(), compile_result(),
 		    compile_init_data()) -> compile_result().
 
-add_to_result(File, NewData, {Failed, NoWarn, Mods}, InitData) ->
+add_to_result(File, NewData, {Failed, Mods}, InitData) ->
   case NewData of
     {error, Reason} ->
-      {[{File, Reason}|Failed], NoWarn, Mods};
-    {ok, V, E, NewNoWarn, Mod} ->
+      {[{File, Reason}|Failed], Mods};
+    {ok, V, E, Mod} ->
       Callgraph = InitData#compile_init.callgraph,
       dialyzer_callgraph:add_edges(E, V, Callgraph),
-      {Failed, NewNoWarn ++ NoWarn, [Mod|Mods]}
+      {Failed, [Mod|Mods]}
   end.
 
 -spec start_compilation(file:filename(), compile_init_data()) ->
@@ -318,12 +321,14 @@ start_compilation(File,
 		  #compile_init{callgraph = Callgraph, codeserver = Codeserver,
 				defines = Defines, include_dirs = IncludeD,
 				use_contracts = UseContracts,
+                                legal_warnings = LegalWarnings,
 				start_from = StartFrom}) ->
   case StartFrom of
     src_code ->
-      compile_src(File, IncludeD, Defines, Callgraph, Codeserver, UseContracts);
+      compile_src(File, IncludeD, Defines, Callgraph, Codeserver,
+                  UseContracts, LegalWarnings);
     byte_code ->
-      compile_byte(File, Callgraph, Codeserver, UseContracts)
+      compile_byte(File, Callgraph, Codeserver, UseContracts, LegalWarnings)
   end.
 
 cleanup_callgraph(#analysis_state{plt = InitPlt, parent = Parent,
@@ -357,88 +362,86 @@ cleanup_callgraph(#analysis_state{plt = InitPlt, parent = Parent,
   end,
   Callgraph1.
 
-compile_src(File, Includes, Defines, Callgraph, CServer, UseContracts) ->
+compile_src(File, Includes, Defines, Callgraph, CServer, UseContracts,
+            LegalWarnings) ->
   DefaultIncludes = default_includes(filename:dirname(File)),
   SrcCompOpts = dialyzer_utils:src_compiler_opts(),
   CompOpts = SrcCompOpts ++ Includes ++ Defines ++ DefaultIncludes,
   case dialyzer_utils:get_abstract_code_from_src(File, CompOpts) of
     {error, _Msg} = Error -> Error;
     {ok, AbstrCode} ->
-      compile_common(File, AbstrCode, CompOpts, Callgraph, CServer, UseContracts)
+      compile_common(File, AbstrCode, CompOpts, Callgraph, CServer,
+                     UseContracts, LegalWarnings)
   end.
 
-compile_byte(File, Callgraph, CServer, UseContracts) ->
+compile_byte(File, Callgraph, CServer, UseContracts, LegalWarnings) ->
   case dialyzer_utils:get_abstract_code_from_beam(File) of
     error ->
       {error, "  Could not get abstract code for: " ++ File ++ "\n" ++
 	 "  Recompile with +debug_info or analyze starting from source code"};
     {ok, AbstrCode} ->
-      compile_byte(File, AbstrCode, Callgraph, CServer, UseContracts)
+      compile_byte(File, AbstrCode, Callgraph, CServer, UseContracts,
+                   LegalWarnings)
   end.
 
-compile_byte(File, AbstrCode, Callgraph, CServer, UseContracts) ->
+compile_byte(File, AbstrCode, Callgraph, CServer, UseContracts,
+             LegalWarnings) ->
   case dialyzer_utils:get_compile_options_from_beam(File) of
     error ->
       {error, "  Could not get compile options for: " ++ File ++ "\n" ++
 	 "  Recompile or analyze starting from source code"};
     {ok, CompOpts} ->
-      compile_common(File, AbstrCode, CompOpts, Callgraph, CServer, UseContracts)
+      compile_common(File, AbstrCode, CompOpts, Callgraph, CServer,
+                     UseContracts, LegalWarnings)
   end.
 
-compile_common(File, AbstrCode, CompOpts, Callgraph, CServer, UseContracts) ->
+compile_common(File, AbstrCode, CompOpts, Callgraph, CServer,
+               UseContracts, LegalWarnings) ->
   case dialyzer_utils:get_core_from_abstract_code(AbstrCode, CompOpts) of
     error -> {error, "  Could not get core Erlang code for: " ++ File};
     {ok, Core} ->
       Mod = cerl:concrete(cerl:module_name(Core)),
-      NoWarn = abs_get_nowarn(AbstrCode, Mod),
       case dialyzer_utils:get_record_and_type_info(AbstrCode) of
 	{error, _} = Error -> Error;
 	{ok, RecInfo} ->
 	  CServer1 =
 	    dialyzer_codeserver:store_temp_records(Mod, RecInfo, CServer),
+          MetaFunInfo =
+            dialyzer_utils:get_fun_meta_info(Mod, AbstrCode, LegalWarnings),
+          CServer2 =
+            dialyzer_codeserver:insert_fun_meta_info(MetaFunInfo, CServer1),
 	  case UseContracts of
 	    true ->
 	      case dialyzer_utils:get_spec_info(Mod, AbstrCode, RecInfo) of
 		{error, _} = Error -> Error;
 		{ok, SpecInfo, CallbackInfo} ->
-		  CServer2 =
+		  CServer3 =
 		    dialyzer_codeserver:store_temp_contracts(Mod, SpecInfo,
 							     CallbackInfo,
-							     CServer1),
-		  store_core(Mod, Core, NoWarn, Callgraph, CServer2)
+							     CServer2),
+		  store_core(Mod, Core, Callgraph, CServer3)
 	      end;
 	    false ->
-	      store_core(Mod, Core, NoWarn, Callgraph, CServer1)
+	      store_core(Mod, Core, Callgraph, CServer2)
 	  end
       end
   end.
 
-store_core(Mod, Core, NoWarn, Callgraph, CServer) ->
+store_core(Mod, Core, Callgraph, CServer) ->
   Exp = get_exports_from_core(Core),
   ExpTypes = get_exported_types_from_core(Core),
   CServer = dialyzer_codeserver:insert_exports(Exp, CServer),
   CServer = dialyzer_codeserver:insert_temp_exported_types(ExpTypes, CServer),
   CoreTree = cerl:from_records(Core),
-  {ok, cerl_trees:size(CoreTree), {Mod, CoreTree, NoWarn, Callgraph, CServer}}.
+  CoreSize = cerl_trees:size(CoreTree),
+  {ok, CoreSize, {Mod, CoreTree, Callgraph, CServer}}.
 
 -spec continue_compilation(integer(), compile_mid_data()) -> one_file_result().
 
-continue_compilation(NextLabel, {Mod, CoreTree, NoWarn, Callgraph, CServer}) ->
+continue_compilation(NextLabel, {Mod, CoreTree, Callgraph, CServer}) ->
   {LabeledTree, _NewNextLabel} = cerl_trees:label(CoreTree, NextLabel),
   LabeledCore = cerl:to_records(LabeledTree),
-  store_code_and_build_callgraph(Mod, LabeledCore, Callgraph, NoWarn, CServer).
-
-abs_get_nowarn(Abs, M) ->
-  Opts = lists:flatten([C || {attribute, _, compile, C} <- Abs]),
-  Warn = erl_lint:bool_option(warn_unused_function, nowarn_unused_function,
-                              true, Opts),
-  case Warn of
-    false ->
-      [{M, F, A} || {function, _, F, A, _} <- Abs]; % all functions
-    true ->
-      [{M, F, A} || {nowarn_unused_function, FAs} <- Opts,
-                    {F, A} <- lists:flatten([FAs])]
-  end.
+  store_code_and_build_callgraph(Mod, LabeledCore, Callgraph, CServer).
 
 get_exported_types_from_core(Core) ->
   Attrs = cerl:module_attrs(Core),
@@ -456,11 +459,11 @@ get_exports_from_core(Core) ->
   M = cerl:atom_val(cerl:module_name(Tree)),
   [{M, F, A} || {F, A} <- Exports2].
 
-store_code_and_build_callgraph(Mod, Core, Callgraph, NoWarn, CServer) ->
+store_code_and_build_callgraph(Mod, Core, Callgraph, CServer) ->
   CoreTree = cerl:from_records(Core),
   {Vertices, Edges} = dialyzer_callgraph:scan_core_tree(CoreTree, Callgraph),
   CServer = dialyzer_codeserver:insert(Mod, CoreTree, CServer),
-  {ok, Vertices, Edges, NoWarn, Mod}.
+  {ok, Vertices, Edges, Mod}.
 
 %%--------------------------------------------------------------------
 %% Utilities
@@ -548,10 +551,19 @@ send_warnings(Parent, Warnings) ->
   Parent ! {self(), warnings, Warnings},
   ok.
 
-filter_warnings(LegalWarnings, Warnings) ->
-  [TIW || {Tag, _Id, _Warning} = TIW <- Warnings,
-	  ordsets:is_element(Tag, LegalWarnings)].
+filter_warnings(Warnings, Codeserver) ->
+  [TWW || {Tag, WarningInfo, _Warning} = TWW <- Warnings,
+          is_ok_fun(WarningInfo, Codeserver),
+          is_ok_tag(Tag, WarningInfo, Codeserver)].
 
+is_ok_fun({_F, _L, Module}, _Codeserver) when is_atom(Module) ->
+  true;
+is_ok_fun({_Filename, _Line, {_M, _F, _A} = MFA}, Codeserver) ->
+  not dialyzer_utils:is_suppressed_fun(MFA, Codeserver).
+
+is_ok_tag(Tag, {_F, _L, MorMFA}, Codeserver) ->
+  not dialyzer_utils:is_suppressed_tag(MorMFA, Tag, Codeserver).
+  
 send_analysis_done(Parent, Plt, DocPlt) ->
   Parent ! {self(), done, Plt, DocPlt},
   ok.
@@ -573,7 +585,9 @@ send_codeserver_plt(Parent, CServer, Plt ) ->
   ok.
 
 send_bad_calls(Parent, BadCalls, CodeServer) ->
-  send_warnings(Parent, format_bad_calls(BadCalls, CodeServer, [])).
+  FormatedBadCalls = format_bad_calls(BadCalls, CodeServer, []),
+  Warnings = filter_warnings(FormatedBadCalls, CodeServer),
+  send_warnings(Parent, Warnings).
 
 send_mod_deps(Parent, ModuleDeps) ->
   Parent ! {self(), mod_deps, ModuleDeps},
@@ -585,8 +599,9 @@ format_bad_calls([{{_, _, _}, {_, module_info, A}}|Left], CodeServer, Acc)
 format_bad_calls([{FromMFA, {M, F, A} = To}|Left], CodeServer, Acc) ->
   {_Var, FunCode} = dialyzer_codeserver:lookup_mfa_code(FromMFA, CodeServer),
   Msg = {call_to_missing, [M, F, A]},
-  FileLine = find_call_file_and_line(FunCode, To),
-  NewAcc = [{?WARN_CALLGRAPH, FileLine, Msg}|Acc],
+  {File, Line} = find_call_file_and_line(FunCode, To),
+  WarningInfo = {File, Line, FromMFA},
+  NewAcc = [{?WARN_CALLGRAPH, WarningInfo, Msg}|Acc],
   format_bad_calls(Left, CodeServer, NewAcc);
 format_bad_calls([], _CodeServer, Acc) ->
   Acc.

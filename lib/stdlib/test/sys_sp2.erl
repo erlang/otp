@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -17,7 +17,7 @@
 %% %CopyrightEnd%
 %%
 -module(sys_sp2).
--export([start_link/1, stop/0]).
+-export([start_link/1]).
 -export([alloc/0, free/1]).
 -export([init/1]).
 -export([system_continue/3, system_terminate/4,
@@ -30,10 +30,6 @@
 start_link(NumCh) ->
     proc_lib:start_link(?MODULE, init, [[self(),NumCh]]).
 
-stop() ->
-    ?MODULE ! stop,
-    ok.
-
 alloc() ->
     ?MODULE ! {self(), alloc},
     receive
@@ -44,11 +40,6 @@ alloc() ->
 free(Ch) ->
     ?MODULE ! {free, Ch},
     ok.
-
-%% can't use 2-tuple for state here as we do in sys_sp1, since the 2-tuple
-%% is not compatible with the backward compatibility handling for
-%% sys:get_state in sys.erl
--record(state, {alloc,free}).
 
 init([Parent,NumCh]) ->
     register(?MODULE, self()),
@@ -74,11 +65,7 @@ loop(Chs, Parent, Deb) ->
             loop(Chs2, Parent, Deb2);
         {system, From, Request} ->
             sys:handle_system_msg(Request, From, Parent,
-                                  ?MODULE, Deb, Chs);
-        stop ->
-            sys:handle_debug(Deb, fun write_debug/3,
-                             ?MODULE, {in, stop}),
-            ok
+                                  ?MODULE, Deb, Chs)
     end.
 
 system_continue(Parent, Deb, Chs) ->
@@ -91,17 +78,17 @@ write_debug(Dev, Event, Name) ->
     io:format(Dev, "~p event = ~p~n", [Name, Event]).
 
 channels(NumCh) ->
-    #state{alloc=[], free=lists:seq(1,NumCh)}.
+    {_Allocated=[], _Free=lists:seq(1,NumCh)}.
 
-alloc(#state{free=[]}=Channels) ->
-    {{error, "no channels available"}, Channels};
-alloc(#state{alloc=Allocated, free=[H|T]}) ->
-    {H, #state{alloc=[H|Allocated], free=T}}.
+alloc({_, []}) ->
+    {error, "no channels available"};
+alloc({Allocated, [H|T]}) ->
+    {H, {[H|Allocated], T}}.
 
-free(Ch, #state{alloc=Alloc, free=Free}=Channels) ->
+free(Ch, {Alloc, Free}=Channels) ->
     case lists:member(Ch, Alloc) of
         true ->
-            #state{alloc=lists:delete(Ch, Alloc), free=[Ch|Free]};
+            {lists:delete(Ch, Alloc), [Ch|Free]};
         false ->
             Channels
     end.

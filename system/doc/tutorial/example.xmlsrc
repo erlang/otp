@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2000</year><year>2013</year>
+      <year>2000</year><year>2015</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -31,16 +31,25 @@
 
   <section>
     <title>Description</title>
-    <p>A common interoperability situation is when there exists a piece of code solving some complex problem, and we would like to incorporate this piece of code in our Erlang program. Suppose for example we have the following C functions that we would like to be able to call from Erlang.</p>
-    <codeinclude file="complex.c" tag="" type="none"></codeinclude>
-    <p>(For the sake of keeping the example as simple as possible, the functions are not very complicated in this case).</p>
-    <p>Preferably we would like to able to call <c>foo</c> and <c>bar</c> without having to bother about them actually being C functions.</p>
+    <p>A common interoperability situation is when you want to incorporate
+      a piece of code, solving a complex problem, in your Erlang
+      program. Suppose for example, that you have the following C
+      functions that you would like to call from Erlang:</p>
+      <codeinclude file="complex.c" tag="" type="none"></codeinclude>
+    <p>The functions are deliberately kept as simple as possible, for
+      readability reasons.</p>
+    <p>From an Erlang perspektive, it is preferable to be able to call
+      <c>foo</c> and <c>bar</c> without having to bother about that
+      they are C functions:</p>
     <pre>
 % Erlang code
 ...
 Res = complex:foo(X),
 ...</pre>
-    <p>The communication with C is hidden in the implementation of <c>complex.erl</c>. In the following chapters it is shown how this module can be implemented using the different interoperability mechanisms.</p>
+    <p>Here, the communication with C is hidden in the implementation
+      of <c>complex.erl</c>.
+      In the following sections, it is shown how this module can be
+      implemented using the different interoperability mechanisms.</p>
   </section>
 </chapter>
 

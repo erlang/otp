@@ -238,7 +238,10 @@ do_upgrade(FromVsn,FromApps,ToRel,ToApps,InstallDir) ->
 
     [{"OTP upgrade test",FromVsn,_,permanent}] =
 	rpc:call(Node,release_handler,which_releases,[]),
-    {ok,ToVsn} = rpc:call(Node,release_handler,unpack_release,[ToRel]),
+    ToRelName = filename:basename(ToRel),
+    copy_file(ToRel++".tar.gz",
+	      filename:join([InstallDir,releases,ToRelName++".tar.gz"])),
+    {ok,ToVsn} = rpc:call(Node,release_handler,unpack_release,[ToRelName]),
     [{"OTP upgrade test",ToVsn,_,unpacked},
      {"OTP upgrade test",FromVsn,_,permanent}] =
 	rpc:call(Node,release_handler,which_releases,[]),

@@ -22,7 +22,8 @@
   {label,4}.
     {allocate_heap,1,6,2}.
     {move,{x,1},{y,0}}.
-    {put_string,2,{string,"~p"},{x,0}}.
+    {put_list,{integer,112},nil,{x,0}}.
+    {put_list,{integer,126},{x,0},{x,0}}.
     {put_list,{y,0},nil,{x,1}}.
     {'%live',2}.
     {call_ext,2,{extfunc,io,format,2}}.

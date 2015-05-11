@@ -1,0 +1,61 @@
+PKCS-8 {iso(1) member-body(2) us(840) rsadsi(113549) pkcs(1) pkcs-8(8)
+        modules(1) pkcs-8(1)}
+
+-- $Revision: 1.5 $
+
+-- This module has been checked for conformance with the ASN.1
+-- standard by the OSS ASN.1 Tools
+
+DEFINITIONS IMPLICIT TAGS ::=
+
+BEGIN
+
+-- EXPORTS All --
+-- All types and values defined in this module is exported for use in other
+-- ASN.1 modules.
+
+IMPORTS
+
+informationFramework
+        FROM UsefulDefinitions {joint-iso-itu-t(2) ds(5) module(1)
+                                usefulDefinitions(0) 3}
+
+Attribute
+        FROM InformationFramework informationFramework
+
+AlgorithmIdentifier, ALGORITHM-IDENTIFIER
+        FROM PKCS-5 {iso(1) member-body(2) us(840) rsadsi(113549)
+        pkcs(1) pkcs-5(5) modules(16) pkcs-5(1)};
+
+-- Private-key information syntax
+
+PrivateKeyInfo ::= SEQUENCE {
+  version Version,
+  privateKeyAlgorithm AlgorithmIdentifier {{PrivateKeyAlgorithms}},
+  privateKey PrivateKey,
+  attributes [0] Attributes OPTIONAL }
+
+Version ::= INTEGER {v1(0)} (v1,...)
+
+PrivateKey ::= OCTET STRING
+
+Attributes ::= SET OF Attribute
+
+-- Encrypted private-key information syntax
+
+EncryptedPrivateKeyInfo ::= SEQUENCE {
+    encryptionAlgorithm AlgorithmIdentifier {{KeyEncryptionAlgorithms}},
+    encryptedData EncryptedData
+}
+
+EncryptedData ::= OCTET STRING
+
+PrivateKeyAlgorithms ALGORITHM-IDENTIFIER ::= {
+    ... -- For local profiles
+}
+
+KeyEncryptionAlgorithms ALGORITHM-IDENTIFIER ::= {
+    ... -- For local profiles
+}
+
+END

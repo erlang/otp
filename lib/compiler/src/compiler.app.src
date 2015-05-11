@@ -56,6 +56,7 @@
 	     rec_env,
 	     sys_core_dsetel,
 	     sys_core_fold,
+	     sys_core_fold_lists,
 	     sys_core_inline,
 	     sys_pre_attributes,
 	     sys_pre_expand,
@@ -68,5 +69,5 @@
   {registered, []},
   {applications, [kernel, stdlib]},
   {env, []},
-  {runtime_dependencies, ["stdlib-2.0","kernel-3.0","hipe-3.10.3","erts-6.0",
+  {runtime_dependencies, ["stdlib-2.0","kernel-3.0","hipe-3.10.3","erts-7.0",
 			  "crypto-3.3"]}]}.

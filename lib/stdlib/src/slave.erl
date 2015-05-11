@@ -128,7 +128,7 @@ relay1(Pid) ->
 %%	    {error, {already_running, Name@Host}}
 
 -spec start(Host) -> {ok, Node} | {error, Reason} when
-      Host :: atom(),
+      Host :: inet:hostname(),
       Node :: node(),
       Reason :: timeout | no_rsh | {already_running, Node}.
 
@@ -138,8 +138,8 @@ start(Host) ->
     start(Host, Name, [], no_link).
 
 -spec start(Host, Name) -> {ok, Node} | {error, Reason} when
-      Host :: atom(),
-      Name :: atom(),
+      Host :: inet:hostname(),
+      Name :: atom() | string(),
       Node :: node(),
       Reason :: timeout | no_rsh | {already_running, Node}.
 
@@ -147,8 +147,8 @@ start(Host, Name) ->
     start(Host, Name, []).
 
 -spec start(Host, Name, Args) -> {ok, Node} | {error, Reason} when
-      Host :: atom(),
-      Name :: atom(),
+      Host :: inet:hostname(),
+      Name :: atom() | string(),
       Args :: string(),
       Node :: node(),
       Reason :: timeout | no_rsh | {already_running, Node}.
@@ -157,7 +157,7 @@ start(Host, Name, Args) ->
     start(Host, Name, Args, no_link).
 
 -spec start_link(Host) -> {ok, Node} | {error, Reason} when
-      Host :: atom(),
+      Host :: inet:hostname(),
       Node :: node(),
       Reason :: timeout | no_rsh | {already_running, Node}.
 
@@ -167,8 +167,8 @@ start_link(Host) ->
     start(Host, Name, [], self()).
 
 -spec start_link(Host, Name) -> {ok, Node} | {error, Reason} when
-      Host :: atom(),
-      Name :: atom(),
+      Host :: inet:hostname(),
+      Name :: atom() | string(),
       Node :: node(),
       Reason :: timeout | no_rsh | {already_running, Node}.
 
@@ -176,8 +176,8 @@ start_link(Host, Name) ->
     start_link(Host, Name, []).
 
 -spec start_link(Host, Name, Args) -> {ok, Node} | {error, Reason} when
-      Host :: atom(),
-      Name :: atom(),
+      Host :: inet:hostname(),
+      Name :: atom() | string(),
       Args :: string(),
       Node :: node(),
       Reason :: timeout | no_rsh | {already_running, Node}.
@@ -210,7 +210,6 @@ start(Host0, Name, Args, LinkTo, Prog) ->
       Node :: node().
 
 stop(Node) ->
-%    io:format("stop(~p)~n", [Node]),
     rpc:call(Node, erlang, halt, []),
     ok.
 
@@ -229,7 +228,6 @@ wait_for_slave(Parent, Host, Name, Node, Args, LinkTo, Prog) ->
     Waiter = register_unique_name(0),
     case mk_cmd(Host, Name, Args, Waiter, Prog) of
 	{ok, Cmd} ->
-%%	    io:format("Command: ~ts~n", [Cmd]),
 	    open_port({spawn, Cmd}, [stream]),
 	    receive
 		{SlavePid, slave_started} ->

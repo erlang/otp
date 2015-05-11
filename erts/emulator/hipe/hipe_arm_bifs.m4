@@ -19,6 +19,7 @@ changecom(`/*', `*/')dnl
  */
 
 
+#`define ASM'
 include(`hipe/hipe_arm_asm.m4')
 #`include' "config.h"
 #`include' "hipe_literals.h"
@@ -41,9 +42,10 @@ define(TEST_GOT_MBUF,`ldr r1, [P, #P_MBUF]	/* `TEST_GOT_MBUF' */
  * standard_bif_interface_1(nbif_name, cbif_name)
  * standard_bif_interface_2(nbif_name, cbif_name)
  * standard_bif_interface_3(nbif_name, cbif_name)
+ * standard_bif_interface_4(nbif_name, cbif_name)
  * standard_bif_interface_0(nbif_name, cbif_name)
  *
- * Generate native interface for a BIF with 1-3 parameters and
+ * Generate native interface for a BIF with 0-4 parameters and
  * standard failure mode.
  */
 define(standard_bif_interface_1,
@@ -128,6 +130,39 @@ $1:
 	RESTORE_CONTEXT_BIF
 	beq	nbif_3_simple_exception
 	NBIF_RET(3)
+	.ltorg
+	.size	$1, .-$1
+	.type	$1, %function
+#endif')
+
+define(standard_bif_interface_4,
+`
+#ifndef HAVE_$1
+#`define' HAVE_$1
+	.global	$1
+$1:
+	/* Set up C argument registers. */
+	mov	r0, P
+	NBIF_ARG(r1,4,0)
+	NBIF_ARG(r2,4,1)
+	NBIF_ARG(r3,4,2)
+	NBIF_ARG(r4,4,3)
+
+	/* Save caller-save registers and call the C function. */
+	SAVE_CONTEXT_BIF
+	str	r1, [r0, #P_ARG0]	/* Store BIF__ARGS in def_arg_reg[] */
+	str	r2, [r0, #P_ARG1]
+	str	r3, [r0, #P_ARG2]
+	str	r4, [r0, #P_ARG3]
+	add	r1, r0, #P_ARG0
+	CALL_BIF($2)
+	TEST_GOT_MBUF(4)
+
+	/* Restore registers. Check for exception. */
+	cmp	r0, #THE_NON_VALUE
+	RESTORE_CONTEXT_BIF
+	beq	nbif_4_simple_exception
+	NBIF_RET(4)
 	.ltorg
 	.size	$1, .-$1
 	.type	$1, %function

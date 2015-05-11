@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -267,8 +267,10 @@ normalize_toks(Toks) ->
 
 normalize_tok(Tok) ->
     %% this is the portable way ...
-    [{_,Type},{_,Line},{_,Col},{_,Txt}] = 
-	erl_scan:token_info(Tok, [category,line,column,text]),
+    Type = erl_scan:category(Tok),
+    Line = erl_scan:line(Tok),
+    Col = erl_scan:column(Tok),
+    Txt = erl_scan:text(Tok),
     Val  = {Type,{Line,Col},Txt},
     %% io:format("here:X=~p ~p~n",[Tok,Val]),
     Val.

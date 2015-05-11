@@ -23,14 +23,17 @@
 
     <title>SSL User's Guide</title>
     <prepared>OTP Team</prepared>
+    <docno></docno>
     <date>2003-05-26</date>
+    <rev></rev>
     <file>usersguide.sgml</file>
   </header>
   <description>
-    <p>The <em>SSL</em> application provides secure communication over
+    <p>The Secure Socket Layer (SSL) application provides secure communication over
       sockets.
       </p>
   </description>
+  <xi:include href="ssl_introduction.xml"/>
   <xi:include href="ssl_protocol.xml"/>
   <xi:include href="using_ssl.xml"/>
   <xi:include href="ssl_distribution.xml"/>

@@ -47,6 +47,7 @@
 #include "external.h"
 #include "dtrace-wrapper.h"
 #include "erl_map.h"
+#include "erl_bif_unique.h"
 
 extern ErlDrvEntry fd_driver_entry;
 #ifndef __OSE__
@@ -391,7 +392,7 @@ static Port *create_port(char *name,
     /* Set default tracing */
     erts_get_default_tracing(&ERTS_TRACE_FLAGS(prt), &ERTS_TRACER_PROC(prt));
 
-    ASSERT(((char *) prt) == ((char *) &prt->common));
+    ERTS_CT_ASSERT(offsetof(Port,common) == 0);
 
 #if !ERTS_PORT_INIT_INSTR_NEED_ID
     /*
@@ -1429,15 +1430,7 @@ queue_port_sched_op_reply(Process *rp,
 	    bp = erts_resize_message_buffer(bp, used_h_size, &msg, 1);
     }
 
-    erts_queue_message(rp,
-		       rp_locksp,
-		       bp,
-		       msg,
-		       NIL
-#ifdef USE_VM_PROBES
-		       , NIL
-#endif
-	);
+    erts_queue_message(rp, rp_locksp, bp, msg, NIL);
 }
 
 static void
@@ -3085,11 +3078,7 @@ deliver_result(Eterm sender, Eterm pid, Eterm res)
 	hp = erts_alloc_message_heap(sz_res + 3, &bp, &ohp, rp, &rp_locks);
 	res = copy_struct(res, sz_res, &hp, ohp);
 	tuple = TUPLE2(hp, sender, res);
-	erts_queue_message(rp, &rp_locks, bp, tuple, NIL
-#ifdef USE_VM_PROBES
-			   , NIL
-#endif
-			   );
+	erts_queue_message(rp, &rp_locks, bp, tuple, NIL);
 
 	if (rp_locks)
 	    erts_smp_proc_unlock(rp, rp_locks);
@@ -3153,8 +3142,6 @@ static void deliver_read_message(Port* prt, erts_aint32_t state, Eterm to,
 	Binary* bptr;
 
 	bptr = erts_bin_nrml_alloc(len);
-	bptr->flags = 0;
-	bptr->orig_size = len;
 	erts_refc_init(&bptr->refc, 1);
 	sys_memcpy(bptr->orig_bytes, buf, len);
 
@@ -3187,11 +3174,7 @@ static void deliver_read_message(Port* prt, erts_aint32_t state, Eterm to,
     tuple = TUPLE2(hp, prt->common.id, tuple);
     hp += 3;
 
-    erts_queue_message(rp, &rp_locks, bp, tuple, am_undefined
-#ifdef USE_VM_PROBES
-			   , NIL
-#endif
-		       );
+    erts_queue_message(rp, &rp_locks, bp, tuple, am_undefined);
     if (rp_locks)
 	erts_smp_proc_unlock(rp, rp_locks);
     if (!scheduler)
@@ -3358,11 +3341,7 @@ deliver_vec_message(Port* prt,			/* Port */
     tuple = TUPLE2(hp, prt->common.id, tuple);
     hp += 3;
 
-    erts_queue_message(rp, &rp_locks, bp, tuple, am_undefined
-#ifdef USE_VM_PROBES
-		       , NIL
-#endif
-		       );
+    erts_queue_message(rp, &rp_locks, bp, tuple, am_undefined);
     erts_smp_proc_unlock(rp, rp_locks);
     if (!scheduler)
 	erts_smp_proc_dec_refc(rp);
@@ -5062,11 +5041,7 @@ void driver_report_exit(ErlDrvPort ix, int status)
    hp += 3;
    tuple = TUPLE2(hp, prt->common.id, tuple);
 
-   erts_queue_message(rp, &rp_locks, bp, tuple, am_undefined
-#ifdef USE_VM_PROBES
-		      , NIL
-#endif
-		      );
+   erts_queue_message(rp, &rp_locks, bp, tuple, am_undefined);
 
    erts_smp_proc_unlock(rp, rp_locks);
    if (!scheduler)
@@ -5352,7 +5327,11 @@ driver_deliver_term(Eterm to, ErlDrvTermData* data, int len)
 	case ERL_DRV_MAP: { /* int */
 	    ERTS_DDT_CHK_ENOUGH_ARGS(1);
 	    if ((int) ptr[0] < 0) ERTS_DDT_FAIL;
-	    need += MAP_HEADER_SIZE + 1 + 2*ptr[0];
+            if (ptr[0] > MAP_SMALL_MAP_LIMIT) {
+                need += hashmap_over_estimated_heap_size(ptr[0]);
+            } else {
+                need += MAP_HEADER_FLATMAP_SZ + 1 + 2*ptr[0];
+            }
 	    depth -= 2*ptr[0];
 	    if (depth < 0) ERTS_DDT_FAIL;
 	    ptr++;
@@ -5507,8 +5486,6 @@ driver_deliver_term(Eterm to, ErlDrvTermData* data, int len)
 		ProcBin* pbp;
 		Binary* bp = erts_bin_nrml_alloc(size);
 		ASSERT(bufp);
-		bp->flags = 0;
-		bp->orig_size = (SWord) size;
 		erts_refc_init(&bp->refc, 1);
 		sys_memcpy((void *) bp->orig_bytes, (void *) bufp, size);
 		pbp = (ProcBin *) hp;
@@ -5582,7 +5559,9 @@ driver_deliver_term(Eterm to, ErlDrvTermData* data, int len)
 
 	    mess = make_float(hp);
 	    f.fd = *((double *) ptr[0]);
-	    PUT_DOUBLE(f, hp);
+            if (!erts_isfinite(f.fd))
+                ERTS_DDT_FAIL;
+            PUT_DOUBLE(f, hp);
 	    hp += FLOAT_SIZE_OBJECT;
 	    ptr++;
 	    break;
@@ -5598,31 +5577,52 @@ driver_deliver_term(Eterm to, ErlDrvTermData* data, int len)
 
 	case ERL_DRV_MAP: { /* int */
 	    int size = (int)ptr[0];
-	    Eterm* tp = hp;
-	    Eterm* vp;
-	    map_t *mp;
+            if (size > MAP_SMALL_MAP_LIMIT) {
+                int ix = 2*size;
+                ErtsHeapFactory factory;
+                Eterm* leafs = hp;
 
-	    *tp = make_arityval(size);
+                hp += 2*size;
+                while(ix--) { *--hp = ESTACK_POP(stack); }
 
-	    hp += 1 + size;
-	    mp = (map_t*)hp;
-	    mp->thing_word = MAP_HEADER;
-	    mp->size = size;
-	    mp->keys = make_tuple(tp);
-	    mess = make_map(mp);
+                hp += 2*size;
+                factory.p = NULL;
+                factory.hp = hp;
+                /* We assume heap will suffice (see hashmap_over_estimated_heap_size) */
 
-	    hp += MAP_HEADER_SIZE + size;   /* advance "heap" pointer */
+                mess = erts_hashmap_from_array(&factory, leafs, size, 1);
 
-	    tp += size;    /* point at last key */
-	    vp = hp - 1;   /* point at last value */
+                if (is_non_value(mess))
+                    ERTS_DDT_FAIL;
 
-	    while(size--) {
-		*vp-- = ESTACK_POP(stack);
-		*tp-- = ESTACK_POP(stack);
-	    }
-	    if (!erts_validate_and_sort_map(mp))
-		ERTS_DDT_FAIL;
-	    ptr++;
+                hp = factory.hp;
+            } else {
+                Eterm* tp = hp;
+                Eterm* vp;
+                flatmap_t *mp;
+
+                *tp = make_arityval(size);
+
+                hp += 1 + size;
+                mp = (flatmap_t*)hp;
+                mp->thing_word = MAP_HEADER_FLATMAP;
+                mp->size = size;
+                mp->keys = make_tuple(tp);
+                mess = make_flatmap(mp);
+
+                hp += MAP_HEADER_FLATMAP_SZ + size;
+
+                tp += size;    /* point at last key */
+                vp = hp - 1;   /* point at last value */
+
+                while(size--) {
+                    *vp-- = ESTACK_POP(stack);
+                    *tp-- = ESTACK_POP(stack);
+                }
+                if (!erts_validate_and_sort_flatmap(mp))
+                    ERTS_DDT_FAIL;
+            }
+            ptr++;
 	    break;
 	}
 
@@ -5643,11 +5643,7 @@ driver_deliver_term(Eterm to, ErlDrvTermData* data, int len)
 	    HRelease(rp, hp_end, hp);	    
 	}
 	/* send message */
-	erts_queue_message(rp, &rp_locks, bp, mess, am_undefined
-#ifdef USE_VM_PROBES
-			   , NIL
-#endif
-			   );
+	erts_queue_message(rp, &rp_locks, bp, mess, am_undefined);
     }
     else {
 	if (b2t.ix > b2t.used)
@@ -6000,9 +5996,7 @@ driver_alloc_binary(ErlDrvSizeT size)
     bin = erts_bin_drv_alloc_fnf((Uint) size);
     if (!bin)
 	return NULL; /* The driver write must take action */
-    bin->flags = BIN_FLAG_DRV;
     erts_refc_init(&bin->refc, 1);
-    bin->orig_size = (SWord) size;
     return Binary2ErlDrvBinary(bin);
 }
 
@@ -6032,7 +6026,6 @@ ErlDrvBinary* driver_realloc_binary(ErlDrvBinary* bin, ErlDrvSizeT size)
     if (!newbin)
 	return NULL;
 
-    newbin->orig_size = size;
     return Binary2ErlDrvBinary(newbin);
 }
 
@@ -6706,7 +6699,7 @@ static void ref_to_driver_monitor(Eterm ref, ErlDrvMonitor *mon)
 {
     RefThing *refp;
     ASSERT(is_internal_ref(ref));
-    ASSERT(sizeof(RefThing) <= sizeof(ErlDrvMonitor));
+    ERTS_CT_ASSERT(sizeof(RefThing) <= sizeof(ErlDrvMonitor));
     refp = ref_thing_ptr(ref);
     memset(mon,0,sizeof(ErlDrvMonitor));
     memcpy(mon,refp,sizeof(RefThing));

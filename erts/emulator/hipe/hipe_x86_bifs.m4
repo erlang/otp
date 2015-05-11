@@ -19,6 +19,7 @@ changecom(`/*', `*/')dnl
  */
 
 
+#`define ASM'
 include(`hipe/hipe_x86_asm.m4')
 #`include' "config.h"
 #`include' "hipe_literals.h"
@@ -47,9 +48,10 @@ define(HANDLE_GOT_MBUF,`
  * standard_bif_interface_1(nbif_name, cbif_name)
  * standard_bif_interface_2(nbif_name, cbif_name)
  * standard_bif_interface_3(nbif_name, cbif_name)
+ * standard_bif_interface_4(nbif_name, cbif_name)
  * standard_bif_interface_0(nbif_name, cbif_name)
  *
- * Generate native interface for a BIF with 0-3 parameters and
+ * Generate native interface for a BIF with 0-4 parameters and
  * standard failure mode.
  */
 define(standard_bif_interface_1,
@@ -153,6 +155,43 @@ ASYM($1):
 	jz	nbif_3_simple_exception
 	NBIF_RET(3)
 	HANDLE_GOT_MBUF(3)
+	SET_SIZE(ASYM($1))
+	TYPE_FUNCTION(ASYM($1))
+#endif')
+
+define(standard_bif_interface_4,
+`
+#ifndef HAVE_$1
+#`define' HAVE_$1
+	TEXT
+	.align	4
+	GLOBAL(ASYM($1))
+ASYM($1):
+	/* copy native stack pointer */
+	NBIF_COPY_NSP(4)
+
+	/* switch to C stack */
+	SWITCH_ERLANG_TO_C
+
+	/* make the call on the C stack */
+	NBIF_ARG_REG(0,P)
+	NBIF_ARG(2,4,0)
+	NBIF_ARG(3,4,1)
+	NBIF_ARG(4,4,2)
+	NBIF_ARG(5,4,3)
+	lea 8(%esp), %eax
+	NBIF_ARG_REG(1,%eax)	/* BIF__ARGS */
+	CALL_BIF($2)
+	TEST_GOT_MBUF
+
+	/* switch to native stack */
+	SWITCH_C_TO_ERLANG
+
+	/* throw exception if failure, otherwise return */
+	TEST_GOT_EXN
+	jz	nbif_4_simple_exception
+	NBIF_RET(4)
+	HANDLE_GOT_MBUF(4)
 	SET_SIZE(ASYM($1))
 	TYPE_FUNCTION(ASYM($1))
 #endif')

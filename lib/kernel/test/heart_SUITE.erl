@@ -562,13 +562,15 @@ suicide_by_heart() ->
 generate(Module, Attributes, FunStrings) ->
     FunForms = function_forms(FunStrings),
     Forms    = [
-	{attribute,1,module,Module},
-	{attribute,2,export,[FA || {FA,_} <- FunForms]}
-    ] ++ [{attribute, 3, A, V}|| {A, V} <- Attributes] ++
+	{attribute,a(1),module,Module},
+	{attribute,a(2),export,[FA || {FA,_} <- FunForms]}
+    ] ++ [{attribute, a(3), A, V}|| {A, V} <- Attributes] ++
     [ Function || {_, Function} <- FunForms],
     {ok, Module, Bin} = compile:forms(Forms),
     Bin.
 
+a(L) ->
+    erl_anno:new(L).
 
 function_forms([]) -> [];
 function_forms([S|Ss]) ->

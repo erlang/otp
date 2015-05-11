@@ -235,8 +235,7 @@ report_fatal(Format, Args, BinaryCore, CoreDumped) ->
     end.
 
 core_file(CoreDir,BinaryCore,Format,Args) ->
-    %% Integers = tuple_to_list(date()) ++ tuple_to_list(time()),
-    Integers = tuple_to_list(now()),
+    Integers = tuple_to_list(erlang:timestamp()),
     Fun = fun(I) when I < 10 -> ["_0",I];
 	     (I) -> ["_",I]
 	  end,

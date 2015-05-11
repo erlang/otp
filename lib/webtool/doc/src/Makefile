@@ -25,6 +25,10 @@ include ../../vsn.mk
 VSN=$(WEBTOOL_VSN)
 APPLICATION=webtool
 
+DOC_EXTRA_FRONT_PAGE_INFO=Important note: \
+The Webtool application is obsolete and will be removed \
+in the next major OTP release
+
 # ----------------------------------------------------
 # Release directory specification
 # ----------------------------------------------------
