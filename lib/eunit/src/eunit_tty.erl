@@ -83,7 +83,7 @@ terminate({ok, Data}, St) ->
 	    sync_end(error)
     end;
 terminate({error, Reason}, _St) ->
-    fwrite("Internal error: ~P.\n", [Reason, 25]),
+    fwrite("Internal error: ~tP.\n", [Reason, 25]),
     sync_end(error).
 
 sync_end(Result) ->
@@ -177,7 +177,7 @@ indent(_N) ->
 
 print_group_start(I, Desc) ->
     indent(I),
-    fwrite("~s\n", [Desc]).
+    fwrite("~ts\n", [Desc]).
 
 print_group_end(I, Time) ->
     if Time > 0 ->
@@ -195,13 +195,13 @@ print_test_begin(I, Data) ->
 	   true -> io_lib:fwrite("~w:", [Line])
 	end,
     D = if Desc =:= "" ; Desc =:= undefined -> "";
-	   true -> io_lib:fwrite(" (~s)", [Desc])
+	   true -> io_lib:fwrite(" (~ts)", [Desc])
 	end,
     case proplists:get_value(source, Data) of
 	{Module, Name, _Arity} ->
-	    fwrite("~s:~s ~s~s...", [Module, L, Name, D]);
+	    fwrite("~ts:~ts ~ts~ts...", [Module, L, Name, D]);
 	_ ->
-	    fwrite("~s~s...", [L, D])
+	    fwrite("~ts~ts...", [L, D])
     end.
 
 print_test_end(Data) ->
@@ -209,21 +209,21 @@ print_test_end(Data) ->
     T = if Time > 0 -> io_lib:fwrite("[~.3f s] ", [Time/1000]);
 	   true -> ""
 	end,
-    fwrite("~sok\n", [T]).
+    fwrite("~tsok\n", [T]).
 
 print_test_error({error, Exception}, Data) ->
     Output = proplists:get_value(output, Data),
-    fwrite("*failed*\n~s", [eunit_lib:format_exception(Exception)]),
+    fwrite("*failed*\n~ts", [eunit_lib:format_exception(Exception)]),
     case Output of
 	<<>> ->
 	    fwrite("\n\n");
 	<<Text:800/binary, _:1/binary, _/binary>> ->
-	    fwrite("  output:<<\"~s\">>...\n\n", [Text]);
+	    fwrite("  output:<<\"~ts\">>...\n\n", [Text]);
 	_ ->
-	    fwrite("  output:<<\"~s\">>\n\n", [Output])
+	    fwrite("  output:<<\"~ts\">>\n\n", [Output])
     end;
 print_test_error({skipped, Reason}, _) ->
-    fwrite("*did not run*\n::~s\n", [format_skipped(Reason)]).
+    fwrite("*did not run*\n::~ts\n", [format_skipped(Reason)]).
 
 format_skipped({module_not_found, M}) ->
     io_lib:fwrite("missing module: ~w", [M]);
@@ -244,12 +244,12 @@ format_cancel(undefined) ->
 format_cancel(timeout) ->
     "*timed out*\n";
 format_cancel({startup, Reason}) ->
-    io_lib:fwrite("*could not start test process*\n::~P\n\n",
+    io_lib:fwrite("*could not start test process*\n::~tP\n\n",
 		  [Reason, 15]);
 format_cancel({blame, _SubId}) ->
     "*cancelled because of subtask*\n";
 format_cancel({exit, Reason}) ->
-    io_lib:fwrite("*unexpected termination of test process*\n::~P\n\n",
+    io_lib:fwrite("*unexpected termination of test process*\n::~tP\n\n",
 		  [Reason, 15]);
 format_cancel({abort, Reason}) ->
     eunit_lib:format_error(Reason).
