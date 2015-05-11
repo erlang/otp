@@ -29,6 +29,7 @@
 
 -define(NEWLINE, <<"\r\n">>).
 
+-define(REKEY_DATA_TMO, 65000).
 %%--------------------------------------------------------------------
 %% Common Test interface functions -----------------------------------
 %%--------------------------------------------------------------------
@@ -44,6 +45,7 @@ all() ->
      {group, dsa_pass_key},
      {group, rsa_pass_key},
      {group, internal_error},
+     {group, renegotiate},
      daemon_already_started,
      server_password_option,
      server_userpassword_option,
@@ -67,6 +69,7 @@ groups() ->
      {dsa_pass_key, [], [pass_phrase]},
      {rsa_pass_key, [], [pass_phrase]},
      {internal_error, [], [internal_error]},
+     {renegotiate, [], [rekey, rekey_limit, renegotiate1, renegotiate2]},
      {hardening_tests, [], [ssh_connect_nonegtimeout_connected_parallel,
 			    ssh_connect_nonegtimeout_connected_sequential,
 			    ssh_connect_negtimeout_parallel,
@@ -82,8 +85,7 @@ groups() ->
 basic_tests() ->
     [send, close, peername_sockname,
      exec, exec_compressed, shell, cli, known_hosts, 
-     idle_time, rekey, openssh_zlib_basic_test,
-     misc_ssh_options, inet_option].
+     idle_time, openssh_zlib_basic_test, misc_ssh_options, inet_option].
 
 
 %%--------------------------------------------------------------------
@@ -331,24 +333,174 @@ idle_time(Config) ->
 rekey() ->
     [{doc, "Idle timeout test"}].
 rekey(Config) ->
-    SystemDir = filename:join(?config(priv_dir, Config), system),
+    SystemDir = ?config(data_dir, Config),
     UserDir = ?config(priv_dir, Config),
 
     {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
-					     {user_dir, UserDir},
+    					     {user_dir, UserDir},
 					     {failfun, fun ssh_test_lib:failfun/2},
+    					     {user_passwords,
+    					      [{"simon", "says"}]},
 					     {rekey_limit, 0}]),
+
     ConnectionRef =
 	ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
 					  {user_dir, UserDir},
+					  {user, "simon"},
+					  {password, "says"},
 					  {user_interaction, false},
 					  {rekey_limit, 0}]),
     receive
-    after 200000 ->
+    after ?REKEY_DATA_TMO ->
 	    %%By this time rekeying would have been done
 	    ssh:close(ConnectionRef),
 	    ssh:stop_daemon(Pid)
     end.
+%%--------------------------------------------------------------------
+rekey_limit() ->
+    [{doc, "Test rekeying by data volume"}].
+rekey_limit(Config) ->
+    SystemDir = ?config(data_dir, Config),
+    UserDir = ?config(priv_dir, Config),
+    DataFile = filename:join(UserDir, "rekey.data"),
+
+    {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
+    					     {user_dir, UserDir},
+    					     {user_passwords,
+    					      [{"simon", "says"}]}]),
+    {ok, SftpPid, ConnectionRef} =
+    	ssh_sftp:start_channel(Host, Port, [{system_dir, SystemDir},
+    					    {user_dir, UserDir},
+    					    {user, "simon"},
+    					    {password, "says"},
+    					    {rekey_limit, 2500},
+    					    {user_interaction, false},
+    					    {silently_accept_hosts, true}]),
+
+    Kex1 = get_kex_init(ConnectionRef),
+
+    ct:sleep(?REKEY_DATA_TMO),
+    Kex1 = get_kex_init(ConnectionRef),
+
+    Data = lists:duplicate(9000,1),
+    ok = ssh_sftp:write_file(SftpPid, DataFile, Data),
+
+    ct:sleep(?REKEY_DATA_TMO),
+    Kex2 = get_kex_init(ConnectionRef),
+
+    false = (Kex2 == Kex1),
+
+    ct:sleep(?REKEY_DATA_TMO),
+    Kex2 = get_kex_init(ConnectionRef),
+
+    ok = ssh_sftp:write_file(SftpPid, DataFile, "hi\n"),
+
+    ct:sleep(?REKEY_DATA_TMO),
+    Kex2 = get_kex_init(ConnectionRef),
+
+    false = (Kex2 == Kex1),
+
+    ct:sleep(?REKEY_DATA_TMO),
+    Kex2 = get_kex_init(ConnectionRef),
+
+
+    ssh_sftp:stop_channel(SftpPid),
+    ssh:close(ConnectionRef),
+    ssh:stop_daemon(Pid).
+
+%%--------------------------------------------------------------------
+renegotiate1() ->
+    [{doc, "Test rekeying with simulataneous send request"}].
+renegotiate1(Config) ->
+    SystemDir = ?config(data_dir, Config),
+    UserDir = ?config(priv_dir, Config),
+    DataFile = filename:join(UserDir, "renegotiate1.data"),
+
+    {Pid, Host, DPort} = ssh_test_lib:daemon([{system_dir, SystemDir},
+					       {user_dir, UserDir},
+					       {user_passwords,
+						[{"simon", "says"}]}]),
+    RPort = ssh_test_lib:inet_port(),
+
+    {ok,RelayPid} = ssh_relay:start_link({0,0,0,0}, RPort, Host, DPort),
+
+    {ok, SftpPid, ConnectionRef} =
+	ssh_sftp:start_channel(Host, RPort, [{system_dir, SystemDir},
+					     {user_dir, UserDir},
+					     {user, "simon"},
+					     {password, "says"},
+					     {user_interaction, false},
+					     {silently_accept_hosts, true}]),
+
+    Kex1 = get_kex_init(ConnectionRef),
+
+    {ok, Handle} = ssh_sftp:open(SftpPid, DataFile, [write]),
+
+    ok = ssh_sftp:write(SftpPid, Handle, "hi\n"),
+
+    ssh_relay:hold(RelayPid, rx, 20, 1000),
+    ssh_connection_handler:renegotiate(ConnectionRef),
+    spawn(fun() -> ok=ssh_sftp:write(SftpPid, Handle, "another hi\n") end),
+
+    ct:sleep(2000),
+
+    Kex2 = get_kex_init(ConnectionRef),
+
+    false = (Kex2 == Kex1),
+    
+    ssh_relay:stop(RelayPid),
+    ssh_sftp:stop_channel(SftpPid),
+    ssh:close(ConnectionRef),
+    ssh:stop_daemon(Pid).
+
+%%--------------------------------------------------------------------
+renegotiate2() ->
+    [{doc, "Test rekeying with inflight messages from peer"}].
+renegotiate2(Config) ->
+    SystemDir = ?config(data_dir, Config),
+    UserDir = ?config(priv_dir, Config),
+    DataFile = filename:join(UserDir, "renegotiate1.data"),
+
+    {Pid, Host, DPort} = ssh_test_lib:daemon([{system_dir, SystemDir},
+					       {user_dir, UserDir},
+					       {user_passwords,
+						[{"simon", "says"}]}]),
+    RPort = ssh_test_lib:inet_port(),
+
+    {ok,RelayPid} = ssh_relay:start_link({0,0,0,0}, RPort, Host, DPort),
+
+    {ok, SftpPid, ConnectionRef} =
+	ssh_sftp:start_channel(Host, RPort, [{system_dir, SystemDir},
+					     {user_dir, UserDir},
+					     {user, "simon"},
+					     {password, "says"},
+					     {user_interaction, false},
+					     {silently_accept_hosts, true}]),
+
+    Kex1 = get_kex_init(ConnectionRef),
+
+    {ok, Handle} = ssh_sftp:open(SftpPid, DataFile, [write]),
+
+    ok = ssh_sftp:write(SftpPid, Handle, "hi\n"),
+
+    ssh_relay:hold(RelayPid, rx, 20, infinity),
+    spawn(fun() -> ok=ssh_sftp:write(SftpPid, Handle, "another hi\n") end),
+    %% need a small pause here to ensure ssh_sftp:write is executed
+    ct:sleep(10),
+    ssh_connection_handler:renegotiate(ConnectionRef),
+    ssh_relay:release(RelayPid, rx),
+
+    ct:sleep(2000),
+
+    Kex2 = get_kex_init(ConnectionRef),
+
+    false = (Kex2 == Kex1),
+
+    ssh_relay:stop(RelayPid),
+    ssh_sftp:stop_channel(SftpPid),
+    ssh:close(ConnectionRef),
+    ssh:stop_daemon(Pid).
+
 %%--------------------------------------------------------------------
 shell() ->
     [{doc, "Test that ssh:shell/2 works"}].
@@ -1210,3 +1362,18 @@ fake_daemon(_Config) ->
 	{sockname,Server,ServerHost,ServerPort} -> {Server, ServerHost, ServerPort}
     end.
 
+%% get_kex_init - helper function to get key_exchange_init_msg
+get_kex_init(Conn) ->
+    %% First, validate the key exchange is complete (StateName == connected)
+    {connected,S} = sys:get_state(Conn),
+    %% Next, walk through the elements of the #state record looking
+    %% for the #ssh_msg_kexinit record. This method is robust against
+    %% changes to either record. The KEXINIT message contains a cookie
+    %% unique to each invocation of the key exchange procedure (RFC4253)
+    SL = tuple_to_list(S),
+    case lists:keyfind(ssh_msg_kexinit, 1, SL) of
+	false ->
+	    throw(not_found);
+	KexInit ->
+	    KexInit
+    end.
