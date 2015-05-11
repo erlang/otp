@@ -102,6 +102,12 @@
 %%   approach is that it does not require the complete list of all
 %%   elements to be built in memory at one time.
 %%
+%% - iterator_from(K, T): returns an iterator starting from K. that can
+%%   be used for traversing the entries of tree T; see `next'. The main
+%%   difference with regular iterator that it finds starting position
+%%   in O(logN) and then traverse remaining tree. Helpful if you need
+%%   to fetch ranges from tree.
+%%
 %% - next(S): returns {X, V, S1} where X is the smallest key referred to
 %%   by the iterator S, and S1 is the new iterator to be used for
 %%   traversing the remaining entries, or the atom `none' if no entries
@@ -117,7 +123,7 @@
 	 update/3, enter/3, delete/2, delete_any/2, balance/1,
 	 is_defined/2, keys/1, values/1, to_list/1, from_orddict/1,
 	 smallest/1, largest/1, take_smallest/1, take_largest/1,
-	 iterator/1, next/1, map/2]).
+	 iterator/1, iterator_from/2, next/1, map/2]).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -529,6 +535,32 @@ iterator({_, _, L, _} = T, As) ->
 iterator(nil, As) ->
     As.
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% regular version will iterate through all the key even if we need only last 10
+%% this version allows to specify start key from which iteration begins
+%% Need duplicate all the functions for backard compatibility
+%% because we can't guarantee key that will be smaller than other possible keys
+-spec iterator_from(Key, Tree) -> Iter when
+      Tree :: tree(Key, Value),
+      Iter :: iter(Key, Value).
+
+iterator_from(S, {_, T}) ->
+    iterator_1_from(S, T).
+
+iterator_1_from(S, T) ->
+    iterator_from(S, T, []).
+
+iterator_from(S, {K, _, _, T}, As) when K < S ->
+    iterator_from(S, T, As);
+iterator_from(_, {_, _, nil, _} = T, As) ->
+    [T | As];
+iterator_from(S, {_, _, L, _} = T, As) ->
+    iterator_from(S, L, [T | As]);
+iterator_from(_, nil, As) ->
+    As.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 -spec next(Iter1) -> 'none' | {Key, Value, Iter2} when
       Iter1 :: iter(Key, Value),
       Iter2 :: iter(Key, Value).
