@@ -342,6 +342,7 @@ void* db_store_term(DbTableCommon *tb, DbTerm* old, Uint offset, Eterm obj);
 void* db_store_term_comp(DbTableCommon *tb, DbTerm* old, Uint offset, Eterm obj);
 Eterm db_copy_element_from_ets(DbTableCommon* tb, Process* p, DbTerm* obj,
 			       Uint pos, Eterm** hpp, Uint extra);
+int db_has_map(Eterm obj);
 int db_has_variable(Eterm obj);
 int db_is_variable(Eterm obj);
 void db_do_update_element(DbUpdateHandle* handle,

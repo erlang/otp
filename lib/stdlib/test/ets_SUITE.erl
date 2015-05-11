@@ -3821,46 +3821,99 @@ match_object(Config) when is_list(Config) ->
     repeat_for_opts(match_object_do).
 
 match_object_do(Opts) ->
-    ?line EtsMem = etsmem(),
-    ?line Tab = ets_new(foobar, Opts),
-    ?line fill_tab(Tab, foo),
-    ?line ets:insert(Tab, {{one, 4}, 4}),
-    ?line ets:insert(Tab,{{one,5},5}),
-    ?line ets:insert(Tab,{{two,4},4}),
-    ?line ets:insert(Tab,{{two,5},6}),
-    ?line ets:insert(Tab, {#{camembert=>cabécou},7}),
-    ?line case ets:match_object(Tab, {{one, '_'}, '$0'}) of
+    EtsMem = etsmem(),
+    Tab = ets_new(foobar, Opts),
+    fill_tab(Tab, foo),
+    ets:insert(Tab,{{one,4},4}),
+    ets:insert(Tab,{{one,5},5}),
+    ets:insert(Tab,{{two,4},4}),
+    ets:insert(Tab,{{two,5},6}),
+    ets:insert(Tab, {#{camembert=>cabécou},7}),
+    ets:insert(Tab, {#{"hi"=>"hello","wazzup"=>"awesome","1337"=>"42"},8}),
+    ets:insert(Tab, {#{"hi"=>"hello",#{"wazzup"=>3}=>"awesome","1337"=>"42"},9}),
+    ets:insert(Tab, {#{"hi"=>"hello","wazzup"=>#{"awesome"=>3},"1337"=>"42"},10}),
+    Is = lists:seq(1,100),
+    M1 = maps:from_list([{I,I}||I <- Is]),
+    M2 = maps:from_list([{I,"hi"}||I <- Is]),
+    ets:insert(Tab, {M1,11}),
+    ets:insert(Tab, {M2,12}),
+
+    case ets:match_object(Tab, {{one, '_'}, '$0'}) of
 	[{{one,5},5},{{one,4},4}] -> ok;
 	[{{one,4},4},{{one,5},5}] -> ok;
 	_ -> ?t:fail("ets:match_object() returned something funny.")
     end,
-    ?line case ets:match_object(Tab, {{two, '$1'}, '$0'}) of
+    case ets:match_object(Tab, {{two, '$1'}, '$0'}) of
 	[{{two,5},6},{{two,4},4}] -> ok;
 	[{{two,4},4},{{two,5},6}] -> ok;
 	_ -> ?t:fail("ets:match_object() returned something funny.")
     end,
-    ?line case ets:match_object(Tab, {{two, '$9'}, '$4'}) of
+    case ets:match_object(Tab, {{two, '$9'}, '$4'}) of
 	[{{two,5},6},{{two,4},4}] -> ok;
 	[{{two,4},4},{{two,5},6}] -> ok;
 	_ -> ?t:fail("ets:match_object() returned something funny.")
     end,
-    ?line case ets:match_object(Tab, {{two, '$9'}, '$22'}) of
+    case ets:match_object(Tab, {{two, '$9'}, '$22'}) of
 	[{{two,5},6},{{two,4},4}] -> ok;
 	[{{two,4},4},{{two,5},6}] -> ok;
 	_ -> ?t:fail("ets:match_object() returned something funny.")
     end,
+
     % Check that maps are inspected for variables.
-    [{#{camembert:=cabécou},7}] =
-        ets:match_object(Tab, {#{camembert=>'_'},7}),
+    [{#{camembert:=cabécou},7}] = ets:match_object(Tab, {#{camembert=>'_'},7}),
+
+    [{#{"hi":="hello",#{"wazzup"=>3}:="awesome","1337":="42"},9}] =
+        ets:match_object(Tab, {#{#{"wazzup"=>3}=>"awesome","hi"=>"hello","1337"=>"42"},9}),
+    [{#{"hi":="hello",#{"wazzup"=>3}:="awesome","1337":="42"},9}] =
+        ets:match_object(Tab, {#{#{"wazzup"=>3}=>"awesome","hi"=>"hello","1337"=>'_'},'_'}),
+    [{#{"hi":="hello","wazzup":=#{"awesome":=3},"1337":="42"},10}] =
+        ets:match_object(Tab, {#{"wazzup"=>'_',"hi"=>'_',"1337"=>'_'},10}),
+
+    %% multiple patterns
+    Pat = {{#{#{"wazzup"=>3}=>"awesome","hi"=>"hello","1337"=>'_'},'$1'},[{is_integer,'$1'}],['$_']},
+    [{#{"hi":="hello",#{"wazzup"=>3}:="awesome","1337":="42"},9}] =
+        ets:select(Tab, [Pat,Pat,Pat,Pat]),
+    case ets:match_object(Tab, {#{"hi"=>"hello","wazzup"=>'_',"1337"=>"42"},'_'}) of
+        [{#{"1337" := "42","hi" := "hello","wazzup" := "awesome"},8},
+         {#{"1337" := "42","hi" := "hello","wazzup" := #{"awesome" := 3}},10}] -> ok;
+        [{#{"1337" := "42","hi" := "hello","wazzup" := #{"awesome" := 3}},10},
+         {#{"1337" := "42","hi" := "hello","wazzup" := "awesome"},8}] -> ok;
+        _ -> ?t:fail("ets:match_object() returned something funny.")
+    end,
+    case ets:match_object(Tab, {#{"hi"=>'_'},'_'}) of
+        [{#{"1337":="42", "hi":="hello"},_},
+         {#{"1337":="42", "hi":="hello"},_},
+         {#{"1337":="42", "hi":="hello"},_}] -> ok;
+        _ -> ?t:fail("ets:match_object() returned something funny.")
+    end,
+
+    %% match large maps
+    [{#{1:=1,2:=2,99:=99,100:=100},11}] = ets:match_object(Tab, {M1,11}),
+    [{#{1:="hi",2:="hi",99:="hi",100:="hi"},12}] = ets:match_object(Tab, {M2,12}),
+    case ets:match_object(Tab, {#{1=>'_',2=>'_'},'_'}) of
+        %% only match a part of the map
+        [{#{1:=1,5:=5,99:=99,100:=100},11},{#{1:="hi",6:="hi",99:="hi"},12}] -> ok;
+        [{#{1:="hi",2:="hi",59:="hi"},12},{#{1:=1,2:=2,39:=39,100:=100},11}] -> ok;
+        _ -> ?t:fail("ets:match_object() returned something funny.")
+    end,
+    case ets:match_object(Tab, {maps:from_list([{I,'_'}||I<-Is]),'_'}) of
+        %% only match a part of the map
+        [{#{1:=1,5:=5,99:=99,100:=100},11},{#{1:="hi",6:="hi",99:="hi"},12}] -> ok;
+        [{#{1:="hi",2:="hi",59:="hi"},12},{#{1:=1,2:=2,39:=39,100:=100},11}] -> ok;
+        _ -> ?t:fail("ets:match_object() returned something funny.")
+    end,
     {'EXIT',{badarg,_}} = (catch ets:match_object(Tab, {#{'$1'=>'_'},7})),
-    % Check that unsucessful match returns an empty list.
-    ?line [] = ets:match_object(Tab, {{three,'$0'}, '$92'}),
+    Mve = maps:from_list([{list_to_atom([$$|integer_to_list(I)]),'_'}||I<-Is]),
+    {'EXIT',{badarg,_}} = (catch ets:match_object(Tab, {Mve,11})),
+
+    % Check that unsuccessful match returns an empty list.
+    [] = ets:match_object(Tab, {{three,'$0'}, '$92'}),
     % Check that '$0' equals '_'.
     Len = length(ets:match_object(Tab, '$0')),
     Len = length(ets:match_object(Tab, '_')),
-    ?line if Len > 4 -> ok end,
-    ?line true = ets:delete(Tab),
-    ?line verify_etsmem(EtsMem).
+    if Len > 4 -> ok end,
+    true = ets:delete(Tab),
+    verify_etsmem(EtsMem).
 
 match_object2(suite) -> [];
 match_object2(doc) -> ["Tests that db_match_object does not generate "
