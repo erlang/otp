@@ -1760,6 +1760,10 @@ AC_CHECK_HEADER(sys/event.h, have_kernel_poll=kqueue)
 AC_CHECK_HEADER(sys/epoll.h, have_kernel_poll=epoll)
 AC_CHECK_HEADER(sys/devpoll.h, have_kernel_poll=/dev/poll)
 
+dnl Check if we have timerfds to be used for high accuracy
+dnl epoll_wait timeouts
+AC_CHECK_HEADERS([sys/timerfd.h])
+
 dnl Check for kernel SCTP support
 AC_SUBST(LIBSCTP)
 if test "x$enable_sctp" != "xno" ; then
@@ -2105,7 +2109,7 @@ AC_CHECK_FUNCS([ieee_handler fpsetmask finite isnan isinf res_gethostbyname dlop
 		gethrtime localtime_r gmtime_r inet_pton \
 		memcpy mallopt sbrk _sbrk __sbrk brk _brk __brk \
 		flockfile fstat strlcpy strlcat setsid posix2time time2posix \
-		setlocale nl_langinfo poll mlockall])
+		setlocale nl_langinfo poll mlockall ppoll])
 
 AC_MSG_CHECKING([for isfinite])
 AC_TRY_LINK([#include <math.h>],
