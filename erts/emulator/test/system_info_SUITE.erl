@@ -264,6 +264,37 @@ memory_test(_Config) ->
 		     []),
     cmp_memory(MWs, "unlink procs"),
 
+    mem_workers_call(MWs, 
+		     fun () ->
+			     lists:foreach(
+			       fun (P) ->
+				       Tmr = erlang:start_timer(1 bsl 34,
+								P,
+								hello),
+				       Tmrs = case get('BIF_TMRS') of
+						  undefined -> [];
+						  Rs -> Rs
+					      end,
+				       true = is_reference(Tmr),
+				       put('BIF_TMRS', [Tmr|Tmrs])
+			       end, Ps)
+		     end,
+		     []),
+    cmp_memory(MWs, "start BIF timer procs"),
+
+    mem_workers_call(MWs, 
+		     fun () ->
+			     lists:foreach(fun (Tmr) ->
+						   true = is_reference(Tmr),
+						   true = is_integer(erlang:cancel_timer(Tmr))
+					   end, get('BIF_TMRS')),
+			     put('BIF_TMRS', undefined),
+			     garbage_collect()
+		     end,
+		     []),
+    erts_debug:set_internal_state(wait, deallocations),
+    cmp_memory(MWs, "cancel BIF timer procs"),
+
     DMs = mem_workers_call(MWs,
 			   fun () ->
 				   lists:map(fun (P) ->

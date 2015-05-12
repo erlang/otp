@@ -425,19 +425,23 @@ call_on_load_function(_P1) ->
     erlang:nif_error(undefined).
 
 %% cancel_timer/1
--spec erlang:cancel_timer(TimerRef) -> Time | false when
+-spec erlang:cancel_timer(TimerRef) -> Result when
       TimerRef :: reference(),
-      Time :: non_neg_integer().
+      Time :: non_neg_integer(),
+      Result :: Time | false.
 
 cancel_timer(_TimerRef) ->
     erlang:nif_error(undefined).
 
 %% cancel_timer/2
--spec erlang:cancel_timer(TimerRef, Options) -> Time | false | ok when
+-spec erlang:cancel_timer(TimerRef, Options) -> Result | ok when
       TimerRef :: reference(),
-      Option :: {async, boolean()} | {info, boolean()},
+      Async :: boolean(),
+      Info :: boolean(),
+      Option :: {async, Async} | {info, Info},
       Options :: [Option],
-      Time :: non_neg_integer().
+      Time :: non_neg_integer(),
+      Result :: Time | false.
 
 cancel_timer(_TimerRef, _Options) ->
     erlang:nif_error(undefined).
@@ -1478,17 +1482,22 @@ raise(_Class, _Reason, _Stacktrace) ->
     erlang:nif_error(undefined).
 
 %% read_timer/1
--spec erlang:read_timer(TimerRef) -> non_neg_integer() | false when
-      TimerRef :: reference().
+-spec erlang:read_timer(TimerRef) -> Result when
+      TimerRef :: reference(),
+      Time :: non_neg_integer(),
+      Result :: Time | false.
 
 read_timer(_TimerRef) ->
     erlang:nif_error(undefined).
 
 %% read_timer/2
--spec erlang:read_timer(TimerRef, Options) -> non_neg_integer() | false | ok when
+-spec erlang:read_timer(TimerRef, Options) -> Result | ok when
       TimerRef :: reference(),
-      Option :: {async, boolean()},
-      Options :: [Option].
+      Async :: boolean(),
+      Option :: {async, Async},
+      Options :: [Option],
+      Time :: non_neg_integer(),
+      Result :: Time | false.
 
 read_timer(_TimerRef, _Options) ->
     erlang:nif_error(undefined).
@@ -1547,7 +1556,8 @@ send_after(_Time, _Dest, _Msg) ->
       Dest :: pid() | atom(),
       Msg :: term(),
       Options :: [Option],
-      Option :: {abs, boolean()} | {accessor, pid()},
+      Abs :: boolean(),
+      Option :: {abs, Abs}, %% | {accessor, Accessor} undocumented feature for now,
       TimerRef :: reference().
 
 send_after(_Time, _Dest, _Msg, _Options) ->
@@ -1634,7 +1644,8 @@ start_timer(_Time, _Dest, _Msg) ->
       Dest :: pid() | atom(),
       Msg :: term(),
       Options :: [Option],
-      Option :: {abs, boolean()} | {accessor, pid()},
+      Abs :: boolean(),
+      Option :: {abs, Abs}, %% | {accessor, Accessor} undocumented feature for now,
       TimerRef :: reference().
 
 start_timer(_Time, _Dest, _Msg, _Options) ->
@@ -3589,7 +3600,11 @@ blocks_size([], Acc) ->
 get_fix_proc([{ProcType, A1, U1}| Rest], {A0, U0}) when ProcType == proc;
 							ProcType == monitor_sh;
 							ProcType == nlink_sh;
-							ProcType == msg_ref ->
+							ProcType == msg_ref;
+							ProcType == ll_ptimer;
+							ProcType == hl_ptimer;
+							ProcType == bif_timer;
+							ProcType == accessor_bif_timer ->
     get_fix_proc(Rest, {A0+A1, U0+U1});
 get_fix_proc([_|Rest], Acc) ->
     get_fix_proc(Rest, Acc);
