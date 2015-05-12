@@ -30,6 +30,25 @@
   </header>
   <p>This document describes the changes made to the OS_Mon application.</p>
 
+<section><title>Os_Mon 2.4</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    cpu_sup should use native sysctl/libkvm calls on BSD</p>
+          <p>
+	    This avoids forking off with os:cmd every time we just
+	    want to collect the load averages. riak does this every
+	    second, which results in a lot of unnecessary load.</p>
+          <p>
+	    Own Id: OTP-12730</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Os_Mon 2.3.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

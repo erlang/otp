@@ -31,6 +31,20 @@
   <p>This document describes the changes made to the Syntax_Tools
     application.</p>
 
+<section><title>Syntax_Tools 1.7</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>Use the new <c>erl_anno</c> module.</p>
+          <p>
+	    Own Id: OTP-12732</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Syntax_Tools 1.6.18</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

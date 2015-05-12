@@ -30,6 +30,49 @@
   </header>
   <p>This document describes the changes made to the Crypto application.</p>
 
+<section><title>Crypto 3.6</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Enhance crypto:generate_key to calculate ECC public keys
+	    from private key.</p>
+          <p>
+	    Own Id: OTP-12394</p>
+        </item>
+        <item>
+          <p>
+	    Fix bug in <c>crypto:generate_key</c> for <c>ecdh</c>
+	    that could cause VM crash for faulty input.</p>
+          <p>
+	    Own Id: OTP-12733</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Use the EVP API for AES-CBC crypto to enables the use of
+	    hardware acceleration for AES-CBC crypto on newer Intel
+	    CPUs (AES-NI), among other platforms.</p>
+          <p>
+	    Own Id: OTP-12380</p>
+        </item>
+        <item>
+          <p>
+	    Add AES ECB block encryption.</p>
+          <p>
+	    Own Id: OTP-12403</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Crypto 3.5</title>
 
     <section><title>Improvements and New Features</title>

@@ -32,7 +32,26 @@
     <file>notes.xml</file>
   </header>
   
-  <section><title>Inets 5.10.7</title>
+  <section><title>Inets 6.0</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Remove Server Side Include support from inets, as this is
+	    an old technic that has security issues and was not well
+	    tested.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-12156</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Inets 5.10.7</title>
 
     <section><title>Improvements and New Features</title>
       <list>

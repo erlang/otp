@@ -32,6 +32,20 @@
   </header>
   <p>This document describes the changes made to the EUnit application.</p>
 
+<section><title>Eunit 2.2.10</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>The <c>eunit</c> application is now unicode safe.</p>
+          <p>
+	    Own Id: OTP-11660</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Eunit 2.2.9</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

@@ -30,6 +30,508 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 7.0</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix issuing with spaces and quoting in the arguments when
+	    using erlang:open_port spawn_executable on windows. The
+	    behavior now mimics how unix works. This change implies a
+	    backwards incompatibility for how spawn_executable works
+	    on windows.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-11905</p>
+        </item>
+        <item>
+          <p>
+	    Fix global call trace when hipe compiled code call beam
+	    compiled functions. Tracing of beam functions should now
+	    alway work regardless who the caller is.</p>
+          <p>
+	    Own Id: OTP-11939</p>
+        </item>
+        <item>
+          <p>
+	    Correct cache alignment for ETS <c>write_concurrency</c>
+	    locks to improve performance by reduced false sharing.
+	    May increase memory footprint for tables with
+	    <c>write_concurrency</c>.</p>
+          <p>
+	    Own Id: OTP-11974</p>
+        </item>
+        <item>
+          <p>
+	    All possibly blocking operations in the fd/spawn and
+	    terminal driver have been converted to non-blocking
+	    operations. Before this fix it was possible for the VM to
+	    be blocked for a long time if the entity consuming
+	    stdout/stderr did not consume it fast enough.</p>
+          <p>
+	    Own Id: OTP-12239</p>
+        </item>
+        <item>
+          <p>
+	    Add missing overhead for offheap binaries created from
+	    external format. This fix can improve the garbage
+	    collection of large binaries originating from
+	    <c>binary_to_term</c> or messages from remote nodes.</p>
+          <p>
+	    Own Id: OTP-12554</p>
+        </item>
+        <item>
+          <p>
+	    Ensure hashing of zero is consistent</p>
+	    <p> Erlang treats positive and negative zero as
+	    equal:</p> 
+          <p>
+	    <c>true = 0.0 =:= 0.0/-1</c></p>
+	    <p>However, Erlangs hash functions: hash, phash and
+	    phash2 did not reflect this behaviour. The hash values
+	    produced by the different hash functions would not be
+	    identical for positive and negative zero.</p> <p>This
+	    change ensures that hash value of positive zero is always
+	    produced regardless of the signedness of the zero float,
+	    i.e.,</p>
+          <p>
+	    <c>true = erlang:phash2(0.0) =:=
+	    erlang:phash2(0.0/-1)</c></p>
+          <p>
+	    Own Id: OTP-12641</p>
+        </item>
+        <item>
+          <p>
+	    Ensure NIF term creation disallows illegal floating point
+	    values and too long atoms. Such values will cause a NIF
+	    to throw badarg exception when it returns.</p>
+          <p>
+	    Own Id: OTP-12655</p>
+        </item>
+        <item>
+          <p>
+	    Fixed building of Map results from match_specs</p>
+          <p>
+	    A faulty "box-value" entered into the heap which could
+	    cause a segmentation fault in the garbage collector if it
+	    was written on a heap fragment.</p>
+          <p>
+	    Own Id: OTP-12656</p>
+        </item>
+        <item>
+          <p>
+	    Fix hipe bug when matching a "writable" binary. The bug
+	    has been seen to sometimes cause a failed binary matching
+	    of a correct utf8 character, but other symptoms are also
+	    possible.</p>
+          <p>
+	    Own Id: OTP-12667</p>
+        </item>
+        <item>
+          <p>
+	    Keep dirty schedulers from waking other schedulers.</p>
+          <p>
+	    Own Id: OTP-12685</p>
+        </item>
+        <item>
+          <p>
+	    Disable floating point exceptions if the VM is compiled
+	    by clang/llvm. This is a known long-standing problem in
+	    clang/llvm.</p>
+          <p>
+	    Own Id: OTP-12717</p>
+        </item>
+        <item>
+          <p>
+	    Fix bug in <c>file:sendfile</c> for FreeBSD causing not
+	    the entire file to be sent.</p>
+          <p>
+	    Own Id: OTP-12720</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Add <c>md5</c> and <c>module</c> entries to
+	    <c>?MODULE:module_info/0/1</c> and remove obsolete entry
+	    'import'.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-11940</p>
+        </item>
+        <item>
+          <p>
+	    Debug function <c>erlang:display/1</c> shows content of
+	    binaries and bitstrings, not only the length.</p>
+          <p>
+	    Own Id: OTP-11941</p>
+        </item>
+        <item>
+	    <p>The time functionality of Erlang has been extended.
+	    This both includes a <seealso
+	    marker="time_correction#The_New_Time_API">new
+	    API</seealso> for time, as well as <seealso
+	    marker="time_correction#Time_Warp_Modes">time warp
+	    modes</seealso> which alters the behavior of the system
+	    when system time changes. <em>You are strongly encouraged
+	    to use the new API</em> instead of the old API based on
+	    <seealso
+	    marker="erlang#now/0"><c>erlang:now/0</c></seealso>.
+	    <c>erlang:now/0</c> has been deprecated since it is and
+	    forever will be a scalability bottleneck. For more
+	    information see the <seealso
+	    marker="time_correction">Time and Time
+	    Correction</seealso> chapter of the ERTS User's
+	    Guide.</p>
+	    <p>Besides the API changes and time warp modes a lot of
+	    scalability and performance improvements regarding time
+	    management has been made internally in the runtime
+	    system. Examples of such improvements are scheduler
+	    specific timer wheels, scheduler specific BIF timer
+	    management, parallel retrieval of monotonic time and
+	    system time on systems with primitives that are not
+	    buggy.</p>
+          <p>
+	    Own Id: OTP-11997</p>
+        </item>
+        <item>
+	    <p><c>erlang:function_exported(M, F, A)</c> will now
+	    return <c>true</c> if <c>M:F/A</c> refers to a BIF.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-12099</p>
+        </item>
+        <item>
+          <p>
+	    New BIF: <c>erlang:get_keys/0</c>, lists all keys
+	    associated with the process dictionary. Note:
+	    <c>erlang:get_keys/0</c> is auto-imported.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-12151 Aux Id: seq12521 </p>
+        </item>
+        <item>
+          <p>
+	    Make distributed send of large messages yield to improve
+	    real-time characteristics.</p>
+          <p>
+	    Own Id: OTP-12232</p>
+        </item>
+        <item>
+          <p>
+	    Use high accuracy poll timeouts</p>
+          <p>
+	    Where available, use poll/select API's that can handle
+	    time resolutions less than 1ms. In the cases where such
+	    API's are not available the timeout is rounded up to the
+	    nearest ms.</p>
+          <p>
+	    Own Id: OTP-12236</p>
+        </item>
+        <item>
+          <p>
+	    The internal group to user_drv protocol has been changed
+	    to be synchronous in order to guarantee that output sent
+	    to a process implementing the user_drv protocol is
+	    printed before replying. This protocol is used by the
+	    standard_output device and the ssh application when
+	    acting as a client. </p>
+          <p>
+	    This change changes the previous unlimited buffer when
+	    printing to standard_io and other devices that end up in
+	    user_drv to 1KB.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-12240</p>
+        </item>
+        <item>
+	    <p>The previously introduced "eager check I/O" feature is
+	    now enabled by default.</p>
+	    <p>Eager check I/O can be disabled using the <c>erl</c>
+	    command line argument: <seealso
+	    marker="erl#+secio"><c>+secio false</c></seealso></p>
+	    <p>Characteristics impact compared to previous
+	    default:</p> <list> <item>Lower latency and smoother
+	    management of externally triggered I/O operations.</item>
+	    <item>A slightly reduced priority of externally triggered
+	    I/O operations.</item> </list>
+          <p>
+	    Own Id: OTP-12254 Aux Id: OTP-12117 </p>
+        </item>
+        <item>
+          <p>
+	    Properly support maps in match_specs</p>
+          <p>
+	    Own Id: OTP-12270</p>
+        </item>
+        <item>
+          <p>
+	    The notice that a crashdump has been written has been
+	    moved to be printed before the crashdump is generated
+	    instead of afterwords. The wording of the notice has also
+	    been changed.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-12292</p>
+        </item>
+        <item>
+          <p>
+	    New function <c>ets:take/2</c>. Works the same as
+	    <c>ets:delete/2</c> but also returns the deleted
+	    object(s).</p>
+          <p>
+	    Own Id: OTP-12309</p>
+        </item>
+        <item>
+          <p>
+	    Tracing with cpu_timestamp option has been enabled on
+	    Linux.</p>
+          <p>
+	    Own Id: OTP-12366</p>
+        </item>
+        <item>
+          <p>
+	    ets:info/1,2 now contains information about whether
+	    write_concurrency or read_concurrency is enabled.</p>
+          <p>
+	    Own Id: OTP-12376</p>
+        </item>
+        <item>
+          <p>
+	    Improved usage of <c>gcc</c>'s builtins for atomic memory
+	    access. These are used when no other implementation of
+	    atomic memory operations is available. For example, when
+	    compiling for ARM when <c>libatomic_ops</c> is not
+	    available.</p>
+          <p>
+	    The largest improvement will be seen when compiling with
+	    a <c>gcc</c> with support for the <c>__atomic_*</c>
+	    builtins (using a <c>gcc</c> of at least version 4.7),
+	    but also when only the legacy <c>__sync_*</c> builtins
+	    are available (using a <c>gcc</c> of at least version
+	    4.1) an improvement can be seen.</p>
+          <p>
+	    For more information see the "<seealso
+	    marker="doc/installation_guide:INSTALL#Advanced-configuration-and-build-of-ErlangOTP_Configuring_Atomic-Memory-Operations-and-the-VM">Atomic
+	    Memory Operations and the VM</seealso>" section of
+	    <c>$ERL_TOP/HOWTO/INSTALL.md</c>.</p>
+          <p>
+	    Own Id: OTP-12383</p>
+        </item>
+        <item>
+          <p>
+	    Introduce <c>math:log2/1</c> function to math module.</p>
+          <p>
+	    Own Id: OTP-12411</p>
+        </item>
+        <item>
+          <p>
+	    Remove perfctr support</p>
+          <p>
+	    Development of perfctr in the linux kernel ceased in
+	    2010. The perfctr support code in the Erlang VM is thus
+	    effectively dead code and therefor removed.</p>
+          <p>
+	    Own Id: OTP-12508</p>
+        </item>
+        <item>
+	    <p><c>zlib:inflateChunk/2</c> has been added. It works
+	    like <c>zlib:inflate/2</c>, but decompresses no more data
+	    than will fit in the buffer configured by
+	    <c>zlib:setBufSize/2</c>.</p>
+          <p>
+	    Own Id: OTP-12548</p>
+        </item>
+        <item>
+          <p>
+	    Use linear search for small select_val arrays</p>
+          <p>
+	    Own Id: OTP-12555</p>
+        </item>
+        <item>
+          <p>
+	    New BIF ets:update_counter/4 with a default object as
+	    argument, which will be inserted in the table if the key
+	    was not found.</p>
+          <p>
+	    Own Id: OTP-12563</p>
+        </item>
+        <item>
+          <p>
+	    Export missing types from zlib module</p>
+          <p>
+	    Own Id: OTP-12584</p>
+        </item>
+        <item>
+          <p>
+	    Use persistent hashmaps for large Maps <p>Maps will use a
+	    persistent hashmap implementation when the number of
+	    pairs in a Map becomes sufficiently large. The change
+	    will occur when a Map reaches 33 pairs in size but this
+	    limit might change in the future.</p></p>
+	    <p>The most significant impact for the user by this
+	    change is speed, and to a lesser degree memory
+	    consumption and introspection of Maps. Memory consumption
+	    size is probalistic but lesser than <c>gb_trees</c> or
+	    <c>dict</c> for instance. Any other impacts will be
+	    transparent for the user except for the following
+	    changes.</p>
+	    <p>Semantics of Maps have changed in two incompatible
+	    ways compared to the experimental implementation in OTP
+	    17:</p> <list> <item>Hashing of maps is done different by
+	    <c>erlang:phash2/1,2</c>, <c>erlang:phash/1</c> and
+	    <c>erlang:hash/2</c>.</item> <item>Comparing two maps
+	    with ==, /=, =&lt;, &lt;, &gt;= and &gt;, is done
+	    different if the keys contain floating point
+	    numbers.</item> </list>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-12585</p>
+        </item>
+        <item>
+          <p>
+	    Scalability improvement for <seealso
+	    marker="erlang#make_ref/0">erlang:make_ref/0</seealso>,
+	    and other functionality that create references. Each
+	    scheduler now manage its own set of references. By this
+	    no communication at all is needed when creating
+	    references.</p>
+          <p>
+	    Previous implementation generated a strictly
+	    monotonically increasing sequence of references
+	    corresponding to creation time on the runtime system
+	    instance. This is <em>not</em> the case with current
+	    implementation. You can only expect reference to be
+	    unique. The Erlang/OTP documentation has never mentioned
+	    anything else but the uniqueness property, so this change
+	    <em>is</em> fully compatible. The only reason we've
+	    marked this as a potential incompatibility is since an
+	    early draft for an Erlang specification mentions strict
+	    monotonicity as a property.</p>
+          <p>
+	    If you need to create data with a strict monotonicity
+	    property use <seealso
+	    marker="erlang#unique_integer/1">erlang:unique_integer([monotonic])</seealso>.
+	    Do <em>not</em> use the deprecated <seealso
+	    marker="erlang:now/0">erlang:now()</seealso>.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-12610</p>
+        </item>
+        <item>
+          <p>
+	    Enable different abort signal from heart</p>
+	    <p>By using environment variable HEART_KILL_SIGNAL, heart
+	    can now use a different signal to kill the old running
+	    Erlang.</p>
+	    <p>By default the signal is SIGKILL but SIGABRT may also
+	    be used by setting environment variable:
+	    HEART_KILL_SIGNAL=SIGABRT</p>
+          <p>
+	    Own Id: OTP-12613 Aux Id: seq12826 </p>
+        </item>
+        <item>
+          <p>
+	    Update autconf to latest version 2015-03-04</p>
+          <p>
+	    Own Id: OTP-12646</p>
+        </item>
+        <item>
+          <p>
+	    Optimization of timers internally in the VM. This include
+	    process timers (<c>receive ... after</c>), port timers
+	    (<c>driver_set_timer()</c>) as well as BIF timers
+	    (<c>erlang:send_after()</c>/<c>erlang:start_timer()</c>).</p>
+          <p>
+	    Each scheduler thread now has its own lock-free timer
+	    service instead of one locked central service. This
+	    dramatically improves performance of timer management on
+	    systems with a large amount of schedulers and timers.</p>
+          <p>
+	    The timer service internal data structure has also been
+	    optimized to be able to handle more timers than before.
+	    That is, each timer service is by its self able to handle
+	    more timers without dramatic performance loss than the
+	    old centralized timer service.</p>
+          <p>
+	    The API of BIF timers has also been extended. Timeout
+	    values are for example no longer limited to 32-bit
+	    integers. For more information see the documentation of
+	    <seealso
+	    marker="erlang#start_timer/4"><c>erlang:start_timer/4</c></seealso>,
+	    <seealso
+	    marker="erlang#send_after/4"><c>erlang:send_after/4</c></seealso>,
+	    <seealso
+	    marker="erlang#cancel_timer/2"><c>erlang:cancel_timer/2</c></seealso>,
+	    and <seealso
+	    marker="erlang#read_timer/2"><c>erlang:read_timer/2</c></seealso>.</p>
+          <p>
+	    Own Id: OTP-12650 Aux Id: OTP-11997 </p>
+        </item>
+        <item>
+          <p>
+	    Specialize instructions from common assembler patterns</p>
+	    <p>Specialize common instructions of <c>rem</c>,
+	    <c>band</c>, <c>minus</c> and <c>plus</c> in the beam
+	    loader. This will reduce the number of fetches and thus
+	    lessen the instruction dispatch pressure during runtime
+	    and speed up those operations in some common cases.</p>
+	    <p>Specialize move patterns from x-registers to the stack
+	    with a new <c>move_window</c> instruction. This change
+	    will reduce instruction dispatch pressure.</p>
+          <p>
+	    Own Id: OTP-12690</p>
+        </item>
+        <item>
+          <p>
+	    Fix cross compilation for Android.</p>
+          <p>
+	    Own Id: OTP-12693</p>
+        </item>
+        <item>
+          <p>
+	    Fix incorrect use of autoconf macro AC_EGREP_CPP, which
+	    could cause faulty configuration if run from a path
+	    containing the string 'yes'.</p>
+          <p>
+	    Own Id: OTP-12706</p>
+        </item>
+        <item>
+          <p>
+	    Minimal Java version is now 1.6</p>
+          <p>
+	    Own Id: OTP-12718</p>
+        </item>
+        <item>
+          <p>
+	    Send format and args on process exit to error_logger</p>
+          <p>
+	    Previously, the emulator would generate a whole string
+	    with values and call the error_logger passing
+	    <c>"~s~n"</c>. This changes it to a format string
+	    containing <c>~p</c> with the respective values as
+	    arguments.</p>
+          <p>
+	    Own Id: OTP-12735</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 6.4.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

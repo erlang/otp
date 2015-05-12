@@ -30,6 +30,20 @@
   </header>
   <p>This document describes the changes made to TypEr.</p>
 
+<section><title>TypEr 0.9.9</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> Properly extract annotations from core code. </p>
+          <p>
+	    Own Id: OTP-12727</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>TypEr 0.9.8</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

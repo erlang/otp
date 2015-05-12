@@ -25,7 +25,68 @@
     <file>notes.xml</file>
   </header>
   <p>This document describes the changes made to the SSL application.</p>
-  <section><title>SSL 6.0</title>
+  <section><title>SSL 7.0</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Ignore signature_algorithm (TLS 1.2 extension) sent to
+	    TLS 1.0 or TLS 1.1 server</p>
+          <p>
+	    Own Id: OTP-12670</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Add new API functions to handle CRL-verification</p>
+          <p>
+	    Own Id: OTP-10362 Aux Id: kunagi-215 [126] </p>
+        </item>
+        <item>
+          <p>
+	    Remove default support for SSL-3.0, due to Poodle
+	    vunrability in protocol specification.</p>
+          <p>
+	    Add padding check for TLS-1.0 to remove Poodle
+	    vunrability from TLS 1.0, also add the option
+	    padding_check. This option only affects TLS-1.0
+	    connections and if set to false it disables the block
+	    cipher padding check to be able to interoperate with
+	    legacy software.</p>
+          <p>
+	    Remove default support for RC4 cipher suites, as they are
+	    consider too weak.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-12390</p>
+        </item>
+        <item>
+          <p>
+	    Add support for TLS ALPN (Application-Layer Protocol
+	    Negotiation) extension.</p>
+          <p>
+	    Own Id: OTP-12580</p>
+        </item>
+        <item>
+          <p>
+	    Add SNI (Server Name Indication) support for the server
+	    side.</p>
+          <p>
+	    Own Id: OTP-12736</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SSL 6.0</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>

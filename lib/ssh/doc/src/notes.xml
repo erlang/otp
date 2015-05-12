@@ -29,6 +29,72 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Ssh 4.0</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Included test of the 'e' and 'f' parameters in dh key
+	    exchange as specified in rfc 4253 section 8.</p>
+          <p>
+	    Own Id: OTP-12649</p>
+        </item>
+        <item>
+          <p>
+	    Fixes the bug that once the rekey_limit bytes (by
+	    default, 1GB) had been transmitted the connection was
+	    rekeyed every minute, not after the next 'rekey_limit'.</p>
+          <p>
+	    Thanks to Simon Cornish for the report and the fix!</p>
+          <p>
+	    Own Id: OTP-12692</p>
+        </item>
+        <item>
+          <p>
+	    Fixes a bug that causes an SFTP connection to always fail
+	    when {timeout, Timeout} option is used with
+	    ssh_sftp:start_channel.</p>
+          <p>
+	    Thanks to Simon Cornish</p>
+          <p>
+	    Own Id: OTP-12708</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    The internal group to user_drv protocol has been changed
+	    to be synchronous in order to guarantee that output sent
+	    to a process implementing the user_drv protocol is
+	    printed before replying. This protocol is used by the
+	    standard_output device and the ssh application when
+	    acting as a client. </p>
+          <p>
+	    This change changes the previous unlimited buffer when
+	    printing to standard_io and other devices that end up in
+	    user_drv to 1KB.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-12240</p>
+        </item>
+        <item>
+          <p>
+	    If ssh_connection:subsystem/4 fails we do not want to
+	    crash but rather terminate gracefully.</p>
+          <p>
+	    Own Id: OTP-12648 Aux Id: seq12834 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Ssh 3.2.2</title>
 
     <section><title>Improvements and New Features</title>

@@ -30,6 +30,21 @@
   </header>
   <p>This document describes the changes made to the Parsetools application.</p>
 
+<section><title>Parsetools 2.1</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p> The new <c>-dialyzer()</c> attribute is used for
+	    suppressing Dialyzer warnings in generated code. </p>
+          <p>
+	    Own Id: OTP-12271</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Parsetools 2.0.12</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

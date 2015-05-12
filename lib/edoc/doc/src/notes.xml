@@ -31,6 +31,21 @@
   <p>This document describes the changes made to the EDoc
     application.</p>
 
+<section><title>Edoc 0.7.17</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Remove functionality related to packages</p>
+          <p>
+	    Own Id: OTP-12431</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Edoc 0.7.16</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
