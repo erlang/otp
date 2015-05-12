@@ -153,9 +153,6 @@ public class OtpSelf extends OtpLocalNode {
      *            the port number you wish to use for incoming connections.
      *            Specifying 0 lets the system choose an available port.
      *
-     * @param transportFactory
-     *            the transport factory to use when creating connections.
-     *
      * @exception IOException
      *                in case of server transport failure
      */
