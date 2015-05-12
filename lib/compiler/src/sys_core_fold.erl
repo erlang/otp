@@ -1130,11 +1130,23 @@ let_substs_1(Vs, #c_values{es=As}, Sub) ->
 let_substs_1([V], A, Sub) -> let_subst_list([V], [A], Sub);
 let_substs_1(Vs, A, _) -> {Vs,A,[]}.
 
-let_subst_list([V|Vs0], [A|As0], Sub) ->
+let_subst_list([V|Vs0], [A0|As0], Sub) ->
     {Vs1,As1,Ss} = let_subst_list(Vs0, As0, Sub),
-    case is_subst(A) of
-	true -> {Vs1,As1,sub_subst_var(V, A, Sub) ++ Ss};
-	false -> {[V|Vs1],[A|As1],Ss}
+    case is_subst(A0) of
+	true ->
+	    A = case is_compiler_generated(V) andalso
+		    not is_compiler_generated(A0) of
+		    true ->
+			%% Propagate the 'compiler_generated' annotation
+			%% along with the value.
+			Ann = [compiler_generated|cerl:get_ann(A0)],
+			cerl:set_ann(A0, Ann);
+		    false ->
+			A0
+		end,
+	    {Vs1,As1,sub_subst_var(V, A, Sub) ++ Ss};
+	false ->
+	    {[V|Vs1],[A0|As1],Ss}
     end;
 let_subst_list([], [], _) -> {[],[],[]}.
 
@@ -1899,8 +1911,8 @@ case_data_pat_alias(P, BindTo0, TypeSig, Bs0) ->
 	    %% Here we will need to actually build the data and bind
 	    %% it to the variable.
 	    {Type,Arity} = TypeSig,
-	    Vars = make_vars([], Arity),
 	    Ann = [compiler_generated],
+	    Vars = make_vars(Ann, Arity),
 	    Data = cerl:ann_make_data(Ann, Type, Vars),
 	    Bs = [{BindTo0,P},{P,Data}|Bs0],
 	    {Vars,Bs};
@@ -2392,8 +2404,9 @@ delay_build_1(Core0, TypeSig) ->
     try delay_build_expr(Core0, TypeSig) of
 	Core ->
 	    {Type,Arity} = TypeSig,
-	    Vars = make_vars([], Arity),
-	    Data = cerl:ann_make_data([compiler_generated], Type, Vars),
+	    Ann = [compiler_generated],
+	    Vars = make_vars(Ann, Arity),
+	    Data = cerl:ann_make_data(Ann, Type, Vars),
 	    {yes,Vars,Core,Data}
     catch
 	throw:impossible ->

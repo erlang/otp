@@ -739,6 +739,14 @@ no_warnings(Config) when is_list(Config) ->
                 case R0 of
 	          {r,V1,_V2,V3} -> {r,V1,\"def\",V3}
                 end.
+
+              d(In0, Bool) ->
+                {In1,Int} = case id(Bool) of
+                              false -> {In0,0}
+                            end,
+                [In1,Int].
+
+              id(I) -> I.
            ">>,
            [],
            []}],
