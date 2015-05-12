@@ -615,7 +615,7 @@ int run_erl(int argc,char **argv) {
        returns */
     PROCESS main_pid;
     hunt_in_block("run_erl","main",&main_pid);
-    sig = alloc(sizeof(sig),ERTS_SIGNAL_RUN_ERL_DAEMON);
+    sig = alloc(sizeof(*sig),ERTS_SIGNAL_RUN_ERL_DAEMON);
     send(&sig,main_pid);
     sig = receive(sigsel);
     pid = sender(&sig);
