@@ -823,56 +823,62 @@ ssh_daemon_minimal_remote_max_packet_size_option(Config) ->
     
 %%--------------------------------------------------------------------
 id_string_no_opt_client(Config) ->
-    {Server, Host, Port} = fake_daemon(Config),
-    {error,_} = ssh:connect(Host, Port, []),
+    {Server, _Host, Port} = fake_daemon(Config),
+    {error,_} = ssh:connect("localhost", Port, [], 1000),
     receive
 	{id,Server,"SSH-2.0-Erlang/"++Vsn} ->
 	    true = expected_ssh_vsn(Vsn);
 	{id,Server,Other} ->
 	    ct:fail("Unexpected id: ~s.",[Other])
+    after 5000 ->
+	    {fail,timeout}
     end.
 
 %%--------------------------------------------------------------------
 id_string_own_string_client(Config) ->
-    {Server, Host, Port} = fake_daemon(Config),
-    {error,_} = ssh:connect(Host, Port, [{id_string,"Pelle"}]),
+    {Server, _Host, Port} = fake_daemon(Config),
+    {error,_} = ssh:connect("localhost", Port, [{id_string,"Pelle"}], 1000),
     receive
 	{id,Server,"SSH-2.0-Pelle\r\n"} ->
 	    ok;
 	{id,Server,Other} ->
 	    ct:fail("Unexpected id: ~s.",[Other])
+    after 5000 ->
+	    {fail,timeout}
     end.
 
 %%--------------------------------------------------------------------
 id_string_random_client(Config) ->
-    {Server, Host, Port} = fake_daemon(Config),
-    {error,_} = ssh:connect(Host, Port, [{id_string,random}]),
+    {Server, _Host, Port} = fake_daemon(Config),
+    {error,_} = ssh:connect("localhost", Port, [{id_string,random}], 1000),
     receive
 	{id,Server,Id="SSH-2.0-Erlang"++_} ->
 	    ct:fail("Unexpected id: ~s.",[Id]);
 	{id,Server,Rnd="SSH-2.0-"++_} ->
-	    ct:log("Got ~s.",[Rnd]);
+	    ct:log("Got correct ~s",[Rnd]);
 	{id,Server,Id} ->
 	    ct:fail("Unexpected id: ~s.",[Id])
+    after 5000 ->
+	    {fail,timeout}
     end.
 
 %%--------------------------------------------------------------------
 id_string_no_opt_server(Config) ->
     {_Server, Host, Port} = std_daemon(Config, []),
-    {ok,S1}=gen_tcp:connect(Host,Port,[{active,false}]),
+    {ok,S1}=gen_tcp:connect(Host,Port,[{active,false},{packet,line}]),
     {ok,"SSH-2.0-Erlang/"++Vsn} = gen_tcp:recv(S1, 0, 2000),
     true = expected_ssh_vsn(Vsn).
 
 %%--------------------------------------------------------------------
 id_string_own_string_server(Config) ->
     {_Server, Host, Port} = std_daemon(Config, [{id_string,"Olle"}]),
-    {ok,S1}=gen_tcp:connect(Host,Port,[{active,false}]),
+    {ok,S1}=gen_tcp:connect(Host,Port,[{active,false},{packet,line}]),
     {ok,"SSH-2.0-Olle\r\n"} = gen_tcp:recv(S1, 0, 2000).
 
 %%--------------------------------------------------------------------
 id_string_random_server(Config) ->
     {_Server, Host, Port} = std_daemon(Config, [{id_string,random}]),
-    {ok,S1}=gen_tcp:connect(Host,Port,[{active,false}]),
+    {ok,S1}=gen_tcp:connect(Host,Port,[{active,false},{packet,line}]),
     {ok,"SSH-2.0-"++Rnd} = gen_tcp:recv(S1, 0, 2000),
     case Rnd of
 	"Erlang"++_ -> ct:log("Id=~p",[Rnd]),
@@ -1183,13 +1189,14 @@ expected_ssh_vsn(Str) ->
 	_:_ -> true %% ssh not started so we dont't know
     end.
 	    
-	    
+
 fake_daemon(_Config) ->
     Parent = self(),
     %% start the server
     Server = spawn(fun() ->
-			   {ok,Sl} = gen_tcp:listen(0,[]),
+			   {ok,Sl} = gen_tcp:listen(0,[{packet,line}]),
 			   {ok,{Host,Port}} = inet:sockname(Sl),
+			   ct:log("fake_daemon listening on ~p:~p~n",[Host,Port]),
 			   Parent ! {sockname,self(),Host,Port},
 			   Rsa = gen_tcp:accept(Sl),
 			   ct:log("Server gen_tcp:accept got ~p",[Rsa]),
