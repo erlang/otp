@@ -411,7 +411,7 @@ pr_other(Var) ->
     verbose("~p (~p) val(mnesia_gvar, ~w) -> ~p ~n",
 	    [self(), process_info(self(), registered_name),
 	     Var, Why]),
-    exit(Why).
+    mnesia:abort(Why).
 
 %% Some functions for list valued variables
 add(Var, Val) ->
