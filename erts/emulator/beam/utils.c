@@ -2483,7 +2483,10 @@ erts_send_error_to_logger(Eterm gleader, erts_dsprintf_buf_t *dsbufp)
 int
 erts_send_error_term_to_logger(Eterm gleader, erts_dsprintf_buf_t *dsbufp, Eterm args)
 {
-    return send_error_term_to_logger(gleader, dsbufp->str, dsbufp->str_len, args);
+    int res;
+    res = send_error_term_to_logger(gleader, dsbufp->str, dsbufp->str_len, args);
+    destroy_logger_dsbuf(dsbufp);
+    return res;
 }
 
 int
