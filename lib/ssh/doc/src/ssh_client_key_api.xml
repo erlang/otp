@@ -50,16 +50,16 @@
     <seealso marker="public_key:public_key_records"> public_key user's guide:</seealso>
     </p>
     <taglist>
-      <tag><c>boolean()</c></tag>
-      <item><p>= <c>true | false</c></p></item>
-      <tag><c>string()</c></tag>
-      <item><p>= <c>[byte()]</c></p></item>
-      <tag><c>public_key()</c></tag>
-      <item><p>= <c>#'RSAPublicKey'{}| {integer(),  #'Dss-Parms'{}}| term()</c></p></item>
-      <tag><c>private_key()</c></tag>
-      <item><p>= <c>#'RSAPrivateKey'{} | #'DSAPrivateKey'{} | term()</c></p></item>
-      <tag><c>public_key_algorithm()</c></tag>
-      <item><p>= <c>'ssh-rsa'| 'ssh-dss' | atom()</c></p></item>
+      <tag><c>boolean() =</c></tag>
+      <item><p><c>true | false</c></p></item>
+      <tag><c>string() =</c></tag>
+      <item><p><c>[byte()]</c></p></item>
+      <tag><c>public_key() =</c></tag>
+      <item><p><c>#'RSAPublicKey'{}| {integer(),  #'Dss-Parms'{}}| term()</c></p></item>
+      <tag><c>private_key() =</c></tag>
+      <item><p><c>#'RSAPrivateKey'{} | #'DSAPrivateKey'{} | term()</c></p></item>
+      <tag><c>public_key_algorithm() =</c></tag>
+      <item><p><c>'ssh-rsa'| 'ssh-dss' | atom()</c></p></item>
     </taglist>
   </section>
 
