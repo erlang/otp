@@ -300,7 +300,7 @@
 %% while a flat string or binary represents source code containing newlines.
 -type text() :: string() | binary() | [string()] | [binary()].
 
--type location() :: erl_scan:location().
+-type location() :: erl_anno:location().
 
 
 %% ------------------------------------------------------------------------
@@ -1162,15 +1162,6 @@ subtrees(T) ->
                     [erl_syntax:receive_expr_clauses(T), [E],
                      erl_syntax:receive_expr_action(T)]
             end;
-        record_access ->
-            case erl_syntax:record_access_type(T) of
-                none ->
-                    [[erl_syntax:record_access_argument(T)], [],
-                     [erl_syntax:record_access_field(T)]];
-                R ->
-                    [[erl_syntax:record_access_argument(T)], [R],
-                     [erl_syntax:record_access_field(T)]]
-            end;
         record_expr ->
             case erl_syntax:record_expr_argument(T) of
                 none ->
@@ -1199,8 +1190,6 @@ make_tree(clause, [P, [], B]) -> erl_syntax:clause(P, none, B);
 make_tree(clause, [P, [G], B]) -> erl_syntax:clause(P, G, B);
 make_tree(receive_expr, [C, [], _A]) -> erl_syntax:receive_expr(C);
 make_tree(receive_expr, [C, [E], A]) -> erl_syntax:receive_expr(C, E, A);
-make_tree(record_access, [[E], [], [F]]) -> erl_syntax:record_access(E, F);
-make_tree(record_access, [[E], [T], [F]]) -> erl_syntax:record_access(E, T, F);
 make_tree(record_expr, [[], [T], F]) -> erl_syntax:record_expr(T, F);
 make_tree(record_expr, [[E], [T], F]) -> erl_syntax:record_expr(E, T, F);
 make_tree(record_field, [[N], []]) -> erl_syntax:record_field(N);
