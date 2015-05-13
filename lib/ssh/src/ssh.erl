@@ -28,6 +28,7 @@
 -export([start/0, start/1, stop/0, connect/3, connect/4, close/1, connection_info/2,
 	 channel_info/3,
 	 daemon/1, daemon/2, daemon/3,
+	 default_algorithms/0,
 	 stop_listener/1, stop_listener/2, stop_daemon/1, stop_daemon/2,
 	 shell/1, shell/2, shell/3]).
 
@@ -208,6 +209,11 @@ shell(Host, Port, Options) ->
     end.
 
 %%--------------------------------------------------------------------
+%%--------------------------------------------------------------------
+default_algorithms() -> 
+    ssh_transport:default_algorithms().
+
+%%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
 fix_idle_time(SshOptions) ->
@@ -259,13 +265,42 @@ do_start_daemon(Host, Port, Options, SocketOptions) ->
     end.
 
 handle_options(Opts) ->
-    try handle_option(proplists:unfold(Opts), [], []) of
+    try handle_option(algs_compatibility(proplists:unfold(Opts)), [], []) of
 	{Inet, Ssh} ->
 	    {handle_ip(Inet), Ssh}
     catch
 	throw:Error ->
 	    Error
     end.
+
+
+algs_compatibility(Os) ->
+    %% Take care of old options 'public_key_alg' and 'pref_public_key_algs'
+    comp_pk(proplists:get_value(preferred_algorithms,Os),
+	    proplists:get_value(pref_public_key_algs,Os),
+	    proplists:get_value(public_key_alg, Os),
+	    [{K,V} || {K,V} <- Os,
+		      K =/= public_key_alg,
+		      K =/= pref_public_key_algs]
+	   ).
+
+comp_pk(undefined, undefined, undefined, Os) -> Os;
+comp_pk( PrefAlgs,         _,         _, Os) when PrefAlgs =/= undefined -> Os;
+
+comp_pk(undefined, undefined,   ssh_dsa, Os) -> comp_pk(undefined, undefined, 'ssh-dss', Os);
+comp_pk(undefined, undefined,   ssh_rsa, Os) -> comp_pk(undefined, undefined, 'ssh-rsa', Os);
+comp_pk(undefined, undefined,        PK, Os) -> 
+    PKs = [PK | ssh_transport:supported_algorithms(public_key)--[PK]],
+    [{preferred_algorithms, [{public_key,PKs}] } | Os];
+
+comp_pk(undefined, PrefPKs, _, Os) when PrefPKs =/= undefined ->
+    PKs = [case PK of
+	       ssh_dsa -> 'ssh-dss';
+	       ssh_rsa -> 'ssh-rsa';
+	       _ -> PK
+	   end || PK <- PrefPKs],
+    [{preferred_algorithms, [{public_key,PKs}]} | Os].
+
 
 handle_option([], SocketOptions, SshOptions) ->
     {SocketOptions, SshOptions};
@@ -278,8 +313,6 @@ handle_option([{user_dir_fun, _} = Opt | Rest], SocketOptions, SshOptions) ->
 handle_option([{silently_accept_hosts, _} = Opt | Rest], SocketOptions, SshOptions) ->
     handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
 handle_option([{user_interaction, _} = Opt | Rest], SocketOptions, SshOptions) ->
-    handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
-handle_option([{public_key_alg, _} = Opt | Rest], SocketOptions, SshOptions) ->
     handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
 handle_option([{connect_timeout, _} = Opt | Rest], SocketOptions, SshOptions) ->
     handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
@@ -329,7 +362,7 @@ handle_option([{exec, _} = Opt | Rest], SocketOptions, SshOptions) ->
     handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
 handle_option([{auth_methods, _} = Opt | Rest], SocketOptions, SshOptions) ->
     handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
-handle_option([{pref_public_key_algs, _} = Opt | Rest], SocketOptions, SshOptions) ->
+handle_option([{preferred_algorithms,_} = Opt | Rest], SocketOptions, SshOptions) ->
     handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
 handle_option([{quiet_mode, _} = Opt|Rest], SocketOptions, SshOptions) ->
     handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
@@ -365,19 +398,8 @@ handle_ssh_option({silently_accept_hosts, Value} = Opt) when is_boolean(Value) -
     Opt;
 handle_ssh_option({user_interaction, Value} = Opt) when is_boolean(Value) ->
     Opt;
-handle_ssh_option({public_key_alg, ssh_dsa}) ->
-    {public_key_alg, 'ssh-dss'};
-handle_ssh_option({public_key_alg, ssh_rsa})  ->
-    {public_key_alg, 'ssh-rsa'};
-handle_ssh_option({public_key_alg, Value} = Opt) when Value == 'ssh-rsa'; Value == 'ssh-dss' ->
-    Opt;
-handle_ssh_option({pref_public_key_algs, Value} = Opt) when is_list(Value), length(Value) >= 1 ->
-    case handle_pref_algs(Value, []) of
-	{true, NewOpts} ->
-	    NewOpts;
-	_ ->
-	    throw({error, {eoptions, Opt}})
-    end;
+handle_ssh_option({preferred_algorithms,[_|_]} = Opt) -> 
+    handle_pref_algs(Opt);
 handle_ssh_option({connect_timeout, Value} = Opt) when is_integer(Value); Value == infinity ->
     Opt;
 handle_ssh_option({max_sessions, Value} = Opt) when is_integer(Value), Value>0 ->
@@ -463,23 +485,83 @@ handle_inet_option({reuseaddr, _} = Opt) ->
 %% Option verified by inet
 handle_inet_option(Opt) ->
     Opt.
+
+
 %% Check preferred algs
-handle_pref_algs([], Acc) ->
-    {true, lists:reverse(Acc)};
-handle_pref_algs([H|T], Acc) ->
-    case H of
-	ssh_dsa ->
-	    handle_pref_algs(T, ['ssh-dss'| Acc]);
-	ssh_rsa ->
-	    handle_pref_algs(T, ['ssh-rsa'| Acc]);
-	'ssh-dss' ->
-	    handle_pref_algs(T, ['ssh-dss'| Acc]);
-	'ssh-rsa' ->
-	    handle_pref_algs(T, ['ssh-rsa'| Acc]);
-	_ ->
-	    false
+
+handle_pref_algs({preferred_algorithms,Algs}) ->
+    try alg_duplicates(Algs, [], []) of
+	[] ->
+	    {preferred_algorithms,
+	     [try ssh_transport:supported_algorithms(Key)
+	      of
+		  DefAlgs -> handle_pref_alg(Key,Vals,DefAlgs)
+	      catch
+		  _:_ -> throw({error, {{eoptions, {preferred_algorithms,Key}}, 
+					"Bad preferred_algorithms key"}})
+	      end  || {Key,Vals} <- Algs]
+	    };
+		    
+	Dups ->
+	    throw({error, {{eoptions, {preferred_algorithms,Dups}}, "Duplicates found"}})
+    catch
+	_:_ ->
+	    throw({error, {{eoptions, preferred_algorithms}, "Malformed"}})
     end.
 
+alg_duplicates([{K,V}|KVs], Ks, Dups0) ->
+    Dups =
+	case lists:member(K,Ks) of
+	    true ->
+		[K|Dups0];
+	    false ->
+		Dups0
+	end,
+    case V--lists:usort(V) of
+	[] ->
+	    alg_duplicates(KVs, [K|Ks], Dups);
+	Ds ->
+	    alg_duplicates(KVs, [K|Ks], Dups++Ds)
+    end;
+alg_duplicates([], _Ks, Dups) ->
+    Dups.
+
+handle_pref_alg(Key,
+		Vs=[{client2server,C2Ss=[_|_]},{server2client,S2Cs=[_|_]}],
+		[{client2server,Sup_C2Ss},{server2client,Sup_S2Cs}]
+	       ) ->
+    chk_alg_vs(Key, C2Ss, Sup_C2Ss),
+    chk_alg_vs(Key, S2Cs, Sup_S2Cs),
+    {Key, Vs};
+
+handle_pref_alg(Key,
+		Vs=[{server2client,[_|_]},{client2server,[_|_]}],
+		Sup=[{client2server,_},{server2client,_}]
+	       ) ->
+    handle_pref_alg(Key, lists:reverse(Vs), Sup);
+
+handle_pref_alg(Key, 
+		Vs=[V|_],
+		Sup=[{client2server,_},{server2client,_}]
+	       ) when is_atom(V) ->
+    handle_pref_alg(Key, [{client2server,Vs},{server2client,Vs}], Sup);
+
+handle_pref_alg(Key, 
+		Vs=[V|_],
+		Sup=[S|_]
+	       ) when is_atom(V), is_atom(S) ->
+    chk_alg_vs(Key, Vs, Sup),
+    {Key, Vs};
+
+handle_pref_alg(Key, Vs, _) ->
+    throw({error, {{eoptions, {preferred_algorithms,[{Key,Vs}]}}, "Badly formed list"}}).
+
+chk_alg_vs(OptKey, Values, SupportedValues) ->
+    case (Values -- SupportedValues) of
+	[] -> Values;
+	Bad -> throw({error, {{eoptions, {OptKey,Bad}}, "Unsupported value(s) found"}})
+    end.
+	    
 handle_ip(Inet) -> %% Default to ipv4
     case lists:member(inet, Inet) of
 	true ->

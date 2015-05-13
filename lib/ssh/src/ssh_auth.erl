@@ -30,7 +30,8 @@
 -export([publickey_msg/1, password_msg/1, keyboard_interactive_msg/1,
 	 service_request_msg/1, init_userauth_request_msg/1,
 	 userauth_request_msg/1, handle_userauth_request/3,
-	 handle_userauth_info_request/3, handle_userauth_info_response/2
+	 handle_userauth_info_request/3, handle_userauth_info_response/2,
+	 default_public_key_algorithms/0
 	]).
 
 %%--------------------------------------------------------------------
@@ -115,33 +116,16 @@ init_userauth_request_msg(#ssh{opts = Opts} = Ssh) ->
 					    service = "ssh-connection",
 					    method = "none",
 					    data = <<>>},
-	    case proplists:get_value(pref_public_key_algs, Opts, false) of
-		false ->
-		    FirstAlg = proplists:get_value(public_key_alg, Opts, ?PREFERRED_PK_ALG),
-		    SecondAlg = other_alg(FirstAlg),
-		    Prefs = method_preference(FirstAlg, SecondAlg),
-		    ssh_transport:ssh_packet(Msg, Ssh#ssh{user = User,
-							  userauth_preference = Prefs,
-							  userauth_methods = none,
-							  service = "ssh-connection"});
-		Algs ->
-		    FirstAlg = lists:nth(1, Algs),
-		    case length(Algs) =:= 2 of
-			true ->
-			    SecondAlg = other_alg(FirstAlg),
-			    Prefs = method_preference(FirstAlg, SecondAlg),
-			    ssh_transport:ssh_packet(Msg, Ssh#ssh{user = User,
-								  userauth_preference = Prefs,
-								  userauth_methods = none,
-								  service = "ssh-connection"});
-			_ ->
-			    Prefs = method_preference(FirstAlg),
-			    ssh_transport:ssh_packet(Msg, Ssh#ssh{user = User,
-								  userauth_preference = Prefs,
-								  userauth_methods = none,
-								  service = "ssh-connection"})
-		    end
-	    end;
+
+
+	    Algs = proplists:get_value(public_key, 
+				       proplists:get_value(preferred_algorithms, Opts, []),
+				       default_public_key_algorithms()),
+	    Prefs = method_preference(Algs),
+	    ssh_transport:ssh_packet(Msg, Ssh#ssh{user = User,
+						  userauth_preference = Prefs,
+						  userauth_methods = none,
+						  service = "ssh-connection"});
 	{error, no_user} ->
 	    ErrStr = "Could not determine the users name",
 	    throw(#ssh_msg_disconnect{code = ?SSH_DISCONNECT_ILLEGAL_USER_NAME,
@@ -287,20 +271,20 @@ handle_userauth_info_response(#ssh_msg_userauth_info_response{},
 			      "keyboard-interactive",
 			      language = "en"}).
 
+
+default_public_key_algorithms() -> ?PREFERRED_PK_ALGS.
+
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
-method_preference(Alg1, Alg2) ->
-    [{"publickey", ?MODULE, publickey_msg, [Alg1]},
-     {"publickey", ?MODULE, publickey_msg,[Alg2]},
-     {"password", ?MODULE, password_msg, []},
-     {"keyboard-interactive", ?MODULE, keyboard_interactive_msg, []}
-    ].
-method_preference(Alg1) ->
-    [{"publickey", ?MODULE, publickey_msg, [Alg1]},
-     {"password", ?MODULE, password_msg, []},
-     {"keyboard-interactive", ?MODULE, keyboard_interactive_msg, []}
-    ].
+method_preference(Algs) ->
+    lists:foldr(fun(A, Acc) ->
+		       [{"publickey", ?MODULE, publickey_msg, [A]} | Acc]
+	       end, 
+	       [{"password", ?MODULE, password_msg, []},
+		{"keyboard-interactive", ?MODULE, keyboard_interactive_msg, []}
+	       ],
+	       Algs).
 
 user_name(Opts) ->
     Env = case os:type() of
@@ -418,10 +402,6 @@ keyboard_interact_fun(KbdInteractFun, Name, Instr,  PromptInfos, NumPrompts) ->
 				       language = "en"}})
     end.
 
-other_alg('ssh-rsa') ->
-    'ssh-dss';
-other_alg('ssh-dss') ->
-    'ssh-rsa'.
 decode_public_key_v2(<<?UINT32(Len0), _:Len0/binary,
 		       ?UINT32(Len1), BinE:Len1/binary,
 		       ?UINT32(Len2), BinN:Len2/binary>>
