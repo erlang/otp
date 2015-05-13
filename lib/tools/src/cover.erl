@@ -2179,18 +2179,26 @@ do_analyse_to_file(Module, OutFile, ErlFile, HTML) ->
 	    {error, {file, ErlFile, Reason}}
     end.
 
+format_line_number(L, HTML)->
+    if
+        HTML ->
+            io_lib:format("<a href=\"#L~B\" name=\"L~B\">~5B</a>:",[L,L,L]);
+        true ->
+            io_lib:format("~5B:",[L])
+    end.
+
 print_lines(Module, InFd, OutFd, L, HTML) ->
     case io:get_line(InFd, '') of
 	eof ->
 	    ignore;
  	"%"++_=Line ->				%Comment line - not executed.
-        io:put_chars(OutFd, io_lib:format("~5B:",[L])),
+        io:put_chars(OutFd, format_line_number(L,HTML)),
  	    io:put_chars(OutFd, [tab(),escape_lt_and_gt(Line, HTML)]),
 	    print_lines(Module, InFd, OutFd, L+1, HTML);
 	RawLine ->
 	    Line = escape_lt_and_gt(RawLine,HTML),
 	    Pattern = {#bump{module=Module,line=L},'$1'},
-	    io:put_chars(OutFd, io_lib:format("~5B:",[L])),
+	    io:put_chars(OutFd, format_line_number(L,HTML)),
 	    case ets:match(?COLLECTION_TABLE, Pattern) of
 		[] ->
 		    io:put_chars(OutFd, [tab(),Line]);
