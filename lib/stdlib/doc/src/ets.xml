@@ -1429,7 +1429,9 @@ is_integer(X), is_integer(Y), X + Y < 4711]]></code>
 	<p>Whenever the <c>extended_info</c> option is used, it
 	results in a file not readable by versions of ets prior to
 	that in stdlib-1.15.1</p> 
-
+        <p>The <c>sync</c> option, if set to <c>true</c>, ensures that
+	the content of the file is actually written to the disk before
+	<c>tab2file</c> returns. Default is <c>{sync, false}</c>.</p>
       </desc>
     </func>
     <func>

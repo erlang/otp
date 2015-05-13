@@ -695,7 +695,8 @@ do_filter(Tab, Key, F, A, Ack) ->
 -record(filetab_options,
 	{
 	  object_count = false :: boolean(),
-	  md5sum       = false :: boolean()     
+	  md5sum       = false :: boolean(),
+	  sync         = false :: boolean()
 	 }).
 
 -spec tab2file(Tab, Filename) -> 'ok' | {'error', Reason} when
@@ -710,7 +711,7 @@ tab2file(Tab, File) ->
       Tab :: tab(),
       Filename :: file:name(),
       Options :: [Option],
-      Option :: {'extended_info', [ExtInfo]},
+      Option :: {'extended_info', [ExtInfo]} | {'sync', boolean()},
       ExtInfo :: 'md5sum' | 'object_count',
       Reason :: term().
 
@@ -791,6 +792,15 @@ tab2file(Tab, File, Options) ->
 		List ->
 		    LogFun(NewState1,[['$end_of_table',List]])
 	    end,
+	    case FtOptions#filetab_options.sync of
+	        true ->
+		    case disk_log:sync(Name) of
+		        ok -> ok;
+			{error, Reason2} -> throw(Reason2)
+		    end;
+                false ->
+		    ok
+            end,
 	    disk_log:close(Name)
 	catch
 	    throw:TReason ->
@@ -843,23 +853,24 @@ md5terms(State, [H|T]) ->
     {FinState, [B|TL]}.
 
 parse_ft_options(Options) when is_list(Options) ->
-    {Opt,Rest} = case (catch lists:keytake(extended_info,1,Options)) of
-		     false -> 
-			 {[],Options};
-		     {value,{extended_info,L},R} when is_list(L) ->
-			 {L,R}
-		 end,
-    case Rest of
-	[] ->
-	    parse_ft_info_options(#filetab_options{}, Opt);
-	Other ->
-	    throw({unknown_option, Other})
-    end;
-parse_ft_options(Malformed) ->
+    {ok, parse_ft_options(Options, #filetab_options{}, false)}.
+
+parse_ft_options([], FtOpt, _) ->
+    FtOpt;
+parse_ft_options([{sync,true} | Rest], FtOpt, EI) ->
+    parse_ft_options(Rest, FtOpt#filetab_options{sync = true}, EI);
+parse_ft_options([{sync,false} | Rest], FtOpt, EI) ->
+    parse_ft_options(Rest, FtOpt, EI);
+parse_ft_options([{extended_info,L} | Rest], FtOpt0, false) ->
+    FtOpt1 = parse_ft_info_options(FtOpt0, L),
+    parse_ft_options(Rest, FtOpt1, true);
+parse_ft_options([Other | _], _, _) ->
+    throw({unknown_option, Other});
+parse_ft_options(Malformed, _, _) ->
     throw({malformed_option, Malformed}).
 
 parse_ft_info_options(FtOpt,[]) ->
-    {ok,FtOpt};
+    FtOpt;
 parse_ft_info_options(FtOpt,[object_count | T]) ->
     parse_ft_info_options(FtOpt#filetab_options{object_count = true}, T);
 parse_ft_info_options(FtOpt,[md5sum | T]) ->
