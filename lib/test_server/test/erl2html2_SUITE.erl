@@ -130,15 +130,7 @@ groups() ->
 %% @end
 %%--------------------------------------------------------------------
 all() ->
-    [m1].
-
-%%--------------------------------------------------------------------
-%% @spec TestCase() -> Info
-%% Info = [tuple()]
-%% @end
-%%--------------------------------------------------------------------
-m1() ->
-    [].
+    [macros_defined, macros_undefined].
 
 %%--------------------------------------------------------------------
 %% @spec TestCase(Config0) ->
@@ -149,19 +141,29 @@ m1() ->
 %% Comment = term()
 %% @end
 %%--------------------------------------------------------------------
-m1(Config) ->
-    {Src,Dst} = convert_module("m1",Config),
+macros_defined(Config) ->
+    %% let erl2html2 use epp as parser
+    DataDir = ?config(data_dir,Config),
+    InclDir = filename:join(DataDir, "include"),
+    {Src,Dst} = convert_module("m1",[InclDir],Config),
     {true,L} = check_line_numbers(Src,Dst),
-    ok = check_link_targets(Src,Dst,L,[{baz,0}]),
+    ok = check_link_targets(Src,Dst,L,[{baz,0}],[]),
     ok.
 
-convert_module(Mod,Config) ->
+macros_undefined(Config) ->
+    %% let erl2html2 use epp_dodger as parser
+    {Src,Dst} = convert_module("m1",[],Config),
+    {true,L} = check_line_numbers(Src,Dst),
+    ok = check_link_targets(Src,Dst,L,[{baz,0}],[{quux,0}]),
+    ok.
+
+convert_module(Mod,InclDirs,Config) ->
     DataDir = ?config(data_dir,Config),
     PrivDir = ?config(priv_dir,Config),
     Src = filename:join(DataDir,Mod++".erl"),
     Dst = filename:join(PrivDir,Mod++".erl.html"),
     io:format("<a href=\"~s\">~s</a>\n",[Src,filename:basename(Src)]),
-    ok = erl2html2:convert(Src, Dst, [], "<html><body>"),
+    ok = erl2html2:convert(Src, Dst, InclDirs, "<html><body>"),
     io:format("<a href=\"~s\">~s</a>\n",[Dst,filename:basename(Dst)]),
     {Src,Dst}.
 
@@ -229,14 +231,17 @@ check_line_number(Last,Line,OrigLine) ->
 %% function.
 %% The test module has -compile(export_all), so all functions are
 %% found by listing the exported ones.
-check_link_targets(Src,Dst,L,RmFncs) ->
+check_link_targets(Src,Dst,L,RmFncs,ShouldRemain) ->
     Mod = list_to_atom(filename:basename(filename:rootname(Src))),
     Exports = Mod:module_info(exports)--[{module_info,0},{module_info,1}|RmFncs],
     LastExprFuncs = [Func || {Func,_A} <- Exports],
-    {ok,{[],[],L},_} =
+    {ok,{FAs,Fs,L},_} =
 	xmerl_sax_parser:file(Dst,
 			      [{event_fun,fun sax_event/3},
-			       {event_state,{Exports,LastExprFuncs,0}}]),
+			       {event_state,{Exports,LastExprFuncs,0}}]),    
+    true = (length(FAs) == length(ShouldRemain)),
+    [] = [FA || FA <- FAs, not lists:member(FA,ShouldRemain)],
+    [] = [F || F <- Fs, not lists:keymember(F,1,ShouldRemain)],
     ok.
 
 sax_event(Event,_Loc,State) ->
