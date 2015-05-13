@@ -38,37 +38,7 @@
     thus constitutes one section in this document. The title of each
     section is the version number of Mnesia.</p>
 
-  <section><title>Mnesia 4.13</title>
-
-    <section><title>Fixed Bugs and Malfunctions</title>
-      <list>
-        <item>
-          <p>
-	    Mnesia's dirty functions did not always exit with
-	    <c>{aborted, Reason}</c> as documented when an error
-	    occurred.</p>
-          <p>
-	    Own Id: OTP-12714</p>
-        </item>
-      </list>
-    </section>
-
-
-    <section><title>Improvements and New Features</title>
-      <list>
-        <item>
-          <p>
-	    Make Mnesia DCD dump behavior at start up optional, when
-	    turned off mnesia loads large disc_copies tables faster.</p>
-          <p>
-	    Own Id: OTP-12481</p>
-        </item>
-      </list>
-    </section>
-
-</section>
-
-<section><title>Mnesia 4.12.5</title>
+  <section><title>Mnesia 4.12.5</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>

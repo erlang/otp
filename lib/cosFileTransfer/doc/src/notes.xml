@@ -30,23 +30,7 @@
     <file>notes.xml</file>
   </header>
 
-  <section><title>cosFileTransfer 1.2</title>
-
-    <section><title>Improvements and New Features</title>
-      <list>
-        <item>
-	    <p> Remove the usage of erlang:now() from all Corba
-	    applications and use the new rand module instead of
-	    random. </p>
-          <p>
-	    Own Id: OTP-12687</p>
-        </item>
-      </list>
-    </section>
-
-</section>
-
-<section><title>cosFileTransfer 1.1.16</title>
+  <section><title>cosFileTransfer 1.1.16</title>
 
     <section><title>Improvements and New Features</title>
       <list>

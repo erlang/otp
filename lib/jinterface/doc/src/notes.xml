@@ -30,59 +30,6 @@
   </header>
   <p>This document describes the changes made to the Jinterface application.</p>
 
-<section><title>Jinterface 1.6</title>
-
-    <section><title>Fixed Bugs and Malfunctions</title>
-      <list>
-        <item>
-          <p>
-	    Reformat the sources for JInterface uniformly and
-	    according to the standard Java style guidelines. Provide
-	    description of the rules applied in Eclipse format (for
-	    other editors one can check the settings against these).</p>
-          <p>
-	    In short, the formatting style is: * indentation uses
-	    only spaces; each level is 4 positions * no trailing
-	    whitespace * mostly default Java style formatting (any
-	    difference is minor) * always use {} blocks * use 'final'
-	    as much as possible</p>
-          <p>
-	    Own Id: OTP-12333</p>
-        </item>
-      </list>
-    </section>
-
-
-    <section><title>Improvements and New Features</title>
-      <list>
-        <item>
-          <p>
-	    Add basic transport factory implementation. This makes
-	    possible creating connections between nodes using ssh
-	    channels for example.</p>
-          <p>
-	    Own Id: OTP-12686</p>
-        </item>
-        <item>
-          <p>
-	    Add Jinterface generic match and bind methods to provide
-	    low level interface base methods sufficient for variety
-	    of higher level pattern matching/variable binding
-	    implementations.</p>
-          <p>
-	    Own Id: OTP-12691</p>
-        </item>
-        <item>
-          <p>
-	    Minimal Java version is now 1.6</p>
-          <p>
-	    Own Id: OTP-12718</p>
-        </item>
-      </list>
-    </section>
-
-</section>
-
 <section><title>Jinterface 1.5.12</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

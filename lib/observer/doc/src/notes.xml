@@ -31,28 +31,6 @@
   <p>This document describes the changes made to the Observer
     application.</p>
 
-<section><title>Observer 2.1</title>
-
-    <section><title>Improvements and New Features</title>
-      <list>
-        <item>
-          <p>
-	    Added the possibility to view sasl log entries for
-	    processes.</p>
-          <p>
-	    Own Id: OTP-12504</p>
-        </item>
-        <item>
-          <p>
-	    Add memory allocator usage and utilization graphs.</p>
-          <p>
-	    Own Id: OTP-12631</p>
-        </item>
-      </list>
-    </section>
-
-</section>
-
 <section><title>Observer 2.0.4</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

@@ -31,23 +31,6 @@
   <p>This document describes the changes made to the asn1 application.</p>
 
 
-<section><title>Asn1 4.0</title>
-
-    <section><title>Fixed Bugs and Malfunctions</title>
-      <list>
-        <item>
-          <p>
-	    Many bugs have been eliminated in the the ASN.1 compiler
-	    so that it can now successfully compile many more ASN.1
-	    specifications. Error messages have also been improved.</p>
-          <p>
-	    Own Id: OTP-12395</p>
-        </item>
-      </list>
-    </section>
-
-</section>
-
 <section><title>Asn1 3.0.4</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
