@@ -2184,11 +2184,13 @@ print_lines(Module, InFd, OutFd, L, HTML) ->
 	eof ->
 	    ignore;
  	"%"++_=Line ->				%Comment line - not executed.
+        io:put_chars(OutFd, io_lib:format("~5B:",[L])),
  	    io:put_chars(OutFd, [tab(),escape_lt_and_gt(Line, HTML)]),
 	    print_lines(Module, InFd, OutFd, L+1, HTML);
 	RawLine ->
 	    Line = escape_lt_and_gt(RawLine,HTML),
 	    Pattern = {#bump{module=Module,line=L},'$1'},
+	    io:put_chars(OutFd, io_lib:format("~5B:",[L])),
 	    case ets:match(?COLLECTION_TABLE, Pattern) of
 		[] ->
 		    io:put_chars(OutFd, [tab(),Line]);
