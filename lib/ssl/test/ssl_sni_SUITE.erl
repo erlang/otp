@@ -142,8 +142,9 @@ run_sni_fun_handshake(Config, SNIHostname, ExpectedSNIHostname, ExpectedCN) ->
                                         {host, Hostname}, {from, self()},
                                         {mfa, {?MODULE, recv_and_certificate, []}},
                                         {options, ClientOptions}]),
-    ssl_test_lib:check_result(Server, ExpectedSNIHostname, Client, ExpectedCN).
-
+    ssl_test_lib:check_result(Server, ExpectedSNIHostname, Client, ExpectedCN),
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close(Client).
 
 run_handshake(Config, SNIHostname, ExpectedSNIHostname, ExpectedCN) ->
     ct:log("Start running handshake, Config: ~p, SNIHostname: ~p, ExpectedSNIHostname: ~p, ExpectedCN: ~p", [Config, SNIHostname, ExpectedSNIHostname, ExpectedCN]),
@@ -165,4 +166,7 @@ run_handshake(Config, SNIHostname, ExpectedSNIHostname, ExpectedCN) ->
                                         {host, Hostname}, {from, self()},
                                         {mfa, {?MODULE, recv_and_certificate, []}},
                                         {options, ClientOptions}]),
-    ssl_test_lib:check_result(Server, ExpectedSNIHostname, Client, ExpectedCN).
+    ssl_test_lib:check_result(Server, ExpectedSNIHostname, Client, ExpectedCN),
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close(Client).
+    
