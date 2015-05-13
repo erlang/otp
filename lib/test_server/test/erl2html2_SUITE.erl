@@ -232,33 +232,40 @@ check_line_number(Last,Line,OrigLine) ->
 check_link_targets(Src,Dst,L,RmFncs) ->
     Mod = list_to_atom(filename:basename(filename:rootname(Src))),
     Exports = Mod:module_info(exports)--[{module_info,0},{module_info,1}|RmFncs],
-    {ok,{[],L},_} = xmerl_sax_parser:file(Dst,
-				     [{event_fun,fun sax_event/3},
-				      {event_state,{Exports,0}}]),
+    LastExprFuncs = [Func || {Func,_A} <- Exports],
+    {ok,{[],[],L},_} =
+	xmerl_sax_parser:file(Dst,
+			      [{event_fun,fun sax_event/3},
+			       {event_state,{Exports,LastExprFuncs,0}}]),
     ok.
 
 sax_event(Event,_Loc,State) ->
     sax_event(Event,State).
 
-sax_event({startElement,_Uri,"a",_QN,Attrs},{Exports,PrevLine}) ->
+sax_event({startElement,_Uri,"a",_QN,Attrs},{Exports,LastExprFuncs,PrevLine}) ->
     {_,_,"name",Name} = lists:keyfind("name",3,Attrs),
     case catch list_to_integer(Name) of
 	Line when is_integer(Line) ->
 	    case PrevLine + 1 of
 		Line ->
-%		    erlang:display({found_line,Line}),
-		    {Exports,Line};
+		    {Exports,LastExprFuncs,Line};
 		Other ->
 		    ct:fail({unexpected_line_number_target,Other})
 	    end;
 	{'EXIT',_} ->
-	    {match,[FStr,AStr]} =
-		 re:run(Name,"^(.*)-([0-9]+)$",[{capture,all_but_first,list}]),
+	    {match,[FStr,EndStr]} =
+		 re:run(Name,"^(.*)-(last_expr|[0-9]+)$",
+			[{capture,all_but_first,list}]),
 	    F = list_to_atom(http_uri:decode(FStr)),
-	    A = list_to_integer(AStr),
-%	    erlang:display({found_fnc,F,A}),
-	    A = proplists:get_value(F,Exports),
-	    {lists:delete({F,A},Exports),PrevLine}
+	    case EndStr of
+		"last_expr" ->
+		    true = lists:member(F,LastExprFuncs),
+		    {Exports,lists:delete(F,LastExprFuncs),PrevLine};
+		_ ->
+		    A = list_to_integer(EndStr),
+		    A = proplists:get_value(F,Exports),
+		    {lists:delete({F,A},Exports),LastExprFuncs,PrevLine}
+	    end
     end;
 sax_event(_,State) ->
     State.

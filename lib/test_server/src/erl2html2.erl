@@ -188,18 +188,18 @@ build_html(SFd,DFd,Encoding,FuncsAndCs) ->
     build_html(SFd,DFd,Encoding,file:read_line(SFd),1,FuncsAndCs,
 	       false,undefined).
 
-%% function start line found
-build_html(SFd,DFd,Enc,{ok,Str},L0,[{F,A,L0,LastL}|FuncsAndCs],
-	   _IsFuncDef,_FAndLastL) ->
-    FALink = test_server_ctrl:uri_encode(F++"-"++integer_to_list(A),utf8),
-    file:write(DFd,["<a name=\"",to_raw_list(FALink,Enc),"\"/>"]),
-    build_html(SFd,DFd,Enc,{ok,Str},L0,FuncsAndCs,true,{F,LastL});
 %% line of last expression in function found
 build_html(SFd,DFd,Enc,{ok,Str},LastL,FuncsAndCs,_IsFuncDef,{F,LastL}) ->
     LastLineLink = test_server_ctrl:uri_encode(F++"-last_expr",utf8),
 	    file:write(DFd,["<a name=\"",
 			    to_raw_list(LastLineLink,Enc),"\"/>"]),
     build_html(SFd,DFd,Enc,{ok,Str},LastL,FuncsAndCs,true,undefined);
+%% function start line found
+build_html(SFd,DFd,Enc,{ok,Str},L0,[{F,A,L0,LastL}|FuncsAndCs],
+	   _IsFuncDef,_FAndLastL) ->
+    FALink = test_server_ctrl:uri_encode(F++"-"++integer_to_list(A),utf8),
+    file:write(DFd,["<a name=\"",to_raw_list(FALink,Enc),"\"/>"]),
+    build_html(SFd,DFd,Enc,{ok,Str},L0,FuncsAndCs,true,{F,LastL});
 build_html(SFd,DFd,Enc,{ok,Str},L,[{clause,L}|FuncsAndCs],
 	   _IsFuncDef,FAndLastL) ->
     build_html(SFd,DFd,Enc,{ok,Str},L,FuncsAndCs,true,FAndLastL);
