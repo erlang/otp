@@ -649,6 +649,7 @@ case $chk_arch_ in
     powerpc)	ARCH=ppc;;
     ppc)	ARCH=ppc;;
     ppc64)	ARCH=ppc64;;
+    ppc64le)	ARCH=ppc64;;
     "Power Macintosh")	ARCH=ppc;;
     armv5b)	ARCH=arm;;
     armv5teb)	ARCH=arm;;
