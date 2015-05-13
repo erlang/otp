@@ -123,13 +123,13 @@
       The callback <c>gen_tcp</c> is treated specially and calls <c>inet</c>
       directly.</p>
       <taglist>
-	<tag><c>CallbackModule</c></tag>
-	<item><p><c>= atom()</c></p></item>
-	<tag><c>DataTag</c></tag>
-	<item><p><c>= atom()</c></p>
+	<tag><c>CallbackModule =</c></tag>
+	<item><p><c>atom()</c></p></item>
+	<tag><c>DataTag =</c></tag>
+	<item><p><c>atom()</c></p>
 	<p>Used in socket data message.</p></item>
-	<tag><c>ClosedTag</c></tag>
-	<item><p><c>= atom()</c></p>
+	<tag><c>ClosedTag =</c></tag>
+	<item><p><c>atom()</c></p>
 	<p>Used in socket close message.</p></item>
       </taglist>
       </item>

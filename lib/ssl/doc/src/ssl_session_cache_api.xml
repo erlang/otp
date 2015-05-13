@@ -40,20 +40,20 @@
     <c>ssl_session_cache_api</c>:</p>
 
     <taglist>
-      <tag><c>cache_ref()</c></tag>
-      <item><p>= <c>opaque()</c></p></item>
+      <tag><c>cache_ref() =</c></tag>
+      <item><p><c>opaque()</c></p></item>
 
-      <tag><c>key()</c></tag>
-      <item><p>= <c>{partialkey(), session_id()}</c></p></item>
+      <tag><c>key() =</c></tag>
+      <item><p><c>{partialkey(), session_id()}</c></p></item>
 
-      <tag><c>partialkey()</c></tag>
-      <item><p>= <c>opaque()</c></p></item>
+      <tag><c>partialkey() =</c></tag>
+      <item><p><c>opaque()</c></p></item>
 
-      <tag><c>session_id()</c></tag>
-      <item><p>= <c>binary()</c></p></item>
+      <tag><c>session_id() =</c></tag>
+      <item><p><c>binary()</c></p></item>
 
-      <tag><c>session()</c></tag>
-      <item><p>= <c>opaque()</c></p></item>
+      <tag><c>session()</c> =</tag>
+      <item><p><c>opaque()</c></p></item>
     </taglist>
 
   </section>
