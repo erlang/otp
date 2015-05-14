@@ -31,14 +31,14 @@
 
 -type index() :: non_neg_integer().
 
--type atom_tab()   :: gb_trees:tree(atom(), index()).
+-type atom_tab()   :: #{atom() => index()}.
 -type import_tab() :: gb_trees:tree(mfa(), index()).
 -type fname_tab()  :: gb_trees:tree(Name :: term(), index()).
 -type line_tab()   :: gb_trees:tree({Fname :: index(), Line :: term()}, index()).
 -type literal_tab() :: dict:dict(Literal :: term(), index()).
 
 -record(asm,
-	{atoms = gb_trees:empty()   :: atom_tab(),
+	{atoms = #{}                :: atom_tab(),
 	 exports = []		    :: [{label(), arity(), label()}],
 	 locals = []		    :: [{label(), arity(), label()}],
 	 imports = gb_trees:empty() :: import_tab(),
@@ -77,14 +77,12 @@ highest_opcode(#asm{highest_opcode=Op}) -> Op.
 %%    atom(Atom, Dict) -> {Index,Dict'}
 -spec atom(atom(), bdict()) -> {pos_integer(), bdict()}.
 
-atom(Atom, #asm{atoms=Atoms0}=Dict) when is_atom(Atom) ->
-    case gb_trees:lookup(Atom, Atoms0) of
-	{value,Index} ->
-	    {Index,Dict};
-	none ->
-	    NextIndex = gb_trees:size(Atoms0) + 1,
-	    Atoms = gb_trees:insert(Atom, NextIndex, Atoms0),
-	    {NextIndex,Dict#asm{atoms=Atoms}}
+atom(Atom, #asm{atoms=Atoms}=Dict) when is_atom(Atom) ->
+    case Atoms of
+        #{ Atom := Index} -> {Index,Dict};
+        _ ->
+            NextIndex = maps:size(Atoms) + 1,
+            {NextIndex,Dict#asm{atoms=Atoms#{Atom=>NextIndex}}}
     end.
 
 %% Remembers an exported function.
@@ -204,14 +202,12 @@ fname(Name, #asm{fnames=Fnames0}=Dict) ->
 -spec atom_table(bdict()) -> {non_neg_integer(), [[non_neg_integer(),...]]}.
 
 atom_table(#asm{atoms=Atoms}) ->
-    NumAtoms = gb_trees:size(Atoms),
-    Sorted = lists:keysort(2, gb_trees:to_list(Atoms)),
-    Fun = fun({A,_}) ->
-		  L = atom_to_list(A),
-		  [length(L)|L]
-	  end,
-    AtomTab = lists:map(Fun, Sorted),
-    {NumAtoms,AtomTab}.
+    NumAtoms = maps:size(Atoms),
+    Sorted = lists:keysort(2, maps:to_list(Atoms)),
+    {NumAtoms,[begin
+                   L = atom_to_list(A),
+                   [length(L)|L]
+               end || {A,_} <- Sorted]}.
 
 %% Returns the table of local functions.
 %%    local_table(Dict) -> {NumLocals, [{Function, Arity, Label}...]}
