@@ -1721,8 +1721,8 @@ multi_accept_close_listen(Config) when is_list(Config) ->
     spawn(F),
     spawn(F),
     gen_tcp:close(LS),
-    ?EXPECT_ACCEPTS([{_,{error,closed}},{_,{error,closed}},
-                     {_,{error,closed}},{_,{error,closed}}],4,500).
+    ok = ?EXPECT_ACCEPTS([{_,{error,closed}},{_,{error,closed}},
+                          {_,{error,closed}},{_,{error,closed}}],4,500).
 	
 accept_timeout(suite) ->
     [];
@@ -1733,7 +1733,7 @@ accept_timeout(Config) when is_list(Config) ->
     Parent = self(),
     F = fun() -> Parent ! {accepted,self(),gen_tcp:accept(LS,1000)} end,
     P = spawn(F),
-    ?EXPECT_ACCEPTS([{P,{error,timeout}}],1,2000).
+    ok = ?EXPECT_ACCEPTS([{P,{error,timeout}}],1,2000).
 
 accept_timeouts_in_order(suite) ->
     [];
@@ -1746,8 +1746,8 @@ accept_timeouts_in_order(Config) when is_list(Config) ->
     P2 = spawn(mktmofun(1200,Parent,LS)),
     P3 = spawn(mktmofun(1300,Parent,LS)),
     P4 = spawn(mktmofun(1400,Parent,LS)),
-    ?EXPECT_ACCEPTS([{P1,{error,timeout}},{P2,{error,timeout}},
-                     {P3,{error,timeout}},{P4,{error,timeout}}],infinity,2000).
+    ok = ?EXPECT_ACCEPTS([{P1,{error,timeout}},{P2,{error,timeout}},
+                          {P3,{error,timeout}},{P4,{error,timeout}}],infinity,2000).
 
 accept_timeouts_in_order2(suite) ->
     [];
@@ -1760,8 +1760,8 @@ accept_timeouts_in_order2(Config) when is_list(Config) ->
     P2 = spawn(mktmofun(1300,Parent,LS)),
     P3 = spawn(mktmofun(1200,Parent,LS)),
     P4 = spawn(mktmofun(1000,Parent,LS)),
-    ?EXPECT_ACCEPTS([{P4,{error,timeout}},{P3,{error,timeout}},
-                     {P2,{error,timeout}},{P1,{error,timeout}}],infinity,2000).
+    ok = ?EXPECT_ACCEPTS([{P4,{error,timeout}},{P3,{error,timeout}},
+                          {P2,{error,timeout}},{P1,{error,timeout}}],infinity,2000).
 
 accept_timeouts_in_order3(suite) ->
     [];
@@ -1774,8 +1774,8 @@ accept_timeouts_in_order3(Config) when is_list(Config) ->
     P2 = spawn(mktmofun(1400,Parent,LS)),
     P3 = spawn(mktmofun(1300,Parent,LS)),
     P4 = spawn(mktmofun(1000,Parent,LS)),
-    ?EXPECT_ACCEPTS([{P4,{error,timeout}},{P1,{error,timeout}},
-                     {P3,{error,timeout}},{P2,{error,timeout}}],infinity,2000).
+    ok = ?EXPECT_ACCEPTS([{P4,{error,timeout}},{P1,{error,timeout}},
+                          {P3,{error,timeout}},{P2,{error,timeout}}],infinity,2000).
 
 accept_timeouts_mixed(suite) ->
     [];
@@ -1798,7 +1798,7 @@ accept_timeouts_mixed(Config) when is_list(Config) ->
     ok = ?EXPECT_ACCEPTS([{P2,{ok,Port0}}] when is_port(Port0),infinity,100),
     ok = ?EXPECT_ACCEPTS([{P3,{error,timeout}}],infinity,2000),
     gen_tcp:connect("localhost",PortNo,[]),
-    ?EXPECT_ACCEPTS([{P4,{ok,Port1}}] when is_port(Port1),infinity,100).
+    ok = ?EXPECT_ACCEPTS([{P4,{ok,Port1}}] when is_port(Port1),infinity,100).
 
 killing_acceptor(suite) ->
     [];
