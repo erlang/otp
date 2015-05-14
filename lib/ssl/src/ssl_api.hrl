@@ -49,6 +49,8 @@
                          {srp_identity, {string(), string()}} |
                          {ciphers, ciphers()} | {ssl_imp, ssl_imp()} | {reuse_sessions, boolean()} |
                          {reuse_session, fun()} | {hibernate_after, integer()|undefined} |
+                         {alpn_advertised_protocols, [binary()]} |
+                         {alpn_preferred_protocols, [binary()]} |
                          {next_protocols_advertised, list(binary())} |
                          {client_preferred_next_protocols, binary(), client | server, list(binary())}.
 

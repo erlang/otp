@@ -11,6 +11,7 @@
   <xi:include href="../specs/specs_digraph.xml"/>
   <xi:include href="../specs/specs_digraph_utils.xml"/>
   <xi:include href="../specs/specs_epp.xml"/>
+  <xi:include href="../specs/specs_erl_anno.xml"/>
   <xi:include href="../specs/specs_erl_eval.xml"/>
   <xi:include href="../specs/specs_erl_expand_records.xml"/>
   <xi:include href="../specs/specs_erl_id_trans.xml"/>
@@ -39,12 +40,12 @@
   <xi:include href="../specs/specs_ms_transform.xml"/>
   <xi:include href="../specs/specs_orddict.xml"/>
   <xi:include href="../specs/specs_ordsets.xml"/>
-  <xi:include href="../specs/specs_pg.xml"/>
   <xi:include href="../specs/specs_pool.xml"/>
   <xi:include href="../specs/specs_proc_lib.xml"/>
   <xi:include href="../specs/specs_proplists.xml"/>
   <xi:include href="../specs/specs_qlc.xml"/>
   <xi:include href="../specs/specs_queue.xml"/>
+  <xi:include href="../specs/specs_rand.xml"/>
   <xi:include href="../specs/specs_random.xml"/>
   <xi:include href="../specs/specs_re.xml"/>
   <xi:include href="../specs/specs_sets.xml"/>

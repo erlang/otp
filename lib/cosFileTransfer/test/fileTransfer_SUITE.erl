@@ -732,8 +732,9 @@ create_file_on_source_node({'NATIVE', _}, _Config, Host, FileName, Path, Data) -
     ?match(ok, file:write_file(FileName, list_to_binary(Data))).
     
 create_name(Type) ->
-    {MSec, Sec, USec} = erlang:now(),
-    lists:concat([Type,'_',MSec, '_', Sec, '_', USec]).
+    Time = erlang:system_time(),
+    Unique = erlang:unique_integer([positive]),
+    lists:concat([Type, '_', Time, '_', Unique]).
 
 
 

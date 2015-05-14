@@ -70,6 +70,7 @@
 	  undecoded_packet_length, %  integer()
 	  key_exchange_init_msg,   %  #ssh_msg_kexinit{}
 	  renegotiate = false,     %  boolean() 
+	  last_size_rekey = 0,
 	  connection_queue,
 	  address,
 	  port,
@@ -635,7 +636,8 @@ handle_event(renegotiate, StateName, State) ->
 
 %% Rekey due to sent data limit reached?
 handle_event(data_size, connected, #state{ssh_params = Ssh0} = State) ->
-    {ok, [{send_oct,Sent}]} = inet:getstat(State#state.socket, [send_oct]),
+    {ok, [{send_oct,Sent0}]} = inet:getstat(State#state.socket, [send_oct]),
+    Sent = Sent0 - State#state.last_size_rekey,
     MaxSent = proplists:get_value(rekey_limit, State#state.opts, 1024000000),
     timer:apply_after(?REKEY_DATA_TIMOUT, gen_fsm, send_all_state_event, [self(), data_size]),
     case Sent >= MaxSent of
@@ -645,7 +647,8 @@ handle_event(data_size, connected, #state{ssh_params = Ssh0} = State) ->
 	    {next_state, kexinit,
 	     next_packet(State#state{ssh_params = Ssh,
 				     key_exchange_init_msg = KeyInitMsg,
-				     renegotiate = true})};
+				     renegotiate = true,
+				     last_size_rekey = Sent0})};
 	_ ->
 	    {next_state, connected, next_packet(State)}
     end;

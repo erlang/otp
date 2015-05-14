@@ -29,7 +29,7 @@
 %% Command timeout = 10 sec (time to wait for a command to return)
 %% Max no of reconnection attempts = 3
 %% Reconnection interval = 5 sek (time to wait in between reconnection attempts)
-%% Keep alive = true (will send NOP to the server every 10 sec if connection is idle)
+%% Keep alive = true (will send NOP to the server every 8 sec if connection is idle)
 %% Polling limit = 0 (max number of times to poll to get a remaining string terminated)
 %% Polling interval = 1 sec (sleep time between polls)</pre>
 %% <p>These parameters can be altered by the user with the following
@@ -1021,7 +1021,7 @@ silent_teln_expect(Name,Pid,Data,Pattern,Prx,Opts) ->
     put(silent,Old),
     Result.
 
-%% teln_expect/5 
+%% teln_expect/6
 %%
 %% This function implements the expect functionality over telnet. In
 %% general there are three possible ways to go:

@@ -693,8 +693,7 @@ make_crypto_key(String) ->
     {[K1,K2,K3],IVec}.
 
 random_bytes(N) ->
-    {A,B,C} = now(),
-    random:seed(A, B, C),
+    random:seed(os:timestamp()),
     random_bytes_1(N, []).
 
 random_bytes_1(0, Acc) -> Acc;

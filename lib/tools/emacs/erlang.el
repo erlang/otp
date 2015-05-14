@@ -2444,7 +2444,10 @@ This is automagically called by the user level function `indent-region'."
       ;; Parse the Erlang code from the beginning of the clause to
       ;; the beginning of the region.
       (while (< (point) indent-point)
-	(setq state (erlang-partial-parse (point) indent-point state)))
+        (let ((pt (point)))
+          (setq state (erlang-partial-parse pt indent-point state))
+          (if (= pt (point))
+              (error "Illegal syntax"))))
       ;; Indent every line in the region
       (while continue
 	(goto-char indent-point)
@@ -2480,8 +2483,11 @@ This is automagically called by the user level function `indent-region'."
 	(if (>= from-end (- (point-max) indent-point))
 	    (setq continue nil)
 	  (while (< (point) indent-point)
-	    (setq state (erlang-partial-parse
-			 (point) indent-point state))))))))
+            (let ((pt (point)))
+              (setq state (erlang-partial-parse
+                           pt indent-point state))
+              (if (= pt (point))
+                  (error "Illegal syntax")))))))))
 
 
 (defun erlang-indent-current-buffer ()
@@ -2528,7 +2534,10 @@ Return nil if line starts inside string, t if in a comment."
 	  (goto-char parse-start)
 	(erlang-beginning-of-clause))
       (while (< (point) indent-point)
-	(setq state (erlang-partial-parse (point) indent-point state)))
+        (let ((pt (point)))
+          (setq state (erlang-partial-parse pt indent-point state))
+          (if (= pt (point))
+              (error "Illegal syntax"))))
       (erlang-calculate-stack-indent indent-point state))))
 
 (defun erlang-show-syntactic-information ()
@@ -2698,12 +2707,13 @@ Value is list (stack token-start token-type in-what)."
 	(erlang-push (list '|| token (current-column)) stack)
 	(forward-char 2))
 
-       ;; Bit-syntax open paren
-       ((looking-at "<<")
+       ;; Bit-syntax open. Note that map syntax allows "<<" to follow ":="
+       ;; or "=>" without intervening whitespace, so handle that case here
+       ((looking-at "\\(:=\\|=>\\)?<<")
 	(erlang-push (list '<< token (current-column)) stack)
-	(forward-char 2))
+	(forward-char (- (match-end 0) (match-beginning 0))))
        
-       ;; Bbit-syntax close paren
+       ;; Bit-syntax close
        ((looking-at ">>")
 	(while (memq (car (car stack)) '(|| ->))
 	  (erlang-pop stack))
@@ -4188,7 +4198,10 @@ This function is designed to be a member of a criteria list."
 	    ;; Do not return `stop' when inside a list comprehension
 	    ;; construction.  (The point must be after `||').
 	    (while (< (point) orig-point)
-	      (setq state (erlang-partial-parse (point) orig-point state)))
+              (let ((pt (point)))
+                (setq state (erlang-partial-parse pt orig-point state))
+                (if (= pt (point))
+                    (error "Illegal syntax"))))
 	    (if (and (car state) (eq (car (car (car state))) '||))
 		nil
 	      'stop)))

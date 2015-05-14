@@ -104,17 +104,13 @@ static void lcnt_clear_stats(erts_lcnt_lock_stats_t *stats) {
 }
 
 static void lcnt_time(erts_lcnt_time_t *time) {
-#if 0 || defined(HAVE_GETHRTIME)
-    SysHrTime hr_time;
-    hr_time  = sys_gethrtime();
-    time->s  = (unsigned long)(hr_time / 1000000000LL);
-    time->ns = (unsigned long)(hr_time - 1000000000LL*time->s);
-#else
-  SysTimeval tv;
-  sys_gettimeofday(&tv);
-  time->s  = tv.tv_sec;
-  time->ns = tv.tv_usec*1000LL;
-#endif
+    /*
+     * erts_sys_hrtime() is the highest resolution
+     * we could find, it may or may not be monotonic...
+     */
+    ErtsMonotonicTime mtime = erts_sys_hrtime();
+    time->s  = (unsigned long) (mtime / 1000000000LL);
+    time->ns = (unsigned long) (mtime - 1000000000LL*time->s);
 }
 
 static void lcnt_time_diff(erts_lcnt_time_t *d, erts_lcnt_time_t *t1, erts_lcnt_time_t *t0) {

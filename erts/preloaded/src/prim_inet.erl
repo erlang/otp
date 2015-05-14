@@ -127,35 +127,16 @@ drv2protocol(_)           -> undefined.
 %% TODO: shutdown equivalent for SCTP
 %%
 shutdown(S, read) when is_port(S) ->
-    shutdown_2(S, 0);
+    shutdown_1(S, 0);
 shutdown(S, write) when is_port(S) ->
     shutdown_1(S, 1);
 shutdown(S, read_write) when is_port(S) ->
     shutdown_1(S, 2).
 
 shutdown_1(S, How) ->
-    case subscribe(S, [subs_empty_out_q]) of
-	{ok,[{subs_empty_out_q,N}]} when N > 0 ->
-	    shutdown_pend_loop(S, N);   %% wait for pending output to be sent
-	_Other -> ok
-    end,
-    shutdown_2(S, How).
-
-shutdown_2(S, How) ->
     case ctl_cmd(S, ?TCP_REQ_SHUTDOWN, [How]) of
 	{ok, []} -> ok;
 	{error,_}=Error -> Error
-    end.
-
-shutdown_pend_loop(S, N0) ->
-    receive
-	{empty_out_q,S} -> ok
-    after ?INET_CLOSE_TIMEOUT ->
-	    case getstat(S, [send_pend]) of
-                {ok,[{send_pend,N0}]} -> ok;
-                {ok,[{send_pend,N}]} -> shutdown_pend_loop(S, N);
-		_ -> ok
-	    end
     end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -1159,6 +1140,7 @@ enc_opt(delay_send)      -> ?INET_LOPT_TCP_DELAY_SEND;
 enc_opt(packet_size)     -> ?INET_LOPT_PACKET_SIZE;
 enc_opt(read_packets)    -> ?INET_LOPT_READ_PACKETS;
 enc_opt(netns)           -> ?INET_LOPT_NETNS;
+enc_opt(show_econnreset) -> ?INET_LOPT_TCP_SHOW_ECONNRESET;
 enc_opt(raw)             -> ?INET_OPT_RAW;
 % Names of SCTP opts:
 enc_opt(sctp_rtoinfo)	 	   -> ?SCTP_OPT_RTOINFO;
@@ -1216,6 +1198,7 @@ dec_opt(?INET_LOPT_TCP_DELAY_SEND)   -> delay_send;
 dec_opt(?INET_LOPT_PACKET_SIZE)      -> packet_size;
 dec_opt(?INET_LOPT_READ_PACKETS)     -> read_packets;
 dec_opt(?INET_LOPT_NETNS)           -> netns;
+dec_opt(?INET_LOPT_TCP_SHOW_ECONNRESET) -> show_econnreset;
 dec_opt(?INET_OPT_RAW)              -> raw;
 dec_opt(I) when is_integer(I)     -> undefined.
 
@@ -1315,6 +1298,7 @@ type_opt_1(delay_send)      -> bool;
 type_opt_1(packet_size)     -> uint;
 type_opt_1(read_packets)    -> uint;
 type_opt_1(netns)           -> binary;
+type_opt_1(show_econnreset) -> bool;
 %% 
 %% SCTP options (to be set). If the type is a record type, the corresponding
 %% record signature is returned, otherwise, an "elementary" type tag 

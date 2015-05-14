@@ -214,7 +214,9 @@
 -type zip_comment() :: #zip_comment{}.
 -type zip_file() :: #zip_file{}.
 
--export_type([create_option/0, filename/0]).
+-opaque handle() :: pid().
+
+-export_type([create_option/0, filename/0, handle/0]).
 
 %% Open a zip archive with options
 %%
@@ -500,7 +502,7 @@ do_list_dir(F, Options) ->
 
 -spec(t(Archive) -> ok when
       Archive :: file:name() | binary() | ZipHandle,
-      ZipHandle :: pid()).
+      ZipHandle :: handle()).
 
 t(F) when is_pid(F) -> zip_t(F);
 t(F) when is_record(F, openzip) -> openzip_t(F);
@@ -524,7 +526,7 @@ do_t(F, RawPrint) ->
 
 -spec(tt(Archive) -> ok when
       Archive :: file:name() | binary() | ZipHandle,
-      ZipHandle :: pid()).
+      ZipHandle :: handle()).
 
 tt(F) when is_pid(F) -> zip_tt(F);
 tt(F) when is_record(F, openzip) -> openzip_tt(F);
@@ -1114,15 +1116,19 @@ local_file_header_from_info_method_name(#file_info{mtime = MTime},
 		       file_name_length = length(Name),
 		       extra_field_length = 0}.
 
+server_init(Parent) ->
+    %% we want to know if our parent dies
+    process_flag(trap_exit, true),
+    server_loop(Parent, not_open).
 
 %% small, simple, stupid zip-archive server
-server_loop(OpenZip) ->
+server_loop(Parent, OpenZip) ->
     receive
 	{From, {open, Archive, Options}} ->
 	    case openzip_open(Archive, Options) of
 		{ok, NewOpenZip} ->
 		    From ! {self(), {ok, self()}},
-		    server_loop(NewOpenZip);
+		    server_loop(Parent, NewOpenZip);
 		Error ->
 		    From ! {self(), Error}
 	    end;
@@ -1130,43 +1136,47 @@ server_loop(OpenZip) ->
 	    From ! {self(), openzip_close(OpenZip)};
 	{From, get} ->
 	    From ! {self(), openzip_get(OpenZip)},
-	    server_loop(OpenZip);
+	    server_loop(Parent, OpenZip);
 	{From, {get, FileName}} ->
 	    From ! {self(), openzip_get(FileName, OpenZip)},
-	    server_loop(OpenZip);
+	    server_loop(Parent, OpenZip);
 	{From, list_dir} ->
 	    From ! {self(), openzip_list_dir(OpenZip)},
-	    server_loop(OpenZip);
+	    server_loop(Parent, OpenZip);
 	{From, {list_dir, Opts}} ->
 	    From ! {self(), openzip_list_dir(OpenZip, Opts)},
-	    server_loop(OpenZip);
+	    server_loop(Parent, OpenZip);
 	{From, get_state} ->
 	    From ! {self(), OpenZip},
-	    server_loop(OpenZip);
+	    server_loop(Parent, OpenZip);
+        {'EXIT', Parent, Reason} ->
+            _ = openzip_close(OpenZip),
+            exit({parent_died, Reason});
 	_ ->
 	    {error, bad_msg}
     end.
 
 -spec(zip_open(Archive) -> {ok, ZipHandle} | {error, Reason} when
       Archive :: file:name() | binary(),
-      ZipHandle :: pid(),
+      ZipHandle :: handle(),
       Reason :: term()).
 
 zip_open(Archive) -> zip_open(Archive, []).
 
 -spec(zip_open(Archive, Options) -> {ok, ZipHandle} | {error, Reason} when
       Archive :: file:name() | binary(),
-      ZipHandle :: pid(),
+      ZipHandle :: handle(),
       Options :: [Option],
       Option :: cooked | memory | {cwd, CWD :: file:filename()},
       Reason :: term()).
 
 zip_open(Archive, Options) ->
-    Pid = spawn(fun() -> server_loop(not_open) end),
-    request(self(), Pid, {open, Archive, Options}).
+    Self = self(),
+    Pid = spawn_link(fun() -> server_init(Self) end),
+    request(Self, Pid, {open, Archive, Options}).
 
 -spec(zip_get(ZipHandle) -> {ok, [Result]} | {error, Reason} when
-      ZipHandle :: pid(),
+      ZipHandle :: handle(),
       Result :: file:name() | {file:name(), binary()},
       Reason :: term()).
 
@@ -1174,14 +1184,14 @@ zip_get(Pid) when is_pid(Pid) ->
     request(self(), Pid, get).
 
 -spec(zip_close(ZipHandle) -> ok | {error, einval} when
-      ZipHandle :: pid()).
+      ZipHandle :: handle()).
 
 zip_close(Pid) when is_pid(Pid) ->
     request(self(), Pid, close).
 
 -spec(zip_get(FileName, ZipHandle) -> {ok, Result} | {error, Reason} when
       FileName :: file:name(),
-      ZipHandle :: pid(),
+      ZipHandle :: handle(),
       Result :: file:name() | {file:name(), binary()},
       Reason :: term()).
 
@@ -1190,7 +1200,7 @@ zip_get(FileName, Pid) when is_pid(Pid) ->
 
 -spec(zip_list_dir(ZipHandle) -> {ok, Result} | {error, Reason} when
       Result :: [zip_comment() | zip_file()],
-      ZipHandle :: pid(),
+      ZipHandle :: handle(),
       Reason :: term()).
 
 zip_list_dir(Pid) when is_pid(Pid) ->

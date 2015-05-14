@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -404,13 +404,14 @@ records(Config) when is_list(Config) ->
     ?line ok = file:write_file(Test, Contents),
 
     RR5 = "rr(\"" ++ Test ++ "\", '_', {d,test1}), rl([test1,test2]).",
-    ?line [{attribute,1,record,{test1,_}},ok] = scan(RR5),
+    A1 = erl_anno:new(1),
+    [{attribute,A1,record,{test1,_}},ok] = scan(RR5),
     RR6 = "rr(\"" ++ Test ++ "\", '_', {d,test2}), rl([test1,test2]).",
-    ?line [{attribute,1,record,{test2,_}},ok] = scan(RR6),
+    [{attribute,A1,record,{test2,_}},ok] = scan(RR6),
     RR7 = "rr(\"" ++ Test ++ 
            "\", '_', [{d,test1},{d,test2,17}]), rl([test1,test2]).",
-    ?line [{attribute,1,record,{test1,_}},{attribute,1,record,{test2,_}},
-           ok] = scan(RR7),
+    [{attribute,A1,record,{test1,_}},{attribute,A1,record,{test2,_}},ok] =
+        scan(RR7),
     ?line PreReply = scan(<<"rr(prim_file).">>), % preloaded...
     ?line true = is_list(PreReply),
     ?line Dir = filename:join(?config(priv_dir, Config), "*.erl"),

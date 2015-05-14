@@ -60,7 +60,7 @@ all() ->
     [{group,p}].
 
 groups() -> 
-    [{p,[],%%test_lib:parallel(),
+    [{p,[],
       [tobias,empty_string,md5,silly_coverage,
        confused_literals,integer_encoding,override_bif]}].
 
@@ -225,14 +225,15 @@ silly_coverage(Config) when is_list(Config) ->
 		     {label,2}|non_proper_list]}],99},
     ?line expect_error(fun() -> beam_bool:module(BoolInput, []) end),
 
-    %% beam_dead
+    %% beam_dead. This is tricky. Our function must look OK to
+    %% beam_utils:clean_labels/1, but must crash beam_dead.
     DeadInput = {?MODULE,[{foo,0}],[],
 		  [{function,foo,0,2,
 		    [{label,1},
 		     {func_info,{atom,?MODULE},{atom,foo},0},
 		     {label,2},
-		     {jump,bad}]}],99},
-    ?line expect_error(fun() -> beam_block:module(DeadInput, []) end),
+		     {test,is_eq_exact,{f,1},[bad,operands]}]}],99},
+    expect_error(fun() -> beam_dead:module(DeadInput, []) end),
 
     %% beam_clean
     CleanInput = {?MODULE,[{foo,0}],[],
@@ -278,6 +279,14 @@ silly_coverage(Config) when is_list(Config) ->
 		     {func_info,{atom,?MODULE},{atom,foo},0},
 		     {label,2}|non_proper_list]}],99},
     expect_error(fun() -> beam_z:module(BeamZInput, []) end),
+
+    %% beam_validator.
+    BeamValInput = {?MODULE,[{foo,0}],[],
+		    [{function,foo,0,2,
+		      [{label,1},
+		       {func_info,{atom,?MODULE},{atom,foo},0},
+		       {label,2}|non_proper_list]}],99},
+    expect_error(fun() -> beam_validator:module(BeamValInput, []) end),
 
     ok.
 
@@ -329,8 +338,16 @@ integer_encoding_1(Config) ->
 
     ?line do_integer_encoding(-(id(1) bsl 10000), Src, Data),
     ?line do_integer_encoding(id(1) bsl 10000, Src, Data),
-    ?line do_integer_encoding(2048, 0, Src, Data),
-
+    do_integer_encoding(1024, 0, Src, Data),
+    _ = [begin
+	     B = 1 bsl I,
+	     do_integer_encoding(-B-1, Src, Data),
+	     do_integer_encoding(-B, Src, Data),
+	     do_integer_encoding(-B+1, Src, Data),
+	     do_integer_encoding(B-1, Src, Data),
+	     do_integer_encoding(B, Src, Data),
+	     do_integer_encoding(B+1, Src, Data)
+	 end || I <- lists:seq(1, 128)],
     io:put_chars(Src, "Last].\n\n"),
     ?line ok = file:close(Src),
     io:put_chars(Data, "0].\n\n"),
@@ -363,11 +380,9 @@ do_integer_encoding(N, I0, Src, Data) ->
 
 do_integer_encoding(I, Src, Data) ->
     Str = integer_to_list(I),
-    io:put_chars(Src, Str),
-    io:put_chars(Src, ", \n"),
-    io:put_chars(Data, Str),
-    io:put_chars(Data, ", \n").
-    
+    io:put_chars(Src, [Str,",\n"]),
+    io:put_chars(Data, [Str,",\n"]).
+
     
 id(I) -> I.
     

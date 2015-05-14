@@ -77,7 +77,8 @@
 	       multiply_timetraps = 1,
 	       scale_timetraps = false,
 	       create_priv_dir,
-	       testspecs = [],
+	       testspec_files = [],
+	       current_testspec,
 	       tests,
 	       starter}).
 
@@ -492,8 +493,11 @@ execute_one_spec(TS, Opts, Args) ->
     case check_and_install_configfiles(AllConfig, TheLogDir, Opts) of
 	ok ->      % read tests from spec
 	    {Run,Skip} = ct_testspec:prepare_tests(TS, node()),
-	    do_run(Run, Skip, Opts#opts{config=AllConfig,
-					logdir=TheLogDir}, Args);
+	    Result = do_run(Run, Skip, Opts#opts{config=AllConfig,
+						 logdir=TheLogDir,
+						 current_testspec=TS}, Args),
+	    ct_util:delete_testdata(testspec),
+	    Result;
 	Error ->
 	    Error
     end.
@@ -584,7 +588,7 @@ combine_test_opts(TS, Specs, Opts) ->
 
     Opts#opts{label = Label,
 	      profile = Profile,
-	      testspecs = Specs,
+	      testspec_files = Specs,
 	      cover = Cover,
 	      cover_stop = CoverStop,
 	      logdir = which(logdir, LogDir),
@@ -709,7 +713,7 @@ script_start4(#opts{label = Label, profile = Profile,
 		    logopts = LogOpts,
 		    verbosity = Verbosity,
 		    enable_builtin_hooks = EnableBuiltinHooks,
-		    logdir = LogDir, testspecs = Specs}, _Args) ->
+		    logdir = LogDir, testspec_files = Specs}, _Args) ->
 
     %% label - used by ct_logs
     application:set_env(common_test, test_label, Label),
@@ -1110,7 +1114,7 @@ run_test2(StartOpts) ->
 	undefined ->
 	    case lists:keysearch(prepared_tests, 1, StartOpts) of
 		{value,{_,{Run,Skip},Specs}} ->	% use prepared tests
-		    run_prepared(Run, Skip, Opts#opts{testspecs = Specs},
+		    run_prepared(Run, Skip, Opts#opts{testspec_files = Specs},
 				 StartOpts);
 		false ->
 		    run_dir(Opts, StartOpts)
@@ -1118,11 +1122,11 @@ run_test2(StartOpts) ->
 	Specs ->
 	    Relaxed = get_start_opt(allow_user_terms, value, false, StartOpts),
 	    %% using testspec(s) as input for test
-	    run_spec_file(Relaxed, Opts#opts{testspecs = Specs}, StartOpts)
+	    run_spec_file(Relaxed, Opts#opts{testspec_files = Specs}, StartOpts)
     end.
 
 run_spec_file(Relaxed,
-	      Opts = #opts{testspecs = Specs},
+	      Opts = #opts{testspec_files = Specs},
 	      StartOpts) ->
     Specs1 = case Specs of
 		 [X|_] when is_integer(X) -> [Specs];
@@ -1161,7 +1165,10 @@ run_all_specs([{Specs,TS} | TSs], Opts, StartOpts, TotResult) ->
     log_ts_names(Specs),
     Combined = #opts{config = TSConfig} = combine_test_opts(TS, Specs, Opts),
     AllConfig = merge_vals([Opts#opts.config, TSConfig]),
-    try run_one_spec(TS, Combined#opts{config = AllConfig}, StartOpts) of
+    try run_one_spec(TS, 
+		     Combined#opts{config = AllConfig,
+				   current_testspec=TS},
+		     StartOpts) of
 	Result ->
 	    run_all_specs(TSs, Opts, StartOpts, [Result | TotResult])		
     catch
@@ -1406,7 +1413,7 @@ run_testspec2(TestSpec) ->
 	    case check_and_install_configfiles(
 		   Opts#opts.config, LogDir1, Opts) of
 		ok ->
-		    Opts1 = Opts#opts{testspecs = [],
+		    Opts1 = Opts#opts{testspec_files = [],
 				      logdir = LogDir1,
 				      include = AllInclude},
 		    {Run,Skip} = ct_testspec:prepare_tests(TS, node()),
@@ -1627,11 +1634,15 @@ groups_and_cases(Gs, Cs) ->
 tests(TestDir, Suites, []) when is_list(TestDir), is_integer(hd(TestDir)) ->
     [{?testdir(TestDir,Suites),ensure_atom(Suites),all}];
 tests(TestDir, Suite, Cases) when is_list(TestDir), is_integer(hd(TestDir)) ->
+    [{?testdir(TestDir,Suite),ensure_atom(Suite),Cases}];
+tests([TestDir], Suite, Cases) when is_list(TestDir), is_integer(hd(TestDir)) ->
     [{?testdir(TestDir,Suite),ensure_atom(Suite),Cases}].
 tests([{Dir,Suite}],Cases) ->
     [{?testdir(Dir,Suite),ensure_atom(Suite),Cases}];
 tests(TestDir, Suite) when is_list(TestDir), is_integer(hd(TestDir)) ->
-    tests(TestDir, ensure_atom(Suite), all).
+    tests(TestDir, ensure_atom(Suite), all);
+tests([TestDir], Suite) when is_list(TestDir), is_integer(hd(TestDir)) ->
+     tests(TestDir, ensure_atom(Suite), all).
 tests(DirSuites) when is_list(DirSuites), is_tuple(hd(DirSuites)) ->
     [{?testdir(Dir,Suite),ensure_atom(Suite),all} || {Dir,Suite} <- DirSuites];
 tests(TestDir) when is_list(TestDir), is_integer(hd(TestDir)) ->
@@ -1713,6 +1724,9 @@ compile_and_run(Tests, Skip, Opts, Args) ->
     ct_util:set_testdata({stylesheet,Opts#opts.stylesheet}),
     %% save logopts
     ct_util:set_testdata({logopts,Opts#opts.logopts}),
+    %% save info about current testspec (testspec record or undefined)
+    ct_util:set_testdata({testspec,Opts#opts.current_testspec}),
+
     %% enable silent connections
     case Opts#opts.silent_connections of
 	[] ->
@@ -1727,7 +1741,7 @@ compile_and_run(Tests, Skip, Opts, Args) ->
 		    ct_logs:log("Silent connections", "~p", [Conns])
 	    end
     end,
-    log_ts_names(Opts#opts.testspecs),
+    log_ts_names(Opts#opts.testspec_files),
     TestSuites = suite_tuples(Tests),
     
     {_TestSuites1,SuiteMakeErrors,AllMakeErrors} =
@@ -1976,22 +1990,7 @@ final_tests(Tests, Skip, Bad) ->
 
 final_tests1([{TestDir,Suites,_}|Tests], Final, Skip, Bad) when
       is_list(Suites), is_atom(hd(Suites)) ->
-%     Separate =
-% 	fun(S,{DoSuite,Dont}) ->		
-% 		case lists:keymember({TestDir,S},1,Bad) of
-% 		    false ->	
-% 			{[S|DoSuite],Dont};
-% 		    true ->	
-% 			SkipIt = {TestDir,S,"Make failed"},
-% 			{DoSuite,Dont++[SkipIt]}
-% 		end
-% 	end,
-	
-%     {DoSuites,Skip1} =
-% 	lists:foldl(Separate,{[],Skip},Suites),
-%     Do = {TestDir,lists:reverse(DoSuites),all},
-
-    Skip1 = [{TD,S,"Make failed"} || {{TD,S},_} <- Bad, S1 <- Suites,
+    Skip1 = [{TD,S,make_failed} || {{TD,S},_} <- Bad, S1 <- Suites,
 				     S == S1, TD == TestDir],
     Final1 = [{TestDir,S,all} || S <- Suites],
     final_tests1(Tests, lists:reverse(Final1)++Final, Skip++Skip1, Bad);
@@ -2004,7 +2003,7 @@ final_tests1([{TestDir,all,all}|Tests], Final, Skip, Bad) ->
 	    false ->
 		[]
 	end,
-    Missing = [{TestDir,S,"Make failed"} || S <- MissingSuites],
+    Missing = [{TestDir,S,make_failed} || S <- MissingSuites],
     Final1 = [{TestDir,all,all}|Final],
     final_tests1(Tests, Final1, Skip++Missing, Bad);
 
@@ -2016,7 +2015,7 @@ final_tests1([{TestDir,Suite,GrsOrCs}|Tests], Final, Skip, Bad) when
       is_list(GrsOrCs) ->
     case lists:keymember({TestDir,Suite}, 1, Bad) of
 	true ->
-	    Skip1 = Skip ++ [{TestDir,Suite,all,"Make failed"}],
+	    Skip1 = Skip ++ [{TestDir,Suite,all,make_failed}],
 	    final_tests1(Tests, [{TestDir,Suite,all}|Final], Skip1, Bad);
 	false ->
 	    GrsOrCs1 =

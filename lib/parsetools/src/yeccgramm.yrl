@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2015. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -38,8 +38,8 @@ rule -> head '->' symbols attached_code dot: {rule, ['$1' | '$3'], '$4'}.
 head -> symbol : '$1'.
 symbols -> symbol : ['$1'].
 symbols -> symbol symbols : ['$1' | '$2'].
-strings -> string : ['$1'].
-strings -> string strings : ['$1' | '$2'].
+strings -> string : [string('$1')].
+strings -> string strings : [string('$1') | '$2'].
 attached_code -> ':' tokens : {erlang_code, '$2'}.
 attached_code -> '$empty' : {erlang_code, [{atom, 0, '$undefined'}]}.
 tokens -> token : ['$1'].
@@ -48,12 +48,12 @@ symbol -> var : symbol('$1').
 symbol -> atom : symbol('$1').
 symbol -> integer : symbol('$1').
 symbol -> reserved_word : symbol('$1').
-token -> var : '$1'.
-token -> atom : '$1'.
-token -> float : '$1'.
-token -> integer : '$1'.
-token -> string : '$1'.
-token -> char : '$1'.
+token -> var : token('$1').
+token -> atom : token('$1').
+token -> float : token('$1').
+token -> integer : token('$1').
+token -> string : token('$1').
+token -> char : token('$1').
 token -> reserved_symbol : {value_of('$1'), line_of('$1')}.
 token -> reserved_word : {value_of('$1'), line_of('$1')}.
 token -> '->' : {'->', line_of('$1')}. % Have to be treated in this
@@ -67,8 +67,14 @@ Erlang code.
 symbol(Symbol) ->
     #symbol{line = line_of(Symbol), name = value_of(Symbol)}.
 
+token(Token) ->
+    setelement(2, Token, line_of(Token)).
+
+string(Token) ->
+    setelement(2, Token, line_of(Token)).
+
 value_of(Token) ->
     element(3, Token).
 
 line_of(Token) ->
-    element(2, Token).
+    erl_anno:line(element(2, Token)).

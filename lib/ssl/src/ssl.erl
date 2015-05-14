@@ -38,9 +38,11 @@
 %% SSL/TLS protocol handling
 -export([cipher_suites/0, cipher_suites/1, suite_definition/1,
 	 connection_info/1, versions/0, session_info/1, format_error/1,
-	 renegotiate/1, prf/5, negotiated_next_protocol/1]).
+	 renegotiate/1, prf/5, negotiated_protocol/1, negotiated_next_protocol/1]).
 %% Misc
 -export([random_bytes/1]).
+
+-deprecated({negotiated_next_protocol, 1, next_major_release}).
 
 -include("ssl_api.hrl").
 -include("ssl_internal.hrl").
@@ -330,13 +332,27 @@ suite_definition(S) ->
     {KeyExchange, Cipher, Hash}.
 
 %%--------------------------------------------------------------------
+-spec negotiated_protocol(#sslsocket{}) -> {ok, binary()} | {error, reason()}.
+%%
+%% Description: Returns the protocol that has been negotiated. If no
+%% protocol has been negotiated will return {error, protocol_not_negotiated}
+%%--------------------------------------------------------------------
+negotiated_protocol(#sslsocket{pid = Pid}) ->
+    ssl_connection:negotiated_protocol(Pid).
+
+%%--------------------------------------------------------------------
 -spec negotiated_next_protocol(#sslsocket{}) -> {ok, binary()} | {error, reason()}.
 %%
 %% Description: Returns the next protocol that has been negotiated. If no
 %% protocol has been negotiated will return {error, next_protocol_not_negotiated}
 %%--------------------------------------------------------------------
-negotiated_next_protocol(#sslsocket{pid = Pid}) ->
-    ssl_connection:negotiated_next_protocol(Pid).
+negotiated_next_protocol(Socket) ->
+    case negotiated_protocol(Socket) of
+        {error, protocol_not_negotiated} ->
+            {error, next_protocol_not_negotiated};
+        Res ->
+            Res
+    end.
 
 %%--------------------------------------------------------------------
 -spec cipher_suites(erlang | openssl | all) -> [ssl_cipher:erl_cipher_suite()] |
@@ -353,12 +369,8 @@ cipher_suites(openssl) ->
      || S <- ssl_cipher:filter_suites(ssl_cipher:suites(Version))];
 cipher_suites(all) ->
     Version = tls_record:highest_protocol_version([]),
-    Supported = ssl_cipher:all_suites(Version)
-	++ ssl_cipher:anonymous_suites()
-	++ ssl_cipher:psk_suites(Version)
-	++ ssl_cipher:srp_suites(),
-    ssl_cipher:filter_suites([suite_definition(S) || S <- Supported]).
-
+    ssl_cipher:filter_suites([suite_definition(S)
+			      || S <-ssl_cipher:all_suites(Version)]).
 cipher_suites() ->
     cipher_suites(erlang).
 
@@ -454,7 +466,7 @@ session_info(#sslsocket{pid = {Listen,_}}) when is_port(Listen) ->
 versions() ->
     Vsns = tls_record:supported_protocol_versions(),
     SupportedVsns = [tls_record:protocol_version(Vsn) || Vsn <- Vsns],
-    AvailableVsns = ?ALL_SUPPORTED_VERSIONS,
+    AvailableVsns = ?ALL_AVAILABLE_VERSIONS,
     %% TODO Add DTLS versions when supported
     [{ssl_app, ?VSN}, {supported, SupportedVsns}, {available, AvailableVsns}].
 
@@ -648,6 +660,10 @@ handle_options(Opts0) ->
 		    renegotiate_at = handle_option(renegotiate_at, Opts, ?DEFAULT_RENEGOTIATE_AT),
 		    hibernate_after = handle_option(hibernate_after, Opts, undefined),
 		    erl_dist = handle_option(erl_dist, Opts, false),
+		    alpn_advertised_protocols =
+			handle_option(alpn_advertised_protocols, Opts, undefined),
+		    alpn_preferred_protocols =
+			handle_option(alpn_preferred_protocols, Opts, undefined),
 		    next_protocols_advertised =
 			handle_option(next_protocols_advertised, Opts, undefined),
 		    next_protocol_selector =
@@ -658,7 +674,9 @@ handle_options(Opts0) ->
 		    honor_cipher_order = handle_option(honor_cipher_order, Opts, false),
 		    protocol = proplists:get_value(protocol, Opts, tls),
 		    padding_check =  proplists:get_value(padding_check, Opts, true),
-		    fallback =  proplists:get_value(fallback, Opts, false)
+		    fallback =  proplists:get_value(fallback, Opts, false),
+		    crl_check = handle_option(crl_check, Opts, false),
+		    crl_cache = handle_option(crl_cache, Opts, {ssl_crl_cache, {internal, []}})
 		   },
 
     CbInfo  = proplists:get_value(cb_info, Opts, {gen_tcp, tcp, tcp_closed, tcp_error}),
@@ -669,9 +687,10 @@ handle_options(Opts0) ->
 		  user_lookup_fun, psk_identity, srp_identity, ciphers,
 		  reuse_session, reuse_sessions, ssl_imp,
 		  cb_info, renegotiate_at, secure_renegotiate, hibernate_after,
-		  erl_dist, next_protocols_advertised,
+		  erl_dist, alpn_advertised_protocols,
+		  alpn_preferred_protocols, next_protocols_advertised,
 		  client_preferred_next_protocols, log_alert,
-		  server_name_indication, honor_cipher_order, padding_check,
+		  server_name_indication, honor_cipher_order, padding_check, crl_check, crl_cache,
 		  fallback],
 
     SockOpts = lists:foldl(fun(Key, PropList) ->
@@ -805,6 +824,20 @@ validate_option(hibernate_after, Value) when is_integer(Value), Value >= 0 ->
     Value;
 validate_option(erl_dist,Value) when is_boolean(Value) ->
     Value;
+validate_option(Opt, Value)
+  when Opt =:= alpn_advertised_protocols orelse Opt =:= alpn_preferred_protocols,
+       is_list(Value) ->
+    case tls_record:highest_protocol_version([]) of
+	{3,0} ->
+	    throw({error, {options, {not_supported_in_sslv3, {Opt, Value}}}});
+	_ ->
+	    validate_binary_list(Opt, Value),
+	    Value
+    end;
+validate_option(Opt, Value)
+  when Opt =:= alpn_advertised_protocols orelse Opt =:= alpn_preferred_protocols,
+       Value =:= undefined ->
+    undefined;
 validate_option(client_preferred_next_protocols = Opt, {Precedence, PreferredProtocols} = Value)
   when is_list(PreferredProtocols) ->
     case tls_record:highest_protocol_version([]) of
@@ -853,6 +886,12 @@ validate_option(honor_cipher_order, Value) when is_boolean(Value) ->
 validate_option(padding_check, Value) when is_boolean(Value) ->
     Value;
 validate_option(fallback, Value) when is_boolean(Value) ->
+    Value;
+validate_option(crl_check, Value) when is_boolean(Value)  ->
+    Value;
+validate_option(crl_check, Value) when (Value == best_effort) or (Value == peer) -> 
+    Value;
+validate_option(crl_cache, {Cb, {_Handle, Options}} = Value) when is_atom(Cb) and is_list(Options) ->
     Value;
 validate_option(Opt, Value) ->
     throw({error, {options, {Opt, Value}}}).
@@ -959,10 +998,7 @@ binary_cipher_suites(Version, [{_,_,_}| _] = Ciphers0) ->
     binary_cipher_suites(Version, Ciphers);
 
 binary_cipher_suites(Version, [Cipher0 | _] = Ciphers0) when is_binary(Cipher0) ->
-    All = ssl_cipher:suites(Version)
-	++ ssl_cipher:anonymous_suites()
-	++ ssl_cipher:psk_suites(Version)
-	++ ssl_cipher:srp_suites(),
+    All = ssl_cipher:all_suites(Version),
     case [Cipher || Cipher <- Ciphers0, lists:member(Cipher, All)] of
 	[] ->
 	    %% Defaults to all supported suites that does
@@ -1130,6 +1166,10 @@ new_ssl_options([{secure_renegotiate, Value} | Rest], #ssl_options{} = Opts, Rec
     new_ssl_options(Rest, Opts#ssl_options{secure_renegotiate = validate_option(secure_renegotiate, Value)}, RecordCB); 
 new_ssl_options([{hibernate_after, Value} | Rest], #ssl_options{} = Opts, RecordCB) -> 
     new_ssl_options(Rest, Opts#ssl_options{hibernate_after = validate_option(hibernate_after, Value)}, RecordCB);
+new_ssl_options([{alpn_advertised_protocols, Value} | Rest], #ssl_options{} = Opts, RecordCB) ->
+	new_ssl_options(Rest, Opts#ssl_options{alpn_advertised_protocols = validate_option(alpn_advertised_protocols, Value)}, RecordCB);
+new_ssl_options([{alpn_preferred_protocols, Value} | Rest], #ssl_options{} = Opts, RecordCB) ->
+	new_ssl_options(Rest, Opts#ssl_options{alpn_preferred_protocols = validate_option(alpn_preferred_protocols, Value)}, RecordCB);
 new_ssl_options([{next_protocols_advertised, Value} | Rest], #ssl_options{} = Opts, RecordCB) -> 
     new_ssl_options(Rest, Opts#ssl_options{next_protocols_advertised = validate_option(next_protocols_advertised, Value)}, RecordCB);
 new_ssl_options([{client_preferred_next_protocols, Value} | Rest], #ssl_options{} = Opts, RecordCB) -> 
@@ -1189,3 +1229,4 @@ handle_verify_options(Opts, CaCerts) ->
 	Value ->
 	    throw({error, {options, {verify, Value}}})
     end.
+

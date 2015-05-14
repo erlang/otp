@@ -108,11 +108,22 @@ extern int hipe_fill_stacktrace(Process*, int, Eterm**);
 #if 0 && defined(HIPE_NSTACK_GROWS_UP)
 #define hipe_nstack_start(p)	((p)->hipe.nstack)
 #define hipe_nstack_used(p)	((p)->hipe.nsp - (p)->hipe.nstack)
+#define hipe_nstack_avail(p)	((p)->hipe.nstend - (p)->hipe.nsp)
 #endif
 #if defined(HIPE_NSTACK_GROWS_DOWN)
 #define hipe_nstack_start(p)	((p)->hipe.nsp)
 #define hipe_nstack_used(p)	((p)->hipe.nstend - (p)->hipe.nsp)
+#define hipe_nstack_avail(p)	((unsigned)((p)->hipe.nsp - (p)->hipe.nstack))
 #endif
+
+/* ensure that at least nwords words are available on the native stack */
+static __inline__ void hipe_check_nstack(Process *p, unsigned nwords)
+{
+    extern void hipe_inc_nstack(Process *p);
+
+    while (hipe_nstack_avail(p) < nwords)
+	hipe_inc_nstack(p);
+}
 
 /*
  * GC support procedures

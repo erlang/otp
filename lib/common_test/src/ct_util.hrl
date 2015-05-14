@@ -55,6 +55,7 @@
 		   create_priv_dir=[],
 		   alias=[],
 		   tests=[],
+		   unknown=[],
 		   merge_tests=true}).
 
 -record(cover, {app=none,

@@ -34,6 +34,8 @@
 <!ELEMENT quote               (p)* >
 <!ELEMENT warning             (%block;|quote|br|marker)* >
 <!ELEMENT note                (%block;|quote|br|marker)* >
+<!ELEMENT dont                (%block;|quote|br|marker)* >
+<!ELEMENT do                  (%block;|quote|br|marker)* >
 <!ELEMENT c                   (#PCDATA) >
 <!ELEMENT em                  (#PCDATA|c)* >
 

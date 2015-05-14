@@ -256,9 +256,17 @@ handle_event(#wx{id = Id,
 	    wx_misc:launchDefaultBrowser("http://www.erlang.org/doc/apps/wx/part_frame.html"),
 	    {noreply, State};
 	?wxID_ABOUT ->
+	    WxWVer = io_lib:format("~p.~p.~p.~p",
+				   [?wxMAJOR_VERSION, ?wxMINOR_VERSION,
+				    ?wxRELEASE_NUMBER, ?wxSUBRELEASE_NUMBER]),
+	    application:load(wx),
+	    {ok, WxVsn} = application:get_key(wx,  vsn),
 	    AboutString =
 		"Demo of various widgets\n"
-		"Authors: Olle & Dan",
+		"Authors: Olle & Dan\n\n" ++
+		"Frontend: wx-" ++ WxVsn ++
+		"\nBackend: wxWidgets-" ++ lists:flatten(WxWVer),
+
 	    wxMessageDialog:showModal(wxMessageDialog:new(State#state.win, AboutString,
 							  [{style,
 							    ?wxOK bor

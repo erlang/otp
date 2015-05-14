@@ -55,7 +55,7 @@ init_per_suite(Config) ->
 	{incl_both2,[cfg11,cfg12,cfg21]} -> ok;
 	{incl_both2,[cfg21]} -> ok;
 	_ -> ok
-    end,
+    end, 
     Config.
 
 %%--------------------------------------------------------------------

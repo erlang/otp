@@ -148,6 +148,8 @@ ethr_init_common__(ethr_init_data *id)
 {
     int res;
 
+    ethr_init_event__();
+
 #if defined(ETHR_X86_RUNTIME_CONF__)
     x86_init();
 #endif

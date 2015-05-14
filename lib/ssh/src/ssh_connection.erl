@@ -200,7 +200,7 @@ ptty_alloc(ConnectionHandler, Channel, Options, TimeOut) ->
     {Width, PixWidth} = pty_default_dimensions(width, Options),
     {Hight, PixHight} = pty_default_dimensions(hight, Options),
     pty_req(ConnectionHandler, Channel,
-	    proplists:get_value(term, Options, default_term()),
+	    proplists:get_value(term, Options, os:getenv("TERM", ?DEFAULT_TERMINAL)),
 	    proplists:get_value(width, Options, Width),
 	    proplists:get_value(hight, Options, Hight),
 	    proplists:get_value(pixel_widh, Options, PixWidth),
@@ -1339,11 +1339,3 @@ decode_ip(Addr) when is_binary(Addr) ->
 	{error,_} -> Addr;
 	{ok,A}    -> A
     end.
-
-default_term() ->
-    case os:getenv("TERM") of
-	false ->
-	    ?DEFAULT_TERMINAL;
-	Str when is_list(Str)->
-	    Str
-    end.	

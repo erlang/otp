@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2000-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2015. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -533,7 +533,9 @@ unbind(_OE_THIS, _OE_State, []) ->
 %% Returns    : 
 %%----------------------------------------------------------------------
 new_context(_OE_THIS, OE_State) ->
-    DBKey = term_to_binary({now(), node()}),
+    DBKey = term_to_binary({{erlang:system_time(),
+			     erlang:unique_integer()}, 
+			    node()}),
     %% Create a record in the table and set the key to a newly
     {reply, 
      'CosNaming_NamingContextExt':oe_create(DBKey, 
@@ -547,7 +549,9 @@ new_context(_OE_THIS, OE_State) ->
 %% Returns    : 
 %%----------------------------------------------------------------------
 bind_new_context(OE_THIS, OE_State, N) ->
-    DBKey = term_to_binary({now(), node()}),
+    DBKey = term_to_binary({{erlang:system_time(),
+			     erlang:unique_integer()}, 
+			    node()}),
     %% Create a record in the table and set the key to a newly
     %% generated objectkey.
     %%?PRINTDEBUG("bind_new_context"),

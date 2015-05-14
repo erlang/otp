@@ -125,7 +125,7 @@ static void atexit_alloc_code_stats(void)
 #define MAP_ANONYMOUS MAP_ANON
 #endif
 
-static void morecore(unsigned int alloc_bytes)
+static int morecore(unsigned int alloc_bytes)
 {
     unsigned int map_bytes;
     char *map_hint, *map_start;
@@ -174,10 +174,9 @@ static void morecore(unsigned int alloc_bytes)
 	abort();
     }
 #endif
-    if (map_start == MAP_FAILED) {
-	perror("mmap");
-	abort();
-    }
+    if (map_start == MAP_FAILED)
+	return -1;
+
     ALLOC_CODE_STATS(total_mapped += map_bytes);
 
     /* Merge adjacent mappings, so the trailing portion of the previous
@@ -197,6 +196,8 @@ static void morecore(unsigned int alloc_bytes)
     }
 
     ALLOC_CODE_STATS(atexit_alloc_code_stats());
+
+    return 0;
 }
 
 static void *alloc_code(unsigned int alloc_bytes)
@@ -206,8 +207,8 @@ static void *alloc_code(unsigned int alloc_bytes)
     /* Align function entries. */
     alloc_bytes = (alloc_bytes + 3) & ~3;
 
-    if (code_bytes < alloc_bytes)
-	morecore(alloc_bytes);
+    if (code_bytes < alloc_bytes && morecore(alloc_bytes) != 0)
+	return NULL;
     ALLOC_CODE_STATS(++nr_allocs);
     ALLOC_CODE_STATS(total_alloc += alloc_bytes);
     res = code_next;
@@ -224,18 +225,18 @@ void *hipe_alloc_code(Uint nrbytes, Eterm callees, Eterm *trampolines, Process *
     return alloc_code(nrbytes);
 }
 
-/* called from hipe_bif0.c:hipe_bifs_make_native_stub_2()
-   and hipe_bif0.c:hipe_make_stub() */
-void *hipe_make_native_stub(void *beamAddress, unsigned int beamArity)
+/* Make stub for native code calling exported beam function.
+*/
+void *hipe_make_native_stub(void *callee_exp, unsigned int beamArity)
 {
     /*
      * This creates a native code stub with the following contents:
      *
-     * movq $Address, P_BEAM_IP(%ebp)  %% Actually two movl
+     * movq $Address, P_CALLEE_EXP(%ebp)  %% Actually two movl
      * movb $Arity, P_ARITY(%ebp)
      * jmp callemu
      *
-     * The stub has variable size, depending on whether the P_BEAM_IP
+     * The stub has variable size, depending on whether the P_CALLEE_EXP
      * and P_ARITY offsets fit in 8-bit signed displacements or not.
      * The rel32 offset in the final jmp depends on its actual location,
      * which also depends on the size of the previous instructions.
@@ -248,49 +249,51 @@ void *hipe_make_native_stub(void *beamAddress, unsigned int beamArity)
 
     codeSize =	/* 23, 26, 29, or 32 bytes */
       23 +	/* 23 when all offsets are 8-bit */
-      (P_BEAM_IP >= 128 ? 3 : 0) +
-      ((P_BEAM_IP + 4) >= 128 ? 3 : 0) +
+      (P_CALLEE_EXP >= 128 ? 3 : 0) +
+      ((P_CALLEE_EXP + 4) >= 128 ? 3 : 0) +
       (P_ARITY >= 128 ? 3 : 0);
     codep = code = alloc_code(codeSize);
+    if (!code)
+	return NULL;
 
-    /* movl $beamAddress, P_BEAM_IP(%ebp); 3 or 6 bytes, plus 4 */
+    /* movl $callee_exp, P_CALLEE_EXP(%ebp); 3 or 6 bytes, plus 4 */
     codep[0] = 0xc7;
-#if P_BEAM_IP >= 128
+#if P_CALLEE_EXP >= 128
     codep[1] = 0x85;	/* disp32[EBP] */
-    codep[2] =  P_BEAM_IP        & 0xFF;
-    codep[3] = (P_BEAM_IP >>  8) & 0xFF;
-    codep[4] = (P_BEAM_IP >> 16) & 0xFF;
-    codep[5] = (P_BEAM_IP >> 24) & 0xFF;
+    codep[2] =  P_CALLEE_EXP        & 0xFF;
+    codep[3] = (P_CALLEE_EXP >>  8) & 0xFF;
+    codep[4] = (P_CALLEE_EXP >> 16) & 0xFF;
+    codep[5] = (P_CALLEE_EXP >> 24) & 0xFF;
     codep += 6;
 #else
     codep[1] = 0x45;	/* disp8[EBP] */
-    codep[2] = P_BEAM_IP;
+    codep[2] = P_CALLEE_EXP;
     codep += 3;
 #endif
-    codep[0] = ((unsigned long)beamAddress      ) & 0xFF;
-    codep[1] = ((unsigned long)beamAddress >>  8) & 0xFF;
-    codep[2] = ((unsigned long)beamAddress >> 16) & 0xFF;
-    codep[3] = ((unsigned long)beamAddress >> 24) & 0xFF;
+    codep[0] = ((unsigned long)callee_exp      ) & 0xFF;
+    codep[1] = ((unsigned long)callee_exp >>  8) & 0xFF;
+    codep[2] = ((unsigned long)callee_exp >> 16) & 0xFF;
+    codep[3] = ((unsigned long)callee_exp >> 24) & 0xFF;
     codep += 4;
 
-    /* movl (shl 32 $beamAddress), P_BEAM_IP+4(%ebp); 3 or 6 bytes, plus 4 */
+    /* movl (shl 32 $callee_exp), P_CALLEE_EXP+4(%ebp); 3 or 6 bytes, plus 4 */
     codep[0] = 0xc7;
-#if P_BEAM_IP+4 >= 128
+#if P_CALLEE_EXP+4 >= 128
     codep[1] = 0x85;	/* disp32[EBP] */
-    codep[2] =  (P_BEAM_IP+4)        & 0xFF;
-    codep[3] = ((P_BEAM_IP+4) >>  8) & 0xFF;
-    codep[4] = ((P_BEAM_IP+4) >> 16) & 0xFF;
-    codep[5] = ((P_BEAM_IP+4) >> 24) & 0xFF;
+    codep[2] =  (P_CALLEE_EXP+4)        & 0xFF;
+    codep[3] = ((P_CALLEE_EXP+4) >>  8) & 0xFF;
+    codep[4] = ((P_CALLEE_EXP+4) >> 16) & 0xFF;
+    codep[5] = ((P_CALLEE_EXP+4) >> 24) & 0xFF;
     codep += 6;
 #else
     codep[1] = 0x45;	/* disp8[EBP] */
-    codep[2] =  (P_BEAM_IP+4);
+    codep[2] =  (P_CALLEE_EXP+4);
     codep += 3;
 #endif
-    codep[0] = ((unsigned long)beamAddress >> 32) & 0xFF;
-    codep[1] = ((unsigned long)beamAddress >> 40) & 0xFF;
-    codep[2] = ((unsigned long)beamAddress >> 48) & 0xFF;
-    codep[3] = ((unsigned long)beamAddress >> 56) & 0xFF;
+    codep[0] = ((unsigned long)callee_exp >> 32) & 0xFF;
+    codep[1] = ((unsigned long)callee_exp >> 40) & 0xFF;
+    codep[2] = ((unsigned long)callee_exp >> 48) & 0xFF;
+    codep[3] = ((unsigned long)callee_exp >> 56) & 0xFF;
     codep += 4;
 
     /* movb $beamArity, P_ARITY(%ebp); 3 or 6 bytes */

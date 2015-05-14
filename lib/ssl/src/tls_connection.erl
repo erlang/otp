@@ -188,19 +188,27 @@ hello(Hello = #client_hello{client_version = ClientVersion,
 		     renegotiation = {Renegotiation, _},
 		     session_cache = Cache,
 		     session_cache_cb = CacheCb,
+		     negotiated_protocol = CurrentProtocol,
 		     ssl_options = SslOpts}) ->
     case tls_handshake:hello(Hello, SslOpts, {Port, Session0, Cache, CacheCb,
 					      ConnectionStates0, Cert}, Renegotiation) of
+        #alert{} = Alert ->
+            handle_own_alert(Alert, ClientVersion, hello, State);
         {Version, {Type, Session},
-	 ConnectionStates, ServerHelloExt} ->
+	 ConnectionStates, Protocol0, ServerHelloExt} ->
+
+	    Protocol = case Protocol0 of
+		undefined -> CurrentProtocol;
+		_ -> Protocol0
+	    end,
+
             HashSign = ssl_handshake:select_hashsign(HashSigns, Cert, Version),
             ssl_connection:hello({common_client_hello, Type, ServerHelloExt, HashSign},
 				 State#state{connection_states  = ConnectionStates,
 					     negotiated_version = Version,
 					     session = Session,
-					     client_ecc = {EllipticCurves, EcPointFormats}}, ?MODULE);
-        #alert{} = Alert ->
-            handle_own_alert(Alert, ClientVersion, hello, State)
+					     client_ecc = {EllipticCurves, EcPointFormats},
+					     negotiated_protocol = Protocol}, ?MODULE)
     end;
 hello(Hello,
       #state{connection_states = ConnectionStates0,
@@ -211,9 +219,9 @@ hello(Hello,
     case tls_handshake:hello(Hello, SslOptions, ConnectionStates0, Renegotiation) of
 	#alert{} = Alert ->
 	    handle_own_alert(Alert, ReqVersion, hello, State);
-	{Version, NewId, ConnectionStates, NextProtocol} ->
+	{Version, NewId, ConnectionStates, ProtoExt, Protocol} ->
 	    ssl_connection:handle_session(Hello, 
-					  Version, NewId, ConnectionStates, NextProtocol, State)
+					  Version, NewId, ConnectionStates, ProtoExt, Protocol, State)
     end;
 
 hello(Msg, State) ->

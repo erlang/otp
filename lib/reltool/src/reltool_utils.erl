@@ -54,12 +54,7 @@ root_dir() ->
     code:root_dir().
 
 erl_libs() ->
-    case os:getenv("ERL_LIBS") of
-	false ->
-	    [];
-	LibStr ->
-	    string:tokens(LibStr, ":;")
-    end.
+    string:tokens(os:getenv("ERL_LIBS", ""), ":;").
 
 lib_dirs(Dir) ->
     case erl_prim_loader:list_dir(Dir) of

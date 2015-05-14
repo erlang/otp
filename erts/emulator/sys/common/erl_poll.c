@@ -320,7 +320,7 @@ struct ErtsPollSet_ {
 #if defined(USE_THREADS) || ERTS_POLL_ASYNC_INTERRUPT_SUPPORT
     erts_atomic32_t wakeup_state;
 #endif
-    erts_smp_atomic32_t timeout;
+    erts_atomic64_t timeout_time;
 #ifdef ERTS_POLL_COUNT_AVOIDED_WAKEUPS
     erts_smp_atomic_t no_avoided_wakeups;
     erts_smp_atomic_t no_avoided_interrupts;
@@ -383,6 +383,26 @@ static void check_poll_status(ErtsPollSet ps);
 #ifdef ERTS_POLL_DEBUG_PRINT
 static void print_misc_debug_info(void);
 #endif
+
+static ERTS_INLINE void
+init_timeout_time(ErtsPollSet ps)
+{
+    erts_atomic64_init_nob(&ps->timeout_time,
+			   (erts_aint64_t) ERTS_MONOTONIC_TIME_MAX);
+}
+
+static ERTS_INLINE void
+set_timeout_time(ErtsPollSet ps, ErtsMonotonicTime time)
+{
+    erts_atomic64_set_relb(&ps->timeout_time,
+			   (erts_aint64_t) time);
+}
+
+static ERTS_INLINE ErtsMonotonicTime
+get_timeout_time(ErtsPollSet ps)
+{
+    return (ErtsMonotonicTime) erts_atomic64_read_acqb(&ps->timeout_time);
+}
 
 #define ERTS_POLL_NOT_WOKEN	0
 #define ERTS_POLL_WOKEN		-1
@@ -1993,44 +2013,153 @@ save_poll_result(ErtsPollSet ps, ErtsPollResFd pr[], int max_res,
     }
 }
 
+static ERTS_INLINE ErtsMonotonicTime
+get_timeout(ErtsPollSet ps,
+	    int resolution,
+	    ErtsMonotonicTime timeout_time)
+{
+    ErtsMonotonicTime timeout, save_timeout_time;
+
+    if (timeout_time == ERTS_POLL_NO_TIMEOUT) {
+	save_timeout_time = ERTS_MONOTONIC_TIME_MIN;
+	timeout = 0;
+    }
+    else {
+	ErtsMonotonicTime diff_time, current_time;
+	current_time = erts_get_monotonic_time();
+	diff_time = timeout_time - current_time;
+	if (diff_time <= 0) {
+	    save_timeout_time = ERTS_MONOTONIC_TIME_MIN;
+	    timeout = 0;
+	}
+	else {
+	    save_timeout_time = current_time;
+	    switch (resolution) {
+	    case 1000:
+		/* Round up to nearest even milli second */
+		timeout = ERTS_MONOTONIC_TO_MSEC(diff_time - 1) + 1;
+		if (timeout > (ErtsMonotonicTime) INT_MAX)
+		    timeout = (ErtsMonotonicTime) INT_MAX;
+		save_timeout_time += ERTS_MSEC_TO_MONOTONIC(timeout);
+		break;
+	    case 1000000:
+		/* Round up to nearest even micro second */
+		timeout = ERTS_MONOTONIC_TO_USEC(diff_time - 1) + 1;
+		save_timeout_time += ERTS_USEC_TO_MONOTONIC(timeout);
+		break;
+	    case 1000000000:
+		/* Round up to nearest even nano second */
+		timeout = ERTS_MONOTONIC_TO_NSEC(diff_time - 1) + 1;
+		save_timeout_time += ERTS_NSEC_TO_MONOTONIC(timeout);
+		break;
+	    default:
+		ERTS_INTERNAL_ERROR("Invalid resolution");
+		timeout = 0;
+		save_timeout_time = 0;
+		break;
+	    }
+	}
+    }
+    set_timeout_time(ps, save_timeout_time);
+    return timeout;
+}
+
+#if ERTS_POLL_USE_SELECT
+
 static ERTS_INLINE int
-check_fd_events(ErtsPollSet ps, SysTimeval *tv, int max_res)
+get_timeout_timeval(ErtsPollSet ps,
+		    SysTimeval *tvp,
+		    ErtsMonotonicTime timeout_time)
+{
+    ErtsMonotonicTime timeout = get_timeout(ps,
+					    1000*1000,
+					    timeout_time);
+
+    if (!timeout) {
+	tvp->tv_sec = 0;
+	tvp->tv_usec = 0;
+
+	return 0;
+    }
+    else {
+	ErtsMonotonicTime sec = timeout/(1000*1000);
+	tvp->tv_sec = sec;
+	tvp->tv_usec = timeout - sec*(1000*1000);
+
+	ASSERT(tvp->tv_sec >= 0);
+	ASSERT(tvp->tv_usec >= 0);
+	ASSERT(tvp->tv_usec < 1000*1000);
+
+	return !0;
+    }
+
+}
+
+#endif
+
+#if ERTS_POLL_USE_KQUEUE
+
+static ERTS_INLINE int
+get_timeout_timespec(ErtsPollSet ps,
+		     struct timespec *tsp,
+		     ErtsMonotonicTime timeout_time)
+{
+    ErtsMonotonicTime timeout = get_timeout(ps,
+					    1000*1000*1000,
+					    timeout_time);
+
+    if (!timeout) {
+	tsp->tv_sec = 0;
+	tsp->tv_nsec = 0;
+	return 0;
+    }
+    else {
+	ErtsMonotonicTime sec = timeout/(1000*1000*1000);
+	tsp->tv_sec = sec;
+	tsp->tv_nsec = timeout - sec*(1000*1000*1000);
+
+	ASSERT(tsp->tv_sec >= 0);
+	ASSERT(tsp->tv_nsec >= 0);
+	ASSERT(tsp->tv_nsec < 1000*1000);
+
+	return !0;
+    }
+}
+
+#endif
+
+static ERTS_INLINE int
+check_fd_events(ErtsPollSet ps, ErtsMonotonicTime timeout_time, int max_res)
 {
     int res;
     if (erts_smp_atomic_read_nob(&ps->no_of_user_fds) == 0
-	&& tv->tv_usec == 0 && tv->tv_sec == 0) {
+	&& timeout_time == ERTS_POLL_NO_TIMEOUT) {
 	/* Nothing to poll and zero timeout; done... */
 	return 0;
     }
     else {
-	long timeout = tv->tv_sec*1000 + tv->tv_usec/1000;
-	if (timeout > ERTS_AINT32_T_MAX)
-	    timeout = ERTS_AINT32_T_MAX;
-	ASSERT(timeout >= 0);
-	erts_smp_atomic32_set_relb(&ps->timeout, (erts_aint32_t) timeout);
+	int timeout;
 #if ERTS_POLL_USE_FALLBACK
 	if (!(ps->fallback_used = ERTS_POLL_NEED_FALLBACK(ps))) {
 
 #if ERTS_POLL_USE_EPOLL		/* --- epoll ------------------------------- */
-	    if (timeout > INT_MAX)
-		timeout = INT_MAX;
 	    if (max_res > ps->res_events_len)
 		grow_res_events(ps, max_res);
+	    timeout = (int) get_timeout(ps, 1000, timeout_time);
 #ifdef ERTS_SMP
 	    if (timeout)
 		erts_thr_progress_prepare_wait(NULL);
 #endif
-	    res = epoll_wait(ps->kp_fd, ps->res_events, max_res, (int)timeout);
+	    res = epoll_wait(ps->kp_fd, ps->res_events, max_res, timeout);
 #elif ERTS_POLL_USE_KQUEUE	/* --- kqueue ------------------------------ */
 	    struct timespec ts;
 	    if (max_res > ps->res_events_len)
 		grow_res_events(ps, max_res);
+	    timeout = get_timeout_timespec(ps, &ts, timeout_time);
 #ifdef ERTS_SMP
 	    if (timeout)
 		erts_thr_progress_prepare_wait(NULL);
 #endif
-	    ts.tv_sec = tv->tv_sec;
-	    ts.tv_nsec = tv->tv_usec*1000;
 	    res = kevent(ps->kp_fd, NULL, 0, ps->res_events, max_res, &ts);
 #endif				/* ----------------------------------------- */
 	}
@@ -2049,8 +2178,7 @@ check_fd_events(ErtsPollSet ps, SysTimeval *tv, int max_res)
 #if ERTS_POLL_USE_WAKEUP_PIPE
 	    nfds++; /* Wakeup pipe */
 #endif
-	    if (timeout > INT_MAX)
-		timeout = INT_MAX;
+	    timeout = (int) get_timeout(ps, 1000, timeout_time);
 	    poll_res.dp_nfds = nfds < max_res ? nfds : max_res;
 	    if (poll_res.dp_nfds > ps->res_events_len)
 		grow_res_events(ps, poll_res.dp_nfds);
@@ -2059,33 +2187,33 @@ check_fd_events(ErtsPollSet ps, SysTimeval *tv, int max_res)
 	    if (timeout)
 		erts_thr_progress_prepare_wait(NULL);
 #endif
-	    poll_res.dp_timeout = (int) timeout;
+	    poll_res.dp_timeout = timeout;
 	    res = ioctl(ps->kp_fd, DP_POLL, &poll_res);
 #elif ERTS_POLL_USE_POLL	/* --- poll -------------------------------- */
-	    if (timeout > INT_MAX)
-		timeout = INT_MAX;
+	    timeout = (int) get_timeout(ps, 1000, timeout_time);
 #ifdef ERTS_SMP
 	    if (timeout)
 		erts_thr_progress_prepare_wait(NULL);
 #endif
-	    res = poll(ps->poll_fds, ps->no_poll_fds, (int) timeout);
+	    res = poll(ps->poll_fds, ps->no_poll_fds, timeout);
 #elif ERTS_POLL_USE_SELECT	/* --- select ------------------------------ */
-	    SysTimeval to = *tv;
+	    SysTimeval to;
+	    timeout = get_timeout_timeval(ps, &to, timeout_time);
 
 	    ERTS_FD_COPY(&ps->input_fds, &ps->res_input_fds);
 	    ERTS_FD_COPY(&ps->output_fds, &ps->res_output_fds);
 	    
 #ifdef ERTS_SMP
-	    if (to.tv_sec || to.tv_usec)
+	    if (timeout)
 		erts_thr_progress_prepare_wait(NULL);
 #endif
 	    res = ERTS_SELECT(ps->max_fd + 1,
-			 &ps->res_input_fds,
-			 &ps->res_output_fds,
-			 NULL,
-			 &to);
+			      &ps->res_input_fds,
+			      &ps->res_output_fds,
+			      NULL,
+			      &to);
 #ifdef ERTS_SMP
-	    if (to.tv_sec || to.tv_usec)
+	    if (timeout)
 		erts_thr_progress_finalize_wait(NULL);
 	    if (res < 0
 		&& errno == EBADF
@@ -2108,10 +2236,10 @@ check_fd_events(ErtsPollSet ps, SysTimeval *tv, int max_res)
 		handle_update_requests(ps);
 		ERTS_POLLSET_UNLOCK(ps);
 		res = ERTS_SELECT(ps->max_fd + 1,
-			     &ps->res_input_fds,
-			     &ps->res_output_fds,
-			     NULL,
-			     &to);
+				  &ps->res_input_fds,
+				  &ps->res_output_fds,
+				  NULL,
+				  &to);
 		if (res == 0) {
 		    errno = EAGAIN;
 		    res = -1;
@@ -2133,15 +2261,14 @@ int
 ERTS_POLL_EXPORT(erts_poll_wait)(ErtsPollSet ps,
 				 ErtsPollResFd pr[],
 				 int *len,
-				 SysTimeval *utvp)
+				 ErtsMonotonicTime timeout_time)
 {
+    ErtsMonotonicTime to;
     int res, no_fds;
     int ebadf = 0;
 #ifdef ERTS_SMP
     int ps_locked = 0;
 #endif
-    SysTimeval *tvp;
-    SysTimeval itv;
 
     no_fds = *len;
 #ifdef ERTS_POLL_MAX_RES
@@ -2151,13 +2278,9 @@ ERTS_POLL_EXPORT(erts_poll_wait)(ErtsPollSet ps,
 
     *len = 0;
 
-    ASSERT(utvp);
-
-    tvp = utvp;
-
 #ifdef ERTS_POLL_DEBUG_PRINT
-    erts_printf("Entering erts_poll_wait(), timeout=%d\n",
-		 (int) tvp->tv_sec*1000 + tvp->tv_usec/1000);
+    erts_printf("Entering erts_poll_wait(), timeout_time=%bps\n",
+		timeout_time);
 #endif
 
     if (ERTS_POLLSET_SET_POLLED_CHK(ps)) {
@@ -2166,12 +2289,9 @@ ERTS_POLL_EXPORT(erts_poll_wait)(ErtsPollSet ps,
 	goto done;
     }
 
-    if (is_woken(ps)) {
-	/* Use zero timeout */
-	itv.tv_sec = 0;
-	itv.tv_usec = 0;
-	tvp = &itv;
-    }
+    to = (is_woken(ps)
+	  ? ERTS_POLL_NO_TIMEOUT /* Use zero timeout */
+	  : timeout_time);
 
 #if ERTS_POLL_USE_UPDATE_REQUESTS_QUEUE
     if (ERTS_POLLSET_HAVE_UPDATE_REQUESTS(ps)) {
@@ -2181,7 +2301,7 @@ ERTS_POLL_EXPORT(erts_poll_wait)(ErtsPollSet ps,
     }
 #endif
 
-    res = check_fd_events(ps, tvp, no_fds);
+    res = check_fd_events(ps, to, no_fds);
 
     woke_up(ps);
 
@@ -2224,7 +2344,7 @@ ERTS_POLL_EXPORT(erts_poll_wait)(ErtsPollSet ps,
 #endif
 
  done:
-    erts_smp_atomic32_set_relb(&ps->timeout, ERTS_AINT32_T_MAX);
+    set_timeout_time(ps, ERTS_MONOTONIC_TIME_MAX);
 #ifdef ERTS_POLL_DEBUG_PRINT
     erts_printf("Leaving %s = erts_poll_wait()\n",
 		 res == 0 ? "0" : erl_errno_id(res));
@@ -2268,13 +2388,14 @@ ERTS_POLL_EXPORT(erts_poll_async_sig_interrupt)(ErtsPollSet ps)
 void
 ERTS_POLL_EXPORT(erts_poll_interrupt_timed)(ErtsPollSet ps,
 					    int set,
-					    erts_short_time_t msec)
+					    ErtsMonotonicTime timeout_time)
 {
 #if ERTS_POLL_ASYNC_INTERRUPT_SUPPORT || defined(ERTS_SMP)
     if (!set)
 	reset_wakeup_state(ps);
     else {
-	if (erts_smp_atomic32_read_acqb(&ps->timeout) > (erts_aint32_t) msec)
+	ErtsMonotonicTime max_wait_time = get_timeout_time(ps);
+	if (max_wait_time > timeout_time)
 	    wake_poller(ps, 1, 0);
 #ifdef ERTS_POLL_COUNT_AVOIDED_WAKEUPS
 	else {
@@ -2431,7 +2552,7 @@ ERTS_POLL_EXPORT(erts_poll_create_pollset)(void)
 	ps->internal_fd_limit = kp_fd + 1;
     ps->kp_fd = kp_fd;
 #endif
-    erts_smp_atomic32_init_nob(&ps->timeout, ERTS_AINT32_T_MAX);
+    init_timeout_time(ps);
 #ifdef ERTS_POLL_COUNT_AVOIDED_WAKEUPS
     erts_smp_atomic_init_nob(&ps->no_avoided_wakeups, 0);
     erts_smp_atomic_init_nob(&ps->no_avoided_interrupts, 0);

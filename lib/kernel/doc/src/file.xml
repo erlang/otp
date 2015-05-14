@@ -1693,9 +1693,9 @@
       <desc>
         <p>Makes sure that any buffers kept by the operating system
           (not by the Erlang runtime system) are written to disk. In
-          many ways it's resembles fsync but it not requires to update
-          some of file's metadata such as the access time. On
-          some platforms, this function might have no effect.</p>
+          many ways it resembles fsync but it does not update
+          some of the file's metadata such as the access time. On
+          some platforms this function has no effect.</p>
         <p>Applications that access databases or log files often write
           a tiny data fragment (e.g., one line in a log file) and then
           call fsync() immediately in order to ensure that the written
@@ -1703,11 +1703,11 @@
           will always initiate two write operations: one for the newly
           written data and another one in order to update the modification
           time stored in the inode. If the modification time is not a part
-          of the transaction concept fdatasync() can be used to avoid
+          of the transaction concept, fdatasync() can be used to avoid
           unnecessary inode disk write operations.</p>
-        <p>Available only in some POSIX systems. This call results in a
-          call to fsync(), or has no effect, in systems not implementing
-          the fdatasync syscall.</p>
+        <p>Available only in some POSIX systems, this call results in a
+          call to fsync(), or has no effect in systems not implementing
+          the fdatasync() syscall.</p>
       </desc>
     </func>
     <func>

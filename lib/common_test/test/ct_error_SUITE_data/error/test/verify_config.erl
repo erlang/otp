@@ -81,7 +81,7 @@ init(Id, Opts) ->
 -spec id(Opts :: proplists:proplist()) ->
     Id :: term().
 id(Opts) ->
-    now().
+    os:timestamp().
 
 %% @doc Called before init_per_suite is called. Note that this callback is
 %% only called if the CTH is added before init_per_suite is run (eg. in a test

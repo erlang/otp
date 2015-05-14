@@ -113,6 +113,7 @@ init_tc1(?MODULE,_,error_in_suite,[Config0]) when is_list(Config0) ->
     ct_event:notify(#event{name=tc_start,
 			   node=node(),
 			   data={?MODULE,error_in_suite}}),
+    ct_suite_init(?MODULE, error_in_suite, [], Config0),
     case ?val(error, Config0) of
 	undefined ->
 	    {fail,"unknown_error_in_suite"};
@@ -635,7 +636,20 @@ try_set_default(Name,Key,Info,Where) ->
 end_tc(Mod, Fun, Args) ->
     %% Have to keep end_tc/3 for backwards compatibility issues
     end_tc(Mod, Fun, Args, '$end_tc_dummy').
-end_tc(?MODULE,error_in_suite,_, _) ->		% bad start!
+end_tc(?MODULE,error_in_suite,{Result,[Args]},Return) ->
+    %% this clause gets called if CT has encountered a suite that
+    %% can't be executed
+    FinalNotify =
+	case ct_hooks:end_tc(?MODULE, error_in_suite, Args, Result, Return) of
+	    '$ct_no_change' ->
+		Result;
+	    HookResult ->
+		HookResult
+	end,
+    Event = #event{name=tc_done,
+		   node=node(),
+		   data={?MODULE,error_in_suite,tag(FinalNotify)}},
+    ct_event:sync_notify(Event),
     ok;
 end_tc(Mod,Func,{TCPid,Result,[Args]}, Return) when is_pid(TCPid) ->
     end_tc(Mod,Func,TCPid,Result,Args,Return);
@@ -873,8 +887,8 @@ error_notification(Mod,Func,_Args,{Error,Loc}) ->
     end,
 
     PrintErr = fun(ErrFormat, ErrArgs) ->
-		       Div = "~n- - - - - - - - - - - - - - - - "
-			   "- - - - - - - - - -~n",
+		       Div = "~n- - - - - - - - - - - - - - - - - - - "
+			     "- - - - - - - - - - - - - - - - - - - - -~n",
 		       io:format(user, lists:concat([Div,ErrFormat,Div,"~n"]),
 				 ErrArgs),
 		       Link =
@@ -1062,9 +1076,32 @@ get_all_cases1(_, []) ->
 
 get_all(Mod, ConfTests) ->	
     case catch apply(Mod, all, []) of
-	{'EXIT',_} ->
-	    Reason = 
-		list_to_atom(atom_to_list(Mod)++":all/0 is missing"),
+	{'EXIT',{undef,[{Mod,all,[],_} | _]}} ->
+	    Reason =
+		case code:which(Mod) of
+		    non_existing ->
+			list_to_atom(atom_to_list(Mod)++
+					 " can not be compiled or loaded");
+		    _ ->
+			list_to_atom(atom_to_list(Mod)++":all/0 is missing")
+		end,
+	    %% this makes test_server call error_in_suite as first
+	    %% (and only) test case so we can report Reason properly
+	    [{?MODULE,error_in_suite,[[{error,Reason}]]}];
+	{'EXIT',ExitReason} ->
+	    case ct_util:get_testdata({error_in_suite,Mod}) of
+		undefined ->
+		    ErrStr = io_lib:format("~n*** ERROR *** "
+					   "~w:all/0 failed: ~p~n",
+					   [Mod,ExitReason]),
+		    io:format(user, ErrStr, []),
+		    %% save the error info so it doesn't get printed twice
+		    ct_util:set_testdata_async({{error_in_suite,Mod},
+						ExitReason});
+		_ExitReason ->
+		    ct_util:delete_testdata({error_in_suite,Mod})
+	    end,
+	    Reason = list_to_atom(atom_to_list(Mod)++":all/0 failed"),
 	    %% this makes test_server call error_in_suite as first
 	    %% (and only) test case so we can report Reason properly
 	    [{?MODULE,error_in_suite,[[{error,Reason}]]}];
@@ -1287,6 +1324,8 @@ report(What,Data) ->
 	    end,
 	    ct_logs:unregister_groupleader(ReportingPid),
 	    case {Func,Result} of
+		{error_in_suite,_} when Suite == ?MODULE ->
+		    ok;
 		{init_per_suite,_} ->
 		    ok;
 		{end_per_suite,_} ->

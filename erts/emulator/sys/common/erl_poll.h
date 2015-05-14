@@ -29,6 +29,8 @@
 
 #include "sys.h"
 
+#define ERTS_POLL_NO_TIMEOUT ERTS_MONOTONIC_TIME_MIN
+
 #if 0
 #define ERTS_POLL_COUNT_AVOIDED_WAKEUPS
 #endif
@@ -241,7 +243,7 @@ void		ERTS_POLL_EXPORT(erts_poll_interrupt)(ErtsPollSet,
 						      int);
 void		ERTS_POLL_EXPORT(erts_poll_interrupt_timed)(ErtsPollSet,
 							    int,
-							    erts_short_time_t);
+							    ErtsMonotonicTime);
 ErtsPollEvents	ERTS_POLL_EXPORT(erts_poll_control)(ErtsPollSet,
 						    ErtsSysFdType,
 						    ErtsPollEvents,
@@ -254,7 +256,7 @@ void		ERTS_POLL_EXPORT(erts_poll_controlv)(ErtsPollSet,
 int		ERTS_POLL_EXPORT(erts_poll_wait)(ErtsPollSet,
 						 ErtsPollResFd [],
 						 int *,
-						 SysTimeval *);
+						 ErtsMonotonicTime);
 int		ERTS_POLL_EXPORT(erts_poll_max_fds)(void);
 void		ERTS_POLL_EXPORT(erts_poll_info)(ErtsPollSet,
 						 ErtsPollInfo *);

@@ -48,7 +48,7 @@
 <!ELEMENT file                (#PCDATA) >
 
 <!ELEMENT section             (marker*,title,
-                               (%block;|quote|warning|note|br|image|marker|
+                               (%block;|quote|warning|note|dont|do|br|image|marker|
                                 table|section)*) >
 <!ELEMENT p                   (%inline;|index)* >
 <!ELEMENT pre                 (#PCDATA|seealso|url|input)* >
@@ -58,6 +58,8 @@
 <!ELEMENT quote               (p)* >
 <!ELEMENT warning             (%block;|quote|br|image|marker|table)* >
 <!ELEMENT note                (%block;|quote|br|image|marker|table)* >
+<!ELEMENT dont                (%block;|quote|br|image|marker|table)* >
+<!ELEMENT do                  (%block;|quote|br|image|marker|table)* >
 <!ELEMENT i                   (#PCDATA|b|c|em)* >
 <!ELEMENT b                   (#PCDATA|i|c|em)* >
 <!ELEMENT c                   (#PCDATA) >

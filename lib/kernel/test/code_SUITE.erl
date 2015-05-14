@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -1396,8 +1396,9 @@ on_load_binary(_) ->
 		  {tuple,6,[{atom,6,Mod},{call,6,{atom,6,self},[]}]}},
 		 {'receive',7,[{clause,8,[{atom,8,go}],[],[{atom,8,ok}]}]}]}]},
 	     {function,11,ok,0,[{clause,11,[],[],[{atom,11,true}]}]}],
-    {ok,Mod,Bin} = compile:forms(Forms, [report]),
-    [io:put_chars(erl_pp:form(F)) || F <- Forms],
+    Forms1 = erl_parse:new_anno(Forms),
+    {ok,Mod,Bin} = compile:forms(Forms1, [report]),
+    [io:put_chars(erl_pp:form(F)) || F <- Forms1],
 
     {Pid1,Ref1} = spawn_monitor(fun() ->
 					code:load_binary(Mod, File, Bin),

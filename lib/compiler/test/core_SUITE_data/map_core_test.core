@@ -7,11 +7,11 @@ module 'map_core_test' ['map_core_test'/0,
     fun () ->
 	let <_cor0> =
 	    %% Line 15
-	    ~{::<'check','ok'>,::<1337,#{#<104>(8,1,'integer',['unsigned'|['big']]),
+	    ~{'check'=>'ok',1337=>#{#<104>(8,1,'integer',['unsigned'|['big']]),
 				      #<101>(8,1,'integer',['unsigned'|['big']]),
 				      #<108>(8,1,'integer',['unsigned'|['big']]),
 				      #<108>(8,1,'integer',['unsigned'|['big']]),
-				      #<111>(8,1,'integer',['unsigned'|['big']])}#>,::<'val',0>}~
+				      #<111>(8,1,'integer',['unsigned'|['big']])}#,'val'=>0}~
 	in  let <M> =
 		%% Line 15
 		apply 'id'/1
@@ -23,7 +23,7 @@ module 'map_core_test' ['map_core_test'/0,
 		in  %% Line 16
 		    case apply 'call'/2
 			     (M, _cor2) of
-		      <~{~<1337,#{#<104>(8,1,'integer',['unsigned'|['big']]),
+		      <~{1337:=#{#<104>(8,1,'integer',['unsigned'|['big']]),
 				#<101>(8,1,'integer',['unsigned'|['big']]),
 				#<108>(8,1,'integer',['unsigned'|['big']]),
 				#<108>(8,1,'integer',['unsigned'|['big']]),
@@ -39,7 +39,7 @@ module 'map_core_test' ['map_core_test'/0,
 				#<32>(8,1,'integer',['unsigned'|['big']]),
 				#<53>(8,1,'integer',['unsigned'|['big']]),
 				#<32>(8,1,'integer',['unsigned'|['big']]),
-				#<54>(8,1,'integer',['unsigned'|['big']])}#>,~<'check','ok'>,~<'val',21>}~> when 'true' ->
+				#<54>(8,1,'integer',['unsigned'|['big']])}#,'check':='ok','val':=21}~> when 'true' ->
 			  %% Line 17
 			  'ok'
 		      ( <_cor3> when 'true' ->
@@ -51,7 +51,7 @@ module 'map_core_test' ['map_core_test'/0,
     %% Line 20
     fun (_cor1,_cor0) ->
 	case <_cor1,_cor0> of
-	  <M = ~{~<1337,Bin>,~<'check',_cor8>,~<'val',Val>}~,[V|Vs]> when 'true' ->
+	  <M = ~{1337:=Bin,'check':=_cor8,'val':=Val}~,[V|Vs]> when 'true' ->
 	      let <_cor3> =
 		  %% Line 21
 		  call 'erlang':'+'
@@ -67,7 +67,7 @@ module 'map_core_test' ['map_core_test'/0,
 			      (Val, V)
 		      in  let <_cor5> =
 			      %% Line 21
-			      ~{~<1337,_cor4>,~<'val',_cor2>|M}~
+			      ~{1337:=_cor4,'val':=_cor2|M}~
 			  in  %% Line 21
 			      apply 'call'/2
 				  (_cor5, Vs)

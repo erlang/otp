@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2015. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -289,10 +289,9 @@ makeref(Obj) ->
 %%% unique tag. I do this because the tuple generated takes a lot of space
 %%% when I dump the database. A binary is simply printed as #Bin, which
 %%% is much less obtrusive.
-%%% The code has been moved to a macro defined in orber_ifr.hrl, so we
-%%% can use a simpler uniqification code when debugging.
 
-unique() -> term_to_binary({node(), now()}).
+unique() -> term_to_binary({node(), {erlang:system_time(), 
+				     erlang:unique_integer()}}).
 
 %%%----------------------------------------------------------------------
 %%% Check for an existing object with the Id of the object which is

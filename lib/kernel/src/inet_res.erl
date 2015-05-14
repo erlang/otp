@@ -715,10 +715,10 @@ udp_send(#sock{inet=I}, {A,B,C,D}=IP, Port, Buffer)
 
 udp_recv(#sock{inet6=I}, {A,B,C,D,E,F,G,H}=IP, Port, Timeout, Decode)
   when ?ip6(A,B,C,D,E,F,G,H), ?port(Port) ->
-    do_udp_recv(I, IP, Port, Timeout, Decode, erlang:now(), Timeout);
+    do_udp_recv(I, IP, Port, Timeout, Decode, time_now(), Timeout);
 udp_recv(#sock{inet=I}, {A,B,C,D}=IP, Port, Timeout, Decode)
   when ?ip(A,B,C,D), ?port(Port) ->
-    do_udp_recv(I, IP, Port, Timeout, Decode, erlang:now(), Timeout).
+    do_udp_recv(I, IP, Port, Timeout, Decode, time_now(), Timeout).
 
 do_udp_recv(_I, _IP, _Port, 0, _Decode, _Start, _T) ->
     timeout;
@@ -742,7 +742,7 @@ do_udp_recv(I, IP, Port, Timeout, Decode, Start, T) ->
 		    NewTimeout = erlang:max(0, Timeout - 50),
 		    do_udp_recv(I, IP, Port, NewTimeout, Decode, Start, T);
 		false ->
-		    Now = erlang:now(),
+		    Now = time_now(),
 		    NewT = erlang:max(0, Timeout - now_ms(Now, Start)),
 		    do_udp_recv(I, IP, Port, Timeout, Decode, Start, NewT);
 		Result ->
@@ -1057,5 +1057,9 @@ dns_msg(Msg) ->
     end.
 
 -compile({inline, [now_ms/2]}).
-now_ms({Meg1,Sec1,Mic1}, {Meg0,Sec0,Mic0}) ->
-    ((Meg1-Meg0)*1000000 + (Sec1-Sec0))*1000 + ((Mic1-Mic0) div 1000).
+now_ms(Int1, Int0) ->
+    Int1 - Int0.
+
+-compile({inline, [time_now/0]}).
+time_now() ->
+	erlang:monotonic_time(1000).

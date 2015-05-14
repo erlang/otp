@@ -359,6 +359,17 @@
           installed.</p>
       </desc>
     </func>
+    <func>
+      <name name="terminate" arity="2"/>
+      <name name="terminate" arity="3"/>
+      <fsummary>Terminate the process</fsummary>
+      <desc>
+        <p>This function orders the process to terminate with the
+        given <c><anno>Reason</anno></c>. The termination is done
+        asynchronously, so there is no guarantee that the process is
+        actually terminated when the function returns.</p>
+      </desc>
+    </func>
   </funcs>
 
   <section>

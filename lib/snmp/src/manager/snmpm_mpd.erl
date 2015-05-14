@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -67,8 +67,9 @@
 %%%-----------------------------------------------------------------
 init(Vsns) ->
     ?vdebug("init -> entry with ~p", [Vsns]),
-    {A,B,C} = erlang:now(),
-    random:seed(A,B,C),
+    random:seed(erlang:phash2([node()]),
+                erlang:monotonic_time(),
+                erlang:unique_integer()),
     snmpm_config:cre_counter(msg_id, random:uniform(2147483647)),
     snmpm_config:cre_counter(req_id, random:uniform(2147483647)),
     init_counters(),
@@ -895,17 +896,6 @@ get_agent_engine_id(Name) ->
 
 is_known_engine_id(EngineID, {Addr, Port}) ->
     snmpm_config:is_known_engine_id(EngineID, Addr, Port).
-
-%% is_known_engine_id(EngineID, Addr, Port) ->
-%%     snmpm_config:is_known_engine_id(EngineID, Addr, Port).
-
-% get_agent_engine_id(Addr, Port) ->
-%     case snmpm_config:get_agent_engine_id(Addr, Port) of
-% 	{ok, Id} ->
-% 	    Id;
-% 	_Error ->
-% 	    ""
-%     end.
 
 
 %%-----------------------------------------------------------------

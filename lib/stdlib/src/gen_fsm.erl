@@ -106,6 +106,7 @@
 
 -export([start/3, start/4,
 	 start_link/3, start_link/4,
+	 stop/1, stop/3,
 	 send_event/2, sync_send_event/2, sync_send_event/3,
 	 send_all_state_event/2,
 	 sync_send_all_state_event/2, sync_send_all_state_event/3,
@@ -160,6 +161,14 @@
 -callback code_change(OldVsn :: term() | {down, term()}, StateName :: atom(),
 		      StateData :: term(), Extra :: term()) ->
     {ok, NextStateName :: atom(), NewStateData :: term()}.
+-callback format_status(Opt, StatusData) -> Status when
+      Opt :: 'normal' | 'terminate',
+      StatusData :: [PDict | State],
+      PDict :: [{Key :: term(), Value :: term()}],
+      State :: term(),
+      Status :: term().
+
+-optional_callbacks([format_status/2]).
 
 %%% ---------------------------------------------------
 %%% Starts a generic state machine.
@@ -189,6 +198,11 @@ start_link(Mod, Args, Options) ->
 start_link(Name, Mod, Args, Options) ->
     gen:start(?MODULE, link, Name, Mod, Args, Options).
 
+stop(Name) ->
+    gen:stop(Name).
+
+stop(Name, Reason, Timeout) ->
+    gen:stop(Name, Reason, Timeout).
 
 send_event({global, Name}, Event) ->
     catch global:send(Name, {'$gen_event', Event}),

@@ -58,6 +58,7 @@ typedef struct process Process;
 #include "external.h"
 #include "erl_mseg.h"
 #include "erl_async.h"
+#include "erl_gc.h"
 
 #ifdef HIPE
 #include "hipe_process.h"
@@ -169,6 +170,8 @@ extern int erts_sched_thread_suggested_stack_size;
 #define ERTS_RUNQ_FLG_PROTECTED \
   (((Uint32) 1) << (ERTS_RUNQ_FLG_BASE2 + 6))
 
+#define ERTS_RUNQ_FLG_MAX (ERTS_RUNQ_FLG_BASE2 + 7)
+
 #define ERTS_RUNQ_FLGS_MIGRATION_QMASKS	\
   (ERTS_RUNQ_FLGS_EMIGRATE_QMASK	\
    | ERTS_RUNQ_FLGS_IMMIGRATE_QMASK	\
@@ -251,6 +254,8 @@ typedef enum {
 #define ERTS_SSI_FLG_WAITING		(((erts_aint32_t) 1) << 3)
 #define ERTS_SSI_FLG_SUSPENDED	 	(((erts_aint32_t) 1) << 4)
 
+#define ERTS_SSI_FLGS_MAX                                       5
+
 #define ERTS_SSI_FLGS_SLEEP_TYPE			\
  (ERTS_SSI_FLG_TSE_SLEEPING|ERTS_SSI_FLG_POLL_SLEEPING)
 
@@ -281,6 +286,8 @@ typedef enum {
 #define ERTS_SSI_AUX_WORK_SET_TMO		(((erts_aint32_t) 1) << 11)
 #define ERTS_SSI_AUX_WORK_MSEG_CACHE_CHECK	(((erts_aint32_t) 1) << 12)
 #define ERTS_SSI_AUX_WORK_REAP_PORTS		(((erts_aint32_t) 1) << 13)
+
+#define ERTS_SSI_AUX_WORK_MAX                                           14
 
 typedef struct ErtsSchedulerSleepInfo_ ErtsSchedulerSleepInfo;
 
@@ -341,7 +348,7 @@ typedef struct {
 } ErtsRunQueueInfo;
 
 
-#ifdef HAVE_GETHRTIME
+#ifdef ERTS_HAVE_OS_MONOTONIC_TIME_SUPPORT
 #  undef ERTS_HAVE_SCHED_UTIL_BALANCING_SUPPORT_OPT
 #  define ERTS_HAVE_SCHED_UTIL_BALANCING_SUPPORT_OPT 1
 #endif
@@ -483,11 +490,6 @@ typedef struct {
 } ErtsSchedWallTime;
 
 typedef struct {
-  Uint64 reclaimed;
-  Uint64 garbage_cols;
-} ErtsGCInfo;
-
-typedef struct {
     int sched;
     erts_aint32_t aux_work;
 } ErtsDelayedAuxWorkWakeupJob;
@@ -562,6 +564,8 @@ struct ErtsSchedulerData_ {
     Eterm* x_reg_array;		/* X registers */
     FloatDef* f_reg_array;	/* Floating point registers. */
 
+    ErtsTimerWheel *timer_wheel;
+    ErtsNextTimeoutRef next_tmo_ref;
 #ifdef ERTS_SMP
     ethr_tid tid;		/* Thread id */
     struct erl_bits_state erl_bits_state; /* erl_bits.c state */
@@ -587,6 +591,10 @@ struct ErtsSchedulerData_ {
     int cpu_id;			/* >= 0 when bound */
     ErtsAuxWorkData aux_work_data;
     ErtsAtomCacheMap atom_cache_map;
+
+    Uint32 thr_id;
+    Uint64 unique;
+    Uint64 ref;
 
     ErtsSchedAllocData alloc_data;
 
@@ -934,6 +942,8 @@ struct process {
     Eterm parent;		/* Pid of process that created this process. */
     erts_approx_time_t approx_started; /* Time when started. */
 
+    Uint32 static_flags;        /* Flags that do *not* change */
+
     /* This is the place, where all fields that differs between memory
      * architectures, have gone to.
      */
@@ -965,6 +975,7 @@ struct process {
     ErtsSchedulerData *scheduler_data;
     Eterm suspendee;
     ErtsPendingSuspend *pending_suspenders;
+    ErtsRunQueue *preferred_run_queue;
     erts_smp_atomic_t run_queue;
 #ifdef HIPE
     struct hipe_process_state_smp hipe_smp;
@@ -1074,11 +1085,15 @@ void erts_check_for_holes(Process* p);
 #define ERTS_PSFLG_RUNNING_SYS		ERTS_PSFLG_BIT(15)
 #define ERTS_PSFLG_PROXY		ERTS_PSFLG_BIT(16)
 #define ERTS_PSFLG_DELAYED_SYS		ERTS_PSFLG_BIT(17)
+#define ERTS_PSFLG_OFF_HEAP_MSGS	ERTS_PSFLG_BIT(18)
 #ifdef ERTS_DIRTY_SCHEDULERS
-#define ERTS_PSFLG_DIRTY_CPU_PROC	ERTS_PSFLG_BIT(18)
-#define ERTS_PSFLG_DIRTY_IO_PROC	ERTS_PSFLG_BIT(19)
-#define ERTS_PSFLG_DIRTY_CPU_PROC_IN_Q	ERTS_PSFLG_BIT(20)
-#define ERTS_PSFLG_DIRTY_IO_PROC_IN_Q	ERTS_PSFLG_BIT(21)
+#define ERTS_PSFLG_DIRTY_CPU_PROC	ERTS_PSFLG_BIT(19)
+#define ERTS_PSFLG_DIRTY_IO_PROC	ERTS_PSFLG_BIT(20)
+#define ERTS_PSFLG_DIRTY_CPU_PROC_IN_Q	ERTS_PSFLG_BIT(21)
+#define ERTS_PSFLG_DIRTY_IO_PROC_IN_Q	ERTS_PSFLG_BIT(22)
+#define ERTS_PSFLG_MAX  (ERTS_PSFLGS_ZERO_BIT_OFFSET + 23)
+#else
+#define ERTS_PSFLG_MAX  (ERTS_PSFLGS_ZERO_BIT_OFFSET + 19)
 #endif
 
 #define ERTS_PSFLGS_IN_PRQ_MASK 	(ERTS_PSFLG_IN_PRQ_MAX		\
@@ -1092,6 +1107,12 @@ void erts_check_for_holes(Process* p);
     (((PSFLGS) >> ERTS_PSFLGS_USR_PRIO_OFFSET) & ERTS_PSFLGS_PRIO_MASK)
 #define ERTS_PSFLGS_GET_PRQ_PRIO(PSFLGS) \
     (((PSFLGS) >> ERTS_PSFLGS_USR_PRIO_OFFSET) & ERTS_PSFLGS_PRIO_MASK)
+
+/*
+ * Static flags that do not change after process creation.
+ */
+#define ERTS_STC_FLG_SYSTEM_PROC	(((Uint32) 1) << 0)
+#define ERTS_STC_FLG_PREFER_SCHED	(((Uint32) 1) << 1)
 
 /* The sequential tracing token is a tuple of size 5:
  *
@@ -1120,6 +1141,9 @@ void erts_check_for_holes(Process* p);
 #define SPO_LINK 1
 #define SPO_USE_ARGS 2
 #define SPO_MONITOR 4
+#define SPO_OFF_HEAP_MSGS 8
+#define SPO_SYSTEM_PROC 16
+#define SPO_PREFER_SCHED 32
 
 /*
  * The following struct contains options for a process to be spawned.
@@ -1207,6 +1231,7 @@ extern struct erts_system_profile_flags_t erts_system_profile_flags;
 #define F_P2PNR_RESCHED      (1 <<  9) /* Process has been rescheduled via erts_pid2proc_not_running() */
 #define F_FORCE_GC           (1 << 10) /* Force gc at process in-scheduling */
 #define F_DISABLE_GC         (1 << 11) /* Disable GC */
+#define F_OFF_HEAP_MSGS      (1 << 12)
 
 /* process trace_flags */
 #define F_SENSITIVE          (1 << 0)
@@ -1614,7 +1639,11 @@ void erts_cleanup_empty_process(Process* p);
 void erts_debug_verify_clean_empty_process(Process* p);
 #endif
 void erts_stack_dump(int to, void *to_arg, Process *);
+void erts_limited_stack_trace(int to, void *to_arg, Process *);
 void erts_program_counter_info(int to, void *to_arg, Process *);
+void erts_print_scheduler_info(int to, void *to_arg, ErtsSchedulerData *esdp);
+void erts_dump_extended_process_state(int to, void *to_arg, erts_aint32_t psflg);
+void erts_dump_process_state(int to, void *to_arg, erts_aint32_t psflg);
 
 Eterm erts_get_process_priority(Process *p);
 Eterm erts_set_process_priority(Process *p, Eterm prio);
@@ -2218,6 +2247,8 @@ extern int erts_disable_proc_not_running_opt;
 #endif
 
 void erts_smp_notify_inc_runq(ErtsRunQueue *runq);
+
+void erts_interupt_aux_thread_timed(ErtsMonotonicTime timeout_time);
 
 #ifdef ERTS_SMP
 void erts_sched_finish_poke(ErtsSchedulerSleepInfo *, erts_aint32_t);

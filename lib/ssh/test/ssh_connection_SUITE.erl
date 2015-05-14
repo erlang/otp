@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -21,6 +21,7 @@
 -module(ssh_connection_SUITE).
 
 -include_lib("common_test/include/ct.hrl").
+-include_lib("ssh/src/ssh_connect.hrl").
 
 -compile(export_all).
 
@@ -75,12 +76,13 @@ end_per_suite(_Config) ->
     crypto:stop().
 
 %%--------------------------------------------------------------------
-init_per_group(openssh, _Config) ->
+init_per_group(openssh, Config) ->
     case gen_tcp:connect("localhost", 22, []) of
 	{error,econnrefused} ->
 	    {skip,"No openssh deamon"};
 	{ok, Socket} ->
-	    gen_tcp:close(Socket)
+	    gen_tcp:close(Socket),
+	    ssh_test_lib:openssh_sanity_check(Config)
     end;
 init_per_group(_, Config) ->
     Config.
@@ -92,7 +94,7 @@ end_per_group(_, Config) ->
 init_per_testcase(_TestCase, Config) ->
     %% To make sure we start clean as it is not certain that
     %% end_per_testcase will be run!
-    ssh:stop(),
+    end_per_testcase(Config),
     ssh:start(),
     Config.
 
@@ -269,7 +271,7 @@ ptty_alloc(Config) when is_list(Config) ->
 							     {user_interaction, false}]),
     {ok, ChannelId} = ssh_connection:session_channel(ConnectionRef, infinity),
     success = ssh_connection:ptty_alloc(ConnectionRef, ChannelId, 
-					[{term, default_term()}, {width, 70}, {high, 20}]),
+					[{term, os:getenv("TERM", ?DEFAULT_TERMINAL)}, {width, 70}, {high, 20}]),
     ssh:close(ConnectionRef).
 
 
@@ -282,7 +284,7 @@ ptty_alloc_pixel(Config) when is_list(Config) ->
 							     {user_interaction, false}]),
     {ok, ChannelId} = ssh_connection:session_channel(ConnectionRef, infinity),
     success = ssh_connection:ptty_alloc(ConnectionRef, ChannelId, 
-					[{term, default_term()}, {pixel_widh, 630}, {pixel_hight, 470}]),
+					[{term, os:getenv("TERM", ?DEFAULT_TERMINAL)}, {pixel_widh, 630}, {pixel_hight, 470}]),
     ssh:close(ConnectionRef).
 
 %%--------------------------------------------------------------------
@@ -647,11 +649,3 @@ ssh_exec(Cmd) ->
     spawn(fun() ->
 		  io:format(Cmd ++ "\n")
           end).
-
-default_term() ->
-    case os:getenv("TERM") of
-	false ->
-	    "vt100";
-	Str when is_list(Str)->
-	    Str
-    end.	

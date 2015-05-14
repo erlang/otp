@@ -53,7 +53,13 @@ COMM = \
 	OtpOutputStream \
 	OtpPeer \
 	OtpSelf \
-	OtpServer
+	OtpServer \
+	OtpServerSocketTransport \
+	OtpServerTransport \
+	OtpSocketTransport \
+	OtpSocketTransportFactory \
+	OtpTransport \
+	OtpTransportFactory
 
 ERL = \
 	OtpErlangAtom \

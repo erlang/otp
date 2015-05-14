@@ -117,7 +117,7 @@ users_guide(File, Args) ->
 	    Text = edoc_lib:run_layout(F, Opts),
 	    
 	    OutFile = "chapter" ++ Args#args.suffix,
-	    edoc_lib:write_file(Text, ".", OutFile, '', Encoding);
+	    edoc_lib:write_file(Text, ".", OutFile, Encoding);
 	false ->
 	    io:format("~s: not a regular file\n", [File]),
 	    usage()

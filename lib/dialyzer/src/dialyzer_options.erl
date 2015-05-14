@@ -2,7 +2,7 @@
 %%-----------------------------------------------------------------------
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2006-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -28,7 +28,7 @@
 
 -module(dialyzer_options).
 
--export([build/1]).
+-export([build/1, build_warnings/2]).
 
 -include("dialyzer.hrl").
 
@@ -46,13 +46,11 @@ build(Opts) ->
 		  ?WARN_CALLGRAPH,
 		  ?WARN_FAILING_CALL,
 		  ?WARN_BIN_CONSTRUCTION,
-		  ?WARN_CALLGRAPH,
 		  ?WARN_CONTRACT_RANGE,
 		  ?WARN_CONTRACT_TYPES,
 		  ?WARN_CONTRACT_SYNTAX,
 		  ?WARN_BEHAVIOUR,
-		  ?WARN_UNDEFINED_CALLBACK,
-                  ?WARN_UNKNOWN],
+		  ?WARN_UNDEFINED_CALLBACK],
   DefaultWarns1 = ordsets:from_list(DefaultWarns),
   InitPlt = dialyzer_plt:get_default_plt(),
   DefaultOpts = #options{},
@@ -270,7 +268,7 @@ assert_solvers([v2|Terms]) ->
 assert_solvers([Term|_]) ->
   bad_option("Illegal value for solver", Term).
 
--spec build_warnings([atom()], [dial_warning()]) -> [dial_warning()].
+-spec build_warnings([atom()], dial_warn_tags()) -> dial_warn_tags().
 
 build_warnings([Opt|Opts], Warnings) ->
   NewWarnings =
@@ -302,6 +300,8 @@ build_warnings([Opt|Opts], Warnings) ->
 	ordsets:add_element(?WARN_RETURN_ONLY_EXIT, Warnings);
       race_conditions ->
 	ordsets:add_element(?WARN_RACE_CONDITION, Warnings);
+      no_missing_calls ->
+        ordsets:del_element(?WARN_CALLGRAPH, Warnings);
       specdiffs ->
 	S = ordsets:from_list([?WARN_CONTRACT_SUBTYPE, 
 			       ?WARN_CONTRACT_SUPERTYPE,
@@ -311,8 +311,8 @@ build_warnings([Opt|Opts], Warnings) ->
 	ordsets:add_element(?WARN_CONTRACT_SUBTYPE, Warnings);
       underspecs ->
 	ordsets:add_element(?WARN_CONTRACT_SUPERTYPE, Warnings);
-      no_unknown ->
-	ordsets:del_element(?WARN_UNKNOWN, Warnings);
+      unknown ->
+	ordsets:add_element(?WARN_UNKNOWN, Warnings);
       OtherAtom ->
 	bad_option("Unknown dialyzer warning option", OtherAtom)
     end,

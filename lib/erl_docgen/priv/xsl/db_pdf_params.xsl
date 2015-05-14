@@ -98,6 +98,14 @@
     <xsl:attribute name="text-align">end</xsl:attribute>
   </xsl:attribute-set>
 
+  <xsl:attribute-set name="cover.extrainfo">
+    <xsl:attribute name="padding-before">2.5em</xsl:attribute>
+    <xsl:attribute name="font-size">1.33em</xsl:attribute>
+    <xsl:attribute name="font-weight">bold</xsl:attribute>
+    <xsl:attribute name="color">#C00</xsl:attribute>
+    <xsl:attribute name="text-align">end</xsl:attribute>
+  </xsl:attribute-set>
+
   <xsl:attribute-set name="cover.inner.copyright">
     <xsl:attribute name="border-before-style">solid</xsl:attribute>
     <xsl:attribute name="border-before-width">1pt</xsl:attribute>
@@ -289,6 +297,33 @@
     <xsl:attribute name="keep-together.within-page">always</xsl:attribute>
   </xsl:attribute-set>
 
+<xsl:attribute-set name="do">
+    <xsl:attribute name="background-color">#d0fed0</xsl:attribute>
+    <xsl:attribute name="space-after">1em</xsl:attribute>
+    <xsl:attribute name="space-before">2em</xsl:attribute>
+    <xsl:attribute name="text-align">justify</xsl:attribute>
+    <xsl:attribute name="padding-before">1em</xsl:attribute>
+    <xsl:attribute name="padding-after">0.3em</xsl:attribute>
+    <xsl:attribute name="padding-left">0.5em</xsl:attribute>
+    <xsl:attribute name="padding-right">0.5em</xsl:attribute>
+    <xsl:attribute name="margin-left">0.5em</xsl:attribute>
+    <xsl:attribute name="margin-right">0.5em</xsl:attribute>
+    <xsl:attribute name="keep-together.within-page">always</xsl:attribute>
+  </xsl:attribute-set>
+
+<xsl:attribute-set name="dont">
+  <xsl:attribute name="background-color">#ffd6d6</xsl:attribute> 
+    <xsl:attribute name="space-after">1em</xsl:attribute>
+    <xsl:attribute name="space-before">2em</xsl:attribute>
+    <xsl:attribute name="text-align">justify</xsl:attribute>
+    <xsl:attribute name="padding-before">1em</xsl:attribute>
+    <xsl:attribute name="padding-after">0.3em</xsl:attribute>
+    <xsl:attribute name="padding-left">0.5em</xsl:attribute>
+    <xsl:attribute name="padding-right">0.5em</xsl:attribute>
+    <xsl:attribute name="margin-left">0.5em</xsl:attribute>
+    <xsl:attribute name="margin-right">0.5em</xsl:attribute>
+    <xsl:attribute name="keep-together.within-page">always</xsl:attribute>
+  </xsl:attribute-set>
 
   <xsl:attribute-set name="note-warning-title">
     <xsl:attribute name="font-size">1.33em</xsl:attribute>

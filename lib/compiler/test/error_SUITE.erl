@@ -23,7 +23,7 @@
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2,
 	 head_mismatch_line/1,warnings_as_errors/1, bif_clashes/1,
-	 transforms/1,forbidden_maps/1,bad_utf8/1]).
+	 transforms/1,maps_warnings/1,bad_utf8/1]).
 
 %% Used by transforms/1 test case.
 -export([parse_transform/2]).
@@ -37,7 +37,7 @@ all() ->
 groups() -> 
     [{p,test_lib:parallel(),
       [head_mismatch_line,warnings_as_errors,bif_clashes,
-       transforms,forbidden_maps,bad_utf8]}].
+       transforms,maps_warnings,bad_utf8]}].
 
 init_per_suite(Config) ->
     Config.
@@ -235,23 +235,44 @@ transforms(Config) ->
              ">>,
     {error,[{none,compile,{parse_transform,?MODULE,{too_bad,_}}}],[]} =
 	run_test(Ts2, test_filename(Config), [], dont_write_beam),
+    Ts3 = <<"
+              -compile({parse_transform,",?MODULE_STRING,"}).
+             ">>,
+    {error,[{none,compile,{parse_transform,?MODULE,{undef,_}}}],[]} =
+        run_test(Ts3, test_filename(Config), [call_undef], dont_write_beam),
     ok.
 
-parse_transform(_, _) ->
-    error(too_bad).
+parse_transform(_, Opts) ->
+    case lists:member(call_undef, Opts) of
+        false -> error(too_bad);
+        true -> camembert:délicieux()
+    end.
 
 
-forbidden_maps(Config) when is_list(Config) ->
-    Ts1 = [{map_illegal_use_of_pattern,
+maps_warnings(Config) when is_list(Config) ->
+    Ts1 = [{map_ok_use_of_pattern,
 	   <<"
-              -export([t/0]).
+              -export([t/1]).
+              t(K) ->
+                 #{K := 1 = V} = id(#{<<\"hi all\">> => 1}),
+		 V.
+              id(I) -> I.
+             ">>,
+	    [return],
+	    []},
+	{map_illegal_use_of_pattern,
+	   <<"
+              -export([t/0,t/2]).
+	      t(K,#{ K := V }) -> V.
               t() ->
                  V = 32,
                  #{<<\"hi\",V,\"all\">> := 1} = id(#{<<\"hi all\">> => 1}).
               id(I) -> I.
              ">>,
 	    [return],
-	    {error,[{5,erl_lint,{illegal_map_key_variable,'V'}}], []}}],
+	    {error,[{3,erl_lint,{unbound_var,'K'}},
+		    {6,erl_lint,illegal_map_key}],[]}}
+    ],
     [] = run2(Config, Ts1),
     ok.
 

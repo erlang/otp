@@ -43,19 +43,21 @@
 	 insert/3,
 	 insert_exports/2,
          insert_temp_exported_types/2,
+         insert_fun_meta_info/2,
 	 is_exported/2,
 	 lookup_mod_code/2,
 	 lookup_mfa_code/2,
 	 lookup_mod_records/2,
 	 lookup_mod_contracts/2,
 	 lookup_mfa_contract/2,
+         lookup_meta_info/2,
 	 new/0,
 	 set_next_core_label/2,
 	 set_temp_records/2,
 	 store_temp_records/3,
 	 store_temp_contracts/4]).
 
--export_type([codeserver/0]).
+-export_type([codeserver/0, fun_meta_info/0]).
 
 -include("dialyzer.hrl").
 
@@ -70,12 +72,19 @@
 -type contracts()     :: dict:dict(mfa(),dialyzer_contracts:file_contract()).
 -type mod_contracts() :: dict:dict(module(), contracts()).
 
+%% A property-list of data compiled from -compile and -dialyzer attributes.
+-type meta_info()     :: [{{'nowarn_function' | dial_warn_tag()},
+                           'mod' | 'func'}].
+-type fun_meta_info() :: [{mfa(), meta_info()}
+                          | {module(), [dial_warn_tag()]}].
+
 -record(codeserver, {next_core_label = 0 :: label(),
 		     code		 :: dict_ets(),
                      exported_types      :: set_ets(), % set(mfa())
 		     records             :: dict_ets(),
 		     contracts           :: dict_ets(),
 		     callbacks           :: dict_ets(),
+                     fun_meta_info       :: dict_ets(), % {mfa(), meta_info()}
 		     exports             :: 'clean' | set_ets(), % set(mfa())
                      temp_exported_types :: 'clean' | set_ets(), % set(mfa())
 		     temp_records        :: 'clean' | dict_ets(),
@@ -129,14 +138,17 @@ new() ->
   CodeOptions = [compressed, public, {read_concurrency, true}],
   Code = ets:new(dialyzer_codeserver_code, CodeOptions),
   TempOptions = [public, {write_concurrency, true}],
-  [Exports, TempExportedTypes, TempRecords, TempContracts, TempCallbacks] =
+  [Exports, FunMetaInfo, TempExportedTypes, TempRecords, TempContracts,
+   TempCallbacks] =
     [ets:new(Name, TempOptions) ||
       Name <-
-	[dialyzer_codeserver_exports, dialyzer_codeserver_temp_exported_types,
+	[dialyzer_codeserver_exports, dialyzer_codeserver_fun_meta_info,
+         dialyzer_codeserver_temp_exported_types,
 	 dialyzer_codeserver_temp_records, dialyzer_codeserver_temp_contracts,
 	 dialyzer_codeserver_temp_callbacks]],
   #codeserver{code                = Code,
 	      exports             = Exports,
+              fun_meta_info       = FunMetaInfo,
 	      temp_exported_types = TempExportedTypes,
 	      temp_records        = TempRecords,
 	      temp_contracts      = TempContracts,
@@ -182,6 +194,12 @@ insert_temp_exported_types(Set, CS) ->
 
 insert_exports(List, #codeserver{exports = Exports} = CS) ->
   true = ets_set_insert_list(List, Exports),
+  CS.
+
+-spec insert_fun_meta_info(fun_meta_info(), codeserver()) -> codeserver().
+
+insert_fun_meta_info(List, #codeserver{fun_meta_info = FunMetaInfo} = CS) ->
+  true = ets:insert(FunMetaInfo, List),
   CS.
 
 -spec is_exported(mfa(), codeserver()) -> boolean().
@@ -278,10 +296,10 @@ lookup_mod_contracts(Mod, #codeserver{contracts = ContDict})
   case ets_dict_find(Mod, ContDict) of
     error -> dict:new();
     {ok, Keys} ->
-      dict:from_list([get_contract_pair(Key, ContDict)|| Key <- Keys])
+      dict:from_list([get_file_contract(Key, ContDict)|| Key <- Keys])
   end.
 
-get_contract_pair(Key, ContDict) ->
+get_file_contract(Key, ContDict) ->
   {Key, ets:lookup_element(ContDict, Key, 2)}.
 
 -spec lookup_mfa_contract(mfa(), codeserver()) ->
@@ -289,6 +307,14 @@ get_contract_pair(Key, ContDict) ->
 
 lookup_mfa_contract(MFA, #codeserver{contracts = ContDict}) ->
   ets_dict_find(MFA, ContDict).
+
+-spec lookup_meta_info(module() | mfa(), codeserver()) -> meta_info().
+
+lookup_meta_info(MorMFA, #codeserver{fun_meta_info = FunMetaInfo}) ->
+  case ets_dict_find(MorMFA, FunMetaInfo) of
+    error -> [];
+    {ok, PropList} -> PropList
+  end.
 
 -spec get_contracts(codeserver()) -> mod_contracts().
 

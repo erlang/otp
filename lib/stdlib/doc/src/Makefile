@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1997-2012. All Rights Reserved.
+# Copyright Ericsson AB 1997-2015. All Rights Reserved.
 #
 # The contents of this file are subject to the Erlang Public License,
 # Version 1.1, (the "License"); you may not use this file except in
@@ -48,6 +48,7 @@ XML_REF3_FILES = \
 	digraph.xml \
 	digraph_utils.xml \
 	epp.xml \
+	erl_anno.xml \
 	erl_eval.xml \
 	erl_expand_records.xml \
 	erl_id_trans.xml \
@@ -76,12 +77,12 @@ XML_REF3_FILES = \
 	ms_transform.xml \
 	orddict.xml \
 	ordsets.xml \
-	pg.xml \
 	pool.xml \
 	proc_lib.xml \
 	proplists.xml \
 	qlc.xml \
 	queue.xml \
+	rand.xml \
 	random.xml \
 	re.xml \
 	sets.xml \

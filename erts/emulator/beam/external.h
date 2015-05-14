@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2013. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2014. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -150,6 +150,7 @@ typedef struct {
     Uint extsize;
 } ErtsBinary2TermState;
 
+
 /* -------------------------------------------------------------------------- */
 
 void erts_init_atom_cache_map(ErtsAtomCacheMap *);
@@ -160,8 +161,12 @@ void erts_finalize_atom_cache_map(ErtsAtomCacheMap *, Uint32);
 Uint erts_encode_ext_dist_header_size(ErtsAtomCacheMap *);
 byte *erts_encode_ext_dist_header_setup(byte *, ErtsAtomCacheMap *);
 byte *erts_encode_ext_dist_header_finalize(byte *, ErtsAtomCache *, Uint32);
-Uint erts_encode_dist_ext_size(Eterm, Uint32, ErtsAtomCacheMap *);
-void erts_encode_dist_ext(Eterm, byte **, Uint32, ErtsAtomCacheMap *);
+struct erts_dsig_send_context;
+int erts_encode_dist_ext_size(Eterm, Uint32, ErtsAtomCacheMap*, Uint* szp);
+int erts_encode_dist_ext_size_int(Eterm term, struct erts_dsig_send_context* ctx, Uint* szp);
+struct TTBEncodeContext_;
+int erts_encode_dist_ext(Eterm, byte **, Uint32, ErtsAtomCacheMap *,
+			  struct TTBEncodeContext_ *, Sint* reds);
 
 Uint erts_encode_ext_size(Eterm);
 Uint erts_encode_ext_size_2(Eterm, unsigned);

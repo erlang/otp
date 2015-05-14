@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2011-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -18,7 +18,7 @@
 -module(wx_obj_test).
 -include_lib("wx/include/wx.hrl").
 
--export([start/1, stop/2]).
+-export([start/1, stop/1]).
 
 %% wx_object callbacks
 -export([init/1, handle_info/2, terminate/2, code_change/3, handle_call/3,
@@ -29,8 +29,8 @@
 start(Opts) ->
     wx_object:start_link(?MODULE, [{parent, self()}| Opts], []).
 
-stop(Object, Fun) ->
-    wx_object:call(Object, {stop, Fun}).
+stop(Object) ->
+    wx_object:stop(Object).
 
 init(Opts) ->
     Parent = proplists:get_value(parent, Opts),
@@ -61,8 +61,6 @@ handle_event(Event, State = #state{parent=Parent}) ->
 handle_call(What, From, State = #state{user_state=US}) when is_function(What) ->
     Result = What(US),
     {reply, {call, Result, From}, State};
-handle_call({stop, Fun}, From, State = #state{user_state=US}) ->
-    {stop, Fun(US), {stop, From}, State};
 handle_call(What, From, State) ->
     {reply, {call, What, From}, State}.
 
@@ -79,7 +77,13 @@ handle_info(What, State = #state{parent=Pid}) ->
     Pid ! {info, What},
     {noreply, State}.
 
-terminate(What, #state{parent=Pid}) ->
+terminate(What, #state{parent=Pid, opts=Opts, user_state=US}) ->
+    case proplists:get_value(terminate, Opts) of
+	undefined ->
+	    ok;
+	Terminate ->
+	    Terminate(US)
+    end,
     Pid ! {terminate, What},
     ok.
 

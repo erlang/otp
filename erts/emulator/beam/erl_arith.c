@@ -2048,3 +2048,8 @@ Eterm erts_gc_bnot(Process* p, Eterm* reg, Uint live)
     }
     return result;
 } 
+
+/* Needed to remove compiler optimization */
+double erts_get_positive_zero_float() {
+    return 0.0f;
+}

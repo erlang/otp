@@ -98,7 +98,7 @@ init(Parent) ->
 
 val(Var) ->
     case ?catch_val(Var) of
-	{'EXIT', _ReASoN_} -> mnesia_lib:other_val(Var, _ReASoN_);
+	{'EXIT', _} -> mnesia_lib:other_val(Var);
 	_VaLuE_ -> _VaLuE_
     end.
 
@@ -1001,13 +1001,11 @@ flush_remaining(Ns=[Node | Tail], SkipNode, Res) ->
 
 opt_lookup_in_client(lookup_in_client, Oid, Lock) ->
     {Tab, Key} = Oid,
-    case catch mnesia_lib:db_get(Tab, Key) of
-	{'EXIT', _} ->
+    try mnesia_lib:db_get(Tab, Key)
+    catch error:_ ->
 	    %% Table has been deleted from this node,
 	    %% restart the transaction.
-	    #cyclic{op = read, lock = Lock, oid = Oid, lucky = nowhere};
-	Val ->
-	    Val
+	    #cyclic{op = read, lock = Lock, oid = Oid, lucky = nowhere}
     end;
 opt_lookup_in_client(Val, _Oid, _Lock) ->
     Val.
@@ -1139,11 +1137,10 @@ send_requests([], _X) ->
 
 rec_requests([Node | Nodes], Oid, Store) ->
     Res = l_req_rec(Node, Store),
-    case catch rlock_get_reply(Node, Store, Oid, Res) of
-	{'EXIT', Reason} ->
-	    flush_remaining(Nodes, Node, Reason);
-	_ ->
-	    rec_requests(Nodes, Oid, Store)
+    try rlock_get_reply(Node, Store, Oid, Res) of
+	_ -> rec_requests(Nodes, Oid, Store)
+    catch _:Reason ->
+	    flush_remaining(Nodes, Node, Reason)
     end;
 rec_requests([], _Oid, _Store) ->
     ok.

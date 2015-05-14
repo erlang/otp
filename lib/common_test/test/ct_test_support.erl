@@ -287,10 +287,13 @@ run_ct_run_test(Opts,Config) ->
     Level = proplists:get_value(trace_level, Config),
     test_server:format(Level, "~n[RUN #1] Calling ct:run_test(~p) on ~p~n",
 		       [Opts, CTNode]),
-    T0 = now(),
+    
+    T0 = erlang:monotonic_time(),
     CtRunTestResult = rpc:call(CTNode, ct, run_test, [Opts]),
+    T1 = erlang:monotonic_time(),
+    Elapsed = erlang:convert_time_unit(T1-T0, native, milli_seconds),
     test_server:format(Level, "~n[RUN #1] Got return value ~p after ~p ms~n",
-		       [CtRunTestResult,trunc(timer:now_diff(now(), T0)/1000)]),
+		       [CtRunTestResult,Elapsed]),
     case rpc:call(CTNode, erlang, whereis, [ct_util_server]) of
 	undefined ->
 	    ok;
@@ -313,10 +316,12 @@ run_ct_script_start(Opts, Config) ->
 	     [common_test, run_test_start_opts, Opts1]),
     test_server:format(Level, "[RUN #2] Calling ct_run:script_start() on ~p~n",
 		       [CTNode]),
-    T0 = now(),
+    T0 = erlang:monotonic_time(),
     ExitStatus = rpc:call(CTNode, ct_run, script_start, []),
+    T1 = erlang:monotonic_time(),
+    Elapsed = erlang:convert_time_unit(T1-T0, native, milli_seconds),
     test_server:format(Level, "[RUN #2] Got exit status value ~p after ~p ms~n",
-		       [ExitStatus,trunc(timer:now_diff(now(), T0)/1000)]),
+		       [ExitStatus,Elapsed]),
     ExitStatus.
 
 check_result({_Ok,Failed,{_UserSkipped,_AutoSkipped}},1,_Opts)
@@ -408,7 +413,7 @@ ct_rpc({M,F,A}, Config) ->
 %%%-----------------------------------------------------------------
 %%% random_error/1
 random_error(Config) when is_list(Config) ->
-    random:seed(now()),
+    random:seed(os:timestamp()),
     Gen = fun(0,_) -> ok; (N,Fun) -> Fun(N-1, Fun) end,
     Gen(random:uniform(100), Gen),
 
@@ -1350,12 +1355,7 @@ delete_old_logs(_, Config) ->
 
 delete_dirs(LogDir) ->
     Now = calendar:datetime_to_gregorian_seconds(calendar:local_time()),
-    SaveTime = case os:getenv("CT_SAVE_OLD_LOGS") of
-		   false ->
-		       28800;
-		   SaveTime0 ->
-		       list_to_integer(SaveTime0)
-	       end,
+    SaveTime = list_to_integer(os:getenv("CT_SAVE_OLD_LOGS", "28800")),
     Deadline = Now - SaveTime,
     Dirs = filelib:wildcard(filename:join(LogDir,"ct_run*")),
     Dirs2Del =

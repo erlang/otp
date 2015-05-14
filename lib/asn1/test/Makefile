@@ -78,6 +78,7 @@ MODULES= \
 	testEnumExt \
 	testInfObjectClass \
 	testInfObj \
+	testInfObjExtract \
 	testParameterizedInfObj \
 	testFragmented \
 	testMergeCompile \
@@ -104,14 +105,19 @@ MODULES= \
 	test_compile_options \
 	testDoubleEllipses \
 	test_modified_x420 \
-	testX420 \
 	test_x691 \
 	testWSParamClass \
+	testValueTest \
+	testUniqueObjectSets \
+	testRfcs \
+	testImporting \
+	testExtensibilityImplied \
 	asn1_test_lib \
 	asn1_app_test \
 	asn1_appup_test \
 	asn1_SUITE \
-	error_SUITE
+	error_SUITE \
+	syntax_SUITE
 
 ERL_FILES= $(MODULES:%=%.erl)
 

@@ -243,22 +243,22 @@ relay_cast(_Self, State, Target) ->
 
 %% Testing pseudo calls.
 pseudo_call(_Self, State) ->
-    io:format("orber_test_server:pseudo_call( ~p )~n", [now()]),
+    io:format("orber_test_server:pseudo_call( ~p )~n", [erlang:timestamp()]),
     {reply, ok, State}.
 
 pseudo_cast(_Self, State) ->
-    io:format("orber_test_server:pseudo_cast( ~p )~n", [now()]),
+    io:format("orber_test_server:pseudo_cast( ~p )~n", [erlang:timestamp()]),
     {noreply, State}.
 pseudo_call_delay(_Self, State, Time) ->
-    io:format("orber_test_server:pseudo_call_delay( ~p )~n", [now()]),
+    io:format("orber_test_server:pseudo_call_delay( ~p )~n", [erlang:timestamp()]),
     timer:sleep(Time),
-    io:format("orber_test_server:pseudo_call_delay( ~p )~n", [now()]),
+    io:format("orber_test_server:pseudo_call_delay( ~p )~n", [erlang:timestamp()]),
     {reply, {ok, Time}, State}.
 
 pseudo_cast_delay(_Self, State, Time) ->
-    io:format("orber_test_server:pseudo_cast_delay( ~p )~n", [now()]),
+    io:format("orber_test_server:pseudo_cast_delay( ~p )~n", [erlang:timestamp()]),
     timer:sleep(Time),
-    io:format("orber_test_server:pseudo_cast_delay( ~p )~n", [now()]),
+    io:format("orber_test_server:pseudo_cast_delay( ~p )~n", [erlang:timestamp()]),
     {noreply, State}.
 
 pseudo_call_raise_exc(_Self, State, 1) ->

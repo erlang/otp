@@ -313,7 +313,7 @@ apply_cb([M|Ms], F, Df, Args, A, Ms0) ->
         true -> apply(M, F, Args);
         false -> apply_cb(Ms, F, Df, Args, A, Ms0)
     end;
-apply_cb([], Df, Df, Args, A, _Ms0) ->
+apply_cb([], Df, Df, Args, _A, _Ms0) ->
     exit({unknown_tag, {Df, Args}});
 apply_cb([], F, Df, Args, A, Ms0) ->
     apply_cb(Ms0, Df, Df, [F|Args], A+1).

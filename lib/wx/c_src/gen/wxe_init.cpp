@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2008-2014. All Rights Reserved.
+ * Copyright Ericsson AB 2008-2015. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -55,6 +55,12 @@ void WxeApp::init_nonconsts(wxeMemEnv *memenv, ErlDrvTermData caller) {
  rt.addAtom("wxFONTENCODING_UTF32"); rt.addInt(wxFONTENCODING_UTF32);
  rt.addTupleCount(2);
  rt.addAtom("wxMOD_CMD"); rt.addInt(wxMOD_CMD);
+ rt.addTupleCount(2);
+ rt.addAtom("wxCURSOR_ARROWWAIT"); rt.addInt(wxCURSOR_ARROWWAIT);
+ rt.addTupleCount(2);
+ rt.addAtom("wxCURSOR_DEFAULT"); rt.addInt(wxCURSOR_DEFAULT);
+ rt.addTupleCount(2);
+ rt.addAtom("wxCURSOR_MAX"); rt.addInt(wxCURSOR_MAX);
  rt.addTupleCount(2);
    rt.addAtom("wxBLACK"); rt.add(*(wxBLACK));
    rt.addTupleCount(2);
@@ -138,7 +144,7 @@ void WxeApp::init_nonconsts(wxeMemEnv *memenv, ErlDrvTermData caller) {
    rt.addTupleCount(2);
    rt.addAtom("wxWHITE_PEN"); rt.addRef(getRef((void *)wxWHITE_PEN,memenv),"wxPen");
    rt.addTupleCount(2);
- rt.endList(57);
+ rt.endList(60);
  rt.addTupleCount(2);
   rt.send();
 }

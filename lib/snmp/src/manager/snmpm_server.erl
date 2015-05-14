@@ -467,27 +467,6 @@ cancel_async_request(UserId, ReqId) ->
     call({cancel_async_request, UserId, ReqId}).
 
 
-%% discovery(UserId, BAddr) ->
-%%     discovery(UserId, BAddr, ?SNMP_AGENT_PORT, [], 
-%% 	      ?DEFAULT_ASYNC_EXPIRE, ?EXTRA_INFO).
-
-%% discovery(UserId, BAddr, Config) when is_list(Config) ->
-%%     discovery(UserId, BAddr, ?SNMP_AGENT_PORT, Config, 
-%% 	      ?DEFAULT_ASYNC_EXPIRE, ?EXTRA_INFO);
-
-%% discovery(UserId, BAddr, Expire) when is_integer(Expire) ->
-%%     discovery(UserId, BAddr, ?SNMP_AGENT_PORT, [], Expire, ?EXTRA_INFO).
-
-%% discovery(UserId, BAddr, Config, Expire) ->
-%%     discovery(UserId, BAddr, ?SNMP_AGENT_PORT, Config, Expire, ?EXTRA_INFO).
-
-%% discovery(UserId, BAddr, Port, Config, Expire) ->
-%%     discovery(UserId, BAddr, Port, Config, Expire, ?EXTRA_INFO).
-
-%% discovery(UserId, BAddr, Port, Config, Expire, ExtraInfo) ->
-%%     call({discovery, self(), UserId, BAddr, Port, Config, Expire, ExtraInfo}).
-
-
 verbosity(Verbosity) ->
     case ?vvalidate(Verbosity) of
 	Verbosity ->
@@ -927,14 +906,6 @@ handle_call({cancel_async_request, UserId, ReqId}, _From, State) ->
     {reply, Reply, State};
 
 
-%% handle_call({discovery, Pid, UserId, BAddr, Port, Config, Expire, ExtraInfo}, 
-%% 	    _From, State) ->
-%%     ?vlog("received discovery request", []),
-%%     Reply = (catch handle_discovery(Pid, UserId, BAddr, Port, Config, 
-%% 				    Expire, ExtraInfo, State)),
-%%     {reply, Reply, State};
-
-
 handle_call({load_mib, Mib}, _From, State) ->
     ?vlog("received load_mib request", []),
     case snmpm_config:load_mib(Mib) of
@@ -988,13 +959,6 @@ handle_call(is_started, _From, State) ->
     IsStarted = is_started(State), 
     {reply, IsStarted, State};
 
-%% handle_call({system_info_updated, Target, What}, _From, State) ->
-%%     ?vlog("received system_info_updated request: "
-%% 	  "~n   Target: ~p"
-%% 	  "~n   What:   ~p", [Target, What]),
-%%     Reply = handle_system_info_updated(State, Target, What), 
-%%     {reply, Reply, State};
-
 handle_call(get_log_type, _From, State) ->
     ?vlog("received get_log_type request", []),
     Reply = handle_get_log_type(State), 
@@ -1041,11 +1005,6 @@ handle_info({snmp_error, ReqId, Reason, Domain, Addr}, State) ->
     ?vlog("received snmp_error message", []),
     handle_snmp_error(Domain, Addr, ReqId, Reason, State),
     {noreply, State};
-
-%% handle_info({snmp_error, ReqId, Pdu, Reason, Addr, Port}, State) ->
-%%     ?vlog("received snmp_error message", []),
-%%     handle_snmp_error(Pdu, ReqId, Reason, Addr, Port, State),
-%%     {noreply, State};
 
 
 handle_info({snmp_pdu, Pdu, Domain, Addr}, State) ->
@@ -1411,7 +1370,7 @@ handle_async_get(Pid, UserId, TargetName, Oids, SendOpts, State) ->
 			      address  = Addr,
 			      type     = get, 
 			      data     = MsgData, 
-			      expire   = t() + Expire},
+			      expire   = snmp_misc:now(ms) + Expire},
 
 	    ets:insert(snmpm_request_table, Req),
 	    gct_activate(State#state.gct),
@@ -1460,7 +1419,7 @@ handle_async_get_next(Pid, UserId, TargetName, Oids, SendOpts, State) ->
 			      address  = Addr,
 			      type     = get_next, 
 			      data     = MsgData, 
-			      expire   = t() + Expire},
+			      expire   = snmp_misc:now(ms) + Expire},
 
 	    ets:insert(snmpm_request_table, Req),
 	    gct_activate(State#state.gct),
@@ -1516,7 +1475,7 @@ handle_async_get_bulk(Pid,
 			      address  = Addr,
 			      type     = get_bulk, 
 			      data     = MsgData, 
-			      expire   = t() + Expire},
+			      expire   = snmp_misc:now(ms) + Expire},
 	    ets:insert(snmpm_request_table, Req),
 	    gct_activate(State#state.gct),
 	    {ok, ReqId};
@@ -1564,7 +1523,7 @@ handle_async_set(Pid, UserId, TargetName, VarsAndVals, SendOpts, State) ->
 			      address  = Addr,
 			      type     = set, 
 			      data     = MsgData, 
-			      expire   = t() + Expire},
+			      expire   = snmp_misc:now(ms) + Expire},
 
 	    ets:insert(snmpm_request_table, Req),
 	    gct_activate(State#state.gct),
@@ -1600,18 +1559,6 @@ handle_cancel_async_request(UserId, ReqId, _State) ->
 	    ?vlog("handle_cancel_async_request -> not found", []),
 	    {error, not_found}
     end.
-    
-
-%% handle_system_info_updated(#state{net_if = Pid, net_if_mod = Mod} = _State,
-%% 			   net_if = _Target, What) ->
-%%     case (catch Mod:system_info_updated(Pid, What)) of
-%% 	{'EXIT', _} ->
-%% 	    {error, not_supported};
-%% 	Else ->
-%% 	    Else
-%%     end;
-%% handle_system_info_updated(_State, Target, What) ->
-%%     {error, {bad_target, Target, What}}.
 
 handle_get_log_type(#state{net_if = Pid, net_if_mod = Mod}) ->
     case (catch Mod:get_log_type(Pid)) of
@@ -1628,47 +1575,6 @@ handle_set_log_type(#state{net_if = Pid, net_if_mod = Mod}, NewType) ->
 	Else ->
 	    Else
     end.
-
-
-%% handle_discovery(Pid, UserId, BAddr, Port, Config, Expire, ExtraInfo, State) ->
-%%     ?vtrace("handle_discovery -> entry with"
-%% 	    "~n   Pid:         ~p"
-%% 	    "~n   UserId:      ~p"
-%% 	    "~n   BAddr:       ~p"
-%% 	    "~n   Port:        ~p"
-%% 	    "~n   Config:      ~p"
-%% 	    "~n   Expire:      ~p",
-%% 	    [Pid, UserId, BAddr, Port, Config, Expire]),
-%%     case agent_data(default, default, "", Config) of
-%% 	{ok, Addr, Port, Vsn, MsgData} ->
-%% 	    ?vtrace("handle_discovery -> send a ~p disco message", [Vsn]),
-%% 	    ReqId  = send_discovery(Vsn, MsgData, BAddr, Port, ExtraInfo, 
-%% 				    State),
-%% 	    ?vdebug("handle_discovery -> ReqId: ~p", [ReqId]),
-%% 	    MonRef = erlang:monitor(process, Pid),
-%% 	    ?vtrace("handle_discovery -> MonRef: ~p", [MonRef]),
-%% 	    Req    = #request{id        = ReqId,
-%% 			      user_id   = UserId, 
-%%			      target    = TargetName, 
-%% 			      addr      = BAddr, 
-%% 			      port      = Port,
-%% 			      type      = get, 
-%% 			      data      = MsgData, 
-%% 			      mon       = MonRef,
-%% 			      discovery = true, 
-%% 			      expire    = t() + Expire},
-%% 	    ets:insert(snmpm_request_table, Req),
-%% 	    gct_activate(State#state.gct),
-%% 	    {ok, ReqId};
-
-%% 	Error ->
-%% 	    ?vinfo("failed retrieving agent data for discovery (get):"
-%% 		   "~n   BAddr: ~p"
-%% 		   "~n   Port:  ~p"
-%% 		   "~n   Error: ~p", [BAddr, Port, Error]),
-%% 	    Error
-%%     end.
-
 
 handle_sync_timeout(ReqId, From, State) ->
     ?vtrace("handle_sync_timeout -> entry with"
@@ -1693,7 +1599,7 @@ handle_sync_timeout(ReqId, From, State) ->
 	    Req = Req0#request{ref    = undefined, 
 			       mon    = undefined, 
 			       from   = undefined, 
-			       expire = t()},
+			       expire = snmp_misc:now(ms)},
 	    ets:insert(snmpm_request_table, Req),
 	    gct_activate(State#state.gct),
 	    ok;
@@ -3026,7 +2932,7 @@ cancel_timer(Ref) ->
 
 handle_gc(GCT) ->
     ets:safe_fixtable(snmpm_request_table, true),
-    case do_gc(ets:first(snmpm_request_table), t()) of
+    case do_gc(ets:first(snmpm_request_table), snmp_misc:now(ms)) of
 	0 ->
 	    gct_deactivate(GCT);
 	_ ->
@@ -3100,22 +3006,10 @@ send_set_request(VarsAndVals, Vsn, MsgData, Domain, Addr, ExtraInfo,
     Mod:send_pdu(NetIf, Pdu, Vsn, MsgData, Domain, Addr, ExtraInfo),
     Pdu#pdu.request_id.
 
-%% send_discovery(Vsn, MsgData, Addr, Port, ExtraInfo, 
-%% 	       #state{net_if     = NetIf, 
-%% 		      net_if_mod = Mod}) ->
-%%     Pdu = make_discovery_pdu(),
-%%     Mod:send_pdu(NetIf, Pdu, Vsn, MsgData, Addr, Port, ExtraInfo),
-%%     Pdu#pdu.request_id.
-							  
-
 
 %%----------------------------------------------------------------------
 %% 
 %%----------------------------------------------------------------------
-
-%% make_discovery_pdu() ->
-%%     Oids = [?sysObjectID_instance, ?sysDescr_instance, ?sysUpTime_instance],
-%%     make_pdu_impl(get, Oids).
 
 make_pdu(set, VarsAndVals, MiniMIB) ->
     VBs = [var_and_value_to_varbind(VAV, MiniMIB) || VAV <- VarsAndVals],
@@ -3399,7 +3293,7 @@ gct_init(#gct{parent = Parent, timeout = Timeout} = State) ->
     gct(State, Timeout).
 
 gct(#gct{parent = Parent, state = active} = State, Timeout) ->
-    T = t(),
+    T = snmp_misc:now(ms),
     receive
 	{stop, Parent} ->
 	    ok;
@@ -3457,7 +3351,7 @@ gct(#gct{parent = Parent, state = idle} = State, Timeout) ->
     end.
 
 new_timeout(T1, T2) ->
-    case T1 - (t() - T2) of
+    case T1 - (snmp_misc:now(ms) - T2) of
 	T when (T > 0) ->
 	    T;
 	_ ->
@@ -3476,11 +3370,6 @@ maybe_demonitor(undefined) ->
     ok;
 maybe_demonitor(MonRef) ->
     erlang:demonitor(MonRef).
-
-%% Time in milli seconds
-t() ->
-    {A,B,C} = erlang:now(),
-    A*1000000000+B*1000+(C div 1000).
 
 mk_target_name(Domain, Addr, Config) ->
     snmpm_config:mk_target_name(Domain, Addr, Config).
@@ -3519,12 +3408,6 @@ call(Req) ->
 
 call(Req, To) ->
     gen_server:call(?SERVER, Req, To).
-
-%% cast(Msg) ->
-%%     gen_server:cast(?SERVER, Msg).
-
-%% info_msg(F, A) ->
-%%     ?snmpm_info("Server: " ++ F, A).
 
 warning_msg(F, A) ->
     ?snmpm_warning("Server: " ++ F, A).
@@ -3601,20 +3484,3 @@ note_store_info(Pid) ->
 
 
 %%----------------------------------------------------------------------
-
-
-%%----------------------------------------------------------------------
-%% Debug
-%%----------------------------------------------------------------------
-
-% sz(L) when is_list(L) ->
-%     length(lists:flatten(L));
-% sz(B) when is_binary(B) ->
-%     size(B).
-
-%% p(F) ->
-%%     p(F, []).
-
-%% p(F, A) ->
-%%     io:format("~w:" ++ F ++ "~n", [?MODULE | A]).
-

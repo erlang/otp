@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2011. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2015. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -1922,7 +1922,9 @@ mk_passive_objkey(Mod, Module, Flags) ->
     {Mod, 'passive', Module, term_to_binary(undefined), 0, Flags}.
 
 make_objkey() ->
-    term_to_binary({now(), node()}).
+    term_to_binary({{erlang:system_time(), 
+		     erlang:unique_integer()}, 
+		    node()}).
 
 objkey_to_string({_Mod, 'registered', 'orber_init', _UserDef, _OrberDef, _Flags}) ->
     "INIT";

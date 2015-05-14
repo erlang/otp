@@ -952,6 +952,36 @@
     </div>
   </xsl:template>
 
+  <!-- Do -->
+  <xsl:template match="do">
+    <xsl:param name="chapnum"/>
+    <div class="do">
+      <div class="label">Do</div>
+      <div class="content">
+        <p>
+          <xsl:apply-templates>
+            <xsl:with-param name="chapnum" select="$chapnum"/>
+          </xsl:apply-templates>
+        </p>
+      </div>
+    </div>
+  </xsl:template>
+
+  <!-- Dont -->
+  <xsl:template match="dont">
+    <xsl:param name="chapnum"/>
+    <div class="dont">
+      <div class="label">Don't</div>
+      <div class="content">
+        <p>
+          <xsl:apply-templates>
+            <xsl:with-param name="chapnum" select="$chapnum"/>
+          </xsl:apply-templates>
+        </p>
+      </div>
+    </div>
+  </xsl:template>
+
  <!-- Paragraph -->
   <xsl:template match="p">
     <p>
@@ -1102,6 +1132,9 @@
 
     <center><h4>Version <xsl:value-of select="$appver"/></h4></center>
     <center><h4><xsl:value-of select="$gendate"/></h4></center>
+    <div class="extrafrontpageinfo">
+    <center><xsl:value-of select="$extra_front_page_info"/></center>
+    </div>
 
     <xsl:apply-templates select="chapter"/>
 
@@ -1267,6 +1300,9 @@
 
     <center><h4>Version <xsl:value-of select="$appver"/></h4></center>
     <center><h4><xsl:value-of select="$gendate"/></h4></center>
+    <div class="extrafrontpageinfo">
+    <center><xsl:value-of select="$extra_front_page_info"/></center>
+    </div>
 
     <xsl:apply-templates select="erlref|cref|comref|fileref|appref"/>
 
@@ -2089,6 +2125,9 @@
 
     <center><h4>Version <xsl:value-of select="$appver"/></h4></center>
     <center><h4><xsl:value-of select="$gendate"/></h4></center>
+    <div class="extrafrontpageinfo">
+    <center><xsl:value-of select="$extra_front_page_info"/></center>
+    </div>
 
     <xsl:apply-templates select="chapter"/>
 
