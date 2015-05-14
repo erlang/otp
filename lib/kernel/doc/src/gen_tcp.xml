@@ -347,11 +347,22 @@ do_recv(Sock, Bs) ->
     </func>
     <func>
       <name name="shutdown" arity="2"/>
-      <fsummary>Immediately close a socket</fsummary>
+      <fsummary>Asynchronously close a socket</fsummary>
       <desc>
-        <p>Immediately close a socket in one or two directions.</p>
+        <p>Close a socket in one or two directions.</p>
         <p><c><anno>How</anno> == write</c> means closing the socket for writing,
           reading from it is still possible.</p>
+        <p>If <c><anno>How</anno> == read</c>, or there is no outgoing
+          data buffered in the <c><anno>Socket</anno></c> port,
+          then the socket is shutdown immediately and any error encountered
+          is returned in <c><anno>Reason</anno></c>.</p>
+        <p>If there is data buffered in the socket port, then the attempt
+          to shutdown the socket is postponed until that data is written to the
+          kernel socket send buffer. Any errors encountered will result
+          in the socket being closed and <c>{error, closed}</c> being returned
+          on the next
+          <seealso marker="gen_tcp#recv/2">recv/2</seealso> or
+          <seealso marker="gen_tcp#send/2">send/2</seealso>.</p>
         <p>To be able to handle that the peer has done a shutdown on
           the write side, the <c>{exit_on_close, false}</c> option
           is useful.</p>
