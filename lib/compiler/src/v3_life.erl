@@ -411,7 +411,7 @@ is_gc_bif(Bif, Arity) ->
 %% must be sorted.
 
 init_vars(Vs) ->
-    sort([{V,0,0} || {var,V} <- Vs]).
+    vdb_new(Vs).
 
 new_vars([], _, Vdb) -> Vdb;
 new_vars([V], I, Vdb) -> vdb_store_new(V, {V,I,I}, Vdb);
@@ -429,6 +429,16 @@ use_vars(Vs, I, Vdb) -> vdb_update_vars(Vs, Vdb, I).
 
 add_var(V, F, L, Vdb) ->
     vdb_store_new(V, {V,F,L}, Vdb).
+
+%% is_in_guard() -> true|false.
+
+is_in_guard() ->
+    get(guard_refc) > 0.
+
+%% vdb
+
+vdb_new(Vs) ->
+    sort([{V,0,0} || {var,V} <- Vs]).
 
 vdb_find(V, Vdb) ->
     case lists:keyfind(V, 1, Vdb) of
@@ -471,8 +481,3 @@ vdb_sub(Min, Max, Vdb) ->
     [ if L >= Max -> {V,F,locked};
 	 true -> Vd
       end || {V,F,L}=Vd <- Vdb, F < Min, L >= Min ].
-
-%% is_in_guard() -> true|false.
-
-is_in_guard() ->
-    get(guard_refc) > 0.
