@@ -1887,7 +1887,7 @@ get_avp(Dict, Name, [#diameter_header{} | Avps]) ->
         find_avp(Code, VId, Avps)
     of
         A ->
-            avp_decode(Dict, Name, ungroup(A))
+            (avp_decode(Dict, Name, ungroup(A)))#diameter_avp{name = Name}
     catch
         error: _ ->
             undefined
