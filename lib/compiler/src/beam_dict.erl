@@ -34,7 +34,7 @@
 -type atom_tab()   :: #{atom() => index()}.
 -type import_tab() :: gb_trees:tree(mfa(), index()).
 -type fname_tab()  :: gb_trees:tree(Name :: term(), index()).
--type line_tab()   :: gb_trees:tree({Fname :: index(), Line :: term()}, index()).
+-type line_tab()   :: #{{Fname :: index(), Line :: term()} => index()}.
 -type literal_tab() :: dict:dict(Literal :: term(), index()).
 
 -record(asm,
@@ -46,7 +46,7 @@
 	 lambdas = [],				%[{...}]
 	 literals = dict:new()	    :: literal_tab(),
 	 fnames = gb_trees:empty()  :: fname_tab(),
-	 lines = gb_trees:empty()   :: line_tab(),
+	 lines = #{}                :: line_tab(),
 	 num_lines = 0		    :: non_neg_integer(), %Number of line instructions
 	 next_import = 0	    :: non_neg_integer(),
 	 string_offset = 0	    :: non_neg_integer(),
@@ -175,16 +175,14 @@ line([], #asm{num_lines=N}=Dict) ->
     %% No location available. Return the special pre-defined
     %% index 0.
     {0,Dict#asm{num_lines=N+1}};
-line([{location,Name,Line}], #asm{lines=Lines0,num_lines=N}=Dict0) ->
+line([{location,Name,Line}], #asm{lines=Lines,num_lines=N}=Dict0) ->
     {FnameIndex,Dict1} = fname(Name, Dict0),
-    case gb_trees:lookup({FnameIndex,Line}, Lines0) of
-	{value,Index} ->
-	    {Index,Dict1#asm{num_lines=N+1}};
-	none ->
-	    Index = gb_trees:size(Lines0) + 1,
-	    Lines = gb_trees:insert({FnameIndex,Line}, Index, Lines0),
-	    Dict = Dict1#asm{lines=Lines,num_lines=N+1},
-	    {Index,Dict}
+    Key = {FnameIndex,Line},
+    case Lines of
+        #{Key := Index} -> {Index,Dict1#asm{num_lines=N+1}};
+        _ ->
+	    Index = maps:size(Lines) + 1,
+            {Index, Dict1#asm{lines=Lines#{Key=>Index},num_lines=N+1}}
     end.
 
 fname(Name, #asm{fnames=Fnames0}=Dict) ->
@@ -272,8 +270,8 @@ line_table(#asm{fnames=Fnames0,lines=Lines0,num_lines=NumLineInstrs}) ->
     NumFnames = gb_trees:size(Fnames0),
     Fnames1 = lists:keysort(2, gb_trees:to_list(Fnames0)),
     Fnames = [Name || {Name,_} <- Fnames1],
-    NumLines = gb_trees:size(Lines0),
-    Lines1 = lists:keysort(2, gb_trees:to_list(Lines0)),
+    NumLines = maps:size(Lines0),
+    Lines1 = lists:keysort(2, maps:to_list(Lines0)),
     Lines = [L || {L,_} <- Lines1],
     {NumLineInstrs,NumFnames,Fnames,NumLines,Lines}.
 
