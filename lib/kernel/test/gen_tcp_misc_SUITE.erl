@@ -38,7 +38,9 @@
 	 % Accept tests
 	 primitive_accept/1,multi_accept_close_listen/1,accept_timeout/1,
 	 accept_timeouts_in_order/1,accept_timeouts_in_order2/1,
-	 accept_timeouts_in_order3/1,accept_timeouts_mixed/1, 
+	 accept_timeouts_in_order3/1,accept_timeouts_in_order4/1,
+	 accept_timeouts_in_order5/1,accept_timeouts_in_order6/1,
+	 accept_timeouts_in_order7/1,accept_timeouts_mixed/1,
 	 killing_acceptor/1,killing_multi_acceptors/1,killing_multi_acceptors2/1,
 	 several_accepts_in_one_go/1, accept_system_limit/1,
 	 active_once_closed/1, send_timeout/1, send_timeout_active/1,
@@ -99,7 +101,9 @@ all() ->
      so_priority, primitive_accept,
      multi_accept_close_listen, accept_timeout,
      accept_timeouts_in_order, accept_timeouts_in_order2,
-     accept_timeouts_in_order3, accept_timeouts_mixed,
+     accept_timeouts_in_order3, accept_timeouts_in_order4,
+     accept_timeouts_in_order5, accept_timeouts_in_order6,
+     accept_timeouts_in_order7, accept_timeouts_mixed,
      killing_acceptor, killing_multi_acceptors,
      killing_multi_acceptors2, several_accepts_in_one_go, accept_system_limit,
      active_once_closed, send_timeout, send_timeout_active, otp_7731,
@@ -1776,6 +1780,72 @@ accept_timeouts_in_order3(Config) when is_list(Config) ->
     P4 = spawn(mktmofun(1000,Parent,LS)),
     ok = ?EXPECT_ACCEPTS([{P4,{error,timeout}},{P1,{error,timeout}},
                           {P3,{error,timeout}},{P2,{error,timeout}}],infinity,2000).
+
+accept_timeouts_in_order4(suite) ->
+    [];
+accept_timeouts_in_order4(doc) ->
+    ["Check that multi-accept timeouts happen in the correct order after "
+     "mixing millsec and sec timeouts"];
+accept_timeouts_in_order4(Config) when is_list(Config) ->
+    {ok,LS}=gen_tcp:listen(0,[]),
+    Parent = self(),
+    P1 = spawn(mktmofun(200,Parent,LS)),
+    P2 = spawn(mktmofun(400,Parent,LS)),
+    P3 = spawn(mktmofun(1000,Parent,LS)),
+    P4 = spawn(mktmofun(600,Parent,LS)),
+    ok = ?EXPECT_ACCEPTS([{P1,{error,timeout}},{P2,{error,timeout}},
+			  {P4,{error,timeout}},{P3,{error,timeout}}],infinity,2000).
+
+accept_timeouts_in_order5(suite) ->
+    [];
+accept_timeouts_in_order5(doc) ->
+    ["Check that multi-accept timeouts happen in the correct order after "
+     "mixing millsec and sec timeouts (more)"];
+accept_timeouts_in_order5(Config) when is_list(Config) ->
+    {ok,LS}=gen_tcp:listen(0,[]),
+    Parent = self(),
+    P1 = spawn(mktmofun(400,Parent,LS)),
+    P2 = spawn(mktmofun(1000,Parent,LS)),
+    P3 = spawn(mktmofun(600,Parent,LS)),
+    P4 = spawn(mktmofun(200,Parent,LS)),
+    ok = ?EXPECT_ACCEPTS([{P4,{error,timeout}},{P1,{error,timeout}},
+			  {P3,{error,timeout}},{P2,{error,timeout}}],infinity,2000).
+
+accept_timeouts_in_order6(suite) ->
+    [];
+accept_timeouts_in_order6(doc) ->
+    ["Check that multi-accept timeouts happen in the correct order after "
+     "mixing millsec and sec timeouts (even more)"];
+accept_timeouts_in_order6(Config) when is_list(Config) ->
+    {ok,LS}=gen_tcp:listen(0,[]),
+    Parent = self(),
+    P1 = spawn(mktmofun(1000,Parent,LS)),
+    P2 = spawn(mktmofun(400,Parent,LS)),
+    P3 = spawn(mktmofun(600,Parent,LS)),
+    P4 = spawn(mktmofun(200,Parent,LS)),
+    ok = ?EXPECT_ACCEPTS([{P4,{error,timeout}},{P2,{error,timeout}},
+			  {P3,{error,timeout}},{P1,{error,timeout}}],infinity,2000).
+
+accept_timeouts_in_order7(suite) ->
+    [];
+accept_timeouts_in_order7(doc) ->
+    ["Check that multi-accept timeouts happen in the correct order after "
+     "mixing millsec and sec timeouts (even more++)"];
+accept_timeouts_in_order7(Config) when is_list(Config) ->
+    {ok,LS}=gen_tcp:listen(0,[]),
+    Parent = self(),
+    P1 = spawn(mktmofun(1000,Parent,LS)),
+    P2 = spawn(mktmofun(200,Parent,LS)),
+    P3 = spawn(mktmofun(1200,Parent,LS)),
+    P4 = spawn(mktmofun(600,Parent,LS)),
+    P5 = spawn(mktmofun(400,Parent,LS)),
+    P6 = spawn(mktmofun(800,Parent,LS)),
+    P7 = spawn(mktmofun(1600,Parent,LS)),
+    P8 = spawn(mktmofun(1400,Parent,LS)),
+    ok = ?EXPECT_ACCEPTS([{P2,{error,timeout}},{P5,{error,timeout}},
+			  {P4,{error,timeout}},{P6,{error,timeout}},
+			  {P1,{error,timeout}},{P3,{error,timeout}},
+			  {P8,{error,timeout}},{P7,{error,timeout}}],infinity,2000).
 
 accept_timeouts_mixed(suite) ->
     [];
