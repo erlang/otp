@@ -93,8 +93,8 @@
 
 %% Variable value info.
 -record(sub, {v=[],				%Variable substitutions
-	      s=[],				%Variables in scope
-	      t=[],				%Types
+              s=cerl_sets:new() :: cerl_sets:set(), %Variables in scope
+              t=[],		                    %Types
 	      in_guard=false}).			%In guard or not.
 
 -type type_info() :: cerl:cerl() | 'bool' | 'integer'.
@@ -1242,7 +1242,7 @@ is_subst(_) -> false.
 %%  to force renaming if variables in the scope occurs as pattern
 %%  variables.
 
-sub_new() -> #sub{v=orddict:new(),s=gb_sets:empty(),t=[]}.
+sub_new() -> #sub{v=orddict:new(),s=cerl_sets:new(),t=[]}.
 
 sub_new(#sub{}=Sub) ->
     Sub#sub{v=orddict:new(),t=[]}.
@@ -1262,16 +1262,16 @@ sub_set_var(#c_var{name=V}, Val, Sub) ->
 sub_set_name(V, Val, #sub{v=S,s=Scope,t=Tdb0}=Sub) ->
     Tdb1 = kill_types(V, Tdb0),
     Tdb = copy_type(V, Val, Tdb1),
-    Sub#sub{v=orddict:store(V, Val, S),s=gb_sets:add(V, Scope),t=Tdb}.
+    Sub#sub{v=orddict:store(V, Val, S),s=cerl_sets:add_element(V, Scope),t=Tdb}.
 
 sub_del_var(#c_var{name=V}, #sub{v=S,s=Scope,t=Tdb}=Sub) ->
     %% Profiling shows that for programs with many record operations,
     %% sub_del_var/2 is a bottleneck. Since the scope contains all
     %% variables that are live, we know that V cannot be present in S
     %% if it is not in the scope.
-    case gb_sets:is_member(V, Scope) of
+    case cerl_sets:is_element(V, Scope) of
 	false ->
-	    Sub#sub{s=gb_sets:insert(V, Scope)};
+	    Sub#sub{s=cerl_sets:add_element(V, Scope)};
 	true ->
 	    Sub#sub{v=orddict:erase(V, S),t=kill_types(V, Tdb)}
     end.
@@ -1282,12 +1282,12 @@ sub_subst_var(#c_var{name=V}, Val, #sub{v=S0}) ->
 
 sub_add_scope(Vs, #sub{s=Scope0}=Sub) ->
     Scope = foldl(fun(V, S) when is_integer(V); is_atom(V) ->
-			  gb_sets:add(V, S)
+			  cerl_sets:add_element(V, S)
 		  end, Scope0, Vs),
     Sub#sub{s=Scope}.
 
 sub_subst_scope(#sub{v=S0,s=Scope}=Sub) ->
-    S = [{-1,#c_var{name=Sv}} || Sv <- gb_sets:to_list(Scope)]++S0,
+    S = [{-1,#c_var{name=Sv}} || Sv <- cerl_sets:to_list(Scope)]++S0,
     Sub#sub{v=S}.
 
 sub_is_val(#c_var{name=V}, #sub{v=S,s=Scope}) ->
@@ -1295,7 +1295,7 @@ sub_is_val(#c_var{name=V}, #sub{v=S,s=Scope}) ->
     %% became the new bottleneck. Since the scope contains all
     %% live variables, a variable V can only be the target for
     %% a substitution if it is in the scope.
-    gb_sets:is_member(V, Scope) andalso v_is_value(V, S).
+    cerl_sets:is_element(V, Scope) andalso v_is_value(V, S).
 
 v_is_value(Var, [{_,#c_var{name=Var}}|_]) -> true;
 v_is_value(Var, [_|T]) -> v_is_value(Var, T);
@@ -2147,7 +2147,7 @@ is_bool_expr_list([], _) -> true.
 %%  functions, or is_record/2).
 %%
 is_safe_bool_expr(Core, Sub) ->
-    is_safe_bool_expr_1(Core, Sub, gb_sets:empty()).
+    is_safe_bool_expr_1(Core, Sub, cerl_sets:new()).
 
 is_safe_bool_expr_1(#c_call{module=#c_literal{val=erlang},
                             name=#c_literal{val=is_record},
@@ -2193,7 +2193,7 @@ is_safe_bool_expr_1(#c_let{vars=Vars,arg=Arg,body=B}, Sub, BoolVars) ->
 	true ->
 	    case {is_safe_bool_expr_1(Arg, Sub, BoolVars),Vars} of
 		{true,[#c_var{name=V}]} ->
-		    is_safe_bool_expr_1(B, Sub, gb_sets:add(V, BoolVars));
+		    is_safe_bool_expr_1(B, Sub, cerl_sets:add_element(V, BoolVars));
 		{false,_} ->
 		    is_safe_bool_expr_1(B, Sub, BoolVars)
 	    end;
@@ -2202,7 +2202,7 @@ is_safe_bool_expr_1(#c_let{vars=Vars,arg=Arg,body=B}, Sub, BoolVars) ->
 is_safe_bool_expr_1(#c_literal{val=Val}, _Sub, _) ->
     is_boolean(Val);
 is_safe_bool_expr_1(#c_var{name=V}, _Sub, BoolVars) ->
-    gb_sets:is_element(V, BoolVars);
+    cerl_sets:is_element(V, BoolVars);
 is_safe_bool_expr_1(_, _, _) -> false.
 
 is_safe_bool_expr_list([C|Cs], Sub, BoolVars) ->
@@ -2282,8 +2282,8 @@ move_let_into_expr(#c_let{vars=Lvs0,body=Lbody0}=Let,
 	    B1 = body(B0, ScopeSub),
 
 	    {Lvs,B2,Sub1} = let_substs(Lvs0, B1, Sub0),
-	    Sub2 = Sub1#sub{s=gb_sets:union(ScopeSub#sub.s,
-					    Sub1#sub.s)},
+	    Sub2 = Sub1#sub{s=cerl_sets:union(ScopeSub#sub.s,
+                                              Sub1#sub.s)},
 	    Lbody = body(Lbody0, Sub2),
 	    B = Let#c_let{vars=Lvs,arg=core_lib:make_values(B2),body=Lbody},
 
@@ -3237,12 +3237,12 @@ format_error(bin_var_used_in_guard) ->
 verify_scope(E, #sub{s=Scope}) ->
     Free0 = cerl_trees:free_variables(E),
     Free = [V || V <- Free0, not is_tuple(V)],	%Ignore function names.
-    case ordsets:is_subset(Free, gb_sets:to_list(Scope)) of
+    case ordsets:is_subset(Free, cerl_sets:to_list(Scope)) of
 	true -> true;
 	false ->
 	    io:format("~p\n", [E]),
 	    io:format("~p\n", [Free]),
-	    io:format("~p\n", [gb_sets:to_list(Scope)]),
+	    io:format("~p\n", [cerl_sets:to_list(Scope)]),
 	    false
     end.
 -endif.
