@@ -45,6 +45,7 @@
 	     cerl,
 	     cerl_clauses,
 	     cerl_inline,
+             cerl_sets,
 	     cerl_trees,
 	     compile,
 	     core_scan,
