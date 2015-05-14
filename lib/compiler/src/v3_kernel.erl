@@ -114,7 +114,7 @@ copy_anno(Kdst, Ksrc) ->
 	       ff,				%Current function
 	       vcount=0,			%Variable counter
 	       fcount=0,			%Fun counter
-	       ds=[],				%Defined variables
+               ds=cerl_sets:new() :: cerl_sets:set(), %Defined variables
 	       funs=[],				%Fun functions
 	       free=[],				%Free variables
 	       ws=[]   :: [warning()],		%Warnings.
@@ -148,7 +148,7 @@ include_attribute(_) -> true.
 
 function({#c_var{name={F,Arity}=FA},Body}, St0) ->
     try
-	St1 = St0#kern{func=FA,ff=undefined,vcount=0,fcount=0,ds=sets:new()},
+	St1 = St0#kern{func=FA,ff=undefined,vcount=0,fcount=0,ds=cerl_sets:new()},
 	{#ifun{anno=Ab,vars=Kvs,body=B0},[],St2} = expr(Body, new_sub(), St1),
 	{B1,_,St3} = ubody(B0, return, St2),
 	%%B1 = B0, St3 = St2,				%Null second pass
@@ -715,15 +715,15 @@ force_variable(Ke, St0) ->
 %%  handling.
 
 pattern(#c_var{anno=A,name=V}, _Isub, Osub, St0) ->
-    case sets:is_element(V, St0#kern.ds) of
+    case cerl_sets:is_element(V, St0#kern.ds) of
 	true ->
 	    {New,St1} = new_var_name(St0),
 	    {#k_var{anno=A,name=New},
 	     set_vsub(V, New, Osub),
-	     St1#kern{ds=sets:add_element(New, St1#kern.ds)}};
+	     St1#kern{ds=cerl_sets:add_element(New, St1#kern.ds)}};
 	false ->
 	    {#k_var{anno=A,name=V},Osub,
-	     St0#kern{ds=sets:add_element(V, St0#kern.ds)}}
+	     St0#kern{ds=cerl_sets:add_element(V, St0#kern.ds)}}
     end;
 pattern(#c_literal{anno=A,val=Val}, _Isub, Osub, St) ->
     {#k_literal{anno=A,val=Val},Osub,St};
@@ -897,7 +897,7 @@ new_vars(0, St, Vs) -> {Vs,St}.
 make_vars(Vs) -> [ #k_var{name=V} || V <- Vs ].
 
 add_var_def(V, St) ->
-    St#kern{ds=sets:add_element(V#k_var.name, St#kern.ds)}.
+    St#kern{ds=cerl_sets:add_element(V#k_var.name, St#kern.ds)}.
 
 %%add_vars_def(Vs, St) ->
 %%    Ds = foldl(fun (#k_var{name=V}, Ds) -> add_element(V, Ds) end,
