@@ -96,7 +96,7 @@ move_move_into_block([], Acc) -> reverse(Acc).
 %%%
 
 forward(Is, Lc) ->
-    forward(Is, gb_trees:empty(), Lc, []).
+    forward(Is, #{}, Lc, []).
 
 forward([{move,_,_}=Move|[{label,L}|_]=Is], D, Lc, Acc) ->
     %% move/2 followed by jump/1 is optimized by backward/3.
@@ -115,19 +115,20 @@ forward([{label,Lbl}=LblI,{block,[{set,[Dst],[Lit],move}|BlkIs]}=Blk|Is], D, Lc,
     %% cannot be reached in any other way than through the select_val/3
     %% instruction (i.e. there can be no fallthrough to such label and
     %% it cannot be referenced by, for example, a jump/1 instruction).
-    Block = case gb_trees:lookup({Lbl,Dst}, D) of
-		{value,Lit} -> {block,BlkIs}; %Safe to remove move instruction.
-		_ -> Blk		      %Must keep move instruction.
-	    end,
+    Key = {Lbl,Dst},
+    Block = case D of
+                #{Key := Lit} -> {block,BlkIs}; %Safe to remove move instruction.
+                _ -> Blk                        %Must keep move instruction.
+            end,
     forward([Block|Is], D, Lc, [LblI|Acc]);
 forward([{label,Lbl}=LblI|[{move,Lit,Dst}|Is1]=Is0], D, Lc, Acc) ->
     %% Assumption: The target labels in a select_val/3 instruction
     %% cannot be reached in any other way than through the select_val/3
     %% instruction (i.e. there can be no fallthrough to such label and
     %% it cannot be referenced by, for example, a jump/1 instruction).
-    Is = case gb_trees:lookup({Lbl,Dst}, D) of
-	     {value,Lit} -> Is1;     %Safe to remove move instruction.
-	     _ -> Is0		     %Keep move instruction.
+    Is = case maps:find({Lbl,Dst}, D) of
+	     {ok,Lit} -> Is1;     %Safe to remove move instruction.
+	     _ -> Is0		  %Keep move instruction.
 	 end,
     forward(Is, D, Lc, [LblI|Acc]);
 forward([{test,is_eq_exact,_,[Same,Same]}|Is], D, Lc, Acc) ->
@@ -156,11 +157,11 @@ forward([], _, Lc, Acc) -> {Acc,Lc}.
 
 update_value_dict([Lit,{f,Lbl}|T], Reg, D0) ->
     Key = {Lbl,Reg},
-    D = case gb_trees:lookup(Key, D0) of
-	    none -> gb_trees:insert(Key, Lit, D0); %New.
-	    {value,inconsistent} -> D0;		%Inconsistent.
-	    {value,_} -> gb_trees:update(Key, inconsistent, D0)
-	end,
+    D = case D0 of
+            #{Key := inconsistent} -> D0;
+            #{Key := _} -> D0#{Key := inconsistent};
+            _ -> D0#{Key => Lit}
+        end,
     update_value_dict(T, Reg, D);
 update_value_dict([], _, D) -> D.
 
