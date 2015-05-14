@@ -268,7 +268,7 @@ extract_seq_1(_, _) -> no.
 -record(st, {fc,				%Label for function class errors.
 	     entry,				%Entry label (must not be moved).
 	     mlbl,				%Moved labels.
-	     labels				%Set of referenced labels.
+             labels :: cerl_sets:set()          %Set of referenced labels.
 	    }).
 
 opt([{label,Fc}|_]=Is0, CLabel) ->
@@ -434,7 +434,7 @@ skip_unreachable([], Acc, St) ->
 
 %% Add one or more label to the set of used labels.
 
-label_used({f,L}, St) -> St#st{labels=gb_sets:add(L, St#st.labels)};
+label_used({f,L}, St) -> St#st{labels=cerl_sets:add_element(L,St#st.labels)};
 label_used([H|T], St0) -> label_used(T, label_used(H, St0));
 label_used([], St) -> St;
 label_used(_Other, St) -> St.
@@ -442,7 +442,7 @@ label_used(_Other, St) -> St.
 %% Test if label is used.
 
 is_label_used(L, St) ->
-    gb_sets:is_member(L, St#st.labels).
+    cerl_sets:is_element(L, St#st.labels).
 
 %% is_unreachable_after(Instruction) -> boolean()
 %%  Test whether the code after Instruction is unreachable.
@@ -472,14 +472,14 @@ is_exit_instruction(_) -> false.
 %%  (including inside blocks).
 
 is_label_used_in(Lbl, Is) ->
-    is_label_used_in_1(Is, Lbl, gb_sets:empty()).
+    is_label_used_in_1(Is, Lbl, cerl_sets:new()).
 
 is_label_used_in_1([{block,Block}|Is], Lbl, Empty) ->
     lists:any(fun(I) -> is_label_used_in_block(I, Lbl) end, Block)
 	orelse is_label_used_in_1(Is, Lbl, Empty);
 is_label_used_in_1([I|Is], Lbl, Empty) ->
     Used = ulbl(I, Empty),
-    gb_sets:is_member(Lbl, Used) orelse is_label_used_in_1(Is, Lbl, Empty);
+    cerl_sets:is_element(Lbl, Used) orelse is_label_used_in_1(Is, Lbl, Empty);
 is_label_used_in_1([], _, _) -> false.
 
 is_label_used_in_block({set,_,_,Info}, Lbl) ->
@@ -506,7 +506,7 @@ remove_unused_labels(Is) ->
     rem_unused(Is, Used, []).
 
 rem_unused([{label,Lbl}=I|Is0], Used, [Prev|_]=Acc) ->
-    case gb_sets:is_member(Lbl, Used) of
+    case cerl_sets:is_element(Lbl, Used) of
 	false ->
 	    Is = case is_unreachable_after(Prev) of
 		     true -> drop_upto_label(Is0);
@@ -528,7 +528,7 @@ initial_labels([{line,_}|Is], Acc) ->
 initial_labels([{label,Lbl}|Is], Acc) ->
     initial_labels(Is, [Lbl|Acc]);
 initial_labels([{func_info,_,_,_},{label,Lbl}|_], Acc) ->
-    gb_sets:from_list([Lbl|Acc]).
+    cerl_sets:from_list([Lbl|Acc]).
 
 drop_upto_label([{label,_}|_]=Is) -> Is;
 drop_upto_label([_|Is]) -> drop_upto_label(Is);
@@ -576,10 +576,10 @@ ulbl({get_map_elements,Lbl,_Src,_List}, Used) ->
 ulbl(_, Used) -> Used.
 
 mark_used({f,0}, Used) -> Used;
-mark_used({f,L}, Used) -> gb_sets:add(L, Used).
+mark_used({f,L}, Used) -> cerl_sets:add_element(L, Used).
 
 mark_used_list([{f,L}|T], Used) ->
-    mark_used_list(T, gb_sets:add(L, Used));
+    mark_used_list(T, cerl_sets:add_element(L, Used));
 mark_used_list([_|T], Used) ->
     mark_used_list(T, Used);
 mark_used_list([], Used) -> Used.
