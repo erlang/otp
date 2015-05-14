@@ -152,14 +152,14 @@ function({function,Name,Arity,CLabel,Asm0}) ->
 share(Is0) ->
     %% We will get more sharing if we never fall through to a label.
     Is = eliminate_fallthroughs(Is0, []),
-    share_1(Is, dict:new(), [], []).
+    share_1(Is, #{}, [], []).
 
 share_1([{label,_}=Lbl|Is], Dict, [], Acc) ->
     share_1(Is, Dict, [], [Lbl|Acc]);
 share_1([{label,L}=Lbl|Is], Dict0, Seq, Acc) ->
-    case dict:find(Seq, Dict0) of
+    case maps:find(Seq, Dict0) of
 	error ->
-	    Dict = dict:store(Seq, L, Dict0),
+	    Dict = maps:put(Seq, L, Dict0),
 	    share_1(Is, Dict, [], [Lbl|Seq ++ Acc]);
 	{ok,Label} ->
 	    share_1(Is, Dict0, [], [Lbl,{jump,{f,Label}}|Acc])
@@ -188,7 +188,7 @@ clean_non_sharable(Dict) ->
     %% a sequence inside the 'try' block is a sequence that ends
     %% with an instruction that causes an exception. Any sequence
     %% that causes an exception must contain a line/1 instruction.
-    dict:filter(fun(K, _V) -> sharable_with_try(K) end, Dict).
+    maps:filter(fun(K, _V) -> sharable_with_try(K) end, Dict).
 
 sharable_with_try([{line,_}|_]) ->
     %% This sequence may cause an exception and may potentially
@@ -274,7 +274,7 @@ extract_seq_1(_, _) -> no.
 opt([{label,Fc}|_]=Is0, CLabel) ->
     Lbls = initial_labels(Is0),
     find_fixpoint(fun(Is) ->
-			  St = #st{fc=Fc,entry=CLabel,mlbl=dict:new(),
+			  St = #st{fc=Fc,entry=CLabel,mlbl=#{},
 				   labels=Lbls},
 			  opt(Is, [], St)
 		  end, Is0).
@@ -320,11 +320,11 @@ opt([{test,_,{f,_}=Lbl,_,_,_}=I|Is], Acc, St) ->
 opt([{select,_,_R,Fail,Vls}=I|Is], Acc, St) ->
     skip_unreachable(Is, [I|Acc], label_used([Fail|Vls], St));
 opt([{label,Lbl}=I|Is], Acc, #st{mlbl=Mlbl}=St0) ->
-    case dict:find(Lbl, Mlbl) of
+    case maps:find(Lbl, Mlbl) of
 	{ok,Lbls} ->
 	    %% Essential to remove the list of labels from the dictionary,
 	    %% since we will rescan the inserted labels.  We MUST rescan.
-	    St = St0#st{mlbl=dict:erase(Lbl, Mlbl)},
+	    St = St0#st{mlbl=maps:remove(Lbl, Mlbl)},
 	    insert_labels([Lbl|Lbls], Is, Acc, St);
 	error -> opt(Is, [I|Acc], St0)
     end;
@@ -339,7 +339,7 @@ opt([{jump,{f,L}=Lbl}=I|Is], Acc0, #st{mlbl=Mlbl0}=St0) ->
     St = case Lbls of
 	     [] -> St0;
 	     [_|_] ->
-		 Mlbl = dict:append_list(L, Lbls, Mlbl0),
+		 Mlbl = maps_append_list(L, Lbls, Mlbl0),
 		 St0#st{mlbl=Mlbl}
 	 end,
     skip_unreachable(Is, [I|Acc], label_used(Lbl, St));
@@ -363,14 +363,20 @@ opt([I|Is], Acc, #st{labels=Used0}=St0) ->
     end;
 opt([], Acc, #st{fc=Fc,mlbl=Mlbl}) ->
     Code = reverse(Acc),
-    case dict:find(Fc, Mlbl) of
+    case maps:find(Fc, Mlbl) of
  	{ok,Lbls} -> insert_fc_labels(Lbls, Mlbl, Code);
  	error -> Code
     end.
 
+maps_append_list(K,Vs,M) ->
+    case M of
+        #{K:=Vs0} -> M#{K:=Vs0++Vs}; % same order as dict
+        _ -> M#{K => Vs}
+    end.
+
 insert_fc_labels([L|Ls], Mlbl, Acc0) ->
     Acc = [{label,L}|Acc0],
-    case dict:find(L, Mlbl) of
+    case maps:find(L, Mlbl) of
 	error ->
 	    insert_fc_labels(Ls, Mlbl, Acc);
 	{ok,Lbls} ->
