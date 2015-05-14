@@ -1242,7 +1242,7 @@ is_subst(_) -> false.
 %%  to force renaming if variables in the scope occurs as pattern
 %%  variables.
 
-sub_new() -> #sub{v=orddict:new(),s=gb_trees:empty(),t=[]}.
+sub_new() -> #sub{v=orddict:new(),s=gb_sets:empty(),t=[]}.
 
 sub_new(#sub{}=Sub) ->
     Sub#sub{v=orddict:new(),t=[]}.
