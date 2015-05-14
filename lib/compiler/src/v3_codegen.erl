@@ -57,8 +57,7 @@
 	     break,				%Break label
 	     recv,				%Receive label
 	     is_top_block,			%Boolean: top block or not
-	     functable=gb_trees:empty(),	%Gb tree of local functions:
-						% {{Name,Arity},Label}
+	     functable=#{},	                %Map of local functions: {Name,Arity}=>Label
 	     in_catch=false,			%Inside a catch or not.
 	     need_frame,			%Need a stack frame.
 	     ultimate_failure			%Label for ultimate match failure.
@@ -1261,13 +1260,12 @@ enter_line(_, _, _) ->
 local_func_label(Name, Arity, St) ->
     local_func_label({Name,Arity}, St).
 
-local_func_label(Key, #cg{functable=Tab}=St0) ->
-    case gb_trees:lookup(Key, Tab) of
-	{value,Label} ->
-	    {Label,St0};
-	none ->
+local_func_label(Key, #cg{functable=Map}=St0) ->
+    case Map of
+        #{Key := Label} -> {Label,St0};
+        _ ->
   	    {Label,St} = new_label(St0),
-	    {Label,St#cg{functable=gb_trees:insert(Key, Label, Tab)}}
+	    {Label,St#cg{functable=Map#{Key => Label}}}
     end.
 
 %% need_stack_frame(State) -> State'
