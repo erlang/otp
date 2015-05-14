@@ -120,6 +120,7 @@ value_option(Flag, Default, On, OnVal, Off, OffVal, Opts) ->
                func=[],                         %Current function
                warn_format=0,                   %Warn format calls
 	       enabled_warnings=[],		%All enabled warnings (ordset).
+               nowarn_bif_clash=[],             %All no warn bif clashes (ordset).
                errors=[],                       %Current errors
                warnings=[],                     %Current warnings
                file = ""        :: string(),	%From last file attribute
@@ -569,6 +570,7 @@ start(File, Opts) ->
           warn_format = value_option(warn_format, 1, warn_format, 1,
 				     nowarn_format, 0, Opts),
 	  enabled_warnings = Enabled,
+          nowarn_bif_clash = nowarn_function(nowarn_bif_clash, Opts),
           file = File
          }.
 
@@ -772,8 +774,7 @@ eof(_Line, St0) ->
 
 %% bif_clashes(Forms, State0) -> State.
 
-bif_clashes(Forms, St) ->
-    Nowarn = nowarn_function(nowarn_bif_clash, St#lint.compile),
+bif_clashes(Forms, #lint{nowarn_bif_clash=Nowarn} = St) ->
     Clashes0 = [{Name,Arity} || {function,_L,Name,Arity,_Cs} <- Forms,
                                 erl_internal:bif(Name, Arity)],
     Clashes = ordsets:subtract(ordsets:from_list(Clashes0), Nowarn),
@@ -3781,8 +3782,7 @@ is_autoimport_suppressed(NoAutoSet,{Func,Arity}) ->
     gb_sets:is_element({Func,Arity},NoAutoSet).
 %% Predicate to find out if a function specific bif-clash suppression (old deprecated) is present
 bif_clash_specifically_disabled(St,{F,A}) ->
-    Nowarn = nowarn_function(nowarn_bif_clash, St#lint.compile),
-    lists:member({F,A},Nowarn).
+    lists:member({F,A},St#lint.nowarn_bif_clash).
 
 %% Predicate to find out if an autoimported guard_bif is not overriden in some way
 %% Guard Bif without module name is disallowed if
