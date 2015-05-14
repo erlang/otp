@@ -33,7 +33,7 @@
 
 -type atom_tab()   :: #{atom() => index()}.
 -type import_tab() :: gb_trees:tree(mfa(), index()).
--type fname_tab()  :: gb_trees:tree(Name :: term(), index()).
+-type fname_tab()  :: #{Name :: term() => index()}.
 -type line_tab()   :: #{{Fname :: index(), Line :: term()} => index()}.
 -type literal_tab() :: dict:dict(Literal :: term(), index()).
 
@@ -45,7 +45,7 @@
 	 strings = <<>>		    :: binary(),	%String pool
 	 lambdas = [],				%[{...}]
 	 literals = dict:new()	    :: literal_tab(),
-	 fnames = gb_trees:empty()  :: fname_tab(),
+	 fnames = #{}               :: fname_tab(),
 	 lines = #{}                :: line_tab(),
 	 num_lines = 0		    :: non_neg_integer(), %Number of line instructions
 	 next_import = 0	    :: non_neg_integer(),
@@ -185,14 +185,12 @@ line([{location,Name,Line}], #asm{lines=Lines,num_lines=N}=Dict0) ->
             {Index, Dict1#asm{lines=Lines#{Key=>Index},num_lines=N+1}}
     end.
 
-fname(Name, #asm{fnames=Fnames0}=Dict) ->
-    case gb_trees:lookup(Name, Fnames0) of
-	{value,Index} ->
-	    {Index,Dict};
-	none ->
-	    Index = gb_trees:size(Fnames0),
-	    Fnames = gb_trees:insert(Name, Index, Fnames0),
-	    {Index,Dict#asm{fnames=Fnames}}
+fname(Name, #asm{fnames=Fnames}=Dict) ->
+    case Fnames of
+        #{Name := Index} -> {Index,Dict};
+        _ ->
+            Index = maps:size(Fnames),
+	    {Index,Dict#asm{fnames=Fnames#{Name=>Index}}}
     end.
 
 %% Returns the atom table.
@@ -267,8 +265,8 @@ my_term_to_binary(Term) ->
      non_neg_integer(),[{non_neg_integer(),non_neg_integer()}]}.
 
 line_table(#asm{fnames=Fnames0,lines=Lines0,num_lines=NumLineInstrs}) ->
-    NumFnames = gb_trees:size(Fnames0),
-    Fnames1 = lists:keysort(2, gb_trees:to_list(Fnames0)),
+    NumFnames = maps:size(Fnames0),
+    Fnames1 = lists:keysort(2, maps:to_list(Fnames0)),
     Fnames = [Name || {Name,_} <- Fnames1],
     NumLines = maps:size(Lines0),
     Lines1 = lists:keysort(2, maps:to_list(Lines0)),
