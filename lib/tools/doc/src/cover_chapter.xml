@@ -317,58 +317,58 @@ File generated from channel.erl by COVER 2001-05-21 at 11:16:38
 
 ****************************************************************************
 
-        |  -module(channel).
-        |  -behaviour(gen_server).
-        |  
-        |  -export([start_link/0,stop/0]).
-        |  -export([alloc/0,free/1]). % client interface
-        |  -export([init/1,handle_call/3,terminate/2]). % callback functions
-        |  
-        |  start_link() ->
-     1..|      gen_server:start_link({local,channel},channel,[],[]).
-        |  
-        |  stop() ->
-     1..|      gen_server:call(channel,stop).
-        |  
-        |  %%%-Client interface functions------------------------------------
-        |  
-        |  alloc() ->
-     1..|      gen_server:call(channel,alloc).
-        |  
-        |  free(Channel) ->
-     1..|      gen_server:call(channel,{free,Channel}).
-        |  
-        |  %%%-gen_server callback functions---------------------------------
-        |  
-        |  init(_Arg) ->
-     1..|      {ok,channels()}.
-        |  
-        |  handle_call(stop,Client,Channels) ->
-     1..|      {stop,normal,ok,Channels};
-        |  
-        |  handle_call(alloc,Client,Channels) ->
-     1..|      {Ch,Channels2} = alloc(Channels),
-     1..|      {reply,{ok,Ch},Channels2};
-        |  
-        |  handle_call({free,Channel},Client,Channels) ->
-     1..|      Channels2 = free(Channel,Channels),
-     1..|      {reply,ok,Channels2}.
-        |  
-        |  terminate(_Reason,Channels) ->
-     1..|      ok.
-        |  
-        |  %%%-Internal functions--------------------------------------------
-        |  
-        |  channels() ->
-     1..|      [ch1,ch2,ch3].
-        |  
-        |  alloc([Channel|Channels]) ->
-     1..|      {Channel,Channels};
-        |  alloc([]) ->
-     0..|      false.
-        |  
-        |  free(Channel,Channels) ->
-     1..|      [Channel|Channels].</pre>
+    1:        |  -module(channel).
+    2:        |  -behaviour(gen_server).
+    3:        |  
+    4:        |  -export([start_link/0,stop/0]).
+    5:        |  -export([alloc/0,free/1]). % client interface
+    6:        |  -export([init/1,handle_call/3,terminate/2]). % callback functions
+    7:        |  
+    8:        |  start_link() ->
+    9:     1..|      gen_server:start_link({local,channel},channel,[],[]).
+   10:        |  
+   11:        |  stop() ->
+   12:     1..|      gen_server:call(channel,stop).
+   13:        |  
+   14:        |  %%%-Client interface functions------------------------------------
+   15:        |  
+   16:        |  alloc() ->
+   17:     1..|      gen_server:call(channel,alloc).
+   18:        |  
+   19:        |  free(Channel) ->
+   20:     1..|      gen_server:call(channel,{free,Channel}).
+   21:        |  
+   22:        |  %%%-gen_server callback functions---------------------------------
+   23:        |  
+   24:        |  init(_Arg) ->
+   25:     1..|      {ok,channels()}.
+   26:        |  
+   27:        |  handle_call(stop,Client,Channels) ->
+   28:     1..|      {stop,normal,ok,Channels};
+   29:        |  
+   30:        |  handle_call(alloc,Client,Channels) ->
+   31:     1..|      {Ch,Channels2} = alloc(Channels),
+   32:     1..|      {reply,{ok,Ch},Channels2};
+   33:        |  
+   34:        |  handle_call({free,Channel},Client,Channels) ->
+   35:     1..|      Channels2 = free(Channel,Channels),
+   36:     1..|      {reply,ok,Channels2}.
+   37:        |  
+   38:        |  terminate(_Reason,Channels) ->
+   39:     1..|      ok.
+   40:        |  
+   41:        |  %%%-Internal functions--------------------------------------------
+   42:        |  
+   43:        |  channels() ->
+   44:     1..|      [ch1,ch2,ch3].
+   45:        |  
+   46:        |  alloc([Channel|Channels]) ->
+   47:     1..|      {Channel,Channels};
+   48:        |  alloc([]) ->
+   49:     0..|      false.
+   50:        |  
+   51:        |  free(Channel,Channels) ->
+   52:     1..|      [Channel|Channels].</pre>
     </section>
 
     <section>
