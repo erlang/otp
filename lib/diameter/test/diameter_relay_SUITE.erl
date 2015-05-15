@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -49,6 +49,7 @@
          send_timeout_1/1,
          send_timeout_2/1,
          info/1,
+         counters/1,
          disconnect/1,
          stop_services/1,
          stop/1]).
@@ -120,6 +121,7 @@ all() ->
      start_services,
      connect,
      {group, all},
+     counters,
      {group, all, [parallel]},
      disconnect,
      stop_services,
@@ -201,8 +203,8 @@ send3(_Config) ->
 send4(_Config) ->
     call(?SERVER4).
 
-%% Send an ASR that loops between the relays and expect the loop to
-%% be detected.
+%% Send an ASR that loops between the relays (RELAY1 -> RELAY2 ->
+%% RELAY1) and expect the loop to be detected.
 send_loop(_Config) ->
     Req = ['ASR', {'Destination-Realm', realm(?SERVER1)},
                   {'Destination-Host', ?SERVER1},
@@ -227,7 +229,101 @@ send_timeout(Tmo) ->
     call(Req, [{filter, realm}, {timeout, Tmo}]).
 
 info(_Config) ->
+    %% Wait for RELAY1 to have answered all requests, so that the
+    %% suite doesn't end before all answers are sent and counted.
+    receive after 6000 -> ok end,
     [] = ?util:info().
+
+counters(_Config) ->
+    [] = ?util:run([[fun counters/2, K, S]
+                    || K <- [statistics, transport, connections],
+                       S <- ?SERVICES]).
+
+counters(Key, Svc) ->
+    counters(Key, Svc, [_|_] = diameter:service_info(Svc, Key)).
+
+counters(statistics, Svc, Stats) ->
+    stats(Svc, lists:foldl(fun({K,N},D) -> orddict:update_counter(K, N, D) end,
+                           orddict:new(),
+                           lists:append([L || {P,L} <- Stats, is_pid(P)])));
+
+counters(_, _, _) ->
+    todo.
+
+stats(?CLIENT, L) ->
+    [{{{0,257,0},recv},2},   %% CEA
+     {{{0,257,1},send},2},   %% CER
+     {{{0,258,0},recv},1},   %% RAA (send_timeout_1)
+     {{{0,258,1},send},2},   %% RAR (send_timeout_[12])
+     {{{0,274,0},recv},1},   %% ASA (send_loop)
+     {{{0,274,1},send},1},   %% ASR (send_loop)
+     {{{0,275,0},recv},4},   %% STA (send[1-4])
+     {{{0,275,1},send},4},   %% STR (send[1-4])
+     {{{0,257,0},recv,{'Result-Code',2001}},2},  %% CEA
+     {{{0,258,0},recv,{'Result-Code',3002}},1},  %% RAA (send_timeout_1)
+     {{{0,274,0},recv,{'Result-Code',3005}},1},  %% ASA (send_loop)
+     {{{0,275,0},recv,{'Result-Code',2001}},4}]  %% STA (send[1-4])
+        = L;
+
+stats(S, L)
+  when S == ?SERVER1;
+       S == ?SERVER2;
+       S == ?SERVER3;
+       S == ?SERVER4 ->
+    [{{{0,257,0},send},1},   %% CEA
+     {{{0,257,1},recv},1},   %% CER
+     {{{0,275,0},send},1},   %% STA (send[1-4])
+     {{{0,275,1},recv},1},   %% STR (send[1-4])
+     {{{0,257,0},send,{'Result-Code',2001}},1},  %% CEA
+     {{{0,275,0},send,{'Result-Code',2001}},1}]  %% STA (send[1-4])
+        = L;
+
+stats(?RELAY1, L) ->
+    [{{{relay,0},recv},3},   %% STA x 2 (send[12])
+                             %% ASA     (send_loop)
+     {{{relay,0},send},6},   %% STA x 2 (send[12])
+                             %% ASA x 2 (send_loop)
+                             %% RAA x 2 (send_timeout_[12])
+     {{{relay,1},recv},6},   %% STR x 2 (send[12])
+                             %% ASR x 2 (send_loop)
+                             %% RAR x 2 (send_timeout_[12])
+     {{{relay,1},send},5},   %% STR x 2 (send[12])
+                             %% ASR     (send_loop)
+                             %% RAR x 2 (send_timeout_[12])
+     {{{0,257,0},recv},3},   %% CEA
+     {{{0,257,0},send},1},   %%  "
+     {{{0,257,1},recv},1},   %% CER 
+     {{{0,257,1},send},3},   %%  "
+     {{{relay,0},recv,{'Result-Code',2001}},2},  %% STA x 2 (send[34])
+     {{{relay,0},recv,{'Result-Code',3005}},1},  %% ASA     (send_loop)
+     {{{relay,0},send,{'Result-Code',2001}},2},  %% STA x 2 (send[34])
+     {{{relay,0},send,{'Result-Code',3002}},2},  %% RAA     (send_timeout_[12])
+     {{{relay,0},send,{'Result-Code',3005}},2},  %% ASA     (send_loop)
+     {{{0,257,0},recv,{'Result-Code',2001}},3},  %% CEA
+     {{{0,257,0},send,{'Result-Code',2001}},1}]  %%  "
+        = L;
+
+stats(?RELAY2, L) ->
+    [{{{relay,0},recv},3},   %% STA x 2 (send[34])
+                             %% ASA     (send_loop)
+     {{{relay,0},send},3},   %% STA x 2 (send[34])
+                             %% ASA     (send_loop)
+     {{{relay,1},recv},5},   %% STR x 2 (send[34])
+                             %% RAR x 2 (send_timeout_[12])
+                             %% ASR     (send_loop)
+     {{{relay,1},send},3},   %% STR x 2 (send[34])
+                             %% ASR     (send_loop)
+     {{{0,257,0},recv},2},   %% CEA
+     {{{0,257,0},send},2},   %%  "
+     {{{0,257,1},recv},2},   %% CER
+     {{{0,257,1},send},2},   %%  "
+     {{{relay,0},recv,{'Result-Code',2001}},2},  %% STA x 2 (send[34])
+     {{{relay,0},recv,{'Result-Code',3005}},1},  %% ASA     (send_loop)
+     {{{relay,0},send,{'Result-Code',2001}},2},  %% STA x 2 (send[34])
+     {{{relay,0},send,{'Result-Code',3005}},1},  %% ASA     (send_loop)
+     {{{0,257,0},recv,{'Result-Code',2001}},2},  %% CEA
+     {{{0,257,0},send,{'Result-Code',2001}},2}]  %%  "
+        = L.
 
 %% ===========================================================================
 
@@ -303,18 +399,24 @@ handle_request(Pkt, OH, {_Ref, #diameter_caps{origin_host = {OH,_}} = Caps})
   when OH /= ?CLIENT ->
     request(Pkt, Caps).
 
-%% RELAY1 routes any ASR or RAR to RELAY2 ...
+%% RELAY1 answers ACR after it's timed out at the client.
+request(#diameter_packet{header = #diameter_header{cmd_code = 271}},
+        #diameter_caps{origin_host = {?RELAY1, _}}) ->
+    receive after 1000 -> {answer_message, 3004} end;  %% TOO_BUSY
+
+%% RELAY1 routes any ASR or RAR to RELAY2.
 request(#diameter_packet{header = #diameter_header{cmd_code = C}},
         #diameter_caps{origin_host = {?RELAY1, _}})
   when C == 274;   %% ASR
        C == 258 -> %% RAR
     {relay, [{filter, {realm, realm(?RELAY2)}}]};
 
-%% ... which in turn routes it back. Expect diameter to either answer
-%% either with DIAMETER_LOOP_DETECTED/DIAMETER_UNABLE_TO_COMPLY.
+%% RELAY2 routes ASR back to RELAY1 to induce DIAMETER_LOOP_DETECTED.
 request(#diameter_packet{header = #diameter_header{cmd_code = 274}},
         #diameter_caps{origin_host = {?RELAY2, _}}) ->
     {relay, [{filter, {host, ?RELAY1}}]};
+
+%% RELAY2 discards RAR to induce DIAMETER_UNABLE_TO_DELIVER.
 request(#diameter_packet{header = #diameter_header{cmd_code = 258}},
         #diameter_caps{origin_host = {?RELAY2, _}}) ->
     discard;
