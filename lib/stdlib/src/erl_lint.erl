@@ -608,22 +608,30 @@ pack_warnings(Ws) ->
 %% add_warning(ErrorDescriptor, State) -> State'
 %% add_warning(Line, Error, State) -> State'
 
-add_error(E, St) -> St#lint{errors=[{St#lint.file,E}|St#lint.errors]}.
+add_error(E, St) -> add_lint_error(E, St#lint.file, St).
 
 add_error(Anno, E, St) ->
-    {File,Location} = loc(Anno),
-    add_error({Location,erl_lint,E}, St#lint{file = File}).
+    {File,Location} = loc(Anno, St),
+    add_lint_error({Location,erl_lint,E}, File, St).
 
-add_warning(W, St) -> St#lint{warnings=[{St#lint.file,W}|St#lint.warnings]}.
+add_lint_error(E, File, St) ->
+    St#lint{errors=[{File,E}|St#lint.errors]}.
+
+add_warning(W, St) -> add_lint_warning(W, St#lint.file, St).
 
 add_warning(FileLine, W, St) ->
-    {File,Location} = loc(FileLine),
-    add_warning({Location,erl_lint,W}, St#lint{file = File}).
+    {File,Location} = loc(FileLine, St),
+    add_lint_warning({Location,erl_lint,W}, File, St).
 
-loc(Anno) ->
-    File = erl_anno:file(Anno),
+add_lint_warning(W, File, St) ->
+    St#lint{warnings=[{File,W}|St#lint.warnings]}.
+
+loc(Anno, St) ->
     Location = erl_anno:location(Anno),
-    {File,Location}.
+    case erl_anno:file(Anno) of
+        undefined -> {St#lint.file,Location};
+        File -> {File,Location}
+    end.
 
 %% forms([Form], State) -> State'
 
@@ -668,10 +676,20 @@ eval_file_attribute(Forms, St) ->
 eval_file_attr([{attribute,_L,file,{File,_Line}}=Form | Forms], _File) ->
     [Form | eval_file_attr(Forms, File)];
 eval_file_attr([Form0 | Forms], File) ->
-    Form = set_file(Form0, File),
+    Form = set_form_file(Form0, File),
     [Form | eval_file_attr(Forms, File)];
 eval_file_attr([], _File) ->
     [].
+
+%% Sets the file only on the form. This is used on post-traversal.
+%% For the remaining of the AST we rely on #lint.file.
+
+set_form_file({attribute,L,K,V}, File) ->
+    {attribute,erl_anno:set_file(File, L),K,V};
+set_form_file({function,L,N,A,C}, File) ->
+    {function,erl_anno:set_file(File, L),N,A,C};
+set_form_file(Form, _File) ->
+    Form.
 
 set_file(T, File) ->
     F = fun(Anno) -> erl_anno:set_file(File, Anno) end,
@@ -798,10 +816,10 @@ disallowed_compile_flags(Forms, St0) ->
     %% There are (still) no line numbers in St0#lint.compile.
     Errors0 =  [ {St0#lint.file,{L,erl_lint,disallowed_nowarn_bif_clash}} ||
 		    {attribute,A,compile,nowarn_bif_clash} <- Forms,
-                   {_,L} <- [loc(A)] ],
+                   {_,L} <- [loc(A, St0)] ],
     Errors1 = [ {St0#lint.file,{L,erl_lint,disallowed_nowarn_bif_clash}} ||
 		    {attribute,A,compile,{nowarn_bif_clash, {_,_}}} <- Forms,
-                   {_,L} <- [loc(A)] ],
+                   {_,L} <- [loc(A, St0)] ],
     Disabled = (not is_warn_enabled(bif_clash, St0)),
     Errors = if
 		   Disabled andalso Errors0 =:= [] ->
@@ -926,7 +944,7 @@ behaviour_conflicting(AllBfs, St) ->
     behaviour_add_conflicts(R, St).
 
 behaviour_add_conflicts([{Cb,[{FirstLoc,FirstB}|Cs]}|T], St0) ->
-    FirstL = element(2, loc(FirstLoc)),
+    FirstL = element(2, loc(FirstLoc, St0)),
     St = behaviour_add_conflict(Cs, Cb, FirstL, FirstB, St0),
     behaviour_add_conflicts(T, St);
 behaviour_add_conflicts([], St) -> St.
@@ -1144,7 +1162,7 @@ check_unused_records(Forms, St0) ->
                           end, St0#lint.records, UsedRecords),
             Unused = [{Name,FileLine} ||
                          {Name,{FileLine,_Fields}} <- dict:to_list(URecs),
-                         element(1, loc(FileLine)) =:= FirstFile],
+                         element(1, loc(FileLine, St0)) =:= FirstFile],
             foldl(fun ({N,L}, St) ->
                           add_warning(L, {unused_record, N}, St)
                   end, St0, Unused);
@@ -1337,14 +1355,15 @@ check_on_load(St) -> St.
 -spec call_function(line(), atom(), arity(), lint_state()) -> lint_state().
 %%  Add to both called and calls.
 
-call_function(Line, F, A, #lint{usage=Usage0,called=Cd,func=Func}=St) ->
+call_function(Line, F, A, #lint{usage=Usage0,called=Cd,func=Func,file=File}=St) ->
     #usage{calls = Cs} = Usage0,
     NA = {F,A},
     Usage = case Cs of
 		undefined -> Usage0;
 		_ -> Usage0#usage{calls=dict:append(Func, NA, Cs)}
 	    end,
-    St#lint{called=[{NA,Line}|Cd], usage=Usage}.
+    Anno = erl_anno:set_file(File, Line),
+    St#lint{called=[{NA,Anno}|Cd], usage=Usage}.
 
 %% function(Line, Name, Arity, Clauses, State) -> State.
 
@@ -2123,7 +2142,7 @@ expr({'receive',Line,Cs,To,ToEs}, Vt, St0) ->
     {Cvt,St3} = icrt_clauses(Cs, Vt, St2),
     %% Csvts = [vtnew(Tevt, Vt)|Cvt],           %This is just NEW variables!
     Csvts = [Tevt|Cvt],
-    Rvt = icrt_export(Csvts, Vt, {'receive',Line}),
+    Rvt = icrt_export(Csvts, Vt, {'receive',Line}, St3),
     {vtmerge([Tvt,Tevt,Rvt]),St3};
 expr({'fun',Line,Body}, Vt, St) ->
     %%No one can think funs export!
@@ -2984,7 +3003,7 @@ check_unused_types(Forms, #lint{usage=Usage, types=Ts, exp_types=ExpTs}=St) ->
 	    UsedTypes = gb_sets:from_list(L),
 	    FoldFun =
 		fun(Type, #typeinfo{line = FileLine}, AccSt) ->
-                        case loc(FileLine) of
+                        case loc(FileLine, AccSt) of
 			    {FirstFile, _} ->
 				case gb_sets:is_member(Type, UsedTypes) of
 				    true -> AccSt;
@@ -3022,7 +3041,7 @@ check_local_opaque_types(St) ->
 
 icrt_clauses(Cs, In, Vt, St0) ->
     {Csvt,St1} = icrt_clauses(Cs, Vt, St0),
-    UpdVt = icrt_export(Csvt, Vt, In),
+    UpdVt = icrt_export(Csvt, Vt, In, St1),
     {UpdVt,St1}.
 
 %% icrt_clauses(Clauses, ImportVarTable, State) ->
@@ -3039,8 +3058,8 @@ icrt_clause({clause,_Line,H,G,B}, Vt0, St0) ->
     {Bvt,St3} = exprs(B, vtupdate(Vt2, Vt0), St2),
     {vtupdate(Bvt, Vt2),St3}.
 
-icrt_export(Vts, Vt, {Tag,Attrs}) ->
-    {_File,Loc} = loc(Attrs),
+icrt_export(Vts, Vt, {Tag,Attrs}, St) ->
+    {_File,Loc} = loc(Attrs, St),
     icrt_export(lists:merge(Vts), Vt, {Tag,Loc}, length(Vts), []).
 
 icrt_export([{V,{{export,_},_,_}}|Vs0], [{V,{{export,_}=S0,_,Ls}}|Vt],
@@ -3397,7 +3416,7 @@ vtupdate(Uvt, Vt0) ->
 %%  Return all new variables in UpdVarTable as unsafe.
 
 vtunsafe({Tag,FileLine}, Uvt, Vt) ->
-    {_File,Line} = loc(FileLine),
+    Line = erl_anno:location(FileLine),
     [{V,{{unsafe,{Tag,Line}},U,Ls}} || {V,{_,U,Ls}} <- vtnew(Uvt, Vt)].
 
 %% vtmerge(VarTable, VarTable) -> VarTable.
