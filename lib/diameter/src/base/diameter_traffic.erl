@@ -1081,6 +1081,9 @@ incr_result(Dir, Pkt, TPid, {Dict, AppDict, Dict0}) ->
         = Pkt,
 
     Id = msg_id(Hdr, AppDict),
+    %% Could be {relay, 0}, in which case the R-bit is redundant since
+    %% only answers are being counted. Let it be however, so that the
+    %% same tuple is in both send/recv and result code counters.
 
     %% Count incoming decode errors.
     recv /= Dir orelse [] == Es orelse incr_error(Dir, Id, TPid, AppDict),
@@ -1107,10 +1110,11 @@ msg_id(#diameter_packet{header = H}, Dict) ->
 %% pairs for an attacker to choose from.
 msg_id(Hdr, Dict) ->
     {Aid, Code, R} = Id = diameter_codec:msg_id(Hdr),
-    if Aid == ?APP_ID_RELAY ->
+    case Dict:id() of
+        ?APP_ID_RELAY ->
             {relay, R};
-       true ->
-            choose(Aid /= Dict:id() orelse '' == Dict:msg_name(Code, 0 == R),
+        A ->
+            choose(A /= Aid orelse '' == Dict:msg_name(Code, 0 == R),
                    unknown,
                    Id)
     end.
