@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
+%%
 %% Copyright Ericsson AB 1996-2013. All Rights Reserved.
-%% 
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -36,7 +36,7 @@
 	 db_match_erase/2,
 	 get_index_table/2,
 	 get_index_table/3,
-	 
+
 	 tab2filename/2,
 	 tab2tmp_filename/2,
 	 init_index/2,
@@ -52,8 +52,8 @@
 
 val(Var) ->
     case ?catch_val(Var) of
-	{'EXIT', _ReASoN_} -> mnesia_lib:other_val(Var, _ReASoN_); 
-	_VaLuE_ -> _VaLuE_ 
+	{'EXIT', _ReASoN_} -> mnesia_lib:other_val(Var, _ReASoN_);
+	_VaLuE_ -> _VaLuE_
     end.
 
 %% read an object list throuh its index table
@@ -63,13 +63,13 @@ read(Tid, Store, Tab, IxKey, Pos) ->
     ResList = mnesia_locker:ixrlock(Tid, Store, Tab, IxKey, Pos),
     %% Remove all tuples which don't include Ixkey, happens when Tab is a bag
     case val({Tab, setorbag}) of
-	bag -> 
+	bag ->
 	    mnesia_lib:key_search_all(IxKey, Pos, ResList);
-	_ -> 
+	_ ->
 	    ResList
     end.
 
-add_index(Index, Tab, Key, Obj, Old) ->    
+add_index(Index, Tab, Key, Obj, Old) ->
     add_index2(Index#index.pos_list, Index#index.setorbag, Tab, Key, Obj, Old).
 
 add_index2([{Pos, Ixt} |Tail], bag, Tab, K, Obj, OldRecs) ->
@@ -77,14 +77,31 @@ add_index2([{Pos, Ixt} |Tail], bag, Tab, K, Obj, OldRecs) ->
     add_index2(Tail, bag, Tab, K, Obj, OldRecs);
 add_index2([{Pos, Ixt} |Tail], Type, Tab, K, Obj, OldRecs) ->
     %% Remove old tuples in index if Tab is updated
-    case OldRecs of 
-	undefined -> 
-	    Old = mnesia_lib:db_get(Tab, K),
-	    del_ixes(Ixt, Old, Pos, K);
-	Old -> 
-	    del_ixes(Ixt, Old, Pos, K)
+    NOldRecs =
+        case OldRecs of
+            undefined ->
+                mnesia_lib:db_get(Tab, K);
+            Other ->
+                Other
+        end,
+
+    case NOldRecs of
+        [OldRec] ->
+            CurrentIndex = element(Pos, Obj),
+            OldIndex = element(Pos, OldRec),
+            % compare current index value with old index value
+            % do not do any action when index value not changed
+            case (CurrentIndex =:= OldIndex) and (Type =:= set) of
+                true ->
+                    ok;
+                _ ->
+                    del_ixes(Ixt, NOldRecs, Pos, K),
+                    db_put(Ixt, {element(Pos, Obj), K})
+            end;
+        _Other ->
+            del_ixes(Ixt, NOldRecs, Pos, K),
+            db_put(Ixt, {element(Pos, Obj), K})
     end,
-    db_put(Ixt, {element(Pos, Obj), K}),
     add_index2(Tail, Type, Tab, K, Obj, OldRecs);
 add_index2([], _, _Tab, _K, _Obj, _) -> ok.
 
@@ -92,7 +109,7 @@ delete_index(Index, Tab, K) ->
     delete_index2(Index#index.pos_list, Tab, K).
 
 delete_index2([{Pos, Ixt} | Tail], Tab, K) ->
-    DelObjs = mnesia_lib:db_get(Tab, K), 
+    DelObjs = mnesia_lib:db_get(Tab, K),
     del_ixes(Ixt, DelObjs, Pos, K),
     delete_index2(Tail, Tab, K);
 delete_index2([], _Tab, _K) -> ok.
@@ -109,14 +126,14 @@ del_object_index(Index, Tab, K, Obj, Old) ->
 del_object_index2([], _, _Tab, _K, _Obj, _Old) -> ok;
 del_object_index2([{Pos, Ixt} | Tail], SoB, Tab, K, Obj, Old) ->
     case SoB of
-	bag -> 
+	bag ->
 	    del_object_bag(Tab, K, Obj, Pos, Ixt, Old);
 	_ -> %% If set remove the tuple in index table
-	    del_ixes(Ixt, [Obj], Pos, K)	
+	    del_ixes(Ixt, [Obj], Pos, K)
     end,
     del_object_index2(Tail, SoB, Tab, K, Obj, Old).
 
-del_object_bag(Tab, Key, Obj, Pos, Ixt, undefined) -> 
+del_object_bag(Tab, Key, Obj, Pos, Ixt, undefined) ->
     IxKey = element(Pos, Obj),
     Old = [X || X <-  mnesia_lib:db_get(Tab, Key), element(Pos, X) =:= IxKey],
     del_object_bag(Tab, Key, Obj, Pos, Ixt, Old);
@@ -158,7 +175,7 @@ merge([], _, _, Ack) ->
 realkeys(Tab, Pos, IxKey) ->
     Index = get_index_table(Tab, Pos),
     db_get(Index, IxKey). % a list on the form [{IxKey, RealKey1} , ....
-    
+
 dirty_select(Tab, Spec, Pos) ->
     %% Assume that we are on the node where the replica is
     %% Returns the records without applying the match spec
@@ -175,7 +192,7 @@ dirty_read(Tab, IxKey, Pos) ->
 	bag ->
 	    %% Remove all tuples which don't include Ixkey
 	    mnesia_lib:key_search_all(IxKey, Pos, ResList);
-	_ -> 
+	_ ->
 	    ResList
     end.
 
@@ -184,12 +201,12 @@ dirty_read2(Tab, IxKey, Pos) ->
     Keys = db_match(Ix, {IxKey, '$1'}),
     r_keys(Keys, Tab, []).
 
-r_keys([[H]|T],Tab,Ack) -> 
+r_keys([[H]|T],Tab,Ack) ->
     V = mnesia_lib:db_get(Tab, H),
     r_keys(T, Tab, V ++ Ack);
 r_keys([], _, Ack) ->
     Ack.
-	    
+
 
 %%%%%%% Creation, Init and deletion routines for index tables
 %% We can have several indexes on the same table
@@ -200,7 +217,7 @@ tab2filename(Tab, Pos) ->
 
 tab2tmp_filename(Tab, Pos) ->
     mnesia_lib:dir(Tab) ++ "_" ++ integer_to_list(Pos) ++ ".TMP".
-        
+
 init_index(Tab, Storage) ->
     PosList = val({Tab, index}),
     init_indecies(Tab, Storage, PosList).
@@ -273,11 +290,11 @@ init_disc_index(Tab, [Pos | Tail]) when is_integer(Pos) ->
 
 create_fun(Cont, Tab, Pos) ->
     fun(read) ->
-	    Data = 
+	    Data =
 		case Cont of
 		    {start, KeysPerChunk} ->
 			mnesia_lib:db_init_chunk(disc_only_copies, Tab, KeysPerChunk);
-		    '$end_of_table' -> 
+		    '$end_of_table' ->
 			'$end_of_table';
 		    _Else ->
 			mnesia_lib:db_chunk(disc_only_copies, Cont)
@@ -293,7 +310,7 @@ create_fun(Cont, Tab, Pos) ->
 	    ok
     end.
 
-make_ram_index(_, []) -> 
+make_ram_index(_, []) ->
     done;
 make_ram_index(Tab, [Pos | Tail]) ->
     add_ram_index(Tab, Pos),
@@ -323,16 +340,16 @@ add_index_info(Tab, Type, IxElem) ->
     Commit = val({Tab, commit_work}),
     case lists:keysearch(index, 1, Commit) of
 	false ->
-	    Index = #index{setorbag = Type, 
+	    Index = #index{setorbag = Type,
 			   pos_list = [IxElem]},
-	    %% Check later if mnesia_tm is sensative about the order 
-	    mnesia_lib:set({Tab, commit_work}, 
+	    %% Check later if mnesia_tm is sensative about the order
+	    mnesia_lib:set({Tab, commit_work},
 			   mnesia_lib:sort_commit([Index | Commit]));
 	{value, Old} ->
 	    %% We could check for consistency here
 	    Index = Old#index{pos_list = [IxElem | Old#index.pos_list]},
 	    NewC = lists:keyreplace(index, 1, Commit, Index),
-	    mnesia_lib:set({Tab, commit_work}, 
+	    mnesia_lib:set({Tab, commit_work},
 			   mnesia_lib:sort_commit(NewC))
     end.
 
@@ -344,14 +361,14 @@ del_index_info(Tab, Pos) ->
 	    skip;
 	{value, Old} ->
 	    case lists:keydelete(Pos, 1, Old#index.pos_list) of
-		[] -> 
+		[] ->
 		    NewC = lists:keydelete(index, 1, Commit),
-		    mnesia_lib:set({Tab, commit_work}, 
+		    mnesia_lib:set({Tab, commit_work},
 				   mnesia_lib:sort_commit(NewC));
 		New ->
 		    Index = Old#index{pos_list = New},
 		    NewC = lists:keyreplace(index, 1, Commit, Index),
-		    mnesia_lib:set({Tab, commit_work}, 
+		    mnesia_lib:set({Tab, commit_work},
 				   mnesia_lib:sort_commit(NewC))
 	    end
     end.
@@ -370,12 +387,12 @@ db_match_erase({ram, Ixt}, Pat) ->
     true = ?ets_match_delete(Ixt, Pat);
 db_match_erase({dets, Ixt}, Pat) ->
     ok = dets:match_delete(Ixt, Pat).
-    
+
 db_match({ram, Ixt}, Pat) ->
     ?ets_match(Ixt, Pat);
 db_match({dets, Ixt}, Pat) ->
     dets:match(Ixt, Pat).
-    
+
 get_index_table(Tab, Pos) ->
     get_index_table(Tab,  val({Tab, storage_type}), Pos).
 
@@ -387,4 +404,3 @@ get_index_table(Tab, disc_only_copies, Pos) ->
     {dets, val({Tab, {index, Pos}})};
 get_index_table(_Tab, unknown, _Pos) ->
     unknown.
-
