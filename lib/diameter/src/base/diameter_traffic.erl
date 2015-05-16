@@ -524,7 +524,7 @@ send_A(_, _, _, _) ->
 %% send_A/6
 
 send_A(T, TPid, DictT, ReqPkt, EvalPktFs, EvalFs) ->
-    reply(T, TPid, DictT, EvalPktFs, ReqPkt),
+    send(TPid, reply(T, TPid, DictT, EvalPktFs, ReqPkt)),
     lists:foreach(fun diameter_lib:eval/1, EvalFs).
 
 %% answer/6
@@ -643,7 +643,7 @@ resend(false,
 %%
 %% Relay a reply to a relayed request.
 
-%% Answer from the peer: reset the hop by hop identifier and send.
+%% Answer from the peer: reset the hop by hop identifier.
 resend(#diameter_packet{bin = B}
        = Pkt,
        _Caps,
@@ -686,9 +686,9 @@ reply({Dict, Ans}, TPid, {AppDict, Dict0}, Fs, ReqPkt) ->
     local(Ans, TPid, {Dict, AppDict, Dict0}, Fs, ReqPkt);
 
 %% ... or relayed.
-reply(#diameter_packet{} = Pkt, TPid, _Dict0, Fs, _ReqPkt) ->
+reply(#diameter_packet{} = Pkt, _TPid, _Dict0, Fs, _ReqPkt) ->
     eval_packet(Pkt, Fs),
-    send(TPid, Pkt).
+    Pkt.
 
 %% local/5
 %%
@@ -708,7 +708,7 @@ local(Msg, TPid, {Dict, AppDict, Dict0} = DictT, Fs, ReqPkt) ->
                  Fs),
     incr(send, Pkt, TPid, AppDict),
     incr_rc(send, Pkt, TPid, DictT),  %% count outgoing
-    send(TPid, Pkt).
+    Pkt.
 
 %% reset/3
 
