@@ -1114,10 +1114,13 @@ msg_id(Hdr, Dict) ->
         ?APP_ID_RELAY ->
             {relay, R};
         A ->
-            choose(A /= Aid orelse '' == Dict:msg_name(Code, 0 == R),
-                   unknown,
-                   Id)
+            unknown(A /= Aid orelse '' == Dict:msg_name(Code, 0 == R), Id)
     end.
+
+unknown(true, {_, _, R}) ->
+    {unknown, R};
+unknown(false, Id) ->
+    Id.
 
 %% No E-bit: can't be 3xxx.
 is_result(RC, false, _Dict0) ->
