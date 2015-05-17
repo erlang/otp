@@ -186,13 +186,13 @@ incr_error(Dir, Id, TPid) ->
                | {'Experimental-Result', integer(), integer()},
       Reason :: atom().
 
-incr_rc(Dir, Pkt, TPid, {MsgDict, _, _} = DictT) ->
+incr_rc(Dir, Pkt, TPid, {_, AppDict, _} = DictT) ->
     try
         incr_result(Dir, Pkt, TPid, DictT)
     catch
         exit: {E,_} when E == no_result_code;
                          E == invalid_error_bit ->
-            incr(TPid, {msg_id(Pkt#diameter_packet.header, MsgDict), Dir, E}),
+            incr(TPid, {msg_id(Pkt#diameter_packet.header, AppDict), Dir, E}),
             E
     end;
 
