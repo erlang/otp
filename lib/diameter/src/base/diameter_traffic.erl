@@ -525,8 +525,11 @@ send_A(_, _, _, _) ->
 
 %% send_A/6
 
-send_A(T, TPid, DictT, ReqPkt, EvalPktFs, EvalFs) ->
-    send(TPid, reply(T, TPid, DictT, EvalPktFs, ReqPkt)),
+send_A(T, TPid, {AppDict, Dict0} = DictT0, ReqPkt, EvalPktFs, EvalFs) ->
+    {MsgDict, Pkt} = reply(T, TPid, DictT0, EvalPktFs, ReqPkt),
+    incr(send, Pkt, TPid, AppDict),
+    incr_rc(send, Pkt, TPid, {MsgDict, AppDict, Dict0}),  %% count outgoing
+    send(TPid, Pkt),
     lists:foreach(fun diameter_lib:eval/1, EvalFs).
 
 %% answer/6
@@ -556,26 +559,36 @@ answer({answer_message, RC} = T, Caps, Pkt, App, Dict0, _RecvData)  ->
     answer_message(RC, Caps, Dict0, Pkt).
 
 %% msg_dict/3
+%%
+%% Return the dictionary defining the message grammar in question: the
+%% application dictionary or the common dictionary.
 
-%% An incoming answer, not yet decoded.
-msg_dict(AppDict, Dict0, #diameter_packet{header
-                                      = #diameter_header{is_request = false,
-                                                         is_error = E},
-                                      msg = undefined}) ->
-    if E -> Dict0; true -> AppDict end;
-
-msg_dict(AppDict, Dict0, [Msg]) ->
-    msg_dict(AppDict, Dict0, Msg);
-
-msg_dict(AppDict, Dict0, #diameter_packet{msg = Msg}) ->
+msg_dict(AppDict, Dict0, [Msg])
+  when is_list(Msg);
+       is_tuple(Msg) ->
     msg_dict(AppDict, Dict0, Msg);
 
 msg_dict(AppDict, Dict0, Msg) ->
     choose(is_answer_message(Msg, Dict0), Dict0, AppDict).
 
+%% Incoming, not yet decoded.
+is_answer_message(#diameter_packet{header = #diameter_header{} = H,
+                                   msg = undefined},
+                  Dict0) ->
+    is_answer_message([H], Dict0);
+
+is_answer_message(#diameter_packet{msg = Msg}, Dict0) ->
+    is_answer_message(Msg, Dict0);
+
+%% Message sent as a header/avps list.
+is_answer_message([#diameter_header{is_request = R, is_error = E} | _], _) ->
+    E andalso not R;
+
+%% Message sent as a tagged avp/value list.
 is_answer_message([Name | _], _) ->
     Name == 'answer-message';
 
+%% Message sent as a record.
 is_answer_message(Rec, Dict) ->
     try
         'answer-message' == Dict:rec2msg(element(1,Rec))
@@ -688,9 +701,9 @@ reply({MsgDict, Ans}, TPid, {AppDict, Dict0}, Fs, ReqPkt) ->
     local(Ans, TPid, {MsgDict, AppDict, Dict0}, Fs, ReqPkt);
 
 %% ... or relayed.
-reply(#diameter_packet{} = Pkt, _TPid, _DictT, Fs, _ReqPkt) ->
+reply(#diameter_packet{} = Pkt, _TPid, {AppDict, Dict0}, Fs, _ReqPkt) ->
     eval_packet(Pkt, Fs),
-    Pkt.
+    {msg_dict(AppDict, Dict0, Pkt), Pkt}.
 
 %% local/5
 %%
@@ -703,14 +716,12 @@ local([Msg], TPid, DictT, Fs, ReqPkt)
        is_tuple(Msg) ->
     local(Msg, TPid, DictT, Fs, ReqPkt#diameter_packet{errors = []});
 
-local(Msg, TPid, {MsgDict, AppDict, Dict0} = DictT, Fs, ReqPkt) ->
+local(Msg, TPid, {MsgDict, AppDict, Dict0}, Fs, ReqPkt) ->
     Pkt = encode({MsgDict, AppDict},
                  TPid,
                  reset(make_answer_packet(Msg, ReqPkt), MsgDict, Dict0),
                  Fs),
-    incr(send, Pkt, TPid, AppDict),
-    incr_rc(send, Pkt, TPid, DictT),  %% count outgoing
-    Pkt.
+    {MsgDict, Pkt}.
 
 %% reset/3
 
@@ -1070,18 +1081,32 @@ find_avp(Code, VId, [_ | Avps]) ->
 %% Increment a stats counter for result codes in incoming and outgoing
 %% answers.
 
+%% Message sent as a header/avps list.
+incr_result(send = Dir,
+            #diameter_packet{msg = [#diameter_header{} = H | _]}
+            = Pkt,
+            TPid,
+            DictT) ->
+    incr_res(Dir, Pkt#diameter_packet{header = H}, TPid, DictT);
+
 %% Outgoing message as binary: don't count. (Sending binaries is only
 %% partially supported.)
-incr_result(_, #diameter_packet{msg = undefined = No}, _, _) ->
+incr_result(send, #diameter_packet{header = undefined = No}, _, _) ->
     No;
 
 %% Incoming or outgoing. Outgoing with encode errors never gets here
 %% since encode fails.
-incr_result(Dir, Pkt, TPid, {MsgDict, AppDict, Dict0}) ->
-    #diameter_packet{header = #diameter_header{is_error = E}
-                            = Hdr,
-                     errors = Es}
-        = Pkt,
+incr_result(Dir, Pkt, TPid, DictT) ->
+    incr_res(Dir, Pkt, TPid, DictT).
+
+incr_res(Dir,
+         #diameter_packet{header = #diameter_header{is_error = E}
+                          = Hdr,
+                          errors = Es}
+         = Pkt,
+         TPid,
+         DictT) ->
+    {MsgDict, AppDict, Dict0} = DictT,
 
     Id = msg_id(Hdr, AppDict),
     %% Could be {relay, 0}, in which case the R-bit is redundant since
@@ -1152,7 +1177,11 @@ incr(TPid, Counter) ->
 %%   applications MUST include either one Result-Code AVP or one
 %%   Experimental-Result AVP.
 
-rc_counter(Dict, recv, #diameter_packet{header = H, avps = As}) ->
+rc_counter(Dict, Dir, #diameter_packet{header = H,
+                                       avps = As,
+                                       msg = Msg})
+  when Dir == recv;         %% decoded incoming
+       Msg == undefined ->  %% relayed outgoing
     rc_counter(Dict, [H|As]);
 
 rc_counter(Dict, _, #diameter_packet{msg = Msg}) ->
