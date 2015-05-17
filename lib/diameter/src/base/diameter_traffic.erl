@@ -259,7 +259,8 @@ recv(false, #request{ref = Ref, handler = Pid} = Req, _, Pkt, Dict0, _) ->
 %% any others are discarded.
 
 %% ... or not.
-recv(false, false, _, _, _, _) ->
+recv(false, false, TPid, _, _, _) ->
+    incr(TPid, {{unknown, 0}, recv, discarded}),
     ok.
 
 %% spawn_request/4

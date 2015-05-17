@@ -259,6 +259,7 @@ stats(?CLIENT, L) ->
      {{{0,274,1},send},1},   %% ASR (send_loop)
      {{{0,275,0},recv},4},   %% STA (send[1-4])
      {{{0,275,1},send},4},   %% STR (send[1-4])
+     {{{unknown,0},recv,discarded},1},  %% RAR (send_timeout_2)
      {{{0,257,0},recv,{'Result-Code',2001}},2},  %% CEA
      {{{0,258,0},recv,{'Result-Code',3002}},1},  %% RAA (send_timeout_1)
      {{{0,274,0},recv,{'Result-Code',3005}},1},  %% ASA (send_loop)
