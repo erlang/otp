@@ -56,29 +56,29 @@
     type, or both:</p>
 
     <taglist>
-      <tag><c>boolean()</c></tag>
-      <item><p>= <c>true | false </c></p></item>
-      <tag><c>string()</c></tag>
-      <item><p>= list of ASCII characters</p></item>
-      <tag><c>timeout()</c></tag>
-      <item><p>= <c>infinity | integer()</c> in milliseconds</p></item>
-      <tag><c>ssh_connection_ref()</c></tag>
-      <item><p>Opaque to the user, returned by
-    <c>ssh:connect/3</c> or sent to an SSH channel processes</p></item>
-      <tag><c>ssh_channel_id()</c></tag>
-      <item><p>= <c>integer()</c></p></item>
-      <tag><c>ssh_data_type_code()</c></tag>
-      <item><p>= <c>1</c> ("stderr") | <c>0</c> ("normal") are
+      <tag><c>boolean() =</c></tag>
+      <item><p><c>true | false </c></p></item>
+      <tag><c>string() =</c></tag>
+      <item><p>list of ASCII characters</p></item>
+      <tag><c>timeout() =</c></tag>
+      <item><p><c>infinity | integer()</c> in milliseconds</p></item>
+      <tag><c>ssh_connection_ref() =</c></tag>
+      <item><p>opaque() -as returned by
+      <c>ssh:connect/3</c> or sent to an SSH channel processes</p></item>
+      <tag><c>ssh_channel_id() =</c></tag>
+      <item><p><c>integer()</c></p></item>
+      <tag><c>ssh_data_type_code() =</c></tag>
+      <item><p><c>1</c> ("stderr") | <c>0</c> ("normal") are
       valid values, see
       <url href="http://www.ietf.org/rfc/rfc4254.txt">RFC 4254</url> Section 5.2.</p></item>
-      <tag><c>ssh_request_status() ssh_request_status()</c></tag>
-      <item><p>= <c>success | failure</c></p></item>
-      <tag><c>event()</c></tag>
-      <item><p>= <c>{ssh_cm, ssh_connection_ref(), ssh_event_msg()}</c></p></item>
-      <tag><c>ssh_event_msg()</c></tag>
-      <item><p>= <c>data_events() | status_events() | terminal_events()</c></p></item>
-      <tag><c>reason()</c></tag>
-      <item><p>= <c>timeout | closed</c></p></item>
+      <tag><c>ssh_request_status() =</c></tag>
+      <item><p> <c>success | failure</c></p></item>
+      <tag><c>event() =</c></tag>
+      <item><p><c>{ssh_cm, ssh_connection_ref(), ssh_event_msg()}</c></p></item>
+      <tag><c>ssh_event_msg() =</c></tag>
+      <item><p><c>data_events() | status_events() | terminal_events()</c></p></item>
+      <tag><c>reason() =</c></tag>
+      <item><p><c>timeout | closed</c></p></item>
     </taglist>
 
     <taglist>

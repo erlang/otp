@@ -37,16 +37,16 @@
   <section>
     <title>DATA TYPES</title>
     <taglist>
-      <tag><c>subsystem_spec()</c></tag>
-      <item><p>= <c>{subsystem_name(), {channel_callback(), channel_init_args()}}</c></p></item>
-      <tag><c>subsystem_name()</c></tag>
-      <item><p>= <c>"sftp"</c></p></item>
-      <tag><c>channel_callback()</c></tag>
-      <item><p>= <c>atom()</c> - Name of the Erlang module implementing the subsystem using the
+      <tag><c>subsystem_spec() =</c></tag>
+      <item><p><c>{subsystem_name(), {channel_callback(), channel_init_args()}}</c></p></item>
+      <tag><c>subsystem_name() =</c></tag>
+      <item><p><c>"sftp"</c></p></item>
+      <tag><c>channel_callback() =</c></tag>
+      <item><p><c>atom()</c> - Name of the Erlang module implementing the subsystem using the
       <c>ssh_channel</c> behavior, see the
       <seealso marker="ssh_channel">ssh_channel(3)</seealso> manual page.</p></item>
-      <tag><c>channel_init_args()</c></tag>
-      <item><p>= <c>list()</c> - The one given as argument to function <c>subsystem_spec/1</c>.</p></item>
+      <tag><c>channel_init_args() =</c></tag>
+      <item><p><c>list()</c> - The one given as argument to function <c>subsystem_spec/1</c>.</p></item>
     </taglist>
   </section>
   <funcs>
