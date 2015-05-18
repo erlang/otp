@@ -223,9 +223,9 @@ init(T) ->
 i({listen, Ref, {Opts, Addrs}}) ->
     {[Matches], Rest} = proplists:split(Opts, [accept]),
     {LAs, Sock} = AS = open(Addrs, Rest, ?DEFAULT_PORT),
-    proc_lib:init_ack({ok, self(), LAs}),
     ok = gen_sctp:listen(Sock, true),
     true = diameter_reg:add_new({?MODULE, listener, {Ref, AS}}),
+    proc_lib:init_ack({ok, self(), LAs}),
     start_timer(#listener{ref = Ref,
                           socket = Sock,
                           accept = accept(Matches)});
