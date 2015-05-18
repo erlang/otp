@@ -417,8 +417,12 @@ check_header({"content-length", Value}, Maxsizes) ->
     case length(Value) =< MaxLen of
 	true ->
 	    try 
-		_ = list_to_integer(Value),
-		ok
+		list_to_integer(Value)
+	    of
+		I when I>= 0 ->
+		    ok;
+		_ ->
+		    {error, {size_error, Max, 411, "negative content-length"}}
 	    catch _:_ ->
 		    {error, {size_error, Max, 411, "content-length not an integer"}}
 	    end;
