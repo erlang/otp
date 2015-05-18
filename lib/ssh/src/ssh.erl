@@ -312,6 +312,8 @@ handle_option([{disconnectfun, _} = Opt | Rest], SocketOptions, SshOptions) ->
     handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
 handle_option([{failfun, _} = Opt | Rest],  SocketOptions, SshOptions) ->
     handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
+handle_option([{ssh_msg_debug_fun, _} = Opt | Rest],  SocketOptions, SshOptions) ->
+    handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
 %%Backwards compatibility should not be underscore between ip and v6 in API
 handle_option([{ip_v6_disabled, Value} | Rest], SocketOptions, SshOptions) ->
     handle_option(Rest, SocketOptions, [handle_ssh_option({ipv6_disabled, Value}) | SshOptions]);
@@ -416,6 +418,8 @@ handle_ssh_option({connectfun, Value} = Opt) when is_function(Value) ->
 handle_ssh_option({disconnectfun , Value} = Opt) when is_function(Value) ->
     Opt;
 handle_ssh_option({failfun, Value} = Opt) when is_function(Value) ->
+    Opt;
+handle_ssh_option({ssh_msg_debug_fun, Value} = Opt) when is_function(Value,4) ->
     Opt;
 
 handle_ssh_option({ipv6_disabled, Value} = Opt) when is_boolean(Value) ->
