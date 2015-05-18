@@ -32,10 +32,10 @@
     <file>refman.sgml</file>
   </header>
   <description>
-    <p><em>Mnesia</em> is a distributed DataBase Management
+    <p>The <c>Mnesia</c> application is a distributed Database Management
       System (DBMS), appropriate for telecommunications applications and other
-      Erlang applications which require continuous operation and exhibit soft
-      real-time properties. </p>
+      Erlang applications, which require continuous operation and exhibit soft
+      real-time properties.</p>
   </description>
   <xi:include href="mnesia.xml"/>
   <xi:include href="mnesia_frag_hash.xml"/>

@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>1998</year><year>2013</year>
+      <year>2002</year><year>2013</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -21,7 +21,7 @@
     
     </legalnotice>
 
-    <title>Appendix C: The Activity Access Call Back Interface</title>
+    <title>Appendix C: Fragmented Table Hashing Callback Interface</title>
     <prepared>H&aring;kan Mattsson</prepared>
     <responsible></responsible>
     <docno></docno>
@@ -33,11 +33,11 @@
   </header>
 
   <section>
-    <title>mnesia_access callback behavior</title>
+    <title>mnesia_frag_hash Callback Behavior</title>
     <p></p>
-    <codeinclude file="../../src/mnesia_frag.erl" tag="%header_doc_include" type="erl"></codeinclude>
+    <codeinclude file="../../src/mnesia_frag_hash.erl" tag="%header_doc_include" type="erl"></codeinclude>
     <p></p>
-    <codeinclude file="../../src/mnesia_frag.erl" tag="%impl_doc_include" type="erl"></codeinclude>
+    <codeinclude file="../../src/mnesia_frag_hash.erl" tag="%impl_doc_include" type="erl"></codeinclude>
   </section>
 </chapter>
 
