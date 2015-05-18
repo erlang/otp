@@ -52,6 +52,8 @@ all() ->
      ssh_connect_arg4_timeout,
      packet_size_zero,
      ssh_daemon_minimal_remote_max_packet_size_option,
+     ssh_msg_debug_fun_option_client,
+     ssh_msg_debug_fun_option_server,
      id_string_no_opt_client,
      id_string_own_string_client,
      id_string_random_client,
@@ -492,6 +494,94 @@ server_userpassword_option(Config) when is_list(Config) ->
 				 {user_interaction, false},
 				 {user_dir, UserDir}]),
     ssh:stop_daemon(Pid).
+
+%%--------------------------------------------------------------------
+ssh_msg_debug_fun_option_client() ->
+    [{doc, "validate client that uses the 'ssh_msg_debug_fun' option"}].
+ssh_msg_debug_fun_option_client(Config) ->
+    PrivDir = ?config(priv_dir, Config),
+    UserDir = filename:join(PrivDir, nopubkey), % to make sure we don't use public-key-auth
+    file:make_dir(UserDir),
+    SysDir = ?config(data_dir, Config),
+
+    {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SysDir},
+					     {user_dir, UserDir},
+					     {password, "morot"},
+					     {failfun, fun ssh_test_lib:failfun/2}]),
+    Parent = self(),
+    DbgFun = fun(ConnRef,Displ,Msg,Lang) -> Parent ! {msg_dbg,{ConnRef,Displ,Msg,Lang}} end,
+		
+    ConnectionRef =
+	ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
+					  {user, "foo"},
+					  {password, "morot"},
+					  {user_dir, UserDir},
+					  {user_interaction, false},
+					  {ssh_msg_debug_fun,DbgFun}]),
+    %% Beware, implementation knowledge:
+    gen_fsm:send_all_state_event(ConnectionRef,{ssh_msg_debug,false,<<"Hello">>,<<>>}),
+    receive
+	{msg_dbg,X={ConnectionRef,false,<<"Hello">>,<<>>}} ->
+	    ct:log("Got expected dbg msg ~p",[X]),
+	    ssh:stop_daemon(Pid);
+	{msg_dbg,X={_,false,<<"Hello">>,<<>>}} ->
+	    ct:log("Got dbg msg but bad ConnectionRef (~p expected) ~p",[ConnectionRef,X]),
+	    ssh:stop_daemon(Pid),
+	    {fail, "Bad ConnectionRef received"};
+	{msg_dbg,X} ->
+	    ct:log("Got bad dbg msg ~p",[X]),
+	    ssh:stop_daemon(Pid),
+	    {fail,"Bad msg received"}
+    after 1000 ->
+	    ssh:stop_daemon(Pid),
+	    {fail,timeout}
+    end.
+
+%%--------------------------------------------------------------------
+ssh_msg_debug_fun_option_server() ->
+    [{doc, "validate client that uses the 'ssh_msg_debug_fun' option"}].
+ssh_msg_debug_fun_option_server(Config) ->
+    PrivDir = ?config(priv_dir, Config),
+    UserDir = filename:join(PrivDir, nopubkey), % to make sure we don't use public-key-auth
+    file:make_dir(UserDir),
+    SysDir = ?config(data_dir, Config),
+
+    Parent = self(),
+    DbgFun = fun(ConnRef,Displ,Msg,Lang) -> Parent ! {msg_dbg,{ConnRef,Displ,Msg,Lang}} end,
+    ConnFun = fun(_,_,_) -> Parent ! {connection_pid,self()} end,
+
+    {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SysDir},
+					     {user_dir, UserDir},
+					     {password, "morot"},
+					     {failfun, fun ssh_test_lib:failfun/2},
+					     {connectfun, ConnFun},
+					     {ssh_msg_debug_fun, DbgFun}]),
+    _ConnectionRef =
+	ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
+					  {user, "foo"},
+					  {password, "morot"},
+					  {user_dir, UserDir},
+					  {user_interaction, false}]),
+    receive
+	{connection_pid,Server} ->
+	    %% Beware, implementation knowledge:
+	    gen_fsm:send_all_state_event(Server,{ssh_msg_debug,false,<<"Hello">>,<<>>}),
+	    receive
+		{msg_dbg,X={_,false,<<"Hello">>,<<>>}} ->
+		    ct:log("Got expected dbg msg ~p",[X]),
+		    ssh:stop_daemon(Pid);
+		{msg_dbg,X} ->
+		    ct:log("Got bad dbg msg ~p",[X]),
+		    ssh:stop_daemon(Pid),
+		    {fail,"Bad msg received"}
+	    after 3000 ->
+		    ssh:stop_daemon(Pid),
+		    {fail,timeout2}
+	    end
+    after 3000 ->
+	    ssh:stop_daemon(Pid),
+	    {fail,timeout1}
+    end.
 
 %%--------------------------------------------------------------------
 known_hosts() ->
