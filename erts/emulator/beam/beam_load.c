@@ -36,6 +36,7 @@
 #include "beam_catches.h"
 #include "erl_binary.h"
 #include "erl_zlib.h"
+#include "erl_map.h"
 
 #ifdef HIPE
 #include "hipe_bif0.h"
@@ -245,7 +246,7 @@ typedef struct {
 /*
  * This structure contains all information about the module being loaded.
  */  
-
+#define MD5_SIZE 16
 typedef struct LoaderState {
     /*
      * The current logical file within the binary.
@@ -292,7 +293,7 @@ typedef struct LoaderState {
     StringPatch* string_patches; /* Linked list of position into string table to patch. */
     BeamInstr catches;		/* Linked list of catch_yf instructions. */
     unsigned loaded_size;	/* Final size of code when loaded. */
-    byte mod_md5[16];		/* MD5 for module code. */
+    byte mod_md5[MD5_SIZE];	/* MD5 for module code. */
     int may_load_nif;           /* true if NIFs may later be loaded for this module */  
     int on_load;		/* Index in the code for the on_load function
 				 * (or 0 if there is no on_load function)
@@ -528,6 +529,8 @@ static Eterm exported_from_module(Process* p, Eterm mod);
 static Eterm functions_in_module(Process* p, Eterm mod);
 static Eterm attributes_for_module(Process* p, Eterm mod);
 static Eterm compilation_info_for_module(Process* p, Eterm mod);
+static Eterm md5_of_module(Process* p, Eterm mod);
+static Eterm has_native(Process* p, Eterm mod);
 static Eterm native_addresses(Process* p, Eterm mod);
 int patch_funentries(Eterm Patchlist);
 int patch(Eterm Addresses, Uint fe);
@@ -648,6 +651,7 @@ erts_prepare_loading(Binary* magic, Process *c_p, Eterm group_leader,
     stp->code[MI_COMPILE_PTR] = 0;
     stp->code[MI_COMPILE_SIZE] = 0;
     stp->code[MI_COMPILE_SIZE_ON_HEAP] = 0;
+    stp->code[MI_MD5_PTR] = 0;
 
     /*
      * Read the atom table.
@@ -3169,7 +3173,11 @@ gen_increment_from_minus(LoaderState* stp, GenOpArg Reg, GenOpArg Integer,
 static int
 negation_is_small(LoaderState* stp, GenOpArg Int)
 {
-    return Int.type == TAG_i && IS_SSMALL(-Int.val);
+    /* Check for the rare case of overflow in BeamInstr (UWord) -> Sint
+     * Cast to the correct type before using IS_SSMALL (Sint) */
+    return Int.type == TAG_i &&
+           !(Int.val & ~((((BeamInstr)1) << ((sizeof(Sint)*8)-1))-1)) &&
+           IS_SSMALL(-((Sint)Int.val));
 }
 
 
@@ -3319,9 +3327,10 @@ gen_select_tuple_arity(LoaderState* stp, GenOpArg S, GenOpArg Fail,
 
 {
     GenOp* op;
+    GenOpArg *tmp;
     int arity = Size.val + 3;
     int size = Size.val / 2;
-    int i;
+    int i, j, align = 0;
 
     /*
      * Verify the validity of the list.
@@ -3336,8 +3345,36 @@ gen_select_tuple_arity(LoaderState* stp, GenOpArg S, GenOpArg Fail,
     }
 
     /*
-     * Generate the generic instruction.
+     * Use a special-cased instruction if there are only two values.
      */
+    if (size == 2) {
+	NEW_GENOP(stp, op);
+	op->next = NULL;
+	op->op = genop_i_select_tuple_arity2_6;
+	GENOP_ARITY(op, arity - 1);
+	op->a[0] = S;
+	op->a[1] = Fail;
+	op->a[2].type = TAG_u;
+	op->a[2].val  = Rest[0].val;
+	op->a[3].type = TAG_u;
+	op->a[3].val  = Rest[2].val;
+	op->a[4] = Rest[1];
+	op->a[5] = Rest[3];
+
+	return op;
+    }
+
+    /*
+     * Generate the generic instruction.
+     * Assumption:
+     *   Few different tuple arities to select on (fewer than 20).
+     *   Use linear scan approach.
+     */
+
+    align = 1;
+
+    arity += 2*align;
+    size  += align;
 
     NEW_GENOP(stp, op);
     op->next = NULL;
@@ -3346,38 +3383,35 @@ gen_select_tuple_arity(LoaderState* stp, GenOpArg S, GenOpArg Fail,
     op->a[0] = S;
     op->a[1] = Fail;
     op->a[2].type = TAG_u;
-    op->a[2].val = Size.val / 2;
-    for (i = 0; i < Size.val; i += 2) {
-	op->a[i+3].type = TAG_v;
-	op->a[i+3].val = make_arityval(Rest[i].val);
-	op->a[i+4] = Rest[i+1];
+    op->a[2].val = size;
+
+    tmp = (GenOpArg *) erts_alloc(ERTS_ALC_T_LOADER_TMP, sizeof(GenOpArg)*(arity-2*align));
+
+    for (i = 3; i < arity - 2*align; i+=2) {
+	tmp[i-3].type = TAG_v;
+	tmp[i-3].val  = make_arityval(Rest[i-3].val);
+	tmp[i-2]      = Rest[i-2];
     }
 
     /*
-     * Sort the values to make them useful for a binary search.
+     * Sort the values to make them useful for a sentinel search
      */
 
-    qsort(op->a+3, size, 2*sizeof(GenOpArg), 
-	   (int (*)(const void *, const void *)) genopargcompare);
-#ifdef DEBUG
-    for (i = 3; i < arity-2; i += 2) {
-	ASSERT(op->a[i].val < op->a[i+2].val);
-    }
-#endif
+    qsort(tmp, size - align, 2*sizeof(GenOpArg),
+	    (int (*)(const void *, const void *)) genopargcompare);
 
-    /*
-     * Use a special-cased instruction if there are only two values.
-     */
-    if (size == 2) {
-	op->op = genop_i_select_tuple_arity2_6;
-	op->arity--;
-	op->a[2].type = TAG_u;
-	op->a[2].val = arityval(op->a[3].val);
-	op->a[3] = op->a[4];
-	op->a[4].type = TAG_u;
-	op->a[4].val = arityval(op->a[5].val);
-	op->a[5] = op->a[6];
+    j = 3;
+    for (i = 3; i < arity - 2*align; i += 2) {
+	op->a[j]        = tmp[i-3];
+	op->a[j + size] = tmp[i-2];
+	j++;
     }
+
+    erts_free(ERTS_ALC_T_LOADER_TMP, (void *) tmp);
+
+    op->a[j].type = TAG_u;
+    op->a[j].val  = ~((BeamInstr)0);
+    op->a[j+size] = Fail;
 
     return op;
 }
@@ -3600,45 +3634,109 @@ gen_select_val(LoaderState* stp, GenOpArg S, GenOpArg Fail,
 	       GenOpArg Size, GenOpArg* Rest)
 {
     GenOp* op;
+    GenOpArg *tmp;
     int arity = Size.val + 3;
     int size = Size.val / 2;
-    int i;
+    int i, j, align = 0;
+
+    if (size == 2) {
+
+	/*
+	 * Use a special-cased instruction if there are only two values.
+	 */
+
+	NEW_GENOP(stp, op);
+	op->next = NULL;
+	op->op = genop_i_select_val2_6;
+	GENOP_ARITY(op, arity - 1);
+	op->a[0] = S;
+	op->a[1] = Fail;
+	op->a[2] = Rest[0];
+	op->a[3] = Rest[2];
+	op->a[4] = Rest[1];
+	op->a[5] = Rest[3];
+
+	return op;
+
+    } else if (size > 10) {
+
+	/* binary search instruction */
+
+	NEW_GENOP(stp, op);
+	op->next = NULL;
+	op->op = genop_i_select_val_bins_3;
+	GENOP_ARITY(op, arity);
+	op->a[0] = S;
+	op->a[1] = Fail;
+	op->a[2].type = TAG_u;
+	op->a[2].val = size;
+	for (i = 3; i < arity; i++) {
+	    op->a[i] = Rest[i-3];
+	}
+
+	/*
+	 * Sort the values to make them useful for a binary search.
+	 */
+
+	qsort(op->a+3, size, 2*sizeof(GenOpArg),
+		(int (*)(const void *, const void *)) genopargcompare);
+#ifdef DEBUG
+	for (i = 3; i < arity-2; i += 2) {
+	    ASSERT(op->a[i].val < op->a[i+2].val);
+	}
+#endif
+	return op;
+    }
+
+    /* linear search instruction */
+
+    align = 1;
+
+    arity += 2*align;
+    size  += align;
 
     NEW_GENOP(stp, op);
     op->next = NULL;
-    op->op = genop_i_select_val_3;
+    op->op = genop_i_select_val_lins_3;
     GENOP_ARITY(op, arity);
     op->a[0] = S;
     op->a[1] = Fail;
     op->a[2].type = TAG_u;
     op->a[2].val = size;
-    for (i = 3; i < arity; i++) {
-	op->a[i] = Rest[i-3];
+
+    tmp = (GenOpArg *) erts_alloc(ERTS_ALC_T_LOADER_TMP, sizeof(GenOpArg)*(arity-2*align));
+
+    for (i = 3; i < arity - 2*align; i++) {
+	tmp[i-3] = Rest[i-3];
     }
 
     /*
-     * Sort the values to make them useful for a binary search.
+     * Sort the values to make them useful for a sentinel search
      */
 
-    qsort(op->a+3, size, 2*sizeof(GenOpArg), 
-	  (int (*)(const void *, const void *)) genopargcompare);
+    qsort(tmp, size - align, 2*sizeof(GenOpArg),
+	    (int (*)(const void *, const void *)) genopargcompare);
+
+    j = 3;
+    for (i = 3; i < arity - 2*align; i += 2) {
+	op->a[j]      = tmp[i-3];
+	op->a[j+size] = tmp[i-2];
+	j++;
+    }
+
+    erts_free(ERTS_ALC_T_LOADER_TMP, (void *) tmp);
+
+    /* add sentinel */
+
+    op->a[j].type = TAG_u;
+    op->a[j].val  = ~((BeamInstr)0);
+    op->a[j+size] = Fail;
+
 #ifdef DEBUG
-    for (i = 3; i < arity-2; i += 2) {
-	ASSERT(op->a[i].val < op->a[i+2].val);
+    for (i = 0; i < size - 1; i++) {
+	ASSERT(op->a[i+3].val <= op->a[i+4].val);
     }
 #endif
-
-    /*
-     * Use a special-cased instruction if there are only two values.
-     */
-    if (size == 2) {
-	op->op = genop_i_select_val2_6;
-	op->arity--;
-	op->a[2] = op->a[3];
-	op->a[3] = op->a[4];
-	op->a[4] = op->a[5];
-	op->a[5] = op->a[6];
-    }
 
     return op;
 }
@@ -3959,8 +4057,139 @@ tuple_append_put(LoaderState* stp, GenOpArg Arity, GenOpArg Dst,
 }
 
 /*
+ * Predicate to test whether the given literal is a map.
+ */
+
+static int
+literal_is_map(LoaderState* stp, GenOpArg Lit)
+{
+    Eterm term;
+
+    ASSERT(Lit.type == TAG_q);
+    term = stp->literals[Lit.val].term;
+    return is_map(term);
+}
+
+/*
+ * Predicate to test whether the given literal is an empty map.
+ */
+
+static int
+is_empty_map(LoaderState* stp, GenOpArg Lit)
+{
+    Eterm term;
+
+    if (Lit.type != TAG_q) {
+	return 0;
+    }
+    term = stp->literals[Lit.val].term;
+    return is_flatmap(term) && flatmap_get_size(flatmap_val(term)) == 0;
+}
+
+/*
+ * Pseudo predicate map_key_sort that will sort the Rest operand for
+ * map instructions as a side effect.
+ */
+
+typedef struct SortGenOpArg {
+    Eterm term;			/* Term to use for comparing  */
+    GenOpArg arg;		/* Original data */
+} SortGenOpArg;
+
+static int
+genopargtermcompare(SortGenOpArg* a, SortGenOpArg* b)
+{
+    return CMP_TERM(a->term, b->term);
+}
+
+static int
+map_key_sort(LoaderState* stp, GenOpArg Size, GenOpArg* Rest)
+{
+    SortGenOpArg* t;
+    unsigned size = Size.val;
+    unsigned i;
+
+    if (size == 2) {
+	return 1;		/* Already sorted. */
+    }
+
+
+    t = (SortGenOpArg *) erts_alloc(ERTS_ALC_T_TMP, size*sizeof(SortGenOpArg));
+
+    /*
+     * Copy original data and sort keys to a temporary array.
+     */
+    for (i = 0; i < size; i += 2) {
+	t[i].arg = Rest[i];
+	switch (Rest[i].type) {
+	case TAG_a:
+	    t[i].term = Rest[i].val;
+	    ASSERT(is_atom(t[i].term));
+	    break;
+	case TAG_i:
+	    t[i].term = make_small(Rest[i].val);
+	    break;
+	case TAG_n:
+	    t[i].term = NIL;
+	    break;
+	case TAG_q:
+	    t[i].term = stp->literals[Rest[i].val].term;
+	    break;
+	default:
+	    /*
+	     * Not a literal key. Not allowed. Only a single
+	     * variable key is allowed in each map instruction.
+	     */
+	    erts_free(ERTS_ALC_T_TMP, (void *) t);
+	    return 0;
+	}
+#ifdef DEBUG
+	t[i+1].term = THE_NON_VALUE;
+#endif
+	t[i+1].arg = Rest[i+1];
+    }
+
+    /*
+     * Sort the temporary array.
+     */
+    qsort((void *) t, size / 2, 2 * sizeof(SortGenOpArg),
+	  (int (*)(const void *, const void *)) genopargtermcompare);
+
+    /*
+     * Copy back the sorted, original data.
+     */
+    for (i = 0; i < size; i++) {
+	Rest[i] = t[i].arg;
+    }
+
+    erts_free(ERTS_ALC_T_TMP, (void *) t);
+    return 1;
+}
+
+static int
+hash_genop_arg(LoaderState* stp, GenOpArg Key, Uint32* hx)
+{
+    switch (Key.type) {
+    case TAG_a:
+	*hx = hashmap_make_hash(Key.val);
+	return 1;
+    case TAG_i:
+	*hx = hashmap_make_hash(make_small(Key.val));
+	return 1;
+    case TAG_n:
+	*hx = hashmap_make_hash(NIL);
+	return 1;
+    case TAG_q:
+	*hx = hashmap_make_hash(stp->literals[Key.val].term);
+	return 1;
+    default:
+	return 0;
+    }
+}
+
+/*
  * Replace a get_map_elements with one key to an instruction with one
- * element
+ * element.
  */
 
 static GenOp*
@@ -3968,37 +4197,99 @@ gen_get_map_element(LoaderState* stp, GenOpArg Fail, GenOpArg Src,
 		    GenOpArg Size, GenOpArg* Rest)
 {
     GenOp* op;
+    GenOpArg Key;
+    Uint32 hx = 0;
 
     ASSERT(Size.type == TAG_u);
 
     NEW_GENOP(stp, op);
     op->next = NULL;
-    op->op = genop_get_map_element_4;
-    op->arity = 4;
-
     op->a[0] = Fail;
     op->a[1] = Src;
     op->a[2] = Rest[0];
-    op->a[3] = Rest[1];
+
+    Key = Rest[0];
+    if (hash_genop_arg(stp, Key, &hx)) {
+	op->arity = 5;
+	op->op = genop_i_get_map_element_hash_5;
+	op->a[3].type = TAG_u;
+	op->a[3].val = (BeamInstr) hx;
+	op->a[4] = Rest[1];
+    } else {
+	op->arity = 4;
+	op->op = genop_i_get_map_element_4;
+	op->a[3] = Rest[1];
+    }
     return op;
 }
 
 static GenOp*
-gen_has_map_field(LoaderState* stp, GenOpArg Fail, GenOpArg Src,
-		    GenOpArg Size, GenOpArg* Rest)
+gen_get_map_elements(LoaderState* stp, GenOpArg Fail, GenOpArg Src,
+		     GenOpArg Size, GenOpArg* Rest)
 {
     GenOp* op;
+    Uint32 hx;
+    Uint i;
+    GenOpArg* dst;
+#ifdef DEBUG
+    int good_hash;
+#endif
 
     ASSERT(Size.type == TAG_u);
 
     NEW_GENOP(stp, op);
+    op->op = genop_i_get_map_elements_3;
+    GENOP_ARITY(op, 3 + 3*(Size.val/2));
     op->next = NULL;
-    op->op = genop_has_map_field_3;
-    op->arity = 4;
+    op->a[0] = Fail;
+    op->a[1] = Src;
+    op->a[2].type = TAG_u;
+    op->a[2].val = 3*(Size.val/2);
+
+    dst = op->a+3;
+    for (i = 0; i < Size.val / 2; i++) {
+	dst[0] = Rest[2*i];
+	dst[1] = Rest[2*i+1];
+#ifdef DEBUG
+	good_hash =
+#endif
+	    hash_genop_arg(stp, dst[0], &hx);
+#ifdef DEBUG
+	ASSERT(good_hash);
+#endif
+	dst[2].type = TAG_u;
+	dst[2].val = (BeamInstr) hx;
+	dst += 3;
+    }
+    return op;
+}
+
+static GenOp*
+gen_has_map_fields(LoaderState* stp, GenOpArg Fail, GenOpArg Src,
+		   GenOpArg Size, GenOpArg* Rest)
+{
+    GenOp* op;
+    Uint i;
+    Uint n;
+
+    ASSERT(Size.type == TAG_u);
+    n = Size.val;
+
+    NEW_GENOP(stp, op);
+    GENOP_ARITY(op, 3 + 2*n);
+    op->next = NULL;
+    op->op = genop_get_map_elements_3;
 
     op->a[0] = Fail;
     op->a[1] = Src;
-    op->a[2] = Rest[0];
+    op->a[2].type = TAG_u;
+    op->a[2].val = 2*n;
+
+    for (i = 0; i < n; i++) {
+	op->a[3+2*i] = Rest[i];
+	op->a[3+2*i+1].type = TAG_x;
+	op->a[3+2*i+1].val = 0;	/* x(0); normally not used */
+    }
     return op;
 }
 
@@ -4042,7 +4333,7 @@ freeze_code(LoaderState* stp)
     }
     size = (stp->ci * sizeof(BeamInstr)) +
 	(stp->total_literal_size * sizeof(Eterm)) +
-	strtab_size + attr_size + compile_size + line_size;
+	strtab_size + attr_size + compile_size + MD5_SIZE + line_size;
 
     /*
      * Move the code to its final location.
@@ -4251,11 +4542,20 @@ freeze_code(LoaderState* stp)
 	code[MI_COMPILE_SIZE_ON_HEAP] = decoded_size;
     }
     CHKBLK(ERTS_ALC_T_CODE,code);
+    {
+	byte* md5_sum = str_table + strtab_size + attr_size + compile_size;
+	CHKBLK(ERTS_ALC_T_CODE,code);
+	sys_memcpy(md5_sum, stp->mod_md5, MD5_SIZE);
+	CHKBLK(ERTS_ALC_T_CODE,code);
+	code[MI_MD5_PTR] = (BeamInstr) md5_sum;
+	CHKBLK(ERTS_ALC_T_CODE,code);
+    }
+    CHKBLK(ERTS_ALC_T_CODE,code);
 
     /*
      * Make sure that we have not overflowed the allocated code space.
      */
-    ASSERT(str_table + strtab_size + attr_size + compile_size ==
+    ASSERT(str_table + strtab_size + attr_size + compile_size + MD5_SIZE ==
 	   ((byte *) code) + size);
 
     /*
@@ -5108,10 +5408,14 @@ erts_module_info_0(Process* p, Eterm module)
     hp += 3; \
     list = CONS(hp, tup, list)
 
+    BUILD_INFO(am_md5);
+#ifdef HIPE
+    BUILD_INFO(am_native);
+#endif
     BUILD_INFO(am_compile);
     BUILD_INFO(am_attributes);
-    BUILD_INFO(am_imports);
     BUILD_INFO(am_exports);
+    BUILD_INFO(am_module);
 #undef BUILD_INFO
     return list;
 }
@@ -5121,8 +5425,8 @@ erts_module_info_1(Process* p, Eterm module, Eterm what)
 {
     if (what == am_module) {
 	return module;
-    } else if (what == am_imports) {
-	return NIL;
+    } else if (what == am_md5) {
+	return md5_of_module(p, module);
     } else if (what == am_exports) {
 	return exported_from_module(p, module);
     } else if (what == am_functions) {
@@ -5133,6 +5437,8 @@ erts_module_info_1(Process* p, Eterm module, Eterm what)
 	return compilation_info_for_module(p, module);
     } else if (what == am_native_addresses) {
 	return native_addresses(p, module);
+    } else if (what == am_native) {
+	return has_native(p, module);
     }
     return THE_NON_VALUE;
 }
@@ -5190,6 +5496,53 @@ functions_in_module(Process* p, /* Process whose heap to use. */
     }
     HRelease(p, hp_end, hp);
     return result;
+}
+
+/*
+ * Returns 'true' if mod has any native compiled functions, otherwise 'false'
+ */
+
+static Eterm
+has_native(Process* p, Eterm mod)
+{
+    Eterm result = am_false;
+#ifdef HIPE
+    Module* modp;
+
+    if (is_not_atom(mod)) {
+        return THE_NON_VALUE;
+    }
+
+    modp = erts_get_module(mod, erts_active_code_ix());
+    if (modp == NULL) {
+        return THE_NON_VALUE;
+    }
+
+    if (erts_is_module_native(modp->curr.code)) {
+      result = am_true;
+    }
+#endif
+    return result;
+}
+
+int
+erts_is_module_native(BeamInstr* code)
+{
+    Uint i, num_functions;
+
+    /* Check NativeAdress of first real function in module */
+    if (code != NULL) {
+        num_functions = code[MI_NUM_FUNCTIONS];
+        for (i=0; i<num_functions; i++) {
+            BeamInstr* func_info = (BeamInstr *) code[MI_FUNCTIONS+i];
+            Eterm name = (Eterm) func_info[3];
+            if (is_atom(name)) {
+                return func_info[1] != 0;
+            }
+            else ASSERT(is_nil(name)); /* ignore BIF stubs */
+        }
+    }
+    return 0;
 }
 
 /*
@@ -5311,7 +5664,7 @@ attributes_for_module(Process* p, /* Process whose heap to use. */
     Eterm result = NIL;
     Eterm* end;
 
-    if (is_not_atom(mod) || (is_not_list(result) && is_not_nil(result))) {
+    if (is_not_atom(mod)) {
 	return THE_NON_VALUE;
     }
 
@@ -5350,7 +5703,7 @@ compilation_info_for_module(Process* p, /* Process whose heap to use. */
     Eterm result = NIL;
     Eterm* end;
 
-    if (is_not_atom(mod) || (is_not_list(result) && is_not_nil(result))) {
+    if (is_not_atom(mod)) {
 	return THE_NON_VALUE;
     }
 
@@ -5370,6 +5723,37 @@ compilation_info_for_module(Process* p, /* Process whose heap to use. */
         HRelease(p,end,hp);
     }
     return result;
+}
+
+/*
+ * Returns the MD5 checksum for a module
+ *
+ * Returns a tagged term, or 0 on error.
+ */
+
+Eterm
+md5_of_module(Process* p, /* Process whose heap to use. */
+              Eterm mod) /* Tagged atom for module. */
+{
+    Module* modp;
+    BeamInstr* code;
+    Eterm res = NIL;
+
+    if (is_not_atom(mod)) {
+	return THE_NON_VALUE;
+    }
+
+    modp = erts_get_module(mod, erts_active_code_ix());
+    if (modp == NULL) {
+	return THE_NON_VALUE;
+    }
+    code = modp->curr.code;
+    if (code[MI_MD5_PTR] != 0) {
+      res = new_binary(p, (byte *) code[MI_MD5_PTR], MD5_SIZE);
+    } else {
+      res = am_undefined;
+    }
+    return res;
 }
 
 /*
@@ -5548,7 +5932,7 @@ code_module_md5_1(BIF_ALIST_1)
 	res = am_undefined;
 	goto done;
     }
-    res = new_binary(p, stp->mod_md5, sizeof(stp->mod_md5));
+    res = new_binary(p, stp->mod_md5, MD5_SIZE);
 
  done:
     erts_free_aligned_binary_bytes(temp_alloc);
@@ -5841,6 +6225,7 @@ erts_make_stub_module(Process* p, Eterm Mod, Eterm Beam, Eterm Info)
     LoaderState* stp;
     BeamInstr Funcs;
     BeamInstr Patchlist;
+    Eterm MD5Bin;
     Eterm* tp;
     BeamInstr* code = NULL;
     BeamInstr* ptrs;
@@ -5869,12 +6254,15 @@ erts_make_stub_module(Process* p, Eterm Mod, Eterm Beam, Eterm Info)
 	goto error;
     }
     tp = tuple_val(Info);
-    if (tp[0] != make_arityval(2)) {
+    if (tp[0] != make_arityval(3)) {
       goto error;
     }
     Funcs = tp[1];
-    Patchlist = tp[2];        
-   
+    Patchlist = tp[2];
+    MD5Bin = tp[3];
+    if (is_not_binary(MD5Bin) || (binary_size(MD5Bin) != MD5_SIZE)) {
+	goto error;
+    }
     if ((n = erts_list_length(Funcs)) < 0) {
 	goto error;
     }
@@ -5924,6 +6312,7 @@ erts_make_stub_module(Process* p, Eterm Mod, Eterm Beam, Eterm Info)
     code_size = ((WORDS_PER_FUNCTION+1)*n + MI_FUNCTIONS + 2) * sizeof(BeamInstr);
     code_size += stp->chunks[ATTR_CHUNK].size;
     code_size += stp->chunks[COMPILE_CHUNK].size;
+    code_size += MD5_SIZE;
     code = erts_alloc_fnf(ERTS_ALC_T_CODE, code_size);
     if (!code) {
 	goto error;
@@ -5944,6 +6333,7 @@ erts_make_stub_module(Process* p, Eterm Mod, Eterm Beam, Eterm Info)
     code[MI_LITERALS_END] = 0;
     code[MI_LITERALS_OFF_HEAP] = 0;
     code[MI_ON_LOAD_FUNCTION_PTR] = 0;
+    code[MI_MD5_PTR] = 0;
     ci = MI_FUNCTIONS + n + 1;
 
     /*
@@ -6028,6 +6418,15 @@ erts_make_stub_module(Process* p, Eterm Mod, Eterm Beam, Eterm Info)
 			  code+MI_COMPILE_SIZE_ON_HEAP);
     if (info == NULL) {
 	goto error;
+    }
+    {
+      byte *tmp = NULL;
+      byte *md5 = NULL;
+      if ((md5 = erts_get_aligned_binary_bytes(MD5Bin, &tmp)) != NULL) {
+        sys_memcpy(info, md5, MD5_SIZE);
+        code[MI_MD5_PTR] = (BeamInstr) info;
+      }
+      erts_free_aligned_binary_bytes(tmp);
     }
 
     /*

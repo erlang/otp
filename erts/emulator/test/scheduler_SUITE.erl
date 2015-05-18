@@ -1829,11 +1829,11 @@ do_it(Tracer, Low, Normal, High, Max) ->
 do_it(Tracer, Low, Normal, High, Max, RedsPerSchedLimit) ->
     OldPrio = process_flag(priority, max),
     go_work(Low, Normal, High, Max),
-    StartWait = now(),
+    StartWait = erlang:monotonic_time(milli_seconds),
     %% Give the emulator a chance to balance the load...
     wait_balance(5),
-    EndWait = now(),
-    BalanceWait = timer:now_diff(EndWait,StartWait) div 1000,
+    EndWait = erlang:monotonic_time(milli_seconds),
+    BalanceWait = EndWait-StartWait,
     erlang:display({balance_wait, BalanceWait}),
     Timeout = ?DEFAULT_TIMEOUT - ?t:minutes(4) - BalanceWait,
     Res = case Timeout < ?MIN_SCHEDULER_TEST_TIMEOUT of
@@ -2027,17 +2027,14 @@ start_node(Config) ->
     start_node(Config, "").
 
 start_node(Config, Args) when is_list(Config) ->
-    ?line Pa = filename:dirname(code:which(?MODULE)),
-    ?line {A, B, C} = now(),
-    ?line Name = list_to_atom(atom_to_list(?MODULE)
-			      ++ "-"
-			      ++ atom_to_list(?config(testcase, Config))
-			      ++ "-"
-			      ++ integer_to_list(A)
-			      ++ "-"
-			      ++ integer_to_list(B)
-			      ++ "-"
-			      ++ integer_to_list(C)),
+    Pa = filename:dirname(code:which(?MODULE)),
+    Name = list_to_atom(atom_to_list(?MODULE)
+			++ "-"
+			++ atom_to_list(?config(testcase, Config))
+			++ "-"
+			++ integer_to_list(erlang:system_time(seconds))
+			++ "-"
+			++ integer_to_list(erlang:unique_integer([positive]))),
     ?line ?t:start_node(Name, slave, [{args, "-pa "++Pa++" "++Args}]).
 
 stop_node(Node) ->

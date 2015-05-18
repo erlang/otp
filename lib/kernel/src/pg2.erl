@@ -140,18 +140,21 @@ get_closest_pid(Name) ->
         [Pid] ->
             Pid;
         [] ->
-            {_,_,X} = erlang:now(),
             case get_members(Name) of
                 [] -> {error, {no_process, Name}};
                 Members ->
-                    lists:nth((X rem length(Members))+1, Members)
+                    random_element(Members)
             end;
         Members when is_list(Members) ->
-            {_,_,X} = erlang:now(),
-            lists:nth((X rem length(Members))+1, Members);
+            random_element(Members);
         Else ->
             Else
     end.
+
+random_element(List) ->
+    X = abs(erlang:monotonic_time()
+		bxor erlang:unique_integer()),
+    lists:nth((X rem length(List)) + 1, List).
 
 %%%
 %%% Callback functions from gen_server

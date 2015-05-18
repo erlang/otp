@@ -22,6 +22,8 @@
 -include_lib("wx/include/wx.hrl").
 -include_lib("observer/src/observer_tv.hrl").
 
+-define(ID_LOGVIEW, 5).
+
 %% Test server specific exports
 -export([all/0, suite/0,groups/0]).
 -export([init_per_testcase/2, end_per_testcase/2,
@@ -44,8 +46,9 @@ all() ->
 
 groups() ->
     [{gui, [],
-      [basic
-      , process_win, table_win
+      [basic,
+       process_win,
+       table_win
       ]
      }].
 
@@ -107,7 +110,7 @@ appup_file(Config) when is_list(Config) ->
 basic(suite) -> [];
 basic(doc) -> [""];
 basic(Config) when is_list(Config) ->
-    timer:send_after(100, "foobar"), %% Otherwise the timer sever gets added to procs
+    timer:send_after(100, "foobar"), %% Otherwise the timer server gets added to procs
     ProcsBefore = processes(),
     NumProcsBefore = length(ProcsBefore),
 
@@ -126,7 +129,7 @@ basic(Config) when is_list(Config) ->
 		    timer:sleep(200),
 		    ok = wxNotebook:advanceSelection(Notebook)
 	    end,
-    %% Just verify that we can toogle trough all pages
+    %% Just verify that we can toggle through all pages
     [_|_] = [Check(N, false) || N <- lists:seq(1, Count)],
     %% Cause it to resize
     Frame = get_top_level_parent(Notebook),
@@ -214,10 +217,27 @@ test_page(Title, Window) ->
 process_win(suite) -> [];
 process_win(doc) -> [""];
 process_win(Config) when is_list(Config) ->
+    % Stop SASL if already started
+    SaslStart = case whereis(sasl_sup) of
+                  undefined -> false;
+                  _         -> application:stop(sasl),
+                               true
+                end,
+    % Define custom sasl and log_mf_h app vars
+    Privdir=?config(priv_dir,Config),
+    application:set_env(sasl, sasl_error_logger, tty),
+    application:set_env(sasl, error_logger_mf_dir, Privdir),
+    application:set_env(sasl, error_logger_mf_maxbytes, 1000),
+    application:set_env(sasl, error_logger_mf_maxfiles, 5),
+    application:start(sasl),
     ok = observer:start(),
     ObserverNB = setup_whitebox_testing(),
     Parent = get_top_level_parent(ObserverNB),
-    Frame = observer_procinfo:start(self(), Parent, self()),
+    % Activate log view
+    whereis(observer) ! #wx{id = ?ID_LOGVIEW, event = #wxCommand{type = command_menu_selected}},
+    timer:sleep(1000),
+    % Process window tests (use sasl_sup for a non empty Log tab)
+    Frame = observer_procinfo:start(whereis(sasl_sup), Parent, self()),
     PIPid = wx_object:get_pid(Frame),
     PIPid ! {get_debug_info, self()},
     Notebook = receive {procinfo_debug, NB} -> NB end,
@@ -229,6 +249,11 @@ process_win(Config) when is_list(Config) ->
     [_|_] = [Check(N) || N <- lists:seq(1, Count)],
     PIPid ! #wx{event=#wxClose{type=close_window}},
     observer:stop(),
+    application:stop(sasl),
+    case SaslStart of
+         true  -> application:start(sasl);
+         false -> ok
+    end,
     ok.
 
 table_win(suite) -> [];

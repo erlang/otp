@@ -20,7 +20,9 @@ include $(ERL_TOP)/make/target.mk
 include $(ERL_TOP)/make/$(TARGET)/otp.mk
 
 MODULES =  \
-	eunit_SUITE
+	eunit_SUITE \
+	tlatin \
+	tutf8
 
 ERL_FILES= $(MODULES:%=%.erl)
 

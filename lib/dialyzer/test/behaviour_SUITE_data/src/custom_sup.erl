@@ -13,7 +13,7 @@
 -export([init/1]).
 
 -spec init(atom()) ->
-	{ok, {{supervisor:strategy(), non_neg_integer(), non_neg_integer()},
+	{ok, {{supervisor:strategy(), non_neg_integer(), pos_integer()},
 	      [supervisor:child_spec()]}} | ignore.
 
 init(StorageName) ->

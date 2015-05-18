@@ -48,12 +48,7 @@ groups() ->
     [].
 
 init_per_suite(Config) ->
-    Term = case os:getenv("TERM") of
-	       List when is_list(List) ->
-		   List;
-	       _ ->
-		   "dumb"
-	   end,
+    Term = os:getenv("TERM", "dumb"),
     os:putenv("TERM","vt100"),
     DefShell = get_default_shell(),
     [{default_shell,DefShell},{term,Term}|Config].

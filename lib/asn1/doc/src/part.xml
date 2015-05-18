@@ -29,11 +29,14 @@
     <file>part.sgml</file>
   </header>
   <description>
-    <p>The <em>Asn1</em> application 
-      contains modules with compile-time and run-time support for ASN.1.
+    <p>The <c>ASN.1</c> application
+      contains modules with compile-time and runtime support for
+      Abstract Syntax Notation One (ASN.1).
       </p>
   </description>
-  <xi:include href="asn1_ug.xml"/>
+  <xi:include href="asn1_introduction.xml"/>
+  <xi:include href="asn1_overview.xml"/>
+  <xi:include href="asn1_getting_started.xml"/>
   <xi:include href="asn1_spec.xml"/>
 </part>
 

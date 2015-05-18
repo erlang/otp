@@ -114,13 +114,33 @@ struct ErtsPollSet_ {
     Uint item_count;
     PROCESS interrupt;
     erts_atomic32_t wakeup_state;
-    erts_smp_atomic32_t timeout;
+    erts_atomic64_t timeout_time;
 #ifdef ERTS_SMP
     erts_smp_mtx_t mtx;
 #endif
 };
 
 static int max_fds = -1;
+
+static ERTS_INLINE void
+init_timeout_time(ErtsPollSet ps)
+{
+    erts_atomic64_init_nob(&ps->timeout_time,
+			   (erts_aint64_t) ERTS_MONOTONIC_TIME_MAX);
+}
+
+static ERTS_INLINE void
+set_timeout_time(ErtsPollSet ps, ErtsMonotonicTime time)
+{
+    erts_atomic64_set_relb(&ps->timeout_time,
+			   (erts_aint64_t) time);
+}
+
+static ERTS_INLINE ErtsMonotonicTime
+get_timeout_time(ErtsPollSet ps)
+{
+    return (ErtsMonotonicTime) erts_atomic64_read_acqb(&ps->timeout_time);
+}
 
 #define ERTS_POLL_NOT_WOKEN		((erts_aint32_t) (1 << 0))
 #define ERTS_POLL_WOKEN_INTR		((erts_aint32_t) (1 << 1))
@@ -386,12 +406,14 @@ void erts_poll_interrupt(ErtsPollSet ps,int set) {
 
 }
 
-void erts_poll_interrupt_timed(ErtsPollSet ps,int set,erts_short_time_t msec) {
+void erts_poll_interrupt_timed(ErtsPollSet ps,
+			       int set,
+			       ErtsTimeoutTime timeout_time) {
     HARDTRACEF("erts_poll_interrupt_timed called!\n");
 
     if (!set)
 	reset_interrupt(ps);
-    else if (erts_smp_atomic32_read_acqb(&ps->timeout) > (erts_aint32_t) msec)
+    else if (get_timeout_time(ps) > timeout_time)
         set_interrupt(ps);
 }
 
@@ -453,12 +475,14 @@ done:
 }
 
 int erts_poll_wait(ErtsPollSet ps,
-	   ErtsPollResFd pr[],
-	   int *len,
-	   SysTimeval *utvp) {
+		   ErtsPollResFd pr[],
+		   int *len,
+		   ErtsMonotonicTime timeout_time)
+{
     int res = ETIMEDOUT, no_fds, currid = 0;
     OSTIME timeout;
     union SIGNAL *sig;
+    ErtsMonotonicTime current_time, diff_time, timeout;
     // HARDTRACEF("%ux: In erts_poll_wait",ps);
     if (ps->interrupt == (PROCESS)0)
       ps->interrupt = current_process();
@@ -472,16 +496,29 @@ int erts_poll_wait(ErtsPollSet ps,
 
     *len = 0;
 
-    ASSERT(utvp);
+    /* erts_printf("Entering erts_poll_wait(), timeout_time=%bps\n",
+		   timeout_time); */
 
-    /* erts_printf("Entering erts_poll_wait(), timeout=%d\n",
-		 (int) utvp->tv_sec*1000 + utvp->tv_usec/1000); */
+    if (timeout_time == ERTS_POLL_NO_TIMEOUT) {
+    no_timeout:
+	timeout = (OSTIME) 0;
+	save_timeout_time = ERTS_MONOTONIC_TIME_MIN;
+    }
+    else {
+	ErtsMonotonicTime current_time, diff_time;
+	current_time = erts_get_monotonic_time(NULL);
+	diff_time = timeout_time - current_time;
+	if (diff_time <= 0)
+	    goto no_timeout;
+	diff_time = (ERTS_MONOTONIC_TO_MSEC(diff_time - 1) + 1);
+	if (diff_time > INT_MAX)
+	    diff_time = INT_MAX;
+	timeout = (OSTIME) diff_time;
+	save_timeout_time = current_time;
+	save_timeout_time += ERTS_MSEC_TO_MONOTONIC(diff_time);
+    }
 
-    timeout = utvp->tv_sec*1000 + utvp->tv_usec/1000;
-
-    if (timeout > ((time_t) ERTS_AINT32_T_MAX))
-      timeout = ERTS_AINT32_T_MAX;
-    erts_smp_atomic32_set_relb(&ps->timeout, (erts_aint32_t) timeout);
+    set_timeout_time(ps, save_timeout_time);
 
     while (currid < no_fds) {
       if (timeout > 0) {
@@ -627,7 +664,7 @@ int erts_poll_wait(ErtsPollSet ps,
     }
 
     erts_atomic32_set_nob(&ps->wakeup_state, ERTS_POLL_NOT_WOKEN);
-    erts_smp_atomic32_set_nob(&ps->timeout, ERTS_AINT32_T_MAX);
+    set_timeout_time(ps, ERTS_MONOTONIC_TIME_MAX);
 
     *len = currid;
 
@@ -690,7 +727,7 @@ ErtsPollSet erts_poll_create_pollset(void)
     ps->info       = NULL;
     ps->interrupt  = (PROCESS)0;
     erts_atomic32_init_nob(&ps->wakeup_state, ERTS_POLL_NOT_WOKEN);
-    erts_smp_atomic32_init_nob(&ps->timeout, ERTS_AINT32_T_MAX);
+    init_timeout_time(ps);
 #ifdef ERTS_SMP
     erts_smp_mtx_init(&ps->mtx, "pollset");
 #endif

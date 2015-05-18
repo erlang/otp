@@ -32,7 +32,7 @@ void
 erts_sys_init_float(void)
 {
 # ifdef SIGFPE
-    sys_sigset(SIGFPE, SIG_IGN); /* Ignore so we can test for NaN and Inf */
+    sys_signal(SIGFPE, SIG_IGN); /* Ignore so we can test for NaN and Inf */
 # endif
 }
 
@@ -85,7 +85,7 @@ static void set_current_fp_exception(unsigned long pc)
 
 void erts_fp_check_init_error(volatile unsigned long *fpexnp)
 {
-    char buf[64];
+    char buf[128];
     snprintf(buf, sizeof buf, "ERTS_FP_CHECK_INIT at %p: detected unhandled FPE at %p\r\n",
 	     __builtin_return_address(0), (void*)*fpexnp);
     if (write(2, buf, strlen(buf)) <= 0)
@@ -667,7 +667,7 @@ static void fpe_sig_handler(int sig)
 
 static void erts_thread_catch_fp_exceptions(void)
 {
-    sys_sigset(SIGFPE, fpe_sig_handler);
+    sys_signal(SIGFPE, fpe_sig_handler);
     unmask_fpe();
 }
 

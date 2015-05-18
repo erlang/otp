@@ -290,10 +290,10 @@ send(Data,State) ->
     
 send_loop(T,Data,State) ->
     dbg("Server sending ~p in loop for ~w ms...~n",[Data,T]),
-    send_loop(now(),T,Data,State).
+    send_loop(os:timestamp(),T,Data,State).
 
 send_loop(T0,T,Data,State) ->
-    ElapsedMS = trunc(timer:now_diff(now(),T0)/1000),
+    ElapsedMS = trunc(timer:now_diff(os:timestamp(),T0)/1000),
     if ElapsedMS >= T ->
 	    ok;
        true ->
@@ -320,7 +320,7 @@ dbg(_F,_A) ->
     io:format("[telnet_server, ~s]\n" ++ _F,[TS|_A]).
 
 timestamp() ->
-    {MS,S,US} = now(),
+    {MS,S,US} = os:timestamp(),
     {{Year,Month,Day}, {Hour,Min,Sec}} =
         calendar:now_to_local_time({MS,S,US}),
     MilliSec = trunc(US/1000),

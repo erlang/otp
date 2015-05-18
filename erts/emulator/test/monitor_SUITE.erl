@@ -26,7 +26,8 @@
 	 case_1/1, case_1a/1, case_2/1, case_2a/1, mon_e_1/1, demon_e_1/1, demon_1/1,
 	 demon_2/1, demon_3/1, demonitor_flush/1,
 	 local_remove_monitor/1, remote_remove_monitor/1, mon_1/1, mon_2/1,
-	 large_exit/1, list_cleanup/1, mixer/1, named_down/1, otp_5827/1]).
+	 large_exit/1, list_cleanup/1, mixer/1, named_down/1, otp_5827/1,
+	 monitor_time_offset/1]).
 
 -export([init_per_testcase/2, end_per_testcase/2]).
 
@@ -38,7 +39,8 @@ all() ->
     [case_1, case_1a, case_2, case_2a, mon_e_1, demon_e_1,
      demon_1, mon_1, mon_2, demon_2, demon_3,
      demonitor_flush, {group, remove_monitor}, large_exit,
-     list_cleanup, mixer, named_down, otp_5827].
+     list_cleanup, mixer, named_down, otp_5827,
+     monitor_time_offset].
 
 groups() -> 
     [{remove_monitor, [],
@@ -59,7 +61,7 @@ end_per_group(_GroupName, Config) ->
 
 init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
     Dog=?t:timetrap(?t:minutes(15)),
-    [{watchdog, Dog}|Config].
+    [{watchdog, Dog},{testcase, Func}|Config].
 
 end_per_testcase(_Func, Config) ->
     Dog=?config(watchdog, Config),
@@ -761,12 +763,10 @@ named_down(doc) -> ["Test that DOWN message for a named monitor isn't"
 		    " delivered until name has been unregistered"];
 named_down(suite) -> [];
 named_down(Config) when is_list(Config) ->
-    ?line {A,B,C} = now(),
     ?line Name = list_to_atom(atom_to_list(?MODULE)
 			      ++ "-named_down-"
-			      ++ integer_to_list(A)
-			      ++ "-" ++ integer_to_list(B)
-			      ++ "-" ++ integer_to_list(C)),
+			      ++ integer_to_list(erlang:system_time(seconds))
+			      ++ "-" ++ integer_to_list(erlang:unique_integer([positive]))),
     ?line Prio = process_flag(priority,high),
     %% Spawn a bunch of high prio cpu bound processes to prevent
     %% normal prio processes from terminating during the next
@@ -837,6 +837,89 @@ otp_5827(Config) when is_list(Config) ->
 		  ?line ?t:fail("erlang:monitor/2 hangs")
 	  end.
 
+monitor_time_offset(Config) when is_list(Config) ->
+    {ok, Node} = start_node(Config, "+C single_time_warp"),
+    Me = self(),
+    PMs = lists:map(fun (_) ->
+			    Pid = spawn(Node,
+					fun () ->
+						check_monitor_time_offset(Me)
+					end),
+			    {Pid, erlang:monitor(process, Pid)}
+		    end,
+		    lists:seq(1, 100)),
+    lists:foreach(fun ({P, _M}) ->
+			  P ! check_no_change_message
+		  end, PMs),
+    lists:foreach(fun ({P, M}) ->
+			  receive
+			      {no_change_message_received, P} ->
+				  ok;
+			      {'DOWN', M, process, P, Reason} ->
+				  ?t:fail(Reason)
+			  end
+		  end, PMs),
+    preliminary = rpc:call(Node, erlang, system_flag, [time_offset, finalize]),
+    lists:foreach(fun ({P, M}) ->
+			  receive
+			      {change_messages_received, P} ->
+				  erlang:demonitor(M, [flush]);
+			      {'DOWN', M, process, P, Reason} ->
+				  ?t:fail(Reason)
+			  end
+		  end, PMs),
+    stop_node(Node),
+    ok.
+
+check_monitor_time_offset(Leader) ->
+    Mon1 = erlang:monitor(time_offset, clock_service),
+    Mon2 = erlang:monitor(time_offset, clock_service),
+    Mon3 = erlang:monitor(time_offset, clock_service),
+    Mon4 = erlang:monitor(time_offset, clock_service),
+
+    erlang:demonitor(Mon2, [flush]),
+    
+    Mon5 = erlang:monitor(time_offset, clock_service),
+    Mon6 = erlang:monitor(time_offset, clock_service),
+    Mon7 = erlang:monitor(time_offset, clock_service),
+
+    receive check_no_change_message -> ok end,
+    receive
+	{'CHANGE', _, time_offset, clock_service, _} ->
+	    exit(unexpected_change_message_received)
+    after 0 ->
+	    Leader ! {no_change_message_received, self()}
+    end,
+    receive after 100 -> ok end,
+    erlang:demonitor(Mon4, [flush]),
+    receive
+	{'CHANGE', Mon3, time_offset, clock_service, _} ->
+	    ok
+    end,
+    receive
+	{'CHANGE', Mon6, time_offset, clock_service, _} ->
+	    ok
+    end,
+    erlang:demonitor(Mon5, [flush]),
+    receive
+	{'CHANGE', Mon7, time_offset, clock_service, _} ->
+	    ok
+    end,
+    receive
+	{'CHANGE', Mon1, time_offset, clock_service, _} ->
+	    ok
+    end,
+    receive
+	{'CHANGE', _, time_offset, clock_service, _} ->
+	    exit(unexpected_change_message_received)
+    after 1000 ->
+	    ok
+    end,
+    Leader ! {change_messages_received, self()}.
+
+%%
+%% ...
+%%
 
 wait_for_m(_,_,0) ->
     exit(monitor_wait_timeout);
@@ -959,3 +1042,25 @@ generate(_Fun, 0) ->
     [];
 generate(Fun, N) ->
     [Fun() | generate(Fun, N-1)].
+
+start_node(Config) ->
+    start_node(Config, "").
+
+start_node(Config, Args) ->
+    TestCase = ?config(testcase, Config),
+    PA = filename:dirname(code:which(?MODULE)),
+    ESTime = erlang:monotonic_time(1) + erlang:time_offset(1),
+    Unique = erlang:unique_integer([positive]),
+    Name = list_to_atom(atom_to_list(?MODULE)
+			++ "-"
+			++ atom_to_list(TestCase)
+			++ "-"
+			++ integer_to_list(ESTime)
+			++ "-"
+			++ integer_to_list(Unique)),
+    test_server:start_node(Name,
+			   slave,
+			   [{args, "-pa " ++ PA ++ " " ++ Args}]).
+
+stop_node(Node) ->
+    test_server:stop_node(Node).

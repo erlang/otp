@@ -206,7 +206,9 @@ ConstructedDefaultSet CONSTRUCTED-DEFAULT ::= {
   { &id 4, &Type SET { a INTEGER, b BIT STRING } } |
   { &id 5, &Type CHOICE { i INTEGER, b BIT STRING } } |
   { &id 6, &Type SEQUENCE OF INTEGER (1..16) } |
-  { &id 7, &Type SET OF INTEGER (1..64) }
+  { &id 7, &Type SET OF INTEGER (1..64) } |
+  { &id 8, &Type SEQUENCE OF SEQUENCE { x INTEGER, y INTEGER } } |
+  { &id 9, &Type SET OF SEQUENCE { x INTEGER, y INTEGER } }
 }
 
 ConstructedPdu ::= SEQUENCE {
@@ -288,18 +290,196 @@ OstSeq1234 ::= ObjectSetTest{ {Ost1234} }
 OstSeq45 ::= ObjectSetTest{ {Ost45} }
 OstSeq12345 ::= ObjectSetTest{ {Ost12345} }
 
+OstSeq12Except ::= ObjectSetTest{ {Ost123 EXCEPT ost3} }
+OstSeq123Except ::= ObjectSetTest{ {Ost12345 EXCEPT Ost45} }
+
+ExOst1    OBJECT-SET-TEST ::= { ost1, ... }
 ExOst12    OBJECT-SET-TEST ::= { ost1, ..., ost2 }
 ExOst123   OBJECT-SET-TEST ::= { ost3, ..., ExOst12 }
---ExOst1234  OBJECT-SET-TEST ::= { ExOst123, ..., ost4 }
+ExOst1234  OBJECT-SET-TEST ::= { ExOst123, ..., ost4 }
 ExOst45    OBJECT-SET-TEST ::= { ost4, ..., ost5 }
 ExOst12345 OBJECT-SET-TEST ::= { ExOst123, ..., ExOst45 }
 
+ExOstSeq1 ::= ObjectSetTest{ {ExOst1} }
 ExOstSeq12 ::= ObjectSetTest{ {ExOst12} }
 ExOstSeq123 ::= ObjectSetTest{ {ExOst123} }
---ExOstSeq1234 ::= ObjectSetTest{ {ExOst1234} }
+ExOstSeq1234 ::= ObjectSetTest{ {ExOst1234} }
 ExOstSeq45 ::= ObjectSetTest{ {ExOst45} }
 ExOstSeq12345 ::= ObjectSetTest{ {ExOst12345} }
 
+ExOstSeq12Except ::= ObjectSetTest{ {ExOst123 EXCEPT ost3} }
+ExOstSeq123Except ::= ObjectSetTest{ {ExOst12345 EXCEPT ExOst45} }
+
+ExInlOst1    OBJECT-SET-TEST ::= {
+    { 1 IS BIT STRING },
+    ...
+}
+ExInlOst12   OBJECT-SET-TEST ::= {
+    { 1 IS BIT STRING },
+    ...,
+    { 2 IS OCTET STRING }
+}
+
+ExInlOstSeq1 ::= ObjectSetTest{ {ExInlOst1} }
+ExInlOstSeq12 ::= ObjectSetTest{ {ExInlOst12} }
+
+--
+-- Test that extensions in a simple class works.
+--
+
+ExtClassSeq ::= SEQUENCE {
+  arg      EXT-CLASS.&id({Extend})
+}
+
+EXT-CLASS ::= CLASS {
+    &id INTEGER UNIQUE
+} WITH SYNTAX {
+    ID &id
+}
+
+Extend EXT-CLASS ::= { { ID alt1 } | { ID alt2 }, ... }
+
+alt1 INTEGER ::= 4
+alt2 INTEGER ::= 5
+
+
+--
+-- Test a BIT STRING which is optional in the simplified syntax.
+--
+
+PUBLIC-KEY ::= CLASS {
+    &id             INTEGER UNIQUE,
+    &keyUsage       KeyUsage OPTIONAL
+} WITH SYNTAX {
+    IDENTIFIER &id
+    [OPTIONAL-BIT-STRING &keyUsage]
+}
+
+KeyUsage ::= BIT STRING {
+     digitalSignature        (0),
+     nonRepudiation          (1),
+     keyEncipherment         (2)
+ }
+
+object-with-optional-bit-string PUBLIC-KEY ::= {
+ IDENTIFIER 42
+ OPTIONAL-BIT-STRING {digitalSignature, nonRepudiation, keyEncipherment}
+}
+
+-- Test object identifiers from objects.
+
+CONTAINER ::= CLASS {
+ &id   OBJECT IDENTIFIER UNIQUE,
+ &rid  RELATIVE-OID OPTIONAL,
+ &Type OPTIONAL
+} WITH SYNTAX {
+  IDENTIFIED BY &id
+  [REL-OID &rid]
+  [TYPE &Type]
+}
+
+id1 OBJECT IDENTIFIER ::= {1 2 42}
+obj1 CONTAINER ::= { IDENTIFIED BY id1 REL-OID {100 101} }
+
+value-2 OBJECT IDENTIFIER ::= { value-1 25 }
+value-1 OBJECT IDENTIFIER ::= obj1.&id
+value-3 RELATIVE-OID ::= obj1.&rid
+value-4 OBJECT IDENTIFIER ::= { 1 2 value-3 }
+
+
+-- Test an obscure issue when ATTRIBUTE.&id was not
+-- properly evaluated.
+
+Rdn ::= SingleAttribute { {SupportedAttributes} }
+
+ATTRIBUTE ::= CLASS {
+   &id             OBJECT IDENTIFIER UNIQUE,
+   &Type           OPTIONAL
+}
+
+SingleAttribute{ATTRIBUTE:AttrSet} ::= SEQUENCE {
+   type      ATTRIBUTE.&id({AttrSet}),
+   value     ATTRIBUTE.&Type({AttrSet}{@type})
+}
+
+AttributeType ::= ATTRIBUTE.&id
+
+SupportedAttributes ATTRIBUTE ::= { at-name }
+
+id-at OBJECT IDENTIFIER ::= { 2 5 4 41 }
+id-at-name AttributeType ::= id-at
+at-name ATTRIBUTE ::= { &Type PrintableString, &id id-at-name }
+
+--
+-- Test using an alias for TYPE-IDENTIFIER.
+--
+
+TiAliasParameterized { TI-ALIAS:InfoObjectSet } ::= SEQUENCE {
+  algorithm TI-ALIAS.&id({InfoObjectSet}),
+  parameters TI-ALIAS.&Type({InfoObjectSet} {@algorithm}) OPTIONAL
+}
+
+TI-ALIAS ::= TYPE-IDENTIFIER
+
+TiAliasSeq ::= SEQUENCE {
+  prf TiAliasParameterized {{TiAliasSet}}
+}
+
+TiAliasSet TI-ALIAS ::= {
+  {NULL IDENTIFIED BY {2 1 2}},
+   ...
+}
+
+--
+-- Test using an alias for a class.
+--
+
+ALIAS-CONTAINER ::= CLASS {
+  &id INTEGER UNIQUE,
+  &obj INDIRECT-CLASS
+}
+
+INDIRECTED-CLASS ::= CLASS {
+  &id INTEGER UNIQUE,
+  &Type
+}
+
+INDIRECT-CLASS ::= INDIRECTED-CLASS
+
+--
+-- Indirect ObjectClassFieldType in a SEQUENCE.
+--
+
+ContentInfo ::= SEQUENCE {
+  contentType  ContentType, -- Indirect ObjectClassFieldType
+  content      TYPE-IDENTIFIER.&Type({Contents}{@contentType})
+OPTIONAL
+}
+
+Contents TYPE-IDENTIFIER ::= {
+  {IA5String IDENTIFIED BY id-content-type}
+}
+
+ContentType ::= TYPE-IDENTIFIER.&id({Contents})
+id-content-type ContentType ::= { 2 7 8 9 }
+
+--
+-- Tricky parsing of simplified syntax.
+--
+
+TrickyType-1 ::= BIT STRING
+TrickyType-2 ::= OCTET STRING
+
+TRICKY ::= CLASS {
+  &Type1,
+  &Type2
+} WITH SYNTAX {
+   TYPE &Type1 &Type2
+}
+
+tricky-object TRICKY ::= {TYPE TrickyType-1 TrickyType-2}
+
+tricky-bit-string tricky-object.&Type1 ::= '1011'B
+tricky-octet-string tricky-object.&Type1 ::= 'CAFE'H
+
 END
-
-

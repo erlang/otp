@@ -3957,9 +3957,9 @@ static int inet_init()
     if (0 != erl_drv_tsd_key_create("inet_buffer_stack_key", &buffer_stack_key))
 	goto error;
 
-    ASSERT(sizeof(struct in_addr) == 4);
+    ERTS_CT_ASSERT(sizeof(struct in_addr) == 4);
 #   if defined(HAVE_IN6) && defined(AF_INET6)
-    ASSERT(sizeof(struct in6_addr) == 16);
+    ERTS_CT_ASSERT(sizeof(struct in6_addr) == 16);
 #   endif
 
     INIT_ATOM(ok);
@@ -4005,7 +4005,7 @@ static int inet_init()
 #ifdef HAVE_SCTP
     /* Check the size of SCTP AssocID -- currently both this driver and the
        Erlang part require 32 bit: */
-    ASSERT(sizeof(sctp_assoc_t)==ASSOC_ID_LEN);
+    ERTS_CT_ASSERT(sizeof(sctp_assoc_t)==ASSOC_ID_LEN);
 #   if defined(HAVE_SCTP_BINDX)
     p_sctp_bindx = sctp_bindx;
 #     if defined(HAVE_SCTP_PEELOFF)

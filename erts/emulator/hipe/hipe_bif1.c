@@ -574,22 +574,6 @@ BIF_RETTYPE hipe_bifs_pause_times_0(BIF_ALIST_0)
 
 /* XXX: these macros have free variables */
 #ifdef BM_TIMERS
-#if USE_PERFCTR
-#define MAKE_TIME(_timer_) {			      \
-    BM_TIMER_T tmp = _timer_##_time;		      \
-    milli = (uint)(tmp - ((int)(tmp / 1000)) * 1000); \
-    tmp /= 1000;				      \
-    sec = (uint)(tmp - ((int)(tmp / 60)) * 60);	      \
-    min = (uint)tmp / 60;			      }
-
-#define MAKE_MICRO_TIME(_timer_) {		      \
-    BM_TIMER_T tmp = _timer_##_time * 1000;	      \
-    micro = (uint)(tmp - ((int)(tmp / 1000)) * 1000); \
-    tmp /= 1000;				      \
-    milli = (uint)(tmp - ((int)(tmp / 1000)) * 1000); \
-    sec = (uint)tmp / 1000;			      }
-
-#else
 #define MAKE_TIME(_timer_) {			      \
     BM_TIMER_T tmp = _timer_##_time / 1000000;	      \
     milli = tmp % 1000;				      \
@@ -604,7 +588,6 @@ BIF_RETTYPE hipe_bifs_pause_times_0(BIF_ALIST_0)
     milli = tmp % 1000;				      \
     sec = tmp / 1000;				      }
 
-#endif
 #else
 #define MAKE_TIME(_timer_)
 #define MAKE_MICRO_TIME(_timer_)
@@ -852,9 +835,6 @@ BIF_RETTYPE hipe_bifs_misc_timer_clear_0(BIF_ALIST_0)
 /*
  * HiPE hrvtime().
  * These implementations are currently available:
- * + On Linux with the perfctr extension we can use the process'
- *   virtualised time-stamp counter. To enable this mode you must
- *   pass `--with-perfctr=/path/to/perfctr' when configuring.
  * + The fallback, which is the same as {X,_} = runtime(statistics).
  */
 
@@ -866,37 +846,6 @@ static double fallback_get_hrvtime(void)
     return (double)ms_user;
 }
 
-#if USE_PERFCTR
-
-#include "hipe_perfctr.h"
-static int hrvtime_started;	/* 0: closed, +1: perfctr, -1: fallback */
-#define hrvtime_is_started()	(hrvtime_started != 0)
-
-static void start_hrvtime(void)
-{
-    if (hipe_perfctr_hrvtime_open() >= 0)
-	hrvtime_started = 1;
-    else
-	hrvtime_started = -1;
-}
-
-static void stop_hrvtime(void)
-{
-    if (hrvtime_started > 0)
-	hipe_perfctr_hrvtime_close();
-    hrvtime_started = 0;
-}
-
-static double get_hrvtime(void)
-{
-    if (hrvtime_started > 0)
-	return hipe_perfctr_hrvtime_get();
-    else
-	return fallback_get_hrvtime();
-}
-
-#else	/* !USE_PERFCTR */
-
 /*
  * Fallback, if nothing better exists.
  * This is the same as {X,_} = statistics(runtime), which uses
@@ -907,8 +856,6 @@ static double get_hrvtime(void)
 #define start_hrvtime()		do{}while(0)
 #define stop_hrvtime()		do{}while(0)
 #define get_hrvtime()		fallback_get_hrvtime()
-
-#endif	/* !USE_PERFCTR */
 
 BIF_RETTYPE hipe_bifs_get_hrvtime_0(BIF_ALIST_0)
 {

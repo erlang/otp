@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2000-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -924,7 +924,7 @@ format_parse_error(["invalid_operator", Op], Line) ->
 format_parse_error(Error, Line) ->
     io_lib:format("Parse error~s: ~ts~n", [Line, lists:flatten(Error)]).
 
-format_line(-1) ->
+format_line(?XREF_END_LINE) ->
     " at end of string";
 format_line(0) ->
     "";

@@ -2,7 +2,7 @@
 %%-----------------------------------------------------------------------
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2006-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -405,7 +405,7 @@ get_type({{M, F, A} = MFA, Range, Arg}, CodeServer, Records) ->
   case dialyzer_codeserver:lookup_mfa_contract(MFA, CodeServer) of
     error ->
       {{F, A}, {Range, Arg}};
-    {ok, {_FileLine, Contract}} ->
+    {ok, {_FileLine, Contract, _Xtra}} ->
       Sig = erl_types:t_fun(Arg, Range),
       case dialyzer_contracts:check_contract(Contract, Sig) of
 	ok -> {{F, A}, {contract, Contract}};
@@ -931,7 +931,9 @@ analyze_one_function({Var, FunBody} = Function, Acc) ->
   A = cerl:fname_arity(Var),
   TmpDialyzerObj = {{Acc#tmpAcc.module, F, A}, Function},
   NewDialyzerObj = Acc#tmpAcc.dialyzerObj ++ [TmpDialyzerObj],  
-  [_, LineNo, {file, FileName}] = cerl:get_ann(FunBody),
+  Anno = cerl:get_ann(FunBody),
+  LineNo = get_line(Anno),
+  FileName = get_file(Anno),
   BaseName = filename:basename(FileName),
   FuncInfo = {LineNo, F, A},
   OriginalName = Acc#tmpAcc.file,
@@ -950,6 +952,14 @@ analyze_one_function({Var, FunBody} = Function, Acc) ->
   Acc#tmpAcc{funcAcc = FuncAcc,
 	     incFuncAcc = IncFuncAcc,
 	     dialyzerObj = NewDialyzerObj}.
+
+get_line([Line|_]) when is_integer(Line) -> Line;
+get_line([_|T]) -> get_line(T);
+get_line([]) -> none.
+
+get_file([{file,File}|_]) -> File;
+get_file([_|T]) -> get_file(T);
+get_file([]) -> "no_file". % should not happen
 
 -spec get_dialyzer_plt(analysis()) -> plt().
 

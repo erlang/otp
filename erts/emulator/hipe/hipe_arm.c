@@ -260,9 +260,9 @@ int hipe_patch_insn(void *address, Uint32 value, Eterm type)
     return 0;
 }
 
-/* called from hipe_bif0.c:hipe_bifs_make_native_stub_2()
-   and hipe_bif0.c:hipe_make_stub() */
-void *hipe_make_native_stub(void *beamAddress, unsigned int beamArity)
+/* Make stub for native code calling exported beam function
+*/
+void *hipe_make_native_stub(void *callee_exp, unsigned int beamArity)
 {
     unsigned int *code;
     unsigned int *tramp_callemu;
@@ -272,9 +272,9 @@ void *hipe_make_native_stub(void *beamAddress, unsigned int beamArity)
      * Native code calls BEAM via a stub looking as follows:
      *
      * mov r0, #beamArity
-     * ldr r8, [pc,#0] // beamAddress
+     * ldr r8, [pc,#0] // callee_exp
      * b nbif_callemu
-     * .long beamAddress
+     * .long callee_exp
      *
      * I'm using r0 and r8 since they aren't used for
      * parameter passing in native code. The branch to
@@ -283,6 +283,8 @@ void *hipe_make_native_stub(void *beamAddress, unsigned int beamArity)
      */
 
     code = alloc_stub(4, &tramp_callemu);
+    if (!code)
+	return NULL;
     callemu_offset = ((int)&nbif_callemu - ((int)&code[2] + 8)) >> 2;
     if (!(callemu_offset >= -0x00800000 && callemu_offset <= 0x007FFFFF)) {
 	callemu_offset = ((int)tramp_callemu - ((int)&code[2] + 8)) >> 2;
@@ -292,12 +294,12 @@ void *hipe_make_native_stub(void *beamAddress, unsigned int beamArity)
 
     /* mov r0, #beamArity */
     code[0] = 0xE3A00000 | (beamArity & 0xFF);
-    /* ldr r8, [pc,#0] // beamAddress */
+    /* ldr r8, [pc,#0] // callee_exp */
     code[1] = 0xE59F8000;
     /* b nbif_callemu */
     code[2] = 0xEA000000 | (callemu_offset & 0x00FFFFFF);
-    /* .long beamAddress */
-    code[3] = (unsigned int)beamAddress;
+    /* .long callee_exp */
+    code[3] = (unsigned int)callee_exp;
 
     hipe_flush_icache_range(code, 4*sizeof(int));
 

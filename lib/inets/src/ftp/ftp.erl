@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -2176,16 +2176,16 @@ handle_caller(#state{caller = {transfer_data, {Cmd, Bin, RemoteFile}}} =
 %% Connect to FTP server at Host (default is TCP port 21) 
 %% in order to establish a control connection.
 setup_ctrl_connection(Host, Port, Timeout, State) ->
-    MsTime = millisec_time(),
+    MsTime = inets_time_compat:monotonic_time(),
     case connect(Host, Port, Timeout, State) of
 	{ok, IpFam, CSock} ->
 	    NewState = State#state{csock = {tcp, CSock}, ipfamily = IpFam},
 	    activate_ctrl_connection(NewState),
-	    case Timeout - (millisec_time() - MsTime) of
+	    case Timeout - inets_lib:millisec_passed(MsTime) of
 		Timeout2 when (Timeout2 >= 0) ->
 		    {ok, NewState#state{caller = open}, Timeout2};
 		_ ->
-		    %% Oups: Simulate timeout
+                    %% Oups: Simulate timeout
 		    {ok, NewState#state{caller = open}, 0}
 	    end;
 	Error ->
@@ -2500,10 +2500,6 @@ progress_report({binary, Data}, #state{progress = ProgressPid}) ->
 progress_report(Report,  #state{progress = ProgressPid}) ->
     ftp_progress:report(ProgressPid, Report).
 
-
-millisec_time() ->
-    {A,B,C} = erlang:now(),
-    A*1000000000+B*1000+(C div 1000).
 
 peername({tcp, Socket}) -> inet:peername(Socket);
 peername({ssl, Socket}) -> ssl:peername(Socket).

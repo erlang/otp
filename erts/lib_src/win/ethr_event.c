@@ -25,8 +25,15 @@
 #define ETHR_EVENT_IMPL__
 
 #include "ethread.h"
+#include "ethr_internal.h"
 
 /* --- Windows implementation of thread events ------------------------------ */
+
+void
+ethr_init_event__(void)
+{
+
+}
 
 int
 ethr_event_init(ethr_event *e)
@@ -58,10 +65,28 @@ ethr_event_reset(ethr_event *e)
 }
 
 static ETHR_INLINE int
-wait(ethr_event *e, int spincount)
+wait(ethr_event *e, int spincount, ethr_sint64_t timeout)
 {
-    DWORD code;
+    DWORD code, tmo;
     int sc, res, until_yield = ETHR_YIELD_AFTER_BUSY_LOOPS;
+
+    if (timeout < 0)
+	tmo = INFINITE;
+    else if (timeout == 0) {
+	ethr_sint32_t state = ethr_atomic32_read(&e->state);
+	if (state == ETHR_EVENT_ON__) {
+	    ETHR_MEMBAR(ETHR_LoadLoad|ETHR_LoadStore);
+	    return 0;
+	}
+	return ETIMEDOUT;
+    }	    
+    else {
+	/*
+	 * Timeout in nano-seconds, but we can only
+	 * wait for milli-seconds...
+	 */
+	tmo = (DWORD) (timeout - 1) / (1000*1000) + 1;
+    }
 
     if (spincount < 0)
 	ETHR_FATAL_ERROR__(EINVAL);
@@ -72,8 +97,10 @@ wait(ethr_event *e, int spincount)
 	ethr_sint32_t state;
 	while (1) {
 	    state = ethr_atomic32_read(&e->state);
-	    if (state == ETHR_EVENT_ON__)
+	    if (state == ETHR_EVENT_ON__) {
+		ETHR_MEMBAR(ETHR_LoadLoad|ETHR_LoadStore);
 		return 0;
+	    }
 	    if (sc == 0)
 		break;
 	    sc--;
@@ -95,7 +122,9 @@ wait(ethr_event *e, int spincount)
 	    ETHR_ASSERT(state == ETHR_EVENT_OFF__);
 	}
 
-	code = WaitForSingleObject(e->handle, INFINITE);
+	code = WaitForSingleObject(e->handle, tmo);
+        if (code == WAIT_TIMEOUT)
+            return ETIMEDOUT;
 	if (code != WAIT_OBJECT_0)
 	    ETHR_FATAL_ERROR__(ethr_win_get_errno__());
     }
@@ -105,11 +134,23 @@ wait(ethr_event *e, int spincount)
 int
 ethr_event_wait(ethr_event *e)
 {
-    return wait(e, 0);
+    return wait(e, 0, -1);
 }
 
 int
 ethr_event_swait(ethr_event *e, int spincount)
 {
-    return wait(e, spincount);
+    return wait(e, spincount, -1);
+}
+
+int
+ethr_event_twait(ethr_event *e, ethr_sint64_t timeout)
+{
+    return wait(e, 0, timeout);
+}
+
+int
+ethr_event_stwait(ethr_event *e, int spincount, ethr_sint64_t timeout)
+{
+    return wait(e, spincount, timeout);
 }

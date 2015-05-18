@@ -447,7 +447,7 @@ reset_cache(C) ->
 		    WrTime =:= undefined ->
 			WrTime;
 		    true ->
-			now()
+			erlang:monotonic_time(1000000)
 		end,
     PK = family(C#cache.cache),
     NewC = C#cache{cache = [], csize = 0, inserts = 0, wrtime = NewWrTime},

@@ -31,8 +31,8 @@
     <file>ref_man.xml</file>
   </header>
   <description>
-    <p> Provides functions to handle public key infrastructure
-    from RFC 3280 (X.509 certificates) and some parts of the PKCS-standard.
+    <p>The <c>public_key</c> application provides functions to handle public-key infrastructure
+    from RFC 3280 (X.509 certificates) and parts of the PKCS standard.
     </p>
   </description>
   <xi:include href="public_key.xml"/>

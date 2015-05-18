@@ -20,7 +20,9 @@
 #ifndef __BIF_H__
 #define __BIF_H__
 
+extern Export *erts_await_result;
 extern Export* erts_format_cpu_topology_trap;
+extern Export *erts_convert_time_unit_trap;
 
 #define BIF_RETTYPE Eterm
 
@@ -30,10 +32,12 @@ extern Export* erts_format_cpu_topology_trap;
 #define BIF_ALIST_1 Process* A__p, Eterm* BIF__ARGS
 #define BIF_ALIST_2 Process* A__p, Eterm* BIF__ARGS
 #define BIF_ALIST_3 Process* A__p, Eterm* BIF__ARGS
+#define BIF_ALIST_4 Process* A__p, Eterm* BIF__ARGS
 
 #define BIF_ARG_1  (BIF__ARGS[0])
 #define BIF_ARG_2  (BIF__ARGS[1])
 #define BIF_ARG_3  (BIF__ARGS[2])
+#define BIF_ARG_4  (BIF__ARGS[3])
 
 #define ERTS_IS_PROC_OUT_OF_REDS(p)		\
     ((p)->fcalls > 0				\
@@ -465,6 +469,8 @@ erts_bif_prep_await_proc_exit_apply_trap(Process *c_p,
 					 Eterm args[],
 					 int nargs);
 
+#ifdef ERL_WANT_HIPE_BIF_WRAPPER__
+
 #ifndef HIPE
 
 #define HIPE_WRAPPER_BIF_DISABLE_GC(BIF_NAME, ARITY)
@@ -509,6 +515,7 @@ BIF_RETTYPE hipe_wrapper_ ## BIF_NAME ## _ ## ARITY (Process* c_p,	\
 
 #endif
 
+#endif /* ERL_WANT_HIPE_BIF_WRAPPER__ */
 
 #include "erl_bif_table.h"
 

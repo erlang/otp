@@ -1407,6 +1407,12 @@ spawn_executable(Config) when is_list(Config) ->
 	run_echo_args(SpaceDir,[ExactFile2,"hello world","dlrow olleh"]),
     [ExactFile2,"hello world","dlrow olleh"] =
 	run_echo_args(SpaceDir,[binary, ExactFile2,"hello world","dlrow olleh"]),
+
+    [ExactFile2,"hello \"world\"","\"dlrow\" olleh"] =
+	run_echo_args(SpaceDir,[binary, ExactFile2,"hello \"world\"","\"dlrow\" olleh"]),
+    [ExactFile2,"hello \"world\"","\"dlrow\" olleh"] =
+	run_echo_args(SpaceDir,[binary, ExactFile2,"hello \"world\"","\"dlrow\" olleh"]),
+
     [ExactFile2] = run_echo_args(SpaceDir,[default]),
     [ExactFile2,"hello world","dlrow olleh"] = 
 	run_echo_args(SpaceDir,[switch_order,ExactFile2,"hello world",
@@ -1809,7 +1815,7 @@ exit_status_msb_test(Config, SleepSecs) when is_list(Config) ->
     Parent = self(),
     ?t:format("SleepSecs = ~p~n", [SleepSecs]),
     PortProg = "sleep " ++ integer_to_list(SleepSecs),
-    Start = now(),
+    Start = erlang:monotonic_time(micro_seconds),
     NoProcs = case NoSchedsOnln of
 			NProcs when NProcs < ?EXIT_STATUS_MSB_MAX_PROCS ->
 			    NProcs;
@@ -1881,12 +1887,12 @@ exit_status_msb_test(Config, SleepSecs) when is_list(Config) ->
 				   receive {P, started, SIds} -> SIds end
 			   end,
 			   Procs),
-    StartedTime = timer:now_diff(now(), Start)/1000000,
+    StartedTime = (erlang:monotonic_time(micro_seconds) - Start)/1000000,
     ?t:format("StartedTime = ~p~n", [StartedTime]),
     true = StartedTime < SleepSecs,
     erlang:system_flag(multi_scheduling, block),
     lists:foreach(fun (P) -> receive {P, done} -> ok end end, Procs),
-    DoneTime = timer:now_diff(now(), Start)/1000000,
+    DoneTime = (erlang:monotonic_time(micro_seconds) - Start)/1000000,
     ?t:format("DoneTime = ~p~n", [DoneTime]),
     true = DoneTime > SleepSecs,
     ok = verify_multi_scheduling_blocked(),

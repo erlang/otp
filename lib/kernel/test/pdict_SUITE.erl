@@ -31,7 +31,7 @@
 
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2,
-	 simple/1, complicated/1, heavy/1, info/1]).
+	 simple/1, complicated/1, heavy/1, simple_all_keys/1, info/1]).
 -export([init_per_testcase/2, end_per_testcase/2]).
 -export([other_process/2]).
 
@@ -46,7 +46,7 @@ end_per_testcase(_Case, Config) ->
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    [simple, complicated, heavy, info].
+    [simple, complicated, heavy, simple_all_keys, info].
 
 groups() -> 
     [].
@@ -70,6 +70,7 @@ simple(suite) ->
     [];
 simple(Config) when is_list(Config) ->
     XX = get(),
+    ok = match_keys(XX),
     erase(),
     L = [a,b,c,d,e,f,g,h,i,j,k,l,m,n,o,p,
 	    q,r,s,t,u,v,x,y,z,'A','B','C','D'],
@@ -105,6 +106,7 @@ simple(Config) when is_list(Config) ->
 
 complicated(Config) when is_list(Config) ->
     Previous = get(),
+    ok = match_keys(Previous),
     Previous = erase(),
     N = case ?t:is_debug() of
 	    false -> 500000;
@@ -113,8 +115,10 @@ complicated(Config) when is_list(Config) ->
     comp_1(N),
     comp_2(N),
     N = comp_3(lists:sort(get()), 1),
+    ok = match_keys(get()),
     comp_4(get()),
     [] = get(),
+    [] = get_keys(),
     [put(Key, Value) || {Key,Value} <- Previous],
     ok.
 
@@ -159,6 +163,26 @@ heavy(Config) when is_list(Config) ->
     end,
     [put(Key, Value) || {Key,Value} <- XX],
     ok.
+
+simple_all_keys(Config) when is_list(Config) ->
+    erase(),
+    ok = simple_all_keys_add_loop(1000),
+    [] = get_keys(),
+    [] = get(),
+    ok.
+
+simple_all_keys_add_loop(0) ->
+    simple_all_keys_del_loop(erlang:get_keys());
+simple_all_keys_add_loop(N) ->
+   put(gen_key(N),value),
+   ok = match_keys(get()),
+   simple_all_keys_add_loop(N-1).
+
+simple_all_keys_del_loop([]) -> ok;
+simple_all_keys_del_loop([K|Ks]) ->
+    value = erase(K),
+    ok = match_keys(get()),
+    simple_all_keys_del_loop(Ks).
 
 info(doc) ->
     ["Tests process_info(Pid, dictionary)"];
@@ -339,3 +363,8 @@ m(A,B,Module,Line) ->
 		      [A,B,Module,Line]),
 	    exit({no_match,{A,B},Module,Line})
     end.
+
+match_keys(All) ->
+    Ks = lists:sort([K||{K,_}<-All]),
+    Ks = lists:sort(erlang:get_keys()),
+    ok.

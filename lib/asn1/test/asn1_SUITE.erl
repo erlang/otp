@@ -52,9 +52,7 @@ all() ->
 groups() ->
     Parallel = asn1_test_lib:parallel(),
     [{compile, Parallel,
-      [c_syntax,
-       c_string,
-       c_implicit_before_choice,
+      [c_string,
        constraint_equivalence]},
 
      {ber, Parallel,
@@ -89,6 +87,7 @@ groups() ->
                     ber_other,
 		    der,
                     h323test]},
+       testExtensibilityImplied,
        testChoPrim,
        testChoExtension,
        testChoOptional,
@@ -135,19 +134,19 @@ groups() ->
        testChoiceIndefinite,
        per_open_type,
        testInfObjectClass,
+       testUniqueObjectSets,
+       testInfObjExtract,
        testParam,
        testFragmented,
        testMergeCompile,
        testobj,
        testDeepTConstr,
-       testExport,
        testImport,
        testDER,
        testDEFAULT,
        testMvrasn6,
        testContextSwitchingTypes,
        testOpenTypeImplicitTag,
-       duplicate_tags,
        testROSE,
        testINSTANCE_OF,
        testTCAP,
@@ -158,16 +157,19 @@ groups() ->
        testNortel,
        % Uses 'PKCS7', 'InformationFramework'
        {group, [], [test_WS_ParamClass,
-		    test_modified_x420,
-                    testX420]},
-       testTcapsystem,
-       testNBAPsystem,
-       testS1AP,
+		    test_modified_x420]},
+       %% Don't run all these at the same time.
+       {group, [],
+	[testTcapsystem,
+	 testNBAPsystem,
+	 testS1AP,
+	 testRfcs]},
        test_compile_options,
        testDoubleEllipses,
        test_x691,
        ticket_6143,
-       test_OTP_9688]},
+       test_OTP_9688,
+       testValueTest]},
 
      {performance, [],
       [testTimer_ber,
@@ -196,7 +198,7 @@ init_per_testcase(Func, Config) ->
     true = code:add_patha(CaseDir),
 
     Dog = case Func of
-              testX420 -> ct:timetrap({minutes, 90});
+              testRfcs -> ct:timetrap({minutes, 90});
               _        -> ct:timetrap({minutes, 60})
           end,
     [{case_dir, CaseDir}, {watchdog, Dog}|Config].
@@ -374,6 +376,12 @@ testExternal(Config, Rule, Opts) ->
     testSetOfTag:main(Rule),
     testSetTag:main(Rule).
 
+testExtensibilityImplied(Config) ->
+    test(Config, fun testExtensibilityImplied/3).
+testExtensibilityImplied(Config, Rule, Opts) ->
+    asn1_test_lib:compile("ExtensibilityImplied", Config,
+			  [Rule,no_ok_wrapper|Opts]),
+    testExtensibilityImplied:main().
 
 testChoPrim(Config) -> test(Config, fun testChoPrim/3).
 testChoPrim(Config, Rule, Opts) ->
@@ -561,39 +569,21 @@ testSetOfCho(Config, Rule, Opts) ->
     asn1_test_lib:compile("SetOfCho", Config, [Rule|Opts]),
     testSetOfCho:main(Rule).
 
-c_syntax(Config) ->
-    DataDir = ?config(data_dir, Config),
-    [{error, _} = asn1ct:compile(filename:join(DataDir, F))
-     || F <-["Syntax",
-             "BadTypeEnding",
-             "BadValueAssignment1",
-             "BadValueAssignment2",
-             "BadValueSet",
-             "ChoiceBadExtension",
-             "EnumerationBadExtension",
-             "Example",
-             "Export1",
-             "MissingEnd",
-             "SequenceBadComma",
-             "SequenceBadComponentName",
-             "SequenceBadComponentType",
-             "SeqBadComma"]].
-
 c_string(Config) ->
     test(Config, fun c_string/3).
 c_string(Config, Rule, Opts) ->
     asn1_test_lib:compile("String", Config, [Rule|Opts]),
     asn1ct:test('String').
 
-c_implicit_before_choice(Config) ->
-    test(Config, fun c_implicit_before_choice/3, [ber]).
-c_implicit_before_choice(Config, Rule, Opts) ->
-    DataDir = ?config(data_dir, Config),
-    CaseDir = ?config(case_dir, Config),
-    {error, _R2} = asn1ct:compile(filename:join(DataDir, "CCSNARG3"),
-                                  [Rule, {outdir, CaseDir}|Opts]).
-
 constraint_equivalence(Config) ->
+    constraint_equivalence_abs(Config),
+    test(Config, fun constraint_equivalence/3).
+
+constraint_equivalence(Config, Rule, Opts) ->
+    M = 'ConstraintEquivalence',
+    asn1_test_lib:compile(M, Config, [Rule|Opts]).
+
+constraint_equivalence_abs(Config) ->
     DataDir = ?config(data_dir, Config),
     CaseDir = ?config(case_dir, Config),
     Asn1Spec = "ConstraintEquivalence",
@@ -765,6 +755,16 @@ testInfObjectClass(Config, Rule, Opts) ->
     testInfObjectClass:main(Rule),
     testInfObj:main(Rule).
 
+testUniqueObjectSets(Config) -> test(Config, fun testUniqueObjectSets/3).
+testUniqueObjectSets(Config, Rule, Opts) ->
+    CaseDir = ?config(case_dir, Config),
+    testUniqueObjectSets:main(CaseDir, Rule, Opts).
+
+testInfObjExtract(Config) -> test(Config, fun testInfObjExtract/3).
+testInfObjExtract(Config, Rule, Opts) ->
+    asn1_test_lib:compile("InfObjExtract", Config, [Rule|Opts]),
+    testInfObjExtract:main().
+
 testParam(Config) ->
     test(Config, fun testParam/3, [ber,{ber,[der]},per,uper]).
 testParam(Config, Rule, Opts) ->
@@ -804,18 +804,14 @@ testDeepTConstr(Config, Rule, Opts) ->
                               [Rule|Opts]),
     testDeepTConstr:main(Rule).
 
-testExport(Config) ->
-    {error, _} =
-	asn1ct:compile(filename:join(?config(data_dir, Config),
-				     "IllegalExport"),
-		       [{outdir, ?config(case_dir, Config)}]).
-
 testImport(Config) ->
     test(Config, fun testImport/3).
 testImport(Config, Rule, Opts) ->
-    Files = ["ImportsFrom","ImportsFrom2","ImportsFrom3"],
+    Files = ["ImportsFrom","ImportsFrom2","ImportsFrom3",
+	     "Importing","Exporting"],
     asn1_test_lib:compile_all(Files, Config, [Rule|Opts]),
     42 = 'ImportsFrom':i(),
+    testImporting:main(),
     ok.
 
 testMegaco(Config) -> test(Config, fun testMegaco/3).
@@ -839,23 +835,19 @@ testContextSwitchingTypes(Config, Rule, Opts) ->
 
 testTypeValueNotation(Config) -> test(Config, fun testTypeValueNotation/3).
 testTypeValueNotation(Config, Rule, Opts) ->
-    asn1_test_lib:compile_all(["SeqTypeRefPrim", "ValueTest"], Config,
-                              [Rule|Opts]),
+    asn1_test_lib:compile("SeqTypeRefPrim", Config, [Rule|Opts]),
     testTypeValueNotation:main(Rule, Opts).
+
+testValueTest(Config) -> test(Config, fun testValueTest/3).
+testValueTest(Config, Rule, Opts) ->
+    asn1_test_lib:compile("ValueTest", Config, [Rule|Opts]),
+    testValueTest:main().
 
 testOpenTypeImplicitTag(Config) ->
     test(Config, fun testOpenTypeImplicitTag/3).
 testOpenTypeImplicitTag(Config, Rule, Opts) ->
     asn1_test_lib:compile("OpenTypeImplicitTag", Config, [Rule|Opts]),
     testOpenTypeImplicitTag:main(Rule).
-
-duplicate_tags(Config) ->
-    DataDir = ?config(data_dir, Config),
-    CaseDir = ?config(case_dir, Config),
-    {error, [{error, {type, _, _, 'SeqOpt1Imp',
-			     {asn1, {duplicates_of_the_tags, _}}}}]} =
-	asn1ct:compile(filename:join(DataDir, "SeqOptional2"),
-		       [abs, {outdir, CaseDir}]).
 
 rtUI(Config) -> test(Config, fun rtUI/3).
 rtUI(Config, Rule, Opts) ->
@@ -990,13 +982,22 @@ testS1AP(Config, Rule, Opts) ->
 	    ok
     end.
 
+testRfcs(Config) ->  test(Config, fun testRfcs/3, [{ber,[der]}]).
+testRfcs(Config, Rule, Opts) ->
+    case erlang:system_info(system_architecture) of
+	"sparc-sun-solaris2.10" ->
+	    {skip,"Too slow for an old Sparc"};
+	_ ->
+	    testRfcs:compile(Config, Rule, Opts),
+	    testRfcs:test()
+    end.
+
 test_compile_options(Config) ->
     ok = test_compile_options:wrong_path(Config),
     ok = test_compile_options:path(Config),
     ok = test_compile_options:noobj(Config),
     ok = test_compile_options:record_name_prefix(Config),
-    ok = test_compile_options:verbose(Config),
-    ok = test_compile_options:warnings_as_errors(Config).
+    ok = test_compile_options:verbose(Config).
 
 testDoubleEllipses(Config) -> test(Config, fun testDoubleEllipses/3).
 testDoubleEllipses(Config, Rule, Opts) ->
@@ -1084,6 +1085,7 @@ test_modules() ->
      "CommonDataTypes",
      "Constraints",
      "ContextSwitchingTypes",
+     "CoverParser",
      "DS-EquipmentUser-CommonFunctionOrig-TransmissionPath",
      "Enum",
      "From",
@@ -1118,7 +1120,9 @@ test_modules() ->
      "Def",
      "Opt",
      "ELDAPv3",
-     "LDAP"].
+     "LDAP",
+     "SeqOptional2",
+     "CCSNARG3"].
 
 test_OTP_9688(Config) ->
     PrivDir = ?config(case_dir, Config),

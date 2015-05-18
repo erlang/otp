@@ -35,7 +35,7 @@
 %% which will return the list with the following variables:
 %% localtime = the erlang:localtime() result in list [{date, Date}, {time, Time}]
 %% node = erlang:node() - can be compared in the testcase
-%% now = erlang:now() - easier to compare than localtime()
+%% now = os:timestamp() - easier to compare than localtime()
 %% config_server_pid - pid of the config server, should NOT change!
 %% config_server_vsn - .19
 %% config_server_iteration - a number of iteration config_server's loop done

@@ -516,13 +516,13 @@ hs_busy_pcmd(Prt, Opts, StartFun, EndFun) ->
     P = spawn_link(fun () ->
 			   erlang:yield(),
 			   Tester ! {self(), doing_port_command},
-			   Start = now(),
+			   Start = erlang:monotonic_time(micro_seconds),
 			   Res = try {return,
 				      port_command(Prt, [], Opts)}
 				 catch Exception:Error -> {Exception, Error}
 				 end,
-			   End = now(),
-			   Time = round(timer:now_diff(End, Start)/1000),
+			   End = erlang:monotonic_time(micro_seconds),
+			   Time = round((End - Start)/1000),
 			   Tester ! {self(), port_command_result, Res, Time}
 		   end),
     receive
@@ -776,7 +776,7 @@ run_command(_M,spawn,{Args,Opts}) ->
 run_command(M,spawn,Args) ->
     run_command(M,spawn,{Args,[]});
 run_command(Mod,Func,Args) ->
-    erlang:display({{Mod,Func,Args},now()}),
+    erlang:display({{Mod,Func,Args}, erlang:system_time(micro_seconds)}),
     apply(Mod,Func,Args).
 
 validate_scenario(Data,[{print,Var}|T]) ->

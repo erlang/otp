@@ -32,6 +32,10 @@
 #include <time.h>
 #include <unistd.h>
 
+#ifdef __ANDROID__
+#  include <termios.h>
+#endif
+
 #ifdef HAVE_SYSLOG_H
 #  include <syslog.h>
 #endif

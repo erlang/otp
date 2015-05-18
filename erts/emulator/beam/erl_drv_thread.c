@@ -601,17 +601,16 @@ erl_drv_thread_create(char *name,
 #ifdef USE_THREADS
     int res;
     struct ErlDrvTid_ *dtid;
-    ethr_thr_opts ethr_opts;
+    ethr_thr_opts ethr_opts = ETHR_THR_OPTS_DEFAULT_INITER;
     ethr_thr_opts *use_opts;
-    ethr_thr_opts def_ethr_opts = ETHR_THR_OPTS_DEFAULT_INITER;
 
-    if (!opts)
+    if (!opts && !name)
 	use_opts = NULL;
     else {
-	sys_memcpy((void *) &ethr_opts,
-		   (void *) &def_ethr_opts,
-		   sizeof(ethr_thr_opts));
-	ethr_opts.suggested_stack_size = opts->suggested_stack_size;
+	if(opts)
+	    ethr_opts.suggested_stack_size = opts->suggested_stack_size;
+
+        ethr_opts.name = name;
 	use_opts = &ethr_opts;
     }
 

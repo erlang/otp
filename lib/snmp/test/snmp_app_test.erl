@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2003-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2015. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -32,8 +32,6 @@
 	 modules/1,
 	 exportall/1,
 	 app_depend/1,
-	 undef_funcs/1,
-
 	
 	 start_and_stop_empty/1, 
 	 start_and_stop_with_agent/1, 
@@ -59,7 +57,6 @@ all() ->
 	 modules, 
 	 exportall, 
 	 app_depend,
-	 undef_funcs, 
 	 {group, start_and_stop}
 	],
     Cases.
@@ -131,9 +128,6 @@ end_per_suite(Config) when is_list(Config) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %% Test server callbacks
-init_per_testcase(undef_funcs, Config) ->
-    Config2 = lists:keydelete(watchdog, 1, Config),
-    [{watchdog, ?WD_START(?MINS(10))} | Config2];
 init_per_testcase(_Case, Config) ->
     Config.
 
@@ -292,88 +286,6 @@ check_apps([App|Apps]) ->
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-undef_funcs(suite) ->
-    [];
-undef_funcs(doc) ->
-    [];
-undef_funcs(Config) when is_list(Config) ->
-    App            = snmp,
-    AppFile        = key1search(app_file, Config),
-    Mods           = key1search(modules, AppFile),
-    Root           = code:root_dir(),
-    LibDir         = code:lib_dir(App),
-    EbinDir        = filename:join([LibDir,"ebin"]),
-    XRefTestName   = undef_funcs_make_name(App, xref_test_name),
-    {ok, XRef}     = xref:start(XRefTestName),
-    ok             = xref:set_default(XRef,
-                                      [{verbose,false},{warnings,false}]),
-    XRefName       = undef_funcs_make_name(App, xref_name),
-    {ok, XRefName} = xref:add_release(XRef, Root, {name,XRefName}),
-    {ok, App}      = xref:replace_application(XRef, App, EbinDir),
-    {ok, Undefs}   = xref:analyze(XRef, undefined_function_calls),
-    xref:stop(XRef),
-    analyze_undefined_function_calls(Undefs, Mods, []).
-
-valid_undef(crypto = CalledMod) ->
-    case (catch CalledMod:version()) of
-        Version when is_list(Version) ->
-	    %% The called module was crypto and the version 
-	    %% function returns a valid value. 
-	    %% This means that the function is
-	    %% actually undefined...
-	    true;
-	_ ->
-	    %% The called module was crypto but the version 
-	    %% function does *not* return a valid value.
-	    %% This means the crypto was not actually not
-	    %% build, which is an case snmp handles.
-	    false
-    end;
-valid_undef(_) ->
-    true.
-
-    
-analyze_undefined_function_calls([], _, []) ->
-    ok;
-analyze_undefined_function_calls([], _, AppUndefs) ->
-    exit({suite_failed, {undefined_function_calls, AppUndefs}});
-analyze_undefined_function_calls([{{Mod, _F, _A}, _C} = AppUndef|Undefs],
-                                 AppModules, AppUndefs) ->
-    %% Check that this module is our's
-    case lists:member(Mod,AppModules) of
-        true ->
-            {Calling,Called} = AppUndef,
-            {Mod1,Func1,Ar1} = Calling,
-            {Mod2,Func2,Ar2} = Called,
-	    %% If the called module is crypto, then we will *not*
-	    %% fail if crypto is not built (since crypto is actually 
-	    %% not built for all platforms)
-	    case valid_undef(Mod2) of
-		true ->
-		    io:format("undefined function call: "
-			      "~n   ~w:~w/~w calls ~w:~w/~w~n",
-			      [Mod1,Func1,Ar1,Mod2,Func2,Ar2]),
-		    analyze_undefined_function_calls(
-		      Undefs, AppModules, [AppUndef|AppUndefs]);
-		false ->
-		    io:format("skipping ~p (calling ~w:~w/~w)~n", 
-			      [Mod, Mod2, Func2, Ar2]),
-		    analyze_undefined_function_calls(Undefs, 
-						     AppModules, AppUndefs)
-	    end;
-        false ->
-	    io:format("dropping ~p~n", [Mod]),
-	    analyze_undefined_function_calls(Undefs, AppModules, AppUndefs)
-    end.
-
-%% This function is used simply to avoid cut-and-paste errors later...
-undef_funcs_make_name(App, PostFix) ->
-    list_to_atom(atom_to_list(App) ++ "_" ++ atom_to_list(PostFix)).
-
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

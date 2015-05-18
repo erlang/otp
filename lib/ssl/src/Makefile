@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1999-2014. All Rights Reserved.
+# Copyright Ericsson AB 1999-2015. All Rights Reserved.
 #
 # The contents of this file are subject to the Erlang Public License,
 # Version 1.1, (the "License"); you may not use this file except in
@@ -38,7 +38,8 @@ RELSYSDIR = $(RELEASE_PATH)/lib/ssl-$(VSN)
 # ----------------------------------------------------
 
 BEHAVIOUR_MODULES= \
-        ssl_session_cache_api
+        ssl_session_cache_api \
+	ssl_crl_cache_api
 
 MODULES= \
 	ssl \
@@ -65,6 +66,8 @@ MODULES= \
 	ssl_manager \
 	ssl_session \
 	ssl_session_cache \
+	ssl_crl\
+	ssl_crl_cache \
 	ssl_socket \
 	ssl_listen_tracker_sup \
 	tls_record \
@@ -164,5 +167,5 @@ $(EBIN)/ssl_session_cache.$(EMULATOR):  ssl_internal.hrl ssl_handshake.hrl
 $(EBIN)/ssl_session_cache_api.$(EMULATOR):  ssl_internal.hrl ssl_handshake.hrl
 $(EBIN)/ssl_ssl3.$(EMULATOR): ssl_internal.hrl ssl_record.hrl ssl_cipher.hrl
 $(EBIN)/ssl_tls1.$(EMULATOR): ssl_internal.hrl ssl_record.hrl ssl_cipher.hrl
-
+$(EBIN)/ssl_cache.$(EMULATOR): ssl_cache.erl ssl_internal.hrl ../../public_key/include/public_key.hrl
 

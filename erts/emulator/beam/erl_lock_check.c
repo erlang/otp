@@ -91,6 +91,7 @@ static erts_lc_lock_order_t erts_lock_order[] = {
     {   "driver_list",                          NULL                    },
     {	"proc_link",				"pid"			},
     {	"proc_msgq",				"pid"			},
+    {	"proc_btm",				"pid"			},
     {	"dist_entry",				"address"		},
     {	"dist_entry_links",			"address"		},
     {   "code_write_permission",                NULL                    },
@@ -140,7 +141,6 @@ static erts_lc_lock_order_t erts_lock_order[] = {
     {	"async_enq_mtx",			NULL			},
 #ifdef ERTS_SMP
     {	"atom_tab",				NULL			},
-    {	"make_ref",				NULL			},
     {	"misc_op_list_pre_alloc_lock",		"address"		},
     {	"message_pre_alloc_lock",		"address"		},
     {	"ptimer_pre_alloc_lock",		"address",		},
@@ -168,6 +168,8 @@ static erts_lc_lock_order_t erts_lock_order[] = {
     {	"timer_wheel",				NULL			},
     {	"system_block",				NULL			},
     {	"timeofday",				NULL			},
+    {	"get_time",				NULL			},
+    {	"get_corrected_time",			NULL			},
     {	"breakpoints",				NULL			},
     {	"pollsets_lock",			NULL			},
     {	"pix_lock",				"address"		},
@@ -184,10 +186,8 @@ static erts_lc_lock_order_t erts_lock_order[] = {
     {   "efile_drv dtrace mutex",               NULL                    },
 #endif
     {	"mtrace_buf",				NULL			},
-#ifdef __WIN32__
 #ifdef ERTS_SMP
-    {   "sys_gethrtime",                        NULL                    },
-#endif
+    {	"os_monotonic_time",			NULL			},
 #endif
     {	"erts_alloc_hard_debug",		NULL			},
     {	"hard_dbg_mseg",		        NULL	                },

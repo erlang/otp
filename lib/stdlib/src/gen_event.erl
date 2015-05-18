@@ -31,8 +31,8 @@
 %%% Modified by Martin - uses proc_lib, sys and gen!
 
 
--export([start/0, start/1, start_link/0, start_link/1, stop/1, notify/2, 
-	 sync_notify/2,
+-export([start/0, start/1, start_link/0, start_link/1, stop/1, stop/3,
+	 notify/2, sync_notify/2,
 	 add_handler/3, add_sup_handler/3, delete_handler/3, swap_handler/3,
 	 swap_sup_handler/3, which_handlers/1, call/3, call/4, wake_hib/4]).
 
@@ -99,6 +99,14 @@
 -callback code_change(OldVsn :: (term() | {down, term()}),
                       State :: term(), Extra :: term()) ->
     {ok, NewState :: term()}.
+-callback format_status(Opt, StatusData) -> Status when
+      Opt :: 'normal' | 'terminate',
+      StatusData :: [PDict | State],
+      PDict :: [{Key :: term(), Value :: term()}],
+      State :: term(),
+      Status :: term().
+
+-optional_callbacks([format_status/2]).
 
 %%---------------------------------------------------------------------------
 
@@ -183,7 +191,11 @@ swap_sup_handler(M, {H1, A1}, {H2, A2}) ->
 which_handlers(M) -> rpc(M, which_handlers).
 
 -spec stop(emgr_ref()) -> 'ok'.
-stop(M) -> rpc(M, stop).
+stop(M) ->
+    gen:stop(M).
+
+stop(M, Reason, Timeout) ->
+    gen:stop(M, Reason, Timeout).
 
 rpc(M, Cmd) -> 
     {ok, Reply} = gen:call(M, self(), Cmd, infinity),

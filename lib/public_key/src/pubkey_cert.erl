@@ -445,7 +445,7 @@ extensions_list(Extensions) ->
     Extensions.
 
 extract_verify_data(OtpCert, DerCert) ->
-    {_, Signature} = OtpCert#'OTPCertificate'.signature,
+    Signature = OtpCert#'OTPCertificate'.signature,
     SigAlgRec = OtpCert#'OTPCertificate'.signatureAlgorithm,
     SigAlg = SigAlgRec#'SignatureAlgorithm'.algorithm,
     PlainText = encoded_tbs_cert(DerCert),

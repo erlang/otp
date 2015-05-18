@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2015. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -109,26 +109,26 @@ parse_file(File, InclPath) ->
 	    Error
     end.
 
-parse_preprocessed_file(Epp,File,InCorrectFile) ->
+parse_preprocessed_file(Epp, File, InCorrectFile) ->
     case epp:parse_erl_form(Epp) of
 	{ok,Form} ->
 	    case Form of
 		{attribute,_,file,{File,_}} ->
-		    parse_preprocessed_file(Epp,File,true);
+		    parse_preprocessed_file(Epp, File, true);
 		{attribute,_,file,{_OtherFile,_}} ->
-		    parse_preprocessed_file(Epp,File,false);
-		{function,L,F,A,Cs} when InCorrectFile ->
-		    {CLs,LastCL} = find_clause_lines(Cs, []),
+		    parse_preprocessed_file(Epp, File, false);
+                {function,L,F,A,Cs} when InCorrectFile ->
+                    {CLs,LastCL} = find_clause_lines(Cs, []),
 		    %% tl(CLs) cause we know the start line already
-		    [{atom_to_list(F),A,L,LastCL} | tl(CLs)] ++
-			parse_preprocessed_file(Epp,File,true);
+		    [{atom_to_list(F),A,get_line(L),LastCL} | tl(CLs)] ++
+			parse_preprocessed_file(Epp, File, true);
 		_ ->
-		    parse_preprocessed_file(Epp,File,InCorrectFile)
+		    parse_preprocessed_file(Epp, File, InCorrectFile)
 	    end;
 	{error,Reason={_L,epp,{undefined,_Macro,none}}} ->
 	    throw({error,Reason,InCorrectFile});
 	{error,_Reason} ->
-	    parse_preprocessed_file(Epp,File,InCorrectFile);
+	    parse_preprocessed_file(Epp, File, InCorrectFile);
 	{eof,_Location} ->
 	    []
     end.
@@ -147,10 +147,10 @@ parse_non_preprocessed_file(Epp, File, Location) ->
     case epp_dodger:parse_form(Epp, Location) of
 	{ok,Tree,Location1} ->
 	    try erl_syntax:revert(Tree) of
-		{function,L,F,A,Cs} ->
-		    {CLs,LastCL} = find_clause_lines(Cs, []),
+                {function,L,F,A,Cs} ->
+                    {CLs,LastCL} = find_clause_lines(Cs, []),
 		    %% tl(CLs) cause we know the start line already
-		    [{atom_to_list(F),A,L,LastCL} | tl(CLs)] ++
+                    [{atom_to_list(F),A,get_line(L),LastCL} | tl(CLs)] ++
 			parse_non_preprocessed_file(Epp, File, Location1);
 		_ ->
 		    parse_non_preprocessed_file(Epp, File, Location1)
@@ -163,21 +163,24 @@ parse_non_preprocessed_file(Epp, File, Location) ->
 	    []
     end.
 
+get_line(Anno) ->
+    erl_anno:line(Anno).
+
 %%%-----------------------------------------------------------------
 %%% Find the line number of the last expression in the function
 find_clause_lines([{clause,CL,_Params,_Op,Exprs}], CLs) -> % last clause
     try tuple_to_list(lists:last(Exprs)) of
 	[_Type,ExprLine | _] ->
-	    {lists:reverse([{clause,CL}|CLs]), ExprLine};
+	    {lists:reverse([{clause,get_line(CL)}|CLs]), get_line(ExprLine)};
 	_ ->
-	    {lists:reverse([{clause,CL}|CLs]), CL}
+	    {lists:reverse([{clause,get_line(CL)}|CLs]), get_line(CL)}
     catch
 	_:_ ->
-	    {lists:reverse([{clause,CL}|CLs]), CL}
+	    {lists:reverse([{clause,get_line(CL)}|CLs]), get_line(CL)}
     end;
 
 find_clause_lines([{clause,CL,_Params,_Op,_Exprs} | Cs], CLs) ->
-    find_clause_lines(Cs, [{clause,CL}|CLs]).
+    find_clause_lines(Cs, [{clause,get_line(CL)}|CLs]).
 
 %%%-----------------------------------------------------------------
 %%% Add a link target for each line and one for each function definition.

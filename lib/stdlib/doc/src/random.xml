@@ -48,6 +48,9 @@
     <p>It should be noted that this random number generator is not cryptographically 
       strong. If a strong cryptographic random number generator is needed for
       example <c>crypto:rand_bytes/1</c> could be used instead.</p>
+      <note><p>The new and improved <seealso
+      marker="stdlib:rand">rand</seealso> module should be used
+      instead of this module.</p></note>
   </description>
   <datatypes>
     <datatype>
@@ -70,12 +73,11 @@
       <desc>
         <p>Seeds random number generation with integer values in the process
           dictionary, and returns the old state.</p>
-        <p>One way of obtaining a seed is to use the BIF <c>now/0</c>:</p>
+        <p>One easy way of obtaining a unique value to seed with is to:</p>
         <code type="none">
-          ...
-          {A1,A2,A3} = now(),
-          random:seed(A1, A2, A3),
-          ...</code>
+          random:seed(<seealso marker="erts:erlang#phash2/1">erlang:phash2</seealso>([<seealso marker="erts:erlang#node/0">node()</seealso>]),
+	              <seealso marker="erts:erlang#monotonic_time/0">erlang:monotonic_time()</seealso>,
+		      <seealso marker="erts:erlang#unique_integer/0">erlang:unique_integer()</seealso>)</code>
       </desc>
     </func>
     <func>

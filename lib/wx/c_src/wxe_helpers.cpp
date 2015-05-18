@@ -24,23 +24,96 @@
  * Erlang Commands
  * ****************************************************************************/
 
-wxeCommand::wxeCommand(int fc,char * cbuf,int buflen, wxe_data *sd)
-  : wxObject()
+wxeCommand::wxeCommand()
 {
+}
+
+wxeCommand::~wxeCommand()
+{
+  Delete();
+}
+
+void wxeCommand::Delete()
+{
+  int n = 0;
+
+  if(buffer) {
+    while(bin[n]) {
+      if(bin[n]->bin)
+	driver_free_binary(bin[n]->bin);
+      driver_free(bin[n++]);
+    }
+    if(len > 64)
+      driver_free(buffer);
+    buffer = NULL;
+    op = -1;
+  }
+}
+
+/* ****************************************************************************
+ * wxeFifo
+ * ****************************************************************************/
+wxeFifo::wxeFifo(unsigned int sz)
+{
+  m_q = (wxeCommand *) driver_alloc(sizeof(wxeCommand) * sz);
+  m_orig_sz = sz;
+  m_max = sz;
+  m_n = 0;
+  m_first = 0;
+  m_old = NULL;
+  for(unsigned int i = 0; i < sz; i++) {
+    m_q[i].buffer = NULL;
+    m_q[i].op = -1;
+  }
+}
+
+wxeFifo::~wxeFifo() {
+  // dealloc all memory buffers
+  driver_free(m_q);
+}
+
+wxeCommand * wxeFifo::Get()
+{
+  unsigned int pos;
+  if(m_n > 0) {
+    pos = m_first++;
+    m_n--;
+    m_first %= m_max;
+    return &m_q[pos];
+  }
+  return NULL;
+}
+
+void wxeFifo::Add(int fc, char * cbuf,int buflen, wxe_data *sd)
+{
+  unsigned int pos;
+  wxeCommand *curr;
+
   WXEBinRef *temp, *start, *prev;
   int n = 0;
-  ref_count = 1;
-  caller = driver_caller(sd->port_handle);
-  port   = sd->port;
-  op = fc;
-  len = buflen;
-  bin[0] = NULL;
-  bin[1] = NULL;
-  bin[2] = NULL;
+
+  if(m_n == (m_max-1)) { // resize
+    Realloc();
+  }
+
+  pos = (m_first + m_n) % m_max;
+  m_n++;
+
+  curr = &m_q[pos];
+  curr->caller = driver_caller(sd->port_handle);
+  curr->port   = sd->port;
+  curr->op  = fc;
+  curr->len = buflen;
+  curr->bin[0] = NULL;
+  curr->bin[1] = NULL;
+  curr->bin[2] = NULL;
 
   if(cbuf) {
-    buffer = (char *) driver_alloc(len);
-    memcpy((void *) buffer, (void *) cbuf, len);;
+    if(buflen > 64)
+      curr->buffer = (char *) driver_alloc(buflen);
+    else
+      curr->buffer = curr->c_buf;
+    memcpy((void *) curr->buffer, (void *) cbuf, buflen);
 
     temp = sd->bin;
 
@@ -48,8 +121,8 @@ wxeCommand::wxeCommand(int fc,char * cbuf,int buflen, wxe_data *sd)
     start = temp;
 
     while(temp) {
-      if(caller == temp->from) {
-	bin[n++] = temp;
+      if(curr->caller == temp->from) {
+	curr->bin[n++] = temp;
 	if(prev) {
 	  prev->next = temp->next;
 	} else {
@@ -63,20 +136,68 @@ wxeCommand::wxeCommand(int fc,char * cbuf,int buflen, wxe_data *sd)
     }
     sd->bin = start;
   } else {   // No-op only PING currently
-    buffer = NULL;
+    curr->buffer = NULL;
   }
 }
 
-wxeCommand::~wxeCommand() {
-  int n = 0;
-  if(buffer) {
-    while(bin[n]) {
-      if(bin[n]->bin)
-	driver_free_binary(bin[n]->bin);
-      driver_free(bin[n++]);
-    }
-    driver_free(buffer);
+void wxeFifo::Append(wxeCommand *orig)
+{
+  unsigned int pos;
+  wxeCommand *curr;
+  if(m_n == (m_max-1)) { // resize
+    Realloc();
   }
+
+  pos = (m_first + m_n) % m_max;
+  m_n++;
+  curr = &m_q[pos];
+  curr->caller = orig->caller;
+  curr->port   = orig->port;
+  curr->op = orig->op;
+  curr->len = orig->len;
+  curr->bin[0] = orig->bin[0];
+  curr->bin[1] = orig->bin[1];
+  curr->bin[2] = orig->bin[2];
+
+  if(orig->len > 64)
+    curr->buffer = orig->buffer;
+  else {
+    curr->buffer = curr->c_buf;
+    memcpy((void *) curr->buffer, (void *) orig->buffer, orig->len);
+  }
+  orig->op = -1;
+  orig->buffer = NULL;
+  orig->bin[0] = NULL;
+}
+
+void wxeFifo::Realloc()
+{
+  unsigned int i;
+  unsigned int growth = m_orig_sz / 2;
+  unsigned int new_sz = growth + m_max;
+  unsigned int max  = m_max;
+  unsigned int first = m_first;
+  unsigned int n = m_n;
+  wxeCommand * old = m_q;
+  wxeCommand * queue = (wxeCommand *)driver_alloc(new_sz*sizeof(wxeCommand));
+
+  m_max=new_sz;
+  m_first = 0;
+  m_n=0;
+  m_q = queue;
+
+  for(i=0; i < n; i++) {
+    unsigned int pos = i+first;
+    if(old[pos%max].op >= 0) {
+      Append(&old[pos%max]);
+    }
+  }
+  for(i = m_n; i < new_sz; i++) { // Reset the rest
+    m_q[i].buffer = NULL;
+    m_q[i].op = -1;
+  }
+  // Can not free old queue here it can be used in the wx thread
+  m_old = old;
 }
 
 /* ****************************************************************************

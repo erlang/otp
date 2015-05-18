@@ -28,8 +28,8 @@
     <file>ref_man.xml</file>
   </header>
   <description>
-    <p>The SSH application is an erlang implementation of the
-      secure shell protocol (SSH) as defined by RFC 4250 - 4254</p>
+    <p>The <c>ssh</c> application is an Erlang implementation of the
+      Secure Shell Protocol (SSH) as defined by RFC 4250 - 4254.</p>
 
   </description>
   <xi:include href="ssh_app.xml"/>

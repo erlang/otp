@@ -260,6 +260,11 @@ obj:*/ssleay.*
    fun:AES_cbc_encrypt
    ...
 }
+{
+   crypto RC4 can do harmless word aligned read past end of input
+   Memcheck:Addr8
+   fun:RC4
+}
 
 {
 Prebuilt constant terms in os_info_init (PossiblyLost)
@@ -323,5 +328,17 @@ fun:erts_thr_progress_register_unmanaged_thread
 fun:async_thread_init
 fun:async_main
 ...
+}
+
+{
+Deliberate invalid read by test case bif_SUITE:erlang_halt
+Memcheck:Addr4
+...
+fun:erts_print_scheduler_info
+...
+fun:erl_exit
+fun:broken_halt_test
+fun:erts_debug_set_internal_state_2
+fun:process_main
 }
 

@@ -115,8 +115,8 @@ erase(_, []) -> [].
       Orddict1 :: orddict(),
       Orddict2 :: orddict().
 
-store(Key, New, [{K,_}=E|Dict]) when Key < K ->
-    [{Key,New},E|Dict];
+store(Key, New, [{K,_}|_]=Dict) when Key < K ->
+    [{Key,New}|Dict];
 store(Key, New, [{K,_}=E|Dict]) when Key > K ->
     [E|store(Key, New, Dict)];
 store(Key, New, [{_K,_Old}|Dict]) ->		%Key == K
@@ -129,8 +129,8 @@ store(Key, New, []) -> [{Key,New}].
       Orddict1 :: orddict(),
       Orddict2 :: orddict().
 
-append(Key, New, [{K,_}=E|Dict]) when Key < K ->
-    [{Key,[New]},E|Dict];
+append(Key, New, [{K,_}|_]=Dict) when Key < K ->
+    [{Key,[New]}|Dict];
 append(Key, New, [{K,_}=E|Dict]) when Key > K ->
     [E|append(Key, New, Dict)];
 append(Key, New, [{_K,Old}|Dict]) ->		%Key == K
@@ -143,8 +143,8 @@ append(Key, New, []) -> [{Key,[New]}].
       Orddict1 :: orddict(),
       Orddict2 :: orddict().
 
-append_list(Key, NewList, [{K,_}=E|Dict]) when Key < K ->
-    [{Key,NewList},E|Dict];
+append_list(Key, NewList, [{K,_}|_]=Dict) when Key < K ->
+    [{Key,NewList}|Dict];
 append_list(Key, NewList, [{K,_}=E|Dict]) when Key > K ->
     [E|append_list(Key, NewList, Dict)];
 append_list(Key, NewList, [{_K,Old}|Dict]) ->		%Key == K
@@ -170,8 +170,8 @@ update(Key, Fun, [{K,Val}|Dict]) when Key == K ->
       Orddict1 :: orddict(),
       Orddict2 :: orddict().
 
-update(Key, _, Init, [{K,_}=E|Dict]) when Key < K ->
-    [{Key,Init},E|Dict];
+update(Key, _, Init, [{K,_}|_]=Dict) when Key < K ->
+    [{Key,Init}|Dict];
 update(Key, Fun, Init, [{K,_}=E|Dict]) when Key > K ->
     [E|update(Key, Fun, Init, Dict)];
 update(Key, Fun, _Init, [{_K,Val}|Dict]) ->		%Key == K
@@ -184,8 +184,8 @@ update(Key, _, Init, []) -> [{Key,Init}].
       Orddict1 :: orddict(),
       Orddict2 :: orddict().
 
-update_counter(Key, Incr, [{K,_}=E|Dict]) when Key < K ->
-    [{Key,Incr},E|Dict];
+update_counter(Key, Incr, [{K,_}|_]=Dict) when Key < K ->
+    [{Key,Incr}|Dict];
 update_counter(Key, Incr, [{K,_}=E|Dict]) when Key > K ->
     [E|update_counter(Key, Incr, Dict)];
 update_counter(Key, Incr, [{_K,Val}|Dict]) ->		%Key == K

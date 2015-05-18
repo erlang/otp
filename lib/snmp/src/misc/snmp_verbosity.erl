@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2000-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2015. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -69,7 +69,7 @@ print2(_Verbosity,Format,Arguments) ->
 
 
 timestamp() ->
-    format_timestamp(now()).
+    format_timestamp(os:timestamp()).
 
 format_timestamp({_N1, _N2, N3} = Now) ->
     {Date, Time}   = calendar:now_to_datetime(Now),
@@ -162,4 +162,3 @@ validate(log)   -> log;
 validate(debug) -> debug;
 validate(trace) -> trace;
 validate(_)     -> silence.
-

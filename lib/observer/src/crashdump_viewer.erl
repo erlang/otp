@@ -320,6 +320,8 @@ handle_call(general_info,_From,State=#state{file=File}) ->
 		      "Some information might be missing."];
 	     false -> []
 	 end,
+    ets:insert(cdv_reg_proc_table,
+	       {cdv_dump_node_name,GenInfo#general_info.node_name}),
     {reply,{ok,GenInfo,TW},State#state{wordsize=WS, num_atoms=NumAtoms}};
 handle_call({expand_binary,{Offset,Size,Pos}},_From,State=#state{file=File}) ->
     Fd = open(File),
@@ -926,7 +928,7 @@ general_info(File) ->
 		N;
 	    [] ->
 		case lookup_index(?no_distribution) of
-		    [_] -> "nonode@nohost";
+		    [_] -> "'nonode@nohost'";
 		    [] -> "unknown"
 		end
 	end,
@@ -1131,6 +1133,8 @@ all_procinfo(Fd,Fun,Proc,WS,LineHead) ->
 	"arity = " ++ Arity ->
 	    %%! Temporary workaround
 	    get_procinfo(Fd,Fun,Proc#proc{arity=Arity--"\r\n"},WS);
+	"Run queue" ->
+	    get_procinfo(Fd,Fun,Proc#proc{run_queue=val(Fd)},WS);
 	"=" ++ _next_tag ->
 	    Proc;
 	Other ->
@@ -1165,6 +1169,19 @@ parse_pid(Str) ->
     {Pid,Rest} = parse_link(Str,[]),
     {{Pid,Pid},Rest}.
 
+parse_monitor("{"++Str) ->
+    %% Named process
+    {Name,Node,Rest1} = parse_name_node(Str,[]),
+    Pid = get_pid_from_name(Name,Node),
+    case parse_link(string:strip(Rest1,left,$,),[]) of
+	{Ref,"}"++Rest2} ->
+	    %% Bug in break.c - prints an extra "}" for remote
+	    %% nodes... thus the strip
+	    {{Pid,"{"++Name++","++Node++"} ("++Ref++")"},
+	     string:strip(Rest2,left,$})};
+	{Ref,[]} ->
+	    {{Pid,"{"++Name++","++Node++"} ("++Ref++")"},[]}
+    end;
 parse_monitor(Str) ->
     case parse_link(Str,[]) of
 	{Pid,","++Rest1} ->
@@ -1185,6 +1202,35 @@ parse_link([H|T],Acc) ->
 parse_link([],Acc) ->
     %% truncated
     {lists:reverse(Acc),[]}.
+
+parse_name_node(","++Rest,Name) ->
+    parse_name_node(Rest,Name,[]);
+parse_name_node([H|T],Name) ->
+    parse_name_node(T,[H|Name]);
+parse_name_node([],Name) ->
+    %% truncated
+    {lists:reverse(Name),[],[]}.
+
+parse_name_node("}"++Rest,Name,Node) ->
+    {lists:reverse(Name),lists:reverse(Node),Rest};
+parse_name_node([H|T],Name,Node) ->
+    parse_name_node(T,Name,[H|Node]);
+parse_name_node([],Name,Node) ->
+    %% truncated
+    {lists:reverse(Name),lists:reverse(Node),[]}.
+
+get_pid_from_name(Name,Node) ->
+    case ets:lookup(cdv_reg_proc_table,cdv_dump_node_name) of
+	[{_,Node}] ->
+	    case ets:lookup(cdv_reg_proc_table,Name) of
+		[{_,Pid}] when is_pid(Pid) ->
+		    pid_to_list(Pid);
+		_ ->
+		    "<unkonwn_pid>"
+	    end;
+	_ ->
+	    "<unknown_pid_other_node>"
+    end.
 
 maybe_other_node(Id) ->
     Channel = 

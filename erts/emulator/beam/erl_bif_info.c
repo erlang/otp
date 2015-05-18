@@ -42,6 +42,7 @@
 #include "erl_cpu_topology.h"
 #include "erl_async.h"
 #include "erl_thr_progress.h"
+#include "erl_bif_unique.h"
 #define ERTS_PTAB_WANT_DEBUG_FUNCS__
 #include "erl_ptab.h"
 #ifdef HIPE
@@ -115,6 +116,9 @@ static char erts_system_version[] = ("Erlang/OTP " ERLANG_OTP_RELEASE
 #endif
 #ifdef ERTS_ENABLE_LOCK_COUNT
 				     " [lock-counting]"
+#endif
+#ifdef ERTS_OPCODE_COUNTER_SUPPORT
+				     " [instruction-counting]"
 #endif
 #ifdef PURIFY
 				     " [purify-compiled]"
@@ -537,6 +541,7 @@ pi_locks(Eterm info)
     switch (info) {
     case am_status:
     case am_priority:
+    case am_trap_exit:
 	return ERTS_PROC_LOCK_STATUS;
     case am_links:
     case am_monitors:
@@ -589,7 +594,7 @@ static Eterm pi_args[] = {
     am_min_bin_vheap_size,
     am_current_location,
     am_current_stacktrace,
-};    
+};
 
 #define ERTS_PI_ARGS ((int) (sizeof(pi_args)/sizeof(Eterm)))
 
@@ -1049,9 +1054,9 @@ process_info_aux(Process *BIF_P,
     case am_initial_call:
 	hp = HAlloc(BIF_P, 3+4);
 	res = TUPLE3(hp,
-		     rp->initial[INITIAL_MOD],
-		     rp->initial[INITIAL_FUN],
-		     make_small(rp->initial[INITIAL_ARI]));
+		     rp->u.initial[INITIAL_MOD],
+		     rp->u.initial[INITIAL_FUN],
+		     make_small(rp->u.initial[INITIAL_ARI]));
 	hp += 4;
 	break;
 
@@ -2099,6 +2104,50 @@ BIF_RETTYPE system_info_1(BIF_ALIST_1)
 	BIF_RET(am_opt);
 #endif
 	BIF_RET(res);
+    } else if (BIF_ARG_1 == am_time_offset) {
+	switch (erts_time_offset_state()) {
+	case ERTS_TIME_OFFSET_PRELIMINARY: {
+	    ERTS_DECL_AM(preliminary);
+	    BIF_RET(AM_preliminary);
+	}
+	case ERTS_TIME_OFFSET_FINAL: {
+	    ERTS_DECL_AM(final);
+	    BIF_RET(AM_final);
+	}
+	case ERTS_TIME_OFFSET_VOLATILE: {
+	    ERTS_DECL_AM(volatile);
+	    BIF_RET(AM_volatile);
+	}
+	default:
+	    ERTS_INTERNAL_ERROR("Invalid time offset state");
+	}
+    } else if (ERTS_IS_ATOM_STR("os_monotonic_time_source", BIF_ARG_1)) {
+	BIF_RET(erts_monotonic_time_source(BIF_P));
+    } else if (ERTS_IS_ATOM_STR("os_system_time_source", BIF_ARG_1)) {
+	BIF_RET(erts_system_time_source(BIF_P));
+    } else if (ERTS_IS_ATOM_STR("time_correction", BIF_ARG_1)) {
+	BIF_RET(erts_has_time_correction() ? am_true : am_false);
+    } else if (ERTS_IS_ATOM_STR("start_time", BIF_ARG_1)) {
+	BIF_RET(erts_get_monotonic_start_time(BIF_P));
+    } else if (ERTS_IS_ATOM_STR("end_time", BIF_ARG_1)) {
+	BIF_RET(erts_get_monotonic_end_time(BIF_P));
+    } else if (ERTS_IS_ATOM_STR("time_warp_mode", BIF_ARG_1)) {
+	switch (erts_time_warp_mode()) {
+	case ERTS_NO_TIME_WARP_MODE: {
+	    ERTS_DECL_AM(no_time_warp);
+	    BIF_RET(AM_no_time_warp);
+	}
+	case ERTS_SINGLE_TIME_WARP_MODE: {
+	    ERTS_DECL_AM(single_time_warp);
+	    BIF_RET(AM_single_time_warp);
+	}
+	case ERTS_MULTI_TIME_WARP_MODE: {
+	    ERTS_DECL_AM(multi_time_warp);
+	    BIF_RET(AM_multi_time_warp);
+	}
+	default:
+	    ERTS_INTERNAL_ERROR("Invalid time warp mode");
+	}
     } else if (BIF_ARG_1 == am_allocated_areas) {
 	res = erts_allocated_areas(NULL, NULL, BIF_P);
 	BIF_RET(res);
@@ -2301,7 +2350,7 @@ BIF_RETTYPE system_info_1(BIF_ALIST_1)
 	for (i = num_instructions-1; i >= 0; i--) {
 	    res = erts_bld_cons(hpp, hszp,
 				erts_bld_tuple(hpp, hszp, 2,
-					       erts_atom_put(opc[i].name,
+					       erts_atom_put((byte *)opc[i].name,
 							     strlen(opc[i].name),
 							     ERTS_ATOM_ENC_LATIN1,
 							     1),
@@ -2700,9 +2749,11 @@ BIF_RETTYPE system_info_1(BIF_ALIST_1)
         BIF_RET(make_small(erts_db_get_max_tabs()));
     }
     else if (ERTS_IS_ATOM_STR("tolerant_timeofday",BIF_ARG_1)) {
-	BIF_RET(erts_disable_tolerant_timeofday
-		? am_disabled
-		: am_enabled);
+	if (erts_has_time_correction()
+	    && erts_time_offset_state() == ERTS_TIME_OFFSET_FINAL) {
+	    BIF_RET(am_enabled);
+	}
+	BIF_RET(am_disabled);
     }
     else if (ERTS_IS_ATOM_STR("eager_check_io",BIF_ARG_1)) {
 	BIF_RET(erts_eager_check_io ? am_true : am_false);
@@ -3400,6 +3451,29 @@ BIF_RETTYPE erts_debug_get_internal_state_1(BIF_ALIST_1)
         else if (ERTS_IS_ATOM_STR("mmap", BIF_ARG_1)) {
             BIF_RET(erts_mmap_debug_info(BIF_P));
         }
+	else if (ERTS_IS_ATOM_STR("unique_monotonic_integer_state", BIF_ARG_1)) {
+	    BIF_RET(erts_debug_get_unique_monotonic_integer_state(BIF_P));
+	}
+	else if (ERTS_IS_ATOM_STR("min_unique_monotonic_integer", BIF_ARG_1)) {
+	    Sint64 value = erts_get_min_unique_monotonic_integer();
+	    if (IS_SSMALL(value))
+		BIF_RET(make_small(value));
+	    else {
+		Uint hsz = ERTS_SINT64_HEAP_SIZE(value);
+		Eterm *hp = HAlloc(BIF_P, hsz);
+		BIF_RET(erts_sint64_to_big(value, &hp));
+	    }
+	}
+	else if (ERTS_IS_ATOM_STR("min_unique_integer", BIF_ARG_1)) {
+	    Sint64 value = erts_get_min_unique_integer();
+	    if (IS_SSMALL(value))
+		BIF_RET(make_small(value));
+	    else {
+		Uint hsz = ERTS_SINT64_HEAP_SIZE(value);
+		Eterm *hp = HAlloc(BIF_P, hsz);
+		BIF_RET(erts_sint64_to_big(value, &hp));
+	    }
+	}
     }
     else if (is_tuple(BIF_ARG_1)) {
 	Eterm* tp = tuple_val(BIF_ARG_1);
@@ -3594,6 +3668,58 @@ BIF_RETTYPE erts_debug_get_internal_state_1(BIF_ALIST_1)
 
 		BIF_RET(erts_debug_reader_groups_map(BIF_P, (int) groups));
 	    }
+	    else if (ERTS_IS_ATOM_STR("internal_hash", tp[1])) {
+		Uint hash = (Uint) make_internal_hash(tp[2]);
+		Uint hsz = 0;
+		Eterm* hp;
+		erts_bld_uint(NULL, &hsz, hash);
+		hp = HAlloc(BIF_P,hsz);
+		return erts_bld_uint(&hp, NULL, hash);
+	    }
+	    else if (ERTS_IS_ATOM_STR("atom", tp[1])) {
+		Uint ix;
+		if (!term_to_Uint(tp[2], &ix))
+		    BIF_ERROR(BIF_P, BADARG);
+		while (ix >= atom_table_size()) {
+		    char tmp[20];
+		    erts_snprintf(tmp, sizeof(tmp), "am%x", atom_table_size());
+		    erts_atom_put((byte *) tmp, strlen(tmp), ERTS_ATOM_ENC_LATIN1, 1);
+		}
+		return make_atom(ix);
+	    }
+
+	    break;
+	}
+	case 3: {
+	    if (ERTS_IS_ATOM_STR("check_time_config", tp[1])) {
+		int res, time_correction;
+		ErtsTimeWarpMode time_warp_mode;
+		if (tp[2] == am_true)
+		    time_correction = !0;
+		else if (tp[2] == am_false)
+		    time_correction = 0;
+		else
+		    break;
+		if (ERTS_IS_ATOM_STR("no_time_warp", tp[3]))
+		    time_warp_mode = ERTS_NO_TIME_WARP_MODE;
+		else if (ERTS_IS_ATOM_STR("single_time_warp", tp[3]))
+		    time_warp_mode = ERTS_SINGLE_TIME_WARP_MODE;
+		else if (ERTS_IS_ATOM_STR("multi_time_warp", tp[3]))
+		    time_warp_mode = ERTS_MULTI_TIME_WARP_MODE;
+		else
+		    break;
+		res = erts_check_time_adj_support(time_correction,
+						  time_warp_mode);
+		BIF_RET(res ? am_true : am_false);
+	    }
+	    else if (ERTS_IS_ATOM_STR("make_unique_integer", tp[1])) {
+	      Eterm res = erts_debug_make_unique_integer(BIF_P,
+							 tp[2],
+							 tp[3]);
+	      if (is_non_value(res))
+		  break;
+	      BIF_RET(res);
+	    }
 	    break;
 	}
 	default:
@@ -3603,7 +3729,39 @@ BIF_RETTYPE erts_debug_get_internal_state_1(BIF_ALIST_1)
     BIF_ERROR(BIF_P, BADARG);
 }
 
+BIF_RETTYPE erts_internal_is_system_process_1(BIF_ALIST_1)
+{
+    if (is_internal_pid(BIF_ARG_1)) {
+	Process *rp = erts_proc_lookup(BIF_ARG_1);
+	if (rp && (rp->static_flags & ERTS_STC_FLG_SYSTEM_PROC))
+	    BIF_RET(am_true);
+	BIF_RET(am_false);
+    }
+
+    if (is_external_pid(BIF_ARG_1)
+	&& external_pid_dist_entry(BIF_ARG_1) == erts_this_dist_entry) {
+	BIF_RET(am_false);
+    }
+
+    BIF_ERROR(BIF_P, BADARG);
+}
+
+
 static erts_smp_atomic_t hipe_test_reschedule_flag;
+
+#if defined(VALGRIND) && defined(__GNUC__)
+/* Force noinline for valgrind suppression */
+static void broken_halt_test(Eterm bif_arg_2) __attribute__((noinline));
+#endif
+
+static void broken_halt_test(Eterm bif_arg_2)
+{
+    /* Ugly ugly code used by bif_SUITE:erlang_halt/1 */
+#if defined(ERTS_HAVE_TRY_CATCH)
+    erts_get_scheduler_data()->run_queue = NULL;
+#endif
+    erl_exit(ERTS_DUMP_EXIT, "%T", bif_arg_2);
+}
 
 
 BIF_RETTYPE erts_debug_set_internal_state_2(BIF_ALIST_2)
@@ -3896,6 +4054,13 @@ BIF_RETTYPE erts_debug_set_internal_state_2(BIF_ALIST_2)
 		    ERTS_BIF_YIELD_RETURN(BIF_P, am_ok);
 		}
 	    }
+	}
+        else if (ERTS_IS_ATOM_STR("broken_halt", BIF_ARG_1)) {
+            broken_halt_test(BIF_ARG_2);
+        }
+	else if (ERTS_IS_ATOM_STR("unique_monotonic_integer_state", BIF_ARG_1)) {
+	    int res = erts_debug_set_unique_monotonic_integer_state(BIF_ARG_2);
+	    BIF_RET(res ? am_true : am_false);
 	}
     }
 

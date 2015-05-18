@@ -163,9 +163,13 @@ type	MSG_ROOTS	TEMPORARY	PROCESSES	msg_roots
 type	ROOTSET		TEMPORARY	PROCESSES	root_set
 type	LOADER_TMP	TEMPORARY	CODE		loader_tmp
 type	PREPARED_CODE	SHORT_LIVED	CODE		prepared_code
-type	BIF_TIMER_TABLE	LONG_LIVED	SYSTEM		bif_timer_table
-type	SL_BIF_TIMER	SHORT_LIVED	PROCESSES	bif_timer_sl
-type	LL_BIF_TIMER	STANDARD	PROCESSES	bif_timer_ll
+type	TIMER_SERVICE	LONG_LIVED	SYSTEM		timer_service
+type    LL_PTIMER	FIXED_SIZE	PROCESSES	ll_ptimer
+type    HL_PTIMER	FIXED_SIZE	PROCESSES	hl_ptimer
+type    BIF_TIMER	FIXED_SIZE	PROCESSES	bif_timer
+type    ABIF_TIMER	FIXED_SIZE	PROCESSES	accessor_bif_timer
+type    TIMER_REQUEST	SHORT_LIVED	PROCESSES	timer_request
+type    BTM_YIELD_STATE	SHORT_LIVED	PROCESSES	btm_yield_state
 type	REG_TABLE	STANDARD	SYSTEM		reg_tab
 type	FUN_TABLE	STANDARD	CODE		fun_tab
 type	DIST_TABLE	STANDARD	SYSTEM		dist_tab
@@ -269,6 +273,7 @@ type    BUSY_CALLER_TAB	SHORT_LIVED	SYSTEM		busy_caller_table
 type    BUSY_CALLER	SHORT_LIVED	SYSTEM		busy_caller
 type	PROC_SYS_TSK	SHORT_LIVED	PROCESSES	proc_sys_task
 type	PROC_SYS_TSK_QS	SHORT_LIVED	PROCESSES	proc_sys_task_queues
+type    NEW_TIME_OFFSET	SHORT_LIVED	SYSTEM		new_time_offset
 
 +if threads_no_smp
 # Need thread safe allocs, but std_alloc and fix_alloc are not;
@@ -323,8 +328,6 @@ type	ACTIVE_PROCS	STANDARD	PROCESSES	active_procs
 +endif
 
 +if smp
-type	SL_PTIMER	SHORT_LIVED	SYSTEM		ptimer_sl
-type	LL_PTIMER	STANDARD	SYSTEM		ptimer_ll
 type	SYS_MSG_Q	SHORT_LIVED	PROCESSES	system_messages_queue
 type	FP_EXCEPTION	LONG_LIVED	SYSTEM		fp_exception
 type	LL_MPATHS	LONG_LIVED	SYSTEM		ll_migration_paths
@@ -415,6 +418,13 @@ type	CS_PROG_PATH	LONG_LIVED	SYSTEM		cs_prog_path
 type	ENVIRONMENT	TEMPORARY	SYSTEM		environment
 type	PUTENV_STR	SYSTEM		SYSTEM		putenv_string
 type	PRT_REP_EXIT	STANDARD	SYSTEM		port_report_exit
+type	SYS_BLOCKING	STANDARD	SYSTEM		sys_blocking
+
++if smp
+type	SYS_WRITE_BUF	TEMPORARY	SYSTEM		sys_write_buf
++else
+type	SYS_WRITE_BUF	BINARY		SYSTEM		sys_write_buf
++endif
 
 +endif
 

@@ -48,7 +48,9 @@ XML_HTML_FILE =  \
 	notes_history.xml
 
 XML_CHAPTER_FILES = \
-	asn1_ug.xml \
+	asn1_introduction.xml \
+	asn1_getting_started.xml \
+	asn1_overview.xml \
 	asn1_spec.xml \
 	notes.xml
 

@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2001-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2015. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -46,7 +46,7 @@
 
 -define(DEBUG_LEVEL, 5).
 
--record(state, {ts}).
+-record(state, {}).
 -include("ifr_objects.hrl").
 
 %%----------------------------------------------------------------------
@@ -133,9 +133,7 @@ delete_obj(Env, Input) ->
 %% Description: 
 %%----------------------------------------------------------------------
 init(_Arg)->
-    {M, S, U} = now(),
-    TS = M*1000000000000 + S*1000000 + U,
-    {ok, #state{ts = TS}}.
+    {ok, #state{}}.
 
 terminate(_,_State)->
     ok.

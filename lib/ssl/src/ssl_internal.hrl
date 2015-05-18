@@ -61,14 +61,19 @@
 -define(CDR_HDR_SIZE, 12).
 
 -define(DEFAULT_TIMEOUT, 5000).
+-define(NO_DIST_POINT, "http://dummy/no_distribution_point").
+-define(NO_DIST_POINT_PATH, "dummy/no_distribution_point").
 
 %% Common enumerate values in for SSL-protocols 
 -define(NULL, 0).
 -define(TRUE, 0).
 -define(FALSE, 1).
 
--define(ALL_SUPPORTED_VERSIONS, ['tlsv1.2', 'tlsv1.1', tlsv1, sslv3]).
--define(MIN_SUPPORTED_VERSIONS, ['tlsv1.1', tlsv1, sslv3]).
+%% sslv3 is considered insecure due to lack of padding check (Poodle attack)
+%% Keep as interop with legacy software but do not support as default 
+-define(ALL_AVAILABLE_VERSIONS, ['tlsv1.2', 'tlsv1.1', tlsv1, sslv3]).
+-define(ALL_SUPPORTED_VERSIONS, ['tlsv1.2', 'tlsv1.1', tlsv1]).
+-define(MIN_SUPPORTED_VERSIONS, ['tlsv1.1', tlsv1]).
 -define(ALL_DATAGRAM_SUPPORTED_VERSIONS, ['dtlsv1.2', dtlsv1]).
 -define(MIN_DATAGRAM_SUPPORTED_VERSIONS, ['dtlsv1.2', dtlsv1]).
 
@@ -111,15 +116,21 @@
 	  hibernate_after      :: boolean(),
 	  %% This option should only be set to true by inet_tls_dist
 	  erl_dist = false     :: boolean(),
-	  next_protocols_advertised = undefined, %% [binary()],
+          alpn_advertised_protocols = undefined :: [binary()] | undefined ,
+          alpn_preferred_protocols = undefined  :: [binary()] | undefined,
+	  next_protocols_advertised = undefined :: [binary()] | undefined,
 	  next_protocol_selector = undefined,  %% fun([binary()]) -> binary())
 	  log_alert             :: boolean(),
 	  server_name_indication = undefined,
+	  sni_hosts  :: [{inet:hostname(), [tuple()]}],
+	  sni_fun :: function() | undefined,
 	  %% Should the server prefer its own cipher order over the one provided by
 	  %% the client?
-	  honor_cipher_order = false,
-	  padding_check = true,
-	  fallback = false
+	  honor_cipher_order = false :: boolean(),
+	  padding_check = true       :: boolean(),
+	  fallback = false           :: boolean(),
+	  crl_check                  :: boolean() | peer | best_effort, 
+	  crl_cache
 	  }).
 
 -record(socket_options,

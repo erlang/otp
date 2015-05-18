@@ -24,7 +24,7 @@
 
 
 -export([wrong_path/1,comp/2,path/1,ticket_6143/1,noobj/1,
-	 record_name_prefix/1,verbose/1,warnings_as_errors/1]).
+	 record_name_prefix/1,verbose/1]).
 
 %% OTP-5689
 wrong_path(Config) ->
@@ -130,43 +130,6 @@ verbose(Config) when is_list(Config) ->
     ?line ok = asn1ct:compile(Asn1File, [{i,DataDir},{outdir,OutDir},noobj]),
     ?line test_server:capture_stop(),
     ?line [] = test_server:capture_get(),
-    ok.
-
-warnings_as_errors(Config) when is_list(Config) ->
-    PrivDir = ?config(priv_dir,Config),
-    Asn1File = filename:join([PrivDir,"WERROR.asn1"]),
-    OutFile = filename:join([PrivDir,"WERROR.erl"]),
-    Opts = [{outdir,PrivDir},noobj,verbose],
-
-    %% Generate WERR.asn to emit warning
-    %% Warning: Wrong format of type/value
-    %%     false/{'Externalvaluereference',_,'WERR',noInvokeId}
-    Warn = <<"WERROR DEFINITIONS IMPLICIT TAGS ::=\n"
-	     "\n"
-	     "BEGIN\n"
-	     "\n"
-	     "InvokeId ::= CHOICE\n"
-	     "{\n"
-	     "    present INTEGER,\n"
-	     "    absent NULL\n"
-	     "}\n"
-	     "\n"
-	     "noInvokeId InvokeId ::= absent:NULL\n"
-	     "\n"
-	     "NoInvokeId InvokeId ::= {noInvokeId}\n"
-	     "\n"
-	     "END -- end of useful definitions.\n">>,
-    ?line ok = file:write_file(Asn1File, Warn),
-
-    %% Test warnings_as_errors compile
-    ?line false = filelib:is_regular(OutFile),
-    ?line {error, _} = asn1ct:compile(Asn1File, [warnings_as_errors|Opts]),
-    ?line false = filelib:is_regular(OutFile),
-
-    %% Test normal compile
-    ?line ok = asn1ct:compile(Asn1File, Opts),
-    ?line true = filelib:is_regular(OutFile),
-    ?line ok = file:delete(OutFile),
     ok.
 
 outfiles_check(OutDir) ->

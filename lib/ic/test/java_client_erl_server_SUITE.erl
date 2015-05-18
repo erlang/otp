@@ -280,11 +280,7 @@ classpath(Dir) ->
     Dir++PS++
 	filename:join([code:lib_dir(ic),"priv","ic.jar"])++PS++
 	filename:join([code:lib_dir(jinterface),"priv","OtpErlang.jar"])++PS++
-	case os:getenv("CLASSPATH") of
-	    false -> "";
-	    Classpath -> Classpath
-	end.
-
+	os:getenv("CLASSPATH", "").
 
 cmd(Cmd) ->
     PortOpts = [{line,80},eof,exit_status,stderr_to_stdout],

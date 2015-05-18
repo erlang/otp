@@ -639,30 +639,25 @@ OpenSSL. Well' here's the list:
     The installation locations chosen are where configure will look
     for OpenSSL, so try to keep them as is.
        
-*   Building with wxWidgets. Download wxWidgets-2.8.9 or higher patch
-    release (2.9.\*  is a developer release which currently does not work
-    with wxErlang).
+*   Building with wxWidgets. Download wxWidgets-3.0.2 or higher patch
+    release.
 
     Install or unpack it to `DRIVE:/PATH/cygwin/opt/local/pgm`.
 
-    edit:  `C:\cygwin\opt\local\pgm\wxMSW-2.8.11\include\wx\msw\setup.h`
-    enable `wxUSE_GLCANVAS`, `wxUSE_POSTSCRIPT` and `wxUSE_GRAPHICS_CONTEXT`
+    edit:  `C:\cygwin\opt\local\pgm\wxMSW-3.0.2\include\wx\msw\setup.h`
+    enable `wxUSE_POSTSCRIPT`
 
     build: From a command prompt with the VC tools available (See the
     instructions for OpenSSL build above for help on starting the
     proper command prompt in RELEASE mode):
 	   
-        C:\...\> cd C:\cygwin\opt\local\pgm\wxMSW-2.8.11\build\msw
-        C:\...\> nmake BUILD=release SHARED=0 UNICODE=1 USE_OPENGL=1 USE_GDIPLUS=1 DIR_SUFFIX_CPU= -f makefile.vc
-        C:\...\> cd C:\cygwin\opt\local\pgm\wxMSW-2.8.11\contrib\build\stc
-        C:\...\> nmake BUILD=release SHARED=0 UNICODE=1 USE_OPENGL=1 USE_GDIPLUS=1 DIR_SUFFIX_CPU= -f makefile.vc
+        C:\...\> cd C:\cygwin\opt\local\pgm\wxMSW-3.0.2\build\msw
+        C:\...\> nmake BUILD=release SHARED=0 DIR_SUFFIX_CPU= -f makefile.vc
     
     Or - if building a 64bit version:
 
-        C:\...\> cd C:\cygwin\opt\local\pgm\wxMSW-2.8.11\build\msw
-        C:\...\> nmake TARGET_CPU=amd64 BUILD=release SHARED=0 UNICODE=1 USE_OPENGL=1 USE_GDIPLUS=1 DIR_SUFFIX_CPU= -f makefile.vc
-        C:\...\> cd C:\cygwin\opt\local\pgm\wxMSW-2.8.11\contrib\build\stc
-        C:\...\> nmake TARGET_CPU=amd64 BUILD=release SHARED=0 UNICODE=1 USE_OPENGL=1 USE_GDIPLUS=1 DIR_SUFFIX_CPU= -f makefile.vc
+        C:\...\> cd C:\cygwin\opt\local\pgm\wxMSW-3.0.2\build\msw
+        C:\...\> nmake TARGET_CPU=amd64 BUILD=release SHARED=0 DIR_SUFFIX_CPU= -f makefile.vc
     	   
 *   The Erlang source distribution (from <http://www.erlang.org/download.html>).
     The same as for Unix platforms. Preferably use tar from within Cygwin to

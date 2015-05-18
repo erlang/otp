@@ -17,10 +17,9 @@
  * %CopyrightEnd%
  */
 
-
+#define ASM
 #include "hipe_ppc_asm.h"
 #include "hipe_literals.h"
-#define ASM
 #include "hipe_mode_switch.h"
 
 	.text
@@ -296,7 +295,7 @@ CSYM(hipe_ppc_throw_to_native):
  * which should look as follows:
  *
  * stub for f/N:
- *	<set r12 to f's BEAM code address>
+ *	<set r12 to f's export entry address>
  *	<set r0 to N>
  *	b nbif_callemu
  *
@@ -312,10 +311,10 @@ CSYM(hipe_ppc_throw_to_native):
  */
 	GLOBAL(ASYM(nbif_callemu))
 ASYM(nbif_callemu):
-	STORE	r12, P_BEAM_IP(P)
+	STORE	r12, P_CALLEE_EXP(P)
 	STORE	r0, P_ARITY(P)
 	STORE_ARG_REGS
-	li	r3, HIPE_MODE_SWITCH_RES_CALL
+	li	r3, HIPE_MODE_SWITCH_RES_CALL_EXPORTED
 	b	.suspend_exit
 
 /*
@@ -463,10 +462,12 @@ ASYM(nbif_fail):
 	OPD(nbif_1_gc_after_bif)
 	OPD(nbif_2_gc_after_bif)
 	OPD(nbif_3_gc_after_bif)
+	OPD(nbif_4_gc_after_bif)
 	GLOBAL(CSYM(nbif_0_gc_after_bif))
 	GLOBAL(CSYM(nbif_1_gc_after_bif))
 	GLOBAL(CSYM(nbif_2_gc_after_bif))
 	GLOBAL(CSYM(nbif_3_gc_after_bif))
+	GLOBAL(CSYM(nbif_4_gc_after_bif))
 CSYM(nbif_0_gc_after_bif):
 	li	r4, 0
 	b	.gc_after_bif
@@ -478,6 +479,9 @@ CSYM(nbif_2_gc_after_bif):
 	b	.gc_after_bif
 CSYM(nbif_3_gc_after_bif):
 	li	r4, 3
+	b	.gc_after_bif
+CSYM(nbif_4_gc_after_bif):
+	li	r4, 4
 	/*FALLTHROUGH*/
 .gc_after_bif:
 	stw	r4, P_NARITY(P)		/* Note: narity is a 32-bit field */
@@ -506,20 +510,29 @@ CSYM(nbif_3_gc_after_bif):
 CSYM(nbif_0_simple_exception):
 	li	r4, 0
 	b	.nbif_simple_exception
+
 	OPD(nbif_1_simple_exception)
 	GLOBAL(CSYM(nbif_1_simple_exception))
 CSYM(nbif_1_simple_exception):
 	li	r4, 1
 	b	.nbif_simple_exception
+
 	OPD(nbif_2_simple_exception)
 	GLOBAL(CSYM(nbif_2_simple_exception))
 CSYM(nbif_2_simple_exception):
 	li	r4, 2
 	b	.nbif_simple_exception
+
 	OPD(nbif_3_simple_exception)
 	GLOBAL(CSYM(nbif_3_simple_exception))
 CSYM(nbif_3_simple_exception):
 	li	r4, 3
+	b	.nbif_simple_exception
+
+	OPD(nbif_4_simple_exception)
+	GLOBAL(CSYM(nbif_4_simple_exception))
+CSYM(nbif_4_simple_exception):
+	li	r4, 4
 	/*FALLTHROUGH*/
 .nbif_simple_exception:
 	LOAD	r3, P_FREASON(P)

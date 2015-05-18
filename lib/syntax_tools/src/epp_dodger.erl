@@ -454,7 +454,7 @@ io_error(L, Desc) ->
     {L, ?MODULE, Desc}.
 
 start_pos([T | _Ts], _L) ->
-    element(2, T);
+    erl_anno:line(element(2, T));
 start_pos([], L) ->
     L.
 

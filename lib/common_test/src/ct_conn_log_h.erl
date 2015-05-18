@@ -34,6 +34,8 @@
 
 -define(WIDTH,80).
 
+-define(now, os:timestamp()).
+
 %%%-----------------------------------------------------------------
 %%% Callbacks
 init({GL,ConnLogs}) ->
@@ -72,14 +74,14 @@ handle_event({_Type, GL, _Msg}, State) when node(GL) /= node() ->
 handle_event({_Type,GL,{Pid,{ct_connection,Mod,Action,ConnName},Report}},
 	     State) ->
     Info = conn_info(Pid,#conn_log{name=ConnName,action=Action,module=Mod}),
-    write_report(now(),Info,Report,GL,State),
+    write_report(?now,Info,Report,GL,State),
     {ok, State};
 handle_event({_Type,GL,{Pid,Info=#conn_log{},Report}}, State) ->
-    write_report(now(),conn_info(Pid,Info),Report,GL,State),
+    write_report(?now,conn_info(Pid,Info),Report,GL,State),
     {ok, State};
 handle_event({error_report,GL,{Pid,_,[{ct_connection,ConnName}|R]}}, State) ->
     %% Error reports from connection
-    write_error(now(),conn_info(Pid,#conn_log{name=ConnName}),R,GL,State),
+    write_error(?now,conn_info(Pid,#conn_log{name=ConnName}),R,GL,State),
     {ok, State};
 handle_event(_What, State) ->
     {ok, State}.

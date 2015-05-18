@@ -206,6 +206,7 @@ $(EBIN)/asn1ct_constructed_per.beam: asn1ct_constructed_per.erl asn1_records.hrl
 $(EBIN)/asn1ct_func.beam: asn1ct_func.erl
 $(EBIN)/asn1ct_gen.beam: asn1ct_gen.erl asn1_records.hrl
 $(EBIN)/asn1ct_gen_ber_bin_v2.beam: asn1ct_gen_ber_bin_v2.erl asn1_records.hrl
+$(EBIN)/asn1ct_gen_check.beam: asn1_records.hrl
 $(EBIN)/asn1ct_gen_per.beam: asn1ct_gen_per.erl asn1_records.hrl
 $(EBIN)/asn1ct_gen_per_rt2ct.beam: asn1ct_gen_per_rt2ct.erl asn1_records.hrl
 $(EBIN)/asn1ct_imm.beam: asn1ct_imm.erl

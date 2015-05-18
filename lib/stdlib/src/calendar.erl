@@ -299,7 +299,7 @@ local_time_to_universal_time_dst(DateTime) ->
 %% now_to_universal_time(Now)
 %% now_to_datetime(Now)
 %%
-%% Convert from now() to UTC.
+%% Convert from erlang:timestamp() to UTC.
 %%
 %% Args: Now = now(); now() = {MegaSec, Sec, MilliSec}, MegaSec = Sec
 %% = MilliSec = integer() 

@@ -18,10 +18,9 @@
  * %CopyrightEnd%
  */
 
-
+#define ASM
 #include "hipe_sparc_asm.h"
 #include "hipe_literals.h"
-#define ASM
 #include "hipe_mode_switch.h"
 
 	.section ".text"
@@ -155,9 +154,9 @@ hipe_sparc_throw_to_native:
  * which should look as follows:
  *
  * stub for f/N:
- *	sethi %hi(f's BEAM code address), TEMP_ARG0
+ *	sethi %hi(f's export entry address), TEMP_ARG0
  *	mov RA, TEMP_RA		! because the call below clobbers RA (%o7)
- *	or TEMP_ARG0, %lo(f's BEAM code address), TEMP_ARG0
+ *	or TEMP_ARG0, %lo(f's export entry address), TEMP_ARG0
  *	call nbif_callemu	! clobbers RA!
  *	mov N, TEMP_ARG1	! delay slot: TEMP_ARG1 := ARITY
  *
@@ -165,12 +164,12 @@ hipe_sparc_throw_to_native:
  */
 	.global nbif_callemu
 nbif_callemu:
-	st	TEMP_ARG0, [P+P_BEAM_IP]
+	st	TEMP_ARG0, [P+P_CALLEE_EXP]
 	st	TEMP_ARG1, [P+P_ARITY]
 	st	TEMP_RA, [P+P_NRA]
 	STORE_ARG_REGS
 	ba	.flush_exit
-	mov	HIPE_MODE_SWITCH_RES_CALL, %o0
+	mov	HIPE_MODE_SWITCH_RES_CALL_EXPORTED, %o0
 
 /*
  * nbif_apply
@@ -317,6 +316,7 @@ nbif_fail:
 	.global	nbif_1_gc_after_bif
 	.global	nbif_2_gc_after_bif
 	.global	nbif_3_gc_after_bif
+	.global nbif_4_gc_after_bif
 nbif_0_gc_after_bif:
 	ba	.gc_after_bif
 	mov	0, %o1		/* delay slot */
@@ -327,7 +327,10 @@ nbif_2_gc_after_bif:
 	ba	.gc_after_bif
 	mov	2, %o1		/* delay slot */
 nbif_3_gc_after_bif:
-	mov	3, %o1
+	ba	.gc_after_bif
+	mov	3, %o1		/* delay slot */
+nbif_4_gc_after_bif:
+	mov	4, %o1
 	/*FALLTHROUGH*/
 .gc_after_bif:
 	st	%o1, [P+P_NARITY]
@@ -365,7 +368,11 @@ nbif_2_simple_exception:
 	mov	2, %o1		/* delay slot */
 	.global	nbif_3_simple_exception
 nbif_3_simple_exception:
-	mov	3, %o1
+	ba	.nbif_simple_exception
+	mov	3, %o1		/* delay slot */
+	.global	nbif_4_simple_exception
+nbif_4_simple_exception:
+	mov	4, %o1
 	/*FALLTHROUGH*/
 .nbif_simple_exception:
 	ld	[P+P_FREASON], %o0

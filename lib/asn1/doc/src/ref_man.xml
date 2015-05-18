@@ -21,7 +21,7 @@
     
     </legalnotice>
 
-    <title>Asn1 Reference Manual</title>
+    <title>ASN.1 Reference Manual</title>
     <prepared>OTP Team</prepared>
     <docno></docno>
     <date>1997-10-04</date>
@@ -29,8 +29,8 @@
     <file>application.sgml</file>
   </header>
   <description>
-    <p>The <em>Asn1</em> application 
-      contains modules with compile-time and run-time support for ASN.1.</p>
+    <p>The <c>ASN.1</c> application
+      contains modules with compile-time and runtime support for ASN.1.</p>
   </description>
   <xi:include href="asn1ct.xml"/>
   <xi:include href="asn1rt.xml"/>

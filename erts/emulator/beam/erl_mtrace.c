@@ -627,7 +627,7 @@ erts_mtrace_install_wrapper_functions(void)
     if (erts_mtrace_enabled) {
 	int i;
 	/* Install trace functions */
-	ASSERT(sizeof(erts_allctrs) == sizeof(real_allctrs));
+	ERTS_CT_ASSERT(sizeof(erts_allctrs) == sizeof(real_allctrs));
 
 	sys_memcpy((void *) real_allctrs,
 		   (void *) erts_allctrs,
