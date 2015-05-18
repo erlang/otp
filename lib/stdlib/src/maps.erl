@@ -183,10 +183,7 @@ fold(Fun,Init,Map) ->
     V2 :: term().
 
 map(Fun,Map) when is_function(Fun, 2), is_map(Map) ->
-    maps:from_list(lists:map(fun
-		({K,V}) ->
-		    {K,Fun(K,V)}
-	    end,maps:to_list(Map)));
+    maps:from_list([{K,Fun(K,V)}||{K,V}<-maps:to_list(Map)]);
 map(Fun,Map) ->
     erlang:error(error_type(Map),[Fun,Map]).
 
