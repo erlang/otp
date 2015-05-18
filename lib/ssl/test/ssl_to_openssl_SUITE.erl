@@ -1243,15 +1243,16 @@ run_suites(Ciphers, Version, Config, Type) ->
 	    ct:fail(cipher_suite_failed_see_test_case_log)
     end.
 
-client_read_check([], _NewData) -> ok;
-client_read_check([Hd | T], NewData) ->
-    case binary:match(NewData, list_to_binary(Hd)) of
+client_read_check([], _Data) -> 
+    ok;
+client_read_check([Hd | T], Data) ->
+    case binary:match(Data, list_to_binary(Hd)) of
         nomatch ->
             nomatch;
         _ ->
-            client_read_check(T, NewData)
+            client_read_check(T, Data)
     end.
-client_read_bulk(Port, DataExpected, DataReceived) ->
+client_check_result(Port, DataExpected, DataReceived) ->
     receive
         {Port, {data, TheData}} ->
             Data = list_to_binary(TheData),
@@ -1261,15 +1262,14 @@ client_read_bulk(Port, DataExpected, DataReceived) ->
                 ok ->
                     ok;
                 _ ->
-                    client_read_bulk(Port, DataExpected, NewData)
-            end;
-        _ ->
-            ct:fail("unexpected_message")
-    after 4000 ->
-              ct:fail("timeout")
+                    client_check_result(Port, DataExpected, NewData)
+            end
+    after 3000 ->
+	    ct:fail({"Time out on opensssl Client", {expected, DataExpected},
+		     {got, DataReceived}})   
     end.
-client_read_bulk(Port, DataExpected) ->
-    client_read_bulk(Port, DataExpected, <<"">>).
+client_check_result(Port, DataExpected) ->
+    client_check_result(Port, DataExpected, <<"">>).
 
 send_and_hostname(SSLSocket) ->
     ssl:send(SSLSocket, "OK"),
@@ -1292,9 +1292,12 @@ erlang_server_openssl_client_sni_test(Config, SNIHostname, ExpectedSNIHostname, 
                     end,
     ct:log("Options: ~p", [[ServerOptions, ClientCommand]]),
     ClientPort = open_port({spawn, ClientCommand}, [stderr_to_stdout]),
-    ssl_test_lib:check_result(Server, ExpectedSNIHostname),
+
+    %% Client check needs to be done befor server check,
+    %% or server check might consume client messages
     ExpectedClientOutput = ["OK", "/CN=" ++ ExpectedCN ++ "/"],
-    ok = client_read_bulk(ClientPort, ExpectedClientOutput),
+    client_check_result(ClientPort, ExpectedClientOutput),
+    ssl_test_lib:check_result(Server, ExpectedSNIHostname),
     ssl_test_lib:close_port(ClientPort),
     ssl_test_lib:close(Server),
     ok.
@@ -1318,12 +1321,14 @@ erlang_server_openssl_client_sni_test_sni_fun(Config, SNIHostname, ExpectedSNIHo
                     end,
     ct:log("Options: ~p", [[ServerOptions, ClientCommand]]),
     ClientPort = open_port({spawn, ClientCommand}, [stderr_to_stdout]),
-    ssl_test_lib:check_result(Server, ExpectedSNIHostname),
+     
+    %% Client check needs to be done befor server check,
+    %% or server check might consume client messages
     ExpectedClientOutput = ["OK", "/CN=" ++ ExpectedCN ++ "/"],
-    ok = client_read_bulk(ClientPort, ExpectedClientOutput),
+    client_check_result(ClientPort, ExpectedClientOutput),
+    ssl_test_lib:check_result(Server, ExpectedSNIHostname),
     ssl_test_lib:close_port(ClientPort),
-    ssl_test_lib:close(Server),
-    ok.
+    ssl_test_lib:close(Server).
 
 
 cipher(CipherSuite, Version, Config, ClientOpts, ServerOpts) ->
