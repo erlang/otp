@@ -128,10 +128,10 @@ FUNTY checked_##FUN(ARGTY x, const char *file, unsigned line) \
     return _unchecked_##FUN(x); \
 }
 
-ET_DEFINE_CHECKED(Eterm,make_boxed,Eterm*,_is_taggable_pointer);
+ET_DEFINE_CHECKED(Eterm,make_boxed,const Eterm*,_is_taggable_pointer);
 ET_DEFINE_CHECKED(int,is_boxed,Eterm,!is_header);
 ET_DEFINE_CHECKED(Eterm*,boxed_val,Wterm,_boxed_precond);
-ET_DEFINE_CHECKED(Eterm,make_list,Eterm*,_is_taggable_pointer);
+ET_DEFINE_CHECKED(Eterm,make_list,const Eterm*,_is_taggable_pointer);
 ET_DEFINE_CHECKED(int,is_not_list,Eterm,!is_header);
 ET_DEFINE_CHECKED(Eterm*,list_val,Wterm,_list_precond);
 ET_DEFINE_CHECKED(Uint,unsigned_val,Eterm,is_small);

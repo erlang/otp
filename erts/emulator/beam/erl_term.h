@@ -198,7 +198,7 @@ struct erl_node_; /* Declared in erl_node_tables.h */
 #endif
 #define _is_aligned(x)		(((Uint)(x) & 0x3) == 0)
 #define _unchecked_make_boxed(x) ((Uint) COMPRESS_POINTER(x) + TAG_PRIMARY_BOXED)
-_ET_DECLARE_CHECKED(Eterm,make_boxed,Eterm*)
+_ET_DECLARE_CHECKED(Eterm,make_boxed,const Eterm*)
 #define make_boxed(x)		_ET_APPLY(make_boxed,(x))
 #if 1
 #define _is_not_boxed(x)	((x) & (_TAG_PRIMARY_MASK-TAG_PRIMARY_BOXED))
@@ -214,7 +214,7 @@ _ET_DECLARE_CHECKED(Eterm*,boxed_val,Wterm)
 
 /* cons cell ("list") access methods */
 #define _unchecked_make_list(x)	((Uint) COMPRESS_POINTER(x) + TAG_PRIMARY_LIST)
-_ET_DECLARE_CHECKED(Eterm,make_list,Eterm*)
+_ET_DECLARE_CHECKED(Eterm,make_list,const Eterm*)
 #define make_list(x)		_ET_APPLY(make_list,(x))
 #if 1
 #define _unchecked_is_not_list(x) ((x) & (_TAG_PRIMARY_MASK-TAG_PRIMARY_LIST))
