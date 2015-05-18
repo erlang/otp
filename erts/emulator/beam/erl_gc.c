@@ -1223,7 +1223,8 @@ major_collection(Process* p, int need, Eterm* objv, int nobj, Uint *recl)
     Uint new_sz;
     Uint fragments = MBUF_SIZE(p) + combined_message_size(p);
 
-    size_before = fragments + (HEAP_TOP(p) - HEAP_START(p));
+    size_before = fragments + (HEAP_TOP(p) - HEAP_START(p))
+                            + (OLD_HTOP(p) - OLD_HEAP(p));
 
     /*
      * Do a fullsweep GC. First figure out the size of the heap
