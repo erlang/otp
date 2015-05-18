@@ -384,7 +384,7 @@ new_options_in_accept(Config) when is_list(Config) ->
 %%--------------------------------------------------------------------
 
 connection_info() ->
-    [{doc,"Test the API function ssl:connection_info/1"}].
+    [{doc,"Test the API function ssl:connection_information/1"}].
 connection_info(Config) when is_list(Config) -> 
     ClientOpts = ?config(client_opts, Config),
     ServerOpts = ?config(server_opts, Config),
@@ -2831,7 +2831,7 @@ listen_socket(Config) ->
 
     {error, enotconn} = ssl:send(ListenSocket, <<"data">>),
     {error, enotconn} = ssl:recv(ListenSocket, 0),
-    {error, enotconn} = ssl:connection_info(ListenSocket),
+    {error, enotconn} = ssl:connection_information(ListenSocket),
     {error, enotconn} = ssl:peername(ListenSocket),
     {error, enotconn} = ssl:peercert(ListenSocket),
     {error, enotconn} = ssl:session_info(ListenSocket),
@@ -3836,10 +3836,10 @@ cipher(CipherSuite, Version, Config, ClientOpts, ServerOpts) ->
     end.
 
 connection_info_result(Socket) ->
-    ssl:connection_info(Socket).
-
+    {ok, Info} = ssl:connection_information(Socket, [protocol, cipher_suite]),
+    {ok, {proplists:get_value(protocol, Info), proplists:get_value(cipher_suite, Info)}}.
 version_info_result(Socket) ->
-    {ok, {Version, _}} = ssl:connection_info(Socket),
+    {ok, [{version, Version}]} = ssl:connection_information(Socket, [version]),
     {ok, Version}.
 
 connect_dist_s(S) ->

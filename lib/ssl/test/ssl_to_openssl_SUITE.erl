@@ -1664,7 +1664,7 @@ erlang_ssl_receive_and_assert_negotiated_protocol(Socket, Protocol, Data) ->
 
 erlang_ssl_receive(Socket, Data) ->
     ct:log("Connection info: ~p~n",
-		       [ssl:connection_info(Socket)]),
+		       [ssl:connection_information(Socket)]),
     receive
 	{ssl, Socket, Data} ->
 	    io:format("Received ~p~n",[Data]),
@@ -1683,16 +1683,16 @@ erlang_ssl_receive(Socket, Data) ->
     end.
  
 connection_info(Socket, Version) ->
-    case ssl:connection_info(Socket) of
-	{ok, {Version, _} = Info} ->
+    case ssl:connection_information(Socket, [version]) of
+	{ok, [{version, Version}] = Info} ->
 	    ct:log("Connection info: ~p~n", [Info]),
 	    ok;
-	{ok, {OtherVersion, _}} ->
+	{ok,  [{version, OtherVersion}]} ->
 	    {wrong_version, OtherVersion}
     end.
 
 connection_info_result(Socket) ->                                            
-    ssl:connection_info(Socket).
+    ssl:connection_information(Socket).
 
 
 delayed_send(Socket, [ErlData, OpenSslData]) ->
