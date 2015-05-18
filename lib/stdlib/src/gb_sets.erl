@@ -137,6 +137,10 @@
 %%   approach is that it does not require the complete list of all
 %%   elements to be built in memory at one time.
 %%
+%% - iterator_from(X, S): returns an iterator that can be used for
+%%   traversing the elements of set S greater than or equal to X;
+%%   see `next'.
+%%
 %% - next(T): returns {X, T1} where X is the smallest element referred
 %%   to by the iterator T, and T1 is the new iterator to be used for
 %%   traversing the remaining elements, or the atom `none' if no
@@ -157,8 +161,8 @@
 	 insert/2, add/2, delete/2, delete_any/2, balance/1, union/2,
 	 union/1, intersection/2, intersection/1, is_disjoint/2, difference/2,
 	 is_subset/2, to_list/1, from_list/1, from_ordset/1, smallest/1,
-	 largest/1, take_smallest/1, take_largest/1, iterator/1, next/1,
-	 filter/2, fold/3, is_set/1]).
+	 largest/1, take_smallest/1, take_largest/1, iterator/1,
+         iterator_from/2, next/1, filter/2, fold/3, is_set/1]).
 
 %% `sets' compatibility aliases:
 
@@ -498,6 +502,22 @@ iterator({_, nil, _} = T, As) ->
 iterator({_, L, _} = T, As) ->
     iterator(L, [T | As]);
 iterator(nil, As) ->
+    As.
+
+-spec iterator_from(Element, Set) -> Iter when
+      Set :: set(Element),
+      Iter :: iter(Element).
+
+iterator_from(S, {_, T}) ->
+    iterator_from(S, T, []).
+
+iterator_from(S, {K, _, T}, As) when K < S ->
+    iterator_from(S, T, As);
+iterator_from(_, {_, nil, _} = T, As) ->
+    [T | As];
+iterator_from(S, {_, L, _} = T, As) ->
+    iterator_from(S, L, [T | As]);
+iterator_from(_, nil, As) ->
     As.
 
 -spec next(Iter1) -> {Element, Iter2} | 'none' when

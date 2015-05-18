@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2004-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2015. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -28,7 +28,7 @@
 	 create/1,add_element/1,del_element/1,
 	 subtract/1,intersection/1,union/1,is_subset/1,
 	 is_set/1,fold/1,filter/1,
-	 take_smallest/1,take_largest/1]).
+	 take_smallest/1,take_largest/1, iterate/1]).
 
 -include_lib("test_server/include/test_server.hrl").
 
@@ -48,7 +48,7 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 all() -> 
     [create, add_element, del_element, subtract,
      intersection, union, is_subset, is_set, fold, filter,
-     take_smallest, take_largest].
+     take_smallest, take_largest, iterate].
 
 groups() -> 
     [].
@@ -425,6 +425,44 @@ take_largest_3(S0, List0, M) ->
 	    true = gb_sets:to_list(S) =:= reverse(List),
 	    take_largest_3(S, List, M)
     end.
+
+iterate(Config) when is_list(Config) ->
+    test_all(fun iterate_1/1).
+
+iterate_1(M) ->
+    case M(module, []) of
+	gb_sets -> iterate_2(M);
+	_ -> ok
+    end,
+    M(empty, []).
+
+iterate_2(M) ->
+    random:seed(1, 2, 42),
+    iter_set(M, 1000).
+
+iter_set(_M, 0) ->
+    ok;
+iter_set(M, N) ->
+    L = [I || I <- lists:seq(1, N)],
+    T = M(from_list, L),
+    L = lists:reverse(iterate_set(M, T)),
+    R = random:uniform(N),
+    S = lists:reverse(iterate_set(M, R, T)),
+    S = [E || E <- L, E >= R],
+    iter_set(M, N-1).
+
+iterate_set(M, Set) ->
+    I = M(iterator, Set),
+    iterate_set_1(M, M(next, I), []).
+
+iterate_set(M, Start, Set) ->
+    I = M(iterator_from, {Start, Set}),
+    iterate_set_1(M, M(next, I), []).
+
+iterate_set_1(_, none, R) ->
+    R;
+iterate_set_1(M, {E, I}, R) ->
+    iterate_set_1(M, M(next, I), [E | R]).
 
 %%%
 %%% Helper functions.

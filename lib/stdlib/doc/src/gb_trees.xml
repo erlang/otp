@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2001</year><year>2014</year>
+      <year>2001</year><year>2015</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -180,6 +180,17 @@
           The main advantage of the iterator approach is that it does
           not require the complete list of all elements to be built in
           memory at one time.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="iterator_from" arity="2"/>
+      <fsummary>Return an iterator for a tree starting from specified key</fsummary>
+      <desc>
+        <p>Returns an iterator that can be used for traversing the
+            entries of <c><anno>Tree</anno></c>; see <c>next/1</c>.
+            The difference as compared to the iterator returned by
+            <c>iterator/1</c> is that the first key greater than
+            or equal to <c><anno>Key</anno></c> is returned.</p>
       </desc>
     </func>
     <func>

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2015. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -29,6 +29,9 @@ new(Mod, Eq) ->
 	(module, []) -> Mod;
 	(size, D) -> Mod:size(D);
 	(is_empty, D) -> Mod:is_empty(D);
+        (iterator, S) -> Mod:iterator(S);
+        (iterator_from, {Start, S}) -> Mod:iterator_from(Start, S);
+        (next, I) -> Mod:next(I);
 	(to_list, D) -> to_list(Mod, D)
     end.
 
