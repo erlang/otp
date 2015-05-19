@@ -71,7 +71,7 @@ calendarCtrl(Config) ->
     Panel = wxPanel:new(Frame),
     Sz = wxBoxSizer:new(?wxVERTICAL),
 
-    {YMD={_,_,Day},_} = DateTime = calendar:now_to_datetime(erlang:now()),
+    {YMD={_,_,Day},_} = DateTime = calendar:now_to_datetime(os:timestamp()),
     Cal = ?mt(wxCalendarCtrl, wxCalendarCtrl:new(Panel, ?wxID_ANY,
 						 [{date,DateTime}
 						 ])),
@@ -287,10 +287,13 @@ helpFrame(Config) ->
     MFrame = wx:batch(fun() ->
 			      MFrame = wxFrame:new(Wx, ?wxID_ANY, "Main Frame"),
 			      wxPanel:new(MFrame, [{size, {600,400}}]),
+			      wxFrame:connect(MFrame, show),
 			      wxWindow:show(MFrame),
 			      MFrame
 		      end),
-    timer:sleep(9),
+    receive #wx{event=#wxShow{}} -> ok
+    after 1000 -> exit(show_timeout)
+    end,
 
     {X0, Y0} = wxWindow:getScreenPosition(MFrame),
     {X, Y, W,H} = wxWindow:getScreenRect(MFrame),
@@ -441,15 +444,16 @@ radioBox(Config) ->
     Frame = wxFrame:new(Wx, ?wxID_ANY, "Frame"),
 
     TrSortRadioBox = wxRadioBox:new(Frame, ?wxID_ANY, "Sort by:",
-				    {100, 100},{100, 100}, ["Timestamp"]),
+				    {100, 100},{100, 100},
+				    ["Timestamp", "Session", "FooBar"]),
 
     io:format("TrSortRadioBox ~p ~n", [TrSortRadioBox]),
-    %% If I uncomment any of these lines, it will crash
-
-    io:format("~p~n", [catch wxControlWithItems:setClientData(TrSortRadioBox, 0, timestamp)]),
-    %?m(_, wxListBox:append(TrSortRadioBox, "Session Id", session_id)),
-    %?m(_, wxListBox:insert(TrSortRadioBox, "Session Id", 0, session_id)),
-
+    wxRadioBox:setSelection(TrSortRadioBox, 2),
+    wxRadioBox:setItemToolTip(TrSortRadioBox, 2, "Test"),
+    TT0 = ?mt(wxToolTip,wxRadioBox:getItemToolTip(TrSortRadioBox, 0)),
+    TT1 = ?mt(wxToolTip,wxRadioBox:getItemToolTip(TrSortRadioBox, 2)),
+    ?m(true, wx:is_null(TT0)),
+    ?m("Test", wxToolTip:getTip(TT1)),
     wxWindow:show(Frame),
     wx_test_lib:wx_destroy(Frame,Config).
 
@@ -530,7 +534,7 @@ popup(Config) ->
 		      [{shortHelp, "Press Me"}]),
 
     Log = fun(#wx{id=Id, event=Ev}, Obj) ->
-		  io:format("Got ~p from ~p~n", [Id, Ev]),
+		  io:format("Got ~p from ~p~n", [Ev, Id]),
 		  wxEvent:skip(Obj)
 	  end,
     CreatePopup = fun() ->
@@ -553,7 +557,11 @@ popup(Config) ->
 			  Pop
 		  end,
     wxFrame:connect(Frame, command_menu_selected, [{id, 747}]),
+    wxFrame:connect(Frame, show),
     wxFrame:show(Frame),
+    receive #wx{event=#wxShow{}} -> ok
+    after 1000 -> exit(show_timeout)
+    end,
 
     Pop = CreatePopup(),
     Scale = case wx_test_lib:user_available(Config) of
