@@ -707,8 +707,9 @@ ok
       <desc>
         <p>Opens an existing table. If the table has not been properly
           closed, it will be repaired. The returned reference is to be
-          used as the name of the table. This function is most useful
-          for debugging purposes.</p>
+	  used as the name of the table. This is intended to open an
+	  existing table and thereby use the parameters already specified
+	  in the file itself.</p>
       </desc>
     </func>
     <func>
