@@ -34,7 +34,7 @@
 -export([init_per_testcase/2]).
 -export([end_per_testcase/2]).
 
--export([t_get_3/1,
+-export([t_get_3/1, t_filter_2/1,
          t_fold_3/1,t_map_2/1,t_size_1/1,
          t_with_2/1,t_without_2/1]).
 
@@ -45,7 +45,7 @@ suite() ->
     [{ct_hooks, [ts_install_cth]}].
 
 all() ->
-    [t_get_3,
+    [t_get_3,t_filter_2,
      t_fold_3,t_map_2,t_size_1,
      t_with_2,t_without_2].
 
@@ -99,6 +99,16 @@ t_with_2(_Config) ->
     ?badarg(with,[a,#{}]) = (catch maps:with(a,#{})),
     ok.
 
+t_filter_2(Config) when is_list(Config) ->
+    M = #{a => 2, b => 3, c=> 4, "a" => 1, "b" => 2, "c" => 4},
+    Pred1 = fun(K,V) -> is_atom(K) andalso (V rem 2) =:= 0 end,
+    Pred2 = fun(K,V) -> is_list(K) andalso (V rem 2) =:= 0 end,
+    #{a := 2,c := 4} = maps:filter(Pred1,M),
+    #{"b" := 2,"c" := 4} = maps:filter(Pred2,M),
+    %% error case
+    ?badmap(a,filter,[_,a]) = (catch maps:filter(fun(_,_) -> ok end,id(a))),
+    ?badarg(filter,[<<>>,#{}]) = (catch maps:filter(id(<<>>),#{})),
+    ok.
 
 t_fold_3(Config) when is_list(Config) ->
     Vs = lists:seq(1,200),

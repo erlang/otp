@@ -19,7 +19,8 @@
 
 -module(maps).
 
--export([get/3,fold/3, map/2, size/1,
+-export([get/3,filter/2,fold/3, map/2,
+         size/1,
          without/2, with/2]).
 
 
@@ -145,6 +146,19 @@ get(Key,Map,Default) ->
     erlang:error({badmap,Map},[Key,Map,Default]).
 
 
+-spec filter(Pred,Map1) -> Map2 when
+      Pred :: fun((Key, Value) -> boolean()),
+      Key  :: term(),
+      Value :: term(),
+      Map1 :: map(),
+      Map2 :: map().
+
+filter(Pred,Map) when is_function(Pred,2), is_map(Map) ->
+    maps:from_list([{K,V}||{K,V}<-maps:to_list(Map),Pred(K,V)]);
+filter(Pred,Map) ->
+    erlang:error(error_type(Map),[Pred,Map]).
+
+
 -spec fold(Fun,Init,Map) -> Acc when
     Fun :: fun((K, V, AccIn) -> AccOut),
     Init :: term(),
@@ -169,10 +183,7 @@ fold(Fun,Init,Map) ->
     V2 :: term().
 
 map(Fun,Map) when is_function(Fun, 2), is_map(Map) ->
-    maps:from_list(lists:map(fun
-		({K,V}) ->
-		    {K,Fun(K,V)}
-	    end,maps:to_list(Map)));
+    maps:from_list([{K,Fun(K,V)}||{K,V}<-maps:to_list(Map)]);
 map(Fun,Map) ->
     erlang:error(error_type(Map),[Fun,Map]).
 
