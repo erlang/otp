@@ -142,7 +142,8 @@ static void erl_init(int ncpu,
 		     int legacy_port_tab,
 		     int time_correction,
 		     ErtsTimeWarpMode time_warp_mode,
-		     int node_tab_delete_delay);
+		     int node_tab_delete_delay,
+		     ErtsDbSpinCount db_spin_count);
 
 static erts_atomic_t exiting;
 
@@ -316,7 +317,8 @@ erts_short_init(void)
 	     0,
 	     time_correction,
 	     time_warp_mode,
-	     ERTS_NODE_TAB_DELAY_GC_DEFAULT);
+	     ERTS_NODE_TAB_DELAY_GC_DEFAULT,
+	     ERTS_DB_SPNCNT_NORMAL);
     erts_initialized = 1;
 }
 
@@ -329,7 +331,8 @@ erl_init(int ncpu,
 	 int legacy_port_tab,
 	 int time_correction,
 	 ErtsTimeWarpMode time_warp_mode,
-	 int node_tab_delete_delay)
+	 int node_tab_delete_delay,
+	 ErtsDbSpinCount db_spin_count)
 {
     init_benchmarking();
 
@@ -369,7 +372,7 @@ erl_init(int ncpu,
     erts_ptab_init(); /* Must be after init_emulator() */
     erts_init_binary(); /* Must be after init_emulator() */
     erts_bp_init();
-    init_db(); /* Must be after init_emulator */
+    init_db(db_spin_count); /* Must be after init_emulator */
     erts_init_node_tables(node_tab_delete_delay);
     init_dist();
     erl_drv_thr_init();
@@ -635,6 +638,10 @@ void erts_usage(void)
     erts_fprintf(stderr, "-zdntgc time   set delayed node table gc in seconds\n");
     erts_fprintf(stderr, "               valid values are infinity or intergers in the range [0-%d]\n",
 		 ERTS_NODE_TAB_DELAY_GC_MAX);
+#if 0
+    erts_fprintf(stderr, "-zebwt  val    set ets busy wait threshold, valid values are:\n");
+    erts_fprintf(stderr, "               none|very_short|short|medium|long|very_long|extremely_long\n");
+#endif
     erts_fprintf(stderr, "\n");
     erts_fprintf(stderr, "Note that if the emulator is started with erlexec (typically\n");
     erts_fprintf(stderr, "from the erl script), these flags should be specified with +.\n");
@@ -1226,6 +1233,7 @@ erl_start(int argc, char **argv)
     int time_correction;
     ErtsTimeWarpMode time_warp_mode;
     int node_tab_delete_delay = ERTS_NODE_TAB_DELAY_GC_DEFAULT;
+    ErtsDbSpinCount db_spin_count = ERTS_DB_SPNCNT_NORMAL;
 
     set_default_time_adj(&time_correction,
 			 &time_warp_mode);
@@ -2040,6 +2048,28 @@ erl_start(int argc, char **argv)
 		    }
 		}
 		node_tab_delete_delay = (int) secs;
+	    }
+	    else if (has_prefix("ebwt", sub_param)) {
+		arg = get_arg(sub_param+4, argv[i+1], &i);
+		if (sys_strcmp(arg, "none") == 0)
+		    db_spin_count = ERTS_DB_SPNCNT_NONE;
+		else if (sys_strcmp(arg, "very_short") == 0)
+		    db_spin_count = ERTS_DB_SPNCNT_VERY_LOW;
+		else if (sys_strcmp(arg, "short") == 0)
+		    db_spin_count = ERTS_DB_SPNCNT_LOW;
+		else if (sys_strcmp(arg, "medium") == 0)
+		    db_spin_count = ERTS_DB_SPNCNT_NORMAL;
+		else if (sys_strcmp(arg, "long") == 0)
+		    db_spin_count = ERTS_DB_SPNCNT_HIGH;
+		else if (sys_strcmp(arg, "very_long") == 0)
+		    db_spin_count = ERTS_DB_SPNCNT_VERY_HIGH;
+		else if (sys_strcmp(arg, "extremely_long") == 0)
+		    db_spin_count = ERTS_DB_SPNCNT_EXTREMELY_HIGH;
+		else {
+		    erts_fprintf(stderr,
+				 "Invalid ets busy wait threshold: %s\n", arg);
+		    erts_usage();
+		}
 	    } else {
 		erts_fprintf(stderr, "bad -z option %s\n", argv[i]);
 		erts_usage();
@@ -2114,7 +2144,8 @@ erl_start(int argc, char **argv)
 	     legacy_port_tab,
 	     time_correction,
 	     time_warp_mode,
-	     node_tab_delete_delay);
+	     node_tab_delete_delay,
+	     db_spin_count);
 
     load_preloaded();
     erts_end_staging_code_ix();

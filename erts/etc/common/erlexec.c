@@ -158,6 +158,7 @@ static char *plusr_val_switches[] = {
 static char *plusz_val_switches[] = {
     "dbbl",
     "dntgc",
+    "ebwt",
     NULL
 };
 

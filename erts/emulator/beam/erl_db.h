@@ -61,7 +61,17 @@ union db_table {
 				"ERL_MAX_ETS_TABLES" */
 #define ERL_MAX_ETS_TABLES_ENV "ERL_MAX_ETS_TABLES"
 
-void init_db(void);
+typedef enum {
+    ERTS_DB_SPNCNT_NONE,
+    ERTS_DB_SPNCNT_VERY_LOW,
+    ERTS_DB_SPNCNT_LOW,
+    ERTS_DB_SPNCNT_NORMAL,
+    ERTS_DB_SPNCNT_HIGH,
+    ERTS_DB_SPNCNT_VERY_HIGH,
+    ERTS_DB_SPNCNT_EXTREMELY_HIGH
+} ErtsDbSpinCount;
+
+void init_db(ErtsDbSpinCount);
 int erts_db_process_exiting(Process *, ErtsProcLocks);
 void db_info(int, void *, int);
 void erts_db_foreach_table(void (*)(DbTable *, void *), void *);
@@ -69,6 +79,7 @@ void erts_db_foreach_offheap(DbTable *,
 			     void (*func)(ErlOffHeap *, void *),
 			     void *);
 
+extern int erts_ets_rwmtx_spin_count;
 extern int user_requested_db_max_tabs; /* set in erl_init */
 extern int erts_ets_realloc_always_moves;  /* set in erl_init */
 extern int erts_ets_always_compress;  /* set in erl_init */
