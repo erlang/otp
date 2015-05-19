@@ -910,11 +910,24 @@ is_dc(Class) ->
     Parents = wx_gen_erl:parents(Class),
     lists:member("wxDC", Parents) orelse lists:member("wxGraphicsContext", Parents).
 
-build_return_vals(Type,Ps) ->
+build_return_vals(Type,Ps0) ->
+    Ps = [P || P = #param{in=In} <- Ps0, In =/= true],
     HaveType = case Type of  void -> 0; _ -> 1 end,
-    NoOut = lists:sum([1 || #param{in=In} <- Ps, In =/= true]) + HaveType,
+    NoOut = length(Ps) + HaveType,
     OutTupSz = if NoOut > 1 -> NoOut; true -> 0 end,
 
+    CountFloats = fun(#param{type=#type{base=Float, single=true}}, Acc)
+			when Float =:= float; Float =:= double ->
+			  Acc + 1;
+		     (_, Acc) ->
+			  Acc
+		  end,
+    NofFloats = lists:foldl(CountFloats, 1, Ps),
+    case NofFloats > 1 of
+	true -> %%io:format("Floats ~p:~p ~p ~n",[get(current_class),get(current_func), NofFloats]);
+	    w(" rt.ensureFloatCount(~p);~n",[NofFloats]);
+	false -> ignore
+    end,
     build_ret_types(Type,Ps),
     if
 	OutTupSz > 1 -> w(" rt.addTupleCount(~p);~n",[OutTupSz]);
@@ -923,12 +936,11 @@ build_return_vals(Type,Ps) ->
     Ps.
 
 build_ret_types(void,Ps) ->
-    Calc = fun(#param{name=N,in=False,type=T}, Free) when False =/= true ->
-		   case build_ret(N, {arg, False}, T) of
+    Calc = fun(#param{name=N,in=In,type=T}, Free) ->
+		   case build_ret(N, {arg, In}, T) of
 		       ok -> Free;
 		       Other -> [Other|Free]
-		   end;
-	      (_, Free) -> Free
+		   end
 	   end,
     lists:foldl(Calc, [], Ps);
 build_ret_types(Type,Ps) ->
@@ -936,12 +948,11 @@ build_ret_types(Type,Ps) ->
 	       ok -> [];
 	       FreeStr -> [FreeStr]
 	   end,
-    Calc = fun(#param{name=N,in=False,type=T}, FreeAcc) when False =/= true ->
-		   case build_ret(N, {arg, False}, T) of
+    Calc = fun(#param{name=N,in=In,type=T}, FreeAcc) ->
+		   case build_ret(N, {arg, In}, T) of
 		       ok -> FreeAcc;
 		       FreeMe -> [FreeMe|FreeAcc]
-		   end;
-	      (_, FreeAcc) -> FreeAcc
+		   end
 	   end,
     lists:foldl(Calc, Free, Ps).
 
@@ -1016,7 +1027,6 @@ build_ret(Name,_,#type{name="wxArrayTreeItemIds"}) ->
     w(" rt.endList(~s.GetCount());~n",[Name]);
 
 build_ret(Name,_,#type{base=float,single=true}) ->
-%%    w(" double Temp~s = ~s;~n", [Name,Name]),
     w(" rt.addFloat(~s);~n",[Name]);
 build_ret(Name,_,#type{base=double,single=true}) ->
     w(" rt.addFloat(~s);~n",[Name]);

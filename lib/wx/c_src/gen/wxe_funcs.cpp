@@ -5533,6 +5533,7 @@ case wxDC_GetUserScale: { // wxDC::GetUserScale
  wxDC *This = (wxDC *) getPtr(bp,memenv); bp += 4;
  if(!This) throw wxe_badarg(0);
  This->GetUserScale(&x,&y);
+ rt.ensureFloatCount(3);
  rt.addFloat(x);
  rt.addFloat(y);
  rt.addTupleCount(2);
@@ -6430,6 +6431,7 @@ case wxGraphicsContext_GetTextExtent: { // wxGraphicsContext::GetTextExtent
  bp += *textLen+((8-((0+ *textLen) & 7)) & 7);
  if(!This) throw wxe_badarg(0);
  This->GetTextExtent(text,&width,&height,&descent,&externalLeading);
+ rt.ensureFloatCount(5);
  rt.addFloat(width);
  rt.addFloat(height);
  rt.addFloat(descent);
@@ -6575,6 +6577,7 @@ case wxGraphicsMatrix_Get: { // wxGraphicsMatrix::Get
  wxGraphicsMatrix *This = (wxGraphicsMatrix *) getPtr(bp,memenv); bp += 4;
  if(!This) throw wxe_badarg(0);
  This->Get(&a,&b,&c,&d,&tx,&ty);
+ rt.ensureFloatCount(7);
  rt.addFloat(a);
  rt.addFloat(b);
  rt.addFloat(c);
@@ -6676,6 +6679,7 @@ case wxGraphicsMatrix_TransformPoint: { // wxGraphicsMatrix::TransformPoint
  wxGraphicsMatrix *This = (wxGraphicsMatrix *) getPtr(bp,memenv); bp += 4;
  if(!This) throw wxe_badarg(0);
  This->TransformPoint(&x,&y);
+ rt.ensureFloatCount(3);
  rt.addFloat(x);
  rt.addFloat(y);
  rt.addTupleCount(2);
@@ -6687,6 +6691,7 @@ case wxGraphicsMatrix_TransformDistance: { // wxGraphicsMatrix::TransformDistanc
  wxGraphicsMatrix *This = (wxGraphicsMatrix *) getPtr(bp,memenv); bp += 4;
  if(!This) throw wxe_badarg(0);
  This->TransformDistance(&dx,&dy);
+ rt.ensureFloatCount(3);
  rt.addFloat(dx);
  rt.addFloat(dy);
  rt.addTupleCount(2);
@@ -23746,6 +23751,7 @@ case wxAuiManager_GetDockSizeConstraint: { // wxAuiManager::GetDockSizeConstrain
  wxAuiManager *This = (wxAuiManager *) getPtr(bp,memenv); bp += 4;
  if(!This) throw wxe_badarg(0);
  This->GetDockSizeConstraint(&width_pct,&height_pct);
+ rt.ensureFloatCount(3);
  rt.addFloat(width_pct);
  rt.addFloat(height_pct);
  rt.addTupleCount(2);

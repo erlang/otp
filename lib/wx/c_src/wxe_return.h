@@ -116,6 +116,8 @@ public:
 
     void add(const wxHtmlLinkInfo &val);
 
+    void ensureFloatCount(size_t n);
+
     int  send();
     
     void reset();

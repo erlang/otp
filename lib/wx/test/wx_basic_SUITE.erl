@@ -271,13 +271,19 @@ wx_misc(_Config) ->
     wx:destroy().
 
 
-%% Check that all the data_types works in communication 
+%% Check that all the data_types works in communication
 %% between erlang and c++ thread.
 data_types(TestInfo) when is_atom(TestInfo) -> wx_test_lib:tc_info(TestInfo);
 data_types(_Config) ->
     Wx = ?mr(wx_ref, wx:new()),
-    
+
     Frame = wxFrame:new(Wx, 1, "Data Types"),
+    wxFrame:connect(Frame, show),
+    wxFrame:show(Frame),
+    receive #wx{event=#wxShow{}} -> ok
+    after 1000 -> exit(show_timeout)
+    end,
+
     CDC = wxClientDC:new(Frame),
 
     %% From wx.erl
@@ -292,16 +298,31 @@ data_types(_Config) ->
     ?m(ok, wxDC:setUserScale(CDC, 123.45, 234.67)),
     ?m({123.45,234.67}, wxDC:getUserScale(CDC)),
 
+    %% Array of doubles
+    try wxGraphicsContext:create(CDC) of
+	GC ->
+	    wxGraphicsContext:setFont(GC, ?wxITALIC_FONT, {0, 0, 50}),
+	    Ws = wxGraphicsContext:getPartialTextExtents(GC, "a String With More Than 16 Characters"),
+	    _ = lists:foldl(fun(Width, {Index, Acc}) ->
+				    if Width >= Acc, Width < 500 -> {Index+1, Width};
+				       true -> throw({bad_float, Width, Index, Acc})
+				    end
+			    end, {0,0.0}, Ws),
+	    ok
+    catch _:_ -> %% GC not supported on this platform
+	    ok
+    end,
+
     %% Colors input is 3 or 4 tuple, returns are 4 tuples
     ?m(ok, wxDC:setTextForeground(CDC, {100,10,1})),
     ?m({100,10,1,255}, wxDC:getTextForeground(CDC)),
     ?m(ok, wxDC:setTextForeground(CDC, {100,10,1,43})),
     ?m({100,10,1,43}, wxDC:getTextForeground(CDC)),
 
-    %% Bool 
+    %% Bool
     ?m(ok, wxDC:setAxisOrientation(CDC, true, false)),
     ?m(true, is_boolean(wxDC:isOk(CDC))),
-    
+
     %% wxCoord 
     ?m(true, is_integer(wxDC:maxX(CDC))),
     
@@ -309,7 +330,7 @@ data_types(_Config) ->
     ?m({_,_}, wxWindow:getSize(Frame)),
 
     %% DateTime 
-    DateTime = {Date, _Time} = calendar:now_to_datetime(erlang:now()),
+    DateTime = {Date, _Time} = calendar:now_to_datetime(os:timestamp()),
     io:format("DateTime ~p ~n",[DateTime]),
     Cal = ?mt(wxCalendarCtrl, wxCalendarCtrl:new(Frame, ?wxID_ANY, [{date,DateTime}])),
     ?m({Date,_}, wxCalendarCtrl:getDate(Cal)),

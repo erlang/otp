@@ -84,7 +84,13 @@ INLINE
 unsigned  int wxeReturn::size() {
      return rt.GetCount();
  }
- 
+
+
+INLINE
+void wxeReturn::ensureFloatCount(size_t n) {
+  temp_float.Alloc(n);
+}
+
 INLINE
 void wxeReturn::add(ErlDrvTermData type, ErlDrvTermData data) {
     rt.Add(type);
@@ -222,6 +228,7 @@ INLINE
 void  wxeReturn::add(wxArrayDouble val) {
   unsigned int len = val.GetCount();
 
+  temp_float.Alloc(len);
   for (unsigned int i = 0; i< len; i++) {
     addFloat(val[i]);
   }
