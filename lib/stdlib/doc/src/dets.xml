@@ -730,10 +730,10 @@ ok
       <name name="open_file" arity="1"/>
       <fsummary>Open an existing Dets table.</fsummary>
       <desc>
-        <p>Opens an existing table. If the table has not been properly
-          closed, it will be repaired. The returned reference is to be
-          used as the name of the table. This function is most useful
-          for debugging purposes.</p>
+	<p>Opens an existing table, using the parameters already specified in
+	   the file itself. If the table has not been properly closed, it will
+	   be repaired. The returned reference is to be used as the name of
+	   the table.</p>
       </desc>
     </func>
     <func>
