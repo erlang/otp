@@ -6,12 +6,13 @@
 -include_lib("common_test/include/ct.hrl").
 -include("dialyzer_test_constants.hrl").
 
--export([suite/0, all/0, build_plt/1, beam_tests/1, update_plt/1]).
+-export([suite/0, all/0, build_plt/1, beam_tests/1, update_plt/1,
+         run_plt_check/1, run_succ_typings/1]).
 
 suite() ->
   [{timetrap, ?plt_timeout}].
 
-all() -> [build_plt, beam_tests, update_plt].
+all() -> [build_plt, beam_tests, update_plt, run_plt_check, run_succ_typings].
 
 build_plt(Config) ->
   OutDir = ?config(priv_dir, Config),
@@ -37,14 +38,76 @@ beam_tests(Config) when is_list(Config) ->
              ">>,
     Opts = [no_auto_import],
     {ok, BeamFile} = compile(Config, Prog, no_auto_import, Opts),
-    [] = run_dialyzer([BeamFile]),
+    [] = run_dialyzer(plt_build, [BeamFile], []),
     ok.
 
-run_dialyzer(Files) ->
-    dialyzer:run([{analysis_type, plt_build},
-                  {files, Files},
-                  {from, byte_code},
-                  {check_plt, false}]).
+run_plt_check(Config) when is_list(Config) ->
+    Mod1 = <<"
+	      -module(run_plt_check1).
+	     ">>,
+
+    Mod2A = <<"
+	       -module(run_plt_check2).
+	      ">>,
+
+    {ok, BeamFile1} = compile(Config, Mod1, run_plt_check1, []),
+    {ok, BeamFile2} = compile(Config, Mod2A, run_plt_check2, []),
+    [] = run_dialyzer(plt_build, [BeamFile1, BeamFile2], []),
+
+    Mod2B = <<"
+	       -module(run_plt_check2).
+
+	       -export([call/1]).
+
+	       call(X) -> run_plt_check1:call(X).
+	     ">>,
+
+    {ok, BeamFile2} = compile(Config, Mod2B, run_plt_check2, []),
+
+    % callgraph warning as run_plt_check2:call/1 makes a call to unexported
+    % function run_plt_check1:call/1.
+    [_] = run_dialyzer(plt_check, [], []),
+
+    ok.
+
+run_succ_typings(Config) when is_list(Config) ->
+    Mod1A = <<"
+	       -module(run_succ_typings1).
+
+	       -export([call/0]).
+
+	       call() -> a.
+	      ">>,
+
+    {ok, BeamFile1} = compile(Config, Mod1A, run_succ_typings1, []),
+    [] = run_dialyzer(plt_build, [BeamFile1], []),
+
+    Mod1B = <<"
+	       -module(run_succ_typings1).
+
+	       -export([call/0]).
+
+	       call() -> b.
+	     ">>,
+
+    Mod2 = <<"
+	      -module(run_succ_typings2).
+
+	      -export([call/0]).
+
+	      -spec call() -> b.
+	      call() -> run_succ_typings1:call().
+	     ">>,
+
+    {ok, BeamFile1} = compile(Config, Mod1B, run_succ_typings1, []),
+    {ok, BeamFile2} = compile(Config, Mod2, run_succ_typings2, []),
+    % contract types warning as run_succ_typings2:call/0 makes a call to
+    % run_succ_typings1:call/0, which returns a (not b) in the PLT.
+    [_] = run_dialyzer(succ_typings, [BeamFile2], [{check_plt, false}]),
+    % warning not returned as run_succ_typings1 is updated in the PLT.
+    [] = run_dialyzer(succ_typings, [BeamFile2], [{check_plt, true}]),
+
+    ok.
 
 %%% [James Fish:]
 %%% If a function is removed from a module and the module has previously
@@ -103,3 +166,9 @@ compile(Config, Prog, Module, CompileOpts) ->
     Opts = [{outdir, PrivDir}, debug_info | CompileOpts],
     {ok, Module} = compile:file(Filename, Opts),
     {ok, filename:join([PrivDir, lists:concat([Module, ".beam"])])}.
+
+run_dialyzer(Analysis, Files, Opts) ->
+    dialyzer:run([{analysis_type, Analysis},
+		  {files, Files},
+		  {from, byte_code} |
+		  Opts]).
