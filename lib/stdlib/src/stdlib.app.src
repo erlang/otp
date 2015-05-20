@@ -104,7 +104,7 @@
                dets]},
   {applications, [kernel]},
   {env, []},
-  {runtime_dependencies, ["sasl-2.4","kernel-3.0.2","erts-7.0","crypto-3.3",
+  {runtime_dependencies, ["sasl-2.4","kernel-4.0","erts-7.0","crypto-3.3",
 			  "compiler-5.0"]}
 ]}.
 
