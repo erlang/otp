@@ -18,6 +18,7 @@
 %%
 
 -module(time_SUITE).
+-compile({nowarn_deprecated_function, {erlang,now,0}}).
 
 %% "Time is on my side." -- The Rolling Stones
 
@@ -37,6 +38,7 @@
 	 now_unique/1, now_update/1, timestamp/1,
 	 time_warp_modes/1,
 	 monotonic_time_monotonicity/1,
+	 monotonic_time_monotonicity_parallel/1,
 	 time_unit_conversion/1,
 	 signed_time_unit_conversion/1,
 	 erlang_timestamp/1]).
@@ -79,6 +81,7 @@ all() ->
      {group, now}, timestamp,
      time_warp_modes,
      monotonic_time_monotonicity,
+     monotonic_time_monotonicity_parallel,
      time_unit_conversion,
      signed_time_unit_conversion,
      erlang_timestamp].
@@ -564,6 +567,78 @@ cmp_times(Done, X0) ->
     after 0 ->
 	    cmp_times(Done, X5)
     end.
+
+-define(NR_OF_MONOTONIC_CALLS, 100000).
+
+monotonic_time_monotonicity_parallel(Config) when is_list(Config) ->
+    Me = self(),
+    Result = make_ref(),
+    Go = make_ref(),
+    UpAndRunning = make_ref(),
+    NoOnlnScheds = erlang:system_info(schedulers_online),
+    OffsetUI = erlang:unique_integer([monotonic]),
+    OffsetMT = erlang:monotonic_time(),
+    MinHSz = ?NR_OF_MONOTONIC_CALLS*(2
+				     + 3
+				     + erts_debug:flat_size(OffsetUI)
+				     + erts_debug:flat_size(OffsetMT)),
+    Ps = lists:map(
+	   fun (Sched) ->
+		   spawn_opt(
+		     fun () ->
+			     Me ! {self(), UpAndRunning},
+			     receive Go -> ok end,
+			     Res = fetch_monotonic(?NR_OF_MONOTONIC_CALLS, []),
+			     Me ! {self(), Result, Sched, Res}
+		     end,
+		     [{scheduler, Sched},
+		      {priority, max},
+		      {min_heap_size, MinHSz}])
+	   end,
+	   lists:seq(1, NoOnlnScheds)),
+    lists:foreach(fun (P) -> receive {P, UpAndRunning} -> ok end end, Ps),
+    lists:foreach(fun (P) -> P ! Go end, Ps),
+    TMs = recv_monotonics(Result, OffsetMT, OffsetUI, NoOnlnScheds, []),
+    true = check_monotonic_result(TMs, OffsetMT, OffsetUI, true).
+
+check_monotonic_result([{_Sched, _PrevUI, _MT, _PostUI}],
+		       _OffsetMT, _OffsetUI, Res) ->
+    Res;
+check_monotonic_result([{_ASched, _APrevUI, AMT, APostUI} = A,
+			{_BSched, BPrevUI, BMT, _BPostUI} = B | _] = L,
+		       OffsetMT, OffsetUI, Res) ->
+    NewRes = case (AMT =< BMT) orelse (BPrevUI < APostUI) of
+		 true ->
+		     Res;
+		 false ->
+		     io:format("INCONSISTENCY: ~p ~p~n", [A, B]),
+		     false
+	     end,
+    check_monotonic_result(tl(L), OffsetMT, OffsetUI, NewRes).
+
+recv_monotonics(_Result, _OffsetMT, _OffsetUI, 0, Acc) ->
+    lists:keysort(2, Acc);
+recv_monotonics(Result, OffsetMT, OffsetUI, N, Acc) ->
+    receive
+	{_, Result, Sched, Res} ->
+	    CRes = convert_monotonic(Sched, OffsetMT, OffsetUI, Res, []),
+	    recv_monotonics(Result, OffsetMT, OffsetUI, N-1, CRes ++ Acc)
+    end.
+
+convert_monotonic(_Sched, _OffsetMT, _OffsetUI, [{_MT, _UI}], Acc) ->
+    Acc;
+convert_monotonic(Sched, OffsetMT, OffsetUI,
+		  [{MT, UI}, {_PrevMT, PrevUI} | _] = L, Acc) ->
+    convert_monotonic(Sched, OffsetMT, OffsetUI, tl(L),
+		      [{Sched, PrevUI-OffsetUI, MT-OffsetMT, UI-OffsetUI}
+		       | Acc]).
+
+fetch_monotonic(0, Acc) ->
+    Acc;
+fetch_monotonic(N, Acc) ->
+    MT = erlang:monotonic_time(),
+    UI = erlang:unique_integer([monotonic]),
+    fetch_monotonic(N-1, [{MT, UI} | Acc]).
 
 -define(CHK_RES_CONVS_TIMEOUT, 400).
 

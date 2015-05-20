@@ -1,3 +1,2 @@
-COSTIME_VSN = 1.1.14
-
+COSTIME_VSN = 1.2
 

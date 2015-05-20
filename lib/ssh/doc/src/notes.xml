@@ -29,6 +29,25 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Ssh 3.2.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    A new option for handling the SSH_MSG_DEBUG message's
+	    printouts. A fun could be given in the options that will
+	    be called whenever the SSH_MSG_DEBUG message arrives.
+	    This enables the user to format the printout or just
+	    discard it.</p>
+          <p>
+	    Own Id: OTP-12738 Aux Id: seq12860 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Ssh 3.2.2</title>
 
     <section><title>Improvements and New Features</title>

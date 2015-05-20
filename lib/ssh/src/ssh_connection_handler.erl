@@ -581,12 +581,12 @@ handle_event(#ssh_msg_disconnect{description = Desc} = DisconnectMsg, _StateName
 handle_event(#ssh_msg_ignore{}, StateName, State) ->
     {next_state, StateName, next_packet(State)};
 
-handle_event(#ssh_msg_debug{always_display = true, message = DbgMsg}, 
-	     StateName, State) ->
-    io:format("DEBUG: ~p\n", [DbgMsg]),
-    {next_state, StateName, next_packet(State)};
-
-handle_event(#ssh_msg_debug{}, StateName, State) ->
+handle_event(#ssh_msg_debug{always_display = Display, message = DbgMsg, language=Lang}, 
+	     StateName, #state{opts = Opts} = State) ->
+    F = proplists:get_value(ssh_msg_debug_fun, Opts, 
+			    fun(_ConnRef, _AlwaysDisplay, _Msg, _Language) -> ok end
+			   ),
+    catch F(self(), Display, DbgMsg, Lang),
     {next_state, StateName, next_packet(State)};
 
 handle_event(#ssh_msg_unimplemented{}, StateName, State) ->

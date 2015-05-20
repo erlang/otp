@@ -48,6 +48,7 @@
 #include "dtrace-wrapper.h"
 #include "erl_map.h"
 #include "erl_bif_unique.h"
+#include "erl_hl_timer.h"
 
 extern ErlDrvEntry fd_driver_entry;
 #ifndef __OSE__
@@ -379,11 +380,7 @@ static Port *create_port(char *name,
     prt->dist_entry = NULL;
     ERTS_PORT_INIT_CONNECTED(prt, pid);
     prt->common.u.alive.reg = NULL;
-#ifdef ERTS_SMP
-    prt->common.u.alive.ptimer = NULL;
-#else
-    sys_memset(&prt->common.u.alive.tm, 0, sizeof(ErlTimer));
-#endif
+    ERTS_PTMR_INIT(prt);
     erts_port_task_handle_init(&prt->timeout_task);
     prt->psd = NULL;
     prt->drv_data = (SWord) 0;
@@ -463,11 +460,7 @@ erts_port_free(Port *prt)
 			    | ERTS_PORT_SFLG_FREE));
     ASSERT(state & ERTS_PORT_SFLG_PORT_DEBUG);
 
-#ifdef ERTS_SMP
-    ERTS_LC_ASSERT(erts_atomic32_read_nob(&prt->common.refc) == 0);
-#else
-    ERTS_LC_ASSERT(erts_atomic32_read_nob(&prt->refc) == 0);
-#endif
+    ERTS_LC_ASSERT(erts_atomic_read_nob(&prt->common.refc.atmc) == 0);
 
     erts_port_task_fini_sched(&prt->sched);
 
@@ -736,11 +729,7 @@ erts_open_driver(erts_driver_t* driver,	/* Pointer to driver. */
 	/*
 	 * Must clean up the port.
 	 */
-#ifdef ERTS_SMP
-	erts_cancel_smp_ptimer(port->common.u.alive.ptimer);
-#else
-	erts_cancel_timer(&(port->common.u.alive.tm));
-#endif
+	erts_cancel_port_timer(port);
 	stopq(port);
 	if (port->linebuf != NULL) {
 	    erts_free(ERTS_ALC_T_LINEBUF,
@@ -2798,7 +2787,8 @@ void erts_init_io(int port_tab_size,
 			 port_tab_size,
 			 common_element_size, /* Doesn't need to be excact */
 			 "port_table",
-			 legacy_port_tab);
+			 legacy_port_tab,
+			 1);
 
     erts_smp_atomic_init_nob(&erts_bytes_out, 0);
     erts_smp_atomic_init_nob(&erts_bytes_in, 0);
@@ -3065,7 +3055,7 @@ deliver_result(Eterm sender, Eterm pid, Eterm res)
 
     rp = (scheduler
 	  ? erts_proc_lookup(pid)
-	  : erts_pid2proc_opt(NULL, 0, pid, 0, ERTS_P2P_FLG_SMP_INC_REFC));
+	  : erts_pid2proc_opt(NULL, 0, pid, 0, ERTS_P2P_FLG_INC_REFC));
 
     if (rp) {
 	Eterm tuple;
@@ -3083,7 +3073,7 @@ deliver_result(Eterm sender, Eterm pid, Eterm res)
 	if (rp_locks)
 	    erts_smp_proc_unlock(rp, rp_locks);
 	if (!scheduler)
-	    erts_smp_proc_dec_refc(rp);
+	    erts_proc_dec_refc(rp);
 
     }
 }
@@ -3127,7 +3117,7 @@ static void deliver_read_message(Port* prt, erts_aint32_t state, Eterm to,
 
     rp = (scheduler
 	  ? erts_proc_lookup(to)
-	  : erts_pid2proc_opt(NULL, 0, to, 0, ERTS_P2P_FLG_SMP_INC_REFC));
+	  : erts_pid2proc_opt(NULL, 0, to, 0, ERTS_P2P_FLG_INC_REFC));
 
     if (!rp)
 	return;
@@ -3178,7 +3168,7 @@ static void deliver_read_message(Port* prt, erts_aint32_t state, Eterm to,
     if (rp_locks)
 	erts_smp_proc_unlock(rp, rp_locks);
     if (!scheduler)
-	erts_smp_proc_dec_refc(rp);
+	erts_proc_dec_refc(rp);
 }
 
 /* 
@@ -3264,7 +3254,7 @@ deliver_vec_message(Port* prt,			/* Port */
 
     rp = (scheduler
 	  ? erts_proc_lookup(to)
-	  : erts_pid2proc_opt(NULL, 0, to, 0, ERTS_P2P_FLG_SMP_INC_REFC));
+	  : erts_pid2proc_opt(NULL, 0, to, 0, ERTS_P2P_FLG_INC_REFC));
     if (!rp)
 	return;
 
@@ -3344,7 +3334,7 @@ deliver_vec_message(Port* prt,			/* Port */
     erts_queue_message(rp, &rp_locks, bp, tuple, am_undefined);
     erts_smp_proc_unlock(rp, rp_locks);
     if (!scheduler)
-	erts_smp_proc_dec_refc(rp);
+	erts_proc_dec_refc(rp);
 }
 
 
@@ -3434,11 +3424,8 @@ terminate_port(Port *prt)
 	send_closed_port_id = NIL;
     }
 
-#ifdef ERTS_SMP
-    erts_cancel_smp_ptimer(prt->common.u.alive.ptimer);
-#else
-    erts_cancel_timer(&prt->common.u.alive.tm);
-#endif
+    if (ERTS_PTMR_IS_SET(prt))
+	erts_cancel_port_timer(prt);
 
     drv = prt->drv_ptr;
     if ((drv != NULL) && (drv->stop != NULL)) {
@@ -4985,24 +4972,6 @@ erts_free_port_names(ErtsPortNames *pnp)
     erts_free(ERTS_ALC_T_PORT_NAMES, pnp);
 }
 
-static void schedule_port_timeout(Port *p)
-{
-    /*
-     * Scheduling of port timeouts can be done without port locking, but
-     * since the task handle is stored in the port structure and the ptimer
-     * structure is protected by the port lock we require the port to be
-     * locked for now...
-     *
-     * TODO: Implement scheduling of port timeouts without locking
-     *       the port.
-     * /Rickard
-     */
-    ERTS_SMP_LC_ASSERT(erts_lc_is_port_locked(p));
-    erts_port_task_schedule(p->common.id,
-			    &p->timeout_task,
-			    ERTS_PORT_TASK_TIMEOUT);
-}
-
 ErlDrvTermData driver_mk_term_nil(void)
 {
     return driver_term_nil;
@@ -5031,7 +5000,7 @@ void driver_report_exit(ErlDrvPort ix, int status)
 
    rp = (scheduler
 	 ? erts_proc_lookup(pid)
-	 : erts_pid2proc_opt(NULL, 0, pid, 0, ERTS_P2P_FLG_SMP_INC_REFC));
+	 : erts_pid2proc_opt(NULL, 0, pid, 0, ERTS_P2P_FLG_INC_REFC));
    if (!rp)
        return;
 
@@ -5045,7 +5014,7 @@ void driver_report_exit(ErlDrvPort ix, int status)
 
    erts_smp_proc_unlock(rp, rp_locks);
    if (!scheduler)
-       erts_smp_proc_dec_refc(rp);
+       erts_proc_dec_refc(rp);
 }
 
 #define ERTS_B2T_STATES_DEF_STATES_SZ 5
@@ -5361,7 +5330,7 @@ driver_deliver_term(Eterm to, ErlDrvTermData* data, int len)
     scheduler = erts_get_scheduler_id() != 0;
     rp = (scheduler
 	  ? erts_proc_lookup(to)
-	  : erts_pid2proc_opt(NULL, 0, to, 0, ERTS_P2P_FLG_SMP_INC_REFC));
+	  : erts_pid2proc_opt(NULL, 0, to, 0, ERTS_P2P_FLG_INC_REFC));
     if (!rp) {
 	res = 0;
 	goto done;
@@ -5656,14 +5625,12 @@ driver_deliver_term(Eterm to, ErlDrvTermData* data, int len)
 	    HRelease(rp, hp_end, hp);
 	}
     }
-#ifdef ERTS_SMP
     if (rp) {
 	if (rp_locks)
 	    erts_smp_proc_unlock(rp, rp_locks);
 	if (!scheduler)
-	    erts_smp_proc_dec_refc(rp);
+	    erts_proc_dec_refc(rp);
     }
-#endif
     cleanup_b2t_states(&b2t);
     DESTROY_ESTACK(stack);
     return res;
@@ -6609,18 +6576,6 @@ int driver_pushq(ErlDrvPort ix, char* buffer, ErlDrvSizeT len)
     return code;
 }
 
-static ERTS_INLINE void
-drv_cancel_timer(Port *prt)
-{
-#ifdef ERTS_SMP
-    erts_cancel_smp_ptimer(prt->common.u.alive.ptimer);
-#else
-    erts_cancel_timer(&prt->common.u.alive.tm);
-#endif
-    if (erts_port_task_is_scheduled(&prt->timeout_task))
-	erts_port_task_abort(&prt->timeout_task);
-}
-
 int driver_set_timer(ErlDrvPort ix, unsigned long t)
 {
     Port* prt = erts_drvport2port(ix);
@@ -6632,19 +6587,8 @@ int driver_set_timer(ErlDrvPort ix, unsigned long t)
 
     if (prt->drv_ptr->timeout == NULL)
 	return -1;
-    drv_cancel_timer(prt);
-#ifdef ERTS_SMP
-    erts_create_smp_ptimer(&prt->common.u.alive.ptimer,
-			   prt->common.id,
-			   (ErlTimeoutProc) schedule_port_timeout,
-			   t);
-#else
-    erts_set_timer(&prt->common.u.alive.tm,
-		  (ErlTimeoutProc) schedule_port_timeout,
-		  NULL,
-		  prt,
-		  t);
-#endif
+
+    erts_set_port_timer(prt, (Sint64) t);
     return 0;
 }
 
@@ -6654,28 +6598,28 @@ int driver_cancel_timer(ErlDrvPort ix)
     if (prt == ERTS_INVALID_ERL_DRV_PORT)
 	return -1;
     ERTS_SMP_LC_ASSERT(erts_lc_is_port_locked(prt));
-    drv_cancel_timer(prt);
+    erts_cancel_port_timer(prt);
     return 0;
 }
-
 
 int
 driver_read_timer(ErlDrvPort ix, unsigned long* t)
 {
     Port* prt = erts_drvport2port(ix);
+    Sint64 left;
 
     ERTS_SMP_CHK_NO_PROC_LOCKS;
 
     if (prt == ERTS_INVALID_ERL_DRV_PORT)
 	return -1;
     ERTS_SMP_LC_ASSERT(erts_lc_is_port_locked(prt));
-#ifdef ERTS_SMP
-    *t = (prt->common.u.alive.ptimer
-	  ? erts_time_left(&prt->common.u.alive.ptimer->timer.tm)
-	  : 0);
-#else
-    *t = erts_time_left(&prt->common.u.alive.tm);
-#endif
+
+    left = erts_read_port_timer(prt);
+    if (left < 0)
+	left = 0;
+
+    *t = (unsigned long) left;
+
     return 0;
 }
 

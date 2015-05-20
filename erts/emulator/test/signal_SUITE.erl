@@ -515,12 +515,10 @@ repeat(Fun, N) when is_integer(N)  ->
     repeat(Fun, N-1).
 
 start_node(Config) ->
-    {A, B, C} = now(),
     Name = list_to_atom(atom_to_list(?MODULE)
 			++ "-" ++ atom_to_list(?config(testcase, Config))
-			++ "-" ++ integer_to_list(A)
-			++ "-" ++ integer_to_list(B)
-			++ "-" ++ integer_to_list(C)),
+			++ "-" ++ integer_to_list(erlang:system_time(seconds))
+			++ "-" ++ integer_to_list(erlang:unique_integer([positive]))),
     Pa = filename:dirname(code:which(?MODULE)),
     ?t:start_node(Name, slave, [{args,  "-pa " ++ Pa}]).
 

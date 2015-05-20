@@ -2,7 +2,7 @@
 %%-----------------------------------------------------------------------
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2006-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -162,14 +162,7 @@ run(Opts) ->
     {error, Msg} ->
       throw({dialyzer_error, Msg});
     OptsRecord ->
-      case OptsRecord#options.check_plt of
-        true ->
-          case cl_check_init(OptsRecord) of
-            {ok, ?RET_NOTHING_SUSPICIOUS} -> ok;
-            {error, ErrorMsg1} -> throw({dialyzer_error, ErrorMsg1})
-          end;
-        false -> ok
-      end,
+      ok = check_init(OptsRecord),
       case dialyzer_cl:start(OptsRecord) of
         {?RET_DISCREPANCIES, Warnings} -> Warnings;
         {?RET_NOTHING_SUSPICIOUS, _}  -> []
@@ -178,6 +171,16 @@ run(Opts) ->
     throw:{dialyzer_error, ErrorMsg} ->
       erlang:error({dialyzer_error, lists:flatten(ErrorMsg)})
   end.
+
+check_init(#options{analysis_type = plt_check}) ->
+    ok;
+check_init(#options{check_plt = true} = OptsRecord) ->
+    case cl_check_init(OptsRecord) of
+	{ok, _} -> ok;
+	{error, Msg} -> throw({dialyzer_error, Msg})
+    end;
+check_init(#options{check_plt = false}) ->
+    ok.
 
 internal_gui(OptsRecord) ->
   F = fun() ->
@@ -199,17 +202,13 @@ gui(Opts) ->
       throw({dialyzer_error, Msg});
     OptsRecord ->
       ok = check_gui_options(OptsRecord),
-      case cl_check_init(OptsRecord) of
-	{ok, ?RET_NOTHING_SUSPICIOUS} ->
-	  F = fun() ->
-		  dialyzer_gui_wx:start(OptsRecord)
-	      end,
-	  case doit(F) of
-	    {ok, _} -> ok;
-	    {error, Msg} -> throw({dialyzer_error, Msg})
-	  end;
-	{error, ErrorMsg1} ->
-	  throw({dialyzer_error, ErrorMsg1})
+      ok = check_init(OptsRecord),
+      F = fun() ->
+          dialyzer_gui_wx:start(OptsRecord)
+      end,
+      case doit(F) of
+	  {ok, _} -> ok;
+	  {error, Msg} -> throw({dialyzer_error, Msg})
       end
   catch
     throw:{dialyzer_error, ErrorMsg} ->

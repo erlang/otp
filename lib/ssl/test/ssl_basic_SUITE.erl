@@ -3445,7 +3445,7 @@ renegotiate_immediately(Socket) ->
     end,
     ok = ssl:renegotiate(Socket),  
     {error, renegotiation_rejected} = ssl:renegotiate(Socket),
-    ct:sleep(?RENEGOTIATION_DISABLE_TIME +1),
+    ct:sleep(?RENEGOTIATION_DISABLE_TIME + ?SLEEP),
     ok = ssl:renegotiate(Socket),
     ct:log("Renegotiated again"),
     ssl:send(Socket, "Hello world"),

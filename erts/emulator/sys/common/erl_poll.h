@@ -98,6 +98,8 @@
 #  endif
 #endif
 
+#define ERTS_POLL_USE_TIMERFD 0
+
 typedef Uint32 ErtsPollEvents;
 #undef ERTS_POLL_EV_E2N
 
@@ -129,6 +131,12 @@ struct erts_sys_fd_type {
 #elif ERTS_POLL_USE_EPOLL	/* --- epoll ------------------------------- */
 
 #include <sys/epoll.h>
+
+#ifdef HAVE_SYS_TIMERFD_H
+#include <sys/timerfd.h>
+#undef ERTS_POLL_USE_TIMERFD
+#define ERTS_POLL_USE_TIMERFD 1
+#endif
 
 #define ERTS_POLL_EV_E2N(EV) \
   ((__uint32_t) (EV))

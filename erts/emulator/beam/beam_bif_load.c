@@ -39,11 +39,8 @@ static void set_default_trace_pattern(Eterm module);
 static Eterm check_process_code(Process* rp, Module* modp, int allow_gc, int *redsp);
 static void delete_code(Module* modp);
 static void decrement_refc(BeamInstr* code);
-static int is_native(BeamInstr* code);
 static int any_heap_ref_ptrs(Eterm* start, Eterm* end, char* mod_start, Uint mod_size);
 static int any_heap_refs(Eterm* start, Eterm* end, char* mod_start, Uint mod_size);
-
-
 
 BIF_RETTYPE code_is_module_native_1(BIF_ALIST_1)
 {
@@ -59,8 +56,8 @@ BIF_RETTYPE code_is_module_native_1(BIF_ALIST_1)
 	return am_undefined;
     }
     erts_rlock_old_code(code_ix);
-    res = ((modp->curr.code && is_native(modp->curr.code)) ||
-	    (modp->old.code != 0 && is_native(modp->old.code))) ?
+    res = (erts_is_module_native(modp->curr.code) ||
+           erts_is_module_native(modp->old.code)) ?
 		am_true : am_false;
     erts_runlock_old_code(code_ix);
     return res;
@@ -371,7 +368,7 @@ staging_epilogue(Process* c_p, int commit, Eterm res, int is_blocking,
 	ASSERT(commiter_state.stager == NULL);
 	commiter_state.stager = c_p;
 	erts_schedule_thr_prgr_later_op(smp_code_ix_commiter, NULL, &commiter_state.lop);
-	erts_smp_proc_inc_refc(c_p);
+	erts_proc_inc_refc(c_p);
 	erts_suspend(c_p, ERTS_PROC_LOCK_MAIN, NULL);
 	/*
 	 * smp_code_ix_commiter() will do the rest "later"
@@ -398,7 +395,7 @@ static void smp_code_ix_commiter(void* null)
 	erts_resume(p, ERTS_PROC_LOCK_STATUS);
     }
     erts_smp_proc_unlock(p, ERTS_PROC_LOCK_STATUS);
-    erts_smp_proc_dec_refc(p);
+    erts_proc_dec_refc(p);
 }
 #endif /* ERTS_SMP */
 
@@ -1106,25 +1103,3 @@ beam_make_current_old(Process *c_p, ErtsProcLocks c_p_locks, Eterm module)
     }
     return NIL;
 }
-
-static int
-is_native(BeamInstr* code)
-{
-    Uint i, num_functions = code[MI_NUM_FUNCTIONS];
-
-    /* Check NativeAdress of first real function in module
-     */
-    for (i=0; i<num_functions; i++) {
-	BeamInstr* func_info = (BeamInstr *) code[MI_FUNCTIONS+i];
-	Eterm name = (Eterm) func_info[3];
-
-	if (is_atom(name)) {
-	    return func_info[1] != 0;    
-	}
-	else ASSERT(is_nil(name)); /* ignore BIF stubs */
-    }
-    /* Not a single non-BIF function? */
-    return 0;
-}
-
-

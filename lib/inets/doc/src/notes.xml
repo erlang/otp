@@ -32,7 +32,22 @@
     <file>notes.xml</file>
   </header>
   
-  <section><title>Inets 5.10.7</title>
+  <section><title>Inets 5.10.8</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Reject messages with a Content-Length less than 0</p>
+          <p>
+	    Own Id: OTP-12739 Aux Id: seq12860 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Inets 5.10.7</title>
 
     <section><title>Improvements and New Features</title>
       <list>

@@ -648,7 +648,7 @@ split(Name0) ->
 unix_splitb(Name) ->
     L = binary:split(Name,[<<"/">>],[global]),
     LL = case L of
-	     [<<>>|Rest] ->
+	     [<<>>|Rest] when Rest =/= [] ->
 		 [<<"/">>|Rest];
 	     _ ->
 		 L

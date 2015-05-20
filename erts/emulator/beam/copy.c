@@ -608,11 +608,6 @@ Eterm copy_shallow(Eterm* ptr, Uint sz, Eterm** hpp, ErlOffHeap* off_heap)
 		    erts_refc_inc(&funp->fe->refc, 2);
 		}
 		goto off_heap_common;
-
-	    case MAP_SUBTAG:
-		*hp++ = *tp++;
-		sz--;
-		break;
 	    case EXTERNAL_PID_SUBTAG:
 	    case EXTERNAL_PORT_SUBTAG:
 	    case EXTERNAL_REF_SUBTAG:
@@ -648,7 +643,6 @@ Eterm copy_shallow(Eterm* ptr, Uint sz, Eterm** hpp, ErlOffHeap* off_heap)
 	}
     }
     *hpp = hp;
-
     return res;
 }
 

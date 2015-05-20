@@ -763,12 +763,10 @@ named_down(doc) -> ["Test that DOWN message for a named monitor isn't"
 		    " delivered until name has been unregistered"];
 named_down(suite) -> [];
 named_down(Config) when is_list(Config) ->
-    ?line {A,B,C} = now(),
     ?line Name = list_to_atom(atom_to_list(?MODULE)
 			      ++ "-named_down-"
-			      ++ integer_to_list(A)
-			      ++ "-" ++ integer_to_list(B)
-			      ++ "-" ++ integer_to_list(C)),
+			      ++ integer_to_list(erlang:system_time(seconds))
+			      ++ "-" ++ integer_to_list(erlang:unique_integer([positive]))),
     ?line Prio = process_flag(priority,high),
     %% Spawn a bunch of high prio cpu bound processes to prevent
     %% normal prio processes from terminating during the next

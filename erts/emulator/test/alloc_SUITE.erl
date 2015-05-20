@@ -241,18 +241,15 @@ receive_drv_result(Port, CaseName) ->
 start_node(Config) ->
     start_node(Config, []).
 start_node(Config, Opts) when is_list(Config), is_list(Opts) ->
-    ?line Pa = filename:dirname(code:which(?MODULE)),
-    ?line {A, B, C} = now(),
-    ?line Name = list_to_atom(atom_to_list(?MODULE)
-			      ++ "-"
-			      ++ atom_to_list(?config(testcase, Config))
-			      ++ "-"
-			      ++ integer_to_list(A)
-			      ++ "-"
-			      ++ integer_to_list(B)
-			      ++ "-"
-			      ++ integer_to_list(C)),
-    ?line ?t:start_node(Name, slave, [{args, Opts++" -pa "++Pa}]).
+    Pa = filename:dirname(code:which(?MODULE)),
+    Name = list_to_atom(atom_to_list(?MODULE)
+			++ "-"
+			++ atom_to_list(?config(testcase, Config))
+			++ "-"
+			++ integer_to_list(erlang:system_time(seconds))
+			++ "-"
+			++ integer_to_list(erlang:unique_integer([positive]))),
+    ?t:start_node(Name, slave, [{args, Opts++" -pa "++Pa}]).
 
 stop_node(Node) ->
     ?t:stop_node(Node).

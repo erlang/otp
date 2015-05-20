@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2015. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -374,11 +374,11 @@ handle_call({register, Objkey, Pid, Type}, _From, State) ->
 			  %% No key exists. Ok to register.
 			  mnesia:write(#orber_objkeys{object_key=Objkey, pid=Pid,
 						      persistent=Type,
-						      timestamp=now()});
+						      timestamp=erlang:monotonic_time(seconds)});
 		      [X] when X#orber_objkeys.persistent==true,
 			       X#orber_objkeys.pid == dead ->
 			  %% A persistent object is being restarted. Update Pid & time.
-			  mnesia:write(X#orber_objkeys{pid=Pid, timestamp=now()});
+			  mnesia:write(X#orber_objkeys{pid=Pid, timestamp=erlang:monotonic_time(seconds)});
 		      [X] when is_pid(X#orber_objkeys.pid) ->
 			  %% Object exists, i.e., trying to create an object with
 			  %% the same name.
@@ -477,7 +477,7 @@ handle_info({'EXIT', Pid, Reason}, State) when is_pid(Pid) ->
 			       Reason /= normal andalso
 			       Reason /= shutdown ->
 			  mnesia:write(X#orber_objkeys{pid=dead,
-						       timestamp=now()});
+						       timestamp=erlang:monotonic_time(seconds)});
 		      [X] when X#orber_objkeys.persistent==true ->
 			  mnesia:delete({orber_objkeys, X#orber_objkeys.object_key});
 		      _->
@@ -503,8 +503,8 @@ code_change(_OldVsn, State, _Extra) ->
 %% Internal Functions
 %%-----------------------------------------------------------------
 
-timetest(S, {MeSec, Sec, USec}) ->
-    {MeSec, Sec+S, USec} < now().
+timetest(S, TimeStamp) ->
+    TimeStamp+S < erlang:monotonic_time(seconds).
 
 get_key_from_pid(Pid) ->
     case  mnesia:dirty_match_object({orber_objkeys, '_', Pid,'_','_'}) of

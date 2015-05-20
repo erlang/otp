@@ -35,7 +35,7 @@
 #include "dist.h"
 #include "erl_mseg.h"
 #include "erl_threads.h"
-#include "erl_bif_timer.h"
+#include "erl_hl_timer.h"
 #include "erl_instrument.h"
 #include "erl_printf_term.h"
 #include "erl_misc_utils.h"
@@ -46,6 +46,8 @@
 #include "erl_async.h"
 #include "erl_ptab.h"
 #include "erl_bif_unique.h"
+#define ERTS_WANT_TIMER_WHEEL_API
+#include "erl_time.h"
 
 #ifdef HIPE
 #include "hipe_mode_switch.h"	/* for hipe_mode_switch_init() */
@@ -365,7 +367,6 @@ erl_init(int ncpu,
     erts_init_binary(); /* Must be after init_emulator() */
     erts_bp_init();
     init_db(); /* Must be after init_emulator */
-    erts_bif_timer_init();
     erts_init_node_tables();
     init_dist();
     erl_drv_thr_init();
@@ -2095,11 +2096,8 @@ erl_start(int argc, char **argv)
 
     erts_initialized = 1;
 
-    {
-	Eterm init = erl_first_process_otp("otp_ring0", NULL, 0,
-					   boot_argc, boot_argv);
-	erts_bif_timer_start_servers(init);
-    }
+    (void) erl_first_process_otp("otp_ring0", NULL, 0,
+				 boot_argc, boot_argv);
 
 #ifdef ERTS_SMP
     erts_start_schedulers();
@@ -2107,13 +2105,17 @@ erl_start(int argc, char **argv)
 
     erts_sys_main_thread(); /* May or may not return! */
 #else
-    erts_thr_set_main_status(1, 1);
+    {
+	ErtsSchedulerData *esdp = erts_get_scheduler_data();
+	erts_thr_set_main_status(1, 1);
 #if ERTS_USE_ASYNC_READY_Q
-    erts_get_scheduler_data()->aux_work_data.async_ready.queue
-	= erts_get_async_ready_queue(1);
+	esdp->aux_work_data.async_ready.queue
+	    = erts_get_async_ready_queue(1);
 #endif
-    set_main_stack_size();
-    process_main();
+	set_main_stack_size();
+	erts_sched_init_time_sup(esdp);
+	process_main();
+    }
 #endif
 }
 

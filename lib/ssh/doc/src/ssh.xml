@@ -57,29 +57,28 @@
     this module, or abstractions to indicate the intended use of the data
     type, or both:</p>
     <taglist>
-      <tag><c>boolean()</c></tag>
-      <item><p>= <c>true | false</c></p></item>
-      <tag><c>string()</c></tag>
-      <item><p>= <c>[byte()]</c></p></item>
-      <tag><c>ssh_daemon_ref()</c></tag>
-      <item><p>Opaque to the user,
-    returned by <c>ssh:daemon/[1,2,3]</c></p></item>
-      <tag><c>ssh_connection_ref()</c></tag>
-      <item><p>Opaque to the user,
-    returned by <c>ssh:connect/3</c></p></item>
-      <tag><c>ip_address()</c></tag>
+      <tag><c>boolean() =</c></tag>
+      <item><p><c>true | false</c></p></item>
+      <tag><c>string() =</c></tag>
+      <item><p><c>[byte()]</c></p></item>
+      <tag><c>ssh_daemon_ref() =</c></tag>
+      <item><p>opaque() -
+      as returned by <c>ssh:daemon/[1,2,3]</c></p></item>
+      <tag><c>ssh_connection_ref() =</c></tag>
+      <item><p>opaque() - as returned by <c>ssh:connect/3</c></p></item>
+      <tag><c>ip_address() =</c></tag>
       <item><p><c>inet::ip_address</c></p></item>
-      <tag><c>subsystem_spec()</c></tag>
-      <item><p>= <c>{subsystem_name(),
-    {channel_callback(), channel_init_args()}}</c></p></item>
-      <tag><c>subsystem_name()</c></tag>
-      <item><p>= <c>string()</c></p></item>
-      <tag><c>channel_callback()</c></tag>
-      <item><p>= <c>atom()</c> - Name of the Erlang module
-    implementing the subsystem using the <c>ssh_channel</c> behavior, see
-    <seealso marker="ssh_channel">ssh_channel(3)</seealso></p></item>
-      <tag><c>channel_init_args()</c></tag>
-      <item><p>= <c>list()</c></p></item>
+      <tag><c>subsystem_spec() =</c></tag>
+      <item><p><c>{subsystem_name(),
+      {channel_callback(), channel_init_args()}}</c></p></item>
+      <tag><c>subsystem_name() =</c></tag>
+      <item><p><c>string()</c></p></item>
+      <tag><c>channel_callback() =</c></tag>
+      <item><p><c>atom()</c> - Name of the Erlang module
+      implementing the subsystem using the <c>ssh_channel</c> behavior, see
+      <seealso marker="ssh_channel">ssh_channel(3)</seealso></p></item>
+      <tag><c>channel_init_args() =</c></tag>
+      <item><p><c>list()</c></p></item>
      </taglist>
 </section>
 
@@ -227,6 +226,13 @@
 	  <item>
 	  <p>Sets a time-out on a connection when no channels are active.
 	  Defaults to <c>infinity</c>.</p></item>
+	  <tag><c><![CDATA[{ssh_msg_debug_fun, fun(ConnectionRef::ssh_connection_ref(), AlwaysDisplay::boolean(), Msg::binary(), LanguageTag::binary()) -> _}]]></c></tag>
+	  <item>
+	    <p>Provide a fun to implement your own logging of the SSH message SSH_MSG_DEBUG. The last three parameters are from the message, see RFC4253, section 11.3. The <c>ConnectionRef</c> is the reference to the connection on which the message arrived. The return value from the fun is not checked.</p>
+	    <p>The default behaviour is ignore the message.
+	    To get a printout for each message with <c>AlwaysDisplay = true</c>, use for example <c>{ssh_msg_debug_fun, fun(_,true,M,_)-> io:format("DEBUG: ~p~n", [M]) end}</c></p>
+	  </item>
+
 	</taglist>
       </desc>   
     </func>
@@ -427,8 +433,16 @@
 	  <item>
 	    <p>Provides a fun to implement your own logging when a user disconnects from the server.</p>
 	  </item>
-        </taglist>
-      </desc>
+
+	  <tag><c><![CDATA[{ssh_msg_debug_fun, fun(ConnectionRef::ssh_connection_ref(), AlwaysDisplay::boolean(), Msg::binary(), LanguageTag::binary()) -> _}]]></c></tag>
+	  <item>
+	    <p>Provide a fun to implement your own logging of the SSH message SSH_MSG_DEBUG. The last three parameters are from the message, see RFC4253, section 11.3. The <c>ConnectionRef</c> is the reference to the connection on which the message arrived. The return value from the fun is not checked.</p>
+	    <p>The default behaviour is ignore the message.
+	    To get a printout for each message with <c>AlwaysDisplay = true</c>, use for example <c>{ssh_msg_debug_fun, fun(_,true,M,_)-> io:format("DEBUG: ~p~n", [M]) end}</c></p>
+	  </item>
+
+	</taglist>
+      </desc>   
     </func>
 
 

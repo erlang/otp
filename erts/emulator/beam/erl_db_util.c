@@ -2039,7 +2039,7 @@ restart:
             break;
         case matchKey:
             t = (Eterm) *pc++;
-            tp = erts_maps_get_rel(t, make_flatmap_rel(ep, base), base);
+            tp = erts_maps_get_rel(t, make_boxed_rel(ep, base), base);
             if (!tp) {
                 FAIL();
             }
@@ -3347,6 +3347,37 @@ int db_is_variable(Eterm obj)
     return N;
 }
 
+/* check if node is (or contains) a map
+ * return 1 if node contains a map
+ * return 0 otherwise
+ */
+
+int db_has_map(Eterm node) {
+    DECLARE_ESTACK(s);
+
+    ESTACK_PUSH(s,node);
+    while (!ESTACK_ISEMPTY(s)) {
+	node = ESTACK_POP(s);
+        if (is_list(node)) {
+	    while (is_list(node)) {
+		ESTACK_PUSH(s,CAR(list_val(node)));
+		node = CDR(list_val(node));
+	    }
+	    ESTACK_PUSH(s,node);    /* Non wellformed list or [] */
+        } else if (is_tuple(node)) {
+            Eterm *tuple = tuple_val(node);
+            int arity = arityval(*tuple);
+            while(arity--) {
+                ESTACK_PUSH(s,*(++tuple));
+            }
+        } else if is_map(node) {
+            DESTROY_ESTACK(s);
+            return 1;
+        }
+    }
+    DESTROY_ESTACK(s);
+    return 0;
+}
 
 /* check if obj is (or contains) a variable */
 /* return 1 if obj contains a variable or underscore */
@@ -3380,6 +3411,11 @@ int db_has_variable(Eterm node) {
                 while (size--) {
                     ESTACK_PUSH(s, *(values++));
                 }
+            } else if (is_map(node)) { /* other map-nodes or map-heads */
+                Eterm *ptr = hashmap_val(node);
+                int i = hashmap_bitcount(MAP_HEADER_VAL(*ptr));
+                ptr += MAP_HEADER_ARITY(*ptr);
+                while(i--) { ESTACK_PUSH(s, *++ptr); }
             }
 	    break;
 	case TAG_PRIMARY_IMMED1:

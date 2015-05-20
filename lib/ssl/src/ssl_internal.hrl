@@ -122,6 +122,8 @@
 	  next_protocol_selector = undefined,  %% fun([binary()]) -> binary())
 	  log_alert             :: boolean(),
 	  server_name_indication = undefined,
+	  sni_hosts  :: [{inet:hostname(), [tuple()]}],
+	  sni_fun :: function() | undefined,
 	  %% Should the server prefer its own cipher order over the one provided by
 	  %% the client?
 	  honor_cipher_order = false :: boolean(),

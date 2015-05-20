@@ -129,10 +129,11 @@
 -export([process_display/2]).
 -export([process_flag/3, process_info/1, processes/0, purge_module/1]).
 -export([put/2, raise/3, read_timer/1, read_timer/2, ref_to_list/1, register/2]).
--export([registered/0, resume_process/1, round/1, self/0, send_after/3]).
+-export([send_after/3, send_after/4, start_timer/3, start_timer/4]).
+-export([registered/0, resume_process/1, round/1, self/0]).
 -export([seq_trace/2, seq_trace_print/1, seq_trace_print/2, setnode/2]).
 -export([setnode/3, size/1, spawn/3, spawn_link/3, split_binary/2]).
--export([start_timer/3, suspend_process/2, system_monitor/0]).
+-export([suspend_process/2, system_monitor/0]).
 -export([system_monitor/1, system_monitor/2, system_profile/0]).
 -export([system_profile/2, throw/1, time/0, trace/3, trace_delivered/1]).
 -export([trace_info/2, trunc/1, tuple_size/1, universaltime/0]).
@@ -424,80 +425,26 @@ call_on_load_function(_P1) ->
     erlang:nif_error(undefined).
 
 %% cancel_timer/1
--spec erlang:cancel_timer(TimerRef) -> Time | false when
+-spec erlang:cancel_timer(TimerRef) -> Result when
       TimerRef :: reference(),
-      Time :: non_neg_integer().
-cancel_timer(TimerRef) ->
-    try
-	case erts_internal:access_bif_timer(TimerRef) of
-	    undefined ->
-		false;
-	    {BTR, TSrv} ->
-		Req = erlang:make_ref(),
-		TSrv ! {cancel_timeout, BTR, erlang:self(),
-			true, Req, TimerRef},
-		receive
-		    {cancel_timer, Req, Result} ->
-			Result
-		end
-	end
-    catch
-	_:_ -> erlang:error(badarg, [TimerRef])
-    end.
+      Time :: non_neg_integer(),
+      Result :: Time | false.
+
+cancel_timer(_TimerRef) ->
+    erlang:nif_error(undefined).
 
 %% cancel_timer/2
--spec erlang:cancel_timer(TimerRef, Options) -> Time | false | ok when
+-spec erlang:cancel_timer(TimerRef, Options) -> Result | ok when
       TimerRef :: reference(),
-      Option :: {async, boolean()} | {info, boolean()},
+      Async :: boolean(),
+      Info :: boolean(),
+      Option :: {async, Async} | {info, Info},
       Options :: [Option],
-      Time :: non_neg_integer().
-cancel_timer(TimerRef, Options) ->
-    try
-	{Async, Info} = get_cancel_timer_options(Options, false, true),
-	case erts_internal:access_bif_timer(TimerRef) of
-	    undefined ->
-		case {Async, Info} of
-		    {true, true} ->
-			erlang:self() ! {cancel_timer, TimerRef, false}, ok;
-		    {false, true} ->
-			false;
-		    _ ->
-			ok
-		end;
-	    {BTR, TSrv} ->
-		case Async of
-		    true ->
-			TSrv ! {cancel_timeout, BTR, erlang:self(),
-				Info, TimerRef, TimerRef},
-			ok;
-		    false ->
-			Req = erlang:make_ref(),
-			TSrv ! {cancel_timeout, BTR, erlang:self(),
-				true, Req, TimerRef},
-			receive
-			    {cancel_timer, Req, Result} ->
-				case Info of
-				    true -> Result;
-				    false -> ok
-				end
-			end
-		end
-	end
-    catch
-	_:_ -> erlang:error(badarg, [TimerRef, Options])
-    end.
+      Time :: non_neg_integer(),
+      Result :: Time | false.
 
-get_cancel_timer_options([], Async, Info) ->
-    {Async, Info};
-get_cancel_timer_options([{async, Bool} | Opts],
-			 _Async, Info) when Bool == true;
-					    Bool == false ->
-    get_cancel_timer_options(Opts, Bool, Info);
-get_cancel_timer_options([{info, Bool} | Opts],
-			 Async, _Info) when Bool == true;
-					    Bool == false ->
-    get_cancel_timer_options(Opts, Async, Bool).
-    
+cancel_timer(_TimerRef, _Options) ->
+    erlang:nif_error(undefined).
 
 %% check_old_code/1
 -spec check_old_code(Module) -> boolean() when
@@ -1535,55 +1482,25 @@ raise(_Class, _Reason, _Stacktrace) ->
     erlang:nif_error(undefined).
 
 %% read_timer/1
--spec erlang:read_timer(TimerRef) -> non_neg_integer() | false when
-      TimerRef :: reference().
+-spec erlang:read_timer(TimerRef) -> Result when
+      TimerRef :: reference(),
+      Time :: non_neg_integer(),
+      Result :: Time | false.
 
-read_timer(TimerRef) ->
-    read_timer(TimerRef, []).
+read_timer(_TimerRef) ->
+    erlang:nif_error(undefined).
 
 %% read_timer/2
--spec erlang:read_timer(TimerRef, Options) -> non_neg_integer() | false | ok when
+-spec erlang:read_timer(TimerRef, Options) -> Result | ok when
       TimerRef :: reference(),
-      Option :: {async, boolean()},
-      Options :: [Option].
+      Async :: boolean(),
+      Option :: {async, Async},
+      Options :: [Option],
+      Time :: non_neg_integer(),
+      Result :: Time | false.
 
-read_timer(TimerRef, Options) ->
-    try
-	Async = get_read_timer_options(Options, false),
-	case erts_internal:access_bif_timer(TimerRef) of
-	    undefined ->
-		case Async of
-		    true ->
-			erlang:self() ! {read_timer, TimerRef, false},
-			ok;
-		    false ->
-			false
-		end;
-	    {BTR, TSrv} ->
-		case Async of
-		    true ->
-			TSrv ! {read_timeout, BTR, erlang:self(),
-				TimerRef, TimerRef},
-			ok;
-		    false ->
-			Req = erlang:make_ref(),
-			TSrv ! {read_timeout, BTR, erlang:self(),
-				Req, TimerRef},
-			receive
-			    {read_timer, Req, Result} ->
-				Result
-			end
-		end
-	end
-    catch
-	_:_ -> erlang:error(badarg, [TimerRef])
-    end.
-
-get_read_timer_options([], Async) ->
-    Async;
-get_read_timer_options([{async, Bool} | Opts],
-		       _Async) when Bool == true; Bool == false ->
-    get_read_timer_options(Opts, Bool).
+read_timer(_TimerRef, _Options) ->
+    erlang:nif_error(undefined).
 
 %% ref_to_list/1
 -spec erlang:ref_to_list(Ref) -> string() when
@@ -1630,35 +1547,21 @@ self() ->
       Msg :: term(),
       TimerRef :: reference().
 
-send_after(0, Dest, Msg) ->
-    try
-	true = ((erlang:is_pid(Dest)
-		 andalso erlang:node(Dest) == erlang:node())
-		orelse (erlang:is_atom(Dest)
-			andalso Dest /= undefined)),
-	try Dest ! Msg catch _:_ -> ok end,
-	erlang:make_ref()
-    catch
-	_:_ ->
-	    erlang:error(badarg, [0, Dest, Msg])
-    end;
-send_after(Time, Dest, Msg) ->
-    Now = erlang:monotonic_time(),
-    try
-	true = ((erlang:is_pid(Dest)
-		 andalso erlang:node(Dest) == erlang:node())
-		orelse (erlang:is_atom(Dest)
-			andalso Dest /= undefined)),
-	true = Time > 0,
-	true = Time < (1 bsl 32), % Maybe lift this restriction...
-	TO = Now + (erts_internal:time_unit()*Time) div 1000,
-	{BTR, TSrv, TRef} = erts_internal:create_bif_timer(),
-	TSrv ! {set_timeout, BTR, Dest, TO, TRef, Msg},
-	TRef
-    catch
-	_:_ ->
-	    erlang:error(badarg, [Time, Dest, Msg])
-    end.
+send_after(_Time, _Dest, _Msg) ->
+    erlang:nif_error(undefined).
+
+%% send_after/4
+-spec erlang:send_after(Time, Dest, Msg, Options) -> TimerRef when
+      Time :: integer(),
+      Dest :: pid() | atom(),
+      Msg :: term(),
+      Options :: [Option],
+      Abs :: boolean(),
+      Option :: {abs, Abs}, %% | {accessor, Accessor} undocumented feature for now,
+      TimerRef :: reference().
+
+send_after(_Time, _Dest, _Msg, _Options) ->
+    erlang:nif_error(undefined).
 
 %% seq_trace/2
 -spec erlang:seq_trace(P1, P2) -> seq_trace_info_returns() | {term(), term(), term(), term(), term()} when
@@ -1731,37 +1634,22 @@ split_binary(_Bin, _Pos) ->
       Dest :: pid() | atom(),
       Msg :: term(),
       TimerRef :: reference().
-start_timer(0, Dest, Msg) ->
-    try
-	true = ((erlang:is_pid(Dest)
-		 andalso erlang:node(Dest) == erlang:node())
-		orelse (erlang:is_atom(Dest)
-			andalso Dest /= undefined)),
-	TimerRef = erlang:make_ref(),
-	_ = try Dest ! {timeout, TimerRef, Msg} catch _:_ -> ok end,
-	TimerRef
-    catch
-	_:_ ->
-	    erlang:error(badarg, [0, Dest, Msg])
-    end;
-start_timer(Time, Dest, Msg) ->
-    Now = erlang:monotonic_time(),
-    try
-	true = ((erlang:is_pid(Dest)
-		 andalso erlang:node(Dest) == erlang:node())
-		orelse (erlang:is_atom(Dest)
-			andalso Dest /= undefined)),
-	true = Time > 0,
-	true = Time < (1 bsl 32), % Maybe lift this restriction...
-	TO = Now + (erts_internal:time_unit()*Time) div 1000,
-	{BTR, TSrv, TimerRef} = erts_internal:create_bif_timer(),
-	TSrv ! {set_timeout, BTR, Dest, TO, TimerRef,
-		{timeout, TimerRef, Msg}},
-	TimerRef
-    catch
-	_:_ ->
-	    erlang:error(badarg, [Time, Dest, Msg])
-    end.
+
+start_timer(_Time, _Dest, _Msg) ->
+    erlang:nif_error(undefined).
+
+%% start_timer/4
+-spec erlang:start_timer(Time, Dest, Msg, Options) -> TimerRef when
+      Time :: integer(),
+      Dest :: pid() | atom(),
+      Msg :: term(),
+      Options :: [Option],
+      Abs :: boolean(),
+      Option :: {abs, Abs}, %% | {accessor, Accessor} undocumented feature for now,
+      TimerRef :: reference().
+
+start_timer(_Time, _Dest, _Msg, _Options) ->
+    erlang:nif_error(undefined).
 
 %% suspend_process/2
 -spec erlang:suspend_process(Suspendee, OptList) -> boolean() when
@@ -1931,7 +1819,7 @@ element(_N, _Tuple) ->
 %% Not documented
 -spec erlang:get_module_info(Module, Item) -> ModuleInfo when
       Module :: atom(),
-      Item :: module | imports | exports | functions | attributes | compile | native_addresses | md5,
+      Item :: module | exports | functions | attributes | compile | native_addresses | md5,
       ModuleInfo :: atom() | [] | [{atom(), arity()}] | [{atom(), term()}] | [{atom(), arity(), integer()}].
 get_module_info(_Module, _Item) ->
     erlang:nif_error(undefined).
@@ -3712,7 +3600,11 @@ blocks_size([], Acc) ->
 get_fix_proc([{ProcType, A1, U1}| Rest], {A0, U0}) when ProcType == proc;
 							ProcType == monitor_sh;
 							ProcType == nlink_sh;
-							ProcType == msg_ref ->
+							ProcType == msg_ref;
+							ProcType == ll_ptimer;
+							ProcType == hl_ptimer;
+							ProcType == bif_timer;
+							ProcType == accessor_bif_timer ->
     get_fix_proc(Rest, {A0+A1, U0+U1});
 get_fix_proc([_|Rest], Acc) ->
     get_fix_proc(Rest, Acc);

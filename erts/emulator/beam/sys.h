@@ -657,6 +657,7 @@ erts_dsprintf_buf_t *erts_create_logger_dsbuf(void);
 int erts_send_info_to_logger(Eterm, erts_dsprintf_buf_t *);
 int erts_send_warning_to_logger(Eterm, erts_dsprintf_buf_t *);
 int erts_send_error_to_logger(Eterm, erts_dsprintf_buf_t *);
+int erts_send_error_term_to_logger(Eterm, erts_dsprintf_buf_t *, Eterm);
 int erts_send_info_to_logger_str(Eterm, char *); 
 int erts_send_warning_to_logger_str(Eterm, char *);
 int erts_send_error_to_logger_str(Eterm, char *);
@@ -703,14 +704,9 @@ extern char *erts_default_arg0;
 
 extern char os_type[];
 
-typedef enum {
-    ERTS_NO_TIME_WARP_MODE,
-    ERTS_SINGLE_TIME_WARP_MODE,
-    ERTS_MULTI_TIME_WARP_MODE
-} ErtsTimeWarpMode;
-
 typedef struct {
     int have_os_monotonic_time;
+    int have_corrected_os_monotonic_time;
     ErtsMonotonicTime os_monotonic_time_unit;
     ErtsMonotonicTime sys_clock_resolution;
     struct {
@@ -729,14 +725,13 @@ typedef struct {
 } ErtsSysInitTimeResult;
 
 #define ERTS_SYS_INIT_TIME_RESULT_INITER \
-    {0, (ErtsMonotonicTime) -1, (ErtsMonotonicTime) 1}
+    {0, 0, (ErtsMonotonicTime) -1, (ErtsMonotonicTime) 1}
 
 extern void erts_init_sys_time_sup(void);
 extern void sys_init_time(ErtsSysInitTimeResult *);
 extern void erts_late_sys_init_time(void);
 extern void erts_deliver_time(void);
 extern void erts_time_remaining(SysTimeval *);
-extern int erts_init_time_sup(int, ErtsTimeWarpMode);
 extern void erts_sys_init_float(void);
 extern void erts_thread_init_float(void);
 extern void erts_thread_disable_fpe(void);
@@ -782,8 +777,6 @@ extern char *erts_sys_ddll_error(int code);
 /*
  * System interfaces for startup.
  */
-#include "erl_time.h"
-
 void erts_sys_schedule_interrupt(int set);
 #ifdef ERTS_SMP
 void erts_sys_schedule_interrupt_timed(int, ErtsMonotonicTime);
@@ -825,7 +818,8 @@ int univ_to_local(
 int local_to_univ(Sint *year, Sint *month, Sint *day, 
 		  Sint *hour, Sint *minute, Sint *second, int isdst);
 void get_now(Uint*, Uint*, Uint*);
-ErtsMonotonicTime erts_get_monotonic_time(void);
+struct ErtsSchedulerData_;
+ErtsMonotonicTime erts_get_monotonic_time(struct ErtsSchedulerData_ *);
 void get_sys_now(Uint*, Uint*, Uint*);
 void set_break_quit(void (*)(void), void (*)(void));
 

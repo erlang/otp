@@ -38,6 +38,6 @@
   {env, []},
   {mod, {cosFileTransferApp, []}},
   {runtime_dependencies, ["stdlib-2.0","ssl-5.3.4","orber-3.6.27","kernel-3.0",
-			  "inets-5.10","erts-6.0","cosProperty-1.1.17"]}
+			  "inets-5.10","erts-7.0","cosProperty-1.1.17"]}
 ]}.
 

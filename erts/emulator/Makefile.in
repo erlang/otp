@@ -779,7 +779,7 @@ RUN_OBJS = \
 	$(OBJDIR)/erl_fun.o             $(OBJDIR)/erl_bif_port.o \
 	$(OBJDIR)/erl_term.o 		$(OBJDIR)/erl_node_tables.o \
 	$(OBJDIR)/erl_monitors.o	$(OBJDIR)/erl_process_dump.o \
-	$(OBJDIR)/erl_bif_timer.o	$(OBJDIR)/erl_cpu_topology.o \
+	$(OBJDIR)/erl_hl_timer.o	$(OBJDIR)/erl_cpu_topology.o \
 	$(OBJDIR)/erl_drv_thread.o      $(OBJDIR)/erl_bif_chksum.o \
 	$(OBJDIR)/erl_bif_re.o		$(OBJDIR)/erl_unicode.o \
 	$(OBJDIR)/packet_parser.o	$(OBJDIR)/safe_hash.o \

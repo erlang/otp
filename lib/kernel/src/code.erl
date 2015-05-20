@@ -564,7 +564,8 @@ load_native_code_for_all_loaded() ->
     catch
 	_:_ ->
 	    ok
-    end.
+    end,
+    ok.
 
 load_all_native(Loaded, ChunkTag) ->
     catch load_all_native_1(Loaded, ChunkTag).

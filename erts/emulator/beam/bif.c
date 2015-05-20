@@ -44,6 +44,7 @@
 #include "erl_bits.h"
 #include "erl_bif_unique.h"
 
+Export *erts_await_result;
 static Export* flush_monitor_messages_trap = NULL;
 static Export* set_cpu_topology_trap = NULL;
 static Export* await_proc_exit_trap = NULL;
@@ -829,26 +830,6 @@ BIF_RETTYPE monitor_2(BIF_ALIST_2)
     }
 
     return ret;
-}
-
-BIF_RETTYPE erts_internal_monitor_process_2(BIF_ALIST_2)
-{
-    if (is_not_internal_pid(BIF_ARG_1)) {
-	if (is_external_pid(BIF_ARG_1)
-	    && (external_pid_dist_entry(BIF_ARG_1)
-		== erts_this_dist_entry)) {
-	    BIF_RET(am_false);
-	}
-	goto badarg;
-    }
-
-    if (is_not_internal_ref(BIF_ARG_2))
-	goto badarg;
-
-    BIF_RET(local_pid_monitor(BIF_P, BIF_ARG_1, BIF_ARG_2, 1));
-
-badarg:
-    BIF_ERROR(BIF_P, BADARG);
 }
 
 /**********************************************************************/
@@ -4903,6 +4884,10 @@ void erts_init_bif(void)
 		     1
 #endif
 		     , &bif_return_trap);
+
+    erts_await_result = erts_export_put(am_erts_internal,
+					am_await_result,
+					1);
 
     erts_init_trap_export(&dsend_continue_trap_export,
 			  am_erts_internal, am_dsend_continue_trap, 1,

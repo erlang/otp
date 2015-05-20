@@ -530,6 +530,7 @@ static Eterm functions_in_module(Process* p, Eterm mod);
 static Eterm attributes_for_module(Process* p, Eterm mod);
 static Eterm compilation_info_for_module(Process* p, Eterm mod);
 static Eterm md5_of_module(Process* p, Eterm mod);
+static Eterm has_native(Process* p, Eterm mod);
 static Eterm native_addresses(Process* p, Eterm mod);
 int patch_funentries(Eterm Patchlist);
 int patch(Eterm Addresses, Uint fe);
@@ -5408,6 +5409,9 @@ erts_module_info_0(Process* p, Eterm module)
     list = CONS(hp, tup, list)
 
     BUILD_INFO(am_md5);
+#ifdef HIPE
+    BUILD_INFO(am_native);
+#endif
     BUILD_INFO(am_compile);
     BUILD_INFO(am_attributes);
     BUILD_INFO(am_exports);
@@ -5433,6 +5437,8 @@ erts_module_info_1(Process* p, Eterm module, Eterm what)
 	return compilation_info_for_module(p, module);
     } else if (what == am_native_addresses) {
 	return native_addresses(p, module);
+    } else if (what == am_native) {
+	return has_native(p, module);
     }
     return THE_NON_VALUE;
 }
@@ -5490,6 +5496,53 @@ functions_in_module(Process* p, /* Process whose heap to use. */
     }
     HRelease(p, hp_end, hp);
     return result;
+}
+
+/*
+ * Returns 'true' if mod has any native compiled functions, otherwise 'false'
+ */
+
+static Eterm
+has_native(Process* p, Eterm mod)
+{
+    Eterm result = am_false;
+#ifdef HIPE
+    Module* modp;
+
+    if (is_not_atom(mod)) {
+        return THE_NON_VALUE;
+    }
+
+    modp = erts_get_module(mod, erts_active_code_ix());
+    if (modp == NULL) {
+        return THE_NON_VALUE;
+    }
+
+    if (erts_is_module_native(modp->curr.code)) {
+      result = am_true;
+    }
+#endif
+    return result;
+}
+
+int
+erts_is_module_native(BeamInstr* code)
+{
+    Uint i, num_functions;
+
+    /* Check NativeAdress of first real function in module */
+    if (code != NULL) {
+        num_functions = code[MI_NUM_FUNCTIONS];
+        for (i=0; i<num_functions; i++) {
+            BeamInstr* func_info = (BeamInstr *) code[MI_FUNCTIONS+i];
+            Eterm name = (Eterm) func_info[3];
+            if (is_atom(name)) {
+                return func_info[1] != 0;
+            }
+            else ASSERT(is_nil(name)); /* ignore BIF stubs */
+        }
+    }
+    return 0;
 }
 
 /*
@@ -5695,7 +5748,11 @@ md5_of_module(Process* p, /* Process whose heap to use. */
 	return THE_NON_VALUE;
     }
     code = modp->curr.code;
-    res = new_binary(p, (byte *) code[MI_MD5_PTR], MD5_SIZE);
+    if (code[MI_MD5_PTR] != 0) {
+      res = new_binary(p, (byte *) code[MI_MD5_PTR], MD5_SIZE);
+    } else {
+      res = am_undefined;
+    }
     return res;
 }
 
@@ -6168,6 +6225,7 @@ erts_make_stub_module(Process* p, Eterm Mod, Eterm Beam, Eterm Info)
     LoaderState* stp;
     BeamInstr Funcs;
     BeamInstr Patchlist;
+    Eterm MD5Bin;
     Eterm* tp;
     BeamInstr* code = NULL;
     BeamInstr* ptrs;
@@ -6196,12 +6254,15 @@ erts_make_stub_module(Process* p, Eterm Mod, Eterm Beam, Eterm Info)
 	goto error;
     }
     tp = tuple_val(Info);
-    if (tp[0] != make_arityval(2)) {
+    if (tp[0] != make_arityval(3)) {
       goto error;
     }
     Funcs = tp[1];
-    Patchlist = tp[2];        
-   
+    Patchlist = tp[2];
+    MD5Bin = tp[3];
+    if (is_not_binary(MD5Bin) || (binary_size(MD5Bin) != MD5_SIZE)) {
+	goto error;
+    }
     if ((n = erts_list_length(Funcs)) < 0) {
 	goto error;
     }
@@ -6251,6 +6312,7 @@ erts_make_stub_module(Process* p, Eterm Mod, Eterm Beam, Eterm Info)
     code_size = ((WORDS_PER_FUNCTION+1)*n + MI_FUNCTIONS + 2) * sizeof(BeamInstr);
     code_size += stp->chunks[ATTR_CHUNK].size;
     code_size += stp->chunks[COMPILE_CHUNK].size;
+    code_size += MD5_SIZE;
     code = erts_alloc_fnf(ERTS_ALC_T_CODE, code_size);
     if (!code) {
 	goto error;
@@ -6356,6 +6418,15 @@ erts_make_stub_module(Process* p, Eterm Mod, Eterm Beam, Eterm Info)
 			  code+MI_COMPILE_SIZE_ON_HEAP);
     if (info == NULL) {
 	goto error;
+    }
+    {
+      byte *tmp = NULL;
+      byte *md5 = NULL;
+      if ((md5 = erts_get_aligned_binary_bytes(MD5Bin, &tmp)) != NULL) {
+        sys_memcpy(info, md5, MD5_SIZE);
+        code[MI_MD5_PTR] = (BeamInstr) info;
+      }
+      erts_free_aligned_binary_bytes(tmp);
     }
 
     /*

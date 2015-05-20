@@ -1508,7 +1508,9 @@ t_map_equal(Config) when is_list(Config) ->
 
 
 t_map_compare(Config) when is_list(Config) ->
-    Seed = erlang:now(),
+    Seed = {erlang:monotonic_time(),
+	    erlang:time_offset(),
+	    erlang:unique_integer()},
     io:format("seed = ~p\n", [Seed]),
     random:seed(Seed),
     repeat(100, fun(_) -> float_int_compare() end, []),

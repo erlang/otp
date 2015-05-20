@@ -84,6 +84,7 @@
              qlc,
              qlc_pt,
 	     queue,
+	     rand,
 	     random,
 	     re,
 	     sets,

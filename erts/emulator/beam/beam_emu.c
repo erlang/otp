@@ -2119,44 +2119,32 @@ void process_main(void)
      }
      GetArg1(1, timeout_value);
      if (timeout_value != make_small(0)) {
-#if !defined(ARCH_64) || HALFWORD_HEAP
-	 Uint time_val;
-#endif
 
-	 if (is_small(timeout_value) && signed_val(timeout_value) > 0 &&
-#if defined(ARCH_64) && !HALFWORD_HEAP
-	     ((unsigned_val(timeout_value) >> 32) == 0)
-#else
-	     1
-#endif
-	     ) {
-	     /*
-	      * The timer routiner will set c_p->i to the value in
-	      * c_p->def_arg_reg[0].  Note that it is safe to use this
-	      * location because there are no living x registers in
-	      * a receive statement.
-	      * Note that for the halfword emulator, the two first elements
-	      * of the array are used.
-	      */
-	     BeamInstr** pi = (BeamInstr**) c_p->def_arg_reg;
-	     *pi = I+3;
-	     set_timer(c_p, unsigned_val(timeout_value));
-	 } else if (timeout_value == am_infinity) {
+	 if (timeout_value == am_infinity)
 	     c_p->flags |= F_TIMO;
-#if !defined(ARCH_64) || HALFWORD_HEAP
-	 } else if (term_to_Uint(timeout_value, &time_val)) {
-	     BeamInstr** pi = (BeamInstr**) c_p->def_arg_reg;
-	     *pi = I+3;
-	     set_timer(c_p, time_val);
-#endif
-	 } else {		/* Wrong time */
-	     OpCase(i_wait_error_locked): {
-		 erts_smp_proc_unlock(c_p, ERTS_PROC_LOCKS_MSG_RECEIVE);
-		 /* Fall through */
+	 else {
+	     int tres = erts_set_proc_timer_term(c_p, timeout_value);
+	     if (tres == 0) {
+		 /*
+		  * The timer routiner will set c_p->i to the value in
+		  * c_p->def_arg_reg[0].  Note that it is safe to use this
+		  * location because there are no living x registers in
+		  * a receive statement.
+		  * Note that for the halfword emulator, the two first elements
+		  * of the array are used.
+		  */
+		 BeamInstr** pi = (BeamInstr**) c_p->def_arg_reg;
+		 *pi = I+3;
 	     }
+	     else { /* Wrong time */
+	     OpCase(i_wait_error_locked): {
+		     erts_smp_proc_unlock(c_p, ERTS_PROC_LOCKS_MSG_RECEIVE);
+		     /* Fall through */
+		 }
 	     OpCase(i_wait_error): {
-		 c_p->freason = EXC_TIMEOUT_VALUE;
-		 goto find_func_info;
+		     c_p->freason = EXC_TIMEOUT_VALUE;
+		     goto find_func_info;
+		 }
 	     }
 	 }
 
@@ -2205,7 +2193,7 @@ void process_main(void)
      if ((c_p->flags & (F_INSLPQUEUE | F_TIMO)) == 0) {
 	 BeamInstr** p = (BeamInstr **) c_p->def_arg_reg;
 	 *p = I+3;
-	 set_timer(c_p, Arg(1));
+	 erts_set_proc_timer_uword(c_p, Arg(1));
      }
      goto wait2;
  }
@@ -5589,18 +5577,35 @@ next_catch(Process* c_p, Eterm *reg) {
 static void
 terminate_proc(Process* c_p, Eterm Value)
 {
+    Eterm *hp;
+    Eterm Args = NIL;
+
     /* Add a stacktrace if this is an error. */
     if (GET_EXC_CLASS(c_p->freason) == EXTAG_ERROR) {
         Value = add_stacktrace(c_p, Value, c_p->ftrace);
     }
     /* EXF_LOG is a primary exception flag */
     if (c_p->freason & EXF_LOG) {
+	int alive = erts_is_alive;
 	erts_dsprintf_buf_t *dsbufp = erts_create_logger_dsbuf();
-	erts_dsprintf(dsbufp, "Error in process %T ", c_p->common.id);
-	if (erts_is_alive)
-	    erts_dsprintf(dsbufp, "on node %T ", erts_this_node->sysname);
-	erts_dsprintf(dsbufp,"with exit value: %0.*T\n", display_items, Value);
-	erts_send_error_to_logger(c_p->group_leader, dsbufp);
+
+        /* Build the format message */
+	erts_dsprintf(dsbufp, "Error in process ~p ");
+	if (alive)
+	    erts_dsprintf(dsbufp, "on node ~p ");
+	erts_dsprintf(dsbufp, "with exit value:~n~p~n");
+
+        /* Build the args in reverse order */
+	hp = HAlloc(c_p, 2);
+	Args = CONS(hp, Value, Args);
+	if (alive) {
+	    hp = HAlloc(c_p, 2);
+	    Args = CONS(hp, erts_this_node->sysname, Args);
+	}
+	hp = HAlloc(c_p, 2);
+	Args = CONS(hp, c_p->common.id, Args);
+
+	erts_send_error_term_to_logger(c_p->group_leader, dsbufp, Args);
     }
     /*
      * If we use a shared heap, the process will be garbage-collected.
@@ -5946,7 +5951,7 @@ build_stacktrace(Process* c_p, Eterm exc) {
      * (e.g. spawn_link(erlang, abs, [1])).
      */
     if (fi.current == NULL) {
-	erts_set_current_function(&fi, c_p->initial);
+	erts_set_current_function(&fi, c_p->u.initial);
 	args = am_true; /* Just in case */
     } else {
 	args = get_args_from_exc(exc);

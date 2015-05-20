@@ -262,18 +262,28 @@ run_all(_Vars) ->
 
 run_some([], _Opts) ->
     ok;
-run_some([{App,Mod}|Apps], Opts) ->
+run_some(Apps, Opts) ->
+    case proplists:get_value(test_category, Opts) of
+	bench ->
+	    check_and_run(fun(Vars) -> ts_benchmark:run(Apps, Opts, Vars) end);
+	_Other ->
+	    run_some1(Apps, Opts)
+    end.
+
+run_some1([], _Opts) ->
+    ok;
+run_some1([{App,Mod}|Apps], Opts) ->
     case run(App, Mod, Opts) of
 	ok -> ok;
 	Error -> io:format("~p: ~p~n",[{App,Mod},Error])
     end,
-    run_some(Apps, Opts);
-run_some([App|Apps], Opts) ->
+    run_some1(Apps, Opts);
+run_some1([App|Apps], Opts) ->
     case run(App, Opts) of
 	ok -> ok;
 	Error -> io:format("~p: ~p~n",[App,Error])
     end,
-    run_some(Apps, Opts).
+    run_some1(Apps, Opts).
 
 %% This can be used from command line. Both App and
 %% TestCategory must be specified. App may be 'all'

@@ -414,7 +414,7 @@
 -else.
 -define(debugMsg(S),
 	begin
-	    io:fwrite(user, <<"~s:~w:~w: ~s\n">>,
+	    io:fwrite(user, <<"~ts:~w:~w: ~ts\n">>,
 		      [?FILE, ?LINE, self(), S]),
 	    ok
 	end).
@@ -423,7 +423,7 @@
 -define(debugVal(E),
 	begin
 	((fun (__V) ->
-		  ?debugFmt(<<"~s = ~P">>, [(??E), __V, 15]),
+		  ?debugFmt(<<"~ts = ~tP">>, [(??E), __V, 15]),
 		  __V
 	  end)(E))
 	end).
@@ -433,7 +433,7 @@
 		  {__T0, _} = statistics(wall_clock),
 		  __V = (E),
 		  {__T1, _} = statistics(wall_clock),
-		  ?debugFmt(<<"~s: ~.3f s">>, [(S), (__T1-__T0)/1000]),
+		  ?debugFmt(<<"~ts: ~.3f s">>, [(S), (__T1-__T0)/1000]),
 		  __V
 	  end)())
 	end).

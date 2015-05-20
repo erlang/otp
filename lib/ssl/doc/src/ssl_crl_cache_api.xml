@@ -47,11 +47,11 @@
     
     <taglist>
       
-    <tag><c>cache_ref()</c></tag> 
-    <item> = opaque()</item>
-    <tag><c>dist_point()</c></tag>
-    <item> = #'DistributionPoint'{} see <seealso
-    marker="public_key:cert_records"> X509 certificates records</seealso></item>
+    <tag><c>cache_ref() =</c></tag> 
+    <item>opaque()</item>
+    <tag><c>dist_point() =</c></tag>
+    <item><p>#'DistributionPoint'{} see <seealso
+    marker="public_key:public_key_records"> X509 certificates records</seealso></p></item>
     
     </taglist>
     

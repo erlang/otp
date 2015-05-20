@@ -82,6 +82,7 @@ XML_REF3_FILES = \
 	proplists.xml \
 	qlc.xml \
 	queue.xml \
+	rand.xml \
 	random.xml \
 	re.xml \
 	sets.xml \

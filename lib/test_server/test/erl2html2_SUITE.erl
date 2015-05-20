@@ -130,15 +130,7 @@ groups() ->
 %% @end
 %%--------------------------------------------------------------------
 all() ->
-    [m1].
-
-%%--------------------------------------------------------------------
-%% @spec TestCase() -> Info
-%% Info = [tuple()]
-%% @end
-%%--------------------------------------------------------------------
-m1() ->
-    [].
+    [macros_defined, macros_undefined].
 
 %%--------------------------------------------------------------------
 %% @spec TestCase(Config0) ->
@@ -149,19 +141,29 @@ m1() ->
 %% Comment = term()
 %% @end
 %%--------------------------------------------------------------------
-m1(Config) ->
-    {Src,Dst} = convert_module("m1",Config),
+macros_defined(Config) ->
+    %% let erl2html2 use epp as parser
+    DataDir = ?config(data_dir,Config),
+    InclDir = filename:join(DataDir, "include"),
+    {Src,Dst} = convert_module("m1",[InclDir],Config),
     {true,L} = check_line_numbers(Src,Dst),
-    ok = check_link_targets(Src,Dst,L,[{baz,0}]),
+    ok = check_link_targets(Src,Dst,L,[{baz,0}],[]),
     ok.
 
-convert_module(Mod,Config) ->
+macros_undefined(Config) ->
+    %% let erl2html2 use epp_dodger as parser
+    {Src,Dst} = convert_module("m1",[],Config),
+    {true,L} = check_line_numbers(Src,Dst),
+    ok = check_link_targets(Src,Dst,L,[{baz,0}],[{quux,0}]),
+    ok.
+
+convert_module(Mod,InclDirs,Config) ->
     DataDir = ?config(data_dir,Config),
     PrivDir = ?config(priv_dir,Config),
     Src = filename:join(DataDir,Mod++".erl"),
     Dst = filename:join(PrivDir,Mod++".erl.html"),
     io:format("<a href=\"~s\">~s</a>\n",[Src,filename:basename(Src)]),
-    ok = erl2html2:convert(Src, Dst, [], "<html><body>"),
+    ok = erl2html2:convert(Src, Dst, InclDirs, "<html><body>"),
     io:format("<a href=\"~s\">~s</a>\n",[Dst,filename:basename(Dst)]),
     {Src,Dst}.
 
@@ -229,36 +231,46 @@ check_line_number(Last,Line,OrigLine) ->
 %% function.
 %% The test module has -compile(export_all), so all functions are
 %% found by listing the exported ones.
-check_link_targets(Src,Dst,L,RmFncs) ->
+check_link_targets(Src,Dst,L,RmFncs,ShouldRemain) ->
     Mod = list_to_atom(filename:basename(filename:rootname(Src))),
     Exports = Mod:module_info(exports)--[{module_info,0},{module_info,1}|RmFncs],
-    {ok,{[],L},_} = xmerl_sax_parser:file(Dst,
-				     [{event_fun,fun sax_event/3},
-				      {event_state,{Exports,0}}]),
+    LastExprFuncs = [Func || {Func,_A} <- Exports],
+    {ok,{FAs,Fs,L},_} =
+	xmerl_sax_parser:file(Dst,
+			      [{event_fun,fun sax_event/3},
+			       {event_state,{Exports,LastExprFuncs,0}}]),    
+    true = (length(FAs) == length(ShouldRemain)),
+    [] = [FA || FA <- FAs, not lists:member(FA,ShouldRemain)],
+    [] = [F || F <- Fs, not lists:keymember(F,1,ShouldRemain)],
     ok.
 
 sax_event(Event,_Loc,State) ->
     sax_event(Event,State).
 
-sax_event({startElement,_Uri,"a",_QN,Attrs},{Exports,PrevLine}) ->
+sax_event({startElement,_Uri,"a",_QN,Attrs},{Exports,LastExprFuncs,PrevLine}) ->
     {_,_,"name",Name} = lists:keyfind("name",3,Attrs),
     case catch list_to_integer(Name) of
 	Line when is_integer(Line) ->
 	    case PrevLine + 1 of
 		Line ->
-%		    erlang:display({found_line,Line}),
-		    {Exports,Line};
+		    {Exports,LastExprFuncs,Line};
 		Other ->
 		    ct:fail({unexpected_line_number_target,Other})
 	    end;
 	{'EXIT',_} ->
-	    {match,[FStr,AStr]} =
-		 re:run(Name,"^(.*)-([0-9]+)$",[{capture,all_but_first,list}]),
+	    {match,[FStr,EndStr]} =
+		 re:run(Name,"^(.*)-(last_expr|[0-9]+)$",
+			[{capture,all_but_first,list}]),
 	    F = list_to_atom(http_uri:decode(FStr)),
-	    A = list_to_integer(AStr),
-%	    erlang:display({found_fnc,F,A}),
-	    A = proplists:get_value(F,Exports),
-	    {lists:delete({F,A},Exports),PrevLine}
+	    case EndStr of
+		"last_expr" ->
+		    true = lists:member(F,LastExprFuncs),
+		    {Exports,lists:delete(F,LastExprFuncs),PrevLine};
+		_ ->
+		    A = list_to_integer(EndStr),
+		    A = proplists:get_value(F,Exports),
+		    {lists:delete({F,A},Exports),LastExprFuncs,PrevLine}
+	    end
     end;
 sax_event(_,State) ->
     State.

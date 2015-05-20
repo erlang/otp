@@ -220,7 +220,7 @@ js_node(InitOptions) when is_list(InitOptions) ->
     js_node(InitOptions, []).
 
 js_node(InitOptions, StartOptions) when is_list(InitOptions) ->
-    {A,B,C} = erlang:now(),
+    {A,B,C} = erlang:timestamp(),
     [_, Host] = string:tokens(atom_to_list(node()), [$@]),
     _NewInitOptions = check_options(InitOptions),
     js_node_helper(Host, 0, lists:concat([A,'_',B,'_',C]),

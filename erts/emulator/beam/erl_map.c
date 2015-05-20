@@ -1884,7 +1884,7 @@ erts_hashmap_get(Uint32 hx, Eterm key, Eterm node)
     UseTmpHeapNoproc(2);
 
     ASSERT(is_boxed(node));
-    ptr = boxed_val(node);
+    ptr = boxed_val_rel(node, map_base);
     hdr = *ptr;
     ASSERT(is_header(hdr));
     ASSERT(is_hashmap_header_head(hdr));
@@ -1905,8 +1905,7 @@ erts_hashmap_get(Uint32 hx, Eterm key, Eterm node)
         node  = ptr[ix+1];
 
         if (is_list(node)) { /* LEAF NODE [K|V] */
-            ptr = list_val(node);
-
+            ptr = list_val_rel(node,map_base);
             res = eq_rel(CAR(ptr), map_base, key, NULL) ? &(CDR(ptr)) : NULL;
             break;
         }
@@ -1914,7 +1913,7 @@ erts_hashmap_get(Uint32 hx, Eterm key, Eterm node)
         hx = hashmap_shift_hash(th,hx,lvl,key);
 
         ASSERT(is_boxed(node));
-        ptr = boxed_val(node);
+        ptr = boxed_val_rel(node, map_base);
         hdr = *ptr;
         ASSERT(is_header(hdr));
         ASSERT(!is_hashmap_header_head(hdr));
@@ -2586,12 +2585,12 @@ BIF_RETTYPE erts_internal_map_type_1(BIF_ALIST_1) {
     DECL_AM(hashmap);
     DECL_AM(hashmap_node);
     DECL_AM(flatmap);
-    if (is_flatmap(BIF_ARG_1)) {
-	BIF_RET(AM_flatmap);
-    } else if (is_hashmap(BIF_ARG_1)) {
+    if (is_map(BIF_ARG_1)) {
         Eterm hdr = *(boxed_val(BIF_ARG_1));
         ASSERT(is_header(hdr));
         switch (hdr & _HEADER_MAP_SUBTAG_MASK) {
+            case HAMT_SUBTAG_HEAD_FLATMAP:
+                BIF_RET(AM_flatmap);
             case HAMT_SUBTAG_HEAD_ARRAY:
             case HAMT_SUBTAG_HEAD_BITMAP:
                 BIF_RET(AM_hashmap);
@@ -2612,23 +2611,22 @@ BIF_RETTYPE erts_internal_map_type_1(BIF_ALIST_1) {
  */
 
 BIF_RETTYPE erts_internal_map_hashmap_children_1(BIF_ALIST_1) {
-    if (is_hashmap(BIF_ARG_1)) {
+    if (is_map(BIF_ARG_1)) {
         Eterm node = BIF_ARG_1;
         Eterm *ptr, hdr, *hp, res = NIL;
         Uint  sz = 0;
         ptr = boxed_val(node);
         hdr = *ptr;
-
         ASSERT(is_header(hdr));
 
         switch(hdr & _HEADER_MAP_SUBTAG_MASK) {
-            case HAMT_SUBTAG_NODE_BITMAP:
-                sz   = hashmap_bitcount(MAP_HEADER_VAL(hdr));
-                ptr += 1;
-                break;
+            case HAMT_SUBTAG_HEAD_FLATMAP:
+                BIF_ERROR(BIF_P, BADARG);
             case HAMT_SUBTAG_HEAD_BITMAP:
-                sz   = hashmap_bitcount(MAP_HEADER_VAL(hdr));
-                ptr += 2;
+                ptr++;
+            case HAMT_SUBTAG_NODE_BITMAP:
+                ptr++;
+                sz = hashmap_bitcount(MAP_HEADER_VAL(hdr));
                 break;
             case HAMT_SUBTAG_HEAD_ARRAY:
                 sz   = 16;
@@ -2642,12 +2640,9 @@ BIF_RETTYPE erts_internal_map_hashmap_children_1(BIF_ALIST_1) {
         hp = HAlloc(BIF_P, 2*sz);
         while(sz--) { res = CONS(hp, *ptr++, res); hp += 2; }
         BIF_RET(res);
-    } else if (is_flatmap(BIF_ARG_1)) {
-	BIF_ERROR(BIF_P, BADARG);
-    } else {
-	BIF_P->fvalue = BIF_ARG_1;
-	BIF_ERROR(BIF_P, BADMAP);
     }
+    BIF_P->fvalue = BIF_ARG_1;
+    BIF_ERROR(BIF_P, BADMAP);
 }
 
 

@@ -235,10 +235,18 @@ transforms(Config) ->
              ">>,
     {error,[{none,compile,{parse_transform,?MODULE,{too_bad,_}}}],[]} =
 	run_test(Ts2, test_filename(Config), [], dont_write_beam),
+    Ts3 = <<"
+              -compile({parse_transform,",?MODULE_STRING,"}).
+             ">>,
+    {error,[{none,compile,{parse_transform,?MODULE,{undef,_}}}],[]} =
+        run_test(Ts3, test_filename(Config), [call_undef], dont_write_beam),
     ok.
 
-parse_transform(_, _) ->
-    error(too_bad).
+parse_transform(_, Opts) ->
+    case lists:member(call_undef, Opts) of
+        false -> error(too_bad);
+        true -> camembert:délicieux()
+    end.
 
 
 maps_warnings(Config) when is_list(Config) ->

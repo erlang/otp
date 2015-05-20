@@ -3749,7 +3749,7 @@ out:
 static ERL_NIF_TERM ec_key_generate(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
 #if defined(HAVE_EC)
-    EC_KEY *key;
+    EC_KEY *key = NULL;
     const EC_GROUP *group;
     const EC_POINT *public_key;
     ERL_NIF_TERM priv_key;

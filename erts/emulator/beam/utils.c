@@ -50,6 +50,8 @@
 #include "erl_ptab.h"
 #include "erl_check_io.h"
 #include "erl_bif_unique.h"
+#define ERTS_WANT_TIMER_WHEEL_API
+#include "erl_time.h"
 #ifdef HIPE
 #  include "hipe_mode_switch.h"
 #endif
@@ -2220,22 +2222,84 @@ tail_recur:
 #undef MAKE_HASH_CDR_POST_OP
 }
 
+static Eterm
+do_allocate_logger_message(Eterm gleader, Eterm **hp, ErlOffHeap **ohp,
+			   ErlHeapFragment **bp, Process **p, Uint sz)
+{
+    Uint gl_sz;
+    gl_sz = IS_CONST(gleader) ? 0 : size_object(gleader);
+    sz = sz + gl_sz;
+
+#ifndef ERTS_SMP
+#ifdef USE_THREADS
+    if (erts_get_scheduler_data()) /* Must be scheduler thread */
+#endif
+    {
+	*p = erts_whereis_process(NULL, 0, am_error_logger, 0, 0);
+	if (*p) {
+	    erts_aint32_t state = erts_smp_atomic32_read_acqb(&(*p)->state);
+	    if (state & (ERTS_PSFLG_RUNNING|ERTS_PSFLG_RUNNING_SYS))
+		*p = NULL;
+	}
+    }
+
+    if (!*p) {
+	return NIL;
+    }
+
+    /* So we have an error logger, lets build the message */
+    if (sz <= HeapWordsLeft(*p)) {
+	*ohp = &MSO(*p);
+	*hp = HEAP_TOP(*p);
+	HEAP_TOP(*p) += sz;
+    } else {
+#endif
+	*bp = new_message_buffer(sz);
+	*ohp = &(*bp)->off_heap;
+	*hp = (*bp)->mem;
+#ifndef ERTS_SMP
+    }
+#endif
+
+    return (is_nil(gleader)
+	  ? am_noproc
+	  : (IS_CONST(gleader)
+	     ? gleader
+	     : copy_struct(gleader,gl_sz,hp,*ohp)));
+}
+
+static void do_send_logger_message(Eterm *hp, ErlOffHeap *ohp, ErlHeapFragment *bp,
+				   Process *p, Eterm message)
+{
+#ifdef HARDDEBUG
+    erts_fprintf(stderr, "%T\n", message);
+#endif
+#ifdef ERTS_SMP
+    {
+	Eterm from = erts_get_current_pid();
+	if (is_not_internal_pid(from))
+	    from = NIL;
+	erts_queue_error_logger_message(from, message, bp);
+    }
+#else
+    erts_queue_message(p, NULL /* only used for smp build */, bp, message, NIL);
+#endif
+}
+
+/* error_logger !
+   {notify,{info_msg,gleader,{emulator,format,[args]}}} |
+   {notify,{error,gleader,{emulator,format,[args]}}} |
+   {notify,{warning_msg,gleader,{emulator,format,[args}]}} */
 static int do_send_to_logger(Eterm tag, Eterm gleader, char *buf, int len)
 {
-    /* error_logger ! 
-       {notify,{info_msg,gleader,{emulator,"~s~n",[<message as list>]}}} |
-       {notify,{error,gleader,{emulator,"~s~n",[<message as list>]}}} |
-       {notify,{warning_msg,gleader,{emulator,"~s~n",[<message as list>}]}} */
-    Eterm* hp;
     Uint sz;
-    Uint gl_sz;
     Eterm gl;
-    Eterm list,plist,format,tuple1,tuple2,tuple3;
-    ErlOffHeap *ohp;
+    Eterm list,args,format,tuple1,tuple2,tuple3;
+
+    Eterm *hp = NULL;
+    ErlOffHeap *ohp = NULL;
     ErlHeapFragment *bp = NULL;
-#if !defined(ERTS_SMP)
-    Process *p;
-#endif
+    Process *p = NULL;
 
     ASSERT(is_atom(tag));
 
@@ -2243,74 +2307,72 @@ static int do_send_to_logger(Eterm tag, Eterm gleader, char *buf, int len)
 	return -1;
     }
 
-#ifndef ERTS_SMP
-#ifdef USE_THREADS
-    p = NULL;
-    if (erts_get_scheduler_data()) /* Must be scheduler thread */
-#endif
-    {
-	p = erts_whereis_process(NULL, 0, am_error_logger, 0, 0);
-	if (p) {
-	    erts_aint32_t state = erts_smp_atomic32_read_acqb(&p->state);
-	    if (state & (ERTS_PSFLG_RUNNING|ERTS_PSFLG_RUNNING_SYS))
-		p = NULL;
-	}
+    sz = len * 2 /* message list */ + 2 /* cons surrounding message list */
+	+ 3 /*outer 2-tuple*/ + 4 /* middle 3-tuple */ + 4 /*inner 3-tuple */
+	+ 8 /* "~s~n" */;
+
+    /* gleader size is accounted and allocated next */
+    gl = do_allocate_logger_message(gleader, &hp, &ohp, &bp, &p, sz);
+
+    if(is_nil(gl)) {
+       /* buf *always* points to a null terminated string */
+       erts_fprintf(stderr, "(no error logger present) %T: \"%s\"\n",
+                    tag, buf);
+       return 0;
     }
 
-    if (!p) {
-	/* buf *always* points to a null terminated string */
-	erts_fprintf(stderr, "(no error logger present) %T: \"%s\"\n",
-		     tag, buf);
-	return 0;
-    }
-    /* So we have an error logger, lets build the message */
-#endif
-    gl_sz = IS_CONST(gleader) ? 0 : size_object(gleader);
-    sz = len * 2 /* message list */+ 2 /* cons surrounding message list */
-	+ gl_sz + 
-	3 /*outer 2-tuple*/ + 4 /* middle 3-tuple */ + 4 /*inner 3-tuple */ +
-	8 /* "~s~n" */;
-
-#ifndef ERTS_SMP
-    if (sz <= HeapWordsLeft(p)) {
-	ohp = &MSO(p);
-	hp = HEAP_TOP(p);
-	HEAP_TOP(p) += sz;
-    } else {
-#endif
-	bp = new_message_buffer(sz);
-	ohp = &bp->off_heap;
-	hp = bp->mem;
-#ifndef ERTS_SMP
-    }
-#endif
-    gl = (is_nil(gleader)
-	  ? am_noproc
-	  : (IS_CONST(gleader)
-	     ? gleader
-	     : copy_struct(gleader,gl_sz,&hp,ohp)));
     list = buf_to_intlist(&hp, buf, len, NIL);
-    plist = CONS(hp,list,NIL);
+    args = CONS(hp,list,NIL);
     hp += 2;
     format = buf_to_intlist(&hp, "~s~n", 4, NIL);
-    tuple1 = TUPLE3(hp, am_emulator, format, plist);
+    tuple1 = TUPLE3(hp, am_emulator, format, args);
     hp += 4;
     tuple2 = TUPLE3(hp, tag, gl, tuple1);
     hp += 4;
     tuple3 = TUPLE2(hp, am_notify, tuple2);
-#ifdef HARDDEBUG
-    erts_fprintf(stderr, "%T\n", tuple3);
-#endif
-#ifdef ERTS_SMP
-    {
-	Eterm from = erts_get_current_pid();
-	if (is_not_internal_pid(from))
-	    from = NIL;
-	erts_queue_error_logger_message(from, tuple3, bp);
+
+    do_send_logger_message(hp, ohp, bp, p, tuple3);
+    return 0;
+}
+
+static int do_send_term_to_logger(Eterm tag, Eterm gleader,
+				  char *buf, int len, Eterm args)
+{
+    Uint sz;
+    Eterm gl;
+    Uint args_sz;
+    Eterm format,tuple1,tuple2,tuple3;
+
+    Eterm *hp = NULL;
+    ErlOffHeap *ohp = NULL;
+    ErlHeapFragment *bp = NULL;
+    Process *p = NULL;
+
+    ASSERT(is_atom(tag));
+
+    args_sz = size_object(args);
+    sz = len * 2 /* format */ + args_sz
+	+ 3 /*outer 2-tuple*/ + 4 /* middle 3-tuple */ + 4 /*inner 3-tuple */;
+
+    /* gleader size is accounted and allocated next */
+    gl = do_allocate_logger_message(gleader, &hp, &ohp, &bp, &p, sz);
+
+    if(is_nil(gl)) {
+       /* buf *always* points to a null terminated string */
+       erts_fprintf(stderr, "(no error logger present) %T: \"%s\" %T\n",
+                    tag, buf, args);
+       return 0;
     }
-#else
-    erts_queue_message(p, NULL /* only used for smp build */, bp, tuple3, NIL);
-#endif
+
+    format = buf_to_intlist(&hp, buf, len, NIL);
+    args = copy_struct(args, args_sz, &hp, ohp);
+    tuple1 = TUPLE3(hp, am_emulator, format, args);
+    hp += 4;
+    tuple2 = TUPLE3(hp, tag, gl, tuple1);
+    hp += 4;
+    tuple3 = TUPLE2(hp, am_notify, tuple2);
+
+    do_send_logger_message(hp, ohp, bp, p, tuple3);
     return 0;
 }
 
@@ -2336,6 +2398,12 @@ static ERTS_INLINE int
 send_error_to_logger(Eterm gleader, char *buf, int len) 
 {
     return do_send_to_logger(am_error, gleader, buf, len);
+}
+
+static ERTS_INLINE int
+send_error_term_to_logger(Eterm gleader, char *buf, int len, Eterm args)
+{
+    return do_send_term_to_logger(am_error, gleader, buf, len, args);
 }
 
 #define LOGGER_DSBUF_INC_SZ 256
@@ -2408,6 +2476,15 @@ erts_send_error_to_logger(Eterm gleader, erts_dsprintf_buf_t *dsbufp)
 {
     int res;
     res = send_error_to_logger(gleader, dsbufp->str, dsbufp->str_len);
+    destroy_logger_dsbuf(dsbufp);
+    return res;
+}
+
+int
+erts_send_error_term_to_logger(Eterm gleader, erts_dsprintf_buf_t *dsbufp, Eterm args)
+{
+    int res;
+    res = send_error_term_to_logger(gleader, dsbufp->str, dsbufp->str_len, args);
     destroy_logger_dsbuf(dsbufp);
     return res;
 }
@@ -4441,145 +4518,6 @@ is_string(Eterm list)
     return 0;
 }
 
-#ifdef ERTS_SMP
-
-/*
- * Process and Port timers in smp case
- */
-
-ERTS_SCHED_PREF_PRE_ALLOC_IMPL(ptimer_pre, ErtsSmpPTimer, 1000)
-
-#define ERTS_PTMR_FLGS_ALLCD_SIZE \
-  2
-#define ERTS_PTMR_FLGS_ALLCD_MASK \
-  ((((Uint32) 1) << ERTS_PTMR_FLGS_ALLCD_SIZE) - 1)
-
-#define ERTS_PTMR_FLGS_PREALLCD	((Uint32) 1)
-#define ERTS_PTMR_FLGS_SLALLCD	((Uint32) 2)
-#define ERTS_PTMR_FLGS_LLALLCD	((Uint32) 3)
-#define ERTS_PTMR_FLG_CANCELLED	(((Uint32) 1) << (ERTS_PTMR_FLGS_ALLCD_SIZE+0))
-
-static void
-init_ptimers(void)
-{
-    init_ptimer_pre_alloc();
-}
-
-static ERTS_INLINE void
-free_ptimer(ErtsSmpPTimer *ptimer)
-{
-    switch (ptimer->timer.flags & ERTS_PTMR_FLGS_ALLCD_MASK) {
-    case ERTS_PTMR_FLGS_PREALLCD:
-	(void) ptimer_pre_free(ptimer);
-	break;
-    case ERTS_PTMR_FLGS_SLALLCD:
-	erts_free(ERTS_ALC_T_SL_PTIMER, (void *) ptimer);
-	break;
-    case ERTS_PTMR_FLGS_LLALLCD:
-	erts_free(ERTS_ALC_T_LL_PTIMER, (void *) ptimer);
-	break;
-    default:
-	erl_exit(ERTS_ABORT_EXIT,
-		 "Internal error: Bad ptimer alloc type\n");
-	break;
-    }
-}
-
-/* Callback for process timeout cancelled */
-static void
-ptimer_cancelled(ErtsSmpPTimer *ptimer)
-{
-    free_ptimer(ptimer);
-}
-
-/* Callback for process timeout */
-static void
-ptimer_timeout(ErtsSmpPTimer *ptimer)
-{
-    if (is_internal_pid(ptimer->timer.id)) {
-	Process *p;
-	p = erts_pid2proc_opt(NULL,
-			      0,
-			      ptimer->timer.id,
-			      ERTS_PROC_LOCK_MAIN|ERTS_PROC_LOCK_STATUS,
-			      ERTS_P2P_FLG_ALLOW_OTHER_X);
-	if (p) {
-	    if (!ERTS_PROC_IS_EXITING(p)
-		&& !(ptimer->timer.flags & ERTS_PTMR_FLG_CANCELLED)) {
-		ASSERT(*ptimer->timer.timer_ref == ptimer);
-		*ptimer->timer.timer_ref = NULL;
-		(*ptimer->timer.timeout_func)(p);
-	    }
-	    erts_smp_proc_unlock(p, ERTS_PROC_LOCK_MAIN|ERTS_PROC_LOCK_STATUS);
-	}
-    }
-    else {
-	Port *p;
-	ASSERT(is_internal_port(ptimer->timer.id));
-	p = erts_id2port_sflgs(ptimer->timer.id,
-			       NULL,
-			       0,
-			       ERTS_PORT_SFLGS_DEAD);
-	if (p) {
-	    if (!(ptimer->timer.flags & ERTS_PTMR_FLG_CANCELLED)) {
-		ASSERT(*ptimer->timer.timer_ref == ptimer);
-		*ptimer->timer.timer_ref = NULL;
-		(*ptimer->timer.timeout_func)(p);
-	    }
-	    erts_port_release(p);
-	}
-    }
-    free_ptimer(ptimer);
-}
-
-void
-erts_create_smp_ptimer(ErtsSmpPTimer **timer_ref,
-		       Eterm id,
-		       ErlTimeoutProc timeout_func,
-		       Uint timeout)
-{
-    ErtsSmpPTimer *res = ptimer_pre_alloc();
-    if (res)
-	res->timer.flags = ERTS_PTMR_FLGS_PREALLCD;
-    else {
-	if (timeout < ERTS_ALC_MIN_LONG_LIVED_TIME) {
-	    res = erts_alloc(ERTS_ALC_T_SL_PTIMER, sizeof(ErtsSmpPTimer));
-	    res->timer.flags = ERTS_PTMR_FLGS_SLALLCD;
-	}
-	else {
-	    res = erts_alloc(ERTS_ALC_T_LL_PTIMER, sizeof(ErtsSmpPTimer));
-	    res->timer.flags = ERTS_PTMR_FLGS_LLALLCD;
-	}
-    }
-    res->timer.timeout_func = timeout_func;
-    res->timer.timer_ref = timer_ref;
-    res->timer.id = id;
-    erts_init_timer(&res->timer.tm);
-
-    ASSERT(!*timer_ref);
-
-    *timer_ref = res;
-
-    erts_set_timer(&res->timer.tm,
-		  (ErlTimeoutProc) ptimer_timeout,
-		  (ErlCancelProc) ptimer_cancelled,
-		  (void*) res,
-		  timeout);
-}
-
-void
-erts_cancel_smp_ptimer(ErtsSmpPTimer *ptimer)
-{
-    if (ptimer) {
-	ASSERT(*ptimer->timer.timer_ref == ptimer);
-	*ptimer->timer.timer_ref = NULL;
-	ptimer->timer.flags |= ERTS_PTMR_FLG_CANCELLED;
-	erts_cancel_timer(&ptimer->timer.tm);
-    }
-}
-
-#endif
-
 static int trim_threshold;
 static int top_pad;
 static int mmap_threshold;
@@ -4589,9 +4527,7 @@ Uint tot_bin_allocated;
 
 void erts_init_utils(void)
 {
-#ifdef ERTS_SMP
-    init_ptimers();
-#endif
+
 }
 
 void erts_init_utils_mem(void) 

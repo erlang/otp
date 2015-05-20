@@ -326,10 +326,10 @@ combo(Config) when is_list(Config) ->
 
     %%
     ?line [3,2,1] = seq_r(1, 3, fun(X) -> X+1 end),
-    ?line T0 = now(),
+    ?line T0 = erlang:monotonic_time(),
     ?line with_bif(Nbc),
-    ?line T1 = now(),
-    ?line TimeB = timer:now_diff(T1,T0),
+    ?line T1 = erlang:monotonic_time(),
+    ?line TimeB = erlang:convert_time_unit(T1-T0, native, micro_seconds),
     %%
 
     ?line List = collect(100),
@@ -695,17 +695,17 @@ setup(Opts) ->
     Pid.
 
 execute(Pids, Mfa) when is_list(Pids) ->
-    T0 = now(),
+    T0 = erlang:monotonic_time(),
     [P  ! {self(), execute, Mfa} || P <- Pids],
     As = [receive {P, answer, Answer} -> Answer end || P <- Pids],
-    T1 = now(),
-    {As, timer:now_diff(T1,T0)};
+    T1 = erlang:monotonic_time(),
+    {As, erlang:convert_time_unit(T1-T0, native, micro_seconds)};
 execute(P, Mfa) ->
-    T0 = now(),
+    T0 = erlang:monotonic_time(),
     P  ! {self(), execute, Mfa},
     A  = receive {P, answer, Answer} -> Answer end,
-    T1 = now(),
-    {A, timer:now_diff(T1,T0)}.
+    T1 = erlang:monotonic_time(),
+    {A, erlang:convert_time_unit(T1-T0, native, micro_seconds)}.
 
 
 

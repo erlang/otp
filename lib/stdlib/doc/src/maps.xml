@@ -33,6 +33,28 @@
 	<funcs>
 
 		<func>
+			<name name="filter" arity="2"/>
+			<fsummary>Choose pairs which satisfy a predicate</fsummary>
+			<desc>
+				<p>
+                    Returns a map <c><anno>Map2</anno></c> for which predicate
+                    <c><anno>Pred</anno></c> holds true in <c><anno>Map1</anno></c>.
+				</p>
+				<p>
+                    The call will fail with a <c>{badmap,Map}</c> exception if
+                    <c><anno>Map1</anno></c> is not a map or with <c>badarg</c> if
+                    <c><anno>Pred</anno></c> is not a function of arity 2.
+				</p>
+				<p>Example:</p>
+				<code type="none">
+> M = #{a => 2, b => 3, c=> 4, "a" => 1, "b" => 2, "c" => 4},
+  Pred = fun(K,V) -> is_atom(K) andalso (V rem 2) =:= 0 end,
+  maps:filter(Pred,M).
+#{a => 2,c => 4} </code>
+			</desc>
+		</func>
+
+		<func>
 			<name name="find" arity="2"/>
 			<fsummary></fsummary>
 			<desc>
@@ -339,7 +361,7 @@ false</code>
 			<fsummary></fsummary>
 			<desc>
 				<p>
-					Returns a complete list of values, in arbitrary order, contained in map <c>M</c>.
+					Returns a complete list of values, in arbitrary order, contained in map <c>Map</c>.
 				</p>
 				<p>
 					The call will fail with a <c>{badmap,Map}</c> exception if <c><anno>Map</anno></c> is not a map.

@@ -271,7 +271,7 @@ ptty_alloc(Config) when is_list(Config) ->
 							     {user_interaction, false}]),
     {ok, ChannelId} = ssh_connection:session_channel(ConnectionRef, infinity),
     success = ssh_connection:ptty_alloc(ConnectionRef, ChannelId, 
-					[{term, os:getenv("TERM", ?DEFAULT_TERMINAL)}, {width, 70}, {high, 20}]),
+					[{term, os:getenv("TERM", ?DEFAULT_TERMINAL)}, {width, 70}, {height, 20}]),
     ssh:close(ConnectionRef).
 
 

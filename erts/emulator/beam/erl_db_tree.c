@@ -2716,7 +2716,7 @@ static int key_given(DbTableTree *tb, Eterm pattern, TreeDbTerm **ret,
 	*ret = this;
 	return 1;
     } else if (partly_bound != NULL && key != am_Underscore && 
-	       db_is_variable(key) < 0)
+	       db_is_variable(key) < 0 && !db_has_map(key))
 	*partly_bound = key;
 	
     return 0;

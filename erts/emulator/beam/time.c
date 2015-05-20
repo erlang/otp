@@ -76,6 +76,11 @@
 #include "sys.h"
 #include "erl_vm.h"
 #include "global.h"
+#define ERTS_WANT_TIMER_WHEEL_API
+#include "erl_time.h"
+
+#define ERTS_MONOTONIC_DAY ERTS_SEC_TO_MONOTONIC(60*60*24)
+#define ERTS_CLKTCKS_DAY ERTS_MONOTONIC_TO_CLKTCKS(ERTS_MONOTONIC_DAY)
 
 #ifdef ERTS_ENABLE_LOCK_CHECK
 #define ASSERT_NO_LOCKED_LOCKS		erts_lc_check_exact(NULL, 0)
@@ -83,20 +88,24 @@
 #define ASSERT_NO_LOCKED_LOCKS
 #endif
 
-#define ERTS_MONOTONIC_DAY ERTS_SEC_TO_MONOTONIC(60*60*24)
-#define ERTS_CLKTCKS_DAY ERTS_MONOTONIC_TO_CLKTCKS(ERTS_MONOTONIC_DAY)
+#if 0
+#  define ERTS_TW_DEBUG
+#endif
+#if defined(DEBUG) && !defined(ERTS_TW_DEBUG)
+#  define ERTS_TW_DEBUG
+#endif
 
-
-/* BEGIN tiw_lock protected variables 
-**
-** The individual timer cells in tiw are also protected by the same mutex.
-*/
-
-/* timing wheel size NEED to be a power of 2 */
-#ifdef SMALL_MEMORY
-#define TIW_SIZE (1 << 13)
+#undef ERTS_TW_ASSERT
+#if defined(ERTS_TW_DEBUG)
+#  define ERTS_TW_ASSERT(E) ERTS_ASSERT(E)
 #else
-#define TIW_SIZE (1 << 20)
+#  define ERTS_TW_ASSERT(E) ((void) 1)
+#endif
+
+#ifdef ERTS_TW_DEBUG
+#  define ERTS_TWHEEL_BUMP_YIELD_LIMIT 5
+#else
+#  define ERTS_TWHEEL_BUMP_YIELD_LIMIT 100
 #endif
 
 /* Actual interval time chosen by sys_init_time() */
@@ -110,173 +119,170 @@ static int tiw_itime; /* Constant after init */
 #endif
 
 struct ErtsTimerWheel_ {
-    ErlTimer *w[TIW_SIZE];
+    ErtsTWheelTimer *w[ERTS_TIW_SIZE];
     ErtsMonotonicTime pos;
     Uint nto;
     struct {
-	ErlTimer *head;
-	ErlTimer **tail;
+	ErtsTWheelTimer *head;
+	ErtsTWheelTimer *tail;
 	Uint nto;
     } at_once;
+    int yield_slot;
+    int yield_slots_left;
+    int yield_start_pos;
+    ErtsTWheelTimer sentinel;
     int true_next_timeout_time;
     ErtsMonotonicTime next_timeout_time;
-    erts_atomic64_t next_timeout;
-    erts_smp_atomic32_t is_bumping;
-    erts_smp_mtx_t lock;
 };
 
-ErtsTimerWheel *erts_default_timer_wheel; /* managed by aux thread */
-
-static ERTS_INLINE ErtsTimerWheel *
-get_timer_wheel(ErlTimer *p)
-{
-    return (ErtsTimerWheel *) erts_smp_atomic_read_acqb(&p->wheel);
-}
-
-static ERTS_INLINE void
-set_timer_wheel(ErlTimer *p, ErtsTimerWheel *tiw)
-{
-    erts_smp_atomic_set_relb(&p->wheel, (erts_aint_t) tiw);
-}
-
-static ERTS_INLINE void
-init_next_timeout(ErtsTimerWheel *tiw,
-		  ErtsMonotonicTime time)
-{
-    erts_atomic64_init_nob(&tiw->next_timeout,
-			   (erts_aint64_t) time);
-}
-
-static ERTS_INLINE void
-set_next_timeout(ErtsTimerWheel *tiw,
-		 ErtsMonotonicTime time,
-		 int true_timeout)
-{
-    tiw->true_next_timeout_time = true_timeout;
-    tiw->next_timeout_time = time;
-    erts_atomic64_set_relb(&tiw->next_timeout,
-			   (erts_aint64_t) time);
-}
-
-/* get the time (in units of TIW_ITIME) to the next timeout,
-   or -1 if there are no timeouts                     */
-
 static ERTS_INLINE ErtsMonotonicTime
-find_next_timeout(ErtsTimerWheel *tiw,
-		  ErtsMonotonicTime curr_time,
-		  ErtsMonotonicTime max_search_time)
+find_next_timeout(ErtsSchedulerData *esdp,
+		  ErtsTimerWheel *tiw,
+		  int search_all,
+		  ErtsMonotonicTime curr_time,       /* When !search_all */
+		  ErtsMonotonicTime max_search_time) /* When !search_all */
 {
     int start_ix, tiw_pos_ix;
-    ErlTimer *p;
-    int true_min_timeout;
-    ErtsMonotonicTime min_timeout, min_timeout_pos, slot_timeout_pos, timeout_limit;
-
-    ERTS_SMP_LC_ASSERT(erts_smp_lc_mtx_is_locked(&tiw->lock));
-
-    if (tiw->true_next_timeout_time)
-	return tiw->next_timeout_time;
-
-    /* We never set next timeout beyond timeout_limit */
-    timeout_limit = curr_time + ERTS_MONOTONIC_DAY;
+    ErtsTWheelTimer *p;
+    int true_min_timeout = 0;
+    ErtsMonotonicTime min_timeout, min_timeout_pos, slot_timeout_pos;
 
     if (tiw->nto == 0) { /* no timeouts in wheel */
-	true_min_timeout = tiw->true_next_timeout_time = 0;
-	min_timeout_pos = ERTS_MONOTONIC_TO_CLKTCKS(timeout_limit);
+	if (!search_all)
+	    min_timeout_pos = tiw->pos;
+	else {
+	    curr_time = erts_get_monotonic_time(esdp);
+	    tiw->pos = min_timeout_pos = ERTS_MONOTONIC_TO_CLKTCKS(curr_time);
+	}
+	min_timeout_pos += ERTS_MONOTONIC_TO_CLKTCKS(ERTS_MONOTONIC_DAY);
 	goto found_next;
     }
 
-    /*
-     * Don't want others entering trying to bump
-     * timers while we are checking...
-     */
-    set_next_timeout(tiw, timeout_limit, 0);
+    slot_timeout_pos = min_timeout_pos = tiw->pos;
+    if (search_all)
+	min_timeout_pos += ERTS_MONOTONIC_TO_CLKTCKS(ERTS_MONOTONIC_DAY);
+    else
+	min_timeout_pos = ERTS_MONOTONIC_TO_CLKTCKS(curr_time + max_search_time);
 
-    true_min_timeout = 1;
-    slot_timeout_pos = tiw->pos;
-    min_timeout_pos = ERTS_MONOTONIC_TO_CLKTCKS(curr_time + max_search_time);
-
-    start_ix = tiw_pos_ix = (int) (tiw->pos & (TIW_SIZE-1));
+    start_ix = tiw_pos_ix = (int) (tiw->pos & (ERTS_TIW_SIZE-1));
 
     do {
-	slot_timeout_pos++;
-	if (slot_timeout_pos >= min_timeout_pos) {
-	    true_min_timeout = 0;
+	if (++slot_timeout_pos >= min_timeout_pos)
 	    break;
-	}
 
 	p = tiw->w[tiw_pos_ix];
 
-	while (p) {
-	    ErtsMonotonicTime timeout_pos;
-	    ASSERT(p != p->next);
-	    timeout_pos = p->timeout_pos;
-	    if (min_timeout_pos > timeout_pos) {
-		min_timeout_pos = timeout_pos;
-		if (min_timeout_pos <= slot_timeout_pos)
-		    goto found_next;
-	    }
-	    p = p->next;
+	if (p) {
+	    ErtsTWheelTimer *end = p;
+
+	    do  {
+		ErtsMonotonicTime timeout_pos;
+		timeout_pos = p->timeout_pos;
+		if (min_timeout_pos > timeout_pos) {
+		    true_min_timeout = 1;
+		    min_timeout_pos = timeout_pos;
+		    if (min_timeout_pos <= slot_timeout_pos)
+			goto found_next;
+		}
+		p = p->next;
+	    } while (p != end);
 	}
 
 	tiw_pos_ix++;
-	if (tiw_pos_ix == TIW_SIZE)
+	if (tiw_pos_ix == ERTS_TIW_SIZE)
 	    tiw_pos_ix = 0;
     } while (start_ix != tiw_pos_ix);
 
 found_next:
 
     min_timeout = ERTS_CLKTCKS_TO_MONOTONIC(min_timeout_pos);
-    if (min_timeout != tiw->next_timeout_time)
-	set_next_timeout(tiw, min_timeout, true_min_timeout);
+    tiw->next_timeout_time = min_timeout;
+    tiw->true_next_timeout_time = true_min_timeout;
 
     return min_timeout;
 }
 
-static void
-remove_timer(ErtsTimerWheel *tiw, ErlTimer *p)
+static ERTS_INLINE void
+insert_timer_into_slot(ErtsTimerWheel *tiw, int slot, ErtsTWheelTimer *p)
 {
-    /* first */
-    if (!p->prev) {
-	tiw->w[p->slot] = p->next;
-	if(p->next)
-	    p->next->prev = NULL;
-    } else {
-	p->prev->next = p->next;
+    ERTS_TW_ASSERT(slot >= 0);
+    ERTS_TW_ASSERT(slot < ERTS_TIW_SIZE);
+    p->slot = slot;
+    if (!tiw->w[slot]) {
+	tiw->w[slot] = p;
+	p->next = p;
+	p->prev = p;
     }
+    else {
+	ErtsTWheelTimer *next, *prev;
+	next = tiw->w[slot];
+	prev = next->prev;
+	p->next = next;
+	p->prev = prev;
+	prev->next = p;
+	next->prev = p;
+    }
+}
 
-    /* last */
-    if (!p->next) {
+static ERTS_INLINE void
+remove_timer(ErtsTimerWheel *tiw, ErtsTWheelTimer *p)
+{
+    int slot = p->slot;
+    ERTS_TW_ASSERT(slot != ERTS_TWHEEL_SLOT_INACTIVE);
+
+    if (slot >= 0) {
+	/*
+	 * Timer in wheel or in circular
+	 * list of timers currently beeing
+	 * triggered (referred by sentinel).
+	 */
+	ERTS_TW_ASSERT(slot < ERTS_TIW_SIZE);
+
+	if (p->next == p) {
+	    ERTS_TW_ASSERT(tiw->w[slot] == p);
+	    tiw->w[slot] = NULL;
+	}
+	else {
+	    if (tiw->w[slot] == p)
+		tiw->w[slot] = p->next;
+	    p->prev->next = p->next;
+	    p->next->prev = p->prev;
+	}
+    }
+    else {
+	/* Timer in "at once" queue... */
+	ERTS_TW_ASSERT(slot == ERTS_TWHEEL_SLOT_AT_ONCE);
 	if (p->prev)
-	    p->prev->next = NULL;
-    } else {
-	p->next->prev = p->prev;
+	    p->prev->next = p->next;
+	else {
+	    ERTS_TW_ASSERT(tiw->at_once.head == p);
+	    tiw->at_once.head = p->next;
+	}
+	if (p->next)
+	    p->next->prev = p->prev;
+	else {
+	    ERTS_TW_ASSERT(tiw->at_once.tail == p);
+	    tiw->at_once.tail = p->prev;
+	}
+	ERTS_TW_ASSERT(tiw->at_once.nto > 0);
+	tiw->at_once.nto--;
     }
 
-    p->next = NULL;
-    p->prev = NULL;
+    p->slot = ERTS_TWHEEL_SLOT_INACTIVE;
 
-    set_timer_wheel(p, NULL);
     tiw->nto--;
 }
 
 ErtsMonotonicTime
-erts_check_next_timeout_time(ErtsTimerWheel *tiw,
-			     ErtsMonotonicTime max_search_time)
+erts_check_next_timeout_time(ErtsSchedulerData *esdp)
 {
-    ErtsMonotonicTime next, curr;
-
-    curr = erts_get_monotonic_time();
-
-    erts_smp_mtx_lock(&tiw->lock);
-
-    next = find_next_timeout(tiw, curr, max_search_time);
-
-    erts_smp_mtx_unlock(&tiw->lock);
-
-    return next;
+    ErtsTimerWheel *tiw = esdp->timer_wheel;
+    if (tiw->true_next_timeout_time)
+	return tiw->next_timeout_time;
+    return find_next_timeout(esdp, tiw, 1, 0, 0);
 }
 
-#ifndef DEBUG
+#ifndef ERTS_TW_DEBUG
 #define ERTS_DBG_CHK_SAFE_TO_SKIP_TO(TIW, TO) ((void) 0)
 #else
 #define ERTS_DBG_CHK_SAFE_TO_SKIP_TO(TIW, TO) debug_check_safe_to_skip_to((TIW), (TO))
@@ -284,192 +290,252 @@ static void
 debug_check_safe_to_skip_to(ErtsTimerWheel *tiw, ErtsMonotonicTime skip_to_pos)
 {
     int slots, ix;
-    ErlTimer *tmr;
+    ErtsTWheelTimer *tmr;
     ErtsMonotonicTime tmp;
 
-    ix = (int) (tiw->pos & (TIW_SIZE-1));
+    ix = (int) (tiw->pos & (ERTS_TIW_SIZE-1));
     tmp = skip_to_pos - tiw->pos;
-    ASSERT(tmp >= 0);
-    if (tmp < (ErtsMonotonicTime) TIW_SIZE)
+    ERTS_TW_ASSERT(tmp >= 0);
+    if (tmp < (ErtsMonotonicTime) ERTS_TIW_SIZE)
 	slots = (int) tmp;
     else
-	slots = TIW_SIZE;
+	slots = ERTS_TIW_SIZE;
 
      while (slots > 0) {
-	tmr = tiw->w[ix];
-	while (tmr) {
-	    ASSERT(tmr->timeout_pos > skip_to_pos);
-	    tmr = tmr->next;
-	}
-	ix++;
-	if (ix == TIW_SIZE)
-	    ix = 0;
-	slots--;
+	 tmr = tiw->w[ix];
+	 if (tmr) {
+	     ErtsTWheelTimer *end = tmr;
+	     do {
+		 ERTS_TW_ASSERT(tmr->timeout_pos > skip_to_pos);
+		 tmr = tmr->next;
+	     } while (tmr != end);
+	 }
+	 ix++;
+	 if (ix == ERTS_TIW_SIZE)
+	     ix = 0;
+	 slots--;
     }
 }
 #endif
 
+static ERTS_INLINE void
+timeout_timer(ErtsTWheelTimer *p)
+{
+    ErlTimeoutProc timeout;
+    void *arg;
+    p->slot = ERTS_TWHEEL_SLOT_INACTIVE;
+    timeout = p->u.func.timeout;
+    arg = p->u.func.arg;
+    (*timeout)(arg);
+    ASSERT_NO_LOCKED_LOCKS;
+}
+
 void
 erts_bump_timers(ErtsTimerWheel *tiw, ErtsMonotonicTime curr_time)
 {
-    int tiw_pos_ix, slots;
-    ErlTimer *p, *timeout_head, **timeout_tail;
-    ErtsMonotonicTime bump_to, tmp_slots;
+    int tiw_pos_ix, slots, yielded_slot_restarted, yield_count;
+    ErtsMonotonicTime bump_to, tmp_slots, old_pos;
 
-    if (erts_smp_atomic32_cmpxchg_nob(&tiw->is_bumping, 1, 0) != 0)
-	return; /* Another thread is currently bumping... */
+    yield_count = ERTS_TWHEEL_BUMP_YIELD_LIMIT;
 
-    bump_to = ERTS_MONOTONIC_TO_CLKTCKS(curr_time);
+    /*
+     * In order to be fair we always continue with work
+     * where we left off when restarting after a yield.
+     */
 
-    erts_smp_mtx_lock(&tiw->lock);
-
-    if (tiw->pos >= bump_to) {
-	timeout_head = NULL;
-	goto done;
+    if (tiw->yield_slot >= 0) {
+	yielded_slot_restarted = 1;
+	tiw_pos_ix = tiw->yield_slot;
+	slots = tiw->yield_slots_left;
+	bump_to = tiw->pos;
+	old_pos = tiw->yield_start_pos;
+	goto restart_yielded_slot;
     }
 
-    /* Don't want others here while we are bumping... */
-    set_next_timeout(tiw, curr_time + ERTS_MONOTONIC_DAY, 0);
+    do {
 
-    if (!tiw->at_once.head) {
-	timeout_head = NULL;
-	timeout_tail = &timeout_head;
-    }
-    else {
-	ASSERT(tiw->nto >= tiw->at_once.nto);
-	timeout_head = tiw->at_once.head;
-	timeout_tail = tiw->at_once.tail;
-	tiw->nto -= tiw->at_once.nto;
-	tiw->at_once.head = NULL;
-	tiw->at_once.tail = &tiw->at_once.head;
-	tiw->at_once.nto = 0;
-    }
+	yielded_slot_restarted = 0;
 
-    if (tiw->nto == 0) {
-	ERTS_DBG_CHK_SAFE_TO_SKIP_TO(tiw, bump_to);
-	tiw->pos = bump_to;
-	goto done;
-    }
+	bump_to = ERTS_MONOTONIC_TO_CLKTCKS(curr_time);
 
-    if (tiw->true_next_timeout_time) {
-	ErtsMonotonicTime skip_until_pos;
-	/*
-	 * No need inspecting slots where we know no timeouts
-	 * to trigger should reside.
-	 */
+	while (1) {
+	    ErtsTWheelTimer *p;
 
-	skip_until_pos = ERTS_MONOTONIC_TO_CLKTCKS(tiw->next_timeout_time);
-	if (skip_until_pos > bump_to)
-	    skip_until_pos = bump_to;
+	    old_pos = tiw->pos;
 
-	ERTS_DBG_CHK_SAFE_TO_SKIP_TO(tiw, skip_until_pos);
-	ASSERT(skip_until_pos > tiw->pos);
-
-	tiw->pos = skip_until_pos - 1;
-    }
-
-    tiw_pos_ix = (int) ((tiw->pos+1) & (TIW_SIZE-1));
-    tmp_slots = (bump_to - tiw->pos);
-    if (tmp_slots < (ErtsMonotonicTime) TIW_SIZE)
-	slots = (int) tmp_slots;
-    else
-	slots = TIW_SIZE;
- 
-    while (slots > 0) {
-	p = tiw->w[tiw_pos_ix];
-	while (p) {
-	    ErlTimer *next = p->next;
-	    ASSERT(p != next);
-	    if (p->timeout_pos <= bump_to) { /* we have a timeout */
-		/* Remove from list */
-		remove_timer(tiw, p);
-		*timeout_tail = p;	/* Insert in timeout queue */
-		timeout_tail = &p->next;
+	    if (tiw->nto == 0) {
+	    empty_wheel:
+		ERTS_DBG_CHK_SAFE_TO_SKIP_TO(tiw, bump_to);
+		tiw->true_next_timeout_time = 0;
+		tiw->next_timeout_time = curr_time + ERTS_MONOTONIC_DAY;
+		tiw->pos = bump_to;
+		tiw->yield_slot = ERTS_TWHEEL_SLOT_INACTIVE;
+		return;
 	    }
-	    p = next;
+
+	    p = tiw->at_once.head;
+	    while (p) {
+		if (--yield_count <= 0) {
+		    ERTS_TW_ASSERT(tiw->nto > 0);
+		    ERTS_TW_ASSERT(tiw->at_once.nto > 0);
+		    tiw->yield_slot = ERTS_TWHEEL_SLOT_AT_ONCE;
+		    tiw->true_next_timeout_time = 1;
+		    tiw->next_timeout_time = ERTS_CLKTCKS_TO_MONOTONIC(old_pos);
+		    return;
+		}
+
+		ERTS_TW_ASSERT(tiw->nto > 0);
+		ERTS_TW_ASSERT(tiw->at_once.nto > 0);
+		tiw->nto--;
+		tiw->at_once.nto--;
+		tiw->at_once.head = p->next;
+		if (p->next)
+		    p->next->prev = NULL;
+		else
+		    tiw->at_once.tail = NULL;
+
+		timeout_timer(p);
+
+		p = tiw->at_once.head;
+	    }
+
+	    if (tiw->pos >= bump_to)
+		break;
+
+	    if (tiw->nto == 0)
+		goto empty_wheel;
+
+	    if (tiw->true_next_timeout_time) {
+		ErtsMonotonicTime skip_until_pos;
+		/*
+		 * No need inspecting slots where we know no timeouts
+		 * to trigger should reside.
+		 */
+
+		skip_until_pos = ERTS_MONOTONIC_TO_CLKTCKS(tiw->next_timeout_time);
+		if (skip_until_pos > bump_to)
+		    skip_until_pos = bump_to;
+
+		skip_until_pos--;
+
+		if (skip_until_pos > tiw->pos) {
+		    ERTS_DBG_CHK_SAFE_TO_SKIP_TO(tiw, skip_until_pos);
+
+		    tiw->pos = skip_until_pos;
+		}
+	    }
+
+	    tiw_pos_ix = (int) ((tiw->pos+1) & (ERTS_TIW_SIZE-1));
+	    tmp_slots = (bump_to - tiw->pos);
+	    if (tmp_slots < (ErtsMonotonicTime) ERTS_TIW_SIZE)
+		slots = (int) tmp_slots;
+	    else
+		slots = ERTS_TIW_SIZE;
+
+	    tiw->pos = bump_to;
+
+	    while (slots > 0) {
+
+		p = tiw->w[tiw_pos_ix];
+		if (p) {
+		    if (p->next == p) {
+			ERTS_TW_ASSERT(tiw->sentinel.next == &tiw->sentinel);
+			ERTS_TW_ASSERT(tiw->sentinel.prev == &tiw->sentinel);
+		    }
+		    else {
+			tiw->sentinel.next = p->next;
+			tiw->sentinel.prev = p->prev;
+			tiw->sentinel.next->prev = &tiw->sentinel;
+			tiw->sentinel.prev->next = &tiw->sentinel;
+		    }
+		    tiw->w[tiw_pos_ix] = NULL;
+
+		    while (1) {
+
+			if (p->timeout_pos > bump_to) {
+			    /* Very unusual case... */
+			    ++yield_count;
+			    insert_timer_into_slot(tiw, tiw_pos_ix, p);
+			}
+			else {
+			    /* Normal case... */
+			    timeout_timer(p);
+			    tiw->nto--;
+			}
+
+		    restart_yielded_slot:
+
+			p = tiw->sentinel.next;
+			if (p == &tiw->sentinel) {
+			    ERTS_TW_ASSERT(tiw->sentinel.prev == &tiw->sentinel);
+			    break;
+			}
+
+			if (--yield_count <= 0) {
+			    tiw->true_next_timeout_time = 1;
+			    tiw->next_timeout_time = ERTS_CLKTCKS_TO_MONOTONIC(old_pos);
+			    tiw->yield_slot = tiw_pos_ix;
+			    tiw->yield_slots_left = slots;
+			    tiw->yield_start_pos = old_pos;
+			    return; /* Yield! */
+			}
+
+			tiw->sentinel.next = p->next;
+			p->next->prev = &tiw->sentinel;
+		    }
+		}
+		tiw_pos_ix++;
+		if (tiw_pos_ix == ERTS_TIW_SIZE)
+		    tiw_pos_ix = 0;
+		slots--;
+	    }
 	}
-	tiw_pos_ix++;
-	if (tiw_pos_ix == TIW_SIZE)
-	    tiw_pos_ix = 0;
-	slots--;
-    }
 
-    ASSERT(tmp_slots >= (ErtsMonotonicTime) TIW_SIZE
-	   || tiw_pos_ix == (int) ((bump_to+1) & (TIW_SIZE-1)));
+    } while (yielded_slot_restarted);
 
-    tiw->pos = bump_to;
+    tiw->yield_slot = ERTS_TWHEEL_SLOT_INACTIVE;
+    tiw->true_next_timeout_time = 0;
+    tiw->next_timeout_time = curr_time + ERTS_MONOTONIC_DAY;
 
     /* Search at most two seconds ahead... */
-    (void) find_next_timeout(tiw, curr_time, ERTS_SEC_TO_MONOTONIC(2));
-
-done:
-
-    erts_smp_mtx_unlock(&tiw->lock);
-    
-    erts_smp_atomic32_set_nob(&tiw->is_bumping, 0);
-
-    /* Call timedout timers callbacks */
-    while (timeout_head) {
-	ErlTimeoutProc timeout;
-	void *arg;
-	p = timeout_head;
-	timeout_head = p->next;
-	/* Here comes hairy use of the timer fields!
-	 * They are reset without having the lock.
-	 * It is assumed that no code but this will
-	 * accesses any field until the ->timeout
-	 * callback is called.
-	 */
-	ASSERT(p->timeout_pos <= bump_to);
-	p->next = NULL;
-	p->prev = NULL;
-	p->slot = 0;
-	timeout = p->timeout;
-	arg = p->arg;
-	(*timeout)(arg);
-    }
+    (void) find_next_timeout(NULL, tiw, 0, curr_time, ERTS_SEC_TO_MONOTONIC(2));
 }
 
 Uint
 erts_timer_wheel_memory_size(void)
 {
-#ifdef ERTS_SMP
-    return sizeof(ErtsTimerWheel)*(1 + erts_no_schedulers);
-#else
-    return sizeof(ErtsTimerWheel);
-#endif
+    return sizeof(ErtsTimerWheel)*erts_no_schedulers;
 }
 
 ErtsTimerWheel *
-erts_create_timer_wheel(int no)
+erts_create_timer_wheel(ErtsSchedulerData *esdp)
 {
     ErtsMonotonicTime mtime;
     int i;
     ErtsTimerWheel *tiw;
-    tiw = (ErtsTimerWheel *) erts_alloc(ERTS_ALC_T_TIMER_WHEEL,
-					sizeof(ErtsTimerWheel));
-    for(i = 0; i < TIW_SIZE; i++)
+    tiw = erts_alloc_permanent_cache_aligned(ERTS_ALC_T_TIMER_WHEEL,
+					     sizeof(ErtsTimerWheel));
+    for(i = 0; i < ERTS_TIW_SIZE; i++)
 	tiw->w[i] = NULL;
 
-    erts_smp_atomic32_init_nob(&tiw->is_bumping, 0);
-    erts_smp_mtx_init_x(&tiw->lock, "timer_wheel", make_small(no));
-
-    mtime = erts_get_monotonic_time();
+    mtime = erts_get_monotonic_time(esdp);
     tiw->pos = ERTS_MONOTONIC_TO_CLKTCKS(mtime);
     tiw->nto = 0;
     tiw->at_once.head = NULL;
-    tiw->at_once.tail = &tiw->at_once.head;
+    tiw->at_once.tail = NULL;
     tiw->at_once.nto = 0;
+    tiw->yield_slot = ERTS_TWHEEL_SLOT_INACTIVE;
     tiw->true_next_timeout_time = 0;
     tiw->next_timeout_time = mtime + ERTS_MONOTONIC_DAY;
-    init_next_timeout(tiw, mtime + ERTS_MONOTONIC_DAY);
+    tiw->sentinel.next = &tiw->sentinel;
+    tiw->sentinel.prev = &tiw->sentinel;
     return tiw;
 }
 
 ErtsNextTimeoutRef
 erts_get_next_timeout_reference(ErtsTimerWheel *tiw)
 {
-    return (ErtsNextTimeoutRef) &tiw->next_timeout;
+    return (ErtsNextTimeoutRef) &tiw->next_timeout_time;
 }
 
 
@@ -490,153 +556,83 @@ erts_init_time(int time_correction, ErtsTimeWarpMode time_warp_mode)
 #else
     tiw_itime = itime;
 #endif
-
-    erts_default_timer_wheel = erts_create_timer_wheel(0);
 }
 
 void
-erts_set_timer(ErlTimer *p, ErlTimeoutProc timeout,
-	       ErlCancelProc cancel, void *arg, Uint to)
+erts_twheel_set_timer(ErtsTimerWheel *tiw,
+		      ErtsTWheelTimer *p, ErlTimeoutProc timeout,
+		      ErlCancelProc cancel, void *arg,
+		      ErtsMonotonicTime timeout_pos)
 {
-    ErtsMonotonicTime timeout_time, timeout_pos;
-    ErtsMonotonicTime curr_time;
-    ErtsTimerWheel *tiw;
-    ErtsSchedulerData *esdp;
+    ErtsMonotonicTime timeout_time;
 
-    curr_time = erts_get_monotonic_time();
-    esdp = erts_get_scheduler_data();
-    if (esdp)
-	tiw = esdp->timer_wheel;
-    else
-	tiw = erts_default_timer_wheel;
+    p->u.func.timeout = timeout;
+    p->u.func.cancel = cancel;
+    p->u.func.arg = arg;
 
-    erts_smp_mtx_lock(&tiw->lock);
+    ERTS_TW_ASSERT(p->slot == ERTS_TWHEEL_SLOT_INACTIVE);
 
-    if (get_timer_wheel(p))
-	ERTS_INTERNAL_ERROR("Double set timer");
-
-    p->timeout = timeout;
-    p->cancel = cancel;
-    p->arg = arg;
-
-    if (to == 0) {
-	timeout_pos = ERTS_MONOTONIC_TO_CLKTCKS(curr_time);
+    if (timeout_pos <= tiw->pos) {
 	tiw->nto++;
 	tiw->at_once.nto++;
-	*tiw->at_once.tail = p;
-	tiw->at_once.tail = &p->next;
 	p->next = NULL;
-	p->timeout_pos = timeout_pos;
-	timeout_time = ERTS_CLKTCKS_TO_MONOTONIC(timeout_pos);
+	p->prev = tiw->at_once.tail;
+	if (tiw->at_once.tail) {
+	    ERTS_TW_ASSERT(tiw->at_once.head);
+	    tiw->at_once.tail->next = p;
+	}
+	else {	
+	    ERTS_TW_ASSERT(!tiw->at_once.head);
+	    tiw->at_once.head = p;
+	}
+	tiw->at_once.tail = p;
+	p->timeout_pos = tiw->pos;
+	p->slot = ERTS_TWHEEL_SLOT_AT_ONCE;
+	timeout_time = ERTS_CLKTCKS_TO_MONOTONIC(tiw->pos);
     }
     else {
-	int tm;
-	ErtsMonotonicTime ticks;
-
-	ticks = ERTS_MSEC_TO_CLKTCKS(to);
-	timeout_pos = ERTS_MONOTONIC_TO_CLKTCKS(curr_time - 1) + 1 + ticks;
+	int slot;
 
 	/* calculate slot */
-	tm = (int) (timeout_pos & (TIW_SIZE-1));
-	p->slot = (Uint) tm;
-  
-	/* insert at head of list at slot */
-	p->next = tiw->w[tm];
-	p->prev = NULL;
-	if (p->next != NULL)
-	    p->next->prev = p;
-	tiw->w[tm] = p;
+	slot = (int) (timeout_pos & (ERTS_TIW_SIZE-1));
+
+	insert_timer_into_slot(tiw, slot, p);
 
 	tiw->nto++;
 
 	timeout_time = ERTS_CLKTCKS_TO_MONOTONIC(timeout_pos);
 	p->timeout_pos = timeout_pos;
-
-	ASSERT(ERTS_MSEC_TO_MONOTONIC(to) <= timeout_time - curr_time);
-	ASSERT(timeout_time - curr_time
-	       < ERTS_MSEC_TO_MONOTONIC(to) + ERTS_CLKTCKS_TO_MONOTONIC(1));
     }
 
-    if (timeout_time < tiw->next_timeout_time)
-	set_next_timeout(tiw, timeout_time, 1);
-
-    set_timer_wheel(p, tiw);
-
-    erts_smp_mtx_unlock(&tiw->lock);
-
-#if defined(ERTS_SMP)
-    if (tiw == erts_default_timer_wheel)
-	erts_interupt_aux_thread_timed(timeout_time);
-#endif
-
+    if (timeout_time < tiw->next_timeout_time) {
+	tiw->true_next_timeout_time = 1;
+	tiw->next_timeout_time = timeout_time;
+    }
 }
 
 void
-erts_cancel_timer(ErlTimer *p)
+erts_twheel_cancel_timer(ErtsTimerWheel *tiw, ErtsTWheelTimer *p)
 {
-    ErtsTimerWheel *tiw;
-    ErlCancelProc cancel;
-    void *arg = NULL; /* Shut up faulty warning... */
-
-    tiw = get_timer_wheel(p);
-    if (!tiw)
-	return;
-    
-    erts_smp_mtx_lock(&tiw->lock);
-    if (tiw != get_timer_wheel(p))
-	cancel = NULL;
-    else {
+    if (p->slot != ERTS_TWHEEL_SLOT_INACTIVE) {
+	ErlCancelProc cancel;
+	void *arg;
 	remove_timer(tiw, p);
-	p->slot = 0;
-
-	cancel = p->cancel;
-	arg = p->arg;
+	cancel = p->u.func.cancel;
+	arg = p->u.func.arg;
+	if (cancel)
+	    (*cancel)(arg);
     }
-    erts_smp_mtx_unlock(&tiw->lock);
-
-    if (cancel)
-	(*cancel)(arg);
 }
 
-/*
-  Returns the amount of time left in ms until the timer 'p' is triggered.
-  0 is returned if 'p' isn't active.
-  0 is returned also if the timer is overdue (i.e., would have triggered
-  immediately if it hadn't been cancelled).
-*/
-Uint
-erts_time_left(ErlTimer *p)
-{
-    ErtsTimerWheel *tiw;
-    ErtsMonotonicTime current_time, timeout_time;
-
-    tiw = get_timer_wheel(p);
-    if (!tiw)
-	return 0;
-
-    erts_smp_mtx_lock(&tiw->lock);
-    if (tiw != get_timer_wheel(p))
-	timeout_time = ERTS_MONOTONIC_TIME_MIN;
-    else
-	timeout_time = ERTS_CLKTCKS_TO_MONOTONIC(p->timeout_pos);
-    erts_smp_mtx_unlock(&tiw->lock);
-
-    current_time = erts_get_monotonic_time();
-    if (timeout_time <= current_time)
-	return 0;
-    return (Uint) ERTS_MONOTONIC_TO_MSEC(timeout_time - current_time);
-}
-
-#ifdef DEBUG
+#ifdef ERTS_TW_DEBUG
 void erts_p_slpq(void)
 {
-    ErtsTimerWheel *tiw = erts_default_timer_wheel;
-    ErtsMonotonicTime current_time = erts_get_monotonic_time();
+    erts_printf("Not yet implemented...\n");
+#if 0
+    ErtsMonotonicTime current_time = erts_get_monotonic_time(NULL);
     int i;
-    ErlTimer* p;
+    ErtsTWheelTimer* p;
   
-    erts_smp_mtx_lock(&tiw->lock);
-
     /* print the whole wheel, starting at the current position */
     erts_printf("\ncurrent time = %bps tiw_pos = %d tiw_nto %d\n",
 		current_time, tiw->pos, tiw->nto);
@@ -649,7 +645,7 @@ void erts_p_slpq(void)
 			p->slot);
 	}
     }
-    for(i = ((i+1) & (TIW_SIZE-1)); i != (tiw->pos & (TIW_SIZE-1)); i = ((i+1) & (TIW_SIZE-1))) {
+    for(i = ((i+1) & (ERTS_TIW_SIZE-1)); i != (tiw->pos & (ERTS_TIW_SIZE-1)); i = ((i+1) & (ERTS_TIW_SIZE-1))) {
 	if (tiw->w[i] != NULL) {
 	    erts_printf("%d:\n", i);
 	    for(p = tiw->w[i]; p != NULL; p = p->next) {
@@ -658,7 +654,6 @@ void erts_p_slpq(void)
 	    }
 	}
     }
-
-    erts_smp_mtx_unlock(&tiw->lock);
+#endif
 }
-#endif /* DEBUG */
+#endif /* ERTS_TW_DEBUG */
