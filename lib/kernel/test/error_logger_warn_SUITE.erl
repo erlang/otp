@@ -21,8 +21,8 @@
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2,
 	 init_per_testcase/2,end_per_testcase/2,
-	 basic/1,warnings_info/1,warnings_warnings/1,
-	 rb_basic/1,rb_warnings_info/1,rb_warnings_warnings/1,
+	 basic/1,warnings_info/1,warnings_errors/1,
+	 rb_basic/1,rb_warnings_info/1,rb_warnings_errors/1,
 	 rb_trunc/1,rb_utc/1,file_utc/1]).
 
 %% Internal exports.
@@ -48,8 +48,8 @@
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    [basic, warnings_info, warnings_warnings, rb_basic,
-     rb_warnings_info, rb_warnings_warnings, rb_trunc,
+    [basic, warnings_info, warnings_errors, rb_basic,
+     rb_warnings_info, rb_warnings_errors, rb_trunc,
      rb_utc, file_utc].
 
 groups() -> 
@@ -88,11 +88,11 @@ warnings_info(Config) when is_list(Config) ->
     put(elw_config,Config),
     warnings_info().
 
-warnings_warnings(doc) ->
-    ["Tests mapping warnings to warnings functionality"];
-warnings_warnings(Config) when is_list(Config) ->
+warnings_errors(doc) ->
+    ["Tests mapping warnings to errors functionality"];
+warnings_errors(Config) when is_list(Config) ->
     put(elw_config,Config),
-    warnings_warnings().
+    warnings_errors().
 
 rb_basic(doc) ->
     ["Tests basic rb functionality"];
@@ -106,11 +106,11 @@ rb_warnings_info(Config) when is_list(Config) ->
     put(elw_config,Config),
     rb_warnings_info().
 
-rb_warnings_warnings(doc) ->
-    ["Tests warnings as warnings rb functionality"];
-rb_warnings_warnings(Config) when is_list(Config) ->
+rb_warnings_errors(doc) ->
+    ["Tests warnings as errors rb functionality"];
+rb_warnings_errors(Config) when is_list(Config) ->
     put(elw_config,Config),
-    rb_warnings_warnings().
+    rb_warnings_errors().
 
 rb_trunc(doc) ->
     ["Tests rb functionality on truncated data"];
@@ -190,14 +190,14 @@ basic() ->
     ?line error_msg(Node,"~p~n",[Self]),
     ?line ?EXPECT({handle_event,{error,GL,{_,"~p~n",[Self]}}}),
     ?line warning_msg(Node,"~p~n",[Self]),
-    ?line ?EXPECT({handle_event,{error,GL,{_,"~p~n",[Self]}}}),
+    ?line ?EXPECT({handle_event,{warning_msg,GL,{_,"~p~n",[Self]}}}),
     ?line info_msg(Node,"~p~n",[Self]),
     ?line ?EXPECT({handle_event,{info_msg,GL,{_,"~p~n",[Self]}}}),
     ?line Report = [{self,Self},{gl,GL},make_ref()],
     ?line error_report(Node,Report),
     ?line ?EXPECT({handle_event,{error_report,GL,{_,std_error,Report}}}),
     ?line warning_report(Node,Report),
-    ?line ?EXPECT({handle_event,{error_report,GL,{_,std_error,Report}}}),
+    ?line ?EXPECT({handle_event,{warning_report,GL,{_,std_warning,Report}}}),
     ?line info_report(Node,Report),
     ?line ?EXPECT({handle_event,{info_report,GL,{_,std_info,Report}}}),
 
@@ -217,16 +217,16 @@ warnings_info() ->
     ?line stop_node(Node),
     ok.
 
-warnings_warnings() ->    
-    ?line Node = start_node(nn(),"+Ww"),
+warnings_errors() ->    
+    ?line Node = start_node(nn(),"+We"),
     ?line ok = install_relay(Node),
     ?line Self = self(),
     ?line GL = group_leader(),
     ?line Report = [{self,Self},{gl,GL},make_ref()],
     ?line warning_msg(Node,"~p~n",[Self]),
-    ?line ?EXPECT({handle_event,{warning_msg,GL,{_,"~p~n",[Self]}}}),
+    ?line ?EXPECT({handle_event,{error,GL,{_,"~p~n",[Self]}}}),
     ?line warning_report(Node,Report),
-    ?line ?EXPECT({handle_event,{warning_report,GL,{_,std_warning,Report}}}),
+    ?line ?EXPECT({handle_event,{error_report,GL,{_,std_error,Report}}}),
     ?line stop_node(Node),
     ok.
     
@@ -363,10 +363,14 @@ rb_basic() ->
     ?line application:start(sasl),
     ?line rb:start([{report_dir, rd()}]),
     ?line rb:list(),
-    ?line true = (one_rb_lines([error]) > 1),
-    ?line true = (one_rb_lines([error_report]) > 1),
-    ?line 1 = one_rb_findstr([error],pid_to_list(Self)),
-    ?line 1 = one_rb_findstr([error_report],pid_to_list(Self)),
+    ?line true = (one_rb_lines([warning]) > 1),
+    ?line true = (one_rb_lines([warning_report]) > 1),
+    ?line 0 = one_rb_findstr([error],pid_to_list(Self)),
+    ?line 0 = one_rb_findstr([error_report],pid_to_list(Self)),
+    ?line 1 = one_rb_findstr([warning],pid_to_list(Self)),
+    ?line 1 = one_rb_findstr([warning_report],pid_to_list(Self)),
+    ?line 0 = one_rb_findstr([info],pid_to_list(Self)),
+    ?line 0 = one_rb_findstr([info_report],pid_to_list(Self)),
     ?line 2 = one_rb_findstr([],pid_to_list(Self)),
     ?line true = (one_rb_findstr([progress],"===") > 4),
     ?line rb:stop(),
@@ -403,9 +407,9 @@ rb_warnings_info() ->
     ?line stop_node(Node),
     ok.
 
-rb_warnings_warnings() ->
+rb_warnings_errors() ->
     ?line clean_rd(),
-    ?line Node = start_node(nn(),"+W w -boot start_sasl -sasl error_logger_mf_dir "++
+    ?line Node = start_node(nn(),"+W e -boot start_sasl -sasl error_logger_mf_dir "++
 		      quote(rd())++" error_logger_mf_maxbytes 5000 "
 		      "error_logger_mf_maxfiles 5"),
     ?line Self = self(),
@@ -419,10 +423,10 @@ rb_warnings_warnings() ->
     ?line rb:list(),
     ?line true = (one_rb_lines([error]) =:= 0),
     ?line true = (one_rb_lines([error_report]) =:= 0),
-    ?line 0 = one_rb_findstr([error],pid_to_list(Self)),
-    ?line 0 = one_rb_findstr([error_report],pid_to_list(Self)),
-    ?line 1 = one_rb_findstr([warning_msg],pid_to_list(Self)),
-    ?line 1 = one_rb_findstr([warning_report],pid_to_list(Self)),
+    ?line 1 = one_rb_findstr([error],pid_to_list(Self)),
+    ?line 1 = one_rb_findstr([error_report],pid_to_list(Self)),
+    ?line 0 = one_rb_findstr([warning_msg],pid_to_list(Self)),
+    ?line 0 = one_rb_findstr([warning_report],pid_to_list(Self)),
     ?line 0 = one_rb_findstr([info_msg],pid_to_list(Self)),
     ?line 0 = one_rb_findstr([info_report],pid_to_list(Self)),
     ?line 2 = one_rb_findstr([],pid_to_list(Self)),
@@ -434,7 +438,7 @@ rb_warnings_warnings() ->
 
 rb_trunc() ->
     ?line clean_rd(),
-    ?line Node = start_node(nn(),"+W w -boot start_sasl -sasl error_logger_mf_dir "++
+    ?line Node = start_node(nn(),"-boot start_sasl -sasl error_logger_mf_dir "++
 		      quote(rd())++" error_logger_mf_maxbytes 5000 "
 		      "error_logger_mf_maxfiles 5"),
     ?line Self = self(),
@@ -467,7 +471,7 @@ rb_trunc() ->
 
 rb_utc() ->
     ?line clean_rd(),
-    ?line Node = start_node(nn(),"+W w -boot start_sasl -sasl error_logger_mf_dir "++
+    ?line Node = start_node(nn(),"-boot start_sasl -sasl error_logger_mf_dir "++
 		      quote(rd())++" error_logger_mf_maxbytes 5000 "
 		      "error_logger_mf_maxfiles 5 -sasl utc_log true"),
     ?line Self = self(),
@@ -500,7 +504,7 @@ rb_utc() ->
     
 file_utc() ->
     ?line file:delete(lf()),
-    ?line SS="+W w -stdlib utc_log true -kernel error_logger "++ oquote("{file,"++iquote(lf())++"}"),
+    ?line SS="-stdlib utc_log true -kernel error_logger "++ oquote("{file,"++iquote(lf())++"}"),
     %erlang:display(SS),
     ?line Node = start_node(nn(),SS),
     %erlang:display(rpc:call(Node,application,get_env,[kernel,error_logger])),
