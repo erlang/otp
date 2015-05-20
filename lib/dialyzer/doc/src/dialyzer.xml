@@ -368,6 +368,7 @@ Option   :: {files,          [Filename :: string()]}
           | {include_dirs,   [DirName :: string()]}
           | {output_file,    FileName :: string()}
           | {output_plt,     FileName :: string()}
+          | {check_plt,      boolean()},
           | {analysis_type,  'succ_typings' |
                              'plt_add' |
                              'plt_build' |
