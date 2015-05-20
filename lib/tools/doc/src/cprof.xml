@@ -66,7 +66,7 @@
     <func>
       <name>analyse() -> {AllCallCount, ModAnalysisList}</name>
       <name>analyse(Limit) -> {AllCallCount, ModAnalysisList}</name>
-      <name>analyse(Mod) -> ModAnlysis</name>
+      <name>analyse(Mod) -> ModAnalysis</name>
       <name>analyse(Mod, Limit) -> ModAnalysis</name>
       <fsummary>Collect and analyse call counters.</fsummary>
       <type>
