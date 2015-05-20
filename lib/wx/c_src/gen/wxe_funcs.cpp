@@ -66,7 +66,7 @@ void WxeApp::wxe_dispatch(wxeCommand& Ecmd)
    driver_binary_dec_refc(Ecmd.bin[0]->bin);
    break;
  case WXE_INIT_OPENGL:
-  wxe_initOpenGL(rt, bp);
+  wxe_initOpenGL(&rt, bp);
    break;
 
 case 100: { // wxEvtHandler::Connect

@@ -67,7 +67,7 @@ void dlclose(HMODULE Lib) {
 typedef void * DL_LIB_P;
 #endif
 
-void wxe_initOpenGL(wxeReturn rt, char *bp) {
+void wxe_initOpenGL(wxeReturn *rt, char *bp) {
   DL_LIB_P LIBhandle;
   int (*init_opengl)(void *);
 #ifdef _WIN32
@@ -82,9 +82,9 @@ void wxe_initOpenGL(wxeReturn rt, char *bp) {
       wxe_gl_dispatch = (WXE_GL_DISPATCH) dlsym(LIBhandle, "egl_dispatch");
       if(init_opengl && wxe_gl_dispatch) {
 	(*init_opengl)(erlCallbacks);
-	rt.addAtom((char *) "ok");
-	rt.add(wxString::FromAscii("initiated"));
-	rt.addTupleCount(2);
+	rt->addAtom((char *) "ok");
+	rt->add(wxString::FromAscii("initiated"));
+	rt->addTupleCount(2);
 	erl_gl_initiated = TRUE;
       } else {
 	wxString msg;
@@ -95,24 +95,24 @@ void wxe_initOpenGL(wxeReturn rt, char *bp) {
 	  msg += wxT("egl_init_opengl ");
 	if(!wxe_gl_dispatch) 
 	  msg += wxT("egl_dispatch ");
-	rt.addAtom((char *) "error");
-	rt.add(msg);
-	rt.addTupleCount(2);
+	rt->addAtom((char *) "error");
+	rt->add(msg);
+	rt->addTupleCount(2);
       }
     } else {
       wxString msg;
       msg.Printf(wxT("Could not load dll: "));
       msg += wxString::FromAscii(bp);
-      rt.addAtom((char *) "error");
-      rt.add(msg);
-      rt.addTupleCount(2);
+      rt->addAtom((char *) "error");
+      rt->add(msg);
+      rt->addTupleCount(2);
     }
   } else {
-    rt.addAtom((char *) "ok");
-    rt.add(wxString::FromAscii("already initilized"));
-    rt.addTupleCount(2);
+    rt->addAtom((char *) "ok");
+    rt->add(wxString::FromAscii("already initilized"));
+    rt->addTupleCount(2);
   }
-  rt.send();
+  rt->send();
 }
 
 void setActiveGL(ErlDrvTermData caller, wxGLCanvas *canvas)

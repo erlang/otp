@@ -207,7 +207,7 @@ gen_funcs(Defs) ->
       " }~n"),
     w(" case WXE_BIN_INCR:~n   driver_binary_inc_refc(Ecmd.bin[0]->bin);~n   break;~n",[]),
     w(" case WXE_BIN_DECR:~n   driver_binary_dec_refc(Ecmd.bin[0]->bin);~n   break;~n",[]),
-    w(" case WXE_INIT_OPENGL:~n  wxe_initOpenGL(rt, bp);~n   break;~n",[]),
+    w(" case WXE_INIT_OPENGL:~n  wxe_initOpenGL(&rt, bp);~n   break;~n",[]),
 
     Res = [gen_class(Class) || Class <- Defs],
 
