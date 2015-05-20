@@ -1322,14 +1322,13 @@
       <item>
         <p>Verbose.</p>
       </item>
-      <tag><c><![CDATA[+W w | i | e]]></c></tag>
+      <tag><c><![CDATA[+W w | i]]></c></tag>
       <item>
         <p>Sets the mapping of warning messages for <c><![CDATA[error_logger]]></c>.
           Messages sent to the error logger using one of the warning
-          routines can be mapped either to errors (<c><![CDATA[+W e]]></c>),
-          warnings (<c><![CDATA[+W w]]></c>), or info reports
-          (<c><![CDATA[+W i]]></c>). The default is warnings.
-          The current mapping can be retrieved using
+          routines can be mapped either to errors (default), warnings 
+          (<c><![CDATA[+W w]]></c>), or info reports (<c><![CDATA[+W i]]></c>). The current
+          mapping can be retrieved using
           <c><![CDATA[error_logger:warning_map/0]]></c>. See
           <seealso marker="kernel:error_logger#warning_map/0">error_logger(3)</seealso>
           for further information.</p>

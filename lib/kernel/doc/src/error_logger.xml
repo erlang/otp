@@ -58,11 +58,12 @@
       specific events. (<c>add_report_handler/1,2</c>). Also, there is
       a useful event handler in STDLIB for multi-file logging of events,
       see <c>log_mf_h(3)</c>.</p>
-    <p>Warning events were introduced in Erlang/OTP R9C and are enabled
-      by default as of 18.0. To retain backwards compatibility with existing
-      user defined event handlers, these may be tagged as errors or info
-      using the command line flag <c><![CDATA[+W <e | i | w>]]></c>, thus
-      showing up as error or info reports in the logs.</p>
+    <p>Warning events were introduced in Erlang/OTP R9C. To retain
+      backwards compatibility, these are by default tagged as errors,
+      thus showing up as error reports in the logs. By using
+      the command line flag <c><![CDATA[+W <w | i>]]></c>, they can instead
+      be tagged as warnings or info. Tagging them as warnings may
+      require rewriting existing user defined event handlers.</p>
   </description>
   <datatypes>
     <datatype>
@@ -131,24 +132,10 @@ ok</pre>
       <desc>
         <p>Returns the current mapping for warning events. Events sent
           using <c>warning_msg/1,2</c> or <c>warning_report/1,2</c>
-          are tagged as errors, warnings (default) or info, depending
+          are tagged as errors (default), warnings or info, depending
           on the value of the command line flag <c>+W</c>.</p>
         <pre>
 os$ <input>erl</input>
-Erlang (BEAM) emulator version 5.4.8 [hipe] [threads:0] [kernel-poll]
-
-Eshell V5.4.8  (abort with ^G)
-1> <input>error_logger:warning_map().</input>
-warning
-2> <input>error_logger:warning_msg("Warnings tagged as: ~p~n", [warning]).</input>
-
-=WARNING REPORT==== 11-Aug-2005::15:31:55 ===
-Warnings tagged as: warning
-ok
-3> 
-User switch command
- --> q
-os$ <input>erl +W e</input>
 Erlang (BEAM) emulator version 5.4.8 [hipe] [threads:0] [kernel-poll]
 
 Eshell V5.4.8  (abort with ^G)
@@ -158,6 +145,20 @@ error
 
 =ERROR REPORT==== 11-Aug-2005::15:31:23 ===
 Warnings tagged as: error
+ok
+3> 
+User switch command
+ --> q
+os$ <input>erl +W w</input>
+Erlang (BEAM) emulator version 5.4.8 [hipe] [threads:0] [kernel-poll]
+
+Eshell V5.4.8  (abort with ^G)
+1> <input>error_logger:warning_map().</input>
+warning
+2> <input>error_logger:warning_msg("Warnings tagged as: ~p~n", [warning]).</input>
+
+=WARNING REPORT==== 11-Aug-2005::15:31:55 ===
+Warnings tagged as: warning
 ok</pre>
       </desc>
     </func>

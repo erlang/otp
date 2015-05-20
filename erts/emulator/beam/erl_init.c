@@ -625,7 +625,7 @@ void erts_usage(void)
 
     erts_fprintf(stderr, "-v             turn on chatty mode (GCs will be reported etc)\n");
 
-    erts_fprintf(stderr, "-W<i|w|e>      set error logger warnings mapping,\n");
+    erts_fprintf(stderr, "-W<i|w>        set error logger warnings mapping,\n");
     erts_fprintf(stderr, "               see error_logger documentation for details\n");
     erts_fprintf(stderr, "-zdbbl size    set the distribution buffer busy limit in kilobytes\n");
     erts_fprintf(stderr, "               valid range is [1-%d]\n", INT_MAX/1024);
@@ -1253,7 +1253,7 @@ erl_start(int argc, char **argv)
     verbose = DEBUG_DEFAULT;
 #endif
 
-    erts_error_logger_warnings = am_warning;
+    erts_error_logger_warnings = am_error;
 
     while (i < argc) {
 	if (argv[i][0] != '-') {
@@ -1991,12 +1991,11 @@ erl_start(int argc, char **argv)
 	    case 'i':
 		erts_error_logger_warnings = am_info;
 		break;
-	    case 'e':
-		erts_error_logger_warnings = am_error;
-		break;
 	    case 'w':
 		erts_error_logger_warnings = am_warning;
 		break;
+	    case 'e': /* The default */
+		erts_error_logger_warnings = am_error;
 	    default:
 		erts_fprintf(stderr, "unrecognized warning_map option %s\n", arg);
 		erts_usage();
