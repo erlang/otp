@@ -121,7 +121,7 @@ filter()    See present/1, substrings/2,
 	  <item>Any error responded from ssl:connect/3</item>
 	</taglist>
 	<p>The <c>Timeout</c> parameter is for the actual tls upgrade (phase 2) while the timeout in
-	<seealso marker="#open/2">erl_tar:open/2</seealso> is used for the initial negotiation about
+	<seealso marker="#open/2">eldap:open/2</seealso> is used for the initial negotiation about
 	upgrade (phase 1).
 	</p>
       </desc>
@@ -298,7 +298,7 @@ filter()    See present/1, substrings/2,
   search(Handle, [{base, "dc=example, dc=com"}, {filter, Filter}, {attributes, ["cn"]}]),
 	</pre>
 	<p>The <c>timeout</c> option in the <c>SearchOptions</c> is for the ldap server, while
-	the timeout in <seealso marker="#open/2">erl_tar:open/2</seealso> is used for each
+	the timeout in <seealso marker="#open/2">eldap:open/2</seealso> is used for each
 	individual request in the search operation.
 	</p>
       </desc>
