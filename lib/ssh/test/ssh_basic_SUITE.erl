@@ -92,6 +92,7 @@ basic_tests() ->
 
 %%--------------------------------------------------------------------
 init_per_suite(Config) ->
+    catch crypto:stop(),
     case catch crypto:start() of
 	ok ->
 	    Config;
@@ -289,7 +290,7 @@ exec_compressed(Config) when is_list(Config) ->
     UserDir = ?config(priv_dir, Config), 
 
     {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},{user_dir, UserDir},
-					     {compression, zlib},
+					     {preferred_algorithms,[{compression, [zlib]}]},
 					     {failfun, fun ssh_test_lib:failfun/2}]),
     
     ConnectionRef =
@@ -1238,7 +1239,8 @@ openssh_zlib_basic_test(Config) ->
 	ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
 					  {user_dir, UserDir},
 					  {user_interaction, false},
-					  {compression, openssh_zlib}]),
+					  {preferred_algorithms,[{compression, ['zlib@openssh.com']}]}
+					 ]),
     ok = ssh:close(ConnectionRef),
     ssh:stop_daemon(Pid).
 

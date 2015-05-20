@@ -60,6 +60,7 @@ groups() ->
     ].
 
 init_per_suite(Config) ->
+    catch crypto:stop(),
     case catch crypto:start() of
 	ok ->
 	    case gen_tcp:connect("localhost", 22, []) of
@@ -166,9 +167,11 @@ erlang_client_openssh_server_exec_compressed() ->
     [{doc, "Test that compression option works"}].
 
 erlang_client_openssh_server_exec_compressed(Config) when is_list(Config) ->
+    CompressAlgs = [zlib, 'zlib@openssh.com',none],
     ConnectionRef = ssh_test_lib:connect(?SSH_DEFAULT_PORT, [{silently_accept_hosts, true},
 							     {user_interaction, false},
-							     {compression, zlib}]),
+							     {preferred_algorithms,
+							      [{compression,CompressAlgs}]}]),
     {ok, ChannelId} = ssh_connection:session_channel(ConnectionRef, infinity),
     success = ssh_connection:exec(ConnectionRef, ChannelId,
 				  "echo testing", infinity),
@@ -326,8 +329,11 @@ erlang_server_openssh_client_exec_compressed(Config) when is_list(Config) ->
     PrivDir = ?config(priv_dir, Config),
     KnownHosts = filename:join(PrivDir, "known_hosts"),
 
+%%    CompressAlgs = [zlib, 'zlib@openssh.com'], % Does not work
+    CompressAlgs = [zlib],
     {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
-					     {compression, zlib},
+					     {preferred_algorithms,
+					      [{compression, CompressAlgs}]},
 					     {failfun, fun ssh_test_lib:failfun/2}]),
 
     ct:sleep(500),

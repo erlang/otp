@@ -55,6 +55,7 @@ all() ->
 
 
 init_per_suite(Config) ->
+    catch crypto:stop(),
     case {file:native_name_encoding(), (catch crypto:start())} of
 	{utf8, ok} ->
 	    ssh:start(),

@@ -495,6 +495,7 @@ select_algorithm(Role, Client, Server) ->
 	       decompress = Decompression,
 	       c_lng = C_Lng,
 	       s_lng = S_Lng},
+%%ct:pal("~p~n Client=~p~n Server=~p~n    Alg=~p~n",[Role,Client,Server,Alg]),
     {ok, Alg}.
 
 select_encrypt_decrypt(client, Client, Server) ->

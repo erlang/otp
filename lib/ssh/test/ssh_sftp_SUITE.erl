@@ -49,6 +49,7 @@ all() ->
 
 
 init_per_suite(Config) ->
+    catch crypto:stop(),
     case (catch crypto:start()) of
 	ok ->
 	    ssh:start(),

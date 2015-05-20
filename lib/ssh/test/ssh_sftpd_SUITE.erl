@@ -68,6 +68,7 @@ groups() ->
 %%--------------------------------------------------------------------
 
 init_per_suite(Config) ->
+    catch crypto:stop(),
     case (catch crypto:start()) of
 	ok ->
 	    DataDir = ?config(data_dir, Config),	    
