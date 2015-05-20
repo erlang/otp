@@ -112,7 +112,6 @@ listen_options(Opts0) ->
 	end,
     case application:get_env(kernel, inet_dist_listen_options) of
 	{ok,ListenOpts} ->
-	    erlang:display({inet_dist_listen_options, ListenOpts}),
 	    ListenOpts ++ Opts1;
 	_ ->
 	    Opts1
@@ -340,7 +339,6 @@ do_setup(Kernel, Node, Type, MyNode, LongOrShortNames,SetupTime) ->
 connect_options(Opts) ->
     case application:get_env(kernel, inet_dist_connect_options) of
 	{ok,ConnectOpts} ->
-	    erlang:display({inet_dist_listen_options, ConnectOpts}),
 	    ConnectOpts ++ Opts;
 	_ ->
 	    Opts
