@@ -27,7 +27,8 @@
 
 -import(lists, [append/1,foldr/3,mapfoldl/3,reverse/1,reverse/2]).
 -import(io_lib, [write/1,format/2]).
--import(erl_parse, [inop_prec/1,preop_prec/1,func_prec/0,max_prec/0]).
+-import(erl_parse, [inop_prec/1,preop_prec/1,func_prec/0,max_prec/0,
+                    type_inop_prec/1, type_preop_prec/1]).
 
 -define(MAXLINE, 72).
 
@@ -271,49 +272,64 @@ typeattr(Tag, {TypeName,Type,Args}, _Opts) ->
     {first,leaf("-"++atom_to_list(Tag)++" "),
      typed(call({atom,a0(),TypeName}, Args, 0, options(none)), Type)}.
 
-ltype({ann_type,_Line,[V,T]}) ->
-    typed(lexpr(V, options(none)), T);
-ltype({paren_type,_Line,[T]}) ->
-    [$(,ltype(T),$)];
-ltype({type,_Line,union,Ts}) ->
-    {seq,[],[],[' |'],ltypes(Ts)};
-ltype({type,_Line,list,[T]}) ->
+ltype(T) ->
+    ltype(T, 0).
+
+ltype({ann_type,_Line,[V,T]}, Prec) ->
+    {_L,P,_R} = type_inop_prec('::'),
+    E = typed(lexpr(V, options(none)), T),
+    maybe_paren(P, Prec, E);
+ltype({paren_type,_Line,[T]}, P) ->
+    %% Generated before Erlang/OTP 18.
+    ltype(T, P);
+ltype({type,_Line,union,Ts}, Prec) ->
+    {_L,P,R} = type_inop_prec('|'),
+    E = {seq,[],[],[' |'],ltypes(Ts, R)},
+    maybe_paren(P, Prec, E);
+ltype({type,_Line,list,[T]}, _) ->
     {seq,$[,$],$,,[ltype(T)]};
-ltype({type,_Line,nonempty_list,[T]}) ->
+ltype({type,_Line,nonempty_list,[T]}, _) ->
     {seq,$[,$],[$,],[ltype(T),leaf("...")]};
-ltype({type,Line,nil,[]}) ->
-    lexpr({nil,Line}, 0, options(none));
-ltype({type,Line,map,any}) ->
+ltype({type,Line,nil,[]}, _) ->
+    lexpr({nil,Line}, options(none));
+ltype({type,Line,map,any}, _) ->
     simple_type({atom,Line,map}, []);
-ltype({type,_Line,map,Pairs}) ->
-    map_type(Pairs);
-ltype({type,Line,tuple,any}) ->
+ltype({type,_Line,map,Pairs}, Prec) ->
+    {P,_R} = type_preop_prec('#'),
+    E = map_type(Pairs),
+    maybe_paren(P, Prec, E);
+ltype({type,Line,tuple,any}, _) ->
     simple_type({atom,Line,tuple}, []);
-ltype({type,_Line,tuple,Ts}) ->
-    tuple_type(Ts, fun ltype/1);
-ltype({type,_Line,record,[{atom,_,N}|Fs]}) ->
-    record_type(N, Fs);
-ltype({type,_Line,range,[_I1,_I2]=Es}) ->
-    expr_list(Es, '..', fun lexpr/2, options(none));
-ltype({type,_Line,binary,[I1,I2]}) ->
+ltype({type,_Line,tuple,Ts}, _) ->
+    tuple_type(Ts, fun ltype/2);
+ltype({type,_Line,record,[{atom,_,N}|Fs]}, Prec) ->
+    {P,_R} = type_preop_prec('#'),
+    E = record_type(N, Fs),
+    maybe_paren(P, Prec, E);
+ltype({type,_Line,range,[_I1,_I2]=Es}, Prec) ->
+    {_L,P,R} = type_inop_prec('..'),
+    F = fun(E, Opts) -> lexpr(E, R, Opts) end,
+    E = expr_list(Es, '..', F, options(none)),
+    maybe_paren(P, Prec, E);
+ltype({type,_Line,binary,[I1,I2]}, _) ->
     binary_type(I1, I2); % except binary()
-ltype({type,_Line,'fun',[]}) ->
+ltype({type,_Line,'fun',[]}, _) ->
     leaf("fun()");
-ltype({type,_,'fun',[{type,_,any},_]}=FunType) ->
+ltype({type,_,'fun',[{type,_,any},_]}=FunType, _) ->
     [fun_type(['fun',$(], FunType),$)];
-ltype({type,_Line,'fun',[{type,_,product,_},_]}=FunType) ->
+ltype({type,_Line,'fun',[{type,_,product,_},_]}=FunType, _) ->
     [fun_type(['fun',$(], FunType),$)];
-ltype({type,Line,T,Ts}) ->
+ltype({type,Line,T,Ts}, _) ->
     %% Compatibility. Before 18.0.
     simple_type({atom,Line,T}, Ts);
-ltype({user_type,Line,T,Ts}) ->
+ltype({user_type,Line,T,Ts}, _) ->
     simple_type({atom,Line,T}, Ts);
-ltype({remote_type,Line,[M,F,Ts]}) ->
+ltype({remote_type,Line,[M,F,Ts]}, _) ->
     simple_type({remote,Line,M,F}, Ts);
-ltype({atom,_,T}) ->
+ltype({atom,_,T}, _) ->
     leaf(write(T));
-ltype(E) ->
-    lexpr(E, 0, options(none)).
+ltype(E, P) ->
+    lexpr(E, P, options(none)).
 
 binary_type(I1, I2) ->
     B = [[] || {integer,_,0} <- [I1]] =:= [],
@@ -327,42 +343,37 @@ map_type(Fs) ->
     {first,[$#],map_pair_types(Fs)}.
 
 map_pair_types(Fs) ->
-    tuple_type(Fs, fun map_pair_type/1).
+    tuple_type(Fs, fun map_pair_type/2).
 
-map_pair_type({type,_Line,map_field_assoc,[Ktype,Vtype]}) ->
-    map_assoc_typed(ltype(Ktype), Vtype).
+map_pair_type({type,_Line,map_field_assoc,[Ktype,Vtype]}, Prec) ->
+    map_assoc_typed(ltype(Ktype), Vtype, Prec).
 
-map_assoc_typed(B, {type,_,union,Ts}) ->
-    {first,[B,$\s],{seq,[],[],[],map_assoc_union_type(Ts)}};
-map_assoc_typed(B, Type) ->
-    {list,[{cstep,[B," =>"],ltype(Type)}]}.
+map_assoc_typed(B, {type,_,union,Ts}, Prec) ->
+    {first,[B,$\s],{seq,[],[],[],map_assoc_union_type(Ts, Prec)}};
+map_assoc_typed(B, Type, Prec) ->
+    {list,[{cstep,[B," =>"],ltype(Type, Prec)}]}.
 
-map_assoc_union_type([T|Ts]) ->
-    [[leaf("=> "),ltype(T)] | ltypes(Ts, fun union_elem/1)].
+map_assoc_union_type([T|Ts], Prec) ->
+    [[leaf("=> "),ltype(T)] | ltypes(Ts, fun union_elem/2, Prec)].
 
 record_type(Name, Fields) ->
     {first,[record_name(Name)],field_types(Fields)}.
 
 field_types(Fs) ->
-    tuple_type(Fs, fun field_type/1).
+    tuple_type(Fs, fun field_type/2).
 
-field_type({type,_Line,field_type,[Name,Type]}) ->
+field_type({type,_Line,field_type,[Name,Type]}, _Prec) ->
     typed(lexpr(Name, options(none)), Type).
 
-typed(B, {type,_,union,Ts}) ->
-    %% Special layout for :: followed by union.
-    {first,[B,$\s],{seq,[],[],[],union_type(Ts)}};
 typed(B, Type) ->
-    {list,[{cstep,[B,' ::'],ltype(Type)}]}.
+    {_L,_P,R} = type_inop_prec('::'),
+    {list,[{cstep,[B,' ::'],ltype(Type, R)}]}.
 
-union_type([T|Ts]) ->
-    [[leaf(":: "),ltype(T)] | ltypes(Ts, fun union_elem/1)].
-
-union_elem(T) ->
-    [leaf(" | "),ltype(T)].
+union_elem(T, Prec) ->
+    [leaf(" | "),ltype(T, Prec)].
 
 tuple_type(Ts, F) ->
-    {seq,${,$},[$,],ltypes(Ts, F)}.
+    {seq,${,$},[$,],ltypes(Ts, F, 0)}.
 
 specattr(SpecKind, {FuncSpec,TypeSpecs}) ->
     Func = case FuncSpec of
@@ -399,16 +410,16 @@ type_args({type,_line,product,Ts}) ->
     targs(Ts).
 
 simple_type(Tag, Types) ->
-    {first,lexpr(Tag, 0, options(none)),targs(Types)}.
+    {first,lexpr(Tag, options(none)),targs(Types)}.
 
 targs(Ts) ->
-    {seq,$(,$),[$,],ltypes(Ts)}.
+    {seq,$(,$),[$,],ltypes(Ts, 0)}.
 
-ltypes(Ts) ->
-    ltypes(Ts, fun ltype/1).
+ltypes(Ts, Prec) ->
+    ltypes(Ts, fun ltype/2, Prec).
 
-ltypes(Ts, F) ->
-    [F(T) || T <- Ts].
+ltypes(Ts, F, Prec) ->
+    [F(T, Prec) || T <- Ts].
 
 attr(Name, Args) ->
     call({var,a0(),format("-~s", [Name])}, Args, 0, options(none)).
