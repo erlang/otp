@@ -850,8 +850,9 @@ Eshell V5.10.1  (abort with ^G)
   expected to be in Unicode.</p>
   <p>If Unicode file names are enabled, the calls to 
   <seealso marker="kernel:os#getenv/0"><c>os:getenv/0</c></seealso>, 
-  <seealso marker="kernel:os#getenv/1"><c>os:getenv/1</c></seealso> and
-  <seealso marker="kernel:os#putenv/2"><c>os:putenv/2</c></seealso>
+  <seealso marker="kernel:os#getenv/1"><c>os:getenv/1</c></seealso>,
+  <seealso marker="kernel:os#putenv/2"><c>os:putenv/2</c></seealso> and
+  <seealso marker="kernel:os#unsetenv/1"><c>os:unsetenv/1</c></seealso>
   will handle Unicode strings. On Unix-like platforms, the built-in
   functions will translate environment variables in UTF-8 to/from
   Unicode strings, possibly with code points > 255. On Windows the
