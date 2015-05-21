@@ -33,7 +33,7 @@
 -include_lib("test_server/include/test_server.hrl").
 
 % Default timetrap timeout (set in init_per_testcase).
--define(default_timeout, ?t:minutes(1)).
+-define(default_timeout, ?t:minutes(3)).
 -define(LOOP, 1000000).
 
 init_per_testcase(_Case, Config) ->
