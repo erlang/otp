@@ -1308,7 +1308,7 @@ t_guard_receive(Config) when is_list(Config) ->
     done = call(Pid, done),
     ok.
 
--define(t_guard_receive_large_procs, 150).
+-define(t_guard_receive_large_procs, 50).
 
 t_guard_receive_large(Config) when is_list(Config) ->
     M = lists:foldl(fun(_,#{procs := Ps } = M) ->
@@ -1326,7 +1326,7 @@ guard_receive_large_loop(M) ->
     receive
         #{pid := Pid, msg := hello} ->
             case M of
-                #{done := Count, procs := #{Pid := 150}} ->
+                #{done := Count, procs := #{Pid := 15}} ->
                     Pid ! {self(), done},
                     guard_receive_large_loop(M#{done := Count + 1});
                 #{procs := #{Pid := Count} = Ps} ->
