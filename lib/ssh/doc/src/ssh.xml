@@ -215,13 +215,14 @@
   {compression,[none,zlib]}
 }
 </code>
-        <p>Note that we want different algorithms in the two directions for <c>cipher</c>, but the same in
-	both directions for <c>mac</c> and <c>compression</c>.  We keep the default for <c>kex</c> and 
-	<c>public_key</c> but has given the default value explicitly for <c>public_key</c></p>
+        <p>The example specifies different algorithms in the two directions (client2server and server2client), for cipher but specifies the same
+algorithms for mac and compression in both directions. The kex (key exchange) and public key algorithms are set to their default values,
+kex is implicit but public_key is set explicitly.</p>
+
         <warning>
 	  <p>Changing the values can make a connection less secure. Do not change unless you
 	  know exactly what you are doing. If you do not understand the values then you
-	  are not supposed to change them</p>
+	  are not supposed to change them.</p>
 	</warning>
 	  </item>
 
@@ -409,13 +410,14 @@
   {compression,[none,zlib]}
 }
 </code>
-        <p>Note that we want different algorithms in the two directions for <c>cipher</c>, but the same in
-	both directions for <c>mac</c> and <c>compression</c>.  We keep the default for <c>kex</c> and 
-	<c>public_key</c> but has given the default value explicitly for <c>public_key</c></p>
+        <p>The example specifies different algorithms in the two directions (client2server and server2client), for cipher but specifies the same
+algorithms for mac and compression in both directions. The kex (key exchange) and public key algorithms are set to their default values,
+kex is implicit but public_key is set explicitly.</p>
+
         <warning>
 	  <p>Changing the values can make a connection less secure. Do not change unless you
 	  know exactly what you are doing. If you do not understand the values then you
-	  are not supposed to change them</p>
+	  are not supposed to change them.</p>
 	</warning>
 	  </item>
 
