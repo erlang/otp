@@ -4078,12 +4078,22 @@ tab2file(doc) -> ["Check the ets:tab2file function on an empty "
 		  "ets table."];
 tab2file(suite) -> [];
 tab2file(Config) when is_list(Config) ->
+    ?line FName = filename:join([?config(priv_dir, Config),"tab2file_case"]),
+    tab2file_do(FName, []),
+    tab2file_do(FName, [{sync,true}]),
+    tab2file_do(FName, [{sync,false}]),
+    {'EXIT',{{badmatch,{error,_}},_}} = (catch tab2file_do(FName, [{sync,yes}])),
+    {'EXIT',{{badmatch,{error,_}},_}} = (catch tab2file_do(FName, [sync])),
+    ok.
+
+tab2file_do(FName, Opts) ->
     %% Write an empty ets table to a file, read back and check properties.
     ?line Tab = ets_new(ets_SUITE_foo_tab, [named_table, set, private,
 					    {keypos, 2}]),
-    ?line FName = filename:join([?config(priv_dir, Config),"tab2file_case"]),
-    ?line ok = ets:tab2file(Tab, FName),
-    ?line true = ets:delete(Tab),
+    catch file:delete(FName),
+    Res = ets:tab2file(Tab, FName, Opts),
+    true = ets:delete(Tab),
+    ok = Res,
     %
     ?line EtsMem = etsmem(),
     ?line {ok, Tab2} = ets:file2tab(FName),
@@ -4093,6 +4103,7 @@ tab2file(Config) when is_list(Config) ->
     ?line set = ets:info(Tab2, type),
     ?line true = ets:delete(Tab2),
     ?line verify_etsmem(EtsMem).
+
     
 tab2file2(doc) -> ["Check the ets:tab2file function on a ",
 		   "filled set/bag type ets table."];
