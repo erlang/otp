@@ -127,7 +127,6 @@ value_option(Flag, Default, On, OnVal, Off, OffVal, Opts) ->
                recdef_top=false :: boolean(),	%true in record initialisation
 						%outside any fun or lc
                xqlc= false :: boolean(),	%true if qlc.hrl included
-               new = false :: boolean(),	%Has user-defined 'new/N'
                called= [] :: [{fa(),line()}],   %Called functions
                usage = #usage{}		:: #usage{},
                specs = dict:new()               %Type specifications
@@ -642,8 +641,6 @@ forms(Forms0, St0) ->
     St4 = foldl(fun form/2, pre_scan(Forms, St3), Forms),
     post_traversal_check(Forms, St4).
 
-pre_scan([{function,_L,new,_A,_Cs} | Fs], St) ->
-    pre_scan(Fs, St#lint{new=true});
 pre_scan([{attribute,L,compile,C} | Fs], St) ->
     case is_warn_enabled(export_all, St) andalso
 	member(export_all, lists:flatten([C])) of
