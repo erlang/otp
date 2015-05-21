@@ -97,12 +97,12 @@ t_conflicts_file([File|Files]) ->
     {ok, _} = lcnt:start(),
     ok = lcnt:load(File),
     ok = lcnt:conflicts(),
-    THs   = [-1, 0, 100, 1000],
+    THs   = [-1, 5],
     Print = [name , id , type , entry , tries , colls , ratio , time , duration],
     Opts  = [
 	[{sort, Sort}, {reverse, Rev}, {max_locks, ML}, {combine, Combine}, {thresholds, [TH]}, {print, [Print]}] ||
-	    Sort    <- [name , id , type , tries , colls , ratio , time , entry],
-	    ML      <- [none, 1 , 32,  4096],
+	    Sort    <- [name , type , tries , colls , ratio , time],
+	    ML      <- [none, 32],
 	    Combine <- [true, false],
 	    TH      <- [{tries, Tries} || Tries <- THs] ++ [{colls, Colls} || Colls <- THs] ++ [{time, Time} || Time <- THs],
 	    Rev     <- [true, false]
@@ -131,12 +131,12 @@ t_locations_file([File|Files]) ->
     {ok, _} = lcnt:start(),
     ok = lcnt:load(File),
     ok = lcnt:locations(),
-    THs   = [-1, 0, 100, 1000],
+    THs   = [-1, 0, 100],
     Print = [name , id , type , entry , tries , colls , ratio , time , duration],
     Opts  = [
 	[{full_id, Id}, {sort, Sort}, {max_locks, ML}, {combine, Combine}, {thresholds, [TH]}, {print, Print}] ||
 	    Sort    <- [name , id , type , tries , colls , ratio , time , entry],
-	    ML      <- [none, 1 , 64],
+	    ML      <- [none, 64],
 	    Combine <- [true, false],
 	    TH      <- [{tries, Tries} || Tries <- THs] ++ [{colls, Colls} || Colls <- THs] ++ [{time, Time} || Time <- THs],
 	    Id      <- [true, false]
