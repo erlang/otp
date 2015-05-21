@@ -50,11 +50,12 @@ store_directory_data(_Directory, DirData, Server_root) ->
 							 DirData, Server_root),
     Addr = proplists:get_value(bind_address, DirData),
     Port = proplists:get_value(port, DirData),
+    Profile = proplists:get_value(profile, DirData, ?DEFAULT_PROFILE),
 
-    PWName  = httpd_util:make_name("httpd_dets_pwdb",Addr,Port),
+    PWName  = httpd_util:make_name("httpd_dets_pwdb", Addr, Port, Profile),
     case dets:open_file(PWName,[{type,set},{file,Absolute_pwdfile},{repair,true}]) of
 	{ok, PWDB} ->
-	    GDBName = httpd_util:make_name("httpd_dets_groupdb",Addr,Port),
+	    GDBName = httpd_util:make_name("httpd_dets_groupdb", Addr, Port, Profile),
 	    case dets:open_file(GDBName,[{type,set},{file,Absolute_groupfile},{repair,true}]) of
 		{ok, GDB} ->
 		    NDD1 = lists:keyreplace(auth_user_file, 1, DirData, 

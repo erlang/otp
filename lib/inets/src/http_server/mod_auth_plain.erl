@@ -268,6 +268,7 @@ parse_group(Stream, GroupList, Line) ->
 %% store_passwd
 
 store_passwd(Addr,Port,PasswdList) ->
+    %% Not a named table so not importante to add Profile to name
     Name = httpd_util:make_name("httpd_passwd",Addr,Port),
     PasswdDB = ets:new(Name, [set, public]),
     store_passwd(PasswdDB, PasswdList).
@@ -281,6 +282,7 @@ store_passwd(PasswdDB, [User|Rest]) ->
 %% store_group
 
 store_group(Addr,Port,GroupList) ->
+    %% Not a named table so not importante to add Profile to name
     Name = httpd_util:make_name("httpd_group",Addr,Port),
     GroupDB = ets:new(Name, [set, public]),
     store_group(GroupDB, GroupList).

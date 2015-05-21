@@ -38,7 +38,6 @@
 -include("httpd.hrl").
 -include("mod_auth.hrl").
 -include("httpd_internal.hrl").
--include("inets_internal.hrl").
 
 -define(VMODULE,"AUTH").
 
@@ -46,7 +45,6 @@
 
 %% do
 do(Info) ->
-    ?hdrt("do", [{info, Info}]),
     case proplists:get_value(status,Info#mod.data) of
 	%% A status code has been generated!
 	{_StatusCode, _PhraseArgs, _Reason} ->
@@ -61,22 +59,16 @@ do(Info) ->
 		    %% Is it a secret area?
 		    case secretp(Path,Info#mod.config_db) of
 			{yes, {Directory, DirectoryData}} ->
-			    ?hdrt("secret area", 
-				  [{directory, Directory},
-				   {directory_data, DirectoryData}]),
-
-			    %% Authenticate (allow)
+			   %% Authenticate (allow)
 			    case allow((Info#mod.init_data)#init_data.peername,
 				       Info#mod.socket_type,Info#mod.socket,
 				       DirectoryData) of
 				allowed ->
-				    ?hdrt("allowed", []),
 				    case deny((Info#mod.init_data)#init_data.peername,
 					      Info#mod.socket_type, 
 					      Info#mod.socket,
 					      DirectoryData) of
 					not_denied ->
-					    ?hdrt("not denied", []),
 					    case proplists:get_value(auth_type,
 								     DirectoryData) of
 						undefined ->
@@ -90,15 +82,13 @@ do(Info) ->
 							    AuthType)
 					    end;
 					{denied, Reason} ->
-					    ?hdrt("denied", [{reason, Reason}]),
 					    {proceed,
 					     [{status, {403,
-						       Info#mod.request_uri,
-						       Reason}}|
+							Info#mod.request_uri,
+							Reason}}|
 					      Info#mod.data]}
 				    end;
 				{not_allowed, Reason} ->
-				    ?hdrt("not allowed", [{reason, Reason}]),
 				    {proceed,[{status,{403,
 						       Info#mod.request_uri,
 						       Reason}} |
@@ -113,19 +103,14 @@ do(Info) ->
 	    end
     end.
 
-
-do_auth(Info, Directory, DirectoryData, AuthType) ->
+do_auth(Info, Directory, DirectoryData, _AuthType) ->
     %% Authenticate (require)
-    ?hdrt("authenticate", [{auth_type, AuthType}]),
     case require(Info, Directory, DirectoryData) of
 	authorized ->
-	    ?hdrt("authorized", []),
 	    {proceed,Info#mod.data};
 	{authorized, User} ->
-	    ?hdrt("authorized", [{user, User}]),
 	    {proceed, [{remote_user,User}|Info#mod.data]};
 	{authorization_required, Realm} ->
-	    ?hdrt("authorization required", [{realm, Realm}]),
 	    ReasonPhrase = httpd_util:reason_phrase(401),
 	    Message = httpd_util:message(401,none,Info#mod.config_db),
 	    {proceed,
@@ -486,8 +471,6 @@ check_filename_present(Dir,AuthFile,DirData) ->
 
 store({directory, {Directory, DirData}}, ConfigList) 
   when is_list(Directory) andalso is_list(DirData) ->
-    ?hdrt("store", 
-	  [{directory, Directory}, {dir_data, DirData}]),
     try directory_config_check(Directory, DirData) of
 	ok ->
 	    store_directory(Directory, DirData, ConfigList) 
@@ -498,9 +481,168 @@ store({directory, {Directory, DirData}}, ConfigList)
 store({directory, {Directory, DirData}}, _) ->
     {error, {wrong_type, {directory, {Directory, DirData}}}}.
 
+remove(ConfigDB) ->
+    lists:foreach(fun({directory, {_Dir, DirData}}) -> 
+			  AuthMod = auth_mod_name(DirData),
+			  (catch apply(AuthMod, remove, [DirData]))
+		  end,
+		  ets:match_object(ConfigDB,{directory,{'_','_'}})),
+
+    Addr = httpd_util:lookup(ConfigDB, bind_address, undefined),
+    Port = httpd_util:lookup(ConfigDB, port),
+    Profile = httpd_util:lookup(ConfigDB, profile, ?DEFAULT_PROFILE),
+    mod_auth_server:stop(Addr, Port, Profile),
+    ok.
+%% --------------------------------------------------------------------
+add_user(UserName, Opt) ->
+    case get_options(Opt, mandatory) of
+	{Addr, Port, Dir, AuthPwd}->
+	    case get_options(Opt, userData) of
+		{error, Reason}->
+		    {error, Reason};
+		{UserData, Password}->
+		    User = [#httpd_user{username  = UserName, 
+					password  = Password,
+					user_data = UserData}],
+		    mod_auth_server:add_user(Addr, Port, Dir, User, AuthPwd)
+	    end
+    end.
+
+
+add_user(UserName, Password, UserData, Port, Dir) ->
+    add_user(UserName, Password, UserData, undefined, Port, Dir).
+add_user(UserName, Password, UserData, Addr, Port, Dir) ->
+    User = [#httpd_user{username  = UserName, 
+			password  = Password,
+			user_data = UserData}],
+    mod_auth_server:add_user(Addr, Port, Dir, User, ?NOPASSWORD).
+
+get_user(UserName, Opt) ->
+    case get_options(Opt, mandatory) of
+	{Addr, Port, Dir, AuthPwd} ->
+	    mod_auth_server:get_user(Addr, Port, Dir, UserName, AuthPwd);
+	{error, Reason} ->
+	    {error, Reason}
+    end.
+
+get_user(UserName, Port, Dir) ->
+    get_user(UserName, undefined, Port, Dir).
+get_user(UserName, Addr, Port, Dir) ->
+    mod_auth_server:get_user(Addr, Port, Dir, UserName, ?NOPASSWORD).
+
+
+add_group_member(GroupName, UserName, Opt)->
+    case get_options(Opt, mandatory) of
+	{Addr, Port, Dir, AuthPwd}->
+	    mod_auth_server:add_group_member(Addr, Port, Dir, 
+					     GroupName, UserName, AuthPwd);
+	{error, Reason} ->
+	    {error, Reason}
+    end.
+
+add_group_member(GroupName, UserName, Port, Dir) ->
+    add_group_member(GroupName, UserName, undefined, Port, Dir).
+
+add_group_member(GroupName, UserName, Addr, Port, Dir) ->
+    mod_auth_server:add_group_member(Addr, Port, Dir, 
+				     GroupName, UserName, ?NOPASSWORD).
+
+delete_group_member(GroupName, UserName, Opt) ->
+    case get_options(Opt, mandatory) of
+	{Addr, Port, Dir, AuthPwd} ->
+	    mod_auth_server:delete_group_member(Addr, Port, Dir, 
+						GroupName, UserName, AuthPwd);
+	{error, Reason} ->
+	    {error, Reason}
+    end.
+
+delete_group_member(GroupName, UserName, Port, Dir) ->
+    delete_group_member(GroupName, UserName, undefined, Port, Dir).
+delete_group_member(GroupName, UserName, Addr, Port, Dir) ->
+    mod_auth_server:delete_group_member(Addr, Port, Dir, 
+					GroupName, UserName, ?NOPASSWORD).
+list_users(Opt) ->
+    case get_options(Opt, mandatory) of
+	{Addr, Port, Dir, AuthPwd} ->
+	    mod_auth_server:list_users(Addr, Port, Dir, AuthPwd);
+	{error, Reason} ->
+	    {error, Reason}
+    end.
+
+list_users(Port, Dir) ->
+    list_users(undefined, Port, Dir).
+list_users(Addr, Port, Dir) ->
+    mod_auth_server:list_users(Addr, Port, Dir, ?NOPASSWORD).
+
+delete_user(UserName, Opt) ->
+    case get_options(Opt, mandatory) of
+	{Addr, Port, Dir, AuthPwd} ->
+	    mod_auth_server:delete_user(Addr, Port, Dir, UserName, AuthPwd);
+	{error, Reason} ->
+	    {error, Reason}
+    end.
+
+delete_user(UserName, Port, Dir) ->
+    delete_user(UserName, undefined, Port, Dir).
+delete_user(UserName, Addr, Port, Dir) ->
+    mod_auth_server:delete_user(Addr, Port, Dir, UserName, ?NOPASSWORD).
+	  
+delete_group(GroupName, Opt) ->
+    case get_options(Opt, mandatory) of
+	{Addr, Port, Dir, AuthPwd} ->
+	    mod_auth_server:delete_group(Addr, Port, Dir, GroupName, AuthPwd);
+	{error, Reason} ->
+	    {error, Reason}
+    end.
+
+delete_group(GroupName, Port, Dir) ->
+    delete_group(GroupName, undefined, Port, Dir).
+delete_group(GroupName, Addr, Port, Dir) ->
+    mod_auth_server:delete_group(Addr, Port, Dir, GroupName, ?NOPASSWORD).
+
+list_groups(Opt) ->
+    case get_options(Opt, mandatory) of
+	{Addr, Port, Dir, AuthPwd} ->
+	    mod_auth_server:list_groups(Addr, Port, Dir, AuthPwd);
+	{error, Reason} ->
+	    {error, Reason}
+    end.
+
+list_groups(Port, Dir) ->
+    list_groups(undefined, Port, Dir).
+list_groups(Addr, Port, Dir) ->
+    mod_auth_server:list_groups(Addr, Port, Dir, ?NOPASSWORD).
+
+list_group_members(GroupName, Opt) ->
+    case get_options(Opt, mandatory) of
+	{Addr, Port, Dir, AuthPwd} ->
+	    mod_auth_server:list_group_members(Addr, Port, Dir, GroupName, 
+					       AuthPwd);
+	{error, Reason} ->
+	    {error, Reason}
+    end.
+
+list_group_members(GroupName, Port, Dir) ->
+    list_group_members(GroupName, undefined, Port, Dir).
+list_group_members(GroupName, Addr, Port, Dir) ->
+    mod_auth_server:list_group_members(Addr, Port, Dir, 
+				       GroupName, ?NOPASSWORD).
+
+update_password(Port, Dir, Old, New, New)->
+    update_password(undefined, Port, Dir, Old, New, New).
+
+update_password(Addr, Port, Dir, Old, New, New) when is_list(New) ->
+    mod_auth_server:update_password(Addr, Port, Dir, Old, New);
+
+update_password(_Addr, _Port, _Dir, _Old, _New, _New) ->
+    {error, badtype};
+update_password(_Addr, _Port, _Dir, _Old, _New, _New1) ->
+    {error, notqeual}.
+
+%%--------------------------------------------------------------------
+%%% Internal functions
+%%--------------------------------------------------------------------
 store_directory(Directory0, DirData0, ConfigList) ->
-    ?hdrt("store directory - entry", 
-	  [{directory, Directory0}, {dir_data, DirData0}]),
     Port = proplists:get_value(port, ConfigList),
     DirData = case proplists:get_value(bind_address, ConfigList) of
 		  undefined ->
@@ -522,9 +664,7 @@ store_directory(Directory0, DirData0, ConfigList) ->
 	    dets ->   mod_auth_dets;
 	    plain ->  mod_auth_plain;
 	    _ ->      no_module_at_all
-	end,
-    ?hdrt("store directory", 
-	  [{directory, Directory}, {dir_data, DirData}, {auth_mod, AuthMod}]),
+	end,  
     case AuthMod of
 	no_module_at_all ->
 	    {ok, {directory, {Directory, DirData}}};
@@ -560,204 +700,10 @@ store_directory(Directory0, DirData0, ConfigList) ->
 add_auth_password(Dir, Pwd0, ConfigList) ->    
     Addr = proplists:get_value(bind_address, ConfigList),
     Port = proplists:get_value(port, ConfigList),
-    mod_auth_server:start(Addr, Port),
+    Profile = proplists:get_value(profile, ConfigList, ?DEFAULT_PROFILE),
+    mod_auth_server:start(Addr, Port, Profile),
     mod_auth_server:add_password(Addr, Port, Dir, Pwd0).
     
-%% remove
-
-
-remove(ConfigDB) ->
-    lists:foreach(fun({directory, {_Dir, DirData}}) -> 
-			  AuthMod = auth_mod_name(DirData),
-			  (catch apply(AuthMod, remove, [DirData]))
-		  end,
-		  ets:match_object(ConfigDB,{directory,{'_','_'}})),
-    Addr = case lookup(ConfigDB, bind_address) of
-	       [] -> 
-		   undefined;
-	       [{bind_address, Address}] ->
-		   Address
-	   end,
-    [{port, Port}] = lookup(ConfigDB, port),
-    mod_auth_server:stop(Addr, Port),
-    ok.
-
-%% --------------------------------------------------------------------
-
-%% update_password
-
-update_password(Port, Dir, Old, New, New)->
-    update_password(undefined, Port, Dir, Old, New, New).
-
-update_password(Addr, Port, Dir, Old, New, New) when is_list(New) ->
-    mod_auth_server:update_password(Addr, Port, Dir, Old, New);
-
-update_password(_Addr, _Port, _Dir, _Old, _New, _New) ->
-    {error, badtype};
-update_password(_Addr, _Port, _Dir, _Old, _New, _New1) ->
-    {error, notqeual}.
-
-
-%% add_user
-
-add_user(UserName, Opt) ->
-    case get_options(Opt, mandatory) of
-	{Addr, Port, Dir, AuthPwd}->
-	    case get_options(Opt, userData) of
-		{error, Reason}->
-		    {error, Reason};
-		{UserData, Password}->
-		    User = [#httpd_user{username  = UserName, 
-					password  = Password,
-					user_data = UserData}],
-		    mod_auth_server:add_user(Addr, Port, Dir, User, AuthPwd)
-	    end
-    end.
-
-
-add_user(UserName, Password, UserData, Port, Dir) ->
-    add_user(UserName, Password, UserData, undefined, Port, Dir).
-add_user(UserName, Password, UserData, Addr, Port, Dir) ->
-    User = [#httpd_user{username  = UserName, 
-			password  = Password,
-			user_data = UserData}],
-    mod_auth_server:add_user(Addr, Port, Dir, User, ?NOPASSWORD).
-
-
-%% get_user
-
-get_user(UserName, Opt) ->
-    case get_options(Opt, mandatory) of
-	{Addr, Port, Dir, AuthPwd} ->
-	    mod_auth_server:get_user(Addr, Port, Dir, UserName, AuthPwd);
-	{error, Reason} ->
-	    {error, Reason}
-    end.
-
-get_user(UserName, Port, Dir) ->
-    get_user(UserName, undefined, Port, Dir).
-get_user(UserName, Addr, Port, Dir) ->
-    mod_auth_server:get_user(Addr, Port, Dir, UserName, ?NOPASSWORD).
-
-
-%% add_group_member
-
-add_group_member(GroupName, UserName, Opt)->
-    case get_options(Opt, mandatory) of
-	{Addr, Port, Dir, AuthPwd}->
-	    mod_auth_server:add_group_member(Addr, Port, Dir, 
-					     GroupName, UserName, AuthPwd);
-	{error, Reason} ->
-	    {error, Reason}
-    end.
-
-add_group_member(GroupName, UserName, Port, Dir) ->
-    add_group_member(GroupName, UserName, undefined, Port, Dir).
-
-add_group_member(GroupName, UserName, Addr, Port, Dir) ->
-    mod_auth_server:add_group_member(Addr, Port, Dir, 
-				     GroupName, UserName, ?NOPASSWORD).
-
-
-%% delete_group_member
-
-delete_group_member(GroupName, UserName, Opt) ->
-    case get_options(Opt, mandatory) of
-	{Addr, Port, Dir, AuthPwd} ->
-	    mod_auth_server:delete_group_member(Addr, Port, Dir, 
-						GroupName, UserName, AuthPwd);
-	{error, Reason} ->
-	    {error, Reason}
-    end.
-
-delete_group_member(GroupName, UserName, Port, Dir) ->
-    delete_group_member(GroupName, UserName, undefined, Port, Dir).
-delete_group_member(GroupName, UserName, Addr, Port, Dir) ->
-    mod_auth_server:delete_group_member(Addr, Port, Dir, 
-					GroupName, UserName, ?NOPASSWORD).
-
-
-%% list_users
-
-list_users(Opt) ->
-    case get_options(Opt, mandatory) of
-	{Addr, Port, Dir, AuthPwd} ->
-	    mod_auth_server:list_users(Addr, Port, Dir, AuthPwd);
-	{error, Reason} ->
-	    {error, Reason}
-    end.
-
-list_users(Port, Dir) ->
-    list_users(undefined, Port, Dir).
-list_users(Addr, Port, Dir) ->
-    mod_auth_server:list_users(Addr, Port, Dir, ?NOPASSWORD).
-
-    
-%% delete_user
-
-delete_user(UserName, Opt) ->
-    case get_options(Opt, mandatory) of
-	{Addr, Port, Dir, AuthPwd} ->
-	    mod_auth_server:delete_user(Addr, Port, Dir, UserName, AuthPwd);
-	{error, Reason} ->
-	    {error, Reason}
-    end.
-
-delete_user(UserName, Port, Dir) ->
-    delete_user(UserName, undefined, Port, Dir).
-delete_user(UserName, Addr, Port, Dir) ->
-    mod_auth_server:delete_user(Addr, Port, Dir, UserName, ?NOPASSWORD).
-	  
-
-%% delete_group
-
-delete_group(GroupName, Opt) ->
-    case get_options(Opt, mandatory) of
-	{Addr, Port, Dir, AuthPwd} ->
-	    mod_auth_server:delete_group(Addr, Port, Dir, GroupName, AuthPwd);
-	{error, Reason} ->
-	    {error, Reason}
-    end.
-
-delete_group(GroupName, Port, Dir) ->
-    delete_group(GroupName, undefined, Port, Dir).
-delete_group(GroupName, Addr, Port, Dir) ->
-    mod_auth_server:delete_group(Addr, Port, Dir, GroupName, ?NOPASSWORD).
-
-
-%% list_groups
-
-list_groups(Opt) ->
-    case get_options(Opt, mandatory) of
-	{Addr, Port, Dir, AuthPwd} ->
-	    mod_auth_server:list_groups(Addr, Port, Dir, AuthPwd);
-	{error, Reason} ->
-	    {error, Reason}
-    end.
-
-list_groups(Port, Dir) ->
-    list_groups(undefined, Port, Dir).
-list_groups(Addr, Port, Dir) ->
-    mod_auth_server:list_groups(Addr, Port, Dir, ?NOPASSWORD).
-
-
-%% list_group_members
-
-list_group_members(GroupName, Opt) ->
-    case get_options(Opt, mandatory) of
-	{Addr, Port, Dir, AuthPwd} ->
-	    mod_auth_server:list_group_members(Addr, Port, Dir, GroupName, 
-					       AuthPwd);
-	{error, Reason} ->
-	    {error, Reason}
-    end.
-
-list_group_members(GroupName, Port, Dir) ->
-    list_group_members(GroupName, undefined, Port, Dir).
-list_group_members(GroupName, Addr, Port, Dir) ->
-    mod_auth_server:list_group_members(Addr, Port, Dir, 
-				       GroupName, ?NOPASSWORD).
-
 %% Opt = [{port, Port},
 %%        {addr, Addr},
 %%        {dir,  Dir},
@@ -792,7 +738,3 @@ get_options(Opt, userData)->
 		    {UserData, Pwd}
 	    end
     end.
-
-
-lookup(Db, Key) ->
-    ets:lookup(Db, Key).

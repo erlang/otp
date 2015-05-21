@@ -25,7 +25,7 @@
 
 %% Application internal API
 -export([load/1, load/2, load_mime_types/1, store/1, store/2,
-	 remove/1, remove_all/1, get_config/2, get_config/3,
+	 remove/1, remove_all/1, get_config/3, get_config/4,
 	 lookup_socket_type/1, 
 	 lookup/2, lookup/3, lookup/4, 
 	 validate_properties/1]).
@@ -757,8 +757,9 @@ store(ConfigList0) ->
 	    ?hdrt("store", [{modules, Modules}]),
 	    Port = proplists:get_value(port, ConfigList0),
 	    Addr = proplists:get_value(bind_address, ConfigList0, any),
+	    Profile = proplists:get_value(profile, ConfigList0, default),
 	    ConfigList = fix_mime_types(ConfigList0),
-	    Name = httpd_util:make_name("httpd_conf", Addr, Port),
+	    Name = httpd_util:make_name("httpd_conf", Addr, Port, Profile),
 	    ConfigDB = ets:new(Name, [named_table, bag, protected]),
 	    store(ConfigDB, ConfigList, 
 		  lists:append(Modules, [?MODULE]), 
@@ -909,15 +910,15 @@ remove(ConfigDB) ->
 %%     end.
 
 
-get_config(Address, Port) ->    
-    Tab = httpd_util:make_name("httpd_conf", Address, Port),
+get_config(Address, Port, Profile) ->    
+    Tab = httpd_util:make_name("httpd_conf", Address, Port, Profile),
     Properties =  ets:tab2list(Tab),
     MimeTab = proplists:get_value(mime_types, Properties),
     NewProperties = proplists:delete(mime_types, Properties),
     [{mime_types, ets:tab2list(MimeTab)} | NewProperties].
      
-get_config(Address, Port, Properties) ->    
-    Tab = httpd_util:make_name("httpd_conf", Address, Port),
+get_config(Address, Port, Profile, Properties) ->    
+    Tab = httpd_util:make_name("httpd_conf", Address, Port, Profile),
     Config = 
 	lists:map(fun(Prop) -> {Prop, httpd_util:lookup(Tab, Prop)} end,
 		  Properties),

@@ -292,7 +292,7 @@ httpd_restart(Addr, Port) ->
     end.
     
 make_name(Addr, Port) ->
-    httpd_util:make_name("httpd", Addr, Port).
+    httpd_util:make_name("httpd", Addr, Port, default).
 
 get_admin_state(_, _Host, Port) ->
     Name = make_name(undefined, Port),

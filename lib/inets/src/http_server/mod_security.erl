@@ -32,14 +32,12 @@
 
 -include("httpd.hrl").
 -include("httpd_internal.hrl").
--include("inets_internal.hrl").
 
 -define(VMODULE,"SEC").
 
 
 %% do/1
 do(Info) ->
-    ?hdrt("do", [{info, Info}]),
     %% Check and see if any user has been authorized.
     case proplists:get_value(remote_user, Info#mod.data,not_defined_user) of
 	not_defined_user ->
@@ -84,151 +82,66 @@ do(Info) ->
 	    {_Dir, SDirData} = secretp(Path, Info#mod.config_db),
 	    Addr = httpd_util:lookup(Info#mod.config_db, bind_address),
 	    Port = httpd_util:lookup(Info#mod.config_db, port),
+	    Profile = httpd_util:lookup(Info#mod.config_db, profile, ?DEFAULT_PROFILE),
 	    case mod_security_server:check_blocked_user(Info, User, 
 							SDirData, 
-							Addr, Port) of
+							Addr, Port, Profile) of
 		true ->
 		    report_failed(Info, User ,"User Blocked"),
 		    {proceed, [{status, {403, Info#mod.request_uri, ""}} |
 			       Info#mod.data]};
 		false ->
 		    report_failed(Info, User,"Authentication Succedded"),
-		    mod_security_server:store_successful_auth(Addr, Port, 
+		    mod_security_server:store_successful_auth(Addr, Port, Profile, 
 							      User, 
 							      SDirData),
 		    {proceed, Info#mod.data}
 	    end
     end.
 
-report_failed(Info, Auth, Event) ->
-    Request = Info#mod.request_line,
-    {_PortNumber,RemoteHost}=(Info#mod.init_data)#init_data.peername,
-    String = RemoteHost ++ " : " ++ Event ++ " : " ++ Request ++ 
-	" : " ++ Auth,
-    mod_disk_log:security_log(Info,String),
-    mod_log:security_log(Info, String).
-
-take_failed_action(Info, Auth) ->
-    ?hdrd("take failed action", [{auth, Auth}]),
-    Path = mod_alias:path(Info#mod.data, Info#mod.config_db, 
-			  Info#mod.request_uri),
-    {_Dir, SDirData} = secretp(Path, Info#mod.config_db),
-    Addr = httpd_util:lookup(Info#mod.config_db, bind_address),
-    Port = httpd_util:lookup(Info#mod.config_db, port),
-    mod_security_server:store_failed_auth(Info, Addr, Port, 
-					  Auth, SDirData).
-
-secretp(Path, ConfigDB) ->
-    Directories = ets:match(ConfigDB,{directory,{'$1','_'}}),
-    case secret_path(Path, Directories) of
-	{yes, Directory} ->
-	    ?hdrd("secretp - yes", [{dir, Directory}]),
-	    SDirs0 = httpd_util:multi_lookup(ConfigDB, security_directory),
-	    [SDir] = lists:filter(fun({Directory0, _}) 
-				     when Directory0 == Directory ->
-					  true;
-				     (_) ->
-					  false
-				  end, SDirs0),
-	    SDir;
-	no ->
-	    {[], []}
-    end.
-
-secret_path(Path,Directories) ->
-    secret_path(Path, httpd_util:uniq(lists:sort(Directories)), to_be_found).
-
-secret_path(_Path, [], to_be_found) ->
-    no;
-secret_path(_Path, [], Dir) ->
-    {yes, Dir};
-secret_path(Path, [[NewDir]|Rest], Dir) ->
-    case inets_regexp:match(Path, NewDir) of
-	{match, _, _} when Dir =:= to_be_found ->
-	    secret_path(Path, Rest, NewDir);
-	{match, _, Length} when Length > length(Dir) ->
-	    secret_path(Path, Rest, NewDir);
-	{match, _, _} ->
-	    secret_path(Path, Rest, Dir);
-	nomatch ->
-	    secret_path(Path, Rest, Dir)
-    end.
-
-
 load("<Directory " ++ Directory, []) ->
-    ?hdrt("load security directory - begin", [{directory, Directory}]),
     Dir = httpd_conf:custom_clean(Directory,"",">"),
     {ok, [{security_directory, {Dir, [{path, Dir}]}}]};
 load(eof,[{security_directory, {Directory, _DirData}}|_]) ->
     {error, ?NICE("Premature end-of-file in "++Directory)};
 load("SecurityDataFile " ++ FileName, 
      [{security_directory, {Dir, DirData}}]) ->
-    ?hdrt("load security directory", 
-	  [{file, FileName}, {dir, Dir}, {dir_data, DirData}]),
     File = httpd_conf:clean(FileName),
     {ok, [{security_directory, {Dir, [{data_file, File}|DirData]}}]};
 load("SecurityCallbackModule " ++ ModuleName,
      [{security_directory, {Dir, DirData}}]) ->
-    ?hdrt("load security directory", 
-	  [{module, ModuleName}, {dir, Dir}, {dir_data, DirData}]),
     Mod = list_to_atom(httpd_conf:clean(ModuleName)),
     {ok, [{security_directory, {Dir, [{callback_module, Mod}|DirData]}}]};
 load("SecurityMaxRetries " ++ Retries,
      [{security_directory, {Dir, DirData}}]) ->
-    ?hdrt("load security directory", 
-	  [{max_retries, Retries}, {dir, Dir}, {dir_data, DirData}]),
     load_return_int_tag("SecurityMaxRetries", max_retries, 
 			httpd_conf:clean(Retries), Dir, DirData);
 load("SecurityBlockTime " ++ Time,
       [{security_directory, {Dir, DirData}}]) ->
-    ?hdrt("load security directory", 
-	  [{block_time, Time}, {dir, Dir}, {dir_data, DirData}]),
     load_return_int_tag("SecurityBlockTime", block_time,
 			httpd_conf:clean(Time), Dir, DirData);
 load("SecurityFailExpireTime " ++ Time,
      [{security_directory, {Dir, DirData}}]) ->
-    ?hdrt("load security directory", 
-	  [{expire_time, Time}, {dir, Dir}, {dir_data, DirData}]),
     load_return_int_tag("SecurityFailExpireTime", fail_expire_time,
 			httpd_conf:clean(Time), Dir, DirData);
 load("SecurityAuthTimeout " ++ Time0,
      [{security_directory, {Dir, DirData}}]) ->
-    ?hdrt("load security directory", 
-	  [{auth_timeout, Time0}, {dir, Dir}, {dir_data, DirData}]),
     Time = httpd_conf:clean(Time0),
     load_return_int_tag("SecurityAuthTimeout", auth_timeout,
 			httpd_conf:clean(Time), Dir, DirData);
 load("AuthName " ++ Name0,
      [{security_directory, {Dir, DirData}}]) ->
-    ?hdrt("load security directory", 
-	  [{name, Name0}, {dir, Dir}, {dir_data, DirData}]),
     Name = httpd_conf:clean(Name0),
     {ok, [{security_directory, {Dir, [{auth_name, Name}|DirData]}}]};
 load("</Directory>",[{security_directory, {Dir, DirData}}]) ->
-    ?hdrt("load security directory - end", 
-	  [{dir, Dir}, {dir_data, DirData}]),
     {ok, [], {security_directory, {Dir, DirData}}}.
-
-load_return_int_tag(Name, Atom, Time, Dir, DirData) ->
-    case Time of
-	"infinity" ->
-	    {ok, [{security_directory, {Dir, 
-		   [{Atom, 99999999999999999999999999999} | DirData]}}]};
-	_Int ->
-	    case catch list_to_integer(Time) of
-		{'EXIT', _} ->
-		    {error, Time++" is an invalid "++Name};
-		Val ->
-		    {ok, [{security_directory, {Dir, [{Atom, Val}|DirData]}}]}
-	    end
-    end.
 
 store({security_directory, {Dir, DirData}}, ConfigList) 
   when is_list(Dir) andalso is_list(DirData) ->
-    ?hdrt("store security directory", [{dir, Dir}, {dir_data, DirData}]),
     Addr = proplists:get_value(bind_address, ConfigList),
     Port = proplists:get_value(port, ConfigList),
-    mod_security_server:start(Addr, Port),
+    Profile = proplists:get_value(profile, ConfigList, ?DEFAULT_PROFILE),
+    mod_security_server:start(Addr, Port, Profile),
     SR = proplists:get_value(server_root, ConfigList),
     case proplists:get_value(data_file, DirData, no_data_file) of
 	no_data_file ->
@@ -241,7 +154,7 @@ store({security_directory, {Dir, DirData}}, ConfigList)
 		    _ ->
 			DataFile0
 		end,
-	    case mod_security_server:new_table(Addr, Port, DataFile) of
+	    case mod_security_server:new_table(Addr, Port, Profile, DataFile) of
 		{ok, TwoTables} ->
 		    NewDirData0 = lists:keyreplace(data_file, 1, DirData, 
 						   {data_file, TwoTables}),
@@ -261,15 +174,11 @@ store({directory, {Directory, DirData}}, _) ->
     {error, {wrong_type, {security_directory, {Directory, DirData}}}}.
 
 remove(ConfigDB) ->
-    Addr = case ets:lookup(ConfigDB, bind_address) of
-	       [] -> 
-		   undefined;
-	       [{bind_address, Address}] ->
-		   Address
-	   end,
-    [{port, Port}] = ets:lookup(ConfigDB, port),
-    mod_security_server:delete_tables(Addr, Port),
-    mod_security_server:stop(Addr, Port).
+    Addr = httpd_util:lookup(ConfigDB, bind_address, undefined),
+    Port = httpd_util:lookup(ConfigDB, port),
+    Profile = httpd_util:lookup(ConfigDB, profile, ?DEFAULT_PROFILE),
+    mod_security_server:delete_tables(Addr, Port, Profile),
+    mod_security_server:stop(Addr, Port, Profile).
     
 
 %%
@@ -284,10 +193,16 @@ list_blocked_users(Port) ->
 list_blocked_users(Port, Dir) when is_integer(Port) ->
     list_blocked_users(undefined,Port,Dir);
 list_blocked_users(Addr, Port) when is_integer(Port) ->
-    mod_security_server:list_blocked_users(Addr, Port).
+    lists:map(fun({User, Addr0, Port0, ?DEFAULT_PROFILE, Dir0, Time}) ->
+		      {User, Addr0, Port0, Dir0,Time}
+	      end,
+	      mod_security_server:list_blocked_users(Addr, Port)).
 
 list_blocked_users(Addr, Port, Dir) ->
-    mod_security_server:list_blocked_users(Addr, Port, Dir).
+    lists:map(fun({User, Addr0, Port0, ?DEFAULT_PROFILE, Dir0, Time}) ->
+		      {User, Addr0, Port0, Dir0,Time}
+	      end,
+	      mod_security_server:list_blocked_users(Addr, Port, Dir)).
 
 
 %% block_user
@@ -324,3 +239,79 @@ list_auth_users(Addr, Port) when is_integer(Port) ->
 
 list_auth_users(Addr, Port, Dir) ->
     mod_security_server:list_auth_users(Addr, Port, Dir).
+
+%%--------------------------------------------------------------------
+%%% Internal functions
+%%--------------------------------------------------------------------
+
+report_failed(Info, Auth, Event) ->
+    Request = Info#mod.request_line,
+    {_PortNumber,RemoteHost}=(Info#mod.init_data)#init_data.peername,
+    String = RemoteHost ++ " : " ++ Event ++ " : " ++ Request ++ 
+	" : " ++ Auth,
+    mod_disk_log:security_log(Info,String),
+    mod_log:security_log(Info, String).
+
+take_failed_action(Info, Auth) ->
+    Path = mod_alias:path(Info#mod.data, Info#mod.config_db, 
+			  Info#mod.request_uri),
+    {_Dir, SDirData} = secretp(Path, Info#mod.config_db),
+    Addr = httpd_util:lookup(Info#mod.config_db, bind_address),
+    Port = httpd_util:lookup(Info#mod.config_db, port),
+    Profile = httpd_util:lookup(Info#mod.config_db, profile, ?DEFAULT_PROFILE),
+    mod_security_server:store_failed_auth(Info, Addr, Port, Profile, 
+					  Auth, SDirData).
+
+secretp(Path, ConfigDB) ->
+    Directories = ets:match(ConfigDB,{directory,{'$1','_'}}),
+    case secret_path(Path, Directories) of
+	{yes, Directory} ->
+	    SDirs0 = httpd_util:multi_lookup(ConfigDB, security_directory),
+	    [SDir] = lists:filter(fun({Directory0, _}) 
+				     when Directory0 == Directory ->
+					  true;
+				     (_) ->
+					  false
+				  end, SDirs0),
+	    SDir;
+	no ->
+	    {[], []}
+    end.
+
+secret_path(Path,Directories) ->
+    secret_path(Path, httpd_util:uniq(lists:sort(Directories)), to_be_found).
+
+secret_path(_Path, [], to_be_found) ->
+    no;
+secret_path(_Path, [], Dir) ->
+    {yes, Dir};
+secret_path(Path, [[NewDir]|Rest], Dir) ->
+    case inets_regexp:match(Path, NewDir) of
+	{match, _, _} when Dir =:= to_be_found ->
+	    secret_path(Path, Rest, NewDir);
+	{match, _, Length} when Length > length(Dir) ->
+	    secret_path(Path, Rest, NewDir);
+	{match, _, _} ->
+	    secret_path(Path, Rest, Dir);
+	nomatch ->
+	    secret_path(Path, Rest, Dir)
+    end.
+
+
+
+load_return_int_tag(Name, Atom, Time, Dir, DirData) ->
+    case Time of
+	"infinity" ->
+	    {ok, [{security_directory, {Dir, 
+		   [{Atom, 99999999999999999999999999999} | DirData]}}]};
+	_Int ->
+	    case catch list_to_integer(Time) of
+		{'EXIT', _} ->
+		    {error, Time++" is an invalid "++Name};
+		Val ->
+		    {ok, [{security_directory, {Dir, [{Atom, Val}|DirData]}}]}
+	    end
+    end.
+
+
+

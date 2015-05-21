@@ -28,7 +28,7 @@
 
 %% Internal application API
 -export([start_link/1, start_link/2]).
--export([start_child/1, restart_child/2, stop_child/2]).
+-export([start_child/1, restart_child/3, stop_child/3]).
 
 %% Supervisor callback
 -export([init/1]).
@@ -64,26 +64,26 @@ start_child(Config) ->
     end.
     
 
-restart_child(Address, Port) ->
-    Name = id(Address, Port),
+restart_child(Address, Port, Profile) ->
+    Name = id(Address, Port, Profile),
     case supervisor:terminate_child(?MODULE, Name) of
-        ok ->
-            supervisor:restart_child(?MODULE, Name);
-        Error ->
+	ok ->
+             supervisor:restart_child(?MODULE, Name);
+	Error ->
+             Error
+     end.
+
+stop_child(Address, Port, Profile) ->
+    Name = id(Address, Port, Profile),
+    case supervisor:terminate_child(?MODULE, Name) of
+         ok ->
+	    supervisor:delete_child(?MODULE, Name);
+         Error ->
             Error
     end.
-    
-stop_child(Address, Port) ->
-    Name = id(Address, Port),
-    case supervisor:terminate_child(?MODULE, Name) of
-        ok ->
-            supervisor:delete_child(?MODULE, Name);
-        Error ->
-            Error
-    end.
-    
-id(Address, Port) ->
-    {httpd_instance_sup, Address, Port}.
+
+id(Address, Port, Profile) ->
+    {httpd_instance_sup, Address, Port, Profile}.
 
 
 %%%=========================================================================
@@ -166,7 +166,8 @@ httpd_child_spec([Value| _] = Config, AcceptTimeout, Debug)
 				       {debug,          Debug}]),
     Address = proplists:get_value(bind_address, Config, any),
     Port    = proplists:get_value(port, Config, 80),
-    httpd_child_spec(Config, AcceptTimeout, Debug, Address, Port);
+    Profile =  proplists:get_value(profile, Config, ?DEFAULT_PROFILE),
+    httpd_child_spec(Config, AcceptTimeout, Debug, Address, Port, Profile);
 
 %% In this case the AcceptTimeout and Debug will only have default values...
 httpd_child_spec(ConfigFile, AcceptTimeoutDef, DebugDef) ->
@@ -181,13 +182,14 @@ httpd_child_spec(ConfigFile, AcceptTimeoutDef, DebugDef) ->
 		    ?hdrt("httpd_child_spec - validated", [{config, Config}]),
 		    Address = proplists:get_value(bind_address, Config, any), 
 		    Port    = proplists:get_value(port, Config, 80),
+		    Profile = proplists:get_value(profile, Config, ?DEFAULT_PROFILE),
 		    AcceptTimeout = 
 			proplists:get_value(accept_timeout, Config, 
 					    AcceptTimeoutDef),
 		    Debug   = 
 			proplists:get_value(debug, Config, DebugDef),
 		    httpd_child_spec([{file, ConfigFile} | Config], 
-				     AcceptTimeout, Debug, Address, Port);
+				     AcceptTimeout, Debug, Address, Port, Profile);
 		Error ->
 		    Error
 	    end;
@@ -195,19 +197,19 @@ httpd_child_spec(ConfigFile, AcceptTimeoutDef, DebugDef) ->
 	    Error
     end.
 
-httpd_child_spec(Config, AcceptTimeout, Debug, Addr, Port) ->
+httpd_child_spec(Config, AcceptTimeout, Debug, Addr, Port, Profile) ->
     Fd  = proplists:get_value(fd, Config, undefined),
     case Port == 0 orelse Fd =/= undefined of
 	true ->
-	    httpd_child_spec_listen(Config, AcceptTimeout, Debug, Addr, Port);
+	    httpd_child_spec_listen(Config, AcceptTimeout, Debug, Addr, Port, Profile);
 	false ->
-	    httpd_child_spec_nolisten(Config, AcceptTimeout, Debug, Addr, Port)
+	    httpd_child_spec_nolisten(Config, AcceptTimeout, Debug, Addr, Port, Profile)
     end.
 
-httpd_child_spec_listen(Config, AcceptTimeout, Debug, Addr, Port) ->
+httpd_child_spec_listen(Config, AcceptTimeout, Debug, Addr, Port, Profile) ->
     case start_listen(Addr, Port, Config) of
 	{Pid, {NewPort, NewConfig, ListenSocket}} ->
-	    Name      = {httpd_instance_sup, Addr, NewPort},
+	    Name      = {httpd_instance_sup, Addr, NewPort, Profile},
 	    StartFunc = {httpd_instance_sup, start_link,
 			 [NewConfig, AcceptTimeout, 
 			  {Pid, ListenSocket}, Debug]},
@@ -221,8 +223,8 @@ httpd_child_spec_listen(Config, AcceptTimeout, Debug, Addr, Port) ->
 	    {error, Reason}
     end.
 		    
-httpd_child_spec_nolisten(Config, AcceptTimeout, Debug, Addr, Port) ->
-    Name = {httpd_instance_sup, Addr, Port},
+httpd_child_spec_nolisten(Config, AcceptTimeout, Debug, Addr, Port, Profile) ->    
+    Name = {httpd_instance_sup, Addr, Port, Profile},
     StartFunc = {httpd_instance_sup, start_link,
 		 [Config, AcceptTimeout, Debug]},
     Restart = permanent, 

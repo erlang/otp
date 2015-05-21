@@ -27,6 +27,8 @@
 
 -behaviour(supervisor).
 
+-include("httpd_internal.hrl").
+
 %% Internal application API
 -export([start_link/3, start_link/4]).
 
@@ -41,7 +43,8 @@ start_link([{_, _}| _] = Config, AcceptTimeout, Debug)  ->
 	{ok, Config2} ->
 	    Address = proplists:get_value(bind_address, Config2),
 	    Port    = proplists:get_value(port, Config2), 
-	    Name = make_name(Address, Port),
+	    Profile = proplists:get_value(profile, Config2, ?DEFAULT_PROFILE), 
+	    Name = make_name(Address, Port, Profile),
 	    SupName = {local, Name},
 	    supervisor:start_link(SupName, ?MODULE, 
 				  [undefined, Config2, AcceptTimeout,
@@ -54,7 +57,8 @@ start_link([{_, _}| _] = Config, AcceptTimeout, Debug)  ->
 start_link(ConfigFile, AcceptTimeout, Debug) ->
     case file_2_config(ConfigFile) of
 	{ok, ConfigList, Address, Port} ->
-	    Name    = make_name(Address, Port),
+	    Profile = proplists:get_value(profile, ConfigList, ?DEFAULT_PROFILE), 
+	    Name    = make_name(Address, Port, Profile),
 	    SupName = {local, Name},
 	    supervisor:start_link(SupName, ?MODULE, 
 				  [ConfigFile, ConfigList, AcceptTimeout,
@@ -70,7 +74,8 @@ start_link([{_, _}| _] = Config, AcceptTimeout, ListenInfo, Debug) ->
 	{ok, Config2} ->
 	    Address = proplists:get_value(bind_address, Config2),
 	    Port    = proplists:get_value(port, Config2), 
-	    Name = make_name(Address, Port),
+	    Profile = proplists:get_value(profile, Config2, ?DEFAULT_PROFILE), 
+	    Name = make_name(Address, Port, Profile),
 	    SupName = {local, Name},
 	    supervisor:start_link(SupName, ?MODULE, 
 				  [undefined, Config2, AcceptTimeout,
@@ -83,7 +88,8 @@ start_link([{_, _}| _] = Config, AcceptTimeout, ListenInfo, Debug) ->
 start_link(ConfigFile, AcceptTimeout, ListenInfo, Debug) ->
     case file_2_config(ConfigFile) of
 	{ok, ConfigList, Address, Port} ->
-	    Name    = make_name(Address, Port),
+	    Profile = proplists:get_value(profile, ConfigList, ?DEFAULT_PROFILE), 
+	    Name    = make_name(Address, Port, Profile),
 	    SupName = {local, Name},
 	    supervisor:start_link(SupName, ?MODULE, 
 				  [ConfigFile, ConfigList, AcceptTimeout,
@@ -99,22 +105,24 @@ start_link(ConfigFile, AcceptTimeout, ListenInfo, Debug) ->
 %%%=========================================================================
 init([ConfigFile, ConfigList, AcceptTimeout, Debug, Address, Port]) -> 
     httpd_util:enable_debug(Debug), 
+    Profile = proplists:get_value(profile, ConfigList, ?DEFAULT_PROFILE),
     Flags = {one_for_one, 0, 1},
-    Children  = [httpd_connection_sup_spec(Address, Port), 
-		 httpd_acceptor_sup_spec(Address, Port, ConfigList, AcceptTimeout,
+    Children  = [httpd_connection_sup_spec(Address, Port, Profile), 
+		 httpd_acceptor_sup_spec(Address, Port, Profile, ConfigList, AcceptTimeout,
 					 undefined), 
-		 sup_spec(httpd_misc_sup, Address, Port), 
-		 worker_spec(httpd_manager, Address, Port, 
+		 sup_spec(httpd_misc_sup, Address, Port, Profile), 
+		 worker_spec(httpd_manager, Address, Port, Profile, 
 			     ConfigFile, ConfigList,AcceptTimeout)],
     {ok, {Flags, Children}};
 init([ConfigFile, ConfigList, AcceptTimeout, Debug, Address, Port, ListenInfo]) -> 
     httpd_util:enable_debug(Debug), 
+    Profile = proplists:get_value(profile, ConfigList, ?DEFAULT_PROFILE),
     Flags = {one_for_one, 0, 1},
-    Children  = [httpd_connection_sup_spec(Address, Port), 
-		 httpd_acceptor_sup_spec(Address, Port, ConfigList, AcceptTimeout,
-					ListenInfo), 
-		 sup_spec(httpd_misc_sup, Address, Port), 
-		 worker_spec(httpd_manager, Address, Port, ListenInfo, 
+    Children  = [httpd_connection_sup_spec(Address, Port, Profile), 
+		 httpd_acceptor_sup_spec(Address, Port, Profile, ConfigList, AcceptTimeout,
+					 ListenInfo), 
+		 sup_spec(httpd_misc_sup, Address, Port, Profile), 
+		 worker_spec(httpd_manager, Address, Port, Profile, ListenInfo, 
 			     ConfigFile, ConfigList, AcceptTimeout)],
     {ok, {Flags, Children}}.
 
@@ -122,8 +130,8 @@ init([ConfigFile, ConfigList, AcceptTimeout, Debug, Address, Port, ListenInfo]) 
 %%%=========================================================================
 %%%  Internal functions
 %%%=========================================================================
-httpd_connection_sup_spec(Address, Port) -> 
-    Name = {httpd_connection_sup, Address, Port},
+httpd_connection_sup_spec(Address, Port, Profile) -> 
+    Name = {httpd_connection_sup, Address, Port, Profile},
     StartFunc = {httpd_connection_sup, start_link, [[Address, Port]]},
     Restart = permanent,
     Shutdown = 5000,
@@ -131,8 +139,8 @@ httpd_connection_sup_spec(Address, Port) ->
     Type = supervisor,
     {Name, StartFunc, Restart, Shutdown, Type, Modules}.
 
-httpd_acceptor_sup_spec(Address, Port, ConfigList, AcceptTimeout, ListenInfo) ->
-    Name = {httpd_acceptor_sup, Address, Port},
+httpd_acceptor_sup_spec(Address, Port, Profile, ConfigList, AcceptTimeout, ListenInfo) ->
+    Name = {httpd_acceptor_sup, Address, Port, Profile},
     StartFunc = {httpd_acceptor_sup, start_link, [[Address, Port, ConfigList, AcceptTimeout, ListenInfo]]},
     Restart = permanent, 
     Shutdown = infinity,
@@ -140,18 +148,18 @@ httpd_acceptor_sup_spec(Address, Port, ConfigList, AcceptTimeout, ListenInfo) ->
     Type = supervisor,
     {Name, StartFunc, Restart, Shutdown, Type, Modules}.
     
-sup_spec(SupModule, Address, Port) ->
-    Name = {SupModule, Address, Port},
-    StartFunc = {SupModule, start_link, [Address, Port]},
+sup_spec(SupModule, Address, Port, Profile) ->
+    Name = {SupModule, Address, Port, Profile},
+    StartFunc = {SupModule, start_link, [Address, Port, Profile]},
     Restart = permanent, 
     Shutdown = infinity,
     Modules = [SupModule],
     Type = supervisor,
     {Name, StartFunc, Restart, Shutdown, Type, Modules}.
     
-worker_spec(WorkerModule, Address, Port, ConfigFile, 
+worker_spec(WorkerModule, Address, Port, Profile, ConfigFile, 
 	    ConfigList, AcceptTimeout) ->
-    Name = {WorkerModule, Address, Port},
+    Name = {WorkerModule, Address, Port, Profile},
     StartFunc = {WorkerModule, start_link, 
 		 [ConfigFile, ConfigList, AcceptTimeout]}, 
     Restart = permanent, 
@@ -160,9 +168,9 @@ worker_spec(WorkerModule, Address, Port, ConfigFile,
     Type = worker,
     {Name, StartFunc, Restart, Shutdown, Type, Modules}.
 
-worker_spec(WorkerModule, Address, Port, ListenInfo, ConfigFile, 
+worker_spec(WorkerModule, Address, Port, Profile, ListenInfo, ConfigFile, 
 	    ConfigList, AcceptTimeout) ->
-    Name = {WorkerModule, Address, Port},
+    Name = {WorkerModule, Address, Port, Profile},
     StartFunc = {WorkerModule, start_link, 
 		 [ConfigFile, ConfigList, AcceptTimeout, ListenInfo]}, 
     Restart = permanent, 
@@ -171,8 +179,8 @@ worker_spec(WorkerModule, Address, Port, ListenInfo, ConfigFile,
     Type = worker,
     {Name, StartFunc, Restart, Shutdown, Type, Modules}.
 
-make_name(Address,Port) ->
-    httpd_util:make_name("httpd_instance_sup", Address, Port).
+make_name(Address, Port, Profile) ->
+    httpd_util:make_name("httpd_instance_sup", Address, Port, Profile).
 
 
 file_2_config(ConfigFile) ->
