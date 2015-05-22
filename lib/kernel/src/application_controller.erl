@@ -490,7 +490,8 @@ init(Init, Kernel) ->
 	    %% called during start-up of any app.
 	    case check_conf_data(ConfData) of
 		ok ->
-		    _ = ets:new(ac_tab, [set, public, named_table]),
+		    _ = ets:new(ac_tab, [set, public, named_table,
+                                         {read_concurrency,true}]),
 		    S = #state{conf_data = ConfData},
 		    {ok, KAppl} = make_appl(Kernel),
 		    case catch load(S, KAppl) of
