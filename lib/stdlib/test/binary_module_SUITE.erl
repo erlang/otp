@@ -1025,13 +1025,16 @@ random_ref_sr_comp(doc) ->
 random_ref_sr_comp(Config) when is_list(Config) ->
     put(success_counter,0),
     random:seed({1271,769940,559934}),
-    do_random_split_comp(5000,{1,40},{30,1000}),
+    Nr = {1,40},
+    Hr = {30,1000},
+    I1 = 1500,
+    do_random_split_comp(I1,Nr,Hr),
     io:format("Number of successes: ~p~n",[get(success_counter)]),
-    do_random_replace_comp(5000,{1,40},{30,1000}),
+    do_random_replace_comp(I1,Nr,Hr),
     io:format("Number of successes: ~p~n",[get(success_counter)]),
-    do_random_split_comp2(5000,{1,40},{30,1000}),
+    do_random_split_comp2(I1,Nr,Hr),
     io:format("Number of successes: ~p~n",[get(success_counter)]),
-    do_random_replace_comp2(5000,{1,40},{30,1000}),
+    do_random_replace_comp2(I1,Nr,Hr),
     io:format("Number of successes: ~p~n",[get(success_counter)]),
     ok.
 
