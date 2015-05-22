@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2015. All Rights Reserved.
+%% Copyright Ericsson AB 2015-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -16,7 +16,6 @@
 %%
 %% %CopyrightEnd%
 %%
-
 %%
 
 -module(ssl_sni_SUITE).
@@ -31,7 +30,12 @@
 %%--------------------------------------------------------------------
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
-all() -> [no_sni_header, sni_match, sni_no_match] ++ [no_sni_header_fun, sni_match_fun, sni_no_match_fun].
+all() -> [no_sni_header, 
+	  sni_match, 
+	  sni_no_match,
+	  no_sni_header_fun, 
+	  sni_match_fun, 
+	  sni_no_match_fun].
 
 init_per_suite(Config0) ->
     catch crypto:stop(),
@@ -39,11 +43,11 @@ init_per_suite(Config0) ->
         ok ->
             ssl:start(),
             Result =
-            (catch make_certs:all(?config(data_dir, Config0),
-                                  ?config(priv_dir, Config0))),
+		(catch make_certs:all(?config(data_dir, Config0),
+				      ?config(priv_dir, Config0))),
             ct:log("Make certs  ~p~n", [Result]),
             ssl_test_lib:cert_options(Config0)
-        catch _:_  ->
+    catch _:_  ->
             {skip, "Crypto did not start"}
     end.
 
@@ -76,8 +80,6 @@ sni_no_match_fun(Config) ->
 %%--------------------------------------------------------------------
 %% Internal Functions ------------------------------------------------
 %%--------------------------------------------------------------------
-
-
 ssl_recv(SSLSocket, Expect) ->
     ssl_recv(SSLSocket, "", Expect).
 
@@ -93,20 +95,21 @@ ssl_recv(SSLSocket, CurrentData, ExpectedData) ->
             end;
         Other ->
             ct:fail({unexpected_message, Other})
-        after 4000 ->
+    after 4000 ->
             ct:fail({timeout, CurrentData, ExpectedData})
     end.
-
-
 
 send_and_hostname(SSLSocket) ->
     ssl:send(SSLSocket, "OK"),
     {ok, [{sni_hostname, Hostname}]} = ssl:connection_information(SSLSocket, [sni_hostname]),
     Hostname.
 
-rdnPart([[#'AttributeTypeAndValue'{type=Type, value=Value} | _] | _], Type) -> Value;
-rdnPart([_ | Tail], Type) -> rdnPart(Tail, Type);
-rdnPart([], _) -> unknown.
+rdnPart([[#'AttributeTypeAndValue'{type=Type, value=Value} | _] | _], Type) -> 
+    Value;
+rdnPart([_ | Tail], Type) -> 
+    rdnPart(Tail, Type);
+rdnPart([], _) -> 
+    unknown.
 
 rdn_to_string({utf8String, Binary}) ->
     erlang:binary_to_list(Binary);
@@ -116,12 +119,15 @@ rdn_to_string({printableString, String}) ->
 recv_and_certificate(SSLSocket) ->
     ssl_recv(SSLSocket, "OK"),
     {ok, PeerCert} = ssl:peercert(SSLSocket),
-    #'OTPCertificate'{tbsCertificate = #'OTPTBSCertificate'{subject = {rdnSequence, Subject}}} = public_key:pkix_decode_cert(PeerCert, otp),
+    #'OTPCertificate'{tbsCertificate = #'OTPTBSCertificate'{subject = {rdnSequence, Subject}}} 
+	= public_key:pkix_decode_cert(PeerCert, otp),
     ct:log("Subject of certificate received from server: ~p", [Subject]),
     rdn_to_string(rdnPart(Subject, ?'id-at-commonName')).
 
 run_sni_fun_handshake(Config, SNIHostname, ExpectedSNIHostname, ExpectedCN) ->
-    ct:log("Start running handshake for sni_fun, Config: ~p, SNIHostname: ~p, ExpectedSNIHostname: ~p, ExpectedCN: ~p", [Config, SNIHostname, ExpectedSNIHostname, ExpectedCN]),
+    ct:log("Start running handshake for sni_fun, Config: ~p, SNIHostname: ~p, "
+	   "ExpectedSNIHostname: ~p, ExpectedCN: ~p", 
+	   [Config, SNIHostname, ExpectedSNIHostname, ExpectedCN]),
     [{sni_hosts, ServerSNIConf}] = ?config(sni_server_opts, Config),
     SNIFun = fun(Domain) -> proplists:get_value(Domain, ServerSNIConf, undefined) end,
     ServerOptions = ?config(server_opts, Config) ++ [{sni_fun, SNIFun}],
@@ -142,11 +148,14 @@ run_sni_fun_handshake(Config, SNIHostname, ExpectedSNIHostname, ExpectedCN) ->
                                         {host, Hostname}, {from, self()},
                                         {mfa, {?MODULE, recv_and_certificate, []}},
                                         {options, ClientOptions}]),
-    ssl_test_lib:check_result(Server, ExpectedSNIHostname, Client, ExpectedCN).
-
+    ssl_test_lib:check_result(Server, ExpectedSNIHostname, Client, ExpectedCN),
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close(Client).
 
 run_handshake(Config, SNIHostname, ExpectedSNIHostname, ExpectedCN) ->
-    ct:log("Start running handshake, Config: ~p, SNIHostname: ~p, ExpectedSNIHostname: ~p, ExpectedCN: ~p", [Config, SNIHostname, ExpectedSNIHostname, ExpectedCN]),
+    ct:log("Start running handshake, Config: ~p, SNIHostname: ~p, "
+	   "ExpectedSNIHostname: ~p, ExpectedCN: ~p", 
+	   [Config, SNIHostname, ExpectedSNIHostname, ExpectedCN]),
     ServerOptions = ?config(sni_server_opts, Config) ++ ?config(server_opts, Config),
     ClientOptions = 
     case SNIHostname of
@@ -165,4 +174,6 @@ run_handshake(Config, SNIHostname, ExpectedSNIHostname, ExpectedCN) ->
                                         {host, Hostname}, {from, self()},
                                         {mfa, {?MODULE, recv_and_certificate, []}},
                                         {options, ClientOptions}]),
-    ssl_test_lib:check_result(Server, ExpectedSNIHostname, Client, ExpectedCN).
+    ssl_test_lib:check_result(Server, ExpectedSNIHostname, Client, ExpectedCN),
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close(Client).

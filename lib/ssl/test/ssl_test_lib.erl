@@ -949,7 +949,8 @@ der_to_pem(File, Entries) ->
     file:write_file(File, PemBin).
 
 cipher_result(Socket, Result) ->
-    Result = ssl:connection_info(Socket),
+    {ok, Info} = ssl:connection_information(Socket),
+    Result = {ok, {proplists:get_value(protocol, Info), proplists:get_value(cipher_suite, Info)}},
     ct:log("~p:~p~nSuccessfull connect: ~p~n", [?MODULE,?LINE, Result]),
     %% Importante to send two packets here
     %% to properly test "cipher state" handling
