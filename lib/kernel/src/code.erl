@@ -107,7 +107,7 @@ is_module_native(_) ->
 -spec make_stub_module(Module, Beam, Info) -> Module when
       Module :: module(),
       Beam :: binary(),
-      Info :: {list(), list()}.
+      Info :: {list(), list(), binary()}.
 
 make_stub_module(_, _, _) ->
     erlang:nif_error(undef).
