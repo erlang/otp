@@ -1023,17 +1023,18 @@ random_ref_comp(Config) when is_list(Config) ->
 random_ref_sr_comp(doc) ->
     ["Test pseudorandomly generated cases against reference imlementation of split and replace"];
 random_ref_sr_comp(Config) when is_list(Config) ->
-    ?line put(success_counter,0),
-    ?line random:seed({1271,769940,559934}),
-    ?line do_random_split_comp(5000,{1,40},{30,1000}),
+    put(success_counter,0),
+    random:seed({1271,769940,559934}),
+    do_random_split_comp(5000,{1,40},{30,1000}),
     io:format("Number of successes: ~p~n",[get(success_counter)]),
-    ?line do_random_replace_comp(5000,{1,40},{30,1000}),
+    do_random_replace_comp(5000,{1,40},{30,1000}),
     io:format("Number of successes: ~p~n",[get(success_counter)]),
-    ?line do_random_split_comp2(5000,{1,40},{30,1000}),
+    do_random_split_comp2(5000,{1,40},{30,1000}),
     io:format("Number of successes: ~p~n",[get(success_counter)]),
-    ?line do_random_replace_comp2(5000,{1,40},{30,1000}),
+    do_random_replace_comp2(5000,{1,40},{30,1000}),
     io:format("Number of successes: ~p~n",[get(success_counter)]),
     ok.
+
 random_ref_fla_comp(doc) ->
     ["Test pseudorandomly generated cases against reference imlementation of split and replace"];
 random_ref_fla_comp(Config) when is_list(Config) ->
