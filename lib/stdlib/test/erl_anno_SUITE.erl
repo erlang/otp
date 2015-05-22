@@ -89,7 +89,6 @@ is_anno(_Config) ->
     false = erl_anno:is_anno([{generated,true}]),
     false = erl_anno:is_anno([{location,1},{file,nofile}]),
     false = erl_anno:is_anno([{location,1},{text,notext}]),
-    false = erl_anno:is_anno([{location,1},{text,[a,b,c]}]),
 
     true = erl_anno:is_anno(erl_anno:new(1)),
     A0 = erl_anno:new({1, 17}),
