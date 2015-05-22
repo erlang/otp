@@ -2493,7 +2493,7 @@ opt_simple_let_2(Let0, Vs0, Arg0, Body, PrevBody, Ctxt, Sub) ->
 		    Arg1;
 		false ->
 		    %% let <Var> = Arg in <OtherVar>  ==>  seq Arg OtherVar
-		    Arg = maybe_suppress_warnings(Arg1, Vs0, PrevBody, Ctxt),
+		    Arg = maybe_suppress_warnings(Arg1, Vs0, PrevBody),
 		    expr(#c_seq{arg=Arg,body=Body}, Ctxt,
 			 sub_new_preserve_types(Sub))
 	    end;
@@ -2501,7 +2501,7 @@ opt_simple_let_2(Let0, Vs0, Arg0, Body, PrevBody, Ctxt, Sub) ->
 	    %% No variables left.
 	    Body;
 	{Vs,Arg1,#c_literal{}} ->
-	    Arg = maybe_suppress_warnings(Arg1, Vs, PrevBody, Ctxt),
+	    Arg = maybe_suppress_warnings(Arg1, Vs, PrevBody),
 	    E = case Ctxt of
 		    effect ->
 			%% Throw away the literal body.
@@ -2520,7 +2520,7 @@ opt_simple_let_2(Let0, Vs0, Arg0, Body, PrevBody, Ctxt, Sub) ->
 	    %%        seq Arg BodyWithoutVar
 	    case is_any_var_used(Vs, Body) of
 		false ->
-		    Arg = maybe_suppress_warnings(Arg1, Vs, PrevBody, Ctxt),
+		    Arg = maybe_suppress_warnings(Arg1, Vs, PrevBody),
 		    expr(#c_seq{arg=Arg,body=Body}, Ctxt,
 			 sub_new_preserve_types(Sub));
 		true ->
@@ -2530,7 +2530,7 @@ opt_simple_let_2(Let0, Vs0, Arg0, Body, PrevBody, Ctxt, Sub) ->
 	    end
     end.
 
-%% maybe_suppress_warnings(Arg, [#c_var{}], PreviousBody, Context) -> Arg'
+%% maybe_suppress_warnings(Arg, [#c_var{}], PreviousBody) -> Arg'
 %%  Try to suppress false warnings when a variable is not used.
 %%  For instance, we don't expect a warning for useless building in:
 %%
@@ -2541,10 +2541,7 @@ opt_simple_let_2(Let0, Vs0, Arg0, Body, PrevBody, Ctxt, Sub) ->
 %%  referenced in the original unoptimized code. If they were, we will
 %%  consider the warning false and suppress it.
 
-maybe_suppress_warnings(Arg, _, _, effect) ->
-    %% Don't suppress any warnings in effect context.
-    Arg;
-maybe_suppress_warnings(Arg, Vs, PrevBody, value) ->
+maybe_suppress_warnings(Arg, Vs, PrevBody) ->
     case should_suppress_warning(Arg) of
 	true ->
 	    Arg;				%Already suppressed.
@@ -2568,8 +2565,16 @@ suppress_warning([H|T]) ->
 		true ->
 		    suppress_warning(cerl:data_es(H) ++ T);
 		false ->
-		    Arg = cerl:set_ann(H, [compiler_generated]),
-		    cerl:c_seq(Arg, suppress_warning(T))
+		    %% Some other thing, such as a function call.
+		    %% This cannot be the compiler's fault, so the
+		    %% warning should not be suppressed. We must
+		    %% be careful not to destroy tail-recursion.
+		    case T of
+			[] ->
+			    H;
+			[_|_] ->
+			    cerl:c_seq(H, suppress_warning(T))
+		    end
 	    end
     end;
 suppress_warning([]) -> void().
