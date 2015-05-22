@@ -37,7 +37,6 @@
 
 -define(TIMEOUT, 15000).
 -include("httpd_internal.hrl").
--include("inets_internal.hrl").
 
 %%%=========================================================================
 %%%  API
@@ -90,7 +89,6 @@ id(Address, Port, Profile) ->
 %%%  Supervisor callback
 %%%=========================================================================
 init([HttpdServices]) ->
-    ?hdrd("starting", [{httpd_service, HttpdServices}]),
     RestartStrategy = one_for_one,
     MaxR = 10,
     MaxT = 3600,
@@ -118,23 +116,18 @@ init([HttpdServices]) ->
 child_specs([], Acc) ->
     Acc;
 child_specs([{httpd, HttpdService} | Rest], Acc) ->
-    ?hdrd("child specs", [{httpd, HttpdService}]),
     NewHttpdService = (catch mk_tuple_list(HttpdService)),
-    ?hdrd("child specs", [{new_httpd, NewHttpdService}]),
     case catch child_spec(NewHttpdService) of
 	{error, Reason} ->
-	    ?hdri("failed generating child spec", [{reason, Reason}]),
 	    error_msg("Failed to start service: ~n~p ~n due to: ~p~n",
 		      [HttpdService, Reason]),
 	    child_specs(Rest, Acc);
 	Spec ->
-	    ?hdrt("child spec", [{child_spec, Spec}]),
 	    child_specs(Rest, [Spec | Acc])
     end.
 
 child_spec(HttpdService) ->
     {ok, Config}  = httpd_config(HttpdService),
-    ?hdrt("child spec", [{config, Config}]),
     Debug         = proplists:get_value(debug, Config, []),
     AcceptTimeout = proplists:get_value(accept_timeout, Config, 15000),
     httpd_util:valid_options(Debug, AcceptTimeout, Config),
@@ -162,8 +155,6 @@ httpd_config([Value| _] = Config) when is_tuple(Value) ->
 
 httpd_child_spec([Value| _] = Config, AcceptTimeout, Debug)  
   when is_tuple(Value)  ->
-    ?hdrt("httpd_child_spec - entry", [{accept_timeout, AcceptTimeout}, 
-				       {debug,          Debug}]),
     Address = proplists:get_value(bind_address, Config, any),
     Port    = proplists:get_value(port, Config, 80),
     Profile =  proplists:get_value(profile, Config, ?DEFAULT_PROFILE),
@@ -171,15 +162,10 @@ httpd_child_spec([Value| _] = Config, AcceptTimeout, Debug)
 
 %% In this case the AcceptTimeout and Debug will only have default values...
 httpd_child_spec(ConfigFile, AcceptTimeoutDef, DebugDef) ->
-    ?hdrt("httpd_child_spec - entry", [{config_file,        ConfigFile}, 
-				       {accept_timeout_def, AcceptTimeoutDef}, 
-				       {debug_def,          DebugDef}]),
     case httpd_conf:load(ConfigFile) of
 	{ok, ConfigList} ->
-	    ?hdrt("httpd_child_spec - loaded", [{config_list, ConfigList}]),
 	    case (catch httpd_conf:validate_properties(ConfigList)) of
 		{ok, Config} ->
-		    ?hdrt("httpd_child_spec - validated", [{config, Config}]),
 		    Address = proplists:get_value(bind_address, Config, any), 
 		    Port    = proplists:get_value(port, Config, 80),
 		    Profile = proplists:get_value(profile, Config, ?DEFAULT_PROFILE),

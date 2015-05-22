@@ -45,7 +45,6 @@
 
 -include("httpd.hrl").
 -include("httpd_internal.hrl").
--include("inets_internal.hrl").
 
 -behaviour(gen_server).
 
@@ -68,29 +67,17 @@
 	 terminate/2,
 	 code_change/3]).
 
+%%====================================================================
+%% Internal application API
+%%====================================================================	     
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%                                                                  %%
-%% External API                                                     %%
-%%                                                                  %%
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-%% start_link/3
-%% 
 %% NOTE: This is called by httpd_misc_sup when the process is started
-%% 
-
 start_link(Addr, Port, Profile) ->
-    ?hdrt("start_link", [{address, Addr}, {port, Port}]),
     Name = make_name(Addr, Port, Profile),
     gen_server:start_link({local, Name}, ?MODULE, [], [{timeout, infinity}]).
 
-
-%% start/2
 %% Called  by the mod_security module.
-
 start(Addr, Port, Profile) ->
-    ?hdrt("start", [{address, Addr}, {port, Port}]),
     Name = make_name(Addr, Port, Profile),
     case whereis(Name) of
 	undefined ->
@@ -99,13 +86,9 @@ start(Addr, Port, Profile) ->
 	    ok
     end.
 
-
-%% stop
-
 stop(Port, Profile) ->
     stop(undefined, Port, Profile).
 stop(Addr, Port, Profile) ->
-    ?hdrt("stop", [{address, Addr}, {port, Port}]),
     Name = make_name(Addr, Port, Profile),
     case whereis(Name) of
 	undefined ->
@@ -114,14 +97,10 @@ stop(Addr, Port, Profile) ->
 	    httpd_misc_sup:stop_sec_server(Addr, Port, Profile)
     end.
 
-
 addr(undefined) ->
     any;
 addr(Addr) ->
     Addr.
-
-
-%% list_blocked_users
 
 list_blocked_users(Addr, Port) ->
     list_blocked_users(Addr, Port, ?DEFAULT_PROFILE).
@@ -136,17 +115,12 @@ list_blocked_users(Addr, Port, Profile, Dir) ->
     Req  = {list_blocked_users, addr(Addr), Port, Profile, Dir},
     call(Name, Req).
 
-
-%% block_user
 block_user(User, Addr, Port, Dir, Time) ->
     block_user(User, Addr, Port, ?DEFAULT_PROFILE, Dir, Time).
 block_user(User, Addr, Port, Profile, Dir, Time) ->
     Name = make_name(Addr, Port, Profile),
     Req  = {block_user, User, addr(Addr), Port, Profile, Dir, Time},
     call(Name, Req).
-
-
-%% unblock_user
 
 unblock_user(User, Addr, Port) ->
     unblock_user(User, Addr, Port, ?DEFAULT_PROFILE).
@@ -161,8 +135,6 @@ unblock_user(User, Addr, Port, Profile, Dir) ->
     Req  = {unblock_user, User, addr(Addr), Port, Profile, Dir},
     call(Name, Req).
 
-
-%% list_auth_users
 list_auth_users(Addr, Port) ->
     list_auth_users(Addr, Port, ?DEFAULT_PROFILE).
 list_auth_users(Addr, Port, Profile) when is_atom(Profile) ->
@@ -175,17 +147,12 @@ list_auth_users(Addr, Port, Profile, Dir) ->
     Name = make_name(Addr,Port, Profile),
     Req  = {list_auth_users, addr(Addr), Port, Profile, Dir}, 
     call(Name, Req).
-    
-%% new_table
 
 new_table(Addr, Port, Profile, TabName) ->
     Name = make_name(Addr,Port, Profile),
     Req  = {new_table, addr(Addr), Port, Profile, TabName}, 
     call(Name, Req).
 
-
-%% delete_tables
-    
 delete_tables(Addr, Port, Profile) ->
     Name = make_name(Addr, Port, Profile),
     case whereis(Name) of
@@ -195,42 +162,25 @@ delete_tables(Addr, Port, Profile) ->
 	    call(Name, delete_tables)
     end.
 
-
-%% store_failed_auth
-
 store_failed_auth(Info, Addr, Port, Profile, DecodedString, SDirData) ->
-    ?hdrv("store failed auth", 
-	  [{addr, Addr}, {port, Port}, 
-	   {decoded_string, DecodedString}, {sdir_data, SDirData}]),
     Name = make_name(Addr, Port, Profile),
     Msg  = {store_failed_auth, Profile, [Info,DecodedString,SDirData]},
     cast(Name, Msg).
-
-
-%% store_successful_auth
 
 store_successful_auth(Addr, Port, Profile, User, SDirData) ->
     Name = make_name(Addr,Port, Profile),
     Msg  = {store_successful_auth, [User,Addr,Port, Profile, SDirData]}, 
     cast(Name, Msg).
-    
-
-%% check_blocked_user
-
+ 
 check_blocked_user(Info, User, SDirData, Addr, Port, Profile) ->
     Name = make_name(Addr, Port, Profile),
     Req  = {check_blocked_user, Profile, [Info, User, SDirData]}, 
     call(Name, Req).
 
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%                                                                  %%
-%% Server call-back functions                                       %%
-%%                                                                  %%
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
+%%====================================================================
+%% Behavior call backs
+%%====================================================================	     
 init(_) ->
-    ?hdrv("initiating", []),
     process_flag(trap_exit, true),
     {ok, []}.
 
@@ -238,27 +188,18 @@ handle_call(stop, _From, _Tables) ->
     {stop, normal, ok, []};
 
 handle_call({block_user, User, Addr, Port, Profile, Dir, Time}, _From, Tables) ->
-    ?hdrv("block user", 
-	  [{user, User}, {addr, Addr}, {port, Port}, {dir, Dir}, 
-	   {time, Time}]), 
     Ret = block_user_int(User, Addr, Port, Profile, Dir, Time),
     {reply, Ret, Tables};
 
 handle_call({list_blocked_users, Addr, Port, Profile, Dir}, _From, Tables) ->
-    ?hdrv("list blocked users", 
-	  [{addr, Addr}, {port, Port}, {dir, Dir}]),
     Blocked = list_blocked(Tables, Addr, Port, Profile, Dir, []),
     {reply, Blocked, Tables};
 
 handle_call({unblock_user, User, Addr, Port, Profile, Dir}, _From, Tables) ->
-    ?hdrv("block user", 
-	  [{user, User}, {addr, Addr}, {port, Port}, {dir, Dir}]), 
     Ret = unblock_user_int(User, Addr, Port, Profile,Dir),
     {reply, Ret, Tables};
 
 handle_call({list_auth_users, Addr, Port, Profile, Dir}, _From, Tables) ->
-    ?hdrv("list auth users", 
-	  [{addr, Addr}, {port, Port}, {dir, Dir}]), 
     Auth = list_auth(Tables, Addr, Port, Profile, Dir, []),
     {reply, Auth, Tables};
 
@@ -301,9 +242,6 @@ handle_call({check_blocked_user, Profile, [Info, User, SDirData]}, _From, Tables
 
 handle_call(_Request,_From,Tables) ->
     {reply,ok,Tables}.
-
-
-%% handle_cast
 
 handle_cast({store_failed_auth, _,[_, _, []]}, Tables) ->
     %% Some other authentication scheme than mod_auth (example mod_htacess)
@@ -404,29 +342,18 @@ handle_cast(Req, Tables) ->
     error_msg("security server got unknown cast: ~p",[Req]),
     {noreply, Tables}.
 
-
-%% handle_info
-
 handle_info(_Info, State) ->
     {noreply, State}.
-
-
-%% terminate
 
 terminate(_Reason, _Tables) ->
     ok.
 
-
-%% code_change({down, ToVsn}, State, Extra)
-%% 
-code_change({down, _}, State, _Extra) ->
-    {ok, State};
-
-
-%% code_change(FromVsn, State, Extra)
-%%
 code_change(_, State, _Extra) ->
     {ok, State}.
+
+%%--------------------------------------------------------------------
+%%% Internal functions
+%%--------------------------------------------------------------------
 
 %% block_user_int/5
 block_user_int(User, Addr, Port, Profile, Dir, Time) ->
@@ -455,7 +382,6 @@ block_user_int(User, Addr, Port, Profile, Dir, Time) ->
 	    {error, no_such_directory}
     end.
     
-
 find_dirdata([], _Dir) ->
     false;
 find_dirdata([{security_directory, {_, DirData}}|SDirs], Dir) ->
@@ -468,7 +394,6 @@ find_dirdata([{security_directory, {_, DirData}}|SDirs], Dir) ->
 	    find_dirdata(SDirs, Dir)
     end.
 
-%% unblock_user_int/4
 unblock_user_int(User, Addr, Port, Profile, Dir) ->
     Dirs = httpd_manager:config_match(Addr, Port, Profile, 
 				      {security_directory, {'_', '_'}}),
@@ -492,10 +417,6 @@ unblock_user_int(User, Addr, Port, Profile, Dir) ->
 	_ ->
 	    {error, no_such_directory}
     end.
-
-
-
-%% list_auth/2
 
 list_auth([], _, _, _, _, Acc) ->
     Acc;
@@ -521,11 +442,7 @@ list_auth([{_Name, {ETS, DETS}}|Tables], Addr, Port, Profile, Dir, Acc) ->
 	    list_auth(Tables, Addr, Port, Profile, Dir, NewAcc)
     end.
 
-
-%% list_blocked/2
-
 list_blocked([], _, _, _, _, Acc) ->
-    ?hdrv("list blocked", [{acc, Acc}]), 
     TN = universal_time(),
     lists:foldl(fun({U,Ad,P,Pr,D,T}, Ac) ->
 			if
@@ -537,7 +454,6 @@ list_blocked([], _, _, _, _, Acc) ->
 		end, 
 		[], Acc);
 list_blocked([{_Name, {ETS, _DETS}}|Tables], Addr, Port, Profile, Dir, Acc) ->
-    ?hdrv("list blocked", [{ets, ETS}, {tab2list, ets:tab2list(ETS)}]), 
     List = ets:match_object(ETS, {blocked_user, 
 				  {'_',Addr,Port,Profile, Dir,'_'}}),
     
@@ -547,9 +463,6 @@ list_blocked([{_Name, {ETS, _DETS}}|Tables], Addr, Port, Profile, Dir, Acc) ->
     list_blocked(Tables, Addr, Port, Profile, Dir, NewBlocked).
 
 
-%%
-%% sync_dets_to_ets/2
-%%
 %% Reads dets-table DETS and syncronizes it with the ets-table ETS.
 %%
 sync_dets_to_ets(DETS, ETS) ->
@@ -558,9 +471,6 @@ sync_dets_to_ets(DETS, ETS) ->
 				continue
 			end).
 
-%%
-%% check_blocked_user/7 -> true | false
-%%
 %% Check if a specific user is blocked from access.
 %%
 %% The sideeffect of this routine is that it unblocks also other users
@@ -611,14 +521,12 @@ unblock_user(Info, User, Dir, Addr, Port, Profile, ETS, DETS, CBModule) ->
     dets:match_delete(DETS, {blocked_user, {User, Addr, Port, Profile, Dir, '_'}}),
     ets:match_delete(ETS, {blocked_user, {User, Addr, Port, Profile, Dir, '_'}}).
   
-
 make_name(Addr,Port, Profile) ->
     httpd_util:make_name(?MODULE,Addr,Port, Profile).
 
 make_name(Addr,Port, Profile, Num) ->
     httpd_util:make_name(?MODULE,Addr,Port,
 			 atom_to_list(Profile) ++ "__" ++ integer_to_list(Num)).
-
 
 auth_fail_event(Mod,Addr,Port,Dir,User,Passwd) ->
     event(auth_fail,Mod,Addr,Port,Dir,[{user,User},{password,Passwd}]).
@@ -630,17 +538,10 @@ user_unblock_event(Mod,Addr,Port,Dir,User) ->
     event(user_unblock,Mod,Addr,Port,Dir,[{user,User}]).
 
 event(Event, Mod, undefined, Port, Dir, Info) ->
-    ?hdrt("event", 
-	  [{event, Event}, {mod, Mod}, {port, Port}, {dir, Dir}]),
     (catch Mod:event(Event,Port,Dir,Info));
 event(Event, Mod, any, Port, Dir, Info) ->
-    ?hdrt("event", 
-	  [{event, Event}, {mod, Mod}, {port, Port}, {dir, Dir}]),
     (catch Mod:event(Event,Port,Dir,Info));
 event(Event, Mod, Addr, Port, Dir, Info) ->
-    ?hdrt("event", 
-	  [{event, Event}, {mod, Mod}, 
-	   {addr, Addr}, {port, Port}, {dir, Dir}]),
     (catch Mod:event(Event,Addr,Port,Dir,Info)).
 
 universal_time() ->
@@ -650,10 +551,8 @@ local_time(T) ->
     calendar:universal_time_to_local_time(
       calendar:gregorian_seconds_to_datetime(T)).
 
-
 error_msg(F, A) ->
     error_logger:error_msg(F, A).
-
 
 call(Name, Req) ->
     case (catch gen_server:call(Name, Req)) of
@@ -662,7 +561,6 @@ call(Name, Req) ->
         Reply ->
             Reply
     end.
-
 
 cast(Name, Msg) ->
     case (catch gen_server:cast(Name, Msg)) of

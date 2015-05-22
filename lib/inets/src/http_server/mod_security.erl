@@ -35,8 +35,9 @@
 
 -define(VMODULE,"SEC").
 
-
-%% do/1
+%%====================================================================
+%% Internal application API
+%%====================================================================	     
 do(Info) ->
     %% Check and see if any user has been authorized.
     case proplists:get_value(remote_user, Info#mod.data,not_defined_user) of
@@ -181,12 +182,6 @@ remove(ConfigDB) ->
     mod_security_server:stop(Addr, Port, Profile).
     
 
-%%
-%% User API
-%%
-
-%% list_blocked_users
-
 list_blocked_users(Port) ->
     list_blocked_users(undefined, Port).
 
@@ -204,16 +199,10 @@ list_blocked_users(Addr, Port, Dir) ->
 	      end,
 	      mod_security_server:list_blocked_users(Addr, Port, Dir)).
 
-
-%% block_user
-
 block_user(User, Port, Dir, Time) ->
     block_user(User, undefined, Port, Dir, Time).
 block_user(User, Addr, Port, Dir, Time) ->
     mod_security_server:block_user(User, Addr, Port, Dir, Time).
-
-
-%% unblock_user
 
 unblock_user(User, Port) ->
     unblock_user(User, undefined, Port).
@@ -225,9 +214,6 @@ unblock_user(User, Addr, Port) when is_integer(Port) ->
 
 unblock_user(User, Addr, Port, Dir) ->
     mod_security_server:unblock_user(User, Addr, Port, Dir).
-
-
-%% list_auth_users
 
 list_auth_users(Port) ->
     list_auth_users(undefined,Port).
@@ -312,6 +298,3 @@ load_return_int_tag(Name, Atom, Time, Dir, DirData) ->
 		    {ok, [{security_directory, {Dir, [{Atom, Val}|DirData]}}]}
 	    end
     end.
-
-
-

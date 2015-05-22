@@ -38,12 +38,11 @@
 -include("httpd_internal.hrl").
 -include("mod_auth.hrl").
 
-store_directory_data(_Directory, DirData, Server_root) ->
-    ?CDEBUG("store_directory_data -> ~n"
-	    "     Directory: ~p~n"
-	    "     DirData:   ~p",
-	    [_Directory, DirData]),
+%%====================================================================
+%% Internal application API
+%%====================================================================	     
 
+store_directory_data(_Directory, DirData, Server_root) ->
     {PWFile, Absolute_pwdfile} = absolute_file_name(auth_user_file, DirData,
 						    Server_root),
     {GroupFile, Absolute_groupfile} = absolute_file_name(auth_group_file,
@@ -70,11 +69,8 @@ store_directory_data(_Directory, DirData, Server_root) ->
 	    {error, {{file, PWFile},Err2}} 
     end.
 
-%%
 %% Storage format of users in the dets table:
 %% {{UserName, Addr, Port, Dir}, Password, UserData}
-%%
-
 add_user(DirData, UStruct) ->
     {Addr, Port, Dir} = lookup_common(DirData),
     PWDB = proplists:get_value(auth_user_file, DirData),
@@ -100,21 +96,15 @@ get_user(DirData, UserName) ->
     end.
 
 list_users(DirData) ->
-    ?DEBUG("list_users -> ~n"
-	   "     DirData: ~p", [DirData]),
     {Addr, Port, Dir} = lookup_common(DirData),
     PWDB = proplists:get_value(auth_user_file, DirData),
-    case dets:traverse(PWDB, fun(X) -> {continue, X} end) of    %% SOOOO Ugly !
+    case dets:traverse(PWDB, fun(X) -> {continue, X} end) of    
 	Records when is_list(Records) ->
-	    ?DEBUG("list_users -> ~n"
-		   "     Records: ~p", [Records]),
 	    {ok, [UserName || {{UserName, AnyAddr, AnyPort, AnyDir}, 
 			       _Password, _Data} <- Records,
 			      AnyAddr == Addr, AnyPort == Port, 
 			      AnyDir == Dir]};
 	_O ->
-	    ?DEBUG("list_users -> ~n"
-		   "     O: ~p", [_O]),
 	    {ok, []}
     end.
 
@@ -135,10 +125,8 @@ delete_user(DirData, UserName) ->
 	    {error, no_such_user}
     end.
 
-%%
 %% Storage of groups in the dets table:
 %% {Group, UserList} where UserList is a list of strings.
-%%
 add_group_member(DirData, GroupName, UserName) ->
     {Addr, Port, Dir} = lookup_common(DirData),
     GDB = proplists:get_value(auth_group_file, DirData),
@@ -216,16 +204,7 @@ delete_group(DirData, GroupName) ->
 	    {error, no_such_group}
     end.
 
-lookup_common(DirData) ->
-    Dir  = proplists:get_value(path, DirData),
-    Port = proplists:get_value(port, DirData),
-    Addr = proplists:get_value(bind_address, DirData),
-    {Addr, Port, Dir}.
-
-%% remove/1
-%%
 %% Closes dets tables used by this auth mod.
-%%
 remove(DirData) ->
     PWDB = proplists:get_value(auth_user_file, DirData),
     GDB = proplists:get_value(auth_group_file, DirData),
@@ -233,8 +212,9 @@ remove(DirData) ->
     dets:close(PWDB),
     ok.
 
-%% absolute_file_name/2
-%%
+%%--------------------------------------------------------------------
+%%% Internal functions
+%%--------------------------------------------------------------------
 %% Return the absolute path name of File_type. 
 absolute_file_name(File_type, DirData, Server_root) ->
     Path = proplists:get_value(File_type, DirData),
@@ -254,3 +234,8 @@ absolute_file_name(File_type, DirData, Server_root) ->
 		    end,
     {Path, Absolute_path}.
 
+lookup_common(DirData) ->
+    Dir  = proplists:get_value(path, DirData),
+    Port = proplists:get_value(port, DirData),
+    Addr = proplists:get_value(bind_address, DirData),
+    {Addr, Port, Dir}.
