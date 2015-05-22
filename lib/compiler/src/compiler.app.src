@@ -69,5 +69,5 @@
   {registered, []},
   {applications, [kernel, stdlib]},
   {env, []},
-  {runtime_dependencies, ["stdlib-2.0","kernel-3.0","hipe-3.10.3","erts-7.0",
-			  "crypto-3.3"]}]}.
+  {runtime_dependencies, ["stdlib-2.5","kernel-4.0","hipe-3.12","erts-7.0",
+			  "crypto-3.6"]}]}.
