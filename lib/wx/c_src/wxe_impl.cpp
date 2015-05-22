@@ -89,7 +89,7 @@ void push_command(int op,char * buf,int len, wxe_data *sd)
 }
 
 void meta_command(int what, wxe_data *sd) {
-  if(what == PING_PORT) {
+  if(what == PING_PORT && wxe_status == WXE_INITIATED) {
     erl_drv_mutex_lock(wxe_batch_locker_m);
     if(wxe_batch_caller > 0) {
       wxe_queue->Add(WXE_DEBUG_PING, NULL, 0, sd);
@@ -98,9 +98,12 @@ void meta_command(int what, wxe_data *sd) {
     wxWakeUpIdle();
     erl_drv_mutex_unlock(wxe_batch_locker_m);
   } else {
-    if(sd) {
+    if(sd && wxe_status == WXE_INITIATED) {
       wxeMetaCommand Cmd(sd, what);
       wxTheApp->AddPendingEvent(Cmd);
+      if(what == DELETE_PORT) {
+	free(sd);
+      }
     }
   }
 }
@@ -169,6 +172,7 @@ void WxeApp::MacOpenFile(const wxString &filename) {
 #endif
 
 void WxeApp::shutdown(wxeMetaCommand& Ecmd) {
+  wxe_status = WXE_EXITING;
   ExitMainLoop();
   delete wxe_queue;
   delete wxe_queue_cb_saved;
@@ -200,6 +204,10 @@ void handle_event_callback(ErlDrvPort port, ErlDrvTermData process)
 {
   WxeApp * app = (WxeApp *) wxTheApp;
   ErlDrvMonitor monitor;
+
+  if(wxe_status != WXE_INITIATED)
+    return;
+
   // Is thread safe if pdl have been incremented
   if(driver_monitor_process(port, process, &monitor) == 0) {
     // Should we be able to handle commands when recursing? probably
@@ -217,6 +225,8 @@ void handle_event_callback(ErlDrvPort port, ErlDrvTermData process)
 
 void WxeApp::dispatch_cmds()
 {
+  if(wxe_status != WXE_INITIATED)
+    return;
   erl_drv_mutex_lock(wxe_batch_locker_m);
   recurse_level++;
   int level = dispatch(wxe_queue_cb_saved, 0, WXE_STORED);

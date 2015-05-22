@@ -46,7 +46,8 @@ typedef wxString wxeLocaleC;
 
 #define WXE_NOT_INITIATED 0
 #define WXE_INITIATED     1
-#define WXE_EXITED        2
+#define WXE_EXITING       2
+#define WXE_EXITED        3
 #define WXE_ERROR        -1
 
 void send_msg(const char *, const wxString *);   // For debugging and error msgs
