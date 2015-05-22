@@ -677,7 +677,7 @@ erts_garbage_collect_literals(Process* p, Eterm* literals,
     Uint area_size;
     Eterm* old_htop;
     Uint n;
-    struct erl_off_heap_header** prev;
+    struct erl_off_heap_header** prev = NULL;
 
     if (p->flags & F_DISABLE_GC)
 	return;
@@ -786,10 +786,10 @@ erts_garbage_collect_literals(Process* p, Eterm* literals,
      */
 
     if (oh) {
-	prev = &MSO(p).first;
-	while (*prev) {
-	    prev = &(*prev)->next;
-	}
+        prev = &MSO(p).first;
+        while (*prev) {
+            prev = &(*prev)->next;
+        }
     }
 
     /*
@@ -816,6 +816,10 @@ erts_garbage_collect_literals(Process* p, Eterm* literals,
 	    prev = &ptr->next;
 	}
 	oh = oh->next;
+    }
+
+    if (prev) {
+        *prev = NULL;
     }
 
     /*
@@ -1869,6 +1873,21 @@ sweep_one_heap(Eterm* heap_ptr, Eterm* heap_end, Eterm* htop, char* src, Uint sr
 	    if (!header_is_thing(gval)) {
 		heap_ptr++;
 	    } else {
+		if (header_is_bin_matchstate(gval)) {
+		    ErlBinMatchState *ms = (ErlBinMatchState*) heap_ptr;
+		    ErlBinMatchBuffer *mb = &(ms->mb);
+		    Eterm* origptr;
+		    origptr = &(mb->orig);
+		    ptr = boxed_val(*origptr);
+		    val = *ptr;
+		    if (IS_MOVED_BOXED(val)) {
+			*origptr = val;
+			mb->base = binary_bytes(*origptr);
+		    } else if (in_area(ptr, src, src_size)) {
+			MOVE_BOXED(ptr,val,htop,origptr);
+			mb->base = binary_bytes(*origptr);
+		    }
+		}
 		heap_ptr += (thing_arityval(gval)+1);
 	    }
 	    break;

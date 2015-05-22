@@ -33,6 +33,7 @@
 #include "beam_catches.h"
 #include "erl_binary.h"
 #include "erl_nif.h"
+#include "erl_bits.h"
 #include "erl_thr_progress.h"
 
 static void set_default_trace_pattern(Eterm module);
@@ -940,7 +941,15 @@ any_heap_refs(Eterm* start, Eterm* end, char* mod_start, Uint mod_size)
 	    break;
 	case TAG_PRIMARY_HEADER:
 	    if (!header_is_transparent(val)) {
-		Eterm* new_p = p + thing_arityval(val);
+		Eterm* new_p;
+                if (header_is_bin_matchstate(val)) {
+                    ErlBinMatchState *ms = (ErlBinMatchState*) p;
+                    ErlBinMatchBuffer *mb = &(ms->mb);
+                    if (in_area(EXPAND_POINTER(mb->orig), mod_start, mod_size)) {
+                        return 1;
+                    }
+                }
+		new_p = p + thing_arityval(val);
 		ASSERT(start <= new_p && new_p < end);
 		p = new_p;
 	    }
