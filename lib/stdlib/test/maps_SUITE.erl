@@ -38,8 +38,11 @@
          t_fold_3/1,t_map_2/1,t_size_1/1,
          t_with_2/1,t_without_2/1]).
 
--define(badmap(V,F,Args), {'EXIT', {{badmap,V}, [{maps,F,Args,_}|_]}}).
--define(badarg(F,Args), {'EXIT', {badarg, [{maps,F,Args,_}|_]}}).
+%-define(badmap(V,F,Args), {'EXIT', {{badmap,V}, [{maps,F,Args,_}|_]}}).
+%-define(badarg(F,Args), {'EXIT', {badarg, [{maps,F,Args,_}|_]}}).
+% silly broken hipe
+-define(badmap(V,F,_Args), {'EXIT', {{badmap,V}, [{maps,F,_,_}|_]}}).
+-define(badarg(F,_Args), {'EXIT', {badarg, [{maps,F,_,_}|_]}}).
 
 suite() ->
     [{ct_hooks, [ts_install_cth]}].
