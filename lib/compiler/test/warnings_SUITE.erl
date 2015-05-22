@@ -38,7 +38,8 @@
 -export([pattern/1,pattern2/1,pattern3/1,pattern4/1,
 	 guard/1,bad_arith/1,bool_cases/1,bad_apply/1,
          files/1,effect/1,bin_opt_info/1,bin_construction/1,
-	 comprehensions/1,maps/1,redundant_boolean_clauses/1,
+	 comprehensions/1,maps/1,maps_bin_opt_info/1,
+         redundant_boolean_clauses/1,
 	 latin1_fallback/1,underscore/1,no_warnings/1]).
 
 % Default timetrap timeout (set in init_per_testcase).
@@ -64,6 +65,7 @@ groups() ->
       [pattern,pattern2,pattern3,pattern4,guard,
        bad_arith,bool_cases,bad_apply,files,effect,
        bin_opt_info,bin_construction,comprehensions,maps,
+       maps_bin_opt_info,
        redundant_boolean_clauses,latin1_fallback,
        underscore,no_warnings]}].
 
@@ -617,6 +619,19 @@ maps(Config) when is_list(Config) ->
            [],
 	   []}],
     run(Config, Ts),
+    ok.
+
+maps_bin_opt_info(Config) when is_list(Config) ->
+    Ts = [{map_bsm,
+           <<"
+             t1(<<0:8,7:8,T/binary>>,#{val := I}=M) ->
+                 t1(T, M#{val := I+1});
+             t1(<<_:8>>,M) ->
+                 M.
+           ">>,
+           [bin_opt_info],
+           {warnings,[{2,beam_bsm,bin_opt}]}}],
+    [] = run(Config, Ts),
     ok.
 
 redundant_boolean_clauses(Config) when is_list(Config) ->

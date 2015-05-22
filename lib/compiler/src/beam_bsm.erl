@@ -242,6 +242,12 @@ btb_reaches_match_2([{bif,_,{f,F},Ss,Dst}=I|Is], Regs0, D0) ->
     Regs = btb_kill([Dst], Regs0),
     D = btb_follow_branch(F, Regs, D0),
     btb_reaches_match_1(Is, Regs, D);
+btb_reaches_match_2([{get_map_elements,{f,F},Src,{list,Ls}}=I|Is], Regs0, D0) ->
+    {Ss,Ds} = beam_utils:split_even(Ls),
+    btb_ensure_not_used([Src|Ss], I, Regs0),
+    Regs = btb_kill(Ds, Regs0),
+    D = btb_follow_branch(F, Regs, D0),
+    btb_reaches_match_1(Is, Regs, D);
 btb_reaches_match_2([{test,bs_start_match2,{f,F},Live,[Ctx,_],Ctx}=I|Is],
 		    Regs0, D0) ->
     CtxRegs = btb_context_regs(Regs0),
