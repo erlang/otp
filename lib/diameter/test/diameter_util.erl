@@ -204,13 +204,14 @@ seed() ->
 %% unique_string/0
 
 unique_string() ->
-    us(diameter_lib:now()).
-
-us({M,S,U}) ->
-    tl(lists:append(["-" ++ integer_to_list(N) || N <- [M,S,U]]));
-
-us(MonoT) ->
-    integer_to_list(MonoT).
+    try erlang:unique_integer() of
+        N ->
+            integer_to_list(N)
+    catch
+        error: undef ->  %% OTP < 18
+            {M,S,U} = timestamp(),
+            tl(lists:append(["-" ++ integer_to_list(N) || N <- [M,S,U]]))
+    end.
 
 %% ---------------------------------------------------------------------------
 %% have_sctp/0
