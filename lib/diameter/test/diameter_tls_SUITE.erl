@@ -319,19 +319,19 @@ make_cert(Dir, Base) ->
     make_cert(Dir, Base ++ "_key.pem", Base ++ "_ca.pem").
 
 make_cert(Dir, Keyfile, Certfile) ->
-    [K,C] = Paths = [filename:join([Dir, F]) || F <- [Keyfile, Certfile]],
+    [KP,CP] = [filename:join([Dir, F]) || F <- [Keyfile, Certfile]],
 
-    KCmd = join(["openssl genrsa -out", K, "2048"]),
-    CCmd = join(["openssl req -new -x509 -key", K, "-out", C, "-days 7",
-                 "-subj /C=SE/ST=./L=Stockholm/CN=www.erlang.org"]),
+    KC = join(["openssl genrsa -out", KP, "2048"]),
+    CC = join(["openssl req -new -x509 -key", KP, "-out", CP, "-days 7",
+               "-subj /C=SE/ST=./L=Stockholm/CN=www.erlang.org"]),
 
     %% Hope for the best and only check that files are written.
-    os:cmd(KCmd),
-    os:cmd(CCmd),
+    [{_, _, {ok,_}},{_, _, {ok,_}}]
+        = [{P,O,T} || {P,C} <- [{KP,KC}, {CP,CC}],
+                      O <- [os:cmd(C)],
+                      T <- [file:read_file_info(P)]],
 
-    [_,_] = [T || P <- Paths, {ok, T} <- [file:read_file_info(P)]],
-
-    {K,C}.
+    {KP,CP}.
 
 join(Strs) ->
     string:join(Strs, " ").
