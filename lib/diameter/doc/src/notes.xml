@@ -65,7 +65,7 @@ first.</p>
 	    received in an answer not setting the E-bit. The correct
 	    AVP is now extracted from the incoming message.</p>
           <p>
-	    Own Id: OTP-12654 Aux Id: seq12851 </p>
+	    Own Id: OTP-12654</p>
         </item>
         <item>
           <p>
