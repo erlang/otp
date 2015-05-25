@@ -560,12 +560,12 @@ load_native_code_for_all_loaded() ->
     try hipe_unified_loader:chunk_name(Architecture) of
 	ChunkTag ->
 	    Loaded = all_loaded(),
-	    spawn(fun() -> load_all_native(Loaded, ChunkTag) end)
+	    _ = spawn(fun() -> load_all_native(Loaded, ChunkTag) end),
+	    ok
     catch
 	_:_ ->
 	    ok
-    end,
-    ok.
+    end.
 
 load_all_native(Loaded, ChunkTag) ->
     catch load_all_native_1(Loaded, ChunkTag).
@@ -582,7 +582,8 @@ load_all_native_1([{Mod,BeamFilename}|T], ChunkTag) ->
 		undefined ->
 		    ok;
 		NativeCode when is_binary(NativeCode) ->
-		    load_native_partial(Mod, NativeCode)
+		    _ = load_native_partial(Mod, NativeCode),
+		    ok
 	    end;
 	true -> ok
     end,
