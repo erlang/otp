@@ -9649,7 +9649,7 @@ Process *schedule(Process *p, int calls)
 
 	ASSERT(erts_proc_read_refc(p) > 0);
 
-	if (ERTS_PTMR_IS_TIMED_OUT(p)) {
+	if (!(state & ERTS_PSFLG_EXITING) && ERTS_PTMR_IS_TIMED_OUT(p)) {
 	    BeamInstr** pi;
 #ifdef ERTS_SMP
 	    ETHR_MEMBAR(ETHR_LoadLoad|ETHR_LoadStore);
