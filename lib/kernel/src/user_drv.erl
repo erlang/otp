@@ -135,7 +135,7 @@ server1(Iport, Oport, Shell) ->
 	       Iport, Oport),
 
     %% Enter the server loop.
-    server_loop(Iport, Oport, Curr, User, Gr, queue:new()).
+    server_loop(Iport, Oport, Curr, User, Gr, {false, queue:new()}).
 
 rem_sh_opts(Node) ->
     [{expand_fun,fun(B)-> rpc:call(Node,edlin_expand,expand,[B]) end}].
@@ -165,7 +165,7 @@ server_loop(Iport, Oport, User, Gr, IOQueue) ->
     put(current_group, Curr),
     server_loop(Iport, Oport, Curr, User, Gr, IOQueue).
 
-server_loop(Iport, Oport, Curr, User, Gr, IOQueue) ->
+server_loop(Iport, Oport, Curr, User, Gr, {Resp, IOQ} = IOQueue) ->
     receive
 	{Iport,{data,Bs}} ->
 	    BsBin = list_to_binary(Bs),
@@ -182,9 +182,9 @@ server_loop(Iport, Oport, Curr, User, Gr, IOQueue) ->
         {Oport,ok} ->
             %% We get this ok from the port, in io_request we store
             %% info about where to send reply at head of queue
-            {{value,{Origin,Reply}},ReplyQ} = queue:out(IOQueue),
+            {Origin,Reply} = Resp,
             Origin ! {reply,Reply},
-            NewQ = handle_req(next, Iport, Oport, ReplyQ),
+            NewQ = handle_req(next, Iport, Oport, {false, IOQ}),
             server_loop(Iport, Oport, Curr, User, Gr, NewQ);
 	{'EXIT',Iport,_R} ->
 	    server_loop(Iport, Oport, Curr, User, Gr, IOQueue);
@@ -238,28 +238,30 @@ handle_req({Curr,get_unicode_state},Iport,_Oport,IOQueue) ->
 handle_req({Curr,set_unicode_state, Bool},Iport,_Oport,IOQueue) ->
     Curr ! {self(),set_unicode_state,set_unicode_state(Iport,Bool)},
     IOQueue;
-handle_req(next,Iport,Oport,IOQueue) ->
-    case queue:out(IOQueue) of
-        {{value,Next},ExecQ} ->
-            NewQ = handle_req(Next,Iport,Oport,queue:new()),
-            queue:join(NewQ,ExecQ);
+handle_req(next,Iport,Oport,{false,IOQ}=IOQueue) ->
+    case queue:out(IOQ) of
         {empty,_} ->
-            IOQueue
-    end;
-handle_req(Msg,Iport,Oport,IOQueue) ->
-    case queue:peek(IOQueue) of
-        empty ->
-            {Origin,Req} = Msg,
+	    IOQueue;
+        {{value,{Origin,Req}},ExecQ} ->
             case io_request(Req, Iport, Oport) of
-                ok -> IOQueue;
+                ok ->
+		    handle_req(next,Iport,Oport,{false,ExecQ});
                 Reply ->
-                    %% Push reply info to front of queue
-                    queue:in_r({Origin,Reply},IOQueue)
-            end;
-        _Else ->
-            %% All requests are queued when we have outstanding sync put_chars
-            queue:in(Msg,IOQueue)
-    end.
+		    {{Origin,Reply}, ExecQ}
+            end
+    end;
+handle_req(Msg,Iport,Oport,{false,IOQ}=IOQueue) ->
+    empty = queue:peek(IOQ),
+    {Origin,Req} = Msg,
+    case io_request(Req, Iport, Oport) of
+	ok ->
+	    IOQueue;
+	Reply ->
+	    {{Origin,Reply}, IOQ}
+    end;
+handle_req(Msg,_Iport,_Oport,{Resp, IOQ}) ->
+    %% All requests are queued when we have outstanding sync put_chars
+    {Resp, queue:in(Msg,IOQ)}.
 
 %% port_bytes(Bytes, InPort, OutPort, CurrentProcess, UserProcess, Group)
 %%  Check the Bytes from the port to see if it contains a ^G. If so,
