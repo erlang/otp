@@ -371,6 +371,15 @@ File3.asn</pre>
           representation of a value of the <c>ASN.1</c> type <c>Type</c>. The value
           is a random value and subsequent calls to this function will for most
           types return different values.</p>
+	<note>
+	  <p>Currently, the <c>value</c> function has many limitations.
+	  Essentially, it will mostly work for old specifications based
+	  on the 1997 standard for ASN.1, but not for most modern-style
+	  applications. Another limitation is that the <c>value</c> function
+	  may not work if options that change code generations strategies
+	  such as the options <c>macro_name_prefix</c> and
+	  <c>record_name_prefix</c> have been used.</p>
+	</note>
       </desc>
     </func>
 
@@ -391,6 +400,15 @@ File3.asn</pre>
           This function is useful during test to secure that the generated
           encode and decode functions as well as the general runtime support
           work as expected.</p>
+	<note>
+	  <p>Currently, the <c>test</c> functions have many limitations.
+	  Essentially, they will mostly work for old specifications based
+	  on the 1997 standard for ASN.1, but not for most modern-style
+	  applications. Another limitation is that the <c>test</c> functions
+	  may not work if options that change code generations strategies
+	  such as the options <c>macro_name_prefix</c> and
+	  <c>record_name_prefix</c> have been used.</p>
+	</note>
         <list type="bulleted">
           <item>
             <p><c>test/1</c> iterates over all types in <c>Module</c>.</p>
