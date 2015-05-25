@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2015. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -137,5 +137,5 @@
   %% before snmp.
   {applications, [kernel, stdlib]},
   {mod, {snmp_app, []}},
-  {runtime_dependencies, ["stdlib-2.0","runtime_tools-1.8.14","mnesia-4.12",
+  {runtime_dependencies, ["stdlib-2.5","runtime_tools-1.8.14","mnesia-4.12",
 			  "kernel-3.0","erts-6.0","crypto-3.3"]}]}.
