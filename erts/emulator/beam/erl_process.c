@@ -2887,22 +2887,29 @@ scheduler_wait(int *fcalls, ErtsSchedulerData *esdp, ErtsRunQueue *rq)
 	    }
 
 	    if (aux_work) {
-		flgs = erts_smp_atomic32_read_acqb(&ssi->flags);
-		current_time = erts_get_monotonic_time(esdp);
-		if (current_time >= erts_next_timeout_time(esdp->next_tmo_ref)) {
-		    if (!ERTS_SCHEDULER_IS_DIRTY(esdp) && !thr_prgr_active) {
-			erts_thr_progress_active(esdp, thr_prgr_active = 1);
-			sched_wall_time_change(esdp, 1);
+		if (!ERTS_SCHEDULER_IS_DIRTY(esdp)) {
+		    flgs = erts_smp_atomic32_read_acqb(&ssi->flags);
+		    current_time = erts_get_monotonic_time(esdp);
+		    if (current_time >= erts_next_timeout_time(esdp->next_tmo_ref)) {
+			if (!thr_prgr_active) {
+			    erts_thr_progress_active(esdp, thr_prgr_active = 1);
+			    sched_wall_time_change(esdp, 1);
+			}
+			erts_bump_timers(esdp->timer_wheel, current_time);
 		    }
-		    erts_bump_timers(esdp->timer_wheel, current_time);
 		}
 	    }
 	    else {
 		ErtsMonotonicTime timeout_time;
-		timeout_time = erts_check_next_timeout_time(esdp);
-		current_time = erts_get_monotonic_time(esdp);
-		if (current_time >= timeout_time) {
-		    if (!ERTS_SCHEDULER_IS_DIRTY(esdp) && !thr_prgr_active) {
+		int do_timeout = 0;
+		if (!ERTS_SCHEDULER_IS_DIRTY(esdp)) {
+		    timeout_time = erts_check_next_timeout_time(esdp);
+		    current_time = erts_get_monotonic_time(esdp);
+		    do_timeout = (current_time >= timeout_time);
+		} else
+		    timeout_time = ERTS_MONOTONIC_TIME_MAX;
+		if (do_timeout) {
+		    if (!thr_prgr_active) {
 			erts_thr_progress_active(esdp, thr_prgr_active = 1);
 			sched_wall_time_change(esdp, 1);
 		    }
@@ -2926,23 +2933,28 @@ scheduler_wait(int *fcalls, ErtsSchedulerData *esdp, ErtsRunQueue *rq)
 			    int res;
 			    ASSERT(flgs & ERTS_SSI_FLG_TSE_SLEEPING);
 			    ASSERT(flgs & ERTS_SSI_FLG_WAITING);
-			    current_time = erts_get_monotonic_time(esdp);
+			    current_time = ERTS_SCHEDULER_IS_DIRTY(esdp) ? 0 :
+				erts_get_monotonic_time(esdp);
 			    do {
 				Sint64 timeout;
 				if (current_time >= timeout_time)
 				    break;
-				timeout = ERTS_MONOTONIC_TO_NSEC(timeout_time
-								 - current_time
-								 - 1) + 1;
+				if (!ERTS_SCHEDULER_IS_DIRTY(esdp)) {
+				    timeout = ERTS_MONOTONIC_TO_NSEC(timeout_time
+								     - current_time
+								     - 1) + 1;
+				} else
+				    timeout = -1;
 				res = erts_tse_twait(ssi->event, timeout);
-				current_time = erts_get_monotonic_time(esdp);
+				current_time = ERTS_SCHEDULER_IS_DIRTY(esdp) ? 0 :
+				    erts_get_monotonic_time(esdp);
 			    } while (res == EINTR);
 			}
 		    }
 		    if (!ERTS_SCHEDULER_IS_DIRTY(esdp))
 			erts_thr_progress_finalize_wait(esdp);
 		}
-		if (current_time >= timeout_time)
+		if (!ERTS_SCHEDULER_IS_DIRTY(esdp) && current_time >= timeout_time)
 		    erts_bump_timers(esdp->timer_wheel, current_time);
 	    }
 
@@ -3010,9 +3022,11 @@ scheduler_wait(int *fcalls, ErtsSchedulerData *esdp, ErtsRunQueue *rq)
 	    ASSERT(!erts_port_task_have_outstanding_io_tasks());
 	    erl_sys_schedule(1); /* Might give us something to do */
 
-	    current_time = erts_get_monotonic_time(esdp);
-	    if (current_time >= erts_next_timeout_time(esdp->next_tmo_ref))
-		erts_bump_timers(esdp->timer_wheel, current_time);
+	    if (!ERTS_SCHEDULER_IS_DIRTY(esdp)) {
+		current_time = erts_get_monotonic_time(esdp);
+		if (current_time >= erts_next_timeout_time(esdp->next_tmo_ref))
+		    erts_bump_timers(esdp->timer_wheel, current_time);
+	    }
 
 	sys_aux_work:
 #ifndef ERTS_SMP
@@ -3021,15 +3035,18 @@ scheduler_wait(int *fcalls, ErtsSchedulerData *esdp, ErtsRunQueue *rq)
 
 	    aux_work = erts_atomic32_read_acqb(&ssi->aux_work);
 	    if (aux_work) {
-		if (!working)
-		    sched_wall_time_change(esdp, working = 1);
+		if (!ERTS_SCHEDULER_IS_DIRTY(esdp)) {
+		    if (!working)
+			sched_wall_time_change(esdp, working = 1);
 #ifdef ERTS_SMP
-		if (!thr_prgr_active)
-		    erts_thr_progress_active(esdp, thr_prgr_active = 1);
+		    if (!thr_prgr_active)
+			erts_thr_progress_active(esdp, thr_prgr_active = 1);
 #endif
+		}
 		aux_work = handle_aux_work(&esdp->aux_work_data, aux_work, 1);
 #ifdef ERTS_SMP
-		if (aux_work && erts_thr_progress_update(esdp))
+		if (!ERTS_SCHEDULER_IS_DIRTY(esdp) && aux_work &&
+		    erts_thr_progress_update(esdp))
 		    erts_thr_progress_leader_update(esdp);
 #endif
 	    }
@@ -3127,7 +3144,7 @@ scheduler_wait(int *fcalls, ErtsSchedulerData *esdp, ErtsRunQueue *rq)
 
 	erl_sys_schedule(0);
 
-	{
+	if (!ERTS_SCHEDULER_IS_DIRTY(esdp)) {
 	    ErtsMonotonicTime current_time = erts_get_monotonic_time(esdp);
 	    if (current_time >= erts_next_timeout_time(esdp->next_tmo_ref))
 		erts_bump_timers(esdp->timer_wheel, current_time);
@@ -6790,7 +6807,8 @@ suspend_scheduler(ErtsSchedulerData *esdp)
 	}
     }
 
-    (void) erts_get_monotonic_time(esdp);
+    if (!ERTS_SCHEDULER_IS_DIRTY(esdp))
+	(void) erts_get_monotonic_time(esdp);
     erts_smp_runq_lock(esdp->run_queue);
     non_empty_runq(esdp->run_queue);
 
@@ -6906,7 +6924,7 @@ suspend_scheduler(ErtsSchedulerData *esdp)
 			 & ERTS_RUNQ_FLGS_QMASK);
 		aux_work = erts_atomic32_read_acqb(&ssi->aux_work);
 		if (aux_work|qmask) {
-		    if (!thr_prgr_active) {
+		    if (!ERTS_SCHEDULER_IS_DIRTY(esdp) && !thr_prgr_active) {
 			erts_thr_progress_active(esdp, thr_prgr_active = 1);
 			sched_wall_time_change(esdp, 1);
 		    }
@@ -6914,7 +6932,8 @@ suspend_scheduler(ErtsSchedulerData *esdp)
 			aux_work = handle_aux_work(&esdp->aux_work_data,
 						   aux_work,
 						   1);
-		    if (aux_work && erts_thr_progress_update(esdp))
+		    if (!ERTS_SCHEDULER_IS_DIRTY(esdp) && aux_work &&
+			erts_thr_progress_update(esdp))
 			erts_thr_progress_leader_update(esdp);
 		    if (qmask) {
 			erts_smp_runq_lock(esdp->run_queue);
@@ -6924,32 +6943,40 @@ suspend_scheduler(ErtsSchedulerData *esdp)
 		}
 
 		if (aux_work) {
-		    current_time = erts_get_monotonic_time(esdp);
-		    if (current_time >= erts_next_timeout_time(esdp->next_tmo_ref)) {
-			if (!thr_prgr_active) {
-			    erts_thr_progress_active(esdp, thr_prgr_active = 1);
-			    sched_wall_time_change(esdp, 1);
+		    if (!ERTS_SCHEDULER_IS_DIRTY(esdp)) {
+			current_time = erts_get_monotonic_time(esdp);
+			if (current_time >= erts_next_timeout_time(esdp->next_tmo_ref)) {
+			    if (!thr_prgr_active) {
+				erts_thr_progress_active(esdp, thr_prgr_active = 1);
+				sched_wall_time_change(esdp, 1);
+			    }
+			    erts_bump_timers(esdp->timer_wheel, current_time);
 			}
-			erts_bump_timers(esdp->timer_wheel, current_time);
 		    }
 		}
 		else {
 		    ErtsMonotonicTime timeout_time;
-		    timeout_time = erts_check_next_timeout_time(esdp);
-		    current_time = erts_get_monotonic_time(esdp);
-
-		    if (current_time >= timeout_time) {
+		    int do_timeout = 0;
+		    if (!ERTS_SCHEDULER_IS_DIRTY(esdp)) {
+			timeout_time = erts_check_next_timeout_time(esdp);
+			current_time = erts_get_monotonic_time(esdp);
+			do_timeout = (current_time >= timeout_time);
+		    } else
+			timeout_time = ERTS_MONOTONIC_TIME_MAX;
+		    if (do_timeout) {
 			if (!thr_prgr_active) {
 			    erts_thr_progress_active(esdp, thr_prgr_active = 1);
 			    sched_wall_time_change(esdp, 1);
 			}
 		    }
-		    else {		    
-			if (thr_prgr_active) {
-			    erts_thr_progress_active(esdp, thr_prgr_active = 0);
-			    sched_wall_time_change(esdp, 0);
+		    else {
+			if (!ERTS_SCHEDULER_IS_DIRTY(esdp)) {
+			    if (thr_prgr_active) {
+				erts_thr_progress_active(esdp, thr_prgr_active = 0);
+				sched_wall_time_change(esdp, 0);
+			    }
+			    erts_thr_progress_prepare_wait(esdp);
 			}
-			erts_thr_progress_prepare_wait(esdp);
 			flgs = sched_spin_suspended(ssi,
 						    ERTS_SCHED_SUSPEND_SLEEP_SPINCOUNT);
 			if (flgs == (ERTS_SSI_FLG_SLEEPING
@@ -6962,23 +6989,29 @@ suspend_scheduler(ErtsSchedulerData *esdp)
 					 | ERTS_SSI_FLG_SUSPENDED)) {
 				int res;
 
-				current_time = erts_get_monotonic_time(esdp);
+				current_time = ERTS_SCHEDULER_IS_DIRTY(esdp) ? 0 :
+				    erts_get_monotonic_time(esdp);
 				do {
 				    Sint64 timeout;
 				    if (current_time >= timeout_time)
 					break;
-				    timeout = ERTS_MONOTONIC_TO_NSEC(timeout_time
-								     - current_time
-								     - 1) + 1;
+				    if (!ERTS_SCHEDULER_IS_DIRTY(esdp)) {
+					timeout = ERTS_MONOTONIC_TO_NSEC(timeout_time
+									 - current_time
+									 - 1) + 1;
+				    } else
+					timeout = -1;
 				    res = erts_tse_twait(ssi->event, timeout);
-				    current_time = erts_get_monotonic_time(esdp);
+				    current_time = ERTS_SCHEDULER_IS_DIRTY(esdp) ? 0 :
+					erts_get_monotonic_time(esdp);
 				} while (res == EINTR);
 			    }
 			}
-			erts_thr_progress_finalize_wait(esdp);
+			if (!ERTS_SCHEDULER_IS_DIRTY(esdp))
+			    erts_thr_progress_finalize_wait(esdp);
 		    }
 
-		    if (current_time >= timeout_time)
+		    if (!ERTS_SCHEDULER_IS_DIRTY(esdp) && current_time >= timeout_time)
 			erts_bump_timers(esdp->timer_wheel, current_time);
 		}
 
@@ -9196,13 +9229,15 @@ Process *schedule(Process *p, int calls)
 
 	ERTS_SMP_CHK_NO_PROC_LOCKS;
 
-	if (esdp->check_time_reds >= ERTS_CHECK_TIME_REDS)
-	    (void) erts_get_monotonic_time(esdp);
+	if (!ERTS_SCHEDULER_IS_DIRTY(esdp)) {
+	    if (esdp->check_time_reds >= ERTS_CHECK_TIME_REDS)
+		(void) erts_get_monotonic_time(esdp);
 
-	if (esdp->last_monotonic_time >= erts_next_timeout_time(esdp->next_tmo_ref)) {
-	    erts_smp_runq_unlock(rq);
-	    erts_bump_timers(esdp->timer_wheel, esdp->last_monotonic_time);
-	    erts_smp_runq_lock(rq);
+	    if (esdp->last_monotonic_time >= erts_next_timeout_time(esdp->next_tmo_ref)) {
+		erts_smp_runq_unlock(rq);
+		erts_bump_timers(esdp->timer_wheel, esdp->last_monotonic_time);
+		erts_smp_runq_lock(rq);
+	    }
 	}
 	BM_STOP_TIMER(system);
 
