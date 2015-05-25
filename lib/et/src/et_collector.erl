@@ -64,6 +64,8 @@
 -export([init/1,terminate/2, code_change/3,
          handle_call/3, handle_cast/2, handle_info/2]).
 
+-compile([{nowarn_deprecated_function,[{erlang,now,0}]}]).
+
 -include("et_internal.hrl").
 -include("../include/et.hrl").
 
