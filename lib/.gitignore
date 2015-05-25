@@ -546,6 +546,8 @@ snmp/doc/intex.html
 /syntax_tools/doc/src/erl_syntax.xml
 /syntax_tools/doc/src/erl_syntax_lib.xml
 /syntax_tools/doc/src/erl_tidy.xml
+/syntax_tools/doc/src/merl.xml
+/syntax_tools/doc/src/merl_transform.xml
 /syntax_tools/doc/src/igor.xml
 /syntax_tools/doc/src/prettypr.xml
 
