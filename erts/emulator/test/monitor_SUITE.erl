@@ -666,8 +666,7 @@ mixer(doc) ->
     "Test mixing of internal and external monitors.";
 mixer(Config) when is_list(Config) ->
     PA = filename:dirname(code:which(?MODULE)),
-    NN = [j0,j1,j2,j3],
-    %   NN = [j0,j1],
+    NN = [j0,j1,j2],
     NL0 = [begin
                {ok, J} = test_server:start_node(X,slave,[{args, "-pa " ++ PA}]),
                J
