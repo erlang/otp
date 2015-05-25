@@ -74,7 +74,7 @@ bif hipe_bifs:set_native_address_in_fe/2
 bif hipe_bifs:find_na_or_make_stub/2
 
 bif hipe_bifs:check_crc/1
-bif hipe_bifs:system_crc/1
+bif hipe_bifs:system_crc/0
 bif hipe_bifs:get_rts_param/1
 
 #bif hipe_bifs:tuple_to_float/1

@@ -648,8 +648,7 @@ static int do_e(FILE *fp, const char* this_exe)
 	fprintf(fp, "-define(HIPE_SYSTEM_CRC, %u).\n", system_crc);
     }
     else {
-	fprintf(fp, "-define(HIPE_SYSTEM_CRC, hipe_bifs:system_crc(%u)).\n",
-		literals_crc);
+	fprintf(fp, "-define(HIPE_SYSTEM_CRC, hipe_bifs:system_crc()).\n");
     }
     return 0;
 }
