@@ -11,6 +11,8 @@
 	     erl_syntax_lib,
 	     erl_tidy,
 	     igor,
+             merl,
+             merl_transform,
 	     prettypr]},
   {registered,[]},
   {applications, [stdlib]},
