@@ -2137,9 +2137,10 @@ send_timeout(Config) when is_list(Config) ->
     ParaFun(false),
     ParaFun(true),
     ok.
+
 mad_sender(S) ->
-    {_, _, USec} = now(),
-    case gen_tcp:send(S, integer_to_list(USec)) of
+    U = rand:uniform(1000000),
+    case gen_tcp:send(S, integer_to_list(U)) of
         ok ->
             mad_sender(S);
         Err ->

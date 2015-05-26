@@ -451,11 +451,8 @@ close_pair({Client, Server}) ->
 %% MD5 hashing
 %%
 
-%% This is no proper random number, but that is not really important in 
-%% this test
 gen_challenge() ->
-    {_,_,N} = erlang:now(), 
-    N.
+    rand:uniform(1000000).
     
 %% Generate a message digest from Challenge number and Cookie	
 gen_digest(Challenge, Cookie) when is_integer(Challenge), is_atom(Cookie) ->
