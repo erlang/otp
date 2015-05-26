@@ -114,7 +114,7 @@
   {env, []},
   {mod, {megaco_sup, []}},
   {runtime_dependencies, ["stdlib-2.5","runtime_tools-1.8.14","kernel-3.0",
-			  "et-1.5","erts-6.0","debugger-4.0",
+			  "et-1.5","erts-7.0","debugger-4.0",
 			  "asn1-3.0"]}
  ]}.
 
