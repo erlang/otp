@@ -675,28 +675,22 @@ ipv6_addr_done(Ar, Br, N) ->
 ipv6_addr_done(Ar) ->
     list_to_tuple(lists:reverse(Ar)).
 
-%% Collect Hex digits
-hex(Cs) -> hex(Cs, []).
+%% Collect 1-4 Hex digits
+hex(Cs) -> hex(Cs, [], 4).
 %%
-hex([C|Cs], R) when C >= $0, C =< $9 ->
-    hex(Cs, [C|R]);
-hex([C|Cs], R) when C >= $a, C =< $f ->
-    hex(Cs, [C|R]);
-hex([C|Cs], R) when C >= $A, C =< $F ->
-    hex(Cs, [C|R]);
-hex(Cs, [_|_]=R) when is_list(Cs) ->
+hex([C|Cs], R, N) when C >= $0, C =< $9, N > 0 ->
+    hex(Cs, [C|R], N-1);
+hex([C|Cs], R, N) when C >= $a, C =< $f, N > 0 ->
+    hex(Cs, [C|R], N-1);
+hex([C|Cs], R, N) when C >= $A, C =< $F, N > 0 ->
+    hex(Cs, [C|R], N-1);
+hex(Cs, [_|_]=R, _) when is_list(Cs) ->
     {lists:reverse(R),Cs};
-hex(_, _) ->
+hex(_, _, _) ->
     erlang:error(badarg).
 
 %% Hex string to integer
-hex_to_int(Cs0) ->
-    case strip0(Cs0) of
-	Cs when length(Cs) =< 4 ->
-	    erlang:list_to_integer("0"++Cs, 16);
-	_ ->
-	    erlang:error(badarg)
-    end.
+hex_to_int(Cs) -> erlang:list_to_integer(Cs, 16).
 
 %% Dup onto head of existing list
 dup(0, _, L) ->
