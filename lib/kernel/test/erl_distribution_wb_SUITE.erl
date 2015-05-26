@@ -712,13 +712,9 @@ get_nodenames(N, T) ->
 get_nodenames(0, _, Acc) ->
     Acc;
 get_nodenames(N, T, Acc) ->
-    {A, B, C} = now(),
-    get_nodenames(N-1, T, [list_to_atom(atom_to_list(?MODULE)
+    U = erlang:unique_integer([positive]),
+    get_nodenames(N-1, T, [list_to_atom(?MODULE_STRING
 					++ "-"
 					++ atom_to_list(T)
 					++ "-"
-					++ integer_to_list(A)
-					++ "-"
-					++ integer_to_list(B)
-					++ "-"
-					++ integer_to_list(C)) | Acc]).
+					++ integer_to_list(U)) | Acc]).
