@@ -2729,7 +2729,7 @@ wrapping_oct(Config) when is_list(Config) ->
     {ok,Sock} = gen_tcp:listen(0,[{active,false},{mode,binary}]),
     {ok,Port} = inet:port(Sock),
     spawn_link(?MODULE,oct_acceptor,[Sock]),
-    Res = oct_datapump(Port,16#1FFFFFFFF),
+    Res = oct_datapump(Port,16#10000FFFF),
     gen_tcp:close(Sock),
     ok = Res,
     ok.
