@@ -107,6 +107,14 @@ erts_bits_destroy_state(ERL_BITS_PROTO_0)
 void
 erts_init_bits(void)
 {
+    ERTS_CT_ASSERT(offsetof(Binary,orig_bytes) % 8 == 0);
+    ERTS_CT_ASSERT(offsetof(ErtsMagicBinary,u.aligned.data) % 8 == 0);
+    ERTS_CT_ASSERT(ERTS_MAGIC_BIN_BYTES_TO_ALIGN ==
+                   (offsetof(ErtsMagicBinary,u.aligned.data)
+                    - offsetof(ErtsMagicBinary,u.unaligned.data)));
+    ERTS_CT_ASSERT(offsetof(ErtsBinary,driver.binary.orig_bytes)
+                == offsetof(Binary,orig_bytes));
+
     erts_smp_atomic_init_nob(&bits_bufs_size, 0);
 #if defined(ERTS_SMP)
     /* erl_process.c calls erts_bits_init_state() on all state instances */

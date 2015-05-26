@@ -230,8 +230,22 @@ typedef struct {
     ERTS_INTERNAL_BINARY_FIELDS
     SWord orig_size;
     void (*destructor)(Binary *);
-    char magic_bin_data[1];
+    union {
+        struct {
+            ERTS_BINARY_STRUCT_ALIGNMENT
+            char data[1];
+        } aligned;
+        struct {
+            char data[1];
+        } unaligned;
+    } u;
 } ErtsMagicBinary;
+
+#ifdef ARCH_32
+#define ERTS_MAGIC_BIN_BYTES_TO_ALIGN 4
+#else
+#define ERTS_MAGIC_BIN_BYTES_TO_ALIGN 0
+#endif
 
 typedef union {
     Binary binary;
@@ -252,15 +266,30 @@ typedef union {
 #define ERTS_MAGIC_BIN_DESTRUCTOR(BP) \
   ((ErtsBinary *) (BP))->magic_binary.destructor
 #define ERTS_MAGIC_BIN_DATA(BP) \
-  ((void *) ((ErtsBinary *) (BP))->magic_binary.magic_bin_data)
-#define ERTS_MAGIC_BIN_DATA_SIZE(BP) \
-  ((BP)->orig_size - sizeof(void (*)(Binary *)))
+  ((void *) ((ErtsBinary *) (BP))->magic_binary.u.aligned.data)
+#define ERTS_MAGIC_DATA_OFFSET \
+  (offsetof(ErtsMagicBinary,u.aligned.data) - offsetof(Binary,orig_bytes))
 #define ERTS_MAGIC_BIN_ORIG_SIZE(Sz) \
-  (sizeof(void (*)(Binary *)) + (Sz))
+  (ERTS_MAGIC_DATA_OFFSET + (Sz))
 #define ERTS_MAGIC_BIN_SIZE(Sz) \
-  (offsetof(ErtsMagicBinary,magic_bin_data) + (Sz))
-#define ERTS_MAGIC_BIN_FROM_DATA(DATA) \
-  ((ErtsBinary*)((char*)(DATA) - offsetof(ErtsMagicBinary,magic_bin_data)))
+  (offsetof(ErtsMagicBinary,u.aligned.data) + (Sz))
+
+/* On 32-bit arch these macro variants will save memory
+   by not forcing 8-byte alignment for the magic payload.
+*/
+#define ERTS_MAGIC_BIN_UNALIGNED_DATA(BP) \
+  ((void *) ((ErtsBinary *) (BP))->magic_binary.u.unaligned.data)
+#define ERTS_MAGIC_UNALIGNED_DATA_OFFSET \
+  (offsetof(ErtsMagicBinary,u.unaligned.data) - offsetof(Binary,orig_bytes))
+#define ERTS_MAGIC_BIN_UNALIGNED_DATA_SIZE(BP) \
+  ((BP)->orig_size - ERTS_MAGIC_UNALIGNED_DATA_OFFSET)
+#define ERTS_MAGIC_BIN_UNALIGNED_ORIG_SIZE(Sz) \
+  (ERTS_MAGIC_UNALIGNED_DATA_OFFSET + (Sz))
+#define ERTS_MAGIC_BIN_UNALIGNED_SIZE(Sz) \
+  (offsetof(ErtsMagicBinary,u.unaligned.data) + (Sz))
+#define ERTS_MAGIC_BIN_FROM_UNALIGNED_DATA(DATA) \
+  ((ErtsBinary*)((char*)(DATA) - offsetof(ErtsMagicBinary,u.unaligned.data)))
+
 
 #define Binary2ErlDrvBinary(B) (&((ErtsBinary *) (B))->driver.binary)
 #define ErlDrvBinary2Binary(D) ((Binary *) \
