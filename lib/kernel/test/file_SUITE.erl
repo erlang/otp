@@ -3914,7 +3914,7 @@ response_analysis(Module, Function, Arguments) ->
 		  receive {Parent, start, Ts} -> ok end,
 		  Stat = 
 		      iterate(response_stat(response_stat(init, Ts),
-					    erlang:now()), 
+					    micro_ts()),
 			      done,
 			      fun (S) ->
 				      erlang:yield(),
@@ -3922,12 +3922,12 @@ response_analysis(Module, Function, Arguments) ->
 					  {Parent, stop} ->
 					      done
 				      after 0 ->
-					      response_stat(S, erlang:now())
+					      response_stat(S, micro_ts())
 				      end
 			      end),
-		  Parent ! {self(), stopped, response_stat(Stat, erlang:now())}
+		  Parent ! {self(), stopped, response_stat(Stat, micro_ts())}
 	  end),
-    ?line Child ! {Parent, start, erlang:now()},
+    Child ! {Parent, start, micro_ts()},
     ?line Result = apply(Module, Function, Arguments),
     ?line Child ! {Parent, stop},
     ?line {N, Sum, _, M, Max} = receive {Child, stopped, X} -> X end,
@@ -3941,12 +3941,13 @@ response_analysis(Module, Function, Arguments) ->
 	    [Mean_ms, Max_ms, M, (N-1)])),
     ?line {Result, Comment}.
     
-
+micro_ts() ->
+    erlang:monotonic_time(micro_seconds).
 
 response_stat(init, Ts) ->
     {0, 0, Ts, 0, 0};
-response_stat({N, Sum, {A1, B1, C1}, M, Max}, {A2, B2, C2} = Ts) ->
-    D = C2-C1 + 1000000*((B2-B1) + 1000000*(A2-A1)),
+response_stat({N, Sum, Ts0, M, Max}, Ts) ->
+    D = Ts - Ts0,
     if D > Max ->
 	    {N+1, Sum+D, Ts, N, D};
        true ->

@@ -235,11 +235,10 @@ do_test_setuptime(Setuptime) when is_list(Setuptime) ->
     Res.
 
 time_ping(Node) ->
-    T0 = erlang:now(),
+    T0 = erlang:monotonic_time(),
     pang = net_adm:ping(Node),
-    T1 = erlang:now(),
-    time_diff(T0,T1).
-    
+    T1 = erlang:monotonic_time(),
+    erlang:convert_time_unit(T1 - T0, native, milli_seconds).
 
 %% Keep the connection with the client node up.
 %% This is neccessary as the client node runs with much shorter
@@ -276,13 +275,15 @@ tick_cli_test1(Node) ->
     erlang:monitor_node(Node, true),
     sleep(2),
     rpc:call(Node, erlang, time, []), %% simulate action on the connection
-    T1 = now(),
+    T1 = erlang:monotonic_time(),
     receive
 	{nodedown, Node} ->
-	    T2 = now(),
+	    T2 = erlang:monotonic_time(),
 	    receive
 		{whats_the_result, From} ->
-		    case time_diff(T1, T2) of
+		    Diff = erlang:convert_time_unit(T2-T1, native,
+						    milli_seconds),
+		    case Diff of
 			T when T > 8000, T < 16000 ->
 			    From ! {tick_test, T};
 			T ->
@@ -1208,19 +1209,6 @@ print_my_messages() ->
     ?line ?t:format("Messages: ~p~n", [Messages]),
     ?line ok.
 
-%% Time difference in milliseconds !!
-time_diff({TimeM, TimeS, TimeU}, {CurM, CurS, CurU}) when CurM > TimeM ->
-    ((CurM - TimeM) * 1000000000) + sec_diff({TimeS, TimeU}, {CurS, CurU});
-time_diff({_, TimeS, TimeU}, {_, CurS, CurU}) ->
-    sec_diff({TimeS, TimeU}, {CurS, CurU}).
-
-sec_diff({TimeS, TimeU}, {CurS, CurU}) when CurS > TimeS ->
-    ((CurS - TimeS) * 1000) + micro_diff(TimeU, CurU);
-sec_diff({_, TimeU}, {_, CurU}) ->
-    micro_diff(TimeU, CurU).
-
-micro_diff(TimeU, CurU) ->
-    trunc(CurU/1000) - trunc(TimeU/1000).
 
 sleep(T) -> receive after T * 1000 -> ok end.	
 
