@@ -35,13 +35,15 @@
 
    <section>
     <title>SSH</title>
-
+    <marker id="supported"/>
     <list type="bulleted">
       <item>For application dependencies see <seealso marker="SSH_app"> ssh(6)</seealso> </item>
       <item>Supported SSH version is 2.0.</item>
+      <item>Supported public key algorithms: ssh-rsa and ssh-dss.</item>
       <item>Supported MAC algorithms: hmac-sha2-256 and hmac-sha1.</item>
       <item>Supported encryption algorithms: aes128-ctr, aes128-cb and 3des-cbc.</item>
       <item>Supported key exchange algorithms: diffie-hellman-group1-sha1.</item>
+      <item>Supported compression algorithms: none, zlib, zlib@openssh.com,</item>
       <item>Supports unicode filenames if the emulator and the underlaying OS support it.
       See section DESCRIPTION in the
       <seealso marker="kernel:file">file</seealso> manual page in <c>kernel</c>
@@ -79,6 +81,18 @@
       <seealso marker="ssh_channel">ssh_channel(3)</seealso></p></item>
       <tag><c>channel_init_args() =</c></tag>
       <item><p><c>list()</c></p></item>
+
+      <tag><c>algs_list() =</c></tag>
+      <item><p><c>list( alg_entry() )</c></p></item>
+
+      <tag><c>alg_entry() =</c></tag>
+      <item><p><c>{kex, simple_algs()} | {public_key, simple_algs()} | {cipher, double_algs()} | {mac, double_algs()} | {compression, double_algs()}</c></p></item>
+
+      <tag><c>simple_algs() =</c></tag>
+      <item><p><c>list( atom() )</c></p></item>
+      
+      <tag><c>double_algs() =</c></tag>
+      <item><p><c>[{client2serverlist,simple_algs()},{server2client,simple_algs()}] | simple_algs()</c></p></item>
      </taglist>
 </section>
 
@@ -160,19 +174,58 @@
 	    and <c>password</c>. However, those optins are not always desirable
 	    to use from a security point of view.</p>
 	  </item>
+
 	  <tag><c><![CDATA[{public_key_alg, 'ssh-rsa' | 'ssh-dss'}]]></c></tag>
 	  <item>
+	    <note>
+	      <p>This option is kept for compatibility. It is ignored if the <c>preferred_algorithms</c>
+	      option is used. The equivalence of <c>{public_key_alg,'ssh-dss'}</c> is 
+	      <c>{preferred_algorithms, [{public_key,['ssh-dss','ssh-rsa']}]}</c>.</p>
+	    </note>
             <p>Sets the preferred public key algorithm to use for user
 	    authentication. If the preferred algorithm fails,
 	    the other algorithm is tried. The default is
 	    to try <c><![CDATA['ssh-rsa']]></c> first.</p>
 	  </item>
+
 	  <tag><c><![CDATA[{pref_public_key_algs, list()}]]></c></tag>
 	  <item>
+	    <note>
+	      <p>This option is kept for compatibility. It is ignored if the <c>preferred_algorithms</c>
+	      option is used. The equivalence of <c>{pref_public_key_algs,['ssh-dss']}</c> is 
+	      <c>{preferred_algorithms, [{public_key,['ssh-dss']}]}</c>.</p>
+	    </note>
             <p>List of public key algorithms to try to use.
 	    <c>'ssh-rsa'</c> and <c>'ssh-dss'</c> are available.
 	    Overrides <c><![CDATA[{public_key_alg, 'ssh-rsa' | 'ssh-dss'}]]></c></p>
 	  </item>
+
+	  <tag><c><![CDATA[{preferred_algorithms, algs_list()}]]></c></tag>
+	  <item>
+            <p>List of algorithms to use in the algorithm negotiation. The default <c>algs_list()</c> can
+	    be obtained from <seealso marker="#default_algorithms/0">default_algorithms/0</seealso>.
+	    </p>
+	    <p>Here is an example of this option:</p>
+	<code>
+{preferred_algorithms, 
+ [{public_key,['ssh-rsa','ssh-dss']},
+  {cipher,[{client2server,['aes128-ctr']},
+           {server2client,['aes128-cbc','3des-cbc']}]},
+  {mac,['hmac-sha2-256','hmac-sha1']},
+  {compression,[none,zlib]}
+}
+</code>
+        <p>The example specifies different algorithms in the two directions (client2server and server2client), for cipher but specifies the same
+algorithms for mac and compression in both directions. The kex (key exchange) and public key algorithms are set to their default values,
+kex is implicit but public_key is set explicitly.</p>
+
+        <warning>
+	  <p>Changing the values can make a connection less secure. Do not change unless you
+	  know exactly what you are doing. If you do not understand the values then you
+	  are not supposed to change them.</p>
+	</warning>
+	  </item>
+
 	  <tag><c><![CDATA[{connect_timeout, timeout()}]]></c></tag>
 	  <item>
 	    <p>Sets a time-out on the transport layer
@@ -341,6 +394,33 @@
               user. From a security perspective this option makes
 	      the server very vulnerable.</p>
 	  </item>
+
+	  <tag><c><![CDATA[{preferred_algorithms, algs_list()}]]></c></tag>
+	  <item>
+            <p>List of algorithms to use in the algorithm negotiation. The default <c>algs_list()</c> can
+	    be obtained from <seealso marker="#default_algorithms/0">default_algorithms/0</seealso>.
+	    </p>
+	    <p>Here is an example of this option:</p>
+	<code>
+{preferred_algorithms, 
+ [{public_key,['ssh-rsa','ssh-dss']},
+  {cipher,[{client2server,['aes128-ctr']},
+           {server2client,['aes128-cbc','3des-cbc']}]},
+  {mac,['hmac-sha2-256','hmac-sha1']},
+  {compression,[none,zlib]}
+}
+</code>
+        <p>The example specifies different algorithms in the two directions (client2server and server2client), for cipher but specifies the same
+algorithms for mac and compression in both directions. The kex (key exchange) and public key algorithms are set to their default values,
+kex is implicit but public_key is set explicitly.</p>
+
+        <warning>
+	  <p>Changing the values can make a connection less secure. Do not change unless you
+	  know exactly what you are doing. If you do not understand the values then you
+	  are not supposed to change them.</p>
+	</warning>
+	  </item>
+
 	  <tag><c><![CDATA[{pwdfun, fun(User::string(), password::string()) -> boolean()}]]></c></tag>
 	  <item>
 	    <p>Provides a function for password validation. This function is called
@@ -445,6 +525,26 @@
       </desc>   
     </func>
 
+    <func>
+      <name>default_algorithms() -> algs_list()</name>
+      <fsummary>Get a list declaring the supported algorithms</fsummary>
+      <desc>
+	<p>Returns a key-value list, where the keys are the different types of algorithms and the values are the
+	algorithms themselves. An example:</p>
+	<code>
+20> ssh:default_algorithms().
+[{kex,['diffie-hellman-group1-sha1']},
+ {public_key,['ssh-rsa','ssh-dss']},
+ {cipher,[{client2server,['aes128-ctr','aes128-cbc','3des-cbc']},
+          {server2client,['aes128-ctr','aes128-cbc','3des-cbc']}]},
+ {mac,[{client2server,['hmac-sha2-256','hmac-sha1']},
+       {server2client,['hmac-sha2-256','hmac-sha1']}]},
+ {compression,[{client2server,[none,zlib]},
+               {server2client,[none,zlib]}]}]
+21> 
+</code>
+      </desc>
+    </func>
 
     <func>
       <name>shell(Host) -> </name>

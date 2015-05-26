@@ -33,7 +33,7 @@
 -include("ssh_transport.hrl").
 -include("ssh_auth.hrl").
 -include("ssh_connect.hrl").
-
+-compile(export_all).
 -export([start_link/3]).
 
 %% Internal application API
@@ -1156,54 +1156,38 @@ init_ssh(server = Role, Vsn, Version, Options, Socket) ->
 
 supported_host_keys(client, _, Options) ->
     try
-	case extract_algs(proplists:get_value(pref_public_key_algs, Options, false), []) of
-	    false ->
-		["ssh-rsa", "ssh-dss"];
-	    Algs ->
-		Algs
+	case proplists:get_value(public_key, 
+				 proplists:get_value(preferred_algorithms,Options,[])
+				) of
+	    undefined -> 
+		ssh_auth:default_public_key_algorithms();
+	    L ->
+		L -- (L--ssh_auth:default_public_key_algorithms())
 	end
+    of
+	[] ->
+	    {stop, {shutdown, "No public key algs"}};
+	Algs ->
+	    [atom_to_list(A) || A<-Algs]
     catch
 	exit:Reason ->
 	    {stop, {shutdown, Reason}}
     end;
 supported_host_keys(server, KeyCb, Options) ->
-    lists:foldl(fun(Type, Acc) ->
-			case available_host_key(KeyCb, Type, Options) of
-			    {error, _} ->
-				Acc;
-			    Alg ->
-				[Alg | Acc]
-			end
-		end, [],
-		%% Prefered alg last so no need to reverse
-		["ssh-dss", "ssh-rsa"]).
-extract_algs(false, _) ->
-    false;
-extract_algs([],[]) ->
-    false;
-extract_algs([], NewList) ->
-    lists:reverse(NewList);
-extract_algs([H|T], NewList) ->
-    case H of
-	'ssh-dss' ->
-	    extract_algs(T, ["ssh-dss"|NewList]);
-	'ssh-rsa' ->
-	    extract_algs(T, ["ssh-rsa"|NewList])
-    end.
-available_host_key(KeyCb, "ssh-dss"= Alg, Opts) ->
-    case KeyCb:host_key('ssh-dss', Opts) of
-	{ok, _} ->
-	    Alg;
-	Other ->
-	    Other
-    end;
-available_host_key(KeyCb, "ssh-rsa" = Alg, Opts) ->
-    case KeyCb:host_key('ssh-rsa', Opts) of
-	{ok, _} ->
-	    Alg;
-	Other ->
-	    Other
-    end.
+    Algs=
+    [atom_to_list(A) || A <- proplists:get_value(public_key, 
+						 proplists:get_value(preferred_algorithms,Options,[]),
+						 ssh_auth:default_public_key_algorithms()
+						),
+			available_host_key(KeyCb, A, Options)
+    ],
+    Algs.
+
+
+%% Alg :: atom()
+available_host_key(KeyCb, Alg, Opts) ->
+    element(1, catch KeyCb:host_key(Alg, Opts)) == ok.
+
 
 send_msg(Msg, #state{socket = Socket, transport_cb = Transport}) ->
     Transport:send(Socket, Msg).

@@ -56,6 +56,7 @@ all() ->
      ssh_daemon_minimal_remote_max_packet_size_option,
      ssh_msg_debug_fun_option_client,
      ssh_msg_debug_fun_option_server,
+     preferred_algorithms,
      id_string_no_opt_client,
      id_string_own_string_client,
      id_string_random_client,
@@ -92,6 +93,7 @@ basic_tests() ->
 
 %%--------------------------------------------------------------------
 init_per_suite(Config) ->
+    catch crypto:stop(),
     case catch crypto:start() of
 	ok ->
 	    Config;
@@ -289,7 +291,7 @@ exec_compressed(Config) when is_list(Config) ->
     UserDir = ?config(priv_dir, Config), 
 
     {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},{user_dir, UserDir},
-					     {compression, zlib},
+					     {preferred_algorithms,[{compression, [zlib]}]},
 					     {failfun, fun ssh_test_lib:failfun/2}]),
     
     ConnectionRef =
@@ -1064,6 +1066,57 @@ ssh_daemon_minimal_remote_max_packet_size_option(Config) ->
     ssh:stop_daemon(Server).
     
 %%--------------------------------------------------------------------
+%% This test try every algorithm by connecting to an Erlang server
+preferred_algorithms(Config) ->
+    SystemDir = ?config(data_dir, Config),
+    PrivDir = ?config(priv_dir, Config),
+    UserDir = filename:join(PrivDir, nopubkey), % to make sure we don't use public-key-auth
+    file:make_dir(UserDir),
+
+    {Server, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
+						{user_dir, UserDir},
+						{user_passwords, [{"vego", "morot"}]},
+						{failfun, fun ssh_test_lib:failfun/2}]),
+    Available = ssh:default_algorithms(),
+    Tests = [[{Tag,[Alg]}] || {Tag, SubAlgs} <- Available,
+			  is_atom(hd(SubAlgs)),
+			  Alg <- SubAlgs]
+	++  [[{Tag,[{T1,[A1]},{T2,[A2]}]}] || {Tag, [{T1,As1},{T2,As2}]} <- Available,
+					      A1 <- As1,
+					      A2 <- As2],
+    ct:log("TESTS: ~p",[Tests]),
+    [connect_exec_channel(Host,Port,PrefAlgs)  || PrefAlgs <- Tests],
+    ssh:stop_daemon(Server).
+
+
+connect_exec_channel(_Host, Port, Algs) ->
+    ct:log("Try ~p",[Algs]),
+    ConnectionRef = ssh_test_lib:connect(Port, [{silently_accept_hosts, true},
+						{user_interaction, false},
+						{user, "vego"},
+						{password, "morot"},
+						{preferred_algorithms,Algs}
+					       ]),
+    chan_exec(ConnectionRef, "2*21.", <<"42\n">>),
+    ssh:close(ConnectionRef).
+
+chan_exec(ConnectionRef, Cmnd, Expected) ->
+    {ok, ChannelId0} = ssh_connection:session_channel(ConnectionRef, infinity),
+    success = ssh_connection:exec(ConnectionRef, ChannelId0,Cmnd, infinity),
+    Data0 = {ssh_cm, ConnectionRef, {data, ChannelId0, 0, Expected}},
+    case ssh_test_lib:receive_exec_result(Data0) of
+	expected ->
+	    ssh_test_lib:receive_exec_end(ConnectionRef, ChannelId0);
+	{unexpected_msg,{ssh_cm, ConnectionRef, {exit_status, ChannelId0, 0}}
+	 = ExitStatus0} ->
+	    ct:pal("0: Collected data ~p", [ExitStatus0]),
+	    ssh_test_lib:receive_exec_result(Data0,
+					     ConnectionRef, ChannelId0);
+	Other0 ->
+	    ct:fail(Other0)
+    end.
+
+%%--------------------------------------------------------------------
 id_string_no_opt_client(Config) ->
     {Server, _Host, Port} = fake_daemon(Config),
     {error,_} = ssh:connect("localhost", Port, [], 1000),
@@ -1233,12 +1286,15 @@ openssh_zlib_basic_test(Config) ->
 
     {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
 					     {user_dir, UserDir},
+					     {preferred_algorithms,[{compression, ['zlib@openssh.com']}]},
 					     {failfun, fun ssh_test_lib:failfun/2}]),
     ConnectionRef =
 	ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
 					  {user_dir, UserDir},
 					  {user_interaction, false},
-					  {compression, openssh_zlib}]),
+					  {preferred_algorithms,[{compression, ['zlib@openssh.com',
+										none]}]}
+					 ]),
     ok = ssh:close(ConnectionRef),
     ssh:stop_daemon(Pid).
 
