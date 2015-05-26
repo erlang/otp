@@ -111,7 +111,7 @@ start_channel(Cm, Opts) when is_pid(Cm) ->
 			    TimeOut
 		    end;
 		{error, Reason} ->
-		    {error, Reason};
+		    {error, format_channel_start_error(Reason)};
 		ignore ->
 		    {error, ignore}
 	    end;
@@ -136,7 +136,7 @@ start_channel(Host, Port, Opts) ->
 			    TimeOut
 		    end;
 		{error, Reason} ->
-		    {error, Reason};
+		    {error, format_channel_start_error(Reason)};
 		ignore ->
 		    {error, ignore}
 	    end;
@@ -491,9 +491,9 @@ init([Cm, ChannelId, Options]) ->
 			inf = new_inf(),
 			opts = Options}};
 	failure ->
-	    {stop, "server failed to start sftp subsystem"};
+	    {stop, {shutdown, "server failed to start sftp subsystem"}};
 	Error ->
-	    {stop, Error}
+	    {stop, {shutdown, Error}}
     end.
     
 %%--------------------------------------------------------------------
@@ -508,12 +508,12 @@ init([Cm, ChannelId, Options]) ->
 %%--------------------------------------------------------------------
 handle_call({{timeout, infinity}, wait_for_version_negotiation}, From,
 	    #state{xf = #ssh_xfer{vsn = undefined} = Xf} = State) ->
-    {noreply, State#state{xf = Xf#ssh_xfer{vsn = From}}}; 
+    {noreply, State#state{xf = Xf#ssh_xfer{vsn = {wait, From, undefined}}}};
 
 handle_call({{timeout, Timeout}, wait_for_version_negotiation}, From,
 	    #state{xf = #ssh_xfer{vsn = undefined} = Xf} = State) ->
-    timer:send_after(Timeout, {timeout, undefined, From}),
-    {noreply, State#state{xf = Xf#ssh_xfer{vsn = From}}}; 
+    TRef = erlang:send_after(Timeout, self(), {timeout, undefined, From}),
+    {noreply, State#state{xf = Xf#ssh_xfer{vsn = {wait, From, TRef}}}};
 
 handle_call({_, wait_for_version_negotiation}, _, State) ->
     {reply, ok, State};
@@ -865,7 +865,12 @@ do_handle_reply(#state{xf = Xf} = State,
     case Xf#ssh_xfer.vsn of
 	undefined ->
 	    ok;
-	From ->
+	{wait, From, TRef} ->
+	    if is_reference(TRef) ->
+		    erlang:cancel_timer(TRef);
+	       true ->
+		    ok
+	    end,
 	    ssh_channel:reply(From, ok)
     end,    
     State#state{xf = Xf#ssh_xfer{vsn = Version, ext = Ext}, rep_buf = Rest};
@@ -1412,3 +1417,8 @@ open_buf1(Pid, BufInfo0, FileOpTimeout, CryptoState, ChunkSize) ->
     BufHandle = make_ref(),
     call(Pid, {put_bufinf,BufHandle,BufInfo}, FileOpTimeout),
     {ok,BufHandle}.
+
+format_channel_start_error({shutdown, Reason}) ->
+    Reason;
+format_channel_start_error(Reason) ->
+    Reason.

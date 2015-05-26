@@ -181,8 +181,8 @@ handle_server_hello_extensions(Version, SessionId, Random, CipherSuite,
 						      SslOpt, ConnectionStates0, Renegotiation) of
 	#alert{} = Alert ->
 	    Alert;
-	{ConnectionStates, Protocol} ->
-	    {Version, SessionId, ConnectionStates, Protocol}
+	{ConnectionStates, ProtoExt, Protocol} ->
+	    {Version, SessionId, ConnectionStates, ProtoExt, Protocol}
     end.
 
 dtls_fragment(Mss, MsgType, Len, MsgSeq, Bin, Offset, Acc)

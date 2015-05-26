@@ -57,6 +57,33 @@ ETHR_PROTO_NORETURN__ ethr_abort__(void);
 int ethr_win_get_errno__(void);
 #endif
 
+#ifdef ETHR_INCLUDE_MONOTONIC_CLOCK__
+#undef ETHR_HAVE_ETHR_GET_MONOTONIC_TIME
+#if defined(ETHR_HAVE_CLOCK_GETTIME_MONOTONIC)		\
+    || defined(ETHR_HAVE_MACH_CLOCK_GET_TIME)		\
+    || defined(ETHR_HAVE_GETHRTIME)
+#ifdef ETHR_TIME_WITH_SYS_TIME
+#  include <time.h>
+#  include <sys/time.h>
+#else
+#  ifdef ETHR_HAVE_SYS_TIME_H
+#    include <sys/time.h>
+#  else
+#    include <time.h>
+#  endif
+#endif
+#ifdef ETHR_HAVE_MACH_CLOCK_GET_TIME
+#include <mach/clock.h>
+#include <mach/mach.h>
+#endif
+#define ETHR_HAVE_ETHR_GET_MONOTONIC_TIME
+ethr_sint64_t ethr_get_monotonic_time(void);
+int ethr_get_monotonic_time_is_broken(void);
+#endif
+#endif /* ETHR_INCLUDE_MONOTONIC_CLOCK__ */
+
+void ethr_init_event__(void);
+
 /* implemented in lib_src/common/ethread_aux.c */
 int ethr_init_common__(ethr_init_data *id);
 int ethr_late_init_common__(ethr_late_init_data *lid);

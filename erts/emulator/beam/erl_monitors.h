@@ -82,6 +82,7 @@
 /* Type tags for monitors */
 #define MON_ORIGIN 1
 #define MON_TARGET 3
+#define MON_TIME_OFFSET 7
 
 /* Type tags for links */
 #define LINK_PID 1   /* ...Or port */
@@ -103,7 +104,7 @@ typedef struct erts_monitor_or_link {
 typedef struct erts_monitor {
     struct erts_monitor *left, *right; 
     Sint16 balance;
-    Uint16 type;  /* MON_ORIGIN | MON_TARGET */
+    Uint16 type;  /* MON_ORIGIN | MON_TARGET | MON_TIME_OFFSET */
     Eterm ref;
     Eterm pid;    /* In case of distributed named monitor, this is the
 		     nodename atom in MON_ORIGIN process, otherwise a pid or

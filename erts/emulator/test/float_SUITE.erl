@@ -294,16 +294,13 @@ id(I) -> I.
     
 start_node(Config) when is_list(Config) ->
     ?line Pa = filename:dirname(code:which(?MODULE)),
-    ?line {A, B, C} = now(),
     ?line Name = list_to_atom(atom_to_list(?MODULE)
 			      ++ "-"
 			      ++ atom_to_list(?config(testcase, Config))
 			      ++ "-"
-			      ++ integer_to_list(A)
+			      ++ integer_to_list(erlang:system_time(seconds))
 			      ++ "-"
-			      ++ integer_to_list(B)
-			      ++ "-"
-			      ++ integer_to_list(C)),
+			      ++ integer_to_list(erlang:unique_integer([positive]))),
     ?line ?t:start_node(Name, slave, [{args, "-pa "++Pa}]).
 
 stop_node(Node) ->

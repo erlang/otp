@@ -117,7 +117,7 @@ init([]) ->
 			       [{local, kernel_safe_sup}, ?MODULE, safe]},
 			      permanent, infinity, supervisor, [?MODULE]},
 	    {ok, {SupFlags,
-		  [File, Code, StdError, User,
+		  [Code, File, StdError, User,
 		   Config, SafeSupervisor]}};
 	_ ->
 	    Rpc = {rex, {rpc, start_link, []}, 
@@ -139,8 +139,8 @@ init([]) ->
 			       [{local, kernel_safe_sup}, ?MODULE, safe]},
 			      permanent, infinity, supervisor, [?MODULE]},
 	    {ok, {SupFlags,
-		  [Rpc, Global, InetDb | DistAC] ++ 
-		  [NetSup, Glo_grp, File, Code, 
+		  [Code, Rpc, Global, InetDb | DistAC] ++
+		  [NetSup, Glo_grp, File,
 		   StdError, User, Config, SafeSupervisor] ++ Timer}}
     end;
 init(safe) ->

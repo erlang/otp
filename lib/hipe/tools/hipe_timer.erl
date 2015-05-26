@@ -46,27 +46,27 @@ tr(F) ->
   {R,{WT-EWT,(RT-ERT)/1000}}.
 
 empty_time() ->
-  {WT1,WT2,WT3} = erlang:now(),
+  WTA = erlang:monotonic_time(),
   {A,_} = erlang:statistics(runtime),
-  {WT12,WT22,WT32} = erlang:now(),
+  WTB = erlang:monotonic_time(),
   {B,_} = erlang:statistics(runtime),
-  {(WT12-WT1)*1000000+(WT22-WT2)+(WT32-WT3)/1000000,B-A}.
+  {(WTB-WTA)/erlang:convert_time_unit(1, seconds, native),B-A}.
 
 time(F) -> 
-  {WT1,WT2,WT3} = erlang:now(),
+  WTA = erlang:monotonic_time(),
   {A,_} = erlang:statistics(runtime),
   F(),
-  {WT12,WT22,WT32} = erlang:now(),
+  WTB = erlang:monotonic_time(),
   {B,_} = erlang:statistics(runtime),
-  {(WT12-WT1)*1000000+(WT22-WT2)+(WT32-WT3)/1000000,B-A}.
+  {(WTB-WTA)/erlang:convert_time_unit(1, seconds, native),B-A}.
 
 timer(F) -> 
-  {WT1,WT2,WT3} = erlang:now(),
+  WTA = erlang:monotonic_time(),
   {A,_} = erlang:statistics(runtime),
   R = F(),
-  {WT12,WT22,WT32} = erlang:now(),
+  WTB = erlang:monotonic_time(),
   {B,_} = erlang:statistics(runtime),
-  {R,{(WT12-WT1)*1000000+(WT22-WT2)+(WT32-WT3)/1000000,B-A}}.
+  {R,{(WTB-WTA)/erlang:convert_time_unit(1, seconds, native),B-A}}.
 
 advanced(_Fun, I) when I < 2 -> false;
 advanced(Fun, Iterations) ->

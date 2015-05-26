@@ -36,5 +36,5 @@
   {applications, [stdlib, kernel]},
   {env, []},
   {runtime_dependencies, ["wx-1.2","tools-2.6.14","stdlib-2.0","sasl-2.4",
-			  "kernel-3.0","erts-6.0"]}
+			  "kernel-3.0","erts-7.0"]}
  ]}.

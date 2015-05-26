@@ -176,7 +176,7 @@ filtermap(Fun, List1) ->
                            false -> Acc;
                            true -> [Elem|Acc];
                            {true,Value} -> [Value|Acc]
-                       end,
+                       end
                 end, [], List1).</code>
         <p>Example:</p>
         <pre>

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2005-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2015. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -93,7 +93,7 @@ unique_name(Options) ->
 	{value, {_, Port}} when is_integer(Port), Port > 0 -> 
 	    {tftpd, Port};
 	_ ->
-	    {tftpd, erlang:now()}
+	    {tftpd, inets_time_compat:unique_integer([positive])}
     end.
 
 default_kill_after() ->

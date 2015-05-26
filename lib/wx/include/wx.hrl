@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -54,7 +54,9 @@
 -type wxListEventType() :: command_list_begin_drag | command_list_begin_rdrag | command_list_begin_label_edit | command_list_end_label_edit | command_list_delete_item | command_list_delete_all_items | command_list_key_down | command_list_insert_item | command_list_col_click | command_list_col_right_click | command_list_col_begin_drag | command_list_col_dragging | command_list_col_end_drag | command_list_item_selected | command_list_item_deselected | command_list_item_right_click | command_list_item_middle_click | command_list_item_activated | command_list_item_focused | command_list_cache_hint.
 -type wxList() :: #wxList{}. %% Callback event: {@link wxListEvent}
 
--record(wxNotebook, {type :: wxNotebookEventType()}). %% Callback event: {@link wxNotebookEvent}
+-record(wxNotebook,{type :: wxNotebookEventType(), %% Callback event: {@link wxNotebookEvent}
+	nSel :: integer(),
+	nOldSel :: integer()}).
 -type wxNotebookEventType() :: command_notebook_page_changed | command_notebook_page_changing.
 -type wxNotebook() :: #wxNotebook{}. %% Callback event: {@link wxNotebookEvent}
 
@@ -86,7 +88,9 @@
 -type wxWindowDestroyEventType() :: destroy.
 -type wxWindowDestroy() :: #wxWindowDestroy{}. %% Callback event: {@link wxWindowDestroyEvent}
 
--record(wxCalendar, {type :: wxCalendarEventType()}). %% Callback event: {@link wxCalendarEvent}
+-record(wxCalendar,{type :: wxCalendarEventType(), %% Callback event: {@link wxCalendarEvent}
+	wday :: wx:wx_enum(),
+	date :: wx:wx_datetime()}).
 -type wxCalendarEventType() :: calendar_sel_changed | calendar_day_changed | calendar_month_changed | calendar_year_changed | calendar_doubleclicked | calendar_weekday_clicked.
 -type wxCalendar() :: #wxCalendar{}. %% Callback event: {@link wxCalendarEvent}
 
@@ -100,15 +104,19 @@
 -type wxScrollEventType() :: scroll_top | scroll_bottom | scroll_lineup | scroll_linedown | scroll_pageup | scroll_pagedown | scroll_thumbtrack | scroll_thumbrelease | scroll_changed.
 -type wxScroll() :: #wxScroll{}. %% Callback event: {@link wxScrollEvent}
 
--record(wxMenu, {type :: wxMenuEventType()}). %% Callback event: {@link wxMenuEvent}
+-record(wxMenu,{type :: wxMenuEventType(), %% Callback event: {@link wxMenuEvent}
+	menuId :: integer(),
+	menu :: wxMenu:wxMenu()}).
 -type wxMenuEventType() :: menu_open | menu_close | menu_highlight.
 -type wxMenu() :: #wxMenu{}. %% Callback event: {@link wxMenuEvent}
 
--record(wxContextMenu, {type :: wxContextMenuEventType()}). %% Callback event: {@link wxContextMenuEvent}
+-record(wxContextMenu,{type :: wxContextMenuEventType(), %% Callback event: {@link wxContextMenuEvent}
+	pos :: {X::integer(), Y::integer()}}).
 -type wxContextMenuEventType() :: context_menu.
 -type wxContextMenu() :: #wxContextMenu{}. %% Callback event: {@link wxContextMenuEvent}
 
--record(wxShow, {type :: wxShowEventType()}). %% Callback event: {@link wxShowEvent}
+-record(wxShow,{type :: wxShowEventType(), %% Callback event: {@link wxShowEvent}
+	show :: boolean()}).
 -type wxShowEventType() :: show.
 -type wxShow() :: #wxShow{}. %% Callback event: {@link wxShowEvent}
 
@@ -117,7 +125,10 @@
 -type wxSpinEventType() :: command_spinctrl_updated | spin_up | spin_down | spin.
 -type wxSpin() :: #wxSpin{}. %% Callback event: {@link wxSpinEvent}
 
--record(wxSetCursor, {type :: wxSetCursorEventType()}). %% Callback event: {@link wxSetCursorEvent}
+-record(wxSetCursor,{type :: wxSetCursorEventType(), %% Callback event: {@link wxSetCursorEvent}
+	x :: integer(),
+	y :: integer(),
+	cursor :: wxCursor:wxCursor()}).
 -type wxSetCursorEventType() :: set_cursor.
 -type wxSetCursor() :: #wxSetCursor{}. %% Callback event: {@link wxSetCursorEvent}
 
@@ -126,7 +137,9 @@
 -type wxFontPickerEventType() :: command_fontpicker_changed.
 -type wxFontPicker() :: #wxFontPicker{}. %% Callback event: {@link wxFontPickerEvent}
 
--record(wxScrollWin, {type :: wxScrollWinEventType()}). %% Callback event: {@link wxScrollWinEvent}
+-record(wxScrollWin,{type :: wxScrollWinEventType(), %% Callback event: {@link wxScrollWinEvent}
+	commandInt :: integer(),
+	extraLong :: integer()}).
 -type wxScrollWinEventType() :: scrollwin_top | scrollwin_bottom | scrollwin_lineup | scrollwin_linedown | scrollwin_pageup | scrollwin_pagedown | scrollwin_thumbtrack | scrollwin_thumbrelease.
 -type wxScrollWin() :: #wxScrollWin{}. %% Callback event: {@link wxScrollWinEvent}
 
@@ -147,7 +160,8 @@
 -type wxFileDirPickerEventType() :: command_filepicker_changed | command_dirpicker_changed.
 -type wxFileDirPicker() :: #wxFileDirPicker{}. %% Callback event: {@link wxFileDirPickerEvent}
 
--record(wxFocus, {type :: wxFocusEventType()}). %% Callback event: {@link wxFocusEvent}
+-record(wxFocus,{type :: wxFocusEventType(), %% Callback event: {@link wxFocusEvent}
+	win :: wxWindow:wxWindow()}).
 -type wxFocusEventType() :: set_focus | kill_focus.
 -type wxFocus() :: #wxFocus{}. %% Callback event: {@link wxFocusEvent}
 
@@ -225,7 +239,8 @@
 -type wxSizeEventType() :: size.
 -type wxSize() :: #wxSize{}. %% Callback event: {@link wxSizeEvent}
 
--record(wxIconize, {type :: wxIconizeEventType()}). %% Callback event: {@link wxIconizeEvent}
+-record(wxIconize,{type :: wxIconizeEventType(), %% Callback event: {@link wxIconizeEvent}
+	iconized :: boolean()}).
 -type wxIconizeEventType() :: iconize.
 -type wxIconize() :: #wxIconize{}. %% Callback event: {@link wxIconizeEvent}
 
@@ -289,7 +304,12 @@
 -type wxCommandEventType() :: command_button_clicked | command_checkbox_clicked | command_choice_selected | command_listbox_selected | command_listbox_doubleclicked | command_text_updated | command_text_enter | command_menu_selected | command_slider_updated | command_radiobox_selected | command_radiobutton_selected | command_scrollbar_updated | command_vlbox_selected | command_combobox_selected | command_tool_rclicked | command_tool_enter | command_checklistbox_toggled | command_togglebutton_clicked | command_left_click | command_left_dclick | command_right_click | command_set_focus | command_kill_focus | command_enter.
 -type wxCommand() :: #wxCommand{}. %% Callback event: {@link wxCommandEvent}
 
--record(wxJoystick, {type :: wxJoystickEventType()}). %% Callback event: {@link wxJoystickEvent}
+-record(wxJoystick,{type :: wxJoystickEventType(), %% Callback event: {@link wxJoystickEvent}
+	pos :: {X::integer(), Y::integer()},
+	zPosition :: integer(),
+	buttonChange :: integer(),
+	buttonState :: integer(),
+	joyStick :: integer()}).
 -type wxJoystickEventType() :: joy_button_down | joy_button_up | joy_move | joy_zmove.
 -type wxJoystick() :: #wxJoystick{}. %% Callback event: {@link wxJoystickEvent}
 
@@ -297,7 +317,9 @@
 -type wxQueryNewPaletteEventType() :: query_new_palette.
 -type wxQueryNewPalette() :: #wxQueryNewPalette{}. %% Callback event: {@link wxQueryNewPaletteEvent}
 
--record(wxMove, {type :: wxMoveEventType()}). %% Callback event: {@link wxMoveEvent}
+-record(wxMove,{type :: wxMoveEventType(), %% Callback event: {@link wxMoveEvent}
+	pos :: {X::integer(), Y::integer()},
+	rect :: {X::integer(), Y::integer(), W::integer(), H::integer()}}).
 -type wxMoveEventType() :: move.
 -type wxMove() :: #wxMove{}. %% Callback event: {@link wxMoveEvent}
 
@@ -1883,9 +1905,9 @@
 -define(wxCURSOR_WAIT, 24).
 -define(wxCURSOR_WATCH, 25).
 -define(wxCURSOR_BLANK, 26).
--define(wxCURSOR_DEFAULT, 27).
--define(wxCURSOR_ARROWWAIT, 28).
--define(wxCURSOR_MAX, 29).
+-define(wxCURSOR_DEFAULT, wxe_util:get_const(wxCURSOR_DEFAULT)).
+-define(wxCURSOR_ARROWWAIT, wxe_util:get_const(wxCURSOR_ARROWWAIT)).
+-define(wxCURSOR_MAX, wxe_util:get_const(wxCURSOR_MAX)).
 % From "generic_2laywin.h"
 -define(wxLAYOUT_QUERY, 256).
 -define(wxLAYOUT_MRU_LENGTH, 16).

@@ -46,6 +46,7 @@ static int rows;		/* Number of rows available. */
 #define OP_INSC 2
 #define OP_DELC 3
 #define OP_BEEP 4
+#define OP_PUTC_SYNC 5
 
 /* Control op */
 #define CTRL_OP_GET_WINSIZE 100
@@ -458,6 +459,7 @@ static void ttysl_from_erlang(ErlDrvData ttysl_data, char* buf, ErlDrvSizeT coun
 
     switch (buf[0]) {
     case OP_PUTC:
+    case OP_PUTC_SYNC:
 	DEBUGLOG(("OP: Putc(%I64u)",(unsigned long long)count-1));
 	if (check_buf_size((byte*)buf+1, count-1) == 0)
 	    return; 
@@ -480,6 +482,20 @@ static void ttysl_from_erlang(ErlDrvData ttysl_data, char* buf, ErlDrvSizeT coun
     default:
 	/* Unknown op, just ignore. */
 	break;
+    }
+
+    if (buf[0] == OP_PUTC_SYNC) {
+        /* On windows we do a blocking write to the tty so we just
+           send the ack immidiately. If at some point in the future
+           someone has a problem with tty output being blocking
+           this has to be changed. */
+        ErlDrvTermData spec[] = {
+            ERL_DRV_PORT, driver_mk_port(ttysl_port),
+            ERL_DRV_ATOM, driver_mk_atom("ok"),
+            ERL_DRV_TUPLE, 2
+        };
+        erl_drv_output_term(driver_mk_port(ttysl_port), spec,
+                            sizeof(spec) / sizeof(spec[0]));
     }
     return;
 }

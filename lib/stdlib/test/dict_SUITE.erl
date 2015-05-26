@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2015. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -25,16 +25,16 @@
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2,
 	 init_per_testcase/2,end_per_testcase/2,
-	 create/1,store/1]).
+         create/1,store/1,iterate/1]).
 
 -include_lib("test_server/include/test_server.hrl").
 
--import(lists, [foldl/3,reverse/1]).
+-import(lists, [foldl/3]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    [create, store].
+    [create, store, iterate].
 
 groups() -> 
     [].
@@ -91,6 +91,48 @@ store_1(List, M) ->
 	    false = M(is_empty, D1)
     end,
     D0.
+
+%%%
+%%% Test specifics for gb_trees.
+%%%
+
+iterate(Config) when is_list(Config) ->
+    test_all(fun iterate_1/1).
+
+iterate_1(M) ->
+    case M(module, []) of
+	gb_trees -> iterate_2(M);
+	_ -> ok
+    end,
+    M(empty, []).
+
+iterate_2(M) ->
+    random:seed(1, 2, 42),
+    iter_tree(M, 1000).
+
+iter_tree(_M, 0) ->
+    ok;
+iter_tree(M, N) ->
+    L = [{I, I} || I <- lists:seq(1, N)],
+    T = M(from_list, L),
+    L = lists:reverse(iterate_tree(M, T)),
+    R = random:uniform(N),
+    KV = lists:reverse(iterate_tree_from(M, R, T)),
+    KV = [P || P={K,_} <- L, K >= R],
+    iter_tree(M, N-1).
+
+iterate_tree(M, Tree) ->
+    I = M(iterator, Tree),
+    iterate_tree_1(M, M(next, I), []).
+
+iterate_tree_from(M, Start, Tree) ->
+    I = M(iterator_from, {Start, Tree}),
+    iterate_tree_1(M, M(next, I), []).
+
+iterate_tree_1(_, none, R) ->
+    R;
+iterate_tree_1(M, {K, V, I}, R) ->
+    iterate_tree_1(M, M(next, I), [{K, V} | R]).
 
 %%%
 %%% Helper functions.

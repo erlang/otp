@@ -2,7 +2,7 @@
 %%-------------------------------------------------------------------
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2006-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -48,7 +48,7 @@
 	 plt_info        = none           :: 'none' | dialyzer_plt:plt_info(),
 	 report_mode     = normal         :: rep_mode(),
 	 return_status= ?RET_NOTHING_SUSPICIOUS	:: dial_ret(),
-	 stored_warnings = []             :: [dial_warning()],
+	 stored_warnings = []             :: [raw_warning()],
 	 unknown_behaviours = []          :: [dialyzer_behaviours:behaviour()]
 	}).
 
@@ -469,7 +469,7 @@ expand_dependent_modules(Md5, DiffMd5, ModDeps) ->
 		  Mod = list_to_atom(filename:basename(File, ".beam")),
 		  sets:is_element(Mod, AnalyzeMods)
 	      end,
-  {[F || {F, _} <- Md5, FilterFun(F)], RemovedMods, NewModDeps}.
+  {[F || {F, _} <- Md5, FilterFun(F)], BigSet, NewModDeps}.
 
 expand_dependent_modules_1([Mod|Mods], Included, ModDeps) ->
   case dict:find(Mod, ModDeps) of
@@ -627,7 +627,7 @@ format_log_cache(LogCache) ->
   Str = lists:append(lists:reverse(LogCache)),
   string:join(string:tokens(Str, "\n"), "\n  ").
 
--spec store_warnings(#cl_state{}, [dial_warning()]) -> #cl_state{}.
+-spec store_warnings(#cl_state{}, [raw_warning()]) -> #cl_state{}.
 
 store_warnings(#cl_state{stored_warnings = StoredWarnings} = St, Warnings) ->
   St#cl_state{stored_warnings = StoredWarnings ++ Warnings}.
@@ -656,15 +656,15 @@ return_value(State = #cl_state{erlang_mode = ErlangMode,
 			       mod_deps = ModDeps,
 			       output_plt = OutputPlt,
 			       plt_info = PltInfo,
-			       stored_warnings = StoredWarnings,
-                               legal_warnings = LegalWarnings},
+			       stored_warnings = StoredWarnings},
 	     Plt) ->
   case OutputPlt =:= none of
     true -> ok;
     false -> dialyzer_plt:to_file(OutputPlt, Plt, ModDeps, PltInfo)
   end,
+  UnknownWarnings = unknown_warnings(State),
   RetValue =
-    case StoredWarnings =:= [] of
+    case StoredWarnings =:= [] andalso UnknownWarnings =:= [] of
       true -> ?RET_NOTHING_SUSPICIOUS;
       false -> ?RET_DISCREPANCIES
     end,
@@ -677,33 +677,37 @@ return_value(State = #cl_state{erlang_mode = ErlangMode,
       maybe_close_output_file(State),
       {RetValue, []};
     true -> 
-      Unknown =
-        case ordsets:is_element(?WARN_UNKNOWN, LegalWarnings) of
-          true ->
-            unknown_functions(State) ++
-              unknown_types(State) ++
-              unknown_behaviours(State);
-          false -> []
-        end,
-      UnknownWarnings =
-        [{?WARN_UNKNOWN, {_Filename = "", _Line = 0}, W} || W <- Unknown],
       AllWarnings =
         UnknownWarnings ++ process_warnings(StoredWarnings),
-      {RetValue, AllWarnings}
+      {RetValue, set_warning_id(AllWarnings)}
   end.
+
+unknown_warnings(State = #cl_state{legal_warnings = LegalWarnings}) ->
+  Unknown = case ordsets:is_element(?WARN_UNKNOWN, LegalWarnings) of
+              true ->
+                unknown_functions(State) ++
+                  unknown_types(State) ++
+                  unknown_behaviours(State);
+              false -> []
+            end,
+  WarningInfo = {_Filename = "", _Line = 0, _MorMFA = ''},
+  [{?WARN_UNKNOWN, WarningInfo, W} || W <- Unknown].
 
 unknown_functions(#cl_state{external_calls = Calls}) ->
   [{unknown_function, MFA} || MFA <- Calls].
+
+set_warning_id(Warnings) ->
+  lists:map(fun({Tag, {File, Line, _MorMFA}, Msg}) ->
+                {Tag, {File, Line}, Msg}
+            end, Warnings).
 
 print_ext_calls(#cl_state{report_mode = quiet}) ->
   ok;
 print_ext_calls(#cl_state{output = Output,
 			  external_calls = Calls,
 			  stored_warnings = Warnings,
-			  output_format = Format,
-                          legal_warnings = LegalWarnings}) ->
-  case not ordsets:is_element(?WARN_UNKNOWN, LegalWarnings)
-    orelse Calls =:= [] of
+			  output_format = Format}) ->
+  case Calls =:= [] of
     true -> ok;
     false ->
       case Warnings =:= [] of
@@ -735,10 +739,8 @@ print_ext_types(#cl_state{output = Output,
                           external_calls = Calls,
                           external_types = Types,
                           stored_warnings = Warnings,
-                          output_format = Format,
-                          legal_warnings = LegalWarnings}) ->
-  case not ordsets:is_element(?WARN_UNKNOWN, LegalWarnings)
-    orelse Types =:= [] of
+                          output_format = Format}) ->
+  case Types =:= [] of
     true -> ok;
     false ->
       case Warnings =:= [] andalso Calls =:= [] of
@@ -817,15 +819,16 @@ print_warnings(#cl_state{output = Output,
 	    formatted ->
 	      [dialyzer:format_warning(W, FOpt) || W <- PrWarnings];
 	    raw ->
-	      [io_lib:format("~p. \n", [W]) || W <- PrWarnings]
+	      [io_lib:format("~p. \n",
+                             [W]) || W <- set_warning_id(PrWarnings)]
 	  end,
       io:format(Output, "\n~s", [S])
   end.
 
--spec process_warnings([dial_warning()]) -> [dial_warning()].
+-spec process_warnings([raw_warning()]) -> [raw_warning()].
   
 process_warnings(Warnings) ->
-  Warnings1 = lists:keysort(2, Warnings), %% Sort on file/line
+  Warnings1 = lists:keysort(2, Warnings), %% Sort on file/line (and m/mfa..)
   remove_duplicate_warnings(Warnings1, []).
 
 remove_duplicate_warnings([Duplicate, Duplicate|Left], Acc) ->

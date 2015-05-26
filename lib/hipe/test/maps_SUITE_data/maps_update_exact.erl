@@ -21,11 +21,11 @@ test() ->
 	1.0 => new_val4 },
 
     %% Errors cases.
-    {'EXIT',{badarg,_}} = (catch ((id(nil))#{ a := b })),
-    {'EXIT',{badarg,_}} = (catch M0#{nonexisting:=val}),
-    {'EXIT',{badarg,_}} = (catch M0#{1.0:=v,1.0=>v2}),
-    {'EXIT',{badarg,_}} = (catch M0#{42.0:=v,42:=v2}),
-    {'EXIT',{badarg,_}} = (catch M0#{42=>v1,42.0:=v2,42:=v3}),
+    {'EXIT',{{badmap,nil},_}} = (catch ((id(nil))#{ a := b })),
+    {'EXIT',{{badkey,nonexisting},_}} = (catch M0#{nonexisting:=val}),
+    {'EXIT',{{badkey,_},_}} = (catch M0#{1.0:=v,1.0=>v2}),
+    {'EXIT',{{badkey,_},_}} = (catch M0#{42.0:=v,42:=v2}),
+    {'EXIT',{{badkey,_},_}} = (catch M0#{42=>v1,42.0:=v2,42:=v3}),
     ok.
 
 %% Use this function to avoid compile-time evaluation of an expression.

@@ -125,14 +125,8 @@ messages_get(Msgs) ->
     end.
 
 timecall(M, F, A) ->
-    Befor = erlang:now(),
-    Val = apply(M, F, A),
-    After = erlang:now(),
-    Elapsed =
-        (element(1,After)*1000000+element(2,After)+element(3,After)/1000000)-
-        (element(1,Befor)*1000000+element(2,Befor)+element(3,Befor)/1000000),
-    {Elapsed, Val}.
-
+    {Elapsed, Val} = timer:tc(M, F, A),
+    {Elapsed / 1000000, Val}.
 
 
 call_crash(Time,Crash,M,F,A) ->
@@ -887,9 +881,8 @@ unique_name() ->
 util_loop(State) ->		       
     receive
 	{From,unique_name} ->
-	    {_,S,Us} = now(),
-	    Ms = trunc(Us/1000),
-	    Name = lists:flatten(io_lib:format("~w.~w", [S,Ms])),
+	    Nr = erlang:unique_integer([positive]),
+	    Name = integer_to_list(Nr),
 	    if Name == State#util_state.latest_name ->
 		    timer:sleep(1),
 		    self() ! {From,unique_name},

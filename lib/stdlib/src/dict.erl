@@ -417,6 +417,8 @@ on_bucket(F, T, Slot) ->
 %%  could have implemented map and filter using fold but these are
 %%  faster.  We hope!
 
+fold_dict(F, Acc, #dict{size=0}) when is_function(F, 3) ->
+    Acc;
 fold_dict(F, Acc, D) ->
     Segs = D#dict.segs,
     fold_segs(F, Acc, Segs, tuple_size(Segs)).
@@ -434,6 +436,8 @@ fold_bucket(F, Acc, [?kv(Key,Val)|Bkt]) ->
     fold_bucket(F, F(Key, Val, Acc), Bkt);
 fold_bucket(F, Acc, []) when is_function(F, 3) -> Acc.
 
+map_dict(F, #dict{size=0} = Dict) when is_function(F, 2) ->
+    Dict;
 map_dict(F, D) ->
     Segs0 = tuple_to_list(D#dict.segs),
     Segs1 = map_seg_list(F, Segs0),
@@ -453,6 +457,8 @@ map_bucket(F, [?kv(Key,Val)|Bkt]) ->
     [?kv(Key,F(Key, Val))|map_bucket(F, Bkt)];
 map_bucket(F, []) when is_function(F, 2) -> [].
 
+filter_dict(F, #dict{size=0} = Dict) when is_function(F, 2) ->
+    Dict;
 filter_dict(F, D) ->
     Segs0 = tuple_to_list(D#dict.segs),
     {Segs1,Fc} = filter_seg_list(F, Segs0, [], 0),

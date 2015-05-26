@@ -26,21 +26,23 @@
 
 -include("ct.hrl").
 
+-define(now, os:timestamp()).
+
 %% Test server callback functions
 init_per_suite(Config) ->
-    [{init_per_suite,now()}|Config].
+    [{init_per_suite,?now}|Config].
 
 end_per_suite(_Config) ->
     ok.
 
 init_per_testcase(_TestCase, Config) ->
-    [{init_per_testcase,now()}|Config].
+    [{init_per_testcase,?now}|Config].
 
 end_per_testcase(_TestCase, _Config) ->
     ok.
 
 init_per_group(GroupName, Config) ->
-    [{init_per_group,now()}|Config].
+    [{init_per_group,?now}|Config].
 
 end_per_group(GroupName, Config) ->
     ok.

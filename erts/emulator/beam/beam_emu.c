@@ -241,10 +241,6 @@ BeamInstr beam_return_time_trace[1]; /* OpCode(i_return_time_trace) */
 void** beam_ops;
 #endif
 
-#ifndef ERTS_SMP /* Not supported with smp emulator */
-extern int count_instructions;
-#endif
-
 #define SWAPIN             \
     HTOP = HEAP_TOP(c_p);  \
     E = c_p->stop
@@ -566,7 +562,8 @@ extern int count_instructions;
        Store(term, Dst);           \
    } while (0)
 
-#define Move2(src1, dst1, src2, dst2) dst1 = (src1); dst2 = (src2)
+#define Move2(S1, D1, S2, D2) D1 = (S1); D2 = (S2)
+#define Move3(S1, D1, S2, D2, S3, D3) D1 = (S1); D2 = (S2); D3 = (S3)
 
 #define MoveGenDest(src, dstp) \
    if ((dstp) == NULL) { r(0) = (src); } else { *(dstp) = src; }
@@ -666,6 +663,9 @@ extern int count_instructions;
 
 #define EqualImmed(X, Y, Action) if (X != Y) { Action; }
 #define NotEqualImmed(X, Y, Action) if (X == Y) { Action; }
+#define EqualExact(X, Y, Action) if (!EQ(X,Y)) { Action; }
+#define IsLessThan(X, Y, Action) if (CMP_GE(X, Y)) { Action; }
+#define IsGreaterEqual(X, Y, Action) if (CMP_LT(X, Y)) { Action; }
 
 #define IsFloat(Src, Fail) if (is_not_float(Src)) { Fail; }
 
@@ -703,9 +703,7 @@ extern int count_instructions;
         Fail; 								  \
     }
 
-#define IsMap(Src, Fail) if (is_not_map(Src)) { Fail; }
-
-#define HasMapField(Src, Key, Fail) if (has_not_map_field(Src, Key)) { Fail; }
+#define IsMap(Src, Fail) if (!is_map(Src)) { Fail; }
 
 #define GetMapElement(Src, Key, Dst, Fail)	\
   do {						\
@@ -714,6 +712,15 @@ extern int count_instructions;
         Fail;					\
      }						\
      Dst = _res;				\
+  } while (0)
+
+#define GetMapElementHash(Src, Key, Hx, Dst, Fail)	\
+  do {							\
+     Eterm _res = get_map_element_hash(Src, Key, Hx);	\
+     if (is_non_value(_res)) {				\
+        Fail;						\
+     }							\
+     Dst = _res;					\
   } while (0)
 
 #define IsFunction(X, Action)			\
@@ -964,8 +971,8 @@ static Eterm update_map_assoc(Process* p, Eterm* reg,
 			      Eterm map, BeamInstr* I) NOINLINE;
 static Eterm update_map_exact(Process* p, Eterm* reg,
 			      Eterm map, BeamInstr* I) NOINLINE;
-static int has_not_map_field(Eterm map, Eterm key);
 static Eterm get_map_element(Eterm map, Eterm key);
+static Eterm get_map_element_hash(Eterm map, Eterm key, Uint32 hx);
 
 /*
  * Functions not directly called by process_main(). OK to inline.
@@ -1081,16 +1088,32 @@ init_emulator(void)
         DTRACE2(nif_return, process_name, mfa);                 \
     }
 
+#define DTRACE_GLOBAL_CALL_FROM_EXPORT(p,e)                                                    \
+    do {                                                                                       \
+        if (DTRACE_ENABLED(global_function_entry)) {                                           \
+            BeamInstr* fp = (BeamInstr *) (((Export *) (e))->addressv[erts_active_code_ix()]); \
+            DTRACE_GLOBAL_CALL((p), (Eterm)fp[-3], (Eterm)fp[-2], fp[-1]);                     \
+        }                                                                                      \
+    } while(0)
+
+#define DTRACE_RETURN_FROM_PC(p)                                                        \
+    do {                                                                                \
+        BeamInstr* fp;                                                                  \
+        if (DTRACE_ENABLED(function_return) && (fp = find_function_from_pc((p)->cp))) { \
+            DTRACE_RETURN((p), (Eterm)fp[0], (Eterm)fp[1], (Uint)fp[2]);                \
+        }                                                                               \
+    } while(0)
+
 #else /* USE_VM_PROBES */
-
-#define DTRACE_LOCAL_CALL(p, m, f, a)  do {} while (0)
-#define DTRACE_GLOBAL_CALL(p, m, f, a) do {} while (0)
-#define DTRACE_RETURN(p, m, f, a)      do {} while (0)
-#define DTRACE_BIF_ENTRY(p, m, f, a)   do {} while (0)
-#define DTRACE_BIF_RETURN(p, m, f, a)  do {} while (0)
-#define DTRACE_NIF_ENTRY(p, m, f, a)   do {} while (0)
-#define DTRACE_NIF_RETURN(p, m, f, a)  do {} while (0)
-
+#define DTRACE_LOCAL_CALL(p, m, f, a)        do {} while (0)
+#define DTRACE_GLOBAL_CALL(p, m, f, a)       do {} while (0)
+#define DTRACE_GLOBAL_CALL_FROM_EXPORT(p, e) do {} while (0)
+#define DTRACE_RETURN(p, m, f, a)            do {} while (0)
+#define DTRACE_RETURN_FROM_PC(p)             do {} while (0)
+#define DTRACE_BIF_ENTRY(p, m, f, a)         do {} while (0)
+#define DTRACE_BIF_RETURN(p, m, f, a)        do {} while (0)
+#define DTRACE_NIF_ENTRY(p, m, f, a)         do {} while (0)
+#define DTRACE_NIF_RETURN(p, m, f, a)        do {} while (0)
 #endif /* USE_VM_PROBES */
 
 /*
@@ -1163,13 +1186,14 @@ void process_main(void)
 
     Eterm (*arith_func)(Process* p, Eterm* reg, Uint live);
 
-#ifndef NO_JUMP_TABLE
-    static void* opcodes[] = { DEFINE_OPCODES };
 #ifdef ERTS_OPCODE_COUNTER_SUPPORT
     static void* counting_opcodes[] = { DEFINE_COUNTING_OPCODES };
-#endif
+#else
+#ifndef NO_JUMP_TABLE
+    static void* opcodes[] = { DEFINE_OPCODES };
 #else
     int Go;
+#endif
 #endif
 
     Uint temp_bits; /* Temporary used by BsSkipBits2 & BsGetInteger2 */
@@ -1369,7 +1393,39 @@ void process_main(void)
 	    ASSERT(c_p->freason != BADMATCH || is_value(c_p->fvalue));
 	    goto find_func_info;
 	}
-	    
+
+#define DO_BIG_ARITH(Func,Arg1,Arg2)     \
+    do {                                 \
+        Uint live = Arg(1);              \
+        SWAPOUT;                         \
+        reg[0] = r(0);                   \
+        reg[live] = (Arg1);              \
+        reg[live+1] = (Arg2);            \
+        result = (Func)(c_p, reg, live); \
+        r(0) = reg[0];                   \
+        SWAPIN;                          \
+        ERTS_HOLE_CHECK(c_p);            \
+        if (is_value(result)) {          \
+            StoreBifResult(4,result);    \
+        }                                \
+        goto lb_Cl_error;                \
+    } while(0)
+
+ OpCase(i_plus_jIxxd):
+ {
+     Eterm result;
+
+     if (is_both_small(xb(Arg(2)), xb(Arg(3)))) {
+	 Sint i = signed_val(xb(Arg(2))) + signed_val(xb(Arg(3)));
+	 ASSERT(MY_IS_SSMALL(i) == IS_SSMALL(i));
+	 if (MY_IS_SSMALL(i)) {
+	     result = make_small(i);
+             StoreBifResult(4, result);
+	 }
+     }
+     DO_BIG_ARITH(ARITH_FUNC(mixed_plus), xb(Arg(2)), xb(Arg(3)));
+ }
+
  OpCase(i_plus_jId):
  {
      Eterm result;
@@ -1381,10 +1437,24 @@ void process_main(void)
 	     result = make_small(i);
 	     STORE_ARITH_RESULT(result);
 	 }
-     
      }
      arith_func = ARITH_FUNC(mixed_plus);
      goto do_big_arith2;
+ }
+
+ OpCase(i_minus_jIxxd):
+ {
+     Eterm result;
+
+     if (is_both_small(xb(Arg(2)), xb(Arg(3)))) {
+	 Sint i = signed_val(xb(Arg(2))) - signed_val(xb(Arg(3)));
+	 ASSERT(MY_IS_SSMALL(i) == IS_SSMALL(i));
+	 if (MY_IS_SSMALL(i)) {
+	     result = make_small(i);
+             StoreBifResult(4, result);
+	 }
+     }
+     DO_BIG_ARITH(ARITH_FUNC(mixed_minus), xb(Arg(2)), xb(Arg(3)));
  }
 
  OpCase(i_minus_jId):
@@ -1479,6 +1549,52 @@ void process_main(void)
 	Next(2);
     }
 
+ OpCase(move_window3_xxxy): {
+     BeamInstr *next;
+     Eterm xt0, xt1, xt2;
+     Eterm *y = (Eterm *)(((unsigned char *)E) + (Arg(3)));
+     PreFetch(4, next);
+     xt0  = xb(Arg(0));
+     xt1  = xb(Arg(1));
+     xt2  = xb(Arg(2));
+     y[0] = xt0;
+     y[1] = xt1;
+     y[2] = xt2;
+     NextPF(4, next);
+ }
+ OpCase(move_window4_xxxxy): {
+     BeamInstr *next;
+     Eterm xt0, xt1, xt2, xt3;
+     Eterm *y = (Eterm *)(((unsigned char *)E) + (Arg(4)));
+     PreFetch(5, next);
+     xt0  = xb(Arg(0));
+     xt1  = xb(Arg(1));
+     xt2  = xb(Arg(2));
+     xt3  = xb(Arg(3));
+     y[0] = xt0;
+     y[1] = xt1;
+     y[2] = xt2;
+     y[3] = xt3;
+     NextPF(5, next);
+ }
+ OpCase(move_window5_xxxxxy): {
+     BeamInstr *next;
+     Eterm xt0, xt1, xt2, xt3, xt4;
+     Eterm *y = (Eterm *)(((unsigned char *)E) + (Arg(5)));
+     PreFetch(6, next);
+     xt0  = xb(Arg(0));
+     xt1  = xb(Arg(1));
+     xt2  = xb(Arg(2));
+     xt3  = xb(Arg(3));
+     xt4  = xb(Arg(4));
+     y[0] = xt0;
+     y[1] = xt1;
+     y[2] = xt2;
+     y[3] = xt3;
+     y[4] = xt4;
+     NextPF(6, next);
+ }
+
  OpCase(i_move_call_only_fcr): {
      r(0) = Arg(1);
  }
@@ -1526,12 +1642,7 @@ void process_main(void)
      * is not loaded, it points to code which will invoke the error handler
      * (see lb_call_error_handler below).
      */
-#ifdef USE_VM_CALL_PROBES
-    if (DTRACE_ENABLED(global_function_entry)) {
-	BeamInstr* fp = (BeamInstr *) (((Export *) Arg(0))->addressv[erts_active_code_ix()]);
-	DTRACE_GLOBAL_CALL(c_p, (Eterm)fp[-3], (Eterm)fp[-2], fp[-1]);
-    }
-#endif
+    DTRACE_GLOBAL_CALL_FROM_EXPORT(c_p, Arg(0));
     Dispatchx();
 
  OpCase(i_move_call_ext_cre): {
@@ -1541,12 +1652,7 @@ void process_main(void)
  /* FALL THROUGH */
  OpCase(i_call_ext_e):
     SET_CP(c_p, I+2);
-#ifdef USE_VM_CALL_PROBES
-    if (DTRACE_ENABLED(global_function_entry)) {
-	BeamInstr* fp = (BeamInstr *) (((Export *) Arg(0))->addressv[erts_active_code_ix()]);
-	DTRACE_GLOBAL_CALL(c_p, (Eterm)fp[-3], (Eterm)fp[-2], fp[-1]);
-    }
-#endif
+    DTRACE_GLOBAL_CALL_FROM_EXPORT(c_p, Arg(0));
     Dispatchx();
 
  OpCase(i_move_call_ext_only_ecr): {
@@ -1554,12 +1660,7 @@ void process_main(void)
  }
  /* FALL THROUGH */
  OpCase(i_call_ext_only_e):
-#ifdef USE_VM_CALL_PROBES
-    if (DTRACE_ENABLED(global_function_entry)) {
-	BeamInstr* fp = (BeamInstr *) (((Export *) Arg(0))->addressv[erts_active_code_ix()]);
-	DTRACE_GLOBAL_CALL(c_p, (Eterm)fp[-3], (Eterm)fp[-2], fp[-1]);
-    }
-#endif
+    DTRACE_GLOBAL_CALL_FROM_EXPORT(c_p, Arg(0));
     Dispatchx();
 
  OpCase(init_y): {
@@ -1593,18 +1694,9 @@ void process_main(void)
 	Next(1);
     }
 
-
  OpCase(return): {
-#ifdef USE_VM_CALL_PROBES
-    BeamInstr* fptr;
-#endif
     SET_I(c_p->cp);
-
-#ifdef USE_VM_CALL_PROBES
-    if (DTRACE_ENABLED(function_return) && (fptr = find_function_from_pc(c_p->cp))) {
-        DTRACE_RETURN(c_p, (Eterm)fptr[0], (Eterm)fptr[1], (Uint)fptr[2]);
-    }
-#endif
+    DTRACE_RETURN_FROM_PC(c_p);
     /*
      * We must clear the CP to make sure that a stale value do not
      * create a false module dependcy preventing code upgrading.
@@ -2027,44 +2119,32 @@ void process_main(void)
      }
      GetArg1(1, timeout_value);
      if (timeout_value != make_small(0)) {
-#if !defined(ARCH_64) || HALFWORD_HEAP
-	 Uint time_val;
-#endif
 
-	 if (is_small(timeout_value) && signed_val(timeout_value) > 0 &&
-#if defined(ARCH_64) && !HALFWORD_HEAP
-	     ((unsigned_val(timeout_value) >> 32) == 0)
-#else
-	     1
-#endif
-	     ) {
-	     /*
-	      * The timer routiner will set c_p->i to the value in
-	      * c_p->def_arg_reg[0].  Note that it is safe to use this
-	      * location because there are no living x registers in
-	      * a receive statement.
-	      * Note that for the halfword emulator, the two first elements
-	      * of the array are used.
-	      */
-	     BeamInstr** pi = (BeamInstr**) c_p->def_arg_reg;
-	     *pi = I+3;
-	     set_timer(c_p, unsigned_val(timeout_value));
-	 } else if (timeout_value == am_infinity) {
+	 if (timeout_value == am_infinity)
 	     c_p->flags |= F_TIMO;
-#if !defined(ARCH_64) || HALFWORD_HEAP
-	 } else if (term_to_Uint(timeout_value, &time_val)) {
-	     BeamInstr** pi = (BeamInstr**) c_p->def_arg_reg;
-	     *pi = I+3;
-	     set_timer(c_p, time_val);
-#endif
-	 } else {		/* Wrong time */
-	     OpCase(i_wait_error_locked): {
-		 erts_smp_proc_unlock(c_p, ERTS_PROC_LOCKS_MSG_RECEIVE);
-		 /* Fall through */
+	 else {
+	     int tres = erts_set_proc_timer_term(c_p, timeout_value);
+	     if (tres == 0) {
+		 /*
+		  * The timer routiner will set c_p->i to the value in
+		  * c_p->def_arg_reg[0].  Note that it is safe to use this
+		  * location because there are no living x registers in
+		  * a receive statement.
+		  * Note that for the halfword emulator, the two first elements
+		  * of the array are used.
+		  */
+		 BeamInstr** pi = (BeamInstr**) c_p->def_arg_reg;
+		 *pi = I+3;
 	     }
+	     else { /* Wrong time */
+	     OpCase(i_wait_error_locked): {
+		     erts_smp_proc_unlock(c_p, ERTS_PROC_LOCKS_MSG_RECEIVE);
+		     /* Fall through */
+		 }
 	     OpCase(i_wait_error): {
-		 c_p->freason = EXC_TIMEOUT_VALUE;
-		 goto find_func_info;
+		     c_p->freason = EXC_TIMEOUT_VALUE;
+		     goto find_func_info;
+		 }
 	     }
 	 }
 
@@ -2113,7 +2193,7 @@ void process_main(void)
      if ((c_p->flags & (F_INSLPQUEUE | F_TIMO)) == 0) {
 	 BeamInstr** p = (BeamInstr **) c_p->def_arg_reg;
 	 *p = I+3;
-	 set_timer(c_p, Arg(1));
+	 erts_set_proc_timer_uword(c_p, Arg(1));
      }
      goto wait2;
  }
@@ -2141,19 +2221,18 @@ void process_main(void)
      NextPF(0, next);
  }
 
-
  {
      Eterm select_val2;
 
- OpCase(i_select_tuple_arity2_yfAfAf):
+ OpCase(i_select_tuple_arity2_yfAAff):
      select_val2 = yb(Arg(0));
      goto do_select_tuple_arity2;
 
- OpCase(i_select_tuple_arity2_xfAfAf):
+ OpCase(i_select_tuple_arity2_xfAAff):
      select_val2 = xb(Arg(0));
      goto do_select_tuple_arity2;
 
- OpCase(i_select_tuple_arity2_rfAfAf):
+ OpCase(i_select_tuple_arity2_rfAAff):
      select_val2 = r(0);
      I--;
 
@@ -2164,22 +2243,22 @@ void process_main(void)
      select_val2 = *tuple_val(select_val2);
      goto do_select_val2;
 
- OpCase(i_select_val2_yfcfcf):
+ OpCase(i_select_val2_yfccff):
      select_val2 = yb(Arg(0));
      goto do_select_val2;
 
- OpCase(i_select_val2_xfcfcf):
+ OpCase(i_select_val2_xfccff):
      select_val2 = xb(Arg(0));
      goto do_select_val2;
 
- OpCase(i_select_val2_rfcfcf):
+ OpCase(i_select_val2_rfccff):
      select_val2 = r(0);
      I--;
 
  do_select_val2:
      if (select_val2 == Arg(2)) {
-	 I += 2;
-     } else if (select_val2 == Arg(4)) {
+	 I += 3;
+     } else if (select_val2 == Arg(3)) {
 	 I += 4;
      }
 
@@ -2206,20 +2285,50 @@ void process_main(void)
  do_select_tuple_arity:
      if (is_tuple(select_val)) {
 	 select_val = *tuple_val(select_val);
-	 goto do_binary_search;
+	 goto do_linear_search;
      }
      SET_I((BeamInstr *) Arg(1));
      Goto(*I);
 
- OpCase(i_select_val_xfI):
+ OpCase(i_select_val_lins_xfI):
+     select_val = xb(Arg(0));
+     goto do_linear_search;
+
+ OpCase(i_select_val_lins_yfI):
+     select_val = yb(Arg(0));
+     goto do_linear_search;
+
+ OpCase(i_select_val_lins_rfI):
+     select_val = r(0);
+     I--;
+
+ do_linear_search: {
+     BeamInstr *vs = &Arg(3);
+     int ix = 0;
+
+     for(;;) {
+	 if (vs[ix+0] >= select_val) { ix += 0; break; }
+	 if (vs[ix+1] >= select_val) { ix += 1; break; }
+	 ix += 2;
+     }
+
+     if (vs[ix] == select_val) {
+	 I += ix + Arg(2) + 2;
+     }
+
+     SET_I((BeamInstr *) Arg(1));
+     Goto(*I);
+   }
+
+ OpCase(i_select_val_bins_xfI):
      select_val = xb(Arg(0));
      goto do_binary_search;
 
- OpCase(i_select_val_yfI):
+ OpCase(i_select_val_bins_yfI):
      select_val = yb(Arg(0));
      goto do_binary_search;
      
- OpCase(i_select_val_rfI):
+ OpCase(i_select_val_bins_rfI):
      select_val = r(0);
      I--;
 
@@ -2353,65 +2462,16 @@ void process_main(void)
      Goto(*I);
  }
 
- OpCase(new_map_jdII): {
+ OpCase(new_map_dII): {
      Eterm res;
 
      x(0) = r(0);
      SWAPOUT;
-     res = new_map(c_p, reg, I);
+     res = new_map(c_p, reg, I-1);
      SWAPIN;
      r(0) = x(0);
-     StoreResult(res, Arg(1));
-     Next(4+Arg(3));
- }
-
- OpCase(i_has_map_fields_fsI): {
-    map_t* mp;
-    Eterm map;
-    Eterm field;
-    Eterm *ks;
-    BeamInstr* fs;
-    Uint sz,n;
-
-    GetArg1(1, map);
-
-    /* this instruction assumes Arg1 is a map,
-     * i.e. that it follows a test is_map if needed.
-     */
-
-    mp = (map_t *)map_val(map);
-    sz = map_get_size(mp);
-
-    if (sz == 0) {
-	SET_I((BeamInstr *) Arg(0));
-	goto has_map_fields_fail;
-    }
-
-    ks = map_get_keys(mp);
-    n  = (Uint)Arg(2);
-    fs = &Arg(3); /* pattern fields */
-
-    ASSERT(n>0);
-
-    while(sz) {
-	field = (Eterm)*fs;
-	if (EQ(field,*ks)) {
-	    n--;
-	    fs++;
-	    if (n == 0) break;
-	}
-	ks++; sz--;
-    }
-
-    if (n) {
-	SET_I((BeamInstr *) Arg(0));
-	goto has_map_fields_fail;
-    }
-
-    I += 4 + Arg(2);
-has_map_fields_fail:
-    ASSERT(VALID_INSTR(*I));
-    Goto(*I);
+     StoreResult(res, Arg(0));
+     Next(3+Arg(2));
  }
 
 #define PUT_TERM_REG(term, desc)				\
@@ -2434,12 +2494,8 @@ do {								\
 
  OpCase(i_get_map_elements_fsI): {
     Eterm map;
-    map_t *mp;
-    Eterm field;
-    Eterm *ks;
-    Eterm *vs;
     BeamInstr *fs;
-    Uint sz,n;
+    Uint sz, n;
 
     GetArg1(1, map);
 
@@ -2447,41 +2503,55 @@ do {								\
      * i.e. that it follows a test is_map if needed.
      */
 
-    mp = (map_t *)map_val(map);
-    sz = map_get_size(mp);
-
-    if (sz == 0) {
-	SET_I((BeamInstr *) Arg(0));
-	goto get_map_elements_fail;
-    }
-
-    n  = (Uint)Arg(2) / 2;
+    n  = (Uint)Arg(2) / 3;
     fs = &Arg(3); /* pattern fields and target registers */
-    ks = map_get_keys(mp);
-    vs = map_get_values(mp);
 
-    while(sz) {
-	field = (Eterm)*fs;
-	if (EQ(field,*ks)) {
-	    PUT_TERM_REG(*vs, fs[1]);
-	    n--;
-	    fs += 2;
-	    /* no more values to fetch, we are done */
-	    if (n == 0) break;
+    if (is_flatmap(map)) {
+	flatmap_t *mp;
+	Eterm *ks;
+	Eterm *vs;
+
+	mp = (flatmap_t *)flatmap_val(map);
+	sz = flatmap_get_size(mp);
+
+	if (sz == 0) {
+	    ClauseFail();
 	}
-	ks++; sz--;
-	vs++;
-    }
 
-    if (n) {
-	SET_I((BeamInstr *) Arg(0));
-	goto get_map_elements_fail;
-    }
+	ks = flatmap_get_keys(mp);
+	vs = flatmap_get_values(mp);
 
-    I += 4 + Arg(2);
-get_map_elements_fail:
-    ASSERT(VALID_INSTR(*I));
-    Goto(*I);
+	while(sz) {
+	    if (EQ((Eterm) fs[0], *ks)) {
+		PUT_TERM_REG(*vs, fs[1]);
+		n--;
+		fs += 3;
+		/* no more values to fetch, we are done */
+		if (n == 0) {
+		    I = fs;
+		    Next(-1);
+		}
+	    }
+	    ks++, sz--, vs++;
+	}
+
+	ClauseFail();
+    } else {
+	const Eterm *v;
+	Uint32 hx;
+	ASSERT(is_hashmap(map));
+	while(n--) {
+	    hx = fs[2];
+	    ASSERT(hx == hashmap_make_hash((Eterm)fs[0]));
+	    if ((v = erts_hashmap_get(hx, (Eterm)fs[0], map)) == NULL) {
+		ClauseFail();
+	    }
+	    PUT_TERM_REG(*v, fs[1]);
+	    fs += 3;
+	}
+	I = fs;
+	Next(-1);
+    }
  }
 #undef PUT_TERM_REG
 
@@ -2499,7 +2569,13 @@ get_map_elements_fail:
 	 StoreResult(res, Arg(2));
 	 Next(5+Arg(4));
      } else {
-	 goto badarg;
+	 /*
+	  * This can only happen if the code was compiled
+	  * with the compiler in OTP 17.
+	  */
+	 c_p->freason = BADMAP;
+	 c_p->fvalue = map;
+	 goto lb_Cl_error;
      }
  }
 
@@ -2517,7 +2593,7 @@ get_map_elements_fail:
 	 StoreResult(res, Arg(2));
 	 Next(5+Arg(4));
      } else {
-	 goto badarg;
+	 goto lb_Cl_error;
      }
  }
 
@@ -2775,6 +2851,7 @@ get_map_elements_fail:
 	}
 	PreFetch(1, next);
 	ASSERT(!ERTS_PROC_IS_EXITING(c_p));
+	ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
 	reg[0] = r(0);
 	result = (*bf)(c_p, reg, I);
 	ASSERT(!ERTS_PROC_IS_EXITING(c_p) || is_non_value(result));
@@ -2842,6 +2919,19 @@ get_map_elements_fail:
      goto do_big_arith2;
  }
 
+ OpCase(i_rem_jIxxd):
+ {
+     Eterm result;
+
+     if (xb(Arg(3)) == SMALL_ZERO) {
+	 goto badarith;
+     } else if (is_both_small(xb(Arg(2)), xb(Arg(3)))) {
+	 result = make_small(signed_val(xb(Arg(2))) % signed_val(xb(Arg(3))));
+         StoreBifResult(4, result);
+     }
+     DO_BIG_ARITH(ARITH_FUNC(int_rem),xb(Arg(2)),xb(Arg(3)));
+ }
+
  OpCase(i_rem_jId):
  {
      Eterm result;
@@ -2855,6 +2945,20 @@ get_map_elements_fail:
 	 arith_func = ARITH_FUNC(int_rem);
 	 goto do_big_arith2;
      }
+ }
+
+ OpCase(i_band_jIxcd):
+ {
+     Eterm result;
+
+     if (is_both_small(xb(Arg(2)), Arg(3))) {
+         /*
+          * No need to untag -- TAG & TAG == TAG.
+          */
+         result = xb(Arg(2)) & Arg(3);
+         StoreBifResult(4, result);
+     }
+     DO_BIG_ARITH(ARITH_FUNC(band),xb(Arg(2)),Arg(3));
  }
 
  OpCase(i_band_jId):
@@ -2871,6 +2975,8 @@ get_map_elements_fail:
      arith_func = ARITH_FUNC(band);
      goto do_big_arith2;
  }
+
+#undef DO_BIG_ARITH
 
  do_big_arith2:
  {
@@ -3523,6 +3629,8 @@ get_map_elements_fail:
 		erts_pre_nif(&env, c_p, (struct erl_module_nif*)I[2]);
 		reg[0] = r(0);
 		nif_bif_result = (*fp)(&env, bif_nif_arity, reg);
+		if (env.exception_thrown)
+		    nif_bif_result = THE_NON_VALUE;
 		erts_post_nif(&env);
 	    }
 	    ASSERT(!ERTS_PROC_IS_EXITING(c_p) || is_non_value(nif_bif_result));
@@ -3556,7 +3664,7 @@ get_map_elements_fail:
 	    vbf = (BifFunction) Arg(0);
 	    PROCESS_MAIN_CHK_LOCKS(c_p);
 	    bif_nif_arity = I[-1];
-	    ASSERT(bif_nif_arity <= 3);
+            ASSERT(bif_nif_arity <= 4);
 	    ERTS_SMP_UNREQ_PROC_MAIN_LOCK(c_p);
 	    reg[0] = r(0);
 	    {
@@ -3782,8 +3890,6 @@ get_map_elements_fail:
 	  * Allocate the binary struct itself.
 	  */
 	 bptr = erts_bin_nrml_alloc(num_bytes);
-	 bptr->flags = 0;
-	 bptr->orig_size = num_bytes;
 	 erts_refc_init(&bptr->refc, 1);
 	 erts_current_bin = (byte *) bptr->orig_bytes;
 
@@ -3883,8 +3989,6 @@ get_map_elements_fail:
 	  * Allocate the binary struct itself.
 	  */
 	 bptr = erts_bin_nrml_alloc(tmp_arg1);
-	 bptr->flags = 0;
-	 bptr->orig_size = tmp_arg1;
 	 erts_refc_init(&bptr->refc, 1);
 	 erts_current_bin = (byte *) bptr->orig_bytes;
 
@@ -4987,14 +5091,14 @@ get_map_elements_fail:
 	  * ... remainder of original BEAM code
 	  */
 	 ASSERT(I[-5] == (Uint) OpCode(i_func_info_IaaI));
-	 c_p->hipe.ncallee = (void(*)(void)) I[-4];
+	 c_p->hipe.u.ncallee = (void(*)(void)) I[-4];
 	 cmd = HIPE_MODE_SWITCH_CMD_CALL | (I[-1] << 8);
 	 ++hipe_trap_count;
 	 goto L_hipe_mode_switch;
      }
      OpCase(hipe_trap_call_closure): {
        ASSERT(I[-5] == (Uint) OpCode(i_func_info_IaaI));
-       c_p->hipe.ncallee = (void(*)(void)) I[-4];
+       c_p->hipe.u.ncallee = (void(*)(void)) I[-4];
        cmd = HIPE_MODE_SWITCH_CMD_CALL_CLOSURE | (I[-1] << 8);
        ++hipe_trap_count;
        goto L_hipe_mode_switch;
@@ -5028,7 +5132,10 @@ get_map_elements_fail:
        case HIPE_MODE_SWITCH_RES_RETURN:
 	 ASSERT(is_value(reg[0]));
 	 MoveReturn(reg[0], r(0));
-       case HIPE_MODE_SWITCH_RES_CALL:
+       case HIPE_MODE_SWITCH_RES_CALL_EXPORTED:
+	 c_p->i = c_p->hipe.u.callee_exp->addressv[erts_active_code_ix()];
+	 /*fall through*/
+       case HIPE_MODE_SWITCH_RES_CALL_BEAM:
 	 SET_I(c_p->i);
 	 r(0) = reg[0];
 	 Dispatch();
@@ -5145,22 +5252,14 @@ get_map_elements_fail:
 
 #ifndef NO_JUMP_TABLE
 #ifdef ERTS_OPCODE_COUNTER_SUPPORT
-
-     /* Are tables correctly generated by beam_makeops? */
-     ASSERT(sizeof(counting_opcodes) == sizeof(opcodes));
-
-     if (count_instructions) {
 #ifdef DEBUG
-	 counting_opcodes[op_catch_end_y] = LabelAddr(lb_catch_end_y);
+     counting_opcodes[op_catch_end_y] = LabelAddr(lb_catch_end_y);
 #endif
-	 counting_opcodes[op_i_func_info_IaaI] = LabelAddr(lb_i_func_info_IaaI);
-	 beam_ops = counting_opcodes;
-     }
-     else
-#endif /* #ifndef ERTS_OPCODE_COUNTER_SUPPORT */
-     {
-	 beam_ops = opcodes;
-     }
+     counting_opcodes[op_i_func_info_IaaI] = LabelAddr(lb_i_func_info_IaaI);
+     beam_ops = counting_opcodes;
+#else /* #ifndef ERTS_OPCODE_COUNTER_SUPPORT */
+     beam_ops = opcodes;
+#endif /* ERTS_OPCODE_COUNTER_SUPPORT */
 #endif /* NO_JUMP_TABLE */
      
      em_call_error_handler = OpCode(call_error_handler);
@@ -5273,7 +5372,9 @@ Eterm error_atom[NUMBER_EXIT_CODES] = {
   am_notalive,		/* 14 */
   am_system_limit,	/* 15 */
   am_try_clause,	/* 16 */
-  am_notsup		/* 17 */
+  am_notsup,		/* 17 */
+  am_badmap,		/* 18 */
+  am_badkey,		/* 19 */
 };
 
 /*
@@ -5476,18 +5577,35 @@ next_catch(Process* c_p, Eterm *reg) {
 static void
 terminate_proc(Process* c_p, Eterm Value)
 {
+    Eterm *hp;
+    Eterm Args = NIL;
+
     /* Add a stacktrace if this is an error. */
     if (GET_EXC_CLASS(c_p->freason) == EXTAG_ERROR) {
         Value = add_stacktrace(c_p, Value, c_p->ftrace);
     }
     /* EXF_LOG is a primary exception flag */
     if (c_p->freason & EXF_LOG) {
+	int alive = erts_is_alive;
 	erts_dsprintf_buf_t *dsbufp = erts_create_logger_dsbuf();
-	erts_dsprintf(dsbufp, "Error in process %T ", c_p->common.id);
-	if (erts_is_alive)
-	    erts_dsprintf(dsbufp, "on node %T ", erts_this_node->sysname);
-	erts_dsprintf(dsbufp,"with exit value: %0.*T\n", display_items, Value);
-	erts_send_error_to_logger(c_p->group_leader, dsbufp);
+
+        /* Build the format message */
+	erts_dsprintf(dsbufp, "Error in process ~p ");
+	if (alive)
+	    erts_dsprintf(dsbufp, "on node ~p ");
+	erts_dsprintf(dsbufp, "with exit value:~n~p~n");
+
+        /* Build the args in reverse order */
+	hp = HAlloc(c_p, 2);
+	Args = CONS(hp, Value, Args);
+	if (alive) {
+	    hp = HAlloc(c_p, 2);
+	    Args = CONS(hp, erts_this_node->sysname, Args);
+	}
+	hp = HAlloc(c_p, 2);
+	Args = CONS(hp, c_p->common.id, Args);
+
+	erts_send_error_term_to_logger(c_p->group_leader, dsbufp, Args);
     }
     /*
      * If we use a shared heap, the process will be garbage-collected.
@@ -5529,6 +5647,8 @@ expand_error_value(Process* c_p, Uint freason, Eterm Value) {
     case (GET_EXC_INDEX(EXC_TRY_CLAUSE)):
     case (GET_EXC_INDEX(EXC_BADFUN)):
     case (GET_EXC_INDEX(EXC_BADARITY)):
+    case (GET_EXC_INDEX(EXC_BADMAP)):
+    case (GET_EXC_INDEX(EXC_BADKEY)):
         /* Some common exceptions: value -> {atom, value} */
         ASSERT(is_value(Value));
 	hp = HAlloc(c_p, 3);
@@ -5831,7 +5951,7 @@ build_stacktrace(Process* c_p, Eterm exc) {
      * (e.g. spawn_link(erlang, abs, [1])).
      */
     if (fi.current == NULL) {
-	erts_set_current_function(&fi, c_p->initial);
+	erts_set_current_function(&fi, c_p->u.initial);
 	args = am_true; /* Just in case */
     } else {
 	args = get_args_from_exc(exc);
@@ -6039,13 +6159,7 @@ apply(Process* p, Eterm module, Eterm function, Eterm args, Eterm* reg)
     } else if (ERTS_PROC_GET_SAVED_CALLS_BUF(p)) {
 	save_calls(p, ep);
     }
-
-#ifdef USE_VM_CALL_PROBES
-    if (DTRACE_ENABLED(global_function_entry)) {
-        BeamInstr *fptr = (BeamInstr *) ep->addressv[erts_active_code_ix()];
-	DTRACE_GLOBAL_CALL(p, (Eterm)fptr[-3], (Eterm)fptr[-2], (Uint)fptr[-1]);
-    }
-#endif
+    DTRACE_GLOBAL_CALL_FROM_EXPORT(p, ep);
     return ep->addressv[erts_active_code_ix()];
 }
 
@@ -6094,13 +6208,7 @@ fixed_apply(Process* p, Eterm* reg, Uint arity)
     } else if (ERTS_PROC_GET_SAVED_CALLS_BUF(p)) {
 	save_calls(p, ep);
     }
-
-#ifdef USE_VM_CALL_PROBES
-    if (DTRACE_ENABLED(global_function_entry)) {
-        BeamInstr *fptr = (BeamInstr *)  ep->addressv[erts_active_code_ix()];
-	DTRACE_GLOBAL_CALL(p, (Eterm)fptr[-3], (Eterm)fptr[-2], (Uint)fptr[-1]);
-    }
-#endif
+    DTRACE_GLOBAL_CALL_FROM_EXPORT(p, ep);
     return ep->addressv[erts_active_code_ix()];
 }
 
@@ -6422,57 +6530,75 @@ new_fun(Process* p, Eterm* reg, ErlFunEntry* fe, int num_free)
     return make_fun(funp);
 }
 
-static int has_not_map_field(Eterm map, Eterm key)
-{
-    map_t* mp;
-    Eterm* keys;
-    Uint i;
-    Uint n;
-
-    mp   = (map_t *)map_val(map);
-    keys = map_get_keys(mp);
-    n    = map_get_size(mp);
-    if (is_immed(key)) {
-	for (i = 0; i < n; i++) {
-	    if (keys[i] == key) {
-		return 0;
-	    }
-	}
-    } else {
-	for (i = 0; i <  n; i++) {
-	    if (EQ(keys[i], key)) {
-		return 0;
-	    }
-	}
-    }
-    return 1;
-}
-
 static Eterm get_map_element(Eterm map, Eterm key)
 {
-    map_t *mp;
-    Eterm* ks, *vs;
-    Uint i;
-    Uint n;
+    Uint32 hx;
+    const Eterm *vs;
+    if (is_flatmap(map)) {
+	flatmap_t *mp;
+	Eterm *ks;
+	Uint i;
+	Uint n;
 
-    mp = (map_t *)map_val(map);
-    ks = map_get_keys(mp);
-    vs = map_get_values(mp);
-    n  = map_get_size(mp);
-    if (is_immed(key)) {
-	for (i = 0; i < n; i++) {
-	    if (ks[i] == key) {
-		return vs[i];
+	mp = (flatmap_t *)flatmap_val(map);
+	ks = flatmap_get_keys(mp);
+	vs = flatmap_get_values(mp);
+	n  = flatmap_get_size(mp);
+	if (is_immed(key)) {
+	    for (i = 0; i < n; i++) {
+		if (ks[i] == key) {
+		    return vs[i];
+		}
+	    }
+	} else {
+	    for (i = 0; i < n; i++) {
+		if (EQ(ks[i], key)) {
+		    return vs[i];
+		}
 	    }
 	}
-    } else {
-	for (i = 0; i < n; i++) {
-	    if (EQ(ks[i], key)) {
-		return vs[i];
-	    }
-	}
+	return THE_NON_VALUE;
     }
-    return THE_NON_VALUE;
+    ASSERT(is_hashmap(map));
+    hx = hashmap_make_hash(key);
+    vs = erts_hashmap_get(hx,key,map);
+    return vs ? *vs : THE_NON_VALUE;
+}
+
+static Eterm get_map_element_hash(Eterm map, Eterm key, Uint32 hx)
+{
+    const Eterm *vs;
+
+    if (is_flatmap(map)) {
+	flatmap_t *mp;
+	Eterm *ks;
+	Uint i;
+	Uint n;
+
+	mp = (flatmap_t *)flatmap_val(map);
+	ks = flatmap_get_keys(mp);
+	vs = flatmap_get_values(mp);
+	n  = flatmap_get_size(mp);
+	if (is_immed(key)) {
+	    for (i = 0; i < n; i++) {
+		if (ks[i] == key) {
+		    return vs[i];
+		}
+	    }
+	} else {
+	    for (i = 0; i < n; i++) {
+		if (EQ(ks[i], key)) {
+		    return vs[i];
+		}
+	    }
+	}
+	return THE_NON_VALUE;
+    }
+
+    ASSERT(is_hashmap(map));
+    ASSERT(hx == hashmap_make_hash(key));
+    vs = erts_hashmap_get(hx, key, map);
+    return vs ? *vs : THE_NON_VALUE;
 }
 
 #define GET_TERM(term, dest)					\
@@ -6505,7 +6631,39 @@ new_map(Process* p, Eterm* reg, BeamInstr* I)
     Eterm *mhp,*thp;
     Eterm *E;
     BeamInstr *ptr;
-    map_t *mp;
+    flatmap_t *mp;
+    ErtsHeapFactory factory;
+
+    ptr = &Arg(4);
+
+    if (n > 2*MAP_SMALL_MAP_LIMIT) {
+        Eterm res;
+	if (HeapWordsLeft(p) < n) {
+	    erts_garbage_collect(p, n, reg, Arg(2));
+	}
+
+	mhp = p->htop;
+	thp = p->htop;
+	E   = p->stop;
+
+	for (i = 0; i < n/2; i++) {
+	    GET_TERM(*ptr++, *mhp++);
+	    GET_TERM(*ptr++, *mhp++);
+	}
+
+	p->htop = mhp;
+
+        factory.p = p;
+        res = erts_hashmap_from_array(&factory, thp, n/2, 0);
+        if (p->mbuf) {
+            Uint live = Arg(2);
+            reg[live] = res;
+            erts_garbage_collect(p, 0, reg, live+1);
+            res       = reg[live];
+            E = p->stop;
+        }
+        return res;
+    }
 
     if (HeapWordsLeft(p) < need) {
 	erts_garbage_collect(p, need, reg, Arg(2));
@@ -6514,12 +6672,11 @@ new_map(Process* p, Eterm* reg, BeamInstr* I)
     thp    = p->htop;
     mhp    = thp + 1 + n/2;
     E      = p->stop;
-    ptr    = &Arg(4);
     keys   = make_tuple(thp);
     *thp++ = make_arityval(n/2);
 
-    mp = (map_t *)mhp; mhp += MAP_HEADER_SIZE;
-    mp->thing_word = MAP_HEADER;
+    mp = (flatmap_t *)mhp; mhp += MAP_HEADER_FLATMAP_SZ;
+    mp->thing_word = MAP_HEADER_FLATMAP;
     mp->size = n/2;
     mp->keys = keys;
 
@@ -6528,7 +6685,7 @@ new_map(Process* p, Eterm* reg, BeamInstr* I)
 	GET_TERM(*ptr++, *mhp++);
     }
     p->htop = mhp;
-    return make_map(mp);
+    return make_flatmap(mp);
 }
 
 static Eterm
@@ -6538,7 +6695,7 @@ update_map_assoc(Process* p, Eterm* reg, Eterm map, BeamInstr* I)
     Uint num_old;
     Uint num_updates;
     Uint need;
-    map_t *old_mp, *mp;
+    flatmap_t *old_mp, *mp;
     Eterm res;
     Eterm* hp;
     Eterm* E;
@@ -6548,12 +6705,43 @@ update_map_assoc(Process* p, Eterm* reg, Eterm map, BeamInstr* I)
     Eterm new_key;
     Eterm* kp;
 
-    if (is_not_map(map)) {
-	return THE_NON_VALUE;
+    new_p = &Arg(5);
+    num_updates = Arg(4) / 2;
+
+    if (is_not_flatmap(map)) {
+	Uint32 hx;
+	Eterm val;
+
+	/* apparently the compiler does not emit is_map instructions,
+	 * bad compiler */
+
+	if (is_not_hashmap(map))
+	    return THE_NON_VALUE;
+
+	res = map;
+	E = p->stop;
+	while(num_updates--) {
+	    /* assoc can't fail */
+	    GET_TERM(new_p[0], new_key);
+	    GET_TERM(new_p[1], val);
+	    hx = hashmap_make_hash(new_key);
+
+	    res = erts_hashmap_insert(p, hx, new_key, val, res,  0);
+	    if (p->mbuf) {
+		Uint live = Arg(3);
+		reg[live] = res;
+		erts_garbage_collect(p, 0, reg, live+1);
+		res       = reg[live];
+		E = p->stop;
+	    }
+
+	    new_p += 2;
+	}
+	return res;
     }
 
-    old_mp = (map_t *) map_val(map);
-    num_old = map_get_size(old_mp);
+    old_mp  = (flatmap_t *) flatmap_val(map);
+    num_old = flatmap_get_size(old_mp);
 
     /*
      * If the old map is empty, create a new map.
@@ -6568,14 +6756,13 @@ update_map_assoc(Process* p, Eterm* reg, Eterm map, BeamInstr* I)
      * update list are new).
      */
 
-    num_updates = Arg(4) / 2;
-    need = 2*(num_old+num_updates) + 1 + MAP_HEADER_SIZE;
+    need = 2*(num_old+num_updates) + 1 + MAP_HEADER_FLATMAP_SZ;
     if (HeapWordsLeft(p) < need) {
 	Uint live = Arg(3);
 	reg[live] = map;
 	erts_garbage_collect(p, need, reg, live+1);
 	map      = reg[live];
-	old_mp   = (map_t *)map_val(map);
+	old_mp   = (flatmap_t *)flatmap_val(map);
     }
 
     /*
@@ -6606,16 +6793,15 @@ update_map_assoc(Process* p, Eterm* reg, Eterm map, BeamInstr* I)
     kp = p->htop + 1;		/* Point to first key */
     hp = kp + num_old + num_updates;
 
-    res = make_map(hp);
-    mp = (map_t *)hp;
-    hp += MAP_HEADER_SIZE;
-    mp->thing_word = MAP_HEADER;
+    res = make_flatmap(hp);
+    mp = (flatmap_t *)hp;
+    hp += MAP_HEADER_FLATMAP_SZ;
+    mp->thing_word = MAP_HEADER_FLATMAP;
     mp->keys = make_tuple(kp-1);
 
-    old_vals = map_get_values(old_mp);
-    old_keys = map_get_keys(old_mp);
+    old_vals = flatmap_get_values(old_mp);
+    old_keys = flatmap_get_keys(old_mp);
 
-    new_p = &Arg(5);
     GET_TERM(*new_p, new_key);
     n = num_updates;
 
@@ -6701,8 +6887,19 @@ update_map_assoc(Process* p, Eterm* reg, Eterm map, BeamInstr* I)
 
     n = kp - p->htop - 1;	/* Actual number of keys/values */
     *p->htop = make_arityval(n);
+    p->htop  = hp;
     mp->size = n;
-    p->htop = hp;
+
+    /* The expensive case, need to build a hashmap */
+    if (n > MAP_SMALL_MAP_LIMIT) {
+	res = erts_hashmap_from_ks_and_vs(p,flatmap_get_keys(mp),flatmap_get_values(mp),n);
+	if (p->mbuf) {
+	    Uint live = Arg(3);
+	    reg[live] = res;
+	    erts_garbage_collect(p, 0, reg, live+1);
+	    res       = reg[live];
+	}
+    }
     return res;
 }
 
@@ -6717,7 +6914,7 @@ update_map_exact(Process* p, Eterm* reg, Eterm map, BeamInstr* I)
     Uint i;
     Uint num_old;
     Uint need;
-    map_t *old_mp, *mp;
+    flatmap_t *old_mp, *mp;
     Eterm res;
     Eterm* hp;
     Eterm* E;
@@ -6726,18 +6923,61 @@ update_map_exact(Process* p, Eterm* reg, Eterm map, BeamInstr* I)
     BeamInstr* new_p;
     Eterm new_key;
 
-    if (is_not_map(map)) {
-	return THE_NON_VALUE;
+    new_p = &Arg(5);
+    n = Arg(4) / 2;		/* Number of values to be updated */
+    ASSERT(n > 0);
+
+    if (is_not_flatmap(map)) {
+	Uint32 hx;
+	Eterm val;
+
+	/* apparently the compiler does not emit is_map instructions,
+	 * bad compiler */
+
+	if (is_not_hashmap(map)) {
+	    p->freason = BADMAP;
+	    p->fvalue = map;
+	    return THE_NON_VALUE;
+	}
+
+	res = map;
+	E = p->stop;
+	while(n--) {
+	    GET_TERM(new_p[0], new_key);
+	    GET_TERM(new_p[1], val);
+	    hx = hashmap_make_hash(new_key);
+
+	    res = erts_hashmap_insert(p, hx, new_key, val, res,  1);
+	    if (is_non_value(res)) {
+		p->fvalue = new_key;
+		p->freason = BADKEY;
+		return res;
+	    }
+
+	    if (p->mbuf) {
+		Uint live = Arg(3);
+		reg[live] = res;
+		erts_garbage_collect(p, 0, reg, live+1);
+		res       = reg[live];
+		E = p->stop;
+	    }
+
+	    new_p += 2;
+	}
+	return res;
     }
 
-    old_mp = (map_t *) map_val(map);
-    num_old = map_get_size(old_mp);
+    old_mp = (flatmap_t *) flatmap_val(map);
+    num_old = flatmap_get_size(old_mp);
 
     /*
-     * If the old map is empty, create a new map.
+     * If the old map is empty, fail.
      */
 
     if (num_old == 0) {
+	E = p->stop;
+	p->freason = BADKEY;
+	GET_TERM(new_p[0], p->fvalue);
 	return THE_NON_VALUE;
     }
 
@@ -6745,13 +6985,13 @@ update_map_exact(Process* p, Eterm* reg, Eterm map, BeamInstr* I)
      * Allocate the exact heap space needed.
      */
 
-    need = num_old + MAP_HEADER_SIZE;
+    need = num_old + MAP_HEADER_FLATMAP_SZ;
     if (HeapWordsLeft(p) < need) {
 	Uint live = Arg(3);
 	reg[live] = map;
 	erts_garbage_collect(p, need, reg, live+1);
 	map      = reg[live];
-	old_mp   = (map_t *)map_val(map);
+	old_mp   = (flatmap_t *)flatmap_val(map);
     }
 
     /*
@@ -6761,23 +7001,20 @@ update_map_exact(Process* p, Eterm* reg, Eterm map, BeamInstr* I)
     hp = p->htop;
     E = p->stop;
 
-    old_vals = map_get_values(old_mp);
-    old_keys = map_get_keys(old_mp);
+    old_vals = flatmap_get_values(old_mp);
+    old_keys = flatmap_get_keys(old_mp);
 
-    res = make_map(hp);
-    mp = (map_t *)hp;
-    hp += MAP_HEADER_SIZE;
-    mp->thing_word = MAP_HEADER;
+    res = make_flatmap(hp);
+    mp = (flatmap_t *)hp;
+    hp += MAP_HEADER_FLATMAP_SZ;
+    mp->thing_word = MAP_HEADER_FLATMAP;
     mp->size = num_old;
     mp->keys = old_mp->keys;
 
     /* Get array of key/value pairs to be updated */
-    new_p = &Arg(5);
     GET_TERM(*new_p, new_key);
 
     /* Update all values */
-    n = Arg(4) / 2;		/* Number of values to be updated */
-    ASSERT(n > 0);
     for (i = 0; i < num_old; i++) {
 	if (!EQ(*old_keys, new_key)) {
 	    /* Not same keys */
@@ -6810,6 +7047,8 @@ update_map_exact(Process* p, Eterm* reg, Eterm map, BeamInstr* I)
      * update list did not previously exist.
      */
     ASSERT(hp == p->htop + need);
+    p->freason = BADKEY;
+    p->fvalue = new_key;
     return THE_NON_VALUE;
 }
 #undef GET_TERM

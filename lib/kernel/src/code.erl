@@ -107,7 +107,7 @@ is_module_native(_) ->
 -spec make_stub_module(Module, Beam, Info) -> Module when
       Module :: module(),
       Beam :: binary(),
-      Info :: {list(), list()}.
+      Info :: {list(), list(), binary()}.
 
 make_stub_module(_, _, _) ->
     erlang:nif_error(undef).
@@ -339,7 +339,7 @@ do_start(Flags) ->
 			    ok
 		    end,
 		    %% Quietly load native code for all modules loaded so far
-		    catch load_native_code_for_all_loaded(),
+		    load_native_code_for_all_loaded(),
 		    Ok2;
 		Other ->
 		    Other
@@ -550,18 +550,43 @@ has_ext(Ext, Extlen, File) ->
 	_ -> false
     end.
 
+%%%
+%%% Silently load native code for all modules loaded so far.
+%%%
+
 -spec load_native_code_for_all_loaded() -> ok.
 load_native_code_for_all_loaded() ->
     Architecture = erlang:system_info(hipe_architecture),
-    ChunkName = hipe_unified_loader:chunk_name(Architecture),
-    lists:foreach(fun({Module, BeamFilename}) ->
-        case code:is_module_native(Module) of
-            false ->
-                case beam_lib:chunks(BeamFilename, [ChunkName]) of
-                    {ok,{_,[{_,Bin}]}} when is_binary(Bin) ->
-                        load_native_partial(Module, Bin);
-                    {error, beam_lib, _} -> ok
-                end;
-            true -> ok
-        end
-    end, all_loaded()).
+    try hipe_unified_loader:chunk_name(Architecture) of
+	ChunkTag ->
+	    Loaded = all_loaded(),
+	    _ = spawn(fun() -> load_all_native(Loaded, ChunkTag) end),
+	    ok
+    catch
+	_:_ ->
+	    ok
+    end.
+
+load_all_native(Loaded, ChunkTag) ->
+    catch load_all_native_1(Loaded, ChunkTag).
+
+load_all_native_1([{_,preloaded}|T], ChunkTag) ->
+    load_all_native_1(T, ChunkTag);
+load_all_native_1([{Mod,BeamFilename}|T], ChunkTag) ->
+    case code:is_module_native(Mod) of
+	false ->
+	    %% prim_file is faster than file and the file server may
+	    %% not be started yet.
+	    {ok,Beam} = prim_file:read_file(BeamFilename),
+	    case code:get_chunk(Beam, ChunkTag) of
+		undefined ->
+		    ok;
+		NativeCode when is_binary(NativeCode) ->
+		    _ = load_native_partial(Mod, NativeCode),
+		    ok
+	    end;
+	true -> ok
+    end,
+    load_all_native_1(T, ChunkTag);
+load_all_native_1([], _) ->
+    ok.

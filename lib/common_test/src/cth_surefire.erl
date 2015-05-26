@@ -59,6 +59,8 @@
 -define(default_report,"junit_report.xml").
 -define(suite_log,"suite.log.html").
 
+-define(now, os:timestamp()).
+
 %% Number of dirs from log root to testcase log file.
 %% ct_run.<node>.<timestamp>/<test_name>/run.<timestamp>/<tc_log>.html
 -define(log_depth,3).
@@ -77,11 +79,11 @@ init(Path, Opts) ->
 	    axis = proplists:get_value(axis,Opts,[]),
 	    properties = proplists:get_value(properties,Opts,[]),
 	    url_base = proplists:get_value(url_base,Opts),
-	    timer = now() }.
+	    timer = ?now }.
 
 pre_init_per_suite(Suite,SkipOrFail,State) when is_tuple(SkipOrFail) ->
     {SkipOrFail, init_tc(State#state{curr_suite = Suite,
-				     curr_suite_ts = now()},
+				     curr_suite_ts = ?now},
 			 SkipOrFail) };
 pre_init_per_suite(Suite,Config,#state{ test_cases = [] } = State) ->
     TcLog = proplists:get_value(tc_logfile,Config),
@@ -96,7 +98,7 @@ pre_init_per_suite(Suite,Config,#state{ test_cases = [] } = State) ->
 	end,
     {Config, init_tc(State#state{ filepath = Path,
 				  curr_suite = Suite,
-				  curr_suite_ts = now(),
+				  curr_suite_ts = ?now,
 				  curr_log_dir = CurrLogDir},
 		     Config) };
 pre_init_per_suite(Suite,Config,State) ->
@@ -169,9 +171,9 @@ do_tc_skip(Res, State) ->
     State#state{ test_cases = [NewTC | tl(TCs)]}.
 
 init_tc(State, Config) when is_list(Config) == false ->
-    State#state{ timer = now(), tc_log =  "" };
+    State#state{ timer = ?now, tc_log =  "" };
 init_tc(State, Config) ->
-    State#state{ timer = now(),
+    State#state{ timer = ?now,
 		 tc_log =  proplists:get_value(tc_logfile, Config, [])}.
 
 end_tc(Func, Config, Res, State) when is_atom(Func) ->
@@ -194,7 +196,7 @@ end_tc(Name, _Config, _Res, State = #state{ curr_suite = Suite,
     ClassName = atom_to_list(Suite),
     PGroup = string:join([ atom_to_list(Group)||
 			     Group <- lists:reverse(Groups)],"."),
-    TimeTakes = io_lib:format("~f",[timer:now_diff(now(),TS) / 1000000]),
+    TimeTakes = io_lib:format("~f",[timer:now_diff(?now,TS) / 1000000]),
     State#state{ test_cases = [#testcase{ log = Log,
 					  url = Url,
 					  timestamp = now_to_string(TS),
@@ -209,7 +211,7 @@ close_suite(#state{ test_cases = [] } = State) ->
     State;
 close_suite(#state{ test_cases = TCs, url_base = UrlBase } = State) ->
     {Total,Fail,Skip} = count_tcs(TCs,0,0,0),
-    TimeTaken = timer:now_diff(now(),State#state.curr_suite_ts) / 1000000,
+    TimeTaken = timer:now_diff(?now,State#state.curr_suite_ts) / 1000000,
     SuiteLog = filename:join(State#state.curr_log_dir,?suite_log),
     SuiteUrl = make_url(UrlBase,SuiteLog),
     Suite = #testsuite{ name = atom_to_list(State#state.curr_suite),

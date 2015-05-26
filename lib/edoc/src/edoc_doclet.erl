@@ -42,9 +42,7 @@
 -define(DEFAULT_FILE_SUFFIX, ".html").
 -define(INDEX_FILE, "index.html").
 -define(OVERVIEW_FILE, "overview.edoc").
--define(PACKAGE_SUMMARY, "package-summary.html").
 -define(OVERVIEW_SUMMARY, "overview-summary.html").
--define(PACKAGES_FRAME, "packages-frame.html").
 -define(MODULES_FRAME, "modules-frame.html").
 -define(STYLESHEET, "stylesheet.css").
 -define(IMAGE, "erlang.png").
@@ -52,11 +50,10 @@
 
 -include_lib("xmerl/include/xmerl.hrl").
 
-%% Sources is the list of inputs in the order they were found.  Packages
-%% and Modules are sorted lists of atoms without duplicates. (They
+%% Sources is the list of inputs in the order they were found.
+%% Modules are sorted lists of atoms without duplicates. (They
 %% usually include the data from the edoc-info file in the target
-%% directory, if it exists.) Note that the "empty package" is never
-%% included in Packages!
+%% directory, if it exists.)
 
 %% @spec (Command::doclet_gen() | doclet_toc(), edoc_context()) -> ok
 %% @doc Main doclet entry point. See the file <a
@@ -117,14 +114,12 @@
 run(#doclet_gen{}=Cmd, Ctxt) ->
     gen(Cmd#doclet_gen.sources,
 	Cmd#doclet_gen.app,
-	Cmd#doclet_gen.packages,
 	Cmd#doclet_gen.modules,
-	Cmd#doclet_gen.filemap,
 	Ctxt);
 run(#doclet_toc{}=Cmd, Ctxt) ->
     toc(Cmd#doclet_toc.paths, Ctxt).
 
-gen(Sources, App, Packages, Modules, FileMap, Ctxt) ->
+gen(Sources, App, Modules, Ctxt) ->
     Dir = Ctxt#context.dir,
     Env = Ctxt#context.env,
     Options = Ctxt#context.opts,
@@ -132,11 +127,9 @@ gen(Sources, App, Packages, Modules, FileMap, Ctxt) ->
     CSS = stylesheet(Options),
     {Modules1, Error} = sources(Sources, Dir, Modules, Env, Options),
     modules_frame(Dir, Modules1, Title, CSS),
-    packages(Packages, Dir, FileMap, Env, Options),
-    packages_frame(Dir, Packages, Title, CSS),
     overview(Dir, Title, Env, Options),
-    index_file(Dir, length(Packages) > 1, Title),
-    edoc_lib:write_info_file(App, Packages, Modules1, Dir),
+    index_file(Dir, Title),
+    edoc_lib:write_info_file(App, Modules1, Dir),
     copy_stylesheet(Dir, Options),
     copy_image(Dir),
     %% handle postponed error during processing of source files
@@ -182,19 +175,19 @@ sources(Sources, Dir, Modules, Env, Options) ->
 %% set if it was successful. Errors are just flagged at this stage,
 %% allowing all source files to be processed even if some of them fail.
 
-source({M, P, Name, Path}, Dir, Suffix, Env, Set, Private, Hidden,
+source({M, Name, Path}, Dir, Suffix, Env, Set, Private, Hidden,
        Error, Options) ->
     File = filename:join(Path, Name),
     case catch {ok, edoc:get_doc(File, Env, Options)} of
 	{ok, {Module, Doc}} ->
-	    check_name(Module, M, P, File),
+	    check_name(Module, M, File),
 	    case ((not is_private(Doc)) orelse Private)
 		andalso ((not is_hidden(Doc)) orelse Hidden) of
 		true ->
 		    Text = edoc:layout(Doc, Options),
 		    Name1 = atom_to_list(M) ++ Suffix,
                     Encoding = [{encoding,encoding(Doc)}],
-		    edoc_lib:write_file(Text, Dir, Name1, P, Encoding),
+		    edoc_lib:write_file(Text, Dir, Name1, Encoding),
 		    {sets:add_element(Module, Set), Error};
 		false ->
 		    {Set, Error}
@@ -204,8 +197,7 @@ source({M, P, Name, Path}, Dir, Suffix, Env, Set, Private, Hidden,
 	    {Set, true}
     end.
 
-check_name(M, M0, P0, File) ->
-    P = '',
+check_name(M, M0, File) ->
     N = M,
     N0 = M0,
     case N of
@@ -222,47 +214,12 @@ check_name(M, M0, P0, File) ->
 		    ok
 	    end
     end,
-    if P =/= P0 ->
-	    warning("file '~ts' belongs to package '~s', not '~s'.",
-		    [File, P, P0]);
-       true ->
-	    ok
-    end.
-
-
-%% Generating the summary files for packages.
-
-%% INHERIT-OPTIONS: read_file/4
-%% INHERIT-OPTIONS: edoc_lib:run_layout/2
-
-packages(Packages, Dir, FileMap, Env, Options) ->
-    lists:foreach(fun (P) ->
-			  package(P, Dir, FileMap, Env, Options)
-		  end,
-		  Packages).
-
-package(P, Dir, FileMap, Env, Opts) ->
-    Tags = case FileMap(P) of
-	       "" ->
-		   [];
-	       File ->
-		   read_file(File, package, Env, Opts)
-	   end,
-    Data = edoc_data:package(P, Tags, Env, Opts),
-    F = fun (M) ->
-		M:package(Data, Opts)
-	end,
-    Text = edoc_lib:run_layout(F, Opts),
-    edoc_lib:write_file(Text, Dir, ?PACKAGE_SUMMARY, P).
-
+	ok.
 
 %% Creating an index file, with some frames optional.
 %% TODO: get rid of frames, or change doctype to Frameset
 
-index_file(Dir, Packages, Title) ->
-    Frame1 = {frame, [{src,?PACKAGES_FRAME},
-		      {name,"packagesFrame"},{title,""}],
-	      []},
+index_file(Dir, Title) ->
     Frame2 = {frame, [{src,?MODULES_FRAME},
 		      {name,"modulesFrame"},{title,""}],
 	      []},
@@ -270,16 +227,7 @@ index_file(Dir, Packages, Title) ->
 		      {name,"overviewFrame"},{title,""}],
 	      []},
     Frameset = {frameset, [{cols,"20%,80%"}],
-		case Packages of
-		    true ->
-			[?NL,
-			 {frameset, [{rows,"30%,70%"}],
-			  [?NL, Frame1, ?NL, Frame2, ?NL]}
-			];
-		    false ->
- 			[?NL, Frame2, ?NL]
-		end
-		++ [?NL, Frame3, ?NL,
+    	[?NL, Frame2, ?NL, ?NL, Frame3, ?NL,
 		    {noframes,
 		     [?NL,
 		      {h2, ["This page uses frames"]},
@@ -295,24 +243,6 @@ index_file(Dir, Packages, Title) ->
     XML = xhtml_1(Title, [], Frameset),
     Text = xmerl:export_simple([XML], xmerl_html, []),
     edoc_lib:write_file(Text, Dir, ?INDEX_FILE).
-
-packages_frame(Dir, Ps, Title, CSS) ->
-    Body = [?NL,
-	    {h2, [{class, "indextitle"}], ["Packages"]},
-	    ?NL,
-	    {table, [{width, "100%"}, {border, 0},
-		     {summary, "list of packages"}],
-	     lists:concat(
-	       [[?NL,
-		 {tr, [{td, [], [{a, [{href, package_ref(P)},
-				      {target,"overviewFrame"},
-				      {class, "package"}],
-				  [atom_to_list(P)]}]}]}]
-		|| P <- Ps])},
-	    ?NL],
-    XML = xhtml(Title, CSS, Body),
-    Text = xmerl:export_simple([XML], xmerl_html, []),
-    edoc_lib:write_file(Text, Dir, ?PACKAGES_FRAME).
 
 modules_frame(Dir, Ms, Title, CSS) ->
     Body = [?NL,
@@ -334,11 +264,7 @@ modules_frame(Dir, Ms, Title, CSS) ->
     edoc_lib:write_file(Text, Dir, ?MODULES_FRAME).
 
 module_ref(M) ->
-    edoc_refs:relative_package_path(M, '') ++ ?DEFAULT_FILE_SUFFIX.
-
-package_ref(P) ->
-    edoc_lib:join_uri(edoc_refs:relative_package_path(P, ''),
-		      ?PACKAGE_SUMMARY).
+    atom_to_list(M) ++ ?DEFAULT_FILE_SUFFIX.
 
 xhtml(Title, CSS, Content) ->
     xhtml_1(Title, CSS, {body, [{bgcolor, "white"}], Content}).
@@ -372,7 +298,7 @@ overview(Dir, Title, Env, Opts) ->
 	end,
     Text = edoc_lib:run_layout(F, Opts),
     EncOpts = [{encoding,Encoding}],
-    edoc_lib:write_file(Text, Dir, ?OVERVIEW_SUMMARY, '', EncOpts).
+    edoc_lib:write_file(Text, Dir, ?OVERVIEW_SUMMARY, EncOpts).
 
 copy_image(Dir) ->
     case code:priv_dir(?EDOC_APP) of
@@ -505,7 +431,7 @@ app_index_file(Paths, Dir, Env, Options) ->
 %    Priv = proplists:get_bool(private, Options),
     CSS = stylesheet(Options),
     Apps1 = [{filename:dirname(A),filename:basename(A)} || A <- Paths],
-    index_file(Dir, false, Title),
+    index_file(Dir, Title),
     application_frame(Dir, Apps1, Title, CSS),
     modules_frame(Dir, [], Title, CSS),
     overview(Dir, Title, Env, Options),

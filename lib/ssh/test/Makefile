@@ -40,7 +40,8 @@ MODULES= \
 	ssh_connection_SUITE \
 	ssh_echo_server \
 	ssh_peername_sockname_server \
-	ssh_test_cli 
+	ssh_test_cli \
+	ssh_relay
 
 HRL_FILES_NEEDED_IN_TEST= \
 	$(ERL_TOP)/lib/ssh/src/ssh.hrl \

@@ -68,12 +68,12 @@
 -import(mnesia_lib, [add/2, del/2, set/2, unset/1]).
 -import(mnesia_lib, [dbg_out/2]).
 
--record(checkpoint_args, {name = {now(), node()},
+-record(checkpoint_args, {name = {erlang:unique_integer([positive]), node()},
 			  allow_remote = true,
 			  ram_overrides_dump = false,
 			  nodes = [],
 			  node = node(),
-			  now = now(),
+			  now,  %% unused
 			  cookie = ?unique_cookie,
 			  min = [],
 			  max = [],
@@ -128,7 +128,7 @@ tm_enter_pending([], Pending) ->
     Pending;
 tm_enter_pending([Tab | Tabs], Pending) ->
     %% io:format("Add ~p ~p ~p~n",[Tab, Pending, hd(tl(element(2, process_info(self(), current_stacktrace))))]),
-    catch ?ets_insert(Tab, Pending),
+    ?SAFE(?ets_insert(Tab, Pending)),
     tm_enter_pending(Tabs, Pending).
 
 tm_exit_pending(Tid) ->
@@ -427,22 +427,22 @@ check_tables(Cp) ->
 
 arrange_retainers(Cp, Overriders, AllTabs) ->
     R = #retainer{cp_name = Cp#checkpoint_args.name},
-    case catch [R#retainer{tab_name = Tab, 
-			   writers = select_writers(Cp, Tab)}
-		|| Tab <- AllTabs] of
-	{'EXIT', Reason} ->
-	    {error, Reason};
+    try [R#retainer{tab_name = Tab,
+		    writers = select_writers(Cp, Tab)}
+	 || Tab <- AllTabs] of
 	Retainers ->
 	    {ok, Cp#checkpoint_args{ram_overrides_dump = Overriders,
-			       retainers = Retainers,
-			       nodes = writers(Retainers)}}
+				    retainers = Retainers,
+				    nodes = writers(Retainers)}}
+    catch throw:Reason ->
+	    {error, Reason}
     end.
 
 select_writers(Cp, Tab) ->
     case filter_remote(Cp, val({Tab, active_replicas})) of
 	[] ->
-	    exit({"Cannot prepare checkpoint (replica not available)",
-		 [Tab, Cp#checkpoint_args.name]});
+	    throw({"Cannot prepare checkpoint (replica not available)",
+		   [Tab, Cp#checkpoint_args.name]});
 	Writers ->
 	    This = node(),
 	    case {lists:member(Tab, Cp#checkpoint_args.max),
@@ -492,12 +492,12 @@ check_prep([], Name, Nodes, IgnoreNew) ->
 collect_pending(Name, Nodes, IgnoreNew) ->
     case rpc:multicall(Nodes, ?MODULE, call, [Name, collect_pending]) of
 	{Replies, []} ->
-	    case catch ?ets_new_table(mnesia_union, [bag]) of
-		{'EXIT', Reason} -> %% system limit
+	    try
+		UnionTab = ?ets_new_table(mnesia_union, [bag]),
+		compute_union(Replies, Nodes, Name, UnionTab, IgnoreNew)
+	    catch error:Reason -> %% system limit
 		    Msg = "Cannot create an ets table pending union",
-		    {error, {system_limit, Msg, Reason}};
-		UnionTab ->
-		    compute_union(Replies, Nodes, Name, UnionTab, IgnoreNew)
+		    {error, {system_limit, Msg, Reason}}
 	    end;
 	{_, BadNodes} ->
 	    deactivate(Nodes, Name),
@@ -1170,7 +1170,7 @@ iterate(Name, Tab, Fun, Acc, Source, Val) ->
 	    {error, Reason};
 	{ok, Iter, Pid} ->
 	    link(Pid), % We don't want any pending fixtable's
-	    Res = (catch iter(Fun, Acc, Iter)),
+	    Res = ?CATCH(iter(Fun, Acc, Iter)),
 	    unlink(Pid),
 	    call(Name, {iter_end, Iter}),
 	    case Res of
@@ -1246,7 +1246,7 @@ system_code_change(Cp, _Module, _OldVsn, _Extra) ->
 
 val(Var) ->
     case ?catch_val(Var) of
-	{'EXIT', _ReASoN_} -> mnesia_lib:other_val(Var, _ReASoN_); 
-	_VaLuE_ -> _VaLuE_ 
+	{'EXIT', _} -> mnesia_lib:other_val(Var);
+	_VaLuE_ -> _VaLuE_
     end.
 

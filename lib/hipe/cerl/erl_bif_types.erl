@@ -1070,9 +1070,6 @@ type(hipe_bifs, find_na_or_make_stub, 2, Xs, Opaques) ->
 type(hipe_bifs, fun_to_address, 1, Xs, Opaques) ->
   strict(hipe_bifs, fun_to_address, 1, Xs,
 	 fun (_) -> t_integer() end, Opaques);
-%% type(hipe_bifs, get_emu_address, 1, Xs, Opaques) ->
-%%    strict(hipe_bifs, get_emu_address, 1, Xs,
-%%	   fun (_) -> t_integer() end, Opaques); % address
 type(hipe_bifs, get_fe, 2, Xs, Opaques) ->
   strict(hipe_bifs, get_fe, 2, Xs, fun (_) -> t_integer() end, Opaques);
 type(hipe_bifs, get_rts_param, 1, Xs, Opaques) ->
@@ -1081,9 +1078,6 @@ type(hipe_bifs, get_rts_param, 1, Xs, Opaques) ->
 type(hipe_bifs, invalidate_funinfo_native_addresses, 1, Xs, Opaques) ->
   strict(hipe_bifs, invalidate_funinfo_native_addresses, 1, Xs,
 	 fun (_) -> t_nil() end, Opaques);
-%% type(hipe_bifs, make_native_stub, 2, Xs, Opaques) ->
-%%    strict(hipe_bifs, make_native_stub, 2, Xs,
-%%	   fun (_) -> t_integer() end, Opaques); % address
 type(hipe_bifs, mark_referred_from, 1, Xs, Opaques) ->
   strict(hipe_bifs, mark_referred_from, 1, Xs,
 	 fun (_) -> t_nil() end, Opaques);
@@ -2462,16 +2456,12 @@ arg_types(hipe_bifs, find_na_or_make_stub, 2) ->
   [t_mfa(), t_boolean()];
 arg_types(hipe_bifs, fun_to_address, 1) ->
   [t_mfa()];
-%% arg_types(hipe_bifs, get_emu_address, 1) ->
-%%   [t_mfa()];
 arg_types(hipe_bifs, get_fe, 2) ->
   [t_atom(), t_tuple([t_integer(), t_integer(), t_integer()])];
 arg_types(hipe_bifs, get_rts_param, 1) ->
   [t_fixnum()];
 arg_types(hipe_bifs, invalidate_funinfo_native_addresses, 1) ->
   [t_list(t_mfa())];
-%% arg_types(hipe_bifs, make_native_stub, 2) ->
-%%   [t_integer(), t_arity()];
 arg_types(hipe_bifs, mark_referred_from, 1) ->
   [t_mfa()];
 arg_types(hipe_bifs, merge_term, 1) ->

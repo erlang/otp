@@ -19,7 +19,8 @@
 %%
 -module(asn1_db).
 
--export([dbstart/1,dbnew/2,dbload/1,dbload/3,dbsave/2,dbput/3,dbget/2]).
+-export([dbstart/1,dbnew/2,dbload/1,dbload/3,dbsave/2,dbput/2,
+	 dbput/3,dbget/2]).
 -export([dbstop/0]).
 
 -record(state, {parent, monitor, includes, table}).
@@ -44,6 +45,7 @@ dbload(Module) ->
 dbnew(Module, Erule)       -> req({new, Module, Erule}).
 dbsave(OutFile, Module)    -> cast({save, OutFile, Module}).
 dbput(Module, K, V)        -> cast({set, Module, K, V}).
+dbput(Module, Kvs)         -> cast({set, Module, Kvs}).
 dbget(Module, K)           -> req({get, Module, K}).
 dbstop()                   -> Resp = req(stop), erase(?MODULE), Resp.
 
@@ -81,6 +83,10 @@ loop(#state{parent = Parent, monitor = MRef, table = Table,
         {set, Mod, K2, V} ->
             [{_, Modtab}] = ets:lookup(Table, Mod),
             ets:insert(Modtab, {K2, V}),
+            loop(State);
+        {set, Mod, Kvs} ->
+            [{_, Modtab}] = ets:lookup(Table, Mod),
+            ets:insert(Modtab, Kvs),
             loop(State);
         {From, {get, Mod, K2}} ->
 	    %% XXX If there is no information for Mod, get_table/3

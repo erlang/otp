@@ -10,7 +10,6 @@
 
 
 -export([recv/3, decode/1]).
--export([get_my_map/0,is_my_map/1]).
 
 %-record(can_pkt, {id, data :: binary(), timestamp}).
 
@@ -40,38 +39,3 @@ t2() -> ok.
 
 update(#{ id := Id, val := Val } = M, X) when is_integer(Id) ->
     M#{ val := [Val,X] }.
-
-%% key coalescing
-
--spec get_my_map() -> map().
-
-get_my_map() ->
-    #{labels  => [one, two],
-      number  => 27,
-      [1,2,3] => wer,
-      {4,5,6} => sdf,
-      kvok    => #{
-	<<"wat">> => v,
-	a => qwe,
-	2 => asd,
-	[1,2,3] => wer,
-	{4,5,6} => sdf,
-	"abc" => zxc
-       }
-     }.
-
--spec is_my_map(map()) -> 'ok'.
-
-is_my_map(#{labels  := [one, two],
-	    number  := 27,
-	    [1,2,3] := wer,
-	    {4,5,6} := sdf,
-	    kvok := #{
-	      <<"wat">> := v,
-	      a := qwe,
-	      2 := asd,
-	      [1,2,3] := wer,
-	      {4,5,6} := sdf,
-	      "abc" := zxc
-	     }
-	   }) -> ok.

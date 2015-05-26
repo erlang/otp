@@ -109,7 +109,7 @@
 #  include <sys/time.h>
 #  include <unistd.h>
 #  include <signal.h>
-#  if defined(CORRECT_USING_TIMES)
+#  if defined(OS_MONOTONIC_TIME_USING_TIMES)
 #    include <sys/times.h>
 #    include <limits.h>
 #  endif
@@ -117,11 +117,12 @@
 
 #define HEART_COMMAND_ENV          "HEART_COMMAND"
 #define ERL_CRASH_DUMP_SECONDS_ENV "ERL_CRASH_DUMP_SECONDS"
+#define HEART_KILL_SIGNAL          "HEART_KILL_SIGNAL"
 
-#define MSG_HDR_SIZE        2
-#define MSG_HDR_PLUS_OP_SIZE 3
-#define MSG_BODY_SIZE      2048
-#define MSG_TOTAL_SIZE     2050
+#define MSG_HDR_SIZE         (2)
+#define MSG_HDR_PLUS_OP_SIZE (3)
+#define MSG_BODY_SIZE        (2048)
+#define MSG_TOTAL_SIZE       (2050)
 
 unsigned char cmd[MSG_BODY_SIZE];
 
@@ -555,14 +556,22 @@ kill_old_erlang(void){
 static void 
 kill_old_erlang(void){
     pid_t pid;
-    int i;
-    int res;
+    int i, res;
+    int sig = SIGKILL;
+    char *sigenv = NULL;
+
+    sigenv = get_env(HEART_KILL_SIGNAL);
+    if (sigenv && strcmp(sigenv, "SIGABRT") == 0) {
+        print_error("kill signal SIGABRT requested");
+        sig = SIGABRT;
+    }
+
     if(heart_beat_kill_pid != 0){
 	pid = (pid_t) heart_beat_kill_pid;
-	res = kill(pid,SIGKILL);
+	res = kill(pid,sig);
 	for(i=0; i < 5 && res == 0; ++i){
 	    sleep(1);
-	    res = kill(pid,SIGKILL);
+	    res = kill(pid,sig);
 	}
 	if(errno != ESRCH){
 	    print_error("Unable to kill old process, "
@@ -1084,9 +1093,9 @@ time_t timestamp(time_t *res)
     return r;
 }
 
-#elif defined(HAVE_GETHRTIME)  || defined(GETHRTIME_WITH_CLOCK_GETTIME)
+#elif defined(OS_MONOTONIC_TIME_USING_GETHRTIME) || defined(OS_MONOTONIC_TIME_USING_CLOCK_GETTIME)
 
-#if defined(GETHRTIME_WITH_CLOCK_GETTIME)
+#if defined(OS_MONOTONIC_TIME_USING_CLOCK_GETTIME)
 typedef long long SysHrTime;
 
 SysHrTime sys_gethrtime(void);
@@ -1095,7 +1104,7 @@ SysHrTime sys_gethrtime(void)
 {
     struct timespec ts;
     long long result;
-    if (clock_gettime(CLOCK_MONOTONIC,&ts) != 0) {
+    if (clock_gettime(MONOTONIC_CLOCK_ID,&ts) != 0) {
 	print_error("Fatal, could not get clock_monotonic value, terminating! "
 		    "errno = %d\n", errno);
 	exit(1);
@@ -1122,7 +1131,7 @@ time_t timestamp(time_t *res)
     return r;
 }
 
-#elif defined(CORRECT_USING_TIMES)
+#elif defined(OS_MONOTONIC_TIME_USING_TIMES)
 
 #  ifdef NO_SYSCONF
 #    include <sys/param.h>

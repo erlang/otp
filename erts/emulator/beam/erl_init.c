@@ -35,7 +35,7 @@
 #include "dist.h"
 #include "erl_mseg.h"
 #include "erl_threads.h"
-#include "erl_bif_timer.h"
+#include "erl_hl_timer.h"
 #include "erl_instrument.h"
 #include "erl_printf_term.h"
 #include "erl_misc_utils.h"
@@ -45,6 +45,9 @@
 #include "erl_thr_queue.h"
 #include "erl_async.h"
 #include "erl_ptab.h"
+#include "erl_bif_unique.h"
+#define ERTS_WANT_TIMER_WHEEL_API
+#include "erl_time.h"
 
 #ifdef HIPE
 #include "hipe_mode_switch.h"	/* for hipe_mode_switch_init() */
@@ -117,6 +120,8 @@ const int etp_big_endian = 1;
 #else
 const int etp_big_endian = 0;
 #endif
+const Eterm etp_the_non_value = THE_NON_VALUE;
+
 /*
  * Note about VxWorks: All variables must be initialized by executable code,
  * not by an initializer. Otherwise a new instance of the emulator will
@@ -134,7 +139,9 @@ static void erl_init(int ncpu,
 		     int legacy_proc_tab,
 		     int port_tab_sz,
 		     int port_tab_sz_ignore_files,
-		     int legacy_port_tab);
+		     int legacy_port_tab,
+		     int time_correction,
+		     ErtsTimeWarpMode time_warp_mode);
 
 static erts_atomic_t exiting;
 
@@ -161,9 +168,6 @@ int H_MIN_SIZE;			/* The minimum heap grain */
 int BIN_VH_MIN_SIZE;		/* The minimum binary virtual*/
 
 Uint32 erts_debug_flags;	/* Debug flags. */
-#ifdef ERTS_OPCODE_COUNTER_SUPPORT
-int count_instructions;
-#endif
 int erts_backtrace_depth;	/* How many functions to show in a backtrace
 				 * in error codes.
 				 */
@@ -187,10 +191,6 @@ static int no_dirty_io_schedulers;
 #ifdef DEBUG
 Uint32 verbose;             /* See erl_debug.h for information about verbose */
 #endif
-
-int erts_disable_tolerant_timeofday; /* Time correction can be disabled it is
-				      * not and/or it is too slow.
-				      */
 
 int erts_atom_table_size = ATOM_LIMIT;	/* Maximum number of atoms */
 
@@ -271,6 +271,19 @@ this_rel_num(void)
     return this_rel;
 }
 
+static ERTS_INLINE void
+set_default_time_adj(int *time_correction_p, ErtsTimeWarpMode *time_warp_mode_p)
+{
+    *time_correction_p = 1;
+    *time_warp_mode_p = ERTS_NO_TIME_WARP_MODE;
+    if (!erts_check_time_adj_support(*time_correction_p,
+				     *time_warp_mode_p)) {
+	*time_correction_p = 0;
+	ASSERT(erts_check_time_adj_support(*time_correction_p,
+					   *time_warp_mode_p));
+    }
+}
+
 /*
  * Common error printout function, all error messages
  * that don't go to the error logger go through here.
@@ -286,13 +299,22 @@ static int early_init(int *argc, char **argv);
 void
 erts_short_init(void)
 {
-    int ncpu = early_init(NULL, NULL);
+    
+    int ncpu;
+    int time_correction;
+    ErtsTimeWarpMode time_warp_mode;
+
+    set_default_time_adj(&time_correction,
+			 &time_warp_mode);
+    ncpu = early_init(NULL, NULL);
     erl_init(ncpu,
 	     ERTS_DEFAULT_MAX_PROCESSES,
 	     0,
 	     ERTS_DEFAULT_MAX_PORTS,
 	     0,
-	     0);
+	     0,
+	     time_correction,
+	     time_warp_mode);
     erts_initialized = 1;
 }
 
@@ -302,12 +324,15 @@ erl_init(int ncpu,
 	 int legacy_proc_tab,
 	 int port_tab_sz,
 	 int port_tab_sz_ignore_files,
-	 int legacy_port_tab)
+	 int legacy_port_tab,
+	 int time_correction,
+	 ErtsTimeWarpMode time_warp_mode)
 {
     init_benchmarking();
 
+    erts_bif_unique_init();
     erts_init_monitors();
-    erts_init_time();
+    erts_init_time(time_correction, time_warp_mode);
     erts_init_sys_common_misc();
     erts_init_process(ncpu, proc_tab_sz, legacy_proc_tab);
     erts_init_scheduling(no_schedulers,
@@ -318,6 +343,7 @@ erl_init(int ncpu,
 			 no_dirty_io_schedulers
 #endif
 			 );
+    erts_late_init_time_sup();
     erts_init_cpu_topology(); /* Must be after init_scheduling */
     erts_init_gc(); /* Must be after init_scheduling */
     erts_alloc_late_init();
@@ -341,7 +367,6 @@ erl_init(int ncpu,
     erts_init_binary(); /* Must be after init_emulator() */
     erts_bp_init();
     init_db(); /* Must be after init_emulator */
-    erts_bif_timer_init();
     erts_init_node_tables();
     init_dist();
     erl_drv_thr_init();
@@ -367,12 +392,13 @@ erl_init(int ncpu,
     erl_nif_init();
 }
 
-static void
+static Eterm
 erl_first_process_otp(char* modname, void* code, unsigned size, int argc, char** argv)
 {
     int i;
     Eterm start_mod;
     Eterm args;
+    Eterm res;
     Eterm* hp;
     Process parent;
     ErlSpawnOpts so;
@@ -402,10 +428,11 @@ erl_first_process_otp(char* modname, void* code, unsigned size, int argc, char**
     hp += 2;
     args = CONS(hp, env, args);
 
-    so.flags = 0;
-    (void) erl_create_process(&parent, start_mod, am_start, args, &so);
+    so.flags = SPO_SYSTEM_PROC;
+    res = erl_create_process(&parent, start_mod, am_start, args, &so);
     erts_smp_proc_unlock(&parent, ERTS_PROC_LOCK_MAIN);
     erts_cleanup_empty_process(&parent);
+    return res;
 }
 
 Eterm
@@ -511,9 +538,9 @@ void erts_usage(void)
 
     /*    erts_fprintf(stderr, "-b func    set the boot function (default boot)\n"); */
 
-    erts_fprintf(stderr, "-c             disable continuous date/time correction with\n");
-    erts_fprintf(stderr, "               respect to uptime\n");
-
+    erts_fprintf(stderr, "-c bool        enable or disable time correction\n");
+    erts_fprintf(stderr, "-C mode        set time warp mode; valid modes are:\n");
+    erts_fprintf(stderr, "               no_time_warp|single_time_warp|multi_time_warp\n");
     erts_fprintf(stderr, "-d             don't write a crash dump for internally detected errors\n");
     erts_fprintf(stderr, "               (halt(String) will still produce a crash dump)\n");
     erts_fprintf(stderr, "-fn[u|a|l]     Control how filenames are interpreted\n");
@@ -685,7 +712,6 @@ early_init(int *argc, char **argv) /*
 
     erts_sched_compact_load = 1;
     erts_printf_eterm_func = erts_printf_term;
-    erts_disable_tolerant_timeofday = 0;
     display_items = 200;
     erts_backtrace_depth = DEFAULT_BACKTRACE_SIZE;
     erts_async_max_threads = ERTS_DEFAULT_NO_ASYNC_THREADS;
@@ -1191,7 +1217,11 @@ erl_start(int argc, char **argv)
     int port_tab_sz_ignore_files = 0;
     int legacy_proc_tab = 0;
     int legacy_port_tab = 0;
+    int time_correction;
+    ErtsTimeWarpMode time_warp_mode;
 
+    set_default_time_adj(&time_correction,
+			 &time_warp_mode);
 
     envbufsz = sizeof(envbuf);
     if (erts_sys_getenv_raw(ERL_MAX_ETS_TABLES_ENV, envbuf, &envbufsz) == 0)
@@ -1909,15 +1939,51 @@ erl_start(int argc, char **argv)
 	    }
 	    break;
 	}
+	case 'C':
+	    arg = get_arg(argv[i]+2, argv[i+1], &i);
+	    if (sys_strcmp(arg, "no_time_warp") == 0)
+		time_warp_mode = ERTS_NO_TIME_WARP_MODE;
+	    else if (sys_strcmp(arg, "single_time_warp") == 0)
+		time_warp_mode = ERTS_SINGLE_TIME_WARP_MODE;
+	    else if (sys_strcmp(arg, "multi_time_warp") == 0)
+		time_warp_mode = ERTS_MULTI_TIME_WARP_MODE;
+	    else {
+		erts_fprintf(stderr,
+			     "Invalid time warp mode: %s\n", arg);
+		erts_usage();
+	    }
+	    break;
 	case 'c':
-	    if (argv[i][2] == 0) { /* -c: documented option */
-		erts_disable_tolerant_timeofday = 1;
+	    if (sys_strcmp(argv[i]+2, "false") == 0)
+		goto time_correction_false;
+	    else if (sys_strcmp(argv[i]+2, "true") == 0)
+		goto time_correction_true;
+	    else if (argv[i][2] == '\0') {
+		if (i + 1 >= argc)
+		    goto time_correction_false;
+		else {
+		    if (sys_strcmp(argv[i+1], "false") == 0) {
+			(void) get_arg(argv[i]+2, argv[i+1], &i);
+			goto time_correction_false;
+		    }
+		    else if (sys_strcmp(argv[i+1], "true") == 0) {
+			(void) get_arg(argv[i]+2, argv[i+1], &i);
+		    time_correction_true:
+			time_correction = 1;
+			break;
+		    }
+		    else {
+		    time_correction_false:
+			time_correction = 0;
+			break;
+		    }
+		}
 	    }
-#ifdef ERTS_OPCODE_COUNTER_SUPPORT
-	    else if (argv[i][2] == 'i') { /* -ci: undcoumented option*/
-		count_instructions = 1;
+	    else {
+		arg = get_arg(argv[i]+2, argv[i+1], &i);
+		erts_fprintf(stderr, "Invalid time correnction value: %s\n", arg);
+		erts_usage();
 	    }
-#endif
 	    break;
 	case 'W':
 	    arg = get_arg(argv[i]+2, argv[i+1], &i);
@@ -1963,6 +2029,30 @@ erl_start(int argc, char **argv)
 	i++;
     }
 
+    if (!erts_check_time_adj_support(time_correction, time_warp_mode)) {
+	char *time_correction_str = time_correction ? "Enabled" : "Disabled";
+	char *time_warp_str = "undefined";
+	switch (time_warp_mode) {
+	case ERTS_NO_TIME_WARP_MODE:
+	    time_warp_str = "no";
+	    break;
+	case ERTS_SINGLE_TIME_WARP_MODE:
+	    time_warp_str = "single";
+	    break;
+	case ERTS_MULTI_TIME_WARP_MODE:
+	    time_warp_str = "multi";
+	    break;
+	default:
+	    time_warp_str = "undefined";
+	    break;
+	}
+	erts_fprintf(stderr, "%s time correction with %s time warp mode "
+		     "is not supported on this platform\n",
+		     time_correction_str,
+		     time_warp_str);
+	erts_usage();
+    }
+
 /* Output format on windows for sprintf defaults to three exponents.
  * We use two-exponent to mimic normal sprintf behaviour.
  */
@@ -1996,7 +2086,9 @@ erl_start(int argc, char **argv)
 	     legacy_proc_tab,
 	     port_tab_sz,
 	     port_tab_sz_ignore_files,
-	     legacy_port_tab);
+	     legacy_port_tab,
+	     time_correction,
+	     time_warp_mode);
 
     load_preloaded();
     erts_end_staging_code_ix();
@@ -2004,7 +2096,8 @@ erl_start(int argc, char **argv)
 
     erts_initialized = 1;
 
-    erl_first_process_otp("otp_ring0", NULL, 0, boot_argc, boot_argv);
+    (void) erl_first_process_otp("otp_ring0", NULL, 0,
+				 boot_argc, boot_argv);
 
 #ifdef ERTS_SMP
     erts_start_schedulers();
@@ -2012,13 +2105,17 @@ erl_start(int argc, char **argv)
 
     erts_sys_main_thread(); /* May or may not return! */
 #else
-    erts_thr_set_main_status(1, 1);
+    {
+	ErtsSchedulerData *esdp = erts_get_scheduler_data();
+	erts_thr_set_main_status(1, 1);
 #if ERTS_USE_ASYNC_READY_Q
-    erts_get_scheduler_data()->aux_work_data.async_ready.queue
-	= erts_get_async_ready_queue(1);
+	esdp->aux_work_data.async_ready.queue
+	    = erts_get_async_ready_queue(1);
 #endif
-    set_main_stack_size();
-    process_main();
+	set_main_stack_size();
+	erts_sched_init_time_sup(esdp);
+	process_main();
+    }
 #endif
 }
 

@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2008-2014. All Rights Reserved.
+ * Copyright Ericsson AB 2008-2015. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -51,8 +51,8 @@ void WxeApp::wxe_dispatch(wxeCommand& Ecmd)
        if(recurse_level > 1 && refd->type != 4) {
           delayed_delete->Append(Ecmd.Save());
        } else {
-          ((WxeApp *) wxTheApp)->clearPtr(This);
-          delete_object(This, refd); }
+          delete_object(This, refd);
+          ((WxeApp *) wxTheApp)->clearPtr(This);}
   } } break;
   case WXE_REGISTER_OBJECT: {
      registerPid(bp, Ecmd.caller, memenv);

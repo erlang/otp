@@ -98,6 +98,11 @@ enum(Rules) ->
 	ber ->
 	    ok
     end,
+
+    roundtrip('NegEnumVal', neg),
+    roundtrip('NegEnumVal', zero),
+    roundtrip('EnumVal128', val),
+
     ok.
 
 

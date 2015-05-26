@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2000-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2015. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -406,8 +406,9 @@ type_check(Obj, Mod) ->
 %% Effect   : 
 %%------------------------------------------------------------
 create_name(Type) ->
-    {MSec, Sec, USec} = erlang:now(),
-    lists:concat(['oe_',node(),'_',Type,'_',MSec, '_', Sec, '_', USec]).
+    Time = erlang:system_time(),
+    Unique = erlang:unique_integer([positive]),
+    lists:concat(['oe_',node(),'_',Type,'_',Time,'_',Unique]).
 
 %%--------------- END OF MODULE ------------------------------
 

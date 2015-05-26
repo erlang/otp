@@ -187,7 +187,7 @@ handle_call({profile_start, Rootset, Pattern, {M,F,A}, Opts}, From, #state{fd = 
     case set_process_trace(true, [Pid|Rootset], Topts) of
 	true ->
 	    ok = set_pattern_trace(true, Pattern),
-	    T0 = now(),
+	    T0 = erlang:timestamp(),
 	    ok = execute_profiling(Pid),
 	    {noreply, #state{
 		    profiling  = true,
@@ -211,7 +211,7 @@ handle_call({profile_start, Rootset, Pattern, undefined, Opts}, From, #state{ fd
 
     case set_process_trace(true, Rootset, Topts) of
 	true ->
-	    T0 = now(),
+	    T0 = erlang:timestamp(),
 	    ok = set_pattern_trace(true, Pattern),
 	    {reply, profiling, #state{
 		    profiling  = true,
@@ -485,20 +485,22 @@ string_bp_mfa([{Mfa, {Count, Time}}|Mfas], Tus, {MfaW, CountW, PercW, TimeW, TpC
 		erlang:max(TpCW,  length(Stpc))
 	    }, [[Smfa, Scount, Sperc, Stime, Stpc] | Strings]).
 
-print_bp_mfa(Mfas, {_Tn, Tus}, Fd, Opts) ->
+print_bp_mfa(Mfas, {Tn, Tus}, Fd, Opts) ->
     Fmfas = filter_mfa(sort_mfa(Mfas, proplists:get_value(sort, Opts)), proplists:get_value(filter, Opts)),
     {{MfaW, CountW, PercW, TimeW, TpCW}, Strs} = string_bp_mfa(Fmfas, Tus),
-    Ws = {
-	erlang:max(length("FUNCTION"), MfaW),
-	erlang:max(length("CALLS"), CountW),
-	erlang:max(length("  %"), PercW),
-	erlang:max(length("TIME"), TimeW),
-	erlang:max(length("uS / CALLS"), TpCW)
-    },
-    format(Fd, Ws, ["FUNCTION", "CALLS", "  %", "TIME", "uS / CALLS"]),
-    format(Fd, Ws, ["--------", "-----", "---", "----", "----------"]),
-
+    TnStr    = s(Tn),
+    TusStr   = s(Tus),
+    TuspcStr = s("~.2f", [divide(Tus,Tn)]),
+    Ws = {erlang:max(length("FUNCTION"), MfaW),
+          lists:max([length("CALLS"), CountW, length(TnStr)]),
+          erlang:max(length("      %"), PercW),
+          lists:max([length("TIME"), TimeW, length(TusStr)]),
+          lists:max([length("uS / CALLS"), TpCW, length(TuspcStr)])},
+    format(Fd, Ws, ["FUNCTION", "CALLS", "      %", "TIME", "uS / CALLS"]),
+    format(Fd, Ws, ["--------", "-----", "-------", "----", "----------"]),
     lists:foreach(fun (String) -> format(Fd, Ws, String) end, Strs),
+    format(Fd, Ws, [lists:duplicate(N,$-)||N <- tuple_to_list(Ws)]),
+    format(Fd, Ws, ["Total:", TnStr, "100.00%", TusStr, TuspcStr]),
     ok.
 
 s({M,F,A}) -> s("~w:~w/~w",[M,F,A]);

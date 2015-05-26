@@ -24,7 +24,7 @@
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2,
 	 init_per_testcase/2,end_per_testcase/2,
-	 exports/1,functions/1,native/1]).
+	 exports/1,functions/1,native/1,info/1]).
 
 %%-compile(native).
 
@@ -52,8 +52,8 @@ end_per_group(_GroupName, Config) ->
     Config.
 
 
-modules() -> 
-    [exports, functions, native].
+modules() ->
+    [exports, functions, native, info].
 
 init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
     Dog = ?t:timetrap(?t:minutes(3)),
@@ -94,12 +94,15 @@ functions(Config) when is_list(Config) ->
     ok.
 
 %% Test that the list of exported functions from this module is correct.
+%% Verify that module_info(native) works.
 native(Config) when is_list(Config) ->
     ?line All = all_functions(),
     ?line case ?MODULE:module_info(native_addresses) of
 	      [] ->
+                  ?line false = ?MODULE:module_info(native),
 		  {comment,"no native functions"};
 	      L ->
+                  ?line true = ?MODULE:module_info(native),
 		  %% Verify that all functions have unique addresses.
 		  ?line S0 = sofs:set(L, [{name,arity,addr}]),
 		  ?line S1 = sofs:projection({external,fun ?MODULE:native_proj/1}, S0),
@@ -121,6 +124,22 @@ native_proj({Name,Arity,Addr}) ->
 
 native_filter(Set) ->
     sofs:no_elements(Set) =/= 1.
+
+%% Test that the module info of this module is correct. Use
+%% erlang:get_module_info(?MODULE) to avoid compiler optimization tricks.
+info(Config) when is_list(Config) ->
+    Info = erlang:get_module_info(?MODULE),
+    All = all_exported(),
+    {ok,{?MODULE,MD5}} = beam_lib:md5(code:which(?MODULE)),
+    {module, ?MODULE} = lists:keyfind(module, 1, Info),
+    {md5, MD5} = lists:keyfind(md5, 1, Info),
+    {exports, Exports} = lists:keyfind(exports, 1, Info),
+    All = lists:sort(Exports),
+    {attributes, Attrs} = lists:keyfind(attributes, 1, Info),
+    {vsn,_} = lists:keyfind(vsn, 1, Attrs),
+    {compile, Compile} = lists:keyfind(compile, 1, Info),
+    {options,_} = lists:keyfind(options, 1, Compile),
+    ok.
 
 %% Helper functions (local).
 

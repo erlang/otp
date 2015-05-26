@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -39,7 +39,12 @@
          opt        % #qlc_opt
         }).
 
--record(state, {imp, maxargs, records, xwarnings = []}).
+-record(state, {imp,
+                maxargs,
+                records,
+                xwarnings = [],
+                intro_vars,
+                node_info}).
 
 %-define(debug, true).
 
@@ -66,37 +71,49 @@
       Options :: [Option],
       Option :: type_checker | compile:option()).
 
-parse_transform(Forms, Options) ->
+parse_transform(Forms0, Options) ->
     ?DEBUG("qlc Parse Transform~n", []),
-    State = #state{imp = is_qlc_q_imported(Forms),
-                   maxargs = ?COMPILE_MAX_NUM_OF_ARGS,
-                   records = record_attributes(Forms)},
-    case called_from_type_checker(Options) of
-        true ->
-            %% The returned value should conform to the types, but
-            %% need not evaluate to anything meaningful.
-            L = 0,
-            {tuple,_,Fs0} = abstr(#qlc_lc{}, L),
-            F = fun(_Id, LC, A) ->
-                        Init = simple(L, 'V', LC, L),
-                        {{tuple,L,set_field(#qlc_lc.lc, Fs0, Init)}, A}
-                end,
-            {Forms1,ok} = qlc_mapfold(F, ok, Forms, State),
-            Forms1;
-        false ->
-            FormsNoShadows = no_shadows(Forms, State),
-            case compile_messages(Forms, FormsNoShadows, Options, State) of
-                {[],[],Warnings} ->
-                    {NewForms, State1} = transform(FormsNoShadows, State),
-                    ExtraWs = State1#state.xwarnings,
-                    {[],WForms} = no_duplicates(NewForms, [], Warnings, 
-                                                ExtraWs, Options),
-                    WForms ++ NewForms;
-                {E0,Errors,Warnings} ->
-                    {EForms,WForms} = no_duplicates(Forms, E0++Errors, 
-                                                    Warnings, [], Options),
-                    EForms ++ WForms ++ Forms
-            end
+    Imported = is_qlc_q_imported(Forms0),
+    {Forms, FormsNoShadows, State} = initiate(Forms0, Imported),
+    NodeInfo = State#state.node_info,
+    try
+        case called_from_type_checker(Options) of
+            true ->
+                %% The returned value should conform to the types, but
+                %% need not evaluate to anything meaningful.
+                L = anno0(),
+                {tuple,_,Fs0} = abstr(#qlc_lc{}, L),
+                F = fun(_Id, LC, A) ->
+                            Init = simple(L, 'V', LC, L),
+                            {{tuple,L,set_field(#qlc_lc.lc, Fs0, Init)}, A}
+                    end,
+                {Forms1,ok} = qlc_mapfold(F, ok, Forms, State),
+                Forms1;
+            false ->
+                case
+                    compile_messages(Forms, FormsNoShadows, Options, State)
+                of
+                    {[],Warnings} ->
+                        ?DEBUG("node info1 ~p~n",
+                               [lists:sort(ets:tab2list(NodeInfo))]),
+                        {NewForms, State1} =
+                            transform(FormsNoShadows, State),
+                        ExtraWs = State1#state.xwarnings,
+                        {[],WForms} = no_duplicates(NewForms, [], Warnings,
+                                                    ExtraWs, Options),
+                        (restore_locations(WForms, State) ++
+                         restore_anno(NewForms, NodeInfo));
+                    {Errors,Warnings} ->
+                        ?DEBUG("node info2 ~p~n",
+                               [lists:sort(ets:tab2list(NodeInfo))]),
+                        {EForms,WForms} = no_duplicates(FormsNoShadows, Errors,
+                                                        Warnings, [],
+                                                        Options),
+                        restore_locations(EForms ++ WForms, State) ++ Forms0
+                end
+        end
+    after
+        true = ets:delete(NodeInfo)
     end.
 
 -spec(transform_from_evaluator(LC, Bs) -> Expr when
@@ -124,29 +141,77 @@ called_from_type_checker(Options) ->
     lists:member(type_checker, Options).
 
 transform_expression(LC, Bs0, WithLintErrors) ->
-    L = 1,
+    L = anno1(),
     As = [{var,L,V} || {V,_Val} <- Bs0],
     Ar = length(As),
     F = {function,L,bar,Ar,[{clause,L,As,[],[?QLC_Q(L, L, L, L, LC, [])]}]},
-    Forms = [{attribute,L,file,{"foo",L}},
-             {attribute,L,module,foo}, F],
-    State = #state{imp = false,
-                   maxargs = ?EVAL_MAX_NUM_OF_ARGS,
-                   records = record_attributes(Forms)},
+    Forms0 = [{attribute,L,file,{"foo",L}},
+              {attribute,L,module,foo}, F],
+    {Forms, FormsNoShadows, State} = initiate(Forms0, false),
+    NodeInfo = State#state.node_info,
     Options = [],
-    FormsNoShadows = no_shadows(Forms, State),
-    case compile_messages(Forms, FormsNoShadows, Options, State) of
-        {[],[],_Warnings} ->
-            {NewForms,_State1} = transform(FormsNoShadows, State),
-            {function,L,bar,Ar,[{clause,L,As,[],[NF]}]} = 
-                lists:last(NewForms),
-            {ok,NF};
-        {E0,Errors,_Warnings} when WithLintErrors ->
-            {not_ok,mforms(error, E0 ++ Errors)};
-        {E0,Errors0,_Warnings} ->
-            [{error,Reason} | _] = mforms(error, E0++Errors0),
-            {not_ok, {error, ?APIMOD, Reason}}
+    try compile_messages(Forms, FormsNoShadows, Options, State) of
+        {Errors0,_Warnings} ->
+            case restore_locations(Errors0, State) of
+                [] ->
+                    {NewForms,_State1} = transform(FormsNoShadows, State),
+                    NewForms1 = restore_anno(NewForms, NodeInfo),
+                    {function,L,bar,Ar,[{clause,L,As,[],[NF]}]} =
+                        lists:last(NewForms1),
+                    {ok,NF};
+                Errors when WithLintErrors ->
+                    {not_ok,mforms(error, Errors)};
+                Errors ->
+                    [{error,Reason} | _] = mforms(error, Errors),
+                    {not_ok, {error, ?APIMOD, Reason}}
+            end
+    after
+        true = ets:delete(NodeInfo)
     end.
+
+-ifdef(DEBUG).
+-define(ILIM, 0).
+-else.
+-define(ILIM, 255).
+-endif.
+
+initiate(Forms0, Imported) ->
+    NodeInfo = ets:new(?APIMOD, []),
+    true = ets:insert(NodeInfo, {var_n, ?ILIM}),
+    exclude_integers_from_unique_line_numbers(Forms0, NodeInfo),
+    ?DEBUG("node info0 ~p~n",
+           [lists:sort(ets:tab2list(NodeInfo))]),
+    State0 = #state{imp = Imported,
+                    maxargs = ?EVAL_MAX_NUM_OF_ARGS,
+                    records = record_attributes(Forms0),
+                    node_info = NodeInfo},
+    Forms = save_anno(Forms0, NodeInfo),
+    FormsNoShadows = no_shadows(Forms, State0),
+    IntroVars = intro_variables(FormsNoShadows, State0),
+    State = State0#state{intro_vars = IntroVars},
+    {Forms, FormsNoShadows, State}.
+
+%% Make sure restore_locations() does not confuse integers with (the
+%% unique) line numbers.
+exclude_integers_from_unique_line_numbers(Forms, NodeInfo) ->
+    Integers = find_integers(Forms),
+    lists:foreach(fun(I) -> ets:insert(NodeInfo, {I}) end, Integers).
+
+find_integers(Forms) ->
+    F = fun(A) ->
+                Fs1 = erl_parse:map_anno(fun(_) -> A end, Forms),
+                ordsets:from_list(integers(Fs1, []))
+        end,
+    ordsets:to_list(ordsets:intersection(F(anno0()), F(anno1()))).
+
+integers([E | Es], L) ->
+    integers(Es, integers(E, L));
+integers(T, L) when is_tuple(T) ->
+    integers(tuple_to_list(T), L);
+integers(I, L) when is_integer(I), I > ?ILIM ->
+    [I | L];
+integers(_, L) ->
+    L.
 
 -define(I(I), {integer, L, I}).
 -define(A(A), {atom, L, A}).
@@ -164,9 +229,15 @@ mforms(Tag, L) ->
 %% Avoid duplicated lint warnings and lint errors. Care has been taken
 %% not to introduce unused variables in the transformed code.
 %%
-no_duplicates(Forms, Errors, Warnings0, ExtraWarnings, Options) ->
+no_duplicates(Forms, Errors, Warnings0, ExtraWarnings0, Options) ->
     %% Some mistakes such as "{X} =:= {}" are found by strong
     %% validation as well as by qlc. Prefer the warnings from qlc:
+    %%  The Compiler and qlc do not agree on the location of errors.
+    %%  For now, qlc's messages about failing patterns and filters
+    %%  are ignored.
+    ExtraWarnings = [W || W={_File,[{_,qlc,Tag}]} <-
+                              ExtraWarnings0,
+                    not lists:member(Tag, [nomatch_pattern,nomatch_filter])],
     Warnings1 = mforms(Warnings0) --
         ([{File,[{L,v3_core,nomatch}]} ||
              {File,[{L,qlc,M}]} <- mforms(ExtraWarnings),
@@ -185,12 +256,21 @@ mforms(L) ->
     lists:sort([{File,[M]} || {File,Ms} <- L, M <- Ms]).
 
 mforms2(Tag, L) ->
-    Line = 0,
+    Line = anno0(),
     ML = lists:flatmap(fun({File,Ms}) ->
-                               [[{attribute,Line,file,{File,Line}}, {Tag,M}] ||
+                               [[{attribute,Line,file,{File,0}}, {Tag,M}] ||
                                    M <- Ms]
                        end, lists:sort(L)),
     lists:flatten(lists:sort(ML)).
+
+restore_locations([T | Ts], State) ->
+    [restore_locations(T, State) | restore_locations(Ts, State)];
+restore_locations(T, State) when is_tuple(T) ->
+    list_to_tuple(restore_locations(tuple_to_list(T), State));
+restore_locations(I, State) when I > ?ILIM ->
+    restore_loc(I, State);
+restore_locations(T, _State) ->
+    T.
 
 is_qlc_q_imported(Forms) ->
     [[] || {attribute,_,import,{?APIMOD,FAs}} <- Forms, {?Q,1} <- FAs] =/= [].
@@ -212,13 +292,20 @@ compile_messages(Forms, FormsNoShadows, Options, State) ->
                (_QId, Q, GA, A) ->
                     {Q,GA,A}
             end,
-    {_,BGens} = qual_fold(BGenF, [], [], FormsNoShadows, State),
+    {_,BGens} = qual_fold(BGenF, [], [], Forms, State),
     GenForm = used_genvar_check(FormsNoShadows, State),
     ?DEBUG("GenForm = ~ts~n", [catch erl_pp:form(GenForm)]),
-    WarnFun = fun(Id, LC, A) -> {tag_lines(LC, get_lcid_no(Id)), A} end,
+    {GEs,_} = compile_forms([GenForm], Options),
+    UsedGenVarMsgs = used_genvar_messages(GEs, State),
+    NodeInfo = State#state.node_info,
+    WarnFun = fun(_Id, LC, A) -> {lc_nodes(LC, NodeInfo), A} end,
     {WForms,ok} = qlc_mapfold(WarnFun, ok, Forms, State),
-    {Es,Ws} = compile_forms(WForms ++ [GenForm], Options),
-    {badarg(Forms, State),tagged_messages(Es)++BGens,tagged_messages(Ws)}.
+    {Es,Ws} = compile_forms(WForms, Options),
+    LcEs = lc_messages(Es, NodeInfo),
+    LcWs = lc_messages(Ws, NodeInfo),
+    Errors = badarg(Forms, State) ++ UsedGenVarMsgs++LcEs++BGens,
+    Warnings = LcWs,
+    {Errors,Warnings}.
 
 badarg(Forms, State) ->
     F = fun(_Id, {lc,_L,_E,_Qs}=LC, Es) -> 
@@ -230,54 +317,39 @@ badarg(Forms, State) ->
     {_,E0} = qlc_mapfold(F, [], Forms, State),
     E0.
 
-tag_lines(E, No) ->
-    map_lines(fun(Id) -> 
-                      case is_lcid(Id) of
-                          true -> Id;
-                          false -> make_lcid(Id, No)
-                      end
-              end, E).
+lc_nodes(E, NodeInfo) ->
+    erl_parse:map_anno(fun(Anno) ->
+                               N = erl_anno:line(Anno),
+                               [{N, Data}] = ets:lookup(NodeInfo, N),
+                               NData = Data#{inside_lc => true},
+                               true = ets:insert(NodeInfo, {N, NData}),
+                               Anno
+                       end, E).
 
-map_lines(F, E) ->
-    erl_lint:modify_line(E, F).
-
-tagged_messages(MsL) ->
-    [{File,
-      [{Loc,Mod,untag(T)} || {Loc0,Mod,T} <- Ms,
-                             {true,Loc} <- [tloc(Loc0)]]}
-     || {File,Ms} <- MsL]
-    ++
+used_genvar_messages(MsL, S) ->
     [{File,[{Loc,?APIMOD,{used_generator_variable,V}}]}
-       || {_, Ms} <- MsL, 
+       || {_, Ms} <- MsL,
            {XLoc,erl_lint,{unbound_var,_}} <- Ms,
-           {Loc,File,V} <- [extra(XLoc)]].
+           {Loc,File,V} <- [genvar_pos(XLoc, S)]].
 
-tloc({Id,Column}) ->
-    {IsLcid,T} = tloc(Id),
-    {IsLcid,{T,Column}};
-tloc(Id) ->
-    IsLcid = is_lcid(Id),
-    {IsLcid,case IsLcid of
-                true -> get_lcid_line(Id);
-                false -> any
-            end}.
+lc_messages(MsL, NodeInfo) ->
+    [{File,[{Loc,Mod,T} || {Loc,Mod,T} <- Ms, lc_loc(Loc, NodeInfo)]} ||
+        {File,Ms} <- MsL].
 
-extra({extra,Line,File,V}) ->
-    {Line,File,V};
-extra({Line,Column}) ->
-    case extra(Line) of
-        {L,File,V} -> {{L,Column},File,V};
-        Else -> Else
-    end;
-extra(Else) ->
-    Else.
+lc_loc(N, NodeInfo) ->
+    case ets:lookup(NodeInfo, N) of
+        [{N, #{inside_lc := true}}] ->
+            true;
+        [{N, _}] ->
+            false
+    end.
 
-untag([E | Es]) -> [untag(E) | untag(Es)];
-untag(T) when is_tuple(T) -> list_to_tuple(untag(tuple_to_list(T)));
-untag(E) ->
-    case is_lcid(E) of
-        true -> get_lcid_line(E);
-        false -> E
+genvar_pos(Location, S) ->
+    case ets:lookup(S#state.node_info, Location) of
+        [{Location, #{genvar_pos := Pos}}] ->
+            Pos;
+        [] ->
+            Location
     end.
 
 %% -> [{Qid,[variable()]}].
@@ -293,6 +365,7 @@ untag(E) ->
 %% variables (unless they are unsafe).
 %%
 intro_variables(FormsNoShadows, State) ->
+    NodeInfo = State#state.node_info,
     Fun = fun(QId, {T,_L,P0,_E0}=Q, {GVs,QIds}, Foo) when T =:= b_generate;
                                                           T =:= generate ->
                   PVs = qlc:var_ufold(fun({var,_,V}) -> {QId,V} end, P0),
@@ -302,10 +375,11 @@ intro_variables(FormsNoShadows, State) ->
                   %% where E is an LC expression consisting of a
                   %% template mentioning all variables occurring in F.
                   Vs = ordsets:to_list(qlc:vars(Filter0)),
-                  Id = QId#qid.lcid,
-                  LC1 = embed_vars(intro_set_line({QId,f1}, Vs), Id),
-                  LC2 = embed_vars(intro_set_line({QId,f2}, Vs), Id),
-                  AnyLine = -1,
+                  AnyLine = anno0(),
+                  Vars = [{var,AnyLine,V} || V <- Vs],
+                  LC = embed_vars(Vars, AnyLine),
+                  LC1 = intro_anno(LC, before, QId, NodeInfo),
+                  LC2 = intro_anno(LC, 'after', QId, NodeInfo),
                   Filter = {block,AnyLine,[LC1,Filter0,LC2]},
                   {Filter,{GVs,[{QId,[]} | QIds]},Foo}
           end,
@@ -317,9 +391,15 @@ intro_variables(FormsNoShadows, State) ->
     Es0 = compile_errors(FForms),
     %% A variable is bound inside the filter if it is not bound before
     %% the filter, but it is bound after the filter (obviously).
-    Before = [{QId,V} || {{QId,f1},erl_lint,{unbound_var,V}} <- Es0],
-    After = [{QId,V} || {{QId,f2},erl_lint,{unbound_var,V}} <- Es0],
-    Unsafe = [{QId,V} || {{QId,f2},erl_lint,{unsafe_var,V,_Where}} <- Es0],
+    Before = [{QId,V} ||
+                 {L,erl_lint,{unbound_var,V}} <- Es0,
+                 {_L,{QId,before}} <- ets:lookup(NodeInfo, L)],
+    After = [{QId,V} ||
+                {L,erl_lint,{unbound_var,V}} <- Es0,
+                {_L,{QId,'after'}} <- ets:lookup(NodeInfo, L)],
+    Unsafe = [{QId,V} ||
+                 {L,erl_lint,{unsafe_var,V,_Where}} <- Es0,
+                 {_L,{QId,'after'}} <- ets:lookup(NodeInfo, L)],
     ?DEBUG("Before = ~p~n", [Before]),
     ?DEBUG("After = ~p~n", [After]),
     ?DEBUG("Unsafe = ~p~n", [Unsafe]),
@@ -328,9 +408,14 @@ intro_variables(FormsNoShadows, State) ->
     I1 = family(IV ++ GenVars),
     sofs:to_external(sofs:family_union(sofs:family(QIds), I1)).
 
-intro_set_line(Tag, Vars) ->
-    L = erl_parse:set_line(1, fun(_) -> Tag end),
-    [{var,L,V} || V <- Vars].
+intro_anno(LC, Where, QId, NodeInfo) ->
+    Data = {QId,Where},
+    Fun = fun(Anno) ->
+                  Location = erl_anno:location(Anno),
+                  true = ets:insert(NodeInfo, {Location,Data}),
+                  Anno
+          end,
+    erl_parse:map_anno(Fun, save_anno(LC, NodeInfo)).
 
 compile_errors(FormsNoShadows) ->
     case compile_forms(FormsNoShadows, []) of
@@ -341,11 +426,8 @@ compile_errors(FormsNoShadows) ->
             lists:flatmap(fun({_File,Es}) -> Es end, Errors)
     end.
 
--define(MAX_NUM_OF_LINES, 23). % assume max 1^23 lines (> 8 millions)
-
 compile_forms(Forms0, Options) ->
-    Forms = [F || F <- Forms0, element(1, F) =/= eof] ++ 
-            [{eof,1 bsl ?MAX_NUM_OF_LINES}],
+    Forms = [F || F <- Forms0, element(1, F) =/= eof] ++  [{eof,anno0()}],
     try 
         case compile:noenv_forms(Forms, compile_options(Options)) of
             {ok, _ModName, Ws0} ->
@@ -384,20 +466,23 @@ bitstr_options() ->
 %% for each ListExpr. The expression mentions all introduced variables
 %% occurring in ListExpr. Running the function through the compiler
 %% yields error messages for erroneous use of introduced variables.
-%% The messages have the form
-%% {{extra,LineNo,File,Var},Module,{unbound_var,V}}, where Var is the
-%% original variable name and V is the name invented by no_shadows/2.
 %%
 used_genvar_check(FormsNoShadows, State) ->
-    F = fun(QId, {T, Ln, _P, LE}=Q, {QsIVs0, Exprs0}, IVsSoFar0) 
+    NodeInfo = State#state.node_info,
+    F = fun(QId, {T, Ln, _P, LE}=Q, {QsIVs0, Exprs0}, IVsSoFar0)
                                    when T =:= b_generate; T =:= generate ->
-                F = fun({var, _, V}=Var) -> 
-                            {var, L, OrigVar} = undo_no_shadows(Var),
-                            AF = fun(Line) -> 
-                                         {extra, Line, get(?QLC_FILE), OrigVar}
-                                 end,
-                            L2 = erl_parse:set_line(L, AF),
-                            {var, L2, V} 
+                F = fun(Var) ->
+                            {var, Anno0, OrigVar} =
+                                undo_no_shadows(Var, State),
+                            {var, Anno, _} = NewVar = save_anno(Var, NodeInfo),
+                            Location0 = erl_anno:location(Anno0),
+                            Location = erl_anno:location(Anno),
+                            [{Location, Data}] =
+                                ets:lookup(NodeInfo, Location),
+                            Pos = {Location0,get(?QLC_FILE),OrigVar},
+                            NData = Data#{genvar_pos => Pos},
+                            true = ets:insert(NodeInfo, {Location, NData}),
+                            NewVar
                     end,
                 Vs = [Var || {var, _, V}=Var <- qlc:var_fold(F, [], LE),
                              lists:member(V, IVsSoFar0)],
@@ -411,12 +496,12 @@ used_genvar_check(FormsNoShadows, State) ->
                 {QsIVs, IVsSoFar} = q_intro_vars(QId, QsIVs0, IVsSoFar0),
                 {Filter, {QsIVs, Exprs}, IVsSoFar}
         end,
-    IntroVars = intro_variables(FormsNoShadows, State),
-    Acc0 = {IntroVars, [{atom, 0, true}]},
+    Acc0 = {State#state.intro_vars, [{atom, anno0(), true}]},
     {_, {[], Exprs}} = qual_fold(F, Acc0, [], FormsNoShadows, State),
     FunctionNames = [Name || {function, _, Name, _, _} <- FormsNoShadows],
     UniqueFName = qlc:aux_name(used_genvar, 1, sets:from_list(FunctionNames)),
-    {function,0,UniqueFName,0,[{clause,0,[],[],lists:reverse(Exprs)}]}.
+    A = anno0(),
+    {function,A,UniqueFName,0,[{clause,A,[],[],lists:reverse(Exprs)}]}.
     
 q_intro_vars(QId, [{QId, IVs} | QsIVs], IVsSoFar) -> {QsIVs, IVs ++ IVsSoFar}.
 
@@ -514,7 +599,8 @@ q_intro_vars(QId, [{QId, IVs} | QsIVs], IVsSoFar) -> {QsIVs, IVs ++ IVsSoFar}.
 %%   (calling LEf returns the objects generated by LE).
 
 transform(FormsNoShadows, State) ->
-    IntroVars = intro_variables(FormsNoShadows, State),
+    _ = erlang:system_flag(backtrace_depth, 500),
+    IntroVars = State#state.intro_vars,
     AllVars = sets:from_list(ordsets:to_list(qlc:vars(FormsNoShadows))),
     ?DEBUG("AllVars = ~p~n", [sets:to_list(AllVars)]),
     F1 = fun(QId, {generate,_,P,LE}, Foo, {GoI,SI}) ->
@@ -588,8 +674,8 @@ transform(FormsNoShadows, State) ->
                                             [{match,L,{var,L,Fun},FunC},
                                              {call,L,{var,L,Fun},As0}]}]}},
                  {ok, OrigE0} = dict:find(Id, Source),
-                 OrigE = undo_no_shadows(OrigE0),
-                 QCode = qcode(OrigE, XQCs, Source, L),
+                 OrigE = undo_no_shadows(OrigE0, State),
+                 QCode = qcode(OrigE, XQCs, Source, L, State),
                  Qdata = qdata(XQCs, L),
                  TemplateInfo = 
                      template_columns(Qs, E, AllIVs, Dependencies, State),
@@ -598,7 +684,7 @@ transform(FormsNoShadows, State) ->
                  Opt = opt_info(TemplateInfo, SizeInfo, JoinInfo, MSQs, L,
                                 EqColumnConstants, EqualColumnConstants),
                  LCTuple = 
-                     case qlc_kind(OrigE, Qs) of
+                     case qlc_kind(OrigE, Qs, State) of
                          qlc ->
                              {tuple,L,[?A(qlc_v1),FunW,QCode,Qdata,Opt]};
                          {simple, PL, LE, V} ->
@@ -612,7 +698,7 @@ transform(FormsNoShadows, State) ->
          end,
     {NForms,{[],XW}} = qlc_mapfold(F2, {IntroVars,[]}, ModifiedForms1, State),
     display_forms(NForms),
-    {restore_line_numbers(NForms), State#state{xwarnings = XW}}.
+    {NForms, State#state{xwarnings = XW}}.
 
 join_kind(Qs, LcL, AllIVs, Dependencies, State) ->
     {EqualCols2, EqualColsN} = equal_columns(Qs, AllIVs, Dependencies, State),
@@ -623,20 +709,21 @@ join_kind(Qs, LcL, AllIVs, Dependencies, State) ->
     if 
         EqualColsN =/= []; MatchColsN =/= [] -> 
             {[], 
-             [{get(?QLC_FILE),[{abs(LcL),?APIMOD,too_complex_join}]}]};
+             [{get(?QLC_FILE),[{LcL,?APIMOD,too_complex_join}]}]};
         EqualCols2 =:= [], MatchCols2 =:= [] ->
             {[], []};
         length(Tables) > 2 -> 
             {[], 
-             [{get(?QLC_FILE),[{abs(LcL),?APIMOD,too_many_joins}]}]};
+             [{get(?QLC_FILE),[{LcL,?APIMOD,too_many_joins}]}]};
         EqualCols2 =:= MatchCols2 ->
             {EqualCols2, []};
         true -> 
             {{EqualCols2, MatchCols2}, []}
     end.
 
-qlc_kind(OrigE, Qs) ->
-    {OrigFilterData, OrigGeneratorData} = qual_data(undo_no_shadows(Qs)),
+qlc_kind(OrigE, Qs, State) ->
+    {OrigFilterData, OrigGeneratorData} =
+        qual_data(undo_no_shadows(Qs, State)),
     OrigAllFilters = filters_as_one(OrigFilterData),
     {_FilterData, GeneratorData} = qual_data(Qs),
     case {OrigE, OrigAllFilters, OrigGeneratorData} of
@@ -663,12 +750,12 @@ warn_failing_qualifiers(Qualifiers, AllIVs, Dependencies, State) ->
         lists:foldl(fun({_QId,{fil,_Filter}}, {[]=Frames,Warnings}) ->
                             {Frames,Warnings};
                        ({_QId,{fil,Filter}}, {Frames,Warnings}) ->
-                        case filter(set_line(Filter, 0), Frames, BindFun, 
+                        case filter(reset_anno(Filter), Frames, BindFun,
                                     State, Imported) of
                             [] ->
                                 {[],
                                  [{get(?QLC_FILE),
-                                   [{abs_loc(element(2, Filter)),?APIMOD,
+                                   [{loc(element(2, Filter)),?APIMOD,
                                      nomatch_filter}]} | Warnings]};
                             Frames1 -> 
                                 {Frames1,Warnings}
@@ -678,7 +765,7 @@ warn_failing_qualifiers(Qualifiers, AllIVs, Dependencies, State) ->
                             {failed, _, _} -> 
                                 {Frames,
                                  [{get(?QLC_FILE),
-                                   [{abs_loc(element(2, Pattern)),?APIMOD,
+                                   [{loc(element(2, Pattern)),?APIMOD,
                                      nomatch_pattern}]} | Warnings]};
                             _ ->
                                 {Frames,Warnings}
@@ -751,8 +838,8 @@ opt_constants(L, ColumnConstants) ->
      || IdNo <- Ns]
      ++ [{clause,L,[?V('_')],[],[?A(no_column_fun)]}].
 
-abstr(Term, Line) ->
-    erl_parse:abstract(Term, Line).
+abstr(Term, Anno) ->
+    erl_parse:abstract(Term, loc(Anno)).
 
 %% Extra generators are introduced for join.
 join_quals(JoinInfo, QCs, L, LcNo, ExtraConstants, AllVars) ->
@@ -837,9 +924,10 @@ join_handle(AP, L, [F, H, O, C], Constants) ->
         {{var, _, _}, []} ->
             {'fun',L,{clauses,[{clause,L,[H],[],[H]}]}};
         _ ->
+            A = anno0(),
             G0 = [begin
-                      Call = {call,0,{atom,0,element},[{integer,0,Col},O]},
-                      list2op([{op,0,Op,Con,Call} || {Con,Op} <- Cs], 'or')
+                      Call = {call,A,{atom,A,element},[{integer,A,Col},O]},
+                      list2op([{op,A,Op,Con,Call} || {Con,Op} <- Cs], 'or')
                   end || {Col,Cs} <- Constants],
             G = if G0 =:= [] -> G0; true -> [G0] end,
             CC1 = {clause,L,[AP],G,[{cons,L,O,closure({call,L,F,[F,C]},L)}]},
@@ -876,14 +964,15 @@ join_handle_constants(QId, ExtraConstants) ->
 %% order the traverse fun would return them.
 
 column_fun(Columns, QualifierNumber, LcL) ->
+    A = anno0(),
     ColCls0 = 
         [begin
              true = Vs0 =/= [], % at least one value to look up
              Vs1 = list2cons(Vs0),
-             Fils1 = {tuple,0,[{atom,0,FTag},
+             Fils1 = {tuple,A,[{atom,A,FTag},
                                lists:foldr
-                                   (fun(F, A) -> {cons,0,{integer,0,F},A} 
-                                    end, {nil,0}, Fils)]},
+                                   (fun(F, Ac) -> {cons,A,{integer,A,F},Ac}
+                                    end, {nil,A}, Fils)]},
              Tag = case ordsets:to_list(qlc:vars(Vs1)) of
                        Imp when length(Imp) > 0, % imported vars
                                 length(Vs0) > 1 ->
@@ -891,13 +980,13 @@ column_fun(Columns, QualifierNumber, LcL) ->
                        _ ->
                            values
                    end,
-             Vs = {tuple,0,[{atom,0,Tag},Vs1,Fils1]},
-             {clause,0,[erl_parse:abstract(Col)],[],[Vs]}
+             Vs = {tuple,A,[{atom,A,Tag},Vs1,Fils1]},
+             {clause,A,[erl_parse:abstract(Col)],[],[Vs]}
          end ||
             {{CIdNo,Col}, Vs0, {FTag,Fils}} <- Columns,
             CIdNo =:= QualifierNumber]
-        ++ [{clause,0,[{var,0,'_'}],[],[{atom,0,false}]}],
-    ColCls = set_line(ColCls0, LcL),
+        ++ [{clause,A,[{var,A,'_'}],[],[{atom,A,false}]}],
+    ColCls = set_anno(ColCls0, LcL),
     {'fun', LcL, {clauses, ColCls}}.
 
 %% Tries to find columns of the template that (1) are equal to (or
@@ -920,7 +1009,7 @@ template_columns(Qs0, E0, AllIVs, Dependencies, State) ->
     MatchColumns = eq_columns2(Qs, AllIVs, Dependencies, State),
     Equal = template_cols(EqualColumns), 
     Match = template_cols(MatchColumns),
-    L = 0,
+    L = anno0(),
     if 
         Match =:= Equal -> 
             [{?V('_'), Match}];
@@ -947,7 +1036,7 @@ template_cols(ColumnClasses) ->
 
 template_as_pattern(E) ->
     P = simple_template(E),
-    {?TID,foo,foo,{gen,P,{nil,0}}}.
+    {?TID,foo,foo,{gen,P,{nil,anno0()}}}.
 
 simple_template({call,L,{remote,_,{atom,_,erlang},{atom,_,element}}=Call,
                  [{integer,_,I}=A1,A2]}) when I > 0 ->
@@ -1004,10 +1093,10 @@ match_spec_quals(Template, Dependencies, Qualifiers, State) ->
                      GQId =:= QId2,
                      {FQId,{fil,F}}=Filter <- Filters, % guard filters only
                      FQId =:= QId] 
-               ++ [{GId#qid.no,Pattern,[],{atom,0,true}} || 
+               ++ [{GId#qid.no,Pattern,[],{atom,anno0(),true}} ||
                       {GId,{gen,Pattern,_}} <- GeneratorData,
                       lists:member(GId, NoFilterGIds)],
-    E = {nil, 0},
+    E = {nil, anno0()},
     GF = [{{GNum,Pattern},Filter} || 
              {GNum,Pattern,Filter,F} <- Candidates,
              no =/= try_ms(E, Pattern, F, State)],
@@ -1024,7 +1113,7 @@ match_spec_quals(Template, Dependencies, Qualifiers, State) ->
         %% expressione can be replaced by a match specification.
         [{GNum, AbstrMS, all}]
     catch _:_ ->
-        {TemplVar, _} = anon_var({var,0,'_'}, 0),
+        {TemplVar, _} = anon_var({var,anno0(),'_'}, 0),
         [one_gen_match_spec(GNum, Pattern, GFilterData, State, TemplVar) ||
             {{GNum,Pattern},GFilterData} <- GFFL]
     end.
@@ -1038,7 +1127,7 @@ gen_ms(E, Pattern, GFilterData, State) ->
     {ok, MS, AMS} = try_ms(E, Pattern, filters_as_one(GFilterData), State),
     case MS of
         [{'$1',[true],['$1']}] ->
-            {atom, 0, no_match_spec};
+            {atom, anno0(), no_match_spec};
         _ ->
             AMS
     end.
@@ -1060,7 +1149,7 @@ pattern_as_template({match,_,_E,{var,_,_}=V}=P, _TemplVar) ->
 pattern_as_template({match,_,{var,_,_}=V,_E}=P, _TemplVar) ->
     {V, P};
 pattern_as_template(E, TemplVar) ->
-    L = 0,
+    L = anno0(),
     {TemplVar, {match, L, E, TemplVar}}.
 
 %% Tries to find columns which are compared or matched against
@@ -1203,7 +1292,7 @@ lu_skip(ColConstants, FilterData, PatternFrame, PatternVars,
     ColFil = [{Column, FId#qid.no} ||
                  {FId,{fil,Fil}} <- 
                      filter_list(FilterData, Dependencies, State),
-                 [] =/= (SFs = safe_filter(set_line(Fil, 0), PatternFrames,
+                 [] =/= (SFs = safe_filter(reset_anno(Fil), PatternFrames,
                                            BindFun, State, Imported)),
                  {GId,PV} <- PatternVars,
                  [] =/= 
@@ -1392,7 +1481,7 @@ join_skip(JoinClasses, FilterData, PatternFrame, PatternVars, Dependencies,
                      JF = unify(JoinOp, V1, V2, JF2, BindFun, Imported),
 
                      %% "Run" the filter:
-                     SFs = safe_filter(set_line(Fil, 0), PatternFrames,
+                     SFs = safe_filter(reset_anno(Fil), PatternFrames,
                                        BindFun, State, Imported),
                      JImp = qlc:vars([SFs, JF]), % kludge
                      lists:all(fun(Frame) -> 
@@ -1403,7 +1492,7 @@ join_skip(JoinClasses, FilterData, PatternFrame, PatternVars, Dependencies,
 
 filter_info(FilterData, AllIVs, Dependencies, State) ->
     FilterList = filter_list(FilterData, Dependencies, State),
-    Filter0 = set_line(filters_as_one(FilterList), 0),
+    Filter0 = reset_anno(filters_as_one(FilterList)),
     Anon0 = 0,
     {Filter, Anon1} = anon_var(Filter0, Anon0),
     Imported = ordsets:subtract(qlc:vars(Filter), % anonymous too
@@ -1510,7 +1599,7 @@ pattern(P0, AnonI, Frame0, BindFun, State) ->
          catch _:_ -> P0 % template, records already expanded
          end,
     %% Makes test for equality simple:
-    P2 = set_line(P1, 0),
+    P2 = reset_anno(P1),
     {P3, AnonN} = anon_var(P2, AnonI),
     {P4, F1} = match_in_pattern(tuple2cons(P3), Frame0, BindFun),
     {P, F2} = element_calls(P4, F1, BindFun, _Imp=[]), % kludge for templates
@@ -1550,8 +1639,11 @@ anon_var(E, AnonI) ->
                    (Var, N) -> {Var, N}
                 end, AnonI, E).
 
-set_line(T, L) ->
-    map_lines(fun(_L) -> L end, T).
+reset_anno(T) ->
+    set_anno(T, anno0()).
+
+set_anno(T, A) ->
+    erl_parse:map_anno(fun(_L) -> A end, T).
 
 -record(fstate, {state, bind_fun, imported}).
 
@@ -1673,7 +1765,7 @@ frames_to_columns(Fs, PatternVars, DerefFun, SelectorFun, Imp, CompOp) ->
     %% same variables have to be the representatives in every frame.)
     SizesVarsL =
         [begin 
-             PatVar = {var,0,PV},
+             PatVar = {var,anno0(),PV},
              PatternSizes = [pattern_size([F], PatVar, false) || 
                                 F <- Fs],
              MaxPZ = lists:max([0 | PatternSizes -- [undefined]]),
@@ -1692,8 +1784,8 @@ frames_to_columns(Fs, PatternVars, DerefFun, SelectorFun, Imp, CompOp) ->
 frames2cols(Fs, PatN, PatSizes, Vars, DerefFun, SelectorFun, CompOp) ->
     Rs = [ begin
                RL = [{{PatN,Col},cons2tuple(element(2, Const))} ||
-                        {V, Col} <- lists:zip(sublist(Vars, PatSz),
-                                              seq(1, PatSz)),
+                        {V, Col} <- lists:zip(lists:sublist(Vars, PatSz),
+                                              lists:seq(1, PatSz)),
                         %% Do not handle the case where several
                         %% values compare equal, e.g. "X =:= 1
                         %% andalso X == 1.0". Looking up both
@@ -1722,11 +1814,11 @@ frames2cols(Fs, PatN, PatSizes, Vars, DerefFun, SelectorFun, CompOp) ->
     [C || {_,Vs}=C <- sofs:to_external(Cs), not col_ignore(Vs, CompOp)].
 
 pat_vars(N) ->
-    [unique_var() || _ <- seq(1, N)].
+    [unique_var() || _ <- lists:seq(1, N)].
 
 pat_tuple(Sz, Vars) when is_integer(Sz), Sz > 0 ->
     TupleTail = unique_var(),
-    {cons_tuple, list2cons(sublist(Vars, Sz) ++ TupleTail)};
+    {cons_tuple, list2cons(lists:sublist(Vars, Sz) ++ TupleTail)};
 pat_tuple(_, _Vars) ->
     unique_var().
 
@@ -1740,7 +1832,7 @@ col_ignore(Vs, '==') ->
 pattern_sizes(PatternVars, Fs) ->
     [{QId#qid.no, Size} || 
         {QId,PV} <- PatternVars,
-        undefined =/= (Size = pattern_size(Fs, {var,0,PV}, true))].
+        undefined =/= (Size = pattern_size(Fs, {var,anno0(),PV}, true))].
 
 pattern_size(Fs, PatternVar, Exact) ->
     Fun = fun(F) -> (deref_pattern(_Imported = []))(PatternVar, F) end,
@@ -1768,7 +1860,8 @@ prep_expr(E, F, S, BF, Imported) ->
     element_calls(tuple2cons(expand_expr_records(E, S)), F, BF, Imported).
 
 unify_column(Frame, Var, Col, BindFun, Imported) ->
-    Call = {call,0,{atom,0,element},[{integer,0,Col}, {var,0,Var}]},
+    A = anno0(),
+    Call = {call,A,{atom,A,element},[{integer,A,Col}, {var,A,Var}]},
     element_calls(Call, Frame, BindFun, Imported).
 
 %% cons_tuple is used for representing {V1, ..., Vi | TupleTail}.
@@ -1800,19 +1893,21 @@ element_calls(E, F, _BF, _Imported) ->
     {E, F}.
 
 unique_var() ->
-    {var, 0, make_ref()}.
+    {var, anno0(), make_ref()}.
 
 is_unique_var({var, _L, V}) ->
     is_reference(V).
 
 expand_pattern_records(P, State) ->
-    E = {'case',0,{atom,0,true},[{clause,0,[P],[],[{atom,0,true}]}]},
-    {'case',_,_,[{clause,0,[NP],_,_}]} = expand_expr_records(E, State),
+    A = anno0(),
+    E = {'case',A,{atom,A,true},[{clause,A,[P],[],[{atom,A,true}]}]},
+    {'case',_,_,[{clause,A,[NP],_,_}]} = expand_expr_records(E, State),
     NP.
 
 expand_expr_records(E, State) ->
     RecordDefs = State#state.records,
-    Forms = RecordDefs ++ [{function,1,foo,0,[{clause,1,[],[],[pe(E)]}]}],
+    A = anno1(),
+    Forms = RecordDefs ++ [{function,A,foo,0,[{clause,A,[],[],[pe(E)]}]}],
     [{function,_,foo,0,[{clause,_,[],[],[NE]}]}] = 
         erl_expand_records:module(Forms, [no_strict_record_tests]),
     NE.
@@ -2126,15 +2221,15 @@ tuple2cons(E) ->
     E.
 
 list2cons([E | Es]) ->
-    {cons, 0, E, list2cons(Es)};
+    {cons, anno0(), E, list2cons(Es)};
 list2cons([]) ->
-    {nil, 0};
+    {nil, anno0()};
 list2cons(E) ->
     E.
 
 %% Returns {..., Variable} if Variable is a tuple tail.
 cons2tuple({cons_tuple, Es}) ->
-    {tuple, 0, cons2list(Es)};
+    {tuple, anno0(), cons2list(Es)};
 cons2tuple(T) when is_tuple(T) ->
     list_to_tuple(cons2tuple(tuple_to_list(T)));
 cons2tuple([E | Es]) ->
@@ -2173,11 +2268,10 @@ bindings_subset(F1, F2, Imp) ->
 %% not to have guard semantics, affected filters will have to be
 %% recognized and excluded here as well.
 try_ms(E, P, Fltr, State) ->
-    L = 1,
+    L = anno1(),
     Fun =  {'fun',L,{clauses,[{clause,L,[P],[[Fltr]],[E]}]}},
     Expr = {call,L,{remote,L,{atom,L,ets},{atom,L,fun2ms}},[Fun]},
-    Form0 = {function,L,foo,0,[{clause,L,[],[],[Expr]}]},
-    Form = restore_line_numbers(Form0),
+    Form = {function,L,foo,0,[{clause,L,[],[],[Expr]}]},
     X = ms_transform:parse_transform(State#state.records ++ [Form], []),
     case catch 
         begin
@@ -2194,11 +2288,11 @@ try_ms(E, P, Fltr, State) ->
     end.
 
 filters_as_one([]) ->
-    {atom, 0, true};
+    {atom, anno0(), true};
 filters_as_one(FilterData) ->
     [{_,{fil,Filter1}} | Filters] = lists:reverse(FilterData),
     lists:foldr(fun({_QId,{fil,Filter}}, AbstF) ->
-                        {op,0,'andalso',Filter,AbstF}
+                        {op,anno0(),'andalso',Filter,AbstF}
                 end, Filter1, Filters).
 
 qual_data(Qualifiers) ->
@@ -2233,38 +2327,40 @@ qdata([], L) ->
     {nil,L}.
 
 qcon(Cs) ->
-    list2cons([{tuple,0,[{integer,0,Col},list2cons(qcon1(ConstOps))]} || 
+    A = anno0(),
+    list2cons([{tuple,A,[{integer,A,Col},list2cons(qcon1(ConstOps))]} ||
                   {Col,ConstOps} <- Cs]).
 
 qcon1(ConstOps) ->
-    [{tuple,0,[Const,abstr(Op, 0)]} || {Const,Op} <- ConstOps].
+    A = anno0(),
+    [{tuple,A,[Const,abstr(Op, A)]} || {Const,Op} <- ConstOps].
 
 %% The original code (in Source) is used for filters and the template
 %% since the translated code can have QLCs and we don't want them to
 %% be visible.
-qcode(E, QCs, Source, L) ->
+qcode(E, QCs, Source, L, State) ->
     CL = [begin
               Bin = term_to_binary(C, [compressed]),
               {bin, L, [{bin_element, L, 
                          {string, L, binary_to_list(Bin)},
                          default, default}]}
           end || {_,C} <- lists:keysort(1, [{qlc:template_state(),E} | 
-                                            qcode(QCs, Source)])],
+                                            qcode(QCs, Source, State)])],
     {'fun', L, {clauses, [{clause, L, [], [], [{tuple, L, CL}]}]}}.
 
-qcode([{_QId, {_QIvs, {{gen,P,_LE,_GV}, GoI, _SI}}} | QCs], Source) ->
-    [{GoI,undo_no_shadows(P)} | qcode(QCs, Source)];
-qcode([{QId, {_QIVs, {{fil,_F}, GoI, _SI}}} | QCs], Source) ->
+qcode([{_QId, {_QIvs, {{gen,P,_LE,_GV}, GoI, _SI}}} | QCs], Source, State) ->
+    [{GoI,undo_no_shadows(P, State)} | qcode(QCs, Source, State)];
+qcode([{QId, {_QIVs, {{fil,_F}, GoI, _SI}}} | QCs], Source, State) ->
     {ok,OrigF} = dict:find(QId, Source),
-    [{GoI,undo_no_shadows(OrigF)} | qcode(QCs, Source)];
-qcode([], _Source) ->
+    [{GoI,undo_no_shadows(OrigF, State)} | qcode(QCs, Source, State)];
+qcode([], _Source, _State) ->
     [].
 
 closure(Code, L) ->
     {'fun',L,{clauses,[{clause,L,[],[],[Code]}]}}.
 
-simple(L, Var, Init, Line) ->
-    {tuple,L,[?A(simple_v1),?A(Var),Init,?I(Line)]}.
+simple(L, Var, Init, Anno) ->
+    {tuple,L,[?A(simple_v1),?A(Var),Init,abstr(loc(Anno), Anno)]}.
 
 clauses([{QId,{QIVs,{QualData,GoI,S}}} | QCs], RL, Fun, Go, NGV, E, IVs,St) ->
     ?DEBUG("QIVs = ~p~n", [QIVs]),
@@ -2426,19 +2522,22 @@ aux_var(Name, LcN, QN, N, AllVars) ->
     qlc:aux_name(lists:concat([Name, LcN, '_', QN, '_']), N, AllVars).
 
 no_compiler_warning(L) ->
-    erl_parse:set_line(L, fun(Line) -> -abs(Line) end).
+    Anno = erl_anno:new(L),
+    erl_anno:set_generated(true, Anno).
 
-abs_loc(L) ->
-    loc(erl_parse:set_line(L, fun(Line) -> abs(Line) end)).
-
-loc(L) ->
-    {location,Location} = erl_parse:get_attribute(L, location),
-    Location.
+loc(A) ->
+    erl_anno:location(A).
 
 list2op([E], _Op) ->
     E;
 list2op([E | Es], Op) ->
-    {op,0,Op,E,list2op(Es, Op)}.
+    {op,anno0(),Op,E,list2op(Es, Op)}.
+
+anno0() ->
+    erl_anno:new(0).
+
+anno1() ->
+    erl_anno:new(1).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -2491,13 +2590,61 @@ qlcmf(T, _F, _Imp, A, No) ->
 occ_vars(E) ->
     qlc:var_fold(fun({var,_L,V}) -> V end, [], E).
 
+%% Every Anno is replaced by a unique number. The number is used in a
+%% table that holds data about the abstract node where Anno resides.
+%% In particular, the original location is kept there, so that the
+%% original abstract code can be re-created.
+save_anno(Abstr, NodeInfo) ->
+    F = fun(Anno) ->
+                N = next_slot(NodeInfo),
+                Location = erl_anno:location(Anno),
+                Data = {N, #{location => Location}},
+                true = ets:insert(NodeInfo, Data),
+                erl_anno:new(N)
+        end,
+    erl_parse:map_anno(F, Abstr).
+
+next_slot(T) ->
+    I = ets:update_counter(T, var_n, 1),
+    case ets:lookup(T, I) of
+        [] ->
+            I;
+        _ ->
+            next_slot(T)
+    end.
+
+restore_anno(Abstr, NodeInfo) ->
+    F = fun(Anno) ->
+                Location = erl_anno:location(Anno),
+                case ets:lookup(NodeInfo, Location) of
+                    [{Location, Data}] ->
+                        OrigLocation = maps:get(location, Data),
+                        erl_anno:set_location(OrigLocation, Anno);
+                    [{Location}] -> % generated code
+                        Anno;
+                    [] ->
+                        Anno
+                end
+        end,
+    erl_parse:map_anno(F, Abstr).
+
+restore_loc(Location, #state{node_info = NodeInfo}) ->
+  case ets:lookup(NodeInfo, Location) of
+      [{Location, #{location := OrigLocation}}] ->
+          OrigLocation;
+      [{Location}] ->
+          Location;
+      [] ->
+          Location
+  end.
+
 no_shadows(Forms0, State) ->
     %% Variables that may shadow other variables are introduced in
     %% LCs and Funs. Such variables (call them SV, Shadowing
     %% Variables) are now renamed. Each (new) occurrence in a pattern
     %% is assigned an index (integer), unique in the file. 
     %%
-    %% The state {LastIndex,ActiveVars,UsedVars,AllVars,Singletons}
+    %% The state {LastIndex,ActiveVars,UsedVars,AllVars,Singletons,State}
     %% holds the last index used for each SV (LastIndex), the SVs in
     %% the current scope (ActiveVars), used SVs (UsedVars, the indexed
     %% name is the key), all variables occurring in the file
@@ -2507,16 +2654,15 @@ no_shadows(Forms0, State) ->
     %% the indexed name of an SV occurs in the file, next index is
     %% tried (to avoid mixing up introduced names with existing ones).
     %%
-    %% The original names of variables are kept in the line number
-    %% position of the abstract code: {var, {nos, OriginalName, L},
-    %% NewName}. undo_no_shadows/1 re-creates the original code.
+    %% The original names of variables are kept in a table in State.
+    %% undo_no_shadows/2 re-creates the original code.
     AllVars = sets:from_list(ordsets:to_list(qlc:vars(Forms0))),
     ?DEBUG("nos AllVars = ~p~n", [sets:to_list(AllVars)]),
     VFun = fun(_Id, LC, Vs) -> nos(LC, Vs) end,
     LI = ets:new(?APIMOD,[]),
     UV = ets:new(?APIMOD,[]),
     D0 = dict:new(),
-    S1 = {LI, D0, UV, AllVars, []},
+    S1 = {LI, D0, UV, AllVars, [], State},
     _ = qlc_mapfold(VFun, S1, Forms0, State),
     ?DEBUG("UsedIntroVars = ~p~n", [ets:match_object(UV, '_')]),
     Singletons = ets:select(UV, ets:fun2ms(fun({K,0}) -> K  end)),
@@ -2524,7 +2670,7 @@ no_shadows(Forms0, State) ->
     true = ets:delete_all_objects(LI),
     true = ets:delete_all_objects(UV),
     %% Do it again, this time we know which variables are singletons.
-    S2 = {LI, D0, UV, AllVars, Singletons},
+    S2 = {LI, D0, UV, AllVars, Singletons, State},
     {Forms,_} = qlc_mapfold(VFun, S2, Forms0, State),
     true = ets:delete(LI),
     true = ets:delete(UV),
@@ -2568,11 +2714,11 @@ nos({lc,L,E0,Qs0}, S) ->
     {Qs, S1} = lists:mapfoldl(F, S, Qs0),
     {E, _} = nos(E0, S1),
     {{lc,L,E,Qs}, S};
-nos({var,L,V}=Var, {_LI,Vs,UV,_A,_Sg}=S) when V =/= '_' ->
+nos({var,L,V}=Var, {_LI,Vs,UV,_A,_Sg,State}=S) when V =/= '_' ->
     case used_var(V, Vs, UV) of
         {true, VN} ->
-            NL = nos_var(L, V),
-            {{var,NL,VN}, S};
+            nos_var(L, V, State),
+            {{var,L,VN}, S};
         false ->
             {Var, S}
     end;
@@ -2590,7 +2736,7 @@ nos_pattern([P0 | Ps0], S0, PVs0) ->
     {P, S1, PVs1} = nos_pattern(P0, S0, PVs0),
     {Ps, S, PVs} = nos_pattern(Ps0, S1, PVs1),
     {[P | Ps], S, PVs};
-nos_pattern({var,L,V}, {LI,Vs0,UV,A,Sg}, PVs0) when V =/= '_' ->
+nos_pattern({var,L,V}, {LI,Vs0,UV,A,Sg,State}, PVs0) when V =/= '_' ->
     {Name, Vs, PVs} = 
         case lists:keyfind(V, 1, PVs0) of
             {V, VN} ->
@@ -2604,16 +2750,25 @@ nos_pattern({var,L,V}, {LI,Vs0,UV,A,Sg}, PVs0) when V =/= '_' ->
                     end,
                 {N, Vs1, [{V,VN} | PVs0]}
         end,
-    NL = nos_var(L, V),
-    {{var,NL,Name}, {LI,Vs,UV,A,Sg}, PVs};
+    nos_var(L, V, State),
+    {{var,L,Name}, {LI,Vs,UV,A,Sg,State}, PVs};
 nos_pattern(T, S0, PVs0) when is_tuple(T) ->
     {TL, S, PVs} = nos_pattern(tuple_to_list(T), S0, PVs0),
     {list_to_tuple(TL), S, PVs};
 nos_pattern(T, S, PVs) ->
     {T, S, PVs}.
 
-nos_var(L, Name) ->
-    erl_parse:set_line(L, fun(Line) -> {nos,Name,Line} end).
+nos_var(Anno, Name, State) ->
+    NodeInfo = State#state.node_info,
+    Location = erl_anno:location(Anno),
+    case ets:lookup(NodeInfo, Location) of
+        [{Location, #{name := _}}] ->
+            true;
+        [{Location, Data}] ->
+            true = ets:insert(NodeInfo, {Location, Data#{name => Name}});
+        [] -> % cannot happen
+            true
+    end.
 
 used_var(V, Vs, UV) ->
     case dict:find(V, Vs) of
@@ -2638,69 +2793,30 @@ next_var(V, Vs, AllVars, LI, UV) ->
                  {VN, NVs}
     end.
 
-undo_no_shadows(E) ->
-    var_map(fun undo_no_shadows1/1, E).
+undo_no_shadows(E, State) ->
+    var_map(fun(Anno) -> undo_no_shadows1(Anno, State) end, E).
 
-undo_no_shadows1({var, L, _}=Var) ->
-    case erl_parse:get_attribute(L, line) of
-        {line,{nos,V,_VL}} ->
-            NL = erl_parse:set_line(L, fun({nos,_V,VL}) -> VL end),
-            undo_no_shadows1({var, NL, V});
-        _Else ->
-            Var
-    end.
-
-restore_line_numbers(E) ->
-    var_map(fun restore_line_numbers1/1, E).
-
-restore_line_numbers1({var, L, V}=Var) ->
-    case erl_parse:get_attribute(L, line) of
-        {line,{nos,_,_}} ->
-            NL = erl_parse:set_line(L, fun({nos,_V,VL}) -> VL end),
-            restore_line_numbers1({var, NL, V});
-        _Else ->
+undo_no_shadows1({var, Anno, _}=Var, State) ->
+    Location = erl_anno:location(Anno),
+    NodeInfo = State#state.node_info,
+    case ets:lookup(NodeInfo, Location) of
+        [{Location, #{name := Name}}] ->
+            {var, Anno, Name};
+        _ ->
             Var
     end.
 
 %% QLC identifier. 
 %% The first one encountered in the file has No=1.
 
-make_lcid(Attrs, No) when is_integer(No), No > 0 ->
-    F = fun(Line) when is_integer(Line), Line < (1 bsl ?MAX_NUM_OF_LINES) ->
-                sgn(Line) * ((No bsl ?MAX_NUM_OF_LINES) + sgn(Line) * Line)
-        end,
-    erl_parse:set_line(Attrs, F).
+make_lcid(Anno, No) when is_integer(No), No > 0 ->
+    {No, erl_anno:line(Anno)}.
 
-is_lcid(Attrs) ->
-    try 
-        {line,Id} = erl_parse:get_attribute(Attrs, line),
-        is_integer(Id) andalso (abs(Id) > (1 bsl ?MAX_NUM_OF_LINES))
-    catch _:_ ->
-        false
-    end.
+get_lcid_no({No, _Line}) ->
+    No.
 
-get_lcid_no(IdAttrs) ->
-    {line,Id} = erl_parse:get_attribute(IdAttrs, line),
-    abs(Id) bsr ?MAX_NUM_OF_LINES.    
-
-get_lcid_line(IdAttrs) ->
-    {line,Id} = erl_parse:get_attribute(IdAttrs, line),
-    sgn(Id) * (abs(Id) band ((1 bsl ?MAX_NUM_OF_LINES) - 1)).
-
-sgn(X) when X >= 0 ->
-    1;
-sgn(X) when X < 0 ->
-    -1.
-
-seq(S, E) when S - E =:= 1 ->
-    [];
-seq(S, E) -> 
-    lists:seq(S, E).
-
-sublist(_, 0) ->
-    [];
-sublist(L, N) ->
-    lists:sublist(L, N).
+get_lcid_line({_No, Line}) ->
+    Line.
 
 qid(LCId, No) ->
     #qid{no = No, lcid = LCId}.

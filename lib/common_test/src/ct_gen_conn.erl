@@ -24,10 +24,9 @@
 
 -module(ct_gen_conn).
 
--compile(export_all).
-
--export([start/4, stop/1, get_conn_pid/1]).
+-export([start/4, stop/1, get_conn_pid/1, check_opts/1]).
 -export([call/2, call/3, return/2, do_within_time/2]).
+-export([log/3, start_log/1, cont_log/2, end_log/0]).
 
 %%----------------------------------------------------------------------
 %% Exported types

@@ -83,8 +83,8 @@ typedef struct {
     ErtsThrPrgrLeaderState leader_state;
 } ErtsThrPrgrData;
 
-void erts_thr_progress_fatal_error_block(SWord timeout,
-					 ErtsThrPrgrData *tmp_tpd_bufp);
+int erts_thr_progress_fatal_error_block(ErtsThrPrgrData *tmp_tpd_bufp);
+void erts_thr_progress_fatal_error_wait(SWord timeout);
 
 #endif /* ERTS_SMP */
 

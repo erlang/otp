@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2015. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -887,7 +887,7 @@ callAny(_OE_THIS, OE_FROM, State, EventIn, Status) ->
 %% Start timers which send a message each time we should push events. Only used
 %% when this objects is defined to supply sequences.
 start_timer(State) ->
-    TS = now(),
+    TS = erlang:timestamp(),
     case catch timer:send_after(timer:seconds(?get_PacingInterval(State)), 
 				{pacing, TS}) of
 	{ok,PacTRef} ->

@@ -188,19 +188,27 @@ hello(Hello = #client_hello{client_version = ClientVersion,
 		     renegotiation = {Renegotiation, _},
 		     session_cache = Cache,
 		     session_cache_cb = CacheCb,
+		     negotiated_protocol = CurrentProtocol,
 		     ssl_options = SslOpts}) ->
     case tls_handshake:hello(Hello, SslOpts, {Port, Session0, Cache, CacheCb,
 					      ConnectionStates0, Cert}, Renegotiation) of
+        #alert{} = Alert ->
+            handle_own_alert(Alert, ClientVersion, hello, State);
         {Version, {Type, Session},
-	 ConnectionStates, ServerHelloExt} ->
+	 ConnectionStates, Protocol0, ServerHelloExt} ->
+
+	    Protocol = case Protocol0 of
+		undefined -> CurrentProtocol;
+		_ -> Protocol0
+	    end,
+
             HashSign = ssl_handshake:select_hashsign(HashSigns, Cert, Version),
             ssl_connection:hello({common_client_hello, Type, ServerHelloExt, HashSign},
 				 State#state{connection_states  = ConnectionStates,
 					     negotiated_version = Version,
 					     session = Session,
-					     client_ecc = {EllipticCurves, EcPointFormats}}, ?MODULE);
-        #alert{} = Alert ->
-            handle_own_alert(Alert, ClientVersion, hello, State)
+					     client_ecc = {EllipticCurves, EcPointFormats},
+					     negotiated_protocol = Protocol}, ?MODULE)
     end;
 hello(Hello,
       #state{connection_states = ConnectionStates0,
@@ -211,9 +219,9 @@ hello(Hello,
     case tls_handshake:hello(Hello, SslOptions, ConnectionStates0, Renegotiation) of
 	#alert{} = Alert ->
 	    handle_own_alert(Alert, ReqVersion, hello, State);
-	{Version, NewId, ConnectionStates, NextProtocol} ->
+	{Version, NewId, ConnectionStates, ProtoExt, Protocol} ->
 	    ssl_connection:handle_session(Hello, 
-					  Version, NewId, ConnectionStates, NextProtocol, State)
+					  Version, NewId, ConnectionStates, ProtoExt, Protocol, State)
     end;
 
 hello(Msg, State) ->
@@ -390,6 +398,23 @@ initial_state(Role, Host, Port, Socket, {SSLOptions, SocketOptions, Tracker}, Us
 	   tracker = Tracker
 	  }.
 
+
+update_ssl_options_from_sni(OrigSSLOptions, SNIHostname) ->
+    SSLOption = 
+	case OrigSSLOptions#ssl_options.sni_fun of
+	    undefined ->
+		proplists:get_value(SNIHostname, 
+				    OrigSSLOptions#ssl_options.sni_hosts);
+	    SNIFun ->
+		SNIFun(SNIHostname)
+	end,
+    case SSLOption of
+        undefined ->
+            undefined;
+        _ ->
+            ssl:handle_options(SSLOption, OrigSSLOptions)
+    end.
+
 next_state(Current,_, #alert{} = Alert, #state{negotiated_version = Version} = State) ->
     handle_own_alert(Alert, Version, Current, State);
 
@@ -418,15 +443,17 @@ next_state(Current, Next, #ssl_tls{type = ?HANDSHAKE, fragment = Data},
    		%% This message should not be included in handshake
    		%% message hashes. Already in negotiation so it will be ignored!
    		?MODULE:SName(Packet, State);
-	   ({#client_hello{} = Packet, Raw}, {next_state, connection = SName, State}) ->
+	   ({#client_hello{} = Packet, Raw}, {next_state, connection = SName, HState0}) ->
+		HState = handle_sni_extension(Packet, HState0),
 		Version = Packet#client_hello.client_version,
 		Hs0 = ssl_handshake:init_handshake_history(),
 		Hs1 = ssl_handshake:update_handshake_history(Hs0, Raw),
-		?MODULE:SName(Packet, State#state{tls_handshake_history=Hs1,
-   						  renegotiation = {true, peer}});
-	   ({Packet, Raw}, {next_state, SName, State = #state{tls_handshake_history=Hs0}}) ->
+		?MODULE:SName(Packet, HState#state{tls_handshake_history=Hs1,
+						   renegotiation = {true, peer}});
+	   ({Packet, Raw}, {next_state, SName, HState0 = #state{tls_handshake_history=Hs0}}) ->
+		HState = handle_sni_extension(Packet, HState0),
 		Hs1 = ssl_handshake:update_handshake_history(Hs0, Raw),
-		?MODULE:SName(Packet, State#state{tls_handshake_history=Hs1});
+		?MODULE:SName(Packet, HState#state{tls_handshake_history=Hs1});
    	   (_, StopState) -> StopState
    	end,
     try
@@ -973,3 +1000,32 @@ convert_options_partial_chain(Options, up) ->
     list_to_tuple(Head ++ [{partial_chain, fun(_) -> unknown_ca end}] ++ Tail);
 convert_options_partial_chain(Options, down) ->
     list_to_tuple(proplists:delete(partial_chain, tuple_to_list(Options))).
+
+handle_sni_extension(#client_hello{extensions = HelloExtensions}, State0) ->
+    case HelloExtensions#hello_extensions.sni of
+	undefined ->
+	    State0;
+	#sni{hostname = Hostname} ->
+	    NewOptions = update_ssl_options_from_sni(State0#state.ssl_options, Hostname),
+	    case NewOptions of
+		undefined ->
+		    State0;
+		_ ->
+		    {ok, Ref, CertDbHandle, FileRefHandle, CacheHandle, CRLDbHandle, OwnCert, Key, DHParams} = 
+			ssl_config:init(NewOptions, State0#state.role),
+		    State0#state{
+		      session = State0#state.session#session{own_certificate = OwnCert},
+		      file_ref_db = FileRefHandle,
+		      cert_db_ref = Ref,
+		      cert_db = CertDbHandle,
+		      crl_db = CRLDbHandle,
+		      session_cache = CacheHandle,
+		      private_key = Key,
+		      diffie_hellman_params = DHParams,
+		      ssl_options = NewOptions,
+		      sni_hostname = Hostname
+		     }
+	    end
+    end;
+handle_sni_extension(_, State0) ->
+    State0.

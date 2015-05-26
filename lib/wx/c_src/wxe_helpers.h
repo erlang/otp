@@ -39,14 +39,14 @@ class wxeMetaCommand : public wxEvent
     ErlDrvPDL        pdl;
 };
 
-class wxeCommand : public wxObject
+class wxeCommand
 {
  public:
-    wxeCommand(int fc,char * cbuf,int buflen, wxe_data *);
+    wxeCommand();
     virtual ~wxeCommand(); // Use Delete()
 
-    wxeCommand * Save() {ref_count++; return this; };
-    void Delete() {if(--ref_count < 1) delete this;};
+    wxeCommand * Save() { return this; };
+    void Delete();
 
     ErlDrvTermData   caller;
     ErlDrvTermData   port;
@@ -54,7 +54,27 @@ class wxeCommand : public wxObject
     char *           buffer;
     int              len;
     int              op;
-    int              ref_count;
+    char             c_buf[64];  // 64b covers 90% of usage
+};
+
+class wxeFifo {
+ public:
+    wxeFifo(unsigned int size);
+    virtual ~wxeFifo();
+
+    void Add(int fc, char * cbuf,int buflen, wxe_data *);
+    void Append(wxeCommand *Other);
+
+    wxeCommand * Get();
+
+    void Realloc();
+
+    unsigned int m_max;
+    unsigned int m_first;
+    unsigned int m_n;
+    unsigned int m_orig_sz;
+    wxeCommand *m_q;
+    wxeCommand *m_old;
 };
 
 class intListElement {

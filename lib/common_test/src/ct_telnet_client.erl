@@ -39,7 +39,7 @@
 
 -define(TELNET_PORT, 23).
 -define(OPEN_TIMEOUT,10000).
--define(IDLE_TIMEOUT,10000).
+-define(IDLE_TIMEOUT,8000).
 
 %% telnet control characters
 -define(SE,	240).
@@ -114,7 +114,7 @@ get_data(Pid) ->
 %%%-----------------------------------------------------------------
 %%% Internal functions
 init(Parent, Server, Port, Timeout, KeepAlive, ConnName) ->
-    case gen_tcp:connect(Server, Port, [list,{packet,0}], Timeout) of
+    case gen_tcp:connect(Server, Port, [list,{packet,0},{nodelay,true}], Timeout) of
 	{ok,Sock} ->
 	    dbg("~p connected to: ~p (port: ~w, keep_alive: ~w)\n",
 		[ConnName,Server,Port,KeepAlive]),
@@ -393,7 +393,7 @@ cmd_dbg(Prefix,Cmd) ->
     end.
 
 timestamp() ->
-    {MS,S,US} = now(),
+    {MS,S,US} = os:timestamp(),
     {{Year,Month,Day}, {Hour,Min,Sec}} =
         calendar:now_to_local_time({MS,S,US}),
     MilliSec = trunc(US/1000),

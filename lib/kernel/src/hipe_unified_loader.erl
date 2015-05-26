@@ -194,6 +194,7 @@ load_common(Mod, Bin, Beam, OldReferencesToPatch) ->
    CodeSize,  CodeBinary,  Refs,
    0,[] % ColdSize, CRrefs
   ] = binary_to_term(Bin),
+  MD5 = erlang:md5(Bin), % use md5 of actual running code for module_info
   ?debug_msg("***** ErLLVM *****~nVersion: ~s~nCheckSum: ~w~nConstAlign: ~w~n" ++
     "ConstSize: ~w~nConstMap: ~w~nLabelMap: ~w~nExportMap ~w~nRefs ~w~n",
     [Version, CheckSum, ConstAlign, ConstSize, ConstMap, LabelMap, ExportMap,
@@ -254,7 +255,8 @@ load_common(Mod, Bin, Beam, OldReferencesToPatch) ->
 	  AddressesOfClosuresToPatch =
 	    calculate_addresses(ClosurePatches, CodeAddress, Addresses),
 	  export_funs(Addresses),
-	  export_funs(Mod, BeamBinary, Addresses, AddressesOfClosuresToPatch)
+	  export_funs(Mod, MD5, BeamBinary,
+                      Addresses, AddressesOfClosuresToPatch)
       end,
       %% Redirect references to the old module to the new module's BEAM stub.
       patch_to_emu_step2(OldReferencesToPatch),
@@ -430,9 +432,9 @@ export_funs([FunDef | Addresses]) ->
 export_funs([]) ->
   ok.
 
-export_funs(Mod, Beam, Addresses, ClosuresToPatch) ->
+export_funs(Mod, MD5, Beam, Addresses, ClosuresToPatch) ->
   Fs = [{F,A,Address} || #fundef{address=Address, mfa={_M,F,A}} <- Addresses],
-  Mod = code:make_stub_module(Mod, Beam, {Fs,ClosuresToPatch}),
+  Mod = code:make_stub_module(Mod, Beam, {Fs,ClosuresToPatch,MD5}),
   ok.
 
 %%========================================================================
@@ -827,7 +829,6 @@ patch_to_emu_step1(Mod) ->
       %% were added as the result of dynamic apply calls. We must
       %% purge them too, but we have no explicit record of them.
       %% Therefore invalidate all native addresses for the module.
-      %% emu_make_stubs/1 will repair the ones for compiled static calls.
       hipe_bifs:invalidate_funinfo_native_addresses(MFAs),
       %% Find all call sites that call these MFAs. As a side-effect,
       %% create native stubs for any MFAs that are referred.
@@ -841,7 +842,6 @@ patch_to_emu_step1(Mod) ->
 
 %% Step 2 must occur after the new BEAM stub module is created.
 patch_to_emu_step2(ReferencesToPatch) ->
-  emu_make_stubs(ReferencesToPatch),
   redirect(ReferencesToPatch).
 
 -spec is_loaded(Module::atom()) -> boolean().
@@ -851,21 +851,6 @@ is_loaded(M) when is_atom(M) ->
     I when is_integer(I) -> true
   catch _:_ -> false
   end.
-
--ifdef(notdef).
-emu_make_stubs([{MFA,_Refs}|Rest]) ->
-  make_stub(MFA),
-  emu_make_stubs(Rest);
-emu_make_stubs([]) ->
-  [].
-
-make_stub({_,_,A} = MFA) ->
-  EmuAddress = hipe_bifs:get_emu_address(MFA),
-  StubAddress = hipe_bifs:make_native_stub(EmuAddress, A),
-  hipe_bifs:set_funinfo_native_address(MFA, StubAddress).
--else.
-emu_make_stubs(_) -> [].
--endif.
 
 %%--------------------------------------------------------------------
 %% Given a list of MFAs, tag them with their referred_from references.

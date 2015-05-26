@@ -37,7 +37,6 @@
 	
 	 dump_log_update_in_place/1,
 	 event_module/1,
-	 ignore_fallback_at_startup/1,
 	 inconsistent_database/1,
 	 max_wait_for_decision/1,
 	 send_compressed/1,
@@ -104,7 +103,7 @@ all() ->
     [access_module, auto_repair, backup_module, debug, dir,
      dump_log_load_regulation, {group, dump_log_thresholds},
      dump_log_update_in_place,
-     event_module, ignore_fallback_at_startup,
+     event_module,
      inconsistent_database, max_wait_for_decision,
      send_compressed, app_test, {group, schema_config},
      unknown_config].
@@ -317,11 +316,17 @@ backup_module(Config) when is_list(Config) ->
     ?match([], mnesia_test_lib:start_mnesia(Nodes, [test_table, test_table2])),
 
     %% Now check newly started tables
-    ?match({atomic, [1,2]}, 
+    ?match({atomic, [1,2]},
 	   mnesia:transaction(fun() -> lists:sort(mnesia:all_keys(test_table)) end)),
-    ?match({atomic, [3,4]}, 
+    ?match({atomic, [3,4]},
 	   mnesia:transaction(fun() -> lists:sort(mnesia:all_keys(test_table2)) end)),
-    
+
+    %% Test some error cases
+    mnesia:set_debug_level(debug),
+    ?match({error, _}, mnesia:install_fallback("NonExisting.FILE")),
+    ?match({error, _}, mnesia:install_fallback(filename:join(mnesia_lib:dir(), "LATEST.LOG"))),
+
+    %% Cleanup
     file:delete(File),
     ?verify_mnesia(Nodes, []),
     ?cleanup(1, Config),
@@ -608,13 +613,6 @@ dump_log_load_regulation(Config) when is_list(Config) ->
     ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-ignore_fallback_at_startup(doc) ->
-    ["Start Mnesia without rollback of the database to the fallback. ",
-     "Once Mnesia has been (re)started the installed fallback should",
-     "be handled as a normal active fallback.",
-     "Install a customized event module which disables the termination",
-     "of Mnesia when mnesia_down occurrs with an active fallback."].
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 

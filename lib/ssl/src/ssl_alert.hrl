@@ -69,6 +69,8 @@
 %%         bad_certificate_hash_value(114),      
 %% RFC 4366
 %%       unknown_psk_identity(115),
+%% RFC 7301
+%%       no_application_protocol(120),
 %%           (255)
 %%       } AlertDescription;
 
@@ -103,6 +105,7 @@
 -define(BAD_CERTIFICATE_STATUS_RESPONSE, 113).
 -define(BAD_CERTIFICATE_HASH_VALUE, 114).
 -define(UNKNOWN_PSK_IDENTITY, 115).
+-define(NO_APPLICATION_PROTOCOL, 120).
 
 -define(ALERT_REC(Level,Desc), #alert{level=Level,description=Desc,where={?FILE, ?LINE}}).
 

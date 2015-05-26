@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2015. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -38,7 +38,8 @@
 %% Log files are created in the current directory, which is why the 
 %% application requires read/write rights for current directory. The
 %% file name looks like:
-%% "oe_nonode@nohost_subc_939_383117_295538" (the last part is now())
+%% "oe_nonode@nohost_subc_1429872479809947099_438" (the two last parts are
+%% erlang:system_time() and erlang:unique_integer([positive]))
 %% It is equal to what the object is started as, i.e., {regname, {global, X}}.
 %% 
 %% If the application is unable to read the log it will exit and the 

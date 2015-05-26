@@ -38,6 +38,7 @@ JINTERFACE_CLASSPATH = @jinterface_classpath@
 CLASSPATH = .@PS@$(JINTERFACE_CLASSPATH)@PS@
 
 JAVA_FILES = \
+	TransportFactoryTest.java \
 	Nodename.java \
 	RegisterAndWhereis.java \
 	GetNames.java \
@@ -48,7 +49,8 @@ JAVA_FILES = \
 	MboxLinkUnlink.java \
 	NodeStatusHandler.java \
 	Maps.java \
-	FunEquals.java
+	FunEquals.java \
+	CoreMatchBind.java
 
 CLASS_FILES = $(JAVA_FILES:.java=.class)
 

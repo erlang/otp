@@ -705,7 +705,7 @@ erts_set_this_node(Eterm sysname, Uint creation)
     erts_this_node->sysname = sysname;
     erts_this_node->creation = creation;
     erts_this_node_sysname = erts_this_node_sysname_BUFFER;
-    erts_snprintf(erts_this_node_sysname, sizeof(erts_this_node_sysname),
+    erts_snprintf(erts_this_node_sysname, sizeof(erts_this_node_sysname_BUFFER),
                   "%T", sysname);
     (void) hash_put(&erts_node_table, (void *) erts_this_node);
 
@@ -794,7 +794,7 @@ void erts_init_node_tables(void)
     erts_this_node->creation			= 0;
     erts_this_node->dist_entry			= erts_this_dist_entry;
     erts_this_node_sysname = erts_this_node_sysname_BUFFER;
-    erts_snprintf(erts_this_node_sysname, sizeof(erts_this_node_sysname),
+    erts_snprintf(erts_this_node_sysname, sizeof(erts_this_node_sysname_BUFFER),
                   "%T", erts_this_node->sysname);
 
     (void) hash_put(&erts_node_table, (void *) erts_this_node);
@@ -1469,7 +1469,7 @@ setup_reference_table(void)
     erts_db_foreach_table(insert_ets_table, NULL);
 
     /* Insert all bif timers */
-    erts_bif_timer_foreach(insert_bif_timer, NULL);
+    erts_debug_bif_timer_foreach(insert_bif_timer, NULL);
 
     /* Insert node table (references to dist) */
     hash_foreach(&erts_node_table, insert_erl_node, NULL);

@@ -1,8 +1,7 @@
-
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2013-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2013-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -53,6 +52,7 @@
           session               :: #session{} | secret_printout(),
 	  session_cache         :: db_handle(),
 	  session_cache_cb      :: atom(),
+	  crl_db                :: term(), 
           negotiated_version    :: ssl_record:ssl_version(),
           client_certificate_requested = false :: boolean(),
 	  key_algorithm         :: ssl_cipher:key_algo(),
@@ -78,9 +78,10 @@
 	  allow_renegotiate = true                    ::boolean(),
           expecting_next_protocol_negotiation = false ::boolean(),
 	  expecting_finished =                  false ::boolean(),
-          next_protocol = undefined                   :: undefined | binary(),
+          negotiated_protocol = undefined             :: undefined | binary(),
 	  client_ecc,          % {Curves, PointFmt}
-	  tracker              :: pid() %% Tracker process for listen socket
+	  tracker              :: pid(), %% Tracker process for listen socket
+	  sni_hostname = undefined
 	 }).
 
 -define(DEFAULT_DIFFIE_HELLMAN_PARAMS,

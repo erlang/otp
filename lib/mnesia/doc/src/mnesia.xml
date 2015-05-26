@@ -3019,6 +3019,12 @@ raise(Name, Amount) ->
           totally unpredictable.</p>
       </item>
       <item>
+        <p><c>-mnesia dump_disc_copies_at_startup true | false</c>.
+          If set to false, this disables the dumping of <c>disc_copies</c>
+          tables during startup while tables are being loaded. The default
+          is true.</p>
+      </item>
+      <item>
         <p><c>-mnesia dump_log_load_regulation true | false</c>.
           Controls if the log dumps should be performed as fast as
           possible or if the dumper should do its own load

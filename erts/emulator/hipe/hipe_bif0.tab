@@ -49,7 +49,6 @@ bif hipe_bifs:constants_size/0
 bif hipe_bifs:merge_term/1
 
 bif hipe_bifs:fun_to_address/1
-#bif hipe_bifs:get_emu_address/1
 bif hipe_bifs:set_native_address/3
 #bif hipe_bifs:address_to_fun/1
 
@@ -72,7 +71,6 @@ bif hipe_bifs:term_to_word/1
 bif hipe_bifs:get_fe/2
 bif hipe_bifs:set_native_address_in_fe/2
 
-#bif hipe_bifs:make_native_stub/2
 bif hipe_bifs:find_na_or_make_stub/2
 
 bif hipe_bifs:check_crc/1
@@ -142,4 +140,5 @@ atom bs_get_utf16
 atom bs_validate_unicode
 atom bs_validate_unicode_retract
 atom emulate_fpe
+atom emasculate_binary
 

@@ -1,0 +1,18 @@
+Exporting DEFINITIONS AUTOMATIC TAGS ::=
+BEGIN
+
+  Seq ::= SEQUENCE { id INTEGER, f BOOLEAN }
+  PtSeq{T} ::= SEQUENCE { a T }
+
+  CL ::= CLASS {
+     &id INTEGER UNIQUE,
+     &Type
+  } WITH SYNTAX {
+     ID &id TYPE &Type
+  }
+
+  obj CL ::= { ID 1 TYPE OCTET STRING }
+
+  pt-object{CL:ob} CL ::= {ID ob.&id TYPE OCTET STRING}
+
+END

@@ -91,7 +91,7 @@ source(Forms, Comments, File, Env, Opts) ->
 %% type `form_list', or a list of syntax trees representing
 %% "program forms" (cf. {@link edoc:read_source/2}.
 %% `Env' is an environment created by {@link
-%% edoc_lib:get_doc_env/4}. The `File' argument is used for
+%% edoc_lib:get_doc_env/3}. The `File' argument is used for
 %% error reporting and output file name generation only.
 %%
 %% See {@link edoc:get_doc/2} for descriptions of the `def',
@@ -121,10 +121,8 @@ source1(Tree, File0, Env, Opts, TypeDocs) ->
     Module = get_module_info(Tree, File),
     {Header, Footer, Entries} = collect(Forms, Module),
     Name = Module#module.name,
-    Package = '',
     Env1 = Env#env{module = Name,
-		   package = Package,
-		   root = edoc_refs:relative_package_path('', Package)},
+		   root = ""},
     Env2 = add_macro_defs(module_macros(Env1), Opts, Env1),
     Entries1 = get_tags([Header, Footer | Entries], Env2, File, TypeDocs),
     Entries2 = edoc_specs:add_data(Entries1, Opts, File, Module),
@@ -218,13 +216,13 @@ add_macro_defs(Defs0, Opts, Env) ->
 
 %% @spec file(File::filename(), Context, Env::edoc_env(),
 %%            Options::proplist()) -> {ok, Tags} | {error, Reason}
-%%   Context = overview | package
+%%   Context = overview
 %%   Tags = [term()]
 %%   Reason = term()
 %%
 %% @doc Reads a text file and returns the list of tags in the file. Any
 %% lines of text before the first tag are ignored. `Env' is an
-%% environment created by {@link edoc_lib:get_doc_env/4}. Upon error,
+%% environment created by {@link edoc_lib:get_doc_env/3}. Upon error,
 %% `Reason' is an atom returned from the call to {@link
 %% //kernel/file:read_file/1} or the atom 'invalid_unicode'.
 %%
@@ -249,12 +247,12 @@ file(File, Context, Env, Opts) ->
 
 %% @spec (Text::string(), Context, Env::edoc_env(),
 %%        Options::proplist()) -> Tags
-%%     Context = overview | package
+%%     Context = overview
 %%     Tags = [term()]
 %%
 %% @doc Returns the list of tags in the text. Any lines of text before
 %% the first tag are ignored. `Env' is an environment created by {@link
-%% edoc_lib:get_doc_env/4}.
+%% edoc_lib:get_doc_env/3}.
 %%
 %% See {@link source/4} for a description of the `def' option.
 
@@ -353,8 +351,6 @@ preprocess_forms_2(F, Fs) ->
 	    [F | preprocess_forms_1(Fs)];
 	{function, _} ->
 	    [F | preprocess_forms_1(Fs)];
-	{rule, _} ->
-	    [F | preprocess_forms_1(Fs)];
 	{attribute, {module, _}} ->
 	    [F | preprocess_forms_1(Fs)];
   	text ->
@@ -387,15 +383,6 @@ collect([F | Fs], Cs, Ss, Ts, As, Header, Mod) ->
 	    L = erl_syntax:get_pos(F),
 	    Export = ordsets:is_element(Name, Mod#module.exports),
 	    Args = parameters(erl_syntax:function_clauses(F)),
-	    collect(Fs, [], [], [],
-                    [#entry{name = Name, args = Args, line = L,
-                            export = Export,
-                            data = {comment_text(Cs),Ss,Ts}} | As],
-		    Header, Mod);
-	{rule, Name} ->
-	    L = erl_syntax:get_pos(F),
-	    Export = ordsets:is_element(Name, Mod#module.exports),
-	    Args = parameters(erl_syntax:rule_clauses(F)),
 	    collect(Fs, [], [], [],
                     [#entry{name = Name, args = Args, line = L,
                             export = Export,

@@ -11,6 +11,7 @@ MODULES= \
 	beam_validator_SUITE \
 	beam_disasm_SUITE \
 	beam_except_SUITE \
+	beam_utils_SUITE \
 	bs_bincomp_SUITE \
 	bs_bit_binaries_SUITE \
 	bs_construct_SUITE \
@@ -34,12 +35,14 @@ MODULES= \
 	record_SUITE \
 	trycatch_SUITE \
 	warnings_SUITE \
+	z_SUITE \
 	test_lib
 
 NO_OPT= \
 	andor \
 	apply \
 	beam_except \
+	beam_utils \
 	bs_construct \
         bs_match \
 	bs_utf \
@@ -59,6 +62,7 @@ NO_OPT= \
 INLINE= \
 	andor \
 	apply \
+	beam_utils \
 	bs_bincomp \
 	bs_bit_binaries \
 	bs_construct \
@@ -76,12 +80,6 @@ INLINE= \
 	receive \
 	record
 
-CORE_MODULES = \
-	bs_shadowed_size_var \
-	unused_multiple_values_error \
-	nested_call_in_case
-
-
 NO_OPT_MODULES= $(NO_OPT:%=%_no_opt_SUITE)
 NO_OPT_ERL_FILES= $(NO_OPT_MODULES:%=%.erl)
 POST_OPT_MODULES= $(NO_OPT:%=%_post_opt_SUITE)
@@ -90,8 +88,6 @@ INLINE_MODULES= $(INLINE:%=%_inline_SUITE)
 INLINE_ERL_FILES= $(INLINE_MODULES:%=%.erl)
 
 ERL_FILES= $(MODULES:%=%.erl)
-
-CORE_FILES= $(CORE_MODULES:%=%.core)
 
 ##TARGET_FILES= $(MODULES:%=$(EBIN)/%.$(EMULATOR))
 ##INSTALL_PROGS= $(TARGET_FILES)
@@ -108,7 +104,7 @@ RELSYSDIR = $(RELEASE_PATH)/compiler_test
 # ----------------------------------------------------
 
 ERL_MAKE_FLAGS +=
-ERL_COMPILE_FLAGS += -I$(ERL_TOP)/lib/test_server/include +clint
+ERL_COMPILE_FLAGS += -I$(ERL_TOP)/lib/test_server/include +clint +clint0
 
 EBIN = .
 
@@ -159,7 +155,7 @@ release_spec: opt
 release_tests_spec: make_emakefile
 	$(INSTALL_DIR) "$(RELSYSDIR)"
 	$(INSTALL_DATA) compiler.spec compiler.cover \
-		$(EMAKEFILE) $(ERL_FILES) $(CORE_FILES) "$(RELSYSDIR)"
+		$(EMAKEFILE) $(ERL_FILES) "$(RELSYSDIR)"
 	$(INSTALL_DATA) $(NO_OPT_ERL_FILES) $(POST_OPT_ERL_FILES) \
 		$(INLINE_ERL_FILES) "$(RELSYSDIR)"
 	chmod -R u+w "$(RELSYSDIR)"

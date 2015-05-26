@@ -238,12 +238,15 @@ generate_nodenames2(0, _Hosts, Acc) ->
     Acc;
 generate_nodenames2(N, Hosts, Acc) ->
     Host=lists:nth((N rem (length(Hosts)))+1, Hosts),
-    Name=list_to_atom(temp_nodename("nod", []) ++ "@" ++ Host),
+    Name=list_to_atom(temp_nodename("nod",N) ++ "@" ++ Host),
     generate_nodenames2(N-1, Hosts, [Name|Acc]).
 
-temp_nodename([], Acc) ->
-    lists:flatten(Acc);
-temp_nodename([Chr|Base], Acc) ->
-    {A,B,C} = erlang:now(),
-    New = [Chr | integer_to_list(Chr bxor A bxor B+A bxor C+B)],
-    temp_nodename(Base, [New|Acc]).
+%% We cannot use erlang:unique_integer([positive])
+%% here since this code in run on older test releases as well.
+temp_nodename(Base,I) ->
+    {A,B,C} = os:timestamp(),
+    Nstr = integer_to_list(I),
+    Astr = integer_to_list(A),
+    Bstr = integer_to_list(B),
+    Cstr = integer_to_list(C),
+    Base++Nstr++Astr++Bstr++Cstr.

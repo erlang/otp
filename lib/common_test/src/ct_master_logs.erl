@@ -37,6 +37,8 @@
 -define(details_file_name,"details.info").
 -define(table_color,"lightblue").
 
+-define(now, os:timestamp()).
+
 %%%--------------------------------------------------------------------
 %%% API
 %%%--------------------------------------------------------------------
@@ -54,7 +56,7 @@ start(LogDir,Nodes) ->
     end.
 
 log(Heading,Format,Args) ->
-    cast({log,self(),[{int_header(),[log_timestamp(now()),Heading]},
+    cast({log,self(),[{int_header(),[log_timestamp(?now),Heading]},
 		      {Format,Args},
 		      {int_footer(),[]}]}),
     ok.
@@ -132,7 +134,7 @@ init(Parent,LogDir,Nodes) ->
 					atom_to_list(N) ++ " "
 				end,Nodes)),
 
-    io:format(CtLogFd,int_header(),[log_timestamp(now()),"Test Nodes\n"]),
+    io:format(CtLogFd,int_header(),[log_timestamp(?now),"Test Nodes\n"]),
     io:format(CtLogFd,"~ts\n",[NodeStr]),
     io:put_chars(CtLogFd,[int_footer(),"\n"]),
 
@@ -189,7 +191,7 @@ loop(State) ->
 	    make_all_runs_index(State#state.logdir),
 	    io:format(State#state.log_fd,
 		      int_header()++int_footer(),
-		      [log_timestamp(now()),"Finished!"]),
+		      [log_timestamp(?now),"Finished!"]),
 	    close_ct_master_log(State#state.log_fd),
 	    close_nodedir_index(State#state.nodedir_ix_fd),
 	    ok

@@ -22,14 +22,16 @@
 -include_lib("sasl/src/systools.hrl").
 -export([all/0,groups/0,init_per_group/2,end_per_group/2, 
 	 syntax_check/1, translate/1, translate_app/1,
-	 translate_emulator_restarts/1]).
+	 translate_emulator_restarts/1,
+	 translate_add_delete_module/1]).
 
 %%-----------------------------------------------------------------
 %% erl -compile systools_rc_SUITE @i ../src/ @i ../../test_server/include/
 %% c(systools_rc_SUITE, [{i, "../src"}, {i, "../../test_server/include"}]).
 %%-----------------------------------------------------------------
 all() -> 
-    [syntax_check, translate, translate_app, translate_emulator_restarts].
+    [syntax_check, translate, translate_app, translate_emulator_restarts,
+     translate_add_delete_module].
 
 groups() -> 
     [].
@@ -705,5 +707,61 @@ translate_emulator_restarts(_Config) ->
     {ok, X6} = systools_rc:translate_scripts([Up6], Apps, []),
     [point_of_no_return,
      restart_emulator] = X6,
+
+    ok.
+
+translate_add_delete_module(_Config) ->
+    PreApps =
+	[#application{name = test,
+		      description = "TEST",
+		      vsn = "0.1",
+		      modules = [foo,bar,baz,old_mod],
+		      regs = [],
+		      mod = {sasl, []}}],
+    Apps =
+	[#application{name = test,
+		      description = "TEST",
+		      vsn = "1.0",
+		      modules = [foo,bar,baz,new_mod],
+		      regs = [],
+		      mod = {sasl, []}}],
+    S1 = [
+	  {delete_module, old_mod},
+	  {add_module, new_mod},
+	  {load_module, foo}
+	 ],
+    {ok, X1} = systools_rc:translate_scripts([S1], Apps, PreApps),
+    [{load_object_code,{test,"1.0",[new_mod,foo]}},
+     point_of_no_return,
+     {remove,{old_mod,brutal_purge,brutal_purge}},
+     {purge,[old_mod]},
+     {load,{new_mod,brutal_purge,brutal_purge}},
+     {load,{foo,brutal_purge,brutal_purge}}] = X1,
+
+    S2 = [
+	  {delete_module, old_mod},
+	  {add_module, new_mod, [foo]},
+	  {load_module, foo}
+	 ],
+    {ok, X2} = systools_rc:translate_scripts([S2], Apps, PreApps),
+    [{load_object_code,{test,"1.0",[new_mod,foo]}},
+     point_of_no_return,
+     {remove,{old_mod,brutal_purge,brutal_purge}},
+     {purge,[old_mod]},
+     {load,{foo,brutal_purge,brutal_purge}},
+     {load,{new_mod,brutal_purge,brutal_purge}}] = X2,
+
+    S3 = [
+	  {delete_module, old_mod, [new_mod]},
+	  {add_module, new_mod, [foo]},
+	  {load_module, foo}
+	 ],
+    {ok, X3} = systools_rc:translate_scripts([S3], Apps, PreApps),
+    [{load_object_code,{test,"1.0",[new_mod,foo]}},
+     point_of_no_return,
+     {load,{foo,brutal_purge,brutal_purge}},
+     {load,{new_mod,brutal_purge,brutal_purge}},
+     {remove,{old_mod,brutal_purge,brutal_purge}},
+     {purge,[old_mod]}] = X3,
 
     ok.

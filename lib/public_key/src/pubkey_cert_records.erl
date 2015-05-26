@@ -217,8 +217,8 @@ namedCurves(brainpoolP512t1) -> ?'brainpoolP512t1'.
 %%% SubjectPublicKey
 
 decode_supportedPublicKey(#'OTPSubjectPublicKeyInfo'{algorithm= PA =
-						  #'PublicKeyAlgorithm'{algorithm=Algo},
-						  subjectPublicKey = {0,SPK0}}) ->
+							 #'PublicKeyAlgorithm'{algorithm=Algo},
+						     subjectPublicKey = SPK0}) ->
     Type = supportedPublicKeyAlgorithms(Algo),
     SPK = case Type of
               'ECPoint' -> #'ECPoint'{point = SPK0};
@@ -238,7 +238,7 @@ encode_supportedPublicKey(#'OTPSubjectPublicKeyInfo'{algorithm= PA =
                   {ok, SPK1} = 'OTP-PUB-KEY':encode(Type, SPK0),
                   SPK1
           end,
-    #'OTPSubjectPublicKeyInfo'{subjectPublicKey = {0,SPK}, algorithm=PA}.
+    #'OTPSubjectPublicKeyInfo'{subjectPublicKey = SPK, algorithm=PA}.
 
 %%% Extensions
 

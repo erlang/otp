@@ -1,0 +1,466 @@
+AlgorithmInformation-2009
+    {iso(1) identified-organization(3) dod(6) internet(1) security(5)
+    mechanisms(5) pkix(7) id-mod(0)
+    id-mod-algorithmInformation-02(58)}
+
+DEFINITIONS EXPLICIT TAGS ::=
+BEGIN
+EXPORTS ALL;
+IMPORTS
+
+KeyUsage
+FROM PKIX1Implicit-2009
+    {iso(1) identified-organization(3) dod(6) internet(1)
+    security(5) mechanisms(5) pkix(7) id-mod(0)
+    id-mod-pkix1-implicit-02(59)} ;
+
+--  Suggested prefixes for algorithm objects are:
+--
+--  mda-   Message Digest Algorithms
+--  sa-    Signature Algorithms
+--  kta-   Key Transport Algorithms (Asymmetric)
+--  kaa-   Key Agreement Algorithms  (Asymmetric)
+--  kwa-   Key Wrap Algorithms (Symmetric)
+--  kda-   Key Derivation Algorithms
+--  maca-  Message Authentication Code Algorithms
+--  pk-    Public Key
+--  cea-   Content (symmetric) Encryption Algorithms
+--  cap-   S/MIME Capabilities
+
+ParamOptions ::= ENUMERATED {
+   required,         -- Parameters MUST be encoded in structure
+   preferredPresent, -- Parameters SHOULD be encoded in structure
+   preferredAbsent,  -- Parameters SHOULD NOT be encoded in structure
+   absent,           -- Parameters MUST NOT be encoded in structure
+   inheritable,      -- Parameters are inherited if not present
+   optional,         -- Parameters MAY be encoded in the structure
+   ...
+}
+
+--  DIGEST-ALGORITHM
+--
+--  Describes the basic information for ASN.1 and a digest
+--      algorithm.
+--
+--  &id - contains the OID identifying the digest algorithm
+--  &Params - if present, contains the type for the algorithm
+--               parameters; if absent, implies no parameters
+--  &paramPresence - parameter presence requirement
+--
+--  Additional information such as the length of the hash could have
+--      been encoded.  Without a clear understanding of what information
+--      is needed by applications, such extraneous information was not
+--      considered to be of sufficent importance.
+--
+--  Example:
+--  mda-sha1 DIGEST-ALGORITHM ::= {
+--      IDENTIFIER id-sha1
+--      PARAMS TYPE NULL ARE preferredAbsent
+--  }
+
+DIGEST-ALGORITHM ::= CLASS {
+    &id                 OBJECT IDENTIFIER UNIQUE,
+    &Params             OPTIONAL,
+    &paramPresence      ParamOptions DEFAULT absent
+} WITH SYNTAX {
+    IDENTIFIER &id
+    [PARAMS [TYPE &Params] ARE &paramPresence ]
+}
+
+--  SIGNATURE-ALGORITHM
+--
+--  Describes the basic properties of a signature algorithm
+--
+--  &id - contains the OID identifying the signature algorithm
+--  &Value - contains a type definition for the value structure of
+--              the signature; if absent, implies that no ASN.1
+--              encoding is performed on the value
+--  &Params - if present, contains the type for the algorithm
+--               parameters; if absent, implies no parameters
+--  &paramPresence - parameter presence requirement
+--  &HashSet - The set of hash algorithms used with this
+--                  signature algorithm
+--  &PublicKeySet - the set of public key algorithms for this
+--                  signature algorithm
+--  &smimeCaps - contains the object describing how the S/MIME
+--              capabilities are presented.
+--
+--  Example:
+--  sig-RSA-PSS SIGNATURE-ALGORITHM ::= {
+--     IDENTIFIER id-RSASSA-PSS
+--     PARAMS TYPE RSASSA-PSS-params ARE required
+--     HASHES { mda-sha1 | mda-md5, ... }
+--     PUBLIC-KEYS { pk-rsa | pk-rsa-pss }
+-- }
+
+SIGNATURE-ALGORITHM ::= CLASS {
+    &id             OBJECT IDENTIFIER UNIQUE,
+    &Value          OPTIONAL,
+    &Params         OPTIONAL,
+    &paramPresence  ParamOptions DEFAULT absent,
+    &HashSet        DIGEST-ALGORITHM OPTIONAL,
+    &PublicKeySet   PUBLIC-KEY OPTIONAL,
+    &smimeCaps      SMIME-CAPS OPTIONAL
+} WITH SYNTAX {
+    IDENTIFIER &id
+    [VALUE &Value]
+    [PARAMS [TYPE &Params] ARE &paramPresence ]
+    [HASHES &HashSet]
+    [PUBLIC-KEYS &PublicKeySet]
+    [SMIME-CAPS &smimeCaps]
+}
+
+--  PUBLIC-KEY
+--
+--  Describes the basic properties of a public key
+--
+--  &id - contains the OID identifying the public key
+--  &KeyValue - contains the type for the key value
+--  &Params - if present, contains the type for the algorithm
+--               parameters; if absent, implies no parameters
+--  &paramPresence - parameter presence requirement
+--  &keyUsage - contains the set of bits that are legal for this
+--              key type.  Note that is does not make any statement
+--              about how bits may be paired.
+--  &PrivateKey - contains a type structure for encoding the private
+--              key information.
+--
+--  Example:
+--  pk-rsa-pss PUBLIC-KEY ::= {
+--      IDENTIFIER id-RSASSA-PSS
+--      KEY RSAPublicKey
+--      PARAMS TYPE RSASSA-PSS-params ARE optional
+--      CERT-KEY-USAGE { .... }
+--  }
+
+PUBLIC-KEY ::= CLASS {
+    &id             OBJECT IDENTIFIER UNIQUE,
+    &KeyValue       OPTIONAL,
+    &Params         OPTIONAL,
+    &paramPresence  ParamOptions DEFAULT absent,
+    &keyUsage       KeyUsage OPTIONAL,
+    &PrivateKey     OPTIONAL
+} WITH SYNTAX {
+    IDENTIFIER &id
+    [KEY &KeyValue]
+    [PARAMS [TYPE &Params] ARE &paramPresence]
+    [CERT-KEY-USAGE &keyUsage]
+    [PRIVATE-KEY &PrivateKey]
+}
+
+--  KEY-TRANSPORT
+--
+--  Describes the basic properties of a key transport algorithm
+--
+--  &id - contains the OID identifying the key transport algorithm
+--  &Params - if present, contains the type for the algorithm
+--               parameters; if absent, implies no parameters
+--  &paramPresence - parameter presence requirement
+--  &PublicKeySet - specifies which public keys are used with
+--                       this algorithm
+--  &smimeCaps - contains the object describing how the S/MIME
+--              capabilities are presented.
+--
+--  Example:
+--  kta-rsaTransport KEY-TRANSPORT ::= {
+--      IDENTIFIER &id
+--      PARAMS TYPE NULL ARE required
+--      PUBLIC-KEYS  { pk-rsa | pk-rsa-pss }
+--  }
+
+KEY-TRANSPORT ::= CLASS {
+    &id                 OBJECT IDENTIFIER UNIQUE,
+    &Params             OPTIONAL,
+    &paramPresence      ParamOptions DEFAULT absent,
+    &PublicKeySet       PUBLIC-KEY OPTIONAL,
+    &smimeCaps          SMIME-CAPS OPTIONAL
+} WITH SYNTAX {
+    IDENTIFIER &id
+    [PARAMS [TYPE &Params] ARE &paramPresence]
+    [PUBLIC-KEYS &PublicKeySet]
+    [SMIME-CAPS &smimeCaps]
+}
+
+--  KEY-AGREE
+--
+--  Describes the basic properties of a key agreement algorithm
+--
+--  &id - contains the OID identifying the key agreement algorithm
+--  &Params - if present, contains the type for the algorithm
+--               parameters; if absent, implies no parameters
+--  &paramPresence - parameter presence requirement
+--  &PublicKeySet - specifies which public keys are used with
+--                        this algorithm
+--  &Ukm - type of user keying material used
+--  &ukmPresence - specifies the requirements to define the UKM field
+--  &smimeCaps - contains the object describing how the S/MIME
+--              capabilities are presented.
+--
+--  Example:
+--  kaa-dh-static-ephemeral KEY-AGREE ::= {
+--      IDENTIFIER id-alg-ESDH
+--      PARAMS TYPE KeyWrapAlgorithm ARE required
+--      PUBLIC-KEYS {
+--         {IDENTIFIER dh-public-number KEY DHPublicKey
+--            PARAMS TYPE DHDomainParameters ARE inheritable }
+--      }
+--      - - UKM should be present but is not separately ASN.1-encoded
+--      UKM ARE preferredPresent
+--  }
+
+KEY-AGREE ::= CLASS {
+    &id             OBJECT IDENTIFIER UNIQUE,
+    &Params         OPTIONAL,
+    &paramPresence  ParamOptions DEFAULT absent,
+    &PublicKeySet   PUBLIC-KEY OPTIONAL,
+    &Ukm            OPTIONAL,
+    &ukmPresence    ParamOptions DEFAULT absent,
+    &smimeCaps      SMIME-CAPS OPTIONAL
+} WITH SYNTAX {
+    IDENTIFIER &id
+    [PARAMS [TYPE &Params] ARE &paramPresence]
+    [PUBLIC-KEYS &PublicKeySet]
+    [UKM [TYPE &Ukm] ARE &ukmPresence]
+    [SMIME-CAPS &smimeCaps]
+}
+
+--  KEY-WRAP
+--
+--  Describes the basic properties of a key wrap algorithm
+--
+--  &id - contains the OID identifying the key wrap algorithm
+--  &Params - if present, contains the type for the algorithm
+--               parameters; if absent, implies no parameters
+--  &paramPresence - parameter presence requirement
+--  &smimeCaps - contains the object describing how the S/MIME
+--              capabilities are presented.
+--
+--  Example:
+--  kwa-cms3DESwrap KEY-WRAP ::= {
+--      IDENTIFIER id-alg-CMS3DESwrap
+--      PARAMS TYPE NULL ARE required
+--  }
+
+KEY-WRAP ::= CLASS {
+    &id                OBJECT IDENTIFIER UNIQUE,
+    &Params            OPTIONAL,
+    &paramPresence     ParamOptions DEFAULT absent,
+    &smimeCaps         SMIME-CAPS OPTIONAL
+} WITH SYNTAX {
+    IDENTIFIER &id
+    [PARAMS [TYPE &Params] ARE &paramPresence]
+    [SMIME-CAPS &smimeCaps]
+}
+--  KEY-DERIVATION
+--
+--  Describes the basic properties of a key derivation algorithm
+--
+--  &id - contains the OID identifying the key derivation algorithm
+--  &Params - if present, contains the type for the algorithm
+--               parameters; if absent, implies no parameters
+--  &paramPresence - parameter presence requirement
+--  &smimeCaps - contains the object describing how the S/MIME
+--              capabilities are presented.
+--
+--  Example:
+--  kda-pbkdf2 KEY-DERIVATION ::= {
+--      IDENTIFIER id-PBKDF2
+--      PARAMS TYPE PBKDF2-params ARE required
+--  }
+
+KEY-DERIVATION ::= CLASS {
+    &id                OBJECT IDENTIFIER UNIQUE,
+    &Params            OPTIONAL,
+    &paramPresence     ParamOptions DEFAULT absent,
+    &smimeCaps         SMIME-CAPS OPTIONAL
+} WITH SYNTAX {
+    IDENTIFIER &id
+    [PARAMS [TYPE &Params] ARE &paramPresence]
+    [SMIME-CAPS &smimeCaps]
+}
+
+-- MAC-ALGORITHM
+--
+--  Describes the basic properties of a message
+--      authentication code (MAC) algorithm
+--
+--  &id - contains the OID identifying the MAC algorithm
+--  &Params - if present, contains the type for the algorithm
+--               parameters; if absent, implies no parameters
+--  &paramPresence - parameter presence requirement
+--  &keyed - MAC algorithm is a keyed MAC algorithm
+--  &smimeCaps - contains the object describing how the S/MIME
+--              capabilities are presented.
+--
+--  Some parameters that perhaps should have been added would be
+--  fields with the minimum and maximum MAC lengths for
+--  those MAC algorithms that allow truncations.
+--
+--  Example:
+--  maca-hmac-sha1 MAC-ALGORITHM ::= {
+--      IDENTIFIER hMAC-SHA1
+--      PARAMS TYPE NULL ARE preferredAbsent
+--      IS KEYED MAC TRUE
+--      SMIME-CAPS {IDENTIFIED BY hMAC-SHA1}
+--  }
+
+MAC-ALGORITHM ::= CLASS {
+    &id                 OBJECT IDENTIFIER UNIQUE,
+    &Params             OPTIONAL,
+    &paramPresence      ParamOptions DEFAULT absent,
+    &keyed              BOOLEAN,
+    &smimeCaps          SMIME-CAPS OPTIONAL
+} WITH SYNTAX {
+    IDENTIFIER &id
+    [PARAMS [TYPE &Params] ARE &paramPresence]
+    IS-KEYED-MAC &keyed
+    [SMIME-CAPS &smimeCaps]
+}
+
+--  CONTENT-ENCRYPTION
+--
+--  Describes the basic properties of a content encryption
+--      algorithm
+--
+--  &id - contains the OID identifying the content
+--        encryption algorithm
+--  &Params - if present, contains the type for the algorithm
+--               parameters; if absent, implies no parameters
+--  &paramPresence - parameter presence requirement
+--  &smimeCaps - contains the object describing how the S/MIME
+--              capabilities are presented.
+--
+--  Example:
+--  cea-3DES-cbc CONTENT-ENCRYPTION ::= {
+--      IDENTIFIER des-ede3-cbc
+--      PARAMS TYPE IV ARE required
+--      SMIME-CAPS { IDENTIFIED BY des-ede3-cbc }
+--  }
+
+CONTENT-ENCRYPTION ::= CLASS {
+    &id                OBJECT IDENTIFIER UNIQUE,
+    &Params            OPTIONAL,
+    &paramPresence     ParamOptions DEFAULT absent,
+    &smimeCaps         SMIME-CAPS OPTIONAL
+} WITH SYNTAX {
+    IDENTIFIER &id
+    [PARAMS [TYPE &Params] ARE &paramPresence]
+    [SMIME-CAPS &smimeCaps]
+}
+
+-- ALGORITHM
+--
+-- Describes a generic algorithm identifier
+--
+--  &id - contains the OID identifying the algorithm
+--  &Params - if present, contains the type for the algorithm
+--               parameters; if absent, implies no parameters
+--  &paramPresence - parameter presence requirement
+--  &smimeCaps - contains the object describing how the S/MIME
+--              capabilities are presented.
+--
+--  This would be used for cases where an algorithm of an unknown
+--  type is used.  In general however, one should either define
+--  a more complete algorithm structure (such as the one above)
+--  or use the TYPE-IDENTIFIER class.
+
+ALGORITHM ::= CLASS {
+    &id OBJECT   IDENTIFIER UNIQUE,
+    &Params      OPTIONAL,
+    &paramPresence ParamOptions DEFAULT absent,
+    &smimeCaps   SMIME-CAPS OPTIONAL
+} WITH SYNTAX {
+    IDENTIFIER &id
+    [PARAMS [TYPE &Params] ARE &paramPresence]
+    [SMIME-CAPS &smimeCaps]
+}
+
+-- AlgorithmIdentifier
+--
+-- Provides the generic structure that is used to encode algorithm
+--    identification and the parameters associated with the
+--    algorithm.
+--
+-- The first parameter represents the type of the algorithm being
+--    used.
+-- The second parameter represents an object set containing the
+--    algorithms that may occur in this situation.
+--    The initial list of required algorithms should occur to the
+--      left of an extension marker; all other algorithms should
+--      occur to the right of an extension marker.
+--
+-- The object class ALGORITHM can be used for generic unspecified
+--     items.
+-- If new ALGORITHM classes are defined, the fields &id and &Params
+--     need to be present as fields in the object in order to use
+--     this parameterized type.
+--
+-- Example:
+--    SignatureAlgorithmIdentifier ::=
+--       AlgorithmIdentifier{SIGNATURE-ALGORITHM, {SignatureAlgSet}}
+
+AlgorithmIdentifier{ALGORITHM-TYPE, ALGORITHM-TYPE:AlgorithmSet} ::=
+        SEQUENCE {
+            algorithm   ALGORITHM-TYPE.&id({AlgorithmSet}),
+            parameters  ALGORITHM-TYPE.
+                   &Params({AlgorithmSet}{@algorithm}) OPTIONAL
+        }
+
+--  S/MIME Capabilities
+--
+--  We have moved the SMIME-CAPS from the module for RFC 3851 to here
+--  because it is used in RFC 4262 (X.509 Certificate Extension for
+--  S/MIME Capabilities)
+--
+--
+--  This class is used to represent an S/MIME capability.  S/MIME
+--  capabilities are used to represent what algorithm capabilities
+--  an individual has.  The classic example was the content encryption
+--  algorithm RC2 where the algorithm id and the RC2 key lengths
+--  supported needed to be advertised, but the IV used is not fixed.
+--  Thus, for RC2 we used
+--
+--  cap-RC2CBC SMIME-CAPS ::= {
+--      TYPE INTEGER ( 40 | 128 ) IDENTIFIED BY rc2-cbc }
+--
+--  where 40 and 128 represent the RC2 key length in number of bits.
+--
+--  Another example where information needs to be shown is for
+--  RSA-OAEP where only specific hash functions or mask generation
+--  functions are supported, but the saltLength is specified by the
+--  sender and not the recipient.  In this case, one can either
+--  generate a number of capability items,
+--  or a new S/MIME capability type could be generated where
+--  multiple hash functions could be specified.
+--
+--
+--  SMIME-CAP
+--
+--  This class is used to associate the type that describes the
+--  capabilities with the object identifier.
+--
+
+SMIME-CAPS ::= CLASS {
+    &id         OBJECT IDENTIFIER UNIQUE,
+    &Type       OPTIONAL
+}
+WITH SYNTAX { [TYPE &Type] IDENTIFIED BY &id }
+
+--
+--  Generic type - this is used for defining values.
+--
+
+--  Define a single S/MIME capability encoding
+
+SMIMECapability{SMIME-CAPS:CapabilitySet} ::= SEQUENCE {
+    capabilityID        SMIME-CAPS.&id({CapabilitySet}),
+    parameters          SMIME-CAPS.&Type({CapabilitySet}
+                            {@capabilityID}) OPTIONAL
+}
+
+--  Define a sequence of S/MIME capability values
+
+SMIMECapabilities { SMIME-CAPS:CapabilitySet } ::=
+        SEQUENCE SIZE (1..MAX) OF SMIMECapability{{CapabilitySet} }
+
+END

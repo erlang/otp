@@ -787,6 +787,9 @@ is_not_used(R, Is, Label, #st{ll=Ll}) ->
 initialized_regs(Is) ->
     initialized_regs(Is, ordsets:new()).
 
+initialized_regs([{set,Dst,_Src,{alloc,Live,_}}|_], Regs0) ->
+    Regs = add_init_regs(free_vars_regs(Live), Regs0),
+    add_init_regs(Dst, Regs);
 initialized_regs([{set,Dst,Src,_}|Is], Regs) ->
     initialized_regs(Is, add_init_regs(Dst, add_init_regs(Src, Regs)));
 initialized_regs([{test,_,_,Src}|Is], Regs) ->

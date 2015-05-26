@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -48,7 +48,10 @@ stop() ->
 ". 
  
 content(WorkSim, SzSim) ->  
-    {A, B, C} = now(),  
+    {A, B, C} = {erlang:phash2([node()]),
+                 inets_time_compat:monotonic_time(),
+                 inets_time_compat:unique_integer()},
+
     random:seed(A, B, C),  
     lists:sort([random:uniform(X) || X <- lists:seq(1, WorkSim)]),  
     lists:flatten(lists:duplicate(SzSim, "Dummy data ")). 

@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2000-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2015. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -128,7 +128,9 @@
 %%              {stop, Reason}
 %%----------------------------------------------------------------------
 init({DefMode, AllowedTypes, AllowedProperties, InitProperties, MyType}) ->
-    Key = term_to_binary({now(), node()}),
+    Key = term_to_binary({{erlang:system_time(), 
+			   erlang:unique_integer()}, 
+			  node()}),
     _F = ?write_function(#oe_CosPropertyService{key=Key,
 						properties=InitProperties}),
     write_result(mnesia:transaction(_F)),

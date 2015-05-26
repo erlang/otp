@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2006-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -45,6 +45,6 @@
   {registered, []},
   {applications, [compiler, gs, hipe, kernel, stdlib, wx]},
   {env, []},
-  {runtime_dependencies, ["wx-1.2","syntax_tools-1.6.14","stdlib-2.0",
-			  "kernel-3.0","hipe-3.10.3","erts-6.0",
+  {runtime_dependencies, ["wx-1.2","syntax_tools-1.6.14","stdlib-2.5",
+			  "kernel-3.0","hipe-3.10.3","erts-7.0",
 			  "compiler-5.0"]}]}.

@@ -46,7 +46,8 @@ typedef wxString wxeLocaleC;
 
 #define WXE_NOT_INITIATED 0
 #define WXE_INITIATED     1
-#define WXE_EXITED        2
+#define WXE_EXITING       2
+#define WXE_EXITED        3
 #define WXE_ERROR        -1
 
 void send_msg(const char *, const wxString *);   // For debugging and error msgs
@@ -60,8 +61,8 @@ public:
 #endif
   void shutdown(wxeMetaCommand& event);
 
-  int dispatch(wxList *, int, int);
-  void dispatch_cb(wxList * batch, wxList * temp, ErlDrvTermData process);
+  int dispatch(wxeFifo *, int, int);
+  void dispatch_cb(wxeFifo * batch, wxeFifo * temp, ErlDrvTermData process);
 
   void wxe_dispatch(wxeCommand& event);
 
@@ -93,7 +94,7 @@ public:
 
   int recurse_level;
   wxList * delayed_cleanup;
-  wxList * delayed_delete;
+  wxeFifo * delayed_delete;
   // Temp container for callbacks
   char *cb_buff;
   int  cb_len;

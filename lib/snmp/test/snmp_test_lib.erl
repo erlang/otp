@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2002-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -30,7 +30,7 @@
 	 lookup/2, 
 	 replace_config/3, set_config/3, get_config/2, get_config/3]).
 -export([fail/3, skip/3]).
--export([millis/0, millis_diff/2, hours/1, minutes/1, seconds/1, sleep/1]).
+-export([hours/1, minutes/1, seconds/1, sleep/1]).
 -export([flush_mqueue/0, trap_exit/0, trap_exit/1]).
 -export([ping/1, local_nodes/0, nodes_on/1]).
 -export([start_node/2]).
@@ -334,14 +334,6 @@ skip(Reason, Module, Line) ->
 %% Time related function
 %% 
 
-millis() ->
-    erlang:now().
-
-millis_diff(A,B) ->
-    T1 = (element(1,A)*1000000) + element(2,A) + (element(3,A)/1000000),
-    T2 = (element(1,B)*1000000) + element(2,B) + (element(3,B)/1000000),
-    T1 - T2.
-
 hours(N)   -> trunc(N * 1000 * 60 * 60).
 minutes(N) -> trunc(N * 1000 * 60).
 seconds(N) -> trunc(N * 1000).
@@ -628,4 +620,3 @@ format_timestamp({_N1, _N2, N3} = Now) ->
         io_lib:format("~.4w:~.2.0w:~.2.0w ~.2.0w:~.2.0w:~.2.0w ~w",
                       [YYYY,MM,DD,Hour,Min,Sec,round(N3/1000)]),
     lists:flatten(FormatDate).
-

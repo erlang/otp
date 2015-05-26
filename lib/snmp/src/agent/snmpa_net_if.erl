@@ -674,7 +674,7 @@ handle_recv(
   #state{mpd_state  = MpdState, note_store = NS, log = Log} = S,
   #transport{socket = Socket} = Transport,
   From, Packet) ->
-    put(n1, erlang:now()),
+    put(n1, erlang:monotonic_time(micro_seconds)),
     LogF =
 	fun(Type, Data) ->
 		log(Log, Type, Data, From)
@@ -1379,15 +1379,7 @@ do_close_log(_) ->
 %%% DEBUG FUNCTIONS
 %%%-----------------------------------------------------------------
 time_in_agent() ->
-    subtr(erlang:now(), get(n1)).
-
-subtr({X1,Y1,Z1}, {X1,Y1,Z2}) ->
-    Z1 - Z2;
-subtr({X1,Y1,Z1}, {X1,Y2,Z2}) ->
-    ((Y1-Y2) * 1000000) + (Z1 - Z2);
-subtr({X1,Y1,Z1}, {X2,Y2,Z2}) ->
-    ((X1 - X2) * 1000000000000) + ((Y1 - Y2) * 1000000) + (Z1 - Z2).
-
+    erlang:monotonic_time(micro_seconds) - get(n1).
 
 %% ----------------------------------------------------------------
 
@@ -1637,10 +1629,3 @@ get_port_info(Id) ->
 
 
 %% ----------------------------------------------------------------
-
-% i(F) ->
-%     i(F, []).
-
-% i(F, A) ->
-%     io:format("~p: " ++ F ++ "~n", [?MODULE|A]).
-

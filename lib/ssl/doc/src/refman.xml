@@ -4,7 +4,7 @@
 <application xmlns:xi="http://www.w3.org/2001/XInclude">
   <header>
     <copyright>
-      <year>1999</year><year>2013</year>
+      <year>1999</year><year>2015</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -28,23 +28,10 @@
     <rev>B</rev>
     <file>refman.sgml</file>
   </header>
-  <description>
-    <p>The <em>SSL</em> application provides secure communication over
-      sockets.
-      </p>
-    <p>This product includes software developed by the OpenSSL Project for
-      use in the OpenSSL Toolkit (http://www.openssl.org/).
-      </p>
-    <p>This product includes cryptographic software written by Eric Young
-      (eay@cryptsoft.com).  
-      </p>
-    <p>This product includes software written by Tim Hudson
-      (tjh@cryptsoft.com).
-      </p>
-    <p>For full OpenSSL and SSLeay license texts, see <seealso marker="licenses#licenses">Licenses</seealso>.</p>
-  </description>
   <xi:include href="ssl_app.xml"/>
   <xi:include href="ssl.xml"/>
+  <xi:include href="ssl_crl_cache.xml"/>
+  <xi:include href="ssl_crl_cache_api.xml"/>
   <xi:include href="ssl_session_cache_api.xml"/>
 </application>
 

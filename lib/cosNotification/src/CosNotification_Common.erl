@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2011. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2015. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -39,8 +39,9 @@
 %%--------------- EXPORTS ------------------------------------
 %% External MISC
 -export([get_option/3, 
-         create_name/2, 
+         create_name/0,
          create_name/1,
+         create_name/2, 
 	 create_id/0,
 	 create_id/1,
          is_debug_compiled/0,
@@ -110,17 +111,20 @@ get_option(Key, OptionList, DefaultList) ->
                     {error, "Invalid option"}
             end
     end.
-%%-----------------------------------------------------------%
-%% function : create_name/2
+
+%%------------------------------------------------------------
+%% function : create_name
 %% Arguments: 
 %% Returns  : 
-%% Exception: 
-%% Effect   : 
+%% Effect   : Create a unique name to use when, for eaxmple, starting
+%%            a new server.
 %%------------------------------------------------------------
-create_name(Name,Type) ->
-    {MSec, Sec, USec} = erlang:now(),
-    lists:concat(['oe_',node(),'_',Type,'_',Name,'_',MSec, '_', Sec, '_', USec]).
- 
+create_name() ->
+    Time = erlang:system_time(),
+    Unique = erlang:unique_integer([positive]),
+    lists:concat(['oe_',node(),'_',Time,'_',Unique]).
+
+
 %%-----------------------------------------------------------%
 %% function : create_name/1
 %% Arguments: 
@@ -129,8 +133,21 @@ create_name(Name,Type) ->
 %% Effect   : 
 %%------------------------------------------------------------ 
 create_name(Type) ->
-    {MSec, Sec, USec} = erlang:now(),
-    lists:concat(['oe_',node(),'_',Type,'_',MSec, '_', Sec, '_', USec]).
+    Time = erlang:system_time(),
+    Unique = erlang:unique_integer([positive]),
+    lists:concat(['oe_',node(),'_',Type,'_',Time,'_',Unique]).
+
+%%-----------------------------------------------------------%
+%% function : create_name/2
+%% Arguments: 
+%% Returns  : 
+%% Exception: 
+%% Effect   : 
+%%------------------------------------------------------------
+create_name(Name,Type) ->
+    Time = erlang:system_time(),
+    Unique = erlang:unique_integer([positive]),
+    lists:concat(['oe_',node(),'_',Type,'_',Name,'_',Time,'_',Unique]).
  
 %%------------------------------------------------------------
 %% function : create_id/0
@@ -146,16 +163,16 @@ create_name(Type) ->
 %%------------------------------------------------------------
 create_id(-1) ->
     1;
-create_id( 2147483647) ->
+create_id(2147483647) ->
     -2147483648;
 create_id(OldID) ->
     OldID+1.
 
 create_id() ->
-    {_A,_B,C}=now(),
+    {_A,_B,C}=erlang:timestamp(),
     C.
  
-%%-----------------------------------------------------------%
+%%------------------------------------------------------------
 %% function : type_check
 %% Arguments: Obj  - objectrefernce to test.
 %%            Mod  - Module which contains typeID/0.

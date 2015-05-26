@@ -172,7 +172,7 @@ no_client_negotiate_but_server_supports_npn(Config) when is_list(Config) ->
     run_npn_handshake(Config,
 			   [],
 			   [{next_protocols_advertised, [<<"spdy/1">>, <<"http/1.1">>, <<"http/1.0">>]}],
-			   {error, next_protocol_not_negotiated}).
+			   {error, protocol_not_negotiated}).
 %--------------------------------------------------------------------------------
 
 
@@ -180,7 +180,7 @@ client_negotiate_server_does_not_support(Config) when is_list(Config) ->
     run_npn_handshake(Config,
 			   [{client_preferred_next_protocols, {client, [<<"spdy/2">>], <<"http/1.1">>}}],
 			   [],
-			   {error, next_protocol_not_negotiated}).
+			   {error, protocol_not_negotiated}).
 
 %--------------------------------------------------------------------------------
 renegotiate_from_client_after_npn_handshake(Config) when is_list(Config) ->
@@ -311,8 +311,8 @@ run_npn_handshake(Config, ClientExtraOpts, ServerExtraOpts, ExpectedProtocol) ->
 
 assert_npn(Socket, Protocol) ->
     ct:log("Negotiated Protocol ~p, Expecting: ~p ~n",
-		       [ssl:negotiated_next_protocol(Socket), Protocol]),
-    Protocol = ssl:negotiated_next_protocol(Socket).
+		       [ssl:negotiated_protocol(Socket), Protocol]),
+    Protocol = ssl:negotiated_protocol(Socket).
 
 assert_npn_and_renegotiate_and_send_data(Socket, Protocol, Data) ->
     assert_npn(Socket, Protocol),
@@ -332,7 +332,7 @@ ssl_receive_and_assert_npn(Socket, Protocol, Data) ->
 
 ssl_send(Socket, Data) ->
     ct:log("Connection info: ~p~n",
-               [ssl:connection_info(Socket)]),
+               [ssl:connection_information(Socket)]),
     ssl:send(Socket, Data).
 
 ssl_receive(Socket, Data) ->
@@ -340,7 +340,7 @@ ssl_receive(Socket, Data) ->
 
 ssl_receive(Socket, Data, Buffer) ->
     ct:log("Connection info: ~p~n",
-               [ssl:connection_info(Socket)]),
+               [ssl:connection_information(Socket)]),
     receive
     {ssl, Socket, MoreData} ->
         ct:log("Received ~p~n",[MoreData]),
@@ -360,4 +360,4 @@ ssl_receive(Socket, Data, Buffer) ->
 
 
 connection_info_result(Socket) ->
-    ssl:connection_info(Socket).
+    ssl:connection_information(Socket).

@@ -197,8 +197,8 @@ gen_funcs(Defs) ->
     w("       if(recurse_level > 1 && refd->type != 4) {~n"),
     w("          delayed_delete->Append(Ecmd.Save());~n"),
     w("       } else {~n"),
-    w("          ((WxeApp *) wxTheApp)->clearPtr(This);~n"),
-    w("          delete_object(This, refd); }~n"),
+    w("          delete_object(This, refd);~n"),
+    w("          ((WxeApp *) wxTheApp)->clearPtr(This);}~n"),
     w("  } } break;~n"),
     w("  case WXE_REGISTER_OBJECT: {~n"
       "     registerPid(bp, Ecmd.caller, memenv);~n"
@@ -975,6 +975,13 @@ build_ret(Name = "ev->m_scanCode",_,#type{base=bool,single=true,by_val=true}) ->
     w(" rt.addBool(~s);~n",[Name]),
     w("#else~n rt.addBool(false);~n",[]),
     w("#endif~n",[]);
+build_ret(Name = "ev->m_metaDown",_,#type{base=bool,single=true,by_val=true}) ->
+    %% Hardcoded workaround for MAC on 2.9 and later
+    w("#if wxCHECK_VERSION(2,9,0) && defined(_MACOSX)~n", []),
+    w(" rt.addBool(ev->m_rawControlDown);~n",[]),
+    w("#else~n rt.addBool(~s);~n",[Name]),
+    w("#endif~n",[]);
+
 build_ret(Name,_,#type{base=bool,single=true,by_val=true}) ->
     w(" rt.addBool(~s);~n",[Name]);
 build_ret(Name,{arg, both},#type{base=int,single=true,mod=M}) ->

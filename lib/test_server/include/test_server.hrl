@@ -21,7 +21,7 @@
 -line_trace(true).
 -define(line,
 	io:format(lists:concat([?MODULE,",",integer_to_list(?LINE),": ~p"]),
-		  [erlang:now()]),).
+		  [erlang:monotonic_time()-erlang:system_info(start_time)]),).
 -else.
 -define(line,).
 -endif.

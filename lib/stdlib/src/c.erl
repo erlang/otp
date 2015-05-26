@@ -27,7 +27,7 @@
 	 lc_batch/0, lc_batch/1,
 	 i/3,pid/3,m/0,m/1,
 	 bt/1, q/0,
-	 erlangrc/0,erlangrc/1,bi/1, flush/0, regs/0,
+	 erlangrc/0,erlangrc/1,bi/1, flush/0, regs/0, uptime/0,
 	 nregs/0,pwd/0,ls/0,ls/1,cd/1,memory/1,memory/0, xm/1]).
 
 -export([display_info/1]).
@@ -65,6 +65,7 @@ help() ->
 		   "q()        -- quit - shorthand for init:stop()\n"
 		   "regs()     -- information about registered processes\n"
 		   "nregs()    -- information about all registered processes\n"
+		   "uptime()   -- print node uptime\n"
 		   "xm(M)      -- cross reference check a module\n"
 		   "y(File)    -- generate a Yecc parser\n">>).
 
@@ -772,6 +773,26 @@ memory() -> erlang:memory().
                Size :: non_neg_integer().
 
 memory(TypeSpec) -> erlang:memory(TypeSpec).
+
+%%
+%% uptime/0
+%%
+
+-spec uptime() -> 'ok'.
+
+uptime() ->
+    io:format("~s~n", [uptime(get_uptime())]).
+
+uptime({D, {H, M, S}}) ->
+    lists:flatten(
+      [[ io_lib:format("~p days, ", [D]) || D > 0 ],
+       [ io_lib:format("~p hours, ", [H]) || D+H > 0 ],
+       [ io_lib:format("~p minutes and ", [M]) || D+H+M > 0 ],
+       io_lib:format("~p seconds", [S])]).
+
+get_uptime() ->
+    {UpTime, _} = erlang:statistics(wall_clock),
+    calendar:seconds_to_daystime(UpTime div 1000).
 
 %%
 %% Cross Reference Check

@@ -50,6 +50,8 @@ XML_REF3_FILES = \
 	erl_syntax_lib.xml \
 	erl_tidy.xml \
 	igor.xml \
+	merl.xml \
+	merl_transform.xml \
 	prettypr.xml
 
 XML_PART_FILES = part.xml part_notes.xml

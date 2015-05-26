@@ -53,5 +53,7 @@ SeqBig ::= SEQUENCE {
   i INTEGER
 }
 
+EnumSkip ::= ENUMERATED {a(2), ..., b, c, d, e, f}
+
 END
 

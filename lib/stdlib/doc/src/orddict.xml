@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2000</year><year>2013</year>
+      <year>2000</year><year>2015</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -125,8 +125,7 @@
           <c><anno>Orddict</anno></c> together with an extra argument <c>Acc</c>
           (short for accumulator). <c><anno>Fun</anno></c> must return a new
           accumulator which is passed to the next call. <c><anno>Acc0</anno></c> is
-          returned if the list is empty. The evaluation order is
-          undefined.</p>
+          returned if the list is empty.</p>
       </desc>
     </func>
     <func>
@@ -150,8 +149,7 @@
       <fsummary>Map a function over a dictionary</fsummary>
       <desc>
         <p><c>map</c> calls <c><anno>Fun</anno></c> on successive keys and values
-          of <c><anno>Orddict1</anno></c> to return a new value for each key.
-          The evaluation order is undefined.</p>
+          of <c><anno>Orddict1</anno></c> to return a new value for each key.</p>
       </desc>
     </func>
     <func>

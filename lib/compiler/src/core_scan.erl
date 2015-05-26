@@ -271,8 +271,10 @@ scan1("->" ++ Cs, Toks, Pos) ->
     scan1(Cs, [{'->',Pos}|Toks], Pos);
 scan1("-|" ++ Cs, Toks, Pos) ->
     scan1(Cs, [{'-|',Pos}|Toks], Pos);
-scan1("::" ++ Cs, Toks, Pos) ->
-    scan1(Cs, [{'::',Pos}|Toks], Pos);
+scan1(":=" ++ Cs, Toks, Pos) ->
+    scan1(Cs, [{':=',Pos}|Toks], Pos);
+scan1("=>" ++ Cs, Toks, Pos) ->
+    scan1(Cs, [{'=>',Pos}|Toks], Pos);
 scan1([C|Cs], Toks, Pos) ->				%Punctuation character
     P = list_to_atom([C]),
     scan1(Cs, [{P,Pos}|Toks], Pos);

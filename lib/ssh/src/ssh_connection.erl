@@ -196,15 +196,16 @@ reply_request(_,false, _, _) ->
 %%--------------------------------------------------------------------
 ptty_alloc(ConnectionHandler, Channel, Options) ->
     ptty_alloc(ConnectionHandler, Channel, Options, infinity).
-ptty_alloc(ConnectionHandler, Channel, Options, TimeOut) ->
+ptty_alloc(ConnectionHandler, Channel, Options0, TimeOut) ->
+    Options = backwards_compatible(Options0, []),
     {Width, PixWidth} = pty_default_dimensions(width, Options),
-    {Hight, PixHight} = pty_default_dimensions(hight, Options),
+    {Height, PixHeight} = pty_default_dimensions(height, Options),
     pty_req(ConnectionHandler, Channel,
-	    proplists:get_value(term, Options, default_term()),
+	    proplists:get_value(term, Options, os:getenv("TERM", ?DEFAULT_TERMINAL)),
 	    proplists:get_value(width, Options, Width),
-	    proplists:get_value(hight, Options, Hight),
+	    proplists:get_value(height, Options, Height),
 	    proplists:get_value(pixel_widh, Options, PixWidth),
-	    proplists:get_value(pixel_hight, Options, PixHight),
+	    proplists:get_value(pixel_height, Options, PixHeight),
 	    proplists:get_value(pty_opts, Options, []), TimeOut
 	   ).
 %%--------------------------------------------------------------------
@@ -1340,10 +1341,11 @@ decode_ip(Addr) when is_binary(Addr) ->
 	{ok,A}    -> A
     end.
 
-default_term() ->
-    case os:getenv("TERM") of
-	false ->
-	    ?DEFAULT_TERMINAL;
-	Str when is_list(Str)->
-	    Str
-    end.	
+backwards_compatible([], Acc) ->
+    Acc;
+backwards_compatible([{hight, Value} | Rest], Acc) ->
+    backwards_compatible(Rest, [{height, Value} | Acc]);
+backwards_compatible([{pixel_hight, Value} | Rest], Acc) ->
+    backwards_compatible(Rest, [{height, Value} | Acc]);
+backwards_compatible([Value| Rest], Acc) ->
+    backwards_compatible(Rest, [ Value | Acc]).

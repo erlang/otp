@@ -39,7 +39,8 @@
 	 get_length/1, make_atom/1, make_string/1, reverse_list_test/1,
 	 otp_9828/1,
 	 otp_9668/1, consume_timeslice/1, dirty_nif/1, dirty_nif_send/1,
-	 dirty_nif_exception/1, nif_schedule/1
+	 dirty_nif_exception/1, nif_schedule/1,
+	 nif_exception/1, nif_nan_and_inf/1, nif_atom_too_long/1
 	]).
 
 -export([many_args_100/100]).
@@ -68,7 +69,8 @@ all() ->
      make_string,reverse_list_test,
      otp_9828,
      otp_9668, consume_timeslice,
-     nif_schedule, dirty_nif, dirty_nif_send, dirty_nif_exception
+     nif_schedule, dirty_nif, dirty_nif_send, dirty_nif_exception,
+     nif_exception, nif_nan_and_inf, nif_atom_too_long
     ].
 
 groups() -> 
@@ -451,7 +453,7 @@ maps(Config) when is_list(Config) ->
     M  = maps_from_list_nif(Pairs),
     R = {RIs,Is} = sorted_list_from_maps_nif(M),
     io:format("Pairs: ~p~nMap: ~p~nReturned: ~p~n", [lists:sort(Pairs),M,R]),
-    Is = lists:sort(Pairs),
+    true = (lists:sort(Is) =:= lists:sort(Pairs)),
     Is = lists:reverse(RIs),
 
     #{} = maps_from_list_nif([]),
@@ -1188,7 +1190,9 @@ send3(Config) when is_list(Config) ->
     %% Let a number of processes send random message blobs between each other
     %% using enif_send. Kill and spawn new ones randomly to keep a ~constant
     %% number of workers running.
-    Seed = now(),
+    Seed = {erlang:monotonic_time(),
+	    erlang:time_offset(),
+	    erlang:unique_integer()},
     io:format("seed: ~p\n",[Seed]), 
     random:seed(Seed),    
     ets:new(nif_SUITE,[named_table,public]),
@@ -1595,17 +1599,84 @@ dirty_nif_exception(Config) when is_list(Config) ->
 	N when is_integer(N) ->
 	    ensure_lib_loaded(Config),
 	    try
-	        call_dirty_nif_exception(),
+		%% this checks that the expected exception
+		%% occurs when the NIF returns the result
+		%% of enif_make_badarg directly
+	        call_dirty_nif_exception(1),
 	        ?t:fail(expected_badarg)
 	    catch
 	        error:badarg ->
-		    [{?MODULE,call_dirty_nif_exception,[],_}|_] =
+		    [{?MODULE,call_dirty_nif_exception,[1],_}|_] =
+			erlang:get_stacktrace(),
+		    ok
+	    end,
+	    try
+		%% this checks that the expected exception
+		%% occurs when the NIF calls enif_make_badarg
+		%% at some point but then returns a value that
+		%% isn't an exception
+	        call_dirty_nif_exception(0),
+	        ?t:fail(expected_badarg)
+	    catch
+	        error:badarg ->
+		    [{?MODULE,call_dirty_nif_exception,[0],_}|_] =
 			erlang:get_stacktrace(),
 		    ok
 	    end
     catch
 	error:badarg ->
 	    {skipped,"No dirty scheduler support"}
+    end.
+
+nif_exception(Config) when is_list(Config) ->
+    ensure_lib_loaded(Config),
+    try
+	call_nif_exception(),
+	?t:fail(expected_badarg)
+    catch
+	error:badarg ->
+	    ok
+    end.
+
+nif_nan_and_inf(Config) when is_list(Config) ->
+    ensure_lib_loaded(Config),
+    try
+	call_nif_nan_or_inf(nan),
+	?t:fail(expected_badarg)
+    catch
+	error:badarg ->
+	    ok
+    end,
+    try
+	call_nif_nan_or_inf(inf),
+	?t:fail(expected_badarg)
+    catch
+	error:badarg ->
+	    ok
+    end,
+    try
+	call_nif_nan_or_inf(tuple),
+	?t:fail(expected_badarg)
+    catch
+	error:badarg ->
+	    ok
+    end.
+
+nif_atom_too_long(Config) when is_list(Config) ->
+    ensure_lib_loaded(Config),
+    try
+	call_nif_atom_too_long(all),
+	?t:fail(expected_badarg)
+    catch
+	error:badarg ->
+	    ok
+    end,
+    try
+	call_nif_atom_too_long(len),
+	?t:fail(expected_badarg)
+    catch
+	error:badarg ->
+	    ok
     end.
 
 next_msg(_Pid) ->
@@ -1741,8 +1812,11 @@ consume_timeslice_nif(_,_) -> ?nif_stub.
 call_nif_schedule(_,_) -> ?nif_stub.
 call_dirty_nif(_,_,_) -> ?nif_stub.
 send_from_dirty_nif(_) -> ?nif_stub.
-call_dirty_nif_exception() -> ?nif_stub.
+call_dirty_nif_exception(_) -> ?nif_stub.
 call_dirty_nif_zero_args() -> ?nif_stub.
+call_nif_exception() -> ?nif_stub.
+call_nif_nan_or_inf(_) -> ?nif_stub.
+call_nif_atom_too_long(_) -> ?nif_stub.
 
 %% maps
 is_map_nif(_) -> ?nif_stub.
