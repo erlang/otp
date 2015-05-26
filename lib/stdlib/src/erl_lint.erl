@@ -2845,10 +2845,9 @@ check_record_types([{type, _, field_type, [{atom, AL, FName}, Type]}|Left],
 check_record_types([], _Name, _DefFields, SeenVars, St, _SeenFields) ->
     {SeenVars, St}.
 
-used_type(TypePair, L, St) ->
-    Usage = St#lint.usage,
+used_type(TypePair, L, #lint{usage = Usage, file = File} = St) ->
     OldUsed = Usage#usage.used_types,
-    UsedTypes = dict:store(TypePair, L, OldUsed),
+    UsedTypes = dict:store(TypePair, erl_anno:set_file(File, L), OldUsed),
     St#lint{usage=Usage#usage{used_types=UsedTypes}}.
 
 is_default_type({Name, NumberOfTypeVariables}) ->
