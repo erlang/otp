@@ -87,8 +87,9 @@ ex_binaries_errors_utf8(Config) when is_list(Config) ->
     %% Now, try with longer binary (trapping)
     BrokenPart = list_to_binary(lists:seq(128,255)),
     BrokenSz = byte_size(BrokenPart),
+    Seq255 = lists:seq(1,255),
     [ begin
-	  OKList = lists:flatten(lists:duplicate(N,lists:seq(1,255))),
+	  OKList = lists:flatten(lists:duplicate(N,Seq255)),
 	  OKBin = unicode:characters_to_binary(OKList),
 	  OKLen = length(OKList),
 	  %% Copy to avoid that the binary get's writable

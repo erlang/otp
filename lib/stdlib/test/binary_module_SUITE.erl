@@ -993,43 +993,51 @@ random_parts(X,N) ->
 random_ref_comp(doc) ->
     ["Test pseudorandomly generated cases against reference imlementation"];
 random_ref_comp(Config) when is_list(Config) ->
-    ?line put(success_counter,0),
-    ?line random:seed({1271,769940,559934}),
-    ?line do_random_match_comp(5000,{1,40},{30,1000}),
+    put(success_counter,0),
+    random:seed({1271,769940,559934}),
+    Nr = {1,40},
+    Hr = {30,1000},
+    I1 = 1500,
+    I2 = 5,
+    do_random_match_comp(I1,Nr,Hr),
     io:format("Number of successes: ~p~n",[get(success_counter)]),
-    ?line do_random_match_comp2(5000,{1,40},{30,1000}),
+    do_random_match_comp2(I1,Nr,Hr),
     io:format("Number of successes: ~p~n",[get(success_counter)]),
-    ?line do_random_match_comp3(5000,{1,40},{30,1000}),
+    do_random_match_comp3(I1,Nr,Hr),
     io:format("Number of successes: ~p~n",[get(success_counter)]),
-    ?line do_random_match_comp4(5000,{1,40},{30,1000}),
+    do_random_match_comp4(I1,Nr,Hr),
     io:format("Number of successes: ~p~n",[get(success_counter)]),
-    ?line do_random_matches_comp(5000,{1,40},{30,1000}),
+    do_random_matches_comp(I1,Nr,Hr),
     io:format("Number of successes: ~p~n",[get(success_counter)]),
-    ?line do_random_matches_comp2(5000,{1,40},{30,1000}),
+    do_random_matches_comp2(I1,Nr,Hr),
     io:format("Number of successes: ~p~n",[get(success_counter)]),
-    ?line do_random_matches_comp3(5,{1,40},{30,1000}),
-    ?line erts_debug:set_internal_state(available_internal_state,true),
-    ?line io:format("oldlimit: ~p~n",[ erts_debug:set_internal_state(binary_loop_limit,100)]),
-    ?line do_random_match_comp(5000,{1,40},{30,1000}),
-    ?line do_random_matches_comp3(5,{1,40},{30,1000}),
-    ?line io:format("limit was: ~p~n",[ erts_debug:set_internal_state(binary_loop_limit,default)]),
-    ?line erts_debug:set_internal_state(available_internal_state,false),
+    do_random_matches_comp3(I2,Nr,Hr),
+    erts_debug:set_internal_state(available_internal_state,true),
+    io:format("oldlimit: ~p~n",[ erts_debug:set_internal_state(binary_loop_limit,100)]),
+    do_random_match_comp(I1,Nr,Hr),
+    do_random_matches_comp3(I2,Nr,Hr),
+    io:format("limit was: ~p~n",[ erts_debug:set_internal_state(binary_loop_limit,default)]),
+    erts_debug:set_internal_state(available_internal_state,false),
     ok.
 
 random_ref_sr_comp(doc) ->
     ["Test pseudorandomly generated cases against reference imlementation of split and replace"];
 random_ref_sr_comp(Config) when is_list(Config) ->
-    ?line put(success_counter,0),
-    ?line random:seed({1271,769940,559934}),
-    ?line do_random_split_comp(5000,{1,40},{30,1000}),
+    put(success_counter,0),
+    random:seed({1271,769940,559934}),
+    Nr = {1,40},
+    Hr = {30,1000},
+    I1 = 1500,
+    do_random_split_comp(I1,Nr,Hr),
     io:format("Number of successes: ~p~n",[get(success_counter)]),
-    ?line do_random_replace_comp(5000,{1,40},{30,1000}),
+    do_random_replace_comp(I1,Nr,Hr),
     io:format("Number of successes: ~p~n",[get(success_counter)]),
-    ?line do_random_split_comp2(5000,{1,40},{30,1000}),
+    do_random_split_comp2(I1,Nr,Hr),
     io:format("Number of successes: ~p~n",[get(success_counter)]),
-    ?line do_random_replace_comp2(5000,{1,40},{30,1000}),
+    do_random_replace_comp2(I1,Nr,Hr),
     io:format("Number of successes: ~p~n",[get(success_counter)]),
     ok.
+
 random_ref_fla_comp(doc) ->
     ["Test pseudorandomly generated cases against reference imlementation of split and replace"];
 random_ref_fla_comp(Config) when is_list(Config) ->

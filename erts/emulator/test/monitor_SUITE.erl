@@ -665,98 +665,86 @@ list_cleanup(Config) when is_list(Config) ->
 mixer(doc) ->
     "Test mixing of internal and external monitors.";
 mixer(Config) when is_list(Config) ->
-    ?line PA = filename:dirname(code:which(?MODULE)),
-    ?line NN = [j0,j1,j2,j3],
-%    ?line NN = [j0,j1],
-    ?line NL0 = [begin
-		    {ok, J} = test_server:start_node
-				(X, slave, [{args, "-pa " ++ PA}]), 
-		    J 
-		end  || X <- NN],
-    ?line NL1 = lists:duplicate(2,node()) ++ NL0,
-    ?line Perm = perm(NL1),
-    ?line lists:foreach(
-	    fun(NL) ->
-		    ?line Js = [ start_jeeves({[],M}) || M <- (NL ++ NL) ],
-		    ?line [ask_jeeves(P,{monitor_process,self()}) || P <- Js],
-		    ?line {monitored_by,MB} = 
-			process_info(self(),monitored_by),
-		    ?line MBL = lists:sort(MB),
-		    ?line JsL = lists:sort(Js),
-		    ?line MBL = JsL,
-		    ?line {monitors,[]}  = process_info(self(),monitors),
-		    ?line [tell_jeeves(P,{exit,flaff}) || P <- Js],
-		    ?line wait_for_m([],[],200)
-	    end,
-	    Perm),
-    ?line lists:foreach(
-	    fun(NL) ->
-		    ?line Js = [ start_jeeves({[],M}) || M <- (NL ++ NL) ],
-		    ?line Rs = [begin
-				    {monitor_process,Ref} = 
-					ask_jeeves(P,{monitor_process,self()}),
-				    {P,Ref}
-				end
-				|| P <- Js],
-		    ?line {monitored_by,MB} = 
-			process_info(self(),monitored_by),
-		    ?line MBL = lists:sort(MB),
-		    ?line JsL = lists:sort(Js),
-		    ?line MBL = JsL,
-		    ?line {monitors,[]}  = process_info(self(),monitors),
-		    ?line [ask_jeeves(P,{demonitor,Ref}) || {P,Ref} <- Rs],
-		    ?line wait_for_m([],[],200),
-		    ?line [tell_jeeves(P,{exit,flaff}) || P <- Js]
-	    end,
-	    Perm),
-    ?line lists:foreach(
-	    fun(NL) ->
-		    ?line Js = [ start_jeeves({[],M}) || M <- (NL ++ NL) ],
-		    ?line [ask_jeeves(P,{monitor_process,self()}) || P <- Js],
-		    ?line [erlang:monitor(process,P) || P <- Js],
-		    ?line {monitored_by,MB} = 
-			process_info(self(),monitored_by),
-		    ?line MBL = lists:sort(MB),
-		    ?line JsL = lists:sort(Js),
-		    ?line MBL = JsL,
-		    ?line {monitors,M} = 
-			process_info(self(),monitors),
-		    ?line ML = lists:sort([P||{process,P} <- M]),
-		    ?line ML = JsL,
-		    ?line [begin
-			       tell_jeeves(P,{exit,flaff}),
-			       receive {'DOWN',_,process,P,_} -> ok end
-			   end || P <- Js],
-		    ?line wait_for_m([],[],200)
-	    end,
-	    Perm),
-    ?line lists:foreach(
-	    fun(NL) ->
-		    ?line Js = [ start_jeeves({[],M}) || M <- (NL ++ NL) ],
-		    ?line Rs = [begin
-				    {monitor_process,Ref} = 
-					ask_jeeves(P,{monitor_process,self()}),
-				    {P,Ref}
-				end
-				|| P <- Js],
-		    ?line R2s = [{P,erlang:monitor(process,P)} || P <- Js],
-		    ?line {monitored_by,MB} = 
-			process_info(self(),monitored_by),
-		    ?line MBL = lists:sort(MB),
-		    ?line JsL = lists:sort(Js),
-		    ?line MBL = JsL,
-		    ?line {monitors,M} = 
-			process_info(self(),monitors),
-		    ?line ML = lists:sort([P||{process,P} <- M]),
-		    ?line ML = JsL,
-		    ?line [ask_jeeves(P,{demonitor,Ref}) || {P,Ref} <- Rs],
-		    ?line wait_for_m(lists:sort(M),[],200),
-		    ?line [erlang:demonitor(Ref) || {_P,Ref} <- R2s],
-		    ?line wait_for_m([],[],200),
-		    ?line [tell_jeeves(P,{exit,flaff}) || P <- Js]
-	    end,
-	    Perm),
-    [test_server:stop_node(K) || K <- NL0 ],
+    PA = filename:dirname(code:which(?MODULE)),
+    NN = [j0,j1,j2],
+    NL0 = [begin
+               {ok, J} = test_server:start_node(X,slave,[{args, "-pa " ++ PA}]),
+               J
+           end  || X <- NN],
+    NL1 = lists:duplicate(2,node()) ++ NL0,
+    Perm = perm(NL1),
+    lists:foreach(
+      fun(NL) ->
+              Js = [start_jeeves({[],M}) || M <- (NL ++ NL)],
+              [ask_jeeves(P,{monitor_process,self()}) || P <- Js],
+              {monitored_by,MB} = process_info(self(),monitored_by),
+              MBL = lists:sort(MB),
+              JsL = lists:sort(Js),
+              MBL = JsL,
+              {monitors,[]}  = process_info(self(),monitors),
+              [tell_jeeves(P,{exit,flaff}) || P <- Js],
+              wait_for_m([],[],200)
+      end,
+      Perm),
+    lists:foreach(
+      fun(NL) ->
+              Js = [start_jeeves({[],M}) || M <- (NL ++ NL)],
+              Rs = [begin
+                        {monitor_process,Ref} = ask_jeeves(P,{monitor_process,self()}),
+                        {P,Ref}
+                    end || P <- Js],
+              {monitored_by,MB} = process_info(self(),monitored_by),
+              MBL = lists:sort(MB),
+              JsL = lists:sort(Js),
+              MBL = JsL,
+              {monitors,[]}  = process_info(self(),monitors),
+              [ask_jeeves(P,{demonitor,Ref}) || {P,Ref} <- Rs],
+              wait_for_m([],[],200),
+              [tell_jeeves(P,{exit,flaff}) || P <- Js]
+      end,
+      Perm),
+    lists:foreach(
+      fun(NL) ->
+              Js = [start_jeeves({[],M}) || M <- (NL ++ NL)],
+              [ask_jeeves(P,{monitor_process,self()}) || P <- Js],
+              [erlang:monitor(process,P) || P <- Js],
+              {monitored_by,MB} = process_info(self(),monitored_by),
+              MBL = lists:sort(MB),
+              JsL = lists:sort(Js),
+              MBL = JsL,
+              {monitors,M} = process_info(self(),monitors),
+              ML = lists:sort([P||{process,P} <- M]),
+              ML = JsL,
+              [begin
+                   tell_jeeves(P,{exit,flaff}),
+                   receive {'DOWN',_,process,P,_} -> ok end
+               end || P <- Js],
+              wait_for_m([],[],200)
+      end,
+      Perm),
+    lists:foreach(
+      fun(NL) ->
+              Js = [start_jeeves({[],M}) || M <- (NL ++ NL)],
+              Rs = [begin
+                        {monitor_process,Ref} = ask_jeeves(P,{monitor_process,self()}),
+                        {P,Ref}
+                    end || P <- Js],
+              R2s = [{P,erlang:monitor(process,P)} || P <- Js],
+              {monitored_by,MB} = process_info(self(),monitored_by),
+              MBL = lists:sort(MB),
+              JsL = lists:sort(Js),
+              MBL = JsL,
+              {monitors,M} = process_info(self(),monitors),
+              ML = lists:sort([P||{process,P} <- M]),
+              ML = JsL,
+              [ask_jeeves(P,{demonitor,Ref}) || {P,Ref} <- Rs],
+              wait_for_m(lists:sort(M),[],200),
+              [erlang:demonitor(Ref) || {_P,Ref} <- R2s],
+              wait_for_m([],[],200),
+              [tell_jeeves(P,{exit,flaff}) || P <- Js]
+      end,
+      Perm),
+    [test_server:stop_node(K) || K <- NL0],
     ok.
 
 named_down(doc) -> ["Test that DOWN message for a named monitor isn't"

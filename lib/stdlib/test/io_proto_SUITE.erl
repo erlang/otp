@@ -482,7 +482,7 @@ unicode_options_gen(Config) when is_list(Config) ->
     PrivDir = ?config(priv_dir, Config),
     AllModes = [utf8,utf16,{utf16,big},{utf16,little},
 		utf32,{utf32,big},{utf32,little}],
-    FSize = 17*1024,
+    FSize = 9*1024,
     NumItersRead = 2,
     NumItersWrite = 2,
     Dir = filename:join(PrivDir, "GENDATA1"),

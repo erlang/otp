@@ -3061,13 +3061,13 @@ time_lookup(Config) when is_list(Config) ->
 				   "~p ets lookups/s",[Values]))}.
 
 time_lookup_do(Opts) ->
-    ?line Tab = ets_new(foo,Opts),
-    ?line fill_tab(Tab,foo),
-    ?line ets:insert(Tab,{{a,key},foo}),
-    ?line {Time,_} = ?t:timecall(test_server,do_times,
-				    [10000,ets,lookup,[Tab,{a,key}]]),
-    ?line true = ets:delete(Tab),
-    round(10000 / Time). % lookups/s
+    Tab = ets_new(foo,Opts),
+    fill_tab(Tab,foo),
+    ets:insert(Tab,{{a,key},foo}),
+    {Time,_} = ?t:timecall(test_server,do_times,
+          		    [100000,ets,lookup,[Tab,{a,key}]]),
+    true = ets:delete(Tab),
+    round(100000 / Time). % lookups/s
 
 badlookup(doc) ->
     ["Check proper return values from bad lookups in existing/non existing "
