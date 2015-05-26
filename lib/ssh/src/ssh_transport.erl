@@ -519,10 +519,15 @@ alg_final(SSH0) ->
     {ok,SSH6} = decompress_final(SSH5),
     SSH6.
 
-select_all(CL, SL) ->
+select_all(CL, SL) when length(CL) + length(SL) < 50 ->
     A = CL -- SL,  %% algortihms only used by client
     %% algorithms used by client and server (client pref)
-    lists:map(fun(ALG) -> list_to_atom(ALG) end, (CL -- A)).
+    lists:map(fun(ALG) -> list_to_atom(ALG) end, (CL -- A));
+select_all(_CL, _SL) ->
+    throw(#ssh_msg_disconnect{code = ?SSH_DISCONNECT_PROTOCOL_ERROR,
+			      description = "Too many algorithms", 
+			      language = "en"}).
+
 
 select([], []) ->
     none;
