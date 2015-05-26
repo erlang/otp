@@ -554,10 +554,10 @@ flush(Rs, [{set,[_],[],{put_tuple,_}}|_]=Is0, Acc0) ->
     Acc = flush_all(Rs, Is0, Acc0),
     {[],Acc};
 flush(Rs0, [{set,Ds,Ss,_Op}|_], Acc0) ->
-    Save = gb_sets:from_list(Ss),
+    Save = cerl_sets:from_list(Ss),
     Acc = save_regs(Rs0, Save, Acc0),
     Rs1 = foldl(fun(S, A) -> mark(S, A, clean) end, Rs0, Ss),
-    Kill = gb_sets:from_list(Ds),
+    Kill = cerl_sets:from_list(Ds),
     Rs = kill_regs(Rs1, Kill),
     {Rs,Acc};
 flush(Rs0, Is, Acc0) ->
@@ -580,7 +580,7 @@ save_regs(Rs, Save, Acc) ->
     foldl(fun(R, A) -> save_reg(R, Save, A) end, Acc, Rs).
 
 save_reg({I,V,dirty}, Save, Acc) ->
-    case gb_sets:is_member(V, Save) of
+    case cerl_sets:is_element(V, Save) of
 	true -> [{set,[V],[{fr,I}],fmove}|checkerror(Acc)];
 	false -> Acc
     end;
@@ -590,7 +590,7 @@ kill_regs(Rs, Kill) ->
     [kill_reg(R, Kill) || R <- Rs].
 
 kill_reg({_,V,_}=R, Kill) ->
-    case gb_sets:is_member(V, Kill) of
+    case cerl_sets:is_element(V, Kill) of
 	true -> free;
 	false -> R
     end;

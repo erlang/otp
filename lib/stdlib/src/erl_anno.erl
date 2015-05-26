@@ -150,9 +150,7 @@ is_filename(T) ->
     is_list(T) orelse is_binary(T).
 
 is_string(T) ->
-    try lists:all(fun(C) when is_integer(C), C >= 0 -> true end, T)
-    catch _:_ -> false
-    end.
+    is_list(T).
 
 -spec column(Anno) -> column() | 'undefined' when
       Anno :: anno().

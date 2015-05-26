@@ -152,14 +152,14 @@ function({function,Name,Arity,CLabel,Asm0}) ->
 share(Is0) ->
     %% We will get more sharing if we never fall through to a label.
     Is = eliminate_fallthroughs(Is0, []),
-    share_1(Is, dict:new(), [], []).
+    share_1(Is, #{}, [], []).
 
 share_1([{label,_}=Lbl|Is], Dict, [], Acc) ->
     share_1(Is, Dict, [], [Lbl|Acc]);
 share_1([{label,L}=Lbl|Is], Dict0, Seq, Acc) ->
-    case dict:find(Seq, Dict0) of
+    case maps:find(Seq, Dict0) of
 	error ->
-	    Dict = dict:store(Seq, L, Dict0),
+	    Dict = maps:put(Seq, L, Dict0),
 	    share_1(Is, Dict, [], [Lbl|Seq ++ Acc]);
 	{ok,Label} ->
 	    share_1(Is, Dict0, [], [Lbl,{jump,{f,Label}}|Acc])
@@ -188,7 +188,7 @@ clean_non_sharable(Dict) ->
     %% a sequence inside the 'try' block is a sequence that ends
     %% with an instruction that causes an exception. Any sequence
     %% that causes an exception must contain a line/1 instruction.
-    dict:filter(fun(K, _V) -> sharable_with_try(K) end, Dict).
+    maps:filter(fun(K, _V) -> sharable_with_try(K) end, Dict).
 
 sharable_with_try([{line,_}|_]) ->
     %% This sequence may cause an exception and may potentially
@@ -268,13 +268,13 @@ extract_seq_1(_, _) -> no.
 -record(st, {fc,				%Label for function class errors.
 	     entry,				%Entry label (must not be moved).
 	     mlbl,				%Moved labels.
-	     labels				%Set of referenced labels.
+             labels :: cerl_sets:set()          %Set of referenced labels.
 	    }).
 
 opt([{label,Fc}|_]=Is0, CLabel) ->
     Lbls = initial_labels(Is0),
     find_fixpoint(fun(Is) ->
-			  St = #st{fc=Fc,entry=CLabel,mlbl=dict:new(),
+			  St = #st{fc=Fc,entry=CLabel,mlbl=#{},
 				   labels=Lbls},
 			  opt(Is, [], St)
 		  end, Is0).
@@ -320,11 +320,11 @@ opt([{test,_,{f,_}=Lbl,_,_,_}=I|Is], Acc, St) ->
 opt([{select,_,_R,Fail,Vls}=I|Is], Acc, St) ->
     skip_unreachable(Is, [I|Acc], label_used([Fail|Vls], St));
 opt([{label,Lbl}=I|Is], Acc, #st{mlbl=Mlbl}=St0) ->
-    case dict:find(Lbl, Mlbl) of
+    case maps:find(Lbl, Mlbl) of
 	{ok,Lbls} ->
 	    %% Essential to remove the list of labels from the dictionary,
 	    %% since we will rescan the inserted labels.  We MUST rescan.
-	    St = St0#st{mlbl=dict:erase(Lbl, Mlbl)},
+	    St = St0#st{mlbl=maps:remove(Lbl, Mlbl)},
 	    insert_labels([Lbl|Lbls], Is, Acc, St);
 	error -> opt(Is, [I|Acc], St0)
     end;
@@ -339,7 +339,7 @@ opt([{jump,{f,L}=Lbl}=I|Is], Acc0, #st{mlbl=Mlbl0}=St0) ->
     St = case Lbls of
 	     [] -> St0;
 	     [_|_] ->
-		 Mlbl = dict:append_list(L, Lbls, Mlbl0),
+		 Mlbl = maps_append_list(L, Lbls, Mlbl0),
 		 St0#st{mlbl=Mlbl}
 	 end,
     skip_unreachable(Is, [I|Acc], label_used(Lbl, St));
@@ -363,14 +363,20 @@ opt([I|Is], Acc, #st{labels=Used0}=St0) ->
     end;
 opt([], Acc, #st{fc=Fc,mlbl=Mlbl}) ->
     Code = reverse(Acc),
-    case dict:find(Fc, Mlbl) of
+    case maps:find(Fc, Mlbl) of
  	{ok,Lbls} -> insert_fc_labels(Lbls, Mlbl, Code);
  	error -> Code
     end.
 
+maps_append_list(K,Vs,M) ->
+    case M of
+        #{K:=Vs0} -> M#{K:=Vs0++Vs}; % same order as dict
+        _ -> M#{K => Vs}
+    end.
+
 insert_fc_labels([L|Ls], Mlbl, Acc0) ->
     Acc = [{label,L}|Acc0],
-    case dict:find(L, Mlbl) of
+    case maps:find(L, Mlbl) of
 	error ->
 	    insert_fc_labels(Ls, Mlbl, Acc);
 	{ok,Lbls} ->
@@ -434,7 +440,7 @@ skip_unreachable([], Acc, St) ->
 
 %% Add one or more label to the set of used labels.
 
-label_used({f,L}, St) -> St#st{labels=gb_sets:add(L, St#st.labels)};
+label_used({f,L}, St) -> St#st{labels=cerl_sets:add_element(L,St#st.labels)};
 label_used([H|T], St0) -> label_used(T, label_used(H, St0));
 label_used([], St) -> St;
 label_used(_Other, St) -> St.
@@ -442,7 +448,7 @@ label_used(_Other, St) -> St.
 %% Test if label is used.
 
 is_label_used(L, St) ->
-    gb_sets:is_member(L, St#st.labels).
+    cerl_sets:is_element(L, St#st.labels).
 
 %% is_unreachable_after(Instruction) -> boolean()
 %%  Test whether the code after Instruction is unreachable.
@@ -472,14 +478,14 @@ is_exit_instruction(_) -> false.
 %%  (including inside blocks).
 
 is_label_used_in(Lbl, Is) ->
-    is_label_used_in_1(Is, Lbl, gb_sets:empty()).
+    is_label_used_in_1(Is, Lbl, cerl_sets:new()).
 
 is_label_used_in_1([{block,Block}|Is], Lbl, Empty) ->
     lists:any(fun(I) -> is_label_used_in_block(I, Lbl) end, Block)
 	orelse is_label_used_in_1(Is, Lbl, Empty);
 is_label_used_in_1([I|Is], Lbl, Empty) ->
     Used = ulbl(I, Empty),
-    gb_sets:is_member(Lbl, Used) orelse is_label_used_in_1(Is, Lbl, Empty);
+    cerl_sets:is_element(Lbl, Used) orelse is_label_used_in_1(Is, Lbl, Empty);
 is_label_used_in_1([], _, _) -> false.
 
 is_label_used_in_block({set,_,_,Info}, Lbl) ->
@@ -506,7 +512,7 @@ remove_unused_labels(Is) ->
     rem_unused(Is, Used, []).
 
 rem_unused([{label,Lbl}=I|Is0], Used, [Prev|_]=Acc) ->
-    case gb_sets:is_member(Lbl, Used) of
+    case cerl_sets:is_element(Lbl, Used) of
 	false ->
 	    Is = case is_unreachable_after(Prev) of
 		     true -> drop_upto_label(Is0);
@@ -528,7 +534,7 @@ initial_labels([{line,_}|Is], Acc) ->
 initial_labels([{label,Lbl}|Is], Acc) ->
     initial_labels(Is, [Lbl|Acc]);
 initial_labels([{func_info,_,_,_},{label,Lbl}|_], Acc) ->
-    gb_sets:from_list([Lbl|Acc]).
+    cerl_sets:from_list([Lbl|Acc]).
 
 drop_upto_label([{label,_}|_]=Is) -> Is;
 drop_upto_label([_|Is]) -> drop_upto_label(Is);
@@ -576,10 +582,10 @@ ulbl({get_map_elements,Lbl,_Src,_List}, Used) ->
 ulbl(_, Used) -> Used.
 
 mark_used({f,0}, Used) -> Used;
-mark_used({f,L}, Used) -> gb_sets:add(L, Used).
+mark_used({f,L}, Used) -> cerl_sets:add_element(L, Used).
 
 mark_used_list([{f,L}|T], Used) ->
-    mark_used_list(T, gb_sets:add(L, Used));
+    mark_used_list(T, cerl_sets:add_element(L, Used));
 mark_used_list([_|T], Used) ->
     mark_used_list(T, Used);
 mark_used_list([], Used) -> Used.

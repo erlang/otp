@@ -43,7 +43,7 @@
 -export([module/2]).
 
 -import(lists, [member/2,keymember/3,keysort/2,keydelete/3,
-		append/1,map/2,flatmap/2,filter/2,foldl/3,foldr/3,mapfoldl/3,
+		append/1,flatmap/2,filter/2,foldl/3,foldr/3,mapfoldl/3,
 		sort/1,reverse/1,reverse/2]).
 -import(v3_life, [vdb_find/2]).
 
@@ -57,8 +57,7 @@
 	     break,				%Break label
 	     recv,				%Receive label
 	     is_top_block,			%Boolean: top block or not
-	     functable=gb_trees:empty(),	%Gb tree of local functions:
-						% {{Name,Arity},Label}
+	     functable=#{},	                %Map of local functions: {Name,Arity}=>Label
 	     in_catch=false,			%Inside a catch or not.
 	     need_frame,			%Need a stack frame.
 	     ultimate_failure			%Label for ultimate match failure.
@@ -673,9 +672,7 @@ select_val_cg(Type, R, [Val, {f,Lbl}], Tf, Vf, [{label,Lbl}|Sis]) ->
     [{test,select_type_test(Type),{f,Tf},[R]},
      {test,is_eq_exact,{f,Vf},[R,{Type,Val}]}|Sis];
 select_val_cg(Type, R, Vls0, Tf, Vf, Sis) ->
-    Vls1 = map(fun ({f,_Lbl} = F) -> F;
-		   (Value) -> {Type,Value}
-	       end, Vls0),
+    Vls1 = [case Value of {f,_Lbl} -> Value; _ -> {Type,Value} end || Value <- Vls0],
     [{test,select_type_test(Type),{f,Tf},[R]}, {select_val,R,{f,Vf},{list,Vls1}}|Sis].
     
 select_type_test(integer) -> is_integer;
@@ -1080,7 +1077,7 @@ protected_cg(Ts, Rs, _Fail, I, Vdb, Bef, St0) ->
 				  St2#cg{bfail=Pfail}),
     %%ok = io:fwrite("cg ~w: ~p~n", [?LINE,{Rs,I,Vdb,Aft}]),
     %% Set return values to false.
-    Mis = map(fun ({var,V}) -> {move,{atom,false},fetch_var(V, Aft)} end, Rs),
+    Mis = [{move,{atom,false},fetch_var(V,Aft)}||{var,V} <- Rs],
     {Tis ++ [{jump,{f,Psucc}},
 	     {label,Pfail}] ++ Mis ++ [{label,Psucc}],
      Aft,St3#cg{bfail=St0#cg.bfail}}.    
@@ -1263,13 +1260,12 @@ enter_line(_, _, _) ->
 local_func_label(Name, Arity, St) ->
     local_func_label({Name,Arity}, St).
 
-local_func_label(Key, #cg{functable=Tab}=St0) ->
-    case gb_trees:lookup(Key, Tab) of
-	{value,Label} ->
-	    {Label,St0};
-	none ->
+local_func_label(Key, #cg{functable=Map}=St0) ->
+    case Map of
+        #{Key := Label} -> {Label,St0};
+        _ ->
   	    {Label,St} = new_label(St0),
-	    {Label,St#cg{functable=gb_trees:insert(Key, Label, Tab)}}
+	    {Label,St#cg{functable=Map#{Key => Label}}}
     end.
 
 %% need_stack_frame(State) -> State'
@@ -1992,25 +1988,28 @@ clear_dead(Sr, Until, Vdb) ->
 	  stk=clear_dead_stk(Sr#sr.stk, Until, Vdb)}.
 
 clear_dead_reg(Sr, Until, Vdb) ->
-    Reg = map(fun ({_I,V} = IV) ->
-		      case vdb_find(V, Vdb) of
-			  {V,_,L} when L > Until -> IV;
-			  _ -> free		%Remove anything else
-		      end;
-		  ({reserved,_I,_V} = Reserved) -> Reserved;
-		  (free) -> free
-	      end, Sr#sr.reg),
+    Reg = [case R of
+            {_I,V} = IV ->
+                case vdb_find(V, Vdb) of
+                    {V,_,L} when L > Until -> IV;
+                    _ -> free		%Remove anything else
+                end;
+            {reserved,_I,_V} = Reserved -> Reserved;
+            free -> free
+        end || R <- Sr#sr.reg],
     reserve(Sr#sr.res, Reg, Sr#sr.stk).
 
 clear_dead_stk(Stk, Until, Vdb) ->
-    map(fun ({V} = T) ->
-		case vdb_find(V, Vdb) of
-		    {V,_,L} when L > Until -> T;
-		    _ -> dead			%Remove anything else
-		end;
-	    (free) -> free;
-	    (dead) -> dead
-	end, Stk).
+    [case S of
+	    {V} = T ->
+            case vdb_find(V, Vdb) of
+                {V,_,L} when L > Until -> T;
+                _ -> dead   %Remove anything else
+            end;
+        free -> free;
+        dead -> dead
+     end || S <- Stk].
+
 
 %% sr_merge(Sr1, Sr2) -> Sr.
 %%  Merge two stack/register states keeping the longest of both stack
