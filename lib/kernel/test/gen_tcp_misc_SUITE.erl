@@ -1658,18 +1658,19 @@ millis() ->
     {A,B,C}=erlang:now(),
     (A*1000000*1000)+(B*1000)+(C div 1000).
 	
-collect_accepts(Tmo) ->
+collect_accepts(0,_) -> [];
+collect_accepts(N,Tmo) ->
     A = millis(),
     receive
 	{accepted,P,Msg} ->
-	    [{P,Msg}] ++ collect_accepts(Tmo-(millis() - A))
+	    [{P,Msg}] ++ collect_accepts(N-1,Tmo-(millis() - A))
     after Tmo ->
 	    []
     end.
    
--define(EXPECT_ACCEPTS(Pattern,Timeout),
+-define(EXPECT_ACCEPTS(Pattern,N,Timeout),
 	(fun() ->
-		 case collect_accepts(Timeout) of
+                 case collect_accepts(if N =:= infinity -> -1; true -> N end,Timeout) of
 		     Pattern ->
 			 ok;
 		     Other ->
@@ -1735,7 +1736,7 @@ multi_accept_close_listen(Config) when is_list(Config) ->
     ?line spawn(F),
     ?line gen_tcp:close(LS),
     ?line ?EXPECT_ACCEPTS([{_,{error,closed}},{_,{error,closed}},
-			   {_,{error,closed}},{_,{error,closed}}], 500).
+			   {_,{error,closed}},{_,{error,closed}}],4,500).
 	
 accept_timeout(suite) ->
     [];
@@ -1746,72 +1747,72 @@ accept_timeout(Config) when is_list(Config) ->
     ?line Parent = self(),
     ?line F = fun() -> Parent ! {accepted,self(),gen_tcp:accept(LS,1000)} end,
     ?line P = spawn(F),
-    ?line ?EXPECT_ACCEPTS([{P,{error,timeout}}],2000).
+    ?line ?EXPECT_ACCEPTS([{P,{error,timeout}}],1,2000).
 
 accept_timeouts_in_order(suite) ->
     [];
 accept_timeouts_in_order(doc) ->
     ["Check that multi-accept timeouts happen in the correct order"];
 accept_timeouts_in_order(Config) when is_list(Config) ->
-    ?line {ok,LS}=gen_tcp:listen(0,[]),
-    ?line Parent = self(),
-    ?line P1 = spawn(mktmofun(1000,Parent,LS)),
-    ?line P2 = spawn(mktmofun(1200,Parent,LS)),
-    ?line P3 = spawn(mktmofun(1300,Parent,LS)),
-    ?line P4 = spawn(mktmofun(1400,Parent,LS)),
-    ?line ?EXPECT_ACCEPTS([{P1,{error,timeout}},{P2,{error,timeout}},
-			   {P3,{error,timeout}},{P4,{error,timeout}}], 2000).
+    {ok,LS}=gen_tcp:listen(0,[]),
+    Parent = self(),
+    P1 = spawn(mktmofun(1000,Parent,LS)),
+    P2 = spawn(mktmofun(1200,Parent,LS)),
+    P3 = spawn(mktmofun(1300,Parent,LS)),
+    P4 = spawn(mktmofun(1400,Parent,LS)),
+    ?EXPECT_ACCEPTS([{P1,{error,timeout}},{P2,{error,timeout}},
+                     {P3,{error,timeout}},{P4,{error,timeout}}],infinity,2000).
 
 accept_timeouts_in_order2(suite) ->
     [];
 accept_timeouts_in_order2(doc) ->
     ["Check that multi-accept timeouts happen in the correct order (more)"];
 accept_timeouts_in_order2(Config) when is_list(Config) ->
-    ?line {ok,LS}=gen_tcp:listen(0,[]),
-    ?line Parent = self(),
-    ?line P1 = spawn(mktmofun(1400,Parent,LS)),
-    ?line P2 = spawn(mktmofun(1300,Parent,LS)),
-    ?line P3 = spawn(mktmofun(1200,Parent,LS)),
-    ?line P4 = spawn(mktmofun(1000,Parent,LS)),
-    ?line ?EXPECT_ACCEPTS([{P4,{error,timeout}},{P3,{error,timeout}},
-			   {P2,{error,timeout}},{P1,{error,timeout}}], 2000).
+    {ok,LS}=gen_tcp:listen(0,[]),
+    Parent = self(),
+    P1 = spawn(mktmofun(1400,Parent,LS)),
+    P2 = spawn(mktmofun(1300,Parent,LS)),
+    P3 = spawn(mktmofun(1200,Parent,LS)),
+    P4 = spawn(mktmofun(1000,Parent,LS)),
+    ?EXPECT_ACCEPTS([{P4,{error,timeout}},{P3,{error,timeout}},
+                     {P2,{error,timeout}},{P1,{error,timeout}}],infinity,2000).
 
 accept_timeouts_in_order3(suite) ->
     [];
 accept_timeouts_in_order3(doc) ->
     ["Check that multi-accept timeouts happen in the correct order (even more)"];
 accept_timeouts_in_order3(Config) when is_list(Config) ->
-    ?line {ok,LS}=gen_tcp:listen(0,[]),
-    ?line Parent = self(),
-    ?line P1 = spawn(mktmofun(1200,Parent,LS)),
-    ?line P2 = spawn(mktmofun(1400,Parent,LS)),
-    ?line P3 = spawn(mktmofun(1300,Parent,LS)),
-    ?line P4 = spawn(mktmofun(1000,Parent,LS)),
-    ?line ?EXPECT_ACCEPTS([{P4,{error,timeout}},{P1,{error,timeout}},
-			   {P3,{error,timeout}},{P2,{error,timeout}}], 2000).
+    {ok,LS}=gen_tcp:listen(0,[]),
+    Parent = self(),
+    P1 = spawn(mktmofun(1200,Parent,LS)),
+    P2 = spawn(mktmofun(1400,Parent,LS)),
+    P3 = spawn(mktmofun(1300,Parent,LS)),
+    P4 = spawn(mktmofun(1000,Parent,LS)),
+    ?EXPECT_ACCEPTS([{P4,{error,timeout}},{P1,{error,timeout}},
+                     {P3,{error,timeout}},{P2,{error,timeout}}],infinity,2000).
 
 accept_timeouts_mixed(suite) ->
     [];
 accept_timeouts_mixed(doc) ->
     ["Check that multi-accept timeouts behave correctly when mixed with successful timeouts"];
 accept_timeouts_mixed(Config) when is_list(Config) ->
-    ?line {ok,LS}=gen_tcp:listen(0,[]),
-    ?line Parent = self(),
-    ?line {ok,PortNo}=inet:port(LS),
-    ?line P1 = spawn(mktmofun(1000,Parent,LS)),
-    ?line wait_until_accepting(P1,500),
-    ?line P2 = spawn(mktmofun(2000,Parent,LS)),
-    ?line wait_until_accepting(P2,500),
-    ?line P3 = spawn(mktmofun(3000,Parent,LS)),
-    ?line wait_until_accepting(P3,500),
-    ?line P4 = spawn(mktmofun(4000,Parent,LS)),
-    ?line wait_until_accepting(P4,500),
-    ?line ok = ?EXPECT_ACCEPTS([{P1,{error,timeout}}],1500),
-    ?line {ok,_}=gen_tcp:connect("localhost",PortNo,[]),
-    ?line ok = ?EXPECT_ACCEPTS([{P2,{ok,Port0}}] when is_port(Port0),100),
-    ?line ok = ?EXPECT_ACCEPTS([{P3,{error,timeout}}],2000),	
-    ?line gen_tcp:connect("localhost",PortNo,[]),
-    ?line ?EXPECT_ACCEPTS([{P4,{ok,Port1}}] when is_port(Port1),100).
+    {ok,LS}=gen_tcp:listen(0,[]),
+    Parent = self(),
+    {ok,PortNo}=inet:port(LS),
+    P1 = spawn(mktmofun(1000,Parent,LS)),
+    wait_until_accepting(P1,500),
+    P2 = spawn(mktmofun(2000,Parent,LS)),
+    wait_until_accepting(P2,500),
+    P3 = spawn(mktmofun(3000,Parent,LS)),
+    wait_until_accepting(P3,500),
+    P4 = spawn(mktmofun(4000,Parent,LS)),
+    wait_until_accepting(P4,500),
+    ok = ?EXPECT_ACCEPTS([{P1,{error,timeout}}],infinity,1500),
+    {ok,_}=gen_tcp:connect("localhost",PortNo,[]),
+    ok = ?EXPECT_ACCEPTS([{P2,{ok,Port0}}] when is_port(Port0),infinity,100),
+    ok = ?EXPECT_ACCEPTS([{P3,{error,timeout}}],infinity,2000),
+    gen_tcp:connect("localhost",PortNo,[]),
+    ?EXPECT_ACCEPTS([{P4,{ok,Port1}}] when is_port(Port1),infinity,100).
 
 killing_acceptor(suite) ->
     [];
@@ -1855,7 +1856,7 @@ killing_multi_acceptors(Config) when is_list(Config) ->
 	    end,
     ?line {ok,L2} = prim_inet:getstatus(LS),
     ?line true  = lists:member(accepting, L2),
-    ?line ok = ?EXPECT_ACCEPTS([{Pid2,{error,timeout}}],1000),
+    ?line ok = ?EXPECT_ACCEPTS([{Pid2,{error,timeout}}],1,1000),
     ?line {ok,L3} = prim_inet:getstatus(LS),
     ?line false  = lists:member(accepting, L3),
     ok.
@@ -1896,7 +1897,7 @@ killing_multi_acceptors2(Config) when is_list(Config) ->
     ?line {ok,L4} = prim_inet:getstatus(LS),
     ?line true  = lists:member(accepting, L4),
     ?line gen_tcp:connect("localhost",PortNo,[]),
-    ?line ok = ?EXPECT_ACCEPTS([{Pid3,{ok,Port}}] when is_port(Port),100),
+    ?line ok = ?EXPECT_ACCEPTS([{Pid3,{ok,Port}}] when is_port(Port),1,100),
     ?line {ok,L5} = prim_inet:getstatus(LS),
     ?line false  = lists:member(accepting, L5),
     ok.
@@ -1907,30 +1908,17 @@ several_accepts_in_one_go(doc) ->
     ["checks that multi-accept works when more than one accept can be "
      "done at once (wb test of inet_driver)"];
 several_accepts_in_one_go(Config) when is_list(Config) ->
-    ?line {ok,LS}=gen_tcp:listen(0,[]), 
-    ?line Parent = self(),
-    ?line {ok,PortNo}=inet:port(LS),
-    ?line F1 = fun() -> Parent ! {accepted,self(),gen_tcp:accept(LS)} end,
-    ?line F2 = fun() -> Parent ! {connected,self(),gen_tcp:connect("localhost",PortNo,[])} end,
-    ?line spawn(F1),
-    ?line spawn(F1),
-    ?line spawn(F1),
-    ?line spawn(F1),
-    ?line spawn(F1),
-    ?line spawn(F1),
-    ?line spawn(F1),
-    ?line spawn(F1),
-    ?line ok = ?EXPECT_ACCEPTS([],500),
-    ?line spawn(F2),
-    ?line spawn(F2),
-    ?line spawn(F2),
-    ?line spawn(F2),
-    ?line spawn(F2),
-    ?line spawn(F2),
-    ?line spawn(F2),
-    ?line spawn(F2),
-    ?line ok = ?EXPECT_ACCEPTS([{_,{ok,_}},{_,{ok,_}},{_,{ok,_}},{_,{ok,_}},{_,{ok,_}},{_,{ok,_}},{_,{ok,_}},{_,{ok,_}}],15000),
-    ?line ok = ?EXPECT_CONNECTS([{_,{ok,_}},{_,{ok,_}},{_,{ok,_}},{_,{ok,_}},{_,{ok,_}},{_,{ok,_}},{_,{ok,_}},{_,{ok,_}}],1000),
+    {ok,LS}=gen_tcp:listen(0,[]),
+    Parent = self(),
+    {ok,PortNo}=inet:port(LS),
+    F1 = fun() -> Parent ! {accepted,self(),gen_tcp:accept(LS)} end,
+    F2 = fun() -> Parent ! {connected,self(),gen_tcp:connect("localhost",PortNo,[])} end,
+    Ns = lists:seq(1,8),
+    _  = [spawn(F1) || _ <- Ns],
+    ok = ?EXPECT_ACCEPTS([],1,500), % wait for tmo
+    _  = [spawn(F2) || _ <- Ns],
+    ok = ?EXPECT_ACCEPTS([{_,{ok,_}},{_,{ok,_}},{_,{ok,_}},{_,{ok,_}},{_,{ok,_}},{_,{ok,_}},{_,{ok,_}},{_,{ok,_}}],8,15000),
+    ok = ?EXPECT_CONNECTS([{_,{ok,_}},{_,{ok,_}},{_,{ok,_}},{_,{ok,_}},{_,{ok,_}},{_,{ok,_}},{_,{ok,_}},{_,{ok,_}}],1000),
     ok.
 
 
