@@ -24,7 +24,7 @@
 	 list_dir/1, list_dir/2, table/1, table/2,
 	 t/1, tt/1]).
 
-%% unzipping peicemeal
+%% unzipping piecemeal
 -export([openzip_open/1, openzip_open/2,
 	 openzip_get/1, openzip_get/2,
 	 openzip_t/1, openzip_tt/1,
