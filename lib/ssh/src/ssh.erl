@@ -331,6 +331,8 @@ handle_option([{exec, _} = Opt | Rest], SocketOptions, SshOptions) ->
     handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
 handle_option([{auth_methods, _} = Opt | Rest], SocketOptions, SshOptions) ->
     handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
+handle_option([{auth_method_kb_interactive_data, _} = Opt | Rest], SocketOptions, SshOptions) ->
+    handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
 handle_option([{pref_public_key_algs, _} = Opt | Rest], SocketOptions, SshOptions) ->
     handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
 handle_option([{quiet_mode, _} = Opt|Rest], SocketOptions, SshOptions) ->
@@ -410,6 +412,13 @@ handle_ssh_option({exec, {Module, Function, _}} = Opt) when is_atom(Module),
 handle_ssh_option({exec, Function} = Opt) when is_function(Function) ->
     Opt;
 handle_ssh_option({auth_methods, Value} = Opt)  when is_list(Value) ->
+    Opt;
+handle_ssh_option({auth_method_kb_interactive_data, {Name,Instruction,Prompt,Echo}} = Opt) when is_list(Name),
+												is_list(Instruction),
+												is_list(Prompt),
+												is_boolean(Echo) ->
+    Opt;
+handle_ssh_option({auth_method_kb_interactive_data, F} = Opt) when is_function(F,3) ->
     Opt;
 handle_ssh_option({infofun, Value} = Opt)  when is_function(Value) ->
     Opt;

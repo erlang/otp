@@ -496,10 +496,21 @@ userauth(#ssh_msg_userauth_info_request{} = Msg,
     {next_state, userauth, next_packet(State#state{ssh_params = Ssh})};
 
 userauth(#ssh_msg_userauth_info_response{} = Msg, 
-	 #state{ssh_params = #ssh{role = server} = Ssh0} = State) ->
-    {ok, {Reply, Ssh}} = ssh_auth:handle_userauth_info_response(Msg, Ssh0),
-    send_msg(Reply, State),
-    {next_state, userauth, next_packet(State#state{ssh_params = Ssh})};
+	 #state{ssh_params = #ssh{role = server,
+				  peer = {_, Address}} = Ssh0,
+		opts = Opts, starter = Pid} = State) ->
+    case ssh_auth:handle_userauth_info_response(Msg, Ssh0) of
+	{authorized, User, {Reply, Ssh}} ->
+	    send_msg(Reply, State),
+	    Pid ! ssh_connected,
+	    connected_fun(User, Address, "keyboard-interactive", Opts),
+	    {next_state, connected, 
+	     next_packet(State#state{auth_user = User, ssh_params = Ssh})};
+	{not_authorized, {User, Reason}, {Reply, Ssh}} ->
+	    retry_fun(User, Address, Reason, Opts),
+	    send_msg(Reply, State),
+	    {next_state, userauth, next_packet(State#state{ssh_params = Ssh})} 
+    end;
 			
 userauth(#ssh_msg_userauth_success{}, #state{ssh_params = #ssh{role = client} = Ssh,
 					     starter = Pid} = State) ->
