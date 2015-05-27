@@ -8153,8 +8153,7 @@ read_error_logger() ->
 init(Tester) ->
     {ok, Tester}.
     
-handle_event({error, _GL, {_Pid, _Msg, [Why, _]}}, Tester) 
-                     when is_atom(Why) ->
+handle_event({error, _GL, {_Pid, _Msg, [Why, _]}}, Tester) when is_atom(Why) ->
     Tester ! {error, Why},
     {ok, Tester};
 handle_event({error, _GL, {_Pid, _Msg, [P, T]}}, Tester) when is_pid(P) ->
@@ -8162,6 +8161,9 @@ handle_event({error, _GL, {_Pid, _Msg, [P, T]}}, Tester) when is_pid(P) ->
     {ok, Tester};
 handle_event({info_msg, _GL, {_Pid, _Msg, [Why, _]}}, Tester) ->
     Tester ! {info, Why},
+    {ok, Tester};
+handle_event({warning_msg, _GL, {_Pid, _Msg, [Why, _]}}, Tester) when is_atom(Why) ->
+    Tester ! {error, Why},
     {ok, Tester};
 handle_event(_Event, State) ->
     {ok, State}.
