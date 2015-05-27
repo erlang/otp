@@ -416,6 +416,7 @@ non_opt_eq([], <<>>) ->
   how you can find out whether your code can be optimized.</p>
 
   <section>
+    <marker id="bin_opt_info"></marker>
     <title>Option bin_opt_info</title>
 
     <p>Use the <c>bin_opt_info</c> option to have the compiler print a lot of 
