@@ -71,6 +71,11 @@ test_size(Config) when is_list(Config) ->
     4 = do_test_size(#{}),
     32 = do_test_size(#{b => 2,c => 3,txt => "hello world"}),
 
+    true = do_test_size(maps:from_list([{I,I}||I<-lists:seq(1,256)])) >= map_size_lower_bound(256),
+    true = do_test_size(maps:from_list([{I,I}||I<-lists:seq(1,4096)])) >= map_size_lower_bound(4096),
+    true = do_test_size(maps:from_list([{I,I}||I<-lists:seq(1,254)])) >= map_size_lower_bound(254),
+    true = do_test_size(maps:from_list([{I,I}||I<-lists:seq(1,239)])) >= map_size_lower_bound(239),
+
     %% Test internal consistency of sizes, but without testing
     %% exact sizes.
     Const = id(42),
@@ -92,14 +97,14 @@ test_size(Config) when is_list(Config) ->
 
     %% Test shared data structures.
     do_test_size([ConsCell1|ConsCell1],
-		 3*ConsCellSz,
-		 2*ConsCellSz),
+        	 3*ConsCellSz,
+        	 2*ConsCellSz),
     do_test_size(fun() -> {ConsCell1,ConsCell2} end,
-		 FunSz2 + 2*ConsCellSz,
-		 FunSz2 + ConsCellSz),
+        	 FunSz2 + 2*ConsCellSz,
+        	 FunSz2 + ConsCellSz),
     do_test_size({SimplestFun,SimplestFun},
-		 2*FunSz0+do_test_size({a,b}),
-		 FunSz0+do_test_size({a,b})),
+        	 2*FunSz0+do_test_size({a,b}),
+        	 FunSz0+do_test_size({a,b})),
 
     M = id(#{ "atom" => first, i => 0}),
     do_test_size([M,M#{ "atom" := other },M#{i := 42}],54,32),
@@ -112,6 +117,13 @@ do_test_size(Term) ->
 do_test_size(Term, FlatSz, Sz) ->
     FlatSz = erts_debug:flat_size(Term),
     Sz = erts_debug:size(Term).
+
+map_size_lower_bound(N) ->
+    %% this est. is a bit lower that actual lower bound
+    %% number of internal nodes
+    T = (N - 1) div 15,
+    %% total words
+    2 + 17 * T + 2 * N.
 
 flat_size_big(Config) when is_list(Config) ->
     %% Build a term whose external size only fits in a big num (on 32-bit CPU).

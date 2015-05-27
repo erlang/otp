@@ -20,8 +20,6 @@
 #ifndef __ERL_VM_H__
 #define __ERL_VM_H__
 
-/* #define ERTS_OPCODE_COUNTER_SUPPORT */
-
 /* FORCE_HEAP_FRAGS:
  * Debug provocation to make HAlloc always create heap fragments (if allowed)
  * even if there is room on heap.
@@ -119,9 +117,9 @@
 
 #if defined(DEBUG) || defined(CHECK_FOR_HOLES)
 #if HALFWORD_HEAP
-# define ERTS_HOLE_MARKER (0xaf5e78ccU)
+# define ERTS_HOLE_MARKER (0xdeadbeef)
 #else
-# define ERTS_HOLE_MARKER (((0xaf5e78ccUL << 24) << 8) | 0xaf5e78ccUL)
+# define ERTS_HOLE_MARKER (((0xdeadbeef << 24) << 8) | 0xdeadbeef)
 #endif
 #endif
 

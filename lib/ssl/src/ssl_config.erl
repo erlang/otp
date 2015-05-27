@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -31,13 +31,13 @@ init(SslOpts, Role) ->
     
     init_manager_name(SslOpts#ssl_options.erl_dist),
 
-    {ok, CertDbRef, CertDbHandle, FileRefHandle, PemCacheHandle, CacheHandle, OwnCert} 
+    {ok, CertDbRef, CertDbHandle, FileRefHandle, PemCacheHandle, CacheHandle, CRLDbHandle, OwnCert} 
 	= init_certificates(SslOpts, Role),
     PrivateKey =
 	init_private_key(PemCacheHandle, SslOpts#ssl_options.key, SslOpts#ssl_options.keyfile,
 			 SslOpts#ssl_options.password, Role),
     DHParams = init_diffie_hellman(PemCacheHandle, SslOpts#ssl_options.dh, SslOpts#ssl_options.dhfile, Role),
-    {ok, CertDbRef, CertDbHandle, FileRefHandle, CacheHandle, OwnCert, PrivateKey, DHParams}.
+    {ok, CertDbRef, CertDbHandle, FileRefHandle, CacheHandle, CRLDbHandle, OwnCert, PrivateKey, DHParams}.
 
 init_manager_name(false) ->
     put(ssl_manager, ssl_manager:manager_name(normal));
@@ -46,9 +46,11 @@ init_manager_name(true) ->
 
 init_certificates(#ssl_options{cacerts = CaCerts,
 			       cacertfile = CACertFile,
-			       certfile = CertFile,
-			       cert = Cert}, Role) ->
-    {ok, CertDbRef, CertDbHandle, FileRefHandle, PemCacheHandle, CacheHandle} =
+			       certfile = CertFile,			   
+			       cert = Cert,
+			       crl_cache = CRLCache
+			      }, Role) ->
+    {ok, CertDbRef, CertDbHandle, FileRefHandle, PemCacheHandle, CacheHandle, CRLDbInfo} =
 	try 
 	    Certs = case CaCerts of
 			undefined ->
@@ -56,39 +58,40 @@ init_certificates(#ssl_options{cacerts = CaCerts,
 			_ ->
 			    {der, CaCerts}
 		    end,
-	    {ok, _, _, _, _, _} = ssl_manager:connection_init(Certs, Role)
+	    {ok, _, _, _, _, _, _} = ssl_manager:connection_init(Certs, Role, CRLCache)
 	catch
 	    _:Reason ->
 		file_error(CACertFile, {cacertfile, Reason})
 	end,
     init_certificates(Cert, CertDbRef, CertDbHandle, FileRefHandle, PemCacheHandle, 
-		      CacheHandle, CertFile, Role).
+		      CacheHandle, CRLDbInfo, CertFile, Role).
 
-init_certificates(undefined, CertDbRef, CertDbHandle, FileRefHandle, PemCacheHandle, CacheHandle, <<>>, _) ->
-    {ok, CertDbRef, CertDbHandle, FileRefHandle, PemCacheHandle, CacheHandle, undefined};
+init_certificates(undefined, CertDbRef, CertDbHandle, FileRefHandle, PemCacheHandle, CacheHandle, 
+		  CRLDbInfo, <<>>, _) ->
+    {ok, CertDbRef, CertDbHandle, FileRefHandle, PemCacheHandle, CacheHandle, CRLDbInfo, undefined};
 
 init_certificates(undefined, CertDbRef, CertDbHandle, FileRefHandle, PemCacheHandle, 
-		  CacheHandle, CertFile, client) ->
+		  CacheHandle, CRLDbInfo, CertFile, client) ->
     try 
 	%% Ignoring potential proxy-certificates see: 
 	%% http://dev.globus.org/wiki/Security/ProxyFileFormat
 	[OwnCert|_] = ssl_certificate:file_to_certificats(CertFile, PemCacheHandle),
-	{ok, CertDbRef, CertDbHandle, FileRefHandle, PemCacheHandle, CacheHandle, OwnCert}
+	{ok, CertDbRef, CertDbHandle, FileRefHandle, PemCacheHandle, CacheHandle, CRLDbInfo, OwnCert}
     catch _Error:_Reason  ->
-	    {ok, CertDbRef, CertDbHandle, FileRefHandle, PemCacheHandle, CacheHandle, undefined}
+	    {ok, CertDbRef, CertDbHandle, FileRefHandle, PemCacheHandle, CacheHandle, CRLDbInfo, undefined}
     end;
 
 init_certificates(undefined, CertDbRef, CertDbHandle, FileRefHandle, 
-		  PemCacheHandle, CacheRef, CertFile, server) ->
+		  PemCacheHandle, CacheRef, CRLDbInfo, CertFile, server) ->
     try
 	[OwnCert|_] = ssl_certificate:file_to_certificats(CertFile, PemCacheHandle),
-	{ok, CertDbRef, CertDbHandle, FileRefHandle, PemCacheHandle, CacheRef, OwnCert}
+	{ok, CertDbRef, CertDbHandle, FileRefHandle, PemCacheHandle, CacheRef, CRLDbInfo, OwnCert}
     catch
 	_:Reason ->
 	    file_error(CertFile, {certfile, Reason})	    
     end;
-init_certificates(Cert, CertDbRef, CertDbHandle, FileRefHandle, PemCacheHandle, CacheRef, _, _) ->
-    {ok, CertDbRef, CertDbHandle, FileRefHandle, PemCacheHandle, CacheRef, Cert}.
+init_certificates(Cert, CertDbRef, CertDbHandle, FileRefHandle, PemCacheHandle, CacheRef, CRLDbInfo, _, _) ->
+    {ok, CertDbRef, CertDbHandle, FileRefHandle, PemCacheHandle, CacheRef, CRLDbInfo, Cert}.
 
 init_private_key(_, undefined, <<>>, _Password, _Client) ->
     undefined;

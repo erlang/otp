@@ -232,6 +232,14 @@ compile:file(<anno>File</anno>, <anno>Options</anno> ++ [report_errors, report_w
       </desc>
     </func>
     <func>
+      <name name="uptime" arity="0"/>
+      <fsummary>Print node uptime</fsummary>
+      <desc>
+        <p>Prints the node uptime (as given by
+           <c>erlang:statistics(wall_clock)</c>), in human-readable form.</p>
+      </desc>
+    </func>
+    <func>
       <name>xm(ModSpec) -> void()</name>
       <fsummary>Cross reference check a module</fsummary>
       <type>

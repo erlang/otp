@@ -61,6 +61,7 @@ MODULES= \
 	etop_txt \
 	observer \
 	observer_app_wx \
+	observer_alloc_wx \
 	observer_html_lib \
 	observer_lib \
 	observer_perf_wx \

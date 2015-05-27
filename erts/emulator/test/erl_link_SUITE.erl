@@ -1035,16 +1035,13 @@ get_names(N, T) when is_atom(T) ->
 get_names(0, _, Acc) ->
     Acc;
 get_names(N, T, Acc) ->
-    {A, B, C} = now(),
     get_names(N-1, T, [list_to_atom(atom_to_list(?MODULE)
 				    ++ "-"
 				    ++ atom_to_list(T)
 				    ++ "-"
-				    ++ integer_to_list(A)
+				    ++ integer_to_list(erlang:system_time(seconds))
 				    ++ "-"
-				    ++ integer_to_list(B)
-				    ++ "-"
-				    ++ integer_to_list(C)) | Acc]).
+				    ++ integer_to_list(erlang:unique_integer([positive]))) | Acc]).
 
 start_node(Name) ->
     ?line start_node(Name, "").

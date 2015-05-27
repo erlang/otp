@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2014. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2015. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -546,8 +546,9 @@ dummy(_Op) -> ok.
 %%-----------------------------------------------------------------
 snmp_set_serial_no(new) ->
     snmp_generic:variable_func(new, {snmpSetSerialNo, volatile}),
-    {A1,A2,A3} = erlang:now(),
-    random:seed(A1,A2,A3),
+    random:seed(erlang:phash2([node()]),
+                erlang:monotonic_time(),
+                erlang:unique_integer()),
     Val = random:uniform(2147483648) - 1,
     snmp_generic:variable_func(set, Val, {snmpSetSerialNo, volatile});
 

@@ -41,7 +41,7 @@
 -define(max_TimeT, 18446744073709551616).
 
 %% The calendar module uses year 0 as base for gregorian functions.
-%% 'ABSOULTE_TIME_DIFF' is #seconfs from year 0 until 15 october 1582, 00:00.
+%% 'ABSOULTE_TIME_DIFF' is #seconds from year 0 until 15 october 1582, 00:00.
 -define(ABSOLUTE_TIME_DIFF, 49947926400).
 %% As above but diff year 0 to 00:00 GMT, January 1, 1970
 -define(STANDARD_TIME_DIFF, 62167219200).

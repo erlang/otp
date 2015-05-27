@@ -360,7 +360,8 @@ erts_ptab_init_table(ErtsPTab *ptab,
 		     int size,
 		     UWord element_size,
 		     char *name,
-		     int legacy)
+		     int legacy,
+		     int atomic_refc)
 {
     size_t tab_sz, alloc_sz;
     Uint32 bits, cl, cli, ix, ix_per_cache_line, tab_cache_lines; 
@@ -414,6 +415,8 @@ erts_ptab_init_table(ErtsPTab *ptab,
     ptab->r.o.invalid_element = invalid_element;
     ptab->r.o.invalid_data = erts_ptab_id2data(ptab, invalid_element->id);
     ptab->r.o.release_element = release_element;
+
+    ptab->r.o.atomic_refc = atomic_refc;
 
     if (legacy) {
 	ptab->r.o.free_id_data = NULL;
@@ -533,9 +536,10 @@ erts_ptab_new_element(ErtsPTab *ptab,
 
 	init_ptab_el(init_arg, (Eterm) data);
 
-#ifdef ERTS_SMP
-	erts_smp_atomic32_init_nob(&ptab_el->refc, 1);
-#endif
+	if (ptab->r.o.atomic_refc)
+	    erts_atomic_init_nob(&ptab_el->refc.atmc, 1);
+	else
+	    ptab_el->refc.sint = 1;
 
 	pix = erts_ptab_data2pix(ptab, (Eterm) data);
 
@@ -608,9 +612,10 @@ erts_ptab_new_element(ErtsPTab *ptab,
 
 	init_ptab_el(init_arg, data);
 
-#ifdef ERTS_SMP
-	erts_smp_atomic32_init_nob(&ptab_el->refc, 1);
-#endif
+	if (ptab->r.o.atomic_refc)
+	    erts_atomic_init_nob(&ptab_el->refc.atmc, 1);
+	else
+	    ptab_el->refc.sint = 1;
 
 	/* Move into slot reserved */
 #ifdef DEBUG

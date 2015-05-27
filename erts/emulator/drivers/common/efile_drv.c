@@ -1616,12 +1616,12 @@ static void invoke_altname(void *data)
 }
 
 static void invoke_pwritev(void *data) {
-    struct t_data    *d = (struct t_data *) data;
+    struct t_data* const d = (struct t_data *) data;
+    struct t_pwritev * const c = &d->c.pwritev;
     SysIOVec         *iov0;
     SysIOVec         *iov;
     int               iovlen;
     int               iovcnt;
-    struct t_pwritev *c = &d->c.pwritev;
     size_t            p;
     int               segment;
     size_t            size, write_size, written;
@@ -1695,9 +1695,9 @@ static void invoke_pwritev(void *data) {
 	    d->result_ok = 0;
 	    d->again = 0;
 	deq_error:
-	    MUTEX_LOCK(d->c.writev.q_mtx);
-	    driver_deq(d->c.pwritev.port, c->size);
-	    MUTEX_UNLOCK(d->c.writev.q_mtx);
+	    MUTEX_LOCK(c->q_mtx);
+	    driver_deq(c->port, c->size);
+	    MUTEX_UNLOCK(c->q_mtx);
 
 	    goto done;
 	} else {
@@ -1708,9 +1708,9 @@ static void invoke_pwritev(void *data) {
       ASSERT(written >= FILE_SEGMENT_WRITE);
     }
       
-    MUTEX_LOCK(d->c.writev.q_mtx);
-    driver_deq(d->c.pwritev.port, written);
-    MUTEX_UNLOCK(d->c.writev.q_mtx);
+    MUTEX_LOCK(c->q_mtx);
+    driver_deq(c->port, written);
+    MUTEX_UNLOCK(c->q_mtx);
  done:
     EF_FREE(iov); /* Free our copy of the vector, nothing to restore */
     
@@ -1938,6 +1938,8 @@ static void invoke_sendfile(void *data)
 	d->result_ok = 1;
 	if (d->c.sendfile.nbytes != 0)
 	  d->c.sendfile.nbytes -= nbytes;
+      } else if (nbytes == 0 && d->c.sendfile.nbytes == 0) {
+	d->result_ok = 1;
       } else
 	d->result_ok = 0;
     } else {

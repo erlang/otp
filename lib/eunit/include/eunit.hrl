@@ -166,6 +166,26 @@
 %% This is mostly a convenience which gives more detailed reports.
 %% Note: Guard is a guarded pattern, and can not be used for value.
 -ifdef(NOASSERT).
+-define(assertReceive(Guard, Timeout), ok).
+-else.
+-define(assertReceive(Guard, Timeout),
+	begin
+	((fun () ->
+	    receive (Guard) -> ok
+	    after Timeout -> erlang:error({assertReceive_timedout,
+					   [{module, ?MODULE},
+					    {line, ?LINE},
+					    {pattern, (??Guard)},
+					    {timeout, __V}]})
+	    end
+	  end)())
+	end).
+-endif.
+-define(_assertReceive(Guard, Timeout), ?_test(?assertReceive(Guard, Timeout))).
+
+%% This is mostly a convenience which gives more detailed reports.
+%% Note: Guard is a guarded pattern, and can not be used for value.
+-ifdef(NOASSERT).
 -define(assertMatch(Guard, Expr), ok).
 -else.
 -define(assertMatch(Guard, Expr),
@@ -414,7 +434,7 @@
 -else.
 -define(debugMsg(S),
 	begin
-	    io:fwrite(user, <<"~s:~w:~w: ~s\n">>,
+	    io:fwrite(user, <<"~ts:~w:~w: ~ts\n">>,
 		      [?FILE, ?LINE, self(), S]),
 	    ok
 	end).
@@ -423,7 +443,7 @@
 -define(debugVal(E),
 	begin
 	((fun (__V) ->
-		  ?debugFmt(<<"~s = ~P">>, [(??E), __V, 15]),
+		  ?debugFmt(<<"~ts = ~tP">>, [(??E), __V, 15]),
 		  __V
 	  end)(E))
 	end).
@@ -433,7 +453,7 @@
 		  {__T0, _} = statistics(wall_clock),
 		  __V = (E),
 		  {__T1, _} = statistics(wall_clock),
-		  ?debugFmt(<<"~s: ~.3f s">>, [(S), (__T1-__T0)/1000]),
+		  ?debugFmt(<<"~ts: ~.3f s">>, [(S), (__T1-__T0)/1000]),
 		  __V
 	  end)())
 	end).

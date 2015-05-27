@@ -1338,11 +1338,11 @@ user_properties(Config) when is_list(Config) ->
     ?match([], mnesia:table_info(Tab2, user_properties)),
     ?match([], mnesia:table_info(Tab3, user_properties)),
 
-    ?match({'EXIT', {no_exists, {Tab1, user_property, PropKey}}},
+    ?match({'EXIT', {aborted, {no_exists, {Tab1, user_property, PropKey}}}},
 	   mnesia:read_table_property(Tab1, PropKey)),
-    ?match({'EXIT', {no_exists, {Tab2, user_property, PropKey}}},
+    ?match({'EXIT', {aborted, {no_exists, {Tab2, user_property, PropKey}}}},
 	   mnesia:read_table_property(Tab2, PropKey)),
-    ?match({'EXIT', {no_exists, {Tab3, user_property, PropKey}}},
+    ?match({'EXIT', {aborted, {no_exists, {Tab3, user_property, PropKey}}}},
 	   mnesia:read_table_property(Tab3, PropKey)),
 
     ?match({atomic, ok}, mnesia:write_table_property(Tab1, Prop)),

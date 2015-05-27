@@ -1,7 +1,7 @@
 dnl
 dnl %CopyrightBegin%
 dnl
-dnl Copyright Ericsson AB 1998-2013. All Rights Reserved.
+dnl Copyright Ericsson AB 1998-2015. All Rights Reserved.
 dnl
 dnl The contents of this file are subject to the Erlang Public License,
 dnl Version 1.1, (the "License"); you may not use this file except in
@@ -60,7 +60,6 @@ AC_ARG_VAR(erl_xcomp_isysroot, [Absolute cross system root include path (only us
 dnl Cross compilation variables
 AC_ARG_VAR(erl_xcomp_bigendian, [big endian system: yes|no (only used when cross compiling)])
 AC_ARG_VAR(erl_xcomp_double_middle_endian, [double-middle-endian system: yes|no (only used when cross compiling)])
-AC_ARG_VAR(erl_xcomp_linux_clock_gettime_correction, [clock_gettime() can be used for time correction: yes|no (only used when cross compiling)])
 AC_ARG_VAR(erl_xcomp_linux_nptl, [have Native POSIX Thread Library: yes|no (only used when cross compiling)])
 AC_ARG_VAR(erl_xcomp_linux_usable_sigusrx, [SIGUSR1 and SIGUSR2 can be used: yes|no (only used when cross compiling)])
 AC_ARG_VAR(erl_xcomp_linux_usable_sigaltstack, [have working sigaltstack(): yes|no (only used when cross compiling)])
@@ -559,7 +558,7 @@ dnl
 
 AC_DEFUN(LM_SYS_MULTICAST,
 [AC_CACHE_CHECK([for multicast support], ac_cv_sys_multicast_support,
-[AC_EGREP_CPP(yes,
+[AC_EGREP_CPP(^yes$,
 [#include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -723,6 +722,244 @@ presetting ac_cv_c_double_middle_endian=no (or yes) will help])]) ;;
 esac
 ])# AC_C_DOUBLE_MIDDLE_ENDIAN
 
+
+AC_DEFUN(ERL_MONOTONIC_CLOCK,
+[
+  default_resolution_clock_gettime_monotonic="CLOCK_HIGHRES CLOCK_BOOTTIME CLOCK_MONOTONIC"
+  low_resolution_clock_gettime_monotonic="CLOCK_MONOTONIC_COARSE CLOCK_MONOTONIC_FAST"
+  high_resolution_clock_gettime_monotonic="CLOCK_MONOTONIC_PRECISE"
+
+  case "$1" in
+    high_resolution)
+	check_msg="high resolution "
+	prefer_resolution_clock_gettime_monotonic="$high_resolution_clock_gettime_monotonic"
+	;;
+    low_resolution)
+	check_msg="low resolution "
+	prefer_resolution_clock_gettime_monotonic="$low_resolution_clock_gettime_monotonic"
+	;;
+    custom_resolution)
+	check_msg="custom resolution "
+	prefer_resolution_clock_gettime_monotonic="$2"
+	;;
+    *)
+	check_msg=""
+	prefer_resolution_clock_gettime_monotonic=
+	;;
+  esac
+
+  AC_CACHE_CHECK([for clock_gettime(CLOCK_MONOTONIC_RAW, _)], erl_cv_clock_gettime_monotonic_raw,
+  [
+       AC_TRY_COMPILE([
+#include <time.h>
+		      ],
+		      [
+    struct timespec ts;
+    long long result;
+    clock_gettime(CLOCK_MONOTONIC_RAW, &ts);
+    result = ((long long) ts.tv_sec) * 1000000000LL + 
+    ((long long) ts.tv_nsec);
+		      ],
+		      erl_cv_clock_gettime_monotonic_raw=yes,
+		      erl_cv_clock_gettime_monotonic_raw=no)
+  ])
+
+  AC_CACHE_CHECK([for clock_gettime() with ${check_msg}monotonic clock type], erl_cv_clock_gettime_monotonic_$1,
+  [
+     for clock_type in $prefer_resolution_clock_gettime_monotonic $default_resolution_clock_gettime_monotonic $high_resolution_clock_gettime_monotonic $low_resolution_clock_gettime_monotonic; do
+       AC_TRY_COMPILE([
+#include <time.h>
+		      ],
+		      [
+    struct timespec ts;
+    long long result;
+    clock_gettime($clock_type,&ts);
+    result = ((long long) ts.tv_sec) * 1000000000LL + 
+    ((long long) ts.tv_nsec);
+		      ],
+		      erl_cv_clock_gettime_monotonic_$1=$clock_type,
+		      erl_cv_clock_gettime_monotonic_$1=no)
+       test $erl_cv_clock_gettime_monotonic_$1 = no || break
+     done
+  ])
+
+  AC_CHECK_FUNCS([clock_getres clock_get_attributes gethrtime])
+  
+  AC_CACHE_CHECK([for mach clock_get_time() with monotonic clock type], erl_cv_mach_clock_get_time_monotonic,
+  [
+     AC_TRY_COMPILE([
+#include <mach/clock.h>
+#include <mach/mach.h>
+			],
+	 		[
+    kern_return_t res;
+    clock_serv_t clk_srv;
+    mach_timespec_t time_spec;
+
+    host_get_clock_service(mach_host_self(), SYSTEM_CLOCK, &clk_srv);
+    res = clock_get_time(clk_srv, &time_spec);
+    mach_port_deallocate(mach_task_self(), clk_srv);
+    			],
+    			erl_cv_mach_clock_get_time_monotonic=yes,
+			erl_cv_mach_clock_get_time_monotonic=no)
+  ])
+  
+  erl_corrected_monotonic_clock=no
+  case $erl_cv_clock_gettime_monotonic_$1-$ac_cv_func_gethrtime-$erl_cv_mach_clock_get_time_monotonic-$host_os in
+    *-*-*-win32)
+      erl_monotonic_clock_func=WindowsAPI
+      ;;
+    CLOCK_*-*-*-linux*)
+      case $erl_cv_clock_gettime_monotonic_$1-$erl_cv_clock_gettime_monotonic_raw in
+        CLOCK_BOOTTIME-yes|CLOCK_MONOTONIC-yes)
+	  erl_corrected_monotonic_clock=yes
+	  ;;
+	*)
+	  # We don't trust CLOCK_MONOTONIC to be NTP
+	  # adjusted on linux systems that do not have
+	  # CLOCK_MONOTONIC_RAW (although it seems to
+	  # be...)
+	  ;;
+      esac
+      erl_monotonic_clock_func=clock_gettime
+      ;;
+    no-no-no-linux*)
+      erl_monotonic_clock_func=times
+      ;;
+    CLOCK_*-*-*-*)
+      erl_monotonic_clock_func=clock_gettime
+      ;;
+    no-yes-*-*)
+      erl_monotonic_clock_func=gethrtime
+      ;;
+    no-no-yes-*)
+      erl_monotonic_clock_func=mach_clock_get_time
+      ;;
+    no-no-no-*)
+      erl_monotonic_clock_func=none
+      ;;
+  esac
+
+  erl_monotonic_clock_low_resolution=no
+  erl_monotonic_clock_lib=
+  erl_monotonic_clock_id=
+  case $erl_monotonic_clock_func in
+    clock_gettime)
+      erl_monotonic_clock_id=$erl_cv_clock_gettime_monotonic_$1
+      for low_res_id in $low_resolution_clock_gettime_monotonic; do
+      	  if test $erl_monotonic_clock_id = $low_res_id; then
+	    erl_monotonic_clock_low_resolution=yes
+	    break
+	  fi
+      done
+      AC_CHECK_LIB(rt, clock_gettime, [erl_monotonic_clock_lib="-lrt"])
+      ;;
+    mach_clock_get_time)
+      erl_monotonic_clock_id=SYSTEM_CLOCK
+      ;;
+    times)
+      erl_monotonic_clock_low_resolution=yes
+      ;;
+    *)
+      ;;
+  esac
+ 
+])
+
+AC_DEFUN(ERL_WALL_CLOCK,
+[
+  default_resolution_clock_gettime_wall="CLOCK_REALTIME"
+  low_resolution_clock_gettime_wall="CLOCK_REALTIME_COARSE CLOCK_REALTIME_FAST"
+  high_resolution_clock_gettime_wall="CLOCK_REALTIME_PRECISE"
+
+  case "$1" in
+    high_resolution)
+	check_msg="high resolution "
+	prefer_resolution_clock_gettime_wall="$high_resolution_clock_gettime_wall"
+	;;
+    low_resolution)
+	check_msg="low resolution "
+	prefer_resolution_clock_gettime_wall="$low_resolution_clock_gettime_wall"
+	;;
+    custom_resolution)
+	check_msg="custom resolution "
+	prefer_resolution_clock_gettime_wall="$2"
+	;;
+    *)
+	check_msg=""
+	prefer_resolution_clock_gettime_wall=
+	;;
+  esac
+
+  AC_CACHE_CHECK([for clock_gettime() with ${check_msg}wall clock type], erl_cv_clock_gettime_wall_$1,
+  [
+     for clock_type in $prefer_resolution_clock_gettime_wall $default_resolution_clock_gettime_wall $high_resolution_clock_gettime_wall $low_resolution_clock_gettime_wall; do
+       AC_TRY_COMPILE([
+#include <time.h>
+		      ],
+		      [
+    struct timespec ts;
+    long long result;
+    clock_gettime($clock_type,&ts);
+    result = ((long long) ts.tv_sec) * 1000000000LL + 
+    ((long long) ts.tv_nsec);
+		      ],
+		      erl_cv_clock_gettime_wall_$1=$clock_type,
+		      erl_cv_clock_gettime_wall_$1=no)
+       test $erl_cv_clock_gettime_wall_$1 = no || break
+     done
+  ])
+
+  AC_CHECK_FUNCS([clock_getres clock_get_attributes gettimeofday])
+  
+  AC_CACHE_CHECK([for mach clock_get_time() with wall clock type], erl_cv_mach_clock_get_time_wall,
+  [
+     AC_TRY_COMPILE([
+#include <mach/clock.h>
+#include <mach/mach.h>
+			],
+	 		[
+    kern_return_t res;
+    clock_serv_t clk_srv;
+    mach_timespec_t time_spec;
+
+    host_get_clock_service(mach_host_self(), CALENDAR_CLOCK, &clk_srv);
+    res = clock_get_time(clk_srv, &time_spec);
+    mach_port_deallocate(mach_task_self(), clk_srv);
+    			],
+    			erl_cv_mach_clock_get_time_wall=yes,
+			erl_cv_mach_clock_get_time_wall=no)
+  ])
+
+  erl_wall_clock_low_resolution=no
+  erl_wall_clock_id=
+  case $erl_cv_clock_gettime_wall_$1-$erl_cv_mach_clock_get_time_wall-$ac_cv_func_gettimeofday-$host_os in
+    *-*-*-win32)
+      erl_wall_clock_func=WindowsAPI
+      erl_wall_clock_low_resolution=yes
+      ;;
+    no-yes-*-*)
+      erl_wall_clock_func=mach_clock_get_time
+      erl_wall_clock_id=CALENDAR_CLOCK
+      ;;
+    CLOCK_*-*-*-*)
+      erl_wall_clock_func=clock_gettime
+      erl_wall_clock_id=$erl_cv_clock_gettime_wall_$1
+      for low_res_id in $low_resolution_clock_gettime_wall; do
+      	  if test $erl_wall_clock_id = $low_res_id; then
+	    erl_wall_clock_low_resolution=yes
+	    break
+	  fi
+      done
+      ;;
+    no-no-yes-*)
+      erl_wall_clock_func=gettimeofday
+      ;;
+    *)
+      erl_wall_clock_func=none
+      ;;
+  esac
+])
 
 dnl ----------------------------------------------------------------------
 dnl
@@ -908,24 +1145,226 @@ AC_SUBST(ERTS_INTERNAL_X_LIBS)
 
 ])
 
-AC_DEFUN(ETHR_CHK_SYNC_OP,
+AC_DEFUN(ETHR_CHK_GCC_ATOMIC_OP__,
 [
-    AC_MSG_CHECKING([for $3-bit $1()])
-    case "$2" in
-	"1") sync_call="$1(&var);";;
-	"2") sync_call="$1(&var, ($4) 0);";;
-	"3") sync_call="$1(&var, ($4) 0, ($4) 0);";;
+    # $1 - atomic_op
+
+    for atomic_bit_size in 32 64 128; do
+	case $atomic_bit_size in
+	    32) gcc_atomic_type="$gcc_atomic_type32";;
+	    64) gcc_atomic_type="$gcc_atomic_type64";;
+	    128) gcc_atomic_type="$gcc_atomic_type128";;
+	esac
+	gcc_atomic_lockfree="int x[[(2*__atomic_always_lock_free(sizeof($gcc_atomic_type), 0))-1]]"
+	case $1 in
+	    __sync_add_and_fetch | __sync_fetch_and_and | __sync_fetch_and_or)
+		atomic_call="volatile $gcc_atomic_type var; $gcc_atomic_type res = $1(&var, ($gcc_atomic_type) 0);"
+		;;
+	    __sync_val_compare_and_swap)
+		atomic_call="volatile $gcc_atomic_type var; $gcc_atomic_type res = $1(&var, ($gcc_atomic_type) 0, ($gcc_atomic_type) 0);"
+		;;
+	    __atomic_store_n)
+		atomic_call="$gcc_atomic_lockfree; volatile $gcc_atomic_type var; $1(&var, ($gcc_atomic_type) 0, __ATOMIC_RELAXED); $1(&var, ($gcc_atomic_type) 0, __ATOMIC_RELEASE);"
+		;;
+	    __atomic_load_n)
+		atomic_call="$gcc_atomic_lockfree; volatile $gcc_atomic_type var; $gcc_atomic_type res = $1(&var, __ATOMIC_RELAXED); res = $1(&var, __ATOMIC_ACQUIRE);"
+		;;
+	    __atomic_add_fetch| __atomic_fetch_and | __atomic_fetch_or)
+		atomic_call="$gcc_atomic_lockfree; volatile $gcc_atomic_type var; $gcc_atomic_type res = $1(&var, ($gcc_atomic_type) 0, __ATOMIC_RELAXED); res = $1(&var, ($gcc_atomic_type) 0, __ATOMIC_ACQUIRE); res = $1(&var, ($gcc_atomic_type) 0, __ATOMIC_RELEASE);"
+		;;
+	    __atomic_compare_exchange_n)
+		atomic_call="$gcc_atomic_lockfree; volatile $gcc_atomic_type var; $gcc_atomic_type val; int res = $1(&var, &val, ($gcc_atomic_type) 0, 0, __ATOMIC_RELAXED, __ATOMIC_RELAXED); res = $1(&var, &val, ($gcc_atomic_type) 0, 0, __ATOMIC_ACQUIRE, __ATOMIC_ACQUIRE);"
+		;;
+	    *)
+		AC_MSG_ERROR([Internal error: missing implementation for $1])
+		;;
+	esac
+	eval atomic${atomic_bit_size}_call=\"$atomic_call\"
+    done
+    
+    AC_CACHE_CHECK([for 32-bit $1()], ethr_cv_32bit_$1,
+		   [
+		       ethr_cv_32bit_$1=no
+		       AC_TRY_LINK([], [$atomic32_call], [ethr_cv_32bit_$1=yes])
+		   ])
+    AC_CACHE_CHECK([for 64-bit $1()], ethr_cv_64bit_$1,
+		   [
+		       ethr_cv_64bit_$1=no
+		       AC_TRY_LINK([], [$atomic64_call], [ethr_cv_64bit_$1=yes])
+		   ])
+    AC_CACHE_CHECK([for 128-bit $1()], ethr_cv_128bit_$1,
+		   [
+		       ethr_cv_128bit_$1=no
+		       AC_TRY_LINK([], [$atomic128_call], [ethr_cv_128bit_$1=yes])
+		   ])
+
+	case $ethr_cv_128bit_$1-$ethr_cv_64bit_$1-$ethr_cv_32bit_$1 in
+	    no-no-no)
+		have_atomic_ops=0;;
+	    no-no-yes)
+		have_atomic_ops=4;;
+	    no-yes-no)
+		have_atomic_ops=8;;
+	    no-yes-yes)
+		have_atomic_ops=12;;
+	    yes-no-no)
+		have_atomic_ops=16;;
+	    yes-no-yes)
+		have_atomic_ops=20;;
+	    yes-yes-no)
+		have_atomic_ops=24;;
+	    yes-yes-yes)
+		have_atomic_ops=28;;
+	esac
+	AC_DEFINE_UNQUOTED([ETHR_HAVE_$1], [$have_atomic_ops], [Define as a bitmask corresponding to the word sizes that $1() can handle on your system])
+])
+
+AC_DEFUN(ETHR_CHK_IF_NOOP,
+[
+   ethr_test_filename="chk_if_$1$3_noop_config1test.$$"
+   cat > "${ethr_test_filename}.c" <<EOF
+int
+my_test(void)
+{
+    $1$2;
+    return 0;
+}
+EOF
+   $CC -O3 $ETHR_DEFS -c "${ethr_test_filename}.c" -o "${ethr_test_filename}1.o"
+   cat > "${ethr_test_filename}.c" <<EOF
+int
+my_test(void)
+{
+    ;
+    return 0;
+}
+EOF
+   $CC -O3 $ETHR_DEFS -c "${ethr_test_filename}.c" -o "${ethr_test_filename}2.o"
+   if diff "${ethr_test_filename}1.o" "${ethr_test_filename}2.o" >/dev/null 2>&1; then
+      ethr_$1$3_noop=yes
+   else
+      ethr_$1$3_noop=no
+   fi
+   rm -f "${ethr_test_filename}.c" "${ethr_test_filename}1.o"  "${ethr_test_filename}2.o" 
+])
+
+AC_DEFUN(ETHR_CHK_GCC_ATOMIC_OPS,
+[
+    AC_CHECK_SIZEOF(short)
+    AC_CHECK_SIZEOF(int)
+    AC_CHECK_SIZEOF(long)
+    AC_CHECK_SIZEOF(long long)
+    AC_CHECK_SIZEOF(__int128_t)
+
+    if test "$ac_cv_sizeof_short" = "4"; then
+	gcc_atomic_type32="short"
+    elif test "$ac_cv_sizeof_int" = "4"; then
+	gcc_atomic_type32="int"
+    elif test "$ac_cv_sizeof_long" = "4"; then
+	gcc_atomic_type32="long"
+    else
+	AC_MSG_ERROR([No 32-bit type found])
+    fi
+
+    if test "$ac_cv_sizeof_int" = "8"; then
+	gcc_atomic_type64="int"
+    elif test "$ac_cv_sizeof_long" = "8"; then
+	gcc_atomic_type64="long"
+    elif test "$ac_cv_sizeof_long_long" = "8"; then
+	gcc_atomic_type64="long long"
+    else
+	AC_MSG_ERROR([No 64-bit type found])
+    fi
+
+    if test "$ac_cv_sizeof___int128_t" = "16"; then
+	gcc_atomic_type128="__int128_t"
+    else
+	gcc_atomic_type128="#error "	
+    fi
+    AC_CACHE_CHECK([for a working __sync_synchronize()], ethr_cv___sync_synchronize,
+		   [
+		       ethr_cv___sync_synchronize=no
+		       AC_TRY_LINK([],
+				   [ __sync_synchronize(); ],
+				   [ethr_cv___sync_synchronize=yes])
+		       if test $ethr_cv___sync_synchronize = yes; then
+			   #
+			   # Old gcc versions on at least x86 have a buggy
+			   # __sync_synchronize() which does not emit a
+			   # memory barrier. We try to detect this by
+			   # compiling to assembly with and without
+			   # __sync_synchronize() and compare the results.
+			   #
+			   ETHR_CHK_IF_NOOP(__sync_synchronize, [()], [])
+			   if test $ethr___sync_synchronize_noop = yes; then
+			      # Got a buggy implementation of
+			      # __sync_synchronize...
+			      ethr_cv___sync_synchronize="no; buggy implementation"
+			   fi
+		       fi
+		   ])
+
+    if test "$ethr_cv___sync_synchronize" = "yes"; then
+	have_sync_synchronize_value="~0"
+    else
+	have_sync_synchronize_value="0"
+    fi
+    AC_DEFINE_UNQUOTED([ETHR_HAVE___sync_synchronize], [$have_sync_synchronize_value], [Define as a bitmask corresponding to the word sizes that __sync_synchronize() can handle on your system])
+
+    ETHR_CHK_GCC_ATOMIC_OP__(__sync_add_and_fetch)
+    ETHR_CHK_GCC_ATOMIC_OP__(__sync_fetch_and_and)
+    ETHR_CHK_GCC_ATOMIC_OP__(__sync_fetch_and_or)
+    ETHR_CHK_GCC_ATOMIC_OP__(__sync_val_compare_and_swap)
+
+    ETHR_CHK_GCC_ATOMIC_OP__(__atomic_store_n)
+    ETHR_CHK_GCC_ATOMIC_OP__(__atomic_load_n)
+    ETHR_CHK_GCC_ATOMIC_OP__(__atomic_add_fetch)
+    ETHR_CHK_GCC_ATOMIC_OP__(__atomic_fetch_and)
+    ETHR_CHK_GCC_ATOMIC_OP__(__atomic_fetch_or)
+    ETHR_CHK_GCC_ATOMIC_OP__(__atomic_compare_exchange_n)
+
+    ethr_have_gcc_native_atomics=no
+    ethr_arm_dbm_instr_val=0
+    case "$GCC-$host_cpu" in
+	yes-arm*)
+	    AC_CACHE_CHECK([for ARM DMB instruction], ethr_cv_arm_dbm_instr,
+			   [
+				ethr_cv_arm_dbm_instr=no
+				AC_TRY_LINK([],
+					    [
+						__asm__ __volatile__("dmb sy" : : : "memory");
+						__asm__ __volatile__("dmb st" : : : "memory");
+					    ],
+					    [ethr_cv_arm_dbm_instr=yes])
+			   ])
+	    if test $ethr_cv_arm_dbm_instr = yes; then
+		ethr_arm_dbm_instr_val=1
+		test $ethr_cv_64bit___atomic_compare_exchange_n = yes &&
+		    ethr_have_gcc_native_atomics=yes
+	    fi;;
+	*)
+	    ;;
     esac
-    have_sync_op=no
-    AC_TRY_LINK([],
-	[
-	    $4 res;
-	    volatile $4 var;
-	    res = $sync_call
-	],
-	[have_sync_op=yes])
-    test $have_sync_op = yes && $5
-    AC_MSG_RESULT([$have_sync_op])
+    AC_DEFINE_UNQUOTED([ETHR_HAVE_GCC_ASM_ARM_DMB_INSTRUCTION], [$ethr_arm_dbm_instr_val], [Define as a boolean indicating whether you have a gcc compatible compiler capable of generating the ARM DMB instruction, and are compiling for an ARM processor with ARM DMB instruction support, or not])
+    test $ethr_cv_32bit___sync_val_compare_and_swap = yes &&
+    	ethr_have_gcc_native_atomics=yes
+    test $ethr_cv_64bit___sync_val_compare_and_swap = yes &&
+    	ethr_have_gcc_native_atomics=yes
+    if test "$ethr_cv___sync_synchronize" = "yes"; then
+    	test $ethr_cv_64bit___atomic_compare_exchange_n = yes &&
+    	    ethr_have_gcc_native_atomics=yes
+    	test $ethr_cv_32bit___atomic_compare_exchange_n = yes &&
+    	    ethr_have_gcc_native_atomics=yes
+    fi
+    ethr_have_gcc_atomic_builtins=0
+    if test $ethr_have_gcc_native_atomics = yes; then
+       ethr_native_atomic_implementation=gcc_sync
+       test $ethr_cv_32bit___atomic_compare_exchange_n = yes && ethr_have_gcc_atomic_builtins=1
+       test $ethr_cv_64bit___atomic_compare_exchange_n = yes && ethr_have_gcc_atomic_builtins=1
+       test $ethr_have_gcc_atomic_builtins = 1 && ethr_native_atomic_implementation=gcc_atomic_sync
+    fi
+    AC_DEFINE_UNQUOTED([ETHR_HAVE_GCC___ATOMIC_BUILTINS], [$ethr_have_gcc_atomic_builtins], [Define as a boolean indicating whether you have a gcc __atomic builtins or not])
+    test $ethr_have_gcc_native_atomics = yes && ethr_have_native_atomics=yes
 ])
 
 AC_DEFUN(ETHR_CHK_INTERLOCKED,
@@ -1005,6 +1444,16 @@ AC_ARG_ENABLE(prefer-gcc-native-ethr-impls,
 test $enable_prefer_gcc_native_ethr_impls = yes &&
   AC_DEFINE(ETHR_PREFER_GCC_NATIVE_IMPLS, 1, [Define if you prefer gcc native ethread implementations])
 
+AC_ARG_ENABLE(trust-gcc-atomic-builtins-memory-barriers,
+	      AS_HELP_STRING([--enable-trust-gcc-atomic-builtins-memory-barriers],
+			     [trust gcc atomic builtins memory barriers]),
+[ case "$enableval" in
+    yes) trust_gcc_atomic_builtins_mbs=1 ;;
+    *) trust_gcc_atomic_builtins_mbs=0 ;;
+  esac ], trust_gcc_atomic_builtins_mbs=0)
+
+AC_DEFINE_UNQUOTED(ETHR_TRUST_GCC_ATOMIC_BUILTINS_MEMORY_BARRIERS, [$trust_gcc_atomic_builtins_mbs], [Define as a boolean indicating whether you trust gcc's __atomic_* builtins memory barrier implementations, or not])
+
 AC_ARG_WITH(libatomic_ops,
 	    AS_HELP_STRING([--with-libatomic_ops=PATH],
 			   [specify and prefer usage of libatomic_ops in the ethread library]))
@@ -1016,12 +1465,33 @@ AC_ARG_WITH(with_sparc_memory_order,
 LM_CHECK_THR_LIB
 ERL_INTERNAL_LIBS
 
+ERL_MONOTONIC_CLOCK(high_resolution)
+
+case $erl_monotonic_clock_func in
+  clock_gettime)
+    AC_DEFINE(ETHR_HAVE_CLOCK_GETTIME_MONOTONIC, [1], [Define if you have a clock_gettime() with a monotonic clock])
+    ;;
+  mach_clock_get_time)
+    AC_DEFINE(ETHR_HAVE_MACH_CLOCK_GET_TIME, [1], [Define if you have a mach clock_get_time() with a monotonic clock])
+    ;;
+  gethrtime)
+    AC_DEFINE(ETHR_HAVE_GETHRTIME, [1], [Define if you have a monotonic gethrtime()])
+    ;;
+  *)
+    ;;
+esac
+
+if test "x$erl_monotonic_clock_id" != "x"; then
+    AC_DEFINE_UNQUOTED(ETHR_MONOTONIC_CLOCK_ID, [$erl_monotonic_clock_id], [Define to the monotonic clock id to use])
+fi
+
+ethr_native_atomic_implementation=none
 ethr_have_native_atomics=no
 ethr_have_native_spinlock=no
 ETHR_THR_LIB_BASE="$THR_LIB_NAME"
 ETHR_THR_LIB_BASE_TYPE="$THR_LIB_TYPE"
 ETHR_DEFS="$THR_DEFS"
-ETHR_X_LIBS="$THR_LIBS $ERTS_INTERNAL_X_LIBS"
+ETHR_X_LIBS="$THR_LIBS $ERTS_INTERNAL_X_LIBS $erl_monotonic_clock_lib"
 ETHR_LIBS=
 ETHR_LIB_NAME=
 
@@ -1100,7 +1570,10 @@ case "$THR_LIB_NAME" in
 
 	    ETHR_CHK_INTERLOCKED([_InterlockedCompareExchange128], [4], [__int64], AC_DEFINE_UNQUOTED(ETHR_HAVE__INTERLOCKEDCOMPAREEXCHANGE128, 1, [Define if you have _InterlockedCompareExchange128()]))
 	fi
-	test "$ethr_have_native_atomics" = "yes" && ethr_have_native_spinlock=yes
+	if test "$ethr_have_native_atomics" = "yes"; then
+	   ethr_native_atomic_implementation=windows
+	   ethr_have_native_spinlock=yes
+	fi
 	;;
 
     pthread|ose_threads)
@@ -1329,6 +1802,50 @@ case "$THR_LIB_NAME" in
 			AC_DEFINE(ETHR_HAVE_PTHREAD_ATTR_SETGUARDSIZE, 1, \
 [Define if you have the pthread_attr_setguardsize function.]))
 
+	if test "x$erl_monotonic_clock_id" != "x"; then
+	  AC_MSG_CHECKING(whether pthread_cond_timedwait() can use the monotonic clock $erl_monotonic_clock_id for timeout)
+	  pthread_cond_timedwait_monotonic=no
+	  AC_TRY_LINK([
+			#if defined(ETHR_NEED_NPTL_PTHREAD_H)
+			#  include <nptl/pthread.h>
+			#elif defined(ETHR_HAVE_MIT_PTHREAD_H)
+			#  include <pthread/mit/pthread.h>
+			#elif defined(ETHR_HAVE_PTHREAD_H)
+			#  include <pthread.h>
+			#endif
+			#ifdef ETHR_TIME_WITH_SYS_TIME
+			#  include <time.h>
+			#  include <sys/time.h>
+			#else
+			#  ifdef ETHR_HAVE_SYS_TIME_H
+			#    include <sys/time.h>
+			#  else
+			#    include <time.h>
+			#  endif
+			#endif
+			#if defined(ETHR_HAVE_MACH_CLOCK_GET_TIME)
+			#  include <mach/clock.h>
+			#  include <mach/mach.h>
+			#endif
+			], 
+			[
+			int res;
+			pthread_condattr_t attr;
+			pthread_cond_t cond;
+			struct timespec cond_timeout;
+			pthread_mutex_t mutex;
+			res = pthread_condattr_init(&attr);
+			res = pthread_condattr_setclock(&attr, ETHR_MONOTONIC_CLOCK_ID);
+			res = pthread_cond_init(&cond, &attr);
+			res = pthread_cond_timedwait(&cond, &mutex, &cond_timeout);
+			],
+			[pthread_cond_timedwait_monotonic=yes])
+	  AC_MSG_RESULT([$pthread_cond_timedwait_monotonic])
+	  if test $pthread_cond_timedwait_monotonic = yes; then
+	    AC_DEFINE(ETHR_HAVE_PTHREAD_COND_TIMEDWAIT_MONOTONIC, [1], [Define if pthread_cond_timedwait() can be used with a monotonic clock])
+	  fi
+	fi
+
 	linux_futex=no
 	AC_MSG_CHECKING([for Linux futexes])
 	AC_TRY_LINK([
@@ -1349,56 +1866,62 @@ case "$THR_LIB_NAME" in
 	AC_MSG_RESULT([$linux_futex])
 	test $linux_futex = yes && AC_DEFINE(ETHR_HAVE_LINUX_FUTEX, 1, [Define if you have a linux futex implementation.])
 
-	fi
+	pthread_setname=no
+	AC_MSG_CHECKING([for pthread_setname_np])
+	old_CFLAGS=$CFLAGS
+	CFLAGS="$CFLAGS -Werror"
+	AC_TRY_LINK([#define __USE_GNU
+                     #include <pthread.h>],
+                    [pthread_setname_np(pthread_self(), "name");],
+                    pthread_setname=linux)
+	AC_TRY_LINK([#define __USE_GNU
+                     #include <pthread.h>],
+                    [pthread_set_name_np(pthread_self(), "name");],
+                    pthread_setname=bsd)
+	AC_TRY_LINK([#define _DARWIN_C_SOURCE
+                     #include <pthread.h>],
+                    [pthread_setname_np("name");],
+                    pthread_setname=darwin)
+        AC_MSG_RESULT([$pthread_setname])
+        case $pthread_setname in
+             linux) AC_DEFINE(ETHR_HAVE_PTHREAD_SETNAME_NP_2, 1,
+                          [Define if you have linux style pthread_setname_np]);;
+             bsd) AC_DEFINE(ETHR_HAVE_PTHREAD_SET_NAME_NP_2, 1,
+                          [Define if you have bsd style pthread_set_name_np]);;
+             darwin) AC_DEFINE(ETHR_HAVE_PTHREAD_SETNAME_NP_1, 1,
+                          [Define if you have darwin style pthread_setname_np]);;
+             *) ;;
+	esac
 
-	AC_CHECK_SIZEOF(int)
-	AC_CHECK_SIZEOF(long)
-	AC_CHECK_SIZEOF(long long)
-	AC_CHECK_SIZEOF(__int128_t)
+	pthread_getname=no
+	AC_MSG_CHECKING([for pthread_getname_np])
+	AC_TRY_LINK([#define __USE_GNU
+                     #define _DARWIN_C_SOURCE
+                     #include <pthread.h>],
+                    [char buff[256]; pthread_getname_np(pthread_self(), buff, 256);],
+                    pthread_getname=normal)
+	AC_TRY_LINK([#define __USE_GNU
+                     #define _DARWIN_C_SOURCE
+                     #include <pthread.h>],
+                    [char buff[256]; pthread_getname_np(pthread_self(), buff);],
+                    pthread_getname=ibm)
+        AC_MSG_RESULT([$pthread_getname])
+        case $pthread_getname in
+             linux) AC_DEFINE(ETHR_HAVE_PTHREAD_GETNAME_NP_3, 1,
+                          [Define if you have linux style pthread_getname_np]);;
+             ibm) AC_DEFINE(ETHR_HAVE_PTHREAD_GETNAME_NP_2, 1,
+                          [Define if you have ibm style pthread_getname_np]);;
+             *) ;;
+	esac
+	CFLAGS=$old_CFLAGS
 
-	if test "$ac_cv_sizeof_int" = "4"; then
-	    int32="int"
-	elif test "$ac_cv_sizeof_long" = "4"; then
-	    int32="long"
-	elif test "$ac_cv_sizeof_long_long" = "4"; then
-	    int32="long long"
-	else
-	    AC_MSG_ERROR([No 32-bit type found])
-	fi
-
-	if test "$ac_cv_sizeof_int" = "8"; then
-	    int64="int"
-	elif test "$ac_cv_sizeof_long" = "8"; then
-	    int64="long"
-	elif test "$ac_cv_sizeof_long_long" = "8"; then
-	    int64="long long"
-	else
-	    AC_MSG_ERROR([No 64-bit type found])
-	fi
-
-	int128=no
-	if test "$ac_cv_sizeof___int128_t" = "16"; then
-	    int128="__int128_t"
-	fi
+        fi ## test "x$THR_LIB_NAME" = "xpthread"
 
 	if test "X$disable_native_ethr_impls" = "Xyes"; then
 	    ethr_have_native_atomics=no
 	else
-	    ETHR_CHK_SYNC_OP([__sync_val_compare_and_swap], [3], [32], [$int32], AC_DEFINE(ETHR_HAVE___SYNC_VAL_COMPARE_AND_SWAP32, 1, [Define if you have __sync_val_compare_and_swap() for 32-bit integers]))
-	    test "$have_sync_op" = "yes" && ethr_have_native_atomics=yes
-	    ETHR_CHK_SYNC_OP([__sync_add_and_fetch], [2], [32], [$int32], AC_DEFINE(ETHR_HAVE___SYNC_ADD_AND_FETCH32, 1, [Define if you have __sync_add_and_fetch() for 32-bit integers]))
-	    ETHR_CHK_SYNC_OP([__sync_fetch_and_and], [2], [32], [$int32], AC_DEFINE(ETHR_HAVE___SYNC_FETCH_AND_AND32, 1, [Define if you have __sync_fetch_and_and() for 32-bit integers]))
-	    ETHR_CHK_SYNC_OP([__sync_fetch_and_or], [2], [32], [$int32], AC_DEFINE(ETHR_HAVE___SYNC_FETCH_AND_OR32, 1, [Define if you have __sync_fetch_and_or() for 32-bit integers]))
 
-	    ETHR_CHK_SYNC_OP([__sync_val_compare_and_swap], [3], [64], [$int64], AC_DEFINE(ETHR_HAVE___SYNC_VAL_COMPARE_AND_SWAP64, 1, [Define if you have __sync_val_compare_and_swap() for 64-bit integers]))
-	    test "$have_sync_op" = "yes" && ethr_have_native_atomics=yes
-	    ETHR_CHK_SYNC_OP([__sync_add_and_fetch], [2], [64], [$int64], AC_DEFINE(ETHR_HAVE___SYNC_ADD_AND_FETCH64, 1, [Define if you have __sync_add_and_fetch() for 64-bit integers]))
-	    ETHR_CHK_SYNC_OP([__sync_fetch_and_and], [2], [64], [$int64], AC_DEFINE(ETHR_HAVE___SYNC_FETCH_AND_AND64, 1, [Define if you have __sync_fetch_and_and() for 64-bit integers]))
-	    ETHR_CHK_SYNC_OP([__sync_fetch_and_or], [2], [64], [$int64], AC_DEFINE(ETHR_HAVE___SYNC_FETCH_AND_OR64, 1, [Define if you have __sync_fetch_and_or() for 64-bit integers]))
-
-	    if test $int128 != no; then
-	        ETHR_CHK_SYNC_OP([__sync_val_compare_and_swap], [3], [128], [$int128], AC_DEFINE(ETHR_HAVE___SYNC_VAL_COMPARE_AND_SWAP128, 1, [Define if you have __sync_val_compare_and_swap() for 128-bit integers]))
-	    fi
+	    ETHR_CHK_GCC_ATOMIC_OPS([])
 
 	    AC_MSG_CHECKING([for a usable libatomic_ops implementation])
 	    case "x$with_libatomic_ops" in
@@ -1448,6 +1971,7 @@ case "$THR_LIB_NAME" in
 #endif
 	    	        ],
 	    	        [ethr_have_native_atomics=yes
+			 ethr_native_atomic_implementation=libatomic_ops
 	    	         ethr_have_libatomic_ops=yes])
 	    AC_MSG_RESULT([$ethr_have_libatomic_ops])
 	    if test $ethr_have_libatomic_ops = yes; then
@@ -1479,15 +2003,19 @@ case "$THR_LIB_NAME" in
 	    	        *)
 	    	    	    AC_MSG_ERROR([Unsupported Sparc memory order: $with_sparc_memory_order]);;
 	    	    esac
+		    ethr_native_atomic_implementation=ethread
 	    	    ethr_have_native_atomics=yes;; 
 	      i86pc | i*86 | x86_64 | amd64)
 	    	    if test "$enable_x86_out_of_order" = "yes"; then
 	    	    	    AC_DEFINE(ETHR_X86_OUT_OF_ORDER, 1, [Define if x86/x86_64 out of order instructions should be synchronized])
 	    	    fi
+		    ethr_native_atomic_implementation=ethread
 	    	    ethr_have_native_atomics=yes;;
 	      macppc | ppc | powerpc | "Power Macintosh")
+	      	    ethr_native_atomic_implementation=ethread
 	    	    ethr_have_native_atomics=yes;;
 	      tile)
+	            ethr_native_atomic_implementation=ethread
 	    	    ethr_have_native_atomics=yes;;
 	      *)
 	    	    ;;
@@ -1660,109 +2188,199 @@ AC_SUBST(ETHR_X86_SSE2_ASM)
 ])
 
 
-
 dnl ----------------------------------------------------------------------
 dnl
 dnl ERL_TIME_CORRECTION
 dnl
-dnl In the presence of a high resolution realtime timer Erlang can adapt
-dnl its view of time relative to this timer. On solaris such a timer is
-dnl available with the syscall gethrtime(). On other OS's a fallback
-dnl solution using times() is implemented. (However on e.g. FreeBSD times()
-dnl is implemented using gettimeofday so it doesn't make much sense to
-dnl use it there...) On second thought, it seems to be safer to do it the
-dnl other way around. I.e. only use times() on OS's where we know it will
-dnl work...
+dnl Check for primitives that can be used for implementing
+dnl erts_os_monotonic_time() and erts_os_system_time()
 dnl
 
 AC_DEFUN(ERL_TIME_CORRECTION,
-[if test x$ac_cv_func_gethrtime = x; then
-  AC_CHECK_FUNC(gethrtime)
-fi
-if test x$clock_gettime_correction = xunknown; then
-	AC_TRY_COMPILE([#include <time.h>],
-			[struct timespec ts;
-     			 long long result;
-			 clock_gettime(CLOCK_MONOTONIC,&ts);
-                         result = ((long long) ts.tv_sec) * 1000000000LL + 
-			 ((long long) ts.tv_nsec);],
-			clock_gettime_compiles=yes,
-			clock_gettime_compiles=no)
-else
-	clock_gettime_compiles=no
-fi
-			
-
-AC_CACHE_CHECK([how to correct for time adjustments], erl_cv_time_correction,
 [
-case $clock_gettime_correction in
-    yes)
-	erl_cv_time_correction=clock_gettime;;	
-    no|unknown)
-	case $ac_cv_func_gethrtime in
-  	    yes)
-    		erl_cv_time_correction=hrtime ;;
-  	    no)
-    		case $host_os in
-        	    linux*)
-			case $clock_gettime_correction in
-			    unknown)
-				if test x$clock_gettime_compiles = xyes; then
-				    if test X$cross_compiling != Xyes; then
-				    	linux_kernel_vsn_=`uname -r`
-				    	case $linux_kernel_vsn_ in
-					    [[0-1]].*|2.[[0-5]]|2.[[0-5]].*)
-					    	erl_cv_time_correction=times ;;
-					    *)
-					    	erl_cv_time_correction=clock_gettime;;
-				    	esac
-				    else
-					case X$erl_xcomp_linux_clock_gettime_correction in
-					    X)
-						erl_cv_time_correction=cross;;
-					    Xyes|Xno)
-						if test $erl_xcomp_linux_clock_gettime_correction = yes; then
-						    erl_cv_time_correction=clock_gettime
-						else
-					    	    erl_cv_time_correction=times
-						fi;;
-					    *)
-						AC_MSG_ERROR([Bad erl_xcomp_linux_clock_gettime_correction value: $erl_xcomp_linux_clock_gettime_correction]);;
-					esac
-				    fi
-				else
-				    erl_cv_time_correction=times
-				fi
-				;;
-			     *)				
-        			erl_cv_time_correction=times ;;
-			esac
-			;;
-            	    *)
-        		erl_cv_time_correction=none ;;
-    		esac
-    		;;
-	esac
-	;;
-esac
-])
 
-xrtlib=""
-case $erl_cv_time_correction in
-  times)
-    AC_DEFINE(CORRECT_USING_TIMES,[],
-	[Define if you do not have a high-res. timer & want to use times() instead])
+AC_ARG_WITH(clock-resolution,
+AS_HELP_STRING([--with-clock-resolution=high|low|default],
+               [specify wanted clock resolution)]))
+
+AC_ARG_WITH(clock-gettime-realtime-id,
+AS_HELP_STRING([--with-clock-gettime-realtime-id=CLOCKID],
+               [specify clock id to use with clock_gettime() for realtime time)]))
+
+AC_ARG_WITH(clock-gettime-monotonic-id,
+AS_HELP_STRING([--with-clock-gettime-monotonic-id=CLOCKID],
+               [specify clock id to use with clock_gettime() for monotonic time)]))
+
+case "$with_clock_resolution" in
+   ""|no|yes)
+     with_clock_resolution=default;;
+   high|low|default)
+     ;;
+   *)
+     AC_MSG_ERROR([Invalid wanted clock resolution: $with_clock_resolution])
+     ;;
+esac
+
+case "$with_clock_gettime_realtime_id" in
+   ""|no)
+     with_clock_gettime_realtime_id=no
+     ;;
+   CLOCK_*CPUTIME*)
+     AC_MSG_ERROR([Invalid clock_gettime() realtime clock id: Refusing to use the cputime clock id $with_clock_gettime_realtime_id as realtime clock id])
+     ;;
+   CLOCK_MONOTONIC*|CLOCK_BOOTTIME*|CLOCK_UPTIME*|CLOCK_HIGHRES*)
+     AC_MSG_ERROR([Invalid clock_gettime() realtime clock id: Refusing to use the monotonic clock id $with_clock_gettime_realtime_id as realtime clock id])
+     ;;
+   CLOCK_*)
+     ;;
+   *)
+     AC_MSG_ERROR([Invalid clock_gettime() clock id: $with_clock_gettime_realtime_id])
+     ;;
+esac
+
+case "$with_clock_gettime_monotonic_id" in
+   ""|no)
+     with_clock_gettime_monotonic_id=no
+     ;;
+   CLOCK_*CPUTIME*)
+     AC_MSG_ERROR([Invalid clock_gettime() monotonic clock id: Refusing to use the cputime clock id $with_clock_gettime_monotonic_id as monotonic clock id])
+     ;;
+   CLOCK_REALTIME*|CLOCK_TAI*)
+     AC_MSG_ERROR([Invalid clock_gettime() monotonic clock id: Refusing to use the realtime clock id $with_clock_gettime_monotonic_id as monotonic clock id])
+     ;;
+   CLOCK_*)
+     ;;
+   *)
+     AC_MSG_ERROR([Invalid clock_gettime() clock id: $with_clock_gettime_monotonic_id])
+     ;;
+esac
+
+case "$with_clock_resolution-$with_clock_gettime_realtime_id" in
+  high-no)
+	ERL_WALL_CLOCK(high_resolution);;
+  low-no)
+	ERL_WALL_CLOCK(low_resolution);;
+  default-no)
+	ERL_WALL_CLOCK(default_resolution);;
+  *)
+	ERL_WALL_CLOCK(custom_resolution, $with_clock_gettime_realtime_id);;
+esac
+
+case "$erl_wall_clock_func-$erl_wall_clock_id-$with_clock_gettime_realtime_id" in
+  *-*-no)
     ;;
-  clock_gettime|cross)
-    if test $erl_cv_time_correction = cross; then
-	erl_cv_time_correction=clock_gettime
-	AC_MSG_WARN([result clock_gettime guessed because of cross compilation])
-    fi
-    xrtlib="-lrt"
-    AC_DEFINE(GETHRTIME_WITH_CLOCK_GETTIME,[1],
-	[Define if you want to use clock_gettime to simulate gethrtime])
+  clock_gettime-$with_clock_gettime_realtime_id-$with_clock_gettime_realtime_id)
+    ;;
+  *)
+    AC_MSG_ERROR([$with_clock_gettime_realtime_id as clock id to clock_gettime() doesn't compile])
     ;;
 esac
+
+case $erl_wall_clock_func in
+  mach_clock_get_time)
+    AC_DEFINE(OS_SYSTEM_TIME_USING_MACH_CLOCK_GET_TIME, [1], [Define if you want to implement erts_os_system_time() using mach clock_get_time()])
+    ;;
+  clock_gettime)
+    AC_DEFINE(OS_SYSTEM_TIME_USING_CLOCK_GETTIME, [1], [Define if you want to implement erts_os_system_time() using clock_gettime()])
+    ;;
+  gettimeofday)
+    AC_DEFINE(OS_SYSTEM_TIME_GETTIMEOFDAY,  [1], [Define if you want to implement erts_os_system_time() using gettimeofday()])
+    ;;
+  *)
+    ;;
+esac
+
+if test "x$erl_wall_clock_id" != "x"; then
+    AC_DEFINE_UNQUOTED(WALL_CLOCK_ID_STR, ["$erl_wall_clock_id"], [Define as a string of wall clock id to use])
+    AC_DEFINE_UNQUOTED(WALL_CLOCK_ID, [$erl_wall_clock_id], [Define to wall clock id to use])
+fi
+
+case "$with_clock_resolution-$with_clock_gettime_monotonic_id" in
+  high-no)
+	ERL_MONOTONIC_CLOCK(high_resolution);;
+  low-no)
+	ERL_MONOTONIC_CLOCK(low_resolution);;
+  default-no)
+	ERL_MONOTONIC_CLOCK(default_resolution);;
+  *)
+	ERL_MONOTONIC_CLOCK(custom_resolution, $with_clock_gettime_monotonic_id);;
+esac
+
+case "$erl_monotonic_clock_func-$erl_monotonic_clock_id-$with_clock_gettime_monotonic_id" in
+  *-*-no)
+    ;;
+  clock_gettime-$with_clock_gettime_monotonic_id-$with_clock_gettime_monotonic_id)
+    ;;
+  *)
+    AC_MSG_ERROR([$with_clock_gettime_monotonic_id as clock id to clock_gettime() doesn't compile])
+    ;;
+esac
+
+case $erl_monotonic_clock_func in
+  times)
+    AC_DEFINE(OS_MONOTONIC_TIME_USING_TIMES, [1], [Define if you want to implement erts_os_monotonic_time() using times()])
+    ;;
+  mach_clock_get_time)
+    AC_DEFINE(OS_MONOTONIC_TIME_USING_MACH_CLOCK_GET_TIME, [1], [Define if you want to implement erts_os_monotonic_time() using mach clock_get_time()])
+    ;;
+  clock_gettime)
+    AC_DEFINE(OS_MONOTONIC_TIME_USING_CLOCK_GETTIME, [1], [Define if you want to implement erts_os_monotonic_time() using clock_gettime()])
+    ;;
+  gethrtime)
+    AC_DEFINE(OS_MONOTONIC_TIME_USING_GETHRTIME,  [1], [Define if you want to implement erts_os_monotonic_time() using gethrtime()])
+    ;;
+  *)
+    ;;
+esac
+
+if test $erl_corrected_monotonic_clock = yes; then
+  AC_DEFINE(ERTS_HAVE_CORRECTED_OS_MONOTONIC_TIME, [1], [Define if OS monotonic clock is corrected])
+fi
+
+if test $erl_monotonic_clock_low_resolution = yes; then
+  AC_DEFINE(ERTS_HAVE_LOW_RESOLUTION_OS_MONOTONIC_LOW, [1], [Define if you have a low resolution OS monotonic clock])
+fi
+
+xrtlib="$erl_monotonic_clock_lib"
+if test "x$erl_monotonic_clock_id" != "x"; then
+    AC_DEFINE_UNQUOTED(MONOTONIC_CLOCK_ID_STR, ["$erl_monotonic_clock_id"], [Define as a string of monotonic clock id to use])
+    AC_DEFINE_UNQUOTED(MONOTONIC_CLOCK_ID, [$erl_monotonic_clock_id], [Define to monotonic clock id to use])
+fi
+
+if test $erl_cv_clock_gettime_monotonic_raw = yes; then
+  AC_DEFINE(HAVE_CLOCK_GETTIME_MONOTONIC_RAW, [1], [Define if you have clock_gettime(CLOCK_MONOTONIC_RAW, _)])
+fi
+
+ERL_MONOTONIC_CLOCK(high_resolution)
+
+case $$erl_monotonic_clock_low_resolution-$erl_monotonic_clock_func in
+  no-mach_clock_get_time)
+    monotonic_hrtime=yes    
+    AC_DEFINE(SYS_HRTIME_USING_MACH_CLOCK_GET_TIME, [1], [Define if you want to implement erts_os_hrtime() using mach clock_get_time()])
+    ;;
+  no-clock_gettime)
+    monotonic_hrtime=yes
+    AC_DEFINE(SYS_HRTIME_USING_CLOCK_GETTIME, [1], [Define if you want to implement erts_os_hrtime() using clock_gettime()])
+    ;;
+  no-gethrtime)
+    monotonic_hrtime=yes
+    AC_DEFINE(SYS_HRTIME_USING_GETHRTIME,  [1], [Define if you want to implement erts_os_hrtime() using gethrtime()])
+    ;;
+  *)
+    monotonic_hrtime=no
+    ;;
+esac
+
+if test $monotonic_hrtime = yes; then
+    AC_DEFINE(HAVE_MONOTONIC_ERTS_SYS_HRTIME, [1], [Define if you have a monotonic erts_os_hrtime() implementation])
+fi
+
+if test "x$erl_monotonic_clock_id" != "x"; then
+    AC_DEFINE_UNQUOTED(HRTIME_CLOCK_ID_STR, ["$erl_monotonic_clock_id"], [Define as a string of monotonic clock id to use])
+    AC_DEFINE_UNQUOTED(HRTIME_CLOCK_ID, [$erl_monotonic_clock_id], [Define to monotonic clock id to use])
+fi
+
+
 dnl
 dnl Check if gethrvtime is working, and if to use procfs ioctl
 dnl or (yet to be written) write to the procfs ctl file.
@@ -1835,6 +2453,7 @@ case X$erl_xcomp_gethrvtime_procfs_ioctl in
 esac
 ])
 
+LIBRT=$xrtlib
 case $erl_gethrvtime in
   procfs_ioctl)
 	AC_DEFINE(HAVE_GETHRVTIME_PROCFS_IOCTL,[1],
@@ -1881,43 +2500,33 @@ case $erl_gethrvtime in
 	    exit(0); return 0;
 	  }
 	],
-	erl_clock_gettime=yes,
-	erl_clock_gettime=no,
+	erl_clock_gettime_cpu_time=yes,
+	erl_clock_gettime_cpu_time=no,
 	[
 	case X$erl_xcomp_clock_gettime_cpu_time in
-	    X) erl_clock_gettime=cross;;
-	    Xyes|Xno) erl_clock_gettime=$erl_xcomp_clock_gettime_cpu_time;;
+	    X) erl_clock_gettime_cpu_time=cross;;
+	    Xyes|Xno) erl_clock_gettime_cpu_time=$erl_xcomp_clock_gettime_cpu_time;;
 	    *) AC_MSG_ERROR([Bad erl_xcomp_clock_gettime_cpu_time value: $erl_xcomp_clock_gettime_cpu_time]);;
 	esac
 	])
 	LIBS=$save_libs
-	case $host_os in
-		linux*)
-			AC_MSG_RESULT([no; not stable])
-			LIBRT=$xrtlib
+	AC_MSG_RESULT($erl_clock_gettime_cpu_time)
+	case $erl_clock_gettime_cpu_time in
+		yes)
+			AC_DEFINE(HAVE_CLOCK_GETTIME_CPU_TIME,[],
+				  [define if clock_gettime() works for getting process time])
+			LIBRT=-lrt
+			;;
+		cross)
+			erl_clock_gettime_cpu_time=no
+			AC_MSG_WARN([result no guessed because of cross compilation])
 			;;
 		*)
-			AC_MSG_RESULT($erl_clock_gettime)
-			case $erl_clock_gettime in
-	  			yes)
-					AC_DEFINE(HAVE_CLOCK_GETTIME,[],
-						  [define if clock_gettime() works for getting process time])
-					LIBRT=-lrt
-					;;
-	  			cross)
-					erl_clock_gettime=no
-					AC_MSG_WARN([result no guessed because of cross compilation])
-					LIBRT=$xrtlib
-					;;
-	  			*)
-					LIBRT=$xrtlib
-					;;
-			esac
 			;;
 	esac
-	AC_SUBST(LIBRT)
 	;;
 esac
+AC_SUBST(LIBRT)
 ])dnl
 
 dnl ----------------------------------------------------------------------

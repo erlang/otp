@@ -130,7 +130,7 @@ int erts_try_seize_code_write_permission(Process* c_p)
 	ASSERT(code_writing_process != c_p);
 	qitem = erts_alloc(ERTS_ALC_T_CODE_IX_LOCK_Q, sizeof(*qitem));
 	qitem->p = c_p;
-	erts_smp_proc_inc_refc(c_p);
+	erts_proc_inc_refc(c_p);
 	qitem->next = code_write_queue;
 	code_write_queue = qitem;
 	erts_suspend(c_p, ERTS_PROC_LOCK_MAIN, NULL);
@@ -151,7 +151,7 @@ void erts_release_code_write_permission(void)
 	}
 	erts_smp_proc_unlock(qitem->p, ERTS_PROC_LOCK_STATUS);
 	code_write_queue = qitem->next;
-	erts_smp_proc_dec_refc(qitem->p);
+	erts_proc_dec_refc(qitem->p);
 	erts_free(ERTS_ALC_T_CODE_IX_LOCK_Q, qitem);
     }
     code_writing_process = NULL;

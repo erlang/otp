@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2003-2013. All Rights Reserved.
+# Copyright Ericsson AB 2003-2014. All Rights Reserved.
 #
 # The contents of this file are subject to the Erlang Public License,
 # Version 1.1, (the "License"); you may not use this file except in
@@ -77,7 +77,8 @@ MODULES= \
 	ct_conn_log_h \
 	cth_conn_log \
 	ct_groups \
-	ct_property_test
+	ct_property_test \
+	ct_release_test
 
 TARGET_MODULES= $(MODULES:%=$(EBIN)/%)
 BEAM_FILES= $(MODULES:%=$(EBIN)/%.$(EMULATOR))

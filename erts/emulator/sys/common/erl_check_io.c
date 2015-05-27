@@ -38,6 +38,8 @@
 #include "erl_check_io.h"
 #include "erl_thr_progress.h"
 #include "dtrace-wrapper.h"
+#define ERTS_WANT_TIMER_WHEEL_API
+#include "erl_time.h"
 
 #ifdef ERTS_SYS_CONTINOUS_FD_NUMBERS
 #else
@@ -1590,9 +1592,9 @@ ERTS_CIO_EXPORT(erts_check_io_interrupt)(int set)
 
 void
 ERTS_CIO_EXPORT(erts_check_io_interrupt_timed)(int set,
-					       erts_short_time_t msec)
+					       ErtsMonotonicTime timeout_time)
 {
-    ERTS_CIO_POLL_INTR_TMD(pollset.ps, set, msec);
+    ERTS_CIO_POLL_INTR_TMD(pollset.ps, set, timeout_time);
 }
 
 void
@@ -1600,9 +1602,12 @@ ERTS_CIO_EXPORT(erts_check_io)(int do_wait)
 {
     ErtsPollResFd *pollres;
     int pollres_len;
-    SysTimeval wait_time;
+    ErtsMonotonicTime timeout_time;
     int poll_ret, i;
     erts_aint_t current_cio_time;
+    ErtsSchedulerData *esdp = erts_get_scheduler_data();
+
+    ASSERT(esdp);
 
  restart:
 
@@ -1612,12 +1617,9 @@ ERTS_CIO_EXPORT(erts_check_io)(int do_wait)
 #endif
 
     /* Figure out timeout value */
-    if (do_wait) {
-	erts_time_remaining(&wait_time);
-    } else {			/* poll only */
-	wait_time.tv_sec = 0;
-	wait_time.tv_usec = 0;
-    }
+    timeout_time = (do_wait
+		    ? erts_check_next_timeout_time(esdp)
+		    : ERTS_POLL_NO_TIMEOUT /* poll only */);
 
     /*
      * No need for an atomic inc op when incrementing
@@ -1640,13 +1642,11 @@ ERTS_CIO_EXPORT(erts_check_io)(int do_wait)
 
     erts_smp_atomic_set_nob(&pollset.in_poll_wait, 1);
 
-    poll_ret = ERTS_CIO_POLL_WAIT(pollset.ps, pollres, &pollres_len, &wait_time);
+    poll_ret = ERTS_CIO_POLL_WAIT(pollset.ps, pollres, &pollres_len, timeout_time);
 
 #ifdef ERTS_ENABLE_LOCK_CHECK
     erts_lc_check_exact(NULL, 0); /* No locks should be locked */
 #endif
-
-    erts_deliver_time(); /* sync the machine's idea of time */
 
 #ifdef ERTS_BREAK_REQUESTED
     if (ERTS_BREAK_REQUESTED)

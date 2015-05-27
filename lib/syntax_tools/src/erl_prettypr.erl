@@ -50,8 +50,7 @@
               | fun((erl_syntax:syntaxTree(), _, _) -> prettypr:document()).
 -type clause_t() :: 'case_expr' | 'cond_expr' | 'fun_expr'
                   | 'if_expr' | 'receive_expr' | 'try_expr'
-                  | {'function', prettypr:document()}
-                  | {'rule', prettypr:document()}.
+                  | {'function', prettypr:document()}.
 
 -record(ctxt, {prec = 0           :: integer(),
 	       sub_indent = 2     :: non_neg_integer(),
@@ -587,8 +586,6 @@ lay_2(Node, Ctxt) ->
 		    make_case_clause(D1, D2, D3, Ctxt);
 		try_expr ->
 		    make_case_clause(D1, D2, D3, Ctxt);
-		{rule, N} ->
-		    make_rule_clause(N, D1, D2, D3, Ctxt);
 		undefined ->
 		    %% If a clause is formatted out of context, we
 		    %% use a "fun-expression" clause style.
@@ -851,14 +848,10 @@ lay_2(Node, Ctxt) ->
 		   floating(text(".")),
 		   lay(erl_syntax:record_access_field(Node),
 		       set_prec(Ctxt, PrecR))),
-	    D3 = case erl_syntax:record_access_type(Node) of
-		     none ->
-			 D2;
-		     T ->
-			 beside(beside(floating(text("#")),
-				       lay(T, reset_prec(Ctxt))),
-				D2)
-		 end,
+	    T = erl_syntax:record_access_type(Node),
+	    D3 = beside(beside(floating(text("#")),
+                               lay(T, reset_prec(Ctxt))),
+                        D2),
 	    maybe_parentheses(beside(D1, D3), Prec, Ctxt);
 
 	record_expr ->
@@ -925,15 +918,6 @@ lay_2(Node, Ctxt) ->
             D1 = lay(erl_syntax:map_field_exact_name(Node), Ctxt1),
             D2 = lay(erl_syntax:map_field_exact_value(Node), Ctxt1),
             par([D1, floating(text(":=")), D2], Ctxt1#ctxt.break_indent);
-
-	rule ->
-	    %% Comments on the name will be repeated; cf.
-	    %% `function'.
-	    Ctxt1 = reset_prec(Ctxt),
-	    D1 = lay(erl_syntax:rule_name(Node), Ctxt1),
-	    D2 = lay_clauses(erl_syntax:rule_clauses(Node),
-			     {rule, D1}, Ctxt1),
-	    beside(D2, floating(text(".")));
 
 	size_qualifier ->
 	    Ctxt1 = set_prec(Ctxt, max_prec()),
@@ -1073,10 +1057,6 @@ make_fun_clause_head(N, P, Ctxt) ->
 	    beside(N, D)
     end.
 
-make_rule_clause(N, P, G, B, Ctxt) ->
-    D = make_fun_clause_head(N, P, Ctxt),
-    append_rule_body(B, append_guard(G, D, Ctxt), Ctxt).
-
 make_case_clause(P, G, B, Ctxt) ->
     append_clause_body(B, append_guard(G, P, Ctxt), Ctxt).
 
@@ -1091,9 +1071,6 @@ make_if_clause(_P, G, B, Ctxt) ->
 
 append_clause_body(B, D, Ctxt) ->
     append_clause_body(B, D, floating(text(" ->")), Ctxt).
-
-append_rule_body(B, D, Ctxt) ->
-    append_clause_body(B, D, floating(text(" :-")), Ctxt).
 
 append_clause_body(B, D, S, Ctxt) ->
     sep([beside(D, S), nest(Ctxt#ctxt.break_indent, B)]).

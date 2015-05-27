@@ -85,7 +85,9 @@
 	 old_heap_top,
 	 old_heap_end,
 	 memory,
-	 stack_dump}).
+	 stack_dump,
+	 run_queue=?unknown
+	}).
 
 -record(port,
 	{id,

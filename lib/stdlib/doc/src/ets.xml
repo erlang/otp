@@ -456,6 +456,12 @@ Error: fun containing local Erlang function calls
           <item><c>{type, <seealso marker="#type-type">type()</seealso>}</c>          <br></br>
 
            The table type.</item>
+          <item><c>{read_concurrency, boolean()}</c>          <br></br>
+
+           Indicates whether the table uses read_concurrency or not.</item>
+          <item><c>{write_concurrency, boolean()}</c>          <br></br>
+
+           Indicates whether the table uses write_concurrency or not.</item>
         </list>
       </desc>
     </func>
@@ -1429,7 +1435,9 @@ is_integer(X), is_integer(Y), X + Y < 4711]]></code>
 	<p>Whenever the <c>extended_info</c> option is used, it
 	results in a file not readable by versions of ets prior to
 	that in stdlib-1.15.1</p> 
-
+        <p>The <c>sync</c> option, if set to <c>true</c>, ensures that
+	the content of the file is actually written to the disk before
+	<c>tab2file</c> returns. Default is <c>{sync, false}</c>.</p>
       </desc>
     </func>
     <func>
@@ -1587,6 +1595,21 @@ true</pre>
       </desc>
     </func>
     <func>
+      <name name="take" arity="2"/>
+      <fsummary>Return and remove all objects with a given key from an ETS
+        table.</fsummary>
+      <desc>
+        <p>Returns a list of all objects with the key <c><anno>Key</anno></c> in
+          the table <c><anno>Tab</anno></c> and removes.</p>
+        <p>The given <c><anno>Key</anno></c> is used to identify the object by
+          either <em>comparing equal</em> the key of an object in an
+          <c>ordered_set</c> table, or <em>matching</em> in other types of
+          tables (see <seealso marker="#lookup/2">lookup/2</seealso> and
+          <seealso marker="#new/2">new/2</seealso> for details on the
+          difference).</p>
+      </desc>
+    </func>
+    <func>
       <name name="to_dets" arity="2"/>
       <fsummary>Fill a Dets table with objects from an ETS table.</fsummary>
       <desc>
@@ -1597,14 +1620,18 @@ true</pre>
     </func>
     <func> 
       <name name="update_counter" arity="3" clause_i="1"/>
+      <name name="update_counter" arity="4" clause_i="1"/>
       <name name="update_counter" arity="3" clause_i="2"/>
+      <name name="update_counter" arity="4" clause_i="2"/>
       <name name="update_counter" arity="3" clause_i="3"/>
+      <name name="update_counter" arity="4" clause_i="3"/>
       <type variable="Tab"/>
       <type variable="Key"/>
       <type variable="UpdateOp" name_i="1"/>
       <type variable="Pos" name_i="1"/>
       <type variable="Threshold" name_i="1"/>
       <type variable="SetValue" name_i="1"/>
+      <type variable="Default"/>
       <fsummary>Update a counter object in an ETS table.</fsummary>
       <desc>
         <p>This function provides an efficient way to update one or more 
@@ -1646,12 +1673,22 @@ true</pre>
           <seealso marker="#lookup/2">lookup/2</seealso> and 
           <seealso marker="#new/2">new/2</seealso>
           for details on the difference).</p>
+        <p>If a default object <c><anno>Default</anno></c> is given, it is used
+          as the object to be updated if the key is missing from the table. The
+          value in place of the key is ignored and replaced by the proper key
+          value. The return value is as if the default object had not been used,
+          that is a single updated element or a list of them.</p>
         <p>The function will fail with reason <c>badarg</c> if:</p>
         <list type="bulleted">
           <item>the table is not of type <c>set</c> or
           <c>ordered_set</c>,</item>
-          <item>no object with the right key exists,</item>
+          <item>no object with the right key exists and no default object were
+            supplied,</item>
           <item>the object has the wrong arity,</item>
+          <item>the default object arity is smaller than
+            <c><![CDATA[<keypos>]]></c></item>
+          <item>any field from the default object being updated is not an
+            integer</item>
           <item>the element to update is not an integer,</item>
           <item>the element to update is also the key, or,</item>
           <item>any of <c><anno>Pos</anno></c>, <c><anno>Incr</anno></c>, <c><anno>Threshold</anno></c> or

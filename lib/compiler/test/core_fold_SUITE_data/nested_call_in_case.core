@@ -1,0 +1,18 @@
+module 'nested_call_in_case' ['a'/2]
+    attributes []
+
+'a'/2 =
+    fun (_x,_y) ->
+        case call 'erlang':'>'
+                 (call 'erlang':'length'
+                      (_x), _y) of
+          <'true'> when 'true' ->
+              'yes'
+          <'false'> when 'true' ->
+              'no'
+          ( <_omega> when 'true' ->
+                primop 'match_fail'
+                    ('if_clause')
+            -| ['compiler_generated'] )
+        end
+end

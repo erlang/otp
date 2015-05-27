@@ -591,12 +591,9 @@ kill_all_pids(Heart) ->
 	    kill_all_pids(Heart)  % Continue until all are really killed.
     end.
     
-%% All except zombies.
-alive_processes() ->
-    [P || P <- processes(), erlang:is_process_alive(P)].
-
+%% All except system processes.
 get_pids(Heart) ->
-    Pids = alive_processes(),
+    Pids = [P || P <- processes(), not erts_internal:is_system_process(P)],
     delete(Heart,self(),Pids).
 
 delete(Heart,Init,[Heart|Pids]) -> delete(Heart,Init,Pids);

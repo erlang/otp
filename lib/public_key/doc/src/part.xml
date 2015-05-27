@@ -31,15 +31,14 @@
     <file>part.xml</file>
   </header>
   <description>
-    <p> This application provides an API to public key infrastructure
+    <p>This application provides an API to public-key infrastructure
     from <url href="http://www.ietf.org/rfc/rfc5280.txt">RFC
-    5280</url> (X.509 certificates) and public key formats defined by
+    5280</url> (X.509 certificates) and public-key formats defined by
     the <url href="http://en.wikipedia.org/wiki/PKCS">
-    PKCS-standard</url></p>
+    PKCS</url> standard.</p>
   </description>
   <xi:include href="introduction.xml"/>
   <xi:include href="public_key_records.xml"/>
-  <xi:include href="cert_records.xml"/>
   <xi:include href="using_public_key.xml"/>
 </part>
 

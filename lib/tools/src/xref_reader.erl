@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2000-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -77,17 +77,18 @@ forms([], S) ->
 form({attribute, Line, xref, Calls}, S) -> % experimental
     #xrefr{module = M, function = Fun,
 	   lattrs = L, xattrs = X, battrs = B} = S,
-    attr(Calls, Line, M, Fun, L, X, B, S);
+    attr(Calls, erl_anno:line(Line), M, Fun, L, X, B, S);
 form({attribute, _Line, _Attr, _Val}, S) ->
     S;
-form({function, 0, module_info, 0, _Clauses}, S) ->
+form({function, _, module_info, 0, _Clauses}, S) ->
     S;
-form({function, 0, module_info, 1, _Clauses}, S) ->
+form({function, _, module_info, 1, _Clauses}, S) ->
     S;
-form({function, Line, Name, Arity, Clauses}, S) ->
+form({function, Anno, Name, Arity, Clauses}, S) ->
     MFA0 = {S#xrefr.module, Name, Arity},
     MFA = adjust_arity(S, MFA0),
     S1 = S#xrefr{function = MFA},
+    Line = erl_anno:line(Anno),
     S2 = S1#xrefr{def_at = [{MFA,Line} | S#xrefr.def_at]},
     S3 = clauses(Clauses, S2),
     S3#xrefr{function = []}.
@@ -305,10 +306,14 @@ fun_args(apply2, [FunArg, Args]) -> {FunArg, Args};
 fun_args(1, [FunArg | Args]) -> {FunArg, Args};
 fun_args(2, [_Node, FunArg | Args]) -> {FunArg, Args}.
 
-list2term([A | As]) ->
-    {cons, 0, A, list2term(As)};
-list2term([]) ->
-    {nil, 0}.
+list2term(L) ->
+    A = erl_anno:new(0),
+    list2term(L, A).
+
+list2term([A | As], Anno) ->
+    {cons, Anno, A, list2term(As)};
+list2term([], Anno) ->
+    {nil, Anno}.
 
 term2list({cons, _Line, H, T}, L, S) ->
     term2list(T, [H | L], S);
@@ -335,10 +340,11 @@ handle_call(Locality, Module, Name, Arity, Line, S) ->
 	    handle_call(Locality, To, Line, S, false)
     end.
 
-handle_call(Locality, To0, Line, S, IsUnres) ->
+handle_call(Locality, To0, Anno, S, IsUnres) ->
     From = S#xrefr.function,
     To = adjust_arity(S, To0),
     Call = {From, To},
+    Line = erl_anno:line(Anno),
     CallAt = {Call, Line},
     S1 = if
              IsUnres ->

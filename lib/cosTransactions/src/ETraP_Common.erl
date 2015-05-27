@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2015. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -86,8 +86,9 @@ get_option(Key, OptionList, DefaultList) ->
 %%------------------------------------------------------------
  
 create_name(Name,Type) ->
-    {MSec, Sec, USec} = erlang:now(),
-    lists:concat(['oe_',node(),'_',Type,'_',Name,'_',MSec, '_', Sec, '_', USec]).
+    Time = erlang:system_time(),
+    Unique = erlang:unique_integer([positive]),
+    lists:concat(['oe_',node(),'_',Type,'_',Name,'_',Time,'_',Unique]).
  
 %%------------------------------------------------------------
 %% function : create_name/1
@@ -98,8 +99,9 @@ create_name(Name,Type) ->
 %%------------------------------------------------------------
  
 create_name(Type) ->
-    {MSec, Sec, USec} = erlang:now(),
-    lists:concat(['oe_',node(),'_',Type,'_',MSec, '_', Sec, '_', USec]).
+    Time = erlang:system_time(),
+    Unique = erlang:unique_integer([positive]),
+    lists:concat(['oe_',node(),'_',Type,'_',Time,'_',Unique]).
 
 %%------------------------------------------------------------
 %% function : try_timeout
@@ -114,10 +116,9 @@ try_timeout(TimeoutAt) ->
 	infinity ->
 	    false;
 	_->
-	    {MegaSecs, Secs, _Microsecs} = erlang:now(),
-	    Time  =  MegaSecs*1000000+Secs,
+	    TimeSec = erlang:monotonic_time(seconds),
 	    if 
-		Time < TimeoutAt ->
+		TimeSec < TimeoutAt ->
 		    false;
 		true ->
 		    true

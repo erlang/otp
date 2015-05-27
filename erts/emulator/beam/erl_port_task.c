@@ -1646,6 +1646,7 @@ erts_port_task_execute(ErtsRunQueue *runq, Port **curr_port_pp)
     erts_aint32_t state;
     int active;
     Uint64 start_time = 0;
+    ErtsSchedulerData *esdp = runq->scheduler;
 
     ERTS_SMP_LC_ASSERT(erts_smp_lc_runq_is_locked(runq));
 
@@ -1662,7 +1663,6 @@ erts_port_task_execute(ErtsRunQueue *runq, Port **curr_port_pp)
     *curr_port_pp = pp;
     
     if (erts_sched_stat.enabled) {
-	ErtsSchedulerData *esdp = erts_get_scheduler_data();
 	Uint old = ERTS_PORT_SCHED_ID(pp, esdp->no);
 	int migrated = old && old != esdp->no;
 
@@ -1718,11 +1718,16 @@ erts_port_task_execute(ErtsRunQueue *runq, Port **curr_port_pp)
 	switch (ptp->type) {
 	case ERTS_PORT_TASK_TIMEOUT:
 	    reset_handle(ptp);
-	    reds = ERTS_PORT_REDS_TIMEOUT;
-	    if (!(state & ERTS_PORT_SFLGS_DEAD)) {
-                DTRACE_DRIVER(driver_timeout, pp);
-		(*pp->drv_ptr->timeout)((ErlDrvData) pp->drv_data);
-            }
+	    if (!ERTS_PTMR_IS_TIMED_OUT(pp))
+		reds = 0;
+	    else {
+		ERTS_PTMR_CLEAR(pp);
+		reds = ERTS_PORT_REDS_TIMEOUT;
+		if (!(state & ERTS_PORT_SFLGS_DEAD)) {
+		    DTRACE_DRIVER(driver_timeout, pp);
+		    (*pp->drv_ptr->timeout)((ErlDrvData) pp->drv_data);
+		}
+	    }
 	    break;
 	case ERTS_PORT_TASK_INPUT:
 	    reds = ERTS_PORT_REDS_INPUT;
@@ -1879,7 +1884,7 @@ erts_port_task_execute(ErtsRunQueue *runq, Port **curr_port_pp)
     runq->scheduler->reductions += reds;
 
     ERTS_SMP_LC_ASSERT(erts_smp_lc_runq_is_locked(runq));
-    ERTS_PORT_REDUCTIONS_EXECUTED(runq, reds);
+    ERTS_PORT_REDUCTIONS_EXECUTED(esdp, runq, reds);
 
     return res;
 }

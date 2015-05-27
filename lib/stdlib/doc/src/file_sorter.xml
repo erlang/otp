@@ -105,9 +105,9 @@
       <c>file:get_cwd()</c> is used instead. The names of
        temporary files are derived from the Erlang nodename
        (<c>node()</c>), the process identifier of the current Erlang
-       emulator (<c>os:getpid()</c>), and a timestamp
-       (<c>erlang:now()</c>); a typical name would be
-      <c>fs_mynode@myhost_1763_1043_337000_266005.17</c>, where
+       emulator (<c>os:getpid()</c>), and a unique integer
+       (<c>erlang:unique_integer([positive])</c>); a typical name would be
+      <c>fs_mynode@myhost_1763_4711.17</c>, where
       <c>17</c> is a sequence number. Existing files will be
        overwritten. Temporary files are deleted unless some
        uncaught EXIT signal occurs.

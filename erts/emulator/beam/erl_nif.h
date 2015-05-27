@@ -46,9 +46,10 @@
 **           remove enif_schedule_dirty_nif, enif_schedule_dirty_nif_finalizer, enif_dirty_nif_finalizer
 **           add ErlNifEntry options
 **           add ErlNifFunc flags
+** 2.8: 18.0 add enif_has_pending_exception
 */
 #define ERL_NIF_MAJOR_VERSION 2
-#define ERL_NIF_MINOR_VERSION 7
+#define ERL_NIF_MINOR_VERSION 8
 
 /*
  * The emulator will refuse to load a nif-lib with a major version
@@ -201,10 +202,18 @@ typedef enum
 typedef struct /* All fields all internal and may change */
 {
     ERL_NIF_TERM map;
-    ERL_NIF_UINT t_limit;
+    ERL_NIF_UINT size;
     ERL_NIF_UINT idx;
-    ERL_NIF_TERM *ks;
-    ERL_NIF_TERM *vs;
+    union {
+        struct {
+            ERL_NIF_TERM *ks;
+            ERL_NIF_TERM *vs;
+        }flat;
+        struct {
+            struct ErtsDynamicWStack_* wstack;
+            ERL_NIF_TERM* kv;
+        }hash;
+    }u;
     void* __spare__[2]; /* for future additions to be ABI compatible (same struct size) */
 } ErlNifMapIterator;
 

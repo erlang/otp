@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -66,7 +66,7 @@ init_per_suite(Config) ->
 		{error,econnrefused} ->
 		    {skip,"No openssh deamon"};
 		_ ->
-		    Config
+		    ssh_test_lib:openssh_sanity_check(Config)
 	    end;
 	_Else ->
 	    {skip,"Could not start crypto!"}
@@ -545,6 +545,7 @@ receive_hej() ->
 receive_logout() ->
     receive
 	<<"logout">> ->
+	    extra_logout(),
 	    receive
 		<<"Connection closed">> ->
 		    ok
@@ -562,6 +563,14 @@ receive_normal_exit(Shell) ->
 	    receive_normal_exit(Shell);
 	Other ->
 	    ct:fail({unexpected_msg, Other})
+    end.
+
+extra_logout() ->
+    receive 	
+	<<"logout">> ->
+	    ok
+    after 500 -> 
+	    ok
     end.
 
 %%--------------------------------------------------------------------

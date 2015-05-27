@@ -146,7 +146,12 @@ wxe_driver_stop(ErlDrvData handle)
    if(sd->port_handle != WXE_DRV_PORT_HANDLE) {
       // fprintf(stderr, "%s:%d: STOP \r\n", __FILE__,__LINE__);
       meta_command(DELETE_PORT,sd);
-      free(handle);
+   } else {
+       // fprintf(stderr, "%s:%d: STOP \r\n", __FILE__,__LINE__);
+       stop_native_gui(wxe_master);
+       unload_native_gui();
+       free(wxe_master);
+       wxe_master = NULL;
    }
 }
 
@@ -154,10 +159,6 @@ static void
 wxe_driver_unload(void) 
 {
    // fprintf(stderr, "%s:%d: UNLOAD \r\n", __FILE__,__LINE__);
-   stop_native_gui(wxe_master);
-   unload_native_gui();
-   free(wxe_master);
-   wxe_master = NULL;
 }
 
 static ErlDrvSSizeT

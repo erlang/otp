@@ -21,7 +21,7 @@
 %% A simple Emacs-like line editor.
 %% About Latin-1 characters: see the beginning of erl_scan.erl.
 
--export([init/0,start/1,start/2,edit_line/2,prefix_arg/1]).
+-export([init/0,init/1,start/1,start/2,edit_line/2,prefix_arg/1]).
 -export([erase_line/1,erase_inp/1,redraw_line/1]).
 -export([length_before/1,length_after/1,prompt/1]).
 -export([current_line/1, current_chars/1]).
@@ -43,6 +43,20 @@
 
 init() ->
     put(kill_buffer, []).
+
+init(Pid) ->
+    %% copy the kill_buffer from the process Pid
+    CopiedKillBuf =
+	case erlang:process_info(Pid, dictionary) of
+	    {dictionary,Dict} ->
+		case proplists:get_value(kill_buffer, Dict) of
+		    undefined -> [];
+		    Buf       -> Buf
+		end;
+	    undefined ->
+		[]
+	end,
+    put(kill_buffer, CopiedKillBuf).
 
 %% start(Prompt)
 %% edit(Characters, Continuation)

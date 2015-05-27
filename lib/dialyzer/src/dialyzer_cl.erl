@@ -2,7 +2,7 @@
 %%-------------------------------------------------------------------
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2006-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -48,7 +48,7 @@
 	 plt_info        = none           :: 'none' | dialyzer_plt:plt_info(),
 	 report_mode     = normal         :: rep_mode(),
 	 return_status= ?RET_NOTHING_SUSPICIOUS	:: dial_ret(),
-	 stored_warnings = []             :: [dial_warning()],
+	 stored_warnings = []             :: [raw_warning()],
 	 unknown_behaviours = []          :: [dialyzer_behaviours:behaviour()]
 	}).
 
@@ -469,7 +469,7 @@ expand_dependent_modules(Md5, DiffMd5, ModDeps) ->
 		  Mod = list_to_atom(filename:basename(File, ".beam")),
 		  sets:is_element(Mod, AnalyzeMods)
 	      end,
-  {[F || {F, _} <- Md5, FilterFun(F)], RemovedMods, NewModDeps}.
+  {[F || {F, _} <- Md5, FilterFun(F)], BigSet, NewModDeps}.
 
 expand_dependent_modules_1([Mod|Mods], Included, ModDeps) ->
   case dict:find(Mod, ModDeps) of
@@ -512,31 +512,82 @@ hipe_compile(Files, #options{erlang_mode = ErlangMode} = Options) ->
 		  dialyzer_worker],
 	  report_native_comp(Options),
 	  {T1, _} = statistics(wall_clock),
-	  native_compile(Mods),
+	  Cache = (get(dialyzer_options_native_cache) =/= false),
+	  native_compile(Mods, Cache),
 	  {T2, _} = statistics(wall_clock),
 	  report_elapsed_time(T1, T2, Options)
       end
   end.
 
-native_compile(Mods) ->
+native_compile(Mods, Cache) ->
   case dialyzer_utils:parallelism() > ?MIN_PARALLELISM of
     true ->
       Parent = self(),
-      Pids = [spawn(fun () -> Parent ! {self(), hc(M)} end) || M <- Mods],
+      Pids = [spawn(fun () -> Parent ! {self(), hc(M, Cache)} end) || M <- Mods],
       lists:foreach(fun (Pid) -> receive {Pid, Res} -> Res end end, Pids);
     false ->
-      lists:foreach(fun (Mod) -> hc(Mod) end, Mods)
+      lists:foreach(fun (Mod) -> hc(Mod, Cache) end, Mods)
   end.
 
-hc(Mod) ->
+hc(Mod, Cache) ->
   {module, Mod} = code:ensure_loaded(Mod),
   case code:is_module_native(Mod) of
     true -> ok;
     false ->
       %% io:format(" ~w", [Mod]),
-      {ok, Mod} = hipe:c(Mod),
-      ok
+      case Cache of
+	false ->
+	  {ok, Mod} = hipe:c(Mod),
+	  ok;
+	true ->
+	  hc_cache(Mod)
+      end
   end.
+
+hc_cache(Mod) ->
+  CacheBase = cache_base_dir(),
+  %% Use HiPE architecture and version in directory name, to avoid
+  %% clashes between incompatible binaries.
+  HipeArchVersion =
+    lists:concat(
+      [erlang:system_info(hipe_architecture), "-",
+       hipe:version(), "-",
+       hipe_bifs:system_crc()]),
+  CacheDir = filename:join(CacheBase, HipeArchVersion),
+  OrigBeamFile = code:which(Mod),
+  {ok, {Mod, <<Checksum:128>>}} = beam_lib:md5(OrigBeamFile),
+  CachedBeamFile = filename:join(CacheDir, lists:concat([Mod, "-", Checksum, ".beam"])),
+  ok = filelib:ensure_dir(CachedBeamFile),
+  ModBin =
+    case filelib:is_file(CachedBeamFile) of
+      true ->
+	{ok, BinFromFile} = file:read_file(CachedBeamFile),
+	BinFromFile;
+      false ->
+	io:format("Caching ~p as '~s'...~n", [Mod, CachedBeamFile]),
+	{ok, Mod, CompiledBin} = compile:file(OrigBeamFile, [from_beam, native, binary]),
+	ok = file:write_file(CachedBeamFile, CompiledBin),
+	CompiledBin
+    end,
+  code:unstick_dir(filename:dirname(OrigBeamFile)),
+  {module, Mod} = code:load_binary(Mod, CachedBeamFile, ModBin),
+  true = code:is_module_native(Mod),
+  ok.
+
+cache_base_dir() ->
+  %% http://standards.freedesktop.org/basedir-spec/basedir-spec-0.7.html
+  %% If XDG_CACHE_HOME is set to an absolute path, use it as base.
+  XdgCacheHome = os:getenv("XDG_CACHE_HOME"),
+  CacheHome =
+    case is_list(XdgCacheHome) andalso filename:pathtype(XdgCacheHome) =:= absolute of
+      true ->
+	XdgCacheHome;
+      false ->
+	%% Otherwise, the default is $HOME/.cache.
+	{ok, [[Home]]} = init:get_argument(home),
+	filename:join(Home, ".cache")
+    end,
+  filename:join([CacheHome, "dialyzer_hipe_cache"]).
 
 new_state() ->
   #cl_state{}.
@@ -627,7 +678,7 @@ format_log_cache(LogCache) ->
   Str = lists:append(lists:reverse(LogCache)),
   string:join(string:tokens(Str, "\n"), "\n  ").
 
--spec store_warnings(#cl_state{}, [dial_warning()]) -> #cl_state{}.
+-spec store_warnings(#cl_state{}, [raw_warning()]) -> #cl_state{}.
 
 store_warnings(#cl_state{stored_warnings = StoredWarnings} = St, Warnings) ->
   St#cl_state{stored_warnings = StoredWarnings ++ Warnings}.
@@ -656,15 +707,15 @@ return_value(State = #cl_state{erlang_mode = ErlangMode,
 			       mod_deps = ModDeps,
 			       output_plt = OutputPlt,
 			       plt_info = PltInfo,
-			       stored_warnings = StoredWarnings,
-                               legal_warnings = LegalWarnings},
+			       stored_warnings = StoredWarnings},
 	     Plt) ->
   case OutputPlt =:= none of
     true -> ok;
     false -> dialyzer_plt:to_file(OutputPlt, Plt, ModDeps, PltInfo)
   end,
+  UnknownWarnings = unknown_warnings(State),
   RetValue =
-    case StoredWarnings =:= [] of
+    case StoredWarnings =:= [] andalso UnknownWarnings =:= [] of
       true -> ?RET_NOTHING_SUSPICIOUS;
       false -> ?RET_DISCREPANCIES
     end,
@@ -677,33 +728,37 @@ return_value(State = #cl_state{erlang_mode = ErlangMode,
       maybe_close_output_file(State),
       {RetValue, []};
     true -> 
-      Unknown =
-        case ordsets:is_element(?WARN_UNKNOWN, LegalWarnings) of
-          true ->
-            unknown_functions(State) ++
-              unknown_types(State) ++
-              unknown_behaviours(State);
-          false -> []
-        end,
-      UnknownWarnings =
-        [{?WARN_UNKNOWN, {_Filename = "", _Line = 0}, W} || W <- Unknown],
       AllWarnings =
         UnknownWarnings ++ process_warnings(StoredWarnings),
-      {RetValue, AllWarnings}
+      {RetValue, set_warning_id(AllWarnings)}
   end.
+
+unknown_warnings(State = #cl_state{legal_warnings = LegalWarnings}) ->
+  Unknown = case ordsets:is_element(?WARN_UNKNOWN, LegalWarnings) of
+              true ->
+                unknown_functions(State) ++
+                  unknown_types(State) ++
+                  unknown_behaviours(State);
+              false -> []
+            end,
+  WarningInfo = {_Filename = "", _Line = 0, _MorMFA = ''},
+  [{?WARN_UNKNOWN, WarningInfo, W} || W <- Unknown].
 
 unknown_functions(#cl_state{external_calls = Calls}) ->
   [{unknown_function, MFA} || MFA <- Calls].
+
+set_warning_id(Warnings) ->
+  lists:map(fun({Tag, {File, Line, _MorMFA}, Msg}) ->
+                {Tag, {File, Line}, Msg}
+            end, Warnings).
 
 print_ext_calls(#cl_state{report_mode = quiet}) ->
   ok;
 print_ext_calls(#cl_state{output = Output,
 			  external_calls = Calls,
 			  stored_warnings = Warnings,
-			  output_format = Format,
-                          legal_warnings = LegalWarnings}) ->
-  case not ordsets:is_element(?WARN_UNKNOWN, LegalWarnings)
-    orelse Calls =:= [] of
+			  output_format = Format}) ->
+  case Calls =:= [] of
     true -> ok;
     false ->
       case Warnings =:= [] of
@@ -735,10 +790,8 @@ print_ext_types(#cl_state{output = Output,
                           external_calls = Calls,
                           external_types = Types,
                           stored_warnings = Warnings,
-                          output_format = Format,
-                          legal_warnings = LegalWarnings}) ->
-  case not ordsets:is_element(?WARN_UNKNOWN, LegalWarnings)
-    orelse Types =:= [] of
+                          output_format = Format}) ->
+  case Types =:= [] of
     true -> ok;
     false ->
       case Warnings =:= [] andalso Calls =:= [] of
@@ -817,15 +870,16 @@ print_warnings(#cl_state{output = Output,
 	    formatted ->
 	      [dialyzer:format_warning(W, FOpt) || W <- PrWarnings];
 	    raw ->
-	      [io_lib:format("~p. \n", [W]) || W <- PrWarnings]
+	      [io_lib:format("~p. \n",
+                             [W]) || W <- set_warning_id(PrWarnings)]
 	  end,
       io:format(Output, "\n~s", [S])
   end.
 
--spec process_warnings([dial_warning()]) -> [dial_warning()].
+-spec process_warnings([raw_warning()]) -> [raw_warning()].
   
 process_warnings(Warnings) ->
-  Warnings1 = lists:keysort(2, Warnings), %% Sort on file/line
+  Warnings1 = lists:keysort(2, Warnings), %% Sort on file/line (and m/mfa..)
   remove_duplicate_warnings(Warnings1, []).
 
 remove_duplicate_warnings([Duplicate, Duplicate|Left], Acc) ->

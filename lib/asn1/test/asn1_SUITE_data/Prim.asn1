@@ -24,6 +24,8 @@ BEGIN
                         friday(5),saturday(6),sunday(7)}
   SingleEnumVal ::= ENUMERATED {true}
   SingleEnumValExt ::= ENUMERATED {true, ...}
+  NegEnumVal ::= ENUMERATED {neg(-1), ..., zero(0)}
+  EnumVal128 ::= ENUMERATED {val(128)}
 
   ObjId ::= OBJECT IDENTIFIER
   

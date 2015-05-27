@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -40,7 +40,47 @@ all() -> [decode_hello_handshake,
 	  encode_single_hello_sni_extension_correctly,
 	  decode_single_hello_sni_extension_correctly,
 	  decode_empty_server_sni_correctly,
-	  select_proper_tls_1_2_rsa_default_hashsign].
+	  select_proper_tls_1_2_rsa_default_hashsign,
+	  ignore_hassign_extension_pre_tls_1_2].
+
+%%--------------------------------------------------------------------
+init_per_suite(Config) ->
+    Config.
+end_per_suite(Config) ->
+    Config.
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_,Config) ->
+    Config.
+
+init_per_testcase(ignore_hassign_extension_pre_tls_1_2, Config0) ->
+    catch crypto:stop(),
+    try crypto:start() of
+	ok ->
+	    case is_supported(sha512) of
+		true ->
+		    ssl:start(),
+		    %% make rsa certs using oppenssl
+		    Result =
+			(catch make_certs:all(?config(data_dir, Config0),
+					      ?config(priv_dir, Config0))),
+		    ct:log("Make certs  ~p~n", [Result]),
+		    ssl_test_lib:cert_options(Config0);
+		false ->
+		    {skip, "Crypto did not support sha512"}  
+	    end
+    catch _:_ ->
+	    {skip, "Crypto did not start"}
+    end;
+init_per_testcase(_, Config0) ->
+    Config0.
+
+end_per_testcase(ignore_hassign_extension_pre_tls_1_2, _) ->
+    crypto:stop();
+end_per_testcase(_TestCase, Config) ->
+    Config.
 
 %%--------------------------------------------------------------------
 %% Test Cases --------------------------------------------------------
@@ -121,3 +161,18 @@ select_proper_tls_1_2_rsa_default_hashsign(_Config) ->
     {md5sha, rsa} = ssl_handshake:select_hashsign_algs(undefined, ?rsaEncryption, {3,2}),
     {md5sha, rsa} = ssl_handshake:select_hashsign_algs(undefined, ?rsaEncryption, {3,0}).
 
+
+ignore_hassign_extension_pre_tls_1_2(Config) ->
+    Opts = ?config(server_opts, Config),
+    CertFile = proplists:get_value(certfile, Opts),
+    [{_, Cert, _}] = ssl_test_lib:pem_to_der(CertFile),
+    HashSigns = #hash_sign_algos{hash_sign_algos = [{sha512, rsa}, {sha, dsa}]},
+    {sha512, rsa} = ssl_handshake:select_hashsign(HashSigns, Cert, {3,3}),
+    %%% Ignore
+    {md5sha, rsa} = ssl_handshake:select_hashsign(HashSigns, Cert, {3,2}),
+    {md5sha, rsa} = ssl_handshake:select_hashsign(HashSigns, Cert, {3,0}).
+
+is_supported(Hash) ->
+    Algos = crypto:supports(),
+    Hashs = proplists:get_value(hashs, Algos), 
+    lists:member(Hash, Hashs).

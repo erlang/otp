@@ -78,6 +78,16 @@
 
     <pre>
 % <input>erl -heart -env ERL_CRASH_DUMP_SECONDS 10 ...</input></pre>
+
+  <p> If a regular core dump is wanted, let heart know by setting the kill signal to abort
+      using the environment variable <c><![CDATA[HEART_KILL_SIGNAL=SIGABRT]]></c>.
+      If unset, or not set to <c><![CDATA[SIGABRT]]></c>, the default behaviour will be a kill
+      signal using <c><![CDATA[SIGKILL]]></c>.
+  </p>
+
+    <pre>
+% <input>erl -heart -env HEART_KILL_SIGNAL SIGABRT ...</input></pre>
+
   <p>
 	  Furthermore, <c><![CDATA[ERL_CRASH_DUMP_SECONDS]]></c> has the following behaviour on
 	  <c>heart</c>:

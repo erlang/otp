@@ -62,7 +62,16 @@
 #define CRC32_COMBINE   23
 #define ADLER32_COMBINE 24
 
+#define INFLATE_CHUNK   25
+
+
 #define DEFAULT_BUFSZ   4000
+
+/* This flag is used in the same places, where zlib return codes
+ * (Z_OK, Z_STREAM_END, Z_NEED_DICT) are. So, we need to set it to
+ * relatively large value to avoid possible value clashes in future.
+ * */
+#define INFLATE_HAS_MORE 100
 
 static int zlib_init(void);
 static ErlDrvData zlib_start(ErlDrvPort port, char* buf);
@@ -290,6 +299,58 @@ static int zlib_inflate(ZLibData* d, int flush)
     }
     zlib_output(d);
     if (res == Z_STREAM_END) {       
+       d->inflate_eos_seen = 1;
+    }
+    return res;
+}
+
+static int zlib_inflate_chunk(ZLibData* d)
+{
+    int res = Z_OK;
+
+    if ((d->bin == NULL) && (zlib_output_init(d) < 0)) {
+	errno = ENOMEM;
+	return Z_ERRNO;
+    }
+
+    while ((driver_sizeq(d->port) > 0) && (d->s.avail_out > 0) &&
+           (res != Z_STREAM_END)) {
+	int vlen;
+	SysIOVec* iov = driver_peekq(d->port, &vlen);
+	int len;
+
+	d->s.next_in = iov[0].iov_base;
+	d->s.avail_in = iov[0].iov_len;
+	while((d->s.avail_in > 0) && (d->s.avail_out > 0) && (res != Z_STREAM_END)) {
+	    res = inflate(&d->s, Z_NO_FLUSH);
+	    if (res == Z_NEED_DICT) {
+		/* Essential to eat the header bytes that zlib has looked at */
+		len = iov[0].iov_len - d->s.avail_in;
+		driver_deq(d->port, len);
+		return res;
+	    }
+	    if (res == Z_BUF_ERROR) {
+		/* Was possible more output, but actually not */
+		res = Z_OK;
+	    }
+	    else if (res < 0) {
+		return res;
+	    }
+	}
+	len = iov[0].iov_len - d->s.avail_in;
+	driver_deq(d->port, len);
+    }
+
+    /* We are here because all input was consumed or EOS reached or output
+     * buffer is full */
+    if (d->want_crc) {
+       d->crc = crc32(d->crc, (unsigned char*) d->bin->orig_bytes,
+		      d->binsz - d->s.avail_out);
+    }
+    zlib_output(d);
+    if ((res == Z_OK) && (d->s.avail_in > 0))
+       res = INFLATE_HAS_MORE;
+    else if (res == Z_STREAM_END) {
        d->inflate_eos_seen = 1;
     }
     return res;
@@ -563,6 +624,18 @@ static ErlDrvSSizeT zlib_ctl(ErlDrvData drv_data, unsigned int command, char *bu
 	if (len != 4) goto badarg;
 	res = zlib_inflate(d, i32(buf));
 	if (res == Z_NEED_DICT) {
+	    return zlib_value2(3, d->s.adler, rbuf, rlen);
+	} else {
+	    return zlib_return(res, rbuf, rlen);
+	}
+
+    case INFLATE_CHUNK:
+	if (d->state != ST_INFLATE) goto badarg;
+	if (len != 0) goto badarg;
+	res = zlib_inflate_chunk(d);
+	if (res == INFLATE_HAS_MORE) {
+	    return zlib_value2(4, 0, rbuf, rlen);
+	} else if (res == Z_NEED_DICT) {
 	    return zlib_value2(3, d->s.adler, rbuf, rlen);
 	} else {
 	    return zlib_return(res, rbuf, rlen);

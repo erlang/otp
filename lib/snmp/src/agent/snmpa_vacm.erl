@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2012. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2015. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -305,8 +305,8 @@ dump_table() ->
 %% time dumping the table.
 unique_table_name(Pre) ->
     %% We want something that is guaranteed to be unique, 
-    %% therefor we use erlang:now() instead of os:timestamp()
-    unique_table_name(Pre, erlang:now()).
+    %% therefor we use erlang:timestamp() instead of os:timestamp()
+    unique_table_name(Pre, erlang:timestamp()).
 
 unique_table_name(Pre, {_A, _B, C} = Now) ->
     {Date, Time}     = calendar:now_to_datetime(Now),
@@ -445,6 +445,3 @@ gc_tab(Oid) ->
 
 user_err(F, A) ->
     snmpa_error:user_err(F, A).
-
-% config_err(F, A) ->
-%     snmpa_error:config_err(F, A).

@@ -198,7 +198,7 @@
   <section>
     <title>Automatic startup of test target nodes</title>
     <marker id="ct_slave"></marker>
-    <p>Is is possible to automatically start, and perform initial actions, on
+    <p>It is possible to automatically start, and perform initial actions, on
       test target nodes by using the test specification term <c>init</c>.</p>
     <p>Currently, two sub-terms are supported, <c>node_start</c> and <c>eval</c>.</p>
     <p>Example:</p>

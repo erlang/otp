@@ -378,10 +378,14 @@ dict(N) ->
 %% id's, failing with app_not_configured if it can't.
 load_dict(N) ->
     Mod = dict(N),
-    Forms = [{attribute, 1, module, Mod},
-             {attribute, 2, compile, [export_all]},
-             {function, 3, id, 0,
-              [{clause, 4, [], [], [{integer, 4, N}]}]}],
+    A1 = erl_anno:new(1),
+    A2 = erl_anno:new(2),
+    A3 = erl_anno:new(3),
+    A4 = erl_anno:new(4),
+    Forms = [{attribute, A1, module, Mod},
+             {attribute, A2, compile, [export_all]},
+             {function, A3, id, 0,
+              [{clause, A4, [], [], [{integer, A4, N}]}]}],
     {ok, Mod, Bin, []} = compile:forms(Forms, [return]),
     {module, Mod} = code:load_binary(Mod, Mod, Bin),
     N = Mod:id().

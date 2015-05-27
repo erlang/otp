@@ -142,6 +142,9 @@ restore_errors(Config) when is_list(Config) ->
     ?match({aborted, {badarg, _}}, mnesia:restore(notAfile, [{skip_tables, xxx}])),
     ?match({aborted, {badarg, _}}, mnesia:restore(notAfile, [{recreate_tables, [schema]}])),
     ?match({aborted, {badarg, _}}, mnesia:restore(notAfile, [{default_op, asdklasd}])),
+    MnesiaDir = mnesia_lib:dir(),
+    ?match({aborted, {not_a_log_file, _}}, mnesia:restore(filename:join(MnesiaDir, "schema.DAT"), [])),
+    ?match({aborted, _}, mnesia:restore(filename:join(MnesiaDir, "LATEST.LOG"), [])),
     ok.
 
 restore_clear(suite) -> [];
@@ -488,6 +491,14 @@ install_fallback(Config) when is_list(Config) ->
     mnesia_test_lib:kill_mnesia([Node1, Node2]),
     timer:sleep(timer:seconds(1)), % Let it die!
 
+    ok = mnesia:start([{ignore_fallback_at_startup, true}]),
+    ok = mnesia:wait_for_tables([Tab, Tab2, Tab3], 10000),
+    ?match([{Tab, 6, test_nok}], mnesia:dirty_read({Tab, 6})),
+    mnesia_test_lib:kill_mnesia([Node1]),
+    application:set_env(mnesia, ignore_fallback_at_startup, false),
+
+    timer:sleep(timer:seconds(1)), % Let it die!
+
     ?match([], mnesia_test_lib:start_mnesia([Node1, Node2], [Tab, Tab2, Tab3])),
 
     % Verify 
@@ -510,6 +521,13 @@ install_fallback(Config) when is_list(Config) ->
     file:delete(File3),
     ?match({error, _}, mnesia:install_fallback(File3)),
     ?match({error, _}, mnesia:install_fallback(File2, mnesia_badmod)),
+    ?match({error, _}, mnesia:install_fallback(File2, {foo, foo})),
+    ?match({error, _}, mnesia:install_fallback(File2, [{foo, foo}])),
+    ?match({error, {badarg, {skip_tables, _}}},
+	   mnesia:install_fallback(File2, [{default_op, skip_tables},
+					   {default_op, keep_tables},
+					   {keep_tables, [Tab, Tab2, Tab3]},
+					   {skip_tables, [foo,{asd}]}])),
     ?match(ok, mnesia:install_fallback(File2, mnesia_backup)),
     ?match(ok, file:delete(File)),
     ?match(ok, file:delete(File2)),
@@ -535,6 +553,7 @@ uninstall_fallback(Config) when is_list(Config) ->
     ?match(ok, mnesia:install_fallback(File2)),
     ?match(ok, file:delete(File)),
     ?match(ok, file:delete(File2)),
+    ?match({error, _}, mnesia:uninstall_fallback([foobar])),
     ?match(ok, mnesia:uninstall_fallback()),
     
     mnesia_test_lib:kill_mnesia([Node1, Node2]),

@@ -734,7 +734,7 @@ generate_filename(Prefix) ->
     filename:join(Cwd,Prefix ++ "_" ++ ts() ++ ".coverdata").
     
 ts() ->
-    {{Y,M,D},{H,Min,S}} = calendar:now_to_local_time(now()),
+    {{Y,M,D},{H,Min,S}} = calendar:now_to_local_time(erlang:timestamp()),
     io_lib:format("~4.4.0w~2.2.0w~2.2.0w-~2.2.0w~2.2.0w~2.2.0w",
 		  [Y,M,D,H,Min,S]).
 

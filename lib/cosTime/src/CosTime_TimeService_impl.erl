@@ -166,7 +166,7 @@ new_interval(_, _, _, _) ->
 create_universal_time() ->
     %% Time is supposed to be #100 nano-secs passed.
     %% We add micro secs for a greater precision.
-    {MS,S,US} = now(),
+    {MS,S,US} = erlang:timestamp(),
     case catch calendar:datetime_to_gregorian_seconds(
 		 calendar:now_to_universal_time({MS,S,US})) of
 	Secs when is_integer(Secs) ->

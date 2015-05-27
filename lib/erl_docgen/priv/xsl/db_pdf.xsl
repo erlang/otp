@@ -671,6 +671,10 @@
         <fo:block xsl:use-attribute-sets="cover.version">
           <xsl:value-of select="$gendate"/>
         </fo:block>
+        <fo:block xsl:use-attribute-sets="cover.extrainfo">
+          <xsl:value-of select="$extra_front_page_info"/>
+        </fo:block>
+
 
         <!-- Inner cover (copyright notice) -->
         <fo:block break-before="page"
@@ -1138,6 +1142,31 @@
     </fo:block>
   </xsl:template>
 
+  <!-- Do -->
+  <xsl:template match="do">
+    <xsl:param name="partnum"/>
+    <fo:block xsl:use-attribute-sets="do">
+        <fo:block xsl:use-attribute-sets="note-warning-title">
+            <xsl:text>Do:</xsl:text>
+        </fo:block>
+      <xsl:apply-templates>
+        <xsl:with-param name="partnum" select="$partnum"/>
+      </xsl:apply-templates>
+    </fo:block>
+  </xsl:template>
+
+  <!-- Dont -->
+  <xsl:template match="dont">
+    <xsl:param name="partnum"/>
+    <fo:block xsl:use-attribute-sets="dont">
+        <fo:block xsl:use-attribute-sets="note-warning-title">
+            <xsl:text>Don't:</xsl:text>
+        </fo:block>
+      <xsl:apply-templates>
+        <xsl:with-param name="partnum" select="$partnum"/>
+      </xsl:apply-templates>
+    </fo:block>
+  </xsl:template>
 
  <!-- Paragraph -->
   <xsl:template match="p">

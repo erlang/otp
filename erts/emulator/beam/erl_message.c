@@ -369,11 +369,7 @@ erts_queue_dist_message(Process *rcvr,
                         tok_label, tok_lastcnt, tok_serial);
             }
 #endif
-	    erts_queue_message(rcvr, rcvr_locks, mbuf, msg, token
-#ifdef USE_VM_PROBES
-			       , NIL
-#endif
-			       );
+	    erts_queue_message(rcvr, rcvr_locks, mbuf, msg, token);
     }
     else {
 	/* Enqueue message on external format */
@@ -563,15 +559,15 @@ queue_message(Process *c_p,
 }
 
 void
-erts_queue_message(Process* receiver,
-		   ErtsProcLocks *receiver_locks,
-		   ErlHeapFragment* bp,
-		   Eterm message,
-		   Eterm seq_trace_token
 #ifdef USE_VM_PROBES
-		   , Eterm dt_utag
+erts_queue_message_probe(Process* receiver, ErtsProcLocks *receiver_locks,
+                         ErlHeapFragment* bp,
+                         Eterm message, Eterm seq_trace_token, Eterm dt_utag)
+#else
+erts_queue_message(Process* receiver, ErtsProcLocks *receiver_locks,
+                   ErlHeapFragment* bp,
+                   Eterm message, Eterm seq_trace_token)
 #endif
-    )
 {
     queue_message(NULL,
 		  receiver,
@@ -1117,11 +1113,7 @@ erts_deliver_exit_message(Eterm from, Process *to, ErtsProcLocks *to_locksp,
 	/* the trace token must in this case be updated by the caller */
 	seq_trace_output(token, save, SEQ_TRACE_SEND, to->common.id, NULL);
 	temptoken = copy_struct(token, sz_token, &hp, &bp->off_heap);
-	erts_queue_message(to, to_locksp, bp, save, temptoken
-#ifdef USE_VM_PROBES
-			   , NIL
-#endif
-			   );
+	erts_queue_message(to, to_locksp, bp, save, temptoken);
     } else {
 	ErlOffHeap *ohp;
 	sz_reason = size_object(reason);
@@ -1138,11 +1130,19 @@ erts_deliver_exit_message(Eterm from, Process *to, ErtsProcLocks *to_locksp,
 		     ? from
 		     : copy_struct(from, sz_from, &hp, ohp));
 	save = TUPLE3(hp, am_EXIT, from_copy, mess);
-	erts_queue_message(to, to_locksp, bp, save, NIL
-#ifdef USE_VM_PROBES
-			   , NIL
-#endif
-			   );
+	erts_queue_message(to, to_locksp, bp, save, NIL);
     }
+}
+
+Eterm* erts_produce_heap(ErtsHeapFactory* factory, Uint need, Uint xtra)
+{
+    Eterm* res;
+    if (factory->p) {
+        res = HAllocX(factory->p, need, xtra);
+    } else {
+        res = factory->hp;
+        factory->hp += need;
+    }
+    return res;
 }
 

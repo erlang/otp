@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2004-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2015. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -34,7 +34,10 @@ new(Mod, Eq) ->
 	(is_empty, S) -> is_empty(Mod, S);
 	(is_set, S) -> Mod:is_set(S);
 	(is_subset, {S,Set}) -> is_subset(Mod, Eq, S, Set);
+        (iterator, S) -> Mod:iterator(S);
+        (iterator_from, {Start, S}) -> Mod:iterator_from(Start, S);
 	(module, []) -> Mod;
+        (next, I) -> Mod:next(I);
 	(singleton, E) -> singleton(Mod, E);
 	(size, S) -> Mod:size(S);
 	(subtract, {S1,S2}) -> subtract(Mod, S1, S2);

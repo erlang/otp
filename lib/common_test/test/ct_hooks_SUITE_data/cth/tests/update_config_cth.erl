@@ -24,6 +24,7 @@
 -include_lib("common_test/src/ct_util.hrl").
 -include_lib("common_test/include/ct_event.hrl").
 
+-define(now, os:timestamp()).
 
 %% CT Hooks
 -compile(export_all).
@@ -33,44 +34,44 @@ init(Id, Opts) ->
 
 pre_init_per_suite(Suite, Config, State) ->
     empty_cth:pre_init_per_suite(Suite,Config,State),
-    {[{pre_init_per_suite,now()}|Config],State}.
+    {[{pre_init_per_suite,?now}|Config],State}.
 
 post_init_per_suite(Suite,Config,Return,State) ->
     empty_cth:post_init_per_suite(Suite,Config,Return,State),
-    {[{post_init_per_suite,now()}|Return],State}.
+    {[{post_init_per_suite,?now}|Return],State}.
 
 pre_end_per_suite(Suite,Config,State) ->
     empty_cth:pre_end_per_suite(Suite,Config,State),
-    {[{pre_end_per_suite,now()}|Config],State}.
+    {[{pre_end_per_suite,?now}|Config],State}.
 
 post_end_per_suite(Suite,Config,Return,State) ->
     empty_cth:post_end_per_suite(Suite,Config,Return,State),
-    NewConfig = [{post_end_per_suite,now()}|Config],
+    NewConfig = [{post_end_per_suite,?now}|Config],
     {NewConfig,NewConfig}.
 
 pre_init_per_group(Group,Config,State) ->
     empty_cth:pre_init_per_group(Group,Config,State),
-    {[{pre_init_per_group,now()}|Config],State}.
+    {[{pre_init_per_group,?now}|Config],State}.
 
 post_init_per_group(Group,Config,Return,State) ->
     empty_cth:post_init_per_group(Group,Config,Return,State),
-    {[{post_init_per_group,now()}|Return],State}.
+    {[{post_init_per_group,?now}|Return],State}.
 
 pre_end_per_group(Group,Config,State) ->
     empty_cth:pre_end_per_group(Group,Config,State),
-    {[{pre_end_per_group,now()}|Config],State}.
+    {[{pre_end_per_group,?now}|Config],State}.
 
 post_end_per_group(Group,Config,Return,State) ->
     empty_cth:post_end_per_group(Group,Config,Return,State),
-    {[{post_end_per_group,now()}|Config],State}.
+    {[{post_end_per_group,?now}|Config],State}.
 
 pre_init_per_testcase(TC,Config,State) ->
     empty_cth:pre_init_per_testcase(TC,Config,State),
-    {[{pre_init_per_testcase,now()}|Config],State}.
+    {[{pre_init_per_testcase,?now}|Config],State}.
 
 post_end_per_testcase(TC,Config,Return,State) ->
     empty_cth:post_end_per_testcase(TC,Config,Return,State),
-    {[{post_end_per_testcase,now()}|Config],State}.
+    {[{post_end_per_testcase,?now}|Config],State}.
 
 on_tc_fail(TC, Reason, State) ->
     empty_cth:on_tc_fail(TC,Reason,State).

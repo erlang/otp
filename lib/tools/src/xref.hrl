@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2000-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2015. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -21,6 +21,8 @@
 
 -define(VAR_EXPR, '$F_EXPR').
 -define(MOD_EXPR, '$M_EXPR').
+
+-define(XREF_END_LINE, (1 bsl 23)).
 
 %%% Filenames are stored as directory and basename. A lot of heap can
 %%% be saved by keeping only one (or few) copy of the directory name.

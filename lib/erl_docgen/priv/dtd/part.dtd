@@ -24,6 +24,6 @@
 %common.header;
 
 <!ELEMENT part                (header,description?,include+) >
-<!ELEMENT description         (%block;|quote|br|marker|warning|note)* >
+<!ELEMENT description         (%block;|quote|br|marker|warning|note|dont|do)* >
 <!ELEMENT include             EMPTY >
 <!ATTLIST include             file CDATA #REQUIRED>

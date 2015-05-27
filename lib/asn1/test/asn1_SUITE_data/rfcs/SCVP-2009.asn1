@@ -1,0 +1,608 @@
+  SCVP-2009
+      { iso(1) identified-organization(3) dod(6) internet(1) security(5)
+      mechanisms(5) pkix(7) id-mod(0) id-mod-scvp-02(52) }
+  DEFINITIONS IMPLICIT TAGS ::=
+  BEGIN
+  IMPORTS
+
+  Extensions{}, EXTENSION, ATTRIBUTE
+  FROM PKIX-CommonTypes-2009
+      {iso(1) identified-organization(3) dod(6) internet(1) security(5)
+      mechanisms(5) pkix(7) id-mod(0) id-mod-pkixCommon-02(57) }
+
+  AlgorithmIdentifier{}, SIGNATURE-ALGORITHM, PUBLIC-KEY, KEY-AGREE,
+      DIGEST-ALGORITHM, KEY-DERIVATION, MAC-ALGORITHM
+  FROM AlgorithmInformation-2009
+      {iso(1) identified-organization(3) dod(6) internet(1) security(5)
+      mechanisms(5) pkix(7) id-mod(0)
+      id-mod-algorithmInformation-02(58)}
+
+  Certificate, CertificateList, CertificateSerialNumber,
+      SignatureAlgorithms, SubjectPublicKeyInfo
+  FROM PKIX1Explicit-2009
+      { iso(1) identified-organization(3) dod(6) internet(1) security(5)
+      mechanisms(5) pkix(7) id-mod(0) id-mod-pkix1-explicit-02(51) }
+
+  GeneralNames, GeneralName, KeyUsage, KeyPurposeId
+  FROM PKIX1Implicit-2009
+      { iso(1) identified-organization(3) dod(6) internet(1) security(5)
+      mechanisms(5) pkix(7) id-mod(0) id-mod-pkix1-implicit-02(59) }
+
+  AttributeCertificate
+  FROM PKIXAttributeCertificate-2009
+      { iso(1) identified-organization(3) dod(6) internet(1) security(5)
+      mechanisms(5) pkix(7) id-mod(0) id-mod-attribute-cert-02(47) }
+
+  OCSPResponse
+  FROM OCSP-2009
+      { iso(1) identified-organization(3) dod(6) internet(1) security(5)
+      mechanisms(5) pkix(7) id-mod(0) id-mod-ocsp-02(48) }
+
+  ContentInfo, CONTENT-TYPE
+  FROM CryptographicMessageSyntax-2009
+      { iso(1) member-body(2) us(840) rsadsi(113549) pkcs(1) pkcs-9(9)
+      smime(16) modules(0) id-mod-cms-2004-02(41) }
+
+  mda-sha1
+  FROM PKIXAlgs-2009
+      { iso(1) identified-organization(3) dod(6)
+      internet(1) security(5) mechanisms(5) pkix(7) id-mod(0)
+      id-mod-pkix1-algorithms2008-02(56) } ;
+
+  ContentTypes CONTENT-TYPE ::= {ct-scvp-certValRequest |
+      ct-scvp-certValResponse | ct-scvp-valPolRequest |
+      ct-scvp-valPolResponse, ... }
+
+  id-ct OBJECT IDENTIFIER ::=
+      { iso(1) member-body(2) us(840) rsadsi(113549) pkcs(1) pkcs9(9)
+      id-smime(16) 1 }
+
+  ct-scvp-certValRequest CONTENT-TYPE ::=
+      { CVRequest IDENTIFIED BY id-ct-scvp-certValRequest }
+
+  id-ct-scvp-certValRequest OBJECT IDENTIFIER ::= { id-ct 10 }
+
+  -- SCVP Certificate Validation Request
+
+  CVRequest ::= SEQUENCE {
+      cvRequestVersion           INTEGER DEFAULT 1,
+      query                      Query,
+      requestorRef           [0] GeneralNames OPTIONAL,
+      requestNonce           [1] OCTET STRING OPTIONAL,
+      requestorName          [2] GeneralName OPTIONAL,
+      responderName          [3] GeneralName OPTIONAL,
+      requestExtensions      [4] Extensions{{RequestExtensions}}
+                                     OPTIONAL,
+      signatureAlg           [5] AlgorithmIdentifier
+                                     {SIGNATURE-ALGORITHM,
+                                         {SignatureAlgorithms}}
+                                     OPTIONAL,
+      hashAlg                [6] OBJECT IDENTIFIER OPTIONAL,
+      requestorText          [7] UTF8String (SIZE (1..256)) OPTIONAL
+  }
+
+  -- Set of signature algorithms is coming from RFC 5280
+  -- SignatureAlgorithms SIGNATURE-ALGORITHM ::= {...}
+
+  -- Add supported request extensions here; all new items should
+  --      be added after the extension marker
+
+  RequestExtensions EXTENSION ::= {...}
+
+  Query ::= SEQUENCE {
+      queriedCerts             CertReferences,
+      checks                   CertChecks,
+      wantBack             [1] WantBack OPTIONAL,
+      validationPolicy         ValidationPolicy,
+      responseFlags            ResponseFlags OPTIONAL,
+      serverContextInfo    [2] OCTET STRING OPTIONAL,
+      validationTime       [3] GeneralizedTime OPTIONAL,
+      intermediateCerts    [4] CertBundle OPTIONAL,
+      revInfos             [5] RevocationInfos OPTIONAL,
+      producedAt           [6] GeneralizedTime OPTIONAL,
+      queryExtensions      [7] Extensions{{QueryExtensions}} OPTIONAL
+  }
+
+  -- Add supported query extensions here; all new items should be added
+  --      after the extension marker
+
+  QueryExtensions EXTENSION ::= {...}
+
+  CertReferences ::= CHOICE {
+      pkcRefs       [0] SEQUENCE SIZE (1..MAX) OF PKCReference,
+      acRefs        [1] SEQUENCE SIZE (1..MAX) OF ACReference
+  }
+
+  CertReference::= CHOICE {
+      pkc               PKCReference,
+      ac                ACReference
+  }
+
+  PKCReference ::= CHOICE {
+      cert          [0] Certificate,
+      pkcRef        [1] SCVPCertID
+  }
+
+  ACReference ::= CHOICE {
+      attrCert      [2] AttributeCertificate,
+      acRef         [3] SCVPCertID
+  }
+
+  HashAlgorithm ::= AlgorithmIdentifier{DIGEST-ALGORITHM,
+                        {mda-sha1, ...}}
+
+  SCVPCertID ::= SEQUENCE {
+     certHash        OCTET STRING,
+     issuerSerial    SCVPIssuerSerial,
+     hashAlgorithm   HashAlgorithm
+                         DEFAULT { algorithm mda-sha1.&id }
+  }
+
+  SCVPIssuerSerial ::= SEQUENCE {
+      issuer         GeneralNames,
+      serialNumber   CertificateSerialNumber
+  }
+
+  ValidationPolicy ::= SEQUENCE {
+      validationPolRef           ValidationPolRef,
+      validationAlg          [0] ValidationAlg OPTIONAL,
+      userPolicySet          [1] SEQUENCE SIZE (1..MAX) OF OBJECT
+                                IDENTIFIER OPTIONAL,
+      inhibitPolicyMapping   [2] BOOLEAN OPTIONAL,
+      requireExplicitPolicy  [3] BOOLEAN OPTIONAL,
+      inhibitAnyPolicy       [4] BOOLEAN OPTIONAL,
+      trustAnchors           [5] TrustAnchors OPTIONAL,
+      keyUsages              [6] SEQUENCE OF KeyUsage OPTIONAL,
+      extendedKeyUsages      [7] SEQUENCE OF KeyPurposeId OPTIONAL,
+      specifiedKeyUsages     [8] SEQUENCE OF KeyPurposeId OPTIONAL
+  }
+
+  CertChecks ::= SEQUENCE SIZE (1..MAX) OF
+      OBJECT IDENTIFIER (CertCheckSet | ACertCheckSet, ... )
+
+  WantBack ::= SEQUENCE SIZE (1..MAX) OF
+      WANT-BACK.&id ({AllWantBacks})
+
+  POLICY ::= ATTRIBUTE
+
+  ValidationPolRefSet POLICY ::= {
+      svp-defaultValPolicy, ...
+  }
+
+  ValidationPolRef ::= SEQUENCE {
+     valPolId             POLICY.&id,
+     valPolParams         POLICY.&Type OPTIONAL
+  }
+
+  ValidationAlgSet POLICY ::= {
+          svp-basicValAlg, ...
+  }
+
+  ValidationAlg ::= SEQUENCE {
+      valAlgId               POLICY.&id,
+      parameters             POLICY.&Type OPTIONAL
+  }
+
+  NameValidationAlgSet POLICY ::= {
+      svp-nameValAlg, ...
+  }
+
+  NameValidationAlgParams ::= SEQUENCE {
+      nameCompAlgId          OBJECT IDENTIFIER (NameCompAlgSet, ... ),
+      validationNames        GeneralNames
+  }
+
+  TrustAnchors ::= SEQUENCE SIZE (1..MAX) OF PKCReference
+  KeyAgreePublicKey ::= SEQUENCE {
+      algorithm           AlgorithmIdentifier{KEY-AGREE,
+                              {SupportedKeyAgreePublicKeys}},
+      publicKey           BIT STRING,
+      macAlgorithm        AlgorithmIdentifier{MAC-ALGORITHM,
+                              {SupportedMACAlgorithms}},
+      kDF                 AlgorithmIdentifier{KEY-DERIVATION,
+                              {SupportedKeyDerivationFunctions}}
+                              OPTIONAL
+  }
+
+  SupportedKeyAgreePublicKeys KEY-AGREE ::= {...}
+  SupportedMACAlgorithms MAC-ALGORITHM ::= {...}
+  SupportedKeyDerivationFunctions KEY-DERIVATION ::= {...}
+
+  ResponseFlags ::= SEQUENCE {
+      fullRequestInResponse      [0] BOOLEAN DEFAULT FALSE,
+      responseValidationPolByRef [1] BOOLEAN DEFAULT TRUE,
+      protectResponse            [2] BOOLEAN DEFAULT TRUE,
+      cachedResponse             [3] BOOLEAN DEFAULT TRUE
+  }
+
+  CertBundle ::= SEQUENCE SIZE (1..MAX) OF Certificate
+
+  RevocationInfos ::= SEQUENCE SIZE (1..MAX) OF RevocationInfo
+
+  RevocationInfo ::= CHOICE {
+      crl                    [0] CertificateList,
+      delta-crl              [1] CertificateList,
+      ocsp                   [2] OCSPResponse,
+      other                  [3] OtherRevInfo
+  }
+
+  REV-INFO ::= TYPE-IDENTIFIER
+
+  OtherRevInfo ::= SEQUENCE {
+      riType                     REV-INFO.&id,
+      riValue                    REV-INFO.&Type
+  }
+
+  -- SCVP Certificate Validation Response
+
+  ct-scvp-certValResponse CONTENT-TYPE ::=
+      { CVResponse IDENTIFIED BY id-ct-scvp-certValResponse }
+
+  id-ct-scvp-certValResponse OBJECT IDENTIFIER ::= { id-ct 11 }
+
+  CVResponse ::= SEQUENCE {
+      cvResponseVersion          INTEGER,
+      serverConfigurationID      INTEGER,
+      producedAt                 GeneralizedTime,
+      responseStatus             ResponseStatus,
+      respValidationPolicy   [0] RespValidationPolicy OPTIONAL,
+      requestRef             [1] RequestReference OPTIONAL,
+      requestorRef           [2] GeneralNames OPTIONAL,
+      requestorName          [3] GeneralNames OPTIONAL,
+      replyObjects           [4] ReplyObjects OPTIONAL,
+      respNonce              [5] OCTET STRING OPTIONAL,
+      serverContextInfo      [6] OCTET STRING OPTIONAL,
+      cvResponseExtensions   [7] Extensions{{CVResponseExtensions}}
+                                     OPTIONAL,
+      requestorText          [8] UTF8String (SIZE (1..256)) OPTIONAL
+  }
+
+  --  This document defines no extensions
+  CVResponseExtensions EXTENSION ::= {...}
+
+  ResponseStatus ::= SEQUENCE {
+     statusCode               CVStatusCode DEFAULT  okay,
+     errorMessage             UTF8String OPTIONAL
+  }
+
+  CVStatusCode ::= ENUMERATED {
+     okay                               (0),
+     skipUnrecognizedItems              (1),
+     tooBusy                           (10),
+     invalidRequest                    (11),
+     internalError                     (12),
+     badStructure                      (20),
+     unsupportedVersion                (21),
+     abortUnrecognizedItems            (22),
+     unrecognizedSigKey                (23),
+     badSignatureOrMAC                 (24),
+     unableToDecode                    (25),
+     notAuthorized                     (26),
+     unsupportedChecks                 (27),
+     unsupportedWantBacks              (28),
+     unsupportedSignatureOrMAC         (29),
+     invalidSignatureOrMAC             (30),
+     protectedResponseUnsupported      (31),
+     unrecognizedResponderName         (32),
+     relayingLoop                      (40),
+     unrecognizedValPol                (50),
+     unrecognizedValAlg                (51),
+     fullRequestInResponseUnsupported  (52),
+     fullPolResponseUnsupported        (53),
+     inhibitPolicyMappingUnsupported   (54),
+     requireExplicitPolicyUnsupported  (55),
+     inhibitAnyPolicyUnsupported       (56),
+     validationTimeUnsupported         (57),
+     unrecognizedCritQueryExt          (63),
+     unrecognizedCritRequestExt        (64),
+     ...
+  }
+
+  RespValidationPolicy ::= ValidationPolicy
+
+  RequestReference ::= CHOICE {
+      requestHash   [0] HashValue, -- hash of CVRequest
+      fullRequest   [1] CVRequest }
+
+  HashValue ::= SEQUENCE {
+      algorithm         HashAlgorithm
+                            DEFAULT { algorithm mda-sha1.&id },
+      value             OCTET STRING }
+
+  ReplyObjects ::= SEQUENCE SIZE (1..MAX) OF CertReply
+
+  CertReply ::= SEQUENCE {
+      cert                       CertReference,
+      replyStatus                ReplyStatus DEFAULT success,
+      replyValTime               GeneralizedTime,
+      replyChecks                ReplyChecks,
+      replyWantBacks             ReplyWantBacks,
+      validationErrors       [0] SEQUENCE SIZE (1..MAX) OF
+          OBJECT IDENTIFIER ( BasicValidationErrorSet |
+                              NameValidationErrorSet,
+                              ... ) OPTIONAL,
+      nextUpdate             [1] GeneralizedTime OPTIONAL,
+      certReplyExtensions    [2] Extensions{{...}} OPTIONAL
+  }
+
+  ReplyStatus ::= ENUMERATED {
+      success                    (0),
+      malformedPKC               (1),
+      malformedAC                (2),
+      unavailableValidationTime  (3),
+      referenceCertHashFail      (4),
+      certPathConstructFail      (5),
+      certPathNotValid           (6),
+      certPathNotValidNow        (7),
+      wantBackUnsatisfied        (8)
+  }
+  ReplyChecks ::= SEQUENCE OF ReplyCheck
+
+  ReplyCheck ::= SEQUENCE {
+      check    OBJECT IDENTIFIER (CertCheckSet | ACertCheckSet, ... ),
+      status   INTEGER DEFAULT 0
+  }
+
+  ReplyWantBacks ::= SEQUENCE OF ReplyWantBack
+
+  ReplyWantBack::= SEQUENCE {
+      wb     WANT-BACK.&id({AllWantBacks}),
+      value  OCTET STRING
+                 (CONTAINING WANT-BACK.&Type({AllWantBacks}{@wb}))
+  }
+
+  WANT-BACK ::= TYPE-IDENTIFIER
+
+  AllWantBacks WANT-BACK ::= {
+      WantBackSet | ACertWantBackSet | AnyWantBackSet, ...
+  }
+
+  CertBundles ::= SEQUENCE SIZE (1..MAX) OF CertBundle
+
+  RevInfoWantBack ::= SEQUENCE {
+      revocationInfo             RevocationInfos,
+      extraCerts                 CertBundle OPTIONAL
+  }
+
+  SCVPResponses ::= SEQUENCE OF ContentInfo
+
+  -- SCVP Validation Policies Request
+
+  ct-scvp-valPolRequest CONTENT-TYPE ::=
+      { ValPolRequest IDENTIFIED BY id-ct-scvp-valPolRequest }
+
+  id-ct-scvp-valPolRequest OBJECT IDENTIFIER ::= { id-ct 12 }
+
+  ValPolRequest ::= SEQUENCE {
+      vpRequestVersion           INTEGER DEFAULT 1,
+      requestNonce               OCTET STRING
+  }
+
+  -- SCVP Validation Policies Response
+
+  ct-scvp-valPolResponse CONTENT-TYPE ::=
+      { ValPolResponse IDENTIFIED BY id-ct-scvp-valPolResponse }
+
+  id-ct-scvp-valPolResponse OBJECT IDENTIFIER ::= { id-ct 13 }
+  ValPolResponse ::= SEQUENCE {
+      vpResponseVersion       INTEGER,
+      maxCVRequestVersion     INTEGER,
+      maxVPRequestVersion     INTEGER,
+      serverConfigurationID   INTEGER,
+      thisUpdate              GeneralizedTime,
+      nextUpdate              GeneralizedTime OPTIONAL,
+      supportedChecks         CertChecks,
+      supportedWantBacks      WantBack,
+      validationPolicies      SEQUENCE OF OBJECT IDENTIFIER,
+      validationAlgs          SEQUENCE OF OBJECT IDENTIFIER,
+      authPolicies            SEQUENCE OF AuthPolicy,
+      responseTypes           ResponseTypes,
+      defaultPolicyValues     RespValidationPolicy,
+      revocationInfoTypes     RevocationInfoTypes,
+      signatureGeneration     SEQUENCE OF AlgorithmIdentifier
+                                  {SIGNATURE-ALGORITHM,
+                                      {SignatureAlgorithms}},
+      signatureVerification   SEQUENCE OF AlgorithmIdentifier
+                                  {SIGNATURE-ALGORITHM,
+                                      {SignatureAlgorithms}},
+      hashAlgorithms          SEQUENCE SIZE (1..MAX) OF
+                                 OBJECT IDENTIFIER,
+      serverPublicKeys        SEQUENCE OF KeyAgreePublicKey
+                                 OPTIONAL,
+      clockSkew               INTEGER DEFAULT 10,
+      requestNonce            OCTET STRING OPTIONAL
+  }
+
+  ResponseTypes  ::= ENUMERATED {
+      cached-only                (0),
+      non-cached-only            (1),
+      cached-and-non-cached      (2)
+  }
+
+  RevocationInfoTypes ::= BIT STRING {
+      fullCRLs                   (0),
+      deltaCRLs                  (1),
+      indirectCRLs               (2),
+      oCSPResponses              (3)
+  }
+
+  AuthPolicy ::= OBJECT IDENTIFIER
+
+  -- SCVP Check Identifiers
+
+  id-stc OBJECT IDENTIFIER ::=
+      { iso(1) identified-organization(3) dod(6) internet(1) security(5)
+      mechanisms(5) pkix(7) 17 }
+
+  CertCheckSet OBJECT IDENTIFIER ::= {
+      id-stc-build-pkc-path | id-stc-build-valid-pkc-path |
+      id-stc-build-status-checked-pkc-path, ... }
+
+  id-stc-build-pkc-path        OBJECT IDENTIFIER ::= { id-stc 1 }
+  id-stc-build-valid-pkc-path  OBJECT IDENTIFIER ::= { id-stc 2 }
+  id-stc-build-status-checked-pkc-path
+                              OBJECT IDENTIFIER ::= { id-stc 3 }
+
+  ACertCheckSet OBJECT IDENTIFIER ::= {
+      id-stc-build-aa-path | id-stc-build-valid-aa-path |
+      id-stc-build-status-checked-aa-path |
+      id-stc-status-check-ac-and-build-status-checked-aa-path
+  }
+
+  id-stc-build-aa-path         OBJECT IDENTIFIER ::= { id-stc 4 }
+  id-stc-build-valid-aa-path   OBJECT IDENTIFIER ::= { id-stc 5 }
+  id-stc-build-status-checked-aa-path
+                              OBJECT IDENTIFIER ::= { id-stc 6 }
+  id-stc-status-check-ac-and-build-status-checked-aa-path
+                              OBJECT IDENTIFIER ::= { id-stc 7 }
+
+  -- SCVP WantBack Identifiers
+
+  id-swb OBJECT IDENTIFIER ::=
+      { iso(1) identified-organization(3) dod(6) internet(1) security(5)
+      mechanisms(5) pkix(7) 18 }
+
+  WantBackSet WANT-BACK ::= {
+      swb-pkc-cert | swb-pkc-best-cert-path |
+      swb-pkc-revocation-info | swb-pkc-public-key-info |
+      swb-pkc-all-cert-paths | swb-pkc-ee-revocation-info |
+      swb-pkc-CAs-revocation-info
+  }
+
+  ACertWantBackSet WANT-BACK ::= {
+      swb-ac-cert | swb-aa-cert-path |
+      swb-aa-revocation-info | swb-ac-revocation-info
+  }
+
+  AnyWantBackSet WANT-BACK ::= { swb-relayed-responses }
+
+  swb-pkc-best-cert-path WANT-BACK ::=
+      { CertBundle IDENTIFIED BY id-swb-pkc-best-cert-path }
+  id-swb-pkc-best-cert-path       OBJECT IDENTIFIER ::= { id-swb 1 }
+  swb-pkc-revocation-info WANT-BACK ::=
+      { RevInfoWantBack IDENTIFIED BY id-swb-pkc-revocation-info }
+  id-swb-pkc-revocation-info      OBJECT IDENTIFIER ::= { id-swb 2 }
+
+  swb-pkc-public-key-info WANT-BACK ::=
+      { SubjectPublicKeyInfo IDENTIFIED BY id-swb-pkc-public-key-info }
+  id-swb-pkc-public-key-info      OBJECT IDENTIFIER ::= { id-swb 4 }
+
+  swb-aa-cert-path WANT-BACK ::=
+      {CertBundle IDENTIFIED BY id-swb-aa-cert-path }
+  id-swb-aa-cert-path             OBJECT IDENTIFIER ::= { id-swb 5 }
+
+  swb-aa-revocation-info WANT-BACK ::=
+      { RevInfoWantBack IDENTIFIED BY id-swb-aa-revocation-info }
+  id-swb-aa-revocation-info       OBJECT IDENTIFIER ::= { id-swb 6 }
+
+  swb-ac-revocation-info WANT-BACK ::=
+      { RevInfoWantBack IDENTIFIED BY id-swb-ac-revocation-info }
+  id-swb-ac-revocation-info       OBJECT IDENTIFIER ::= { id-swb 7 }
+
+  swb-relayed-responses WANT-BACK ::=
+      {SCVPResponses IDENTIFIED BY id-swb-relayed-responses }
+
+  id-swb-relayed-responses        OBJECT IDENTIFIER ::= { id-swb 9 }
+
+  swb-pkc-all-cert-paths WANT-BACK ::=
+      {CertBundles IDENTIFIED BY id-swb-pkc-all-cert-paths }
+  id-swb-pkc-all-cert-paths       OBJECT IDENTIFIER ::= { id-swb 12}
+
+  swb-pkc-ee-revocation-info WANT-BACK ::=
+      { RevInfoWantBack IDENTIFIED BY id-swb-pkc-ee-revocation-info }
+  id-swb-pkc-ee-revocation-info   OBJECT IDENTIFIER ::= { id-swb 13}
+
+  swb-pkc-CAs-revocation-info WANT-BACK ::=
+      { RevInfoWantBack IDENTIFIED BY id-swb-pkc-CAs-revocation-info }
+  id-swb-pkc-CAs-revocation-info  OBJECT IDENTIFIER ::= { id-swb 14}
+
+  swb-pkc-cert WANT-BACK ::=
+      { Certificate IDENTIFIED BY id-swb-pkc-cert }
+  id-swb-pkc-cert OBJECT IDENTIFIER ::= { id-swb 10}
+
+  swb-ac-cert WANT-BACK ::=
+      { AttributeCertificate IDENTIFIED BY id-swb-ac-cert }
+  id-swb-ac-cert OBJECT IDENTIFIER ::= { id-swb 11}
+
+  -- SCVP Validation Policy and Algorithm Identifiers
+
+  id-svp OBJECT IDENTIFIER ::=
+      { iso(1) identified-organization(3) dod(6) internet(1) security(5)
+      mechanisms(5) pkix(7) 19 }
+
+  svp-defaultValPolicy POLICY ::=
+      { IDENTIFIED BY id-svp-defaultValPolicy }
+
+  id-svp-defaultValPolicy OBJECT IDENTIFIER ::= { id-svp 1 }
+
+  -- SCVP Basic Validation Algorithm Identifier
+
+  svp-basicValAlg POLICY ::= {IDENTIFIED BY id-svp-basicValAlg }
+
+  id-svp-basicValAlg OBJECT IDENTIFIER ::= { id-svp 3 }
+
+  -- SCVP Basic Validation Algorithm Errors
+
+  id-bvae OBJECT IDENTIFIER ::= id-svp-basicValAlg
+
+  BasicValidationErrorSet OBJECT IDENTIFIER ::= {
+      id-bvae-expired | id-bvae-not-yet-valid |
+      id-bvae-wrongTrustAnchor | id-bvae-noValidCertPath |
+      id-bvae-revoked | id-bvae-invalidKeyPurpose |
+      id-bvae-invalidKeyUsage | id-bvae-invalidCertPolicy
+  }
+
+  id-bvae-expired              OBJECT IDENTIFIER ::= { id-bvae 1 }
+  id-bvae-not-yet-valid        OBJECT IDENTIFIER ::= { id-bvae 2 }
+  id-bvae-wrongTrustAnchor     OBJECT IDENTIFIER ::= { id-bvae 3 }
+  id-bvae-noValidCertPath      OBJECT IDENTIFIER ::= { id-bvae 4 }
+  id-bvae-revoked              OBJECT IDENTIFIER ::= { id-bvae 5 }
+  id-bvae-invalidKeyPurpose    OBJECT IDENTIFIER ::= { id-bvae 9 }
+  id-bvae-invalidKeyUsage      OBJECT IDENTIFIER ::= { id-bvae 10 }
+  id-bvae-invalidCertPolicy    OBJECT IDENTIFIER ::= { id-bvae 11 }
+
+  -- SCVP Name Validation Algorithm Identifier
+
+  svp-nameValAlg POLICY ::=
+      {TYPE NameValidationAlgParams IDENTIFIED BY id-svp-nameValAlg }
+
+  id-svp-nameValAlg OBJECT IDENTIFIER ::= { id-svp 2 }
+
+  -- SCVP Name Validation Algorithm DN comparison algorithm
+
+  NameCompAlgSet OBJECT IDENTIFIER ::= {
+      id-nva-dnCompAlg
+  }
+
+  id-nva-dnCompAlg   OBJECT IDENTIFIER ::= { id-svp 4 }
+  -- SCVP Name Validation Algorithm Errors
+
+  id-nvae OBJECT IDENTIFIER ::= id-svp-nameValAlg
+
+  NameValidationErrorSet OBJECT IDENTIFIER ::= {
+      id-nvae-name-mismatch | id-nvae-no-name | id-nvae-unknown-alg |
+      id-nvae-bad-name | id-nvae-bad-name-type | id-nvae-mixed-names
+  }
+
+  id-nvae-name-mismatch   OBJECT IDENTIFIER ::= { id-nvae 1 }
+  id-nvae-no-name         OBJECT IDENTIFIER ::= { id-nvae 2 }
+  id-nvae-unknown-alg     OBJECT IDENTIFIER ::= { id-nvae 3 }
+  id-nvae-bad-name        OBJECT IDENTIFIER ::= { id-nvae 4 }
+  id-nvae-bad-name-type   OBJECT IDENTIFIER ::= { id-nvae 5 }
+  id-nvae-mixed-names     OBJECT IDENTIFIER ::= { id-nvae 6 }
+
+  -- SCVP Extended Key Usage Key Purpose Identifiers
+
+  id-kp OBJECT IDENTIFIER ::=
+      { iso(1) identified-organization(3) dod(6) internet(1) security(5)
+      mechanisms(5) pkix(7) 3 }
+
+  SvcpExtKeyUsageSet OBJECT IDENTIFIER ::= {
+      id-kp-scvpServer | id-kp-scvpClient
+  }
+
+  id-kp-scvpServer   OBJECT IDENTIFIER ::= { id-kp 15 }
+
+  id-kp-scvpClient   OBJECT IDENTIFIER ::= { id-kp 16 }
+
+  END

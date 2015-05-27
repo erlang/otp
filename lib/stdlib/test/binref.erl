@@ -155,7 +155,8 @@ split(Haystack,Needles0,Options) ->
 		      true ->
 			  exit(badtype)
 		  end,
-	{Part,Global,Trim} = get_opts_split(Options,{nomatch,false,false}),
+	{Part,Global,Trim,TrimAll} =
+        get_opts_split(Options,{nomatch,false,false,false}),
 	{Start,End,NewStack} =
 	    case Part of
 		nomatch ->
@@ -180,20 +181,24 @@ split(Haystack,Needles0,Options) ->
 				[X]
 			end
 		end,
-	do_split(Haystack,MList,0,Trim)
+	do_split(Haystack,MList,0,Trim,TrimAll)
     catch
 	_:_ ->
 	    erlang:error(badarg)
     end.
 
-do_split(H,[],N,true) when N >= byte_size(H) ->
+do_split(H,[],N,true,_) when N >= byte_size(H) ->
     [];
-do_split(H,[],N,_) ->
+do_split(H,[],N,_,true) when N >= byte_size(H) ->
+    [];
+do_split(H,[],N,_,_) ->
     [part(H,{N,byte_size(H)-N})];
-do_split(H,[{A,B}|T],N,Trim) ->
+do_split(H,[{A,B}|T],N,Trim,TrimAll) ->
     case part(H,{N,A-N}) of
+	<<>> when TrimAll == true ->
+	    do_split(H,T,A+B,Trim,TrimAll);
 	<<>> ->
-	    Rest =  do_split(H,T,A+B,Trim),
+	    Rest =  do_split(H,T,A+B,Trim,TrimAll),
 	    case {Trim, Rest} of
 		{true,[]} ->
 		    [];
@@ -201,7 +206,7 @@ do_split(H,[{A,B}|T],N,Trim) ->
 		    [<<>> | Rest]
 	    end;
 	Oth ->
-	    [Oth | do_split(H,T,A+B,Trim)]
+	    [Oth | do_split(H,T,A+B,Trim,TrimAll)]
     end.
 
 
@@ -565,14 +570,16 @@ get_opts_match([{scope,{A,B}} | T],_Part) ->
 get_opts_match(_,_) ->
     throw(badopt).
 
-get_opts_split([],{Part,Global,Trim}) ->
-    {Part,Global,Trim};
-get_opts_split([{scope,{A,B}} | T],{_Part,Global,Trim}) ->
-    get_opts_split(T,{{A,B},Global,Trim});
-get_opts_split([global | T],{Part,_Global,Trim}) ->
-    get_opts_split(T,{Part,true,Trim});
-get_opts_split([trim | T],{Part,Global,_Trim}) ->
-    get_opts_split(T,{Part,Global,true});
+get_opts_split([],{Part,Global,Trim,TrimAll}) ->
+    {Part,Global,Trim,TrimAll};
+get_opts_split([{scope,{A,B}} | T],{_Part,Global,Trim,TrimAll}) ->
+    get_opts_split(T,{{A,B},Global,Trim,TrimAll});
+get_opts_split([global | T],{Part,_Global,Trim,TrimAll}) ->
+    get_opts_split(T,{Part,true,Trim,TrimAll});
+get_opts_split([trim | T],{Part,Global,_Trim,TrimAll}) ->
+    get_opts_split(T,{Part,Global,true,TrimAll});
+get_opts_split([trim_all | T],{Part,Global,Trim,_TrimAll}) ->
+    get_opts_split(T,{Part,Global,Trim,true});
 get_opts_split(_,_) ->
     throw(badopt).
 

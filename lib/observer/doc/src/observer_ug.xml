@@ -104,6 +104,29 @@
     <note>
       <p><em>Reds</em> can be presented as accumulated values or as values since last update.</p>
     </note>
+    <p><c>Process info</c> open a detailed information window on the selected process.
+    <taglist>
+      <tag>Process Information</tag>
+      <item>Shows the process information.</item>
+      <tag>Messages</tag>
+      <item>Shows the process messages.</item>
+      <tag>Dictionary</tag>
+      <item>Shows the process dictionary.</item>
+      <tag>Stack Trace</tag>
+      <item>Shows the process current stack trace.</item>
+      <tag>State</tag>
+      <item>Show the process state.</item>
+      <tag>Log</tag>
+      <item>If enabled and available, show the process SASL log entries.</item>
+    </taglist>
+    <note>
+      <p><c>Log</c> needs SASL application to be started on the observed node, with log_mf_h as log handler.
+      The Observed node must be R16B02 or higher.
+      <c>rb</c> server must not be started on the observed node when clicking on menu 'Log/Toggle log view'.
+      <c>rb</c> server will be stopped on the observed node when exiting or changing observed node.
+      </p>
+    </note>
+    </p>
     <p><c>Trace Processes</c> will add the selected process identifiers to the <c>Trace Overview</c> view and the
     node the processes reside on will be added as well.
     <c>Trace Named Processes</c> will add the registered name of processes. This can be useful

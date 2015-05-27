@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -30,7 +30,8 @@
 	 hibernate/3,
 	 init_ack/1, init_ack/2,
 	 init_p/3,init_p/5,format/1,format/2,initial_call/1,
-         translate_initial_call/1]).
+         translate_initial_call/1,
+	 stop/1, stop/3]).
 
 %% Internal exports.
 -export([wake_up/3]).
@@ -748,3 +749,50 @@ format_tag(Tag, Data) ->
 
 modifier(latin1) -> "";
 modifier(_) -> "t".
+
+
+%%% -----------------------------------------------------------
+%%% Stop a process and wait for it to terminate
+%%% -----------------------------------------------------------
+-spec stop(Process) -> 'ok' when
+      Process :: pid() | RegName | {RegName,node()},
+      RegName :: atom().
+stop(Process) ->
+    stop(Process, normal, infinity).
+
+-spec stop(Process, Reason, Timeout) -> 'ok' when
+      Process :: pid() | RegName | {RegName,node()},
+      RegName :: atom(),
+      Reason :: term(),
+      Timeout :: timeout().
+stop(Process, Reason, Timeout) ->
+    {Pid, Mref} = erlang:spawn_monitor(do_stop(Process, Reason)),
+    receive
+	{'DOWN', Mref, _, _, Reason} ->
+	    ok;
+	{'DOWN', Mref, _, _, {noproc,{sys,terminate,_}}} ->
+	    exit(noproc);
+	{'DOWN', Mref, _, _, CrashReason} ->
+	    exit(CrashReason)
+    after Timeout ->
+	    exit(Pid, kill),
+	    receive
+		{'DOWN', Mref, _, _, _} ->
+		    exit(timeout)
+	    end
+    end.
+
+-spec do_stop(Process, Reason) -> Fun when
+      Process :: pid() | RegName | {RegName,node()},
+      RegName :: atom(),
+      Reason :: term(),
+      Fun :: fun(() -> no_return()).
+do_stop(Process, Reason) ->
+    fun() ->
+	    Mref = erlang:monitor(process, Process),
+	    ok = sys:terminate(Process, Reason, infinity),
+	    receive
+		{'DOWN', Mref, _, _, ExitReason} ->
+		    exit(ExitReason)
+	    end
+    end.

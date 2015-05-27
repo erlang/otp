@@ -52,7 +52,9 @@ end_per_group(_GroupName, Config) ->
 
 
 init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
-    Seed = {S1,S2,S3} = now(),
+    Seed = {S1,S2,S3} = {erlang:monotonic_time(),
+			 erlang:time_offset(),
+			 erlang:unique_integer()},
     random:seed(S1,S2,S3),
     io:format("*** SEED: ~p ***\n", [Seed]),
     Dog=?t:timetrap(?t:minutes(1)),

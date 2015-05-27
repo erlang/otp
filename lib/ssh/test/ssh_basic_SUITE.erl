@@ -29,6 +29,7 @@
 
 -define(NEWLINE, <<"\r\n">>).
 
+-define(REKEY_DATA_TMO, 65000).
 %%--------------------------------------------------------------------
 %% Common Test interface functions -----------------------------------
 %%--------------------------------------------------------------------
@@ -44,6 +45,7 @@ all() ->
      {group, dsa_pass_key},
      {group, rsa_pass_key},
      {group, internal_error},
+     {group, renegotiate},
      daemon_already_started,
      server_password_option,
      server_userpassword_option,
@@ -52,6 +54,8 @@ all() ->
      ssh_connect_arg4_timeout,
      packet_size_zero,
      ssh_daemon_minimal_remote_max_packet_size_option,
+     ssh_msg_debug_fun_option_client,
+     ssh_msg_debug_fun_option_server,
      id_string_no_opt_client,
      id_string_own_string_client,
      id_string_random_client,
@@ -67,6 +71,7 @@ groups() ->
      {dsa_pass_key, [], [pass_phrase]},
      {rsa_pass_key, [], [pass_phrase]},
      {internal_error, [], [internal_error]},
+     {renegotiate, [], [rekey, rekey_limit, renegotiate1, renegotiate2]},
      {hardening_tests, [], [ssh_connect_nonegtimeout_connected_parallel,
 			    ssh_connect_nonegtimeout_connected_sequential,
 			    ssh_connect_negtimeout_parallel,
@@ -82,8 +87,7 @@ groups() ->
 basic_tests() ->
     [send, close, peername_sockname,
      exec, exec_compressed, shell, cli, known_hosts, 
-     idle_time, rekey, openssh_zlib_basic_test,
-     misc_ssh_options, inet_option].
+     idle_time, openssh_zlib_basic_test, misc_ssh_options, inet_option].
 
 
 %%--------------------------------------------------------------------
@@ -331,24 +335,174 @@ idle_time(Config) ->
 rekey() ->
     [{doc, "Idle timeout test"}].
 rekey(Config) ->
-    SystemDir = filename:join(?config(priv_dir, Config), system),
+    SystemDir = ?config(data_dir, Config),
     UserDir = ?config(priv_dir, Config),
 
     {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
-					     {user_dir, UserDir},
+    					     {user_dir, UserDir},
 					     {failfun, fun ssh_test_lib:failfun/2},
+    					     {user_passwords,
+    					      [{"simon", "says"}]},
 					     {rekey_limit, 0}]),
+
     ConnectionRef =
 	ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
 					  {user_dir, UserDir},
+					  {user, "simon"},
+					  {password, "says"},
 					  {user_interaction, false},
 					  {rekey_limit, 0}]),
     receive
-    after 200000 ->
+    after ?REKEY_DATA_TMO ->
 	    %%By this time rekeying would have been done
 	    ssh:close(ConnectionRef),
 	    ssh:stop_daemon(Pid)
     end.
+%%--------------------------------------------------------------------
+rekey_limit() ->
+    [{doc, "Test rekeying by data volume"}].
+rekey_limit(Config) ->
+    SystemDir = ?config(data_dir, Config),
+    UserDir = ?config(priv_dir, Config),
+    DataFile = filename:join(UserDir, "rekey.data"),
+
+    {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
+    					     {user_dir, UserDir},
+    					     {user_passwords,
+    					      [{"simon", "says"}]}]),
+    {ok, SftpPid, ConnectionRef} =
+    	ssh_sftp:start_channel(Host, Port, [{system_dir, SystemDir},
+    					    {user_dir, UserDir},
+    					    {user, "simon"},
+    					    {password, "says"},
+    					    {rekey_limit, 2500},
+    					    {user_interaction, false},
+    					    {silently_accept_hosts, true}]),
+
+    Kex1 = get_kex_init(ConnectionRef),
+
+    ct:sleep(?REKEY_DATA_TMO),
+    Kex1 = get_kex_init(ConnectionRef),
+
+    Data = lists:duplicate(9000,1),
+    ok = ssh_sftp:write_file(SftpPid, DataFile, Data),
+
+    ct:sleep(?REKEY_DATA_TMO),
+    Kex2 = get_kex_init(ConnectionRef),
+
+    false = (Kex2 == Kex1),
+
+    ct:sleep(?REKEY_DATA_TMO),
+    Kex2 = get_kex_init(ConnectionRef),
+
+    ok = ssh_sftp:write_file(SftpPid, DataFile, "hi\n"),
+
+    ct:sleep(?REKEY_DATA_TMO),
+    Kex2 = get_kex_init(ConnectionRef),
+
+    false = (Kex2 == Kex1),
+
+    ct:sleep(?REKEY_DATA_TMO),
+    Kex2 = get_kex_init(ConnectionRef),
+
+
+    ssh_sftp:stop_channel(SftpPid),
+    ssh:close(ConnectionRef),
+    ssh:stop_daemon(Pid).
+
+%%--------------------------------------------------------------------
+renegotiate1() ->
+    [{doc, "Test rekeying with simulataneous send request"}].
+renegotiate1(Config) ->
+    SystemDir = ?config(data_dir, Config),
+    UserDir = ?config(priv_dir, Config),
+    DataFile = filename:join(UserDir, "renegotiate1.data"),
+
+    {Pid, Host, DPort} = ssh_test_lib:daemon([{system_dir, SystemDir},
+					       {user_dir, UserDir},
+					       {user_passwords,
+						[{"simon", "says"}]}]),
+    RPort = ssh_test_lib:inet_port(),
+
+    {ok,RelayPid} = ssh_relay:start_link({0,0,0,0}, RPort, Host, DPort),
+
+    {ok, SftpPid, ConnectionRef} =
+	ssh_sftp:start_channel(Host, RPort, [{system_dir, SystemDir},
+					     {user_dir, UserDir},
+					     {user, "simon"},
+					     {password, "says"},
+					     {user_interaction, false},
+					     {silently_accept_hosts, true}]),
+
+    Kex1 = get_kex_init(ConnectionRef),
+
+    {ok, Handle} = ssh_sftp:open(SftpPid, DataFile, [write]),
+
+    ok = ssh_sftp:write(SftpPid, Handle, "hi\n"),
+
+    ssh_relay:hold(RelayPid, rx, 20, 1000),
+    ssh_connection_handler:renegotiate(ConnectionRef),
+    spawn(fun() -> ok=ssh_sftp:write(SftpPid, Handle, "another hi\n") end),
+
+    ct:sleep(2000),
+
+    Kex2 = get_kex_init(ConnectionRef),
+
+    false = (Kex2 == Kex1),
+    
+    ssh_relay:stop(RelayPid),
+    ssh_sftp:stop_channel(SftpPid),
+    ssh:close(ConnectionRef),
+    ssh:stop_daemon(Pid).
+
+%%--------------------------------------------------------------------
+renegotiate2() ->
+    [{doc, "Test rekeying with inflight messages from peer"}].
+renegotiate2(Config) ->
+    SystemDir = ?config(data_dir, Config),
+    UserDir = ?config(priv_dir, Config),
+    DataFile = filename:join(UserDir, "renegotiate1.data"),
+
+    {Pid, Host, DPort} = ssh_test_lib:daemon([{system_dir, SystemDir},
+					       {user_dir, UserDir},
+					       {user_passwords,
+						[{"simon", "says"}]}]),
+    RPort = ssh_test_lib:inet_port(),
+
+    {ok,RelayPid} = ssh_relay:start_link({0,0,0,0}, RPort, Host, DPort),
+
+    {ok, SftpPid, ConnectionRef} =
+	ssh_sftp:start_channel(Host, RPort, [{system_dir, SystemDir},
+					     {user_dir, UserDir},
+					     {user, "simon"},
+					     {password, "says"},
+					     {user_interaction, false},
+					     {silently_accept_hosts, true}]),
+
+    Kex1 = get_kex_init(ConnectionRef),
+
+    {ok, Handle} = ssh_sftp:open(SftpPid, DataFile, [write]),
+
+    ok = ssh_sftp:write(SftpPid, Handle, "hi\n"),
+
+    ssh_relay:hold(RelayPid, rx, 20, infinity),
+    spawn(fun() -> ok=ssh_sftp:write(SftpPid, Handle, "another hi\n") end),
+    %% need a small pause here to ensure ssh_sftp:write is executed
+    ct:sleep(10),
+    ssh_connection_handler:renegotiate(ConnectionRef),
+    ssh_relay:release(RelayPid, rx),
+
+    ct:sleep(2000),
+
+    Kex2 = get_kex_init(ConnectionRef),
+
+    false = (Kex2 == Kex1),
+
+    ssh_relay:stop(RelayPid),
+    ssh_sftp:stop_channel(SftpPid),
+    ssh:close(ConnectionRef),
+    ssh:stop_daemon(Pid).
+
 %%--------------------------------------------------------------------
 shell() ->
     [{doc, "Test that ssh:shell/2 works"}].
@@ -492,6 +646,94 @@ server_userpassword_option(Config) when is_list(Config) ->
 				 {user_interaction, false},
 				 {user_dir, UserDir}]),
     ssh:stop_daemon(Pid).
+
+%%--------------------------------------------------------------------
+ssh_msg_debug_fun_option_client() ->
+    [{doc, "validate client that uses the 'ssh_msg_debug_fun' option"}].
+ssh_msg_debug_fun_option_client(Config) ->
+    PrivDir = ?config(priv_dir, Config),
+    UserDir = filename:join(PrivDir, nopubkey), % to make sure we don't use public-key-auth
+    file:make_dir(UserDir),
+    SysDir = ?config(data_dir, Config),
+
+    {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SysDir},
+					     {user_dir, UserDir},
+					     {password, "morot"},
+					     {failfun, fun ssh_test_lib:failfun/2}]),
+    Parent = self(),
+    DbgFun = fun(ConnRef,Displ,Msg,Lang) -> Parent ! {msg_dbg,{ConnRef,Displ,Msg,Lang}} end,
+		
+    ConnectionRef =
+	ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
+					  {user, "foo"},
+					  {password, "morot"},
+					  {user_dir, UserDir},
+					  {user_interaction, false},
+					  {ssh_msg_debug_fun,DbgFun}]),
+    %% Beware, implementation knowledge:
+    gen_fsm:send_all_state_event(ConnectionRef,{ssh_msg_debug,false,<<"Hello">>,<<>>}),
+    receive
+	{msg_dbg,X={ConnectionRef,false,<<"Hello">>,<<>>}} ->
+	    ct:log("Got expected dbg msg ~p",[X]),
+	    ssh:stop_daemon(Pid);
+	{msg_dbg,X={_,false,<<"Hello">>,<<>>}} ->
+	    ct:log("Got dbg msg but bad ConnectionRef (~p expected) ~p",[ConnectionRef,X]),
+	    ssh:stop_daemon(Pid),
+	    {fail, "Bad ConnectionRef received"};
+	{msg_dbg,X} ->
+	    ct:log("Got bad dbg msg ~p",[X]),
+	    ssh:stop_daemon(Pid),
+	    {fail,"Bad msg received"}
+    after 1000 ->
+	    ssh:stop_daemon(Pid),
+	    {fail,timeout}
+    end.
+
+%%--------------------------------------------------------------------
+ssh_msg_debug_fun_option_server() ->
+    [{doc, "validate client that uses the 'ssh_msg_debug_fun' option"}].
+ssh_msg_debug_fun_option_server(Config) ->
+    PrivDir = ?config(priv_dir, Config),
+    UserDir = filename:join(PrivDir, nopubkey), % to make sure we don't use public-key-auth
+    file:make_dir(UserDir),
+    SysDir = ?config(data_dir, Config),
+
+    Parent = self(),
+    DbgFun = fun(ConnRef,Displ,Msg,Lang) -> Parent ! {msg_dbg,{ConnRef,Displ,Msg,Lang}} end,
+    ConnFun = fun(_,_,_) -> Parent ! {connection_pid,self()} end,
+
+    {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SysDir},
+					     {user_dir, UserDir},
+					     {password, "morot"},
+					     {failfun, fun ssh_test_lib:failfun/2},
+					     {connectfun, ConnFun},
+					     {ssh_msg_debug_fun, DbgFun}]),
+    _ConnectionRef =
+	ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
+					  {user, "foo"},
+					  {password, "morot"},
+					  {user_dir, UserDir},
+					  {user_interaction, false}]),
+    receive
+	{connection_pid,Server} ->
+	    %% Beware, implementation knowledge:
+	    gen_fsm:send_all_state_event(Server,{ssh_msg_debug,false,<<"Hello">>,<<>>}),
+	    receive
+		{msg_dbg,X={_,false,<<"Hello">>,<<>>}} ->
+		    ct:log("Got expected dbg msg ~p",[X]),
+		    ssh:stop_daemon(Pid);
+		{msg_dbg,X} ->
+		    ct:log("Got bad dbg msg ~p",[X]),
+		    ssh:stop_daemon(Pid),
+		    {fail,"Bad msg received"}
+	    after 3000 ->
+		    ssh:stop_daemon(Pid),
+		    {fail,timeout2}
+	    end
+    after 3000 ->
+	    ssh:stop_daemon(Pid),
+	    {fail,timeout1}
+    end.
 
 %%--------------------------------------------------------------------
 known_hosts() ->
@@ -723,7 +965,7 @@ ssh_connect_arg4_timeout(_Config) ->
 
     %% try to connect with a timeout, but "supervise" it
     Client = spawn(fun() ->
-			   T0 = now(),
+			   T0 = erlang:monotonic_time(),
 			   Rc = ssh:connect("localhost",Port,[],Timeout),
 			   ct:log("Client ssh:connect got ~p",[Rc]),
 			   Parent ! {done,self(),Rc,T0}
@@ -732,13 +974,12 @@ ssh_connect_arg4_timeout(_Config) ->
     %% Wait for client reaction on the connection try:
     receive
 	{done, Client, {error,timeout}, T0} ->
-	    Msp = ms_passed(T0, now()),
+	    Msp = ms_passed(T0),
 	    exit(Server,hasta_la_vista___baby),
 	    Low = 0.9*Timeout,
 	    High =  1.1*Timeout,
 	    ct:log("Timeout limits: ~.4f - ~.4f ms, timeout "
                    "was ~.4f ms, expected ~p ms",[Low,High,Msp,Timeout]),
-	    %%ct:log("Timeout limits: ~p--~p, my timeout was ~p, expected ~p",[Low,High,Msp0,Timeout]),
 	    if
 		Low<Msp, Msp<High -> ok;
 		true -> {fail, "timeout not within limits"}
@@ -757,12 +998,12 @@ ssh_connect_arg4_timeout(_Config) ->
 	    {fail, "Didn't timeout"}
     end.
 
-%% Help function
-%% N2-N1
-ms_passed(N1={_,_,M1}, N2={_,_,M2}) ->
-    {0,{0,Min,Sec}} = calendar:time_difference(calendar:now_to_local_time(N1),
-					       calendar:now_to_local_time(N2)),
-    1000 * (Min*60 + Sec + (M2-M1)/1000000).
+%% Help function, elapsed milliseconds since T0
+ms_passed(T0) ->
+    %% OTP 18
+    erlang:convert_time_unit(erlang:monotonic_time() - T0,
+			     native,
+			     micro_seconds) / 1000.
 
 %%--------------------------------------------------------------------
 packet_size_zero(Config) ->
@@ -824,56 +1065,62 @@ ssh_daemon_minimal_remote_max_packet_size_option(Config) ->
     
 %%--------------------------------------------------------------------
 id_string_no_opt_client(Config) ->
-    {Server, Host, Port} = fake_daemon(Config),
-    {error,_} = ssh:connect(Host, Port, []),
+    {Server, _Host, Port} = fake_daemon(Config),
+    {error,_} = ssh:connect("localhost", Port, [], 1000),
     receive
 	{id,Server,"SSH-2.0-Erlang/"++Vsn} ->
 	    true = expected_ssh_vsn(Vsn);
 	{id,Server,Other} ->
 	    ct:fail("Unexpected id: ~s.",[Other])
+    after 5000 ->
+	    {fail,timeout}
     end.
 
 %%--------------------------------------------------------------------
 id_string_own_string_client(Config) ->
-    {Server, Host, Port} = fake_daemon(Config),
-    {error,_} = ssh:connect(Host, Port, [{id_string,"Pelle"}]),
+    {Server, _Host, Port} = fake_daemon(Config),
+    {error,_} = ssh:connect("localhost", Port, [{id_string,"Pelle"}], 1000),
     receive
 	{id,Server,"SSH-2.0-Pelle\r\n"} ->
 	    ok;
 	{id,Server,Other} ->
 	    ct:fail("Unexpected id: ~s.",[Other])
+    after 5000 ->
+	    {fail,timeout}
     end.
 
 %%--------------------------------------------------------------------
 id_string_random_client(Config) ->
-    {Server, Host, Port} = fake_daemon(Config),
-    {error,_} = ssh:connect(Host, Port, [{id_string,random}]),
+    {Server, _Host, Port} = fake_daemon(Config),
+    {error,_} = ssh:connect("localhost", Port, [{id_string,random}], 1000),
     receive
 	{id,Server,Id="SSH-2.0-Erlang"++_} ->
 	    ct:fail("Unexpected id: ~s.",[Id]);
 	{id,Server,Rnd="SSH-2.0-"++_} ->
-	    ct:log("Got ~s.",[Rnd]);
+	    ct:log("Got correct ~s",[Rnd]);
 	{id,Server,Id} ->
 	    ct:fail("Unexpected id: ~s.",[Id])
+    after 5000 ->
+	    {fail,timeout}
     end.
 
 %%--------------------------------------------------------------------
 id_string_no_opt_server(Config) ->
     {_Server, Host, Port} = std_daemon(Config, []),
-    {ok,S1}=gen_tcp:connect(Host,Port,[{active,false}]),
+    {ok,S1}=gen_tcp:connect(Host,Port,[{active,false},{packet,line}]),
     {ok,"SSH-2.0-Erlang/"++Vsn} = gen_tcp:recv(S1, 0, 2000),
     true = expected_ssh_vsn(Vsn).
 
 %%--------------------------------------------------------------------
 id_string_own_string_server(Config) ->
     {_Server, Host, Port} = std_daemon(Config, [{id_string,"Olle"}]),
-    {ok,S1}=gen_tcp:connect(Host,Port,[{active,false}]),
+    {ok,S1}=gen_tcp:connect(Host,Port,[{active,false},{packet,line}]),
     {ok,"SSH-2.0-Olle\r\n"} = gen_tcp:recv(S1, 0, 2000).
 
 %%--------------------------------------------------------------------
 id_string_random_server(Config) ->
     {_Server, Host, Port} = std_daemon(Config, [{id_string,random}]),
-    {ok,S1}=gen_tcp:connect(Host,Port,[{active,false}]),
+    {ok,S1}=gen_tcp:connect(Host,Port,[{active,false},{packet,line}]),
     {ok,"SSH-2.0-"++Rnd} = gen_tcp:recv(S1, 0, 2000),
     case Rnd of
 	"Erlang"++_ -> ct:log("Id=~p",[Rnd]),
@@ -1184,13 +1431,14 @@ expected_ssh_vsn(Str) ->
 	_:_ -> true %% ssh not started so we dont't know
     end.
 	    
-	    
+
 fake_daemon(_Config) ->
     Parent = self(),
     %% start the server
     Server = spawn(fun() ->
-			   {ok,Sl} = gen_tcp:listen(0,[]),
+			   {ok,Sl} = gen_tcp:listen(0,[{packet,line}]),
 			   {ok,{Host,Port}} = inet:sockname(Sl),
+			   ct:log("fake_daemon listening on ~p:~p~n",[Host,Port]),
 			   Parent ! {sockname,self(),Host,Port},
 			   Rsa = gen_tcp:accept(Sl),
 			   ct:log("Server gen_tcp:accept got ~p",[Rsa]),
@@ -1204,3 +1452,18 @@ fake_daemon(_Config) ->
 	{sockname,Server,ServerHost,ServerPort} -> {Server, ServerHost, ServerPort}
     end.
 
+%% get_kex_init - helper function to get key_exchange_init_msg
+get_kex_init(Conn) ->
+    %% First, validate the key exchange is complete (StateName == connected)
+    {connected,S} = sys:get_state(Conn),
+    %% Next, walk through the elements of the #state record looking
+    %% for the #ssh_msg_kexinit record. This method is robust against
+    %% changes to either record. The KEXINIT message contains a cookie
+    %% unique to each invocation of the key exchange procedure (RFC4253)
+    SL = tuple_to_list(S),
+    case lists:keyfind(ssh_msg_kexinit, 1, SL) of
+	false ->
+	    throw(not_found);
+	KexInit ->
+	    KexInit
+    end.

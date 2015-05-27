@@ -223,6 +223,14 @@ OtpNode node = new OtpNode("gurka");    </code>
   </section>
 
   <section>
+    <title>Transport Factory</title>
+    <p>All necessary connections are made using methods of
+    <seealso marker="java/com/ericsson/otp/erlang/OtpTransportFactory">OtpTransportFactory</seealso>
+    interface. Default OtpTransportFactory implementation is based on standard Socket class.
+    User may provide custom transport factory as needed. See java doc for details.</p>
+  </section>
+
+  <section>
     <title>Sending and Receiving Messages</title>
     <p>Messages sent with this package must be instances of 
       <seealso marker="java/com/ericsson/otp/erlang/OtpErlangObject">OtpErlangObject</seealso>

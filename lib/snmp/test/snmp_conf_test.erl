@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2003-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2015. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -117,7 +117,7 @@ check_mandatory(Config) when is_list(Config) ->
 	  {b, mandatory}, 
 	  {d, {value, 20202}}, 
 	  {e, {value, "kalle"}}],
-    ?line {ok, L1} = verify_mandatory(A1, B1),
+    ?line {ok, _L1} = verify_mandatory(A1, B1),
     ?DBG("check_mandatory -> L1: ~p", [L1]),
     A2 = [{a, hej}, {c, 10}, {d, 10101}, {f, 10.88}],
     B2 = [{a, {value, hejsan}}, 

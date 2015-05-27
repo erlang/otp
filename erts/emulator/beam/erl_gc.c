@@ -20,6 +20,8 @@
 #  include "config.h"
 #endif
 
+#define ERL_WANT_GC_INTERNALS__
+
 #include "sys.h"
 #include "erl_vm.h"
 #include "global.h"
@@ -37,6 +39,7 @@
 #include "hipe_mode_switch.h"
 #endif
 #include "dtrace-wrapper.h"
+#include "erl_bif_unique.h"
 
 #define ERTS_INACT_WR_PB_LEAVE_MUCH_LIMIT 1
 #define ERTS_INACT_WR_PB_LEAVE_MUCH_PERCENTAGE 20
@@ -173,15 +176,15 @@ erts_init_gc(void)
     int i = 0, ix;
     Sint max_heap_size = 0;
 
-    ASSERT(offsetof(ProcBin,thing_word) == offsetof(struct erl_off_heap_header,thing_word));
-    ASSERT(offsetof(ProcBin,thing_word) == offsetof(ErlFunThing,thing_word));
-    ASSERT(offsetof(ProcBin,thing_word) == offsetof(ExternalThing,header));
-    ASSERT(offsetof(ProcBin,size) == offsetof(struct erl_off_heap_header,size));
-    ASSERT(offsetof(ProcBin,size) == offsetof(ErlSubBin,size));
-    ASSERT(offsetof(ProcBin,size) == offsetof(ErlHeapBin,size));
-    ASSERT(offsetof(ProcBin,next) == offsetof(struct erl_off_heap_header,next));
-    ASSERT(offsetof(ProcBin,next) == offsetof(ErlFunThing,next));
-    ASSERT(offsetof(ProcBin,next) == offsetof(ExternalThing,next));
+    ERTS_CT_ASSERT(offsetof(ProcBin,thing_word) == offsetof(struct erl_off_heap_header,thing_word));
+    ERTS_CT_ASSERT(offsetof(ProcBin,thing_word) == offsetof(ErlFunThing,thing_word));
+    ERTS_CT_ASSERT(offsetof(ProcBin,thing_word) == offsetof(ExternalThing,header));
+    ERTS_CT_ASSERT(offsetof(ProcBin,size) == offsetof(struct erl_off_heap_header,size));
+    ERTS_CT_ASSERT(offsetof(ProcBin,size) == offsetof(ErlSubBin,size));
+    ERTS_CT_ASSERT(offsetof(ProcBin,size) == offsetof(ErlHeapBin,size));
+    ERTS_CT_ASSERT(offsetof(ProcBin,next) == offsetof(struct erl_off_heap_header,next));
+    ERTS_CT_ASSERT(offsetof(ProcBin,next) == offsetof(ErlFunThing,next));
+    ERTS_CT_ASSERT(offsetof(ProcBin,next) == offsetof(ExternalThing,next));
 
     erts_test_long_gc_sleep = 0;
 
@@ -400,7 +403,7 @@ erts_garbage_collect(Process* p, int need, Eterm* objv, int nobj)
 {
     Uint reclaimed_now = 0;
     int done = 0;
-    Uint ms1, s1, us1;
+    ErtsMonotonicTime start_time = 0; /* Shut up faulty warning... */
     ErtsSchedulerData *esdp;
 #ifdef USE_VM_PROBES
     DTRACE_CHARBUF(pidbuf, DTRACE_TERM_BUF_SIZE);
@@ -417,10 +420,9 @@ erts_garbage_collect(Process* p, int need, Eterm* objv, int nobj)
         trace_gc(p, am_gc_start);
     }
 
-    erts_smp_atomic32_read_bor_nob(&p->state, ERTS_PSFLG_GC);
-    if (erts_system_monitor_long_gc != 0) {
-	get_now(&ms1, &s1, &us1);
-    }
+    (void) erts_smp_atomic32_read_bor_nob(&p->state, ERTS_PSFLG_GC);
+    if (erts_system_monitor_long_gc != 0)
+	start_time = erts_get_monotonic_time(esdp);
 
     ERTS_CHK_OFFHEAP(p);
 
@@ -468,16 +470,14 @@ erts_garbage_collect(Process* p, int need, Eterm* objv, int nobj)
     }
 
     if (erts_system_monitor_long_gc != 0) {
-	Uint ms2, s2, us2;
-	Sint t;
+	ErtsMonotonicTime end_time;
+	Uint gc_time;
 	if (erts_test_long_gc_sleep)
 	    while (0 != erts_milli_sleep(erts_test_long_gc_sleep));
-	get_now(&ms2, &s2, &us2);
-	t = ms2 - ms1;
-	t = t*1000000 + s2 - s1;
-	t = t*1000 + ((Sint) (us2 - us1))/1000;
-	if (t > 0 && (Uint)t > erts_system_monitor_long_gc) {
-	    monitor_long_gc(p, t);
+	end_time = erts_get_monotonic_time(esdp);
+	gc_time = (Uint) ERTS_MONOTONIC_TO_MSEC(end_time - start_time);
+	if (gc_time && gc_time > erts_system_monitor_long_gc) {
+	    monitor_long_gc(p, gc_time);
 	}
     }
     if (erts_system_monitor_large_heap != 0) {
@@ -1222,7 +1222,6 @@ major_collection(Process* p, int need, Eterm* objv, int nobj, Uint *recl)
     Uint n;
     Uint new_sz;
     Uint fragments = MBUF_SIZE(p) + combined_message_size(p);
-    ErlMessage *msgp;
 
     size_before = fragments + (HEAP_TOP(p) - HEAP_START(p));
 
@@ -1432,13 +1431,16 @@ major_collection(Process* p, int need, Eterm* objv, int nobj, Uint *recl)
 
     ErtsGcQuickSanityCheck(p);
 
-    /*
-     * Copy newly received message onto the end of the new heap.
-     */
-    for (msgp = p->msg.first; msgp; msgp = msgp->next) {
-	if (msgp->data.attached) {
-	    erts_move_msg_attached_data_to_heap(&p->htop, &p->off_heap, msgp);
-	    ErtsGcQuickSanityCheck(p);
+    {
+	ErlMessage *msgp;
+	/*
+	 * Copy newly received message onto the end of the new heap.
+	 */
+	for (msgp = p->msg.first; msgp; msgp = msgp->next) {
+	    if (msgp->data.attached) {
+		erts_move_msg_attached_data_to_heap(&p->htop, &p->off_heap, msgp);
+		ErtsGcQuickSanityCheck(p);
+	    }
 	}
     }
 
@@ -1501,13 +1503,12 @@ adjust_after_fullsweep(Process *p, Uint size_before, int need, Eterm *objv, int 
 static Uint
 combined_message_size(Process* p)
 {
-    Uint sz = 0;
+    Uint sz;
     ErlMessage *msgp;
 
-    for (msgp = p->msg.first; msgp; msgp = msgp->next) {
-	if (msgp->data.attached) {
+    for (sz = 0, msgp = p->msg.first; msgp; msgp = msgp->next) {
+	if (msgp->data.attached)
 	    sz += erts_msg_attached_data_size(msgp);
-	}
     }
     return sz;
 }
@@ -2400,7 +2401,6 @@ sweep_off_heap(Process *p, int fullsweep)
 		}
 
 		pb->val = erts_bin_realloc(pb->val, new_size);
-		pb->val->orig_size = new_size;
 		pb->bytes = (byte *) pb->val->orig_bytes;
 	    }
 	}
@@ -2646,11 +2646,7 @@ reply_gc_info(void *vgcirp)
 	hpp = &hp;
     }
 
-    erts_queue_message(rp, &rp_locks, bp, msg, NIL
-#ifdef USE_VM_PROBES
-			   , NIL
-#endif
-		       );
+    erts_queue_message(rp, &rp_locks, bp, msg, NIL);
 
     if (gcirp->req_sched == esdp->no)
 	rp_locks &= ~ERTS_PROC_LOCK_MAIN;
@@ -2658,7 +2654,7 @@ reply_gc_info(void *vgcirp)
     if (rp_locks)
 	erts_smp_proc_unlock(rp, rp_locks);
 
-    erts_smp_proc_dec_refc(rp);
+    erts_proc_dec_refc(rp);
 
     if (erts_smp_atomic32_dec_read_nob(&gcirp->refc) == 0)
 	gcireq_free(vgcirp);
@@ -2682,7 +2678,7 @@ erts_gc_info_request(Process *c_p)
     erts_smp_atomic32_init_nob(&gcirp->refc,
 			       (erts_aint32_t) erts_no_schedulers);
 
-    erts_smp_proc_add_refc(c_p, (Sint32) erts_no_schedulers);
+    erts_proc_add_refc(c_p, (Sint) erts_no_schedulers);
 
 #ifdef ERTS_SMP
     if (erts_no_schedulers > 1)

@@ -1,0 +1,463 @@
+  CryptographicMessageSyntax-2009
+      { iso(1) member-body(2) us(840) rsadsi(113549)
+      pkcs(1) pkcs-9(9) smime(16) modules(0) id-mod-cms-2004-02(41) }
+  DEFINITIONS IMPLICIT TAGS ::=
+  BEGIN
+  IMPORTS
+
+  ParamOptions, DIGEST-ALGORITHM, SIGNATURE-ALGORITHM,
+      PUBLIC-KEY, KEY-DERIVATION, KEY-WRAP, MAC-ALGORITHM,
+      KEY-AGREE, KEY-TRANSPORT, CONTENT-ENCRYPTION, ALGORITHM,
+      AlgorithmIdentifier
+  FROM AlgorithmInformation-2009
+      {iso(1) identified-organization(3) dod(6) internet(1) security(5)
+      mechanisms(5) pkix(7) id-mod(0)
+      id-mod-algorithmInformation-02(58)}
+  SignatureAlgs, MessageDigestAlgs, KeyAgreementAlgs,
+      MessageAuthAlgs, KeyWrapAlgs, ContentEncryptionAlgs,
+      KeyTransportAlgs, KeyDerivationAlgs, KeyAgreePublicKeys
+  FROM CryptographicMessageSyntaxAlgorithms-2009
+      { iso(1) member-body(2) us(840) rsadsi(113549) pkcs(1) pkcs-9(9)
+      smime(16) modules(0) id-mod-cmsalg-2001-02(37) }
+
+  Certificate, CertificateList, CertificateSerialNumber,
+      Name, ATTRIBUTE
+  FROM PKIX1Explicit-2009
+      { iso(1) identified-organization(3) dod(6) internet(1)
+      security(5) mechanisms(5) pkix(7) id-mod(0)
+      id-mod-pkix1-explicit-02(51) }
+
+  AttributeCertificate
+  FROM PKIXAttributeCertificate-2009
+      { iso(1) identified-organization(3) dod(6) internet(1)
+      security(5) mechanisms(5) pkix(7) id-mod(0)
+      id-mod-attribute-cert-02(47) }
+
+  AttributeCertificateV1
+  FROM AttributeCertificateVersion1-2009
+      { iso(1) member-body(2) us(840) rsadsi(113549) pkcs(1) pkcs-9(9)
+      smime(16) modules(0) id-mod-v1AttrCert-02(49) } ;
+
+  -- Cryptographic Message Syntax
+
+  -- The following are used for version numbers using the ASN.1
+  --   idiom "[[n:"
+  --   Version 1 = PKCS #7
+  --   Version 2 = S/MIME V2
+  --   Version 3 = RFC 2630
+  --   Version 4 = RFC 3369
+  --   Version 5 = RFC 3852
+
+  CONTENT-TYPE ::= TYPE-IDENTIFIER
+  ContentType ::= CONTENT-TYPE.&id
+
+  ContentInfo ::= SEQUENCE {
+      contentType        CONTENT-TYPE.
+                      &id({ContentSet}),
+      content            [0] EXPLICIT CONTENT-TYPE.
+                      &Type({ContentSet}{@contentType})}
+
+  ContentSet CONTENT-TYPE ::= {
+      --  Define the set of content types to be recognized.
+      ct-Data | ct-SignedData | ct-EncryptedData | ct-EnvelopedData |
+      ct-AuthenticatedData | ct-DigestedData, ... }
+
+  SignedData ::= SEQUENCE {
+      version CMSVersion,
+      digestAlgorithms SET OF DigestAlgorithmIdentifier,
+      encapContentInfo EncapsulatedContentInfo,
+      certificates [0] IMPLICIT CertificateSet OPTIONAL,
+      crls [1] IMPLICIT RevocationInfoChoices OPTIONAL,
+      signerInfos SignerInfos }
+
+  SignerInfos ::= SET OF SignerInfo
+
+  EncapsulatedContentInfo ::= SEQUENCE {
+      eContentType       CONTENT-TYPE.&id({ContentSet}),
+      eContent           [0] EXPLICIT OCTET STRING
+              ( CONTAINING CONTENT-TYPE.
+                  &Type({ContentSet}{@eContentType})) OPTIONAL }
+
+  SignerInfo ::= SEQUENCE {
+      version CMSVersion,
+      sid SignerIdentifier,
+      digestAlgorithm DigestAlgorithmIdentifier,
+      signedAttrs [0] IMPLICIT SignedAttributes OPTIONAL,
+      signatureAlgorithm SignatureAlgorithmIdentifier,
+      signature SignatureValue,
+      unsignedAttrs [1] IMPLICIT Attributes
+          {{UnsignedAttributes}} OPTIONAL }
+
+  SignedAttributes ::= Attributes {{ SignedAttributesSet }}
+
+  SignerIdentifier ::= CHOICE {
+      issuerAndSerialNumber IssuerAndSerialNumber,
+      ...,
+      [[3: subjectKeyIdentifier [0] SubjectKeyIdentifier ]] }
+
+  SignedAttributesSet ATTRIBUTE ::=
+      { aa-signingTime | aa-messageDigest | aa-contentType, ... }
+
+  UnsignedAttributes ATTRIBUTE ::= { aa-countersignature, ... }
+
+  SignatureValue ::= OCTET STRING
+
+  EnvelopedData ::= SEQUENCE {
+      version CMSVersion,
+      originatorInfo [0] IMPLICIT OriginatorInfo OPTIONAL,
+      recipientInfos RecipientInfos,
+      encryptedContentInfo EncryptedContentInfo,
+      ...,
+      [[2: unprotectedAttrs [1] IMPLICIT Attributes
+          {{ UnprotectedAttributes }} OPTIONAL ]] }
+
+  OriginatorInfo ::= SEQUENCE {
+      certs [0] IMPLICIT CertificateSet OPTIONAL,
+      crls [1] IMPLICIT RevocationInfoChoices OPTIONAL }
+
+  RecipientInfos ::= SET SIZE (1..MAX) OF RecipientInfo
+
+  EncryptedContentInfo ::= SEQUENCE {
+      contentType        CONTENT-TYPE.&id({ContentSet}),
+      contentEncryptionAlgorithm ContentEncryptionAlgorithmIdentifier,
+      encryptedContent   [0] IMPLICIT OCTET STRING OPTIONAL }
+
+  -- If you want to do constraints, you might use:
+  -- EncryptedContentInfo ::= SEQUENCE {
+  --  contentType        CONTENT-TYPE.&id({ContentSet}),
+  --  contentEncryptionAlgorithm ContentEncryptionAlgorithmIdentifier,
+  --  encryptedContent   [0] IMPLICIT ENCRYPTED {CONTENT-TYPE.
+  --      &Type({ContentSet}{@contentType}) OPTIONAL }
+  -- ENCRYPTED {ToBeEncrypted} ::= OCTET STRING ( CONSTRAINED BY
+  --        { ToBeEncrypted } )
+
+  UnprotectedAttributes ATTRIBUTE ::=  { ... }
+
+  RecipientInfo ::= CHOICE {
+      ktri           KeyTransRecipientInfo,
+      ...,
+      [[3: kari  [1] KeyAgreeRecipientInfo ]],
+      [[4: kekri [2] KEKRecipientInfo]],
+      [[5: pwri  [3] PasswordRecipientInfo,
+           ori   [4] OtherRecipientInfo ]] }
+
+  EncryptedKey ::= OCTET STRING
+
+  KeyTransRecipientInfo ::= SEQUENCE {
+      version CMSVersion,  -- always set to 0 or 2
+      rid RecipientIdentifier,
+      keyEncryptionAlgorithm AlgorithmIdentifier
+          {KEY-TRANSPORT, {KeyTransportAlgorithmSet}},
+      encryptedKey EncryptedKey }
+
+  KeyTransportAlgorithmSet KEY-TRANSPORT ::= { KeyTransportAlgs, ... }
+
+  RecipientIdentifier ::= CHOICE {
+      issuerAndSerialNumber IssuerAndSerialNumber,
+      ...,
+      [[2: subjectKeyIdentifier [0] SubjectKeyIdentifier ]] }
+  KeyAgreeRecipientInfo ::= SEQUENCE {
+      version CMSVersion,  -- always set to 3
+      originator [0] EXPLICIT OriginatorIdentifierOrKey,
+      ukm [1] EXPLICIT UserKeyingMaterial OPTIONAL,
+      keyEncryptionAlgorithm AlgorithmIdentifier
+          {KEY-AGREE, {KeyAgreementAlgorithmSet}},
+      recipientEncryptedKeys RecipientEncryptedKeys }
+
+  KeyAgreementAlgorithmSet KEY-AGREE ::= { KeyAgreementAlgs, ... }
+
+  OriginatorIdentifierOrKey ::= CHOICE {
+      issuerAndSerialNumber IssuerAndSerialNumber,
+      subjectKeyIdentifier [0] SubjectKeyIdentifier,
+      originatorKey [1] OriginatorPublicKey }
+
+  OriginatorPublicKey ::= SEQUENCE {
+      algorithm AlgorithmIdentifier {PUBLIC-KEY, {OriginatorKeySet}},
+      publicKey BIT STRING }
+
+  OriginatorKeySet PUBLIC-KEY ::= { KeyAgreePublicKeys, ... }
+
+  RecipientEncryptedKeys ::= SEQUENCE OF RecipientEncryptedKey
+
+  RecipientEncryptedKey ::= SEQUENCE {
+      rid KeyAgreeRecipientIdentifier,
+      encryptedKey EncryptedKey }
+
+  KeyAgreeRecipientIdentifier ::= CHOICE {
+      issuerAndSerialNumber IssuerAndSerialNumber,
+      rKeyId [0] IMPLICIT RecipientKeyIdentifier }
+
+  RecipientKeyIdentifier ::= SEQUENCE {
+      subjectKeyIdentifier SubjectKeyIdentifier,
+      date GeneralizedTime OPTIONAL,
+      other OtherKeyAttribute OPTIONAL }
+
+  SubjectKeyIdentifier ::= OCTET STRING
+
+  KEKRecipientInfo ::= SEQUENCE {
+      version CMSVersion,  -- always set to 4
+      kekid KEKIdentifier,
+      keyEncryptionAlgorithm KeyEncryptionAlgorithmIdentifier,
+      encryptedKey EncryptedKey }
+
+  KEKIdentifier ::= SEQUENCE {
+      keyIdentifier OCTET STRING,
+      date GeneralizedTime OPTIONAL,
+      other OtherKeyAttribute OPTIONAL }
+  PasswordRecipientInfo ::= SEQUENCE {
+      version CMSVersion,   -- always set to 0
+      keyDerivationAlgorithm [0] KeyDerivationAlgorithmIdentifier
+                              OPTIONAL,
+      keyEncryptionAlgorithm KeyEncryptionAlgorithmIdentifier,
+      encryptedKey EncryptedKey }
+
+  OTHER-RECIPIENT ::= TYPE-IDENTIFIER
+
+  OtherRecipientInfo ::= SEQUENCE {
+      oriType    OTHER-RECIPIENT.
+              &id({SupportedOtherRecipInfo}),
+      oriValue   OTHER-RECIPIENT.
+              &Type({SupportedOtherRecipInfo}{@oriType})}
+
+  SupportedOtherRecipInfo OTHER-RECIPIENT ::= { ... }
+
+  DigestedData ::= SEQUENCE {
+      version CMSVersion,
+      digestAlgorithm DigestAlgorithmIdentifier,
+      encapContentInfo EncapsulatedContentInfo,
+      digest Digest, ... }
+
+  Digest ::= OCTET STRING
+
+  EncryptedData ::= SEQUENCE {
+      version CMSVersion,
+      encryptedContentInfo EncryptedContentInfo,
+      ...,
+      [[2: unprotectedAttrs [1] IMPLICIT Attributes
+          {{UnprotectedAttributes}} OPTIONAL ]] }
+
+  AuthenticatedData ::= SEQUENCE {
+      version CMSVersion,
+      originatorInfo [0] IMPLICIT OriginatorInfo OPTIONAL,
+      recipientInfos RecipientInfos,
+      macAlgorithm MessageAuthenticationCodeAlgorithm,
+      digestAlgorithm [1] DigestAlgorithmIdentifier OPTIONAL,
+      encapContentInfo EncapsulatedContentInfo,
+      authAttrs [2] IMPLICIT AuthAttributes OPTIONAL,
+      mac MessageAuthenticationCode,
+      unauthAttrs [3] IMPLICIT UnauthAttributes OPTIONAL }
+
+  AuthAttributes ::= SET SIZE (1..MAX) OF Attribute
+      {{AuthAttributeSet}}
+
+  AuthAttributeSet ATTRIBUTE ::= { aa-contentType | aa-messageDigest
+                                       | aa-signingTime, ...}
+  MessageAuthenticationCode ::= OCTET STRING
+
+  UnauthAttributes ::= SET SIZE (1..MAX) OF Attribute
+      {{UnauthAttributeSet}}
+
+  UnauthAttributeSet ATTRIBUTE ::= {...}
+
+  --
+  --  General algorithm definitions
+  --
+
+  DigestAlgorithmIdentifier ::= AlgorithmIdentifier
+      {DIGEST-ALGORITHM, {DigestAlgorithmSet}}
+
+  DigestAlgorithmSet DIGEST-ALGORITHM ::= {
+      CryptographicMessageSyntaxAlgorithms-2009.MessageDigestAlgs, ... }
+
+  SignatureAlgorithmIdentifier ::= AlgorithmIdentifier
+      {SIGNATURE-ALGORITHM, {SignatureAlgorithmSet}}
+
+  SignatureAlgorithmSet SIGNATURE-ALGORITHM ::=
+      { SignatureAlgs, ... }
+
+  KeyEncryptionAlgorithmIdentifier ::= AlgorithmIdentifier
+      {KEY-WRAP, {KeyEncryptionAlgorithmSet}}
+
+  KeyEncryptionAlgorithmSet KEY-WRAP ::= { KeyWrapAlgs, ... }
+
+  ContentEncryptionAlgorithmIdentifier ::= AlgorithmIdentifier
+      {CONTENT-ENCRYPTION, {ContentEncryptionAlgorithmSet}}
+
+  ContentEncryptionAlgorithmSet CONTENT-ENCRYPTION ::=
+      { ContentEncryptionAlgs, ... }
+
+  MessageAuthenticationCodeAlgorithm ::= AlgorithmIdentifier
+      {MAC-ALGORITHM, {MessageAuthenticationCodeAlgorithmSet}}
+
+  MessageAuthenticationCodeAlgorithmSet MAC-ALGORITHM ::=
+      { MessageAuthAlgs, ... }
+
+  KeyDerivationAlgorithmIdentifier ::= AlgorithmIdentifier
+      {KEY-DERIVATION, {KeyDerivationAlgs, ...}}
+
+  RevocationInfoChoices ::= SET OF RevocationInfoChoice
+
+  RevocationInfoChoice ::= CHOICE {
+      crl CertificateList,
+      ...,
+      [[5: other [1] IMPLICIT OtherRevocationInfoFormat ]] }
+
+  OTHER-REVOK-INFO ::= TYPE-IDENTIFIER
+
+  OtherRevocationInfoFormat ::= SEQUENCE {
+      otherRevInfoFormat    OTHER-REVOK-INFO.
+              &id({SupportedOtherRevokInfo}),
+      otherRevInfo          OTHER-REVOK-INFO.
+              &Type({SupportedOtherRevokInfo}{@otherRevInfoFormat})}
+
+  SupportedOtherRevokInfo OTHER-REVOK-INFO ::= { ... }
+
+  CertificateChoices ::= CHOICE {
+      certificate Certificate,
+      extendedCertificate [0] IMPLICIT ExtendedCertificate,
+           -- Obsolete
+      ...,
+      [[3: v1AttrCert [1] IMPLICIT AttributeCertificateV1]],
+           -- Obsolete
+      [[4: v2AttrCert [2] IMPLICIT AttributeCertificateV2]],
+      [[5: other      [3] IMPLICIT OtherCertificateFormat]] }
+
+  AttributeCertificateV2 ::= AttributeCertificate
+
+  OTHER-CERT-FMT ::= TYPE-IDENTIFIER
+
+  OtherCertificateFormat ::= SEQUENCE {
+      otherCertFormat OTHER-CERT-FMT.
+              &id({SupportedCertFormats}),
+      otherCert       OTHER-CERT-FMT.
+              &Type({SupportedCertFormats}{@otherCertFormat})}
+
+  SupportedCertFormats OTHER-CERT-FMT ::= { ... }
+
+  CertificateSet ::= SET OF CertificateChoices
+
+  IssuerAndSerialNumber ::= SEQUENCE {
+      issuer Name,
+      serialNumber CertificateSerialNumber }
+
+  CMSVersion ::= INTEGER  { v0(0), v1(1), v2(2), v3(3), v4(4), v5(5) }
+
+  UserKeyingMaterial ::= OCTET STRING
+
+  KEY-ATTRIBUTE ::= TYPE-IDENTIFIER
+
+  OtherKeyAttribute ::= SEQUENCE {
+      keyAttrId  KEY-ATTRIBUTE.
+
+              &id({SupportedKeyAttributes}),
+      keyAttr    KEY-ATTRIBUTE.
+              &Type({SupportedKeyAttributes}{@keyAttrId})}
+
+  SupportedKeyAttributes KEY-ATTRIBUTE ::= { ... }
+
+  -- Content Type Object Identifiers
+
+  id-ct-contentInfo OBJECT IDENTIFIER ::= { iso(1) member-body(2)
+     us(840) rsadsi(113549) pkcs(1) pkcs9(9) smime(16) ct(1) 6 }
+
+  ct-Data CONTENT-TYPE ::= {OCTET STRING IDENTIFIED BY id-data}
+
+  id-data OBJECT IDENTIFIER ::= { iso(1) member-body(2)
+     us(840) rsadsi(113549) pkcs(1) pkcs7(7) 1 }
+
+  ct-SignedData CONTENT-TYPE ::=
+      { SignedData IDENTIFIED BY id-signedData}
+
+  id-signedData OBJECT IDENTIFIER ::= { iso(1) member-body(2)
+     us(840) rsadsi(113549) pkcs(1) pkcs7(7) 2 }
+
+  ct-EnvelopedData CONTENT-TYPE ::=
+      { EnvelopedData IDENTIFIED BY id-envelopedData}
+
+  id-envelopedData OBJECT IDENTIFIER ::= { iso(1) member-body(2)
+     us(840) rsadsi(113549) pkcs(1) pkcs7(7) 3 }
+
+  ct-DigestedData CONTENT-TYPE ::=
+      { DigestedData IDENTIFIED BY id-digestedData}
+
+  id-digestedData OBJECT IDENTIFIER ::= { iso(1) member-body(2)
+     us(840) rsadsi(113549) pkcs(1) pkcs7(7) 5 }
+
+  ct-EncryptedData CONTENT-TYPE ::=
+      { EncryptedData IDENTIFIED BY id-encryptedData}
+
+  id-encryptedData OBJECT IDENTIFIER ::= { iso(1) member-body(2)
+     us(840) rsadsi(113549) pkcs(1) pkcs7(7) 6 }
+
+  ct-AuthenticatedData CONTENT-TYPE ::=
+      { AuthenticatedData IDENTIFIED BY id-ct-authData}
+
+  id-ct-authData OBJECT IDENTIFIER ::= { iso(1) member-body(2)
+     us(840) rsadsi(113549) pkcs(1) pkcs-9(9) smime(16) ct(1) 2 }
+
+  --
+  -- The CMS Attributes
+  --
+
+  MessageDigest ::= OCTET STRING
+
+  SigningTime  ::= Time
+
+  Time ::= CHOICE {
+      utcTime UTCTime,
+      generalTime GeneralizedTime }
+
+  Countersignature ::= SignerInfo
+
+  -- Attribute Object Identifiers
+
+  aa-contentType ATTRIBUTE ::=
+      { TYPE ContentType IDENTIFIED BY id-contentType }
+  id-contentType OBJECT IDENTIFIER ::= { iso(1) member-body(2)
+     us(840) rsadsi(113549) pkcs(1) pkcs9(9) 3 }
+
+  aa-messageDigest ATTRIBUTE ::=
+      { TYPE MessageDigest IDENTIFIED BY id-messageDigest}
+  id-messageDigest OBJECT IDENTIFIER ::= { iso(1) member-body(2)
+     us(840) rsadsi(113549) pkcs(1) pkcs9(9) 4 }
+
+  aa-signingTime ATTRIBUTE ::=
+      { TYPE SigningTime IDENTIFIED BY id-signingTime }
+  id-signingTime OBJECT IDENTIFIER ::= { iso(1) member-body(2)
+     us(840) rsadsi(113549) pkcs(1) pkcs9(9) 5 }
+
+  aa-countersignature ATTRIBUTE ::=
+      { TYPE Countersignature IDENTIFIED BY id-countersignature }
+  id-countersignature OBJECT IDENTIFIER ::= { iso(1) member-body(2)
+     us(840) rsadsi(113549) pkcs(1) pkcs9(9) 6 }
+
+  --
+  -- Obsolete Extended Certificate syntax from PKCS#6
+  --
+
+  ExtendedCertificateOrCertificate ::= CHOICE {
+      certificate Certificate,
+      extendedCertificate [0] IMPLICIT ExtendedCertificate }
+
+  ExtendedCertificate ::= SEQUENCE {
+      extendedCertificateInfo ExtendedCertificateInfo,
+      signatureAlgorithm SignatureAlgorithmIdentifier,
+      signature Signature }
+
+  ExtendedCertificateInfo ::= SEQUENCE {
+      version CMSVersion,
+      certificate Certificate,
+      attributes UnauthAttributes }
+
+  Signature ::= BIT STRING
+
+  Attribute{ ATTRIBUTE:AttrList } ::= SEQUENCE {
+      attrType           ATTRIBUTE.
+              &id({AttrList}),
+      attrValues         SET OF ATTRIBUTE.
+              &Type({AttrList}{@attrType})  }
+
+  Attributes { ATTRIBUTE:AttrList } ::=
+      SET SIZE (1..MAX) OF Attribute {{ AttrList }}
+
+  END

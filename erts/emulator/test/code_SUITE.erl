@@ -389,61 +389,63 @@ module_md5_ok(Code) ->
 
 make_stub(Config) when is_list(Config) ->
     catch erlang:purge_module(my_code_test),
+    MD5 = erlang:md5(<<>>),
 
     ?line Data = ?config(data_dir, Config),
     ?line File = filename:join(Data, "my_code_test"),
     ?line {ok,my_code_test,Code} = compile:file(File, [binary]),
 
-    ?line my_code_test = code:make_stub_module(my_code_test, Code, {[],[]}),
+    ?line my_code_test = code:make_stub_module(my_code_test, Code, {[],[],MD5}),
     ?line true = erlang:delete_module(my_code_test),
     ?line true = erlang:purge_module(my_code_test),
 
     ?line my_code_test = code:make_stub_module(my_code_test, 
  					       make_unaligned_sub_binary(Code),
- 					       {[],[]}),
+ 					       {[],[],MD5}),
     ?line true = erlang:delete_module(my_code_test),
     ?line true = erlang:purge_module(my_code_test),
 
     ?line my_code_test = code:make_stub_module(my_code_test, zlib:gzip(Code),
- 					       {[],[]}),
+ 					       {[],[],MD5}),
     ?line true = erlang:delete_module(my_code_test),
     ?line true = erlang:purge_module(my_code_test),
 
     %% Should fail.
     ?line {'EXIT',{badarg,_}} =
-	(catch code:make_stub_module(my_code_test, <<"bad">>, {[],[]})),
+	(catch code:make_stub_module(my_code_test, <<"bad">>, {[],[],MD5})),
     ?line {'EXIT',{badarg,_}} =
 	(catch code:make_stub_module(my_code_test,
 				     bit_sized_binary(Code),
-				     {[],[]})),
+				     {[],[],MD5})),
     ?line {'EXIT',{badarg,_}} =
 	(catch code:make_stub_module(my_code_test_with_wrong_name,
-				     Code, {[],[]})),
+				     Code, {[],[],MD5})),
     ok.
 
 make_stub_many_funs(Config) when is_list(Config) ->
     catch erlang:purge_module(many_funs),
+    MD5 = erlang:md5(<<>>),
 
     ?line Data = ?config(data_dir, Config),
     ?line File = filename:join(Data, "many_funs"),
     ?line {ok,many_funs,Code} = compile:file(File, [binary]),
 
-    ?line many_funs = code:make_stub_module(many_funs, Code, {[],[]}),
+    ?line many_funs = code:make_stub_module(many_funs, Code, {[],[],MD5}),
     ?line true = erlang:delete_module(many_funs),
     ?line true = erlang:purge_module(many_funs),
     ?line many_funs = code:make_stub_module(many_funs, 
  					       make_unaligned_sub_binary(Code),
- 					       {[],[]}),
+ 					       {[],[],MD5}),
     ?line true = erlang:delete_module(many_funs),
     ?line true = erlang:purge_module(many_funs),
 
     %% Should fail.
     ?line {'EXIT',{badarg,_}} =
-	(catch code:make_stub_module(many_funs, <<"bad">>, {[],[]})),
+	(catch code:make_stub_module(many_funs, <<"bad">>, {[],[],MD5})),
     ?line {'EXIT',{badarg,_}} =
 	(catch code:make_stub_module(many_funs,
 				     bit_sized_binary(Code),
-				     {[],[]})),
+				     {[],[],MD5})),
     ok.
 
 constant_pools(Config) when is_list(Config) ->

@@ -60,7 +60,8 @@ expandable_term_body(Heading,[],_Tab) ->
 	 "StackDump"  -> "No stack dump was found";
 	 "Dictionary" -> "No dictionary was found";
 	 "ProcState"  -> "Information could not be retrieved,"
-			     " system messages may not be handled by this process."
+			     " system messages may not be handled by this process.";
+         "SaslLog"    -> "No log entry was found"
      end];
 expandable_term_body(Heading,Expanded,Tab) ->
     Attr = "BORDER=0 CELLPADDING=0 CELLSPACING=1 WIDTH=100%",
@@ -102,7 +103,10 @@ expandable_term_body(Heading,Expanded,Tab) ->
 		    element(1, lists:mapfoldl(fun(Entry, Even) ->
 						      {proc_state(Tab, Entry,Even),
 						       not Even}
-					      end, true, Expanded))]);
+					      end, true, Expanded))]);         
+     "SaslLog"  ->
+             table(Attr,
+                   [tr("BGCOLOR=white",[td("ALIGN=left", pre(href_proc_port(Expanded)))])]) ;
 	 _ ->
 	     table(Attr,
 		   [tr(
@@ -151,7 +155,7 @@ all_or_expand(_Tab,Term,Str,false)
     href_proc_port(lists:flatten(Str));
 all_or_expand(Tab,Term,Preview,true)
   when not is_binary(Term) ->
-    Key = {Key1,Key2,Key3} = now(),
+    Key = {Key1,Key2,Key3} = {erlang:unique_integer([positive]),1,2},
     ets:insert(Tab,{Key,Term}),
     [href_proc_port(lists:flatten(Preview), false), $\n,
      href("TARGET=\"expanded\"",

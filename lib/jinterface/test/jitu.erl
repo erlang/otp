@@ -117,10 +117,7 @@ classpath(Dir) ->
 	end,
     es(Dir++PS++
 	filename:join([code:lib_dir(jinterface),"priv","OtpErlang.jar"])++PS++
-	case os:getenv("CLASSPATH") of
-	    false -> "";
-	    Classpath -> Classpath
-	end,
+	os:getenv("CLASSPATH", ""),
        Quote,
        EscSpace).
 

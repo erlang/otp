@@ -87,7 +87,7 @@ id(Opts) ->
     gen_event:notify(?CT_EVMGR_REF, #event{ name = cth, node = node(),
 					    data = {?MODULE, id, [Opts]}}),
     ct:log("~w:id called", [?MODULE]),
-    now().
+    os:timestamp().
 
 %% @doc Called before init_per_suite is called. Note that this callback is
 %% only called if the CTH is added before init_per_suite is run (eg. in a test
