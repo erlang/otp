@@ -2024,8 +2024,8 @@ int enif_map_iterator_create(ErlNifEnv *env,
 	size_t offset;
 
 	switch (entry) {
-	    case ERL_NIF_MAP_ITERATOR_HEAD: offset = 0; break;
-	    case ERL_NIF_MAP_ITERATOR_TAIL: offset = flatmap_get_size(mp) - 1; break;
+	    case ERL_NIF_MAP_ITERATOR_FIRST: offset = 0; break;
+	    case ERL_NIF_MAP_ITERATOR_LAST: offset = flatmap_get_size(mp) - 1; break;
 	    default: goto error;
 	}
 
@@ -2048,12 +2048,12 @@ int enif_map_iterator_create(ErlNifEnv *env,
         WSTACK_INIT(iter->u.hash.wstack, ERTS_ALC_T_NIF);
 
         switch (entry) {
-	    case ERL_NIF_MAP_ITERATOR_HEAD:
+	    case ERL_NIF_MAP_ITERATOR_FIRST:
                 iter->idx = 1;
                 hashmap_iterator_init(&iter->u.hash.wstack->ws, map, 0);
                 iter->u.hash.kv = hashmap_iterator_next(&iter->u.hash.wstack->ws);
                 break;
-	    case ERL_NIF_MAP_ITERATOR_TAIL:
+	    case ERL_NIF_MAP_ITERATOR_LAST:
                 iter->idx = hashmap_size(map);
                 hashmap_iterator_init(&iter->u.hash.wstack->ws, map, 1);
                 iter->u.hash.kv = hashmap_iterator_prev(&iter->u.hash.wstack->ws);
