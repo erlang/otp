@@ -85,7 +85,10 @@ start_detail_win(Id, node) ->
 start_detail_win(Id, module) ->
     start_detail_win_2(cdv_mod_cb, Id);
 start_detail_win(Id, ets) ->
-    start_detail_win_2(cdv_ets_cb, Id).
+    start_detail_win_2(cdv_ets_cb, Id);
+start_detail_win(Id, sched) ->
+    start_detail_win_2(cdv_sched_cb, Id).
+
 
 start_detail_win_2(Callback,Id) ->
     wx_object:cast(Callback,{start_detail_win,Id}).

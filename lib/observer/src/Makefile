@@ -51,6 +51,7 @@ MODULES= \
 	cdv_multi_wx \
 	cdv_port_cb \
 	cdv_proc_cb \
+	cdv_sched_cb \
 	cdv_table_wx \
 	cdv_term_cb \
 	cdv_timer_cb \

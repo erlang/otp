@@ -126,11 +126,13 @@ info_fields() ->
        {dynamic,            current_func},
        {"Registered Name",  name},
        {"Status",           state},
+       {"Internal State",   int_state},
        {"Started",          start_time},
        {"Parent",           {click,parent}},
        {"Message Queue Len",msg_q_len},
        {"Run queue",        run_queue},
        {"Reductions",       reds},
+
        {"Program counter",  prog_count},
        {"Continuation pointer",cp},
        {"Arity",arity}]},
