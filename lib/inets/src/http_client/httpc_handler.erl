@@ -87,7 +87,7 @@
 %% block the httpc manager process in odd cases such as trying to call
 %% a server that does not exist. (See OTP-6735) The only API function
 %% sending messages to the handler process that can be called before
-%% init has compleated is cancel and that is not a problem! (Send and
+%% init has completed is cancel and that is not a problem! (Send and
 %% stream will not be called before the first request has been sent and
 %% the reply or part of it has arrived.)
 %%--------------------------------------------------------------------
@@ -392,7 +392,7 @@ handle_call(info, _, State) ->
 %% When the request in process has been canceled the handler process is
 %% stopped and the pipelined requests will be reissued or remaining
 %% requests will be sent on a new connection. This is is
-%% based on the assumption that it is proably cheaper to reissue the
+%% based on the assumption that it is probably cheaper to reissue the
 %% requests than to wait for a potentiall large response that we then
 %% only throw away. This of course is not always true maybe we could
 %% do something smarter here?! If the request canceled is not
@@ -1345,7 +1345,7 @@ handle_empty_queue(Session, ProfileName, TimeOut, State) ->
     %% closed by the server, the client may want to close it.
     NewState = activate_queue_timeout(TimeOut, State),
     update_session(ProfileName, Session, #session.queue_length, 0),
-    %% Note mfa will be initilized when a new request
+    %% Note mfa will be initialized when a new request
     %% arrives.
     {noreply,
      NewState#state{request     = undefined,
