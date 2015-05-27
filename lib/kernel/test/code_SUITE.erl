@@ -1653,9 +1653,7 @@ get_mode(Config) when is_list(Config) ->
 init(Tester) ->
     {ok, Tester}.
 
-handle_event({error, _GL, {emulator, _, _}}, Tester) ->
-    {ok, Tester};
-handle_event({error, _GL, Msg}, Tester) ->
+handle_event({warning_msg, _GL, Msg}, Tester) ->
     Tester ! Msg,
     {ok, Tester};
 handle_event(_Event, State) ->
