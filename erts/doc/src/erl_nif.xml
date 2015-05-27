@@ -461,8 +461,9 @@ ok
         independent environment with all its terms is valid until you explicitly
         invalidates it with <seealso marker="#enif_free_env">enif_free_env</seealso>
         or <c>enif_send</c>.</p>
-        <p>All elements of a list/tuple must belong to the same environment as the
-        list/tuple itself. Terms can be copied between environments with
+        <p>All contained terms of a list/tuple/map must belong to the same
+	environment as the list/tuple/map itself. Terms can be copied between
+	environments with
         <seealso marker="#enif_make_copy">enif_make_copy</seealso>.</p>
       </item>
     <tag><marker id="ErlNifFunc"/>ErlNifFunc</tag>
@@ -729,7 +730,18 @@ typedef enum {
       return true, or return false if <c>term</c> is not an integer or is
       outside the bounds of type <c>long int</c>.</p></desc>
     </func>
-    <func><name><ret>int</ret><nametext>enif_get_resource(ErlNifEnv* env, ERL_NIF_TERM term, ErlNifResourceType* type, void** objp)</nametext></name>
+    <func><name><ret>int</ret><nametext>enif_get_map_size(ErlNifEnv* env, ERL_NIF_TERM term, size_t *size)</nametext></name>
+      <fsummary>Read the size of a map term</fsummary>
+      <desc><p>Set <c>*size</c> to the number of key-value pairs in the map <c>term</c> and
+      return true, or return false if <c>term</c> is not a map.</p></desc>
+    </func>
+    <func><name><ret>int</ret><nametext>enif_get_map_value(ErlNifEnv* env, ERL_NIF_TERM map, ERL_NIF_TERM key, ERL_NIF_TERM* value)</nametext></name>
+     <fsummary>Get the value of a key in a map</fsummary>
+      <desc><p>Set <c>*value</c> to the value associated with <c>key</c> in the
+      map <c>map</c> and return true. Return false if <c>map</c> is not a map
+      or if <c>map</c> does not contain <c>key</c>.</p></desc>
+    </func>
+   <func><name><ret>int</ret><nametext>enif_get_resource(ErlNifEnv* env, ERL_NIF_TERM term, ErlNifResourceType* type, void** objp)</nametext></name>
       <fsummary>Get the pointer to a resource object</fsummary>
       <desc><p>Set <c>*objp</c> to point to the resource object referred to by <c>term</c>.</p>
       <p>Return true on success or false if <c>term</c> is not a handle to a resource object
@@ -816,6 +828,10 @@ typedef enum {
     <marker id="enif_is_exception"/><func><name><ret>int</ret><nametext>enif_is_exception(ErlNifEnv* env, ERL_NIF_TERM term)</nametext></name>
       <fsummary>Determine if a term is an exception</fsummary>
       <desc><p>Return true if <c>term</c> is an exception.</p></desc>
+    </func>
+    <func><name><ret>int</ret><nametext>enif_is_map(ErlNifEnv* env, ERL_NIF_TERM term)</nametext></name>
+      <fsummary>Determine if a term is a map</fsummary>
+      <desc><p>Return true if <c>term</c> is a map, false otherwise.</p></desc>
     </func>
     <func><name><ret>int</ret><nametext>enif_is_number(ErlNifEnv* env, ERL_NIF_TERM term)</nametext></name>
       <fsummary>Determine if a term is a number (integer or float)</fsummary>
@@ -986,12 +1002,13 @@ typedef enum {
       <desc><p>Create an ordinary list containing the elements of array <c>arr</c>
       of length <c>cnt</c>. An empty list is returned if <c>cnt</c> is 0.</p></desc>
     </func>
-    <func><name><ret>int</ret><nametext>enif_make_reverse_list(ErlNifEnv* env, ERL_NIF_TERM term, ERL_NIF_TERM *list)</nametext></name>
-      <fsummary>Create the reverse list of the list <c>term</c>.</fsummary>
-      <desc><p>Set <c>*list</c> to the reverse list of the list <c>term</c> and return true,
-      or return false if <c>term</c> is not a list. This function should only be used on
+    <func><name><ret>int</ret><nametext>enif_make_reverse_list(ErlNifEnv* env, ERL_NIF_TERM list_in, ERL_NIF_TERM *list_out)</nametext></name>
+      <fsummary>Create the reverse of a list</fsummary>
+      <desc><p>Set <c>*list_out</c> to the reverse list of the list <c>list_in</c> and return true,
+      or return false if <c>list_in</c> is not a list. This function should only be used on
       short lists as a copy will be created of the list which will not be released until after the
-      nif returns.</p></desc>
+      nif returns.</p>
+      <p>The <c>list_in</c> term must belong to the environment <c>env</c>.</p></desc>
     </func>
     <func><name><ret>ERL_NIF_TERM</ret><nametext>enif_make_long(ErlNifEnv* env, long int i)</nametext></name>
       <fsummary>Create an integer term from a long int</fsummary>
@@ -1006,6 +1023,36 @@ typedef enum {
       that the binary can not be kept between NIF calls and it can not be
       reallocated.</p><p>Return a pointer to the raw binary data and set
       <c>*termp</c> to the binary term.</p></desc>
+    </func>
+    <func><name><ret>ERL_NIF_TERM</ret><nametext>enif_make_new_map(ErlNifEnv* env)</nametext></name>
+      <fsummary>Make an empty map term</fsummary>
+      <desc><p>Make an empty map term.</p></desc>
+    </func>
+    <func><name><ret>int</ret><nametext>enif_make_map_put(ErlNifEnv* env, ERL_NIF_TERM map_in, ERL_NIF_TERM key, ERL_NIF_TERM value, ERL_NIF_TERM* map_out)</nametext></name>
+      <fsummary>Insert key-value pair in map</fsummary>
+      <desc><p>Make a copy of map <c>map_in</c> and insert <c>key</c> with
+      <c>value</c>. If <c>key</c> already exists in <c>map_in</c>, the old
+      associated value is replaced by <c>value</c>. If successful set
+      <c>*map_out</c> to the new map and return true. Return false if
+      <c>map_in</c> is not a map.</p>
+      <p>The <c>map_in</c> term must belong to the environment <c>env</c>.</p></desc>
+    </func>
+    <func><name><ret>int</ret><nametext>enif_make_map_update(ErlNifEnv* env, ERL_NIF_TERM map_in, ERL_NIF_TERM key, ERL_NIF_TERM new_value, ERL_NIF_TERM* map_out)</nametext></name>
+      <fsummary>Replace value for key in map</fsummary>
+      <desc><p>Make a copy of map <c>map_in</c> and replace the old associated
+      value for <c>key</c> with <c>new_value</c>. If successful set
+      <c>*map_out</c> to the new map and return true. Return false if
+      <c>map_in</c> is not a map or if it does no contain <c>key</c>.</p>
+      <p>The <c>map_in</c> term must belong to the environment <c>env</c>.</p></desc>
+    </func>
+    <func><name><ret>int</ret><nametext>enif_make_map_remove(ErlNifEnv* env, ERL_NIF_TERM map_in, ERL_NIF_TERM key, ERL_NIF_TERM* map_out)</nametext></name>
+      <fsummary>Remove key from map</fsummary>
+      <desc><p>If map <c>map_in</c> contains <c>key</c>, make a copy of
+      <c>map_in</c> in <c>*map_out</c> and remove <c>key</c> and associated
+      value. If map <c>map_in</c> does not contain <c>key</c>, set
+      <c>*map_out</c> to <c>map_in</c>. Return true for success or false if
+      <c>map_in</c> is not a map.</p>
+      <p>The <c>map_in</c> term must belong to the environment <c>env</c>.</p></desc>
     </func>
     <func><name><ret>ERL_NIF_TERM</ret><nametext>enif_make_pid(ErlNifEnv* env, const ErlNifPid* pid)</nametext></name>
       <fsummary>Make a pid term</fsummary>
@@ -1107,6 +1154,72 @@ typedef enum {
     <func><name><ret>ERL_NIF_TERM</ret><nametext>enif_make_ulong(ErlNifEnv* env, unsigned long i)</nametext></name>
       <fsummary>Create an integer term from an unsigned long int</fsummary>
       <desc><p>Create an integer term from an <c>unsigned long int</c>.</p></desc>
+    </func>
+    <func><name><ret>int</ret><nametext>enif_map_iterator_create(ErlNifEnv *env, ERL_NIF_TERM map, ErlNifMapIterator *iter, ErlNifMapIteratorEntry entry)</nametext></name>
+      <fsummary>Create a map iterator</fsummary>
+      <desc><p>Create an iterator for the map <c>map</c> by initializing the
+      structure pointed to by <c>iter</c>. The <c>entry</c> argument determines
+      the start position of the iterator: <c>ERL_NIF_MAP_ITERATOR_FIRST</c> or
+      <c>ERL_NIF_MAP_ITERATOR_LAST</c>. Return true on success or false if
+      <c>map</c> is not a map.</p>
+      <p>A map iterator is only useful during the lifetime of the environment
+      <c>env</c> that the <c>map</c> belongs to. The iterator must be destroyed by
+      calling <seealso marker="#enif_map_iterator_destroy">
+      enif_map_iterator_destroy</seealso>.</p>
+      <code type="none">
+ERL_NIF_TERM key, value;
+ErlNifMapIterator iter;
+enif_map_iterator_create(env, my_map, ERL_NIF_MAP_ITERATOR_FIRST);
+
+while (enif_map_iterator_get_pair(env, &amp;iter, &amp;key, &amp;value)) {
+    do_something(key,value);
+    enif_map_iterator_next(env, &amp;iter);
+}
+enif_map_iterator_destroy(env, &amp;iter);
+      </code>
+     <note><p>The key-value pairs of a map have no defined iteration
+     order. The only guarantee is that the iteration order of a single map
+     instance is preserved during the lifetime of the environment that the map
+     belongs to.</p>
+    </note>
+      </desc>
+    </func>
+    <func><name><ret>void</ret><nametext>enif_map_iterator_destroy(ErlNifEnv *env, ErlNifMapIterator *iter)</nametext></name>
+      <fsummary>Destroy a map iterator</fsummary>
+      <desc><p>Destroy a map iterator created by
+      <seealso marker="#enif_map_iterator_create">enif_map_iterator_create</seealso>.
+      </p></desc>
+    </func>
+    <func><name><ret>int</ret><nametext>enif_map_iterator_get_pair(ErlNifEnv *env, ErlNifMapIterator *iter, ERL_NIF_TERM *key, ERL_NIF_TERM *value)</nametext></name>
+      <fsummary>Get key and value at current map iterator position</fsummary>
+      <desc><p>Get key and value terms at current map iterator position.
+      On success set <c>*key</c> and <c>*value</c> and return true.
+      Return false if the iterator is positioned at head (before first entry)
+      or tail (beyond last entry).</p></desc>
+    </func>
+    <func><name><ret>int</ret><nametext>enif_map_iterator_is_head(ErlNifEnv *env, ErlNifMapIterator *iter)</nametext></name>
+      <fsummary>Check if map iterator is positioned before first</fsummary>
+      <desc><p>Return true if map iterator <c>iter</c> is positioned
+      before first entry.</p></desc>
+    </func>
+    <func><name><ret>int</ret><nametext>enif_map_iterator_is_tail(ErlNifEnv *env, ErlNifMapIterator *iter)</nametext></name>
+      <fsummary>Check if map iterator is positioned after last</fsummary>
+      <desc><p>Return true if map iterator <c>iter</c> is positioned
+      after last entry.</p></desc>
+    </func>
+    <func><name><ret>int</ret><nametext>enif_map_iterator_next(ErlNifEnv *env, ErlNifMapIterator *iter)</nametext></name>
+      <fsummary>Increment map iterator to point to next entry</fsummary>
+      <desc><p>Increment map iterator to point to next key-value entry.
+      Return true if the iterator is now positioned at a valid key-value entry,
+      or false if the iterator is positioned at the tail (beyond the last
+      entry).</p></desc>
+    </func>
+    <func><name><ret>int</ret><nametext>enif_map_iterator_prev(ErlNifEnv *env, ErlNifMapIterator *iter)</nametext></name>
+      <fsummary>Decrement map iterator to point to previous entry</fsummary>
+      <desc><p>Decrement map iterator to point to previous key-value entry.
+      Return true if the iterator is now positioned at a valid key-value entry,
+      or false if the iterator is positioned at the head (before the first
+      entry).</p></desc>
     </func>
     <func><name><ret>ErlNifMutex *</ret><nametext>enif_mutex_create(char *name)</nametext></name>
     <fsummary></fsummary>
