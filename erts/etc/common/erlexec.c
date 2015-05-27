@@ -1172,7 +1172,7 @@ usage_aux(void)
 	  "[+S NO_SCHEDULERS:NO_SCHEDULERS_ONLINE] "
 	  "[+SP PERCENTAGE_SCHEDULERS:PERCENTAGE_SCHEDULERS_ONLINE] "
 	  "[+T LEVEL] [+V] [+v] "
-	  "[+W<i|w>] [+z MISC_OPTION] [args ...]\n");
+	  "[+W<i|w|e>] [+z MISC_OPTION] [args ...]\n");
   exit(1);
 }
 
