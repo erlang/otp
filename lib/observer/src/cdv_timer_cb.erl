@@ -49,6 +49,6 @@ get_info(Owner) ->
     {Info,TW}.
 
 get_detail_cols(all) ->
-    {[?COL_OWNER],false};
+    {[{process, ?COL_OWNER}],false};
 get_detail_cols(_) ->
     {[],false}.

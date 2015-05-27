@@ -126,7 +126,7 @@ expand(Id,Callback,#state{expand_wins=Opened0}=State) ->
     Opened =
 	case lists:keyfind(Id,1,Opened0) of
 	    false ->
-		EW = cdv_detail_wx:start_link(Id,State#state.panel,Callback),
+		EW = cdv_detail_wx:start_link(Id,[],State#state.panel,Callback),
 		wx_object:get_pid(EW) ! active,
 		[{Id,EW}|Opened0];
 	    {_,EW} ->

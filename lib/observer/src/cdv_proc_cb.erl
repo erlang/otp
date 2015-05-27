@@ -21,7 +21,7 @@
 	 col_spec/0,
 	 get_info/1,
 	 get_detail_cols/1,
-	 get_details/1,
+	 get_details/2,
 	 detail_pages/0]).
 
 -include_lib("wx/include/wx.hrl").
@@ -57,10 +57,10 @@ get_info(_) ->
     {Info,TW}.
 
 get_detail_cols(_) ->
-    {[?COL_ID],true}.
+    {[{process, ?COL_ID}],true}.
 
 %% Callbacks for cdv_detail_wx
-get_details(Id) ->
+get_details(Id, _) ->
     case crashdump_viewer:proc_details(Id) of
 	{ok,Info,TW} ->
 	    %% The following table is used by observer_html_lib
@@ -76,7 +76,7 @@ get_details(Id) ->
 	    Info = "The process you are searching for was residing on "
 		"a remote node. No process information is available. "
 		"Show information about the remote node?",
-	    Fun = fun() -> cdv_virtual_list_wx:start_detail_win(NodeId) end,
+	    Fun = fun() -> cdv_virtual_list_wx:start_detail_win(NodeId, port) end,
 	    {yes_no, Info, Fun};
 	{error,not_found} ->
 	    Info = "The process you are searching for could not be found.",

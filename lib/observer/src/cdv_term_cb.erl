@@ -17,11 +17,11 @@
 %% %CopyrightEnd%
 -module(cdv_term_cb).
 
--export([get_details/1,
+-export([get_details/2,
 	 detail_pages/0]).
 
 %% Callbacks for cdv_detail_wx
-get_details({Type, {T,Key}}) ->
+get_details({Type, {T,Key}}, _) ->
     [{Key,Term}] = ets:lookup(T,Key),
     {ok,{"Expanded Term", {Type,[Term, T]}, []}}.
 

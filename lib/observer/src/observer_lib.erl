@@ -269,6 +269,8 @@ to_str(Pid) when is_pid(Pid) ->
     pid_to_list(Pid);
 to_str(No) when is_integer(No) ->
     integer_to_list(No);
+to_str(Float) when is_float(Float) ->
+    io_lib:format("~.3f", [Float]);
 to_str(Term) ->
     io_lib:format("~w", [Term]).
 

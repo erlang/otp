@@ -1503,7 +1503,7 @@ get_ets_tables(File,Pid,WS) ->
 	       end,
     lookup_and_parse_index(File,{?ets,Pid},ParseFun,"ets").
 
-get_etsinfo(Fd,EtsTable,WS) ->
+get_etsinfo(Fd,EtsTable = #ets_table{details=Ds},WS) ->
     case line_head(Fd) of
 	"Slot" ->
 	    get_etsinfo(Fd,EtsTable#ets_table{slot=list_to_integer(val(Fd))},WS);
@@ -1513,7 +1513,7 @@ get_etsinfo(Fd,EtsTable,WS) ->
 	    get_etsinfo(Fd,EtsTable#ets_table{name=val(Fd)},WS);
 	"Ordered set (AVL tree), Elements" ->
 	    skip_rest_of_line(Fd),
-	    get_etsinfo(Fd,EtsTable#ets_table{type="tree",buckets="-"},WS);
+	    get_etsinfo(Fd,EtsTable#ets_table{data_type="tree"},WS);
 	"Buckets" ->
 	    %% A bug in erl_db_hash.c prints a space after the buckets
 	    %% - need to strip the string to make list_to_integer/1 happy.
@@ -1528,9 +1528,42 @@ get_etsinfo(Fd,EtsTable,WS) ->
 		    -1 -> -1; % probably truncated
 		    _ -> Words * WS
 		end,
-	    get_etsinfo(Fd,EtsTable#ets_table{memory=Bytes},WS);
+	    get_etsinfo(Fd,EtsTable#ets_table{memory={bytes,Bytes}},WS);
 	"=" ++ _next_tag ->
 	    EtsTable;
+	"Chain Length Min" ->
+	    Val = val(Fd),
+	    get_etsinfo(Fd,EtsTable#ets_table{details=Ds#{chain_min=>Val}},WS);
+	"Chain Length Avg" ->
+	    Val = try list_to_float(string:strip(val(Fd))) catch _:_ -> "-" end,
+	    get_etsinfo(Fd,EtsTable#ets_table{details=Ds#{chain_avg=>Val}},WS);
+	"Chain Length Max" ->
+	    Val = val(Fd),
+	    get_etsinfo(Fd,EtsTable#ets_table{details=Ds#{chain_max=>Val}},WS);
+	"Chain Length Std Dev" ->
+	    Val = val(Fd),
+	    get_etsinfo(Fd,EtsTable#ets_table{details=Ds#{chain_stddev=>Val}},WS);
+	"Chain Length Expected Std Dev" ->
+	    Val = val(Fd),
+	    get_etsinfo(Fd,EtsTable#ets_table{details=Ds#{chain_exp_stddev=>Val}},WS);
+	"Fixed" ->
+	    Val = val(Fd),
+	    get_etsinfo(Fd,EtsTable#ets_table{details=Ds#{fixed=>Val}},WS);
+	"Type" ->
+	    Val = val(Fd),
+	    get_etsinfo(Fd,EtsTable#ets_table{details=Ds#{data_type=>Val}},WS);
+	"Protection" ->
+	    Val = val(Fd),
+	    get_etsinfo(Fd,EtsTable#ets_table{details=Ds#{protection=>Val}},WS);
+	"Compressed" ->
+	    Val = val(Fd),
+	    get_etsinfo(Fd,EtsTable#ets_table{details=Ds#{compressed=>Val}},WS);
+	"Write Concurrency" ->
+	    Val = val(Fd),
+	    get_etsinfo(Fd,EtsTable#ets_table{details=Ds#{write_c=>Val}},WS);
+	"Read Concurrency" ->
+	    Val = val(Fd),
+	    get_etsinfo(Fd,EtsTable#ets_table{details=Ds#{read_c=>Val}},WS);
 	Other ->
 	    unexpected(Fd,Other,"ETS info"),
 	    EtsTable

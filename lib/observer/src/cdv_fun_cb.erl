@@ -55,4 +55,4 @@ get_info(_) ->
     {Info,TW}.
 
 get_detail_cols(_) ->
-    {[?COL_MOD],false}.
+    {[{module, ?COL_MOD}],false}.

@@ -19,7 +19,8 @@
 
 -behaviour(wx_object).
 
--export([start_link/2, start_link/3, start_detail_win/1]).
+-export([start_link/2, start_link/3,
+	 start_detail_win/1, start_detail_win/2]).
 
 %% wx_object callbacks
 -export([init/1, handle_info/2, terminate/2, code_change/3, handle_call/3,
@@ -65,22 +66,28 @@ start_link(ParentWin, Callback, Owner) ->
     wx_object:start_link(?MODULE, [ParentWin, Callback, Owner], []).
 
 start_detail_win(Id) ->
-    Callback =
-	case Id of
-	    "<"++_ ->
-		cdv_proc_cb;
-	    "#Port"++_ ->
-		cdv_port_cb;
-	    _ ->
-		case catch list_to_integer(Id) of
-		    NodeId when is_integer(NodeId) ->
-			cdv_dist_cb;
-		    _ ->
-			cdv_mod_cb
-		end
-	end,
-    start_detail_win(Callback,Id).
-start_detail_win(Callback,Id) ->
+    case Id of
+	"<"++_ ->
+	    start_detail_win(Id, process);
+	"#Port"++_ ->
+	    start_detail_win(Id, port);
+	_ ->
+	    io:format("cdv: unknown identifier: ~p~n",[Id]),
+	    ignore
+    end.
+
+start_detail_win(Id, process) ->
+    start_detail_win_2(cdv_proc_cb, Id);
+start_detail_win(Id, port) ->
+    start_detail_win_2(cdv_port_cb, Id);
+start_detail_win(Id, node) ->
+    start_detail_win_2(cdv_dist_cb, Id);
+start_detail_win(Id, module) ->
+    start_detail_win_2(cdv_mod_cb, Id);
+start_detail_win(Id, ets) ->
+    start_detail_win_2(cdv_ets_cb, Id).
+
+start_detail_win_2(Callback,Id) ->
     wx_object:cast(Callback,{start_detail_win,Id}).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -158,15 +165,14 @@ create_list_box(Panel, Holder, Callback, Owner) ->
 do_start_detail_win(undefined, State) ->
     State;
 do_start_detail_win(Id, #state{panel=Panel,detail_wins=Opened,
-			       callback=Callback}=State) ->
+			       holder=Holder,callback=Callback}=State) ->
     NewOpened =
 	case lists:keyfind(Id, 1, Opened) of
 	    false ->
-		case cdv_detail_wx:start_link(Id, Panel, Callback) of
-		    {error, _} ->
-			Opened;
-		    IW ->
-			[{Id, IW} | Opened]
+		Data = call(Holder, {get_data, self(), Id}),
+		case cdv_detail_wx:start_link(Id, Data, Panel, Callback) of
+		    {error, _} -> Opened;
+		    IW -> [{Id, IW} | Opened]
 		end;
 	    {_, IW} ->
 		wxFrame:raise(IW),
@@ -247,8 +253,8 @@ handle_event(#wx{id=MenuId,
 		 event=#wxCommand{type = command_menu_selected}},
 	     #state{menu_items=MenuItems} = State) ->
     case lists:keyfind(MenuId,1,MenuItems) of
-	{MenuId,Id} ->
-	    start_detail_win(Id);
+	{MenuId,Type,Id} ->
+	    start_detail_win(Id, Type);
 	false ->
 	    ok
     end,
@@ -265,7 +271,7 @@ handle_event(#wx{event=#wxList{type=command_list_item_right_click,
     Menu = wxMenu:new(),
     MenuItems =
 	lists:flatmap(
-	  fun(Col) ->
+	  fun({Type, Col}) ->
 		  MenuId = ?ID_DETAILS + Col,
 		  ColText = call(Holder, {get_row, self(), Row, Col}),
 		  case ColText of
@@ -273,14 +279,15 @@ handle_event(#wx{event=#wxList{type=command_list_item_right_click,
 		      _ ->
 			  What =
 			      case catch list_to_integer(ColText) of
-				  NodeId when is_integer(NodeId) ->
+				  NodeId when is_integer(NodeId),
+					      Type =:= node ->
 				      "node " ++ ColText;
 				  _ ->
 				      ColText
 			      end,
 			  Text = "Properties for " ++ What,
 			  wxMenu:append(Menu, MenuId, Text),
-			  [{MenuId,ColText}]
+			  [{MenuId,Type,ColText}]
 		  end
 	  end,
 	  MenuCols),
@@ -300,9 +307,14 @@ handle_event(#wx{event=#wxList{type=command_list_col_click, col=Col}},
 
 handle_event(#wx{event=#wxList{type=command_list_item_activated,
 			       itemIndex=Row}},
-	     #state{holder=Holder} = State) ->
-    Id = call(Holder, {get_row, self(), Row, id}),
-    start_detail_win(Id),
+	     #state{holder=Holder, menu_cols=MenuCols} = State) ->
+    case MenuCols of
+	[{Type, _}|_] ->
+	    Id = call(Holder, {get_row, self(), Row, id}),
+	    start_detail_win(Id, Type);
+	_ ->
+	    ignore
+    end,
     {noreply, State};
 
 handle_event(Event, State) ->
@@ -346,7 +358,7 @@ init_table_holder(Parent, Attrs, Callback, InfoList0) ->
 			 attrs=Attrs,
 			 callback=Callback}).
 
-table_holder(#holder{callback=Callback, attrs=Attrs}=S0) ->
+table_holder(#holder{callback=Callback, attrs=Attrs, info=Info}=S0) ->
     receive
 	_M={get_row, From, Row, Col} ->
 	    %% erlang:display(_M),
@@ -360,11 +372,29 @@ table_holder(#holder{callback=Callback, attrs=Attrs}=S0) ->
 	    %% erlang:display(_M),
 	    State = change_sort(Callback:col_to_elem(Col), S0),
 	    table_holder(State);
+	_M={get_data, From, Id} ->
+	    search_id(From, Id, Callback, Info),
+	    table_holder(S0);
 	stop ->
 	    ok;
 	What ->
 	    io:format("Table holder got ~p~n",[What]),
 	    table_holder(S0)
+    end.
+
+search_id(From, Id, Callback, Info) ->
+    Find = fun(_, RowInfo, _) ->
+		   search_id(Callback, RowInfo, Id)
+	   end,
+    Res = try array:foldl(Find, not_found, Info)
+	  catch Data -> Data end,
+    From ! {self(), Res},
+    ok.
+
+search_id(Callback, RowInfo, Id) ->
+    case observer_lib:to_str(get_cell_data(Callback, id, RowInfo)) of
+	Id   -> throw(RowInfo);
+	_Str -> not_found
     end.
 
 change_sort(Col, S0=#holder{parent=Parent, info=Info0, sort=Sort0}) ->

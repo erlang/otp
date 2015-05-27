@@ -103,10 +103,12 @@
 	 slot,
 	 id,
 	 name,
-	 type="hash",
-	 buckets,
+	 data_type="hash",
+	 buckets="-",
 	 size,
-	 memory}).
+	 memory,
+	 details= #{}
+	}).
 
 -record(timer,
 	{pid,
