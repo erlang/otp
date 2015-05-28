@@ -335,13 +335,12 @@ hello({info_line, _Line},#state{role = client, socket = Socket} = State) ->
     inet:setopts(Socket, [{active, once}]),
     {next_state, hello, State};
 
-hello({info_line, _Line},#state{role = server} = State) ->
-    DisconnectMsg =
-	#ssh_msg_disconnect{code =
-				?SSH_DISCONNECT_PROTOCOL_ERROR,
-			    description = "Did not receive expected protocol version exchange",
-			    language = "en"},
-    handle_disconnect(DisconnectMsg, State);
+hello({info_line, _Line},#state{role = server,
+				socket = Socket,
+				transport_cb = Transport } = State) ->
+    %% as openssh
+    Transport:send(Socket, "Protocol mismatch."),
+    {stop, {shutdown,"Protocol mismatch in version exchange."}, State};
 
 hello({version_exchange, Version}, #state{ssh_params = Ssh0,
 					  socket = Socket,
