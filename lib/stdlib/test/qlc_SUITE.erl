@@ -6120,7 +6120,7 @@ otp_6964(Config) when is_list(Config) ->
               lists:flatten(qlc:format_error(ErrReply)),
           qlc_SUITE:install_error_logger(),
           20000 = length(F(warning_msg)),
-          {error, joining} = qlc_SUITE:read_error_logger(),
+          {warning, joining} = qlc_SUITE:read_error_logger(),
           20000 = length(F(info_msg)),
           {info, joining} = qlc_SUITE:read_error_logger(),
           20000 = length(F(error_msg)),
@@ -6155,8 +6155,8 @@ otp_6964(Config) when is_list(Config) ->
           {error, caching} = qlc_SUITE:read_error_logger(),
           {error, caching} = qlc_SUITE:read_error_logger(),
           1 = length(F(warning_msg)),
-          {error, caching} = qlc_SUITE:read_error_logger(),
-          {error, caching} = qlc_SUITE:read_error_logger(),
+          {warning, caching} = qlc_SUITE:read_error_logger(),
+          {warning, caching} = qlc_SUITE:read_error_logger(),
           1 = length(F(info_msg)),
           {info, caching} = qlc_SUITE:read_error_logger(),
           {info, caching} = qlc_SUITE:read_error_logger(),
@@ -6188,7 +6188,7 @@ otp_6964(Config) when is_list(Config) ->
           L = F(info_msg),
           {info, sorting} = qlc_SUITE:read_error_logger(),
           L = F(warning_msg),
-          {error, sorting} = qlc_SUITE:read_error_logger(),
+          {warning, sorting} = qlc_SUITE:read_error_logger(),
           qlc_SUITE:uninstall_error_logger(),
           ets:delete(E1),
           ets:delete(E2)">>],
@@ -6215,7 +6215,7 @@ otp_6964(Config) when is_list(Config) ->
                        R = lists:sort(F(error_msg)),
                        {error, caching} = qlc_SUITE:read_error_logger(),
                        R = lists:sort(F(warning_msg)),
-                       {error, caching} = qlc_SUITE:read_error_logger(),
+                       {warning, caching} = qlc_SUITE:read_error_logger(),
                        qlc_SUITE:uninstall_error_logger(),
                        ErrReply = F(not_allowed),
                        {error,qlc,{tmpdir_usage,caching}} = ErrReply,
@@ -8178,6 +8178,8 @@ read_error_logger() ->
             {error, Why};
         {info, Why} ->
             {info, Why};
+        {warning, Why} ->
+            {warning, Why};
         {error, Pid, Tuple} ->
             {error, Pid, Tuple}
     after 1000 ->
@@ -8192,8 +8194,7 @@ read_error_logger() ->
 init(Tester) ->
     {ok, Tester}.
     
-handle_event({error, _GL, {_Pid, _Msg, [Why, _]}}, Tester) 
-                     when is_atom(Why) ->
+handle_event({error, _GL, {_Pid, _Msg, [Why, _]}}, Tester) when is_atom(Why) ->
     Tester ! {error, Why},
     {ok, Tester};
 handle_event({error, _GL, {_Pid, _Msg, [P, T]}}, Tester) when is_pid(P) ->
@@ -8201,6 +8202,9 @@ handle_event({error, _GL, {_Pid, _Msg, [P, T]}}, Tester) when is_pid(P) ->
     {ok, Tester};
 handle_event({info_msg, _GL, {_Pid, _Msg, [Why, _]}}, Tester) ->
     Tester ! {info, Why},
+    {ok, Tester};
+handle_event({warning_msg, _GL, {_Pid, _Msg, [Why, _]}}, Tester) when is_atom(Why) ->
+    Tester ! {warning, Why},
     {ok, Tester};
 handle_event(_Event, State) ->
     {ok, State}.
