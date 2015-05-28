@@ -393,6 +393,15 @@ handle_call({start_child, EArgs}, _From, State) when ?is_simple(State) ->
 	    {reply, What, State}
     end;
 
+handle_call({start_child, ChildSpec}, _From, State) ->
+    case check_childspec(ChildSpec) of
+	{ok, Child} ->
+	    {Resp, NState} = handle_start_child(Child, State),
+	    {reply, Resp, NState};
+	What ->
+	    {reply, {error, What}, State}
+    end;
+
 %% terminate_child for simple_one_for_one can only be done with pid
 handle_call({terminate_child, Name}, _From, State) when not is_pid(Name),
 							?is_simple(State) ->
@@ -411,19 +420,9 @@ handle_call({terminate_child, Name}, _From, State) ->
 	    {reply, {error, not_found}, State}
     end;
 
-%%% The requests delete_child and restart_child are invalid for
-%%% simple_one_for_one supervisors.
-handle_call({_Req, _Data}, _From, State) when ?is_simple(State) ->
+%% restart_child request is invalid for simple_one_for_one supervisors
+handle_call({restart_child, _Name}, _From, State) when ?is_simple(State) ->
     {reply, {error, simple_one_for_one}, State};
-
-handle_call({start_child, ChildSpec}, _From, State) ->
-    case check_childspec(ChildSpec) of
-	{ok, Child} ->
-	    {Resp, NState} = handle_start_child(Child, State),
-	    {reply, Resp, NState};
-	What ->
-	    {reply, {error, What}, State}
-    end;
 
 handle_call({restart_child, Name}, _From, State) ->
     case get_child(Name, State) of
@@ -445,6 +444,10 @@ handle_call({restart_child, Name}, _From, State) ->
 	_ ->
 	    {reply, {error, not_found}, State}
     end;
+
+%% delete_child request is invalid for simple_one_for_one supervisors
+handle_call({delete_child, _Name}, _From, State) when ?is_simple(State) ->
+    {reply, {error, simple_one_for_one}, State};
 
 handle_call({delete_child, Name}, _From, State) ->
     case get_child(Name, State) of
