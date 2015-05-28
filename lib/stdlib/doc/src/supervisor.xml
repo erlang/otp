@@ -543,7 +543,11 @@
           </item>
           <item>
             <p><c>active</c> - the count of all actively running child processes
-              managed by this supervisor.</p>
+              managed by this supervisor. In the case of <c>simple_one_for_one</c>
+              supervisors of <c>temporary</c> children, no check is carried out to
+              ensure that each child process is still alive, though the result provided
+              here is likely to be very accurate unless the supervisor is heavily
+              overloaded.</p>
           </item>
           <item>
             <p><c>supervisors</c> - the count of all children marked as

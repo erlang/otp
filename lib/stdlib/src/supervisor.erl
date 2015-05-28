@@ -504,19 +504,12 @@ handle_call(which_children, _From, State) ->
 handle_call(count_children, _From, #state{children = [#child{restart_type = temporary,
 							     child_type = CT}]} = State)
   when ?is_simple(State) ->
-    {Active, Count} =
-	?SETS:fold(fun(Pid, {Alive, Tot}) ->
-			   case is_pid(Pid) andalso is_process_alive(Pid) of
-			       true ->{Alive+1, Tot +1};
-			       false ->
-				   {Alive, Tot + 1}
-			   end
-		   end, {0, 0}, dynamics_db(temporary, State#state.dynamics)),
+    Sz = ?SETS:size(dynamics_db(temporary, State#state.dynamics)),
     Reply = case CT of
-		supervisor -> [{specs, 1}, {active, Active},
-			       {supervisors, Count}, {workers, 0}];
-		worker -> [{specs, 1}, {active, Active},
-			   {supervisors, 0}, {workers, Count}]
+		supervisor -> [{specs, 1}, {active, Sz},
+			       {supervisors, Sz}, {workers, 0}];
+		worker -> [{specs, 1}, {active, Sz},
+			   {supervisors, 0}, {workers, Sz}]
 	    end,
     {reply, Reply, State};
 
