@@ -12509,38 +12509,6 @@ erts_print_scheduler_info(int to, void *to_arg, ErtsSchedulerData *esdp) {
         erts_print(to, to_arg, "%T", esdp->current_port->common.id);
     erts_print(to, to_arg, "\n");
 
-    p = esdp->current_process;
-    erts_print(to, to_arg, "Current Process: ");
-    if (esdp->current_process && !(ERTS_TRACE_FLAGS(p) & F_SENSITIVE)) {
-      flg = erts_smp_atomic32_read_dirty(&p->state);
-      erts_print(to, to_arg, "%T\n", p->common.id);
-      
-      erts_print(to, to_arg, "Current Process State: ");
-      erts_dump_process_state(to, to_arg, flg);
-      
-      erts_print(to, to_arg, "Current Process Internal State: ");
-      erts_dump_extended_process_state(to, to_arg, flg);
-      
-      erts_print(to, to_arg, "Current Process Program counter: %p (", p->i);
-      print_function_from_pc(to, to_arg, p->i);
-      erts_print(to, to_arg, ")\n");
-      erts_print(to, to_arg, "Current Process CP: %p (", p->cp);
-      print_function_from_pc(to, to_arg, p->cp);
-      erts_print(to, to_arg, ")\n");
-      
-      /* Getting this stacktrace can segfault if we are very very
-	 unlucky if called while a process is being garbage collected.
-	 Therefore we only call this on other schedulers if we either
-	 have protection against segfaults, or we know that the process
-	 is not garbage collecting. It *should* always be safe to call
-	 on a process owned by us, even if it is currently being garbage
-	 collected.
-      */
-      erts_print(to, to_arg, "Current Process Limited Stack Trace:\n");
-      erts_limited_stack_trace(to, to_arg, p);
-    } else
-      erts_print(to, to_arg, "\n");
-
     for (i = 0; i < ERTS_NO_PROC_PRIO_LEVELS; i++) {
         erts_print(to, to_arg, "Run Queue ");
         switch (i) {
@@ -12627,6 +12595,40 @@ erts_print_scheduler_info(int to, void *to_arg, ErtsSchedulerData *esdp) {
         }
     }
     erts_print(to, to_arg, "\n");
+
+    /* This *MUST* to be the last information in scheduler block */
+    p = esdp->current_process;
+    erts_print(to, to_arg, "Current Process: ");
+    if (esdp->current_process && !(ERTS_TRACE_FLAGS(p) & F_SENSITIVE)) {
+	flg = erts_smp_atomic32_read_dirty(&p->state);
+	erts_print(to, to_arg, "%T\n", p->common.id);
+
+	erts_print(to, to_arg, "Current Process State: ");
+	erts_dump_process_state(to, to_arg, flg);
+
+	erts_print(to, to_arg, "Current Process Internal State: ");
+	erts_dump_extended_process_state(to, to_arg, flg);
+
+	erts_print(to, to_arg, "Current Process Program counter: %p (", p->i);
+	print_function_from_pc(to, to_arg, p->i);
+	erts_print(to, to_arg, ")\n");
+	erts_print(to, to_arg, "Current Process CP: %p (", p->cp);
+	print_function_from_pc(to, to_arg, p->cp);
+	erts_print(to, to_arg, ")\n");
+
+	/* Getting this stacktrace can segfault if we are very very
+	   unlucky if called while a process is being garbage collected.
+	   Therefore we only call this on other schedulers if we either
+	   have protection against segfaults, or we know that the process
+	   is not garbage collecting. It *should* always be safe to call
+	   on a process owned by us, even if it is currently being garbage
+	   collected.
+	*/
+	erts_print(to, to_arg, "Current Process Limited Stack Trace:\n");
+	erts_limited_stack_trace(to, to_arg, p);
+    } else
+	erts_print(to, to_arg, "\n");
+
 }
 
 /*
