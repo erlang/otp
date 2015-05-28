@@ -336,7 +336,7 @@ megaco_incr_timer() = #megaco_incr_timer{}
           <tag><c><![CDATA[request_keep_alive_timeout]]></c></tag>
           <item>
             <p>Specifies the timeout time for the request-keep-alive timer. </p>
-            <p>This timer is started when the <em>first</em> reply to an asynchroneous
+            <p>This timer is started when the <em>first</em> reply to an asynchronous
               request (issued using the 
               <seealso marker="megaco#cast">megaco:cast/3</seealso> function)
               arrives. As long as this timer is running, replies will 
@@ -837,7 +837,7 @@ megaco_incr_timer() = #megaco_incr_timer{}
           <tag><c><![CDATA[request_keep_alive_timeout]]></c></tag>
           <item>
             <p>Specifies the timeout time for the request-keep-alive timer. </p>
-            <p>This timer is started when the <em>first</em> reply to an asynchroneous
+            <p>This timer is started when the <em>first</em> reply to an asynchronous
               request (issued using the 
               <seealso marker="megaco#cast">megaco:cast/3</seealso> function)
               arrives. As long as this timer is running, replies will 

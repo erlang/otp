@@ -366,7 +366,7 @@ filename()       = string()
           <tag><c><![CDATA[receiver]]></c></tag>
           <item>
             <p>Defines how the client will deliver the result of an
-	    asynchroneous request (<c>sync</c> has the value 
+	    asynchronous request (<c>sync</c> has the value
 	    <c>false</c>). </p>
 
             <taglist>
