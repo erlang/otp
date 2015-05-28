@@ -1002,14 +1002,6 @@ typedef enum {
       <desc><p>Create an ordinary list containing the elements of array <c>arr</c>
       of length <c>cnt</c>. An empty list is returned if <c>cnt</c> is 0.</p></desc>
     </func>
-    <func><name><ret>int</ret><nametext>enif_make_reverse_list(ErlNifEnv* env, ERL_NIF_TERM list_in, ERL_NIF_TERM *list_out)</nametext></name>
-      <fsummary>Create the reverse of a list</fsummary>
-      <desc><p>Set <c>*list_out</c> to the reverse list of the list <c>list_in</c> and return true,
-      or return false if <c>list_in</c> is not a list. This function should only be used on
-      short lists as a copy will be created of the list which will not be released until after the
-      nif returns.</p>
-      <p>The <c>list_in</c> term must belong to the environment <c>env</c>.</p></desc>
-    </func>
     <func><name><ret>ERL_NIF_TERM</ret><nametext>enif_make_long(ErlNifEnv* env, long int i)</nametext></name>
       <fsummary>Create an integer term from a long int</fsummary>
       <desc><p>Create an integer term from a <c>long int</c>.</p></desc>
@@ -1096,6 +1088,14 @@ typedef enum {
       no ownership transfer is done. The resource still needs to be released with
       <seealso marker="#enif_release_resource">enif_release_resource</seealso>.</p>
       </desc>
+    </func>
+    <func><name><ret>int</ret><nametext>enif_make_reverse_list(ErlNifEnv* env, ERL_NIF_TERM list_in, ERL_NIF_TERM *list_out)</nametext></name>
+      <fsummary>Create the reverse of a list</fsummary>
+      <desc><p>Set <c>*list_out</c> to the reverse list of the list <c>list_in</c> and return true,
+      or return false if <c>list_in</c> is not a list. This function should only be used on
+      short lists as a copy will be created of the list which will not be released until after the
+      nif returns.</p>
+      <p>The <c>list_in</c> term must belong to the environment <c>env</c>.</p></desc>
     </func>
     <func><name><ret>ERL_NIF_TERM</ret><nametext>enif_make_string(ErlNifEnv* env, const char* string, ErlNifCharEncoding encoding)</nametext></name>
       <fsummary>Create a string.</fsummary>
