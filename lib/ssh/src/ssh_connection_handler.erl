@@ -326,9 +326,13 @@ info(ConnectionHandler, ChannelProcess) ->
 hello(socket_control, #state{socket = Socket, ssh_params = Ssh} = State) ->
     VsnMsg = ssh_transport:hello_version_msg(string_version(Ssh)),
     send_msg(VsnMsg, State),
-    {ok, [{recbuf, Size}]} = inet:getopts(Socket, [recbuf]),
-    inet:setopts(Socket, [{packet, line}, {active, once}, {recbuf, ?MAX_PROTO_VERSION}]),
-    {next_state, hello, State#state{recbuf = Size}};
+    case getopt(recbuf, Socket) of
+	{ok, Size} ->
+	    inet:setopts(Socket, [{packet, line}, {active, once}, {recbuf, ?MAX_PROTO_VERSION}]),
+	    {next_state, hello, State#state{recbuf = Size}};
+	{error, Reason} ->
+	    {stop, {shutdown, Reason}, State}
+    end;
 
 hello({info_line, _Line},#state{role = client, socket = Socket} = State) ->
     %% The server may send info lines before the version_exchange
@@ -1719,3 +1723,12 @@ start_timeout(_,_, infinity) ->
     ok;
 start_timeout(Channel, From, Time) ->
     erlang:send_after(Time, self(), {timeout, {Channel, From}}).
+
+getopt(Opt, Socket) ->
+    case inet:getopts(Socket, [Opt]) of
+	{ok, [{Opt, Value}]} ->
+	    {ok, Value};
+	Other ->
+	    {error, {unexpected_getopts_return, Other}}
+    end.
+		
