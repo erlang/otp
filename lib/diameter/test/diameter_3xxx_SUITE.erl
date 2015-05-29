@@ -195,13 +195,13 @@ counters(_, _, _, _) ->
 stats(?CLIENT, E, rfc3588, L)
   when E == answer;
        E == answer_3xxx ->
-    [{{unknown,recv},2},
+    [{{{unknown,0},recv},2},
      {{{0,257,0},recv},1},
      {{{0,257,1},send},1},
      {{{0,275,0},recv},6},
      {{{0,275,1},send},10},
-     {{unknown,recv,{'Result-Code',3001}},1},
-     {{unknown,recv,{'Result-Code',3007}},1},
+     {{{unknown,0},recv,{'Result-Code',3001}},1},
+     {{{unknown,0},recv,{'Result-Code',3007}},1},
      {{{0,257,0},recv,{'Result-Code',2001}},1},
      {{{0,275,0},recv,{'Result-Code',2001}},1},
      {{{0,275,0},recv,{'Result-Code',3008}},2},
@@ -213,15 +213,15 @@ stats(?CLIENT, E, rfc3588, L)
 stats(?SERVER, E, rfc3588, L)
   when E == answer;
        E == answer_3xxx ->
-    [{{unknown,recv},1},
-     {{unknown,send},2},
+    [{{{unknown,0},send},2},
+     {{{unknown,1},recv},1},
      {{{0,257,0},send},1},
      {{{0,257,1},recv},1},
      {{{0,275,0},send},6},
      {{{0,275,1},recv},8},
-     {{unknown,recv,error},1},
-     {{unknown,send,{'Result-Code',3001}},1},
-     {{unknown,send,{'Result-Code',3007}},1},
+     {{{unknown,0},send,{'Result-Code',3001}},1},
+     {{{unknown,0},send,{'Result-Code',3007}},1},
+     {{{unknown,1},recv,error},1},
      {{{0,257,0},send,{'Result-Code',2001}},1},
      {{{0,275,0},send,{'Result-Code',2001}},1},
      {{{0,275,0},send,{'Result-Code',3008}},2},
@@ -232,13 +232,13 @@ stats(?SERVER, E, rfc3588, L)
         = L;
 
 stats(?CLIENT, answer, rfc6733, L) ->
-    [{{unknown,recv},2},
+    [{{{unknown,0},recv},2},
      {{{0,257,0},recv},1},
      {{{0,257,1},send},1},
      {{{0,275,0},recv},8},
      {{{0,275,1},send},10},
-     {{unknown,recv,{'Result-Code',3001}},1},
-     {{unknown,recv,{'Result-Code',3007}},1},
+     {{{unknown,0},recv,{'Result-Code',3001}},1},
+     {{{unknown,0},recv,{'Result-Code',3007}},1},
      {{{0,257,0},recv,{'Result-Code',2001}},1},
      {{{0,275,0},recv,{'Result-Code',3008}},2},
      {{{0,275,0},recv,{'Result-Code',3999}},1},
@@ -248,15 +248,15 @@ stats(?CLIENT, answer, rfc6733, L) ->
         = L;
 
 stats(?SERVER, answer, rfc6733, L) ->
-    [{{unknown,recv},1},
-     {{unknown,send},2},
+    [{{{unknown,0},send},2},
+     {{{unknown,1},recv},1},
      {{{0,257,0},send},1},
      {{{0,257,1},recv},1},
      {{{0,275,0},send},8},
      {{{0,275,1},recv},8},
-     {{unknown,recv,error},1},
-     {{unknown,send,{'Result-Code',3001}},1},
-     {{unknown,send,{'Result-Code',3007}},1},
+     {{{unknown,0},send,{'Result-Code',3001}},1},
+     {{{unknown,0},send,{'Result-Code',3007}},1},
+     {{{unknown,1},recv,error},1},
      {{{0,257,0},send,{'Result-Code',2001}},1},
      {{{0,275,0},send,{'Result-Code',3008}},2},
      {{{0,275,0},send,{'Result-Code',3999}},1},
@@ -267,13 +267,13 @@ stats(?SERVER, answer, rfc6733, L) ->
         = L;
 
 stats(?CLIENT, answer_3xxx, rfc6733, L) ->
-    [{{unknown,recv},2},
+    [{{{unknown,0},recv},2},
      {{{0,257,0},recv},1},
      {{{0,257,1},send},1},
      {{{0,275,0},recv},8},
      {{{0,275,1},send},10},
-     {{unknown,recv,{'Result-Code',3001}},1},
-     {{unknown,recv,{'Result-Code',3007}},1},
+     {{{unknown,0},recv,{'Result-Code',3001}},1},
+     {{{unknown,0},recv,{'Result-Code',3007}},1},
      {{{0,257,0},recv,{'Result-Code',2001}},1},
      {{{0,275,0},recv,{'Result-Code',2001}},1},
      {{{0,275,0},recv,{'Result-Code',3008}},2},
@@ -284,15 +284,15 @@ stats(?CLIENT, answer_3xxx, rfc6733, L) ->
         = L;
 
 stats(?SERVER, answer_3xxx, rfc6733, L) ->
-    [{{unknown,recv},1},
-     {{unknown,send},2},
+    [{{{unknown,0},send},2},
+     {{{unknown,1},recv},1},
      {{{0,257,0},send},1},
      {{{0,257,1},recv},1},
      {{{0,275,0},send},8},
      {{{0,275,1},recv},8},
-     {{unknown,recv,error},1},
-     {{unknown,send,{'Result-Code',3001}},1},
-     {{unknown,send,{'Result-Code',3007}},1},
+     {{{unknown,0},send,{'Result-Code',3001}},1},
+     {{{unknown,0},send,{'Result-Code',3007}},1},
+     {{{unknown,1},recv,error},1},
      {{{0,257,0},send,{'Result-Code',2001}},1},
      {{{0,275,0},send,{'Result-Code',2001}},1},
      {{{0,275,0},send,{'Result-Code',3008}},2},
@@ -304,12 +304,12 @@ stats(?SERVER, answer_3xxx, rfc6733, L) ->
         = L;
 
 stats(?CLIENT, callback, rfc3588, L) ->
-    [{{unknown,recv},1},
+    [{{{unknown,0},recv},1},
      {{{0,257,0},recv},1},
      {{{0,257,1},send},1},
      {{{0,275,0},recv},6},
      {{{0,275,1},send},10},
-     {{unknown,recv,{'Result-Code',3007}},1},
+     {{{unknown,0},recv,{'Result-Code',3007}},1},
      {{{0,257,0},recv,{'Result-Code',2001}},1},
      {{{0,275,0},recv,{'Result-Code',2001}},2},
      {{{0,275,0},recv,{'Result-Code',3999}},1},
@@ -318,14 +318,14 @@ stats(?CLIENT, callback, rfc3588, L) ->
         = L;
 
 stats(?SERVER, callback, rfc3588, L) ->
-    [{{unknown,recv},1},
-     {{unknown,send},1},
+    [{{{unknown,0},send},1},
+     {{{unknown,1},recv},1},
      {{{0,257,0},send},1},
      {{{0,257,1},recv},1},
      {{{0,275,0},send},6},
      {{{0,275,1},recv},8},
-     {{unknown,recv,error},1},
-     {{unknown,send,{'Result-Code',3007}},1},
+     {{{unknown,0},send,{'Result-Code',3007}},1},
+     {{{unknown,1},recv,error},1},
      {{{0,257,0},send,{'Result-Code',2001}},1},
      {{{0,275,0},send,{'Result-Code',2001}},2},
      {{{0,275,0},send,{'Result-Code',3999}},1},
@@ -335,12 +335,12 @@ stats(?SERVER, callback, rfc3588, L) ->
         = L;
 
 stats(?CLIENT, callback, rfc6733, L) ->
-    [{{unknown,recv},1},
+    [{{{unknown,0},recv},1},
      {{{0,257,0},recv},1},
      {{{0,257,1},send},1},
      {{{0,275,0},recv},8},
      {{{0,275,1},send},10},
-     {{unknown,recv,{'Result-Code',3007}},1},
+     {{{unknown,0},recv,{'Result-Code',3007}},1},
      {{{0,257,0},recv,{'Result-Code',2001}},1},
      {{{0,275,0},recv,{'Result-Code',2001}},2},
      {{{0,275,0},recv,{'Result-Code',3999}},1},
@@ -350,14 +350,14 @@ stats(?CLIENT, callback, rfc6733, L) ->
         = L;
 
 stats(?SERVER, callback, rfc6733, L) ->
-    [{{unknown,recv},1},
-     {{unknown,send},1},
+    [{{{unknown,0},send},1},
+     {{{unknown,1},recv},1},
      {{{0,257,0},send},1},
      {{{0,257,1},recv},1},
      {{{0,275,0},send},8},
      {{{0,275,1},recv},8},
-     {{unknown,recv,error},1},
-     {{unknown,send,{'Result-Code',3007}},1},
+     {{{unknown,0},send,{'Result-Code',3007}},1},
+     {{{unknown,1},recv,error},1},
      {{{0,257,0},send,{'Result-Code',2001}},1},
      {{{0,275,0},send,{'Result-Code',2001}},2},
      {{{0,275,0},send,{'Result-Code',3999}},1},
