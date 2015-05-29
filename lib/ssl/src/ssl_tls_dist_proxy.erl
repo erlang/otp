@@ -133,6 +133,7 @@ accept_loop(Proxy, erts = Type, Listen, Extra) ->
 	    Extra ! {accept,self(),Socket,inet,proxy},
 	    receive 
 		{_Kernel, controller, Pid} ->
+		    inet:setopts(Socket, [nodelay()]),
 		    ok = gen_tcp:controlling_process(Socket, Pid),
 		    flush_old_controller(Pid, Socket),
 		    Pid ! {self(), controller};
@@ -166,7 +167,7 @@ accept_loop(Proxy, world = Type, Listen, Extra) ->
     accept_loop(Proxy, Type, Listen, Extra).
 
 try_connect(Port) ->
-    case gen_tcp:connect({127,0,0,1}, Port, [{active, false}, {packet,?PPRE}]) of
+    case gen_tcp:connect({127,0,0,1}, Port, [{active, false}, {packet,?PPRE}, nodelay()]) of
 	R = {ok, _S} ->
 	    R;
 	{error, _R} ->
@@ -176,7 +177,7 @@ try_connect(Port) ->
 setup_proxy(Ip, Port, Parent) ->
     process_flag(trap_exit, true),
     Opts = get_ssl_options(client),
-    case ssl:connect(Ip, Port, [{active, true}, binary, {packet,?PPRE}] ++ Opts) of
+    case ssl:connect(Ip, Port, [{active, true}, binary, {packet,?PPRE}, nodelay()] ++ Opts) of
 	{ok, World} ->
 	    {ok, ErtsL} = gen_tcp:listen(0, [{active, true}, {ip, {127,0,0,1}}, binary, {packet,?PPRE}]),
 	    {ok, #net_address{address={_,LPort}}} = get_tcp_address(ErtsL),
@@ -192,25 +193,41 @@ setup_proxy(Ip, Port, Parent) ->
 	    Parent ! {self(), Err}
     end.
 
+
+%% we may not always want the nodelay behaviour
+%% %% for performance reasons
+
+nodelay() ->
+    case application:get_env(kernel, dist_nodelay) of
+  undefined ->
+      {nodelay, true};
+  {ok, true} ->
+      {nodelay, true};
+  {ok, false} ->
+      {nodelay, false};
+  _ ->
+      {nodelay, true}
+    end.
+
 setup_connection(World, ErtsListen) ->
     process_flag(trap_exit, true),
     {ok, TcpAddress} = get_tcp_address(ErtsListen),
     {_Addr,Port} = TcpAddress#net_address.address,
-    {ok, Erts} = gen_tcp:connect({127,0,0,1}, Port, [{active, true}, binary, {packet,?PPRE}]),
-    ssl:setopts(World, [{active,true}, {packet,?PPRE}]),
+    {ok, Erts} = gen_tcp:connect({127,0,0,1}, Port, [{active, true}, binary, {packet,?PPRE}, nodelay()]),
+    ssl:setopts(World, [{active,true}, {packet,?PPRE}, nodelay()]),
     loop_conn_setup(World, Erts).
 
 loop_conn_setup(World, Erts) ->
     receive 
 	{ssl, World, Data = <<$a, _/binary>>} ->
 	    gen_tcp:send(Erts, Data),
-	    ssl:setopts(World, [{packet,?PPOST}]),
-	    inet:setopts(Erts, [{packet,?PPOST}]),
+	    ssl:setopts(World, [{packet,?PPOST}, nodelay()]),
+	    inet:setopts(Erts, [{packet,?PPOST}, nodelay()]),
 	    loop_conn(World, Erts);
 	{tcp, Erts, Data = <<$a, _/binary>>} ->
 	    ssl:send(World, Data),
-	    ssl:setopts(World, [{packet,?PPOST}]),
-	    inet:setopts(Erts, [{packet,?PPOST}]),
+	    ssl:setopts(World, [{packet,?PPOST}, nodelay()]),
+	    inet:setopts(Erts, [{packet,?PPOST}, nodelay()]),
 	    loop_conn(World, Erts);
 	{ssl, World, Data = <<_, _/binary>>} ->
 	    gen_tcp:send(Erts, Data),
