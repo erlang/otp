@@ -1745,13 +1745,11 @@ BIF_RETTYPE hipe_bifs_check_crc_1(BIF_ALIST_1)
     BIF_RET(am_false);
 }
 
-BIF_RETTYPE hipe_bifs_system_crc_1(BIF_ALIST_1)
+BIF_RETTYPE hipe_bifs_system_crc_0(BIF_ALIST_0)
 {
     Uint crc;
 
-    if (!term_to_Uint(BIF_ARG_1, &crc))
-	BIF_ERROR(BIF_P, BADARG);
-    crc ^= (HIPE_SYSTEM_CRC ^ HIPE_LITERALS_CRC);
+    crc = HIPE_SYSTEM_CRC;
     BIF_RET(Uint_to_term(crc, BIF_P));
 }
 

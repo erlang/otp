@@ -75,6 +75,9 @@ cl(["-nn"|T]) ->
 cl(["--no_native"|T]) ->
   put(dialyzer_options_native, false),
   cl(T);
+cl(["--no_native_cache"|T]) ->
+  put(dialyzer_options_native_cache, false),
+  cl(T);
 cl(["--plt_info"|T]) ->
   put(dialyzer_options_analysis_type, plt_info),
   cl(T);
@@ -363,7 +366,7 @@ help_message() ->
 		[--build_plt] [--add_to_plt] [--remove_from_plt]
 		[--check_plt] [--no_check_plt] [--plt_info] [--get_warnings]
                 [--dump_callgraph file] [--no_native] [--fullpath]
-                [--statistics]
+                [--statistics] [--no_native_cache]
 Options:
   files_or_dirs (for backwards compatibility also as: -c files_or_dirs)
       Use Dialyzer from the command line to detect defects in the
@@ -468,6 +471,11 @@ Options:
       Bypass the native code compilation of some key files that Dialyzer
       heuristically performs when dialyzing many files; this avoids the
       compilation time but it may result in (much) longer analysis time.
+  --no_native_cache
+      By default, Dialyzer caches the results of native compilation in the
+      $XDG_CACHE_HOME/erlang/dialyzer_hipe_cache directory.
+      XDG_CACHE_HOME defaults to $HOME/.cache.  Use this option to disable
+      caching.
   --fullpath
       Display the full path names of files for which warnings are emitted.
   --gui

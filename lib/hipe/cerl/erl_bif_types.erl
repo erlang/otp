@@ -1113,8 +1113,8 @@ type(hipe_bifs, set_native_address, 3, Xs, Opaques) ->
 type(hipe_bifs, set_native_address_in_fe, 2, Xs, Opaques) ->
   strict(hipe_bifs, set_native_address_in_fe, 2, Xs,
 	 fun (_) -> t_atom('true') end, Opaques);
-type(hipe_bifs, system_crc, 1, Xs, Opaques) ->
-  strict(hipe_bifs, system_crc, 1, Xs, fun (_) -> t_crc32() end, Opaques);
+type(hipe_bifs, system_crc, 0, _, _Opaques) ->
+  t_crc32();
 type(hipe_bifs, term_to_word, 1, Xs, Opaques) ->
   strict(hipe_bifs, term_to_word, 1, Xs,
 	 fun (_) -> t_integer() end, Opaques);
@@ -2490,8 +2490,8 @@ arg_types(hipe_bifs, set_native_address, 3) ->
   [t_mfa(), t_integer(), t_boolean()];
 arg_types(hipe_bifs, set_native_address_in_fe, 2) ->
   [t_integer(), t_integer()];
-arg_types(hipe_bifs, system_crc, 1) ->
-  [t_crc32()];
+arg_types(hipe_bifs, system_crc, 0) ->
+  [];
 arg_types(hipe_bifs, term_to_word, 1) ->
   [t_any()];
 arg_types(hipe_bifs, update_code_size, 3) ->
