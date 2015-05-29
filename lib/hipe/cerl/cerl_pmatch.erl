@@ -31,7 +31,7 @@
 
 -module(cerl_pmatch).
 
--define(NO_UNUSED, true).
+%%-define(NO_UNUSED, true).
 
 -export([clauses/2]).
 -ifndef(NO_UNUSED).
@@ -59,6 +59,8 @@
 %% @see transform/2
 
 -ifndef(NO_UNUSED).
+-spec core_transform(cerl:c_module(), [_]) -> cerl:c_module().
+
 core_transform(M, Opts) ->
     cerl:to_records(transform(cerl:from_records(M), Opts)).
 -endif.	% NO_UNUSED
@@ -76,6 +78,8 @@ core_transform(M, Opts) ->
 %% @see core_transform/2
 
 -ifndef(NO_UNUSED).
+-spec transform(cerl:cerl(), [_]) -> cerl:cerl().
+
 transform(M, _Opts) ->
   expr(M, env__empty()).
 -endif.	% NO_UNUSED
@@ -109,7 +113,7 @@ transform(M, _Opts) ->
 %% @see expr/2
 %% @see transform/2
 
--spec clauses([cerl:cerl()], rec_env:environment()) -> 
+-spec clauses([cerl:cerl(),...], rec_env:environment()) ->
           {cerl:cerl(), [cerl:cerl()]}.
 
 clauses(Cs, Env) ->
@@ -406,6 +410,8 @@ make_let(Vs, A, B) ->
 %% @see rec_env
 
 -ifndef(NO_UNUSED).
+-spec expr(cerl:cerl(), rec_env:environment()) -> cerl:cerl().
+
 expr(E, Env) ->
     case cerl:type(E) of
  	literal ->
