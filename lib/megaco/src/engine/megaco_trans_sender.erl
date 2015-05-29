@@ -672,8 +672,7 @@ to(To, Start) ->
 
 %% Time in milli seconds
 t() ->
-    {A,B,C} = erlang:now(),
-    A*1000000000+B*1000+(C div 1000).
+    erlang:monotonic_time(milli_seconds).
 
 warning_msg(F, A) ->
     ?megaco_warning("Transaction sender: " ++ F, A).
