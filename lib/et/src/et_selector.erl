@@ -28,6 +28,8 @@
          parse_event/2
         ]).
 
+-compile([{nowarn_deprecated_function,[{erlang,now,0}]}]).
+
 -include("../include/et.hrl").
 
 %%----------------------------------------------------------------------
