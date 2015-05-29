@@ -381,7 +381,7 @@ handle_call({start_child, EArgs}, _From, State) when ?is_simple(State) ->
     #child{mfargs = {M, F, A}} = Child,
     Args = A ++ EArgs,
     case do_start_child_i(M, F, Args) of
-	{ok, undefined} when Child#child.restart_type =:= temporary ->
+	{ok, undefined} ->
 	    {reply, {ok, undefined}, State};
 	{ok, Pid} ->
 	    NState = save_dynamic_child(Child#child.restart_type, Pid, Args, State),
