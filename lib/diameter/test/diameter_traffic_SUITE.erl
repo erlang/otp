@@ -145,8 +145,12 @@
 %% them as binary.
 -define(STRING_DECODES, [true, false]).
 
+%% Which transport protocol to use.
+-define(TRANSPORTS, [tcp, sctp]).
+
 -record(group,
-        {client_service,
+        {transport,
+         client_service,
          client_encoding,
          client_dict0,
          client_strings,
@@ -234,19 +238,20 @@
 %% ===========================================================================
 
 suite() ->
-    [{timetrap, {seconds, 60}}].
+    [{timetrap, {seconds, 10}}].
 
 all() ->
     [start, result_codes, {group, traffic}, outstanding, empty, stop].
 
 groups() ->
     Ts = tc(),
+    Sctp = ?util:have_sctp(),
     [{?util:name([R,D,A,C]), [parallel], Ts} || R <- ?ENCODINGS,
                                                 D <- ?RFCS,
                                                 A <- ?ENCODINGS,
                                                 C <- ?CONTAINERS]
         ++
-        [{?util:name([R,D,A,C,SD,CD]),
+        [{?util:name([T,R,D,A,C,SD,CD]),
           [],
           [start_services,
            add_transports,
@@ -254,15 +259,19 @@ groups() ->
            {group, ?util:name([R,D,A,C])},
            remove_transports,
            stop_services]}
-         || R <- ?ENCODINGS,
+         || T <- ?TRANSPORTS,
+            T /= sctp orelse Sctp,
+            R <- ?ENCODINGS,
             D <- ?RFCS,
             A <- ?ENCODINGS,
             C <- ?CONTAINERS,
             SD <- ?STRING_DECODES,
             CD <- ?STRING_DECODES]
         ++
-        [{traffic, [parallel], [{group, ?util:name([R,D,A,C,SD,CD])}
-                                || R <- ?ENCODINGS,
+        [{traffic, [parallel], [{group, ?util:name([T,R,D,A,C,SD,CD])}
+                                || T <- ?TRANSPORTS,
+                                   T /= sctp orelse Sctp,
+                                   R <- ?ENCODINGS,
                                    D <- ?RFCS,
                                    A <- ?ENCODINGS,
                                    C <- ?CONTAINERS,
@@ -271,8 +280,9 @@ groups() ->
 
 init_per_group(Name, Config) ->
     case ?util:name(Name) of
-        [R,D,A,C,SD,CD] ->
-            G = #group{client_service = [$C|?util:unique_string()],
+        [T,R,D,A,C,SD,CD] ->
+            G = #group{transport = T,
+                       client_service = [$C|?util:unique_string()],
                        client_encoding = R,
                        client_dict0 = dict0(D),
                        client_strings = CD,
@@ -288,8 +298,18 @@ init_per_group(Name, Config) ->
 end_per_group(_, _) ->
     ok.
 
+%% Skip testcases that can reasonably fail under SCTP.
 init_per_testcase(Name, Config) ->
-    [{testcase, Name} | Config].
+    case [skip || #group{transport = sctp}
+                      <- [proplists:get_value(group, Config)],
+                  send_maxlen == Name
+                      orelse send_long == Name]
+    of
+        [skip] ->
+            {skip, sctp};
+        [] ->
+            [{testcase, Name} | Config]
+    end.
 
 end_per_testcase(_, _) ->
     ok.
@@ -367,16 +387,18 @@ start_services(Config) ->
                                      | ?SERVICE(CN, CD)]).
 
 add_transports(Config) ->
-    #group{client_service = CN,
+    #group{transport = T,
+           client_service = CN,
            server_service = SN}
         = group(Config), 
     LRef = ?util:listen(SN,
-                        tcp,
+                        T,
                         [{capabilities_cb, fun capx/2},
+                         {pool_size, 8},
                          {spawn_opt, [{min_heap_size, 8096}]},
                          {applications, apps(rfc3588)}]),
     Cs = [?util:connect(CN,
-                        tcp,
+                        T,
                         LRef,
                         [{id, Id},
                          {capabilities, [{'Origin-State-Id', origin(Id)}]},
