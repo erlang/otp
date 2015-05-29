@@ -41,5 +41,11 @@ code_change(_OldVsn, State, _Extra) ->
 start_child() ->
     gen_server:start_link({local, ?MODULE}, ?MODULE, [child], []).
 
+start_child_noreg() ->
+    gen_server:start_link(?MODULE, [child], []).
+
 restart_child() ->
     gen_server:cast(supervisor_deadlock, restart).
+
+restart_child(Pid) ->
+    gen_server:cast(Pid, restart).

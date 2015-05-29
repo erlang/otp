@@ -113,6 +113,7 @@
 		intensity              :: non_neg_integer(),
 		period                 :: pos_integer(),
 		restarts = [],
+		dynamic_restarts = 0   :: non_neg_integer(),
 	        module,
 	        args}).
 -type state() :: #state{}.
@@ -513,23 +514,17 @@ handle_call(count_children, _From, #state{children = [#child{restart_type = temp
 	    end,
     {reply, Reply, State};
 
-handle_call(count_children, _From,  #state{children = [#child{restart_type = RType,
+handle_call(count_children, _From,  #state{dynamic_restarts = Restarts,
+					   children = [#child{restart_type = RType,
 							      child_type = CT}]} = State)
   when ?is_simple(State) ->
-    {Active, Count} =
-	?DICTS:fold(fun(Pid, _Val, {Alive, Tot}) ->
-			   case is_pid(Pid) andalso is_process_alive(Pid) of
-			       true ->
-				   {Alive+1, Tot +1};
-			       false ->
-				   {Alive, Tot + 1}
-			   end
-		   end, {0, 0}, dynamics_db(RType, State#state.dynamics)),
+    Sz = ?DICTS:size(dynamics_db(RType, State#state.dynamics)),
+    Active = Sz - Restarts,
     Reply = case CT of
 		supervisor -> [{specs, 1}, {active, Active},
-			       {supervisors, Count}, {workers, 0}];
+			       {supervisors, Sz}, {workers, 0}];
 		worker -> [{specs, 1}, {active, Active},
-			   {supervisors, 0}, {workers, Count}]
+			   {supervisors, 0}, {workers, Sz}]
 	    end,
     {reply, Reply, State};
 
@@ -799,8 +794,15 @@ restart(Child, State) ->
 	    {shutdown, remove_child(Child, NState)}
     end.
 
-restart(simple_one_for_one, Child, State) ->
+restart(simple_one_for_one, Child, State0) ->
     #child{pid = OldPid, mfargs = {M, F, A}} = Child,
+    State = case OldPid of
+		?restarting(_) ->
+		    NRes = State0#state.dynamic_restarts - 1,
+		    State0#state{dynamic_restarts = NRes};
+		_ ->
+		    State0
+	    end,
     Dynamics = ?DICTS:erase(OldPid, dynamics_db(Child#child.restart_type,
 					       State#state.dynamics)),
     case do_start_child_i(M, F, A) of
@@ -811,7 +813,9 @@ restart(simple_one_for_one, Child, State) ->
 	    NState = State#state{dynamics = ?DICTS:store(Pid, A, Dynamics)},
 	    {ok, NState};
 	{error, Error} ->
-	    NState = State#state{dynamics = ?DICTS:store(restarting(OldPid), A,
+	    NRestarts = State#state.dynamic_restarts + 1,
+	    NState = State#state{dynamic_restarts = NRestarts,
+				 dynamics = ?DICTS:store(restarting(OldPid), A,
 							Dynamics)},
 	    report_error(start_error, Error, Child, State#state.name),
 	    {try_again, NState}
