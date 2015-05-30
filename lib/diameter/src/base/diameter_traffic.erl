@@ -131,11 +131,11 @@ peer_down(TPid) ->
 %% incr/4
 %% ---------------------------------------------------------------------------
 
-incr(Dir, #diameter_packet{header = H}, TPid, Dict) ->
-    incr(Dir, H, TPid, Dict);
+incr(Dir, #diameter_packet{header = H}, TPid, AppDict) ->
+    incr(Dir, H, TPid, AppDict);
 
-incr(Dir, #diameter_header{} = H, TPid, Dict) ->
-    incr(TPid, {msg_id(H, Dict), Dir}).
+incr(Dir, #diameter_header{} = H, TPid, AppDict) ->
+    incr(TPid, {msg_id(H, AppDict), Dir}).
 
 %% ---------------------------------------------------------------------------
 %% incr_error/4
@@ -143,26 +143,26 @@ incr(Dir, #diameter_header{} = H, TPid, Dict) ->
 
 %% Identify messages using the application dictionary, not the encode
 %% dictionary, which may differ in the case of answer-message.
-incr_error(Dir, T, Pid, {_Dict, AppDict}) ->
+incr_error(Dir, T, Pid, {_MsgDict, AppDict}) ->
     incr_error(Dir, T, Pid, AppDict);
 
 %% Decoded message without errors.
 incr_error(recv, #diameter_packet{errors = []}, _, _) ->
     ok;
 
-incr_error(recv = D, #diameter_packet{header = H}, TPid, Dict) ->
-    incr_error(D, H, TPid, Dict);
+incr_error(recv = D, #diameter_packet{header = H}, TPid, AppDict) ->
+    incr_error(D, H, TPid, AppDict);
 
 %% Encoded message with errors and an identifiable header ...
-incr_error(send = D, {_, _, #diameter_header{} = H}, TPid, Dict) ->
-    incr_error(D, H, TPid, Dict);
+incr_error(send = D, {_, _, #diameter_header{} = H}, TPid, AppDict) ->
+    incr_error(D, H, TPid, AppDict);
 
 %% ... or not.
 incr_error(send = D, {_,_}, TPid, _) ->
     incr_error(D, unknown, TPid);
 
-incr_error(Dir, #diameter_header{} = H, TPid, Dict) ->
-    incr_error(Dir, msg_id(H, Dict), TPid);
+incr_error(Dir, #diameter_header{} = H, TPid, AppDict) ->
+    incr_error(Dir, msg_id(H, AppDict), TPid);
 
 incr_error(Dir, Id, TPid, _) ->
     incr_error(Dir, Id, TPid).
@@ -179,18 +179,20 @@ incr_error(Dir, Id, TPid) ->
     | Reason
  when Pkt :: #diameter_packet{},
       TPid :: pid(),
-      DictT :: module() | {module(), module(), module()},
+      DictT :: module() | {MsgDict :: module(),
+                           AppDict :: module(),
+                           CommonDict:: module()},
       Counter :: {'Result-Code', integer()}
                | {'Experimental-Result', integer(), integer()},
       Reason :: atom().
 
-incr_rc(Dir, Pkt, TPid, {Dict, _, _} = DictT) ->
+incr_rc(Dir, Pkt, TPid, {_, AppDict, _} = DictT) ->
     try
         incr_result(Dir, Pkt, TPid, DictT)
     catch
         exit: {E,_} when E == no_result_code;
                          E == invalid_error_bit ->
-            incr(TPid, {msg_id(Pkt#diameter_packet.header, Dict), Dir, E}),
+            incr(TPid, {msg_id(Pkt#diameter_packet.header, AppDict), Dir, E}),
             E
     end;
 
@@ -259,7 +261,8 @@ recv(false, #request{ref = Ref, handler = Pid} = Req, _, Pkt, Dict0, _) ->
 %% any others are discarded.
 
 %% ... or not.
-recv(false, false, _, _, _, _) ->
+recv(false, false, TPid, _, _, _) ->
+    incr(TPid, {{unknown, 0}, recv, discarded}),
     ok.
 
 %% spawn_request/4
@@ -307,14 +310,14 @@ recv_request(TPid, Pkt, Dict0, RecvData) -> %% from old code
 
 %% recv_R/5
 
-recv_R({#diameter_app{id = Id, dictionary = Dict} = App, Caps},
+recv_R({#diameter_app{id = Id, dictionary = AppDict} = App, Caps},
        TPid,
        Pkt0,
        Dict0,
        RecvData) ->
-    incr(recv, Pkt0, TPid, Dict),
-    Pkt = errors(Id, diameter_codec:decode(Id, Dict, Pkt0)),
-    incr_error(recv, Pkt, TPid, Dict),
+    incr(recv, Pkt0, TPid, AppDict),
+    Pkt = errors(Id, diameter_codec:decode(Id, AppDict, Pkt0)),
+    incr_error(recv, Pkt, TPid, AppDict),
     {Caps, Pkt, App, recv_R(App, TPid, Dict0, Caps, RecvData, Pkt)};
 %% Note that the decode is different depending on whether or not Id is
 %% ?APP_ID_RELAY.
@@ -522,14 +525,17 @@ send_A(_, _, _, _) ->
 
 %% send_A/6
 
-send_A(T, TPid, DictT, ReqPkt, EvalPktFs, EvalFs) ->
-    reply(T, TPid, DictT, EvalPktFs, ReqPkt),
+send_A(T, TPid, {AppDict, Dict0} = DictT0, ReqPkt, EvalPktFs, EvalFs) ->
+    {MsgDict, Pkt} = reply(T, TPid, DictT0, EvalPktFs, ReqPkt),
+    incr(send, Pkt, TPid, AppDict),
+    incr_rc(send, Pkt, TPid, {MsgDict, AppDict, Dict0}),  %% count outgoing
+    send(TPid, Pkt),
     lists:foreach(fun diameter_lib:eval/1, EvalFs).
 
 %% answer/6
 
 answer({reply, Ans}, _Caps, _Pkt, App, Dict0, _RecvData) ->
-    {dict(App#diameter_app.dictionary, Dict0, Ans), Ans};
+    {msg_dict(App#diameter_app.dictionary, Dict0, Ans), Ans};
 
 answer({call, Opts}, Caps, Pkt, App, Dict0, RecvData) ->
     #diameter_caps{origin_host = {OH,_}}
@@ -552,27 +558,37 @@ answer({answer_message, RC} = T, Caps, Pkt, App, Dict0, _RecvData)  ->
         orelse ?ERROR({invalid_return, T, handle_request, App}),
     answer_message(RC, Caps, Dict0, Pkt).
 
-%% dict/3
+%% msg_dict/3
+%%
+%% Return the dictionary defining the message grammar in question: the
+%% application dictionary or the common dictionary.
 
-%% An incoming answer, not yet decoded.
-dict(Dict, Dict0, #diameter_packet{header
-                                   = #diameter_header{is_request = false,
-                                                      is_error = E},
-                                   msg = undefined}) ->
-    if E -> Dict0; true -> Dict end;
+msg_dict(AppDict, Dict0, [Msg])
+  when is_list(Msg);
+       is_tuple(Msg) ->
+    msg_dict(AppDict, Dict0, Msg);
 
-dict(Dict, Dict0, [Msg]) ->
-    dict(Dict, Dict0, Msg);
+msg_dict(AppDict, Dict0, Msg) ->
+    choose(is_answer_message(Msg, Dict0), Dict0, AppDict).
 
-dict(Dict, Dict0, #diameter_packet{msg = Msg}) ->
-    dict(Dict, Dict0, Msg);
+%% Incoming, not yet decoded.
+is_answer_message(#diameter_packet{header = #diameter_header{} = H,
+                                   msg = undefined},
+                  Dict0) ->
+    is_answer_message([H], Dict0);
 
-dict(Dict, Dict0, Msg) ->
-    choose(is_answer_message(Msg, Dict0), Dict0, Dict).
+is_answer_message(#diameter_packet{msg = Msg}, Dict0) ->
+    is_answer_message(Msg, Dict0);
 
+%% Message sent as a header/avps list.
+is_answer_message([#diameter_header{is_request = R, is_error = E} | _], _) ->
+    E andalso not R;
+
+%% Message sent as a tagged avp/value list.
 is_answer_message([Name | _], _) ->
     Name == 'answer-message';
 
+%% Message sent as a record.
 is_answer_message(Rec, Dict) ->
     try
         'answer-message' == Dict:rec2msg(element(1,Rec))
@@ -642,7 +658,7 @@ resend(false,
 %%
 %% Relay a reply to a relayed request.
 
-%% Answer from the peer: reset the hop by hop identifier and send.
+%% Answer from the peer: reset the hop by hop identifier.
 resend(#diameter_packet{bin = B}
        = Pkt,
        _Caps,
@@ -681,13 +697,13 @@ is_loop(Code, Vid, OH, Dict0, Avps) ->
 %% reply/5
 
 %% Local answer ...
-reply({Dict, Ans}, TPid, {AppDict, Dict0}, Fs, ReqPkt) ->
-    local(Ans, TPid, {Dict, AppDict, Dict0}, Fs, ReqPkt);
+reply({MsgDict, Ans}, TPid, {AppDict, Dict0}, Fs, ReqPkt) ->
+    local(Ans, TPid, {MsgDict, AppDict, Dict0}, Fs, ReqPkt);
 
 %% ... or relayed.
-reply(#diameter_packet{} = Pkt, TPid, _Dict0, Fs, _ReqPkt) ->
+reply(#diameter_packet{} = Pkt, _TPid, {AppDict, Dict0}, Fs, _ReqPkt) ->
     eval_packet(Pkt, Fs),
-    send(TPid, Pkt).
+    {msg_dict(AppDict, Dict0, Pkt), Pkt}.
 
 %% local/5
 %%
@@ -700,14 +716,12 @@ local([Msg], TPid, DictT, Fs, ReqPkt)
        is_tuple(Msg) ->
     local(Msg, TPid, DictT, Fs, ReqPkt#diameter_packet{errors = []});
 
-local(Msg, TPid, {Dict, AppDict, Dict0} = DictT, Fs, ReqPkt) ->
-    Pkt = encode({Dict, AppDict},
+local(Msg, TPid, {MsgDict, AppDict, Dict0}, Fs, ReqPkt) ->
+    Pkt = encode({MsgDict, AppDict},
                  TPid,
-                 reset(make_answer_packet(Msg, ReqPkt), Dict, Dict0),
+                 reset(make_answer_packet(Msg, ReqPkt), MsgDict, Dict0),
                  Fs),
-    incr(send, Pkt, TPid, AppDict),
-    incr_rc(send, Pkt, TPid, DictT),  %% count outgoing
-    send(TPid, Pkt).
+    {MsgDict, Pkt}.
 
 %% reset/3
 
@@ -1067,53 +1081,74 @@ find_avp(Code, VId, [_ | Avps]) ->
 %% Increment a stats counter for result codes in incoming and outgoing
 %% answers.
 
+%% Message sent as a header/avps list.
+incr_result(send = Dir,
+            #diameter_packet{msg = [#diameter_header{} = H | _]}
+            = Pkt,
+            TPid,
+            DictT) ->
+    incr_res(Dir, Pkt#diameter_packet{header = H}, TPid, DictT);
+
 %% Outgoing message as binary: don't count. (Sending binaries is only
 %% partially supported.)
-incr_result(_, #diameter_packet{msg = undefined = No}, _, _) ->
+incr_result(send, #diameter_packet{header = undefined = No}, _, _) ->
     No;
 
 %% Incoming or outgoing. Outgoing with encode errors never gets here
 %% since encode fails.
-incr_result(Dir, Pkt, TPid, {Dict, AppDict, Dict0}) ->
-    #diameter_packet{header = #diameter_header{is_error = E}
-                            = Hdr,
-                     errors = Es}
-        = Pkt,
+incr_result(Dir, Pkt, TPid, DictT) ->
+    incr_res(Dir, Pkt, TPid, DictT).
+
+incr_res(Dir,
+         #diameter_packet{header = #diameter_header{is_error = E}
+                          = Hdr,
+                          errors = Es}
+         = Pkt,
+         TPid,
+         DictT) ->
+    {MsgDict, AppDict, Dict0} = DictT,
 
     Id = msg_id(Hdr, AppDict),
+    %% Could be {relay, 0}, in which case the R-bit is redundant since
+    %% only answers are being counted. Let it be however, so that the
+    %% same tuple is in both send/recv and result code counters.
 
     %% Count incoming decode errors.
     recv /= Dir orelse [] == Es orelse incr_error(Dir, Id, TPid, AppDict),
 
     %% Exit on a missing result code.
-    T = rc_counter(Dict, Dir, Pkt),
-    T == false andalso ?LOGX(no_result_code, {Dict, Dir, Hdr}),
+    T = rc_counter(MsgDict, Dir, Pkt),
+    T == false andalso ?LOGX(no_result_code, {MsgDict, Dir, Hdr}),
     {Ctr, RC, Avp} = T,
 
     %% Or on an inappropriate value.
     is_result(RC, E, Dict0)
-        orelse ?LOGX(invalid_error_bit, {Dict, Dir, Hdr, Avp}),
+        orelse ?LOGX(invalid_error_bit, {MsgDict, Dir, Hdr, Avp}),
 
     incr(TPid, {Id, Dir, Ctr}),
     Ctr.
 
 %% msg_id/2
 
-msg_id(#diameter_packet{header = H}, Dict) ->
-    msg_id(H, Dict);
+msg_id(#diameter_packet{header = H}, AppDict) ->
+    msg_id(H, AppDict);
 
 %% Only count on known keys so as not to be vulnerable to attack:
 %% there are 2^32 (application ids) * 2^24 (command codes) = 2^56
 %% pairs for an attacker to choose from.
-msg_id(Hdr, Dict) ->
+msg_id(Hdr, AppDict) ->
     {Aid, Code, R} = Id = diameter_codec:msg_id(Hdr),
-    if Aid == ?APP_ID_RELAY ->
+    case AppDict:id() of
+        ?APP_ID_RELAY ->
             {relay, R};
-       true ->
-            choose(Aid /= Dict:id() orelse '' == Dict:msg_name(Code, 0 == R),
-                   unknown,
-                   Id)
+        A ->
+            unknown(A /= Aid orelse '' == AppDict:msg_name(Code, 0 == R), Id)
     end.
+
+unknown(true, {_, _, R}) ->
+    {unknown, R};
+unknown(false, Id) ->
+    Id.
 
 %% No E-bit: can't be 3xxx.
 is_result(RC, false, _Dict0) ->
@@ -1142,7 +1177,11 @@ incr(TPid, Counter) ->
 %%   applications MUST include either one Result-Code AVP or one
 %%   Experimental-Result AVP.
 
-rc_counter(Dict, recv, #diameter_packet{header = H, avps = As}) ->
+rc_counter(Dict, Dir, #diameter_packet{header = H,
+                                       avps = As,
+                                       msg = Msg})
+  when Dir == recv;         %% decoded incoming
+       Msg == undefined ->  %% relayed outgoing
     rc_counter(Dict, [H|As]);
 
 rc_counter(Dict, _, #diameter_packet{msg = Msg}) ->
@@ -1434,12 +1473,12 @@ fold_record(Rec, R) ->
 %% send_R/6
 
 send_R(Pkt0,
-       {TPid, Caps, #diameter_app{dictionary = Dict} = App},
+       {TPid, Caps, #diameter_app{dictionary = AppDict} = App},
        Opts,
        {Pid, Ref},
        SvcName,
        Fs) ->
-    Pkt = encode(Dict, TPid, Pkt0, Fs),
+    Pkt = encode(AppDict, TPid, Pkt0, Fs),
 
     #options{timeout = Timeout}
         = Opts,
@@ -1452,7 +1491,7 @@ send_R(Pkt0,
                    packet = Pkt0},
 
     try
-        incr(send, Pkt, TPid, Dict),
+        incr(send, Pkt, TPid, AppDict),
         TRef = send_request(TPid, Pkt, Req, SvcName, Timeout),
         Pid ! Ref,  %% tell caller a send has been attempted
         handle_answer(SvcName,
@@ -1492,10 +1531,10 @@ handle_answer(SvcName,
                             id = Id}
               = App,
               {answer, Req, Dict0, Pkt}) ->
-    Dict = dict(AppDict, Dict0, Pkt),
-    handle_A(errors(Id, diameter_codec:decode({Dict, AppDict}, Pkt)),
+    MsgDict = msg_dict(AppDict, Dict0, Pkt),
+    handle_A(errors(Id, diameter_codec:decode({MsgDict, AppDict}, Pkt)),
              SvcName,
-             Dict,
+             MsgDict,
              Dict0,
              App,
              Req).
@@ -1765,19 +1804,19 @@ retransmit(T, {_, _, App}, _, _, _, _) ->
     ?ERROR({invalid_return, T, prepare_retransmit, App}).
 
 resend_request(Pkt0,
-               {TPid, Caps, #diameter_app{dictionary = Dict}},
+               {TPid, Caps, #diameter_app{dictionary = AppDict}},
                Req0,
                SvcName,
                Tmo,
                Fs) ->
-    Pkt = encode(Dict, TPid, Pkt0, Fs),
+    Pkt = encode(AppDict, TPid, Pkt0, Fs),
 
     Req = Req0#request{transport = TPid,
                        packet = Pkt0,
                        caps = Caps},
 
     ?LOG(retransmission, Pkt#diameter_packet.header),
-    incr(TPid, {msg_id(Pkt, Dict), send, retransmission}),
+    incr(TPid, {msg_id(Pkt, AppDict), send, retransmission}),
     TRef = send_request(TPid, Pkt, Req, SvcName, Tmo),
     {TRef, Req}.
 
@@ -1887,7 +1926,7 @@ get_avp(Dict, Name, [#diameter_header{} | Avps]) ->
         find_avp(Code, VId, Avps)
     of
         A ->
-            avp_decode(Dict, Name, ungroup(A))
+            (avp_decode(Dict, Name, ungroup(A)))#diameter_avp{name = Name}
     catch
         error: _ ->
             undefined

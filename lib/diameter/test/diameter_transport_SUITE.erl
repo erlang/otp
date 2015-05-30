@@ -64,7 +64,7 @@
                                       = #diameter_caps{host_ip_address
                                                        = Addrs}}).
 
-%% The term we register after open a listening port with gen_tcp.
+%% The term we register after open a listening port with gen_{tcp,sctp}.
 -define(TEST_LISTENER(Ref, PortNr),
         {?MODULE, listen, Ref, PortNr}).
 
@@ -85,7 +85,7 @@
 %% ===========================================================================
 
 suite() ->
-    [{timetrap, {minutes, 2}}].
+    [{timetrap, {seconds, 15}}].
 
 all() ->
     [start,
@@ -401,12 +401,13 @@ gen_listen(tcp) ->
 %% gen_accept/2
 
 gen_accept(sctp, Sock) ->
-    Assoc = ?RECV(?SCTP(Sock, {_, #sctp_assoc_change{state = comm_up,
-                                                     outbound_streams = O,
-                                                     inbound_streams = I,
-                                                     assoc_id = A}}),
-                  {O, I, A}),
-    putr(assoc, Assoc),
+    #sctp_assoc_change{state = comm_up,
+                       outbound_streams = OS,
+                       inbound_streams = IS,
+                       assoc_id = Id}
+        = ?RECV(?SCTP(Sock, {_, #sctp_assoc_change{} = S}), S),
+
+    putr(assoc, {OS, IS, Id}),
     {ok, Sock};
 gen_accept(tcp, LSock) ->
     gen_tcp:accept(LSock).

@@ -42,6 +42,36 @@ first.</p>
 
 <!-- ===================================================================== -->
 
+<section><title>diameter 1.9.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix broken relay counters.</p>
+          <p>
+	    OTP-12654 in OTP 17.5.3 broke counters in the case of
+	    answer messages received in the relay application.
+	    Counters were accumulated as unknown messages or
+	    no_result_code instead of as relayed messages on the
+	    intended Result-Code and 'Experimental-Result' tuples.</p>
+          <p>
+	    Own Id: OTP-12741</p>
+        </item>
+        <item>
+          <p>
+	    Fix diameter_sctp listener race.</p>
+          <p>
+	    An oversight in OTP-12428 made it possible to start a
+	    transport process that could not establish associations.</p>
+          <p>
+	    Own Id: OTP-12744</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>diameter 1.9.1</title>
 
     <section><title>Known Bugs and Problems</title>
@@ -65,7 +95,7 @@ first.</p>
 	    received in an answer not setting the E-bit. The correct
 	    AVP is now extracted from the incoming message.</p>
           <p>
-	    Own Id: OTP-12654 Aux Id: seq12851 </p>
+	    Own Id: OTP-12654</p>
         </item>
         <item>
           <p>

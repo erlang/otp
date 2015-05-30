@@ -673,8 +673,7 @@ jitter(T,D) ->
 
 %% Generate a unique hostname for the faked peer.
 hostname() ->
-    {M,S,U} = diameter_util:timestamp(),
-    lists:flatten(io_lib:format("~p-~p-~p", [M,S,U])).
+    ?util:unique_string().
 
 putr(Key, Val) ->
     put({?MODULE, Key}, Val).
