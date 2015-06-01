@@ -137,6 +137,7 @@
 %% Options
 -define(FILE_OPT_DELAYED_WRITE, 0).
 -define(FILE_OPT_READ_AHEAD,    1).
+-define(FILE_OPT_DELIMITER,     2).
 
 %% IPREAD variants
 -define(IPREAD_S32BU_P32BU, 0).
@@ -1238,6 +1239,10 @@ open_mode([{read_ahead, Size}|Rest], Mode, Portopts, Setopts)
 	true ->
 	    einval
     end;
+open_mode([{line_delim, Char}|Rest], Mode, Portopts, Setopts)
+  when is_integer(Char), 0 =< Char, Char =< 255 ->
+    open_mode(Rest, Mode, Portopts,
+          [<<?FILE_SETOPT, ?FILE_OPT_DELIMITER, Char>> | Setopts]);
 open_mode([], Mode, Portopts, Setopts) ->
     {Mode, reverse(Portopts), reverse(Setopts)};
 open_mode(_, _Mode, _Portopts, _Setopts) ->
