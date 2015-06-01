@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2015. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -176,7 +176,7 @@ send_header(#mod{socket_type  = Type,
     StatusLine = [NewVer, " ", io_lib:write(NewStatusCode), " ",
 		  httpd_util:reason_phrase(NewStatusCode), ?CRLF],
     ConnectionHeader = get_connection(Conn, NewVer),
-    Head = list_to_binary([StatusLine, Headers, ConnectionHeader , ?CRLF]),
+    Head = [StatusLine, Headers, ConnectionHeader , ?CRLF],
     httpd_socket:deliver(Type, Sock, Head).
 
 map_status_code("HTTP/1.0", Code) 
@@ -286,44 +286,20 @@ create_header(ConfigDb, KeyValueTupleHeaders) ->
     Date        = httpd_util:rfc1123_date(), 
     ContentType = "text/html", 
     Server      = server(ConfigDb),
-    NewHeaders  = add_default_headers([{"date",         Date},
-				       {"content-type", ContentType}
-				       | if Server=="" -> [];
-					    true -> [{"server",       Server}]
-					 end
-				      ], 
-				       KeyValueTupleHeaders),
-    lists:map(fun fix_header/1, NewHeaders).
-
-
+    Headers0  = add_default_headers([{"date",         Date},
+				     {"content-type", ContentType}
+				     | if Server=="" -> [];
+					  true -> [{"server",       Server}]
+				       end
+				    ], 
+				    KeyValueTupleHeaders),
+    CustomizeCB = httpd_util:lookup(ConfigDb, customize, httpd_custom),
+    lists:filtermap(fun(H) ->
+			    httpd_custom:customize_headers(CustomizeCB, response_header, H)
+		    end,
+		    [Header || Header <- Headers0]).
 server(ConfigDb) ->
     httpd_util:lookup(ConfigDb, server, ?SERVER_SOFTWARE).
-
-fix_header({Key0, Value}) ->
-    %% make sure first letter is capital
-    Words1 = string:tokens(Key0, "-"),
-    Words2 = upify(Words1, []),
-    Key    = new_key(Words2),
-    Key ++ ": " ++ Value ++ ?CRLF .
-
-new_key([]) ->
-    "";
-new_key([W]) ->
-    W;
-new_key([W1,W2]) ->
-    W1 ++ "-" ++ W2;
-new_key([W|R]) ->
-    W ++ "-" ++ new_key(R).
-    
-upify([], Acc) ->
-    lists:reverse(Acc);
-upify([Key|Rest], Acc) ->
-    upify(Rest, [upify2(Key)|Acc]).
-
-upify2([C|Rest]) when (C >= $a) andalso (C =< $z) ->
-    [C-($a-$A)|Rest];
-upify2(Str) ->
-    Str.
 
 add_default_headers([], Headers) ->
     Headers;

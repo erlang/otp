@@ -4,7 +4,7 @@
 <application xmlns:xi="http://www.w3.org/2001/XInclude">
   <header>
     <copyright>
-      <year>1997</year><year>2013</year>
+      <year>1997</year><year>2015</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -39,6 +39,7 @@
   <xi:include href="httpc.xml"/>
   <xi:include href="httpd.xml"/>
   <xi:include href="httpd_conf.xml"/>
+  <xi:include href="httpd_custom_api.xml"/>
   <xi:include href="httpd_socket.xml"/>
   <xi:include href="httpd_util.xml"/>
   <xi:include href="mod_alias.xml"/>
