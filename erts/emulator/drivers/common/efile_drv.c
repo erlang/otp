@@ -78,6 +78,7 @@
 
 #define FILE_OPT_DELAYED_WRITE 0
 #define FILE_OPT_READ_AHEAD    1
+#define FILE_OPT_DELIMITER     2
 
 /* IPREAD variants */
 
@@ -324,6 +325,7 @@ typedef struct {
     ErlDrvPDL       q_mtx;    /* Mutex for the driver queue, known by the emulator. Also used for
 				 mutual exclusion when accessing field(s) below. */
     size_t          write_buffered;
+    char            delimiter;  /* read_line delimiter (def: '\n') */
 #ifdef USE_VM_PROBES
     int             idnum;      /* Unique ID # for this driver thread/desc */
     char            port_str[DTRACE_TERM_BUF_SIZE];
@@ -470,6 +472,7 @@ struct t_data
 	    size_t        read_size; /* in - out */
 	    size_t        nl_pos; /* out */
 	    short         nl_skip; /* out, 0 or 1 */
+	    char          delimiter;
 #if !ALWAYS_READ_LINE_AHEAD
 	    short         read_ahead; /* in, bool */
 #endif
@@ -805,6 +808,7 @@ file_start(ErlDrvPort port, char* command)
     desc->write_error = 0;
     MUTEX_INIT(desc->q_mtx, port); /* Refc is one, referenced by emulator now */
     desc->write_buffered = 0;
+    desc->delimiter = '\n';        /* default line delimiter is '\n' */
 #ifdef  USE_VM_PROBES
     dtrace_drvport_str(port, desc->port_str);
     get_dt_private(0);           /* throw away return value */
@@ -1223,15 +1227,17 @@ static void invoke_read_line(void *data)
 				&read_size);
 	}
 	if ( (d->result_ok = status)) {
+	    char delim   = d->c.read_line.delimiter;
 	    void *nl_ptr = memchr((d->c.read_line.binp)->orig_bytes + 
-				  d->c.read_line.read_offset + d->c.read_line.read_size,'\n',read_size);
+				  d->c.read_line.read_offset + d->c.read_line.read_size,
+                                  delim,read_size);
 	    ASSERT(read_size <= size);
 	    d->c.read_line.read_size += read_size;
 	    if (nl_ptr != NULL) {
 		/* If found, we're done */
 		d->c.read_line.nl_pos = ((char *) nl_ptr) - 
 		    ((char *) ((d->c.read_line.binp)->orig_bytes)) + 1;
-		if (d->c.read_line.nl_pos > 1 &&
+		if (delim == '\n' && d->c.read_line.nl_pos > 1 &&
 		    *(((char *) nl_ptr) - 1) == '\r') {
 		    --d->c.read_line.nl_pos;
 		    *(((char *) nl_ptr) - 1) = '\n';
@@ -3430,13 +3436,15 @@ file_outputv(ErlDrvData e, ErlIOVec *ev) {
 	}
 	if (desc->read_size > 0) {
 	    /* look for '\n' in what we'we already got */
-	    void *nl_ptr = memchr(desc->read_binp->orig_bytes + desc->read_offset,'\n',desc->read_size);
+	    char delim   = desc->delimiter;
+	    void *nl_ptr = memchr(desc->read_binp->orig_bytes + desc->read_offset,delim,desc->read_size);
 	    if (nl_ptr != NULL) {
 		/* If found, we're done */
 		int skip = 0;
 		size_t size = ((char *) nl_ptr) - 
 		    ((char *) (desc->read_binp->orig_bytes + desc->read_offset)) + 1;
 		if (size > 1 &&
+		    delim == '\n' &&
 		    *(((char *) nl_ptr) - 1) == '\r') {
 		    *(((char *) nl_ptr) - 1) = '\n';		    
 		    skip = 1;
@@ -3474,6 +3482,7 @@ file_outputv(ErlDrvData e, ErlIOVec *ev) {
 	d->c.read_line.binp = desc->read_binp;
 	d->c.read_line.read_offset = desc->read_offset;
 	d->c.read_line.read_size = desc->read_size;
+	d->c.read_line.delimiter = desc->delimiter;
 #ifdef USE_VM_PROBES
 	dt_i1 = d->fd;
 	dt_i2 = d->flags;
@@ -4094,6 +4103,16 @@ file_outputv(ErlDrvData e, ErlIOVec *ev) {
 	    dt_i2 = desc->read_bufsize;
 #endif
 	    TRACE_C('K');
+	    reply_ok(desc);
+	} goto done;
+	case FILE_OPT_DELIMITER: {
+	    char delim;
+	    if (ev->size != 1+1+1
+	        || !EV_GET_CHAR(ev, &delim, &p, &q)) {
+		reply_posix_error(desc, EINVAL);
+		goto done;
+	    }
+	    desc->delimiter = delim;
 	    reply_ok(desc);
 	} goto done;
 	default:

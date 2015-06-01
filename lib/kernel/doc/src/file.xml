@@ -767,6 +767,12 @@
               less than, or even greater than <c>Size</c> bytes, no
               performance gain can be expected.</p>
           </item>
+          <tag><c>{line_delimiter, Delimiter}</c></tag>
+          <item>
+            <p>When file is opened in the <c>raw</c> mode, <c>Delimiter</c> tells
+              <c>read_line/1</c> to use the <c>Delimiter</c> character for line
+              delimitation.  Default value for <c>Delimiter</c> is <c>$\n</c></p>
+          </item>
           <tag><c>read_ahead</c></tag>
           <item>
             <p>The same as <c>{read_ahead, Size}</c> with a reasonable

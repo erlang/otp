@@ -84,7 +84,7 @@
 
 -export([large_file/1, large_write/1]).
 
--export([read_line_1/1, read_line_2/1, read_line_3/1,read_line_4/1]).
+-export([read_line_1/1, read_line_2/1, read_line_3/1,read_line_4/1,read_line_5/1]).
 
 -export([advise/1]).
 
@@ -4239,6 +4239,35 @@ read_line_4(Config) when is_list(Config) ->
 	    end || {_,File,_,Y} <- All , Y =:= fail],
     ?line read_line_remove_files(All),
     ok.
+read_line_5(suite) ->
+    [];
+read_line_5(doc) ->
+    ["read_line with custom line delimiter"];
+read_line_5(Config) when is_list(Config) ->
+    PrivDir = ?config(priv_dir, Config),
+    File    = filename:join(PrivDir, "read_line_test_delim.txt"),
+    file:delete(File),
+    ok      = file:write_file(File, <<"abc",0,"efg",0,"kkk">>),
+    {ok,F1} = file:open(File, [binary,raw,{line_delimiter, 0}]),
+    {ok,<<"abc",0>>} = file:read_line(F1),
+    {ok,<<"efg",0>>} = file:read_line(F1),
+    {ok,<<"kkk">>}   = file:read_line(F1),
+    eof              = file:read_line(F1),
+    ok      = file:close(F1),
+    ok      = file:write_file(File, <<"abcXefgXkkk">>),
+    {ok,F2} = file:open(File, [binary,raw,{line_delimiter, $X}]),
+    {ok,<<"abcX">>}  = file:read_line(F2),
+    {ok,<<"efgX">>}  = file:read_line(F2),
+    {ok,<<"kkk">>}   = file:read_line(F2),
+    eof              = file:read_line(F2),
+    ok      = file:close(F2),
+    ok      = file:write_file(File, <<"abc\nefg\nkkk">>),
+    {ok,F3} = file:open(File, [binary,raw]),
+    {ok,<<"abc\n">>} = file:read_line(F3),
+    {ok,<<"efg\n">>} = file:read_line(F3),
+    {ok,<<"kkk">>}   = file:read_line(F3),
+    eof              = file:read_line(F3),
+    ok      = file:close(F3).
 
 rl_lines() ->
     [ <<"hej">>,<<"hopp">>,<<"i">>,<<"lingon\rskogen">>].
