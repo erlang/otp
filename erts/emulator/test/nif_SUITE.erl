@@ -39,8 +39,9 @@
 	 get_length/1, make_atom/1, make_string/1, reverse_list_test/1,
 	 otp_9828/1,
 	 otp_9668/1, consume_timeslice/1, dirty_nif/1, dirty_nif_send/1,
-	 dirty_nif_exception/1, nif_schedule/1,
-	 nif_exception/1, nif_nan_and_inf/1, nif_atom_too_long/1
+	 dirty_nif_exception/1, call_dirty_nif_exception/1, nif_schedule/1,
+	 nif_exception/1, call_nif_exception/1,
+	 nif_nan_and_inf/1, nif_atom_too_long/1
 	]).
 
 -export([many_args_100/100]).
@@ -1387,7 +1388,7 @@ is_checks(Config) when is_list(Config) ->
 			self(), hd(erlang:ports()), [], [1,9,9,8],
 			{hejsan, "hejsan", [$h,"ejs",<<"an">>]}, -18446744073709551616.2e2),
     try
-        ?line error = check_is_exception(),
+        ?line check_is_exception(),
         ?line throw(expected_badarg)
     catch
         error:badarg ->
@@ -1599,9 +1600,9 @@ dirty_nif_exception(Config) when is_list(Config) ->
 	N when is_integer(N) ->
 	    ensure_lib_loaded(Config),
 	    try
-		%% this checks that the expected exception
-		%% occurs when the NIF returns the result
-		%% of enif_make_badarg directly
+		%% this checks that the expected exception occurs when the
+		%% dirty NIF returns the result of enif_make_badarg
+		%% directly
 	        call_dirty_nif_exception(1),
 	        ?t:fail(expected_badarg)
 	    catch
@@ -1611,10 +1612,9 @@ dirty_nif_exception(Config) when is_list(Config) ->
 		    ok
 	    end,
 	    try
-		%% this checks that the expected exception
-		%% occurs when the NIF calls enif_make_badarg
-		%% at some point but then returns a value that
-		%% isn't an exception
+		%% this checks that the expected exception occurs when the
+		%% dirty NIF calls enif_make_badarg at some point but then
+		%% returns a value that isn't an exception
 	        call_dirty_nif_exception(0),
 	        ?t:fail(expected_badarg)
 	    catch
@@ -1622,7 +1622,10 @@ dirty_nif_exception(Config) when is_list(Config) ->
 		    [{?MODULE,call_dirty_nif_exception,[0],_}|_] =
 			erlang:get_stacktrace(),
 		    ok
-	    end
+	    end,
+	    %% this checks that a dirty NIF can raise various terms as
+	    %% exceptions
+	    ok = nif_raise_exceptions(call_dirty_nif_exception)
     catch
 	error:badarg ->
 	    {skipped,"No dirty scheduler support"}
@@ -1631,12 +1634,18 @@ dirty_nif_exception(Config) when is_list(Config) ->
 nif_exception(Config) when is_list(Config) ->
     ensure_lib_loaded(Config),
     try
-	call_nif_exception(),
+	%% this checks that the expected exception occurs when the NIF
+	%% calls enif_make_badarg at some point but then tries to return a
+	%% value that isn't an exception
+	call_nif_exception(0),
 	?t:fail(expected_badarg)
     catch
 	error:badarg ->
 	    ok
-    end.
+    end,
+    %% this checks that a NIF can raise various terms as exceptions
+    ok = nif_raise_exceptions(call_nif_exception),
+    ok.
 
 nif_nan_and_inf(Config) when is_list(Config) ->
     ensure_lib_loaded(Config),
@@ -1758,7 +1767,20 @@ check(Exp,Got,Line) ->
   	    io:format("CHECK at ~p: Expected ~p but got ~p\n",[Line,Exp,Got]),
  	    Got
     end.
-	    
+
+nif_raise_exceptions(NifFunc) ->
+    ExcTerms = [{error, test}, "a string", <<"a binary">>,
+		42, [1,2,3,4,5], [{p,1},{p,2},{p,3}]],
+    lists:foldl(fun(Term, ok) ->
+			try
+			    erlang:apply(?MODULE,NifFunc,[Term]),
+			    ?t:fail({expected,Term})
+			catch
+			    error:Term ->
+				[{?MODULE,NifFunc,[Term],_}|_] = erlang:get_stacktrace(),
+				ok
+			end
+		end, ok, ExcTerms).
 
 %% The NIFs:
 lib_version() -> undefined.
@@ -1814,7 +1836,7 @@ call_dirty_nif(_,_,_) -> ?nif_stub.
 send_from_dirty_nif(_) -> ?nif_stub.
 call_dirty_nif_exception(_) -> ?nif_stub.
 call_dirty_nif_zero_args() -> ?nif_stub.
-call_nif_exception() -> ?nif_stub.
+call_nif_exception(_) -> ?nif_stub.
 call_nif_nan_or_inf(_) -> ?nif_stub.
 call_nif_atom_too_long(_) -> ?nif_stub.
 
