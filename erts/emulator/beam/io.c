@@ -5108,12 +5108,16 @@ driver_deliver_term(Eterm to, ErlDrvTermData* data, int len)
     ErlDrvTermData* ptr;
     ErlDrvTermData* ptr_end;
     DECLARE_ESTACK(stack); 
-    Eterm mess = NIL;		/* keeps compiler happy */
+    Eterm mess;
     Process* rp = NULL;
     ErtsHeapFactory factory;
     ErtsProcLocks rp_locks = 0;
     struct b2t_states__ b2t;
-    int scheduler = 1; /* Silence erroneous warning... */
+    int scheduler;
+    int is_heap_need_limited = 1;
+
+    ERTS_UNDEF(mess,NIL);
+    ERTS_UNDEF(scheduler,1);
 
     factory.mode = FACTORY_CLOSED;
     init_b2t_states(&b2t);
@@ -5286,6 +5290,9 @@ driver_deliver_term(Eterm to, ErlDrvTermData* data, int len)
 	    need += hsz;
 	    ptr += 2;
 	    depth++;
+            if (size > MAP_SMALL_MAP_LIMIT*3) { /* may contain big map */
+                is_heap_need_limited = 0;
+            }
 	    break;
 	}
 	case ERL_DRV_MAP: { /* int */
@@ -5293,6 +5300,7 @@ driver_deliver_term(Eterm to, ErlDrvTermData* data, int len)
 	    if ((int) ptr[0] < 0) ERTS_DDT_FAIL;
             if (ptr[0] > MAP_SMALL_MAP_LIMIT) {
                 need += HASHMAP_ESTIMATED_HEAP_SIZE(ptr[0]);
+                is_heap_need_limited = 0;
             } else {
                 need += MAP_HEADER_FLATMAP_SZ + 1 + 2*ptr[0];
             }
@@ -5331,14 +5339,17 @@ driver_deliver_term(Eterm to, ErlDrvTermData* data, int len)
 	goto done;
     }
 
-
-    /* We could try to copy directly to destination heap
-     * if we knew there is no big maps.
-
-    erts_alloc_message_heap(need, &bp, &ohp, rp, &rp_locks);
-    */
-    erts_factory_message_init(&factory, NULL, NULL,
-			      new_message_buffer(need));
+    /* Try copy directly to destination heap if we know there are no big maps */
+    if (is_heap_need_limited) {
+        ErlOffHeap *ohp;
+        ErlHeapFragment* bp;
+        Eterm* hp = erts_alloc_message_heap(need, &bp, &ohp, rp, &rp_locks);
+        erts_factory_message_init(&factory, rp, hp, bp);
+    }
+    else {
+        erts_factory_message_init(&factory, NULL, NULL,
+                                  new_message_buffer(need));
+    }
 
     /*
      * Interpret the instructions and build the term.
