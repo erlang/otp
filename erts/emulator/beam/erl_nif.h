@@ -218,8 +218,12 @@ typedef struct /* All fields all internal and may change */
 } ErlNifMapIterator;
 
 typedef enum {
-    ERL_NIF_MAP_ITERATOR_HEAD = 1,
-    ERL_NIF_MAP_ITERATOR_TAIL = 2
+    ERL_NIF_MAP_ITERATOR_FIRST = 1,
+    ERL_NIF_MAP_ITERATOR_LAST = 2,
+
+    /* deprecated synonyms (undocumented in 17 and 18-rc) */
+    ERL_NIF_MAP_ITERATOR_HEAD = ERL_NIF_MAP_ITERATOR_FIRST,
+    ERL_NIF_MAP_ITERATOR_TAIL = ERL_NIF_MAP_ITERATOR_LAST
 } ErlNifMapIteratorEntry;
 
 #if (defined(__WIN32__) || defined(_WIN32) || defined(_WIN32_))

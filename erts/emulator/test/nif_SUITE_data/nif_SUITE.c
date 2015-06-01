@@ -1802,7 +1802,7 @@ static ERL_NIF_TERM sorted_list_from_maps_nif(ErlNifEnv* env, int argc, const ER
     if (argc != 1 && !enif_is_map(env, map))
 	return enif_make_int(env, __LINE__);
 
-    if(!enif_map_iterator_create(env, map, &iter_f, ERL_NIF_MAP_ITERATOR_HEAD))
+    if(!enif_map_iterator_create(env, map, &iter_f, ERL_NIF_MAP_ITERATOR_FIRST))
 	return enif_make_int(env, __LINE__);
 
     cnt = 0;
@@ -1817,7 +1817,7 @@ static ERL_NIF_TERM sorted_list_from_maps_nif(ErlNifEnv* env, int argc, const ER
     if (cnt && next_ret)
 	return enif_make_int(env, __LINE__);
 
-    if(!enif_map_iterator_create(env, map, &iter_b, ERL_NIF_MAP_ITERATOR_TAIL))
+    if(!enif_map_iterator_create(env, map, &iter_b, ERL_NIF_MAP_ITERATOR_LAST))
 	return enif_make_int(env, __LINE__);
 
     cnt = 0;
