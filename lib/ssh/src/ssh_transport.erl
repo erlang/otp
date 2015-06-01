@@ -240,20 +240,30 @@ key_exchange_first_msg('diffie-hellman-group-exchange-sha1', Ssh0) ->
 
 handle_kexdh_init(#ssh_msg_kexdh_init{e = E}, Ssh0) ->
     {G, P} = dh_group1(),
-    {Private, Public} = dh_gen_key(G, P, 1024),
-    K = ssh_math:ipow(E, Private, P),
-    Key = get_host_key(Ssh0),
-    H = kex_h(Ssh0, Key, E, Public, K),
-    H_SIG = sign_host_key(Ssh0, Key, H),
-    {SshPacket, Ssh1} = ssh_packet(#ssh_msg_kexdh_reply{public_host_key = Key,
-							f = Public,
-							h_sig = H_SIG
-						       }, Ssh0),
-
-    {ok, SshPacket, Ssh1#ssh{keyex_key = {{Private, Public}, {G, P}},
-			     shared_secret = K,
-			     exchanged_hash = H,
-			     session_id = sid(Ssh1, H)}}.
+    if
+	1=<E, E=<(P-1) ->
+	    {Private, Public} = dh_gen_key(G, P, 1024),
+	    K = ssh_math:ipow(E, Private, P),
+	    Key = get_host_key(Ssh0),
+	    H = kex_h(Ssh0, Key, E, Public, K),
+	    H_SIG = sign_host_key(Ssh0, Key, H),
+	    {SshPacket, Ssh1} = ssh_packet(#ssh_msg_kexdh_reply{public_host_key = Key,
+								f = Public,
+								h_sig = H_SIG
+							       }, Ssh0),
+	    
+	    {ok, SshPacket, Ssh1#ssh{keyex_key = {{Private, Public}, {G, P}},
+				     shared_secret = K,
+				     exchanged_hash = H,
+				     session_id = sid(Ssh1, H)}};
+	true ->
+	    Error = {error,bad_e_from_peer},
+	    Disconnect = #ssh_msg_disconnect{
+			    code = ?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
+			    description = "Key exchange failed, 'f' out of bounds",
+			    language = "en"},
+	    throw({Error, Disconnect})
+    end.
 
 handle_kex_dh_gex_group(#ssh_msg_kex_dh_gex_group{p = P, g = G}, Ssh0) ->
     {Private, Public} = dh_gen_key(G,P,1024),
@@ -277,7 +287,7 @@ handle_new_keys(#ssh_msg_newkeys{}, Ssh0) ->
 %% %% Select algorithms
 handle_kexdh_reply(#ssh_msg_kexdh_reply{public_host_key = HostKey, f = F,
 					h_sig = H_SIG}, 
-		   #ssh{keyex_key = {{Private, Public}, {_G, P}}} = Ssh0) ->
+		   #ssh{keyex_key = {{Private, Public}, {_G, P}}} = Ssh0) when 1=<F, F=<(P-1)->
     K = ssh_math:ipow(F, Private, P),
     H = kex_h(Ssh0, HostKey, Public, F, K),
 
@@ -293,7 +303,15 @@ handle_kexdh_reply(#ssh_msg_kexdh_reply{public_host_key = HostKey, f = F,
 	      description = "Key exchange failed",
 	      language = "en"},
 	    throw({Error, Disconnect})
-    end.
+    end;
+handle_kexdh_reply(#ssh_msg_kexdh_reply{}, _SSH) ->
+    Error = {error,bad_f_from_peer},
+    Disconnect = #ssh_msg_disconnect{
+		    code = ?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
+		    description = "Key exchange failed, 'f' out of bounds",
+		    language = "en"},
+    throw({Error, Disconnect}).
+
 
 handle_kex_dh_gex_request(#ssh_msg_kex_dh_gex_request{min = _Min,
 						      n   = _NBits,
@@ -519,10 +537,15 @@ alg_final(SSH0) ->
     {ok,SSH6} = decompress_final(SSH5),
     SSH6.
 
-select_all(CL, SL) ->
+select_all(CL, SL) when length(CL) + length(SL) < 50 ->
     A = CL -- SL,  %% algortihms only used by client
     %% algorithms used by client and server (client pref)
-    lists:map(fun(ALG) -> list_to_atom(ALG) end, (CL -- A)).
+    lists:map(fun(ALG) -> list_to_atom(ALG) end, (CL -- A));
+select_all(_CL, _SL) ->
+    throw(#ssh_msg_disconnect{code = ?SSH_DISCONNECT_PROTOCOL_ERROR,
+			      description = "Too many algorithms", 
+			      language = "en"}).
+
 
 select([], []) ->
     none;
