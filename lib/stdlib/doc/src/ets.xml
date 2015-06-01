@@ -638,6 +638,8 @@ ets:is_compiled_ms(Broken).</code>
           key. If the table is of type <c>bag</c> or
           <c>duplicate_bag</c>, the function returns a list of
           arbitrary length.</p>
+        <p>If no table with the identifier <c><anno>Tab</anno></c> exists, the function
+          will exit with reason <c>badarg</c>.</p>
         <p>Note that the time order of object insertions is preserved;
           the first object inserted with the given key will be first
           in the resulting list, and so on.</p>
