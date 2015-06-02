@@ -205,10 +205,7 @@ typedef struct {
 
 typedef struct {
     Eterm term;			/* The tagged term (in the heap). */
-    Uint heap_size;		/* (Exact) size on the heap. */
-    SWord offset;		/* Offset from temporary location to final. */
-    ErlOffHeap off_heap;	/* Start of linked list of ProcBins. */
-    Eterm* heap;		/* Heap for term. */
+    ErlHeapFragment* heap_frags;
 } Literal;
 
 /*
@@ -477,6 +474,8 @@ typedef struct LoaderState {
 
 
 static void free_loader_state(Binary* magic);
+static ErlHeapFragment* new_literal_fragment(Uint size);
+static void free_literal_fragment(ErlHeapFragment*);
 static void loader_state_dtor(Binary* magic);
 static Eterm insert_new_code(Process *c_p, ErtsProcLocks c_p_locks,
 			     Eterm group_leader, Eterm module,
@@ -883,6 +882,28 @@ free_loader_state(Binary* magic)
     }
 }
 
+static ErlHeapFragment* new_literal_fragment(Uint size)
+{
+    ErlHeapFragment* bp;
+    bp = (ErlHeapFragment*) ERTS_HEAP_ALLOC(ERTS_ALC_T_PREPARED_CODE,
+					    ERTS_HEAP_FRAG_SIZE(size));
+    ERTS_INIT_HEAP_FRAG(bp, size);
+    return bp;
+}
+
+static void free_literal_fragment(ErlHeapFragment* bp)
+{
+    ASSERT(bp != NULL);
+    do {
+	ErlHeapFragment* next_bp = bp->next;
+
+	erts_cleanup_offheap(&bp->off_heap);
+	ERTS_HEAP_FREE(ERTS_ALC_T_PREPARED_CODE, (void *) bp,
+		       ERTS_HEAP_FRAG_SIZE(bp->size));
+	bp = next_bp;
+    }while (bp != NULL);
+}
+
 /*
  * This destructor function can safely be called multiple times.
  */
@@ -922,10 +943,9 @@ loader_state_dtor(Binary* magic)
     if (stp->literals != 0) {
 	int i;
 	for (i = 0; i < stp->num_literals; i++) {
-	    if (stp->literals[i].heap != 0) {
-		erts_free(ERTS_ALC_T_PREPARED_CODE,
-			  (void *) stp->literals[i].heap);
-		stp->literals[i].heap = 0;
+	    if (stp->literals[i].heap_frags != 0) {
+                free_literal_fragment(stp->literals[i].heap_frags);
+		stp->literals[i].heap_frags = 0;
 	    }
 	}
 	erts_free(ERTS_ALC_T_PREPARED_CODE, (void *) stp->literals);
@@ -1450,6 +1470,7 @@ read_lambda_table(LoaderState* stp)
     return 0;
 }
 
+
 static int
 read_literal_table(LoaderState* stp)
 {
@@ -1471,7 +1492,7 @@ read_literal_table(LoaderState* stp)
     stp->allocated_literals = stp->num_literals;
 
     for (i = 0; i < stp->num_literals; i++) {
-	stp->literals[i].heap = 0;
+	stp->literals[i].heap_frags = 0;
     }
 
     for (i = 0; i < stp->num_literals; i++) {
@@ -1479,28 +1500,38 @@ read_literal_table(LoaderState* stp)
 	Sint heap_size;
 	byte* p;
 	Eterm val;
-	Eterm* hp;
+        ErtsHeapFactory factory;
 
 	GetInt(stp, 4, sz);	/* Size of external term format. */
 	GetString(stp, p, sz);
 	if ((heap_size = erts_decode_ext_size(p, sz)) < 0) {
 	    LoadError1(stp, "literal %d: bad external format", i);
 	}
-	hp = stp->literals[i].heap = erts_alloc(ERTS_ALC_T_PREPARED_CODE,
-						heap_size*sizeof(Eterm));
-	stp->literals[i].off_heap.first = 0;
-	stp->literals[i].off_heap.overhead = 0;
-	val = erts_decode_ext(&hp, &stp->literals[i].off_heap, &p);
-	stp->literals[i].heap_size = hp - stp->literals[i].heap;
-	if (stp->literals[i].heap_size > heap_size) {
-	    erl_exit(1, "overrun by %d word(s) for literal heap, term %d",
-		     stp->literals[i].heap_size - heap_size, i);
-	}
-	if (is_non_value(val)) {
-	    LoadError1(stp, "literal %d: bad external format", i);
-	}
-	stp->literals[i].term = val;
-	stp->total_literal_size += stp->literals[i].heap_size;
+
+        if (heap_size > 0) {
+            erts_factory_message_init(&factory, NULL, NULL,
+                                      new_literal_fragment(heap_size));
+	    factory.alloc_type = ERTS_ALC_T_PREPARED_CODE;
+            val = erts_decode_ext(&factory, &p);
+
+            if (is_non_value(val)) {
+                LoadError1(stp, "literal %d: bad external format", i);
+            }
+            erts_factory_close(&factory);
+            stp->literals[i].heap_frags = factory.heap_frags;
+            stp->total_literal_size += erts_used_frag_sz(factory.heap_frags);
+        }
+        else {
+            erts_factory_dummy_init(&factory);
+            val = erts_decode_ext(&factory, &p);
+            if (is_non_value(val)) {
+                LoadError1(stp, "literal %d: bad external format", i);
+            }
+            ASSERT(is_immed(val));
+            stp->literals[i].heap_frags = NULL;
+        }
+        stp->literals[i].term = val;
+
     }
     erts_free(ERTS_ALC_T_TMP, uncompressed);
     return 1;
@@ -4370,8 +4401,9 @@ freeze_code(LoaderState* stp)
 	Uint* low;
 	Uint* high;
 	LiteralPatch* lp;
-	struct erl_off_heap_header* off_heap = 0;
-	struct erl_off_heap_header** off_heap_last = &off_heap;
+        ErlOffHeap code_off_heap;
+
+        ERTS_INIT_OFF_HEAP(&code_off_heap);
 
 	low = (Uint *) (code+stp->ci);
 	high = low + stp->total_literal_size;
@@ -4379,73 +4411,21 @@ freeze_code(LoaderState* stp)
 	code[MI_LITERALS_END] = (BeamInstr) high;
 	ptr = low;
 	for (i = 0; i < stp->num_literals; i++) {
-	    SWord offset;
-	    struct erl_off_heap_header* t_off_heap;
-
-	    sys_memcpy(ptr, stp->literals[i].heap,
-		       stp->literals[i].heap_size*sizeof(Eterm));
-	    offset = ptr - stp->literals[i].heap;
-	    stp->literals[i].offset = offset;
-	    high = ptr + stp->literals[i].heap_size;
-	    while (ptr < high) {
-		Eterm val = *ptr;
-		switch (primary_tag(val)) {
-		case TAG_PRIMARY_LIST:
-		case TAG_PRIMARY_BOXED:
-		    *ptr++ = offset_ptr(val, offset);
-		    break;
-		case TAG_PRIMARY_HEADER:
-		    if (header_is_transparent(val)) {
-			ptr++;
-		    } else {
-			if (thing_subtag(val) == REFC_BINARY_SUBTAG) {
-			    struct erl_off_heap_header* oh;
-
-			    oh = (struct erl_off_heap_header*) ptr;
-			    if (oh->next) {
-				Eterm** uptr = (Eterm **) (void *) &oh->next;
-				*uptr += offset;
-			    }
-			}
-			ptr += 1 + thing_arityval(val);
-		    }
-		    break;
-		default:
-		    ptr++;
-		    break;
-		}
-	    }
-	    ASSERT(ptr == high);
-
-	    /*
-	     * Re-link the off_heap list for this term onto the
-	     * off_heap list for the entire module.
-	     */
-	    t_off_heap = stp->literals[i].off_heap.first;
-	    if (t_off_heap) {
-		t_off_heap = (struct erl_off_heap_header *)
-		    offset_ptr((UWord) t_off_heap, offset);
-		while (t_off_heap) {
-		    *off_heap_last = t_off_heap;
-		    off_heap_last = &t_off_heap->next;
-		    t_off_heap = t_off_heap->next;
-		}
-	    }
+            if (stp->literals[i].heap_frags) {
+                move_multi_frags(&ptr, &code_off_heap, stp->literals[i].heap_frags,
+                                 &stp->literals[i].term, 1);
+            }
+            else ASSERT(is_immed(stp->literals[i].term));
 	}
-	code[MI_LITERALS_OFF_HEAP] = (BeamInstr) off_heap;
+        code[MI_LITERALS_OFF_HEAP] = (BeamInstr) code_off_heap.first;
 	lp = stp->literal_patches;
 	while (lp != 0) {
 	    BeamInstr* op_ptr;
-	    Uint literal;
 	    Literal* lit;
 
 	    op_ptr = code + lp->pos;
 	    lit = &stp->literals[op_ptr[0]];
-	    literal = lit->term;
-	    if (is_boxed(literal) || is_list(literal)) {
-		literal = offset_ptr(literal, lit->offset);
-	    }
-	    op_ptr[0] = literal;
+	    op_ptr[0] = lit->term;
 	    lp = lp->next;
 	}
 	literal_end += stp->total_literal_size;
@@ -5376,13 +5356,9 @@ new_literal(LoaderState* stp, Eterm** hpp, Uint heap_size)
 
     stp->total_literal_size += heap_size;
     lit = stp->literals + stp->num_literals;
-    lit->offset = 0;
-    lit->heap_size = heap_size;
-    lit->heap = erts_alloc(ERTS_ALC_T_PREPARED_CODE, heap_size*sizeof(Eterm));
-    lit->term = make_boxed(lit->heap);
-    lit->off_heap.first = 0;
-    lit->off_heap.overhead = 0;
-    *hpp = lit->heap;
+    lit->heap_frags = new_literal_fragment(heap_size);
+    lit->term = make_boxed(lit->heap_frags->mem);
+    *hpp = lit->heap_frags->mem;
     return stp->num_literals++;
 }
 
@@ -5659,10 +5635,8 @@ attributes_for_module(Process* p, /* Process whose heap to use. */
 {
     Module* modp;
     BeamInstr* code;
-    Eterm* hp;
     byte* ext;
     Eterm result = NIL;
-    Eterm* end;
 
     if (is_not_atom(mod)) {
 	return THE_NON_VALUE;
@@ -5675,13 +5649,12 @@ attributes_for_module(Process* p, /* Process whose heap to use. */
     code = modp->curr.code;
     ext = (byte *) code[MI_ATTR_PTR];
     if (ext != NULL) {
-	hp = HAlloc(p, code[MI_ATTR_SIZE_ON_HEAP]);
-	end = hp + code[MI_ATTR_SIZE_ON_HEAP];
-	result = erts_decode_ext(&hp, &MSO(p), &ext);
+	ErtsHeapFactory factory;
+	erts_factory_proc_prealloc_init(&factory, p, code[MI_ATTR_SIZE_ON_HEAP]);
+	result = erts_decode_ext(&factory, &ext);
 	if (is_value(result)) {
-	    ASSERT(hp <= end);
+	    erts_factory_close(&factory);
 	}
-        HRelease(p,end,hp);
     }
     return result;
 }
@@ -5698,10 +5671,8 @@ compilation_info_for_module(Process* p, /* Process whose heap to use. */
 {
     Module* modp;
     BeamInstr* code;
-    Eterm* hp;
     byte* ext;
     Eterm result = NIL;
-    Eterm* end;
 
     if (is_not_atom(mod)) {
 	return THE_NON_VALUE;
@@ -5714,13 +5685,12 @@ compilation_info_for_module(Process* p, /* Process whose heap to use. */
     code = modp->curr.code;
     ext = (byte *) code[MI_COMPILE_PTR];
     if (ext != NULL) {
-	hp = HAlloc(p, code[MI_COMPILE_SIZE_ON_HEAP]);
-	end = hp + code[MI_COMPILE_SIZE_ON_HEAP];
-	result = erts_decode_ext(&hp, &MSO(p), &ext);
+	ErtsHeapFactory factory;
+	erts_factory_proc_prealloc_init(&factory, p, code[MI_COMPILE_SIZE_ON_HEAP]);
+	result = erts_decode_ext(&factory, &ext);
 	if (is_value(result)) {
-	    ASSERT(hp <= end);
+	    erts_factory_close(&factory);
 	}
-        HRelease(p,end,hp);
     }
     return result;
 }

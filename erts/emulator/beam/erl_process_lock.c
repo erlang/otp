@@ -1003,7 +1003,9 @@ erts_pid2proc_opt(Process *c_p,
 void
 erts_proc_lock_init(Process *p)
 {
+#if ERTS_PROC_LOCK_OWN_IMPL || defined(ERTS_PROC_LOCK_DEBUG)
     int i;
+#endif
 #if ERTS_PROC_LOCK_OWN_IMPL
     /* We always start with all locks locked */
 #if ERTS_PROC_LOCK_ATOMIC_IMPL
