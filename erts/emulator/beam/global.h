@@ -777,6 +777,15 @@ ErtsPStack s = { (byte*)PSTK_DEF_STACK(s), /* pstart */                    \
                  ERTS_ALC_T_ESTACK   /* alloc_type */                      \
 }
 
+#define PSTACK_CHANGE_ALLOCATOR(s,t)					\
+do {									\
+    if (s.pstart != (byte*)PSTK_DEF_STACK(s)) {				\
+	erl_exit(1, "Internal error - trying to change allocator "	\
+		 "type of active pstack\n");				\
+    }									\
+    s.alloc_type = (t);							\
+ } while (0)
+
 #define PSTACK_DESTROY(s)				\
 do {							\
     if (s.pstart != (byte*)PSTK_DEF_STACK(s)) {		\
@@ -785,6 +794,8 @@ do {							\
 } while(0)
 
 #define PSTACK_IS_EMPTY(s) (s.psp < s.pstart)
+
+#define PSTACK_COUNT(s) (((PSTACK_TYPE*)s.psp + 1) - (PSTACK_TYPE*)s.pstart)
 
 #define PSTACK_TOP(s) (ASSERT(!PSTACK_IS_EMPTY(s)), (PSTACK_TYPE*)(s.psp))
 
@@ -795,6 +806,37 @@ do {							\
      ((PSTACK_TYPE*) s.psp))
 
 #define PSTACK_POP(s) ((PSTACK_TYPE*) (s.psp -= sizeof(PSTACK_TYPE)))
+
+/*
+ * Do not free the stack after this, it may have pointers into what
+ * was saved in 'dst'.
+ */
+#define PSTACK_SAVE(s,dst)\
+do {\
+    if (s.pstart == (byte*)PSTK_DEF_STACK(s)) {\
+	UWord _pbytes = PSTACK_COUNT(s) * sizeof(PSTACK_TYPE);\
+	(dst)->pstart = erts_alloc(s.alloc_type,\
+				   sizeof(PSTK_DEF_STACK(s)));\
+	memcpy((dst)->pstart, s.pstart, _pbytes);\
+	(dst)->psp = (dst)->pstart + _pbytes - sizeof(PSTACK_TYPE);\
+	(dst)->pend = (dst)->pstart + sizeof(PSTK_DEF_STACK(s));\
+	(dst)->alloc_type = s.alloc_type;\
+    } else\
+        *(dst) = s;\
+ } while (0)
+
+/*
+ * Use on empty stack, only the allocator can be changed before this.
+ * The src stack is reset to NULL.
+ */
+#define PSTACK_RESTORE(s, src)			        \
+do {						        \
+    ASSERT(s.pstart == (byte*)PSTK_DEF_STACK(s));	\
+    s = *(src);  /* struct copy */		        \
+    (src)->pstart = NULL;			        \
+    ASSERT(s.psp >= (s.pstart - sizeof(PSTACK_TYPE)));  \
+    ASSERT(s.psp < s.pend);			        \
+} while (0)
 
 
 /* binary.c */
