@@ -129,10 +129,8 @@ ETERM *erl_mk_float (double d)
     /* Erlang does not handle Inf and NaN, so we return an error
      * rather than letting the Erlang VM complain about a bad external
      * term. */
-    switch(fpclassify(d)) {
-        case FP_NAN:
-        case FP_INFINITE:
-            return NULL;
+    if(!isfinite(d)) {
+        return NULL;
     }
 
     ep = erl_alloc_eterm(ERL_FLOAT);
