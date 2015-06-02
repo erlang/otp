@@ -514,6 +514,18 @@ fun(srp, Username :: string(), UserState :: term()) ->
       using <c>negotiated_next_protocol/1</c> method.
       </item>
 
+      <tag>{client_renegotiation, boolean()}</tag>
+      <item>In protocols that support client-initiated renegotiation, the cost
+      of resources of such an operation is higher for the server than the
+      client. This can act as a vector for denial of service attacks. The SSL
+      application already takes measures to counter-act such attempts,
+      but client-initiated renegotiation can be stricly disabled by setting
+      this option to <c>false</c>. The default value is <c>true</c>.
+      Note that disabling renegotiation can result in long-lived connections
+      becoming unusable due to limits on the number of messages the underlying
+      cipher suite can encipher.
+      </item>
+
       <tag>{psk_identity, string()}</tag>
       <item>Specifies the server identity hint the server presents to the client.
       </item>
