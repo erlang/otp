@@ -268,32 +268,73 @@ typedef enum {
   | ERTS_SSI_FLG_SUSPENDED)
 
 /*
- * Keep ERTS_SSI_AUX_WORK flags in expected frequency order relative
- * eachother. Most frequent - lowest bit number.
+ * Keep ERTS_SSI_AUX_WORK flags ordered in expected frequency
+ * order relative eachother. Most frequent at lowest at lowest
+ * index.
  *
- * ERTS_SSI_AUX_WORK_DEBUG_WAIT_COMPLETED *need* to be highest bit
- * and last flag checked...
+ * ERTS_SSI_AUX_WORK_DEBUG_WAIT_COMPLETED_IX *need* to be
+ * highest index...
+ *
+ * Remember to update description in erts_pre_init_process()
+ * when adding new flags...
  */
 
-#define ERTS_SSI_AUX_WORK_DELAYED_AW_WAKEUP	(((erts_aint32_t) 1) << 0)
-#define ERTS_SSI_AUX_WORK_DD			(((erts_aint32_t) 1) << 1)
-#define ERTS_SSI_AUX_WORK_DD_THR_PRGR		(((erts_aint32_t) 1) << 2)
-#define ERTS_SSI_AUX_WORK_FIX_ALLOC_DEALLOC	(((erts_aint32_t) 1) << 3)
-#define ERTS_SSI_AUX_WORK_FIX_ALLOC_LOWER_LIM	(((erts_aint32_t) 1) << 4)
-#define ERTS_SSI_AUX_WORK_THR_PRGR_LATER_OP	(((erts_aint32_t) 1) << 5)
-#define ERTS_SSI_AUX_WORK_CNCLD_TMRS		(((erts_aint32_t) 1) << 6)
-#define ERTS_SSI_AUX_WORK_CNCLD_TMRS_THR_PRGR	(((erts_aint32_t) 1) << 7)
-#define ERTS_SSI_AUX_WORK_ASYNC_READY		(((erts_aint32_t) 1) << 8)
-#define ERTS_SSI_AUX_WORK_ASYNC_READY_CLEAN	(((erts_aint32_t) 1) << 9)
-#define ERTS_SSI_AUX_WORK_MISC_THR_PRGR		(((erts_aint32_t) 1) << 10)
-#define ERTS_SSI_AUX_WORK_MISC			(((erts_aint32_t) 1) << 11)
-#define ERTS_SSI_AUX_WORK_CHECK_CHILDREN	(((erts_aint32_t) 1) << 12)
-#define ERTS_SSI_AUX_WORK_SET_TMO		(((erts_aint32_t) 1) << 13)
-#define ERTS_SSI_AUX_WORK_MSEG_CACHE_CHECK	(((erts_aint32_t) 1) << 14)
-#define ERTS_SSI_AUX_WORK_REAP_PORTS		(((erts_aint32_t) 1) << 15)
-#define ERTS_SSI_AUX_WORK_DEBUG_WAIT_COMPLETED	(((erts_aint32_t) 1) << 16)
+typedef enum {
+    ERTS_SSI_AUX_WORK_DELAYED_AW_WAKEUP_IX,
+    ERTS_SSI_AUX_WORK_DD_IX,
+    ERTS_SSI_AUX_WORK_DD_THR_PRGR_IX,
+    ERTS_SSI_AUX_WORK_FIX_ALLOC_DEALLOC_IX,
+    ERTS_SSI_AUX_WORK_FIX_ALLOC_LOWER_LIM_IX,
+    ERTS_SSI_AUX_WORK_THR_PRGR_LATER_OP_IX,
+    ERTS_SSI_AUX_WORK_CNCLD_TMRS_IX,
+    ERTS_SSI_AUX_WORK_CNCLD_TMRS_THR_PRGR_IX,
+    ERTS_SSI_AUX_WORK_ASYNC_READY_IX,
+    ERTS_SSI_AUX_WORK_ASYNC_READY_CLEAN_IX,
+    ERTS_SSI_AUX_WORK_MISC_THR_PRGR_IX,
+    ERTS_SSI_AUX_WORK_MISC_IX,
+    ERTS_SSI_AUX_WORK_CHECK_CHILDREN_IX,
+    ERTS_SSI_AUX_WORK_SET_TMO_IX,
+    ERTS_SSI_AUX_WORK_MSEG_CACHE_CHECK_IX,
+    ERTS_SSI_AUX_WORK_REAP_PORTS_IX,
+    ERTS_SSI_AUX_WORK_DEBUG_WAIT_COMPLETED_IX, /* SHOULD be last flag index */
 
-#define ERTS_SSI_AUX_WORK_MAX                                           17
+    ERTS_SSI_AUX_WORK_NO_FLAGS /* Not a flag index... */
+} ErtsSsiAuxWorkFlagIndex;
+
+#define ERTS_SSI_AUX_WORK_DELAYED_AW_WAKEUP \
+    (((erts_aint32_t) 1) << ERTS_SSI_AUX_WORK_DELAYED_AW_WAKEUP_IX)
+#define ERTS_SSI_AUX_WORK_DD \
+    (((erts_aint32_t) 1) << ERTS_SSI_AUX_WORK_DD_IX)
+#define ERTS_SSI_AUX_WORK_DD_THR_PRGR \
+    (((erts_aint32_t) 1) << ERTS_SSI_AUX_WORK_DD_THR_PRGR_IX)
+#define ERTS_SSI_AUX_WORK_FIX_ALLOC_DEALLOC \
+    (((erts_aint32_t) 1) << ERTS_SSI_AUX_WORK_FIX_ALLOC_DEALLOC_IX)
+#define ERTS_SSI_AUX_WORK_FIX_ALLOC_LOWER_LIM \
+    (((erts_aint32_t) 1) << ERTS_SSI_AUX_WORK_FIX_ALLOC_LOWER_LIM_IX)
+#define ERTS_SSI_AUX_WORK_THR_PRGR_LATER_OP \
+    (((erts_aint32_t) 1) << ERTS_SSI_AUX_WORK_THR_PRGR_LATER_OP_IX)
+#define ERTS_SSI_AUX_WORK_CNCLD_TMRS \
+    (((erts_aint32_t) 1) << ERTS_SSI_AUX_WORK_CNCLD_TMRS_IX)
+#define ERTS_SSI_AUX_WORK_CNCLD_TMRS_THR_PRGR \
+    (((erts_aint32_t) 1) << ERTS_SSI_AUX_WORK_CNCLD_TMRS_THR_PRGR_IX)
+#define ERTS_SSI_AUX_WORK_ASYNC_READY \
+    (((erts_aint32_t) 1) << ERTS_SSI_AUX_WORK_ASYNC_READY_IX)
+#define ERTS_SSI_AUX_WORK_ASYNC_READY_CLEAN \
+    (((erts_aint32_t) 1) << ERTS_SSI_AUX_WORK_ASYNC_READY_CLEAN_IX)
+#define ERTS_SSI_AUX_WORK_MISC_THR_PRGR \
+    (((erts_aint32_t) 1) << ERTS_SSI_AUX_WORK_MISC_THR_PRGR_IX)
+#define ERTS_SSI_AUX_WORK_MISC \
+    (((erts_aint32_t) 1) << ERTS_SSI_AUX_WORK_MISC_IX)
+#define ERTS_SSI_AUX_WORK_CHECK_CHILDREN \
+    (((erts_aint32_t) 1) << ERTS_SSI_AUX_WORK_CHECK_CHILDREN_IX)
+#define ERTS_SSI_AUX_WORK_SET_TMO \
+    (((erts_aint32_t) 1) << ERTS_SSI_AUX_WORK_SET_TMO_IX)
+#define ERTS_SSI_AUX_WORK_MSEG_CACHE_CHECK \
+    (((erts_aint32_t) 1) << ERTS_SSI_AUX_WORK_MSEG_CACHE_CHECK_IX)
+#define ERTS_SSI_AUX_WORK_REAP_PORTS \
+    (((erts_aint32_t) 1) << ERTS_SSI_AUX_WORK_REAP_PORTS_IX)
+#define ERTS_SSI_AUX_WORK_DEBUG_WAIT_COMPLETED \
+    (((erts_aint32_t) 1) << ERTS_SSI_AUX_WORK_DEBUG_WAIT_COMPLETED_IX)
 
 typedef struct ErtsSchedulerSleepInfo_ ErtsSchedulerSleepInfo;
 

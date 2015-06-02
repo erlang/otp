@@ -165,6 +165,9 @@ Uint erts_no_dirty_cpu_schedulers;
 Uint erts_no_dirty_io_schedulers;
 #endif
 
+static char *erts_aux_work_flag_descr[ERTS_SSI_AUX_WORK_NO_FLAGS] = {0};
+int erts_aux_work_no_flags = ERTS_SSI_AUX_WORK_NO_FLAGS;
+
 #define ERTS_THR_PRGR_LATER_CLEANUP_OP_THRESHOLD_VERY_LAZY		(4*1024*1024)
 #define ERTS_THR_PRGR_LATER_CLEANUP_OP_THRESHOLD_LAZY			(512*1024)
 #define ERTS_THR_PRGR_LATER_CLEANUP_OP_THRESHOLD_MEDIUM			(64*1024)
@@ -566,6 +569,41 @@ erts_pre_init_process(void)
 #ifdef USE_THREADS
     erts_tsd_key_create(&sched_data_key, "erts_sched_data_key");
 #endif
+
+    erts_aux_work_flag_descr[ERTS_SSI_AUX_WORK_DELAYED_AW_WAKEUP_IX]
+	= "DELAYED_AW_WAKEUP";
+    erts_aux_work_flag_descr[ERTS_SSI_AUX_WORK_DD_IX]
+	= "DD";
+    erts_aux_work_flag_descr[ERTS_SSI_AUX_WORK_DD_THR_PRGR_IX]
+	= "DD_THR_PRGR";
+    erts_aux_work_flag_descr[ERTS_SSI_AUX_WORK_FIX_ALLOC_DEALLOC_IX]
+	= "FIX_ALLOC_DEALLOC";
+    erts_aux_work_flag_descr[ERTS_SSI_AUX_WORK_FIX_ALLOC_LOWER_LIM_IX]
+	= "FIX_ALLOC_LOWER_LIM";
+    erts_aux_work_flag_descr[ERTS_SSI_AUX_WORK_THR_PRGR_LATER_OP_IX]
+	= "THR_PRGR_LATER_OP";
+    erts_aux_work_flag_descr[ERTS_SSI_AUX_WORK_CNCLD_TMRS_IX]
+	= "CNCLD_TMRS";
+    erts_aux_work_flag_descr[ERTS_SSI_AUX_WORK_CNCLD_TMRS_THR_PRGR_IX]
+	= "CNCLD_TMRS_THR_PRGR";
+    erts_aux_work_flag_descr[ERTS_SSI_AUX_WORK_ASYNC_READY_IX]
+	= "ASYNC_READY";
+    erts_aux_work_flag_descr[ERTS_SSI_AUX_WORK_ASYNC_READY_CLEAN_IX]
+	= "ASYNC_READY_CLEAN";
+    erts_aux_work_flag_descr[ERTS_SSI_AUX_WORK_MISC_THR_PRGR_IX]
+	= "MISC_THR_PRGR";
+    erts_aux_work_flag_descr[ERTS_SSI_AUX_WORK_MISC_IX]
+	= "MISC";
+    erts_aux_work_flag_descr[ERTS_SSI_AUX_WORK_CHECK_CHILDREN_IX]
+	= "CHECK_CHILDREN";
+    erts_aux_work_flag_descr[ERTS_SSI_AUX_WORK_SET_TMO_IX]
+	= "SET_TMO";
+    erts_aux_work_flag_descr[ERTS_SSI_AUX_WORK_MSEG_CACHE_CHECK_IX]
+	= "MSEG_CACHE_CHECK";
+    erts_aux_work_flag_descr[ERTS_SSI_AUX_WORK_REAP_PORTS_IX]
+	= "REAP_PORTS";
+    erts_aux_work_flag_descr[ERTS_SSI_AUX_WORK_DEBUG_WAIT_COMPLETED_IX]
+	= "DEBUG_WAIT_COMPLETED";
 
 #ifdef ERTS_ENABLE_LOCK_CHECK
  {
@@ -12487,47 +12525,13 @@ erts_print_scheduler_info(int to, void *to_arg, ErtsSchedulerData *esdp) {
 
     flg = erts_atomic32_read_dirty(&esdp->ssi->aux_work);
     erts_print(to, to_arg, "Scheduler Sleep Info Aux Work: ");
-    for (i = 0; i < ERTS_SSI_AUX_WORK_MAX && flg; i++) {
+    for (i = 0; i < ERTS_SSI_AUX_WORK_NO_FLAGS && flg; i++) {
         erts_aint32_t chk = (1 << i);
         if (flg & chk) {
-            switch (chk) {
-            case ERTS_SSI_AUX_WORK_DELAYED_AW_WAKEUP:
-                erts_print(to, to_arg, "DELAYED_AW_WAKEUP"); break;
-            case ERTS_SSI_AUX_WORK_DD:
-                erts_print(to, to_arg, "DELAYED_DEALLOC"); break;
-            case ERTS_SSI_AUX_WORK_DD_THR_PRGR:
-                erts_print(to, to_arg, "DELAYED_DEALLOC_THR_PRGR"); break;
-            case ERTS_SSI_AUX_WORK_FIX_ALLOC_DEALLOC:
-                erts_print(to, to_arg, "FIX_ALLOC_DEALLOC"); break;
-            case ERTS_SSI_AUX_WORK_FIX_ALLOC_LOWER_LIM:
-                erts_print(to, to_arg, "FIX_ALLOC_LOWER_LIM"); break;
-            case ERTS_SSI_AUX_WORK_THR_PRGR_LATER_OP:
-                erts_print(to, to_arg, "THR_PRGR_LATER_OP"); break;
-            case ERTS_SSI_AUX_WORK_CNCLD_TMRS:
-                erts_print(to, to_arg, "CANCELED_TIMERS"); break;
-            case ERTS_SSI_AUX_WORK_CNCLD_TMRS_THR_PRGR:
-                erts_print(to, to_arg, "CANCELED_TIMERS_THR_PRGR"); break;
-            case ERTS_SSI_AUX_WORK_ASYNC_READY:
-                erts_print(to, to_arg, "ASYNC_READY"); break;
-            case ERTS_SSI_AUX_WORK_ASYNC_READY_CLEAN:
-                erts_print(to, to_arg, "ASYNC_READY_CLEAN"); break;
-            case ERTS_SSI_AUX_WORK_MISC_THR_PRGR:
-                erts_print(to, to_arg, "MISC_THR_PRGR"); break;
-            case ERTS_SSI_AUX_WORK_MISC:
-                erts_print(to, to_arg, "MISC"); break;
-            case ERTS_SSI_AUX_WORK_CHECK_CHILDREN:
-                erts_print(to, to_arg, "CHECK_CHILDREN"); break;
-            case ERTS_SSI_AUX_WORK_SET_TMO:
-                erts_print(to, to_arg, "SET_TMO"); break;
-            case ERTS_SSI_AUX_WORK_MSEG_CACHE_CHECK:
-                erts_print(to, to_arg, "MSEG_CACHE_CHECK"); break;
-            case ERTS_SSI_AUX_WORK_REAP_PORTS:
-                erts_print(to, to_arg, "REAP_PORTS"); break;
-            case ERTS_SSI_AUX_WORK_DEBUG_WAIT_COMPLETED:
-                erts_print(to, to_arg, "DEBUG_WAIT_COMPLETED"); break;
-            default:
-                erts_print(to, to_arg, "UNKNOWN(%d)", flg); break;
-            }
+	    if (erts_aux_work_flag_descr[i])
+                erts_print(to, to_arg, "%s", erts_aux_work_flag_descr[i]);
+	    else
+                erts_print(to, to_arg, "1<<%d", i);
             if (flg > chk)
                 erts_print(to, to_arg, " | ");
             flg -= chk;
