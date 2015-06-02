@@ -28,13 +28,15 @@
 
 -behaviour(supervisor).
 
+-include("ssh.hrl").
+
 -export([start_link/1, stop_listener/1,
-	 stop_listener/2, stop_system/1,
-	 stop_system/2, system_supervisor/2,
+	 stop_listener/3, stop_system/1,
+	 stop_system/3, system_supervisor/3,
 	 subsystem_supervisor/1, channel_supervisor/1, 
 	 connection_supervisor/1, 
-	 acceptor_supervisor/1, start_subsystem/2, restart_subsystem/2,
-	 restart_acceptor/2, stop_subsystem/2]).
+	 acceptor_supervisor/1, start_subsystem/2, restart_subsystem/3,
+	 restart_acceptor/3, stop_subsystem/2]).
 
 %% Supervisor callback
 -export([init/1]).
@@ -45,14 +47,15 @@
 start_link(ServerOpts) ->
     Address = proplists:get_value(address, ServerOpts),
     Port = proplists:get_value(port, ServerOpts),
-    Name = make_name(Address, Port),
+    Profile = proplists:get_value(profile,  proplists:get_value(ssh_opts, ServerOpts), ?DEFAULT_PROFILE),
+    Name = make_name(Address, Port, Profile),
     supervisor:start_link({local, Name}, ?MODULE, [ServerOpts]).
 
 stop_listener(SysSup) ->
     stop_acceptor(SysSup). 
 
-stop_listener(Address, Port) ->
-    Name = make_name(Address, Port),
+stop_listener(Address, Port, Profile) ->
+    Name = make_name(Address, Port, Profile),
     stop_acceptor(whereis(Name)). 
  
 stop_system(SysSup) ->
@@ -60,12 +63,12 @@ stop_system(SysSup) ->
     spawn(fun() -> sshd_sup:stop_child(Name) end),
     ok.
 
-stop_system(Address, Port) -> 
-    spawn(fun() -> sshd_sup:stop_child(Address, Port) end),
+stop_system(Address, Port, Profile) -> 
+    spawn(fun() -> sshd_sup:stop_child(Address, Port, Profile) end),
     ok.
 
-system_supervisor(Address, Port) ->
-    Name = make_name(Address, Port),
+system_supervisor(Address, Port, Profile) ->
+    Name = make_name(Address, Port, Profile),
     whereis(Name).
 
 subsystem_supervisor(SystemSup) ->
@@ -103,9 +106,9 @@ stop_subsystem(SystemSup, SubSys) ->
     end.
 
 
-restart_subsystem(Address, Port) ->
-    SysSupName = make_name(Address, Port),
-    SubSysName = id(ssh_subsystem_sup, Address, Port),
+restart_subsystem(Address, Port, Profile) ->
+    SysSupName = make_name(Address, Port, Profile),
+    SubSysName = id(ssh_subsystem_sup, Address, Port, Profile),
     case supervisor:terminate_child(SysSupName, SubSysName) of
 	ok ->
 	    supervisor:restart_child(SysSupName, SubSysName);
@@ -113,9 +116,9 @@ restart_subsystem(Address, Port) ->
 	    Error
     end.
 
-restart_acceptor(Address, Port) ->
-    SysSupName = make_name(Address, Port),
-    AcceptorName = id(ssh_acceptor_sup, Address, Port),
+restart_acceptor(Address, Port, Profile) ->
+    SysSupName = make_name(Address, Port, Profile),
+    AcceptorName = id(ssh_acceptor_sup, Address, Port, Profile),
     supervisor:restart_child(SysSupName, AcceptorName).
 
 %%%=========================================================================
@@ -137,7 +140,8 @@ child_specs(ServerOpts) ->
 ssh_acceptor_child_spec(ServerOpts) ->
     Address = proplists:get_value(address, ServerOpts),
     Port = proplists:get_value(port, ServerOpts),
-    Name = id(ssh_acceptor_sup, Address, Port),
+    Profile = proplists:get_value(profile,  proplists:get_value(ssh_opts, ServerOpts), ?DEFAULT_PROFILE),
+    Name = id(ssh_acceptor_sup, Address, Port, Profile),
     StartFunc = {ssh_acceptor_sup, start_link, [ServerOpts]},
     Restart = transient, 
     Shutdown = infinity,
@@ -155,12 +159,23 @@ ssh_subsystem_child_spec(ServerOpts) ->
     {Name, StartFunc, Restart, Shutdown, Type, Modules}.
 
 
-id(Sup, Address, Port) ->
-    {Sup, Address, Port}.
+id(Sup, Address, Port, Profile) ->
+    case is_list(Address) of	
+	true ->
+	    {Sup, any, Port, Profile};
+	false ->
+	    {Sup, Address, Port, Profile}
+	end.
 
-make_name(Address, Port) ->
-    list_to_atom(lists:flatten(io_lib:format("ssh_system_~p_~p_sup", 
-					     [Address, Port]))).
+make_name(Address, Port, Profile) ->
+    case is_list(Address) of
+	true  ->
+	    list_to_atom(lists:flatten(io_lib:format("ssh_system_~p_~p_~p_sup", 
+						     [any, Port, Profile])));
+	false  ->
+	    list_to_atom(lists:flatten(io_lib:format("ssh_system_~p_~p_~p_sup", 
+						     [Address, Port, Profile])))
+    end.
 
 ssh_subsystem_sup([{_, Child, _, [ssh_subsystem_sup]} | _]) ->
     Child;
@@ -177,4 +192,5 @@ stop_acceptor(Sup) ->
 	[{SupName, ASup} || {SupName, ASup, _, [ssh_acceptor_sup]} <- 
 			  supervisor:which_children(Sup)],
     supervisor:terminate_child(AcceptorSup, Name).
+
 

@@ -29,7 +29,8 @@
 	 channel_info/3,
 	 daemon/1, daemon/2, daemon/3,
 	 default_algorithms/0,
-	 stop_listener/1, stop_listener/2, stop_daemon/1, stop_daemon/2,
+	 stop_listener/1, stop_listener/2,  stop_listener/3,
+	 stop_daemon/1, stop_daemon/2, stop_daemon/3,
 	 shell/1, shell/2, shell/3]).
 
 %%--------------------------------------------------------------------
@@ -158,7 +159,9 @@ daemon(HostAddr, Port, Options0) ->
 stop_listener(SysSup) ->
     ssh_system_sup:stop_listener(SysSup).
 stop_listener(Address, Port) ->
-    ssh_system_sup:stop_listener(Address, Port).
+    stop_listener(Address, Port, ?DEFAULT_PROFILE).
+stop_listener(Address, Port, Profile) ->
+    ssh_system_sup:stop_listener(Address, Port, Profile).
 
 %%--------------------------------------------------------------------
 -spec stop_daemon(pid()) -> ok.
@@ -170,8 +173,9 @@ stop_listener(Address, Port) ->
 stop_daemon(SysSup) ->
     ssh_system_sup:stop_system(SysSup).
 stop_daemon(Address, Port) ->
-    ssh_system_sup:stop_system(Address, Port).
-
+    ssh_system_sup:stop_system(Address, Port, ?DEFAULT_PROFILE).
+stop_daemon(Address, Port, Profile) ->
+    ssh_system_sup:stop_system(Address, Port, Profile).
 %%--------------------------------------------------------------------
 -spec shell(string()) ->  _.
 -spec shell(string(), proplists:proplist()) ->  _.
@@ -232,7 +236,8 @@ start_daemon(Host, Port, Options, Inet) ->
     end.
     
 do_start_daemon(Host, Port, Options, SocketOptions) ->
-    case ssh_system_sup:system_supervisor(Host, Port) of
+    Profile = proplists:get_value(profile, Options, ?DEFAULT_PROFILE),
+    case ssh_system_sup:system_supervisor(Host, Port, Profile) of
 	undefined ->
 	    %% It would proably make more sense to call the
 	    %% address option host but that is a too big change at the
@@ -382,6 +387,8 @@ handle_option([{minimal_remote_max_packet_size, _} = Opt|Rest], SocketOptions, S
     handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
 handle_option([{id_string, _ID} = Opt|Rest], SocketOptions, SshOptions) ->
     handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
+handle_option([{profile, _ID} = Opt|Rest], SocketOptions, SshOptions) ->
+    handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
 handle_option([Opt | Rest], SocketOptions, SshOptions) ->
     handle_option(Rest, [handle_inet_option(Opt) | SocketOptions], SshOptions).
 
@@ -475,6 +482,8 @@ handle_ssh_option({rekey_limit, Value} = Opt) when is_integer(Value) ->
 handle_ssh_option({id_string, random}) ->
     {id_string, {random,2,5}}; %% 2 - 5 random characters
 handle_ssh_option({id_string, ID} = Opt) when is_list(ID) ->
+    Opt;
+handle_ssh_option({profile, Value} = Opt) when is_atom(Value) ->
     Opt;
 handle_ssh_option(Opt) ->
     throw({error, {eoptions, Opt}}).

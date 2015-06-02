@@ -495,6 +495,19 @@ kex is implicit but public_key is set explicitly.</p>
 	    Can be used to customize the handling of public keys.
 	    </p>
 	  </item>
+	  
+	  <tag><c>{profile, atom()}</c></tag>
+	  <item>
+	    <p>Used together with <c>ip-address</c> and <c>port</c> to
+	    uniquely identify a ssh daemon. This can be useful in a
+	    virtualized environment, where there can be more that one
+	    server that has the same <c>ip-address</c> and
+	    <c>port</c>. If this property is not explicitly set, it is
+	    assumed that the the <c>ip-address</c> and <c>port</c>
+	    uniquely identifies the SSH daemon.
+	    </p>
+	  </item>
+	  
 	  <tag><c><![CDATA[{fd, file_descriptor()}]]></c></tag>
 	  <item>
 	    <p>Allows an existing file-descriptor to be used

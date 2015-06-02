@@ -32,6 +32,7 @@ VSN=$(GS_VSN)
 
 MODULES= \
 	ssh_test_lib \
+	ssh_sup_SUITE \
 	ssh_basic_SUITE \
 	ssh_to_openssh_SUITE \
 	ssh_sftp_SUITE \

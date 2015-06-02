@@ -26,7 +26,9 @@
 -module(ssh_acceptor_sup).
 -behaviour(supervisor).
 
--export([start_link/1, start_child/2, stop_child/3]).
+-include("ssh.hrl").
+
+-export([start_link/1, start_child/2, stop_child/4]).
 
 %% Supervisor callback
 -export([init/1]).
@@ -45,14 +47,16 @@ start_child(AccSup, ServerOpts) ->
 	{error, already_present} ->
 	    Address = proplists:get_value(address, ServerOpts),
 	    Port = proplists:get_value(port, ServerOpts),
-	    stop_child(AccSup, Address, Port),
+	    Profile = proplists:get_value(profile,  
+					  proplists:get_value(ssh_opts, ServerOpts), ?DEFAULT_PROFILE),
+	    stop_child(AccSup, Address, Port, Profile),
 	    supervisor:start_child(AccSup, Spec);
 	Reply ->
 	    Reply
     end.
 
-stop_child(AccSup, Address, Port) ->
-    Name = id(Address, Port),
+stop_child(AccSup, Address, Port, Profile) ->
+    Name = id(Address, Port, Profile),
     case supervisor:terminate_child(AccSup, Name) of
         ok ->
             supervisor:delete_child(AccSup, Name);
@@ -77,7 +81,8 @@ child_spec(ServerOpts) ->
     Address = proplists:get_value(address, ServerOpts),
     Port = proplists:get_value(port, ServerOpts),
     Timeout = proplists:get_value(timeout, ServerOpts, ?DEFAULT_TIMEOUT),
-    Name = id(Address, Port),
+    Profile = proplists:get_value(profile,  proplists:get_value(ssh_opts, ServerOpts), ?DEFAULT_PROFILE),
+    Name = id(Address, Port, Profile),
     SocketOpts = proplists:get_value(socket_opts, ServerOpts),
     StartFunc = {ssh_acceptor, start_link, [Port, Address, 
 					    [{active, false},
@@ -89,6 +94,11 @@ child_spec(ServerOpts) ->
     Type = worker,
     {Name, StartFunc, Restart, Shutdown, Type, Modules}.
 
-id(Address, Port) ->
-    {ssh_acceptor_sup, Address, Port}.
+id(Address, Port, Profile) ->
+    case is_list(Address) of
+	true ->
+	    {ssh_acceptor_sup, any, Port, Profile};
+	false ->
+	    {ssh_acceptor_sup, Address, Port, Profile}
+    end.
 

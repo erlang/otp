@@ -26,8 +26,10 @@
 
 -behaviour(supervisor).
 
+-include("ssh.hrl").
+
 -export([start_link/1, start_child/1, stop_child/1,
-	 stop_child/2, system_name/1]).
+	 stop_child/3, system_name/1]).
 
 %% Supervisor callback
 -export([init/1]).
@@ -40,13 +42,14 @@ start_link(Servers) ->
 
 start_child(ServerOpts) ->
     Address = proplists:get_value(address, ServerOpts),
-    Port = proplists:get_value(port, ServerOpts),
-    case ssh_system_sup:system_supervisor(Address, Port) of
+    Port = proplists:get_value(port, ServerOpts),    
+    Profile = proplists:get_value(profile,  proplists:get_value(ssh_opts, ServerOpts), ?DEFAULT_PROFILE),
+    case ssh_system_sup:system_supervisor(Address, Port, Profile) of
        undefined ->
 	    Spec =  child_spec(Address, Port, ServerOpts),    
 	    case supervisor:start_child(?MODULE, Spec) of
 		{error, already_present} ->
-		    Name = id(Address, Port),
+		    Name = id(Address, Port, Profile),
 		    supervisor:delete_child(?MODULE, Name),
 		    supervisor:start_child(?MODULE, Spec);
 		Reply ->
@@ -60,8 +63,8 @@ start_child(ServerOpts) ->
 stop_child(Name) ->
     supervisor:terminate_child(?MODULE, Name).
 
-stop_child(Address, Port) ->
-    Name = id(Address, Port),
+stop_child(Address, Port, Profile) ->
+    Name = id(Address, Port, Profile),
     stop_child(Name).
 
 system_name(SysSup) ->
@@ -87,7 +90,8 @@ init([Servers]) ->
 %%%  Internal functions
 %%%=========================================================================
 child_spec(Address, Port, ServerOpts) ->
-    Name = id(Address, Port),
+    Profile = proplists:get_value(profile,  proplists:get_value(ssh_opts, ServerOpts), ?DEFAULT_PROFILE),
+    Name = id(Address, Port,Profile),
     StartFunc = {ssh_system_sup, start_link, [ServerOpts]},
     Restart = temporary, 
     Shutdown = infinity,
@@ -95,8 +99,13 @@ child_spec(Address, Port, ServerOpts) ->
     Type = supervisor,
     {Name, StartFunc, Restart, Shutdown, Type, Modules}.
 
-id(Address, Port) ->
-    {server, ssh_system_sup, Address, Port}.
+id(Address, Port, Profile) ->
+    case is_list(Address) of	
+	true ->
+	    {server, ssh_system_sup, any, Port, Profile};
+	false ->
+	    {server, ssh_system_sup, Address, Port, Profile}
+    end.
 
 system_name([], _ ) ->
     undefined;

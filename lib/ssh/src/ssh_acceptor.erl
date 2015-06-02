@@ -21,6 +21,8 @@
 
 -module(ssh_acceptor).
 
+-include("ssh.hrl").
+
 %% Internal application API
 -export([start_link/5,
 	 number_of_connections/1]).
@@ -82,8 +84,10 @@ acceptor_loop(Callback, Port, Address, Opts, ListenSocket, AcceptTimeout) ->
     end.
 
 handle_connection(Callback, Address, Port, Options, Socket) ->
-    SystemSup = ssh_system_sup:system_supervisor(Address, Port),
     SSHopts = proplists:get_value(ssh_opts, Options, []),
+    Profile =  proplists:get_value(profile, SSHopts, ?DEFAULT_PROFILE),
+    SystemSup = ssh_system_sup:system_supervisor(Address, Port, Profile),
+
     MaxSessions = proplists:get_value(max_sessions,SSHopts,infinity),
     case number_of_connections(SystemSup) < MaxSessions of
 	true ->
