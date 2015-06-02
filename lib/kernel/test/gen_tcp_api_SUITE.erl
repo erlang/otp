@@ -31,7 +31,7 @@
 	 init_per_testcase/2, end_per_testcase/2,
 	 t_connect_timeout/1, t_accept_timeout/1,
 	 t_connect_bad/1,
-	 t_recv_timeout/1, t_recv_eof/1,
+	 t_recv_timeout/1, t_recv_eof/1, t_recv_delim/1,
 	 t_shutdown_write/1, t_shutdown_both/1, t_shutdown_error/1,
 	 t_shutdown_async/1,
 	 t_fdopen/1, t_fdconnect/1, t_implicit_inet6/1]).
@@ -129,6 +129,21 @@ t_recv_eof(Config) when is_list(Config) ->
     ?line {ok, A} = gen_tcp:accept(L),
     ?line ok = gen_tcp:close(A),
     ?line {error, closed} = gen_tcp:recv(Client, 0),
+    ok.
+
+t_recv_delim(doc) -> "Test using message delimiter $X";
+t_recv_delim(suite) -> [];
+t_recv_delim(Config) when is_list(Config) ->
+    {ok, L} = gen_tcp:listen(0, []),
+    {ok, Port} = inet:port(L),
+    Opts = [{active,false},{packet,line},{line_delimiter,$X}],
+    {ok, Client} = gen_tcp:connect(localhost, Port, Opts),
+    {ok, A} = gen_tcp:accept(L),
+    ok = gen_tcp:send(A, "abcXefgX"),
+    {ok, "abcX"} = gen_tcp:recv(Client, 0, 0),
+    {ok, "efgX"} = gen_tcp:recv(Client, 0, 0),
+    ok = gen_tcp:close(Client),
+    ok = gen_tcp:close(A),
     ok.
 
 %%% gen_tcp:shutdown/2

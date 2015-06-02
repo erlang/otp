@@ -898,6 +898,10 @@
 	      case when <c>packet_size</c> itself is not set. This usage is
 	      only intended for backward compatibility.</p>
               </item>
+              <tag><c>{line_delimiter, 0 &le; char() &le; 255}</c></tag>
+              <item><p>For packet type <c>line</c>, sets delimiting character.
+                Default <c>$\n</c>.</p>
+              </item>
             </taglist>
         <pre>
 > <input>erlang:decode_packet(1,&lt;&lt;3,"abcd"&gt;&gt;,[]).</input>
