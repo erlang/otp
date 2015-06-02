@@ -18,12 +18,12 @@
  */
 #include <stdio.h>
 #include <string.h>
-#if defined(HAVE_ISFINITE)
-#include <math.h>
-#endif
 #include "eidef.h"
 #include "eiext.h"
 #include "putget.h"
+#if defined(HAVE_ISFINITE)
+#include <math.h>
+#endif
 
 int ei_encode_double(char *buf, int *index, double p)
 {
