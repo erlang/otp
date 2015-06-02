@@ -1036,7 +1036,7 @@ erlang_client_openssl_server_alpn(Config) when is_list(Config) ->
 erlang_server_alpn_openssl_client(Config) when is_list(Config) ->
     Data = "From openssl to erlang",
     start_erlang_server_and_openssl_client_with_opts(Config,
-						     [{alpn_advertised_protocols, [<<"spdy/2">>]}],
+						     [{alpn_preferred_protocols, [<<"spdy/2">>]}],
                                                      "",
 						     Data, fun(Server, OpensslPort) ->
         true = port_command(OpensslPort, Data),
