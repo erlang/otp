@@ -127,35 +127,16 @@ drv2protocol(_)           -> undefined.
 %% TODO: shutdown equivalent for SCTP
 %%
 shutdown(S, read) when is_port(S) ->
-    shutdown_2(S, 0);
+    shutdown_1(S, 0);
 shutdown(S, write) when is_port(S) ->
     shutdown_1(S, 1);
 shutdown(S, read_write) when is_port(S) ->
     shutdown_1(S, 2).
 
 shutdown_1(S, How) ->
-    case subscribe(S, [subs_empty_out_q]) of
-	{ok,[{subs_empty_out_q,N}]} when N > 0 ->
-	    shutdown_pend_loop(S, N);   %% wait for pending output to be sent
-	_Other -> ok
-    end,
-    shutdown_2(S, How).
-
-shutdown_2(S, How) ->
     case ctl_cmd(S, ?TCP_REQ_SHUTDOWN, [How]) of
 	{ok, []} -> ok;
 	{error,_}=Error -> Error
-    end.
-
-shutdown_pend_loop(S, N0) ->
-    receive
-	{empty_out_q,S} -> ok
-    after ?INET_CLOSE_TIMEOUT ->
-	    case getstat(S, [send_pend]) of
-                {ok,[{send_pend,N0}]} -> ok;
-                {ok,[{send_pend,N}]} -> shutdown_pend_loop(S, N);
-		_ -> ok
-	    end
     end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
