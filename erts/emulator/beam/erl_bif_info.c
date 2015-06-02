@@ -4050,7 +4050,14 @@ BIF_RETTYPE erts_debug_set_internal_state_2(BIF_ALIST_2)
 	}
 	else if (ERTS_IS_ATOM_STR("wait", BIF_ARG_1)) {
 	    if (ERTS_IS_ATOM_STR("deallocations", BIF_ARG_2)) {
-		if (erts_debug_wait_deallocations(BIF_P)) {
+		int flag = ERTS_DEBUG_WAIT_COMPLETED_DEALLOCATIONS;
+		if (erts_debug_wait_completed(BIF_P, flag)) {
+		    ERTS_BIF_YIELD_RETURN(BIF_P, am_ok);
+		}
+	    }
+	    if (ERTS_IS_ATOM_STR("timer_cancellations", BIF_ARG_2)) {
+		int flag = ERTS_DEBUG_WAIT_COMPLETED_TIMER_CANCELLATIONS;
+		if (erts_debug_wait_completed(BIF_P, flag)) {
 		    ERTS_BIF_YIELD_RETURN(BIF_P, am_ok);
 		}
 	    }

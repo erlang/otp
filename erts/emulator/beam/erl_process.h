@@ -270,6 +270,9 @@ typedef enum {
 /*
  * Keep ERTS_SSI_AUX_WORK flags in expected frequency order relative
  * eachother. Most frequent - lowest bit number.
+ *
+ * ERTS_SSI_AUX_WORK_DEBUG_WAIT_COMPLETED *need* to be highest bit
+ * and last flag checked...
  */
 
 #define ERTS_SSI_AUX_WORK_DELAYED_AW_WAKEUP	(((erts_aint32_t) 1) << 0)
@@ -288,8 +291,9 @@ typedef enum {
 #define ERTS_SSI_AUX_WORK_SET_TMO		(((erts_aint32_t) 1) << 13)
 #define ERTS_SSI_AUX_WORK_MSEG_CACHE_CHECK	(((erts_aint32_t) 1) << 14)
 #define ERTS_SSI_AUX_WORK_REAP_PORTS		(((erts_aint32_t) 1) << 15)
+#define ERTS_SSI_AUX_WORK_DEBUG_WAIT_COMPLETED	(((erts_aint32_t) 1) << 16)
 
-#define ERTS_SSI_AUX_WORK_MAX                                           16
+#define ERTS_SSI_AUX_WORK_MAX                                           17
 
 typedef struct ErtsSchedulerSleepInfo_ ErtsSchedulerSleepInfo;
 
@@ -515,8 +519,6 @@ typedef struct {
 #ifdef ERTS_SMP
     struct {
 	ErtsThrPrgrVal thr_prgr;
-	void (*completed_callback)(void *);
-	void (*completed_arg)(void *);
     } dd;
     struct {
 	ErtsThrPrgrVal thr_prgr;
@@ -545,6 +547,13 @@ typedef struct {
 	ErtsDelayedAuxWorkWakeupJob *job;
     } delayed_wakeup;
 #endif
+    struct {
+	struct {
+	    erts_aint32_t flags;
+	    void (*callback)(void *);
+	    void *arg;
+	} wait_completed;
+    } debug;
 } ErtsAuxWorkData;
 
 #ifdef ERTS_DIRTY_SCHEDULERS
@@ -1692,7 +1701,11 @@ Eterm erts_get_reader_groups_map(Process *c_p);
 Eterm erts_debug_reader_groups_map(Process *c_p, int groups);
 
 Uint erts_debug_nbalance(void);
-int erts_debug_wait_deallocations(Process *c_p);
+
+#define ERTS_DEBUG_WAIT_COMPLETED_DEALLOCATIONS		(1 << 0)
+#define ERTS_DEBUG_WAIT_COMPLETED_TIMER_CANCELLATIONS	(1 << 1)
+
+int erts_debug_wait_completed(Process *c_p, int flags);
 
 Uint erts_process_memory(Process *c_p);
 

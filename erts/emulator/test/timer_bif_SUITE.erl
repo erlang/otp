@@ -631,7 +631,6 @@ auto_cancel_yielding(Config) when is_list(Config) ->
     true = mem_larger_than(Mem),
     exit(P, bang),
     wait_until(fun () -> process_is_cleaned_up(P) end),
-    receive after 1000 -> ok end,
     Mem = mem(),
     ok.
 
@@ -747,7 +746,7 @@ mem_larger_than(Mem) ->
     mem() > Mem.
 
 mem() ->
-    erts_debug:set_internal_state(wait, deallocations),
+    erts_debug:set_internal_state(wait, timer_cancellations),
     erts_debug:set_internal_state(wait, deallocations),
     case mem_get() of
 	{-1, -1} -> no_fix_alloc;

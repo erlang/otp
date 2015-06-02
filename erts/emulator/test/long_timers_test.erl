@@ -28,7 +28,7 @@
 
 
 -define(MAX_TIMEOUT, 60). % Minutes
--define(MAX_LATE_MS, 10*1000). % Milliseconds
+-define(MAX_LATE_MS, 15*1000). % Milliseconds
 -define(REG_NAME, '___LONG___TIMERS___TEST___SERVER___').
 
 -define(DRV_NAME, timer_driver).
@@ -196,8 +196,8 @@ driver(Timeout) ->
     end.
 
 bif_timer(Timeout) ->
-    Tmr = erlang:start_timer(Timeout, self(), ok),
     Start = erlang:monotonic_time(),
+    Tmr = erlang:start_timer(Timeout, self(), ok),
     receive
 	{get_result, ?REG_NAME} ->
 	    ?REG_NAME ! #timeout_rec{pid = self(),

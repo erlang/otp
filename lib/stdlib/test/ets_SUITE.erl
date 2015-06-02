@@ -117,6 +117,7 @@ init_per_testcase(Case, Config) ->
     start_spawn_logger(),
     wait_for_test_procs(), %% Ensure previous case cleaned up
     Dog=test_server:timetrap(test_server:minutes(20)),
+    put('__ETS_TEST_CASE__', Case),
     [{watchdog, Dog}, {test_case, Case} | Config].
 
 end_per_testcase(_Func, Config) ->
@@ -216,8 +217,9 @@ memory_check_summary(_Config) ->
 	    ets_test_spawn_logger ! {self(), get_failed_memchecks},
 	    receive {get_failed_memchecks, FailedMemchecks} -> ok end,
 	    io:format("Failed memchecks: ~p\n",[FailedMemchecks]),
-	    if FailedMemchecks > 3 ->
-		    ct:fail("Too many failed (~p) memchecks", [FailedMemchecks]);
+	    NoFailedMemchecks = length(FailedMemchecks),
+	    if NoFailedMemchecks > 3 ->
+		    ct:fail("Too many failed (~p) memchecks", [NoFailedMemchecks]);
 	       true ->
 		    ok
 	    end
@@ -5910,7 +5912,7 @@ verify_etsmem({MemInfo,AllTabs}) ->
 	    io:format("Actual:   ~p", [MemInfo2]),
 	    io:format("Changed tables before: ~p\n",[AllTabs -- AllTabs2]),
 	    io:format("Changed tables after: ~p\n", [AllTabs2 -- AllTabs]),
-	    ets_test_spawn_logger ! failed_memcheck,
+	    ets_test_spawn_logger ! {failed_memcheck, get('__ETS_TEST_CASE__')},
 	    {comment, "Failed memory check"}
     end.
 
@@ -5961,8 +5963,8 @@ spawn_logger(Procs, FailedMemchecks) ->
 	    From ! test_procs_synced,
 	    spawn_logger([From], FailedMemchecks);
 
-	failed_memcheck ->
-	    spawn_logger(Procs, FailedMemchecks+1);
+	{failed_memcheck, TestCase} ->
+	    spawn_logger(Procs, [TestCase|FailedMemchecks]);
 
 	{Pid, get_failed_memchecks} ->
 	    Pid ! {get_failed_memchecks, FailedMemchecks},
@@ -5982,7 +5984,7 @@ start_spawn_logger() ->
     case whereis(ets_test_spawn_logger) of
 	Pid when is_pid(Pid) -> true;
 	_ -> register(ets_test_spawn_logger,
-		      spawn_opt(fun () -> spawn_logger([], 0) end,
+		      spawn_opt(fun () -> spawn_logger([], []) end,
 				[{priority, max}]))
     end.
 
