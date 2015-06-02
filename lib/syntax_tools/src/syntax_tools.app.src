@@ -17,4 +17,5 @@
   {registered,[]},
   {applications, [stdlib]},
   {env, []},
-  {runtime_dependencies, ["stdlib-2.5","kernel-3.0","erts-6.0"]}]}.
+  {runtime_dependencies,
+   ["compiler-6.0","erts-6.0","kernel-3.0","stdlib-2.5"]}]}.
