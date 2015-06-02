@@ -227,7 +227,10 @@ loop_conn_setup(World, Erts) ->
 	{tcp_closed, Erts} ->
 	    ssl:close(World);
 	{ssl_closed,  World} ->
-	    gen_tcp:close(Erts)
+	    gen_tcp:close(Erts);
+	{ssl_error, World, _} ->
+
+	    ssl:close(World)
     end.
 
 loop_conn(World, Erts) ->
@@ -241,7 +244,9 @@ loop_conn(World, Erts) ->
 	{tcp_closed, Erts} ->
 	    ssl:close(World);
 	{ssl_closed,  World} ->
-	    gen_tcp:close(Erts)
+	    gen_tcp:close(Erts);
+	{ssl_error, World, _} ->
+	    ssl:close(World)
     end.
 
 get_ssl_options(Type) ->
