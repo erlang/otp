@@ -75,9 +75,9 @@ $(EBIN)/%.$(EMULATOR):%.erl
 
 # special rules and dependencies to apply the transform to itself
 $(EBIN)/merl_transform.beam: $(EBIN)/merl.beam ./merl_transform.beam \
-			../include/merl.hrl
+			../include/merl.hrl $(EBIN)/erl_syntax.beam
 ./merl_transform.beam: ./merl_transform.erl $(EBIN)/merl.beam \
-			../include/merl.hrl
+			../include/merl.hrl $(EBIN)/erl_syntax.beam
 	$(V_ERLC) -DMERL_NO_TRANSFORM $(ERL_COMPILE_FLAGS) -o ./ $<
 
 
