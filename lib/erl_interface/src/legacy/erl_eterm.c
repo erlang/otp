@@ -26,7 +26,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
+#if defined(HAVE_ISFINITE)
 #include <math.h>
+#endif
 
 #include "ei_locking.h"
 #include "ei_resolve.h"
@@ -126,12 +128,14 @@ ETERM *erl_mk_float (double d)
 {
     ETERM *ep;
 
+#if defined(HAVE_ISFINITE)
     /* Erlang does not handle Inf and NaN, so we return an error
      * rather than letting the Erlang VM complain about a bad external
      * term. */
     if(!isfinite(d)) {
         return NULL;
     }
+#endif
 
     ep = erl_alloc_eterm(ERL_FLOAT);
     ERL_COUNT(ep) = 1;
