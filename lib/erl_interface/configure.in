@@ -139,18 +139,6 @@ esac
 AC_CHECK_LIB([nsl], [gethostbyname])
 AC_CHECK_LIB([socket], [getpeername])
 
-AC_MSG_CHECKING([for isfinite])
-AC_TRY_LINK([#include <math.h>],
-            [isfinite(0);], have_isfinite=yes, have_isfinite=no),
-
-if test $have_isfinite = yes; then
-    AC_DEFINE(HAVE_ISFINITE,[1],
-              [Define to 1 if you have the `isfinite' function.])
-    AC_MSG_RESULT(yes)
-else
-    AC_MSG_RESULT(no)
-fi
-
 # Checks for header files.
 AC_HEADER_STDC
 AC_HEADER_SYS_WAIT
