@@ -1289,7 +1289,9 @@ dummy_server_init(Caller, ip_comm, Inet, _) ->
 						      {max_header, ?HTTP_MAX_HEADER_SIZE},
 						      {max_version,?HTTP_MAX_VERSION_STRING}, 
 						      {max_method, ?HTTP_MAX_METHOD_STRING},
-						      {max_content_length, ?HTTP_MAX_CONTENT_LENGTH}]]},
+						      {max_content_length, ?HTTP_MAX_CONTENT_LENGTH},
+						      {customize, httpd_custom}
+						     ]]},
     [], ListenSocket);
 
 dummy_server_init(Caller, ssl, Inet, SSLOptions) ->
@@ -1305,7 +1307,8 @@ dummy_ssl_server_init(Caller, BaseOpts, Inet) ->
 						   {max_method, ?HTTP_MAX_METHOD_STRING},
 						   {max_version,?HTTP_MAX_VERSION_STRING}, 
 						   {max_method, ?HTTP_MAX_METHOD_STRING},
-						   {max_content_length, ?HTTP_MAX_CONTENT_LENGTH}
+						   {max_content_length, ?HTTP_MAX_CONTENT_LENGTH},
+						   {customize, httpd_custom}
 						  ]]},
 			  [], ListenSocket).
 
@@ -1384,18 +1387,20 @@ handle_request(Module, Function, Args, Socket) ->
 		    stop;
 		<<>> ->
 		    {httpd_request, parse, [[{max_uri,?HTTP_MAX_URI_SIZE},
-						    {max_header, ?HTTP_MAX_HEADER_SIZE},
-						    {max_version,?HTTP_MAX_VERSION_STRING}, 
-						    {max_method, ?HTTP_MAX_METHOD_STRING},
-						    {max_content_length, ?HTTP_MAX_CONTENT_LENGTH}
-						   ]]};
+					     {max_header, ?HTTP_MAX_HEADER_SIZE},
+					     {max_version,?HTTP_MAX_VERSION_STRING}, 
+					     {max_method, ?HTTP_MAX_METHOD_STRING},
+					     {max_content_length, ?HTTP_MAX_CONTENT_LENGTH},
+					     {customize, httpd_custom}
+					    ]]};
 		Data ->	
 		    handle_request(httpd_request, parse, 
 				   [Data, [{max_uri,    ?HTTP_MAX_URI_SIZE},
-					    {max_header, ?HTTP_MAX_HEADER_SIZE},
+					   {max_header, ?HTTP_MAX_HEADER_SIZE},
 					    {max_version,?HTTP_MAX_VERSION_STRING}, 
 					    {max_method, ?HTTP_MAX_METHOD_STRING},
-					    {max_content_length, ?HTTP_MAX_CONTENT_LENGTH}
+					    {max_content_length, ?HTTP_MAX_CONTENT_LENGTH},
+					   {customize, httpd_custom}
 					  ]], Socket)
 	    end;
 	NewMFA ->

@@ -25,7 +25,23 @@
     <file>notes.xml</file>
   </header>
   <p>This document describes the changes made to the SSL application.</p>
-  <section><title>SSL 6.0</title>
+  <section><title>SSL 6.0.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Terminate gracefully when receving bad input to premaster
+	    secret calculation</p>
+          <p>
+	    Own Id: OTP-12783</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SSL 6.0</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>

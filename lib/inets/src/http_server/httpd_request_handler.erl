@@ -121,13 +121,15 @@ continue_init(Manager, ConfigDB, SocketType, Socket, TimeOut) ->
     MaxURISize    = max_uri_size(ConfigDB), 
     NrOfRequest   = max_keep_alive_request(ConfigDB), 
     MaxContentLen = max_content_length(ConfigDB),
+    Customize = customize(ConfigDB),
 
     {_, Status} = httpd_manager:new_connection(Manager),
     
     MFA = {httpd_request, parse, [[{max_uri, MaxURISize}, {max_header, MaxHeaderSize},
 				   {max_version, ?HTTP_MAX_VERSION_STRING}, 
 				   {max_method, ?HTTP_MAX_METHOD_STRING},
-				   {max_content_length, MaxContentLen}
+				   {max_content_length, MaxContentLen},
+				   {customize, Customize}
 				  ]]}, 
 
     State = #state{mod                    = Mod, 
@@ -550,11 +552,13 @@ handle_next_request(#state{mod = #mod{connection = true} = ModData,
     MaxHeaderSize = max_header_size(ModData#mod.config_db), 
     MaxURISize    = max_uri_size(ModData#mod.config_db), 
     MaxContentLen = max_content_length(ModData#mod.config_db),
+    Customize = customize(ModData#mod.config_db),
 
     MFA = {httpd_request, parse, [[{max_uri, MaxURISize}, {max_header, MaxHeaderSize},
 				   {max_version, ?HTTP_MAX_VERSION_STRING}, 
 				   {max_method, ?HTTP_MAX_METHOD_STRING},
-				   {max_content_length, MaxContentLen}
+				   {max_content_length, MaxContentLen},
+				   {customize, Customize}
 				  ]]}, 
     TmpState = State#state{mod                    = NewModData,
 			   mfa                    = MFA,
@@ -640,3 +644,6 @@ max_keep_alive_request(ConfigDB) ->
 
 max_content_length(ConfigDB) ->    
     httpd_util:lookup(ConfigDB, max_content_length, ?HTTP_MAX_CONTENT_LENGTH).
+
+customize(ConfigDB) ->    
+    httpd_util:lookup(ConfigDB, customize, httpd_custom).

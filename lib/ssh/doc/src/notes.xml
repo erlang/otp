@@ -29,6 +29,33 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Ssh 3.2.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Gracefully terminate if sockets is unexpectedly closed.</p>
+          <p>
+	    Own Id: OTP-12782</p>
+        </item>
+        <item>
+          <p>
+	    Made Codenomicon Defensics test suite pass: <list>
+	    <item>limit number of algorithms in kexinit
+	    message</item> <item>check 'e' and 'f' parameters in
+	    kexdh</item> <item>implement 'keyboard-interactive' user
+	    authentication on server side</item> <item> return plain
+	    text message to bad version exchange message</item>
+	    </list></p>
+          <p>
+	    Own Id: OTP-12784</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Ssh 3.2.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

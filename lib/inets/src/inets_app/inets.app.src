@@ -63,6 +63,7 @@
 	    httpd_cgi,
 	    httpd_connection_sup,
             httpd_conf,
+	    httpd_custom,
 	    httpd_esi,
             httpd_example,
 	    httpd_file,

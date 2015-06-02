@@ -476,19 +476,27 @@ update_handshake_history({Handshake0, _Prev}, Data) ->
 %%     end.
 
 premaster_secret(OtherPublicDhKey, MyPrivateKey, #'DHParameter'{} = Params) ->
-    public_key:compute_key(OtherPublicDhKey, MyPrivateKey, Params);
-
+    try 
+	public_key:compute_key(OtherPublicDhKey, MyPrivateKey, Params)  
+    catch 
+	error:computation_failed -> 
+	    throw(?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER))
+    end;	   
 premaster_secret(PublicDhKey, PrivateDhKey, #server_dh_params{dh_p = Prime, dh_g = Base}) ->
-    crypto:compute_key(dh, PublicDhKey, PrivateDhKey, [Prime, Base]);
+    try 
+	crypto:compute_key(dh, PublicDhKey, PrivateDhKey, [Prime, Base])
+    catch 
+	error:computation_failed -> 
+	    throw(?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER))
+    end;
 premaster_secret(#client_srp_public{srp_a = ClientPublicKey}, ServerKey, #srp_user{prime = Prime,
 										   verifier = Verifier}) ->
     case crypto:compute_key(srp, ClientPublicKey, ServerKey, {host, [Verifier, Prime, '6a']}) of
 	error ->
-	    ?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER);
+	    throw(?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER));
 	PremasterSecret ->
 	    PremasterSecret
     end;
-
 premaster_secret(#server_srp_params{srp_n = Prime, srp_g = Generator, srp_s = Salt, srp_b = Public},
 		 ClientKeys, {Username, Password}) ->
     case ssl_srp_primes:check_srp_params(Generator, Prime) of
@@ -496,21 +504,19 @@ premaster_secret(#server_srp_params{srp_n = Prime, srp_g = Generator, srp_s = Sa
 	    DerivedKey = crypto:hash(sha, [Salt, crypto:hash(sha, [Username, <<$:>>, Password])]),
 	    case crypto:compute_key(srp, Public, ClientKeys, {user, [DerivedKey, Prime, Generator, '6a']}) of
 		error ->
-		    ?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER);
+		    throw(?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER));
 		PremasterSecret ->
 		    PremasterSecret
 	    end;
 	_ ->
-	    ?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER)
+	    throw(?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER))
     end;
-
 premaster_secret(#client_rsa_psk_identity{
 		    identity = PSKIdentity,
 		    exchange_keys = #encrypted_premaster_secret{premaster_secret = EncPMS}
 		   }, #'RSAPrivateKey'{} = Key, PSKLookup) ->
     PremasterSecret = premaster_secret(EncPMS, Key),
     psk_secret(PSKIdentity, PSKLookup, PremasterSecret);
-
 premaster_secret(#server_dhe_psk_params{
 		    hint = IdentityHint,
 		    dh_params =  #server_dh_params{dh_y = PublicDhKey} = Params},
@@ -518,7 +524,6 @@ premaster_secret(#server_dhe_psk_params{
 		    LookupFun) ->
     PremasterSecret = premaster_secret(PublicDhKey, PrivateDhKey, Params),
     psk_secret(IdentityHint, LookupFun, PremasterSecret);
-
 premaster_secret({rsa_psk, PSKIdentity}, PSKLookup, RSAPremasterSecret) ->
     psk_secret(PSKIdentity, PSKLookup, RSAPremasterSecret).
 
@@ -527,13 +532,10 @@ premaster_secret(#client_dhe_psk_identity{
 		    dh_public = PublicDhKey}, PrivateKey, #'DHParameter'{} = Params, PSKLookup) ->
     PremasterSecret = premaster_secret(PublicDhKey, PrivateKey, Params),
     psk_secret(PSKIdentity, PSKLookup, PremasterSecret).
-
 premaster_secret(#client_psk_identity{identity = PSKIdentity}, PSKLookup) ->
     psk_secret(PSKIdentity, PSKLookup);
-
 premaster_secret({psk, PSKIdentity}, PSKLookup) ->
     psk_secret(PSKIdentity, PSKLookup);
-
 premaster_secret(#'ECPoint'{} = ECPoint, #'ECPrivateKey'{} = ECDHKeys) ->
     public_key:compute_key(ECPoint, ECDHKeys);
 premaster_secret(EncSecret, #'RSAPrivateKey'{} = RSAPrivateKey) ->
@@ -2036,7 +2038,7 @@ psk_secret(PSKIdentity, PSKLookup) ->
 	#alert{} = Alert ->
 	    Alert;
 	_ ->
-	    ?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER)
+	    throw(?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER))
     end.
 
 psk_secret(PSKIdentity, PSKLookup, PremasterSecret) ->
@@ -2048,7 +2050,7 @@ psk_secret(PSKIdentity, PSKLookup, PremasterSecret) ->
 	#alert{} = Alert ->
 	    Alert;
 	_ ->
-	    ?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER)
+	    throw(?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER))
     end.
 
 handle_psk_identity(_PSKIdentity, LookupFun)
