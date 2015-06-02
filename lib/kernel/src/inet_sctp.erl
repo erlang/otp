@@ -133,15 +133,18 @@ connect_get_assoc(S, Addr, Port, Active, Timer) ->
     Timeout = inet:timeout(Timer),
     receive
 	{sctp,S,Addr,Port,{_,#sctp_assoc_change{state=St}=Ev}} ->
-	    case Active of
-		once ->
-		    ok = prim_inet:setopt(S, active, once);
-		_ -> ok
-	    end,
-	    if St =:= comm_up ->
+	    SetOptRes =
+		case Active of
+		    once -> prim_inet:setopt(S, active, once);
+		    _ -> ok
+		end,
+	    case {St, SetOptRes} of
+		{comm_up, ok} ->
 		    {ok,Ev};
-	       true ->
-		    {error,Ev}
+		{_, ok} ->
+		    {error,Ev};
+		{_, Error} ->
+		    Error
 	    end
     after Timeout ->
 	    {error,timeout}

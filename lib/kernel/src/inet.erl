@@ -1527,26 +1527,28 @@ tcp_controlling_process(S, NewOwner) when is_port(S), is_pid(NewOwner) ->
 	_ ->
 	    case prim_inet:getopt(S, active) of
 		{ok, A0} ->
-		    case A0 of
-			false -> ok;
-			_ -> ok = prim_inet:setopt(S, active, false)
-		    end,
-		    case tcp_sync_input(S, NewOwner, false) of
-			true ->  %% socket already closed, 
+		    SetOptRes =
+			case A0 of
+			    false -> ok;
+			    _ -> prim_inet:setopt(S, active, false)
+			end,
+		    case {tcp_sync_input(S, NewOwner, false), SetOptRes} of
+			{true, _} ->  %% socket already closed
 			    ok;
-			false ->
+			{false, ok} ->
 			    try erlang:port_connect(S, NewOwner) of
 				true -> 
 				    unlink(S), %% unlink from port
 				    case A0 of
 					false -> ok;
-					_ -> ok = prim_inet:setopt(S, active, A0)
-				    end,
-				    ok
+					_ -> prim_inet:setopt(S, active, A0)
+				    end
 			    catch
 				error:Reason -> 
 				    {error, Reason}
-			    end
+			    end;
+			{false, Error} ->
+			    Error
 		    end;
 		Error ->
 		    Error
