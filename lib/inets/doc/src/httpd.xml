@@ -204,7 +204,15 @@
     
     <marker id="props_limit"></marker>
     <p><em>Limit properties</em> </p>
-    <taglist>  
+    <taglist>
+
+      <marker id="prop_customize"></marker>
+      <tag>{customize, atom()}</tag>
+      <item> 
+	<p>A callback module to customize the inets HTTP servers behaviour
+	see <seealso marker="http_custom_api"> httpd_custom_api</seealso> </p>
+      </item>
+      
       <marker id="prop_disable_chunked_encoding"></marker>
       <tag>{disable_chunked_transfer_encoding_send, boolean()}</tag>
       <item> 

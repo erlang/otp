@@ -259,6 +259,54 @@ handle_userauth_request(#ssh_msg_userauth_request{user = User,
 
 handle_userauth_request(#ssh_msg_userauth_request{user = User,
 						  service = "ssh-connection",
+						  method = "keyboard-interactive",
+						  data = _},
+			_, #ssh{opts = Opts} = Ssh) ->
+    %% RFC4256
+    %% The data field contains:
+    %%   - language tag (deprecated). If =/=[] SHOULD use it however. We skip
+    %%                                it for simplicity.
+    %%   - submethods. "... the user can give a hint of which actual methods
+    %%                  he wants to use. ...".  It's a "MAY use" so we skip
+    %%                  it. It also needs an understanding between the client
+    %%                  and the server.
+    %%                  
+    %% "The server MUST reply with an SSH_MSG_USERAUTH_SUCCESS,
+    %%  SSH_MSG_USERAUTH_FAILURE, or SSH_MSG_USERAUTH_INFO_REQUEST message."
+    Default = {"SSH server",
+	       "Enter password for \""++User++"\"",
+	       "pwd: ",
+	       false},
+
+    {Name, Instruction, Prompt, Echo} =
+	case proplists:get_value(auth_method_kb_interactive_data, Opts) of
+	    undefined -> 
+		Default;
+	    {_,_,_,_}=V -> 
+		V;
+	    F when is_function(F) ->
+		{_,PeerName} = Ssh#ssh.peer,
+		F(PeerName, User, "ssh-connection")
+	end,
+    EchoEnc = case Echo of
+		  true -> <<?TRUE>>;
+		  false -> <<?FALSE>>
+	      end,
+    Msg = #ssh_msg_userauth_info_request{name = unicode:characters_to_list(Name),
+					 instruction = unicode:characters_to_list(Instruction),
+					 language_tag = "",
+					 num_prompts = 1,
+					 data = <<?STRING(unicode:characters_to_binary(Prompt)),
+						  EchoEnc/binary
+						>>
+					},
+    {not_authorized, {User, undefined}, 
+     ssh_transport:ssh_packet(Msg, Ssh#ssh{user = User,
+					   opts = [{max_kb_tries,3},{kb_userauth_info_msg,Msg}|Opts]
+					  })};
+
+handle_userauth_request(#ssh_msg_userauth_request{user = User,
+						  service = "ssh-connection",
 						  method = Other}, _,
 			#ssh{userauth_supported_methods = Methods} = Ssh) ->
     {not_authorized, {User, {authmethod, Other}}, 
@@ -279,6 +327,38 @@ handle_userauth_info_request(
      ssh_transport:ssh_packet(
        #ssh_msg_userauth_info_response{num_responses = NumPrompts,
 				       data = Responses}, Ssh)}.
+
+handle_userauth_info_response(#ssh_msg_userauth_info_response{num_responses = 1,
+							      data = <<?UINT32(Sz), Password:Sz/binary>>},
+			      #ssh{opts = Opts0,
+				   user = User} = Ssh) ->
+    NumTriesLeft = proplists:get_value(max_kb_tries, Opts0, 0) - 1,
+    Opts = lists:keydelete(max_kb_tries,1,Opts0),
+    case check_password(User, unicode:characters_to_list(Password), Opts) of
+	true ->
+	    {authorized, User,
+	     ssh_transport:ssh_packet(#ssh_msg_userauth_success{}, Ssh)};
+	false when NumTriesLeft > 0 ->
+	    UserAuthInfoMsg = 
+		(proplists:get_value(kb_userauth_info_msg,Opts))
+		#ssh_msg_userauth_info_request{name = "",
+					       instruction = 
+						   lists:concat(
+						     ["Bad user or password, try again. ",
+						      integer_to_list(NumTriesLeft),
+						      " tries left."])},
+	    {not_authorized, {User, undefined}, 
+	     ssh_transport:ssh_packet(UserAuthInfoMsg,
+				      Ssh#ssh{opts = [{max_kb_tries,NumTriesLeft}|Opts]})};
+	     
+	false ->
+	    {not_authorized, {User, {error,"Bad user or password"}}, 
+	     ssh_transport:ssh_packet(#ssh_msg_userauth_failure{
+					 authentications = "",
+					 partial_success = false}, 
+				      Ssh#ssh{opts = lists:keydelete(kb_userauth_info_msg,1,Opts)}
+				     )}
+    end;
 
 handle_userauth_info_response(#ssh_msg_userauth_info_response{},
 			      _Auth) ->

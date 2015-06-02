@@ -326,22 +326,25 @@ info(ConnectionHandler, ChannelProcess) ->
 hello(socket_control, #state{socket = Socket, ssh_params = Ssh} = State) ->
     VsnMsg = ssh_transport:hello_version_msg(string_version(Ssh)),
     send_msg(VsnMsg, State),
-    {ok, [{recbuf, Size}]} = inet:getopts(Socket, [recbuf]),
-    inet:setopts(Socket, [{packet, line}, {active, once}, {recbuf, ?MAX_PROTO_VERSION}]),
-    {next_state, hello, State#state{recbuf = Size}};
+    case getopt(recbuf, Socket) of
+	{ok, Size} ->
+	    inet:setopts(Socket, [{packet, line}, {active, once}, {recbuf, ?MAX_PROTO_VERSION}]),
+	    {next_state, hello, State#state{recbuf = Size}};
+	{error, Reason} ->
+	    {stop, {shutdown, Reason}, State}
+    end;
 
 hello({info_line, _Line},#state{role = client, socket = Socket} = State) ->
     %% The server may send info lines before the version_exchange
     inet:setopts(Socket, [{active, once}]),
     {next_state, hello, State};
 
-hello({info_line, _Line},#state{role = server} = State) ->
-    DisconnectMsg =
-	#ssh_msg_disconnect{code =
-				?SSH_DISCONNECT_PROTOCOL_ERROR,
-			    description = "Did not receive expected protocol version exchange",
-			    language = "en"},
-    handle_disconnect(DisconnectMsg, State);
+hello({info_line, _Line},#state{role = server,
+				socket = Socket,
+				transport_cb = Transport } = State) ->
+    %% as openssh
+    Transport:send(Socket, "Protocol mismatch."),
+    {stop, {shutdown,"Protocol mismatch in version exchange."}, State};
 
 hello({version_exchange, Version}, #state{ssh_params = Ssh0,
 					  socket = Socket,
@@ -496,10 +499,21 @@ userauth(#ssh_msg_userauth_info_request{} = Msg,
     {next_state, userauth, next_packet(State#state{ssh_params = Ssh})};
 
 userauth(#ssh_msg_userauth_info_response{} = Msg, 
-	 #state{ssh_params = #ssh{role = server} = Ssh0} = State) ->
-    {ok, {Reply, Ssh}} = ssh_auth:handle_userauth_info_response(Msg, Ssh0),
-    send_msg(Reply, State),
-    {next_state, userauth, next_packet(State#state{ssh_params = Ssh})};
+	 #state{ssh_params = #ssh{role = server,
+				  peer = {_, Address}} = Ssh0,
+		opts = Opts, starter = Pid} = State) ->
+    case ssh_auth:handle_userauth_info_response(Msg, Ssh0) of
+	{authorized, User, {Reply, Ssh}} ->
+	    send_msg(Reply, State),
+	    Pid ! ssh_connected,
+	    connected_fun(User, Address, "keyboard-interactive", Opts),
+	    {next_state, connected, 
+	     next_packet(State#state{auth_user = User, ssh_params = Ssh})};
+	{not_authorized, {User, Reason}, {Reply, Ssh}} ->
+	    retry_fun(User, Address, Reason, Opts),
+	    send_msg(Reply, State),
+	    {next_state, userauth, next_packet(State#state{ssh_params = Ssh})} 
+    end;
 			
 userauth(#ssh_msg_userauth_success{}, #state{ssh_params = #ssh{role = client} = Ssh,
 					     starter = Pid} = State) ->
@@ -1719,3 +1733,12 @@ start_timeout(_,_, infinity) ->
     ok;
 start_timeout(Channel, From, Time) ->
     erlang:send_after(Time, self(), {timeout, {Channel, From}}).
+
+getopt(Opt, Socket) ->
+    case inet:getopts(Socket, [Opt]) of
+	{ok, [{Opt, Value}]} ->
+	    {ok, Value};
+	Other ->
+	    {error, {unexpected_getopts_return, Other}}
+    end.
+		

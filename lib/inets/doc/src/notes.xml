@@ -32,7 +32,23 @@
     <file>notes.xml</file>
   </header>
   
-  <section><title>Inets 5.10.8</title>
+  <section><title>Inets 5.10.9</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Add behaviour with optional callbacks to customize the
+	    inets HTTP server.</p>
+          <p>
+	    Own Id: OTP-12776</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Inets 5.10.8</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>

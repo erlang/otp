@@ -53,6 +53,8 @@ all() ->
      {group, https_basic},
      {group, http_limit},
      {group, https_limit},
+     {group, http_custom},
+     {group, https_custom},
      {group, http_basic_auth},
      {group, https_basic_auth},
      {group, http_auth_api},
@@ -75,6 +77,8 @@ groups() ->
      {https_basic, [], basic_groups()},
      {http_limit, [], [{group, limit}]},
      {https_limit, [], [{group, limit}]},
+     {http_custom, [], [{group,  custom}]},
+     {https_custom, [], [{group,  custom}]},
      {http_basic_auth, [], [{group, basic_auth}]},
      {https_basic_auth, [], [{group, basic_auth}]},
      {http_auth_api, [], [{group, auth_api}]},
@@ -89,7 +93,8 @@ groups() ->
      {https_security, [], [{group, security}]},
      {http_reload, [], [{group, reload}]},
      {https_reload, [], [{group, reload}]},
-     {limit, [],  [max_clients_1_1, max_clients_1_0, max_clients_0_9]},  
+     {limit, [],  [max_clients_1_1, max_clients_1_0, max_clients_0_9]}, 
+     {custom, [],  [customize]},  
      {reload, [], [non_disturbing_reconfiger_dies,
 		   disturbing_reconfiger_dies,
 		   non_disturbing_1_1, 
@@ -177,6 +182,7 @@ end_per_suite(_Config) ->
 %%--------------------------------------------------------------------
 init_per_group(Group, Config0) when Group == https_basic;
 				    Group == https_limit;
+				    Group == https_custom;
 				    Group == https_basic_auth;
 				    Group == https_auth_api;
 				    Group == https_auth_api_dets;
@@ -187,6 +193,7 @@ init_per_group(Group, Config0) when Group == https_basic;
     init_ssl(Group, Config0);
 init_per_group(Group, Config0)  when  Group == http_basic;
 				      Group == http_limit;
+				      Group == http_custom;
 				      Group == http_basic_auth;
 				      Group == http_auth_api;
 				      Group == http_auth_api_dets;
@@ -973,6 +980,30 @@ missing_CR(Config) ->
 					{version, Version}]).
 
 %%-------------------------------------------------------------------------
+customize() ->
+    [{doc, "Test filtering of headers with custom callback"}].
+
+customize(Config) when is_list(Config) -> 
+    Version = "HTTP/1.1",
+    Host = ?config(host, Config),
+    Type = ?config(type, Config),
+    ok = httpd_test_lib:verify_request(?config(type, Config), Host, 
+				       ?config(port, Config),  
+				       transport_opts(Type, Config),
+				       ?config(node, Config),
+				       http_request("GET /index.html ", Version, Host),
+				       [{statuscode, 200},
+					{header, "Content-Type", "text/html"},
+					{header, "Date"},
+					{no_header, "Server"},
+					{version, Version}]).
+
+response_header({"server", _}) ->
+    false;
+response_header(Header) ->
+    {true, Header}.
+
+%%-------------------------------------------------------------------------
 max_header() ->
     ["Denial Of Service (DOS) attack, prevented by max_header"].
 max_header(Config) when is_list(Config) ->
@@ -1312,24 +1343,26 @@ setup_server_dirs(ServerRoot, DocRoot, DataDir) ->
     
 start_apps(Group) when  Group == https_basic;
 			Group == https_limit;
+			Group == https_custom;
 			Group == https_basic_auth;
 			Group == https_auth_api;
 			Group == https_auth_api_dets;
 			Group == https_auth_api_mnesia;
-			Group == http_htaccess;
-			Group == http_security;
-			Group == http_reload
+			Group == https_htaccess;
+			Group == https_security;
+			Group == https_reload
 			->
     inets_test_lib:start_apps([inets, asn1, crypto, public_key, ssl]);
 start_apps(Group) when  Group == http_basic;
 			Group == http_limit;
+			Group == http_custom;
 			Group == http_basic_auth;
 			Group == http_auth_api;
 			Group == http_auth_api_dets;
 			Group == http_auth_api_mnesia;			
-			Group == https_htaccess;
-			Group == https_security;
-			Group == https_reload->
+			Group == http_htaccess;
+			Group == http_security;
+			Group == http_reload->
     inets_test_lib:start_apps([inets]).
 
 server_start(_, HttpdConfig) ->
@@ -1381,6 +1414,10 @@ server_config(http_limit, Config) ->
     [{max_clients, 1},
      %% Make sure option checking code is run
      {max_content_length, 100000002}]  ++ server_config(http, Config);
+server_config(http_custom, Config) ->
+    [{custom, ?MODULE}]  ++ server_config(http, Config);
+server_config(https_custom, Config) ->
+    [{custom, ?MODULE}]  ++ server_config(https, Config);
 server_config(https_limit, Config) ->
     [{max_clients, 1}]  ++ server_config(https, Config);
 server_config(http_basic_auth, Config) ->

@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1997-2012. All Rights Reserved.
+# Copyright Ericsson AB 1997-2015. All Rights Reserved.
 #
 # The contents of this file are subject to the Erlang Public License,
 # Version 1.1, (the "License"); you may not use this file except in
@@ -52,6 +52,7 @@ XML_REF3_FILES = \
 	httpc.xml\
 	httpd.xml \
 	httpd_conf.xml \
+	httpd_custom_api.xml \
 	httpd_socket.xml \
 	httpd_util.xml \
 	mod_alias.xml \

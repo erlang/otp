@@ -2,7 +2,7 @@
 
 # %CopyrightBegin%
 # 
-# Copyright Ericsson AB 2001-2014. All Rights Reserved.
+# Copyright Ericsson AB 2001-2015. All Rights Reserved.
 # 
 # The contents of this file are subject to the Erlang Public License,
 # Version 1.1, (the "License"); you may not use this file except in
@@ -18,6 +18,6 @@
 # %CopyrightEnd%
 
 APPLICATION = inets
-INETS_VSN   = 5.10.8
+INETS_VSN   = 5.10.9
 PRE_VSN     =
 APP_VSN     = "$(APPLICATION)-$(INETS_VSN)$(PRE_VSN)"
