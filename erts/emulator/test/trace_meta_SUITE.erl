@@ -237,39 +237,37 @@ return_test() ->
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 on_and_off_test() ->
-    ?line Pid = setup(),
-    ?line 1 = erlang:trace_pattern({?MODULE,local_tail,1},[],[meta]),
-    ?line LocalTail = fun() ->
-			      local_tail(1)
-		      end,
-    ?line [1,0] = lambda_slave(LocalTail),
-    ?line ?CTT(Pid,{?MODULE,local_tail,[1]}) = receive_next(),
-    ?line 0 = erlang:trace_pattern({?MODULE,local_tail,1},[],[global]),
-    ?line [1,0] = lambda_slave(LocalTail),
-    ?line ?NM,
-    ?line 1 = erlang:trace_pattern({?MODULE,exported_wrap,1},[],[meta]),
-    ?line [1,1,1,0] = apply_slave(?MODULE,exported_wrap,[1]),
-    ?line ?CTT(Pid,{?MODULE,exported_wrap,[1]}) = receive_next(),
-    ?line 1 = erlang:trace_pattern({erlang,phash2,2},[],[meta]),
-    ?line [1,1,1,0] = apply_slave(?MODULE,exported_wrap,[1]),
-    ?line ?CTT(Pid,{?MODULE,exported_wrap,[1]}) = receive_next(),
-    ?line ?CTT(Pid,{erlang,phash2,[1,1]}) = receive_next(),
-    ?line shutdown(),
-    ?line erlang:trace_pattern({'_','_','_'},false,[meta]),
-    ?line N = erlang:trace_pattern({erlang,'_','_'},true,[meta]),
-    ?line case erlang:trace_pattern({erlang,'_','_'},false,[meta]) of
-	      N -> 
-		  ok;
-	      Else ->
-		  exit({number_mismatch, {expected, N}, {got, Else}})
-	  end,
-    ?line case erlang:trace_pattern({erlang,'_','_'},false,[meta]) of
-	      N -> 
-		  ok;
-	      Else2 ->
-		  exit({number_mismatch, {expected, N}, {got, Else2}})
-	  end,
-    ?line ?NM,
+    Pid = setup(),
+    1 = erlang:trace_pattern({?MODULE,local_tail,1},[],[meta]),
+    LocalTail = fun() ->
+                        local_tail(1)
+                end,
+    [1,0] = lambda_slave(LocalTail),
+    ?CTT(Pid,{?MODULE,local_tail,[1]}) = receive_next(),
+    0 = erlang:trace_pattern({?MODULE,local_tail,1},[],[global]),
+    [1,0] = lambda_slave(LocalTail),
+    ?NM,
+    1 = erlang:trace_pattern({?MODULE,exported_wrap,1},[],[meta]),
+    [1,1,1,0] = apply_slave(?MODULE,exported_wrap,[1]),
+    ?CTT(Pid,{?MODULE,exported_wrap,[1]}) = receive_next(),
+    1 = erlang:trace_pattern({erlang,phash2,2},[],[meta]),
+    [1,1,1,0] = apply_slave(?MODULE,exported_wrap,[1]),
+    ?CTT(Pid,{?MODULE,exported_wrap,[1]}) = receive_next(),
+    ?CTT(Pid,{erlang,phash2,[1,1]}) = receive_next(),
+    shutdown(),
+    erlang:trace_pattern({'_','_','_'},false,[meta]),
+    N = erlang:trace_pattern({erlang,'_','_'},true,[meta]),
+    case erlang:trace_pattern({erlang,'_','_'},false,[meta]) of
+        N -> ok;
+        Else ->
+            exit({number_mismatch, {expected, N}, {got, Else}})
+    end,
+    case erlang:trace_pattern({erlang,'_','_'},false,[meta]) of
+        N -> ok;
+        Else2 ->
+            exit({number_mismatch, {expected, N}, {got, Else2}})
+    end,
+    ?NM,
     ok.
     
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
