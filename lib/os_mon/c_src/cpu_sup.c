@@ -543,28 +543,30 @@ static void util_measure(unsigned int **result_vec, int *result_sz) {
 #if defined(__FreeBSD__)
 
 #define EXIT_WITH(msg) (rich_error(msg, __FILE__, __LINE__))
+#define RICH_BUFLEN    (213)  /* left in error(char*) */
 
 void rich_error(const char *reason, const char *file, const int line) {
-    const size_t buflen = 213; // left in error(char*)
-    char buf[buflen];
-    snprintf(buf, buflen, "%s (%s:%i)", reason, file, line);
+    char buf[RICH_BUFLEN];
+    snprintf(buf, RICH_BUFLEN, "%s (%s:%i)", reason, file, line);
     error(buf);
 }
-
+#undef RICH_BUFLEN
 
 static void util_measure(unsigned int **result_vec, int *result_sz) {
     int no_of_cpus;
-    getsysctl("hw.ncpu", &no_of_cpus, sizeof(int));
+    size_t size_cpu_times;
+    unsigned long *cpu_times;
+    unsigned int *rv = NULL;
+    int i;
 
-    // Header constant CPUSTATES = #long values per cpu.
-    size_t size_cpu_times = sizeof(long) * CPUSTATES * no_of_cpus;
-    unsigned long *cpu_times = malloc(size_cpu_times);
+    getsysctl("hw.ncpu", &no_of_cpus, sizeof(int));
+    /* Header constant CPUSTATES = #long values per cpu. */
+    size_cpu_times = sizeof(long) * CPUSTATES * no_of_cpus;
+    cpu_times = malloc(size_cpu_times);
     if (!cpu_times) {
 	EXIT_WITH("badalloc");
     }
     getsysctl("kern.cp_times", cpu_times, size_cpu_times);
-
-    unsigned int *rv = NULL;
 
     rv = *result_vec;
     rv[0] = no_of_cpus;
@@ -572,7 +574,6 @@ static void util_measure(unsigned int **result_vec, int *result_sz) {
     ++rv; /* first value is number of cpus */
     ++rv; /* second value is number of entries */
 
-    int i;
     for (i = 0; i < no_of_cpus; ++i) {
         int offset = i * CPUSTATES;
 	rv[ 0] = CU_CPU_ID;    rv[ 1] = i;
