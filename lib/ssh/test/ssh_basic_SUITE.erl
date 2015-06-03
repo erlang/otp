@@ -1199,8 +1199,9 @@ ssh_connect_negtimeout(Config, Parallel) ->
 					      {failfun, fun ssh_test_lib:failfun/2}]),
     
     {ok,Socket} = gen_tcp:connect(Host, Port, []),
-    ct:pal("And now sleeping 1.2*NegTimeOut (~p ms)...", [round(1.2 * NegTimeOut)]),
-    receive after round(1.2 * NegTimeOut) -> ok end,
+    Factor = 1.5,
+    ct:pal("And now sleeping ~p*NegTimeOut (~p ms)...", [Factor, round(Factor * NegTimeOut)]),
+    receive after round(Factor * NegTimeOut) -> ok end,
     
     case inet:sockname(Socket) of
 	{ok,_} -> ct:fail("Socket not closed");
@@ -1243,8 +1244,11 @@ ssh_connect_nonegtimeout_connected(Config, Parallel) ->
 	    ct:pal("---Erlang shell start: ~p~n", [ErlShellStart]),
 	    one_shell_op(IO, NegTimeOut),
 	    one_shell_op(IO, NegTimeOut),
-	    ct:pal("And now sleeping 1.2*NegTimeOut (~p ms)...", [round(1.2 * NegTimeOut)]),
-	    receive after round(1.2 * NegTimeOut) -> ok end,
+
+	    Factor = 1.5,
+	    ct:pal("And now sleeping ~p*NegTimeOut (~p ms)...", [Factor, round(Factor * NegTimeOut)]),
+	    receive after round(Factor * NegTimeOut) -> ok end,
+
 	    one_shell_op(IO, NegTimeOut)
     end,
     exit(Shell, kill).
@@ -1372,6 +1376,7 @@ max_sessions(Config, ParallelLogin, Connect0) when is_function(Connect0,2) ->
 		    %% This is expected
 		    %% Now stop one connection and try to open one more
 		    ok = ssh:close(hd(Connections)),
+		    receive after 250 -> ok end, % sleep so the supervisor has time to count down. Not nice...
 		    try Connect(Host,Port)
 		    of
 			_ConnectionRef1 ->
