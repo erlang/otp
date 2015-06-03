@@ -23,6 +23,7 @@
 
 -include_lib("common_test/include/ct.hrl").
 -include_lib("kernel/include/inet.hrl").
+-include_lib("kernel/include/file.hrl").
 
 %% Note: This directive should only be used in test suites.
 -compile(export_all).
@@ -49,6 +50,7 @@ all() ->
      daemon_already_started,
      server_password_option,
      server_userpassword_option,
+     {group, dir_options},
      double_close,
      ssh_connect_timeout,
      ssh_connect_arg4_timeout,
@@ -81,7 +83,9 @@ groups() ->
 			    max_sessions_ssh_connect_sequential,
 			    max_sessions_sftp_start_channel_parallel,
 			    max_sessions_sftp_start_channel_sequential
-			   ]}
+			   ]},
+     {dir_options, [], [user_dir_option,
+			system_dir_option]}
     ].
 
 
@@ -132,6 +136,30 @@ init_per_group(internal_error, Config) ->
     ssh_test_lib:setup_dsa(DataDir, PrivDir),
     file:delete(filename:join(PrivDir, "system/ssh_host_dsa_key")),
     Config;
+init_per_group(dir_options, Config) ->
+    PrivDir = ?config(priv_dir, Config),
+    %% Make unreadable dir:
+    Dir_unreadable = filename:join(PrivDir, "unread"),
+    ok = file:make_dir(Dir_unreadable),
+    {ok,F1} = file:read_file_info(Dir_unreadable),
+    ok = file:write_file_info(Dir_unreadable, 
+			      F1#file_info{mode = F1#file_info.mode band (bnot 8#00444)}),
+    %% Make readable file:
+    File_readable = filename:join(PrivDir, "file"),
+    ok = file:write_file(File_readable, <<>>),
+    %% Check:
+    case {file:read_file_info(Dir_unreadable), 
+	  file:read_file_info(File_readable)} of
+	{{ok, #file_info{type=directory, access=Md}},
+	 {ok, #file_info{type=regular, access=Mf}}} when Md=/=read, Md=/=read_write ->
+	    %% Save:
+	    [{unreadable_dir, Dir_unreadable},
+	     {readable_file, File_readable} 
+	     | Config];
+	X ->
+	    ct:log("#file_info : ~p",[X]),
+	    {skip, "File or dir mode settings failed"}
+    end;
 init_per_group(_, Config) ->
     Config.
 
@@ -648,6 +676,48 @@ server_userpassword_option(Config) when is_list(Config) ->
 				 {user_interaction, false},
 				 {user_dir, UserDir}]),
     ssh:stop_daemon(Pid).
+
+%%--------------------------------------------------------------------
+system_dir_option(Config) ->
+    DirUnread = proplists:get_value(unreadable_dir,Config),
+    FileRead = proplists:get_value(readable_file,Config),
+
+    case ssh_test_lib:daemon([{system_dir, DirUnread}]) of
+	{error,{eoptions,{{system_dir,DirUnread},eacces}}} ->
+	    ok;
+	{Pid1,_Host1,Port1} when is_pid(Pid1),is_integer(Port1) ->
+	    ssh:stop_daemon(Pid1),
+	    ct:fail("Didn't detect that dir is unreadable", [])
+	end,
+    
+    case ssh_test_lib:daemon([{system_dir, FileRead}]) of
+	{error,{eoptions,{{system_dir,FileRead},enotdir}}} ->
+	    ok;
+	{Pid2,_Host2,Port2} when is_pid(Pid2),is_integer(Port2) ->
+	    ssh:stop_daemon(Pid2),
+	    ct:fail("Didn't detect that option is a plain file", [])
+    end.
+
+
+user_dir_option(Config) ->
+    DirUnread = proplists:get_value(unreadable_dir,Config),
+    FileRead = proplists:get_value(readable_file,Config),
+    %% Any port will do (beware, implementation knowledge!):
+    Port = 65535,
+
+    case ssh:connect("localhost", Port, [{user_dir, DirUnread}]) of
+	{error,{eoptions,{{user_dir,DirUnread},eacces}}} ->
+	    ok;
+	{error,econnrefused} ->
+	    ct:fail("Didn't detect that dir is unreadable", [])
+    end,
+
+    case ssh:connect("localhost", Port, [{user_dir, FileRead}]) of
+	{error,{eoptions,{{user_dir,FileRead},enotdir}}} ->
+	    ok;
+	{error,econnrefused} ->
+	    ct:fail("Didn't detect that option is a plain file", [])
+    end.
 
 %%--------------------------------------------------------------------
 ssh_msg_debug_fun_option_client() ->
