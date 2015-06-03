@@ -645,6 +645,7 @@ handle_options(Opts0) ->
 		    reuse_session = handle_option(reuse_session, Opts, ReuseSessionFun),
 		    reuse_sessions = handle_option(reuse_sessions, Opts, true),
 		    secure_renegotiate = handle_option(secure_renegotiate, Opts, false),
+		    client_renegotiation = handle_option(client_renegotiation, Opts, true),
 		    renegotiate_at = handle_option(renegotiate_at, Opts, ?DEFAULT_RENEGOTIATE_AT),
 		    hibernate_after = handle_option(hibernate_after, Opts, undefined),
 		    erl_dist = handle_option(erl_dist, Opts, false),
@@ -667,9 +668,9 @@ handle_options(Opts0) ->
 		  depth, cert, certfile, key, keyfile,
 		  password, cacerts, cacertfile, dh, dhfile,
 		  user_lookup_fun, psk_identity, srp_identity, ciphers,
-		  reuse_session, reuse_sessions, ssl_imp,
-		  cb_info, renegotiate_at, secure_renegotiate, hibernate_after,
-		  erl_dist, next_protocols_advertised,
+		  reuse_session, reuse_sessions, ssl_imp, cb_info,
+		  renegotiate_at, secure_renegotiate, client_renegotiation,
+		  hibernate_after, erl_dist, next_protocols_advertised,
 		  client_preferred_next_protocols, log_alert,
 		  server_name_indication, honor_cipher_order, padding_check,
 		  fallback],
@@ -795,6 +796,8 @@ validate_option(reuse_sessions, Value) when is_boolean(Value) ->
     Value;
 
 validate_option(secure_renegotiate, Value) when is_boolean(Value) ->
+    Value;
+validate_option(client_renegotiation, Value) when is_boolean(Value) ->
     Value;
 validate_option(renegotiate_at, Value) when is_integer(Value) ->
     erlang:min(Value, ?DEFAULT_RENEGOTIATE_AT);
@@ -1128,6 +1131,8 @@ new_ssl_options([{renegotiate_at, Value} | Rest], #ssl_options{} = Opts, RecordC
     new_ssl_options(Rest, Opts#ssl_options{ renegotiate_at = validate_option(renegotiate_at, Value)}, RecordCB);
 new_ssl_options([{secure_renegotiate, Value} | Rest], #ssl_options{} = Opts, RecordCB) -> 
     new_ssl_options(Rest, Opts#ssl_options{secure_renegotiate = validate_option(secure_renegotiate, Value)}, RecordCB); 
+new_ssl_options([{client_renegotiation, Value} | Rest], #ssl_options{} = Opts, RecordCB) -> 
+    new_ssl_options(Rest, Opts#ssl_options{client_renegotiation = validate_option(client_renegotiation, Value)}, RecordCB); 
 new_ssl_options([{hibernate_after, Value} | Rest], #ssl_options{} = Opts, RecordCB) -> 
     new_ssl_options(Rest, Opts#ssl_options{hibernate_after = validate_option(hibernate_after, Value)}, RecordCB);
 new_ssl_options([{next_protocols_advertised, Value} | Rest], #ssl_options{} = Opts, RecordCB) -> 
