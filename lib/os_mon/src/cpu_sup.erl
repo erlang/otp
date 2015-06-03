@@ -160,7 +160,8 @@ handle_call(?quit, _From, State) ->
 handle_call({?util, D, PC}, {Client, _Tag},
 	#state{os_type = {unix, Flavor}} = State) 
 	when Flavor == sunos;
-	     Flavor == linux ->
+	     Flavor == linux;
+	     Flavor == freebsd ->
     case measurement_server_call(State#state.server, {?util, D, PC, Client}) of
 	{error, Reason} -> 
 	    {	reply, 
