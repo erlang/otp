@@ -26,10 +26,24 @@
 -export([controlling_process/2]).
 -export([fdopen/2]).
 
+-export([family/0, mask/2, parse_address/1]).
 -export([getserv/1, getaddr/1, getaddr/2, getaddrs/1, getaddrs/2]).
 
-
 -include("inet_int.hrl").
+
+%% my address family
+family() -> inet.
+
+%% Apply netmask on address
+mask({M1,M2,M3,M4}, {IP1,IP2,IP3,IP4}) ->
+    {M1 band IP1,
+     M2 band IP2,
+     M3 band IP3,
+     M4 band IP4}.
+
+%% Parse address string
+parse_address(Host) ->
+    inet_parse:ipv4strict_address(Host).
 
 %% inet_tcp port lookup
 getserv(Port) when is_integer(Port) -> {ok, Port};
