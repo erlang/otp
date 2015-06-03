@@ -520,7 +520,7 @@ sync_get(UserId, TargetName, Context, Oids, Timeout, ExtraInfo) ->
 
 
 
-%% --- asynchroneous get-request ---
+%% --- asynchronous get-request ---
 %% 
 %% The reply will be delivered to the user
 %% through a call to handle_pdu/5
@@ -588,7 +588,7 @@ sync_get_next(UserId, TargetName, Context, Oids, Timeout, ExtraInfo) ->
 %% </BACKWARD-COMPAT>
 
 
-%% --- asynchroneous get_next-request ---
+%% --- asynchronous get_next-request ---
 %% 
 
 async_get_next2(UserId, TargetName, Oids) ->
@@ -654,7 +654,7 @@ sync_set(UserId, TargetName, Context, VarsAndVals, Timeout, ExtraInfo) ->
 %% </BACKWARD-COMPAT>
 
 
-%% --- asynchroneous set-request --- 
+%% --- asynchronous set-request ---
 %% 
 
 async_set2(UserId, TargetName, VarsAndVals) ->
@@ -746,7 +746,7 @@ sync_get_bulk(UserId, TargetName, NonRep, MaxRep, Context, Oids, Timeout,
 %% </BACKWARD-COMPAT>
 
 
-%% --- asynchroneous get-bulk ---
+%% --- asynchronous get-bulk ---
 %% 
 
 async_get_bulk2(UserId, TargetName, NonRep, MaxRep, Oids) ->

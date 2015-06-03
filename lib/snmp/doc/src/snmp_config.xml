@@ -616,7 +616,7 @@ in so far as it will be converted to the new format if found.
       <marker id="manager_server_timeout"></marker>
       <tag><c><![CDATA[server_timeout() = integer() <optional>]]></c></tag>
       <item>
-        <p>Asynchroneous request cleanup time. For every requests, 
+        <p>Asynchronous request cleanup time. For every requests,
           some info is stored internally, in order to be able to 
           deliver the reply (when it arrives) to the proper destination.
           If the reply arrives, this info will be deleted. But if
