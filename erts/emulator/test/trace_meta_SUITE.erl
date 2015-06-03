@@ -267,9 +267,16 @@ on_and_off_test() ->
         Else2 ->
             exit({number_mismatch, {expected, N}, {got, Else2}})
     end,
-    ?NM,
+    %% ?NM,
+    %% Can't check for erlang:*/* stuff since common_test or test_server
+    %% will likely call list_to_binary in the logger. just drain any potential
+    %% message
+    ok = flush(),
     ok.
-    
+
+flush() ->
+    receive _ -> flush() after 0 -> ok end.
+
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 stack_grow_test() ->    
