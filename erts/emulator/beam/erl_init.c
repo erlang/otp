@@ -379,6 +379,7 @@ erl_init(int ncpu,
     erts_init_bif_re();
     erts_init_unicode(); /* after RE to get access to PCRE unicode */
     erts_init_external();
+    erts_init_map();
     erts_delay_trap = erts_export_put(am_erlang, am_delay_trap, 2);
     erts_late_init_process();
 #if HAVE_ERTS_MSEG

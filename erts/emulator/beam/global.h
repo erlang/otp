@@ -817,7 +817,7 @@ do {\
 	UWord _pbytes = PSTACK_COUNT(s) * sizeof(PSTACK_TYPE);\
 	(dst)->pstart = erts_alloc(s.alloc_type,\
 				   sizeof(PSTK_DEF_STACK(s)));\
-	memcpy((dst)->pstart, s.pstart, _pbytes);\
+	sys_memcpy((dst)->pstart, s.pstart, _pbytes);\
 	(dst)->psp = (dst)->pstart + _pbytes - sizeof(PSTACK_TYPE);\
 	(dst)->pend = (dst)->pstart + sizeof(PSTK_DEF_STACK(s));\
 	(dst)->alloc_type = s.alloc_type;\
@@ -837,6 +837,14 @@ do {						        \
     ASSERT(s.psp >= (s.pstart - sizeof(PSTACK_TYPE)));  \
     ASSERT(s.psp < s.pend);			        \
 } while (0)
+
+#define PSTACK_DESTROY_SAVED(pstack)\
+do {\
+    if ((pstack)->pstart) {\
+	erts_free((pstack)->alloc_type, (pstack)->pstart);\
+	(pstack)->pstart = NULL;\
+    }\
+} while(0)
 
 
 /* binary.c */
@@ -1125,6 +1133,9 @@ Sint erts_binary_set_loop_limit(Sint limit);
 
 /* external.c */
 void erts_init_external(void);
+
+/* erl_map.c */
+void erts_init_map(void);
 
 /* erl_unicode.c */
 void erts_init_unicode(void);
