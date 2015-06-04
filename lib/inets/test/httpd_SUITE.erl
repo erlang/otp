@@ -1368,9 +1368,9 @@ start_apps(Group) when  Group == http_basic;
 			Group == http_auth_api;
 			Group == http_auth_api_dets;
 			Group == http_auth_api_mnesia;			
-			Group == https_htaccess;
-			Group == https_security;
-			Group == https_reload;
+			Group == http_htaccess;
+			Group == http_security;
+			Group == http_reload;
                         Group == http_mime_types->
     inets_test_lib:start_apps([inets]).
 
