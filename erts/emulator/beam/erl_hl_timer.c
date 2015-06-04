@@ -93,11 +93,13 @@ static void hdbg_chk_srv(ErtsHLTimerService *srv);
 /* Bit 0 to 9 contains scheduler id (see mask below) */
 #define ERTS_TMR_ROFLG_HLT		(((Uint32) 1) << 10)
 #define ERTS_TMR_ROFLG_BIF_TMR		(((Uint32) 1) << 11)
-#define ERTS_TMR_ROFLG_ABIF_TMR		(((Uint32) 1) << 12)
-#define ERTS_TMR_ROFLG_PRE_ALC		(((Uint32) 1) << 13)
-#define ERTS_TMR_ROFLG_REG_NAME		(((Uint32) 1) << 14)
-#define ERTS_TMR_ROFLG_PROC		(((Uint32) 1) << 15)
-#define ERTS_TMR_ROFLG_PORT		(((Uint32) 1) << 16)
+#define ERTS_TMR_ROFLG_PRE_ALC		(((Uint32) 1) << 12)
+#define ERTS_TMR_ROFLG_REG_NAME		(((Uint32) 1) << 13)
+#define ERTS_TMR_ROFLG_PROC		(((Uint32) 1) << 14)
+#define ERTS_TMR_ROFLG_PORT		(((Uint32) 1) << 15)
+#ifdef ERTS_BTM_ACCESSOR_SUPPORT
+#define ERTS_TMR_ROFLG_ABIF_TMR		(((Uint32) 1) << 16)
+#endif
 
 #define ERTS_TMR_ROFLG_SID_MASK	\
     (ERTS_TMR_ROFLG_HLT - (Uint32) 1)
@@ -172,15 +174,21 @@ struct ErtsHLTimer_ {
 	Eterm message;
 	ErlHeapFragment *bp;
     } btm;
+#ifdef ERTS_BTM_ACCESSOR_SUPPORT
     struct {
 	Eterm accessor;
 	ErtsHLTimerTree tree;
     } abtm;
+#endif
 };
 
 #define ERTS_HL_PTIMER_SIZE offsetof(ErtsHLTimer, btm)
+#ifdef ERTS_BTM_ACCESSOR_SUPPORT
 #define ERTS_BIF_TIMER_SIZE offsetof(ErtsHLTimer, abtm)
 #define ERTS_ABIF_TIMER_SIZE sizeof(ErtsHLTimer)
+#else
+#define ERTS_BIF_TIMER_SIZE sizeof(ErtsHLTimer)
+#endif
 
 typedef struct {
     ErtsTmrHead head; /* NEED to be first! */
@@ -584,6 +592,8 @@ same_time_list_lookup(ErtsHLTimer *root, ErtsHLTimer *x)
 
 #include "erl_rbtree.h"
 
+#ifdef ERTS_BTM_ACCESSOR_SUPPORT
+
 #define ERTS_RBT_PREFIX abtm
 #define ERTS_RBT_T ErtsHLTimer
 #define ERTS_RBT_KEY_T Uint32 *
@@ -634,6 +644,8 @@ same_time_list_lookup(ErtsHLTimer *root, ErtsHLTimer *x)
 
 #include "erl_rbtree.h"
 
+#endif /* ERTS_BTM_ACCESSOR_SUPPORT */
+
 #ifdef ERTS_SMP
 static void init_canceled_queue(ErtsHLTCncldTmrQ *cq);
 #endif
@@ -673,7 +685,9 @@ erts_timer_type_size(ErtsAlcType_t type)
     case ERTS_ALC_T_LL_PTIMER: return sizeof(ErtsTWTimer);
     case ERTS_ALC_T_HL_PTIMER: return ERTS_HL_PTIMER_SIZE;
     case ERTS_ALC_T_BIF_TIMER: return ERTS_BIF_TIMER_SIZE;
+#ifdef ERTS_BTM_ACCESSOR_SUPPORT
     case ERTS_ALC_T_ABIF_TIMER: return ERTS_ABIF_TIMER_SIZE;
+#endif
     default: ERTS_INTERNAL_ERROR("Unknown type");
     }
     return 0;
@@ -852,8 +866,10 @@ hl_timer_destroy(ErtsHLTimer *tmr)
     else {
 	if (roflgs & ERTS_TMR_ROFLG_PRE_ALC)
 	    bif_timer_pre_free(tmr);
+#ifdef ERTS_BTM_ACCESSOR_SUPPORT
 	else if (roflgs & ERTS_TMR_ROFLG_ABIF_TMR)
 	    erts_free(ERTS_ALC_T_ABIF_TIMER, tmr);
+#endif
 	else
 	    erts_free(ERTS_ALC_T_BIF_TIMER, tmr);
     }
@@ -948,6 +964,8 @@ check_canceled_queue(ErtsSchedulerData *esdp, ErtsHLTimerService *srv)
 #endif
 }
 
+#ifdef ERTS_BTM_ACCESSOR_SUPPORT
+
 static void
 hlt_delete_abtm(ErtsHLTimer *tmr)
 {
@@ -971,6 +989,8 @@ hlt_delete_abtm(ErtsHLTimer *tmr)
     }
 }
 
+#endif
+
 static ErtsHLTimer *
 create_hl_timer(ErtsSchedulerData *esdp,
 		ErtsMonotonicTime timeout_pos,
@@ -982,7 +1002,9 @@ create_hl_timer(ErtsSchedulerData *esdp,
     ErtsHLTimer *tmr, *st_tmr;
     erts_aint32_t refc;
     Uint32 roflgs;
+#ifdef ERTS_BTM_ACCESSOR_SUPPORT
     int is_abif_tmr = is_bif_tmr && is_value(acsr) && acsr != rcvr;
+#endif
 
     check_canceled_queue(esdp, srv);
 
@@ -1001,10 +1023,12 @@ create_hl_timer(ErtsSchedulerData *esdp,
     }
     else {
     alloc_bif_timer:
+#ifdef ERTS_BTM_ACCESSOR_SUPPORT
 	if (is_abif_tmr)
 	    tmr = erts_alloc(ERTS_ALC_T_ABIF_TIMER,
 			     ERTS_ABIF_TIMER_SIZE);
 	else
+#endif
 	    tmr = erts_alloc(ERTS_ALC_T_BIF_TIMER,
 			     ERTS_BIF_TIMER_SIZE);
     }
@@ -1057,6 +1081,7 @@ create_hl_timer(ErtsSchedulerData *esdp,
 	tmr->btm.refn[2] = refn[2];
 
 	tmr->btm.proc_tree.parent = ERTS_HLT_PFIELD_NOT_IN_TABLE;
+#ifdef ERTS_BTM_ACCESSOR_SUPPORT
 	if (is_abif_tmr) {
 	    Process *aproc;
 	    roflgs |= ERTS_TMR_ROFLG_ABIF_TMR;
@@ -1071,6 +1096,7 @@ create_hl_timer(ErtsSchedulerData *esdp,
 		erts_smp_proc_unlock(aproc, ERTS_PROC_LOCK_BTM);
 	    }
 	}
+#endif
     }
 
     tmr->head.roflgs = roflgs;
@@ -1120,8 +1146,10 @@ hlt_bif_timer_timeout(ErtsHLTimer *tmr, Uint32 roflgs)
     Uint32 is_reg_name = (roflgs & ERTS_TMR_ROFLG_REG_NAME);
     ERTS_HLT_ASSERT(roflgs & ERTS_TMR_ROFLG_BIF_TMR);
 
+#ifdef ERTS_BTM_ACCESSOR_SUPPORT
     if (tmr->head.roflgs & ERTS_TMR_ROFLG_ABIF_TMR)
 	hlt_delete_abtm(tmr);
+#endif
 
     if (is_reg_name) {
 	Eterm pid;
@@ -1300,8 +1328,10 @@ hlt_delete_timer(ErtsSchedulerData *esdp, ErtsHLTimer *tmr)
 	    tmr->btm.tree.parent = ERTS_HLT_PFIELD_NOT_IN_TABLE;
 	}
 
+#ifdef ERTS_BTM_ACCESSOR_SUPPORT
 	if (tmr->head.roflgs & ERTS_TMR_ROFLG_ABIF_TMR)
 	    hlt_delete_abtm(tmr);
+#endif
     }
 
     if (tmr->time.tree.parent == ERTS_HLT_PFIELD_NOT_IN_TABLE) {
@@ -1943,8 +1973,10 @@ try_access_sched_remote_btm(ErtsSchedulerData *esdp,
      */
     erts_smp_proc_lock(c_p, ERTS_PROC_LOCK_BTM);
     tmr = proc_btm_rbt_lookup(c_p->bif_timers, trefn);
+#ifdef ERTS_BTM_ACCESSOR_SUPPORT
     if (!tmr)
 	tmr = abtm_rbt_lookup(c_p->accessor_bif_timers, trefn);
+#endif
     erts_smp_proc_unlock(c_p, ERTS_PROC_LOCK_BTM);
     if (!tmr)
 	return 0;
@@ -2184,11 +2216,13 @@ parse_bif_timer_options(Eterm option_list, int *async, int *info,
 	    if (!abs || !bool_arg(tp[2], abs))
 		return 0;
 	    break;
+#ifdef ERTS_BTM_ACCESSOR_SUPPORT
 	case am_accessor:
 	    if (!accessor || is_not_internal_pid(tp[2]))
 		return 0;
 	    *accessor = tp[2];
 	    break;
+#endif
 	default:
 	    return 0;
 	}
@@ -2250,7 +2284,9 @@ typedef struct {
     ErtsBifTimers *bif_timers;
     union {
 	proc_btm_rbt_yield_state_t proc_btm_yield_state;
+#ifdef ERTS_BTM_ACCESSOR_SUPPORT
 	abtm_rbt_yield_state_t abtm_yield_state;
+#endif
     } u;
 } ErtsBifTimerYieldState;
 
@@ -2290,6 +2326,8 @@ int erts_cancel_bif_timers(Process *p, ErtsBifTimers *btm, void **vyspp)
 
     return res;
 }
+
+#ifdef ERTS_BTM_ACCESSOR_SUPPORT
 
 static void
 detach_bif_timer(ErtsHLTimer *tmr, void *vesdp)
@@ -2334,6 +2372,8 @@ int erts_detach_accessor_bif_timers(Process *p, ErtsBifTimers *btm, void **vyspp
 
     return res;
 }
+
+#endif /* ERTS_BTM_ACCESSOR_SUPPORT */
 
 static ERTS_INLINE int
 parse_timeout_pos(ErtsSchedulerData *esdp, Eterm arg,
@@ -2525,7 +2565,8 @@ set_proc_timer_common(Process *c_p, ErtsSchedulerData *esdp, Sint64 tmo,
 	else
 	    tmr = (void *) create_hl_timer(esdp, timeout_pos,
 					   short_time, 0, (void *) c_p,
-					   c_p->common.id, NIL, NIL, NULL);
+					   c_p->common.id, THE_NON_VALUE,
+					   NIL, NULL);
 	erts_smp_atomic_set_relb(&c_p->common.timer, (erts_aint_t) tmr);
     }
 }
@@ -2613,8 +2654,8 @@ erts_set_port_timer(Port *c_prt, Sint64 tmo)
     else
 	tmr = (void *) create_hl_timer(esdp, timeout_pos, 0, 0,
 				       (void *) c_prt,
-				       c_prt->common.id, NIL, NIL,
-				       NULL);
+				       c_prt->common.id, THE_NON_VALUE,
+				       NIL, NULL);
     erts_smp_atomic_set_relb(&c_prt->common.timer, (erts_aint_t) tmr);
 }
 

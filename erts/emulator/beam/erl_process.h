@@ -975,7 +975,9 @@ struct process {
     ErlMessageQueue msg;	/* Message queue */
 
     ErtsBifTimers *bif_timers;	/* Bif timers aiming at this process */
+#ifdef ERTS_BTM_ACCESSOR_SUPPORT
     ErtsBifTimers *accessor_bif_timers;	/* Accessor bif timers */
+#endif
 
     ProcDict  *dictionary;       /* Process dictionary, may be NULL */
 

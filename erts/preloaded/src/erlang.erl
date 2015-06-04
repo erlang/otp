@@ -1557,7 +1557,7 @@ send_after(_Time, _Dest, _Msg) ->
       Msg :: term(),
       Options :: [Option],
       Abs :: boolean(),
-      Option :: {abs, Abs}, %% | {accessor, Accessor} undocumented feature for now,
+      Option :: {abs, Abs},
       TimerRef :: reference().
 
 send_after(_Time, _Dest, _Msg, _Options) ->
@@ -1645,7 +1645,7 @@ start_timer(_Time, _Dest, _Msg) ->
       Msg :: term(),
       Options :: [Option],
       Abs :: boolean(),
-      Option :: {abs, Abs}, %% | {accessor, Accessor} undocumented feature for now,
+      Option :: {abs, Abs},
       TimerRef :: reference().
 
 start_timer(_Time, _Dest, _Msg, _Options) ->

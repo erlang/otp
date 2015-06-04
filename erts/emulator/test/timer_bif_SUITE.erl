@@ -29,7 +29,8 @@
 	 read_timer_trivial/1, read_timer/1, read_timer_async/1,
 	 cleanup/1, evil_timers/1, registered_process/1, same_time_yielding/1,
 	 same_time_yielding_with_cancel/1, same_time_yielding_with_cancel_other/1,
-	 same_time_yielding_with_cancel_other_accessor/1, auto_cancel_yielding/1]).
+%	 same_time_yielding_with_cancel_other_accessor/1,
+	 auto_cancel_yielding/1]).
 
 -include_lib("test_server/include/test_server.hrl").
 
@@ -67,7 +68,7 @@ all() ->
      cleanup, evil_timers, registered_process,
      same_time_yielding, same_time_yielding_with_cancel,
      same_time_yielding_with_cancel_other,
-     same_time_yielding_with_cancel_other_accessor,
+%     same_time_yielding_with_cancel_other_accessor,
      auto_cancel_yielding].
 
 groups() -> 
@@ -532,8 +533,8 @@ same_time_yielding_with_cancel(Config) when is_list(Config) ->
 same_time_yielding_with_cancel_other(Config) when is_list(Config) ->
     same_time_yielding_with_cancel_test(true, false).
 
-same_time_yielding_with_cancel_other_accessor(Config) when is_list(Config) ->
-    same_time_yielding_with_cancel_test(true, true).
+%same_time_yielding_with_cancel_other_accessor(Config) when is_list(Config) ->
+%    same_time_yielding_with_cancel_test(true, true).
 
 do_cancel_tmrs(Tmo, Tmrs, Tester) ->
     BeginCancel = erlang:convert_time_unit(Tmo,
