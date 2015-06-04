@@ -203,58 +203,50 @@ get_record_and_type_info(AbstractCode) ->
 	{'ok', dict:dict()} | {'error', string()}.
 
 get_record_and_type_info(AbstractCode, Module, RecDict) ->
-  get_record_and_type_info(AbstractCode, Module, [], RecDict, "nofile").
+  get_record_and_type_info(AbstractCode, Module, RecDict, "nofile").
 
 get_record_and_type_info([{attribute, A, record, {Name, Fields0}}|Left],
-			 Module, Records, RecDict, File) ->
+			 Module, RecDict, File) ->
   {ok, Fields} = get_record_fields(Fields0, RecDict),
   Arity = length(Fields),
   FN = {File, erl_anno:line(A)},
   NewRecDict = dict:store({record, Name}, {FN, [{Arity,Fields}]}, RecDict),
-  get_record_and_type_info(Left, Module, [{record, Name}|Records],
-                           NewRecDict, File);
+  get_record_and_type_info(Left, Module, NewRecDict, File);
 get_record_and_type_info([{attribute, A, type, {{record, Name}, Fields0, []}}
-			  |Left], Module, Records, RecDict, File) ->
+			  |Left], Module, RecDict, File) ->
   %% This overrides the original record declaration.
   {ok, Fields} = get_record_fields(Fields0, RecDict),
   Arity = length(Fields),
   FN = {File, erl_anno:line(A)},
   NewRecDict = dict:store({record, Name}, {FN, [{Arity, Fields}]}, RecDict),
-  get_record_and_type_info(Left, Module, Records, NewRecDict, File);
+  get_record_and_type_info(Left, Module, NewRecDict, File);
 get_record_and_type_info([{attribute, A, Attr, {Name, TypeForm}}|Left],
-			 Module, Records, RecDict, File)
+			 Module, RecDict, File)
                when Attr =:= 'type'; Attr =:= 'opaque' ->
   FN = {File, erl_anno:line(A)},
   try add_new_type(Attr, Name, TypeForm, [], Module, FN, RecDict) of
     NewRecDict ->
-      get_record_and_type_info(Left, Module, Records, NewRecDict, File)
+      get_record_and_type_info(Left, Module, NewRecDict, File)
   catch
     throw:{error, _} = Error -> Error
   end;
 get_record_and_type_info([{attribute, A, Attr, {Name, TypeForm, Args}}|Left],
-			 Module, Records, RecDict, File)
+			 Module, RecDict, File)
                when Attr =:= 'type'; Attr =:= 'opaque' ->
   FN = {File, erl_anno:line(A)},
   try add_new_type(Attr, Name, TypeForm, Args, Module, FN, RecDict) of
     NewRecDict ->
-      get_record_and_type_info(Left, Module, Records, NewRecDict, File)
+      get_record_and_type_info(Left, Module, NewRecDict, File)
   catch
     throw:{error, _} = Error -> Error
   end;
 get_record_and_type_info([{attribute, _, file, {IncludeFile, _}}|Left],
-                         Module, Records, RecDict, _File) ->
-  get_record_and_type_info(Left, Module, Records, RecDict, IncludeFile);
-get_record_and_type_info([_Other|Left], Module, Records, RecDict, File) ->
-  get_record_and_type_info(Left, Module, Records, RecDict, File);
-get_record_and_type_info([], _Module, Records, RecDict, _File) ->
-  case
-    check_type_of_record_fields(lists:reverse(Records), RecDict)
-  of
-    ok ->
-      {ok, RecDict};
-    {error, Name, Error} ->
-      {error, flat_format("  Error while parsing #~w{}: ~s\n", [Name, Error])}
-  end.
+                         Module, RecDict, _File) ->
+  get_record_and_type_info(Left, Module, RecDict, IncludeFile);
+get_record_and_type_info([_Other|Left], Module, RecDict, File) ->
+  get_record_and_type_info(Left, Module, RecDict, File);
+get_record_and_type_info([], _Module, RecDict, _File) ->
+  {ok, RecDict}.
 
 add_new_type(TypeOrOpaque, Name, TypeForm, ArgForms, Module, FN,
              RecDict) ->
@@ -298,24 +290,6 @@ get_record_fields([{record_field, _Line, Name, _Init}|Left], RecDict, Acc) ->
   get_record_fields(Left, RecDict, NewAcc);
 get_record_fields([], _RecDict, Acc) ->
   lists:reverse(Acc).
-
-%% Just check the local types. process_record_remote_types will add
-%% the types later.
-check_type_of_record_fields([], _RecDict) ->
-  ok;
-check_type_of_record_fields([RecKey|Recs], RecDict) ->
-  {ok, {_FileLine, [{_Arity, Fields}]}} = dict:find(RecKey, RecDict),
-  try
-    [erl_types:t_from_form_without_remote(FieldTypeForm, RecDict)
-     || {_FieldName, FieldTypeForm, _} <- Fields]
-  of
-    L when is_list(L) ->
-      check_type_of_record_fields(Recs, RecDict)
-  catch
-    throw:{error, Error} ->
-      {record, Name} = RecKey,
-      {error, Name, Error}
-  end.
 
 -spec process_record_remote_types(codeserver()) -> codeserver().
 
