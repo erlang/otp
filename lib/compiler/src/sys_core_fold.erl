@@ -1130,11 +1130,23 @@ let_substs_1(Vs, #c_values{es=As}, Sub) ->
 let_substs_1([V], A, Sub) -> let_subst_list([V], [A], Sub);
 let_substs_1(Vs, A, _) -> {Vs,A,[]}.
 
-let_subst_list([V|Vs0], [A|As0], Sub) ->
+let_subst_list([V|Vs0], [A0|As0], Sub) ->
     {Vs1,As1,Ss} = let_subst_list(Vs0, As0, Sub),
-    case is_subst(A) of
-	true -> {Vs1,As1,sub_subst_var(V, A, Sub) ++ Ss};
-	false -> {[V|Vs1],[A|As1],Ss}
+    case is_subst(A0) of
+	true ->
+	    A = case is_compiler_generated(V) andalso
+		    not is_compiler_generated(A0) of
+		    true ->
+			%% Propagate the 'compiler_generated' annotation
+			%% along with the value.
+			Ann = [compiler_generated|cerl:get_ann(A0)],
+			cerl:set_ann(A0, Ann);
+		    false ->
+			A0
+		end,
+	    {Vs1,As1,sub_subst_var(V, A, Sub) ++ Ss};
+	false ->
+	    {[V|Vs1],[A0|As1],Ss}
     end;
 let_subst_list([], [], _) -> {[],[],[]}.
 
@@ -1900,8 +1912,8 @@ case_data_pat_alias(P, BindTo0, TypeSig, Bs0) ->
 	    %% Here we will need to actually build the data and bind
 	    %% it to the variable.
 	    {Type,Arity} = TypeSig,
-	    Vars = make_vars([], Arity),
 	    Ann = [compiler_generated],
+	    Vars = make_vars(Ann, Arity),
 	    Data = cerl:ann_make_data(Ann, Type, Vars),
 	    Bs = [{BindTo0,P},{P,Data}|Bs0],
 	    {Vars,Bs};
@@ -2393,8 +2405,9 @@ delay_build_1(Core0, TypeSig) ->
     try delay_build_expr(Core0, TypeSig) of
 	Core ->
 	    {Type,Arity} = TypeSig,
-	    Vars = make_vars([], Arity),
-	    Data = cerl:ann_make_data([compiler_generated], Type, Vars),
+	    Ann = [compiler_generated],
+	    Vars = make_vars(Ann, Arity),
+	    Data = cerl:ann_make_data(Ann, Type, Vars),
 	    {yes,Vars,Core,Data}
     catch
 	throw:impossible ->
@@ -2481,7 +2494,7 @@ opt_simple_let_2(Let0, Vs0, Arg0, Body, PrevBody, Ctxt, Sub) ->
 		    Arg1;
 		false ->
 		    %% let <Var> = Arg in <OtherVar>  ==>  seq Arg OtherVar
-		    Arg = maybe_suppress_warnings(Arg1, Vs0, PrevBody, Ctxt),
+		    Arg = maybe_suppress_warnings(Arg1, Vs0, PrevBody),
 		    expr(#c_seq{arg=Arg,body=Body}, Ctxt,
 			 sub_new_preserve_types(Sub))
 	    end;
@@ -2489,7 +2502,7 @@ opt_simple_let_2(Let0, Vs0, Arg0, Body, PrevBody, Ctxt, Sub) ->
 	    %% No variables left.
 	    Body;
 	{Vs,Arg1,#c_literal{}} ->
-	    Arg = maybe_suppress_warnings(Arg1, Vs, PrevBody, Ctxt),
+	    Arg = maybe_suppress_warnings(Arg1, Vs, PrevBody),
 	    E = case Ctxt of
 		    effect ->
 			%% Throw away the literal body.
@@ -2508,7 +2521,7 @@ opt_simple_let_2(Let0, Vs0, Arg0, Body, PrevBody, Ctxt, Sub) ->
 	    %%        seq Arg BodyWithoutVar
 	    case is_any_var_used(Vs, Body) of
 		false ->
-		    Arg = maybe_suppress_warnings(Arg1, Vs, PrevBody, Ctxt),
+		    Arg = maybe_suppress_warnings(Arg1, Vs, PrevBody),
 		    expr(#c_seq{arg=Arg,body=Body}, Ctxt,
 			 sub_new_preserve_types(Sub));
 		true ->
@@ -2518,7 +2531,7 @@ opt_simple_let_2(Let0, Vs0, Arg0, Body, PrevBody, Ctxt, Sub) ->
 	    end
     end.
 
-%% maybe_suppress_warnings(Arg, [#c_var{}], PreviousBody, Context) -> Arg'
+%% maybe_suppress_warnings(Arg, [#c_var{}], PreviousBody) -> Arg'
 %%  Try to suppress false warnings when a variable is not used.
 %%  For instance, we don't expect a warning for useless building in:
 %%
@@ -2529,10 +2542,7 @@ opt_simple_let_2(Let0, Vs0, Arg0, Body, PrevBody, Ctxt, Sub) ->
 %%  referenced in the original unoptimized code. If they were, we will
 %%  consider the warning false and suppress it.
 
-maybe_suppress_warnings(Arg, _, _, effect) ->
-    %% Don't suppress any warnings in effect context.
-    Arg;
-maybe_suppress_warnings(Arg, Vs, PrevBody, value) ->
+maybe_suppress_warnings(Arg, Vs, PrevBody) ->
     case should_suppress_warning(Arg) of
 	true ->
 	    Arg;				%Already suppressed.
@@ -2556,8 +2566,16 @@ suppress_warning([H|T]) ->
 		true ->
 		    suppress_warning(cerl:data_es(H) ++ T);
 		false ->
-		    Arg = cerl:set_ann(H, [compiler_generated]),
-		    cerl:c_seq(Arg, suppress_warning(T))
+		    %% Some other thing, such as a function call.
+		    %% This cannot be the compiler's fault, so the
+		    %% warning should not be suppressed. We must
+		    %% be careful not to destroy tail-recursion.
+		    case T of
+			[] ->
+			    H;
+			[_|_] ->
+			    cerl:c_seq(H, suppress_warning(T))
+		    end
 	    end
     end;
 suppress_warning([]) -> void().

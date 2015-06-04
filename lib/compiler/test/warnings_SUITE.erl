@@ -283,6 +283,7 @@ bad_arith(Config) when is_list(Config) ->
 	     {3,sys_core_fold,{eval_failure,badarith}},
 	     {9,sys_core_fold,nomatch_guard},
 	     {9,sys_core_fold,{eval_failure,badarith}},
+	     {9,sys_core_fold,{no_effect,{erlang,is_integer,1}}},
 	     {10,sys_core_fold,nomatch_guard},
 	     {10,sys_core_fold,{eval_failure,badarith}},
 	     {15,sys_core_fold,{eval_failure,badarith}}
@@ -371,7 +372,7 @@ files(Config) when is_list(Config) ->
 
 %% Test warnings for term construction and BIF calls in effect context.
 effect(Config) when is_list(Config) ->
-    Ts = [{lc,
+    Ts = [{effect,
 	   <<"
              t(X) ->
                case X of
@@ -477,6 +478,19 @@ effect(Config) when is_list(Config) ->
              m9(Bs) ->
                 [{B,ok} = {B,foo:bar(B)} || B <- Bs],
                 ok.
+
+             m10(ConfigTableSize) ->
+               case ConfigTableSize of
+                 apa ->
+                   CurrentConfig = {id(camel_phase3),id(sms)},
+                   case CurrentConfig of
+                     {apa, bepa} -> ok;
+		     _ -> ok
+	           end
+               end,
+               ok.
+
+             id(I) -> I.
              ">>,
 	   [],
 	   {warnings,[{5,sys_core_fold,{no_effect,{erlang,is_integer,1}}},
@@ -754,6 +768,14 @@ no_warnings(Config) when is_list(Config) ->
                 case R0 of
 	          {r,V1,_V2,V3} -> {r,V1,\"def\",V3}
                 end.
+
+              d(In0, Bool) ->
+                {In1,Int} = case id(Bool) of
+                              false -> {In0,0}
+                            end,
+                [In1,Int].
+
+              id(I) -> I.
            ">>,
            [],
            []}],
