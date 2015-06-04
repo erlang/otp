@@ -383,28 +383,28 @@ rekey_limit(Config) ->
 
     Kex1 = get_kex_init(ConnectionRef),
 
-    ct:sleep(?REKEY_DATA_TMO),
+    timer:sleep(?REKEY_DATA_TMO),
     Kex1 = get_kex_init(ConnectionRef),
 
     Data = lists:duplicate(9000,1),
     ok = ssh_sftp:write_file(SftpPid, DataFile, Data),
 
-    ct:sleep(?REKEY_DATA_TMO),
+    timer:sleep(?REKEY_DATA_TMO),
     Kex2 = get_kex_init(ConnectionRef),
 
     false = (Kex2 == Kex1),
 
-    ct:sleep(?REKEY_DATA_TMO),
+    timer:sleep(?REKEY_DATA_TMO),
     Kex2 = get_kex_init(ConnectionRef),
 
     ok = ssh_sftp:write_file(SftpPid, DataFile, "hi\n"),
 
-    ct:sleep(?REKEY_DATA_TMO),
+    timer:sleep(?REKEY_DATA_TMO),
     Kex2 = get_kex_init(ConnectionRef),
 
     false = (Kex2 == Kex1),
 
-    ct:sleep(?REKEY_DATA_TMO),
+    timer:sleep(?REKEY_DATA_TMO),
     Kex2 = get_kex_init(ConnectionRef),
 
 
@@ -446,7 +446,7 @@ renegotiate1(Config) ->
     ssh_connection_handler:renegotiate(ConnectionRef),
     spawn(fun() -> ok=ssh_sftp:write(SftpPid, Handle, "another hi\n") end),
 
-    ct:sleep(2000),
+    timer:sleep(2000),
 
     Kex2 = get_kex_init(ConnectionRef),
 
@@ -494,7 +494,7 @@ renegotiate2(Config) ->
     ssh_connection_handler:renegotiate(ConnectionRef),
     ssh_relay:release(RelayPid, rx),
 
-    ct:sleep(2000),
+    timer:sleep(2000),
 
     Kex2 = get_kex_init(ConnectionRef),
 
