@@ -79,7 +79,7 @@ local_proxy_cases() ->
 %%--------------------------------------------------------------------
 
 init_per_suite(Config0) ->
-    case init_apps([crypto,public_key], Config0) of
+    case init_apps(suite_apps(), Config0) of
 	Config when is_list(Config) ->
 	    make_cert_files(dsa, "server-", Config),
 	    Config;
@@ -94,7 +94,7 @@ end_per_suite(_Config) ->
 %% internal functions
 
 suite_apps() ->
-    [crypto,public_key].
+    [asn1,crypto,public_key].
     
 %%--------------------------------------------------------------------
 
