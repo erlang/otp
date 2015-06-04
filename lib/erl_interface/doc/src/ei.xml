@@ -202,6 +202,9 @@ typedef enum {
       <desc>
         <p>Encodes a double-precision (64 bit) floating point number in
           the binary format.</p>
+      <p>
+          The function returns <c><![CDATA[-1]]></c> if the floating point number is not finite.
+      </p>
       </desc>
     </func>
     <func>

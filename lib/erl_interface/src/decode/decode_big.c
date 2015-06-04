@@ -150,27 +150,6 @@ int ei_big_comp(erlang_big *x, erlang_big *y)
 #define INLINED_FP_CONVERSION 1
 #endif
 
-#ifdef USE_ISINF_ISNAN		/* simulate finite() */
-#  define isfinite(f) (!isinf(f) && !isnan(f))
-#  define HAVE_ISFINITE
-#elif defined(__GNUC__) && defined(HAVE_FINITE)
-/* We use finite in gcc as it emits assembler instead of
-   the function call that isfinite emits. The assembler is
-   significantly faster. */
-#  ifdef isfinite
-#     undef isfinite
-#  endif
-#  define isfinite finite
-#  ifndef HAVE_ISFINITE
-#    define HAVE_ISFINITE
-#  endif
-#elif defined(isfinite) && !defined(HAVE_ISFINITE)
-#  define HAVE_ISFINITE
-#elif !defined(HAVE_ISFINITE) && defined(HAVE_FINITE)
-#  define isfinite finite
-#  define HAVE_ISFINITE
-#endif
-
 #ifdef NO_FPE_SIGNALS
 #  define ERTS_FP_CHECK_INIT() do {} while (0)
 #  define ERTS_FP_ERROR(f, Action) if (!isfinite(f)) { Action; } else {}

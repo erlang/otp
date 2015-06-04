@@ -371,9 +371,11 @@ iohead ::= Binary
         <p><c><![CDATA[f]]></c> is a value to be converted to an Erlang float.</p>
         <p></p>
         <p>The function returns an Erlang float object with the value
-          specified in <c><![CDATA[f]]></c>.</p>
+            specified in <c><![CDATA[f]]></c> or <c><![CDATA[NULL]]></c> if
+            <c><![CDATA[f]]></c> is not finite.
+        </p>
         <p><c><![CDATA[ERL_FLOAT_VALUE(t)]]></c> can be used to retrieve the
-          value from an Erlang float.</p>
+            value from an Erlang float.</p>
       </desc>
     </func>
     <func>
