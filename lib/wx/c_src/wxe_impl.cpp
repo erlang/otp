@@ -97,6 +97,7 @@ void meta_command(int what, wxe_data *sd) {
       wxeMetaCommand Cmd(sd, what);
       wxTheApp->AddPendingEvent(Cmd);
       if(what == DELETE_PORT) {
+	driver_free(sd->bin);
 	free(sd);
       }
     }

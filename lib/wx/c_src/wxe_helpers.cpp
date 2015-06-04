@@ -38,10 +38,10 @@ void wxeCommand::Delete()
   int n = 0;
 
   if(buffer) {
-    while(bin[n]) {
-      if(bin[n]->bin)
-	driver_free_binary(bin[n]->bin);
-      driver_free(bin[n++]);
+    while(bin[n].from) {
+      if(bin[n].bin)
+	driver_free_binary(bin[n].bin);
+      n++;
     }
     if(len > 64)
       driver_free(buffer);
@@ -89,7 +89,6 @@ void wxeFifo::Add(int fc, char * cbuf,int buflen, wxe_data *sd)
   unsigned int pos;
   wxeCommand *curr;
 
-  WXEBinRef *temp, *start, *prev;
   int n = 0;
 
   if(m_n == (m_max-1)) { // resize
@@ -104,9 +103,9 @@ void wxeFifo::Add(int fc, char * cbuf,int buflen, wxe_data *sd)
   curr->port   = sd->port;
   curr->op  = fc;
   curr->len = buflen;
-  curr->bin[0] = NULL;
-  curr->bin[1] = NULL;
-  curr->bin[2] = NULL;
+  curr->bin[0].from = 0;
+  curr->bin[1].from = 0;
+  curr->bin[2].from = 0;
 
   if(cbuf) {
     if(buflen > 64)
@@ -115,26 +114,16 @@ void wxeFifo::Add(int fc, char * cbuf,int buflen, wxe_data *sd)
       curr->buffer = curr->c_buf;
     memcpy((void *) curr->buffer, (void *) cbuf, buflen);
 
-    temp = sd->bin;
-
-    prev  = NULL;
-    start = temp;
-
-    while(temp) {
-      if(curr->caller == temp->from) {
-	curr->bin[n++] = temp;
-	if(prev) {
-	  prev->next = temp->next;
-	} else {
-	  start = temp->next;
-	}
-	temp = temp->next;
-      } else {
-	prev = temp;
-	temp = temp->next;
+    for(unsigned int i=0; i<sd->max_bins; i++) {
+      if(curr->caller == sd->bin[i].from) {
+	sd->bin[i].from = 0; // Mark copied
+	curr->bin[n].bin  = sd->bin[i].bin;
+	curr->bin[n].base = sd->bin[i].base;
+	curr->bin[n].size = sd->bin[i].size;
+	curr->bin[n].from = 1;
+	n++;
       }
     }
-    sd->bin = start;
   } else {   // No-op only PING currently
     curr->buffer = NULL;
   }
@@ -167,7 +156,7 @@ void wxeFifo::Append(wxeCommand *orig)
   }
   orig->op = -1;
   orig->buffer = NULL;
-  orig->bin[0] = NULL;
+  orig->bin[0].from = 0;
 }
 
 void wxeFifo::Realloc()

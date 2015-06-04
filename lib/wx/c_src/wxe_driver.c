@@ -118,7 +118,11 @@ wxe_driver_start(ErlDrvPort port, char *buff)
       ErlDrvTermData term_port = driver_mk_port(port);
       set_port_control_flags(port, PORT_CONTROL_FLAG_BINARY);
       data->driver_data = NULL;
-      data->bin = NULL; 
+      data->bin = (WXEBinRef*) driver_alloc(sizeof(WXEBinRef)*DEF_BINS);
+      data->bin[0].from = 0;
+      data->bin[1].from = 0;
+      data->bin[2].from = 0;
+      data->max_bins = DEF_BINS;
       data->port_handle = port;
       data->port = term_port;
       data->pdl = driver_pdl_create(port);
@@ -208,26 +212,40 @@ static void
 standard_outputv(ErlDrvData drv_data, ErlIOVec* ev)
 {
    wxe_data* sd = (wxe_data *) drv_data;
-   WXEBinRef * binref;
+   WXEBinRef * binref = NULL;
    ErlDrvBinary* bin;
-   
+   int i, max;
+
+   for(i = 0; i < sd->max_bins; i++) {
+       if(sd->bin[i].from == 0) {
+	   binref = &sd->bin[i];
+	   break;
+       }
+   }
+
+   if(binref == NULL) { /* realloc */
+       max = sd->max_bins + DEF_BINS;
+       driver_realloc(sd->bin, sizeof(WXEBinRef)*max);
+       for(i=sd->max_bins; i < max; i++) {
+	   sd->bin[i].from = 0;
+       }
+       binref = &sd->bin[sd->max_bins];
+       sd->max_bins = max;
+   }
+
    if(ev->vsize == 2) {
-      binref = driver_alloc(sizeof(WXEBinRef));
       binref->base = ev->iov[1].iov_base;
       binref->size = ev->iov[1].iov_len;
       binref->from = driver_caller(sd->port_handle);
       bin = ev->binv[1];
       driver_binary_inc_refc(bin); /* Otherwise it could get deallocated */
       binref->bin = bin;
-      binref->next = sd->bin;
-      sd->bin = binref;      
-   } else { /* Empty binary (becomes NULL) */ 
-      binref = driver_alloc(sizeof(WXEBinRef));
+      sd->bin = binref;
+   } else { /* Empty binary (becomes NULL) */
       binref->base = NULL;
       binref->size = 0;
       binref->from = driver_caller(sd->port_handle);
       binref->bin = NULL;
-      binref->next = sd->bin;
       sd->bin = binref;
    }
 }

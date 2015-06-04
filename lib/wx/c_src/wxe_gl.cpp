@@ -132,7 +132,7 @@ void deleteActiveGL(wxGLCanvas *canvas)
   }
 }
 
-void gl_dispatch(int op, char *bp,ErlDrvTermData caller,WXEBinRef *bins[]){
+void gl_dispatch(int op, char *bp,ErlDrvTermData caller,WXEBinRef *bins){
   if(caller != gl_active) {
     wxGLCanvas * current = glc[caller];
     if(current) {
@@ -153,12 +153,12 @@ void gl_dispatch(int op, char *bp,ErlDrvTermData caller,WXEBinRef *bins[]){
   char * bs[3];
   int bs_sz[3];
   for(int i=0; i<3; i++) {
-    if(bins[i]) {
-      bs[i] = bins[i]->base;
-      bs_sz[i] = bins[i]->size;
+    if(bins[i].from) {
+      bs[i] = bins[i].base;
+      bs_sz[i] = bins[i].size;
     }
-    else 
-      bs[i] = NULL;
+    else
+      break;
   }
   wxe_gl_dispatch(op, bp, WXE_DRV_PORT_HANDLE, caller, bs, bs_sz);
 }
