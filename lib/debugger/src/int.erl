@@ -365,7 +365,7 @@ stop() ->
 %% function will receive the following messages:
 %%   {int, {interpret, Mod}}
 %%   {int, {no_interpret, Mod}}
-%%   {int, {new_process, Pid, Function, Status, Info}}
+%%   {int, {new_process, {Pid, Function, Status, Info}}}
 %%   {int, {new_status, Pid, Status, Info}}
 %%   {int, {new_break, {Point, Options}}}
 %%   {int, {delete_break, Point}}
