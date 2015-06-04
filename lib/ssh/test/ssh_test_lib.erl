@@ -361,7 +361,7 @@ do_inet_port(Node) ->
 
 openssh_sanity_check(Config) ->
     ssh:start(),
-    case ssh:connect("localhost", 22, []) of
+    case ssh:connect("localhost", 22, [{password,""}]) of
 	{ok, Pid} ->
 	    ssh:close(Pid),
 	    ssh:stop(),
