@@ -72,17 +72,32 @@ fragment()  = string()
   
   <funcs>
     <func>
-      <name>scheme_defaults() -> SchemeDefaults</name>
-      <fsummary>A list of scheme and their default ports</fsummary>
+      <name>decode(HexEncodedURI) -> URI</name>
+      
+      <fsummary>Decode a hex encoded URI</fsummary>
       <type>
-        <v>SchemeDefaults = [{scheme(), default_scheme_port_number()}] </v> 
-	<v>default_scheme_port_number() = pos_integer()</v>
+        <v>HexEncodedURI = string() - A possibly hex encoded uri</v>
+        <v>URI = uri()</v>
       </type>
-      <desc>
-        <p>This function provides a list of the scheme and their default 
-	port numbers currently supported (by default) by this utility. </p>
 
-        <marker id="parse"></marker>
+      <desc>
+        <p>Decode a possibly hex encoded URI. </p>
+
+      </desc>
+    </func>
+    <func>
+      <name>encode(URI) -> HexEncodedURI</name>
+      
+      <fsummary>Hex encode an URI</fsummary>
+      <type>
+        <v>URI = uri()</v>
+        <v>HexEncodedURI = string() - Hex encoded uri</v>
+      </type>
+
+      <desc>
+        <p>Hex encode an URI. </p>
+
+        <marker id="decode"></marker>
       </desc>
     </func>
 
@@ -124,35 +139,21 @@ fragment()  = string()
     </func>
 
     <func>
-      <name>encode(URI) -> HexEncodedURI</name>
-      
-      <fsummary>Hex encode an URI</fsummary>
+      <name>scheme_defaults() -> SchemeDefaults</name>
+      <fsummary>A list of scheme and their default ports</fsummary>
       <type>
-        <v>URI = uri()</v>
-        <v>HexEncodedURI = string() - Hex encoded uri</v>
+        <v>SchemeDefaults = [{scheme(), default_scheme_port_number()}] </v> 
+	<v>default_scheme_port_number() = pos_integer()</v>
       </type>
-
       <desc>
-        <p>Hex encode an URI. </p>
+        <p>This function provides a list of the scheme and their default 
+	port numbers currently supported (by default) by this utility. </p>
 
-        <marker id="decode"></marker>
+        <marker id="parse"></marker>
       </desc>
     </func>
 
-    <func>
-      <name>decode(HexEncodedURI) -> URI</name>
-      
-      <fsummary>Decode a hex encoded URI</fsummary>
-      <type>
-        <v>HexEncodedURI = string() - A possibly hex encoded uri</v>
-        <v>URI = uri()</v>
-      </type>
-
-      <desc>
-        <p>Decode a possibly hex encoded URI. </p>
-
-      </desc>
-    </func>
+   
 
   </funcs>
 
