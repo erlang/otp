@@ -288,6 +288,42 @@ int packet_get_length(enum PacketParseType htype,
         plen = get_int32(ptr);
         goto remain;
 
+    case TCP_PB_LE2:
+        /* TCP_PB_LE2:    [L0,L1 | Data] */
+        hlen = 2;
+        if (n < hlen) goto more;
+        plen = get_int16le(ptr);
+        goto remain;
+
+    case TCP_PB_LE4:
+        /* TCP_PB_LE4:    [L0,L1,L2,L3 | Data] */
+        hlen = 4;
+        if (n < hlen) goto more;
+        plen = get_int32le(ptr);
+        goto remain;
+
+    case TCP_PB_NE2: {
+                         /* TCP_PB_NE2:  [L0,L1 | Data] */
+                         /* L0, L1 - in native endian for this machine */
+                         hlen = 2;
+                         if (n < hlen) goto more;
+                         uint16_t tmp_len;
+                         memcpy(&tmp_len,ptr,2);
+                         plen=tmp_len;
+                         goto remain;
+                     }
+
+    case TCP_PB_NE4: {
+                         /* TCP_PB_NE4:  [L0,L1,L2,L3 | Data] */
+                         /* L0, L1, L2, L3 - in native endian for this machine */
+                         hlen = 4;
+                         if (n < hlen) goto more;
+                         uint32_t tmp_len;
+                         memcpy(&tmp_len,ptr,4);
+                         plen=tmp_len;
+                         goto remain;
+                     }
+
     case TCP_PB_RM:
         /* TCP_PB_RM:    [L3,L2,L1,L0 | Data] 
         ** where MSB (bit) is used to signal end of record

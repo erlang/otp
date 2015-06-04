@@ -360,6 +360,7 @@ atom multiline
 atom name
 atom named_table
 atom namelist
+atom native
 atom native_addresses
 atom Neq='=/='
 atom Neqeq='/='
@@ -435,6 +436,7 @@ atom output
 atom overlapped_io
 atom owner
 atom packet
+atom packet_endian
 atom packet_size
 atom parallelism
 atom Plus='+'

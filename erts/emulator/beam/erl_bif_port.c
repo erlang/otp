@@ -632,6 +632,7 @@ open_port(Process* p, Eterm name, Eterm settings, int *err_typep, int *err_nump)
 
     /* These are the defaults */
     opts.packet_bytes = 0;
+    opts.packet_endian = 0;
     opts.use_stdio = 1;
     opts.redir_stderr = 0;
     opts.read_write = 0;
@@ -674,6 +675,23 @@ open_port(Process* p, Eterm name, Eterm settings, int *err_typep, int *err_nump)
 		    default:
 			goto badarg;
 		   }
+		} else if (option == am_packet_endian) {
+		    if (is_not_atom(*tp)) {
+			goto badarg;
+                    }
+                    switch (*tp) {
+                        case am_big:
+                            opts.packet_endian = 0;
+                            break;
+                        case am_little:
+                            opts.packet_endian = 1;
+                            break;
+                        case am_native:
+                            opts.packet_endian = 2;
+                            break;
+                        default:
+                            goto badarg;
+                    }
 		} else if (option == am_line) {
 		    if (is_not_small(*tp)) {
 			goto badarg;
@@ -1323,6 +1341,7 @@ BIF_RETTYPE decode_packet_3(BIF_ALIST_3)
     int body_sz;             /*| rest: bin without packet                  */
     struct packet_callback_args pca;
     enum PacketParseType type;
+    int packet_endian=0;
     Eterm* hp;
     Eterm* hend;
     ErlSubBin* rest;
@@ -1360,15 +1379,28 @@ BIF_RETTYPE decode_packet_3(BIF_ALIST_3)
         if (is_tuple(CAR(cons))) {
             Eterm* tpl = tuple_val(CAR(cons));
             Uint val;
-            if (tpl[0] == make_arityval(2) &&
-		term_to_Uint(tpl[2],&val) && val <= UINT_MAX) {
-                switch (tpl[1]) {
-                case am_packet_size:
-                    max_plen = val;
-                    goto next_option;
-                case am_line_length:
-                    trunc_len = val;
-                    goto next_option;
+            if (tpl[0] == make_arityval(2)){
+                if(term_to_Uint(tpl[2],&val) && val <= UINT_MAX) {
+                    switch (tpl[1]) {
+                        case am_packet_size:
+                            max_plen = val;
+                            goto next_option;
+                        case am_line_length:
+                            trunc_len = val;
+                            goto next_option;
+                    }
+                } else if (tpl[1]==am_packet_endian){
+                    switch(tpl[2]) {
+                        case am_big:
+                            packet_endian=0;
+                            goto next_option;
+                        case am_little:
+                            packet_endian=1;
+                            goto next_option;
+                        case am_native:
+                            packet_endian=2;
+                            goto next_option;
+                    }
                 }
             }
         }
@@ -1378,7 +1410,19 @@ BIF_RETTYPE decode_packet_3(BIF_ALIST_3)
         options = CDR(cons);
     }
 
-
+    /* Switch to Little andian or Native Endian (it may be middle endian) */
+    if(packet_endian > 0){
+        switch(type) {
+            case TCP_PB_2:
+                type=packet_endian==1?TCP_PB_LE2:TCP_PB_NE2;
+                break;
+            case TCP_PB_4:
+                type=packet_endian==1?TCP_PB_LE4:TCP_PB_NE4;
+                break;
+            default:
+                break;
+        }
+    }
     pca.bin_sz = binary_size(BIF_ARG_2);
     ERTS_GET_BINARY_BYTES(BIF_ARG_2, bin_ptr, pca.bin_bitoffs, bin_bitsz);  
     if (pca.bin_bitoffs != 0) {

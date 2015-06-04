@@ -474,6 +474,7 @@ struct driver_data {
     int packet_bytes;		/* 0: continous stream, 1, 2, or 4: the number
 				 * of bytes in the packet header.
 				 */
+    int packet_endian;
     HANDLE port_pid;		/* PID of the port process. */
     AsyncIo in;			/* Control block for overlapped reading. */
     AsyncIo out;		/* Control block for overlapped writing. */
@@ -612,7 +613,7 @@ unrefer_driver_data(DriverData *dp)
  */
 
 static DriverData*
-new_driver_data(ErlDrvPort port_num, int packet_bytes, int wait_objs_required, int use_threads)
+new_driver_data(ErlDrvPort port_num, int packet_bytes, int packet_endian, int wait_objs_required, int use_threads)
 {
     DriverData* dp;
 
@@ -639,6 +640,7 @@ new_driver_data(ErlDrvPort port_num, int packet_bytes, int wait_objs_required, i
     dp->outbuf = NULL;
     dp->port_num = port_num;
     dp->packet_bytes = packet_bytes;
+    dp->packet_endian= packet_endian;
     dp->port_pid = INVALID_HANDLE_VALUE;
     if (init_async_io(dp, &dp->in, use_threads) == -1)
 	goto async_io_error1;
@@ -1194,7 +1196,8 @@ spawn_start(ErlDrvPort port_num, char* utf8_name, SysDriverOpts* opts)
     if (opts->read_write & DO_WRITE)
 	neededSelects++;
 
-    if ((dp = new_driver_data(port_num, opts->packet_bytes, neededSelects,
+    if ((dp = new_driver_data(port_num, opts->packet_bytes, 
+                    opts->packet_endian, neededSelects,
 			      !use_named_pipes)) == NULL)
 	return ERL_DRV_ERROR_GENERAL;
 
@@ -2101,7 +2104,7 @@ fd_start(ErlDrvPort port_num, char* name, SysDriverOpts* opts)
 	dp = save_22_port;
 	return reuse_driver_data(dp, (HANDLE) opts->ifd, (HANDLE) opts->ofd, opts->read_write, port_num);
     } else {
-	if ((dp = new_driver_data(port_num, opts->packet_bytes, 2, TRUE)) == NULL)
+	if ((dp = new_driver_data(port_num, opts->packet_bytes, opts->packet_endian, 2, TRUE)) == NULL)
 	    return ERL_DRV_ERROR_GENERAL;
 	
 	/**
@@ -2217,7 +2220,7 @@ vanilla_start(ErlDrvPort port_num, char* name, SysDriverOpts* opts)
     else
 	crFlags = OPEN_ALWAYS;
 
-    if ((dp = new_driver_data(port_num, opts->packet_bytes, 2, FALSE)) == NULL)
+    if ((dp = new_driver_data(port_num, opts->packet_bytes, opts->packet_endian, 2, FALSE)) == NULL)
 	return ERL_DRV_ERROR_GENERAL;
     ofd = CreateFile(name, access, FILE_SHARE_READ | FILE_SHARE_WRITE,
 		    NULL, crFlags, FILE_ATTRIBUTE_NORMAL, NULL);
@@ -2397,7 +2400,7 @@ output(ErlDrvData drv_data, char* buf, ErlDrvSizeT len)
 
     pb = dp->packet_bytes;
 
-    if ((pb+len) == 0)
+    if (pb+len) == 0)
 	return ; /* 0; */
 
     /*
@@ -2431,15 +2434,33 @@ output(ErlDrvData drv_data, char* buf, ErlDrvSizeT len)
      */
 
     current = dp->outbuf;
-    switch (pb) {
-    case 4:
-	*current++ = (len >> 24) & 255;
-	*current++ = (len >> 16) & 255;
-    case 2:
-	*current++ = (len >> 8) & 255;
-    case 1:
-	*current++ = len & 255;
+    if(pend==1 || pend==2){//windows always little endian 
+        switch (pb) {
+            case 4:
+                put_int32le((Uint32) len, current);
+                break;
+            case 2:
+                put_int16le((Uint32) len, current);
+                break;
+            case 1:
+                put_int8((Uint32) len, current);
+                break;
+            default:
+                break;
+        }
+        current+=pb;
+    }else{ //big endian
+        switch (pb) {
+            case 4:
+                *current++ = (len >> 24) & 255;
+                *current++ = (len >> 16) & 255;
+            case 2:
+                *current++ = (len >> 8) & 255;
+            case 1:
+                *current++ = len & 255;
+        }
     }
+
 
     /*
      * Start the write.
@@ -2543,15 +2564,35 @@ ready_input(ErlDrvData drv_data, ErlDrvEvent ready_event)
 		    int packet_size = 0;
 		    unsigned char *header = (unsigned char *) dp->inbuf;
 		    
-		    switch (pb) {
-		    case 4:
-			packet_size = (packet_size << 8) | *header++;
-			packet_size = (packet_size << 8) | *header++;
-		    case 2:
-			packet_size = (packet_size << 8) | *header++;
-		    case 1:
-			packet_size = (packet_size << 8) | *header++;
-		    }
+                    if(dp->packet_endian==1 || dp->packet_endian==2) {
+                        //windows always little-endian
+                        switch (pb) {
+                            case 1: 
+                                packet_size = get_int8(header);  
+                                header+=1;
+                                break;
+                            case 2: 
+                                packet_size = get_int16le(header); 
+                                header+=2;
+                                break;
+                            case 4: 
+                                packet_size = get_int32le(header); 
+                                header+=4;
+                                break;
+                            default: ASSERT(0); return; /* -1; */
+                        }
+                    }
+                    else {
+                        switch (pb) {
+                            case 4:
+                                packet_size = (packet_size << 8) | *header++;
+                                packet_size = (packet_size << 8) | *header++;
+                            case 2:
+                                packet_size = (packet_size << 8) | *header++;
+                            case 1:
+                                packet_size = (packet_size << 8) | *header++;
+                        }
+                    }
 		    
 		    dp->totalNeeded += packet_size;
 		    
