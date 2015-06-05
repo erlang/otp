@@ -56,6 +56,8 @@ all() ->
      ssh_daemon_minimal_remote_max_packet_size_option,
      ssh_msg_debug_fun_option_client,
      ssh_msg_debug_fun_option_server,
+     disconnectfun_option_server,
+     disconnectfun_option_client,
      preferred_algorithms,
      id_string_no_opt_client,
      id_string_own_string_client,
@@ -735,6 +737,75 @@ ssh_msg_debug_fun_option_server(Config) ->
     after 3000 ->
 	    ssh:stop_daemon(Pid),
 	    {fail,timeout1}
+    end.
+
+%%--------------------------------------------------------------------
+disconnectfun_option_server(Config) ->
+    PrivDir = ?config(priv_dir, Config),
+    UserDir = filename:join(PrivDir, nopubkey), % to make sure we don't use public-key-auth
+    file:make_dir(UserDir),
+    SysDir = ?config(data_dir, Config),
+
+    Parent = self(),
+    DisConnFun = fun(Reason) -> Parent ! {disconnect,Reason} end,
+
+    {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SysDir},
+					     {user_dir, UserDir},
+					     {password, "morot"},
+					     {failfun, fun ssh_test_lib:failfun/2},
+					     {disconnectfun, DisConnFun}]),
+    ConnectionRef =
+	ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
+					  {user, "foo"},
+					  {password, "morot"},
+					  {user_dir, UserDir},
+					  {user_interaction, false}]),
+    ssh:close(ConnectionRef),
+    receive
+	{disconnect,Reason} ->
+	    ct:log("Server detected disconnect: ~p",[Reason]),
+	    ssh:stop_daemon(Pid),
+	    ok
+    after 3000 ->
+	    receive
+		X -> ct:log("received ~p",[X])
+	    after 0 -> ok
+	    end,
+	    {fail,"Timeout waiting for disconnect"}
+    end.
+
+%%--------------------------------------------------------------------
+disconnectfun_option_client(Config) ->
+    PrivDir = ?config(priv_dir, Config),
+    UserDir = filename:join(PrivDir, nopubkey), % to make sure we don't use public-key-auth
+    file:make_dir(UserDir),
+    SysDir = ?config(data_dir, Config),
+
+    Parent = self(),
+    DisConnFun = fun(Reason) -> Parent ! {disconnect,Reason} end,
+
+    {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SysDir},
+					     {user_dir, UserDir},
+					     {password, "morot"},
+					     {failfun, fun ssh_test_lib:failfun/2}]),
+    _ConnectionRef =
+	ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
+					  {user, "foo"},
+					  {password, "morot"},
+					  {user_dir, UserDir},
+					  {user_interaction, false},
+					  {disconnectfun, DisConnFun}]),
+    ssh:stop_daemon(Pid),
+    receive
+	{disconnect,Reason} ->
+	    ct:log("Client detected disconnect: ~p",[Reason]),
+	    ok
+    after 3000 ->
+	    receive
+		X -> ct:log("received ~p",[X])
+	    after 0 -> ok
+	    end,
+	    {fail,"Timeout waiting for disconnect"}
     end.
 
 %%--------------------------------------------------------------------

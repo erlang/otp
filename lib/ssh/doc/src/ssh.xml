@@ -175,6 +175,11 @@
 	    to use from a security point of view.</p>
 	  </item>
 
+	  <tag><c><![CDATA[{disconnectfun, fun(Reason:term()) -> _}]]></c></tag>
+	  <item>
+	    <p>Provides a fun to implement your own logging when a server disconnects the client.</p>
+	  </item>
+
 	  <tag><c><![CDATA[{public_key_alg, 'ssh-rsa' | 'ssh-dss'}]]></c></tag>
 	  <item>
 	    <note>

@@ -750,15 +750,12 @@ handle_sync_event({info, ChannelPid}, _From, StateName,
     {reply, {ok, Result}, StateName, State};
 
 handle_sync_event(stop, _, _StateName, #state{connection_state = Connection0,
-					     role = Role,
-					     opts = Opts} = State0) ->
-    {disconnect, Reason, {{replies, Replies}, Connection}} =
+					     role = Role} = State0) ->
+    {disconnect, _Reason, {{replies, Replies}, Connection}} =
 	ssh_connection:handle_msg(#ssh_msg_disconnect{code = ?SSH_DISCONNECT_BY_APPLICATION,
 						      description = "User closed down connection",
 						      language = "en"}, Connection0, Role),
     State = send_replies(Replies, State0),
-    SSHOpts = proplists:get_value(ssh_opts, Opts),
-    disconnect_fun(Reason, SSHOpts),
     {stop, normal, ok, State#state{connection_state = Connection}};
 
 
@@ -1275,7 +1272,6 @@ generate_event(<<?BYTE(Byte), _/binary>> = Msg, StateName,
 	       #state{
 		  role = Role,
 		  starter = User,
-		  opts = Opts,
 		  renegotiate = Renegotiation,
 		  connection_state = Connection0} = State0, EncData)
   when  Byte == ?SSH_MSG_GLOBAL_REQUEST;
@@ -1315,21 +1311,17 @@ generate_event(<<?BYTE(Byte), _/binary>> = Msg, StateName,
 	    User ! {self(), not_connected, Reason},
 	    {stop, {shutdown, normal},
 	     next_packet(State#state{connection_state = Connection})};
-	{disconnect, Reason, {{replies, Replies}, Connection}} ->
+	{disconnect, _Reason, {{replies, Replies}, Connection}} ->
 	    State = send_replies(Replies,  State1#state{connection_state = Connection}),
-	    SSHOpts = proplists:get_value(ssh_opts, Opts),
-	    disconnect_fun(Reason, SSHOpts),
 	    {stop, {shutdown, normal}, State#state{connection_state = Connection}}
     catch
 	_:Error ->
-	    {disconnect, Reason, {{replies, Replies}, Connection}} =
+	    {disconnect, _Reason, {{replies, Replies}, Connection}} =
 		ssh_connection:handle_msg(
 		  #ssh_msg_disconnect{code = ?SSH_DISCONNECT_BY_APPLICATION,
 					  description = "Internal error",
 				      language = "en"}, Connection0, Role),
 	    State = send_replies(Replies,  State1#state{connection_state = Connection}),
-	    SSHOpts = proplists:get_value(ssh_opts, Opts),
-	    disconnect_fun(Reason, SSHOpts),
 	    {stop, {shutdown, Error}, State#state{connection_state = Connection}}
     end;
 
@@ -1576,12 +1568,14 @@ handle_disconnect(#ssh_msg_disconnect{} = DisconnectMsg, State, Error) ->
 handle_disconnect(Type,  #ssh_msg_disconnect{description = Desc} = Msg, #state{connection_state = Connection0,									role = Role} = State0) ->
     {disconnect, _, {{replies, Replies}, Connection}} = ssh_connection:handle_msg(Msg, Connection0, Role),
     State = send_replies(disconnect_replies(Type, Msg, Replies), State0),
+    disconnect_fun(Desc, State#state.opts),
     {stop, {shutdown, Desc}, State#state{connection_state = Connection}}.
 
 handle_disconnect(Type, #ssh_msg_disconnect{description = Desc} = Msg, #state{connection_state = Connection0,
 									      role = Role} = State0, ErrorMsg) ->
     {disconnect, _, {{replies, Replies}, Connection}} = ssh_connection:handle_msg(Msg, Connection0, Role),
     State = send_replies(disconnect_replies(Type, Msg, Replies), State0),
+    disconnect_fun(Desc, State#state.opts),
     {stop, {shutdown, {Desc, ErrorMsg}}, State#state{connection_state = Connection}}.
 
 disconnect_replies(own, Msg, Replies) ->
@@ -1700,6 +1694,8 @@ send_reply({flow_control, Cache, Channel, From, Msg}) ->
 send_reply({flow_control, From, Msg}) ->
     gen_fsm:reply(From, Msg).
 
+disconnect_fun({disconnect,Msg}, Opts) ->
+    disconnect_fun(Msg, Opts);
 disconnect_fun(_, undefined) ->
     ok;
 disconnect_fun(Reason, Opts) ->
