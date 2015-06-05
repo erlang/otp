@@ -1177,7 +1177,7 @@ typedef enum {
       <code type="none">
 ERL_NIF_TERM key, value;
 ErlNifMapIterator iter;
-enif_map_iterator_create(env, my_map, ERL_NIF_MAP_ITERATOR_FIRST);
+enif_map_iterator_create(env, my_map, &amp;iter, ERL_NIF_MAP_ITERATOR_FIRST);
 
 while (enif_map_iterator_get_pair(env, &amp;iter, &amp;key, &amp;value)) {
     do_something(key,value);
