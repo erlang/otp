@@ -718,8 +718,7 @@ toerl_loop(Port,Acc) ->
     end.
 	
 millistamp() ->
-    {Mega, Secs, Micros} = erlang:now(),
-    (Micros div 1000) + Secs * 1000 + Mega * 1000000000.
+    erlang:monotonic_time(milli_seconds).
     
 get_data_within(Port, X, Acc) when X =< 0 ->
     ?dbg({get_data_within, X, Acc, ?LINE}),

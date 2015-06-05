@@ -2699,10 +2699,7 @@ node_names(Names, Config) ->
 
 node_name(Name, Config) ->
     U = "_",
-    {{Y,M,D}, {H,Min,S}} = calendar:now_to_local_time(now()),
-    Date = io_lib:format("~4w_~2..0w_~2..0w__~2..0w_~2..0w_~2..0w", 
-                         [Y,M,D, H,Min,S]),
-    L = lists:flatten(Date),
+    L = integer_to_list(erlang:unique_integer([positive])),
     lists:concat([Name,U,?testcase,U,U,L]).
 
 stop_node_nice(Node) when is_atom(Node) ->

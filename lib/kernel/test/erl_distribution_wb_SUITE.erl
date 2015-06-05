@@ -451,11 +451,8 @@ close_pair({Client, Server}) ->
 %% MD5 hashing
 %%
 
-%% This is no proper random number, but that is not really important in 
-%% this test
 gen_challenge() ->
-    {_,_,N} = erlang:now(), 
-    N.
+    rand:uniform(1000000).
     
 %% Generate a message digest from Challenge number and Cookie	
 gen_digest(Challenge, Cookie) when is_integer(Challenge), is_atom(Cookie) ->
@@ -712,13 +709,9 @@ get_nodenames(N, T) ->
 get_nodenames(0, _, Acc) ->
     Acc;
 get_nodenames(N, T, Acc) ->
-    {A, B, C} = now(),
-    get_nodenames(N-1, T, [list_to_atom(atom_to_list(?MODULE)
+    U = erlang:unique_integer([positive]),
+    get_nodenames(N-1, T, [list_to_atom(?MODULE_STRING
 					++ "-"
 					++ atom_to_list(T)
 					++ "-"
-					++ integer_to_list(A)
-					++ "-"
-					++ integer_to_list(B)
-					++ "-"
-					++ integer_to_list(C)) | Acc]).
+					++ integer_to_list(U)) | Acc]).

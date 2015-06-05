@@ -1641,8 +1641,7 @@ so_priority(Config) when is_list(Config) ->
 %% Accept test utilities (suites are below)
 
 millis() ->
-    {A,B,C}=erlang:now(),
-    (A*1000000*1000)+(B*1000)+(C div 1000).
+    erlang:monotonic_time(milli_seconds).
 	
 collect_accepts(0,_) -> [];
 collect_accepts(N,Tmo) ->
@@ -2103,8 +2102,8 @@ send_timeout(Config) when is_list(Config) ->
     ok.
 
 mad_sender(S) ->
-    {_, _, USec} = now(),
-    case gen_tcp:send(S, integer_to_list(USec)) of
+    U = rand:uniform(1000000),
+    case gen_tcp:send(S, integer_to_list(U)) of
         ok ->
             mad_sender(S);
         Err ->
@@ -2172,10 +2171,10 @@ get_max_diff() ->
     end.
 
 get_max_diff(Max) ->
-    T1 = millistamp(),
+    T1 = millis(),
     receive
 	ok ->
-	    Diff = millistamp() - T1,
+	    Diff = millis() - T1,
 	    if
 		Diff > Max ->
 		    get_max_diff(Diff);
@@ -2183,7 +2182,7 @@ get_max_diff(Max) ->
 		    get_max_diff(Max)
 	    end;
 	{error,timeout} ->
-	    Diff = millistamp() - T1,
+	    Diff = millis() - T1,
 	    if
 		Diff > Max ->
 		    Diff;
@@ -2324,10 +2323,6 @@ setup_active_timeout_sink(Timeout, AutoClose) ->
     {Loop,A,R,C}.
 
      
-millistamp() ->
-    {Mega, Secs, Micros} = erlang:now(),
-    (Micros div 1000) + Secs * 1000 + Mega * 1000000000.
-
 has_superfluous_schedulers() ->
     case {erlang:system_info(schedulers),
 	  erlang:system_info(logical_processors)} of
