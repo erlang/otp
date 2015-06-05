@@ -150,7 +150,7 @@ handle_event(#wx{event=#wxHtmlLink{linkInfo=#wxHtmlLinkInfo{href=Href}}},
 	    Opened =
 		case lists:keyfind(Id,1,Opened0) of
 		    false ->
-			Win = cdv_detail_wx:start_link(Id,Frame,Callback),
+			Win = cdv_detail_wx:start_link(Id,[],Frame,Callback),
 			[{Id,Win}|Opened0];
 		    {_,Win} ->
 			wxFrame:raise(Win),

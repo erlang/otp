@@ -36,7 +36,9 @@
 	 num_fun,
 	 mem_tot,
 	 mem_max,
-	 instr_info}).
+	 instr_info,
+	 thread
+	}).
 
 -record(proc,
 	%% Initial data according to the follwoing:
@@ -86,7 +88,8 @@
 	 old_heap_end,
 	 memory,
 	 stack_dump,
-	 run_queue=?unknown
+	 run_queue=?unknown,
+	 int_state
 	}).
 
 -record(port,
@@ -98,15 +101,28 @@
 	 monitors,
 	 controls}).
 
+-record(sched,
+	{name,
+	 process,
+	 port,
+	 run_q=0,
+	 port_q=0,
+	 details=#{}
+	}).
+
+
+
 -record(ets_table,
 	{pid,
 	 slot,
 	 id,
 	 name,
-	 type="hash",
-	 buckets,
+	 data_type="hash",
+	 buckets="-",
 	 size,
-	 memory}).
+	 memory,
+	 details= #{}
+	}).
 
 -record(timer,
 	{pid,

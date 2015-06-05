@@ -19,7 +19,7 @@
 
 -behaviour(wx_object).
 
--export([start_link/3]).
+-export([start_link/4]).
 
 -export([init/1, handle_event/2, handle_cast/2, terminate/2, code_change/3,
 	 handle_call/3, handle_info/2]).
@@ -38,13 +38,13 @@
 -define(ID_NOTEBOOK, 604).
 
 %% Detail view
-start_link(Id, ParentFrame, Callback) ->
-    wx_object:start_link(?MODULE, [Id, ParentFrame, Callback, self()], []).
+start_link(Id, Data, ParentFrame, Callback) ->
+    wx_object:start_link(?MODULE, [Id, Data, ParentFrame, Callback, self()], []).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-init([Id, ParentFrame, Callback, Parent]) ->
-    case Callback:get_details(Id) of
+init([Id, Data, ParentFrame, Callback, Parent]) ->
+    case Callback:get_details(Id, Data) of
 	{ok,Details} ->
 	    init(Id,ParentFrame,Callback,Parent,Details);
 	{yes_no, Info, Fun} ->

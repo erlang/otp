@@ -42,4 +42,6 @@ info_fields() ->
        {"Processes",num_procs},
        {"ETS tables",num_ets},
        {"Timers",num_timers},
-       {"Funs",num_fun}]}].
+       {"Funs",num_fun},
+       {"Calling Thread", thread}
+      ]}].

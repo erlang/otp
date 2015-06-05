@@ -37,6 +37,7 @@
 	       cdv_proc_cb,
 	       cdv_table_wx,
 	       cdv_term_cb,
+	       cdv_sched_cb,
 	       cdv_timer_cb,
 	       cdv_virtual_list_wx,
 	       cdv_wx,

@@ -173,12 +173,17 @@ fill_info([{Str,SubStructure}|Rest], Data) when is_list(SubStructure) ->
     [{Str, fill_info(SubStructure, Data)}|fill_info(Rest,Data)];
 fill_info([{Str,Attrib,SubStructure}|Rest], Data) ->
     [{Str, Attrib, fill_info(SubStructure, Data)}|fill_info(Rest,Data)];
+fill_info([{Str, Key = {K,N}}|Rest], Data) when is_atom(K), is_integer(N) ->
+    case get_value(Key, Data) of
+	undefined -> [undefined | fill_info(Rest, Data)];
+	Value -> [{Str, Value} | fill_info(Rest, Data)]
+    end;
 fill_info([], _) -> [].
 
-get_value(Key, Data) when is_atom(Key) ->
-    proplists:get_value(Key,Data);
 get_value(Fun, Data) when is_function(Fun) ->
-    Fun(Data).
+    Fun(Data);
+get_value(Key, Data) ->
+    proplists:get_value(Key,Data).
 
 update_info([Fields|Fs], [{_Header, SubStructure}| Rest]) ->
     update_info2(Fields, SubStructure),
@@ -269,6 +274,8 @@ to_str(Pid) when is_pid(Pid) ->
     pid_to_list(Pid);
 to_str(No) when is_integer(No) ->
     integer_to_list(No);
+to_str(Float) when is_float(Float) ->
+    io_lib:format("~.3f", [Float]);
 to_str(Term) ->
     io_lib:format("~w", [Term]).
 

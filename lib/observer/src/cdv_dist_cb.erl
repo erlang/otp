@@ -21,7 +21,7 @@
 	 col_spec/0,
 	 get_info/1,
 	 get_detail_cols/1,
-	 get_details/1,
+	 get_details/2,
 	 detail_pages/0,
 	 format/1]).
 
@@ -55,10 +55,10 @@ get_info(_) ->
     {Info,TW}.
 
 get_detail_cols(_) ->
-    {[?COL_CH,?COL_CTRL],true}.
+    {[{node, ?COL_CH},{port,?COL_CTRL}],true}.
 
 %% Callbacks for cdv_detail_wx
-get_details(Id) ->
+get_details(Id, _) ->
     case crashdump_viewer:node_info(Id) of
 	{ok,Info,TW} ->
 	    Proplist = crashdump_viewer:to_proplist(record_info(fields,nod),Info),
