@@ -24,6 +24,7 @@
 -include("ssh.hrl").
 -include("ssh_connect.hrl").
 -include_lib("public_key/include/public_key.hrl").
+-include_lib("kernel/include/file.hrl").
 
 -export([start/0, start/1, stop/0, connect/3, connect/4, close/1, connection_info/2,
 	 channel_info/3,
@@ -389,9 +390,9 @@ handle_option([Opt | Rest], SocketOptions, SshOptions) ->
 handle_ssh_option({minimal_remote_max_packet_size, Value} = Opt) when is_integer(Value), Value >=0 ->
     Opt;
 handle_ssh_option({system_dir, Value} = Opt) when is_list(Value) ->
-    Opt;
+    check_dir(Opt);
 handle_ssh_option({user_dir, Value} = Opt) when is_list(Value) ->
-    Opt;
+    check_dir(Opt);
 handle_ssh_option({user_dir_fun, Value} = Opt) when is_function(Value) ->
     Opt;
 handle_ssh_option({silently_accept_hosts, Value} = Opt) when is_boolean(Value) ->
@@ -581,4 +582,31 @@ handle_ip(Inet) -> %% Default to ipv4
 		    [inet | Inet]
 	    end
     end.
-	
+
+check_dir({_,Dir} = Opt) ->
+    case directory_exist_readable(Dir) of
+	ok ->
+	    Opt;
+	{error,Error} ->
+	    throw({error, {eoptions,{Opt,Error}}})
+    end.
+
+directory_exist_readable(Dir) ->
+    case file:read_file_info(Dir) of
+	{ok, #file_info{type = directory,
+			access = Access}} ->
+	    case Access of
+		read -> ok;
+		read_write -> ok;
+		_ -> {error, eacces}
+	    end;
+
+	{ok, #file_info{}}->
+	    {error, enotdir};
+
+	{error, Error} ->
+	    {error, Error}
+    end.
+		
+		    
+
