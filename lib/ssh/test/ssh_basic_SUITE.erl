@@ -1199,9 +1199,10 @@ ssh_connect_negtimeout(Config, Parallel) ->
 					      {failfun, fun ssh_test_lib:failfun/2}]),
     
     {ok,Socket} = gen_tcp:connect(Host, Port, []),
-    Factor = 1.5,
+
+    Factor = 2,
     ct:pal("And now sleeping ~p*NegTimeOut (~p ms)...", [Factor, round(Factor * NegTimeOut)]),
-    receive after round(Factor * NegTimeOut) -> ok end,
+    ct:sleep(round(Factor * NegTimeOut)),
     
     case inet:sockname(Socket) of
 	{ok,_} -> ct:fail("Socket not closed");
@@ -1245,10 +1246,10 @@ ssh_connect_nonegtimeout_connected(Config, Parallel) ->
 	    one_shell_op(IO, NegTimeOut),
 	    one_shell_op(IO, NegTimeOut),
 
-	    Factor = 1.5,
+	    Factor = 2,
 	    ct:pal("And now sleeping ~p*NegTimeOut (~p ms)...", [Factor, round(Factor * NegTimeOut)]),
-	    receive after round(Factor * NegTimeOut) -> ok end,
-
+	    ct:sleep(round(Factor * NegTimeOut)),
+    
 	    one_shell_op(IO, NegTimeOut)
     end,
     exit(Shell, kill).
