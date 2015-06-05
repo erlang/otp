@@ -1350,6 +1350,18 @@
             give lower latency and higher throughput at the expense
             of higher memory usage.</p>
           </item>
+          <tag><marker id="+zdntgc"><c>+zdntgc time</c></marker></tag>
+          <item>
+            <p>Set the delayed node table garbage collection time
+	    (<seealso marker="erlang#system_info_delayed_node_table_gc">delayed_node_table_gc</seealso>)
+	    in seconds. Valid values are either <c>infinity</c> or
+	    an integer in the range [0-100000000]. Default is 60.</p>
+            <p>Node table entries that are not referred will linger
+	    in the table for at least the amount of time that this
+	    parameter determines. The lingering prevents repeated
+	    deletions and insertions in the tables from occurring.
+	    </p>
+          </item>
         </taglist>
       </item>
     </taglist>

@@ -2392,6 +2392,7 @@ tuple_to_list(_Tuple) ->
       CpuTopology :: cpu_topology();
          (creation) -> integer();
          (debug_compiled) -> boolean();
+         (delayed_node_table_gc) -> infinity | non_neg_integer();
          (dirty_cpu_schedulers) -> non_neg_integer();
          (dirty_cpu_schedulers_online) -> non_neg_integer();
          (dirty_io_schedulers) -> non_neg_integer();
