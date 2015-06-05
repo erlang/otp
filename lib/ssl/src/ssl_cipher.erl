@@ -1209,7 +1209,8 @@ hash_algorithm(?SHA) -> sha;
 hash_algorithm(?SHA224) -> sha224;
 hash_algorithm(?SHA256) -> sha256;
 hash_algorithm(?SHA384) -> sha384;
-hash_algorithm(?SHA512) -> sha512.
+hash_algorithm(?SHA512) -> sha512;
+hash_algorithm(_) -> null.
 
 sign_algorithm(anon)  -> ?ANON;
 sign_algorithm(rsa)   -> ?RSA;
@@ -1218,7 +1219,8 @@ sign_algorithm(ecdsa) -> ?ECDSA;
 sign_algorithm(?ANON) -> anon;
 sign_algorithm(?RSA) -> rsa;
 sign_algorithm(?DSA) -> dsa;
-sign_algorithm(?ECDSA) -> ecdsa.
+sign_algorithm(?ECDSA) -> ecdsa;
+sign_algorithm(_) -> anon.
 
 hash_size(null) ->
     0;
