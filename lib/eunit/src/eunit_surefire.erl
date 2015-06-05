@@ -203,10 +203,9 @@ handle_cancel(test, Data, St) ->
 		     testcases=[TestCase|TestSuite#testsuite.testcases] },
     St#state{testsuites=store_suite(NewTestSuite, TestSuites)}.
 
-format_name({Module, Function, Arity}, Line) ->
-    lists:flatten([atom_to_list(Module), ":", atom_to_list(Function), "/",
-		   integer_to_list(Arity), "_", integer_to_list(Line)]).
-
+format_name({Module, Function, _Arity}, Line) ->
+    lists:flatten([atom_to_list(Module), ":", integer_to_list(Line), " ",
+                   atom_to_list(Function)]).
 format_desc(undefined) ->
     "";
 format_desc(Desc) when is_binary(Desc) ->
@@ -335,12 +334,11 @@ write_testcase(
         FileDescriptor) ->
     DescriptionAttr = case Description of
 			  [] -> [];
-			  _ -> [<<" description=\"">>, escape_attr(Description), <<"\"">>]
+			  _ -> [<<" (">>, escape_attr(Description), <<")">>]
 		      end,
     StartTag = [
         ?INDENT, <<"<testcase time=\"">>, format_time(Time),
-        <<"\" name=\"">>, escape_attr(Name), <<"\"">>,
-        DescriptionAttr],
+        <<"\" name=\"">>, escape_attr(Name), DescriptionAttr, <<"\"">>],
     ContentAndEndTag = case {Result, Output} of
         {ok, <<>>} -> [<<"/>">>, ?NEWLINE];
         _ -> [<<">">>, ?NEWLINE, format_testcase_result(Result), format_testcase_output(Output), ?INDENT, <<"</testcase>">>, ?NEWLINE]
