@@ -778,7 +778,12 @@ send_selected_port(_,_,_) ->
 
 rsa_suites(CounterPart) ->
     ECC = is_sane_ecc(CounterPart),
-    lists:filter(fun({rsa, _, _}) ->
+    FIPS = is_fips(CounterPart),
+    lists:filter(fun({rsa, des_cbc, sha}) when FIPS == true ->
+			 false;
+		    ({dhe_rsa, des_cbc, sha}) when FIPS == true ->
+			 false;
+		    ({rsa, _, _}) ->
 			 true;
 		    ({dhe_rsa, _, _}) ->
 			 true;
@@ -1089,6 +1094,25 @@ is_sane_ecc(crypto) ->
     end;
 is_sane_ecc(_) ->
     true.
+
+is_fips(openssl) ->
+    VersionStr = os:cmd("openssl version"),
+    case re:split(VersionStr, "fips") of
+	[_] ->
+	    false;
+	_ ->
+	    true
+    end;
+is_fips(crypto) ->
+    [{_,_, Bin}]  = crypto:info_lib(),
+    case re:split(Bin, <<"fips">>) of
+	[_] ->
+	    false;
+	_ ->
+	    true
+    end;
+is_fips(_) ->
+    false.
 
 cipher_restriction(Config0) ->
     case is_sane_ecc(openssl) of
