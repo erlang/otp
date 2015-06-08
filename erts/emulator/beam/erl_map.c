@@ -80,7 +80,7 @@ typedef struct {
 
 static Eterm flatmap_merge(Process *p, Eterm nodeA, Eterm nodeB);
 static Eterm map_merge_mixed(Process *p, Eterm flat, Eterm tree, int swap_args);
-static Eterm hashmap_merge(Process *p, Eterm nodeA, Eterm nodeB);
+static Eterm hashmap_merge(Process *p, Eterm nodeA, Eterm nodeB, int swap_args);
 static Eterm hashmap_to_list(Process *p, Eterm map);
 static Eterm hashmap_keys(Process *p, Eterm map);
 static Eterm hashmap_values(Process *p, Eterm map);
@@ -947,7 +947,7 @@ BIF_RETTYPE maps_merge_2(BIF_ALIST_2) {
 	BIF_P->fvalue = BIF_ARG_2;
     } else if (is_hashmap(BIF_ARG_1)) {
 	if (is_hashmap(BIF_ARG_2)) {
-	    BIF_RET(hashmap_merge(BIF_P, BIF_ARG_1, BIF_ARG_2));
+	    BIF_RET(hashmap_merge(BIF_P, BIF_ARG_1, BIF_ARG_2, 0));
 	} else if (is_flatmap(BIF_ARG_2)) {
 	    /* Will always become a tree */
 	    BIF_RET(map_merge_mixed(BIF_P, BIF_ARG_2, BIF_ARG_1, 1));
@@ -1113,12 +1113,12 @@ static Eterm map_merge_mixed(Process *p, Eterm flat, Eterm tree, int swap_args) 
     erts_free(ERTS_ALC_T_TMP, (void *) hxns);
     ERTS_VERIFY_UNUSED_TEMP_ALLOC(p);
 
-    return swap_args ? hashmap_merge(p, tree, res) : hashmap_merge(p, res, tree);
+    return hashmap_merge(p, res, tree, swap_args);
 }
 
 #define HALLOC_EXTRA 200
 
-static Eterm hashmap_merge(Process *p, Eterm nodeA, Eterm nodeB) {
+static Eterm hashmap_merge(Process *p, Eterm nodeA, Eterm nodeB, int swap_args) {
 #define PSTACK_TYPE struct HashmapMergePStackType
     struct HashmapMergePStackType {
 	Eterm *srcA, *srcB;
@@ -1133,7 +1133,7 @@ static Eterm hashmap_merge(Process *p, Eterm nodeA, Eterm nodeB) {
     Eterm hdrA, hdrB;
     Uint32 ahx, bhx;
     Uint size;  /* total key-value counter */
-    int keepA = 0;
+    int keepA = swap_args;
     unsigned int lvl = 0;
     DeclareTmpHeap(th,2,p);
     Eterm res = THE_NON_VALUE;
