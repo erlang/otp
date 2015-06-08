@@ -360,7 +360,7 @@ kex is implicit but public_key is set explicitly.</p>
 	    an own CLI channel. If set to <c>no_cli</c>, the CLI channels
 	    are disabled and only subsystem channels are allowed.</p>
 	  </item>
-	  <tag><c><![CDATA[{user_dir, String}]]></c></tag>
+	  <tag><c><![CDATA[{user_dir, string()}]]></c></tag>
 	  <item>
 	    <p>Sets the user directory. That is, the directory containing
 	    <c>ssh</c> configuration files for the user, such as
@@ -377,6 +377,7 @@ kex is implicit but public_key is set explicitly.</p>
             <c><![CDATA[/etc/ssh]]></c>. For security reasons,
             this directory is normally accessible only to the root user.</p>
 	  </item>
+
 	  <tag><c><![CDATA[{auth_methods, string()}]]></c></tag>
 	  <item>
 	    <p>Comma-separated string that determines which
@@ -384,6 +385,19 @@ kex is implicit but public_key is set explicitly.</p>
 	    in what order they are tried. Defaults to
 	    <c><![CDATA["publickey,keyboard-interactive,password"]]></c></p>
           </item>
+
+	  <tag><c><![CDATA[{auth_method_kb_interactive_data, PromptTexts}]]>
+	  <br/>where:
+	  <br/>PromptTexts = kb_int_tuple()  | fun(PeerName::string(), User::string(), Service::string()) ->  kb_int_tuple()
+	  <br/>kb_int_tuple() = {Name::string(), Instruction::string(), Prompt::string(), Echo::boolean()}</c>
+	  </tag>
+	  <item>
+	    <p>Sets the text strings that the daemon sends to the client for presentation to the user when using <c>keyboar-interactive</c> authentication. If the fun/3 is used, it is called when the actual authentication occurs and may therefore return dynamic data like time, remote ip etc.</p>
+	    <p>The parameter <c>Echo</c> guides the client about need to hide the password.</p>
+	    <p>The default value is:
+	    <c>{auth_method_kb_interactive_data, {"SSH server", "Enter password for \""++User++"\"", "pwd: ", false}></c></p>
+          </item>
+
 	  <tag><c><![CDATA[{user_passwords, [{string() = User,
 	  string() = Password}]}]]></c></tag>
 	  <item>
