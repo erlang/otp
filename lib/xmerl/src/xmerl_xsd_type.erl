@@ -29,6 +29,7 @@
 -export([compare_durations/2,compare_dateTime/2]).
 
 -include("xmerl.hrl").
+-include("xmerl_internal.hrl").
 -include("xmerl_xsd.hrl").
 
 
@@ -687,7 +688,8 @@ facet_fun(Type,{fractionDigits,V}) ->
     fractionDigits_fun(Type,list_to_integer(V));
 facet_fun(Type,F) ->
     fun(_X_) ->
-	    io:format("Warning: not valid facet on ~p ~p~n",[Type,F])
+	    error_logger:warning_msg("~w: not valid facet on ~p ~p~n",
+                                     [?MODULE,Type,F])
     end.
 
 
@@ -1075,7 +1077,7 @@ compare_floats(F1,F2) when F1=="-INF";F2=="INF" ->
 compare_floats(Str1,Str2) ->
     F1={S1,_B1,_D1,_E1} = str_to_float(Str1),
     F2={S2,_B2,_D2,_E2} = str_to_float(Str2),
-%    io:format("F1: ~p~nF2: ~p~n",[F1,F2]),
+%    ?dbg("F1: ~p~nF2: ~p~n",[F1,F2]),
     if
 	S1=='-',S2=='+' -> lt;
 	S1=='+',S2=='-' -> gt;

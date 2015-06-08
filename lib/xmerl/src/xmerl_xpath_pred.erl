@@ -58,6 +58,7 @@
 -export([core_function/1]).	 
 
 -include("xmerl.hrl").
+-include("xmerl_internal.hrl").
 -include("xmerl_xpath.hrl").
 
 %% -record(obj, {type,
@@ -88,7 +89,7 @@ eval(Expr, C = #xmlContext{context_node = #xmlNode{pos = Pos}}) ->
 	      _ ->
 		  mk_boolean(C, Obj)
 	  end,
-%    io:format("eval(~p, ~p) -> ~p~n", [Expr, Pos, Res]),
+%    ?dbg("eval(~p, ~p) -> ~p~n", [Expr, Pos, Res]),
     Res.
 
 
