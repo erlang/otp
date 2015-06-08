@@ -249,8 +249,10 @@ handle_userauth_request(#ssh_msg_userauth_request{user = User,
 						  method = "keyboard-interactive",
 						  data = _},
 			_, #ssh{opts = Opts,
+				kb_tries_left = KbTriesLeft,
 				userauth_supported_methods = Methods} = Ssh) ->
-    case proplists:get_value(max_kb_tries, Opts, 0) of
+io:format('KbTriesLeft ~p~n',[KbTriesLeft]),
+    case KbTriesLeft of
 	N when N<1 ->
 	    {not_authorized, {User, {authmethod, "keyboard-interactive"}}, 
 	     ssh_transport:ssh_packet(
@@ -298,7 +300,7 @@ handle_userauth_request(#ssh_msg_userauth_request{user = User,
 						},
 	    {not_authorized, {User, undefined}, 
 	     ssh_transport:ssh_packet(Msg, Ssh#ssh{user = User,
-						   opts = [{kb_userauth_info_msg,Msg}|Opts]
+						   kb_data = Msg
 						  })}
     end;
 
@@ -327,35 +329,37 @@ handle_userauth_info_request(
 
 handle_userauth_info_response(#ssh_msg_userauth_info_response{num_responses = 1,
 							      data = <<?UINT32(Sz), Password:Sz/binary>>},
-			      #ssh{opts = Opts0,
+			      #ssh{opts = Opts,
+				   kb_tries_left = KbTriesLeft0,
+				   kb_data = InfoMsg,
 				   user = User,
 				   userauth_supported_methods = Methods} = Ssh) ->
-    NumTriesLeft = proplists:get_value(max_kb_tries, Opts0, 0) - 1,
-    Opts = lists:keydelete(max_kb_tries,1,Opts0),
+    KbTriesLeft = KbTriesLeft0 - 1,
     case check_password(User, unicode:characters_to_list(Password), Opts) of
 	true ->
 	    {authorized, User,
 	     ssh_transport:ssh_packet(#ssh_msg_userauth_success{}, Ssh)};
-	false when NumTriesLeft > 0 ->
+	false when KbTriesLeft > 0 ->
 	    UserAuthInfoMsg = 
-		(proplists:get_value(kb_userauth_info_msg,Opts))
-		#ssh_msg_userauth_info_request{name = "",
-					       instruction = 
-					       	   lists:concat(
-					       	     ["Bad user or password, try again. ",
-					       	      integer_to_list(NumTriesLeft),
-					       	      " tries left."])
-					      },
+		InfoMsg#ssh_msg_userauth_info_request{
+		  name = "",
+		  instruction = 
+		      lists:concat(
+			["Bad user or password, try again. ",
+			 integer_to_list(KbTriesLeft),
+			 " tries left."])
+		 },
 	    {not_authorized, {User, undefined}, 
 	     ssh_transport:ssh_packet(UserAuthInfoMsg,
-				      Ssh#ssh{opts = [{max_kb_tries,NumTriesLeft}|Opts]})};
+				      Ssh#ssh{kb_tries_left = KbTriesLeft})};
 	     
 	false ->
 	    {not_authorized, {User, {error,"Bad user or password"}}, 
 	     ssh_transport:ssh_packet(#ssh_msg_userauth_failure{
 					 authentications = Methods,
 					 partial_success = false}, 
-				      Ssh#ssh{opts = lists:keydelete(kb_userauth_info_msg,1,Opts)}
+				      Ssh#ssh{kb_data = undefined,
+					      kb_tries_left = 0}
 				     )}
     end;
 

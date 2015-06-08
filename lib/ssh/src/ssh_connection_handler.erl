@@ -1164,12 +1164,10 @@ init_ssh(server = Role, Vsn, Version, Options, Socket) ->
 	 s_version = Version,
 	 key_cb = KeyCb,
 	 io_cb = proplists:get_value(io_cb, Options, ssh_io),
-	 opts = case lists:member("keyboard-interactive",AuthMethodsAsList) of
-		    true -> [{max_kb_tries,3}|Options];
-		    false -> Options
-		end,
+	 opts = Options,
 	 userauth_supported_methods = AuthMethods,
 	 userauth_methods = AuthMethodsAsList,
+	 kb_tries_left = 3,
 	 peer = {undefined, PeerAddr},
 	 available_host_keys = supported_host_keys(Role, KeyCb, Options)
 	 }.
