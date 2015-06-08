@@ -1256,7 +1256,7 @@ try_load_module(File, Mod, Bin, {From,_}=Caller, St0) ->
 try_load_module_1(File, Mod, Bin, Caller, #state{moddb=Db}=St) ->
     case is_sticky(Mod, Db) of
 	true ->                         %% Sticky file reject the load
-	    error_msg("Can't load module that resides in sticky dir\n",[]),
+	    error_msg("Can't load module '~w' that resides in sticky dir\n",[Mod]),
 	    {reply,{error,sticky_directory},St};
 	false ->
 	    case catch load_native_code(Mod, Bin) of
