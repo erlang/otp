@@ -75,7 +75,7 @@ MODULES= \
 	ssh_transport \
 	ssh_xfer
 
-PUBLIC_HRL_FILES= ssh.hrl ssh_userauth.hrl ssh_xfer.hrl
+HRL_FILES =
 
 ERL_FILES= \
 	$(MODULES:%=%.erl) \
@@ -95,7 +95,7 @@ APP_TARGET= $(EBIN)/$(APP_FILE)
 APPUP_SRC= $(APPUP_FILE).src
 APPUP_TARGET= $(EBIN)/$(APPUP_FILE)
 
-INTERNAL_HRL_FILES = ssh_auth.hrl ssh_connect.hrl ssh_transport.hrl
+INTERNAL_HRL_FILES = ssh_auth.hrl ssh_connect.hrl ssh_transport.hrl ssh.hrl ssh_userauth.hrl ssh_xfer.hrl
 
 # ----------------------------------------------------
 # FLAGS
@@ -140,7 +140,7 @@ release_spec: opt
 	$(INSTALL_DATA) $(BEHAVIOUR_TARGET_FILES) $(TARGET_FILES) $(APP_TARGET) \
 	$(APPUP_TARGET) "$(RELSYSDIR)/ebin"
 	$(INSTALL_DIR) "$(RELSYSDIR)/include"
-	$(INSTALL_DATA) $(PUBLIC_HRL_FILES) "$(RELSYSDIR)/include"
+
 
 release_docs_spec:
 
