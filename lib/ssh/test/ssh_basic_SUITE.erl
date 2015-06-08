@@ -413,28 +413,28 @@ rekey_limit(Config) ->
 
     Kex1 = get_kex_init(ConnectionRef),
 
-    ct:sleep(?REKEY_DATA_TMO),
+    timer:sleep(?REKEY_DATA_TMO),
     Kex1 = get_kex_init(ConnectionRef),
 
     Data = lists:duplicate(9000,1),
     ok = ssh_sftp:write_file(SftpPid, DataFile, Data),
 
-    ct:sleep(?REKEY_DATA_TMO),
+    timer:sleep(?REKEY_DATA_TMO),
     Kex2 = get_kex_init(ConnectionRef),
 
     false = (Kex2 == Kex1),
 
-    ct:sleep(?REKEY_DATA_TMO),
+    timer:sleep(?REKEY_DATA_TMO),
     Kex2 = get_kex_init(ConnectionRef),
 
     ok = ssh_sftp:write_file(SftpPid, DataFile, "hi\n"),
 
-    ct:sleep(?REKEY_DATA_TMO),
+    timer:sleep(?REKEY_DATA_TMO),
     Kex2 = get_kex_init(ConnectionRef),
 
     false = (Kex2 == Kex1),
 
-    ct:sleep(?REKEY_DATA_TMO),
+    timer:sleep(?REKEY_DATA_TMO),
     Kex2 = get_kex_init(ConnectionRef),
 
 
@@ -476,7 +476,7 @@ renegotiate1(Config) ->
     ssh_connection_handler:renegotiate(ConnectionRef),
     spawn(fun() -> ok=ssh_sftp:write(SftpPid, Handle, "another hi\n") end),
 
-    ct:sleep(2000),
+    timer:sleep(2000),
 
     Kex2 = get_kex_init(ConnectionRef),
 
@@ -524,7 +524,7 @@ renegotiate2(Config) ->
     ssh_connection_handler:renegotiate(ConnectionRef),
     ssh_relay:release(RelayPid, rx),
 
-    ct:sleep(2000),
+    timer:sleep(2000),
 
     Kex2 = get_kex_init(ConnectionRef),
 
@@ -1340,8 +1340,10 @@ ssh_connect_negtimeout(Config, Parallel) ->
 					      {failfun, fun ssh_test_lib:failfun/2}]),
     
     {ok,Socket} = gen_tcp:connect(Host, Port, []),
-    ct:pal("And now sleeping 1.2*NegTimeOut (~p ms)...", [round(1.2 * NegTimeOut)]),
-    receive after round(1.2 * NegTimeOut) -> ok end,
+
+    Factor = 2,
+    ct:pal("And now sleeping ~p*NegTimeOut (~p ms)...", [Factor, round(Factor * NegTimeOut)]),
+    ct:sleep(round(Factor * NegTimeOut)),
     
     case inet:sockname(Socket) of
 	{ok,_} -> ct:fail("Socket not closed");
@@ -1384,8 +1386,11 @@ ssh_connect_nonegtimeout_connected(Config, Parallel) ->
 	    ct:pal("---Erlang shell start: ~p~n", [ErlShellStart]),
 	    one_shell_op(IO, NegTimeOut),
 	    one_shell_op(IO, NegTimeOut),
-	    ct:pal("And now sleeping 1.2*NegTimeOut (~p ms)...", [round(1.2 * NegTimeOut)]),
-	    receive after round(1.2 * NegTimeOut) -> ok end,
+
+	    Factor = 2,
+	    ct:pal("And now sleeping ~p*NegTimeOut (~p ms)...", [Factor, round(Factor * NegTimeOut)]),
+	    ct:sleep(round(Factor * NegTimeOut)),
+    
 	    one_shell_op(IO, NegTimeOut)
     end,
     exit(Shell, kill).
@@ -1513,6 +1518,7 @@ max_sessions(Config, ParallelLogin, Connect0) when is_function(Connect0,2) ->
 		    %% This is expected
 		    %% Now stop one connection and try to open one more
 		    ok = ssh:close(hd(Connections)),
+		    receive after 250 -> ok end, % sleep so the supervisor has time to count down. Not nice...
 		    try Connect(Host,Port)
 		    of
 			_ConnectionRef1 ->
