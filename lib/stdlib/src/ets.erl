@@ -667,7 +667,12 @@ tab2list(T) ->
 -spec filter(tab(), function(), [term()]) -> [term()].
 
 filter(Tn, F, A) when is_atom(Tn) ; is_integer(Tn) ->
-    do_filter(Tn, ets:first(Tn), F, A, []).
+    ets:safe_fixtable(Tn, true),
+    try
+	do_filter(Tn, ets:first(Tn), F, A, [])
+    after
+	ets:safe_fixtable(Tn, false)
+    end.
 
 do_filter(_Tab, '$end_of_table', _, _, Ack) -> 
     Ack;
