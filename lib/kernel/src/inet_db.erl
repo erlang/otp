@@ -1372,7 +1372,7 @@ cache_rr(_Db, Cache, RR) ->
     ets:insert(Cache, RR).
 
 times() ->
-    erlang:monotonic_time(1).
+    erlang:convert_time_unit(erlang:monotonic_time() - erlang:system_info(start_time),native,seconds).
 
 %% lookup and remove old entries
 
