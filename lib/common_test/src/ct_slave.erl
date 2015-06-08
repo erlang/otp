@@ -37,7 +37,7 @@
 
 -record(options, {username, password, boot_timeout, init_timeout,
 		  startup_timeout, startup_functions, monitor_master,
-		  kill_if_fail, erl_flags, env}).
+		  kill_if_fail, erl_flags, env, ssh_port, ssh_opts}).
 
 %%%-----------------------------------------------------------------
 %%% @spec start(Node) -> Result
@@ -254,11 +254,13 @@ fetch_options(Options) ->
     KillIfFail = get_option_value(kill_if_fail, Options, true),
     ErlFlags = get_option_value(erl_flags, Options, []),
     EnvVars = get_option_value(env, Options, []),
+    SSHPort = get_option_value(ssh_port, Options, []),
+    SSHOpts = get_option_value(ssh_opts, Options, []),
     #options{username=UserName, password=Password,
 	     boot_timeout=BootTimeout, init_timeout=InitTimeout,
 	     startup_timeout=StartupTimeout, startup_functions=StartupFunctions,
 	     monitor_master=Monitor, kill_if_fail=KillIfFail,
-	     erl_flags=ErlFlags, env=EnvVars}.
+	     erl_flags=ErlFlags, env=EnvVars, ssh_port=SSHPort, ssh_opts=SSHOpts}.
 
 % send a message when slave node is started
 % @hidden
@@ -399,27 +401,18 @@ spawn_local_node(Node, Options) ->
     Cmd = get_cmd(Node, ErlFlags),
     open_port({spawn, Cmd}, [stream,{env,Env}]).
 
-% start crypto and ssh if not yet started
-check_for_ssh_running() ->
-    case application:get_application(crypto) of
-	undefined->
-	    application:start(crypto),
-	    case application:get_application(ssh) of
-		undefined->
-		    application:start(ssh);
-		{ok, ssh}->
-		    ok
-	    end;
-	{ok, crypto}->
-	    ok
-    end.
-
 % spawn node remotely
 spawn_remote_node(Host, Node, Options) ->
     #options{username=Username,
 	     password=Password,
 	     erl_flags=ErlFlags,
-	     env=Env} = Options,
+	     env=Env,
+       ssh_port=MaybeSSHPort,
+       ssh_opts=SSHOpts} = Options,
+    SSHPort = case MaybeSSHPort of
+                [] -> 22; % Use default SSH port
+                A  -> A
+              end,
     SSHOptions = case {Username, Password} of
 	{[], []}->
 	    [];
@@ -427,13 +420,12 @@ spawn_remote_node(Host, Node, Options) ->
 	    [{user, Username}];
 	{_, _}->
 	    [{user, Username}, {password, Password}]
-    end ++ [{silently_accept_hosts, true}],
-    check_for_ssh_running(),
-    {ok, SSHConnRef} = ssh:connect(atom_to_list(Host), 22, SSHOptions),
+    end ++ [{silently_accept_hosts, true}] ++ SSHOpts,
+    application:ensure_all_started(ssh),
+    {ok, SSHConnRef} = ssh:connect(atom_to_list(Host), SSHPort, SSHOptions),
     {ok, SSHChannelId} = ssh_connection:session_channel(SSHConnRef, infinity),
     ssh_setenv(SSHConnRef, SSHChannelId, Env),
     ssh_connection:exec(SSHConnRef, SSHChannelId, get_cmd(Node, ErlFlags), infinity).
-
 
 ssh_setenv(SSHConnRef, SSHChannelId, [{Var, Value} | Vars])
   when is_list(Var), is_list(Value) ->
