@@ -22,7 +22,7 @@
 %% facility
 
 %% This code used to reside in net.erl, but has now been moved to
-%% a searate module.
+%% a separate module.
 
 -define(NAME, rex).
 
