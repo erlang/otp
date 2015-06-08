@@ -572,7 +572,10 @@ make_name(Prefix,Port) ->
 
 make_name(Prefix,Addr,Port) ->
     make_name(Prefix,Addr,Port,"").
-    
+
+make_name(Prefix, Addr,Port,Postfix) when is_atom(Postfix)->
+    make_name(Prefix, Addr,Port, atom_to_list(Postfix));
+
 make_name(Prefix,"*",Port,Postfix) ->
     make_name(Prefix,undefined,Port,Postfix);
 
@@ -595,15 +598,7 @@ make_name2({A,B,C,D}) ->
     io_lib:format("~w_~w_~w_~w", [A,B,C,D]);
 
 make_name2({A, B, C, D, E, F, G, H}) ->
-    io_lib:format("~s_~s_~s_~s_~s_~s_~s_~s", [integer_to_hexlist(A),
-					      integer_to_hexlist(B),
-					      integer_to_hexlist(C),
-					      integer_to_hexlist(D),
-					      integer_to_hexlist(E),
-					      integer_to_hexlist(F),
-					      integer_to_hexlist(G),
-					      integer_to_hexlist(H)
-					     ]);
+    io_lib:format("~w_~w_~w_~w_~w_~w_~w_~w", [A,B,C,D,E,F,G,H]);
 make_name2(Addr) ->
     search_and_replace(Addr,$.,$_).
 

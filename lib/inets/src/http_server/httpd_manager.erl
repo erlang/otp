@@ -28,7 +28,7 @@
 -export([start/2, start_link/2, start_link/3, start_link/4, 
 	 stop/1, reload/2]).
 -export([new_connection/1]).
--export([config_match/2, config_match/3]).
+-export([config_match/3, config_match/4]).
 -export([block/2, block/3, unblock/1]).
 
 %% gen_server exports
@@ -54,7 +54,8 @@
 start(ConfigFile, ConfigList) ->
     Port = proplists:get_value(port,ConfigList,80),
     Addr = proplists:get_value(bind_address, ConfigList),
-    Name = make_name(Addr,Port),
+    Profile = proplists:get_value(profile, ConfigList, default),
+    Name = make_name(Addr, Port, Profile),
     gen_server:start({local,Name},?MODULE,
 		     [ConfigFile, ConfigList, 15000, Addr, Port],[]).
 
@@ -65,7 +66,8 @@ start_link(ConfigFile, ConfigList) ->
 start_link(ConfigFile, ConfigList, AcceptTimeout) ->
     Port = proplists:get_value(port, ConfigList, 80),
     Addr = proplists:get_value(bind_address, ConfigList),
-    Name = make_name(Addr, Port),
+    Profile = proplists:get_value(profile, ConfigList, default),
+    Name = make_name(Addr, Port, Profile),
     
     gen_server:start_link({local, Name},?MODULE,
 			  [ConfigFile, ConfigList, 
@@ -74,7 +76,8 @@ start_link(ConfigFile, ConfigList, AcceptTimeout) ->
 start_link(ConfigFile, ConfigList, AcceptTimeout, ListenSocket) ->
     Port = proplists:get_value(port, ConfigList, 80),
     Addr = proplists:get_value(bind_address, ConfigList),
-    Name = make_name(Addr, Port),
+    Profile = proplists:get_value(profile, ConfigList, default),
+    Name = make_name(Addr, Port, Profile),
     
     gen_server:start_link({local, Name},?MODULE,
 			  [ConfigFile, ConfigList, AcceptTimeout, Addr, 
@@ -97,10 +100,10 @@ unblock(ServerRef) ->
 new_connection(Manager) ->
     call(Manager, {new_connection, self()}).
 
-config_match(Port, Pattern) ->
-    config_match(undefined,Port,Pattern).
-config_match(Addr, Port, Pattern) ->
-    Name = httpd_util:make_name("httpd",Addr,Port),
+config_match(Port, Profile, Pattern) ->
+    config_match(undefined,Port, Profile, Pattern).
+config_match(Addr, Port, Profile, Pattern) ->
+    Name = httpd_util:make_name("httpd",Addr,Port, Profile),
     call(whereis(Name), {config_match, Pattern}).
 
 %%%--------------------------------------------------------------------
@@ -446,8 +449,8 @@ get_ustate(ConnectionCnt,State) ->
 	    active
     end.
 
-make_name(Addr,Port) ->
-    httpd_util:make_name("httpd",Addr,Port).
+make_name(Addr, Port, Profile) ->
+    httpd_util:make_name("httpd", Addr, Port, Profile).
 
 
 report_error(State,String) ->

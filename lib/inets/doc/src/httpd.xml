@@ -162,6 +162,20 @@
 	in the apache like configuration file. </p>
       </item>
 
+      <marker id="profile"></marker>
+      <tag>{profile, atom()}</tag>
+      <item>
+        <p>Used together with <seealso marker="prop_bind_address"><c>bind_address</c></seealso>
+	and <seealso marker="prop_port"><c>port</c></seealso> to uniquely identify
+	a HTTP server. This can be useful in a virtualized environment,
+	where there can
+	be more that one server that has the same bind_address and port.
+	If this property is not explicitly set, it is assumed that the
+	<seealso marker="prop_bind_address"><c>bind_address</c></seealso> and
+	<seealso marker="prop_port"><c>port</c></seealso>uniquely identifies the HTTP server.
+	</p>
+      </item>
+
       <marker id="prop_socket_type"></marker>
       <tag>{socket_type, ip_comm | {essl, Config::proplist()}}</tag>
       <item>
@@ -176,6 +190,8 @@
         <p>Note that this option is only used when the option 
 	<c>socket_type</c> has the value <c>ip_comm</c>. </p>
       </item>
+
+      
       <marker id="prop_minimum_bytes_per_second"></marker>
       <tag>{minimum_bytes_per_second, integer()}</tag>
       <item>
@@ -935,19 +951,22 @@ bytes
     <func>
       <marker id="info2"></marker>
       <name>info(Address, Port) ->  </name>
+      <name>info(Address, Port, Profile) ->  </name>
+      <name>info(Address, Port, Profile, Properties) -> [{Option, Value}] </name>
       <name>info(Address, Port, Properties) -> [{Option, Value}] </name>
       <fsummary>Fetches information about the HTTP server</fsummary>
       <type>
 	<v>Address = ip_address()</v>
 	<v>Port = integer()</v>
+	<v>Profile = atom()</v>
 	<v>Properties = [property()]</v>
         <v>Option = property()</v>
 	<v>Value = term()</v>
       </type>
       <desc>
         <p>Fetches information about the HTTP server. When called with
-	only the Address and Port all properties are fetched, when
-	called with a list of specific properties they are fetched.
+	only the Address, Port and Profile, if relevant, all properties are fetched.
+	When called with a list of specific properties they are fetched.
 	Available properties are the same as the server's start
 	options.
 	</p>
