@@ -45,6 +45,8 @@ all() ->
      {group, dsa_pass_key},
      {group, rsa_pass_key},
      {group, internal_error},
+     connectfun_disconnectfun_server,
+     connectfun_disconnectfun_client,
      {group, renegotiate},
      daemon_already_started,
      server_password_option,
@@ -689,6 +691,74 @@ ssh_msg_debug_fun_option_client(Config) ->
     after 1000 ->
 	    ssh:stop_daemon(Pid),
 	    {fail,timeout}
+    end.
+
+%%--------------------------------------------------------------------
+connectfun_disconnectfun_server(Config) ->
+    PrivDir = ?config(priv_dir, Config),
+    UserDir = filename:join(PrivDir, nopubkey), % to make sure we don't use public-key-auth
+    file:make_dir(UserDir),
+    SysDir = ?config(data_dir, Config),
+
+    Parent = self(),
+    Ref = make_ref(),
+    ConnFun = fun(_,_,_) -> Parent ! {connect,Ref} end,
+    DiscFun = fun(R) -> Parent ! {disconnect,Ref,R} end,
+
+    {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SysDir},
+					     {user_dir, UserDir},
+					     {password, "morot"},
+					     {failfun, fun ssh_test_lib:failfun/2},
+					     {disconnectfun, DiscFun},
+					     {connectfun, ConnFun}]),
+    ConnectionRef =
+	ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
+					  {user, "foo"},
+					  {password, "morot"},
+					  {user_dir, UserDir},
+					  {user_interaction, false}]),
+    receive
+	{connect,Ref} ->
+	    ssh:close(ConnectionRef),
+	    receive
+		{disconnect,Ref,R} ->
+		    ct:log("Disconnect result: ~p",[R]),
+		    ssh:stop_daemon(Pid)
+	    after 2000 ->
+		    {fail, "No disconnectfun action"}
+	    end
+    after 2000 ->
+	    {fail, "No connectfun action"}
+    end.
+
+%%--------------------------------------------------------------------
+connectfun_disconnectfun_client(Config) ->
+    PrivDir = ?config(priv_dir, Config),
+    UserDir = filename:join(PrivDir, nopubkey), % to make sure we don't use public-key-auth
+    file:make_dir(UserDir),
+    SysDir = ?config(data_dir, Config),
+
+    Parent = self(),
+    Ref = make_ref(),
+    DiscFun = fun(R) -> Parent ! {disconnect,Ref,R} end,
+
+    {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SysDir},
+					     {user_dir, UserDir},
+					     {password, "morot"},
+					     {failfun, fun ssh_test_lib:failfun/2}]),
+    ConnectionRef =
+	ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
+					  {user, "foo"},
+					  {password, "morot"},
+					  {user_dir, UserDir},
+					  {disconnectfun, DiscFun},
+					  {user_interaction, false}]),
+    ssh:stop_daemon(Pid),
+    receive
+	{disconnect,Ref,R} ->
+	    ct:log("Disconnect result: ~p",[R])
+    after 2000 ->
+	    {fail, "No disconnectfun action"}
     end.
 
 %%--------------------------------------------------------------------
