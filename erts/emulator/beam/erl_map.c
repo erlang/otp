@@ -86,6 +86,7 @@ static BIF_RETTYPE hashmap_merge(Process *p, Eterm nodeA, Eterm nodeB, int swap_
                                  struct HashmapMergeContext_*);
 static Export hashmap_merge_trap_export;
 static BIF_RETTYPE maps_merge_trap_1(BIF_ALIST_1);
+static Uint hashmap_subtree_size(Eterm node);
 static Eterm hashmap_to_list(Process *p, Eterm map);
 static Eterm hashmap_keys(Process *p, Eterm map);
 static Eterm hashmap_values(Process *p, Eterm map);
@@ -1132,18 +1133,18 @@ static Eterm map_merge_mixed(Process *p, Eterm flat, Eterm tree, int swap_args) 
 
 #define PSTACK_TYPE struct HashmapMergePStackType
 struct HashmapMergePStackType {
+    Eterm nodeA, nodeB;
     Eterm *srcA, *srcB;
-    Uint32 abm, bbm, rbm;        /* node bitmaps */
-    int keepA;
+    Uint32 abm, bbm, rbm; /* node bitmaps */
+    int mix;       /* &1: there are unique A stuff in node
+                    * &2: there are unique B stuff in node */
     int ix;
-    Eterm array[16];
+    Eterm array[16];   /* temp node construction area */
 };
 
 typedef struct HashmapMergeContext_ {
     Uint size;  /* total key-value counter */
     unsigned int lvl;
-    Eterm nodeA, nodeB;
-    Eterm res;
     Eterm trap_bin;
     ErtsPStack pstack;
 #ifdef DEBUG
@@ -1177,7 +1178,8 @@ static BIF_RETTYPE hashmap_merge(Process *p, Eterm map_A, Eterm map_B,
     PSTACK_DECLARE(s, 4);
     HashmapMergeContext local_ctx;
     struct HashmapMergePStackType* sp;
-    Uint32 ahx, bhx;
+    Uint32 hx;
+    Eterm res = THE_NON_VALUE;
     Eterm hdrA, hdrB;
     Eterm *hp, *nhp;
     Eterm trap_ret;
@@ -1198,12 +1200,11 @@ static BIF_RETTYPE hashmap_merge(Process *p, Eterm map_A, Eterm map_B,
         hashmap_head_t* b = (hashmap_head_t*) hashmap_val(map_B);
 
         sp = PSTACK_PUSH(s);
-        sp->keepA = swap_args;
+        sp->srcA = swap_args ? &map_B : &map_A;
+        sp->srcB = swap_args ? &map_A : &map_B;
+        sp->mix = 0;
         local_ctx.size = a->size + b->size;
         local_ctx.lvl = 0;
-        local_ctx.nodeA = map_A;
-        local_ctx.nodeB = map_B;
-        local_ctx.res = THE_NON_VALUE;
     #ifdef DEBUG
         local_ctx.dbg_map_A = map_A;
         local_ctx.dbg_map_B = map_B;
@@ -1219,133 +1220,97 @@ static BIF_RETTYPE hashmap_merge(Process *p, Eterm map_A, Eterm map_B,
 
 recurse:
 
-    if (primary_tag(ctx->nodeA) == TAG_PRIMARY_BOXED &&
-	primary_tag(ctx->nodeB) == TAG_PRIMARY_LIST) {
-	/* Avoid implementing this combination by switching places */
-	Eterm tmp = ctx->nodeA;
-	ctx->nodeA = ctx->nodeB;
-	ctx->nodeB = tmp;
-	sp->keepA = !sp->keepA;
+    sp->nodeA = *sp->srcA;
+    sp->nodeB = *sp->srcB;
+
+    if (sp->nodeA == sp->nodeB) {
+        res = sp->nodeA;
+        ctx->size -= is_list(sp->nodeB) ? 1 : hashmap_subtree_size(sp->nodeB);
     }
+    else {
+        if (is_list(sp->nodeA)) { /* A is LEAF */
+            Eterm keyA = CAR(list_val(sp->nodeA));
 
-    switch (primary_tag(ctx->nodeA)) {
-    case TAG_PRIMARY_LIST: {
-	Eterm keyA = CAR(list_val(ctx->nodeA));
-	switch (primary_tag(ctx->nodeB)) {
-	case TAG_PRIMARY_LIST: { /* LEAF + LEAF */
-	    Eterm keyB = CAR(list_val(ctx->nodeB));
+            if (is_list(sp->nodeB)) { /* LEAF + LEAF */
+                Eterm keyB = CAR(list_val(sp->nodeB));
 
-	    if (EQ(keyA, keyB)) {
-		--ctx->size;
-		ctx->res = sp->keepA ? ctx->nodeA : ctx->nodeB;
-	    } else {
-		ahx = hashmap_restore_hash(th, ctx->lvl, keyA);
-		bhx = hashmap_restore_hash(th, ctx->lvl, keyB);
-		sp->abm = 1 << hashmap_index(ahx);
-		sp->bbm = 1 << hashmap_index(bhx);
+                if (EQ(keyA, keyB)) {
+                    --ctx->size;
+                    res = sp->nodeB;
+                    sp->mix = 2;   /* We assume values differ.
+                                      + Don't spend time comparing big values.
+                                      - Might waste some heap space for internal
+                                        nodes that could otherwise be reused. */
+                    goto merge_nodes;
+                }
+            }
+            hx = hashmap_restore_hash(th, ctx->lvl, keyA);
+            sp->abm = 1 << hashmap_index(hx);
+            /* keep srcA pointing at the leaf */
+        }
+        else { /* A is NODE */
+            sp->srcA = boxed_val(sp->nodeA);
+            hdrA = *sp->srcA++;
+            ASSERT(is_header(hdrA));
+            switch (hdrA & _HEADER_MAP_SUBTAG_MASK) {
+            case HAMT_SUBTAG_HEAD_ARRAY: {
+                sp->srcA++;
+                sp->abm = 0xffff;
+                break;
+            }
+            case HAMT_SUBTAG_HEAD_BITMAP: sp->srcA++;
+            case HAMT_SUBTAG_NODE_BITMAP: {
+                sp->abm = MAP_HEADER_VAL(hdrA);
+                break;
+            }
+            default:
+                erl_exit(ERTS_ABORT_EXIT, "bad header %ld\r\n", hdrA);
+            }
+        }
 
-		sp->srcA = &ctx->nodeA;
-		sp->srcB = &ctx->nodeB;
-	    }
-	    break;
-	}
-	case TAG_PRIMARY_BOXED: { /* LEAF + NODE */
-	    sp->srcB = boxed_val(ctx->nodeB);
-	    ASSERT(is_header(*sp->srcB));
-	    hdrB = *sp->srcB++;
+        if (is_list(sp->nodeB)) { /* B is LEAF */
+            Eterm keyB = CAR(list_val(sp->nodeB));
 
-	    ahx = hashmap_restore_hash(th, ctx->lvl, keyA);
-	    sp->abm = 1 << hashmap_index(ahx);
-	    sp->srcA = &ctx->nodeA;
-	    switch(hdrB & _HEADER_MAP_SUBTAG_MASK) {
-	    case HAMT_SUBTAG_HEAD_ARRAY:
+            hx = hashmap_restore_hash(th, ctx->lvl, keyB);
+            sp->bbm = 1 << hashmap_index(hx);
+            /* keep srcB pointing at the leaf */
+        }
+        else { /* B is NODE */
+            sp->srcB = boxed_val(sp->nodeB);
+            hdrB = *sp->srcB++;
+            ASSERT(is_header(hdrB));
+            switch (hdrB & _HEADER_MAP_SUBTAG_MASK) {
+            case HAMT_SUBTAG_HEAD_ARRAY: {
                 sp->srcB++;
-		sp->bbm = 0xffff;
-		break;
-
-	    case HAMT_SUBTAG_HEAD_BITMAP: sp->srcB++;
-	    case HAMT_SUBTAG_NODE_BITMAP:
-		sp->bbm = MAP_HEADER_VAL(hdrB);
-		break;
-
-	    default:
-		erl_exit(ERTS_ABORT_EXIT, "bad header tag %ld\r\n", *sp->srcB & _HEADER_MAP_SUBTAG_MASK);
-		break;
-	    }
-	    break;
-	}
-	default:
-	    erl_exit(ERTS_ABORT_EXIT, "bad primary tag %ld\r\n", ctx->nodeB);
-	}
-	break;
+                sp->bbm = 0xffff;
+                break;
+            }
+            case HAMT_SUBTAG_HEAD_BITMAP: sp->srcB++;
+            case HAMT_SUBTAG_NODE_BITMAP: {
+                sp->bbm = MAP_HEADER_VAL(hdrB);
+                break;
+            }
+            default:
+                erl_exit(ERTS_ABORT_EXIT, "bad header %ld\r\n", hdrB);
+            }
+        }
     }
-    case TAG_PRIMARY_BOXED: { /* NODE + NODE */
-	sp->srcA = boxed_val(ctx->nodeA);
-	hdrA = *sp->srcA++;
-	ASSERT(is_header(hdrA));
-	switch (hdrA & _HEADER_MAP_SUBTAG_MASK) {
-	case HAMT_SUBTAG_HEAD_ARRAY: {
-            sp->srcA++;
-	    ASSERT(primary_tag(ctx->nodeB) == TAG_PRIMARY_BOXED);
-	    sp->abm = 0xffff;
-	    sp->srcB = boxed_val(ctx->nodeB);
-	    hdrB = *sp->srcB++;
-	    ASSERT(is_header(hdrB));
-	    switch (hdrB & _HEADER_MAP_SUBTAG_MASK) {
-	    case HAMT_SUBTAG_HEAD_ARRAY:
-                sp->srcB++;
-		sp->bbm = 0xffff;
-		break;
-	    case HAMT_SUBTAG_HEAD_BITMAP: sp->srcB++;
-	    case HAMT_SUBTAG_NODE_BITMAP:
-		sp->bbm = MAP_HEADER_VAL(hdrB);
-		break;
-	    default:
-		erl_exit(1, "bad header tag %ld\r\n", *sp->srcB & _HEADER_MAP_SUBTAG_MASK);
-	    }
-	    break;
-	}
-	case HAMT_SUBTAG_HEAD_BITMAP: sp->srcA++;
-	case HAMT_SUBTAG_NODE_BITMAP: {
-	    ASSERT(primary_tag(ctx->nodeB) == TAG_PRIMARY_BOXED);
-	    sp->abm = MAP_HEADER_VAL(hdrA);
-	    sp->srcB = boxed_val(ctx->nodeB);
-	    hdrB = *sp->srcB++;
-	    ASSERT(is_header(hdrB));
-	    switch (hdrB & _HEADER_MAP_SUBTAG_MASK) {
-	    case HAMT_SUBTAG_HEAD_ARRAY:
-                sp->srcB++;
-		sp->bbm = 0xffff;
-		break;
-	    case HAMT_SUBTAG_HEAD_BITMAP: sp->srcB++;
-	    case HAMT_SUBTAG_NODE_BITMAP:
-		sp->bbm = MAP_HEADER_VAL(hdrB);
-		break;
 
-	    default:
-		erl_exit(ERTS_ABORT_EXIT, "bad header tag %ld\r\n", *sp->srcB & _HEADER_MAP_SUBTAG_MASK);
-	    }
-	    break;
-	}
-	default:
-            erl_exit(ERTS_ABORT_EXIT, "bad primary tag %ld\r\n", ctx->nodeA);
-	}
-	break;
-    }
-    default:
-	erl_exit(ERTS_ABORT_EXIT, "bad primary tag %ld\r\n", ctx->nodeA);
-    }
+merge_nodes:
 
     for (;;) {
-	if (is_value(ctx->res)) { /* We have a complete (sub-)tree or leaf */
+	if (is_value(res)) { /* We have a complete (sub-)tree or leaf */
+            int child_mix;
 	    if (ctx->lvl == 0)
 		break;
 
 	    /* Pop from stack and continue build parent node */
 	    ctx->lvl--;
+            child_mix = sp->mix;
 	    sp = PSTACK_POP(s);
-	    sp->array[sp->ix++] = ctx->res;
-	    ctx->res = THE_NON_VALUE;
+	    sp->array[sp->ix++] = res;
+            sp->mix |= child_mix;
+	    res = THE_NON_VALUE;
 	    if (sp->rbm) {
 		sp->srcA++;
 		sp->srcB++;
@@ -1368,39 +1333,68 @@ resume_from_trap:
 	    if (sp->abm & bit) {
 		if (sp->bbm & bit) {
 		    /* Bit clash. Push and resolve by recursive merge */
-                    int keepA = sp->keepA;
-		    ctx->nodeA = *sp->srcA;
-		    ctx->nodeB= *sp->srcB;
+		    Eterm* srcA = sp->srcA;
+		    Eterm* srcB = sp->srcB;
 		    ctx->lvl++;
 		    sp = PSTACK_PUSH(s);
-                    sp->keepA = keepA;
+                    sp->srcA = srcA;
+                    sp->srcB = srcB;
+                    sp->mix = 0;
 		    goto recurse;
 		} else {
 		    sp->array[sp->ix++] = *sp->srcA++;
+                    sp->mix |= 1;
 		}
 	    } else {
 		ASSERT(sp->bbm & bit);
 		sp->array[sp->ix++] = *sp->srcB++;
+                sp->mix |=  2;
 	    }
 	}
 
-	ASSERT(sp->ix == hashmap_bitcount(sp->abm | sp->bbm));
-	if (ctx->lvl == 0) {
-	    nhp = HAllocX(p, HAMT_HEAD_BITMAP_SZ(sp->ix), HALLOC_EXTRA);
-	    hp = nhp;
-	    *hp++ = (sp->ix == 16 ? MAP_HEADER_HAMT_HEAD_ARRAY
-		     : MAP_HEADER_HAMT_HEAD_BITMAP(sp->abm | sp->bbm));
-	    *hp++ = ctx->size;
-	} else {
-	    nhp = HAllocX(p, HAMT_NODE_BITMAP_SZ(sp->ix), HALLOC_EXTRA);
-	    hp = nhp;
-	    *hp++ = MAP_HEADER_HAMT_NODE_BITMAP(sp->abm | sp->bbm);
-	}
-	sys_memcpy(hp, sp->array, sp->ix * sizeof(Eterm));
-	ctx->res = make_boxed(nhp);
+        switch (sp->mix) {
+        case 0: /* Nodes A and B contain the *EXACT* same sub-trees
+                   => fall through and reuse nodeA */
+
+        case 1: /* Only unique A stuff => reuse nodeA */
+            res = sp->nodeA;
+            break;
+
+        case 2: /* Only unique B stuff => reuse nodeB */
+            res = sp->nodeB;
+            break;
+
+        case 3: /* We have a mix => must build new node */
+            ASSERT(sp->ix == hashmap_bitcount(sp->abm | sp->bbm));
+            if (ctx->lvl == 0) {
+                nhp = HAllocX(p, HAMT_HEAD_BITMAP_SZ(sp->ix), HALLOC_EXTRA);
+                hp = nhp;
+                *hp++ = (sp->ix == 16 ? MAP_HEADER_HAMT_HEAD_ARRAY
+                         : MAP_HEADER_HAMT_HEAD_BITMAP(sp->abm | sp->bbm));
+                *hp++ = ctx->size;
+            } else {
+                nhp = HAllocX(p, HAMT_NODE_BITMAP_SZ(sp->ix), HALLOC_EXTRA);
+                hp = nhp;
+                *hp++ = MAP_HEADER_HAMT_NODE_BITMAP(sp->abm | sp->bbm);
+            }
+            sys_memcpy(hp, sp->array, sp->ix * sizeof(Eterm));
+            res = make_boxed(nhp);
+            break;
+        default:
+            erl_exit(ERTS_ABORT_EXIT, "strange mix %d\r\n", sp->mix);
+        }
     }
 
     /* Done */
+
+#ifdef DEBUG
+    {
+        Eterm *head = hashmap_val(res);
+        Uint size = head[1];
+        Uint real_size = hashmap_subtree_size(res);
+        ASSERT(size == real_size);
+    }
+#endif
 
     if (ctx != &local_ctx) {
         ASSERT(ctx->trap_bin != THE_NON_VALUE);
@@ -1414,7 +1408,7 @@ resume_from_trap:
     PSTACK_DESTROY(s);
     UnUseTmpHeap(2,p);
     BUMP_REDS(p, (initial_reds - reds) / MAP_MERGE_LOOP_FACTOR);
-    return ctx->res;
+    return res;
 
 trap:  /* Yield */
 
@@ -1442,6 +1436,19 @@ trap:  /* Yield */
     UnUseTmpHeap(2,p);
     return trap_ret;
 }
+
+static Uint hashmap_subtree_size(Eterm node) {
+    DECLARE_WSTACK(stack);
+    Uint size = 0;
+
+    hashmap_iterator_init(&stack, node, 0);
+    while (hashmap_iterator_next(&stack)) {
+        size++;
+    }
+    DESTROY_WSTACK(stack);
+    return size;
+}
+
 
 static int hash_cmp(Uint32 ha, Uint32 hb)
 {
@@ -1865,10 +1872,11 @@ void hashmap_iterator_init(ErtsWStack* s, Eterm node, int reverse) {
 	sz = 16;
 	break;
     case HAMT_SUBTAG_HEAD_BITMAP:
-	sz = hashmap_bitcount(MAP_HEADER_VAL(hdr));
+    case HAMT_SUBTAG_NODE_BITMAP:
+        sz = hashmap_bitcount(MAP_HEADER_VAL(hdr));
 	break;
     default:
-	erl_exit(1, "bad header");
+	erl_exit(ERTS_ABORT_EXIT, "bad header");
     }
 
     WSTACK_PUSH3((*s), (UWord)THE_NON_VALUE,  /* end marker */
@@ -1905,7 +1913,7 @@ Eterm* hashmap_iterator_next(ErtsWStack* s) {
 		ASSERT(sz < 17);
 		break;
 	    default:
-		erl_exit(1, "bad header");
+		erl_exit(ERTS_ABORT_EXIT, "bad header");
 	    }
 
 	    idx++;
