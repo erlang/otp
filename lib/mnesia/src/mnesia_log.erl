@@ -349,6 +349,8 @@ open_log(Name, Header, Fname, Exists, Repair, Mode) ->
 	    mnesia_lib:important("Data may be missing, log ~p repaired: Lost ~p bytes~n",
 				 [Fname, BadBytes]),
 	    Log;
+	{error, Reason = {file_error, _Fname, emfile}} ->
+	    fatal("Cannot open log file ~p: ~p~n", [Fname, Reason]);
 	{error, Reason} when Repair == true ->
 	    file:delete(Fname),
 	    mnesia_lib:important("Data may be missing, Corrupt logfile deleted: ~p, ~p ~n",
