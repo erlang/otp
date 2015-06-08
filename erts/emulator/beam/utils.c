@@ -1140,7 +1140,7 @@ make_hash2(Eterm term)
 
     ERTS_UNDEF(hash_xor_pairs, 0);
 
-/* (HCONST * {2, ..., 16}) mod 2^32 */
+/* (HCONST * {2, ..., 22}) mod 2^32 */
 #define HCONST_2 0x3c6ef372UL
 #define HCONST_3 0xdaa66d2bUL
 #define HCONST_4 0x78dde6e4UL
@@ -1161,6 +1161,7 @@ make_hash2(Eterm term)
 #define HCONST_19 0xbe1e08bbUL
 #define HCONST_20 0x5c558274UL
 #define HCONST_21 0xfa8cfc2dUL
+#define HCONST_22 0x98c475e6UL
 
 #define HASH_MAP_TAIL (_make_header(1,_TAG_HEADER_REF))
 #define HASH_MAP_PAIR (_make_header(2,_TAG_HEADER_REF))
@@ -1645,8 +1646,9 @@ make_internal_hash(Eterm term)
 		    break;
 		ptr = list_val(term);
 	    }
-	    if (c > 0)
-		UINT32_HASH(sh, HCONST_4);
+            if (c > 0)
+                UINT32_HASH_2(sh, (Uint32)c, HCONST_22);
+
 	    if (is_list(term)) {
 		tmp = CDR(ptr);
                 CONST_HASH(HCONST_17);  /* Hash CAR in cons cell */

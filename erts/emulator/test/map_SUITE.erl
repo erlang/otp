@@ -2615,13 +2615,76 @@ t_erts_internal_order(_Config) when is_list(_Config) ->
 t_erts_internal_hash(_Config) when is_list(_Config) ->
     K1 = 0.0,
     K2 = 0.0/-1,
+    M  = maps:from_list([{I,I}||I<-lists:seq(1,32)]),
 
-    M1 = (maps:from_list([{I,I}||I<-lists:seq(1,32)]))#{ K1 => a, K2 => b },
+    M1 = M#{ K1 => a, K2 => b },
     b  = maps:get(K2,M1),
 
-    M2 = (maps:from_list([{I,I}||I<-lists:seq(1,32)]))#{ K2 => a, K1 => b },
+    M2 = M#{ K2 => a, K1 => b },
     b  = maps:get(K1,M2),
 
+    %% test previously faulty hash list optimization
+
+    M3 = M#{[0] => a, [0,0] => b, [0,0,0] => c, [0,0,0,0] => d},
+    a  = maps:get([0],M3),
+    b  = maps:get([0,0],M3),
+    c  = maps:get([0,0,0],M3),
+    d  = maps:get([0,0,0,0],M3),
+
+    M4 = M#{{[0]} => a, {[0,0]} => b, {[0,0,0]} => c, {[0,0,0,0]} => d},
+    a  = maps:get({[0]},M4),
+    b  = maps:get({[0,0]},M4),
+    c  = maps:get({[0,0,0]},M4),
+    d  = maps:get({[0,0,0,0]},M4),
+
+    M5 = M3#{[0,0,0] => e, [0,0,0,0] => f, [0,0,0,0,0] => g,
+             [0,0,0,0,0,0] => h, [0,0,0,0,0,0,0] => i,
+             [0,0,0,0,0,0,0,0] => j, [0,0,0,0,0,0,0,0,0] => k},
+
+    a  = maps:get([0],M5),
+    b  = maps:get([0,0],M5),
+    e  = maps:get([0,0,0],M5),
+    f  = maps:get([0,0,0,0],M5),
+    g  = maps:get([0,0,0,0,0],M5),
+    h  = maps:get([0,0,0,0,0,0],M5),
+    i  = maps:get([0,0,0,0,0,0,0],M5),
+    j  = maps:get([0,0,0,0,0,0,0,0],M5),
+    k  = maps:get([0,0,0,0,0,0,0,0,0],M5),
+
+    M6 = M4#{{[0,0,0]} => e, {[0,0,0,0]} => f, {[0,0,0,0,0]} => g,
+             {[0,0,0,0,0,0]} => h, {[0,0,0,0,0,0,0]} => i,
+             {[0,0,0,0,0,0,0,0]} => j, {[0,0,0,0,0,0,0,0,0]} => k},
+
+    a  = maps:get({[0]},M6),
+    b  = maps:get({[0,0]},M6),
+    e  = maps:get({[0,0,0]},M6),
+    f  = maps:get({[0,0,0,0]},M6),
+    g  = maps:get({[0,0,0,0,0]},M6),
+    h  = maps:get({[0,0,0,0,0,0]},M6),
+    i  = maps:get({[0,0,0,0,0,0,0]},M6),
+    j  = maps:get({[0,0,0,0,0,0,0,0]},M6),
+    k  = maps:get({[0,0,0,0,0,0,0,0,0]},M6),
+
+    M7 = maps:merge(M5,M6),
+
+    a  = maps:get([0],M7),
+    b  = maps:get([0,0],M7),
+    e  = maps:get([0,0,0],M7),
+    f  = maps:get([0,0,0,0],M7),
+    g  = maps:get([0,0,0,0,0],M7),
+    h  = maps:get([0,0,0,0,0,0],M7),
+    i  = maps:get([0,0,0,0,0,0,0],M7),
+    j  = maps:get([0,0,0,0,0,0,0,0],M7),
+    k  = maps:get([0,0,0,0,0,0,0,0,0],M7),
+    a  = maps:get({[0]},M7),
+    b  = maps:get({[0,0]},M7),
+    e  = maps:get({[0,0,0]},M7),
+    f  = maps:get({[0,0,0,0]},M7),
+    g  = maps:get({[0,0,0,0,0]},M7),
+    h  = maps:get({[0,0,0,0,0,0]},M7),
+    i  = maps:get({[0,0,0,0,0,0,0]},M7),
+    j  = maps:get({[0,0,0,0,0,0,0,0]},M7),
+    k  = maps:get({[0,0,0,0,0,0,0,0,0]},M7),
     ok.
 
 t_pdict(_Config) ->
