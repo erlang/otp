@@ -345,6 +345,8 @@ handle_option([{connectfun, _} = Opt | Rest], SocketOptions, SshOptions) ->
     handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
 handle_option([{disconnectfun, _} = Opt | Rest], SocketOptions, SshOptions) ->
     handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
+handle_option([{unexpectedfun, _} = Opt | Rest], SocketOptions, SshOptions) ->
+    handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
 handle_option([{failfun, _} = Opt | Rest],  SocketOptions, SshOptions) ->
     handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
 handle_option([{ssh_msg_debug_fun, _} = Opt | Rest],  SocketOptions, SshOptions) ->
@@ -450,7 +452,9 @@ handle_ssh_option({infofun, Value} = Opt)  when is_function(Value) ->
     Opt;
 handle_ssh_option({connectfun, Value} = Opt) when is_function(Value) ->
     Opt;
-handle_ssh_option({disconnectfun , Value} = Opt) when is_function(Value) ->
+handle_ssh_option({disconnectfun, Value} = Opt) when is_function(Value) ->
+    Opt;
+handle_ssh_option({unexpectedfun, Value} = Opt) when is_function(Value,2) ->
     Opt;
 handle_ssh_option({failfun, Value} = Opt) when is_function(Value) ->
     Opt;

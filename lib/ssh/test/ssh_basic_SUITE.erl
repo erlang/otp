@@ -60,6 +60,8 @@ all() ->
      ssh_msg_debug_fun_option_server,
      disconnectfun_option_server,
      disconnectfun_option_client,
+     unexpectedfun_option_server,
+     unexpectedfun_option_client,
      preferred_algorithms,
      id_string_no_opt_client,
      id_string_own_string_client,
@@ -876,6 +878,88 @@ disconnectfun_option_client(Config) ->
 	    after 0 -> ok
 	    end,
 	    {fail,"Timeout waiting for disconnect"}
+    end.
+
+%%--------------------------------------------------------------------
+unexpectedfun_option_server(Config) ->
+    PrivDir = ?config(priv_dir, Config),
+    UserDir = filename:join(PrivDir, nopubkey), % to make sure we don't use public-key-auth
+    file:make_dir(UserDir),
+    SysDir = ?config(data_dir, Config),
+
+    Parent = self(),
+    ConnFun = fun(_,_,_) -> Parent ! {connection_pid,self()} end,
+    UnexpFun = fun(Msg,Peer) ->
+		       Parent ! {unexpected,Msg,Peer,self()},
+		       skip
+	       end,
+
+    {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SysDir},
+					     {user_dir, UserDir},
+					     {password, "morot"},
+					     {failfun, fun ssh_test_lib:failfun/2},
+					     {connectfun, ConnFun},
+					     {unexpectedfun, UnexpFun}]),
+    _ConnectionRef =
+	ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
+					  {user, "foo"},
+					  {password, "morot"},
+					  {user_dir, UserDir},
+					  {user_interaction, false}]),
+    receive
+	{connection_pid,Server} ->
+	    %% Beware, implementation knowledge:
+	    Server ! unexpected_message,
+	    receive
+		{unexpected, unexpected_message, {{_,_,_,_},_}, _} -> ok;
+		{unexpected, unexpected_message, Peer, _} -> ct:fail("Bad peer ~p",[Peer]);
+		M = {unexpected, _, _, _} -> ct:fail("Bad msg ~p",[M])
+	    after 3000 ->
+		    ssh:stop_daemon(Pid),
+		    {fail,timeout2}
+	    end
+    after 3000 ->
+	    ssh:stop_daemon(Pid),
+	    {fail,timeout1}
+    end.
+
+%%--------------------------------------------------------------------
+unexpectedfun_option_client(Config) ->
+    PrivDir = ?config(priv_dir, Config),
+    UserDir = filename:join(PrivDir, nopubkey), % to make sure we don't use public-key-auth
+    file:make_dir(UserDir),
+    SysDir = ?config(data_dir, Config),
+
+    Parent = self(),
+    UnexpFun = fun(Msg,Peer) -> 
+		       Parent ! {unexpected,Msg,Peer,self()},
+		       skip
+	       end,
+
+    {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SysDir},
+					     {user_dir, UserDir},
+					     {password, "morot"},
+					     {failfun, fun ssh_test_lib:failfun/2}]),
+    ConnectionRef =
+	ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
+					  {user, "foo"},
+					  {password, "morot"},
+					  {user_dir, UserDir},
+					  {user_interaction, false},
+					  {unexpectedfun, UnexpFun}]),
+    %% Beware, implementation knowledge:
+    ConnectionRef ! unexpected_message,
+
+    receive
+	{unexpected, unexpected_message, {{_,_,_,_},_}, ConnectionRef} ->
+	    ok;
+	{unexpected, unexpected_message, Peer, ConnectionRef} ->
+	    ct:fail("Bad peer ~p",[Peer]);
+	M = {unexpected, _, _, _} ->
+	    ct:fail("Bad msg ~p",[M])
+    after 3000 ->
+	    ssh:stop_daemon(Pid),
+	    {fail,timeout}
     end.
 
 %%--------------------------------------------------------------------
