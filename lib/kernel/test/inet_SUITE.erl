@@ -120,36 +120,37 @@ t_gethostbyaddr() ->
     required(v4).
 t_gethostbyaddr(doc) -> "Test the inet:gethostbyaddr/1 function.";
 t_gethostbyaddr(Config) when is_list(Config) ->
-    ?line {Name,FullName,IPStr,{A,B,C,D}=IP,Aliases,_,_} =
-	ct:get_config(test_host_ipv4_only),
-    ?line Rname = integer_to_list(D) ++ "." ++
-	integer_to_list(C) ++ "." ++
-	integer_to_list(B) ++ "." ++
-	integer_to_list(A) ++ ".in-addr.arpa",
-    ?line {ok,HEnt} = inet:gethostbyaddr(IPStr),
-    ?line {ok,HEnt} = inet:gethostbyaddr(IP),
-    ?line {error,Error} = inet:gethostbyaddr(Name),
-    ?line ok = io:format("Failure reason: ~p: ~s",
-			 [error,inet:format_error(Error)]),
-    ?line HEnt_ = HEnt#hostent{h_addrtype = inet,
-			       h_length = 4,
-			       h_addr_list = [IP]},
-    ?line HEnt_ = HEnt,
+    {Name,FullName,IPStr,{A,B,C,D}=IP,Aliases,_,_} = ct:get_config(test_host_ipv4_only),
+    Rname = integer_to_list(D) ++ "." ++
+            integer_to_list(C) ++ "." ++
+            integer_to_list(B) ++ "." ++
+            integer_to_list(A) ++ ".in-addr.arpa",
+    {ok,HEnt} = inet:gethostbyaddr(IPStr),
+    {ok,HEnt} = inet:gethostbyaddr(IP),
+    {error,Error} = inet:gethostbyaddr(Name),
+    ok = io:format("Failure reason: ~p: ~s", [error,inet:format_error(Error)]),
+    HEnt_ = HEnt#hostent{h_addrtype = inet,
+                         h_length = 4,
+                         h_addr_list = [IP]},
+    HEnt_ = HEnt,
     case {os:type(),os:version()} of
-	{{unix,freebsd},{5,0,0}} ->
-	    %% The alias list seems to be buggy in FreeBSD 5.0.0.
-	    ?line check_elems([{HEnt#hostent.h_name,[Name,FullName]}]),
-	    io:format("Buggy alias list: ~p", [HEnt#hostent.h_aliases]),
-	    ok;
-	_ ->
-	    ?line check_elems([{HEnt#hostent.h_name,[Name,FullName]},
-			       {HEnt#hostent.h_aliases,[[],Aliases,[Rname]]}])
+        {{unix,freebsd},{5,0,0}} ->
+            %% The alias list seems to be buggy in FreeBSD 5.0.0.
+            check_elems([{HEnt#hostent.h_name,[Name,FullName]}]),
+            io:format("Buggy alias list: ~p", [HEnt#hostent.h_aliases]),
+            ok;
+        _ ->
+            io:format("alias list: ~p", [HEnt#hostent.h_aliases]),
+            io:format("check alias list: ~p", [[Aliases,[Rname]]]),
+            io:format("name: ~p", [HEnt#hostent.h_name]),
+            io:format("check name: ~p", [[Name,FullName]]),
+            check_elems([{HEnt#hostent.h_name,[Name,FullName]},
+                         {HEnt#hostent.h_aliases,[[],Aliases,[Rname]]}])
     end,
 
-    ?line {_DName, _DFullName, DIPStr, DIP, _, _, _} =
-	ct:get_config(test_dummy_host),
-    ?line {error,nxdomain} = inet:gethostbyaddr(DIPStr),
-    ?line {error,nxdomain} = inet:gethostbyaddr(DIP),
+    {_DName, _DFullName, DIPStr, DIP, _, _, _} = ct:get_config(test_dummy_host),
+    {error,nxdomain} = inet:gethostbyaddr(DIPStr),
+    {error,nxdomain} = inet:gethostbyaddr(DIP),
     ok.
 
 t_gethostbyaddr_v6() -> required(v6).
