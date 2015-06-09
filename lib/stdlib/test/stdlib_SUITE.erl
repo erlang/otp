@@ -30,7 +30,7 @@
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    [app_test, appup_test, {group,upgrade}].
+    [app_test, appup_test, assert_test, {group,upgrade}].
 
 groups() -> 
     [{upgrade,[minor_upgrade,major_upgrade]}].
@@ -185,3 +185,68 @@ upgrade_upgraded(_CtData,State) ->
     State.
 upgrade_downgraded(_CtData,State) ->
     State.
+
+
+-include_lib("stdlib/include/assert.hrl").
+-include_lib("stdlib/include/assert.hrl"). % test repeated inclusion
+assert_test(suite) ->
+    [];
+assert_test(doc) ->
+    ["Assert macros test."];
+assert_test(_Config) ->
+    ok = ?assert(true),
+    {'EXIT',{{assert, _},_}} = (catch ?assert(false)),
+    {'EXIT',{{assert, Info1},_}} = (catch ?assert(0)),
+    {not_boolean,0} = lists:keyfind(not_boolean,1,Info1),
+
+    ok = ?assertNot(false),
+    {'EXIT',{{assert, _},_}} = (catch ?assertNot(true)),
+    {'EXIT',{{assert, Info2},_}} = (catch ?assertNot(0)),
+    {not_boolean,0} = lists:keyfind(not_boolean,1,Info2),
+
+    ok = ?assertMatch({foo,_}, {foo,bar}),
+    {'EXIT',{{assertMatch,_},_}} =
+        (catch ?assertMatch({foo,_}, {foo})),
+
+    ok = ?assertMatch({foo,N} when N > 0, {foo,1}),
+    {'EXIT',{{assertMatch,_},_}} =
+        (catch ?assertMatch({foo,N} when N > 0, {foo,0})),
+
+    ok = ?assertNotMatch({foo,_}, {foo,bar,baz}),
+    {'EXIT',{{assertNotMatch,_},_}} =
+        (catch ?assertNotMatch({foo,_}, {foo,baz})),
+
+    ok = ?assertNotMatch({foo,N} when N > 0, {foo,0}),
+    {'EXIT',{{assertNotMatch,_},_}} =
+        (catch ?assertNotMatch({foo,N} when N > 0, {foo,1})),
+
+    ok = ?assertEqual(1.0, 1.0),
+    {'EXIT',{{assertEqual,_},_}} = (catch ?assertEqual(1, 1.0)),
+
+    ok = ?assertNotEqual(1, 1.0),
+    {'EXIT',{{assertNotEqual,_},_}} = (catch ?assertNotEqual(1.0, 1.0)),
+
+    ok = ?assertException(error, badarith, 1/0),
+    ok = ?assertException(exit, foo, exit(foo)),
+    ok = ?assertException(throw, foo, throw(foo)),
+    ok = ?assertException(throw, {foo,_}, throw({foo,bar})),
+    ok = ?assertException(throw, {foo,N} when N > 0, throw({foo,1})),
+    {'EXIT',{{assertException,Why1},_}} =
+        (catch ?assertException(error, badarith, 0/1)),
+    true = lists:keymember(unexpected_success,1,Why1),
+    {'EXIT',{{assertException,Why2},_}} =
+        (catch ?assertException(error, badarith, 1/length(0))),
+    true = lists:keymember(unexpected_exception,1,Why2),
+    {'EXIT',{{assertException,Why3},_}} =
+        (catch ?assertException(throw, {foo,N} when N > 0, throw({foo,0}))),
+    true = lists:keymember(unexpected_exception,1,Why3),
+
+    ok = ?assertNotException(throw, {foo,baz}, throw({foo,bar})),
+    {'EXIT',{{assertNotException,Why4},_}} =
+        (catch ?assertNotException(throw, {foo,bar}, throw({foo,bar}))),
+    true = lists:keymember(unexpected_exception,1,Why4),
+
+    ok = ?assertError(badarith, 1/0),
+    ok = ?assertExit(foo, exit(foo)),
+    ok = ?assertThrow(foo, throw(foo)),
+    ok.

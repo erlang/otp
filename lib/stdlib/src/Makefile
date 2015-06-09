@@ -122,6 +122,7 @@ MODULES= \
 	zip
 
 HRL_FILES= \
+	../include/assert.hrl \
 	../include/erl_compile.hrl \
 	../include/erl_bits.hrl \
 	../include/ms_transform.hrl \
