@@ -79,7 +79,7 @@ print_clients(D) ->
 
 print_client(D, {undefined,Pid,supervisor,[ssh_connection_handler]}) ->
     {{Local,Remote},_Str} = ssh_connection_handler:get_print_info(Pid),
-    io:format(D, "    Local=~s Remote=~s~n",[fmt_host_port(Local),fmt_host_port(Remote)]);
+    io:format(D, "    Local=~s  Remote=~s  ConnectionRef=~p~n",[fmt_host_port(Local),fmt_host_port(Remote),Pid]);
 print_client(D, Other) ->
     io:format(D, "    [[Other 1: ~p]]~n",[Other]).
 
@@ -134,10 +134,11 @@ walk_sups(D, StartPid) ->
     io:format(D, "Start at ~p, ~s.~n",[StartPid,dead_or_alive(StartPid)]),
     walk_sups(D, children(StartPid), _Indent=?inc(0)).
 
-walk_sups(D, [H={_,Pid,SupOrWorker,_}|T], Indent) ->
+walk_sups(D, [H={_,Pid,_,_}|T], Indent) ->
     indent(D, Indent), io:format(D, '~200p  ~p is ~s~n',[H,Pid,dead_or_alive(Pid)]),
-    case SupOrWorker of
-	supervisor -> walk_sups(D, children(Pid), ?inc(Indent));
+    case H of
+	{_,_,supervisor,[ssh_connection_handler]} -> ok;
+	{_,Pid,supervisor,_} -> walk_sups(D, children(Pid), ?inc(Indent));
 	_ -> ok
     end,
     walk_sups(D, T, Indent);

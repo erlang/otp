@@ -71,7 +71,8 @@ all() ->
      id_string_no_opt_server,
      id_string_own_string_server,
      id_string_random_server,
-     {group, hardening_tests}
+     {group, hardening_tests},
+     ssh_info_print
     ].
 
 groups() ->
@@ -157,7 +158,8 @@ init_per_group(dir_options, Config) ->
     case {file:read_file_info(Dir_unreadable), 
 	  file:read_file_info(File_readable)} of
 	{{ok, #file_info{type=directory, access=Md}},
-	 {ok, #file_info{type=regular, access=Mf}}} when Md=/=read, Md=/=read_write ->
+	 {ok, #file_info{type=regular, access=Mf}}} when Md=/=read, Md=/=read_write,
+							 Mf=/=read, Mf=/=read_write ->
 	    %% Save:
 	    [{unreadable_dir, Dir_unreadable},
 	     {readable_file, File_readable} 
@@ -820,7 +822,7 @@ connectfun_disconnectfun_client(Config) ->
 					     {user_dir, UserDir},
 					     {password, "morot"},
 					     {failfun, fun ssh_test_lib:failfun/2}]),
-    ConnectionRef =
+    _ConnectionRef =
 	ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
 					  {user, "foo"},
 					  {password, "morot"},
@@ -1693,6 +1695,74 @@ max_sessions(Config, ParallelLogin, Connect0) when is_function(Connect0,2) ->
 	    ssh:stop_daemon(Pid),
 	    {fail,"Too few connections accepted"}
     end.
+
+%%--------------------------------------------------------------------
+ssh_info_print(Config) ->
+    %% Just check that ssh_print:info() crashes
+    PrivDir = ?config(priv_dir, Config),
+    PrintFile = filename:join(PrivDir,info),
+    UserDir = filename:join(PrivDir, nopubkey), % to make sure we don't use public-key-auth
+    file:make_dir(UserDir),
+    SysDir = ?config(data_dir, Config),
+
+    Parent = self(),
+    UnexpFun = fun(Msg,_Peer) ->
+		       Parent ! {unexpected,Msg,self()},
+		       skip
+	       end,
+    ConnFun = fun(_,_,_) -> Parent ! {connect,self()} end,
+
+    {DaemonRef, Host, Port} = 
+	ssh_test_lib:daemon([{system_dir, SysDir},
+			     {user_dir, UserDir},
+			     {password, "morot"},
+			     {unexpectedfun, UnexpFun},
+			     {connectfun, ConnFun},
+			     {failfun, fun ssh_test_lib:failfun/2}]),
+    ClientConnRef1 =
+	ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
+					  {user, "foo"},
+					  {password, "morot"},
+					  {user_dir, UserDir},
+					  {unexpectedfun, UnexpFun},
+					  {user_interaction, false}]),
+    ClientConnRef2 =
+	ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
+					  {user, "foo"},
+					  {password, "morot"},
+					  {user_dir, UserDir},
+					  {unexpectedfun, UnexpFun},
+					  {user_interaction, false}]),
+    receive
+	{connect,DaemonConnRef} ->
+	    ct:log("DaemonRef=~p, DaemonConnRef=~p, ClientConnRefs=~p",[DaemonRef, DaemonConnRef, 
+									[ClientConnRef1,ClientConnRef2]
+								       ])
+    after 2000 ->
+	    ok
+    end,
+
+    {ok,D} = file:open(PrintFile, write),
+    ssh_info:print(D),
+    ok = file:close(D),
+
+    {ok,Bin} = file:read_file(PrintFile),
+    ct:log("~s",[Bin]),
+
+    receive
+	{unexpected, Msg, Pid} ->
+	    ct:log("~p got unexpected msg ~p",[Pid,Msg]),
+	    ct:log("process_info(~p) = ~n~p",[Pid,process_info(Pid)]),
+	    ok = ssh:close(ClientConnRef1),
+	    ok = ssh:close(ClientConnRef2),
+	    ok = ssh:stop_daemon(DaemonRef),
+	    {fail,"unexpected msg"}
+    after 1000 ->
+	    ok = ssh:close(ClientConnRef1),
+	    ok = ssh:close(ClientConnRef2),
+	    ok = ssh:stop_daemon(DaemonRef)
+    end.
+
 
 %%--------------------------------------------------------------------
 %% Internal functions ------------------------------------------------
