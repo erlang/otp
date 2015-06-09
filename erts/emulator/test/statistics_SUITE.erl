@@ -308,7 +308,7 @@ scheduler_wall_time(Config) when is_list(Config) ->
     try
 	Schedulers = erlang:system_info(schedulers_online),
 	%% Let testserver and everyone else finish their work
-	timer:sleep(500),
+	timer:sleep(1500),
 	%% Empty load
 	EmptyLoad = get_load(),
 	{false, _} = {lists:any(fun(Load) -> Load > 50 end, EmptyLoad),EmptyLoad},
@@ -347,7 +347,7 @@ scheduler_wall_time(Config) when is_list(Config) ->
 
 	[exit(Pid, kill) || Pid <- [P1|HalfHogs++LastHogs]],
 	AfterLoad = get_load(),
-	{false,_} = {lists:any(fun(Load) -> Load > 5 end, AfterLoad),AfterLoad},
+	{false,_} = {lists:any(fun(Load) -> Load > 25 end, AfterLoad),AfterLoad},
 	true = erlang:system_flag(scheduler_wall_time, false)
     after
 	erlang:system_flag(scheduler_wall_time, false)
@@ -355,7 +355,7 @@ scheduler_wall_time(Config) when is_list(Config) ->
 
 get_load() ->
     Start = erlang:statistics(scheduler_wall_time),
-    timer:sleep(500),
+    timer:sleep(1500),
     End = erlang:statistics(scheduler_wall_time),
     lists:reverse(lists:sort(load_percentage(lists:sort(Start),lists:sort(End)))).
 
