@@ -835,6 +835,9 @@ static int my_strncasecmp(const char *s1, const char *s2, size_t n)
 #define TCP_ADDF_PENDING_SHUT_RDWR 32 /* Call shutdown(sock, SHUT_RDWR) when queue empties */
 #define TCP_ADDF_PENDING_SHUTDOWN \
 		(TCP_ADDF_PENDING_SHUT_WR | TCP_ADDF_PENDING_SHUT_RDWR)
+#define TCP_ADDF_SHOW_ECONNRESET   64 /* Tell user about incoming RST */
+#define TCP_ADDF_DELAYED_ECONNRESET 128 /* An ECONNRESET error occured on send or shutdown */
+#define TCP_ADDF_SHUTDOWN_WR_DONE 256 /* A shutdown(sock, SHUT_WR) or SHUT_RDWR was made */
 
 /* *_REQ_* replies */
 #define INET_REP_ERROR       0
@@ -879,6 +882,7 @@ static int my_strncasecmp(const char *s1, const char *s2, size_t n)
 #define INET_LOPT_MSGQ_HIWTRMRK     36  /* set local msgq high watermark */
 #define INET_LOPT_MSGQ_LOWTRMRK     37  /* set local msgq low watermark */
 #define INET_LOPT_NETNS             38  /* Network namespace pathname */
+#define INET_LOPT_TCP_SHOW_ECONNRESET 39  /* tell user about incoming RST */
 /* SCTP options: a separate range, from 100: */
 #define SCTP_OPT_RTOINFO		100
 #define SCTP_OPT_ASSOCINFO		101
@@ -6138,7 +6142,12 @@ static int inet_set_opts(inet_descriptor* desc, char* ptr, int len)
                 desc->active_count = 0;
 	    if ((desc->stype == SOCK_STREAM) && (desc->active != INET_PASSIVE) && 
 		(desc->state == INET_STATE_CLOSED)) {
-		tcp_closed_message((tcp_descriptor *) desc);
+		tcp_descriptor *tdesc = (tcp_descriptor *) desc;
+		if (tdesc->tcp_add_flags & TCP_ADDF_DELAYED_ECONNRESET) {
+		    tdesc->tcp_add_flags &= ~TCP_ADDF_DELAYED_ECONNRESET;
+		    tcp_error_message(tdesc, ECONNRESET);
+		}
+		tcp_closed_message(tdesc);
 		if (desc->exitf) {
 		    driver_exit(desc->port, 0);
 		    return 0; /* Give up on this socket, descriptor lost */
@@ -6254,6 +6263,16 @@ static int inet_set_opts(inet_descriptor* desc, char* ptr, int len)
 	    len -= ival;
 	    continue;
 #endif
+
+	case INET_LOPT_TCP_SHOW_ECONNRESET:
+	    if (desc->sprotocol == IPPROTO_TCP) {
+		tcp_descriptor* tdesc = (tcp_descriptor*) desc;
+		if (ival)
+		    tdesc->tcp_add_flags |= TCP_ADDF_SHOW_ECONNRESET;
+		else
+		    tdesc->tcp_add_flags &= ~TCP_ADDF_SHOW_ECONNRESET;
+	    }
+	    continue;
 
 	case INET_OPT_REUSEADDR: 
 #ifdef __WIN32__
@@ -7233,6 +7252,17 @@ static ErlDrvSSizeT inet_fill_opts(inet_descriptor* desc,
 	    }
 	    continue;
 #endif
+
+	case INET_LOPT_TCP_SHOW_ECONNRESET:
+	    if (desc->sprotocol == IPPROTO_TCP) {
+		tcp_descriptor* tdesc = (tcp_descriptor*) desc;
+		*ptr++ = opt;
+		ival = !!(tdesc->tcp_add_flags & TCP_ADDF_SHOW_ECONNRESET);
+		put_int32(ival, ptr);
+	    } else {
+		TRUNCATE_TO(0,ptr);
+	    }
+	    continue;
 
 	case INET_OPT_PRIORITY:
 #ifdef SO_PRIORITY
@@ -9077,6 +9107,11 @@ static tcp_descriptor* tcp_inet_copy(tcp_descriptor* desc,SOCKET s,
     copy_desc->low           = desc->low;
     copy_desc->send_timeout  = desc->send_timeout;
     copy_desc->send_timeout_close = desc->send_timeout_close;
+
+    if (desc->tcp_add_flags & TCP_ADDF_SHOW_ECONNRESET)
+	copy_desc->tcp_add_flags |= TCP_ADDF_SHOW_ECONNRESET;
+    else
+	copy_desc->tcp_add_flags &= ~TCP_ADDF_SHOW_ECONNRESET;
     
     /* The new port will be linked and connected to the original caller */
     port = driver_create_port(port, owner, "tcp_inet", (ErlDrvData) copy_desc);
@@ -9438,7 +9473,11 @@ static ErlDrvSSizeT tcp_inet_ctl(ErlDrvData e, unsigned int cmd,
 	    if (desc->tcp_add_flags & TCP_ADDF_DELAYED_CLOSE_RECV) {
 		desc->tcp_add_flags &= ~(TCP_ADDF_DELAYED_CLOSE_RECV|
 					 TCP_ADDF_DELAYED_CLOSE_SEND);
-		return ctl_reply(INET_REP_ERROR, "closed", 6, rbuf, rsize);
+		if (desc->tcp_add_flags & TCP_ADDF_DELAYED_ECONNRESET) {
+		    desc->tcp_add_flags &= ~TCP_ADDF_DELAYED_ECONNRESET;
+		    return ctl_reply(INET_REP_ERROR, "econnreset", 10, rbuf, rsize);
+		} else
+		    return ctl_reply(INET_REP_ERROR, "closed", 6, rbuf, rsize);
 	    }
 	    return ctl_error(ENOTCONN, rbuf, rsize);
 	}
@@ -9499,6 +9538,8 @@ static ErlDrvSSizeT tcp_inet_ctl(ErlDrvData e, unsigned int cmd,
 	    return ctl_reply(INET_REP_OK, NULL, 0, rbuf, rsize);
 	}
 	if (IS_SOCKET_ERROR(sock_shutdown(INETP(desc)->s, how))) {
+	    if (how != TCP_SHUT_RD)
+		desc->tcp_add_flags |= TCP_ADDF_SHUTDOWN_WR_DONE;
 	    return ctl_error(sock_errno(), rbuf, rsize);
 	} else {
 	    return ctl_reply(INET_REP_OK, NULL, 0, rbuf, rsize);
@@ -9633,7 +9674,13 @@ static void tcp_inet_commandv(ErlDrvData e, ErlIOVec* ev)
     if (!IS_CONNECTED(INETP(desc))) {
 	if (desc->tcp_add_flags & TCP_ADDF_DELAYED_CLOSE_SEND) {
 	    desc->tcp_add_flags &= ~TCP_ADDF_DELAYED_CLOSE_SEND;
-	    inet_reply_error_am(INETP(desc), am_closed);
+	    if (desc->tcp_add_flags & TCP_ADDF_DELAYED_ECONNRESET) {
+		/* Don't clear flag. Leave it enabled for the next receive
+		 * operation.
+		 */
+		inet_reply_error(INETP(desc), ECONNRESET);
+	    } else
+		inet_reply_error_am(INETP(desc), am_closed);
 	}
 	else
 	    inet_reply_error(INETP(desc), ENOTCONN);
@@ -10014,7 +10061,10 @@ static int tcp_recv(tcp_descriptor* desc, int request_len)
 	int err = sock_errno();
 	if (err == ECONNRESET) {
 	    DEBUGF((" => detected close (connreset)\r\n"));
-	    return tcp_recv_closed(desc);
+	    if (desc->tcp_add_flags & TCP_ADDF_SHOW_ECONNRESET)
+		return tcp_recv_error(desc, err);
+	    else
+		return tcp_recv_closed(desc);
 	}
 	if (err == ERRNO_BLOCK) {
 	    DEBUGF((" => would block\r\n"));
@@ -10226,7 +10276,19 @@ static void tcp_inet_event(ErlDrvData e, ErlDrvEvent event)
     if (netEv.lNetworkEvents & FD_CLOSE) {
 	/* error in err = netEv.iErrorCode[FD_CLOSE_BIT] */
 	DEBUGF(("Detected close in %s, line %d\r\n", __FILE__, __LINE__));
-	tcp_recv_closed(desc);
+	if (desc->tcp_add_flags & TCP_ADDF_SHOW_ECONNRESET) {
+	    err = netEv.iErrorCode[FD_CLOSE_BIT];
+	    if (err == ECONNRESET)
+		tcp_recv_error(desc, err);
+	    else if (err == ECONNABORTED && IS_CONNECTED(INETP(desc))) {
+		/* translate this error to ECONNRESET */
+		tcp_recv_error(desc, ECONNRESET);
+	    }
+	    else
+		tcp_recv_closed(desc);
+	}
+	else
+	    tcp_recv_closed(desc);
     }
     DEBUGF(("tcp_inet_event(%ld) }\r\n", (long)desc->inet.port));
     return;
@@ -10535,6 +10597,9 @@ static int tcp_inet_input(tcp_descriptor* desc, HANDLE event)
 
 static int tcp_send_or_shutdown_error(tcp_descriptor* desc, int err)
 {
+    int show_econnreset = (err == ECONNRESET
+			   && desc->tcp_add_flags & TCP_ADDF_SHOW_ECONNRESET);
+
     /*
      * If the port is busy, we must do some clean-up before proceeding.
      */
@@ -10550,14 +10615,21 @@ static int tcp_send_or_shutdown_error(tcp_descriptor* desc, int err)
 
     /*
      * We used to handle "expected errors" differently from unexpected ones.
-     * Now we handle all errors in the same way. We just have to distinguish
-     * between passive and active sockets.
+     * Now we handle all errors in the same way (unless the show_econnreset
+     * socket option is enabled). We just have to distinguish between passive
+     * and active sockets.
      */
     DEBUGF(("driver_failure_eof(%ld) in %s, line %d\r\n",
 	    (long)desc->inet.port, __FILE__, __LINE__));
     if (desc->inet.active) {
-	tcp_closed_message(desc);
-	inet_reply_error_am(INETP(desc), am_closed);
+	if (show_econnreset) {
+	    tcp_error_message(desc, err);
+	    tcp_closed_message(desc);
+	    inet_reply_error(INETP(desc), err);
+	} else {
+	    tcp_closed_message(desc);
+	    inet_reply_error_am(INETP(desc), am_closed);
+	}
 	if (desc->inet.exitf)
 	    driver_exit(desc->inet.port, 0);
 	else
@@ -10569,7 +10641,10 @@ static int tcp_send_or_shutdown_error(tcp_descriptor* desc, int err)
 	erl_inet_close(INETP(desc));
 
 	if (desc->inet.caller) {
-	    inet_reply_error_am(INETP(desc), am_closed);
+	    if (show_econnreset)
+		inet_reply_error(INETP(desc), err);
+	    else
+		inet_reply_error_am(INETP(desc), am_closed);
 	}
 	else {
 	    /* No blocking send op to reply to right now.
@@ -10586,12 +10661,46 @@ static int tcp_send_or_shutdown_error(tcp_descriptor* desc, int err)
 	 * in the receive operation.
 	 */
 	desc->tcp_add_flags |= TCP_ADDF_DELAYED_CLOSE_RECV;
+
+	if (show_econnreset) {
+	    /* Return {error, econnreset} instead of {error, closed}
+	     * on send or receive operations.
+	     */
+	    desc->tcp_add_flags |= TCP_ADDF_DELAYED_ECONNRESET;
+	}
     }
     return -1;
 }
 
 static int tcp_send_error(tcp_descriptor* desc, int err)
 {
+    /* EPIPE errors usually occur in one of three ways:
+     * 1. We write to a socket when we've already shutdown() the write side. On
+     *    Windows the error returned for this is ESHUTDOWN rather than EPIPE.
+     * 2. The TCP peer sends us an RST through no fault of our own (perhaps
+     *    by aborting the connection using SO_LINGER) and we then attempt
+     *    to write to the socket. On Linux and Windows we would actually
+     *    receive an ECONNRESET error for this, but on the BSDs, Darwin,
+     *    Illumos and presumably Solaris, it's an EPIPE.
+     * 3. We cause the TCP peer to send us an RST by writing to a socket
+     *    after we receive a FIN from them. Our first write will be
+     *    successful, but if the they have closed the connection (rather
+     *    than just shutting down the write side of it) this will cause their
+     *    OS to send us an RST. Then, when we attempt to write to the socket
+     *    a second time, we will get an EPIPE error. On Windows we get an
+     *    ECONNABORTED.
+     *
+     * What we are going to do here is to treat all EPIPE messages that aren't
+     * of type 1 as ECONNRESET errors. This will allow users who have the
+     * show_econnreset socket option enabled to receive {error, econnreset} on
+     * both send and recv operations to indicate that an RST has been received.
+     */
+#ifdef __WIN_32__
+    if (err == ECONNABORTED)
+	err = ECONNRESET;
+#endif
+    if (err == EPIPE && !(desc->tcp_add_flags & TCP_ADDF_SHUTDOWN_WR_DONE))
+	err = ECONNRESET;
     return tcp_send_or_shutdown_error(desc, err);
 }
 
@@ -10811,6 +10920,8 @@ static void tcp_shutdown_async(tcp_descriptor* desc)
 		TCP_SHUT_WR : TCP_SHUT_RDWR;
     if (IS_SOCKET_ERROR(sock_shutdown(INETP(desc)->s, how)))
 	tcp_shutdown_error(desc, sock_errno());
+    else
+	desc->tcp_add_flags |= TCP_ADDF_SHUTDOWN_WR_DONE;
 }
 
 #ifdef __OSE__
