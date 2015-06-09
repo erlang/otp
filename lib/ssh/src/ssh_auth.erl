@@ -251,7 +251,6 @@ handle_userauth_request(#ssh_msg_userauth_request{user = User,
 			_, #ssh{opts = Opts,
 				kb_tries_left = KbTriesLeft,
 				userauth_supported_methods = Methods} = Ssh) ->
-io:format('KbTriesLeft ~p~n',[KbTriesLeft]),
     case KbTriesLeft of
 	N when N<1 ->
 	    {not_authorized, {User, {authmethod, "keyboard-interactive"}}, 
@@ -273,7 +272,7 @@ io:format('KbTriesLeft ~p~n',[KbTriesLeft]),
 	    %%  SSH_MSG_USERAUTH_FAILURE, or SSH_MSG_USERAUTH_INFO_REQUEST message."
 	    Default = {"SSH server",
 		       "Enter password for \""++User++"\"",
-		       "pwd: ",
+		       "password: ",
 		       false},
 
 	    {Name, Instruction, Prompt, Echo} =
