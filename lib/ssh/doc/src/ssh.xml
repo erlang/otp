@@ -388,14 +388,14 @@ kex is implicit but public_key is set explicitly.</p>
 
 	  <tag><c><![CDATA[{auth_method_kb_interactive_data, PromptTexts}]]>
 	  <br/>where:
-	  <br/>PromptTexts = kb_int_tuple()  | fun(PeerName::string(), User::string(), Service::string()) ->  kb_int_tuple()
+	  <br/>PromptTexts = kb_int_tuple()  | fun(Peer::{IP::tuple(),Port::integer()}, User::string(), Service::string()) ->  kb_int_tuple()
 	  <br/>kb_int_tuple() = {Name::string(), Instruction::string(), Prompt::string(), Echo::boolean()}</c>
 	  </tag>
 	  <item>
 	    <p>Sets the text strings that the daemon sends to the client for presentation to the user when using <c>keyboar-interactive</c> authentication. If the fun/3 is used, it is called when the actual authentication occurs and may therefore return dynamic data like time, remote ip etc.</p>
 	    <p>The parameter <c>Echo</c> guides the client about need to hide the password.</p>
 	    <p>The default value is:
-	    <c>{auth_method_kb_interactive_data, {"SSH server", "Enter password for \""++User++"\"", "pwd: ", false}></c></p>
+	    <c>{auth_method_kb_interactive_data, {"SSH server", "Enter password for \""++User++"\"", "password: ", false}></c></p>
           </item>
 
 	  <tag><c><![CDATA[{user_passwords, [{string() = User,
