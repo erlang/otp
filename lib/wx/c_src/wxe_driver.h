@@ -37,18 +37,21 @@ typedef struct wxe_bin_ref {
    size_t size;
    ErlDrvBinary* bin;
    ErlDrvTermData from;
-   WXEBinRefptr next;
 } WXEBinRef;
 
-typedef struct wxe_data_def {   
+typedef struct wxe_data_def {
    void * driver_data;
    WXEBinRef * bin;		/* Argument binaries */
+   Uint32 max_bins;
    ErlDrvPort port_handle;
    ErlDrvTermData port;
    int is_cbport;
    ErlDrvPDL pdl;
 } wxe_data;
 
+
+/* Number of bins per port should be small */
+#define DEF_BINS 3
 
 void init_glexts(wxe_data*);
 

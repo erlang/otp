@@ -50,7 +50,7 @@ class wxeCommand
 
     ErlDrvTermData   caller;
     ErlDrvTermData   port;
-    WXEBinRef *      bin[3];
+    WXEBinRef        bin[3];
     char *           buffer;
     int              len;
     int              op;

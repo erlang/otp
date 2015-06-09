@@ -40,10 +40,7 @@ extern "C" {
 #include <wx/html/htmlcell.h>
 
 
-// #define send() send_term(__FILE__, __LINE__)
-
-// see http://docs.wxwidgets.org/stable/wx_wxarray.html
-WX_DECLARE_OBJARRAY(ErlDrvTermData, wxErlDrvTermDataArray);
+#define RT_BUFF_SZ 64
 
 class wxeReturn {
 
@@ -57,7 +54,6 @@ public:
 
     void add(ErlDrvTermData type, ErlDrvTermData data);
 
-    //  void addRef(const void *ptr, const char* className);
     void addRef(const unsigned int ref, const char* className);
     void addAtom(const char* atomName);
     
@@ -65,8 +61,8 @@ public:
     void addExt2Term(wxeErlTerm * term);
     void addExt2Term(wxETreeItemData * term);
 
-    void addNil() { rt.Add(ERL_DRV_NIL); };
-    
+    void addNil() { do_add(ERL_DRV_NIL); };
+
     void addUint(unsigned int n);
     
     void addInt(int n);
@@ -116,6 +112,10 @@ public:
 
     void add(const wxHtmlLinkInfo &val);
 
+    void do_add(ErlDrvTermData val);
+
+    void ensureFloatCount(size_t n);
+
     int  send();
     
     void reset();
@@ -127,15 +127,17 @@ private:
     inline void  addDate(wxDateTime dateTime);
 
     inline void  addTime(wxDateTime dateTime);
-    
-//    WxeApp*                 wxe_app;
+
     ErlDrvTermData          caller;
     ErlDrvTermData          port;
-//    wxeMemEnv               *memEnv;
-    wxErlDrvTermDataArray   rt;
     wxArrayDouble           temp_float;
     wxMBConvUTF32           utfConverter;
     bool                    isResult;
+
+    unsigned int            rt_max;
+    unsigned int            rt_n;
+    ErlDrvTermData          *rtb;
+    ErlDrvTermData          buff[RT_BUFF_SZ];
 };
 
 #endif	/* _WXE_RETURN_H */

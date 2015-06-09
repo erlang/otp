@@ -58,7 +58,7 @@ extern int wxe_status;
 wxeFifo * wxe_queue = NULL;
 wxeFifo * wxe_queue_cb_saved = NULL;
 
-int wxe_batch_caller = 0;  // inside batch if larger than 0
+unsigned int wxe_needs_signal = 0;  // inside batch if larger than 0
 
 /* ************************************************************
  *  Commands from erlang
@@ -72,26 +72,21 @@ void push_command(int op,char * buf,int len, wxe_data *sd)
   erl_drv_mutex_lock(wxe_batch_locker_m);
   wxe_queue->Add(op, buf, len, sd);
 
-  if(wxe_batch_caller > 0) {
+  if(wxe_needs_signal) {
     // wx-thread is waiting on batch end in cond_wait
     erl_drv_cond_signal(wxe_batch_locker_c);
     erl_drv_mutex_unlock(wxe_batch_locker_m);
   } else {
     // wx-thread is waiting gui-events
-    if(op == WXE_BATCH_BEGIN) {
-      wxe_batch_caller = 1;
-    }
-    erl_drv_cond_signal(wxe_batch_locker_c);
     erl_drv_mutex_unlock(wxe_batch_locker_m);
     wxWakeUpIdle();
   }
-
 }
 
 void meta_command(int what, wxe_data *sd) {
   if(what == PING_PORT && wxe_status == WXE_INITIATED) {
     erl_drv_mutex_lock(wxe_batch_locker_m);
-    if(wxe_batch_caller > 0) {
+    if(wxe_needs_signal) {
       wxe_queue->Add(WXE_DEBUG_PING, NULL, 0, sd);
       erl_drv_cond_signal(wxe_batch_locker_c);
     }
@@ -102,6 +97,7 @@ void meta_command(int what, wxe_data *sd) {
       wxeMetaCommand Cmd(sd, what);
       wxTheApp->AddPendingEvent(Cmd);
       if(what == DELETE_PORT) {
+	driver_free(sd->bin);
 	free(sd);
       }
     }
@@ -211,14 +207,11 @@ void handle_event_callback(ErlDrvPort port, ErlDrvTermData process)
   // Is thread safe if pdl have been incremented
   if(driver_monitor_process(port, process, &monitor) == 0) {
     // Should we be able to handle commands when recursing? probably
-    erl_drv_mutex_lock(wxe_batch_locker_m);
     // fprintf(stderr, "\r\nCB EV Start %lu \r\n", process);fflush(stderr);
     app->recurse_level++;
     app->dispatch_cb(wxe_queue, wxe_queue_cb_saved, process);
     app->recurse_level--;
     // fprintf(stderr, "CB EV done %lu \r\n", process);fflush(stderr);
-    wxe_batch_caller = 0;
-    erl_drv_mutex_unlock(wxe_batch_locker_m);
     driver_demonitor_process(port, &monitor);
   }
 }
@@ -227,17 +220,11 @@ void WxeApp::dispatch_cmds()
 {
   if(wxe_status != WXE_INITIATED)
     return;
-  erl_drv_mutex_lock(wxe_batch_locker_m);
   recurse_level++;
   int level = dispatch(wxe_queue_cb_saved, 0, WXE_STORED);
   dispatch(wxe_queue, level, WXE_NORMAL);
   recurse_level--;
-  wxe_batch_caller = 0;
-  if(wxe_queue->m_old) {
-    driver_free(wxe_queue->m_old);
-    wxe_queue->m_old = NULL;
-  }
-  erl_drv_mutex_unlock(wxe_batch_locker_m);
+
   // Cleanup old memenv's and deleted objects
   if(recurse_level == 0) {
     wxeCommand *curr;
@@ -265,16 +252,14 @@ void WxeApp::dispatch_cmds()
   }
 }
 
-// Should have  erl_drv_mutex_lock(wxe_batch_locker_m);
-// when entering this function and it should be released
-// afterwards
 int WxeApp::dispatch(wxeFifo * batch, int blevel, int list_type)
 {
   int ping = 0;
-  // erl_drv_mutex_lock(wxe_batch_locker_m);  must be locked already
   wxeCommand *event;
+  if(list_type == WXE_NORMAL) erl_drv_mutex_lock(wxe_batch_locker_m);
   while(true) {
     while((event = batch->Get()) != NULL) {
+      if(list_type == WXE_NORMAL) erl_drv_mutex_unlock(wxe_batch_locker_m);
       switch(event->op) {
       case -1:
 	break;
@@ -292,8 +277,6 @@ int WxeApp::dispatch(wxeFifo * batch, int blevel, int list_type)
 	  blevel = 0;
 	break;
       case WXE_CB_RETURN:
-	// erl_drv_mutex_unlock(wxe_batch_locker_m); should be called after
-	// whatever cleaning is necessary
 	if(event->len > 0) {
 	  cb_buff = (char *) driver_alloc(event->len);
 	  memcpy(cb_buff, event->buffer, event->len);
@@ -301,36 +284,43 @@ int WxeApp::dispatch(wxeFifo * batch, int blevel, int list_type)
 	event->Delete();
 	return blevel;
       default:
-	erl_drv_mutex_unlock(wxe_batch_locker_m);
 	if(event->op < OPENGL_START) {
 	  // fprintf(stderr, "  c %d (%d) \r\n", event->op, blevel);
 	  wxe_dispatch(*event);
 	} else {
 	  gl_dispatch(event->op,event->buffer,event->caller,event->bin);
 	}
-	erl_drv_mutex_lock(wxe_batch_locker_m);
 	break;
       }
       event->Delete();
+      if(list_type == WXE_NORMAL) erl_drv_mutex_lock(wxe_batch_locker_m);
     }
-    if((list_type == WXE_STORED) || (blevel <= 0 && list_type == WXE_NORMAL)) {
-      // erl_drv_mutex_unlock(wxe_batch_locker_m); should be called after
-      // whatever cleaning is necessary
+    if(list_type == WXE_STORED)
+      return blevel;
+    if(blevel <= 0) { // list_type == WXE_NORMAL
+      if(wxe_queue->m_old) {
+	driver_free(wxe_queue->m_old);
+	wxe_queue->m_old = NULL;
+      }
+      erl_drv_mutex_unlock(wxe_batch_locker_m);
       return blevel;
     }
     // sleep until something happens
-    //fprintf(stderr, "%s:%d sleep %d %d\r\n", __FILE__, __LINE__, batch->size(), blevel);fflush(stderr);
-    wxe_batch_caller++;
+    //fprintf(stderr, "%s:%d sleep %d %d\r\n", __FILE__, __LINE__, batch->m_n, blevel);fflush(stderr);
+    wxe_needs_signal = 1;
     while(batch->m_n == 0) {
       erl_drv_cond_wait(wxe_batch_locker_c, wxe_batch_locker_m);
     }
+    wxe_needs_signal = 0;
   }
 }
 
 void WxeApp::dispatch_cb(wxeFifo * batch, wxeFifo * temp, ErlDrvTermData process) {
   wxeCommand *event;
+  erl_drv_mutex_lock(wxe_batch_locker_m);
   while(true) {
     while((event = batch->Get()) != NULL) {
+      erl_drv_mutex_unlock(wxe_batch_locker_m);
       wxeMemEnv *memenv = getMemEnv(event->port);
       // fprintf(stderr, "  Ev %d %lu\r\n", event->op, event->caller);
       if(event->caller == process ||  // Callbacks from CB process only
@@ -357,7 +347,6 @@ void WxeApp::dispatch_cb(wxeFifo * batch, wxeFifo * temp, ErlDrvTermData process
 	  process = event->caller;
 	  break;
 	default:
-	  erl_drv_mutex_unlock(wxe_batch_locker_m);
 	  size_t start=temp->m_n;
 	  if(event->op < OPENGL_START) {
 	    // fprintf(stderr, "  cb %d \r\n", event->op);
@@ -365,8 +354,8 @@ void WxeApp::dispatch_cb(wxeFifo * batch, wxeFifo * temp, ErlDrvTermData process
 	  } else {
 	    gl_dispatch(event->op,event->buffer,event->caller,event->bin);
 	  }
-	  erl_drv_mutex_lock(wxe_batch_locker_m);
 	  if(temp->m_n > start) {
+	    erl_drv_mutex_lock(wxe_batch_locker_m);
 	    // We have recursed dispatch_cb and messages for this
 	    // callback may be saved on temp list move them
 	    // to orig list
@@ -376,6 +365,7 @@ void WxeApp::dispatch_cb(wxeFifo * batch, wxeFifo * temp, ErlDrvTermData process
 		batch->Append(ev);
 	      }
 	    }
+	    erl_drv_mutex_unlock(wxe_batch_locker_m);
 	  }
 	  break;
 	}
@@ -384,13 +374,16 @@ void WxeApp::dispatch_cb(wxeFifo * batch, wxeFifo * temp, ErlDrvTermData process
 	// fprintf(stderr, "  save %d %lu\r\n", event->op, event->caller);
 	temp->Append(event);
       }
+      erl_drv_mutex_lock(wxe_batch_locker_m);
     }
     // sleep until something happens
     // fprintf(stderr, "%s:%d sleep %d %d\r\n", __FILE__, __LINE__,
     //         batch->m_n, temp->m_n);fflush(stderr);
+    wxe_needs_signal = 1;
     while(batch->m_n == 0) {
       erl_drv_cond_wait(wxe_batch_locker_c, wxe_batch_locker_m);
     }
+    wxe_needs_signal = 0;
   }
 }
 /* Memory handling */

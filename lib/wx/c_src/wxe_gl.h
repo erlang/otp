@@ -26,8 +26,8 @@
 void activateGL(ErlDrvTermData caller);
 void setActiveGL(ErlDrvTermData caller, wxGLCanvas *canvas);
 void deleteActiveGL(wxGLCanvas *canvas);
-void wxe_initOpenGL(wxeReturn, char*);
-void gl_dispatch(int op, char *bp, ErlDrvTermData caller, WXEBinRef *bins[]);
+void wxe_initOpenGL(wxeReturn *, char*);
+void gl_dispatch(int op, char *bp, ErlDrvTermData caller, WXEBinRef *bins);
 
 WX_DECLARE_HASH_MAP(ErlDrvTermData, wxGLCanvas*, wxIntegerHash, wxIntegerEqual, wxeGLC);
 extern wxeGLC glc;
