@@ -1193,11 +1193,11 @@ set_aux_work_flags_wakeup_nob(ErtsSchedulerSleepInfo *ssi,
     ERTS_DBG_CHK_SSI_AUX_WORK(ssi);
 
     old_flgs = erts_atomic32_read_nob(&ssi->aux_work);
-    if ((old_flgs & flgs) == 0) {
+    if ((old_flgs & flgs) != flgs) {
 
 	old_flgs = erts_atomic32_read_bor_nob(&ssi->aux_work, flgs);
 
-	if ((old_flgs & flgs) == 0) {
+	if ((old_flgs & flgs) != flgs) {
 #ifdef ERTS_SMP
 	    erts_sched_poke(ssi);
 #else
@@ -1217,7 +1217,7 @@ set_aux_work_flags_wakeup_relb(ErtsSchedulerSleepInfo *ssi,
 
     old_flgs = erts_atomic32_read_bor_relb(&ssi->aux_work, flgs);
 
-    if ((old_flgs & flgs) == 0) {
+    if ((old_flgs & flgs) != flgs) {
 #ifdef ERTS_SMP
 	erts_sched_poke(ssi);
 #else
