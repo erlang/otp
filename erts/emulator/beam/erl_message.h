@@ -79,6 +79,7 @@ void erts_factory_dummy_init(ErtsHeapFactory*);
 Eterm* erts_produce_heap(ErtsHeapFactory*, Uint need, Uint xtra);
 Eterm* erts_reserve_heap(ErtsHeapFactory*, Uint need);
 void erts_factory_close(ErtsHeapFactory*);
+void erts_factory_trim_and_close(ErtsHeapFactory*,Eterm *brefs, Uint brefs_size);
 void erts_factory_undo(ErtsHeapFactory*);
 
 #ifdef CHECK_FOR_HOLES

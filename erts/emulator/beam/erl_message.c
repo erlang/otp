@@ -93,9 +93,6 @@ erts_resize_message_buffer(ErlHeapFragment *bp, Uint size,
 #endif
     ErlHeapFragment* nbp;
 
-    /* ToDo: Make use of 'used_size' to avoid realloc
-	when shrinking just a few words */
-
 #ifdef DEBUG
     {
 	Uint off_sz = size < bp->used_size ? size : bp->used_size;
@@ -110,8 +107,10 @@ erts_resize_message_buffer(ErlHeapFragment *bp, Uint size,
     }
 #endif
 
-    if (size == bp->used_size)
+    if (size >= (bp->used_size - bp->used_size / 16)) {
+        bp->used_size = size;
 	return bp;
+    }
 
 #ifdef HARD_DEBUG
     dbg_brefs = erts_alloc(ERTS_ALC_T_UNDEF, sizeof(Eterm *)*brefs_size);
@@ -1286,6 +1285,24 @@ void erts_factory_close(ErtsHeapFactory* factory)
 	ASSERT(!"Invalid factory mode");
     }
     factory->mode = FACTORY_CLOSED;
+}
+
+void erts_factory_trim_and_close(ErtsHeapFactory* factory,
+				 Eterm *brefs, Uint brefs_size)
+{
+    if (factory->mode == FACTORY_HEAP_FRAGS) {
+        ErlHeapFragment* bp = factory->heap_frags;
+        if (bp->next == NULL) {
+            Uint used_sz = factory->hp - bp->mem;
+            ASSERT(used_sz <= bp->alloc_size);
+            factory->heap_frags = erts_resize_message_buffer(bp, used_sz,
+                                                             brefs, brefs_size);
+            factory->mode = FACTORY_CLOSED;
+            return;
+        }
+        /*else we don't trim multi fragmented messages for now */
+    }
+    erts_factory_close(factory);
 }
 
 void erts_factory_undo(ErtsHeapFactory* factory)

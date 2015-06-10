@@ -1407,12 +1407,8 @@ queue_port_sched_op_reply(Process *rp,
     hp += REF_THING_SIZE;
 
     msg = TUPLE2(hp, ref, msg);
-    hp += 3;
 
-    /* SVERK: We used to call erts_resize_message_buffer here
-     * to maybe realloc message.
-     */
-    erts_factory_close(factory);
+    erts_factory_trim_and_close(factory, &msg, 1);
 
     erts_queue_message(rp, rp_locksp, factory->heap_frags, msg, NIL);
 }
