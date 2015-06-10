@@ -130,6 +130,7 @@ api_tests() ->
      sockname,
      versions,
      controlling_process,
+     getstat,
      upgrade,
      upgrade_with_timeout,
      shutdown,
@@ -476,6 +477,77 @@ controlling_process(Config) when is_list(Config) ->
 
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client).
+
+%%--------------------------------------------------------------------
+getstat() ->
+    [{doc,"Test API function getstat/2"}].
+
+getstat(Config) when is_list(Config) ->
+    ClientOpts = ?config(client_opts, Config),
+    ServerOpts = ?config(server_opts, Config),
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    Server1 =
+	ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+				   {from, self()},
+				   {mfa, {ssl_test_lib, send_recv_result, []}},
+				   {options,  [{active, false} | ServerOpts]}]),
+    Port1 = ssl_test_lib:inet_port(Server1),
+    Server2 =
+	ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+				   {from, self()},
+				   {mfa, {ssl_test_lib, send_recv_result, []}},
+				   {options,  [{active, false} | ServerOpts]}]),
+    Port2 = ssl_test_lib:inet_port(Server2),
+    {ok, ActiveC} = rpc:call(ClientNode, ssl, connect,
+			  [Hostname,Port1,[{active, once}|ClientOpts]]),
+    {ok, PassiveC} = rpc:call(ClientNode, ssl, connect,
+			  [Hostname,Port2,[{active, false}|ClientOpts]]),
+
+    ct:log("Testcase ~p, Client ~p  Servers ~p, ~p ~n",
+		       [self(), self(), Server1, Server2]),
+
+    % Comprehensive receive stats check on passive socket
+    {ok, InitialPStats} = ssl:getstat(PassiveC),
+    [0, 0, 0, 0] = [proplists:get_value(Name, InitialPStats) || Name <- [recv_oct, recv_max, send_cnt, send_avg]],
+
+    ok = ssl:send(PassiveC, "Hello world"),
+    {ok, [{recv_cnt, 0}, {recv_oct, 0}, {send_cnt, 1}, {send_oct, 11}, {send_avg, 11}, {send_max, 11}]} =
+	ssl:getstat(PassiveC, [recv_cnt, recv_oct, send_cnt, send_oct, send_avg, send_max]),
+
+    {ok,"He"} = ssl:recv(PassiveC, 2),
+    {ok, [{_, 1}, {_, 2}, {_, 2}, {_, 2}, {_, 11}]} = ssl:getstat(PassiveC, [recv_cnt, recv_oct, recv_avg, recv_max, send_oct]),
+
+    {ok,"llo w"} = ssl:recv(PassiveC, 5),
+    {ok, [{_, 2}, {_, 7}, {_, 3}, {_, 5}, {_, 11}]} = ssl:getstat(PassiveC, [recv_cnt, recv_oct, recv_avg, recv_max, send_oct]),
+
+    {ok,"o"} = ssl:recv(PassiveC, 1),
+    {ok, [{_, 3}, {_, 8}, {_, 2}, {_, 5}, {_, 11}]} = ssl:getstat(PassiveC, [recv_cnt, recv_oct, recv_avg, recv_max, send_oct]),
+
+    {ok,"rld"} = ssl:recv(PassiveC, 3),
+    {ok, [{_, 4}, {_, 11}, {_, 2}, {_, 5}, {_, 11}]} = ssl:getstat(PassiveC, [recv_cnt, recv_oct, recv_avg, recv_max, send_oct]),
+
+
+    % Comprehensive send stats check on active socket
+    % Wait for data to be received
+    RC = receive
+	{ssl, ActiveC, Data} ->
+	    "Hello world" = Data,
+	    1
+    after
+	?SLEEP ->
+	    exit(timeout)
+    end,
+
+    {ok, AStats1} = ssl:getstat(ActiveC),
+    [RC, 11, 11, 0, 0] = [proplists:get_value(Name, AStats1) || Name <- [recv_cnt, recv_oct, recv_max, send_cnt, send_avg]],
+
+    ok = ssl:send(ActiveC, "Hell"),
+    {ok, [{_, RC}, {_, 11}, {_, 1}, {_, 4}, {_, 4}, {_, 4}]} = ssl:getstat(ActiveC, [recv_cnt, recv_oct, send_cnt, send_oct, send_avg, send_max]),
+
+    ok = ssl:send(ActiveC, "o world"),
+    {ok, [{_, RC}, {_, 11}, {_, 2}, {_, 11}, {_, 5}, {_, 7}]} = ssl:getstat(ActiveC, [recv_cnt, recv_oct, send_cnt, send_oct, send_avg, send_max]),
+
+    ok.
 
 %%--------------------------------------------------------------------
 controller_dies() ->

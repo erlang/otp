@@ -683,6 +683,26 @@ fun(srp, Username :: string(), UserState :: term()) ->
     </func>
 
     <func>
+      <name>getstat(Socket) ->
+        {ok, OptionValues} | {error, inet:posix()}</name>
+      <name>getstat(Socket, OptionNames) ->
+        {ok, OptionValues} | {error, inet:posix()}</name>
+      <fsummary>Get one or more statistic options for a socket</fsummary>
+      <type>
+	<v>Socket = sslsocket()</v>
+	<v>OptionNames = [atom()]</v>
+        <v>OptionValues = [{inet:stat_option(), integer()}]</v>
+      </type>
+      <desc>
+        <p>Gets one or more statistic options for a socket.</p>
+        <p>See inet:getstat/2 for statistic options description.</p>
+        <p>Packets in recv_cnt and send_cnt are TLS frames.</p>
+        <p>Options recv_dvi and send_pend currently are not supported
+            and always return zero for compatibility</p>
+      </desc>
+    </func>
+
+    <func>
       <name>listen(Port, Options) ->
 	{ok, ListenSocket} | {error, Reason}</name>
       <fsummary>Creates an ssl listen socket.</fsummary>

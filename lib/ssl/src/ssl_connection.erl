@@ -41,7 +41,7 @@
 
 %% User Events 
 -export([send/2, recv/3, close/1, shutdown/2,
-	 new_user/2, get_opts/2, set_opts/2, info/1, session_info/1, 
+	 new_user/2, get_opts/2, set_opts/2, get_stat/2, info/1, session_info/1,
 	 peer_certificate/1, renegotiation/1, negotiated_next_protocol/1, prf/5	
 	]).
 
@@ -212,6 +212,14 @@ get_opts(ConnectionPid, OptTags) ->
 %%--------------------------------------------------------------------
 set_opts(ConnectionPid, Options) ->
     sync_send_all_state_event(ConnectionPid, {set_opts, Options}).
+
+%%--------------------------------------------------------------------
+-spec get_stat(pid(), list()) -> {ok, list()} | {error, reason()}.
+%%
+%% Description: Same as inet:getstat/2
+%%--------------------------------------------------------------------
+get_stat(ConnectionPid, OptTags) ->
+    sync_send_all_state_event(ConnectionPid, {get_stat, OptTags}).
 
 %%--------------------------------------------------------------------
 -spec info(pid()) ->  {ok, {atom(), tuple()}} | {error, reason()}. 
@@ -797,10 +805,17 @@ handle_sync_event({set_opts, Opts0}, _From, StateName0,
 		    end
 	    end
     end;
+
+handle_sync_event({get_stat, OptTags}, _From, StateName,
+		  #state{socket_stats = SStats} = State) ->
+    {reply, getstat_reply(OptTags, SStats), StateName, State, get_timeout(State)};
+
 handle_sync_event(renegotiate, From, connection,  #state{protocol_cb = Connection} = State) ->
     Connection:renegotiate(State#state{renegotiation = {true, From}});
+
 handle_sync_event(renegotiate, _, StateName, State) ->
     {reply, {error, already_renegotiating}, StateName, State, get_timeout(State)};
+
 handle_sync_event({prf, Secret, Label, Seed, WantedLength}, _, StateName,
 		  #state{connection_states = ConnectionStates,
 			 negotiated_version = Version} = State) ->
@@ -1755,6 +1770,35 @@ get_timeout(#state{ssl_options=#ssl_options{hibernate_after = undefined}}) ->
     infinity;
 get_timeout(#state{ssl_options=#ssl_options{hibernate_after = HibernateAfter}}) ->
     HibernateAfter.
+
+getstat_reply(Options, #socket_stats{} = SStats) ->
+    {ok, map_stat_values(Options, SStats)}.
+
+map_stat_values([recv_cnt|Rest], #socket_stats{recv_cnt = Cnt} = SStats) ->
+    [{recv_cnt, Cnt}|map_stat_values(Rest, SStats)];
+map_stat_values([send_cnt|Rest], #socket_stats{send_cnt = Cnt} = SStats) ->
+    [{send_cnt, Cnt}|map_stat_values(Rest, SStats)];
+map_stat_values([recv_oct|Rest], #socket_stats{recv_oct = Oct} = SStats) ->
+    [{recv_oct, Oct}|map_stat_values(Rest, SStats)];
+map_stat_values([send_oct|Rest], #socket_stats{send_oct = Oct} = SStats) ->
+    [{send_oct, Oct}|map_stat_values(Rest, SStats)];
+map_stat_values([recv_max|Rest], #socket_stats{recv_max = Max} = SStats) ->
+    [{recv_max, Max}|map_stat_values(Rest, SStats)];
+map_stat_values([send_max|Rest], #socket_stats{send_max = Max} = SStats) ->
+    [{send_max, Max}|map_stat_values(Rest, SStats)];
+map_stat_values([recv_avg|Rest], #socket_stats{recv_cnt = 0} = SStats) ->
+    [{recv_avg, 0}|map_stat_values(Rest, SStats)];
+map_stat_values([recv_avg|Rest], #socket_stats{recv_oct = Oct, recv_cnt = Cnt} = SStats) ->
+    [{recv_avg, Oct div Cnt}|map_stat_values(Rest, SStats)];
+map_stat_values([send_avg|Rest], #socket_stats{send_cnt = 0} = SStats) ->
+    [{send_avg, 0}|map_stat_values(Rest, SStats)];
+map_stat_values([send_avg|Rest], #socket_stats{send_oct = Oct, send_cnt = Cnt} = SStats) ->
+    [{send_avg, Oct div Cnt}|map_stat_values(Rest, SStats)];
+map_stat_values([Unknown|Rest], SStats) ->
+    % TODO: Maybe here we should fall back to transport getstat
+    [{Unknown, 0}|map_stat_values(Rest, SStats)];
+map_stat_values([], _SStats) ->
+    [].
 
 terminate_alert(Reason, Version, ConnectionStates) when Reason == normal;
 							Reason == user_close ->

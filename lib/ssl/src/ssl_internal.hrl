@@ -139,6 +139,17 @@
 		 connection_cb
 		}).
 
+-record(socket_stats,
+        {
+          recv_cnt = 0,
+          recv_oct = 0,
+          recv_max = 0,
+
+          send_cnt = 0,
+          send_oct = 0,
+          send_max = 0
+        }).
+
 
 -type state_name()           :: hello | abbreviated | certify | cipher | connection.
 -type gen_fsm_state_return() :: {next_state, state_name(), term()} |
