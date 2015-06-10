@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2001</year><year>2013</year>
+      <year>2001</year><year>2015</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -164,11 +164,6 @@
         type, then Rep(T) = <c><![CDATA[{op,LINE,Op,Rep(A)}]]></c>.</item>
        <item>If T is a fun type <c><![CDATA[fun()]]></c>, then Rep(T) =
         <c><![CDATA[{type,LINE,'fun',[]}]]></c>.</item>
-       <item>If T is a parenthesized type <c><![CDATA[( A )]]></c>, then
-        Rep(T) = <c><![CDATA[{paren_type,LINE,Rep(A)}]]></c>, i.e. parenthesized
-        types are distinguished from their bodies. It should be noted though
-        that parenthesized types that are immediate subtrees of operator
-        expressions and binary types are peeled off.</item>
        <item>If T is a variable <c><![CDATA[V]]></c>, then Rep(T) =
         <c><![CDATA[{var,LINE,A}]]></c>, where <c><![CDATA[A]]></c> is an atom
         with a printname consisting of the same characters as
@@ -180,7 +175,7 @@
         <c><![CDATA[{type,LINE,F,any}]]></c>.</item>
        <item>If T is a type <c><![CDATA[F(A_1, ..., A_k)]]></c>, where each
         <c><![CDATA[A_i]]></c> is a type, then Rep(T) =
-        <c><![CDATA[{type,LINE,F,[Rep(A_1), ..., Rep(A_k)]}]]></c>.</item>
+        <c><![CDATA[{user_type,LINE,F,[Rep(A_1), ..., Rep(A_k)]}]]></c>.</item>
        <item>If T is a remote type <c><![CDATA[M:F(A_1, ..., A_k)]]></c>, where
         each <c><![CDATA[A_i]]></c> is a type and <c><![CDATA[M]]></c> and
         <c><![CDATA[F]]></c>, then Rep(T) =
