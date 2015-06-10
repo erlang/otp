@@ -650,6 +650,27 @@ fun(srp, Username :: string(), UserState :: term()) ->
 
       The option <c>sni_fun</c>, and <c>sni_hosts</c> are mutually exclusive.</p></item>
 
+      <tag><c>{client_renegotiation, boolean()}</c></tag>
+      <item>In protocols that support client-initiated renegotiation, the cost
+      of resources of such an operation is higher for the server than the
+      client. This can act as a vector for denial of service attacks. The SSL
+      application already takes measures to counter-act such attempts,
+      but client-initiated renegotiation can be stricly disabled by setting
+      this option to <c>false</c>. The default value is <c>true</c>.
+      Note that disabling renegotiation can result in long-lived connections
+      becoming unusable due to limits on the number of messages the underlying
+      cipher suite can encipher.
+      </item>
+
+      <tag><c>{psk_identity, string()}</c></tag>
+      <item>Specifies the server identity hint the server presents to the client.
+      </item>
+      <tag><c>{log_alert, boolean()}</c></tag>
+      <item>If false, error reports will not be displayed.</item>
+      <tag><c>{honor_cipher_order, boolean()}</c></tag>
+      <item>If true, use the server's preference for cipher selection. If false
+      (the default), use the client's preference.
+      </item>
     </taglist>
   </section>
   

@@ -162,7 +162,8 @@ renegotiate_tests() ->
      client_no_wrap_sequence_number,
      server_no_wrap_sequence_number,
      renegotiate_dos_mitigate_active,
-     renegotiate_dos_mitigate_passive].
+     renegotiate_dos_mitigate_passive,
+     renegotiate_dos_mitigate_absolute].
 
 cipher_tests() ->
     [cipher_suites,
@@ -2998,8 +2999,36 @@ renegotiate_dos_mitigate_passive(Config) when is_list(Config) ->
     ssl_test_lib:close(Client).
 
 %%--------------------------------------------------------------------
+renegotiate_dos_mitigate_absolute() ->
+    [{doc, "Mitigate DOS computational attack by not allowing client to initiate renegotiation"}].
+renegotiate_dos_mitigate_absolute(Config) when is_list(Config) ->
+    ServerOpts = ?config(server_opts, Config),
+    ClientOpts = ?config(client_opts, Config),
+
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+
+    Server =
+	ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+				   {from, self()},
+				   {mfa, {ssl_test_lib, send_recv_result_active, []}},
+				   {options, [{client_renegotiation, false} | ServerOpts]}]),
+    Port = ssl_test_lib:inet_port(Server),
+
+    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
+					{host, Hostname},
+					{from, self()},
+					{mfa, {?MODULE,
+					       renegotiate_rejected,
+					       []}},
+					{options, ClientOpts}]),
+
+    ssl_test_lib:check_result(Client, ok, Server, ok),
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close(Client).
+
+%%--------------------------------------------------------------------
 tcp_error_propagation_in_active_mode() ->
-    [{doc,"Test that process recives {ssl_error, Socket, closed} when tcp error ocurres"}].
+    [{doc,"Test that process recives {ssl_error, Socket, closed} when tcp error occurs"}].
 tcp_error_propagation_in_active_mode(Config) when is_list(Config) ->
     ClientOpts = ?config(client_opts, Config),
     ServerOpts = ?config(server_opts, Config),
@@ -3433,12 +3462,12 @@ renegotiate_reuse_session(Socket, Data) ->
     renegotiate(Socket, Data).
 
 renegotiate_immediately(Socket) ->
-    receive 
+    receive
 	{ssl, Socket, "Hello world"} ->
 	    ok;
 	%% Handle 1/n-1 splitting countermeasure Rizzo/Duong-Beast
 	{ssl, Socket, "H"} ->
-	    receive 
+	    receive
 		{ssl, Socket, "ello world"} ->
 		    ok
 	    end
@@ -3450,6 +3479,26 @@ renegotiate_immediately(Socket) ->
     ct:log("Renegotiated again"),
     ssl:send(Socket, "Hello world"),
     ok.
+
+renegotiate_rejected(Socket) ->
+    receive
+	{ssl, Socket, "Hello world"} ->
+	    ok;
+	%% Handle 1/n-1 splitting countermeasure Rizzo/Duong-Beast
+	{ssl, Socket, "H"} ->
+	    receive
+		{ssl, Socket, "ello world"} ->
+		    ok
+	    end
+    end,
+    {error, renegotiation_rejected} = ssl:renegotiate(Socket),
+    {error, renegotiation_rejected} = ssl:renegotiate(Socket),
+    ct:sleep(?RENEGOTIATION_DISABLE_TIME +1),
+    {error, renegotiation_rejected} = ssl:renegotiate(Socket),
+    ct:log("Failed to renegotiate again"),
+    ssl:send(Socket, "Hello world"),
+    ok.
+
     
 new_config(PrivDir, ServerOpts0) ->
     CaCertFile = proplists:get_value(cacertfile, ServerOpts0),
