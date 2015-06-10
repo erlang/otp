@@ -2031,10 +2031,12 @@ erl_start(int argc, char **argv)
 		if (sys_strcmp(arg, "infinity") == 0)
 		    secs = ERTS_NODE_TAB_DELAY_GC_INFINITY;
 		else {
+		    char *endptr;
 		    errno = 0;
-		    secs = strtol(arg, NULL, 10);
-		    if (errno != 0 || secs < 0 || ERTS_NODE_TAB_DELAY_GC_MAX < secs) {
-			erts_fprintf(stderr, "Invalid delayed node table gc: %ld\n", secs);
+		    secs = strtol(arg, &endptr, 10);
+		    if (errno != 0 || *arg == '\0' || *endptr != '\0'
+			|| secs < 0 || ERTS_NODE_TAB_DELAY_GC_MAX < secs) {
+			erts_fprintf(stderr, "Invalid delayed node table gc: %s\n", arg);
 			erts_usage();
 		    }
 		}
