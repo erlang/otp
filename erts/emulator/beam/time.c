@@ -529,6 +529,9 @@ erts_create_timer_wheel(ErtsSchedulerData *esdp)
     tiw->next_timeout_time = mtime + ERTS_MONOTONIC_DAY;
     tiw->sentinel.next = &tiw->sentinel;
     tiw->sentinel.prev = &tiw->sentinel;
+    tiw->sentinel.u.func.timeout = NULL;
+    tiw->sentinel.u.func.cancel = NULL;
+    tiw->sentinel.u.func.arg = NULL;
     return tiw;
 }
 
@@ -621,6 +624,41 @@ erts_twheel_cancel_timer(ErtsTimerWheel *tiw, ErtsTWheelTimer *p)
 	arg = p->u.func.arg;
 	if (cancel)
 	    (*cancel)(arg);
+    }
+}
+
+void
+erts_twheel_debug_foreach(ErtsTimerWheel *tiw,
+			  void (*tclbk)(void *),
+			  void (*func)(void *,
+				       ErtsMonotonicTime,
+				       void *),
+			  void *arg)
+{
+    ErtsTWheelTimer *tmr;
+    int ix;
+
+    tmr = tiw->sentinel.next;
+    while (tmr != &tiw->sentinel) {
+	if (tmr->u.func.timeout == tclbk)
+	    (*func)(arg, tmr->timeout_pos, tmr->u.func.arg);
+	tmr = tmr->next;
+    }
+
+    for (tmr = tiw->at_once.head; tmr; tmr = tmr->next) {
+	if (tmr->u.func.timeout == tclbk)
+	    (*func)(arg, tmr->timeout_pos, tmr->u.func.arg);
+    }
+
+    for (ix = 0; ix < ERTS_TIW_SIZE; ix++) {
+	tmr = tiw->w[ix];
+	if (tmr) {
+	    do {
+		if (tmr->u.func.timeout == tclbk)
+		    (*func)(arg, tmr->timeout_pos, tmr->u.func.arg);
+		tmr = tmr->next;
+	    } while (tmr != tiw->w[ix]);
+	}
     }
 }
 

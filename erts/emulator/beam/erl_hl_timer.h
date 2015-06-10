@@ -59,7 +59,9 @@ int erts_cancel_bif_timers(Process *, ErtsBifTimers *, void **);
 int erts_detach_accessor_bif_timers(Process *, ErtsBifTimers *, void **);
 ErtsHLTimerService *erts_create_timer_service(void);
 void erts_hl_timer_init(void);
-
+void erts_start_timer_callback(ErtsMonotonicTime,
+			       void (*)(void *),
+			       void *);
 #ifdef ERTS_SMP
 void
 erts_handle_canceled_timers(void *vesdp,
@@ -76,5 +78,10 @@ void erts_debug_bif_timer_foreach(void (*func)(Eterm,
 					       ErlHeapFragment *,
 					       void *),
 				  void *arg);
-
+void
+erts_debug_callback_timer_foreach(void (*tclbk)(void *),
+				  void (*func)(void *,
+					       ErtsMonotonicTime,
+					       void *),
+				  void *arg);
 #endif /* ERL_HL_TIMER_H__ */

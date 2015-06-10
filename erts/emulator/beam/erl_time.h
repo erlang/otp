@@ -453,4 +453,12 @@ ERTS_GLB_INLINE ErtsMonotonicTime erts_next_timeout_time(ErtsNextTimeoutRef nxt_
 
 #endif /* ERTS_GLB_INLINE_INCL_FUNC_DEF */
 
+void
+erts_twheel_debug_foreach(ErtsTimerWheel *tiw,
+			  void (*tclbk)(void *),
+			  void (*func)(void *,
+				       ErtsMonotonicTime,
+				       void *),
+			  void *arg);
+
 #endif /* timer wheel api */
