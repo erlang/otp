@@ -2522,7 +2522,7 @@ info_dist_entry(int to, void *arg, DistEntry *dep, int visible, int connected)
 
   erts_print(to, arg, "Name: %T", dep->sysname);
 #ifdef DEBUG
-  erts_print(to, arg, " (refc=%d)", erts_refc_read(&dep->refc, 1));
+  erts_print(to, arg, " (refc=%d)", erts_refc_read(&dep->refc, 0));
 #endif
   erts_print(to, arg, "\n");
   if (!connected && is_nil(dep->cid)) {

@@ -141,7 +141,8 @@ static void erl_init(int ncpu,
 		     int port_tab_sz_ignore_files,
 		     int legacy_port_tab,
 		     int time_correction,
-		     ErtsTimeWarpMode time_warp_mode);
+		     ErtsTimeWarpMode time_warp_mode,
+		     int node_tab_delete_delay);
 
 static erts_atomic_t exiting;
 
@@ -314,7 +315,8 @@ erts_short_init(void)
 	     0,
 	     0,
 	     time_correction,
-	     time_warp_mode);
+	     time_warp_mode,
+	     ERTS_NODE_TAB_DELAY_GC_DEFAULT);
     erts_initialized = 1;
 }
 
@@ -326,7 +328,8 @@ erl_init(int ncpu,
 	 int port_tab_sz_ignore_files,
 	 int legacy_port_tab,
 	 int time_correction,
-	 ErtsTimeWarpMode time_warp_mode)
+	 ErtsTimeWarpMode time_warp_mode,
+	 int node_tab_delete_delay)
 {
     init_benchmarking();
 
@@ -367,7 +370,7 @@ erl_init(int ncpu,
     erts_init_binary(); /* Must be after init_emulator() */
     erts_bp_init();
     init_db(); /* Must be after init_emulator */
-    erts_init_node_tables();
+    erts_init_node_tables(node_tab_delete_delay);
     init_dist();
     erl_drv_thr_init();
     erts_init_async();
@@ -629,6 +632,9 @@ void erts_usage(void)
     erts_fprintf(stderr, "               see error_logger documentation for details\n");
     erts_fprintf(stderr, "-zdbbl size    set the distribution buffer busy limit in kilobytes\n");
     erts_fprintf(stderr, "               valid range is [1-%d]\n", INT_MAX/1024);
+    erts_fprintf(stderr, "-zdntgc time   set delayed node table gc in seconds\n");
+    erts_fprintf(stderr, "               valid values are infinity or intergers in the range [0-%d]\n",
+		 ERTS_NODE_TAB_DELAY_GC_MAX);
     erts_fprintf(stderr, "\n");
     erts_fprintf(stderr, "Note that if the emulator is started with erlexec (typically\n");
     erts_fprintf(stderr, "from the erl script), these flags should be specified with +.\n");
@@ -1219,6 +1225,7 @@ erl_start(int argc, char **argv)
     int legacy_port_tab = 0;
     int time_correction;
     ErtsTimeWarpMode time_warp_mode;
+    int node_tab_delete_delay = ERTS_NODE_TAB_DELAY_GC_DEFAULT;
 
     set_default_time_adj(&time_correction,
 			 &time_warp_mode);
@@ -2005,9 +2012,9 @@ erl_start(int argc, char **argv)
 
 	case 'z': {
 	    char *sub_param = argv[i]+2;
-	    int new_limit;
 
 	    if (has_prefix("dbbl", sub_param)) {
+		int new_limit;
 		arg = get_arg(sub_param+4, argv[i+1], &i);
 		new_limit = atoi(arg);
 		if (new_limit < 1 || INT_MAX/1024 < new_limit) {
@@ -2016,6 +2023,22 @@ erl_start(int argc, char **argv)
 		} else {
 		    erts_dist_buf_busy_limit = new_limit*1024;
 		}
+	    }
+	    else if (has_prefix("dntgc", sub_param)) {
+		long secs;
+
+		arg = get_arg(sub_param+5, argv[i+1], &i);
+		if (sys_strcmp(arg, "infinity") == 0)
+		    secs = ERTS_NODE_TAB_DELAY_GC_INFINITY;
+		else {
+		    errno = 0;
+		    secs = strtol(arg, NULL, 10);
+		    if (errno != 0 || secs < 0 || ERTS_NODE_TAB_DELAY_GC_MAX < secs) {
+			erts_fprintf(stderr, "Invalid delayed node table gc: %ld\n", secs);
+			erts_usage();
+		    }
+		}
+		node_tab_delete_delay = (int) secs;
 	    } else {
 		erts_fprintf(stderr, "bad -z option %s\n", argv[i]);
 		erts_usage();
@@ -2089,7 +2112,8 @@ erl_start(int argc, char **argv)
 	     port_tab_sz_ignore_files,
 	     legacy_port_tab,
 	     time_correction,
-	     time_warp_mode);
+	     time_warp_mode,
+	     node_tab_delete_delay);
 
     load_preloaded();
     erts_end_staging_code_ix();

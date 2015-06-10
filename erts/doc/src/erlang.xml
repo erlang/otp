@@ -6222,6 +6222,7 @@ ok
       <name name="system_info" arity="1" clause_i="64"/>
       <name name="system_info" arity="1" clause_i="65"/>
       <name name="system_info" arity="1" clause_i="66"/>
+      <name name="system_info" arity="1" clause_i="67"/>
       <fsummary>Information about the system</fsummary>
       <desc>
         <p>Returns various information about the current system
@@ -6290,6 +6291,15 @@ ok
             <p>Returns <c>true</c> if the emulator has been debug
 	       compiled; otherwise, <c>false</c>.
 	    </p>
+          </item>
+          <tag><marker id="system_info_delayed_node_table_gc"><c>delayed_node_table_gc</c></marker></tag>
+          <item>
+            <p>Returns the amount of time in seconds that garbage collection
+	    of an entry in a node table will be delayed. This limit can be set
+	    on startup by passing the
+	    <seealso marker="erts:erl#+zdntgc">+zdntgc</seealso> command line
+	    flag to <c>erl</c>. For more information see the documentation of the
+	    command line flag.</p>
           </item>
           <tag><marker id="system_info_dirty_cpu_schedulers"><c>dirty_cpu_schedulers</c></marker></tag>
           <item>

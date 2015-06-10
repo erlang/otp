@@ -2687,6 +2687,15 @@ BIF_RETTYPE system_info_1(BIF_ALIST_1)
 	hp = hsz ? HAlloc(BIF_P, hsz) : NULL;
 	res = erts_bld_uint(&hp, NULL, erts_dist_buf_busy_limit);
 	BIF_RET(res);
+    } else if (ERTS_IS_ATOM_STR("delayed_node_table_gc", BIF_ARG_1)) {
+	Uint hsz = 0;
+	Uint dntgc = erts_delayed_node_table_gc();
+	if (dntgc == ERTS_NODE_TAB_DELAY_GC_INFINITY)
+	    BIF_RET(am_infinity);
+ 	(void) erts_bld_uint(NULL, &hsz, dntgc);
+	hp = hsz ? HAlloc(BIF_P, hsz) : NULL;
+	res = erts_bld_uint(&hp, NULL, dntgc);
+	BIF_RET(res);
     } else if (ERTS_IS_ATOM_STR("ethread_info", BIF_ARG_1)) {
 	BIF_RET(erts_get_ethread_info(BIF_P));
     }
@@ -4068,6 +4077,17 @@ BIF_RETTYPE erts_debug_set_internal_state_2(BIF_ALIST_2)
 	else if (ERTS_IS_ATOM_STR("unique_monotonic_integer_state", BIF_ARG_1)) {
 	    int res = erts_debug_set_unique_monotonic_integer_state(BIF_ARG_2);
 	    BIF_RET(res ? am_true : am_false);
+	}
+	else if (ERTS_IS_ATOM_STR("node_tab_delayed_delete", BIF_ARG_1)) {
+	    /* node_container_SUITE */
+	    Sint64 msecs;
+	    if (term_to_Sint64(BIF_ARG_2, &msecs)) {
+		/* Negative value restore original value... */
+		erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
+		erts_debug_test_node_tab_delayed_delete(msecs);
+		erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
+		BIF_RET(am_ok);
+	    }
 	}
     }
 

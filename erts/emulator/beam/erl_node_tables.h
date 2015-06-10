@@ -46,6 +46,10 @@
 #define ERTS_PORT_TASK_ONLY_BASIC_TYPES__
 #include "erl_port_task.h"
 #undef ERTS_PORT_TASK_ONLY_BASIC_TYPES__
+
+#define ERTS_NODE_TAB_DELAY_GC_DEFAULT (60)
+#define ERTS_NODE_TAB_DELAY_GC_MAX (100*1000*1000)
+#define ERTS_NODE_TAB_DELAY_GC_INFINITY (ERTS_NODE_TAB_DELAY_GC_MAX+1)
  
 #define ERST_INTERNAL_CHANNEL_NO 0
 
@@ -166,20 +170,21 @@ extern DistEntry *erts_this_dist_entry;
 extern ErlNode *erts_this_node;
 extern char *erts_this_node_sysname; /* must match erl_node_tables.c */
 
+Uint erts_delayed_node_table_gc(void);
 DistEntry *erts_channel_no_to_dist_entry(Uint);
 DistEntry *erts_sysname_to_connected_dist_entry(Eterm);
 DistEntry *erts_find_or_insert_dist_entry(Eterm);
 DistEntry *erts_find_dist_entry(Eterm);
-void erts_delete_dist_entry(DistEntry *);
+void erts_schedule_delete_dist_entry(DistEntry *);
 Uint erts_dist_table_size(void);
 void erts_dist_table_info(int, void *);
 void erts_set_dist_entry_not_connected(DistEntry *);
 void erts_set_dist_entry_connected(DistEntry *, Eterm, Uint);
 ErlNode *erts_find_or_insert_node(Eterm, Uint);
-void erts_delete_node(ErlNode *);
+void erts_schedule_delete_node(ErlNode *);
 void erts_set_this_node(Eterm, Uint);
 Uint erts_node_table_size(void);
-void erts_init_node_tables(void);
+void erts_init_node_tables(int);
 void erts_node_table_info(int, void *);
 void erts_print_node_info(int, void *, Eterm, int*, int*);
 Eterm erts_get_node_and_dist_references(struct process *);
@@ -204,7 +209,7 @@ erts_deref_dist_entry(DistEntry *dep)
 {
     ASSERT(dep);
     if (erts_refc_dectest(&dep->refc, 0) == 0)
-	erts_delete_dist_entry(dep);
+	erts_schedule_delete_dist_entry(dep);
 }
 
 ERTS_GLB_INLINE void
@@ -212,7 +217,7 @@ erts_deref_node_entry(ErlNode *np)
 {
     ASSERT(np);
     if (erts_refc_dectest(&np->refc, 0) == 0)
-	erts_delete_node(np);
+	erts_schedule_delete_node(np);
 }
 
 ERTS_GLB_INLINE void
@@ -253,5 +258,6 @@ erts_smp_de_links_unlock(DistEntry *dep)
 
 #endif /* #if ERTS_GLB_INLINE_INCL_FUNC_DEF */
 
+void erts_debug_test_node_tab_delayed_delete(Sint64 millisecs);
 
 #endif
