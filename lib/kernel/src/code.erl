@@ -339,7 +339,8 @@ do_start(Flags) ->
 			    ok
 		    end,
 		    %% Quietly load native code for all modules loaded so far
-		    load_native_code_for_all_loaded(),
+                    Architecture = erlang:system_info(hipe_architecture),
+		    load_native_code_for_all_loaded(Architecture),
 		    Ok2;
 		Other ->
 		    Other
@@ -554,9 +555,9 @@ has_ext(Ext, Extlen, File) ->
 %%% Silently load native code for all modules loaded so far.
 %%%
 
--spec load_native_code_for_all_loaded() -> ok.
-load_native_code_for_all_loaded() ->
-    Architecture = erlang:system_info(hipe_architecture),
+load_native_code_for_all_loaded(undefined) ->
+    ok;
+load_native_code_for_all_loaded(Architecture) ->
     try hipe_unified_loader:chunk_name(Architecture) of
 	ChunkTag ->
 	    Loaded = all_loaded(),

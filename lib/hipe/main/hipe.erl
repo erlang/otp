@@ -649,8 +649,9 @@ run_compiler_1(DisasmFun, IcodeFun, Options) ->
 			    %% The full option expansion is not done
 			    %% until the DisasmFun returns.
 			    {Code, CompOpts} = DisasmFun(Options),
-			    Opts0 = expand_options(Options ++ CompOpts),
-                           Opts =
+			    Opts0 = expand_options(Options ++ CompOpts,
+                                                   get(hipe_target_arch)),
+                            Opts =
                              case proplists:get_bool(to_llvm, Opts0) andalso
                                  not llvm_support_available() of
                                true ->
@@ -895,8 +896,7 @@ do_load(Mod, Bin, BeamBinOrPath) when is_binary(BeamBinOrPath);
       code:load_native_sticky(Mod, Bin, Beam);
     false ->
       %% Normal loading of a whole module
-      Architecture = erlang:system_info(hipe_architecture),
-      ChunkName = hipe_unified_loader:chunk_name(Architecture),
+      ChunkName = hipe_unified_loader:chunk_name(HostArch),
       {ok, _, Chunks0} = beam_lib:all_chunks(BeamBinOrPath),
       Chunks = [{ChunkName, Bin}|lists:keydelete(ChunkName, 1, Chunks0)],
       {ok, BeamPlusNative} = beam_lib:build_module(Chunks),
@@ -933,9 +933,9 @@ assemble(CompiledCode, Closures, Exports, Options) ->
 %% but can be overridden by passing an option {target, Target}.
 
 set_architecture(Options) ->
-  put(hipe_host_arch, erlang:system_info(hipe_architecture)),
-  put(hipe_target_arch,
-      proplists:get_value(target, Options, get(hipe_host_arch))),
+  HostArch = erlang:system_info(hipe_architecture),
+  put(hipe_host_arch, HostArch),
+  put(hipe_target_arch, proplists:get_value(target, Options, HostArch)),
   ok.
 
 %% This sets up some globally accessed stuff that are needed by the
@@ -943,7 +943,7 @@ set_architecture(Options) ->
 %% Therefore, this expands the current set of options for local use.
 
 pre_init(Opts) ->
-  Options = expand_options(Opts),
+  Options = expand_options(Opts, get(hipe_target_arch)),
   %% Initialise some counters used for measurements and benchmarking. If
   %% the option 'measure_regalloc' is given the compilation will return
   %% a keylist with the counter values.
@@ -1105,10 +1105,10 @@ help_hiper() ->
 -spec help_options() -> 'ok'.
 
 help_options() ->
-  set_architecture([]), %% needed for target-specific option expansion
-  O1 = expand_options([o1]),
-  O2 = expand_options([o2]),
-  O3 = expand_options([o3]),
+  HostArch = erlang:system_info(hipe_architecture),
+  O1 = expand_options([o1], HostArch),
+  O2 = expand_options([o2], HostArch),
+  O3 = expand_options([o3], HostArch),
   io:format("HiPE Compiler Options\n" ++
 	    " Boolean-valued options generally have corresponding " ++
 	    "aliases `no_...',\n" ++
@@ -1134,7 +1134,7 @@ help_options() ->
 	    [ordsets:from_list([verbose, debug, time, load, pp_beam,
 				pp_icode, pp_rtl, pp_native, pp_asm,
 				timeout]),
-	     expand_options([pp_all]),
+	     expand_options([pp_all], HostArch),
 	     O1 -- [o1],
 	     (O2 -- O1) -- [o2],
 	     (O3 -- O2) -- [o3]]),
@@ -1232,8 +1232,8 @@ option_text(Opt) when is_atom(Opt) ->
 -spec help_option(comp_option()) -> 'ok'.
 
 help_option(Opt) ->
-  set_architecture([]), %% needed for target-specific option expansion
-  case expand_options([Opt]) of
+  HostArch = erlang:system_info(hipe_architecture),
+  case expand_options([Opt], HostArch) of
     [Opt] ->
       Name = if is_atom(Opt) -> Opt;
 		tuple_size(Opt) =:= 2 -> element(1, Opt)
@@ -1364,11 +1364,11 @@ opt_keys() ->
      %% verbose_spills,
      x87].
 
-%% Definitions: 
+%% Definitions:
 
-o1_opts() ->
+o1_opts(TargetArch) ->
   Common = [inline_fp, pmatch, peephole],
-  case get(hipe_target_arch) of
+  case TargetArch of
     ultrasparc ->
       Common;
     powerpc ->
@@ -1385,13 +1385,13 @@ o1_opts() ->
       ?EXIT({executing_on_an_unsupported_architecture,Arch})
   end.
 
-o2_opts() ->
+o2_opts(TargetArch) ->
   Common = [icode_ssa_const_prop, icode_ssa_copy_prop, % icode_ssa_struct_reuse,
 	    icode_type, icode_inline_bifs, rtl_lcm,
 	    rtl_ssa, rtl_ssa_const_prop,
-	    spillmin_color, use_indexing, remove_comments, 
-	    concurrent_comp, binary_opt | o1_opts()],
-  case get(hipe_target_arch) of
+	    spillmin_color, use_indexing, remove_comments,
+	    concurrent_comp, binary_opt | o1_opts(TargetArch)],
+  case TargetArch of
     ultrasparc ->
       Common;
     powerpc ->
@@ -1409,9 +1409,9 @@ o2_opts() ->
       ?EXIT({executing_on_an_unsupported_architecture,Arch})
   end.
 
-o3_opts() ->
-  Common = [icode_range, {regalloc,coalescing} | o2_opts()],
-  case get(hipe_target_arch) of
+o3_opts(TargetArch) ->
+  Common = [icode_range, {regalloc,coalescing} | o2_opts(TargetArch)],
+  case TargetArch of
     ultrasparc ->
       Common;
     powerpc ->
@@ -1489,18 +1489,18 @@ opt_aliases() ->
 opt_basic_expansions() ->
   [{pp_all, [pp_beam, pp_icode, pp_rtl, pp_native]}].
 
-opt_expansions() ->
-  [{o1, o1_opts()},
-   {o2, o2_opts()},
-   {o3, o3_opts()},
+opt_expansions(TargetArch) ->
+  [{o1, o1_opts(TargetArch)},
+   {o2, o2_opts(TargetArch)},
+   {o3, o3_opts(TargetArch)},
    {to_llvm, llvm_opts(o3)},
    {{to_llvm, o0}, llvm_opts(o0)},
    {{to_llvm, o1}, llvm_opts(o1)},
    {{to_llvm, o2}, llvm_opts(o2)},
    {{to_llvm, o3}, llvm_opts(o3)},
    {x87, [x87, inline_fp]},
-   {inline_fp, case get(hipe_target_arch) of %% XXX: Temporary until x86
-		 x86 -> [x87, inline_fp];    %%       has sse2
+   {inline_fp, case TargetArch of  %% XXX: Temporary until x86 has sse2
+		 x86 -> [x87, inline_fp];
 		 _ -> [inline_fp] end}].
 
 llvm_opts(O) ->
@@ -1523,18 +1523,18 @@ expand_kt2(Opts) ->
 					[{use_callgraph, fixpoint}, core, 
 					 {core_transform, cerl_typean}]}]}]).
 
-%% Note that set_architecture/1 must be called first, and that the given
+%% Note that the given
 %% list should contain the total set of options, since things like 'o2'
 %% are expanded here. Basic expansions are processed here also, since
 %% this function is called from the help functions.
 
--spec expand_options(comp_options()) -> comp_options().
+-spec expand_options(comp_options(), hipe_architecture()) -> comp_options().
 
-expand_options(Opts) ->
+expand_options(Opts, TargetArch) ->
   proplists:normalize(Opts, [{negations, opt_negations()},
 			     {aliases, opt_aliases()},
 			     {expand, opt_basic_expansions()},
-			     {expand, opt_expansions()}]).
+			     {expand, opt_expansions(TargetArch)}]).
 
 -spec check_options(comp_options()) -> 'ok'.
 
