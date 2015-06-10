@@ -128,8 +128,10 @@
 	  user,
 	  service,
 	  userauth_quiet_mode,              %  boolean()
-	  userauth_supported_methods , %  
-	  userauth_methods,
+	  userauth_supported_methods,       %  string() eg "keyboard-interactive,password"
+	  userauth_methods,                 %  list( string() )  eg ["keyboard-interactive", "password"]
+	  kb_tries_left = 0,                %  integer(), num tries left for "keyboard-interactive"
+	  kb_data,
 	  userauth_preference,
 	  available_host_keys,
 	  authenticated = false

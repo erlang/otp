@@ -483,17 +483,22 @@ userauth(#ssh_msg_userauth_request{service = "ssh-connection",
 				  service = "ssh-connection",
 				  peer = {_, Address}} = Ssh0,
 		opts = Opts, starter = Pid} = State) ->
-    case ssh_auth:handle_userauth_request(Msg, SessionId, Ssh0) of
-	{authorized, User, {Reply, Ssh}} ->
-	    send_msg(Reply, State),
-	    Pid ! ssh_connected,
-	    connected_fun(User, Address, Method, Opts),
-	    {next_state, connected, 
-	     next_packet(State#state{auth_user = User, ssh_params = Ssh})};
-	{not_authorized, {User, Reason}, {Reply, Ssh}} ->
-	    retry_fun(User, Address, Reason, Opts),
-	    send_msg(Reply, State),
-	    {next_state, userauth, next_packet(State#state{ssh_params = Ssh})} 
+    case lists:member(Method, Ssh0#ssh.userauth_methods) of
+	true ->
+	    case ssh_auth:handle_userauth_request(Msg, SessionId, Ssh0) of
+		{authorized, User, {Reply, Ssh}} ->
+		    send_msg(Reply, State),
+		    Pid ! ssh_connected,
+		    connected_fun(User, Address, Method, Opts),
+		    {next_state, connected, 
+		     next_packet(State#state{auth_user = User, ssh_params = Ssh})};
+		{not_authorized, {User, Reason}, {Reply, Ssh}} ->
+		    retry_fun(User, Address, Reason, Opts),
+		    send_msg(Reply, State),
+		    {next_state, userauth, next_packet(State#state{ssh_params = Ssh})} 
+	    end;
+	false ->
+	    userauth(Msg#ssh_msg_userauth_request{method="none"}, State)
     end;
 
 userauth(#ssh_msg_userauth_info_request{} = Msg, 
@@ -1148,9 +1153,9 @@ init_ssh(client = Role, Vsn, Version, Options, Socket) ->
 	};
 
 init_ssh(server = Role, Vsn, Version, Options, Socket) ->
-
     AuthMethods = proplists:get_value(auth_methods, Options, 
 				      ?SUPPORTED_AUTH_METHODS),
+    AuthMethodsAsList = string:tokens(AuthMethods, ","),
     {ok, PeerAddr} = inet:peername(Socket),
     KeyCb =  proplists:get_value(key_cb, Options, ssh_file),
 
@@ -1161,6 +1166,8 @@ init_ssh(server = Role, Vsn, Version, Options, Socket) ->
 	 io_cb = proplists:get_value(io_cb, Options, ssh_io),
 	 opts = Options,
 	 userauth_supported_methods = AuthMethods,
+	 userauth_methods = AuthMethodsAsList,
+	 kb_tries_left = 3,
 	 peer = {undefined, PeerAddr},
 	 available_host_keys = supported_host_keys(Role, KeyCb, Options)
 	 }.
