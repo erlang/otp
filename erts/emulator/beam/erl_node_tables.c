@@ -556,14 +556,14 @@ erts_node_table_size(void)
 #endif
     int lock = !ERTS_IS_CRASH_DUMPING;
     if (lock)
-	erts_smp_rwmtx_rwlock(&erts_node_table_rwmtx);
+	erts_smp_rwmtx_rlock(&erts_node_table_rwmtx);
 #ifdef DEBUG
     hash_get_info(&hi, &erts_node_table);
     ASSERT(node_entries == hi.objs);
 #endif
     res = hash_table_sz(&erts_node_table) + node_entries*sizeof(ErlNode);
     if (lock)
-	erts_smp_rwmtx_rwunlock(&erts_node_table_rwmtx);
+	erts_smp_rwmtx_runlock(&erts_node_table_rwmtx);
     return res;
 }
 
@@ -572,10 +572,10 @@ erts_node_table_info(int to, void *to_arg)
 {
     int lock = !ERTS_IS_CRASH_DUMPING;
     if (lock)
-	erts_smp_rwmtx_rwlock(&erts_node_table_rwmtx);
+	erts_smp_rwmtx_rlock(&erts_node_table_rwmtx);
     hash_info(to, to_arg, &erts_node_table);
     if (lock)
-	erts_smp_rwmtx_rwunlock(&erts_node_table_rwmtx);
+	erts_smp_rwmtx_runlock(&erts_node_table_rwmtx);
 }
 
 
@@ -674,13 +674,13 @@ void erts_print_node_info(int to,
     pnd.no_total = 0;
 
     if (lock)
-	erts_smp_rwmtx_rwlock(&erts_node_table_rwmtx);
+	erts_smp_rwmtx_rlock(&erts_node_table_rwmtx);
     hash_foreach(&erts_node_table, print_node, (void *) &pnd);
     if (pnd.no_sysname != 0) {
 	erts_print(to, to_arg, "\n");
     }
     if (lock)
-	erts_smp_rwmtx_rwunlock(&erts_node_table_rwmtx);
+	erts_smp_rwmtx_runlock(&erts_node_table_rwmtx);
 
     if(no_sysname)
 	*no_sysname = pnd.no_sysname;
