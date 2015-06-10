@@ -1017,14 +1017,24 @@ load_compiled([{Module,File,Binary,InitialTable}|Compiled],Acc) ->
     %% Make sure the #bump{} records are available *before* the
     %% module is loaded.
     insert_initial_data(InitialTable),
-    NewAcc = 
-	case code:load_binary(Module, ?TAG, Binary) of
-	    {module,Module} ->
-		add_compiled(Module, File, Acc);
-	    _  ->
-                do_clear(Module),
-		Acc
-	end,
+    Sticky = case code:is_sticky(Module) of
+                 true ->
+                     code:unstick_mod(Module),
+                     true;
+                 false ->
+                     false
+             end,
+    NewAcc = case code:load_binary(Module, ?TAG, Binary) of
+                 {module,Module} ->
+                     add_compiled(Module, File, Acc);
+                 _  ->
+                     do_clear(Module),
+                     Acc
+             end,
+    case Sticky of
+        true -> code:stick_mod(Module);
+        false -> ok
+    end,
     load_compiled(Compiled,NewAcc);
 load_compiled([],Acc) ->
     Acc.
