@@ -989,15 +989,38 @@ handle_info({check_cache, _ , _},
 		       #connection{channel_cache = Cache}} = State) ->
     {next_state, StateName, check_cache(State, Cache)};
 
-handle_info(UnexpectedMessage, StateName, #state{ssh_params = SshParams} = State) ->
-    Msg = lists:flatten(io_lib:format(
-           "Unexpected message '~p' received in state '~p'\n"
-           "Role: ~p\n"
-           "Peer: ~p\n"
-           "Local Address: ~p\n", [UnexpectedMessage, StateName,
-               SshParams#ssh.role, SshParams#ssh.peer,
-               proplists:get_value(address, SshParams#ssh.opts)])),
-    error_logger:info_report(Msg),
+handle_info(UnexpectedMessage, StateName, #state{opts = Opts,
+						 ssh_params = SshParams} = State) ->
+    case unexpected_fun(UnexpectedMessage, Opts, SshParams) of
+	report ->
+	    Msg = lists:flatten(
+		    io_lib:format(
+		      "Unexpected message '~p' received in state '~p'\n"
+		      "Role: ~p\n"
+		      "Peer: ~p\n"
+		      "Local Address: ~p\n", [UnexpectedMessage, StateName,
+					      SshParams#ssh.role, SshParams#ssh.peer,
+					      proplists:get_value(address, SshParams#ssh.opts)])),
+	    error_logger:info_report(Msg);
+
+	skip ->
+	    ok;
+
+	Other ->
+	    Msg = lists:flatten(
+		    io_lib:format("Call to fun in 'unexpectedfun' failed:~n"
+				  "Return: ~p\n"
+				  "Message: ~p\n"
+				  "Role: ~p\n"
+				  "Peer: ~p\n"
+				  "Local Address: ~p\n", [Other, UnexpectedMessage, 
+							  SshParams#ssh.role, 
+							  element(2,SshParams#ssh.peer),
+							  proplists:get_value(address, SshParams#ssh.opts)]
+				 )),
+
+	    error_logger:error_report(Msg)
+    end,
     {next_state, StateName, State}.
 
 %%--------------------------------------------------------------------
@@ -1712,6 +1735,15 @@ disconnect_fun(Reason, Opts) ->
 	Fun ->
 	    catch Fun(Reason)
      end.
+
+unexpected_fun(UnexpectedMessage, Opts, #ssh{peer={_,Peer}}) ->
+    case proplists:get_value(unexpectedfun, Opts) of
+	undefined ->
+	    report;
+	Fun ->
+	    catch Fun(UnexpectedMessage, Peer) 
+    end.
+
 
 check_cache(#state{opts = Opts} = State, Cache) ->
     %% Check the number of entries in Cache

@@ -180,6 +180,14 @@
 	    <p>Provides a fun to implement your own logging when a server disconnects the client.</p>
 	  </item>
 
+	  <tag><c><![CDATA[{unexpectedfun, fun(Message:term(), Peer) -> report | skip }]]></c></tag>
+	  <item>
+	    <p>Provides a fun to implement your own logging or other action when an unexpected message arrives.
+	    If the fun returns <c>report</c> the usual info report is issued but if <c>skip</c> is returned no
+	    report is generated.</p>
+	    <p><c>Peer</c> is in the format of <c>{Host,Port}</c>.</p>
+	  </item>
+
 	  <tag><c><![CDATA[{public_key_alg, 'ssh-rsa' | 'ssh-dss'}]]></c></tag>
 	  <item>
 	    <note>
@@ -544,6 +552,14 @@ kex is implicit but public_key is set explicitly.</p>
 	  <tag><c><![CDATA[{disconnectfun, fun(Reason:term()) -> _}]]></c></tag>
 	  <item>
 	    <p>Provides a fun to implement your own logging when a user disconnects from the server.</p>
+	  </item>
+
+	  <tag><c><![CDATA[{unexpectedfun, fun(Message:term(), Peer) -> report | skip }]]></c></tag>
+	  <item>
+	    <p>Provides a fun to implement your own logging or other action when an unexpected message arrives.
+	    If the fun returns <c>report</c> the usual info report is issued but if <c>skip</c> is returned no
+	    report is generated.</p>
+	    <p><c>Peer</c> is in the format of <c>{Host,Port}</c>.</p>
 	  </item>
 
 	  <tag><c><![CDATA[{ssh_msg_debug_fun, fun(ConnectionRef::ssh_connection_ref(), AlwaysDisplay::boolean(), Msg::binary(), LanguageTag::binary()) -> _}]]></c></tag>
