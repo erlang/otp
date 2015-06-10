@@ -212,7 +212,7 @@ load("Alias " ++ Alias, []) ->
 	{ok, [FakeName, RealName]} ->
 	    {ok,[],{alias,{FakeName,RealName}}};
 	{ok, _} ->
-	    {error,?NICE(httpd_conf:clean(Alias)++" is an invalid Alias")}
+	    {error,?NICE(string:strip(Alias)++" is an invalid Alias")}
     end;
 load("ReWrite " ++ Rule, Acc) ->
     load_re_write(Rule, Acc, "ReWrite", re_write);
@@ -223,7 +223,7 @@ load("ScriptAlias " ++ ScriptAlias, []) ->
 	    RealName1 = filename:join(filename:split(RealName)),
 	    {ok, [], {script_alias, {FakeName, RealName1++"/"}}};
 	{ok, _} ->
-	    {error, ?NICE(httpd_conf:clean(ScriptAlias)++
+	    {error, ?NICE(string:strip(ScriptAlias)++
 			  " is an invalid ScriptAlias")}
     end;
 load("ScriptReWrite " ++ Rule, Acc) ->
@@ -234,7 +234,7 @@ load_re_write(Rule0, Acc, Type, Tag) ->
 	   fun ($\s) -> true; ($\t) -> true; (_) -> false end,
 	   Rule0) of
 	"" ->
-	    {error, ?NICE(httpd_conf:clean(Rule0)++" is an invalid "++Type)};
+	    {error, ?NICE(string:strip(Rule0)++" is an invalid "++Type)};
 	Rule ->
 	    case string:chr(Rule, $\s) of
 		0 ->

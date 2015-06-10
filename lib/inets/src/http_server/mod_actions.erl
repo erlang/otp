@@ -84,14 +84,14 @@ load("Action "++  Action, []) ->
     {ok,[MimeType, CGIScript]} ->
       {ok,[],{action, {MimeType, CGIScript}}};
     {ok,_} ->
-      {error,?NICE(httpd_conf:clean(Action)++" is an invalid Action")}
+      {error,?NICE(string:strip(Action)++" is an invalid Action")}
   end;
 load("Script " ++ Script,[]) ->
   case inets_regexp:split(Script, " ") of
     {ok,[Method, CGIScript]} ->
       {ok,[],{script, {Method, CGIScript}}};
     {ok,_} ->
-      {error,?NICE(httpd_conf:clean(Script)++" is an invalid Script")}
+      {error,?NICE(string:strip(Script)++" is an invalid Script")}
   end.
 
 store({action, {MimeType, CGIScript}} = Conf, _) when is_list(MimeType),

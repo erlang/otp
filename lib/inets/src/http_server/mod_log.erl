@@ -127,11 +127,11 @@ do(Info) ->
 %% Description: See httpd(3) ESWAPI CALLBACK FUNCTIONS
 %%-------------------------------------------------------------------------
 load("TransferLog " ++ TransferLog, []) ->
-    {ok,[],{transfer_log,httpd_conf:clean(TransferLog)}};
+    {ok,[],{transfer_log,string:strip(TransferLog)}};
 load("ErrorLog " ++ ErrorLog, []) ->
-    {ok,[],{error_log,httpd_conf:clean(ErrorLog)}};
+    {ok,[],{error_log,string:strip(ErrorLog)}};
 load("SecurityLog " ++ SecurityLog, []) ->
-    {ok, [], {security_log, httpd_conf:clean(SecurityLog)}}.
+    {ok, [], {security_log, string:strip(SecurityLog)}}.
 
 %%--------------------------------------------------------------------------
 %% store(Directive, DirectiveList) -> {ok, NewDirective} | 
@@ -200,7 +200,7 @@ transfer_log(Info,RFC931,AuthUser,Date,StatusCode,Bytes) ->
     end.
 	    
 create_log(LogFile, ConfigList) ->
-    Filename = httpd_conf:clean(LogFile),
+    Filename = string:strip(LogFile),
     case filename:pathtype(Filename) of
 	absolute ->
 	    case file:open(Filename, [read, write]) of

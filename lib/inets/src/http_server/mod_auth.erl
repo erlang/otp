@@ -127,35 +127,35 @@ do(Info) ->
 %% state it was previously.
 
 load("<Directory " ++ Directory,[]) ->
-    Dir = httpd_conf:custom_clean(Directory,"",">"),
+    Dir = string:strip(string:strip(Directory),right, $>),
     {ok,[{directory, {Dir, [{path, Dir}]}}]};
 load(eof,[{directory, {Directory, _DirData}}|_]) ->
     {error, ?NICE("Premature end-of-file in "++ Directory)};
 
 load("AuthName " ++ AuthName, [{directory, {Directory, DirData}}|Rest]) ->
     {ok, [{directory, {Directory,
-		       [{auth_name, httpd_conf:clean(AuthName)} | DirData]}} 
+		       [{auth_name, string:strip(AuthName)} | DirData]}} 
 	  | Rest ]};
 load("AuthUserFile " ++ AuthUserFile0,
      [{directory, {Directory, DirData}}|Rest]) ->
-    AuthUserFile = httpd_conf:clean(AuthUserFile0),
+    AuthUserFile = string:strip(AuthUserFile0),
     {ok, [{directory, {Directory,
 		      [{auth_user_file, AuthUserFile}|DirData]}} | Rest ]};
 load("AuthGroupFile " ++ AuthGroupFile0,
 	 [{directory, {Directory, DirData}}|Rest]) ->
-    AuthGroupFile = httpd_conf:clean(AuthGroupFile0),
+    AuthGroupFile = string:strip(AuthGroupFile0),
     {ok,[{directory, {Directory,
 	  [{auth_group_file, AuthGroupFile}|DirData]}} | Rest]};
 
 load("AuthAccessPassword " ++ AuthAccessPassword0,
 	 [{directory, {Directory, DirData}}|Rest]) ->
-    AuthAccessPassword = httpd_conf:clean(AuthAccessPassword0),
+    AuthAccessPassword = string:strip(AuthAccessPassword0),
     {ok,[{directory, {Directory,
 	  [{auth_access_password, AuthAccessPassword}|DirData]}} | Rest]};
 
 load("AuthDBType " ++ Type,
 	 [{directory, {Dir, DirData}}|Rest]) ->
-    case httpd_conf:clean(Type) of
+    case string:strip(Type) of
 	"plain" ->
 	    {ok, [{directory, {Dir, [{auth_type, plain}|DirData]}} | Rest ]};
 	"mnesia" ->
@@ -163,7 +163,7 @@ load("AuthDBType " ++ Type,
 	"dets" ->
 	    {ok, [{directory, {Dir, [{auth_type, dets}|DirData]}} | Rest ]};
 	_ ->
-	    {error, ?NICE(httpd_conf:clean(Type)++" is an invalid AuthDBType")}
+	    {error, ?NICE(string:strip(Type)++" is an invalid AuthDBType")}
     end;
 
 load("require " ++ Require,[{directory, {Directory, DirData}}|Rest]) ->
@@ -175,7 +175,7 @@ load("require " ++ Require,[{directory, {Directory, DirData}}|Rest]) ->
 	    {ok,[{directory, {Directory,
 		  [{require_group,Groups}|DirData]}} | Rest]};
 	{ok,_} ->
-	    {error,?NICE(httpd_conf:clean(Require) ++" is an invalid require")}
+	    {error,?NICE(string:strip(Require) ++" is an invalid require")}
     end;
 
 load("allow " ++ Allow,[{directory, {Directory, DirData}}|Rest]) ->
@@ -187,7 +187,7 @@ load("allow " ++ Allow,[{directory, {Directory, DirData}}|Rest]) ->
 	    {ok,[{directory, {Directory,
 		  [{allow_from,Hosts}|DirData]}} | Rest]};
 	{ok,_} ->
-	    {error,?NICE(httpd_conf:clean(Allow) ++" is an invalid allow")}
+	    {error,?NICE(string:strip(Allow) ++" is an invalid allow")}
     end;
 
 load("deny " ++ Deny,[{directory, {Directory, DirData}}|Rest]) ->
@@ -199,7 +199,7 @@ load("deny " ++ Deny,[{directory, {Directory, DirData}}|Rest]) ->
 	    {ok,[{{directory, Directory,
 		   [{deny_from, Hosts}|DirData]}} | Rest]};
 	{ok, _} ->
-	    {error,?NICE(httpd_conf:clean(Deny) ++" is an invalid deny")}
+	    {error,?NICE(string:strip(Deny) ++" is an invalid deny")}
     end;
 
 load("</Directory>",[{directory, {Directory, DirData}}|Rest]) -> 
@@ -207,14 +207,14 @@ load("</Directory>",[{directory, {Directory, DirData}}|Rest]) ->
 
 load("AuthMnesiaDB " ++ AuthMnesiaDB,
       [{directory, {Dir, DirData}}|Rest]) ->
-    case httpd_conf:clean(AuthMnesiaDB) of
+    case string:strip(AuthMnesiaDB) of
 	"On" ->
 	    {ok,[{directory, {Dir,[{auth_type,mnesia}|DirData]}}|Rest]};
 	"Off" ->
 	    {ok,[{directory, {Dir,[{auth_type,plain}|DirData]}}|Rest]};
 	_ ->
-	    {error, ?NICE(httpd_conf:clean(AuthMnesiaDB) ++
-			  " is an invalid AuthMnesiaDB")}
+	    {error, ?NICE(string:strip(AuthMnesiaDB) ++
+			      " is an invalid AuthMnesiaDB")}
     end.
 
 store({directory, {Directory, DirData}}, ConfigList) 

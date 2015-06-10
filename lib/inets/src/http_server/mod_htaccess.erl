@@ -34,7 +34,7 @@
 % Names on accessfiles
 %----------------------------------------------------------------------
 load("AccessFileName" ++ FileNames, _Context)->
-    CleanFileNames=httpd_conf:clean(FileNames),
+    CleanFileNames=string:strip(FileNames),
     {ok,[],{access_files,string:tokens(CleanFileNames," ")}}.
 
 store({access_files, Files} = Conf, _) when is_list(Files)->

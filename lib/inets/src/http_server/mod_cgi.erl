@@ -95,24 +95,24 @@ do(ModData) ->
 %%                           or cache                                 
 %%                                                                             
 load("ScriptNoCache " ++ CacheArg, [])->
-    case catch list_to_atom(httpd_conf:clean(CacheArg)) of
+    case catch list_to_atom(string:strip(CacheArg)) of
         true ->
 	    {ok, [], {script_nocache, true}};
 	false ->
 	   {ok, [], {script_nocache, false}};
 	_ ->
-	   {error, ?NICE(httpd_conf:clean(CacheArg)++
+	   {error, ?NICE(string:strip(CacheArg)++
 			 " is an invalid ScriptNoCache directive")}
     end;
 %% ScriptTimeout Seconds, The number of seconds that the server       
 %%                        maximum will wait for the script to         
 %%                        generate a part of the document   
 load("ScriptTimeout " ++ Timeout, [])->
-    case catch list_to_integer(httpd_conf:clean(Timeout)) of
+    case catch list_to_integer(string:strip(Timeout)) of
 	TimeoutSec when is_integer(TimeoutSec)  ->
 	   {ok, [], {script_timeout,TimeoutSec*1000}};
 	_ ->
-	   {error, ?NICE(httpd_conf:clean(Timeout)++
+	   {error, ?NICE(string:strip(Timeout)++
 			 " is an invalid ScriptTimeout")}
     end.
 
