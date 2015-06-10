@@ -501,22 +501,16 @@ keyboard_interact_fun(KbdInteractFun, Name, Instr,  PromptInfos, NumPrompts) ->
     end.
 
 decode_public_key_v2(<<?UINT32(Len0), _:Len0/binary,
-		       ?UINT32(Len1), BinE:Len1/binary,
-		       ?UINT32(Len2), BinN:Len2/binary>>
+		       ?UINT32(Len1), E:Len1/big-signed-integer-unit:8,
+		       ?UINT32(Len2), N:Len2/big-signed-integer-unit:8>>
 			 ,"ssh-rsa") ->
-    E = ssh_bits:erlint(Len1, BinE),
-    N = ssh_bits:erlint(Len2, BinN),
     {ok, #'RSAPublicKey'{publicExponent = E, modulus = N}};
 decode_public_key_v2(<<?UINT32(Len0), _:Len0/binary,
-		       ?UINT32(Len1), BinP:Len1/binary,
-		       ?UINT32(Len2), BinQ:Len2/binary,
-		       ?UINT32(Len3), BinG:Len3/binary,
-		       ?UINT32(Len4), BinY:Len4/binary>>
+		       ?UINT32(Len1), P:Len1/big-signed-integer-unit:8,
+		       ?UINT32(Len2), Q:Len2/big-signed-integer-unit:8,
+		       ?UINT32(Len3), G:Len3/big-signed-integer-unit:8,
+		       ?UINT32(Len4), Y:Len4/big-signed-integer-unit:8>>
 			 , "ssh-dss") ->
-    P = ssh_bits:erlint(Len1, BinP),
-    Q = ssh_bits:erlint(Len2, BinQ),
-    G = ssh_bits:erlint(Len3, BinG),
-    Y = ssh_bits:erlint(Len4, BinY),
     {ok, {Y, #'Dss-Parms'{p = P, q = Q, g = G}}};
 
 decode_public_key_v2(_, _) ->

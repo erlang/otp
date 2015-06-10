@@ -421,8 +421,8 @@ decode(<<?BYTE(?SSH_MSG_USERAUTH_INFO_RESPONSE), ?UINT32(Num), Data/binary>>) ->
 decode(<<?BYTE(?SSH_MSG_KEXINIT), Cookie:128, Data/binary>>) ->
     decode_kex_init(Data, [Cookie, ssh_msg_kexinit], 10);
 
-decode(<<?BYTE(?SSH_MSG_KEXDH_INIT), ?UINT32(Len), E:Len/binary>>) ->
-    #ssh_msg_kexdh_init{e = erlint(Len, E)
+decode(<<?BYTE(?SSH_MSG_KEXDH_INIT), ?UINT32(Len), E:Len/big-signed-integer-unit:8>>) ->
+    #ssh_msg_kexdh_init{e = E
 		       };
 decode(<<?BYTE(?SSH_MSG_KEX_DH_GEX_REQUEST), ?UINT32(Min), ?UINT32(N), ?UINT32(Max)>>) ->
     #ssh_msg_kex_dh_gex_request{
@@ -442,11 +442,11 @@ decode(<<?BYTE(?SSH_MSG_KEX_DH_GEX_GROUP),
        g = Generator
       };
 decode(<<?BYTE(?SSH_MSG_KEXDH_REPLY), ?UINT32(Len0), Key:Len0/binary,
-	 ?UINT32(Len1), F:Len1/binary,
+	 ?UINT32(Len1), F:Len1/big-signed-integer-unit:8,
 	 ?UINT32(Len2), Hashsign:Len2/binary>>) ->
     #ssh_msg_kexdh_reply{
        public_host_key = decode_host_key(Key),
-       f = erlint(Len1, F),
+       f = F,
        h_sig = decode_sign(Hashsign)
       };
 
@@ -514,10 +514,7 @@ decode_kex_init(<<?UINT32(Len), Data:Len/binary, Rest/binary>>, Acc, N) ->
     Names = string:tokens(unicode:characters_to_list(Data), ","),
     decode_kex_init(Rest, [Names | Acc], N -1).
 
-erlint(MPIntSize, MPIntValue) ->
-    Bits = MPIntSize * 8,
-    <<Integer:Bits/integer>> = MPIntValue,
-    Integer.
+
 
 decode_sign(<<?UINT32(Len), _Alg:Len/binary, ?UINT32(_), Signature/binary>>) ->
     Signature.
@@ -525,18 +522,19 @@ decode_sign(<<?UINT32(Len), _Alg:Len/binary, ?UINT32(_), Signature/binary>>) ->
 decode_host_key(<<?UINT32(Len), Alg:Len/binary, Rest/binary>>) ->
     decode_host_key(Alg, Rest).
 
-decode_host_key(<<"ssh-rsa">>, <<?UINT32(Len0), E:Len0/binary,
-				 ?UINT32(Len1), N:Len1/binary>>) ->
-    #'RSAPublicKey'{publicExponent = erlint(Len0, E),
-		    modulus = erlint(Len1, N)};
+decode_host_key(<<"ssh-rsa">>, <<?UINT32(Len0), E:Len0/big-signed-integer-unit:8,
+				 ?UINT32(Len1), N:Len1/big-signed-integer-unit:8>>) ->
+    #'RSAPublicKey'{publicExponent = E,
+		    modulus = N};
 
 decode_host_key(<<"ssh-dss">>,
-		<<?UINT32(Len0), P:Len0/binary,
-		  ?UINT32(Len1), Q:Len1/binary,
-		  ?UINT32(Len2), G:Len2/binary,
-		  ?UINT32(Len3), Y:Len3/binary>>) ->
-    {erlint(Len3, Y), #'Dss-Parms'{p = erlint(Len0, P), q = erlint(Len1, Q),
-				   g = erlint(Len2, G)}}.
+		<<?UINT32(Len0), P:Len0/big-signed-integer-unit:8,
+		  ?UINT32(Len1), Q:Len1/big-signed-integer-unit:8,
+		  ?UINT32(Len2), G:Len2/big-signed-integer-unit:8,
+		  ?UINT32(Len3), Y:Len3/big-signed-integer-unit:8>>) ->
+    {Y, #'Dss-Parms'{p = P,
+		     q = Q,
+		     g = G}}.
 
 encode_host_key(#'RSAPublicKey'{modulus = N, publicExponent = E}) ->
     ssh_bits:encode(["ssh-rsa", E, N], [string, mpint, mpint]);

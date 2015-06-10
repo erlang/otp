@@ -26,7 +26,7 @@
 -include("ssh.hrl").
 
 -export([encode/2]).
--export([mpint/1, erlint/2, string/1, name_list/1]).
+-export([mpint/1, string/1, name_list/1]).
 -export([random/1]).
 
 -define(name_list(X), 
@@ -145,11 +145,7 @@ enc(Xs, ['...'| []], _Offset) ->
 enc([], [],_) ->
     [].
 
-erlint(Len, BinInt) ->
-    Sz = Len*8,
-    <<Int:Sz/big-signed-integer>> = BinInt,
-    Int.
-	
+
 %%
 %% Create a binary with constant bytes 
 %%
