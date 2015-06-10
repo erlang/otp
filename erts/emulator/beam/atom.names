@@ -121,6 +121,7 @@ atom binary_longest_prefix_trap
 atom binary_longest_suffix_trap
 atom binary_match_trap
 atom binary_matches_trap
+atom binary_split_trap
 atom binary_to_list_continue
 atom binary_to_term_trap
 atom block
@@ -584,6 +585,7 @@ atom trace trace_ts traced
 atom trace_control_word
 atom tracer
 atom trap_exit
+atom trim
 atom try_clause
 atom true
 atom tuple

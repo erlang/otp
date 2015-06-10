@@ -67,12 +67,16 @@ static Export binary_bin_to_list_trap_export;
 static BIF_RETTYPE binary_bin_to_list_trap(BIF_ALIST_3);
 static Export binary_copy_trap_export;
 static BIF_RETTYPE binary_copy_trap(BIF_ALIST_2);
+static Export binary_split_trap_export;
+static BIF_RETTYPE binary_split_trap(BIF_ALIST_3);
 static Uint max_loop_limit;
 
 static BIF_RETTYPE
 binary_match(Process *p, Eterm arg1, Eterm arg2, Eterm arg3);
 static BIF_RETTYPE
 binary_matches(Process *p, Eterm arg1, Eterm arg2, Eterm arg3);
+static BIF_RETTYPE
+binary_split(Process *p, Eterm arg1, Eterm arg2, Eterm arg3);
 
 void erts_init_bif_binary(void)
 {
@@ -99,6 +103,10 @@ void erts_init_bif_binary(void)
     erts_init_trap_export(&binary_copy_trap_export,
 			  am_erlang, am_binary_copy_trap, 2,
 			  &binary_copy_trap);
+
+    erts_init_trap_export(&binary_split_trap_export,
+			  am_erlang, am_binary_split_trap, 3,
+			  &binary_split_trap);
 
     max_loop_limit = 0;
     return;
@@ -2533,6 +2541,695 @@ BIF_RETTYPE binary_copy_2(BIF_ALIST_2)
 {
     return do_binary_copy(BIF_P,BIF_ARG_1,BIF_ARG_2);
 }
+
+#define BINARY_SPLIT_GLOBAL	0x01
+#define BINARY_SPLIT_TRIM	0x02
+
+static int do_binary_split(Process *p, Eterm subject, Uint hsstart,
+			   Uint hsend, Uint hsflags, Eterm type, Binary *bin,
+			   Eterm state_term, Eterm *res_term)
+{
+    byte *bytes;
+    Uint bitoffs, bitsize;
+    byte *temp_alloc = NULL;
+
+    ERTS_GET_BINARY_BYTES(subject, bytes, bitoffs, bitsize);
+    if (bitsize != 0) {
+	goto badarg;
+    }
+    if (bitoffs != 0) {
+	bytes = erts_get_aligned_binary_bytes(subject, &temp_alloc);
+    }
+    if (state_term != NIL) {
+	Eterm *ptr = big_val(state_term);
+	type = ptr[1];
+	hsflags = (Uint)(ptr[2]);
+    }
+
+    if (hsflags & BINARY_SPLIT_GLOBAL) {
+	if (type == am_bm) {
+	    BMData *bm;
+	    Sint pos;
+	    Eterm ret;
+	    Eterm *hp;
+	    BMFindAllState state;
+	    Uint reds = get_reds(p, BM_LOOP_FACTOR);
+	    Uint save_reds = reds;
+
+	    bm = (BMData *) ERTS_MAGIC_BIN_DATA(bin);
+#ifdef HARDDEBUG
+	    dump_bm_data(bm);
+#endif
+	    if (state_term == NIL) {
+		bm_init_find_all(&state, hsstart, hsend);
+	    } else {
+		Eterm *ptr = big_val(state_term);
+		bm_restore_find_all(&state, (char *)(ptr+3));
+	    }
+
+	    pos = bm_find_all_non_overlapping(&state, bm, bytes, &reds);
+	    if (pos == BM_NOT_FOUND) {
+		hp = HAlloc(p, 2);
+		ret = NIL;
+		ret = CONS(hp, subject, ret);
+	    } else if (pos == BM_RESTART) {
+		int x =
+		    (SIZEOF_BM_SERIALIZED_FIND_ALL_STATE(state) / sizeof(Eterm)) +
+		    !!(SIZEOF_BM_SERIALIZED_FIND_ALL_STATE(state) % sizeof(Eterm));
+#ifdef HARDDEBUG
+		erts_printf("Trap bm!\n");
+#endif
+		hp = HAlloc(p, x+3);
+		hp[0] = make_pos_bignum_header(x+2);
+		hp[1] = type;
+		hp[2] = (Eterm)(hsflags);
+		bm_serialize_find_all(&state, (char *)(hp+3));
+		*res_term = make_big(hp);
+		erts_free_aligned_binary_bytes(temp_alloc);
+		bm_clean_find_all(&state);
+		return DO_BIN_MATCH_RESTART;
+	    } else {
+		size_t orig_size;
+		Eterm orig;
+		Uint offset;
+		Uint bit_offset;
+		Uint bit_size;
+		ErlSubBin *sb;
+		FindallData *fad = state.out;
+		int i, j, k;
+		orig_size = binary_size(subject);
+		j = state.m - 1;
+		k = (int)(orig_size);
+		if ((hsflags & BINARY_SPLIT_TRIM) && (orig_size - fad[j].pos - fad[j].len) == 0) {
+		    for (i = (j - 1); i >= 0; --i) {
+			if ((fad[i+1].pos - fad[i].pos - fad[i].len) != 0) {
+			    break;
+			}
+		    }
+		    if (i == -1) {
+			if (fad[0].pos == 0) {
+			    ret = NIL;
+			} else {
+			    hp = HAlloc(p, (ERL_SUB_BIN_SIZE + 2));
+			    ERTS_GET_REAL_BIN(subject, orig, offset, bit_offset, bit_size);
+
+			    sb = (ErlSubBin *)(hp);
+			    sb->thing_word = HEADER_SUB_BIN;
+			    sb->size = fad[0].pos;
+			    sb->offs = offset;
+			    sb->orig = orig;
+			    sb->bitoffs = bit_offset;
+			    sb->bitsize = bit_size;
+			    sb->is_writable = 0;
+			    fad[0].epos = make_binary(sb);
+			    hp += ERL_SUB_BIN_SIZE;
+
+			    ret = NIL;
+			    ret = CONS(hp, make_binary(sb), ret);
+			    hp += 2;
+			}
+			erts_free_aligned_binary_bytes(temp_alloc);
+			bm_clean_find_all(&state);
+			BUMP_REDS(p, (save_reds - reds) / BM_LOOP_FACTOR);
+			*res_term = ret;
+			return DO_BIN_MATCH_OK;
+		    }
+		    j = i;
+		    k = fad[j+1].pos;
+		}
+		hp = HAlloc(p, (j + 2) * (ERL_SUB_BIN_SIZE + 2));
+		ERTS_GET_REAL_BIN(subject, orig, offset, bit_offset, bit_size);
+
+		sb = (ErlSubBin *)(hp);
+		sb->thing_word = HEADER_SUB_BIN;
+		sb->size = fad[0].pos;
+		sb->offs = offset;
+		sb->orig = orig;
+		sb->bitoffs = bit_offset;
+		sb->bitsize = 0;
+		sb->is_writable = 0;
+		fad[0].epos = make_binary(sb);
+		hp += ERL_SUB_BIN_SIZE;
+
+		for (i = 1; i <= j; ++i) {
+		    sb = (ErlSubBin *)(hp);
+		    sb->thing_word = HEADER_SUB_BIN;
+		    sb->size = fad[i].pos - fad[i-1].pos - fad[i-1].len;
+		    sb->offs = offset + fad[i-1].pos + fad[i-1].len;
+		    sb->orig = orig;
+		    sb->bitoffs = bit_offset;
+		    sb->bitsize = 0;
+		    sb->is_writable = 0;
+		    fad[i].epos = make_binary(sb);
+		    hp += ERL_SUB_BIN_SIZE;
+		}
+		ret = NIL;
+		sb = (ErlSubBin *)(hp);
+		sb->thing_word = HEADER_SUB_BIN;
+		sb->size = k - fad[j].pos - fad[j].len;
+		sb->offs = offset + fad[j].pos + fad[j].len;
+		sb->orig = orig;
+		sb->bitoffs = bit_offset;
+		sb->bitsize = bit_size;
+		sb->is_writable = 0;
+		hp += ERL_SUB_BIN_SIZE;
+		ret = CONS(hp, make_binary(sb), ret);
+		hp += 2;
+		for (i = j; i >= 0; --i) {
+		    ret = CONS(hp, fad[i].epos, ret);
+		    hp += 2;
+		}
+	    }
+	    erts_free_aligned_binary_bytes(temp_alloc);
+	    bm_clean_find_all(&state);
+	    BUMP_REDS(p, (save_reds - reds) / BM_LOOP_FACTOR);
+	    *res_term = ret;
+	    return DO_BIN_MATCH_OK;
+	} else if (type == am_ac) {
+	    ACTrie *act;
+	    int acr;
+	    ACFindAllState state;
+	    Eterm ret;
+	    Eterm *hp;
+	    Uint reds = get_reds(p, AC_LOOP_FACTOR);
+	    Uint save_reds = reds;
+
+	    act = (ACTrie *) ERTS_MAGIC_BIN_DATA(bin);
+#ifdef HARDDEBUG
+	    dump_ac_trie(act);
+#endif
+	    if (state_term == NIL) {
+		ac_init_find_all(&state, act, hsstart, hsend);
+	    } else {
+		Eterm *ptr = big_val(state_term);
+		ac_restore_find_all(&state, (char *)(ptr+3));
+	    }
+	    acr = ac_find_all_non_overlapping(&state, bytes, &reds);
+	    if (acr == AC_NOT_FOUND) {
+		hp = HAlloc(p, 2);
+		ret = NIL;
+		ret = CONS(hp, subject, ret);
+	    } else if (acr == AC_RESTART) {
+		int x = (SIZEOF_AC_SERIALIZED_FIND_ALL_STATE(state) / sizeof(Eterm)) +
+		    !!(SIZEOF_AC_SERIALIZED_FIND_ALL_STATE(state) % sizeof(Eterm));
+#ifdef HARDDEBUG
+		erts_printf("Trap ac!\n");
+#endif
+		hp = HAlloc(p, x+3);
+		hp[0] = make_pos_bignum_header(x+2);
+		hp[1] = type;
+		hp[2] = (Eterm)(hsflags);
+		ac_serialize_find_all(&state, (char *)(hp+3));
+		*res_term = make_big(hp);
+		erts_free_aligned_binary_bytes(temp_alloc);
+		ac_clean_find_all(&state);
+		return DO_BIN_MATCH_RESTART;
+	    } else {
+		size_t orig_size;
+		Eterm orig;
+		Uint offset;
+		Uint bit_offset;
+		Uint bit_size;
+		ErlSubBin *sb;
+		FindallData *fad = state.out;
+		int i, j, k;
+		orig_size = binary_size(subject);
+		j = state.m - 1;
+		k = (int)(orig_size);
+		if ((hsflags & BINARY_SPLIT_TRIM) && (orig_size - fad[j].pos - fad[j].len) == 0) {
+		    for (i = (j - 1); i >= 0; --i) {
+			if ((fad[i+1].pos - fad[i].pos - fad[i].len) != 0) {
+			    break;
+			}
+		    }
+		    if (i == -1) {
+			if (fad[0].pos == 0) {
+			    ret = NIL;
+			} else {
+			    hp = HAlloc(p, (ERL_SUB_BIN_SIZE + 2));
+			    ERTS_GET_REAL_BIN(subject, orig, offset, bit_offset, bit_size);
+
+			    sb = (ErlSubBin *)(hp);
+			    sb->thing_word = HEADER_SUB_BIN;
+			    sb->size = fad[0].pos;
+			    sb->offs = offset;
+			    sb->orig = orig;
+			    sb->bitoffs = bit_offset;
+			    sb->bitsize = bit_size;
+			    sb->is_writable = 0;
+			    fad[0].epos = make_binary(sb);
+			    hp += ERL_SUB_BIN_SIZE;
+
+			    ret = NIL;
+			    ret = CONS(hp, make_binary(sb), ret);
+			    hp += 2;
+			}
+			erts_free_aligned_binary_bytes(temp_alloc);
+			ac_clean_find_all(&state);
+			BUMP_REDS(p, (save_reds - reds) / AC_LOOP_FACTOR);
+			*res_term = ret;
+			return DO_BIN_MATCH_OK;
+		    }
+		    j = i;
+		    k = fad[j+1].pos;
+		}
+		hp = HAlloc(p, (j + 2) * (ERL_SUB_BIN_SIZE + 2));
+		ERTS_GET_REAL_BIN(subject, orig, offset, bit_offset, bit_size);
+
+		sb = (ErlSubBin *)(hp);
+		sb->thing_word = HEADER_SUB_BIN;
+		sb->size = fad[0].pos;
+		sb->offs = offset;
+		sb->orig = orig;
+		sb->bitoffs = bit_offset;
+		sb->bitsize = 0;
+		sb->is_writable = 0;
+		fad[0].epos = make_binary(sb);
+		hp += ERL_SUB_BIN_SIZE;
+
+		for (i = 1; i <= j; ++i) {
+		    sb = (ErlSubBin *)(hp);
+		    sb->thing_word = HEADER_SUB_BIN;
+		    sb->size = fad[i].pos - fad[i-1].pos - fad[i-1].len;
+		    sb->offs = offset + fad[i-1].pos + fad[i-1].len;
+		    sb->orig = orig;
+		    sb->bitoffs = bit_offset;
+		    sb->bitsize = 0;
+		    sb->is_writable = 0;
+		    fad[i].epos = make_binary(sb);
+		    hp += ERL_SUB_BIN_SIZE;
+		}
+		ret = NIL;
+		sb = (ErlSubBin *)(hp);
+		sb->thing_word = HEADER_SUB_BIN;
+		sb->size = k - fad[j].pos - fad[j].len;
+		sb->offs = offset + fad[j].pos + fad[j].len;
+		sb->orig = orig;
+		sb->bitoffs = bit_offset;
+		sb->bitsize = bit_size;
+		sb->is_writable = 0;
+		hp += ERL_SUB_BIN_SIZE;
+		ret = CONS(hp, make_binary(sb), ret);
+		hp += 2;
+		for (i = j; i >= 0; --i) {
+		    ret = CONS(hp, fad[i].epos, ret);
+		    hp += 2;
+		}
+	    }
+	    erts_free_aligned_binary_bytes(temp_alloc);
+	    ac_clean_find_all(&state);
+	    BUMP_REDS(p, (save_reds - reds) / AC_LOOP_FACTOR);
+	    *res_term = ret;
+	    return DO_BIN_MATCH_OK;
+	}
+    } else {
+	if (type == am_bm) {
+	    BMData *bm;
+	    Sint pos;
+	    Eterm ret;
+	    Eterm *hp;
+	    BMFindFirstState state;
+	    Uint reds = get_reds(p, BM_LOOP_FACTOR);
+	    Uint save_reds = reds;
+
+	    bm = (BMData *) ERTS_MAGIC_BIN_DATA(bin);
+#ifdef HARDDEBUG
+	    dump_bm_data(bm);
+#endif
+	    if (state_term == NIL) {
+		bm_init_find_first_match(&state, hsstart, hsend);
+	    } else {
+		Eterm *ptr = big_val(state_term);
+		memcpy((void *)(&state), (const void *)(ptr+3), sizeof(BMFindFirstState));
+	    }
+
+#ifdef HARDDEBUG
+	    erts_printf("(bm) state->pos = %ld, state->len = %lu\n",state.pos,
+			state.len);
+#endif
+	    pos = bm_find_first_match(&state, bm, bytes, &reds);
+	    if (pos == BM_NOT_FOUND) {
+		hp = HAlloc(p, 2);
+		ret = NIL;
+		ret = CONS(hp, subject, ret);
+	    } else if (pos == BM_RESTART) {
+		int x =
+		    (sizeof(state) / sizeof(Eterm)) +
+		    !!(sizeof(state) % sizeof(Eterm));
+#ifdef HARDDEBUG
+		erts_printf("Trap bm!\n");
+#endif
+		hp = HAlloc(p, x+3);
+		hp[0] = make_pos_bignum_header(x+2);
+		hp[1] = type;
+		hp[2] = (Eterm)(hsflags);
+		memcpy((void *)(hp+3), (const void *)(&state), sizeof(state));
+		*res_term = make_big(hp);
+		erts_free_aligned_binary_bytes(temp_alloc);
+		return DO_BIN_MATCH_RESTART;
+	    } else {
+		size_t orig_size;
+		Eterm orig;
+		Uint offset;
+		Uint bit_offset;
+		Uint bit_size;
+		ErlSubBin *sb1;
+		ErlSubBin *sb2;
+
+		orig_size = binary_size(subject);
+
+		if ((hsflags & BINARY_SPLIT_TRIM) && (orig_size - pos - bm->len) == 0) {
+		    if (pos == 0) {
+			ret = NIL;
+		    } else {
+			hp = HAlloc(p, (ERL_SUB_BIN_SIZE + 2));
+			ERTS_GET_REAL_BIN(subject, orig, offset, bit_offset, bit_size);
+			sb1 = (ErlSubBin *) hp;
+			sb1->thing_word = HEADER_SUB_BIN;
+			sb1->size = pos;
+			sb1->offs = offset;
+			sb1->orig = orig;
+			sb1->bitoffs = bit_offset;
+			sb1->bitsize = bit_size;
+			sb1->is_writable = 0;
+			hp += ERL_SUB_BIN_SIZE;
+
+			ret = NIL;
+			ret = CONS(hp, make_binary(sb1), ret);
+			hp += 2;
+		    }
+		} else {
+		    hp = HAlloc(p, 2 * (ERL_SUB_BIN_SIZE + 2));
+		    ERTS_GET_REAL_BIN(subject, orig, offset, bit_offset, bit_size);
+		    sb1 = (ErlSubBin *) hp;
+		    sb1->thing_word = HEADER_SUB_BIN;
+		    sb1->size = pos;
+		    sb1->offs = offset;
+		    sb1->orig = orig;
+		    sb1->bitoffs = bit_offset;
+		    sb1->bitsize = 0;
+		    sb1->is_writable = 0;
+		    hp += ERL_SUB_BIN_SIZE;
+
+		    sb2 = (ErlSubBin *) hp;
+		    sb2->thing_word = HEADER_SUB_BIN;
+		    sb2->size = orig_size - pos - bm->len;
+		    sb2->offs = offset + pos + bm->len;
+		    sb2->orig = orig;
+		    sb2->bitoffs = bit_offset;
+		    sb2->bitsize = bit_size;
+		    sb2->is_writable = 0;
+		    hp += ERL_SUB_BIN_SIZE;
+
+		    ret = NIL;
+		    ret = CONS(hp, make_binary(sb2), ret);
+		    hp += 2;
+		    ret = CONS(hp, make_binary(sb1), ret);
+		    hp += 2;
+		}
+	    }
+	    erts_free_aligned_binary_bytes(temp_alloc);
+	    BUMP_REDS(p, (save_reds - reds) / BM_LOOP_FACTOR);
+	    *res_term = ret;
+	    return DO_BIN_MATCH_OK;
+	} else if (type == am_ac) {
+	    ACTrie *act;
+	    Uint pos, rlen;
+	    int acr;
+	    ACFindFirstState state;
+	    Eterm ret;
+	    Eterm *hp;
+	    Uint reds = get_reds(p, AC_LOOP_FACTOR);
+	    Uint save_reds = reds;
+
+	    act = (ACTrie *) ERTS_MAGIC_BIN_DATA(bin);
+#ifdef HARDDEBUG
+	    dump_ac_trie(act);
+#endif
+	    if (state_term == NIL) {
+		ac_init_find_first_match(&state, act, hsstart, hsend);
+	    } else {
+		Eterm *ptr = big_val(state_term);
+		memcpy((void *)(&state), (const void *)(ptr+3), sizeof(ACFindFirstState));
+	    }
+	    acr = ac_find_first_match(&state, bytes, &pos, &rlen, &reds);
+	    if (acr == AC_NOT_FOUND) {
+		hp = HAlloc(p, 2);
+		ret = NIL;
+		ret = CONS(hp, subject, ret);
+	    } else if (acr == AC_RESTART) {
+		int x =
+		    (sizeof(state) / sizeof(Eterm)) +
+		    !!(sizeof(state) % sizeof(Eterm));
+#ifdef HARDDEBUG
+		erts_printf("Trap ac!\n");
+#endif
+		hp = HAlloc(p, x+3);
+		hp[0] = make_pos_bignum_header(x+2);
+		hp[1] = type;
+		hp[2] = (Eterm)(hsflags);
+		memcpy((void *)(hp+3), (const void *)(&state), sizeof(state));
+		*res_term = make_big(hp);
+		erts_free_aligned_binary_bytes(temp_alloc);
+		return DO_BIN_MATCH_RESTART;
+	    } else {
+		size_t orig_size;
+		Eterm orig;
+		Uint offset;
+		Uint bit_offset;
+		Uint bit_size;
+		ErlSubBin *sb1;
+		ErlSubBin *sb2;
+
+		orig_size = binary_size(subject);
+
+		if ((hsflags & BINARY_SPLIT_TRIM) && (orig_size - pos - rlen) == 0) {
+		    if (pos == 0) {
+			ret = NIL;
+		    } else {
+			hp = HAlloc(p, (ERL_SUB_BIN_SIZE + 2));
+			ERTS_GET_REAL_BIN(subject, orig, offset, bit_offset, bit_size);
+			sb1 = (ErlSubBin *) hp;
+			sb1->thing_word = HEADER_SUB_BIN;
+			sb1->size = pos;
+			sb1->offs = offset;
+			sb1->orig = orig;
+			sb1->bitoffs = bit_offset;
+			sb1->bitsize = bit_size;
+			sb1->is_writable = 0;
+			hp += ERL_SUB_BIN_SIZE;
+
+			ret = NIL;
+			ret = CONS(hp, make_binary(sb1), ret);
+			hp += 2;
+		    }
+		} else {
+		    hp = HAlloc(p, 2 * (ERL_SUB_BIN_SIZE + 2));
+		    ERTS_GET_REAL_BIN(subject, orig, offset, bit_offset, bit_size);
+		    sb1 = (ErlSubBin *) hp;
+		    sb1->thing_word = HEADER_SUB_BIN;
+		    sb1->size = pos;
+		    sb1->offs = offset;
+		    sb1->orig = orig;
+		    sb1->bitoffs = bit_offset;
+		    sb1->bitsize = 0;
+		    sb1->is_writable = 0;
+		    hp += ERL_SUB_BIN_SIZE;
+
+		    sb2 = (ErlSubBin *) hp;
+		    sb2->thing_word = HEADER_SUB_BIN;
+		    sb2->size = orig_size - pos - rlen;
+		    sb2->offs = offset + pos + rlen;
+		    sb2->orig = orig;
+		    sb2->bitoffs = bit_offset;
+		    sb2->bitsize = bit_size;
+		    sb2->is_writable = 0;
+		    hp += ERL_SUB_BIN_SIZE;
+
+		    ret = NIL;
+		    ret = CONS(hp, make_binary(sb2), ret);
+		    hp += 2;
+		    ret = CONS(hp, make_binary(sb1), ret);
+		    hp += 2;
+		}
+	    }
+	    erts_free_aligned_binary_bytes(temp_alloc);
+	    BUMP_REDS(p, (save_reds - reds) / AC_LOOP_FACTOR);
+	    *res_term = ret;
+	    return DO_BIN_MATCH_OK;
+	}
+    }
+ badarg:
+    return DO_BIN_MATCH_BADARG;
+}
+
+static int parse_split_opts_list(Eterm l, Eterm bin, Uint *posp, Uint *endp, Uint *optp)
+{
+    Eterm *tp;
+    Uint pos;
+    Sint len;
+    *optp = 0;
+    *posp = 0;
+    *endp = binary_size(bin);
+    if (l == ((Eterm) 0) || l == NIL) {
+	return 0;
+    } else if (is_list(l)) {
+	while(is_list(l)) {
+	    Eterm t = CAR(list_val(l));
+	    Uint orig_size;
+	    if (is_atom(t)) {
+		if (t == am_global) {
+		    *optp |= BINARY_SPLIT_GLOBAL;
+		    l = CDR(list_val(l));
+		    continue;
+		}
+		if (t == am_trim) {
+		    *optp |= BINARY_SPLIT_TRIM;
+		    l = CDR(list_val(l));
+		    continue;
+		}
+	    }
+	    if (!is_tuple(t)) {
+		goto badarg;
+	    }
+	    tp = tuple_val(t);
+	    if (arityval(*tp) != 2) {
+		goto badarg;
+	    }
+	    if (tp[1] != am_scope || is_not_tuple(tp[2])) {
+		goto badarg;
+	    }
+	    tp = tuple_val(tp[2]);
+	    if (arityval(*tp) != 2) {
+		goto badarg;
+	    }
+	    if (!term_to_Uint(tp[1], &pos)) {
+		goto badarg;
+	    }
+	    if (!term_to_Sint(tp[2], &len)) {
+		goto badarg;
+	    }
+	    if (len < 0) {
+		Uint lentmp = -(Uint)len;
+		/* overflow */
+		if ((Sint)lentmp < 0) {
+		    goto badarg;
+		}
+		len = lentmp;
+		pos -= len;
+	    }
+	    /* overflow */
+	    if ((pos + len) < pos || (len > 0 && (pos + len) == pos)) {
+		goto badarg;
+	    }
+	    *endp = len + pos;
+	    *posp = pos;
+	    if ((orig_size = binary_size(bin)) < pos ||
+		orig_size < (*endp)) {
+		goto badarg;
+	    }
+	    l = CDR(list_val(l));
+	}
+	return 0;
+    } else {
+    badarg:
+	return 1;
+    }
+}
+
+static BIF_RETTYPE binary_split_trap(BIF_ALIST_3)
+{
+    int runres;
+    Eterm result;
+    Binary *bin = ((ProcBin *) binary_val(BIF_ARG_3))->val;
+    runres = do_binary_split(BIF_P,BIF_ARG_1,0,0,0,NIL,bin,BIF_ARG_2,&result);
+    if (runres == DO_BIN_MATCH_OK) {
+	BIF_RET(result);
+    } else {
+	BUMP_ALL_REDS(BIF_P);
+	BIF_TRAP3(&binary_split_trap_export, BIF_P, BIF_ARG_1, result,
+		  BIF_ARG_3);
+    }
+}
+
+BIF_RETTYPE binary_split_3(BIF_ALIST_3)
+{
+    return binary_split(BIF_P, BIF_ARG_1, BIF_ARG_2, BIF_ARG_3);
+}
+
+static BIF_RETTYPE
+binary_split(Process *p, Eterm arg1, Eterm arg2, Eterm arg3)
+{
+    Uint hsflags;
+    Uint hsstart;
+    Uint hsend;
+    Eterm *tp;
+    Eterm type;
+    Binary *bin;
+    Eterm bin_term = NIL;
+    int runres;
+    Eterm result;
+
+    if (is_not_binary(arg1)) {
+	goto badarg;
+    }
+    if (parse_split_opts_list(arg3, arg1, &hsstart, &hsend, &hsflags)) {
+	goto badarg;
+    }
+    if (hsend == 0) {
+	tp = HAlloc(p, 2);
+	result = NIL;
+	result = CONS(tp, arg1, result);
+	BIF_RET(result);
+    }
+    if (is_tuple(arg2)) {
+	tp = tuple_val(arg2);
+	if (arityval(*tp) != 2 || is_not_atom(tp[1])) {
+	    goto badarg;
+	}
+	if (((tp[1] != am_bm) && (tp[1] != am_ac)) ||
+	    !ERTS_TERM_IS_MAGIC_BINARY(tp[2])) {
+	    goto badarg;
+	}
+	type = tp[1];
+	bin = ((ProcBin *) binary_val(tp[2]))->val;
+	if (type == am_bm &&
+	    ERTS_MAGIC_BIN_DESTRUCTOR(bin) != cleanup_my_data_bm) {
+	    goto badarg;
+	}
+	if (type == am_ac &&
+	    ERTS_MAGIC_BIN_DESTRUCTOR(bin) != cleanup_my_data_ac) {
+	    goto badarg;
+	}
+	bin_term = tp[2];
+    } else if (do_binary_match_compile(arg2, &type, &bin)) {
+	goto badarg;
+    }
+    runres = do_binary_split(p, arg1, hsstart, hsend, hsflags, type, bin, NIL, &result);
+    if (runres == DO_BIN_MATCH_RESTART && bin_term == NIL) {
+	Eterm *hp = HAlloc(p, PROC_BIN_SIZE);
+	bin_term = erts_mk_magic_binary_term(&hp, &MSO(p), bin);
+    } else if (bin_term == NIL) {
+	erts_bin_free(bin);
+    }
+    switch(runres) {
+    case DO_BIN_MATCH_OK:
+	BIF_RET(result);
+    case DO_BIN_MATCH_RESTART:
+	BIF_TRAP3(&binary_split_trap_export, p, arg1, result, bin_term);
+    default:
+	goto badarg;
+    }
+ badarg:
+    BIF_ERROR(p,BADARG);
+}
+
+
+BIF_RETTYPE binary_split_2(BIF_ALIST_2)
+{
+    return binary_split(BIF_P,BIF_ARG_1,BIF_ARG_2,((Eterm) 0));
+}
+
 
 BIF_RETTYPE binary_referenced_byte_size_1(BIF_ALIST_1)
 {
