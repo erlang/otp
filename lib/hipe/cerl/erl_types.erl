@@ -753,7 +753,7 @@ t_opaque_from_records(RecDict) ->
                  %% List = lists:zip(ArgNames, Args),
                  %% TmpVarDict = dict:from_list(List),
                  %% Rep = t_from_form(Type, RecDict, TmpVarDict),
-                 Rep = t_none(), % not used for anything right now
+                 Rep = t_any(), % not used for anything right now
                  Args = [t_any() || _ <- ArgNames],
                  t_opaque(Module, Name, Args, Rep)
 	     end, OpaqueRecDict),
@@ -4240,8 +4240,14 @@ type_from_form(Name, Args, TypeNames, ET, M, MR, V, D, L) ->
           false -> {t_any(), L1}
         end,
       Rep1 = choose_opaque_type(Rep, Type),
-      Args2 = [subst_all_vars_to_any(ArgType) || ArgType <- ArgTypes],
-      {t_opaque(Module, Name, Args2, Rep1), L2};
+      Rep2 = case t_is_none(Rep1) of
+               true -> Rep1;
+               false ->
+                 Args2 = [subst_all_vars_to_any(ArgType) ||
+                           ArgType <- ArgTypes],
+                 t_opaque(Module, Name, Args2, Rep1)
+             end,
+      {Rep2, L2};
     error ->
       Msg = io_lib:format("Unable to find type ~w/~w\n", [Name, ArgsLen]),
       throw({error, Msg})
@@ -4289,7 +4295,11 @@ remote_from_form(RemMod, Name, Args, TypeNames, ET, M, MR, V, D, L) ->
                         {t_any(), L1}
                     end,
                   NewRep1 = choose_opaque_type(NewRep, Type),
-                  {t_opaque(Mod, Name, ArgTypes, NewRep1), L2};
+                  NewRep2 = case t_is_none(NewRep1) of
+                     true -> NewRep1;
+                     false -> t_opaque(Mod, Name, ArgTypes, NewRep1)
+                   end,
+                  {NewRep2, L2};
                 error ->
                   Msg = io_lib:format("Unable to find remote type ~w:~w()\n",
                                       [RemMod, Name]),
