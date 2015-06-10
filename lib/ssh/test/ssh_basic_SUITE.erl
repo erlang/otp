@@ -154,19 +154,36 @@ init_per_group(dir_options, Config) ->
     %% Make readable file:
     File_readable = filename:join(PrivDir, "file"),
     ok = file:write_file(File_readable, <<>>),
+
     %% Check:
     case {file:read_file_info(Dir_unreadable), 
 	  file:read_file_info(File_readable)} of
-	{{ok, #file_info{type=directory, access=Md}},
-	 {ok, #file_info{type=regular, access=Mf}}} when Md=/=read, Md=/=read_write,
-							 Mf=/=read, Mf=/=read_write ->
-	    %% Save:
-	    [{unreadable_dir, Dir_unreadable},
-	     {readable_file, File_readable} 
-	     | Config];
-	X ->
-	    ct:log("#file_info : ~p",[X]),
-	    {skip, "File or dir mode settings failed"}
+	{{ok, Id=#file_info{type=directory, access=Md}},
+	 {ok, If=#file_info{type=regular,   access=Mf}}} ->
+	    AccessOK =
+		case {Md,                Mf} of
+		    {read,               _} -> false;
+		    {read_write,         _} -> false;
+		    {_,               read} -> true;
+		    {_,         read_write} -> true;
+		    _ -> false
+		end,
+
+	    case AccessOK of
+		true ->
+		    %% Save:
+		    [{unreadable_dir, Dir_unreadable},
+		     {readable_file, File_readable} 
+		     | Config];
+		false ->
+		    ct:log("File#file_info : ~p~n"
+			   "Dir#file_info  : ~p",[If,Id]),
+		    {skip, "File or dir mode settings failed"}
+	    end;
+
+	NotDirFile ->
+	    ct:log("{Dir,File} -> ~p",[NotDirFile]),
+	    {skip, "File/Dir creation failed"}
     end;
 init_per_group(_, Config) ->
     Config.
