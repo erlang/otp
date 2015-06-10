@@ -139,9 +139,9 @@ do(Info) ->
 load("TransferDiskLogSize " ++ TransferDiskLogSize, []) ->
     case inets_regexp:split(TransferDiskLogSize," ") of
 	{ok,[MaxBytes,MaxFiles]} ->
-	    case httpd_conf:make_integer(MaxBytes) of
+	    case make_integer(MaxBytes) of
 		{ok,MaxBytesInteger} ->
-		    case httpd_conf:make_integer(MaxFiles) of
+		    case make_integer(MaxFiles) of
 			{ok,MaxFilesInteger} ->
 			    {ok,[],{transfer_disk_log_size,
 				    {MaxBytesInteger,MaxFilesInteger}}};
@@ -161,9 +161,9 @@ load("TransferDiskLog " ++ TransferDiskLog,[]) ->
 load("ErrorDiskLogSize " ++  ErrorDiskLogSize, []) ->
     case inets_regexp:split(ErrorDiskLogSize," ") of
 	{ok,[MaxBytes,MaxFiles]} ->
-	    case httpd_conf:make_integer(MaxBytes) of
+	    case make_integer(MaxBytes) of
 		{ok,MaxBytesInteger} ->
-		    case httpd_conf:make_integer(MaxFiles) of
+		    case make_integer(MaxFiles) of
 			{ok,MaxFilesInteger} ->
 			    {ok,[],{error_disk_log_size,
 				    {MaxBytesInteger,MaxFilesInteger}}};
@@ -182,9 +182,9 @@ load("ErrorDiskLog " ++ ErrorDiskLog, []) ->
 load("SecurityDiskLogSize " ++ SecurityDiskLogSize, []) ->
     case inets_regexp:split(SecurityDiskLogSize, " ") of
 	{ok, [MaxBytes, MaxFiles]} ->
-	    case httpd_conf:make_integer(MaxBytes) of
+	    case make_integer(MaxBytes) of
 		{ok, MaxBytesInteger} ->
-		    case httpd_conf:make_integer(MaxFiles) of
+		    case make_integer(MaxFiles) of
 			{ok, MaxFilesInteger} ->
 			    {ok, [], {security_disk_log_size,
 				      {MaxBytesInteger, MaxFilesInteger}}};
@@ -413,3 +413,11 @@ log_internal_info(Info,Date,[{internal_info,Reason}|Rest]) ->
 log_internal_info(Info,Date,[_|Rest]) ->
     log_internal_info(Info,Date,Rest).
 
+make_integer(List) ->
+    try list_to_integer(List) of
+	N ->
+	    {ok, N}
+    catch 
+	_:_ ->
+	    {error, {badarg, list_to_integer, List}}
+    end.

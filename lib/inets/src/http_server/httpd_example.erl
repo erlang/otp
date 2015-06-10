@@ -126,9 +126,7 @@ delay(Time) when is_integer(Time) ->
     i("httpd_example:delay(~p) -> done, now reply",[Time]),
     delay_reply("delay ok");
 delay(Time) when is_list(Time) ->
-    delay(httpd_conf:make_integer(Time));
-delay({ok,Time}) when is_integer(Time) ->
-    delay(Time);
+    delay(list_to_integer(Time));
 delay({error,_Reason}) ->
     i("delay -> called with invalid time"),
     delay_reply("delay failed: invalid delay time").
