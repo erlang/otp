@@ -101,7 +101,15 @@ deleted(Config) when is_list(Config) ->
     17 = module_info_test:f(),
     [_|_] = erlang:get_module_info(module_info_test, attributes),
     [_|_] = erlang:get_module_info(module_info_test),
-    erlang:delete_module(module_info_test),
+
+    %% first delete it
+    true = erlang:delete_module(module_info_test),
+    {'EXIT',{undef, _}} = (catch module_info_test:f()),
+    {'EXIT',{badarg, _}} = (catch erlang:get_module_info(module_info_test,attributes)),
+    {'EXIT',{badarg, _}} = (catch erlang:get_module_info(module_info_test)),
+
+    %% then purge it
+    true = erlang:purge_module(module_info_test),
     {'EXIT',{undef, _}} = (catch module_info_test:f()),
     {'EXIT',{badarg, _}} = (catch erlang:get_module_info(module_info_test,attributes)),
     {'EXIT',{badarg, _}} = (catch erlang:get_module_info(module_info_test)),
