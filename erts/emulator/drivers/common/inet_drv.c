@@ -12172,6 +12172,8 @@ static MultiTimerData *add_multi_timer(MultiTimerData **first, ErlDrvPort port,
 				       void (*timeout_fun)(ErlDrvData drv_data, 
 							   ErlDrvTermData caller))
 {
+#define eq_mega(a, b) ((a)->when.megasecs == (b)->when.megasecs)
+#define eq_sec(a, b) ((a)->when.secs == (b)->when.secs)
     MultiTimerData *mtd, *p, *s;
     mtd = ALLOC(sizeof(MultiTimerData));
     absolute_timeout(timeout, &(mtd->when));
@@ -12183,23 +12185,17 @@ static MultiTimerData *add_multi_timer(MultiTimerData **first, ErlDrvPort port,
 	    break;
 	}
     }
-    if (!p || p->when.megasecs > mtd->when.megasecs) {
-	goto found;
-    }
-    for (; p!= NULL; s = p, p = p->next) {
+    for (; p!= NULL && eq_mega(p, mtd); s = p, p = p->next) {
 	if (p->when.secs >= mtd->when.secs) {
 	    break;
 	}
     }
-    if (!p || p->when.secs > mtd->when.secs) {
-	goto found;
-    }
-    for (; p!= NULL; s = p, p = p->next) {
+    for (; p!= NULL && eq_mega(p, mtd) && eq_sec(p, mtd); s = p, p = p->next) {
 	if (p->when.microsecs >= mtd->when.microsecs) {
 	    break;
 	}
     }
- found:
+
     if (!p) {
 	if (!s) {
 	    *first = mtd;
@@ -12225,6 +12221,8 @@ static MultiTimerData *add_multi_timer(MultiTimerData **first, ErlDrvPort port,
     }
     return mtd;
 }
+#undef eq_mega
+#undef eq_sec
 	
 
 
