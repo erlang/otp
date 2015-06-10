@@ -19,10 +19,6 @@
 %%
 -module(httpd_conf).
 
-%% EWSAPI 
--export([is_directory/1, is_file/1, make_integer/1, clean/1, 
-	 custom_clean/3, check_enum/2]).
-
 %% Application internal API
 -export([load/1, load/2, load_mime_types/1, store/1, store/2,
 	 remove/1, remove_all/1, get_config/3, get_config/4,
@@ -30,129 +26,21 @@
 	 lookup/2, lookup/3, lookup/4, 
 	 validate_properties/1]).
 
+%% Deprecated 
+-export([is_directory/1, is_file/1, make_integer/1, clean/1, 
+	 custom_clean/3, check_enum/2]).
+
+-deprecated({is_directory, 1, next_major_release}).
+-deprecated({is_file, 1, next_major_release}).
+-deprecated({make_integer, 1, next_major_release}).
+-deprecated({clean, 1, next_major_release}).
+-deprecated({custom_clean, 3, next_major_release}).
+-deprecated({check_enum, 2, next_major_release}).
+
 -define(VMODULE,"CONF").
 -include("httpd_internal.hrl").
 -include("httpd.hrl").
 -include_lib("inets/src/http_lib/http_internal.hrl").
-
-
-%%%=========================================================================
-%%%  EWSAPI
-%%%=========================================================================
-%%-------------------------------------------------------------------------
-%%  is_directory(FilePath) -> Result
-%%	FilePath = string()
-%%      Result = {ok,Directory} | {error,Reason}
-%%      Directory = string()
-%%      Reason = string() | enoent | eacces | enotdir | FileInfo
-%%      FileInfo = File info record
-%%
-%% Description: Checks if FilePath is a directory in which case it is
-%% returned. 
-%%-------------------------------------------------------------------------
-is_directory(Directory) ->
-    case file:read_file_info(Directory) of
-	{ok,FileInfo} ->
-	    #file_info{type = Type, access = Access} = FileInfo,
-	    is_directory(Type,Access,FileInfo,Directory);
-	{error,Reason} ->
-	    {error,Reason}
-    end.
-is_directory(directory,read,_FileInfo,Directory) ->
-    {ok,Directory};
-is_directory(directory,read_write,_FileInfo,Directory) ->
-    {ok,Directory};
-is_directory(_Type,_Access,FileInfo,_Directory) ->
-    {error,FileInfo}.
-
-
-%%-------------------------------------------------------------------------
-%% is_file(FilePath) -> Result
-%%	FilePath = string()
-%%      Result = {ok,File} | {error,Reason}
-%%      File = string()
-%%      Reason = string() | enoent | eacces | enotdir | FileInfo
-%%      FileInfo = File info record
-%%
-%% Description: Checks if FilePath is a regular file in which case it
-%% is returned.
-%%-------------------------------------------------------------------------
-is_file(File) ->
-    case file:read_file_info(File) of
-	{ok,FileInfo} ->
-	    #file_info{type = Type, access = Access} = FileInfo,
-	    is_file(Type,Access,FileInfo,File);
-	{error,Reason} ->
-	    {error,Reason}
-    end.
-is_file(regular,read,_FileInfo,File) ->
-    {ok,File};
-is_file(regular,read_write,_FileInfo,File) ->
-    {ok,File};
-is_file(_Type,_Access,FileInfo,_File) ->
-    {error,FileInfo}.
-
-
-%%-------------------------------------------------------------------------
-%% make_integer(String) -> Result
-%% String = string()
-%% Result = {ok,integer()} | {error,nomatch}
-%%
-%% Description: make_integer/1 returns an integer representation of String. 
-%%-------------------------------------------------------------------------
-make_integer(String) ->
-    case inets_regexp:match(clean(String),"[0-9]+") of
-	{match, _, _} ->
-	    {ok, list_to_integer(clean(String))};
-	nomatch ->
-	    {error, nomatch}
-    end.
-
-
-%%-------------------------------------------------------------------------
-%% clean(String) -> Stripped
-%% String = Stripped = string()
-%%
-%% Description:clean/1 removes leading and/or trailing white spaces
-%% from String.
-%%-------------------------------------------------------------------------
-clean(String) ->
-    {ok,CleanedString,_} = 
-	inets_regexp:gsub(String, "^[ \t\n\r\f]*|[ \t\n\r\f]*\$",""),
-    CleanedString.
-
-
-%%-------------------------------------------------------------------------
-%% custom_clean(String,Before,After) -> Stripped
-%% Before = After = regexp()
-%% String = Stripped = string()
-%%
-%% Description: custom_clean/3 removes leading and/or trailing white
-%% spaces and custom characters from String. 
-%%-------------------------------------------------------------------------
-custom_clean(String,MoreBefore,MoreAfter) ->
-    {ok,CleanedString,_} = inets_regexp:gsub(String,"^[ \t\n\r\f"++MoreBefore++
-				       "]*|[ \t\n\r\f"++MoreAfter++"]*\$",""),
-    CleanedString.
-
-
-%%-------------------------------------------------------------------------
-%% check_enum(EnumString,ValidEnumStrings) -> Result
-%%	EnumString = string()
-%%      ValidEnumStrings = [string()]
-%%      Result = {ok,atom()} | {error,not_valid}
-%%
-%% Description: check_enum/2 checks if EnumString is a valid
-%% enumeration of ValidEnumStrings in which case it is returned as an
-%% atom.
-%%-------------------------------------------------------------------------
-check_enum(_Enum,[]) ->
-    {error, not_valid};
-check_enum(Enum,[Enum|_Rest]) ->
-    {ok, list_to_atom(Enum)};
-check_enum(Enum, [_NotValid|Rest]) ->
-    check_enum(Enum, Rest).
-
 
 %%%=========================================================================
 %%%  Application internal API
@@ -1314,4 +1202,64 @@ plain_server_tokens() ->
 error_report(Where,M,F,Error) ->
     error_logger:error_report([{?MODULE, Where}, 
 			       {apply, {M, F, []}}, Error]).
+
+
+%%%=========================================================================
+%%%  Deprecated remove in 19
+%%%=========================================================================
+is_directory(Directory) ->
+    case file:read_file_info(Directory) of
+	{ok,FileInfo} ->
+	    #file_info{type = Type, access = Access} = FileInfo,
+	    is_directory(Type,Access,FileInfo,Directory);
+	{error,Reason} ->
+	    {error,Reason}
+    end.
+is_directory(directory,read,_FileInfo,Directory) ->
+    {ok,Directory};
+is_directory(directory,read_write,_FileInfo,Directory) ->
+    {ok,Directory};
+is_directory(_Type,_Access,FileInfo,_Directory) ->
+    {error,FileInfo}.
+
+is_file(File) ->
+    case file:read_file_info(File) of
+	{ok,FileInfo} ->
+	    #file_info{type = Type, access = Access} = FileInfo,
+	    is_file(Type,Access,FileInfo,File);
+	{error,Reason} ->
+	    {error,Reason}
+    end.
+is_file(regular,read,_FileInfo,File) ->
+    {ok,File};
+is_file(regular,read_write,_FileInfo,File) ->
+    {ok,File};
+is_file(_Type,_Access,FileInfo,_File) ->
+    {error,FileInfo}.
+
+make_integer(String) ->
+    case inets_regexp:match(string:strip(String),"[0-9]+") of
+	{match, _, _} ->
+	    {ok, list_to_integer(string:strip(String))};
+	nomatch ->
+	    {error, nomatch}
+    end.
+
+clean(String) ->
+    {ok,CleanedString,_} = 
+	inets_regexp:gsub(String, "^[ \t\n\r\f]*|[ \t\n\r\f]*\$",""),
+    CleanedString.
+
+custom_clean(String,MoreBefore,MoreAfter) ->
+    {ok,CleanedString,_} = inets_regexp:gsub(String,"^[ \t\n\r\f"++MoreBefore++
+				       "]*|[ \t\n\r\f"++MoreAfter++"]*\$",""),
+    CleanedString.
+
+check_enum(_Enum,[]) ->
+    {error, not_valid};
+check_enum(Enum,[Enum|_Rest]) ->
+    {ok, list_to_atom(Enum)};
+check_enum(Enum, [_NotValid|Rest]) ->
+    check_enum(Enum, Rest).
+
 
