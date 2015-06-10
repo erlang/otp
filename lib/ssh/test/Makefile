@@ -38,6 +38,7 @@ MODULES= \
 	ssh_sftp_SUITE \
 	ssh_sftpd_SUITE \
 	ssh_sftpd_erlclient_SUITE \
+	ssh_upgrade_SUITE \
 	ssh_connection_SUITE \
 	ssh_echo_server \
 	ssh_peername_sockname_server \
