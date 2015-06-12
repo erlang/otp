@@ -1149,7 +1149,7 @@ otp_11100(Config) when is_list(Config) ->
         {a,{type,A1,range,[{integer,A1,1},{foo,bar}]},[]}}),
     "-type foo(INVALID-FORM:{foo,bar}:) :: A.\n" =
         pf({attribute,A1,type,{foo,{var,A1,'A'},[{foo,bar}]}}),
-    "-type foo() :: (INVALID-FORM:{foo,bar}: :: []).\n" =
+    "-type foo() :: INVALID-FORM:{foo,bar}: :: [].\n" =
         pf({attribute,A1,type,
             {foo,{paren_type,A1,
                   [{ann_type,A1,[{foo,bar},{type,A1,nil,[]}]}]},

@@ -520,7 +520,7 @@ format_spec(Name, Type, Defs, #opts{pretty_printer = erl_pp}=Opts) ->
         {R, ".\n"} = etypef(L, O),
         [{pre, R}]
     catch _:_ ->
-        %% Example: "@spec ... -> record(a)"
+        %% Should not happen.
         format_spec(Name, Type, Defs, Opts#opts{pretty_printer=''})
     end;
 format_spec(Sep, Type, Defs, _Opts) ->
