@@ -20,7 +20,7 @@
 %%========================================================================
 %%
 %% Filename : hipe_tagscheme.erl
-%% Note     : This is specific to Erlang 5.* (i.e. starting with R9).
+%% Note     : This is specific to Erlang >= 5.* (i.e. starting with R9).
 %%
 %% Modifications:
 %%  020904: Happi - added support for external pids and ports.
@@ -141,7 +141,7 @@ mk_non_value() -> ?THE_NON_VALUE.
 -spec is_fixnum(integer()) -> boolean().
 is_fixnum(N) when is_integer(N) ->
   Bits = ?bytes_to_bits(hipe_rtl_arch:word_size()) - ?TAG_IMMED1_SIZE,
-  (N =< ((1 bsl (Bits - 1)) - 1)) and (N >= -(1 bsl (Bits - 1))).
+  (N =< ((1 bsl (Bits - 1)) - 1)) andalso (N >= -(1 bsl (Bits - 1))).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -973,11 +973,11 @@ get_one_word_pos_bignum(USize, Size, Fail) ->
 -spec bignum_sizeneed(non_neg_integer()) -> non_neg_integer().
 
 bignum_sizeneed(Size) ->
-  WordSizeBits = hipe_rtl_arch:word_size() * 8,
   case is_fixnum(1 bsl Size) of
     true ->
       0;
     false ->
+      WordSizeBits = hipe_rtl_arch:word_size() * 8,
       ((Size + (WordSizeBits-1)) div WordSizeBits) + 1
   end.
 
@@ -1116,14 +1116,11 @@ get_field_offset({matchbuffer, binsize}) ->
   ?MB_SIZE.
 
 get_field_size(Field) ->
-  size_to_atom(get_field_size1(Field)).
-
-size_to_atom(Bytes) ->
   WordSize = hipe_rtl_arch:word_size(),
-  case Bytes of
+  case get_field_size1(Field) of
     WordSize -> word;
-    4 -> int32;
-    %%2 -> int16; So far there are no 2 byte fields
+    %% 4 -> int32; Seems not needed: covered by the previous case
+    %% 2 -> int16; So far there are no 2 byte fields
     1 -> byte
   end.
 
