@@ -670,6 +670,8 @@ int db_create_hash(Process *p, DbTable *tbl)
 	int i;
 	if (tb->common.type & DB_FREQ_READ)
 	    rwmtx_opt.type = ERTS_SMP_RWMTX_TYPE_FREQUENT_READ;
+	if (erts_ets_rwmtx_spin_count >= 0)
+	    rwmtx_opt.main_spincount = erts_ets_rwmtx_spin_count;
 	tb->locks = (DbTableHashFineLocks*) erts_db_alloc_fnf(ERTS_ALC_T_DB_SEG, /* Other type maybe? */ 
 							      (DbTable *) tb,
 							      sizeof(DbTableHashFineLocks));	    	    
