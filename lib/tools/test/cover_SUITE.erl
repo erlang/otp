@@ -29,7 +29,8 @@
 	 export_import/1,
 	 otp_5031/1, eif/1, otp_5305/1, otp_5418/1, otp_6115/1, otp_7095/1,
          otp_8188/1, otp_8270/1, otp_8273/1, otp_8340/1,
-	 otp_10979_hanging_node/1, compile_beam_opts/1, eep37/1]).
+         otp_10979_hanging_node/1, compile_beam_opts/1, eep37/1,
+         analyse_no_beam/1]).
 
 -export([do_coverage/1]).
 
@@ -52,7 +53,8 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     NoStartStop = [eif,otp_5305,otp_5418,otp_7095,otp_8273,
-		   otp_8340,otp_8188,compile_beam_opts,eep37],
+                   otp_8340,otp_8188,compile_beam_opts,eep37,
+		   analyse_no_beam],
     StartStop = [start, compile, analyse, misc, stop,
 		 distribution, reconnect, die_and_reconnect,
 		 dont_reconnect_after_stop, stop_node_after_disconnect,
@@ -1684,6 +1686,43 @@ compile_beam_opts(Config) when is_list(Config) ->
     {ok, t} = cover:compile_beam("t"),
     Exports = t:module_info(exports),
     ok = file:delete("t.beam"),
+    ok = file:set_cwd(Cwd),
+    ok.
+
+analyse_no_beam(doc) ->
+    ["Don't crash if beam is not available"];
+analyse_no_beam(suite) -> [];
+analyse_no_beam(Config) when is_list(Config) ->
+    {ok, Cwd} = file:get_cwd(),
+    ok = file:set_cwd(?config(data_dir, Config)),
+
+    code:purge(t),
+    code:delete(t),
+
+    {ok,_} = file:copy("compile_beam/t.erl", "t.erl"),
+    {ok,t} = compile:file(t, [debug_info]),
+    {module,t} = code:load_file(t),
+    {ok,t} = cover:compile_beam(t),
+    t:f(),
+    ok = cover:export("t.coverdata"),
+
+    code:purge(t),
+    code:delete(t),
+
+    %% this is just so that cover realises (without stopping)
+    %% that this module is not cover compiled any more
+    {error, {not_cover_compiled,t}} = cover:analyse(t),
+
+    %% source and beam not available any more
+    ok = file:delete("t.erl"),
+    ok = file:delete("t.beam"),
+
+    ok = cover:import("t.coverdata"),
+
+    {error,{no_source_code_found,t}} = cover:analyse_to_file(t),
+    {result,[],[{no_source_code_found,t}]} = cover:analyse_to_file([t]),
+
+    ok = file:delete("t.coverdata"),
     ok = file:set_cwd(Cwd),
     ok.
 

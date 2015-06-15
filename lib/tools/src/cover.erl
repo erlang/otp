@@ -782,7 +782,7 @@ main_process_loop(State) ->
 	{From, {{analyse_to_file, Opts},Module}} ->
 	    S = try 
 		    Loaded = is_loaded(Module, State),
-		    spawn(fun() ->
+		    spawn_link(fun() ->
 				  ?SPAWN_DBG(analyse_to_file,{Module,Opts}),
 				  do_parallel_analysis_to_file(
 				    Module, Opts, Loaded, From, State)
@@ -2153,7 +2153,13 @@ find_source(Module, File0) ->
         throw_file(filename:join([BeamDir, "..", "src", Base])),
         %% Not in ../src: look for source path in compile info, but
         %% first look relative the beam directory.
-        Info = lists:keyfind(source, 1, Module:module_info(compile)),
+        Info =
+            try lists:keyfind(source, 1, Module:module_info(compile))
+            catch error:undef ->
+                    %% The module might have been imported
+                    %% and the beam not available
+                    throw({beam, File0})
+            end,
         false == Info andalso throw({beam, File0}),  %% stripped
         {source, SrcFile} = Info,
         throw_file(splice(BeamDir, SrcFile)),  %% below ../src
