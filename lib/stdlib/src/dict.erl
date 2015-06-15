@@ -70,7 +70,7 @@
 	}).
 
 
--opaque dict() :: dict(_, _).
+-type dict() :: dict(_, _).
 
 -opaque dict(Key, Value) :: #dict{segs :: segs(Key, Value)}.
 

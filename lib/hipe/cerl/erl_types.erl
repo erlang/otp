@@ -583,13 +583,11 @@ t_find_opaque_mismatch_list([H|T]) ->
 %% calling t_contains_opaque/2 is that the traversal stops when
 %% there is a mismatch which means that unknown opaque types "below"
 %% the mismatch are not found.
-%% XXX. Returns one element even if both oparands contain opaque types.
-%% XXX. Slow since t_inf() is called but the results are ignored.
 t_find_unknown_opaque(_T1, _T2, 'universe') -> [];
 t_find_unknown_opaque(T1, T2, Opaques) ->
   try t_inf(T1, T2, {match, Opaques}) of
     _ -> []
-  catch throw:N when is_integer(N) -> [N]
+  catch throw:{pos, Ns} -> Ns
   end.
 
 -spec t_decorate_with_opaque(erl_type(), erl_type(), [erl_type()]) -> erl_type().
@@ -755,9 +753,9 @@ t_opaque_from_records(RecDict) ->
                  %% List = lists:zip(ArgNames, Args),
                  %% TmpVarDict = dict:from_list(List),
                  %% Rep = t_from_form(Type, RecDict, TmpVarDict),
-                 Rep = t_none(), % not used for anything right now
+                 Rep = t_any(), % not used for anything right now
                  Args = [t_any() || _ <- ArgNames],
-                 skip_opaque_alias(Rep, Module, Name, Args)
+                 t_opaque(Module, Name, Args, Rep)
 	     end, OpaqueRecDict),
   [OpaqueType || {_Key, OpaqueType} <- dict:to_list(OpaqueTypeDict)].
 
@@ -2608,7 +2606,7 @@ inf_opaque1(T1, ?opaque(Set2)=T2, Pos, Opaques) ->
   end.
 
 inf_is_opaque_type(T, Pos, {match, Opaques}) ->
-  is_opaque_type(T, Opaques) orelse throw(Pos);
+  is_opaque_type(T, Opaques) orelse throw({pos, [Pos]});
 inf_is_opaque_type(T, _Pos, Opaques) ->
   is_opaque_type(T, Opaques).
 
@@ -2627,13 +2625,13 @@ combine(S, T1, T2) ->
   #opaque{mod = Mod1, name = Name1, args = Args1} = T1,
   #opaque{mod = Mod2, name = Name2, args = Args2} = T2,
   Comb1 = comb(Mod1, Name1, Args1, S, T1),
-  case is_same_type_name({Mod1, Name1, Args1}, {Mod2, Name2, Args2}) of
+  case is_compat_opaque_names({Mod1, Name1, Args1}, {Mod2, Name2, Args2}) of
     true  -> Comb1;
     false -> Comb1 ++ comb(Mod2, Name2, Args2, S, T2)
   end.
 
 comb(Mod, Name, Args, S, T) ->
-  case is_same_name(Mod, Name, Args, S) of
+  case can_combine_opaque_names(Mod, Name, Args, S) of
     true ->
       ?opaque(Set) = S,
       Set;
@@ -2641,17 +2639,17 @@ comb(Mod, Name, Args, S, T) ->
       [T#opaque{struct = S}]
   end.
 
-is_same_name(Mod1, Name1, Args1,
-             ?opaque([#opaque{mod = Mod2, name = Name2, args = Args2}])) ->
-  is_same_type_name({Mod1, Name1, Args1}, {Mod2, Name2, Args2});
-is_same_name(_, _, _, _) -> false.
+can_combine_opaque_names(Mod1, Name1, Args1,
+               ?opaque([#opaque{mod = Mod2, name = Name2, args = Args2}])) ->
+  is_compat_opaque_names({Mod1, Name1, Args1}, {Mod2, Name2, Args2});
+can_combine_opaque_names(_, _, _, _) -> false.
 
 %% Combining two lists this way can be very time consuming...
 %% Note: two parameterized opaque types are not the same if their
 %% actual parameters differ
 inf_opaque(Set1, Set2, Opaques) ->
-  List1 = inf_look_up(Set1, 1, Opaques),
-  List2 = inf_look_up(Set2, 2, Opaques),
+  List1 = inf_look_up(Set1, Opaques),
+  List2 = inf_look_up(Set2, Opaques),
   List0 = [combine(Inf, T1, T2) ||
             {Is1, ModNameArgs1, T1} <- List1,
             {Is2, ModNameArgs2, T2} <- List2,
@@ -2662,14 +2660,14 @@ inf_opaque(Set1, Set2, Opaques) ->
   sup_opaque(List).
 
 %% Optimization: do just one lookup.
-inf_look_up(Set, Pos, Opaques) ->
-  [{Opaques =:= 'universe' orelse inf_is_opaque_type2(T, Pos, Opaques),
+inf_look_up(Set, Opaques) ->
+  [{Opaques =:= 'universe' orelse inf_is_opaque_type2(T, Opaques),
     {M, N, Args}, T} ||
     #opaque{mod = M, name = N, args = Args} = T <- set_to_list(Set)].
 
-inf_is_opaque_type2(T, Pos, {match, Opaques}) ->
-  is_opaque_type2(T, Opaques) orelse throw(Pos);
-inf_is_opaque_type2(T, _Pos, Opaques) ->
+inf_is_opaque_type2(T, {match, Opaques}) ->
+  is_opaque_type2(T, Opaques);
+inf_is_opaque_type2(T, Opaques) ->
   is_opaque_type2(T, Opaques).
 
 inf_opaque_types(IsOpaque1, ModNameArgs1, T1,
@@ -2678,17 +2676,32 @@ inf_opaque_types(IsOpaque1, ModNameArgs1, T1,
   #opaque{struct = S2}=T2,
   case
     Opaques =:= 'universe' orelse
-    is_same_type_name(ModNameArgs1, ModNameArgs2)
+    is_compat_opaque_names(ModNameArgs1, ModNameArgs2)
   of
     true -> t_inf(S1, S2, Opaques);
     false ->
       case {IsOpaque1, IsOpaque2} of
-        {true, true}   -> t_inf(S1, S2, Opaques);
-        {true, false}  -> t_inf(S1, ?opaque(set_singleton(T2)), Opaques);
-        {false, true}  -> t_inf(?opaque(set_singleton(T1)), S2, Opaques);
+        {true, true}  -> t_inf(S1, S2, Opaques);
+        {true, false} -> t_inf(S1, ?opaque(set_singleton(T2)), Opaques);
+        {false, true} -> t_inf(?opaque(set_singleton(T1)), S2, Opaques);
+        {false, false} when element(1, Opaques) =:= match ->
+          throw({pos, [1, 2]});
         {false, false} -> t_none()
       end
   end.
+
+is_compat_opaque_names(ModNameArgs, ModNameArgs) -> true;
+is_compat_opaque_names({Mod,Name,Args1}, {Mod,Name,Args2}) ->
+  is_compat_args(Args1, Args2);
+is_compat_opaque_names(_, _) -> false.
+
+is_compat_args([A1|Args1], [A2|Args2]) ->
+  is_compat_arg(A1, A2) andalso is_compat_args(Args1, Args2);
+is_compat_args([], []) -> true;
+is_compat_args(_, _) -> false.
+
+is_compat_arg(A, A) -> true;
+is_compat_arg(A1, A2) -> t_is_any(A1) orelse t_is_any(A2).
 
 -spec t_inf_lists([erl_type()], [erl_type()]) -> [erl_type()].
 
@@ -2788,7 +2801,7 @@ inf_union(U1, U2, Opaques) ->
   {Union, ThrowList3} = inf_union(U1, U2, 0, [], [], Opaques),
   ThrowList = lists:merge3(ThrowList1, ThrowList2, ThrowList3),
   case t_sup([O1, O2, Union]) of
-    ?none when ThrowList =/= [] -> throw(hd(ThrowList));
+    ?none when ThrowList =/= [] -> throw({pos, lists:usort(ThrowList)});
     Sup -> Sup
   end.
 
@@ -2800,8 +2813,8 @@ inf_union_collect([E|L], Opaque, InfFun, InfList, ThrowList) ->
   try InfFun(E, Opaque)of
     Inf ->
       inf_union_collect(L, Opaque, InfFun, [Inf|InfList], ThrowList)
-  catch throw:N when is_integer(N) ->
-      inf_union_collect(L, Opaque, InfFun, InfList, [N|ThrowList])
+  catch throw:{pos, Ns} ->
+      inf_union_collect(L, Opaque, InfFun, InfList, Ns ++ ThrowList)
   end.
 
 inf_union([?none|Left1], [?none|Left2], N, Acc, ThrowList, Opaques) ->
@@ -2810,8 +2823,8 @@ inf_union([T1|Left1], [T2|Left2], N, Acc, ThrowList, Opaques) ->
   try t_inf(T1, T2, Opaques) of
     ?none -> inf_union(Left1, Left2, N, [?none|Acc], ThrowList, Opaques);
     T     -> inf_union(Left1, Left2, N+1, [T|Acc], ThrowList, Opaques)
-  catch throw:N when is_integer(N) ->
-      inf_union(Left1, Left2, N, [?none|Acc], [N|ThrowList], Opaques)
+  catch throw:{pos, Ns} ->
+      inf_union(Left1, Left2, N, [?none|Acc], Ns ++ ThrowList, Opaques)
   end;
 inf_union([], [], N, Acc, ThrowList, _Opaques) ->
   if N =:= 0 -> {?none, ThrowList};
@@ -4227,16 +4240,18 @@ type_from_form(Name, Args, TypeNames, ET, M, MR, V, D, L) ->
           false -> {t_any(), L1}
         end,
       Rep1 = choose_opaque_type(Rep, Type),
-      Args2 = [subst_all_vars_to_any(ArgType) || ArgType <- ArgTypes],
-      {skip_opaque_alias(Rep1, Module, Name, Args2), L2};
+      Rep2 = case t_is_none(Rep1) of
+               true -> Rep1;
+               false ->
+                 Args2 = [subst_all_vars_to_any(ArgType) ||
+                           ArgType <- ArgTypes],
+                 t_opaque(Module, Name, Args2, Rep1)
+             end,
+      {Rep2, L2};
     error ->
       Msg = io_lib:format("Unable to find type ~w/~w\n", [Name, ArgsLen]),
       throw({error, Msg})
   end.
-
-skip_opaque_alias(?opaque(_) = T, _Mod, _Name, _Args) -> T;
-skip_opaque_alias(T, Module, Name, Args) ->
-  t_opaque(Module, Name, Args, T).
 
 remote_from_form(RemMod, Name, Args, TypeNames, ET, M, MR, V, D, L) ->
   {ArgTypes, L1} = list_from_form(Args, TypeNames, ET, M, MR, V, D, L),
@@ -4280,7 +4295,11 @@ remote_from_form(RemMod, Name, Args, TypeNames, ET, M, MR, V, D, L) ->
                         {t_any(), L1}
                     end,
                   NewRep1 = choose_opaque_type(NewRep, Type),
-                  {skip_opaque_alias(NewRep1, Mod, Name, ArgTypes), L2};
+                  NewRep2 = case t_is_none(NewRep1) of
+                     true -> NewRep1;
+                     false -> t_opaque(Mod, Name, ArgTypes, NewRep1)
+                   end,
+                  {NewRep2, L2};
                 error ->
                   Msg = io_lib:format("Unable to find remote type ~w:~w()\n",
                                       [RemMod, Name]),
@@ -4679,17 +4698,6 @@ do_opaque(?union(List) = Type, Opaques, Pred) ->
   end;
 do_opaque(Type, _Opaques, Pred) ->
   Pred(Type).
-
-is_same_type_name(ModNameArgs, ModNameArgs) -> true;
-is_same_type_name({Mod, Name, Args1}, {Mod, Name, Args2}) ->
-  all_any(Args1) orelse all_any(Args2);
-is_same_type_name(_ModNameArgs1, _ModNameArgs2) ->
-  false.
-
-all_any([]) -> true;
-all_any([T|L]) ->
-  t_is_any(T) andalso all_any(L);
-all_any(_) -> false.
 
 map_keys(?map(Pairs)) ->
   [K || {K, _} <- Pairs].

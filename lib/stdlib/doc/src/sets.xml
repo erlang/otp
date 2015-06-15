@@ -50,9 +50,6 @@
     </datatype>
     <datatype>
       <name name="set" n_vars="0"/>
-      <desc>
-        <p><c>set()</c> is equivalent to <c>set(term())</c>.</p>
-      </desc>
     </datatype>
   </datatypes>
   <funcs>

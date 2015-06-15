@@ -48,7 +48,7 @@
 
 -opaque queue(Item) :: {list(Item), list(Item)}.
 
--opaque queue() :: queue(_).
+-type queue() :: queue(_).
 
 %% Creation, inspection and conversion
 

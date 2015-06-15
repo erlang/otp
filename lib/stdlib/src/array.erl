@@ -164,7 +164,7 @@
                 elements :: elements(_)         %% the tuple tree
 	       }).
 
--opaque array() :: array(term()).
+-type array() :: array(term()).
 
 -opaque array(Type) ::
           #array{default :: Type, elements :: elements(Type)}.

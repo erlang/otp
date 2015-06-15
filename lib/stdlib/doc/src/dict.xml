@@ -46,9 +46,6 @@
     </datatype>
     <datatype>
       <name name="dict" n_vars="0"/>
-      <desc>
-        <p><c>dict()</c> is equivalent to <c>dict(term(), term())</c>.</p>
-      </desc>
     </datatype>
   </datatypes>
   <funcs>

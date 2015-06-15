@@ -203,11 +203,10 @@
 -export_type([set/0, set/1, iter/0, iter/1]).
 
 -type gb_set_node(Element) :: 'nil' | {Element, _, _}.
--type gb_set_node() :: gb_set_node(_).
 -opaque set(Element) :: {non_neg_integer(), gb_set_node(Element)}.
--opaque set() :: set(_).
+-type set() :: set(_).
 -opaque iter(Element) :: [gb_set_node(Element)].
--opaque iter() :: [gb_set_node()].
+-type iter() :: iter(_).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 

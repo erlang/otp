@@ -95,9 +95,6 @@
     </datatype>
     <datatype>
       <name name="queue" n_vars="0"/>
-      <desc>
-        <p><c>queue()</c> is equivalent to <c>queue(term())</c>.</p>
-      </desc>
     </datatype>
   </datatypes>
 
