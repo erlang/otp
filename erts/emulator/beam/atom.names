@@ -350,6 +350,7 @@ atom message
 atom message_binary
 atom message_queue_len
 atom messages
+atom merge_trap
 atom meta
 atom meta_match_spec
 atom micro_seconds

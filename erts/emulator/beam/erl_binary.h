@@ -194,6 +194,9 @@ ERTS_GLB_INLINE Binary *erts_bin_nrml_alloc(Uint size);
 ERTS_GLB_INLINE Binary *erts_bin_realloc_fnf(Binary *bp, Uint size);
 ERTS_GLB_INLINE Binary *erts_bin_realloc(Binary *bp, Uint size);
 ERTS_GLB_INLINE void erts_bin_free(Binary *bp);
+ERTS_GLB_INLINE Binary *erts_create_magic_binary_x(Uint size,
+                                                  void (*destructor)(Binary *),
+                                                  int unaligned);
 ERTS_GLB_INLINE Binary *erts_create_magic_binary(Uint size,
 						 void (*destructor)(Binary *));
 
@@ -332,19 +335,28 @@ erts_bin_free(Binary *bp)
 }
 
 ERTS_GLB_INLINE Binary *
-erts_create_magic_binary(Uint size, void (*destructor)(Binary *))
+erts_create_magic_binary_x(Uint size, void (*destructor)(Binary *),
+                           int unaligned)
 {
-    Uint bsize = ERTS_MAGIC_BIN_SIZE(size);
+    Uint bsize = unaligned ? ERTS_MAGIC_BIN_UNALIGNED_SIZE(size)
+                           : ERTS_MAGIC_BIN_SIZE(size);
     Binary* bptr = erts_alloc_fnf(ERTS_ALC_T_BINARY, bsize);
     ASSERT(bsize > size);
     if (!bptr)
 	erts_alloc_n_enomem(ERTS_ALC_T2N(ERTS_ALC_T_BINARY), bsize);
     ERTS_CHK_BIN_ALIGNMENT(bptr);
     bptr->flags = BIN_FLAG_MAGIC;
-    bptr->orig_size = ERTS_MAGIC_BIN_ORIG_SIZE(size);
+    bptr->orig_size = unaligned ? ERTS_MAGIC_BIN_UNALIGNED_ORIG_SIZE(size)
+                                : ERTS_MAGIC_BIN_ORIG_SIZE(size);
     erts_refc_init(&bptr->refc, 0);
     ERTS_MAGIC_BIN_DESTRUCTOR(bptr) = destructor;
     return bptr;
+}
+
+ERTS_GLB_INLINE Binary *
+erts_create_magic_binary(Uint size, void (*destructor)(Binary *))
+{
+    return erts_create_magic_binary_x(size, destructor, 0);
 }
 
 #endif /* #if ERTS_GLB_INLINE_INCL_FUNC_DEF */
