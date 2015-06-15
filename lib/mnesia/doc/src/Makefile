@@ -58,7 +58,6 @@ XML_CHAPTER_FILES = \
 	Mnesia_App_A.xml \
 	Mnesia_App_B.xml \
 	Mnesia_App_C.xml \
-	Mnesia_App_D.xml \
 	notes.xml
 
 BOOK_FILES = book.xml
