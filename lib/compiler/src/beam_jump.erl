@@ -490,16 +490,17 @@ is_label_used_in_1([], _, _) -> false.
 
 is_label_used_in_block({set,_,_,Info}, Lbl) ->
     case Info of
-	{bif,_,{f,F}} -> F =:= Lbl;
-	{alloc,_,{gc_bif,_,{f,F}}} -> F =:= Lbl;
+        {bif,_,{f,F}} -> F =:= Lbl;
+        {alloc,_,{gc_bif,_,{f,F}}} -> F =:= Lbl;
         {alloc,_,{put_map,_,{f,F}}} -> F =:= Lbl;
-	{'catch',{f,F}} -> F =:= Lbl;
-	{alloc,_,_} -> false;
-	{put_tuple,_} -> false;
-	{get_tuple_element,_} -> false;
-	{set_tuple_element,_} -> false;
-	{line,_} -> false;
-	_ when is_atom(Info) -> false
+        {get_map_elements,{f,F}} -> F =:= Lbl;
+        {'catch',{f,F}} -> F =:= Lbl;
+        {alloc,_,_} -> false;
+        {put_tuple,_} -> false;
+        {get_tuple_element,_} -> false;
+        {set_tuple_element,_} -> false;
+        {line,_} -> false;
+        _ when is_atom(Info) -> false
     end.
 
 %% remove_unused_labels(Instructions0) -> Instructions
