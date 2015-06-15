@@ -24,7 +24,7 @@
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2,
 	 init_per_testcase/2,end_per_testcase/2,
-	 exports/1,functions/1,native/1,info/1]).
+	 exports/1,functions/1,deleted/1,native/1,info/1]).
 
 %%-compile(native).
 
@@ -51,9 +51,8 @@ init_per_group(_GroupName, Config) ->
 end_per_group(_GroupName, Config) ->
     Config.
 
-
 modules() ->
-    [exports, functions, native, info].
+    [exports, functions, deleted, native, info].
 
 init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
     Dog = ?t:timetrap(?t:minutes(3)),
@@ -81,43 +80,66 @@ all_functions() ->
 
 %% Test that the list of exported functions from this module is correct.
 exports(Config) when is_list(Config) ->
-    ?line All = all_exported(),
-    ?line All = lists:sort(?MODULE:module_info(exports)),
-    ?line (catch ?MODULE:foo()),
-    ?line All = lists:sort(?MODULE:module_info(exports)),
+    All = all_exported(),
+    All = lists:sort(?MODULE:module_info(exports)),
+    (catch ?MODULE:foo()),
+    All = lists:sort(?MODULE:module_info(exports)),
     ok.
 
 %% Test that the list of exported functions from this module is correct.
 functions(Config) when is_list(Config) ->
-    ?line All = all_functions(),
-    ?line All = lists:sort(?MODULE:module_info(functions)),
+    All = all_functions(),
+    All = lists:sort(?MODULE:module_info(functions)),
+    ok.
+
+%% Test that deleted modules cause badarg
+deleted(Config) when is_list(Config) ->
+    Data = ?config(data_dir, Config),
+    File = filename:join(Data, "module_info_test"),
+    {ok,module_info_test,Code} = compile:file(File, [binary]),
+    {module,module_info_test} = erlang:load_module(module_info_test, Code),
+    17 = module_info_test:f(),
+    [_|_] = erlang:get_module_info(module_info_test, attributes),
+    [_|_] = erlang:get_module_info(module_info_test),
+
+    %% first delete it
+    true = erlang:delete_module(module_info_test),
+    {'EXIT',{undef, _}} = (catch module_info_test:f()),
+    {'EXIT',{badarg, _}} = (catch erlang:get_module_info(module_info_test,attributes)),
+    {'EXIT',{badarg, _}} = (catch erlang:get_module_info(module_info_test)),
+
+    %% then purge it
+    true = erlang:purge_module(module_info_test),
+    {'EXIT',{undef, _}} = (catch module_info_test:f()),
+    {'EXIT',{badarg, _}} = (catch erlang:get_module_info(module_info_test,attributes)),
+    {'EXIT',{badarg, _}} = (catch erlang:get_module_info(module_info_test)),
     ok.
 
 %% Test that the list of exported functions from this module is correct.
 %% Verify that module_info(native) works.
 native(Config) when is_list(Config) ->
-    ?line All = all_functions(),
-    ?line case ?MODULE:module_info(native_addresses) of
-	      [] ->
-                  ?line false = ?MODULE:module_info(native),
-		  {comment,"no native functions"};
-	      L ->
-                  ?line true = ?MODULE:module_info(native),
-		  %% Verify that all functions have unique addresses.
-		  ?line S0 = sofs:set(L, [{name,arity,addr}]),
-		  ?line S1 = sofs:projection({external,fun ?MODULE:native_proj/1}, S0),
-		  ?line S2 = sofs:relation_to_family(S1),
-		  ?line S3 = sofs:family_specification(fun ?MODULE:native_filter/1, S2),
-		  ?line 0 = sofs:no_elements(S3),
-		  ?line S4 = sofs:range(S1),
+    All = all_functions(),
+    case ?MODULE:module_info(native_addresses) of
+        [] ->
+            false = ?MODULE:module_info(native),
+            {comment,"no native functions"};
+        L ->
+            true = ?MODULE:module_info(native),
+            %% Verify that all functions have unique addresses.
+            S0 = sofs:set(L, [{name,arity,addr}]),
+            S1 = sofs:projection({external,fun ?MODULE:native_proj/1}, S0),
+            S2 = sofs:relation_to_family(S1),
+            S3 = sofs:family_specification(fun ?MODULE:native_filter/1, S2),
+            0 = sofs:no_elements(S3),
+            S4 = sofs:range(S1),
 
-		  %% Verify that the set of function with native addresses
-		  %% is a subset of all functions in the module.
-		  ?line AllSet = sofs:set(All, [{name,arity}]),
-		  ?line true = sofs:is_subset(S4, AllSet),
-		  
-		  {comment,integer_to_list(sofs:no_elements(S0))++" native functions"}
-	  end.
+            %% Verify that the set of function with native addresses
+            %% is a subset of all functions in the module.
+            AllSet = sofs:set(All, [{name,arity}]),
+            true = sofs:is_subset(S4, AllSet),
+
+            {comment,integer_to_list(sofs:no_elements(S0))++" native functions"}
+    end.
 
 native_proj({Name,Arity,Addr}) ->
     {Addr,{Name,Arity}}.
