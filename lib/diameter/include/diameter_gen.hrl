@@ -333,10 +333,8 @@ d(Name, Avp, Acc) ->
             {H, A} = ungroup(V, Avp),
             {[H | Avps], pack_avp(Name, A, T)}
     catch
-        throw: {?TAG, {grouped, RC, ComponentAvps}} ->
-            {Avps, {Rec, Errors}} = Acc,
-            A = trim(Avp),
-            {[[A | trim(ComponentAvps)] | Avps], {Rec, [{RC, A} | Errors]}};
+        throw: {?TAG, {grouped, Error, ComponentAvps}} ->
+            g(is_failed(), Error, Name, trim(Avp), Acc, ComponentAvps);
         error: Reason ->
             d(is_failed(), Reason, Name, trim(Avp), Acc)
     after
@@ -375,6 +373,27 @@ dict(true) ->
 
 dict(_) ->
     ?MODULE.
+
+%% g/5
+
+%% Ignore decode errors within Failed-AVP (best-effort) ...
+g(true, [_Error | Rec], Name, Avp, Acc, _ComponentAvps) ->
+    decode_AVP(Name, Avp#diameter_avp{value = Rec}, Acc);
+g(true, _Error, Name, Avp, Acc, _ComponentAvps) ->
+    decode_AVP(Name, Avp, Acc);
+
+%% ... or not.
+g(false, [Error | _Rec], _Name, Avp, Acc, ComponentAvps) ->
+    g(Error, Avp, Acc, ComponentAvps);
+g(false, Error, _Name, Avp, Acc, ComponentAvps) ->
+    g(Error, Avp, Acc, ComponentAvps).
+
+%% g/4
+
+g({RC, ErrorData}, Avp, Acc, ComponentAvps) ->
+    {Avps, {Rec, Errors}} = Acc,
+    E = Avp#diameter_avp{data = [ErrorData]},
+    {[[Avp | trim(ComponentAvps)] | Avps], {Rec, [{RC, E} | Errors]}}.
 
 %% d/5
 
@@ -459,8 +478,8 @@ decode_AVP(Name, Avp, {Avps, Acc}) ->
 
 %% diameter_types will raise an error of this form to communicate
 %% DIAMETER_INVALID_AVP_LENGTH (5014). A module specified to a
-%% @custom_types tag in a spec file can also raise an error of this
-%% form.
+%% @custom_types tag in a dictionary file can also raise an error of
+%% this form.
 rc({'DIAMETER', 5014 = RC, _}, #diameter_avp{name = AvpName} = Avp) ->
     {RC, Avp#diameter_avp{data = empty_value(AvpName)}};
 
@@ -617,9 +636,12 @@ value(_, Avp) ->
    -> binary()
     | no_return().
 
-%% Length error induced by diameter_codec:collect_avps/1.
+%% Length error induced by diameter_codec:collect_avps/1: the AVP
+%% length in the header was too short (insufficient for the extracted
+%% header) or too long (past the end of the message). An empty payload
+%% is sufficient according to the RFC text for 5014.
 grouped_avp(decode, _Name, <<0:1, _/binary>>) ->
-    throw({?TAG, {grouped, 5014, []}});
+    throw({?TAG, {grouped, {5014, []}, []}});
 
 grouped_avp(decode, Name, Data) ->
     grouped_decode(Name, diameter_codec:collect_avps(Data));
@@ -633,13 +655,28 @@ grouped_avp(encode, Name, Data) ->
 %% decoded value, also returning the list of component diameter_avp
 %% records.
 
+%% Length error in trailing component AVP.
 grouped_decode(_Name, {Error, Acc}) ->
-    {RC, Avp} = Error,
-    throw({?TAG, {grouped, RC, [Avp | Acc]}});
+    {5014, Avp} = Error,
+    throw({?TAG, {grouped, Error, [Avp | Acc]}});
 
+%% 7.5.  Failed-AVP AVP
+
+%%    In the case where the offending AVP is embedded within a Grouped AVP,
+%%    the Failed-AVP MAY contain the grouped AVP, which in turn contains
+%%    the single offending AVP.  The same method MAY be employed if the
+%%    grouped AVP itself is embedded in yet another grouped AVP and so on.
+%%    In this case, the Failed-AVP MAY contain the grouped AVP hierarchy up
+%%    to the single offending AVP.  This enables the recipient to detect
+%%    the location of the offending AVP when embedded in a group.
+
+%% An error in decoding a component AVP throws the first fauly
+%% component, which the catch in d/3 wraps in the Grouped AVP in
+%% question. A partially decoded record is only used when ignoring
+%% errors in Failed-AVP.
 grouped_decode(Name, ComponentAvps) ->
     {Rec, Avps, Es} = decode_avps(Name, ComponentAvps),
-    [] == Es orelse throw({?TAG, {grouped, 5004, Avps}}), %% decode failure
+    [] == Es orelse throw({?TAG, {grouped, [{_,_} = hd(Es) | Rec], Avps}}),
     {Rec, Avps}.
 
 %% ---------------------------------------------------------------------------
