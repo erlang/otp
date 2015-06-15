@@ -808,8 +808,8 @@ udp_options() ->
     [tos, priority, reuseaddr, sndbuf, recbuf, header, active, buffer, mode, 
      deliver, ipv6_v6only,
      broadcast, dontroute, multicast_if, multicast_ttl, multicast_loop,
-     add_membership, drop_membership, read_packets,raw,
-     high_msgq_watermark, low_msgq_watermark].
+     add_membership, drop_membership, ipv6_multicast_if, ipv6_join_group, ipv6_leave_group,
+     read_packets, raw, high_msgq_watermark, low_msgq_watermark].
 
 
 udp_options(Opts, Family) ->

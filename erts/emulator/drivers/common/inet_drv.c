@@ -879,6 +879,10 @@ static int my_strncasecmp(const char *s1, const char *s2, size_t n)
 #define INET_LOPT_MSGQ_HIWTRMRK     36  /* set local msgq high watermark */
 #define INET_LOPT_MSGQ_LOWTRMRK     37  /* set local msgq low watermark */
 #define INET_LOPT_NETNS             38  /* Network namespace pathname */
+#define UDP_OPT_IPV6_JOIN_GROUP     39  /* join an IPv6 multicast group */
+#define UDP_OPT_IPV6_LEAVE_GROUP    40  /* leave an IPv6 multicast group */
+#define UDP_OPT_IPV6_MULTICAST_IF   41  /* set IPv6 multicast interface */
+
 /* SCTP options: a separate range, from 100: */
 #define SCTP_OPT_RTOINFO		100
 #define SCTP_OPT_ASSOCINFO		101
@@ -6062,6 +6066,7 @@ static int inet_set_opts(inet_descriptor* desc, char* ptr, int len)
     struct linger li_val;
 #ifdef HAVE_MULTICAST_SUPPORT
     struct ip_mreq mreq_val;
+    struct ipv6_mreq v6_mreq_val;
 #endif
     int ival;
     char* arg_ptr;
@@ -6331,49 +6336,140 @@ static int inet_set_opts(inet_descriptor* desc, char* ptr, int len)
 	    break;
 
 #ifdef HAVE_MULTICAST_SUPPORT
-
 	case UDP_OPT_MULTICAST_TTL:
-	    proto = IPPROTO_IP;
-	    type = IP_MULTICAST_TTL;
-	    DEBUGF(("inet_set_opts(%ld): s=%d, IP_MULTICAST_TTL=%d\r\n",
-		    (long)desc->port,desc->s,ival));
-	    break;
-
 	case UDP_OPT_MULTICAST_LOOP:
-	    proto = IPPROTO_IP;
-	    type = IP_MULTICAST_LOOP;
-	    DEBUGF(("inet_set_opts(%ld): s=%d, IP_MULTICAST_LOOP=%d\r\n",
-		    (long)desc->port,desc->s,ival));
-	    break;
-
 	case UDP_OPT_MULTICAST_IF:
-	    proto = IPPROTO_IP;
-	    type = IP_MULTICAST_IF;
-	    DEBUGF(("inet_set_opts(%ld): s=%d, IP_MULTICAST_IF=%x\r\n",
-		    (long)desc->port, desc->s, ival));
-	    ival = sock_htonl(ival);
-	    break;
-
 	case UDP_OPT_ADD_MEMBERSHIP:
-	    proto = IPPROTO_IP;
-	    type = IP_ADD_MEMBERSHIP;
-	    DEBUGF(("inet_set_opts(%ld): s=%d, IP_ADD_MEMBERSHIP=%d\r\n",
-		    (long)desc->port, desc->s,ival));
-	    goto L_set_mreq;
-	    
 	case UDP_OPT_DROP_MEMBERSHIP:
-	    proto = IPPROTO_IP;
-	    type = IP_DROP_MEMBERSHIP;
-	    DEBUGF(("inet_set_opts(%ld): s=%d, IP_DROP_MEMBERSHIP=%x\r\n",
-		    (long)desc->port, desc->s, ival));
-	L_set_mreq:
-	    mreq_val.imr_multiaddr.s_addr = sock_htonl(ival);
-	    ival = get_int32(ptr);
-	    mreq_val.imr_interface.s_addr = sock_htonl(ival);
-	    ptr += 4;
-	    len -= 4;
-	    arg_ptr = (char*)&mreq_val;
-	    arg_sz = sizeof(mreq_val);
+	case UDP_OPT_IPV6_MULTICAST_IF:
+	case UDP_OPT_IPV6_JOIN_GROUP:
+	case UDP_OPT_IPV6_LEAVE_GROUP:
+	    switch (desc->sfamily) {
+	    case AF_INET:
+		switch(opt) {
+		case UDP_OPT_MULTICAST_TTL:
+		    proto = IPPROTO_IP;
+		    type = IP_MULTICAST_TTL;
+		    DEBUGF(("inet_set_opts(%ld): s=%d, IP_MULTICAST_TTL=%d\r\n",
+			    (long)desc->port,desc->s,ival));
+		    break;
+
+		case UDP_OPT_MULTICAST_LOOP:
+		    proto = IPPROTO_IP;
+		    type = IP_MULTICAST_LOOP;
+		    DEBUGF(("inet_set_opts(%ld): s=%d, IP_MULTICAST_LOOP=%d\r\n",
+			    (long)desc->port,desc->s,ival));
+		    break;
+
+		case UDP_OPT_MULTICAST_IF:
+		    proto = IPPROTO_IP;
+		    type = IP_MULTICAST_IF;
+		    DEBUGF(("inet_set_opts(%ld): s=%d, IP_MULTICAST_IF=%x\r\n",
+			    (long)desc->port, desc->s, ival));
+		    ival = sock_htonl(ival);
+		    break;
+
+		case UDP_OPT_ADD_MEMBERSHIP:
+		    proto = IPPROTO_IP;
+		    type = IP_ADD_MEMBERSHIP;
+		    DEBUGF(("inet_set_opts(%ld): s=%d, IP_ADD_MEMBERSHIP=%d\r\n",
+			    (long)desc->port, desc->s,ival));
+		    goto L_set_mreq;
+
+		case UDP_OPT_DROP_MEMBERSHIP:
+		    proto = IPPROTO_IP;
+		    type = IP_DROP_MEMBERSHIP;
+		    DEBUGF(("inet_set_opts(%ld): s=%d, IP_DROP_MEMBERSHIP=%x\r\n",
+			    (long)desc->port, desc->s, ival));
+		L_set_mreq:
+		    mreq_val.imr_multiaddr.s_addr = sock_htonl(ival);
+		    ival = get_int32(ptr);
+		    mreq_val.imr_interface.s_addr = sock_htonl(ival);
+		    ptr += 4;
+		    len -= 4;
+		    arg_ptr = (char*)&mreq_val;
+		    arg_sz = sizeof(mreq_val);
+		    break;
+
+		default:
+		    return -1;
+
+		}
+		break;
+
+#if defined(HAVE_IN6) && defined(AF_INET6)
+
+#define FILL_IFINDEX(_ifindex)						\
+    do {								\
+	struct ifreq ifr;						\
+									\
+	if (ival < 0) return -1;					\
+	if (len < ival) return -1;					\
+	memset(&ifr, 0, sizeof(ifr));					\
+	if (ival > sizeof(ifr.ifr_name) - 1) return -1;			\
+	strncpy(ifr.ifr_name, ptr, ival);				\
+	if (ioctl(desc->s, SIOCGIFINDEX, &ifr) == -1) return -1;	\
+	ptr += ival;							\
+	len -= ival;							\
+									\
+	(_ifindex) = ifr.ifr_ifindex;					\
+    } while (0)
+
+	    case AF_INET6:
+		switch(opt) {
+		case UDP_OPT_MULTICAST_TTL:
+		    proto = IPPROTO_IPV6;
+		    type = IPV6_MULTICAST_HOPS;
+		    DEBUGF(("inet_set_opts(%ld): s=%d, IPV6_MULTICAST_HOPS=%d\r\n",
+			    (long)desc->port,desc->s,ival));
+		    break;
+
+		case UDP_OPT_MULTICAST_LOOP:
+		    proto = IPPROTO_IPV6;
+		    type = IPV6_MULTICAST_LOOP;
+		    DEBUGF(("inet_set_opts(%ld): s=%d, IPV6_MULTICAST_LOOP=%d\r\n",
+			    (long)desc->port,desc->s,ival));
+		    break;
+
+		case UDP_OPT_IPV6_MULTICAST_IF:
+		    proto = IPPROTO_IPV6;
+		    type = IPV6_MULTICAST_IF;
+		    DEBUGF(("inet_set_opts(%ld): s=%d, IPV6_MULTICAST_IF=%x\r\n",
+			    (long)desc->port, desc->s, ival));
+		    FILL_IFINDEX(ival);
+		    break;
+
+		case UDP_OPT_IPV6_JOIN_GROUP:
+		    proto = IPPROTO_IPV6;
+		    type = IPV6_JOIN_GROUP;
+		    DEBUGF(("inet_set_opts(%ld): s=%d, IPV6_JOIN_GROUP=%x\r\n",
+			    (long)desc->port, desc->s,ival));
+		    goto L_set_v6_mreq;
+
+		case UDP_OPT_IPV6_LEAVE_GROUP:
+		    proto = IPPROTO_IPV6;
+		    type = IPV6_LEAVE_GROUP;
+		    DEBUGF(("inet_set_opts(%ld): s=%d, IPV6_LEAVE_GROUP=%x\r\n",
+			    (long)desc->port, desc->s, ival));
+		L_set_v6_mreq:
+		    FILL_IFINDEX(v6_mreq_val.ipv6mr_interface);
+		    if (len < sizeof(struct in6_addr)) return -1;
+		    v6_mreq_val.ipv6mr_multiaddr = *(struct in6_addr *)ptr;
+		    ptr += sizeof(struct in6_addr);
+		    len -= sizeof(struct in6_addr);
+		    arg_ptr = (char*)&v6_mreq_val;
+		    arg_sz = sizeof(v6_mreq_val);
+		    break;
+#endif
+
+		default:
+		    return -1;
+		}
+		break;
+
+	    default:
+		return -1;
+	    }
 	    break;
 
 #endif /* HAVE_MULTICAST_SUPPORT */

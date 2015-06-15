@@ -27,17 +27,17 @@
 
 -type option() ::
         {active,          true | false | once | -32768..32767} |
-        {add_membership,  {inet:ip_address(), inet:ip_address()}} |
+        {add_membership,  {inet:ip4_address(), inet:ip4_address()}} |
         {broadcast,       boolean()} |
         {buffer,          non_neg_integer()} |
         {deliver,         port | term} |
         {dontroute,       boolean()} |
-        {drop_membership, {inet:ip_address(), inet:ip_address()}} |
+        {drop_membership, {inet:ip4_address(), inet:ip4_address()}} |
         {header,          non_neg_integer()} |
         {high_msgq_watermark, pos_integer()} |
         {low_msgq_watermark, pos_integer()} |
         {mode,            list | binary} | list | binary |
-        {multicast_if,    inet:ip_address()} |
+        {multicast_if,    inet:ip4_address()} |
         {multicast_loop,  boolean()} |
         {multicast_ttl,   non_neg_integer()} |
         {priority,        non_neg_integer()} |
@@ -50,6 +50,9 @@
         {reuseaddr,       boolean()} |
         {sndbuf,          non_neg_integer()} |
         {tos,             non_neg_integer()} |
+        {ipv6_multicast_if, binary()} |
+        {ipv6_join_group,  {binary(), inet:ip6_address()}} |
+        {ipv6_leave_group, {binary(), inet:ip6_address()}} |
 	{ipv6_v6only,     boolean()}.
 -type option_name() ::
         active |

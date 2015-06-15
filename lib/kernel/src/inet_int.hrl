@@ -147,6 +147,9 @@
 -define(INET_LOPT_MSGQ_HIWTRMRK,  36).
 -define(INET_LOPT_MSGQ_LOWTRMRK,  37).
 -define(INET_LOPT_NETNS,          38).
+-define(UDP_OPT_IPV6_JOIN_GROUP,  39).
+-define(UDP_OPT_IPV6_LEAVE_GROUP,  40).
+-define(UDP_OPT_IPV6_MULTICAST_IF, 41).
 % Specific SCTP options: separate range:
 -define(SCTP_OPT_RTOINFO,	 	100).
 -define(SCTP_OPT_ASSOCINFO,	 	101).
