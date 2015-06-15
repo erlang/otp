@@ -149,6 +149,7 @@
 
     <p>Other flags that may be used with <c>ct_run</c>:</p>
     <list>
+      <item><c><![CDATA[-help]]></c>, lists all available start flags.</item>
       <item><c><![CDATA[-logdir <dir>]]></c>, specifies where the HTML log files are to be written.</item>
       <item><c><![CDATA[-label <name_of_test_run>]]></c>, associates the test run with a name that gets printed
 	in the overview HTML log files.</item>
@@ -223,6 +224,9 @@
       behaviour using start flag:</p>
     <pre>-exit_status ignore_config</pre>
     
+    <note><p>Executing <c>ct_run</c> without start flags, is equal to the command:
+    <c>ct_run -dir ./</c></p></note>
+
     <p>For more information about the <c>ct_run</c> program, see the
       <seealso marker="ct_run">Reference Manual</seealso> and the
       <seealso marker="install_chapter#general">Installation</seealso> chapter.
@@ -250,6 +254,10 @@
 	integer. If test execution fails, the function returns the tuple:
 	<c>{error,Reason}</c>, where the term <c>Reason</c> explains the
 	failure.</p>
+
+      <p>The default start option <c>{dir,Cwd}</c> (run all suites in the current
+      working directory) is used if the function is called with an empty
+      list of options.</p>
 
 	<section>
 	  <title>Releasing the Erlang shell</title>
