@@ -4088,8 +4088,11 @@ tab2file(Config) when is_list(Config) ->
 
 tab2file_do(FName, Opts) ->
     %% Write an empty ets table to a file, read back and check properties.
-    ?line Tab = ets_new(ets_SUITE_foo_tab, [named_table, set, private,
-					    {keypos, 2}]),
+    ?line Tab = ets_new(ets_SUITE_foo_tab, [named_table, set, public,
+					    {keypos, 2},
+					    compressed,
+					    {write_concurrency,true},
+					    {read_concurrency,true}]),
     catch file:delete(FName),
     Res = ets:tab2file(Tab, FName, Opts),
     true = ets:delete(Tab),
@@ -4097,10 +4100,14 @@ tab2file_do(FName, Opts) ->
     %
     ?line EtsMem = etsmem(),
     ?line {ok, Tab2} = ets:file2tab(FName),
-    ?line private = ets:info(Tab2, protection),
+    public = ets:info(Tab2, protection),
     ?line true = ets:info(Tab2, named_table),
     ?line 2 = ets:info(Tab2, keypos),
     ?line set = ets:info(Tab2, type),
+    true = ets:info(Tab2, compressed),
+    Smp = erlang:system_info(smp_support),
+    Smp = ets:info(Tab2, read_concurrency),
+    Smp = ets:info(Tab2, write_concurrency),
     ?line true = ets:delete(Tab2),
     ?line verify_etsmem(EtsMem).
 
