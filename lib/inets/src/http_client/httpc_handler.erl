@@ -1390,6 +1390,8 @@ case_insensitive_header(Str) ->
 activate_once(#session{socket = Socket, socket_type = SocketType}) ->
     http_transport:setopts(SocketType, Socket, [{active, once}]).
 
+close_socket(#session{socket = {remote_close,_}}) ->
+    ok;
 close_socket(#session{socket = Socket, socket_type = SocketType}) ->
     http_transport:close(SocketType, Socket).
 
