@@ -30,8 +30,6 @@
 %% Common Test interface functions -----------------------------------
 %%--------------------------------------------------------------------
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
-
 all() ->
     [{group, 'tlsv1.2'},
      {group, 'tlsv1.1'},
