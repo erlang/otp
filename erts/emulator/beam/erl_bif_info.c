@@ -1106,19 +1106,18 @@ process_info_aux(Process *BIF_P,
 		    heap_need += mq[i].copy_struct_size;
 		}
 		else {
-		    mq[i].copy_struct_size = 0;
-		    if (mp->data.attached)
-			heap_need += erts_msg_attached_data_size(mp);
+		    mq[i].copy_struct_size = mp->data.attached ?
+                        erts_msg_attached_data_size(mp) : 0;
 		}
 		i++;
 	    }
 
-	    hp = HAlloc(BIF_P, heap_need);
-	    hp_end = hp + heap_need;
-	    ASSERT(i == n);
-	    for (i--; i >= 0; i--) {
-		Eterm msg = ERL_MESSAGE_TERM(mq[i].msgp);
-		if (rp != BIF_P) {
+            if (rp != BIF_P) {
+                hp = HAlloc(BIF_P, heap_need);
+                hp_end = hp + heap_need;
+                ASSERT(i == n);
+                for (i--; i >= 0; i--) {
+                    Eterm msg = ERL_MESSAGE_TERM(mq[i].msgp);
 		    if (is_value(msg)) {
 			if (mq[i].copy_struct_size)
 			    msg = copy_struct(msg,
@@ -1152,9 +1151,9 @@ process_info_aux(Process *BIF_P,
 			}
 			else {
 			    /* Make our copy of the message */
-			    ASSERT(size_object(msg) == hfp->used_size);
+			    ASSERT(size_object(msg) == erts_used_frag_sz(hfp));
 			    msg = copy_struct(msg,
-					      hfp->used_size,
+					      erts_used_frag_sz(hfp),
 					      &hp,
 					      &MSO(BIF_P));
 			}
@@ -1164,27 +1163,38 @@ process_info_aux(Process *BIF_P,
 			remove_bad_messages = 1;
 			continue;
 		    }
+                    res = CONS(hp, msg, res);
+                    hp += 2;
 		}
-		else {
+                HRelease(BIF_P, hp_end, hp+3);
+            }
+	    else {
+                for (i--; i >= 0; i--) {
+                    ErtsHeapFactory factory;
+                    Eterm msg = ERL_MESSAGE_TERM(mq[i].msgp);
+
+                    erts_factory_proc_prealloc_init(&factory, BIF_P,
+                                                    mq[i].copy_struct_size+2);
 		    if (mq[i].msgp->data.attached) {
 			/* Decode it on the heap */
-			erts_move_msg_attached_data_to_heap(&hp,
-							    &MSO(BIF_P),
+			erts_move_msg_attached_data_to_heap(&factory,
 							    mq[i].msgp);
 			msg = ERL_MESSAGE_TERM(mq[i].msgp);
 			ASSERT(!mq[i].msgp->data.attached);
-			if (is_non_value(msg)) {
-			    /* Bad distribution message; ignore */
-			    remove_bad_messages = 1;
-			    continue;
-			}
-		    }
+                    }
+                    if (is_value(msg)) {
+                        hp = erts_produce_heap(&factory, 2, 0);
+                        res = CONS(hp, msg, res);
+                    }
+                    else {
+                        /* Bad distribution message; ignore */
+                        remove_bad_messages = 1;
+                        continue;
+                    }
+                    erts_factory_close(&factory);
 		}
-		    
-		res = CONS(hp, msg, res);
-		hp += 2;
+                hp = HAlloc(BIF_P, 3);
 	    }
-	    HRelease(BIF_P, hp_end, hp+3);
 	    erts_free(ERTS_ALC_T_TMP, mq);
 	    if (remove_bad_messages) {
 		ErlMessage **mpp;

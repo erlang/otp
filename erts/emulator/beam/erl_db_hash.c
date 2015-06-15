@@ -1049,7 +1049,6 @@ static int db_get_element_hash(Process *p, DbTable *tbl,
 			Eterm copy = db_copy_element_from_ets(&tb->common, p,
 							      &b->dbterm, ndex, &hp, 2);
 			elem_list = CONS(hp, copy, elem_list);
-			hp += 2;
 		    }
 		    b = b->next;
 		}

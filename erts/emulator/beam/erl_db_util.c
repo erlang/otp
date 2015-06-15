@@ -2175,11 +2175,12 @@ restart:
             {
                 ErtsHeapFactory factory;
                 Uint ix;
-                factory.p = build_proc;
                 for (ix = 0; ix < 2*n; ix++){
                     ehp[ix] = esp[ix];
                 }
+                erts_factory_proc_init(&factory, build_proc);
                 t = erts_hashmap_from_array(&factory, ehp, n, 0);
+                erts_factory_close(&factory);
             }
             *esp++ = t;
             break;
@@ -3192,6 +3193,7 @@ Eterm db_copy_from_comp(DbTableCommon* tb, DbTerm* bp, Eterm** hpp,
 {
     Eterm* hp = *hpp;
     int i, arity = arityval(bp->tpl[0]);
+    ErtsHeapFactory factory;
 
     hp[0] = bp->tpl[0];
     *hpp += arity + 1;
@@ -3199,17 +3201,23 @@ Eterm db_copy_from_comp(DbTableCommon* tb, DbTerm* bp, Eterm** hpp,
     hp[tb->keypos] = copy_struct_rel(bp->tpl[tb->keypos],
 				     size_object_rel(bp->tpl[tb->keypos], bp->tpl),
 				     hpp, off_heap, bp->tpl, NULL);
+
+    erts_factory_static_init(&factory, *hpp, bp->size - (arity+1), off_heap);
+
     for (i=arity; i>0; i--) {
 	if (i != tb->keypos) {
 	    if (is_immed(bp->tpl[i])) {
 		hp[i] = bp->tpl[i];
 	    }
 	    else {
-		hp[i] = erts_decode_ext_ets(hpp, off_heap,
+		hp[i] = erts_decode_ext_ets(&factory,
 					    elem2ext(bp->tpl, i));
 	    }
 	}
     }
+    *hpp = factory.hp;
+    erts_factory_close(&factory);
+
     ASSERT((*hpp - hp) <= bp->size);
 #ifdef DEBUG_CLONE
     ASSERT(eq_rel(make_tuple(hp),NULL,make_tuple(bp->debug_clone),bp->debug_clone));
@@ -3228,12 +3236,13 @@ Eterm db_copy_element_from_ets(DbTableCommon* tb, Process* p,
     if (tb->compress && pos != tb->keypos) {
 	byte* ext = elem2ext(obj->tpl, pos);
 	Sint sz = erts_decode_ext_size_ets(ext, db_alloced_size_comp(obj)) + extra;
-	Eterm* hp = HAlloc(p, sz);
-	Eterm* endp = hp + sz;
-	Eterm copy = erts_decode_ext_ets(&hp, &MSO(p), ext);
-	*hpp = hp;
-	hp += extra;
-	HRelease(p, endp, hp);
+	Eterm copy;
+        ErtsHeapFactory factory;
+
+        erts_factory_proc_prealloc_init(&factory, p, sz);
+        copy = erts_decode_ext_ets(&factory, ext);
+	*hpp = erts_produce_heap(&factory, extra, 0);
+        erts_factory_close(&factory);
 #ifdef DEBUG_CLONE
 	ASSERT(eq_rel(copy, NULL, obj->debug_clone[pos], obj->debug_clone));
 #endif

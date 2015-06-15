@@ -34,7 +34,7 @@
 #include "erl_bits.h"
 #include "dtrace-wrapper.h"
 
-static void move_one_frag(Eterm** hpp, Eterm* src, Uint src_sz, ErlOffHeap*);
+static void move_one_frag(Eterm** hpp, ErlHeapFragment*, ErlOffHeap*);
 
 /*
  *  Copy object "obj" to process p.
@@ -661,8 +661,7 @@ void move_multi_frags(Eterm** hpp, ErlOffHeap* off_heap, ErlHeapFragment* first,
     unsigned i;
 
     for (bp=first; bp!=NULL; bp=bp->next) {
-	move_one_frag(hpp, bp->mem, bp->used_size, off_heap);
-	OH_OVERHEAD(off_heap, bp->off_heap.overhead);
+	move_one_frag(hpp, bp, off_heap);
     }
     hp_end = *hpp;
     for (hp=hp_start; hp<hp_end; ++hp) {
@@ -698,10 +697,10 @@ void move_multi_frags(Eterm** hpp, ErlOffHeap* off_heap, ErlHeapFragment* first,
 }
 
 static void
-move_one_frag(Eterm** hpp, Eterm* src, Uint src_sz, ErlOffHeap* off_heap)
+move_one_frag(Eterm** hpp, ErlHeapFragment* frag, ErlOffHeap* off_heap)
 {
-    Eterm* ptr = src;
-    Eterm* end = ptr + src_sz;
+    Eterm* ptr = frag->mem;
+    Eterm* end = ptr + frag->used_size;
     Eterm dummy_ref;
     Eterm* hp = *hpp;
 
@@ -732,5 +731,7 @@ move_one_frag(Eterm** hpp, Eterm* src, Uint src_sz, ErlOffHeap* off_heap)
 	}
     }
     *hpp = hp;
+    OH_OVERHEAD(off_heap, frag->off_heap.overhead);
+    frag->off_heap.first = NULL;
 }
 

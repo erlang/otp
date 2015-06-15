@@ -148,6 +148,7 @@ typedef struct {
     byte *extp;
     int exttmp;
     Uint extsize;
+    Uint heap_size;
 } ErtsBinary2TermState;
 
 
@@ -185,18 +186,18 @@ void erts_destroy_dist_ext_copy(ErtsDistExternal *);
 int erts_prepare_dist_ext(ErtsDistExternal *, byte *, Uint,
 			  DistEntry *, ErtsAtomCache *);
 Sint erts_decode_dist_ext_size(ErtsDistExternal *);
-Eterm erts_decode_dist_ext(Eterm **, ErlOffHeap *, ErtsDistExternal *);
+Eterm erts_decode_dist_ext(ErtsHeapFactory* factory, ErtsDistExternal *);
 
 Sint erts_decode_ext_size(byte*, Uint);
 Sint erts_decode_ext_size_ets(byte*, Uint);
-Eterm erts_decode_ext(Eterm **, ErlOffHeap *, byte**);
-Eterm erts_decode_ext_ets(Eterm **, ErlOffHeap *, byte*);
+Eterm erts_decode_ext(ErtsHeapFactory*, byte**);
+Eterm erts_decode_ext_ets(ErtsHeapFactory*, byte*);
 
 Eterm erts_term_to_binary(Process* p, Eterm Term, int level, Uint flags);
 
 Sint erts_binary2term_prepare(ErtsBinary2TermState *, byte *, Sint);
 void erts_binary2term_abort(ErtsBinary2TermState *);
-Eterm erts_binary2term_create(ErtsBinary2TermState *, Eterm **hpp, ErlOffHeap *);
+Eterm erts_binary2term_create(ErtsBinary2TermState *, ErtsHeapFactory*);
 int erts_debug_max_atom_out_cache_index(void);
 int erts_debug_atom_to_out_cache_index(Eterm);
 

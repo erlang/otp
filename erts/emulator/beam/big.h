@@ -85,6 +85,7 @@ typedef Uint  dsize_t;	 /* Vector size type */
 
 /* The heap size needed for a bignum */
 #define BIG_NEED_SIZE(x)  ((x) + 1)
+#define BIG_NEED_FOR_BITS(bits) BIG_NEED_SIZE(((bits)-1)/D_EXP + 1)
 
 #define BIG_UINT_HEAP_SIZE (1 + 1)	/* always, since sizeof(Uint) <= sizeof(Eterm) */
 

@@ -425,8 +425,9 @@ static Eterm hashmap_from_validated_list(Process *p, Eterm list, Uint size) {
     }
     UnUseTmpHeap(2,p);
 
-    factory.p = p;
+    erts_factory_proc_init(&factory, p);
     res = hashmap_from_unsorted_array(&factory, hxns, size, 0);
+    erts_factory_close(&factory);
 
     erts_free(ERTS_ALC_T_TMP, (void *) hxns);
     ERTS_VERIFY_UNUSED_TEMP_ALLOC(p);
@@ -530,8 +531,9 @@ Eterm erts_hashmap_from_ks_and_vs_extra(Process *p, Eterm *ks, Eterm *vs, Uint n
 	hxns[i].i    = i;
     }
 
-    factory.p = p;
+    erts_factory_proc_init(&factory, p);
     res = hashmap_from_unsorted_array(&factory, hxns, sz, 0);
+    erts_factory_close(&factory);
 
     erts_free(ERTS_ALC_T_TMP, (void *) hxns);
     ERTS_VERIFY_UNUSED_TEMP_ALLOC(p);
@@ -1078,8 +1080,9 @@ static Eterm flatmap_merge(Process *p, Eterm nodeA, Eterm nodeB) {
 	    hxns[i].i    = i;
 	}
 
-        factory.p = p;
+        erts_factory_proc_init(&factory, p);
 	res = hashmap_from_unsorted_array(&factory, hxns, n, 0);
+	erts_factory_close(&factory);
 
 	erts_free(ERTS_ALC_T_TMP, (void *) hxns);
 	ERTS_VERIFY_UNUSED_TEMP_ALLOC(p);
@@ -1122,8 +1125,9 @@ static Eterm map_merge_mixed(Process *p, Eterm flat, Eterm tree, int swap_args) 
 	hxns[i].i    = i;
     }
 
-    factory.p = p;
+    erts_factory_proc_init(&factory, p);
     res = hashmap_from_unsorted_array(&factory, hxns, n, 0);
+    erts_factory_close(&factory);
 
     erts_free(ERTS_ALC_T_TMP, (void *) hxns);
     ERTS_VERIFY_UNUSED_TEMP_ALLOC(p);
@@ -2621,6 +2625,9 @@ int erts_validate_and_sort_flatmap(flatmap_t* mp)
     return 1;
 }
 
+#if 0 /* Can't get myself to remove this beautiful piece of code
+         for probabilistic overestimation of nr of nodes in a hashmap */
+
 /* Really rough estimate of sqrt(x)
  * Guaranteed not to be less than sqrt(x)
  */
@@ -2642,7 +2649,10 @@ static int int_sqrt_ceiling(Uint x)
     }
 }
 
-Uint hashmap_over_estimated_heap_size(Uint k)
+/* May not be enough if hashing is broken (not uniform)
+ * or if hell freezes over.
+ */
+Uint hashmap_overestimated_node_count(Uint k)
 {
     /* k is nr of key-value pairs.
        N(k) is expected nr of nodes in hamt.
@@ -2656,12 +2666,9 @@ Uint hashmap_over_estimated_heap_size(Uint k)
        by 15 std.devs above the average, which gives a probability for overrun
        less than 1.0e-49 (same magnitude as a git SHA1 collision).
      */
-    Uint max_nodes = 2*k/5 + (15/3)*int_sqrt_ceiling(k);
-    return (k*2 +     /* leaf cons cells */
-	    k +       /* leaf list terms */
-	    max_nodes*2); /* headers + parent boxed terms */
+    return 2*k/5 + 1 + (15/3)*int_sqrt_ceiling(k);
 }
-
+#endif
 
 BIF_RETTYPE erts_debug_map_info_1(BIF_ALIST_1) {
     if (is_hashmap(BIF_ARG_1)) {

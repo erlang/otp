@@ -6653,8 +6653,9 @@ new_map(Process* p, Eterm* reg, BeamInstr* I)
 
 	p->htop = mhp;
 
-        factory.p = p;
+        erts_factory_proc_init(&factory, p);
         res = erts_hashmap_from_array(&factory, thp, n/2, 0);
+        erts_factory_close(&factory);
         if (p->mbuf) {
             Uint live = Arg(2);
             reg[live] = res;

@@ -1149,6 +1149,7 @@ int erts_net_message(Port *prt,
     DeclareTmpHeapNoproc(ctl_default,DIST_CTL_DEFAULT_SIZE);
     Eterm* ctl = ctl_default;
     ErlOffHeap off_heap;
+    ErtsHeapFactory factory;
     Eterm* hp;
     Sint type;
     Eterm token;
@@ -1225,7 +1226,8 @@ int erts_net_message(Port *prt,
     }
     hp = ctl;
 
-    arg = erts_decode_dist_ext(&hp, &off_heap, &ede);
+    erts_factory_static_init(&factory, ctl, ctl_len, &off_heap);
+    arg = erts_decode_dist_ext(&factory, &ede);
     if (is_non_value(arg)) {
 #ifdef ERTS_DIST_MSG_DBG
 	erts_fprintf(stderr, "DIST MSG DEBUG: erts_dist_ext_size(CTL) failed:\n");
