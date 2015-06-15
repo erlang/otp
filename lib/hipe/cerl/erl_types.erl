@@ -82,6 +82,8 @@
          t_from_form/4,
          t_from_form/5,
          t_from_form_without_remote/2,
+         t_check_record_fields/4,
+         t_check_record_fields/5,
 	 t_from_range/2,
 	 t_from_range_unsafe/2,
 	 t_from_term/1,
@@ -747,7 +749,8 @@ t_opaque_from_records(RecDict) ->
 		    end
 		end, RecDict),
   OpaqueTypeDict =
-    dict:map(fun({opaque, Name, _Arity}, {{Module, _Form, ArgNames}, _Type}) ->
+    dict:map(fun({opaque, Name, _Arity},
+                 {{Module, _FileLine, _Form, ArgNames}, _Type}) ->
                  %% Args = args_to_types(ArgNames),
                  %% List = lists:zip(ArgNames, Args),
                  %% TmpVarDict = dict:from_list(List),
@@ -4189,7 +4192,7 @@ builtin_type(Name, Type, TypeNames, ET, M, MR, V, D, L) ->
   case dict:find(M, MR) of
     {ok, R} ->
       case lookup_type(Name, 0, R) of
-        {_, {{_M, _F, _A}, _T}} ->
+        {_, {{_M, _FL, _F, _A}, _T}} ->
           type_from_form(Name, [], TypeNames, ET, M, MR, V, D, L);
         error ->
           {Type, L}
@@ -4203,7 +4206,7 @@ type_from_form(Name, Args, TypeNames, ET, M, MR, V, D, L) ->
   {ArgTypes, L1} = list_from_form(Args, TypeNames, ET, M, MR, V, D, L),
   {ok, R} = dict:find(M, MR),
   case lookup_type(Name, ArgsLen, R) of
-    {type, {{Module, Form, ArgNames}, _Type}} ->
+    {type, {{Module, _FileName, Form, ArgNames}, _Type}} ->
       TypeName = {type, Module, Name, ArgsLen},
       case can_unfold_more(TypeName, TypeNames) of
         true ->
@@ -4213,7 +4216,7 @@ type_from_form(Name, Args, TypeNames, ET, M, MR, V, D, L) ->
         false ->
           {t_any(), L1}
       end;
-    {opaque, {{Module, Form, ArgNames}, Type}} ->
+    {opaque, {{Module, _FileName, Form, ArgNames}, Type}} ->
       TypeName = {opaque, Module, Name, ArgsLen},
       {Rep, L2} =
         case can_unfold_more(TypeName, TypeNames) of
@@ -4251,7 +4254,7 @@ remote_from_form(RemMod, Name, Args, TypeNames, ET, M, MR, V, D, L) ->
           case sets:is_element(MFA, ET) of
             true ->
               case lookup_type(Name, ArgsLen, RemDict) of
-                {type, {{_Mod, Form, ArgNames}, _Type}} ->
+                {type, {{_Mod, _FileLine, Form, ArgNames}, _Type}} ->
                   RemType = {type, RemMod, Name, ArgsLen},
                   case can_unfold_more(RemType, TypeNames) of
                     true ->
@@ -4263,7 +4266,7 @@ remote_from_form(RemMod, Name, Args, TypeNames, ET, M, MR, V, D, L) ->
                     false ->
                       {t_any(), L1}
                   end;
-                {opaque, {{Mod, Form, ArgNames}, Type}} ->
+                {opaque, {{Mod, _FileLine, Form, ArgNames}, Type}} ->
                   RemType = {opaque, RemMod, Name, ArgsLen},
                   List = lists:zip(ArgNames, ArgTypes),
                   TmpVarDict = dict:from_list(List),
@@ -4358,34 +4361,24 @@ build_field_dict(FieldTypes, TypeNames, ET, M, MR, V, D, L) ->
 build_field_dict([{type, _, field_type, [{atom, _, Name}, Type]}|Left],
 		 TypeNames, ET, M, MR, V, D, L, Acc) ->
   {T, L1} = t_from_form(Type, TypeNames, ET, M, MR, V, D, L - 1),
-  %% The cached record field type (DeclType) in
-  %% get_mod_record_types()), was created with a similar call as TT.
-  %% Using T for the subtype test does not work since any() is not
-  %% always a subset of the field type.
-  TT = t_from_form(Type, ET, M, MR, V),
-  NewAcc = [{Name, Type, T, TT}|Acc],
+  NewAcc = [{Name, Type, T}|Acc],
   {Dict, L2} =
     build_field_dict(Left, TypeNames, ET, M, MR, V, D, L1, NewAcc),
   {Dict, L2};
 build_field_dict([], _TypeNames, _ET, _M, _MR, _V, _D, L, Acc) ->
   {lists:keysort(1, Acc), L}.
 
-get_mod_record_types([{FieldName, _Abstr, DeclType}|Left1],
-                     [{FieldName, TypeForm, ModType, ModTypeTest}|Left2],
+get_mod_record_types([{FieldName, _Abstr, _DeclType}|Left1],
+                     [{FieldName, TypeForm, ModType}|Left2],
                      Acc) ->
-  ModTypeNoVars = subst_all_vars_to_any(ModTypeTest),
-  case t_is_subtype(ModTypeNoVars, DeclType) of
-    false -> {error, FieldName};
-    true -> get_mod_record_types(Left1, Left2,
-                              [{FieldName, TypeForm, ModType}|Acc])
-  end;
+  get_mod_record_types(Left1, Left2, [{FieldName, TypeForm, ModType}|Acc]);
 get_mod_record_types([{FieldName1, _Abstr, _DeclType} = DT|Left1],
-                     [{FieldName2, _FormType, _ModType, _TT}|_] = List2,
+                     [{FieldName2, _FormType, _ModType}|_] = List2,
                      Acc) when FieldName1 < FieldName2 ->
   get_mod_record_types(Left1, List2, [DT|Acc]);
 get_mod_record_types(Left1, [], Acc) ->
   {ok, lists:keysort(1, Left1++Acc)};
-get_mod_record_types(_, [{FieldName2, _FormType, _ModType, _TT}|_], _Acc) ->
+get_mod_record_types(_, [{FieldName2, _FormType, _ModType}|_], _Acc) ->
   {error, FieldName2}.
 
 %% It is important to create a limited version of the record type
@@ -4405,6 +4398,74 @@ list_from_form([H|Tail], TypeNames, ET, M, MR, V, D, L) ->
   {H1, L1} = t_from_form(H, TypeNames, ET, M, MR, V, D, L - 1),
   {T1, L2} = list_from_form(Tail, TypeNames, ET, M, MR, V, D, L1),
   {[H1|T1], L2}.
+
+-spec t_check_record_fields(parse_form(), sets:set(mfa()), module(),
+                            mod_records()) -> ok.
+
+t_check_record_fields(Form, ExpTypes, Module, RecDict) ->
+  t_check_record_fields(Form, ExpTypes, Module, RecDict, dict:new()).
+
+-spec t_check_record_fields(parse_form(), sets:set(mfa()), module(),
+                            mod_records(), var_table()) -> ok.
+
+%% If there is something wrong with parse_form()
+%% throw({error, io_lib:chars()} is called.
+
+t_check_record_fields({var, _L, _}, _ET, _M, _MR, _V) -> ok;
+t_check_record_fields({ann_type, _L, [_Var, Type]}, ET, M, MR, V) ->
+  t_check_record_fields(Type, ET, M, MR, V);
+t_check_record_fields({paren_type, _L, [Type]}, ET, M, MR, V) ->
+  t_check_record_fields(Type, ET, M, MR, V);
+t_check_record_fields({remote_type, _L, [{atom, _, _}, {atom, _, _}, Args]},
+                    ET, M, MR, V) ->
+  list_check_record_fields(Args, ET, M, MR, V);
+t_check_record_fields({atom, _L, _}, _ET, _M, _MR, _V) -> ok;
+t_check_record_fields({integer, _L, _}, _ET, _M, _MR, _V) -> ok;
+t_check_record_fields({op, _L, _Op, _Arg}, _ET, _M, _MR, _V) -> ok;
+t_check_record_fields({op, _L, _Op, _Arg1, _Arg2}, _ET, _M, _MR, _V) -> ok;
+t_check_record_fields({type, _L, tuple, any}, _ET, _M, _MR, _V) -> ok;
+t_check_record_fields({type, _L, map, any}, _ET, _M, _MR, _V) -> ok;
+t_check_record_fields({type, _L, binary, [_Base, _Unit]}, _ET, _M, _MR, _V) ->
+  ok;
+t_check_record_fields({type, _L, 'fun', [{type, _, any}, Range]},
+                      ET, M, MR, V) ->
+  t_check_record_fields(Range, ET, M, MR, V);
+t_check_record_fields({type, _L, range, [_From, _To]}, _ET, _M, _MR, _V) ->
+  ok;
+t_check_record_fields({type, _L, record, [Name|Fields]}, ET, M, MR, V) ->
+  check_record(Name, Fields, ET, M, MR, V);
+t_check_record_fields({type, _L, _, Args}, ET, M, MR, V) ->
+  list_check_record_fields(Args, ET, M, MR, V);
+t_check_record_fields({user_type, _L, _Name, Args}, ET, M, MR, V) ->
+  list_check_record_fields(Args, ET, M, MR, V).
+
+check_record({atom, _, Name}, ModFields, ET, M, MR, V) ->
+  {ok, R} = dict:find(M, MR),
+  {ok, DeclFields} = lookup_record(Name, R),
+  case check_fields(ModFields, DeclFields, ET, M, MR, V) of
+    {error, FieldName} ->
+       throw({error, io_lib:format("Illegal declaration of #~w{~w}\n",
+                                   [Name, FieldName])});
+    ok -> ok
+  end.
+
+check_fields([{type, _, field_type, [{atom, _, Name}, Abstr]}|Left],
+             DeclFields, ET, M, MR, V) ->
+  Type = t_from_form(Abstr, ET, M, MR, V),
+  {Name, _, DeclType} = lists:keyfind(Name, 1, DeclFields),
+  TypeNoVars = subst_all_vars_to_any(Type),
+  case t_is_subtype(TypeNoVars, DeclType) of
+    false -> {error, Name};
+    true -> check_fields(Left, DeclFields, ET, M, MR, V)
+  end;
+check_fields([], _Decl, _ET, _M, _MR, _V) ->
+  ok.
+
+list_check_record_fields([], _ET, _M, _MR, _V) ->
+  ok;
+list_check_record_fields([H|Tail], ET, M, MR, V) ->
+  ok = t_check_record_fields(H, ET, M, MR, V),
+  list_check_record_fields(Tail, ET, M, MR, V).
 
 -spec t_var_names([erl_type()]) -> [atom()].
 
@@ -4556,9 +4617,9 @@ is_erl_type(_) -> false.
 
 lookup_record(Tag, RecDict) when is_atom(Tag) ->
   case dict:find({record, Tag}, RecDict) of
-    {ok, [{_Arity, Fields}]} ->
+    {ok, {_FileLine, [{_Arity, Fields}]}} ->
       {ok, Fields};
-    {ok, List} when is_list(List) ->
+    {ok, {_FileLine, List}} when is_list(List) ->
       %% This will have to do, since we do not know which record we
       %% are looking for.
       error;
@@ -4571,8 +4632,8 @@ lookup_record(Tag, RecDict) when is_atom(Tag) ->
 
 lookup_record(Tag, Arity, RecDict) when is_atom(Tag) ->
   case dict:find({record, Tag}, RecDict) of
-    {ok, [{Arity, Fields}]} -> {ok, Fields};
-    {ok, OrdDict} -> orddict:find(Arity, OrdDict);
+    {ok, {_FileLine, [{Arity, Fields}]}} -> {ok, Fields};
+    {ok, {_FileLine, OrdDict}} -> orddict:find(Arity, OrdDict);
     error -> error
   end.
 
