@@ -20,6 +20,22 @@
 #ifndef __SYS_H__
 #define __SYS_H__
 
+#ifdef ERTS_INLINE
+#  ifndef ERTS_CAN_INLINE
+#    define ERTS_CAN_INLINE 1
+#  endif
+#else
+#  if defined(__GNUC__)
+#    define ERTS_CAN_INLINE 1
+#    define ERTS_INLINE __inline__
+#  elif defined(__WIN32__)
+#    define ERTS_CAN_INLINE 1
+#    define ERTS_INLINE __inline
+#  else
+#    define ERTS_CAN_INLINE 0
+#    define ERTS_INLINE
+#  endif
+#endif
 
 #if defined(DEBUG) || defined(ERTS_ENABLE_LOCK_CHECK)
 #  undef ERTS_CAN_INLINE
@@ -92,23 +108,6 @@ typedef int ErtsSysFdType;
 # error missing ERTS_SYS_FD_INVALID
 #endif
 typedef ERTS_SYS_FD_TYPE ErtsSysFdType;
-#endif
-
-#ifdef ERTS_INLINE
-#  ifndef ERTS_CAN_INLINE
-#    define ERTS_CAN_INLINE 1
-#  endif
-#else
-#  if defined(__GNUC__)
-#    define ERTS_CAN_INLINE 1
-#    define ERTS_INLINE __inline__
-#  elif defined(__WIN32__)
-#    define ERTS_CAN_INLINE 1
-#    define ERTS_INLINE __inline
-#  else
-#    define ERTS_CAN_INLINE 0
-#    define ERTS_INLINE
-#  endif
 #endif
 
 #if !defined(__GNUC__)
