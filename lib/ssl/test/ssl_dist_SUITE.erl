@@ -38,10 +38,6 @@
 %%--------------------------------------------------------------------
 %% Common Test interface functions -----------------------------------
 %%--------------------------------------------------------------------
-
-suite() ->
-    [{ct_hooks,[ts_install_cth]}].
-
 all() ->
     [basic, payload, plain_options, plain_verify_options].
 

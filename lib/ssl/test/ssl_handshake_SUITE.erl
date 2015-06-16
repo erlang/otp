@@ -31,8 +31,6 @@
 %%--------------------------------------------------------------------
 %% Common Test interface functions -----------------------------------
 %%--------------------------------------------------------------------
-suite() -> [{ct_hooks,[ts_install_cth]}].
-
 all() -> [decode_hello_handshake,
 	  decode_single_hello_extension_correctly,
 	  decode_supported_elliptic_curves_hello_extension_correctly,

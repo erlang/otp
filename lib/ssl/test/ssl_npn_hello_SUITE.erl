@@ -32,9 +32,6 @@
 %%--------------------------------------------------------------------
 %% Common Test interface functions -----------------------------------
 %%--------------------------------------------------------------------
-
-suite() -> [{ct_hooks,[ts_install_cth]}].
-
 all() ->
     [encode_and_decode_npn_client_hello_test,
      encode_and_decode_npn_server_hello_test,
