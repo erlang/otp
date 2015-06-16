@@ -83,7 +83,7 @@
 	       starter}).
 
 %%%-----------------------------------------------------------------
-%%% @spec script_start() -> void()
+%%% @spec script_start() -> term()
 %%%
 %%% @doc Start tests via the ct_run program or script.
 %%%

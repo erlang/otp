@@ -838,7 +838,7 @@ Please see the function `tempo-define-template'.")
     "Config." n n
 
     (erlang-skel-separator 2)
-    "%% Function: end_per_suite(Config) -> void()" n
+    "%% Function: end_per_suite(Config) -> term()" n
     "%%" n
     "%% Config = [tuple()]" n
     "%%   A list of key/value pairs, holding the test case configuration." n
@@ -867,7 +867,7 @@ Please see the function `tempo-define-template'.")
     "Config." n n
 
     (erlang-skel-separator 2)
-    "%% Function: end_per_testcase(TestCase, Config) -> void()" n
+    "%% Function: end_per_testcase(TestCase, Config) -> term()" n
     "%%" n
     "%% TestCase = atom()" n
     "%%   Name of the test case that is finished." n
@@ -993,7 +993,7 @@ Please see the function `tempo-define-template'.")
     "Config." n n
 
     (erlang-skel-separator 2)
-    "%% Function: end_per_suite(Config0) -> void() | {save_config,Config1}" n
+    "%% Function: end_per_suite(Config0) -> term() | {save_config,Config1}" n
     "%%" n
     "%% Config0 = Config1 = [tuple()]" n
     "%%   A list of key/value pairs, holding the test case configuration." n
@@ -1021,7 +1021,7 @@ Please see the function `tempo-define-template'.")
 
     (erlang-skel-separator 2)
     "%% Function: end_per_group(GroupName, Config0) ->" n
-    "%%               void() | {save_config,Config1}" n
+    "%%               term() | {save_config,Config1}" n
     "%%" n
     "%% GroupName = atom()" n
     "%%   Name of the test case group that is finished." n
@@ -1054,7 +1054,7 @@ Please see the function `tempo-define-template'.")
 
     (erlang-skel-separator 2)
     "%% Function: end_per_testcase(TestCase, Config0) ->" n
-    "%%               void() | {save_config,Config1} | {fail,Reason}" n
+    "%%               term() | {save_config,Config1} | {fail,Reason}" n
     "%%" n
     "%% TestCase = atom()" n
     "%%   Name of the test case that is finished." n
@@ -1175,7 +1175,7 @@ Please see the function `tempo-define-template'.")
     "Config." n n
 
     (erlang-skel-separator 2)
-    "%% Function: end_per_suite(Config0) -> void() | {save_config,Config1}" n
+    "%% Function: end_per_suite(Config0) -> term() | {save_config,Config1}" n
     "%% Config0 = Config1 = [tuple()]" n
     (erlang-skel-separator 2)
     "end_per_suite(_Config) ->" n >
@@ -1193,7 +1193,7 @@ Please see the function `tempo-define-template'.")
 
     (erlang-skel-separator 2)
     "%% Function: end_per_group(GroupName, Config0) ->" n
-    "%%               void() | {save_config,Config1}" n
+    "%%               term() | {save_config,Config1}" n
     "%% GroupName = atom()" n
     "%% Config0 = Config1 = [tuple()]" n
     (erlang-skel-separator 2)
@@ -1212,7 +1212,7 @@ Please see the function `tempo-define-template'.")
 
     (erlang-skel-separator 2)
     "%% Function: end_per_testcase(TestCase, Config0) ->" n
-    "%%               void() | {save_config,Config1} | {fail,Reason}" n
+    "%%               term() | {save_config,Config1} | {fail,Reason}" n
     "%% TestCase = atom()" n
     "%% Config0 = Config1 = [tuple()]" n
     "%% Reason = term()" n

@@ -1234,7 +1234,7 @@ Please see the function `tempo-define-template'.")
     "Config." n n
 
     (erlang-skel-separator-start 2)
-    "%% @spec end_per_suite(Config0) -> void() | {save_config,Config1}" n
+    "%% @spec end_per_suite(Config0) -> term() | {save_config,Config1}" n
     "%% Config0 = Config1 = [tuple()]" n
     (erlang-skel-separator-end 2)
     "end_per_suite(_Config) ->" n >
@@ -1252,7 +1252,7 @@ Please see the function `tempo-define-template'.")
 
     (erlang-skel-separator-start 2)
     "%% @spec end_per_group(GroupName, Config0) ->" n
-    "%%               void() | {save_config,Config1}" n
+    "%%               term() | {save_config,Config1}" n
     "%% GroupName = atom()" n
     "%% Config0 = Config1 = [tuple()]" n
     (erlang-skel-separator-end 2)
@@ -1271,7 +1271,7 @@ Please see the function `tempo-define-template'.")
 
     (erlang-skel-separator-start 2)
     "%% @spec end_per_testcase(TestCase, Config0) ->" n
-    "%%               void() | {save_config,Config1} | {fail,Reason}" n
+    "%%               term() | {save_config,Config1} | {fail,Reason}" n
     "%% TestCase = atom()" n
     "%% Config0 = Config1 = [tuple()]" n
     "%% Reason = term()" n
@@ -1412,7 +1412,7 @@ Please see the function `tempo-define-template'.")
     "%%   A list of key/value pairs, holding configuration data for the group." n
     "%%" n
     "%% @spec end_per_group(GroupName, Config0) ->" n
-    "%%               void() | {save_config,Config1}" n
+    "%%               term() | {save_config,Config1}" n
     (erlang-skel-separator-end 2)
     "end_per_group(_GroupName, _Config) ->" n >
     "ok." n n
@@ -1446,7 +1446,7 @@ Please see the function `tempo-define-template'.")
     "%%   A list of key/value pairs, holding the test case configuration." n
     "%%" n
     "%% @spec end_per_testcase(TestCase, Config0) ->" n
-    "%%               void() | {save_config,Config1} | {fail,Reason}" n
+    "%%               term() | {save_config,Config1} | {fail,Reason}" n
     (erlang-skel-separator-end 2)
     "end_per_testcase(_TestCase, _Config) ->" n >
     "ok." n n

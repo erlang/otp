@@ -729,7 +729,7 @@ capture_get([]) ->
     test_server:capture_get().
 
 %%%-----------------------------------------------------------------
-%%% @spec fail(Reason) -> void()
+%%% @spec fail(Reason) -> ok
 %%%      Reason = term()
 %%%
 %%% @doc Terminate a test case with the given error
@@ -747,7 +747,7 @@ fail(Reason) ->
     end.
 
 %%%-----------------------------------------------------------------
-%%% @spec fail(Format, Args) -> void()
+%%% @spec fail(Format, Args) -> ok
 %%%      Format = string()
 %%%      Args = list()
 %%%
@@ -773,7 +773,7 @@ fail(Format, Args) ->
     end.
 
 %%%-----------------------------------------------------------------
-%%% @spec comment(Comment) -> void()
+%%% @spec comment(Comment) -> ok
 %%%      Comment = term()
 %%%
 %%% @doc Print the given <c>Comment</c> in the comment field in
@@ -796,7 +796,7 @@ comment(Comment) ->
     send_html_comment(lists:flatten(Formatted)).
 
 %%%-----------------------------------------------------------------
-%%% @spec comment(Format, Args) -> void()
+%%% @spec comment(Format, Args) -> ok
 %%%      Format = string()
 %%%      Args = list()
 %%%

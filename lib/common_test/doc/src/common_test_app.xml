@@ -252,7 +252,7 @@
     </func>
       
     <func>
-      <name>Module:end_per_suite(Config) -> void() | 
+      <name>Module:end_per_suite(Config) -> term() | 
 	{save_config,SaveConfig}</name>
       <fsummary>Test suite finalization. </fsummary>
       <type>
@@ -385,7 +385,7 @@
     </func>
       
       <func>
-	<name>Module:end_per_group(GroupName, Config) -> void() |
+	<name>Module:end_per_group(GroupName, Config) -> term() |
 	  {return_group_result,Status}</name>
 	<fsummary>Test case group finalization.</fsummary>
 	<type>
@@ -440,7 +440,7 @@
     </func>
       
       <func>
-	<name>Module:end_per_testcase(TestCase, Config) -> void() | {fail,Reason} | {save_config,SaveConfig}</name>
+	<name>Module:end_per_testcase(TestCase, Config) -> term() | {fail,Reason} | {save_config,SaveConfig}</name>
 	<fsummary>Test case finalization.</fsummary>
 	<type>
 	  <v> TestCase = atom()</v>
@@ -538,7 +538,7 @@
       
     
     <func>
-	<name>Module:Testcase(Config) ->  void() | {skip,Reason} | {comment,Comment} | {save_config,SaveConfig} | {skip_and_save,Reason,SaveConfig} | exit() </name>
+	<name>Module:Testcase(Config) ->  term() | {skip,Reason} | {comment,Comment} | {save_config,SaveConfig} | {skip_and_save,Reason,SaveConfig} | exit() </name>
       <fsummary>A test case</fsummary>
       <type>
 	<v> Config = SaveConfig = [{Key,Value}]</v>
