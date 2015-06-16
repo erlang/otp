@@ -654,7 +654,7 @@ options() ->
      multicast_if, multicast_ttl, multicast_loop,
      exit_on_close, high_watermark, low_watermark,
      high_msgq_watermark, low_msgq_watermark,
-     send_timeout, send_timeout_close
+     send_timeout, send_timeout_close, show_econnreset
     ].
 
 %% Return a list of statistics options
@@ -672,7 +672,8 @@ connect_options() ->
     [tos, priority, reuseaddr, keepalive, linger, sndbuf, recbuf, nodelay,
      header, active, packet, packet_size, buffer, mode, deliver,
      exit_on_close, high_watermark, low_watermark, high_msgq_watermark,
-     low_msgq_watermark, send_timeout, send_timeout_close, delay_send, raw].
+     low_msgq_watermark, send_timeout, send_timeout_close, delay_send, raw,
+     show_econnreset].
     
 connect_options(Opts, Family) ->
     BaseOpts = 
@@ -740,7 +741,7 @@ listen_options() ->
      header, active, packet, buffer, mode, deliver, backlog, ipv6_v6only,
      exit_on_close, high_watermark, low_watermark, high_msgq_watermark,
      low_msgq_watermark, send_timeout, send_timeout_close, delay_send,
-     packet_size, raw].
+     packet_size, raw, show_econnreset].
 
 listen_options(Opts, Family) ->
     BaseOpts = 
