@@ -173,9 +173,7 @@ ET_DEFINE_CHECKED(Uint,external_thing_data_words,ExternalThing*,is_thing_ptr);
 ET_DEFINE_CHECKED(Eterm,make_cp,UWord *,_is_taggable_pointer);
 ET_DEFINE_CHECKED(UWord *,cp_val,Eterm,is_CP);
 ET_DEFINE_CHECKED(Uint,catch_val,Eterm,is_catch);
-ET_DEFINE_CHECKED(Uint,x_reg_offset,Uint,_is_xreg);
-ET_DEFINE_CHECKED(Uint,y_reg_offset,Uint,_is_yreg);
-ET_DEFINE_CHECKED(Uint,x_reg_index,Uint,_is_xreg);
-ET_DEFINE_CHECKED(Uint,y_reg_index,Uint,_is_yreg);
+ET_DEFINE_CHECKED(Uint,loader_x_reg_index,Uint,_is_loader_x_reg);
+ET_DEFINE_CHECKED(Uint,loader_y_reg_index,Uint,_is_loader_y_reg);
 
 #endif	/* ET_DEBUG */

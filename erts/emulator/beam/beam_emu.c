@@ -154,17 +154,19 @@ do {                                     \
  * Store a result into a register given a destination descriptor.
  */
 
-#define StoreResult(Result, DestDesc)               \
-  do {                                              \
-    Eterm stb_reg;                                  \
-    stb_reg = (DestDesc);                           \
-    CHECK_TERM(Result);                             \
-    switch (beam_reg_tag(stb_reg)) {                \
-    case X_REG_DEF:                                 \
-      xb(x_reg_offset(stb_reg)) = (Result); break;  \
-    default:                                        \
-      yb(y_reg_offset(stb_reg)) = (Result); break;  \
-    }                                               \
+#define StoreResult(Result, DestDesc)			\
+  do {							\
+    Eterm stb_reg;					\
+    stb_reg = (DestDesc);				\
+    CHECK_TERM(Result);					\
+    switch (loader_tag(stb_reg)) {			\
+    case LOADER_X_REG:					\
+      x(loader_x_reg_index(stb_reg)) = (Result);	\
+      break;						\
+    default:						\
+      y(loader_y_reg_index(stb_reg)) = (Result);	\
+      break;						\
+    }							\
   } while (0)
 
 #define StoreSimpleDest(Src, Dest) Dest = (Src)
@@ -175,20 +177,22 @@ do {                                     \
  * be just before the next instruction.
  */
  
-#define StoreBifResult(Dst, Result)                          \
-  do {                                                       \
-    BeamInstr* stb_next;                                         \
-    Eterm stb_reg;                                           \
-    stb_reg = Arg(Dst);                                      \
-    I += (Dst) + 2;                                          \
-    stb_next = (BeamInstr *) *I;                                 \
-    CHECK_TERM(Result);                                      \
-    switch (beam_reg_tag(stb_reg)) {                         \
-    case X_REG_DEF:                                          \
-      xb(x_reg_offset(stb_reg)) = (Result); Goto(stb_next);  \
-    default:                                                 \
-      yb(y_reg_offset(stb_reg)) = (Result); Goto(stb_next);  \
-    }                                                        \
+#define StoreBifResult(Dst, Result)			\
+  do {							\
+    BeamInstr* stb_next;				\
+    Eterm stb_reg;					\
+    stb_reg = Arg(Dst);					\
+    I += (Dst) + 2;					\
+    stb_next = (BeamInstr *) *I;			\
+    CHECK_TERM(Result);					\
+    switch (loader_tag(stb_reg)) {			\
+    case LOADER_X_REG:					\
+      x(loader_x_reg_index(stb_reg)) = (Result);	\
+      Goto(stb_next);					\
+    default:						\
+      y(loader_y_reg_index(stb_reg)) = (Result);	\
+      Goto(stb_next);					\
+    }							\
   } while (0)
 
 #define ClauseFail() goto jump_f
@@ -513,14 +517,19 @@ void** beam_ops;
     ASSERT(VALID_INSTR(Dst));  \
     Goto(Dst)
 
-#define GetR(pos, tr) \
-   do { \
-     tr = Arg(pos); \
-     switch (beam_reg_tag(tr)) { \
-     case X_REG_DEF: tr = xb(x_reg_offset(tr)); break; \
-     case Y_REG_DEF: ASSERT(y_reg_offset(tr) >= 1); tr = yb(y_reg_offset(tr)); break; \
-     } \
-     CHECK_TERM(tr); \
+#define GetR(pos, tr)				\
+   do {						\
+     tr = Arg(pos);				\
+     switch (loader_tag(tr)) {			\
+     case LOADER_X_REG:				\
+        tr = x(loader_x_reg_index(tr));		\
+        break;					\
+     case LOADER_Y_REG:				\
+        ASSERT(loader_y_reg_index(tr) >= 1);	\
+        tr = y(loader_y_reg_index(tr));		\
+        break;					\
+     }						\
+     CHECK_TERM(tr);				\
    } while (0)
 
 #define GetArg1(N, Dst) GetR((N), Dst)
@@ -2385,12 +2394,12 @@ void process_main(void)
 
      do {
 	 Eterm term = *I++;
-	 switch (term & _TAG_IMMED1_MASK) {
-	 case (X_REG_DEF << _TAG_PRIMARY_SIZE) | TAG_PRIMARY_HEADER:
-	     *hp++ = x(term >> _TAG_IMMED1_SIZE);
+	 switch (loader_tag(term)) {
+	 case LOADER_X_REG:
+	     *hp++ = x(loader_x_reg_index(term));
 	     break;
-	 case (Y_REG_DEF << _TAG_PRIMARY_SIZE) | TAG_PRIMARY_HEADER:
-	     *hp++ = y(term >> _TAG_IMMED1_SIZE);
+	 case LOADER_Y_REG:
+	     *hp++ = y(loader_y_reg_index(term));
 	     break;
 	 default:
 	     *hp++ = term;
@@ -2411,19 +2420,19 @@ void process_main(void)
      Next(3+Arg(2));
  }
 
-#define PUT_TERM_REG(term, desc)				\
-do {								\
-    switch ((desc) & _TAG_IMMED1_MASK) {			\
-    case (X_REG_DEF << _TAG_PRIMARY_SIZE) | TAG_PRIMARY_HEADER:	\
-	x((desc) >> _TAG_IMMED1_SIZE) = (term);			\
-	break;							\
-    case (Y_REG_DEF << _TAG_PRIMARY_SIZE) | TAG_PRIMARY_HEADER:	\
-	y((desc) >> _TAG_IMMED1_SIZE) = (term);			\
-	break;							\
-    default:							\
-	ASSERT(0);						\
-	break;							\
-    }								\
+#define PUT_TERM_REG(term, desc)		\
+do {						\
+    switch (loader_tag(desc)) {			\
+    case LOADER_X_REG:				\
+	x(loader_x_reg_index(desc)) = (term);	\
+	break;					\
+    case LOADER_Y_REG:				\
+	y(loader_y_reg_index(desc)) = (term);	\
+	break;					\
+    default:					\
+	ASSERT(0);				\
+	break;					\
+    }						\
 } while(0)
 
  OpCase(i_get_map_elements_fsI): {
@@ -6487,20 +6496,20 @@ static Eterm get_map_element_hash(Eterm map, Eterm key, Uint32 hx)
     return vs ? *vs : THE_NON_VALUE;
 }
 
-#define GET_TERM(term, dest)					\
-do {								\
-    Eterm src = (Eterm)(term);					\
-    switch (src & _TAG_IMMED1_MASK) {				\
-    case (X_REG_DEF << _TAG_PRIMARY_SIZE) | TAG_PRIMARY_HEADER:	\
-	dest = x(src >> _TAG_IMMED1_SIZE);			\
-	break;							\
-    case (Y_REG_DEF << _TAG_PRIMARY_SIZE) | TAG_PRIMARY_HEADER:	\
-	dest = y(src >> _TAG_IMMED1_SIZE);			\
-	break;							\
-    default:							\
-	dest = src;						\
-	break;							\
-    }								\
+#define GET_TERM(term, dest)			\
+do {						\
+    Eterm src = (Eterm)(term);			\
+    switch (loader_tag(src)) {			\
+    case LOADER_X_REG:				\
+        dest = x(loader_x_reg_index(src));	\
+	break;					\
+    case LOADER_Y_REG:				\
+        dest = y(loader_y_reg_index(src));	\
+	break;					\
+    default:					\
+	dest = src;				\
+	break;					\
+    }						\
 } while(0)
 
 

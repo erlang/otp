@@ -237,12 +237,10 @@ try Y F => catch Y F
 try_case Y => try_end Y
 try_end y
 
-try_case_end Literal=q => move Literal x | try_case_end x
 try_case_end s
 
 # Destructive set tuple element
 
-set_tuple_element Lit=q Tuple Pos => move Lit x | set_tuple_element x Tuple Pos
 set_tuple_element s d P
 
 # Get tuple element
@@ -273,8 +271,8 @@ is_number Fail Literal=q => move Literal x | is_number Fail x
 
 jump f
 
-case_end Literal=cq => move Literal x | case_end x
-badmatch Literal=cq => move Literal x | badmatch x
+case_end Literal=c => move Literal x | case_end x
+badmatch Literal=c => move Literal x | badmatch x
 
 case_end r
 case_end x
@@ -849,7 +847,6 @@ is_boolean f y
 
 is_function2 Fail=f acq Arity => jump Fail
 is_function2 Fail=f Fun a => jump Fail
-is_function2 Fail Fun Literal=q => move Literal x | is_function2 Fail Fun x
 
 is_function2 f s s
 %macro: is_function2 IsFunction2 -fail_action
@@ -1122,10 +1119,7 @@ bif1 Fail Bif=u$bif:erlang:get/1 Src=s Dst=d => i_get Src Dst
 
 bif2 Jump=j u$bif:erlang:element/2 S1=s S2=rxy Dst=d => gen_element(Jump, S1, S2, Dst)
 
-bif1 Fail Bif Literal=q Dst => move Literal x | bif1 Fail Bif x Dst
 bif1 p Bif S1 Dst => bif1_body Bif S1 Dst
-
-bif1_body Bif Literal=q Dst => move Literal x | bif1_body Bif x Dst
 
 bif2 p Bif S1 S2 Dst => i_fetch S1 S2 | i_bif2_body Bif Dst
 bif2 Fail Bif S1 S2 Dst => i_fetch S1 S2 | i_bif2 Fail Bif Dst
@@ -1439,8 +1433,6 @@ i_bs_private_append j I d
 # Storing integers into binaries.
 #
 
-bs_put_integer Fail=j Sz=s Unit=u Flags=u Literal=q => \
-	move Literal x | bs_put_integer Fail Sz Unit Flags x
 bs_put_integer Fail=j Sz=sq Unit=u Flags=u Src=s => \
 			gen_put_integer(Fail, Sz, Unit, Flags, Src)
 
@@ -1454,32 +1446,22 @@ i_new_bs_put_integer_imm j I I s
 # Utf8/utf16/utf32 support. (R12B-5)
 #
 
-bs_utf8_size Fail Literal=q Dst=d => \
-	move Literal x | bs_utf8_size Fail x Dst
 bs_utf8_size j Src=s Dst=d => i_bs_utf8_size Src Dst
 
 i_bs_utf8_size s d
 
-bs_utf16_size Fail Literal=q Dst=d => \
-	move Literal x | bs_utf16_size Fail x Dst
 bs_utf16_size j Src=s Dst=d => i_bs_utf16_size Src Dst
 
 i_bs_utf16_size s d
 
-bs_put_utf8 Fail=j Flags=u Literal=q => \
-	move Literal x | bs_put_utf8 Fail Flags x
 bs_put_utf8 Fail u Src=s => i_bs_put_utf8 Fail Src
 
 i_bs_put_utf8 j s
 
-bs_put_utf16 Fail=j Flags=u Literal=q => \
-	move Literal x | bs_put_utf16 Fail Flags x
 bs_put_utf16 Fail Flags=u Src=s => i_bs_put_utf16 Fail Flags Src
 
 i_bs_put_utf16 j I s
 
-bs_put_utf32 Fail=j Flags=u Literal=q => \
-	move Literal x | bs_put_utf32 Fail Flags x
 bs_put_utf32 Fail=j Flags=u Src=s => \
    i_bs_validate_unicode Fail Src | bs_put_integer Fail i=32 u=1 Flags Src
 
@@ -1489,9 +1471,6 @@ i_bs_validate_unicode j s
 # Storing floats into binaries.
 #
 bs_put_float Fail Sz=q Unit Flags Val => badarg Fail
-
-bs_put_float Fail=j Sz Unit=u Flags=u Literal=q => \
-	move Literal x | bs_put_float Fail Sz Unit Flags x
 
 bs_put_float Fail=j Sz=s Unit=u Flags=u Src=s => \
 			gen_put_float(Fail, Sz, Unit, Flags, Src)
@@ -1506,8 +1485,6 @@ i_new_bs_put_float_imm j I I s
 # Storing binaries into binaries.
 #
 
-bs_put_binary Fail Sz Unit Flags Literal=q => \
- 	move Literal x | bs_put_binary Fail Sz Unit Flags x
 bs_put_binary Fail=j Sz=s Unit=u Flags=u Src=s => \
 			gen_put_binary(Fail, Sz, Unit, Flags, Src)
 
@@ -1730,8 +1707,6 @@ gc_bif2 Fail I Bif S1 S2 Dst => \
 
 gc_bif3 Fail I Bif S1 S2 S3 Dst => \
 	gen_guard_bif3(Fail, I, Bif, S1, S2, S3, Dst)
-
-i_gc_bif1 Fail Bif V=q Live D => move V x | i_gc_bif1 Fail Bif x Live D
 
 i_gc_bif1 j I s I d
 

@@ -1027,42 +1027,40 @@ _ET_DECLARE_CHECKED(Uint,catch_val,Eterm)
 /*
  * Overloaded tags.
  *
- * SMALL = 15
- * ATOM/NIL=7
+ * In the loader, we want to tag a term in a way so that it can
+ * be any literal (atom/integer/float/tuple/list/binary) or a
+ * register.
  *
- * Note that the two least significant bits in SMALL/ATOM/NIL always are 3;
- * thus, we can distinguish register from literals by looking at only these
- * two bits.
+ * We can achive that by overloading the PID and PORT tags to
+ * mean X and Y registers. That works because there are no
+ * pid or port literals.
  */
 
-#define X_REG_DEF	0
-#define Y_REG_DEF	1
+#define _LOADER_TAG_XREG _TAG_IMMED1_PID
+#define _LOADER_TAG_YREG _TAG_IMMED1_PORT
+#define _LOADER_TAG_SIZE _TAG_IMMED1_SIZE
+#define _LOADER_MASK _TAG_IMMED1_MASK
 
-#define beam_reg_tag(x)	((x) & 3)
+#define LOADER_X_REG _LOADER_TAG_XREG
+#define LOADER_Y_REG _LOADER_TAG_YREG
 
-#define make_xreg(ix)	(((ix) * sizeof(Eterm)) | X_REG_DEF)
-#define make_yreg(ix)	(((ix) * sizeof(Eterm)) | Y_REG_DEF)
+#define make_loader_x_reg(R) (((R) << _LOADER_TAG_SIZE) | _LOADER_TAG_XREG)
+#define make_loader_y_reg(R) (((R) << _LOADER_TAG_SIZE) | _LOADER_TAG_YREG)
 
-#define _is_xreg(x)	(beam_reg_tag(x) == X_REG_DEF)
-#define _is_yreg(x)	(beam_reg_tag(x) == Y_REG_DEF)
+#define loader_reg_index(R) ((R) >> _LOADER_TAG_SIZE)
 
-#define _unchecked_x_reg_offset(R)	((R) - X_REG_DEF)
-_ET_DECLARE_CHECKED(Uint,x_reg_offset,Uint)
-#define x_reg_offset(R)	_ET_APPLY(x_reg_offset,(R))
+#define loader_tag(T) ((T) & _LOADER_MASK)
 
-#define _unchecked_y_reg_offset(R)	((R) - Y_REG_DEF)
-_ET_DECLARE_CHECKED(Uint,y_reg_offset,Uint)
-#define y_reg_offset(R)	_ET_APPLY(y_reg_offset,(R))
+#define _is_loader_x_reg(x) (loader_tag(x) == _LOADER_TAG_XREG)
+#define _is_loader_y_reg(x) (loader_tag(x) == _LOADER_TAG_YREG)
 
-#define reg_index(R) ((R) / sizeof(Eterm))
+#define _unchecked_loader_x_reg_index(R) ((R) >> _LOADER_TAG_SIZE)
+_ET_DECLARE_CHECKED(Uint,loader_x_reg_index,Uint)
+#define loader_x_reg_index(R) _ET_APPLY(loader_x_reg_index,(R))
 
-#define _unchecked_x_reg_index(R)	((R) >> 2)
-_ET_DECLARE_CHECKED(Uint,x_reg_index,Uint)
-#define x_reg_index(R)	_ET_APPLY(x_reg_index,(R))
-
-#define _unchecked_y_reg_index(R)	((R) >> 2)
-_ET_DECLARE_CHECKED(Uint,y_reg_index,Uint)
-#define y_reg_index(R)	_ET_APPLY(y_reg_index,(R))
+#define _unchecked_loader_y_reg_index(R)  ((R) >> _LOADER_TAG_SIZE)
+_ET_DECLARE_CHECKED(Uint,loader_y_reg_index,Uint)
+#define loader_y_reg_index(R) _ET_APPLY(loader_y_reg_index,(R))
 
 /*
  * Backwards compatibility definitions:

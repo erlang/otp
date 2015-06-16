@@ -2167,13 +2167,13 @@ load_code(LoaderState* stp)
 	    case 's':	/* Any source (tagged constant or register) */
 		switch (tag) {
 		case TAG_r:
-		    code[ci++] = make_xreg(0);
+		    code[ci++] = make_loader_x_reg(0);
 		    break;
 		case TAG_x:
-		    code[ci++] = make_xreg(tmp_op->a[arg].val);
+		    code[ci++] = make_loader_x_reg(tmp_op->a[arg].val);
 		    break;
 		case TAG_y:
-		    code[ci++] = make_yreg(tmp_op->a[arg].val);
+		    code[ci++] = make_loader_y_reg(tmp_op->a[arg].val);
 		    break;
 		case TAG_i:
 		    code[ci++] = (BeamInstr) make_small((Uint)tmp_op->a[arg].val);
@@ -2184,6 +2184,10 @@ load_code(LoaderState* stp)
 		case TAG_n:
 		    code[ci++] = NIL;
 		    break;
+		case TAG_q:
+		    new_literal_patch(stp, ci);
+		    code[ci++] = tmp_op->a[arg].val;
+		    break;
 		default:
 		    LoadError1(stp, "bad tag %d for general source",
 			       tmp_op->a[arg].type);
@@ -2193,13 +2197,13 @@ load_code(LoaderState* stp)
 	    case 'd':	/* Destination (x(0), x(N), y(N) */
 		switch (tag) {
 		case TAG_r:
-		    code[ci++] = make_xreg(0);
+		    code[ci++] = make_loader_x_reg(0);
 		    break;
 		case TAG_x:
-		    code[ci++] = make_xreg(tmp_op->a[arg].val);
+		    code[ci++] = make_loader_x_reg(tmp_op->a[arg].val);
 		    break;
 		case TAG_y:
-		    code[ci++] = make_yreg(tmp_op->a[arg].val);
+		    code[ci++] = make_loader_y_reg(tmp_op->a[arg].val);
 		    break;
 		default:
 		    LoadError1(stp, "bad tag %d for destination",
@@ -2359,13 +2363,11 @@ load_code(LoaderState* stp)
 	    case TAG_r:
 	    case TAG_x:
 		CodeNeed(1);
-		code[ci++] = (tmp_op->a[arg].val << _TAG_IMMED1_SIZE) |
-		    (X_REG_DEF << _TAG_PRIMARY_SIZE) | TAG_PRIMARY_HEADER;
+		code[ci++] = make_loader_x_reg(tmp_op->a[arg].val);
 		break;
 	    case TAG_y:
 		CodeNeed(1);
-		code[ci++] = (tmp_op->a[arg].val << _TAG_IMMED1_SIZE) |
-		    (Y_REG_DEF << _TAG_PRIMARY_SIZE) | TAG_PRIMARY_HEADER;
+		code[ci++] = make_loader_y_reg(tmp_op->a[arg].val);
 		break;
 	    case TAG_n:
 		CodeNeed(1);

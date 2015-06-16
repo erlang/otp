@@ -180,7 +180,8 @@ sub define_type_bit {
     define_type_bit('c', $type_bit{'i'} | $type_bit{'a'} |
 		    $type_bit{'n'} | $type_bit{'q'});
     define_type_bit('s', $type_bit{'d'} | $type_bit{'i'} |
-		    $type_bit{'a'} | $type_bit{'n'});
+		    $type_bit{'a'} | $type_bit{'n'} |
+		    $type_bit{'q'});
     define_type_bit('j', $type_bit{'f'} | $type_bit{'p'});
 
     # Aliases (for matching purposes).
