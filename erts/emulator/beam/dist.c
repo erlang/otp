@@ -2088,6 +2088,7 @@ erts_dist_command(Port *prt, int reds_limit)
     DistEntry *dep = prt->dist_entry;
     Uint (*send)(Port *prt, ErtsDistOutputBuf *obuf);
     erts_aint32_t sched_flags;
+    ErtsSchedulerData *esdp = erts_get_scheduler_data();
 
     ERTS_SMP_LC_ASSERT(erts_lc_is_port_locked(prt));
 
@@ -2142,12 +2143,12 @@ erts_dist_command(Port *prt, int reds_limit)
 	    ErtsDistOutputBuf *fob;
 
 	    size = (*send)(prt, foq.first);
+	    esdp->io.out += (Uint64) size;
 #ifdef ERTS_RAW_DIST_MSG_DBG
 	    erts_fprintf(stderr, ">> ");
 	    bw(foq.first->extp, size);
 #endif
 	    reds += ERTS_PORT_REDS_DIST_CMD_DATA(size);
-	    erts_smp_atomic_add_nob(&erts_bytes_out, size);
 	    fob = foq.first;
 	    obufsize += size_obuf(fob);
 	    foq.first = foq.first->next;
@@ -2227,12 +2228,12 @@ erts_dist_command(Port *prt, int reds_limit)
 	    ASSERT(&oq.first->data[0] <= oq.first->extp
 		   && oq.first->extp < oq.first->ext_endp);
 	    size = (*send)(prt, oq.first);
+	    esdp->io.out += (Uint64) size;
 #ifdef ERTS_RAW_DIST_MSG_DBG
 	    erts_fprintf(stderr, ">> ");
 	    bw(oq.first->extp, size);
 #endif
 	    reds += ERTS_PORT_REDS_DIST_CMD_DATA(size);
-	    erts_smp_atomic_add_nob(&erts_bytes_out, size);
 	    fob = oq.first;
 	    obufsize += size_obuf(fob);
 	    oq.first = oq.first->next;

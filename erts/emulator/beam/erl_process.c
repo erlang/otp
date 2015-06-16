@@ -5542,6 +5542,9 @@ init_scheduler_data(ErtsSchedulerData* esdp, int num,
     esdp->thr_id = (Uint32) num;
     erts_sched_bif_unique_init(esdp);
 
+    esdp->io.out = (Uint64) 0;
+    esdp->io.in = (Uint64) 0;
+
     if (daww_ptr) {
 	init_aux_work_data(&esdp->aux_work_data, esdp, *daww_ptr);
 #ifdef ERTS_SMP

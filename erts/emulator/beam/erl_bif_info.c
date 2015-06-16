@@ -60,6 +60,7 @@
 
 static Export* alloc_info_trap = NULL;
 static Export* alloc_sizes_trap = NULL;
+static Export* gather_io_bytes_trap = NULL;
 
 static Export *gather_sched_wall_time_res_trap;
 static Export *gather_gc_info_res_trap;
@@ -3220,7 +3221,6 @@ BIF_RETTYPE process_display_2(BIF_ALIST_2)
    BIF_RET(am_true);
 }
 
-
 /* this is a general call which return some possibly useful information */
 
 BIF_RETTYPE statistics_1(BIF_ALIST_1)
@@ -3293,23 +3293,8 @@ BIF_RETTYPE statistics_1(BIF_ALIST_1)
 	res = TUPLE2(hp, b1, b2);
 	BIF_RET(res);
     } else if (BIF_ARG_1 == am_io) {
-	Eterm r1, r2;
-	Eterm in, out;
-	Uint hsz = 9;
-	Uint bytes_in = (Uint) erts_smp_atomic_read_nob(&erts_bytes_in);
-	Uint bytes_out = (Uint) erts_smp_atomic_read_nob(&erts_bytes_out);
-
-	(void) erts_bld_uint(NULL, &hsz, bytes_in);
-	(void) erts_bld_uint(NULL, &hsz, bytes_out);
-	hp = HAlloc(BIF_P, hsz);
-	in = erts_bld_uint(&hp, NULL, bytes_in);
-	out = erts_bld_uint(&hp, NULL, bytes_out);
-
-	r1 = TUPLE2(hp,  am_input, in);
-	hp += 3;
-	r2 = TUPLE2(hp, am_output, out);
-	hp += 3;
-	BIF_RET(TUPLE2(hp, r1, r2));
+	Eterm ref = erts_request_io_bytes(BIF_P);
+	BIF_TRAP2(gather_io_bytes_trap, BIF_P, ref, make_small(erts_no_schedulers));
     }
     else if (ERTS_IS_ATOM_STR("run_queues", BIF_ARG_1)) {
 	Eterm res, *hp, **hpp;
@@ -4388,6 +4373,8 @@ erts_bif_info_init(void)
 	= erts_export_put(am_erlang, am_gather_sched_wall_time_result, 1);
     gather_gc_info_res_trap
 	= erts_export_put(am_erlang, am_gather_gc_info_result, 1);
+    gather_io_bytes_trap
+	= erts_export_put(am_erts_internal, am_gather_io_bytes, 2);
     process_info_init();
     os_info_init();
 }

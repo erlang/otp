@@ -65,8 +65,6 @@ static erts_smp_tsd_key_t driver_list_last_error_key;  /* Save last DDLL error o
 							  per thread basis (for BC interfaces) */
 
 ErtsPTab erts_port erts_align_attribute(ERTS_CACHE_LINE_SIZE); /* The port table */
-erts_smp_atomic_t erts_bytes_out;	/* No bytes sent out of the system */
-erts_smp_atomic_t erts_bytes_in;	/* No bytes gotten into the system */
 
 const ErlDrvTermData driver_term_nil = (ErlDrvTermData)NIL;
 
@@ -79,6 +77,9 @@ erts_driver_t fd_driver;
 int erts_port_synchronous_ops = 0;
 int erts_port_schedule_all_ops = 0;
 int erts_port_parallelism = 0;
+
+static erts_atomic64_t bytes_in;
+static erts_atomic64_t bytes_out;
 
 static void deliver_result(Eterm sender, Eterm pid, Eterm res);
 static int init_driver(erts_driver_t *, ErlDrvEntry *, DE_Handle *);
@@ -1681,6 +1682,7 @@ call_driver_outputv(int bang_op,
     if (bang_op && from != ERTS_PORT_GET_CONNECTED(prt))
 	send_badsig(prt);
     else {
+	ErtsSchedulerData *esdp = erts_get_scheduler_data();
 	ErlDrvSizeT size = evp->size;
 
 	ERTS_SMP_LC_ASSERT(erts_lc_is_port_locked(prt)	
@@ -1698,7 +1700,10 @@ call_driver_outputv(int bang_op,
 	prt->caller = NIL;
 
 	prt->bytes_out += size;
-	erts_smp_atomic_add_nob(&erts_bytes_out, size);
+	if (esdp)
+	    esdp->io.out += (Uint64) size;
+	else
+	    erts_atomic64_add_nob(&bytes_out, (erts_aint64_t) size);
     }
 }
 
@@ -1778,7 +1783,7 @@ call_driver_output(int bang_op,
     if (bang_op && from != ERTS_PORT_GET_CONNECTED(prt))
 	send_badsig(prt);
     else {
-
+	ErtsSchedulerData *esdp = erts_get_scheduler_data();
 	ERTS_SMP_LC_ASSERT(erts_lc_is_port_locked(prt)	
 			   || ERTS_IS_CRASH_DUMPING);
 
@@ -1794,7 +1799,10 @@ call_driver_output(int bang_op,
 	prt->caller = NIL;
 
 	prt->bytes_out += size;
-	erts_smp_atomic_add_nob(&erts_bytes_out, size);
+	if (esdp)
+	    esdp->io.out += (Uint64) size;
+	else
+	    erts_atomic64_add_nob(&bytes_out, (erts_aint64_t) size);
     }
 }
 
@@ -2741,6 +2749,9 @@ void erts_init_io(int port_tab_size,
     drv_list_rwmtx_opts.type = ERTS_SMP_RWMTX_TYPE_EXTREMELY_FREQUENT_READ;
     drv_list_rwmtx_opts.lived = ERTS_SMP_RWMTX_LONG_LIVED;
 
+    erts_atomic64_init_nob(&bytes_in, 0);
+    erts_atomic64_init_nob(&bytes_out, 0);
+
     common_element_size = ERTS_ALC_DATA_ALIGN_SIZE(sizeof(Port));
     common_element_size += ERTS_ALC_DATA_ALIGN_SIZE(sizeof(ErtsPortTaskBusyPortQ));
     common_element_size += 10; /* name */
@@ -2781,9 +2792,6 @@ void erts_init_io(int port_tab_size,
 			 "port_table",
 			 legacy_port_tab,
 			 1);
-
-    erts_smp_atomic_init_nob(&erts_bytes_out, 0);
-    erts_smp_atomic_init_nob(&erts_bytes_in, 0);
 
     sys_init_io();
 
@@ -4574,6 +4582,102 @@ erts_port_info(Process* c_p,
 }
 
 typedef struct {
+    Uint sched_id;
+    Eterm pid;
+    Uint32 refn[ERTS_REF_NUMBERS];
+    erts_smp_atomic32_t refc;
+} ErtsIOBytesReq;
+
+static void
+reply_io_bytes(void *vreq)
+{
+    ErtsIOBytesReq *req = (ErtsIOBytesReq *) vreq;
+    Process *rp;
+
+    rp = erts_proc_lookup(req->pid);
+    if (rp) {
+	ErlOffHeap *ohp = NULL;
+	ErlHeapFragment *bp = NULL;
+	ErtsProcLocks rp_locks;
+	Eterm ref, msg, ein, eout, *hp;
+	Uint64 in, out;
+	Uint hsz;
+	ErtsSchedulerData *esdp = erts_get_scheduler_data();
+	Uint sched_id = esdp->no;
+	in = esdp->io.in;
+	out = esdp->io.out;
+	if (req->sched_id != sched_id)
+	    rp_locks = 0;
+	else {
+	    in += (Uint64) erts_atomic64_read_nob(&bytes_in);
+	    out += (Uint64) erts_atomic64_read_nob(&bytes_out);
+	    rp_locks = ERTS_PROC_LOCK_MAIN;
+	}
+
+	hsz = 5 /* 4-tuple */ + REF_THING_SIZE;
+
+	erts_bld_uint64(NULL, &hsz, in);
+	erts_bld_uint64(NULL, &hsz, out);
+
+	hp = erts_alloc_message_heap(hsz, &bp, &ohp, rp, &rp_locks);
+
+	ref = make_internal_ref(hp);
+	write_ref_thing(hp, req->refn[0], req->refn[1], req->refn[2]);
+	hp += REF_THING_SIZE;
+
+	ein = erts_bld_uint64(&hp, NULL, in);
+	eout = erts_bld_uint64(&hp, NULL, out);
+
+	msg = TUPLE4(hp, ref, make_small(sched_id), ein, eout);
+	erts_queue_message(rp, &rp_locks, bp, msg, NIL);
+
+	if (req->sched_id == sched_id)
+	    rp_locks &= ~ERTS_PROC_LOCK_MAIN;
+	if (rp_locks)
+	    erts_smp_proc_unlock(rp, rp_locks);
+    }
+
+    if (erts_smp_atomic32_dec_read_nob(&req->refc) == 0)
+	erts_free(ERTS_ALC_T_IOB_REQ, req);
+}
+
+Eterm
+erts_request_io_bytes(Process *c_p)
+{
+    Uint *hp;
+    Eterm ref;
+    Uint32 *refn;
+    ErtsSchedulerData *esdp = ERTS_PROC_GET_SCHDATA(c_p);
+    ErtsIOBytesReq *req = erts_alloc(ERTS_ALC_T_IOB_REQ,
+				     sizeof(ErtsIOBytesReq));
+
+    hp = HAlloc(c_p, REF_THING_SIZE);
+    ref = erts_sched_make_ref_in_buffer(esdp, hp);
+    refn = internal_ref_numbers(ref);
+
+    req->sched_id = esdp->no;
+    req->pid = c_p->common.id;
+    req->refn[0] = refn[0];
+    req->refn[1] = refn[1];
+    req->refn[2] = refn[2];
+    erts_smp_atomic32_init_nob(&req->refc,
+			       (erts_aint32_t) erts_no_schedulers);
+
+#ifdef ERTS_SMP
+    if (erts_no_schedulers > 1)
+	erts_schedule_multi_misc_aux_work(1,
+					  erts_no_schedulers,
+					  reply_io_bytes,
+					  (void *) req);
+#endif
+
+    reply_io_bytes((void *) req);
+
+    return ref;
+}
+
+
+typedef struct {
     int to;
     void *arg;
 } prt_one_lnk_data;
@@ -5111,6 +5215,7 @@ driver_deliver_term(Eterm to, ErlDrvTermData* data, int len)
     struct b2t_states__ b2t;
     int scheduler;
     int is_heap_need_limited = 1;
+    ErtsSchedulerData *esdp = erts_get_scheduler_data();
 
     ERTS_UNDEF(mess,NIL);
     ERTS_UNDEF(scheduler,1);
@@ -5418,7 +5523,10 @@ driver_deliver_term(Eterm to, ErlDrvTermData* data, int len)
 	    Uint size = ptr[1];
 	    Uint offset = ptr[2];
 
-	    erts_smp_atomic_add_nob(&erts_bytes_in, (erts_aint_t) size);
+	    if (esdp)
+		esdp->io.in += (Uint64) size;
+	    else
+		erts_atomic64_add_nob(&bytes_in, (erts_aint64_t) size);
 
 	    if (size <= ERL_ONHEAP_BIN_LIMIT) {
 		ErlHeapBin* hbp = (ErlHeapBin *) erts_produce_heap(&factory,
@@ -5452,7 +5560,10 @@ driver_deliver_term(Eterm to, ErlDrvTermData* data, int len)
 	    byte *bufp = (byte *) ptr[0];
 	    Uint size = (Uint) ptr[1];
 
-	    erts_smp_atomic_add_nob(&erts_bytes_in, (erts_aint_t) size);
+	    if (esdp)
+		esdp->io.in += (Uint64) size;
+	    else
+		erts_atomic64_add_nob(&bytes_in, (erts_aint64_t) size);
 
 	    if (size <= ERL_ONHEAP_BIN_LIMIT) {
 		ErlHeapBin* hbp = (ErlHeapBin *) erts_produce_heap(&factory,
@@ -5489,7 +5600,10 @@ driver_deliver_term(Eterm to, ErlDrvTermData* data, int len)
 	}
 
 	case ERL_DRV_STRING: /* char*, length */
-	    erts_smp_atomic_add_nob(&erts_bytes_in, (erts_aint_t) ptr[1]);
+	    if (esdp)
+		esdp->io.in += (Uint64) ptr[1];
+	    else
+		erts_atomic64_add_nob(&bytes_in, (erts_aint64_t) ptr[1]);
 	    erts_reserve_heap(&factory, 2*ptr[1]);
 	    mess = buf_to_intlist(&factory.hp, (char*)ptr[0], ptr[1], NIL);
 	    ptr += 2;
@@ -5765,6 +5879,7 @@ int driver_output_binary(ErlDrvPort ix, char* hbuf, ErlDrvSizeT hlen,
 {
     erts_aint32_t state;
     Port* prt = erts_drvport2port_state(ix, &state);
+    ErtsSchedulerData *esdp = erts_get_scheduler_data();
 
     ERTS_SMP_CHK_NO_PROC_LOCKS;
 
@@ -5775,7 +5890,10 @@ int driver_output_binary(ErlDrvPort ix, char* hbuf, ErlDrvSizeT hlen,
 	return 0;
 
     prt->bytes_in += (hlen + len);
-    erts_smp_atomic_add_nob(&erts_bytes_in, (erts_aint_t) (hlen + len));
+    if (esdp)
+	esdp->io.in += (Uint64) (hlen + len);
+    else
+	erts_atomic64_add_nob(&bytes_in, (erts_aint64_t) (hlen + len));
     if (state & ERTS_PORT_SFLG_DISTRIBUTION) {
 	return erts_net_message(prt,
 				prt->dist_entry,
@@ -5800,6 +5918,7 @@ int driver_output2(ErlDrvPort ix, char* hbuf, ErlDrvSizeT hlen,
 {
     erts_aint32_t state;
     Port* prt = erts_drvport2port_state(ix, &state);
+    ErtsSchedulerData *esdp = erts_get_scheduler_data();
 
     ERTS_SMP_CHK_NO_PROC_LOCKS;
 
@@ -5811,7 +5930,10 @@ int driver_output2(ErlDrvPort ix, char* hbuf, ErlDrvSizeT hlen,
 	return 0;
     
     prt->bytes_in += (hlen + len);
-    erts_smp_atomic_add_nob(&erts_bytes_in, (erts_aint_t) (hlen + len));
+    if (esdp)
+	esdp->io.in += (Uint64) (hlen + len);
+    else
+	erts_atomic64_add_nob(&bytes_in, (erts_aint64_t) (hlen + len));
     if (state & ERTS_PORT_SFLG_DISTRIBUTION) {
 	if (len == 0)
 	    return erts_net_message(prt,
@@ -5851,6 +5973,7 @@ int driver_outputv(ErlDrvPort ix, char* hbuf, ErlDrvSizeT hlen,
     ErlDrvBinary** binv;
     Port* prt;
     erts_aint32_t state;
+    ErtsSchedulerData *esdp = erts_get_scheduler_data();
 
     ERTS_SMP_CHK_NO_PROC_LOCKS;
 
@@ -5889,7 +6012,10 @@ int driver_outputv(ErlDrvPort ix, char* hbuf, ErlDrvSizeT hlen,
 
     /* XXX handle distribution !!! */
     prt->bytes_in += (hlen + size);
-    erts_smp_atomic_add_nob(&erts_bytes_in, (erts_aint_t) (hlen + size));
+    if (esdp)
+	esdp->io.in += (Uint64) (hlen + size);
+    else
+	erts_atomic64_add_nob(&bytes_in, (erts_aint64_t) (hlen + size));
     deliver_vec_message(prt, ERTS_PORT_GET_CONNECTED(prt), hbuf, hlen,
 			binv, iov, n, size);
     return 0;
