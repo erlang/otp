@@ -231,7 +231,7 @@ parse_group(Stream, GroupList) ->
 	    eof ->
 		eof;
 	    String ->
-		httpd_conf:clean(String)
+		httpd_conf:white_space_clean(String)
 	end,
     parse_group(Stream, GroupList, Line).
 
@@ -265,7 +265,7 @@ parse_passwd(Stream, PasswdList) ->
 	    eof ->
 		eof;
 	    String ->
-		httpd_conf:clean(String)
+		httpd_conf:white_space_clean(String)
 	end,
     parse_passwd(Stream, PasswdList, Line).
 

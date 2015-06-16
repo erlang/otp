@@ -101,38 +101,38 @@ do(Info) ->
     end.
 
 load("<Directory " ++ Directory, []) ->
-    Dir = httpd_conf:custom_clean(Directory,"",">"),
+    Dir = string:strip(string:strip(Directory),right, $>),
     {ok, [{security_directory, {Dir, [{path, Dir}]}}]};
 load(eof,[{security_directory, {Directory, _DirData}}|_]) ->
     {error, ?NICE("Premature end-of-file in "++Directory)};
 load("SecurityDataFile " ++ FileName, 
      [{security_directory, {Dir, DirData}}]) ->
-    File = httpd_conf:clean(FileName),
+    File = string:strip(FileName),
     {ok, [{security_directory, {Dir, [{data_file, File}|DirData]}}]};
 load("SecurityCallbackModule " ++ ModuleName,
      [{security_directory, {Dir, DirData}}]) ->
-    Mod = list_to_atom(httpd_conf:clean(ModuleName)),
+    Mod = list_to_atom(string:strip(ModuleName)),
     {ok, [{security_directory, {Dir, [{callback_module, Mod}|DirData]}}]};
 load("SecurityMaxRetries " ++ Retries,
      [{security_directory, {Dir, DirData}}]) ->
     load_return_int_tag("SecurityMaxRetries", max_retries, 
-			httpd_conf:clean(Retries), Dir, DirData);
+			string:strip(Retries), Dir, DirData);
 load("SecurityBlockTime " ++ Time,
       [{security_directory, {Dir, DirData}}]) ->
     load_return_int_tag("SecurityBlockTime", block_time,
-			httpd_conf:clean(Time), Dir, DirData);
+			string:strip(Time), Dir, DirData);
 load("SecurityFailExpireTime " ++ Time,
      [{security_directory, {Dir, DirData}}]) ->
     load_return_int_tag("SecurityFailExpireTime", fail_expire_time,
-			httpd_conf:clean(Time), Dir, DirData);
+			string:strip(Time), Dir, DirData);
 load("SecurityAuthTimeout " ++ Time0,
      [{security_directory, {Dir, DirData}}]) ->
-    Time = httpd_conf:clean(Time0),
+    Time = string:strip(Time0),
     load_return_int_tag("SecurityAuthTimeout", auth_timeout,
-			httpd_conf:clean(Time), Dir, DirData);
+			string:strip(Time), Dir, DirData);
 load("AuthName " ++ Name0,
      [{security_directory, {Dir, DirData}}]) ->
-    Name = httpd_conf:clean(Name0),
+    Name = string:strip(Name0),
     {ok, [{security_directory, {Dir, [{auth_name, Name}|DirData]}}]};
 load("</Directory>",[{security_directory, {Dir, DirData}}]) ->
     {ok, [], {security_directory, {Dir, DirData}}}.

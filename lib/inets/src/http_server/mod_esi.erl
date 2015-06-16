@@ -98,40 +98,40 @@ load("ErlScriptAlias " ++ ErlScriptAlias, []) ->
     case inets_regexp:split(ErlScriptAlias," ") of
 	{ok, [ErlName | StrModules]} ->
 	    Modules = lists:map(fun(Str) -> 
-					list_to_atom(httpd_conf:clean(Str)) 
+					list_to_atom(string:strip(Str)) 
 				end, StrModules),
 	    {ok, [], {erl_script_alias, {ErlName, Modules}}};
 	{ok, _} ->
-	    {error, ?NICE(httpd_conf:clean(ErlScriptAlias) ++
+	    {error, ?NICE(string:strip(ErlScriptAlias) ++
 			 " is an invalid ErlScriptAlias")}
     end;
 load("EvalScriptAlias " ++ EvalScriptAlias, []) ->
     case inets_regexp:split(EvalScriptAlias, " ") of
 	{ok, [EvalName | StrModules]} ->
 	    Modules = lists:map(fun(Str) -> 
-					list_to_atom(httpd_conf:clean(Str)) 
+					list_to_atom(string:strip(Str)) 
 				end, StrModules),
 	    {ok, [], {eval_script_alias, {EvalName, Modules}}};
 	{ok, _} ->
-	    {error, ?NICE(httpd_conf:clean(EvalScriptAlias) ++
+	    {error, ?NICE(string:strip(EvalScriptAlias) ++
 			  " is an invalid EvalScriptAlias")}
     end;
 load("ErlScriptTimeout " ++ Timeout, [])->
-    case catch list_to_integer(httpd_conf:clean(Timeout)) of
+    case catch list_to_integer(string:strip(Timeout)) of
 	TimeoutSec when is_integer(TimeoutSec)  ->
 	   {ok, [], {erl_script_timeout, TimeoutSec * 1000}};
 	_ ->
-	   {error, ?NICE(httpd_conf:clean(Timeout) ++
+	   {error, ?NICE(string:strip(Timeout) ++
 			 " is an invalid ErlScriptTimeout")}
     end;
 load("ErlScriptNoCache " ++ CacheArg, [])->
-    case catch list_to_atom(httpd_conf:clean(CacheArg)) of
+    case catch list_to_atom(string:strip(CacheArg)) of
         true ->
 	    {ok, [], {erl_script_nocache, true}};
 	false ->
 	   {ok, [], {erl_script_nocache, false}};
 	_ ->
-	   {error, ?NICE(httpd_conf:clean(CacheArg)++
+	   {error, ?NICE(string:strip(CacheArg)++
 			 " is an invalid ErlScriptNoCache directive")}
     end.
 
