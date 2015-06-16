@@ -1145,7 +1145,6 @@ void process_main(void)
      */
     register Eterm tmp_arg1 REG_tmp_arg1 = NIL;
     register Eterm tmp_arg2 REG_tmp_arg2 = NIL;
-    Eterm tmp_big[2];
 
     /*
      * X registers and floating point registers are located in
@@ -1157,8 +1156,6 @@ void process_main(void)
      * For keeping the negative old value of 'reds' when call saving is active.
      */
     int neg_o_reds = 0;
-
-    Eterm (*arith_func)(Process* p, Eterm* reg, Uint live);
 
 #ifdef ERTS_OPCODE_COUNTER_SUPPORT
     static void* counting_opcodes[] = { DEFINE_COUNTING_OPCODES };
@@ -1307,9 +1304,6 @@ void process_main(void)
 #endif
 #include "beam_hot.h"
 
-#define STORE_ARITH_RESULT(res) StoreBifResult(2, (res));
-#define ARITH_FUNC(name) erts_gc_##name
-
 	{
 	    Eterm increment_reg_val;
 	    Eterm increment_val;
@@ -1349,81 +1343,71 @@ void process_main(void)
 	    goto find_func_info;
 	}
 
-#define DO_BIG_ARITH(Func,Arg1,Arg2)     \
-    do {                                 \
-        Uint live = Arg(1);              \
-        SWAPOUT;                         \
-        reg[live] = (Arg1);              \
-        reg[live+1] = (Arg2);            \
-        result = (Func)(c_p, reg, live); \
-        SWAPIN;                          \
-        ERTS_HOLE_CHECK(c_p);            \
-        if (is_value(result)) {          \
-            StoreBifResult(4,result);    \
-        }                                \
-        goto lb_Cl_error;                \
-    } while(0)
+#define DO_OUTLINED_ARITH_2(name, Op1, Op2)	\
+ do {						\
+     Eterm result;				\
+     Uint live = Arg(1);			\
+						\
+     SWAPOUT;					\
+     reg[live] = Op1;				\
+     reg[live+1] = Op2;				\
+     result = erts_gc_##name(c_p, reg, live);	\
+     SWAPIN;					\
+     ERTS_HOLE_CHECK(c_p);			\
+     if (is_value(result)) {			\
+	 StoreBifResult(4, result);		\
+     }						\
+     goto lb_Cl_error;				\
+ } while (0)
+
+ {
+     Eterm PlusOp1, PlusOp2;
+     Eterm result;
 
  OpCase(i_plus_jIxxd):
- {
-     Eterm result;
+     PlusOp1 = xb(Arg(2));
+     PlusOp2 = xb(Arg(3));
+     goto do_plus;
 
-     if (is_both_small(xb(Arg(2)), xb(Arg(3)))) {
-	 Sint i = signed_val(xb(Arg(2))) + signed_val(xb(Arg(3)));
+ OpCase(i_plus_jIssd):
+     GetArg2(2, PlusOp1, PlusOp2);
+     goto do_plus;
+
+ do_plus:
+     if (is_both_small(PlusOp1, PlusOp2)) {
+	 Sint i = signed_val(PlusOp1) + signed_val(PlusOp2);
 	 ASSERT(MY_IS_SSMALL(i) == IS_SSMALL(i));
 	 if (MY_IS_SSMALL(i)) {
 	     result = make_small(i);
              StoreBifResult(4, result);
 	 }
      }
-     DO_BIG_ARITH(ARITH_FUNC(mixed_plus), xb(Arg(2)), xb(Arg(3)));
+     DO_OUTLINED_ARITH_2(mixed_plus, PlusOp1, PlusOp2);
  }
 
- OpCase(i_plus_jId):
  {
+     Eterm MinusOp1, MinusOp2;
      Eterm result;
-
-     if (is_both_small(tmp_arg1, tmp_arg2)) {
-	 Sint i = signed_val(tmp_arg1) + signed_val(tmp_arg2);
-	 ASSERT(MY_IS_SSMALL(i) == IS_SSMALL(i));
-	 if (MY_IS_SSMALL(i)) {
-	     result = make_small(i);
-	     STORE_ARITH_RESULT(result);
-	 }
-     }
-     arith_func = ARITH_FUNC(mixed_plus);
-     goto do_big_arith2;
- }
 
  OpCase(i_minus_jIxxd):
- {
-     Eterm result;
+     MinusOp1 = xb(Arg(2));
+     MinusOp2 = xb(Arg(3));
+     goto do_minus;
 
-     if (is_both_small(xb(Arg(2)), xb(Arg(3)))) {
-	 Sint i = signed_val(xb(Arg(2))) - signed_val(xb(Arg(3)));
+ OpCase(i_minus_jIssd):
+     GetArg2(2, MinusOp1, MinusOp2);
+     goto do_minus;
+
+ do_minus:
+     if (is_both_small(MinusOp1, MinusOp2)) {
+	 Sint i = signed_val(MinusOp1) - signed_val(MinusOp2);
 	 ASSERT(MY_IS_SSMALL(i) == IS_SSMALL(i));
 	 if (MY_IS_SSMALL(i)) {
 	     result = make_small(i);
              StoreBifResult(4, result);
 	 }
      }
-     DO_BIG_ARITH(ARITH_FUNC(mixed_minus), xb(Arg(2)), xb(Arg(3)));
- }
-
- OpCase(i_minus_jId):
- {
-     Eterm result;
-
-     if (is_both_small(tmp_arg1, tmp_arg2)) {
-	 Sint i = signed_val(tmp_arg1) - signed_val(tmp_arg2);
-	 ASSERT(MY_IS_SSMALL(i) == IS_SSMALL(i));
-	 if (MY_IS_SSMALL(i)) {
-	     result = make_small(i);
-	     STORE_ARITH_RESULT(result);
-	 }
-     }
-     arith_func = ARITH_FUNC(mixed_minus);
-     goto do_big_arith2;
+     DO_OUTLINED_ARITH_2(mixed_minus, MinusOp1, MinusOp2);
  }
 
  OpCase(i_is_lt_f):
@@ -2767,109 +2751,81 @@ do {						\
   * Arithmetic operations.
   */
 
- OpCase(i_times_jId):
+ OpCase(i_times_jIssd):
  {
-     arith_func = ARITH_FUNC(mixed_times);
-     goto do_big_arith2;
+     Eterm Op1, Op2;
+     GetArg2(2, Op1, Op2);
+     DO_OUTLINED_ARITH_2(mixed_times, Op1, Op2);
  }
 
- OpCase(i_m_div_jId):
+ OpCase(i_m_div_jIssd):
  {
-     arith_func = ARITH_FUNC(mixed_div);
-     goto do_big_arith2;
+     Eterm Op1, Op2;
+     GetArg2(2, Op1, Op2);
+     DO_OUTLINED_ARITH_2(mixed_div, Op1, Op2);
  }
 
- OpCase(i_int_div_jId):
+ OpCase(i_int_div_jIssd):
  {
-     Eterm result;
+     Eterm Op1, Op2;
 
-     if (tmp_arg2 == SMALL_ZERO) {
+     GetArg2(2, Op1, Op2);
+     if (Op2 == SMALL_ZERO) {
 	 goto badarith;
-     } else if (is_both_small(tmp_arg1, tmp_arg2)) {
-	 Sint ires = signed_val(tmp_arg1) / signed_val(tmp_arg2);
+     } else if (is_both_small(Op1, Op2)) {
+	 Sint ires = signed_val(Op1) / signed_val(Op2);
 	 if (MY_IS_SSMALL(ires)) {
-	     result = make_small(ires);
-	     STORE_ARITH_RESULT(result);
+	     Eterm result = make_small(ires);
+	     StoreBifResult(4, result);
 	 }
      }
-     arith_func = ARITH_FUNC(int_div);
-     goto do_big_arith2;
+     DO_OUTLINED_ARITH_2(int_div, Op1, Op2);
  }
+
+ {
+     Eterm RemOp1, RemOp2;
 
  OpCase(i_rem_jIxxd):
- {
-     Eterm result;
+     RemOp1 = xb(Arg(2));
+     RemOp2 = xb(Arg(3));
+     goto do_rem;
 
-     if (xb(Arg(3)) == SMALL_ZERO) {
-	 goto badarith;
-     } else if (is_both_small(xb(Arg(2)), xb(Arg(3)))) {
-	 result = make_small(signed_val(xb(Arg(2))) % signed_val(xb(Arg(3))));
+ OpCase(i_rem_jIssd):
+     GetArg2(2, RemOp1, RemOp2);
+     goto do_rem;
+
+ do_rem:
+     if (RemOp2 == SMALL_ZERO) {
+         goto badarith;
+     } else if (is_both_small(RemOp1, RemOp2)) {
+         Eterm result = make_small(signed_val(RemOp1) % signed_val(RemOp2));
          StoreBifResult(4, result);
-     }
-     DO_BIG_ARITH(ARITH_FUNC(int_rem),xb(Arg(2)),xb(Arg(3)));
- }
-
- OpCase(i_rem_jId):
- {
-     Eterm result;
-
-     if (tmp_arg2 == SMALL_ZERO) {
-	 goto badarith;
-     } else if (is_both_small(tmp_arg1, tmp_arg2)) {
-	 result = make_small(signed_val(tmp_arg1) % signed_val(tmp_arg2));
-	 STORE_ARITH_RESULT(result);
      } else {
-	 arith_func = ARITH_FUNC(int_rem);
-	 goto do_big_arith2;
+	 DO_OUTLINED_ARITH_2(int_rem, RemOp1, RemOp2);
      }
  }
+
+ {
+     Eterm BandOp1, BandOp2;
 
  OpCase(i_band_jIxcd):
- {
-     Eterm result;
+     BandOp1 = xb(Arg(2));
+     BandOp2 = Arg(3);
+     goto do_band;
 
-     if (is_both_small(xb(Arg(2)), Arg(3))) {
+ OpCase(i_band_jIssd):
+     GetArg2(2, BandOp1, BandOp2);
+     goto do_band;
+
+ do_band:
+     if (is_both_small(BandOp1, BandOp2)) {
          /*
           * No need to untag -- TAG & TAG == TAG.
           */
-         result = xb(Arg(2)) & Arg(3);
+         Eterm result = BandOp1 & BandOp2;
          StoreBifResult(4, result);
      }
-     DO_BIG_ARITH(ARITH_FUNC(band),xb(Arg(2)),Arg(3));
- }
-
- OpCase(i_band_jId):
- {
-     Eterm result;
-
-     if (is_both_small(tmp_arg1, tmp_arg2)) {
-	 /*
-	  * No need to untag -- TAG & TAG == TAG.
-	  */
-	 result = tmp_arg1 & tmp_arg2;
-	 STORE_ARITH_RESULT(result);
-     }
-     arith_func = ARITH_FUNC(band);
-     goto do_big_arith2;
- }
-
-#undef DO_BIG_ARITH
-
- do_big_arith2:
- {
-     Eterm result;
-     Uint live = Arg(1);
-
-     SWAPOUT;
-     reg[live] = tmp_arg1;
-     reg[live+1] = tmp_arg2;
-     result = arith_func(c_p, reg, live);
-     SWAPIN;
-     ERTS_HOLE_CHECK(c_p);
-     if (is_value(result)) {
-	 STORE_ARITH_RESULT(result);
-     }
-     goto lb_Cl_error;
+     DO_OUTLINED_ARITH_2(band, BandOp1, BandOp2);
  }
 
  /*
@@ -2890,97 +2846,102 @@ do {						\
      goto find_func_info;
  }
 
- OpCase(i_bor_jId):
+ OpCase(i_bor_jIssd):
  {
-     Eterm result;
+     Eterm Op1, Op2;
 
-     if (is_both_small(tmp_arg1, tmp_arg2)) {
+     GetArg2(2, Op1, Op2);
+     if (is_both_small(Op1, Op2)) {
 	 /*
 	  * No need to untag -- TAG | TAG == TAG.
 	  */
-	 result = tmp_arg1 | tmp_arg2;
-	 STORE_ARITH_RESULT(result);
+	 Eterm result = Op1 | Op2;
+	 StoreBifResult(4, result);
      }
-     arith_func = ARITH_FUNC(bor);
-     goto do_big_arith2;
+     DO_OUTLINED_ARITH_2(bor, Op1, Op2);
  }
 
- OpCase(i_bxor_jId):
+ OpCase(i_bxor_jIssd):
  {
-     Eterm result;
+     Eterm Op1, Op2;
 
-     if (is_both_small(tmp_arg1, tmp_arg2)) {
+     GetArg2(2, Op1, Op2);
+     if (is_both_small(Op1, Op2)) {
 	 /*
 	  * We could extract the tag from one argument, but a tag extraction
 	  * could mean a shift.  Therefore, play it safe here.
 	  */
-	 result = make_small(signed_val(tmp_arg1) ^ signed_val(tmp_arg2));
-	 STORE_ARITH_RESULT(result);
+	 Eterm result = make_small(signed_val(Op1) ^ signed_val(Op2));
+	 StoreBifResult(4, result);
      }
-     arith_func = ARITH_FUNC(bxor);
-     goto do_big_arith2;
+     DO_OUTLINED_ARITH_2(bxor, Op1, Op2);
  }
 
  {
+     Eterm Op1, Op2;
      Sint i;
      Sint ires;
      Eterm* bigp;
+     Eterm tmp_big[2];
 
-     OpCase(i_bsr_jId):
-	 if (is_small(tmp_arg2)) {
-	     i = -signed_val(tmp_arg2);
-	     if (is_small(tmp_arg1)) {
+     OpCase(i_bsr_jIssd):
+         GetArg2(2, Op1, Op2);
+	 if (is_small(Op2)) {
+	     i = -signed_val(Op2);
+	     if (is_small(Op1)) {
 		 goto small_shift;
-	     } else if (is_big(tmp_arg1)) {
+	     } else if (is_big(Op1)) {
 		 if (i == 0) {
-		     StoreBifResult(2, tmp_arg1);
+		     StoreBifResult(4, Op1);
 		 }
 		 goto big_shift;
 	     }
-	 } else if (is_big(tmp_arg2)) {
+	 } else if (is_big(Op2)) {
 	     /*
 	      * N bsr NegativeBigNum == N bsl MAX_SMALL
 	      * N bsr PositiveBigNum == N bsl MIN_SMALL
 	      */
-	     tmp_arg2 = make_small(bignum_header_is_neg(*big_val(tmp_arg2)) ?
+	     Op2 = make_small(bignum_header_is_neg(*big_val(Op2)) ?
 				   MAX_SMALL : MIN_SMALL);
 	     goto do_bsl;
 	}
      goto badarith;
      
-     OpCase(i_bsl_jId):
- do_bsl:
-	 if (is_small(tmp_arg2)) {
-	     i = signed_val(tmp_arg2);
+     OpCase(i_bsl_jIssd):
+         GetArg2(2, Op1, Op2);
 
-	     if (is_small(tmp_arg1)) {
+ do_bsl:
+	 if (is_small(Op2)) {
+	     i = signed_val(Op2);
+
+	     if (is_small(Op1)) {
 	     small_shift:
-		 ires = signed_val(tmp_arg1);
+		 ires = signed_val(Op1);
 	     
 		 if (i == 0 || ires == 0) {
-		     StoreBifResult(2, tmp_arg1);
+		     StoreBifResult(4, Op1);
 		 } else if (i < 0)  { /* Right shift */
 		     i = -i;
 		     if (i >= SMALL_BITS-1) {
-			 tmp_arg1 = (ires < 0) ? SMALL_MINUS_ONE : SMALL_ZERO;
+			 Op1 = (ires < 0) ? SMALL_MINUS_ONE : SMALL_ZERO;
 		     } else {
-			 tmp_arg1 = make_small(ires >> i);
+			 Op1 = make_small(ires >> i);
 		     }
-		     StoreBifResult(2, tmp_arg1);
+		     StoreBifResult(4, Op1);
 		 } else if (i < SMALL_BITS-1) { /* Left shift */
 		     if ((ires > 0 && ((~(Uint)0 << ((SMALL_BITS-1)-i)) & ires) == 0) ||
 			 ((~(Uint)0 << ((SMALL_BITS-1)-i)) & ~ires) == 0) {
-			 tmp_arg1 = make_small(ires << i);
-			 StoreBifResult(2, tmp_arg1);
+			 Op1 = make_small(ires << i);
+			 StoreBifResult(4, Op1);
 		     }
 		 }
-		 tmp_arg1 = small_to_big(ires, tmp_big);
+		 Op1 = small_to_big(ires, tmp_big);
 
 	     big_shift:
 		 if (i > 0) {	/* Left shift. */
-		     ires = big_size(tmp_arg1) + (i / D_EXP);
+		     ires = big_size(Op1) + (i / D_EXP);
 		 } else {	/* Right shift. */
-		     ires = big_size(tmp_arg1);
+		     ires = big_size(Op1);
 		     if (ires <= (-i / D_EXP))
 			 ires = 3; /* ??? */
 		     else
@@ -2998,14 +2959,14 @@ do {						\
 			 c_p->freason = SYSTEM_LIMIT;
 			 goto lb_Cl_error;
 		     }
-		     TestHeapPreserve(ires+1, Arg(1), tmp_arg1);
+		     TestHeapPreserve(ires+1, Arg(1), Op1);
 		     bigp = HTOP;
-		     tmp_arg1 = big_lshift(tmp_arg1, i, bigp);
-		     if (is_big(tmp_arg1)) {
+		     Op1 = big_lshift(Op1, i, bigp);
+		     if (is_big(Op1)) {
 			 HTOP += bignum_header_arity(*HTOP) + 1;
 		     }
 		     HEAP_SPACE_VERIFIED(0);
-		     if (is_nil(tmp_arg1)) {
+		     if (is_nil(Op1)) {
 			 /*
 			  * This result must have been only slight larger
 			  * than allowed since it wasn't caught by the
@@ -3015,25 +2976,25 @@ do {						\
 			 goto lb_Cl_error;
 		     }
 		     ERTS_HOLE_CHECK(c_p);
-		     StoreBifResult(2, tmp_arg1);
+		     StoreBifResult(4, Op1);
 		 }
-	     } else if (is_big(tmp_arg1)) {
+	     } else if (is_big(Op1)) {
 		 if (i == 0) {
-		     StoreBifResult(2, tmp_arg1);
+		     StoreBifResult(4, Op1);
 		 }
 		 goto big_shift;
 	     }
-	 } else if (is_big(tmp_arg2)) {
-	     if (bignum_header_is_neg(*big_val(tmp_arg2))) {
+	 } else if (is_big(Op2)) {
+	     if (bignum_header_is_neg(*big_val(Op2))) {
 		 /*
 		  * N bsl NegativeBigNum is either 0 or -1, depending on
 		  * the sign of N. Since we don't believe this case
 		  * is common, do the calculation with the minimum
 		  * amount of code.
 		  */
-		 tmp_arg2 = make_small(MIN_SMALL);
+		 Op2 = make_small(MIN_SMALL);
 		 goto do_bsl;
-	     } else if (is_small(tmp_arg1) || is_big(tmp_arg1)) {
+	     } else if (is_small(Op1) || is_big(Op1)) {
 		 /*
 		  * N bsl PositiveBigNum is too large to represent.
 		  */
