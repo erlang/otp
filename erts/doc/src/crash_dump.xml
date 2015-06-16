@@ -304,9 +304,6 @@
       <tag><em>Last scheduled in for | Current call</em></tag>
       <item>The current function of the process. These fields will not
        always exist.</item>
-      <tag><em>Run queue</em></tag>
-      <item>The identifier of the scheduler run queue in which the process is
-       running.</item>
       <tag><em>Spawned by</em></tag>
       <item>The parent of the process, i.e. the process which executed
       <c><![CDATA[spawn]]></c> or <c><![CDATA[spawn_link]]></c>.</item>
