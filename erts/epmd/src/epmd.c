@@ -498,11 +498,7 @@ static void dbg_gen_printf(int onsyslog,int perr,int from_level,
 #ifdef HAVE_SYSLOG_H
       if (onsyslog)
 	{
-	  int len;
-	  len = erts_vsnprintf(buf, DEBUG_BUFFER_SIZE, format, args);
-	  if (perr != 0 && len < sizeof(buf)) {
-	      erts_snprintf(buf+len, sizeof(buf)-len, ": %s", strerror(perr));
-	  }
+	  erts_vsnprintf(buf, DEBUG_BUFFER_SIZE, format, args);
 	  syslog(LOG_ERR,"epmd: %s",buf);
 	}
 #endif
