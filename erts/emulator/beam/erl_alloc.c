@@ -1884,8 +1884,8 @@ erts_alc_fatal_error(int error, int func, ErtsAlcType_t n, ...)
 	size = va_arg(argp, Uint);
 	va_end(argp);
 	erl_exit(1,
-		 "%s: Cannot %s %lu bytes of memory (of type \"%s\", thread %d).\n",
-		 allctr_str, op, size, t_str, ERTS_ALC_GET_THR_IX());
+		 "%s: Cannot %s %lu bytes of memory (of type \"%s\").\n",
+		 allctr_str, op, size, t_str);
 	break;
     }
     case ERTS_ALC_E_NOALLCTR:
