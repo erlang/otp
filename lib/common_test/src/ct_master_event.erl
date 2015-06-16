@@ -168,7 +168,7 @@ handle_info(_Info,State) ->
     {ok,State}.
 
 %%--------------------------------------------------------------------
-%% Function: terminate(Reason, State) -> void()
+%% Function: terminate(Reason, State) -> ok
 %% Description:Whenever an event handler is deleted from an event manager,
 %% this function is called. It should be the opposite of Module:init/1 and 
 %% do any necessary cleaning up. 

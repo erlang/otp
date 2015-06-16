@@ -81,7 +81,7 @@ init_per_suite(Config) ->
     [{con_ref, Ref },{table_name, TableName}| Config]. 
 
 %%--------------------------------------------------------------------
-%% Function: end_per_suite(Config) -> void()
+%% Function: end_per_suite(Config) -> term()
 %%
 %% Config = [tuple()]
 %%   A list of key/value pairs, holding the test case configuration.
@@ -110,7 +110,7 @@ init_per_testcase(Case, Config) ->
     Config.
 
 %%--------------------------------------------------------------------
-%% Function: end_per_testcase(TestCase, Config) -> void()
+%% Function: end_per_testcase(TestCase, Config) -> term()
 %%
 %% TestCase = atom()
 %%   Name of the test case that is finished.
@@ -226,7 +226,7 @@ init_per_suite(Config) ->
     Config.
 
 %%--------------------------------------------------------------------
-%% Function: end_per_suite(Config0) -> void() | {save_config,Config1}
+%% Function: end_per_suite(Config0) -> term() | {save_config,Config1}
 %%
 %% Config0 = Config1 = [tuple()]
 %%   A list of key/value pairs, holding the test case configuration.
@@ -254,7 +254,7 @@ init_per_group(_GroupName, Config) ->
 
 %%--------------------------------------------------------------------
 %% Function: end_per_group(GroupName, Config0) ->
-%%               void() | {save_config,Config1}
+%%               term() | {save_config,Config1}
 %%
 %% GroupName = atom()
 %%   Name of the test case group that is finished.
@@ -287,7 +287,7 @@ init_per_testcase(_TestCase, Config) ->
 
 %%--------------------------------------------------------------------
 %% Function: end_per_testcase(TestCase, Config0) ->
-%%               void() | {save_config,Config1} | {fail,Reason}
+%%               term() | {save_config,Config1} | {fail,Reason}
 %%
 %% TestCase = atom()
 %%   Name of the test case that is finished.
@@ -414,7 +414,7 @@ init_per_suite(Config) ->
     Config.
 
 %%--------------------------------------------------------------------
-%% Function: end_per_suite(Config0) -> void() | {save_config,Config1}
+%% Function: end_per_suite(Config0) -> term() | {save_config,Config1}
 %% Config0 = Config1 = [tuple()]
 %%--------------------------------------------------------------------
 end_per_suite(_Config) ->
@@ -432,7 +432,7 @@ init_per_group(_GroupName, Config) ->
 
 %%--------------------------------------------------------------------
 %% Function: end_per_group(GroupName, Config0) ->
-%%               void() | {save_config,Config1}
+%%               term() | {save_config,Config1}
 %% GroupName = atom()
 %% Config0 = Config1 = [tuple()]
 %%--------------------------------------------------------------------
@@ -451,7 +451,7 @@ init_per_testcase(_TestCase, Config) ->
 
 %%--------------------------------------------------------------------
 %% Function: end_per_testcase(TestCase, Config0) ->
-%%               void() | {save_config,Config1} | {fail,Reason}
+%%               term() | {save_config,Config1} | {fail,Reason}
 %% TestCase = atom()
 %% Config0 = Config1 = [tuple()]
 %% Reason = term()
