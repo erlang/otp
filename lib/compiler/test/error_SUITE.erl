@@ -16,7 +16,6 @@
 %% limitations under the License.
 %%
 %% %CopyrightEnd%
-%%
 -module(error_SUITE).
 
 -include_lib("test_server/include/test_server.hrl").

@@ -15,7 +15,6 @@
 %% AB. All Rights Reserved.''
 %%
 %%     $Id: httpd_request_handler.erl,v 1.1 2008/12/17 09:53:34 mikpe Exp $
-%%
 -module(httpd_request_handler).
 
 %% app internal api

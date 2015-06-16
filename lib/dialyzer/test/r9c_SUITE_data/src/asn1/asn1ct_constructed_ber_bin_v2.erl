@@ -15,7 +15,6 @@
 %% AB. All Rights Reserved.''
 %%
 %%     $Id: asn1ct_constructed_ber_bin_v2.erl,v 1.1 2008/12/17 09:53:29 mikpe Exp $
-%%
 -module(asn1ct_constructed_ber_bin_v2).
 
 -export([gen_encode_sequence/3]).

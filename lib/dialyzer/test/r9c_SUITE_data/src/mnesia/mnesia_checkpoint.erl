@@ -15,7 +15,6 @@
 %% AB. All Rights Reserved.''
 %%
 %%     $Id: mnesia_checkpoint.erl,v 1.1 2008/12/17 09:53:38 mikpe Exp $
-%%
 -module(mnesia_checkpoint).
 
 %% TM callback interface

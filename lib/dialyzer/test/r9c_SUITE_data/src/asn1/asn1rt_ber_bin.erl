@@ -15,7 +15,6 @@
 %% AB. All Rights Reserved.''
 %%
 %%     $Id: asn1rt_ber_bin.erl,v 1.1 2008/12/17 09:53:30 mikpe Exp $
-%%
 -module(asn1rt_ber_bin).
 
 %% encoding / decoding of BER

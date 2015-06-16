@@ -15,7 +15,6 @@
 %% AB. All Rights Reserved.''
 %%
 %%     $Id: v3_codegen.erl,v 1.1 2008/12/17 09:53:42 mikpe Exp $
-%%
 %% Purpose : Code generator for Beam.
 
 %% The following assumptions have been made:

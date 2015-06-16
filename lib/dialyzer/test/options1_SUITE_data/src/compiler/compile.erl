@@ -15,7 +15,6 @@
 %% AB. All Rights Reserved.''
 %%
 %%     $Id: compile.erl,v 1.1 2008/12/17 09:53:42 mikpe Exp $
-%%
 %% Purpose: Run the Erlang compiler.
 
 -module(compile).

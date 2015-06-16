@@ -15,7 +15,6 @@
 %% AB. All Rights Reserved.''
 %%
 %%     $Id: v3_core.erl,v 1.1 2008/12/17 09:53:42 mikpe Exp $
-%%
 %% Purpose : Transform normal Erlang to Core Erlang
 
 %% At this stage all preprocessing has been done. All that is left are

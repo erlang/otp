@@ -16,7 +16,6 @@
 %% limitations under the License.
 %% 
 %% %CopyrightEnd%
-%%
 %%% Purpose : Compiles various modules with tough code
 
 -module(compilation_SUITE).

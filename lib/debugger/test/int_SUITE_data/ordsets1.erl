@@ -17,7 +17,6 @@
 %%
 %% %CopyrightEnd%
 %%
-
 %%
 %% Copyright (C) 1991, Ellemtel Telecommunications Systems Laboratories
 %% File    : ordsets.erl

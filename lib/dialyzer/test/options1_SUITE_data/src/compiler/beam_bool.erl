@@ -15,7 +15,6 @@
 %% AB. All Rights Reserved.''
 %%
 %%     $Id: beam_bool.erl,v 1.1 2008/12/17 09:53:41 mikpe Exp $
-%%
 %% Purpose: Optimizes booleans in guards.
 
 -module(beam_bool).

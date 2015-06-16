@@ -15,7 +15,6 @@
 %% AB. All Rights Reserved.''
 %%
 %%     $Id: asn1rt_check.erl,v 1.1 2008/12/17 09:53:30 mikpe Exp $
-%%
 -module(asn1rt_check).
 
 -include("asn1_records.hrl").

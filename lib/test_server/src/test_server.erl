@@ -16,7 +16,6 @@
 %% limitations under the License.
 %%
 %% %CopyrightEnd%
-%%
 -module(test_server).
 
 -define(DEFAULT_TIMETRAP_SECS, 60).

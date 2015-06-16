@@ -15,7 +15,6 @@
 %% AB. All Rights Reserved.''
 %%
 %%     $Id: asn1ct.erl,v 1.1 2008/12/17 09:53:29 mikpe Exp $
-%%
 -module(asn1ct).
 
 %% Compile Time functions for ASN.1 (e.g ASN.1 compiler).

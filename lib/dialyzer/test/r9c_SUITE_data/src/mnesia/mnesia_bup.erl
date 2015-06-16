@@ -15,7 +15,6 @@
 %% AB. All Rights Reserved.''
 %%
 %%     $Id: mnesia_bup.erl,v 1.1 2008/12/17 09:53:37 mikpe Exp $
-%%
 -module(mnesia_bup).
 -export([
 	 %% Public interface

@@ -15,7 +15,6 @@
 %% AB. All Rights Reserved.''
 %%
 %%     $Id: mnesia_controller.erl,v 1.3 2010/03/04 13:54:19 maria Exp $
-%%
 %% The mnesia_init process loads tables from local disc or from
 %% another nodes. It also coordinates updates of the info about
 %% where we can read and write tables.

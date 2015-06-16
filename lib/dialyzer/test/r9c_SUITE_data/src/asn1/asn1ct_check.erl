@@ -15,7 +15,6 @@
 %% AB. All Rights Reserved.''
 %%
 %%     $Id: asn1ct_check.erl,v 1.1 2008/12/17 09:53:29 mikpe Exp $
-%%
 -module(asn1ct_check).
 
 %% Main Module for ASN.1 compile time functions

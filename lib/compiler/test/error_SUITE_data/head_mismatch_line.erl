@@ -16,7 +16,6 @@
 %% limitations under the License.
 %% 
 %% %CopyrightEnd%
-%%
 -module(head_mismatch_line).
 
 -export([foo/1, bar/2]).

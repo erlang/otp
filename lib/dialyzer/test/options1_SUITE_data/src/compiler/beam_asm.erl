@@ -15,7 +15,6 @@
 %% AB. All Rights Reserved.''
 %%
 %%     $Id: beam_asm.erl,v 1.1 2008/12/17 09:53:40 mikpe Exp $
-%%
 %% Purpose : Assembler for threaded Beam.
 
 -module(beam_asm).

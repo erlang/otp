@@ -15,7 +15,6 @@
 %% AB. All Rights Reserved.''
 %%
 %%     $Id: httpd_acceptor.erl,v 1.1 2008/12/17 09:53:33 mikpe Exp $
-%%
 -module(httpd_acceptor).
 
 -include("httpd.hrl").

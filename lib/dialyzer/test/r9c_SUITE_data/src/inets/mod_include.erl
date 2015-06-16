@@ -15,7 +15,6 @@
 %% AB. All Rights Reserved.''
 %%
 %%     $Id: mod_include.erl,v 1.1 2008/12/17 09:53:35 mikpe Exp $
-%%
 -module(mod_include).
 -export([do/1,parse/2,config/6,include/6,echo/6,fsize/6,flastmod/6,exec/6]).
 

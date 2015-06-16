@@ -18,7 +18,6 @@
 %% %CopyrightEnd%
 %%
 
-
 %%% The Erlang scanner. All types are opaque, which puts some stress
 %%% on Dialyzer.
 

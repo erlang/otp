@@ -15,7 +15,6 @@
 %% AB. All Rights Reserved.''
 %%
 %%     $Id: ftp.erl,v 1.2 2009/03/03 01:55:01 kostis Exp $
-%%
 -module(ftp).
 
 -behaviour(gen_server).

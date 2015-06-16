@@ -39,7 +39,6 @@
 %%       to decide when such an operation should occur.
 %%
 
-
 -module(mod_security_server).
 
 -include("httpd.hrl").

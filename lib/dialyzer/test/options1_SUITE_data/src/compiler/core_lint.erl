@@ -15,7 +15,6 @@
 %% AB. All Rights Reserved.''
 %%
 %%     $Id: core_lint.erl,v 1.1 2008/12/17 09:53:42 mikpe Exp $
-%%
 %% Purpose : Do necessary checking of Core Erlang code.
 
 %% Check Core module for errors.  Seeing this module is used in the

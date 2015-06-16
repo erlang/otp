@@ -17,7 +17,6 @@
 %%
 %% %CopyrightEnd%
 %%
-
 %%
 -module(int_break_SUITE).
 

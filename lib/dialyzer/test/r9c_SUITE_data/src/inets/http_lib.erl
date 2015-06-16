@@ -14,7 +14,6 @@
 %% Portions created by Mobile Arts are Copyright 2002, Mobile Arts AB
 %% All Rights Reserved.''
 %%
-%%
 %%% File    : http_lib.erl
 %%% Author  : Johan Blom <johan.blom@mobilearts.se>
 %%% Description : Generic, HTTP specific helper functions

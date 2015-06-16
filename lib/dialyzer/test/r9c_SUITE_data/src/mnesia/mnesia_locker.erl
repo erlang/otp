@@ -15,7 +15,6 @@
 %% AB. All Rights Reserved.''
 %%
 %%     $Id: mnesia_locker.erl,v 1.2 2009/07/01 15:45:40 kostis Exp $
-%%
 -module(mnesia_locker).
 
 -export([

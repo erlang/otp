@@ -17,7 +17,6 @@
 %%
 %% %CopyrightEnd%
 %%
-
 %%
 %% Purpose : Functions for manipulating sets as ordered lists.
 

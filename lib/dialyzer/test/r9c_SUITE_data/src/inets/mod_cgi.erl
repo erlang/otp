@@ -15,7 +15,6 @@
 %% AB. All Rights Reserved.''
 %%
 %%     $Id: mod_cgi.erl,v 1.1 2008/12/17 09:53:35 mikpe Exp $
-%%
 -module(mod_cgi).
 -export([do/1,env/3,status_code/1,load/2]).
 

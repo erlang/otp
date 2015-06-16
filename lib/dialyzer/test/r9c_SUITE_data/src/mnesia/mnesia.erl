@@ -15,7 +15,6 @@
 %% AB. All Rights Reserved.''
 %%
 %%     $Id: mnesia.erl,v 1.2 2010/03/04 13:54:19 maria Exp $
-%%
 %% This module exports the public interface of the Mnesia DBMS engine
 
 -module(mnesia).

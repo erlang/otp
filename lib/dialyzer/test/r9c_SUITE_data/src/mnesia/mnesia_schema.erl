@@ -15,7 +15,6 @@
 %% AB. All Rights Reserved.''
 %%
 %%     $Id: mnesia_schema.erl,v 1.2 2010/03/04 13:54:20 maria Exp $
-%%
 %% In this module we provide a number of explicit functions
 %% to maninpulate the schema. All these functions are called
 %% within a special schema transaction.

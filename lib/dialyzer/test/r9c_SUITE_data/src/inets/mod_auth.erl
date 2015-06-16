@@ -15,7 +15,6 @@
 %% AB. All Rights Reserved.''
 %%
 %%     $Id: mod_auth.erl,v 1.1 2008/12/17 09:53:34 mikpe Exp $
-%%
 -module(mod_auth).
 
 

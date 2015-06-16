@@ -14,7 +14,6 @@
 %% Portions created by Mobile Arts are Copyright 2002, Mobile Arts AB
 %% All Rights Reserved.''
 %%
-%%
 
 %%% TODO:
 %%% - If an error is returned when sending a request, don't use this

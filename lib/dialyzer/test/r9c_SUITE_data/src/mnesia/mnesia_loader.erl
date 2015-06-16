@@ -15,7 +15,6 @@
 %% AB. All Rights Reserved.''
 %%
 %%     $Id: mnesia_loader.erl,v 1.2 2010/03/04 13:54:19 maria Exp $
-%%
 %%% Purpose : Loads tables from local disc or from remote node
 
 -module(mnesia_loader).

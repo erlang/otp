@@ -16,7 +16,6 @@
 %% limitations under the License.
 %%
 %% %CopyrightEnd%
-%%
 
 %%
 %% Purpose : Functions for manipulating sets as ordered lists.

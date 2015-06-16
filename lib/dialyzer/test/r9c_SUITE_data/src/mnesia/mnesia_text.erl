@@ -15,7 +15,6 @@
 %% AB. All Rights Reserved.''
 %%
 %%     $Id: mnesia_text.erl,v 1.2 2010/03/04 13:54:20 maria Exp $
-%%
 -module(mnesia_text).
 
 -export([parse/1, file/1, load_textfile/1, dump_to_textfile/1]).

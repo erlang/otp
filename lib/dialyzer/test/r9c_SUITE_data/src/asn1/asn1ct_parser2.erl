@@ -15,7 +15,6 @@
 %% AB. All Rights Reserved.''
 %%
 %%     $Id: asn1ct_parser2.erl,v 1.1 2008/12/17 09:53:30 mikpe Exp $
-%%
 -module(asn1ct_parser2).
 
 -export([parse/1]).

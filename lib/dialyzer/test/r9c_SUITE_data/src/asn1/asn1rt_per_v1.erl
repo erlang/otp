@@ -15,7 +15,6 @@
 %% AB. All Rights Reserved.''
 %%
 %%     $Id: asn1rt_per_v1.erl,v 1.1 2008/12/17 09:53:31 mikpe Exp $
-%%
 -module(asn1rt_per_v1).
 
 %% encoding / decoding of PER aligned

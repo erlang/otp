@@ -15,7 +15,6 @@
 %%% AB. All Rights Reserved.''
 %%%
 %%%     $Id: mnesia_frag.erl,v 1.1 2008/12/17 09:53:38 mikpe Exp $
-%%%
 %%%----------------------------------------------------------------------
 %%% Purpose : Support tables so large that they need
 %%%           to be divided into several fragments.

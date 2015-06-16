@@ -13,7 +13,6 @@
 %% The Initial Developer of the Original Code is Ericsson Utvecklings AB.
 %% Portions created by Ericsson are Copyright 1999, Ericsson Utvecklings
 %% AB. All Rights Reserved.''
-%%
 %%     $Id: beam_validator.erl,v 1.1 2008/12/17 09:53:41 mikpe Exp $
 
 -module(beam_validator).

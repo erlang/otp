@@ -16,7 +16,6 @@
 %% limitations under the License.
 %% 
 %% %CopyrightEnd%
-%%
 -module(dbg_debugged).
 
 %% External exports

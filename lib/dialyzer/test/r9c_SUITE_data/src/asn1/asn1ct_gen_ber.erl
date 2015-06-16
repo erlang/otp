@@ -15,7 +15,6 @@
 %% AB. All Rights Reserved.''
 %%
 %%     $Id: asn1ct_gen_ber.erl,v 1.1 2008/12/17 09:53:29 mikpe Exp $
-%%
 -module(asn1ct_gen_ber).
 
 %% Generate erlang module which handles (PER) encode and decode for

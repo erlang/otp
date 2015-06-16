@@ -20,7 +20,6 @@
 %%   Implements various scheme dependent subsets (e.g. HTTP, FTP etc) based on
 %%   RFC 2396, Uniform Resource Identifiers (URI): Generic Syntax
 %% Created : 27 Jul 2001 by Johan Blom <johblo@localhost.localdomain>
-%%
 
 -module(uri).
 

@@ -14,7 +14,6 @@
 %% Portions created by Mobile Arts are Copyright 2002, Mobile Arts AB
 %% All Rights Reserved.''
 %%
-%%
 %% Created : 18 Dec 2001 by Johan Blom <johan.blom@mobilearts.se>
 %%
 

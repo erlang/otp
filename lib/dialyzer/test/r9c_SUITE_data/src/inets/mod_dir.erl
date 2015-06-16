@@ -15,7 +15,6 @@
 %% AB. All Rights Reserved.''
 %%
 %%     $Id: mod_dir.erl,v 1.1 2008/12/17 09:53:35 mikpe Exp $
-%%
 -module(mod_dir).
 -export([do/1]).
 

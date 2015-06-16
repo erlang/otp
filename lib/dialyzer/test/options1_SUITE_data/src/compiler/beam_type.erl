@@ -15,7 +15,6 @@
 %% AB. All Rights Reserved.''
 %%
 %%     $Id: beam_type.erl,v 1.1 2008/12/17 09:53:41 mikpe Exp $
-%%
 %% Purpose : Type-based optimisations.
 
 -module(beam_type).

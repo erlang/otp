@@ -15,7 +15,6 @@
 %% AB. All Rights Reserved.''
 %%
 %%     $Id: mnesia_lib.erl,v 1.3 2009/07/01 15:45:40 kostis Exp $
-%%
 %% This module contains all sorts of various which doesn't fit
 %% anywhere else. Basically everything is exported.
 

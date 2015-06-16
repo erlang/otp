@@ -18,7 +18,6 @@
 %%     $Id: cerl_inline.erl,v 1.1 2008/12/17 09:53:41 mikpe Exp $
 %%
 %% Core Erlang inliner.
-
 %% =====================================================================
 %%
 %% This is an implementation of the algorithm by Waddell and Dybvig

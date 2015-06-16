@@ -14,7 +14,6 @@
 %% Portions created by Mobile Arts are Copyright 2002, Mobile Arts AB
 %% All Rights Reserved.''
 %%
-%%
 
 %%% This version of the HTTP/1.1 client implements:
 %%%      - RFC 2616 HTTP 1.1 client part

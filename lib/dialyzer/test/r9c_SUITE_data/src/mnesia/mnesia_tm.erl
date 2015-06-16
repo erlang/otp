@@ -15,7 +15,6 @@
 %% AB. All Rights Reserved.''
 %%
 %%     $Id: mnesia_tm.erl,v 1.2 2010/03/04 13:54:20 maria Exp $
-%%
 -module(mnesia_tm).
 
 -export([

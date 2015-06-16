@@ -15,7 +15,6 @@
 %% AB. All Rights Reserved.''
 %%
 %%     $Id: mnesia_monitor.erl,v 1.1 2008/12/17 09:53:38 mikpe Exp $
-%%
 -module(mnesia_monitor).
 
 -behaviour(gen_server).
