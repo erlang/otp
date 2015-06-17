@@ -338,11 +338,7 @@ d(Name, Avp, Acc) ->
             A = trim(Avp),
             {[[A | trim(ComponentAvps)] | Avps], {Rec, [{RC, A} | Errors]}};
         error: Reason ->
-            d(undefined == Failed orelse is_failed(),
-              Reason,
-              Name,
-              trim(Avp),
-              Acc)
+            d(is_failed(), Reason, Name, trim(Avp), Acc)
     after
         reset(?STRICT_KEY, Strict),
         reset(?FAILED_KEY, Failed)
@@ -428,9 +424,21 @@ relax('Failed-AVP') ->
 
 relax(_) ->
     is_failed().
-    
+
+%% is_failed/0
+%%
+%% Is the AVP currently being decoded nested within Failed-AVP? Note
+%% that this is only true when Failed-AVP is the parent. In
+%% particular, it's not true when Failed-AVP itself is being decoded
+%% (unless nested).
+
 is_failed() ->
     true == getr(?FAILED_KEY).
+
+%% is_failed/1
+
+is_failed(Name) ->
+    'Failed-AVP' == Name orelse is_failed().
 
 %% reset/2
 
@@ -528,17 +536,16 @@ pack_AVP(Name, #diameter_avp{is_mandatory = M, name = AvpName} = Avp, Acc) ->
 %% allow for Failed-AVP in an answer-message.
 
 pack_arity(Name, AvpName, M) ->
-    IsFailed = Name == 'Failed-AVP' orelse is_failed(),
 
     %% Not testing just Name /= 'Failed-AVP' means we're changing the
     %% packing of AVPs nested within Failed-AVP, but the point of
     %% ignoring errors within Failed-AVP is to decode as much as
     %% possible, and failing because a mandatory AVP couldn't be
-    %% packed into a dedicated field defeats that point. Note that we
-    %% can't just test not is_failed() since this will be 'true' when
-    %% packing an unknown AVP directly within Failed-AVP.
+    %% packed into a dedicated field defeats that point. Note
+    %% is_failed/1 since is_failed/0 will return false when packing
+    %% 'AVP' within Failed-AVP.
 
-    pack_arity(IsFailed
+    pack_arity(is_failed(Name)
                  orelse {Name, AvpName} == {'answer-message', 'Failed-AVP'}
                  orelse not M
                  orelse not is_strict(),
