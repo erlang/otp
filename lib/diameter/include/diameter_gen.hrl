@@ -420,7 +420,7 @@ is_strict() ->
 %% Strictly, this doesn't need to be the case.
 
 relax('Failed-AVP') ->
-    is_failed() orelse putr(?FAILED_KEY, true);
+    putr(?FAILED_KEY, true);
 
 relax(_) ->
     is_failed().
