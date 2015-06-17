@@ -37,7 +37,6 @@
 -define(uint24(X), << ?UINT24(X) >> ).
 -define(uint32(X), << ?UINT32(X) >> ).
 -define(uint64(X), << ?UINT64(X) >> ).
--define(TIMEOUT, 120000).
 
 -define(MANY, 1000).
 -define(SOME, 50).
@@ -169,10 +168,9 @@ init_per_group(GroupName, Config) ->
 end_per_group(_GroupName, Config) ->
     Config.
 
-init_per_testcase(_TestCase, Config0) ->
-    Config = lists:keydelete(watchdog, 1, Config0),
-    Dog = ct:timetrap(?TIMEOUT),
-    [{watchdog, Dog} | Config].
+init_per_testcase(_TestCase, Config) ->
+    ct:timetrap({seconds, 15}),
+    Config.
 
 
 end_per_testcase(_TestCase, Config) ->

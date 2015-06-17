@@ -64,15 +64,16 @@ init_per_group(_GroupName, Config) ->
 end_per_group(_GroupName, Config) ->
     Config.
 
-init_per_testcase(pem_cleanup, Config) ->
-    ssl:stop(),
+init_per_testcase(pem_cleanup = Case, Config) ->
+    end_per_testcase(Case, Config) ,
     application:load(ssl),
     application:set_env(ssl, ssl_pem_cache_clean, ?CLEANUP_INTERVAL),
     ssl:start(),
+    ct:timetrap({minutes, 1}),
     Config.
 
 end_per_testcase(_TestCase, Config) ->
-    %%ssl:stop(),
+    ssl:stop(),
     Config.
 
 %%--------------------------------------------------------------------

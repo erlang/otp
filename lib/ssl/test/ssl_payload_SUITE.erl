@@ -98,10 +98,18 @@ init_per_group(GroupName, Config) ->
 end_per_group(_GroupName, Config) ->
     Config.
 
-init_per_testcase(_TestCase, Config0) ->
-    Config = lists:keydelete(watchdog, 1, Config0),
-    Dog = ct:timetrap(?TIMEOUT),
-    [{watchdog, Dog} | Config].
+init_per_testcase(TestCase, Config) when TestCase == server_echos_passive_huge;
+					 TestCase == server_echos_active_once_huge;
+					 TestCase == server_echos_active_huge;
+					 TestCase == client_echos_passive_huge;
+					 TestCase == client_echos_active_once_huge;
+					 TestCase == client_echos_active_huge ->
+    ct:timetrap({seconds, 30}),
+    Config;
+
+init_per_testcase(_TestCase, Config) ->
+    ct:timetrap({seconds, 15}),
+    Config.
 
 end_per_testcase(_TestCase, Config) ->
     Config.

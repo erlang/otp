@@ -104,6 +104,14 @@ init_per_group(GroupName, Config) ->
 end_per_group(_GroupName, Config) ->
     Config.
 
+init_per_testcase(_TestCase, Config) ->
+    ct:log("TLS/SSL version ~p~n ", [tls_record:supported_protocol_versions()]),
+    ct:timetrap({seconds, 10}),
+    Config.
+
+end_per_testcase(_TestCase, Config) ->     
+    Config.
+
 %%--------------------------------------------------------------------
 %% Test Cases --------------------------------------------------------
 %%--------------------------------------------------------------------

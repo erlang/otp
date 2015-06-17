@@ -61,8 +61,11 @@ end_per_suite(Config) ->
     crypto:stop().
 
 init_per_testcase(_TestCase, Config) ->
+    ct:log("TLS/SSL version ~p~n ", [tls_record:supported_protocol_versions()]),
+    ct:timetrap({minutes, 1}),
     Config.
-end_per_testcase(_TestCase, Config) ->
+
+end_per_testcase(_TestCase, Config) ->     
     Config.
 
 major_upgrade(Config) when is_list(Config) ->

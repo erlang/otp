@@ -54,6 +54,15 @@ end_per_suite(_) ->
     ssl:stop(),
     application:stop(crypto).
 
+init_per_testcase(_TestCase, Config) ->
+    ct:log("TLS/SSL version ~p~n ", [tls_record:supported_protocol_versions()]),
+    ct:log("Ciphers: ~p~n ", [ ssl:cipher_suites()]),
+    ct:timetrap({seconds, 5}),
+    Config.
+
+end_per_testcase(_TestCase, Config) ->     
+    Config.
+
 %%--------------------------------------------------------------------
 %% Test Cases --------------------------------------------------------
 %%--------------------------------------------------------------------

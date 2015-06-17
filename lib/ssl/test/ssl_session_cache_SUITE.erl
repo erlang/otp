@@ -50,7 +50,6 @@ groups() ->
     [].
 
 init_per_suite(Config0) ->
-    Dog = ct:timetrap(?LONG_TIMEOUT *2),
     catch crypto:stop(),
     try crypto:start() of
 	ok ->
@@ -61,9 +60,8 @@ init_per_suite(Config0) ->
 				      ?config(priv_dir, Config0))),
 	    ct:log("Make certs  ~p~n", [Result]),
 
-	    Config1 = ssl_test_lib:make_dsa_cert(Config0),
-	    Config = ssl_test_lib:cert_options(Config1),
-	    [{watchdog, Dog} | Config]
+	    Config = ssl_test_lib:make_dsa_cert(Config0),
+	    ssl_test_lib:cert_options(Config)
     catch _:_ ->
 	    {skip, "Crypto did not start"}
     end.
@@ -85,24 +83,20 @@ init_per_testcase(session_cache_process_mnesia, Config) ->
     mnesia:start(),
     init_customized_session_cache(mnesia, Config);
 
-init_per_testcase(session_cleanup, Config0) ->
-    Config = lists:keydelete(watchdog, 1, Config0),
-    Dog = ct:timetrap(?TIMEOUT),
+init_per_testcase(session_cleanup, Config) ->
     ssl:stop(),
     application:load(ssl),
     application:set_env(ssl, session_lifetime, 5),
     application:set_env(ssl, session_delay_cleanup_time, ?DELAY),
     ssl:start(),
-    [{watchdog, Dog} | Config];
+    ct:timetrap({seconds, 20}),
+    Config;
 
-init_per_testcase(_TestCase, Config0) ->
-    Config = lists:keydelete(watchdog, 1, Config0),
-    Dog = ct:timetrap(?TIMEOUT),
-   [{watchdog, Dog} | Config].
+init_per_testcase(_TestCase, Config) ->
+    ct:timetrap({seconds, 5}),
+    Config.
 
-init_customized_session_cache(Type, Config0) ->
-    Config = lists:keydelete(watchdog, 1, Config0),
-    Dog = ct:timetrap(?TIMEOUT),
+init_customized_session_cache(Type, Config) ->
     ssl:stop(),
     application:load(ssl),
     application:set_env(ssl, session_cb, ?MODULE),
@@ -112,7 +106,8 @@ init_customized_session_cache(Type, Config0) ->
 	   Config)),
     ets:new(ssl_test, [named_table, public, set]),
     ets:insert(ssl_test, {type, Type}),
-    [{watchdog, Dog} | Config].
+    ct:timetrap({seconds, 5}),
+    Config.
 
 end_per_testcase(session_cache_process_list, Config) ->
     application:unset_env(ssl, session_cb),

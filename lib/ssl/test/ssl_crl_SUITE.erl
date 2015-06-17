@@ -26,8 +26,6 @@
 -include_lib("common_test/include/ct.hrl").
 -include_lib("public_key/include/public_key.hrl").
 
--define(LONG_TIMEOUT, 600000).
-
 %%--------------------------------------------------------------------
 %% Common Test interface functions -----------------------------------
 %%--------------------------------------------------------------------
@@ -57,8 +55,7 @@ basic_tests() ->
     [crl_verify_valid, crl_verify_revoked].
 
 
-init_per_suite(Config0) ->
-    Dog = ct:timetrap(?LONG_TIMEOUT *2),
+init_per_suite(Config) ->
     case os:find_executable("openssl") of
 	false ->
 	    {skip, "Openssl not found"};
@@ -77,7 +74,7 @@ init_per_suite(Config0) ->
 				    true -> inet6;
 				    false -> inet
 				end,
-			    [{ipfamily,IPfamily}, {watchdog, Dog}, {openssl_version,OpenSSL_version} | Config0]
+			    [{ipfamily,IPfamily}, {openssl_version,OpenSSL_version} | Config]
 		    catch _:_ ->
 			    {skip, "Crypto did not start"}
 		    end
@@ -130,6 +127,7 @@ init_per_testcase(Case, Config0) ->
 	    CertDir = filename:join(?config(priv_dir, Config0), idp_crl),
 	    {CertOpts, Config} = init_certs(CertDir, idp_crl, Config),
 	    Result =  make_certs:all(DataDir, CertDir, CertOpts),
+	    ct:timetrap({seconds, 6}),
 	    [{make_cert_result, Result}, {cert_dir, CertDir} | Config];
 	false ->
 	    end_per_testcase(Case, Config0),
