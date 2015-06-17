@@ -58,6 +58,7 @@
         {reuseaddr,       boolean()} |
         {send_timeout,    non_neg_integer() | infinity} |
         {send_timeout_close, boolean()} |
+        {show_econnreset, boolean()} |
         {sndbuf,          non_neg_integer()} |
         {tos,             non_neg_integer()} |
 	{ipv6_v6only,     boolean()}.
@@ -89,6 +90,7 @@
         reuseaddr |
         send_timeout |
         send_timeout_close |
+        show_econnreset |
         sndbuf |
         tos |
 	ipv6_v6only.
