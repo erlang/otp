@@ -1534,12 +1534,10 @@ erts_schedule_proc2port_signal(Process *c_p,
 }
 
 static ERTS_INLINE void
-send_badsig(Port *prt)
-{
+send_badsig(Port *prt) {
     ErtsProcLocks rp_locks = ERTS_PROC_LOCKS_XSIG_SEND;
     Process* rp;
     Eterm connected = ERTS_PORT_GET_CONNECTED(prt);
-
     ERTS_SMP_CHK_NO_PROC_LOCKS;
     ERTS_LC_ASSERT(erts_get_scheduler_id());
 
@@ -1559,15 +1557,13 @@ send_badsig(Port *prt)
 					 0);
 	if (rp_locks)
 	    erts_smp_proc_unlock(rp, rp_locks);
-    }
-}
+    } /* exit sent */
+} /* send_badsig */
 
 static void
-badsig_received(int bang_op,
-		Port *prt,
+badsig_received(int bang_op, Port *prt,
 		erts_aint32_t state,
-		int bad_output_value)
-{
+		int bad_output_value) {
     /*
      * if (bang_op)
      *   we are part of a "Prt ! Something" operation
@@ -1583,12 +1579,12 @@ badsig_received(int bang_op,
 	}
 	if (bang_op)
 	    send_badsig(prt);
-    }
-}
+    } /* not invalid */
+} /* behaved accordingly */
 
 static int
-port_badsig(Port *prt, erts_aint32_t state, int op, ErtsProc2PortSigData *sigdp)
-{
+port_badsig(Port *prt, erts_aint32_t state, int op,
+            ErtsProc2PortSigData *sigdp) {
     if (op == ERTS_PROC2PORT_SIG_EXEC)
 	badsig_received(sigdp->flags & ERTS_P2P_SIG_DATA_FLG_BANG_OP,
 			prt,
@@ -1597,16 +1593,14 @@ port_badsig(Port *prt, erts_aint32_t state, int op, ErtsProc2PortSigData *sigdp)
     if (sigdp->flags & ERTS_P2P_SIG_DATA_FLG_REPLY)
 	port_sched_op_reply(sigdp->caller, sigdp->ref, am_badarg);
     return ERTS_PORT_REDS_BADSIG;
-}
-
-
-/*
- * bad_port_signal() will
+} /* port_badsig */
+/* bad_port_signal() will
  * - preserve signal order of signals.
  * - send a 'badsig' exit signal to connected process if 'from' is an
  *   internal pid and the port is alive when the bad signal reaches
  *   it.
  */
+
 static ErtsPortOpResult
 bad_port_signal(Process *c_p,
 		int flags,
@@ -2804,7 +2798,6 @@ void erts_init_io(int port_tab_size,
 }
 
 #if defined(ERTS_ENABLE_LOCK_COUNT) && defined(ERTS_SMP)
-
 static ERTS_INLINE void lcnt_enable_drv_lock_count(erts_driver_t *dp, int enable)
 {
     if (dp->lock) {
@@ -2844,25 +2837,26 @@ static ERTS_INLINE void lcnt_enable_port_lock_count(Port *prt, int enable)
     }
 }
 
-void erts_lcnt_enable_io_lock_count(int enable)
-{
+void erts_lcnt_enable_io_lock_count(int enable) {
     erts_driver_t *dp;
-    int i, max = erts_ptab_max(&erts_port);
+    int ix, max = erts_ptab_max(&erts_port);
+    Port *prt;
 
-    for (i = 0; i < max; i++) {
-	Port *prt = erts_pix2port(i);
-	if (prt)
+    for (ix = 0; ix < max; ix++) {
+	if ((prt = erts_pix2port(ix)) != NULL) {
 	    lcnt_enable_port_lock_count(prt, enable);
-    }
+        }
+    } /* for all ports */
 
     lcnt_enable_drv_lock_count(&vanilla_driver, enable);
     lcnt_enable_drv_lock_count(&spawn_driver, enable);
     lcnt_enable_drv_lock_count(&fd_driver, enable);
-    for (dp = driver_list; dp; dp = dp->next)
+    /* enable lock counting in all drivers */
+    for (dp = driver_list; dp; dp = dp->next) {
 	lcnt_enable_drv_lock_count(dp, enable);
-}
-#endif
-
+    }
+} /* enable/disable lock counting of ports */
+#endif /* defined(ERTS_ENABLE_LOCK_COUNT) && defined(ERTS_SMP) */
 /*
  * Buffering of data when using line oriented I/O on ports
  */
