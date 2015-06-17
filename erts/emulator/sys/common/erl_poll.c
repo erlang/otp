@@ -153,9 +153,6 @@ int ERTS_SELECT(int nfds, ERTS_fd_set *readfds, ERTS_fd_set *writefds,
 
 #define ERTS_POLL_COALESCE_KP_RES (ERTS_POLL_USE_KQUEUE || ERTS_POLL_USE_EPOLL)
 
-#define ERTS_EV_TABLE_MIN_LENGTH		1024
-#define ERTS_EV_TABLE_EXP_THRESHOLD		(2048*1024)
-
 #ifdef ERTS_POLL_NEED_ASYNC_INTERRUPT_SUPPORT
 #  define ERTS_POLL_ASYNC_INTERRUPT_SUPPORT 1
 #else
@@ -703,27 +700,33 @@ free_update_requests_block(ErtsPollSet ps,
  * --- Growing poll set structures -------------------------------------------
  */
 
-int
-ERTS_POLL_EXPORT(erts_poll_get_table_len) (int new_len)
+#ifndef ERTS_KERNEL_POLL_VERSION   /* only one shared implementation */
+
+#define ERTS_FD_TABLE_MIN_LENGTH	1024
+#define ERTS_FD_TABLE_EXP_THRESHOLD	(2048*1024)
+
+int erts_poll_new_table_len (int old_len, int need_len)
 {
-    if (new_len < ERTS_EV_TABLE_MIN_LENGTH) {
-	new_len = ERTS_EV_TABLE_MIN_LENGTH;
-    } else if (new_len < ERTS_EV_TABLE_EXP_THRESHOLD) {
-	/* find next power of 2 */
-	--new_len;
-	new_len |= new_len >> 1;
-	new_len |= new_len >> 2;
-	new_len |= new_len >> 4;
-	new_len |= new_len >> 8;
-	new_len |= new_len >> 16;
-	++new_len;
-    } else {
-	/* grow incrementally */
-	new_len += ERTS_EV_TABLE_EXP_THRESHOLD;
+    int new_len;
+
+    ASSERT(need_len > old_len);
+    if (need_len < ERTS_FD_TABLE_MIN_LENGTH) {
+	new_len = ERTS_FD_TABLE_MIN_LENGTH;
     }
+    else {
+        new_len = old_len;
+        do {            
+            if (new_len < ERTS_FD_TABLE_EXP_THRESHOLD)
+                new_len *= 2;
+            else
+                new_len += ERTS_FD_TABLE_EXP_THRESHOLD;
+
+        } while (new_len < need_len);
+    }
+    ASSERT(new_len >= need_len);
     return new_len;
 }
-
+#endif
 
 #if ERTS_POLL_USE_KERNEL_POLL
 static void
@@ -737,7 +740,7 @@ grow_res_events(ErtsPollSet ps, int new_len)
 #elif ERTS_POLL_USE_KQUEUE
 	struct kevent
 #endif
-	) * ERTS_POLL_EXPORT(erts_poll_get_table_len)(new_len);
+	) * erts_poll_new_table_len(ps->res_events_len, new_len);
     /* We do not need to save previously stored data */
     if (ps->res_events)
 	erts_free(ERTS_ALC_T_POLL_RES_EVS, ps->res_events);
@@ -751,7 +754,7 @@ static void
 grow_poll_fds(ErtsPollSet ps, int min_ix)
 {
     int i;
-    int new_len = ERTS_POLL_EXPORT(erts_poll_get_table_len)(min_ix + 1);
+    int new_len = erts_poll_new_table_len(ps->poll_fds_len, min_ix + 1);
     if (new_len > max_fds)
 	new_len = max_fds;
     ps->poll_fds = (ps->poll_fds_len
@@ -800,7 +803,7 @@ static void
 grow_fds_status(ErtsPollSet ps, int min_fd)
 {
     int i;
-    int new_len = ERTS_POLL_EXPORT(erts_poll_get_table_len)(min_fd + 1);
+    int new_len = erts_poll_new_table_len(ps->fds_status_len, min_fd + 1);
     ASSERT(min_fd < max_fds);
     if (new_len > max_fds)
 	new_len = max_fds;
