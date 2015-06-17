@@ -121,8 +121,7 @@
 %% queue or spawned and placed in the first queue. Thus, there are
 %% only elements in one queue at a time, so share an ets table queue
 %% and tag it with a positive length if it contains the first queue, a
-%% negative length if it contains the second queue. The case -1 is
-%% handled differently for backwards compatibility reasons.
+%% negative length if it contains the second queue.
 
 %% ---------------------------------------------------------------------------
 %% # start/3
@@ -369,17 +368,13 @@ type(T) ->
 %% # handle_call/3
 %% ---------------------------------------------------------------------------
 
-handle_call(T, From, #listener{pending = L} = S)
-  when is_list(L) ->
-    handle_call(T, From, upgrade(S));
-
 handle_call({{accept, Ref}, Pid}, _, #listener{ref = Ref,
                                                pending = {N,Q},
                                                count = K}
                                      = S) ->
     TPid = accept(Ref, Pid, S),
-    {reply, {ok, TPid}, downgrade(S#listener{pending = {N-1,Q},
-                                             count = K+1})};
+    {reply, {ok, TPid}, S#listener{pending = {N-1,Q},
+                                   count = K+1}};
 
 handle_call(_, _, State) ->
     {reply, nok, State}.
@@ -398,18 +393,9 @@ handle_cast(_, State) ->
 handle_info(T, #transport{} = S) ->
     {noreply, #transport{} = t(T,S)};
 
-handle_info(T, #listener{pending = L} = S)
-  when is_list(L) ->
-    handle_info(T, upgrade(S));
-
 handle_info(T, #listener{} = S) ->
-    {noreply, downgrade(#listener{} = l(T,S))}.
+    {noreply, #listener{} = l(T,S)}.
 
-%% upgrade/1
-
-upgrade(#listener{pending = [TPid | {0,Q}]} = S) ->
-    ets:insert(Q, {TPid, now()}),
-    S#listener{pending = {-1,Q}}.
 %% Prior to the possiblity of setting pool_size on in transport
 %% configuration, a new accepting transport was only started following
 %% the death of a predecessor, so that there was only at most one
@@ -418,26 +404,6 @@ upgrade(#listener{pending = [TPid | {0,Q}]} = S) ->
 %% several accepting transports are started concurrently. Deal with
 %% this by placing the started transports in a new queue of transport
 %% processes waiting for an association.
-%%
-%% Since only one of this queue and the existing queue of controlling
-%% processes waiting for a transport to be started can be non-empty at
-%% any given time, implement both queues in the same ets table. The
-%% absolute value of the first element of the 2-tuple is the queue
-%% length, the sign says which queue it is.
-
-%% downgrade/1
-%%
-%% Revert to the pre-pool_size representation when possible, for
-%% backwards compatibility in the case that the pool_size option
-%% hasn't been used.
-
-downgrade(#listener{pending = {-1,Q}} = S) ->
-    TPid = ets:first(Q),
-    ets:delete(Q, TPid),
-    S#listener{pending = [TPid | {0,Q}]};
-
-downgrade(S) ->
-    S.
 
 %% ---------------------------------------------------------------------------
 %% # code_change/3
