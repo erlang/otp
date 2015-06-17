@@ -989,7 +989,6 @@ init_emulator(void)
 #  define REG_I asm("%l4")
 #  define REG_fcalls asm("%l5")
 #  define REG_tmp_arg1 asm("%l6")
-#  define REG_tmp_arg2 asm("%l7")
 #else
 #  define REG_xregs
 #  define REG_htop
@@ -997,7 +996,6 @@ init_emulator(void)
 #  define REG_I
 #  define REG_fcalls
 #  define REG_tmp_arg1
-#  define REG_tmp_arg2
 #endif
 
 #ifdef USE_VM_PROBES
@@ -1145,7 +1143,6 @@ void process_main(void)
      * Temporaries used for picking up arguments for instructions.
      */
     register Eterm tmp_arg1 REG_tmp_arg1 = NIL;
-    register Eterm tmp_arg2 REG_tmp_arg2 = NIL;
 
     /*
      * X registers and floating point registers are located in
@@ -4242,55 +4239,49 @@ do {						\
      }
  }
 
- /* Operands: x(Reg) Size Live Fail Flags Dst */
+ {
+     Eterm Ms, Sz;
+
+     /* Operands: x(Reg) Size Live Fail Flags Dst */
  OpCase(i_bs_get_integer_imm_xIIfId): {
-     tmp_arg1 = xb(Arg(0));
-     I++;
-     /* Operands: Size Live Fail Flags Dst */
-     goto do_bs_get_integer_imm_test_heap;
- }
-
- /*
-  * tmp_arg1 = match context
-  * Operands: Size Live Fail Flags Dst
-  */
- do_bs_get_integer_imm_test_heap: {
-     Uint wordsneeded;
-     tmp_arg2 = Arg(0);
-     wordsneeded = 1+WSIZE(NBYTES(tmp_arg2));
-     TestHeapPreserve(wordsneeded, Arg(1), tmp_arg1);
-     I += 2;
-     /* Operands: Fail Flags Dst */
-     goto do_bs_get_integer_imm;
- }
-
- /* Operands: x(Reg) Size Fail Flags Dst */
- OpCase(i_bs_get_integer_small_imm_xIfId): {
-     tmp_arg1 = xb(Arg(0));
-     tmp_arg2 = Arg(1);
-     I += 2;
-     /* Operands: Fail Flags Dst */
-     goto do_bs_get_integer_imm;
- }
- 
- /*
-  * tmp_arg1 = match context
-  * tmp_arg2 = size of field
-  * Operands: Fail Flags Dst
-  */
- do_bs_get_integer_imm: {
-     ErlBinMatchBuffer* mb;
-     Eterm result;
-
-     mb = ms_matchbuffer(tmp_arg1);
-     LIGHT_SWAPOUT;
-     result = erts_bs_get_integer_2(c_p, tmp_arg2, Arg(1), mb);
-     LIGHT_SWAPIN;
-     HEAP_SPACE_VERIFIED(0);
-     if (is_non_value(result)) {
-	 ClauseFail();
+	 Uint wordsneeded;
+	 Ms = xb(Arg(0));
+	 Sz = Arg(1);
+	 wordsneeded = 1+WSIZE(NBYTES(Sz));
+	 TestHeapPreserve(wordsneeded, Arg(2), Ms);
+	 I += 3;
+	 /* Operands: Fail Flags Dst */
+	 goto do_bs_get_integer_imm;
      }
-     StoreBifResult(2, result);
+
+     /* Operands: x(Reg) Size Fail Flags Dst */
+ OpCase(i_bs_get_integer_small_imm_xIfId): {
+	 Ms = xb(Arg(0));
+	 Sz = Arg(1);
+	 I += 2;
+	 /* Operands: Fail Flags Dst */
+	 goto do_bs_get_integer_imm;
+     }
+ 
+     /*
+      * Ms = match context
+      * Sz = size of field
+      * Operands: Fail Flags Dst
+      */
+ do_bs_get_integer_imm: {
+	 ErlBinMatchBuffer* mb;
+	 Eterm result;
+
+	 mb = ms_matchbuffer(Ms);
+	 LIGHT_SWAPOUT;
+	 result = erts_bs_get_integer_2(c_p, Sz, Arg(1), mb);
+	 LIGHT_SWAPIN;
+	 HEAP_SPACE_VERIFIED(0);
+	 if (is_non_value(result)) {
+	     ClauseFail();
+	 }
+	 StoreBifResult(2, result);
+     }
  }
 
  /*
