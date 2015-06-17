@@ -41,8 +41,7 @@
 #define ERTS_WANT_TIMER_WHEEL_API
 #include "erl_time.h"
 
-#ifdef ERTS_SYS_CONTINOUS_FD_NUMBERS
-#else
+#ifndef ERTS_SYS_CONTINOUS_FD_NUMBERS
 #  include "safe_hash.h"
 #  define DRV_EV_STATE_HTAB_SIZE 1024
 #endif
@@ -413,14 +412,16 @@ static void
 grow_drv_ev_state(int min_ix)
 {
     int i;
+    int old_len;
     int new_len;
 
-    new_len = ERTS_POLL_EXPORT(erts_poll_get_table_len)(min_ix + 1);
-    if (new_len > max_fds)
-	new_len = max_fds;
-
     erts_smp_mtx_lock(&drv_ev_state_grow_lock);
-    if (erts_smp_atomic_read_nob(&drv_ev_state_len) <= min_ix) {
+    old_len = erts_smp_atomic_read_nob(&drv_ev_state_len);
+    if (min_ix >= old_len) {
+        new_len = erts_poll_new_table_len(old_len, min_ix + 1);
+        if (new_len > max_fds)
+            new_len = max_fds;
+
 	for (i=0; i<DRV_EV_STATE_LOCK_CNT; i++) { /* lock all fd's */
 	    erts_smp_mtx_lock(&drv_ev_state_locks[i].lck);
 	}
@@ -430,7 +431,7 @@ grow_drv_ev_state(int min_ix)
 				       sizeof(ErtsDrvEventState)*new_len)
 			: erts_alloc(ERTS_ALC_T_DRV_EV_STATE,
 				     sizeof(ErtsDrvEventState)*new_len));
-	for (i = erts_smp_atomic_read_nob(&drv_ev_state_len); i < new_len; i++) {
+	for (i = old_len; i < new_len; i++) {
 	    drv_ev_state[i].fd = (ErtsSysFdType) i;
 	    drv_ev_state[i].driver.select = NULL;
 #if ERTS_CIO_HAVE_DRV_EVENT
