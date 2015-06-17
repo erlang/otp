@@ -651,6 +651,9 @@ void** beam_ops;
 #define EqualImmed(X, Y, Action) if (X != Y) { Action; }
 #define NotEqualImmed(X, Y, Action) if (X == Y) { Action; }
 #define EqualExact(X, Y, Action) if (!EQ(X,Y)) { Action; }
+#define NotEqualExact(X, Y, Action) if (EQ(X,Y)) { Action; }
+#define Equal(X, Y, Action) if (!CMP_EQ(X,Y)) { Action; }
+#define NotEqual(X, Y, Action) if (!CMP_NE(X,Y)) { Action; }
 #define IsLessThan(X, Y, Action) if (CMP_GE(X, Y)) { Action; }
 #define IsGreaterEqual(X, Y, Action) if (CMP_LT(X, Y)) { Action; }
 
@@ -1409,36 +1412,6 @@ void process_main(void)
      }
      DO_OUTLINED_ARITH_2(mixed_minus, MinusOp1, MinusOp2);
  }
-
- OpCase(i_is_lt_f):
-    if (CMP_GE(tmp_arg1, tmp_arg2)) {
-	ClauseFail();
-    }
-    Next(1);
-
- OpCase(i_is_ge_f):
-    if (CMP_LT(tmp_arg1, tmp_arg2)) {
-	ClauseFail();
-    }
-    Next(1);
-
- OpCase(i_is_eq_f):
-    if (CMP_NE(tmp_arg1, tmp_arg2)) {
-	ClauseFail();
-    }
-    Next(1);
-
- OpCase(i_is_ne_f):
-    if (CMP_EQ(tmp_arg1, tmp_arg2)) {
-	ClauseFail();
-    }
-    Next(1);
-
- OpCase(i_is_eq_exact_f):
-    if (!EQ(tmp_arg1, tmp_arg2)) {
-	ClauseFail();
-    }
-    Next(1);
 
     {
 	Eterm is_eq_exact_lit_val;
@@ -3275,12 +3248,6 @@ do {						\
      *p = element;
      NextPF(3, next);
  }
-
- OpCase(i_is_ne_exact_f):
-    if (EQ(tmp_arg1, tmp_arg2)) {
-	ClauseFail();
-    }
-    Next(1);
 
  OpCase(normal_exit): {
      SWAPOUT;
