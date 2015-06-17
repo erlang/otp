@@ -3921,9 +3921,7 @@ gen_make_fun2(LoaderState* stp, GenOpArg idx)
 /*
  * Rewrite gc_bifs with one parameter (the common case). Utilized
  * in ops.tab to rewrite instructions calling bif's in guards
- * to use a garbage collecting implementation. The instructions
- * are sometimes once again rewritten to handle literals (putting the
- * parameter in the mostly unused r[0] before the instruction is executed).
+ * to use a garbage collecting implementation.
  */
 static GenOp*
 gen_guard_bif1(LoaderState* stp, GenOpArg Fail, GenOpArg Live, GenOpArg Bif,
@@ -3978,10 +3976,6 @@ gen_guard_bif1(LoaderState* stp, GenOpArg Fail, GenOpArg Live, GenOpArg Bif,
 
 /*
  * This is used by the ops.tab rule that rewrites gc_bifs with two parameters.
- * The instruction returned is then again rewritten to an i_load instruction
- * followed by i_gc_bif2_jIId, to handle literals properly.
- * As opposed to the i_gc_bif1_jIsId, the instruction  i_gc_bif2_jIId is
- * always rewritten, regardless of if there actually are any literals.
  */
 static GenOp*
 gen_guard_bif2(LoaderState* stp, GenOpArg Fail, GenOpArg Live, GenOpArg Bif,
@@ -4008,23 +4002,19 @@ gen_guard_bif2(LoaderState* stp, GenOpArg Fail, GenOpArg Live, GenOpArg Bif,
 	op->a[2].val = stp->import[Bif.val].arity;
 	return op;
     }
-    op->op = genop_ii_gc_bif2_6;
+    op->op = genop_i_gc_bif2_6;
     op->arity = 6;
     op->a[0] = Fail;
     op->a[1].type = TAG_u;
-    op->a[2] = S1;
-    op->a[3] = S2;
-    op->a[4] = Live;
+    op->a[2] = Live;
+    op->a[3] = S1;
+    op->a[4] = S2;
     op->a[5] = Dst;
     return op;
 }
 
 /*
  * This is used by the ops.tab rule that rewrites gc_bifs with three parameters.
- * The instruction returned is then again rewritten to a move instruction that
- * uses r[0] for temp storage, followed by an i_load instruction,
- * followed by i_gc_bif3_jIsId, to handle literals properly. Rewriting
- * always occur, as with the gc_bif2 counterpart.
  */
 static GenOp*
 gen_guard_bif3(LoaderState* stp, GenOpArg Fail, GenOpArg Live, GenOpArg Bif,
@@ -4055,10 +4045,10 @@ gen_guard_bif3(LoaderState* stp, GenOpArg Fail, GenOpArg Live, GenOpArg Bif,
     op->arity = 7;
     op->a[0] = Fail;
     op->a[1].type = TAG_u;
-    op->a[2] = S1;
-    op->a[3] = S2;
-    op->a[4] = S3;
-    op->a[5] = Live;
+    op->a[2] = Live;
+    op->a[3] = S1;
+    op->a[4] = S2;
+    op->a[5] = S3;
     op->a[6] = Dst;
     op->next = NULL;
     return op;

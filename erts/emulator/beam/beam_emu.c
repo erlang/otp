@@ -2513,12 +2513,10 @@ do {						\
     {
 	typedef Eterm (*GcBifFunction)(Process*, Eterm*, Uint);
 	GcBifFunction bf;
-	Eterm arg;
 	Eterm result;
 	Uint live = (Uint) Arg(3);
 
-	GetArg1(2, arg);
-	reg[live] = arg;
+	GetArg1(2, x(live));
 	bf = (GcBifFunction) Arg(1);
 	c_p->fcalls = FCALLS;
 	SWAPOUT;
@@ -2538,12 +2536,12 @@ do {						\
 	    SET_I((BeamInstr *) Arg(0));
 	    Goto(*I);
 	}
-	reg[0] = arg;
+	x(0) = x(live);
 	I = handle_error(c_p, I, reg, translate_gc_bif((void *) bf));
 	goto post_error_handling;
     }
 
- OpCase(i_gc_bif2_jIId): /* Note, one less parameter than the i_gc_bif1
+ OpCase(i_gc_bif2_jIIssd): /* Note, one less parameter than the i_gc_bif1
 			    and i_gc_bif3 */
     {
 	typedef Eterm (*GcBifFunction)(Process*, Eterm*, Uint);
@@ -2551,8 +2549,13 @@ do {						\
 	Eterm result;
 	Uint live = (Uint) Arg(2);
 
-	reg[live++] = tmp_arg1;
-	reg[live] = tmp_arg2;
+	GetArg2(3, x(live), x(live+1));
+	/*
+	 * XXX This calling convention does not make sense. 'live'
+	 * should point out the first argument, not the second
+	 * (i.e. 'live' should not be incremented below).
+	 */
+	live++;
 	bf = (GcBifFunction) Arg(1);
 	c_p->fcalls = FCALLS;
 	SWAPOUT;
@@ -2566,30 +2569,34 @@ do {						\
 	ERTS_HOLE_CHECK(c_p);
 	FCALLS = c_p->fcalls;
 	if (is_value(result)) {
-	    StoreBifResult(3, result);
+	    StoreBifResult(5, result);
 	}
 	if (Arg(0) != 0) {
 	    SET_I((BeamInstr *) Arg(0));
 	    Goto(*I);
 	}
-	reg[0] = tmp_arg1;
-	reg[1] = tmp_arg2;
+	live--;
+	x(0) = x(live);
+	x(1) = x(live+1);
 	I = handle_error(c_p, I, reg, translate_gc_bif((void *) bf));
 	goto post_error_handling;
     }
 
- OpCase(i_gc_bif3_jIsId):
+ OpCase(i_gc_bif3_jIIssd):
     {
 	typedef Eterm (*GcBifFunction)(Process*, Eterm*, Uint);
 	GcBifFunction bf;
-	Eterm arg;
 	Eterm result;
-	Uint live = (Uint) Arg(3);
+	Uint live = (Uint) Arg(2);
 
-	GetArg1(2, arg);
-	reg[live++] = arg;
-	reg[live++] = tmp_arg1;
-	reg[live] = tmp_arg2;
+	x(live) = x(SCRATCH_X_REG);
+	GetArg2(3, x(live+1), x(live+2));
+	/*
+	 * XXX This calling convention does not make sense. 'live'
+	 * should point out the first argument, not the third
+	 * (i.e. 'live' should not be incremented below).
+	 */
+	live += 2;
 	bf = (GcBifFunction) Arg(1);
 	c_p->fcalls = FCALLS;
 	SWAPOUT;
@@ -2603,15 +2610,16 @@ do {						\
 	ERTS_HOLE_CHECK(c_p);
 	FCALLS = c_p->fcalls;
 	if (is_value(result)) {
-	    StoreBifResult(4, result);
+	    StoreBifResult(5, result);
 	}
 	if (Arg(0) != 0) {
 	    SET_I((BeamInstr *) Arg(0));
 	    Goto(*I);
 	}
-	reg[0] = arg;
-	reg[1] = tmp_arg1;
-	reg[2] = tmp_arg2;
+	live -= 2;
+	x(0) = x(live);
+	x(1) = x(live+1);
+	x(2) = x(live+2);
 	I = handle_error(c_p, I, reg, translate_gc_bif((void *) bf));
 	goto post_error_handling;
     }
@@ -2619,12 +2627,13 @@ do {						\
  /*
   * Guards bifs and, or, xor in guards.
   */
- OpCase(i_bif2_fbd):
+ OpCase(i_bif2_fbssd):
     {
-	Eterm tmp_reg[2] = {tmp_arg1, tmp_arg2};
+	Eterm tmp_reg[2];
 	Eterm (*bf)(Process*, Eterm*);
 	Eterm result;
 
+	GetArg2(2, tmp_reg[0], tmp_reg[1]);
 	bf = (BifFunction) Arg(1);
 	c_p->fcalls = FCALLS;
 	PROCESS_MAIN_CHK_LOCKS(c_p);
@@ -2636,7 +2645,7 @@ do {						\
 	ERTS_HOLE_CHECK(c_p);
 	FCALLS = c_p->fcalls;
 	if (is_value(result)) {
-	    StoreBifResult(2, result);
+	    StoreBifResult(4, result);
 	}
 	SET_I((BeamInstr *) Arg(0));
 	Goto(*I);
@@ -2645,12 +2654,13 @@ do {						\
  /*
   * Guards bifs and, or, xor, relational operators in body.
   */
- OpCase(i_bif2_body_bd):
+ OpCase(i_bif2_body_bssd):
     {
-	Eterm tmp_reg[2] = {tmp_arg1, tmp_arg2};
+	Eterm tmp_reg[2];
 	Eterm (*bf)(Process*, Eterm*);
 	Eterm result;
 
+	GetArg2(1, tmp_reg[0], tmp_reg[1]);
 	bf = (BifFunction) Arg(0);
 	PROCESS_MAIN_CHK_LOCKS(c_p);
 	ASSERT(!ERTS_PROC_IS_EXITING(c_p));
@@ -2661,10 +2671,10 @@ do {						\
 	ERTS_HOLE_CHECK(c_p);
 	if (is_value(result)) {
 	    ASSERT(!is_CP(result));
-	    StoreBifResult(1, result);
+	    StoreBifResult(3, result);
 	}
-	reg[0] = tmp_arg1;
-	reg[1] = tmp_arg2;
+	reg[0] = tmp_reg[0];
+	reg[1] = tmp_reg[1];
 	SWAPOUT;
 	I = handle_error(c_p, I, reg, bf);
 	goto post_error_handling;

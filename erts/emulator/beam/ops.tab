@@ -995,8 +995,8 @@ bif2 Jump=j u$bif:erlang:element/2 S1=s S2=xy Dst=d => gen_element(Jump, S1, S2,
 
 bif1 p Bif S1 Dst => bif1_body Bif S1 Dst
 
-bif2 p Bif S1 S2 Dst => i_fetch S1 S2 | i_bif2_body Bif Dst
-bif2 Fail Bif S1 S2 Dst => i_fetch S1 S2 | i_bif2 Fail Bif Dst
+bif2 p Bif S1 S2 Dst => i_bif2_body Bif S1 S2 Dst
+bif2 Fail Bif S1 S2 Dst => i_bif2 Fail Bif S1 S2 Dst
 
 i_get s d
 
@@ -1018,8 +1018,8 @@ i_element j y s d
 
 bif1 f b s d
 bif1_body b s d
-i_bif2 f b d
-i_bif2_body b d
+i_bif2 f b s s d
+i_bif2_body b s s d
 
 #
 # Internal calls.
@@ -1568,17 +1568,16 @@ gc_bif3 Fail I Bif S1 S2 S3 Dst => \
 
 i_gc_bif1 j I s I d
 
-ii_gc_bif2/6
-
-ii_gc_bif2 Fail Bif S1 S2 Live D => i_fetch S1 S2 | i_gc_bif2 Fail Bif Live D
-
-i_gc_bif2 j I I d
+i_gc_bif2 j I I s s d
 
 ii_gc_bif3/7
 
-ii_gc_bif3 Fail Bif S1 S2 S3 Live D => move S1 x | i_fetch S2 S3 | i_gc_bif3 Fail Bif x Live D
+# A specific instruction can only have 6 operands, so we must
+# pass one of the arguments in an x register.
+ii_gc_bif3 Fail Bif Live S1 S2 S3 Dst => \
+  move S1 x | i_gc_bif3 Fail Bif Live S2 S3 Dst
 
-i_gc_bif3 j I s I d
+i_gc_bif3 j I I s s d
 
 #
 # The following instruction is specially handled in beam_load.c
