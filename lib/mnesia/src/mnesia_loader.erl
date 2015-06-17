@@ -209,8 +209,7 @@ do_get_network_copy(Tab, Reason, Ns, Storage, Cs) ->
 		    set({Tab, load_node}, Node),
 		    set({Tab, load_reason}, Reason),
 		    mnesia_controller:i_have_tab(Tab),
-		    dbg_out("Table ~p copied from ~p to ~p (~b entries)~n",
-                            [Tab, Node, node(), mnesia:table_info(Tab, size)]),
+		    dbg_out("Table ~p copied from ~p to ~p~n", [Tab, Node, node()]),
 		    {loaded, ok};
 		Err = {error, _} when element(1, Reason) == dumper ->
 		    {not_loaded,Err};
