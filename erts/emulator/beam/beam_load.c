@@ -2854,23 +2854,16 @@ gen_get_integer2(LoaderState* stp, GenOpArg Fail, GenOpArg Ms, GenOpArg Live,
 	    goto generic;
 	}
     } else {
-	GenOp* op2;
-	NEW_GENOP(stp, op2);
-	
-	op->op = genop_i_fetch_2;
-	op->arity = 2;
-	op->a[0] = Ms;
-	op->a[1] = Size;
-	op->next = op2;
-
-	op2->op = genop_i_bs_get_integer_4;
-	op2->arity = 4;
-	op2->a[0] = Fail;
-	op2->a[1] = Live;
-	op2->a[2].type = TAG_u;
-	op2->a[2].val = (Unit.val << 3) | Flags.val;
-	op2->a[3] = Dst;
-	op2->next = NULL;
+	op->op = genop_i_bs_get_integer_6;
+	op->arity = 6;
+	op->a[0] = Fail;
+	op->a[1] = Live;
+	op->a[2].type = TAG_u;
+	op->a[2].val = (Unit.val << 3) | Flags.val;
+	op->a[3] = Ms;
+	op->a[4] = Size;
+	op->a[5] = Dst;
+	op->next = NULL;
 	return op;
     }
     op->next = NULL;

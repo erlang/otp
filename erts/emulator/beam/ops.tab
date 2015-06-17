@@ -1122,7 +1122,7 @@ bs_get_integer2 Fail=f Ms=x Live=u Sz=sq Unit=u Flags=u Dst=d => \
 
 i_bs_get_integer_small_imm x I f I d
 i_bs_get_integer_imm x I I f I d
-i_bs_get_integer f I I d
+i_bs_get_integer f I I s s d
 i_bs_get_integer_8 x f d
 i_bs_get_integer_16 x f d
 i_bs_get_integer_32 x f I d
@@ -1195,14 +1195,12 @@ i_bs_get_utf16 x f I d
 
 bs_get_utf32 Fail=f Ms=x Live=u Flags=u Dst=d => \
 	bs_get_integer2 Fail Ms Live i=32 u=1 Flags Dst | \
-	i_fetch Dst Ms | \
-	i_bs_validate_unicode_retract Fail
+	i_bs_validate_unicode_retract Fail Dst Ms
 bs_skip_utf32 Fail=f Ms=x Live=u Flags=u => \
 	bs_get_integer2 Fail Ms Live i=32 u=1 Flags x | \
-	i_fetch x Ms | \
-	i_bs_validate_unicode_retract Fail
+	i_bs_validate_unicode_retract Fail x Ms
 
-i_bs_validate_unicode_retract j
+i_bs_validate_unicode_retract j s s
 %hot
 
 #
@@ -1224,12 +1222,12 @@ bs_init2 Fail Sz=u Words Regs Flags Dst => \
 bs_init2 Fail Sz Words=u==0 Regs Flags Dst => \
   i_bs_init_fail Sz Fail Regs Dst
 bs_init2 Fail Sz Words Regs Flags Dst => \
-  i_fetch Sz x=0 | i_bs_init_fail_heap Words Fail Regs Dst
+  i_bs_init_fail_heap Sz Words Fail Regs Dst
 
 i_bs_init_fail x j I d
 i_bs_init_fail y j I d
 
-i_bs_init_fail_heap I j I d
+i_bs_init_fail_heap s I j I d
 
 i_bs_init I I d
 i_bs_init_heap_bin I I d
@@ -1246,31 +1244,30 @@ bs_init_bits Fail Sz=u Words Regs Flags Dst =>  i_bs_init_bits_heap Sz Words Reg
 bs_init_bits Fail Sz Words=u==0 Regs Flags Dst => \
   i_bs_init_bits_fail Sz Fail Regs Dst
 bs_init_bits Fail Sz Words Regs Flags Dst => \
-  i_fetch Sz x=0 | i_bs_init_bits_fail_heap Words Fail Regs Dst
+  i_bs_init_bits_fail_heap Sz Words Fail Regs Dst
 
 i_bs_init_bits_fail x j I d
 i_bs_init_bits_fail y j I d
 
-i_bs_init_bits_fail_heap I j I d
+i_bs_init_bits_fail_heap s I j I d
 
 i_bs_init_bits I I d
 i_bs_init_bits_heap I I I d
 
 bs_add Fail S1=i==0 S2 Unit=u==1 D => move S2 D
-bs_add Fail S1 S2 Unit D => i_fetch S1 S2 | i_bs_add Fail Unit D
 
-i_bs_add j I d
+bs_add j s s I d
 
 bs_append Fail Size Extra Live Unit Bin Flags Dst => \
-  i_fetch Size Bin | i_bs_append Fail Extra Live Unit Dst
+  move Bin x | i_bs_append Fail Extra Live Unit Size Dst
 
 bs_private_append Fail Size Unit Bin Flags Dst => \
-  i_fetch Size Bin | i_bs_private_append Fail Unit Dst
+  i_bs_private_append Fail Unit Size Bin Dst
 
 bs_init_writable
 
-i_bs_append j I I I d
-i_bs_private_append j I d
+i_bs_append j I I I s d
+i_bs_private_append j I s s d
 
 #
 # Storing integers into binaries.

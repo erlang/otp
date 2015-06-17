@@ -3548,11 +3548,10 @@ do {						\
 	 goto do_bs_init_bits_known;
      }
 
-     OpCase(i_bs_init_bits_fail_heap_IjId): {
-	 /* tmp_arg1 was fetched by an i_fetch instruction */
-	 num_bits_term = tmp_arg1;
-	 alloc = Arg(0);
-	 I++;
+     OpCase(i_bs_init_bits_fail_heap_sIjId): {
+	 GetArg1(0, num_bits_term);
+	 alloc = Arg(1);
+	 I += 2;
 	 goto do_bs_init_bits;
      }
 
@@ -3675,46 +3674,48 @@ do {						\
  }
 
  {
-     OpCase(i_bs_init_fail_heap_IjId): {
-	 /* tmp_arg1 was fetched by an i_fetch instruction */
-	 tmp_arg2 = Arg(0);
-	 I++;
+     Eterm BsOp1, BsOp2;
+
+     OpCase(i_bs_init_fail_heap_sIjId): {
+	 GetArg1(0, BsOp1);
+	 BsOp2 = Arg(1);
+	 I += 2;
 	 goto do_bs_init;
      }
 
      OpCase(i_bs_init_fail_yjId): {
-	 tmp_arg1 = yb(Arg(0));
-	 tmp_arg2 = 0;
+	 BsOp1 = yb(Arg(0));
+	 BsOp2 = 0;
 	 I++;
 	 goto do_bs_init;
      }
 
      OpCase(i_bs_init_fail_xjId): {
-	 tmp_arg1 = xb(Arg(0));
-	 tmp_arg2 = 0;
+	 BsOp1 = xb(Arg(0));
+	 BsOp2 = 0;
 	 I++;
      }
 	 /* FALL THROUGH */
      do_bs_init:
-         if (is_small(tmp_arg1)) {
-	     Sint size = signed_val(tmp_arg1);
+         if (is_small(BsOp1)) {
+	     Sint size = signed_val(BsOp1);
 	     if (size < 0) {
 		 goto badarg;
 	     }
-	     tmp_arg1 = (Eterm) size;
+	     BsOp1 = (Eterm) size;
 	 } else {
 	     Uint bytes;
 
-	     if (!term_to_Uint(tmp_arg1, &bytes)) {
+	     if (!term_to_Uint(BsOp1, &bytes)) {
 		 c_p->freason = bytes;
 		 goto lb_Cl_error;
 	     }
 	     if ((bytes >> (8*sizeof(Uint)-3)) != 0) {
 		 goto system_limit;
 	     }
-	     tmp_arg1 = (Eterm) bytes;
+	     BsOp1 = (Eterm) bytes;
 	 }
-	 if (tmp_arg1 <= ERL_ONHEAP_BIN_LIMIT) {
+	 if (BsOp1 <= ERL_ONHEAP_BIN_LIMIT) {
 	     goto do_heap_bin_alloc;
 	 } else {
 	     goto do_proc_bin_alloc;
@@ -3722,15 +3723,15 @@ do {						\
 
 
      OpCase(i_bs_init_heap_IIId): {
-	 tmp_arg1 = Arg(0);
-	 tmp_arg2 = Arg(1);
+	 BsOp1 = Arg(0);
+	 BsOp2 = Arg(1);
 	 I++;
 	 goto do_proc_bin_alloc;
      }
 
      OpCase(i_bs_init_IId): {
-	 tmp_arg1 = Arg(0);
-	 tmp_arg2 = 0;
+	 BsOp1 = Arg(0);
+	 BsOp2 = 0;
      }
      /* FALL THROUGH */
      do_proc_bin_alloc: {
@@ -3739,13 +3740,13 @@ do {						\
 
 	 erts_bin_offset = 0;
 	 erts_writable_bin = 0;
-	 TestBinVHeap(tmp_arg1 / sizeof(Eterm), 
-	 	      tmp_arg2 + PROC_BIN_SIZE + ERL_SUB_BIN_SIZE, Arg(1));
+	 TestBinVHeap(BsOp1 / sizeof(Eterm),
+		      BsOp2 + PROC_BIN_SIZE + ERL_SUB_BIN_SIZE, Arg(1));
 
 	 /*
 	  * Allocate the binary struct itself.
 	  */
-	 bptr = erts_bin_nrml_alloc(tmp_arg1);
+	 bptr = erts_bin_nrml_alloc(BsOp1);
 	 erts_refc_init(&bptr->refc, 1);
 	 erts_current_bin = (byte *) bptr->orig_bytes;
 
@@ -3755,28 +3756,28 @@ do {						\
 	 pb = (ProcBin *) HTOP;
 	 HTOP += PROC_BIN_SIZE;
 	 pb->thing_word = HEADER_PROC_BIN;
-	 pb->size = tmp_arg1;
+	 pb->size = BsOp1;
 	 pb->next = MSO(c_p).first;
 	 MSO(c_p).first = (struct erl_off_heap_header*) pb;
 	 pb->val = bptr;
 	 pb->bytes = (byte*) bptr->orig_bytes;
 	 pb->flags = 0;
 	 
-	 OH_OVERHEAD(&(MSO(c_p)), tmp_arg1 / sizeof(Eterm));
+	 OH_OVERHEAD(&(MSO(c_p)), BsOp1 / sizeof(Eterm));
 
 	 StoreBifResult(2, make_binary(pb));
      }
 
      OpCase(i_bs_init_heap_bin_heap_IIId): {
-	 tmp_arg1 = Arg(0);
-	 tmp_arg2 = Arg(1);
+	 BsOp1 = Arg(0);
+	 BsOp2 = Arg(1);
 	 I++;
 	 goto do_heap_bin_alloc;
      }
 
      OpCase(i_bs_init_heap_bin_IId): {
-	 tmp_arg1 = Arg(0);
-	 tmp_arg2 = 0;
+	 BsOp1 = Arg(0);
+	 BsOp2 = 0;
      }
      /* Fall through */
      do_heap_bin_alloc:
@@ -3784,33 +3785,36 @@ do {						\
 	     ErlHeapBin* hb;
 	     Uint bin_need;
 
-	     bin_need = heap_bin_size(tmp_arg1);
+	     bin_need = heap_bin_size(BsOp1);
 	     erts_bin_offset = 0;
 	     erts_writable_bin = 0;
-	     TestHeap(bin_need+tmp_arg2+ERL_SUB_BIN_SIZE, Arg(1));
+	     TestHeap(bin_need+BsOp2+ERL_SUB_BIN_SIZE, Arg(1));
 	     hb = (ErlHeapBin *) HTOP;
 	     HTOP += bin_need;
-	     hb->thing_word = header_heap_bin(tmp_arg1);
-	     hb->size = tmp_arg1;
+	     hb->thing_word = header_heap_bin(BsOp1);
+	     hb->size = BsOp1;
 	     erts_current_bin = (byte *) hb->data;
-	     tmp_arg1 = make_binary(hb);
-	     StoreBifResult(2, tmp_arg1);
+	     BsOp1 = make_binary(hb);
+	     StoreBifResult(2, BsOp1);
 	 }
  }
 
- OpCase(i_bs_add_jId): {
-     Uint Unit = Arg(1);
-     if (is_both_small(tmp_arg1, tmp_arg2)) {
-	 Sint Arg1 = signed_val(tmp_arg1);
-	 Sint Arg2 = signed_val(tmp_arg2);
+ OpCase(bs_add_jssId): {
+     Eterm Op1, Op2;
+     Uint Unit = Arg(3);
+
+     GetArg2(1, Op1, Op2);
+     if (is_both_small(Op1, Op2)) {
+	 Sint Arg1 = signed_val(Op1);
+	 Sint Arg2 = signed_val(Op2);
 
 	 if (Arg1 >= 0 && Arg2 >= 0) {
-	     BsSafeMul(Arg2, Unit, goto system_limit, tmp_arg1);
-	     tmp_arg1 += Arg1;
+	     BsSafeMul(Arg2, Unit, goto system_limit, Op1);
+	     Op1 += Arg1;
 
 	 store_bs_add_result:
-	     if (MY_IS_SSMALL((Sint) tmp_arg1)) {
-		 tmp_arg1 = make_small(tmp_arg1);
+	     if (MY_IS_SSMALL((Sint) Op1)) {
+		 Op1 = make_small(Op1);
 	     } else {
 		 /*
 		  * May generate a heap fragment, but in this
@@ -3822,10 +3826,10 @@ do {						\
 		  * references (such as the heap).
 		  */
 		 SWAPOUT;
-		 tmp_arg1 = erts_make_integer(tmp_arg1, c_p);
+		 Op1 = erts_make_integer(Op1, c_p);
 		 HTOP = HEAP_TOP(c_p);
 	     }
-	     StoreBifResult(2, tmp_arg1);
+	     StoreBifResult(4, Op1);
 	 }
 	 goto badarg;
      } else {
@@ -3848,16 +3852,16 @@ do {						\
 	  * an Uint, the reason is SYSTEM_LIMIT.
 	  */
 
-	 if (!term_to_Uint(tmp_arg1, &a)) {
+	 if (!term_to_Uint(Op1, &a)) {
 	     if (a == BADARG) {
 		 goto badarg;
 	     }
-	     if (!term_to_Uint(tmp_arg2, &b)) {
+	     if (!term_to_Uint(Op2, &b)) {
 		 c_p->freason = b;
 		 goto lb_Cl_error;
 	     }
 	     goto system_limit;
-	 } else if (!term_to_Uint(tmp_arg2, &b)) {
+	 } else if (!term_to_Uint(Op2, &b)) {
 	     c_p->freason = b;
 	     goto lb_Cl_error;
 	 }
@@ -3867,8 +3871,8 @@ do {						\
 	  */
 	 
 	 BsSafeMul(b, Unit, goto system_limit, c);
-	 tmp_arg1 = a + c;
-	 if (tmp_arg1 < a) {
+	 Op1 = a + c;
+	 if (Op1 < a) {
 	     /*
 	      * If the result is less than one of the
 	      * arguments, there must have been an overflow.
@@ -3890,19 +3894,36 @@ do {						\
     }
 
  /*
-  * tmp_arg1 = Number of bytes to build
-  * tmp_arg2 = Source binary
-  * Operands: Fail ExtraHeap Live Unit Dst
+  * x(SCRATCH_X_REG);
+  * Operands: Fail ExtraHeap Live Unit Size Dst
   */
 
- OpCase(i_bs_append_jIIId): {
+ OpCase(i_bs_append_jIIIsd): {
      Uint live = Arg(2);
      Uint res;
+     Eterm Size;
 
+     GetArg1(4, Size);
      SWAPOUT;
-     reg[live] = tmp_arg2;
-     res = erts_bs_append(c_p, reg, live, tmp_arg1, Arg(1), Arg(3));
+     reg[live] = x(SCRATCH_X_REG);
+     res = erts_bs_append(c_p, reg, live, Size, Arg(1), Arg(3));
      SWAPIN;
+     if (is_non_value(res)) {
+	 /* c_p->freason is already set (may be either BADARG or SYSTEM_LIMIT). */
+	 goto lb_Cl_error;
+     }
+     StoreBifResult(5, res);
+ }
+
+ /*
+  * Operands: Fail Size Src Unit Dst
+  */
+ OpCase(i_bs_private_append_jIssd): {
+     Eterm res;
+     Eterm Size, Src;
+
+     GetArg2(2, Size, Src);
+     res = erts_bs_private_append(c_p, Src, Size, Arg(1));
      if (is_non_value(res)) {
 	 /* c_p->freason is already set (may be either BADARG or SYSTEM_LIMIT). */
 	 goto lb_Cl_error;
@@ -3910,26 +3931,6 @@ do {						\
      StoreBifResult(4, res);
  }
 
- /*
-  * tmp_arg1 = Number of bytes to build
-  * tmp_arg2 = Source binary
-  * Operands: Fail Unit Dst
-  */
- OpCase(i_bs_private_append_jId): {
-     Eterm res;
-
-     res = erts_bs_private_append(c_p, tmp_arg2, tmp_arg1, Arg(1));
-     if (is_non_value(res)) {
-	 /* c_p->freason is already set (may be either BADARG or SYSTEM_LIMIT). */
-	 goto lb_Cl_error;
-     }
-     StoreBifResult(2, res);
- }
-
- /*
-  * tmp_arg1 = Initial size of writable binary
-  * Operands: Live Dst
-  */
  OpCase(bs_init_writable): {
      SWAPOUT;
      r(0) = erts_bs_init_writable(c_p, r(0));
@@ -4024,26 +4025,29 @@ do {						\
 
  /*
   * Only used for validating a value matched out. 
-  *
-  * tmp_arg1 = Integer to validate
-  * tmp_arg2 = Match context
   */
- OpCase(i_bs_validate_unicode_retract_j): {
-     /*
-      * There is no need to untag the integer, but it IS necessary
-      * to make sure it is small (a bignum pointer could fall in
-      * the valid range).
-      */
-     if (is_not_small(tmp_arg1) || tmp_arg1 > make_small(0x10FFFFUL) ||
-	 (make_small(0xD800UL) <= tmp_arg1 &&
-	  tmp_arg1 <= make_small(0xDFFFUL))) {
-	 ErlBinMatchBuffer *mb = ms_matchbuffer(tmp_arg2);
+ OpCase(i_bs_validate_unicode_retract_jss): {
+	Eterm i; 		/* Integer to validate */
 
-	 mb->offset -= 32;
-	 goto badarg;
-     }
-     Next(1);
- }
+	/*
+	 * There is no need to untag the integer, but it IS necessary
+	 * to make sure it is small (a bignum pointer could fall in
+	 * the valid range).
+	 */
+
+	GetArg1(1, i);
+	if (is_not_small(i) || i > make_small(0x10FFFFUL) ||
+	    (make_small(0xD800UL) <= i && i <= make_small(0xDFFFUL))) {
+	    Eterm ms;		/* Match context */
+	    ErlBinMatchBuffer* mb;
+
+	    GetArg1(2, ms);
+	    mb = ms_matchbuffer(ms);
+	    mb->offset -= 32;
+	    goto badarg;
+	}
+	Next(3);
+    }
 
  /*
   * Matching of binaries.
@@ -4292,35 +4296,36 @@ do {						\
  }
 
  /*
-  * tmp_arg1 = Match context
-  * tmp_arg2 = Size field
-  * Operands: Fail Live FlagsAndUnit Dst
+  * Operands: Fail Live FlagsAndUnit Ms Sz Dst
   */
- OpCase(i_bs_get_integer_fIId): {
+ OpCase(i_bs_get_integer_fIIssd): {
      Uint flags;
      Uint size;
+     Eterm Ms;
+     Eterm Sz;
      ErlBinMatchBuffer* mb;
      Eterm result;
 
      flags = Arg(2);
-     BsGetFieldSize(tmp_arg2, (flags >> 3), ClauseFail(), size);
+     GetArg2(3, Ms, Sz);
+     BsGetFieldSize(Sz, (flags >> 3), ClauseFail(), size);
      if (size >= SMALL_BITS) {
 	 Uint wordsneeded;
-	 /* check bits size before potential gc.
+	 /* Check bits size before potential gc.
 	  * We do not want a gc and then realize we don't need
-	  * the allocated space (i.e. if the op fails)
+	  * the allocated space (i.e. if the op fails).
 	  *
-	  * remember to reacquire the matchbuffer after gc.
+	  * Remember to re-acquire the matchbuffer after gc.
 	  */
 
-	 mb = ms_matchbuffer(tmp_arg1);
+	 mb = ms_matchbuffer(Ms);
 	 if (mb->size - mb->offset < size) {
 	     ClauseFail();
 	 }
 	 wordsneeded = 1+WSIZE(NBYTES((Uint) size));
-	 TestHeapPreserve(wordsneeded, Arg(1), tmp_arg1);
+	 TestHeapPreserve(wordsneeded, Arg(1), Ms);
      }
-     mb = ms_matchbuffer(tmp_arg1);
+     mb = ms_matchbuffer(Ms);
      LIGHT_SWAPOUT;
      result = erts_bs_get_integer_2(c_p, size, flags, mb);
      LIGHT_SWAPIN;
@@ -4328,7 +4333,7 @@ do {						\
      if (is_non_value(result)) {
 	 ClauseFail();
      }
-     StoreBifResult(3, result);
+     StoreBifResult(5, result);
  }
 
  {
