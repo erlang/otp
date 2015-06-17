@@ -40,7 +40,7 @@
 
 -export([flush_monitor_messages/3]).
 
--export([await_result/1]).
+-export([await_result/1, gather_io_bytes/2]).
 
 -export([time_unit/0]).
 
@@ -64,6 +64,23 @@ await_result(Ref) when is_reference(Ref) ->
     receive
 	{Ref, Result} ->
 	    Result
+    end.
+
+%%
+%% statistics(io) end up in gather_io_bytes/2
+%%
+
+gather_io_bytes(Ref, No) when is_reference(Ref),
+			      is_integer(No),
+			      No > 0 ->
+    gather_io_bytes(Ref, No, 0, 0).
+
+gather_io_bytes(_Ref, 0, InAcc, OutAcc) ->
+    {{input, InAcc}, {output, OutAcc}};
+gather_io_bytes(Ref, No, InAcc, OutAcc) ->
+    receive
+	{Ref, _SchedId, In, Out} ->
+	    gather_io_bytes(Ref, No-1, InAcc + In, OutAcc + Out)
     end.
 
 %%

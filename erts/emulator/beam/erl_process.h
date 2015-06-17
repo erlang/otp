@@ -659,6 +659,11 @@ struct ErtsSchedulerData_ {
 
     ErtsSchedAllocData alloc_data;
 
+    struct {
+	Uint64 out;
+	Uint64 in;
+    } io;
+
     Uint64 reductions;
     ErtsSchedWallTime sched_wall_time;
     ErtsGCInfo gc_info;

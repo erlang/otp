@@ -265,6 +265,7 @@ atom get_seq_token
 atom get_tcw
 atom getenv
 atom gather_gc_info_result
+atom gather_io_bytes
 atom gather_sched_wall_time_result
 atom getting_linked
 atom getting_unlinked

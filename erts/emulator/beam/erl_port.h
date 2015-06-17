@@ -266,8 +266,7 @@ erts_prtsd_set(Port *prt, int ix, void *data)
 
 #endif
 
-extern erts_smp_atomic_t erts_bytes_out;	/* no bytes written out */
-extern erts_smp_atomic_t erts_bytes_in;		/* no bytes sent into the system */
+Eterm erts_request_io_bytes(Process *c_p);
 
 
 /* port status flags */
