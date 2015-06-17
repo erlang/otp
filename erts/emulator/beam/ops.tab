@@ -486,21 +486,6 @@ put_list c y y
 put_list s s d
 %hot
 
-%macro: i_fetch FetchArgs -pack
-i_fetch c x
-i_fetch c y
-i_fetch x c
-i_fetch x x
-i_fetch x y
-i_fetch y c
-i_fetch y x
-i_fetch y y
-
-%cold
-i_fetch c c
-i_fetch s s
-%hot
-
 #
 # Some more only used by the emulator
 #

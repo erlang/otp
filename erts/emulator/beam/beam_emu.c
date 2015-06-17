@@ -148,8 +148,6 @@ do {                                     \
    ASSERT(VALID_INSTR(* (Eterm *)(ip))); \
    I = (ip)
 
-#define FetchArgs(S1, S2) tmp_arg1 = (S1); tmp_arg2 = (S2)
-
 /*
  * Store a result into a register given a destination descriptor.
  */
