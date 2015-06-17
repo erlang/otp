@@ -33,6 +33,7 @@ MODULES= \
 	num_bif_SUITE \
 	receive_SUITE \
 	record_SUITE \
+	regressions_SUITE \
 	trycatch_SUITE \
 	warnings_SUITE \
 	z_SUITE \
