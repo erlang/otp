@@ -97,9 +97,6 @@
 %% # make_recvdata/1
 %% ---------------------------------------------------------------------------
 
-make_recvdata([SvcName, PeerT, Apps, {_,_} = Mask | _]) ->  %% from old code
-    make_recvdata([SvcName, PeerT, Apps, [{sequence, Mask}]]);
-
 make_recvdata([SvcName, PeerT, Apps, SvcOpts | _]) ->
     {_,_} = Mask = proplists:get_value(sequence, SvcOpts),
     #recvdata{service_name = SvcName,
@@ -300,13 +297,7 @@ recv_request(TPid,
                   RecvData),
            TPid,
            Dict0,
-           RecvData);
-
-recv_request(TPid, Pkt, Dict0, RecvData) -> %% from old code
-    recv_request(TPid,
-                 Pkt,
-                 Dict0,
-                 #recvdata{} = erlang:append_element(RecvData, [])).
+           RecvData).
 
 %% recv_R/5
 
@@ -1640,9 +1631,6 @@ pick_peer(SvcName,
                                     {fun(D) -> get_destination(D, Msg) end,
                                      Filter,
                                      Xtra})).
-
-pick({{_,_,_} = Transport, Mask}) ->  %% from old code; dialyzer complains
-    {Transport, Mask, []};            %% about this
 
 pick(false) ->
     {error, no_connection};
