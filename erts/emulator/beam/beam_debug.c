@@ -616,24 +616,28 @@ print_op(int to, void *to_arg, int op, int size, BeamInstr* addr)
     case op_i_select_tuple_arity_rfI:
     case op_i_select_tuple_arity_xfI:
     case op_i_select_tuple_arity_yfI:
-	{
-	    int n = ap[-1];
-	    int ix = n;
+        {
+            int n = ap[-1];
+            int ix = n - 1; /* without sentinel */
 
-	    while (ix--) {
-		Uint arity = arityval(ap[0]);
-		erts_print(to, to_arg, "{%d} ", arity, ap[1]);
-		ap++;
-		size++;
-	    }
-	    ix = n;
-	    while (ix--) {
-		erts_print(to, to_arg, "f(" HEXF ") ", ap[0]);
-		ap++;
-		size++;
-	    }
-	}
-	break;
+            while (ix--) {
+                Uint arity = arityval(ap[0]);
+                erts_print(to, to_arg, "{%d} ", arity, ap[1]);
+                ap++;
+                size++;
+            }
+            /* print sentinel */
+            erts_print(to, to_arg, "{%T} ", ap[0], ap[1]);
+            ap++;
+            size++;
+            ix = n;
+            while (ix--) {
+                erts_print(to, to_arg, "f(" HEXF ") ", ap[0]);
+                ap++;
+                size++;
+            }
+        }
+        break;
     case op_i_jump_on_val_rfII:
     case op_i_jump_on_val_xfII:
     case op_i_jump_on_val_yfII:
