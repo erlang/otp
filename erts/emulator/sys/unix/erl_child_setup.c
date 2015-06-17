@@ -107,14 +107,16 @@ main(int argc, char *argv[])
     if (from <= to) {
 	int spfd = system_properties_fd();
 	for (i = from; i <= to; i++) {
-	    if (i != spfd)
+	    if (i != spfd) {
 		(void) close(i);
+            }
 	}
     }
-#else
-    for (i = from; i <= to; i++)
+#else  /* !__ANDROID__ */
+    for (i = from; i <= to; i++) {
 	(void) close(i);
-#endif
+    }
+#endif /* HAVE_CLOSEFROM */
 
     if (!(argv[CS_ARGV_WD_IX][0] == '.' && argv[CS_ARGV_WD_IX][1] == '\0')
 	&& chdir(argv[CS_ARGV_WD_IX]) < 0)
