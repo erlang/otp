@@ -90,9 +90,6 @@ typedef struct {
     Uint new_size;
     int flags;
     void* lck;
-#if HALFWORD_HEAP
-    unsigned char* abs_vec;  /* [i] true if dbterm->tpl[i] is absolute Eterm */
-#endif
 } DbUpdateHandle;
 
 

@@ -2885,9 +2885,6 @@ Ldone:
     handle->dbterm = &b->dbterm;
     handle->flags = flags;
     handle->new_size = b->dbterm.size;
-#if HALFWORD_HEAP
-    handle->abs_vec = NULL;
-#endif
     handle->lck = lck;
     return 1;
 }

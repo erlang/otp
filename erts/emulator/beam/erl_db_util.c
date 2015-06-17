@@ -239,11 +239,7 @@ typedef enum {
     matchCall2,
     matchCall3,
     matchPushV,
-#if HALFWORD_HEAP
-    matchPushVGuard,    /* First guard-only variable reference */
-#endif
-    matchPushVResult, /* First variable reference in result, or (if HALFWORD)
-                         in guard if also referenced in result */
+    matchPushVResult, /* First variable reference in result */
     matchPushExpr, /* Push the whole expression we're matching ('$_') */
     matchPushArrayAsList, /* Only when parameter is an Array and 
 			     not an erlang term  (DCOMP_TRACE) */
@@ -310,9 +306,6 @@ DMC_DECLARE_STACK_TYPE(unsigned);
 typedef struct DMCVariable {
     int is_bound;
     int is_in_body;
-#if HALFWORD_HEAP
-    int first_guard_label;  /* to maybe change from PushVGuard to PushVResult */
-#endif
 } DMCVariable;
 
 typedef struct DMCHeap {
@@ -415,7 +408,7 @@ cleanup_match_pseudo_process(ErtsMatchPseudoProcess *mpsp, int keep_heap)
 	else {
 	    int i;
 	    for (i = 0; i < ERTS_DEFAULT_MS_HEAP_SIZE; i++) {
-#if defined(ARCH_64) && !HALFWORD_HEAP
+#if defined(ARCH_64)
 		mpsp->default_heap[i] = (Eterm) 0xdeadbeefdeadbeef;
 #else
 		mpsp->default_heap[i] = (Eterm) 0xdeadbeef;
@@ -1755,60 +1748,6 @@ static Eterm dpm_array_to_list(Process *psp, Eterm *arr, int arity)
     return ret;
 }
 
-
-#if HALFWORD_HEAP
-struct heap_checkpoint_t
-{
-    Process *p;
-    Eterm* htop;
-    ErlHeapFragment* mbuf;
-    unsigned used_size;
-    ErlOffHeap off_heap;
-};
-
-static void heap_checkpoint_init(Process* p, struct heap_checkpoint_t* hcp)
-{
-    hcp->p = p;
-    hcp->htop = HEAP_TOP(p);
-    hcp->mbuf = MBUF(p);
-    hcp->used_size = hcp->mbuf ? hcp->mbuf->used_size : 0;
-    hcp->off_heap = MSO(p);
-}
-
-static void heap_checkpoint_revert(struct heap_checkpoint_t* hcp)
-{
-    struct erl_off_heap_header* oh = MSO(hcp->p).first;
-
-    if (oh != hcp->off_heap.first) {
-	ASSERT(oh != NULL);
-	if (hcp->off_heap.first) {
-	    while (oh->next != hcp->off_heap.first) {
-		oh = oh->next;
-	    }
-	    oh->next = NULL;
-	}
-	erts_cleanup_offheap(&MSO(hcp->p));
-	MSO(hcp->p) = hcp->off_heap;
-    }
-    if (MBUF(hcp->p) != hcp->mbuf) {
-	ErlHeapFragment* hf = MBUF(hcp->p);
-	ASSERT(hf != NULL);
-	if (hcp->mbuf) {
-	    while (hf->next != hcp->mbuf) {
-		hf = hf->next;
-	    }
-	    hf->next = NULL;
-	}
-	free_message_buffer(MBUF(hcp->p));
-	MBUF(hcp->p) = hcp->mbuf;
-    }
-    if (hcp->mbuf != NULL && hcp->mbuf->used_size != hcp->used_size) {
-	hcp->mbuf->used_size = hcp->used_size;
-    }
-    HEAP_TOP(hcp->p) = hcp->htop;
-}
-#endif /* HALFWORD_HEAP */
-
 static ERTS_INLINE Eterm copy_object_rel(Process* p, Eterm term, Eterm* base)
 {
     if (!is_immed(term)) {
@@ -1855,16 +1794,11 @@ Eterm db_prog_match(Process *c_p, Binary *bprog,
     Eterm bif_args[3];
     int fail_label;
     int atomic_trace;
-#if HALFWORD_HEAP
-    struct heap_checkpoint_t c_p_checkpoint = {};
-#endif
 #ifdef DMC_DEBUG
     Uint *heap_fence;
     Uint *stack_fence;
     Uint save_op;
 #endif /* DMC_DEBUG */
-
-    ASSERT(base==NULL || HALFWORD_HEAP);
 
     mpsp = get_match_pseudo_process(c_p, prog->heap_size);
     psp = &mpsp->process;
@@ -1916,11 +1850,7 @@ Eterm db_prog_match(Process *c_p, Binary *bprog,
 			     do_catch != 0 */
 
     *return_flags = 0U;
-
     variables = mpsp->u.variables;
-#if HALFWORD_HEAP
-    c_p_checkpoint.p = NULL;
-#endif
 
 restart:
     ep = &term;
@@ -1931,7 +1861,6 @@ restart:
     fail_label = -1;
     build_proc = psp;
     esdp->current_process = psp;
-    ASSERT_HALFWORD(!c_p_checkpoint.p);
 
 #ifdef DEBUG
     ASSERT(variables == mpsp->u.variables);
@@ -2236,31 +2165,10 @@ restart:
 	    esp -= 2;
 	    esp[-1] = t;
 	    break;
-
-	#if HALFWORD_HEAP
-	case matchPushVGuard:
-	    if (!base) goto case_matchPushV;
-	    /* Build NULL-based copy on pseudo heap for easy disposal */
-	    n = *pc++;
-	    ASSERT(is_value(variables[n].term));
-	    ASSERT(!variables[n].proc);
-	    variables[n].term = copy_object_rel(psp, variables[n].term, base);
-	    *esp++ = variables[n].term;
-	    #ifdef DEBUG
-	    variables[n].proc = psp;
-	    variables[n].base = NULL;
-	    #endif
-	    break;
-	#endif
 	case matchPushVResult:
 	    if (!(in_flags & ERTS_PAM_COPY_RESULT)) goto case_matchPushV;
 
 	    /* Build (NULL-based) copy on callers heap */
-	#if HALFWORD_HEAP
-	    if (!do_catch && !c_p_checkpoint.p) {
-		heap_checkpoint_init(c_p, &c_p_checkpoint);
-	    }
-        #endif
 	    n = *pc++;
 	    ASSERT(is_value(variables[n].term));
 	    ASSERT(!variables[n].proc);
@@ -2299,7 +2207,6 @@ restart:
 	    }
 	    break;
 	case matchPushArrayAsList:
-	    ASSERT_HALFWORD(base == NULL);
 	    n = arity; /* Only happens when 'term' is an array */
 	    tp = termp;
 	    ehp = HAllocX(build_proc, n*2, HEAP_XTRA);
@@ -2315,7 +2222,6 @@ restart:
 	    break;
 	case matchPushArrayAsListU:
 	    /* This instruction is NOT efficient. */
-	    ASSERT_HALFWORD(base == NULL);
 	    *esp++  = dpm_array_to_list(build_proc, termp, arity);
 	    break;
 	case matchTrue:
@@ -2619,13 +2525,6 @@ restart:
 	}
     }
 fail:
-#if HALFWORD_HEAP
-    if (c_p_checkpoint.p) {
-	/* Dispose garbage built by guards on caller heap */
-	heap_checkpoint_revert(&c_p_checkpoint);
-	c_p_checkpoint.p = NULL;
-    }
-#endif
     *return_flags = 0U;
     if (fail_label >= 0) { /* We failed during a "TryMeElse",
 			      lets restart, with the next match
@@ -2788,13 +2687,6 @@ Wterm db_do_read_element(DbUpdateHandle* handle, Sint position)
 {
     Eterm elem = handle->dbterm->tpl[position];
     if (!is_header(elem)) {
-#if HALFWORD_HEAP
-	if (!is_immed(elem)
-	    && !handle->tb->common.compress
-	    && !(handle->abs_vec && handle->abs_vec[position])) {
-	    return rterm2wterm(elem, handle->dbterm->tpl);
-	}
-#endif
 	return elem;
     }
 
@@ -2822,9 +2714,6 @@ void db_do_update_element(DbUpdateHandle* handle,
     Eterm* oldp;
     Uint newval_sz;
     Uint oldval_sz;
-#if HALFWORD_HEAP
-    Eterm* old_base;
-#endif
 
     if (is_both_immed(newval,oldval)) {
 	handle->dbterm->tpl[position] = newval;
@@ -2841,15 +2730,8 @@ void db_do_update_element(DbUpdateHandle* handle,
 						       handle->dbterm);
 	    handle->flags |= DB_MUST_RESIZE;
 	    oldval = handle->dbterm->tpl[position];
-        #if HALFWORD_HEAP
-	    old_base = NULL;
-	#endif
 	}
 	else {
-	#if HALFWORD_HEAP
-	    ASSERT(!handle->abs_vec);
-	    old_base = handle->dbterm->tpl;
-	#endif
 	    if (is_boxed(newval)) {
 		newp = boxed_val(newval);
 		switch (*newp & _TAG_HEADER_MASK) {
@@ -2879,13 +2761,6 @@ void db_do_update_element(DbUpdateHandle* handle,
 	    }
 	}
     }
-#if HALFWORD_HEAP
-    else {
-	old_base = (handle->tb->common.compress
-		    || (handle->abs_vec && handle->abs_vec[position])) ?
-	    NULL : handle->dbterm->tpl;
-    }
-#endif
     /* Not possible for simple memcpy or dbterm is already non-contiguous, */
     /* need to realloc... */
 
@@ -2900,19 +2775,6 @@ both_size_set:
     /* write new value in old dbterm, finalize will make a flat copy */
     handle->dbterm->tpl[position] = newval;
     handle->flags |= DB_MUST_RESIZE;
-
-#if HALFWORD_HEAP
-    if (old_base && newval_sz > 0) {
-	ASSERT(!handle->tb->common.compress);
-	if (!handle->abs_vec) {
-	    int i = header_arity(handle->dbterm->tpl[0]);
-	    handle->abs_vec = erts_alloc(ERTS_ALC_T_TMP, (i+1)*sizeof(char));
-	    sys_memset(handle->abs_vec, 0, i+1);
-	    /* abs_vec[0] not used */
-	}
-	handle->abs_vec[position] = 1;
-    }
-#endif
 }
 
 static ERTS_INLINE byte* db_realloc_term(DbTableCommon* tb, void* old,
@@ -3160,26 +3022,6 @@ void db_finalize_resize(DbUpdateHandle* handle, Uint offset)
 
 	tmp_offheap.first = NULL;
 
-    #if HALFWORD_HEAP
-	if (handle->abs_vec) {
-	    int i, arity = header_arity(handle->dbterm->tpl[0]);
-
-	    top[0] = tpl[0];
-	    top += arity + 1;
-	    for (i=1; i<=arity; i++) {
-		Eterm* src_base = handle->abs_vec[i] ? NULL : tpl;
-
-		newDbTerm->tpl[i] = copy_struct_rel(tpl[i],
-						    size_object_rel(tpl[i],src_base),
-						    &top, &tmp_offheap, src_base,
-						    newDbTerm->tpl);
-	    }
-	    newDbTerm->first_oh = tmp_offheap.first;
-	    ASSERT((byte*)top <= (newp + alloc_sz));
-	    erts_free(ERTS_ALC_T_TMP, handle->abs_vec);
-	}
-	else
-    #endif /* HALFWORD_HEAP */
 	{
 	    copy_struct_rel(make_tuple_rel(tpl,tpl), handle->new_size, &top,
 			    &tmp_offheap, tpl, top);
@@ -3599,26 +3441,10 @@ static DMCRet dmc_one_term(DMCContext *context,
 	{
 	    Eterm* ref_val = internal_ref_val(c);
 	    DMC_PUSH(*text, matchEqRef);
-#if HALFWORD_HEAP
-	    {
-		union {
-		    UWord u;
-		    Uint t[2];
-		} fiddle;
-		ASSERT(thing_arityval(ref_val[0]) == 3);
-		fiddle.t[0] = ref_val[0];
-		fiddle.t[1] = ref_val[1];
-		DMC_PUSH(*text, fiddle.u);
-		fiddle.t[0] = ref_val[2];
-		fiddle.t[1] = ref_val[3];
-		DMC_PUSH(*text, fiddle.u);
-	    }
-#else
 	    n = thing_arityval(ref_val[0]);
 	    for (i = 0; i <= n; ++i) {
 		DMC_PUSH(*text, ref_val[i]);
 	    }
-#endif
 	    break;
 	}
 	case (_TAG_HEADER_POS_BIG >> _TAG_PRIMARY_SIZE):
@@ -3627,52 +3453,18 @@ static DMCRet dmc_one_term(DMCContext *context,
 	    Eterm* bval = big_val(c);
 	    n = thing_arityval(bval[0]);
 	    DMC_PUSH(*text, matchEqBig);
-#if HALFWORD_HEAP
-	    {
-		union {
-		    UWord u;
-		    Uint t[2];
-		} fiddle;
-		ASSERT(n >= 1);
-		fiddle.t[0] = bval[0];
-		fiddle.t[1] = bval[1];
-		DMC_PUSH(*text, fiddle.u);
-		for (i = 2; i <= n; ++i) {
-		    fiddle.t[0] = bval[i];
-		    if (++i <= n) {
-			fiddle.t[1] = bval[i];
-		    } else {
-			fiddle.t[1] = (Uint) 0;
-		    }
-		    DMC_PUSH(*text, fiddle.u);
-		}
-	    }
-#else
 	    for (i = 0; i <= n; ++i) {
 		DMC_PUSH(*text, (Uint) bval[i]);
 	    }
-#endif
 	    break;
 	}
 	case (_TAG_HEADER_FLOAT >> _TAG_PRIMARY_SIZE):
 	    DMC_PUSH(*text,matchEqFloat);
-#if HALFWORD_HEAP
-	    {
-		union {
-		    UWord u;
-		    Uint t[2];
-		} fiddle;
-		fiddle.t[0] = float_val(c)[1];
-		fiddle.t[1] = float_val(c)[2];
-		DMC_PUSH(*text, fiddle.u);
-	    }
-#else
 	    DMC_PUSH(*text, (Uint) float_val(c)[1]);
 #ifdef ARCH_64
 	    DMC_PUSH(*text, (Uint) 0);
 #else
 	    DMC_PUSH(*text, (Uint) float_val(c)[2]);
-#endif
 #endif
 	    break;
 	default: /* BINARY, FUN, VECTOR, or EXTERNAL */
@@ -3997,24 +3789,8 @@ static void dmc_add_pushv_variant(DMCContext *context, DMCHeap *heap,
     MatchOps instr = matchPushV;
 
     ASSERT(n < heap->vars_used && v->is_bound);
-    if (context->is_guard) {
-	#if HALFWORD_HEAP
-	if (!v->first_guard_label) {
-	    v->first_guard_label = DMC_STACK_NUM(*text);
-	    ASSERT(v->first_guard_label);
-	    instr = matchPushVGuard; /* may be changed to PushVResult below */
-	}
-	#endif
-    }
-    else { /* body */
-	#if HALFWORD_HEAP
-	if (v->first_guard_label) {
-	    /* Avoid double-copy, copy to result heap at first encounter in guard */
-	    DMC_POKE(*text, v->first_guard_label, matchPushVResult);
-	    v->is_in_body = 1;
-	}
-	#endif
-	if (!v->is_in_body) {
+    if (!context->is_guard) {
+        if(!v->is_in_body) {
 	    instr = matchPushVResult;
 	    v->is_in_body = 1;
 	}
@@ -5450,7 +5226,7 @@ Eterm db_match_dbterm(DbTableCommon* tb, Process* c_p, Binary* bprog,
 	obj = db_alloc_tmp_uncompressed(tb, obj);
 	base = NULL;
     }
-    else base = HALFWORD_HEAP ? obj->tpl : NULL;
+    else base = NULL;
 
     res = db_prog_match(c_p, bprog, make_tuple_rel(obj->tpl,base), base, NULL, 0,
 			ERTS_PAM_COPY_RESULT|ERTS_PAM_CONTIGUOUS_TUPLE, &dummy);
@@ -5573,7 +5349,7 @@ void db_match_dis(Binary *bp)
 			first = 0;
 		    else
 			erts_printf(", ");
-#if defined(ARCH_64) && !HALFWORD_HEAP
+#if defined(ARCH_64)
 		    erts_printf("0x%016bex", rt->data.ui[ri]);
 #else
 		    erts_printf("0x%08bex", rt->data.ui[ri]);
@@ -5597,7 +5373,7 @@ void db_match_dis(Binary *bp)
 			first = 0;
 		    else
 			erts_printf(", ");
-#if defined(ARCH_64) && !HALFWORD_HEAP
+#if defined(ARCH_64)
 		    erts_printf("0x%016bex", *et);
 #else
 		    erts_printf("0x%08bex", *et);
@@ -5720,13 +5496,6 @@ void db_match_dis(Binary *bp)
 	    ++t;
 	    erts_printf("PushV\t%beu\n", n);
 	    break;
-    #if HALFWORD_HEAP
-	case matchPushVGuard:
-	    n = (Uint) *++t;
-	    ++t;
-	    erts_printf("PushVGuard\t%beu\n", n);
-	    break;
-    #endif
 	case matchPushVResult:
 	    n = (Uint) *++t;
 	    ++t;

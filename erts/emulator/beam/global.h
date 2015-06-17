@@ -310,9 +310,6 @@ typedef union {
 typedef struct proc_bin {
     Eterm thing_word;		/* Subtag REFC_BINARY_SUBTAG. */
     Uint size;			/* Binary size in bytes. */
-#if HALFWORD_HEAP
-    void* dummy_ptr_padding__;
-#endif
     struct erl_off_heap_header *next;
     Binary *val;		/* Pointer to Binary structure. */
     byte *bytes;		/* Pointer to the actual data bytes. */
@@ -959,28 +956,14 @@ void erl_error(char*, va_list);
 /* copy.c */
 Eterm copy_object(Eterm, Process*);
 
-#if HALFWORD_HEAP
-Uint size_object_rel(Eterm, Eterm*);
-#  define size_object(A) size_object_rel(A,NULL)
-
-Eterm copy_struct_rel(Eterm, Uint, Eterm**, ErlOffHeap*, Eterm* src_base, Eterm* dst_base);
-#  define copy_struct(OBJ,SZ,HPP,OH) copy_struct_rel(OBJ,SZ,HPP,OH, NULL,NULL)
-
-Eterm copy_shallow_rel(Eterm*, Uint, Eterm**, ErlOffHeap*, Eterm* src_base);
-#  define copy_shallow(A,B,C,D) copy_shallow_rel(A,B,C,D,NULL)
-
-#else /* !HALFWORD_HEAP */
-
 Uint size_object(Eterm);
-#  define size_object_rel(A,B) size_object(A)
+#define size_object_rel(A,B) size_object(A)
 
 Eterm copy_struct(Eterm, Uint, Eterm**, ErlOffHeap*);
-#  define copy_struct_rel(OBJ,SZ,HPP,OH, SB,DB) copy_struct(OBJ,SZ,HPP,OH)
+#define copy_struct_rel(OBJ,SZ,HPP,OH, SB,DB) copy_struct(OBJ,SZ,HPP,OH)
 
 Eterm copy_shallow(Eterm*, Uint, Eterm**, ErlOffHeap*);
-#  define copy_shallow_rel(A,B,C,D, BASE) copy_shallow(A,B,C,D)
-
-#endif
+#define copy_shallow_rel(A,B,C,D, BASE) copy_shallow(A,B,C,D)
 
 
 void move_multi_frags(Eterm** hpp, ErlOffHeap*, ErlHeapFragment* first,
@@ -1180,7 +1163,7 @@ void bin_write(int, void*, byte*, size_t);
 int intlist_to_buf(Eterm, char*, int); /* most callers pass plain char*'s */
 
 struct Sint_buf {
-#if defined(ARCH_64) && !HALFWORD_HEAP
+#if defined(ARCH_64)
     char s[22];
 #else
     char s[12];

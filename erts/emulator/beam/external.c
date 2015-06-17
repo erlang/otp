@@ -2339,10 +2339,6 @@ enc_term_int(TTBEncodeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj, byte* ep,
     Eterm val;
     FloatDef f;
     Sint r = 0;
-#if HALFWORD_HEAP
-    UWord wobj;
-#endif
-
 
     if (ctx) {
 	WSTACK_CHANGE_ALLOCATOR(s, ERTS_ALC_T_SAVED_ESTACK);
@@ -2362,11 +2358,8 @@ enc_term_int(TTBEncodeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj, byte* ep,
 
  outer_loop:
     while (!WSTACK_ISEMPTY(s)) {
-#if HALFWORD_HEAP
-	obj = (Eterm) (wobj = WSTACK_POP(s));
-#else
 	obj = WSTACK_POP(s);
-#endif
+
 	switch (val = WSTACK_POP(s)) {
 	case ENC_TERM:
 	    break;
@@ -2384,11 +2377,7 @@ enc_term_int(TTBEncodeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj, byte* ep,
 	    break;
 	case ENC_PATCH_FUN_SIZE:
 	    {
-#if HALFWORD_HEAP
-		byte* size_p = (byte *) wobj;
-#else
 		byte* size_p = (byte *) obj;
-#endif
 		put_int32(ep - size_p, size_p);
 	    }
 	    goto outer_loop;
@@ -2435,21 +2424,13 @@ enc_term_int(TTBEncodeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj, byte* ep,
 	case ENC_LAST_ARRAY_ELEMENT:
 	    /* obj is the tuple */
 	    {
-#if HALFWORD_HEAP
-		Eterm* ptr = (Eterm *) wobj;
-#else
 		Eterm* ptr = (Eterm *) obj;
-#endif
 		obj = *ptr;
 	    }
 	    break;
 	default:		/* ENC_LAST_ARRAY_ELEMENT+1 and upwards */
 	    {
-#if HALFWORD_HEAP
-		Eterm* ptr = (Eterm *) wobj;
-#else
 		Eterm* ptr = (Eterm *) obj;
-#endif
 		obj = *ptr++;
 		WSTACK_PUSH2(s, val-1, (UWord)ptr);
 	    }
@@ -3049,7 +3030,7 @@ dec_term(ErtsDistExternal *edep,
 		Sint sn = get_int32(ep);
 
 		ep += 4;
-#if defined(ARCH_64) && !HALFWORD_HEAP
+#if defined(ARCH_64)
 		*objp = make_small(sn);
 #else
 		if (MY_IS_SSMALL(sn)) {
@@ -3371,7 +3352,7 @@ dec_term_atom_common:
 		    RefThing *rtp = (RefThing *) hp;
 		    ref_num = (Uint32 *) (hp + REF_THING_HEAD_SIZE);
 
-#if defined(ARCH_64) && !HALFWORD_HEAP
+#if defined(ARCH_64)
 		    hp += REF_THING_HEAD_SIZE + ref_words/2 + 1;
 		    rtp->header = make_ref_thing_header(ref_words/2 + 1);
 #else
@@ -3382,13 +3363,13 @@ dec_term_atom_common:
 		}
 		else {
 		    ExternalThing *etp = (ExternalThing *) hp;
-#if defined(ARCH_64) && !HALFWORD_HEAP
+#if defined(ARCH_64)
 		    hp += EXTERNAL_THING_HEAD_SIZE + ref_words/2 + 1;
 #else
 		    hp += EXTERNAL_THING_HEAD_SIZE + ref_words;
 #endif
 
-#if defined(ARCH_64) && !HALFWORD_HEAP
+#if defined(ARCH_64)
 		    etp->header = make_external_ref_header(ref_words/2 + 1);
 #else
 		    etp->header = make_external_ref_header(ref_words);
@@ -3401,7 +3382,7 @@ dec_term_atom_common:
 		    ref_num = &(etp->data.ui32[0]);
 		}
 
-#if defined(ARCH_64) && !HALFWORD_HEAP
+#if defined(ARCH_64)
 		*(ref_num++) = ref_words /* 32-bit arity */;
 #endif
 		ref_num[0] = r0;
@@ -3409,7 +3390,7 @@ dec_term_atom_common:
 		    ref_num[i] = get_int32(ep);
 		    ep += 4;
 		}
-#if defined(ARCH_64) && !HALFWORD_HEAP
+#if defined(ARCH_64)
 		if ((1 + ref_words) % 2)
 		    ref_num[ref_words] = 0;
 #endif
@@ -3561,12 +3542,7 @@ dec_term_atom_common:
                 }
 		*objp = make_export(hp);
 		*hp++ = HEADER_EXPORT;
-#if HALFWORD_HEAP
-		*((UWord *) (UWord) hp) =  (UWord) erts_export_get_or_make_stub(mod, name, arity);
-		hp += 2;
-#else
 		*hp++ = (Eterm) erts_export_get_or_make_stub(mod, name, arity);
-#endif
 		break;
 	    }
 	    break;
@@ -4192,11 +4168,7 @@ encode_size_struct_int(TTBSizeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj,
 	case EXPORT_DEF:
 	    {
 		Export* ep = *((Export **) (export_val(obj) + 1));
-#if HALFWORD_HEAP
-		result += 2;
-#else
 		result += 1;
-#endif
 		result += encode_size_struct2(acmp, ep->code[0], dflags);
 		result += encode_size_struct2(acmp, ep->code[1], dflags);
 		result += encode_size_struct2(acmp, make_small(ep->code[2]), dflags);
@@ -4311,7 +4283,7 @@ init_done:
 	switch (tag) {
 	case INTEGER_EXT:
 	    SKIP(4);
-#if !defined(ARCH_64) || HALFWORD_HEAP
+#if !defined(ARCH_64)
 	    heap_size += BIG_UINT_HEAP_SIZE;
 #endif
 	    break;
@@ -4400,7 +4372,7 @@ init_done:
 		ep += 2;
 		atom_extra_skip = 1 + 4*id_words;
 		/* In case it is an external ref */
-#if defined(ARCH_64) && !HALFWORD_HEAP
+#if defined(ARCH_64)
 		heap_size += EXTERNAL_THING_HEAD_SIZE + id_words/2 + 1;
 #else
 		heap_size += EXTERNAL_THING_HEAD_SIZE + id_words;
@@ -4486,11 +4458,7 @@ init_done:
 	    break;
 	case EXPORT_EXT:
 	    terms += 3;
-#if HALFWORD_HEAP
-	    heap_size += 3;
-#else
 	    heap_size += 2;
-#endif
 	    break;
 	case NEW_FUN_EXT:
 	    {

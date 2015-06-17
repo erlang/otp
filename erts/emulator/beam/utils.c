@@ -898,7 +898,7 @@ tail_recur:
 	    Uint y2 = y1 < 0 ? -(Uint)y1 : y1;
 
 	    UINT32_HASH_STEP(y2, FUNNY_NUMBER2);
-#if defined(ARCH_64) && !HALFWORD_HEAP
+#if defined(ARCH_64)
 	    if (y2 >> 32)
 		UINT32_HASH_STEP(y2 >> 32, FUNNY_NUMBER2);
 #endif
@@ -1019,7 +1019,7 @@ tail_recur:
 	    }
 	    d = BIG_DIGIT(ptr, k);
 	    k = sizeof(ErtsDigit);
-#if defined(ARCH_64) && !HALFWORD_HEAP
+#if defined(ARCH_64)
 	    if (!(d >> 32))
 		k /= 2;
 #endif
@@ -1989,7 +1989,7 @@ tail_recur:
 	    (atom_tab(atom_val(term))->slot.bucket.hvalue);
 	break;
     case SMALL_DEF:
-#if defined(ARCH_64) && !HALFWORD_HEAP
+#if defined(ARCH_64)
     {
 	Sint y1 = signed_val(term);
 	Uint y2 = y1 < 0 ? -(Uint)y1 : y1;
@@ -2598,11 +2598,7 @@ erts_destroy_tmp_dsbuf(erts_dsprintf_buf_t *dsbufp)
  * Test for equality of two terms.
  * Returns 0 if not equal, or a non-zero value otherwise.
  */
-#if HALFWORD_HEAP
-int eq_rel(Eterm a, Eterm* a_base, Eterm b, Eterm* b_base)
-#else
 int eq(Eterm a, Eterm b)
-#endif
 {
     DECLARE_WSTACK(stack);
     Sint sz;
@@ -2992,7 +2988,6 @@ static int cmp_atoms(Eterm a, Eterm b)
 		    bb->name+3, bb->len-3);
 }
 
-#if !HALFWORD_HEAP
 /* cmp(Eterm a, Eterm b)
  *  For compatibility with HiPE - arith-based compare.
  */
@@ -3000,23 +2995,10 @@ Sint cmp(Eterm a, Eterm b)
 {
     return erts_cmp(a, b, 0, 0);
 }
-#endif
 
-#if HALFWORD_HEAP
-static Sint erts_cmp_compound_rel_opt(Eterm a, Eterm* a_base,
-                                      Eterm b, Eterm* b_base,
-                                      int exact, int eq_only);
-#else
 static Sint erts_cmp_compound(Eterm a, Eterm b, int exact, int eq_only);
-#endif
 
-#if HALFWORD_HEAP
-Sint erts_cmp_rel_opt(Eterm a, Eterm* a_base,
-                      Eterm b, Eterm* b_base,
-                      int exact, int eq_only)
-#else
 Sint erts_cmp(Eterm a, Eterm b, int exact, int eq_only)
-#endif
 {
     if (is_atom(a) && is_atom(b)) {
         return cmp_atoms(a, b);
@@ -3028,11 +3010,7 @@ Sint erts_cmp(Eterm a, Eterm b, int exact, int eq_only)
         GET_DOUBLE_REL(b, bf, b_base);
         return float_comp(af.fd, bf.fd);
     }
-#if HALFWORD_HEAP
-    return erts_cmp_compound_rel_opt(a,a_base,b,b_base,exact,eq_only);
-#else
     return erts_cmp_compound(a,b,exact,eq_only);
-#endif
 }
 
 
@@ -3040,13 +3018,7 @@ Sint erts_cmp(Eterm a, Eterm b, int exact, int eq_only)
  * exact = 1 -> term-based compare
  * exact = 0 -> arith-based compare
  */
-#if HALFWORD_HEAP
-static Sint erts_cmp_compound_rel_opt(Eterm a, Eterm* a_base,
-                                      Eterm b, Eterm* b_base,
-                                      int exact, int eq_only)
-#else
 static Sint erts_cmp_compound(Eterm a, Eterm b, int exact, int eq_only)
-#endif
 {
 #define PSTACK_TYPE struct erts_cmp_hashmap_state
     struct erts_cmp_hashmap_state {
@@ -3551,13 +3523,8 @@ tailrecur_ne:
     {
 	FloatDef f1, f2;
 	Eterm big;
-#if HALFWORD_HEAP
-	Wterm aw = is_immed(a) ? a : rterm2wterm(a,a_base);
-	Wterm bw = is_immed(b) ? b : rterm2wterm(b,b_base);
-#else
 	Eterm aw = a;
 	Eterm bw = b;
-#endif
 #define MAX_LOSSLESS_FLOAT ((double)((1LL << 53) - 2))
 #define MIN_LOSSLESS_FLOAT ((double)(((1LL << 53) - 2)*-1))
 #define BIG_ARITY_FLOAT_MAX (1024 / D_EXP) /* arity of max float as a bignum */
@@ -4369,7 +4336,7 @@ iolist_size(const int yield_support, ErtsIOListState *state, Eterm obj, ErlDrvSi
 {
     int res, init_yield_count, yield_count;
     Eterm* objp;
-    Uint size = (Uint) *sizep; /* Intentionally Uint due to halfword heap */
+    Uint size = (Uint) *sizep;
     DECLARE_ESTACK(s);
 
     if (!yield_support)

@@ -2589,9 +2589,6 @@ db_lookup_dbterm_tree(Process *p, DbTable *tbl, Eterm key, Eterm obj,
     handle->flags = flags;
     handle->bp = (void**) pp;
     handle->new_size = (*pp)->dbterm.size;
-#if HALFWORD_HEAP
-    handle->abs_vec = NULL;
-#endif
     return 1;
 }
 

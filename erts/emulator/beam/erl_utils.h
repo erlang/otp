@@ -157,24 +157,11 @@ void erts_init_utils_mem(void);
 erts_dsprintf_buf_t *erts_create_tmp_dsbuf(Uint);
 void erts_destroy_tmp_dsbuf(erts_dsprintf_buf_t *);
 
-#if HALFWORD_HEAP
-int eq_rel(Eterm a, Eterm* a_base, Eterm b, Eterm* b_base);
-#  define eq(A,B) eq_rel(A,NULL,B,NULL)
-#else
 int eq(Eterm, Eterm);
-#  define eq_rel(A,A_BASE,B,B_BASE) eq(A,B)
-#endif
+#define eq_rel(A,A_BASE,B,B_BASE) eq(A,B)
 
 #define EQ(x,y) (((x) == (y)) || (is_not_both_immed((x),(y)) && eq((x),(y))))
 
-#if HALFWORD_HEAP
-Sint erts_cmp_rel_opt(Eterm, Eterm*, Eterm, Eterm*, int, int);
-#define cmp_rel(A,A_BASE,B,B_BASE)       erts_cmp_rel_opt(A,A_BASE,B,B_BASE,0,0)
-#define cmp_rel_term(A,A_BASE,B,B_BASE)  erts_cmp_rel_opt(A,A_BASE,B,B_BASE,1,0)
-#define CMP(A,B)                         erts_cmp_rel_opt(A,NULL,B,NULL,0,0)
-#define CMP_TERM(A,B)                    erts_cmp_rel_opt(A,NULL,B,NULL,1,0)
-#define CMP_EQ_ONLY(A,B)                 erts_cmp_rel_opt(A,NULL,B,NULL,0,1)
-#else
 Sint erts_cmp(Eterm, Eterm, int, int);
 Sint cmp(Eterm a, Eterm b);
 #define cmp_rel(A,A_BASE,B,B_BASE)       erts_cmp(A,B,0,0)
@@ -182,7 +169,6 @@ Sint cmp(Eterm a, Eterm b);
 #define CMP(A,B)                         erts_cmp(A,B,0,0)
 #define CMP_TERM(A,B)                    erts_cmp(A,B,1,0)
 #define CMP_EQ_ONLY(A,B)                 erts_cmp(A,B,0,1)
-#endif
 
 #define cmp_lt(a,b)          (CMP((a),(b)) <  0)
 #define cmp_le(a,b)          (CMP((a),(b)) <= 0)

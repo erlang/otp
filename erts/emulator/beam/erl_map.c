@@ -170,11 +170,7 @@ BIF_RETTYPE maps_to_list_1(BIF_ALIST_1) {
  */
 
 const Eterm *
-#if HALFWORD_HEAP
-erts_maps_get_rel(Eterm key, Eterm map, Eterm *map_base)
-#else
 erts_maps_get(Eterm key, Eterm map)
-#endif
 {
     Uint32 hx;
     if (is_flatmap_rel(map, map_base)) {
@@ -1993,11 +1989,7 @@ Eterm* hashmap_iterator_prev(ErtsWStack* s) {
 }
 
 const Eterm *
-#if HALFWORD_HEAP
-erts_hashmap_get_rel(Uint32 hx, Eterm key, Eterm node, Eterm *map_base)
-#else
 erts_hashmap_get(Uint32 hx, Eterm key, Eterm node)
-#endif
 {
     Eterm *ptr, hdr, *res;
     Uint ix, lvl = 0;

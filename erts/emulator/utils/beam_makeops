@@ -605,11 +605,7 @@ sub emulator_output {
     print "#ifdef ARCH_64\n";
     print "#  define BEAM_WIDE_MASK 0xFFFFUL\n";
     print "#  define BEAM_LOOSE_MASK 0x1FFFUL\n";
-    print "#if HALFWORD_HEAP\n";
-    print "#  define BEAM_TIGHT_MASK 0x1FFCUL\n";
-    print "#else\n";
     print "#  define BEAM_TIGHT_MASK 0x1FF8UL\n";
-    print "#endif\n";
     print "#  define BEAM_WIDE_SHIFT 32\n";
     print "#  define BEAM_LOOSE_SHIFT 16\n";
     print "#  define BEAM_TIGHT_SHIFT 16\n";

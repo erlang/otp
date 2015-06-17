@@ -1894,15 +1894,14 @@ load_code(LoaderState* stp)
 			 */
 			{
 			    Eterm* hp;
-/* XXX:PaN - Halfword should use ARCH_64 variant instead */
-#if !defined(ARCH_64) || HALFWORD_HEAP
+#if !defined(ARCH_64)
 			    Uint high, low;
 # endif
 			    last_op->a[arg].val = new_literal(stp, &hp,
 							      FLOAT_SIZE_OBJECT);
 			    hp[0] = HEADER_FLONUM;
 			    last_op->a[arg].type = TAG_q;
-#if defined(ARCH_64) && !HALFWORD_HEAP
+#if defined(ARCH_64)
 			    GetInt(stp, 8, hp[1]);
 # else
 			    GetInt(stp, 4, high);
@@ -3272,14 +3271,14 @@ gen_literal_timeout(LoaderState* stp, GenOpArg Fail, GenOpArg Time)
     op->a[1].type = TAG_u;
     
     if (Time.type == TAG_i && (timeout = Time.val) >= 0 &&
-#if defined(ARCH_64) && !HALFWORD_HEAP
+#if defined(ARCH_64)
 	(timeout >> 32) == 0
 #else
 	1
 #endif
 	) {
 	op->a[1].val = timeout;
-#if !defined(ARCH_64) || HALFWORD_HEAP
+#if !defined(ARCH_64)
     } else if (Time.type == TAG_q) {
 	Eterm big;
 
@@ -3296,7 +3295,7 @@ gen_literal_timeout(LoaderState* stp, GenOpArg Fail, GenOpArg Time)
 	}
 #endif
     } else {
-#if !defined(ARCH_64) || HALFWORD_HEAP
+#if !defined(ARCH_64)
     error:
 #endif
 	op->op = genop_i_wait_error_0;
@@ -3319,14 +3318,14 @@ gen_literal_timeout_locked(LoaderState* stp, GenOpArg Fail, GenOpArg Time)
     op->a[1].type = TAG_u;
     
     if (Time.type == TAG_i && (timeout = Time.val) >= 0 &&
-#if defined(ARCH_64) && !HALFWORD_HEAP
+#if defined(ARCH_64)
 	(timeout >> 32) == 0
 #else
 	1
 #endif
 	) {
 	op->a[1].val = timeout;
-#if !defined(ARCH_64) || HALFWORD_HEAP
+#if !defined(ARCH_64)
     } else if (Time.type == TAG_q) {
 	Eterm big;
 
@@ -3343,7 +3342,7 @@ gen_literal_timeout_locked(LoaderState* stp, GenOpArg Fail, GenOpArg Time)
 	}
 #endif
     } else {
-#if !defined(ARCH_64) || HALFWORD_HEAP
+#if !defined(ARCH_64)
     error:
 #endif
 	op->op = genop_i_wait_error_locked_0;

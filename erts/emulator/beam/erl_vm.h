@@ -117,12 +117,8 @@
 #define HeapWordsLeft(p) (HEAP_LIMIT(p) - HEAP_TOP(p))
 
 #if defined(DEBUG) || defined(CHECK_FOR_HOLES)
-#if HALFWORD_HEAP
-# define ERTS_HOLE_MARKER (0xdeadbeef)
-#else
 # define ERTS_HOLE_MARKER (((0xdeadbeef << 24) << 8) | 0xdeadbeef)
-#endif
-#endif
+#endif /* egil: 32-bit ? */
 
 /*
  * Allocate heap memory on the ordinary heap, NEVER in a heap

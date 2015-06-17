@@ -21,33 +21,12 @@
 #ifndef __ERL_TERM_H
 #define __ERL_TERM_H
 
-#include "sys.h" /* defines HALFWORD_HEAP */
-
 typedef UWord Wterm;  /* Full word terms */
 
-#if HALFWORD_HEAP
-#  define HEAP_ON_C_STACK 0
-#  if HALFWORD_ASSERT
-#    ifdef ET_DEBUG
-#      undef ET_DEBUG
-#    endif
-#    define ET_DEBUG 1
-#  endif
-#  if 1
-#    define CHECK_POINTER_MASK 0xFFFFFFFF00000000UL
-#    define COMPRESS_POINTER(APointer) ((Eterm) (UWord) (APointer))
-#    define EXPAND_POINTER(AnEterm) ((UWord) (AnEterm))
-#  else
-#    define CHECK_POINTER_MASK 0x0UL
-#    define COMPRESS_POINTER(AnUint) (AnUint)
-#    define EXPAND_POINTER(APointer) (APointer)
-#  endif
-#else
-#  define HEAP_ON_C_STACK 1
-#  define CHECK_POINTER_MASK 0x0UL
-#  define COMPRESS_POINTER(AnUint) (AnUint)
-#  define EXPAND_POINTER(APointer) (APointer)
-#endif
+#define HEAP_ON_C_STACK 1
+#define CHECK_POINTER_MASK 0x0UL
+#define COMPRESS_POINTER(AnUint) (AnUint)
+#define EXPAND_POINTER(APointer) (APointer)
 
 struct erl_node_; /* Declared in erl_node_tables.h */
 
@@ -190,13 +169,10 @@ struct erl_node_; /* Declared in erl_node_tables.h */
 
 
 /* boxed object access methods */
-#if HALFWORD_HEAP
-#define _is_taggable_pointer(x)	 (((UWord)(x) & (CHECK_POINTER_MASK | 0x3)) == 0)
-#define _boxed_precond(x)        (is_boxed(x))
-#else
+
 #define _is_taggable_pointer(x)	 (((Uint)(x) & 0x3) == 0)
 #define  _boxed_precond(x)       (is_boxed(x))
-#endif
+
 #define _is_aligned(x)		(((Uint)(x) & 0x3) == 0)
 #define _unchecked_make_boxed(x) ((Uint) COMPRESS_POINTER(x) + TAG_PRIMARY_BOXED)
 _ET_DECLARE_CHECKED(Eterm,make_boxed,const Eterm*)
@@ -226,11 +202,7 @@ _ET_DECLARE_CHECKED(int,is_not_list,Eterm)
 #define is_list(x)		(((x) & _TAG_PRIMARY_MASK) == TAG_PRIMARY_LIST)
 #define is_not_list(x)		(!is_list((x)))
 #endif
-#if HALFWORD_HEAP
 #define _list_precond(x)        (is_list(x))
-#else
-#define _list_precond(x)       (is_list(x))
-#endif
 #define _unchecked_list_val(x) ((Eterm*) EXPAND_POINTER((x) - TAG_PRIMARY_LIST))
 _ET_DECLARE_CHECKED(Eterm*,list_val,Wterm)
 #define list_val(x)		_ET_APPLY(list_val,(x))
@@ -250,7 +222,7 @@ _ET_DECLARE_CHECKED(Eterm*,list_val,Wterm)
 #define byte_offset_ptr(x,offs) _unchecked_byte_offset_ptr(x,offs)  /*XXX*/
 
 /* fixnum ("small") access methods */
-#if defined(ARCH_64) && !HALFWORD_HEAP
+#if defined(ARCH_64)
 #define SMALL_BITS	(64-4)
 #define SMALL_DIGITS	(17)
 #else
@@ -396,11 +368,7 @@ _ET_DECLARE_CHECKED(Eterm*,fun_val,Wterm)
 _ET_DECLARE_CHECKED(Eterm*,export_val,Wterm)
 #define export_val(x)	_ET_APPLY(export_val,(x))
 #define is_export_header(x)	((x) == HEADER_EXPORT)
-#if HALFWORD_HEAP
-#define HEADER_EXPORT   _make_header(2,_TAG_HEADER_EXPORT)
-#else
 #define HEADER_EXPORT   _make_header(1,_TAG_HEADER_EXPORT)
-#endif
 
 /* bignum access methods */
 #define make_pos_bignum_header(sz)	_make_header((sz),_TAG_HEADER_POS_BIG)
@@ -424,7 +392,7 @@ _ET_DECLARE_CHECKED(Eterm*,big_val,Wterm)
 #define big_val(x)		_ET_APPLY(big_val,(x))
 
 /* flonum ("float") access methods */
-#if defined(ARCH_64) && !HALFWORD_HEAP
+#if defined(ARCH_64)
 #define HEADER_FLONUM   _make_header(1,_TAG_HEADER_FLOAT)
 #else
 #define HEADER_FLONUM	_make_header(2,_TAG_HEADER_FLOAT)
@@ -445,12 +413,12 @@ typedef union float_def
     byte   fb[sizeof(ieee754_8)];
     Uint16 fs[sizeof(ieee754_8) / sizeof(Uint16)];
     Uint32 fw[sizeof(ieee754_8) / sizeof(Uint32)];
-#if defined(ARCH_64) && !HALFWORD_HEAP
+#if defined(ARCH_64)
     Uint   fdw;
 #endif
 } FloatDef;
 
-#if defined(ARCH_64) && !HALFWORD_HEAP
+#if defined(ARCH_64)
 
 #define FLOAT_VAL_GET_DOUBLE(fval, f) (f).fdw = *((fval)+1)
 
@@ -727,7 +695,7 @@ _ET_DECLARE_CHECKED(struct erl_node_*,internal_port_node,Eterm)
 #define ERTS_MAX_REF_NUMBERS	3
 #define ERTS_REF_NUMBERS	ERTS_MAX_REF_NUMBERS
 
-#if defined(ARCH_64) && !HALFWORD_HEAP
+#if defined(ARCH_64)
 #  define ERTS_REF_WORDS	(ERTS_REF_NUMBERS/2 + 1)
 #  define ERTS_REF_32BIT_WORDS  (ERTS_REF_NUMBERS+1)
 #else
@@ -749,7 +717,7 @@ typedef struct {
 #define make_ref_thing_header(DW) \
   _make_header((DW)+REF_THING_HEAD_SIZE-1,_TAG_HEADER_REF)
 
-#if defined(ARCH_64) && !HALFWORD_HEAP
+#if defined(ARCH_64)
 
 /*
  * Ref layout on a 64-bit little endian machine:
@@ -1159,16 +1127,8 @@ extern unsigned tag_val_def(Wterm);
 #define FLOAT_BIG 	_NUMBER_CODE(FLOAT_DEF,BIG_DEF)
 #define FLOAT_FLOAT	_NUMBER_CODE(FLOAT_DEF,FLOAT_DEF)
 
-#if HALFWORD_HEAP
-#define ptr2rel(PTR,BASE) ((Eterm*)((char*)(PTR) - (char*)(BASE)))
-#define rterm2wterm(REL,BASE) ((Wterm)(REL) + (Wterm)(BASE))
-
-#else /* HALFWORD_HEAP */
-
 #define ptr2rel(PTR,BASE) (PTR)
 #define rterm2wterm(REL,BASE) (REL)
-
-#endif /* !HALFWORD_HEAP */
 
 #define make_list_rel(PTR, BASE) make_list(ptr2rel(PTR,BASE))
 #define make_boxed_rel(PTR, BASE) make_boxed(ptr2rel(PTR,BASE))
@@ -1216,25 +1176,7 @@ extern unsigned tag_val_def(Wterm);
 
 #define external_node_rel(RTERM,BASE) external_node(rterm2wterm(RTERM,BASE))
 
-
-#if HALFWORD_HEAP
-ERTS_GLB_INLINE int is_same(Eterm a, Eterm* a_base, Eterm b, Eterm* b_base);
-
-#if ERTS_GLB_INLINE_INCL_FUNC_DEF
-ERTS_GLB_INLINE int is_same(Eterm a, Eterm* a_base, Eterm b, Eterm* b_base)
-{
-    /* If bases differ, assume a and b are on different "heaps",
-       ie can only be same if immed */
-    ASSERT(a_base == b_base || is_immed(a) || is_immed(b)
-	   || rterm2wterm(a,a_base) != rterm2wterm(b,b_base));
-
-    return a == b && (a_base == b_base || is_immed(a));
-}
-#endif
-
-#else /* !HALFWORD_HEAP */
 #define is_same(A,A_BASE,B,B_BASE) ((A)==(B))
-#endif
 
 #endif	/* __ERL_TERM_H */
 

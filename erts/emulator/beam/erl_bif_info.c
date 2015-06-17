@@ -73,7 +73,7 @@ static char otp_version[] = ERLANG_OTP_VERSION;
 static char erts_system_version[] = ("Erlang/OTP " ERLANG_OTP_RELEASE
 				     "%s"
 				     " [erts-" ERLANG_VERSION "]"
-#if !HEAP_ON_C_STACK && !HALFWORD_HEAP
+#if !HEAP_ON_C_STACK
 				     " [no-c-stack-objects]"
 #endif
 #ifndef OTP_RELEASE
@@ -84,11 +84,7 @@ static char erts_system_version[] = ("Erlang/OTP " ERLANG_OTP_RELEASE
 #endif
 #endif	
 #ifdef ARCH_64
-#if HALFWORD_HEAP
-				     " [64-bit halfword]"
-#else
 				     " [64-bit]"
-#endif
 #endif
 #ifdef ERTS_SMP
 				     " [smp:%beu:%beu]"

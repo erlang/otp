@@ -119,7 +119,7 @@
 #define RUNQ_SET_RQ(X, RQ) erts_smp_atomic_set_nob((X), (erts_aint_t) (RQ))
 
 #ifdef DEBUG
-#  if defined(ARCH_64) && !HALFWORD_HEAP
+#  if defined(ARCH_64)
 #    define ERTS_DBG_SET_INVALID_RUNQP(RQP, N) \
     (RUNQ_SET_RQ((RQP), (0xdeadbeefdead0003LL | ((N) << 4)))
 #  define ERTS_DBG_VERIFY_VALID_RUNQP(RQP) \
@@ -971,25 +971,10 @@ typedef struct {
     erts_smp_atomic32_t refc;
 } ErtsSchedWallTimeReq;
 
-#if !HALFWORD_HEAP
 ERTS_SCHED_PREF_QUICK_ALLOC_IMPL(swtreq,
-				 ErtsSchedWallTimeReq,
-				 5,
-				 ERTS_ALC_T_SCHED_WTIME_REQ)
-#else
-static ERTS_INLINE ErtsSchedWallTimeReq *
-swtreq_alloc(void)
-{
-    return erts_alloc(ERTS_ALC_T_SCHED_WTIME_REQ,
-		      sizeof(ErtsSchedWallTimeReq));
-}
-
-static ERTS_INLINE void
-swtreq_free(ErtsSchedWallTimeReq *ptr)
-{
-    erts_free(ERTS_ALC_T_SCHED_WTIME_REQ, ptr);
-}
-#endif
+                                 ErtsSchedWallTimeReq,
+                                 5,
+                                 ERTS_ALC_T_SCHED_WTIME_REQ)
 
 static void
 reply_sched_wall_time(void *vswtrp)
@@ -5797,9 +5782,7 @@ erts_init_scheduling(int no_schedulers, int no_schedulers_online
 #endif
 
     init_misc_aux_work();
-#if !HALFWORD_HEAP
     init_swtreq_alloc();
-#endif
 
     erts_atomic32_init_nob(&debug_wait_completed_count, 0); /* debug only */
     debug_wait_completed_flags = 0;
@@ -8286,7 +8269,7 @@ add_pend_suspend(Process *suspendee,
 					 sizeof(ErtsPendingSuspend));
     psp->next = NULL;
 #ifdef DEBUG
-#if defined(ARCH_64) && !HALFWORD_HEAP
+#if defined(ARCH_64)
     psp->end = (ErtsPendingSuspend *) 0xdeaddeaddeaddead;
 #else
     psp->end = (ErtsPendingSuspend *) 0xdeaddead;

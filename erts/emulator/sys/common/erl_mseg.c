@@ -107,9 +107,6 @@ const ErtsMsegOpt_t erts_mseg_default_opt = {
     0,			/* Absolute shrink threshold */
     0,			/* Relative shrink threshold */
     0			/* Scheduler specific        */
-#if HALFWORD_HEAP
-    ,0                  /* need low memory */
-#endif
 };
 
 
@@ -184,12 +181,7 @@ struct ErtsMsegAllctr_t_ {
 
     MemKind* mk_list;
 
-#if HALFWORD_HEAP
-    MemKind low_mem;
-    MemKind hi_mem;
-#else
     MemKind the_mem;
-#endif
 
     Uint max_cache_size;
     Uint abs_max_cache_bad_fit;
@@ -309,11 +301,6 @@ mseg_create(ErtsMsegAllctr_t *ma, Uint flags, MemKind* mk, UWord *sizep)
 #endif
     void *seg;
     Uint32 mmap_flags = 0;
-#if HALFWORD_HEAP
-    mmap_flags |= ((mk == &ma->low_mem)
-		   ? ERTS_MMAPFLG_SUPERCARRIER_ONLY
-		   : ERTS_MMAPFLG_OS_ONLY);
-#endif
     if (MSEG_FLG_IS_2POW(flags))
 	mmap_flags |= ERTS_MMAPFLG_SUPERALIGNED;
 
@@ -334,11 +321,6 @@ static ERTS_INLINE void
 mseg_destroy(ErtsMsegAllctr_t *ma, Uint flags, MemKind* mk, void *seg_p, UWord size) {
     
     Uint32 mmap_flags = 0;
-#if HALFWORD_HEAP
-    mmap_flags |= ((mk == &ma->low_mem)
-		   ? ERTS_MMAPFLG_SUPERCARRIER_ONLY
-		   : ERTS_MMAPFLG_OS_ONLY);
-#endif
     if (MSEG_FLG_IS_2POW(flags))
 	 mmap_flags |= ERTS_MMAPFLG_SUPERALIGNED;
 
@@ -360,11 +342,6 @@ mseg_recreate(ErtsMsegAllctr_t *ma, Uint flags, MemKind* mk, void *old_seg, UWor
 #endif
     void *new_seg;
     Uint32 mmap_flags = 0;
-#if HALFWORD_HEAP
-    mmap_flags |= ((mk == &ma->low_mem)
-		   ? ERTS_MMAPFLG_SUPERCARRIER_ONLY
-		   : ERTS_MMAPFLG_OS_ONLY);
-#endif
     if (MSEG_FLG_IS_2POW(flags))
 	mmap_flags |= ERTS_MMAPFLG_SUPERALIGNED;
 
@@ -768,11 +745,7 @@ void erts_mseg_clear_cache(void) {
 static ERTS_INLINE MemKind* memkind(ErtsMsegAllctr_t *ma,
 				    const ErtsMsegOpt_t *opt)
 {
-#if HALFWORD_HEAP
-    return opt->low_mem ? &ma->low_mem : &ma->hi_mem;
-#else
     return &ma->the_mem;
-#endif
 }
 
 static void *
@@ -1326,12 +1299,7 @@ erts_mseg_info(int ix,
     ERTS_MSEG_LOCK(ma);
     ERTS_DBG_MA_CHK_THR_ACCESS(ma);
 
-#if HALFWORD_HEAP
-    values[n++] = info_memkind(ma, &ma->low_mem, print_to_p, print_to_arg, begin_max_per, hpp, szp);
-    values[n++] = info_memkind(ma, &ma->hi_mem, print_to_p, print_to_arg, begin_max_per, hpp, szp);
-#else
     values[n++] = info_memkind(ma, &ma->the_mem, print_to_p, print_to_arg, begin_max_per, hpp, szp);
-#endif
     if (hpp || szp)
 	res = bld_2tup_list(hpp, szp, n, atoms, values);
 
@@ -1488,15 +1456,6 @@ erts_mseg_init(ErtsMsegInit_t *init)
 
     erts_mtx_init(&init_atoms_mutex, "mseg_init_atoms");
 
-#if HALFWORD_HEAP
-    if (sizeof(void *) != 8)
-	erl_exit(-1,"Halfword emulator cannot be run in 32bit mode");
-
-    init->mmap.virtual_range.start = (char *) sbrk(0);
-    init->mmap.virtual_range.end = (char *) 0x100000000UL;
-    init->mmap.sco = 0;
-#endif
-
     erts_mmap_init(&init->mmap);
 
     if (!IS_2POW(GET_PAGE_SIZE))
@@ -1531,12 +1490,7 @@ erts_mseg_init(ErtsMsegInit_t *init)
 
 	ma->mk_list = NULL;
 
-#if HALFWORD_HEAP
-	mem_kind_init(ma, &ma->low_mem, "low memory");
-	mem_kind_init(ma, &ma->hi_mem, "high memory");
-#else
 	mem_kind_init(ma, &ma->the_mem, "all memory");
-#endif
 
 	sys_memzero((void *) &ma->calls, sizeof(ErtsMsegCalls));
     }

@@ -105,22 +105,12 @@ Eterm  erts_hashmap_from_ks_and_vs_extra(Process *p, Eterm *ks, Eterm *vs, Uint 
 					 Eterm k, Eterm v);
 
 const Eterm *
-#if HALFWORD_HEAP
-erts_maps_get_rel(Eterm key, Eterm map, Eterm *map_base);
-#  define erts_maps_get(A, B) erts_maps_get_rel(A, B, NULL)
-#else
 erts_maps_get(Eterm key, Eterm map);
-#  define erts_maps_get_rel(A, B, B_BASE) erts_maps_get(A, B)
-#endif
+#define erts_maps_get_rel(A, B, B_BASE) erts_maps_get(A, B)
 
 const Eterm *
-#if HALFWORD_HEAP
-erts_hashmap_get_rel(Uint32 hx, Eterm key, Eterm node, Eterm *map_base);
-#  define erts_hashmap_get(Hx, K, M) erts_hashmap_get_rel(Hx, K, M, NULL)
-#else
 erts_hashmap_get(Uint32 hx, Eterm key, Eterm map);
-#  define erts_hashmap_get_rel(Hx, K, M, M_BASE) erts_hashmap_get(Hx, K, M)
-#endif
+#define erts_hashmap_get_rel(Hx, K, M, M_BASE) erts_hashmap_get(Hx, K, M)
 
 /* hamt nodes v2.0
  *

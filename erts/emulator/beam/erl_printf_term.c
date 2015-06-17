@@ -261,7 +261,7 @@ static char *format_binary(Uint16 x, char *b) {
 
 static int
 print_term(fmtfn_t fn, void* arg, Eterm obj, long *dcount,
-	   Eterm* obj_base) /* ignored if !HALFWORD_HEAP */
+	   Eterm* obj_base)
 {
     DECLARE_WSTACK(s);
     int res;
@@ -344,11 +344,7 @@ print_term(fmtfn_t fn, void* arg, Eterm obj, long *dcount,
 	    PRINT_CHAR(res, fn, arg, '>');
 	    goto L_done;
 	}
-#if HALFWORD_HEAP
-	wobj = is_immed(obj) ? (Wterm)obj : rterm2wterm(obj, obj_base);
-#else
 	wobj = (Wterm)obj;
-#endif
 	switch (tag_val_def(wobj)) {
 	case NIL_DEF:
 	    PRINT_STRING(res, fn, arg, "[]");

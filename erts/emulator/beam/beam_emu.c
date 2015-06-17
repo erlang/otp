@@ -756,7 +756,7 @@ void** beam_ops;
 #define IsBitstring(Src, Fail) \
   if (is_not_binary(Src)) { Fail; }
 
-#if defined(ARCH_64) && !HALFWORD_HEAP
+#if defined(ARCH_64)
 #define BsSafeMul(A, B, Fail, Target)		\
    do { Uint64 _res = (A) * (B);		\
       if (_res / B != A) { Fail; }		\
@@ -1247,9 +1247,6 @@ void process_main(void)
 
     PROCESS_MAIN_CHK_LOCKS(c_p);
     ERTS_SMP_UNREQ_PROC_MAIN_LOCK(c_p);
-#if HALFWORD_HEAP
-    ASSERT(erts_get_scheduler_data()->num_tmp_heap_used == 0);
-#endif
     ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
     c_p = schedule(c_p, reds_used);
     ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
@@ -2131,8 +2128,6 @@ void process_main(void)
 		  * c_p->def_arg_reg[0].  Note that it is safe to use this
 		  * location because there are no living x registers in
 		  * a receive statement.
-		  * Note that for the halfword emulator, the two first elements
-		  * of the array are used.
 		  */
 		 BeamInstr** pi = (BeamInstr**) c_p->def_arg_reg;
 		 *pi = I+3;
@@ -4535,11 +4530,11 @@ do {								\
 	     _integer = get_int32(_mb->base + _mb->offset/8);
 	 }
 	 _mb->offset += 32;
-#if !defined(ARCH_64) || HALFWORD_HEAP
+#if !defined(ARCH_64)
 	 if (IS_USMALL(0, _integer)) {
 #endif
 	     _result = make_small(_integer);
-#if !defined(ARCH_64) || HALFWORD_HEAP
+#if !defined(ARCH_64)
 	 } else {
 	     TestHeap(BIG_UINT_HEAP_SIZE, Arg(1));
 	     _result = uint_to_big((Uint) _integer, HTOP);
@@ -5129,7 +5124,7 @@ do {								\
      neg_o_reds = -c_p->def_arg_reg[4];
      FCALLS = c_p->fcalls;
      SWAPIN;
-     switch( c_p->def_arg_reg[3] ) { /* Halfword wont work with hipe yet! */
+     switch( c_p->def_arg_reg[3] ) {
        case HIPE_MODE_SWITCH_RES_RETURN:
 	 ASSERT(is_value(reg[0]));
 	 MoveReturn(reg[0], r(0));

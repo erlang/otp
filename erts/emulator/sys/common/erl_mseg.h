@@ -87,9 +87,6 @@ typedef struct {
     UWord abs_shrink_th;
     UWord rel_shrink_th;
     int sched_spec;
-#if HALFWORD_HEAP
-    int low_mem;
-#endif
 } ErtsMsegOpt_t;
 
 extern const ErtsMsegOpt_t erts_mseg_default_opt;
