@@ -12501,7 +12501,7 @@ stack_element_dump(int to, void *to_arg, Eterm* sp, int yreg)
     }
 
     if (is_CP(x)) {
-        erts_print(to, to_arg, "Return addr %p (", (Eterm *) EXPAND_POINTER(x));
+        erts_print(to, to_arg, "Return addr %p (", (Eterm *) x);
         print_function_from_pc(to, to_arg, cp_val(x));
         erts_print(to, to_arg, ")\n");
         yreg = 0;

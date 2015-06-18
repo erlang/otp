@@ -258,7 +258,7 @@ Eterm erl_is_function(Process* p, Eterm arg1, Eterm arg2)
 	    BIF_RET(am_true);
 	}
     } else if (is_export(arg1)) {
-	Export* exp = (Export *) EXPAND_POINTER((export_val(arg1))[1]);
+	Export* exp = (Export *) (export_val(arg1)[1]);
 
 	if (exp->code[2] == (Uint) arity) {
 	    BIF_RET(am_true);

@@ -620,46 +620,45 @@ void** beam_ops;
 
 #define GetTupleElement(Src, Element, Dest)				\
   do {									\
-    tmp_arg1 = (Eterm) COMPRESS_POINTER(((unsigned char *) tuple_val(Src)) + 	\
-				(Element));				\
-    (Dest) = (*(Eterm *) EXPAND_POINTER(tmp_arg1));			\
+    tmp_arg1 = (Eterm) (((unsigned char *) tuple_val(Src)) + (Element));\
+    (Dest) = (*(Eterm *) tmp_arg1);	                		\
   } while (0)
 
 #define ExtractNextElement(Dest)					  \
     tmp_arg1 += sizeof(Eterm);						  \
-    (Dest) = (* (Eterm *) (((unsigned char *) EXPAND_POINTER(tmp_arg1))))
+    (Dest) = (* (Eterm *) (((unsigned char *) tmp_arg1)))
 
 #define ExtractNextElement2(Dest)				\
   do {								\
     Eterm* ene_dstp = &(Dest);					\
-    ene_dstp[0] = ((Eterm *) EXPAND_POINTER(tmp_arg1))[1];	\
-    ene_dstp[1] = ((Eterm *) EXPAND_POINTER(tmp_arg1))[2];	\
+    ene_dstp[0] = ((Eterm *) tmp_arg1)[1];	\
+    ene_dstp[1] = ((Eterm *) tmp_arg1)[2];	\
     tmp_arg1 += sizeof(Eterm) + sizeof(Eterm);			\
   } while (0)
 
 #define ExtractNextElement3(Dest)		\
   do {						\
     Eterm* ene_dstp = &(Dest);			\
-    ene_dstp[0] = ((Eterm *) EXPAND_POINTER(tmp_arg1))[1];	\
-    ene_dstp[1] = ((Eterm *) EXPAND_POINTER(tmp_arg1))[2];	\
-    ene_dstp[2] = ((Eterm *) EXPAND_POINTER(tmp_arg1))[3];	\
+    ene_dstp[0] = ((Eterm *) tmp_arg1)[1];	\
+    ene_dstp[1] = ((Eterm *) tmp_arg1)[2];	\
+    ene_dstp[2] = ((Eterm *) tmp_arg1)[3];	\
     tmp_arg1 += 3*sizeof(Eterm);		\
   } while (0)
 
 #define ExtractNextElement4(Dest)		\
   do {						\
     Eterm* ene_dstp = &(Dest);			\
-    ene_dstp[0] = ((Eterm *) EXPAND_POINTER(tmp_arg1))[1];	\
-    ene_dstp[1] = ((Eterm *) EXPAND_POINTER(tmp_arg1))[2];	\
-    ene_dstp[2] = ((Eterm *) EXPAND_POINTER(tmp_arg1))[3];	\
-    ene_dstp[3] = ((Eterm *) EXPAND_POINTER(tmp_arg1))[4];	\
+    ene_dstp[0] = ((Eterm *) tmp_arg1)[1];	\
+    ene_dstp[1] = ((Eterm *) tmp_arg1)[2];	\
+    ene_dstp[2] = ((Eterm *) tmp_arg1)[3];	\
+    ene_dstp[3] = ((Eterm *) tmp_arg1)[4];	\
     tmp_arg1 += 4*sizeof(Eterm);		\
   } while (0)
 
 #define ExtractElement(Element, Dest)		\
   do {						\
      tmp_arg1 += (Element);			\
-     (Dest) = (* (Eterm *) EXPAND_POINTER(tmp_arg1));		\
+     (Dest) = (* (Eterm *) tmp_arg1);		\
   } while (0)
 
 #define EqualImmed(X, Y, Action) if (X != Y) { Action; }
@@ -698,8 +697,7 @@ void** beam_ops;
 
 #define IsArity(Pointer, Arity, Fail)					  \
     if (*(Eterm *)							  \
-	EXPAND_POINTER(tmp_arg1 = (Eterm) 				  \
-		       COMPRESS_POINTER(tuple_val(Pointer))) != (Arity))  \
+	(tmp_arg1 = (Eterm) (tuple_val(Pointer))) != (Arity))             \
     { 									  \
         Fail; 								  \
     }
@@ -742,8 +740,7 @@ void** beam_ops;
   do {									      \
     if (is_not_tuple(Src) || 						      \
 	*(Eterm *)							      \
-	EXPAND_POINTER(tmp_arg1 = 					      \
-		       (Eterm) COMPRESS_POINTER(tuple_val(Src))) != Arity) { \
+	(tmp_arg1 = (Eterm) (tuple_val(Src))) != Arity) {                     \
         Fail;								      \
     }									      \
   } while (0)
@@ -3218,7 +3215,7 @@ do {								\
      SWAPIN;
      if (next != NULL) {
 	 r(0) = reg[0];
-	 SET_CP(c_p, (BeamInstr *) EXPAND_POINTER(E[0]));
+	 SET_CP(c_p, (BeamInstr *) E[0]);
 	 E = ADD_BYTE_OFFSET(E, Arg(0));
 	 SET_I(next);
 	 Dispatch();
@@ -3267,7 +3264,7 @@ do {								\
      SWAPIN;
      if (next != NULL) {
 	 r(0) = reg[0];
-	 SET_CP(c_p, (BeamInstr *) EXPAND_POINTER(E[0]));
+	 SET_CP(c_p, (BeamInstr *) E[0]);
 	 E = ADD_BYTE_OFFSET(E, Arg(1));
 	 SET_I(next);
 	 Dispatch();
@@ -3299,7 +3296,7 @@ do {								\
      SWAPIN;
      if (next != NULL) {
 	 r(0) = reg[0];
-	 SET_CP(c_p, (BeamInstr *) EXPAND_POINTER(E[0]));
+	 SET_CP(c_p, (BeamInstr *) E[0]);
 	 E = ADD_BYTE_OFFSET(E, Arg(0));
 	 SET_I(next);
 	 Dispatchfun();
@@ -3347,7 +3344,7 @@ do {								\
      SWAPIN;
      if (next != NULL) {
 	r(0) = reg[0];
-	SET_CP(c_p, (BeamInstr *) EXPAND_POINTER(E[0]));
+	SET_CP(c_p, (BeamInstr *) E[0]);
 	E = ADD_BYTE_OFFSET(E, Arg(1));
 	SET_I(next);
 	Dispatchfun();

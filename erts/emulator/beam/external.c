@@ -2958,7 +2958,7 @@ dec_term(ErtsDistExternal *edep,
             case B2TDecodeList:
                 objp = next - 2;
                 while (n > 0) {
-                    objp[0] = (Eterm) COMPRESS_POINTER(next);
+                    objp[0] = (Eterm) next;
                     objp[1] = make_list(next);
                     next = objp;
                     objp -= 2;
@@ -2969,7 +2969,7 @@ dec_term(ErtsDistExternal *edep,
             case B2TDecodeTuple:
                 objp = next - 1;
                 while (n-- > 0) {
-                    objp[0] = (Eterm) COMPRESS_POINTER(next);
+                    objp[0] = (Eterm) next;
                     next = objp;
                     objp--;
                 }
@@ -3022,7 +3022,7 @@ dec_term(ErtsDistExternal *edep,
     while (next != NULL) {
 
 	objp = next;
-	next = (Eterm *) EXPAND_POINTER(*objp);
+	next = (Eterm *) *objp;
 
 	switch (*ep++) {
 	case INTEGER_EXT:
@@ -3153,7 +3153,7 @@ dec_term_atom_common:
 		reds -= n;
 	    }
 	    while (n-- > 0) {
-		objp[0] = (Eterm) COMPRESS_POINTER(next);
+		objp[0] = (Eterm) next;
 		next = objp;
 		objp--;
 	    }
@@ -3171,8 +3171,8 @@ dec_term_atom_common:
 	    *objp = make_list(hp);
             hp += 2 * n;
 	    objp = hp - 2;
-	    objp[0] = (Eterm) COMPRESS_POINTER((objp+1));
-	    objp[1] = (Eterm) COMPRESS_POINTER(next);
+	    objp[0] = (Eterm) (objp+1);
+	    objp[1] = (Eterm) next;
 	    next = objp;
 	    objp -= 2;
             n--;
@@ -3185,7 +3185,7 @@ dec_term_atom_common:
 		reds -= n;
 	    }
             while (n > 0) {
-		objp[0] = (Eterm) COMPRESS_POINTER(next);
+		objp[0] = (Eterm) next;
 		objp[1] = make_list(next);
 		next = objp;
 		objp -= 2;
@@ -3576,7 +3576,7 @@ dec_term_atom_common:
                      * The list of maps is for later validation.
                      */
 
-                    mp->thing_word = (Eterm) COMPRESS_POINTER(maps_list);
+                    mp->thing_word = (Eterm) maps_list;
                     maps_list      = (Eterm *) mp;
 
                     mp->size       = size;
@@ -3584,8 +3584,8 @@ dec_term_atom_common:
                     *objp          = make_flatmap(mp);
 
                     for (n = size; n; n--) {
-                        *vptr = (Eterm) COMPRESS_POINTER(next);
-                        *kptr = (Eterm) COMPRESS_POINTER(vptr);
+                        *vptr = (Eterm) next;
+                        *kptr = (Eterm) vptr;
                         next  = kptr;
                         vptr--;
                         kptr--;
@@ -3599,8 +3599,8 @@ dec_term_atom_common:
                     hamt->leaf_array = hp;
 
                     for (n = size; n; n--) {
-                        CDR(hp) = (Eterm) COMPRESS_POINTER(next);
-                        CAR(hp) = (Eterm) COMPRESS_POINTER(&CDR(hp));
+                        CDR(hp) = (Eterm) next;
+                        CAR(hp) = (Eterm) &CDR(hp);
                         next = &CAR(hp);
                         hp += 2;
                     }
@@ -3677,11 +3677,11 @@ dec_term_atom_common:
 
 		/* Environment */
 		for (i = num_free-1; i >= 0; i--) {
-		    funp->env[i] = (Eterm) COMPRESS_POINTER(next);
+		    funp->env[i] = (Eterm) next;
 		    next = funp->env + i;
 		}
 		/* Creator */
-		funp->creator = (Eterm) COMPRESS_POINTER(next);
+		funp->creator = (Eterm) next;
 		next = &(funp->creator);
 		break;
 	    }
@@ -3750,7 +3750,7 @@ dec_term_atom_common:
 
 		/* Environment */
 		for (i = num_free-1; i >= 0; i--) {
-		    funp->env[i] = (Eterm) COMPRESS_POINTER(next);
+		    funp->env[i] = (Eterm) next;
 		    next = funp->env + i;
 		}
 		break;
@@ -3846,11 +3846,11 @@ dec_term_atom_common:
      */
 
     while (maps_list) {
-	next  = (Eterm *)(EXPAND_POINTER(*maps_list));
+	next = (Eterm *) *maps_list;
 	*maps_list = MAP_HEADER_FLATMAP;
 	if (!erts_validate_and_sort_flatmap((flatmap_t*)maps_list))
 	    goto error;
-	maps_list  = next;
+	maps_list = next;
     }
 
     ASSERT(hp <= factory->hp_end
@@ -3876,7 +3876,7 @@ dec_term_atom_common:
 	PSTACK_DESTROY(hamt_array);
     }
 
-    ASSERT((Eterm*)EXPAND_POINTER(*dbg_resultp) != NULL);
+    ASSERT((Eterm*)*dbg_resultp != NULL);
 
     if (ctx) {
         ctx->state = B2TDone;

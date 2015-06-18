@@ -25,8 +25,6 @@ typedef UWord Wterm;  /* Full word terms */
 
 #define HEAP_ON_C_STACK 1
 #define CHECK_POINTER_MASK 0x0UL
-#define COMPRESS_POINTER(AnUint) (AnUint)
-#define EXPAND_POINTER(APointer) (APointer)
 
 struct erl_node_; /* Declared in erl_node_tables.h */
 
@@ -174,7 +172,7 @@ struct erl_node_; /* Declared in erl_node_tables.h */
 #define  _boxed_precond(x)       (is_boxed(x))
 
 #define _is_aligned(x)		(((Uint)(x) & 0x3) == 0)
-#define _unchecked_make_boxed(x) ((Uint) COMPRESS_POINTER(x) + TAG_PRIMARY_BOXED)
+#define _unchecked_make_boxed(x) ((Uint)(x) + TAG_PRIMARY_BOXED)
 _ET_DECLARE_CHECKED(Eterm,make_boxed,const Eterm*)
 #define make_boxed(x)		_ET_APPLY(make_boxed,(x))
 #if 1
@@ -185,12 +183,12 @@ _ET_DECLARE_CHECKED(int,is_boxed,Eterm)
 #else
 #define is_boxed(x)		(((x) & _TAG_PRIMARY_MASK) == TAG_PRIMARY_BOXED)
 #endif
-#define _unchecked_boxed_val(x) ((Eterm*) EXPAND_POINTER(((x) - TAG_PRIMARY_BOXED)))
+#define _unchecked_boxed_val(x) ((Eterm*) ((x) - TAG_PRIMARY_BOXED))
 _ET_DECLARE_CHECKED(Eterm*,boxed_val,Wterm)
 #define boxed_val(x)		_ET_APPLY(boxed_val,(x))
 
 /* cons cell ("list") access methods */
-#define _unchecked_make_list(x)	((Uint) COMPRESS_POINTER(x) + TAG_PRIMARY_LIST)
+#define _unchecked_make_list(x)	((Uint)(x) + TAG_PRIMARY_LIST)
 _ET_DECLARE_CHECKED(Eterm,make_list,const Eterm*)
 #define make_list(x)		_ET_APPLY(make_list,(x))
 #if 1
@@ -203,7 +201,7 @@ _ET_DECLARE_CHECKED(int,is_not_list,Eterm)
 #define is_not_list(x)		(!is_list((x)))
 #endif
 #define _list_precond(x)        (is_list(x))
-#define _unchecked_list_val(x) ((Eterm*) EXPAND_POINTER((x) - TAG_PRIMARY_LIST))
+#define _unchecked_list_val(x) ((Eterm*) ((x) - TAG_PRIMARY_LIST))
 _ET_DECLARE_CHECKED(Eterm*,list_val,Wterm)
 #define list_val(x)		_ET_APPLY(list_val,(x))
 
@@ -214,7 +212,7 @@ _ET_DECLARE_CHECKED(Eterm*,list_val,Wterm)
 #define CDR(x)  ((x)[1])
 
 /* generic tagged pointer (boxed or list) access methods */
-#define _unchecked_ptr_val(x)	((Eterm*) EXPAND_POINTER((x) & ~((Uint) 0x3)))
+#define _unchecked_ptr_val(x)	((Eterm*) ((x) & ~((Uint) 0x3)))
 #define ptr_val(x)		_unchecked_ptr_val((x))	/*XXX*/
 #define _unchecked_offset_ptr(x,offs)	((x)+((offs)*sizeof(Eterm)))
 #define offset_ptr(x,offs)	_unchecked_offset_ptr(x,offs)	/*XXX*/
@@ -1009,14 +1007,14 @@ _ET_DECLARE_CHECKED(struct erl_node_*,external_ref_node,Eterm)
 #error "fix yer arch, like"
 #endif
 
-#define _unchecked_make_cp(x)	((Eterm) COMPRESS_POINTER(x))
+#define _unchecked_make_cp(x)	((Eterm)(x))
 _ET_DECLARE_CHECKED(Eterm,make_cp,BeamInstr*)
 #define make_cp(x)	_ET_APPLY(make_cp,(x))
 
 #define is_not_CP(x)	((x) & _CPMASK)
 #define is_CP(x)	(!is_not_CP(x))
 
-#define _unchecked_cp_val(x)	((BeamInstr*) EXPAND_POINTER(x))
+#define _unchecked_cp_val(x)	((BeamInstr*) (x))
 _ET_DECLARE_CHECKED(BeamInstr*,cp_val,Eterm)
 #define cp_val(x)	_ET_APPLY(cp_val,(x))
 
