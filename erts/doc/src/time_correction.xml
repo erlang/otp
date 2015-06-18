@@ -613,6 +613,7 @@
       <item><p><seealso marker="erlang#system_info_time_warp_mode"><c>erlang:system_info(time_warp_mode)</c></seealso></p></item>
       <item><p><seealso marker="erlang#system_info_time_correction"><c>erlang:system_info(time_correction)</c></seealso></p></item>
       <item><p><seealso marker="erlang#system_info_start_time"><c>erlang:system_info(start_time)</c></seealso></p></item>
+      <item><p><seealso marker="erlang#system_info_end_time"><c>erlang:system_info(end_time)</c></seealso></p></item>
     </list>
 
     <marker id="The_New_Erlang_Monotonic_Time"/>
@@ -865,6 +866,7 @@ EventTag = {Time, UMI}</code>
     API can easily be implemented using existing primitives
     (except for
     <seealso marker="erlang#system_info_start_time"><c>erlang:system_info(start_time)</c></seealso>,
+    <seealso marker="erlang#system_info_end_time"><c>erlang:system_info(end_time)</c></seealso>,
     <seealso marker="erlang#system_info_os_monotonic_time_source"><c>erlang:system_info(os_monotonic_time_source)</c></seealso>, and
     <seealso marker="erlang#system_info_os_system_time_source"><c>erlang:system_info(os_system_time_source)</c></seealso>).
     By wrapping the API with functions that fall back on
