@@ -5496,6 +5496,7 @@ init_scheduler_data(ErtsSchedulerData* esdp, int num,
 		    ErtsRunQueue* runq,
 		    char** daww_ptr, size_t daww_sz)
 {
+    esdp->timer_wheel = NULL;
 #ifdef ERTS_SMP
     erts_bits_init_state(&esdp->erl_bits_state);
     esdp->match_pseudo_process = NULL;
