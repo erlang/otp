@@ -1903,9 +1903,9 @@ restart:
 	    variables[n].term = dpm_array_to_list(psp, termp, arity);
 	    break;
 	case matchTuple: /* *ep is a tuple of arity n */
-	    if (!is_tuple_rel(*ep,base))
+	    if (!is_tuple(*ep))
 		FAIL();
-	    ep = tuple_val_rel(*ep,base);
+	    ep = tuple_val(*ep);
 	    n = *pc++;
 	    if (arityval(*ep) != n)
 		FAIL();
@@ -1913,9 +1913,9 @@ restart:
 	    break;
 	case matchPushT: /* *ep is a tuple of arity n, 
 			    push ptr to first element */
-	    if (!is_tuple_rel(*ep,base))
+	    if (!is_tuple(*ep))
 		FAIL();
-	    tp = tuple_val_rel(*ep,base);
+	    tp = tuple_val(*ep);
 	    n = *pc++;
 	    if (arityval(*tp) != n)
 		FAIL();
@@ -1925,51 +1925,51 @@ restart:
 	case matchList:
 	    if (!is_list(*ep))
 		FAIL();
-	    ep = list_val_rel(*ep,base);
+	    ep = list_val(*ep);
 	    break;
 	case matchPushL:
 	    if (!is_list(*ep))
 		FAIL();
-	    *sp++ = list_val_rel(*ep,base);
+	    *sp++ = list_val(*ep);
 	    ++ep;
 	    break;
         case matchMap:
-            if (!is_map_rel(*ep, base)) {
+            if (!is_map(*ep)) {
                 FAIL();
             }
             n = *pc++;
-            if (is_flatmap_rel(*ep,base)) {
-		if (flatmap_get_size(flatmap_val_rel(*ep, base)) < n) {
+            if (is_flatmap(*ep)) {
+		if (flatmap_get_size(flatmap_val(*ep)) < n) {
 		    FAIL();
 		}
             } else {
-		ASSERT(is_hashmap_rel(*ep,base));
-		if (hashmap_size_rel(*ep, base) < n) {
+		ASSERT(is_hashmap(*ep));
+		if (hashmap_size(*ep) < n) {
 		    FAIL();
 		}
 	    }
-            ep = flatmap_val_rel(*ep, base);
+            ep = flatmap_val(*ep);
             break;
         case matchPushM:
-            if (!is_map_rel(*ep, base)) {
+            if (!is_map(*ep)) {
                 FAIL();
             }
             n = *pc++;
-            if (is_flatmap_rel(*ep,base)) {
-		if (flatmap_get_size(flatmap_val_rel(*ep, base)) < n) {
+            if (is_flatmap(*ep)) {
+		if (flatmap_get_size(flatmap_val(*ep)) < n) {
 		    FAIL();
 		}
 	    } else {
-		ASSERT(is_hashmap_rel(*ep,base));
-		if (hashmap_size_rel(*ep, base) < n) {
+		ASSERT(is_hashmap(*ep));
+		if (hashmap_size(*ep) < n) {
 		    FAIL();
 		}
 	    }
-            *sp++ = flatmap_val_rel(*ep++, base);
+            *sp++ = flatmap_val(*ep++);
             break;
         case matchKey:
             t = (Eterm) *pc++;
-            tp = erts_maps_get_rel(t, make_boxed_rel(ep, base), base);
+            tp = erts_maps_get(t, make_boxed(ep));
             if (!tp) {
                 FAIL();
             }
@@ -2001,18 +2001,18 @@ restart:
 	    ++ep;
 	    break;
 	case matchEqFloat:
-	    if (!is_float_rel(*ep,base))
+	    if (!is_float(*ep))
 		FAIL();
-	    if (memcmp(float_val_rel(*ep,base) + 1, pc, sizeof(double)))
+	    if (memcmp(float_val(*ep) + 1, pc, sizeof(double)))
 		FAIL();
 	    pc += TermWords(2);
 	    ++ep;
 	    break;
 	case matchEqRef: {
 	    Eterm* epc = (Eterm*)pc;
-	    if (!is_ref_rel(*ep,base))
+	    if (!is_ref(*ep))
 		FAIL();
-	    if (!eq_rel(make_internal_ref_rel(epc, epc), epc, *ep, base)) {
+	    if (!eq_rel(make_internal_ref(epc), epc, *ep, base)) {
 		FAIL();
 	    }
 	    i = thing_arityval(*epc);
@@ -2021,9 +2021,9 @@ restart:
 	    break;
 	}
 	case matchEqBig:
-	    if (!is_big_rel(*ep,base))
+	    if (!is_big(*ep))
 		FAIL();
-	    tp = big_val_rel(*ep,base);
+	    tp = big_val(*ep);
 	    {
 		Eterm *epc = (Eterm *) pc;
 		if (*tp != *epc)
@@ -2193,8 +2193,8 @@ restart:
 		sz = size_object_rel(term, base);
 		top = HAllocX(build_proc, sz, HEAP_XTRA);
 		if (in_flags & ERTS_PAM_CONTIGUOUS_TUPLE) {
-		    ASSERT(is_tuple_rel(term,base));
-		    *esp++ = copy_shallow_rel(tuple_val_rel(term,base), sz,
+		    ASSERT(is_tuple(term));
+		    *esp++ = copy_shallow_rel(tuple_val(term), sz,
 					      &top, &MSO(build_proc), base);
 		}
 		else {
@@ -2741,7 +2741,7 @@ void db_do_update_element(DbUpdateHandle* handle,
 		case _TAG_HEADER_HEAP_BIN:
 		    newval_sz = header_arity(*newp) + 1;
 		    if (is_boxed(oldval)) {
-			oldp = boxed_val_rel(oldval,old_base);
+			oldp = boxed_val(oldval);
 			switch (*oldp & _TAG_HEADER_MASK) {
 			case _TAG_HEADER_POS_BIG:
 			case _TAG_HEADER_NEG_BIG:
@@ -3023,7 +3023,7 @@ void db_finalize_resize(DbUpdateHandle* handle, Uint offset)
 	tmp_offheap.first = NULL;
 
 	{
-	    copy_struct_rel(make_tuple_rel(tpl,tpl), handle->new_size, &top,
+	    copy_struct_rel(make_tuple(tpl), handle->new_size, &top,
 			    &tmp_offheap, tpl, top);
 	    newDbTerm->first_oh = tmp_offheap.first;
 	    ASSERT((byte*)top == (newp + alloc_sz));
@@ -5228,7 +5228,7 @@ Eterm db_match_dbterm(DbTableCommon* tb, Process* c_p, Binary* bprog,
     }
     else base = NULL;
 
-    res = db_prog_match(c_p, bprog, make_tuple_rel(obj->tpl,base), base, NULL, 0,
+    res = db_prog_match(c_p, bprog, make_tuple(obj->tpl), base, NULL, 0,
 			ERTS_PAM_COPY_RESULT|ERTS_PAM_CONTIGUOUS_TUPLE, &dummy);
 
     if (is_value(res) && hpp!=NULL) {

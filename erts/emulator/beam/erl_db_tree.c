@@ -2745,7 +2745,7 @@ static Sint do_cmp_partly_bound(Eterm a, Eterm b, Eterm* b_base, int *done)
 	    return cmp_rel(a,NULL,b,b_base);
 	}
 	aa = list_val(a);
-	bb = list_val_rel(b,b_base);
+	bb = list_val(b);
 	while (1) {
 	    if ((j = do_cmp_partly_bound(*aa++, *bb++, b_base, done)) != 0 || *done)
 		return j;
@@ -2754,20 +2754,20 @@ static Sint do_cmp_partly_bound(Eterm a, Eterm b, Eterm* b_base, int *done)
 	    if (is_not_list(*aa) || is_not_list(*bb))
 		return do_cmp_partly_bound(*aa, *bb, b_base, done);
 	    aa = list_val(*aa);
-	    bb = list_val_rel(*bb,b_base);
+	    bb = list_val(*bb);
 	}
     case TAG_PRIMARY_BOXED:
 	if ((b & _TAG_PRIMARY_MASK) != TAG_PRIMARY_BOXED) {
 	    return cmp_rel(a,NULL,b,b_base);
 	}
 	a_hdr = ((*boxed_val(a)) & _TAG_HEADER_MASK) >> _TAG_PRIMARY_SIZE;
-	b_hdr = ((*boxed_val_rel(b,b_base)) & _TAG_HEADER_MASK) >> _TAG_PRIMARY_SIZE;
+	b_hdr = ((*boxed_val(b)) & _TAG_HEADER_MASK) >> _TAG_PRIMARY_SIZE;
 	if (a_hdr != b_hdr) {
 	    return cmp_rel(a, NULL, b, b_base);
 	}
 	if (a_hdr == (_TAG_HEADER_ARITYVAL >> _TAG_PRIMARY_SIZE)) {
 	    aa = tuple_val(a);
-	    bb = tuple_val_rel(b, b_base);
+	    bb = tuple_val(b);
 	    /* compare the arities */
 	    i = arityval(*aa);	/* get the arity*/
 	    if (i < arityval(*bb)) return(-1);
@@ -3154,7 +3154,7 @@ static void do_dump_tree2(DbTableTree* tb, int to, void *to_arg, int show,
 	}
 	else {
 	    prefix = "";
-	    term = make_tuple_rel(t->dbterm.tpl,t->dbterm.tpl);
+	    term = make_tuple(t->dbterm.tpl);
 	}
 	erts_print(to, to_arg, "%*s%s%R (addr = %p, bal = %d)\n",
 		   offset, "", prefix, term, t->dbterm.tpl,

@@ -57,7 +57,6 @@ typedef struct flatmap_s {
 
 
 #define hashmap_size(x)               (((hashmap_head_t*) hashmap_val(x))->size)
-#define hashmap_size_rel(RTERM, BASE) hashmap_size(rterm2wterm(RTERM, BASE))
 #define hashmap_make_hash(Key)        make_internal_hash(Key)
 
 #define hashmap_restore_hash(Heap,Lvl,Key) \
@@ -104,13 +103,9 @@ Eterm  erts_hashmap_from_array(ErtsHeapFactory*, Eterm *leafs, Uint n, int rejec
 Eterm  erts_hashmap_from_ks_and_vs_extra(Process *p, Eterm *ks, Eterm *vs, Uint n,
 					 Eterm k, Eterm v);
 
-const Eterm *
-erts_maps_get(Eterm key, Eterm map);
-#define erts_maps_get_rel(A, B, B_BASE) erts_maps_get(A, B)
+const Eterm *erts_maps_get(Eterm key, Eterm map);
 
-const Eterm *
-erts_hashmap_get(Uint32 hx, Eterm key, Eterm map);
-#define erts_hashmap_get_rel(Hx, K, M, M_BASE) erts_hashmap_get(Hx, K, M)
+const Eterm *erts_hashmap_get(Uint32 hx, Eterm key, Eterm map);
 
 /* hamt nodes v2.0
  *

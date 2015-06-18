@@ -1669,7 +1669,7 @@ double_to_big(double x, Eterm *heap, Uint hsz)
     sz = BIG_NEED_SIZE(ds); /* number of words including arity */
 
     hp = heap;
-    res = make_big_rel(hp, heap);
+    res = make_big(hp);
     xp = (ErtsDigit*) (hp + 1);
 
     ASSERT(ds < hsz);

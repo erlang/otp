@@ -977,27 +977,20 @@ _ET_DECLARE_CHECKED(struct erl_node_*,external_ref_node,Eterm)
 #define MAP_HEADER_VAL(Hdr)   (((Hdr) >> (_HEADER_ARITY_OFFS + MAP_HEADER_TAG_SZ + MAP_HEADER_ARITY_SZ)) & (0xffff))
 
 #define make_hashmap(x)		      make_boxed((Eterm*)(x))
-#define make_hashmap_rel 	      make_boxed_rel
 #define is_hashmap(x)		      (is_boxed((x)) && is_hashmap_header(*boxed_val((x))))
 #define is_not_hashmap(x)             (!is_hashmap(x))
-#define is_hashmap_rel(RTERM,BASE)    is_hashmap(rterm2wterm(RTERM,BASE))
 #define is_hashmap_header(x)	      (((x) & (_HEADER_MAP_HASHMAP_HEAD_MASK)) == HAMT_SUBTAG_HEAD_ARRAY)
 #define hashmap_val(x)		      _unchecked_boxed_val((x))
-#define hashmap_val_rel(RTERM, BASE)  hashmap_val(rterm2wterm(RTERM, BASE))
 
 #define make_flatmap(x)               make_boxed((Eterm*)(x))
-#define make_flatmap_rel(x, BASE)     make_boxed_rel((Eterm*)(x),(BASE))
 #define is_flatmap(x)                 (is_boxed((x)) && is_flatmap_header(*boxed_val((x))))
-#define is_flatmap_rel(RTERM,BASE)    is_flatmap(rterm2wterm(RTERM,BASE))
 #define is_not_flatmap(x)             (!is_flatmap((x)))
 #define is_flatmap_header(x)          (((x) & (_HEADER_MAP_SUBTAG_MASK)) == HAMT_SUBTAG_HEAD_FLATMAP)
 #define flatmap_val(x)                (_unchecked_boxed_val((x)))
-#define flatmap_val_rel(RTERM, BASE)  flatmap_val(rterm2wterm(RTERM, BASE))
 
 #define is_map_header(x)       (((x) & (_TAG_HEADER_MASK)) == _TAG_HEADER_MAP)
 #define is_map(x)              (is_boxed((x)) && is_map_header(*boxed_val(x)))
 #define is_not_map(x)          (!is_map(x))
-#define is_map_rel(RTERM,BASE) is_map(rterm2wterm(RTERM,BASE))
 
 /* number tests */
 
@@ -1126,55 +1119,6 @@ extern unsigned tag_val_def(Wterm);
 #define FLOAT_SMALL 	_NUMBER_CODE(FLOAT_DEF,SMALL_DEF)
 #define FLOAT_BIG 	_NUMBER_CODE(FLOAT_DEF,BIG_DEF)
 #define FLOAT_FLOAT	_NUMBER_CODE(FLOAT_DEF,FLOAT_DEF)
-
-#define ptr2rel(PTR,BASE) (PTR)
-#define rterm2wterm(REL,BASE) (REL)
-
-#define make_list_rel(PTR, BASE) make_list(ptr2rel(PTR,BASE))
-#define make_boxed_rel(PTR, BASE) make_boxed(ptr2rel(PTR,BASE))
-#define make_fun_rel make_boxed_rel
-#define make_binary_rel make_boxed_rel
-#define make_tuple_rel make_boxed_rel
-#define make_external_rel make_boxed_rel
-#define make_internal_ref_rel make_boxed_rel
-#define make_big_rel make_boxed_rel
-
-#define binary_val_rel(RTERM, BASE) binary_val(rterm2wterm(RTERM, BASE))
-#define list_val_rel(RTERM, BASE) list_val(rterm2wterm(RTERM, BASE))
-#define boxed_val_rel(RTERM, BASE) boxed_val(rterm2wterm(RTERM, BASE))
-#define tuple_val_rel(RTERM, BASE) tuple_val(rterm2wterm(RTERM, BASE))
-#define export_val_rel(RTERM, BASE) export_val(rterm2wterm(RTERM, BASE))
-#define fun_val_rel(RTERM, BASE) fun_val(rterm2wterm(RTERM, BASE))
-#define big_val_rel(RTERM,BASE)	big_val(rterm2wterm(RTERM,BASE))
-#define float_val_rel(RTERM,BASE) float_val(rterm2wterm(RTERM,BASE))
-#define internal_ref_val_rel(RTERM,BASE) internal_ref_val(rterm2wterm(RTERM,BASE))
-
-#define external_thing_ptr_rel(RTERM, BASE) external_thing_ptr(rterm2wterm(RTERM, BASE))
-#define external_data_words_rel(RTERM,BASE) external_data_words(rterm2wterm(RTERM,BASE))
-
-#define external_port_node_rel(RTERM,BASE) external_port_node(rterm2wterm(RTERM,BASE))
-#define external_port_data_rel(RTERM,BASE) external_port_data(rterm2wterm(RTERM,BASE))
-
-#define is_external_pid_rel(RTERM,BASE) is_external_pid(rterm2wterm(RTERM,BASE))
-#define external_pid_node_rel(RTERM,BASE) external_pid_node(rterm2wterm(RTERM,BASE))
-#define external_pid_data_rel(RTERM,BASE) external_pid_data(rterm2wterm(RTERM,BASE))
-
-#define is_binary_rel(RTERM,BASE) is_binary(rterm2wterm(RTERM,BASE))
-#define is_float_rel(RTERM,BASE) is_float(rterm2wterm(RTERM,BASE))
-#define is_fun_rel(RTERM,BASE) is_fun(rterm2wterm(RTERM,BASE))
-#define is_big_rel(RTERM,BASE) is_big(rterm2wterm(RTERM,BASE))
-#define is_export_rel(RTERM,BASE) is_export(rterm2wterm(RTERM,BASE))
-#define is_tuple_rel(RTERM,BASE) is_tuple(rterm2wterm(RTERM,BASE))
-
-#define GET_DOUBLE_REL(RTERM, f, BASE) GET_DOUBLE(rterm2wterm(RTERM,BASE), f)
-
-#define ref_thing_ptr_rel(RTERM,BASE) ref_thing_ptr(rterm2wterm(RTERM,BASE))
-#define is_internal_ref_rel(RTERM,BASE) is_internal_ref(rterm2wterm(RTERM,BASE))
-#define is_external_rel(RTERM,BASE) is_external(rterm2wterm(RTERM,BASE))
-#define is_external_port_rel(RTERM,BASE) is_external_port(rterm2wterm(RTERM,BASE))
-#define is_external_ref_rel(RTERM,BASE) is_external_ref(rterm2wterm(RTERM,BASE))
-
-#define external_node_rel(RTERM,BASE) external_node(rterm2wterm(RTERM,BASE))
 
 #define is_same(A,A_BASE,B,B_BASE) ((A)==(B))
 

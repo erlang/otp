@@ -173,19 +173,19 @@ const Eterm *
 erts_maps_get(Eterm key, Eterm map)
 {
     Uint32 hx;
-    if (is_flatmap_rel(map, map_base)) {
+    if (is_flatmap(map)) {
 	Eterm *ks, *vs;
 	flatmap_t *mp;
 	Uint n, i;
 
-	mp  = (flatmap_t *)flatmap_val_rel(map, map_base);
+	mp  = (flatmap_t *)flatmap_val(map);
 	n   = flatmap_get_size(mp);
 
 	if (n == 0) {
 	    return NULL;
 	}
 
-	ks  = (Eterm *)tuple_val_rel(mp->keys, map_base) + 1;
+	ks  = (Eterm *)tuple_val(mp->keys) + 1;
 	vs  = flatmap_get_values(mp);
 
 	if (is_immed(key)) {
@@ -203,10 +203,10 @@ erts_maps_get(Eterm key, Eterm map)
 	}
 	return NULL;
     }
-    ASSERT(is_hashmap_rel(map, map_base));
+    ASSERT(is_hashmap(map));
     hx = hashmap_make_hash(key);
 
-    return erts_hashmap_get_rel(hx, key, map, map_base);
+    return erts_hashmap_get(hx, key, map);
 }
 
 BIF_RETTYPE maps_find_2(BIF_ALIST_2) {
@@ -1998,7 +1998,7 @@ erts_hashmap_get(Uint32 hx, Eterm key, Eterm node)
     UseTmpHeapNoproc(2);
 
     ASSERT(is_boxed(node));
-    ptr = boxed_val_rel(node, map_base);
+    ptr = boxed_val(node);
     hdr = *ptr;
     ASSERT(is_header(hdr));
     ASSERT(is_hashmap_header_head(hdr));
@@ -2019,7 +2019,7 @@ erts_hashmap_get(Uint32 hx, Eterm key, Eterm node)
         node  = ptr[ix+1];
 
         if (is_list(node)) { /* LEAF NODE [K|V] */
-            ptr = list_val_rel(node,map_base);
+            ptr = list_val(node);
             res = eq_rel(CAR(ptr), map_base, key, NULL) ? &(CDR(ptr)) : NULL;
             break;
         }
@@ -2027,7 +2027,7 @@ erts_hashmap_get(Uint32 hx, Eterm key, Eterm node)
         hx = hashmap_shift_hash(th,hx,lvl,key);
 
         ASSERT(is_boxed(node));
-        ptr = boxed_val_rel(node, map_base);
+        ptr = boxed_val(node);
         hdr = *ptr;
         ASSERT(is_header(hdr));
         ASSERT(!is_hashmap_header_head(hdr));

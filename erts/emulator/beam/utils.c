@@ -2612,8 +2612,8 @@ tailrecur_ne:
     switch (primary_tag(a)) {
     case TAG_PRIMARY_LIST:
 	if (is_list(b)) {
-	    Eterm* aval = list_val_rel(a, a_base);
-	    Eterm* bval = list_val_rel(b, b_base);
+	    Eterm* aval = list_val(a);
+	    Eterm* bval = list_val(b);
 	    while (1) {
 		Eterm atmp = CAR(aval);
 		Eterm btmp = CAR(bval);
@@ -2633,22 +2633,22 @@ tailrecur_ne:
 		    b = btmp;
 		    goto tailrecur_ne;
 		}
-		aval = list_val_rel(atmp, a_base);
-		bval = list_val_rel(btmp, b_base);
+		aval = list_val(atmp);
+		bval = list_val(btmp);
 	    }
 	}
 	break; /* not equal */
 
     case TAG_PRIMARY_BOXED:
 	{	
-	    Eterm hdr = *boxed_val_rel(a,a_base);
+	    Eterm hdr = *boxed_val(a);
 	    switch (hdr & _TAG_HEADER_MASK) {
 	    case ARITYVAL_SUBTAG:
 		{
-		    aa = tuple_val_rel(a, a_base);
-		    if (!is_boxed(b) || *boxed_val_rel(b,b_base) != *aa)
+		    aa = tuple_val(a);
+		    if (!is_boxed(b) || *boxed_val(b) != *aa)
 			goto not_equal;
-		    bb = tuple_val_rel(b,b_base);
+		    bb = tuple_val(b);
 		    if ((sz = arityval(*aa)) == 0) goto pop_next;
 		    ++aa;
 		    ++bb;
@@ -2667,11 +2667,11 @@ tailrecur_ne:
 		    Uint a_bitoffs;
 		    Uint b_bitoffs;
 		    
-		    if (!is_binary_rel(b,b_base)) {
+		    if (!is_binary(b)) {
 			goto not_equal;
 		    }
-		    a_size = binary_size_rel(a,a_base);
-		    b_size = binary_size_rel(b,b_base);
+		    a_size = binary_size(a);
+		    b_size = binary_size(b);
 		    if (a_size != b_size) {
 			goto not_equal;
 		    }
@@ -2687,9 +2687,9 @@ tailrecur_ne:
 		}
 	    case EXPORT_SUBTAG:
 		{
-		    if (is_export_rel(b,b_base)) {
-			Export* a_exp = *((Export **) (export_val_rel(a,a_base) + 1));
-			Export* b_exp = *((Export **) (export_val_rel(b,b_base) + 1));
+		    if (is_export(b)) {
+			Export* a_exp = *((Export **) (export_val(a) + 1));
+			Export* b_exp = *((Export **) (export_val(b) + 1));
 			if (a_exp == b_exp) goto pop_next;
 		    }
 		    break; /* not equal */
@@ -2699,10 +2699,10 @@ tailrecur_ne:
 		    ErlFunThing* f1;
 		    ErlFunThing* f2;
   
-		    if (!is_fun_rel(b,b_base))
+		    if (!is_fun(b))
 			goto not_equal;
-		    f1 = (ErlFunThing *) fun_val_rel(a,a_base);
-		    f2 = (ErlFunThing *) fun_val_rel(b,b_base);
+		    f1 = (ErlFunThing *) fun_val(a);
+		    f2 = (ErlFunThing *) fun_val(b);
 		    if (f1->fe->module != f2->fe->module ||
 			f1->fe->old_index != f2->fe->old_index ||
 			f1->fe->old_uniq != f2->fe->old_uniq ||
@@ -2720,15 +2720,15 @@ tailrecur_ne:
 		ExternalThing *ap;
 		ExternalThing *bp;
 
-		if(!is_external_rel(b,b_base))
+		if(!is_external(b))
 		    goto not_equal;
 
-		ap = external_thing_ptr_rel(a,a_base);
-		bp = external_thing_ptr_rel(b,b_base);
+		ap = external_thing_ptr(a);
+		bp = external_thing_ptr(b);
 
 		if(ap->header == bp->header && ap->node == bp->node) {
-		    ASSERT(1 == external_data_words_rel(a,a_base));
-		    ASSERT(1 == external_data_words_rel(b,b_base));
+		    ASSERT(1 == external_data_words(a));
+		    ASSERT(1 == external_data_words(b));
 		    
 		    if (ap->data.ui[0] == bp->data.ui[0]) goto pop_next;
 		}
@@ -2749,11 +2749,11 @@ tailrecur_ne:
 		ExternalThing* athing;
 		ExternalThing* bthing;
 
-		if(!is_external_ref_rel(b,b_base))
+		if(!is_external_ref(b))
 		    goto not_equal;
 
-		athing = external_thing_ptr_rel(a,a_base);
-		bthing = external_thing_ptr_rel(b,b_base);
+		athing = external_thing_ptr(a);
+		bthing = external_thing_ptr(b);
 
 		if(athing->node != bthing->node)
 		    goto not_equal;
@@ -2765,12 +2765,12 @@ tailrecur_ne:
 
 		goto ref_common;
 	    case REF_SUBTAG:
-		    if (!is_internal_ref_rel(b,b_base))
+		    if (!is_internal_ref(b))
 			goto not_equal;
 
 		    {
-			RefThing* athing = ref_thing_ptr_rel(a,a_base);
-			RefThing* bthing = ref_thing_ptr_rel(b,b_base);
+			RefThing* athing = ref_thing_ptr(a);
+			RefThing* bthing = ref_thing_ptr(b);
 			alen = internal_thing_ref_no_of_numbers(athing);
 			blen = internal_thing_ref_no_of_numbers(bthing);
 			anum = internal_thing_ref_numbers(athing);
@@ -2820,10 +2820,10 @@ tailrecur_ne:
 		{
 		    int i;
   
-		    if (!is_big_rel(b,b_base))
+		    if (!is_big(b))
 			goto not_equal;
-		    aa = big_val_rel(a,a_base);
-		    bb = big_val_rel(b,b_base);
+		    aa = big_val(a);
+		    bb = big_val(b);
 		    if (*aa != *bb)
 			goto not_equal;
 		    i = BIG_ARITY(aa);
@@ -2838,19 +2838,19 @@ tailrecur_ne:
 		    FloatDef af;
 		    FloatDef bf;
   
-		    if (is_float_rel(b,b_base)) {
-			GET_DOUBLE_REL(a, af, a_base);
-			GET_DOUBLE_REL(b, bf, b_base);
+		    if (is_float(b)) {
+			GET_DOUBLE(a, af);
+			GET_DOUBLE(b, bf);
 			if (af.fd == bf.fd) goto pop_next;
 		    }
 		    break; /* not equal */
 		}
 	    case MAP_SUBTAG:
-                if (is_flatmap_rel(a, a_base)) {
-		    aa = flatmap_val_rel(a, a_base);
-		    if (!is_boxed(b) || *boxed_val_rel(b,b_base) != *aa)
+                if (is_flatmap(a)) {
+		    aa = flatmap_val(a);
+		    if (!is_boxed(b) || *boxed_val(b) != *aa)
 			goto not_equal;
-		    bb = flatmap_val_rel(b,b_base);
+		    bb = flatmap_val(b);
 		    sz = flatmap_get_size((flatmap_t*)aa);
 
 		    if (sz != flatmap_get_size((flatmap_t*)bb)) goto not_equal;
@@ -2862,11 +2862,11 @@ tailrecur_ne:
 		    goto term_array;
 
                 } else {
-		    if (!is_boxed(b) || *boxed_val_rel(b,b_base) != hdr)
+		    if (!is_boxed(b) || *boxed_val(b) != hdr)
 			goto not_equal;
 
-		    aa = hashmap_val_rel(a, a_base) + 1;
-		    bb = hashmap_val_rel(b, b_base) + 1;
+		    aa = hashmap_val(a) + 1;
+		    bb = hashmap_val(b) + 1;
 		    switch (hdr & _HEADER_MAP_SUBTAG_MASK) {
 		    case HAMT_SUBTAG_HEAD_ARRAY:
 			aa++; bb++;
@@ -3004,10 +3004,10 @@ Sint erts_cmp(Eterm a, Eterm b, int exact, int eq_only)
         return cmp_atoms(a, b);
     } else if (is_both_small(a, b)) {
         return (signed_val(a) - signed_val(b));
-    } else if (is_float_rel(a, a_base) && is_float_rel(b, b_base)) {
+    } else if (is_float(a) && is_float(b)) {
         FloatDef af, bf;
-        GET_DOUBLE_REL(a, af, a_base);
-        GET_DOUBLE_REL(b, bf, b_base);
+        GET_DOUBLE(a, af);
+        GET_DOUBLE(b, bf);
         return float_comp(af.fd, bf.fd);
     }
     return erts_cmp_compound(a,b,exact,eq_only);
@@ -3111,9 +3111,9 @@ tailrecur_ne:
 	    if (is_internal_port(b)) {
 		bnode = erts_this_node;
 		bdata = internal_port_data(b);
-	    } else if (is_external_port_rel(b,b_base)) {
-		bnode = external_port_node_rel(b,b_base);
-		bdata = external_port_data_rel(b,b_base);
+	    } else if (is_external_port(b)) {
+		bnode = external_port_node(b);
+		bdata = external_port_data(b);
 	    } else {
 		a_tag = PORT_DEF;
 		goto mixed_types;
@@ -3129,9 +3129,9 @@ tailrecur_ne:
 	    if (is_internal_pid(b)) {
 		bnode = erts_this_node;
 		bdata = internal_pid_data(b);
-	    } else if (is_external_pid_rel(b,b_base)) {
-		bnode = external_pid_node_rel(b,b_base);
-		bdata = external_pid_data_rel(b,b_base);
+	    } else if (is_external_pid(b)) {
+		bnode = external_pid_node(b);
+		bdata = external_pid_data(b);
 	    } else {
 		a_tag = PID_DEF;
 		goto mixed_types;
@@ -3164,8 +3164,8 @@ tailrecur_ne:
 	    a_tag = LIST_DEF;
 	    goto mixed_types;
 	}
-	aa = list_val_rel(a,a_base);
-	bb = list_val_rel(b,b_base);
+	aa = list_val(a);
+	bb = list_val(b);
 	while (1) {
 	    Eterm atmp = CAR(aa);
 	    Eterm btmp = CAR(bb);
@@ -3185,20 +3185,20 @@ tailrecur_ne:
 		b = btmp;
 		goto tailrecur_ne;
 	    }
-	    aa = list_val_rel(atmp,a_base);
-	    bb = list_val_rel(btmp,b_base);
+	    aa = list_val(atmp);
+	    bb = list_val(btmp);
 	}
     case TAG_PRIMARY_BOXED:
 	{
-	    Eterm ahdr = *boxed_val_rel(a,a_base);
+	    Eterm ahdr = *boxed_val(a);
 	    switch ((ahdr & _TAG_HEADER_MASK) >> _TAG_PRIMARY_SIZE) {
 	    case (_TAG_HEADER_ARITYVAL >> _TAG_PRIMARY_SIZE):
-		if (!is_tuple_rel(b,b_base)) {
+		if (!is_tuple(b)) {
 		    a_tag = TUPLE_DEF;
 		    goto mixed_types;
 		}
-		aa = tuple_val_rel(a,a_base);
-		bb = tuple_val_rel(b,b_base);
+		aa = tuple_val(a);
+		bb = tuple_val(b);
 		/* compare the arities */
 		i = arityval(ahdr);	/* get the arity*/
 		if (i != arityval(*bb)) {
@@ -3214,18 +3214,18 @@ tailrecur_ne:
 		{
                     struct erts_cmp_hashmap_state* sp;
                     if (is_flatmap_header(ahdr)) {
-                        if (!is_flatmap_rel(b,b_base)) {
-                            if (is_hashmap_rel(b,b_base)) {
-                                aa = (Eterm *)flatmap_val_rel(a,a_base);
-                                i = flatmap_get_size((flatmap_t*)aa) - hashmap_size_rel(b,b_base);
+                        if (!is_flatmap(b)) {
+                            if (is_hashmap(b)) {
+                                aa = (Eterm *)flatmap_val(a);
+                                i = flatmap_get_size((flatmap_t*)aa) - hashmap_size(b);
                                 ASSERT(i != 0);
                                 RETURN_NEQ(i);
                             }
                             a_tag = MAP_DEF;
                             goto mixed_types;
                         }
-                        aa = (Eterm *)flatmap_val_rel(a,a_base);
-                        bb = (Eterm *)flatmap_val_rel(b,b_base);
+                        aa = (Eterm *)flatmap_val(a);
+                        bb = (Eterm *)flatmap_val(b);
 
                         i = flatmap_get_size((flatmap_t*)aa);
                         if (i != flatmap_get_size((flatmap_t*)bb)) {
@@ -3252,21 +3252,21 @@ tailrecur_ne:
                             goto bodyrecur;
                         }
                     }
-		    if (!is_hashmap_rel(b,b_base)) {
-                        if (is_flatmap_rel(b,b_base)) {
-                            bb = (Eterm *)flatmap_val_rel(b,b_base);
-                            i = hashmap_size_rel(a,a_base) - flatmap_get_size((flatmap_t*)bb);
+		    if (!is_hashmap(b)) {
+                        if (is_flatmap(b)) {
+                            bb = (Eterm *)flatmap_val(b);
+                            i = hashmap_size(a) - flatmap_get_size((flatmap_t*)bb);
                             ASSERT(i != 0);
                             RETURN_NEQ(i);
                         }
 			a_tag = MAP_DEF;
 			goto mixed_types;
 		    }
-		    i = hashmap_size_rel(a,a_base) - hashmap_size_rel(b,b_base);
+		    i = hashmap_size(a) - hashmap_size(b);
 		    if (i) {
 			RETURN_NEQ(i);
 		    }
-                    if (hashmap_size_rel(a,a_base) == 0) {
+                    if (hashmap_size(a) == 0) {
                         goto pop_next;
                     }
 
@@ -3301,31 +3301,31 @@ tailrecur_ne:
                     goto bodyrecur;
 		}
 	    case (_TAG_HEADER_FLOAT >> _TAG_PRIMARY_SIZE):
-		if (!is_float_rel(b,b_base)) {
+		if (!is_float(b)) {
 		    a_tag = FLOAT_DEF;
 		    goto mixed_types;
 		} else {
 		    FloatDef af;
 		    FloatDef bf; 
 
-		    GET_DOUBLE_REL(a, af, a_base);
-		    GET_DOUBLE_REL(b, bf, b_base);
+		    GET_DOUBLE(a, af);
+		    GET_DOUBLE(b, bf);
 		    ON_CMP_GOTO(float_comp(af.fd, bf.fd));
 		}
 	    case (_TAG_HEADER_POS_BIG >> _TAG_PRIMARY_SIZE):
 	    case (_TAG_HEADER_NEG_BIG >> _TAG_PRIMARY_SIZE):
-		if (!is_big_rel(b,b_base)) {
+		if (!is_big(b)) {
 		    a_tag = BIG_DEF;
 		    goto mixed_types;
 		}
-		ON_CMP_GOTO(big_comp(rterm2wterm(a,a_base), rterm2wterm(b,b_base)));
+		ON_CMP_GOTO(big_comp(a, b));
 	    case (_TAG_HEADER_EXPORT >> _TAG_PRIMARY_SIZE):
-		if (!is_export_rel(b,b_base)) {
+		if (!is_export(b)) {
 		    a_tag = EXPORT_DEF;
 		    goto mixed_types;
 		} else {
-		    Export* a_exp = *((Export **) (export_val_rel(a,a_base) + 1));
-		    Export* b_exp = *((Export **) (export_val_rel(b,b_base) + 1));
+		    Export* a_exp = *((Export **) (export_val(a) + 1));
+		    Export* b_exp = *((Export **) (export_val(b) + 1));
 
 		    if ((j = cmp_atoms(a_exp->code[0], b_exp->code[0])) != 0) {
 			RETURN_NEQ(j);
@@ -3337,12 +3337,12 @@ tailrecur_ne:
 		}
 		break;
 	    case (_TAG_HEADER_FUN >> _TAG_PRIMARY_SIZE):
-		if (!is_fun_rel(b,b_base)) {
+		if (!is_fun(b)) {
 		    a_tag = FUN_DEF;
 		    goto mixed_types;
 		} else {
-		    ErlFunThing* f1 = (ErlFunThing *) fun_val_rel(a,a_base);
-		    ErlFunThing* f2 = (ErlFunThing *) fun_val_rel(b,b_base);
+		    ErlFunThing* f1 = (ErlFunThing *) fun_val(a);
+		    ErlFunThing* f2 = (ErlFunThing *) fun_val(b);
 		    Sint diff;
 
 		    diff = cmpbytes(atom_tab(atom_val(f1->fe->module))->name,
@@ -3374,29 +3374,29 @@ tailrecur_ne:
 		if (is_internal_pid(b)) {
 		    bnode = erts_this_node;
 		    bdata = internal_pid_data(b);
-		} else if (is_external_pid_rel(b,b_base)) {
-		    bnode = external_pid_node_rel(b,b_base);
-		    bdata = external_pid_data_rel(b,b_base);
+		} else if (is_external_pid(b)) {
+		    bnode = external_pid_node(b);
+		    bdata = external_pid_data(b);
 		} else {
 		    a_tag = EXTERNAL_PID_DEF;
 		    goto mixed_types;
 		}
-		anode = external_pid_node_rel(a,a_base);
-		adata = external_pid_data_rel(a,a_base);
+		anode = external_pid_node(a);
+		adata = external_pid_data(a);
 		goto pid_common;
 	    case (_TAG_HEADER_EXTERNAL_PORT >> _TAG_PRIMARY_SIZE):
 		if (is_internal_port(b)) {
 		    bnode = erts_this_node;
 		    bdata = internal_port_data(b);
-		} else if (is_external_port_rel(b,b_base)) {
-		    bnode = external_port_node_rel(b,b_base);
-		    bdata = external_port_data_rel(b,b_base);
+		} else if (is_external_port(b)) {
+		    bnode = external_port_node(b);
+		    bdata = external_port_data(b);
 		} else {
 		    a_tag = EXTERNAL_PORT_DEF;
 		    goto mixed_types;
 		}
-		anode = external_port_node_rel(a,a_base);
-		adata = external_port_data_rel(a,a_base);
+		anode = external_port_node(a);
+		adata = external_port_data(a);
 		goto port_common;
 	    case (_TAG_HEADER_REF >> _TAG_PRIMARY_SIZE):
 		/*
@@ -3404,14 +3404,13 @@ tailrecur_ne:
 		 * (32-bit words), *not* ref data words.
 		 */
 
-		
-		if (is_internal_ref_rel(b,b_base)) {
-		    RefThing* bthing = ref_thing_ptr_rel(b,b_base);
+		if (is_internal_ref(b)) {
+		    RefThing* bthing = ref_thing_ptr(b);
 		    bnode = erts_this_node;
 		    bnum = internal_thing_ref_numbers(bthing);
 		    blen = internal_thing_ref_no_of_numbers(bthing);
-		} else if(is_external_ref_rel(b,b_base)) {
-		    ExternalThing* bthing = external_thing_ptr_rel(b,b_base);
+		} else if(is_external_ref(b)) {
+		    ExternalThing* bthing = external_thing_ptr(b);
 		    bnode = bthing->node;
 		    bnum = external_thing_ref_numbers(bthing);
 		    blen = external_thing_ref_no_of_numbers(bthing);
@@ -3420,7 +3419,7 @@ tailrecur_ne:
 		    goto mixed_types;
 		}
 		{
-		    RefThing* athing = ref_thing_ptr_rel(a,a_base);
+		    RefThing* athing = ref_thing_ptr(a);
 		    anode = erts_this_node;
 		    anum = internal_thing_ref_numbers(athing);
 		    alen = internal_thing_ref_no_of_numbers(athing);
@@ -3453,13 +3452,13 @@ tailrecur_ne:
 			RETURN_NEQ((Sint32) (anum[i] - bnum[i]));
 		goto pop_next;
 	    case (_TAG_HEADER_EXTERNAL_REF >> _TAG_PRIMARY_SIZE):
-		if (is_internal_ref_rel(b,b_base)) {
-		    RefThing* bthing = ref_thing_ptr_rel(b,b_base);
+		if (is_internal_ref(b)) {
+		    RefThing* bthing = ref_thing_ptr(b);
 		    bnode = erts_this_node;
 		    bnum = internal_thing_ref_numbers(bthing);
 		    blen = internal_thing_ref_no_of_numbers(bthing);
-		} else if (is_external_ref_rel(b,b_base)) {
-		    ExternalThing* bthing = external_thing_ptr_rel(b,b_base);
+		} else if (is_external_ref(b)) {
+		    ExternalThing* bthing = external_thing_ptr(b);
 		    bnode = bthing->node;
 		    bnum = external_thing_ref_numbers(bthing);
 		    blen = external_thing_ref_no_of_numbers(bthing);
@@ -3468,7 +3467,7 @@ tailrecur_ne:
 		    goto mixed_types;
 		}
 		{
-		    ExternalThing* athing = external_thing_ptr_rel(a,a_base);
+		    ExternalThing* athing = external_thing_ptr(a);
 		    anode = athing->node;
 		    anum = external_thing_ref_numbers(athing);
 		    alen = external_thing_ref_no_of_numbers(athing);
@@ -3476,13 +3475,13 @@ tailrecur_ne:
 		goto ref_common;
 	    default:
 		/* Must be a binary */
-		ASSERT(is_binary_rel(a,a_base));
-		if (!is_binary_rel(b,b_base)) {
+		ASSERT(is_binary(a));
+		if (!is_binary(b)) {
 		    a_tag = BINARY_DEF;
 		    goto mixed_types;
 		} else {
-		    Uint a_size = binary_size_rel(a,a_base);
-		    Uint b_size = binary_size_rel(b,b_base);
+		    Uint a_size = binary_size(a);
+		    Uint b_size = binary_size(b);
 		    Uint a_bitsize;
 		    Uint b_bitsize;
 		    Uint a_bitoffs;
@@ -3596,7 +3595,7 @@ tailrecur_ne:
 		}
 	    } else {
 		big = double_to_big(f2.fd, big_buf, sizeof(big_buf)/sizeof(Eterm));
-		j = big_comp(aw, rterm2wterm(big,big_buf));
+		j = big_comp(aw, big);
 	    }
 	    if (_NUMBER_CODE(a_tag, b_tag) == FLOAT_BIG) {
 		j = -j;

@@ -306,7 +306,7 @@ ERTS_GLB_INLINE Eterm db_copy_object_from_ets(DbTableCommon* tb, DbTerm* bp,
 ERTS_GLB_INLINE int db_eq(DbTableCommon* tb, Eterm a, DbTerm* b)
 {
     if (!tb->compress) {
-	return eq_rel(a, NULL, make_tuple_rel(b->tpl,b->tpl), b->tpl);
+	return eq_rel(a, NULL, make_tuple(b->tpl), b->tpl);
     }
     else {
 	return db_eq_comp(tb, a, b);

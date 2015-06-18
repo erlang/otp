@@ -123,7 +123,7 @@ is_printable_string(Eterm list, Eterm* base)
     int c;
 
     while(is_list(list)) {
-	Eterm* consp = list_val_rel(list, base);
+	Eterm* consp = list_val(list);
 	Eterm hd = CAR(consp);
 
 	if (!is_byte(hd))
@@ -308,7 +308,7 @@ print_term(fmtfn_t fn, void* arg, Eterm obj, long *dcount,
 		obj = (Eterm) popped.word;
 	    L_print_one_cons:
 		{
-		    Eterm* cons = list_val_rel(obj, obj_base);
+		    Eterm* cons = list_val(obj);
 		    Eterm tl;
 		    
 		    obj = CAR(cons);
@@ -423,7 +423,7 @@ print_term(fmtfn_t fn, void* arg, Eterm obj, long *dcount,
 	    if (is_printable_string(obj, obj_base)) {
 		int c;
 		PRINT_CHAR(res, fn, arg, '"');
-		nobj = list_val_rel(obj, obj_base);
+		nobj = list_val(obj);
 		while (1) {
 		    if ((*dcount)-- <= 0)
 			goto L_done;
@@ -437,7 +437,7 @@ print_term(fmtfn_t fn, void* arg, Eterm obj, long *dcount,
 		    }
 		    if (is_not_list(*nobj))
 			break;
-		    nobj = list_val_rel(*nobj, obj_base);
+		    nobj = list_val(*nobj);
 		}
 		PRINT_CHAR(res, fn, arg, '"');
 	    } else {
@@ -468,7 +468,7 @@ print_term(fmtfn_t fn, void* arg, Eterm obj, long *dcount,
 	    }
 	    else {
 		byte* bytep;
-		Uint bytesize = binary_size_rel(obj,obj_base);
+		Uint bytesize = binary_size(obj);
 		Uint bitoffs;
 		Uint bitsize;
 		byte octet;
