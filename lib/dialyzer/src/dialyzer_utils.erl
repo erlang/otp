@@ -297,6 +297,7 @@ get_record_fields([], _RecDict, Acc) ->
 process_record_remote_types(CServer) ->
   TempRecords = dialyzer_codeserver:get_temp_records(CServer),
   TempExpTypes = dialyzer_codeserver:get_temp_exported_types(CServer),
+  TempRecords1 = process_opaque_types0(TempRecords, TempExpTypes),
   ModuleFun =
     fun(Module, Record) ->
         RecordFun =
@@ -309,12 +310,39 @@ process_record_remote_types(CServer) ->
                           erl_types:t_from_form(Field,
                                                 TempExpTypes,
                                                 Module,
-                                                TempRecords)}
+                                                TempRecords1)}
                          || {Name, Field, _} <- Fields]
                     end,
                   {FileLine, Fields} = Value,
                   {FileLine, orddict:map(FieldFun, Fields)};
-                {opaque, _, _} ->
+                _Other -> Value
+              end
+          end,
+	dict:map(RecordFun, Record)
+    end,
+  NewRecords = dict:map(ModuleFun, TempRecords1),
+  ok = check_record_fields(NewRecords, TempExpTypes),
+  CServer1 = dialyzer_codeserver:finalize_records(NewRecords, CServer),
+  dialyzer_codeserver:finalize_exported_types(TempExpTypes, CServer1).
+
+process_opaque_types0(TempRecords0, TempExpTypes) ->
+  TempRecords = process_opaque_types(TempRecords0, TempExpTypes),
+  L0 = lists:keysort(1, dict:to_list(TempRecords0)),
+  L1 = lists:keysort(1, dict:to_list(TempRecords)),
+  if
+    L0 =:= L1 ->
+      TempRecords;
+    true ->
+      process_opaque_types0(TempRecords, TempExpTypes)
+  end.
+
+process_opaque_types(TempRecords, TempExpTypes) ->
+  ModuleFun =
+    fun(Module, Record) ->
+        RecordFun =
+          fun(Key, Value) ->
+              case Key of
+                {opaque, _Name, _NArgs} ->
                   {{_Module, _FileLine, Form, _ArgNames}=F, _Type} = Value,
                   Type = erl_types:t_from_form(Form, TempExpTypes, Module,
                                                TempRecords),
@@ -324,15 +352,7 @@ process_record_remote_types(CServer) ->
           end,
 	dict:map(RecordFun, Record)
     end,
-  try dict:map(ModuleFun, TempRecords) of
-    NewRecords ->
-      ok = check_record_fields(NewRecords, TempExpTypes),
-      CServer1 = dialyzer_codeserver:finalize_records(NewRecords, CServer),
-      dialyzer_codeserver:finalize_exported_types(TempExpTypes, CServer1)
-  catch
-    throw:{error, _RecName, _Error} = Error ->
-      Error
-  end.
+  dict:map(ModuleFun, TempRecords).
 
 check_record_fields(Records, TempExpTypes) ->
   CheckFun =
