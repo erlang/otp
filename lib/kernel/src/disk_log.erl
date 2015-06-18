@@ -1,32 +1,32 @@
 %%
 %% %CopyrightBegin%
-%% 
+%%
 %% Copyright Ericsson AB 1997-2013. All Rights Reserved.
-%% 
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(disk_log).
 
 %% Efficient file based log - process part
 
--export([start/0, istart_link/1, 
+-export([start/0, istart_link/1,
 	 log/2, log_terms/2, blog/2, blog_terms/2,
 	 alog/2, alog_terms/2, balog/2, balog_terms/2,
-	 close/1, lclose/1, lclose/2, sync/1, open/1, 
+	 close/1, lclose/1, lclose/2, sync/1, open/1,
 	 truncate/1, truncate/2, btruncate/2,
 	 reopen/2, reopen/3, breopen/3, inc_wrap_file/1, change_size/2,
-	 change_notify/3, change_header/2, 
+	 change_notify/3, change_header/2,
 	 chunk/2, chunk/3, bchunk/2, bchunk/3, chunk_step/3, chunk_info/1,
 	 block/1, block/2, unblock/1, info/1, format_error/1,
 	 accessible_logs/0]).
@@ -44,7 +44,6 @@
 %% To be used for debugging only:
 -export([pid2name/1]).
 
--export_type([continuation/0]).
 
 -type dlog_state_error() :: 'ok' | {'error', term()}.
 
@@ -60,7 +59,7 @@
 
 -include("disk_log.hrl").
 
--define(failure(Error, Function, Arg), 
+-define(failure(Error, Function, Arg),
 	{{failed, Error}, [{?MODULE, Function, Arg}]}).
 
 %%-define(PROFILE(C), C).
@@ -79,6 +78,18 @@
 -type file_error()     :: term().  % XXX: refine
 -type invalid_header() :: term().  % XXX: refine
 
+-export_type([log/0,
+              dlog_size/0,
+              dlog_format/0,
+              dlog_head_opt/0,
+              dlog_byte/0,
+              dlog_mode/0,
+              dlog_type/0,
+              bytes/0,
+              invalid_header/0,
+              file_error/0,
+              continuation/0]).
+
 %%%----------------------------------------------------------------------
 %%% API
 %%%----------------------------------------------------------------------
@@ -86,7 +97,7 @@
 %%-----------------------------------------------------------------
 %% This module implements the API, and the processes for each log.
 %% There is one process per log.
-%%-----------------------------------------------------------------      
+%%-----------------------------------------------------------------
 
 -type open_error_rsn() :: 'no_such_log'
                         | {'badarg', term()}
@@ -125,7 +136,7 @@ open(A) ->
 -spec log(Log, Term) -> ok | {error, Reason :: log_error_rsn()} when
       Log :: log(),
       Term :: term().
-log(Log, Term) -> 
+log(Log, Term) ->
     req(Log, {log, term_to_binary(Term)}).
 
 -spec blog(Log, Bytes) -> ok | {error, Reason :: log_error_rsn()} when
@@ -154,7 +165,7 @@ blog_terms(Log, Bytess) ->
 -spec alog(Log, Term) -> notify_ret() when
       Log :: log(),
       Term :: term().
-alog(Log, Term) -> 
+alog(Log, Term) ->
     notify(Log, {alog, term_to_binary(Term)}).
 
 -spec alog_terms(Log, TermList) -> notify_ret() when
@@ -182,7 +193,7 @@ balog_terms(Log, Bytess) ->
 
 -spec close(Log) -> 'ok' | {'error', close_error_rsn()} when
       Log :: log().
-close(Log) -> 
+close(Log) ->
     req(Log, close).
 
 -type lclose_error_rsn() :: 'no_such_log'
@@ -207,7 +218,7 @@ lclose(Log, Node) ->
 
 -spec truncate(Log) -> 'ok' | {'error', trunc_error_rsn()} when
       Log :: log().
-truncate(Log) -> 
+truncate(Log) ->
     req(Log, {truncate, none, truncate, 1}).
 
 -spec truncate(Log, Head) -> 'ok' | {'error', trunc_error_rsn()} when
@@ -259,7 +270,7 @@ breopen(Log, NewFile, NewHead) ->
 
 -spec inc_wrap_file(Log) -> 'ok' | {'error', inc_wrap_error_rsn()} when
       Log :: log().
-inc_wrap_file(Log) -> 
+inc_wrap_file(Log) ->
     req(Log, inc_wrap_file).
 
 -spec change_size(Log, Size) -> 'ok' | {'error', Reason} when
@@ -270,7 +281,7 @@ inc_wrap_file(Log) ->
               | {new_size_too_small, CurrentSize :: pos_integer()}
               | {badarg, size}
               | {file_error, file:filename(), file_error()}.
-change_size(Log, NewSize) -> 
+change_size(Log, NewSize) ->
     req(Log, {change_size, NewSize}).
 
 -spec change_notify(Log, Owner, Notify) -> 'ok' | {'error', Reason} when
@@ -279,7 +290,7 @@ change_size(Log, NewSize) ->
       Notify :: boolean(),
       Reason :: no_such_log | nonode | {blocked_log, Log}
               | {badarg, notify} | {not_owner, Owner}.
-change_notify(Log, Pid, NewNotify) -> 
+change_notify(Log, Pid, NewNotify) ->
     req(Log, {change_notify, Pid, NewNotify}).
 
 -spec change_header(Log, Header) -> 'ok' | {'error', Reason} when
@@ -297,20 +308,20 @@ change_header(Log, NewHead) ->
 
 -spec sync(Log) -> 'ok' | {'error', sync_error_rsn()} when
       Log :: log().
-sync(Log) -> 
+sync(Log) ->
     req(Log, sync).
 
 -type block_error_rsn() :: 'no_such_log' | 'nonode' | {'blocked_log', log()}.
 
 -spec block(Log) -> 'ok' | {'error', block_error_rsn()} when
       Log :: log().
-block(Log) -> 
+block(Log) ->
     block(Log, true).
 
 -spec block(Log, QueueLogRecords) -> 'ok' | {'error', block_error_rsn()} when
       Log :: log(),
       QueueLogRecords :: boolean().
-block(Log, QueueLogRecords) -> 
+block(Log, QueueLogRecords) ->
     req(Log, {block, QueueLogRecords}).
 
 -type unblock_error_rsn() :: 'no_such_log' | 'nonode'
@@ -353,7 +364,7 @@ format_error(Error) ->
 -spec info(Log) -> InfoList | {'error', no_such_log} when
       Log :: log(),
       InfoList :: [dlog_info()].
-info(Log) -> 
+info(Log) ->
     sreq(Log, info).
 
 -spec pid2name(Pid) -> {'ok', Log} | 'undefined' when
@@ -405,7 +416,7 @@ ichunk(Log, start, N) ->
     R = sreq(Log, {chunk, 0, [], N}),
     ichunk_end(R, Log);
 ichunk(Log, More, N) when is_record(More, continuation) ->
-    R = req2(More#continuation.pid, 
+    R = req2(More#continuation.pid,
 	     {chunk, More#continuation.pos, More#continuation.b, N}),
     ichunk_end(R, Log);
 ichunk(_Log, _, _) ->
@@ -442,13 +453,13 @@ ichunk_bad_end([B | Bs], Mode, Log, C, Bad, A) ->
 	    InfoList = info(Log),
 	    {value, {file, FileName}} = lists:keysearch(file, 1, InfoList),
             File = case C#continuation.pos of
-		       Pos when is_integer(Pos) -> FileName; % halt log 
+		       Pos when is_integer(Pos) -> FileName; % halt log
 		       {FileNo, _} -> add_ext(FileName, FileNo) % wrap log
 		   end,
 	    {error, {corrupt_log_file, File}};
 	{'EXIT', _} when read_only =:= Mode ->
-	    Reread = lists:foldl(fun(Bin, Sz) -> 
-                                         Sz + byte_size(Bin) + ?HEADERSZ 
+	    Reread = lists:foldl(fun(Bin, Sz) ->
+                                         Sz + byte_size(Bin) + ?HEADERSZ
                                  end, 0, Bs),
 	    NewPos = case C#continuation.pos of
 			 Pos when is_integer(Pos) -> Pos-Reread;
@@ -533,7 +544,7 @@ chunk_info(BadCont) ->
 accessible_logs() ->
     disk_log_server:accessible_logs().
 
-istart_link(Server) ->  
+istart_link(Server) ->
     {ok, proc_lib:spawn_link(disk_log, init, [self(), Server])}.
 
 %% Only for backwards compatibility, could probably be removed.
@@ -572,7 +583,7 @@ check_arg([], Res) ->
 	  end,
 
     if  %% check result
-	Res#arg.name =:= 0 -> 
+	Res#arg.name =:= 0 ->
 	    {error, {badarg, name}};
 	Res#arg.file =:= none ->
 	    case catch lists:concat([Res#arg.name, ".LOG"]) of
@@ -584,7 +595,7 @@ check_arg([], Res) ->
 	Res#arg.type =:= halt, is_tuple(Res#arg.size) ->
 	    {error, {badarg, size}};
 	Res#arg.type =:= wrap ->
-	    {OldSize, Version} = 
+	    {OldSize, Version} =
 		disk_log_1:read_size_file_version(Res#arg.file),
 	    check_wrap_arg(Ret, OldSize, Version);
 	true ->
@@ -610,7 +621,7 @@ check_arg([{size, Int}|Tail], Res) when is_integer(Int), Int > 0 ->
     check_arg(Tail, Res#arg{size = Int});
 check_arg([{size, infinity}|Tail], Res) ->
     check_arg(Tail, Res#arg{size = infinity});
-check_arg([{size, {MaxB,MaxF}}|Tail], Res) when is_integer(MaxB), 
+check_arg([{size, {MaxB,MaxF}}|Tail], Res) when is_integer(MaxB),
                                                 is_integer(MaxF),
 						MaxB > 0, MaxB =< ?MAX_BYTES,
 						MaxF > 0, MaxF < ?MAX_FILES ->
@@ -699,7 +710,7 @@ handle({From, {log, B}}, S) ->
 	    reply(From, {error, {blocked_log, L#log.name}}, S);
 	_ ->
 	    loop(S#state{queue = [{From, {log, B}} | S#state.queue]})
-    end;    
+    end;
 handle({From, {blog, B}}, S) ->
     case get(log) of
 	L when L#log.mode =:= read_only ->
@@ -800,17 +811,17 @@ handle({From, {truncate, Head, F, A}}, S) ->
 	L when L#log.blocked_by =:= From ->
 	    reply(From, {error, {blocked_log, L#log.name}}, S);
 	_ ->
-	    loop(S#state{queue = [{From, {truncate, Head, F, A}} 
+	    loop(S#state{queue = [{From, {truncate, Head, F, A}}
 				  | S#state.queue]})
     end;
 handle({From, {chunk, Pos, B, N}},  S) ->
     case get(log) of
 	L when L#log.status =:= ok, S#state.cache_error =/= ok ->
 	    loop(cache_error(S, [From]));
-	L when L#log.status =:= ok ->	
+	L when L#log.status =:= ok ->
 	    R = do_chunk(L, Pos, B, N),
 	    reply(From, R, S);
-	L when L#log.blocked_by =:= From ->	
+	L when L#log.blocked_by =:= From ->
 	    R = do_chunk(L, Pos, B, N),
 	    reply(From, R, S);
 	L when L#log.status =:= {blocked, false} ->
@@ -822,10 +833,10 @@ handle({From, {chunk_step, Pos, N}},  S) ->
     case get(log) of
 	L when L#log.status =:= ok, S#state.cache_error =/= ok ->
 	    loop(cache_error(S, [From]));
-	L when L#log.status =:= ok ->	
+	L when L#log.status =:= ok ->
 	    R = do_chunk_step(L, Pos, N),
 	    reply(From, R, S);
-	L when L#log.blocked_by =:= From ->	
+	L when L#log.blocked_by =:= From ->
 	    R = do_chunk_step(L, Pos, N),
 	    reply(From, R, S);
 	L when L#log.status =:= {blocked, false} ->
@@ -857,7 +868,7 @@ handle({From, {change_header, NewHead}}, S) ->
 	L when L#log.mode =:= read_only ->
 	    reply(From, {error, {read_only_mode, L#log.name}}, S);
 	L when L#log.status =:= ok ->
-	    case check_head(NewHead, L#log.format) of 
+	    case check_head(NewHead, L#log.format) of
 		{ok, Head} ->
 		    put(log, L#log{head = mk_head(Head, L#log.format)}),
 		    reply(From, ok, S);
@@ -876,15 +887,15 @@ handle({From, {change_size, NewSize}}, S) ->
     case get(log) of
 	L when L#log.mode =:= read_only ->
 	    reply(From, {error, {read_only_mode, L#log.name}}, S);
-	L when L#log.status =:= ok ->	
+	L when L#log.status =:= ok ->
 	    case check_size(L#log.type, NewSize) of
 		ok ->
 		    case catch do_change_size(L, NewSize) of % does the put
 			ok ->
 			    reply(From, ok, S);
 			{big, CurSize} ->
-			    reply(From, 
-				  {error, 
+			    reply(From,
+				  {error,
 				   {new_size_too_small, L#log.name, CurSize}},
 				  S);
 			Else ->
@@ -898,7 +909,7 @@ handle({From, {change_size, NewSize}}, S) ->
 	L when L#log.blocked_by =:= From ->
 	    reply(From, {error, {blocked_log, L#log.name}}, S);
 	_ ->
-	    loop(S#state{queue = [{From, {change_size, NewSize}} 
+	    loop(S#state{queue = [{From, {change_size, NewSize}}
 				  | S#state.queue]})
     end;
 handle({From, inc_wrap_file}, S) ->
@@ -909,14 +920,14 @@ handle({From, inc_wrap_file}, S) ->
 	    reply(From, {error, {halt_log, L#log.name}}, S);
 	L when L#log.status =:= ok, S#state.cache_error =/= ok ->
 	    loop(cache_error(S, [From]));
-	L when L#log.status =:= ok ->	
+	L when L#log.status =:= ok ->
 	    case catch do_inc_wrap_file(L) of
 		{ok, L2, Lost} ->
 		    put(log, L2),
 		    notify_owners({wrap, Lost}),
 		    reply(From, ok, S#state{cnt = S#state.cnt-Lost});
 		{error, Error, L2} ->
-		    put(log, L2),		    
+		    put(log, L2),
 		    reply(From, Error, state_err(S, Error))
 	    end;
 	L when L#log.status =:= {blocked, false} ->
@@ -951,7 +962,7 @@ handle({From, {reopen, NewFile, Head, F, A}}, S) ->
 				    erase(is_full),
 				    case Res of
 					{error, _} ->
-					    do_exit(S, From, Res, 
+					    do_exit(S, From, Res,
 						    ?failure(Res, F, A));
 					_ ->
 					    reply(From, ok, S#state{cnt = Cnt})
@@ -1044,7 +1055,7 @@ log_loop(#state{cache_error = CE}=S, Pids, _Bins, _Sync, _Sz) when CE =/= ok ->
 log_loop(#state{}=S, Pids, Bins, Sync, Sz) when Sz > ?MAX_LOOK_AHEAD ->
     loop(log_end(S, Pids, Bins, Sync));
 log_loop(#state{messages = []}=S, Pids, Bins, Sync, Sz) ->
-    receive 
+    receive
 	Message ->
             log_loop(Message, Pids, Bins, Sync, Sz, S, get(log))
     after 0 ->
@@ -1137,7 +1148,7 @@ close_owner(Pid, L, S) ->
     S2 = do_unblock(Pid, get(log), S),
     unlink(Pid),
     do_close2(L1, S2).
-    
+
 %% -> {stop, S} | {continue, S}
 close_user(Pid, L, S) when L#log.users > 0 ->
     L1 = L#log{users = L#log.users - 1},
@@ -1201,7 +1212,7 @@ do_stop(S) ->
 proc_q([{From, _R}|Tail]) when is_pid(From) ->
     From ! {disk_log, self(), {error, disk_log_stopped}},
     proc_q(Tail);
-proc_q([_|T]) -> %% async stuff 
+proc_q([_|T]) -> %% async stuff
     proc_q(T);
 proc_q([]) ->
     ok.
@@ -1271,7 +1282,7 @@ file_error(FileName, {error, Error}) ->
     {error, {file_error, FileName, Error}}.
 
 %% "Old" error messages have been kept, arg_mismatch has been added.
-%%-spec compare_arg(dlog_options(), #arg{}, 
+%%-spec compare_arg(dlog_options(), #arg{},
 compare_arg([], _A, none, _OrigHead) ->
     % no header option given
     ok;
@@ -1281,11 +1292,11 @@ compare_arg([], _A, _Head, _OrigHead) ->
     ok;
 compare_arg([{Attr, Val} | Tail], A, Head, OrigHead) ->
     case compare_arg(Attr, Val, A) of
-	{not_ok, OrigVal} -> 
+	{not_ok, OrigVal} ->
 	    {error, {arg_mismatch, Attr, OrigVal, Val}};
-	ok -> 
+	ok ->
 	    compare_arg(Tail, A, Head, OrigHead);
-	Error -> 
+	Error ->
 	    Error
     end.
 
@@ -1304,7 +1315,7 @@ compare_arg(format, F, A) when F =/= A#arg.format ->
 compare_arg(repair, R, A) when R =/= A#arg.repair ->
     %% not used, but check it anyway...
     {not_ok, A#arg.repair};
-compare_arg(_Attr, _Val, _A) -> 
+compare_arg(_Attr, _Val, _A) ->
     ok.
 
 %% -> {ok, Res, log(), Cnt} | Error
@@ -1340,9 +1351,9 @@ check_bytes_list([B | Bs]) ->
 check_bytes_list([]) ->
     [].
 
-check_bytes(Binary) when is_binary(Binary) ->     
+check_bytes(Binary) when is_binary(Binary) ->
     Binary;
-check_bytes(Bytes) -> 
+check_bytes(Bytes) ->
     list_to_binary(Bytes).
 
 %%-----------------------------------------------------------------
@@ -1375,8 +1386,8 @@ do_change_size(L, NewSize) when L#log.type =:= wrap ->
 %% -> {ok, Head} | Error; Head = none | {head, H} | {M,F,A}
 check_head({head, none}, _Format) ->
     {ok, none};
-check_head({head_func, {M, F, A}}, _Format) when is_atom(M), 
-                                                 is_atom(F), 
+check_head({head_func, {M, F, A}}, _Format) when is_atom(M),
+                                                 is_atom(F),
                                                  is_list(A) ->
     {ok, {M, F, A}};
 check_head({head, Head}, external) ->
@@ -1431,12 +1442,12 @@ do_inc_wrap_file(L) ->
 %%-----------------------------------------------------------------
 %% -> {ok, Reply, log(), Cnt} | Error
 %% Note: the header is always written, even if the log size is too small.
-do_open2(L, #arg{type = halt, format = internal, name = Name, 
+do_open2(L, #arg{type = halt, format = internal, name = Name,
 		 file = FName, repair = Repair, size = Size, mode = Mode}) ->
     case catch disk_log_1:int_open(FName, Repair, Mode, L#log.head) of
 	{ok, {_Alloc, FdC, {NoItems, _NoBytes}, FileSize}} ->
             Halt = #halt{fdc = FdC, curB = FileSize, size = Size},
-	    {ok, {ok, Name}, L#log{format_type = halt_int, extra = Halt}, 
+	    {ok, {ok, Name}, L#log{format_type = halt_int, extra = Halt},
 	     NoItems};
 	{repaired, FdC, Rec, Bad, FileSize} ->
             Halt = #halt{fdc = FdC, curB = FileSize, size = Size},
@@ -1446,14 +1457,14 @@ do_open2(L, #arg{type = halt, format = internal, name = Name,
 	Error ->
 	    Error
     end;
-do_open2(L, #arg{type = wrap, format = internal, size = {MaxB, MaxF}, 
+do_open2(L, #arg{type = wrap, format = internal, size = {MaxB, MaxF},
 		 name = Name, repair = Repair, file = FName, mode = Mode,
 		 version = V}) ->
-    case catch 
+    case catch
       disk_log_1:mf_int_open(FName, MaxB, MaxF, Repair, Mode, L#log.head, V) of
 	{ok, Handle, Cnt} ->
 	    {ok, {ok, Name}, L#log{type = wrap,
-				   format_type = wrap_int, 
+				   format_type = wrap_int,
 				   extra = Handle}, Cnt};
 	{repaired, Handle, Rec, Bad, Cnt} ->
 	    {ok, {repaired, Name, {recovered, Rec}, {badbytes, Bad}},
@@ -1466,8 +1477,8 @@ do_open2(L, #arg{type = halt, format = external, file = FName, name = Name,
     case catch disk_log_1:ext_open(FName, Repair, Mode, L#log.head) of
 	{ok, {_Alloc, FdC, {NoItems, _NoBytes}, FileSize}} ->
             Halt = #halt{fdc = FdC, curB = FileSize, size = Size},
-	    {ok, {ok, Name}, 
-             L#log{format_type = halt_ext, format = external, extra = Halt}, 
+	    {ok, {ok, Name},
+             L#log{format_type = halt_ext, format = external, extra = Halt},
 	     NoItems};
 	Error ->
 	    Error
@@ -1475,11 +1486,11 @@ do_open2(L, #arg{type = halt, format = external, file = FName, name = Name,
 do_open2(L, #arg{type = wrap, format = external, size = {MaxB, MaxF},
 		 name = Name, file = FName, repair = Repair, mode = Mode,
 		 version = V}) ->
-    case catch 
+    case catch
       disk_log_1:mf_ext_open(FName, MaxB, MaxF, Repair, Mode, L#log.head, V) of
 	{ok, Handle, Cnt} ->
 	    {ok, {ok, Name}, L#log{type = wrap,
-				   format_type = wrap_ext, 
+				   format_type = wrap_ext,
 				   extra = Handle,
 				   format = external}, Cnt};
 	Error ->
@@ -1491,8 +1502,8 @@ close_disk_log(undefined) ->
     closed;
 close_disk_log(L) ->
     unblock_pid(L),
-    F = fun({Pid, _}) -> 
-		unlink(Pid) 
+    F = fun({Pid, _}) ->
+		unlink(Pid)
 	end,
     lists:foreach(F, L#log.owners),
     R = (catch close_disk_log2(L)),
@@ -1562,10 +1573,10 @@ do_format_error({node_already_open, Log}) ->
     io_lib:format("The distribution option of the disk log ~tp does not match "
 		  "already open log~n", [Log]);
 do_format_error({open_read_write, Log}) ->
-    io_lib:format("The disk log ~tp has already been opened read-write~n", 
+    io_lib:format("The disk log ~tp has already been opened read-write~n",
 		  [Log]);
 do_format_error({open_read_only, Log}) ->
-    io_lib:format("The disk log ~tp has already been opened read-only~n", 
+    io_lib:format("The disk log ~tp has already been opened read-only~n",
 		  [Log]);
 do_format_error({not_internal_wrap, Log}) ->
     io_lib:format("The requested operation cannot be applied since ~tp is not "
@@ -1579,7 +1590,7 @@ do_format_error(nodedown) ->
     io_lib:format("There seems to be no node up that can handle "
 		  "the request~n", []);
 do_format_error({corrupt_log_file, FileName}) ->
-    io_lib:format("The disk log file \"~ts\" contains corrupt data~n", 
+    io_lib:format("The disk log file \"~ts\" contains corrupt data~n",
                   [FileName]);
 do_format_error({need_repair, FileName}) ->
     io_lib:format("The disk log file \"~ts\" has not been closed properly and "
@@ -1587,7 +1598,7 @@ do_format_error({need_repair, FileName}) ->
 do_format_error({not_a_log_file, FileName}) ->
     io_lib:format("The file \"~ts\" is not a wrap log file~n", [FileName]);
 do_format_error({invalid_header, InvalidHeader}) ->
-    io_lib:format("The disk log header is not wellformed: ~p~n", 
+    io_lib:format("The disk log header is not wellformed: ~p~n",
 		  [InvalidHeader]);
 do_format_error(end_of_log) ->
     io_lib:format("An attempt was made to step outside a not yet "
@@ -1603,7 +1614,7 @@ do_format_error(E) ->
     io_lib:format("~tp~n", [E]).
 
 do_info(L, Cnt) ->
-    #log{name = Name, type = Type, mode = Mode, filename = File, 
+    #log{name = Name, type = Type, mode = Mode, filename = File,
 	 extra = Extra, status = Status, owners = Owners, users = Users,
 	 format = Format, head = Head} = L,
     Size = case Type of
@@ -1614,7 +1625,7 @@ do_info(L, Cnt) ->
 	   end,
     Distribution =
 	case disk_log_server:get_log_pids(Name) of
-	    {local, _Pid} -> 
+	    {local, _Pid} ->
 		local;
 	    {distributed, Pids} ->
                 [node(P) || P <- Pids];
@@ -1623,8 +1634,8 @@ do_info(L, Cnt) ->
 	end,
     RW = case Type of
 	     wrap when Mode =:= read_write ->
-		 #handle{curB = CurB, curF = CurF, 
-			 cur_cnt = CurCnt, acc_cnt = AccCnt, 
+		 #handle{curB = CurB, curF = CurF,
+			 cur_cnt = CurCnt, acc_cnt = AccCnt,
 			 noFull = NoFull, accFull = AccFull} = Extra,
 		 NewAccFull = AccFull + NoFull,
 		 NewExtra = Extra#handle{noFull = 0, accFull = NewAccFull},
@@ -1637,9 +1648,9 @@ do_info(L, Cnt) ->
 		  {no_overflows, {NewAccFull, NoFull}}
 		 ];
 	     halt when Mode =:= read_write ->
-		 IsFull = case get(is_full) of 
-			      undefined -> false; 
-			      _ -> true 
+		 IsFull = case get(is_full) of
+			      undefined -> false;
+			      _ -> true
 			  end,
 		 [{full, IsFull},
 		  {no_written_items, Cnt}
@@ -1743,13 +1754,13 @@ bsize(B, internal) ->
 
 xsz([B|T], Sz) -> xsz(T, byte_size(B) + Sz);
 xsz([], Sz) -> Sz.
-	
+
 halt_write_full(L, [Bin | Bins], Format, N) ->
     B = [Bin],
     {Bs, BSize} = bsize(B, Format),
     Halt = L#log.extra,
     #halt{curB = CurSize, size = Sz} = Halt,
-    if 
+    if
 	CurSize + BSize =< Sz ->
 	    case halt_write(Halt, L, B, Bs, BSize) of
 		N1 when is_integer(N1) ->
@@ -1801,7 +1812,7 @@ do_sync(#log{type = wrap, extra = Handle} = Log) ->
 do_trunc(L, Head) when L#log.type =:= halt ->
     #log{filename = FName, extra = Halt} = L,
     FdC = Halt#halt.fdc,
-    {Reply1, FdC2} = 
+    {Reply1, FdC2} =
         case L#log.format of
             internal ->
                 disk_log_1:truncate(FdC, FName, Head);
@@ -1812,11 +1823,11 @@ do_trunc(L, Head) when L#log.type =:= halt ->
 		    {ok, NFdC} ->
 			{ok, H} = Head,
                         disk_log_1:fwrite(NFdC, FName, H, byte_size(H));
-		    R -> 
+		    R ->
 			R
 		end
         end,
-    {Reply, NewHalt} = 
+    {Reply, NewHalt} =
     case disk_log_1:position(FdC2, FName, cur) of
 	{ok, NewFdC, FileSize} when Reply1 =:= ok ->
 	    {ok, Halt#halt{fdc = NewFdC, curB = FileSize}};
@@ -1836,7 +1847,7 @@ do_trunc(L, Head) when L#log.type =:= wrap ->
     %% Just to remove all files with suffix > 1:
     NewLog2 = trunc_wrap(NewLog),
     NewHandle = (NewLog2#log.extra)#handle{noFull = 0, accFull = 0},
-    do_change_size(NewLog2#log{extra = NewHandle, head = OldHead}, 
+    do_change_size(NewLog2#log{extra = NewHandle, head = OldHead},
 		   {MaxB, MaxF}).
 
 trunc_wrap(L) ->
@@ -1849,7 +1860,7 @@ trunc_wrap(L) ->
 
 do_chunk(#log{format_type = halt_int, extra = Halt} = L, Pos, B, N) ->
     FdC = Halt#halt.fdc,
-    {NewFdC, Reply} = 
+    {NewFdC, Reply} =
         case L#log.mode of
             read_only ->
                 disk_log_1:chunk_read_only(FdC, L#log.filename, Pos, B, N);
@@ -1858,7 +1869,7 @@ do_chunk(#log{format_type = halt_int, extra = Halt} = L, Pos, B, N) ->
         end,
     put(log, L#log{extra = Halt#halt{fdc = NewFdC}}),
     Reply;
-do_chunk(#log{format_type = wrap_int, mode = read_only, 
+do_chunk(#log{format_type = wrap_int, mode = read_only,
 	      extra = Handle} = Log, Pos, B, N) ->
     {NewHandle, Reply} = disk_log_1:mf_int_chunk_read_only(Handle, Pos, B, N),
     put(log, Log#log{extra = NewHandle}),
@@ -1904,7 +1915,7 @@ req(Log, R) ->
     end.
 
 multi_req(Msg, Pids) ->
-    Refs = 
+    Refs =
 	lists:map(fun(Pid) ->
 			  Ref = erlang:monitor(process, Pid),
 			  Pid ! Msg,
@@ -1956,7 +1967,7 @@ get_near_pid([_ | T], Node) -> get_near_pid(T, Node).
 monitor_request(Pid, Req) ->
     Ref = erlang:monitor(process, Pid),
     Pid ! {self(), Req},
-    receive 
+    receive
 	{'DOWN', Ref, process, Pid, _Info} ->
 	    {error, no_such_log};
 	{disk_log, Pid, Reply} when not is_tuple(Reply) orelse
@@ -1974,10 +1985,10 @@ merge_head(Head, _) ->
     Head.
 
 %% -> List of extensions of existing files (no dot included) | throw(FileError)
-wrap_file_extensions(File) -> 
+wrap_file_extensions(File) ->
     {_CurF, _CurFSz, _TotSz, NoOfFiles} =
 	disk_log_1:read_index_file(File),
-    Fs = if 
+    Fs = if
 	     NoOfFiles >= 1 ->
 		 lists:seq(1, NoOfFiles);
 	     NoOfFiles =:= 0 ->
