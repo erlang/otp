@@ -287,7 +287,7 @@ ERTS_GLB_INLINE Eterm db_copy_key(Process* p, DbTable* tb, DbTerm* obj)
 	Uint size = size_object_rel(key, obj->tpl);
 	Eterm* hp = HAlloc(p, size);
 	Eterm res = copy_struct_rel(key, size, &hp, &MSO(p), obj->tpl, NULL);
-	ASSERT(eq_rel(res,NULL,key,obj->tpl));
+	ASSERT(EQ(res,key));
 	return res;
     }
 }
@@ -306,7 +306,7 @@ ERTS_GLB_INLINE Eterm db_copy_object_from_ets(DbTableCommon* tb, DbTerm* bp,
 ERTS_GLB_INLINE int db_eq(DbTableCommon* tb, Eterm a, DbTerm* b)
 {
     if (!tb->compress) {
-	return eq_rel(a, NULL, make_tuple(b->tpl), b->tpl);
+	return EQ(a, make_tuple(b->tpl));
     }
     else {
 	return db_eq_comp(tb, a, b);

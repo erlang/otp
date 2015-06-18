@@ -576,8 +576,7 @@ static int db_prev_tree(Process *p, DbTable *tbl, Eterm key, Eterm *ret)
 static ERTS_INLINE Sint cmp_key(DbTableTree* tb, Eterm key, Eterm* key_base,
 			       TreeDbTerm* obj)
 {
-    return cmp_rel(key, key_base,
-		   GETKEY(tb,obj->dbterm.tpl), obj->dbterm.tpl);
+    return CMP(key, GETKEY(tb,obj->dbterm.tpl));
 }
 
 static ERTS_INLINE int cmp_key_eq(DbTableTree* tb, Eterm key, Eterm* key_base,
@@ -585,7 +584,7 @@ static ERTS_INLINE int cmp_key_eq(DbTableTree* tb, Eterm key, Eterm* key_base,
 {
     Eterm obj_key = GETKEY(tb,obj->dbterm.tpl);
     return is_same(key, key_base, obj_key, obj->dbterm.tpl)
-	|| cmp_rel(key, key_base, obj_key, obj->dbterm.tpl) == 0;
+	|| CMP(key, obj_key) == 0;
 }
 
 static int db_put_tree(DbTable *tbl, Eterm obj, int key_clash_fail)
@@ -2742,7 +2741,7 @@ static Sint do_cmp_partly_bound(Eterm a, Eterm b, Eterm* b_base, int *done)
     switch (a & _TAG_PRIMARY_MASK) {
     case TAG_PRIMARY_LIST:
 	if (!is_list(b)) {
-	    return cmp_rel(a,NULL,b,b_base);
+	    return CMP(a,b);
 	}
 	aa = list_val(a);
 	bb = list_val(b);
@@ -2758,12 +2757,12 @@ static Sint do_cmp_partly_bound(Eterm a, Eterm b, Eterm* b_base, int *done)
 	}
     case TAG_PRIMARY_BOXED:
 	if ((b & _TAG_PRIMARY_MASK) != TAG_PRIMARY_BOXED) {
-	    return cmp_rel(a,NULL,b,b_base);
+	    return CMP(a,b);
 	}
 	a_hdr = ((*boxed_val(a)) & _TAG_HEADER_MASK) >> _TAG_PRIMARY_SIZE;
 	b_hdr = ((*boxed_val(b)) & _TAG_HEADER_MASK) >> _TAG_PRIMARY_SIZE;
 	if (a_hdr != b_hdr) {
-	    return cmp_rel(a, NULL, b, b_base);
+	    return CMP(a,b);
 	}
 	if (a_hdr == (_TAG_HEADER_ARITYVAL >> _TAG_PRIMARY_SIZE)) {
 	    aa = tuple_val(a);
@@ -2781,7 +2780,7 @@ static Sint do_cmp_partly_bound(Eterm a, Eterm b, Eterm* b_base, int *done)
 	}
 	/* Drop through */
       default:
-	  return cmp_rel(a, NULL, b, b_base);
+	  return CMP(a,b);
     }
 }
 

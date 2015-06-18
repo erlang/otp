@@ -1990,13 +1990,13 @@ restart:
 	    break;
 	case matchCmp:
 	    n = *pc++;
-	    if (!eq_rel(variables[n].term, base, *ep, base))
+	    if (!EQ(variables[n].term, *ep))
 		FAIL();
 	    ++ep;
 	    break;
 	case matchEqBin:
 	    t = (Eterm) *pc++;
-	    if (!eq_rel(t,NULL,*ep,base))
+	    if (!EQ(t,*ep))
 		FAIL();
 	    ++ep;
 	    break;
@@ -2012,7 +2012,7 @@ restart:
 	    Eterm* epc = (Eterm*)pc;
 	    if (!is_ref(*ep))
 		FAIL();
-	    if (!eq_rel(make_internal_ref(epc), epc, *ep, base)) {
+	    if (!EQ(make_internal_ref(epc), *ep)) {
 		FAIL();
 	    }
 	    i = thing_arityval(*epc);
@@ -3063,7 +3063,7 @@ Eterm db_copy_from_comp(DbTableCommon* tb, DbTerm* bp, Eterm** hpp,
 
     ASSERT((*hpp - hp) <= bp->size);
 #ifdef DEBUG_CLONE
-    ASSERT(eq_rel(make_tuple(hp),NULL,make_tuple(bp->debug_clone),bp->debug_clone));
+    ASSERT(EQ(make_tuple(hp),make_tuple(bp->debug_clone)));
 #endif
     return make_tuple(hp);
 }
@@ -3087,7 +3087,7 @@ Eterm db_copy_element_from_ets(DbTableCommon* tb, Process* p,
 	*hpp = erts_produce_heap(&factory, extra, 0);
         erts_factory_close(&factory);
 #ifdef DEBUG_CLONE
-	ASSERT(eq_rel(copy, NULL, obj->debug_clone[pos], obj->debug_clone));
+	ASSERT(EQ(copy, obj->debug_clone[pos]));
 #endif
 	return copy;
     }

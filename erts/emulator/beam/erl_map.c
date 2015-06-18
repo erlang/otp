@@ -197,7 +197,7 @@ erts_maps_get(Eterm key, Eterm map)
 	}
 
 	for (i = 0; i < n; i++) {
-	    if (eq_rel(ks[i], map_base, key, NULL)) {
+	    if (EQ(ks[i], key)) {
 		return &vs[i];
 	    }
 	}
@@ -2020,7 +2020,7 @@ erts_hashmap_get(Uint32 hx, Eterm key, Eterm node)
 
         if (is_list(node)) { /* LEAF NODE [K|V] */
             ptr = list_val(node);
-            res = eq_rel(CAR(ptr), map_base, key, NULL) ? &(CDR(ptr)) : NULL;
+            res = EQ(CAR(ptr), key) ? &(CDR(ptr)) : NULL;
             break;
         }
 

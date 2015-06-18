@@ -158,14 +158,11 @@ erts_dsprintf_buf_t *erts_create_tmp_dsbuf(Uint);
 void erts_destroy_tmp_dsbuf(erts_dsprintf_buf_t *);
 
 int eq(Eterm, Eterm);
-#define eq_rel(A,A_BASE,B,B_BASE) eq(A,B)
 
 #define EQ(x,y) (((x) == (y)) || (is_not_both_immed((x),(y)) && eq((x),(y))))
 
 Sint erts_cmp(Eterm, Eterm, int, int);
 Sint cmp(Eterm a, Eterm b);
-#define cmp_rel(A,A_BASE,B,B_BASE)       erts_cmp(A,B,0,0)
-#define cmp_rel_term(A,A_BASE,B,B_BASE)  erts_cmp(A,B,1,0)
 #define CMP(A,B)                         erts_cmp(A,B,0,0)
 #define CMP_TERM(A,B)                    erts_cmp(A,B,1,0)
 #define CMP_EQ_ONLY(A,B)                 erts_cmp(A,B,0,1)
