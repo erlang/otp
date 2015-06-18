@@ -1748,17 +1748,6 @@ static Eterm dpm_array_to_list(Process *psp, Eterm *arr, int arity)
     return ret;
 }
 
-static ERTS_INLINE Eterm copy_object_rel(Process* p, Eterm term, Eterm* base)
-{
-    if (!is_immed(term)) {
-	Uint sz = size_object(term);
-	Eterm* top = HAllocX(p, sz, HEAP_XTRA);
-	return copy_struct(term, sz, &top, &MSO(p));
-    }
-    return term;
-}
-
-
 /*
 ** Execution of the match program, this is Pam.
 ** May return THE_NON_VALUE, which is a bailout.
@@ -2167,12 +2156,11 @@ restart:
 	    break;
 	case matchPushVResult:
 	    if (!(in_flags & ERTS_PAM_COPY_RESULT)) goto case_matchPushV;
-
 	    /* Build (NULL-based) copy on callers heap */
 	    n = *pc++;
 	    ASSERT(is_value(variables[n].term));
 	    ASSERT(!variables[n].proc);
-	    variables[n].term = copy_object_rel(c_p, variables[n].term, base);
+	    variables[n].term = copy_object(variables[n].term, c_p);
 	    *esp++ = variables[n].term;
 	    #ifdef DEBUG
 	    variables[n].proc = c_p;
