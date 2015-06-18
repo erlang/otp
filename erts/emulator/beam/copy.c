@@ -179,7 +179,7 @@ Uint size_object(Eterm obj)
 			Uint bitoffs;
 			Uint extra_bytes;
 			Eterm hdr;
-			ERTS_GET_REAL_BIN_REL(obj, real_bin, offset, bitoffs, bitsize, base);
+			ERTS_GET_REAL_BIN(obj, real_bin, offset, bitoffs, bitsize);
 			if ((bitsize + bitoffs) > 8) {
 			    sum += ERL_SUB_BIN_SIZE;
 			    extra_bytes = 2;

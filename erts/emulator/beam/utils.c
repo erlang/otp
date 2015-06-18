@@ -2675,8 +2675,8 @@ tailrecur_ne:
 		    if (a_size != b_size) {
 			goto not_equal;
 		    }
-		    ERTS_GET_BINARY_BYTES_REL(a, a_ptr, a_bitoffs, a_bitsize, a_base);
-		    ERTS_GET_BINARY_BYTES_REL(b, b_ptr, b_bitoffs, b_bitsize, b_base);
+		    ERTS_GET_BINARY_BYTES(a, a_ptr, a_bitoffs, a_bitsize);
+		    ERTS_GET_BINARY_BYTES(b, b_ptr, b_bitoffs, b_bitsize);
 		    if ((a_bitsize | b_bitsize | a_bitoffs | b_bitoffs) == 0) {
 			if (sys_memcmp(a_ptr, b_ptr, a_size) == 0) goto pop_next;
 		    } else if (a_bitsize == b_bitsize) {
@@ -3490,8 +3490,8 @@ tailrecur_ne:
 		    int cmp;
 		    byte* a_ptr;
 		    byte* b_ptr;
-		    ERTS_GET_BINARY_BYTES_REL(a, a_ptr, a_bitoffs, a_bitsize, a_base);
-		    ERTS_GET_BINARY_BYTES_REL(b, b_ptr, b_bitoffs, b_bitsize, b_base);
+		    ERTS_GET_BINARY_BYTES(a, a_ptr, a_bitoffs, a_bitsize);
+		    ERTS_GET_BINARY_BYTES(b, b_ptr, b_bitoffs, b_bitsize);
 		    if ((a_bitsize | b_bitsize | a_bitoffs | b_bitoffs) == 0) {
 			min_size = (a_size < b_size) ? a_size : b_size;
 			if ((cmp = sys_memcmp(a_ptr, b_ptr, min_size)) != 0) {

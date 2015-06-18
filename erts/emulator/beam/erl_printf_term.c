@@ -472,7 +472,7 @@ print_term(fmtfn_t fn, void* arg, Eterm obj, long *dcount,
 		Uint bitoffs;
 		Uint bitsize;
 		byte octet;
-		ERTS_GET_BINARY_BYTES_REL(obj, bytep, bitoffs, bitsize, obj_base);
+		ERTS_GET_BINARY_BYTES(obj, bytep, bitoffs, bitsize);
 
 		if (bitsize || !bytesize
 		    || !is_printable_ascii(bytep, bytesize, bitoffs)) {

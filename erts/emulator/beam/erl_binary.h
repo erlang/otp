@@ -94,10 +94,7 @@ typedef struct erl_heap_bin {
  * Bitsize: output variable (Uint)
  */
 
-#define ERTS_GET_BINARY_BYTES(Bin,Bytep,Bitoffs,Bitsize) \
-     ERTS_GET_BINARY_BYTES_REL(Bin,Bytep,Bitoffs,Bitsize,NULL)
-
-#define ERTS_GET_BINARY_BYTES_REL(Bin,Bytep,Bitoffs,Bitsize,BasePtr)    \
+#define ERTS_GET_BINARY_BYTES(Bin,Bytep,Bitoffs,Bitsize)                \
 do {									\
     Eterm* _real_bin = binary_val(Bin);		                	\
     Uint _offs = 0;							\
@@ -130,9 +127,6 @@ do {									\
  */
 
 #define ERTS_GET_REAL_BIN(Bin, RealBin, ByteOffset, BitOffset, BitSize) \
-     ERTS_GET_REAL_BIN_REL(Bin, RealBin, ByteOffset, BitOffset, BitSize, NULL)
-
-#define ERTS_GET_REAL_BIN_REL(Bin, RealBin, ByteOffset, BitOffset, BitSize, BasePtr) \
   do {									\
     ErlSubBin* _sb = (ErlSubBin *) binary_val(Bin);	                \
     if (_sb->thing_word == HEADER_SUB_BIN) {				\
