@@ -44,7 +44,6 @@ typedef long long          ErlPfSWord;
 #error Found no appropriate type to use for 'Eterm', 'Uint' and 'Sint'
 #endif
 
-
 typedef int (*fmtfn_t)(void*, char*, size_t);
 
 extern int erts_printf_format(fmtfn_t, void*, char*, va_list);
@@ -57,17 +56,9 @@ extern int erts_printf_uword(fmtfn_t, void*, char, int, int, ErlPfUWord);
 extern int erts_printf_sword(fmtfn_t, void*, char, int, int, ErlPfSWord);
 extern int erts_printf_double(fmtfn_t, void *, char, int, int, double);
 
-#ifdef HALFWORD_HEAP_EMULATOR
-#  if SIZEOF_INT != 4
-#    error Unsupported integer size for HALFWORD_HEAP_EMULATOR
-#  endif
-typedef unsigned int ErlPfEterm;
-#else
 typedef ErlPfUWord ErlPfEterm;
-#endif
 
 extern int (*erts_printf_eterm_func)(fmtfn_t, void*, ErlPfEterm, long, ErlPfEterm*);
-
 
 #endif /* ERL_PRINTF_FORMAT_H__ */
 

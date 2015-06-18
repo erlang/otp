@@ -78,15 +78,7 @@
 #endif
 
 #ifndef ERTS_SIZEOF_ETERM
-#  ifdef HALFWORD_HEAP_EMULATOR
-#    if SIZEOF_VOID_P == 8
-#      define ERTS_SIZEOF_ETERM 4
-#    else
-#      error "HALFWORD_HEAP_EMULATOR only allowed on 64-bit architecture"
-#    endif
-#  else
-#    define ERTS_SIZEOF_ETERM SIZEOF_VOID_P
-#  endif
+#define ERTS_SIZEOF_ETERM SIZEOF_VOID_P
 #endif
 
 #if defined(__GNUC__)
@@ -821,7 +813,7 @@ int erts_printf_format(fmtfn_t fn, void* arg, char* fmt, va_list ap)
 		}
 		break;
 	    case FMTC_T:    /* Eterm */
-	    case FMTC_R: {  /* Eterm, Eterm* base  (base ignored if !HALFWORD_HEAP) */
+	    case FMTC_R: {  /* Eterm, Eterm* base */
 		long prec;
 		ErlPfEterm eterm;
 		ErlPfEterm* eterm_base;
