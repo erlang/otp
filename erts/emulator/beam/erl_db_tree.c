@@ -1002,9 +1002,9 @@ static int db_select_continue_tree(Process *p,
 	    }
 
 	    key = GETKEY(tb, sc.lastobj);
-	    sz = size_object_rel(key,sc.lastobj);
+	    sz = size_object(key);
 	    hp = HAlloc(p, 9 + sz);
-	    key = copy_struct_rel(key, sz, &hp, &MSO(p), sc.lastobj, NULL);
+	    key = copy_struct(key, sz, &hp, &MSO(p));
 	    continuation = TUPLE8
 		(hp,
 		 tptr[1],
@@ -1045,9 +1045,9 @@ static int db_select_continue_tree(Process *p,
 	}
     }
     /* Not done yet, let's trap. */
-    sz = size_object_rel(key,sc.lastobj);
+    sz = size_object(key);
     hp = HAlloc(p, 9 + sz);
-    key = copy_struct_rel(key, sz, &hp, &MSO(p), sc.lastobj, NULL);
+    key = copy_struct(key, sz, &hp, &MSO(p));
     continuation = TUPLE8
 	(hp,
 	 tptr[1],
@@ -1152,9 +1152,9 @@ static int db_select_tree(Process *p, DbTable *tbl,
     }
 
     key = GETKEY(tb, sc.lastobj);
-    sz = size_object_rel(key, sc.lastobj);
+    sz = size_object(key);
     hp = HAlloc(p, 9 + sz + PROC_BIN_SIZE);
-    key = copy_struct_rel(key, sz, &hp, &MSO(p), sc.lastobj, NULL);
+    key = copy_struct(key, sz, &hp, &MSO(p));
     if (mpi.all_objects)
 	(mpi.mp)->flags |= BIN_FLAG_ALL_OBJECTS;
     mpb=db_make_mp_binary(p,mpi.mp,&hp);
@@ -1250,7 +1250,7 @@ static int db_select_count_continue_tree(Process *p,
 	RET_TO_BIF(make_small(sc.got),DB_ERROR_NONE);
     }
     /* Not done yet, let's trap. */
-    sz = size_object_rel(key, sc.lastobj);
+    sz = size_object(key);
     if (IS_USMALL(0, sc.got)) {
 	hp = HAlloc(p, sz + 6);
 	egot = make_small(sc.got);
@@ -1260,7 +1260,7 @@ static int db_select_count_continue_tree(Process *p,
 	egot = uint_to_big(sc.got, hp);
 	hp += BIG_UINT_HEAP_SIZE;
     }
-    key = copy_struct_rel(key, sz, &hp, &MSO(p), sc.lastobj, NULL);
+    key = copy_struct(key, sz, &hp, &MSO(p));
     continuation = TUPLE5
 	(hp,
 	 tptr[1],
@@ -1346,7 +1346,7 @@ static int db_select_count_tree(Process *p, DbTable *tbl,
     }
 
     key = GETKEY(tb, sc.lastobj);
-    sz = size_object_rel(key, sc.lastobj);
+    sz = size_object(key);
     if (IS_USMALL(0, sc.got)) {
 	hp = HAlloc(p, sz + PROC_BIN_SIZE + 6);
 	egot = make_small(sc.got);
@@ -1356,7 +1356,7 @@ static int db_select_count_tree(Process *p, DbTable *tbl,
 	egot = uint_to_big(sc.got, hp);
 	hp += BIG_UINT_HEAP_SIZE;
     }
-    key = copy_struct_rel(key, sz, &hp, &MSO(p), sc.lastobj, NULL);
+    key = copy_struct(key, sz, &hp, &MSO(p));
     if (mpi.all_objects)
 	(mpi.mp)->flags |= BIN_FLAG_ALL_OBJECTS;
     mpb = db_make_mp_binary(p,mpi.mp,&hp);
@@ -1482,9 +1482,9 @@ static int db_select_chunk_tree(Process *p, DbTable *tbl,
 	}
 
 	key = GETKEY(tb, sc.lastobj);
-	sz = size_object_rel(key, sc.lastobj);
+	sz = size_object(key);
 	hp = HAlloc(p, 9 + sz + PROC_BIN_SIZE);
-	key = copy_struct_rel(key, sz, &hp, &MSO(p), sc.lastobj, NULL);
+	key = copy_struct(key, sz, &hp, &MSO(p));
 	if (mpi.all_objects)
 	    (mpi.mp)->flags |= BIN_FLAG_ALL_OBJECTS;
 	mpb = db_make_mp_binary(p,mpi.mp,&hp);
@@ -1507,9 +1507,9 @@ static int db_select_chunk_tree(Process *p, DbTable *tbl,
     }
 
     key = GETKEY(tb, sc.lastobj);
-    sz = size_object_rel(key, sc.lastobj);
+    sz = size_object(key);
     hp = HAlloc(p, 9 + sz + PROC_BIN_SIZE);
-    key = copy_struct_rel(key, sz, &hp, &MSO(p), sc.lastobj, NULL);
+    key = copy_struct(key, sz, &hp, &MSO(p));
 
     if (mpi.all_objects)
 	(mpi.mp)->flags |= BIN_FLAG_ALL_OBJECTS;
@@ -1598,7 +1598,7 @@ static int db_select_delete_continue_tree(Process *p,
 	RET_TO_BIF(erts_make_integer(sc.accum,p),DB_ERROR_NONE);
     }
     /* Not done yet, let's trap. */
-    sz = size_object_rel(key, sc.lastterm->dbterm.tpl);
+    sz = size_object(key);
     if (IS_USMALL(0, sc.accum)) {
 	hp = HAlloc(p, sz + 6);
 	eaccsum = make_small(sc.accum);
@@ -1608,7 +1608,7 @@ static int db_select_delete_continue_tree(Process *p,
 	eaccsum = uint_to_big(sc.accum, hp);
 	hp += BIG_UINT_HEAP_SIZE;
     }
-    key = copy_struct_rel(key, sz, &hp, &MSO(p), sc.lastterm->dbterm.tpl, NULL);
+    key = copy_struct(key, sz, &hp, &MSO(p));
     continuation = TUPLE5
 	(hp,
 	 tptr[1],
@@ -1695,7 +1695,7 @@ static int db_select_delete_tree(Process *p, DbTable *tbl,
     }
 
     key = GETKEY(tb, (sc.lastterm)->dbterm.tpl);
-    sz = size_object_rel(key, sc.lastterm->dbterm.tpl);
+    sz = size_object(key);
     if (IS_USMALL(0, sc.accum)) {
 	hp = HAlloc(p, sz + PROC_BIN_SIZE + 6);
 	eaccsum = make_small(sc.accum);
@@ -1705,7 +1705,7 @@ static int db_select_delete_tree(Process *p, DbTable *tbl,
 	eaccsum = uint_to_big(sc.accum, hp);
 	hp += BIG_UINT_HEAP_SIZE;
     }
-    key = copy_struct_rel(key, sz, &hp, &MSO(p), sc.lastterm->dbterm.tpl, NULL);
+    key = copy_struct(key, sz, &hp, &MSO(p));
     mpb = db_make_mp_binary(p,mpi.mp,&hp);
     
     continuation = TUPLE5

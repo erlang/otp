@@ -955,16 +955,9 @@ void erl_error(char*, va_list);
 
 /* copy.c */
 Eterm copy_object(Eterm, Process*);
-
 Uint size_object(Eterm);
-#define size_object_rel(A,B) size_object(A)
-
 Eterm copy_struct(Eterm, Uint, Eterm**, ErlOffHeap*);
-#define copy_struct_rel(OBJ,SZ,HPP,OH, SB,DB) copy_struct(OBJ,SZ,HPP,OH)
-
 Eterm copy_shallow(Eterm*, Uint, Eterm**, ErlOffHeap*);
-#define copy_shallow_rel(A,B,C,D, BASE) copy_shallow(A,B,C,D)
-
 
 void move_multi_frags(Eterm** hpp, ErlOffHeap*, ErlHeapFragment* first,
 		      Eterm* refs, unsigned nrefs);

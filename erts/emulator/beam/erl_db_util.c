@@ -1751,9 +1751,9 @@ static Eterm dpm_array_to_list(Process *psp, Eterm *arr, int arity)
 static ERTS_INLINE Eterm copy_object_rel(Process* p, Eterm term, Eterm* base)
 {
     if (!is_immed(term)) {
-	Uint sz = size_object_rel(term, base);
+	Uint sz = size_object(term);
 	Eterm* top = HAllocX(p, sz, HEAP_XTRA);
-	return copy_struct_rel(term, sz, &top, &MSO(p), base, NULL);
+	return copy_struct(term, sz, &top, &MSO(p));
     }
     return term;
 }
@@ -2190,16 +2190,14 @@ restart:
 	    if (in_flags & ERTS_PAM_COPY_RESULT) {
 		Uint sz;
 		Eterm* top;
-		sz = size_object_rel(term, base);
+		sz = size_object(term);
 		top = HAllocX(build_proc, sz, HEAP_XTRA);
 		if (in_flags & ERTS_PAM_CONTIGUOUS_TUPLE) {
 		    ASSERT(is_tuple(term));
-		    *esp++ = copy_shallow_rel(tuple_val(term), sz,
-					      &top, &MSO(build_proc), base);
+		    *esp++ = copy_shallow(tuple_val(term), sz, &top, &MSO(build_proc));
 		}
 		else {
-		    *esp++ = copy_struct_rel(term, sz, &top, &MSO(build_proc),
-					     base, NULL);
+		    *esp++ = copy_struct(term, sz, &top, &MSO(build_proc));
 		}
 	    }
 	    else {
@@ -2767,7 +2765,7 @@ void db_do_update_element(DbUpdateHandle* handle,
     newval_sz = is_immed(newval) ? 0 : size_object(newval);
 new_size_set:
 
-    oldval_sz = is_immed(oldval) ? 0 : size_object_rel(oldval,old_base);
+    oldval_sz = is_immed(oldval) ? 0 : size_object(oldval);
 both_size_set:
 
     handle->new_size = handle->new_size - oldval_sz + newval_sz;
@@ -2873,7 +2871,7 @@ static void* copy_to_comp(DbTableCommon* tb, Eterm obj, DbTerm* dest,
     tpl[arity + 1] = alloc_size;
 
     tmp_offheap.first = NULL;
-    tpl[tb->keypos] = copy_struct_rel(key, size_object(key), &top.ep, &tmp_offheap, NULL, tpl);
+    tpl[tb->keypos] = copy_struct(key, size_object(key), &top.ep, &tmp_offheap);
     dest->first_oh = tmp_offheap.first;
     for (i=1; i<=arity; i++) {
 	if (i != tb->keypos) {
@@ -2892,7 +2890,7 @@ static void* copy_to_comp(DbTableCommon* tb, Eterm obj, DbTerm* dest,
 	Eterm* dbg_top = erts_alloc(ERTS_ALC_T_DB_TERM, dest->size * sizeof(Eterm));
 	dest->debug_clone = dbg_top;
 	tmp_offheap.first = dest->first_oh;
-	copy_struct_rel(obj, dest->size, &dbg_top, &tmp_offheap, NULL, dbg_top);
+	copy_struct(obj, dest->size, &dbg_top, &tmp_offheap);
 	dest->first_oh = tmp_offheap.first;
 	ASSERT(dbg_top == dest->debug_clone + dest->size);
     }
@@ -2939,7 +2937,7 @@ void* db_store_term(DbTableCommon *tb, DbTerm* old, Uint offset, Eterm obj)
     newp->size = size;
     top = newp->tpl;
     tmp_offheap.first  = NULL;
-    copy_struct_rel(obj, size, &top, &tmp_offheap, NULL, top);
+    copy_struct(obj, size, &top, &tmp_offheap);
     newp->first_oh = tmp_offheap.first;
 #ifdef DEBUG_CLONE
     newp->debug_clone = NULL;
@@ -3023,8 +3021,7 @@ void db_finalize_resize(DbUpdateHandle* handle, Uint offset)
 	tmp_offheap.first = NULL;
 
 	{
-	    copy_struct_rel(make_tuple(tpl), handle->new_size, &top,
-			    &tmp_offheap, tpl, top);
+	    copy_struct(make_tuple(tpl), handle->new_size, &top, &tmp_offheap);
 	    newDbTerm->first_oh = tmp_offheap.first;
 	    ASSERT((byte*)top == (newp + alloc_sz));
 	}
@@ -3041,9 +3038,9 @@ Eterm db_copy_from_comp(DbTableCommon* tb, DbTerm* bp, Eterm** hpp,
     hp[0] = bp->tpl[0];
     *hpp += arity + 1;
 
-    hp[tb->keypos] = copy_struct_rel(bp->tpl[tb->keypos],
-				     size_object_rel(bp->tpl[tb->keypos], bp->tpl),
-				     hpp, off_heap, bp->tpl, NULL);
+    hp[tb->keypos] = copy_struct(bp->tpl[tb->keypos],
+                                 size_object(bp->tpl[tb->keypos]),
+                                 hpp, off_heap);
 
     erts_factory_static_init(&factory, *hpp, bp->size - (arity+1), off_heap);
 
@@ -3092,9 +3089,9 @@ Eterm db_copy_element_from_ets(DbTableCommon* tb, Process* p,
 	return copy;
     }
     else {
-	Uint sz = size_object_rel(obj->tpl[pos], obj->tpl);
+	Uint sz = size_object(obj->tpl[pos]);
 	*hpp = HAlloc(p, sz + extra);
-	return copy_struct_rel(obj->tpl[pos], sz, hpp, &MSO(p), obj->tpl, NULL);
+	return copy_struct(obj->tpl[pos], sz, hpp, &MSO(p));
     }
 }
 
