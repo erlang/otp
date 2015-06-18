@@ -246,19 +246,19 @@ i({accept, Pid, LPid, LSock, Ref})
     putr(?REF_KEY, Ref),
     proc_lib:init_ack({ok, self()}),
     monitor(process, Pid),
-    monitor(process, LPid),
-    wait([peeloff], #transport{parent = Pid,
-                               mode = {accept, LPid},
-                               socket = LSock});
+    MRef = monitor(process, LPid),
+    wait([{peeloff, MRef}], #transport{parent = Pid,
+                                       mode = {accept, LPid},
+                                       socket = LSock});
 
 %% An accepting transport spawned at association establishment.
 i({accept, Ref, LPid, LSock, _Id}) ->
     putr(?REF_KEY, Ref),
     proc_lib:init_ack({ok, self()}),
     erlang:send_after(?ACCEPT_TIMEOUT, self(), accept_timeout),
-    monitor(process, LPid),
-    wait([Ref, peeloff], #transport{mode = {accept, LPid},
-                                    socket = LSock}).
+    MRef = monitor(process, LPid),
+    wait([{parent, Ref}, {peeloff, MRef}], #transport{mode = {accept, LPid},
+                                                      socket = LSock}).
 
 %% wait/2
 %%
@@ -268,15 +268,16 @@ i({accept, Ref, LPid, LSock, _Id}) ->
 wait(Keys, S) ->
     lists:foldl(fun i/2, S, Keys).
 
-i(K, #transport{mode = {accept, _},
-                socket = LSock}
-     = S) ->
+i({K, Ref}, #transport{mode = {accept, _},
+                       socket = LSock}
+            = S) ->
     receive
-        {K, Pid} when is_reference(K) ->  %% transport process started
+        {Ref, Pid} when K == parent ->  %% transport process started
             S#transport{parent = Pid};
         {K, Sock, T, Matches} when K == peeloff ->  %% association
             {sctp, LSock, _RA, _RP, _Data} = T,  %% assert
             ok = accept_peer(Sock, Matches),
+            demonitor(Ref, [flush]),
             t(setelement(2, T, Sock), S#transport{socket = Sock});
         accept_timeout = T ->
             x(T);
@@ -574,15 +575,6 @@ transition({diameter, {tls, _Ref, _Type, _Bool}}, _) ->
 %% Parent process has died.
 transition({'DOWN', _, process, Pid, _}, #transport{parent = Pid}) ->
     stop;
-
-%% Listener process has died.
-transition({'DOWN', _, process, Pid, _}, #transport{mode = {accept, Pid}}) ->
-    stop;
-
-%% Ditto but we have ownership of the association. It might be that
-%% we'll go down anyway though.
-transition({'DOWN', _, process, _Pid, _}, #transport{mode = accept}) ->
-    ok;
 
 %% Timeout after transport process has been started.
 transition(accept_timeout, _) ->
