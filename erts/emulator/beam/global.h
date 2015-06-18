@@ -954,7 +954,9 @@ __decl_noreturn void __noreturn erl_exit_flush_async(int n, char*, ...);
 void erl_error(char*, va_list);
 
 /* copy.c */
-Eterm copy_object(Eterm, Process*);
+Eterm copy_object_x(Eterm, Process*, Uint);
+#define copy_object(Term, Proc) copy_object_x(Term,Proc,0)
+
 Uint size_object(Eterm);
 Eterm copy_struct(Eterm, Uint, Eterm**, ErlOffHeap*);
 Eterm copy_shallow(Eterm*, Uint, Eterm**, ErlOffHeap*);

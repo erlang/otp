@@ -40,29 +40,30 @@ static void move_one_frag(Eterm** hpp, ErlHeapFragment*, ErlOffHeap*);
 /*
  *  Copy object "obj" to process p.
  */
-Eterm
-copy_object(Eterm obj, Process* to)
-{
-    Uint size = size_object(obj);
-    Eterm* hp = HAlloc(to, size);
-    Eterm res;
+Eterm copy_object_x(Eterm obj, Process* to, Uint extra) {
+    if (!is_immed(obj)) {
+        Uint size = size_object(obj);
+        Eterm* hp = HAllocX(to, size, extra);
+        Eterm res;
 
 #ifdef USE_VM_PROBES
-    if (DTRACE_ENABLED(copy_object)) {
-        DTRACE_CHARBUF(proc_name, 64);
+        if (DTRACE_ENABLED(copy_object)) {
+            DTRACE_CHARBUF(proc_name, 64);
 
-        erts_snprintf(proc_name, sizeof(DTRACE_CHARBUF_NAME(proc_name)),
-                      "%T", to->common.id);
-        DTRACE2(copy_object, proc_name, size);
-    }
+            erts_snprintf(proc_name, sizeof(DTRACE_CHARBUF_NAME(proc_name)),
+                    "%T", to->common.id);
+            DTRACE2(copy_object, proc_name, size);
+        }
 #endif
-    res = copy_struct(obj, size, &hp, &to->off_heap);
+        res = copy_struct(obj, size, &hp, &to->off_heap);
 #ifdef DEBUG
-    if (eq(obj, res) == 0) {
-	erl_exit(ERTS_ABORT_EXIT, "copy not equal to source\n");
-    }
+        if (eq(obj, res) == 0) {
+            erl_exit(ERTS_ABORT_EXIT, "copy not equal to source\n");
+        }
 #endif
-    return res;
+        return res;
+    }
+    return obj;
 }
 
 /*

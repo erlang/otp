@@ -2160,7 +2160,7 @@ restart:
 	    n = *pc++;
 	    ASSERT(is_value(variables[n].term));
 	    ASSERT(!variables[n].proc);
-	    variables[n].term = copy_object(variables[n].term, c_p);
+	    variables[n].term = copy_object_x(variables[n].term, c_p, HEAP_XTRA);
 	    *esp++ = variables[n].term;
 	    #ifdef DEBUG
 	    variables[n].proc = c_p;
