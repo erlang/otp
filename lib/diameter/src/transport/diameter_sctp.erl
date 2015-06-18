@@ -285,12 +285,6 @@ i({K, Ref}, #transport{mode = {accept, _},
             x(T)
     end.
 
-%% close/2
-
-close(Sock, Id) ->
-    gen_sctp:eof(Sock, #sctp_assoc_change{assoc_id = Id}).
-%% Having to pass a record here is hokey.
-
 %% listener/2
 
 %% Accepting processes can be started concurrently: ensure only one
@@ -461,16 +455,6 @@ code_change(_, State, _) ->
 
 terminate(_, #transport{assoc_id = undefined}) ->
     ok;
-
-terminate(_, #transport{socket = Sock,
-                        mode = accept,
-                        assoc_id = Id}) ->
-    close(Sock, Id);
-
-terminate(_, #transport{socket = Sock,
-                        mode = {accept, _},
-                        assoc_id = Id}) ->
-    close(Sock, Id);
 
 terminate(_, #transport{socket = Sock}) ->
     gen_sctp:close(Sock);
