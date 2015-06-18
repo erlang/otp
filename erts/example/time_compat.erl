@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2014. All Rights Reserved.
+%% Copyright Ericsson AB 2014-2015. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -25,9 +25,9 @@
 %% versions. This way your code can automatically take advantage
 %% of the improvements in the API when available. This is an
 %% example of how to implement such an API, but it can be used
-%% as is if you want to. Just add this module to your project,
-%% and call the API via this module instead of calling the
-%% BIFs directly.
+%% as is if you want to. Just add (a preferrably renamed version of)
+%% this module to your project, and call the API via this module
+%% instead of calling the BIFs directly.
 %%
 
 -module(time_compat).
@@ -241,7 +241,8 @@ system_info(Item) ->
 		    final;
 		NotSupArg when NotSupArg == os_monotonic_time_source;
 			       NotSupArg == os_system_time_source;
-			       NotSupArg == start_time ->
+			       NotSupArg == start_time;
+			       NotSupArg == end_time ->
 		    %% Cannot emulate this...
 		    erlang:error(notsup, [NotSupArg]);
 		_ ->
