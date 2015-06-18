@@ -583,7 +583,7 @@ static ERTS_INLINE int cmp_key_eq(DbTableTree* tb, Eterm key, Eterm* key_base,
 				  TreeDbTerm* obj)
 {
     Eterm obj_key = GETKEY(tb,obj->dbterm.tpl);
-    return is_same(key, key_base, obj_key, obj->dbterm.tpl)
+    return is_same(key, obj_key)
 	|| CMP(key, obj_key) == 0;
 }
 
@@ -2735,7 +2735,7 @@ static Sint do_cmp_partly_bound(Eterm a, Eterm b, Eterm* b_base, int *done)
 	*done = 1;
 	return 0;
     }
-    if (is_same(a,NULL,b,b_base))
+    if (is_same(a,b))
 	return 0;
     
     switch (a & _TAG_PRIMARY_MASK) {
@@ -2748,7 +2748,7 @@ static Sint do_cmp_partly_bound(Eterm a, Eterm b, Eterm* b_base, int *done)
 	while (1) {
 	    if ((j = do_cmp_partly_bound(*aa++, *bb++, b_base, done)) != 0 || *done)
 		return j;
-	    if (is_same(*aa, NULL, *bb, b_base))
+	    if (is_same(*aa, *bb))
 		return 0;
 	    if (is_not_list(*aa) || is_not_list(*bb))
 		return do_cmp_partly_bound(*aa, *bb, b_base, done);

@@ -1118,7 +1118,7 @@ extern unsigned tag_val_def(Wterm);
 #define FLOAT_BIG 	_NUMBER_CODE(FLOAT_DEF,BIG_DEF)
 #define FLOAT_FLOAT	_NUMBER_CODE(FLOAT_DEF,FLOAT_DEF)
 
-#define is_same(A,A_BASE,B,B_BASE) ((A)==(B))
+#define is_same(A,B) ((A)==(B))
 
 #endif	/* __ERL_TERM_H */
 

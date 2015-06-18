@@ -2606,7 +2606,7 @@ int eq(Eterm a, Eterm b)
     Eterm* bb;
 
 tailrecur:
-    if (is_same(a, a_base, b, b_base)) goto pop_next;
+    if (is_same(a, b)) goto pop_next;
 tailrecur_ne:
 
     switch (primary_tag(a)) {
@@ -2617,7 +2617,7 @@ tailrecur_ne:
 	    while (1) {
 		Eterm atmp = CAR(aval);
 		Eterm btmp = CAR(bval);
-		if (!is_same(atmp,a_base,btmp,b_base)) {
+		if (!is_same(atmp,btmp)) {
 		    WSTACK_PUSH2(stack,(UWord) CDR(bval),(UWord) CDR(aval));
 		    a = atmp;
 		    b = btmp;
@@ -2625,7 +2625,7 @@ tailrecur_ne:
 		}
 		atmp = CDR(aval);
 		btmp = CDR(bval);
-		if (is_same(atmp,a_base,btmp,b_base)) {
+		if (is_same(atmp,btmp)) {
 		    goto pop_next;
 		}
 		if (is_not_list(atmp) || is_not_list(btmp)) {
@@ -2899,7 +2899,7 @@ term_array: /* arrays in 'aa' and 'bb', length in 'sz' */
 	Eterm* bp = bb;
 	Sint i = sz;
 	for (;;) {
-	    if (!is_same(*ap,a_base,*bp,b_base)) break;
+	    if (!is_same(*ap,*bp)) break;
 	    if (--i == 0) goto pop_next;
 	    ++ap;
 	    ++bp;
@@ -3085,7 +3085,7 @@ static Sint erts_cmp_compound(Eterm a, Eterm b, int exact, int eq_only)
 bodyrecur:
     j = 0;
 tailrecur:
-    if (is_same(a,a_base,b,b_base)) {	/* Equal values or pointers. */
+    if (is_same(a,b)) {	/* Equal values or pointers. */
 	goto pop_next;
     }
 tailrecur_ne:
@@ -3169,7 +3169,7 @@ tailrecur_ne:
 	while (1) {
 	    Eterm atmp = CAR(aa);
 	    Eterm btmp = CAR(bb);
-	    if (!is_same(atmp,a_base,btmp,b_base)) {
+	    if (!is_same(atmp,btmp)) {
 		WSTACK_PUSH2(stack,(UWord) CDR(bb),(UWord) CDR(aa));
 		a = atmp;
 		b = btmp;
@@ -3177,7 +3177,7 @@ tailrecur_ne:
 	    }
 	    atmp = CDR(aa);
 	    btmp = CDR(bb);
-	    if (is_same(atmp,a_base,btmp,b_base)) {
+	    if (is_same(atmp,btmp)) {
 		goto pop_next;
 	    }
 	    if (is_not_list(atmp) || is_not_list(btmp)) {
@@ -3643,7 +3643,7 @@ term_array: /* arrays in 'aa' and 'bb', length in 'i' */
     while (--i) {
 	a = *aa++;
 	b = *bb++;
-	if (!is_same(a,a_base, b,b_base)) {
+	if (!is_same(a, b)) {
 	    if (is_atom(a) && is_atom(b)) {
 		if ((j = cmp_atoms(a, b)) != 0) {
 		    goto not_equal;
