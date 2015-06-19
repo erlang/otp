@@ -663,6 +663,8 @@ pack_avp([#diameter_avp{} = A | Avps]) ->
     pack_avp(A#diameter_avp{data = Avps});
 pack_avp(#diameter_avp{data = [#diameter_avp{} | _] = Avps} = A) ->
     pack_avp(A#diameter_avp{data = encode_avps(Avps)});
+pack_avp(#diameter_avp{data = [[#diameter_avp{} | _] | _] = Avps} = A) ->
+        pack_avp(A#diameter_avp{data = encode_avps(Avps)});
 
 %% ... data as a type/value tuple ...
 pack_avp(#diameter_avp{data = {Type, Value}} = A)
