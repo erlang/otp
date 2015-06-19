@@ -39,7 +39,7 @@
 %% ===========================================================================
 
 suite() ->
-    [{timetrap, {minutes, 2}}].
+    [{timetrap, {seconds, 10}}].
 
 all() ->
     [connect,     %% Appears to fail only when run first.
