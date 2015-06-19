@@ -776,7 +776,7 @@ grow_poll_fds(ErtsPollSet ps, int min_ix)
 static void
 grow_select_fds(int fd, ERTS_fd_set* fds)
 {
-    int new_len = ERTS_POLL_EXPORT(erts_poll_get_table_len)(fd + 1);
+    int new_len = erts_poll_new_table_len(fds->sz, fd + 1);
     if (new_len > max_fds)
 	new_len = max_fds;
     new_len = ERTS_FD_SIZE(new_len);
