@@ -224,7 +224,7 @@ i({listen, Ref, {Opts, Addrs}}) ->
     proc_lib:init_ack({ok, self(), LAs}),
     start_timer(#listener{ref = Ref,
                           socket = Sock,
-                          accept = accept(Matches)});
+                          accept = [[M] || {accept, M} <- Matches]});
 
 %% A connecting transport.
 i({connect, Pid, Opts, Addrs, Ref}) ->
@@ -241,7 +241,7 @@ i({connect, Pid, Opts, Addrs, Ref}) ->
 
 %% An accepting transport spawned by diameter, not yet owning an
 %% association.
-i({accept, Pid, LPid, Ref})
+i({accept, Ref, LPid, Pid})
   when is_pid(Pid) ->
     putr(?REF_KEY, Ref),
     proc_lib:init_ack({ok, self()}),
@@ -250,8 +250,9 @@ i({accept, Pid, LPid, Ref})
     wait([{peeloff, MRef}], #transport{parent = Pid,
                                        mode = {accept, LPid}});
 
-%% An accepting transport spawned at association establishment.
-i({accept, Ref, LPid, _Id}) ->
+%% An accepting transport spawned at association establishment, whose
+%% parent is not yet known.
+i({accept, Ref, LPid}) ->
     putr(?REF_KEY, Ref),
     proc_lib:init_ack({ok, self()}),
     erlang:send_after(?ACCEPT_TIMEOUT, self(), accept_timeout),
@@ -482,7 +483,7 @@ l({sctp, Sock, _RA, _RP, Data} = T, #listener{socket = Sock,
                                               accept = Matches}
                                     = S) ->
     Id = assoc_id(Data),
-    {TPid, NewS} = accept(Id, S),
+    {TPid, NewS} = accept(S),
     TPid ! {peeloff, setelement(2, T, peeloff(Sock, Id, TPid)), Matches},
     setopts(Sock),
     NewS;
@@ -586,11 +587,6 @@ accept_peer(Sock, Matches) ->
         orelse x({accept, RAddrs, Matches}),
     ok.
 
-%% accept/1
-
-accept(Opts) ->
-    [[M] || {accept, M} <- Opts].
-
 %% accept/3
 %%
 %% Start a new transport process or use one that's already been
@@ -607,7 +603,7 @@ accept(_, Pid, #listener{ref = Ref,
 
 %% No pending associations: spawn a new transport.
 accept(Ref, Pid, #listener{pending = {_,Q}}) ->
-    nq({accept, Pid, self(), Ref}, Q).
+    nq({accept, Ref, self(), Pid}, Q).
 
 %% send/2
 
@@ -718,25 +714,25 @@ up(#transport{parent = Pid,
     diameter_peer:up(Pid),
     S#transport{mode = A}.
 
-%% accept/2
+%% accept/1
 %%
 %% Start a new transport process or use one that's already been
 %% started as a consequence of an event to a listener process.
 
-accept(Id, #listener{pending = {N,Q}} = S) ->
-    {tpid(Id, S), S#listener{pending = {N+1,Q}}}.
+accept(#listener{pending = {N,Q}} = S) ->
+    {tpid(S), S#listener{pending = {N+1,Q}}}.
 
-%% tpid/2
+%% tpid/1
 
 %% Transport waiting for an association: use it.
-tpid(_Id, #listener{pending = {N,Q}})
+tpid(#listener{pending = {N,Q}})
   when N < 0 ->
     dq(Q);
 
 %% No transport start yet: spawn one and queue.
-tpid(Id, #listener{ref = Ref,
-                   pending = {_,Q}}) ->
-    nq({accept, Ref, self(), Id}, Q).
+tpid(#listener{ref = Ref,
+               pending = {_,Q}}) ->
+    nq({accept, Ref, self()}, Q).
 
 %% nq/2
 %%
