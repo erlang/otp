@@ -241,24 +241,22 @@ i({connect, Pid, Opts, Addrs, Ref}) ->
 
 %% An accepting transport spawned by diameter, not yet owning an
 %% association.
-i({accept, Pid, LPid, LSock, Ref})
+i({accept, Pid, LPid, Ref})
   when is_pid(Pid) ->
     putr(?REF_KEY, Ref),
     proc_lib:init_ack({ok, self()}),
     monitor(process, Pid),
     MRef = monitor(process, LPid),
     wait([{peeloff, MRef}], #transport{parent = Pid,
-                                       mode = {accept, LPid},
-                                       socket = LSock});
+                                       mode = {accept, LPid}});
 
 %% An accepting transport spawned at association establishment.
-i({accept, Ref, LPid, LSock, _Id}) ->
+i({accept, Ref, LPid, _Id}) ->
     putr(?REF_KEY, Ref),
     proc_lib:init_ack({ok, self()}),
     erlang:send_after(?ACCEPT_TIMEOUT, self(), accept_timeout),
     MRef = monitor(process, LPid),
-    wait([{parent, Ref}, {peeloff, MRef}], #transport{mode = {accept, LPid},
-                                                      socket = LSock}).
+    wait([{parent, Ref}, {peeloff, MRef}], #transport{mode = {accept, LPid}}).
 
 %% wait/2
 %%
@@ -268,17 +266,15 @@ i({accept, Ref, LPid, LSock, _Id}) ->
 wait(Keys, S) ->
     lists:foldl(fun i/2, S, Keys).
 
-i({K, Ref}, #transport{mode = {accept, _},
-                       socket = LSock}
-            = S) ->
+i({K, Ref}, #transport{mode = {accept, _}} = S) ->
     receive
         {Ref, Pid} when K == parent ->  %% transport process started
             S#transport{parent = Pid};
-        {K, Sock, T, Matches} when K == peeloff ->  %% association
-            {sctp, LSock, _RA, _RP, _Data} = T,  %% assert
+        {K, T, Matches} when K == peeloff ->  %% association
+            {sctp, Sock, _RA, _RP, _Data} = T,
             ok = accept_peer(Sock, Matches),
             demonitor(Ref, [flush]),
-            t(setelement(2, T, Sock), S#transport{socket = Sock});
+            t(T, S#transport{socket = Sock});
         accept_timeout = T ->
             x(T);
         {'DOWN', _, process, _, _} = T ->
@@ -482,10 +478,12 @@ start_timer(S) ->
 %% Transition listener state.
 
 %% Incoming message from SCTP.
-l({sctp, Sock, _RA, _RP, Data} = Msg, #listener{socket = Sock} = S) ->
+l({sctp, Sock, _RA, _RP, Data} = T, #listener{socket = Sock,
+                                              accept = Matches}
+                                    = S) ->
     Id = assoc_id(Data),
     {TPid, NewS} = accept(Id, S),
-    TPid ! {peeloff, peeloff(Sock, Id, TPid), Msg, S#listener.accept},
+    TPid ! {peeloff, setelement(2, T, peeloff(Sock, Id, TPid)), Matches},
     setopts(Sock),
     NewS;
 
@@ -608,9 +606,8 @@ accept(_, Pid, #listener{ref = Ref,
     TPid;
 
 %% No pending associations: spawn a new transport.
-accept(Ref, Pid, #listener{socket = Sock,
-                           pending = {_,Q}}) ->
-    nq({accept, Pid, self(), Sock, Ref}, Q).
+accept(Ref, Pid, #listener{pending = {_,Q}}) ->
+    nq({accept, Pid, self(), Ref}, Q).
 
 %% send/2
 
@@ -738,9 +735,8 @@ tpid(_Id, #listener{pending = {N,Q}})
 
 %% No transport start yet: spawn one and queue.
 tpid(Id, #listener{ref = Ref,
-                   socket = Sock,
                    pending = {_,Q}}) ->
-    nq({accept, Ref, self(), Sock, Id}, Q).
+    nq({accept, Ref, self(), Id}, Q).
 
 %% nq/2
 %%
