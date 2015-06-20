@@ -325,16 +325,13 @@ process_record_remote_types(CServer) ->
   CServer1 = dialyzer_codeserver:finalize_records(NewRecords, CServer),
   dialyzer_codeserver:finalize_exported_types(TempExpTypes, CServer1).
 
+%% erl_types:t_from_form() substitutes the declaration of opaque types
+%% for the expanded type in some cases. To make sure the initial type,
+%% any(), is not used, the expansion is done twice.
+%% XXX: Recursive opaque types are not handled well.
 process_opaque_types0(TempRecords0, TempExpTypes) ->
-  TempRecords = process_opaque_types(TempRecords0, TempExpTypes),
-  L0 = lists:keysort(1, dict:to_list(TempRecords0)),
-  L1 = lists:keysort(1, dict:to_list(TempRecords)),
-  if
-    L0 =:= L1 ->
-      TempRecords;
-    true ->
-      process_opaque_types0(TempRecords, TempExpTypes)
-  end.
+  TempRecords1 = process_opaque_types(TempRecords0, TempExpTypes),
+  process_opaque_types(TempRecords1, TempExpTypes).
 
 process_opaque_types(TempRecords, TempExpTypes) ->
   ModuleFun =
