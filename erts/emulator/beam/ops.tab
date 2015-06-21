@@ -292,6 +292,10 @@ move_window X1=x X2=x X3=x X4=x Y1=y Y4=y | move X5=x Y5=y | succ(Y4,Y5) => \
 move_window X1=x X2=x X3=x Y1=y Y3=y => move_window3 X1 X2 X3 Y1
 move_window X1=x X2=x X3=x X4=x Y1=y Y4=y => move_window4 X1 X2 X3 X4 Y1
 
+%macro: move_window3 MoveWindow3 -pack
+%macro: move_window4 MoveWindow4 -pack
+%macro: move_window5 MoveWindow5 -pack
+
 move_window3 x x x y
 move_window4 x x x x y
 move_window5 x x x x x y
@@ -390,7 +394,7 @@ move2_par y x x y
 move2_par x x y x
 move2_par y x x x
 
-%macro: move3 Move3
+%macro: move3 Move3 -pack
 move3 x y x y x y
 move3 y x y x y x
 move3 x x x x x x
