@@ -269,15 +269,15 @@ groups() ->
             SD <- ?STRING_DECODES,
             CD <- ?STRING_DECODES]
         ++
-        [{traffic, [parallel], [{group, ?util:name([T,R,D,A,C,SD,CD])}
-                                || T <- ?TRANSPORTS,
-                                   T /= sctp orelse Sctp,
-                                   R <- ?ENCODINGS,
-                                   D <- ?RFCS,
-                                   A <- ?ENCODINGS,
-                                   C <- ?CONTAINERS,
-                                   SD <- ?STRING_DECODES,
-                                   CD <- ?STRING_DECODES]}].
+        [{traffic, [], [{group, ?util:name([T,R,D,A,C,SD,CD])}
+                        || T <- ?TRANSPORTS,
+                           T /= sctp orelse Sctp,
+                           R <- ?ENCODINGS,
+                           D <- ?RFCS,
+                           A <- ?ENCODINGS,
+                           C <- ?CONTAINERS,
+                           SD <- ?STRING_DECODES,
+                           CD <- ?STRING_DECODES]}].
 
 init_per_group(Name, Config) ->
     case ?util:name(Name) of

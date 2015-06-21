@@ -380,12 +380,38 @@ tmod(any) ->
     [diameter_sctp, diameter_tcp].
 
 opts(Prot, T) ->
-    [{transport_module, M} || M <- tmod(Prot)]
-        ++ [{transport_config, [{ip, ?ADDR}, {port, 0} | opts(T)]}].
+    tmo(T, lists:append([[{transport_module, M}, {transport_config, C}]
+                         || M <- tmod(Prot),
+                            C <- [cfg(M,T) ++ cfg(M) ++ cfg(T)]])).
 
-opts(listen) ->
+tmo(listen, Opts) ->
+    Opts;
+tmo(_, Opts) ->
+    tmo(Opts).
+
+%% Timeout on all but the last alternative.
+tmo([_,_] = Opts) ->
+    Opts;
+tmo([M, C | Opts]) ->
+    {transport_config = K, Cfg} = C,
+    [M, {K, Cfg, 5000} | tmo(Opts)].
+
+%% Listening SCTP socket need larger-than-default buffers to avoid
+%% resends on some platforms (eg. SLES 11).
+cfg(diameter_sctp, listen) ->
+    [{recbuf, 1 bsl 16}, {sndbuf, 1 bsl 16}];
+
+cfg(_, _) ->
+    [].
+
+cfg(M)
+  when M == diameter_tcp;
+       M == diameter_sctp ->
+    [{ip, ?ADDR}, {port, 0}];
+
+cfg(listen) ->
     [{accept, M} || M <- [{256,0,0,1}, ["256.0.0.1", ["^.+$"]]]];
-opts(PortNr) ->
+cfg(PortNr) ->
     [{raddr, ?ADDR}, {rport, PortNr}].
 
 %% ---------------------------------------------------------------------------

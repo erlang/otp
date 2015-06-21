@@ -33,7 +33,7 @@
 
 %% testcases
 -export([send_not_from_controlling_process/1,
-         send_from_multiple_clients/1,
+         send_from_multiple_clients/1, send_from_multiple_clients/0,
          receive_what_was_sent/1]).
 
 -include_lib("kernel/include/inet_sctp.hrl").
@@ -58,7 +58,7 @@
 %% ===========================================================================
 
 suite() ->
-    [{timetrap, {minutes, 2}}].
+    [{timetrap, {seconds, 10}}].
 
 all() ->
     [send_not_from_controlling_process,
@@ -166,6 +166,9 @@ send(Sock, Id) ->
 %% send_from_multiple_clients/0
 %%
 %% Demonstrates sluggish delivery of messages.
+
+send_from_multiple_clients() ->
+    [{timetrap, {seconds, 60}}].
 
 send_from_multiple_clients(_) ->
     {S, Rs} = T = send_from_multiple_clients(8, 1024),
