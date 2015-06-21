@@ -121,7 +121,7 @@ pair([{transport_module, M} | Rest], Mods, Acc) ->
 pair([{transport_config = T, C} | Rest], Mods, Acc) ->
     pair([{T, C, ?DEFAULT_TTMO} | Rest], Mods, Acc);
 pair([{transport_config, C, Tmo} | Rest], Mods, Acc) ->
-    pair(Rest, [], acc({Mods, C, Tmo}, Acc));
+    pair(Rest, [], acc({lists:reverse(Mods), C, Tmo}, Acc));
 
 pair([_ | Rest], Mods, Acc) ->
     pair(Rest, Mods, Acc);
@@ -130,13 +130,16 @@ pair([_ | Rest], Mods, Acc) ->
 pair([], [], []) ->
     [{[?DEFAULT_TMOD], ?DEFAULT_TCFG, ?DEFAULT_TTMO}];
 
-%% One transport_module, one transport_config.
-pair([], [M], [{[], Cfg, Tmo}]) ->
-    [{[M], Cfg, Tmo}];
+%% One transport_module, one transport_config: ignore option order.
+%% That is, interpret [{transport_config, _}, {transport_module, _}]
+%% as if the order was reversed, not as config with default module and
+%% module with default config.
+pair([], [_] = Mods, [{[], Cfg, Tmo}]) ->
+    [{Mods, Cfg, Tmo}];
 
 %% Trailing transport_module: default transport_config.
 pair([], [_|_] = Mods, Acc) ->
-    lists:reverse(acc({Mods, ?DEFAULT_TCFG, ?DEFAULT_TTMO}, Acc));
+    pair([{transport_config, ?DEFAULT_TCFG}], Mods, Acc);
 
 pair([], [], Acc) ->
     lists:reverse(def(Acc)).
