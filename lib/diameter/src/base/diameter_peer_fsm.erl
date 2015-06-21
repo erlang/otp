@@ -119,7 +119,6 @@
          service      :: #diameter_service{},
          dpr = false  :: false
                        | true  %% DPR received, DPA sent
-                       | {uint32(), uint32()}  %% set in old code
                        | {boolean(), uint32(), uint32()},
                        %% hop by hop and end to end identifiers in
                        %% outgoing DPR; boolean says whether or not
@@ -155,8 +154,7 @@
 %% # start/3
 %% ---------------------------------------------------------------------------
 
--spec start(T, [Opt], {[diameter:service_opt()]
-                       | diameter:sequence(),  %% from old code
+-spec start(T, [Opt], {[diameter:service_opt()],
                        [node()],
                        module(),
                        #diameter_service{}})
@@ -194,9 +192,6 @@ start_link(T) ->
 init(T) ->
     proc_lib:init_ack({ok, self()}),
     gen_server:enter_loop(?MODULE, [], i(T)).
-
-i({Ack, WPid, T, Opts, {{_,_} = Mask, Nodes, Dict0, Svc}}) -> %% from old code
-    i({Ack, WPid, T, Opts, {[{sequence, Mask}], Nodes, Dict0, Svc}});
 
 i({Ack, WPid, {M, Ref} = T, Opts, {SvcOpts, Nodes, Dict0, Svc}}) ->
     erlang:monitor(process, WPid),
@@ -329,13 +324,10 @@ handle_info(T, #state{} = State) ->
         {?MODULE, Tag, Reason}  ->
             ?LOG(stop, Tag),
             {stop, {shutdown, Reason}, State}
-    end;
+    end.
 %% The form of the throw caught here is historical. It's
 %% significant that it's not a 2-tuple, as in ?FAILURE(Reason),
 %% since these are caught elsewhere.
-
-handle_info(T, S) ->  %% started in old code
-    handle_info(T, #state{} = erlang:append_element(S, infinity)).
 
 %% Note that there's no guarantee that the service and transport
 %% capabilities are good enough to build a CER/CEA that can be
@@ -365,9 +357,6 @@ eraser(Key) ->
     erase({?MODULE, Key}).
 
 %% transition/2
-
-transition(T, #state{dpr = {Hid, Eid}} = S) -> %% DPR sent from old code
-    transition(T, S#state{dpr = {false, Hid, Eid}});
 
 %% Connection to peer.
 transition({diameter, {TPid, connected, Remote}},
@@ -1296,25 +1285,15 @@ dpa_timer(Tmo) ->
     erlang:send_after(Tmo, self(), dpa_timeout).
 
 dpa_timeout() ->
-    dpa_timeout(getr(?DPA_KEY)).
-
-dpa_timeout({_, Tmo}) ->
-    Tmo;
-dpa_timeout(undefined) ->  %% set in old code
-    ?DPA_TIMEOUT;
-dpa_timeout(Tmo) ->        %% ditto
+    {_, Tmo} = getr(?DPA_KEY),
     Tmo.
 
 dpr_timer() ->
     dpa_timer(dpr_timeout()).
 
 dpr_timeout() ->
-    dpr_timeout(getr(?DPA_KEY)).
-
-dpr_timeout({Tmo, _}) ->
-    Tmo;
-dpr_timeout(_) ->  %% set in old code
-    ?DPR_TIMEOUT.
+    {Tmo, _} = getr(?DPA_KEY),
+    Tmo.
 
 %% register_everywhere/1
 %%

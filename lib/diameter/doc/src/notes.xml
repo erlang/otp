@@ -87,7 +87,7 @@ first.</p>
         </item>
         <item>
           <p>
-	    Don't confuse Result-Code and Experimental-Result</p>
+	    Don't confuse Result-Code and Experimental-Result.</p>
           <p>
 	    The errors field of a decoded diameter_packet record was
 	    populated with a Result-Code AVP when an

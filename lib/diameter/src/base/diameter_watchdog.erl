@@ -810,9 +810,6 @@ restart(S) ->  %% reconnect has won race with timeout
 %% state down rather then initial when receiving notification of an
 %% open connection.
 
-restart({T, Opts, Svc}, S) ->  %% put in old code
-    restart({T, Opts, Svc, []}, S);
-
 restart({{connect, _} = T, Opts, Svc, SvcOpts},
         #watchdog{parent = Pid,
                   restrict = {R,_},
@@ -827,7 +824,7 @@ restart({{connect, _} = T, Opts, Svc, SvcOpts},
 %% die. Note that a state machine never enters state REOPEN in this
 %% case.
 restart({{accept, _}, _, _, _}, #watchdog{restrict = {_, false}}) ->
-    stop;  %% 'DOWN' was in old code: 'close' was not sent
+    stop;
 
 %% Otherwise hang around until told to die, either by the service or
 %% by another watchdog.
