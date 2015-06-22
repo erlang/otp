@@ -1392,41 +1392,15 @@ o2_opts(TargetArch) ->
 	    spillmin_color, use_indexing, remove_comments,
 	    concurrent_comp, binary_opt | o1_opts(TargetArch)],
   case TargetArch of
-    ultrasparc ->
-      Common;
-    powerpc ->
-      Common;
-    ppc64 ->
-      Common;
-    arm ->
-      Common;
-    x86 ->
-      Common;
-      % [rtl_ssapre | Common];
-    amd64 ->
-      [icode_range | Common]; % range analysis is effective on 64 bits
-    Arch ->
-      ?EXIT({executing_on_an_unsupported_architecture,Arch})
-  end.
+    T when T =:= amd64 orelse T =:= ppc64 -> % 64-bit targets
+      [icode_range | Common];
+    _ ->      % T \in [arm, powerpc, ultrasparc, x86]
+      Common  % [rtl_ssapre | Common];
+    end.
 
 o3_opts(TargetArch) ->
-  Common = [icode_range, {regalloc,coalescing} | o2_opts(TargetArch)],
-  case TargetArch of
-    ultrasparc ->
-      Common;
-    powerpc ->
-      Common;
-    ppc64 ->
-      Common;
-    arm ->
-      Common;
-    x86 ->
-      Common;
-    amd64 ->
-      Common;
-    Arch ->
-      ?EXIT({executing_on_an_unsupported_architecture,Arch})
-  end.
+  %% no point checking for target architecture since this is checked in 'o1'
+  [icode_range, {regalloc,coalescing} | o2_opts(TargetArch)].
 
 %% Note that in general, the normal form for options should be positive.
 %% This is a good programming convention, so that tests in the code say
