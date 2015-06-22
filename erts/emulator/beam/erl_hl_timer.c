@@ -2966,7 +2966,7 @@ debug_callback_timer_foreach_list(ErtsHLTimer *tmr, void *vdfct)
 	= (ErtsDebugForeachCallbackTimer *) vdfct;
 
     if ((tmr->head.roflgs & ERTS_TMR_ROFLG_CALLBACK)
-	&& (tmr->receiver.callback && dfct->tclbk))
+	&& (tmr->receiver.callback == dfct->tclbk))
 	(*dfct->func)(dfct->arg,
 		      tmr->timeout,
 		      tmr->head.u.arg);
@@ -2984,7 +2984,7 @@ debug_callback_timer_foreach(ErtsHLTimer *tmr, void *vdfct)
 			       vdfct);
 
     if ((tmr->head.roflgs & ERTS_TMR_ROFLG_CALLBACK)
-	&& (tmr->receiver.callback && dfct->tclbk))
+	&& (tmr->receiver.callback == dfct->tclbk))
 	(*dfct->func)(dfct->arg,
 		      tmr->timeout,
 		      tmr->head.u.arg);
@@ -3037,7 +3037,7 @@ erts_debug_callback_timer_foreach(void (*tclbk)(void *),
 	    debug_callback_timer_foreach(srv->yield.root,
 					 (void *) &dfct);
 
-	time_rbt_foreach(srv->btm_tree,
+	time_rbt_foreach(srv->time_tree,
 			 debug_callback_timer_foreach,
 			 (void *) &dfct);
     }
