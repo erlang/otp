@@ -210,7 +210,7 @@ typedef struct erl_drv_entry {
           number &gt;= 0 or a pointer, or if the driver can't be started,
           one of three error codes should be returned:</p>
         <p>ERL_DRV_ERROR_GENERAL - general error, no error code</p>
-        <p>ERL_DRV_ERROR_ERRNO - error with error code in erl_errno</p>
+        <p>ERL_DRV_ERROR_ERRNO - error with error code in <c>errno</c></p>
         <p>ERL_DRV_ERROR_BADARG - error, badarg</p>
         <p>If an error code is returned, the port isn't started.</p>
       </item>
