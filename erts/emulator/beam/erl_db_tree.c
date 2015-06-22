@@ -2796,7 +2796,7 @@ static Sint cmp_partly_bound(Eterm partly_bound_key, Eterm bound_key, Eterm* bk_
 	erts_fprintf(stderr," > ");
     else
 	erts_fprintf(stderr," == ");
-    erts_fprintf(stderr,"%R\n", bound_key, bk_base);
+    erts_fprintf(stderr,"%T\n", bound_key);
 #endif
     return ret;
 }
@@ -3155,9 +3155,8 @@ static void do_dump_tree2(DbTableTree* tb, int to, void *to_arg, int show,
 	    prefix = "";
 	    term = make_tuple(t->dbterm.tpl);
 	}
-	erts_print(to, to_arg, "%*s%s%R (addr = %p, bal = %d)\n",
-		   offset, "", prefix, term, t->dbterm.tpl,
-		   t, t->balance);
+	erts_print(to, to_arg, "%*s%s%T (addr = %p, bal = %d)\n",
+		   offset, "", prefix, term, t, t->balance);
     }
     do_dump_tree2(tb, to, to_arg, show, t->left, offset + 4); 
 }

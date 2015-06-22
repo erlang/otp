@@ -58,7 +58,7 @@ extern int erts_printf_double(fmtfn_t, void *, char, int, int, double);
 
 typedef ErlPfUWord ErlPfEterm;
 
-extern int (*erts_printf_eterm_func)(fmtfn_t, void*, ErlPfEterm, long, ErlPfEterm*);
+extern int (*erts_printf_eterm_func)(fmtfn_t, void*, ErlPfEterm, long);
 
 #endif /* ERL_PRINTF_FORMAT_H__ */
 

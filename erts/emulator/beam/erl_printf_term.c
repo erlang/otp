@@ -117,8 +117,7 @@ do {									\
 /* return 0 if list is not a non-empty flat list of printable characters */
 
 static int
-is_printable_string(Eterm list, Eterm* base)
-{
+is_printable_string(Eterm list) {
     int len = 0;
     int c;
 
@@ -260,9 +259,7 @@ static char *format_binary(Uint16 x, char *b) {
 #endif
 
 static int
-print_term(fmtfn_t fn, void* arg, Eterm obj, long *dcount,
-	   Eterm* obj_base)
-{
+print_term(fmtfn_t fn, void* arg, Eterm obj, long *dcount) {
     DECLARE_WSTACK(s);
     int res;
     int i;
@@ -420,7 +417,7 @@ print_term(fmtfn_t fn, void* arg, Eterm obj, long *dcount,
 	    PRINT_CHAR(res, fn, arg, '>');
 	    break;
 	case LIST_DEF:
-	    if (is_printable_string(obj, obj_base)) {
+	    if (is_printable_string(obj)) {
 		int c;
 		PRINT_CHAR(res, fn, arg, '"');
 		nobj = list_val(obj);
@@ -644,13 +641,11 @@ print_term(fmtfn_t fn, void* arg, Eterm obj, long *dcount,
 
 
 int
-erts_printf_term(fmtfn_t fn, void* arg, ErlPfEterm term, long precision,
-		 ErlPfEterm* term_base)
-{
+erts_printf_term(fmtfn_t fn, void* arg, ErlPfEterm term, long precision) {
     int res;
     ERTS_CT_ASSERT(sizeof(ErlPfEterm) == sizeof(Eterm));
 
-    res = print_term(fn, arg, (Eterm)term, &precision, (Eterm*)term_base);
+    res = print_term(fn, arg, (Eterm)term, &precision);
     if (res < 0)
 	return res;
     if (precision <= 0)

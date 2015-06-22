@@ -2187,11 +2187,11 @@ static void db_print_hash(int to, void *to_arg, int show, DbTable *tbl)
 		    erts_print(to, to_arg, "*");
 		if (tb->common.compress) {
 		    Eterm key = GETKEY(tb, list->dbterm.tpl);
-		    erts_print(to, to_arg, "key=%R", key, list->dbterm.tpl);
+		    erts_print(to, to_arg, "key=%T", key);
 		}
 		else {
 		    Eterm obj = make_tuple(list->dbterm.tpl);
-		    erts_print(to, to_arg, "%R", obj, list->dbterm.tpl);
+		    erts_print(to, to_arg, "%T", obj);
 		}
 		if (list->next != 0)
 		    erts_print(to, to_arg, ",");
