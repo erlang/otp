@@ -432,7 +432,7 @@ Binary *db_match_compile(Eterm *matchexpr, Eterm *guards,
 Eterm db_match_dbterm(DbTableCommon* tb, Process* c_p, Binary* bprog,
 		      int all, DbTerm* obj, Eterm** hpp, Uint extra);
 
-Eterm db_prog_match(Process *p, Binary *prog, Eterm term, Eterm* base,
+Eterm db_prog_match(Process *p, Binary *prog, Eterm term,
 		    Eterm *termp, int arity,
 		    enum erts_pam_run_flags in_flags,
 		    Uint32 *return_flags /* Zeroed on enter */);

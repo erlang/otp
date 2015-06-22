@@ -367,7 +367,6 @@ typedef struct MatchVariable {
     Eterm term;
 #ifdef DEBUG
     Process* proc;
-    Eterm* base;
 #endif
 } MatchVariable;
 
@@ -1233,7 +1232,7 @@ Eterm erts_match_set_run(Process *p, Binary *mpsp,
 {
     Eterm ret;
 
-    ret = db_prog_match(p, mpsp, NIL, NULL, args, num_args,
+    ret = db_prog_match(p, mpsp, NIL, args, num_args,
 			in_flags, return_flags);
 #if defined(HARDDEBUG)
     if (is_non_value(ret)) {
@@ -1258,7 +1257,7 @@ static Eterm erts_match_set_run_ets(Process *p, Binary *mpsp,
 {
     Eterm ret;
 
-    ret = db_prog_match(p, mpsp, args, NULL, NULL, num_args,
+    ret = db_prog_match(p, mpsp, args, NULL, num_args,
 			ERTS_PAM_COPY_RESULT,
 			return_flags);
 #if defined(HARDDEBUG)
@@ -1755,7 +1754,7 @@ static Eterm dpm_array_to_list(Process *psp, Eterm *arr, int arity)
 ** i.e. 'DCOMP_TRACE' was specified 
 */
 Eterm db_prog_match(Process *c_p, Binary *bprog,
-		    Eterm term, Eterm* base,
+		    Eterm term,
 		    Eterm *termp,
 		    int arity,
 		    enum erts_pam_run_flags in_flags,
@@ -1856,7 +1855,6 @@ restart:
     for (i=0; i<prog->num_bindings; i++) {
 	variables[i].term = THE_NON_VALUE;
 	variables[i].proc = NULL;
-	variables[i].base = base;
     }
 #endif
 
@@ -2156,7 +2154,7 @@ restart:
 	    break;
 	case matchPushVResult:
 	    if (!(in_flags & ERTS_PAM_COPY_RESULT)) goto case_matchPushV;
-	    /* Build (NULL-based) copy on callers heap */
+	    /* Build copy on callers heap */
 	    n = *pc++;
 	    ASSERT(is_value(variables[n].term));
 	    ASSERT(!variables[n].proc);
@@ -2164,14 +2162,12 @@ restart:
 	    *esp++ = variables[n].term;
 	    #ifdef DEBUG
 	    variables[n].proc = c_p;
-	    variables[n].base = NULL;
 	    #endif
 	    break;
 	case matchPushV:
 	case_matchPushV:
 	    n = *pc++;
 	    ASSERT(is_value(variables[n].term));
-	    ASSERT(!variables[n].base);
 	    *esp++ = variables[n].term;
 	    break;
 	case matchPushExpr:
@@ -5204,16 +5200,13 @@ Eterm db_match_dbterm(DbTableCommon* tb, Process* c_p, Binary* bprog,
 			     int all, DbTerm* obj, Eterm** hpp, Uint extra)
 {
     Uint32 dummy;
-    Eterm* base;
     Eterm res;
 
     if (tb->compress) {
 	obj = db_alloc_tmp_uncompressed(tb, obj);
-	base = NULL;
     }
-    else base = NULL;
 
-    res = db_prog_match(c_p, bprog, make_tuple(obj->tpl), base, NULL, 0,
+    res = db_prog_match(c_p, bprog, make_tuple(obj->tpl), NULL, 0,
 			ERTS_PAM_COPY_RESULT|ERTS_PAM_CONTIGUOUS_TUPLE, &dummy);
 
     if (is_value(res) && hpp!=NULL) {
