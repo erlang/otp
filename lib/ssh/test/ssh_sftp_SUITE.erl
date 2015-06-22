@@ -30,11 +30,6 @@
 % Default timetrap timeout
 -define(default_timeout, ?t:minutes(1)).
 
--define(USER, "Alladin").
--define(PASSWD, "Sesame").
-
--define(tar_file_name, "sftp_tar_test.tar").
-
 %%--------------------------------------------------------------------
 %% Common Test interface functions -----------------------------------
 %%--------------------------------------------------------------------
@@ -43,9 +38,8 @@ suite() ->
     [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    [{group, erlang_server},
-     {group, openssh_server},
-     sftp_nonexistent_subsystem
+    [{group, not_unicode},
+     {group, unicode}
     ].
 
 
@@ -53,6 +47,8 @@ init_per_suite(Config) ->
     catch crypto:stop(),
     case (catch crypto:start()) of
 	ok ->
+	    ct:pal("file:native_name_encoding() = ~p,~nio:getopts() = ~p",
+		   [file:native_name_encoding(),io:getopts()]),
 	    ssh:start(),
 	    Config;
 	_ ->
@@ -66,18 +62,19 @@ end_per_suite(Config) ->
 
 %%--------------------------------------------------------------------
 groups() -> 
-    [{erlang_server, [], [open_close_file, open_close_dir, read_file, read_dir,
-			  write_file, write_big_file, sftp_read_big_file,
-			  rename_file, mk_rm_dir, remove_file, links,
-			  retrieve_attributes, set_attributes, async_read,
-			  async_write, position, pos_read, pos_write, version_option,
+    [{not_unicode, [], [{group,erlang_server},
+			{group,openssh_server},
+			sftp_nonexistent_subsystem]},
+
+     {unicode, [], [{group,erlang_server},
+		    {group,openssh_server},
+		    sftp_nonexistent_subsystem]},
+     
+     {erlang_server, [], [{group,write_read_tests},
+			  version_option,
 			  {group,remote_tar}]},
 
-     {openssh_server, [], [open_close_file, open_close_dir, read_file, read_dir,
-			   write_file, write_big_file, sftp_read_big_file,
-			   rename_file, mk_rm_dir, remove_file, links,
-			   retrieve_attributes, set_attributes, async_read,
-			   async_write, position, pos_read, pos_write,
+     {openssh_server, [], [{group,write_read_tests},
 			   {group,remote_tar}]},
 
      {remote_tar, [], [create_empty_tar, files_to_tar, big_file_to_tar, files_chunked_to_tar,
@@ -85,21 +82,74 @@ groups() ->
 		       simple_crypto_tar_small, simple_crypto_tar_big,
 		       read_tar, read_null_crypto_tar, read_crypto_tar, 
 		       aes_cbc256_crypto_tar, aes_ctr_stream_crypto_tar
-		      ]}
-    ].
-     
+		      ]},
 
+     {write_read_tests, [], [open_close_file, open_close_dir, read_file, read_dir,
+			     write_file, write_file_iolist, write_big_file, sftp_read_big_file,
+			     rename_file, mk_rm_dir, remove_file, links,
+			     retrieve_attributes, set_attributes, async_read,
+			     async_write, position, pos_read, pos_write
+			    ]}
+    ].
+
+init_per_group(not_unicode, Config) ->
+    ct:comment("Begin ~p",[grps(Config)]),
+    DataDir = ?config(data_dir, Config),
+    PrivDir = ?config(priv_dir, Config),
+    [{user, "Alladin"},
+     {passwd, "Sesame"},
+     {data, <<"Hello world!">>},
+     {filename, filename:join(PrivDir, "sftp.txt")},
+     {testfile, filename:join(PrivDir, "test.txt")},
+     {linktest, filename:join(PrivDir, "link_test.txt")},
+     {tar_filename, filename:join(PrivDir,  "sftp_tar_test.tar")},
+     {tar_F1_txt, "f1.txt"},
+     {datadir_tar, filename:join(DataDir,"sftp_tar_test_data")}
+     | Config];
+
+init_per_group(unicode, Config) ->
+    case file:native_name_encoding() of
+	utf8 ->
+	    ct:comment("Begin ~p",[grps(Config)]),
+	    DataDir = ?config(data_dir, Config),
+	    PrivDir = ?config(priv_dir, Config),
+	    [{user, "åke高兴"},
+	     {passwd, "ärlig日本じん"},
+	     {data, <<"foobar å 一二三四いちにさんち">>},
+	     {filename, filename:join(PrivDir, "sftp瑞点.txt")},
+	     {testfile, filename:join(PrivDir, "testハンス.txt")},
+	     {linktest, filename:join(PrivDir, "link_test語.txt")},
+	     {tar_filename, filename:join(PrivDir,  "sftp_tar_test一二三.tar")},
+	     {tar_F1_txt, "F一.txt"},
+	     {datadir_tar, filename:join(DataDir,"sftp_tar_test_data_高兴")}
+	     | lists:foldl(fun(K,Cf) -> lists:keydelete(K,1,Cf) end, 
+			   Config,
+			   [user, passwd, data,
+			    filename, testfile, linktest,
+			    tar_filename, tar_F1_txt, datadir_tar
+			   ]
+			  )
+	    ];
+
+	_ ->
+	    {skip, "Not unicode file encoding"}
+    end;
+		
 init_per_group(erlang_server, Config) ->
+    ct:comment("Begin ~p",[grps(Config)]),
     PrivDir = ?config(priv_dir, Config),
     SysDir =  ?config(data_dir, Config),
+    User = ?config(user, Config),
+    Passwd = ?config(passwd, Config),
     Sftpd = {_, HostX, PortX} =
 	ssh_test_lib:daemon([{system_dir, SysDir},
 			     {user_dir, PrivDir},
 			     {user_passwords,
-			      [{?USER, ?PASSWD}]}]),
+			      [{User, Passwd}]}]),
     [{peer, {fmt_host(HostX),PortX}}, {group, erlang_server}, {sftpd, Sftpd} | Config];
 
 init_per_group(openssh_server, Config) ->
+    ct:comment("Begin ~p",[grps(Config)]),
     Host = ssh_test_lib:hostname(),
     case (catch ssh_sftp:start_channel(Host,					      
 				       [{user_interaction, false},
@@ -113,14 +163,17 @@ init_per_group(openssh_server, Config) ->
     end;
 
 init_per_group(remote_tar, Config) ->
+    ct:comment("Begin ~p",[grps(Config)]),
     {Host,Port} =  ?config(peer, Config),
     ct:log("Server (~p) at ~p:~p",[?config(group,Config),Host,Port]),
+    User = ?config(user, Config),
+    Passwd = ?config(passwd, Config),
     {ok, Connection} =
 	case ?config(group, Config) of
 	    erlang_server ->
 		ssh:connect(Host, Port,
-			    [{user, ?USER},
-			     {password, ?PASSWD},
+			    [{user, User},
+			     {password, Passwd},
 			     {user_interaction, false},
 			     {silently_accept_hosts, true}]);
 	    openssh_server ->
@@ -129,11 +182,24 @@ init_per_group(remote_tar, Config) ->
 			     {silently_accept_hosts, true}])
 	end,
     [{remote_tar, true}, 
-     {connection, Connection} | Config].
+     {connection, Connection} | Config];
+
+init_per_group(write_read_tests, Config) ->
+    ct:comment("Begin ~p",[grps(Config)]),
+    Config.
+
+grps(Config) ->
+    proplists:get_all_values(
+      name, 
+      lists:flatten([proplists:get_value(tc_group_properties,Config,[]),
+		     proplists:get_value(tc_group_path,Config,[])])).
+
 
 end_per_group(erlang_server, Config) ->
+    ct:comment("End ~p",[grps(Config)]),
     Config;
 end_per_group(_, Config) ->
+    ct:comment("End ~p",[grps(Config)]),
     Config.
 
 %%--------------------------------------------------------------------
@@ -141,11 +207,13 @@ end_per_group(_, Config) ->
 init_per_testcase(sftp_nonexistent_subsystem, Config) ->
     PrivDir = ?config(priv_dir, Config),
     SysDir =  ?config(data_dir, Config),
+    User = ?config(user, Config),
+    Passwd = ?config(passwd, Config),
     Sftpd = ssh_test_lib:daemon([{system_dir, SysDir},
 				 {user_dir, PrivDir},
 				 {subsystems, []},
 				 {user_passwords,
-				  [{?USER, ?PASSWD}]}
+				  [{User, Passwd}]}
 				]),
     [{sftpd, Sftpd} | Config];
 
@@ -155,11 +223,13 @@ init_per_testcase(version_option, Config) ->
     TmpConfig = lists:keydelete(sftp, 1, TmpConfig0),
     Dog = ct:timetrap(?default_timeout),
     {_,Host, Port} =  ?config(sftpd, Config),
+    User = ?config(user, Config),
+    Passwd = ?config(passwd, Config),
     {ok, ChannelPid, Connection}  = 
 	ssh_sftp:start_channel(Host, Port,
 			       [{sftp_vsn, 3},
-				{user, ?USER},
-				{password, ?PASSWD},
+				{user, User},
+				{password, Passwd},
 				{user_interaction, false},
 				{silently_accept_hosts, true}]),
     Sftp = {ChannelPid, Connection},
@@ -170,6 +240,8 @@ init_per_testcase(Case, Config0) ->
     Config1 = lists:keydelete(watchdog, 1, Config0),
     Config2 = lists:keydelete(sftp, 1, Config1),
     Dog = ct:timetrap(?default_timeout),
+    User = ?config(user, Config0),
+    Passwd = ?config(passwd, Config0),
 
     Config =
 	case ?config(group,Config2) of
@@ -177,8 +249,8 @@ init_per_testcase(Case, Config0) ->
 		{_,Host, Port} =  ?config(sftpd, Config2),
 		{ok, ChannelPid, Connection}  = 
 		    ssh_sftp:start_channel(Host, Port,
-					   [{user, ?USER},
-					    {password, ?PASSWD},
+					   [{user, User},
+					    {password, Passwd},
 					    {user_interaction, false},
 					    {silently_accept_hosts, true}]),
 		Sftp = {ChannelPid, Connection},
@@ -208,8 +280,7 @@ init_per_testcase(Case, Config0) ->
 end_per_testcase(sftp_nonexistent_subsystem, Config) ->
     Config;
 end_per_testcase(rename_file, Config) ->
-    PrivDir = ?config(priv_dir, Config),
-    NewFileName = filename:join(PrivDir, "test.txt"),
+    NewFileName = ?config(testfile, Config),
     file:delete(NewFileName),  
     end_per_testcase(Config);
 end_per_testcase(_, Config) ->
@@ -227,8 +298,7 @@ end_per_testcase(Config) ->
 open_close_file() ->
     [{doc, "Test API functions open/3 and close/2"}].
 open_close_file(Config) when is_list(Config) ->
-    PrivDir =  ?config(priv_dir, Config),
-    FileName = filename:join(PrivDir, "sftp.txt"),
+    FileName = ?config(filename, Config),
 
     {Sftp, _} = ?config(sftp, Config),
 
@@ -249,7 +319,7 @@ open_close_dir() ->
 open_close_dir(Config) when is_list(Config) ->
     PrivDir = ?config(priv_dir, Config),
     {Sftp, _} = ?config(sftp, Config),
-    FileName = filename:join(PrivDir, "sftp.txt"),
+    FileName = ?config(filename, Config),
 
     {ok, Handle} = ssh_sftp:opendir(Sftp, PrivDir),
     ok = ssh_sftp:close(Sftp, Handle),
@@ -259,8 +329,7 @@ open_close_dir(Config) when is_list(Config) ->
 read_file() ->
     [{doc, "Test API funtion read_file/2"}].
 read_file(Config) when is_list(Config) ->
-    PrivDir =  ?config(priv_dir, Config),
-    FileName = filename:join(PrivDir, "sftp.txt"),
+    FileName = ?config(filename, Config),
     {Sftp, _} = ?config(sftp, Config),
     {ok, Data} = ssh_sftp:read_file(Sftp, FileName),
     {ok, Data} = ssh_sftp:read_file(Sftp, FileName),
@@ -279,8 +348,7 @@ read_dir(Config) when is_list(Config) ->
 write_file() ->
     [{doc, "Test API function write_file/2"}].
 write_file(Config) when is_list(Config) ->
-    PrivDir =  ?config(priv_dir, Config),
-    FileName = filename:join(PrivDir, "sftp.txt"),
+    FileName = ?config(filename, Config),
     {Sftp, _} = ?config(sftp, Config),
 
     Data = list_to_binary("Hej hopp!"),
@@ -288,11 +356,31 @@ write_file(Config) when is_list(Config) ->
     {ok, Data} = file:read_file(FileName).
 
 %%--------------------------------------------------------------------
+write_file_iolist() ->
+    [{doc, "Test API function write_file/2 with iolists"}].
+write_file_iolist(Config) when is_list(Config) ->
+    FileName = ?config(filename, Config),
+    {Sftp, _} = ?config(sftp, Config),
+
+    Data = list_to_binary("Hej hopp!"),
+    lists:foreach(
+      fun(D) ->
+	      ssh_sftp:write_file(Sftp, FileName, [D]),
+	      Expected = if is_binary(D) -> D;
+			    is_list(D) -> list_to_binary(D)
+			 end,
+	      {ok, Expected} = file:read_file(FileName)
+      end,
+      [Data, [Data,Data], [[Data],[Data]], [[[Data]],[[[[Data]],Data]]],
+       [[[[Data]],Data],binary_to_list(Data)],
+       [[[[Data]],Data],[[binary_to_list(Data)],[[binary_to_list(Data)]]]]
+      ]).
+
+%%--------------------------------------------------------------------
 write_big_file() ->
     [{doc, "Test API function write_file/2 with big data"}].
 write_big_file(Config) when is_list(Config) ->
-    PrivDir =  ?config(priv_dir, Config),
-    FileName = filename:join(PrivDir, "sftp.txt"),
+    FileName = ?config(filename, Config),
     {Sftp, _} = ?config(sftp, Config),
 
     Data = list_to_binary(lists:duplicate(750000,"a")),
@@ -303,8 +391,7 @@ write_big_file(Config) when is_list(Config) ->
 sftp_read_big_file() ->
     [{doc, "Test API function read_file/2 with big data"}].
 sftp_read_big_file(Config) when is_list(Config) ->
-    PrivDir =  ?config(priv_dir, Config),
-    FileName = filename:join(PrivDir, "sftp.txt"),
+    FileName = ?config(filename, Config),
     {Sftp, _} = ?config(sftp, Config),
 
     Data = list_to_binary(lists:duplicate(750000,"a")),
@@ -317,7 +404,7 @@ remove_file() ->
     [{doc,"Test API function delete/2"}].
 remove_file(Config) when is_list(Config) ->
     PrivDir =  ?config(priv_dir, Config),
-    FileName = filename:join(PrivDir, "sftp.txt"),
+    FileName = ?config(filename, Config),
     {Sftp, _} = ?config(sftp, Config),
 
     {ok, Files} = ssh_sftp:list_dir(Sftp, PrivDir),
@@ -331,8 +418,8 @@ rename_file() ->
     [{doc, "Test API function rename_file/2"}].
 rename_file(Config) when is_list(Config) ->
     PrivDir =  ?config(priv_dir, Config),
-    FileName = filename:join(PrivDir, "sftp.txt"),
-    NewFileName = filename:join(PrivDir, "test.txt"),
+    FileName = ?config(filename, Config),
+    NewFileName = ?config(testfile, Config),
 
     {Sftp, _} = ?config(sftp, Config),
     {ok, Files} = ssh_sftp:list_dir(Sftp, PrivDir),
@@ -369,9 +456,8 @@ links(Config) when is_list(Config) ->
 	    {skip, "Links are not fully supported by windows"};
 	_ ->
 	    {Sftp, _} = ?config(sftp, Config),
-	    PrivDir =  ?config(priv_dir, Config),
-	    FileName = filename:join(PrivDir, "sftp.txt"),
-	    LinkFileName = filename:join(PrivDir, "link_test.txt"),
+	    FileName = ?config(filename, Config),
+	    LinkFileName = ?config(linktest, Config),
 
 	    ok = ssh_sftp:make_symlink(Sftp, LinkFileName, FileName),
 	    {ok, FileName} = ssh_sftp:read_link(Sftp, LinkFileName)
@@ -381,8 +467,7 @@ links(Config) when is_list(Config) ->
 retrieve_attributes() ->
     [{doc, "Test API function read_file_info/3"}].
 retrieve_attributes(Config) when is_list(Config) ->
-    PrivDir =  ?config(priv_dir, Config),
-    FileName = filename:join(PrivDir, "sftp.txt"),
+    FileName = ?config(filename, Config),
 
     {Sftp, _} = ?config(sftp, Config),
     {ok, FileInfo} = ssh_sftp:read_file_info(Sftp, FileName),
@@ -395,8 +480,7 @@ retrieve_attributes(Config) when is_list(Config) ->
 set_attributes() ->
     [{doc,"Test API function write_file_info/3"}].
 set_attributes(Config) when is_list(Config) ->
-    PrivDir =  ?config(priv_dir, Config),
-    FileName = filename:join(PrivDir, "test.txt"),
+    FileName = ?config(testfile, Config),
 
     {Sftp, _} = ?config(sftp, Config),
     {ok,Fd} = file:open(FileName, write),
@@ -412,9 +496,8 @@ async_read() ->
     [{doc,"Test API aread/3"}].
 async_read(Config) when is_list(Config) ->
     {Sftp, _} = ?config(sftp, Config),
-    PrivDir =  ?config(priv_dir, Config),
 
-    FileName = filename:join(PrivDir, "sftp.txt"),
+    FileName = ?config(filename, Config),
     {ok, Handle} = ssh_sftp:open(Sftp, FileName, [read]),
     {async, Ref} = ssh_sftp:aread(Sftp, Handle, 20),
 
@@ -430,8 +513,7 @@ async_write() ->
     [{doc,"Test API awrite/3"}].
 async_write(Config) when is_list(Config) ->
     {Sftp, _} = ?config(sftp, Config),
-    PrivDir =  ?config(priv_dir, Config),
-    FileName = filename:join(PrivDir, "test.txt"),
+    FileName = ?config(testfile, Config),
     {ok, Handle} = ssh_sftp:open(Sftp, FileName, [write]),
     Data = list_to_binary("foobar"),
     {async, Ref} = ssh_sftp:awrite(Sftp, Handle, Data),
@@ -448,8 +530,7 @@ async_write(Config) when is_list(Config) ->
 position() ->
     [{doc, "Test API functions position/3"}].
 position(Config) when is_list(Config) ->
-    PrivDir =  ?config(priv_dir, Config),
-    FileName = filename:join(PrivDir, "test.txt"),
+    FileName = ?config(testfile, Config),
     {Sftp, _} = ?config(sftp, Config),
 
     Data = list_to_binary("1234567890"),
@@ -478,8 +559,7 @@ position(Config) when is_list(Config) ->
 pos_read() ->
     [{doc,"Test API functions pread/3 and apread/3"}].
 pos_read(Config) when is_list(Config) ->
-    PrivDir =  ?config(priv_dir, Config),
-    FileName = filename:join(PrivDir, "test.txt"),
+    FileName = ?config(testfile, Config),
     {Sftp, _} = ?config(sftp, Config),
     Data = list_to_binary("Hej hopp!"),
     ssh_sftp:write_file(Sftp, FileName, [Data]),
@@ -504,8 +584,7 @@ pos_read(Config) when is_list(Config) ->
 pos_write() ->
     [{doc,"Test API functions pwrite/4 and apwrite/4"}].
 pos_write(Config) when is_list(Config) ->
-    PrivDir =  ?config(priv_dir, Config),
-    FileName = filename:join(PrivDir, "test.txt"),
+    FileName = ?config(testfile, Config),
     {Sftp, _} = ?config(sftp, Config),
 
     {ok, Handle} = ssh_sftp:open(Sftp, FileName, [write]),
@@ -532,10 +611,13 @@ sftp_nonexistent_subsystem() ->
     [{doc, "Try to execute sftp subsystem on a server that does not support it"}].
 sftp_nonexistent_subsystem(Config) when is_list(Config) ->
     {_,Host, Port} =  ?config(sftpd, Config),
+    User = ?config(user, Config),
+    Passwd = ?config(passwd, Config),
     {error,"server failed to start sftp subsystem"} =
 	ssh_sftp:start_channel(Host, Port,
 			       [{user_interaction, false},
-				{user, ?USER}, {password, ?PASSWD},
+				{user, User},
+				{password, Passwd},
 				{silently_accept_hosts, true}]).
 
 %%--------------------------------------------------------------------
@@ -547,25 +629,29 @@ version_option(Config) when is_list(Config) ->
 %%--------------------------------------------------------------------
 create_empty_tar(Config) ->
     ChPid2 = ?config(channel_pid2, Config),
-    {ok,Handle} = ssh_sftp:open_tar(ChPid2, fnp(?tar_file_name,Config), [write]),
+    TarFileName = ?config(tar_filename, Config),
+    {ok,Handle} = ssh_sftp:open_tar(ChPid2, TarFileName, [write]),
     erl_tar:close(Handle),
     {ChPid,_} = ?config(sftp,Config),
     {ok, #file_info{type=regular}} =
-	ssh_sftp:read_file_info(ChPid,fnp(?tar_file_name,Config)).
+	ssh_sftp:read_file_info(ChPid, TarFileName).
 
 %%--------------------------------------------------------------------
 files_to_tar(Config) ->
     ChPid2 = ?config(channel_pid2, Config),
-    {ok,Handle} = ssh_sftp:open_tar(ChPid2, fnp(?tar_file_name,Config), [write]),
-    ok = erl_tar:add(Handle, fn("f1.txt",Config), "f1.txt", [verbose]),
+    TarFileName = ?config(tar_filename, Config),
+    {ok,Handle} = ssh_sftp:open_tar(ChPid2, TarFileName, [write]),
+    F1 = ?config(tar_F1_txt, Config),
+    ok = erl_tar:add(Handle, fn(F1,Config), F1, [verbose]),
     ok = erl_tar:add(Handle, fn("f2.txt",Config), "f2.txt", [verbose]),
     ok = erl_tar:close(Handle),
-    chk_tar(["f1.txt", "f2.txt"], Config).
+    chk_tar([F1, "f2.txt"], Config).
 
 %%--------------------------------------------------------------------
 big_file_to_tar(Config) ->
     ChPid2 = ?config(channel_pid2, Config),
-    {ok,Handle} = ssh_sftp:open_tar(ChPid2, fnp(?tar_file_name,Config), [write]), 
+    TarFileName = ?config(tar_filename, Config),
+    {ok,Handle} = ssh_sftp:open_tar(ChPid2, TarFileName, [write]), 
     ok = erl_tar:add(Handle, fn("big.txt",Config), "big.txt", [verbose]),
     ok = erl_tar:close(Handle),
     chk_tar(["big.txt"], Config).
@@ -574,15 +660,18 @@ big_file_to_tar(Config) ->
 %%--------------------------------------------------------------------
 files_chunked_to_tar(Config) ->
     ChPid2 = ?config(channel_pid2, Config),
-    {ok,Handle} = ssh_sftp:open_tar(ChPid2, fnp(?tar_file_name,Config), [write]),
-    ok = erl_tar:add(Handle, fn("f1.txt",Config), "f1.txt", [verbose,{chunks,2}]),
+    TarFileName = ?config(tar_filename, Config),
+    {ok,Handle} = ssh_sftp:open_tar(ChPid2, TarFileName, [write]),
+    F1 = ?config(tar_F1_txt, Config),
+    ok = erl_tar:add(Handle, fn(F1,Config), F1, [verbose,{chunks,2}]),
     ok = erl_tar:close(Handle),
-    chk_tar(["f1.txt"], Config).
+    chk_tar([F1], Config).
 
 %%--------------------------------------------------------------------
 directory_to_tar(Config) ->
     ChPid2 = ?config(channel_pid2, Config),
-    {ok,Handle} = ssh_sftp:open_tar(ChPid2, fnp(?tar_file_name,Config), [write]),
+    TarFileName = ?config(tar_filename, Config),
+    {ok,Handle} = ssh_sftp:open_tar(ChPid2, TarFileName, [write]),
     ok = erl_tar:add(Handle, fn("d1",Config), "d1", [verbose]),
     ok = erl_tar:close(Handle),
     chk_tar(["d1"], Config).
@@ -590,7 +679,8 @@ directory_to_tar(Config) ->
 %%--------------------------------------------------------------------
 binaries_to_tar(Config) ->
     ChPid2 = ?config(channel_pid2, Config),
-    {ok,Handle} = ssh_sftp:open_tar(ChPid2, fnp(?tar_file_name,Config), [write]),
+    TarFileName = ?config(tar_filename, Config),
+    {ok,Handle} = ssh_sftp:open_tar(ChPid2, TarFileName, [write]),
     Bin = <<"A binary">>,
     ok = erl_tar:add(Handle, Bin, "b1", [verbose]),
     ok = erl_tar:close(Handle),
@@ -603,13 +693,15 @@ null_crypto_tar(Config) ->
     Cenc = fun(Bin,CState) -> {ok,Bin,CState,_SendSize=5} end,
     Cend = fun(Bin,_CState) -> {ok,Bin} end,
     C = {Cinit,Cenc,Cend},
-    {ok,Handle} = ssh_sftp:open_tar(ChPid2, fnp(?tar_file_name,Config), [write,{crypto,C}]),
+    TarFileName = ?config(tar_filename, Config),
+    {ok,Handle} = ssh_sftp:open_tar(ChPid2, TarFileName, [write,{crypto,C}]),
     Bin = <<"A binary">>,
+    F1 = ?config(tar_F1_txt, Config),
     ok = erl_tar:add(Handle, Bin, "b1", [verbose]),
-    ok = erl_tar:add(Handle, fn("f1.txt",Config), "f1.txt", [verbose,{chunks,2}]),
+    ok = erl_tar:add(Handle, fn(F1,Config), F1, [verbose,{chunks,2}]),
     ok = erl_tar:add(Handle, fn("big.txt",Config), "big.txt", [verbose,{chunks,15000}]),
     ok = erl_tar:close(Handle),
-    chk_tar([{"b1",Bin}, "f1.txt", "big.txt"], Config).
+    chk_tar([{"b1",Bin}, F1, "big.txt"], Config).
 
 %%--------------------------------------------------------------------
 simple_crypto_tar_small(Config) ->
@@ -619,12 +711,14 @@ simple_crypto_tar_small(Config) ->
     Cdec = fun(Bin,CState) -> {ok,unstuff(Bin),CState,_Size=4} end,
     Cend = fun(Bin,_CState) -> {ok,stuff(Bin)} end,
     C = {Cinit,Cenc,Cend},
-    {ok,Handle} = ssh_sftp:open_tar(ChPid2, fnp(?tar_file_name,Config), [write,{crypto,C}]),
+    TarFileName = ?config(tar_filename, Config),
+    {ok,Handle} = ssh_sftp:open_tar(ChPid2, TarFileName, [write,{crypto,C}]),
     Bin = <<"A binary">>,
+    F1 = ?config(tar_F1_txt, Config),
     ok = erl_tar:add(Handle, Bin, "b1", [verbose]),
-    ok = erl_tar:add(Handle, fn("f1.txt",Config), "f1.txt", [verbose,{chunks,2}]),
+    ok = erl_tar:add(Handle, fn(F1,Config), F1, [verbose,{chunks,2}]),
     ok = erl_tar:close(Handle),
-    chk_tar([{"b1",Bin}, "f1.txt"], Config, [{crypto,{Cinit,Cdec}}]).
+    chk_tar([{"b1",Bin}, F1], Config, [{crypto,{Cinit,Cdec}}]).
 
 %%--------------------------------------------------------------------
 simple_crypto_tar_big(Config) ->
@@ -634,13 +728,15 @@ simple_crypto_tar_big(Config) ->
     Cdec = fun(Bin,CState) -> {ok,unstuff(Bin),CState,_SendSize=4} end,
     Cend = fun(Bin,_CState) -> {ok,stuff(Bin)} end,
     C = {Cinit,Cenc,Cend},
-    {ok,Handle} = ssh_sftp:open_tar(ChPid2, fnp(?tar_file_name,Config), [write,{crypto,C}]),
+    TarFileName = ?config(tar_filename, Config),
+    {ok,Handle} = ssh_sftp:open_tar(ChPid2, TarFileName, [write,{crypto,C}]),
     Bin = <<"A binary">>,
+    F1 = ?config(tar_F1_txt, Config),
     ok = erl_tar:add(Handle, Bin, "b1", [verbose]),
-    ok = erl_tar:add(Handle, fn("f1.txt",Config), "f1.txt", [verbose,{chunks,2}]),
+    ok = erl_tar:add(Handle, fn(F1,Config), F1, [verbose,{chunks,2}]),
     ok = erl_tar:add(Handle, fn("big.txt",Config), "big.txt", [verbose,{chunks,15000}]),
     ok = erl_tar:close(Handle),
-    chk_tar([{"b1",Bin}, "f1.txt", "big.txt"], Config, [{crypto,{Cinit,Cdec}}]).
+    chk_tar([{"b1",Bin}, F1, "big.txt"], Config, [{crypto,{Cinit,Cdec}}]).
 
 stuff(Bin) -> << <<C,C>> || <<C>> <= Bin >>.
     
@@ -653,7 +749,8 @@ read_tar(Config) ->
 		 [{"b1",<<"A binary">>},
 		  {"b2",list_to_binary(lists:duplicate(750000,"a"))}
 		 ]),
-    {ok,HandleWrite} = ssh_sftp:open_tar(ChPid2, fnp(?tar_file_name,Config), [write]),
+    TarFileName = ?config(tar_filename, Config),
+    {ok,HandleWrite} = ssh_sftp:open_tar(ChPid2, TarFileName, [write]),
     [ok = erl_tar:add(HandleWrite, Bin, Name, [verbose])
      ||	{Name,Bin} <- NameBins],
     ok = erl_tar:close(HandleWrite),
@@ -675,7 +772,8 @@ read_null_crypto_tar(Config) ->
     Cw = {Cinitw,Cenc,Cendw},
     Cr = {Cinitr,Cdec},
 
-    {ok,HandleWrite} = ssh_sftp:open_tar(ChPid2, fnp(?tar_file_name,Config), [write,{crypto,Cw}]),
+    TarFileName = ?config(tar_filename, Config),
+    {ok,HandleWrite} = ssh_sftp:open_tar(ChPid2, TarFileName, [write,{crypto,Cw}]),
     [ok = erl_tar:add(HandleWrite, Bin, Name, [verbose])
      ||	{Name,Bin} <- NameBins],
     ok = erl_tar:close(HandleWrite),
@@ -698,7 +796,8 @@ read_crypto_tar(Config) ->
     Cw = {Cinitw,Cenc,Cendw},
     Cr = {Cinitr,Cdec},
 
-    {ok,HandleWrite} = ssh_sftp:open_tar(ChPid2, fnp(?tar_file_name,Config), [write,{crypto,Cw}]),
+    TarFileName = ?config(tar_filename, Config),
+    {ok,HandleWrite} = ssh_sftp:open_tar(ChPid2, TarFileName, [write,{crypto,Cw}]),
     [ok = erl_tar:add(HandleWrite, Bin, Name, [verbose])
      ||	{Name,Bin} <- NameBins],
     ok = erl_tar:close(HandleWrite),
@@ -737,7 +836,8 @@ aes_cbc256_crypto_tar(Config) ->
 	    end,
 
     Cw = {Cinitw,Cenc,Cendw},
-    {ok,HandleWrite} = ssh_sftp:open_tar(ChPid2, fnp(?tar_file_name,Config), [write,{crypto,Cw}]),
+    TarFileName = ?config(tar_filename, Config),
+    {ok,HandleWrite} = ssh_sftp:open_tar(ChPid2, TarFileName, [write,{crypto,Cw}]),
     [ok = erl_tar:add(HandleWrite, Bin, Name, [verbose]) || {Name,Bin} <- NameBins],
     ok = erl_tar:close(HandleWrite),
 
@@ -779,7 +879,8 @@ aes_ctr_stream_crypto_tar(Config) ->
 	    end,
 
     Cw = {Cinitw,Cenc,Cendw},
-    {ok,HandleWrite} = ssh_sftp:open_tar(ChPid2, fnp(?tar_file_name,Config), [write,{crypto,Cw}]),
+    TarFileName = ?config(tar_filename, Config),
+    {ok,HandleWrite} = ssh_sftp:open_tar(ChPid2, TarFileName, [write,{crypto,Cw}]),
     [ok = erl_tar:add(HandleWrite, Bin, Name, [verbose]) || {Name,Bin} <- NameBins],
     ok = erl_tar:close(HandleWrite),
 
@@ -790,18 +891,18 @@ aes_ctr_stream_crypto_tar(Config) ->
 %% Internal functions ------------------------------------------------
 %%--------------------------------------------------------------------
 prep(Config) ->
-    PrivDir =  ?config(priv_dir, Config),
-    TestFile = filename:join(PrivDir, "sftp.txt"),
-    TestFile1 = filename:join(PrivDir, "test.txt"),
-    TestLink = filename:join(PrivDir, "link_test.txt"),
+    DataDir =  ?config(data_dir, Config),
+    TestFile = ?config(filename, Config),
+    TestFile1 = ?config(testfile, Config),
+    TestLink = ?config(linktest, Config),
+    TarFileName = ?config(tar_filename, Config),
 
     file:delete(TestFile),
     file:delete(TestFile1),
     file:delete(TestLink),
-    file:delete(fnp(?tar_file_name,Config)),
+    file:delete(TarFileName),
 
     %% Initial config
-    DataDir = ?config(data_dir, Config),
     FileName = filename:join(DataDir, "sftp.txt"),
     file:copy(FileName, TestFile),
     Mode = 8#00400 bor 8#00200 bor 8#00040, % read & write owner, read group
@@ -815,7 +916,8 @@ chk_tar(Items, Config) ->
     chk_tar(Items, Config, []).
 
 chk_tar(Items, Config, Opts) ->
-    chk_tar(Items, fnp(?tar_file_name,Config), Config, Opts).
+    TarFileName = ?config(tar_filename, Config),
+    chk_tar(Items, TarFileName, Config, Opts).
 
 chk_tar(Items, TarFileName, Config, Opts)  when is_list(Opts) ->
     tar_size(TarFileName, Config),
@@ -888,13 +990,8 @@ read_item_contents(ItemName, FileName) ->
     end.
 
 fn(Name, Config) ->
-    Dir = ?config(data_dir, Config),
-    filename:join([Dir,"sftp_tar_test_data",Name]).
-
-fnp(Name, Config) ->
-    Dir = ?config(priv_dir, Config),
-    filename:join([Dir,Name]).
-
+    Dir = ?config(datadir_tar, Config),
+    filename:join(Dir,Name).
 
 fmt_host({A,B,C,D}) -> lists:concat([A,".",B,".",C,".",D]);
 fmt_host(S) -> S.
