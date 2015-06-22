@@ -246,7 +246,6 @@ start_server(openssl, CA, OwnCa, Cert, Key, Config) ->
 	" -verify 2 -cert " ++ Cert ++ " -CAfile " ++ NewCA
 	++ " -key " ++ Key ++ " -msg -debug",
     OpenSslPort =  open_port({spawn, Cmd}, [stderr_to_stdout]),
-    ssl_test_lib:wait_for_openssl_server(),
     true = port_command(OpenSslPort, "Hello world"),
     {OpenSslPort, Port};
 
