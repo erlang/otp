@@ -611,7 +611,7 @@ setup_certs(Config) ->
     ok = file:make_dir(NodeDir),
     ok = file:make_dir(RGenDir),
     make_randfile(RGenDir),
-    make_certs:all(RGenDir, NodeDir),
+    {ok, _} = make_certs:all(RGenDir, NodeDir),
     SDir = filename:join([NodeDir, "server"]),
     SC = filename:join([SDir, "cert.pem"]),
     SK = filename:join([SDir, "key.pem"]),

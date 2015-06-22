@@ -44,10 +44,8 @@ init_per_suite(Config0) ->
 		{skip, Reason} ->
 		    {skip, Reason};
 		Config ->
-		    Result =
-			(catch make_certs:all(?config(data_dir, Config),
-					      ?config(priv_dir, Config))),
-		    ct:log("Make certs  ~p~n", [Result]),
+		    {ok, _} = make_certs:all(?config(data_dir, Config),
+					      ?config(priv_dir, Config)),
 		    ssl_test_lib:cert_options(Config)
 	    end;
 	{ok, false} ->
@@ -164,4 +162,3 @@ is_soft([{restart_application, ssl}]) ->
     false;
 is_soft(_) ->	
     true.
-

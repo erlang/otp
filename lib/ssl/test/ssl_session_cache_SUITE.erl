@@ -54,12 +54,9 @@ init_per_suite(Config0) ->
     try crypto:start() of
 	ok ->
 	    ssl:start(),
-	    %% make rsa certs using oppenssl
-	    Result =
-		(catch make_certs:all(?config(data_dir, Config0),
-				      ?config(priv_dir, Config0))),
-	    ct:log("Make certs  ~p~n", [Result]),
-
+	    %% make rsa certs using 
+	    {ok, _} = make_certs:all(?config(data_dir, Config0),
+				     ?config(priv_dir, Config0)),
 	    Config = ssl_test_lib:make_dsa_cert(Config0),
 	    ssl_test_lib:cert_options(Config)
     catch _:_ ->

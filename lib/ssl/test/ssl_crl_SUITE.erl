@@ -99,8 +99,8 @@ init_per_group(Group, Config0) ->
 	    DataDir = ?config(data_dir, Config0), 
 	    CertDir = filename:join(?config(priv_dir, Config0), Group),
 	    {CertOpts, Config} = init_certs(CertDir, Group, Config0),
-	    Result =  make_certs:all(DataDir, CertDir, CertOpts),
-	    [{make_cert_result, Result}, {cert_dir, CertDir}, {idp_crl, false} | Config]
+	    {ok, _} =  make_certs:all(DataDir, CertDir, CertOpts),
+	    [{cert_dir, CertDir}, {idp_crl, false} | Config]
     end.
 
 end_per_group(_GroupName, Config) ->
@@ -126,9 +126,9 @@ init_per_testcase(Case, Config0) ->
 	    DataDir = ?config(data_dir, Config), 
 	    CertDir = filename:join(?config(priv_dir, Config0), idp_crl),
 	    {CertOpts, Config} = init_certs(CertDir, idp_crl, Config),
-	    Result =  make_certs:all(DataDir, CertDir, CertOpts),
+	    {ok, _} =  make_certs:all(DataDir, CertDir, CertOpts),
 	    ct:timetrap({seconds, 6}),
-	    [{make_cert_result, Result}, {cert_dir, CertDir} | Config];
+	    [{cert_dir, CertDir} | Config];
 	false ->
 	    end_per_testcase(Case, Config0),
 	    ssl:start(),
