@@ -439,7 +439,7 @@ write_file(Pid, Name, List) ->
     write_file(Pid, Name, List, ?FILEOP_TIMEOUT).
 
 write_file(Pid, Name, List, FileOpTimeout) when is_list(List) ->
-    write_file(Pid, Name, unicode:characters_to_binary(List), FileOpTimeout);
+    write_file(Pid, Name, list_to_binary(List), FileOpTimeout);
 write_file(Pid, Name, Bin, FileOpTimeout) ->
     case open(Pid, Name, [write, binary], FileOpTimeout) of
 	{ok, Handle} ->
@@ -611,8 +611,7 @@ do_handle_call({pread,Async,Handle,At,Length}, From, State) ->
 			    fun({ok,Data}, State2) ->
 				    case get_mode(Handle, State2) of
 					binary -> {{ok,Data}, State2};
-					text ->
-					    {{ok,unicode:characters_to_list(Data)}, State2}
+					text -> {{ok,binary_to_list(Data)}, State2}
 				    end;
 			       (Rep, State2) -> 
 				    {Rep, State2}
