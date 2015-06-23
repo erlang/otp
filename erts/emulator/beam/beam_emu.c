@@ -1298,6 +1298,11 @@ void process_main(void)
 	    Uint live;
 	    Eterm result;
 
+	OpCase(i_increment_rIId):
+	    increment_reg_val = x(0);
+	    I--;
+	    goto do_increment;
+
 	OpCase(i_increment_xIId):
 	    increment_reg_val = xb(Arg(0));
 	    goto do_increment;
@@ -1355,6 +1360,11 @@ void process_main(void)
  OpCase(i_plus_jIxxd):
      PlusOp1 = xb(Arg(2));
      PlusOp2 = xb(Arg(3));
+     goto do_plus;
+
+ OpCase(i_plus_jIxyd):
+     PlusOp1 = xb(Arg(2));
+     PlusOp2 = yb(Arg(3));
      goto do_plus;
 
  OpCase(i_plus_jIssd):

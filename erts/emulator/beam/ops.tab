@@ -204,6 +204,14 @@ get_list y x y
 get_list y y x
 get_list y y y
 
+# The following get_list instructions using x(0) are frequently used.
+get_list r x x
+get_list r r y
+get_list x r x
+get_list r x y
+get_list r y r
+get_list r x r
+
 # Old-style catch.
 catch y f
 catch_end y
@@ -348,6 +356,14 @@ move c x
 move n x
 move y y
 
+# The following move instructions using x(0) are frequently used.
+
+move x r
+move r x
+move y r
+move c r
+move r y
+
 # Receive operations.
 
 loop_rec Fail x==0 | smp_mark_target_label(Fail) => i_loop_rec Fail
@@ -390,6 +406,7 @@ is_ne_exact Lbl R=xy C=ian => i_is_ne_exact_immed Lbl R C
 is_ne_exact Lbl R=xy C=q => i_is_ne_exact_literal Lbl R C
 
 %macro: i_is_eq_exact_immed EqualImmed -fail_action
+i_is_eq_exact_immed f r c
 i_is_eq_exact_immed f x c
 i_is_eq_exact_immed f y c
 
@@ -478,15 +495,21 @@ put_list x c x
 put_list x c y
 
 put_list y c x
-put_list y c y
 
 # put_list Constant SrcReg Dst
 
 put_list c x x
-put_list c x y
-
 put_list c y x
-put_list c y y
+
+# The following put_list instructions using x(0) are frequently used.
+
+put_list y r r
+put_list x r r
+put_list r n r
+put_list r n x
+put_list r x x
+put_list r x r
+put_list x x r
 
 %cold
 put_list s s d
@@ -544,10 +567,12 @@ is_tuple Fail=f S=xy | test_arity Fail=f S=xy Arity => is_tuple_of_arity Fail S 
 
 %macro:is_tuple_of_arity IsTupleOfArity -fail_action
 
+is_tuple_of_arity f r A
 is_tuple_of_arity f x A
 is_tuple_of_arity f y A
 
 %macro: is_tuple IsTuple -fail_action
+is_tuple f r
 is_tuple f x
 is_tuple f y
 
@@ -593,6 +618,7 @@ is_list f y
 is_nonempty_list Fail=f S=x | allocate Need Rs => is_nonempty_list_allocate Fail S Need Rs
 
 %macro:is_nonempty_list_allocate IsNonemptyListAllocate -fail_action -pack
+is_nonempty_list_allocate f r I t
 is_nonempty_list_allocate f x I t
 
 is_nonempty_list F=f x==0 | test_heap I1 I2 => is_non_empty_list_test_heap F I1 I2
@@ -1440,6 +1466,7 @@ gen_minus p Live Reg=d Int=i Dst | negation_is_small(Int) => \
 # GCing arithmetic instructions.
 #
 
+gen_plus Fail Live Y=y X=x Dst => i_plus Fail Live X Y Dst
 gen_plus Fail Live S1 S2 Dst => i_plus Fail Live S1 S2 Dst
 
 gen_minus Fail Live S1 S2 Dst => i_minus Fail Live S1 S2 Dst
@@ -1471,10 +1498,12 @@ gc_bif2 Fail Live u$bif:erlang:bxor/2 S1 S2 Dst => \
 
 gc_bif1 Fail I u$bif:erlang:bnot/1 Src Dst=d => i_int_bnot Fail Src I Dst
 
+i_increment r I I d
 i_increment x I I d
 i_increment y I I d
 
 i_plus j I x x d
+i_plus j I x y d
 i_plus j I s s d
 
 i_minus j I x x d
