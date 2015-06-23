@@ -33,6 +33,63 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Test_Server 3.9</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The status of an aborted test due to test suite
+	    compilation error has changed from 'auto_skipped' to
+	    'failed'. This affects both the textual log file, event
+	    handling and CT hook callbacks. The logging of
+	    compilation failures has also been improved, especially
+	    in the case of multiple test suites failing compilation.</p>
+          <p>
+	    Own Id: OTP-10816</p>
+        </item>
+        <item>
+          <p>
+	    The Test Server source code parser (erl2html2) failed to
+	    handle the macro tuple in the syntax tree returned by
+	    epp_dodger. This error has been corrected.</p>
+          <p>
+	    Own Id: OTP-12740</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    The Test Server application has been marked as obsolete
+	    and will be removed from OTP in the next major release
+	    (OTP 19.0).</p>
+          <p>
+	    Own Id: OTP-10923 Aux Id: OTP-12705 </p>
+        </item>
+        <item>
+          <p>
+	    When running OTP tests using the ts interface, it is now
+	    possible to specify so called test categories per OTP
+	    application. A test category is represented by a CT test
+	    specification and defines an arbitrary subset of existing
+	    test suites, groups and cases. Examples of test
+	    categories are 'smoke' (smoke tests) and 'bench'
+	    (benchmarks). (Call ts:help() for more info). Also,
+	    functions for reading terms from the current test
+	    specification during test, ct:get_testspec_terms/0 and
+	    ct:get_testspec_terms/1, have been implemented.</p>
+          <p>
+	    Own Id: OTP-11962</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Test_Server 3.8.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

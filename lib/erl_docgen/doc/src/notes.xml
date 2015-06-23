@@ -31,7 +31,22 @@
   </header>
   <p>This document describes the changes made to the <em>erl_docgen</em> application.</p>
 
-  <section><title>Erl_Docgen 0.3.7</title>
+  <section><title>Erl_Docgen 0.4</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p> Add possibility to add extra information on
+	    documentation front pages. </p>
+          <p>
+	    Own Id: OTP-12722</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Erl_Docgen 0.3.7</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>

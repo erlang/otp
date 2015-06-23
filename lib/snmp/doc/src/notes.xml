@@ -34,7 +34,22 @@
   </header>
 
 
-  <section><title>SNMP 5.1.2</title>
+  <section><title>SNMP 5.2</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p> The runtime dependencies in the application resource
+	    file have been updated. </p>
+          <p>
+	    Own Id: OTP-12762</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SNMP 5.1.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>

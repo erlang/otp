@@ -35,6 +35,37 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Public_Key 1.0</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    public_key: Remove legacy switch compact_bit_string</p>
+          <p>
+	    E.i bitstrings will not be decode as {Unused, Binary},
+	    they are now Erlang bitstrings.</p>
+          <p>
+	    Also the compact_bit_string implies the
+	    legacy_erlang_types switch So removing the switch will
+	    also make OCTET STRING values be represented as binaries.</p>
+          <p>
+	    Undecoded open type will now be wrapped in a
+	    asn1_OPENTYPE tuple.</p>
+          <p>
+	    This will change some values in records returned by the
+	    public_key API making this change a potentiall
+	    incompatibility.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-12110</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Public_Key 0.23</title>
 
     <section><title>Improvements and New Features</title>

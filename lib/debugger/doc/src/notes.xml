@@ -33,6 +33,24 @@
   <p>This document describes the changes made to the Debugger
     application.</p>
 
+<section><title>Debugger 4.1</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Support variables as Map keys in expressions and patterns</p>
+	    <p>Erlang will accept any expression as keys in Map
+	    expressions and it will accept literals or bound
+	    variables as keys in Map patterns.</p>
+          <p>
+	    Own Id: OTP-12218</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Debugger 4.0.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

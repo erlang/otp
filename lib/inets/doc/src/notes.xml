@@ -33,7 +33,96 @@
     <file>notes.xml</file>
   </header>
   
-  <section><title>Inets 5.10.9</title>
+  <section><title>Inets 6.0</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix race condition in httpc. If the socket is closed by
+	    the peer do not try to close it again.</p>
+          <p>
+	    Own Id: OTP-11845</p>
+        </item>
+        <item>
+          <p>
+	    Avoid process leak by gracefully terminating httpc
+	    request handler process when send operation fails.</p>
+          <p>
+	    Own Id: OTP-12362</p>
+        </item>
+        <item>
+          <p>
+	    Reject messages with a Content-Length less than 0</p>
+          <p>
+	    Own Id: OTP-12739 Aux Id: seq12860 </p>
+        </item>
+        <item>
+          <p>
+	    Let gen_tcp:controlling_process/2 and
+	    inet_sctp:connect/[45] propagate prim_inet:setopt/3
+	    errors instead of having them generate badmatch
+	    exceptions.</p>
+          <p>
+	    Own Id: OTP-12798</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Remove Server Side Include support from inets, as this is
+	    an old technic that has security issues and was not well
+	    tested.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-12156</p>
+        </item>
+        <item>
+          <p>
+	    New value in <c>server_tokens</c> config for limiting
+	    banner grabbing attempts. </p>
+          <p>
+	    By setting <c>{server_tokens, none}</c> in
+	    <c>ServiceConfig</c> for <c>inets:start(httpd,
+	    ServiceConfig)</c>, the "Server:" header will not be set
+	    in messages from the server.</p>
+          <p>
+	    Own Id: OTP-12661 Aux Id: seq12840 </p>
+        </item>
+        <item>
+          <p>
+	    To enable the HTTP server to run in a virtualized
+	    environment, where there can be more that one server that
+	    has the same ip-address and port, we add a new option
+	    profile.</p>
+          <p>
+	    Own Id: OTP-12674</p>
+        </item>
+        <item>
+          <p>
+	    httpc: Fix implementation of gracefull shudown to work as
+	    intended for keep alive connections not using pipelining.</p>
+          <p>
+	    Own Id: OTP-12803</p>
+        </item>
+        <item>
+          <p>
+	    Correct handling of proxy options when using persistent
+	    connections.</p>
+          <p>
+	    Own Id: OTP-12822</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Inets 5.10.9</title>
 
     <section><title>Improvements and New Features</title>
       <list>

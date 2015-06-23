@@ -31,7 +31,23 @@
     <file>notes.xml</file>
   </header>
 
-   <section><title>IC 4.3.6</title>
+   <section><title>IC 4.4</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Change license text from Erlang Public License to Apache
+	    Public License v2</p>
+          <p>
+	    Own Id: OTP-12845</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>IC 4.3.6</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>

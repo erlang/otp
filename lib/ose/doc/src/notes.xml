@@ -31,6 +31,22 @@
   </header>
   <p>This document describes the changes made to the OSE application.</p>
 
+<section><title>Ose 1.1</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Change license text from Erlang Public License to Apache
+	    Public License v2</p>
+          <p>
+	    Own Id: OTP-12845</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Ose 1.0.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

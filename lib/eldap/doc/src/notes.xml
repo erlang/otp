@@ -31,6 +31,22 @@
   </header>
   <p>This document describes the changes made to the Eldap application.</p>
 
+<section><title>Eldap 1.2</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Support added for LDAP Password Modify Extended Operation
+	    (RFC 3062). Thanks to danielwhite.</p>
+          <p>
+	    Own Id: OTP-12282</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Eldap 1.1.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

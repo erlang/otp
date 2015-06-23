@@ -1,1 +1,1 @@
-OSE_VSN = 1.0.2
+OSE_VSN = 1.1

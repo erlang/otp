@@ -43,6 +43,106 @@ first.</p>
 
 <!-- ===================================================================== -->
 
+<section><title>diameter 1.10</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix decode of Grouped AVPs containing errors.</p>
+          <p>
+	    RFC 6733 says this of Failed-AVP in 7.5:</p>
+          <p>
+	    <taglist><item><p><c> In the case where the offending AVP
+	    is embedded within a Grouped AVP, the Failed-AVP MAY
+	    contain the grouped AVP, which in turn contains the
+	    single offending AVP. The same method MAY be employed if
+	    the grouped AVP itself is embedded in yet another grouped
+	    AVP and so on. In this case, the Failed-AVP MAY contain
+	    the grouped AVP hierarchy up to the single offending AVP.
+	    This enables the recipient to detect the location of the
+	    offending AVP when embedded in a
+	    group.</c></p></item></taglist></p>
+          <p>
+	    It says this of DIAMETER_INVALID_AVP_LENGTH in 7.1.5:</p>
+          <p>
+	    <taglist><item><p><c> The request contained an AVP with
+	    an invalid length. A Diameter message indicating this
+	    error MUST include the offending AVPs within a Failed-AVP
+	    AVP. In cases where the erroneous AVP length value
+	    exceeds the message length or is less than the minimum
+	    AVP header length, it is sufficient to include the
+	    offending AVP header and a zero filled payload of the
+	    minimum required length for the payloads data type. If
+	    the AVP is a Grouped AVP, the Grouped AVP header with an
+	    empty payload would be sufficient to indicate the
+	    offending AVP. In the case where the offending AVP header
+	    cannot be fully decoded when the AVP length is less than
+	    the minimum AVP header length, it is sufficient to
+	    include an offending AVP header that is formulated by
+	    padding the incomplete AVP header with zero up to the
+	    minimum AVP header length.</c></p></item></taglist></p>
+          <p>
+	    The AVPs placed in the errors field of a diameter_packet
+	    record are intended to be appropriate for inclusion in a
+	    Failed-AVP, but neither of the above paragraphs has been
+	    followed in the Grouped case: the entire faulty AVP
+	    (non-faulty components and all) has been included. This
+	    made it difficult to identify the actual faulty AVP in
+	    all but simple cases.</p>
+          <p>
+	    The decode is now adapted to the RFC, and implements the
+	    suggested single faulty AVP, nested in as many Grouped
+	    containers as required.</p>
+          <p>
+	    Own Id: OTP-12721</p>
+        </item>
+        <item>
+          <p>
+	    Fix SCTP problems on Solaris.</p>
+          <p>
+	    The allocation of association ids in Solaris was in
+	    conflict with an assumption made in diameter_sctp,
+	    resulting in failures when accepting multiple peer
+	    connections.</p>
+          <p>
+	    Own Id: OTP-12768</p>
+        </item>
+        <item>
+          <p>
+	    Fix start order of alternate transports.</p>
+          <p>
+	    A transport configured with diameter:add_transport/2 can
+	    be passed multiple transport_module/transport_config
+	    tuples in order to specify alternate configuration,
+	    modules being attempted in order until one succeeds. This
+	    is primarily for the connecting case; for example, to
+	    allow a transport to be configured to first attempt
+	    connection over SCTP, and then TCP in case SCTP fails.
+	    Multiple module tuples can be paired with a single config
+	    tuple, but in this case the start order was reversed
+	    relative to the order in which the modules were specifed.</p>
+          <p>
+	    Own Id: OTP-12851</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Change license text from Erlang Public License to Apache
+	    Public License v2</p>
+          <p>
+	    Own Id: OTP-12845</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>diameter 1.9.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

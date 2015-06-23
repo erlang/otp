@@ -33,6 +33,21 @@
   </header>
   <p>This document describes the changes made to the Percept application.</p>
 
+<section><title>Percept 0.8.11</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix http server configuration</p>
+          <p>
+	    Own Id: OTP-12662</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Percept 0.8.10</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

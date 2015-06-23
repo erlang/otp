@@ -33,7 +33,23 @@
     <file>notes.xml</file>
   </header>
 
-  <section><title>cosTransactions 1.2.14</title>
+  <section><title>cosTransactions 1.3</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p> Remove the usage of erlang:now() from all Corba
+	    applications and use the new rand module instead of
+	    random. </p>
+          <p>
+	    Own Id: OTP-12687</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>cosTransactions 1.2.14</title>
 
     <section><title>Improvements and New Features</title>
       <list>

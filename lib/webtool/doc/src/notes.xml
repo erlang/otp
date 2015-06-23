@@ -32,6 +32,23 @@
   <p>This document describes the changes made to the Webtool
     application.</p>
 
+<section><title>WebTool 0.9</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    The Webtool application has been marked as obsolete and
+	    will be removed from OTP in the next major release (OTP
+	    19.0).</p>
+          <p>
+	    Own Id: OTP-10922 Aux Id: OTP-12705 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>WebTool 0.8.10</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

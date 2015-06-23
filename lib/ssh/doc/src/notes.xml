@@ -30,6 +30,214 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Ssh 4.0</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Ssh crashed if a message was sent on a channel with
+	    packet_size = 0.</p>
+          <p>
+	    A new option for ssh:daemon is also introduced:
+	    <c>minimal_remote_max_packet_size</c>. This option sets
+	    the least max packet size declaration that the daemon
+	    will accept from a client. The default value is 0 to
+	    maintain compatibility with OpenSSH and the rfc:s.</p>
+          <p>
+	    Own Id: OTP-12645 Aux Id: seq12816 </p>
+        </item>
+        <item>
+          <p>
+	    Included test of the 'e' and 'f' parameters in
+	    diffie-hellman key exchange as specified in rfc 4253
+	    section 8.</p>
+          <p>
+	    Own Id: OTP-12649</p>
+        </item>
+        <item>
+          <p>
+	    Fixes the bug that once the <c>rekey_limit</c> bytes (by
+	    default, 1GB) had been transmitted the connection was
+	    rekeyed every minute, not after the next transferred
+	    'rekey_limit' chunk.</p>
+          <p>
+	    Thanks to Simon Cornish for the report and the fix!</p>
+          <p>
+	    Own Id: OTP-12692</p>
+        </item>
+        <item>
+          <p>
+	    Fixes a bug that causes an SFTP connection to always fail
+	    when {timeout, Timeout} option is used with
+	    ssh_sftp:start_channel.</p>
+          <p>
+	    Thanks to Simon Cornish</p>
+          <p>
+	    Own Id: OTP-12708</p>
+        </item>
+        <item>
+          <p>
+	    Fix various ssh key exchange problems.</p>
+          <p>
+	    Thanks to Simon Cornish</p>
+          <p>
+	    Own Id: OTP-12760 Aux Id: <a
+	    href="https://github.com/erlang/otp/pull/715">pull req
+	    715</a> </p>
+        </item>
+        <item>
+          <p>
+	    The options <c>system_dir</c> and <c>user_dir</c> assumes
+	    that the value is a path to a directory which is
+	    readable. This is now checked early, so <c>ssh:daemon</c>
+	    and <c>ssh:connect</c> will fail with an error message
+	    immediately.</p>
+          <p>
+	    Own Id: OTP-12788</p>
+        </item>
+        <item>
+          <p>
+	    A daemon now checks that a client doesn't try to
+	    authorize with methods not in the option auth_methods.</p>
+          <p>
+	    Own Id: OTP-12790</p>
+        </item>
+        <item>
+          <p>
+	    Disconnectfun now should trigger on all disconnects.</p>
+          <p>
+	    Own Id: OTP-12811</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Better usage of binary matching in ssh_auth.erl and
+	    ssh_message.erl</p>
+          <p>
+	    Own Id: OTP-11697</p>
+        </item>
+        <item>
+          <p>
+	    A new option 'preferred_algorithms' is available for
+	    <c>ssh:daemon</c> and <c>ssh:connect</c>.</p>
+          <p>
+	    This option defines the algorithms presented to the peer
+	    in the algorithm negotiation phase of the ssh protocol. </p>
+          <p>
+	    The default list can be obtained from the new function
+	    <c>ssh:default_algorithms/0</c>.</p>
+          <p>
+	    *** INCOMPATIBILITY with removed undocumented options
+	    'role' and 'compression' ***</p>
+          <p>
+	    Own Id: OTP-12029</p>
+        </item>
+        <item>
+          <p>
+	    The internal group to user_drv protocol has been changed
+	    to be synchronous in order to guarantee that output sent
+	    to a process implementing the user_drv protocol is
+	    printed before replying. This protocol is used by the
+	    standard_output device and the ssh application when
+	    acting as a client. </p>
+          <p>
+	    This change changes the previous unlimited buffer when
+	    printing to standard_io and other devices that end up in
+	    user_drv to 1KB.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-12240</p>
+        </item>
+        <item>
+          <p>
+	    If ssh_connection:subsystem/4 fails we do not want to
+	    crash but rather terminate gracefully.</p>
+          <p>
+	    Own Id: OTP-12648 Aux Id: seq12834 </p>
+        </item>
+        <item>
+          <p>
+	    New option <c>id_string</c> for <c>ssh:daemon</c> and
+	    <c>ssh:connect</c> for limiting banner grabbing attempts.</p>
+          <p>
+	    The possible values are: <c>{id_string,string()}</c> and
+	    <c>{id_string,random}</c>. The latter will make ssh
+	    generate a random nonsence id-string for each new
+	    connection.</p>
+          <p>
+	    Own Id: OTP-12659</p>
+        </item>
+        <item>
+          <p>
+	    To enable the ssh daemon to run in a virtualized
+	    environment, where there can be more that one server that
+	    has the same ip-address and port, we add a new option
+	    profile.</p>
+          <p>
+	    Own Id: OTP-12675</p>
+        </item>
+        <item>
+          <p>
+	    Upgrade test suite added.</p>
+          <p>
+	    Own Id: OTP-12676</p>
+        </item>
+        <item>
+          <p>
+	    A new option for handling the SSH_MSG_DEBUG message's
+	    printouts. A fun could be given in the options that will
+	    be called whenever the SSH_MSG_DEBUG message arrives.
+	    This enables the user to format the printout or just
+	    discard it.</p>
+          <p>
+	    Own Id: OTP-12738 Aux Id: seq12860 </p>
+        </item>
+        <item>
+          <p>
+	    Testcase improvements and corrections:</p>
+          <p>
+	    * Add testcases for the <c>disconnectfun</c> option on
+	    both server and client sides</p>
+          <p>
+	    * Timeout testcases adjusted for slow machines where they
+	    sometimes failed</p>
+          <p>
+	    Own Id: OTP-12786</p>
+        </item>
+        <item>
+          <p>
+	    The option <c>disconnectfun</c> can now be used both on
+	    the client and server side.</p>
+          <p>
+	    Own Id: OTP-12789</p>
+        </item>
+        <item>
+          <p>
+	    A new option unknown_msgfun/2 for ssh:connect and
+	    ssh:daemon for handling unknown messages. With the option
+	    it is possible to intercept before an INFO log message is
+	    generated.</p>
+          <p>
+	    One usage is to filter out messages that are not wanted
+	    in the error logger as info reports. An example of such a
+	    message is the 'etimedout' tcp error message that will be
+	    received if a connection has keep_alive and the peer is
+	    restarted.</p>
+          <p>
+	    Own Id: OTP-12813 Aux Id: seq12881 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Ssh 3.2.4</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

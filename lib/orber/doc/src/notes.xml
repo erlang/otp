@@ -34,7 +34,23 @@
   </header>
 
 
-  <section><title>Orber 3.7.1</title>
+  <section><title>Orber 3.8</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p> Remove the usage of erlang:now() from all Corba
+	    applications and use the new rand module instead of
+	    random. </p>
+          <p>
+	    Own Id: OTP-12687</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Orber 3.7.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>
