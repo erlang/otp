@@ -551,7 +551,23 @@ void** beam_ops;
        Store(term, Dst);           \
    } while (0)
 
-#define Move2(S1, D1, S2, D2) D1 = (S1); D2 = (S2)
+#define Move2Par(S1, D1, S2, D2)		\
+  do {						\
+      Eterm V1, V2;				\
+      V1 = (S1); V2 = (S2); D1 = V1; D2 = V2;	\
+  } while (0)
+
+#define MoveShift(Src, SD, D)			\
+  do {						\
+    Eterm V;					\
+    V = Src; D = SD; SD = V;			\
+  } while (0)
+
+#define MoveDup(Src, D1, D2)			\
+  do {						\
+    D1 = D2 = (Src);				\
+  } while (0)
+
 #define Move3(S1, D1, S2, D2, S3, D3) D1 = (S1); D2 = (S2); D3 = (S3)
 
 #define MoveReturn(Src)				\
