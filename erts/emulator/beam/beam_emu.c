@@ -556,12 +556,12 @@ void** beam_ops;
 #define Move2(S1, D1, S2, D2) D1 = (S1); D2 = (S2)
 #define Move3(S1, D1, S2, D2, S3, D3) D1 = (S1); D2 = (S2); D3 = (S3)
 
-#define MoveReturn(Src, Dest)       \
-    (Dest) = (Src);                 \
-    I = c_p->cp;                    \
-    ASSERT(VALID_INSTR(*c_p->cp));  \
-    c_p->cp = 0;                    \
-    CHECK_TERM(r(0));               \
+#define MoveReturn(Src)				\
+    x(0) = (Src);				\
+    I = c_p->cp;				\
+    ASSERT(VALID_INSTR(*c_p->cp));		\
+    c_p->cp = 0;				\
+    CHECK_TERM(r(0));				\
     Goto(*I)
 
 #define DeallocateReturn(Deallocate)       \
@@ -573,26 +573,26 @@ void** beam_ops;
     Goto(*I);                              \
   } while (0)
 
-#define MoveDeallocateReturn(Src, Dest, Deallocate)  \
-    (Dest) = (Src);                                  \
+#define MoveDeallocateReturn(Src, Deallocate)	\
+    x(0) = (Src);				\
     DeallocateReturn(Deallocate)
 
-#define MoveCall(Src, Dest, CallDest, Size)	\
-    (Dest) = (Src);				\
+#define MoveCall(Src, CallDest, Size)		\
+    x(0) = (Src);				\
     SET_CP(c_p, I+Size+1);			\
-    SET_I((BeamInstr *) CallDest);			\
+    SET_I((BeamInstr *) CallDest);		\
     Dispatch();
 
-#define MoveCallLast(Src, Dest, CallDest, Deallocate)	\
-    (Dest) = (Src);					\
-    RESTORE_CP(E);					\
-    E = ADD_BYTE_OFFSET(E, (Deallocate));		\
-    SET_I((BeamInstr *) CallDest);				\
+#define MoveCallLast(Src, CallDest, Deallocate)	\
+    x(0) = (Src);				\
+    RESTORE_CP(E);				\
+    E = ADD_BYTE_OFFSET(E, (Deallocate));	\
+    SET_I((BeamInstr *) CallDest);		\
     Dispatch();
 
-#define MoveCallOnly(Src, Dest, CallDest)	\
-    (Dest) = (Src);				\
-    SET_I((BeamInstr *) CallDest);			\
+#define MoveCallOnly(Src, CallDest)		\
+    x(0) = (Src);				\
+    SET_I((BeamInstr *) CallDest);		\
     Dispatch();
 
 #define MoveJump(Src)				\
@@ -676,8 +676,8 @@ void** beam_ops;
     if (is_not_list(Src)) { Fail; }                     \
     A(Need, Alive)
 
-#define IsNonemptyListTestHeap(Src, Need, Alive, Fail)  \
-    if (is_not_list(Src)) { Fail; }                     \
+#define IsNonemptyListTestHeap(Need, Alive, Fail)  \
+    if (is_not_list(x(0))) { Fail; }			\
     TestHeap(Need, Alive)
 
 #define IsTuple(X, Action) if (is_not_tuple(X)) Action
@@ -1316,17 +1316,13 @@ void process_main(void)
 	    Uint live;
 	    Eterm result;
 
-	OpCase(i_increment_yIId):
-	    increment_reg_val = yb(Arg(0));
-	    goto do_increment;
-
 	OpCase(i_increment_xIId):
 	    increment_reg_val = xb(Arg(0));
 	    goto do_increment;
 
-	OpCase(i_increment_rIId):
-	    increment_reg_val = r(0);
-	    I--;
+	OpCase(i_increment_yIId):
+	    increment_reg_val = yb(Arg(0));
+	    goto do_increment;
 
 	do_increment:
 	    increment_val = Arg(1);
@@ -1335,7 +1331,6 @@ void process_main(void)
 		ASSERT(MY_IS_SSMALL(i) == IS_SSMALL(i));
 		if (MY_IS_SSMALL(i)) {
 		    result = make_small(i);
-		store_result:
 		    StoreBifResult(3, result);
 		}
 	    }
@@ -1348,7 +1343,7 @@ void process_main(void)
 	    SWAPIN;
 	    ERTS_HOLE_CHECK(c_p);
 	    if (is_value(result)) {
-		goto store_result;
+		StoreBifResult(3, result);
 	    }
 	    ASSERT(c_p->freason != BADMATCH || is_value(c_p->fvalue));
 	    goto find_func_info;
@@ -1464,47 +1459,37 @@ void process_main(void)
     {
 	Eterm is_eq_exact_lit_val;
 
-    OpCase(i_is_eq_exact_literal_xfc):
-	is_eq_exact_lit_val = xb(Arg(0));
-	I++;
+    OpCase(i_is_eq_exact_literal_fxc):
+	is_eq_exact_lit_val = xb(Arg(1));
 	goto do_is_eq_exact_literal;
 
-    OpCase(i_is_eq_exact_literal_yfc):
-	is_eq_exact_lit_val = yb(Arg(0));
-	I++;
+    OpCase(i_is_eq_exact_literal_fyc):
+	is_eq_exact_lit_val = yb(Arg(1));
 	goto do_is_eq_exact_literal;
-
-    OpCase(i_is_eq_exact_literal_rfc):
-	is_eq_exact_lit_val = r(0);
 
     do_is_eq_exact_literal:
-	if (!eq(Arg(1), is_eq_exact_lit_val)) {
+	if (!eq(Arg(2), is_eq_exact_lit_val)) {
 	    ClauseFail();
 	}
-	Next(2);
+	Next(3);
     }
 
     {
 	Eterm is_ne_exact_lit_val;
 
-    OpCase(i_is_ne_exact_literal_xfc):
-	is_ne_exact_lit_val = xb(Arg(0));
-	I++;
+    OpCase(i_is_ne_exact_literal_fxc):
+	is_ne_exact_lit_val = xb(Arg(1));
 	goto do_is_ne_exact_literal;
 
-    OpCase(i_is_ne_exact_literal_yfc):
-	is_ne_exact_lit_val = yb(Arg(0));
-	I++;
+    OpCase(i_is_ne_exact_literal_fyc):
+	is_ne_exact_lit_val = yb(Arg(1));
 	goto do_is_ne_exact_literal;
-
-    OpCase(i_is_ne_exact_literal_rfc):
-	is_ne_exact_lit_val = r(0);
 
     do_is_ne_exact_literal:
-	if (eq(Arg(1), is_ne_exact_lit_val)) {
+	if (eq(Arg(2), is_ne_exact_lit_val)) {
 	    ClauseFail();
 	}
-	Next(2);
+	Next(3);
     }
 
  OpCase(move_window3_xxxy): {
@@ -1553,7 +1538,7 @@ void process_main(void)
      NextPF(6, next);
  }
 
- OpCase(i_move_call_only_fcr): {
+ OpCase(i_move_call_only_fc): {
      r(0) = Arg(1);
  }
  /* FALL THROUGH */
@@ -1563,7 +1548,7 @@ void process_main(void)
      Dispatch();
  }
 
- OpCase(i_move_call_last_fPcr): {
+ OpCase(i_move_call_last_fPc): {
      r(0) = Arg(2);
  }
  /* FALL THROUGH */
@@ -1575,7 +1560,7 @@ void process_main(void)
      Dispatch();
  }
 
- OpCase(i_move_call_crf): {
+ OpCase(i_move_call_cf): {
      r(0) = Arg(0);
      I++;
  }
@@ -1587,7 +1572,7 @@ void process_main(void)
      Dispatch();
  }
 
- OpCase(i_move_call_ext_last_ePcr): {
+ OpCase(i_move_call_ext_last_ePc): {
      r(0) = Arg(2);
  }
  /* FALL THROUGH */
@@ -1603,7 +1588,7 @@ void process_main(void)
     DTRACE_GLOBAL_CALL_FROM_EXPORT(c_p, Arg(0));
     Dispatchx();
 
- OpCase(i_move_call_ext_cre): {
+ OpCase(i_move_call_ext_ce): {
      r(0) = Arg(0);
      I++;
  }
@@ -1613,7 +1598,7 @@ void process_main(void)
     DTRACE_GLOBAL_CALL_FROM_EXPORT(c_p, Arg(0));
     Dispatchx();
 
- OpCase(i_move_call_ext_only_ecr): {
+ OpCase(i_move_call_ext_only_ec): {
      r(0) = Arg(1);
  }
  /* FALL THROUGH */
@@ -1707,29 +1692,23 @@ void process_main(void)
 	Eterm element_index;
 	Eterm element_tuple;
 
-    OpCase(i_element_xjsd):
-	element_tuple = xb(Arg(0));
-	I++;
+    OpCase(i_element_jxsd):
+	element_tuple = xb(Arg(1));
 	goto do_element;
 
-    OpCase(i_element_yjsd):
-	element_tuple = yb(Arg(0));
-	I++;
+    OpCase(i_element_jysd):
+	element_tuple = yb(Arg(1));
 	goto do_element;
-
-    OpCase(i_element_rjsd):
-	element_tuple = r(0);
-	/* Fall through */
 
     do_element:
-	GetArg1(1, element_index);
+	GetArg1(2, element_index);
 	if (is_small(element_index) && is_tuple(element_tuple)) {
 	    Eterm* tp = tuple_val(element_tuple);
 
 	    if ((signed_val(element_index) >= 1) &&
 		(signed_val(element_index) <= arityval(*tp))) {
 		Eterm result = tp[signed_val(element_index)];
-		StoreBifResult(2, result);
+		StoreBifResult(3, result);
 	    }
 	}
     }
@@ -1743,29 +1722,24 @@ void process_main(void)
     {
 	Eterm fast_element_tuple;
 
-    OpCase(i_fast_element_rjId):
-	fast_element_tuple = r(0);
+    OpCase(i_fast_element_jxId):
+     fast_element_tuple = xb(Arg(1));
+     goto do_fast_element;
+
+    OpCase(i_fast_element_jyId):
+     fast_element_tuple = yb(Arg(1));
+     goto do_fast_element;
 
     do_fast_element:
 	if (is_tuple(fast_element_tuple)) {
 	    Eterm* tp = tuple_val(fast_element_tuple);
-	    Eterm pos = Arg(1);	/* Untagged integer >= 1 */
+	    Eterm pos = Arg(2);	/* Untagged integer >= 1 */
 	    if (pos <= arityval(*tp)) {
 		Eterm result = tp[pos];
-		StoreBifResult(2, result);
+		StoreBifResult(3, result);
 	    }
 	}
      goto badarg;
-
-    OpCase(i_fast_element_xjId):
-     fast_element_tuple = xb(Arg(0));
-     I++;
-     goto do_fast_element;
-
-    OpCase(i_fast_element_yjId):
-     fast_element_tuple = yb(Arg(0));
-     I++;
-     goto do_fast_element;
  }
 
  OpCase(catch_yf):
@@ -1871,7 +1845,7 @@ void process_main(void)
      * Pick up the next message and place it in x(0).
      * If no message, jump to a wait or wait_timeout instruction.
      */
- OpCase(i_loop_rec_fr):
+ OpCase(i_loop_rec_f):
  {
      BeamInstr *next;
      ErlMessage* msgp;
@@ -2183,10 +2157,6 @@ void process_main(void)
      select_val2 = xb(Arg(0));
      goto do_select_tuple_arity2;
 
- OpCase(i_select_tuple_arity2_rfAAff):
-     select_val2 = r(0);
-     I--;
-
  do_select_tuple_arity2:
      if (is_not_tuple(select_val2)) {
 	 goto select_val2_fail;
@@ -2201,10 +2171,6 @@ void process_main(void)
  OpCase(i_select_val2_xfccff):
      select_val2 = xb(Arg(0));
      goto do_select_val2;
-
- OpCase(i_select_val2_rfccff):
-     select_val2 = r(0);
-     I--;
 
  do_select_val2:
      if (select_val2 == Arg(2)) {
@@ -2229,10 +2195,6 @@ void process_main(void)
      select_val = yb(Arg(0));
      goto do_select_tuple_arity;
 
- OpCase(i_select_tuple_arity_rfI):
-     select_val = r(0);
-     I--;
-
  do_select_tuple_arity:
      if (is_tuple(select_val)) {
 	 select_val = *tuple_val(select_val);
@@ -2248,10 +2210,6 @@ void process_main(void)
  OpCase(i_select_val_lins_yfI):
      select_val = yb(Arg(0));
      goto do_linear_search;
-
- OpCase(i_select_val_lins_rfI):
-     select_val = r(0);
-     I--;
 
  do_linear_search: {
      BeamInstr *vs = &Arg(3);
@@ -2279,10 +2237,6 @@ void process_main(void)
      select_val = yb(Arg(0));
      goto do_binary_search;
      
- OpCase(i_select_val_bins_rfI):
-     select_val = r(0);
-     I--;
-
  do_binary_search:
  {
      struct Pairs {
@@ -2343,10 +2297,6 @@ void process_main(void)
      jump_on_val_zero_index = xb(Arg(0));
      goto do_jump_on_val_zero_index;
 
- OpCase(i_jump_on_val_zero_rfI):
-     jump_on_val_zero_index = r(0);
-     I--;
-
  do_jump_on_val_zero_index:
      if (is_small(jump_on_val_zero_index)) {
 	 jump_on_val_zero_index = signed_val(jump_on_val_zero_index);
@@ -2370,10 +2320,6 @@ void process_main(void)
  OpCase(i_jump_on_val_xfII):
      jump_on_val_index = xb(Arg(0));
      goto do_jump_on_val_index;
-
- OpCase(i_jump_on_val_rfII):
-     jump_on_val_index = r(0);
-     I--;
 
  do_jump_on_val_index:
      if (is_small(jump_on_val_index)) {
@@ -3441,18 +3387,8 @@ do {						\
     {
 	Eterm badmatch_val;
 
-    OpCase(badmatch_y):
-	badmatch_val = yb(Arg(0));
-	goto do_badmatch;
-
     OpCase(badmatch_x):
 	badmatch_val = xb(Arg(0));
-	goto do_badmatch;
-
-    OpCase(badmatch_r):
-	badmatch_val = r(0);
-
-    do_badmatch:
 	c_p->fvalue = badmatch_val;
 	c_p->freason = BADMATCH;
     }
@@ -3627,16 +3563,6 @@ do {						\
 
     OpCase(case_end_x):
 	case_end_val = xb(Arg(0));
-	goto do_case_end;
-
-    OpCase(case_end_y):
-	case_end_val = yb(Arg(0));
-	goto do_case_end;
-
-    OpCase(case_end_r):
-	case_end_val = r(0);
-
-    do_case_end:
 	c_p->fvalue = case_end_val;
 	c_p->freason = EXC_CASE_CLAUSE;
 	goto find_func_info;
@@ -3692,11 +3618,6 @@ do {						\
 	 goto do_bs_init_bits;
      }
 
-     OpCase(i_bs_init_bits_fail_rjId): {
-	 num_bits_term = r(0);
-	 alloc = 0;
-	 goto do_bs_init_bits;
-     }
      OpCase(i_bs_init_bits_fail_yjId): {
 	 num_bits_term = yb(Arg(0));
 	 I++;
@@ -3820,12 +3741,6 @@ do {						\
 	 /* tmp_arg1 was fetched by an i_fetch instruction */
 	 tmp_arg2 = Arg(0);
 	 I++;
-	 goto do_bs_init;
-     }
-
-     OpCase(i_bs_init_fail_rjId): {
-	 tmp_arg1 = r(0);
-	 tmp_arg2 = 0;
 	 goto do_bs_init;
      }
 
@@ -4202,9 +4117,6 @@ do {						\
      Uint slots;
      Eterm context;
 
-     OpCase(i_bs_start_match2_rfIId): {
-	 context = r(0);
-
      do_start_match:
 	 slots = Arg(2);
 	 if (!is_boxed(context)) {
@@ -4251,7 +4163,7 @@ do {						\
 	     ClauseFail();
 	 }
 	 NextPF(4, next);
-     }
+
      OpCase(i_bs_start_match2_xfIId): {
 	 context = xb(Arg(0));
 	 I++;
@@ -4262,18 +4174,6 @@ do {						\
 	 I++;
 	 goto do_start_match;
      }
- }
-
- OpCase(bs_test_zero_tail2_fr): {
-     BeamInstr *next;
-     ErlBinMatchBuffer *_mb;
-     
-     PreFetch(1, next);
-     _mb = (ErlBinMatchBuffer*) ms_matchbuffer(r(0));
-     if (_mb->size != _mb->offset) {
-	 ClauseFail();
-     }
-     NextPF(1, next);
  }
 
  OpCase(bs_test_zero_tail2_fx): {
@@ -4288,16 +4188,6 @@ do {						\
      NextPF(2, next);
  }
 
- OpCase(bs_test_tail_imm2_frI): {
-     BeamInstr *next;
-     ErlBinMatchBuffer *_mb;
-     PreFetch(2, next);
-     _mb = ms_matchbuffer(r(0));
-     if (_mb->size - _mb->offset != Arg(1)) {
-	 ClauseFail();
-     }
-     NextPF(2, next);
- }
  OpCase(bs_test_tail_imm2_fxI): {
      BeamInstr *next;
      ErlBinMatchBuffer *_mb;
@@ -4309,16 +4199,6 @@ do {						\
      NextPF(3, next);
  }
 
- OpCase(bs_test_unit_frI): {
-     BeamInstr *next;
-     ErlBinMatchBuffer *_mb;
-     PreFetch(2, next);
-     _mb = ms_matchbuffer(r(0));
-     if ((_mb->size - _mb->offset) % Arg(1)) {
-	 ClauseFail();
-     }
-     NextPF(2, next);
- }
  OpCase(bs_test_unit_fxI): {
      BeamInstr *next;
      ErlBinMatchBuffer *_mb;
@@ -4330,16 +4210,6 @@ do {						\
      NextPF(3, next);
  }
 
- OpCase(bs_test_unit8_fr): {
-     BeamInstr *next;
-     ErlBinMatchBuffer *_mb;
-     PreFetch(1, next);
-     _mb = ms_matchbuffer(r(0));
-     if ((_mb->size - _mb->offset) & 7) {
-	 ClauseFail();
-     }
-     NextPF(1, next);
- }
  OpCase(bs_test_unit8_fx): {
      BeamInstr *next;
      ErlBinMatchBuffer *_mb;
@@ -4354,19 +4224,11 @@ do {						\
  {
      Eterm bs_get_integer8_context;
 
- OpCase(i_bs_get_integer_8_rfd): {
-	 bs_get_integer8_context = r(0);
-	 goto do_bs_get_integer_8;
-     }
-
  OpCase(i_bs_get_integer_8_xfd): {
-	 bs_get_integer8_context = xb(Arg(0));
-	 I++;
-     }
-
- do_bs_get_integer_8: {
 	 ErlBinMatchBuffer *_mb;
 	 Eterm _result;
+	 bs_get_integer8_context = xb(Arg(0));
+	 I++;
 	 _mb = ms_matchbuffer(bs_get_integer8_context);
 	 if (_mb->size - _mb->offset < 8) {
 	     ClauseFail();
@@ -4384,15 +4246,10 @@ do {						\
  {
      Eterm bs_get_integer_16_context;
 
- OpCase(i_bs_get_integer_16_rfd):
-     bs_get_integer_16_context = r(0);
-     goto do_bs_get_integer_16;
-
  OpCase(i_bs_get_integer_16_xfd):
      bs_get_integer_16_context = xb(Arg(0));
      I++;
 
- do_bs_get_integer_16:
      {
 	 ErlBinMatchBuffer *_mb;
 	 Eterm _result;
@@ -4413,17 +4270,10 @@ do {						\
  {
      Eterm bs_get_integer_32_context;
 
- OpCase(i_bs_get_integer_32_rfId):
-     bs_get_integer_32_context = r(0);
-     goto do_bs_get_integer_32;
-
-     
  OpCase(i_bs_get_integer_32_xfId):
      bs_get_integer_32_context = xb(Arg(0));
      I++;
 
-
- do_bs_get_integer_32:
      {
 	 ErlBinMatchBuffer *_mb;
 	 Uint32 _integer;
@@ -4452,13 +4302,6 @@ do {						\
      }
  }
 
- /* Operands: Size Live Fail Flags Dst */
- OpCase(i_bs_get_integer_imm_rIIfId): {
-     tmp_arg1 = r(0);
-     /* Operands: Size Live Fail Flags Dst */
-     goto do_bs_get_integer_imm_test_heap;
- }
-
  /* Operands: x(Reg) Size Live Fail Flags Dst */
  OpCase(i_bs_get_integer_imm_xIIfId): {
      tmp_arg1 = xb(Arg(0));
@@ -4477,15 +4320,6 @@ do {						\
      wordsneeded = 1+WSIZE(NBYTES(tmp_arg2));
      TestHeapPreserve(wordsneeded, Arg(1), tmp_arg1);
      I += 2;
-     /* Operands: Fail Flags Dst */
-     goto do_bs_get_integer_imm;
- }
-
- /* Operands: Size Fail Flags Dst */
- OpCase(i_bs_get_integer_small_imm_rIfId): {
-     tmp_arg1 = r(0);
-     tmp_arg2 = Arg(0);
-     I++;
      /* Operands: Fail Flags Dst */
      goto do_bs_get_integer_imm;
  }
@@ -4563,11 +4397,6 @@ do {						\
      Eterm get_utf8_context;
 
      /* Operands: MatchContext Fail Dst */
- OpCase(i_bs_get_utf8_rfd): {
-	 get_utf8_context = r(0);
-	 goto do_bs_get_utf8;
-     }
-
  OpCase(i_bs_get_utf8_xfd): {
 	 get_utf8_context = xb(Arg(0));
 	 I++;
@@ -4578,7 +4407,7 @@ do {						\
       * Operands: Fail Dst
       */
 
- do_bs_get_utf8: {
+     {
 	 Eterm result = erts_bs_get_utf8(ms_matchbuffer(get_utf8_context));
 	 if (is_non_value(result)) {
 	     ClauseFail();
@@ -4591,12 +4420,7 @@ do {						\
      Eterm get_utf16_context;
 
      /* Operands: MatchContext Fail Flags Dst */
- OpCase(i_bs_get_utf16_rfId): {
-	 get_utf16_context = r(0);
-	 goto do_bs_get_utf16;
-     }
-
- OpCase(i_bs_get_utf16_xfId): {
+     OpCase(i_bs_get_utf16_xfId): {
 	 get_utf16_context = xb(Arg(0));
 	 I++;
      }
@@ -4605,7 +4429,7 @@ do {						\
       * get_utf16_context = match_context
       * Operands: Fail Flags Dst
       */
- do_bs_get_utf16: {
+     {
 	 Eterm result = erts_bs_get_utf16(ms_matchbuffer(get_utf16_context),
 					  Arg(1));
 	 if (is_non_value(result)) {
@@ -4624,26 +4448,10 @@ do {						\
      Uint orig;
      Uint hole_size;
 
-     OpCase(bs_context_to_binary_r): {
-	 context_to_binary_context = r(0);
-	 I -= 2;
-	 goto do_context_to_binary;
-     }
-
-     /* Unfortunately, inlining can generate this instruction. */
-     OpCase(bs_context_to_binary_y): {
-	 context_to_binary_context = yb(Arg(0));
-	 goto do_context_to_binary0;
-     }
-
-     OpCase(bs_context_to_binary_x): {
+     OpCase(bs_context_to_binary_x):
 	 context_to_binary_context = xb(Arg(0));
-     
-     do_context_to_binary0:
 	 I--;
-     }
 
- do_context_to_binary:
      if (is_boxed(context_to_binary_context) &&
 	 header_is_bin_matchstate(*boxed_val(context_to_binary_context))) {
 	 ErlBinMatchState* ms;
@@ -4655,17 +4463,11 @@ do {						\
      }
      Next(2);
 
-     OpCase(i_bs_get_binary_all_reuse_rfI): {
-	 context_to_binary_context = r(0);
-	 goto do_bs_get_binary_all_reuse;
-     }
-
      OpCase(i_bs_get_binary_all_reuse_xfI): {
 	 context_to_binary_context = xb(Arg(0));
 	 I++;
      }
 
- do_bs_get_binary_all_reuse:
      mb = ms_matchbuffer(context_to_binary_context);
      size = mb->size - mb->offset;
      if (size % Arg(1) != 0) {
@@ -4693,16 +4495,11 @@ do {						\
  {
      Eterm match_string_context;
 
-     OpCase(i_bs_match_string_rfII): {
-	 match_string_context = r(0);
-	 goto do_bs_match_string;
-     }
      OpCase(i_bs_match_string_xfII): {
 	 match_string_context = xb(Arg(0));
 	 I++;
      }
 
- do_bs_match_string:
      {
 	 BeamInstr *next;
 	 byte* bytes;
@@ -4730,14 +4527,6 @@ do {						\
      }
  }
 
- OpCase(i_bs_save2_rI): {
-     BeamInstr *next;
-     ErlBinMatchState *_ms;
-     PreFetch(1, next);
-     _ms = (ErlBinMatchState*) boxed_val((Eterm) r(0));
-     _ms->save_offset[Arg(0)] = _ms->mb.offset;
-     NextPF(1, next);
- }
  OpCase(i_bs_save2_xI): {
      BeamInstr *next;
      ErlBinMatchState *_ms;
@@ -4747,14 +4536,6 @@ do {						\
      NextPF(2, next);
  }
 
- OpCase(i_bs_restore2_rI): {
-     BeamInstr *next;
-     ErlBinMatchState *_ms;
-     PreFetch(1, next);
-     _ms = (ErlBinMatchState*) boxed_val((Eterm) r(0));
-     _ms->mb.offset = _ms->save_offset[Arg(0)];
-     NextPF(1, next);
- }
  OpCase(i_bs_restore2_xI): {
      BeamInstr *next;
      ErlBinMatchState *_ms;
@@ -5030,7 +4811,9 @@ do {						\
      switch( c_p->def_arg_reg[3] ) {
        case HIPE_MODE_SWITCH_RES_RETURN:
 	 ASSERT(is_value(reg[0]));
-	 MoveReturn(reg[0], r(0));
+	 SET_I(c_p->cp);
+	 c_p->cp = 0;
+	 Goto(*I);
        case HIPE_MODE_SWITCH_RES_CALL_EXPORTED:
 	 c_p->i = c_p->hipe.u.callee_exp->addressv[erts_active_code_ix()];
 	 /*fall through*/

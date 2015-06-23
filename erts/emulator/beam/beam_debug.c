@@ -569,7 +569,6 @@ print_op(int to, void *to_arg, int op, int size, BeamInstr* addr)
     unpacked = ap;
     ap = addr + size;
     switch (op) {
-    case op_i_select_val_lins_rfI:
     case op_i_select_val_lins_xfI:
     case op_i_select_val_lins_yfI:
 	{
@@ -589,7 +588,6 @@ print_op(int to, void *to_arg, int op, int size, BeamInstr* addr)
 	    }
 	}
 	break;
-    case op_i_select_val_bins_rfI:
     case op_i_select_val_bins_xfI:
     case op_i_select_val_bins_yfI:
 	{
@@ -603,7 +601,6 @@ print_op(int to, void *to_arg, int op, int size, BeamInstr* addr)
 	    }
 	}
 	break;
-    case op_i_select_tuple_arity_rfI:
     case op_i_select_tuple_arity_xfI:
     case op_i_select_tuple_arity_yfI:
         {
@@ -628,7 +625,6 @@ print_op(int to, void *to_arg, int op, int size, BeamInstr* addr)
             }
         }
         break;
-    case op_i_jump_on_val_rfII:
     case op_i_jump_on_val_xfII:
     case op_i_jump_on_val_yfII:
 	{
@@ -640,7 +636,6 @@ print_op(int to, void *to_arg, int op, int size, BeamInstr* addr)
 	    }
 	}
 	break;
-    case op_i_jump_on_val_zero_rfI:
     case op_i_jump_on_val_zero_xfI:
     case op_i_jump_on_val_zero_yfI:
 	{
@@ -652,7 +647,6 @@ print_op(int to, void *to_arg, int op, int size, BeamInstr* addr)
 	    }
 	}
 	break;
-    case op_i_put_tuple_rI:
     case op_i_put_tuple_xI:
     case op_i_put_tuple_yI:
     case op_new_map_dII:

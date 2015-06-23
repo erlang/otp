@@ -1847,9 +1847,7 @@ load_code(LoaderState* stp)
 	    case TAG_o:
 		break;
 	    case TAG_x:
-		if (last_op->a[arg].val == 0) {
-		    last_op->a[arg].type = TAG_r;
-		} else if (last_op->a[arg].val >= MAX_REG) {
+		if (last_op->a[arg].val >= MAX_REG) {
 		    LoadError1(stp, "invalid x register number: %u",
 			       last_op->a[arg].val);
 		}
@@ -2055,7 +2053,42 @@ load_code(LoaderState* stp)
 		if (((opc[specific].mask[0] & mask[0]) == mask[0]) &&
 		    ((opc[specific].mask[1] & mask[1]) == mask[1]) &&
 		    ((opc[specific].mask[2] & mask[2]) == mask[2])) {
-		    break;
+
+		    if (!opc[specific].involves_r) {
+			break;	/* No complications - match */
+		    }
+
+		    /*
+		     * The specific operation uses the 'r' operand,
+		     * which is shorthand for x(0). Now things
+		     * get complicated. First we must check whether
+		     * all operands that should be of type 'r' use
+		     * x(0) (as opposed to some other X register).
+		     */
+		    for (arg = 0; arg < arity; arg++) {
+			if (opc[specific].involves_r & (1 << arg) &&
+			    tmp_op->a[arg].type == TAG_x) {
+			    if (tmp_op->a[arg].val != 0) {
+				break; /* Other X register than 0 */
+			    }
+			}
+		    }
+
+		    if (arg == arity) {
+			/*
+			 * All 'r' operands use x(0) in the generic
+			 * operation. That means a match. Now we
+			 * will need to rewrite the generic instruction
+			 * to actually use 'r' instead of 'x(0)'.
+			 */
+			for (arg = 0; arg < arity; arg++) {
+			    if (opc[specific].involves_r & (1 << arg) &&
+				tmp_op->a[arg].type == TAG_x) {
+				tmp_op->a[arg].type = TAG_r;
+			    }
+			}
+			break;	/* Match */
+		    }
 		}
 		specific++;
 	    }
@@ -2166,9 +2199,6 @@ load_code(LoaderState* stp)
 		break;
 	    case 's':	/* Any source (tagged constant or register) */
 		switch (tag) {
-		case TAG_r:
-		    code[ci++] = make_loader_x_reg(0);
-		    break;
 		case TAG_x:
 		    code[ci++] = make_loader_x_reg(tmp_op->a[arg].val);
 		    break;
@@ -2196,9 +2226,6 @@ load_code(LoaderState* stp)
 		break;
 	    case 'd':	/* Destination (x(0), x(N), y(N) */
 		switch (tag) {
-		case TAG_r:
-		    code[ci++] = make_loader_x_reg(0);
-		    break;
 		case TAG_x:
 		    code[ci++] = make_loader_x_reg(tmp_op->a[arg].val);
 		    break;
@@ -2360,7 +2387,6 @@ load_code(LoaderState* stp)
 		stp->labels[tmp_op->a[arg].val].patches = ci;
 		ci++;
 		break;
-	    case TAG_r:
 	    case TAG_x:
 		CodeNeed(1);
 		code[ci++] = make_loader_x_reg(tmp_op->a[arg].val);
@@ -2455,7 +2481,6 @@ load_code(LoaderState* stp)
 	    stp->on_load = ci;
 	    break;
 	case op_bs_put_string_II:
-	case op_i_bs_match_string_rfII:
 	case op_i_bs_match_string_xfII:
 	    new_string_patch(stp, ci-1);
 	    break;
@@ -2693,17 +2718,17 @@ gen_element(LoaderState* stp, GenOpArg Fail, GenOpArg Index,
     op->next = NULL;
 
     if (Index.type == TAG_i && Index.val > 0 &&
-	(Tuple.type == TAG_r || Tuple.type == TAG_x || Tuple.type == TAG_y)) {
+	(Tuple.type == TAG_x || Tuple.type == TAG_y)) {
 	op->op = genop_i_fast_element_4;
-	op->a[0] = Tuple;
-	op->a[1] = Fail;
+	op->a[0] = Fail;
+	op->a[1] = Tuple;
 	op->a[2].type = TAG_u;
 	op->a[2].val = Index.val;
 	op->a[3] = Dst;
     } else {
 	op->op = genop_i_element_4;
-	op->a[0] = Tuple;
-	op->a[1] = Fail;
+	op->a[0] = Fail;
+	op->a[1] = Tuple;
 	op->a[2] = Index;
 	op->a[3] = Dst;
     }
@@ -4798,7 +4823,8 @@ transform_engine(LoaderState* st)
 	    if (var[i].type != instr->a[ap].type)
 		goto restart;
 	    switch (var[i].type) {
-	    case TAG_r: case TAG_n: break;
+	    case TAG_n:
+		break;
 	    default:
 		if (var[i].val != instr->a[ap].val)
 		    goto restart;
@@ -5865,7 +5891,7 @@ make_stub(BeamInstr* fp, Eterm mod, Eterm func, Uint arity, Uint native, BeamIns
     fp[4] = arity;
 #ifdef HIPE
     if (native) {
-	fp[5] = BeamOpCode(op_move_return_nr);
+	fp[5] = BeamOpCode(op_move_return_n);
 	hipe_mfa_save_orig_beam_op(mod, func, arity, fp+5);
     }
 #endif
@@ -6301,7 +6327,7 @@ erts_make_stub_module(Process* p, Eterm Mod, Eterm Beam, Eterm Info)
 #ifdef HIPE
 	op = (Eterm) BeamOpCode(op_hipe_trap_call); /* Might be changed later. */
 #else
-	op = (Eterm) BeamOpCode(op_move_return_nr);
+	op = (Eterm) BeamOpCode(op_move_return_n);
 #endif
 	fp = make_stub(fp, Mod, func, arity, (Uint)native_address, op);
     }
