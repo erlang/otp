@@ -62,11 +62,11 @@ init_per_testcase(ignore_hassign_extension_pre_tls_1_2, Config0) ->
 		true ->
 		    ssl:start(),
 		    %% make rsa certs using oppenssl
-		    Result =
-			(catch make_certs:all(?config(data_dir, Config0),
-					      ?config(priv_dir, Config0))),
-		    ct:log("Make certs  ~p~n", [Result]),
-		    ssl_test_lib:cert_options(Config0);
+		    {ok, _} = make_certs:all(?config(data_dir, Config0),
+					     ?config(priv_dir, Config0)),
+		    Config = ssl_test_lib:cert_options(Config0),
+		    ct:timetrap({seconds, 5}),
+		    Config;
 		false ->
 		    {skip, "Crypto did not support sha512"}  
 	    end

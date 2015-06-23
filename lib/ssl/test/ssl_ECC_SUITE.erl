@@ -71,10 +71,8 @@ init_per_suite(Config0) ->
     try crypto:start() of
 	ok ->
 	    %% make rsa certs using oppenssl
-	    Result =
-		(catch make_certs:all(?config(data_dir, Config0),
-				      ?config(priv_dir, Config0))),
-	    ct:log("Make certs  ~p~n", [Result]),
+	    {ok, _} = make_certs:all(?config(data_dir, Config0),
+				     ?config(priv_dir, Config0)),
 	    Config1 = ssl_test_lib:make_ecdsa_cert(Config0),
 	    Config2 = ssl_test_lib:make_ecdh_rsa_cert(Config1),
 	    ssl_test_lib:cert_options(Config2)
@@ -145,6 +143,7 @@ init_per_testcase(TestCase, Config) ->
     ct:log("Ciphers: ~p~n ", [ ssl:cipher_suites()]),
     end_per_testcase(TestCase, Config),
     ssl:start(),	
+    ct:timetrap({seconds, 5}),
     Config.
 
 end_per_testcase(_TestCase, Config) ->     
@@ -246,7 +245,6 @@ start_server(openssl, CA, OwnCa, Cert, Key, Config) ->
 	" -verify 2 -cert " ++ Cert ++ " -CAfile " ++ NewCA
 	++ " -key " ++ Key ++ " -msg -debug",
     OpenSslPort =  open_port({spawn, Cmd}, [stderr_to_stdout]),
-    ssl_test_lib:wait_for_openssl_server(),
     true = port_command(OpenSslPort, "Hello world"),
     {OpenSslPort, Port};
 

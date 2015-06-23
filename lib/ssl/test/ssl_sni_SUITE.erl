@@ -42,10 +42,8 @@ init_per_suite(Config0) ->
     try crypto:start() of
         ok ->
             ssl:start(),
-            Result =
-		(catch make_certs:all(?config(data_dir, Config0),
-				      ?config(priv_dir, Config0))),
-            ct:log("Make certs  ~p~n", [Result]),
+	    {ok, _} = make_certs:all(?config(data_dir, Config0),
+				     ?config(priv_dir, Config0)),
             ssl_test_lib:cert_options(Config0)
     catch _:_  ->
             {skip, "Crypto did not start"}
@@ -54,6 +52,15 @@ init_per_suite(Config0) ->
 end_per_suite(_) ->
     ssl:stop(),
     application:stop(crypto).
+
+init_per_testcase(_TestCase, Config) ->
+    ct:log("TLS/SSL version ~p~n ", [tls_record:supported_protocol_versions()]),
+    ct:log("Ciphers: ~p~n ", [ ssl:cipher_suites()]),
+    ct:timetrap({seconds, 5}),
+    Config.
+
+end_per_testcase(_TestCase, Config) ->     
+    Config.
 
 %%--------------------------------------------------------------------
 %% Test Cases --------------------------------------------------------

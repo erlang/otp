@@ -45,11 +45,8 @@ init_per_suite(Config0) ->
 	ok ->
 	    ssl:start(),
 	    %% make rsa certs using oppenssl
-	    Result =
-		(catch make_certs:all(?config(data_dir, Config0),
-				      ?config(priv_dir, Config0))),
-	    ct:log("Make certs  ~p~n", [Result]),
-
+	    {ok, _} =  make_certs:all(?config(data_dir, Config0),
+				      ?config(priv_dir, Config0)),
 	    Config1 = ssl_test_lib:make_dsa_cert(Config0),
 	    ssl_test_lib:cert_options(Config1)
     catch _:_ ->
@@ -65,15 +62,16 @@ init_per_group(_GroupName, Config) ->
 end_per_group(_GroupName, Config) ->
     Config.
 
-init_per_testcase(pem_cleanup, Config) ->
-    ssl:stop(),
+init_per_testcase(pem_cleanup = Case, Config) ->
+    end_per_testcase(Case, Config) ,
     application:load(ssl),
     application:set_env(ssl, ssl_pem_cache_clean, ?CLEANUP_INTERVAL),
     ssl:start(),
+    ct:timetrap({minutes, 1}),
     Config.
 
 end_per_testcase(_TestCase, Config) ->
-    %%ssl:stop(),
+    ssl:stop(),
     Config.
 
 %%--------------------------------------------------------------------

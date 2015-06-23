@@ -45,10 +45,8 @@ init_per_suite(Config0) ->
 		{skip, Reason} ->
 		    {skip, Reason};
 		Config ->
-		    Result =
-			(catch make_certs:all(?config(data_dir, Config),
-					      ?config(priv_dir, Config))),
-		    ct:log("Make certs  ~p~n", [Result]),
+		    {ok, _} = make_certs:all(?config(data_dir, Config),
+					      ?config(priv_dir, Config)),
 		    ssl_test_lib:cert_options(Config)
 	    end;
 	{ok, false} ->
@@ -62,8 +60,11 @@ end_per_suite(Config) ->
     crypto:stop().
 
 init_per_testcase(_TestCase, Config) ->
+    ct:log("TLS/SSL version ~p~n ", [tls_record:supported_protocol_versions()]),
+    ct:timetrap({minutes, 1}),
     Config.
-end_per_testcase(_TestCase, Config) ->
+
+end_per_testcase(_TestCase, Config) ->     
     Config.
 
 major_upgrade(Config) when is_list(Config) ->
@@ -162,4 +163,3 @@ is_soft([{restart_application, ssl}]) ->
     false;
 is_soft(_) ->	
     true.
-

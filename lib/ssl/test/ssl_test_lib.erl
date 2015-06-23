@@ -1150,15 +1150,17 @@ check_sane_openssl_version(Version) ->
 enough_openssl_crl_support("OpenSSL 0." ++ _) -> false;
 enough_openssl_crl_support(_) -> true.
 
-wait_for_openssl_server() ->
-    receive
-	{Port, {data, Debug}} when is_port(Port) ->
-	    ct:log("~p:~p~nopenssl ~s~n",[?MODULE,?LINE, Debug]),
-	    %% openssl has started make sure
-	    %% it will be in accept. Parsing
-	    %% output is too error prone. (Even
-	    %% more so than sleep!)
-	    ct:sleep(?SLEEP)
+wait_for_openssl_server(Port) ->
+    wait_for_openssl_server(Port, 10).
+wait_for_openssl_server(_, 0) ->
+    exit(failed_to_connect_to_openssl);
+wait_for_openssl_server(Port, N) ->
+    case gen_tcp:connect("localhost", Port, []) of
+	{ok, S} ->
+	    gen_tcp:close(S);
+	_  ->
+	    ct:sleep(?SLEEP),
+	    wait_for_openssl_server(Port, N-1)
     end.
 
 version_flag(tlsv1) ->

@@ -36,8 +36,7 @@
 -include("tls_handshake.hrl").
 
 -define('24H_in_sec', 86400).  
--define(TIMEOUT, 60000).
--define(LONG_TIMEOUT, 600000).
+-define(TIMEOUT, 20000).
 -define(EXPIRE, 10).
 -define(SLEEP, 500).
 -define(RENEGOTIATION_DISABLE_TIME, 12000).
@@ -207,22 +206,17 @@ rizzo_tests() ->
 
 %%--------------------------------------------------------------------
 init_per_suite(Config0) ->
-    Dog = ct:timetrap(?LONG_TIMEOUT *2),
     catch crypto:stop(),
     try crypto:start() of
 	ok ->
 	    ssl:start(),
 	    %% make rsa certs using oppenssl
-	    Result =
-		(catch make_certs:all(?config(data_dir, Config0),
-				      ?config(priv_dir, Config0))),
-	    ct:log("Make certs  ~p~n", [Result]),
-
+	    {ok, _} = make_certs:all(?config(data_dir, Config0),
+				     ?config(priv_dir, Config0)),
 	    Config1 = ssl_test_lib:make_dsa_cert(Config0),
 	    Config2 = ssl_test_lib:make_ecdsa_cert(Config1),
-	    Config3 = ssl_test_lib:make_ecdh_rsa_cert(Config2),
-	    Config = ssl_test_lib:cert_options(Config3),
-	    [{watchdog, Dog} | Config]
+	    Config = ssl_test_lib:make_ecdh_rsa_cert(Config2),
+	    ssl_test_lib:cert_options(Config)
     catch _:_ ->
 	    {skip, "Crypto did not start"}
     end.
@@ -255,6 +249,7 @@ init_per_testcase(Case, Config) when Case ==  unordered_protocol_versions_client
 				     Case == unordered_protocol_versions_server->
     case proplists:get_value(supported, ssl:versions()) of
 	['tlsv1.2' | _] ->
+	    ct:timetrap({seconds, 5}),
 	    Config;
 	_ ->
 	    {skip, "TLS 1.2 need but not supported on this platform"}
@@ -266,10 +261,11 @@ init_per_testcase(protocol_versions, Config)  ->
     %% For backwards compatibility sslv2 should be filtered out.
     application:set_env(ssl, protocol_version, [sslv2, sslv3, tlsv1]),
     ssl:start(),
+    ct:timetrap({seconds, 5}),
     Config;
 
-init_per_testcase(reuse_session_expired, Config0) ->
-    Config = lists:keydelete(watchdog, 1, Config0),
+init_per_testcase(reuse_session_expired, Config)  ->
+    ct:timetrap({seconds, 30}),
     ssl:stop(),
     application:load(ssl),
     application:set_env(ssl, session_lifetime, ?EXPIRE),
@@ -282,24 +278,44 @@ init_per_testcase(empty_protocol_versions, Config)  ->
     application:load(ssl),
     application:set_env(ssl, protocol_version, []),
     ssl:start(),
+    ct:timetrap({seconds, 5}),
     Config;
 
 init_per_testcase(fallback, Config)  ->
     case tls_record:highest_protocol_version([]) of
 	{3, N} when N > 1 ->
+	    ct:timetrap({seconds, 5}),
 	    Config;
 	_ ->
 	    {skip, "Not relevant if highest supported version is less than 3.2"}
     end;
 
-%% init_per_testcase(different_ca_peer_sign, Config0) ->
-%%     ssl_test_lib:make_mix_cert(Config0);
-
-init_per_testcase(_TestCase, Config0) ->
+init_per_testcase(TestCase, Config) when TestCase == client_renegotiate;
+					 TestCase == server_renegotiate;
+					 TestCase == client_secure_renegotiate;
+					 TestCase == client_renegotiate_reused_session;
+					 TestCase == server_renegotiate_reused_session;
+					 TestCase == client_no_wrap_sequence_number;
+					 TestCase == server_no_wrap_sequence_number;
+					 TestCase == renegotiate_dos_mitigate_active;
+					 TestCase == renegotiate_dos_mitigate_passive;
+					 TestCase == renegotiate_dos_mitigate_absolute ->
     ct:log("TLS/SSL version ~p~n ", [tls_record:supported_protocol_versions()]),
-    Config = lists:keydelete(watchdog, 1, Config0),
-    Dog = ct:timetrap(?TIMEOUT),
-   [{watchdog, Dog} | Config].
+    ct:timetrap({seconds, 30}),
+    Config;
+init_per_testcase(ssl_accept_timeout, Config) ->
+    ct:log("TLS/SSL version ~p~n ", [tls_record:supported_protocol_versions()]),
+    ct:timetrap({seconds, 15}),
+    Config;
+init_per_testcase(clear_pem_cache, Config) ->
+    ct:log("TLS/SSL version ~p~n ", [tls_record:supported_protocol_versions()]),
+    ct:timetrap({seconds, 20}),
+    Config;
+
+init_per_testcase(_TestCase, Config) ->
+    ct:log("TLS/SSL version ~p~n ", [tls_record:supported_protocol_versions()]),
+    ct:timetrap({seconds, 5}),
+    Config.
 
 end_per_testcase(reuse_session_expired, Config) ->
     application:unset_env(ssl, session_lifetime),

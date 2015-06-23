@@ -87,17 +87,15 @@ init_per_testcase(Case, Config) when is_list(Config) ->
     common_init(Case, Config).
 
 common_init(Case, Config) ->
-    Dog = ?t:timetrap(?t:seconds(?DEFAULT_TIMETRAP_SECS)),
-    [{watchdog, Dog},{testcase, Case}|Config].
+    ct:timetrap({seconds, ?DEFAULT_TIMETRAP_SECS}),
+    [{testcase, Case}|Config].
 
 end_per_testcase(Case, Config) when is_list(Config) ->
     Flags = proplists:get_value(old_flags, Config),
     catch os:putenv("ERL_FLAGS", Flags),
     common_end(Case, Config).
 
-common_end(_, Config) ->
-    Dog = ?config(watchdog, Config),
-    ?t:timetrap_cancel(Dog),
+common_end(_, _Config) ->
     ok.
 
 %%--------------------------------------------------------------------
@@ -614,7 +612,7 @@ setup_certs(Config) ->
     ok = file:make_dir(NodeDir),
     ok = file:make_dir(RGenDir),
     make_randfile(RGenDir),
-    make_certs:all(RGenDir, NodeDir),
+    {ok, _} = make_certs:all(RGenDir, NodeDir),
     SDir = filename:join([NodeDir, "server"]),
     SC = filename:join([SDir, "cert.pem"]),
     SK = filename:join([SDir, "key.pem"]),

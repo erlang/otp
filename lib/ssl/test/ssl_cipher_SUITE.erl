@@ -30,8 +30,6 @@
 -include("ssl_cipher.hrl").
 -include("ssl_alert.hrl").
 
--define(TIMEOUT, 600000).
-
 %%--------------------------------------------------------------------
 %% Common Test interface functions -----------------------------------
 %%--------------------------------------------------------------------
@@ -59,10 +57,9 @@ init_per_group(_GroupName, Config) ->
 end_per_group(_GroupName, Config) ->
     Config.
 
-init_per_testcase(_TestCase, Config0) ->
-    Config = lists:keydelete(watchdog, 1, Config0),
-    Dog = ct:timetrap(?TIMEOUT),
-    [{watchdog, Dog} | Config].
+init_per_testcase(_TestCase, Config) ->
+    ct:timetrap({seconds, 5}),
+    Config.
 
 end_per_testcase(_TestCase, Config) ->
     Config.
@@ -106,7 +103,7 @@ padding_test(Config) when is_list(Config)  ->
 % Internal functions  --------------------------------------------------------
 %%--------------------------------------------------------------------
 decipher_check_good(HashSz, CipherState, Version) ->
-    {Content, NextIV, Mac} = content_nextiv_mac(Version),
+    {Content, _NextIV, Mac} = content_nextiv_mac(Version),
     {Content, Mac, _} = 
 	ssl_cipher:decipher(?AES_CBC, HashSz, CipherState, aes_fragment(Version), Version, true).
 
