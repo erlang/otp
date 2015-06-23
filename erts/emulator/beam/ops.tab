@@ -230,6 +230,12 @@ i_get_tuple_element x P y
 i_get_tuple_element y P y
 %hot
 
+%macro: i_get_tuple_element2 GetTupleElement2 -pack
+i_get_tuple_element2 x P x
+
+%macro: i_get_tuple_element3 GetTupleElement3 -pack
+i_get_tuple_element3 x P x
+
 %macro: is_number IsNumber -fail_action
 %cold
 is_number f x
@@ -552,48 +558,15 @@ test_arity Fail=f c Arity => jump Fail
 test_arity f x A
 test_arity f y A
 
-is_tuple_of_arity Fail=f Reg Arity | get_tuple_element Reg P=u==0 Dst=xy => \
-  is_tuple_of_arity Fail Reg Arity | extract_next_element Dst | original_reg Reg P
+get_tuple_element Reg=x P1 D1=x | get_tuple_element Reg=x P2 D2=x | \
+   get_tuple_element Reg=x P3 D3=x | \
+   succ(P1, P2) | succ(P2, P3) | \
+   succ(D1, D2) | succ(D2, D3) => i_get_tuple_element3 Reg P1 D1
 
-test_arity Fail Reg Arity | get_tuple_element Reg P=u==0 Dst=xy => \
-  test_arity Fail Reg Arity | extract_next_element Dst | original_reg Reg P
+get_tuple_element Reg=x P1 D1=x | get_tuple_element Reg=x P2 D2=x | \
+   succ(P1, P2) | succ(D1, D2) => i_get_tuple_element2 Reg P1 D1
 
-original_reg Reg P1 | get_tuple_element Reg P2 Dst=xy | succ(P1, P2) => \
-  extract_next_element Dst | original_reg Reg P2
-
-get_tuple_element Reg P Dst => i_get_tuple_element Reg P Dst | original_reg Reg P
-
-original_reg Reg Pos =>
-
-original_reg/2
-
-extract_next_element D1=xy | original_reg Reg P1 | get_tuple_element Reg P2 D2=xy | \
-succ(P1, P2) | succ(D1, D2) => \
-  extract_next_element2 D1 | original_reg Reg P2
-
-extract_next_element2 D1=xy | original_reg Reg P1 | get_tuple_element Reg P2 D2=xy | \
-succ(P1, P2) | succ2(D1, D2) => \
-  extract_next_element3 D1 | original_reg Reg P2
-
-#extract_next_element3 D1=xy | original_reg Reg P1 | get_tuple_element Reg P2 D2=xy | \
-#succ(P1, P2) | succ3(D1, D2) => \
-#  extract_next_element4 D1 | original_reg Reg P2
-
-%macro: extract_next_element ExtractNextElement -pack
-extract_next_element x
-extract_next_element y
-
-%macro: extract_next_element2 ExtractNextElement2 -pack
-extract_next_element2 x
-extract_next_element2 y
-
-%macro: extract_next_element3 ExtractNextElement3 -pack
-extract_next_element3 x
-extract_next_element3 y
-
-#%macro: extract_next_element4 ExtractNextElement4 -pack
-#extract_next_element4 x
-#extract_next_element4 y
+get_tuple_element Reg P Dst => i_get_tuple_element Reg P Dst
 
 is_integer Fail=f i =>
 is_integer Fail=f an => jump Fail

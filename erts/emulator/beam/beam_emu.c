@@ -603,47 +603,39 @@ void** beam_ops;
    H = CAR(tmp_ptr);				\
    T = CDR(tmp_ptr); } while (0)
 
-#define GetTupleElement(Src, Element, Dest)				\
-  do {									\
-    tmp_arg1 = (Eterm) (((unsigned char *) tuple_val(Src)) + (Element));\
-    (Dest) = (*(Eterm *) tmp_arg1);	                		\
+#define GetTupleElement(Src, Element, Dest)		\
+  do {							\
+    Eterm* src;						\
+    src = ADD_BYTE_OFFSET(tuple_val(Src), (Element));	\
+    (Dest) = *src;					\
   } while (0)
 
-#define ExtractNextElement(Dest)					  \
-    tmp_arg1 += sizeof(Eterm);						  \
-    (Dest) = (* (Eterm *) (((unsigned char *) tmp_arg1)))
-
-#define ExtractNextElement2(Dest)				\
-  do {								\
-    Eterm* ene_dstp = &(Dest);					\
-    ene_dstp[0] = ((Eterm *) tmp_arg1)[1];	\
-    ene_dstp[1] = ((Eterm *) tmp_arg1)[2];	\
-    tmp_arg1 += sizeof(Eterm) + sizeof(Eterm);			\
+#define GetTupleElement2(Src, Element, Dest)		\
+  do {							\
+    Eterm* src;						\
+    Eterm* dst;						\
+    Eterm E1, E2;					\
+    src = ADD_BYTE_OFFSET(tuple_val(Src), (Element));	\
+    dst = &(Dest);					\
+    E1 = src[0];					\
+    E2 = src[1];					\
+    dst[0] = E1;					\
+    dst[1] = E2;					\
   } while (0)
 
-#define ExtractNextElement3(Dest)		\
-  do {						\
-    Eterm* ene_dstp = &(Dest);			\
-    ene_dstp[0] = ((Eterm *) tmp_arg1)[1];	\
-    ene_dstp[1] = ((Eterm *) tmp_arg1)[2];	\
-    ene_dstp[2] = ((Eterm *) tmp_arg1)[3];	\
-    tmp_arg1 += 3*sizeof(Eterm);		\
-  } while (0)
-
-#define ExtractNextElement4(Dest)		\
-  do {						\
-    Eterm* ene_dstp = &(Dest);			\
-    ene_dstp[0] = ((Eterm *) tmp_arg1)[1];	\
-    ene_dstp[1] = ((Eterm *) tmp_arg1)[2];	\
-    ene_dstp[2] = ((Eterm *) tmp_arg1)[3];	\
-    ene_dstp[3] = ((Eterm *) tmp_arg1)[4];	\
-    tmp_arg1 += 4*sizeof(Eterm);		\
-  } while (0)
-
-#define ExtractElement(Element, Dest)		\
-  do {						\
-     tmp_arg1 += (Element);			\
-     (Dest) = (* (Eterm *) tmp_arg1);		\
+#define GetTupleElement3(Src, Element, Dest)		\
+  do {							\
+    Eterm* src;						\
+    Eterm* dst;						\
+    Eterm E1, E2, E3;					\
+    src = ADD_BYTE_OFFSET(tuple_val(Src), (Element));	\
+    dst = &(Dest);					\
+    E1 = src[0];					\
+    E2 = src[1];					\
+    E3 = src[2];					\
+    dst[0] = E1;					\
+    dst[1] = E2;					\
+    dst[2] = E3;					\
   } while (0)
 
 #define EqualImmed(X, Y, Action) if (X != Y) { Action; }
@@ -683,11 +675,9 @@ void** beam_ops;
 
 #define IsTuple(X, Action) if (is_not_tuple(X)) Action
 
-#define IsArity(Pointer, Arity, Fail)					  \
-    if (*(Eterm *)							  \
-	(tmp_arg1 = (Eterm) (tuple_val(Pointer))) != (Arity))             \
-    { 									  \
-        Fail; 								  \
+#define IsArity(Pointer, Arity, Fail)		\
+    if (*tuple_val(Pointer) != (Arity)) {	\
+        Fail;					\
     }
 
 #define IsMap(Src, Fail) if (!is_map(Src)) { Fail; }
@@ -724,14 +714,21 @@ void** beam_ops;
      }							\
   } while (0)
 
-#define IsTupleOfArity(Src, Arity, Fail)				      \
-  do {									      \
-    if (is_not_tuple(Src) || 						      \
-	*(Eterm *)							      \
-	(tmp_arg1 = (Eterm) (tuple_val(Src))) != Arity) {                     \
-        Fail;								      \
-    }									      \
+#ifdef DEBUG
+#define IsTupleOfArity(Src, Arityval, Fail)			\
+  do {								\
+    if (!(is_tuple(Src) && *tuple_val(Src) == Arityval)) {	\
+        Fail;							\
+    }								\
   } while (0)
+#else
+#define IsTupleOfArity(Src, Arityval, Fail)			\
+  do {								\
+    if (!(is_boxed(Src) && *tuple_val(Src) == Arityval)) {	\
+        Fail;							\
+    }								\
+  } while (0)
+#endif
 
 #define IsBoolean(X, Fail) if ((X) != am_true && (X) != am_false) { Fail; }
 
@@ -988,14 +985,12 @@ init_emulator(void)
 #  define REG_stop asm("%l3")
 #  define REG_I asm("%l4")
 #  define REG_fcalls asm("%l5")
-#  define REG_tmp_arg1 asm("%l6")
 #else
 #  define REG_xregs
 #  define REG_htop
 #  define REG_stop
 #  define REG_I
 #  define REG_fcalls
-#  define REG_tmp_arg1
 #endif
 
 #ifdef USE_VM_PROBES
@@ -1138,11 +1133,6 @@ void process_main(void)
      * returns to the scheduler when FCALLS reaches zero.
      */
     register Sint FCALLS REG_fcalls = 0;
-
-    /*
-     * Temporaries used for picking up arguments for instructions.
-     */
-    register Eterm tmp_arg1 REG_tmp_arg1 = NIL;
 
     /*
      * X registers and floating point registers are located in
