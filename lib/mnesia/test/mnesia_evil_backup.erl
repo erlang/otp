@@ -229,7 +229,7 @@ restore(Config, Op)  ->
     [mnesia:dirty_write({Tab1, N, N+1}) || N <- lists:seq(1, 11)],
     [mnesia:dirty_write({Tab2, N, N+1}) || N <- lists:seq(1, 11)],
     [mnesia:dirty_write({Tab3, N, N+1}) || N <- lists:seq(1, 11)],
-    _Res11 = [{Tab1, N, N+1} || N <- lists:seq(1, 11)],
+
     Res21 = [{Tab2, N, N+1} || N <- lists:seq(1, 11)],
     Res31 = [[{Tab3, N, N+1}, {Tab3, N, N+44}] || N <- lists:seq(1, 10)],
     

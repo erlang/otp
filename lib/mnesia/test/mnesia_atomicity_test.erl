@@ -557,8 +557,8 @@ start_lock_waiter(BlockOpA, BlockOpB, Config) ->
     ?verify_mnesia([N1], [N2]).
 
 mk_tab_name(Prefix) ->
-    {Mega, Sec, Micro} = erlang:now(),
-    list_to_atom(lists:concat([Prefix , Mega, '_', Sec, '_', Micro])).
+    Count = erlang:unique_integer([monotonic,positive]),
+    list_to_atom(lists:concat([Prefix , '_', Count])).
 
 lock_waiter_fun(Op, TabName, Val) ->
     case Op of
