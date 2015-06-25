@@ -303,6 +303,34 @@ move_window3 x x x y
 move_window4 x x x x y
 move_window5 x x x x x y
 
+# Swap registers.
+move R1=x Tmp=x | move R2=xy R1 | move Tmp R2 => swap_temp R1 R2 Tmp
+
+swap_temp R1 R2 Tmp | line Loc | apply Live | is_killed(Tmp, Live) => \
+  swap R1 R2 | line Loc | apply Live
+
+swap_temp R1 R2 Tmp | line Loc | call Live Addr | is_killed(Tmp, Live) => \
+  swap R1 R2 | line Loc | call Live Addr
+swap_temp R1 R2 Tmp | call_only Live Addr | \
+  is_killed(Tmp, Live) => swap R1 R2 | call_only Live Addr
+swap_temp R1 R2 Tmp | call_last Live Addr D | \
+  is_killed(Tmp, Live) => swap R1 R2 | call_last Live Addr D
+
+swap_temp R1 R2 Tmp | line Loc | call_ext Live Addr | is_killed(Tmp, Live) => \
+  swap R1 R2 | line Loc | call_ext Live Addr
+swap_temp R1 R2 Tmp | line Loc | call_ext_only Live Addr | \
+  is_killed(Tmp, Live) => swap R1 R2 | line Loc | call_ext_only Live Addr
+swap_temp R1 R2 Tmp | line Loc | call_ext_last Live Addr D | \
+  is_killed(Tmp, Live) => swap R1 R2 | line Loc | call_ext_last Live Addr D
+
+%macro: swap_temp SwapTemp -pack
+swap_temp x x x
+swap_temp x y x
+
+%macro: swap Swap -pack
+swap x x
+swap x y
+
 move Src=x D1=x | move Src=x D2=x => move_dup Src D1 D2
 move Src=x SD=x | move SD=x D=x   => move_dup Src SD D
 move Src=x D1=x | move Src=x D2=y => move_dup Src D1 D2

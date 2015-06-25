@@ -545,6 +545,20 @@ void** beam_ops;
    HTOP += 2;                      \
   } while (0)
 
+#define Swap(R1, R2)				\
+  do {						\
+    Eterm V = R1;				\
+    R1 = R2;					\
+    R2 = V;					\
+  } while (0)
+
+#define SwapTemp(R1, R2, Tmp)			\
+  do {						\
+    Eterm V = R1;				\
+    R1 = R2;					\
+    R2 = Tmp = V;				\
+  } while (0)
+
 #define Move(Src, Dst, Store)      \
    do {                            \
        Eterm term = (Src);         \

@@ -2702,6 +2702,12 @@ same_label(LoaderState* stp, GenOpArg Target, GenOpArg Label)
 	Target.val == Label.val;
 }
 
+static int
+is_killed(LoaderState* stp, GenOpArg Reg, GenOpArg Live)
+{
+    return Reg.type == TAG_x && Live.type == TAG_u &&
+	Live.val <= Reg.val;
+}
 
 /*
  * Generate an instruction for element/2.
