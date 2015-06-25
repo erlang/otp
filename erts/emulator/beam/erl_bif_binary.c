@@ -2544,6 +2544,7 @@ BIF_RETTYPE binary_copy_2(BIF_ALIST_2)
 
 #define BINARY_SPLIT_GLOBAL	0x01
 #define BINARY_SPLIT_TRIM	0x02
+#define BINARY_SPLIT_TRIM_ALL	0x04
 
 static int do_binary_split(Process *p, Eterm subject, Uint hsstart,
 			   Uint hsend, Uint hsflags, Eterm type, Binary *bin,
@@ -2616,88 +2617,177 @@ static int do_binary_split(Process *p, Eterm subject, Uint hsstart,
 		Uint bit_size;
 		ErlSubBin *sb;
 		FindallData *fad = state.out;
-		int i, j, k;
+		Sint i, j;
+		Sint drop = 0;
+		Sint head = 0;
+		Sint tail;
+		Uint list_size;
+		Uint tail_pos;
+
+		tail = state.m - 1;
+		list_size = state.m + 1;
 		orig_size = binary_size(subject);
-		j = state.m - 1;
-		k = (int)(orig_size);
-		if ((hsflags & BINARY_SPLIT_TRIM) && (orig_size - fad[j].pos - fad[j].len) == 0) {
-		    for (i = (j - 1); i >= 0; --i) {
-			if ((fad[i+1].pos - fad[i].pos - fad[i].len) != 0) {
-			    break;
+		tail_pos = (Uint)(orig_size);
+
+		if (hsflags & (BINARY_SPLIT_TRIM | BINARY_SPLIT_TRIM_ALL)) {
+		    if ((orig_size - fad[tail].pos - fad[tail].len) == 0) {
+			list_size--;
+			for (i = (tail - 1); i >= 0; --i) {
+			    if ((fad[i+1].pos - fad[i].pos - fad[i].len) != 0) {
+				break;
+			    }
+			    list_size--;
+			}
+			if (i == -1) {
+			    if (fad[head].pos == 0) {
+				ret = NIL;
+			    } else {
+				hp = HAlloc(p, (ERL_SUB_BIN_SIZE + 2));
+				ERTS_GET_REAL_BIN(subject, orig, offset, bit_offset, bit_size);
+
+				sb = (ErlSubBin *)(hp);
+				sb->thing_word = HEADER_SUB_BIN;
+				sb->size = fad[head].pos;
+				sb->offs = offset;
+				sb->orig = orig;
+				sb->bitoffs = bit_offset;
+				sb->bitsize = bit_size;
+				sb->is_writable = 0;
+				fad[head].epos = make_binary(sb);
+				hp += ERL_SUB_BIN_SIZE;
+
+				ret = NIL;
+				ret = CONS(hp, make_binary(sb), ret);
+				hp += 2;
+			    }
+			    erts_free_aligned_binary_bytes(temp_alloc);
+			    bm_clean_find_all(&state);
+			    BUMP_REDS(p, (save_reds - reds) / BM_LOOP_FACTOR);
+			    *res_term = ret;
+			    return DO_BIN_MATCH_OK;
+			}
+			tail = i;
+			tail_pos = fad[tail+1].pos;
+		    }
+		}
+		if (hsflags & BINARY_SPLIT_TRIM_ALL) {
+		    if (fad[head].pos == 0) {
+			drop++;
+			list_size--;
+			for (i = drop, j = tail; i <= j; ++i) {
+			    if ((fad[i].pos - fad[i-1].pos - fad[i-1].len) != 0) {
+				break;
+			    }
+			    drop++;
+			    list_size--;
+			}
+			head = drop - 1;
+		    }
+		    for (i = (head+1), j = tail; i <= j; ++i) {
+			if ((fad[i].pos - fad[i-1].pos - fad[i-1].len) == 0) {
+			    list_size--;
 			}
 		    }
-		    if (i == -1) {
-			if (fad[0].pos == 0) {
-			    ret = NIL;
-			} else {
-			    hp = HAlloc(p, (ERL_SUB_BIN_SIZE + 2));
-			    ERTS_GET_REAL_BIN(subject, orig, offset, bit_offset, bit_size);
 
+		    hp = HAlloc(p, list_size * (ERL_SUB_BIN_SIZE + 2));
+		    ERTS_GET_REAL_BIN(subject, orig, offset, bit_offset, bit_size);
+
+		    if (drop == 0) {
+			sb = (ErlSubBin *)(hp);
+			sb->thing_word = HEADER_SUB_BIN;
+			sb->size = fad[head].pos;
+			sb->offs = offset;
+			sb->orig = orig;
+			sb->bitoffs = bit_offset;
+			sb->bitsize = 0;
+			sb->is_writable = 0;
+			fad[head].epos = make_binary(sb);
+			hp += ERL_SUB_BIN_SIZE;
+		    }
+
+		    for (i = (head+1), j = tail; i <= j; ++i) {
+			if ((fad[i].pos - fad[i-1].pos - fad[i-1].len) != 0) {
 			    sb = (ErlSubBin *)(hp);
 			    sb->thing_word = HEADER_SUB_BIN;
-			    sb->size = fad[0].pos;
-			    sb->offs = offset;
+			    sb->size = fad[i].pos - fad[i-1].pos - fad[i-1].len;
+			    sb->offs = offset + fad[i-1].pos + fad[i-1].len;
 			    sb->orig = orig;
 			    sb->bitoffs = bit_offset;
-			    sb->bitsize = bit_size;
+			    sb->bitsize = 0;
 			    sb->is_writable = 0;
-			    fad[0].epos = make_binary(sb);
+			    fad[i].epos = make_binary(sb);
 			    hp += ERL_SUB_BIN_SIZE;
-
-			    ret = NIL;
-			    ret = CONS(hp, make_binary(sb), ret);
-			    hp += 2;
 			}
-			erts_free_aligned_binary_bytes(temp_alloc);
-			bm_clean_find_all(&state);
-			BUMP_REDS(p, (save_reds - reds) / BM_LOOP_FACTOR);
-			*res_term = ret;
-			return DO_BIN_MATCH_OK;
 		    }
-		    j = i;
-		    k = fad[j+1].pos;
-		}
-		hp = HAlloc(p, (j + 2) * (ERL_SUB_BIN_SIZE + 2));
-		ERTS_GET_REAL_BIN(subject, orig, offset, bit_offset, bit_size);
 
-		sb = (ErlSubBin *)(hp);
-		sb->thing_word = HEADER_SUB_BIN;
-		sb->size = fad[0].pos;
-		sb->offs = offset;
-		sb->orig = orig;
-		sb->bitoffs = bit_offset;
-		sb->bitsize = 0;
-		sb->is_writable = 0;
-		fad[0].epos = make_binary(sb);
-		hp += ERL_SUB_BIN_SIZE;
-
-		for (i = 1; i <= j; ++i) {
 		    sb = (ErlSubBin *)(hp);
 		    sb->thing_word = HEADER_SUB_BIN;
-		    sb->size = fad[i].pos - fad[i-1].pos - fad[i-1].len;
-		    sb->offs = offset + fad[i-1].pos + fad[i-1].len;
+		    sb->size = tail_pos - fad[tail].pos - fad[tail].len;
+		    sb->offs = offset + fad[tail].pos + fad[tail].len;
+		    sb->orig = orig;
+		    sb->bitoffs = bit_offset;
+		    sb->bitsize = bit_size;
+		    sb->is_writable = 0;
+		    hp += ERL_SUB_BIN_SIZE;
+
+		    ret = NIL;
+		    ret = CONS(hp, make_binary(sb), ret);
+		    hp += 2;
+		    for (i = tail, j = head; i > j; --i) {
+			if ((fad[i].pos - fad[i-1].pos - fad[i-1].len) != 0) {
+			    ret = CONS(hp, fad[i].epos, ret);
+			    hp += 2;
+			}
+		    }
+		    if (drop == 0) {
+			ret = CONS(hp, fad[head].epos, ret);
+			hp += 2;
+		    }
+		} else {
+		    hp = HAlloc(p, list_size * (ERL_SUB_BIN_SIZE + 2));
+		    ERTS_GET_REAL_BIN(subject, orig, offset, bit_offset, bit_size);
+
+		    sb = (ErlSubBin *)(hp);
+		    sb->thing_word = HEADER_SUB_BIN;
+		    sb->size = fad[head].pos;
+		    sb->offs = offset;
 		    sb->orig = orig;
 		    sb->bitoffs = bit_offset;
 		    sb->bitsize = 0;
 		    sb->is_writable = 0;
-		    fad[i].epos = make_binary(sb);
+		    fad[head].epos = make_binary(sb);
 		    hp += ERL_SUB_BIN_SIZE;
-		}
-		ret = NIL;
-		sb = (ErlSubBin *)(hp);
-		sb->thing_word = HEADER_SUB_BIN;
-		sb->size = k - fad[j].pos - fad[j].len;
-		sb->offs = offset + fad[j].pos + fad[j].len;
-		sb->orig = orig;
-		sb->bitoffs = bit_offset;
-		sb->bitsize = bit_size;
-		sb->is_writable = 0;
-		hp += ERL_SUB_BIN_SIZE;
-		ret = CONS(hp, make_binary(sb), ret);
-		hp += 2;
-		for (i = j; i >= 0; --i) {
-		    ret = CONS(hp, fad[i].epos, ret);
+
+		    for (i = (head+1), j = tail; i <= j; ++i) {
+			sb = (ErlSubBin *)(hp);
+			sb->thing_word = HEADER_SUB_BIN;
+			sb->size = fad[i].pos - fad[i-1].pos - fad[i-1].len;
+			sb->offs = offset + fad[i-1].pos + fad[i-1].len;
+			sb->orig = orig;
+			sb->bitoffs = bit_offset;
+			sb->bitsize = 0;
+			sb->is_writable = 0;
+			fad[i].epos = make_binary(sb);
+			hp += ERL_SUB_BIN_SIZE;
+		    }
+
+		    sb = (ErlSubBin *)(hp);
+		    sb->thing_word = HEADER_SUB_BIN;
+		    sb->size = tail_pos - fad[tail].pos - fad[tail].len;
+		    sb->offs = offset + fad[tail].pos + fad[tail].len;
+		    sb->orig = orig;
+		    sb->bitoffs = bit_offset;
+		    sb->bitsize = bit_size;
+		    sb->is_writable = 0;
+		    hp += ERL_SUB_BIN_SIZE;
+
+		    ret = NIL;
+		    ret = CONS(hp, make_binary(sb), ret);
 		    hp += 2;
+		    for (i = tail, j = head; i >= j; --i) {
+			ret = CONS(hp, fad[i].epos, ret);
+			hp += 2;
+		    }
 		}
 	    }
 	    erts_free_aligned_binary_bytes(temp_alloc);
@@ -2752,88 +2842,177 @@ static int do_binary_split(Process *p, Eterm subject, Uint hsstart,
 		Uint bit_size;
 		ErlSubBin *sb;
 		FindallData *fad = state.out;
-		int i, j, k;
+		Sint i, j;
+		Sint drop = 0;
+		Sint head = 0;
+		Sint tail;
+		Uint list_size;
+		Uint tail_pos;
+
+		tail = state.m - 1;
+		list_size = state.m + 1;
 		orig_size = binary_size(subject);
-		j = state.m - 1;
-		k = (int)(orig_size);
-		if ((hsflags & BINARY_SPLIT_TRIM) && (orig_size - fad[j].pos - fad[j].len) == 0) {
-		    for (i = (j - 1); i >= 0; --i) {
-			if ((fad[i+1].pos - fad[i].pos - fad[i].len) != 0) {
-			    break;
+		tail_pos = (Uint)(orig_size);
+
+		if (hsflags & (BINARY_SPLIT_TRIM | BINARY_SPLIT_TRIM_ALL)) {
+		    if ((orig_size - fad[tail].pos - fad[tail].len) == 0) {
+			list_size--;
+			for (i = (tail - 1); i >= 0; --i) {
+			    if ((fad[i+1].pos - fad[i].pos - fad[i].len) != 0) {
+				break;
+			    }
+			    list_size--;
+			}
+			if (i == -1) {
+			    if (fad[head].pos == 0) {
+				ret = NIL;
+			    } else {
+				hp = HAlloc(p, (ERL_SUB_BIN_SIZE + 2));
+				ERTS_GET_REAL_BIN(subject, orig, offset, bit_offset, bit_size);
+
+				sb = (ErlSubBin *)(hp);
+				sb->thing_word = HEADER_SUB_BIN;
+				sb->size = fad[head].pos;
+				sb->offs = offset;
+				sb->orig = orig;
+				sb->bitoffs = bit_offset;
+				sb->bitsize = bit_size;
+				sb->is_writable = 0;
+				fad[head].epos = make_binary(sb);
+				hp += ERL_SUB_BIN_SIZE;
+
+				ret = NIL;
+				ret = CONS(hp, make_binary(sb), ret);
+				hp += 2;
+			    }
+			    erts_free_aligned_binary_bytes(temp_alloc);
+			    ac_clean_find_all(&state);
+			    BUMP_REDS(p, (save_reds - reds) / AC_LOOP_FACTOR);
+			    *res_term = ret;
+			    return DO_BIN_MATCH_OK;
+			}
+			tail = i;
+			tail_pos = fad[tail+1].pos;
+		    }
+		}
+		if (hsflags & BINARY_SPLIT_TRIM_ALL) {
+		    if (fad[head].pos == 0) {
+			drop++;
+			list_size--;
+			for (i = drop, j = tail; i <= j; ++i) {
+			    if ((fad[i].pos - fad[i-1].pos - fad[i-1].len) != 0) {
+				break;
+			    }
+			    drop++;
+			    list_size--;
+			}
+			head = drop - 1;
+		    }
+		    for (i = (head+1), j = tail; i <= j; ++i) {
+			if ((fad[i].pos - fad[i-1].pos - fad[i-1].len) == 0) {
+			    list_size--;
 			}
 		    }
-		    if (i == -1) {
-			if (fad[0].pos == 0) {
-			    ret = NIL;
-			} else {
-			    hp = HAlloc(p, (ERL_SUB_BIN_SIZE + 2));
-			    ERTS_GET_REAL_BIN(subject, orig, offset, bit_offset, bit_size);
 
+		    hp = HAlloc(p, list_size * (ERL_SUB_BIN_SIZE + 2));
+		    ERTS_GET_REAL_BIN(subject, orig, offset, bit_offset, bit_size);
+
+		    if (drop == 0) {
+			sb = (ErlSubBin *)(hp);
+			sb->thing_word = HEADER_SUB_BIN;
+			sb->size = fad[head].pos;
+			sb->offs = offset;
+			sb->orig = orig;
+			sb->bitoffs = bit_offset;
+			sb->bitsize = 0;
+			sb->is_writable = 0;
+			fad[head].epos = make_binary(sb);
+			hp += ERL_SUB_BIN_SIZE;
+		    }
+
+		    for (i = (head+1), j = tail; i <= j; ++i) {
+			if ((fad[i].pos - fad[i-1].pos - fad[i-1].len) != 0) {
 			    sb = (ErlSubBin *)(hp);
 			    sb->thing_word = HEADER_SUB_BIN;
-			    sb->size = fad[0].pos;
-			    sb->offs = offset;
+			    sb->size = fad[i].pos - fad[i-1].pos - fad[i-1].len;
+			    sb->offs = offset + fad[i-1].pos + fad[i-1].len;
 			    sb->orig = orig;
 			    sb->bitoffs = bit_offset;
-			    sb->bitsize = bit_size;
+			    sb->bitsize = 0;
 			    sb->is_writable = 0;
-			    fad[0].epos = make_binary(sb);
+			    fad[i].epos = make_binary(sb);
 			    hp += ERL_SUB_BIN_SIZE;
-
-			    ret = NIL;
-			    ret = CONS(hp, make_binary(sb), ret);
-			    hp += 2;
 			}
-			erts_free_aligned_binary_bytes(temp_alloc);
-			ac_clean_find_all(&state);
-			BUMP_REDS(p, (save_reds - reds) / AC_LOOP_FACTOR);
-			*res_term = ret;
-			return DO_BIN_MATCH_OK;
 		    }
-		    j = i;
-		    k = fad[j+1].pos;
-		}
-		hp = HAlloc(p, (j + 2) * (ERL_SUB_BIN_SIZE + 2));
-		ERTS_GET_REAL_BIN(subject, orig, offset, bit_offset, bit_size);
 
-		sb = (ErlSubBin *)(hp);
-		sb->thing_word = HEADER_SUB_BIN;
-		sb->size = fad[0].pos;
-		sb->offs = offset;
-		sb->orig = orig;
-		sb->bitoffs = bit_offset;
-		sb->bitsize = 0;
-		sb->is_writable = 0;
-		fad[0].epos = make_binary(sb);
-		hp += ERL_SUB_BIN_SIZE;
-
-		for (i = 1; i <= j; ++i) {
 		    sb = (ErlSubBin *)(hp);
 		    sb->thing_word = HEADER_SUB_BIN;
-		    sb->size = fad[i].pos - fad[i-1].pos - fad[i-1].len;
-		    sb->offs = offset + fad[i-1].pos + fad[i-1].len;
+		    sb->size = tail_pos - fad[tail].pos - fad[tail].len;
+		    sb->offs = offset + fad[tail].pos + fad[tail].len;
+		    sb->orig = orig;
+		    sb->bitoffs = bit_offset;
+		    sb->bitsize = bit_size;
+		    sb->is_writable = 0;
+		    hp += ERL_SUB_BIN_SIZE;
+
+		    ret = NIL;
+		    ret = CONS(hp, make_binary(sb), ret);
+		    hp += 2;
+		    for (i = tail, j = head; i > j; --i) {
+			if ((fad[i].pos - fad[i-1].pos - fad[i-1].len) != 0) {
+			    ret = CONS(hp, fad[i].epos, ret);
+			    hp += 2;
+			}
+		    }
+		    if (drop == 0) {
+			ret = CONS(hp, fad[head].epos, ret);
+			hp += 2;
+		    }
+		} else {
+		    hp = HAlloc(p, list_size * (ERL_SUB_BIN_SIZE + 2));
+		    ERTS_GET_REAL_BIN(subject, orig, offset, bit_offset, bit_size);
+
+		    sb = (ErlSubBin *)(hp);
+		    sb->thing_word = HEADER_SUB_BIN;
+		    sb->size = fad[head].pos;
+		    sb->offs = offset;
 		    sb->orig = orig;
 		    sb->bitoffs = bit_offset;
 		    sb->bitsize = 0;
 		    sb->is_writable = 0;
-		    fad[i].epos = make_binary(sb);
+		    fad[head].epos = make_binary(sb);
 		    hp += ERL_SUB_BIN_SIZE;
-		}
-		ret = NIL;
-		sb = (ErlSubBin *)(hp);
-		sb->thing_word = HEADER_SUB_BIN;
-		sb->size = k - fad[j].pos - fad[j].len;
-		sb->offs = offset + fad[j].pos + fad[j].len;
-		sb->orig = orig;
-		sb->bitoffs = bit_offset;
-		sb->bitsize = bit_size;
-		sb->is_writable = 0;
-		hp += ERL_SUB_BIN_SIZE;
-		ret = CONS(hp, make_binary(sb), ret);
-		hp += 2;
-		for (i = j; i >= 0; --i) {
-		    ret = CONS(hp, fad[i].epos, ret);
+
+		    for (i = (head+1), j = tail; i <= j; ++i) {
+			sb = (ErlSubBin *)(hp);
+			sb->thing_word = HEADER_SUB_BIN;
+			sb->size = fad[i].pos - fad[i-1].pos - fad[i-1].len;
+			sb->offs = offset + fad[i-1].pos + fad[i-1].len;
+			sb->orig = orig;
+			sb->bitoffs = bit_offset;
+			sb->bitsize = 0;
+			sb->is_writable = 0;
+			fad[i].epos = make_binary(sb);
+			hp += ERL_SUB_BIN_SIZE;
+		    }
+
+		    sb = (ErlSubBin *)(hp);
+		    sb->thing_word = HEADER_SUB_BIN;
+		    sb->size = tail_pos - fad[tail].pos - fad[tail].len;
+		    sb->offs = offset + fad[tail].pos + fad[tail].len;
+		    sb->orig = orig;
+		    sb->bitoffs = bit_offset;
+		    sb->bitsize = bit_size;
+		    sb->is_writable = 0;
+		    hp += ERL_SUB_BIN_SIZE;
+
+		    ret = NIL;
+		    ret = CONS(hp, make_binary(sb), ret);
 		    hp += 2;
+		    for (i = tail, j = head; i >= j; --i) {
+			ret = CONS(hp, fad[i].epos, ret);
+			hp += 2;
+		    }
 		}
 	    }
 	    erts_free_aligned_binary_bytes(temp_alloc);
@@ -2898,7 +3077,7 @@ static int do_binary_split(Process *p, Eterm subject, Uint hsstart,
 
 		orig_size = binary_size(subject);
 
-		if ((hsflags & BINARY_SPLIT_TRIM) && (orig_size - pos - bm->len) == 0) {
+		if ((hsflags & (BINARY_SPLIT_TRIM | BINARY_SPLIT_TRIM_ALL)) && (orig_size - pos - bm->len) == 0) {
 		    if (pos == 0) {
 			ret = NIL;
 		    } else {
@@ -2919,17 +3098,23 @@ static int do_binary_split(Process *p, Eterm subject, Uint hsstart,
 			hp += 2;
 		    }
 		} else {
-		    hp = HAlloc(p, 2 * (ERL_SUB_BIN_SIZE + 2));
-		    ERTS_GET_REAL_BIN(subject, orig, offset, bit_offset, bit_size);
-		    sb1 = (ErlSubBin *) hp;
-		    sb1->thing_word = HEADER_SUB_BIN;
-		    sb1->size = pos;
-		    sb1->offs = offset;
-		    sb1->orig = orig;
-		    sb1->bitoffs = bit_offset;
-		    sb1->bitsize = 0;
-		    sb1->is_writable = 0;
-		    hp += ERL_SUB_BIN_SIZE;
+		    if ((hsflags & BINARY_SPLIT_TRIM_ALL) && (pos == 0)) {
+			hp = HAlloc(p, 1 * (ERL_SUB_BIN_SIZE + 2));
+			ERTS_GET_REAL_BIN(subject, orig, offset, bit_offset, bit_size);
+			sb1 = NULL;
+		    } else {
+			hp = HAlloc(p, 2 * (ERL_SUB_BIN_SIZE + 2));
+			ERTS_GET_REAL_BIN(subject, orig, offset, bit_offset, bit_size);
+			sb1 = (ErlSubBin *) hp;
+			sb1->thing_word = HEADER_SUB_BIN;
+			sb1->size = pos;
+			sb1->offs = offset;
+			sb1->orig = orig;
+			sb1->bitoffs = bit_offset;
+			sb1->bitsize = 0;
+			sb1->is_writable = 0;
+			hp += ERL_SUB_BIN_SIZE;
+		    }
 
 		    sb2 = (ErlSubBin *) hp;
 		    sb2->thing_word = HEADER_SUB_BIN;
@@ -2944,8 +3129,10 @@ static int do_binary_split(Process *p, Eterm subject, Uint hsstart,
 		    ret = NIL;
 		    ret = CONS(hp, make_binary(sb2), ret);
 		    hp += 2;
-		    ret = CONS(hp, make_binary(sb1), ret);
-		    hp += 2;
+		    if (sb1 != NULL) {
+			ret = CONS(hp, make_binary(sb1), ret);
+			hp += 2;
+		    }
 		}
 	    }
 	    erts_free_aligned_binary_bytes(temp_alloc);
@@ -3003,7 +3190,7 @@ static int do_binary_split(Process *p, Eterm subject, Uint hsstart,
 
 		orig_size = binary_size(subject);
 
-		if ((hsflags & BINARY_SPLIT_TRIM) && (orig_size - pos - rlen) == 0) {
+		if ((hsflags & (BINARY_SPLIT_TRIM | BINARY_SPLIT_TRIM_ALL)) && (orig_size - pos - rlen) == 0) {
 		    if (pos == 0) {
 			ret = NIL;
 		    } else {
@@ -3024,17 +3211,23 @@ static int do_binary_split(Process *p, Eterm subject, Uint hsstart,
 			hp += 2;
 		    }
 		} else {
-		    hp = HAlloc(p, 2 * (ERL_SUB_BIN_SIZE + 2));
-		    ERTS_GET_REAL_BIN(subject, orig, offset, bit_offset, bit_size);
-		    sb1 = (ErlSubBin *) hp;
-		    sb1->thing_word = HEADER_SUB_BIN;
-		    sb1->size = pos;
-		    sb1->offs = offset;
-		    sb1->orig = orig;
-		    sb1->bitoffs = bit_offset;
-		    sb1->bitsize = 0;
-		    sb1->is_writable = 0;
-		    hp += ERL_SUB_BIN_SIZE;
+		    if ((hsflags & BINARY_SPLIT_TRIM_ALL) && (pos == 0)) {
+			hp = HAlloc(p, 2 * (ERL_SUB_BIN_SIZE + 2));
+			ERTS_GET_REAL_BIN(subject, orig, offset, bit_offset, bit_size);
+			sb1 = NULL;
+		    } else {
+			hp = HAlloc(p, 2 * (ERL_SUB_BIN_SIZE + 2));
+			ERTS_GET_REAL_BIN(subject, orig, offset, bit_offset, bit_size);
+			sb1 = (ErlSubBin *) hp;
+			sb1->thing_word = HEADER_SUB_BIN;
+			sb1->size = pos;
+			sb1->offs = offset;
+			sb1->orig = orig;
+			sb1->bitoffs = bit_offset;
+			sb1->bitsize = 0;
+			sb1->is_writable = 0;
+			hp += ERL_SUB_BIN_SIZE;
+		    }
 
 		    sb2 = (ErlSubBin *) hp;
 		    sb2->thing_word = HEADER_SUB_BIN;
@@ -3049,8 +3242,10 @@ static int do_binary_split(Process *p, Eterm subject, Uint hsstart,
 		    ret = NIL;
 		    ret = CONS(hp, make_binary(sb2), ret);
 		    hp += 2;
-		    ret = CONS(hp, make_binary(sb1), ret);
-		    hp += 2;
+		    if (sb1 != NULL) {
+			ret = CONS(hp, make_binary(sb1), ret);
+			hp += 2;
+		    }
 		}
 	    }
 	    erts_free_aligned_binary_bytes(temp_alloc);
@@ -3085,6 +3280,11 @@ static int parse_split_opts_list(Eterm l, Eterm bin, Uint *posp, Uint *endp, Uin
 		}
 		if (t == am_trim) {
 		    *optp |= BINARY_SPLIT_TRIM;
+		    l = CDR(list_val(l));
+		    continue;
+		}
+		if (t == am_trim_all) {
+		    *optp |= BINARY_SPLIT_TRIM_ALL;
 		    l = CDR(list_val(l));
 		    continue;
 		}
