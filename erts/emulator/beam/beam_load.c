@@ -2227,10 +2227,10 @@ load_code(LoaderState* stp)
 	    case 'd':	/* Destination (x(0), x(N), y(N) */
 		switch (tag) {
 		case TAG_x:
-		    code[ci++] = make_loader_x_reg(tmp_op->a[arg].val);
+		    code[ci++] = tmp_op->a[arg].val * sizeof(Eterm);
 		    break;
 		case TAG_y:
-		    code[ci++] = make_loader_y_reg(tmp_op->a[arg].val);
+		    code[ci++] = tmp_op->a[arg].val * sizeof(Eterm) + 1;
 		    break;
 		default:
 		    LoadError1(stp, "bad tag %d for destination",

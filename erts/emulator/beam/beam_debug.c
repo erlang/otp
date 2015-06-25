@@ -475,15 +475,12 @@ print_op(int to, void *to_arg, int op, int size, BeamInstr* addr)
 	    ap++;
 	    break;
 	case 'd':		/* Destination (x(0), x(N), y(N)) */
-	    switch (loader_tag(*ap)) {
-	    case LOADER_X_REG:
-		erts_print(to, to_arg, "x(%d)",
-			   loader_x_reg_index(*ap));
-		break;
-	    case LOADER_Y_REG:
+	    if (*ap & 1) {
 		erts_print(to, to_arg, "y(%d)",
-			   loader_y_reg_index(*ap) - CP_SIZE);
-		break;
+			   *ap / sizeof(Eterm) - CP_SIZE);
+	    } else {
+		erts_print(to, to_arg, "x(%d)",
+			   *ap / sizeof(Eterm));
 	    }
 	    ap++;
 	    break;

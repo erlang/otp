@@ -149,22 +149,20 @@ do {                                     \
    I = (ip)
 
 /*
+ * Register target (X or Y register).
+ */
+#define REG_TARGET(Target) (*(((Target) & 1) ? &yb(Target-1) : &xb(Target)))
+
+/*
  * Store a result into a register given a destination descriptor.
  */
 
-#define StoreResult(Result, DestDesc)			\
-  do {							\
-    Eterm stb_reg;					\
-    stb_reg = (DestDesc);				\
-    CHECK_TERM(Result);					\
-    switch (loader_tag(stb_reg)) {			\
-    case LOADER_X_REG:					\
-      x(loader_x_reg_index(stb_reg)) = (Result);	\
-      break;						\
-    default:						\
-      y(loader_y_reg_index(stb_reg)) = (Result);	\
-      break;						\
-    }							\
+#define StoreResult(Result, DestDesc)		\
+  do {						\
+    Eterm stb_reg;				\
+    stb_reg = (DestDesc);			\
+    CHECK_TERM(Result);				\
+    REG_TARGET(stb_reg) = (Result);		\
   } while (0)
 
 #define StoreSimpleDest(Src, Dest) Dest = (Src)
@@ -175,22 +173,16 @@ do {                                     \
  * be just before the next instruction.
  */
  
-#define StoreBifResult(Dst, Result)			\
-  do {							\
-    BeamInstr* stb_next;				\
-    Eterm stb_reg;					\
-    stb_reg = Arg(Dst);					\
-    I += (Dst) + 2;					\
-    stb_next = (BeamInstr *) *I;			\
-    CHECK_TERM(Result);					\
-    switch (loader_tag(stb_reg)) {			\
-    case LOADER_X_REG:					\
-      x(loader_x_reg_index(stb_reg)) = (Result);	\
-      Goto(stb_next);					\
-    default:						\
-      y(loader_y_reg_index(stb_reg)) = (Result);	\
-      Goto(stb_next);					\
-    }							\
+#define StoreBifResult(Dst, Result)		\
+  do {						\
+    BeamInstr* stb_next;			\
+    Eterm stb_reg;				\
+    stb_reg = Arg(Dst);				\
+    I += (Dst) + 2;				\
+    stb_next = (BeamInstr *) *I;		\
+    CHECK_TERM(Result);				\
+    REG_TARGET(stb_reg) = (Result);		\
+    Goto(stb_next);				\
   } while (0)
 
 #define ClauseFail() goto jump_f
@@ -3277,7 +3269,8 @@ do {						\
      Eterm* p;
      
      PreFetch(3, next);
-     GetArg2(0, element, tuple);
+     GetArg1(0, element);
+     tuple = REG_TARGET(Arg(1));
      ASSERT(is_tuple(tuple));
      p = (Eterm *) ((unsigned char *) tuple_val(tuple) + Arg(2));
      *p = element;
@@ -4605,7 +4598,7 @@ do {						\
      BeamInstr *next;
 
      PreFetch(2, next);
-     GetR(0, targ1);
+     targ1 = REG_TARGET(Arg(0));
      /* Arg(0) == HEADER_FLONUM */
      GET_DOUBLE(targ1, *(FloatDef*)ADD_BYTE_OFFSET(freg, fr));
      NextPF(2, next);
@@ -4625,7 +4618,7 @@ do {						\
      Eterm fr = Arg(1);
      BeamInstr *next;
 
-     GetR(0, targ1);
+     targ1 = REG_TARGET(Arg(0));
      PreFetch(2, next);
      if (is_small(targ1)) {
 	 fb(fr) = (double) signed_val(targ1);

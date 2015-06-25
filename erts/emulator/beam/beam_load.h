@@ -52,6 +52,7 @@ extern BeamInstr* em_call_error_handler;
 extern BeamInstr* em_apply_bif;
 extern BeamInstr* em_call_nif;
 
+
 /*
  * The following variables keep a sorted list of address ranges for
  * each module.  It allows us to quickly find a function given an
