@@ -34,15 +34,20 @@
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    [absname, absname_2, basename_1, basename_2, dirname,
-     extension,
-     join, pathtype, rootname, split, t_nativename, find_src,
-     absname_bin, absname_bin_2, basename_bin_1, basename_bin_2, dirname_bin,
-     extension_bin,
-     join_bin, pathtype_bin, rootname_bin, split_bin, t_nativename_bin].
+    [absname, absname_2,
+     find_src,
+     absname_bin, absname_bin_2,
+     {group,p}].
 
 groups() -> 
-    [].
+    [{p, [parallel],
+      [dirname,
+       extension, extension_bin,
+       join, pathtype, rootname, split, t_nativename,
+       basename_1, basename_2,
+       basename_bin_1, basename_bin_2, dirname_bin,
+       join_bin, pathtype_bin, rootname_bin, split_bin,
+       t_nativename_bin]}].
 
 init_per_suite(Config) ->
     Config.
