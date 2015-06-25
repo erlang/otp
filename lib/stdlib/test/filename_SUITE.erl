@@ -28,6 +28,7 @@
 	 basename_bin_1/1, basename_bin_2/1,
 	 dirname_bin/1, extension_bin/1, join_bin/1, t_nativename_bin/1]).
 -export([pathtype_bin/1,rootname_bin/1,split_bin/1]).
+-export([t_basedir_api/1, t_basedir_xdg/1, t_basedir_windows/1]).
 
 -include_lib("test_server/include/test_server.hrl").
 
@@ -37,7 +38,8 @@ all() ->
     [absname, absname_2,
      find_src,
      absname_bin, absname_bin_2,
-     {group,p}].
+     {group,p},
+     t_basedir_xdg, t_basedir_windows].
 
 groups() -> 
     [{p, [parallel],
@@ -47,7 +49,8 @@ groups() ->
        basename_1, basename_2,
        basename_bin_1, basename_bin_2, dirname_bin,
        join_bin, pathtype_bin, rootname_bin, split_bin,
-       t_nativename_bin]}].
+       t_nativename_bin,
+       t_basedir_api]}].
 
 init_per_suite(Config) ->
     Config.
@@ -769,4 +772,179 @@ t_nativename_bin(Config) when is_list(Config) ->
         _ ->
             <<"/usr/tmp/arne">> =
                 filename:nativename(<<"/usr/tmp//arne/">>)
+    end.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% basedirs
+t_basedir_api(Config) when is_list(Config) ->
+    true = is_list(filename:basedir(site_data, "My App")),
+    true = is_list(filename:basedir(site_config, "My App")),
+    true = is_list(filename:basedir(user_data, "My App")),
+    true = is_list(filename:basedir(user_log, "My App")),
+    true = is_list(filename:basedir(user_config, "My App")),
+    true = is_list(filename:basedir(user_cache, "My App")),
+
+    true = is_list(filename:basedir(site_data, <<"My App">>)),
+    true = is_list(filename:basedir(site_config, <<"My App">>)),
+    true = is_binary(filename:basedir(user_data, <<"My App">>)),
+    true = is_binary(filename:basedir(user_log, <<"My App">>)),
+    true = is_binary(filename:basedir(user_config, <<"My App">>)),
+    true = is_binary(filename:basedir(user_cache, <<"My App">>)),
+
+    %% simulate for windows
+    case os:type() of
+        {win32,_} -> ok;
+        _ ->
+            os:putenv("APPDATA", "C:\\Documents and Settings\\otptest\\Application Data")
+    end,
+
+    true = is_list(filename:basedir(site_data, "My App", #{})),
+    true = is_list(filename:basedir(site_config, "My App", #{os=>linux})),
+    true = is_list(filename:basedir(user_data, "My App", #{os=>darwin})),
+    true = is_list(filename:basedir(user_log, "My App", #{os=>windows})),
+    true = is_list(filename:basedir(user_config, "My App",#{author=>"Erl"})),
+    true = is_list(filename:basedir(user_config, "My App",#{os=>darwin,
+                                                            author=>"Erl"})),
+    true = is_list(filename:basedir(user_config, "My App",#{os=>linux,
+                                                            author=>"Erl"})),
+    true = is_list(filename:basedir(user_cache, "My App",#{os=>windows,
+                                                           author=>"Erl"})),
+    true = is_list(filename:basedir(user_config, "My App",#{os=>darwin,
+                                                            author=>"Erla",
+                                                            version=>"1.0"})),
+    true = is_list(filename:basedir(user_config, "My App",#{os=>linux,
+                                                            version=>"2.0.1",
+                                                            author=>"Erl"})),
+    true = is_list(filename:basedir(user_cache, "My App",#{os=>windows,
+                                                           version=>"3.1.2",
+                                                           author=>"Erl"})),
+    true = is_binary(filename:basedir(user_config, "My App",#{os=>darwin,
+                                                              author=>"Erla",
+                                                              version=><<"1.0">>})),
+    true = is_binary(filename:basedir(user_config, "My App",#{os=>windows,
+                                                              version=>"2.0.1",
+                                                              author=><<"Erl">>})),
+    true = is_binary(filename:basedir(user_cache, "My App",#{os=>linux,
+                                                             version=><<"3.1.2">>,
+                                                             author=>"Erl"})),
+    %% simulate for windows
+    case os:type() of
+        {win32,_} -> ok;
+        _ -> os:unsetenv("APPDATA")
+    end,
+
+    {'EXIT', _} = (catch filename:basedir(wrong_config, "My App")),
+    {'EXIT', _} = (catch filename:basedir(user_cache, {bad,name})),
+    {'EXIT', _} = (catch filename:basedir(user_cache, "My App", badopts)),
+    {'EXIT', _} = (catch filename:basedir(user_cache, "My App", [])),
+    ok.
+
+t_basedir_windows(Config) when is_list(Config) ->
+    Types = [user_data,user_log,user_config,user_cache],
+    case os:type() of
+        {win32,_} ->
+            ok = check_basedir_windows(Types, #{});
+        _ ->
+            %% Windows 7 and beyond
+            os:putenv("APPDATA", "C:\\Users\\otptest\\AppData\\Roaming"),
+            os:putenv("LOCALAPPDATA", "C:\\Users\\otptest\\AppData\\Local"),
+            io:format("APPDATA ~p~n", [os:getenv("APPDATA")]),
+            io:format("LOCALAPPDATA ~p~n", [os:getenv("LOCALAPPDATA")]),
+            ok = check_basedir_windows(Types,#{os=>windows}),
+            %% Windows XP
+            os:unsetenv("LOCALAPPDATA"),
+            os:putenv("APPDATA", "C:\\Documents and Settings\\otptest\\Application Data"),
+            io:format("APPDATA ~p~n", [os:getenv("APPDATA")]),
+            io:format("APPLOCALDATA ~p~n", [os:getenv("APPLOCALDATA")]),
+            ok = check_basedir_windows(Types,#{os=>windows}),
+            os:unsetenv("APPDATA")
+    end,
+    ok.
+
+check_basedir_windows([],_) -> ok;
+check_basedir_windows([Type|Types],Opt) ->
+    Name = "Some Application",
+    io:format("type: ~p~n", [Type]),
+    ok = check_basedir_windows_path(Type,
+                                    [Name],
+                                    filename:basedir(Type, Name, Opt)),
+    ok = check_basedir_windows_path(Type,
+                                    ["Erl",Name],
+                                    filename:basedir(Type, Name, Opt#{author=>"Erl"})),
+    ok = check_basedir_windows_path(Type,
+                                    [Name,"1.0"],
+                                    filename:basedir(Type, Name, Opt#{version=>"1.0"})),
+    ok = check_basedir_windows_path(Type,
+                                    ["Erl",Name,"1.0"],
+                                    filename:basedir(Type, Name, Opt#{author=>"Erl",
+                                                                      version=>"1.0"})),
+    check_basedir_windows(Types, Opt).
+
+check_basedir_windows_path(Type,Check0,Basedir) ->
+    BDR = lists:reverse(filename:split(Basedir)),
+    Check = lists:reverse(Check0),
+    io:format("~w: ~p ~p~n", [Type,Check,BDR]),
+    case Type of
+        user_log -> check_basedir_windows_path_split(["Logs"|Check],BDR);
+        user_cache -> check_basedir_windows_path_split(["Cache"|Check],BDR);
+        _ -> check_basedir_windows_path_split(Check,BDR)
+    end.
+
+check_basedir_windows_path_split([],_) -> ok;
+check_basedir_windows_path_split([Same|Check],[Same|BDR]) ->
+    check_basedir_windows_path_split(Check,BDR).
+
+
+t_basedir_xdg(Config) when is_list(Config) ->
+    check_basedir_xdg([user_data,user_log,user_config,user_cache,
+                       site_data,site_config]),
+    ok.
+
+check_basedir_xdg([]) -> ok;
+check_basedir_xdg([Type|Types]) ->
+    Name = "some_app",
+    Opt  = #{os=>linux},
+    Key  = basedir_xdg_env(Type),
+    io:format("type: ~p~n", [Type]),
+    Home = os:getenv("HOME"),
+    NDir = "/some/absolute/path",
+    DefPath = basedir_xdg_def(Type,Home,Name),
+    EnvPath = case Type of
+                  user_log    -> filename:join([NDir,Name,"log"]);
+                  site_data   -> [filename:join([NDir,Name])];
+                  site_config -> [filename:join([NDir,Name])];
+                  _           -> filename:join([NDir,Name])
+              end,
+    os:unsetenv(Key),
+    ok = check_basedir(Type, DefPath, filename:basedir(Type, Name, Opt)),
+    os:putenv(Key, NDir),
+    ok = check_basedir(Type, EnvPath, filename:basedir(Type, Name, Opt)),
+    os:unsetenv(Key),
+    ok = check_basedir(Type, DefPath, filename:basedir(Type, Name, Opt)),
+    check_basedir_xdg(Types).
+
+check_basedir(Type, Path, Basedir) ->
+    io:format("~w: ~p = ~p~n", [Type,Path,Basedir]),
+    Path = Basedir,
+    ok.
+
+basedir_xdg_env(Type) ->
+    case Type of
+        user_data   -> "XDG_DATA_HOME";
+        user_config -> "XDG_CONFIG_HOME";
+        user_cache  -> "XDG_CACHE_HOME";
+        user_log    -> "XDG_CACHE_HOME";
+        site_data   -> "XDG_DATA_DIRS";
+        site_config -> "XDG_CONFIG_DIRS"
+    end.
+
+basedir_xdg_def(Type,Home,Name) ->
+    case Type of
+        user_data   -> filename:join([Home,".local","share",Name]);
+        user_config -> filename:join([Home,".config",Name]);
+        user_cache  -> filename:join([Home,".cache",Name]);
+        user_log    -> filename:join([Home,".cache",Name,"log"]);
+        site_data   -> [filename:join([Dir,Name]) ||
+                        Dir <- ["/usr/local/share/","/usr/share/"]];
+        site_config -> [filename:join(["/etc/xdg",Name])]
     end.
