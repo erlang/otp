@@ -586,6 +586,7 @@ atom trace_control_word
 atom tracer
 atom trap_exit
 atom trim
+atom trim_all
 atom try_clause
 atom true
 atom tuple
