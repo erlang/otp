@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -25,7 +25,9 @@
 
 -behaviour(supervisor).
 
--export([start_link/1, connection_supervisor/1, channel_supervisor/1
+-export([start_link/1,
+	 connection_supervisor/1,
+	 channel_supervisor/1
 	]).
 
 %% Supervisor callback
@@ -61,9 +63,9 @@ init([Opts]) ->
 child_specs(Opts) ->
     case proplists:get_value(role, Opts) of
 	client ->		
-	    [ssh_connectinon_child_spec(Opts)];
+	    [];
 	server ->
-	    [ssh_connectinon_child_spec(Opts), ssh_channel_child_spec(Opts)]
+	    [ssh_channel_child_spec(Opts), ssh_connectinon_child_spec(Opts)]
     end.
   
 ssh_connectinon_child_spec(Opts) ->
@@ -72,9 +74,9 @@ ssh_connectinon_child_spec(Opts) ->
     Role = proplists:get_value(role, Opts),
     Name = id(Role, ssh_connection_sup, Address, Port),
     StartFunc = {ssh_connection_sup, start_link, [Opts]},
-    Restart = transient, 
+    Restart = temporary,
     Shutdown = 5000,
-    Modules = [ssh_connection_sup],
+     Modules = [ssh_connection_sup],
     Type = supervisor,
     {Name, StartFunc, Restart, Shutdown, Type, Modules}.
 
@@ -84,7 +86,7 @@ ssh_channel_child_spec(Opts) ->
     Role = proplists:get_value(role, Opts),
     Name = id(Role, ssh_channel_sup, Address, Port),
     StartFunc = {ssh_channel_sup, start_link, [Opts]},
-    Restart = transient, 
+    Restart = temporary,
     Shutdown = infinity,
     Modules = [ssh_channel_sup],
     Type = supervisor,

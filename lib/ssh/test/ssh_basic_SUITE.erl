@@ -525,10 +525,11 @@ internal_error(Config) when is_list(Config) ->
     {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
 					     {user_dir, UserDir},
 					     {failfun, fun ssh_test_lib:failfun/2}]),
-    {error,"Internal error"} =
+    {error, Error} =
 	ssh:connect(Host, Port, [{silently_accept_hosts, true},
 				 {user_dir, UserDir},
 				 {user_interaction, false}]),
+    check_error(Error),
     ssh:stop_daemon(Pid).
 
 %%--------------------------------------------------------------------
@@ -571,3 +572,12 @@ basic_test(Config) ->
     {ok, CM} = ssh:connect(Host, Port, ClientOpts),
     ok = ssh:close(CM),
     ssh:stop_daemon(Pid).
+
+%% Due to timing the error message may or may not be delivered to
+%% the "tcp-application" before the socket closed message is recived
+check_error("Internal error") ->
+    ok;
+check_error("Connection closed") ->
+    ok;
+check_error(Error) ->
+    ct:fail(Error).

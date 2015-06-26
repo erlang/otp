@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -84,8 +84,8 @@ child_spec(ServerOpts) ->
 					    [{active, false},
 					     {reuseaddr, true}] ++ SocketOpts, 
 					    ServerOpts, Timeout]},
-    Restart = permanent, 
-    Shutdown = 3600,
+    Restart = transient, 
+    Shutdown = brutal_kill,
     Modules = [ssh_acceptor],
     Type = worker,
     {Name, StartFunc, Restart, Shutdown, Type, Modules}.

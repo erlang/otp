@@ -395,7 +395,7 @@ mk_rm_dir(Config) when is_list(Config) ->
 	  _/binary>>, _} = mkdir(DirName, Cm, Channel, ReqId),
 
     NewReqId = 1,
-    {ok, <<?SSH_FXP_STATUS, ?UINT32(NewReqId), ?UINT32(?SSH_FX_FAILURE),
+    {ok, <<?SSH_FXP_STATUS, ?UINT32(NewReqId), ?UINT32(?SSH_FX_FILE_ALREADY_EXISTS),
 	  _/binary>>, _} = mkdir(DirName, Cm, Channel, NewReqId),
 
     NewReqId1 = 2,

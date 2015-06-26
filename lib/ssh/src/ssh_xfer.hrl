@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -58,7 +58,6 @@
 %%% #   SSH_FX_xxx
 %%% Description: Response packet types for file transfer protocol.
 %%%----------------------------------------------------------------------
-
 -define(SSH_FX_OK,			0).
 -define(SSH_FX_EOF,			1).
 -define(SSH_FX_NO_SUCH_FILE,		2).
@@ -79,7 +78,18 @@
 -define(SSH_FX_LOCK_CONFlICT,           17).
 -define(SSH_FX_DIR_NOT_EMPTY,           18).
 -define(SSH_FX_NOT_A_DIRECTORY,         19).
+-define(SSH_FX_INVALID_FILENAME,        20).
+-define(SSH_FX_LINK_LOOP,               21).
+-define(SSH_FX_CANNOT_DELETE,           22).
+-define(SSH_FX_INVALID_PARAMETER,       23).
 -define(SSH_FX_FILE_IS_A_DIRECTORY,     24). 
+-define(SSH_FX_BYTE_RANGE_LOCK_CONFLICT,25).
+-define(SSH_FX_BYTE_RANGE_LOCK_REFUSED, 26).
+-define(SSH_FX_DELETE_PENDING,          27).
+-define(SSH_FX_FILE_CORRUPT,            28).
+-define(SSH_FX_OWNER_INVALID,           29).
+-define(SSH_FX_GROUP_INVALID,           30).
+-define(SSH_FX_NO_MATCHING_BYTE_RANGE_LOCK,31).
 
 %%%----------------------------------------------------------------------
 %%% #   SSH_FILEXFER_xxx

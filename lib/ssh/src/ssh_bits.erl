@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -25,23 +25,24 @@
 
 -include("ssh.hrl").
 
--export([encode/1, encode/2]).
--export([decode/1, decode/2, decode/3]).
--export([mpint/1,  bignum/1, string/1, name_list/1]).
--export([b64_encode/1, b64_decode/1]).
--export([install_messages/1, uninstall_messages/1]).
+-export([encode/2]).
+-export([mpint/1, erlint/2, string/1, name_list/1]).
+-export([random/1]).
 
-%% integer utils
 -export([isize/1]).
 -export([irandom/1, irandom/3]).
--export([random/1]).
--export([xor_bits/2, fill_bits/2]).
+-export([fill_bits/2]).
 -export([i2bin/2, bin2i/1]).
 
--import(lists, [foreach/2, reverse/1]).
 
 -define(name_list(X), 
 	(fun(B) -> ?binary(B) end)(list_to_binary(name_concat(X)))).
+
+-define(VERSION_MAGIC, 131).
+-define(SMALL_INTEGER_EXT, $a).
+-define(INTEGER_EXT,       $b).
+-define(SMALL_BIG_EXT,     $n).
+-define(LARGE_BIG_EXT,     $o).
 
 
 name_concat([Name]) when is_atom(Name) -> atom_to_list(Name);
@@ -96,38 +97,6 @@ mpint_pos(X,I,Ds) ->
     mpint_pos(X bsr 8,I+1,[(X band 255)|Ds]).
 
 
-%% BIGNUM representation SSH1
-bignum(X) ->
-    XSz = isize(X),
-    Pad = (8 - (XSz rem 8)) rem 8,
-    <<?UINT16(XSz),0:Pad/unsigned-integer,X:XSz/big-unsigned-integer>>.
-
-
-install_messages(Codes) ->
-    foreach(fun({Name, Code, Ts}) ->
-		    put({msg_name,Code}, {Name,Ts}),
-		    put({msg_code,Name}, {Code,Ts})
-	    end, Codes).
-
-uninstall_messages(Codes) ->
-    foreach(fun({Name, Code, _Ts}) ->
-		    erase({msg_name,Code}),
-		    erase({msg_code,Name})
-	    end, Codes).
-
-%%
-%% Encode a record, the type spec is expected to be 
-%% in process dictionary under the key {msg_code, RecodeName}
-%%
-encode(Record) ->
-    case get({msg_code, element(1, Record)}) of
-	undefined -> 
-	    {error, unimplemented};
-	{Code, Ts} ->
-	    Data = enc(tl(tuple_to_list(Record)), Ts),
-	    list_to_binary([Code, Data])
-    end.
-
 encode(List, Types) ->
     list_to_binary(enc(List, Types)).
 
@@ -137,173 +106,83 @@ encode(List, Types) ->
 enc(Xs, Ts) ->
     enc(Xs, Ts, 0).
 
-enc(Xs, [Type|Ts], Offset) ->
-    case Type of
-	boolean ->
-	    X=hd(Xs), 
-	    [?boolean(X) | enc(tl(Xs), Ts, Offset+1)];
-	byte ->
-	    X=hd(Xs),
-	    [?byte(X) | enc(tl(Xs), Ts,Offset+1)];
-	uint16 ->  
-	    X=hd(Xs),
-	    [?uint16(X) | enc(tl(Xs), Ts,Offset+2)];
-	uint32 ->
-	    X=hd(Xs),
-	    [?uint32(X) | enc(tl(Xs), Ts,Offset+4)];
-	uint64 ->
-	    X=hd(Xs),
-	    [?uint64(X) | enc(tl(Xs), Ts,Offset+8)];
-	mpint ->
-	    Y=mpint(hd(Xs)),
-	    [Y | enc(tl(Xs), Ts,Offset+size(Y))];
-	bignum ->  
-	    Y=bignum(hd(Xs)),
-	    [Y | enc(tl(Xs),Ts,Offset+size(Y))];
-	string ->
-	    X0=hd(Xs),
-	    Y=?string(X0),
-	    [Y | enc(tl(Xs),Ts,Offset+size(Y))];
-	binary ->
-	    X0=hd(Xs),
-	    Y=?binary(X0),
-	    [Y | enc(tl(Xs), Ts,Offset+size(Y))];
-	name_list -> 
-	    X0=hd(Xs),
-	    Y=?name_list(X0),
-	    [Y | enc(tl(Xs), Ts, Offset+size(Y))];
-	cookie -> 
-	    [random(16) | enc(tl(Xs), Ts, Offset+16)];
-	{pad,N} ->
-	    K = (N - (Offset rem N)) rem N,
-	    [fill_bits(K,0) | enc(Xs, Ts, Offset+K)];
-	'...' when Ts==[] ->
-	    X=hd(Xs),
-	    if is_binary(X) -> 
-		    [X];
-	       is_list(X) ->
-		    [list_to_binary(X)];
-	       X==undefined ->
-		    []
-	    end
+enc(Xs, [boolean|Ts], Offset) ->
+    X = hd(Xs),
+    [?boolean(X) | enc(tl(Xs), Ts, Offset+1)];
+enc(Xs, [byte|Ts], Offset) ->
+    X = hd(Xs),
+    [?byte(X) | enc(tl(Xs), Ts,Offset+1)];
+enc(Xs, [uint16|Ts], Offset) ->
+    X = hd(Xs),
+    [?uint16(X) | enc(tl(Xs), Ts,Offset+2)];
+enc(Xs, [uint32 |Ts], Offset) ->
+    X = hd(Xs),
+    [?uint32(X) | enc(tl(Xs), Ts,Offset+4)];
+enc(Xs, [uint64|Ts], Offset) ->
+    X = hd(Xs),
+    [?uint64(X) | enc(tl(Xs), Ts,Offset+8)];
+enc(Xs, [mpint|Ts], Offset) ->
+    Y = mpint(hd(Xs)),
+    [Y | enc(tl(Xs), Ts,Offset+size(Y))];
+enc(Xs, [string|Ts], Offset) ->
+    X0 = hd(Xs),
+    Y = ?string(X0),
+    [Y | enc(tl(Xs),Ts,Offset+size(Y))];
+enc(Xs, [binary|Ts], Offset) ->
+     X0 = hd(Xs),
+    Y = ?binary(X0),
+    [Y | enc(tl(Xs), Ts,Offset+size(Y))];
+enc(Xs, [name_list|Ts], Offset) ->
+    X0 = hd(Xs),
+    Y = ?name_list(X0),
+    [Y | enc(tl(Xs), Ts, Offset+size(Y))];
+enc(Xs, [cookie|Ts], Offset) ->
+    [random(16) | enc(tl(Xs), Ts, Offset+16)];
+enc(Xs, [{pad,N}|Ts], Offset) ->
+    K = (N - (Offset rem N)) rem N,
+    [fill_bits(K,0) | enc(Xs, Ts, Offset+K)];
+enc(Xs, ['...'| []], _Offset) ->
+    X = hd(Xs),
+    if is_binary(X) ->
+	    [X];
+       is_list(X) ->
+	    [list_to_binary(X)];
+       X==undefined ->
+	    []
     end;
 enc([], [],_) ->
     [].
 
-
-
+erlint(Len, BinInt) ->
+    Sz = Len*8,
+    <<Int:Sz/big-signed-integer>> = BinInt,
+    Int.
+	
 %%
-%% Decode a SSH record the type is encoded as the first byte
-%% and the type spec MUST be installed in {msg_name, ID}
+%% Create a binary with constant bytes 
 %%
+fill_bits(N,C) ->
+    list_to_binary(fill(N,C)).
 
-decode(Binary = <<?BYTE(ID), _/binary>>) ->
-    case get({msg_name, ID}) of
-	undefined -> 
-	    {unknown, Binary};
-	{Name, Ts} ->
-	    {_, Elems} = decode(Binary,1,Ts),
-	    list_to_tuple([Name | Elems])
+fill(0,_C) -> [];
+fill(1,C) -> [C];
+fill(N,C) ->
+    Cs = fill(N div 2, C),
+    Cs1 = [Cs,Cs],
+    if N band 1 == 0 ->
+	    Cs1;
+       true ->
+	    [C,Cs,Cs]
     end.
 
+
+%% random/1
+%%   Generate N random bytes
 %%
-%% Decode a binary form offset 0
-%%
-
-decode(Binary, Types) when is_binary(Binary) andalso is_list(Types) ->
-    {_,Elems} = decode(Binary, 0, Types),
-    Elems.
+random(N) ->
+    crypto:strong_rand_bytes(N).
 
 
-%%
-%% Decode a binary from byte offset Offset
-%% return {UpdatedOffset, DecodedElements}
-%%
-decode(Binary, Offset, Types) ->
-    decode(Binary, Offset, Types, []).
-
-decode(Binary, Offset, [Type|Ts], Acc) ->
-    case Type of
-	boolean ->
-	    <<_:Offset/binary, ?BOOLEAN(X0), _/binary>> = Binary,
-	    X = if X0 == 0 -> false; true -> true end,
-	    decode(Binary, Offset+1, Ts, [X | Acc]);
-
-	byte ->
-	    <<_:Offset/binary, ?BYTE(X), _/binary>> = Binary,
-	    decode(Binary, Offset+1, Ts, [X | Acc]);
-
-	uint16 ->
-	    <<_:Offset/binary, ?UINT16(X), _/binary>> = Binary,
-	    decode(Binary, Offset+2, Ts, [X | Acc]);
-
-	uint32 ->
-	    <<_:Offset/binary, ?UINT32(X), _/binary>> = Binary,
-	    decode(Binary, Offset+4, Ts, [X | Acc]);
-
-	uint64 ->
-	    <<_:Offset/binary, ?UINT64(X), _/binary>> = Binary,
-	    decode(Binary, Offset+8, Ts, [X | Acc]);
-
-	mpint ->
-	    <<_:Offset/binary, ?UINT32(L), X0:L/binary,_/binary>> = Binary,
-	    Sz = L*8,
-	    <<X:Sz/big-signed-integer>> = X0,
-	    decode(Binary, Offset+4+L, Ts, [X | Acc]);
-
-	bignum ->
-	    <<_:Offset/binary, ?UINT16(Bits),_/binary>> = Binary,
-	    L = (Bits+7) div 8,
-	    Pad = (8 - (Bits rem 8)) rem 8,
-	    <<_:Offset/binary, _:16, _:Pad, X:Bits/big-unsigned-integer,
-	     _/binary>> = Binary,
-	    decode(Binary, Offset+2+L, Ts, [X | Acc]);
-
-	string ->
-	    Size = size(Binary),
-	    if Size < Offset + 4  ->
-		    %% empty string at end
-		    {Size, reverse(["" | Acc])};
-	       true ->
-		    <<_:Offset/binary,?UINT32(L), X:L/binary,_/binary>> =
-			Binary,
-		    decode(Binary, Offset+4+L, Ts, [binary_to_list(X) | 
-						    Acc])
-	    end;
-
-	binary ->
-	    <<_:Offset/binary,?UINT32(L), X:L/binary,_/binary>> = Binary,
-	    decode(Binary, Offset+4+L, Ts, [X | Acc]);
-
-	name_list ->
-	    <<_:Offset/binary,?UINT32(L), X:L/binary,_/binary>> = Binary,
-	    List = string:tokens(binary_to_list(X), ","),
-	    decode(Binary, Offset+4+L, Ts, [List | Acc]);
-
-	cookie ->
-	    <<_:Offset/binary, X:16/binary, _/binary>> = Binary,
-	    decode(Binary, Offset+16, Ts, [X | Acc]);
-
-	{pad,N} -> %% pad offset to a multiple of N
-	    K = (N - (Offset rem N)) rem N,
-	    decode(Binary, Offset+K, Ts, Acc);
-	    
-	
-	'...' when Ts==[] ->
-	    <<_:Offset/binary, X/binary>> = Binary,
-	    {Offset+size(X), reverse([X | Acc])}
-    end;
-decode(_Binary, Offset, [], Acc) ->
-    {Offset, reverse(Acc)}.
-
-
-
-%% HACK WARNING :-)
--define(VERSION_MAGIC, 131).
--define(SMALL_INTEGER_EXT, $a).
--define(INTEGER_EXT,       $b).
--define(SMALL_BIG_EXT,     $n).
--define(LARGE_BIG_EXT,     $o).
 
 isize(N) when N > 0 ->
     case term_to_binary(N) of
@@ -362,32 +241,6 @@ bin2i(X) ->
     Y.
 
 %%
-%% Create a binary with constant bytes 
-%%
-fill_bits(N,C) ->
-    list_to_binary(fill(N,C)).
-
-fill(0,_C) -> [];
-fill(1,C) -> [C];
-fill(N,C) ->
-    Cs = fill(N div 2, C),
-    Cs1 = [Cs,Cs],
-    if N band 1 == 0 ->
-	    Cs1;
-       true ->
-	    [C,Cs,Cs]
-    end.
-
-%% xor 2 binaries
-xor_bits(XBits, YBits) ->
-    XSz = size(XBits)*8,
-    YSz = size(YBits)*8,
-    Sz = if XSz < YSz -> XSz; true -> YSz end, %% min
-    <<X:Sz, _/binary>> = XBits,
-    <<Y:Sz, _/binary>> = YBits,
-    <<(X bxor Y):Sz>>.
-
-%%
 %% irandom(N)
 %%
 %%  Generate a N bits size random number
@@ -410,26 +263,3 @@ irandom(Bits) ->
 irandom(Bits, Top, Bottom) when is_integer(Top),
                                 0 =< Top, Top =< 2 ->
     crypto:erlint(crypto:strong_rand_mpint(Bits, Top - 1, Bottom)).
-
-%%
-%% random/1
-%%   Generate N random bytes
-%%
-random(N) ->
-    crypto:strong_rand_bytes(N).
-
-%%
-%% Base 64 encode/decode
-%%
-
-b64_encode(Bs) when is_list(Bs) -> 
-    base64:encode(Bs);    
-b64_encode(Bin) when is_binary(Bin) ->
-    base64:encode(Bin).
-
-b64_decode(Bin) when is_binary(Bin) -> 
-    base64:mime_decode(Bin);
-b64_decode(Cs) when is_list(Cs) -> 
-    base64:mime_decode(Cs).
-
-

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -23,14 +23,32 @@
 
 -include("ssh_connect.hrl").
 
-%%% Optional callbacks handle_call/3, handle_cast/2, handle_msg/2,
-%%% code_change/3
-%% Should be further specified later
--callback init(Options::list()) ->
-    {ok, State::term()} | {ok, State::term(), Timeout::timeout()} | 
-    {stop, Reason ::term()}. 
+-callback init(Args :: term()) ->
+    {ok, State :: term()} | {ok, State :: term(), timeout() | hibernate} |
+    {stop, Reason :: term()} | ignore.
+-callback handle_call(Request :: term(), From :: {pid(), Tag :: term()},
+                      State :: term()) ->
+    {reply, Reply :: term(), NewState :: term()} |
+    {reply, Reply :: term(), NewState :: term(), timeout() | hibernate} |
+    {noreply, NewState :: term()} |
+    {noreply, NewState :: term(), timeout() | hibernate} |
+    {stop, Reason :: term(), Reply :: term(), NewState :: term()} |
+    {stop, Reason :: term(), NewState :: term()}.
+-callback handle_cast(Request :: term(), State :: term()) ->
+    {noreply, NewState :: term()} |
+    {noreply, NewState :: term(), timeout() | hibernate} |
+    {stop, Reason :: term(), NewState :: term()}.
 
--callback terminate(term(), term()) -> term().
+-callback terminate(Reason :: (normal | shutdown | {shutdown, term()} |
+                               term()),
+                    State :: term()) ->
+    term().
+-callback code_change(OldVsn :: (term() | {down, term()}), State :: term(),
+                      Extra :: term()) ->
+    {ok, NewState :: term()} | {error, Reason :: term()}.
+
+-callback handle_msg(Msg ::term(), State :: term()) ->
+    {ok, State::term()} | {stop, ChannelId::integer(), State::term()}. 
 
 -callback handle_ssh_msg({ssh_cm, ConnectionRef::term(), SshMsg::term()}, 
  			 State::term()) -> {ok, State::term()} | 
@@ -266,7 +284,7 @@ handle_info(Msg, #state{cm = ConnectionManager, channel_cb = Module,
 terminate(Reason, #state{cm = ConnectionManager, 
  			 channel_id = ChannelId,
  			 close_sent = false} = State) ->
-    ssh_connection:close(ConnectionManager, ChannelId),
+    catch ssh_connection:close(ConnectionManager, ChannelId),
     terminate(Reason, State#state{close_sent = true});
 terminate(_, #state{channel_cb = Cb, channel_state = ChannelState}) ->
     catch Cb:terminate(Cb, ChannelState),

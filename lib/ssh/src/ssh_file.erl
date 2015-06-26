@@ -23,7 +23,8 @@
 
 -module(ssh_file).
 
--behaviour(ssh_key_api).
+-behaviour(ssh_server_key_api).
+-behaviour(ssh_client_key_api).
 
 -include_lib("public_key/include/public_key.hrl").
 -include_lib("kernel/include/file.hrl").
@@ -34,7 +35,7 @@
 	 user_key/2,
 	 is_host_key/4,
 	 add_host_key/3,
-	 is_auth_key/4]).
+	 is_auth_key/3]).
 
 
 -define(PERM_700, 8#700).
@@ -53,8 +54,8 @@ host_key(Algorithm, Opts) ->
     decode(File, Password).
 
 
-is_auth_key(Key, User, Alg, Opts) ->
-    case lookup_user_key(Key, User, Alg, Opts) of
+is_auth_key(Key, User,Opts) ->
+    case lookup_user_key(Key, User, Opts) of
 	{ok, Key} ->
 	    true;
 	_ ->
@@ -64,7 +65,7 @@ is_auth_key(Key, User, Alg, Opts) ->
 
 %% Used by client
 is_host_key(Key, PeerName, Algorithm, Opts) ->
-    case lookup_host_key(PeerName, Algorithm, Opts) of
+    case lookup_host_key(Key, PeerName, Algorithm, Opts) of
 	{ok, Key} ->
 	    true;
 	_ ->
@@ -120,9 +121,9 @@ decode_ssh_file(Pem, Password) ->
 %% return {ok, Key(s)} or {error, not_found}
 %%
 
-lookup_host_key(Host, Alg, Opts) ->
+lookup_host_key(KeyToMatch, Host, Alg, Opts) ->
     Host1 = replace_localhost(Host),
-    do_lookup_host_key(Host1, Alg, Opts).
+    do_lookup_host_key(KeyToMatch, Host1, Alg, Opts).
 	    
 
 add_host_key(Host, Key, Opts) ->
@@ -138,13 +139,13 @@ add_host_key(Host, Key, Opts) ->
    	    Error
     end.
 
-lookup_user_key(Key, User, Alg, Opts) ->
+lookup_user_key(Key, User, Opts) ->
     SshDir = ssh_dir({remoteuser,User}, Opts),
-    case lookup_user_key_f(Key, User, SshDir, Alg, "authorized_keys", Opts) of
+    case lookup_user_key_f(Key, User, SshDir, "authorized_keys", Opts) of
 	{ok, Key} ->
 	    {ok, Key};
 	_ ->
-	    lookup_user_key_f(Key, User, SshDir, Alg,  "authorized_keys2", Opts)
+	    lookup_user_key_f(Key, User, SshDir, "authorized_keys2", Opts)
     end.
 
 
@@ -203,19 +204,19 @@ replace_localhost("localhost") ->
 replace_localhost(Host) ->
     Host.
 
-do_lookup_host_key(Host, Alg, Opts) ->
+do_lookup_host_key(KeyToMatch, Host, Alg, Opts) ->
     case file:open(file_name(user, "known_hosts", Opts), [read, binary]) of
 	{ok, Fd} ->
-	    Res = lookup_host_key_fd(Fd, Host, Alg),
+	    Res = lookup_host_key_fd(Fd, KeyToMatch, Host, Alg),
 	    file:close(Fd),
 	    {ok, Res};
 	{error, enoent} -> {error, not_found};
 	Error -> Error
     end.
 
-identity_key_filename("ssh-dss") ->
+identity_key_filename('ssh-dss') ->
     "id_dsa";
-identity_key_filename("ssh-rsa") ->
+identity_key_filename('ssh-rsa') ->
     "id_rsa".
 
 identity_pass_phrase("ssh-dss") ->
@@ -227,16 +228,16 @@ identity_pass_phrase('ssh-rsa') ->
 identity_pass_phrase("ssh-rsa") ->
     rsa_pass_phrase.
 
-lookup_host_key_fd(Fd, Host, KeyType) ->
+lookup_host_key_fd(Fd, KeyToMatch, Host, KeyType) ->
     case io:get_line(Fd, '') of
 	eof ->
 	    {error, not_found};
 	Line ->
 	    case ssh_decode_line(Line, known_hosts) of
 		[{Key, Attributes}] ->
-		    handle_host(Fd, Host, proplists:get_value(hostnames, Attributes), Key, KeyType);
+		    handle_host(Fd, KeyToMatch, Host, proplists:get_value(hostnames, Attributes), Key, KeyType);
 		[] ->
-		    lookup_host_key_fd(Fd, Host, KeyType)
+		    lookup_host_key_fd(Fd, KeyToMatch, Host, KeyType)
 	    end
     end.
 
@@ -247,13 +248,13 @@ ssh_decode_line(Line, Type) ->
 	    []
     end.
 
-handle_host(Fd, Host, HostList, Key, KeyType) ->
+handle_host(Fd, KeyToMatch, Host, HostList, Key, KeyType) ->
     Host1 = host_name(Host),
-    case lists:member(Host1, HostList) and key_match(Key, KeyType) of
-	true ->
+    case lists:member(Host1, HostList) andalso key_match(Key, KeyType) of
+	true when KeyToMatch == Key ->
 	    Key;
-	false ->
-	    lookup_host_key_fd(Fd, Host, KeyType)
+	_ ->
+	    lookup_host_key_fd(Fd, KeyToMatch, Host, KeyType)
     end.
 
 host_name(Atom) when is_atom(Atom) ->
@@ -261,9 +262,9 @@ host_name(Atom) when is_atom(Atom) ->
 host_name(List) ->
     List.
 
-key_match(#'RSAPublicKey'{}, "ssh-rsa") ->
+key_match(#'RSAPublicKey'{}, 'ssh-rsa') ->
     true;
-key_match({_, #'Dss-Parms'{}}, "ssh-dss") ->
+key_match({_, #'Dss-Parms'{}}, 'ssh-dss') ->
     true;
 key_match(_, _) ->
     false.
@@ -272,11 +273,11 @@ add_key_fd(Fd, Host,Key) ->
     SshBin = public_key:ssh_encode([{Key, [{hostnames, [Host]}]}], known_hosts),
     file:write(Fd, SshBin).
 
-lookup_user_key_f(_, _User, [], _Alg, _F, _Opts) ->
+lookup_user_key_f(_, _User, [], _F, _Opts) ->
     {error, nouserdir};
-lookup_user_key_f(_, _User, nouserdir, _Alg, _F, _Opts) ->
+lookup_user_key_f(_, _User, nouserdir, _F, _Opts) ->
     {error, nouserdir};
-lookup_user_key_f(Key, _User, Dir, _Alg, F, _Opts) ->
+lookup_user_key_f(Key, _User, Dir, F, _Opts) ->
     FileName = filename:join(Dir, F),
     case file:open(FileName, [read, binary]) of
 	{ok, Fd} ->
@@ -314,5 +315,12 @@ default_user_dir()->
     {ok,[[Home|_]]} = init:get_argument(home),
     UserDir = filename:join(Home, ".ssh"),
     ok = filelib:ensure_dir(filename:join(UserDir, "dummy")),
-    ok = file:change_mode(UserDir, ?PERM_700),
+    {ok,Info} = file:read_file_info(UserDir),
+    #file_info{mode=Mode} = Info,
+    case (Mode band 8#777) of
+	?PERM_700 ->
+	    ok;
+	_Other ->
+	    ok = file:change_mode(UserDir, ?PERM_700)
+    end,
     UserDir.

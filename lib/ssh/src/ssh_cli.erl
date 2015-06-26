@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -24,16 +24,13 @@
 
 -module(ssh_cli).
 
--behaviour(ssh_channel).
+-behaviour(ssh_daemon_channel).
 
 -include("ssh.hrl").
 -include("ssh_connect.hrl").
 
 %% ssh_channel callbacks
 -export([init/1, handle_ssh_msg/2, handle_msg/2, terminate/2]).
-
-%% backwards compatibility
--export([listen/1, listen/2, listen/3, listen/4, stop/1]).
 
 %% state
 -record(state, {
@@ -65,13 +62,14 @@ init([Shell]) ->
 %%                        
 %% Description: Handles channel messages received on the ssh-connection.
 %%--------------------------------------------------------------------
-handle_ssh_msg({ssh_cm, _ConnectionManager, 
+handle_ssh_msg({ssh_cm, _ConnectionHandler,
 		{data, _ChannelId, _Type, Data}}, 
 	       #state{group = Group} = State) ->
-    Group ! {self(), {data, binary_to_list(Data)}},
+    List = binary_to_list(Data),
+    to_group(List, Group),
     {ok, State};
 
-handle_ssh_msg({ssh_cm, ConnectionManager, 
+handle_ssh_msg({ssh_cm, ConnectionHandler,
 		{pty, ChannelId, WantReply, 
 		 {TermName, Width, Height, PixWidth, PixHeight, Modes}}}, 
 	       State0) ->
@@ -81,55 +79,56 @@ handle_ssh_msg({ssh_cm, ConnectionManager,
 				  height = not_zero(Height, 24),
 				  pixel_width = PixWidth,
 				  pixel_height = PixHeight,
-				  modes = Modes}},
+                  modes = Modes},
+             buf = empty_buf()},
     set_echo(State),
-    ssh_connection:reply_request(ConnectionManager, WantReply, 
+    ssh_connection:reply_request(ConnectionHandler, WantReply,
 				 success, ChannelId),
     {ok, State};
 
-handle_ssh_msg({ssh_cm, ConnectionManager, 
+handle_ssh_msg({ssh_cm, ConnectionHandler,
 	    {env, ChannelId, WantReply, _Var, _Value}}, State) ->
-    ssh_connection:reply_request(ConnectionManager, 
+    ssh_connection:reply_request(ConnectionHandler,
 				 WantReply, failure, ChannelId),
     {ok, State};
 
-handle_ssh_msg({ssh_cm, ConnectionManager,
+handle_ssh_msg({ssh_cm, ConnectionHandler,
 	    {window_change, ChannelId, Width, Height, PixWidth, PixHeight}},
 	   #state{buf = Buf, pty = Pty0} = State) ->
     Pty = Pty0#ssh_pty{width = Width, height = Height,
 		       pixel_width = PixWidth,
 		       pixel_height = PixHeight},
     {Chars, NewBuf} = io_request({window_change, Pty0}, Buf, Pty),
-    write_chars(ConnectionManager, ChannelId, Chars),
+    write_chars(ConnectionHandler, ChannelId, Chars),
     {ok, State#state{pty = Pty, buf = NewBuf}};
 
-handle_ssh_msg({ssh_cm, ConnectionManager, 
+handle_ssh_msg({ssh_cm, ConnectionHandler,
 	    {shell, ChannelId, WantReply}}, State) ->
-    NewState = start_shell(ConnectionManager, State),
-    ssh_connection:reply_request(ConnectionManager, WantReply, 
+    NewState = start_shell(ConnectionHandler, State),
+    ssh_connection:reply_request(ConnectionHandler, WantReply,
 				 success, ChannelId),
     {ok, NewState#state{channel = ChannelId,
-			cm = ConnectionManager}};
+			cm = ConnectionHandler}};
 
-handle_ssh_msg({ssh_cm, ConnectionManager, 
+handle_ssh_msg({ssh_cm, ConnectionHandler,
 		{exec, ChannelId, WantReply, Cmd}}, #state{exec=undefined} = State) ->
     {Reply, Status} = exec(Cmd),
-    write_chars(ConnectionManager, 
+    write_chars(ConnectionHandler,
 		ChannelId, io_lib:format("~p\n", [Reply])),
-    ssh_connection:reply_request(ConnectionManager, WantReply, 
+    ssh_connection:reply_request(ConnectionHandler, WantReply,
 				 success, ChannelId),
-    ssh_connection:exit_status(ConnectionManager, ChannelId, Status),
-    ssh_connection:send_eof(ConnectionManager, ChannelId),
-    {stop, ChannelId, State#state{channel = ChannelId, cm = ConnectionManager}};
-handle_ssh_msg({ssh_cm, ConnectionManager,
+    ssh_connection:exit_status(ConnectionHandler, ChannelId, Status),
+    ssh_connection:send_eof(ConnectionHandler, ChannelId),
+    {stop, ChannelId, State#state{channel = ChannelId, cm = ConnectionHandler}};
+handle_ssh_msg({ssh_cm, ConnectionHandler,
 		{exec, ChannelId, WantReply, Cmd}}, State) ->
-    NewState = start_shell(ConnectionManager, Cmd, State),
-    ssh_connection:reply_request(ConnectionManager, WantReply,
+    NewState = start_shell(ConnectionHandler, Cmd, State),
+    ssh_connection:reply_request(ConnectionHandler, WantReply,
 				 success, ChannelId),
     {ok, NewState#state{channel = ChannelId,
-			cm = ConnectionManager}};
+			cm = ConnectionHandler}};
 
-handle_ssh_msg({ssh_cm, _ConnectionManager, {eof, _ChannelId}}, State) ->
+handle_ssh_msg({ssh_cm, _ConnectionHandler, {eof, _ChannelId}}, State) ->
     {ok, State};
 
 handle_ssh_msg({ssh_cm, _, {signal, _, _}}, State) ->
@@ -157,16 +156,40 @@ handle_ssh_msg({ssh_cm, _, {exit_status, ChannelId, Status}}, State) ->
 %%                        
 %% Description: Handles other channel messages.
 %%--------------------------------------------------------------------
-handle_msg({ssh_channel_up, ChannelId, ConnectionManager},
+handle_msg({ssh_channel_up, ChannelId, ConnectionHandler},
 	   #state{channel = ChannelId,
-		  cm = ConnectionManager} = State) ->
+		  cm = ConnectionHandler} = State) ->
     {ok,  State};
 
+handle_msg({Group, set_unicode_state, _Arg}, State) ->
+    Group ! {self(), set_unicode_state, false},
+    {ok, State};
+
+handle_msg({Group, get_unicode_state}, State) ->
+    Group ! {self(), get_unicode_state, false},
+    {ok, State};
+
+handle_msg({Group, tty_geometry}, #state{group = Group,
+					 pty = Pty
+					} = State) ->
+    case Pty of
+	#ssh_pty{width=Width,height=Height} ->
+	    Group ! {self(),tty_geometry,{Width,Height}};
+	_ ->
+	    %% This is a dirty fix of the problem with the otp ssh:shell
+	    %% client. That client will not allocate a tty, but someone
+	    %% asks for the tty_geometry just before every erlang prompt.
+	    %% If that question is not answered, there is a 2 sec timeout
+	    %% Until the prompt is seen by the user at the client side ...
+	    Group ! {self(),tty_geometry,{0,0}}
+    end,
+    {ok,State};
+    
 handle_msg({Group, Req}, #state{group = Group, buf = Buf, pty = Pty,
-				 cm = ConnectionManager,
+				 cm = ConnectionHandler,
 				 channel = ChannelId} = State) ->
     {Chars, NewBuf} = io_request(Req, Buf, Pty),
-    write_chars(ConnectionManager, ChannelId, Chars),
+    write_chars(ConnectionHandler, ChannelId, Chars),
     {ok, State#state{buf = NewBuf}};
 
 handle_msg({'EXIT', Group, _Reason}, #state{group = Group,
@@ -187,8 +210,29 @@ terminate(_Reason, _State) ->
 %%% Internal functions
 %%--------------------------------------------------------------------
 
+to_group([], _Group) ->
+    ok;
+to_group([$\^C | Tail], Group) ->
+    exit(Group, interrupt),
+    to_group(Tail, Group);
+to_group(Data, Group) ->
+    Func = fun(C) -> C /= $\^C end,
+    Tail = case lists:splitwith(Func, Data) of
+        {[], Right} ->
+            Right;
+        {Left, Right} ->
+            Group ! {self(), {data, Left}},
+            Right
+    end,
+    to_group(Tail, Group).
+
 exec(Cmd) ->
-    eval(parse(scan(Cmd))).
+    case eval(parse(scan(Cmd))) of
+	{error, _} ->
+	    {Cmd, 0}; %% This should be an external call
+	Term ->
+	    Term
+    end.
 
 scan(Cmd) ->
     erl_scan:string(Cmd). 
@@ -224,11 +268,11 @@ io_request({window_change, OldTty}, Buf, Tty) ->
 io_request({put_chars, Cs}, Buf, Tty) ->
     put_chars(bin_to_list(Cs), Buf, Tty);
 io_request({put_chars, unicode, Cs}, Buf, Tty) ->
-    put_chars([Ch || Ch <- unicode:characters_to_list(Cs,unicode), Ch =< 255], Buf, Tty);
+    put_chars(unicode:characters_to_list(Cs,unicode), Buf, Tty);
 io_request({insert_chars, Cs}, Buf, Tty) ->
     insert_chars(bin_to_list(Cs), Buf, Tty);
 io_request({insert_chars, unicode, Cs}, Buf, Tty) ->
-    insert_chars([Ch || Ch <- unicode:characters_to_list(Cs,unicode), Ch =< 255], Buf, Tty);
+    insert_chars(unicode:characters_to_list(Cs,unicode), Buf, Tty);
 io_request({move_rel, N}, Buf, Tty) ->
     move_rel(N, Buf, Tty);
 io_request({delete_chars,N}, Buf, Tty) ->
@@ -314,7 +358,7 @@ delete_chars(N, {Buf, BufTail, Col}, Tty) when N > 0 ->
      {Buf, NewBufTail, Col}};
 delete_chars(N, {Buf, BufTail, Col}, Tty) -> % N < 0
     NewBuf = nthtail(-N, Buf),
-    NewCol = Col + N,
+    NewCol = case Col + N of V when V >= 0 -> V; _ -> 0 end,
     M1 = move_cursor(Col, NewCol, Tty),
     M2 = move_cursor(NewCol + length(BufTail) - N, NewCol, Tty),
     {[M1, BufTail, lists:duplicate(-N, $ ) | M2],
@@ -376,12 +420,12 @@ move_cursor(From, To, #ssh_pty{width=Width, term=Type}) ->
 %% %%% write out characters
 %% %%% make sure that there is data to send
 %% %%% before calling ssh_connection:send
-write_chars(ConnectionManager, ChannelId, Chars) ->
+write_chars(ConnectionHandler, ChannelId, Chars) ->
     case erlang:iolist_size(Chars) of
 	0 ->
 	    ok;
        _ ->
-	    ssh_connection:send(ConnectionManager, ChannelId, 
+	    ssh_connection:send(ConnectionHandler, ChannelId,
 				?SSH_EXTENDED_DATA_DEFAULT, Chars)
     end.
 
@@ -411,18 +455,20 @@ bin_to_list(L) when is_list(L) ->
 bin_to_list(I) when is_integer(I) ->
     I.
 
-start_shell(ConnectionManager, State) ->
+start_shell(ConnectionHandler, State) ->
     Shell = State#state.shell,
+    ConnectionInfo = ssh_connection_handler:info(ConnectionHandler,
+						  [peer, user]),
     ShellFun = case is_function(Shell) of
 		   true ->
 		       {ok, User} = 
-			   ssh_userreg:lookup_user(ConnectionManager),
+			   proplists:get_value(user, ConnectionInfo),
 		       case erlang:fun_info(Shell, arity) of
 			   {arity, 1} ->
 			       fun() -> Shell(User) end;
 			   {arity, 2} ->
-			       {ok, PeerAddr} = 
-				   ssh_connection_manager:peer_addr(ConnectionManager),
+			       [{_, PeerAddr}] =
+				   proplists:get_value(peer, ConnectionInfo),
 			       fun() -> Shell(User, PeerAddr) end;
 			   _ ->
 			       Shell
@@ -434,12 +480,15 @@ start_shell(ConnectionManager, State) ->
     Group = group:start(self(), ShellFun, [{echo, Echo}]),
     State#state{group = Group, buf = empty_buf()}.
 
-start_shell(_ConnectionManager, Cmd, #state{exec={M, F, A}} = State) ->
+start_shell(_ConnectionHandler, Cmd, #state{exec={M, F, A}} = State) ->
     Group = group:start(self(), {M, F, A++[Cmd]}, [{echo, false}]),
     State#state{group = Group, buf = empty_buf()};
-start_shell(ConnectionManager, Cmd, #state{exec=Shell} = State) when is_function(Shell) ->
+start_shell(ConnectionHandler, Cmd, #state{exec=Shell} = State) when is_function(Shell) ->
+
+    ConnectionInfo = ssh_connection_handler:info(ConnectionHandler,
+						 [peer, user]),
     {ok, User} = 
-	ssh_userreg:lookup_user(ConnectionManager),
+	proplists:get_value(user, ConnectionInfo),
     ShellFun = 
 	case erlang:fun_info(Shell, arity) of
 	    {arity, 1} ->
@@ -447,8 +496,8 @@ start_shell(ConnectionManager, Cmd, #state{exec=Shell} = State) when is_function
 	    {arity, 2} ->
 		fun() -> Shell(Cmd, User) end;
 	    {arity, 3} ->
-		{ok, PeerAddr} = 
-		    ssh_connection_manager:peer_addr(ConnectionManager),
+		[{_, PeerAddr}] =
+		    proplists:get_value(peer, ConnectionInfo),
 		fun() -> Shell(Cmd, User, PeerAddr) end;
 	    _ ->
 		Shell
@@ -482,31 +531,3 @@ not_zero(0, B) ->
 not_zero(A, _) -> 
     A.
 
-%%% Backwards compatibility
-	    
-%%--------------------------------------------------------------------
-%% Function: listen(...) -> {ok,Pid} | ignore | {error,Error}
-%% Description: Starts a listening server
-%% Note that the pid returned is NOT the pid of this gen_server;
-%% this server is started when an SSH connection is made on the
-%% listening port
-%%--------------------------------------------------------------------
-listen(Shell) ->
-    listen(Shell, 22).
-
-listen(Shell, Port) ->
-    listen(Shell, Port, []).
-
-listen(Shell, Port, Opts) ->
-    listen(Shell, any, Port, Opts).
-
-listen(Shell, HostAddr, Port, Opts) ->
-    ssh:daemon(HostAddr, Port, [{shell, Shell} | Opts]).
-    
-
-%%--------------------------------------------------------------------
-%% Function: stop(Pid) -> ok
-%% Description: Stops the listener
-%%--------------------------------------------------------------------
-stop(Pid) ->
-    ssh:stop_listener(Pid).

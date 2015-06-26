@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -29,6 +29,8 @@
 -define(SSH_DEFAULT_PORT, 22).
 -define(SSH_MAX_PACKET_SIZE, (256*1024)).
 -define(SSH_LENGHT_INDICATOR_SIZE, 4).
+-define(REKEY_TIMOUT, 3600000).
+-define(REKEY_DATA_TIMOUT, 60000).
 
 -define(FALSE, 0).
 -define(TRUE,  1).
@@ -127,7 +129,8 @@
 	  userauth_supported_methods , %  
 	  userauth_methods,
 	  userauth_preference,
-	  available_host_keys
+	  available_host_keys,
+	  authenticated = false
 	 }).
 
 -record(alg,

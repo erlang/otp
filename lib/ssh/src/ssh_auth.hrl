@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -21,9 +21,9 @@
 
 %%% Description: Ssh User Authentication Protocol
 
--define(SUPPORTED_AUTH_METHODS, "publickey,keyboard_interactive,password").
+-define(SUPPORTED_AUTH_METHODS, "publickey,keyboard-interactive,password").
 
--define(PREFERRED_PK_ALG, ssh_rsa).
+-define(PREFERRED_PK_ALG, 'ssh-rsa').
 
 -define(SSH_MSG_USERAUTH_REQUEST,  50).
 -define(SSH_MSG_USERAUTH_FAILURE,  51).

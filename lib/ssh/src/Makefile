@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2004-2012. All Rights Reserved.
+# Copyright Ericsson AB 2004-2013. All Rights Reserved.
 #
 # The contents of this file are subject to the Erlang Public License,
 # Version 1.1, (the "License"); you may not use this file except in
@@ -41,7 +41,9 @@ RELSYSDIR = $(RELEASE_PATH)/lib/ssh-$(VSN)
 BEHAVIOUR_MODULES= \
 	ssh_sftpd_file_api \
         ssh_channel \
-	ssh_key_api
+	ssh_daemon_channel \
+	ssh_client_key_api \
+	ssh_server_key_api
 
 MODULES= \
 	ssh \
@@ -51,7 +53,6 @@ MODULES= \
 	ssh_connection_sup \
 	ssh_connection \
 	ssh_connection_handler \
-	ssh_connection_manager \
 	ssh_shell \
 	ssh_system_sup \
 	ssh_subsystem_sup \
@@ -65,12 +66,12 @@ MODULES= \
 	ssh_file \
 	ssh_io \
 	ssh_math \
+	ssh_message \
 	ssh_no_io \
 	ssh_sftp \
 	ssh_sftpd \
 	ssh_sftpd_file\
 	ssh_transport \
-	ssh_userreg \
 	ssh_xfer
 
 PUBLIC_HRL_FILES= ssh.hrl ssh_userauth.hrl ssh_xfer.hrl
@@ -118,10 +119,10 @@ clean:
 	rm -f errs core *~
 
 $(APP_TARGET):	$(APP_SRC) ../vsn.mk
-	sed -e 's;%VSN%;$(VSN);' $< > $@
+	$(vsn_verbose)sed -e 's;%VSN%;$(VSN);' $< > $@
 
 $(APPUP_TARGET):	$(APPUP_SRC) ../vsn.mk
-	sed -e 's;%VSN%;$(VSN);' $< > $@
+	$(vsn_verbose)sed -e 's;%VSN%;$(VSN);' $< > $@
 
 
 docs:
