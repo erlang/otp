@@ -40,37 +40,13 @@
   </description>
   <datatypes>
     <datatype>
-      <name name="attribute_info"></name>
-    </datatype>
-    <datatype>
-      <name name="attributes"></name>
-    </datatype>
-    <datatype>
-      <name name="attributes_data"></name>
-    </datatype>
-    <datatype>
       <name name="category"></name>
-    </datatype>
-    <datatype>
-      <name name="column"></name>
     </datatype>
     <datatype>
       <name name="error_description"></name>
     </datatype>
     <datatype>
       <name name="error_info"></name>
-    </datatype>
-    <datatype>
-      <name name="info_line"></name>
-    </datatype>
-    <datatype>
-      <name name="info_location"></name>
-    </datatype>
-    <datatype>
-      <name name="line"></name>
-    </datatype>
-    <datatype>
-      <name name="location"></name>
     </datatype>
     <datatype>
       <name name="option"></name>
@@ -86,9 +62,6 @@
     </datatype>
     <datatype>
       <name name="token"></name>
-    </datatype>
-    <datatype>
-      <name name="token_info"></name>
     </datatype>
     <datatype>
       <name name="tokens"></name>
@@ -122,25 +95,23 @@
           <anno>StartLocation</anno>, [])</c>.</p>
         <p><c><anno>StartLocation</anno></c> indicates the initial location
           when scanning starts. If <c><anno>StartLocation</anno></c> is a line,
-          <c>attributes()</c> as well as <c><anno>EndLocation</anno></c> and
+          <c>Anno</c> as well as <c><anno>EndLocation</anno></c> and
           <c><anno>ErrorLocation</anno></c> will be lines. If
           <c><anno>StartLocation</anno></c> is a pair of a line and a column
-          <c>attributes()</c> takes the form of an opaque compound
+          <c>Anno</c> takes the form of an opaque compound
           data type, and <c><anno>EndLocation</anno></c> and
           <c><anno>ErrorLocation</anno></c>
           will be pairs of a line and a column. The <em>token
-          attributes</em> contain information about the column and the
+          annotations</em> contain information about the column and the
           line where the token begins, as well as the text of the
           token (if the <c>text</c> option is given), all of which can
-          be accessed by calling <seealso
-          marker="#token_info/1">token_info/1,2</seealso>, <seealso
-          marker="#attributes_info/1">attributes_info/1,2</seealso>,
+          be accessed by calling
           <seealso marker="#column/1">column/1</seealso>,
           <seealso marker="#line/1">line/1</seealso>,
           <seealso marker="#location/1">location/1</seealso>, and
           <seealso marker="#text/1">text/1</seealso>.</p>
         <p>A <em>token</em> is a tuple containing information about
-          syntactic category, the token attributes, and the actual
+          syntactic category, the token annotations, and the actual
           terminal symbol. For punctuation characters (e.g. <c>;</c>,
           <c>|</c>) and reserved words, the category and the symbol
           coincide, and the token is represented by a two-tuple.
@@ -172,7 +143,7 @@
         <item><p>Short for <c>[return_comments, return_white_spaces]</c>.</p>
         </item>
         <tag><c>text</c></tag>
-        <item><p>Include the token's text in the token attributes. The
+        <item><p>Include the token's text in the token annotation. The
           text is the part of the input corresponding to the token.</p>
         </item>
         </taglist>
@@ -303,150 +274,6 @@
         of annotations. If there is no text, <c>undefined</c> is
         returned.
         </p>
-      </desc>
-    </func>
-    <func>
-      <name name="token_info" arity="1"/>
-      <fsummary>Return information about a token</fsummary>
-      <desc>
-        <p>Returns a list containing information about the token
-          <c><anno>Token</anno></c>. The order of the
-          <c><anno>TokenInfoTuple</anno></c>s is not
-          defined. See <seealso
-          marker="#token_info/2">token_info/2</seealso> for
-          information about specific
-          <c><anno>TokenInfoTuple</anno></c>s.</p>
-        <p>Note that if <c>token_info(Token, TokenItem)</c> returns
-          <c>undefined</c> for some <c>TokenItem</c>, the
-          item is not included in <c><anno>TokenInfo</anno></c>.</p>
-      </desc>
-    </func>
-    <func>
-      <name name="token_info" arity="2" clause_i="1"/>
-      <name name="token_info" arity="2" clause_i="2"/>
-      <type name="token_item"/>
-      <type name="attribute_item"/>
-      <fsummary>Return information about a token</fsummary>
-      <desc>
-        <p>Returns a list containing information about the token
-          <c><anno>Token</anno></c>. If one single
-          <c><anno>TokenItem</anno></c> is given the returned value is
-          the corresponding
-          <c>TokenInfoTuple</c>, or <c>undefined</c> if the
-          <c>TokenItem</c> has no value. If a list of
-          <c><anno>TokenItem</anno></c>s is given the result is a list of
-          <c><anno>TokenInfoTuple</anno></c>. The
-          <c><anno>TokenInfoTuple</anno></c>s will
-          appear with the corresponding <c><anno>TokenItem</anno></c>s in
-          the same order as the <c><anno>TokenItem</anno></c>s
-	  appear in the list of <c>TokenItem</c>s.
-          <c><anno>TokenItem</anno></c>s with no value are not included
-          in the list of <c><anno>TokenInfoTuple</anno></c>.</p>
-	<p>The following <c><anno>TokenInfoTuple</anno></c>s with corresponding
-	   <c><anno>TokenItem</anno></c>s are valid:</p>
-        <taglist>
-          <tag><c>{category, <seealso marker="#type-category">
-            category()</seealso>}</c></tag>
-          <item><p>The category of the token.</p>
-          </item>
-          <tag><c>{column, <seealso marker="#type-column">
-            column()</seealso>}</c></tag>
-          <item><p>The column where the token begins.</p>
-          </item>
-          <tag><c>{length, integer() > 0}</c></tag>
-          <item><p>The length of the token's text.</p>
-          </item>
-          <tag><c>{line, <seealso marker="#type-line">
-            line()</seealso>}</c></tag>
-          <item><p>The line where the token begins.</p>
-          </item>
-          <tag><c>{location, <seealso marker="#type-location">
-            location()</seealso>}</c></tag>
-          <item><p>The line and column where the token begins, or
-            just the line if the column unknown.</p>
-          </item>
-          <tag><c>{symbol, <seealso marker="#type-symbol">
-            symbol()</seealso>}</c></tag>
-          <item><p>The token's symbol.</p>
-          </item>
-          <tag><c>{text, string()}</c></tag>
-          <item><p>The token's text.</p>
-          </item>
-        </taglist>
-      </desc>
-    </func>
-    <func>
-      <name name="attributes_info" arity="1"/>
-      <fsummary>Return information about token attributes</fsummary>
-      <desc>
-        <p>Returns a list containing information about the token
-          attributes <c><anno>Attributes</anno></c>. The order of the
-          <c><anno>AttributeInfoTuple</anno></c>s is not defined.
-          See <seealso
-          marker="#attributes_info/2">attributes_info/2</seealso> for
-          information about specific
-          <c><anno>AttributeInfoTuple</anno></c>s.</p>
-        <p>Note that if <c>attributes_info(Token, AttributeItem)</c>
-          returns <c>undefined</c> for some <c>AttributeItem</c> in
-          the list above, the item is not included in
-          <c><anno>AttributesInfo</anno></c>.</p>
-      </desc>
-    </func>
-    <func>
-      <name name="attributes_info" arity="2" clause_i="1"/>
-      <name name="attributes_info" arity="2" clause_i="2"/>
-      <fsummary>Return information about a token attributes</fsummary>
-      <type name="attribute_item"/>
-      <desc>
-        <p>Returns a list containing information about the token
-          attributes <c><anno>Attributes</anno></c>. If one single
-          <c><anno>AttributeItem</anno></c> is given the returned value is the
-          corresponding <c><anno>AttributeInfoTuple</anno></c>,
-          or <c>undefined</c> if the <c><anno>AttributeItem</anno></c>
-          has no value. If a list of <c><anno>AttributeItem</anno></c>
-          is given the result is a list of
-          <c><anno>AttributeInfoTuple</anno></c>.
-          The <c><anno>AttributeInfoTuple</anno></c>s
-          will appear with the corresponding <c><anno>AttributeItem</anno></c>s
-          in the same order as the <c><anno>AttributeItem</anno></c>s
-          appear in the list of <c><anno>AttributeItem</anno></c>s.
-          <c><anno>AttributeItem</anno></c>s with no
-          value are not included in the list of
-	  <c><anno>AttributeInfoTuple</anno></c>.</p>
-	<p>The following <c><anno>AttributeInfoTuple</anno></c>s with
-          corresponding <c><anno>AttributeItem</anno></c>s are valid:</p>
-        <taglist>
-          <tag><c>{column, <seealso marker="#type-column">
-            column()</seealso>}</c></tag>
-          <item><p>The column where the token begins.</p>
-          </item>
-          <tag><c>{length, integer() > 0}</c></tag>
-          <item><p>The length of the token's text.</p>
-          </item>
-          <tag><c>{line, <seealso marker="#type-line">
-            line()</seealso>}</c></tag>
-          <item><p>The line where the token begins.</p>
-          </item>
-          <tag><c>{location, <seealso marker="#type-location">
-            location()</seealso>}</c></tag>
-          <item><p>The line and column where the token begins, or
-            just the line if the column unknown.</p>
-          </item>
-          <tag><c>{text, string()}</c></tag>
-          <item><p>The token's text.</p>
-          </item>
-        </taglist>
-      </desc>
-    </func>
-    <func>
-      <name name="set_attribute" arity="3"/>
-      <fsummary>Set a token attribute value</fsummary>
-      <desc>
-        <p>Sets the value of the <c>line</c> attribute of the token
-          attributes <c><anno>Attributes</anno></c>.</p>
-        <p>The <c><anno>SetAttributeFun</anno></c> is called with the value of
-          the <c>line</c> attribute, and is to return the new value of
-          the <c>line</c> attribute.</p>
       </desc>
     </func>
     <func>
