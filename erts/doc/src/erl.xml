@@ -371,7 +371,7 @@
           path, similar to <c><![CDATA[code:add_pathsa/1]]></c>. See
           <seealso marker="kernel:code">code(3)</seealso>.
 	  As an alternative to <c>-pa</c>, if several directories are
-	  to be prepended to the code and the directories have a
+	  to be prepended to the code path and the directories have a
 	  common parent directory, that parent directory could be
 	  specified in the <c>ERL_LIBS</c> environment variable.
 	  See <seealso marker="kernel:code">code(3)</seealso>.</p>
@@ -1185,7 +1185,7 @@
 	    disables this feature, which also is the default.
 	    </p>
 	    <p>This feature has been introduced as a temporary workaround
-	    for lengthy executing native code, and native code that do not
+	    for long-executing native code, and native code that does not
 	    bump reductions properly in OTP. When these bugs have be fixed
 	    the <c>+sfwi</c> flag will be removed.
 	    </p>
@@ -1211,7 +1211,7 @@
 	    balance scheduler utilization between schedulers. That is,
 	    strive for equal scheduler utilization on all schedulers.
 	    <br/>&nbsp;&nbsp;&nbsp;<c>+sub true</c> is only supported on
-	    systems where the runtime system detects and use a monotonically
+      systems where the runtime system detects and uses a monotonically
 	    increasing high resolution clock. On other systems, the runtime
 	    system will fail to start.
 	    <br/>&nbsp;&nbsp;&nbsp;<c>+sub true</c> implies

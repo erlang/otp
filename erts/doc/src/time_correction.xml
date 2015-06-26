@@ -36,11 +36,11 @@
   <section>
     <title>New Extended Time Functionality</title>
     <note><p>As of OTP 18 (ERTS version 7.0) the time functionality of
-    Erlang has been extended. This both includes a
+    Erlang has been extended. This includes both a
     <seealso marker="#The_New_Time_API">new API</seealso>
     for time, as well as
     <seealso marker="#Time_Warp_Modes">time warp
-    modes</seealso> which alters the behavior of the system when
+    modes</seealso> which alter the behavior of the system when
     system time changes.</p>
     <p>The <seealso marker="#No_Time_Warp_Mode">default
     time warp mode</seealso> has the same behavior as before, and the
@@ -67,7 +67,7 @@
     <section>
       <title>Monotonically Increasing</title>
       <p>In a monotonically increasing sequence of values, all values
-      that have a predecessor are either larger than, or equal to its
+      that have a predecessor are either larger than, or equal to, its
       predecessor.</p>
     </section>
 
@@ -82,14 +82,14 @@
     <marker id="UT1"/>
     <section>
       <title>UT1</title>
-      <p>Universal Time. Based on the rotation of the earth. Conceptually
+      <p>Universal Time. Based on the rotation of the earth. Conceptually,
       mean solar time at 0° longitude.</p>
     </section>
 
     <marker id="UTC"/>
     <section>
       <title>UTC</title>
-      <p>Coordinated Universal Time. UTC almost align with
+      <p>Coordinated Universal Time. UTC almost aligns with
       <seealso marker="#UT1">UT1</seealso>, however, UTC uses the
       SI definition of a second which is not exactly of the same length
       as the second used by UT1. This means that UTC slowly drifts from
@@ -106,9 +106,9 @@
       Epoch is defined to be 00:00:00 <seealso marker="#UTC">UTC</seealso>,
       January 1, 1970.
       <url href="http://pubs.opengroup.org/onlinepubs/009604499/basedefs/xbd_chap04.html#tag_04_14">A day in POSIX time</url>
-      is defined to be exactly 86400 seconds long. Strangely enough
-      Epoch is defined to be a time in UTC, and UTC have another
-      definition of how long a day is. Quoting the Open Group
+      is defined to be exactly 86400 seconds long. Strangely enough,
+      Epoch is defined to be a time in UTC, and UTC has another
+      definition of how long a day is. Quoting the Open Group:
       <url href="http://pubs.opengroup.org/onlinepubs/9699919799/xrat/V4_xbd_chap04.html#tag_21_04_15">"POSIX time is therefore not necessarily UTC, despite its appearance"</url>. The effect of this is that when an UTC leap second is
       inserted, POSIX time either stops for a second, or repeats the
       last second. If an UTC leap second would be deleted (has never
@@ -149,7 +149,7 @@
     <marker id="OS_System_Time"/>
     <section>
       <title>OS System Time</title>
-      <p>The operating systems view of
+      <p>The operating system's view of
       <seealso marker="#POSIX_Time">POSIX time</seealso>. It can be
       retrieved by calling
       <seealso marker="kernel:os#system_time/0"><c>os:system_time()</c></seealso>.
@@ -165,10 +165,10 @@
     <section>
       <title>OS Monotonic Time</title>
       <p>A monotonically increasing time provided by the operating
-      system. This time does not leap and have a relatively steady
-      frequency although not completely correct. However, it is not
+      system. This time does not leap and has a relatively steady
+      frequency, although not completely correct. However, it is not
       uncommon that the OS monotonic time stops if the system is
-      suspended. This time typically increase since some
+      suspended. This time typically increases since some
       unspecified point in time that is not connected to
       <seealso marker="#OS_System_Time">OS system time</seealso>. Note
       that this type of time is not necessarily provided by all
@@ -180,7 +180,7 @@
     <marker id="Erlang_System_Time"/>
     <section>
       <title>Erlang System Time</title>
-      <p>The Erlang runtime systems view of
+      <p>The Erlang runtime system's view of
       <seealso marker="#POSIX_Time">POSIX time</seealso>. It can be
       retrieved by calling
       <seealso marker="erlang#system_time/0"><c>erlang:system_time()</c></seealso>.
@@ -201,7 +201,7 @@
       some unspecified point in time. It can be retrieved by calling
       <seealso marker="erlang#monotonic_time/0"><c>erlang:monotonic_time()</c></seealso>.
       The
-      <seealso marker="#Time_Accuracy">accuracy</seealso>, and
+      <seealso marker="#Time_Accuracy">accuracy</seealso> and
       <seealso marker="#Time_Precision">precision</seealso> of Erlang
       monotonic time heavily depends on the accuracy and precision of
       <seealso marker="#OS_Monotonic_Time">OS monotonic time</seealso>,
@@ -215,11 +215,11 @@
       the Erlang monotonic time depends on the time warp mode
       used.</p>
 
-      <p>Internally in the runtime system the Erlang monotonic
+      <p>Internally in the runtime system, the Erlang monotonic
       time is the "time engine" that is used for more or less
-      everything that has anything to do with time. All timers
-      regardless of it is a <c>receive ... after</c> timer, BIF timer,
-      or a timer in the <c>timer</c> module are triggered
+      everything that has anything to do with time. All timers,
+      regardless of whether it is a <c>receive ... after</c> timer, BIF timer,
+      or a timer in the <c>timer</c> module, are triggered
       relative Erlang monotonic time. Even
       <seealso marker="#Erlang_System_Time">Erlang system
       time</seealso> is based on Erlang monotonic time.
@@ -237,8 +237,8 @@
 
   <p>Time is vital to an Erlang program and, more importantly, <em>correct</em>
   time is vital to an Erlang program. As Erlang is a language with
-  soft real time properties and we have the possibility to express
-  time in our programs, the Virtual Machine and the language has to be
+  soft real time properties and we have the ability to express
+  time in our programs, the Virtual Machine and the language have to be
   very careful about what is considered a correct point in time and in
   how time functions behave.</p>
 
@@ -255,30 +255,30 @@
   not unless you actually have a chip level atomic clock wired to
   it. Time, as perceived by your computer, will normally need to be
   corrected. Hence the NTP protocol that together with the ntpd
-  process will do it's best to keep your computers time in sync with
+  process will do its best to keep your computers time in sync with
   the "real" time in the universe. Between NTP corrections, usually a
   less potent time-keeper than an atomic clock is used.</p>
 
   <p>But NTP is not fail safe. The NTP server can be unavailable, the
-  ntp.conf can be wrongly configured or your computer may from time to
-  time be disconnected from the internet. Furthermore you can have a
+  ntp.conf can be wrongly configured, or your computer may, from time to
+  time, be disconnected from the Internet. Furthermore you can have a
   user (or even system administrator) on your system that thinks the
   right way to handle daylight saving time is to adjust the clock one
   hour two times a year (a tip, that is not the right way to do
   it...). To further complicate things, this user fetched your
-  software from the internet and has never ever thought about what's
+  software from the Internet and has never ever thought about what's
   the correct time as perceived by a computer. The user simply does
   not care about keeping the wall clock in sync with the rest of the
   universe. The user expects your program to have omnipotent knowledge
   about the time.</p>
 
   <p>Most programmers also expect time to be reliable, at least until
-  they realize that the wall clock time on their workstation is of by
+  they realize that the wall clock time on their workstation is off by
   a minute. Then they simply set it to the correct time, maybe or
   maybe not in a smooth way. Most probably not in a smooth way.</p>
 
-  <p>The amount of problems that arise when you expect the wall clock
-  time on the system to always be correct may be immense. Therefore Erlang
+  <p>The number of problems that arise when you expect the wall clock
+  time on the system to always be correct may be immense. Therefore, Erlang
   introduced the "corrected estimate of time", or the "time
   correction" many years ago. The time correction relies on the fact
   that most operating systems have some kind of monotonic clock,
@@ -301,12 +301,12 @@
     <seealso marker="#Erlang_Monotonic_Time">Erlang monotonic time</seealso>
     will not warp, and that the frequency is relatively accurate.
     The type of adjustments made to the frequency depends on the
-    time warp mode used. This will be discussed in more details in
+    time warp mode used. This will be discussed in more detail in
     the <seealso marker="#Time_Warp_Modes">time warp modes</seealso>
     section below.</p>
 
-    <p>By default time correction will be enabled if support for
-    it on the specific platform exist. Support for it includes
+    <p>By default, time correction will be enabled if support for
+    it on the specific platform exists. Support for it includes
     both an OS monotonic time provided by the OS, and an
     implementation in the Erlang runtime system utilizing the
     OS monotonic time. You can check if your system has support
@@ -342,11 +342,11 @@
     </p>
 
     <p><seealso marker="erlang#now/0"><c>erlang:now/0</c></seealso>
-    behaves very bad when Erlang system time warps. When Erlang
-    system time do a time warp backwards, the values returned
+    behaves very poorly when the Erlang system time warps. When the Erlang
+    system time does a time warp backwards, the values returned
     from <c>erlang:now/0</c> will freeze (if you disregard the
     micro second increments made due to the actual call) until
-    OS system time reach the point of the last value returned by
+    the OS system time reaches the point of the last value returned by
     <c>erlang:now/0</c>. This freeze might continue for very
     long periods of time. It might take years, decades,
     and even longer than this until the freeze stops.</p>
@@ -369,7 +369,7 @@
     <p>Current <seealso marker="#Erlang_System_Time">Erlang system
     time</seealso> is determined by adding current
     <seealso marker="erlang#monotonic_time/0">Erlang monotonic time</seealso>
-    with current
+    and current
     <seealso marker="erlang#time_offset/0">time offset</seealso>. The
     time offset is managed differently depending on which time
     warp mode you use. The time warp mode is set by passing the
@@ -381,7 +381,7 @@
     <section>
       <title>No Time Warp Mode</title>
       <p>The time offset is determined at runtime system start
-      and will after this not change. This is the default behavior.
+        and after this will not change. This is the default behavior.
       Not because it is the best mode (which it isn't). It is
       default <em>only</em> because this is how the runtime system
       always has behaved up until ERTS version 7.0, and you have to
@@ -399,9 +399,9 @@
       time measurements in the runtime system.</p>
 
       <p>If time correction is not enabled, the Erlang monotonic
-      time will freeze when the OS system time leap backwards.
+      time will freeze when the OS system does a time leap backwards.
       The freeze of the monotonic time will continue until
-      OS system time catch up. The freeze may continue for
+      OS system time catches up. The freeze may continue for
       a very long time. When OS system time leaps forwards,
       Erlang monotonic time will also leap forward.</p>
     </section>
@@ -411,7 +411,7 @@
       <title>Single Time Warp Mode</title>
       <p>This mode is more or less a backwards compatibility mode
       as of its introduction.</p>
-      <p>On an embedded system it is not uncommon that the system
+      <p>On an embedded system, it is not uncommon that the system
       has no power supply at all, not even a battery, when it is
       shut off. The system clock on such a system will typically
       be way off when the system boots. If the
@@ -446,9 +446,9 @@
 	  <p>If time correction is enabled, adjustments to the
 	  Erlang monotonic clock will be made to keep its
 	  frequency as correct as possible, but <em>no</em>
-	  adjustments will be made trying to align Erlang system
+	  adjustments will be made to try to align Erlang system
 	  time and OS system time. That is, during the preliminary
-	  Erlang system time and OS system time might diverge
+	  phase, Erlang system time and OS system time might diverge
 	  from each other, and no attempt to prevent this will
 	  be made.</p>
 
@@ -461,14 +461,14 @@
 	<tag>Final Phase</tag>
 	<item>
 
-	  <p>The final phase begin when the user finalize the time
+	  <p>The final phase begins when the user finalizes the time
 	  offset by calling
 	  <seealso marker="erlang#system_flag_time_offset"><c>erlang:system_flag(time_offset, finalize)</c></seealso>.
 	  The finalization can only be performed once.
 	  </p>
 
 	  <p>During finalization, the time offset is adjusted and
-	  fixated so that current Erlang system time align with
+	  fixed so that current Erlang system time aligns with
 	  current OS system time. Since the time offset may
 	  change during the finalization, the Erlang system time
 	  may do a time warp at this point. The time offset will
@@ -505,11 +505,11 @@
       </taglist>
 
       <p>If these requirements are not fulfilled, the system
-      may behave very bad.
+      may behave very poorly.
       </p>
 
       <p>Assuming that the requirements above are fulfilled,
-      time correction is enabled, and that the OS system time
+      that time correction is enabled, and that the OS system time
       is adjusted using some time adjustment protocol like NTP
       or similar, only small adjustments of the Erlang monotonic
       time should be needed in order to keep system times
@@ -522,7 +522,7 @@
       both phases are
       <seealso marker="#Time_Warp_Safe_Code">time warp
       safe</seealso>.</p>
-      <p>Code that only execute in the final phase does not have
+      <p>Code that only executes in the final phase does not have
       to be able to cope with the time warp.</p></warning>
 
     </section>
@@ -532,10 +532,10 @@
       <title>Multi Time Warp Mode</title>
 
       <p><em>Multi time warp mode in combination with time
-      correction is the preferred configuration</em>. This since,
-      on almost all platforms, the Erlang runtime system will have
-      better performance, will scale better, will behave better,
-      and since the accuracy, and precision of time measurements
+      correction is the preferred configuration</em>. This is since
+      on almost all platforms the Erlang runtime system will have
+      better performance, will scale better, and will behave better,
+      and also since the accuracy and precision of time measurements
       will be better. Only Erlang runtime systems executing on
       ancient platforms will benefit from another configuration.</p>
 
@@ -552,7 +552,7 @@
       will leap forward if OS system time leaps forward. If the
       OS system time leaps backwards, Erlang monotonic time will
       stop briefly but it does not freeze for extended periods
-      of time. This since the time offset is changed in order to
+      of time. This is since the time offset is changed in order to
       align Erlang system time with OS system time.</p>
 
       <warning><p>In order to be able to use this mode you have
@@ -570,22 +570,22 @@
     <p>The old time API is based on
     <seealso marker="erlang#now/0"><c>erlang:now/0</c></seealso>.
     The major issue with <c>erlang:now/0</c> is that it was
-    intended to be used for so many unrelated things. This
+    intended to be used for many unrelated things. This
     tied these unrelated operations together and unnecessarily
-    caused performance, scalability as well as accuracy, and
+    caused performance, scalability, accuracy, and
     precision issues for operations that do not need to have
     such issues. The new API spreads different functionality
     over multiple functions in order to improve on this.</p>
 
     <p>In order to be backwards compatible <c>erlang:now/0</c> will
     remain as is, but <em>you are strongly discouraged from using
-    it</em>. A lot of uses of <c>erlang:now/0</c> will also
+    it</em>. Many uses of <c>erlang:now/0</c> will also
     prevent you from using the new
     <seealso marker="#Multi_Time_Warp_Mode">multi time warp
-    mode</seealso> which is an important part of this
+    mode</seealso>, which is an important part of this
     new time functionality improvement.</p>
 
-    <p>Some of the new BIFs on some systems, perhaps surprisingly,
+    <p>On some systems, some of the new BIFs will, perhaps surprisingly,
     return negative integer values on a newly started run time
     system. This is not a bug, but a memory usage optimization.</p>
 
@@ -620,21 +620,21 @@
     <marker id="The_New_Erlang_Monotonic_Time"/>
     <section>
       <title>The New Erlang Monotonic Time</title>
-      <p>The Erlang monotonic time as such is new as of ERTS
+      <p>The Erlang monotonic time is new as of ERTS
       version 7.0. It has been introduced in order to be able
-      to detach time measurements such as elapsed time from
+      to detach time measurements, such as elapsed time, from
       calender time. It is very common that one is interested
       in measuring elapsed time or specifying a time relative
       to another point in time without having any need to know
       what the involved times are in UTC or any other
       globally defined time scale. By introducing a time scale
       that has a local definition of where it starts, it is
-      possible to manage time that do not concern calender
-      time on that time scale. Erlang monotonic time use
+      possible to manage time that does not concern calender
+      time on that time scale. Erlang monotonic time uses
       such a time scale with a locally defined start.</p>
 
       <p>The introduction of Erlang monotonic time gives us
-      the possibility to adjust the two Erlang times (Erlang
+      the ability to adjust the two Erlang times (Erlang
       monotonic time and Erlang system time) separately. By
       doing this, accuracy of elapsed time does not have to
       suffer just because the system time happened to be
@@ -642,23 +642,23 @@
       of the two times are only performed in the time warp
       modes, and only fully separated in the
       <seealso marker="#Multi_Time_Warp_Mode">multi
-      time warp mode</seealso>. All other modes than the
+      time warp mode</seealso>. All modes other than the
       multi time warp mode are there for backwards
       compatibility reasons, and when using these the
-      accuracy of Erlang monotonic time suffer since
+      accuracy of Erlang monotonic time suffers since
       the adjustments of Erlang monotonic time in these
       modes are more or less tied to the Erlang system
       time.</p>
 
       <p>The adjustment of system time could have been made
-      smother than using a time warp approach, but we think
+      smoother than by using a time warp approach, but we think
       that would be a bad choice. Since we are able to
-      express and measure time that aren't connected to
+      express and measure time that isn't connected to
       calender time by the use of Erlang monotonic time, it
       is better to expose the change in Erlang system time
-      immediately. This since it makes it possible for the
+      immediately. This is since it makes it possible for the
       Erlang applications executing on the system to react
-      on the change in system time as soon as possible. This
+      to the change in system time as soon as possible. This
       is also more or less exactly how most OSes handle this
       (OS monotonic time and OS system time). By adjusting
       system time smoothly we would just hide the fact that
@@ -669,7 +669,7 @@
       system time you have to be able to detect that it
       happened. The change in Erlang system time occurs when
       current time offset is changed. We have therefore
-      introduced the possibility to monitor the time offset
+      introduced the ability to monitor the time offset
       using
       <seealso marker="erlang#monitor/2"><c>erlang:monitor(time_offset, clock_service)</c></seealso>. A process monitoring the time
       offset will be sent a message on the following format
@@ -680,7 +680,7 @@
     <marker id="Unique_Values"/>
     <section>
       <title>Unique Values</title>
-      <p>Besides reporting time <c>erlang:now/0</c> also
+      <p>Besides reporting time, <c>erlang:now/0</c> also
       produce unique and strictly monotonically increasing
       values. In order to detach this functionality from
       time measurements we have introduced
@@ -691,7 +691,7 @@
     <marker id="Dos_and_Donts"/>
     <section>
       <title>Dos and Don'ts</title>
-      <p>Previously <c>erlang:now/0</c> was the only option for doing
+      <p>Previously, <c>erlang:now/0</c> was the only option for doing
       quite a lot of things. We will look at a few different things
       <c>erlang:now/0</c> could be used for, and how you want to do
       this using the new API:</p>
@@ -741,7 +741,7 @@
 	    </p>
 	    <p>Another easier way of doing this is to use
 	    <seealso marker="erlang#monotonic_time/1"><c>erlang:monotonic_time/1</c></seealso>
-	    with desired time unit. However, you may lose accuracy,
+	    with desired time unit. However, you may lose accuracy
 	    and precision this way.
 	    </p>
 	</do>
@@ -762,7 +762,7 @@
 	    returned by
 	    <seealso marker="erlang#unique_integer/1"><c>erlang:unique_integer([monotonic])</c></seealso>
 	    when the event happens. These integers will be strictly
-	    monotonically ordered on current runtime system instance
+	    monotonically ordered on the current runtime system instance
 	    corresponding to creation time.
 	  </p>
 	</do>
@@ -799,7 +799,7 @@ EventTag = {Time, UMI}</code>
 	    time when the event occurred you can also save the time
 	    offset before or after saving the events using
 	    <seealso marker="erlang#time_offset/0"><c>erlang:time_offset/0</c></seealso>.
-	    Erlang monotonic time added with the time
+	    Erlang monotonic time added to the time
 	    offset corresponds to Erlang system time.</p>
 	    <p>If you are executing in a mode where time offset
 	    may change and you want to be able to get the actual
@@ -855,15 +855,15 @@ EventTag = {Time, UMI}</code>
   <marker id="Supporting_Both_New_and_Old_OTP_Releases"/>
   <section>
     <title>Supporting Both New and Old OTP Releases</title>
-    <p>Your code may be required to be able to run on a variety 
+    <p>Your code may be required to run on a variety 
     of OTP installations of different OTP releases. If so, you
     can not just use the new API out of the box, since it will
-    not be available on old pre OTP 18 releases. The solution
+    not be available on old pre-OTP 18 releases. The solution
     is <em>not</em> to avoid using the new API, since your
     code then won't be able to benefit from the scalability
-    and accuracy improvements made. Instead you want to use the
+    and accuracy improvements made. Instead, you want to use the
     new API when available, and fall back on <c>erlang:now/0</c>
-    when it is not available. Fortunately almost all of the new
+    when it is not available. Fortunately, almost all of the new
     API can easily be implemented using existing primitives
     (except for
     <seealso marker="erlang#system_info_start_time"><c>erlang:system_info(start_time)</c></seealso>,
@@ -872,8 +872,8 @@ EventTag = {Time, UMI}</code>
     <seealso marker="erlang#system_info_os_system_time_source"><c>erlang:system_info(os_system_time_source)</c></seealso>).
     By wrapping the API with functions that fall back on
     <c>erlang:now/0</c> when the new API is not available,
-    and using these wrappers instead of using the API directly
-    the problem is solved. These wrappers can for example
+    and using these wrappers instead of using the API directly,
+    the problem is solved. These wrappers can, for example,
     be implemented as in
     <url href="time_compat.erl"><c>$ERL_TOP/erts/example/time_compat.erl</c></url>.</p>
   </section>

@@ -142,7 +142,7 @@
     <p>The implementation changed in R15. Upgrading to R15 will break
       applications that expect a specific output for a given seed. The output
       is still deterministic number series, but different compared to releases
-      older than R15. The seed <c>{0,0,0}</c> will for example no longer
+      older than R15. The seed <c>{0,0,0}</c> will, for example, no longer
       produce a flawed series of only zeros.</p>
   </section>
 </erlref>
