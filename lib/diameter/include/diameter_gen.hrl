@@ -185,9 +185,10 @@ decode_avps(Name, Recs) ->
         = lists:foldl(fun(T,A) -> decode(Name, T, A) end,
                       {[], {newrec(Name), []}},
                       Recs),
-    {Rec, Avps, Failed ++ missing(Rec, Name)}.
-%% Append 5005 errors so that a 5014 for the same AVP will take
-%% precedence in a Result-Code/Failed-AVP setting.
+    {Rec, Avps, Failed ++ missing(Rec, Name, Failed)}.
+%% Append 5005 errors so that errors are reported in the order
+%% encountered. Failed-AVP should typically contain the first
+%% encountered error accordg to the RFC.
 
 newrec(Name) ->
     '#new-'(name2rec(Name)).
@@ -202,10 +203,18 @@ newrec(Name) ->
 %%      Vendor-Id if applicable.  The value field of the missing AVP
 %%      should be of correct minimum length and contain zeroes.
 
+missing(Rec, Name, Failed) ->
+    [{5005, A} || #diameter_avp{code = MC, vendor_id = MV} = A
+                      <- missing(Rec, Name),
+                  lists:all(fun({_, #diameter_avp{code = C, vendor_id = V}}) ->
+                                        MC /= C orelse MV /= V
+                            end,
+                            Failed)].
+
 missing(Rec, Name) ->
-    [{5005, empty_avp(F)} || F <- '#info-'(element(1, Rec), fields),
-                             A <- [avp_arity(Name, F)],
-                             false <- [have_arity(A, '#get-'(F, Rec))]].
+    [empty_avp(F) || F <- '#info-'(element(1, Rec), fields),
+                     A <- [avp_arity(Name, F)],
+                     not have_arity(A, '#get-'(F, Rec))].
 
 %% Maximum arities have already been checked in building the record.
 
