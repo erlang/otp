@@ -1057,6 +1057,7 @@ sub do_pack {
     my($packable_args) = 0;
     my @is_packable;		# Packability (boolean) for each argument.
     my $wide_packing = 0;
+    my(@orig_args) = @args;
 
     #
     # Count the number of packable arguments.  If we encounter any 's' or 'd'
@@ -1076,6 +1077,18 @@ sub do_pack {
 		$packable_types = "\xFF";
 	    }
 	} elsif ($arg =~ /^[sd]/) {
+	    return ('', '', @args);
+	} elsif ($arg =~ /^[scq]/ and $packable_args > 0) {
+	    # When packing, this operand will be picked up from the
+	    # code array, put onto the packing stack, and later put
+	    # back into a different location in the code. The problem
+	    # is that if this operand is a literal, the original
+	    # location in the code would have been remembered in a
+	    # literal patch.  For packing to work, we would have to
+	    # adjust the position in the literal patch. For the
+	    # moment, adding additional instructions to the packing
+	    # engine to handle this does not seem worth it, so we will
+	    # just turn off packing.
 	    return ('', '', @args);
 	} else {
 	    push @is_packable, 0;
