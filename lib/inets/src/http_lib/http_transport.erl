@@ -269,7 +269,7 @@ get_socket_info(Addr, Port, Fd) ->
 	undefined ->
 	    {Port, sock_opts(Addr, BaseOpts)};
 	Fd -> 
-	    {0, sock_opts(Addr, [{fd, Fd} | BaseOpts])}
+	    {0, sock_opts([{fd, Fd} | BaseOpts])}
     end.
 	    
 %%-------------------------------------------------------------------------
