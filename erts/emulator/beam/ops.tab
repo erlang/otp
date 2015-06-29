@@ -76,17 +76,6 @@ return
 # with the following call instruction, we need to make sure that
 # there is no line/1 instruction between the move and the call.
 #
-
-move S X0=x==0 | line Loc | call_ext Ar Func => \
-     line Loc | move S X0 | call_ext Ar Func
-move S X0=x==0 | line Loc | call_ext_last Ar Func=u$is_bif D => \
-     line Loc | move S X0 | call_ext_last Ar Func D
-move S X0=x==0 | line Loc | call_ext_only Ar Func=u$is_bif => \
-     line Loc | move S X0 | call_ext_only Ar Func
-move S X0=x==0 | line Loc | call Ar Func => \
-     line Loc | move S X0 | call Ar Func
-
-#
 # A tail-recursive call to an external function (non-BIF) will
 # never be saved on the stack, so there is no reason to keep
 # the line instruction. (The compiler did not remove the line
@@ -94,10 +83,14 @@ move S X0=x==0 | line Loc | call Ar Func => \
 # BIFs and ordinary Erlang functions.)
 #
 
-line Loc | call_ext_last Ar Func=u$is_not_bif D => \
-     call_ext_last Ar Func D
-line Loc | call_ext_only Ar Func=u$is_not_bif => \
-     call_ext_only Ar Func
+move S X0=x==0 | line Loc | call_ext Ar Func => \
+     line Loc | move S X0 | call_ext Ar Func
+move S X0=x==0 | line Loc | call_ext_last Ar Func=u$is_not_bif D => \
+     move S X0 | call_ext_last Ar Func D
+move S X0=x==0 | line Loc | call_ext_only Ar Func=u$is_not_bif => \
+     move S X0 | call_ext_only Ar Func
+move S X0=x==0 | line Loc | call Ar Func => \
+     line Loc | move S X0 | call Ar Func
 
 line Loc | func_info M F A => func_info M F A | line Loc
 
