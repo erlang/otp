@@ -48,7 +48,7 @@ $pack_shift[4] = ['0', 'BEAM_LOOSE_SHIFT', # Only for 64 bit wordsize
 		  '(3*BEAM_LOOSE_SHIFT)'];
 
 $pack_mask[2]  = ['BEAM_LOOSE_MASK', $WHOLE_WORD];
-$pack_mask[3]  = ['BEAM_TIGHT_MASK', 'BEAM_TIGHT_MASK', 'BEAM_TIGHT_MASK'];
+$pack_mask[3]  = ['BEAM_TIGHT_MASK', 'BEAM_TIGHT_MASK', $WHOLE_WORD];
 $pack_mask[4]  = ['BEAM_LOOSE_MASK', # Only for 64 bit wordsize
 		  'BEAM_LOOSE_MASK',
 		  'BEAM_LOOSE_MASK',
