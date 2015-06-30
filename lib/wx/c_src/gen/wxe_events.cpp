@@ -302,6 +302,7 @@ void initEventTable()
    {wxEVT_ACTIVATE, 231, "activate"},
    {wxEVT_ACTIVATE_APP, 231, "activate_app"},
    {wxEVT_HIBERNATE, 231, "hibernate"},
+   {wxEVT_MOUSE_CAPTURE_LOST, 234, "mouse_capture_lost"},
    {-1, 0, }
   };
   for(int i=0; event_types[i].ev_type != -1; i++) {
@@ -868,6 +869,13 @@ case 231: {// wxActivateEvent
     rt.addAtom(Etype->eName);
  rt.addBool(ev->GetActive());
     rt.addTupleCount(3);
+  break;
+}
+case 234: {// wxMouseCaptureLostEvent
+    evClass = (char*)"wxMouseCaptureLostEvent";
+    rt.addAtom((char*)"wxMouseCaptureLost");
+    rt.addAtom(Etype->eName);
+    rt.addTupleCount(2);
   break;
 }
  }
