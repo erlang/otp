@@ -31,6 +31,22 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 7.0.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix a rare hanging of the VM seen to happen just after
+	    emulator start. Bug exists since R14.</p>
+          <p>
+	    Own Id: OTP-12859 Aux Id: seq12882 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 7.0</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
