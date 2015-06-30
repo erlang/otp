@@ -2391,6 +2391,9 @@ check_keys_exist([K|Ks],M) ->
     check_keys_exist(Ks,M).
 
 t_bif_merge_and_check(Config) when is_list(Config) ->
+
+    io:format("rand:export_seed() -> ~p\n",[rand:export_seed()]),
+
     %% simple disjunct ones
     %% make sure all keys are unique
     Kss = [[a,b,c,d],
@@ -2438,7 +2441,48 @@ t_bif_merge_and_check(Config) when is_list(Config) ->
     M41 = maps:merge(M4,M1),
     ok  = check_key_values(KVs1 ++ [{d,5}] ++ KVs, M41),
 
+    [begin Ma = random_map(SzA, a),
+	   Mb = random_map(SzB, b),
+	   ok = merge_maps(Ma, Mb)
+     end || SzA <- [3,10,20,100,200,1000], SzB <- [3,10,20,100,200,1000]],
+
     ok.
+
+% Generate random map with an average of Sz number of pairs: K -> {V,K}
+random_map(Sz, V) ->
+    random_map_insert(#{}, 0, V, Sz*2).
+
+random_map_insert(M0, K0, _, Sz) when K0 > Sz ->
+    M0;
+random_map_insert(M0, K0, V, Sz) ->
+    Key = K0 + rand:uniform(3),
+    random_map_insert(M0#{Key => {V,Key}}, Key, V, Sz).
+
+
+merge_maps(A, B) ->
+    AB = maps:merge(A, B),
+    %%io:format("A=~p\nB=~p\n",[A,B]),
+    maps_foreach(fun(K,VB) -> VB = maps:get(K, AB)
+		 end, B),
+    maps_foreach(fun(K,VA) ->
+			 case {maps:get(K, AB),maps:find(K, B)} of
+			     {VA, error} -> ok;
+			     {VB, {ok, VB}} -> ok
+			 end
+		 end, A),
+
+    maps_foreach(fun(K,V) ->
+			 case {maps:find(K, A),maps:find(K, B)} of
+			     {{ok, V}, error} -> ok;
+			     {error, {ok, V}} -> ok;
+			     {{ok,_}, {ok, V}} -> ok
+			 end
+		 end, AB),
+    ok.
+
+maps_foreach(Fun, Map) ->
+    maps:fold(fun(K,V,_) -> Fun(K,V) end, void, Map).
+
 
 check_key_values([],_) -> ok;
 check_key_values([{K,V}|KVs],M) ->
