@@ -386,13 +386,17 @@ listCtrlSort(Config) ->
     io:format("Sorted ~p ~n",[Time]),
 
     Item = wxListItem:new(),
+
+    %% Force an assert on (and debug compiled) which 3.0 is by default
+    wxListItem:setId(Item, 200),
+    io:format("Got ~p ~n", [wxListCtrl:getItem(LC, Item)]),
+
     wxListItem:setMask(Item, ?wxLIST_MASK_TEXT),
     _List = wx:map(fun(Int) ->
 			   wxListItem:setId(Item, Int),
 			   ?m(true, wxListCtrl:getItem(LC, Item)),
 			   io:format("~p: ~s~n",[Int, wxListItem:getText(Item)])
 		   end, lists:seq(0,10)),
-    wxListItem:destroy(Item),
 
     wx_test_lib:wx_destroy(Frame,Config).
 

@@ -181,6 +181,25 @@ void WxeApp::dummy_close(wxEvent& Ev) {
   // windows open, and this will kill the erlang, override default handling
 }
 
+void WxeApp::OnAssertFailure(const wxChar *file, int line, const wxChar *cfunc,
+			    const wxChar *cond, const wxChar *cmsgUser) {
+  wxString msg;
+  wxString func(cfunc);
+  wxString msgUser(cmsgUser);
+
+  msg.Printf(wxT("wxWidgets Assert failure: %s(%d): \"%s\""),
+	     file, line, cond);
+  if ( !func.empty() ) {
+    msg << wxT(" in ") << func << wxT("()");
+  }
+  // and the message itself
+  if ( !msgUser.empty() ) {
+    msg << wxT(" : ") << msgUser;
+  }
+
+  send_msg("error", &msg);
+}
+
 // Called by wx thread
 void WxeApp::idle(wxIdleEvent& event) {
   event.Skip(true);
