@@ -206,8 +206,8 @@ gen_funcs(Defs) ->
       "     rt.addAtom(\"ok\");~n"
       "     break;~n"
       " }~n"),
-    w(" case WXE_BIN_INCR:~n   driver_binary_inc_refc(Ecmd.bin[0]->bin);~n   break;~n",[]),
-    w(" case WXE_BIN_DECR:~n   driver_binary_dec_refc(Ecmd.bin[0]->bin);~n   break;~n",[]),
+    w(" case WXE_BIN_INCR:~n   driver_binary_inc_refc(Ecmd.bin[0].bin);~n   break;~n",[]),
+    w(" case WXE_BIN_DECR:~n   driver_binary_dec_refc(Ecmd.bin[0].bin);~n   break;~n",[]),
     w(" case WXE_INIT_OPENGL:~n  wxe_initOpenGL(&rt, bp);~n   break;~n",[]),
 
     Res = [gen_class(Class) || Class <- Defs],
@@ -631,10 +631,10 @@ decode_arg(N,#type{name=Type,base=binary,mod=Mod0},Arg,A0) ->
     Mod = mods([M || M <- Mod0]),
     case Arg of
 	arg ->
-	    w(" ~s~s * ~s = (~s~s*) Ecmd.bin[~p]->base;~n",
+	    w(" ~s~s * ~s = (~s~s*) Ecmd.bin[~p].base;~n",
 	      [Mod,Type,N,Mod,Type, next_id(bin_count)]);
 	opt ->
-	    w(" ~s = (~s~s*) Ecmd.bin[~p]->base;~n",
+	    w(" ~s = (~s~s*) Ecmd.bin[~p].base;~n",
 	      [N,Mod,Type,next_id(bin_count)])
     end,
     A0;
@@ -644,10 +644,10 @@ decode_arg(N,#type{base={term,"wxTreeItemData"},mod=Mod0},Arg,A0) ->
     BinCnt = next_id(bin_count),
     case Arg of
 	arg ->
-	    w(" ~s~s * ~s =  new ~s(Ecmd.bin[~p]->size, Ecmd.bin[~p]->base);~n",
+	    w(" ~s~s * ~s =  new ~s(Ecmd.bin[~p].size, Ecmd.bin[~p].base);~n",
 	      [Mod,Type,N,Type,BinCnt,BinCnt]);
 	opt ->
-	    w(" ~s = new ~s(Ecmd.bin[~p]->size, Ecmd.bin[~p]->base);~n",
+	    w(" ~s = new ~s(Ecmd.bin[~p].size, Ecmd.bin[~p].base);~n",
 	      [N,Type,BinCnt,BinCnt])
     end,
     A0;
@@ -656,10 +656,10 @@ decode_arg(N,#type{name=Type,base={term,_},mod=Mod0},Arg,A0) ->
     BinCnt = next_id(bin_count),
     case Arg of
 	arg ->
-	    w(" ~s~s * ~s =  new ~s(Ecmd.bin[~p]);~n",
+	    w(" ~s~s * ~s =  new ~s(&Ecmd.bin[~p]);~n",
 	      [Mod,Type,N,Type,BinCnt]);
 	opt ->
-	    w(" ~s = new ~s(Ecmd.bin[~p]);~n",
+	    w(" ~s = new ~s(&Ecmd.bin[~p]);~n",
 	      [N,Type,BinCnt])
     end,
     A0;
@@ -832,7 +832,7 @@ call_arg(#param{where=c, alt={length,Alt}}) when is_list(Alt) ->
     "*" ++ Alt ++ "Len";
 call_arg(#param{where=c, alt={size,Id}}) when is_integer(Id) ->
     %% It's a binary
-    "Ecmd.bin["++ integer_to_list(Id) ++ "]->size";
+    "Ecmd.bin["++ integer_to_list(Id) ++ "].size";
 call_arg(#param{name=N,def=Def,type=#type{by_val=true,single=true,base=Base}})
   when Base =:= int; Base =:= long; Base =:= float; Base =:= double; Base =:= bool ->
     case Def of
