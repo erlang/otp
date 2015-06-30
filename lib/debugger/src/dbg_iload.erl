@@ -541,7 +541,7 @@ fun_clauses([]) -> [].
 new_map(Fs0, Anno, F) ->
     Line = ln(Anno),
     Fs1 = map_fields(Fs0, F),
-    Fs2 = [{ln(A),K,V} || {map_field_assoc,A,K,V} <- Fs1],
+    Fs2 = [{L,K,V} || {map_field_assoc,L,K,V} <- Fs1],
     try
 	{value,Line,map_literal(Fs2, #{})}
     catch
