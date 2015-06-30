@@ -45,7 +45,8 @@ suite() ->
     [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    [{group,tool_tests}
+    [{group,tool_tests},
+     {group,kex}
     ].
 
 groups() ->
@@ -53,7 +54,10 @@ groups() ->
 		       lib_works_as_server,
 		       lib_match,
 		       lib_no_match
-		      ]}
+		      ]},
+     {kex, [], [no_common_alg_server_disconnects,
+		no_common_alg_client_disconnects
+		]}
     ].
 
 
@@ -201,6 +205,91 @@ lib_no_match(_Config) ->
     of
 	{ok,_} -> {fail,"Unexpected match"};
 	{error, {_Op,{expected,a,b},_State}} -> ok
+    end.
+
+%%--------------------------------------------------------------------
+%%% Algo negotiation fail.  This should result in a ssh_msg_disconnect
+%%% being sent from the server.
+no_common_alg_server_disconnects(Config) ->
+    {ok,_} =
+	ssh_trpt_test_lib:exec(
+	  [{set_options, [print_ops, print_seqnums, print_messages]},
+	   {connect,
+	    server_host(Config),server_port(Config),
+	    [{silently_accept_hosts, true},
+	     {user_dir, user_dir(Config)},
+	     {user_interaction, false},
+	     {preferred_algorithms,[{public_key,['ssh-dss']}]}
+	    ]},
+	   receive_hello,
+	   {send, hello},
+	   {match, #ssh_msg_kexinit{_='_'}, receive_msg},
+	   {send, ssh_msg_kexinit},
+	   {match,
+	    #ssh_msg_disconnect{code = ?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,  _='_'},
+	    receive_msg}
+	  ]
+	 ).
+
+%%--------------------------------------------------------------------
+%%% Algo negotiation fail.  This should result in a ssh_msg_disconnect
+%%% being sent from the client.
+no_common_alg_client_disconnects(Config) ->
+    %% Create a listening socket as server socket:
+    {ok,InitialState} = ssh_trpt_test_lib:exec(listen),
+    HostPort = ssh_trpt_test_lib:server_host_port(InitialState),
+    Parent = self(),
+
+    %% Start a process handling one connection on the server side:
+    Pid =
+	spawn_link(
+	  fun() ->
+		  Parent !
+		      {result,self(),
+		       ssh_trpt_test_lib:exec(
+			 [{set_options, [print_ops, print_messages]},
+			  {accept, [{system_dir, system_dir(Config)},
+				    {user_dir, user_dir(Config)}]},
+			  receive_hello,
+			  {send, hello},
+
+			  {match, #ssh_msg_kexinit{_='_'}, receive_msg},
+			  {send,  #ssh_msg_kexinit{
+				     cookie = 247381486335508958743193106082599558706,
+				     kex_algorithms = ["diffie-hellman-group1-sha1"],
+				     server_host_key_algorithms = ["some-unknown"],
+				     encryption_algorithms_client_to_server = ["aes128-ctr"],
+				     encryption_algorithms_server_to_client = ["aes128-ctr"],
+				     mac_algorithms_client_to_server = ["hmac-sha2-256"],
+				     mac_algorithms_server_to_client = ["hmac-sha2-256"],
+				     compression_algorithms_client_to_server = ["none"],
+				     compression_algorithms_server_to_client = ["none"],
+				     languages_client_to_server = [],
+				     languages_server_to_client = [],
+				     first_kex_packet_follows = false,
+				     reserved = 0
+				    }},
+
+			  {match,
+			   #ssh_msg_disconnect{code = ?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,  _='_'},
+			   receive_msg}
+			 ],
+			 InitialState)
+		      }
+	  end),
+
+    %% and finally connect to it with a regular Erlang SSH client:
+    Result = std_connect(HostPort, Config, [{preferred_algorithms,[{public_key,['ssh-dss']}]}]),
+    ct:log("Result of connect is ~p",[Result]),
+
+    receive
+	{result,Pid,{ok,_}} -> 
+	    ok;
+	{result,Pid,{error,{Op,ExecResult,S}}} ->
+	    ct:pal("ERROR!~nOp = ~p~nExecResult = ~p~nState =~n~s",
+		   [Op,ExecResult,ssh_trpt_test_lib:format_msg(S)]),
+	    {fail, ExecResult};
+	X -> ct:fail(X)
     end.
 
 %%%================================================================
