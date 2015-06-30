@@ -4010,16 +4010,25 @@ t_from_form_without_remote(Form, Site, TypeTable) ->
 
 -type expand_depth() :: integer().
 
-t_from_form1(Form, ET, Site, MR, V) ->
-  t_from_form1(Form, ET, Site, MR, V, ?EXPAND_DEPTH).
+-spec t_from_form1(parse_form(), sets:set(mfa()) | 'replace_by_none',
+                   site(), mod_records(), var_table()) ->
+                      {erl_type(), expand_limit()}.
 
-t_from_form1(Form, ET, Site, MR, V, D) ->
+t_from_form1(Form, ET, Site, MR, V) ->
+  TypeNames = initial_typenames(Site),
+  t_from_form1(Form, TypeNames, ET, Site, MR, V, ?EXPAND_DEPTH).
+
+initial_typenames({type, _MTA}=Site) -> [Site];
+initial_typenames({spec, _MFA}) -> [];
+initial_typenames({record, _MRA}) -> [].
+
+t_from_form1(Form, TypeNames, ET, Site, MR, V, D) ->
   L = ?EXPAND_LIMIT,
-  {T, L1} = t_from_form(Form, [], ET, Site, MR, V, D, L),
+  {T, L1} = t_from_form(Form, TypeNames, ET, Site, MR, V, D, L),
   if
     L1 =< 0, D > 1 ->
       D1 = D div 2,
-      t_from_form1(Form, ET, Site, MR, V, D1);
+      t_from_form1(Form, TypeNames, ET, Site, MR, V, D1);
     true ->
       {T, L1}
   end.
@@ -4259,7 +4268,7 @@ type_from_form(Name, Args, TypeNames, ET, Site0, MR, V, D, L) ->
           false -> {t_any(), L1}
         end,
       Rep1 = choose_opaque_type(Rep, Type),
-      Rep2 = case t_is_none(Rep1) of
+      Rep2 = case cannot_have_opaque(Rep1, TypeName, TypeNames) of
                true -> Rep1;
                false ->
                  ArgTypes2 = subst_all_vars_to_any_list(ArgTypes),
@@ -4307,18 +4316,19 @@ remote_from_form(RemMod, Name, Args, TypeNames, ET, S, MR, V, D, L) ->
                     case can_unfold_more(RemType, TypeNames) of
                       true ->
                         NewTypeNames = [RemType|TypeNames],
-                        t_from_form(Form, NewTypeNames, ET, RemMod, MR,
+                        Site = RemType,
+                        t_from_form(Form, NewTypeNames, ET, Site, MR,
                                     TmpVarDict, D, L1);
-                      false ->
-                        {t_any(), L1}
+                      false -> {t_any(), L1}
                     end,
                   NewRep1 = choose_opaque_type(NewRep, Type),
-                  NewRep2 = case t_is_none(NewRep1) of
-                     true -> NewRep1;
+                  NewRep2 =
+                    case cannot_have_opaque(NewRep1, RemType, TypeNames) of
+                      true -> NewRep1;
                      false ->
                        ArgTypes2 = subst_all_vars_to_any_list(ArgTypes),
                        t_opaque(Mod, Name, ArgTypes2, NewRep1)
-                   end,
+                    end,
                   {NewRep2, L2};
                 error ->
                   Msg = io_lib:format("Unable to find remote type ~w:~w()\n",
@@ -4703,6 +4713,12 @@ lookup_type(Name, Arity, RecDict) ->
 
 type_is_defined(TypeOrOpaque, Name, Arity, RecDict) ->
   dict:is_key({TypeOrOpaque, Name, Arity}, RecDict).
+
+cannot_have_opaque(Type, TypeName, TypeNames) ->
+  t_is_none(Type) orelse is_recursive(TypeName, TypeNames).
+
+is_recursive(TypeName, TypeNames) ->
+  lists:member(TypeName, TypeNames).
 
 can_unfold_more(TypeName, TypeNames) ->
   Fun = fun(E, Acc) -> case E of TypeName -> Acc + 1; _ -> Acc end end,
