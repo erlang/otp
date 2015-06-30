@@ -99,7 +99,9 @@ groups() ->
 
 basic_tests() ->
     [send, close, peername_sockname,
-     exec, exec_compressed, shell, cli, known_hosts, 
+     exec, exec_compressed, 
+     shell, shell_no_unicode, shell_unicode_string,
+     cli, known_hosts, 
      idle_time, openssh_zlib_basic_test, misc_ssh_options, inet_option].
 
 
@@ -215,6 +217,25 @@ end_per_group(internal_error, Config) ->
 end_per_group(_, Config) ->
     Config.
 %%--------------------------------------------------------------------
+init_per_testcase(TC, Config) when TC==shell_no_unicode ; 
+				   TC==shell_unicode_string ->
+    PrivDir = ?config(priv_dir, Config),
+    UserDir = ?config(priv_dir, Config),
+    SysDir =  ?config(data_dir, Config),
+    ssh:start(),
+    Sftpd = {_Pid, _Host, Port} =       
+	ssh_test_lib:daemon([{system_dir, SysDir},
+			     {user_dir, PrivDir},
+			     {user_passwords, [{"foo", "bar"}]}]),
+    ct:sleep(500),
+    IO = ssh_test_lib:start_io_server(),
+    Shell = ssh_test_lib:start_shell(Port, IO, UserDir,
+				     [{silently_accept_hosts, true},
+				      {user,"foo"},{password,"bar"}]),
+    ct:pal("IO=~p, Shell=~p, self()=~p",[IO,Shell,self()]),
+    ct:pal("file:native_name_encoding() = ~p,~nio:getopts() = ~p",
+	   [file:native_name_encoding(),io:getopts()]),
+    wait_for_erlang_first_line([{io,IO}, {shell,Shell}, {sftpd, Sftpd}  | Config]);
 init_per_testcase(_TestCase, Config) ->
     ssh:start(),
     Config.
@@ -224,6 +245,15 @@ end_per_testcase(TestCase, Config) when TestCase == server_password_option;
     UserDir = filename:join(?config(priv_dir, Config), nopubkey),
     ssh_test_lib:del_dirs(UserDir),
     end_per_testcase(Config);
+end_per_testcase(TC, Config) when TC==shell_no_unicode ; 
+				  TC==shell_unicode_string ->
+    case ?config(sftpd, Config) of
+	{Pid, _, _} ->
+	    ssh:stop_daemon(Pid),
+	    ssh:stop();
+	_ ->
+	    ssh:stop()
+    end;
 end_per_testcase(_TestCase, Config) ->
     end_per_testcase(Config).
 end_per_testcase(_Config) ->    
@@ -1597,7 +1627,23 @@ one_shell_op(IO, TimeOut) ->
     end.
 
 %%--------------------------------------------------------------------
+shell_no_unicode(Config) ->
+    new_do_shell(?config(io,Config),
+		 [new_prompt,
+		  {type,"io:format(\"hej ~p~n\",[42])."},
+		  {expect,"hej 42"}
+		 ]).
+	      
+%%--------------------------------------------------------------------
+shell_unicode_string(Config) ->
+    new_do_shell(?config(io,Config),
+		 [new_prompt,
+		  {type,"io:format(\"こにちわ~ts~n\",[\"四二\"])."},
+		  {expect,"こにちわ四二"},
+		  {expect,"ok"}
+		 ]).
 
+%%--------------------------------------------------------------------
 openssh_zlib_basic_test() ->
     [{doc, "Test basic connection with openssh_zlib"}].
 openssh_zlib_basic_test(Config) ->
@@ -1853,6 +1899,95 @@ do_shell(IO, Shell) ->
     %% 	{'EXIT', Shell, killed} ->
     %% 	    ok
     %% end.
+
+
+%%--------------------------------------------------------------------
+wait_for_erlang_first_line(Config) ->
+    receive
+	{'EXIT', _, _} ->
+	    {fail,no_ssh_connection};
+	<<"Eshell ",_/binary>> = _ErlShellStart ->
+	    ct:pal("Erlang shell start: ~p~n", [_ErlShellStart]),
+	    Config;
+	Other ->
+	    ct:pal("Unexpected answer from ssh server: ~p",[Other]),
+	    {fail,unexpected_answer}
+    after 10000 ->
+	    ct:pal("No answer from ssh-server"),
+	    {fail,timeout}
+    end.
+
+
+
+new_do_shell(IO, List) -> new_do_shell(IO, 0, List).
+
+new_do_shell(IO, N, [new_prompt|More]) ->
+    new_do_shell(IO, N+1, More);
+
+new_do_shell(IO, N, Ops=[{Order,Arg}|More]) ->
+    Pfx = prompt_prefix(),
+    PfxSize = size(Pfx),
+    receive
+	_X = <<"\r\n">> ->
+	    ct:pal("Skip newline ~p",[_X]),
+	    new_do_shell(IO, N, Ops);
+	
+	<<Pfx:PfxSize/binary,P1,"> ">> when (P1-$0)==N -> 
+	    new_do_shell_prompt(IO, N, Order, Arg, More);
+
+	<<Pfx:PfxSize/binary,P1,P2,"> ">> when (P1-$0)*10 + (P2-$0) == N -> 
+	    new_do_shell_prompt(IO, N, Order, Arg, More);
+
+	<<Pfx:PfxSize/binary,P1,P2,P3,"> ">> when (P1-$0)*100 + (P2-$0)*10 + (P3-$0) == N -> 
+	    new_do_shell_prompt(IO, N, Order, Arg, More);
+
+	Err when element(1,Err)==error ->
+	    ct:fail("new_do_shell error: ~p~n",[Err]);
+
+	RecBin when Order==expect ; Order==expect_echo ->
+	    ct:pal("received ~p",[RecBin]),
+	    RecStr = string:strip(unicode:characters_to_list(RecBin)),
+	    ExpStr = string:strip(Arg),
+	    case lists:prefix(ExpStr, RecStr) of
+		true when Order==expect ->
+		    ct:pal("Matched ~ts",[RecStr]),
+		    new_do_shell(IO, N, More);
+		true when Order==expect_echo ->
+		    ct:pal("Matched echo ~ts",[RecStr]),
+		    new_do_shell(IO, N, More);
+		false ->
+		    ct:fail("*** Expected ~p, but got ~p",[string:strip(ExpStr),RecStr])
+	    end
+    after 30000 ->
+	    ct:log("Meassage queue of ~p:~n~p",
+		   [self(), erlang:process_info(self(), messages)]),
+	    case Order of
+		expect -> ct:fail("timeout, expected ~p",[string:strip(Arg)]);
+		type ->  ct:fail("timeout, no prompt")
+	    end
+    end;
+
+new_do_shell(_, _, []) ->
+    ok.
+
+prompt_prefix() ->
+    case node() of
+	nonode@nohost -> <<>>;
+	Node -> list_to_binary(
+		  lists:concat(["(",Node,")"]))
+    end.
+	    
+
+new_do_shell_prompt(IO, N, type, Str, More) ->
+    ct:pal("Matched prompt ~p to trigger sending of next line to server",[N]),
+    IO ! {input, self(), Str++"\r\n"},
+    ct:pal("Promt '~p> ', Sent ~ts",[N,Str++"\r\n"]),
+    new_do_shell(IO, N, [{expect_echo,Str}|More]); % expect echo of the sent line
+new_do_shell_prompt(IO, N, Op, Str, More) ->
+    ct:pal("Matched prompt ~p",[N]),
+    new_do_shell(IO, N, [{Op,Str}|More]).
+  
+%%--------------------------------------------------------------------
 
 
 std_daemon(Config, ExtraOpts) ->
