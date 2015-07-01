@@ -529,7 +529,6 @@ toolbar(Config) ->
     wxFrame:show(Frame),
     wx_test_lib:wx_destroy(Frame,Config).
 
-
 popup(TestInfo) when is_atom(TestInfo) -> wx_test_lib:tc_info(TestInfo);
 popup(Config) ->
     Wx = wx:new(),
@@ -579,3 +578,32 @@ popup(Config) ->
 	    wxPopupTransientWindow:dismiss(Pop)
     end,
     wx_test_lib:wx_destroy(Frame,Config).
+
+locale(TestInfo) when is_atom(TestInfo) -> wx_test_lib:tc_info(TestInfo);
+locale(_Config) ->
+    wx:new(),
+    io:format("SystemEncoding: ~p~n",[wxLocale:getSystemEncoding()]),
+    io:format("SystemEncodingName: ~ts~n",[wxLocale:getSystemEncodingName()]),
+    io:format("SystemLanguage: ~p~n",[wxLocale:getSystemLanguage()]),
+    io:format("SystemLanguageName: ~p~n",[wxLocale:getLanguageName(wxLocale:getSystemLanguage())]),
+    lang_env(),
+    LC = wxLocale:new(),
+    %% wxLocale:addCatalog(LC, "wxstd"),
+    io:format("Swedish: ~p~n",[wxLocale:getLanguageName(?wxLANGUAGE_SWEDISH)]),
+    R0 = wxLocale:init(LC, [{language, ?wxLANGUAGE_SWEDISH}, {flags, 0}]),
+    io:format("initiated ~p~n",[R0]),
+    lang_env(),
+    ok.
+%% wx_test_lib:wx_destroy(Frame,Config).
+
+lang_env() ->
+    Env0 = os:getenv(),
+    Env = [[R,"\n"]||R <- Env0],
+    %%io:format("~p~n",[lists:sort(Env)]),
+    Opts = [global, multiline, {capture, all, list}],
+    format_env(re:run(Env, "LC_ALL.*", Opts)),
+    format_env(re:run(Env, "^LANG.*=.*$", Opts)),
+    ok.
+format_env({match, List}) ->
+    [io:format("  ~ts~n",[L]) || L <- List];
+format_env(nomatch) -> ok.

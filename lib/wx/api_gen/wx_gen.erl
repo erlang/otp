@@ -1196,7 +1196,7 @@ translate_constants(Enums, NotConsts0, Skip0) ->
 
 create_consts([{{enum, Name},Enum = #enum{vals=Vals}}|R], Skip, NotConsts, Acc0) ->
     CC = fun(What, Acc) ->
-		 create_const(What, Skip, NotConsts, Acc)
+		 create_const(What, Name, Skip, NotConsts, Acc)
 	 end,
     Acc = case Vals of
 	      undefined -> 
@@ -1210,17 +1210,17 @@ create_consts([{{enum, Name},Enum = #enum{vals=Vals}}|R], Skip, NotConsts, Acc0)
     create_consts(R, Skip, NotConsts, Acc);
 create_consts([],_,_,Acc) -> Acc.
 
-create_const({Name, Val}, Skip, NotConsts, Acc) ->
+create_const({Name, Val}, EnumName, Skip, NotConsts, Acc) ->
     case gb_sets:is_member(Name, Skip) of
 	true -> Acc;
 	false ->
-	    case gb_sets:is_member(Name, NotConsts) of
+	    case gb_sets:is_member(Name, NotConsts) orelse
+		gb_sets:is_member(EnumName, NotConsts)
+	    of
 		true ->
 		    [#const{name=Name,val=next_id(const),is_const=false}|Acc];
 		false ->
 		    [#const{name=Name,val=Val,is_const=true}|Acc]
-%% 		false ->
-%% 		    [#const{name=Name,val=Val}|Acc]
 	    end
     end.
 
