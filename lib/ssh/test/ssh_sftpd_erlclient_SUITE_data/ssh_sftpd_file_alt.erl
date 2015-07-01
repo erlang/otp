@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -48,7 +48,7 @@ get_cwd(State) ->
     {file:get_cwd(), State}.
 
 is_dir(AbsPath, State) ->
-    sftpd_file_alt_tester ! alt_is_dir,
+    %sftpd_file_alt_tester ! alt_is_dir,
     {filelib:is_dir(AbsPath), State}.
 
 list_dir(AbsPath, State) ->
