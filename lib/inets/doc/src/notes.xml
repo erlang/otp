@@ -32,7 +32,25 @@
     <file>notes.xml</file>
   </header>
   
-  <section><title>Inets 5.9.8</title>
+  <section><title>Inets 5.9.8.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    If a wrapper script is used to open a privileged port
+	    before starting erlang and supplied as a init argument to
+	    erlang it should override the port configured by the
+	    httpd config file. This feature was broken.</p>
+          <p>
+	    Own Id: OTP-12874 Aux Id: seq12878 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Inets 5.9.8</title>
 
     <section><title>Improvements and New Features</title>
       <list>

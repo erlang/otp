@@ -29,6 +29,21 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Ssh 2.0.9.1</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Backport of ssh-3.0 to solve process leak (OTP-11363)</p>
+          <p>
+	    Own Id: OTP-12884</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Ssh 2.1.2.1</title>
 
     <section><title>Improvements and New Features</title>
