@@ -566,9 +566,6 @@ void** beam_ops;
 #define Move2(S1, D1, S2, D2) D1 = (S1); D2 = (S2)
 #define Move3(S1, D1, S2, D2, S3, D3) D1 = (S1); D2 = (S2); D3 = (S3)
 
-#define MoveGenDest(src, dstp) \
-   if ((dstp) == NULL) { r(0) = (src); } else { *(dstp) = src; }
-
 #define MoveReturn(Src, Dest)       \
     (Dest) = (Src);                 \
     I = c_p->cp;                    \
