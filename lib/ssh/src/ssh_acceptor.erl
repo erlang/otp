@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -25,7 +25,6 @@
 -export([start_link/5]).
 
 %% spawn export  
-%% TODO: system messages
 -export([acceptor_init/6, acceptor_loop/6]).
 
 -define(SLEEP_TIME, 200).
@@ -81,17 +80,15 @@ acceptor_loop(Callback, Port, Address, Opts, ListenSocket, AcceptTimeout) ->
 				  ListenSocket, AcceptTimeout)
     end.
 
-handle_connection(Callback, Address, Port, Options, Socket) ->
+handle_connection(_Callback, Address, Port, Options, Socket) ->
     SystemSup = ssh_system_sup:system_supervisor(Address, Port),
     {ok, SubSysSup} = ssh_system_sup:start_subsystem(SystemSup, Options),
-    ConnectionSup = ssh_system_sup:connection_supervisor(SystemSup),
-    {ok, Pid} = 
-	ssh_connection_sup:start_manager_child(ConnectionSup,
-					       [server, Socket, Options]),
-    Callback:controlling_process(Socket, Pid),
-    SshOpts = proplists:get_value(ssh_opts, Options),
-    Pid ! {start_connection, server, [Address, Port, Socket, SshOpts, SubSysSup]}.
-
+    ConnectionSup = ssh_subsystem_sup:connection_supervisor(SubSysSup),
+    ssh_connection_handler:start_connection(server, Socket,
+					    [{supervisors, [{system_sup, SystemSup},
+							    {subsystem_sup, SubSysSup},
+							    {connection_sup, ConnectionSup}]}
+					     | Options], infinity).
 handle_error(timeout) ->
     ok;
 

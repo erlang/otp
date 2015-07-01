@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2015. All Rights Reserved.
+%% Copyright Ericsson AB 2011-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -17,13 +17,18 @@
 %% %CopyrightEnd%
 %%
 
-{"%VSN%",	
- [
-  {<<"2\\..*">>, [{restart_application, ssh}]},
-  {<<"1\\..*">>, [{restart_application, ssh}]}
- ],
- [
-  {<<"2\\..*">>, [{restart_application, ssh}]},
-  {<<"1\\..*">>, [{restart_application, ssh}]}
- ]
-}.
+-module(ssh_client_key).
+
+-include_lib("public_key/include/public_key.hrl").
+-include("ssh.hrl").
+
+-callback is_host_key(Key :: public_key(), Host :: string(),
+		      Algorithm :: 'ssh-rsa'| 'ssh-dsa'| atom(), Options :: proplists:proplist()) ->
+    boolean().
+
+-callback user_key(Algorithm ::  'ssh-rsa'| 'ssh-dsa'| atom(), Options :: list()) ->
+    {ok,  PrivateKey :: term()} | {error, string()}.
+
+
+-callback add_host_key(Host :: string(), PublicKey :: term(), Options :: list()) ->
+    ok | {error, Error::term()}.

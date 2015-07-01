@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -23,7 +23,9 @@
 
 -include("ssh_connect.hrl").
 
--behaviour(ssh_channel).
+%%% As this is an user interactive client it behaves like a daemon
+%%% channel inspite of it being a client. 
+-behaviour(ssh_daemon_channel).
 
 %% ssh_channel callbacks
 -export([init/1, handle_msg/2, handle_ssh_msg/2, terminate/2]).
@@ -123,7 +125,7 @@ handle_ssh_msg({ssh_cm, _, {exit_status, ChannelId, Status}}, State) ->
     {stop, ChannelId, State}.
 
 %%--------------------------------------------------------------------
-%% Function: handle_ssh_msg(Args) -> {ok, State} | {stop, ChannelId, State}
+%% Function: handle_msg(Args) -> {ok, State} | {stop, ChannelId, State}
 %%                        
 %% Description: Handles other channel messages
 %%--------------------------------------------------------------------

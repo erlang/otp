@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -72,7 +72,7 @@ protocol_version_request(XF) ->
 
 open(XF, ReqID, FileName, Access, Flags, Attrs) -> 
     Vsn = XF#ssh_xfer.vsn,
-    FileName1 = list_to_binary(FileName),
+    FileName1 = unicode:characters_to_binary(FileName),
     MBits = if Vsn >= 5 -> 
 		    M = encode_ace_mask(Access),
 		    ?uint32(M);
@@ -115,7 +115,7 @@ write(XF,ReqID, Handle, Offset, Data) ->
 		is_binary(Data) ->
 		    Data;
 		is_list(Data) -> 
-		    list_to_binary(Data)
+		    unicode:characters_to_binary(Data)
 	    end,
     xf_request(XF,?SSH_FXP_WRITE,
 	       [?uint32(ReqID),
@@ -132,8 +132,8 @@ remove(XF, ReqID, File) ->
 %% Rename a file/directory
 rename(XF, ReqID, Old, New, Flags) ->
     Vsn = XF#ssh_xfer.vsn,
-    OldPath = list_to_binary(Old),
-    NewPath = list_to_binary(New),
+    OldPath = unicode:characters_to_binary(Old),
+    NewPath = unicode:characters_to_binary(New),
     FlagBits
 	= if Vsn >= 5 ->
 		  F0 = encode_rename_flags(Flags),
@@ -151,7 +151,7 @@ rename(XF, ReqID, Old, New, Flags) ->
 
 %% Create directory
 mkdir(XF, ReqID, Path, Attrs) ->
-    Path1 = list_to_binary(Path),
+    Path1 = unicode:characters_to_binary(Path),
     xf_request(XF, ?SSH_FXP_MKDIR, 
 	       [?uint32(ReqID),
 		?binary(Path1),
@@ -159,14 +159,14 @@ mkdir(XF, ReqID, Path, Attrs) ->
 
 %% Remove a directory
 rmdir(XF, ReqID, Dir) ->
-    Dir1 = list_to_binary(Dir),
+    Dir1 = unicode:characters_to_binary(Dir),
     xf_request(XF, ?SSH_FXP_RMDIR,
 	       [?uint32(ReqID),
 		?binary(Dir1)]).
 
 %% Stat file
 stat(XF, ReqID, Path, Flags) ->
-    Path1 = list_to_binary(Path),
+    Path1 = unicode:characters_to_binary(Path),
     Vsn = XF#ssh_xfer.vsn,
     AttrFlags = if Vsn >= 5 ->
 			F = encode_attr_flags(Vsn, Flags),
@@ -182,7 +182,7 @@ stat(XF, ReqID, Path, Flags) ->
 
 %% Stat file - follow symbolic links
 lstat(XF, ReqID, Path, Flags) ->
-    Path1 = list_to_binary(Path),
+    Path1 = unicode:characters_to_binary(Path),
     Vsn = XF#ssh_xfer.vsn,
     AttrFlags = if Vsn >= 5 ->
 			F = encode_attr_flags(Vsn, Flags),
@@ -211,7 +211,7 @@ fstat(XF, ReqID, Handle, Flags) ->
 
 %% Modify file attributes
 setstat(XF, ReqID, Path, Attrs) ->
-    Path1 = list_to_binary(Path),
+    Path1 = unicode:characters_to_binary(Path),
     xf_request(XF, ?SSH_FXP_SETSTAT, 
 	       [?uint32(ReqID),
 		?binary(Path1),
@@ -227,7 +227,7 @@ fsetstat(XF, ReqID, Handle, Attrs) ->
     
 %% Read a symbolic link
 readlink(XF, ReqID, Path) ->
-    Path1 = list_to_binary(Path),
+    Path1 = unicode:characters_to_binary(Path),
     xf_request(XF, ?SSH_FXP_READLINK, 
 	       [?uint32(ReqID),
 		?binary(Path1)]).
@@ -235,8 +235,8 @@ readlink(XF, ReqID, Path) ->
 
 %% Create a symbolic link    
 symlink(XF, ReqID, LinkPath, TargetPath) ->
-    LinkPath1 = list_to_binary(LinkPath),
-    TargetPath1 = list_to_binary(TargetPath),
+    LinkPath1 = unicode:characters_to_binary(LinkPath),
+    TargetPath1 = unicode:characters_to_binary(TargetPath),
     xf_request(XF, ?SSH_FXP_SYMLINK, 
 	       [?uint32(ReqID),
 		?binary(LinkPath1),
@@ -244,7 +244,7 @@ symlink(XF, ReqID, LinkPath, TargetPath) ->
 
 %% Convert a path into a 'canonical' form
 realpath(XF, ReqID, Path) ->
-    Path1 = list_to_binary(Path),
+    Path1 = unicode:characters_to_binary(Path),
     xf_request(XF, ?SSH_FXP_REALPATH,     
 	       [?uint32(ReqID),
 		?binary(Path1)]).
@@ -267,7 +267,7 @@ xf_request(XF, Op, Arg) ->
 		   list_to_binary(Arg)
 	   end,
     Size = 1+size(Data),
-    ssh_connection:send(CM, Channel, <<?UINT32(Size), Op, Data/binary>>).
+    ssh_connection:send(CM, Channel, [<<?UINT32(Size), Op, Data/binary>>]).
 
 xf_send_reply(#ssh_xfer{cm = CM, channel = Channel}, Op, Arg) ->    
     Data = if 
@@ -277,7 +277,7 @@ xf_send_reply(#ssh_xfer{cm = CM, channel = Channel}, Op, Arg) ->
 		   list_to_binary(Arg)
 	   end,
     Size = 1 + size(Data),
-    ssh_connection:send(CM, Channel, <<?UINT32(Size), Op, Data/binary>>).
+    ssh_connection:send(CM, Channel, [<<?UINT32(Size), Op, Data/binary>>]).
 
 xf_send_name(XF, ReqId, Name, Attr) ->
     xf_send_names(XF, ReqId, [{Name, Attr}]).
@@ -383,6 +383,8 @@ decode_status(Status) ->
 	?SSH_FX_UNKNOWN_PRINCIPLE -> unknown_principle;
 	?SSH_FX_LOCK_CONFlICT -> lock_conflict;
 	?SSH_FX_NOT_A_DIRECTORY -> not_a_directory;
+	?SSH_FX_FILE_IS_A_DIRECTORY -> file_is_a_directory;
+	?SSH_FX_CANNOT_DELETE -> cannot_delete;
 	_ -> {error,Status}
     end.
 
@@ -392,6 +394,9 @@ encode_erlang_status(Status) ->
 	eof -> ?SSH_FX_EOF;
 	enoent -> ?SSH_FX_NO_SUCH_FILE;
 	eacces -> ?SSH_FX_PERMISSION_DENIED;
+	eisdir -> ?SSH_FX_FILE_IS_A_DIRECTORY;
+	eperm -> ?SSH_FX_CANNOT_DELETE;
+	eexist -> ?SSH_FX_FILE_ALREADY_EXISTS;
 	_ -> ?SSH_FX_FAILURE
     end.
 
