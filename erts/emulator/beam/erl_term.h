@@ -23,7 +23,6 @@
 
 typedef UWord Wterm;  /* Full word terms */
 
-#define HEAP_ON_C_STACK 1
 struct erl_node_; /* Declared in erl_node_tables.h */
 
 /*

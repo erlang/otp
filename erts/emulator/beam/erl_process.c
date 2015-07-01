@@ -5495,9 +5495,6 @@ init_scheduler_data(ErtsSchedulerData* esdp, int num,
     esdp->f_reg_array =
 	erts_alloc_permanent_cache_aligned(ERTS_ALC_T_BEAM_REGISTER,
 					   MAX_REG * sizeof(FloatDef));
-#if !HEAP_ON_C_STACK
-    esdp->num_tmp_heap_used = 0;
-#endif
 #ifdef ERTS_DIRTY_SCHEDULERS
     if (ERTS_RUNQ_IX_IS_DIRTY(runq->ix)) {
 	esdp->no = 0;
