@@ -469,9 +469,6 @@ static ERTS_INLINE void try_shrink(DbTableHash* tb)
     }
 }	
 
-#define EQ_REL(x,y,y_base) \
-    (is_same(x,NULL,y,y_base) || (is_not_both_immed((x),(y)) && eq_rel((x),NULL,(y),y_base)))
-
 /* Is this a live object (not pseodo-deleted) with the specified key? 
 */
 static ERTS_INLINE int has_live_key(DbTableHash* tb, HashDbTerm* b,
@@ -481,7 +478,7 @@ static ERTS_INLINE int has_live_key(DbTableHash* tb, HashDbTerm* b,
     else {
 	Eterm itemKey = GETKEY(tb, b->dbterm.tpl);
 	ASSERT(!is_header(itemKey));
-	return EQ_REL(key, itemKey, b->dbterm.tpl);
+	return EQ(key, itemKey);
     }
 }
 
@@ -494,7 +491,7 @@ static ERTS_INLINE int has_key(DbTableHash* tb, HashDbTerm* b,
     else {
 	Eterm itemKey = GETKEY(tb, b->dbterm.tpl);
 	ASSERT(!is_header(itemKey));
-	return EQ_REL(key, itemKey, b->dbterm.tpl);
+	return EQ(key, itemKey);
     }
 }
 
@@ -2204,11 +2201,11 @@ static void db_print_hash(int to, void *to_arg, int show, DbTable *tbl)
 		    erts_print(to, to_arg, "*");
 		if (tb->common.compress) {
 		    Eterm key = GETKEY(tb, list->dbterm.tpl);
-		    erts_print(to, to_arg, "key=%R", key, list->dbterm.tpl);
+		    erts_print(to, to_arg, "key=%T", key);
 		}
 		else {
-		    Eterm obj = make_tuple_rel(list->dbterm.tpl,list->dbterm.tpl);
-		    erts_print(to, to_arg, "%R", obj, list->dbterm.tpl);
+		    Eterm obj = make_tuple(list->dbterm.tpl);
+		    erts_print(to, to_arg, "%T", obj);
 		}
 		if (list->next != 0)
 		    erts_print(to, to_arg, ",");
@@ -2899,9 +2896,6 @@ Ldone:
     handle->dbterm = &b->dbterm;
     handle->flags = flags;
     handle->new_size = b->dbterm.size;
-#if HALFWORD_HEAP
-    handle->abs_vec = NULL;
-#endif
     handle->lck = lck;
     return 1;
 }

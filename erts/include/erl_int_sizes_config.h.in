@@ -35,6 +35,3 @@
 
 /* The size of a pointer. */
 #undef SIZEOF_VOID_P
-
-/* Define if building a halfword-heap 64bit emulator (needed for NIF's) */
-#undef HALFWORD_HEAP_EMULATOR

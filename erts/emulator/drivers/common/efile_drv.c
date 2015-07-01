@@ -895,7 +895,7 @@ static void reply_Uint_posix_error(file_descriptor *desc, Uint num,
     TRACE_C('N');
 
     response[0] = FILE_RESP_NUMERR;
-#if SIZEOF_VOID_P == 4 || HALFWORD_HEAP
+#if SIZEOF_VOID_P == 4
     put_int32(0, response+1);
 #else
     put_int32(num>>32, response+1);
@@ -964,7 +964,7 @@ static int reply_Uint(file_descriptor *desc, Uint result) {
     TRACE_C('R');
 
     tmp[0] = FILE_RESP_NUMBER;
-#if SIZEOF_VOID_P == 4 || HALFWORD_HEAP
+#if SIZEOF_VOID_P == 4
     put_int32(0, tmp+1);
 #else
     put_int32(result>>32, tmp+1);

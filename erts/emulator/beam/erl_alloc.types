@@ -87,11 +87,6 @@ allocator	EHEAP		true		eheap_alloc
 allocator	ETS		true		ets_alloc
 allocator	FIXED_SIZE	true		fix_alloc
 
-+if halfword
-allocator	LONG_LIVED_LOW	true		ll_low_alloc
-allocator	STANDARD_LOW	true		std_low_alloc
-+endif
-
 +else # Non smp build
 
 allocator	TEMPORARY	false		temp_alloc
@@ -101,11 +96,6 @@ allocator	LONG_LIVED	false		ll_alloc
 allocator	EHEAP		false		eheap_alloc
 allocator	ETS		false		ets_alloc
 allocator	FIXED_SIZE	false		fix_alloc
-
-+if halfword
-allocator	LONG_LIVED_LOW	false		ll_low_alloc
-allocator	STANDARD_LOW	false		std_low_alloc
-+endif
 
 +endif
 
@@ -349,29 +339,6 @@ type	SSB		SHORT_LIVED	PROCESSES	ssb
 
 +endif
 
-
-+if halfword
-
-type	DDLL_PROCESS	STANDARD_LOW	SYSTEM		ddll_processes
-type	MONITOR_LH	STANDARD_LOW	PROCESSES	monitor_lh
-type	NLINK_LH	STANDARD_LOW	PROCESSES	nlink_lh
-type	CODE		LONG_LIVED_LOW	CODE		code
-type	DB_HEIR_DATA	STANDARD_LOW	ETS		db_heir_data
-type	DB_MS_PSDO_PROC	LONG_LIVED_LOW	ETS		db_match_pseudo_proc
-type	SCHDLR_DATA	LONG_LIVED_LOW	SYSTEM		scheduler_data
-type  	LL_TEMP_TERM 	LONG_LIVED_LOW	SYSTEM		ll_temp_term
-
-type	NIF_TRAP_EXPORT	STANDARD_LOW	CODE		nif_trap_export_entry
-type	EXPORT		LONG_LIVED_LOW	CODE		export_entry
-type	MONITOR_SH	STANDARD_LOW	PROCESSES	monitor_sh
-type	NLINK_SH	STANDARD_LOW	PROCESSES	nlink_sh
-type	AINFO_REQ	STANDARD_LOW	SYSTEM		alloc_info_request
-type	SCHED_WTIME_REQ	STANDARD_LOW	SYSTEM		sched_wall_time_request
-type	GC_INFO_REQ	STANDARD_LOW	SYSTEM		gc_info_request
-type	PORT_DATA_HEAP	STANDARD_LOW	SYSTEM		port_data_heap
-
-+else # "fullword"
-
 type	DDLL_PROCESS	STANDARD	SYSTEM		ddll_processes
 type	MONITOR_LH	STANDARD	PROCESSES	monitor_lh
 type	NLINK_LH	STANDARD	PROCESSES	nlink_lh
@@ -389,9 +356,6 @@ type	AINFO_REQ	SHORT_LIVED	SYSTEM		alloc_info_request
 type	SCHED_WTIME_REQ	SHORT_LIVED	SYSTEM		sched_wall_time_request
 type	GC_INFO_REQ	SHORT_LIVED	SYSTEM		gc_info_request
 type	PORT_DATA_HEAP	STANDARD	SYSTEM		port_data_heap
-
-+endif
-
 
 #
 # Types used by system specific code

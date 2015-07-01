@@ -143,14 +143,6 @@ AS_HELP_STRING([--enable-dirty-schedulers], [enable dirty scheduler support]),
     *)  enable_dirty_schedulers=yes ;;
   esac ], enable_dirty_schedulers=no)
 
-AC_ARG_ENABLE(halfword-emulator,
-AS_HELP_STRING([--enable-halfword-emulator],
-               [enable halfword emulator (only for 64bit builds). Note: Halfword emulator is marked as deprecated and scheduled for removal in future major release.]),
-[ case "$enableval" in
-    no) enable_halfword_emualtor=no ;;
-    *)  enable_halfword_emulator=yes ;;
-  esac ], enable_halfword_emulator=unknown)
-
 AC_ARG_ENABLE(smp-support,
 AS_HELP_STRING([--enable-smp-support], [enable smp support])
 AS_HELP_STRING([--disable-smp-support], [disable smp support]),
@@ -786,36 +778,6 @@ case $ARCH-$OPSYS in
 esac
 	
 AC_SUBST(LIBCARBON)
-
-dnl Check if we should/can build a halfword emulator
-
-AC_MSG_CHECKING(if we are building a halfword emulator (32bit heap on 64bit machine))
-if test "$enable_halfword_emulator" = "yes"; then
-	if test "$ARCH" = "amd64"; then
-		AC_DEFINE(HALFWORD_HEAP_EMULATOR, [1],
-			  [Define if building a halfword-heap 64bit emulator])
-		ENABLE_ALLOC_TYPE_VARS="$ENABLE_ALLOC_TYPE_VARS halfword"
-		AC_MSG_RESULT([yes])
-
-		test -f "$ERL_TOP/erts/CONF_INFO" ||
-		    echo "" > "$ERL_TOP/erts/CONF_INFO"
-		cat >> $ERL_TOP/erts/CONF_INFO <<EOF
-
-                 The HALFWORD emulator has been enabled.
-                 This is a DEPRECATED feature scheduled for removal
-                 in a future major release.
-
-EOF
-	else
-		AC_MSG_ERROR(no; halfword emulator not supported on this architecture)
-	fi
-else
-	AC_MSG_RESULT([no])
-fi
-
-
-
-
 
 dnl some tests below will call this if we haven't already - and autoconf
 dnl can't handle those tests being done conditionally at runtime
@@ -2825,12 +2787,6 @@ if test "$cross_compiling" != "yes" && test X${enable_hipe} != Xno; then
   if test -z "$M4"; then
 	enable_hipe=no
    	AC_MSG_NOTICE([HiPE disabled as no valid m4 is found in PATH])
-  elif test "$enable_halfword_emulator" = "yes"; then
-       if test X${enable_hipe} = Xyes; then
-              AC_MSG_ERROR([HiPE can not be combined with halfword emulator (yet)])
-       else		    
-   	      AC_MSG_NOTICE([HiPE auto-disabled on halfword emulator])
-       fi	
   else
   	case "$ARCH-$OPSYS" in
 	    x86-linux|amd64-linux|x86-darwin*|amd64-darwin*|ppc-linux|ppc64-linux|ppc-darwin|arm-linux|amd64-freebsd|x86-freebsd|x86-sol2|amd64-sol2|ultrasparc-linux)

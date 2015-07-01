@@ -732,19 +732,11 @@ Eterm erts_dsend_export_trap_context(Process* p, ErtsSendContext* ctx)
     Binary* ctx_bin = erts_create_magic_binary(sizeof(struct exported_ctx),
 					       erts_dsend_context_dtor);
     struct exported_ctx* dst = ERTS_MAGIC_BIN_DATA(ctx_bin);
-    Uint ctl_size = !HALFWORD_HEAP ? 0 : (arityval(ctx->ctl_heap[0]) + 1);
-    Eterm* hp = HAlloc(p, ctl_size + PROC_BIN_SIZE);
+    Eterm* hp = HAlloc(p, PROC_BIN_SIZE);
 
     sys_memcpy(&dst->ctx, ctx, sizeof(ErtsSendContext));
     ASSERT(ctx->dss.ctl == make_tuple(ctx->ctl_heap));
-#if !HALFWORD_HEAP
     dst->ctx.dss.ctl = make_tuple(dst->ctx.ctl_heap);
-#else
-    /* Must put control tuple in low mem */
-    sys_memcpy(hp, ctx->ctl_heap,  ctl_size*sizeof(Eterm));
-    dst->ctx.dss.ctl = make_tuple(hp);
-    hp += ctl_size;
-#endif
     if (ctx->dss.acmp) {
 	sys_memcpy(&dst->acm, ctx->dss.acmp, sizeof(ErtsAtomCacheMap));
 	dst->ctx.dss.acmp = &dst->acm;
@@ -2061,9 +2053,9 @@ dist_port_commandv(Port *prt, ErtsDistOutputBuf *obuf)
 }
 
 
-#if defined(ARCH_64) && !HALFWORD_HEAP
+#if defined(ARCH_64)
 #define ERTS_PORT_REDS_MASK__ 0x003fffffffffffffL
-#elif defined(ARCH_32) || HALFWORD_HEAP
+#elif defined(ARCH_32)
 #define ERTS_PORT_REDS_MASK__ 0x003fffff
 #else
 #  error "Ohh come on ... !?!"

@@ -128,7 +128,7 @@ static void disallow_heap_frag_ref_in_old_heap(Process* p);
 static void disallow_heap_frag_ref(Process* p, Eterm* n_htop, Eterm* objv, int nobj);
 #endif
 
-#if defined(ARCH_64) && !HALFWORD_HEAP
+#if defined(ARCH_64)
 # define MAX_HEAP_SIZES 154
 #else
 # define MAX_HEAP_SIZES 59
@@ -147,26 +147,10 @@ typedef struct {
     erts_smp_atomic32_t refc;
 } ErtsGCInfoReq;
 
-#if !HALFWORD_HEAP
 ERTS_SCHED_PREF_QUICK_ALLOC_IMPL(gcireq,
-				 ErtsGCInfoReq,
-				 5,
-				 ERTS_ALC_T_GC_INFO_REQ)
-#else
-static ERTS_INLINE ErtsGCInfoReq *
-gcireq_alloc(void)
-{
-    return erts_alloc(ERTS_ALC_T_GC_INFO_REQ,
-		      sizeof(ErtsGCInfoReq));
-}
-
-static ERTS_INLINE void
-gcireq_free(ErtsGCInfoReq *ptr)
-{
-    erts_free(ERTS_ALC_T_GC_INFO_REQ, ptr);
-}
-#endif
-
+                                 ErtsGCInfoReq,
+                                 5,
+                                 ERTS_ALC_T_GC_INFO_REQ)
 /*
  * Initialize GC global data.
  */
@@ -208,7 +192,7 @@ erts_init_gc(void)
     }
 
 
-    /* for 32 bit we want max_heap_size to be MAX(32bit) / 4 [words] (and halfword)
+    /* for 32 bit we want max_heap_size to be MAX(32bit) / 4 [words]
      * for 64 bit we want max_heap_size to be MAX(52bit) / 8 [words]
      */
 
@@ -232,10 +216,7 @@ erts_init_gc(void)
       init_gc_info(&esdp->gc_info);
     }
 
-#if !HALFWORD_HEAP
     init_gcireq_alloc();
-#endif
-
 }
 
 /*
@@ -1681,7 +1662,7 @@ disallow_heap_frag_ref_in_old_heap(Process* p)
 	val = *hp++;
 	switch (primary_tag(val)) {
 	case TAG_PRIMARY_BOXED:
-	    ptr = (Eterm *) EXPAND_POINTER(val);
+	    ptr = (Eterm *) val;
 	    if (!in_area(ptr, old_heap, old_heap_size)) {
 		if (in_area(ptr, new_heap, new_heap_size)) {
 		    abort();
@@ -1694,7 +1675,7 @@ disallow_heap_frag_ref_in_old_heap(Process* p)
 	    }
 	    break;
 	case TAG_PRIMARY_LIST:
-	    ptr = (Eterm *) EXPAND_POINTER(val);
+	    ptr = (Eterm *) val;
 	    if (!in_area(ptr, old_heap, old_heap_size)) {
 		if (in_area(ptr, new_heap, new_heap_size)) {
 		    abort();

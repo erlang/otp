@@ -4117,16 +4117,9 @@ BIF_RETTYPE make_fun_3(BIF_ALIST_3)
     if (arity < 0) {
 	goto error;
     }
-#if HALFWORD_HEAP
-    hp = HAlloc(BIF_P, 3);
-    hp[0] = HEADER_EXPORT;
-    /* Yes, May be misaligned, but X86_64 will fix it... */
-    *((Export **) (hp+1)) = erts_export_get_or_make_stub(BIF_ARG_1, BIF_ARG_2, (Uint) arity);
-#else
     hp = HAlloc(BIF_P, 2);
     hp[0] = HEADER_EXPORT;
     hp[1] = (Eterm) erts_export_get_or_make_stub(BIF_ARG_1, BIF_ARG_2, (Uint) arity);
-#endif
     BIF_RET(make_export(hp));
 }
 
@@ -4631,7 +4624,7 @@ BIF_RETTYPE hash_2(BIF_ALIST_2)
     if ((range = signed_val(BIF_ARG_2)) <= 0) {  /* [1..MAX_SMALL] */
 	BIF_ERROR(BIF_P, BADARG);
     }
-#if defined(ARCH_64) && !HALFWORD_HEAP
+#if defined(ARCH_64)
     if (range > ((1L << 27) - 1))
 	BIF_ERROR(BIF_P, BADARG);
 #endif
@@ -4703,7 +4696,7 @@ BIF_RETTYPE phash2_2(BIF_ALIST_2)
     /*
      * Return either a small or a big. Use the heap for bigs if there is room.
      */
-#if defined(ARCH_64) && !HALFWORD_HEAP
+#if defined(ARCH_64)
     BIF_RET(make_small(final_hash));
 #else
     if (IS_USMALL(0, final_hash)) {

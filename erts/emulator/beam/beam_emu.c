@@ -620,46 +620,45 @@ void** beam_ops;
 
 #define GetTupleElement(Src, Element, Dest)				\
   do {									\
-    tmp_arg1 = (Eterm) COMPRESS_POINTER(((unsigned char *) tuple_val(Src)) + 	\
-				(Element));				\
-    (Dest) = (*(Eterm *) EXPAND_POINTER(tmp_arg1));			\
+    tmp_arg1 = (Eterm) (((unsigned char *) tuple_val(Src)) + (Element));\
+    (Dest) = (*(Eterm *) tmp_arg1);	                		\
   } while (0)
 
 #define ExtractNextElement(Dest)					  \
     tmp_arg1 += sizeof(Eterm);						  \
-    (Dest) = (* (Eterm *) (((unsigned char *) EXPAND_POINTER(tmp_arg1))))
+    (Dest) = (* (Eterm *) (((unsigned char *) tmp_arg1)))
 
 #define ExtractNextElement2(Dest)				\
   do {								\
     Eterm* ene_dstp = &(Dest);					\
-    ene_dstp[0] = ((Eterm *) EXPAND_POINTER(tmp_arg1))[1];	\
-    ene_dstp[1] = ((Eterm *) EXPAND_POINTER(tmp_arg1))[2];	\
+    ene_dstp[0] = ((Eterm *) tmp_arg1)[1];	\
+    ene_dstp[1] = ((Eterm *) tmp_arg1)[2];	\
     tmp_arg1 += sizeof(Eterm) + sizeof(Eterm);			\
   } while (0)
 
 #define ExtractNextElement3(Dest)		\
   do {						\
     Eterm* ene_dstp = &(Dest);			\
-    ene_dstp[0] = ((Eterm *) EXPAND_POINTER(tmp_arg1))[1];	\
-    ene_dstp[1] = ((Eterm *) EXPAND_POINTER(tmp_arg1))[2];	\
-    ene_dstp[2] = ((Eterm *) EXPAND_POINTER(tmp_arg1))[3];	\
+    ene_dstp[0] = ((Eterm *) tmp_arg1)[1];	\
+    ene_dstp[1] = ((Eterm *) tmp_arg1)[2];	\
+    ene_dstp[2] = ((Eterm *) tmp_arg1)[3];	\
     tmp_arg1 += 3*sizeof(Eterm);		\
   } while (0)
 
 #define ExtractNextElement4(Dest)		\
   do {						\
     Eterm* ene_dstp = &(Dest);			\
-    ene_dstp[0] = ((Eterm *) EXPAND_POINTER(tmp_arg1))[1];	\
-    ene_dstp[1] = ((Eterm *) EXPAND_POINTER(tmp_arg1))[2];	\
-    ene_dstp[2] = ((Eterm *) EXPAND_POINTER(tmp_arg1))[3];	\
-    ene_dstp[3] = ((Eterm *) EXPAND_POINTER(tmp_arg1))[4];	\
+    ene_dstp[0] = ((Eterm *) tmp_arg1)[1];	\
+    ene_dstp[1] = ((Eterm *) tmp_arg1)[2];	\
+    ene_dstp[2] = ((Eterm *) tmp_arg1)[3];	\
+    ene_dstp[3] = ((Eterm *) tmp_arg1)[4];	\
     tmp_arg1 += 4*sizeof(Eterm);		\
   } while (0)
 
 #define ExtractElement(Element, Dest)		\
   do {						\
      tmp_arg1 += (Element);			\
-     (Dest) = (* (Eterm *) EXPAND_POINTER(tmp_arg1));		\
+     (Dest) = (* (Eterm *) tmp_arg1);		\
   } while (0)
 
 #define EqualImmed(X, Y, Action) if (X != Y) { Action; }
@@ -698,8 +697,7 @@ void** beam_ops;
 
 #define IsArity(Pointer, Arity, Fail)					  \
     if (*(Eterm *)							  \
-	EXPAND_POINTER(tmp_arg1 = (Eterm) 				  \
-		       COMPRESS_POINTER(tuple_val(Pointer))) != (Arity))  \
+	(tmp_arg1 = (Eterm) (tuple_val(Pointer))) != (Arity))             \
     { 									  \
         Fail; 								  \
     }
@@ -742,8 +740,7 @@ void** beam_ops;
   do {									      \
     if (is_not_tuple(Src) || 						      \
 	*(Eterm *)							      \
-	EXPAND_POINTER(tmp_arg1 = 					      \
-		       (Eterm) COMPRESS_POINTER(tuple_val(Src))) != Arity) { \
+	(tmp_arg1 = (Eterm) (tuple_val(Src))) != Arity) {                     \
         Fail;								      \
     }									      \
   } while (0)
@@ -756,7 +753,7 @@ void** beam_ops;
 #define IsBitstring(Src, Fail) \
   if (is_not_binary(Src)) { Fail; }
 
-#if defined(ARCH_64) && !HALFWORD_HEAP
+#if defined(ARCH_64)
 #define BsSafeMul(A, B, Fail, Target)		\
    do { Uint64 _res = (A) * (B);		\
       if (_res / B != A) { Fail; }		\
@@ -1247,9 +1244,6 @@ void process_main(void)
 
     PROCESS_MAIN_CHK_LOCKS(c_p);
     ERTS_SMP_UNREQ_PROC_MAIN_LOCK(c_p);
-#if HALFWORD_HEAP
-    ASSERT(erts_get_scheduler_data()->num_tmp_heap_used == 0);
-#endif
     ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
     c_p = schedule(c_p, reds_used);
     ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
@@ -2131,8 +2125,6 @@ void process_main(void)
 		  * c_p->def_arg_reg[0].  Note that it is safe to use this
 		  * location because there are no living x registers in
 		  * a receive statement.
-		  * Note that for the halfword emulator, the two first elements
-		  * of the array are used.
 		  */
 		 BeamInstr** pi = (BeamInstr**) c_p->def_arg_reg;
 		 *pi = I+3;
@@ -3223,7 +3215,7 @@ do {								\
      SWAPIN;
      if (next != NULL) {
 	 r(0) = reg[0];
-	 SET_CP(c_p, (BeamInstr *) EXPAND_POINTER(E[0]));
+	 SET_CP(c_p, (BeamInstr *) E[0]);
 	 E = ADD_BYTE_OFFSET(E, Arg(0));
 	 SET_I(next);
 	 Dispatch();
@@ -3272,7 +3264,7 @@ do {								\
      SWAPIN;
      if (next != NULL) {
 	 r(0) = reg[0];
-	 SET_CP(c_p, (BeamInstr *) EXPAND_POINTER(E[0]));
+	 SET_CP(c_p, (BeamInstr *) E[0]);
 	 E = ADD_BYTE_OFFSET(E, Arg(1));
 	 SET_I(next);
 	 Dispatch();
@@ -3304,7 +3296,7 @@ do {								\
      SWAPIN;
      if (next != NULL) {
 	 r(0) = reg[0];
-	 SET_CP(c_p, (BeamInstr *) EXPAND_POINTER(E[0]));
+	 SET_CP(c_p, (BeamInstr *) E[0]);
 	 E = ADD_BYTE_OFFSET(E, Arg(0));
 	 SET_I(next);
 	 Dispatchfun();
@@ -3352,7 +3344,7 @@ do {								\
      SWAPIN;
      if (next != NULL) {
 	r(0) = reg[0];
-	SET_CP(c_p, (BeamInstr *) EXPAND_POINTER(E[0]));
+	SET_CP(c_p, (BeamInstr *) E[0]);
 	E = ADD_BYTE_OFFSET(E, Arg(1));
 	SET_I(next);
 	Dispatchfun();
@@ -4535,11 +4527,11 @@ do {								\
 	     _integer = get_int32(_mb->base + _mb->offset/8);
 	 }
 	 _mb->offset += 32;
-#if !defined(ARCH_64) || HALFWORD_HEAP
+#if !defined(ARCH_64)
 	 if (IS_USMALL(0, _integer)) {
 #endif
 	     _result = make_small(_integer);
-#if !defined(ARCH_64) || HALFWORD_HEAP
+#if !defined(ARCH_64)
 	 } else {
 	     TestHeap(BIG_UINT_HEAP_SIZE, Arg(1));
 	     _result = uint_to_big((Uint) _integer, HTOP);
@@ -5129,7 +5121,7 @@ do {								\
      neg_o_reds = -c_p->def_arg_reg[4];
      FCALLS = c_p->fcalls;
      SWAPIN;
-     switch( c_p->def_arg_reg[3] ) { /* Halfword wont work with hipe yet! */
+     switch( c_p->def_arg_reg[3] ) {
        case HIPE_MODE_SWITCH_RES_RETURN:
 	 ASSERT(is_value(reg[0]));
 	 MoveReturn(reg[0], r(0));
