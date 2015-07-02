@@ -67,7 +67,10 @@ default_algorithms(compression) ->
     %% Do not announce 'zlib@openssh.com' because there seem to be problems
     supported_algorithms(compression, same(['zlib@openssh.com']));
 default_algorithms(kex) ->
-    supported_algorithms(kex, ['diffie-hellman-group-exchange-sha1']);
+    %% Do not announce the experimental 'diffie-hellman-group-exchange-sha*' yet
+    supported_algorithms(kex, ['diffie-hellman-group-exchange-sha1',
+			       'diffie-hellman-group-exchange-sha256'
+			      ]);
 default_algorithms(Alg) ->
     supported_algorithms(Alg).
 
@@ -76,7 +79,9 @@ supported_algorithms() -> [{K,supported_algorithms(K)} || K <- algo_classes()].
 
 supported_algorithms(kex) ->
     ['diffie-hellman-group1-sha1',
-     'diffie-hellman-group-exchange-sha1'];
+     'diffie-hellman-group-exchange-sha1',
+     'diffie-hellman-group-exchange-sha256'
+    ];
 supported_algorithms(public_key) ->
     ssh_auth:default_public_key_algorithms();
 supported_algorithms(cipher) ->
@@ -283,6 +288,7 @@ verify_algorithm(#alg{decompress = undefined}) -> false;
 
 verify_algorithm(#alg{kex = 'diffie-hellman-group1-sha1'}) -> true;
 verify_algorithm(#alg{kex = 'diffie-hellman-group-exchange-sha1'}) -> true;
+verify_algorithm(#alg{kex = 'diffie-hellman-group-exchange-sha256'}) -> true;
 verify_algorithm(_) -> false.
 
 %%%----------------------------------------------------------------
@@ -297,7 +303,8 @@ key_exchange_first_msg('diffie-hellman-group1-sha1', Ssh0) ->
     {ok, SshPacket, 
      Ssh1#ssh{keyex_key = {{Private, Public}, {G, P}}}};
 
-key_exchange_first_msg('diffie-hellman-group-exchange-sha1', Ssh0) ->
+key_exchange_first_msg(Kex, Ssh0) when Kex == 'diffie-hellman-group-exchange-sha1' ;
+				       Kex == 'diffie-hellman-group-exchange-sha256' ->
     Min = ?DEFAULT_DH_GROUP_MIN,
     NBits = ?DEFAULT_DH_GROUP_NBITS,
     Max = ?DEFAULT_DH_GROUP_MAX,
@@ -1109,6 +1116,8 @@ hash(SSH, Char, Bits) ->
 		fun(Data) -> crypto:hash(sha, Data) end;
 	    'diffie-hellman-group-exchange-sha1' ->
 		fun(Data) -> crypto:hash(sha, Data) end;
+	    'diffie-hellman-group-exchange-sha256' ->
+		fun(Data) -> crypto:hash(sha256, Data) end;
 	    _ ->
 		exit({bad_algorithm,SSH#ssh.kex})
 	end,
@@ -1158,8 +1167,11 @@ kex_h(SSH, Key, Min, NBits, Max, Prime, Gen, E, F, K) ->
 				 ssh_message:encode_host_key(Key), Min, NBits, Max,
 				 Prime, Gen, E,F,K], Ts)
 	end,
-    crypto:hash(sha,L).
+    crypto:hash(sha((SSH#ssh.algorithms)#alg.kex), L).
   
+sha('diffie-hellman-group-exchange-sha1')   -> sha;
+sha('diffie-hellman-group-exchange-sha256') -> sha256.
+
 mac_key_size('hmac-sha1')    -> 20*8;
 mac_key_size('hmac-sha1-96') -> 20*8;
 mac_key_size('hmac-md5')     -> 16*8;
