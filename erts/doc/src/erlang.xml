@@ -1054,7 +1054,7 @@
       <fsummary>Print a term on standard output</fsummary>
       <desc>
         <p>Prints a text representation of <c><anno>Term</anno></c> on the standard
-          output. On OSE the term is printed to the ramlog.</p>
+          output.</p>
         <warning>
           <p>This BIF is intended for debugging only.</p>
         </warning>

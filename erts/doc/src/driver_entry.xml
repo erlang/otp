@@ -246,14 +246,10 @@ typedef struct erl_drv_entry {
           something that the <c>WaitForMultipleObjects</c> API
           function understands). (Some trickery in the emulator allows
           more than the built-in limit of 64 <c>Events</c> to be used.)</p>
-	  <p>On Enea OSE the <c>event</c> is one or more signals that can
-	  be retrieved using <seealso marker="ose:ose_erl_driver#erl_drv_ose_get_signal">erl_drv_ose_get_signal</seealso>.</p>
         <p>To use this with threads and asynchronous routines, create a
-          pipe on unix, an Event on Windows or a unique signal number on
-	  Enea OSE. When the routine
+          pipe on unix and an Event on Windows. When the routine
           completes, write to the pipe (use <c>SetEvent</c> on
-          Windows or send a message to the emulator process on Enea OSE),
-	  this will make the emulator call
+          Windows), this will make the emulator call
           <c>ready_input</c> or <c>ready_output</c>.</p>
           <p>Spurious events may happen. That is, calls to <c>ready_input</c>
           or <c>ready_output</c> even though no real events are signaled. In
