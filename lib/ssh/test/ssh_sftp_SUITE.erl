@@ -65,6 +65,7 @@ groups() ->
     [{not_unicode, [], [{group,erlang_server},
 			{group,openssh_server},
 			{group,'diffie-hellman-group-exchange-sha1'},
+			{group,'diffie-hellman-group-exchange-sha256'},
 			sftp_nonexistent_subsystem]},
 
      {unicode, [], [{group,erlang_server},
@@ -73,6 +74,9 @@ groups() ->
      
      {'diffie-hellman-group-exchange-sha1', [], [{group,erlang_server},
 						 {group,openssh_server}]},
+
+     {'diffie-hellman-group-exchange-sha256', [], [{group,erlang_server},
+						   {group,openssh_server}]},
 
      {erlang_server, [], [{group,write_read_tests},
 			  version_option,
@@ -165,7 +169,7 @@ init_per_group(openssh_server, Config) ->
 	    ssh:close(Connection),
 	    [{peer, {fmt_host(IPx),Portx}}, {group, openssh_server} | Config];
 	{error,"Key exchange failed"} ->
-	    {skip, "openssh server lacks 'diffie-hellman-group-exchange-sha1'"};
+	    {skip, "openssh server doesn't support the tested kex algorithm"};
 	_ ->
 	    {skip, "No openssh server"} 
     end;
@@ -202,6 +206,17 @@ init_per_group('diffie-hellman-group-exchange-sha1', Config) ->
 
 	false ->
 	     {skip,"'diffie-hellman-group-exchange-sha1' not supported by this version of erlang ssh"}
+    end;
+
+init_per_group('diffie-hellman-group-exchange-sha256', Config) ->
+    case lists:member('diffie-hellman-group-exchange-sha256',
+		      ssh_transport:supported_algorithms(kex)) of
+	true ->
+	    [{extra_opts, [{preferred_algorithms, [{kex,['diffie-hellman-group-exchange-sha256']}]}]}
+	     | Config]; 
+
+	false ->
+	     {skip,"'diffie-hellman-group-exchange-sha256' not supported by this version of erlang ssh"}
     end;
 
 init_per_group(write_read_tests, Config) ->
@@ -246,11 +261,12 @@ init_per_testcase(version_option, Config) ->
     Passwd = ?config(passwd, Config),
     {ok, ChannelPid, Connection}  = 
 	ssh_sftp:start_channel(Host, Port,
-			       [{sftp_vsn, 3},
-				{user, User},
-				{password, Passwd},
-				{user_interaction, false},
-				{silently_accept_hosts, true}]),
+			       extra_opts(Config) ++
+				   [{sftp_vsn, 3},
+				    {user, User},
+				    {password, Passwd},
+				    {user_interaction, false},
+				    {silently_accept_hosts, true}]),
     Sftp = {ChannelPid, Connection},
     [{sftp,Sftp}, {watchdog, Dog} | TmpConfig];
 
