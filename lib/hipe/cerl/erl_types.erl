@@ -4242,7 +4242,6 @@ builtin_type(Name, Type, TypeNames, ET, Site, MR, V, D, L) ->
 
 type_from_form(Name, Args, TypeNames, ET, Site0, MR, V, D, L) ->
   ArgsLen = length(Args),
-  {ArgTypes, L1} = list_from_form(Args, TypeNames, ET, Site0, MR, V, D, L),
   Module = site_module(Site0),
   {ok, R} = dict:find(Module, MR),
   TypeName = {type, {Module, Name, ArgsLen}},
@@ -4250,48 +4249,52 @@ type_from_form(Name, Args, TypeNames, ET, Site0, MR, V, D, L) ->
     {type, {{Module, _FileName, Form, ArgNames}, _Type}} ->
       case can_unfold_more(TypeName, TypeNames) of
         true ->
+          {ArgTypes, L1} =
+            list_from_form(Args, TypeNames, ET, Site0, MR, V, D, L),
           List = lists:zip(ArgNames, ArgTypes),
           TmpV = dict:from_list(List),
           Site = TypeName,
           t_from_form(Form, [TypeName|TypeNames], ET, Site, MR, TmpV, D, L1);
         false ->
-          {t_any(), L1}
+          {t_any(), L}
       end;
     {opaque, {{Module, _FileName, Form, ArgNames}, Type}} ->
-      {Rep, L2} =
-        case can_unfold_more(TypeName, TypeNames) of
-          true ->
-            List = lists:zip(ArgNames, ArgTypes),
-            TmpV = dict:from_list(List),
-            Site = TypeName,
-            t_from_form(Form, [TypeName|TypeNames], ET, Site, MR, TmpV, D, L1);
-          false -> {t_any(), L1}
-        end,
-      Rep1 = choose_opaque_type(Rep, Type),
-      Rep2 = case cannot_have_opaque(Rep1, TypeName, TypeNames) of
-               true -> Rep1;
-               false ->
-                 ArgTypes2 = subst_all_vars_to_any_list(ArgTypes),
-                 t_opaque(Module, Name, ArgTypes2, Rep1)
-             end,
-      {Rep2, L2};
+      case can_unfold_more(TypeName, TypeNames) of
+        true ->
+          {ArgTypes, L1} =
+            list_from_form(Args, TypeNames, ET, Site0, MR, V, D, L),
+          List = lists:zip(ArgNames, ArgTypes),
+          TmpV = dict:from_list(List),
+          Site = TypeName,
+          {Rep, L2} =
+            t_from_form(Form, [TypeName|TypeNames], ET, Site, MR,
+                        TmpV, D, L1),
+          Rep1 = choose_opaque_type(Rep, Type),
+          Rep2 = case cannot_have_opaque(Rep1, TypeName, TypeNames) of
+                   true -> Rep1;
+                   false ->
+                     ArgTypes2 = subst_all_vars_to_any_list(ArgTypes),
+                     t_opaque(Module, Name, ArgTypes2, Rep1)
+                 end,
+          {Rep2, L2};
+        false -> {t_any(), L}
+        end;
     error ->
       Msg = io_lib:format("Unable to find type ~w/~w\n", [Name, ArgsLen]),
       throw({error, Msg})
   end.
 
 remote_from_form(RemMod, Name, Args, TypeNames, ET, S, MR, V, D, L) ->
-  {ArgTypes, L1} = list_from_form(Args, TypeNames, ET, S, MR, V, D, L),
   if
     ET =:= replace_by_none ->
-      {t_none(), L1};
+      {t_none(), L};
     true ->
       ArgsLen = length(Args),
       MFA = {RemMod, Name, ArgsLen},
       case dict:find(RemMod, MR) of
         error ->
           self() ! {self(), ext_types, MFA},
-          {t_any(), L1};
+          {t_any(), L};
         {ok, RemDict} ->
           RemType = {type, MFA},
           case sets:is_element(MFA, ET) of
@@ -4300,6 +4303,8 @@ remote_from_form(RemMod, Name, Args, TypeNames, ET, S, MR, V, D, L) ->
                 {type, {{_Mod, _FileLine, Form, ArgNames}, _Type}} ->
                   case can_unfold_more(RemType, TypeNames) of
                     true ->
+                      {ArgTypes, L1} =
+                        list_from_form(Args, TypeNames, ET, S, MR, V, D, L),
                       List = lists:zip(ArgNames, ArgTypes),
                       TmpVarDict = dict:from_list(List),
                       NewTypeNames = [RemType|TypeNames],
@@ -4307,29 +4312,32 @@ remote_from_form(RemMod, Name, Args, TypeNames, ET, S, MR, V, D, L) ->
                       t_from_form(Form, NewTypeNames, ET,
                                   Site, MR, TmpVarDict, D, L1);
                     false ->
-                      {t_any(), L1}
+                      {t_any(), L}
                   end;
                 {opaque, {{Mod, _FileLine, Form, ArgNames}, Type}} ->
-                  List = lists:zip(ArgNames, ArgTypes),
-                  TmpVarDict = dict:from_list(List),
-                  {NewRep, L2} =
-                    case can_unfold_more(RemType, TypeNames) of
-                      true ->
-                        NewTypeNames = [RemType|TypeNames],
-                        Site = RemType,
+                  case can_unfold_more(RemType, TypeNames) of
+                    true ->
+                      NewTypeNames = [RemType|TypeNames],
+                      {ArgTypes, L1} =
+                        list_from_form(Args, TypeNames, ET, S, MR, V, D, L),
+                      List = lists:zip(ArgNames, ArgTypes),
+                      TmpVarDict = dict:from_list(List),
+                      Site = RemType,
+                      {NewRep, L2} =
                         t_from_form(Form, NewTypeNames, ET, Site, MR,
-                                    TmpVarDict, D, L1);
-                      false -> {t_any(), L1}
-                    end,
-                  NewRep1 = choose_opaque_type(NewRep, Type),
-                  NewRep2 =
-                    case cannot_have_opaque(NewRep1, RemType, TypeNames) of
-                      true -> NewRep1;
-                     false ->
-                       ArgTypes2 = subst_all_vars_to_any_list(ArgTypes),
-                       t_opaque(Mod, Name, ArgTypes2, NewRep1)
-                    end,
-                  {NewRep2, L2};
+                                    TmpVarDict, D, L1),
+                      NewRep1 = choose_opaque_type(NewRep, Type),
+                      NewRep2 =
+                        case cannot_have_opaque(NewRep1, RemType, TypeNames) of
+                          true -> NewRep1;
+                          false ->
+                            ArgTypes2 = subst_all_vars_to_any_list(ArgTypes),
+                            t_opaque(Mod, Name, ArgTypes2, NewRep1)
+                        end,
+                      {NewRep2, L2};
+                    false ->
+                      {t_any(), L}
+                  end;
                 error ->
                   Msg = io_lib:format("Unable to find remote type ~w:~w()\n",
                                       [RemMod, Name]),
@@ -4337,7 +4345,7 @@ remote_from_form(RemMod, Name, Args, TypeNames, ET, S, MR, V, D, L) ->
               end;
             false ->
               self() ! {self(), ext_types, {RemMod, Name, ArgsLen}},
-              {t_any(), L1}
+              {t_any(), L}
           end
       end
   end.
