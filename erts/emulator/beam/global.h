@@ -1444,69 +1444,16 @@ erts_alloc_message_heap(Uint size,
 
 #endif /* #if ERTS_GLB_INLINE_INCL_FUNC_DEF */
 
-#if !HEAP_ON_C_STACK
-#  if defined(DEBUG)
-#    define DeclareTmpHeap(VariableName,Size,Process) \
-       Eterm *VariableName = erts_debug_allocate_tmp_heap(Size,Process)
-#    define DeclareTypedTmpHeap(Type,VariableName,Process)		\
-      Type *VariableName = (Type *) erts_debug_allocate_tmp_heap(sizeof(Type)/sizeof(Eterm),Process)
-#    define DeclareTmpHeapNoproc(VariableName,Size) \
-       Eterm *VariableName = erts_debug_allocate_tmp_heap(Size,NULL)
-#    define UseTmpHeap(Size,Proc) \
-       do { \
-         erts_debug_use_tmp_heap((Size),(Proc)); \
-       } while (0)
-#    define UnUseTmpHeap(Size,Proc) \
-       do { \
-         erts_debug_unuse_tmp_heap((Size),(Proc)); \
-       } while (0)
-#    define UseTmpHeapNoproc(Size) \
-       do { \
-         erts_debug_use_tmp_heap(Size,NULL); \
-       } while (0)
-#    define UnUseTmpHeapNoproc(Size) \
-       do { \
-         erts_debug_unuse_tmp_heap(Size,NULL); \
-       } while (0)
-#  else
-#    define DeclareTmpHeap(VariableName,Size,Process) \
-       Eterm *VariableName = (ERTS_PROC_GET_SCHDATA(Process)->tmp_heap)+(ERTS_PROC_GET_SCHDATA(Process)->num_tmp_heap_used)
-#    define DeclareTypedTmpHeap(Type,VariableName,Process)		\
-      Type *VariableName = (Type *) (ERTS_PROC_GET_SCHDATA(Process)->tmp_heap)+(ERTS_PROC_GET_SCHDATA(Process)->num_tmp_heap_used)
-#    define DeclareTmpHeapNoproc(VariableName,Size) \
-       Eterm *VariableName = (erts_get_scheduler_data()->tmp_heap)+(erts_get_scheduler_data()->num_tmp_heap_used)
-#    define UseTmpHeap(Size,Proc) \
-       do { \
-         ERTS_PROC_GET_SCHDATA(Proc)->num_tmp_heap_used += (Size); \
-       } while (0)
-#    define UnUseTmpHeap(Size,Proc) \
-       do { \
-         ERTS_PROC_GET_SCHDATA(Proc)->num_tmp_heap_used -= (Size); \
-       } while (0)
-#    define UseTmpHeapNoproc(Size) \
-       do { \
-         erts_get_scheduler_data()->num_tmp_heap_used += (Size); \
-       } while (0)
-#    define UnUseTmpHeapNoproc(Size) \
-       do { \
-         erts_get_scheduler_data()->num_tmp_heap_used -= (Size); \
-       } while (0)
-
-
-#  endif
-
-#else
-#  define DeclareTmpHeap(VariableName,Size,Process) \
+#define DeclareTmpHeap(VariableName,Size,Process) \
      Eterm VariableName[Size]
-#  define DeclareTypedTmpHeap(Type,VariableName,Process)	\
+#define DeclareTypedTmpHeap(Type,VariableName,Process)	\
      Type VariableName[1]
-#  define DeclareTmpHeapNoproc(VariableName,Size) \
+#define DeclareTmpHeapNoproc(VariableName,Size) \
      Eterm VariableName[Size]
-#  define UseTmpHeap(Size,Proc) /* Nothing */
-#  define UnUseTmpHeap(Size,Proc) /* Nothing */
-#  define UseTmpHeapNoproc(Size) /* Nothing */
-#  define UnUseTmpHeapNoproc(Size) /* Nothing */
-#endif /* HEAP_ON_C_STACK */
+#define UseTmpHeap(Size,Proc) /* Nothing */
+#define UnUseTmpHeap(Size,Proc) /* Nothing */
+#define UseTmpHeapNoproc(Size) /* Nothing */
+#define UnUseTmpHeapNoproc(Size) /* Nothing */
 
 ERTS_GLB_INLINE void dtrace_pid_str(Eterm pid, char *process_buf);
 ERTS_GLB_INLINE void dtrace_proc_str(Process *process, char *process_buf);

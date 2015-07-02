@@ -632,12 +632,6 @@ struct ErtsSchedulerData_ {
     Process *free_process;
     ErtsThrPrgrData thr_progress_data;
 #endif
-#if !HEAP_ON_C_STACK
-    Eterm tmp_heap[TMP_HEAP_SIZE];
-    int num_tmp_heap_used;
-    Eterm beam_emu_tmp_heap[BEAM_EMU_TMP_HEAP_SIZE];
-    Eterm erl_arith_tmp_heap[ERL_ARITH_TMP_HEAP_SIZE];
-#endif
     ErtsSchedulerSleepInfo *ssi;
     Process *current_process;
     Uint no;			/* Scheduler number for normal schedulers */

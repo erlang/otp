@@ -1165,11 +1165,7 @@ void process_main(void)
      */
     register Eterm tmp_arg1 REG_tmp_arg1 = NIL;
     register Eterm tmp_arg2 REG_tmp_arg2 = NIL;
-#if HEAP_ON_C_STACK
-    Eterm tmp_big[2];           /* Temporary buffer for small bignums if HEAP_ON_C_STACK. */
-#else
-    Eterm *tmp_big;		/* Temporary buffer for small bignums if !HEAP_ON_C_STACK. */
-#endif
+    Eterm tmp_big[2];
 
     /*
      * X registers and floating point registers are located in
@@ -1261,9 +1257,6 @@ void process_main(void)
 
     reg = ERTS_PROC_GET_SCHDATA(c_p)->x_reg_array;
     freg = ERTS_PROC_GET_SCHDATA(c_p)->f_reg_array;
-#if !HEAP_ON_C_STACK
-    tmp_big = ERTS_PROC_GET_SCHDATA(c_p)->beam_emu_tmp_heap;
-#endif
     ERL_BITS_RELOAD_STATEP(c_p);
     {
 	int reds;

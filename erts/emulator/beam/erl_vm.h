@@ -40,14 +40,6 @@
 #define MAX_ARG 255	        /* Max number of arguments allowed */
 #define MAX_REG 1024            /* Max number of x(N) registers used */
 
-/* Scheduler stores data for temporary heaps if
-   !HEAP_ON_C_STACK. Macros (*TmpHeap*) in global.h selects if we put temporary
-   heap data on the C stack or if we use the buffers in the scheduler data. */
-#define TMP_HEAP_SIZE 128            /* Number of Eterm in the schedulers
-				        small heap for transient heap data */
-#define ERL_ARITH_TMP_HEAP_SIZE 4    /* as does erl_arith... */
-#define BEAM_EMU_TMP_HEAP_SIZE  2    /* and beam_emu... */
-
 /*
  * The new arithmetic operations need some extra X registers in the register array.
  * so does the gc_bif's (i_gc_bif3 need 3 extra).

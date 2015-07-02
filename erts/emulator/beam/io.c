@@ -6791,7 +6791,7 @@ int driver_monitor_process(ErlDrvPort drvport,
 {
     Port *prt;
     int ret;
-#if !HEAP_ON_C_STACK || (defined(ERTS_SMP) && defined(ERTS_ENABLE_LOCK_CHECK))
+#if defined(ERTS_SMP) && defined(ERTS_ENABLE_LOCK_CHECK)
     ErtsSchedulerData *sched = erts_get_scheduler_data();
 #endif
 
@@ -6802,16 +6802,6 @@ int driver_monitor_process(ErlDrvPort drvport,
     /* Now (in SMP) we should have either the port lock (if we have a scheduler) or the port data lock
        (if we're a driver thread) */
     ERTS_SMP_LC_ASSERT((sched != NULL || prt->port_data_lock));
-
-#if !HEAP_ON_C_STACK
-    if (!sched) {
-	/* Need a separate allocation for the ref :( */
-	Eterm *buf = erts_alloc(ERTS_ALC_T_TEMP_TERM,
-				sizeof(Eterm)*REF_THING_SIZE);
-	ret = do_driver_monitor_process(prt,buf,process,monitor);
-	erts_free(ERTS_ALC_T_TEMP_TERM,buf);
-    } else
-#endif
     {
 	DeclareTmpHeapNoproc(buf,REF_THING_SIZE);
 	UseTmpHeapNoproc(REF_THING_SIZE);
@@ -6864,7 +6854,7 @@ int driver_demonitor_process(ErlDrvPort drvport,
 {
     Port *prt;
     int ret;
-#if !HEAP_ON_C_STACK || (defined(ERTS_SMP) && defined(ERTS_ENABLE_LOCK_CHECK))
+#if defined(ERTS_SMP) && defined(ERTS_ENABLE_LOCK_CHECK)
     ErtsSchedulerData *sched = erts_get_scheduler_data();
 #endif
 
@@ -6875,15 +6865,6 @@ int driver_demonitor_process(ErlDrvPort drvport,
     /* Now we should have either the port lock (if we have a scheduler) or the port data lock
        (if we're a driver thread) */
     ERTS_SMP_LC_ASSERT((sched != NULL || prt->port_data_lock));
-#if !HEAP_ON_C_STACK
-    if (!sched) {
-	/* Need a separate allocation for the ref :( */
-	Eterm *buf = erts_alloc(ERTS_ALC_T_TEMP_TERM,
-				sizeof(Eterm)*REF_THING_SIZE);
-	ret = do_driver_demonitor_process(prt,buf,monitor);
-	erts_free(ERTS_ALC_T_TEMP_TERM,buf);
-    } else
-#endif
     {
 	DeclareTmpHeapNoproc(buf,REF_THING_SIZE);
 	UseTmpHeapNoproc(REF_THING_SIZE);
@@ -6919,7 +6900,7 @@ ErlDrvTermData driver_get_monitored_process(ErlDrvPort drvport,
 {
     Port *prt;
     ErlDrvTermData ret;
-#if !HEAP_ON_C_STACK || (defined(ERTS_SMP) && defined(ERTS_ENABLE_LOCK_CHECK))
+#if defined(ERTS_SMP) && defined(ERTS_ENABLE_LOCK_CHECK)
     ErtsSchedulerData *sched = erts_get_scheduler_data();
 #endif
 
@@ -6930,16 +6911,6 @@ ErlDrvTermData driver_get_monitored_process(ErlDrvPort drvport,
     /* Now we should have either the port lock (if we have a scheduler) or the port data lock
        (if we're a driver thread) */
     ERTS_SMP_LC_ASSERT((sched != NULL || prt->port_data_lock));
-
-#if !HEAP_ON_C_STACK
-    if (!sched) {
-	/* Need a separate allocation for the ref :( */
-	Eterm *buf = erts_alloc(ERTS_ALC_T_TEMP_TERM,
-				sizeof(Eterm)*REF_THING_SIZE);
-	ret = do_driver_get_monitored_process(prt,buf,monitor);
-	erts_free(ERTS_ALC_T_TEMP_TERM,buf);
-    } else
-#endif
     {
 	DeclareTmpHeapNoproc(buf,REF_THING_SIZE);
 	UseTmpHeapNoproc(REF_THING_SIZE);
