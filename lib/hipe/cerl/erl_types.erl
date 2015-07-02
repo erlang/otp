@@ -4249,26 +4249,27 @@ type_from_form(Name, Args, TypeNames, ET, Site0, MR, V, D, L) ->
     {type, {{Module, _FileName, Form, ArgNames}, _Type}} ->
       case can_unfold_more(TypeName, TypeNames) of
         true ->
+          NewTypeNames = [TypeName|TypeNames],
           {ArgTypes, L1} =
             list_from_form(Args, TypeNames, ET, Site0, MR, V, D, L),
           List = lists:zip(ArgNames, ArgTypes),
           TmpV = dict:from_list(List),
           Site = TypeName,
-          t_from_form(Form, [TypeName|TypeNames], ET, Site, MR, TmpV, D, L1);
+          t_from_form(Form, NewTypeNames, ET, Site, MR, TmpV, D, L1);
         false ->
           {t_any(), L}
       end;
     {opaque, {{Module, _FileName, Form, ArgNames}, Type}} ->
       case can_unfold_more(TypeName, TypeNames) of
         true ->
+          NewTypeNames = [TypeName|TypeNames],
           {ArgTypes, L1} =
-            list_from_form(Args, TypeNames, ET, Site0, MR, V, D, L),
+            list_from_form(Args, NewTypeNames, ET, Site0, MR, V, D, L),
           List = lists:zip(ArgNames, ArgTypes),
           TmpV = dict:from_list(List),
           Site = TypeName,
           {Rep, L2} =
-            t_from_form(Form, [TypeName|TypeNames], ET, Site, MR,
-                        TmpV, D, L1),
+            t_from_form(Form, NewTypeNames, ET, Site, MR, TmpV, D, L1),
           Rep1 = choose_opaque_type(Rep, Type),
           Rep2 = case cannot_have_opaque(Rep1, TypeName, TypeNames) of
                    true -> Rep1;
@@ -4278,7 +4279,7 @@ type_from_form(Name, Args, TypeNames, ET, Site0, MR, V, D, L) ->
                  end,
           {Rep2, L2};
         false -> {t_any(), L}
-        end;
+      end;
     error ->
       Msg = io_lib:format("Unable to find type ~w/~w\n", [Name, ArgsLen]),
       throw({error, Msg})
@@ -4303,11 +4304,11 @@ remote_from_form(RemMod, Name, Args, TypeNames, ET, S, MR, V, D, L) ->
                 {type, {{_Mod, _FileLine, Form, ArgNames}, _Type}} ->
                   case can_unfold_more(RemType, TypeNames) of
                     true ->
-                      {ArgTypes, L1} =
-                        list_from_form(Args, TypeNames, ET, S, MR, V, D, L),
+                      NewTypeNames = [RemType|TypeNames],
+                      {ArgTypes, L1} = list_from_form(Args, TypeNames,
+                                                      ET, S, MR, V, D, L),
                       List = lists:zip(ArgNames, ArgTypes),
                       TmpVarDict = dict:from_list(List),
-                      NewTypeNames = [RemType|TypeNames],
                       Site = RemType,
                       t_from_form(Form, NewTypeNames, ET,
                                   Site, MR, TmpVarDict, D, L1);
@@ -4318,8 +4319,8 @@ remote_from_form(RemMod, Name, Args, TypeNames, ET, S, MR, V, D, L) ->
                   case can_unfold_more(RemType, TypeNames) of
                     true ->
                       NewTypeNames = [RemType|TypeNames],
-                      {ArgTypes, L1} =
-                        list_from_form(Args, TypeNames, ET, S, MR, V, D, L),
+                      {ArgTypes, L1} = list_from_form(Args, NewTypeNames,
+                                                      ET, S, MR, V, D, L),
                       List = lists:zip(ArgNames, ArgTypes),
                       TmpVarDict = dict:from_list(List),
                       Site = RemType,
@@ -4328,7 +4329,9 @@ remote_from_form(RemMod, Name, Args, TypeNames, ET, S, MR, V, D, L) ->
                                     TmpVarDict, D, L1),
                       NewRep1 = choose_opaque_type(NewRep, Type),
                       NewRep2 =
-                        case cannot_have_opaque(NewRep1, RemType, TypeNames) of
+                        case
+                          cannot_have_opaque(NewRep1, RemType, TypeNames)
+                        of
                           true -> NewRep1;
                           false ->
                             ArgTypes2 = subst_all_vars_to_any_list(ArgTypes),
