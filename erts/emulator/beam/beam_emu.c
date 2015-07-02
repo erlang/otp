@@ -819,6 +819,7 @@ void** beam_ops;
 #define BsGetFieldSize(Bits, Unit, Fail, Target)	\
    do {							\
       Sint _signed_size; Uint _uint_size;		\
+      Uint temp_bits;					\
       if (is_small(Bits)) {				\
         _signed_size = signed_val(Bits);		\
          if (_signed_size < 0) { Fail; }		\
@@ -833,6 +834,7 @@ void** beam_ops;
 #define BsGetUncheckedFieldSize(Bits, Unit, Fail, Target)	\
    do {								\
       Sint _signed_size; Uint _uint_size;			\
+      Uint temp_bits;						\
       if (is_small(Bits)) {					\
         _signed_size = signed_val(Bits);			\
          if (_signed_size < 0) { Fail; }			\
@@ -1218,8 +1220,6 @@ void process_main(void)
     int Go;
 #endif
 #endif
-
-    Uint temp_bits; /* Temporary used by BsSkipBits2 & BsGetInteger2 */
 
     Eterm pt_arity;		/* Used by do_put_tuple */
 
