@@ -58,11 +58,7 @@
 
 #define ERTS_PROC_MIN_CONTEXT_SWITCH_REDS_COST (CONTEXT_REDS/10)
 
-#ifndef ERTS_SCHED_MIN_SPIN
 #define ERTS_SCHED_SPIN_UNTIL_YIELD 100
-#else
-#define ERTS_SCHED_SPIN_UNTIL_YIELD 1
-#endif
 
 #define ERTS_SCHED_SYS_SLEEP_SPINCOUNT_VERY_LONG 40
 #define ERTS_SCHED_AUX_WORK_SLEEP_SPINCOUNT_FACT_VERY_LONG 1000
@@ -152,12 +148,7 @@ extern BeamInstr beam_apply[];
 extern BeamInstr beam_exit[];
 extern BeamInstr beam_continue_exit[];
 
-#ifdef __OSE__
-/* Eager check I/O not supported on OSE yet. */
-int erts_eager_check_io = 0;
-#else
 int erts_eager_check_io = 1;
-#endif
 int erts_sched_compact_load;
 int erts_sched_balance_util = 0;
 Uint erts_no_schedulers;
@@ -2521,19 +2512,10 @@ try_set_sys_scheduling(void)
 #endif
 
 static ERTS_INLINE int
-prepare_for_sys_schedule(ErtsSchedulerData *esdp, int non_blocking)
+prepare_for_sys_schedule(int non_blocking)
 {
     if (non_blocking && erts_eager_check_io) {
 #ifdef ERTS_SMP
-#ifdef ERTS_SCHED_ONLY_POLL_SCHED_1
-	if (esdp->no != 1) {
-	    /* If we are not scheduler 1 and ERTS_SCHED_ONLY_POLL_SCHED_1 is used
-	       then we make sure to wake scheduler 1 */
-	    ErtsRunQueue *rq = ERTS_RUNQ_IX(0);
-	    wake_scheduler(rq);
-	    return 0;
-	}
-#endif
 	return try_set_sys_scheduling();
 #else
 	return 1;
@@ -2543,16 +2525,6 @@ prepare_for_sys_schedule(ErtsSchedulerData *esdp, int non_blocking)
 #ifdef ERTS_SMP
 	while (!erts_port_task_have_outstanding_io_tasks()
 	       && try_set_sys_scheduling()) {
-#ifdef ERTS_SCHED_ONLY_POLL_SCHED_1
-	    if (esdp->no != 1) {
-		/* If we are not scheduler 1 and ERTS_SCHED_ONLY_POLL_SCHED_1 is used
-		   then we make sure to wake scheduler 1 */
-		ErtsRunQueue *rq = ERTS_RUNQ_IX(0);
-		clear_sys_scheduling();
-		wake_scheduler(rq);
-		return 0;
-	    }
-#endif
 	    if (!erts_port_task_have_outstanding_io_tasks())
 		return 1;
 	    clear_sys_scheduling();
@@ -2876,8 +2848,6 @@ aux_thread(void *unused)
 		erts_thr_progress_active(NULL, thr_prgr_active = 0);
 	    erts_thr_progress_prepare_wait(NULL);
 
-	    ERTS_SCHED_FAIR_YIELD();
-
 	    flgs = sched_spin_wait(ssi, 0);
 
 	    if (flgs & ERTS_SSI_FLG_SLEEPING) {
@@ -2945,7 +2915,7 @@ scheduler_wait(int *fcalls, ErtsSchedulerData *esdp, ErtsRunQueue *rq)
      * be waiting in erl_sys_schedule()
      */
 
-    if (ERTS_SCHEDULER_IS_DIRTY(esdp) || !prepare_for_sys_schedule(esdp, 0)) {
+    if (ERTS_SCHEDULER_IS_DIRTY(esdp) || !prepare_for_sys_schedule(0)) {
 
 	sched_waiting(esdp->no, rq);
 
@@ -3009,8 +2979,6 @@ scheduler_wait(int *fcalls, ErtsSchedulerData *esdp, ErtsRunQueue *rq)
 			}
 			erts_thr_progress_prepare_wait(esdp);
 		    }
-
-		    ERTS_SCHED_FAIR_YIELD();
 
 		    flgs = sched_spin_wait(ssi, spincount);
 		    if (flgs & ERTS_SSI_FLG_SLEEPING) {
@@ -3082,12 +3050,7 @@ scheduler_wait(int *fcalls, ErtsSchedulerData *esdp, ErtsRunQueue *rq)
 #ifdef ERTS_DIRTY_SCHEDULERS
 	ASSERT(!ERTS_SCHEDULER_IS_DIRTY(esdp));
 #endif
-
-#ifdef ERTS_SCHED_ONLY_POLL_SCHED_1
-	ASSERT(esdp->no == 1);
-#endif
 	sched_waiting_sys(esdp->no, rq);
-
 
 	erts_smp_runq_unlock(rq);
 
@@ -3158,7 +3121,7 @@ scheduler_wait(int *fcalls, ErtsSchedulerData *esdp, ErtsRunQueue *rq)
 		 * Got to check that we still got I/O tasks; otherwise
 		 * we have to continue checking for I/O...
 		 */
-		if (!prepare_for_sys_schedule(esdp, 0)) {
+		if (!prepare_for_sys_schedule(0)) {
 		    spincount *= ERTS_SCHED_TSE_SLEEP_SPINCOUNT_FACT;
 		    goto tse_wait;
 		}
@@ -3180,7 +3143,7 @@ scheduler_wait(int *fcalls, ErtsSchedulerData *esdp, ErtsRunQueue *rq)
 	     * Got to check that we still got I/O tasks; otherwise
 	     * we have to wait in erl_sys_schedule() after all...
 	     */
-	    if (!prepare_for_sys_schedule(esdp, 0)) {
+	    if (!prepare_for_sys_schedule(0)) {
 		/*
 		 * Not allowed to wait in erl_sys_schedule;
 		 * do tse wait instead...
@@ -5301,17 +5264,11 @@ erts_early_init_scheduling(int no_schedulers)
     wakeup_other.threshold = ERTS_SCHED_WAKEUP_OTHER_THRESHOLD_MEDIUM;
     wakeup_other.type = ERTS_SCHED_WAKEUP_OTHER_TYPE_DEFAULT;
 #endif
-#ifndef ERTS_SCHED_MIN_SPIN
     sched_busy_wait.sys_schedule = ERTS_SCHED_SYS_SLEEP_SPINCOUNT_MEDIUM;
     sched_busy_wait.tse = (ERTS_SCHED_SYS_SLEEP_SPINCOUNT_MEDIUM
 			   * ERTS_SCHED_TSE_SLEEP_SPINCOUNT_FACT);
     sched_busy_wait.aux_work = (ERTS_SCHED_SYS_SLEEP_SPINCOUNT_MEDIUM
 				* ERTS_SCHED_AUX_WORK_SLEEP_SPINCOUNT_FACT_MEDIUM);
-#else
-    sched_busy_wait.sys_schedule = ERTS_SCHED_SYS_SLEEP_SPINCOUNT_NONE;
-    sched_busy_wait.tse = ERTS_SCHED_SYS_SLEEP_SPINCOUNT_NONE;
-    sched_busy_wait.aux_work = ERTS_SCHED_SYS_SLEEP_SPINCOUNT_NONE;
-#endif
 }
 
 int
@@ -8187,18 +8144,12 @@ erts_start_schedulers(void)
 
 	erts_snprintf(opts.name, 16, "%lu_scheduler", actual + 1);
 
-#ifdef __OSE__
-        /* This should be done in the bind strategy */
-	opts.coreNo = (actual+1) % ose_num_cpus();
-#endif
-
 	res = ethr_thr_create(&esdp->tid, sched_thread_func, (void*)esdp, &opts);
 
 	if (res != 0) {
            break;
 	}
     }
-
     erts_no_schedulers = actual;
 
 #ifdef ERTS_DIRTY_SCHEDULERS
@@ -8227,10 +8178,6 @@ erts_start_schedulers(void)
 
     erts_snprintf(opts.name, 16, "aux");
 
-#ifdef __OSE__
-    opts.coreNo = 0;
-#endif /* __OSE__ */
-
     res = ethr_thr_create(&aux_tid, aux_thread, NULL, &opts);
     if (res != 0)
 	erl_exit(1, "Failed to create aux thread\n");
@@ -8250,7 +8197,6 @@ erts_start_schedulers(void)
 		      actual, actual == 1 ? " was" : "s were");
 	erts_send_error_to_logger_nogl(dsbufp);
     }
-
 }
 
 #endif /* ERTS_SMP */
@@ -9391,12 +9337,10 @@ Process *schedule(Process *p, int calls)
 	    int leader_update = ERTS_SCHEDULER_IS_DIRTY(esdp) ? 0
 		: erts_thr_progress_update(esdp);
 	    aux_work = erts_atomic32_read_acqb(&esdp->ssi->aux_work);
-	    if (aux_work | leader_update | ERTS_SCHED_FAIR) {
+	    if (aux_work | leader_update) {
 		erts_smp_runq_unlock(rq);
 		if (leader_update)
 		    erts_thr_progress_leader_update(esdp);
-		else if (ERTS_SCHED_FAIR)
-		  ERTS_SCHED_FAIR_YIELD();
 		if (aux_work)
 		    handle_aux_work(&esdp->aux_work_data, aux_work, 0);
 		erts_smp_runq_lock(rq);
@@ -9472,7 +9416,7 @@ Process *schedule(Process *p, int calls)
 	}
 	else if (!ERTS_SCHEDULER_IS_DIRTY(esdp) &&
 		 (fcalls > input_reductions &&
-		  prepare_for_sys_schedule(esdp, !0))) {
+		  prepare_for_sys_schedule(!0))) {
 	    ErtsMonotonicTime current_time;
 	    /*
 	     * Schedule system-level activities.

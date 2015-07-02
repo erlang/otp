@@ -93,7 +93,7 @@ unsetenv(_) ->
 %%% End of BIFs
 
 -spec type() -> {Osfamily, Osname} when
-      Osfamily :: unix | win32 | ose,
+      Osfamily :: unix | win32,
       Osname :: atom().
 
 type() ->
