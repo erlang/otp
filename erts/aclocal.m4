@@ -1900,7 +1900,7 @@ case "$THR_LIB_NAME" in
                      #define _DARWIN_C_SOURCE
                      #include <pthread.h>],
                     [char buff[256]; pthread_getname_np(pthread_self(), buff, 256);],
-                    pthread_getname=normal)
+                    pthread_getname=linux)
 	AC_TRY_LINK([#define __USE_GNU
                      #define _DARWIN_C_SOURCE
                      #include <pthread.h>],
