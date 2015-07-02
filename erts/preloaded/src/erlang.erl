@@ -1974,6 +1974,7 @@ localtime_to_universaltime(_Localtime, _IsDst) ->
 %% CHECK! Why the strange very thorough specification of the error
 %% condition with disallowed arity in erl_bif_types?
 %% Not documented
+%% Shadowed by erl_bif_types: erlang:make_fun/3
 -spec erlang:make_fun(Module, Function, Arity) -> function() when
       Module :: atom(),
       Function :: atom(),
