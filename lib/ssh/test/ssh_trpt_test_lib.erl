@@ -200,7 +200,9 @@ op_val(E, S0) ->
 	{'EXIT',{function_clause,[{ssh_trpt_test_lib,op,[E,S0],_}|_]}} ->
 	    {instantiate(E,S0), S0};
 	S=#s{} ->
-	    {S#s.return_value, S}
+	    {S#s.return_value, S};
+	F={fail,receive_timeout,_St} ->
+	    throw(F)
     end.
 
 

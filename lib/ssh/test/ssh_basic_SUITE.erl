@@ -1838,6 +1838,8 @@ check_error("Invalid state") ->
     ok;
 check_error("Connection closed") ->
     ok;
+check_error("Selection of key exchange algorithm failed") ->
+    ok;
 check_error(Error) ->
     ct:fail(Error).
 
