@@ -669,12 +669,37 @@ print_op(int to, void *to_arg, int op, int size, BeamInstr* addr)
     case op_new_map_dII:
     case op_update_map_assoc_jsdII:
     case op_update_map_exact_jsdII:
-    case op_i_get_map_elements_fsI:
 	{
 	    int n = unpacked[-1];
 
 	    while (n > 0) {
 		if (!is_header(ap[0])) {
+		    erts_print(to, to_arg, " %T", (Eterm) ap[0]);
+		} else {
+		    switch ((ap[0] >> 2) & 0x03) {
+		    case R_REG_DEF:
+			erts_print(to, to_arg, " x(0)");
+			break;
+		    case X_REG_DEF:
+			erts_print(to, to_arg, " x(%d)", ap[0] >> 4);
+			break;
+		    case Y_REG_DEF:
+			erts_print(to, to_arg, " y(%d)", ap[0] >> 4);
+			break;
+		    }
+		}
+		ap++, size++, n--;
+	    }
+	}
+	break;
+    case op_i_get_map_elements_fsI:
+	{
+	    int n = unpacked[-1];
+
+	    while (n > 0) {
+		if (n % 3 == 1) {
+		    erts_print(to, to_arg, " %X", ap[0]);
+		} else if (!is_header(ap[0])) {
 		    erts_print(to, to_arg, " %T", (Eterm) ap[0]);
 		} else {
 		    switch ((ap[0] >> 2) & 0x03) {
