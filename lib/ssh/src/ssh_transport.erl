@@ -246,26 +246,41 @@ handle_kexinit_msg(#ssh_msg_kexinit{} = CounterPart, #ssh_msg_kexinit{} = Own,
 				   Ssh0#ssh{algorithms = Algoritms});
 	_  ->
 	    %% TODO: Correct code?
-	    throw(#ssh_msg_disconnect{code = ?SSH_DISCONNECT_PROTOCOL_ERROR,
+	    throw(#ssh_msg_disconnect{code = ?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
 				      description = "Selection of key exchange"
 				      " algorithm failed", 
-				      language = "en"})
+				      language = ""})
     end;
 
 handle_kexinit_msg(#ssh_msg_kexinit{} = CounterPart, #ssh_msg_kexinit{} = Own,
 			    #ssh{role = server} = Ssh) ->
     {ok, Algoritms} = select_algorithm(server, CounterPart, Own),
-    {ok, Ssh#ssh{algorithms = Algoritms}}.
+    case  verify_algorithm(Algoritms) of
+	true ->
+	    {ok, Ssh#ssh{algorithms = Algoritms}};
+	_ ->
+	    throw(#ssh_msg_disconnect{code = ?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
+				      description = "Selection of key exchange"
+				      " algorithm failed",
+				      language = ""})
+    end.
 
 
 %% TODO: diffie-hellman-group14-sha1 should also be supported.
 %% Maybe check more things ...
-verify_algorithm(#alg{kex = 'diffie-hellman-group1-sha1'}) ->
-    true;
-verify_algorithm(#alg{kex = 'diffie-hellman-group-exchange-sha1'}) ->
-    true;
-verify_algorithm(_) ->
-    false.
+
+verify_algorithm(#alg{kex = undefined}) -> false;
+verify_algorithm(#alg{hkey = undefined}) -> false;
+verify_algorithm(#alg{send_mac = undefined}) -> false;
+verify_algorithm(#alg{recv_mac = undefined}) -> false;
+verify_algorithm(#alg{encrypt = undefined}) -> false;
+verify_algorithm(#alg{decrypt = undefined}) -> false;
+verify_algorithm(#alg{compress = undefined}) -> false;
+verify_algorithm(#alg{decompress = undefined}) -> false;
+
+verify_algorithm(#alg{kex = 'diffie-hellman-group1-sha1'}) -> true;
+verify_algorithm(#alg{kex = 'diffie-hellman-group-exchange-sha1'}) -> true;
+verify_algorithm(_) -> false.
 
 key_exchange_first_msg('diffie-hellman-group1-sha1', Ssh0) ->
     {G, P} = dh_group1(),
