@@ -78,26 +78,28 @@ default_algorithms(Alg) ->
 supported_algorithms() -> [{K,supported_algorithms(K)} || K <- algo_classes()].
 
 supported_algorithms(kex) ->
-    ['diffie-hellman-group1-sha1',
-     'diffie-hellman-group-exchange-sha1',
-     'diffie-hellman-group-exchange-sha256'
-    ];
+    select_crypto_supported(
+      [{'diffie-hellman-group1-sha1',           [{hashs,sha}]},
+       {'diffie-hellman-group-exchange-sha1',   [{hashs,sha}]},
+       {'diffie-hellman-group-exchange-sha256', [{hashs,sha256}]} 
+      ]);
 supported_algorithms(public_key) ->
     ssh_auth:default_public_key_algorithms();
 supported_algorithms(cipher) ->
-    Supports = crypto:supports(),
-    CipherAlgos = [{aes_ctr, 'aes128-ctr'}, {aes_cbc128, 'aes128-cbc'}, {des3_cbc, '3des-cbc'}],
-    Algs = [SshAlgo ||
-	       {CryptoAlgo, SshAlgo} <- CipherAlgos,
-	       lists:member(CryptoAlgo, proplists:get_value(ciphers, Supports, []))],
-    same(Algs);
+    same(
+      select_crypto_supported(
+	[{'aes128-ctr', [{ciphers,aes_ctr}]},
+	 {'aes128-cbc', [{ciphers,aes_cbc128}]},
+	 {'3des-cbc',   [{ciphers,des3_cbc}]}
+	]
+       ));
 supported_algorithms(mac) ->
-    Supports = crypto:supports(),
-    HashAlgos = [{sha256, 'hmac-sha2-256'}, {sha, 'hmac-sha1'}],
-    Algs = [SshAlgo ||
-	       {CryptoAlgo, SshAlgo} <- HashAlgos,
-	       lists:member(CryptoAlgo, proplists:get_value(hashs, Supports, []))],
-    same(Algs);
+    same(
+      select_crypto_supported(
+	[{'hmac-sha2-256', [{hashs,sha256}]},
+	 {'hmac-sha1',     [{hashs,sha}]}
+	]
+       ));
 supported_algorithms(compression) ->
     same(['none','zlib','zlib@openssh.com']).
 
@@ -108,7 +110,15 @@ supported_algorithms(Key, [{client2server,BL1},{server2client,BL2}]) ->
 supported_algorithms(Key, BlackList) ->
     supported_algorithms(Key) -- BlackList.
 
-    
+select_crypto_supported(L) ->    
+    Sup = crypto:supports(),
+    [Name || {Name,CryptoRequires} <- L,
+	     crypto_supported(CryptoRequires, Sup)].
+
+crypto_supported(Conditions, Supported) ->
+    lists:all(fun({Tag,CryptoName}) ->
+		      lists:member(CryptoName, proplists:get_value(Tag,Supported,[]))
+	      end, Conditions).
 
 
 same(Algs) ->  [{client2server,Algs}, {server2client,Algs}].
