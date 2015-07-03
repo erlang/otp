@@ -1076,6 +1076,9 @@ is_sane_ecc(openssl) ->
 	"OpenSSL 1.0.0" ++ _ ->  % Known bug in openssl
 	    %% manifests as SSL_CHECK_SERVERHELLO_TLSEXT:tls invalid ecpointformat list
 	    false;
+	"OpenSSL 1.0.1l" ++ _ ->  
+	    %% Breaks signature verification 
+	    false;
 	"OpenSSL 0.9.8" ++ _ -> % Does not support ECC
 	    false;
 	"OpenSSL 0.9.7" ++ _ -> % Does not support ECC
