@@ -265,12 +265,12 @@ init_per_testcase(protocol_versions, Config)  ->
     Config;
 
 init_per_testcase(reuse_session_expired, Config)  ->
-    ct:timetrap({seconds, 30}),
     ssl:stop(),
     application:load(ssl),
     application:set_env(ssl, session_lifetime, ?EXPIRE),
     application:set_env(ssl, session_delay_cleanup_time, 500),
     ssl:start(),
+    ct:timetrap({seconds, 30}),
     Config;
 
 init_per_testcase(empty_protocol_versions, Config)  ->
@@ -303,7 +303,24 @@ init_per_testcase(TestCase, Config) when TestCase == client_renegotiate;
     ct:log("TLS/SSL version ~p~n ", [tls_record:supported_protocol_versions()]),
     ct:timetrap({seconds, 30}),
     Config;
-init_per_testcase(ssl_accept_timeout, Config) ->
+
+init_per_testcase(TestCase, Config) when TestCase == psk_cipher_suites;
+					 TestCase == psk_with_hint_cipher_suites;
+					 TestCase == ciphers_rsa_signed_certs;
+					 TestCase == ciphers_rsa_signed_certs_openssl_names;
+					 TestCase == versions_option,
+					 TestCase == tcp_connect_big ->
+    ct:log("TLS/SSL version ~p~n ", [tls_record:supported_protocol_versions()]),
+
+    ct:timetrap({seconds, 30}),
+    Config;
+init_per_testcase(rizzo, Config) ->
+    ct:log("TLS/SSL version ~p~n ", [tls_record:supported_protocol_versions()]),
+    ct:timetrap({seconds, 40}),
+    Config;
+
+init_per_testcase(TestCase, Config) when TestCase == ssl_accept_timeout;
+					 TestCase == client_closes_socket ->
     ct:log("TLS/SSL version ~p~n ", [tls_record:supported_protocol_versions()]),
     ct:timetrap({seconds, 15}),
     Config;
@@ -1428,6 +1445,7 @@ tcp_connect_big(Config) when is_list(Config) ->
     {_, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
     TcpOpts = [binary, {reuseaddr, true}],
 
+    Rand = crypto:rand_bytes(?MAX_CIPHER_TEXT_LENGTH+1),
     Server = ssl_test_lib:start_upgrade_server_error([{node, ServerNode}, {port, 0},
 						      {from, self()},
 						      {timeout, 5000},
@@ -1439,7 +1457,6 @@ tcp_connect_big(Config) when is_list(Config) ->
     {ok, Socket} = gen_tcp:connect(Hostname, Port, [binary, {packet, 0}]),
     ct:log("Testcase ~p connected to Server ~p ~n", [self(), Server]),
 
-    Rand = crypto:rand_bytes(?MAX_CIPHER_TEXT_LENGTH+1),
     gen_tcp:send(Socket, <<?BYTE(0),
 			   ?BYTE(3), ?BYTE(1), ?UINT16(?MAX_CIPHER_TEXT_LENGTH), Rand/binary>>),
 
