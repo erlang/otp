@@ -662,10 +662,14 @@ void** beam_ops;
      SET_I((BeamInstr *) Arg(0));		\
      Goto(*I);
 
-#define GetList(Src, H, T) do {			\
-   Eterm* tmp_ptr = list_val(Src);		\
-   H = CAR(tmp_ptr);				\
-   T = CDR(tmp_ptr); } while (0)
+#define GetList(Src, H, T)			\
+  do {						\
+    Eterm* tmp_ptr = list_val(Src);		\
+    Eterm hd, tl;				\
+    hd = CAR(tmp_ptr);				\
+    tl = CDR(tmp_ptr);				\
+    H = hd; T = tl;				\
+  } while (0)
 
 #define GetTupleElement(Src, Element, Dest)		\
   do {							\
