@@ -682,6 +682,13 @@ is_nonempty_list F=f x==0 | test_heap I1 I2 => is_non_empty_list_test_heap F I1 
 %macro: is_non_empty_list_test_heap IsNonemptyListTestHeap -fail_action -pack
 is_non_empty_list_test_heap f I t
 
+is_nonempty_list Fail=f S=x | get_list S D1=x D2=x => \
+  is_nonempty_list_get_list Fail S D1 D2
+
+%macro: is_nonempty_list_get_list IsNonemptyListGetList -fail_action -pack
+is_nonempty_list_get_list f r x x
+is_nonempty_list_get_list f x x x
+
 %macro: is_nonempty_list IsNonemptyList -fail_action
 is_nonempty_list f x
 is_nonempty_list f y

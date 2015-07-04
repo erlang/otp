@@ -737,6 +737,17 @@ void** beam_ops;
     if (is_not_list(x(0))) { Fail; }			\
     TestHeap(Need, Alive)
 
+#define IsNonemptyListGetList(Src, H, T, Fail)	\
+    if (is_not_list(Src)) {			\
+         Fail;					\
+    } else {					\
+       Eterm* tmp_ptr = list_val(Src);		\
+       Eterm hd, tl;				\
+       hd = CAR(tmp_ptr);			\
+       tl = CDR(tmp_ptr);			\
+       H = hd; T = tl;				\
+    }
+
 #define IsTuple(X, Action) if (is_not_tuple(X)) Action
 
 #define IsArity(Pointer, Arity, Fail)		\
