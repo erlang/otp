@@ -226,7 +226,8 @@ no_common_alg_server_disconnects(Config) ->
 	   {match, #ssh_msg_kexinit{_='_'}, receive_msg},
 	   {send, ssh_msg_kexinit},
 	   {match,
-	    #ssh_msg_disconnect{code = ?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,  _='_'},
+	    {'or',[#ssh_msg_disconnect{code = ?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,  _='_'},
+                  tcp_closed]},
 	    receive_msg}
 	  ]
 	 ).
@@ -269,10 +270,10 @@ no_common_alg_client_disconnects(Config) ->
 				     first_kex_packet_follows = false,
 				     reserved = 0
 				    }},
-
-			  {match,
-			   #ssh_msg_disconnect{code = ?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,  _='_'},
-			   receive_msg}
+                     	 {match,
+                     	  {'or',[#ssh_msg_disconnect{code = ?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,  _='_'},
+                                tcp_closed]},
+                     	  receive_msg}
 			 ],
 			 InitialState)
 		      }
