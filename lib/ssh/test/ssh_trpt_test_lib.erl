@@ -218,6 +218,13 @@ match('$$', V, S) ->
 match('_', _, S) ->
     {true, S};
 
+match({'or',[P]}, V, S) -> match(P,V,S);
+match({'or',[Ph|Pt]}, V, S) -> 
+    case match(Ph,V,S) of
+        false -> match({'or',Pt}, V, S);
+	{true,S} -> {true,S}
+    end;
+	      
 match(P, V, S) when is_atom(P) ->
     case atom_to_list(P) of
 	"$"++_ ->
