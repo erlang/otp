@@ -385,27 +385,33 @@ input_only(Config) when is_list(Config) ->
 output_only(Config) when is_list(Config) ->
     Dog = test_server:timetrap(test_server:seconds(100)),
     Dir = ?config(priv_dir, Config),
-    Filename = filename:join(Dir, "output_only_stream"),
-    output_and_verify(Config, Filename, "-h0",
-          	    random_packet(35777, "echo")),
-    test_server:timetrap_cancel(Dog),
-    ok.
 
-output_and_verify(Config, Filename, Options, Data) ->
-    PortTest = port_test(Config),
-    Command = lists:concat([PortTest, " ",
-          		  Options, " -o", Filename]),
-    Port = open_port({spawn, Command}, [out]),
-    Port ! {self(), {command, Data}},
-    Port ! {self(), close},
-    receive
-        {Port, closed} -> ok
-    end,
+    %% First we test that the port program gets the data
+    Filename = filename:join(Dir, "output_only_stream"),
+    Data = random_packet(35777, "echo"),
+    output_and_verify(Config, ["-h0 -o", Filename], Data),
     Wait_time = 500,
     test_server:sleep(Wait_time),
     {ok, Written} = file:read_file(Filename),
     Data = binary_to_list(Written),
+
+    %% Then we test that any writes to stdout from
+    %% the port program is not sent to erlang
+    output_and_verify(Config, ["-h0"], Data),
+
+    test_server:timetrap_cancel(Dog),
     ok.
+
+output_and_verify(Config, Options, Data) ->
+    PortTest = port_test(Config),
+    Command = lists:concat([PortTest, " " | Options]),
+    Port = open_port({spawn, Command}, [out]),
+    Port ! {self(), {command, Data}},
+    Port ! {self(), close},
+    receive
+        {Port, closed} -> ok;
+        Msg -> ct:fail({received_unexpected_message, Msg})
+    end.
 
 %% Test that receiving several packages written in the same
 %% write operation works.

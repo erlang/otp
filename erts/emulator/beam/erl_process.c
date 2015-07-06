@@ -497,9 +497,6 @@ dbg_chk_aux_work_val(erts_aint32_t value)
 #if HAVE_ERTS_MSEG
     valid |= ERTS_SSI_AUX_WORK_MSEG_CACHE_CHECK;
 #endif
-#ifdef ERTS_SMP_SCHEDULERS_NEED_TO_CHECK_CHILDREN
-    valid |= ERTS_SSI_AUX_WORK_CHECK_CHILDREN;
-#endif
 #ifdef ERTS_SSI_AUX_WORK_REAP_PORTS
     valid |= ERTS_SSI_AUX_WORK_REAP_PORTS;
 #endif
@@ -586,8 +583,6 @@ erts_pre_init_process(void)
 	= "MISC_THR_PRGR";
     erts_aux_work_flag_descr[ERTS_SSI_AUX_WORK_MISC_IX]
 	= "MISC";
-    erts_aux_work_flag_descr[ERTS_SSI_AUX_WORK_CHECK_CHILDREN_IX]
-	= "CHECK_CHILDREN";
     erts_aux_work_flag_descr[ERTS_SSI_AUX_WORK_SET_TMO_IX]
 	= "SET_TMO";
     erts_aux_work_flag_descr[ERTS_SSI_AUX_WORK_MSEG_CACHE_CHECK_IX]
@@ -2100,34 +2095,6 @@ erts_debug_wait_completed(Process *c_p, int flags)
 }
 
 
-#ifdef ERTS_SMP_SCHEDULERS_NEED_TO_CHECK_CHILDREN
-void
-erts_smp_notify_check_children_needed(void)
-{
-    int i;
-    for (i = 0; i < erts_no_schedulers; i++)
-	set_aux_work_flags_wakeup_nob(ERTS_SCHED_SLEEP_INFO_IX(i),
-				      ERTS_SSI_AUX_WORK_CHECK_CHILDREN);
-#ifdef ERTS_DIRTY_SCHEDULERS
-    for (i = 0; i < erts_no_dirty_cpu_schedulers; i++)
-	set_aux_work_flags_wakeup_nob(ERTS_DIRTY_CPU_SCHED_SLEEP_INFO_IX(i),
-				      ERTS_SSI_AUX_WORK_CHECK_CHILDREN);
-    for (i = 0; i < erts_no_dirty_io_schedulers; i++)
-	set_aux_work_flags_wakeup_nob(ERTS_DIRTY_IO_SCHED_SLEEP_INFO_IX(i),
-				      ERTS_SSI_AUX_WORK_CHECK_CHILDREN);
-#endif
-}
-
-static ERTS_INLINE erts_aint32_t
-handle_check_children(ErtsAuxWorkData *awdp, erts_aint32_t aux_work, int waiting)
-{
-    unset_aux_work_flags(awdp->ssi, ERTS_SSI_AUX_WORK_CHECK_CHILDREN);
-    erts_check_children();
-    return aux_work & ~ERTS_SSI_AUX_WORK_CHECK_CHILDREN;
-}
-
-#endif
-
 static void
 notify_reap_ports_relb(void)
 {
@@ -2281,10 +2248,6 @@ handle_aux_work(ErtsAuxWorkData *awdp, erts_aint32_t orig_aux_work, int waiting)
     HANDLE_AUX_WORK(ERTS_SSI_AUX_WORK_MISC,
 		    handle_misc_aux_work);
 
-#ifdef ERTS_SMP_SCHEDULERS_NEED_TO_CHECK_CHILDREN
-    HANDLE_AUX_WORK(ERTS_SSI_AUX_WORK_CHECK_CHILDREN,
-		    handle_check_children);
-#endif
 
     HANDLE_AUX_WORK(ERTS_SSI_AUX_WORK_SET_TMO,
 		    handle_setup_aux_work_timer);
