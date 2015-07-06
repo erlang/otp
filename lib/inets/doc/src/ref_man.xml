@@ -30,9 +30,9 @@
     <file>ref_man.xml</file>
   </header>
   <description>
-    <p>Inets is a container for Internet clients and
-    servers. Currently a FTP client, a HTTP client and server, and
-    a tftp client and server has been incorporated in Inets.</p>
+    <p><c>Inets</c> is a container for Internet clients and
+    servers. An FTP client, an HTTP client and server, and
+    a TFTP client and server are incorporated in <c>Inets</c>.</p>
   </description>
   <xi:include href="inets.xml"/>
   <xi:include href="ftp.xml"/>
