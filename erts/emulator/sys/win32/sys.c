@@ -1334,10 +1334,8 @@ spawn_start(ErlDrvPort port_num, char* utf8_name, SysDriverOpts* opts)
 	retval = set_driver_data(dp, hFromChild, hToChild, opts->read_write,
 				 opts->exit_status);
 	if (retval != ERL_DRV_ERROR_GENERAL && retval != ERL_DRV_ERROR_ERRNO) {
-	    Port *prt = erts_drvport2port(port_num);
-		/* We assume that this cannot generate a negative number */
-	    ASSERT(prt != ERTS_INVALID_ERL_DRV_PORT);
-	    prt->os_pid = (SWord) pid;
+            /* We assume that this cannot generate a negative number */
+            erl_drv_set_os_pid(port_num, pid);
 	}
     }
     
@@ -3270,6 +3268,12 @@ void erl_sys_init(void)
     /* Suppress windows error message popups */
     SetErrorMode(SetErrorMode(0) |
 		 SEM_FAILCRITICALERRORS | SEM_NOOPENFILEERRORBOX); 
+}
+
+void
+erl_sys_late_init(void)
+{
+    /* do nothing */
 }
 
 void

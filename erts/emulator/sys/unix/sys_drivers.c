@@ -36,6 +36,7 @@
 #include <ctype.h>
 #include <sys/utsname.h>
 #include <sys/select.h>
+#include <arpa/inet.h>
 
 #ifdef ISC32
 #include <sys/bsdtypes.h>
@@ -49,25 +50,19 @@
 #include <sys/ioctl.h>
 #endif
 
-#define NEED_CHILD_SETUP_DEFINES
 #define WANT_NONBLOCKING    /* must define this to pull in defs from sys.h */
 #include "sys.h"
-#include "erl_thr_progress.h"
-
-#if defined(__APPLE__) && defined(__MACH__) && !defined(__DARWIN__)
-#define __DARWIN__ 1
-#endif
 
 #ifdef USE_THREADS
 #include "erl_threads.h"
 #endif
 
-#include "erl_mseg.h"
-
 extern char **environ;
 extern erts_smp_rwmtx_t environ_rwmtx;
 
 extern erts_smp_atomic_t sys_misc_mem_sz;
+
+static Eterm forker_port;
 
 #define MAX_VSIZE 16		/* Max number of entries allowed in an I/O
 				 * vector sock_sendv().
@@ -76,14 +71,10 @@ extern erts_smp_atomic_t sys_misc_mem_sz;
  * Don't need global.h, but erl_cpu_topology.h won't compile otherwise
  */
 #include "global.h"
-
-#include "erl_sys_driver.h"
-#include "erl_check_io.h"
 #include "erl_cpu_topology.h"
 
-#ifndef DISABLE_VFORK
-#define DISABLE_VFORK 0
-#endif
+#include "erl_sys_driver.h"
+#include "sys_uds.h"
 
 #if defined IOV_MAX
 #define MAXIOV IOV_MAX
@@ -93,32 +84,11 @@ extern erts_smp_atomic_t sys_misc_mem_sz;
 #define MAXIOV 16
 #endif
 
-/*
- * [OTP-3906]
- * Solaris signal management gets confused when threads are used and a
- * lot of child processes dies. The confusion results in that SIGCHLD
- * signals aren't delivered to the emulator which in turn results in
- * a lot of defunct processes in the system.
- *
- * The problem seems to appear when a signal is frequently
- * blocked/unblocked at the same time as the signal is frequently
- * propagated. The child waiter thread is a workaround for this problem.
- * The SIGCHLD signal is always blocked (in all threads), and the child
- * waiter thread fetches the signal by a call to sigwait(). See
- * child_waiter().
- */
-
-typedef struct ErtsSysReportExit_ ErtsSysReportExit;
-struct ErtsSysReportExit_ {
-    ErtsSysReportExit *next;
-    Eterm port;
-    int pid;
-    int ifd;
-    int ofd;
-#if CHLDWTHR && !defined(ERTS_SMP)
-    int status;
+#ifdef USE_THREADS
+#  define FDBLOCK 1
+#else
+#  define FDBLOCK 0
 #endif
-};
 
 /* Used by the fd driver iff the fd could not be set to non-blocking */
 typedef struct ErtsSysBlocking_ {
@@ -128,12 +98,21 @@ typedef struct ErtsSysBlocking_ {
     unsigned int pkey;
 } ErtsSysBlocking;
 
+typedef struct fd_data {
+    int   fd;
+    char  pbuf[4];   /* hold partial packet bytes */
+    int   psz;       /* size of pbuf */
+    char  *buf;
+    char  *cpos;
+    int   sz;
+    int   remain;  /* for input on fd */
+} ErtsSysFdData;
 
-/* This data is shared by these drivers - initialized by spawn_init() */
 typedef struct driver_data {
     ErlDrvPort port_num;
-    int ofd, packet_bytes;
-    ErtsSysReportExit *report_exit;
+    ErtsSysFdData *ofd;
+    ErtsSysFdData *ifd;
+    int packet_bytes;
     int pid;
     int alive;
     int status;
@@ -141,12 +120,11 @@ typedef struct driver_data {
     ErtsSysBlocking *blocking;
 } ErtsSysDriverData;
 
-static ErtsSysDriverData *driver_data;			/* indexed by fd */
-
-static ErtsSysReportExit *report_exit_list;
-#if CHLDWTHR && !defined(ERTS_SMP)
-static ErtsSysReportExit *report_exit_transit_list;
-#endif
+typedef struct exit_status {
+    HashBucket hb;
+    pid_t os_pid;
+    Eterm port_id;
+} ErtsSysExitStatus;
 
 #define DIR_SEPARATOR_CHAR    '/'
 
@@ -155,7 +133,6 @@ static ErtsSysReportExit *report_exit_transit_list;
 #else
 #define SHELL "/bin/sh"
 #endif /* __ANDROID__ */
-
 
 #if defined(DEBUG)
 #define ERL_BUILD_TYPE_MARKER ".debug"
@@ -171,103 +148,80 @@ static ErtsSysReportExit *report_exit_transit_list;
 #define ERL_BUILD_TYPE_MARKER
 #endif
 
+#ifdef DEBUG
+#define close(fd) do { int res = close(fd); ASSERT(res > -1); } while(0)
+#endif
+
 #define CHILD_SETUP_PROG_NAME	"erl_child_setup" ERL_BUILD_TYPE_MARKER
-static char *child_setup_prog;
 
-#if CHLDWTHR || defined(ERTS_SMP)
-erts_mtx_t chld_stat_mtx;
+// #define HARD_DEBUG
+#ifdef HARD_DEBUG
+#define driver_select(port_num, fd, flags, onoff)                       \
+    do {                                                                \
+        if (((flags) & ERL_DRV_READ) && onoff)                          \
+            fprintf(stderr,"%010d %p: read select %d\r\n", __LINE__, port_num, (int)fd); \
+        if (((flags) & ERL_DRV_WRITE) && onoff)                         \
+            fprintf(stderr,"%010d %p: writ select %d\r\n", __LINE__, port_num, (int)fd); \
+        if (((flags) & ERL_DRV_READ) && !onoff)                          \
+            fprintf(stderr,"%010d %p: read unsele %d\r\n", __LINE__, port_num, (int)fd); \
+        if (((flags) & ERL_DRV_WRITE) && !onoff)                         \
+            fprintf(stderr,"%010d %p: writ unsele %d\r\n", __LINE__, port_num, (int)fd); \
+        driver_select_nkp(port_num, fd, flags, onoff);                  \
+    } while(0)
 #endif
-#if CHLDWTHR
-static erts_tid_t child_waiter_tid;
-/* chld_stat_mtx is used to protect against concurrent accesses
-   of the driver_data fields pid, alive, and status. */
-erts_cnd_t chld_stat_cnd;
-static long children_alive;
-#define CHLD_STAT_LOCK		erts_mtx_lock(&chld_stat_mtx)
-#define CHLD_STAT_UNLOCK	erts_mtx_unlock(&chld_stat_mtx)
-#define CHLD_STAT_WAIT		erts_cnd_wait(&chld_stat_cnd, &chld_stat_mtx)
-#define CHLD_STAT_SIGNAL	erts_cnd_signal(&chld_stat_cnd)
-#elif defined(ERTS_SMP) /* ------------------------------------------------- */
-#define CHLD_STAT_LOCK		erts_mtx_lock(&chld_stat_mtx)
-#define CHLD_STAT_UNLOCK	erts_mtx_unlock(&chld_stat_mtx)
-
-#else /* ------------------------------------------------------------------- */
-#define CHLD_STAT_LOCK
-#define CHLD_STAT_UNLOCK
-static volatile int children_died;
-#endif
-
-typedef struct ErtsSysFdData {
-    char  pbuf[4];   /* hold partial packet bytes */
-    int   psz;       /* size of pbuf */
-    char  *buf;
-    char  *cpos;
-    int   sz;
-    int   remain;  /* for input on fd */
-} ErtsSysFdData;
-
-static ErtsSysFdData *fd_data;			/* indexed by fd */
-
-/* static FUNCTION(int, write_fill, (int, char*, int)); unused? */
-static void note_child_death(int, int);
-
-#if CHLDWTHR
-static void* child_waiter(void *);
-#endif
-
-static void block_signals(void)
-{
-#if !CHLDWTHR
-   sys_sigblock(SIGCHLD);
-#endif
-#ifndef ERTS_SMP
-   sys_sigblock(SIGINT);
-#ifndef ETHR_UNUSABLE_SIGUSRX
-   sys_sigblock(SIGUSR1);
-#endif /* #ifndef ETHR_UNUSABLE_SIGUSRX */
-#endif /* #ifndef ERTS_SMP */
-
-#if defined(ERTS_SMP) && !defined(ETHR_UNUSABLE_SIGUSRX)
-   sys_sigblock(ERTS_SYS_SUSPEND_SIGNAL);
-#endif
-
-}
-
-static void unblock_signals(void)
-{
-    /* Update erl_child_setup.c if changed */
-#if !CHLDWTHR
-   sys_sigrelease(SIGCHLD);
-#endif
-#ifndef ERTS_SMP
-   sys_sigrelease(SIGINT);
-#ifndef ETHR_UNUSABLE_SIGUSRX
-   sys_sigrelease(SIGUSR1);
-#endif /* #ifndef ETHR_UNUSABLE_SIGUSRX */
-#endif /* #ifndef ERTS_SMP */
-
-#if defined(ERTS_SMP) && !defined(ETHR_UNUSABLE_SIGUSRX)
-   sys_sigrelease(ERTS_SYS_SUSPEND_SIGNAL);
-#endif
-
-}
-
-/************************** Port I/O *******************************/
-
-
-
-/* I. Common stuff */
 
 /*
  * Decreasing the size of it below 16384 is not allowed.
  */
 
-/* II. The spawn/fd/vanilla drivers */
-
 #define ERTS_SYS_READ_BUF_SZ (64*1024)
 
-/* Driver interfaces */
+/* I. Initialization */
+
+void
+erl_sys_late_init(void)
+{
+    SysDriverOpts opts;
+#ifdef ERTS_SMP
+    Port *port;
+#endif
+
+    sys_signal(SIGPIPE, SIG_IGN); /* Ignore - we'll handle the write failure */
+
+    opts.packet_bytes = 0;
+    opts.use_stdio = 1;
+    opts.redir_stderr = 0;
+    opts.read_write = 0;
+    opts.hide_window = 0;
+    opts.wd = NULL;
+    opts.envir = NULL;
+    opts.exit_status = 0;
+    opts.overlapped_io = 0;
+    opts.spawn_type = ERTS_SPAWN_ANY;
+    opts.argv = NULL;
+    opts.parallelism = erts_port_parallelism;
+
+#ifdef ERTS_SMP
+    port =
+#endif
+        erts_open_driver(&forker_driver, make_internal_pid(0), "forker", &opts, NULL, NULL);
+#ifdef ERTS_SMP
+    erts_mtx_unlock(port->lock);
+#endif
+}
+
+/* II. Prototypes */
+
+/* II.I Spawn prototypes */
 static ErlDrvData spawn_start(ErlDrvPort, char*, SysDriverOpts*);
+static ErlDrvSSizeT spawn_control(ErlDrvData, unsigned int, char *,
+                                  ErlDrvSizeT, char **, ErlDrvSizeT);
+
+/* II.II Vanilla prototypes */
+static ErlDrvData vanilla_start(ErlDrvPort, char*, SysDriverOpts*);
+
+
+/* II.III FD prototypes */
 static ErlDrvData fd_start(ErlDrvPort, char*, SysDriverOpts*);
 #if FDBLOCK
 static void fd_async(void *);
@@ -275,10 +229,10 @@ static void fd_ready_async(ErlDrvData drv_data, ErlDrvThreadData thread_data);
 #endif
 static ErlDrvSSizeT fd_control(ErlDrvData, unsigned int, char *, ErlDrvSizeT,
 			       char **, ErlDrvSizeT);
-static ErlDrvData vanilla_start(ErlDrvPort, char*, SysDriverOpts*);
-static int spawn_init(void);
 static void fd_stop(ErlDrvData);
 static void fd_flush(ErlDrvData);
+
+/* II.IV Common prototypes */
 static void stop(ErlDrvData);
 static void ready_input(ErlDrvData, ErlDrvEvent);
 static void ready_output(ErlDrvData, ErlDrvEvent);
@@ -286,8 +240,22 @@ static void output(ErlDrvData, char*, ErlDrvSizeT);
 static void outputv(ErlDrvData, ErlIOVec*);
 static void stop_select(ErlDrvEvent, void*);
 
+/* II.V Forker prototypes */
+static int forker_init(void);
+static ErlDrvData forker_start(ErlDrvPort, char*, SysDriverOpts*);
+static void forker_stop(ErlDrvData);
+static void forker_ready_input(ErlDrvData, ErlDrvEvent);
+static void forker_ready_output(ErlDrvData, ErlDrvEvent);
+static ErlDrvSSizeT forker_control(ErlDrvData, unsigned int, char *,
+                                   ErlDrvSizeT, char **, ErlDrvSizeT);
+static void forker_add_os_pid_mapping(ErtsSysDriverData *);
+static void forker_remove_os_pid_mapping(ErtsSysDriverData *);
+
+/* III Driver entries */
+
+/* III.I The spawn driver */
 struct erl_drv_entry spawn_driver_entry = {
-    spawn_init,
+    forker_init,
     spawn_start,
     stop,
     output,
@@ -296,7 +264,7 @@ struct erl_drv_entry spawn_driver_entry = {
     "spawn",
     NULL,
     NULL,
-    NULL,
+    spawn_control,
     NULL,
     NULL,
     NULL,
@@ -306,17 +274,19 @@ struct erl_drv_entry spawn_driver_entry = {
     ERL_DRV_EXTENDED_MARKER,
     ERL_DRV_EXTENDED_MAJOR_VERSION,
     ERL_DRV_EXTENDED_MINOR_VERSION,
-    ERL_DRV_FLAG_USE_PORT_LOCKING,
+    ERL_DRV_FLAG_USE_PORT_LOCKING | ERL_DRV_FLAG_USE_INIT_ACK,
     NULL, NULL,
     stop_select
 };
+
+/* III.II The fd driver */
 struct erl_drv_entry fd_driver_entry = {
     NULL,
     fd_start,
     fd_stop,
     output,
     ready_input,
-    ready_output, 
+    ready_output,
     "fd",
     NULL,
     NULL,
@@ -339,6 +309,8 @@ struct erl_drv_entry fd_driver_entry = {
     NULL, /* process_exit */
     stop_select
 };
+
+/* III.III The vanilla driver */
 struct erl_drv_entry vanilla_driver_entry = {
     NULL,
     vanilla_start,
@@ -365,22 +337,33 @@ struct erl_drv_entry vanilla_driver_entry = {
     stop_select
 };
 
-/* Handle SIGCHLD signals. */
-#if (defined(SIG_SIGSET) || defined(SIG_SIGNAL))
-static RETSIGTYPE onchld(void)
-#else
-static RETSIGTYPE onchld(int signum)
-#endif
-{
-#if CHLDWTHR
-    ASSERT(0); /* We should *never* catch a SIGCHLD signal */
-#elif defined(ERTS_SMP)
-    smp_sig_notify('C');
-#else
-    children_died = 1;
-    ERTS_CHK_IO_AS_INTR(); /* Make sure we don't sleep in poll */
-#endif
-}
+/* III.III The forker driver */
+struct erl_drv_entry forker_driver_entry = {
+    NULL,
+    forker_start,
+    forker_stop,
+    NULL,
+    forker_ready_input,
+    forker_ready_output,
+    "spawn_forker",
+    NULL,
+    NULL,
+    forker_control,
+    NULL,
+    NULL,
+    NULL,
+    NULL,
+    NULL,
+    NULL,
+    ERL_DRV_EXTENDED_MARKER,
+    ERL_DRV_EXTENDED_MAJOR_VERSION,
+    ERL_DRV_EXTENDED_MINOR_VERSION,
+    0,
+    NULL, NULL,
+    stop_select
+};
+
+/* Untility functions */
 
 static int set_blocking_data(ErtsSysDriverData *dd) {
 
@@ -396,187 +379,94 @@ static int set_blocking_data(ErtsSysDriverData *dd) {
     return 1;
 }
 
-static int set_driver_data(ErlDrvPort port_num,
-			   int ifd,
-			   int ofd,
-			   int packet_bytes,
-			   int read_write,
-			   int exit_status,
-			   int pid,
-                           int is_blocking)
+static void init_fd_data(ErtsSysFdData *fd_data, int fd)
+{
+    fd_data->fd = fd;
+    fd_data->buf = NULL;
+    fd_data->cpos = NULL;
+    fd_data->remain = 0;
+    fd_data->sz = 0;
+    fd_data->psz = 0;
+}
+
+static ErtsSysDriverData *
+create_driver_data(ErlDrvPort port_num,
+                   int ifd,
+                   int ofd,
+                   int packet_bytes,
+                   int read_write,
+                   int exit_status,
+                   int pid,
+                   int is_blocking)
 {
     Port *prt;
-    ErtsSysReportExit *report_exit;
+    ErtsSysDriverData *driver_data;
+    char *data;
+    int size = sizeof(ErtsSysDriverData);
 
-    if (!exit_status)
-	report_exit = NULL;
-    else {
-	report_exit = erts_alloc(ERTS_ALC_T_PRT_REP_EXIT,
-				 sizeof(ErtsSysReportExit));
-	report_exit->next = report_exit_list;
-	report_exit->port = erts_drvport2id(port_num);
-	report_exit->pid = pid;
-	report_exit->ifd = read_write & DO_READ ? ifd : -1;
-	report_exit->ofd = read_write & DO_WRITE ? ofd : -1;
-#if CHLDWTHR && !defined(ERTS_SMP)
-	report_exit->status = 0;
-#endif
-	report_exit_list = report_exit;
-    }
+    if (read_write & DO_READ)
+        size += sizeof(ErtsSysFdData);
+
+    if ((read_write & DO_WRITE) &&
+        ((ifd != ofd || ofd == -1) || !(read_write & DO_READ)))
+        size += sizeof(ErtsSysFdData);
+
+    data = erts_alloc(ERTS_ALC_T_DRV_TAB,size);
+    erts_smp_atomic_add_nob(&sys_misc_mem_sz, size);
+
+    driver_data = (ErtsSysDriverData*)data;
+    data += sizeof(*driver_data);
 
     prt = erts_drvport2port(port_num);
     if (prt != ERTS_INVALID_ERL_DRV_PORT)
 	prt->os_pid = pid;
 
+    driver_data->packet_bytes = packet_bytes;
+    driver_data->port_num = port_num;
+    driver_data->pid = pid;
+    driver_data->alive = exit_status ? 1 : 0;
+    driver_data->status = 0;
+    driver_data->terminating = 0;
+    driver_data->blocking = NULL;
+
     if (read_write & DO_READ) {
-	driver_data[ifd].packet_bytes = packet_bytes;
-	driver_data[ifd].port_num = port_num;
-	driver_data[ifd].report_exit = report_exit;
-	driver_data[ifd].pid = pid;
-	driver_data[ifd].alive = 1;
-	driver_data[ifd].status = 0;
-        driver_data[ifd].terminating = 0;
-        driver_data[ifd].blocking = NULL;
-	if (read_write & DO_WRITE) {
-	    driver_data[ifd].ofd = ofd;
-            if (is_blocking && FDBLOCK)
-                if (!set_blocking_data(driver_data+ifd))
-                    return -1;
-	    if (ifd != ofd)
-		driver_data[ofd] = driver_data[ifd];  /* structure copy */
-	} else {		/* DO_READ only */
-	    driver_data[ifd].ofd = -1;
-	}
-	(void) driver_select(port_num, ifd, (ERL_DRV_READ|ERL_DRV_USE), 1);
-	return(ifd);
-    } else {			/* DO_WRITE only */
-	driver_data[ofd].packet_bytes = packet_bytes;
-	driver_data[ofd].port_num = port_num;
-	driver_data[ofd].report_exit = report_exit;
-	driver_data[ofd].ofd = ofd;
-	driver_data[ofd].pid = pid;
-	driver_data[ofd].alive = 1;
-	driver_data[ofd].status = 0;
-        driver_data[ofd].terminating = 0;
-        driver_data[ofd].blocking = NULL;
-        if (is_blocking && FDBLOCK)
-            if (!set_blocking_data(driver_data+ofd))
-                return -1;
-	return(ofd);
+        driver_data->ifd = (ErtsSysFdData*)data;
+        data += sizeof(*driver_data->ifd);
+        init_fd_data(driver_data->ifd, ifd);
+        driver_select(port_num, ifd, (ERL_DRV_READ|ERL_DRV_USE), 1);
+    } else {
+        driver_data->ifd = NULL;
     }
-}
 
-static int spawn_init()
-{
-   int i;
-#if CHLDWTHR
-   erts_thr_opts_t thr_opts = ERTS_THR_OPTS_DEFAULT_INITER;
-#endif
-   int res;
-   char bindir[MAXPATHLEN];
-   size_t bindirsz = sizeof(bindir);
-   Uint csp_path_sz;
-
-#if CHLDWTHR
-   thr_opts.detached = 0;
-   thr_opts.suggested_stack_size = 0; /* Smallest possible */
-   thr_opts.name = "child_waiter";
-#endif
-
-#if !DISABLE_VFORK
-   res = erts_sys_getenv_raw("BINDIR", bindir, &bindirsz);
-   if (res != 0) {
-    if (res < 0)
-        erl_exit(-1,
-        "Environment variable BINDIR is not set\n");
-    if (res > 0)
-        erl_exit(-1,
-        "Value of environment variable BINDIR is too large\n");
-   }
-   if (bindir[0] != DIR_SEPARATOR_CHAR)
-       erl_exit(-1,
-                "Environment variable BINDIR does not contain an"
-                " absolute path\n");
-   csp_path_sz = (strlen(bindir)
-                  + 1 /* DIR_SEPARATOR_CHAR */
-                  + sizeof(CHILD_SETUP_PROG_NAME)
-                  + 1);
-   child_setup_prog = erts_alloc(ERTS_ALC_T_CS_PROG_PATH, csp_path_sz);
-   erts_smp_atomic_add_nob(&sys_misc_mem_sz, csp_path_sz);
-   erts_snprintf(child_setup_prog, csp_path_sz,
-                 "%s%c%s",
-                 bindir,
-                 DIR_SEPARATOR_CHAR,
-                 CHILD_SETUP_PROG_NAME);
-#endif
-
-   report_exit_list = NULL;
-
-#ifdef USE_THREADS
-
-#if CHLDWTHR || defined(ERTS_SMP)
-    erts_mtx_init(&chld_stat_mtx, "child_status");
-#endif
-#if CHLDWTHR
-#ifndef ERTS_SMP
-    report_exit_transit_list = NULL;
-#endif
-    erts_cnd_init(&chld_stat_cnd);
-    children_alive = 0;
-#endif
-
-#if !CHLDWTHR && !defined(ERTS_SMP)
-    children_died = 0;
-#endif
-
-#endif /* USE_THREADS */
-
-   sys_signal(SIGPIPE, SIG_IGN); /* Ignore - we'll handle the write failure */
-   driver_data = (ErtsSysDriverData *)
-       erts_alloc(ERTS_ALC_T_DRV_TAB, sys_max_files() * sizeof(ErtsSysDriverData));
-   erts_smp_atomic_add_nob(&sys_misc_mem_sz,
-			   sys_max_files() * sizeof(ErtsSysDriverData));
-
-   for (i = 0; i < sys_max_files(); i++)
-      driver_data[i].pid = -1;
-
-   fd_data = (ErtsSysFdData *)
-       erts_alloc(ERTS_ALC_T_FD_TAB, sys_max_files() * sizeof(ErtsSysFdData));
-   erts_smp_atomic_add_nob(&sys_misc_mem_sz,
-        sys_max_files() * sizeof(ErtsSysFdData));
-
-#if CHLDWTHR
-   sys_sigblock(SIGCHLD);
-#endif
-
-   sys_signal(SIGCHLD, onchld); /* Reap children */
-
-#if CHLDWTHR
-   erts_thr_create(&child_waiter_tid, child_waiter, NULL, &thr_opts);
-#endif
-
-   return 1;
-}
-
-static void close_pipes(int ifd[2], int ofd[2], int read_write)
-{
-    if (read_write & DO_READ) {
-	(void) close(ifd[0]);
-	(void) close(ifd[1]);
-    }
     if (read_write & DO_WRITE) {
-	(void) close(ofd[0]);
-	(void) close(ofd[1]);
+        if (ofd != -1 && ifd == ofd && read_write & DO_READ) {
+            /* This is for when ifd and ofd are the same fd */
+            driver_data->ofd = driver_data->ifd;
+        } else {
+            driver_data->ofd = (ErtsSysFdData*)data;
+            data += sizeof(*driver_data->ofd);
+            init_fd_data(driver_data->ofd, ofd);
+        }
+        if (is_blocking && FDBLOCK)
+            if (!set_blocking_data(driver_data)) {
+                erts_free(ERTS_ALC_T_DRV_TAB, driver_data);
+                return NULL;
+            }
+    } else {
+        driver_data->ofd = NULL;
     }
+
+    return driver_data;
 }
 
-static void init_fd_data(int fd, ErlDrvPort port_num)
+/* Spawn driver */
+
+static void close_pipes(int ifd[2], int ofd[2])
 {
-    fd_data[fd].buf = NULL;
-    fd_data[fd].cpos = NULL;
-    fd_data[fd].remain = 0;
-    fd_data[fd].sz = 0;
-    fd_data[fd].psz = 0;
+    close(ifd[0]);
+    close(ifd[1]);
+    close(ofd[0]);
+    close(ofd[1]);
 }
 
 static char **build_unix_environment(char *block)
@@ -622,6 +512,10 @@ static char **build_unix_environment(char *block)
 	for (j = 0; j < len; j++) {
 	    char *s, *t;
 
+	    /* check if cpp[j] equals old
+	       before the = sign,
+	       i.e.
+	       "TMPDIR=/tmp/" */
 	    s = cpp[j];
 	    t = old;
 	    while (*s == *t && *s != '=') {
@@ -656,81 +550,43 @@ static char **build_unix_environment(char *block)
     return cpp;
 }
 
-/*
-  [arndt] In most Unix systems, including Solaris 2.5, 'fork' allocates memory
-  in swap space for the child of a 'fork', whereas 'vfork' does not do this.
-  The natural call to use here is therefore 'vfork'. Due to a bug in
-  'vfork' in Solaris 2.5 (apparently fixed in 2.6), using 'vfork'
-  can be dangerous in what seems to be these circumstances:
-      If the child code under a vfork sets the signal action to SIG_DFL
-      (or SIG_IGN)
-      for any signal which was previously set to a signal handler, the
-      state of the parent is clobbered, so that the later arrival of
-      such a signal yields a sigsegv in the parent. If the signal was
-      not set to a signal handler, but ignored, all seems to work.
-  If you change the forking code below, beware of this.
- */
-
-static ErlDrvData spawn_start(ErlDrvPort port_num, char* name, SysDriverOpts* opts)
+static ErlDrvData spawn_start(ErlDrvPort port_num, char* name,
+                              SysDriverOpts* opts)
 {
 #define CMD_LINE_PREFIX_STR "exec "
 #define CMD_LINE_PREFIX_STR_SZ (sizeof(CMD_LINE_PREFIX_STR) - 1)
 
-    int ifd[2], ofd[2], len, pid, i;
-    char **volatile new_environ; /* volatile since a vfork() then cannot
-				    cause 'new_environ' to be clobbered
-				    in the parent process. */
-    int saved_errno;
-    long res;
+    int len;
+    char **new_environ;
+    ErtsSysDriverData *res;
     char *cmd_line;
-#ifndef QNX
-    int unbind;
-#endif
-#if !DISABLE_VFORK
-    int no_vfork;
-    size_t no_vfork_sz = sizeof(no_vfork);
+    char wd_buff[MAXPATHLEN+1];
+    char *wd;
+    int ifd[2], ofd[2], stderrfd;
 
-    no_vfork = (erts_sys_getenv_raw("ERL_NO_VFORK",
-				    (char *) &no_vfork,
-				    &no_vfork_sz) >= 0);
-#endif
+    if (pipe(ifd) < 0) return ERL_DRV_ERROR_ERRNO;
+    errno = EMFILE;		/* default for next three conditions */
+    if (ifd[0] >= sys_max_files() || pipe(ofd) < 0) {
+        close(ifd[0]);
+        close(ifd[1]);
+        return ERL_DRV_ERROR_ERRNO;
+    }
+    if (ofd[1] >= sys_max_files()) {
+        close_pipes(ifd, ofd);
+        errno = EMFILE;
+        return ERL_DRV_ERROR_ERRNO;
+    }
 
-    switch (opts->read_write) {
-    case DO_READ:
-	if (pipe(ifd) < 0)
-	    return ERL_DRV_ERROR_ERRNO;
-	if (ifd[0] >= sys_max_files()) {
-	    close_pipes(ifd, ofd, opts->read_write);
-	    errno = EMFILE;
-	    return ERL_DRV_ERROR_ERRNO;
-	}
-	ofd[1] = -1;		/* keep purify happy */
-	break;
-    case DO_WRITE:
-	if (pipe(ofd) < 0) return ERL_DRV_ERROR_ERRNO;
-	if (ofd[1] >= sys_max_files()) {
-	    close_pipes(ifd, ofd, opts->read_write);
-	    errno = EMFILE;
-	    return ERL_DRV_ERROR_ERRNO;
-	}
-	ifd[0] = -1;		/* keep purify happy */
-	break;
-    case DO_READ|DO_WRITE:
-	if (pipe(ifd) < 0) return ERL_DRV_ERROR_ERRNO;
-	errno = EMFILE;		/* default for next two conditions */
-	if (ifd[0] >= sys_max_files() || pipe(ofd) < 0) {
-	    close_pipes(ifd, ofd, DO_READ);
-	    return ERL_DRV_ERROR_ERRNO;
-	}
-	if (ofd[1] >= sys_max_files()) {
-	    close_pipes(ifd, ofd, opts->read_write);
-	    errno = EMFILE;
-	    return ERL_DRV_ERROR_ERRNO;
-	}
-	break;
-    default:
-	ASSERT(0);
-	return ERL_DRV_ERROR_GENERAL;
+    SET_NONBLOCKING(ifd[0]);
+    SET_NONBLOCKING(ofd[1]);
+
+    stderrfd = opts->redir_stderr ? ifd[1] : dup(2);
+
+    if (stderrfd >= sys_max_files() || stderrfd < 0) {
+        close_pipes(ifd, ofd);
+        if (stderrfd > -1)
+            close(stderrfd);
+        return ERL_DRV_ERROR_ERRNO;
     }
 
     if (opts->spawn_type == ERTS_SPAWN_EXECUTABLE) {
@@ -738,15 +594,17 @@ static ErlDrvData spawn_start(ErlDrvPort port_num, char* name, SysDriverOpts* op
 	len = strlen(name);
 	cmd_line = (char *) erts_alloc_fnf(ERTS_ALC_T_TMP, len + 1);
 	if (!cmd_line) {
-	    close_pipes(ifd, ofd, opts->read_write);
+            close_pipes(ifd, ofd);
 	    errno = ENOMEM;
 	    return ERL_DRV_ERROR_ERRNO;
 	}
 	memcpy((void *) cmd_line,(void *) name, len);
 	cmd_line[len] = '\0';
+	len = len + 1;
 	if (access(cmd_line,X_OK) != 0) {
 	    int save_errno = errno;
 	    erts_free(ERTS_ALC_T_TMP, cmd_line);
+            close_pipes(ifd, ofd);
 	    errno = save_errno;
 	    return ERL_DRV_ERROR_ERRNO;
 	}
@@ -756,7 +614,7 @@ static ErlDrvData spawn_start(ErlDrvPort port_num, char* name, SysDriverOpts* op
 	cmd_line = (char *) erts_alloc_fnf(ERTS_ALC_T_TMP,
 					   CMD_LINE_PREFIX_STR_SZ + len + 1);
 	if (!cmd_line) {
-	    close_pipes(ifd, ofd, opts->read_write);
+            close_pipes(ifd, ofd);
 	    errno = ENOMEM;
 	    return ERL_DRV_ERROR_ERRNO;
 	}
@@ -765,6 +623,7 @@ static ErlDrvData spawn_start(ErlDrvPort port_num, char* name, SysDriverOpts* op
 	       CMD_LINE_PREFIX_STR_SZ);
 	memcpy((void *) (cmd_line + CMD_LINE_PREFIX_STR_SZ), (void *) name, len);
 	cmd_line[CMD_LINE_PREFIX_STR_SZ + len] = '\0';
+	len = CMD_LINE_PREFIX_STR_SZ + len + 1;
     }
 
     erts_smp_rwmtx_rlock(&environ_rwmtx);
@@ -773,283 +632,194 @@ static ErlDrvData spawn_start(ErlDrvPort port_num, char* name, SysDriverOpts* op
 	new_environ = environ;
     } else if ((new_environ = build_unix_environment(opts->envir)) == NULL) {
 	erts_smp_rwmtx_runlock(&environ_rwmtx);
+        close_pipes(ifd, ofd);
 	erts_free(ERTS_ALC_T_TMP, (void *) cmd_line);
 	errno = ENOMEM;
 	return ERL_DRV_ERROR_ERRNO;
-    } 
-
-#ifndef QNX
-    /* Block child from SIGINT and SIGUSR1. Must be before fork()
-       to be safe. */
-    block_signals();
-
-    CHLD_STAT_LOCK;
-
-    unbind = erts_sched_bind_atfork_prepare();
-
-#if !DISABLE_VFORK
-    /* See fork/vfork discussion before this function. */
-    if (no_vfork) {
-#endif
-
-	DEBUGF(("Using fork\n"));
-	pid = fork();
-
-	if (pid == 0) {
-	    /* The child! Setup child... */
-
-	    if (erts_sched_bind_atfork_child(unbind) != 0)
-		goto child_error;
-
-	    /* OBSERVE!
-	     * Keep child setup after vfork() (implemented below and in
-	     * erl_child_setup.c) up to date if changes are made here.
-	     */
-
-	    if (opts->use_stdio) {
-		if (opts->read_write & DO_READ) {
-		    /* stdout for process */
-		    if (dup2(ifd[1], 1) < 0)
-			goto child_error;
-		    if(opts->redir_stderr)
-			/* stderr for process */
-			if (dup2(ifd[1], 2) < 0)
-			    goto child_error;
-		}
-		if (opts->read_write & DO_WRITE)
-		    /* stdin for process */
-		    if (dup2(ofd[0], 0) < 0)
-			goto child_error;
-	    }
-	    else {	/* XXX will fail if ofd[0] == 4 (unlikely..) */
-		if (opts->read_write & DO_READ)
-		    if (dup2(ifd[1], 4) < 0)
-			goto child_error;
-		if (opts->read_write & DO_WRITE)
-		    if (dup2(ofd[0], 3) < 0)
-			goto child_error;
-	    }
-
-#if defined(HAVE_CLOSEFROM)
-	    closefrom(opts->use_stdio ? 3 : 5);
-#else
-	    for (i = opts->use_stdio ? 3 : 5; i < sys_max_files(); i++)
-		(void) close(i);
-#endif
-
-	    if (opts->wd && chdir(opts->wd) < 0)
-		goto child_error;
-
-#if defined(USE_SETPGRP_NOARGS)		/* SysV */
-	    (void) setpgrp();
-#elif defined(USE_SETPGRP)		/* BSD */
-	    (void) setpgrp(0, getpid());
-#else					/* POSIX */
-	    (void) setsid();
-#endif
-	    
-	    unblock_signals();
-
-	    if (opts->spawn_type == ERTS_SPAWN_EXECUTABLE) {
-		if (opts->argv == NULL) {
-		    execle(cmd_line,cmd_line,(char *) NULL, new_environ);
-		} else {
-		    if (opts->argv[0] == erts_default_arg0) {
-			opts->argv[0] = cmd_line;
-		    }
-		    execve(cmd_line, opts->argv, new_environ);
-		    if (opts->argv[0] == cmd_line) {
-			opts->argv[0] = erts_default_arg0;
-		    }
-		}
-	    } else {
-		execle(SHELL, "sh", "-c", cmd_line, (char *) NULL, new_environ);
-	    }
-	child_error:
-	    _exit(1);
-	}
-#if !DISABLE_VFORK
     }
-#define ENOUGH_BYTES (44)
-    else { /* Use vfork() */
-	char **cs_argv= erts_alloc(ERTS_ALC_T_TMP,(CS_ARGV_NO_OF_ARGS + 1)*
-				   sizeof(char *));
-	char fd_close_range[ENOUGH_BYTES];                  /* 44 bytes are enough to  */
-	char dup2_op[CS_ARGV_NO_OF_DUP2_OPS][ENOUGH_BYTES]; /* hold any "%d:%d" string */
-                                                            /* on a 64-bit machine.    */
 
-	/* Setup argv[] for the child setup program (implemented in
-	   erl_child_setup.c) */
-	i = 0;
-	if (opts->use_stdio) {
-	    if (opts->read_write & DO_READ){
-		/* stdout for process */
-		erts_snprintf(&dup2_op[i++][0], ENOUGH_BYTES, "%d:%d", ifd[1], 1);
-		if(opts->redir_stderr)
-		    /* stderr for process */
-		    erts_snprintf(&dup2_op[i++][0], ENOUGH_BYTES, "%d:%d", ifd[1], 2);
-	    }
-	    if (opts->read_write & DO_WRITE)
-		/* stdin for process */
-		erts_snprintf(&dup2_op[i++][0], ENOUGH_BYTES, "%d:%d", ofd[0], 0);
-	} else {	/* XXX will fail if ofd[0] == 4 (unlikely..) */
-	    if (opts->read_write & DO_READ)
-		erts_snprintf(&dup2_op[i++][0], ENOUGH_BYTES, "%d:%d", ifd[1], 4);
-	    if (opts->read_write & DO_WRITE)
-		erts_snprintf(&dup2_op[i++][0], ENOUGH_BYTES, "%d:%d", ofd[0], 3);
-	}
-	for (; i < CS_ARGV_NO_OF_DUP2_OPS; i++)
-	    strcpy(&dup2_op[i][0], "-");
-	erts_snprintf(fd_close_range, ENOUGH_BYTES, "%d:%d", opts->use_stdio ? 3 : 5, sys_max_files()-1);
-
-	cs_argv[CS_ARGV_PROGNAME_IX] = child_setup_prog;
-	cs_argv[CS_ARGV_WD_IX] = opts->wd ? opts->wd : ".";
-	cs_argv[CS_ARGV_UNBIND_IX] = erts_sched_bind_atvfork_child(unbind);
-	cs_argv[CS_ARGV_FD_CR_IX] = fd_close_range;
-	for (i = 0; i < CS_ARGV_NO_OF_DUP2_OPS; i++)
-	    cs_argv[CS_ARGV_DUP2_OP_IX(i)] = &dup2_op[i][0];
-
-	if (opts->spawn_type == ERTS_SPAWN_EXECUTABLE) {
-	    int num = 0;
-	    int j = 0;
-	    if (opts->argv != NULL) {
-		for(; opts->argv[num] != NULL; ++num)
-		    ;
-	    }
-	    cs_argv = erts_realloc(ERTS_ALC_T_TMP,cs_argv, (CS_ARGV_NO_OF_ARGS + 1 + num + 1) * sizeof(char *));
-	    cs_argv[CS_ARGV_CMD_IX] = "-";
-	    cs_argv[CS_ARGV_NO_OF_ARGS] = cmd_line;
-	    if (opts->argv != NULL) {
-		for (;opts->argv[j] != NULL; ++j) {
-		    if (opts->argv[j] == erts_default_arg0) {
-			cs_argv[CS_ARGV_NO_OF_ARGS + 1 + j] = cmd_line;
-		    } else {
-			cs_argv[CS_ARGV_NO_OF_ARGS + 1 + j] = opts->argv[j];
-		    }
-		}
-	    }
-	    cs_argv[CS_ARGV_NO_OF_ARGS + 1 + j] = NULL;
-	} else {
-	    cs_argv[CS_ARGV_CMD_IX] = cmd_line; /* Command */
-	    cs_argv[CS_ARGV_NO_OF_ARGS] = NULL;
-	}
-	DEBUGF(("Using vfork\n"));
-	pid = vfork();
-
-	if (pid == 0) {
-	    /* The child! */
-
-	    /* Observe!
-	     * OTP-4389: The child setup program (implemented in
-	     * erl_child_setup.c) will perform the necessary setup of the
-	     * child before it execs to the user program. This because
-	     * vfork() only allow an *immediate* execve() or _exit() in the
-	     * child.
-	     */
-	    execve(child_setup_prog, cs_argv, new_environ);
-	    _exit(1);
-	}
-	erts_free(ERTS_ALC_T_TMP,cs_argv);
+    if (opts->wd == NULL) {
+        if ((wd = getcwd(wd_buff, MAXPATHLEN+1)) == NULL) {
+            /* on some OSs this call opens a fd in the
+               background which means that this can
+               return EMFILE */
+            int err = errno;
+            close_pipes(ifd, ofd);
+            erts_free(ERTS_ALC_T_TMP, (void *) cmd_line);
+            if (new_environ != environ)
+                erts_free(ERTS_ALC_T_ENVIRONMENT, (void *) new_environ);
+            erts_smp_rwmtx_runlock(&environ_rwmtx);
+            errno = err;
+            return ERL_DRV_ERROR_ERRNO;
+        }
+    } else {
+        wd = opts->wd;
     }
-#undef ENOUGH_BYTES
-#endif
 
-    erts_sched_bind_atfork_parent(unbind);
+    {
+        struct iovec *io_vector;
+        int buffsz = 0, iov_len = 5;
+        char nullbuff[] = "\0";
+        int j, i = 0;
+        Sint32 env_len = 0, argv_len = 0,
+            flags = (opts->use_stdio ? FORKER_FLAG_USE_STDIO : 0)
+            | (opts->exit_status ? FORKER_FLAG_EXIT_STATUS : 0)
+            | (opts->read_write & DO_READ ? FORKER_FLAG_DO_READ : 0)
+            | (opts->read_write & DO_WRITE ? FORKER_FLAG_DO_WRITE : 0);
 
-    if (pid == -1) {
-        saved_errno = errno;
-	CHLD_STAT_UNLOCK;
-	erts_smp_rwmtx_runlock(&environ_rwmtx);
-	erts_free(ERTS_ALC_T_TMP, (void *) cmd_line);
-        unblock_signals();
-        close_pipes(ifd, ofd, opts->read_write);
-	errno = saved_errno;
-	return ERL_DRV_ERROR_ERRNO;
-    }
-#else /* QNX */
-    if (opts->use_stdio) {
-	if (opts->read_write & DO_READ)
-	    qnx_spawn_options.iov[1] = ifd[1];  /* stdout for process */
-	if (opts->read_write & DO_WRITE)
-	    qnx_spawn_options.iov[0] = ofd[0];  /* stdin for process */
-	} 
-    else {
-	if (opts->read_write & DO_READ)
-	    qnx_spawn_options.iov[4] = ifd[1];
-	if (opts->read_write & DO_WRITE)
-	    qnx_spawn_options.iov[3] = ofd[0];
-    }
-    /* Close fds on exec */
-    for (i = 3; i < sys_max_files(); i++)
-	fcntl(i, F_SETFD, 1);
+        /* count number of elements in environment */
+        while(new_environ[env_len] != NULL)
+            env_len++;
+        iov_len += 1 + env_len; /* num envs including size int */
 
-    qnx_spawn_options.flags = _SPAWN_SETSID;
-    if ((pid = spawnl(P_NOWAIT, SHELL, SHELL, "-c", cmd_line, 
-                      (char *) 0)) < 0) {
-	erts_free(ERTS_ALC_T_TMP, (void *) cmd_line);
-        reset_qnx_spawn();
-	erts_smp_rwmtx_runlock(&environ_rwmtx);
-	close_pipes(ifd, ofd, opts->read_write);
-	return ERL_DRV_ERROR_GENERAL;
+        /* count number of element in argument list */
+        if (opts->spawn_type == ERTS_SPAWN_EXECUTABLE) {
+            if (opts->argv != NULL) {
+                while(opts->argv[argv_len] != NULL)
+                    argv_len++;
+            } else {
+                argv_len++;
+            }
+            iov_len += 1 + argv_len; /* num argvs including size int */
+        }
+
+        io_vector = erts_alloc_fnf(ERTS_ALC_T_TMP, sizeof(struct iovec) * iov_len);
+
+        if (!io_vector) {
+            close_pipes(ifd, ofd);
+            erts_smp_rwmtx_runlock(&environ_rwmtx);
+            erts_free(ERTS_ALC_T_TMP, (void *) cmd_line);
+            if (new_environ != environ)
+                erts_free(ERTS_ALC_T_ENVIRONMENT, (void *) new_environ);
+            errno = ENOMEM;
+            return ERL_DRV_ERROR_ERRNO;
+        }
+
+        io_vector[i].iov_base = (void*)&buffsz;
+        io_vector[i++].iov_len = sizeof(buffsz);
+
+        io_vector[i].iov_base = (void*)&flags;
+        io_vector[i++].iov_len = sizeof(flags);
+        buffsz += sizeof(flags);
+
+        io_vector[i].iov_base = cmd_line;
+        io_vector[i++].iov_len = len;
+        buffsz += len;
+
+        io_vector[i].iov_base = wd;
+        io_vector[i].iov_len = strlen(io_vector[i].iov_base) + 1;
+        buffsz += io_vector[i++].iov_len;
+
+        io_vector[i].iov_base = nullbuff;
+        io_vector[i++].iov_len = 1;
+        buffsz += io_vector[i-1].iov_len;
+
+        io_vector[i].iov_base = (void*)&env_len;
+        io_vector[i++].iov_len = sizeof(env_len);
+        buffsz += io_vector[i-1].iov_len;
+
+        for (j = 0; new_environ[j] != NULL; j++) {
+            io_vector[i].iov_base = new_environ[j];
+            io_vector[i++].iov_len = strlen(new_environ[j]) + 1;
+            buffsz += io_vector[i-1].iov_len;
+        }
+
+        /* only append arguments if this was a spawn_executable */
+        if (opts->spawn_type == ERTS_SPAWN_EXECUTABLE) {
+
+            io_vector[i].iov_base = (void*)&argv_len;
+            io_vector[i++].iov_len = sizeof(argv_len);
+            buffsz += io_vector[i-1].iov_len;
+
+            if (opts->argv) {
+                /* If there are arguments we copy in the references to
+                   them into the iov */
+                for (j = 0; opts->argv[j]; j++) {
+                    if (opts->argv[j] == erts_default_arg0)
+                        io_vector[i].iov_base = cmd_line;
+                    else
+                        io_vector[i].iov_base = opts->argv[j];
+                    io_vector[i].iov_len = strlen(io_vector[i].iov_base) + 1;
+                    buffsz += io_vector[i++].iov_len;
+                }
+            } else {
+                io_vector[i].iov_base = cmd_line;
+                io_vector[i].iov_len = strlen(io_vector[i].iov_base) + 1;
+                buffsz += io_vector[i++].iov_len;
+            }
+        }
+
+        /* we send the request to do the fork */
+        if (writev(ofd[1], io_vector, iov_len) < 0) {
+            int err = errno;
+            close_pipes(ifd, ofd);
+            erts_free(ERTS_ALC_T_TMP, io_vector);
+            if (new_environ != environ)
+                erts_free(ERTS_ALC_T_ENVIRONMENT, (void *) new_environ);
+            erts_smp_rwmtx_runlock(&environ_rwmtx);
+            erts_free(ERTS_ALC_T_TMP, (void *) cmd_line);
+            errno = err;
+            return ERL_DRV_ERROR_ERRNO;
+        }
+
+        erts_free(ERTS_ALC_T_TMP, io_vector);
     }
-    reset_qnx_spawn();
-#endif /* QNX */
 
     erts_free(ERTS_ALC_T_TMP, (void *) cmd_line);
 
     if (new_environ != environ)
 	erts_free(ERTS_ALC_T_ENVIRONMENT, (void *) new_environ);
 
-    if (opts->read_write & DO_READ) 
-	(void) close(ifd[1]);
-    if (opts->read_write & DO_WRITE)
-	(void) close(ofd[0]);
-	
-    if (opts->read_write & DO_READ) {
-	SET_NONBLOCKING(ifd[0]);
-	init_fd_data(ifd[0], port_num);
-    }
-    if (opts->read_write & DO_WRITE) {
-	SET_NONBLOCKING(ofd[1]);
-        init_fd_data(ofd[1], port_num);
-    }
-
-    res = set_driver_data(port_num, ifd[0], ofd[1], opts->packet_bytes,
-			  opts->read_write, opts->exit_status, pid, 0);
-    /* Don't unblock SIGCHLD until now, since the call above must
-       first complete putting away the info about our new subprocess. */
-    unblock_signals();
-
-#if CHLDWTHR
-    ASSERT(children_alive >= 0);
-
-    if (!(children_alive++))
-	CHLD_STAT_SIGNAL; /* Wake up child waiter thread if no children
-			     was alive before we fork()ed ... */
-#endif
-    /* Don't unlock chld_stat_mtx until now of the same reason as above */
-    CHLD_STAT_UNLOCK;
-
     erts_smp_rwmtx_runlock(&environ_rwmtx);
+
+    res = create_driver_data(port_num, ifd[0], ofd[1], opts->packet_bytes,
+                             DO_WRITE | DO_READ, opts->exit_status,
+                             0, 0);
+
+    {
+        /* send ofd[0] + ifd[1] + stderrfd to forker port */
+        int *fds = erts_alloc(ERTS_ALC_T_DRV_CTRL_DATA, sizeof(int)*3);
+        memset(fds, 0, sizeof(int)*3);
+        fds[0] = ofd[0];
+        fds[1] = ifd[1];
+        fds[2] = stderrfd;
+        if (erl_drv_port_control(forker_port, 'S', (char*)fds, sizeof(int)*3)) {
+            /* The forker port has been killed, we close both fd's which will
+               make open_port throw an epipe error */
+            close(ofd[0]);
+            close(ifd[1]);
+        }
+    }
+
+    /* we set these fds to negative to mark if
+       they should be closed after the handshake */
+    if (!(opts->read_write & DO_READ))
+        res->ifd->fd *= -1;
+
+    if (!(opts->read_write & DO_WRITE))
+        res->ofd->fd *= -1;
 
     return (ErlDrvData)res;
 #undef CMD_LINE_PREFIX_STR
 #undef CMD_LINE_PREFIX_STR_SZ
 }
 
-#ifdef QNX
-static reset_qnx_spawn()
+static ErlDrvSSizeT spawn_control(ErlDrvData e, unsigned int cmd, char *buf,
+                                  ErlDrvSizeT len, char **rbuf, ErlDrvSizeT rlen)
 {
-    int i;
+    ErtsSysDriverData *dd = (ErtsSysDriverData*)e;
 
-    /* Reset qnx_spawn_options */
-    qnx_spawn_options.flags = 0; 
-    qnx_spawn_options.iov[0] = 0xff;
-    qnx_spawn_options.iov[1] = 0xff;
-    qnx_spawn_options.iov[2] = 0xff;
-    qnx_spawn_options.iov[3] = 0xff;
+    memcpy(&dd->status, buf, sizeof(dd->status));
+    dd->alive = -1;
+
+    if (dd->ifd)
+        driver_select(dd->port_num, abs(dd->ifd->fd), ERL_DRV_READ | ERL_DRV_USE, 1);
+
+    if (dd->ofd)
+        driver_select(dd->port_num, abs(dd->ofd->fd), ERL_DRV_WRITE | ERL_DRV_USE, 1);
+
+    return 0;
 }
-#endif
 
 #define FD_DEF_HEIGHT 24
 #define FD_DEF_WIDTH 80
@@ -1099,7 +869,6 @@ static ErlDrvSSizeT fd_control(ErlDrvData drv_data,
 static ErlDrvData fd_start(ErlDrvPort port_num, char* name,
 			   SysDriverOpts* opts)
 {
-    ErlDrvData res;
     int non_blocking = 0;
 
     if (((opts->read_write & DO_READ) && opts->ifd >= sys_max_files()) ||
@@ -1189,11 +958,8 @@ static ErlDrvData fd_start(ErlDrvPort port_num, char* name,
      * use erlang:halt with flush=false.
      */
 
-    if (opts->read_write & DO_READ) {
-	init_fd_data(opts->ifd, port_num);
-    }
+    /* Try to figure out if we can use non-blocking writes */
     if (opts->read_write & DO_WRITE) {
-	init_fd_data(opts->ofd, port_num);
 
 	/* If we don't have a read end, all bets are off - no non-blocking. */
 	if (opts->read_write & DO_READ) {
@@ -1259,60 +1025,66 @@ static ErlDrvData fd_start(ErlDrvPort port_num, char* name,
 	    }
 	}
     }
-    CHLD_STAT_LOCK;
-    res = (ErlDrvData)(long)set_driver_data(port_num, opts->ifd, opts->ofd,
-                                            opts->packet_bytes,
-                                            opts->read_write, 0, -1,
-                                            !non_blocking);
-    CHLD_STAT_UNLOCK;
-    return res;
+    return (ErlDrvData)create_driver_data(port_num, opts->ifd, opts->ofd,
+                                          opts->packet_bytes,
+                                          opts->read_write, 0, -1,
+                                          !non_blocking);
 }
 
-static void clear_fd_data(int fd) 
+static void clear_fd_data(ErtsSysFdData *fdd)
 {
-    if (fd_data[fd].sz > 0) {
-	erts_free(ERTS_ALC_T_FD_ENTRY_BUF, (void *) fd_data[fd].buf);
-	ASSERT(erts_smp_atomic_read_nob(&sys_misc_mem_sz) >= fd_data[fd].sz);
-	erts_smp_atomic_add_nob(&sys_misc_mem_sz, -1*fd_data[fd].sz);
+    if (fdd->sz > 0) {
+	erts_free(ERTS_ALC_T_FD_ENTRY_BUF, (void *) fdd->buf);
+	ASSERT(erts_smp_atomic_read_nob(&sys_misc_mem_sz) >= fdd->sz);
+	erts_smp_atomic_add_nob(&sys_misc_mem_sz, -1*fdd->sz);
     }
-    fd_data[fd].buf = NULL;
-    fd_data[fd].sz = 0;
-    fd_data[fd].remain = 0;
-    fd_data[fd].cpos = NULL;
-    fd_data[fd].psz = 0;
+    fdd->buf = NULL;
+    fdd->sz = 0;
+    fdd->remain = 0;
+    fdd->cpos = NULL;
+    fdd->psz = 0;
 }
 
-static void nbio_stop_fd(ErlDrvPort prt, int fd)
+static void nbio_stop_fd(ErlDrvPort prt, ErtsSysFdData *fdd)
 {
-    driver_select(prt,fd,DO_READ|DO_WRITE,0);
-    clear_fd_data(fd);
-    SET_BLOCKING(fd);
+    driver_select(prt, abs(fdd->fd), DO_READ|DO_WRITE, 0);
+    clear_fd_data(fdd);
+    SET_BLOCKING(abs(fdd->fd));
+
 }
 
 static void fd_stop(ErlDrvData ev)  /* Does not close the fds */
 {
-    int ofd;
-    int fd = (int)(long)ev;
-    ErlDrvPort prt = driver_data[fd].port_num;
-    
+    ErtsSysDriverData* dd = (ErtsSysDriverData*)ev;
+    ErlDrvPort prt = dd->port_num;
+    int sz = sizeof(ErtsSysDriverData);
+
 #if FDBLOCK
-    if (driver_data[fd].blocking) {
-        erts_free(ERTS_ALC_T_SYS_BLOCKING,driver_data[fd].blocking);
-        driver_data[fd].blocking = NULL;
-        erts_smp_atomic_add_nob(&sys_misc_mem_sz, -1*sizeof(ErtsSysBlocking));
+    if (dd->blocking) {
+        erts_free(ERTS_ALC_T_SYS_BLOCKING, dd->blocking);
+        dd->blocking = NULL;
+        sz += sizeof(ErtsSysBlocking);
     }
 #endif
 
-    nbio_stop_fd(prt, fd);
-    ofd = driver_data[fd].ofd;
-    if (ofd != fd && ofd != -1)
-	nbio_stop_fd(prt, ofd);
+    if (dd->ifd) {
+        sz += sizeof(ErtsSysFdData);
+        nbio_stop_fd(prt, dd->ifd);
+    }
+    if (dd->ofd && dd->ofd != dd->ifd) {
+        sz += sizeof(ErtsSysFdData);
+        nbio_stop_fd(prt, dd->ofd);
+    }
+
+     erts_free(ERTS_ALC_T_DRV_TAB, dd);
+     erts_smp_atomic_add_nob(&sys_misc_mem_sz, -sz);
 }
 
-static void fd_flush(ErlDrvData fd)
+static void fd_flush(ErlDrvData ev)
 {
-    if (!driver_data[(int)(long)fd].terminating)
-        driver_data[(int)(long)fd].terminating = 1;
+    ErtsSysDriverData* dd = (ErtsSysDriverData*)ev;
+    if (!dd->terminating)
+        dd->terminating = 1;
 }
 
 static ErlDrvData vanilla_start(ErlDrvPort port_num, char* name,
@@ -1331,55 +1103,45 @@ static ErlDrvData vanilla_start(ErlDrvPort port_num, char* name,
 	return ERL_DRV_ERROR_GENERAL;
     }
     SET_NONBLOCKING(fd);
-    init_fd_data(fd, port_num);
 
-    CHLD_STAT_LOCK;
-    res = (ErlDrvData)(long)set_driver_data(port_num, fd, fd,
-                                            opts->packet_bytes,
-                                            opts->read_write, 0, -1, 0);
-    CHLD_STAT_UNLOCK;
+    res = (ErlDrvData)(long)create_driver_data(port_num, fd, fd,
+                                               opts->packet_bytes,
+                                               opts->read_write, 0, -1, 0);
     return res;
 }
 
 /* Note that driver_data[fd].ifd == fd if the port was opened for reading, */
 /* otherwise (i.e. write only) driver_data[fd].ofd = fd.  */
 
-static void stop(ErlDrvData fd)
+static void stop(ErlDrvData ev)
 {
-    ErlDrvPort prt;
-    int ofd;
+    ErtsSysDriverData* dd = (ErtsSysDriverData*)ev;
+    ErlDrvPort prt = dd->port_num;
 
-    prt = driver_data[(int)(long)fd].port_num;
-    nbio_stop_fd(prt, (int)(long)fd);
+    if (dd->alive == 1)
+        /* Stop has been called before the exit status has been reported */
+        forker_remove_os_pid_mapping(dd);
 
-    ofd = driver_data[(int)(long)fd].ofd;
-    if (ofd != (int)(long)fd && (int)(long)ofd != -1)
-	nbio_stop_fd(prt, ofd);
-    else
-	ofd = -1;
-
-    CHLD_STAT_LOCK;
-
-    /* Mark as unused. */
-    driver_data[(int)(long)fd].pid = -1;
-
-    CHLD_STAT_UNLOCK;
-
-    /* SMP note: Close has to be last thing done (open file descriptors work
-       as locks on driver_data[] entries) */
-    driver_select(prt, (int)(long)fd, ERL_DRV_USE, 0);  /* close(fd); */
-    if (ofd >= 0) {
-	driver_select(prt, (int)(long)ofd, ERL_DRV_USE, 0);  /* close(ofd); */
+    if (dd->ifd) {
+        nbio_stop_fd(prt, dd->ifd);
+        driver_select(prt, abs(dd->ifd->fd), ERL_DRV_USE, 0);  /* close(ifd); */
     }
+
+    if (dd->ofd && dd->ofd != dd->ifd) {
+	nbio_stop_fd(prt, dd->ofd);
+	driver_select(prt, abs(dd->ofd->fd), ERL_DRV_USE, 0);  /* close(ofd); */
+    }
+
+    erts_free(ERTS_ALC_T_DRV_TAB, dd);
 }
 
 /* used by fd_driver */
 static void outputv(ErlDrvData e, ErlIOVec* ev)
 {
-    int fd = (int)(long)e;
-    ErlDrvPort ix = driver_data[fd].port_num;
-    int pb = driver_data[fd].packet_bytes;
-    int ofd = driver_data[fd].ofd;
+    ErtsSysDriverData *dd = (ErtsSysDriverData*)e;
+    ErlDrvPort ix = dd->port_num;
+    int pb = dd->packet_bytes;
+    int ofd = dd->ofd ? dd->ofd->fd : -1;
     ssize_t n;
     ErlDrvSizeT sz;
     char lb[4];
@@ -1400,19 +1162,19 @@ static void outputv(ErlDrvData e, ErlIOVec* ev)
     ev->iov[0].iov_len = pb;
     ev->size += pb;
 
-    if (driver_data[fd].blocking && FDBLOCK)
-        driver_pdl_lock(driver_data[fd].blocking->pdl);
+    if (dd->blocking && FDBLOCK)
+        driver_pdl_lock(dd->blocking->pdl);
 
     if ((sz = driver_sizeq(ix)) > 0) {
 	driver_enqv(ix, ev, 0);
 
-        if (driver_data[fd].blocking && FDBLOCK)
-            driver_pdl_unlock(driver_data[fd].blocking->pdl);
+        if (dd->blocking && FDBLOCK)
+            driver_pdl_unlock(dd->blocking->pdl);
 
 	if (sz + ev->size >= (1 << 13))
 	    set_busy_port(ix, 1);
     }
-    else if (!driver_data[fd].blocking || !FDBLOCK) {
+    else if (!dd->blocking || !FDBLOCK) {
         /* We try to write directly if the fd in non-blocking */
 	int vsize = ev->vsize > MAX_VSIZE ? MAX_VSIZE : ev->vsize;
 
@@ -1433,11 +1195,11 @@ static void outputv(ErlDrvData e, ErlIOVec* ev)
     else {
         if (ev->size != 0) {
             driver_enqv(ix, ev, 0);
-            driver_pdl_unlock(driver_data[fd].blocking->pdl);
-            driver_async(ix, &driver_data[fd].blocking->pkey,
-                         fd_async, driver_data+fd, NULL);
+            driver_pdl_unlock(dd->blocking->pdl);
+            driver_async(ix, &dd->blocking->pkey,
+                         fd_async, dd, NULL);
         } else {
-            driver_pdl_unlock(driver_data[fd].blocking->pdl);
+            driver_pdl_unlock(dd->blocking->pdl);
         }
     }
 #endif
@@ -1447,10 +1209,10 @@ static void outputv(ErlDrvData e, ErlIOVec* ev)
 /* Used by spawn_driver and vanilla driver */
 static void output(ErlDrvData e, char* buf, ErlDrvSizeT len)
 {
-    int fd = (int)(long)e;
-    ErlDrvPort ix = driver_data[fd].port_num;
-    int pb = driver_data[fd].packet_bytes;
-    int ofd = driver_data[fd].ofd;
+    ErtsSysDriverData *dd = (ErtsSysDriverData*)e;
+    ErlDrvPort ix = dd->port_num;
+    int pb = dd->packet_bytes;
+    int ofd = dd->ofd ? dd->ofd->fd : -1;
     ssize_t n;
     ErlDrvSizeT sz;
     char lb[4];
@@ -1458,7 +1220,9 @@ static void output(ErlDrvData e, char* buf, ErlDrvSizeT len)
     struct iovec iv[2];
 
     /* (len > ((unsigned long)-1 >> (4-pb)*8)) */
-    if (((pb == 2) && (len > 0xffff)) || (pb == 1 && len > 0xff)) {
+    if (((pb == 2) && (len > 0xffff))
+        || (pb == 1 && len > 0xff)
+        || dd->pid == 0 /* Attempt at output before port is ready */) {
 	driver_failure_posix(ix, EINVAL);
 	return; /* -1; */
     }
@@ -1499,62 +1263,58 @@ static void output(ErlDrvData e, char* buf, ErlDrvSizeT len)
     return; /* 0; */
 }
 
-static int port_inp_failure(ErlDrvPort port_num, int ready_fd, int res)
+static int port_inp_failure(ErtsSysDriverData *dd, int res)
 				/* Result: 0 (eof) or -1 (error) */
 {
     int err = errno;
 
     ASSERT(res <= 0);
-    (void) driver_select(port_num, ready_fd, ERL_DRV_READ|ERL_DRV_WRITE, 0); 
-    clear_fd_data(ready_fd);
+    if (dd->ifd) {
+        driver_select(dd->port_num, dd->ifd->fd, ERL_DRV_READ|ERL_DRV_WRITE, 0);
+        clear_fd_data(dd->ifd);
+    }
 
-    if (driver_data[ready_fd].blocking && FDBLOCK) {
-        driver_pdl_lock(driver_data[ready_fd].blocking->pdl);
-        if (driver_sizeq(driver_data[ready_fd].port_num) > 0) {
-            driver_pdl_unlock(driver_data[ready_fd].blocking->pdl);
+    if (dd->blocking && FDBLOCK) {
+        driver_pdl_lock(dd->blocking->pdl);
+        if (driver_sizeq(dd->port_num) > 0) {
+            driver_pdl_unlock(dd->blocking->pdl);
             /* We have stuff in the output queue, so we just
                set the state to terminating and wait for fd_async_ready
                to terminate the port */
             if (res == 0)
-                driver_data[ready_fd].terminating = 2;
+                dd->terminating = 2;
             else
-                driver_data[ready_fd].terminating = -err;
+                dd->terminating = -err;
             return 0;
         }
-        driver_pdl_unlock(driver_data[ready_fd].blocking->pdl);
+        driver_pdl_unlock(dd->blocking->pdl);
     }
 
     if (res == 0) {
-	if (driver_data[ready_fd].report_exit) {
-	    CHLD_STAT_LOCK;
+        if (dd->alive == 1) {
+            /*
+             * We have eof and want to report exit status, but the process
+             * hasn't exited yet. When it does ready_input will
+             * driver_select() this fd which will make sure that we get
+             * back here with dd->alive == -1 and dd->status set.
+             */
+            return 0;
+        }
+        else if (dd->alive == -1) {
+            int status = dd->status;
 
-	    if (driver_data[ready_fd].alive) {
-		/*
-		 * We have eof and want to report exit status, but the process
-		 * hasn't exited yet. When it does report_exit_status() will
-		 * driver_select() this fd which will make sure that we get
-		 * back here with driver_data[ready_fd].alive == 0 and
-		 * driver_data[ready_fd].status set.
-		 */
-		CHLD_STAT_UNLOCK;
-		return 0;
-	    }
-	    else {
-		int status = driver_data[ready_fd].status;
-		CHLD_STAT_UNLOCK;
-
-		/* We need not be prepared for stopped/continued processes. */
-		if (WIFSIGNALED(status))
-		    status = 128 + WTERMSIG(status);
-		else
-		    status = WEXITSTATUS(status);
-
-		driver_report_exit(driver_data[ready_fd].port_num, status);
-	    }
-       }
-       driver_failure_eof(port_num);
+            /* We need not be prepared for stopped/continued processes. */
+            if (WIFSIGNALED(status))
+                status = 128 + WTERMSIG(status);
+            else
+                status = WEXITSTATUS(status);
+            driver_report_exit(dd->port_num, status);
+        }
+       driver_failure_eof(dd->port_num);
+    } else if (dd->ifd) {
+        erl_drv_init_ack(dd->port_num, ERL_DRV_ERROR_ERRNO);
     } else {
-	driver_failure_posix(port_num, err);
+	driver_failure_posix(dd->port_num, err);
     }
     return 0;
 }
@@ -1565,15 +1325,70 @@ static int port_inp_failure(ErlDrvPort port_num, int ready_fd, int res)
 
 static void ready_input(ErlDrvData e, ErlDrvEvent ready_fd)
 {
-    int fd = (int)(long)e;
+    ErtsSysDriverData *dd = (ErtsSysDriverData*)e;
     ErlDrvPort port_num;
     int packet_bytes;
     int res;
     Uint h;
 
-    port_num = driver_data[fd].port_num;
-    packet_bytes = driver_data[fd].packet_bytes;
+    port_num = dd->port_num;
+    packet_bytes = dd->packet_bytes;
 
+    ASSERT(abs(dd->ifd->fd) == ready_fd);
+
+    if (dd->pid == 0) {
+        /* the pid is sent from erl_child_setup. spawn driver only. */
+        char message_buffer[3 + 10 + 1 + 10 + 1];
+        int reason, res;
+
+        if((res = read(ready_fd, message_buffer, sizeof(message_buffer))) <= 0) {
+            /* hmm, child setup seems to have closed the pipe too early...
+               we close the port as there is not much else we can do */
+            if (res < 0 && errno == ERRNO_BLOCK)
+                return;
+            driver_select(port_num, ready_fd, ERL_DRV_READ, 0);
+            if (res == 0)
+                errno = EPIPE;
+            port_inp_failure(dd, -1);
+            return;
+        }
+
+        if(sscanf(message_buffer,"GO:%010d:%010d", &dd->pid, &reason) == 2) {
+            if (dd->pid == -1) {
+                /* Setup failed! The only reason why this should happen is if
+                   the fork fails. */
+                errno = reason;
+                port_inp_failure(dd, -1);
+                return;
+            }
+
+            if (write(abs(dd->ofd->fd), "A", 1) < 0)
+                ; /* do nothing on failure here. If the ofd is broken, then
+                     the ifd will probably also be broken and trigger
+                     a port_inp_failure */
+
+            if (dd->ifd->fd < 0) {
+                driver_select(port_num, abs(dd->ifd->fd), ERL_DRV_READ|ERL_DRV_USE, 0);
+                erts_smp_atomic_add_nob(&sys_misc_mem_sz, -sizeof(ErtsSysFdData));
+                dd->ifd = NULL;
+            }
+
+            if (dd->ofd->fd < 0  || driver_sizeq(port_num) > 0)
+                /* we select in order to close fd or write to queue,
+                   child setup will close this fd if fd < 0 */
+                driver_select(port_num, abs(dd->ofd->fd), ERL_DRV_WRITE|ERL_DRV_USE, 1);
+
+            if (dd->alive == 1) {
+                forker_add_os_pid_mapping(dd);
+            }
+
+            erl_drv_set_os_pid(port_num, dd->pid);
+            erl_drv_init_ack(port_num, e);
+            return;
+        }
+        ASSERT(0);
+        return;
+    }
 
     if (packet_bytes == 0) {
 	byte *read_buf = (byte *) erts_alloc(ERTS_ALC_T_SYS_READ_BUF,
@@ -1581,76 +1396,76 @@ static void ready_input(ErlDrvData e, ErlDrvEvent ready_fd)
 	res = read(ready_fd, read_buf, ERTS_SYS_READ_BUF_SZ);
 	if (res < 0) {
 	    if ((errno != EINTR) && (errno != ERRNO_BLOCK))
-		port_inp_failure(port_num, ready_fd, res);
+		port_inp_failure(dd, res);
 	}
 	else if (res == 0)
-	    port_inp_failure(port_num, ready_fd, res);
-	else 
+	    port_inp_failure(dd, res);
+	else
 	    driver_output(port_num, (char*) read_buf, res);
 	erts_free(ERTS_ALC_T_SYS_READ_BUF, (void *) read_buf);
     }
-    else if (fd_data[ready_fd].remain > 0) { /* We try to read the remainder */
+    else if (dd->ifd->remain > 0) { /* We try to read the remainder */
 	/* space is allocated in buf */
-	res = read(ready_fd, fd_data[ready_fd].cpos, 
-		   fd_data[ready_fd].remain);
+	res = read(ready_fd, dd->ifd->cpos,
+		   dd->ifd->remain);
 	if (res < 0) {
 	    if ((errno != EINTR) && (errno != ERRNO_BLOCK))
-		port_inp_failure(port_num, ready_fd, res);
+		port_inp_failure(dd, res);
 	}
 	else if (res == 0) {
-	    port_inp_failure(port_num, ready_fd, res);
+	    port_inp_failure(dd, res);
 	}
-	else if (res == fd_data[ready_fd].remain) { /* we're done  */
-	    driver_output(port_num, fd_data[ready_fd].buf, 
-			  fd_data[ready_fd].sz);
-	    clear_fd_data(ready_fd);
+	else if (res == dd->ifd->remain) { /* we're done  */
+	    driver_output(port_num, dd->ifd->buf,
+			  dd->ifd->sz);
+	    clear_fd_data(dd->ifd);
 	}
-	else { /*  if (res < fd_data[ready_fd].remain) */
-	    fd_data[ready_fd].cpos += res;
-	    fd_data[ready_fd].remain -= res;
+	else { /*  if (res < dd->ifd->remain) */
+	    dd->ifd->cpos += res;
+	    dd->ifd->remain -= res;
 	}
     }
-    else if (fd_data[ready_fd].remain == 0) { /* clean fd */
+    else if (dd->ifd->remain == 0) { /* clean fd */
 	byte *read_buf = (byte *) erts_alloc(ERTS_ALC_T_SYS_READ_BUF,
 					     ERTS_SYS_READ_BUF_SZ);
 	/* We make one read attempt and see what happens */
 	res = read(ready_fd, read_buf, ERTS_SYS_READ_BUF_SZ);
-	if (res < 0) {  
+	if (res < 0) {
 	    if ((errno != EINTR) && (errno != ERRNO_BLOCK))
-		port_inp_failure(port_num, ready_fd, res);
+		port_inp_failure(dd, res);
 	}
 	else if (res == 0) {     	/* eof */
-	    port_inp_failure(port_num, ready_fd, res);
-	} 
-	else if (res < packet_bytes - fd_data[ready_fd].psz) { 
-	    memcpy(fd_data[ready_fd].pbuf+fd_data[ready_fd].psz,
+	    port_inp_failure(dd, res);
+	}
+	else if (res < packet_bytes - dd->ifd->psz) {
+	    memcpy(dd->ifd->pbuf+dd->ifd->psz,
 		   read_buf, res);
-	    fd_data[ready_fd].psz += res;
+	    dd->ifd->psz += res;
 	}
 	else  { /* if (res >= packet_bytes) */
 	    unsigned char* cpos = read_buf;
 	    int bytes_left = res;
 
 	    while (1) {
-		int psz = fd_data[ready_fd].psz;
-		char* pbp = fd_data[ready_fd].pbuf + psz;
+		int psz = dd->ifd->psz;
+		char* pbp = dd->ifd->pbuf + psz;
 
 		while(bytes_left && (psz < packet_bytes)) {
 		    *pbp++ = *cpos++;
 		    bytes_left--;
 		    psz++;
 		}
-		
+
 		if (psz < packet_bytes) {
-		    fd_data[ready_fd].psz = psz;
+		    dd->ifd->psz = psz;
 		    break;
 		}
-		fd_data[ready_fd].psz = 0;
+		dd->ifd->psz = 0;
 
 		switch (packet_bytes) {
-		case 1: h = get_int8(fd_data[ready_fd].pbuf);  break;
-		case 2: h = get_int16(fd_data[ready_fd].pbuf); break;
-		case 4: h = get_int32(fd_data[ready_fd].pbuf); break;
+		case 1: h = get_int8(dd->ifd->pbuf);  break;
+		case 2: h = get_int16(dd->ifd->pbuf); break;
+		case 4: h = get_int32(dd->ifd->pbuf); break;
 		default: ASSERT(0); return; /* -1; */
 		}
 
@@ -1664,15 +1479,15 @@ static void ready_input(ErlDrvData e, ErlDrvEvent ready_fd)
 		        char *buf = erts_alloc_fnf(ERTS_ALC_T_FD_ENTRY_BUF, h);
 		    if (!buf) {
 			errno = ENOMEM;
-			port_inp_failure(port_num, ready_fd, -1);
+			port_inp_failure(dd, -1);
 		    }
 		    else {
 			erts_smp_atomic_add_nob(&sys_misc_mem_sz, h);
 			sys_memcpy(buf, cpos, bytes_left);
-			fd_data[ready_fd].buf = buf;
-			fd_data[ready_fd].sz = h;
-			fd_data[ready_fd].remain = h - bytes_left;
-			fd_data[ready_fd].cpos = buf + bytes_left;
+			dd->ifd->buf = buf;
+			dd->ifd->sz = h;
+			dd->ifd->remain = h - bytes_left;
+			dd->ifd->cpos = buf + bytes_left;
 		    }
 		    break;
 		}
@@ -1689,17 +1504,24 @@ static void ready_input(ErlDrvData e, ErlDrvEvent ready_fd)
 
 static void ready_output(ErlDrvData e, ErlDrvEvent ready_fd)
 {
-    int fd = (int)(long)e;
-    ErlDrvPort ix = driver_data[fd].port_num;
+    ErtsSysDriverData *dd = (ErtsSysDriverData*)e;
+    ErlDrvPort ix = dd->port_num;
     int n;
     struct iovec* iv;
     int vsize;
-    
 
     if ((iv = (struct iovec*) driver_peekq(ix, &vsize)) == NULL) {
 	driver_select(ix, ready_fd, ERL_DRV_WRITE, 0);
-        if (driver_data[fd].terminating)
-            driver_failure_atom(driver_data[fd].port_num,"normal");
+        if (dd->pid > 0 && dd->ofd->fd < 0) {
+            /* The port was opened with 'in' option, which means we
+               should close the output fd as soon as the command has
+               been sent. */
+            driver_select(ix, ready_fd, ERL_DRV_WRITE|ERL_DRV_USE, 0);
+            erts_smp_atomic_add_nob(&sys_misc_mem_sz, -sizeof(ErtsSysFdData));
+            dd->ofd = NULL;
+        }
+        if (dd->terminating)
+            driver_failure_atom(dd->port_num,"normal");
 	return; /* 0; */
     }
     vsize = vsize > MAX_VSIZE ? MAX_VSIZE : vsize;
@@ -1731,7 +1553,7 @@ static void
 fd_async(void *async_data)
 {
     int res;
-    ErtsSysDriverData *dd = (ErtsSysDriverData*)async_data;
+    ErtsSysDriverData *dd = (ErtsSysDriverData *)async_data;
     SysIOVec      *iov0;
     SysIOVec      *iov;
     int            iovlen;
@@ -1751,7 +1573,7 @@ fd_async(void *async_data)
         driver_pdl_unlock(dd->blocking->pdl);
 
         do {
-            res = writev(dd->ofd, iov, iovlen);
+            res = writev(dd->ofd->fd, iov, iovlen);
         } while (res < 0 && errno == EINTR);
         if (res < 0)
             err = errno;
@@ -1769,7 +1591,6 @@ void fd_ready_async(ErlDrvData drv_data,
     ErlDrvPort port_num = dd->port_num;
 
     ASSERT(dd->blocking);
-    ASSERT(dd == (driver_data + (int)(long)drv_data));
 
     if (dd->blocking->res > 0) {
         driver_pdl_lock(dd->blocking->pdl);
@@ -1807,177 +1628,259 @@ void fd_ready_async(ErlDrvData drv_data,
 
 #endif
 
-static ERTS_INLINE void
-report_exit_status(ErtsSysReportExit *rep, int status)
+/* Forker driver */
+
+static int forker_fd;
+static Hash *forker_hash;
+static erts_smp_mtx_t forker_hash_mtx;
+
+static void ffree(void *e);
+
+static ErlDrvData forker_start(ErlDrvPort port_num, char* name,
+                               SysDriverOpts* opts)
 {
-    Port *pp;
-#ifdef ERTS_SMP
-    CHLD_STAT_UNLOCK;
-    pp = erts_thr_id2port_sflgs(rep->port,
-				ERTS_PORT_SFLGS_INVALID_DRIVER_LOOKUP);
-    CHLD_STAT_LOCK;
-#else
-    pp = erts_id2port_sflgs(rep->port,
-			    NULL,
-			    0,
-			    ERTS_PORT_SFLGS_INVALID_DRIVER_LOOKUP);
-#endif
-    if (pp) {
-	if (rep->ifd >= 0) {
-	    driver_data[rep->ifd].alive = 0;
-	    driver_data[rep->ifd].status = status;
-	    (void) driver_select(ERTS_Port2ErlDrvPort(pp),
-				 rep->ifd,
-				 (ERL_DRV_READ|ERL_DRV_USE),
-				 1);
-	}
-	if (rep->ofd >= 0) {
-	    driver_data[rep->ofd].alive = 0;
-	    driver_data[rep->ofd].status = status;
-	    (void) driver_select(ERTS_Port2ErlDrvPort(pp),
-				 rep->ofd,
-				 (ERL_DRV_WRITE|ERL_DRV_USE),
-				 1);
-	}
-#ifdef ERTS_SMP
-	erts_thr_port_release(pp);
-#else
-	erts_port_release(pp);
-#endif
+
+    int i;
+    int fds[2];
+    int res, unbind;
+    char bindir[MAXPATHLEN];
+    size_t bindirsz = sizeof(bindir);
+    Uint csp_path_sz;
+    char *child_setup_prog;
+
+    forker_port = erts_drvport2id(port_num);
+
+    res = erts_sys_getenv_raw("BINDIR", bindir, &bindirsz);
+    if (res != 0) {
+        if (res < 0)
+            erl_exit(-1,
+                     "Environment variable BINDIR is not set\n");
+        if (res > 0)
+            erl_exit(-1,
+                     "Value of environment variable BINDIR is too large\n");
     }
-    erts_free(ERTS_ALC_T_PRT_REP_EXIT, rep);
-}
-
-#if !CHLDWTHR  /* ---------------------------------------------------------- */
-
-#define ERTS_REPORT_EXIT_STATUS report_exit_status
-
-int check_children(void)
-{
-    int res = 0;
-    int pid;
-    int status;
-
-#ifndef ERTS_SMP
-    if (children_died)
-#endif
-    {
-	sys_sigblock(SIGCHLD);
-	CHLD_STAT_LOCK;
-	while ((pid = waitpid(-1, &status, WNOHANG)) > 0)
-	    note_child_death(pid, status);
-#ifndef ERTS_SMP
-	children_died = 0;
-#endif
-	CHLD_STAT_UNLOCK;
-	sys_sigrelease(SIGCHLD);
-	res = 1;
+    if (bindir[0] != DIR_SEPARATOR_CHAR)
+        erl_exit(-1,
+                 "Environment variable BINDIR does not contain an"
+                 " absolute path\n");
+    csp_path_sz = (strlen(bindir)
+                   + 1 /* DIR_SEPARATOR_CHAR */
+                   + sizeof(CHILD_SETUP_PROG_NAME)
+                   + 1);
+    child_setup_prog = erts_alloc(ERTS_ALC_T_CS_PROG_PATH, csp_path_sz);
+    erts_snprintf(child_setup_prog, csp_path_sz,
+                  "%s%c%s",
+                  bindir,
+                  DIR_SEPARATOR_CHAR,
+                  CHILD_SETUP_PROG_NAME);
+    if (socketpair(AF_UNIX, SOCK_STREAM, 0, fds) < 0) {
+        erl_exit(ERTS_ABORT_EXIT,
+                 "Could not open unix domain socket in spawn_init: %d\n",
+                 errno);
     }
-    return res;
-}
 
-#ifdef ERTS_SMP
+    forker_fd = fds[0];
 
-void
-erts_check_children(void)
-{
-    (void) check_children();
-}
+    unbind = erts_sched_bind_atfork_prepare();
 
+    i = fork();
+
+    if (i == 0) {
+        /* The child */
+        char *cs_argv[FORKER_ARGV_NO_OF_ARGS] =
+            {CHILD_SETUP_PROG_NAME, NULL, NULL};
+        char buff[128];
+
+        erts_sched_bind_atfork_child(unbind);
+
+        snprintf(buff, 128, "%d", sys_max_files());
+        cs_argv[FORKER_ARGV_MAX_FILES] = buff;
+
+        /* We preallocate fd 3 for the uds fd */
+        if (fds[1] != 3) {
+            dup2(fds[1], 3);
+        }
+
+#if defined(USE_SETPGRP_NOARGS)		/* SysV */
+    (void) setpgrp();
+#elif defined(USE_SETPGRP)		/* BSD */
+    (void) setpgrp(0, getpid());
+#else					/* POSIX */
+    (void) setsid();
 #endif
 
-#elif CHLDWTHR && defined(ERTS_SMP) /* ------------------------------------- */
+        execv(child_setup_prog, cs_argv);
+        _exit(1);
+    }
 
-#define ERTS_REPORT_EXIT_STATUS report_exit_status
+    erts_sched_bind_atfork_parent(unbind);
 
-int check_children(void)
+    erts_free(ERTS_ALC_T_CS_PROG_PATH, child_setup_prog);
+
+    close(fds[1]);
+
+    SET_NONBLOCKING(forker_fd);
+
+    driver_select(port_num, forker_fd, ERL_DRV_READ|ERL_DRV_USE, 1);
+
+    return (ErlDrvData)port_num;
+}
+
+static void forker_stop(ErlDrvData e)
 {
+    /* we probably should do something here */
+}
+
+static void forker_ready_input(ErlDrvData e, ErlDrvEvent fd)
+{
+    int res, *exit_status;
+    char buff[8+10+1+10+1] = {0};
+    ErtsSysExitStatus est, *es;
+
+    if ((res = read(fd, buff, sizeof(buff))) < 0) {
+        if (errno == ERRNO_BLOCK)
+            return;
+        erl_exit(ERTS_DUMP_EXIT, "Failed to read from erl_child_setup: %d\n", errno);
+    }
+
+    if (res == 0)
+        erl_exit(ERTS_DUMP_EXIT, "erl_child_setup closed\n");
+
+    if (sscanf(buff, "SIGCHLD:%010d:%010d", &est.os_pid, &res) != 2)
+        erl_exit(ERTS_DUMP_EXIT, "Got corrupt data from erl_child_setup: %.s\n",
+                 buff, sizeof(buff));
+
+    erts_smp_mtx_lock(&forker_hash_mtx);
+    es = hash_remove(forker_hash, &est);
+    erts_smp_mtx_unlock(&forker_hash_mtx);
+
+    if (!es)
+        return;
+
+    exit_status = erts_alloc(ERTS_ALC_T_DRV_CTRL_DATA, sizeof(int));
+    exit_status[0] = res;
+    /* ideally this would be a port_command call, but as command is
+       already used by the spawn_driver, we use control instead.
+       Note that when using erl_drv_port_control it is an asynchronous
+       control. */
+    erl_drv_port_control(es->port_id, 'S', (char*)exit_status, sizeof(int));
+
+    ffree(es);
+
+}
+
+static void forker_ready_output(ErlDrvData e, ErlDrvEvent fd)
+{
+    ErlDrvPort port_num = (ErlDrvPort)e;
+
+    while(driver_sizeq(port_num) > 0) {
+        int vlen;
+        SysIOVec *iov = driver_peekq(port_num, &vlen);
+        int *fds = (int*)iov[0].iov_base;
+        ASSERT(iov[0].iov_len >= sizeof(int)*3);
+        if (sys_uds_write(forker_fd, "S", 1, fds, 3, 0) < 0) {
+            if (errno == ERRNO_BLOCK)
+                return;
+            erl_exit(ERTS_DUMP_EXIT, "Failed to write to erl_child_setup: %d\n", errno);
+        }
+        close(fds[0]);
+        close(fds[1]);
+        if (fds[1] != fds[2])
+            close(fds[2]);
+        driver_deq(port_num, sizeof(int)*3);
+    }
+
+    driver_select(port_num, forker_fd, ERL_DRV_WRITE, 0);
+}
+
+static ErlDrvSSizeT forker_control(ErlDrvData e, unsigned int cmd, char *buf,
+                                   ErlDrvSizeT len, char **rbuf, ErlDrvSizeT rlen)
+{
+    int *fds = (int*)buf;
+    ErlDrvPort port_num = (ErlDrvPort)e;
+    int res;
+
+    if (driver_sizeq(port_num) > 0) {
+        driver_enq(port_num, buf, len);
+        return 0;
+    }
+
+    if ((res = sys_uds_write(forker_fd, "S", 1, fds, 3, 0)) < 0) {
+        if (errno == ERRNO_BLOCK) {
+            driver_enq(port_num, buf, len);
+            driver_select(port_num, forker_fd, ERL_DRV_WRITE|ERL_DRV_USE, 1);
+            return 0;
+        }
+        erl_exit(ERTS_DUMP_EXIT, "Failed to write to erl_child_setup: %d\n", errno);
+    }
+    close(fds[0]);
+    close(fds[1]);
+    if (fds[1] != fds[2])
+        close(fds[2]);
     return 0;
 }
 
-#else /* CHLDWTHR && !defined(ERTS_SMP) ------------------------------------ */
-
-#define ERTS_REPORT_EXIT_STATUS initiate_report_exit_status
-
-static ERTS_INLINE void
-initiate_report_exit_status(ErtsSysReportExit *rep, int status)
+static void forker_add_os_pid_mapping(ErtsSysDriverData *dd)
 {
-    rep->next = report_exit_transit_list;
-    rep->status = status;
-    report_exit_transit_list = rep;
-    erts_sys_schedule_interrupt(1);
+    Eterm port_id = erts_drvport2id(dd->port_num);
+    ErtsSysExitStatus es;
+    es.os_pid = dd->pid;
+    es.port_id = port_id;
+    erts_smp_mtx_lock(&forker_hash_mtx);
+    hash_put(forker_hash, &es);
+    erts_smp_mtx_unlock(&forker_hash_mtx);
 }
 
-int check_children(void)
+static void forker_remove_os_pid_mapping(ErtsSysDriverData *dd)
 {
-    int res;
-    ErtsSysReportExit *rep;
-    CHLD_STAT_LOCK;
-    rep = report_exit_transit_list;
-    res = rep != NULL;
-    while (rep) {
-	ErtsSysReportExit *curr_rep = rep;
-	rep = rep->next;
-	report_exit_status(curr_rep, curr_rep->status);
-    }
-    report_exit_transit_list = NULL;
-    CHLD_STAT_UNLOCK;
-    return res;
+    ErtsSysExitStatus est, *es;
+    est.os_pid = dd->pid;
+    erts_smp_mtx_lock(&forker_hash_mtx);
+    es = hash_remove(forker_hash, &est);
+    erts_smp_mtx_unlock(&forker_hash_mtx);
+    if (es)
+        ffree(es);
 }
 
-#endif /* ------------------------------------------------------------------ */
-
-static void note_child_death(int pid, int status)
+static int fcmp(void *a, void *b)
 {
-    ErtsSysReportExit **repp = &report_exit_list;
-    ErtsSysReportExit *rep = report_exit_list;
-
-    while (rep) {
-	if (pid == rep->pid) {
-	    *repp = rep->next;
-	    ERTS_REPORT_EXIT_STATUS(rep, status);
-	    break;
-	}
-	repp = &rep->next;
-	rep = rep->next;
-    }
+    ErtsSysExitStatus *sa = a;
+    ErtsSysExitStatus *sb = b;
+    return !(sa->os_pid == sb->os_pid);
 }
 
-#if CHLDWTHR
-
-static void *
-child_waiter(void *unused)
+static HashValue fhash(void *e)
 {
-  int pid;
-  int status;
-
-#ifdef ERTS_ENABLE_LOCK_CHECK
-  erts_lc_set_thread_name("child waiter");
-#endif
-
-  while(1) {
-#ifdef DEBUG
-      int waitpid_errno;
-#endif
-      pid = waitpid(-1, &status, 0);
-#ifdef DEBUG
-      waitpid_errno = errno;
-#endif
-      CHLD_STAT_LOCK;
-      if (pid < 0) {
-	  ASSERT(waitpid_errno == ECHILD);
-      }
-      else {
-	  children_alive--;
-	  ASSERT(children_alive >= 0);
-	  note_child_death(pid, status);
-      }
-      while (!children_alive)
-	  CHLD_STAT_WAIT; /* Wait for children to wait on... :) */
-      CHLD_STAT_UNLOCK;
-  }
-
-  return NULL;
+    ErtsSysExitStatus *se = e;
+    return make_hash2(make_small(se->os_pid));
 }
 
-#endif
+static void *falloc(void *e)
+{
+    ErtsSysExitStatus *se = e;
+    ErtsSysExitStatus *ne = erts_alloc(ERTS_ALC_T_DRV, sizeof(ErtsSysExitStatus));
+    erts_smp_atomic_add_nob(&sys_misc_mem_sz, sizeof(ErtsSysBlocking));
+    ne->os_pid = se->os_pid;
+    ne->port_id = se->port_id;
+    return ne;
+}
+
+static void ffree(void *e)
+{
+    erts_free(ERTS_ALC_T_DRV, e);
+    erts_smp_atomic_add_nob(&sys_misc_mem_sz, -sizeof(ErtsSysBlocking));
+}
+
+static int forker_init(void)
+{
+    HashFunctions forker_hash_functions;
+    forker_hash_functions.hash = fhash;
+    forker_hash_functions.cmp = fcmp;
+    forker_hash_functions.alloc = falloc;
+    forker_hash_functions.free = ffree;
+    forker_hash = hash_new(ERTS_ALC_T_DRV, "forker_hash",
+                           16, forker_hash_functions);
+    erts_smp_mtx_init(&forker_hash_mtx, "forker_hash_mtx");
+
+    return 1;
+}

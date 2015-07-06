@@ -49,7 +49,6 @@
 #include <sys/ioctl.h>
 #endif
 
-#define NEED_CHILD_SETUP_DEFINES
 #define ERTS_WANT_BREAK_HANDLING
 #define ERTS_WANT_GOT_SIGUSR1
 #define WANT_NONBLOCKING    /* must define this to pull in defs from sys.h */
@@ -93,6 +92,7 @@ extern void erts_sys_init_float(void);
 
 extern void erl_crash_dump(char* file, int line, char* fmt, ...);
 
+
 #ifdef DEBUG
 static int debug_log = 0;
 #endif
@@ -122,6 +122,7 @@ static void smp_sig_notify(char c);
 static int sig_notify_fds[2] = {-1, -1};
 
 static int sig_suspend_fds[2] = {-1, -1};
+#define ERTS_SYS_SUSPEND_SIGNAL SIGUSR2
 
 #endif
 
@@ -307,9 +308,10 @@ MALLOC_USE_HASH(1);
 #ifdef USE_THREADS
 
 #ifdef ERTS_THR_HAVE_SIG_FUNCS
+
 /*
  * Child thread inherits parents signal mask at creation. In order to
- * guarantee that the main thread will receive all SIGINT, SIGCHLD, and
+ * guarantee that the main thread will receive all SIGINT, and
  * SIGUSR1 signals sent to the process, we block these signals in the
  * parent thread when creating a new thread.
  */
@@ -405,7 +407,6 @@ erts_sys_pre_init(void)
 #ifdef ERTS_THR_HAVE_SIG_FUNCS
     sigemptyset(&thr_create_sigmask);
     sigaddset(&thr_create_sigmask, SIGINT);   /* block interrupt */
-    sigaddset(&thr_create_sigmask, SIGCHLD);  /* block child signals */
     sigaddset(&thr_create_sigmask, SIGUSR1);  /* block user defined signal */
 #endif
 
@@ -1010,7 +1011,6 @@ erts_sys_unsetenv(char *key)
 void
 sys_init_io(void)
 {
-
 }
 
 #if (0) /* unused? */
@@ -1204,7 +1204,6 @@ erl_debug(char* fmt, ...)
 
 #endif /* DEBUG */
 
-
 /*
  * Called from schedule() when it runs out of runnable processes,
  * or when Erlang code has performed INPUT_REDUCTIONS reduction
@@ -1213,14 +1212,10 @@ erl_debug(char* fmt, ...)
 void
 erl_sys_schedule(int runnable)
 {
-#ifdef ERTS_SMP
     ERTS_CHK_IO(!runnable);
-#else
-    ERTS_CHK_IO(runnable ? 0 : !check_children());
-#endif
     ERTS_SMP_LC_ASSERT(!erts_thr_progress_is_blocking());
-    (void) check_children();
 }
+
 
 #ifdef ERTS_SMP
 
@@ -1246,10 +1241,6 @@ smp_sig_notify(char c)
 static void *
 signal_dispatcher_thread_func(void *unused)
 {
-#if !CHLDWTHR
-    int initialized = 0;
-    int notify_check_children = 0;
-#endif
 #ifdef ERTS_ENABLE_LOCK_CHECK
     erts_lc_set_thread_name("signal_dispatcher");
 #endif
@@ -1287,19 +1278,7 @@ signal_dispatcher_thread_func(void *unused)
 	     */
 	    switch (buf[i]) {
 	    case 0: /* Emulator initialized */
-#if !CHLDWTHR
-		initialized = 1;
-		if (!notify_check_children)
-#endif
-		    break;
-#if !CHLDWTHR
-	    case 'C': /* SIGCHLD */
-		if (initialized)
-		    erts_smp_notify_check_children_needed();
-		else
-		    notify_check_children = 1;
-		break;
-#endif
+                break;
 	    case 'I': /* SIGINT */
 		break_requested();
 		break;
