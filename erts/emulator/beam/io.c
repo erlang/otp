@@ -54,6 +54,7 @@
 extern ErlDrvEntry fd_driver_entry;
 extern ErlDrvEntry vanilla_driver_entry;
 extern ErlDrvEntry spawn_driver_entry;
+extern ErlDrvEntry forker_driver_entry;
 extern ErlDrvEntry *driver_tab[]; /* table of static drivers, only used during initialization */
 
 erts_driver_t *driver_list; /* List of all drivers, static and dynamic. */
@@ -71,6 +72,7 @@ const Port erts_invalid_port = {{ERTS_INVALID_PORT}};
 
 erts_driver_t vanilla_driver;
 erts_driver_t spawn_driver;
+erts_driver_t forker_driver;
 erts_driver_t fd_driver;
 
 int erts_port_synchronous_ops = 0;
@@ -306,12 +308,9 @@ static Port *create_port(char *name,
     size_t port_size, busy_port_queue_size, size;
     erts_aint32_t state = ERTS_PORT_SFLG_CONNECTED;
     erts_aint32_t x_pts_flgs = 0;
-#ifdef DEBUG
-    /* Make sure the debug flags survives until port is freed */
-    state |= ERTS_PORT_SFLG_PORT_DEBUG;
-#endif
 
 #ifdef ERTS_SMP
+    ErtsRunQueue *runq;
     if (!driver_lock) {
 	/* Align size for mutex following port struct */
 	port_size = size = ERTS_ALC_DATA_ALIGN_SIZE(sizeof(Port));
@@ -320,6 +319,12 @@ static Port *create_port(char *name,
     else
 #endif
 	port_size = size = ERTS_ALC_DATA_ALIGN_SIZE(sizeof(Port));
+
+#ifdef DEBUG
+    /* Make sure the debug flags survives until port is freed */
+    state |= ERTS_PORT_SFLG_PORT_DEBUG;
+#endif
+
 
     busy_port_queue_size
 	= ((driver->flags & ERL_DRV_FLAG_NO_BUSY_MSGQ)
@@ -356,8 +361,12 @@ static Port *create_port(char *name,
 	p += sizeof(erts_mtx_t);
 	state |= ERTS_PORT_SFLG_PORT_SPECIFIC_LOCK;
     }
-    erts_smp_atomic_set_nob(&prt->run_queue,
-			    (erts_aint_t) erts_get_runq_current(NULL));
+    if (erts_get_scheduler_data())
+        runq = erts_get_runq_current(NULL);
+    else
+        runq = ERTS_RUNQ_IX(0);
+    erts_smp_atomic_set_nob(&prt->run_queue, (erts_aint_t) runq);
+
     prt->xports = NULL;
 #else
     erts_atomic32_init_nob(&prt->refc, 1);
@@ -1533,6 +1542,26 @@ erts_schedule_proc2port_signal(Process *c_p,
 	return ERTS_PORT_OP_DROPPED;
     }
     return ERTS_PORT_OP_SCHEDULED;
+}
+
+static int
+erts_schedule_port2port_signal(Eterm port_num, ErtsProc2PortSigData *sigdp,
+                               int task_flags,
+                               ErtsProc2PortSigCallback callback)
+{
+    Port *prt = erts_port_lookup_raw(port_num);
+
+    if (!prt)
+        return -1;
+
+    sigdp->caller = ERTS_INVALID_PID;
+
+    return erts_port_task_schedule(prt->common.id,
+                                   NULL,
+                                   ERTS_PORT_TASK_PROC_SIG,
+                                   sigdp,
+                                   callback,
+                                   task_flags);
 }
 
 static ERTS_INLINE void
@@ -2862,6 +2891,7 @@ void erts_init_io(int port_tab_size,
     init_driver(&fd_driver, &fd_driver_entry, NULL);
     init_driver(&vanilla_driver, &vanilla_driver_entry, NULL);
     init_driver(&spawn_driver, &spawn_driver_entry, NULL);
+    init_driver(&forker_driver, &forker_driver_entry, NULL);
     erts_init_static_drivers();
     for (dp = driver_tab; *dp != NULL; dp++)
 	erts_add_driver_entry(*dp, NULL, 1);
@@ -2923,6 +2953,7 @@ void erts_lcnt_enable_io_lock_count(int enable) {
 
     lcnt_enable_drv_lock_count(&vanilla_driver, enable);
     lcnt_enable_drv_lock_count(&spawn_driver, enable);
+    lcnt_enable_drv_lock_count(&forker_driver, enable);
     lcnt_enable_drv_lock_count(&fd_driver, enable);
     /* enable lock counting in all drivers */
     for (dp = driver_list; dp; dp = dp->next) {
@@ -3964,7 +3995,7 @@ port_sig_control(Port *prt,
 	    Uint hsz, rsz;
 	    int control_flags;
 
-	    rp = erts_proc_lookup_raw(sigdp->caller);
+	    rp = sigdp->caller == ERTS_INVALID_PID ? NULL : erts_proc_lookup_raw(sigdp->caller);
 	    if (!rp)
 		goto done;
 
@@ -4007,7 +4038,8 @@ port_sig_control(Port *prt,
 
     /* failure */
 
-    port_sched_op_reply(sigdp->caller, sigdp->ref, am_badarg);
+    if (sigdp->caller != ERTS_INVALID_PID)
+        port_sched_op_reply(sigdp->caller, sigdp->ref, am_badarg);
 
 done:
 
@@ -4017,6 +4049,23 @@ done:
     return ERTS_PORT_REDS_CONTROL;
 }
 
+/*
+ * This is an asynchronous control call. I.e. it will not return anything
+ * to the caller.
+ */
+int
+erl_drv_port_control(Eterm port_num, char cmd, char* buff, ErlDrvSizeT size)
+{
+    ErtsProc2PortSigData *sigdp = erts_port_task_alloc_p2p_sig_data();
+
+    sigdp->flags = ERTS_P2P_SIG_TYPE_CONTROL | ERTS_P2P_SIG_DATA_FLG_REPLY;
+    sigdp->u.control.binp = NULL;
+    sigdp->u.control.command = cmd;
+    sigdp->u.control.bufp = buff;
+    sigdp->u.control.size = size;
+
+    return erts_schedule_port2port_signal(port_num, sigdp, 0, port_sig_control);
+}
 
 ErtsPortOpResult
 erts_port_control(Process* c_p,
@@ -4794,6 +4843,8 @@ print_port_info(Port *p, int to, void *arg)
 	erts_print(to, arg, "Port is a file: %s\n",p->name);
     } else if (p->drv_ptr == &spawn_driver) {
 	erts_print(to, arg, "Port controls external process: %s\n",p->name);
+    } else if (p->drv_ptr == &forker_driver) {
+	erts_print(to, arg, "Port controls forker process: %s\n",p->name);
     } else {
 	erts_print(to, arg, "Port controls linked-in driver: %s\n",p->name);
     }

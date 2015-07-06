@@ -30,9 +30,7 @@
 #include <limits.h>
 #include <stdlib.h>
 #include <string.h>
-#ifndef QNX
 #include <memory.h>
-#endif
 
 #if defined(__sun__) && defined(__SVR4) && !defined(__EXTENSIONS__)
 #   define __EXTENSIONS__
@@ -92,11 +90,6 @@
 #include <ieeefp.h>
 #endif
 
-#ifdef QNX
-#include <process.h>
-#include <sys/qnx_glob.h>
-#endif
-
 #include <pwd.h>
 
 #ifndef HZ
@@ -134,13 +127,6 @@
 #ifndef ERTS_SMP
 #  undef ERTS_POLL_NEED_ASYNC_INTERRUPT_SUPPORT
 #  define ERTS_POLL_NEED_ASYNC_INTERRUPT_SUPPORT
-#endif
-
-#ifndef ENABLE_CHILD_WAITER_THREAD
-#  ifdef ERTS_SMP
-#    define ERTS_SMP_SCHEDULERS_NEED_TO_CHECK_CHILDREN
-void erts_check_children(void);
-#  endif
 #endif
 
 typedef void *GETENV_STATE;
@@ -310,7 +296,6 @@ typedef void (*SIGFUNC)(int);
 extern SIGFUNC sys_signal(int, SIGFUNC);
 extern void sys_sigrelease(int);
 extern void sys_sigblock(int);
-extern void sys_stop_cat(void);
 
 /*
  * Handling of floating point exceptions.
@@ -425,18 +410,14 @@ void erts_sys_unblock_fpe(int);
 #define ERTS_FP_ERROR_THOROUGH(p, f, A)	__ERTS_FP_ERROR_THOROUGH(&(p)->fp_exception, f, A)
 
 
-#ifdef NEED_CHILD_SETUP_DEFINES
-/* The child setup argv[] */
-#define CS_ARGV_PROGNAME_IX	0		/* Program name		*/
-#define CS_ARGV_UNBIND_IX	1		/* Unbind from cpu	*/
-#define CS_ARGV_WD_IX		2		/* Working directory	*/
-#define CS_ARGV_CMD_IX		3		/* Command		*/
-#define CS_ARGV_FD_CR_IX	4		/* Fd close range	*/
-#define CS_ARGV_DUP2_OP_IX(N)	((N) + 5)	/* dup2 operations	*/
+#define FORKER_ARGV_NO_OF_ARGS  3
+#define FORKER_ARGV_PROGNAME_IX	0    /* Program name                          */
+#define FORKER_ARGV_MAX_FILES	1    /* max_files                             */
 
-#define CS_ARGV_NO_OF_DUP2_OPS	3		/* Number of dup2 ops	*/
-#define CS_ARGV_NO_OF_ARGS	8		/* Number of arguments	*/
-#endif /* #ifdef NEED_CHILD_SETUP_DEFINES */
+#define FORKER_FLAG_USE_STDIO   (1 << 0)    /* dup the pipe to stdin/stderr   */
+#define FORKER_FLAG_EXIT_STATUS (1 << 1)    /* send the exit status to parent */
+#define FORKER_FLAG_DO_READ     (1 << 2)    /* dup write fd */
+#define FORKER_FLAG_DO_WRITE    (1 << 3)    /* dup read fd  */
 
 /* Threads */
 #ifdef USE_THREADS
@@ -469,21 +450,5 @@ extern jmp_buf erts_sys_sigsegv_jmp;
         sys_signal(SIGSEGV,prev_handler);                               \
     } while(0)
 #endif
-
-#ifdef USE_THREADS
-#  ifdef ENABLE_CHILD_WAITER_THREAD
-#    define CHLDWTHR ENABLE_CHILD_WAITER_THREAD
-#  else
-#    define CHLDWTHR 0
-#  endif
-#  define FDBLOCK 1
-#else
-#  define CHLDWTHR 0
-#  define FDBLOCK 0
-#endif
-
-#define ERTS_SYS_SUSPEND_SIGNAL SIGUSR2
-
-int check_children(void);
 
 #endif /* #ifndef _ERL_UNIX_SYS_H */
