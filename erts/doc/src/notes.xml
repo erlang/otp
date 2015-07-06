@@ -30,6 +30,29 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 6.4.1.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    A process could end up in an inconsistent half exited
+	    state in the runtime system without SMP support. This
+	    could occur if the processes was traced by a port that it
+	    also was linked to, and the port terminated abnormally
+	    while handling a trace message for the process.</p>
+          <p>
+	    This bug has always existed in the runtime system without
+	    SMP support, but never in the runtime system with SMP
+	    support.</p>
+          <p>
+	    Own Id: OTP-12889 Aux Id: seq12885 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 6.4.1.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
