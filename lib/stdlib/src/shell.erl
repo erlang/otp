@@ -23,7 +23,7 @@
 -export([whereis_evaluator/0, whereis_evaluator/1]).
 -export([start_restricted/1, stop_restricted/0]).
 -export([local_allowed/3, non_local_allowed/3]).
--export([prompt_func/1, strings/1]).
+-export([catch_exception/1, prompt_func/1, strings/1]).
 
 -define(LINEMAX, 30).
 -define(CHAR_MAX, 60).
