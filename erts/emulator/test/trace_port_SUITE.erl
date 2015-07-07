@@ -35,7 +35,8 @@
 	 fake_schedule_after_getting_linked/1,
 	 fake_schedule_after_getting_unlinked/1,
 	 gc/1,
-	 default_tracer/1]).
+	 default_tracer/1,
+	 tracer_port_crash/1]).
 
 -include_lib("test_server/include/test_server.hrl").
 
@@ -45,7 +46,7 @@ test_cases() ->
      fake_schedule_after_register,
      fake_schedule_after_getting_linked,
      fake_schedule_after_getting_unlinked, gc,
-     default_tracer].
+     default_tracer, tracer_port_crash].
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
@@ -473,6 +474,42 @@ default_tracer(Config) when is_list(Config) ->
     ?line M = N,
     ok.
 
+tracer_port_crash(Config) when is_list(Config) ->
+    case test_server:is_native(?MODULE) orelse
+	test_server:is_native(lists) of
+	true -> 
+	    {skip,"Native code"};
+	false ->
+	    Tr = start_tracer(Config),
+	    Port = get(tracer_port),
+	    Tracee = spawn(fun () ->
+				   register(trace_port_linker, self()),
+				   link(Port),
+				   receive go -> ok end,
+				   lists:reverse([1,b,c]),
+				   receive die -> ok end
+			   end),
+	    Tr ! {unlink_tracer_port, self()},
+	    receive {unlinked_tracer_port, Tr} -> ok end,
+	    port_control(Port, $c, []), %% Make port commands crash tracer port...
+	    trace_func({lists,reverse,1}, []),
+	    trace_pid(Tracee, true, [call]),
+	    trace_info(Tracee, flags),
+	    trace_info(self(), tracer),
+	    Tracee ! go,
+	    receive after 1000 -> ok end,
+	    case whereis(trace_port_linker) of
+		undefined ->
+		    ok;
+		Id ->
+%		    erts_debug:set_internal_state(available_internal_state, true),
+%		    erts_debug:set_internal_state(abort, {trace_port_linker, Id})
+		    ?t:fail({trace_port_linker, Id})
+	    end,
+	    undefined = process_info(Tracee),
+	    ok
+    end.
+
 %%% Help functions.
 
 huge_data() -> huge_data(16384).
@@ -630,6 +667,10 @@ tracer_loop(RelayTo, Port) ->
 	    tracer_loop(RelayTo, Port);
 	{Port,{data,Msg}} ->
 	    RelayTo ! binary_to_term(Msg),
+	    tracer_loop(RelayTo, Port);
+	{unlink_tracer_port, From} ->
+	    unlink(Port),
+	    From ! {unlinked_tracer_port, self()},
 	    tracer_loop(RelayTo, Port);
 	Other ->
 	    exit({bad_message,Other})
