@@ -201,20 +201,19 @@ newrec(Name) ->
 %%      Failed-AVP AVP SHOULD be included in the message.  The Failed-AVP
 %%      AVP MUST contain an example of the missing AVP complete with the
 %%      Vendor-Id if applicable.  The value field of the missing AVP
-%%      should be of correct minimum length and contain zeroes.
+%%      should be of correct minimum length and contain zeros.
 
 missing(Rec, Name, Failed) ->
-    [{5005, A} || #diameter_avp{code = MC, vendor_id = MV} = A
-                      <- missing(Rec, Name),
-                  lists:all(fun({_, #diameter_avp{code = C, vendor_id = V}}) ->
-                                        MC /= C orelse MV /= V
-                            end,
-                            Failed)].
-
-missing(Rec, Name) ->
-    [empty_avp(F) || F <- '#info-'(element(1, Rec), fields),
-                     A <- [avp_arity(Name, F)],
-                     not have_arity(A, '#get-'(F, Rec))].
+    Avps = lists:foldl(fun({_, #diameter_avp{code = C, vendor_id = V}}, A) ->
+                               sets:add_element({C,V}, A)
+                       end,
+                       sets:new(),
+                       Failed),
+    [{5005, A} || F <- '#info-'(element(1, Rec), fields),
+                  not have_arity(avp_arity(Name, F), '#get-'(F, Rec)),
+                  #diameter_avp{code = C, vendor_id = V}
+                      = A <- [empty_avp(F)],
+                  not sets:is_element({C,V}, Avps)].
 
 %% Maximum arities have already been checked in building the record.
 
