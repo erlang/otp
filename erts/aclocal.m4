@@ -2202,7 +2202,7 @@ AC_DEFUN(ERL_TIME_CORRECTION,
 
 AC_ARG_WITH(clock-resolution,
 AS_HELP_STRING([--with-clock-resolution=high|low|default],
-               [specify wanted clock resolution)]))
+               [specify wanted clock resolution]))
 
 AC_ARG_WITH(clock-gettime-realtime-id,
 AS_HELP_STRING([--with-clock-gettime-realtime-id=CLOCKID],
@@ -2211,6 +2211,14 @@ AS_HELP_STRING([--with-clock-gettime-realtime-id=CLOCKID],
 AC_ARG_WITH(clock-gettime-monotonic-id,
 AS_HELP_STRING([--with-clock-gettime-monotonic-id=CLOCKID],
                [specify clock id to use with clock_gettime() for monotonic time)]))
+
+AC_ARG_ENABLE(gettimeofday-as-os-system-time,
+	      AS_HELP_STRING([--enable-gettimeofday-as-os-system-time],
+                             [Force usage of gettimeofday() for OS system time]),
+[ case "$enableval" in
+    yes) force_gettimeofday_os_system_time=yes ;;
+    *)  force_gettimeofday_os_system_time=no ;;
+  esac ], force_gettimeofday_os_system_time=no)
 
 case "$with_clock_resolution" in
    ""|no|yes)
@@ -2221,6 +2229,17 @@ case "$with_clock_resolution" in
      AC_MSG_ERROR([Invalid wanted clock resolution: $with_clock_resolution])
      ;;
 esac
+
+if test "$force_gettimeofday_os_system_time" = "yes"; then
+
+  AC_CHECK_FUNCS([gettimeofday])
+  if test "$ac_cv_func_gettimeofday" = "yes"; then
+    AC_DEFINE(OS_SYSTEM_TIME_GETTIMEOFDAY,  [1], [Define if you want to implement erts_os_system_time() using gettimeofday()])
+  else
+    AC_MSG_ERROR([No gettimeofday() available])
+  fi
+
+else # $force_gettimeofday_os_system_time != yes
 
 case "$with_clock_gettime_realtime_id" in
    ""|no)
@@ -2236,23 +2255,6 @@ case "$with_clock_gettime_realtime_id" in
      ;;
    *)
      AC_MSG_ERROR([Invalid clock_gettime() clock id: $with_clock_gettime_realtime_id])
-     ;;
-esac
-
-case "$with_clock_gettime_monotonic_id" in
-   ""|no)
-     with_clock_gettime_monotonic_id=no
-     ;;
-   CLOCK_*CPUTIME*)
-     AC_MSG_ERROR([Invalid clock_gettime() monotonic clock id: Refusing to use the cputime clock id $with_clock_gettime_monotonic_id as monotonic clock id])
-     ;;
-   CLOCK_REALTIME*|CLOCK_TAI*)
-     AC_MSG_ERROR([Invalid clock_gettime() monotonic clock id: Refusing to use the realtime clock id $with_clock_gettime_monotonic_id as monotonic clock id])
-     ;;
-   CLOCK_*)
-     ;;
-   *)
-     AC_MSG_ERROR([Invalid clock_gettime() clock id: $with_clock_gettime_monotonic_id])
      ;;
 esac
 
@@ -2295,6 +2297,25 @@ if test "x$erl_wall_clock_id" != "x"; then
     AC_DEFINE_UNQUOTED(WALL_CLOCK_ID_STR, ["$erl_wall_clock_id"], [Define as a string of wall clock id to use])
     AC_DEFINE_UNQUOTED(WALL_CLOCK_ID, [$erl_wall_clock_id], [Define to wall clock id to use])
 fi
+
+fi # $force_gettimeofday_os_system_time != yes
+
+case "$with_clock_gettime_monotonic_id" in
+   ""|no)
+     with_clock_gettime_monotonic_id=no
+     ;;
+   CLOCK_*CPUTIME*)
+     AC_MSG_ERROR([Invalid clock_gettime() monotonic clock id: Refusing to use the cputime clock id $with_clock_gettime_monotonic_id as monotonic clock id])
+     ;;
+   CLOCK_REALTIME*|CLOCK_TAI*)
+     AC_MSG_ERROR([Invalid clock_gettime() monotonic clock id: Refusing to use the realtime clock id $with_clock_gettime_monotonic_id as monotonic clock id])
+     ;;
+   CLOCK_*)
+     ;;
+   *)
+     AC_MSG_ERROR([Invalid clock_gettime() clock id: $with_clock_gettime_monotonic_id])
+     ;;
+esac
 
 case "$with_clock_resolution-$with_clock_gettime_monotonic_id" in
   high-no)
