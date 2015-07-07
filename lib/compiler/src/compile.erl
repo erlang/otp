@@ -671,6 +671,7 @@ asm_passes() ->
     %% Assembly level optimisations.
     [{delay,
       [{pass,beam_a},
+       {iff,da,{listing,"a"}},
        {unless,no_postopt,
 	[{pass,beam_block},
 	 {iff,dblk,{listing,"block"}},
@@ -703,6 +704,7 @@ asm_passes() ->
        {iff,no_postopt,[{pass,beam_clean}]},
 
        {pass,beam_z},
+       {iff,dz,{listing,"z"}},
        {iff,dopt,{listing,"optimize"}},
        {iff,'S',{listing,"S"}},
        {iff,'to_asm',{done,"S"}}]},
