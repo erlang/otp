@@ -90,6 +90,8 @@ connect(This=#wx_ref{type=ThisT}, EventType, Options) ->
 parse_opts([{callback,Fun}|R], Opts) when is_function(Fun) ->
     %% Check Fun Arity?
     parse_opts(R, Opts#evh{cb=Fun});
+parse_opts([{callback,CB={nospawn, Fun}}|R], Opts) when is_function(Fun) ->
+    parse_opts(R, Opts#evh{cb=CB});
 parse_opts([callback|R], Opts) ->
     parse_opts(R, Opts#evh{cb=self()});
 parse_opts([{userData, UserData}|R],Opts) ->
