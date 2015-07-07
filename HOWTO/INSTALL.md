@@ -402,6 +402,10 @@ Some of the available `configure` options are:
 	dependant application.
 *   `--enable-gettimeofday-as-os-system-time` - Force usage of `gettimeofday()` for
     OS system time.
+*   `--enable-prefer-elapsed-monotonic-time-during-suspend` - Prefer an OS monotonic
+    time source with elapsed time during suspend.
+*   `--disable-prefer-elapsed-monotonic-time-during-suspend` - Do not prefer an OS
+    monotonic time source with elapsed time during suspend.
 *   `--enable-dirty-schedulers` - Enable the **experimental** dirty schedulers
     functionality. Note that the dirty schedulers functionality is experimental,
     and **not supported**. This functionality **will** be subject to backward
