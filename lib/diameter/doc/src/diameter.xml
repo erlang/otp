@@ -794,14 +794,6 @@ Messages larger than the specified number of bytes are discarded.</p>
 Defaults to <c>16777215</c>, the maximum value of the 24-bit Message
 Length field in a Diameter Header.</p>
 
-<warning>
-<p>
-This option should be set to as low a value as is sufficient for the
-Diameter applications and peers in question, since decoding incoming
-messages from a malicious peer can otherwise generate significant
-load.</p>
-</warning>
-
 </item>
 
 <tag><c>{restrict_connections, false

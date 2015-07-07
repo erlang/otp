@@ -210,17 +210,26 @@ missing(Rec, Name, Failed) ->
                        sets:new(),
                        Failed),
     [{5005, A} || F <- '#info-'(element(1, Rec), fields),
-                  not have_arity(avp_arity(Name, F), '#get-'(F, Rec)),
+                  not has_arity(avp_arity(Name, F), '#get-'(F, Rec)),
                   #diameter_avp{code = C, vendor_id = V}
                       = A <- [empty_avp(F)],
                   not sets:is_element({C,V}, Avps)].
 
 %% Maximum arities have already been checked in building the record.
 
-have_arity({Min, _}, L) ->
-    Min =< length(L);
-have_arity(N, V) ->
+has_arity({Min, _}, L) ->
+    has_prefix(Min, L);
+has_arity(N, V) ->
     N /= 1 orelse V /= undefined.
+
+%% Compare a non-negative integer and the length of a list without
+%% computing the length.
+has_prefix(0, _) ->
+    true;
+has_prefix(_, []) ->
+    false;
+has_prefix(N, L) ->
+    has_prefix(N-1, tl(L)).
 
 %% empty_avp/1
 
@@ -589,14 +598,17 @@ pack(undefined, 1, FieldName, Avp, Acc) ->
 %%      AVP MUST be included and contain a copy of the first instance of
 %%      the offending AVP that exceeded the maximum number of occurrences
 %%
+
 pack(_, 1, _, Avp, {Rec, Failed}) ->
     {Rec, [{5009, Avp} | Failed]};
-pack(L, {_, Max}, _, Avp, {Rec, Failed})
-  when length(L) == Max ->
-    {Rec, [{5009, Avp} | Failed]};
-
-pack(L, _, FieldName, Avp, Acc) ->
-    p(FieldName, fun(V) -> [V|L] end, Avp, Acc).
+pack(L, {_, Max}, FieldName, Avp, Acc) ->
+    case '*' /= Max andalso has_prefix(Max, L) of
+        true ->
+            {Rec, Failed} = Acc,
+            {Rec, [{5009, Avp} | Failed]};
+        false ->
+            p(FieldName, fun(V) -> [V|L] end, Avp, Acc)
+    end.
 
 %% p/4
 
