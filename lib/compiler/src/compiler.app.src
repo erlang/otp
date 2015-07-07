@@ -37,6 +37,7 @@
 	     beam_opcodes,
 	     beam_peep,
 	     beam_receive,
+	     beam_reorder,
 	     beam_split,
 	     beam_trim,
 	     beam_type,
