@@ -726,9 +726,15 @@ esac
 
 AC_DEFUN(ERL_MONOTONIC_CLOCK,
 [
-  default_resolution_clock_gettime_monotonic="CLOCK_HIGHRES CLOCK_BOOTTIME CLOCK_MONOTONIC"
-  low_resolution_clock_gettime_monotonic="CLOCK_MONOTONIC_COARSE CLOCK_MONOTONIC_FAST"
-  high_resolution_clock_gettime_monotonic="CLOCK_MONOTONIC_PRECISE"
+  if test "$3" = "yes"; then
+     default_resolution_clock_gettime_monotonic="CLOCK_HIGHRES CLOCK_BOOTTIME CLOCK_MONOTONIC"
+     low_resolution_clock_gettime_monotonic="CLOCK_MONOTONIC_COARSE CLOCK_MONOTONIC_FAST"
+     high_resolution_clock_gettime_monotonic="CLOCK_MONOTONIC_PRECISE"
+  else
+     default_resolution_clock_gettime_monotonic="CLOCK_HIGHRES CLOCK_UPTIME CLOCK_MONOTONIC"
+     low_resolution_clock_gettime_monotonic="CLOCK_MONOTONIC_COARSE CLOCK_UPTIME_FAST"
+     high_resolution_clock_gettime_monotonic="CLOCK_UPTIME_PRECISE"
+  fi
 
   case "$1" in
     high_resolution)
@@ -1466,7 +1472,7 @@ AC_ARG_WITH(with_sparc_memory_order,
 LM_CHECK_THR_LIB
 ERL_INTERNAL_LIBS
 
-ERL_MONOTONIC_CLOCK(high_resolution)
+ERL_MONOTONIC_CLOCK(high_resolution, undefined, no)
 
 case $erl_monotonic_clock_func in
   clock_gettime)
@@ -2202,7 +2208,7 @@ AC_DEFUN(ERL_TIME_CORRECTION,
 
 AC_ARG_WITH(clock-resolution,
 AS_HELP_STRING([--with-clock-resolution=high|low|default],
-               [specify wanted clock resolution)]))
+               [specify wanted clock resolution]))
 
 AC_ARG_WITH(clock-gettime-realtime-id,
 AS_HELP_STRING([--with-clock-gettime-realtime-id=CLOCKID],
@@ -2211,6 +2217,24 @@ AS_HELP_STRING([--with-clock-gettime-realtime-id=CLOCKID],
 AC_ARG_WITH(clock-gettime-monotonic-id,
 AS_HELP_STRING([--with-clock-gettime-monotonic-id=CLOCKID],
                [specify clock id to use with clock_gettime() for monotonic time)]))
+
+AC_ARG_ENABLE(prefer-elapsed-monotonic-time-during-suspend,
+	      AS_HELP_STRING([--enable-prefer-elapsed-monotonic-time-during-suspend],
+                             [Prefer an OS monotonic time source with elapsed time during suspend])
+	      AS_HELP_STRING([--disable-prefer-elapsed-monotonic-time-during-suspend],
+                             [Do not prefer an OS monotonic time source with elapsed time during suspend]),
+[ case "$enableval" in
+    yes) prefer_elapsed_monotonic_time_during_suspend=yes ;;
+    *)  prefer_elapsed_monotonic_time_during_suspend=no ;;
+  esac ], prefer_elapsed_monotonic_time_during_suspend=no)
+
+AC_ARG_ENABLE(gettimeofday-as-os-system-time,
+	      AS_HELP_STRING([--enable-gettimeofday-as-os-system-time],
+                             [Force usage of gettimeofday() for OS system time]),
+[ case "$enableval" in
+    yes) force_gettimeofday_os_system_time=yes ;;
+    *)  force_gettimeofday_os_system_time=no ;;
+  esac ], force_gettimeofday_os_system_time=no)
 
 case "$with_clock_resolution" in
    ""|no|yes)
@@ -2221,6 +2245,17 @@ case "$with_clock_resolution" in
      AC_MSG_ERROR([Invalid wanted clock resolution: $with_clock_resolution])
      ;;
 esac
+
+if test "$force_gettimeofday_os_system_time" = "yes"; then
+
+  AC_CHECK_FUNCS([gettimeofday])
+  if test "$ac_cv_func_gettimeofday" = "yes"; then
+    AC_DEFINE(OS_SYSTEM_TIME_GETTIMEOFDAY,  [1], [Define if you want to implement erts_os_system_time() using gettimeofday()])
+  else
+    AC_MSG_ERROR([No gettimeofday() available])
+  fi
+
+else # $force_gettimeofday_os_system_time != yes
 
 case "$with_clock_gettime_realtime_id" in
    ""|no)
@@ -2236,23 +2271,6 @@ case "$with_clock_gettime_realtime_id" in
      ;;
    *)
      AC_MSG_ERROR([Invalid clock_gettime() clock id: $with_clock_gettime_realtime_id])
-     ;;
-esac
-
-case "$with_clock_gettime_monotonic_id" in
-   ""|no)
-     with_clock_gettime_monotonic_id=no
-     ;;
-   CLOCK_*CPUTIME*)
-     AC_MSG_ERROR([Invalid clock_gettime() monotonic clock id: Refusing to use the cputime clock id $with_clock_gettime_monotonic_id as monotonic clock id])
-     ;;
-   CLOCK_REALTIME*|CLOCK_TAI*)
-     AC_MSG_ERROR([Invalid clock_gettime() monotonic clock id: Refusing to use the realtime clock id $with_clock_gettime_monotonic_id as monotonic clock id])
-     ;;
-   CLOCK_*)
-     ;;
-   *)
-     AC_MSG_ERROR([Invalid clock_gettime() clock id: $with_clock_gettime_monotonic_id])
      ;;
 esac
 
@@ -2296,15 +2314,34 @@ if test "x$erl_wall_clock_id" != "x"; then
     AC_DEFINE_UNQUOTED(WALL_CLOCK_ID, [$erl_wall_clock_id], [Define to wall clock id to use])
 fi
 
+fi # $force_gettimeofday_os_system_time != yes
+
+case "$with_clock_gettime_monotonic_id" in
+   ""|no)
+     with_clock_gettime_monotonic_id=no
+     ;;
+   CLOCK_*CPUTIME*)
+     AC_MSG_ERROR([Invalid clock_gettime() monotonic clock id: Refusing to use the cputime clock id $with_clock_gettime_monotonic_id as monotonic clock id])
+     ;;
+   CLOCK_REALTIME*|CLOCK_TAI*)
+     AC_MSG_ERROR([Invalid clock_gettime() monotonic clock id: Refusing to use the realtime clock id $with_clock_gettime_monotonic_id as monotonic clock id])
+     ;;
+   CLOCK_*)
+     ;;
+   *)
+     AC_MSG_ERROR([Invalid clock_gettime() clock id: $with_clock_gettime_monotonic_id])
+     ;;
+esac
+
 case "$with_clock_resolution-$with_clock_gettime_monotonic_id" in
   high-no)
-	ERL_MONOTONIC_CLOCK(high_resolution);;
+	ERL_MONOTONIC_CLOCK(high_resolution, undefined, $prefer_elapsed_monotonic_time_during_suspend);;
   low-no)
-	ERL_MONOTONIC_CLOCK(low_resolution);;
+	ERL_MONOTONIC_CLOCK(low_resolution, undefined, $prefer_elapsed_monotonic_time_during_suspend);;
   default-no)
-	ERL_MONOTONIC_CLOCK(default_resolution);;
+	ERL_MONOTONIC_CLOCK(default_resolution, undefined, $prefer_elapsed_monotonic_time_during_suspend);;
   *)
-	ERL_MONOTONIC_CLOCK(custom_resolution, $with_clock_gettime_monotonic_id);;
+	ERL_MONOTONIC_CLOCK(custom_resolution, $with_clock_gettime_monotonic_id, $prefer_elapsed_monotonic_time_during_suspend);;
 esac
 
 case "$erl_monotonic_clock_func-$erl_monotonic_clock_id-$with_clock_gettime_monotonic_id" in
@@ -2352,7 +2389,7 @@ if test $erl_cv_clock_gettime_monotonic_raw = yes; then
   AC_DEFINE(HAVE_CLOCK_GETTIME_MONOTONIC_RAW, [1], [Define if you have clock_gettime(CLOCK_MONOTONIC_RAW, _)])
 fi
 
-ERL_MONOTONIC_CLOCK(high_resolution)
+ERL_MONOTONIC_CLOCK(high_resolution, undefined, no)
 
 case $$erl_monotonic_clock_low_resolution-$erl_monotonic_clock_func in
   no-mach_clock_get_time)
