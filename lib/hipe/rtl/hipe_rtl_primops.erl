@@ -20,9 +20,6 @@
 %%  Notes    : 
 %%  History  :	* 2001-03-15 Erik Johansson (happi@it.uu.se): 
 %%               Created.
-%%
-%% $Id$
-%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 -module(hipe_rtl_primops). 

@@ -16,8 +16,6 @@
 %% File    : cfg.hrl
 %% Author  : Kostis Sagonas <kostis@it.uu.se>
 %% Purpose : Contains typed record declarations for the CFG data structures
-%%
-%% $Id$
 %%============================================================================
 
 -type cfg_lbl() :: non_neg_integer().

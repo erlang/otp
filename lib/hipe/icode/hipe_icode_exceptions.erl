@@ -65,9 +65,6 @@
 %%              exit value and jump directly to the catch handler. An
 %%              alternative solution would be to have a new type of
 %%              fail instruction that takes a fail-to label...
-%%
-%%  CVS:
-%%    $Id$
 %% ====================================================================
 
 -module(hipe_icode_exceptions).

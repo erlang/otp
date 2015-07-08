@@ -24,9 +24,6 @@
 %%              2003-03-15 ES (happi@acm.org):
 %%                             Started commenting in Edoc.
 %%                             Moved pretty printer to separate file.
-%%
-%% $Id$
-%%
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%@doc

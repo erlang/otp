@@ -21,8 +21,6 @@
 %%  Notes    : 
 %%  History  :	* 2001-04-10 Erik Johansson (happi@it.uu.se): 
 %%               Created.
-%%  CVS      :
-%%      $Id$
 %% ====================================================================
 %%  Exports  :
 %%

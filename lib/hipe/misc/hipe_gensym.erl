@@ -17,8 +17,6 @@
 %% Author      : Eric Johansson and Kostis Sagonas
 %% Description : Generates unique symbols and fresh integer counts.
 %%=======================================================================
-%% $Id$
-%%=======================================================================
 %% Notes: Written while we were in Montreal, Canada for PPDP-2000 as an
 %%        exercise in Principles and Practice of Declarative Programming!
 %%=======================================================================

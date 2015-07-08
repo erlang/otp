@@ -17,8 +17,6 @@
 %% Author      : Kostis Sagonas
 %% Description : Contains definitions for HiPE's primitive operations.
 %%=======================================================================
-%% $Id$
-%%=======================================================================
 
 -record(apply_N, {arity :: arity()}).
 

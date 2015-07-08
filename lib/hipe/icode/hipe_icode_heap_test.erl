@@ -21,9 +21,6 @@
 %%  Notes    : 
 %%  History  :	* 2000-11-07 Erik Johansson (happi@it.uu.se): 
 %%               Created.
-%%
-%% $Id$
-%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 -module(hipe_icode_heap_test).

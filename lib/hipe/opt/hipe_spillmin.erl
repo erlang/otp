@@ -18,8 +18,6 @@
 %%	       by a function. This is done using an algorithm for register
 %%             allocation. The implementation is target-independent and
 %%             requires a target-specific interface module as argument.  
-%% 
-%% $Id$
 %% ==========================================================================
 %% Exported functions (short description):
 %%

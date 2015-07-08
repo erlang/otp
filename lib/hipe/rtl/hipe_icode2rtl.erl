@@ -17,9 +17,6 @@
 %% Author(s)   : Erik Johansson
 %% Description : Translates Icode to RTL
 %%=======================================================================
-%%
-%% $Id$
-%%
 %% TODO: Better handling of switches...
 
 -module(hipe_icode2rtl).
