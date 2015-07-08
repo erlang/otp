@@ -11,7 +11,7 @@
 %% limitations under the License.
 %%
 %% @copyright 2002 Richard Carlsson
-%% @author richardc@it.uu.se
+%% @author Richard Carlsson <carlsson.richard@gmail.com>
 %% @doc Message analysis of Core Erlang programs.
 
 %% TODO: might need a "top" (`any') element for any-length value lists.

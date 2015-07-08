@@ -12,8 +12,8 @@
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
 %%
-%% @author Richard Carlsson <richardc@it.uu.se>
 %% @copyright 2000-2006 Richard Carlsson
+%% @author Richard Carlsson <carlsson.richard@gmail.com>
 %% @doc Translation from Core Erlang to HiPE Icode.
 
 %% TODO: annotate Icode leaf functions as such.

@@ -13,7 +13,7 @@
 %% limitations under the License.
 %%
 %% @copyright 2004 Richard Carlsson
-%% @author Richard Carlsson <richardc@it.uu.se>
+%% @author Richard Carlsson <carlsson.richard@gmail.com>
 %% @doc Provides a better way to start Dialyzer from a script.
 
 -module(dialyzer_options).

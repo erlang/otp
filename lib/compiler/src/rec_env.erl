@@ -10,8 +10,8 @@
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
 %%
-%% @author Richard Carlsson <richardc@it.uu.se>
 %% @copyright 1999-2004 Richard Carlsson
+%% @author Richard Carlsson <carlsson.richard@gmail.com>
 %% @doc Abstract environments, supporting self-referential bindings and
 %% automatic new-key generation.
 

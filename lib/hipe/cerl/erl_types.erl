@@ -13,9 +13,10 @@
 %% limitations under the License.
 %%
 %% @copyright 2000-2003 Richard Carlsson, 2006-2009 Tobias Lindahl
-%% @author richardc@it.uu.se
-%% @author tobiasl@it.uu.se
-%% @author kostis@cs.ntua.gr
+%% @author Richard Carlsson <carlsson.richard@gmail.com>
+%% @author Tobias Lindahl <tobias.lindahl@gmail.com>
+%% @author Kostis Sagonas <kostis@cs.ntua.gr>
+%% @author Manouk Manoukian
 %% @doc Provides a representation of Erlang types.
 
 %% The initial author of this file is Richard Carlsson (2000-2004).

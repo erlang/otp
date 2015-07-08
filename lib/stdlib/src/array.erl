@@ -12,7 +12,7 @@
 %%
 %% Copyright (C) 2006-2016 Richard Carlsson and Ericsson AB
 %%
-%% @author Richard Carlsson <richardc@it.uu.se>
+%% @author Richard Carlsson <carlsson.richard@gmail.com>
 %% @author Dan Gudmundsson <dgud@erix.ericsson.se>
 %%
 %% @doc Functional, extendible arrays. Arrays can have fixed size, or

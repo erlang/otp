@@ -10,8 +10,8 @@
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
 %%
-%% @author Richard Carlsson <richardc@it.uu.se>
 %% @copyright 2000-2004 Richard Carlsson
+%% @author Richard Carlsson <carlsson.richard@gmail.com>
 %% @doc Closure conversion of Core Erlang modules. This is done as a
 %% step in the translation from Core Erlang down to HiPE Icode, and is
 %% very much tied to the calling conventions used in HiPE native code.

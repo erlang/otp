@@ -1,4 +1,3 @@
-%% ========================-*-erlang-*-=================================
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -11,12 +10,9 @@
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
 %%
-%% Predefined Core Erlang primitive operations used by HiPE
-%%
-%% Copyright (C) 2000 Richard Carlsson
-%%
-%% Author contact: richardc@it.uu.se
-%% =====================================================================
+%% @copyright 2000 Richard Carlsson
+%% @author Richard Carlsson <carlsson.richard@gmail.com>
+%% @doc Predefined Core Erlang primitive operations used by HiPE.
 
 %% These definitions give the names of Core Erlang primops recognized by
 %% HiPE. Many of them (e.g., 'not'/'and'/'or', and the type tests), are
