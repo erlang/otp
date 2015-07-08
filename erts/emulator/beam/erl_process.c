@@ -11409,6 +11409,22 @@ set_proc_exiting(Process *p,
     KILL_CATCHES(p);
     p->i = (BeamInstr *) beam_exit;
 
+#ifndef ERTS_SMP
+    if (state & (ERTS_PSFLG_RUNNING|ERTS_PSFLG_RUNNING_SYS)) {
+	/*
+	 * I non smp case:
+	 *
+	 * Currently executing process might be sent an exit
+	 * signal if it is traced by a port that it also is
+	 * linked to, and the port terminates during the
+	 * trace. In this case we want schedule out the
+	 * process as quickly as possible in order to detect
+	 * the event as fast as possible.
+	 */
+	ERTS_VBUMP_ALL_REDS(p);
+    }
+#endif
+
     if (enqueue)
 	add2runq(enqueue > 0 ? p : make_proxy_proc(NULL, p, enq_prio),
 		 state,
