@@ -1,8 +1,4 @@
 %% -*- erlang-indent-level: 2 -*-
-%%-----------------------------------------------------------------------
-%% %CopyrightBegin%
-%%
-%% Copyright Ericsson AB 2006-2015. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -16,16 +12,9 @@
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
 %%
-%% %CopyrightEnd%
-%%
-
-%%%----------------------------------------------------------------------
-%%% File    : dialyzer_options.erl
-%%% Authors : Richard Carlsson <richardc@it.uu.se>
-%%% Description : Provides a better way to start Dialyzer from a script.
-%%%
-%%% Created : 17 Oct 2004 by Richard Carlsson <richardc@it.uu.se>
-%%%----------------------------------------------------------------------
+%% @copyright 2004 Richard Carlsson
+%% @author Richard Carlsson <richardc@it.uu.se>
+%% @doc Provides a better way to start Dialyzer from a script.
 
 -module(dialyzer_options).
 
