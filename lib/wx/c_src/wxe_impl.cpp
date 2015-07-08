@@ -60,6 +60,7 @@ wxeFifo * wxe_queue = NULL;
 wxeFifo * wxe_queue_cb_saved = NULL;
 
 unsigned int wxe_needs_signal = 0;  // inside batch if larger than 0
+unsigned int wxe_cb_invoked = 0;
 
 /* ************************************************************
  *  Commands from erlang
@@ -181,6 +182,25 @@ void WxeApp::dummy_close(wxEvent& Ev) {
   // windows open, and this will kill the erlang, override default handling
 }
 
+void WxeApp::OnAssertFailure(const wxChar *file, int line, const wxChar *cfunc,
+			    const wxChar *cond, const wxChar *cmsgUser) {
+  wxString msg;
+  wxString func(cfunc);
+  wxString msgUser(cmsgUser);
+
+  msg.Printf(wxT("wxWidgets Assert failure: %s(%d): \"%s\""),
+	     file, line, cond);
+  if ( !func.empty() ) {
+    msg << wxT(" in ") << func << wxT("()");
+  }
+  // and the message itself
+  if ( !msgUser.empty() ) {
+    msg << wxT(" : ") << msgUser;
+  }
+
+  send_msg("error", &msg);
+}
+
 // Called by wx thread
 void WxeApp::idle(wxIdleEvent& event) {
   event.Skip(true);
@@ -214,6 +234,7 @@ void handle_event_callback(ErlDrvPort port, ErlDrvTermData process)
     app->recurse_level--;
     // fprintf(stderr, "CB EV done %lu \r\n", process);fflush(stderr);
     driver_demonitor_process(port, &monitor);
+    wxe_cb_invoked = 1;
   }
 }
 
@@ -221,10 +242,16 @@ void WxeApp::dispatch_cmds()
 {
   if(wxe_status != WXE_INITIATED)
     return;
-  recurse_level++;
-  int level = dispatch(wxe_queue_cb_saved, 0, WXE_STORED);
-  dispatch(wxe_queue, level, WXE_NORMAL);
-  recurse_level--;
+  do {
+    wxe_cb_invoked = 0;
+    recurse_level++;
+    // fprintf(stderr, "\r\ndispatch_saved 0 \r\n");fflush(stderr);
+    int level = dispatch(wxe_queue_cb_saved, 0, WXE_STORED);
+    // fprintf(stderr, "\r\ndispatch_normal %d\r\n", level);fflush(stderr);
+    dispatch(wxe_queue, level, WXE_NORMAL);
+    // fprintf(stderr, "\r\ndispatch_done \r\n");fflush(stderr);
+    recurse_level--;
+  } while(wxe_cb_invoked);
 
   // Cleanup old memenv's and deleted objects
   if(recurse_level == 0) {
@@ -294,7 +321,12 @@ int WxeApp::dispatch(wxeFifo * batch, int blevel, int list_type)
 	break;
       }
       event->Delete();
-      if(list_type == WXE_NORMAL) erl_drv_mutex_lock(wxe_batch_locker_m);
+      if(list_type == WXE_NORMAL) {
+	if(wxe_cb_invoked)
+	  return blevel;
+	else
+	  erl_drv_mutex_lock(wxe_batch_locker_m);
+      }
     }
     if(list_type == WXE_STORED)
       return blevel;
