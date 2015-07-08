@@ -1,9 +1,5 @@
 %% -*- erlang-indent-level: 2 -*-
 %%
-%% %CopyrightBegin%
-%%
-%% Copyright Ericsson AB 2003-2016. All Rights Reserved.
-%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -16,14 +12,12 @@
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
 %%
-%% %CopyrightEnd%
-%%
-%% ======================================================================
-%% Copyright (C) 2000-2003 Richard Carlsson
-%%
-%% ======================================================================
-%% Provides a representation of Erlang types.
-%%
+%% @copyright 2000-2003 Richard Carlsson, 2006-2009 Tobias Lindahl
+%% @author richardc@it.uu.se
+%% @author tobiasl@it.uu.se
+%% @author kostis@cs.ntua.gr
+%% @doc Provides a representation of Erlang types.
+
 %% The initial author of this file is Richard Carlsson (2000-2004).
 %% In July 2006, the type representation was totally re-designed by
 %% Tobias Lindahl. This is the representation which is used currently.
@@ -31,9 +25,6 @@
 %% opaque types to the structure-based representation of types.
 %% During February and March 2009, Kostis Sagonas significantly
 %% cleaned up the type representation and added spec declarations.
-%%
-%% Author contact: richardc@it.uu.se, tobiasl@it.uu.se, kostis@cs.ntua.gr
-%% ======================================================================
 
 -module(erl_types).
 

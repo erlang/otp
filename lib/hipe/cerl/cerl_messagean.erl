@@ -1,8 +1,3 @@
-%% =====================================================================
-%% %CopyrightBegin%
-%%
-%% Copyright Ericsson AB 2004-2016. All Rights Reserved.
-%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -15,14 +10,9 @@
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
 %%
-%% %CopyrightEnd%
-%%
-%% Message analysis of Core Erlang programs.
-%%
-%% Copyright (C) 2002 Richard Carlsson
-%%
-%% Author contact: richardc@it.uu.se
-%% =====================================================================
+%% @copyright 2002 Richard Carlsson
+%% @author richardc@it.uu.se
+%% @doc Message analysis of Core Erlang programs.
 
 %% TODO: might need a "top" (`any') element for any-length value lists.
 

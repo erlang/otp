@@ -1,9 +1,5 @@
 %% -*- erlang-indent-level: 2 -*-
 %%
-%% %CopyrightBegin%
-%%
-%% Copyright Ericsson AB 2003-2016. All Rights Reserved.
-%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -16,16 +12,12 @@
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
 %%
-%% %CopyrightEnd%
-%%
-%% =====================================================================
-%% Type information for Erlang Built-in functions (implemented in C)
-%%
-%% Copyright (C) 2002 Richard Carlsson
-%% Copyright (C) 2006 Richard Carlsson, Tobias Lindahl and Kostis Sagonas
-%%
-%% Author contact: richardc@it.uu.se, tobiasl@it.uu.se, kostis@it.uu.se
-%% =====================================================================
+%% @doc Type information for Erlang Built-in functions (implemented in C)
+%% @copyright 2002 Richard Carlsson, 2006 Richard Carlsson, Tobias Lindahl
+%% and Kostis Sagonas
+%% @author richardc@it.uu.se
+%% @author tobiasl@it.uu.se
+%% @author kostis@it.uu.se
 
 -module(erl_bif_types).
 
