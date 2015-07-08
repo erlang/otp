@@ -31,6 +31,82 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 7.0.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    A process could end up in an inconsistent half exited
+	    state in the runtime system without SMP support. This
+	    could occur if the processes was traced by a port that it
+	    also was linked to, and the port terminated abnormally
+	    while handling a trace message for the process.</p>
+          <p>
+	    This bug has always existed in the runtime system without
+	    SMP support, but never in the runtime system with SMP
+	    support.</p>
+          <p>
+	    Own Id: OTP-12889 Aux Id: seq12885 </p>
+        </item>
+        <item>
+          <p>
+	    Removed unnecessary copying of data when retrieving
+	    corrected Erlang monotonic time.</p>
+          <p>
+	    Own Id: OTP-12894</p>
+        </item>
+        <item>
+          <p>
+	    Changed default OS monotonic clock source chosen at build
+	    time. This in order to improve performance. The behavior
+	    will now on most systems be that (both OS and Erlang)
+	    monotonic time stops when the system is suspended.</p>
+          <p>
+	    If you prefer that monotonic time elapse during suspend
+	    of the machine, you can pass the command line argument
+	    <c>--enable-prefer-elapsed-monotonic-time-during-suspend</c>
+	    to <c>configure</c> when building Erlang/OTP. The
+	    configuration stage will try to find such a clock source,
+	    but might not be able to find it. Note that there might
+	    be a performance penalty associated with such a clock
+	    source.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-12895</p>
+        </item>
+        <item>
+          <p>
+	    <c>erlang:system_info(end_time)</c> returned a faulty
+	    value on 32-bit architectures.</p>
+          <p>
+	    Own Id: OTP-12896</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    The <c>configure</c> command line argument
+	    <c>--enable-gettimeofday-as-os-system-time</c> has been
+	    added which force usage of <c>gettimeofday()</c> for OS
+	    system time. This will improve performance of
+	    <c>os:system_time()</c> and <c>os:timestamp()</c> on
+	    MacOS X, at the expense of worse accuracy, resolution and
+	    precision of Erlang monotonic time, Erlang system time,
+	    and OS system time.</p>
+          <p>
+	    Own Id: OTP-12892</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 7.0.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

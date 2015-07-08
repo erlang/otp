@@ -124,7 +124,11 @@ typedef struct {
 
 typedef struct {
     ErtsMonotonicCorrectionInstance prev;
-    ErtsMonotonicCorrectionInstance curr;    
+    ErtsMonotonicCorrectionInstance curr;
+} ErtsMonotonicCorrectionInstances;
+
+typedef struct {
+    ErtsMonotonicCorrectionInstances insts;
     ErtsMonotonicDriftData drift;
     ErtsMonotonicTime last_check;
     int short_check_interval;
@@ -272,27 +276,24 @@ static ERTS_INLINE ErtsMonotonicTime
 read_corrected_time(int os_drift_corrected)
 {
     ErtsMonotonicTime os_mtime;
-    ErtsMonotonicCorrectionData cdata;
-    ErtsMonotonicCorrectionInstance *cip;
+    ErtsMonotonicCorrectionInstance ci;
 
     erts_smp_rwmtx_rlock(&time_sup.inf.c.parmon.rwmtx);
 
     os_mtime = erts_os_monotonic_time();
 
-    cdata = time_sup.inf.c.parmon.cdata;
+    if (os_mtime >= time_sup.inf.c.parmon.cdata.insts.curr.os_mtime)
+	ci = time_sup.inf.c.parmon.cdata.insts.curr;
+    else {
+	if (os_mtime < time_sup.inf.c.parmon.cdata.insts.prev.os_mtime)
+	    erl_exit(ERTS_ABORT_EXIT,
+		     "OS monotonic time stepped backwards\n");
+	ci = time_sup.inf.c.parmon.cdata.insts.prev;
+    }
 
     erts_smp_rwmtx_runlock(&time_sup.inf.c.parmon.rwmtx);
 
-    if (os_mtime >= cdata.curr.os_mtime)
-	cip = &cdata.curr;
-    else {
-	if (os_mtime < cdata.prev.os_mtime)
-	    erl_exit(ERTS_ABORT_EXIT,
-		     "OS monotonic time stepped backwards\n");
-	cip = &cdata.prev;
-    }
-
-    return calc_corrected_erl_mtime(os_mtime, cip, NULL,
+    return calc_corrected_erl_mtime(os_mtime, &ci, NULL,
 				    os_drift_corrected);
 }
 
@@ -360,9 +361,8 @@ check_time_correction(void *vesdp)
 {
     int init_drift_adj = !vesdp;
     ErtsSchedulerData *esdp = (ErtsSchedulerData *) vesdp;
-    ErtsMonotonicCorrectionData cdata;
     ErtsMonotonicCorrection new_correction;
-    ErtsMonotonicCorrectionInstance *cip;
+    ErtsMonotonicCorrectionInstance ci;
     ErtsMonotonicTime mdiff, sdiff, os_mtime, erl_mtime, os_stime,
 	erl_stime, time_offset, timeout_pos;
     Uint timeout;
@@ -373,16 +373,15 @@ check_time_correction(void *vesdp)
 
     erts_os_times(&os_mtime, &os_stime);
 
-    cdata = time_sup.inf.c.parmon.cdata;
+    ci = time_sup.inf.c.parmon.cdata.insts.curr;
 
     erts_smp_rwmtx_runlock(&time_sup.inf.c.parmon.rwmtx);
 
-    if (os_mtime < cdata.curr.os_mtime)
+    if (os_mtime < ci.os_mtime)
 	erl_exit(ERTS_ABORT_EXIT,
 		 "OS monotonic time stepped backwards\n");
-    cip = &cdata.curr;
 
-    erl_mtime = calc_corrected_erl_mtime(os_mtime, cip, &mdiff,
+    erl_mtime = calc_corrected_erl_mtime(os_mtime, &ci, &mdiff,
 					 os_drift_corrected);
     time_offset = get_time_offset();
     erl_stime = erl_mtime + time_offset;
@@ -397,7 +396,7 @@ check_time_correction(void *vesdp)
 	    time_sup.inf.c.shadow_offset = 0;
     }
 
-    new_correction = cip->correction;
+    new_correction = ci.correction;
 
     if (time_sup.r.o.warp_mode == ERTS_MULTI_TIME_WARP_MODE
 	&& (sdiff < -2*time_sup.r.o.adj.small_diff
@@ -408,7 +407,7 @@ check_time_correction(void *vesdp)
 	set_time_offset(time_offset);
 	schedule_send_time_offset_changed_notifications(time_offset);
 	begin_short_intervals = 1;
-	if (cdata.curr.correction.error != 0) {
+	if (ci.correction.error != 0) {
 	    set_new_correction = 1;
 	    new_correction.error = 0;
 	}
@@ -425,12 +424,12 @@ check_time_correction(void *vesdp)
 	time_sup.inf.c.shadow_offset -= sdiff;
 	sdiff = 0;
 	begin_short_intervals = 1;
-	if (cdata.curr.correction.error != 0) {
+	if (ci.correction.error != 0) {
 	    set_new_correction = 1;
 	    new_correction.error = 0;
 	}
     }
-    else if (cdata.curr.correction.error == 0) {
+    else if (ci.correction.error == 0) {
 	if (sdiff < -time_sup.r.o.adj.small_diff) {
 	    set_new_correction = 1;
 	    if (sdiff < -time_sup.r.o.adj.large_diff)
@@ -446,9 +445,9 @@ check_time_correction(void *vesdp)
 		new_correction.error = -ERTS_TCORR_ERR_SMALL_ADJ;
 	}
     }
-    else if (cdata.curr.correction.error > 0) {
+    else if (ci.correction.error > 0) {
 	if (sdiff < 0) {
-	    if (cdata.curr.correction.error != ERTS_TCORR_ERR_LARGE_ADJ
+	    if (ci.correction.error != ERTS_TCORR_ERR_LARGE_ADJ
 		&& sdiff < -time_sup.r.o.adj.large_diff) {
 		new_correction.error = ERTS_TCORR_ERR_LARGE_ADJ;
 		set_new_correction = 1;
@@ -466,9 +465,9 @@ check_time_correction(void *vesdp)
 	    new_correction.error = 0;
 	}
     }
-    else /* if (cdata.curr.correction.error < 0) */ { 
+    else /* if (ci.correction.error < 0) */ { 
 	if (0 < sdiff) {
-	    if (cdata.curr.correction.error != -ERTS_TCORR_ERR_LARGE_ADJ
+	    if (ci.correction.error != -ERTS_TCORR_ERR_LARGE_ADJ
 		&& time_sup.r.o.adj.large_diff < sdiff) {
 		new_correction.error = -ERTS_TCORR_ERR_LARGE_ADJ;
 		set_new_correction = 1;
@@ -631,8 +630,8 @@ check_time_correction(void *vesdp)
 #ifdef ERTS_TIME_CORRECTION_PRINT
     print_correction(set_new_correction,
 		     sdiff,
-		     cip->correction.error,
-		     cip->correction.drift,
+		     ci.correction.error,
+		     ci.correction.drift,
 		     new_correction.error,
 		     new_correction.drift,
 		     timeout);
@@ -644,7 +643,7 @@ check_time_correction(void *vesdp)
 	os_mtime = erts_os_monotonic_time();
 
 	/* Save previous correction instance */
-	time_sup.inf.c.parmon.cdata.prev = *cip;
+	time_sup.inf.c.parmon.cdata.insts.prev = ci;
 
 	/*
 	 * Current correction instance begin when
@@ -657,15 +656,15 @@ check_time_correction(void *vesdp)
 	 * next OS monotonic time using previous
 	 * correction.
 	 */
-	erl_mtime = calc_corrected_erl_mtime(os_mtime, cip, NULL,
+	erl_mtime = calc_corrected_erl_mtime(os_mtime, &ci, NULL,
 					     os_drift_corrected);
 
 	/*
 	 * Save new current correction instance.
 	 */
-	time_sup.inf.c.parmon.cdata.curr.erl_mtime = erl_mtime;
-	time_sup.inf.c.parmon.cdata.curr.os_mtime = os_mtime;
-	time_sup.inf.c.parmon.cdata.curr.correction = new_correction;
+	time_sup.inf.c.parmon.cdata.insts.curr.erl_mtime = erl_mtime;
+	time_sup.inf.c.parmon.cdata.insts.curr.os_mtime = os_mtime;
+	time_sup.inf.c.parmon.cdata.insts.curr.correction = new_correction;
 
 	erts_smp_rwmtx_rwunlock(&time_sup.inf.c.parmon.rwmtx);
     }
@@ -784,24 +783,22 @@ static ErtsMonotonicTime
 finalize_corrected_time_offset(ErtsSystemTime *stimep)
 {
     ErtsMonotonicTime os_mtime;
-    ErtsMonotonicCorrectionData cdata;
-    ErtsMonotonicCorrectionInstance *cip;
+    ErtsMonotonicCorrectionInstance ci;
     int os_drift_corrected = time_sup.r.o.os_corrected_monotonic_time;
 
     erts_smp_rwmtx_rlock(&time_sup.inf.c.parmon.rwmtx);
 
     erts_os_times(&os_mtime, stimep);
 
-    cdata = time_sup.inf.c.parmon.cdata;
+    ci = time_sup.inf.c.parmon.cdata.insts.curr;
 
     erts_smp_rwmtx_runlock(&time_sup.inf.c.parmon.rwmtx);
 
-    if (os_mtime < cdata.curr.os_mtime)
+    if (os_mtime < ci.os_mtime)
 	erl_exit(ERTS_ABORT_EXIT,
 		 "OS monotonic time stepped backwards\n");
-    cip = &cdata.curr;
 
-    return calc_corrected_erl_mtime(os_mtime, cip, NULL,
+    return calc_corrected_erl_mtime(os_mtime, &ci, NULL,
 				    os_drift_corrected);
 }
 
@@ -1128,13 +1125,13 @@ erts_init_time_sup(int time_correction, ErtsTimeWarpMode time_warp_mode)
     
 	cdatap->drift.intervals[0].time.sys = time_sup.inf.c.sinit;
 	cdatap->drift.intervals[0].time.mon = time_sup.inf.c.minit;
-	cdatap->curr.correction.drift = 0;
-	cdatap->curr.correction.error = 0;
-	cdatap->curr.erl_mtime = ERTS_MONOTONIC_BEGIN;
-	cdatap->curr.os_mtime = time_sup.inf.c.minit;
+	cdatap->insts.curr.correction.drift = 0;
+	cdatap->insts.curr.correction.error = 0;
+	cdatap->insts.curr.erl_mtime = ERTS_MONOTONIC_BEGIN;
+	cdatap->insts.curr.os_mtime = time_sup.inf.c.minit;
 	cdatap->last_check = time_sup.inf.c.minit;
 	cdatap->short_check_interval = ERTS_INIT_SHORT_INTERVAL_COUNTER;
-	cdatap->prev = cdatap->curr;
+	cdatap->insts.prev = cdatap->insts.curr;
 
 	if (!time_sup.r.o.os_corrected_monotonic_time)
 	    time_sup.r.o.get_time = get_corrected_time;
