@@ -276,11 +276,11 @@ The following tags can be used before a module declaration:
 ```%% @author Richard Carlsson'''
 
 ```%% @author Richard Carlsson <carlsson.richard@gmail.com>
-   %%   [http://user.it.uu.se/~richardc/]'''
+   %%   [http://example.net/richardc/]'''
 
 ```%% @author <carlsson.richard@gmail.com>'''
 
-```%% @author carlsson.richard@gmail.com [http://user.it.uu.se/~richardc/]'''
+```%% @author carlsson.richard@gmail.com [http://example.net/richardc/]'''
       </dd>
 
 <dt><a name="mtag-copyright">`@copyright'</a></dt>
