@@ -240,6 +240,8 @@ handle_connect(Object, EvData=#evh{handler=Handler},
 invoke_cb({{Ev=#wx{}, Ref=#wx_ref{}}, FunId,_}, _S) ->
     %% Event callbacks
     case get(FunId) of
+	{{nospawn, Fun}, _} when is_function(Fun) ->
+	    invoke_callback_fun(fun() -> Fun(Ev, Ref), <<>> end);
 	{Fun,_} when is_function(Fun) ->
 	    invoke_callback(fun() -> Fun(Ev, Ref), <<>> end);
 	{Pid,_} when is_pid(Pid) -> %% wx_object sync event
@@ -258,21 +260,10 @@ invoke_cb({FunId, Args, _}, _S) when is_list(Args), is_integer(FunId) ->
 
 invoke_callback(Fun) ->
     Env = get(?WXE_IDENTIFIER),
-    CB = fun() ->
-		 wx:set_env(Env),
-		 wxe_util:cast(?WXE_CB_START, <<>>),
-		 Res = try
-			   Return = Fun(),
-			   true = is_binary(Return),
-			   Return
-		       catch _:Reason ->
-			       ?log("Callback fun crashed with {'EXIT, ~p, ~p}~n",
-				    [Reason, erlang:get_stacktrace()]),
-			       <<>>
-		       end,
-		 wxe_util:cast(?WXE_CB_RETURN, Res)
-	 end,
-    spawn(CB),
+    spawn(fun() ->
+		  wx:set_env(Env),
+		  invoke_callback_fun(Fun)
+	  end),
     ok.
 
 invoke_callback(Pid, Ev, Ref) ->
@@ -301,6 +292,20 @@ invoke_callback(Pid, Ev, Ref) ->
 	 end,
     spawn(CB),
     ok.
+
+invoke_callback_fun(Fun) ->
+    wxe_util:cast(?WXE_CB_START, <<>>),
+    Res = try
+	      Return = Fun(),
+	      true = is_binary(Return),
+	      Return
+	  catch _:Reason ->
+		  ?log("Callback fun crashed with {'EXIT, ~p, ~p}~n",
+		       [Reason, erlang:get_stacktrace()]),
+		  <<>>
+	  end,
+    wxe_util:cast(?WXE_CB_RETURN, Res).
+
 
 get_wx_object_state(Pid) ->
     case process_info(Pid, dictionary) of
