@@ -1231,9 +1231,7 @@ is not the length of the message in question, as received over the
 transport interface documented in &man_transport;.</p>
 
 <p>
-If <c>exit</c> then a warning report is emitted and the parent of the
-transport process in question exits, which causes the transport
-process itself to exit as described in &man_transport;.
+If <c>exit</c> then the transport process in question exits.
 If <c>handle</c> then the message is processed as usual, a resulting
 &app_handle_request; or &app_handle_answer; callback (if one takes
 place) indicating the <c>5015</c> error (DIAMETER_INVALID_MESSAGE_LENGTH).
