@@ -108,8 +108,9 @@
 	<p><c>| 'SubjectPublicKeyInfo'</c></p>
 	<p><c>| 'PrivateKeyInfo'</c></p>
 	<p><c>| 'CertificationRequest'</c></p>
+	<p><c>| 'CertificateList'</c></p>
 	<p><c>| 'ECPrivateKey'</c></p>
-      <p><c>| 'EcpkParameters'</c></p>
+	<p><c>| 'EcpkParameters'</c></p>
       </item>
 
       <tag><c>pem_entry () =</c></tag>
@@ -433,7 +434,7 @@
     <name>pkix_is_issuer(Cert, IssuerCert) -> boolean()</name>
     <fsummary>Checks if <c>IssuerCert</c> issued <c>Cert</c>.</fsummary>
     <type>
-      <v>Cert = der_encoded() | #'OTPCertificate'{}</v>
+      <v>Cert = der_encoded() | #'OTPCertificate'{} | #'CertificateList'{}</v>
       <v>IssuerCert = der_encoded() | #'OTPCertificate'{}</v>
   </type> 
   <desc> 
@@ -698,7 +699,7 @@ fun(#'DistributionPoint'{}, #'CertificateList'{},
     <name>pkix_sign(#'OTPTBSCertificate'{}, Key) -> der_encoded()</name>
     <fsummary>Signs certificate.</fsummary>
     <type>
-      <v>Key = rsa_public_key() | dsa_public_key()</v> 
+      <v>Key = rsa_private_key() | dsa_private_key()</v> 
     </type> 
     <desc> 
       <p>Signs an 'OTPTBSCertificate'. Returns the corresponding
@@ -713,7 +714,7 @@ fun(#'DistributionPoint'{}, #'CertificateList'{},
       <v>AlgorithmId = oid()</v>
       <d>Signature OID from a certificate or a certificate revocation list.</d>
       <v>DigestType = rsa_digest_type() | dss_digest_type()</v>
-      <v>SignatureType = rsa | dsa</v>
+      <v>SignatureType = rsa | dsa | ecdsa</v>
     </type>
     <desc>
       <p>Translates signature algorithm OID to Erlang digest and signature types.
@@ -726,7 +727,7 @@ fun(#'DistributionPoint'{}, #'CertificateList'{},
     <fsummary>Verifies PKIX x.509 certificate signature.</fsummary>
     <type>
       <v>Cert = der_encoded()</v>
-      <v>Key = rsa_public_key() | dsa_public_key()</v> 
+      <v>Key = rsa_public_key() | dsa_public_key() | ec_public_key()</v> 
     </type> 
   <desc> 
     <p>Verifies PKIX x.509 certificate signature.</p>
