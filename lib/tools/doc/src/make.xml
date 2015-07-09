@@ -76,7 +76,7 @@
            Load mode. Loads all recompiled modules.</item>
           <item><c>netload</c>          <br></br>
 
-           Net load mode. Loads all recompiled modules an all known nodes.</item>
+           Net load mode. Loads all recompiled modules on all known nodes.</item>
         </list>
         <p>All items in <c>Options</c> that are not make options are assumed
           to be compiler options and are passed as-is to
