@@ -1332,10 +1332,15 @@ static ERL_NIF_TERM block_crypt_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM
           EVP_CIPHER_CTX_ctrl(&ctx, EVP_CTRL_SET_RC2_KEY_BITS, key.size * 8, NULL)) ||
         !EVP_CipherInit_ex(&ctx, NULL, NULL,
                            key.data, ivec_size ? ivec.data : NULL, -1) ||
-        !EVP_CIPHER_CTX_set_padding(&ctx, 0) ||
-        !EVP_CipherUpdate(&ctx, out, &out_size, text.data, text.size) ||
-        (ASSERT(out_size == text.size), 0) ||
-        !EVP_CipherFinal_ex(&ctx, out + out_size, &out_size)) {
+        !EVP_CIPHER_CTX_set_padding(&ctx, 0)) {
+
+        return enif_raise_exception(env, atom_notsup);
+    }
+
+    if (text.size > 0 && /* OpenSSL 0.9.8h asserts text.size > 0 */
+        (!EVP_CipherUpdate(&ctx, out, &out_size, text.data, text.size)
+         || (ASSERT(out_size == text.size), 0)
+         || !EVP_CipherFinal_ex(&ctx, out + out_size, &out_size))) {
 
         EVP_CIPHER_CTX_cleanup(&ctx);
         return enif_raise_exception(env, atom_notsup);
