@@ -102,12 +102,7 @@ endif
 
 _create_dirs := $(shell mkdir -p $(OBJDIR) $(LIBDIR))
 
-ifneq ($(findstring ose,$(TARGET)),ose)
 debug opt valgrind: $(SOLIBS) $(OBJDIR) $(LIBDIR) $(NIF_LIB)
-else
-# We do not build this on OSE
-debug opt valgrind:
-endif
 
 DYNTRACE_OBJS = $(before_DTrace_OBJS)
 
@@ -159,10 +154,8 @@ include $(ERL_TOP)/make/otp_release_targets.mk
 release_spec: opt
 	$(INSTALL_DIR) "$(RELSYSDIR)/priv/obj"
 	$(INSTALL_DIR) "$(RELSYSDIR)/priv/lib"
-ifneq ($(findstring ose,$(TARGET)),ose)
 	$(INSTALL_PROGRAM) $(DYNTRACE_OBJS) "$(RELSYSDIR)/priv/obj"
 	$(INSTALL_PROGRAM) $(NIF_LIB) $(SOLIBS) "$(RELSYSDIR)/priv/lib"
-endif
 
 release_docs_spec:
 

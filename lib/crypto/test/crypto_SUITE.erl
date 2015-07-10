@@ -118,10 +118,10 @@ init_per_suite(Config) ->
 		_ ->
 		    Config
 	    catch error:low_entropy ->
-		    %% Make sure we are on OSE, otherwise we want to crash
-		    {ose,_} = os:type(),
+                    %% We are testing on an OS with low entropy in its random
+                    %% seed. So we have to seed it with a binary to get started.
 
-		    %% This is NOT how you want to seed this, it is just here
+		    %% This is NOT how you want to do seeding, it is just here
 		    %% to make the tests pass. Check your OS manual for how you
 		    %% really want to seed.
 		    {H,M,L} = erlang:now(),

@@ -1044,9 +1044,7 @@ typedef struct ErlIOVec {
           <c>select</c>/<c>poll</c> can use).
           On windows, the Win32 API function <c>WaitForMultipleObjects</c>
           is used. This places other restrictions on the event object.
-          Refer to the Win32 SDK documentation.
-	  On Enea OSE, the receive function is used. See the <seealso
-	  marker="ose:ose_erl_driver"></seealso> for more details.</p>
+          Refer to the Win32 SDK documentation.</p>
         <p>The <c>on</c> parameter should be <c>1</c> for setting events
           and <c>0</c> for clearing them.</p>
         <p>The <c>mode</c> argument is a bitwise-or combination of
@@ -1058,7 +1056,7 @@ typedef struct ErlIOVec {
           <seealso marker="driver_entry#ready_output">ready_output</seealso>.
           </p>
     <note>
-      <p>Some OS (Windows and Enea OSE) do not differentiate between read and write events.
+      <p>Some OS (Windows) do not differentiate between read and write events.
          The call-back for a fired event then only depends on the value of <c>mode</c>.</p>
     </note>
         <p><c>ERL_DRV_USE</c> specifies if we are using the event object or if we want to close it.

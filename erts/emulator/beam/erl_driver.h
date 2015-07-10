@@ -690,16 +690,6 @@ EXTERN char *driver_dl_error(void);
 EXTERN int erl_drv_putenv(char *key, char *value);
 EXTERN int erl_drv_getenv(char *key, char *value, size_t *value_size);
 
-#ifdef __OSE__
-typedef ErlDrvUInt ErlDrvOseEventId;
-EXTERN union SIGNAL *erl_drv_ose_get_signal(ErlDrvEvent ev);
-EXTERN ErlDrvEvent erl_drv_ose_event_alloc(SIGSELECT sig, ErlDrvOseEventId handle,
-					   ErlDrvOseEventId (*resolve_signal)(union SIGNAL *sig), void *extra);
-EXTERN void erl_drv_ose_event_free(ErlDrvEvent ev);
-EXTERN void erl_drv_ose_event_fetch(ErlDrvEvent ev, SIGSELECT *sig,
-                  ErlDrvOseEventId *handle, void **extra);
-#endif
-
 #endif /* !ERL_DRIVER_TYPES_ONLY */
 
 #ifdef WIN32_DYNAMIC_ERL_DRIVER

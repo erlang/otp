@@ -90,14 +90,10 @@ OTP_RELEASE = @OTP_RELEASE@
 #	Erlang language section
 # ----------------------------------------------------
 EMULATOR = beam
-ifeq ($(findstring ose_ppc750,$(TARGET)),ose_ppc750)
-ERL_COMPILE_FLAGS += +compressed
+ifdef BOOTSTRAP
+  ERL_COMPILE_FLAGS += +slim
 else
-  ifdef BOOTSTRAP
-    ERL_COMPILE_FLAGS += +slim
-  else
-    ERL_COMPILE_FLAGS += +debug_info
-  endif
+  ERL_COMPILE_FLAGS += +debug_info
 endif
 ERLC_WFLAGS = -W
 ERLC = erlc $(ERLC_WFLAGS) $(ERLC_FLAGS)
