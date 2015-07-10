@@ -11195,10 +11195,14 @@ save_pending_exiter(Process *p)
 {
     ErtsProcList *plp;
     ErtsRunQueue *rq;
+    ErtsSchedulerData *esdp = erts_get_scheduler_data();
 
     ERTS_SMP_LC_ASSERT(ERTS_PROC_LOCK_STATUS & erts_proc_lc_my_proc_locks(p));
 
-    rq = erts_get_runq_current(NULL);
+    if (!esdp)
+        rq = RUNQ_READ_RQ(&p->run_queue);
+    else
+        rq = esdp->run_queue;
 
     plp = proclist_create(p);
 
@@ -11215,6 +11219,7 @@ save_pending_exiter(Process *p)
     else
 #endif
 	wake_scheduler(rq);
+
 }
 
 #endif
@@ -11411,23 +11416,21 @@ send_exit_signal(Process *c_p,		/* current process if and only
 		if (need_locks
 		    && erts_smp_proc_trylock(rp, need_locks) == EBUSY) {
 		    /* ... but we havn't got all locks on it ... */
-		    save_pending_exiter(rp);
+		    save_pending_exiter(rp); 
 		    /*
 		     * The pending exit will be discovered when next
 		     * process is scheduled in
 		     */
-		    goto set_pending_exit;
+                    goto set_pending_exit;
 		}
-		else {
-		    /* ...and we have all locks on it... */
-		    *rp_locks = ERTS_PROC_LOCKS_ALL;
-		    set_proc_exiting(rp,
-				     state,
-				     (is_immed(rsn)
-				      ? rsn
-				      : copy_object(rsn, rp)),
-				     NULL);
-		}
+                /* ...and we have all locks on it... */
+                *rp_locks = ERTS_PROC_LOCKS_ALL;
+                set_proc_exiting(rp,
+                                 state,
+                                 (is_immed(rsn)
+                                  ? rsn
+                                  : copy_object(rsn, rp)),
+                                 NULL);
 	    }
 	    else { /* Process running... */
 
