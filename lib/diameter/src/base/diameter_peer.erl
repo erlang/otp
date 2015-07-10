@@ -201,10 +201,10 @@ match1(Addr, Match) ->
 match(Addr, {ok, A}, _) ->
     Addr == A;
 match(Addr, {error, _}, RE) ->
-    match == re:run(inet_parse:ntoa(Addr), RE, [{capture, none}]).
+    match == re:run(inet:ntoa(Addr), RE, [{capture, none}]).
 
 addr([_|_] = A) ->
-    inet_parse:address(A);
+    inet:parse_address(A);
 addr(A) ->
     {ok, A}.
 
