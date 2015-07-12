@@ -57,10 +57,6 @@
 #  define SIZEOF_LONG_LONG_SAVED__ SIZEOF_LONG_LONG
 #  undef SIZEOF_LONG_LONG
 #endif
-#ifdef HALFWORD_HEAP_EMULATOR
-#  define HALFWORD_HEAP_EMULATOR_SAVED__ HALFWORD_HEAP_EMULATOR
-#  undef HALFWORD_HEAP_EMULATOR
-#endif
 #include "erl_int_sizes_config.h"
 #if defined(SIZEOF_CHAR_SAVED__) && SIZEOF_CHAR_SAVED__ != SIZEOF_CHAR
 #  error SIZEOF_CHAR mismatch
@@ -76,11 +72,6 @@
 #endif
 #if defined(SIZEOF_LONG_LONG_SAVED__) && SIZEOF_LONG_LONG_SAVED__ != SIZEOF_LONG_LONG
 #  error SIZEOF_LONG_LONG mismatch
-#endif
-
-/* This is OK to override by the NIF/driver implementor */
-#if defined(HALFWORD_HEAP_EMULATOR_SAVED__) && !defined(HALFWORD_HEAP_EMULATOR)
-#define HALFWORD_HEAP_EMULATOR HALFWORD_HEAP_EMULATOR_SAVED__
 #endif
 
 #include "erl_drv_nif.h"

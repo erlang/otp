@@ -285,61 +285,10 @@ __decl_noreturn void __noreturn erl_assert_error(const char* expr, const char *f
 #else
 #error Neither 32 nor 64 bit architecture
 #endif
-#if defined(ARCH_64) && defined(HALFWORD_HEAP_EMULATOR)
-#    define HALFWORD_HEAP 1
-#    define HALFWORD_ASSERT 0
-#    define ASSERT_HALFWORD(COND) ASSERT(COND)
-#    undef ERTS_SIZEOF_TERM
-#    define ERTS_SIZEOF_TERM 4
-#else
-#    define HALFWORD_HEAP 0
-#    define HALFWORD_ASSERT 0
-#    define ASSERT_HALFWORD(COND)
-#endif
 
 #if SIZEOF_VOID_P != SIZEOF_SIZE_T
 #error sizeof(void*) != sizeof(size_t)
 #endif
-
-#if HALFWORD_HEAP
-
-#if SIZEOF_INT == 4
-typedef unsigned int Eterm;
-typedef unsigned int Uint;
-typedef int          Sint;
-#define ERTS_UINT_MAX UINT_MAX
-#define ERTS_SIZEOF_ETERM SIZEOF_INT
-#define ErtsStrToSint strtol
-#else
-#error Found no appropriate type to use for 'Eterm', 'Uint' and 'Sint'
-#endif
-
-#if SIZEOF_VOID_P == SIZEOF_LONG
-typedef unsigned long UWord;
-typedef long          SWord;
-#define SWORD_CONSTANT(Const) Const##L
-#define UWORD_CONSTANT(Const) Const##UL
-#define ERTS_UWORD_MAX ULONG_MAX
-#define ERTS_SWORD_MAX LONG_MAX
-#elif SIZEOF_VOID_P == SIZEOF_INT
-typedef unsigned int UWord;
-typedef int          SWord;
-#define SWORD_CONSTANT(Const) Const
-#define UWORD_CONSTANT(Const) Const##U
-#define ERTS_UWORD_MAX UINT_MAX
-#define ERTS_SWORD_MAX INT_MAX
-#elif SIZEOF_VOID_P == SIZEOF_LONG_LONG
-typedef unsigned long long UWord;
-typedef long long          SWord;
-#define SWORD_CONSTANT(Const) Const##LL
-#define UWORD_CONSTANT(Const) Const##ULL
-#define ERTS_UWORD_MAX ULLONG_MAX
-#define ERTS_SWORD_MAX LLONG_MAX
-#else
-#error Found no appropriate type to use for 'Eterm', 'Uint' and 'Sint'
-#endif
-
-#else /* !HALFWORD_HEAP */
 
 #if SIZEOF_VOID_P == SIZEOF_LONG
 typedef unsigned long Eterm;
@@ -382,8 +331,6 @@ typedef long long          Sint;
 typedef Uint UWord;
 typedef Sint SWord;
 #define ERTS_UINT_MAX ERTS_UWORD_MAX
-
-#endif /* HALFWORD_HEAP */
 
 typedef UWord BeamInstr;
 

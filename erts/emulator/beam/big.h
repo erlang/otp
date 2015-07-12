@@ -35,7 +35,7 @@
 
 typedef Uint     ErtsDigit;
 
-#if ((SIZEOF_VOID_P == 4) || HALFWORD_HEAP) && defined(SIZEOF_LONG_LONG) && (SIZEOF_LONG_LONG == 8)
+#if (SIZEOF_VOID_P == 4) && defined(SIZEOF_LONG_LONG) && (SIZEOF_LONG_LONG == 8)
 /* Assume 32-bit machine with long long support */
 typedef Uint64   ErtsDoubleDigit;
 typedef Uint16   ErtsHalfDigit;
@@ -90,13 +90,9 @@ typedef Uint  dsize_t;	 /* Vector size type */
 
 #define BIG_UINT_HEAP_SIZE (1 + 1)	/* always, since sizeof(Uint) <= sizeof(Eterm) */
 
-#if HALFWORD_HEAP
-#define BIG_UWORD_HEAP_SIZE(UW) (((UW) >> (sizeof(Uint) * 8)) ? 3 : 2)
-#else
 #define BIG_UWORD_HEAP_SIZE(UW) BIG_UINT_HEAP_SIZE
-#endif
 
-#if defined(ARCH_32) || HALFWORD_HEAP
+#if defined(ARCH_32)
 
 #define ERTS_UINT64_BIG_HEAP_SIZE__(X) \
   ((X) >= (((Uint64) 1) << 32) ? (1 + 2) : (1 + 1))
@@ -178,4 +174,3 @@ Eterm erts_sint64_to_big(Sint64, Eterm **);
 Eterm erts_chars_to_integer(Process *, char*, Uint, const int);
 
 #endif
-

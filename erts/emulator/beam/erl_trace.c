@@ -1677,12 +1677,7 @@ erts_call_trace(Process* p, BeamInstr mfa[3], Binary *match_spec,
     args = transformed_args;
 
     if (is_internal_port(*tracer_pid)) {
-#if HEAP_ON_C_STACK
 	Eterm local_heap[64+MAX_ARG];
-#else
-	Eterm *local_heap = erts_alloc(ERTS_ALC_T_TEMP_TERM,
-				       sizeof(Eterm)*(64+MAX_ARG));
-#endif
 	hp = local_heap;
 
 	if (!erts_is_valid_tracer_port(*tracer_pid)) {
@@ -1696,9 +1691,6 @@ erts_call_trace(Process* p, BeamInstr mfa[3], Binary *match_spec,
 #ifdef ERTS_SMP
 	    if (is_not_nil(tracee))
 		erts_smp_proc_unlock(p, ERTS_PROC_LOCKS_ALL_MINOR);
-#endif
-#if !HEAP_ON_C_STACK
-	    erts_free(ERTS_ALC_T_TEMP_TERM,local_heap);
 #endif
 	    UnUseTmpHeap(ERL_SUB_BIN_SIZE,p);
 	    return 0;
@@ -1727,9 +1719,6 @@ erts_call_trace(Process* p, BeamInstr mfa[3], Binary *match_spec,
 					    ERTS_PAM_TMP_RESULT, &return_flags);
 	    if (is_non_value(pam_result)) {
 		erts_match_set_release_result(p);
-#if !HEAP_ON_C_STACK
-		erts_free(ERTS_ALC_T_TEMP_TERM,local_heap);
-#endif
 		UnUseTmpHeap(ERL_SUB_BIN_SIZE,p);
 		return 0;
 	    }
@@ -1738,9 +1727,6 @@ erts_call_trace(Process* p, BeamInstr mfa[3], Binary *match_spec,
 	    /* Meta trace */
 	    if (pam_result == am_false) {
 		erts_match_set_release_result(p);
-#if !HEAP_ON_C_STACK
-		erts_free(ERTS_ALC_T_TEMP_TERM,local_heap);
-#endif
 		UnUseTmpHeap(ERL_SUB_BIN_SIZE,p);
 		return return_flags;
 	    }
@@ -1748,17 +1734,11 @@ erts_call_trace(Process* p, BeamInstr mfa[3], Binary *match_spec,
 	    /* Non-meta trace */
 	    if (*tracee_flags & F_TRACE_SILENT) { 
 		erts_match_set_release_result(p);
-#if !HEAP_ON_C_STACK
-		erts_free(ERTS_ALC_T_TEMP_TERM,local_heap);
-#endif
 		UnUseTmpHeap(ERL_SUB_BIN_SIZE,p);
 		return 0;
 	    }
 	    if (pam_result == am_false) {
 		erts_match_set_release_result(p);
-#if !HEAP_ON_C_STACK
-		erts_free(ERTS_ALC_T_TEMP_TERM,local_heap);
-#endif
 		UnUseTmpHeap(ERL_SUB_BIN_SIZE,p);
 		return return_flags;
 	    }
@@ -1802,9 +1782,6 @@ erts_call_trace(Process* p, BeamInstr mfa[3], Binary *match_spec,
 	send_to_port(p, mess, tracer_pid, tracee_flags);
 	erts_smp_mtx_unlock(&smq_mtx);
 	erts_match_set_release_result(p);
-#if !HEAP_ON_C_STACK
-	erts_free(ERTS_ALC_T_TEMP_TERM,local_heap);
-#endif
 	UnUseTmpHeap(ERL_SUB_BIN_SIZE,p);
 	return *tracer_pid == NIL ? 0 : return_flags;
 
@@ -1823,7 +1800,6 @@ erts_call_trace(Process* p, BeamInstr mfa[3], Binary *match_spec,
 #ifdef DEBUG
 	Eterm* limit;
 #endif
-
 	ASSERT(is_internal_pid(*tracer_pid));
 	
 	tracer = erts_pid2proc(p, ERTS_PROC_LOCK_MAIN,

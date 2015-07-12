@@ -1105,7 +1105,7 @@ io_list_vec_len(Eterm obj, int* vsize, Uint* csize,
     Uint p_v_size = 0;
     Uint p_c_size = 0;
     Uint p_in_clist = 0;
-    Uint total; /* Uint due to halfword emulator */
+    Uint total;
 
     goto L_jump_start;  /* avoid a push */
 
@@ -4091,10 +4091,10 @@ erts_port_control(Process* c_p,
     binp = NULL;
 
     if (is_binary(data) && binary_bitoffset(data) == 0) {
-	Eterm *ebinp = binary_val_rel(data, NULL);
+	Eterm *ebinp = binary_val(data);
 	ASSERT(!tmp_alloced);
 	if (*ebinp == HEADER_SUB_BIN)
-	    ebinp = binary_val_rel(((ErlSubBin *) ebinp)->orig, NULL);
+	    ebinp = binary_val(((ErlSubBin *) ebinp)->orig);
 	if (*ebinp != HEADER_PROC_BIN)
 	    copy = 1;
 	else {
@@ -5248,25 +5248,17 @@ driver_deliver_term(Eterm to, ErlDrvTermData* data, int len)
 	    break;
 	case ERL_DRV_INT:  /* signed int argument */
 	    ERTS_DDT_CHK_ENOUGH_ARGS(1);
-#if HALFWORD_HEAP
-	    erts_bld_sint64(NULL, &need, (Sint64)ptr[0]);
-#else
 	    /* check for bignum */
 	    if (!IS_SSMALL((Sint)ptr[0]))
 		need += BIG_UINT_HEAP_SIZE;  /* use small_to_big */
-#endif
 	    ptr++;
 	    depth++;
 	    break;
 	case ERL_DRV_UINT:  /* unsigned int argument */
 	    ERTS_DDT_CHK_ENOUGH_ARGS(1);
-#if HALFWORD_HEAP
-	    erts_bld_uint64(NULL, &need, (Uint64)ptr[0]);
-#else
 	    /* check for bignum */
 	    if (!IS_USMALL(0, (Uint)ptr[0]))
 		need += BIG_UINT_HEAP_SIZE;  /* use small_to_big */
-#endif
 	    ptr++;
 	    depth++;
 	    break;
@@ -5465,10 +5457,6 @@ driver_deliver_term(Eterm to, ErlDrvTermData* data, int len)
 	    break;
 
 	case ERL_DRV_INT:  /* signed int argument */
-#if HALFWORD_HEAP
-	    erts_reserve_heap(&factory, BIG_NEED_SIZE(2));
-	    mess = erts_bld_sint64(&factory.hp, NULL, (Sint64)ptr[0]);
-#else
 	    erts_reserve_heap(&factory, BIG_UINT_HEAP_SIZE);
 	    if (IS_SSMALL((Sint)ptr[0]))
 		mess = make_small((Sint)ptr[0]);
@@ -5476,15 +5464,10 @@ driver_deliver_term(Eterm to, ErlDrvTermData* data, int len)
 		mess = small_to_big((Sint)ptr[0], factory.hp);
 		factory.hp += BIG_UINT_HEAP_SIZE;
 	    }
-#endif
 	    ptr++;
 	    break;
 
 	case ERL_DRV_UINT:  /* unsigned int argument */
-#if HALFWORD_HEAP
-	    erts_reserve_heap(&factory, BIG_NEED_FOR_BITS(64));
-	    mess = erts_bld_uint64(&factory.hp, NULL, (Uint64)ptr[0]);
-#else
 	    erts_reserve_heap(&factory, BIG_UINT_HEAP_SIZE);
 	    if (IS_USMALL(0, (Uint)ptr[0]))
 		mess = make_small((Uint)ptr[0]);
@@ -5492,7 +5475,6 @@ driver_deliver_term(Eterm to, ErlDrvTermData* data, int len)
 		mess = uint_to_big((Uint)ptr[0], factory.hp);
 		factory.hp += BIG_UINT_HEAP_SIZE;
 	    }
-#endif
 	    ptr++;
 	    break;
 
@@ -6809,7 +6791,7 @@ int driver_monitor_process(ErlDrvPort drvport,
 {
     Port *prt;
     int ret;
-#if !HEAP_ON_C_STACK || (defined(ERTS_SMP) && defined(ERTS_ENABLE_LOCK_CHECK))
+#if defined(ERTS_SMP) && defined(ERTS_ENABLE_LOCK_CHECK)
     ErtsSchedulerData *sched = erts_get_scheduler_data();
 #endif
 
@@ -6820,16 +6802,6 @@ int driver_monitor_process(ErlDrvPort drvport,
     /* Now (in SMP) we should have either the port lock (if we have a scheduler) or the port data lock
        (if we're a driver thread) */
     ERTS_SMP_LC_ASSERT((sched != NULL || prt->port_data_lock));
-
-#if !HEAP_ON_C_STACK
-    if (!sched) {
-	/* Need a separate allocation for the ref :( */
-	Eterm *buf = erts_alloc(ERTS_ALC_T_TEMP_TERM,
-				sizeof(Eterm)*REF_THING_SIZE);
-	ret = do_driver_monitor_process(prt,buf,process,monitor);
-	erts_free(ERTS_ALC_T_TEMP_TERM,buf);
-    } else
-#endif
     {
 	DeclareTmpHeapNoproc(buf,REF_THING_SIZE);
 	UseTmpHeapNoproc(REF_THING_SIZE);
@@ -6882,7 +6854,7 @@ int driver_demonitor_process(ErlDrvPort drvport,
 {
     Port *prt;
     int ret;
-#if !HEAP_ON_C_STACK || (defined(ERTS_SMP) && defined(ERTS_ENABLE_LOCK_CHECK))
+#if defined(ERTS_SMP) && defined(ERTS_ENABLE_LOCK_CHECK)
     ErtsSchedulerData *sched = erts_get_scheduler_data();
 #endif
 
@@ -6893,15 +6865,6 @@ int driver_demonitor_process(ErlDrvPort drvport,
     /* Now we should have either the port lock (if we have a scheduler) or the port data lock
        (if we're a driver thread) */
     ERTS_SMP_LC_ASSERT((sched != NULL || prt->port_data_lock));
-#if !HEAP_ON_C_STACK
-    if (!sched) {
-	/* Need a separate allocation for the ref :( */
-	Eterm *buf = erts_alloc(ERTS_ALC_T_TEMP_TERM,
-				sizeof(Eterm)*REF_THING_SIZE);
-	ret = do_driver_demonitor_process(prt,buf,monitor);
-	erts_free(ERTS_ALC_T_TEMP_TERM,buf);
-    } else
-#endif
     {
 	DeclareTmpHeapNoproc(buf,REF_THING_SIZE);
 	UseTmpHeapNoproc(REF_THING_SIZE);
@@ -6937,7 +6900,7 @@ ErlDrvTermData driver_get_monitored_process(ErlDrvPort drvport,
 {
     Port *prt;
     ErlDrvTermData ret;
-#if !HEAP_ON_C_STACK || (defined(ERTS_SMP) && defined(ERTS_ENABLE_LOCK_CHECK))
+#if defined(ERTS_SMP) && defined(ERTS_ENABLE_LOCK_CHECK)
     ErtsSchedulerData *sched = erts_get_scheduler_data();
 #endif
 
@@ -6948,16 +6911,6 @@ ErlDrvTermData driver_get_monitored_process(ErlDrvPort drvport,
     /* Now we should have either the port lock (if we have a scheduler) or the port data lock
        (if we're a driver thread) */
     ERTS_SMP_LC_ASSERT((sched != NULL || prt->port_data_lock));
-
-#if !HEAP_ON_C_STACK
-    if (!sched) {
-	/* Need a separate allocation for the ref :( */
-	Eterm *buf = erts_alloc(ERTS_ALC_T_TEMP_TERM,
-				sizeof(Eterm)*REF_THING_SIZE);
-	ret = do_driver_get_monitored_process(prt,buf,monitor);
-	erts_free(ERTS_ALC_T_TEMP_TERM,buf);
-    } else
-#endif
     {
 	DeclareTmpHeapNoproc(buf,REF_THING_SIZE);
 	UseTmpHeapNoproc(REF_THING_SIZE);

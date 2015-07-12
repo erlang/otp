@@ -731,10 +731,6 @@ chk_normal_tab_struct_size() ->
 %       	  ?line ok
 %         end.
 
--define(DB_TREE_STACK_NEED,50). % The static stack for a tree, in halfword pointers are two internal words
-                                % so the stack gets twice as big
--define(DB_HASH_SIZEOF_EXTSEG,260). % The segment size in words, in halfword this will be twice as large.
-
 adjust_xmem([T1,T2,T3,T4], {A0,B0,C0,D0} = _Mem0) ->
     %% Adjust for 64-bit, smp, and os:
     %%   Table struct size may differ.
@@ -748,19 +744,7 @@ adjust_xmem([T1,T2,T3,T4], {A0,B0,C0,D0} = _Mem0) ->
 %          end,
 
     TabDiff = ?TAB_STRUCT_SZ,
-    Mem1 = {A0+TabDiff, B0+TabDiff, C0+TabDiff, D0+TabDiff},
-
-    case {erlang:system_info({wordsize,internal}),erlang:system_info({wordsize,external})} of
-	%% Halfword, corrections for regular pointers occupying two internal words.
-	{4,8} ->
-	    {A1,B1,C1,D1} = Mem1,
-	    {A1+4*ets:info(T1, size)+?DB_TREE_STACK_NEED,
-	     B1+3*ets:info(T2, size)+?DB_HASH_SIZEOF_EXTSEG,
-	     C1+3*ets:info(T3, size)+?DB_HASH_SIZEOF_EXTSEG,
-	     D1+3*ets:info(T4, size)+?DB_HASH_SIZEOF_EXTSEG};
-	_ ->
-	    Mem1
-    end.
+    {A0+TabDiff, B0+TabDiff, C0+TabDiff, D0+TabDiff}.
 
 t_whitebox(doc) ->
     ["Diverse whitebox testes"];

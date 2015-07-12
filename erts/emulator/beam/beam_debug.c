@@ -432,39 +432,33 @@ print_op(int to, void *to_arg, int op, int size, BeamInstr* addr)
     while (*sign) {
 	switch (*sign) {
 	case 'r':		/* x(0) */
-	    erts_print(to, to_arg, "x(0)");
+	    erts_print(to, to_arg, "r(0)");
 	    break;
 	case 'x':		/* x(N) */
-	    if (reg_index(ap[0]) == 0) {
-		erts_print(to, to_arg, "x[0]");
-	    } else {
-		erts_print(to, to_arg, "x(%d)", reg_index(ap[0]));
+	    {
+		Uint n = ap[0] / sizeof(Eterm);
+		erts_print(to, to_arg, "x(%d)", n);
+		ap++;
 	    }
-	    ap++;
 	    break;
 	case 'y':		/* y(N) */
-	    erts_print(to, to_arg, "y(%d)", reg_index(ap[0]) - CP_SIZE);
-	    ap++;
+	    {
+		Uint n = ap[0] / sizeof(Eterm) - CP_SIZE;
+		erts_print(to, to_arg, "y(%d)", n);
+		ap++;
+	    }
 	    break;
 	case 'n':		/* Nil */
 	    erts_print(to, to_arg, "[]");
 	    break;
 	case 's':		/* Any source (tagged constant or register) */
-	    tag = beam_reg_tag(*ap);
-	    if (tag == X_REG_DEF) {
-		if (reg_index(*ap) == 0) {
-		    erts_print(to, to_arg, "x[0]");
-		} else {
-		    erts_print(to, to_arg, "x(%d)", reg_index(*ap));
-		}
+	    tag = loader_tag(*ap);
+	    if (tag == LOADER_X_REG) {
+		erts_print(to, to_arg, "x(%d)", loader_x_reg_index(*ap));
 		ap++;
 		break;
-	    } else if (tag == Y_REG_DEF) {
-		erts_print(to, to_arg, "y(%d)", reg_index(*ap) - CP_SIZE);
-		ap++;
-		break;
-	    } else if (tag == R_REG_DEF) {
-		erts_print(to, to_arg, "x(0)");
+	    } else if (tag == LOADER_Y_REG) {
+		erts_print(to, to_arg, "y(%d)", loader_y_reg_index(*ap) - CP_SIZE);
 		ap++;
 		break;
 	    }
@@ -481,20 +475,12 @@ print_op(int to, void *to_arg, int op, int size, BeamInstr* addr)
 	    ap++;
 	    break;
 	case 'd':		/* Destination (x(0), x(N), y(N)) */
-	    switch (beam_reg_tag(*ap)) {
-	    case X_REG_DEF:
-		if (reg_index(*ap) == 0) {
-		    erts_print(to, to_arg, "x[0]");
-		} else {
-		    erts_print(to, to_arg, "x(%d)", reg_index(*ap));
-		}
-		break;
-	    case Y_REG_DEF:
-		erts_print(to, to_arg, "y(%d)", reg_index(*ap) - CP_SIZE);
-		break;
-	    case R_REG_DEF:
-		erts_print(to, to_arg, "x(0)");
-		break;
+	    if (*ap & 1) {
+		erts_print(to, to_arg, "y(%d)",
+			   *ap / sizeof(Eterm) - CP_SIZE);
+	    } else {
+		erts_print(to, to_arg, "x(%d)",
+			   *ap / sizeof(Eterm));
 	    }
 	    ap++;
 	    break;
@@ -561,7 +547,7 @@ print_op(int to, void *to_arg, int op, int size, BeamInstr* addr)
 	    ap++;
 	    break;
 	case 'l':		/* fr(N) */
-	    erts_print(to, to_arg, "fr(%d)", reg_index(ap[0]));
+	    erts_print(to, to_arg, "fr(%d)", loader_reg_index(ap[0]));
 	    ap++;
 	    break;
 	default:
@@ -580,7 +566,6 @@ print_op(int to, void *to_arg, int op, int size, BeamInstr* addr)
     unpacked = ap;
     ap = addr + size;
     switch (op) {
-    case op_i_select_val_lins_rfI:
     case op_i_select_val_lins_xfI:
     case op_i_select_val_lins_yfI:
 	{
@@ -600,7 +585,6 @@ print_op(int to, void *to_arg, int op, int size, BeamInstr* addr)
 	    }
 	}
 	break;
-    case op_i_select_val_bins_rfI:
     case op_i_select_val_bins_xfI:
     case op_i_select_val_bins_yfI:
 	{
@@ -614,7 +598,6 @@ print_op(int to, void *to_arg, int op, int size, BeamInstr* addr)
 	    }
 	}
 	break;
-    case op_i_select_tuple_arity_rfI:
     case op_i_select_tuple_arity_xfI:
     case op_i_select_tuple_arity_yfI:
         {
@@ -639,7 +622,6 @@ print_op(int to, void *to_arg, int op, int size, BeamInstr* addr)
             }
         }
         break;
-    case op_i_jump_on_val_rfII:
     case op_i_jump_on_val_xfII:
     case op_i_jump_on_val_yfII:
 	{
@@ -651,7 +633,6 @@ print_op(int to, void *to_arg, int op, int size, BeamInstr* addr)
 	    }
 	}
 	break;
-    case op_i_jump_on_val_zero_rfI:
     case op_i_jump_on_val_zero_xfI:
     case op_i_jump_on_val_zero_yfI:
 	{
@@ -663,7 +644,6 @@ print_op(int to, void *to_arg, int op, int size, BeamInstr* addr)
 	    }
 	}
 	break;
-    case op_i_put_tuple_rI:
     case op_i_put_tuple_xI:
     case op_i_put_tuple_yI:
     case op_new_map_dII:
@@ -673,20 +653,16 @@ print_op(int to, void *to_arg, int op, int size, BeamInstr* addr)
 	    int n = unpacked[-1];
 
 	    while (n > 0) {
-		if (!is_header(ap[0])) {
+		switch (loader_tag(ap[0])) {
+		case LOADER_X_REG:
+		    erts_print(to, to_arg, " x(%d)", loader_x_reg_index(ap[0]));
+		    break;
+		case LOADER_Y_REG:
+		    erts_print(to, to_arg, " x(%d)", loader_y_reg_index(ap[0]));
+		    break;
+		default:
 		    erts_print(to, to_arg, " %T", (Eterm) ap[0]);
-		} else {
-		    switch ((ap[0] >> 2) & 0x03) {
-		    case R_REG_DEF:
-			erts_print(to, to_arg, " x(0)");
-			break;
-		    case X_REG_DEF:
-			erts_print(to, to_arg, " x(%d)", ap[0] >> 4);
-			break;
-		    case Y_REG_DEF:
-			erts_print(to, to_arg, " y(%d)", ap[0] >> 4);
-			break;
-		    }
+		    break;
 		}
 		ap++, size++, n--;
 	    }
@@ -699,18 +675,16 @@ print_op(int to, void *to_arg, int op, int size, BeamInstr* addr)
 	    while (n > 0) {
 		if (n % 3 == 1) {
 		    erts_print(to, to_arg, " %X", ap[0]);
-		} else if (!is_header(ap[0])) {
-		    erts_print(to, to_arg, " %T", (Eterm) ap[0]);
 		} else {
-		    switch ((ap[0] >> 2) & 0x03) {
-		    case R_REG_DEF:
-			erts_print(to, to_arg, " x(0)");
+		    switch (loader_tag(ap[0])) {
+		    case LOADER_X_REG:
+			erts_print(to, to_arg, " x(%d)", loader_x_reg_index(ap[0]));
 			break;
-		    case X_REG_DEF:
-			erts_print(to, to_arg, " x(%d)", ap[0] >> 4);
+		    case LOADER_Y_REG:
+			erts_print(to, to_arg, " y(%d)", loader_y_reg_index(ap[0]));
 			break;
-		    case Y_REG_DEF:
-			erts_print(to, to_arg, " y(%d)", ap[0] >> 4);
+		    default:
+			erts_print(to, to_arg, " %T", (Eterm) ap[0]);
 			break;
 		    }
 		}

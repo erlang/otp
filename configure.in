@@ -208,10 +208,6 @@ AS_HELP_STRING([--disable-threads], [disable async thread support]))
 AC_ARG_ENABLE(dirty-schedulers,
 AS_HELP_STRING([--enable-dirty-schedulers], [enable dirty scheduler support]))
 
-AC_ARG_ENABLE(halfword-emulator,
-AS_HELP_STRING([--enable-halfword-emulator],
-               [enable halfword emulator (only for 64bit builds). Note: Halfword emulator is marked as deprecated and scheduled for removal in future major release.]))
-
 AC_ARG_ENABLE(smp-support,
 AS_HELP_STRING([--enable-smp-support], [enable smp support])
 AS_HELP_STRING([--disable-smp-support], [disable smp support]))
