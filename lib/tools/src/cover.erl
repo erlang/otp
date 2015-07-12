@@ -362,7 +362,7 @@ analyze(Module, Analysis, Level) -> analyse(Module, Analysis, Level).
 %%   Module = atom()
 %%   OutFile = string()
 %%   Options = [Option]
-%%     Option = html
+%%     Option = html | line_numbers
 %%   Error = {not_cover_compiled,Module} | no_source_code_found |
 %%           {file,File,Reason}
 %%     File = string()
@@ -2111,15 +2111,17 @@ do_parallel_analysis_to_file(Module, OutFile, Opts, Loaded, From, State) ->
 	ErlFile ->
 	    analyse_info(Module,State#main_state.imported),
 	    HTML = lists:member(html,Opts),
+            LineNumbers = lists:member(line_numbers,Opts),
 	    R = do_analyse_to_file(Module,OutFile,
-				   ErlFile,HTML),
+				   ErlFile,HTML,
+				   LineNumbers),
 	    reply(From, R)
     end.
 
 %% do_analyse_to_file(Module,OutFile,ErlFile) -> {ok,OutFile} | {error,Error}
 %%   Module = atom()
 %%   OutFile = ErlFile = string()
-do_analyse_to_file(Module, OutFile, ErlFile, HTML) ->
+do_analyse_to_file(Module, OutFile, ErlFile, HTML, LineNumbers) ->
     case file:open(ErlFile, [read]) of
 	{ok, InFd} ->
 	    case file:open(OutFile, [write]) of
@@ -2160,7 +2162,7 @@ do_analyse_to_file(Module, OutFile, ErlFile, HTML) ->
                                 "**************************************"
                                 "\n\n"]),
 
-		    print_lines(Module, InFd, OutFd, 1, HTML),
+		    print_lines(Module, InFd, OutFd, 1, HTML, LineNumbers),
 		    
 		    if HTML -> io:format(OutFd,"</pre>\n</body>\n</html>\n",[]);
 		       true -> ok
@@ -2179,26 +2181,30 @@ do_analyse_to_file(Module, OutFile, ErlFile, HTML) ->
 	    {error, {file, ErlFile, Reason}}
     end.
 
-format_line_number(L, HTML)->
+format_line_number(L, HTML, LineNumbers)->
     if
-        HTML ->
-            io_lib:format("<a href=\"#L~B\" name=\"L~B\">~5B</a>:",[L,L,L]);
-        true ->
-            io_lib:format("~5B:",[L])
+        LineNumbers ->
+            if
+                HTML ->
+                    io_lib:format("<a href=\"#L~B\" name=\"L~B\">~5B</a>:",[L,L,L]);
+                true ->
+                    io_lib:format("~5B:",[L])
+            end;
+        true -> ""
     end.
 
-print_lines(Module, InFd, OutFd, L, HTML) ->
+print_lines(Module, InFd, OutFd, L, HTML, PrintLines) ->
     case io:get_line(InFd, '') of
 	eof ->
 	    ignore;
  	"%"++_=Line ->				%Comment line - not executed.
-        io:put_chars(OutFd, format_line_number(L,HTML)),
+        io:put_chars(OutFd, format_line_number(L,HTML,PrintLines)),
  	    io:put_chars(OutFd, [tab(),escape_lt_and_gt(Line, HTML)]),
-	    print_lines(Module, InFd, OutFd, L+1, HTML);
+	    print_lines(Module, InFd, OutFd, L+1, HTML, PrintLines);
 	RawLine ->
 	    Line = escape_lt_and_gt(RawLine,HTML),
 	    Pattern = {#bump{module=Module,line=L},'$1'},
-	    io:put_chars(OutFd, format_line_number(L,HTML)),
+	    io:put_chars(OutFd, format_line_number(L,HTML,PrintLines)),
 	    case ets:match(?COLLECTION_TABLE, Pattern) of
 		[] ->
 		    io:put_chars(OutFd, [tab(),Line]);
@@ -2223,7 +2229,7 @@ print_lines(Module, InFd, OutFd, L, HTML) ->
 			    io:put_chars(OutFd, [Str,fill3(),Line])
 		    end
 	    end,
-	    print_lines(Module, InFd, OutFd, L+1, HTML)
+	    print_lines(Module, InFd, OutFd, L+1, HTML, PrintLines)
     end.
 
 tab() ->  "        |  ".

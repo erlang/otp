@@ -293,7 +293,7 @@
         <v>Module = atom()</v>
         <v>OutFile = string()</v>
         <v>Options = [Option]</v>
-        <v>Option = html</v>
+        <v>Option = html|line_numbers</v>
         <v>Error = {not_cover_compiled,Module} | {file,File,Reason} | no_source_code_found | not_main_node</v>
         <v>&nbsp;File = string()</v>
         <v>&nbsp;Reason = term()</v>
@@ -305,6 +305,8 @@
         <p>The output file <c>OutFile</c> defaults to
           <c>Module.COVER.out</c>, or <c>Module.COVER.html</c> if the
           option <c>html</c> was used.</p>
+        <p>The output file contains line numbers if thw option 
+          <c>line_numbers</c> was used.</p>
         <p>If <c>Module</c> is not Cover compiled, the function returns
           <c>{error,{not_cover_compiled,Module}}</c>.</p>
         <p>If the source file and/or the output file cannot be opened using
@@ -338,7 +340,7 @@
         <v>Module = atom()</v>
         <v>OutFile = string()</v>
         <v>Options = [Option]</v>
-        <v>Option = html</v>
+        <v>Option = html|line_numbers</v>
         <v>Error = {not_cover_compiled,Module} | {file,File,Reason} | no_source_code_found | not_main_node</v>
         <v>&nbsp;File = string()</v>
         <v>&nbsp;Reason = term()</v>
