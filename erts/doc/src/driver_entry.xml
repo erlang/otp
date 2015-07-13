@@ -437,7 +437,14 @@ typedef struct erl_drv_entry {
 	  <seealso marker="erl_driver#erl_drv_busy_msgq_limits">erl_drv_busy_msgq_limits()</seealso>
 	  function.
           </item>
-        </taglist> 
+          <tag><c>ERL_DRV_FLAG_USE_INIT_ACK</c></tag>
+          <item>When this flag is given the linked-in driver has to manually
+          acknowledge that the port has been successfully started using 
+	  <seealso marker="erl_driver#erl_drv_init_ack">erl_drv_init_ack()</seealso>.
+          This allows the implementor to make the erlang:open_port exit with
+          badarg after some initial asynchronous initialization has been done.
+          </item>
+        </taglist>
       </item>
       <tag>void *handle2</tag>
       <item>

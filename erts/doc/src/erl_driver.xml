@@ -2131,6 +2131,34 @@ ERL_DRV_MAP          int sz
     </func>
 
     <func>
+      <name><ret>void</ret><nametext>erl_drv_init_ack(ErlDrvPort port, ErlDrvData res)</nametext></name>
+      <fsummary>Acknowledge the start of the port</fsummary>
+      <desc>
+        <marker id="erl_drv_init_ack"></marker>
+        <p>Arguments:</p>
+        <taglist>
+          <tag><c>port</c></tag>
+          <item>The port handle of the port (driver instance) creating
+           doing the acknowledgment.
+	  </item>
+          <tag><c>res</c></tag>
+          <item>The result of the port initialization. This can be the same values
+          as the return value of <seealso marker="driver_entry#start">start</seealso>,
+          i.e any of the error codes or the ErlDrvData that is to be used for this
+          port.
+          </item>
+        </taglist>
+        <p>
+          When this function is called the initiating erlang:open_port call is
+          returned as if the <seealso marker="driver_entry#start">start</seealso>
+          function had just been called. It can only be used when the
+          <seealso marker="driver_entry#driver_flags">ERL_DRV_FLAG_USE_INIT_ACK</seealso>
+          flag has been set on the linked-in driver.
+        </p>
+      </desc>
+    </func>
+
+    <func>
       <name><ret>int</ret><nametext>erl_drv_thread_create(char *name,
 				      ErlDrvTid *tid,
 				      void * (*func)(void *),

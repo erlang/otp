@@ -187,6 +187,11 @@ struct _erl_drv_port {
 
     ErtsPrtSD *psd;		 /* Port specific data */
     int reds; /* Only used while executing driver callbacks */
+
+    struct {
+        Eterm to;
+        Uint32 ref[ERTS_MAX_REF_NUMBERS];
+    } *async_open_port;         /* Reference used with async open port */
 };
 
 

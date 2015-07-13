@@ -163,6 +163,7 @@ typedef struct {
 #define ERL_DRV_FLAG_USE_PORT_LOCKING	(1 << 0)
 #define ERL_DRV_FLAG_SOFT_BUSY		(1 << 1)
 #define ERL_DRV_FLAG_NO_BUSY_MSGQ	(1 << 2)
+#define ERL_DRV_FLAG_USE_INIT_ACK	(1 << 3)
 
 /*
  * Integer types
@@ -689,6 +690,9 @@ EXTERN char *driver_dl_error(void);
 /* environment */
 EXTERN int erl_drv_putenv(char *key, char *value);
 EXTERN int erl_drv_getenv(char *key, char *value, size_t *value_size);
+
+/* spawn start init ack */
+EXTERN void erl_drv_init_ack(ErlDrvPort ix, ErlDrvData res);
 
 #endif /* !ERL_DRIVER_TYPES_ONLY */
 
