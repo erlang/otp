@@ -84,6 +84,7 @@ static void deliver_result(Eterm sender, Eterm pid, Eterm res);
 static int init_driver(erts_driver_t *, ErlDrvEntry *, DE_Handle *);
 static void terminate_port(Port *p);
 static void pdl_init(void);
+static int driver_failure_term(ErlDrvPort ix, Eterm term, int eof);
 #ifdef ERTS_SMP
 static void driver_monitor_lock_pdl(Port *p);
 static void driver_monitor_unlock_pdl(Port *p);
@@ -383,6 +384,7 @@ static Port *create_port(char *name,
     ERTS_PTMR_INIT(prt);
     erts_port_task_handle_init(&prt->timeout_task);
     prt->psd = NULL;
+    prt->async_open_port = NULL;
     prt->drv_data = (SWord) 0;
     prt->os_pid = -1;
 
@@ -2730,6 +2732,61 @@ erts_port_link(Process *c_p, Port *prt, Eterm to, Eterm *refp)
 					  0,
 					  NULL,
 					  port_sig_link);
+}
+
+static void
+init_ack_send_reply(Port *port, Eterm resp)
+{
+
+    if (!is_internal_port(resp)) {
+        Process *rp = erts_proc_lookup_raw(port->async_open_port->to);
+        erts_smp_proc_lock(rp, ERTS_PROC_LOCK_LINK);
+        erts_remove_link(&ERTS_P_LINKS(port), port->async_open_port->to);
+        erts_remove_link(&ERTS_P_LINKS(rp), port->common.id);
+        erts_smp_proc_unlock(rp, ERTS_PROC_LOCK_LINK);
+    }
+    port_sched_op_reply(port->async_open_port->to,
+                        port->async_open_port->ref,
+                        resp);
+
+    erts_free(ERTS_ALC_T_PRTSD, port->async_open_port);
+    port->async_open_port = NULL;
+}
+
+void
+erl_drv_init_ack(ErlDrvPort ix, ErlDrvData res) {
+    Port *port = erts_drvport2port(ix);
+    SWord err_type = (SWord)res;
+    Eterm resp;
+
+    if (port == ERTS_INVALID_ERL_DRV_PORT && port->async_open_port)
+        return;
+
+    if (port->async_open_port) {
+        switch(err_type) {
+        case -3:
+            resp = am_badarg;
+            break;
+        case -2: {
+            char *str = erl_errno_id(errno);
+            resp = erts_atom_put((byte *) str, strlen(str),
+                                 ERTS_ATOM_ENC_LATIN1, 1);
+            break;
+        }
+        case -1:
+            resp = am_einval;
+            break;
+        default:
+            resp = port->common.id;
+            break;
+        }
+
+        init_ack_send_reply(port, resp);
+
+        if (err_type == -1 || err_type == -2 || err_type == -3)
+            driver_failure_term(ix, am_normal, 0);
+        port->drv_data = err_type;
+    }
 }
 
 void erts_init_io(int port_tab_size,
@@ -6972,6 +7029,9 @@ driver_failure_term(ErlDrvPort ix, Eterm term, int eof)
     if (prt == ERTS_INVALID_ERL_DRV_PORT)
 	return -1;
     ERTS_SMP_LC_ASSERT(erts_lc_is_port_locked(prt));
+
+    if (prt->async_open_port)
+        init_ack_send_reply(prt, prt->common.id);
     if (eof)
 	flush_linebuf_messages(prt, state);
     if (state & ERTS_PORT_SFLG_CLOSING) {
