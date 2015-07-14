@@ -694,6 +694,9 @@ EXTERN int erl_drv_getenv(char *key, char *value, size_t *value_size);
 /* spawn start init ack */
 EXTERN void erl_drv_init_ack(ErlDrvPort ix, ErlDrvData res);
 
+/* set the pid seen in port_info */
+EXTERN void erl_drv_set_os_pid(ErlDrvPort ix, ErlDrvSInt pid);
+
 #endif /* !ERL_DRIVER_TYPES_ONLY */
 
 #ifdef WIN32_DYNAMIC_ERL_DRIVER
