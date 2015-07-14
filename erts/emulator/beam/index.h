@@ -30,6 +30,10 @@
 #include "hash.h"
 #endif
 
+#ifndef ERL_ALLOC_H__
+#include "erl_alloc.h"
+#endif
+
 typedef struct index_slot 
 {
     HashBucket bucket;

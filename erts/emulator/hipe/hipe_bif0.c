@@ -507,6 +507,9 @@ static void init_const_term_table(void)
     f.cmp = (HCMP_FUN) const_term_cmp;
     f.alloc = (HALLOC_FUN) const_term_alloc;
     f.free = (HFREE_FUN) NULL;
+    f.meta_alloc = (HMALLOC_FUN) erts_alloc;
+    f.meta_free = (HMFREE_FUN) erts_free;
+    f.meta_print = (HMPRINT_FUN) erts_print;
     hash_init(ERTS_ALC_T_HIPE, &const_term_table, "const_term_table", 97, f);
 }
 
@@ -715,6 +718,9 @@ static void init_nbif_table(void)
     f.cmp = (HCMP_FUN) nbif_cmp;
     f.alloc = (HALLOC_FUN) nbif_alloc;
     f.free = NULL;
+    f.meta_alloc = (HMALLOC_FUN) erts_alloc;
+    f.meta_free = (HMFREE_FUN) erts_free;
+    f.meta_print = (HMPRINT_FUN) erts_print;
 
     hash_init(ERTS_ALC_T_NBIF_TABLE, &nbif_table, "nbif_table", 500, f);
 
@@ -808,6 +814,9 @@ static void init_primop_table(void)
     f.cmp = (HCMP_FUN) primop_cmp;
     f.alloc = (HALLOC_FUN) primop_alloc;
     f.free = NULL;
+    f.meta_alloc = (HMALLOC_FUN) erts_alloc;
+    f.meta_free = (HMFREE_FUN) erts_free;
+    f.meta_print = (HMPRINT_FUN) erts_print;
 
     hash_init(ERTS_ALC_T_HIPE, &primop_table, "primop_table", 50, f);
 
@@ -1826,6 +1835,9 @@ static void init_modinfo_table(void)
     f.cmp = (HCMP_FUN) modinfo_cmp;
     f.alloc = (HALLOC_FUN) modinfo_alloc;
     f.free = (HFREE_FUN) NULL;
+    f.meta_alloc = (HMALLOC_FUN) erts_alloc;
+    f.meta_free = (HMFREE_FUN) erts_free;
+    f.meta_print = (HMPRINT_FUN) erts_print;
     hash_init(ERTS_ALC_T_HIPE, &modinfo_table, "modinfo_table", 11, f);
 }
 

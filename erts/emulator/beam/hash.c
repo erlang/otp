@@ -98,11 +98,11 @@ void hash_info(int to, void *arg, Hash* h)
 
     hash_get_info(&hi, h);
 
-    erts_print(to, arg, "=hash_table:%s\n", hi.name);
-    erts_print(to, arg, "size: %d\n",       hi.size);
-    erts_print(to, arg, "used: %d\n",       hi.used);
-    erts_print(to, arg, "objs: %d\n",       hi.objs);
-    erts_print(to, arg, "depth: %d\n",      hi.depth);
+    h->fun.meta_print(to, arg, "=hash_table:%s\n", hi.name);
+    h->fun.meta_print(to, arg, "size: %d\n",       hi.size);
+    h->fun.meta_print(to, arg, "used: %d\n",       hi.used);
+    h->fun.meta_print(to, arg, "objs: %d\n",       hi.objs);
+    h->fun.meta_print(to, arg, "depth: %d\n",      hi.depth);
 }
 
 
@@ -123,22 +123,22 @@ hash_table_sz(Hash *h)
 ** init a pre allocated or static hash structure
 ** and allocate buckets.
 */
-Hash* hash_init(ErtsAlcType_t type, Hash* h, char* name, int size, HashFunctions fun)
+Hash* hash_init(int type, Hash* h, char* name, int size, HashFunctions fun)
 {
     int sz;
     int ix = 0;
 
-    h->type = type;
+    h->meta_alloc_type = type;
 
     while (h_size_table[ix] != -1 && h_size_table[ix] < size)
 	ix++;
     if (h_size_table[ix] == -1)
-	erl_exit(1, "panic: too large hash table size (%d)\n", size);
+	return NULL;
 
     size = h_size_table[ix];
     sz = size*sizeof(HashBucket*);
 
-    h->bucket = (HashBucket**) erts_alloc(h->type, sz);
+    h->bucket = (HashBucket**) fun.meta_alloc(h->meta_alloc_type, sz);
 
     sys_memzero(h->bucket, sz);
     h->is_allocated = 0;
@@ -155,11 +155,11 @@ Hash* hash_init(ErtsAlcType_t type, Hash* h, char* name, int size, HashFunctions
 /*
 ** Create a new hash table
 */
-Hash* hash_new(ErtsAlcType_t type, char* name, int size, HashFunctions fun)
+Hash* hash_new(int type, char* name, int size, HashFunctions fun)
 {
     Hash* h;
 
-    h = erts_alloc(type, sizeof(Hash));
+    h = fun.meta_alloc(type, sizeof(Hash));
 
     h = hash_init(type, h, name, size, fun);
     h->is_allocated =  1;
@@ -183,9 +183,9 @@ void hash_delete(Hash* h)
 	    b = b_next;
 	}
     }
-    erts_free(h->type, h->bucket);
+    h->fun.meta_free(h->meta_alloc_type, h->bucket);
     if (h->is_allocated)
-	erts_free(h->type, (void*) h);
+	h->fun.meta_free(h->meta_alloc_type, (void*) h);
 }
 
 /*
@@ -213,7 +213,7 @@ static void rehash(Hash* h, int grow)
     h->size80percent = (4*h->size)/5;
     sz = h->size*sizeof(HashBucket*);
 
-    new_bucket = (HashBucket **) erts_alloc(h->type, sz);
+    new_bucket = (HashBucket **) h->fun.meta_alloc(h->meta_alloc_type, sz);
     sys_memzero(new_bucket, sz);
 
     h->used = 0;
@@ -230,7 +230,7 @@ static void rehash(Hash* h, int grow)
 	    b = b_next;
 	}
     }
-    erts_free(h->type, (void *) h->bucket);
+    h->fun.meta_free(h->meta_alloc_type, (void *) h->bucket);
     h->bucket = new_bucket;
 }
 

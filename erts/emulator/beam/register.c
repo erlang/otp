@@ -151,6 +151,9 @@ void init_register_table(void)
     f.cmp  = (HCMP_FUN) reg_cmp;
     f.alloc = (HALLOC_FUN) reg_alloc;
     f.free = (HFREE_FUN) reg_free;
+    f.meta_alloc = (HMALLOC_FUN) erts_alloc;
+    f.meta_free = (HMFREE_FUN) erts_free;
+    f.meta_print = (HMPRINT_FUN) erts_print;
 
     hash_init(ERTS_ALC_T_REG_TABLE, &process_reg, "process_reg",
 	      PREG_HASH_SIZE, f);

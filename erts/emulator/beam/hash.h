@@ -29,14 +29,17 @@
 #include "sys.h"
 #endif
 
-#include "erl_alloc.h"
-
 typedef unsigned long HashValue;
+typedef struct hash Hash;
 
 typedef int (*HCMP_FUN)(void*, void*);
 typedef HashValue (*H_FUN)(void*);
 typedef void* (*HALLOC_FUN)(void*);
 typedef void (*HFREE_FUN)(void*);
+/* Meta functions */
+typedef void* (*HMALLOC_FUN)(int,size_t);
+typedef void (*HMFREE_FUN)(int,void*);
+typedef int (*HMPRINT_FUN)(int,void*,char*, ...);
 
 /*
 ** This bucket must be placed in top of 
@@ -55,6 +58,9 @@ typedef struct hash_functions
     HCMP_FUN cmp;
     HALLOC_FUN alloc;
     HFREE_FUN free;
+    HMALLOC_FUN meta_alloc;
+    HMFREE_FUN meta_free;
+    HMPRINT_FUN meta_print;
 } HashFunctions;
 
 typedef struct {
@@ -65,11 +71,11 @@ typedef struct {
   int   depth;
 } HashInfo;
 
-typedef struct hash
+struct hash
 {
     HashFunctions fun;   /* Function block */
     int is_allocated;    /* 0 iff hash structure is on stack or is static */
-    ErtsAlcType_t type;
+    int meta_alloc_type; /* argument to pass to meta_alloc and meta_free */
     char* name;          /* Table name (static string, for debugging) */
     int size;		 /* Number of slots */
     int size20percent;   /* 20 percent of number of slots */
@@ -77,10 +83,10 @@ typedef struct hash
     int ix;              /* Size index in size table */
     int used;		 /* Number of slots used */
     HashBucket** bucket; /* Vector of bucket pointers (objects) */
-} Hash;
+};
 
-Hash* hash_new(ErtsAlcType_t, char*, int, HashFunctions);
-Hash* hash_init(ErtsAlcType_t, Hash*, char*, int, HashFunctions);
+Hash* hash_new(int, char*, int, HashFunctions);
+Hash* hash_init(int, Hash*, char*, int, HashFunctions);
 
 void  hash_delete(Hash*);
 void  hash_get_info(HashInfo*, Hash*);
