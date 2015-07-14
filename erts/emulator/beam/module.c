@@ -103,6 +103,9 @@ void init_module_table(void)
     f.cmp  = (HCMP_FUN) module_cmp;
     f.alloc = (HALLOC_FUN) module_alloc;
     f.free = (HFREE_FUN) module_free;
+    f.meta_alloc = (HMALLOC_FUN) erts_alloc;
+    f.meta_free = (HMFREE_FUN) erts_free;
+    f.meta_print = (HMPRINT_FUN) erts_print;
 
     for (i = 0; i < ERTS_NUM_CODE_IX; i++) {
 	erts_index_init(ERTS_ALC_T_MODULE_TABLE, &module_tables[i], "module_code",
