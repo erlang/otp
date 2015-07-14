@@ -143,7 +143,7 @@ typedef struct ErtsSysBlocking_ {
 
 
 /* This data is shared by these drivers - initialized by spawn_init() */
-static struct driver_data {
+typedef struct driver_data {
     ErlDrvPort port_num;
     int ofd, packet_bytes;
     ErtsSysReportExit *report_exit;
@@ -152,7 +152,9 @@ static struct driver_data {
     int status;
     int terminating;
     ErtsSysBlocking *blocking;
-} *driver_data;			/* indexed by fd */
+} ErtsSysDriverData;
+
+static ErtsSysDriverData *driver_data;			/* indexed by fd */
 
 static ErtsSysReportExit *report_exit_list;
 #if CHLDWTHR && !defined(ERTS_SMP)
@@ -257,14 +259,16 @@ static volatile int children_died;
 #endif
 
 
-static struct fd_data {
+typedef struct ErtsSysFdData {
     char  pbuf[4];   /* hold partial packet bytes */
     int   psz;       /* size of pbuf */
     char  *buf;
     char  *cpos;
     int   sz;
     int   remain;  /* for input on fd */
-} *fd_data;			/* indexed by fd */
+} ErtsSysFdData;
+
+static ErtsSysFdData *fd_data;			/* indexed by fd */
 
 /* static FUNCTION(int, write_fill, (int, char*, int)); unused? */
 static void note_child_death(int, int);
@@ -1233,7 +1237,7 @@ static RETSIGTYPE onchld(int signum)
 #endif
 }
 
-static int set_blocking_data(struct driver_data *dd) {
+static int set_blocking_data(ErtsSysDriverData *dd) {
 
     dd->blocking = erts_alloc(ERTS_ALC_T_SYS_BLOCKING, sizeof(ErtsSysBlocking));
 
@@ -1329,10 +1333,10 @@ static int spawn_init()
 #endif
 
    sys_signal(SIGPIPE, SIG_IGN); /* Ignore - we'll handle the write failure */
-   driver_data = (struct driver_data *)
-       erts_alloc(ERTS_ALC_T_DRV_TAB, max_files * sizeof(struct driver_data));
+   driver_data = (ErtsSysDriverData *)
+       erts_alloc(ERTS_ALC_T_DRV_TAB, max_files * sizeof(ErtsSysDriverData));
    erts_smp_atomic_add_nob(&sys_misc_mem_sz,
-			   max_files * sizeof(struct driver_data));
+			   max_files * sizeof(ErtsSysDriverData));
 
    for (i = 0; i < max_files; i++)
       driver_data[i].pid = -1;
@@ -2523,7 +2527,7 @@ static void
 fd_async(void *async_data)
 {
     int res;
-    struct driver_data *dd = (struct driver_data*)async_data;
+    ErtsSysDriverData *dd = (ErtsSysDriverData*)async_data;
     SysIOVec      *iov0;
     SysIOVec      *iov;
     int            iovlen;
@@ -2556,7 +2560,7 @@ fd_async(void *async_data)
 
 void fd_ready_async(ErlDrvData drv_data,
                     ErlDrvThreadData thread_data) {
-    struct driver_data *dd = (struct driver_data *)thread_data;
+    ErtsSysDriverData *dd = (ErtsSysDriverData *)thread_data;
     ErlDrvPort port_num = dd->port_num;
 
     ASSERT(dd->blocking);
@@ -2738,10 +2742,10 @@ erts_sys_unsetenv(char *key)
 void
 sys_init_io(void)
 {
-    fd_data = (struct fd_data *)
-	erts_alloc(ERTS_ALC_T_FD_TAB, max_files * sizeof(struct fd_data));
+    fd_data = (ErtsSysFdData *)
+	erts_alloc(ERTS_ALC_T_FD_TAB, max_files * sizeof(ErtsSysFdData));
     erts_smp_atomic_add_nob(&sys_misc_mem_sz,
-			    max_files * sizeof(struct fd_data));
+			    max_files * sizeof(ErtsSysFdData));
 }
 
 #if (0) /* unused? */
