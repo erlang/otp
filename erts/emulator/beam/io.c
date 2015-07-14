@@ -2789,6 +2789,17 @@ erl_drv_init_ack(ErlDrvPort ix, ErlDrvData res) {
     }
 }
 
+void
+erl_drv_set_os_pid(ErlDrvPort ix, ErlDrvSInt pid) {
+    Port *port = erts_drvport2port(ix);
+
+    if (port == ERTS_INVALID_ERL_DRV_PORT)
+        return;
+
+    port->os_pid = (SWord)pid;
+
+}
+
 void erts_init_io(int port_tab_size,
 		  int port_tab_size_ignore_files,
 		  int legacy_port_tab)

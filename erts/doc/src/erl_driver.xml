@@ -2159,6 +2159,25 @@ ERL_DRV_MAP          int sz
     </func>
 
     <func>
+      <name><ret>void</ret><nametext>erl_drv_set_os_pid(ErlDrvPort port, ErlDrvSInt pid)</nametext></name>
+      <fsummary>Set the os_pid for the port</fsummary>
+      <desc>
+        <marker id="erl_drv_set_os_pid"></marker>
+        <p>Arguments:</p>
+        <taglist>
+          <tag><c>port</c></tag>
+          <item>The port handle of the port (driver instance) to set the pid on.
+	  </item>
+          <tag><c>pid</c></tag>
+          <item>The pid to set.</item>
+        </taglist>
+        <p>
+          Set the os_pid seen when doing erlang:port_info/2 on this port.
+        </p>
+      </desc>
+    </func>
+
+    <func>
       <name><ret>int</ret><nametext>erl_drv_thread_create(char *name,
 				      ErlDrvTid *tid,
 				      void * (*func)(void *),
