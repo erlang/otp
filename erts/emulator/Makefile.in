@@ -23,10 +23,6 @@ include ../vsn.mk
 include $(ERL_TOP)/make/$(TARGET)/otp.mk
 -include $(TARGET)/gen_git_version.mk
 
-ifeq ($(findstring ose,$(TARGET)),ose)
-include $(ERL_TOP)/make/$(TARGET)/ose_lm.mk
-endif
-
 ENABLE_ALLOC_TYPE_VARS = @ENABLE_ALLOC_TYPE_VARS@
 HIPE_ENABLED=@HIPE_ENABLED@
 DTRACE_ENABLED=@DTRACE_ENABLED@
@@ -245,9 +241,7 @@ HCC     = @HCC@
 LD      = @LD@
 DEXPORT = @DEXPORT@
 RANLIB  = @RANLIB@
-ifneq ($(findstring ose,$(TARGET)),ose)
 STRIP   = strip
-endif
 PERL    = @PERL@
 RM	= @RM@
 MKDIR	= @MKDIR@
@@ -684,14 +678,6 @@ $(OBJDIR)/%.o: $(TTF_DIR)/%.c
 $(OBJDIR)/%.o: sys/$(ERLANG_OSTYPE)/%.c
 	$(V_CC) $(CFLAGS) $(INCLUDES) -c $< -o $@
 
-ifeq ($(findstring ose,$(TARGET)),ose)
-$(OBJDIR)/ose_confd.o: $(OSE_CONFD)
-	$(V_CC) $(CFLAGS) $(INCLUDES) -c $< -o $@
-
-$(OBJDIR)/crt0_lm.o: $(CRT0_LM)
-	$(V_CC) $(CFLAGS) $(INCLUDES) -c $< -o $@
-endif
-
 $(OBJDIR)/%.o: sys/common/%.c
 	$(V_CC) $(subst -O2, $(GEN_OPT_FLGS), $(CFLAGS)) $(INCLUDES) -c $< -o $@
 
@@ -810,29 +796,6 @@ OS_OBJS = \
 	$(OBJDIR)/dosmap.o
 
 else
-ifeq ($(findstring ose,$(TARGET)),ose)
-OS_OBJS = \
-	$(OBJDIR)/sys.o \
-	$(OBJDIR)/driver_tab.o \
-	$(OBJDIR)/ose_efile.o \
-	$(OBJDIR)/gzio.o \
-	$(OBJDIR)/elib_memmove.o
-
-OS_OBJS += $(OBJDIR)/ose_confd.o \
-	$(OBJDIR)/crt0_lm.o
-
-OS_OBJS += $(OBJDIR)/sys_float.o \
-					 $(OBJDIR)/sys_time.o
-
-DRV_OBJS = \
-	$(OBJDIR)/efile_drv.o \
-	$(OBJDIR)/ose_signal_drv.o \
-	$(OBJDIR)/inet_drv.o \
-	$(OBJDIR)/zlib_drv.o \
-	$(OBJDIR)/ram_file_drv.o \
-	$(OBJDIR)/ttsl_drv.o
-
-else
 OS_OBJS = \
 	$(OBJDIR)/sys.o \
 	$(OBJDIR)/driver_tab.o \
@@ -848,7 +811,6 @@ DRV_OBJS = \
 	$(OBJDIR)/zlib_drv.o \
 	$(OBJDIR)/ram_file_drv.o \
 	$(OBJDIR)/ttsl_drv.o
-endif
 endif
 
 ifneq ($(STATIC_NIFS),no)
@@ -1022,18 +984,11 @@ $(BINDIR)/$(EMULATOR_EXECUTABLE): $(INIT_OBJS) $(OBJS) $(DEPLIBS)
 	$(STATIC_DRIVER_LIBS) $(LIBS)
 
 else
-ifeq ($(findstring ose,$(TARGET)),ose)
-$(BINDIR)/$(EMULATOR_EXECUTABLE): $(INIT_OBJS) $(OBJS) $(DEPLIBS) $(LCF)
-	$(call build-ose-load-module, $@, $(INIT_OBJS) $(OBJS), $(STATIC_NIF_LIBS) \
-	$(STATIC_DRIVER_LIBS) $(LIBS), $(BEAM_LMCONF))
-
-else
 $(BINDIR)/$(EMULATOR_EXECUTABLE): $(INIT_OBJS) $(OBJS) $(DEPLIBS)
 	$(ld_verbose)$(PURIFY) $(LD) -o $(BINDIR)/$(EMULATOR_EXECUTABLE) \
 	$(HIPEBEAMLDFLAGS) $(LDFLAGS) $(DEXPORT) $(INIT_OBJS) $(OBJS) \
 	$(STATIC_NIF_LIBS) $(STATIC_DRIVER_LIBS) $(LIBS)
 
-endif
 endif
 
 # ----------------------------------------------------------------------

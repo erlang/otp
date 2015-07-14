@@ -3273,8 +3273,6 @@ sys_msg_dispatcher_func(void *unused)
 	    if (erts_thr_progress_update(NULL))
 		erts_thr_progress_leader_update(NULL);
 
-	    ERTS_SCHED_FAIR_YIELD();
-
 #ifdef DEBUG_PRINTOUTS
 	    print_msg_type(smqp);
 #endif
@@ -3429,9 +3427,6 @@ static void
 init_sys_msg_dispatcher(void)
 {
     erts_smp_thr_opts_t thr_opts = ERTS_SMP_THR_OPTS_DEFAULT_INITER;
-#ifdef __OSE__
-    thr_opts.coreNo   = 0;
-#endif
     thr_opts.detached = 1;
     thr_opts.name = "sys_msg_dispatcher";
     init_smq_element_alloc();
@@ -3439,7 +3434,6 @@ init_sys_msg_dispatcher(void)
     sys_message_queue_end = NULL;
     erts_smp_cnd_init(&smq_cnd);
     erts_smp_mtx_init(&smq_mtx, "sys_msg_q");
-
     erts_smp_thr_create(&sys_msg_dispatcher_tid,
 			sys_msg_dispatcher_func,
 			NULL,

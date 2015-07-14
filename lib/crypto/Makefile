@@ -24,11 +24,7 @@ include $(ERL_TOP)/make/$(TARGET)/otp.mk
 # Macros
 #
 
-ifneq ($(findstring ose,$(TARGET)),ose)
 SUB_DIRECTORIES = src c_src doc/src
-else
-SUB_DIRECTORIES =  src doc/src
-endif
 static_lib: SUB_DIRECTORIES = c_src
 
 include vsn.mk

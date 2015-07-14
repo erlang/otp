@@ -52,9 +52,7 @@
 #include "erl_hl_timer.h"
 
 extern ErlDrvEntry fd_driver_entry;
-#ifndef __OSE__
 extern ErlDrvEntry vanilla_driver_entry;
-#endif
 extern ErlDrvEntry spawn_driver_entry;
 extern ErlDrvEntry *driver_tab[]; /* table of static drivers, only used during initialization */
 
@@ -2794,9 +2792,7 @@ void erts_init_io(int port_tab_size,
     erts_smp_rwmtx_rwlock(&erts_driver_list_lock);
 
     init_driver(&fd_driver, &fd_driver_entry, NULL);
-#ifndef __OSE__
     init_driver(&vanilla_driver, &vanilla_driver_entry, NULL);
-#endif
     init_driver(&spawn_driver, &spawn_driver_entry, NULL);
     erts_init_static_drivers();
     for (dp = driver_tab; *dp != NULL; dp++)

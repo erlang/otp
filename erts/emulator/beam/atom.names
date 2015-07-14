@@ -437,13 +437,6 @@ atom orelse
 atom os_pid
 atom os_type
 atom os_version
-atom ose_bg_proc
-atom ose_int_proc
-atom ose_phantom
-atom ose_pri_proc
-atom ose_process_prio
-atom ose_process_type
-atom ose_ti_proc
 atom out
 atom out_exited
 atom out_exiting

@@ -101,15 +101,9 @@
 #  include "config.h"
 #endif
 
-#ifndef __OSE__
 #include <ctype.h>
 #include <sys/types.h>
 #include <stdlib.h>
-#else
-#include "ctype.h"
-#include "sys/types.h"
-#include "stdlib.h"
-#endif
 
 /* Need (NON)BLOCKING macros for sendfile */
 #ifndef WANT_NONBLOCKING
