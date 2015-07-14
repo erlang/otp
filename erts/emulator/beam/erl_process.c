@@ -12126,7 +12126,8 @@ erts_do_exit_process(Process* p, Eterm reason)
 #endif
 
     if (p->static_flags & ERTS_STC_FLG_SYSTEM_PROC)
-	erl_exit(1, "System process %T terminated: %T\n", p->common.id, reason);
+	erl_exit(ERTS_DUMP_EXIT, "System process %T terminated: %T\n",
+                 p->common.id, reason);
 
 #ifdef ERTS_SMP
     ERTS_SMP_CHK_HAVE_ONLY_MAIN_PROC_LOCK(p);
