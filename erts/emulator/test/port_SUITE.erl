@@ -82,6 +82,7 @@
 	 mul_basic/1, mul_slow_writes/1,
 	 dying_port/1, port_program_with_path/1,
 	 open_input_file_port/1, open_output_file_port/1,
+         count_fds/1,
 	 iter_max_ports/1, eof/1, input_only/1, output_only/1,
 	 name1/1,
 	 t_binary/1, parallell/1, t_exit/1,
@@ -112,7 +113,7 @@ all() ->
      {group, multiple_packets}, parallell, dying_port,
      port_program_with_path, open_input_file_port,
      open_output_file_port, name1, env, bad_env, cd,
-     exit_status, iter_max_ports, t_exit, {group, tps}, line,
+     exit_status, iter_max_ports, count_fds, t_exit, {group, tps}, line,
      stderr_to_stdout, otp_3906, otp_4389, win_massive,
      mix_up_ports, otp_5112, otp_5119,
      exit_status_multi_scheduling_block, ports, spawn_driver,
@@ -615,6 +616,38 @@ open_output_file_port(Config) when is_list(Config) ->
 
     test_server:timetrap_cancel(Dog),
     ok.
+
+%% Tests that all appropriate fd's have been closed in the port program
+count_fds(suite) -> [];
+count_fds(Config) when is_list(Config) ->
+    case os:type() of
+        {unix, _} ->
+            PrivDir = proplists:get_value(priv_dir, Config),
+            Filename = filename:join(PrivDir, "my_fd_counter"),
+
+            RunTest = fun(PortOpts) ->
+                              PortTest = port_test(Config),
+                              Command = lists:concat([PortTest, " -n -f -o", Filename]),
+                              Port = open_port({spawn, Command}, PortOpts),
+                              Port ! {self(), close},
+                              receive
+                                  {Port, closed} -> ok
+                              end,
+                              test_server:sleep(500),
+                              {ok, Written} = file:read_file(Filename),
+                              Written
+                      end,
+                    <<4:32/native>> = RunTest([out, nouse_stdio]),
+                    <<4:32/native>> = RunTest([in, nouse_stdio]),
+                    <<5:32/native>> = RunTest([in, out, nouse_stdio]),
+            <<3:32/native>> = RunTest([out, use_stdio]),
+            <<3:32/native>> = RunTest([in, use_stdio]),
+            <<3:32/native>> = RunTest([in, out, use_stdio]),
+            <<3:32/native>> = RunTest([in, out, use_stdio, stderr_to_stdout]),
+            <<3:32/native>> = RunTest([out, use_stdio, stderr_to_stdout]);
+        _ ->
+            {skip, "Skipped on windows"}
+    end.
 
 %%
 %% Open as many ports as possible. Do this several times and check
