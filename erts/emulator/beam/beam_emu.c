@@ -1252,7 +1252,7 @@ void process_main(void)
     Uint64 start_time = 0;          /* Monitor long schedule */
     BeamInstr* start_time_i = NULL;
 
-    ERTS_MSACC_DECLARE_CACHE_X(); /* a cached value of the tsd pointer for msacc */
+    ERTS_MSACC_DECLARE_CACHE_X() /* a cached value of the tsd pointer for msacc */
 
     ERL_BITS_DECLARE_STATEP; /* Has to be last declaration */
 
