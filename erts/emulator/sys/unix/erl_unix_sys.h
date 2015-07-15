@@ -289,7 +289,7 @@ erts_os_times(ErtsMonotonicTime *mtimep, ErtsSystemTime *stimep)
     } while(0)
 #define SYS_PERF_COUNTER_UNIT erts_perf_counter_unit()
 #else
-#define sys_perf_counter(ts) *(ts) = erts_get_perf_counter()
+#define sys_perf_counter(ts) *(ts) = erts_sys_hrtime()
 #define SYS_PERF_COUNTER_UNIT 1000000000LL
 #endif
 
