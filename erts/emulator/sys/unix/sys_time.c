@@ -971,18 +971,18 @@ static ErtsSysPerfCounter calculate_perf_counter_unit(void) {
 static int have_rdtscp(void)
 {
 #if defined(ETHR_X86_RUNTIME_CONF__)
-    /* On early x86 cpu's the tsc varies with
-       the current speed of the cpu, which means that the time per
-       tick vary depending on the current load of the cpu. We do not
-       want this as it would give very scewed numbers when the cpu is
-       mostly idle.
-       If we have the rdtscp feature it is a sign that the cpu is
-       relatively modern, and thus the tsc quite stable so we use it then.
+    /* On early x86 cpu's the tsc varies with the current speed of the cpu,
+       which means that the time per tick vary depending on the current
+       load of the cpu. We do not want this as it would give very scewed
+       numbers when the cpu is mostly idle.
+       The linux kernel seems to think that checking for constant and
+       reliable is enough to trust the counter so we do the same.
 
        If this test is not good enough, I don't know what we'll do.
        Maybe fallback on erts_sys_hrtime always, but that would be a shame as
        rdtsc is about 3 times faster than hrtime... */
-    return ETHR_X86_RUNTIME_CONF_HAVE_RDTSCP__;
+    return ETHR_X86_RUNTIME_CONF_HAVE_CONSTANT_TSC__ &&
+        ETHR_X86_RUNTIME_CONF_HAVE_TSC_RELIABLE__;
 #else
     return 0;
 #endif

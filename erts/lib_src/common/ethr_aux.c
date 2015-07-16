@@ -144,16 +144,33 @@ x86_init(void)
     eax = 0x80000000;
     ethr_x86_cpuid__(&eax, &ebx, &ecx, &edx);
 
-    if (eax >= 0x80000001) {
-        /* Get the extended feature set */
-        eax = 0x80000001;
+    if (eax < 0x80000001)
+        return;
+
+    if (eax >= 0x80000007) {
+        /* Advanced Power Management Information */
+        eax = 0x80000007;
 	ethr_x86_cpuid__(&eax, &ebx, &ecx, &edx);
-    } else {
-        eax = ebx = ecx = edx = 0;
+
+        /* I got the values below from:
+           http://lxr.free-electrons.com/source/arch/x86/include/asm/cpufeature.h
+           They can be gotten from the intel/amd manual as well.
+        */
+
+        ethr_runtime__.conf.have_constant_tsc  = (edx & (1 <<  8));
+        ethr_runtime__.conf.have_tsc_reliable   = (edx & (1 << 23));
+        ethr_runtime__.conf.have_nonstop_tsc    = (edx & (1 << 24));
+        ethr_runtime__.conf.have_nonstop_tsc_s3 = (edx & (1 << 30));
+
     }
-    
+
+    /* Extended Processor Info and Feature Bits */
+    eax = 0x80000001;
+    ethr_x86_cpuid__(&eax, &ebx, &ecx, &edx);
+
     /* bit 27 of edx is set if we have rdtscp */
     ethr_runtime__.conf.have_rdtscp = (edx & (1 << 27));
+
 }
 
 #endif /* ETHR_X86_RUNTIME_CONF__ */

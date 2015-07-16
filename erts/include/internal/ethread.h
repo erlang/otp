@@ -274,18 +274,40 @@ ETHR_PROTO_NORETURN__ ethr_fatal_error__(const char *file,
      || (defined(_MSC_VER) && (defined(_M_IX86) || defined(_M_AMD64))))
 #  define ETHR_X86_RUNTIME_CONF__
 
-#  define ETHR_X86_RUNTIME_CONF_HAVE_DW_CMPXCHG__ \
-  (__builtin_expect(ethr_runtime__.conf.have_dw_cmpxchg != 0, 1))
-#  define ETHR_X86_RUNTIME_CONF_HAVE_NO_DW_CMPXCHG__ \
-  (__builtin_expect(ethr_runtime__.conf.have_dw_cmpxchg == 0, 0))
-#  define ETHR_X86_RUNTIME_CONF_HAVE_SSE2__ \
-  (__builtin_expect(ethr_runtime__.conf.have_sse2 != 0, 1))
-#  define ETHR_X86_RUNTIME_CONF_HAVE_NO_SSE2__ \
-  (__builtin_expect(ethr_runtime__.conf.have_sse2 == 0, 0))
-#  define ETHR_X86_RUNTIME_CONF_HAVE_RDTSCP__ \
-  (__builtin_expect(ethr_runtime__.conf.have_rdtscp != 0, 1))
-#  define ETHR_X86_RUNTIME_CONF_HAVE_NO_RDTSCP__ \
-  (__builtin_expect(ethr_runtime__.conf.have_rdtscp == 0, 0))
+#  define ETHR_X86_RUNTIME_CONF_HAVE_META(feature)              \
+    (__builtin_expect(ethr_runtime__.conf.have_##feature != 0, 1))
+#  define ETHR_X86_RUNTIME_CONF_HAVE_NO_META(feature)           \
+    (__builtin_expect(ethr_runtime__.conf.have_##feature == 0, 0))
+
+#  define ETHR_X86_RUNTIME_CONF_HAVE_DW_CMPXCHG__       \
+    ETHR_X86_RUNTIME_CONF_HAVE_META(dw_cmpxchg)
+#  define ETHR_X86_RUNTIME_CONF_HAVE_NO_DW_CMPXCHG__    \
+    ETHR_X86_RUNTIME_CONF_HAVE_NO_META(dw_cmpxchg)
+#  define ETHR_X86_RUNTIME_CONF_HAVE_SSE2__     \
+    ETHR_X86_RUNTIME_CONF_HAVE_META(sse2)
+#  define ETHR_X86_RUNTIME_CONF_HAVE_NO_SSE2__  \
+    ETHR_X86_RUNTIME_CONF_HAVE_NO_META(sse2)
+#  define ETHR_X86_RUNTIME_CONF_HAVE_RDTSCP__   \
+    ETHR_X86_RUNTIME_CONF_HAVE_META(rdtscp)
+#  define ETHR_X86_RUNTIME_CONF_HAVE_NO_RDTSCP__        \
+    ETHR_X86_RUNTIME_CONF_HAVE_NO_META(rdtscp)
+#  define ETHR_X86_RUNTIME_CONF_HAVE_CONSTANT_TSC__     \
+    ETHR_X86_RUNTIME_CONF_HAVE_META(constant_tsc)
+#  define ETHR_X86_RUNTIME_CONF_HAVE_NO_CONSTANT_TSC__   \
+    ETHR_X86_RUNTIME_CONF_HAVE_NO_META(nonstop_tsc)
+#  define ETHR_X86_RUNTIME_CONF_HAVE_NONSTOP_TSC__     \
+    ETHR_X86_RUNTIME_CONF_HAVE_META(nonstop_tsc)
+#  define ETHR_X86_RUNTIME_CONF_HAVE_NO_NONSTOP_TSC__   \
+    ETHR_X86_RUNTIME_CONF_HAVE_NO_META(nonstop_tsc)
+#  define ETHR_X86_RUNTIME_CONF_HAVE_TSC_RELIABLE__     \
+    ETHR_X86_RUNTIME_CONF_HAVE_META(tsc_reliable)
+#  define ETHR_X86_RUNTIME_CONF_HAVE_NO_TSC_RELIABLE_TSC__   \
+    ETHR_X86_RUNTIME_CONF_HAVE_NO_META(tsc_reliable)
+#  define ETHR_X86_RUNTIME_CONF_HAVE_NONSTOP_TSC_S3__     \
+    ETHR_X86_RUNTIME_CONF_HAVE_META(nonstop_tsc_s3)
+#  define ETHR_X86_RUNTIME_CONF_HAVE_NO_NONSTOP_TSC_S3__        \
+    ETHR_X86_RUNTIME_CONF_HAVE_NO_META(nonstop_tsc_s3)
+
 #endif
 
 #if (defined(__GNUC__) \
@@ -305,6 +327,10 @@ typedef struct {
     int have_dw_cmpxchg;
     int have_sse2;
     int have_rdtscp;
+    int have_constant_tsc;
+    int have_tsc_reliable;
+    int have_nonstop_tsc;
+    int have_nonstop_tsc_s3;
 #endif
 #if defined(ETHR_PPC_RUNTIME_CONF__)
     int have_lwsync;
