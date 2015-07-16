@@ -282,6 +282,10 @@ ETHR_PROTO_NORETURN__ ethr_fatal_error__(const char *file,
   (__builtin_expect(ethr_runtime__.conf.have_sse2 != 0, 1))
 #  define ETHR_X86_RUNTIME_CONF_HAVE_NO_SSE2__ \
   (__builtin_expect(ethr_runtime__.conf.have_sse2 == 0, 0))
+#  define ETHR_X86_RUNTIME_CONF_HAVE_RDTSCP__ \
+  (__builtin_expect(ethr_runtime__.conf.have_rdtscp != 0, 1))
+#  define ETHR_X86_RUNTIME_CONF_HAVE_NO_RDTSCP__ \
+  (__builtin_expect(ethr_runtime__.conf.have_rdtscp == 0, 0))
 #endif
 
 #if (defined(__GNUC__) \
@@ -300,6 +304,7 @@ typedef struct {
 #if defined(ETHR_X86_RUNTIME_CONF__)
     int have_dw_cmpxchg;
     int have_sse2;
+    int have_rdtscp;
 #endif
 #if defined(ETHR_PPC_RUNTIME_CONF__)
     int have_lwsync;

@@ -139,6 +139,21 @@ x86_init(void)
 #endif
     /* bit 26 of edx is set if we have sse2 */
     ethr_runtime__.conf.have_sse2 = (edx & (1 << 26));
+
+    /* check if we have extended feature set */
+    eax = 0x80000000;
+    ethr_x86_cpuid__(&eax, &ebx, &ecx, &edx);
+
+    if (eax >= 0x80000001) {
+        /* Get the extended feature set */
+        eax = 0x80000001;
+	ethr_x86_cpuid__(&eax, &ebx, &ecx, &edx);
+    } else {
+        eax = ebx = ecx = edx = 0;
+    }
+    
+    /* bit 27 of edx is set if we have rdtscp */
+    ethr_runtime__.conf.have_rdtscp = (edx & (1 << 27));
 }
 
 #endif /* ETHR_X86_RUNTIME_CONF__ */
