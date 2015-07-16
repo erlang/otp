@@ -4938,10 +4938,10 @@ do {						\
     it has to be very very fast */
  OpCase(i_perf_counter): {
     BeamInstr* next;
-    ErtsSysHrTime ts;
+    ErtsSysPerfCounter ts;
     PreFetch(0, next);
 
-    sys_perf_counter(&ts);
+    ts = erts_sys_perf_counter();
 
     if (IS_SSMALL(ts)) {
         r(0) = make_small((Sint)ts);

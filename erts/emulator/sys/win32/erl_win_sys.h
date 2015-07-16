@@ -183,6 +183,7 @@ typedef LONGLONG ErtsSysHrTime;
 #endif
 
 typedef ErtsMonotonicTime ErtsSystemTime;
+typedef ErtsMonotonicTime ErtsSysPerfCounter;
 
 ErtsSystemTime erts_os_system_time(void);
 
@@ -213,6 +214,7 @@ ERTS_GLB_INLINE ErtsMonotonicTime erts_os_monotonic_time(void);
 ERTS_GLB_INLINE void erts_os_times(ErtsMonotonicTime *,
 				   ErtsSystemTime *);
 ERTS_GLB_INLINE ErtsSysHrTime erts_sys_hrtime(void);
+ERTS_GLB_INLINE ErtsSysPerfCounter erts_sys_perf_counter(void);
 
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
 
@@ -234,12 +236,22 @@ erts_sys_hrtime(void)
     return (*erts_sys_time_data__.r.o.sys_hrtime)();
 }
 
+ERTS_GLB_INLINE ErtsSysPerfCounter
+erts_sys_perf_counter(void)
+{
+    return (*erts_sys_time_data__.r.o.sys_hrtime)();
+}
+
+ERTS_GLB_INLINE ErtsSysPerfCounter
+erts_sys_perf_counter_unit(void)
+{
+    return 1000 * 1000 * 1000;
+}
+
 #endif /* ERTS_GLB_INLINE_INCL_FUNC_DEF */
 
 extern void sys_gettimeofday(SysTimeval *tv);
 extern clock_t sys_times(SysTimes *buffer);
-#define sys_perf_counter(ts) *(ts) = erts_sys_hrtime()
-#define SYS_PERF_COUNTER_UNIT ERTS_I64_LITERAL(1000000000)
 
 extern char *win_build_environment(char *);
 

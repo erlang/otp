@@ -117,7 +117,7 @@ void erts_msacc_init_thread(char *type, int id, int managed) {
 
 #ifdef ERTS_MSACC_ALWAYS_ON
     ERTS_MSACC_TSD_SET(msacc);
-    sys_perf_counter(&msacc->perf_counter);
+    msacc->perf_counter = erts_sys_perf_counter();
     msacc->state = ERTS_MSACC_STATE_OTHER;
 #endif
 }
@@ -278,7 +278,7 @@ reply_msacc(void *vmsaccrp)
     if (msaccrp->action == ERTS_MSACC_ENABLE && !msacc) {
         msacc = get_msacc();
 
-        sys_perf_counter(&msacc->perf_counter);
+        msacc->perf_counter = erts_sys_perf_counter();
 
         msacc->state = ERTS_MSACC_STATE_OTHER;
 
@@ -412,9 +412,9 @@ erts_msacc_request(Process *c_p, int action, Eterm *threads)
         for (i = 0; i < unmanaged_count; i++) {
             erts_mtx_lock(&unmanaged[i]->mtx);
             if (unmanaged[i]->perf_counter) {
-                ErtsSysHrTime perf_counter;
+                ErtsSysPerfCounter perf_counter;
                 /* if enabled update stats */
-                sys_perf_counter(&perf_counter);
+                perf_counter = erts_sys_perf_counter();
                 unmanaged[i]->perf_counters[unmanaged[i]->state] +=
                     perf_counter - unmanaged[i]->perf_counter;
                 unmanaged[i]->perf_counter = perf_counter;
@@ -439,7 +439,7 @@ erts_msacc_request(Process *c_p, int action, Eterm *threads)
         erts_rwmtx_rlock(&msacc_mutex);
         for (msacc = msacc_unmanaged; msacc != NULL; msacc = msacc->next) {
             erts_mtx_lock(&msacc->mtx);
-            sys_perf_counter(&msacc->perf_counter);
+            msacc->perf_counter = erts_sys_perf_counter();
             /* we assume the unmanaged thread is sleeping */
             msacc->state = ERTS_MSACC_STATE_SLEEP;
             erts_mtx_unlock(&msacc->mtx);
@@ -448,12 +448,12 @@ erts_msacc_request(Process *c_p, int action, Eterm *threads)
         break;
     }
     case ERTS_MSACC_DISABLE: {
-        ErtsSysHrTime perf_counter;
+        ErtsSysPerfCounter perf_counter;
         erts_rwmtx_rlock(&msacc_mutex);
         /* make sure to update stats with latest results */
         for (msacc = msacc_unmanaged; msacc != NULL; msacc = msacc->next) {
             erts_mtx_lock(&msacc->mtx);
-            sys_perf_counter(&perf_counter);
+            perf_counter = erts_sys_perf_counter();
             msacc->perf_counters[msacc->state] += perf_counter - msacc->perf_counter;
             msacc->perf_counter = 0;
             erts_mtx_unlock(&msacc->mtx);

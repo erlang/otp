@@ -2444,72 +2444,10 @@ BIF_RETTYPE os_system_time_1(BIF_ALIST_1)
 BIF_RETTYPE
 os_perf_counter_0(BIF_ALIST_0)
 {
-    ErtsSysHrTime pcounter;
-    sys_perf_counter(&pcounter);
-    BIF_RET(make_time_val(BIF_P, pcounter));
+    BIF_RET(make_time_val(BIF_P, erts_sys_perf_counter()));
 }
 
 BIF_RETTYPE erts_internal_perf_counter_unit_0(BIF_ALIST_0)
 {
-    BIF_RET(make_time_val(BIF_P, SYS_PERF_COUNTER_UNIT));
-}
-
-/* What resolution to spin to in micro seconds */
-#define RESOLUTION 100
-/* How many iterations to spin */
-#define ITERATIONS 1
-/* How many significant figures to round to */
-#define SIGFIGS 3
-
-static ErtsSysHrTime perf_counter_unit = 0;
-
-static ErtsSysHrTime erts_calculate_perf_counter_unit(void);
-static ErtsSysHrTime erts_calculate_perf_counter_unit() {
-    int i;
-    ErtsSysHrTime pre, post;
-    double value = 0;
-    double round_factor;
-#if defined(HAVE_GETHRTIME) && defined(GETHRTIME_WITH_CLOCK_GETTIME)
-    struct timespec basetime,comparetime;
-#define __GETTIME(arg) clock_gettime(CLOCK_MONOTONIC,arg)
-#define __GETUSEC(arg) (arg.tv_nsec / 1000)
-#else
-    SysTimeval basetime,comparetime;
-#define __GETTIME(arg) sys_gettimeofday(arg)
-#define __GETUSEC(arg) arg.tv_usec
-#endif
-
-    for (i = 0; i < ITERATIONS; i++) {
-        /* Make sure usec just flipped over at current resolution */
-        __GETTIME(&basetime);
-        do {
-            __GETTIME(&comparetime);
-        } while ((__GETUSEC(basetime) / RESOLUTION) == (__GETUSEC(comparetime) / RESOLUTION));
-
-        sys_perf_counter(&pre);
-
-        __GETTIME(&basetime);
-        do {
-            __GETTIME(&comparetime);
-        } while ((__GETUSEC(basetime) / RESOLUTION) == (__GETUSEC(comparetime) / RESOLUTION));
-
-        sys_perf_counter(&post);
-
-        value += post - pre;
-    }
-    /* After this value is ticks per us */
-    value /= (RESOLUTION*ITERATIONS);
-
-    /* We round to 3 significant figures */
-    round_factor = pow(10.0, SIGFIGS - ceil(log10(value)));
-    value = ((ErtsSysHrTime)(value * round_factor + 0.5)) / round_factor;
-
-    /* convert to ticks per second */
-    return 1000000 * value;
-}
-
-ErtsSysHrTime erts_perf_counter_unit() {
-    if (perf_counter_unit == 0)
-        perf_counter_unit = erts_calculate_perf_counter_unit();
-    return perf_counter_unit;
+    BIF_RET(make_time_val(BIF_P, erts_sys_perf_counter_unit()));
 }

@@ -121,8 +121,8 @@ typedef struct erl_msacc_t_ ErtsMsAcc;
 struct erl_msacc_t_ {
 
     /* the the values below are protected by mtx iff unmanaged = 1 */
-    ErtsSysHrTime perf_counter;
-    ErtsSysHrTime perf_counters[ERTS_MSACC_STATE_COUNT];
+    ErtsSysPerfCounter perf_counter;
+    ErtsSysPerfCounter perf_counters[ERTS_MSACC_STATE_COUNT];
 #ifdef ERTS_MSACC_STATE_COUNTERS
     Uint64 state_counters[ERTS_MSACC_STATE_COUNT];
 #endif
@@ -324,14 +324,14 @@ void erts_msacc_set_state_um__(ErtsMsAcc *msacc, Uint new_state, int increment) 
 
 ERTS_MSACC_INLINE
 void erts_msacc_set_state_m__(ErtsMsAcc *msacc, Uint new_state, int increment) {
-    ErtsSysHrTime prev_perf_counter;
+    ErtsSysPerfCounter prev_perf_counter;
     Sint64 diff;
 
     if (new_state == msacc->state)
         return;
 
     prev_perf_counter = msacc->perf_counter;
-    sys_perf_counter(&msacc->perf_counter);
+    msacc->perf_counter = erts_sys_perf_counter();
     diff = msacc->perf_counter - prev_perf_counter;
     ASSERT(diff >= 0);
     msacc->perf_counters[msacc->state] += diff;
