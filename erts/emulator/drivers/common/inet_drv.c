@@ -10737,9 +10737,17 @@ static int tcp_sendv(tcp_descriptor* desc, ErlIOVec* ev)
          put_int8(len, buf);
          h_len = 1;
          break;
+     case TCP_PB_2_LITTLE:
+         put_little_int16(len, buf);
+         h_len = 2;
+         break;
      case TCP_PB_2:
          put_int16(len, buf);
          h_len = 2;
+         break;
+     case TCP_PB_4_LITTLE:
+         put_little_int32(len, buf);
+         h_len = 4;
          break;
      case TCP_PB_4:
          put_int32(len, buf);
@@ -10837,9 +10845,17 @@ static int tcp_send(tcp_descriptor* desc, char* ptr, ErlDrvSizeT len)
 	put_int8(len, buf);
 	h_len = 1;
 	break;
+    case TCP_PB_2_LITTLE:
+	put_little_int16(len, buf);
+	h_len = 2; 
+	break;
     case TCP_PB_2: 
 	put_int16(len, buf);
 	h_len = 2; 
+	break;
+    case TCP_PB_4_LITTLE:
+	put_little_int16(len, buf);
+	h_len = 4; 
 	break;
     case TCP_PB_4: 
 	put_int32(len, buf);

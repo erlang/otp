@@ -275,15 +275,29 @@ int packet_get_length(enum PacketParseType htype,
         plen = get_int8(ptr);
         goto remain;
 
+    case TCP_PB_2_LITTLE:
+        /* TCP_PB_2_LITTLE:    [L0,L1 | Data] */
+        hlen = 2;
+        if (n < hlen) goto more;
+        plen = get_little_int16(ptr);
+        goto remain;
+
     case TCP_PB_2:
-        /* TCP_PB_2:    [L1,L0 | Data] */
+        /* TCP_PB_2:           [L1,L0 | Data] */
         hlen = 2;
         if (n < hlen) goto more;
         plen = get_int16(ptr);
         goto remain;
 
+    case TCP_PB_4_LITTLE:
+        /* TCP_PB_4_LITTLE:    [L0,L1,L2,L3 | Data] */
+        hlen = 4;
+        if (n < hlen) goto more;
+        plen = get_little_int32(ptr);
+        goto remain;
+
     case TCP_PB_4:
-        /* TCP_PB_4:    [L3,L2,L1,L0 | Data] */
+        /* TCP_PB_4:           [L3,L2,L1,L0 | Data] */
         hlen = 4;
         if (n < hlen) goto more;
         plen = get_int32(ptr);
