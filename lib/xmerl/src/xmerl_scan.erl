@@ -2324,8 +2324,13 @@ expanded_name(_Name, {Prefix, Local}, #xmlNamespace{nodes = Ns}, S) ->
 	    {URI, list_to_atom(Local)};
 	false ->
 	    %% A namespace constraint of XML Names is that the prefix
-	    %% must be declared
-	    ?fatal({namespace_prefix_not_declared, Prefix}, S)
+      %% must be declared, except 'xml', which is always defined
+      %% as http://www.w3.org/XML/1998/namespace
+      case Prefix of 
+        "xml" -> {'http://www.w3.org/XML/1998/namespace',
+                  list_to_atom(Local)};
+        _ -> ?fatal({namespace_prefix_not_declared, Prefix}, S)
+      end
     end.
 
 
