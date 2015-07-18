@@ -93,7 +93,7 @@ start({_,_} = Type, T) ->
     Ack = make_ref(),
     {ok, Pid} = diameter_watchdog_sup:start_child({Ack, Type, self(), T}),
     try
-        {erlang:monitor(process, Pid), Pid}
+        {monitor(process, Pid), Pid}
     after
         send(Pid, Ack)
     end.
@@ -120,7 +120,7 @@ i({Ack, T, Pid, {RecvData,
                  #diameter_service{applications = Apps,
                                    capabilities = Caps}
                  = Svc}}) ->
-    erlang:monitor(process, Pid),
+    monitor(process, Pid),
     wait(Ack, Pid),
     {_, Seed} = diameter_lib:seed(),
     random:seed(Seed),
