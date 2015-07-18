@@ -65,7 +65,10 @@
          %% end PCB
          parent = self() :: pid(),              %% service process
          transport       :: pid() | undefined,  %% peer_fsm process
-         tref :: reference(),     %% reference for current watchdog timer
+         tref :: reference()      %% reference for current watchdog timer
+               | integer()        %% monotonic time
+               | tuple()          %% now()
+               | undefined,
          dictionary :: module(),  %% common dictionary
          receive_data :: term(),
                  %% term passed into diameter_service with incoming message
@@ -446,11 +449,12 @@ transition({recv, TPid, Name, Pkt}, #watchdog{transport = TPid} = S) ->
 
 %% Current watchdog has timed out.
 transition({timeout, TRef, tw}, #watchdog{tref = TRef} = S) ->
-    set_watchdog(timeout(S));
+    set_watchdog(0, timeout(S));
 
-%% Timer was canceled after message was already sent.
-transition({timeout, _, tw}, #watchdog{}) ->
-    ok;
+%% Message has arrived since the timer was started: subtract time
+%% already elapsed from new timer.
+transition({timeout, _, tw}, #watchdog{tref = T0} = S) ->
+    set_watchdog(diameter_lib:micro_diff(T0) div 1000, S);
 
 %% State query.
 transition({state, Pid}, #watchdog{status = S}) ->
@@ -526,18 +530,27 @@ role() ->
 
 %% set_watchdog/1
 
-set_watchdog(#watchdog{tw = TwInit,
-                       tref = TRef}
-             = S) ->
-    cancel(TRef),
-    S#watchdog{tref = erlang:start_timer(tw(TwInit), self(), tw)};
+%% Timer not yet set.
+set_watchdog(#watchdog{tref = undefined} = S) ->
+    set_watchdog(0, S);
+
+%% Timer already set: start at new one only at expiry.
+set_watchdog(#watchdog{} = S) ->
+    S#watchdog{tref = diameter_lib:now()};
+
 set_watchdog(stop = No) ->
     No.
 
-cancel(undefined) ->
-    ok;
-cancel(TRef) ->
-    erlang:cancel_timer(TRef).
+%% set_watchdog/2
+
+set_watchdog(Ms, #watchdog{tw = TwInit} = S) ->
+    S#watchdog{tref = erlang:start_timer(tw(TwInit, Ms), self(), tw)}.
+
+%% A callback could return anything, so ensure the result isn't
+%% negative. Don't prevent abuse, even though the smallest valid
+%% timeout is 4000.
+tw(TwInit, Ms) ->
+    max(tw(TwInit) - Ms, 0).
 
 tw(T)
   when is_integer(T), T >= 6000 ->
