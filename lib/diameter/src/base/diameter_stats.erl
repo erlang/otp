@@ -142,9 +142,14 @@ read(Refs, B) ->
     L.
 
 to_refdict(L) ->
-    lists:foldl(fun({{C,R}, N}, D) -> orddict:append(R, {C,N}, D) end,
-                orddict:new(),
-                L).
+    lists:foldl(fun append/2, orddict:new(), L).
+
+%% Order both references and counters in the returned list.
+append({{Ctr, Ref}, N}, Dict) ->
+    orddict:update(Ref,
+                   fun(D) -> orddict:store(Ctr, N, D) end,
+                   [{Ctr, N}],
+                   Dict).
 
 %% ---------------------------------------------------------------------------
 %% # sum(Refs)
@@ -220,10 +225,7 @@ uptime() ->
 %% ----------------------------------------------------------
 
 init([]) ->
-    ets:new(?TABLE, [named_table,
-                     ordered_set,
-                     public,
-                     {write_concurrency, true}]),
+    ets:new(?TABLE, [named_table, set, public, {write_concurrency, true}]),
     {ok, #state{}}.
 
 %% ----------------------------------------------------------
