@@ -220,7 +220,10 @@ uptime() ->
 %% ----------------------------------------------------------
 
 init([]) ->
-    ets:new(?TABLE, [named_table, ordered_set, public]),
+    ets:new(?TABLE, [named_table,
+                     ordered_set,
+                     public,
+                     {write_concurrency, true}]),
     {ok, #state{}}.
 
 %% ----------------------------------------------------------
