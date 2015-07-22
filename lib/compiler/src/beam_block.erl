@@ -291,13 +291,12 @@ opt_moves(Ds, Is) ->
 opt_move(Dest, Is) ->
     opt_move_1(Dest, Is, []).
 
-opt_move_1(R, [{set,[D],[R],move}|Is], Acc) ->
-    %% Check whether this instruction can be safely eliminated.
-    %% First check that the source (R) is not used by the
-    %% instructions that follow.
-    case beam_utils:is_killed_block(R, Is) of
-	true -> opt_move_rev(D, Acc, Is);
-	false -> not_possible
+opt_move_1(R, [{set,[D],[R],move}|Is0], Acc) ->
+    %% Provided that the source register is killed by instructions
+    %% that follow, the optimization is safe.
+    case eliminate_use_of_from_reg(Is0, R, D, []) of
+	{yes,Is} -> opt_move_rev(D, Acc, Is);
+	no -> not_possible
     end;
 opt_move_1({x,_}, [{set,_,_,{alloc,_,_}}|_], _) ->
     %% The optimization is not possible. If the X register is not
@@ -332,6 +331,46 @@ opt_move_rev(D, [], Acc) -> {D,Acc}.
 
 is_killed_or_used(R, {set,Ss,Ds,_}) ->
     member(R, Ds) orelse member(R, Ss).
+
+%% eliminate_use_of_from_reg([Instruction], FromRegister, ToRegister, Acc) ->
+%%       {yes,Is} | no
+%%  Eliminate any use of FromRegister in the instruction sequence
+%%  by replacing uses of FromRegister with ToRegister. If FromRegister
+%%  is referenced by an allocation instruction, return 'no' to indicate
+%%  that FromRegister is still used and that the optimization is not
+%%  possible.
+
+eliminate_use_of_from_reg([{set,_,_,{alloc,Live,_}}|_]=Is0, {x,X}, _, Acc) ->
+    if
+	X < Live ->
+	    no;
+	true ->
+	    {yes,reverse(Acc, Is0)}
+    end;
+eliminate_use_of_from_reg([{set,Ds,Ss0,Op}=I0|Is], From, To, Acc) ->
+    I = case member(From, Ss0) of
+	    true ->
+		Ss = [case S of
+			  From -> To;
+			  _ -> S
+		      end || S <- Ss0],
+		{set,Ds,Ss,Op};
+	    false ->
+		I0
+	end,
+    case member(From, Ds) of
+	true ->
+	    {yes,reverse(Acc, [I|Is])};
+	false ->
+	    eliminate_use_of_from_reg(Is, From, To, [I|Acc])
+    end;
+eliminate_use_of_from_reg([I]=Is, From, _To, Acc) ->
+    case beam_utils:is_killed_block(From, [I]) of
+	true ->
+	    {yes,reverse(Acc, Is)};
+	false ->
+	    no
+    end.
 
 %% opt_alloc(Instructions) -> Instructions'
 %%  Optimises all allocate instructions.
