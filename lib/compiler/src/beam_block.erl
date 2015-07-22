@@ -287,60 +287,51 @@ opt_moves(Ds, Is) ->
 %%  If there is a {move,Dest,FinalDest} instruction
 %%  in the instruction stream, remove the move instruction
 %%  and let FinalDest be the destination.
-%%
-%%  For this optimization to be safe, we must be sure that
-%%  Dest will not be referenced in any other by other instructions
-%%  in the rest of the instruction stream. Not even the indirect
-%%  reference by an instruction that may allocate (such as
-%%  test_heap/2 or a GC Bif) is allowed.
 
 opt_move(Dest, Is) ->
-    opt_move_1(Dest, Is, ?MAXREG, []).
+    opt_move_1(Dest, Is, []).
 
-opt_move_1(R, [{set,_,_,{alloc,Live,_}}|_]=Is, SafeRegs, Acc) when Live < SafeRegs ->
-    %% Downgrade number of safe regs and rescan the instruction, as it most probably
-    %% is a gc_bif instruction.
-    opt_move_1(R, Is, Live, Acc);
-opt_move_1(R, [{set,[{x,X}=D],[R],move}|Is], SafeRegs, Acc) ->
-    case X < SafeRegs andalso beam_utils:is_killed_block(R, Is) of
-	true -> opt_move_2(D, Acc, Is);
-	false -> not_possible
-    end;
-opt_move_1(R, [{set,[D],[R],move}|Is], _SafeRegs, Acc) ->
+opt_move_1(R, [{set,[D],[R],move}|Is], Acc) ->
+    %% Check whether this instruction can be safely eliminated.
+    %% First check that the source (R) is not used by the
+    %% instructions that follow.
     case beam_utils:is_killed_block(R, Is) of
-	true -> opt_move_2(D, Acc, Is);
+	true -> opt_move_rev(D, Acc, Is);
 	false -> not_possible
     end;
-opt_move_1(R, [I|Is], SafeRegs, Acc) ->
-    case is_transparent(R, I) of
-	false -> not_possible;
-	true -> opt_move_1(R, Is, SafeRegs, [I|Acc])
-    end.
-
-%% Reverse the instructions, while checking that there are no instructions that
-%% would interfere with using the new destination register chosen.
-
-opt_move_2(D, [I|Is], Acc) ->
-    case is_transparent(D, I) of
-	false -> not_possible;
-	true -> opt_move_2(D, Is, [I|Acc])
+opt_move_1({x,_}, [{set,_,_,{alloc,_,_}}|_], _) ->
+    %% The optimization is not possible. If the X register is not
+    %% killed by allocation, the optimization would not be safe.
+    %% If the X register is killed, it means that there cannot
+    %% follow a 'move' instruction with this X register as the
+    %% source.
+    not_possible;
+opt_move_1(R, [{set,_,_,_}=I|Is], Acc) ->
+    %% If the source register is either killed or used by this
+    %% instruction, the optimimization is not possible.
+    case is_killed_or_used(R, I) of
+	true -> not_possible;
+	false -> opt_move_1(R, Is, [I|Acc])
     end;
-opt_move_2(D, [], Acc) -> {D,Acc}.
+opt_move_1(_, _, _) ->
+    not_possible.
 
-%% is_transparent(Register, Instruction) -> true | false
-%%  Returns true if Instruction does not in any way references Register
-%%  (even indirectly by an allocation instruction).
-%%  Returns false if Instruction does reference Register, or we are
-%%  not sure.
+%% Reverse the instructions, while checking that there are no
+%% instructions that would interfere with using the new destination
+%% register (D).
 
-is_transparent({x,X}, {set,_,_,{alloc,Live,_}}) when X < Live ->
-    false;
-is_transparent(R, {set,Ds,Ss,_Op}) ->
-    case member(R, Ds) of
-	true -> false;
-	false -> not member(R, Ss)
+opt_move_rev(D, [I|Is], Acc) ->
+    case is_killed_or_used(D, I) of
+	true -> not_possible;
+	false -> opt_move_rev(D, Is, [I|Acc])
     end;
-is_transparent(_, _) -> false.
+opt_move_rev(D, [], Acc) -> {D,Acc}.
+
+%% is_killed_or_used(Register, {set,_,_,_}) -> bool()
+%%  Test whether the register is used by the instruction.
+
+is_killed_or_used(R, {set,Ss,Ds,_}) ->
+    member(R, Ds) orelse member(R, Ss).
 
 %% opt_alloc(Instructions) -> Instructions'
 %%  Optimises all allocate instructions.
