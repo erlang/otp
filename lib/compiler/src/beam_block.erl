@@ -183,7 +183,9 @@ opt_blocks([I|Is]) ->
 opt_blocks([]) -> [].
 
 opt_block(Is0) ->
-    Is = find_fixpoint(fun opt/1, Is0),
+    Is = find_fixpoint(fun(Is) ->
+			       opt_tuple_element(opt(Is))
+		       end, Is0),
     opt_alloc(Is).
 
 find_fixpoint(OptFun, Is0) ->
@@ -314,6 +316,55 @@ opt_move_1(R, [{set,_,_,_}=I|Is], Acc) ->
     end;
 opt_move_1(_, _, _) ->
     not_possible.
+
+%% opt_tuple_element([Instruction]) -> [Instruction]
+%%  If possible, move get_tuple_element instructions forward
+%%  in the instruction stream to a move instruction, eliminating
+%%  the move instruction. Example:
+%%
+%%    get_tuple_element Tuple Pos Dst1
+%%    ...
+%%    move Dst1 Dst2
+%%
+%%  This code may be possible to rewrite to:
+%%
+%%    %%(Moved get_tuple_element instruction)
+%%    ...
+%%    get_tuple_element Tuple Pos Dst2
+%%
+
+opt_tuple_element([{set,[D],[S],{get_tuple_element,_}}=I|Is0]) ->
+    case opt_tuple_element_1(Is0, I, {S,D}, []) of
+	no ->
+	    [I|opt_tuple_element(Is0)];
+	{yes,Is} ->
+	    opt_tuple_element(Is)
+    end;
+opt_tuple_element([I|Is]) ->
+    [I|opt_tuple_element(Is)];
+opt_tuple_element([]) -> [].
+
+opt_tuple_element_1([{set,_,_,{alloc,_,_}}|_], _, _, _) ->
+    no;
+opt_tuple_element_1([{set,_,_,{'catch',_}}|_], _, _, _) ->
+    no;
+opt_tuple_element_1([{set,[D],[S],move}|Is0], I0, {_,S}, Acc) ->
+    case eliminate_use_of_from_reg(Is0, S, D, []) of
+	no ->
+	    no;
+	{yes,Is} ->
+	    {set,[S],Ss,Op} = I0,
+	    I = {set,[D],Ss,Op},
+	    {yes,reverse(Acc, [I|Is])}
+    end;
+opt_tuple_element_1([{set,Ds,Ss,_}=I|Is], MovedI, {S,D}=Regs, Acc) ->
+    case member(S, Ds) orelse member(D, Ss) of
+	true ->
+	    no;
+	false ->
+	    opt_tuple_element_1(Is, MovedI, Regs, [I|Acc])
+    end;
+opt_tuple_element_1(_, _, _, _) -> no.
 
 %% Reverse the instructions, while checking that there are no
 %% instructions that would interfere with using the new destination
