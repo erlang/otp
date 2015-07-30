@@ -421,6 +421,16 @@ handle_cast({cancel, RequestId},
                      {profile, ProfileName},
                      {canceled,   Canceled}]),
     {noreply, State#state{canceled = [RequestId | Canceled]}};
+handle_cast({cancel, RequestId},
+            #state{profile_name = ProfileName,
+                   request      = undefined,
+                   canceled     = Canceled} = State) ->
+    ?hcrv("cancel", [{request_id, RequestId},
+                     {curr_req_id, undefined},
+                     {profile, ProfileName},
+                     {canceled,   Canceled}]),
+    {noreply, State};
+
 
 handle_cast(stream_next, #state{session = Session} = State) ->
     activate_once(Session), 
