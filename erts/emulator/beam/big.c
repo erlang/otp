@@ -2618,6 +2618,9 @@ Eterm erts_chars_to_integer(Process *BIF_P, char *bytes,
 	size--;
     }
 
+    if (size == 0)
+	goto bytebuf_to_integer_1_error;
+
     if (size < SMALL_DIGITS && base <= 10) {
 	/* *
 	 * Take shortcut if we know that all chars are '0' < b < '9' and

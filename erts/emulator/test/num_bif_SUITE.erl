@@ -429,7 +429,7 @@ t_string_to_integer(Config) when is_list(Config) ->
 				       list_to_binary(Value))),
 			  {'EXIT', {badarg, _}} = 
 			      (catch erlang:list_to_integer(Value))
-		  end,["1.0"," 1"," -1",""]),
+		  end,["1.0"," 1"," -1","","+"]),
     
     % Custom base error cases
     lists:foreach(fun({Value,Base}) ->
