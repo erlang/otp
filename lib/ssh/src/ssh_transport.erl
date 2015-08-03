@@ -336,7 +336,7 @@ handle_kexdh_init(#ssh_msg_kexdh_init{e = E}, Ssh0) ->
     if
 	1=<E, E=<(P-1) ->
 	    {Private, Public} = dh_gen_key(G, P, 1024),
-	    K = ssh_math:ipow(E, Private, P),
+	    K = dh_compute_key(G, P, E, Private),
 	    Key = get_host_key(Ssh0),
 	    H = kex_h(Ssh0, Key, E, Public, K),
 	    H_SIG = sign_host_key(Ssh0, Key, H),
@@ -361,11 +361,11 @@ handle_kexdh_init(#ssh_msg_kexdh_init{e = E}, Ssh0) ->
 handle_kexdh_reply(#ssh_msg_kexdh_reply{public_host_key = HostKey,
 					f = F,
 					h_sig = H_SIG}, 
-		   #ssh{keyex_key = {{Private, Public}, {_G, P}}} = Ssh0) ->
+		   #ssh{keyex_key = {{Private, Public}, {G, P}}} = Ssh0) ->
     %% client
     if 
 	1=<F, F=<(P-1)->
-	    K = ssh_math:ipow(F, Private, P),
+	    K = dh_compute_key(G, P, F, Private),
 	    H = kex_h(Ssh0, HostKey, Public, F, K),
 
 	    case verify_host_key(Ssh0, HostKey, H, H_SIG) of
@@ -426,7 +426,7 @@ handle_kex_dh_gex_init(#ssh_msg_kex_dh_gex_init{e = E},
     %% server
     if
 	1=<E, E=<(P-1) ->
-	    K = ssh_math:ipow(E, Private, P),
+	    K = dh_compute_key(G, P, E, Private),
 	    if
 		1<K, K<(P-1) ->
 		    HostKey = get_host_key(Ssh0),
@@ -466,7 +466,7 @@ handle_kex_dh_gex_reply(#ssh_msg_kex_dh_gex_reply{public_host_key = HostKey,
     %% client
     if 
 	1=<F, F=<(P-1)->
-	    K = ssh_math:ipow(F, Private, P),
+	    K = dh_compute_key(G, P, F, Private),
 	    if
 		1<K, K<(P-1) ->
 		    H = kex_h(Ssh0, HostKey, Min, NBits, Max, P, G, Public, F, K),
@@ -1211,6 +1211,11 @@ dh_group1() ->
 dh_gen_key(G, P, _) ->
     {Public, Private} = crypto:generate_key(dh, [P, G]),
     {crypto:bytes_to_integer(Private), crypto:bytes_to_integer(Public)}.
+
+dh_compute_key(G, P, OthersPublic, MyPrivate) ->
+    crypto:bytes_to_integer(
+      crypto:compute_key(dh, OthersPublic, MyPrivate, [P,G])
+     ).
 
 trim_tail(Str) ->
     lists:reverse(trim_head(lists:reverse(Str))).

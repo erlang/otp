@@ -67,7 +67,6 @@ MODULES= \
 	ssh_file \
 	ssh_io \
 	ssh_info \
-	ssh_math \
 	ssh_message \
 	ssh_no_io \
 	ssh_sftp \
