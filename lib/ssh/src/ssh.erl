@@ -373,6 +373,10 @@ handle_option([{auth_method_kb_interactive_data, _} = Opt | Rest], SocketOptions
     handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
 handle_option([{preferred_algorithms,_} = Opt | Rest], SocketOptions, SshOptions) ->
     handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
+handle_option([{dh_gex_groups,_} = Opt | Rest], SocketOptions, SshOptions) ->
+    handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
+handle_option([{dh_gex_limits,_} = Opt | Rest], SocketOptions, SshOptions) ->
+    handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
 handle_option([{quiet_mode, _} = Opt|Rest], SocketOptions, SshOptions) ->
     handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
 handle_option([{idle_time, _} = Opt | Rest], SocketOptions, SshOptions) ->
@@ -411,6 +415,33 @@ handle_ssh_option({user_interaction, Value} = Opt) when is_boolean(Value) ->
     Opt;
 handle_ssh_option({preferred_algorithms,[_|_]} = Opt) -> 
     handle_pref_algs(Opt);
+handle_ssh_option({dh_gex_groups,L=[{I1,I2,I3}|_]}) when is_integer(I1), I1>0, 
+							 is_integer(I2), I2>0,
+							 is_integer(I3), I3>0 ->
+    {dh_gex_groups, [{N,{G,P}} || {N,P,G} <- L]};
+handle_ssh_option({dh_gex_groups,{file,File=[C|_]}}=Opt) when is_integer(C), C>0 ->
+    %% A string, (file name)
+    case file:consult(File) of
+	{ok, List} ->
+	    case lists:all(fun({I1,I2,I3}) when is_integer(I1), I1>0, 
+						is_integer(I2), I2>0,
+						is_integer(I3), I3>0 ->
+				   true;
+			      (_) ->
+				   false
+			   end, List) of
+		true -> 
+		    handle_ssh_option({dh_gex_groups,List}); 
+		false -> 
+		    throw({error, {{eoptions, Opt}, "Bad format in file "++File}})
+	    end;
+	Error ->
+	    throw({error, {{eoptions, Opt},{"Error reading file",Error}}})
+    end;
+handle_ssh_option({dh_gex_limits,{Min,I,Max}} = Opt) when is_integer(Min), Min>0, 
+							  is_integer(I),   I>0,
+							  is_integer(Max), Max>0 ->
+    Opt;
 handle_ssh_option({connect_timeout, Value} = Opt) when is_integer(Value); Value == infinity ->
     Opt;
 handle_ssh_option({max_sessions, Value} = Opt) when is_integer(Value), Value>0 ->
