@@ -64,12 +64,20 @@ end_per_suite(Config) ->
 groups() -> 
     [{not_unicode, [], [{group,erlang_server},
 			{group,openssh_server},
+			{group,'diffie-hellman-group-exchange-sha1'},
+			{group,'diffie-hellman-group-exchange-sha256'},
 			sftp_nonexistent_subsystem]},
 
      {unicode, [], [{group,erlang_server},
 		    {group,openssh_server},
 		    sftp_nonexistent_subsystem]},
      
+     {'diffie-hellman-group-exchange-sha1', [], [{group,erlang_server},
+						 {group,openssh_server}]},
+
+     {'diffie-hellman-group-exchange-sha256', [], [{group,erlang_server},
+						   {group,openssh_server}]},
+
      {erlang_server, [], [{group,write_read_tests},
 			  version_option,
 			  {group,remote_tar}]},
@@ -142,22 +150,26 @@ init_per_group(erlang_server, Config) ->
     User = ?config(user, Config),
     Passwd = ?config(passwd, Config),
     Sftpd = {_, HostX, PortX} =
-	ssh_test_lib:daemon([{system_dir, SysDir},
-			     {user_dir, PrivDir},
-			     {user_passwords,
-			      [{User, Passwd}]}]),
+	ssh_test_lib:daemon(extra_opts(Config) ++
+				[{system_dir, SysDir},
+				 {user_dir, PrivDir},
+				 {user_passwords,
+				  [{User, Passwd}]}]),
     [{peer, {fmt_host(HostX),PortX}}, {group, erlang_server}, {sftpd, Sftpd} | Config];
 
 init_per_group(openssh_server, Config) ->
     ct:comment("Begin ~p",[grps(Config)]),
     Host = ssh_test_lib:hostname(),
-    case (catch ssh_sftp:start_channel(Host,					      
-				       [{user_interaction, false},
-					{silently_accept_hosts, true}])) of
+    case (catch ssh_sftp:start_channel(Host,
+				       extra_opts(Config) ++
+					   [{user_interaction, false},
+					    {silently_accept_hosts, true}])) of
 	{ok, _ChannelPid, Connection} ->
 	    [{peer, {_HostName,{IPx,Portx}}}] = ssh:connection_info(Connection,[peer]),
 	    ssh:close(Connection),
 	    [{peer, {fmt_host(IPx),Portx}}, {group, openssh_server} | Config];
+	{error,"Key exchange failed"} ->
+	    {skip, "openssh server doesn't support the tested kex algorithm"};
 	_ ->
 	    {skip, "No openssh server"} 
     end;
@@ -172,10 +184,11 @@ init_per_group(remote_tar, Config) ->
 	case ?config(group, Config) of
 	    erlang_server ->
 		ssh:connect(Host, Port,
-			    [{user, User},
-			     {password, Passwd},
-			     {user_interaction, false},
-			     {silently_accept_hosts, true}]);
+			    extra_opts(Config) ++
+				[{user, User},
+				 {password, Passwd},
+				 {user_interaction, false},
+				 {silently_accept_hosts, true}]);
 	    openssh_server ->
 		ssh:connect(Host, Port,
 			    [{user_interaction, false},
@@ -183,6 +196,28 @@ init_per_group(remote_tar, Config) ->
 	end,
     [{remote_tar, true}, 
      {connection, Connection} | Config];
+
+init_per_group('diffie-hellman-group-exchange-sha1', Config) ->
+    case lists:member('diffie-hellman-group-exchange-sha1',
+		      ssh_transport:supported_algorithms(kex)) of
+	true ->
+	    [{extra_opts, [{preferred_algorithms, [{kex,['diffie-hellman-group-exchange-sha1']}]}]}
+	     | Config]; 
+
+	false ->
+	     {skip,"'diffie-hellman-group-exchange-sha1' not supported by this version of erlang ssh"}
+    end;
+
+init_per_group('diffie-hellman-group-exchange-sha256', Config) ->
+    case lists:member('diffie-hellman-group-exchange-sha256',
+		      ssh_transport:supported_algorithms(kex)) of
+	true ->
+	    [{extra_opts, [{preferred_algorithms, [{kex,['diffie-hellman-group-exchange-sha256']}]}]}
+	     | Config]; 
+
+	false ->
+	     {skip,"'diffie-hellman-group-exchange-sha256' not supported by this version of erlang ssh"}
+    end;
 
 init_per_group(write_read_tests, Config) ->
     ct:comment("Begin ~p",[grps(Config)]),
@@ -193,7 +228,6 @@ grps(Config) ->
       name, 
       lists:flatten([proplists:get_value(tc_group_properties,Config,[]),
 		     proplists:get_value(tc_group_path,Config,[])])).
-
 
 end_per_group(erlang_server, Config) ->
     ct:comment("End ~p",[grps(Config)]),
@@ -227,11 +261,12 @@ init_per_testcase(version_option, Config) ->
     Passwd = ?config(passwd, Config),
     {ok, ChannelPid, Connection}  = 
 	ssh_sftp:start_channel(Host, Port,
-			       [{sftp_vsn, 3},
-				{user, User},
-				{password, Passwd},
-				{user_interaction, false},
-				{silently_accept_hosts, true}]),
+			       extra_opts(Config) ++
+				   [{sftp_vsn, 3},
+				    {user, User},
+				    {password, Passwd},
+				    {user_interaction, false},
+				    {silently_accept_hosts, true}]),
     Sftp = {ChannelPid, Connection},
     [{sftp,Sftp}, {watchdog, Dog} | TmpConfig];
 
@@ -249,10 +284,12 @@ init_per_testcase(Case, Config0) ->
 		{_,Host, Port} =  ?config(sftpd, Config2),
 		{ok, ChannelPid, Connection}  = 
 		    ssh_sftp:start_channel(Host, Port,
-					   [{user, User},
-					    {password, Passwd},
-					    {user_interaction, false},
-					    {silently_accept_hosts, true}]),
+					   extra_opts(Config2) ++
+					       [{user, User},
+						{password, Passwd},
+						{user_interaction, false},
+						{silently_accept_hosts, true}]
+					  ),
 		Sftp = {ChannelPid, Connection},
 		[{sftp, Sftp}, {watchdog, Dog} | Config2];
 	    openssh_server when Case == links ->
@@ -261,8 +298,9 @@ init_per_testcase(Case, Config0) ->
 		Host = ssh_test_lib:hostname(),
 		{ok, ChannelPid, Connection} = 
 		    ssh_sftp:start_channel(Host, 
-					   [{user_interaction, false},
-					    {silently_accept_hosts, true}]), 
+					    extra_opts(Config2) ++
+					       [{user_interaction, false},
+						{silently_accept_hosts, true}]), 
 		Sftp = {ChannelPid, Connection},
 		[{sftp, Sftp}, {watchdog, Dog} | Config2]
 	end,
@@ -910,7 +948,8 @@ prep(Config) ->
     ok = file:write_file_info(TestFile,
 			      FileInfo#file_info{mode = Mode}).
 
-
+extra_opts(Config) ->
+    proplists:get_value(extra_opts, Config, []).
 
 chk_tar(Items, Config) ->
     chk_tar(Items, Config, []).

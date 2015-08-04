@@ -39,7 +39,7 @@
 	 key_exchange_init_msg/1,
 	 key_init/3, new_keys_message/1,
 	 handle_kexinit_msg/3, handle_kexdh_init/2,
-	 handle_kex_dh_gex_group/2, handle_kex_dh_gex_reply/2,
+	 handle_kex_dh_gex_group/2, handle_kex_dh_gex_init/2, handle_kex_dh_gex_reply/2,
 	 handle_new_keys/2, handle_kex_dh_gex_request/2,
 	 handle_kexdh_reply/2, 
 	 unpack/3, decompress/2, ssh_packet/2, pack/2, msg_data/1,
@@ -66,6 +66,11 @@ algo_classes() -> [kex, public_key, cipher, mac, compression].
 default_algorithms(compression) ->
     %% Do not announce 'zlib@openssh.com' because there seem to be problems
     supported_algorithms(compression, same(['zlib@openssh.com']));
+default_algorithms(kex) ->
+    %% Do not announce the experimental 'diffie-hellman-group-exchange-sha*' yet
+    supported_algorithms(kex, ['diffie-hellman-group-exchange-sha1',
+			       'diffie-hellman-group-exchange-sha256'
+			      ]);
 default_algorithms(Alg) ->
     supported_algorithms(Alg).
 
@@ -73,23 +78,28 @@ default_algorithms(Alg) ->
 supported_algorithms() -> [{K,supported_algorithms(K)} || K <- algo_classes()].
 
 supported_algorithms(kex) ->
-    ['diffie-hellman-group1-sha1'];
+    select_crypto_supported(
+      [{'diffie-hellman-group1-sha1',           [{hashs,sha}]},
+       {'diffie-hellman-group-exchange-sha1',   [{hashs,sha}]},
+       {'diffie-hellman-group-exchange-sha256', [{hashs,sha256}]} 
+      ]);
 supported_algorithms(public_key) ->
     ssh_auth:default_public_key_algorithms();
 supported_algorithms(cipher) ->
-    Supports = crypto:supports(),
-    CipherAlgos = [{aes_ctr, 'aes128-ctr'}, {aes_cbc128, 'aes128-cbc'}, {des3_cbc, '3des-cbc'}],
-    Algs = [SshAlgo ||
-	       {CryptoAlgo, SshAlgo} <- CipherAlgos,
-	       lists:member(CryptoAlgo, proplists:get_value(ciphers, Supports, []))],
-    same(Algs);
+    same(
+      select_crypto_supported(
+	[{'aes128-ctr', [{ciphers,aes_ctr}]},
+	 {'aes128-cbc', [{ciphers,aes_cbc128}]},
+	 {'3des-cbc',   [{ciphers,des3_cbc}]}
+	]
+       ));
 supported_algorithms(mac) ->
-    Supports = crypto:supports(),
-    HashAlgos = [{sha256, 'hmac-sha2-256'}, {sha, 'hmac-sha1'}],
-    Algs = [SshAlgo ||
-	       {CryptoAlgo, SshAlgo} <- HashAlgos,
-	       lists:member(CryptoAlgo, proplists:get_value(hashs, Supports, []))],
-    same(Algs);
+    same(
+      select_crypto_supported(
+	[{'hmac-sha2-256', [{hashs,sha256}]},
+	 {'hmac-sha1',     [{hashs,sha}]}
+	]
+       ));
 supported_algorithms(compression) ->
     same(['none','zlib','zlib@openssh.com']).
 
@@ -100,7 +110,15 @@ supported_algorithms(Key, [{client2server,BL1},{server2client,BL2}]) ->
 supported_algorithms(Key, BlackList) ->
     supported_algorithms(Key) -- BlackList.
 
-    
+select_crypto_supported(L) ->    
+    Sup = crypto:supports(),
+    [Name || {Name,CryptoRequires} <- L,
+	     crypto_supported(CryptoRequires, Sup)].
+
+crypto_supported(Conditions, Supported) ->
+    lists:all(fun({Tag,CryptoName}) ->
+		      lists:member(CryptoName, proplists:get_value(Tag,Supported,[]))
+	      end, Conditions).
 
 
 same(Algs) ->  [{client2server,Algs}, {server2client,Algs}].
@@ -135,7 +153,7 @@ ssh_vsn() ->
 	_:_ -> ""
     end.
     
-random_id(Nlo, Nup) -> 
+random_id(Nlo, Nup) ->
     [crypto:rand_uniform($a,$z+1) || _<- lists:duplicate(crypto:rand_uniform(Nlo,Nup+1),x)  ].
 
 hello_version_msg(Data) ->
@@ -144,7 +162,7 @@ hello_version_msg(Data) ->
 next_seqnum(SeqNum) ->
     (SeqNum + 1) band 16#ffffffff.
 
-decrypt_first_block(Bin, #ssh{decrypt_block_size = BlockSize} = Ssh0) -> 
+decrypt_first_block(Bin, #ssh{decrypt_block_size = BlockSize} = Ssh0) ->
     <<EncBlock:BlockSize/binary, EncData/binary>> = Bin,
     {Ssh, <<?UINT32(PacketLen), _/binary>> = DecData} =
 	decrypt(Ssh0, EncBlock),
@@ -280,33 +298,45 @@ verify_algorithm(#alg{decompress = undefined}) -> false;
 
 verify_algorithm(#alg{kex = 'diffie-hellman-group1-sha1'}) -> true;
 verify_algorithm(#alg{kex = 'diffie-hellman-group-exchange-sha1'}) -> true;
+verify_algorithm(#alg{kex = 'diffie-hellman-group-exchange-sha256'}) -> true;
 verify_algorithm(_) -> false.
 
+%%%----------------------------------------------------------------
+%%%
+%%% Key exchange initialization
+%%%
 key_exchange_first_msg('diffie-hellman-group1-sha1', Ssh0) ->
     {G, P} = dh_group1(),
     {Private, Public} = dh_gen_key(G, P, 1024),
+    %% Public = G^Private mod P  (def)
     {SshPacket, Ssh1} = ssh_packet(#ssh_msg_kexdh_init{e = Public}, Ssh0),
     {ok, SshPacket, 
      Ssh1#ssh{keyex_key = {{Private, Public}, {G, P}}}};
 
-key_exchange_first_msg('diffie-hellman-group-exchange-sha1', Ssh0) ->
+key_exchange_first_msg(Kex, Ssh0) when Kex == 'diffie-hellman-group-exchange-sha1' ;
+				       Kex == 'diffie-hellman-group-exchange-sha256' ->
     Min = ?DEFAULT_DH_GROUP_MIN,
     NBits = ?DEFAULT_DH_GROUP_NBITS,
     Max = ?DEFAULT_DH_GROUP_MAX,
     {SshPacket, Ssh1} = 
 	ssh_packet(#ssh_msg_kex_dh_gex_request{min = Min, 
-					       n = NBits, max = Max}, 
+					       n = NBits,
+					       max = Max}, 
 		   Ssh0),
     {ok, SshPacket, 
      Ssh1#ssh{keyex_info = {Min, Max, NBits}}}. 
 
-
+%%%----------------------------------------------------------------
+%%%
+%%% diffie-hellman-group1-sha1
+%%% 
 handle_kexdh_init(#ssh_msg_kexdh_init{e = E}, Ssh0) ->
+    %% server
     {G, P} = dh_group1(),
     if
 	1=<E, E=<(P-1) ->
 	    {Private, Public} = dh_gen_key(G, P, 1024),
-	    K = ssh_math:ipow(E, Private, P),
+	    K = dh_compute_key(G, P, E, Private),
 	    Key = get_host_key(Ssh0),
 	    H = kex_h(Ssh0, Key, E, Public, K),
 	    H_SIG = sign_host_key(Ssh0, Key, H),
@@ -314,27 +344,172 @@ handle_kexdh_init(#ssh_msg_kexdh_init{e = E}, Ssh0) ->
 								f = Public,
 								h_sig = H_SIG
 							       }, Ssh0),
-	    
 	    {ok, SshPacket, Ssh1#ssh{keyex_key = {{Private, Public}, {G, P}},
 				     shared_secret = K,
 				     exchanged_hash = H,
 				     session_id = sid(Ssh1, H)}};
+
 	true ->
-	    Error = {error,bad_e_from_peer},
-	    Disconnect = #ssh_msg_disconnect{
-			    code = ?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
-			    description = "Key exchange failed, 'f' out of bounds",
-			    language = "en"},
-	    throw({Error, Disconnect})
+	    throw({{error,bad_e_from_peer},
+		   #ssh_msg_disconnect{
+		      code = ?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
+		      description = "Key exchange failed, 'e' out of bounds",
+		      language = ""}
+		   })
     end.
 
+handle_kexdh_reply(#ssh_msg_kexdh_reply{public_host_key = HostKey,
+					f = F,
+					h_sig = H_SIG}, 
+		   #ssh{keyex_key = {{Private, Public}, {G, P}}} = Ssh0) ->
+    %% client
+    if 
+	1=<F, F=<(P-1)->
+	    K = dh_compute_key(G, P, F, Private),
+	    H = kex_h(Ssh0, HostKey, Public, F, K),
+
+	    case verify_host_key(Ssh0, HostKey, H, H_SIG) of
+		ok ->
+		    {SshPacket, Ssh} = ssh_packet(#ssh_msg_newkeys{}, Ssh0),
+		    {ok, SshPacket, Ssh#ssh{shared_secret  = K,
+					    exchanged_hash = H,
+					    session_id = sid(Ssh, H)}};
+		Error ->
+		    throw({Error,
+			   #ssh_msg_disconnect{
+			      code = ?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
+			      description = "Key exchange failed",
+			      language = "en"}
+			  })
+	    end;
+
+	true ->
+	    throw({{error,bad_f_from_peer},
+		   #ssh_msg_disconnect{
+		      code = ?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
+		      description = "Key exchange failed, 'f' out of bounds",
+		      language = ""}
+		   })
+    end.
+
+
+%%%----------------------------------------------------------------
+%%%
+%%% diffie-hellman-group-exchange-sha1
+%%% 
+handle_kex_dh_gex_request(#ssh_msg_kex_dh_gex_request{min = Min,
+						      n   = NBits,
+						      max = Max}, Ssh0) when Min=<NBits, NBits=<Max ->
+    %% server
+    {G, P} = dh_gex_group(Min, NBits, Max),
+    {Private, Public} = dh_gen_key(G, P, 1024),
+    {SshPacket, Ssh} = 
+	ssh_packet(#ssh_msg_kex_dh_gex_group{p = P, g = G}, Ssh0),
+    {ok, SshPacket, 
+     Ssh#ssh{keyex_key = {{Private, Public}, {G, P}},
+	     keyex_info = {Min, Max, NBits}
+	    }};
+handle_kex_dh_gex_request(_, _) ->
+  throw({{error,bad_ssh_msg_kex_dh_gex_request},
+	 #ssh_msg_disconnect{
+	    code = ?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
+	    description = "Key exchange failed, bad values in ssh_msg_kex_dh_gex_request",
+	    language = ""}
+	}).
+
 handle_kex_dh_gex_group(#ssh_msg_kex_dh_gex_group{p = P, g = G}, Ssh0) ->
-    {Private, Public} = dh_gen_key(G,P,1024),
+    %% client
+    {Private, Public} = dh_gen_key(G, P, 1024),
     {SshPacket, Ssh1} = 
-	ssh_packet(#ssh_msg_kex_dh_gex_init{e = Public}, Ssh0),
+	ssh_packet(#ssh_msg_kex_dh_gex_init{e = Public}, Ssh0),	% Pub = G^Priv mod P (def)
+
     {ok, SshPacket, 
      Ssh1#ssh{keyex_key = {{Private, Public}, {G, P}}}}.
 
+handle_kex_dh_gex_init(#ssh_msg_kex_dh_gex_init{e = E}, 
+		       #ssh{keyex_key = {{Private, Public}, {G, P}},
+			    keyex_info = {Min, Max, NBits}} = 
+			   Ssh0) ->
+    %% server
+    if
+	1=<E, E=<(P-1) ->
+	    K = dh_compute_key(G, P, E, Private),
+	    if
+		1<K, K<(P-1) ->
+		    HostKey = get_host_key(Ssh0),
+		    H = kex_h(Ssh0, HostKey, Min, NBits, Max, P, G, E, Public, K),
+		    H_SIG = sign_host_key(Ssh0, HostKey, H),
+		    {SshPacket, Ssh} = 
+			ssh_packet(#ssh_msg_kex_dh_gex_reply{public_host_key = HostKey, 
+							     f = Public,
+							     h_sig = H_SIG}, Ssh0),
+		    {ok, SshPacket, Ssh#ssh{shared_secret = K,
+					    exchanged_hash = H,
+					    session_id = sid(Ssh, H)
+					   }};
+		true ->
+		    throw({{error,bad_K},
+			   #ssh_msg_disconnect{
+			      code = ?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
+			      description = "Key exchange failed, 'K' out of bounds",
+			      language = ""}
+			  })
+	    end;
+	true ->
+	    throw({{error,bad_e_from_peer},
+		   #ssh_msg_disconnect{
+		      code = ?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
+		      description = "Key exchange failed, 'e' out of bounds",
+		      language = ""}
+		  })
+    end.
+
+handle_kex_dh_gex_reply(#ssh_msg_kex_dh_gex_reply{public_host_key = HostKey, 
+						  f = F,
+						  h_sig = H_SIG},
+			#ssh{keyex_key = {{Private, Public}, {G, P}},
+			     keyex_info = {Min, Max, NBits}} = 
+			    Ssh0) ->
+    %% client
+    if 
+	1=<F, F=<(P-1)->
+	    K = dh_compute_key(G, P, F, Private),
+	    if
+		1<K, K<(P-1) ->
+		    H = kex_h(Ssh0, HostKey, Min, NBits, Max, P, G, Public, F, K),
+
+		    case verify_host_key(Ssh0, HostKey, H, H_SIG) of
+			ok ->
+			    {SshPacket, Ssh} = ssh_packet(#ssh_msg_newkeys{}, Ssh0),
+			    {ok, SshPacket, Ssh#ssh{shared_secret  = K,
+						    exchanged_hash = H,
+						    session_id = sid(Ssh, H)}};
+			_Error ->
+			    throw(#ssh_msg_disconnect{
+				     code = ?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
+				     description = "Key exchange failed",
+				     language = ""}
+				 )
+		    end;
+
+		true ->
+		    throw({{error,bad_K},
+			   #ssh_msg_disconnect{
+			      code = ?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
+			      description = "Key exchange failed, 'K' out of bounds",
+			      language = ""}
+			  })
+	    end;
+	true ->
+	    throw({{error,bad_f_from_peer},
+		   #ssh_msg_disconnect{
+		      code = ?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
+		      description = "Key exchange failed, 'f' out of bounds",
+		      language = ""}
+		  })
+    end.	       
+
+%%%----------------------------------------------------------------
 handle_new_keys(#ssh_msg_newkeys{}, Ssh0) ->
     try install_alg(Ssh0) of
 	#ssh{} = Ssh ->
@@ -345,69 +520,6 @@ handle_new_keys(#ssh_msg_newkeys{}, Ssh0) ->
 				      description = "Install alg failed", 
 				      language = "en"})
     end. 
-
-
-%% %% Select algorithms
-handle_kexdh_reply(#ssh_msg_kexdh_reply{public_host_key = HostKey, f = F,
-					h_sig = H_SIG}, 
-		   #ssh{keyex_key = {{Private, Public}, {_G, P}}} = Ssh0) when 1=<F, F=<(P-1)->
-    K = ssh_math:ipow(F, Private, P),
-    H = kex_h(Ssh0, HostKey, Public, F, K),
-
-    case verify_host_key(Ssh0, HostKey, H, H_SIG) of
-	ok ->
-	    {SshPacket, Ssh} = ssh_packet(#ssh_msg_newkeys{}, Ssh0),
-	    {ok, SshPacket, Ssh#ssh{shared_secret  = K,
-				    exchanged_hash = H,
-				    session_id = sid(Ssh, H)}};
-	Error ->
-	    Disconnect = #ssh_msg_disconnect{
-	      code = ?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
-	      description = "Key exchange failed",
-	      language = "en"},
-	    throw({Error, Disconnect})
-    end;
-handle_kexdh_reply(#ssh_msg_kexdh_reply{}, _SSH) ->
-    Error = {error,bad_f_from_peer},
-    Disconnect = #ssh_msg_disconnect{
-		    code = ?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
-		    description = "Key exchange failed, 'f' out of bounds",
-		    language = "en"},
-    throw({Error, Disconnect}).
-
-
-handle_kex_dh_gex_request(#ssh_msg_kex_dh_gex_request{min = _Min,
-						      n   = _NBits,
-						      max = _Max}, Ssh0) ->
-    {G,P} = dh_group1(), %% TODO real imp this seems to be a hack?!
-    {Private, Public} = dh_gen_key(G, P, 1024),
-    {SshPacket, Ssh} = 
-	ssh_packet(#ssh_msg_kex_dh_gex_group{p = P, g = G}, Ssh0),
-    {ok, SshPacket, 
-     Ssh#ssh{keyex_key = {{Private, Public}, {G, P}}}}.
-
-handle_kex_dh_gex_reply(#ssh_msg_kex_dh_gex_reply{public_host_key = HostKey, 
-						  f = F,
-						  h_sig = H_SIG},
-			#ssh{keyex_key = {{Private, Public}, {G, P}},
-			     keyex_info = {Min, Max, NBits}} = 
-		 	Ssh0) ->
-    K = ssh_math:ipow(F, Private, P),
-    H = kex_h(Ssh0, HostKey, Min, NBits, Max, P, G, Public, F, K),
-
-    case verify_host_key(Ssh0, HostKey, H, H_SIG) of
-	ok ->
-	    {SshPacket, Ssh} = ssh_packet(#ssh_msg_newkeys{}, Ssh0),
-	    {ok, SshPacket, Ssh#ssh{shared_secret  = K,
-			  exchanged_hash = H,
-			  session_id = sid(Ssh, H)}};
-	_Error ->
-	    Disconnect = #ssh_msg_disconnect{
-	      code = ?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
-	      description = "Key exchange failed",
-	      language = "en"},
-	    throw(Disconnect)
-    end.	       
 
 %% select session id
 sid(#ssh{session_id = undefined}, H) -> 
@@ -511,7 +623,6 @@ select_algorithm(Role, Client, Server) ->
 	       decompress = Decompression,
 	       c_lng = C_Lng,
 	       s_lng = S_Lng},
-%%ct:pal("~p~n Client=~p~n Server=~p~n    Alg=~p~n",[Role,Client,Server,Alg]),
     {ok, Alg}.
 
 select_encrypt_decrypt(client, Client, Server) ->
@@ -1001,7 +1112,7 @@ recv_mac_init(SSH) ->
 recv_mac_final(SSH) ->
     {ok, SSH#ssh { recv_mac = none, recv_mac_key = undefined }}.
 
-mac(none, _ , _, _) ->  
+mac(none, _ , _, _) ->
     <<>>;
 mac('hmac-sha1', Key, SeqNum, Data) ->
     crypto:hmac(sha, Key, [<<?UINT32(SeqNum)>>, Data]);
@@ -1022,6 +1133,8 @@ hash(SSH, Char, Bits) ->
 		fun(Data) -> crypto:hash(sha, Data) end;
 	    'diffie-hellman-group-exchange-sha1' ->
 		fun(Data) -> crypto:hash(sha, Data) end;
+	    'diffie-hellman-group-exchange-sha256' ->
+		fun(Data) -> crypto:hash(sha256, Data) end;
 	    _ ->
 		exit({bad_algorithm,SSH#ssh.kex})
 	end,
@@ -1071,8 +1184,11 @@ kex_h(SSH, Key, Min, NBits, Max, Prime, Gen, E, F, K) ->
 				 ssh_message:encode_host_key(Key), Min, NBits, Max,
 				 Prime, Gen, E,F,K], Ts)
 	end,
-    crypto:hash(sha,L).
+    crypto:hash(sha((SSH#ssh.algorithms)#alg.kex), L).
   
+sha('diffie-hellman-group-exchange-sha1')   -> sha;
+sha('diffie-hellman-group-exchange-sha256') -> sha256.
+
 mac_key_size('hmac-sha1')    -> 20*8;
 mac_key_size('hmac-sha1-96') -> 20*8;
 mac_key_size('hmac-md5')     -> 16*8;
@@ -1096,12 +1212,45 @@ peer_name({Host, _}) ->
 %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+%%% rfc 2489, ch 6.2
 dh_group1() ->
     {2, 16#FFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD129024E088A67CC74020BBEA63B139B22514A08798E3404DDEF9519B3CD3A431B302B0A6DF25F14374FE1356D6D51C245E485B576625E7EC6F44C42E9A637ED6B0BFF5CB6F406B7EDEE386BFB5A899FA5AE9F24117C4B1FE649286651ECE65381FFFFFFFFFFFFFFFF}.
+
+%%% rfc 3526, ch3
+dh_group14() ->
+    {2, 16#FFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD129024E088A67CC74020BBEA63B139B22514A08798E3404DDEF9519B3CD3A431B302B0A6DF25F14374FE1356D6D51C245E485B576625E7EC6F44C42E9A637ED6B0BFF5CB6F406B7EDEE386BFB5A899FA5AE9F24117C4B1FE649286651ECE45B3DC2007CB8A163BF0598DA48361C55D39A69163FA8FD24CF5F83655D23DCA3AD961C62F356208552BB9ED529077096966D670C354E4ABC9804F1746C08CA18217C32905E462E36CE3BE39E772C180E86039B2783A2EC07A28FB5C55DF06F4C52C9DE2BCBF6955817183995497CEA956AE515D2261898FA051015728E5A8AACAA68FFFFFFFFFFFFFFFF}.
+
+%%% rfc 3526, ch4
+dh_group15() ->
+   {2, 16#FFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD129024E088A67CC74020BBEA63B139B22514A08798E3404DDEF9519B3CD3A431B302B0A6DF25F14374FE1356D6D51C245E485B576625E7EC6F44C42E9A637ED6B0BFF5CB6F406B7EDEE386BFB5A899FA5AE9F24117C4B1FE649286651ECE45B3DC2007CB8A163BF0598DA48361C55D39A69163FA8FD24CF5F83655D23DCA3AD961C62F356208552BB9ED529077096966D670C354E4ABC9804F1746C08CA18217C32905E462E36CE3BE39E772C180E86039B2783A2EC07A28FB5C55DF06F4C52C9DE2BCBF6955817183995497CEA956AE515D2261898FA051015728E5A8AAAC42DAD33170D04507A33A85521ABDF1CBA64ECFB850458DBEF0A8AEA71575D060C7DB3970F85A6E1E4C7ABF5AE8CDB0933D71E8C94E04A25619DCEE3D2261AD2EE6BF12FFA06D98A0864D87602733EC86A64521F2B18177B200CBBE117577A615D6C770988C0BAD946E208E24FA074E5AB3143DB5BFCE0FD108E4B82D120A93AD2CAFFFFFFFFFFFFFFFF}.
+
+%%% rfc 3526, ch5
+dh_group16() ->
+   {2, 16#FFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD129024E088A67CC74020BBEA63B139B22514A08798E3404DDEF9519B3CD3A431B302B0A6DF25F14374FE1356D6D51C245E485B576625E7EC6F44C42E9A637ED6B0BFF5CB6F406B7EDEE386BFB5A899FA5AE9F24117C4B1FE649286651ECE45B3DC2007CB8A163BF0598DA48361C55D39A69163FA8FD24CF5F83655D23DCA3AD961C62F356208552BB9ED529077096966D670C354E4ABC9804F1746C08CA18217C32905E462E36CE3BE39E772C180E86039B2783A2EC07A28FB5C55DF06F4C52C9DE2BCBF6955817183995497CEA956AE515D2261898FA051015728E5A8AAAC42DAD33170D04507A33A85521ABDF1CBA64ECFB850458DBEF0A8AEA71575D060C7DB3970F85A6E1E4C7ABF5AE8CDB0933D71E8C94E04A25619DCEE3D2261AD2EE6BF12FFA06D98A0864D87602733EC86A64521F2B18177B200CBBE117577A615D6C770988C0BAD946E208E24FA074E5AB3143DB5BFCE0FD108E4B82D120A92108011A723C12A787E6D788719A10BDBA5B2699C327186AF4E23C1A946834B6150BDA2583E9CA2AD44CE8DBBBC2DB04DE8EF92E8EFC141FBECAA6287C59474E6BC05D99B2964FA090C3A2233BA186515BE7ED1F612970CEE2D7AFB81BDD762170481CD0069127D5B05AA993B4EA988D8FDDC186FFB7DC90A6C08F4DF435C934063199FFFFFFFFFFFFFFFF}.
+
+
+%%% First try exact match:
+dh_gex_group(_Min, N, _Max) when N==1024 -> dh_group1();
+dh_gex_group(_Min, N, _Max) when N==2048 -> dh_group14();
+dh_gex_group(_Min, N, _Max) when N==3072 -> dh_group15();
+dh_gex_group(_Min, N, _Max) when N==4096 -> dh_group16();
+%%% If not an exact match, select the largest possible:
+dh_gex_group(Min, _N, Max) when Min=<4096, 4096=<Max -> dh_group16();
+dh_gex_group(Min, _N, Max) when Min=<3072, 3072=<Max -> dh_group15();
+dh_gex_group(Min, _N, Max) when Min=<2048, 2048=<Max -> dh_group14();
+dh_gex_group(Min, _N, Max) when Min=<1024, 1024=<Max -> dh_group1().
+
 
 dh_gen_key(G, P, _) ->
     {Public, Private} = crypto:generate_key(dh, [P, G]),
     {crypto:bytes_to_integer(Private), crypto:bytes_to_integer(Public)}.
+
+dh_compute_key(G, P, OthersPublic, MyPrivate) ->
+    crypto:bytes_to_integer(
+      crypto:compute_key(dh, OthersPublic, MyPrivate, [P,G])
+     ).
+
+
 
 trim_tail(Str) ->
     lists:reverse(trim_head(lists:reverse(Str))).
