@@ -5,7 +5,8 @@
   <header>
     <copyright>
       <year>2014</year>
-      <holder>Erlang Solutions Ltd</holder>
+      <year>2015</year>
+      <holder>Ulf Wiger</holder>
     </copyright>
     <legalnotice>
   Licensed under the Apache License, Version 2.0 (the "License");
@@ -36,7 +37,7 @@ limitations under the License.
   <description>
     <p>The module <c>mnesia_sext</c> was imported from the
     <url href="https://github.com/esl/sext"><c>sext</c> library</url>
-    by Erlang Solutions Ltd, but for the time being, it is a part of
+    by Ulf Wiger, but for the time being, it is a part of
     the Mnesia application.
     </p>
     <p><c>mnesia_sext</c> is intended for mnesia backend plugins,
