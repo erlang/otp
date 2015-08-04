@@ -229,7 +229,7 @@ v(Max, Ord, E)
   when Ord =< Max ->
     diameter_enum:to_list(E);
 v(Max, Ord, E) ->
-    random:seed(diameter_util:seed()),
+    random:seed(now()),
     v(Max, Ord, E, []).
 
 v(0, _, _, Acc) ->
@@ -522,7 +522,7 @@ random(Mn,Mx) ->
 
 seed(undefined) ->
     put({?MODULE, seed}, true),
-    random:seed(diameter_util:seed());
+    random:seed(now());
 
 seed(true) ->
     ok.

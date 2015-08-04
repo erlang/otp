@@ -295,15 +295,15 @@ slave() ->
     [{timetrap, {minutes, 10}}].
 
 slave(_) ->
-    T0 = diameter_lib:now(),
+    T0 = now(),
     {ok, Node} = ct_slave:start(?MODULE, ?TIMEOUTS),
-    T1 = diameter_lib:now(),
+    T1 = now(),
     T2 = rpc:call(Node, erlang, now, []),
     {ok, Node} = ct_slave:stop(?MODULE),
-    now_diff([T0, T1, T2, diameter_lib:now()]).
+    now_diff([T0, T1, T2, now()]).
 
 now_diff([T1,T2|_] = Ts) ->
-    [diameter_lib:micro_diff(T2,T1) | now_diff(tl(Ts))];
+    [timer:now_diff(T2,T1) | now_diff(tl(Ts))];
 now_diff(_) ->
     [].
 

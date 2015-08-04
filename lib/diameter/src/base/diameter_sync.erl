@@ -27,9 +27,6 @@
 -module(diameter_sync).
 -behaviour(gen_server).
 
--compile({no_auto_import, [now/0]}).
--import(diameter_lib, [now/0]).
-
 -export([call/4, call/5,
          cast/4, cast/5,
          carp/1, carp/2]).

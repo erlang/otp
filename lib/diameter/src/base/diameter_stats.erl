@@ -24,9 +24,6 @@
 -module(diameter_stats).
 -behaviour(gen_server).
 
--compile({no_auto_import, [now/0]}).
--import(diameter_lib, [now/0]).
-
 -export([reg/2, reg/1,
          incr/3, incr/1,
          read/1,

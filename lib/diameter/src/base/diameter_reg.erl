@@ -24,8 +24,7 @@
 -module(diameter_reg).
 -behaviour(gen_server).
 
--compile({no_auto_import, [monitor/2, now/0]}).
--import(diameter_lib, [now/0]).
+-compile({no_auto_import, [monitor/2]}).
 
 -export([add/1,
          add_new/1,

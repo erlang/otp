@@ -24,9 +24,6 @@
 -module(diameter_service).
 -behaviour(gen_server).
 
--compile({no_auto_import, [now/0]}).
--import(diameter_lib, [now/0]).
-
 %% towards diameter_service_sup
 -export([start_link/1]).
 
@@ -1218,7 +1215,7 @@ connect_timer(Opts, Def0) ->
 %% continuous restarted in case of faulty config or other problems.
 tc(Time, Tc) ->
     choose(Tc > ?RESTART_TC
-             orelse diameter_lib:micro_diff(Time) > 1000*?RESTART_TC,
+             orelse timer:now_diff(now(), Time) > 1000*?RESTART_TC,
            Tc,
            ?RESTART_TC).
 

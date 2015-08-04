@@ -53,7 +53,7 @@
 
 %% Receive a message.
 -define(RECV(Pat, Ret), receive Pat -> Ret end).
--define(RECV(Pat), ?RECV(Pat, diameter_util:timestamp())).
+-define(RECV(Pat), ?RECV(Pat, now())).
 
 %% Sockets are opened on the loopback address.
 -define(ADDR, {127,0,0,1}).
@@ -335,7 +335,7 @@ make_msg() ->
 %% crypto:rand_bytes/1 isn't available on all platforms (since openssl
 %% isn't) so roll our own.
 rand_bytes(N) ->
-    random:seed(diameter_util:seed()),
+    random:seed(now()),
     rand_bytes(N, <<>>).
 
 rand_bytes(0, Bin) ->
@@ -416,7 +416,7 @@ gen_accept(tcp, LSock) ->
 
 gen_send(sctp, Sock, Bin) ->
     {OS, _IS, Id} = getr(assoc),
-    {_, _, Us} = diameter_util:timestamp(),
+    {_, _, Us} = now(),
     gen_sctp:send(Sock, Id, Us rem OS, Bin);
 gen_send(tcp, Sock, Bin) ->
     gen_tcp:send(Sock, Bin).

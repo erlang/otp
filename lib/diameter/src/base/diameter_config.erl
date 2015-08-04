@@ -37,8 +37,7 @@
 -module(diameter_config).
 -behaviour(gen_server).
 
--compile({no_auto_import, [monitor/2, now/0]}).
--import(diameter_lib, [now/0]).
+-compile({no_auto_import, [monitor/2]}).
 
 -export([start_service/2,
          stop_service/1,
