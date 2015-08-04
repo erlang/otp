@@ -46,7 +46,9 @@
 	 get_print_info/1]).
 
 %% gen_fsm callbacks
--export([hello/2, kexinit/2, key_exchange/2, new_keys/2,
+-export([hello/2, kexinit/2, key_exchange/2, 
+	 key_exchange_dh_gex_init/2, key_exchange_dh_gex_reply/2,
+	 new_keys/2,
 	 userauth/2, connected/2,
 	 error/2]).
 
@@ -417,25 +419,37 @@ key_exchange(#ssh_msg_kexdh_reply{} = Msg,
     send_msg(NewKeys, State),
     {next_state, new_keys, next_packet(State#state{ssh_params = Ssh})};
 
-key_exchange(#ssh_msg_kex_dh_gex_group{} = Msg, 
+key_exchange(#ssh_msg_kex_dh_gex_request{} = Msg, 
 	     #state{ssh_params = #ssh{role = server} = Ssh0} = State) ->
-    {ok, NextKexMsg, Ssh1} = ssh_transport:handle_kex_dh_gex_group(Msg, Ssh0),
-    send_msg(NextKexMsg, State),
+    {ok, GexGroup, Ssh} = ssh_transport:handle_kex_dh_gex_request(Msg, Ssh0),
+    send_msg(GexGroup, State),
+    {next_state, key_exchange_dh_gex_init, next_packet(State#state{ssh_params = Ssh})};
+
+key_exchange(#ssh_msg_kex_dh_gex_group{} = Msg, 
+	     #state{ssh_params = #ssh{role = client} = Ssh0} = State) ->
+    {ok, KexGexInit, Ssh} = ssh_transport:handle_kex_dh_gex_group(Msg, Ssh0),
+    send_msg(KexGexInit, State),
+    {next_state, key_exchange_dh_gex_reply, next_packet(State#state{ssh_params = Ssh})}.
+
+%%--------------------------------------------------------------------
+-spec key_exchange_dh_gex_init(#ssh_msg_kex_dh_gex_init{}, #state{}) -> gen_fsm_state_return().
+%%--------------------------------------------------------------------
+key_exchange_dh_gex_init(#ssh_msg_kex_dh_gex_init{} = Msg,
+			 #state{ssh_params = #ssh{role = server} = Ssh0} = State) ->
+    {ok, KexGexReply, Ssh1} =  ssh_transport:handle_kex_dh_gex_init(Msg, Ssh0),
+    send_msg(KexGexReply, State),
     {ok, NewKeys, Ssh} = ssh_transport:new_keys_message(Ssh1),
     send_msg(NewKeys, State),
-    {next_state, new_keys, next_packet(State#state{ssh_params = Ssh})};
-
-key_exchange(#ssh_msg_kex_dh_gex_request{} = Msg, 
-	     #state{ssh_params = #ssh{role = client} = Ssh0} = State) ->
-    {ok, NextKexMsg, Ssh} = ssh_transport:handle_kex_dh_gex_request(Msg, Ssh0),
-    send_msg(NextKexMsg, State),
-    {next_state, new_keys, next_packet(State#state{ssh_params = Ssh})};
-
-key_exchange(#ssh_msg_kex_dh_gex_reply{} = Msg, 
-	     #state{ssh_params = #ssh{role = client} = Ssh0} = State) ->
-    {ok, NewKeys, Ssh} = ssh_transport:handle_kex_dh_gex_reply(Msg, Ssh0),
-    send_msg(NewKeys, State),
     {next_state, new_keys, next_packet(State#state{ssh_params = Ssh})}.
+
+%%--------------------------------------------------------------------
+-spec key_exchange_dh_gex_reply(#ssh_msg_kex_dh_gex_reply{}, #state{}) -> gen_fsm_state_return().
+%%--------------------------------------------------------------------
+key_exchange_dh_gex_reply(#ssh_msg_kex_dh_gex_reply{} = Msg,
+			  #state{ssh_params = #ssh{role = client} = Ssh0} = State) ->
+    {ok, NewKeys, Ssh1} =  ssh_transport:handle_kex_dh_gex_reply(Msg, Ssh0),
+    send_msg(NewKeys, State),
+    {next_state, new_keys, next_packet(State#state{ssh_params = Ssh1})}.
 
 %%--------------------------------------------------------------------
 -spec new_keys(#ssh_msg_newkeys{}, #state{}) -> gen_fsm_state_return().
