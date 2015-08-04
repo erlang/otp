@@ -66,7 +66,6 @@
          parent = self() :: pid(),              %% service process
          transport       :: pid() | undefined,  %% peer_fsm process
          tref :: reference()      %% reference for current watchdog timer
-               | integer()        %% monotonic time
                | tuple()          %% now()
                | undefined,
          dictionary :: module(),  %% common dictionary
