@@ -51,13 +51,15 @@ groups() ->
 			  erlang_client_openssh_server_publickey_rsa,
 			  erlang_client_openssh_server_publickey_dsa,
 			  erlang_client_openssh_server_password,
+			  erlang_client_openssh_server_kexs,
 			  erlang_client_openssh_server_nonexistent_subsystem
 			 ]},
      {erlang_server, [], [erlang_server_openssh_client_exec,
 			  erlang_server_openssh_client_exec_compressed,
 			  erlang_server_openssh_client_pulic_key_dsa,
 			  erlang_server_openssh_client_cipher_suites,
-			  erlang_server_openssh_client_macs]}
+			  erlang_server_openssh_client_macs,
+			  erlang_server_openssh_client_kexs]}
     ].
 
 init_per_suite(Config) ->
@@ -97,6 +99,12 @@ init_per_testcase(erlang_server_openssh_client_cipher_suites, Config) ->
     check_ssh_client_support(Config);
 
 init_per_testcase(erlang_server_openssh_client_macs, Config) ->
+    check_ssh_client_support(Config);
+
+init_per_testcase(erlang_server_openssh_client_kexs, Config) ->
+    check_ssh_client_support(Config);
+
+init_per_testcase(erlang_client_openssh_server_kexs, Config) ->
     check_ssh_client_support(Config);
 
 init_per_testcase(_TestCase, Config) ->
@@ -186,6 +194,48 @@ erlang_client_openssh_server_exec_compressed(Config) when is_list(Config) ->
 	    ssh_test_lib:receive_exec_result(Data,  ConnectionRef, ChannelId);
 	Other ->
 	    ct:fail(Other)
+    end.
+
+%%--------------------------------------------------------------------
+erlang_client_openssh_server_kexs() ->
+    [{doc, "Test that we can connect with different KEXs."}].
+
+erlang_client_openssh_server_kexs(Config) when is_list(Config) ->
+    Success =
+	lists:foldl(
+	  fun(Kex, Acc) ->
+		  ConnectionRef = 
+		      ssh_test_lib:connect(?SSH_DEFAULT_PORT, [{silently_accept_hosts, true},
+							       {user_interaction, false},
+							       {preferred_algorithms,
+								[{kex,[Kex]}]}]),
+    
+		  {ok, ChannelId} =
+		      ssh_connection:session_channel(ConnectionRef, infinity),
+		  success =
+		      ssh_connection:exec(ConnectionRef, ChannelId,
+					  "echo testing", infinity),
+
+		  ExpectedData = {ssh_cm, ConnectionRef, {data, ChannelId, 0, <<"testing\n">>}},
+		  case ssh_test_lib:receive_exec_result(ExpectedData) of
+		      expected ->
+			  ssh_test_lib:receive_exec_end(ConnectionRef, ChannelId),
+			  Acc;
+		      {unexpected_msg,{ssh_cm, ConnectionRef,
+				       {exit_status, ChannelId, 0}} = ExitStatus} ->
+			  ct:pal("0: Collected data ~p", [ExitStatus]),
+			  ssh_test_lib:receive_exec_result(ExpectedData,  ConnectionRef, ChannelId),
+			  Acc;
+		      Other ->
+			  ct:pal("~p failed: ~p",[Kex,Other]),
+			  false
+		  end
+	  end, true, ssh_transport:supported_algorithms(kex)),
+    case Success of
+	true ->
+	    ok;
+	false ->
+	    {fail, "Kex failed for one or more algos"}
     end.
 
 %%--------------------------------------------------------------------
@@ -320,6 +370,70 @@ erlang_server_openssh_client_macs(Config) when is_list(Config) ->
     end, MACs),
 
      ssh:stop_daemon(Pid).
+
+%%--------------------------------------------------------------------
+erlang_server_openssh_client_kexs() ->
+    [{doc, "Test that we can connect with different KEXs."}].
+
+erlang_server_openssh_client_kexs(Config) when is_list(Config) ->
+    SystemDir = ?config(data_dir, Config),
+    PrivDir = ?config(priv_dir, Config),
+    KnownHosts = filename:join(PrivDir, "known_hosts"),
+
+    {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
+					     {failfun, fun ssh_test_lib:failfun/2},
+					     {preferred_algorithms,
+					      [{kex,ssh_transport:supported_algorithms(kex)}]}
+					    ]),
+    ct:sleep(500),
+
+    ErlKexs = lists:map(fun erlang:atom_to_list/1, 
+			ssh_transport:supported_algorithms(kex)),
+    OpenSshKexs = string:tokens(os:cmd("ssh -Q kex"), "\n"),
+    
+    Kexs = [{OpenSshKex,lists:member(OpenSshKex,ErlKexs)} 
+	    || OpenSshKex <- OpenSshKexs],
+
+    Success =
+	lists:foldl(
+	  fun({Kex, Expect}, Acc) ->
+		  Cmd = "ssh -p " ++ integer_to_list(Port) ++
+		      " -o UserKnownHostsFile=" ++ KnownHosts ++ " " ++ Host ++ " " ++
+		      " -o KexAlgorithms=" ++ Kex ++ " 1+1.",
+
+		  ct:pal("Cmd: ~p~n", [Cmd]),
+
+		  SshPort = open_port({spawn, Cmd}, [binary, stderr_to_stdout]),
+
+		  case Expect of
+		      true ->
+			  receive
+			      {SshPort,{data, <<"2\n">>}} ->
+				  Acc
+			  after ?TIMEOUT ->
+				  ct:pal("Did not receive answer for ~p",[Kex]),
+				  false
+			  end;
+		      false ->
+			  receive
+			      {SshPort,{data, <<"Unable to negotiate a key exchange method", _/binary>>}} ->
+				  Acc
+			  after ?TIMEOUT ->
+				  ct:pal("Did not receive no matching kex message for ~p",[Kex]),
+				  false
+			  end
+		  end
+	  end, true, Kexs),
+    
+    ssh:stop_daemon(Pid),
+
+    case Success of
+	true ->
+	    ok;
+	false ->
+	    {fail, "Kex failed for one or more algos"}
+    end.
+	
 
 %%--------------------------------------------------------------------
 erlang_server_openssh_client_exec_compressed() ->

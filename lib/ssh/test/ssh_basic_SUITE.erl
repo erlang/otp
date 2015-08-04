@@ -42,7 +42,7 @@ suite() ->
 all() -> 
     [app_test,
      appup_test,
-     {group, 'diffie-hellman-group-exchange-sha1'},
+     {group, key_exchange},
      {group, dsa_key},
      {group, rsa_key},
      {group, dsa_pass_key},
@@ -93,8 +93,11 @@ groups() ->
 			    max_sessions_sftp_start_channel_parallel,
 			    max_sessions_sftp_start_channel_sequential
 			   ]},
-     {'diffie-hellman-group-exchange-sha1', [], ['diffie-hellman-group-exchange-sha1'
-						]},
+     {key_exchange, [], ['diffie-hellman-group-exchange-sha1',
+			 'diffie-hellman-group-exchange-sha256',
+			 'diffie-hellman-group1-sha1',
+			 'diffie-hellman-group14-sha1'
+			]},
      {dir_options, [], [user_dir_option,
 			system_dir_option]}
     ].
@@ -149,17 +152,11 @@ init_per_group(internal_error, Config) ->
     ssh_test_lib:setup_dsa(DataDir, PrivDir),
     file:delete(filename:join(PrivDir, "system/ssh_host_dsa_key")),
     Config;
-init_per_group('diffie-hellman-group-exchange-sha1', Config) ->
-    case lists:member('diffie-hellman-group-exchange-sha1',
-		      ssh_transport:supported_algorithms(kex)) of
-	true ->
-	    DataDir = ?config(data_dir, Config),
-	    PrivDir = ?config(priv_dir, Config),
-	    ssh_test_lib:setup_rsa(DataDir, PrivDir),
-	    Config;
-	false ->
-	    {skip,"diffie-hellman-group-exchange-sha1 is not supported"}
-    end;
+init_per_group(key_exchange, Config) ->
+    DataDir = ?config(data_dir, Config),
+    PrivDir = ?config(priv_dir, Config),
+    ssh_test_lib:setup_rsa(DataDir, PrivDir),
+    Config;
 init_per_group(dir_options, Config) ->
     PrivDir = ?config(priv_dir, Config),
     %% Make unreadable dir:
@@ -207,6 +204,8 @@ init_per_group(_, Config) ->
 
 end_per_group(hardening_tests, Config) ->
     end_per_group(dsa_key, Config);
+end_per_group(key_exchange, Config) ->
+    end_per_group(rsa_key, Config);
 end_per_group(dsa_key, Config) ->
     PrivDir = ?config(priv_dir, Config),
     ssh_test_lib:clean_dsa(PrivDir),
@@ -833,40 +832,56 @@ ssh_msg_debug_fun_option_client(Config) ->
 
 %%--------------------------------------------------------------------
 'diffie-hellman-group-exchange-sha1'(Config) ->
-    process_flag(trap_exit, true),
-    SystemDir = filename:join(?config(priv_dir, Config), system),
-    UserDir = ?config(priv_dir, Config), 
+    kextest('diffie-hellman-group-exchange-sha1',Config).
 
-    {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
-					     {user_dir, UserDir},
-					     {user_passwords, [{"foo", "bar"}]},
-					     {preferred_algorithms,
-					      [{kex, ['diffie-hellman-group-exchange-sha1']}]},
-					     {failfun, fun ssh_test_lib:failfun/2}]),
+'diffie-hellman-group-exchange-sha256'(Config) ->
+    kextest('diffie-hellman-group-exchange-sha256',Config).
+
+'diffie-hellman-group1-sha1'(Config) ->
+    kextest('diffie-hellman-group1-sha1',Config).
+
+'diffie-hellman-group14-sha1'(Config) ->
+    kextest('diffie-hellman-group14-sha1',Config).
+
+
+kextest(Kex, Config) ->
+    case lists:member(Kex, ssh_transport:supported_algorithms(kex)) of
+	true ->
+	    process_flag(trap_exit, true),
+	    SystemDir = filename:join(?config(priv_dir, Config), system),
+	    UserDir = ?config(priv_dir, Config), 
+	    
+	    {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
+						     {user_dir, UserDir},
+						     {user_passwords, [{"foo", "bar"}]},
+						     {preferred_algorithms,
+						      [{kex, [Kex]}]},
+						     {failfun, fun ssh_test_lib:failfun/2}]),
     
-    ConnectionRef =
-	ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
-					  {user, "foo"},
-					  {password, "bar"},
-					  {user_dir, UserDir},
-					  {preferred_algorithms,
-					   [{kex, ['diffie-hellman-group-exchange-sha1']}]},
-					  {user_interaction, false}]),
-    check(ConnectionRef, Pid).
-
-check(ConnectionRef, Pid) ->
-    {ok, ChannelId} = ssh_connection:session_channel(ConnectionRef, infinity),
-    success = ssh_connection:exec(ConnectionRef, ChannelId,
-				  "1+1.", infinity),
-    Data = {ssh_cm, ConnectionRef, {data, ChannelId, 0, <<"2\n">>}},
-    case ssh_test_lib:receive_exec_result(Data) of
-	expected ->
-	    ok;
-	Other ->
-	    ct:fail(Other)
-    end,
-    ssh_test_lib:receive_exec_end(ConnectionRef, ChannelId),
-    ssh:stop_daemon(Pid).
+	    ConnectionRef =
+		ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
+						  {user, "foo"},
+						  {password, "bar"},
+						  {user_dir, UserDir},
+						  {preferred_algorithms,
+						   [{kex, [Kex]}]},
+						  {user_interaction, false}]),
+	    
+	    {ok, ChannelId} = ssh_connection:session_channel(ConnectionRef, infinity),
+	    success = ssh_connection:exec(ConnectionRef, ChannelId,
+					  "1+1.", infinity),
+	    Data = {ssh_cm, ConnectionRef, {data, ChannelId, 0, <<"2\n">>}},
+	    case ssh_test_lib:receive_exec_result(Data) of
+		expected ->
+		    ok;
+		Other ->
+		    ct:fail(Other)
+	    end,
+	    ssh_test_lib:receive_exec_end(ConnectionRef, ChannelId),
+	    ssh:stop_daemon(Pid);
+	false ->
+	    {skip, lists:concat([Kex, " is not supported"])}
+    end.
 
 %%--------------------------------------------------------------------
 connectfun_disconnectfun_server(Config) ->
