@@ -67,10 +67,7 @@ default_algorithms(compression) ->
     %% Do not announce 'zlib@openssh.com' because there seem to be problems
     supported_algorithms(compression, same(['zlib@openssh.com']));
 default_algorithms(kex) ->
-    %% Do not announce the experimental 'diffie-hellman-group-exchange-sha*' yet
-    supported_algorithms(kex, ['diffie-hellman-group-exchange-sha1',
-			       'diffie-hellman-group-exchange-sha256'
-			      ]);
+    supported_algorithms(kex, []);
 default_algorithms(Alg) ->
     supported_algorithms(Alg).
 
