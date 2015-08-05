@@ -43,7 +43,7 @@
       <item>Supported public key algorithms: ssh-rsa and ssh-dss.</item>
       <item>Supported MAC algorithms: hmac-sha2-256 and hmac-sha1.</item>
       <item>Supported encryption algorithms: aes128-ctr, aes128-cb and 3des-cbc.</item>
-      <item>Supported key exchange algorithms: diffie-hellman-group1-sha1.</item>
+      <item>Supported key exchange algorithms: diffie-hellman-group1-sha1, diffie-hellman-group14-sha1, diffie-hellman-group-exchange-sha1 and diffie-hellman-group-exchange-sha256.</item>
       <item>Supported compression algorithms: none, zlib, zlib@openssh.com,</item>
       <item>Supports unicode filenames if the emulator and the underlaying OS support it.
       See section DESCRIPTION in the
@@ -238,6 +238,13 @@ kex is implicit but public_key is set explicitly.</p>
 	  know exactly what you are doing. If you do not understand the values then you
 	  are not supposed to change them.</p>
 	</warning>
+	  </item>
+
+	  <tag><c><![CDATA[{dh_gex_limits,{Min=integer(),I=integer(),Max=integer()}}]]></c></tag>
+	  <item>
+	    <p>Sets the three diffie-hellman-group-exchange parameters that guides the connected server in choosing a group.
+	    See RFC 4419 for the function of thoose.  The default value is <c>{512, 1024, 4096}</c>.
+	    </p>
 	  </item>
 
 	  <tag><c><![CDATA[{connect_timeout, timeout()}]]></c></tag>
@@ -447,6 +454,15 @@ kex is implicit but public_key is set explicitly.</p>
 	  know exactly what you are doing. If you do not understand the values then you
 	  are not supposed to change them.</p>
 	</warning>
+	  </item>
+
+	  <tag><c><![CDATA[{dh_gex_groups, [{Size=integer(),G=integer(),P=integer()}] | {file,filename()} }]]></c></tag>
+	  <item>
+	    <p>Sets the groups that the server may choose among when diffie-hellman-group-exchange is negotiated.
+	    See RFC 4419 for details.
+	    </p>
+	    <p>If the parameter is <c>{file,filename()}</c>, the file must exist and have one or more three-tuples terminated by a dot. The interpretation is as if the tuples had been given directly in the option.  The file is read when the daemon starts.
+	    </p>
 	  </item>
 
 	  <tag><c><![CDATA[{pwdfun, fun(User::string(), password::string()) -> boolean()}]]></c></tag>
