@@ -418,29 +418,24 @@ handle_ssh_option({preferred_algorithms,[_|_]} = Opt) ->
 handle_ssh_option({dh_gex_groups,L=[{I1,I2,I3}|_]}) when is_integer(I1), I1>0, 
 							 is_integer(I2), I2>0,
 							 is_integer(I3), I3>0 ->
-    {dh_gex_groups, [{N,{G,P}} || {N,P,G} <- L]};
+    {dh_gex_groups, lists:map(fun({N,G,P}) -> {N,{G,P}} end, L)};
 handle_ssh_option({dh_gex_groups,{file,File=[C|_]}}=Opt) when is_integer(C), C>0 ->
     %% A string, (file name)
     case file:consult(File) of
 	{ok, List} ->
-	    case lists:all(fun({I1,I2,I3}) when is_integer(I1), I1>0, 
-						is_integer(I2), I2>0,
-						is_integer(I3), I3>0 ->
-				   true;
-			      (_) ->
-				   false
-			   end, List) of
-		true -> 
-		    handle_ssh_option({dh_gex_groups,List}); 
-		false -> 
-		    throw({error, {{eoptions, Opt}, "Bad format in file "++File}})
+	    try handle_ssh_option({dh_gex_groups,List}) of
+		{dh_gex_groups,_} = NewOpt ->
+		    NewOpt
+	    catch
+		_:_ ->
+		    throw({error, {{eoptions, Opt}, "Bad format in file"}})
 	    end;
 	Error ->
 	    throw({error, {{eoptions, Opt},{"Error reading file",Error}}})
     end;
 handle_ssh_option({dh_gex_limits,{Min,I,Max}} = Opt) when is_integer(Min), Min>0, 
-							  is_integer(I),   I>0,
-							  is_integer(Max), Max>0 ->
+							  is_integer(I),   I>=Min,
+							  is_integer(Max), Max>=I ->
     Opt;
 handle_ssh_option({connect_timeout, Value} = Opt) when is_integer(Value); Value == infinity ->
     Opt;
