@@ -149,7 +149,10 @@ collect({put_map,F,Op,S,D,R,{list,Puts}}) ->
 collect({get_map_elements,F,S,{list,Gets}}) ->
     {Ss,Ds} = beam_utils:split_even(Gets),
     {set,Ds,[S|Ss],{get_map_elements,F}};
-collect({'catch',R,L})       -> {set,[R],[],{'catch',L}};
+collect({'catch'=Op,R,L}) ->
+    {set,[R],[],{try_catch,Op,L}};
+collect({'try'=Op,R,L}) ->
+    {set,[R],[],{try_catch,Op,L}};
 collect(fclearerror)         -> {set,[],[],fclearerror};
 collect({fcheckerror,{f,0}}) -> {set,[],[],fcheckerror};
 collect({fmove,S,D})         -> {set,[D],[S],fmove};
@@ -346,7 +349,7 @@ opt_tuple_element([]) -> [].
 
 opt_tuple_element_1([{set,_,_,{alloc,_,_}}|_], _, _, _) ->
     no;
-opt_tuple_element_1([{set,_,_,{'catch',_}}|_], _, _, _) ->
+opt_tuple_element_1([{set,_,_,{try_catch,_,_}}|_], _, _, _) ->
     no;
 opt_tuple_element_1([{set,[D],[S],move}|Is0], I0, {_,S}, Acc) ->
     case eliminate_use_of_from_reg(Is0, S, D, []) of
