@@ -346,7 +346,7 @@ is_transparent(_, _) -> false.
 %%  Optimises all allocate instructions.
 
 opt_alloc([{set,[],[],{alloc,R,{_,Ns,Nh,[]}}}|Is]) ->
-    [{set,[],[],opt_alloc(Is, Ns, Nh, R)}|opt(Is)];
+    [{set,[],[],opt_alloc(Is, Ns, Nh, R)}|Is];
 opt_alloc([I|Is]) -> [I|opt_alloc(Is)];
 opt_alloc([]) -> [].
 	
