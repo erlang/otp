@@ -29,9 +29,6 @@
 
 -define(DEFAULT_CLIENT_VERSION, {2, 0}).
 -define(DEFAULT_SERVER_VERSION, {2, 0}).
--define(DEFAULT_DH_GROUP_MIN, 512).
--define(DEFAULT_DH_GROUP_NBITS, 1024).
--define(DEFAULT_DH_GROUP_MAX,  4096).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%
@@ -109,8 +106,8 @@
 %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-%% diffie-hellman-group1-sha1
--define(SSH_MSG_KEXDH_INIT,  30).
+%% diffie-hellman-group1-sha1 | diffie-hellman-group14-sha1
+-define(SSH_MSG_KEXDH_INIT,   30).
 -define(SSH_MSG_KEXDH_REPLY,  31).
 
 -record(ssh_msg_kexdh_init,
@@ -134,7 +131,11 @@
 %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-%% diffie-hellman-group-exchange-sha1
+%% diffie-hellman-group-exchange-sha1 | diffie-hellman-group-exchange-sha256
+-define(DEFAULT_DH_GROUP_MIN,    512).
+-define(DEFAULT_DH_GROUP_NBITS, 1024).
+-define(DEFAULT_DH_GROUP_MAX,   4096).
+
 -define(SSH_MSG_KEX_DH_GEX_REQUEST_OLD, 30).
 -define(SSH_MSG_KEX_DH_GEX_REQUEST,     34).
 -define(SSH_MSG_KEX_DH_GEX_GROUP,       31).
@@ -171,7 +172,36 @@
 	  h_sig
 	 }).
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%
+%% KEY ECDH messages
+%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% ecdh-sha2-nistp256 | ecdh-sha2-nistp384 | ecdh-sha2-nistp521
+
+-define(SSH_MSG_KEX_ECDH_INIT,                30).
+-define(SSH_MSG_KEX_ECDH_REPLY,               31).
+
+-record(ssh_msg_kex_ecdh_init,
+	{
+	  q_c    % string (client's ephemeral public key octet string)
+	}).
+
+-record(ssh_msg_kex_ecdh_reply,
+	{
+	  public_host_key,   % string (server's public host key) (k_s)
+	  q_s,               % string (server's ephemeral public key octet string)
+	  h_sig              % string (the signature on the exchange hash)
+	}).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%
 %% error codes
+%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 -define(SSH_DISCONNECT_HOST_NOT_ALLOWED_TO_CONNECT,   1).
 -define(SSH_DISCONNECT_PROTOCOL_ERROR,   2).
 -define(SSH_DISCONNECT_KEY_EXCHANGE_FAILED,   3).
@@ -188,7 +218,12 @@
 -define(SSH_DISCONNECT_NO_MORE_AUTH_METHODS_AVAILABLE,  14).
 -define(SSH_DISCONNECT_ILLEGAL_USER_NAME,  15).
 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%
 %% groups
+%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %%% rfc 2489, ch 6.2
 -define(dh_group1,

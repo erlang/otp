@@ -204,6 +204,7 @@ erlang_client_openssh_server_kexs(Config) when is_list(Config) ->
     Success =
 	lists:foldl(
 	  fun(Kex, Acc) ->
+		  ct:log("============= ~p ============= ~p",[Kex,Acc]),
 		  ConnectionRef = 
 		      ssh_test_lib:connect(?SSH_DEFAULT_PORT, [{silently_accept_hosts, true},
 							       {user_interaction, false},
@@ -228,13 +229,14 @@ erlang_client_openssh_server_kexs(Config) when is_list(Config) ->
 			  Acc;
 		      Other ->
 			  ct:log("~p failed: ~p",[Kex,Other]),
-			  false
+			  [Kex|Acc]
 		  end
-	  end, true, ssh_transport:supported_algorithms(kex)),
+	  end, [], ssh_transport:supported_algorithms(kex)),
     case Success of
-	true ->
+	[] ->
 	    ok;
-	false ->
+	BadKex ->
+	    ct:log("Bad kex algos: ~p",[BadKex]),
 	    {fail, "Kex failed for one or more algos"}
     end.
 
@@ -412,7 +414,7 @@ erlang_server_openssh_client_kexs(Config) when is_list(Config) ->
 				  Acc
 			  after ?TIMEOUT ->
 				  ct:log("Did not receive answer for ~p",[Kex]),
-				  false
+				  [Kex|Acc]
 			  end;
 		      false ->
 			  receive
@@ -420,17 +422,18 @@ erlang_server_openssh_client_kexs(Config) when is_list(Config) ->
 				  Acc
 			  after ?TIMEOUT ->
 				  ct:log("Did not receive no matching kex message for ~p",[Kex]),
-				  false
+				  [Kex|Acc]
 			  end
 		  end
-	  end, true, Kexs),
+	  end, [], Kexs),
     
     ssh:stop_daemon(Pid),
 
     case Success of
-	true ->
+	[] ->
 	    ok;
-	false ->
+	BadKex ->
+	    ct:log("Bad kex algos: ~p",[BadKex]),
 	    {fail, "Kex failed for one or more algos"}
     end.
 	

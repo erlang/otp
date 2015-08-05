@@ -429,7 +429,21 @@ key_exchange(#ssh_msg_kex_dh_gex_group{} = Msg,
 	     #state{ssh_params = #ssh{role = client} = Ssh0} = State) ->
     {ok, KexGexInit, Ssh} = ssh_transport:handle_kex_dh_gex_group(Msg, Ssh0),
     send_msg(KexGexInit, State),
-    {next_state, key_exchange_dh_gex_reply, next_packet(State#state{ssh_params = Ssh})}.
+    {next_state, key_exchange_dh_gex_reply, next_packet(State#state{ssh_params = Ssh})};
+
+key_exchange(#ssh_msg_kex_ecdh_init{} = Msg, 
+	     #state{ssh_params = #ssh{role = server} = Ssh0} = State) ->
+    {ok, KexEcdhReply, Ssh1} = ssh_transport:handle_kex_ecdh_init(Msg, Ssh0),
+    send_msg(KexEcdhReply, State),
+    {ok, NewKeys, Ssh} = ssh_transport:new_keys_message(Ssh1),
+    send_msg(NewKeys, State),
+    {next_state, new_keys, next_packet(State#state{ssh_params = Ssh})};
+
+key_exchange(#ssh_msg_kex_ecdh_reply{} = Msg, 
+	     #state{ssh_params = #ssh{role = client} = Ssh0} = State) ->
+    {ok, NewKeys, Ssh} = ssh_transport:handle_kex_ecdh_reply(Msg, Ssh0),
+    send_msg(NewKeys, State),
+    {next_state, new_keys, next_packet(State#state{ssh_params = Ssh})}.
 
 %%--------------------------------------------------------------------
 -spec key_exchange_dh_gex_init(#ssh_msg_kex_dh_gex_init{}, #state{}) -> gen_fsm_state_return().
@@ -1307,7 +1321,7 @@ event(Event, StateName, State) ->
 	    handle_disconnect(DisconnectMsg, State);
 	throw:{ErrorToDisplay, #ssh_msg_disconnect{} = DisconnectMsg}  ->
 	    handle_disconnect(DisconnectMsg, State, ErrorToDisplay);
-	_:_ ->
+	_C:_Error ->
 	    handle_disconnect(#ssh_msg_disconnect{code = error_code(StateName),
 						  description = "Invalid state",
 						  language = "en"}, State)
@@ -1376,9 +1390,10 @@ generate_event(<<?BYTE(Byte), _/binary>> = Msg, StateName,
 	    {stop, {shutdown, Error}, State#state{connection_state = Connection}}
     end;
 
+
 generate_event(Msg, StateName, State0, EncData) ->
     try 
-	Event = ssh_message:decode(Msg),
+	Event = ssh_message:decode(set_prefix_if_trouble(Msg,State0)),
 	State = generate_event_new_state(State0, EncData),
 	case Event of
 	    #ssh_msg_kexinit{} ->
@@ -1388,7 +1403,7 @@ generate_event(Msg, StateName, State0, EncData) ->
 		event(Event, StateName, State)
 	end
     catch 
-	_:_  ->
+	_C:_E  ->
 	    DisconnectMsg =
 		#ssh_msg_disconnect{code = ?SSH_DISCONNECT_PROTOCOL_ERROR, 
 				    description = "Encountered unexpected input",
@@ -1396,6 +1411,26 @@ generate_event(Msg, StateName, State0, EncData) ->
 	    handle_disconnect(DisconnectMsg, State0)   
     end.		
 	    
+
+set_prefix_if_trouble(Msg = <<?BYTE(Op),_/binary>>, #state{ssh_params=SshParams}) 
+  when Op == 30;
+       Op == 31
+       ->
+    case catch atom_to_list(kex(SshParams)) of
+	"ecdh-sha2-" ++ _ -> 
+	    <<"ecdh",Msg/binary>>;
+	"diffie-hellman-group-exchange-" ++ _ ->
+	    <<"dh_gex",Msg/binary>>;
+	"diffie-hellman-group" ++ _ ->
+	    <<"dh",Msg/binary>>;
+	_ -> 
+	    Msg
+    end;
+set_prefix_if_trouble(Msg, _) ->
+    Msg.
+
+kex(#ssh{algorithms=#alg{kex=Kex}}) -> Kex;
+kex(_) -> undefined.
 
 
 handle_request(ChannelPid, ChannelId, Type, Data, WantReply, From,
@@ -1491,6 +1526,7 @@ new_channel_id(#state{connection_state = #connection{channel_id_seed = Id} =
 	       = State) ->
     {Id, State#state{connection_state =
 		     Connection#connection{channel_id_seed = Id + 1}}}.
+
 generate_event_new_state(#state{ssh_params = 
 				#ssh{recv_sequence = SeqNum0} 
 				= Ssh} = State, EncData) ->

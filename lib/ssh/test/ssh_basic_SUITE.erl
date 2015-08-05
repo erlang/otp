@@ -96,7 +96,10 @@ groups() ->
      {key_exchange, [], ['diffie-hellman-group-exchange-sha1',
 			 'diffie-hellman-group-exchange-sha256',
 			 'diffie-hellman-group1-sha1',
-			 'diffie-hellman-group14-sha1'
+			 'diffie-hellman-group14-sha1',
+			 'ecdh-sha2-nistp256',
+			 'ecdh-sha2-nistp384',
+			 'ecdh-sha2-nistp521'
 			]},
      {dir_options, [], [user_dir_option,
 			system_dir_option]}
@@ -844,6 +847,15 @@ ssh_msg_debug_fun_option_client(Config) ->
 
 'diffie-hellman-group14-sha1'(Config) ->
     kextest('diffie-hellman-group14-sha1',Config).
+
+'ecdh-sha2-nistp256'(Config) ->
+    kextest('ecdh-sha2-nistp256',Config).
+
+'ecdh-sha2-nistp384'(Config) ->
+    kextest('ecdh-sha2-nistp384',Config).
+
+'ecdh-sha2-nistp521'(Config) ->
+    kextest('ecdh-sha2-nistp521',Config).
 
 
 kextest(Kex, Config) ->
