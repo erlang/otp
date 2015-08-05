@@ -298,8 +298,8 @@ erts_debug_disassemble_1(BIF_ALIST_1)
     (void) erts_bld_uword(NULL, &hsz, (BeamInstr) code_ptr);
     hp = HAlloc(p, hsz);
     addr = erts_bld_uword(&hp, NULL, (BeamInstr) code_ptr);
-    ASSERT(is_atom(funcinfo[0]));
-    ASSERT(is_atom(funcinfo[1]));
+    ASSERT(is_atom(funcinfo[0]) || funcinfo[0] == NIL);
+    ASSERT(is_atom(funcinfo[1]) || funcinfo[1] == NIL);
     mfa = TUPLE3(hp, (Eterm) funcinfo[0], (Eterm) funcinfo[1], make_small((Eterm) funcinfo[2]));
     hp += 4;
     return TUPLE3(hp, addr, bin, mfa);
