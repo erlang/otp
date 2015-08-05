@@ -64,6 +64,16 @@ reorder(Is) ->
     D = beam_utils:index_labels(Is),
     reorder_1(Is, D, []).
 
+reorder_1([{Op,_,_}=TryCatch|[I|Is]=Is0], D, Acc)
+  when Op =:= 'catch'; Op =:= 'try' ->
+    %% Don't allow 'try' or 'catch' instructions to split blocks if
+    %% it can be avoided.
+    case is_safe(I) of
+	false ->
+	    reorder_1(Is0, D, [TryCatch|Acc]);
+	true ->
+	    reorder_1([TryCatch|Is], D, [I|Acc])
+    end;
 reorder_1([{label,L}=I|_], D, Acc) ->
     Is = beam_utils:code_at(L, D),
     reorder_1(Is, D, [I|Acc]);
@@ -111,3 +121,14 @@ reorder_1([{allocate_zero,N,Live}|Is], D,
 reorder_1([I|Is], D, Acc) ->
     reorder_1(Is, D, [I|Acc]);
 reorder_1([], _, Acc) -> reverse(Acc).
+
+%% is_safe(Instruction) -> true|false
+%%  Test whether an instruction is safe (cannot cause an exception).
+
+is_safe({kill,_}) -> true;
+is_safe({move,_,_}) -> true;
+is_safe({put,_}) -> true;
+is_safe({put_list,_,_,_}) -> true;
+is_safe({put_tuple,_,_}) -> true;
+is_safe({test_heap,_,_}) -> true;
+is_safe(_) -> false.
