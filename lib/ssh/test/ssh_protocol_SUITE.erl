@@ -56,7 +56,11 @@ groups() ->
 		       lib_no_match
 		      ]},
      {kex, [], [no_common_alg_server_disconnects,
-		no_common_alg_client_disconnects
+		no_common_alg_client_disconnects,
+		gex_client_init_default_noexact,
+		gex_client_init_default_exact,
+		gex_client_init_option_groups,
+		gex_client_init_option_groups_file
 		]}
     ].
 
@@ -68,9 +72,32 @@ end_per_suite(Config) ->
     stop_apps(Config).
 
 
+
+init_per_testcase(TC, Config) when TC == gex_client_init_default_noexact ;
+				   TC == gex_client_init_default_exact ;
+				   TC == gex_client_init_option_groups ;
+				   TC == gex_client_init_option_groups_file ->
+    Opts = case TC of
+	       gex_client_init_option_groups ->
+		   [{dh_gex_groups, [{2345, 3, 41}]}];
+	       gex_client_init_option_groups_file ->
+		   DataDir = ?config(data_dir, Config),
+		   F = filename:join(DataDir, "dh_group_test"),
+		   [{dh_gex_groups, {file,F}}];
+	       _ ->
+		   []
+	   end,
+    start_std_daemon(Config,
+		     [{preferred_algorithms, ssh_transport:supported_algorithms()}
+		      | Opts]);
 init_per_testcase(_TestCase, Config) ->
     check_std_daemon_works(Config, ?LINE).
 
+end_per_testcase(TC, Config) when TC == gex_client_init_default_noexact ;
+				  TC == gex_client_init_default_exact ;
+				  TC == gex_client_init_option_groups ;
+				  TC == gex_client_init_option_groups_file ->
+    stop_std_daemon(Config);
 end_per_testcase(_TestCase, Config) ->
     check_std_daemon_works(Config, ?LINE).
 
@@ -293,6 +320,48 @@ no_common_alg_client_disconnects(Config) ->
 	X -> ct:fail(X)
     end.
 
+%%%--------------------------------------------------------------------
+gex_client_init_default_noexact(Config) ->
+    do_gex_client_init(Config, {2000, 3000, 4000},
+		       %% Warning, app knowledege:
+		       ?dh_group15).
+
+
+gex_client_init_default_exact(Config) ->
+    do_gex_client_init(Config, {2000, 2048, 4000},
+		       %% Warning, app knowledege:
+		       ?dh_group14).
+
+
+gex_client_init_option_groups(Config) ->
+    do_gex_client_init(Config, {2000, 2048, 4000}, {3,41}).
+
+
+gex_client_init_option_groups_file(Config) ->
+    do_gex_client_init(Config, {2000, 2048, 4000}, {5,61}).
+
+do_gex_client_init(Config, {Min,N,Max}, {G,P}) ->
+    {ok,_} =
+	ssh_trpt_test_lib:exec(
+	  [{set_options, [print_ops, print_seqnums, print_messages]},
+	   {connect,
+	    server_host(Config),server_port(Config),
+	    [{silently_accept_hosts, true},
+	     {user_dir, user_dir(Config)},
+	     {user_interaction, false},
+	     {preferred_algorithms,[{kex,['diffie-hellman-group-exchange-sha1']}]}
+	    ]},
+	   receive_hello,
+	   {send, hello},
+	   {send, ssh_msg_kexinit},
+	   {match, #ssh_msg_kexinit{_='_'}, receive_msg},
+	   {send, #ssh_msg_kex_dh_gex_request{min = Min, 
+					      n = N,
+					      max = Max}},
+	   {match, #ssh_msg_kex_dh_gex_group{p=P, g=G, _='_'},  receive_msg}
+	  ]
+	 ).
+
 %%%================================================================
 %%%==== Internal functions ========================================
 %%%================================================================
@@ -353,6 +422,7 @@ stop_std_daemon(Config) ->
     ct:log("Std server ~p at ~p:~p stopped", [server_pid(Config), server_host(Config), server_port(Config)]),
     lists:keydelete(server, 1, Config).
 
+
 check_std_daemon_works(Config, Line) ->
     case std_connect(Config) of
 	{ok,C} ->
@@ -362,13 +432,9 @@ check_std_daemon_works(Config, Line) ->
 	    ok = ssh:close(C),
 	    Config;
 	Error = {error,_} ->
-	    {fail,
-	     lists:flatten(
-	       io_lib:format("Standard server ~p:~p ~p is ill at line ~p: ~p",
-			     [server_host(Config), server_port(Config), 
-			      server_pid(Config), Line, Error])
-	      )
-	    }
+	    ct:fail("Standard server ~p:~p ~p is ill at line ~p: ~p",
+		    [server_host(Config), server_port(Config), 
+		     server_pid(Config), Line, Error])
     end.
 
 server_pid(Config)  -> element(1,?v(server,Config)).
