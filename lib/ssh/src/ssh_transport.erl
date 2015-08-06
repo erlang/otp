@@ -79,9 +79,10 @@ supported_algorithms() -> [{K,supported_algorithms(K)} || K <- algo_classes()].
 
 supported_algorithms(kex) ->
     select_crypto_supported(
-      [{'diffie-hellman-group1-sha1',           [{hashs,sha}]},
-       {'diffie-hellman-group-exchange-sha1',   [{hashs,sha}]},
-       {'diffie-hellman-group-exchange-sha256', [{hashs,sha256}]} 
+      [{'diffie-hellman-group14-sha1',          [{hashs,sha}]},
+       {'diffie-hellman-group1-sha1',           [{hashs,sha}]},
+       {'diffie-hellman-group-exchange-sha256', [{hashs,sha256}]},
+       {'diffie-hellman-group-exchange-sha1',   [{hashs,sha}]}
       ]);
 supported_algorithms(public_key) ->
     ssh_auth:default_public_key_algorithms();
@@ -297,6 +298,7 @@ verify_algorithm(#alg{compress = undefined}) -> false;
 verify_algorithm(#alg{decompress = undefined}) -> false;
 
 verify_algorithm(#alg{kex = 'diffie-hellman-group1-sha1'}) -> true;
+verify_algorithm(#alg{kex = 'diffie-hellman-group14-sha1'}) -> true;
 verify_algorithm(#alg{kex = 'diffie-hellman-group-exchange-sha1'}) -> true;
 verify_algorithm(#alg{kex = 'diffie-hellman-group-exchange-sha256'}) -> true;
 verify_algorithm(_) -> false.
@@ -305,8 +307,9 @@ verify_algorithm(_) -> false.
 %%%
 %%% Key exchange initialization
 %%%
-key_exchange_first_msg('diffie-hellman-group1-sha1', Ssh0) ->
-    {G, P} = dh_group1(),
+key_exchange_first_msg(Kex, Ssh0) when Kex == 'diffie-hellman-group1-sha1' ;
+				       Kex == 'diffie-hellman-group14-sha1' ->
+    {G, P} = dh_group(Kex),
     {Private, Public} = dh_gen_key(G, P, 1024),
     %% Public = G^Private mod P  (def)
     {SshPacket, Ssh1} = ssh_packet(#ssh_msg_kexdh_init{e = Public}, Ssh0),
@@ -329,10 +332,12 @@ key_exchange_first_msg(Kex, Ssh0) when Kex == 'diffie-hellman-group-exchange-sha
 %%%----------------------------------------------------------------
 %%%
 %%% diffie-hellman-group1-sha1
+%%% diffie-hellman-group14-sha1
 %%% 
-handle_kexdh_init(#ssh_msg_kexdh_init{e = E}, Ssh0) ->
+handle_kexdh_init(#ssh_msg_kexdh_init{e = E}, 
+		  Ssh0 = #ssh{algorithms = #alg{kex=Kex}}) ->
     %% server
-    {G, P} = dh_group1(),
+    {G, P} = dh_group(Kex),
     if
 	1=<E, E=<(P-1) ->
 	    {Private, Public} = dh_gen_key(G, P, 1024),
@@ -817,6 +822,7 @@ verify(PlainText, Hash, Sig, Key) ->
 %% key exchange
 %%
 %%     diffie-hellman-group1-sha1       REQUIRED
+%%     diffie-hellman-group14-sha1      REQUIRED
 %%
 %%
 
@@ -1131,6 +1137,8 @@ hash(SSH, Char, Bits) ->
 	case SSH#ssh.kex of
 	    'diffie-hellman-group1-sha1' ->
 		fun(Data) -> crypto:hash(sha, Data) end;
+	    'diffie-hellman-group14-sha1' ->
+		fun(Data) -> crypto:hash(sha, Data) end;
 	    'diffie-hellman-group-exchange-sha1' ->
 		fun(Data) -> crypto:hash(sha, Data) end;
 	    'diffie-hellman-group-exchange-sha256' ->
@@ -1229,6 +1237,10 @@ dh_group16() ->
    {2, 16#FFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD129024E088A67CC74020BBEA63B139B22514A08798E3404DDEF9519B3CD3A431B302B0A6DF25F14374FE1356D6D51C245E485B576625E7EC6F44C42E9A637ED6B0BFF5CB6F406B7EDEE386BFB5A899FA5AE9F24117C4B1FE649286651ECE45B3DC2007CB8A163BF0598DA48361C55D39A69163FA8FD24CF5F83655D23DCA3AD961C62F356208552BB9ED529077096966D670C354E4ABC9804F1746C08CA18217C32905E462E36CE3BE39E772C180E86039B2783A2EC07A28FB5C55DF06F4C52C9DE2BCBF6955817183995497CEA956AE515D2261898FA051015728E5A8AAAC42DAD33170D04507A33A85521ABDF1CBA64ECFB850458DBEF0A8AEA71575D060C7DB3970F85A6E1E4C7ABF5AE8CDB0933D71E8C94E04A25619DCEE3D2261AD2EE6BF12FFA06D98A0864D87602733EC86A64521F2B18177B200CBBE117577A615D6C770988C0BAD946E208E24FA074E5AB3143DB5BFCE0FD108E4B82D120A92108011A723C12A787E6D788719A10BDBA5B2699C327186AF4E23C1A946834B6150BDA2583E9CA2AD44CE8DBBBC2DB04DE8EF92E8EFC141FBECAA6287C59474E6BC05D99B2964FA090C3A2233BA186515BE7ED1F612970CEE2D7AFB81BDD762170481CD0069127D5B05AA993B4EA988D8FDDC186FFB7DC90A6C08F4DF435C934063199FFFFFFFFFFFFFFFF}.
 
 
+dh_group('diffie-hellman-group1-sha1') -> dh_group1();
+dh_group('diffie-hellman-group14-sha1') -> dh_group14().
+    
+
 %%% First try exact match:
 dh_gex_group(_Min, N, _Max) when N==1024 -> dh_group1();
 dh_gex_group(_Min, N, _Max) when N==2048 -> dh_group14();
@@ -1250,7 +1262,11 @@ dh_compute_key(G, P, OthersPublic, MyPrivate) ->
       crypto:compute_key(dh, OthersPublic, MyPrivate, [P,G])
      ).
 
-
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%
+%% Other utils
+%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 trim_tail(Str) ->
     lists:reverse(trim_head(lists:reverse(Str))).
