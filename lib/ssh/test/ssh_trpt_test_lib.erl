@@ -42,8 +42,8 @@
 	  seen_hello = false,
 	  enc = <<>>,
 	  ssh = #ssh{},				% #ssh{}
-	  own_kexinit,
-	  peer_kexinit,
+	  alg_neg = {undefined,undefined},      % {own_kexinit, peer_kexinit}
+	  alg,                                  % #alg{}
 	  vars = dict:new(),
 	  reply = [],				% Some repy msgs are generated hidden in ssh_transport :[
 	  prints = [],
@@ -140,7 +140,10 @@ op(receive_hello, S0) when S0#s.seen_hello =/= true ->
 op(receive_msg, S) when S#s.seen_hello == true ->
     try recv(S)
     catch
-	{tcp,Exc} -> S#s{return_value=Exc}
+	{tcp,Exc} -> 
+	    S1 = opt(print_messages, S, 
+		     fun(X) when X==true;X==detail -> {"Recv~n~p~n",[Exc]} end),
+	    S1#s{return_value=Exc}
     end;
 
 
@@ -205,6 +208,9 @@ op_val(E, S0) ->
 	    throw(F)
     end.
 
+
+fail(Reason, {Fmt,Args}, S) when is_list(Fmt), is_list(Args) ->
+    fail(Reason, save_prints({Fmt,Args}, S)).
 
 fail(Reason, S) ->
     throw({fail, Reason, S}).
@@ -312,38 +318,51 @@ send(S=#s{ssh=C}, hello) ->
     send(S, list_to_binary(Hello));
 
 send(S0, ssh_msg_kexinit) ->
-    {Msg, Bytes, C0} = ssh_transport:key_exchange_init_msg(S0#s.ssh),
-    S1 = opt(print_messages, S0, 
+    {Msg, _Bytes, _C0} = ssh_transport:key_exchange_init_msg(S0#s.ssh),
+    send(S0, Msg);
+
+send(S0=#s{alg_neg={undefined,PeerMsg}}, Msg=#ssh_msg_kexinit{}) ->
+    S1 = opt(print_messages, S0,
 	     fun(X) when X==true;X==detail -> {"Send~n~s~n",[format_msg(Msg)]} end),
-    S = case ?role(S1) of
-	    server when is_record(S1#s.peer_kexinit, ssh_msg_kexinit) ->
-		{ok, C} = 
-		    ssh_transport:handle_kexinit_msg(S1#s.peer_kexinit, Msg, C0),
-		S1#s{peer_kexinit = used,
-		     own_kexinit = used,
-		     ssh = C};
-	    _ ->
-		S1#s{ssh = C0,
-		     own_kexinit = Msg}
-	end,
-    send_bytes(Bytes, S#s{return_value = Msg});
+    S2 = case PeerMsg of
+	     #ssh_msg_kexinit{} ->
+		 try ssh_transport:handle_kexinit_msg(PeerMsg, Msg, S1#s.ssh) of
+		     {ok,Cx} when ?role(S1) == server ->
+			 S1#s{alg = Cx#ssh.algorithms};
+		     {ok,_NextKexMsgBin,Cx} when ?role(S1) == client ->
+			 S1#s{alg = Cx#ssh.algorithms}
+		 catch
+		     Class:Exc ->
+			 save_prints({"Algoritm negotiation failed at line ~p:~p~n~p:~s~nPeer: ~s~n Own: ~s~n",
+				      [?MODULE,?LINE,Class,format_msg(Exc),format_msg(PeerMsg),format_msg(Msg)]},
+				     S1)
+		 end;
+	     undefined ->
+		 S1
+	 end,
+    {Bytes, C} = ssh_transport:ssh_packet(Msg, S2#s.ssh),
+    send_bytes(Bytes, S2#s{return_value = Msg,
+			  alg_neg = {Msg,PeerMsg},
+			  ssh = C});
 
-send(S0, ssh_msg_kexdh_init) when ?role(S0) == client,
-				  is_record(S0#s.peer_kexinit, ssh_msg_kexinit),
-				  is_record(S0#s.own_kexinit, ssh_msg_kexinit) ->
+send(S0, ssh_msg_kexdh_init) when ?role(S0) == client ->
+    {OwnMsg, PeerMsg} = S0#s.alg_neg,
     {ok, NextKexMsgBin, C} = 
-	ssh_transport:handle_kexinit_msg(S0#s.peer_kexinit, S0#s.own_kexinit, S0#s.ssh),
-
+	try ssh_transport:handle_kexinit_msg(PeerMsg, OwnMsg, S0#s.ssh)
+	catch
+	    Class:Exc ->
+		fail("Algoritm negotiation failed!",
+		     {"Algoritm negotiation failed at line ~p:~p~n~p:~s~nPeer: ~s~n Own: ~s",
+		      [?MODULE,?LINE,Class,format_msg(Exc),format_msg(PeerMsg),format_msg(OwnMsg)]},
+		     S0)
+	end,
     S = opt(print_messages, S0,
 	    fun(X) when X==true;X==detail -> 
 		    #ssh{keyex_key = {{_Private, Public}, {_G, _P}}} = C,
 		    Msg = #ssh_msg_kexdh_init{e = Public},
 		    {"Send (reconstructed)~n~s~n",[format_msg(Msg)]}
 	    end),
-
-    send_bytes(NextKexMsgBin, S#s{ssh = C,
-				  peer_kexinit = used,
-				  own_kexinit = used});
+    send_bytes(NextKexMsgBin, S#s{ssh = C});
 
 send(S0, ssh_msg_kexdh_reply) ->
     Bytes = proplists:get_value(ssh_msg_kexdh_reply, S0#s.reply),
@@ -389,26 +408,42 @@ recv(S0 = #s{}) ->
 	true ->
 	    %% Has seen hello, therefore no more crlf-messages are alowed.
 	    S = receive_binary_msg(S1),
-	    case M=S#s.return_value of
-		#ssh_msg_kexinit{} when ?role(S) == server,
-					S#s.own_kexinit =/= undefined ->
-		    {ok, C} = 
-			ssh_transport:handle_kexinit_msg(M, S#s.own_kexinit, S#s.ssh),
-		    S#s{peer_kexinit = used,
-			own_kexinit = used,
-			ssh = C};
-		#ssh_msg_kexinit{} -> 
-		    S#s{peer_kexinit = M};
+	    case PeerMsg = S#s.return_value of
+		#ssh_msg_kexinit{} ->
+		    case S#s.alg_neg of
+			{undefined,undefined} ->
+			    S#s{alg_neg = {undefined,PeerMsg}};
+
+			{undefined,_} ->
+			    fail("2 kexint received!!", S);
+					
+			{OwnMsg, _} ->
+			    try ssh_transport:handle_kexinit_msg(PeerMsg, OwnMsg, S#s.ssh) of
+				{ok,C} when ?role(S) == server ->
+				    S#s{alg_neg = {OwnMsg, PeerMsg},
+					alg = C#ssh.algorithms,
+					ssh = C};
+				{ok,_NextKexMsgBin,C} when ?role(S) == client ->
+				    S#s{alg_neg = {OwnMsg, PeerMsg},
+					alg = C#ssh.algorithms}
+			    catch
+				Class:Exc ->
+				    save_prints({"Algoritm negotiation failed at line ~p:~p~n~p:~s~nPeer: ~s~n Own: ~s~n",
+						 [?MODULE,?LINE,Class,format_msg(Exc),format_msg(PeerMsg),format_msg(OwnMsg)]},
+						S#s{alg_neg = {OwnMsg, PeerMsg}})
+			    end
+		    end;
+
 		#ssh_msg_kexdh_init{} -> % Always the server
-		    {ok, Reply, C} = ssh_transport:handle_kexdh_init(M, S#s.ssh),
+		    {ok, Reply, C} = ssh_transport:handle_kexdh_init(PeerMsg, S#s.ssh),
 		    S#s{ssh = C,
 			reply = [{ssh_msg_kexdh_reply,Reply} | S#s.reply]
 		       };
 		#ssh_msg_kexdh_reply{} ->
-		    {ok, _NewKeys, C} = ssh_transport:handle_kexdh_reply(M, S#s.ssh),
+		    {ok, _NewKeys, C} = ssh_transport:handle_kexdh_reply(PeerMsg, S#s.ssh),
 		    S#s{ssh=C#ssh{send_sequence=S#s.ssh#ssh.send_sequence}}; % Back the number
 		#ssh_msg_newkeys{} ->
-		    {ok, C} = ssh_transport:handle_new_keys(M, S#s.ssh),
+		    {ok, C} = ssh_transport:handle_new_keys(PeerMsg, S#s.ssh),
 		    S#s{ssh=C};
 		_ ->
 		    S
@@ -682,10 +717,18 @@ seqnum_trace(S) ->
 
 print_traces(S) when S#s.prints == [] -> S;
 print_traces(S) ->
+    Len = length(S#s.prints),
     ct:log("~s",
-	   [lists:foldl(fun({Fmt,Args}, Acc) ->
-				[io_lib:format(Fmt,Args) | Acc]
-			end, "", S#s.prints)]
+	   [lists:foldl(
+	      fun({Fmt,Args}, Acc) ->
+		      [case Len-length(Acc)-1 of
+			   0 ->
+			       io_lib:format(Fmt,Args);
+			   N ->
+			       io_lib:format(lists:concat(['~p --------~n',Fmt]),
+					     [Len-length(Acc)-1|Args])
+		       end | Acc]
+	      end, "", S#s.prints)]
 	  ).
 
 opt(Flag, S, Fun) when is_function(Fun,1) ->

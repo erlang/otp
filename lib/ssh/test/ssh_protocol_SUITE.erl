@@ -240,7 +240,7 @@ lib_no_match(_Config) ->
 no_common_alg_server_disconnects(Config) ->
     {ok,_} =
 	ssh_trpt_test_lib:exec(
-	  [{set_options, [print_ops, print_seqnums, print_messages]},
+	  [{set_options, [print_ops, {print_messages,detail}]},
 	   {connect,
 	    server_host(Config),server_port(Config),
 	    [{silently_accept_hosts, true},
@@ -251,7 +251,7 @@ no_common_alg_server_disconnects(Config) ->
 	   receive_hello,
 	   {send, hello},
 	   {match, #ssh_msg_kexinit{_='_'}, receive_msg},
-	   {send, ssh_msg_kexinit},
+	   {send, ssh_msg_kexinit},  % with server unsupported 'ssh-dss' !
 	   {match,
 	    {'or',[#ssh_msg_disconnect{code = ?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,  _='_'},
                   tcp_closed]},
@@ -275,17 +275,16 @@ no_common_alg_client_disconnects(Config) ->
 		  Parent !
 		      {result,self(),
 		       ssh_trpt_test_lib:exec(
-			 [{set_options, [print_ops, print_messages]},
+			 [{set_options, [print_ops, {print_messages,detail}]},
 			  {accept, [{system_dir, system_dir(Config)},
 				    {user_dir, user_dir(Config)}]},
 			  receive_hello,
 			  {send, hello},
-
 			  {match, #ssh_msg_kexinit{_='_'}, receive_msg},
-			  {send,  #ssh_msg_kexinit{
+			  {send,  #ssh_msg_kexinit{ % with unsupported "SOME-UNSUPPORTED"
 				     cookie = 247381486335508958743193106082599558706,
 				     kex_algorithms = ["diffie-hellman-group1-sha1"],
-				     server_host_key_algorithms = ["some-unknown"],
+				     server_host_key_algorithms = ["SOME-UNSUPPORTED"],  % SIC!
 				     encryption_algorithms_client_to_server = ["aes128-ctr"],
 				     encryption_algorithms_server_to_client = ["aes128-ctr"],
 				     mac_algorithms_client_to_server = ["hmac-sha2-256"],
@@ -306,7 +305,8 @@ no_common_alg_client_disconnects(Config) ->
 		      }
 	  end),
 
-    %% and finally connect to it with a regular Erlang SSH client:
+    %% and finally connect to it with a regular Erlang SSH client
+    %% which of course does not support SOME-UNSUPPORTED as pub key algo:
     Result = std_connect(HostPort, Config, [{preferred_algorithms,[{public_key,['ssh-dss']}]}]),
     ct:log("Result of connect is ~p",[Result]),
 
@@ -317,7 +317,9 @@ no_common_alg_client_disconnects(Config) ->
 	    ct:pal("ERROR!~nOp = ~p~nExecResult = ~p~nState =~n~s",
 		   [Op,ExecResult,ssh_trpt_test_lib:format_msg(S)]),
 	    {fail, ExecResult};
-	X -> ct:fail(X)
+	X -> 
+	    ct:pal("¤¤¤¤¤"),
+	    ct:fail(X)
     end.
 
 %%%--------------------------------------------------------------------
