@@ -47,7 +47,7 @@ init_per_suite(Config) ->
     catch crypto:stop(),
     case (catch crypto:start()) of
 	ok ->
-	    ct:pal("file:native_name_encoding() = ~p,~nio:getopts() = ~p",
+	    ct:log("file:native_name_encoding() = ~p,~nio:getopts() = ~p",
 		   [file:native_name_encoding(),io:getopts()]),
 	    ssh:start(),
 	    Config;
@@ -397,7 +397,7 @@ read_dir(Config) when is_list(Config) ->
     PrivDir = ?config(priv_dir, Config),
     {Sftp, _} = ?config(sftp, Config),
     {ok, Files} = ssh_sftp:list_dir(Sftp, PrivDir),
-    ct:pal("sftp list dir: ~p~n", [Files]).
+    ct:log("sftp list dir: ~p~n", [Files]).
 
 %%--------------------------------------------------------------------
 write_file() ->
@@ -478,12 +478,12 @@ rename_file(Config) when is_list(Config) ->
 
     {Sftp, _} = ?config(sftp, Config),
     {ok, Files} = ssh_sftp:list_dir(Sftp, PrivDir),
-    ct:pal("FileName: ~p, Files: ~p~n", [FileName, Files]),
+    ct:log("FileName: ~p, Files: ~p~n", [FileName, Files]),
     true = lists:member(filename:basename(FileName), Files),
     false = lists:member(filename:basename(NewFileName), Files),
     ok = ssh_sftp:rename(Sftp, FileName, NewFileName),
     {ok, NewFiles} = ssh_sftp:list_dir(Sftp, PrivDir),
-    ct:pal("FileName: ~p, Files: ~p~n", [FileName, NewFiles]),
+    ct:log("FileName: ~p, Files: ~p~n", [FileName, NewFiles]),
 
     false = lists:member(filename:basename(FileName), NewFiles),
     true = lists:member(filename:basename(NewFileName), NewFiles).
@@ -529,7 +529,7 @@ retrieve_attributes(Config) when is_list(Config) ->
     {ok, NewFileInfo} = file:read_file_info(FileName),
 
     %% TODO comparison. There are some differences now is that ok?
-    ct:pal("SFTP: ~p   FILE: ~p~n", [FileInfo, NewFileInfo]).
+    ct:log("SFTP: ~p   FILE: ~p~n", [FileInfo, NewFileInfo]).
 
 %%--------------------------------------------------------------------
 set_attributes() ->
@@ -558,7 +558,7 @@ async_read(Config) when is_list(Config) ->
 
     receive
 	{async_reply, Ref, {ok, Data}} ->
-	    ct:pal("Data: ~p~n", [Data]),
+	    ct:log("Data: ~p~n", [Data]),
 	    ok;
 	Msg ->
 	    ct:fail(Msg)

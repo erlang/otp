@@ -152,7 +152,7 @@ init_per_testcase(TestCase, Config) ->
     {ok, <<?SSH_FXP_VERSION, ?UINT32(Version), _Ext/binary>>, _}
 	= reply(Cm, Channel),
 
-    ct:pal("Client: ~p Server ~p~n", [ProtocolVer, Version]),
+    ct:log("Client: ~p Server ~p~n", [ProtocolVer, Version]),
 
     [{sftp, {Cm, Channel}}, {sftpd, Sftpd }| Config].
 
@@ -418,7 +418,7 @@ real_path(Config) when is_list(Config) ->
 	    RealPath = filename:absname(binary_to_list(Path)),
 	    AbsPrivDir = filename:absname(PrivDir),
 
-	    ct:pal("Path: ~p PrivDir: ~p~n", [RealPath, AbsPrivDir]),
+	    ct:log("Path: ~p PrivDir: ~p~n", [RealPath, AbsPrivDir]),
 
 	    true = RealPath == AbsPrivDir
     end.
@@ -447,7 +447,7 @@ links(Config) when is_list(Config) ->
 
 	    true = binary_to_list(Path) == FileName,
 
-	    ct:pal("Path: ~p~n", [binary_to_list(Path)])
+	    ct:log("Path: ~p~n", [binary_to_list(Path)])
     end.
 
 %%--------------------------------------------------------------------
@@ -548,10 +548,10 @@ set_attributes(Config) when is_list(Config) ->
 	    %% Can not test that NewPermissions = Permissions as
 	    %% on Unix platforms, other bits than those listed in the
 	    %% API may be set.
-	    ct:pal("Org: ~p New: ~p~n", [OrigPermissions, NewPermissions]),
+	    ct:log("Org: ~p New: ~p~n", [OrigPermissions, NewPermissions]),
 	    true = OrigPermissions =/= NewPermissions,
 
-	    ct:pal("Try to open the file"),
+	    ct:log("Try to open the file"),
 	    NewReqId = 2,
 	    {ok, <<?SSH_FXP_HANDLE, ?UINT32(NewReqId), Handle/binary>>, _} =
 		open_file(FileName, Cm, Channel, NewReqId,
@@ -563,7 +563,7 @@ set_attributes(Config) when is_list(Config) ->
 
 	    NewReqId1 = 3,
 
-	    ct:pal("Set original permissions on the now open file"),
+	    ct:log("Set original permissions on the now open file"),
 
 	    {ok, <<?SSH_FXP_STATUS, ?UINT32(NewReqId1),
 		   ?UINT32(?SSH_FX_OK), _/binary>>, _} =
@@ -786,7 +786,7 @@ read_dir(Handle, Cm, Channel, ReqId) ->
     case reply(Cm, Channel) of
 	{ok, <<?SSH_FXP_NAME, ?UINT32(ReqId), ?UINT32(Count),
 	       ?UINT32(Len), Listing:Len/binary, _/binary>>, _} ->
-	    ct:pal("Count: ~p Listing: ~p~n",
+	    ct:log("Count: ~p Listing: ~p~n",
 			       [Count, binary_to_list(Listing)]),
 	    read_dir(Handle, Cm, Channel, ReqId);
 	{ok, <<?SSH_FXP_STATUS, ?UINT32(ReqId),

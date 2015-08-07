@@ -314,11 +314,11 @@ no_common_alg_client_disconnects(Config) ->
 	{result,Pid,{ok,_}} -> 
 	    ok;
 	{result,Pid,{error,{Op,ExecResult,S}}} ->
-	    ct:pal("ERROR!~nOp = ~p~nExecResult = ~p~nState =~n~s",
+	    ct:log("ERROR!~nOp = ~p~nExecResult = ~p~nState =~n~s",
 		   [Op,ExecResult,ssh_trpt_test_lib:format_msg(S)]),
 	    {fail, ExecResult};
 	X -> 
-	    ct:pal("¤¤¤¤¤"),
+	    ct:log("¤¤¤¤¤"),
 	    ct:fail(X)
     end.
 
