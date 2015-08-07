@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -95,7 +95,7 @@ read(_) ->
     7 = ?stat:incr(C1, Ref, 7),
     Self = self(),
     [{Ref,  [{C1,7}]}, {Self, [{C1,2}, {C2,1}]}]
-        = lists:sort(?stat:read([self(), Ref, make_ref()])),
+        = ?stat:read([self(), Ref, make_ref()]),
     [] = ?stat:read([]),
     [] = ?stat:read([make_ref()]),
     ?stat:flush([self(), Ref, make_ref()]).
@@ -115,7 +115,7 @@ sum(_) ->
     [{Self,  [{C1,1}, {C2,2}]}]
         = ?stat:sum([self()]),
     [{Ref, [{C1,7}]}, {Self, [{C1,1}, {C2,2}]}]
-        = lists:sort(?stat:flush([self(), Ref])).
+        = ?stat:flush([self(), Ref]).
 
 flush(_) ->
     Ref = make_ref(),
