@@ -164,7 +164,7 @@ BEAM_FORMAT_NUMBER=0
 25: wait/1
 
 ## @spec wait_timeout Lable Time
-## @doc  Sets up a timeout of Time milllisecons and saves the address of the
+## @doc  Sets up a timeout of Time milliseconds and saves the address of the
 ##       following instruction as the entry point if the timeout triggers.
 26: wait_timeout/2
 
