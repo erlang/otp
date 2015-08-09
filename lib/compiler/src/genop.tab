@@ -169,7 +169,7 @@ BEAM_FORMAT_NUMBER=0
 26: wait_timeout/2
 
 #
-# Arithmethic opcodes.
+# Arithmetic opcodes.
 #
 27: -m_plus/4
 28: -m_minus/4
