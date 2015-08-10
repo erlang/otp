@@ -242,8 +242,15 @@ backward([{select,select_val,Reg,{f,Fail0},List0}|Is], D, Acc) ->
     List = shortcut_select_list(List0, Reg, D, []),
     Fail1 = shortcut_label(Fail0, D),
     Fail = shortcut_bs_test(Fail1, Is, D),
-    Sel = {select,select_val,Reg,{f,Fail},List},
-    backward(Is, D, [Sel|Acc]);
+    case List of
+	[{atom,B1},F,{atom,B2},F] when B1 =:= not B2 ->
+	    Test = {test,is_boolean,{f,Fail},[Reg]},
+	    Jump = {jump,F},
+	    backward([Jump,Test|Is], D, Acc);
+	[_|_] ->
+	    Sel = {select,select_val,Reg,{f,Fail},List},
+	    backward(Is, D, [Sel|Acc])
+    end;
 backward([{jump,{f,To0}},{move,Src,Reg}=Move|Is], D, Acc) ->
     To = shortcut_select_label(To0, Reg, Src, D),
     Jump = {jump,{f,To}},
@@ -295,7 +302,18 @@ backward([{test,Op,{f,To0},Ops0}|Is], D, Acc) ->
 	    is_eq_exact -> combine_eqs(To, Ops0, D, Acc);
 	    _ -> {test,Op,{f,To},Ops0}
 	end,
-    backward(Is, D, [I|Acc]);
+    case {I,Acc} of
+	{{test,is_atom,Fail,Ops0},[{test,is_boolean,Fail,Ops0}|_]} ->
+	    %% An is_atom test before an is_boolean test (with the
+	    %% same failure label) is redundant.
+	    backward(Is, D, Acc);
+	{{test,_,_,_},_} ->
+	    %% Still a test instruction. Done.
+	    backward(Is, D, [I|Acc]);
+	{_,_} ->
+	    %% Rewritten to a select_val. Rescan.
+	    backward([I|Is], D, Acc)
+    end;
 backward([{test,Op,{f,To0},Live,Ops0,Dst}|Is], D, Acc) ->
     To1 = shortcut_bs_test(To0, Is, D),
     To2 = shortcut_label(To1, D),
