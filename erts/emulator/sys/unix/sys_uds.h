@@ -29,9 +29,19 @@
 #define _XOPEN_SOURCE 500
 #endif
 
+#include <limits.h>
+
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/uio.h>
+
+#if defined IOV_MAX
+#define MAXIOV IOV_MAX
+#elif defined UIO_MAXIOV
+#define MAXIOV UIO_MAXIOV
+#else
+#define MAXIOV 16
+#endif
 
 #include "sys.h"
 
