@@ -18,7 +18,6 @@
  * %CopyrightEnd%
  */
 
-
 #include "sys_uds.h"
 
 int
@@ -89,12 +88,32 @@ sys_uds_writev(int fd, struct iovec *iov, size_t iov_len,
 
     struct msghdr msg;
     struct cmsghdr *cmsg = NULL;
-    int res;
+    int res, i;
 
     /* initialize socket message */
     memset(&msg, 0, sizeof(struct msghdr));
-    msg.msg_iov = iov;
-    msg.msg_iovlen = iov_len;
+
+    /* We flatten the iov if it is too long */
+    if (iov_len > MAXIOV) {
+        int size = 0;
+        char *buff;
+        for (i = 0; i < iov_len; i++)
+            size += iov[i].iov_len;
+        buff = malloc(size);
+
+        for (i = 0; i < iov_len; i++) {
+            memcpy(buff, iov[i].iov_base, iov[i].iov_len);
+            buff += iov[i].iov_len;
+        }
+
+        iov[0].iov_base = buff - size;
+        iov[0].iov_len = size;
+        msg.msg_iov = iov;
+        msg.msg_iovlen = 1;
+    } else {
+        msg.msg_iov = iov;
+        msg.msg_iovlen = iov_len;
+    }
 
     /* initialize the ancillary data */
     msg.msg_control = calloc(1, CMSG_SPACE(sizeof(int) * fd_count));
@@ -109,6 +128,9 @@ sys_uds_writev(int fd, struct iovec *iov, size_t iov_len,
     memcpy(CMSG_DATA(cmsg), fds, sizeof(int) * fd_count);
 
     res = sendmsg(fd, &msg, flags);
+
+    if (iov_len > MAXIOV)
+        free(iov[0].iov_base);
 
     free(msg.msg_control);
 
