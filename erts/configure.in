@@ -257,8 +257,8 @@ AS_HELP_STRING([--enable-m32-build],
 ],enable_m32_build=no)
 
 AC_ARG_WITH(dynamic-trace,
-AS_HELP_STRING([--with-dynamic-trace={dtrace|systemtap}],
-	       [specify use of dynamic trace framework, dtrace or systemtap])
+AS_HELP_STRING([--with-dynamic-trace={dtrace|lttng|systemtap}],
+	       [specify use of dynamic trace framework, dtrace, lttng or systemtap])
 AS_HELP_STRING([--without-dynamic-trace], 
                [don't enable any dynamic tracing (default)]))
 
@@ -268,6 +268,10 @@ fi
 
 case "$with_dynamic_trace" in
      no) DYNAMIC_TRACE_FRAMEWORK=;;
+     lttng)
+            AC_DEFINE(USE_LTTNG,[1],
+                      [Define if you want to use lttng for dynamic tracing])
+            DYNAMIC_TRACE_FRAMEWORK=lttng;;
      dtrace) 
 	    AC_DEFINE(USE_DTRACE,[1],
 		[Define if you want to use dtrace for dynamic tracing])
@@ -303,10 +307,12 @@ AS_HELP_STRING([--enable-vm-probes],
 			fi)
 
 AC_SUBST(USE_VM_PROBES)
-if test X"$use_vm_probes" = X"yes"; then
-   USE_VM_PROBES=yes
-   AC_DEFINE(USE_VM_PROBES,[1],
-	     [Define to enable VM dynamic trace probes])
+if test X"$DYNAMIC_TRACE_FRAMEWORK" != X"lttng"; then
+    if test X"$use_vm_probes" = X"yes"; then
+        USE_VM_PROBES=yes
+        AC_DEFINE(USE_VM_PROBES,[1],
+                  [Define to enable VM dynamic trace probes])
+    fi
 fi
 
 AC_ARG_WITH(assumed-cache-line-size,
@@ -3839,14 +3845,20 @@ dnl
 LM_FIND_EMU_CC
 
 dnl
-dnl DTrace
+dnl DTrace & LTTNG
 dnl
 case $DYNAMIC_TRACE_FRAMEWORK in
      dtrace|systemtap)
         AC_CHECK_TOOL(DTRACE, dtrace, none)
         test "$DTRACE" = "none" && AC_MSG_ERROR([No dtrace utility found.]);
+        enable_lttng_test=no
 	enable_dtrace_test=yes;;
-     *) enable_dtrace_test=no;;
+     lttng)
+        enable_lttng_test=yes
+        enable_dtrace_test=no;;
+     *)
+        enable_lttng_test=no
+        enable_dtrace_test=no;;
 esac        
 		     
 AC_SUBST(DTRACE)
@@ -3912,6 +3924,37 @@ if test "$enable_dtrace_test" = "yes" ; then
                 AC_MSG_ERROR([Dtrace preprocessing test failed.])
         fi
 fi
+
+if test "$enable_lttng_test" = "yes" ; then
+    AC_CHECK_HEADERS(lttng/tracepoint.h)
+    AC_CHECK_HEADERS(lttng/tracepoint-event.h)
+    dnl The macro tracepoint_enabled is not present in older lttng versions
+    dnl checking for tracepoint_enabled
+    AC_MSG_CHECKING([for tracepoint_enabled in lttng/tracepoint.h])
+    AC_COMPILE_IFELSE(
+        [AC_LANG_PROGRAM(
+            [#include <lttng/tracepoint.h>
+             #define TRACEPOINT_PROVIDER com_ericsson_otp
+             TRACEPOINT_EVENT(
+                 com_ericsson_otp,
+                 dummy,
+                 TP_ARGS(int, my_int),
+                 TP_FIELDS(ctf_integer(int, my_int, my_int)))
+             #define TRACEPOINT_CREATE_PROBES
+             #define TRACEPOINT_DEFINE],
+            [if(tracepoint_enabled(com_ericsson_otp,dummy)) do {} while(0)])],
+        [AC_MSG_RESULT([yes])],
+        [AC_MSG_ERROR([no (must be present)])])
+    if test "x$ac_cv_header_lttng_tracepoint_h" = "xyes" \
+        -a "x$ac_cv_header_lttng_tracepoint_event_h" = "xyes"; then
+        # No straight forward way to test for liblttng-ust when no public symbol exists,
+        # just add the lib.
+        LIBS="$LIBS -llttng-ust -ldl"
+    else
+        AC_MSG_ERROR([No LTTng support found.])
+    fi
+fi
+
 
 dnl
 dnl SSL, SSH and CRYPTO need the OpenSSL libraries

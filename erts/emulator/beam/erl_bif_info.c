@@ -126,6 +126,9 @@ static char erts_system_version[] = ("Erlang/OTP " ERLANG_OTP_RELEASE
 #ifdef ERTS_FRMPTR
 				     " [frame-pointer]"
 #endif
+#ifdef USE_LTTNG
+				     " [lttng]"
+#endif
 #ifdef USE_DTRACE
 				     " [dtrace]"
 #endif

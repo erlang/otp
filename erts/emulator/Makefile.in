@@ -779,6 +779,8 @@ RUN_OBJS = \
 	$(OBJDIR)/erl_ptab.o		$(OBJDIR)/erl_map.o \
 	$(OBJDIR)/erl_msacc.o
 
+LTTNG_OBJS = $(OBJDIR)/erlang_lttng.o
+
 ifeq ($(TARGET),win32)
 DRV_OBJS = \
 	$(OBJDIR)/registry_drv.o \
@@ -885,7 +887,7 @@ ifdef HIPE_ENABLED
 EXTRA_BASE_OBJS += $(HIPE_OBJS)
 endif
 
-BASE_OBJS = $(EMU_OBJS) $(RUN_OBJS) $(OS_OBJS) $(EXTRA_BASE_OBJS)
+BASE_OBJS = $(EMU_OBJS) $(RUN_OBJS) $(OS_OBJS) $(EXTRA_BASE_OBJS) $(LTTNG_OBJS)
 
 before_DTrace_OBJS =	$(BASE_OBJS) $(DRV_OBJS)
 

@@ -234,8 +234,8 @@ AS_HELP_STRING([--enable-native-libs],
                [compile Erlang libraries to native code]))
 
 AC_ARG_WITH(dynamic-trace,
-AS_HELP_STRING([--with-dynamic-trace={dtrace|systemtap}],
-	       [specify use of dynamic trace framework, dtrace or systemtap])
+AS_HELP_STRING([--with-dynamic-trace={dtrace|lttng|systemtap}],
+	       [specify use of dynamic trace framework, dtrace, lttng or systemtap])
 AS_HELP_STRING([--without-dynamic-trace], 
                [don't enable any dynamic tracing (default)]))
 AC_ARG_ENABLE(vm-probes,
