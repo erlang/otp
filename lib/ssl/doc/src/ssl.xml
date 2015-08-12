@@ -88,7 +88,8 @@
       <item>
 	<p><c>{verify, verify_type()}</c></p>
 	<p><c>| {verify_fun, {fun(), term()}}</c></p>
-	<p><c>| {fail_if_no_peer_cert, boolean()} {depth, integer()}</c></p>
+	<p><c>| {fail_if_no_peer_cert, boolean()}</c></p>
+	<p><c>| {depth, integer()}</c></p>
 	<p><c>| {cert, public_key:der_encoded()}</c></p>
 	<p><c>| {certfile, path()}</c></p>
 	<p><c>| {key, {'RSAPrivateKey'| 'DSAPrivateKey' | 'ECPrivateKey' 
