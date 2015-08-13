@@ -245,10 +245,15 @@ handle_info(T, #watchdog{} = State) ->
             event(T, State, S),  %%   before 'watchdog'
             {noreply, S};
         stop ->
-            ?LOG(stop, T),
+            ?LOG(stop, truncate(T)),
             event(T, State, State#watchdog{status = down}),
             {stop, {shutdown, T}, State}
     end.
+
+truncate({'DOWN' = T, _, process, Pid, _}) ->
+    {T, Pid};
+truncate(T) ->
+    T.
 
 close({'DOWN', _, process, TPid, {shutdown, Reason}},
       #watchdog{transport = TPid,
