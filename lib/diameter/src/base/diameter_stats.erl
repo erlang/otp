@@ -25,9 +25,6 @@
 -module(diameter_stats).
 -behaviour(gen_server).
 
--compile({no_auto_import, [now/0]}).
--import(diameter_lib, [now/0]).
-
 -export([reg/2, reg/1,
          incr/3, incr/1,
          read/1,
@@ -61,7 +58,7 @@
 -define(SERVER, ?MODULE).
 
 %% Server state.
--record(state, {id = now()}).
+-record(state, {id = diameter_lib:now()}).
 
 -type counter() :: any().
 -type ref() :: any().
@@ -143,9 +140,14 @@ read(Refs, B) ->
     L.
 
 to_refdict(L) ->
-    lists:foldl(fun({{C,R}, N}, D) -> orddict:append(R, {C,N}, D) end,
-                orddict:new(),
-                L).
+    lists:foldl(fun append/2, orddict:new(), L).
+
+%% Order both references and counters in the returned list.
+append({{Ctr, Ref}, N}, Dict) ->
+    orddict:update(Ref,
+                   fun(D) -> orddict:store(Ctr, N, D) end,
+                   [{Ctr, N}],
+                   Dict).
 
 %% ---------------------------------------------------------------------------
 %% # sum(Refs)
@@ -221,7 +223,7 @@ uptime() ->
 %% ----------------------------------------------------------
 
 init([]) ->
-    ets:new(?TABLE, [named_table, ordered_set, public]),
+    ets:new(?TABLE, [named_table, set, public, {write_concurrency, true}]),
     {ok, #state{}}.
 
 %% ----------------------------------------------------------

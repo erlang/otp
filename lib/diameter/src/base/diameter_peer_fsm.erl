@@ -315,7 +315,7 @@ handle_info(T, #state{} = State) ->
             ?LOG(stop, Reason),
             {stop, {shutdown, Reason}, State};
         stop ->
-            ?LOG(stop, T),
+            ?LOG(stop, truncate(T)),
             {stop, {shutdown, T}, State}
     catch
         exit: {diameter_codec, encode, T} = Reason ->
@@ -347,6 +347,11 @@ code_change(_, State, _) ->
 
 %% ---------------------------------------------------------------------------
 %% ---------------------------------------------------------------------------
+
+truncate({'DOWN' = T, _, process, Pid, _}) ->
+    {T, Pid};
+truncate(T) ->
+    T.
 
 putr(Key, Val) ->
     put({?MODULE, Key}, Val).

@@ -795,14 +795,6 @@ Messages larger than the specified number of bytes are discarded.</p>
 Defaults to <c>16777215</c>, the maximum value of the 24-bit Message
 Length field in a Diameter Header.</p>
 
-<warning>
-<p>
-This option should be set to as low a value as is sufficient for the
-Diameter applications and peers in question, since decoding incoming
-messages from a malicious peer can otherwise generate significant
-load.</p>
-</warning>
-
 </item>
 
 <tag><c>{restrict_connections, false
@@ -1232,9 +1224,7 @@ is not the length of the message in question, as received over the
 transport interface documented in &man_transport;.</p>
 
 <p>
-If <c>exit</c> then a warning report is emitted and the parent of the
-transport process in question exits, which causes the transport
-process itself to exit as described in &man_transport;.
+If <c>exit</c> then the transport process in question exits.
 If <c>handle</c> then the message is processed as usual, a resulting
 &app_handle_request; or &app_handle_answer; callback (if one takes
 place) indicating the <c>5015</c> error (DIAMETER_INVALID_MESSAGE_LENGTH).

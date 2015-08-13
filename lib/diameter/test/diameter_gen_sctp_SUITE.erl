@@ -300,10 +300,10 @@ connect2(Pid, PortNr, Bin) ->
     %% T2 = time after listening process received our message
     %% T3 = time after reply is received
 
-    T1 = diameter_util:timestamp(),
+    T1 = diameter_lib:now(),
     ok = send(Sock, Id, Bin),
     T2 = unmark(recv(Sock, Id)),
-    T3 = diameter_util:timestamp(),
+    T3 = diameter_lib:now(),
     {diameter_lib:micro_diff(T2, T1),  %% Outbound
      diameter_lib:micro_diff(T3, T2)}. %% Inbound
 
@@ -330,13 +330,13 @@ send(Sock, Id, Bin) ->
 %% mark/1
 
 mark(Bin) ->
-    Info = term_to_binary(diameter_util:timestamp()),
+    Info = term_to_binary(diameter_lib:now()),
     <<Info/binary, Bin/binary>>.
 
 %% unmark/1
 
 unmark(Bin) ->
-    {_,_,_} = binary_to_term(Bin).
+    binary_to_term(Bin).
 
 %% ===========================================================================
 

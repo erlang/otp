@@ -28,9 +28,6 @@
 -module(diameter_sync).
 -behaviour(gen_server).
 
--compile({no_auto_import, [now/0]}).
--import(diameter_lib, [now/0]).
-
 -export([call/4, call/5,
          cast/4, cast/5,
          carp/1, carp/2]).
@@ -73,7 +70,7 @@
 
 %% Server state.
 -record(state,
-        {time = now(),
+        {time = diameter_lib:now(),
          pending = 0 :: non_neg_integer(), %% outstanding requests
          monitor = new() :: ets:tid(),     %% MonitorRef -> {Name, From}
          queue   = new() :: ets:tid()}).   %% Name -> queue of {Pid, Ref}

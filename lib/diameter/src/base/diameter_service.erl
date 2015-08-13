@@ -25,9 +25,6 @@
 -module(diameter_service).
 -behaviour(gen_server).
 
--compile({no_auto_import, [now/0]}).
--import(diameter_lib, [now/0]).
-
 %% towards diameter_service_sup
 -export([start_link/1]).
 
@@ -115,7 +112,7 @@
 %% to determine whether or not we need to call the process for a
 %% pick_peer callback in the statefull case.
 -record(state,
-        {id = now(),
+        {id = diameter_lib:now(),
          service_name :: diameter:service_name(), %% key in ?STATE_TABLE
          service :: #diameter_service{},
          watchdogT = ets_new(watchdogs) %% #watchdog{} at start
@@ -144,7 +141,7 @@
          ref  :: match(reference()),  %% key into diameter_config
          options :: match([diameter:transport_opt()]),%% from start_transport
          state = ?WD_INITIAL :: match(wd_state()),
-         started = now(),      %% at process start
+         started = diameter_lib:now(),%% at process start
          peer = false :: match(boolean() | pid())}).
                       %% true at accepted, pid() at okay/reopen
 
@@ -154,7 +151,7 @@
         {pid   :: pid(),
          apps  :: [{0..16#FFFFFFFF, diameter:app_alias()}], %% {Id, Alias}
          caps  :: #diameter_caps{},
-         started = now(),  %% at process start
+         started = diameter_lib:now(),  %% at process start
          watchdog :: pid()}). %% key into watchdogT
 
 %% ---------------------------------------------------------------------------
