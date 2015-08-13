@@ -482,30 +482,51 @@ msacc(Config) ->
 
     true = erlang:system_flag(microstate_accounting, false),
 
-    %% Make sure that all states were triggered at least once
-    maps:map(fun(nif, 0) ->
-                     case Niff of
-                         ok ->
-                             ct:fail({zero_state,nif});
-                         nok ->
-                             ok
-                     end;
-                (aux, 0) ->
-                     %% aux will be zero if we do not have smp support
-                     %% or no async threads
-                     case erlang:system_info(smp_support) orelse
-                         erlang:system_info(thread_pool_size) > 0 of
-                         false ->
-                             ok;
-                         true ->
-                             ct:log("msacc: ~p",[erlang:statistics(microstate_accounting)]),
-                             ct:fail({zero_state,aux})
-                         end;
-                 (Key, 0) ->
-                     ct:log("msacc: ~p",[erlang:statistics(microstate_accounting)]),
-                     ct:fail({zero_state,Key});
-                (_,_) -> ok
-             end,msacc_sum_states()),
+    MsaccStats = erlang:statistics(microstate_accounting),
+
+    case os:type() of
+        {win32, _} ->
+            %% Some windows have a very poor accuracy on their
+            %% timing primitives, so we just make sure that
+            %% some state besides sleep has been triggered.
+            Sum = lists:sum(
+                    lists:map(fun({sleep, _V}) -> 0;
+                                 ({_, V}) -> V
+                              end, maps:to_list(msacc_sum_states()))
+                   ),
+            if Sum > 0 ->
+                    ok;
+               true ->
+                    ct:fail({no_states_triggered, MsaccStats})
+            end;
+        _ ->
+
+            %% Make sure that all states were triggered at least once
+            maps:map(fun(nif, 0) ->
+                             case Niff of
+                                 ok ->
+                                     ct:fail({zero_state,nif});
+                                 nok ->
+                                     ok
+                             end;
+                        (aux, 0) ->
+                             %% aux will be zero if we do not have smp support
+                             %% or no async threads
+                             case erlang:system_info(smp_support) orelse
+                                 erlang:system_info(thread_pool_size) > 0
+                             of
+                                 false ->
+                                     ok;
+                                 true ->
+                                     ct:log("msacc: ~p",[MsaccStats]),
+                                     ct:fail({zero_state,aux})
+                             end;
+                        (Key, 0) ->
+                             ct:log("msacc: ~p",[MsaccStats]),
+                             ct:fail({zero_state,Key});
+                        (_,_) -> ok
+                     end, msacc_sum_states())
+    end,
 
     erlang:system_flag(microstate_accounting, reset),
 
