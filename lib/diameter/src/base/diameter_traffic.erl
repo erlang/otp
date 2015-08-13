@@ -261,7 +261,8 @@ recv(false, #request{ref = Ref, handler = Pid} = Req, _, Pkt, Dict0, _) ->
 %% any others are discarded.
 
 %% ... or not.
-recv(false, false, TPid, _, _, _) ->
+recv(false, false, TPid, Pkt, _, _) ->
+    ?LOG(discarded, Pkt#diameter_packet.header),
     incr(TPid, {{unknown, 0}, recv, discarded}),
     ok.
 
