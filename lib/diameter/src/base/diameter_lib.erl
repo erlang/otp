@@ -321,7 +321,7 @@ ip(T)
 
 %% Or not: convert from '.'/':'-separated decimal/hex.
 ip(Addr) ->
-    {ok, A} = inet_parse:address(Addr),  %% documented in inet(3)
+    {ok, A} = inet:parse_address(Addr),
     A.
 
 %% ---------------------------------------------------------------------------
