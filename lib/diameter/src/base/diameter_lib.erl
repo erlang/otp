@@ -18,18 +18,12 @@
 %%
 
 -module(diameter_lib).
--compile({no_auto_import, [now/0]}).
 
 -export([info_report/2,
          error_report/2,
          warning_report/2,
-         now/0,
-         timestamp/1,
          now_diff/1,
-         micro_diff/1,
-         micro_diff/2,
          time/1,
-         seed/0,
          eval/1,
          eval_name/1,
          get_stacktrace/0,
@@ -98,49 +92,10 @@ fmt(T) ->
     end.
 
 %% ---------------------------------------------------------------------------
-%% # now/0
-%% ---------------------------------------------------------------------------
-
--type timestamp() :: {non_neg_integer(), 0..999999, 0..999999}.
--type now() :: integer() %% monotonic time
-             | timestamp().
-
--spec now()
-   -> now().
-
-%% Use monotonic time if it exists, fall back to erlang:now()
-%% otherwise.
-
-now() ->
-    try
-        erlang:monotonic_time() 
-    catch
-        error: undef -> erlang:now()
-    end.
-
-%% ---------------------------------------------------------------------------
-%% # timestamp/1
-%% ---------------------------------------------------------------------------
-
--spec timestamp(NowT :: now())
-   -> timestamp().
-
-timestamp({_,_,_} = T) ->  %% erlang:now()
-    T;
-
-timestamp(MonoT) ->  %% monotonic time
-    MicroSecs = monotonic_to_microseconds(MonoT + erlang:time_offset()),
-    Secs = MicroSecs div 1000000,
-    {Secs div 1000000, Secs rem 1000000, MicroSecs rem 1000000}.
-
-monotonic_to_microseconds(MonoT) ->
-    erlang:convert_time_unit(MonoT, native, micro_seconds).
-
-%% ---------------------------------------------------------------------------
 %% # now_diff/1
 %% ---------------------------------------------------------------------------
 
--spec now_diff(NowT :: now())
+-spec now_diff(NowT :: erlang:timestamp())
    -> {Hours, Mins, Secs, MicroSecs}
  when Hours :: non_neg_integer(),
       Mins  :: 0..59,
@@ -151,36 +106,7 @@ monotonic_to_microseconds(MonoT) ->
 %% instead of as integer microseconds.
 
 now_diff(Time) ->
-    time(micro_diff(Time)).
-
-%% ---------------------------------------------------------------------------
-%% # micro_diff/1
-%% ---------------------------------------------------------------------------
-
--spec micro_diff(NowT :: now())
-   -> MicroSecs
- when MicroSecs :: non_neg_integer().
-
-micro_diff({_,_,_} = T0) ->
-    timer:now_diff(erlang:now(), T0);
-
-micro_diff(T0) ->  %% monotonic time
-    monotonic_to_microseconds(erlang:monotonic_time() - T0).
-
-%% ---------------------------------------------------------------------------
-%% # micro_diff/2
-%% ---------------------------------------------------------------------------
-
--spec micro_diff(T1 :: now(), T0 :: now())
-   -> MicroSecs
- when MicroSecs :: non_neg_integer().
-
-micro_diff(T1, T0)
-  when is_integer(T1), is_integer(T0) ->  %% monotonic time
-    monotonic_to_microseconds(T1 - T0);
-
-micro_diff(T1, T0) ->  %% at least one erlang:now()
-    timer:now_diff(timestamp(T1), timestamp(T0)).
+    time(timer:now_diff(now(), Time)).
 
 %% ---------------------------------------------------------------------------
 %% # time/1
@@ -190,7 +116,7 @@ micro_diff(T1, T0) ->  %% at least one erlang:now()
 
 -spec time(NowT | Diff)
    -> {Hours, Mins, Secs, MicroSecs}
- when NowT  :: timestamp(),
+ when NowT  :: erlang:timestamp(),
       Diff  :: non_neg_integer(),
       Hours :: non_neg_integer(),
       Mins  :: 0..59,
@@ -207,27 +133,6 @@ time(Micro) ->  %% elapsed time
     M = (Seconds rem 3600) div 60,
     S = Seconds rem 60,
     {H, M, S, Micro rem 1000000}.
-
-%% ---------------------------------------------------------------------------
-%% # seed/0
-%% ---------------------------------------------------------------------------
-
--spec seed()
-   -> {timestamp(), {integer(), integer(), integer()}}.
-
-%% Return an argument for random:seed/1.
-
-seed() ->
-    T = now(),
-    {timestamp(T), seed(T)}.
-
-%% seed/1
-
-seed({_,_,_} = T) ->
-    T;
-
-seed(T) ->  %% monotonic time
-    {erlang:phash2(node()), T, erlang:unique_integer()}.
 
 %% ---------------------------------------------------------------------------
 %% # eval/1

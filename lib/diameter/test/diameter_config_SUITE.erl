@@ -50,7 +50,7 @@
                 {request_errors, RE},
                 {call_mutates_state, C}]]
               || D <- [diameter_gen_base_rfc3588, diameter_gen_base_rfc6733],
-                 M <- [?MODULE, [?MODULE, diameter_lib:now()]],
+                 M <- [?MODULE, [?MODULE, now()]],
                  A <- [0, common, make_ref()],
                  S <- [[], make_ref()],
                  AE <- [report, callback, discard],

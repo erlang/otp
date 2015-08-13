@@ -895,7 +895,7 @@ call(Config, Req, Opts) ->
     diameter:call(CN,
                   dict(Req, Dict0),
                   msg(Req, ReqEncoding, Dict0),
-                  [{extra, [{Name, Group}, diameter_lib:now()]} | Opts]).
+                  [{extra, [{Name, Group}, now()]} | Opts]).
 
 origin({A,C}) ->
     2*codec(A) + container(C);
@@ -1253,10 +1253,8 @@ app(Req, _, Dict0) ->
 %% handle_error/6
 
 handle_error(timeout = Reason, _Req, [$C|_], _Peer, _, Time) ->
-    Now = diameter_lib:now(),
-    {Reason, {diameter_lib:timestamp(Time),
-              diameter_lib:timestamp(Now),
-              diameter_lib:micro_diff(Now, Time)}};
+    Now = now(),
+    {Reason, {Time, Now, timer:now_diff(Now, Time)}};
 
 handle_error(Reason, _Req, [$C|_], _Peer, _, _Time) ->
     {error, Reason}.

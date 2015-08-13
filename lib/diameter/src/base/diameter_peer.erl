@@ -20,9 +20,6 @@
 -module(diameter_peer).
 -behaviour(gen_server).
 
--compile({no_auto_import, [now/0]}).
--import(diameter_lib, [now/0]).
-
 %% Interface towards transport modules ...
 -export([recv/2,
          up/1,

@@ -66,7 +66,6 @@
          parent = self() :: pid(),              %% service process
          transport       :: pid() | undefined,  %% peer_fsm process
          tref :: reference()      %% reference for current watchdog timer
-               | integer()        %% monotonic time
                | tuple()          %% now()
                | undefined,
          dictionary :: module(),  %% common dictionary
@@ -125,8 +124,7 @@ i({Ack, T, Pid, {RecvData,
                  = Svc}}) ->
     monitor(process, Pid),
     wait(Ack, Pid),
-    {_, Seed} = diameter_lib:seed(),
-    random:seed(Seed),
+    random:seed(now()),
     putr(restart, {T, Opts, Svc, SvcOpts}),  %% save seeing it in trace
     putr(dwr, dwr(Caps)),                    %%
     {_,_} = Mask = proplists:get_value(sequence, SvcOpts),
@@ -459,7 +457,7 @@ transition({timeout, TRef, tw}, #watchdog{tref = TRef} = S) ->
 %% Message has arrived since the timer was started: subtract time
 %% already elapsed from new timer.
 transition({timeout, _, tw}, #watchdog{tref = T0} = S) ->
-    set_watchdog(diameter_lib:micro_diff(T0) div 1000, S);
+    set_watchdog(timer:now_diff(now(), T0) div 1000, S);
 
 %% State query.
 transition({state, Pid}, #watchdog{status = S}) ->
@@ -541,7 +539,7 @@ set_watchdog(#watchdog{tref = undefined} = S) ->
 
 %% Timer already set: start at new one only at expiry.
 set_watchdog(#watchdog{} = S) ->
-    S#watchdog{tref = diameter_lib:now()};
+    S#watchdog{tref = now()};
 
 set_watchdog(stop = No) ->
     No.

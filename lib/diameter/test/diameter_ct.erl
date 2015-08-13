@@ -43,7 +43,7 @@ ct_run(Opts) ->
     info(Start , info()).
 
 info() ->
-    [{time, diameter_lib:now()},
+    [{time, now()},
      {process_count, erlang:system_info(process_count)}
      | erlang:memory()].
 
@@ -56,6 +56,6 @@ info(L0, L1) ->
     io:format("INFO: ~p~n", [Diff]).
 
 diff(time, T0, T1) ->
-    diameter_lib:micro_diff(T1, T0);
+    timer:now_diff(T1, T0);
 diff(_, N0, N1) ->
     N1 - N0.
