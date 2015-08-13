@@ -590,6 +590,7 @@ split_head(<<Code:32, 0:1, M:1, P:1, _:5, Len:24, _/binary>>) ->
 %% Header is truncated.
 split_head(Bin) ->
     ?THROW({5014, #diameter_avp{data = Bin}}).
+%% Note that pack_avp/1 will pad this at encode if sent in a Failed-AVP.
 
 %% 3588:
 %%
@@ -619,7 +620,7 @@ split_head(Bin) ->
 %%       AVP header with zero up to the minimum AVP header length.
 %%
 %% The underlined clause must be in error since (1) a header less than
-%% the minimum value mean we don't know the identity of the AVP and
+%% the minimum value mean we might not know the identity of the AVP and
 %% (2) the last sentence covers this case.
 
 %% split_data/3
