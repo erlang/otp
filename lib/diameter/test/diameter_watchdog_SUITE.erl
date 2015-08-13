@@ -48,7 +48,8 @@
          accept/1,
          connect/3,
          send/2,
-         setopts/2]).
+         setopts/2,
+         close/1]).
 
 -include("diameter.hrl").
 -include("diameter_ct.hrl").
@@ -420,7 +421,6 @@ suspect(TRef, false, SvcName, N) ->
 %% abuse/1
 
 abuse(F) ->
-
     [] = run([[abuse, F, T] || T <- [listen, connect]]).
 
 abuse(F, [_,_,_|_] = Args) ->
@@ -544,6 +544,9 @@ setopts(Sock, Opts) ->
 
 send(Sock, Bin) ->
     send(getr(config), Sock, Bin).
+
+close(Sock) ->
+    gen_tcp:close(Sock).
 
 %% send/3
 
