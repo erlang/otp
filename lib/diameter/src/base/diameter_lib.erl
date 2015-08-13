@@ -103,32 +103,18 @@ fmt(T) ->
 %% # now/0
 %% ---------------------------------------------------------------------------
 
--type timestamp() :: {non_neg_integer(), 0..999999, 0..999999}.
--type now() :: integer() %% monotonic time
-             | timestamp().
-
 -spec now()
-   -> now().
-
-%% Use monotonic time if it exists, fall back to erlang:now()
-%% otherwise.
+   -> integer().
 
 now() ->
-    try
-        erlang:monotonic_time() 
-    catch
-        error: undef -> erlang:now()
-    end.
+    erlang:monotonic_time().
 
 %% ---------------------------------------------------------------------------
 %% # timestamp/1
 %% ---------------------------------------------------------------------------
 
--spec timestamp(NowT :: now())
-   -> timestamp().
-
-timestamp({_,_,_} = T) ->  %% erlang:now()
-    T;
+-spec timestamp(integer())
+   -> erlang:timestamp().
 
 timestamp(MonoT) ->  %% monotonic time
     MicroSecs = monotonic_to_microseconds(MonoT + erlang:time_offset()),
@@ -142,29 +128,26 @@ monotonic_to_microseconds(MonoT) ->
 %% # now_diff/1
 %% ---------------------------------------------------------------------------
 
--spec now_diff(NowT :: now())
+-spec now_diff(T0 :: integer())
    -> {Hours, Mins, Secs, MicroSecs}
  when Hours :: non_neg_integer(),
       Mins  :: 0..59,
       Secs  :: 0..59,
       MicroSecs :: 0..999999.
 
-%% Return timer:now_diff(now(), NowT) as an {H, M, S, MicroS} tuple
-%% instead of as integer microseconds.
+%% Return time difference as an {H, M, S, MicroS} tuple instead of as
+%% integer microseconds.
 
-now_diff(Time) ->
-    time(micro_diff(Time)).
+now_diff(T0) ->
+    time(micro_diff(T0)).
 
 %% ---------------------------------------------------------------------------
 %% # micro_diff/1
 %% ---------------------------------------------------------------------------
 
--spec micro_diff(NowT :: now())
+-spec micro_diff(T0 :: integer())
    -> MicroSecs
  when MicroSecs :: non_neg_integer().
-
-micro_diff({_,_,_} = T0) ->
-    timer:now_diff(erlang:now(), T0);
 
 micro_diff(T0) ->  %% monotonic time
     monotonic_to_microseconds(erlang:monotonic_time() - T0).
@@ -173,16 +156,12 @@ micro_diff(T0) ->  %% monotonic time
 %% # micro_diff/2
 %% ---------------------------------------------------------------------------
 
--spec micro_diff(T1 :: now(), T0 :: now())
+-spec micro_diff(T1 :: integer(), T0 :: integer())
    -> MicroSecs
  when MicroSecs :: non_neg_integer().
 
-micro_diff(T1, T0)
-  when is_integer(T1), is_integer(T0) ->  %% monotonic time
-    monotonic_to_microseconds(T1 - T0);
-
-micro_diff(T1, T0) ->  %% at least one erlang:now()
-    timer:now_diff(timestamp(T1), timestamp(T0)).
+micro_diff(T1, T0) ->  %% monotonic time
+    monotonic_to_microseconds(T1 - T0).
 
 %% ---------------------------------------------------------------------------
 %% # time/1
@@ -190,18 +169,12 @@ micro_diff(T1, T0) ->  %% at least one erlang:now()
 %% Return an elapsed time as an {H, M, S, MicroS} tuple.
 %% ---------------------------------------------------------------------------
 
--spec time(NowT | Diff)
+-spec time(Diff :: non_neg_integer())
    -> {Hours, Mins, Secs, MicroSecs}
- when NowT  :: timestamp(),
-      Diff  :: non_neg_integer(),
-      Hours :: non_neg_integer(),
+ when Hours :: non_neg_integer(),
       Mins  :: 0..59,
       Secs  :: 0..59,
       MicroSecs :: 0..999999.
-
-time({_,_,_} = NowT) ->  %% time of day
-    %% 24 hours = 24*60*60*1000000 = 86400000000 microsec
-    time(timer:now_diff(NowT, {0,0,0}) rem 86400000000);
 
 time(Micro) ->  %% elapsed time
     Seconds = Micro div 1000000,
@@ -215,7 +188,7 @@ time(Micro) ->  %% elapsed time
 %% ---------------------------------------------------------------------------
 
 -spec seed()
-   -> {timestamp(), {integer(), integer(), integer()}}.
+   -> {erlang:timestamp(), {integer(), integer(), integer()}}.
 
 %% Return an argument for random:seed/1.
 
@@ -224,9 +197,6 @@ seed() ->
     {timestamp(T), seed(T)}.
 
 %% seed/1
-
-seed({_,_,_} = T) ->
-    T;
 
 seed(T) ->  %% monotonic time
     {erlang:phash2(node()), T, erlang:unique_integer()}.

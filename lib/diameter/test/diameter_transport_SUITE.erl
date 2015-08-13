@@ -54,7 +54,7 @@
 
 %% Receive a message.
 -define(RECV(Pat, Ret), receive Pat -> Ret end).
--define(RECV(Pat), ?RECV(Pat, diameter_util:timestamp())).
+-define(RECV(Pat), ?RECV(Pat, diameter_lib:now())).
 
 %% Sockets are opened on the loopback address.
 -define(ADDR, {127,0,0,1}).
@@ -417,8 +417,7 @@ gen_accept(tcp, LSock) ->
 
 gen_send(sctp, Sock, Bin) ->
     {OS, _IS, Id} = getr(assoc),
-    {_, _, Us} = diameter_util:timestamp(),
-    gen_sctp:send(Sock, Id, Us rem OS, Bin);
+    gen_sctp:send(Sock, Id, erlang:unique_integer([positive]) rem OS, Bin);
 gen_send(tcp, Sock, Bin) ->
     gen_tcp:send(Sock, Bin).
 
