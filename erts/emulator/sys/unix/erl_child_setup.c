@@ -133,8 +133,8 @@ start_new_child(int pipes[])
 
     o_buff = buff;
 
-    flags = *(int*)buff;
-    buff += sizeof(int);
+    flags = get_int32(buff);
+    buff += sizeof(Sint32);
 
     DEBUG_PRINT("flags = %d", flags);
 
@@ -150,8 +150,8 @@ start_new_child(int pipes[])
 
     DEBUG_PRINT("wd = %s", wd);
 
-    cnt = *(int*)buff;
-    buff += sizeof(int);
+    cnt = get_int32(buff);
+    buff += sizeof(Sint32);
     new_environ = malloc(sizeof(char*)*(cnt + 1));
 
     for (i = 0; i < cnt; i++, buff++) {
@@ -162,8 +162,8 @@ start_new_child(int pipes[])
 
     if (o_buff + size != buff) {
         /* This is a spawn executable call */
-        cnt = *(int*)buff;
-        buff += sizeof(int);
+        cnt = get_int32(buff);
+        buff += sizeof(Sint32);
         args = malloc(sizeof(char*)*(cnt + 1));
         for (i = 0; i < cnt; i++, buff++) {
             args[i] = buff;
