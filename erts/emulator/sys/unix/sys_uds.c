@@ -38,6 +38,14 @@ sys_uds_readv(int fd, struct iovec *iov, size_t iov_len,
     msg.msg_controllen = sizeof(ancillary_buff);
 
     if((res = recvmsg(fd, &msg, flags)) < 0) {
+#if defined(__APPLE__) && defined(__MACH__) && !defined(__DARWIN__)
+        /* When some OS X versions run out of fd's
+           they give EMSGSIZE instead of EMFILE.
+           We remap this as we want the correct
+           error to appear for the user */
+        if (errno == EMSGSIZE)
+            errno = EMFILE;
+#endif
         return res;
     }
 
