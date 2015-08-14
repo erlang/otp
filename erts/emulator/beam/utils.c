@@ -2981,7 +2981,7 @@ static int cmpbytes(byte *s1, int l1, byte *s2, int l2)
 
 #define float_comp(x,y)    (((x)<(y)) ? -1 : (((x)==(y)) ? 0 : 1))
 
-static int cmp_atoms(Eterm a, Eterm b)
+int erts_cmp_atoms(Eterm a, Eterm b)
 {
     Atom *aa = atom_tab(atom_val(a));
     Atom *bb = atom_tab(atom_val(b));
@@ -3003,11 +3003,11 @@ Sint cmp(Eterm a, Eterm b)
 #endif
 
 #if HALFWORD_HEAP
-static Sint erts_cmp_compound_rel_opt(Eterm a, Eterm* a_base,
+Sint erts_cmp_compound_rel_opt(Eterm a, Eterm* a_base,
                                       Eterm b, Eterm* b_base,
                                       int exact, int eq_only);
 #else
-static Sint erts_cmp_compound(Eterm a, Eterm b, int exact, int eq_only);
+Sint erts_cmp_compound(Eterm a, Eterm b, int exact, int eq_only);
 #endif
 
 #if HALFWORD_HEAP
@@ -3019,7 +3019,7 @@ Sint erts_cmp(Eterm a, Eterm b, int exact, int eq_only)
 #endif
 {
     if (is_atom(a) && is_atom(b)) {
-        return cmp_atoms(a, b);
+        return erts_cmp_atoms(a, b);
     } else if (is_both_small(a, b)) {
         return (signed_val(a) - signed_val(b));
     } else if (is_float_rel(a, a_base) && is_float_rel(b, b_base)) {
@@ -3041,11 +3041,11 @@ Sint erts_cmp(Eterm a, Eterm b, int exact, int eq_only)
  * exact = 0 -> arith-based compare
  */
 #if HALFWORD_HEAP
-static Sint erts_cmp_compound_rel_opt(Eterm a, Eterm* a_base,
+Sint erts_cmp_compound_rel_opt(Eterm a, Eterm* a_base,
                                       Eterm b, Eterm* b_base,
                                       int exact, int eq_only)
 #else
-static Sint erts_cmp_compound(Eterm a, Eterm b, int exact, int eq_only)
+Sint erts_cmp_compound(Eterm a, Eterm b, int exact, int eq_only)
 #endif
 {
 #define PSTACK_TYPE struct erts_cmp_hashmap_state
@@ -3099,14 +3099,14 @@ static Sint erts_cmp_compound(Eterm a, Eterm b, int exact, int eq_only)
 #define ON_CMP_GOTO(cmp) if ((j=(cmp)) == 0) goto pop_next; else goto not_equal
 
 #undef  CMP_NODES
-#define CMP_NODES(AN, BN)						\
-    do {								\
-	if((AN) != (BN)) {						\
-            if((AN)->sysname != (BN)->sysname)				\
-                RETURN_NEQ(cmp_atoms((AN)->sysname, (BN)->sysname));	\
-	    ASSERT((AN)->creation != (BN)->creation);			\
-	    RETURN_NEQ(((AN)->creation < (BN)->creation) ? -1 : 1);	\
-	}								\
+#define CMP_NODES(AN, BN)							\
+    do {									\
+	if((AN) != (BN)) {							\
+            if((AN)->sysname != (BN)->sysname)					\
+                RETURN_NEQ(erts_cmp_atoms((AN)->sysname, (BN)->sysname));	\
+	    ASSERT((AN)->creation != (BN)->creation);				\
+	    RETURN_NEQ(((AN)->creation < (BN)->creation) ? -1 : 1);		\
+	}									\
     } while (0)
 
 
@@ -3121,7 +3121,7 @@ tailrecur_ne:
     /* deal with majority (?) cases by brute-force */
     if (is_atom(a)) {
 	if (is_atom(b)) {
-	    ON_CMP_GOTO(cmp_atoms(a, b));
+	    ON_CMP_GOTO(erts_cmp_atoms(a, b));
 	}
     } else if (is_both_small(a, b)) {
 	ON_CMP_GOTO(signed_val(a) - signed_val(b));
@@ -3355,10 +3355,10 @@ tailrecur_ne:
 		    Export* a_exp = *((Export **) (export_val_rel(a,a_base) + 1));
 		    Export* b_exp = *((Export **) (export_val_rel(b,b_base) + 1));
 
-		    if ((j = cmp_atoms(a_exp->code[0], b_exp->code[0])) != 0) {
+		    if ((j = erts_cmp_atoms(a_exp->code[0], b_exp->code[0])) != 0) {
 			RETURN_NEQ(j);
 		    }
-		    if ((j = cmp_atoms(a_exp->code[1], b_exp->code[1])) != 0) {
+		    if ((j = erts_cmp_atoms(a_exp->code[1], b_exp->code[1])) != 0) {
 			RETURN_NEQ(j);
 		    }
 		    ON_CMP_GOTO((Sint) a_exp->code[2] - (Sint) b_exp->code[2]);
@@ -3679,7 +3679,7 @@ term_array: /* arrays in 'aa' and 'bb', length in 'i' */
 	b = *bb++;
 	if (!is_same(a,a_base, b,b_base)) {
 	    if (is_atom(a) && is_atom(b)) {
-		if ((j = cmp_atoms(a, b)) != 0) {
+		if ((j = erts_cmp_atoms(a, b)) != 0) {
 		    goto not_equal;
 		}
 	    } else if (is_both_small(a, b)) {
