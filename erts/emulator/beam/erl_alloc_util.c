@@ -52,6 +52,7 @@
 #ifdef ERTS_ENABLE_LOCK_COUNT
 #include "erl_lock_count.h"
 #endif
+#include "lttng-wrapper.h"
 
 #if defined(ERTS_ALLOC_UTIL_HARD_DEBUG) && defined(__GNUC__)
 #warning "* * * * * * * * * *"
@@ -3125,6 +3126,7 @@ cpool_insert(Allctr_t *allctr, Carrier_t *crr)
 
     erts_smp_atomic_set_wb(&crr->allctr,
 			   ((erts_aint_t) allctr)|ERTS_CRR_ALCTR_FLG_IN_POOL);
+    LTTNG3(carrier_pool_put, ERTS_ALC_A2AD(allctr->alloc_no), allctr->ix, CARRIER_SZ(crr));
 }
 
 static void
@@ -3240,6 +3242,7 @@ cpool_fetch(Allctr_t *allctr, UWord size)
     first_old_traitor = allctr->cpool.traitor_list.next;
     cpool_entrance = NULL;
 
+    LTTNG3(carrier_pool_get, ERTS_ALC_A2AD(allctr->alloc_no), allctr->ix, (unsigned long)size);
     /*
      * Search my own pooled_list,
      * i.e my abandoned carriers that were in the pool last time I checked.
@@ -3925,6 +3928,21 @@ create_carrier(Allctr_t *allctr, Uint umem_sz, UWord flags)
 
     }
 
+#ifdef USE_LTTNG_VM_TRACEPOINTS
+    if (LTTNG_ENABLED(carrier_create)) {
+        lttng_decl_carrier_stats(mbc_stats);
+        lttng_decl_carrier_stats(sbc_stats);
+        LTTNG_CARRIER_STATS_TO_LTTNG_STATS(&(allctr->mbcs), mbc_stats);
+        LTTNG_CARRIER_STATS_TO_LTTNG_STATS(&(allctr->sbcs), sbc_stats);
+        LTTNG5(carrier_create,
+                ERTS_ALC_A2AD(allctr->alloc_no),
+                allctr->ix,
+                crr_sz,
+                mbc_stats,
+                sbc_stats);
+    }
+#endif
+
     DEBUG_SAVE_ALIGNMENT(crr);
     return blk;
 }
@@ -4147,6 +4165,21 @@ destroy_carrier(Allctr_t *allctr, Block_t *blk, Carrier_t **busy_pcrr_pp)
             if (allctr->remove_mbc)
                 allctr->remove_mbc(allctr, crr);
 	}
+
+#ifdef USE_LTTNG_VM_TRACEPOINTS
+        if (LTTNG_ENABLED(carrier_destroy)) {
+            lttng_decl_carrier_stats(mbc_stats);
+            lttng_decl_carrier_stats(sbc_stats);
+            LTTNG_CARRIER_STATS_TO_LTTNG_STATS(&(allctr->mbcs), mbc_stats);
+            LTTNG_CARRIER_STATS_TO_LTTNG_STATS(&(allctr->sbcs), sbc_stats);
+            LTTNG5(carrier_destroy,
+                ERTS_ALC_A2AD(allctr->alloc_no),
+                allctr->ix,
+                crr_sz,
+                mbc_stats,
+                sbc_stats);
+        }
+#endif
 
 #ifdef ERTS_SMP
 	schedule_dealloc_carrier(allctr, crr);

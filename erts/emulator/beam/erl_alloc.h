@@ -235,9 +235,9 @@ void *erts_alloc(ErtsAlcType_t type, Uint size)
     void *res;
     ERTS_MSACC_PUSH_AND_SET_STATE_X(ERTS_MSACC_STATE_ALLOC);
     res = (*erts_allctrs[ERTS_ALC_T2A(type)].alloc)(
-	ERTS_ALC_T2N(type),
-	erts_allctrs[ERTS_ALC_T2A(type)].extra,
-	size);
+            ERTS_ALC_T2N(type),
+            erts_allctrs[ERTS_ALC_T2A(type)].extra,
+            size);
     if (!res)
 	erts_alloc_n_enomem(ERTS_ALC_T2N(type), size);
     ERTS_MSACC_POP_STATE_X();
@@ -564,5 +564,3 @@ NAME##_free(TYPE *p)							\
 #undef ERTS_ALC_ATTRIBUTES
 
 #endif /* #ifndef ERL_ALLOC_H__ */
-
-

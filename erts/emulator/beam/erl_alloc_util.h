@@ -30,6 +30,7 @@
 #endif
 
 #include "erl_mseg.h"
+#include "lttng-wrapper.h"
 
 #define ERTS_AU_PREF_ALLOC_BITS 11
 #define ERTS_AU_MAX_PREF_ALLOC_INSTANCES (1 << ERTS_AU_PREF_ALLOC_BITS)
@@ -416,6 +417,18 @@ typedef struct {
 	StatValues_t	max_ever;
     } blocks;
 } CarriersStats_t;
+
+#ifdef USE_LTTNG_VM_TRACEPOINTS
+#define LTTNG_CARRIER_STATS_TO_LTTNG_STATS(CSP, LSP)            \
+    do {                                                        \
+        (LSP)->carriers.size = (CSP)->curr.norm.mseg.size       \
+                             + (CSP)->curr.norm.sys_alloc.size; \
+        (LSP)->carriers.no   = (CSP)->curr.norm.mseg.no         \
+                             + (CSP)->curr.norm.sys_alloc.no;   \
+        (LSP)->blocks.size   = (CSP)->blocks.curr.size;         \
+        (LSP)->blocks.no     = (CSP)->blocks.curr.no;           \
+    } while (0)
+#endif
 
 #ifdef ERTS_SMP
 
