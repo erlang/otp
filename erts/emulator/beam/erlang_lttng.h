@@ -30,6 +30,20 @@
 
 #include <lttng/tracepoint.h>
 
+/* Schedulers */
+
+TRACEPOINT_EVENT(
+    com_ericsson_otp,
+    scheduler_poll,
+    TP_ARGS(
+        int, id,
+        int, runnable
+    ),
+    TP_FIELDS(
+        ctf_integer(int, scheduler, id)
+        ctf_integer(int, runnable, runnable)
+    )
+)
 
 #ifndef LTTNG_CARRIER_STATS
 #define LTTNG_CARRIER_STATS

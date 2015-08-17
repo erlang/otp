@@ -43,6 +43,7 @@
 #include "erl_thr_queue.h"
 #include "erl_async.h"
 #include "dtrace-wrapper.h"
+#include "lttng-wrapper.h"
 #include "erl_ptab.h"
 #include "erl_bif_unique.h"
 #define ERTS_WANT_TIMER_WHEEL_API
@@ -3238,6 +3239,7 @@ scheduler_wait(int *fcalls, ErtsSchedulerData *esdp, ErtsRunQueue *rq)
 	    ERTS_MSACC_SET_STATE_CACHED_M(ERTS_MSACC_STATE_CHECK_IO);
 
 	    ASSERT(!erts_port_task_have_outstanding_io_tasks());
+            LTTNG2(scheduler_poll, esdp->no, 1);
 	    erl_sys_schedule(1); /* Might give us something to do */
 
 	    ERTS_MSACC_POP_STATE_M();
@@ -3361,6 +3363,7 @@ scheduler_wait(int *fcalls, ErtsSchedulerData *esdp, ErtsRunQueue *rq)
 	ASSERT(!erts_port_task_have_outstanding_io_tasks());
 
 	ERTS_MSACC_SET_STATE_CACHED_M(ERTS_MSACC_STATE_CHECK_IO);
+        LTTNG2(scheduler_poll, esdp->no, 0);
 
 	erl_sys_schedule(0);
 
@@ -9581,7 +9584,10 @@ Process *schedule(Process *p, int calls)
 	    erts_sys_schedule_interrupt(0);
 #endif
 	    erts_smp_runq_unlock(rq);
-	    ERTS_MSACC_SET_STATE_CACHED_M(ERTS_MSACC_STATE_CHECK_IO);
+
+            ERTS_MSACC_SET_STATE_CACHED_M(ERTS_MSACC_STATE_CHECK_IO);
+            LTTNG2(scheduler_poll, esdp->no, 1);
+
 	    erl_sys_schedule(1);
 	    ERTS_MSACC_POP_STATE_M();
 
