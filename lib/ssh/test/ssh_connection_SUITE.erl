@@ -186,7 +186,7 @@ big_cat(Config) when is_list(Config) ->
     %% pre-adjust receive window so the other end doesn't block
     ssh_connection:adjust_window(ConnectionRef, ChannelId0, size(Data)),
 
-    ct:pal("sending ~p byte binary~n",[size(Data)]),
+    ct:log("sending ~p byte binary~n",[size(Data)]),
     ok = ssh_connection:send(ConnectionRef, ChannelId0, Data, 10000),
     ok = ssh_connection:send_eof(ConnectionRef, ChannelId0),
 
@@ -197,10 +197,10 @@ big_cat(Config) when is_list(Config) ->
 	{ok, Other} ->
 	    case size(Data) =:= size(Other) of
 		true ->
-		    ct:pal("received and sent data are same"
+		    ct:log("received and sent data are same"
 			   "size but do not match~n",[]);
 		false ->
-		    ct:pal("sent ~p but only received ~p~n",
+		    ct:log("sent ~p but only received ~p~n",
 			   [size(Data), size(Other)])
 	    end,
 	    ct:fail(receive_data_mismatch);
@@ -450,7 +450,7 @@ gracefull_invalid_version(Config) when is_list(Config) ->
     ok = gen_tcp:send(S,  ["SSH-8.-1","\r\n"]),
     receive
 	Verstring ->
-	    ct:pal("Server version: ~p~n", [Verstring]),
+	    ct:log("Server version: ~p~n", [Verstring]),
 	    receive
 		{tcp_closed, S} ->
 		    ok
@@ -470,7 +470,7 @@ gracefull_invalid_start(Config) when is_list(Config) ->
     ok = gen_tcp:send(S,  ["foobar","\r\n"]),
     receive
 	Verstring ->
-	    ct:pal("Server version: ~p~n", [Verstring]),
+	    ct:log("Server version: ~p~n", [Verstring]),
 	    receive
 		{tcp_closed, S} ->
 		    ok
@@ -490,7 +490,7 @@ gracefull_invalid_long_start(Config) when is_list(Config) ->
     ok = gen_tcp:send(S, [lists:duplicate(257, $a), "\r\n"]),
     receive
 	Verstring ->
-	    ct:pal("Server version: ~p~n", [Verstring]),
+	    ct:log("Server version: ~p~n", [Verstring]),
 	    receive
 		{tcp_closed, S} ->
 		    ok
@@ -511,7 +511,7 @@ gracefull_invalid_long_start_no_nl(Config) when is_list(Config) ->
     ok = gen_tcp:send(S, [lists:duplicate(257, $a), "\r\n"]),
     receive
 	Verstring ->
-	    ct:pal("Server version: ~p~n", [Verstring]),
+	    ct:log("Server version: ~p~n", [Verstring]),
 	    receive
 		{tcp_closed, S} ->
 		    ok

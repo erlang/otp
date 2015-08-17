@@ -97,10 +97,10 @@ loop_io_server(TestCase, Buff0) ->
 	 {input, TestCase, Line} ->
 	     loop_io_server(TestCase, Buff0 ++ [Line]);
 	 {io_request, From, ReplyAs, Request} ->
-%%ct:pal("~p",[{io_request, From, ReplyAs, Request}]),
+%%ct:log("~p",[{io_request, From, ReplyAs, Request}]),
 	     {ok, Reply, Buff} = io_request(Request, TestCase, From,
 					    ReplyAs, Buff0),
-%%ct:pal("io_request(~p)-->~p",[Request,{ok, Reply, Buff}]),
+%%ct:log("io_request(~p)-->~p",[Request,{ok, Reply, Buff}]),
 	     io_reply(From, ReplyAs, Reply),
 	     loop_io_server(TestCase, Buff);
 	 {'EXIT',_, _} ->
@@ -134,26 +134,26 @@ io_request({get_line, _Enc,_}, _, _, _, [Line | Buff]) ->
 io_reply(_, _, []) ->
     ok;
 io_reply(From, ReplyAs, Reply) ->
-%%ct:pal("io_reply ~p sending ~p ! ~p",[self(),From, {io_reply, ReplyAs, Reply}]),
+%%ct:log("io_reply ~p sending ~p ! ~p",[self(),From, {io_reply, ReplyAs, Reply}]),
     From ! {io_reply, ReplyAs, Reply}.
 
 reply(_, []) ->
     ok;
 reply(TestCase, Result) ->
-%%ct:pal("reply ~p sending ~p ! ~p",[self(), TestCase, Result]),
+%%ct:log("reply ~p sending ~p ! ~p",[self(), TestCase, Result]),
     TestCase ! Result.
 
 receive_exec_result(Msg) ->
-    ct:pal("Expect data! ~p", [Msg]),
+    ct:log("Expect data! ~p", [Msg]),
     receive
 	{ssh_cm,_,{data,_,1, Data}} ->
-	    ct:pal("StdErr: ~p~n", [Data]),
+	    ct:log("StdErr: ~p~n", [Data]),
 	    receive_exec_result(Msg);
 	Msg ->
-	    ct:pal("1: Collected data ~p", [Msg]),
+	    ct:log("1: Collected data ~p", [Msg]),
 	    expected;
 	Other ->
-	    ct:pal("Other ~p", [Other]),
+	    ct:log("Other ~p", [Other]),
 	    {unexpected_msg, Other}
     end.
 
@@ -165,15 +165,15 @@ receive_exec_end(ConnectionRef, ChannelId) ->
     case receive_exec_result(ExitStatus) of
 	{unexpected_msg, Eof} -> %% Open ssh seems to not allways send these messages
 	    %% in the same order!
-	    ct:pal("2: Collected data ~p", [Eof]),
+	    ct:log("2: Collected data ~p", [Eof]),
 	    case receive_exec_result(ExitStatus) of
 		expected ->
 		    expected = receive_exec_result(Closed);
 		{unexpected_msg, Closed} ->
-		    ct:pal("3: Collected data ~p", [Closed])
+		    ct:log("3: Collected data ~p", [Closed])
 	    end;
 	expected ->
-	    ct:pal("4: Collected data ~p", [ExitStatus]),
+	    ct:log("4: Collected data ~p", [ExitStatus]),
 	    expected = receive_exec_result(Eof),
 	    expected = receive_exec_result(Closed);
 	Other ->
