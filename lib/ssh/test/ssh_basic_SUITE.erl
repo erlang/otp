@@ -245,8 +245,8 @@ init_per_testcase(TC, Config) when TC==shell_no_unicode ;
     Shell = ssh_test_lib:start_shell(Port, IO, UserDir,
 				     [{silently_accept_hosts, true},
 				      {user,"foo"},{password,"bar"}]),
-    ct:pal("IO=~p, Shell=~p, self()=~p",[IO,Shell,self()]),
-    ct:pal("file:native_name_encoding() = ~p,~nio:getopts() = ~p",
+    ct:log("IO=~p, Shell=~p, self()=~p",[IO,Shell,self()]),
+    ct:log("file:native_name_encoding() = ~p,~nio:getopts() = ~p",
 	   [file:native_name_encoding(),io:getopts()]),
     wait_for_erlang_first_line([{io,IO}, {shell,Shell}, {sftpd, Sftpd}  | Config]);
 init_per_testcase(_TestCase, Config) ->
@@ -620,7 +620,7 @@ shell(Config) when is_list(Config) ->
 	{'EXIT', _, _} ->
 	    ct:fail(no_ssh_connection);  
 	ErlShellStart ->
-	    ct:pal("Erlang shell start: ~p~n", [ErlShellStart]),
+	    ct:log("Erlang shell start: ~p~n", [ErlShellStart]),
 	    do_shell(IO, Shell)
     end.
     
@@ -704,7 +704,7 @@ server_password_option(Config) when is_list(Config) ->
 				 {user_interaction, false},
 				 {user_dir, UserDir}]),
     
-    ct:pal("Test of wrong password: Error msg: ~p ~n", [Reason]),
+    ct:log("Test of wrong password: Error msg: ~p ~n", [Reason]),
 
     ssh:close(ConnectionRef),
     ssh:stop_daemon(Pid).
@@ -1259,13 +1259,13 @@ peername_sockname(Config) when is_list(Config) ->
 	ssh:connection_info(ConnectionRef, [peer]),
     [{sockname, {HostSockClient,PortSockClient} = ClientSock}] =
 	ssh:connection_info(ConnectionRef, [sockname]),
-    ct:pal("Client: ~p ~p", [ClientPeer, ClientSock]),
+    ct:log("Client: ~p ~p", [ClientPeer, ClientSock]),
     receive
 	{ssh_cm, ConnectionRef, {data, ChannelId, _, Response}} ->
 	    {PeerNameSrv,SockNameSrv} = binary_to_term(Response),
 	    {HostPeerSrv,PortPeerSrv} = PeerNameSrv,
 	    {HostSockSrv,PortSockSrv} = SockNameSrv,
-	    ct:pal("Server: ~p ~p", [PeerNameSrv, SockNameSrv]),
+	    ct:log("Server: ~p ~p", [PeerNameSrv, SockNameSrv]),
 	    host_equal(HostPeerSrv, HostSockClient),
 	    PortPeerSrv = PortSockClient,
 	    host_equal(HostSockSrv, HostPeerClient),
@@ -1443,7 +1443,7 @@ packet_size_zero(Config) ->
 
     receive
 	{ssh_cm,Conn,{data,Chan,_Type,_Msg1}} = M ->
-	    ct:pal("Got ~p",[M]),
+	    ct:log("Got ~p",[M]),
 	    ct:fail(doesnt_obey_max_packet_size_0)
     after 5000 ->
 	    ok
@@ -1520,7 +1520,7 @@ chan_exec(ConnectionRef, Cmnd, Expected) ->
 	    ssh_test_lib:receive_exec_end(ConnectionRef, ChannelId0);
 	{unexpected_msg,{ssh_cm, ConnectionRef, {exit_status, ChannelId0, 0}}
 	 = ExitStatus0} ->
-	    ct:pal("0: Collected data ~p", [ExitStatus0]),
+	    ct:log("0: Collected data ~p", [ExitStatus0]),
 	    ssh_test_lib:receive_exec_result(Data0,
 					     ConnectionRef, ChannelId0);
 	Other0 ->
@@ -1612,7 +1612,7 @@ ssh_connect_negtimeout(Config, Parallel) ->
     {ok,Socket} = gen_tcp:connect(Host, Port, []),
 
     Factor = 2,
-    ct:pal("And now sleeping ~p*NegTimeOut (~p ms)...", [Factor, round(Factor * NegTimeOut)]),
+    ct:log("And now sleeping ~p*NegTimeOut (~p ms)...", [Factor, round(Factor * NegTimeOut)]),
     ct:sleep(round(Factor * NegTimeOut)),
     
     case inet:sockname(Socket) of
@@ -1643,22 +1643,22 @@ ssh_connect_nonegtimeout_connected(Config, Parallel) ->
 					       {parallel_login, Parallel},
 					       {negotiation_timeout, NegTimeOut},
 					       {failfun, fun ssh_test_lib:failfun/2}]),
-    ct:pal("~p Listen ~p:~p",[_Pid,_Host,Port]),
+    ct:log("~p Listen ~p:~p",[_Pid,_Host,Port]),
     ct:sleep(500),
 
     IO = ssh_test_lib:start_io_server(),
     Shell = ssh_test_lib:start_shell(Port, IO, UserDir),
     receive
 	Error = {'EXIT', _, _} ->
-	    ct:pal("~p",[Error]),
+	    ct:log("~p",[Error]),
 	    ct:fail(no_ssh_connection);  
 	ErlShellStart ->
-	    ct:pal("---Erlang shell start: ~p~n", [ErlShellStart]),
+	    ct:log("---Erlang shell start: ~p~n", [ErlShellStart]),
 	    one_shell_op(IO, NegTimeOut),
 	    one_shell_op(IO, NegTimeOut),
 
 	    Factor = 2,
-	    ct:pal("And now sleeping ~p*NegTimeOut (~p ms)...", [Factor, round(Factor * NegTimeOut)]),
+	    ct:log("And now sleeping ~p*NegTimeOut (~p ms)...", [Factor, round(Factor * NegTimeOut)]),
 	    ct:sleep(round(Factor * NegTimeOut)),
     
 	    one_shell_op(IO, NegTimeOut)
@@ -1667,7 +1667,7 @@ ssh_connect_nonegtimeout_connected(Config, Parallel) ->
 
 
 one_shell_op(IO, TimeOut) ->
-    ct:pal("One shell op: Waiting for prompter"),
+    ct:log("One shell op: Waiting for prompter"),
     receive
 	ErlPrompt0 -> ct:log("Erlang prompt: ~p~n", [ErlPrompt0])
 	after TimeOut -> ct:fail("Timeout waiting for promter")
@@ -1770,7 +1770,7 @@ connect_fun(ssh_sftp__start_channel, _Config) ->
 max_sessions(Config, ParallelLogin, Connect0) when is_function(Connect0,2) ->
     Connect = fun(Host,Port) ->
 		      R = Connect0(Host,Port),
-		      ct:pal("Connect(~p,~p) -> ~p",[Host,Port,R]),
+		      ct:log("Connect(~p,~p) -> ~p",[Host,Port,R]),
 		      R
 	      end,
     SystemDir = filename:join(?config(priv_dir, Config), system),
@@ -1783,7 +1783,7 @@ max_sessions(Config, ParallelLogin, Connect0) when is_function(Connect0,2) ->
 					     {parallel_login, ParallelLogin},
 					     {max_sessions, MaxSessions}
 					    ]),
-    ct:pal("~p Listen ~p:~p for max ~p sessions",[Pid,Host,Port,MaxSessions]),
+    ct:log("~p Listen ~p:~p for max ~p sessions",[Pid,Host,Port,MaxSessions]),
     try [Connect(Host,Port) || _ <- lists:seq(1,MaxSessions)]
     of
 	Connections ->
@@ -1792,7 +1792,7 @@ max_sessions(Config, ParallelLogin, Connect0) when is_function(Connect0,2) ->
 	    [_|_] = Connections,
 
 	    %% Now try one more than alowed:
-	    ct:pal("Info Report might come here...",[]),
+	    ct:log("Info Report might come here...",[]),
 	    try Connect(Host,Port)
 	    of
 		_ConnectionRef1 ->
@@ -1921,12 +1921,12 @@ basic_test(Config) ->
 do_shell(IO, Shell) ->
     receive
 	ErlPrompt0 ->
-	    ct:pal("Erlang prompt: ~p~n", [ErlPrompt0])
+	    ct:log("Erlang prompt: ~p~n", [ErlPrompt0])
     end,
     IO ! {input, self(), "1+1.\r\n"},
      receive
 	Echo0 ->
-	     ct:pal("Echo: ~p ~n", [Echo0])
+	     ct:log("Echo: ~p ~n", [Echo0])
     end,
     receive
 	?NEWLINE ->
@@ -1934,7 +1934,7 @@ do_shell(IO, Shell) ->
     end,
     receive
 	Result0 = <<"2">> ->
-	    ct:pal("Result: ~p~n", [Result0])
+	    ct:log("Result: ~p~n", [Result0])
     end,
     receive
 	?NEWLINE ->
@@ -1942,7 +1942,7 @@ do_shell(IO, Shell) ->
     end,
     receive
 	ErlPrompt1 ->
-	    ct:pal("Erlang prompt: ~p~n", [ErlPrompt1])
+	    ct:log("Erlang prompt: ~p~n", [ErlPrompt1])
     end,
     exit(Shell, kill).
     %%Does not seem to work in the testserver!
@@ -1953,7 +1953,7 @@ do_shell(IO, Shell) ->
     %% end,
     %% receive
     %%  	Echo1 ->
-    %% 	    ct:pal("Echo: ~p ~n", [Echo1])
+    %% 	    ct:log("Echo: ~p ~n", [Echo1])
     %% end,
     %% receive
     %% 	?NEWLINE ->
@@ -1961,7 +1961,7 @@ do_shell(IO, Shell) ->
     %% end,
     %% receive
     %%  	Result1 ->
-    %%  	    ct:pal("Result: ~p~n", [Result1])
+    %%  	    ct:log("Result: ~p~n", [Result1])
     %%      end,
     %% receive
     %% 	{'EXIT', Shell, killed} ->
@@ -1975,13 +1975,13 @@ wait_for_erlang_first_line(Config) ->
 	{'EXIT', _, _} ->
 	    {fail,no_ssh_connection};
 	<<"Eshell ",_/binary>> = _ErlShellStart ->
-	    ct:pal("Erlang shell start: ~p~n", [_ErlShellStart]),
+	    ct:log("Erlang shell start: ~p~n", [_ErlShellStart]),
 	    Config;
 	Other ->
-	    ct:pal("Unexpected answer from ssh server: ~p",[Other]),
+	    ct:log("Unexpected answer from ssh server: ~p",[Other]),
 	    {fail,unexpected_answer}
     after 10000 ->
-	    ct:pal("No answer from ssh-server"),
+	    ct:log("No answer from ssh-server"),
 	    {fail,timeout}
     end.
 
@@ -1997,7 +1997,7 @@ new_do_shell(IO, N, Ops=[{Order,Arg}|More]) ->
     PfxSize = size(Pfx),
     receive
 	_X = <<"\r\n">> ->
-	    ct:pal("Skip newline ~p",[_X]),
+	    ct:log("Skip newline ~p",[_X]),
 	    new_do_shell(IO, N, Ops);
 	
 	<<Pfx:PfxSize/binary,P1,"> ">> when (P1-$0)==N -> 
@@ -2013,15 +2013,15 @@ new_do_shell(IO, N, Ops=[{Order,Arg}|More]) ->
 	    ct:fail("new_do_shell error: ~p~n",[Err]);
 
 	RecBin when Order==expect ; Order==expect_echo ->
-	    ct:pal("received ~p",[RecBin]),
+	    ct:log("received ~p",[RecBin]),
 	    RecStr = string:strip(unicode:characters_to_list(RecBin)),
 	    ExpStr = string:strip(Arg),
 	    case lists:prefix(ExpStr, RecStr) of
 		true when Order==expect ->
-		    ct:pal("Matched ~ts",[RecStr]),
+		    ct:log("Matched ~ts",[RecStr]),
 		    new_do_shell(IO, N, More);
 		true when Order==expect_echo ->
-		    ct:pal("Matched echo ~ts",[RecStr]),
+		    ct:log("Matched echo ~ts",[RecStr]),
 		    new_do_shell(IO, N, More);
 		false ->
 		    ct:fail("*** Expected ~p, but got ~p",[string:strip(ExpStr),RecStr])
@@ -2047,12 +2047,12 @@ prompt_prefix() ->
 	    
 
 new_do_shell_prompt(IO, N, type, Str, More) ->
-    ct:pal("Matched prompt ~p to trigger sending of next line to server",[N]),
+    ct:log("Matched prompt ~p to trigger sending of next line to server",[N]),
     IO ! {input, self(), Str++"\r\n"},
-    ct:pal("Promt '~p> ', Sent ~ts",[N,Str++"\r\n"]),
+    ct:log("Promt '~p> ', Sent ~ts",[N,Str++"\r\n"]),
     new_do_shell(IO, N, [{expect_echo,Str}|More]); % expect echo of the sent line
 new_do_shell_prompt(IO, N, Op, Str, More) ->
-    ct:pal("Matched prompt ~p",[N]),
+    ct:log("Matched prompt ~p",[N]),
     new_do_shell(IO, N, [{Op,Str}|More]).
   
 %%--------------------------------------------------------------------

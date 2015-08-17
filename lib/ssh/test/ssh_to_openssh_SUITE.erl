@@ -148,7 +148,7 @@ erlang_client_openssh_server_exec(Config) when is_list(Config) ->
 	    ssh_test_lib:receive_exec_end(ConnectionRef, ChannelId0);
 	{unexpected_msg,{ssh_cm, ConnectionRef, {exit_status, ChannelId0, 0}}
 	 = ExitStatus0} ->
-	    ct:pal("0: Collected data ~p", [ExitStatus0]),
+	    ct:log("0: Collected data ~p", [ExitStatus0]),
 	    ssh_test_lib:receive_exec_result(Data0,
 					     ConnectionRef, ChannelId0);
 	Other0 ->
@@ -164,7 +164,7 @@ erlang_client_openssh_server_exec(Config) when is_list(Config) ->
 	    ssh_test_lib:receive_exec_end(ConnectionRef, ChannelId1);
 	{unexpected_msg,{ssh_cm, ConnectionRef, {exit_status, ChannelId1, 0}}
 	 = ExitStatus1} ->
-	    ct:pal("0: Collected data ~p", [ExitStatus1]),
+	    ct:log("0: Collected data ~p", [ExitStatus1]),
 	    ssh_test_lib:receive_exec_result(Data1,
 					     ConnectionRef, ChannelId1);
 	Other1 ->
@@ -190,7 +190,7 @@ erlang_client_openssh_server_exec_compressed(Config) when is_list(Config) ->
 	    ssh_test_lib:receive_exec_end(ConnectionRef, ChannelId);
 	{unexpected_msg,{ssh_cm, ConnectionRef,
 			 {exit_status, ChannelId, 0}} = ExitStatus} ->
-	    ct:pal("0: Collected data ~p", [ExitStatus]),
+	    ct:log("0: Collected data ~p", [ExitStatus]),
 	    ssh_test_lib:receive_exec_result(Data,  ConnectionRef, ChannelId);
 	Other ->
 	    ct:fail(Other)
@@ -223,11 +223,11 @@ erlang_client_openssh_server_kexs(Config) when is_list(Config) ->
 			  Acc;
 		      {unexpected_msg,{ssh_cm, ConnectionRef,
 				       {exit_status, ChannelId, 0}} = ExitStatus} ->
-			  ct:pal("0: Collected data ~p", [ExitStatus]),
+			  ct:log("0: Collected data ~p", [ExitStatus]),
 			  ssh_test_lib:receive_exec_result(ExpectedData,  ConnectionRef, ChannelId),
 			  Acc;
 		      Other ->
-			  ct:pal("~p failed: ~p",[Kex,Other]),
+			  ct:log("~p failed: ~p",[Kex,Other]),
 			  false
 		  end
 	  end, true, ssh_transport:supported_algorithms(kex)),
@@ -256,7 +256,7 @@ erlang_server_openssh_client_exec(Config) when is_list(Config) ->
     Cmd = "ssh -p " ++ integer_to_list(Port) ++
 	" -o UserKnownHostsFile=" ++ KnownHosts ++ " " ++ Host ++ " 1+1.",
 
-    ct:pal("Cmd: ~p~n", [Cmd]),
+    ct:log("Cmd: ~p~n", [Cmd]),
 
     SshPort = open_port({spawn, Cmd}, [binary]),
 
@@ -297,7 +297,7 @@ erlang_server_openssh_client_cipher_suites(Config) when is_list(Config) ->
         " -o UserKnownHostsFile=" ++ KnownHosts ++ " " ++ Host ++ " " ++
         " -c " ++ Cipher ++ " 1+1.",
 
-        ct:pal("Cmd: ~p~n", [Cmd]),
+        ct:log("Cmd: ~p~n", [Cmd]),
 
         SshPort = open_port({spawn, Cmd}, [binary, stderr_to_stdout]),
 
@@ -347,7 +347,7 @@ erlang_server_openssh_client_macs(Config) when is_list(Config) ->
         " -o UserKnownHostsFile=" ++ KnownHosts ++ " " ++ Host ++ " " ++
         " -o MACs=" ++ MAC ++ " 1+1.",
 
-        ct:pal("Cmd: ~p~n", [Cmd]),
+        ct:log("Cmd: ~p~n", [Cmd]),
 
         SshPort = open_port({spawn, Cmd}, [binary, stderr_to_stdout]),
 
@@ -401,7 +401,7 @@ erlang_server_openssh_client_kexs(Config) when is_list(Config) ->
 		      " -o UserKnownHostsFile=" ++ KnownHosts ++ " " ++ Host ++ " " ++
 		      " -o KexAlgorithms=" ++ Kex ++ " 1+1.",
 
-		  ct:pal("Cmd: ~p~n", [Cmd]),
+		  ct:log("Cmd: ~p~n", [Cmd]),
 
 		  SshPort = open_port({spawn, Cmd}, [binary, stderr_to_stdout]),
 
@@ -411,7 +411,7 @@ erlang_server_openssh_client_kexs(Config) when is_list(Config) ->
 			      {SshPort,{data, <<"2\n">>}} ->
 				  Acc
 			  after ?TIMEOUT ->
-				  ct:pal("Did not receive answer for ~p",[Kex]),
+				  ct:log("Did not receive answer for ~p",[Kex]),
 				  false
 			  end;
 		      false ->
@@ -419,7 +419,7 @@ erlang_server_openssh_client_kexs(Config) when is_list(Config) ->
 			      {SshPort,{data, <<"Unable to negotiate a key exchange method", _/binary>>}} ->
 				  Acc
 			  after ?TIMEOUT ->
-				  ct:pal("Did not receive no matching kex message for ~p",[Kex]),
+				  ct:log("Did not receive no matching kex message for ~p",[Kex]),
 				  false
 			  end
 		  end
@@ -494,11 +494,11 @@ erlang_client_openssh_server_setenv(Config) when is_list(Config) ->
 			 {data,0,1, UnxpectedData}}} ->
 	    %% Some os may return things as
 	    %% ENV_TEST: Undefined variable.\n"
-	    ct:pal("UnxpectedData: ~p", [UnxpectedData]),
+	    ct:log("UnxpectedData: ~p", [UnxpectedData]),
 	    ssh_test_lib:receive_exec_end(ConnectionRef, ChannelId);
 	{unexpected_msg,{ssh_cm, ConnectionRef, {exit_status, ChannelId, 0}}
 	 = ExitStatus} ->
-	    ct:pal("0: Collected data ~p", [ExitStatus]),
+	    ct:log("0: Collected data ~p", [ExitStatus]),
 	    ssh_test_lib:receive_exec_result(Data,
 					     ConnectionRef, ChannelId);
 	Other ->
@@ -601,7 +601,7 @@ erlang_client_openssh_server_password(Config) when is_list(Config) ->
 						 {user_interaction, false},
 						 {user_dir, UserDir}]),
     
-    ct:pal("Test of user foo that does not exist. "
+    ct:log("Test of user foo that does not exist. "
 		       "Error msg: ~p~n", [Reason0]),
 
     User = string:strip(os:cmd("whoami"), right, $\n),
@@ -615,10 +615,10 @@ erlang_client_openssh_server_password(Config) when is_list(Config) ->
 			     {password, "foo"},
 			     {user_interaction, false},
 			     {user_dir, UserDir}]),
-	    ct:pal("Test of wrong Pasword.  "
+	    ct:log("Test of wrong Pasword.  "
 			       "Error msg: ~p~n", [Reason1]);
 	_ ->
-	    ct:pal("Whoami failed reason: ~n", [])
+	    ct:log("Whoami failed reason: ~n", [])
 	end.
 
 %%--------------------------------------------------------------------
@@ -646,19 +646,19 @@ erlang_client_openssh_server_nonexistent_subsystem(Config) when is_list(Config) 
 receive_hej() ->
     receive
 	<<"Hej", _binary>> = Hej ->
-	    ct:pal("Expected result: ~p~n", [Hej]);
+	    ct:log("Expected result: ~p~n", [Hej]);
 	<<"Hej\n", _binary>> = Hej ->
-	    ct:pal("Expected result: ~p~n", [Hej]);
+	    ct:log("Expected result: ~p~n", [Hej]);
 	<<"Hej\r\n", _/binary>> = Hej ->
-	    ct:pal("Expected result: ~p~n", [Hej]);
+	    ct:log("Expected result: ~p~n", [Hej]);
 	Info ->
 	    Lines = binary:split(Info, [<<"\r\n">>], [global]),
 	    case lists:member(<<"Hej">>, Lines) of
 		true ->
-		    ct:pal("Expected result found in lines: ~p~n", [Lines]),
+		    ct:log("Expected result found in lines: ~p~n", [Lines]),
 		    ok;
 		false ->
-		    ct:pal("Extra info: ~p~n", [Info]),
+		    ct:log("Extra info: ~p~n", [Info]),
 		    receive_hej()
 	    end
     end.
@@ -672,7 +672,7 @@ receive_logout() ->
 		    ok
 	    end;
 	Info ->
-	    ct:pal("Extra info when logging out: ~p~n", [Info]),
+	    ct:log("Extra info when logging out: ~p~n", [Info]),
 	    receive_logout()
 	end.
 
@@ -715,6 +715,6 @@ check_ssh_client_support2(P) ->
 	{P, {exit_status, E}} ->
 	    E
     after 5000 ->
-	    ct:pal("Openssh command timed out ~n"),
+	    ct:log("Openssh command timed out ~n"),
 	    -1
     end.

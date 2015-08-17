@@ -159,7 +159,7 @@ close_file(Config) when is_list(Config) ->
 
     NumOfPorts = length(erlang:ports()),
 
-    ct:pal("Number of open ports:  ~p~n", [NumOfPorts]),
+    ct:log("Number of open ports:  ~p~n", [NumOfPorts]),
 
     {ok, <<_/binary>>} = ssh_sftp:read_file(Sftp, FileName),
 
@@ -255,14 +255,14 @@ root_dir(Config) when is_list(Config) ->
     {ok, Bin} = ssh_sftp:read_file(Sftp, FileName),
     {ok, Listing} =
 	ssh_sftp:list_dir(Sftp, "."),
-    ct:pal("Listing: ~p~n", [Listing]).
+    ct:log("Listing: ~p~n", [Listing]).
 
 %%--------------------------------------------------------------------
 list_dir_limited(Config) when is_list(Config) ->
     {Sftp, _} = ?config(sftp, Config),
     {ok, Listing} =
 	ssh_sftp:list_dir(Sftp, "."),
-    ct:pal("Listing: ~p~n", [Listing]).
+    ct:log("Listing: ~p~n", [Listing]).
 
 %%--------------------------------------------------------------------
 ver6_basic() ->
