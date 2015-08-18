@@ -28,10 +28,11 @@
 -export([app_test/1,
 	 appup_test/1,
 	 log_mf_h_env/1,
-	 log_file/1]).
+	 log_file/1,
+	 utc_log/1]).
 
 all() -> 
-    [log_mf_h_env, log_file, app_test, appup_test].
+    [log_mf_h_env, log_file, app_test, appup_test, utc_log].
 
 groups() -> 
     [].
@@ -216,6 +217,70 @@ test_log_file(File, Arg) ->
 	true -> ?t:fail()
     end,
     Bin.
+
+%% Make a basic test of utc_log.
+utc_log(Config) ->
+    PrivDir = ?config(priv_dir, Config),
+    LogDir = filename:join(PrivDir, sasl_SUITE_log_dir),
+    Log = filename:join(LogDir, "utc.log"),
+    ok = filelib:ensure_dir(Log),
+
+    application:stop(sasl),
+    clear_env(sasl),
+
+    %% Test that the UTC marker gets added to PROGRESS lines
+    %% when the utc_log configuration variable is set to true.
+    ok = application:set_env(sasl, sasl_error_logger, {file,Log},
+			     [{persistent,true}]),
+    ok = application:set_env(sasl, utc_log, true, [{persistent,true}]),
+    ok = application:start(sasl),
+    application:stop(sasl),
+
+    verify_utc_log(Log, true),
+
+    %% Test that no UTC markers gets added to PROGRESS lines
+    %% when the utc_log configuration variable is set to false.
+    ok = application:set_env(sasl, utc_log, false, [{persistent,true}]),
+    ok = application:start(sasl),
+    application:stop(sasl),
+
+    verify_utc_log(Log, false),
+
+    %% Test that no UTC markers gets added to PROGRESS lines
+    %% when the utc_log configuration variable is unset.
+    ok = application:unset_env(sasl, utc_log, [{persistent,true}]),
+    ok = application:start(sasl),
+    application:stop(sasl),
+
+    verify_utc_log(Log, false),
+
+    %% Change back to the standard TTY error logger.
+    ok = application:set_env(sasl,sasl_error_logger, tty,
+			     [{persistent, false}]),
+    ok = application:start(sasl).
+
+verify_utc_log(Log, UTC) ->
+    {ok,Bin} = file:read_file(Log),
+    ok = file:delete(Log),
+
+    Lines0 = binary:split(Bin, <<"\n">>, [trim_all,global]),
+    Lines = [L || L <- Lines0,
+		  binary:match(L, <<"=PROGRESS">>) =:= {0,9}],
+    Setting = application:get_env(sasl, utc_log),
+    io:format("utc_log ~p:\n~p\n", [Setting,Lines]),
+    Filtered = [L || L <- Lines,
+		     binary:match(L, <<" UTC ===">>) =:= nomatch],
+    %% Filtered now contains all lines WITHOUT any UTC markers.
+    case UTC of
+	false ->
+	    %% No UTC marker on the PROGRESS line.
+	    Filtered = Lines;
+	true ->
+	    %% Each PROGRESS line must have an UTC marker.
+	    [] = Filtered
+    end,
+    ok.
+
 
 %%-----------------------------------------------------------------
 %% Internal
