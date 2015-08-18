@@ -46,7 +46,7 @@
 
 -type file_contract() :: {file_line(), #contract{}, Extra :: [_]}.
 
--type plt_contracts() :: [{mfa(), #contract{}}]. % actually, an orddict()
+-type plt_contracts() :: orddict:orddict(mfa(), #contract{}).
 
 %%-----------------------------------------------------------------------
 %% Internal record for contracts whose components have not been processed
