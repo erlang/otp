@@ -91,6 +91,7 @@
 #endif
 
 #if OPENSSL_VERSION_NUMBER >= 0x1000100fL
+# define HAVE_EVP_AES_CTR
 # define HAVE_GCM
 #endif
 
@@ -463,7 +464,9 @@ static ErlNifResourceType* evp_md_ctx_rtype;
 static void evp_md_ctx_dtor(ErlNifEnv* env, EVP_MD_CTX* ctx) {
     EVP_MD_CTX_cleanup(ctx);
 }
+#endif
 
+#ifdef HAVE_EVP_AES_CTR
 static ErlNifResourceType* evp_cipher_ctx_rtype;
 static void evp_cipher_ctx_dtor(ErlNifEnv* env, EVP_CIPHER_CTX* ctx) {
     EVP_CIPHER_CTX_cleanup(ctx);
@@ -563,6 +566,8 @@ static int init(ErlNifEnv* env, ERL_NIF_TERM load_info)
         PRINTF_ERR0("CRYPTO: Could not open resource type 'EVP_MD_CTX'");
         return 0;
     }
+#endif
+#ifdef HAVE_EVP_AES_CTR
     evp_cipher_ctx_rtype = enif_open_resource_type(env, NULL, "EVP_CIPHER_CTX",
                                                    (ErlNifResourceDtor*) evp_cipher_ctx_dtor,
                                                    ERL_NIF_RT_CREATE|ERL_NIF_RT_TAKEOVER,
@@ -1421,7 +1426,7 @@ static ERL_NIF_TERM aes_ige_crypt_nif(ErlNifEnv* env, int argc, const ERL_NIF_TE
 static ERL_NIF_TERM aes_ctr_encrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (Key, IVec, Data) */    
     ErlNifBinary     key, ivec, text;
-#if OPENSSL_VERSION_NUMBER >= 0x1000000fL
+#ifdef HAVE_EVP_AES_CTR
     const EVP_CIPHER *cipher;
     EVP_CIPHER_CTX   ctx;
     unsigned char    *out;
@@ -1435,14 +1440,14 @@ static ERL_NIF_TERM aes_ctr_encrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM
     ERL_NIF_TERM     ret;
 
     if (!enif_inspect_iolist_as_binary(env, argv[0], &key)
-#if OPENSSL_VERSION_NUMBER < 0x1000000fL
+#ifndef HAVE_EVP_AES_CTR
 	|| AES_set_encrypt_key(key.data, key.size*8, &aes_key) != 0
 #endif
 	|| !enif_inspect_binary(env, argv[1], &ivec) || ivec.size != 16
 	|| !enif_inspect_iolist_as_binary(env, argv[2], &text)) {
 	return enif_make_badarg(env);
     }
-#if OPENSSL_VERSION_NUMBER >= 0x1000000fL
+#ifdef HAVE_EVP_AES_CTR
     switch (key.size)
     {
     case 16: cipher = EVP_aes_128_ctr(); break;
@@ -1477,7 +1482,7 @@ static ERL_NIF_TERM aes_ctr_encrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM
 
 /* Initializes state for ctr streaming (de)encryption
 */
-#if OPENSSL_VERSION_NUMBER >= 0x1000000fL
+#ifdef HAVE_EVP_AES_CTR
 static ERL_NIF_TERM aes_ctr_stream_init(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (Key, IVec) */
     ErlNifBinary     key_bin, ivec_bin;
@@ -1533,7 +1538,7 @@ static ERL_NIF_TERM aes_ctr_stream_encrypt(ErlNifEnv* env, int argc, const ERL_N
     return ret;
 }
 
-#else /* if OPENSSL_VERSION_NUMBER < 1.0 */
+#else /* if not HAVE_EVP_AES_CTR */
 
 static ERL_NIF_TERM aes_ctr_stream_init(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (Key, IVec) */
@@ -1590,7 +1595,7 @@ static ERL_NIF_TERM aes_ctr_stream_encrypt(ErlNifEnv* env, int argc, const ERL_N
     CONSUME_REDS(env,text_bin);
     return ret;
 }
-#endif /* OPENSSL_VERSION_NUMBER < 1.0 */
+#endif /* !HAVE_EVP_AES_CTR */
 
 static ERL_NIF_TERM aes_gcm_encrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (Key,Iv,AAD,In) */
