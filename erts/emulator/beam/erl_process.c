@@ -9103,6 +9103,10 @@ erts_set_process_priority(Process *p, Eterm value)
 
 	    a = erts_smp_atomic32_cmpxchg_mb(&p->state, n, e);
 	} while (a != e);
+
+        if (slocked)
+            erts_smp_proc_unlock(p, ERTS_PROC_LOCK_STATUS);
+
     }
 
     switch (oprio) {
