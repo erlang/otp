@@ -182,20 +182,40 @@ log_mf_h_env(Config) ->
 log_file(Config) ->
     PrivDir = ?config(priv_dir,Config),
     LogDir  = filename:join(PrivDir,sasl_SUITE_log_dir),
-    ok      = filelib:ensure_dir(LogDir),
     File    = filename:join(LogDir, "file.log"),
+    ok      = filelib:ensure_dir(File),
     application:stop(sasl),
     clear_env(sasl),
 
-    ok = application:set_env(sasl,sasl_error_logger,{file, File}, [{persistent, true}]),
-    ok = application:start(sasl),
-    application:stop(sasl),
-    ok = application:set_env(sasl,sasl_error_logger,{file, File, [append]}, [{persistent, true}]),
-    ok = application:start(sasl),
-    application:stop(sasl),
-    ok = application:set_env(sasl,sasl_error_logger, tty, [{persistent, false}]),
+    _ = test_log_file(File, {file,File}),
+    _ = test_log_file(File, {file,File,[write]}),
+
+    ok = file:write_file(File, <<"=PROGRESS preserve me\n">>),
+    <<"=PROGRESS preserve me\n",_/binary>> =
+	test_log_file(File, {file,File,[append]}),
+
+    ok = application:set_env(sasl,sasl_error_logger, tty,
+			     [{persistent, false}]),
     ok = application:start(sasl).
 
+test_log_file(File, Arg) ->
+    ok = application:set_env(sasl, sasl_error_logger, Arg,
+			     [{persistent, true}]),
+    ok = application:start(sasl),
+    application:stop(sasl),
+    {ok,Bin} = file:read_file(File),
+    ok = file:delete(File),
+    Lines0 = binary:split(Bin, <<"\n">>, [trim_all,global]),
+    Lines = [L || L <- Lines0,
+		  binary:match(L, <<"=PROGRESS">>) =:= {0,9}],
+    io:format("~p:\n~p\n", [Arg,Lines]),
+
+    %% There must be at least four PROGRESS lines.
+    if
+	length(Lines) >= 4 -> ok;
+	true -> ?t:fail()
+    end,
+    Bin.
 
 %%-----------------------------------------------------------------
 %% Internal
