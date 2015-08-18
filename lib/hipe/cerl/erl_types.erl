@@ -4244,9 +4244,8 @@ type_from_form(Name, Args, TypeNames, ET, M, MR, V, D, L) ->
       Rep2 = case t_is_none(Rep1) of
                true -> Rep1;
                false ->
-                 Args2 = [subst_all_vars_to_any(ArgType) ||
-                           ArgType <- ArgTypes],
-                 t_opaque(Module, Name, Args2, Rep1)
+                 ArgTypes2 = subst_all_vars_to_any_list(ArgTypes),
+                 t_opaque(Module, Name, ArgTypes2, Rep1)
              end,
       {Rep2, L2};
     error ->
@@ -4298,7 +4297,9 @@ remote_from_form(RemMod, Name, Args, TypeNames, ET, M, MR, V, D, L) ->
                   NewRep1 = choose_opaque_type(NewRep, Type),
                   NewRep2 = case t_is_none(NewRep1) of
                      true -> NewRep1;
-                     false -> t_opaque(Mod, Name, ArgTypes, NewRep1)
+                     false ->
+                       ArgTypes2 = subst_all_vars_to_any_list(ArgTypes),
+                       t_opaque(Mod, Name, ArgTypes2, NewRep1)
                    end,
                   {NewRep2, L2};
                 error ->
@@ -4312,6 +4313,9 @@ remote_from_form(RemMod, Name, Args, TypeNames, ET, M, MR, V, D, L) ->
           end
       end
   end.
+
+subst_all_vars_to_any_list(Types) ->
+  [subst_all_vars_to_any(Type) || Type <- Types].
 
 %% Opaque types (both local and remote) are problematic when it comes
 %% to the limits (TypeNames, D, and L). The reason is that if any() is
