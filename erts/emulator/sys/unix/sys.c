@@ -2527,7 +2527,7 @@ fd_async(void *async_data)
     SysIOVec      *iov0;
     SysIOVec      *iov;
     int            iovlen;
-    int            err;
+    int            err = 0;
     /* much of this code is stolen from efile_drv:invoke_writev */
     driver_pdl_lock(dd->blocking->pdl);
     iov0 = driver_peekq(dd->port_num, &iovlen);
@@ -2542,8 +2542,11 @@ fd_async(void *async_data)
         memcpy(iov,iov0,iovlen*sizeof(SysIOVec));
         driver_pdl_unlock(dd->blocking->pdl);
 
-        res = writev(dd->ofd, iov, iovlen);
-        err = errno;
+        do {
+            res = writev(dd->ofd, iov, iovlen);
+        } while (res < 0 && errno == EINTR);
+        if (res < 0)
+            err = errno;
 
         erts_free(ERTS_ALC_T_SYS_WRITE_BUF, iov);
     }
@@ -2582,7 +2585,12 @@ void fd_ready_async(ErlDrvData drv_data,
             return /* 0; */;
         }
     } else if (dd->blocking->res < 0) {
-        driver_failure_posix(port_num, dd->blocking->err);
+        if (dd->blocking->err == ERRNO_BLOCK) {
+            set_busy_port(port_num, 1);
+            /* still data left to write in queue */
+            driver_async(port_num, &dd->blocking->pkey, fd_async, dd, NULL);
+        } else
+            driver_failure_posix(port_num, dd->blocking->err);
         return; /* -1; */
     }
     return; /* 0; */
