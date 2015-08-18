@@ -421,6 +421,9 @@ do_combined(Config,Binary) when is_list(Config) ->
 	    ?line {Sock5,Sock6} = 
 		create_socketpair([{packet,4},RawLingerOn,{keepalive,true}],
 				  [{packet,2},RawLingerOff,{keepalive,false}]),
+	    ?line {Sock7,Sock8} = 
+		create_socketpair([{packet,-4},RawLingerOn,{keepalive,true}],
+				  [{packet,-2},RawLingerOff,{keepalive,false}]),
 	    ?line {ok,[{packet,Pack5},{raw,Proto,Linger,Linger5},
 		       {keepalive,Keep5}]} = 
 		inet:getopts(Sock5,[packet,{raw,Proto,Linger,
@@ -463,6 +466,8 @@ do_combined(Config,Binary) when is_list(Config) ->
 	    ?line gen_tcp:close(Sock4),
 	    ?line gen_tcp:close(Sock5),
 	    ?line gen_tcp:close(Sock6),
+	    ?line gen_tcp:close(Sock7),
+	    ?line gen_tcp:close(Sock8),
 	    ok
     end.
 
@@ -769,6 +774,7 @@ all_listen_options() ->
      {header,2,4,true,true}, 
      {active,false,true,true,false}, 
      {packet,2,4,true,true}, 
+     {packet,-2,-4,true,true}, 
      {buffer,1000,2000,true,true}, 
      {mode,list,binary,true,true}, 
      {deliver,term,port,true,true}, 
@@ -794,6 +800,7 @@ all_connect_options() ->
      {header,2,4,true,true}, 
      {active,false,true,true,false}, 
      {packet,2,4,true,true}, 
+     {packet,-2,-4,true,true}, 
      {buffer,1000,2000,true,true}, 
      {mode,list,binary,true,true}, 
      {deliver,term,port,true,true}, 

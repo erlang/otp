@@ -913,12 +913,13 @@ setcap cap_sys_admin,cap_sys_ptrace,cap_dac_read_search+epi beam.smp
               <item>
                 <p>No packaging is done.</p>
               </item>
-              <tag><c>1 | 2 | 4</c></tag>
+              <tag><c>1 | 2 | 4 | -2 | -4</c></tag>
               <item>
                 <p>Packets consist of a header specifying the number of
                   bytes in the packet, followed by that number of bytes.
                   The length of header can be one, two, or four bytes;
-                  containing an unsigned integer in big-endian byte order.
+                  containing an unsigned integer.
+                  Positive option value uses big-endian byte order, negative uses little-endian.
                   Each send operation will generate the header, and the header
                   will be stripped off on each receive operation.</p>
                 <p>In current implementation the 4-byte header is limited to 2Gb.</p>

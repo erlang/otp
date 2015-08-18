@@ -44,7 +44,9 @@ enum PacketParseType {
     TCP_PB_HTTPH    = 11,
     TCP_PB_SSL_TLS  = 12,
     TCP_PB_HTTP_BIN = 13,
-    TCP_PB_HTTPH_BIN = 14
+    TCP_PB_HTTPH_BIN = 14,
+    TCP_PB_2_LITTLE = 15,
+    TCP_PB_4_LITTLE = 16
 };
 
 typedef struct http_atom {
@@ -97,6 +99,25 @@ typedef struct {
  */
 void packet_parser_init(void);
 
+
+#define put_little_int16(i, s) do {((char*)(s))[1] = (char)((i) >> 8) & 0xff; \
+                                   ((char*)(s))[0] = (char)(i)        & 0xff;} \
+                        while (0)
+
+#define put_little_int32(i, s) do {((char*)(s))[3] = (char)((i) >> 24) & 0xff;   \
+                                   ((char*)(s))[2] = (char)((i) >> 16) & 0xff;   \
+                                   ((char*)(s))[1] = (char)((i) >> 8)  & 0xff;   \
+                                   ((char*)(s))[0] = (char)(i)         & 0xff;} \
+                        while (0)
+
+#define get_little_int16(s) ((((unsigned char*) (s))[1] << 8) | \
+                             (((unsigned char*) (s))[0]))
+
+#define get_little_int32(s) ((((unsigned char*) (s))[3] << 24) |  \
+                             (((unsigned char*) (s))[2] << 16)  | \
+                             (((unsigned char*) (s))[1] << 8) | \
+                             (((unsigned char*) (s))[0]))
+
 /* Returns > 0 Total packet length.
  *         = 0 Length unknown, need more data.
  *         < 0 Error, invalid format.
@@ -148,7 +169,9 @@ void packet_get_body(enum PacketParseType htype, const char** bufp, int* lenp)
 {
     switch (htype) {
     case TCP_PB_1:  *bufp += 1; *lenp -= 1; break;
+    case TCP_PB_2_LITTLE:
     case TCP_PB_2:  *bufp += 2; *lenp -= 2; break;
+    case TCP_PB_4_LITTLE:
     case TCP_PB_4:  *bufp += 4; *lenp -= 4; break;
     case TCP_PB_FCGI:
 	*lenp -= ((struct fcgi_head*)*bufp)->paddingLength;
