@@ -664,11 +664,6 @@ fun(srp, Username :: string(), UserState :: term()) ->
       cipher suite can encipher.
       </item>
 
-      <tag><c>{psk_identity, string()}</c></tag>
-      <item>Specifies the server identity hint the server presents to the client.
-      </item>
-      <tag><c>{log_alert, boolean()}</c></tag>
-      <item>If false, error reports will not be displayed.</item>
       <tag><c>{honor_cipher_order, boolean()}</c></tag>
       <item>If true, use the server's preference for cipher selection. If false
       (the default), use the client's preference.
