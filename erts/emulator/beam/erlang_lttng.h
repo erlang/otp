@@ -307,6 +307,34 @@ TRACEPOINT_EVENT(
     )
 )
 
+/* Async pool */
+
+TRACEPOINT_EVENT(
+    com_ericsson_otp,
+    aio_pool_get,
+    TP_ARGS(
+        char*, port,
+        int, length
+    ),
+    TP_FIELDS(
+        ctf_string(port, port)
+        ctf_integer(int, length, length)
+    )
+)
+
+TRACEPOINT_EVENT(
+    com_ericsson_otp,
+    aio_pool_add,
+    TP_ARGS(
+        char*, port,
+        int, length
+    ),
+    TP_FIELDS(
+        ctf_string(port, port)
+        ctf_integer(int, length, length)
+    )
+)
+
 
 /* Memory Allocator */
 

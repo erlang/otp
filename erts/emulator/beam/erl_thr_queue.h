@@ -190,6 +190,10 @@ void erts_thr_q_append_finalize_dequeue_data(ErtsThrQFinDeQ_t *,
 int erts_thr_q_finalize_dequeue(ErtsThrQFinDeQ_t *);
 void erts_thr_q_finalize_dequeue_state_init(ErtsThrQFinDeQ_t *);
 
+#ifdef USE_LTTNG_VM_TRACEPOINTS
+int erts_thr_q_length_dirty(ErtsThrQ_t *);
+#endif
+
 #ifdef ERTS_SMP
 ERTS_GLB_INLINE ErtsThrPrgrVal erts_thr_q_need_thr_progress(ErtsThrQ_t *q);
 #endif

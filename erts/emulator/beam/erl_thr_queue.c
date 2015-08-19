@@ -780,3 +780,35 @@ erts_thr_q_dequeue(ErtsThrQ_t *q)
     return res;
 #endif
 }
+
+#ifdef USE_LTTNG_VM_TRACEPOINTS
+int
+erts_thr_q_length_dirty(ErtsThrQ_t *q)
+{
+    int n = 0;
+#ifndef USE_THREADS
+    void *res;
+    ErtsThrQElement_t *tmp;
+
+    for (tmp = q->first; tmp != NULL; tmp = tmp->next) {
+        n++;
+    }
+#else
+    ErtsThrQElement_t *e;
+    erts_aint_t inext;
+
+    e = ErtsThrQDirtyReadEl(&q->head.head);
+    inext = erts_atomic_read_acqb(&e->next);
+
+    while (inext != ERTS_AINT_NULL) {
+        e = (ErtsThrQElement_t *) inext;
+        if (e != &q->tail.data.marker) {
+            /* don't count marker */
+            n++;
+        }
+        inext = erts_atomic_read_acqb(&e->next);
+    }
+#endif
+    return n;
+}
+#endif
