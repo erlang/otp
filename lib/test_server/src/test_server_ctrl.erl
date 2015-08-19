@@ -1559,7 +1559,7 @@ do_test_cases(TopCases, SkipCases,
 	    print(html, xhtml("\n<p><b>Host info:</b><br>\n",
 			      "\n<p><b>Host info:</b><br />\n")),
 	    print_who(test_server_sup:hoststr(), test_server_sup:get_username()),
-	    print(html, xhtml("<br>Used Erlang v~ts in <tt>~ts</tt></p>\n",
+	    print(html, xhtml("<br>Used Erlang v~ts in <code>~ts</code></p>\n",
 			      "<br />Used Erlang v~ts in \"~ts\"</p>\n"),
 		  [erlang:system_info(version), code:root_dir()]),
 	    
@@ -1567,7 +1567,7 @@ do_test_cases(TopCases, SkipCases,
 		    print(html, xhtml("\n<p><b>Target Info:</b><br>\n",
 				      "\n<p><b>Target Info:</b><br />\n")),
 		    print_who(TI#target_info.host, TI#target_info.username),
-		    print(html,xhtml("<br>Used Erlang v~ts in <tt>~ts</tt></p>\n",
+		    print(html,xhtml("<br>Used Erlang v~ts in <code>~ts</code></p>\n",
 				     "<br />Used Erlang v~ts in \"~ts\"</p>\n"),
 			  [TI#target_info.version, TI#target_info.root_dir]);
 	       true ->
