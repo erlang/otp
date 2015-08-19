@@ -432,7 +432,7 @@ documentation.
  === Empty lines separate paragraphs ===
 
 Leaving an empty line in XHTML text (i.e., a line which except for
-any leading start-of-comment '<tt>%</tt>' characters contains only
+any leading start-of-comment '<code>%</code>' characters contains only
 whitespace), will make EDoc split the text before and
 after the empty line into separate paragraphs. For example:
 ```%% @doc This will all be part of the first paragraph.
@@ -484,7 +484,7 @@ The above expansions take place before XML parsing.
 Writing a URL within brackets, as in "`[http://www.w3c.org/]'", will
 generate a hyperlink such as [http://www.w3c.org/], using the URL both
 for the destination and the label of the reference, equivalent to writing
-"`<a href="http://www.w3c.org/"><tt>http://www.w3c.org/</tt></a>'". This
+"`<a href="http://www.w3c.org/">http://www.w3c.org/</a>'". This
 short-hand keeps external URL references short and readable. The
 recognized protocols are `http', `ftp', and `file'. This expansion takes
 place before XML parsing.
@@ -583,7 +583,7 @@ information.
 
 <dl>
   <dt><a name="predefmacro-date"><code>@{@date}</code></a></dt>
-      <dd>Expands to the current date, as "<tt>Month Day Year</tt>",
+      <dd>Expands to the current date, as "<code>Month Day Year</code>",
       e.g. "{@date}".</dd>
 
   <dt><a name="predefmacro-docRoot"><code>@{@docRoot}</code></a></dt>
@@ -628,7 +628,7 @@ information.
       {@section Escape sequences} below.)</dd>
 
   <dt><a name="predefmacro-time"><code>@{@time}</code></a></dt>
-      <dd>Expands to the current time, as "<tt>Hr:Min:Sec</tt>",
+      <dd>Expands to the current time, as "<code>Hr:Min:Sec</code>",
       e.g. "{@time}".</dd>
 </dl>
 
