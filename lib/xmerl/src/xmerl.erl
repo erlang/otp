@@ -64,7 +64,7 @@ export(Content, Callback) ->
 %%	<li><code>#xmlComment{}</code></li>
 %%	<li><code>#xmlDecl{}</code></li>
 %% </ul>
-%% <p>(See <tt>xmerl.hrl</tt> for the record definitions.)
+%% <p>(See <code>xmerl.hrl</code> for the record definitions.)
 %% Text in <code>#xmlText{}</code> elements can be deep lists of
 %% characters and/or binaries.</p>
 %%
