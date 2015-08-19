@@ -324,7 +324,7 @@
 		      {xml_tag(), xml_content()} |
 		      xml_tag().
 %% <p>This type is further described in the documentation for the
-%% <tt>Xmerl</tt> application.</p>
+%% <code>Xmerl</code> application.</p>
 -type xml_tag() :: atom().
 -type xml_attributes() :: [{xml_attribute_tag(),xml_attribute_value()}].
 -type xml_attribute_tag() :: atom().
