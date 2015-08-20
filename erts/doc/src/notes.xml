@@ -31,6 +31,29 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 7.0.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed a binary memory leak when printing to shell using
+	    the tty driver (i.e. not -oldshell).</p>
+          <p>
+	    Own Id: OTP-12941</p>
+        </item>
+        <item>
+          <p>
+	    Fix a bug where the standard error port sometimes crashes
+	    with eagain as the reason.</p>
+          <p>
+	    Own Id: OTP-12942</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 7.0.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
