@@ -269,9 +269,6 @@ static const struct literal {
     /* freason codes */
     { "FREASON_TRAP", TRAP },
 
-    /* special Erlang constants */
-    { "THE_NON_VALUE", (int)THE_NON_VALUE },
-
     /* funs */
 #ifdef HIPE
     { "EFE_NATIVE_ADDRESS", offsetof(struct erl_fun_entry, native_address) },
@@ -526,6 +523,8 @@ static const struct rts_param rts_params[] = {
     { 49, "P_MSG_FIRST", 1, offsetof(struct process, msg.first) },
     { 50, "P_MSG_SAVE", 1, offsetof(struct process, msg.save) },
     { 51, "P_CALLEE_EXP", 1, offsetof(struct process, hipe.u.callee_exp) },
+
+    { 52, "THE_NON_VALUE", 1, (int)THE_NON_VALUE },
 };
 
 #define NR_PARAMS	ARRAY_SIZE(rts_params)
