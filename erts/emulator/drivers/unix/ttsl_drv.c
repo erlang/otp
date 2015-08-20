@@ -720,6 +720,7 @@ static void ttysl_from_erlang(ErlDrvData ttysl_data, char* buf, ErlDrvSizeT coun
     }
 
     driver_enq_bin(ttysl_port,putcbuf,0,putcpos);
+    driver_free_binary(putcbuf);
 
     if (sz == 0) {
         for (;;) {
@@ -1207,6 +1208,7 @@ static int outc(int c)
     putcbuf->orig_bytes[putcpos++] = c;
     if (putcpos == putclen) {
         driver_enq_bin(ttysl_port,putcbuf,0,putclen);
+        driver_free_binary(putcbuf);
         putcpos = 0;
         putclen = TTY_BUFFSIZE;
         putcbuf = driver_alloc_binary(BUFSIZ);
