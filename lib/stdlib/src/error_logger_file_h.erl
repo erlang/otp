@@ -24,12 +24,10 @@
 
 %%%
 %%% A handler that can be connected to the error_logger
-%%% event handler.
-%%% Writes all events formatted to file.
-%%%   Handles events tagged error, emulator and info.
+%%% event handler. Writes all events formatted to file.
 %%%
 %%% It can only be started from error_logger:swap_handler({logfile, File})
-%%% or error_logger:logfile(File)
+%%% or error_logger:logfile(File).
 %%%
 
 -export([init/1,
@@ -73,13 +71,6 @@ handle_info({'EXIT', Fd, _Reason}, {Fd, _File, PrevHandler}) ->
 	_ -> 
 	    {swap_handler, install_prev, [], PrevHandler, go_back}
     end;
-handle_info({emulator, GL, Chars}, {Fd, File, PrevHandler})
-  when node(GL) == node() ->
-    write_event(Fd, tag_event({emulator, GL, Chars})),
-    {ok, {Fd, File, PrevHandler}};
-handle_info({emulator, noproc, Chars}, {Fd, File, PrevHandler}) ->
-    write_event(Fd, tag_event({emulator, noproc, Chars})),
-    {ok, {Fd, File, PrevHandler}};
 handle_info(_, State) ->
     {ok, State}.
 
@@ -124,17 +115,6 @@ write_event(Fd, {Time, {error, _GL, {Pid, Format, Args}}}) ->
 	    F = add_node("ERROR: ~p - ~p~n", Pid),
 	    io:format(Fd, T ++ F, [Format,Args])
     end;
-write_event(Fd, {Time, {emulator, _GL, Chars}}) ->
-    T = write_time(maybe_utc(Time)),
-    case catch io_lib:format(Chars, []) of
-	S when is_list(S) ->
-	    io:format(Fd, T ++ S, []);
-	_ ->
-	    io:format(Fd, T ++ "ERROR: ~p ~n", [Chars])
-    end;
-write_event(Fd, {Time, {info, _GL, {Pid, Info, _}}}) ->
-    T = write_time(maybe_utc(Time)),
-    io:format(Fd, T ++ add_node("~p~n",Pid),[Info]);
 write_event(Fd, {Time, {error_report, _GL, {Pid, std_error, Rep}}}) ->
     T = write_time(maybe_utc(Time)),
     S = format_report(Rep),

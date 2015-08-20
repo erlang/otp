@@ -23,12 +23,10 @@
 
 %%%
 %%% A handler that can be connected to the error_logger
-%%% event handler.
-%%% Writes all events formatted to stdout.
-%%%   Handles events tagged error, emulator and info.
+%%% event handler. Writes all events formatted to stdout.
 %%%
 %%% It can only be started from error_logger:swap_handler(tty)
-%%% or error_logger:tty(true)
+%%% or error_logger:tty(true).
 %%%
 
 -export([init/1,
@@ -66,12 +64,6 @@ handle_info({'EXIT', User, _Reason}, {User, PrevHandler}) ->
 	    {swap_handler, install_prev, {User, PrevHandler}, 
 	     PrevHandler, go_back}
     end;
-handle_info({emulator, GL, Chars}, State) when node(GL) == node() ->
-    ok = write_event(tag_event({emulator, GL, Chars}),io),
-    {ok, State};
-handle_info({emulator, noproc, Chars}, State) ->
-    ok = write_event(tag_event({emulator, noproc, Chars}),io),
-    {ok, State};
 handle_info(_, State) ->
     {ok, State}.
 
@@ -118,17 +110,6 @@ write_event({Time, {error, _GL, {Pid, Format, Args}}},IOMod) ->
 	    F = add_node("ERROR: ~p - ~p~n", Pid),
 	    format(IOMod, T ++ F, [Format,Args])
     end;
-write_event({Time, {emulator, _GL, Chars}},IOMod) ->
-    T = write_time(maybe_utc(Time)),
-    case catch io_lib:format(Chars, []) of
-	S when is_list(S) ->
-	    format(IOMod, T ++ S);
-	_ ->
-	    format(IOMod, T ++ "ERROR: ~p ~n", [Chars])
-    end;
-write_event({Time, {info, _GL, {Pid, Info, _}}},IOMod) ->
-    T = write_time(maybe_utc(Time)),
-    format(IOMod, T ++ add_node("~p~n",Pid),[Info]);
 write_event({Time, {error_report, _GL, {Pid, std_error, Rep}}},IOMod) ->
     T = write_time(maybe_utc(Time)),
     S = format_report(Rep),
