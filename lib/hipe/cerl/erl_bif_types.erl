@@ -514,14 +514,15 @@ type(erlang, 'bsl', 2, Xs, Opaques) ->
 type(erlang, 'bnot', 1, Xs, Opaques) ->
  strict(erlang, 'bnot', 1, Xs,
 	 fun ([X1]) ->
-	     case arith('bnot', X1, Opaques) of
+	     case arith_bnot(X1, Opaques) of
 	       error -> t_integer();
 	       {ok, T} -> T
 	     end
 	 end, Opaques);
 %% Guard bif, needs to be here.
 type(erlang, abs, 1, Xs, Opaques) ->
-  strict(erlang, abs, 1, Xs, fun ([X]) -> X end, Opaques);
+  strict(erlang, abs, 1, Xs,
+         fun ([X1]) -> arith_abs(X1, Opaques) end, Opaques);
 %% This returns (-X)-1, so it often gives a negative result.
 %%  strict(erlang, 'bnot', 1, Xs, fun (_) -> t_integer() end, Opaques);
 type(erlang, append, 2, Xs, _Opaques) -> type(erlang, '++', 2, Xs); % alias
@@ -1927,7 +1928,7 @@ negwidth(X, N) ->
     false -> negwidth(X, N+1)
   end.
 
-arith('bnot', X1, Opaques) ->
+arith_bnot(X1, Opaques) ->
   case t_is_integer(X1, Opaques) of
     false -> error;
     true ->
@@ -1935,6 +1936,28 @@ arith('bnot', X1, Opaques) ->
       Max1 = number_max(X1, Opaques),
       {ok, t_from_range(infinity_add(infinity_inv(Max1), -1),
 			infinity_add(infinity_inv(Min1), -1))}
+  end.
+
+arith_abs(X1, Opaques) ->
+  case t_is_integer(X1, Opaques) of
+    false ->
+      case t_is_float(X1, Opaques) of
+        true -> t_float();
+        false -> t_number()
+      end;
+    true ->
+      Min1 = number_min(X1, Opaques),
+      Max1 = number_max(X1, Opaques),
+      {NewMin, NewMax} =
+        case infinity_geq(Min1, 0) of
+          true -> {Min1, Max1};
+          false ->
+            case infinity_geq(Max1, 0) of
+              true  -> {0, infinity_inv(Min1)};
+              false -> {infinity_inv(Max1), infinity_inv(Min1)}
+            end
+        end,
+      t_from_range(NewMin, NewMax)
   end.
 
 arith_mult(Min1, Max1, Min2, Max2) ->
