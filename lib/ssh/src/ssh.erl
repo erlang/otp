@@ -397,6 +397,8 @@ handle_option([{id_string, _ID} = Opt|Rest], SocketOptions, SshOptions) ->
     handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
 handle_option([{profile, _ID} = Opt|Rest], SocketOptions, SshOptions) ->
     handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
+handle_option([{max_random_length_padding, _Bool} = Opt|Rest], SocketOptions, SshOptions) ->
+    handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
 handle_option([Opt | Rest], SocketOptions, SshOptions) ->
     handle_option(Rest, [handle_inet_option(Opt) | SocketOptions], SshOptions).
 
@@ -514,6 +516,9 @@ handle_ssh_option({rekey_limit, Value} = Opt) when is_integer(Value) ->
 handle_ssh_option({id_string, random}) ->
     {id_string, {random,2,5}}; %% 2 - 5 random characters
 handle_ssh_option({id_string, ID} = Opt) when is_list(ID) ->
+    Opt;
+handle_ssh_option({max_random_length_padding, Value} = Opt) when is_integer(Value),
+								 Value =< 255 ->
     Opt;
 handle_ssh_option({profile, Value} = Opt) when is_atom(Value) ->
     Opt;

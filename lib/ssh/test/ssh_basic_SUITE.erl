@@ -466,6 +466,7 @@ rekey_limit(Config) ->
     DataFile = filename:join(UserDir, "rekey.data"),
 
     {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
+					     {max_random_length_padding, 0},
     					     {user_dir, UserDir},
     					     {user_passwords,
     					      [{"simon", "says"}]}]),
@@ -475,6 +476,7 @@ rekey_limit(Config) ->
     					    {user, "simon"},
     					    {password, "says"},
     					    {rekey_limit, 2500},
+					    {max_random_length_padding, 0},
     					    {user_interaction, false},
     					    {silently_accept_hosts, true}]),
 

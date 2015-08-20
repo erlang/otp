@@ -745,13 +745,20 @@ ssh_packet(Msg, Ssh) ->
 
 pack(Data0, #ssh{encrypt_block_size = BlockSize, 
 		 send_sequence = SeqNum, send_mac = MacAlg,
-		 send_mac_key = MacKey} 
+		 send_mac_key = MacKey,
+		 random_length_padding = RandomLengthPadding} 
      = Ssh0) when is_binary(Data0) ->
     {Ssh1, Data} = compress(Ssh0, Data0),
     PL = (BlockSize - ((4 + 1 + size(Data)) rem BlockSize)) rem BlockSize,
-    PaddingLen = if PL <  4 -> PL + BlockSize;
-		    true -> PL
-		 end,
+    MinPaddingLen = if PL <  4 -> PL + BlockSize;
+		       true -> PL
+		    end,
+    PadBlockSize =  max(BlockSize,4),
+    MaxExtraBlocks = (max(RandomLengthPadding,MinPaddingLen) - MinPaddingLen) div PadBlockSize,
+    ExtraPaddingLen = try crypto:rand_uniform(0,MaxExtraBlocks)*PadBlockSize
+		      catch _:_ -> 0
+		      end,
+    PaddingLen = MinPaddingLen + ExtraPaddingLen,
     Padding = ssh_bits:random(PaddingLen),
     PacketLen = 1 + PaddingLen + size(Data),
     PacketData = <<?UINT32(PacketLen),?BYTE(PaddingLen), 
