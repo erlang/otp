@@ -37,7 +37,8 @@
 -record(st,
 	{fd,
 	 filename,
-	 prev_handler}).
+	 prev_handler,
+	 depth=unlimited :: 'unlimited' | non_neg_integer()}).
 
 %% This one is used when we takeover from the simple error_logger.
 init({File, {error_logger, Buf}}) ->
@@ -56,11 +57,22 @@ init(File, PrevHandler) ->
     process_flag(trap_exit, true),
     case file:open(File, [write]) of
 	{ok,Fd} ->
-	    {ok, #st{fd=Fd,filename=File,prev_handler=PrevHandler}};
+	    Depth = get_depth(),
+	    State = #st{fd=Fd,filename=File,prev_handler=PrevHandler,
+			depth=Depth},
+	    {ok, State};
 	Error ->
 	    Error
     end.
-    
+
+get_depth() ->
+    case application:get_env(kernel, error_logger_format_depth) of
+	{ok, Depth} when is_integer(Depth) ->
+	    max(10, Depth);
+	undefined ->
+	    unlimited
+    end.
+
 handle_event({_Type, GL, _Msg}, State) when node(GL) =/= node() ->
     {ok, State};
 handle_event(Event, State) ->
@@ -123,15 +135,33 @@ write_event(#st{fd=Fd}=State, Event) ->
     end.
 
 format_body(State, [{Format,Args}|T]) ->
-    S = try io_lib:format(Format, Args) of
+    S = try format(State, Format, Args) of
 	    S0 ->
 		S0
 	catch
 	    _:_ ->
-		io_lib:format("ERROR: ~p - ~p\n", [Format,Args])
+		format(State, "ERROR: ~p - ~p\n", [Format,Args])
 	end,
     [S|format_body(State, T)];
 format_body(_State, []) ->
+    [].
+
+format(#st{depth=unlimited}, Format, Args) ->
+    io_lib:format(Format, Args);
+format(#st{depth=Depth}, Format0, Args) ->
+    Format1 = io_lib:scan_format(Format0, Args),
+    Format = limit_format(Format1, Depth),
+    io_lib:build_text(Format).
+
+limit_format([#{control_char:=C0}=M0|T], Depth) when C0 =:= $p;
+						     C0 =:= $w ->
+    C = C0 - ($a - $A),				%To uppercase.
+    #{args:=Args} = M0,
+    M = M0#{control_char:=C,args:=Args++[Depth]},
+    [M|limit_format(T, Depth)];
+limit_format([H|T], Depth) ->
+    [H|limit_format(T, Depth)];
+limit_format([], _) ->
     [].
 
 parse_event({error, _GL, {Pid, Format, Args}}) ->
