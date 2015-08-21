@@ -150,7 +150,7 @@
 	 t_list/0,
 	 t_list/1,
 	 t_list_elements/1, t_list_elements/2,
-	 t_list_termination/1,
+	 t_list_termination/1, t_list_termination/2,
 	 t_map/0,
 	 t_map/1,
 	 t_matchstate/0,
@@ -209,7 +209,7 @@
 	 record_field_diffs_to_string/2,
 	 subst_all_vars_to_any/1,
          subst_all_remote/2,
-	 lift_list_to_pos_empty/1,
+         lift_list_to_pos_empty/1, lift_list_to_pos_empty/2,
          is_opaque_type/2,
 	 is_erl_type/1,
 	 atom_to_string/1
@@ -1510,6 +1510,11 @@ t_list_elements(Type, Opaques) ->
 list_elements(?list(Contents, _, _)) -> Contents;
 list_elements(?nil) -> ?none.
 
+-spec t_list_termination(erl_type(), opaques()) -> erl_type().
+
+t_list_termination(Type, Opaques) ->
+  do_opaque(Type, Opaques, fun t_list_termination/1).
+
 -spec t_list_termination(erl_type()) -> erl_type().
 
 t_list_termination(?nil) -> ?nil;
@@ -1584,6 +1589,11 @@ is_maybe_improper_list(_) -> false.
 %%   %% Safety check: would be nice to have but does not work with remote types
 %%   %% false = t_is_subtype(t_nil(), Termination),
 %%   ?list(Content, Termination, ?any).  
+
+-spec lift_list_to_pos_empty(erl_type(), opaques()) -> erl_type().
+
+lift_list_to_pos_empty(Type, Opaques) ->
+  do_opaque(Type, Opaques, fun lift_list_to_pos_empty/1).
 
 -spec lift_list_to_pos_empty(erl_type()) -> erl_type().
 
