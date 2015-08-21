@@ -3096,7 +3096,7 @@ bsm_ensure_no_partition_after([#c_clause{pats=Ps}|Cs], Pos) ->
 	#c_var{} ->
 	    bsm_ensure_no_partition_after(Cs, Pos);
 	P ->
-	    bsm_problem(P, bin_partition)
+	    bsm_problem(bsm_real_pattern(P), bin_partition)
     end;
 bsm_ensure_no_partition_after([], _) -> ok.
 
