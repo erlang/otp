@@ -33,17 +33,19 @@
 	 handle_event/2, handle_call/2, handle_info/2,
 	 terminate/2, code_change/3]).
 
--export([write_event/2]).
+-export([write_event/2,write_event/3]).
 
 -record(st,
 	{user,
 	 prev_handler,
-	 io_mod=io}).
+	 io_mod=io,
+	 depth=unlimited}).
 
 %% This one is used when we takeover from the simple error_logger.
 init({[], {error_logger, Buf}}) ->
     User = set_group_leader(),
-    State = #st{user=User,prev_handler=error_logger},
+    Depth = get_depth(),
+    State = #st{user=User,prev_handler=error_logger,depth=Depth},
     write_events(State, Buf),
     {ok, State};
 %% This one is used if someone took over from us, and now wants to
@@ -54,7 +56,16 @@ init({[], {error_logger_tty_h, PrevHandler}}) ->
 %% This one is used when we are started directly.
 init([]) ->
     User = set_group_leader(),
-    {ok, #st{user=User,prev_handler=[]}}.
+    Depth = get_depth(),
+    {ok, #st{user=User,prev_handler=[],depth=Depth}}.
+
+get_depth() ->
+    case application:get_env(kernel, error_logger_format_depth) of
+	{ok, Depth} when is_integer(Depth) ->
+	    max(10, Depth);
+	undefined ->
+	    unlimited
+    end.
     
 handle_event({_Type, GL, _Msg}, State) when node(GL) =/= node() ->
     {ok, State};
@@ -87,6 +98,9 @@ code_change(_OldVsn, State, _Extra) ->
 %% Exported (but unoffical) API.
 write_event(Event, IoMod) ->
     do_write_event(#st{io_mod=IoMod}, Event).
+
+write_event(Event, IoMod, Depth) ->
+    do_write_event(#st{io_mod=IoMod,depth=Depth}, Event).
 
 
 %%% ------------------------------------------------------
@@ -140,15 +154,33 @@ do_write_event(_, _) ->
     ok.
 
 format_body(State, [{Format,Args}|T]) ->
-    S = try io_lib:format(Format, Args) of
+    S = try format(State, Format, Args) of
 	    S0 ->
 		S0
 	catch
 	    _:_ ->
-		io_lib:format("ERROR: ~p - ~p\n", [Format,Args])
+		format(State, "ERROR: ~p - ~p\n", [Format,Args])
 	end,
     [S|format_body(State, T)];
 format_body(_State, []) ->
+    [].
+
+format(#st{depth=unlimited}, Format, Args) ->
+    io_lib:format(Format, Args);
+format(#st{depth=Depth}, Format0, Args) ->
+    Format1 = io_lib:scan_format(Format0, Args),
+    Format = limit_format(Format1, Depth),
+    io_lib:build_text(Format).
+
+limit_format([#{control_char:=C0}=M0|T], Depth) when C0 =:= $p;
+						     C0 =:= $w ->
+    C = C0 - ($a - $A),				%To uppercase.
+    #{args:=Args} = M0,
+    M = M0#{control_char:=C,args:=Args++[Depth]},
+    [M|limit_format(T, Depth)];
+limit_format([H|T], Depth) ->
+    [H|limit_format(T, Depth)];
+limit_format([], _) ->
     [].
 
 parse_event({error, _GL, {Pid, Format, Args}}) ->

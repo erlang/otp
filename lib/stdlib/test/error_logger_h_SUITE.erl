@@ -20,7 +20,7 @@
 -module(error_logger_h_SUITE).
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1,
 	 init_per_group/2,end_per_group/2]).
--export([logfile/1,logfile_truncated/1,tty/1]).
+-export([logfile/1,logfile_truncated/1,tty/1,tty_truncated/1]).
 
 %% Event handler exports.
 -export([init/1,handle_event/2,terminate/2]).
@@ -30,7 +30,7 @@
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() ->
-    [logfile,logfile_truncated,tty].
+    [logfile,logfile_truncated,tty,tty_truncated].
 
 groups() ->
     [].
@@ -118,6 +118,25 @@ tty(Config) ->
     cleanup(Log),
     ok.
 
+tty_truncated(Config) ->
+    PrivDir = ?config(priv_dir, Config),
+    LogDir = filename:join(PrivDir, ?MODULE),
+    Log = filename:join(LogDir, "tty_truncated.log"),
+    ok = filelib:ensure_dir(Log),
+
+    Ev = event_templates(),
+
+    Depth = 20,
+    application:set_env(kernel, error_logger_format_depth, Depth),
+    try
+       do_one_tty(Log, Ev, Depth)
+    after
+	application:unset_env(kernel, error_logger_format_depth)
+    end,
+
+    cleanup(Log),
+    ok.
+
 do_one_tty(Log, Ev, Depth) ->
     tty_log_open(Log),
     gen_events(Ev),
@@ -126,7 +145,11 @@ do_one_tty(Log, Ev, Depth) ->
 
 tty_log_open(Log) ->
     {ok,Fd} = file:open(Log, [write]),
-    error_logger:add_report_handler(?MODULE, Fd),
+    Depth = case application:get_env(kernel, error_logger_format_depth) of
+		{ok,D} -> D;
+		_ -> unlimited
+	    end,
+    error_logger:add_report_handler(?MODULE, {Fd,Depth}),
     Fd.
 
 tty_log_close() ->
@@ -357,19 +380,19 @@ dl_format_1([], [], _, Facc, Aacc) ->
 %%% calling error_logger_tty_h:write_event/2.
 %%%
 
-init(Fd) ->
-    {ok,Fd}.
+init({_,_}=St) ->
+    {ok,St}.
 
-handle_event(Event, Fd) ->
-    case error_logger_tty_h:write_event(tag_event(Event), io_lib) of
+handle_event(Event, {Fd,Depth}=St) ->
+    case error_logger_tty_h:write_event(tag_event(Event), io_lib, Depth) of
 	ok ->
 	    ok;
 	Str when is_list(Str) ->
 	    io:put_chars(Fd, Str)
     end,
-    {ok,Fd}.
+    {ok,St}.
 
-terminate(_Reason, Fd) ->
+terminate(_Reason, {Fd,_}) ->
     ok = file:close(Fd),
     [].
 
