@@ -428,7 +428,13 @@ compile_errors(FormsNoShadows) ->
     end.
 
 compile_forms(Forms0, Options) ->
-    Forms = [F || F <- Forms0, element(1, F) =/= eof] ++  [{eof,anno0()}],
+    Exclude = fun(eof) -> true;
+                 (warning) -> true;
+                 (error) -> true;
+                 (_) -> false
+              end,
+    Forms = ([F || F <- Forms0, not Exclude(element(1, F))]
+             ++ [{eof,anno0()}]),
     try 
         case compile:noenv_forms(Forms, compile_options(Options)) of
             {ok, _ModName, Ws0} ->
