@@ -24,7 +24,6 @@
 
 -export([module/2]).
 -import(lists, [mapfoldl/3,reverse/1,reverse/2,foldl/3,member/2]).
--define(MAXREG, 1024).
 
 module({Mod,Exp,Attr,Fs0,Lc0}, _Opt) ->
     {Fs,Lc} = mapfoldl(fun function/2, Lc0, Fs0),

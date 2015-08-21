@@ -31,8 +31,6 @@
 
 -import(lists, [reverse/1,foldl/3,foreach/2,dropwhile/2]).
 
--define(MAXREG, 1024).
-
 %%-define(DEBUG, 1).
 -ifdef(DEBUG).
 -define(DBG_FORMAT(F, D), (io:format((F), (D)))).
@@ -970,9 +968,9 @@ get_fls(#vst{current=#st{fls=Fls}}) when is_atom(Fls) -> Fls.
 
 init_fregs() -> 0.
 
-set_freg({fr,Fr}, #vst{current=#st{f=Fregs0}=St}=Vst)
+set_freg({fr,Fr}=Freg, #vst{current=#st{f=Fregs0}=St}=Vst)
   when is_integer(Fr), 0 =< Fr ->
-    limit_check(Fr),
+    check_limit(Freg),
     Bit = 1 bsl Fr,
     if
 	Fregs0 band Bit =:= 0 ->
@@ -985,9 +983,10 @@ set_freg(Fr, _) -> error({bad_target,Fr}).
 assert_freg_set({fr,Fr}=Freg, #vst{current=#st{f=Fregs}})
   when is_integer(Fr), 0 =< Fr ->
     if
-	Fregs band (1 bsl Fr) =/= 0 ->
-	    limit_check(Fr);
-	true -> error({uninitialized_reg,Freg})
+	(Fregs bsr Fr) band 1 =:= 0 ->
+	    error({uninitialized_reg,Freg});
+	true ->
+	    ok
     end;
 assert_freg_set(Fr, _) -> error({bad_source,Fr}).
 
@@ -1066,16 +1065,16 @@ set_type(Type, {x,_}=Reg, Vst) -> set_type_reg(Type, Reg, Vst);
 set_type(Type, {y,_}=Reg, Vst) -> set_type_y(Type, Reg, Vst);
 set_type(_, _, #vst{}=Vst) -> Vst.
 
-set_type_reg(Type, {x,X}, #vst{current=#st{x=Xs}=St}=Vst) 
+set_type_reg(Type, {x,X}=Reg, #vst{current=#st{x=Xs}=St}=Vst)
   when is_integer(X), 0 =< X ->
-    limit_check(X),
+    check_limit(Reg),
     Vst#vst{current=St#st{x=gb_trees:enter(X, Type, Xs)}};
 set_type_reg(Type, Reg, Vst) ->
     set_type_y(Type, Reg, Vst).
 
 set_type_y(Type, {y,Y}=Reg, #vst{current=#st{y=Ys0}=St}=Vst)
   when is_integer(Y), 0 =< Y ->
-    limit_check(Y),
+    check_limit(Reg),
     Ys = case gb_trees:lookup(Y, Ys0) of
 	     none ->
 		 error({invalid_store,Reg,Type});
@@ -1591,9 +1590,15 @@ return_type_math(pow, 2) -> {float,[]};
 return_type_math(pi, 0) -> {float,[]};
 return_type_math(F, A) when is_atom(F), is_integer(A), A >= 0 -> term.
 
-limit_check(Num) when is_integer(Num), Num >= ?MAXREG ->
-    error(limit);
-limit_check(_) -> ok.
+check_limit({x,X}) when is_integer(X), X < 1023 ->
+    %% Note: x(1023) is reserved for use by the BEAM loader.
+    ok;
+check_limit({y,Y}) when is_integer(Y), Y < 1024 ->
+    ok;
+check_limit({fr,Fr}) when is_integer(Fr), Fr < 1024 ->
+    ok;
+check_limit(_) ->
+    error(limit).
 
 min(A, B) when is_integer(A), is_integer(B), A < B -> A;
 min(A, B) when is_integer(A), is_integer(B) -> B.
