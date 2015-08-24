@@ -141,7 +141,7 @@ renumber_labels([{bif,is_record,{f,_},
     renumber_labels(Is, Acc, St);
 renumber_labels([{test,is_record,{f,_}=Fail,
 		  [Term,{atom,Tag}=TagAtom,{integer,Arity}]}|Is0], Acc, St) ->
-    Tmp = {x,1023},
+    Tmp = {x,1022},
     Is = case is_record_tuple(Term, Tag, Arity) of
 	     yes ->
 		 Is0;

@@ -92,7 +92,7 @@ simplify_basic_1([{set,[D],[TupleReg],{get_tuple_element,0}}=I|Is0], Ts0, Acc) -
 	    Ts = update(I, Ts0),
 	    simplify_basic_1(Is0, Ts, [I|Acc])
     end;
-simplify_basic_1([{set,_,_,{'catch',_}}=I|Is], _Ts, Acc) ->
+simplify_basic_1([{set,_,_,{try_catch,_,_}}=I|Is], _Ts, Acc) ->
     simplify_basic_1(Is, tdb_new(), [I|Acc]);
 simplify_basic_1([{test,is_tuple,_,[R]}=I|Is], Ts, Acc) ->
     case tdb_find(R, Ts) of
@@ -199,7 +199,7 @@ simplify_float_1([{set,[D0],[A0,B0],{alloc,_,{gc_bif,Op0,{f,0}}}}=I|Is]=Is0,
 	    Ts = tdb_update([{D0,float}], Ts0),
 	    simplify_float_1(Is, Ts, Rs, Acc)
     end;
-simplify_float_1([{set,_,_,{'catch',_}}=I|Is]=Is0, _Ts, Rs0, Acc0) ->
+simplify_float_1([{set,_,_,{try_catch,_,_}}=I|Is]=Is0, _Ts, Rs0, Acc0) ->
     Acc = flush_all(Rs0, Is0, Acc0),
     simplify_float_1(Is, tdb_new(), Rs0, [I|Acc]);
 simplify_float_1([{set,_,_,{line,_}}=I|Is], Ts, Rs, Acc) ->

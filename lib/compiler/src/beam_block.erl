@@ -24,7 +24,6 @@
 
 -export([module/2]).
 -import(lists, [mapfoldl/3,reverse/1,reverse/2,foldl/3,member/2]).
--define(MAXREG, 1024).
 
 module({Mod,Exp,Attr,Fs0,Lc0}, _Opt) ->
     {Fs,Lc} = mapfoldl(fun function/2, Lc0, Fs0),
@@ -149,7 +148,10 @@ collect({put_map,F,Op,S,D,R,{list,Puts}}) ->
 collect({get_map_elements,F,S,{list,Gets}}) ->
     {Ss,Ds} = beam_utils:split_even(Gets),
     {set,Ds,[S|Ss],{get_map_elements,F}};
-collect({'catch',R,L})       -> {set,[R],[],{'catch',L}};
+collect({'catch'=Op,R,L}) ->
+    {set,[R],[],{try_catch,Op,L}};
+collect({'try'=Op,R,L}) ->
+    {set,[R],[],{try_catch,Op,L}};
 collect(fclearerror)         -> {set,[],[],fclearerror};
 collect({fcheckerror,{f,0}}) -> {set,[],[],fcheckerror};
 collect({fmove,S,D})         -> {set,[D],[S],fmove};
@@ -183,7 +185,9 @@ opt_blocks([I|Is]) ->
 opt_blocks([]) -> [].
 
 opt_block(Is0) ->
-    Is = find_fixpoint(fun opt/1, Is0),
+    Is = find_fixpoint(fun(Is) ->
+			       opt_tuple_element(opt(Is))
+		       end, Is0),
     opt_alloc(Is).
 
 find_fixpoint(OptFun, Is0) ->
@@ -287,66 +291,145 @@ opt_moves(Ds, Is) ->
 %%  If there is a {move,Dest,FinalDest} instruction
 %%  in the instruction stream, remove the move instruction
 %%  and let FinalDest be the destination.
-%%
-%%  For this optimization to be safe, we must be sure that
-%%  Dest will not be referenced in any other by other instructions
-%%  in the rest of the instruction stream. Not even the indirect
-%%  reference by an instruction that may allocate (such as
-%%  test_heap/2 or a GC Bif) is allowed.
 
 opt_move(Dest, Is) ->
-    opt_move_1(Dest, Is, ?MAXREG, []).
+    opt_move_1(Dest, Is, []).
 
-opt_move_1(R, [{set,_,_,{alloc,Live,_}}|_]=Is, SafeRegs, Acc) when Live < SafeRegs ->
-    %% Downgrade number of safe regs and rescan the instruction, as it most probably
-    %% is a gc_bif instruction.
-    opt_move_1(R, Is, Live, Acc);
-opt_move_1(R, [{set,[{x,X}=D],[R],move}|Is], SafeRegs, Acc) ->
-    case X < SafeRegs andalso beam_utils:is_killed_block(R, Is) of
-	true -> opt_move_2(D, Acc, Is);
-	false -> not_possible
+opt_move_1(R, [{set,[D],[R],move}|Is0], Acc) ->
+    %% Provided that the source register is killed by instructions
+    %% that follow, the optimization is safe.
+    case eliminate_use_of_from_reg(Is0, R, D, []) of
+	{yes,Is} -> opt_move_rev(D, Acc, Is);
+	no -> not_possible
     end;
-opt_move_1(R, [{set,[D],[R],move}|Is], _SafeRegs, Acc) ->
-    case beam_utils:is_killed_block(R, Is) of
-	true -> opt_move_2(D, Acc, Is);
-	false -> not_possible
+opt_move_1({x,_}, [{set,_,_,{alloc,_,_}}|_], _) ->
+    %% The optimization is not possible. If the X register is not
+    %% killed by allocation, the optimization would not be safe.
+    %% If the X register is killed, it means that there cannot
+    %% follow a 'move' instruction with this X register as the
+    %% source.
+    not_possible;
+opt_move_1(R, [{set,_,_,_}=I|Is], Acc) ->
+    %% If the source register is either killed or used by this
+    %% instruction, the optimimization is not possible.
+    case is_killed_or_used(R, I) of
+	true -> not_possible;
+	false -> opt_move_1(R, Is, [I|Acc])
     end;
-opt_move_1(R, [I|Is], SafeRegs, Acc) ->
-    case is_transparent(R, I) of
-	false -> not_possible;
-	true -> opt_move_1(R, Is, SafeRegs, [I|Acc])
+opt_move_1(_, _, _) ->
+    not_possible.
+
+%% opt_tuple_element([Instruction]) -> [Instruction]
+%%  If possible, move get_tuple_element instructions forward
+%%  in the instruction stream to a move instruction, eliminating
+%%  the move instruction. Example:
+%%
+%%    get_tuple_element Tuple Pos Dst1
+%%    ...
+%%    move Dst1 Dst2
+%%
+%%  This code may be possible to rewrite to:
+%%
+%%    %%(Moved get_tuple_element instruction)
+%%    ...
+%%    get_tuple_element Tuple Pos Dst2
+%%
+
+opt_tuple_element([{set,[D],[S],{get_tuple_element,_}}=I|Is0]) ->
+    case opt_tuple_element_1(Is0, I, {S,D}, []) of
+	no ->
+	    [I|opt_tuple_element(Is0)];
+	{yes,Is} ->
+	    opt_tuple_element(Is)
+    end;
+opt_tuple_element([I|Is]) ->
+    [I|opt_tuple_element(Is)];
+opt_tuple_element([]) -> [].
+
+opt_tuple_element_1([{set,_,_,{alloc,_,_}}|_], _, _, _) ->
+    no;
+opt_tuple_element_1([{set,_,_,{try_catch,_,_}}|_], _, _, _) ->
+    no;
+opt_tuple_element_1([{set,[D],[S],move}|Is0], I0, {_,S}, Acc) ->
+    case eliminate_use_of_from_reg(Is0, S, D, []) of
+	no ->
+	    no;
+	{yes,Is} ->
+	    {set,[S],Ss,Op} = I0,
+	    I = {set,[D],Ss,Op},
+	    {yes,reverse(Acc, [I|Is])}
+    end;
+opt_tuple_element_1([{set,Ds,Ss,_}=I|Is], MovedI, {S,D}=Regs, Acc) ->
+    case member(S, Ds) orelse member(D, Ss) of
+	true ->
+	    no;
+	false ->
+	    opt_tuple_element_1(Is, MovedI, Regs, [I|Acc])
+    end;
+opt_tuple_element_1(_, _, _, _) -> no.
+
+%% Reverse the instructions, while checking that there are no
+%% instructions that would interfere with using the new destination
+%% register (D).
+
+opt_move_rev(D, [I|Is], Acc) ->
+    case is_killed_or_used(D, I) of
+	true -> not_possible;
+	false -> opt_move_rev(D, Is, [I|Acc])
+    end;
+opt_move_rev(D, [], Acc) -> {D,Acc}.
+
+%% is_killed_or_used(Register, {set,_,_,_}) -> bool()
+%%  Test whether the register is used by the instruction.
+
+is_killed_or_used(R, {set,Ss,Ds,_}) ->
+    member(R, Ds) orelse member(R, Ss).
+
+%% eliminate_use_of_from_reg([Instruction], FromRegister, ToRegister, Acc) ->
+%%       {yes,Is} | no
+%%  Eliminate any use of FromRegister in the instruction sequence
+%%  by replacing uses of FromRegister with ToRegister. If FromRegister
+%%  is referenced by an allocation instruction, return 'no' to indicate
+%%  that FromRegister is still used and that the optimization is not
+%%  possible.
+
+eliminate_use_of_from_reg([{set,_,_,{alloc,Live,_}}|_]=Is0, {x,X}, _, Acc) ->
+    if
+	X < Live ->
+	    no;
+	true ->
+	    {yes,reverse(Acc, Is0)}
+    end;
+eliminate_use_of_from_reg([{set,Ds,Ss0,Op}=I0|Is], From, To, Acc) ->
+    I = case member(From, Ss0) of
+	    true ->
+		Ss = [case S of
+			  From -> To;
+			  _ -> S
+		      end || S <- Ss0],
+		{set,Ds,Ss,Op};
+	    false ->
+		I0
+	end,
+    case member(From, Ds) of
+	true ->
+	    {yes,reverse(Acc, [I|Is])};
+	false ->
+	    eliminate_use_of_from_reg(Is, From, To, [I|Acc])
+    end;
+eliminate_use_of_from_reg([I]=Is, From, _To, Acc) ->
+    case beam_utils:is_killed_block(From, [I]) of
+	true ->
+	    {yes,reverse(Acc, Is)};
+	false ->
+	    no
     end.
-
-%% Reverse the instructions, while checking that there are no instructions that
-%% would interfere with using the new destination register chosen.
-
-opt_move_2(D, [I|Is], Acc) ->
-    case is_transparent(D, I) of
-	false -> not_possible;
-	true -> opt_move_2(D, Is, [I|Acc])
-    end;
-opt_move_2(D, [], Acc) -> {D,Acc}.
-
-%% is_transparent(Register, Instruction) -> true | false
-%%  Returns true if Instruction does not in any way references Register
-%%  (even indirectly by an allocation instruction).
-%%  Returns false if Instruction does reference Register, or we are
-%%  not sure.
-
-is_transparent({x,X}, {set,_,_,{alloc,Live,_}}) when X < Live ->
-    false;
-is_transparent(R, {set,Ds,Ss,_Op}) ->
-    case member(R, Ds) of
-	true -> false;
-	false -> not member(R, Ss)
-    end;
-is_transparent(_, _) -> false.
 
 %% opt_alloc(Instructions) -> Instructions'
 %%  Optimises all allocate instructions.
 
 opt_alloc([{set,[],[],{alloc,R,{_,Ns,Nh,[]}}}|Is]) ->
-    [{set,[],[],opt_alloc(Is, Ns, Nh, R)}|opt(Is)];
+    [{set,[],[],opt_alloc(Is, Ns, Nh, R)}|Is];
 opt_alloc([I|Is]) -> [I|opt_alloc(Is)];
 opt_alloc([]) -> [].
 	

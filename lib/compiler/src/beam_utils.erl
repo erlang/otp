@@ -484,6 +484,15 @@ check_liveness(R, [{get_map_elements,{f,Fail},S,{list,L}}|Is], St0) ->
 		    Other
 	    end
     end;
+check_liveness(R, [{test_heap,N,Live}|Is], St) ->
+    I = {block,[{set,[],[],{alloc,Live,{nozero,nostack,N,[]}}}]},
+    check_liveness(R, [I|Is], St);
+check_liveness(R, [{allocate_zero,N,Live}|Is], St) ->
+    I = {block,[{set,[],[],{alloc,Live,{zero,N,0,[]}}}]},
+    check_liveness(R, [I|Is], St);
+check_liveness(R, [{get_list,S,D1,D2}|Is], St) ->
+    I = {block,[{set,[D1,D2],[S],get_list}]},
+    check_liveness(R, [I|Is], St);
 check_liveness(_R, Is, St) when is_list(Is) ->
 %%     case Is of
 %% 	[I|_] ->

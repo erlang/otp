@@ -20,7 +20,7 @@
   {label,3}.
     {func_info,{atom,t},{atom,sum_2},2}.
   {label,4}.
-    {bif,'+',{f,0},[{x,0},{x,1024}],{x,0}}.
+    {bif,'+',{f,0},[{x,0},{x,1023}],{x,0}}.
     {'%live',1}.
     return.
 
@@ -38,7 +38,7 @@
   {label,7}.
     {func_info,{atom,t},{atom,sum_4},2}.
   {label,8}.
-    {bif,'+',{f,0},[{x,0},{x,1}],{x,1024}}.
+    {bif,'+',{f,0},[{x,0},{x,1}],{x,1023}}.
     {'%live',1}.
     return.
 
