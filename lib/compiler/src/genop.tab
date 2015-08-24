@@ -137,7 +137,7 @@ BEAM_FORMAT_NUMBER=0
 # Sending & receiving.
 #
 ## @spec send
-## @doc  Send argument in x(0) as a message to the destination process in x(0).
+## @doc  Send argument in x(1) as a message to the destination process in x(0).
 ##       The message in x(1) ends up as the result of the send in x(0).
 20: send/0
 
