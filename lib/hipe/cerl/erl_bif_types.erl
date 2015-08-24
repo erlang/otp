@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2015. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -93,7 +93,7 @@
 		    t_list/0,
 		    t_list/1,
 		    t_list_elements/2,
-		    t_list_termination/1,
+		    t_list_termination/2,
 		    t_mfa/0,
 		    t_module/0,
 		    t_nil/0,
@@ -1336,8 +1336,8 @@ type(lists, foldr, 3, Xs, _Opaques) -> type(lists, foldl, 3, Xs);  % same
 type(lists, keydelete, 3, Xs, Opaques) ->
   strict(lists, keydelete, 3, Xs,
 	 fun ([_, _, L]) ->
-	     Term = t_list_termination(L),
-	     t_sup(Term, erl_types:lift_list_to_pos_empty(L))
+	     Term = t_list_termination(L, Opaques),
+	     t_sup(Term, erl_types:lift_list_to_pos_empty(L, Opaques))
 	 end, Opaques);
 type(lists, keyfind, 3, Xs, Opaques) ->
   strict(lists, keyfind, 3, Xs,
