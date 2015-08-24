@@ -76,9 +76,10 @@ setopts(Opts)
   when is_list(Opts) ->
     lists:foreach(fun setopt/1, Opts).
 
-%% Decode stringish types to string()? The default true is for
-%% backwards compatibility.
-setopt({string_decode = K, false = B}) ->
+%% The default string_decode true is for backwards compatibility.
+setopt({K, false = B})
+  when K == string_decode;
+       K == strict_mbit ->
     setopt(K, B);
 
 %% Regard anything but the generated RFC 3588 dictionary as modern.
@@ -96,7 +97,8 @@ setopt(Key, Value) ->
 
 getopt(Key) ->
     case get({diameter, Key}) of
-        undefined when Key == string_decode ->
+        undefined when Key == string_decode;
+                       Key == strict_mbit ->
             true;
         undefined when Key == rfc ->
             6733;
