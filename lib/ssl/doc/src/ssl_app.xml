@@ -87,6 +87,17 @@
 	    marker="ssl#clear_pem_cache-0">ssl:clear_pem_cache/0</seealso>
 	
       </item>
+      <tag><c><![CDATA[alert_timeout = integer() <optional>]]></c></tag>
+      <item>
+	<p>
+	  Number of milliseconds between sending of a fatal alert and
+	  closing the connection. Waiting a little while improves the
+	  peers chances to properly receiving the alert so it may
+	  shutdown gracefully. Defaults to 5000 milliseconds.   
+	</p>
+      </item>
+
+      
     </taglist>
   </section>
 
