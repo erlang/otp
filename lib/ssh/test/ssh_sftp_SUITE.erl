@@ -291,7 +291,7 @@ init_per_testcase(Case, Config0) ->
     prep(Config0),
     Config1 = lists:keydelete(watchdog, 1, Config0),
     Config2 = lists:keydelete(sftp, 1, Config1),
-    Dog = ct:timetrap(?default_timeout),
+    Dog = ct:timetrap(2 * ?default_timeout),
     User = ?config(user, Config0),
     Passwd = ?config(passwd, Config0),
 
