@@ -395,22 +395,21 @@ insert_constraints([], Dict) -> Dict.
 
 store_tmp_contract(MFA, FileLine, {TypeSpec, Xtra}, SpecDict, RecordsDict) ->
   %% io:format("contract from form: ~p\n", [TypeSpec]),
-  {Module, _, _} = MFA,
-  TmpContract = contract_from_form(TypeSpec, Module, RecordsDict, FileLine),
+  TmpContract = contract_from_form(TypeSpec, MFA, RecordsDict, FileLine),
   %% io:format("contract: ~p\n", [TmpContract]),
   dict:store(MFA, {FileLine, TmpContract, Xtra}, SpecDict).
 
-contract_from_form(Forms, Module, RecDict, FileLine) ->
-  {CFuns, Forms1} = contract_from_form(Forms, Module, RecDict, FileLine, [], []),
+contract_from_form(Forms, MFA, RecDict, FileLine) ->
+  {CFuns, Forms1} = contract_from_form(Forms, MFA, RecDict, FileLine, [], []),
   #tmp_contract{contract_funs = CFuns, forms = Forms1}.
 
-contract_from_form([{type, _, 'fun', [_, _]} = Form | Left], Module, RecDict,
+contract_from_form([{type, _, 'fun', [_, _]} = Form | Left], MFA, RecDict,
 		   FileLine, TypeAcc, FormAcc) ->
   TypeFun =
     fun(ExpTypes, AllRecords) ->
 	NewType =
 	  try
-            from_form_with_check(Form, ExpTypes, Module, AllRecords)
+            from_form_with_check(Form, ExpTypes, MFA, AllRecords)
 	  catch
 	    throw:{error, Msg} ->
 	      {File, Line} = FileLine,
@@ -423,55 +422,55 @@ contract_from_form([{type, _, 'fun', [_, _]} = Form | Left], Module, RecDict,
     end,
   NewTypeAcc = [TypeFun | TypeAcc],
   NewFormAcc = [{Form, []} | FormAcc],
-  contract_from_form(Left, Module, RecDict, FileLine, NewTypeAcc, NewFormAcc);
+  contract_from_form(Left, MFA, RecDict, FileLine, NewTypeAcc, NewFormAcc);
 contract_from_form([{type, _L1, bounded_fun,
 		     [{type, _L2, 'fun', [_, _]} = Form, Constr]}| Left],
-		   Module, RecDict, FileLine, TypeAcc, FormAcc) ->
+		   MFA, RecDict, FileLine, TypeAcc, FormAcc) ->
   TypeFun =
     fun(ExpTypes, AllRecords) ->
 	{Constr1, VarDict} =
-	  process_constraints(Constr, Module, RecDict, ExpTypes, AllRecords),
-        NewType = from_form_with_check(Form, ExpTypes, Module, AllRecords,
+	  process_constraints(Constr, MFA, RecDict, ExpTypes, AllRecords),
+        NewType = from_form_with_check(Form, ExpTypes, MFA, AllRecords,
                                        VarDict),
         NewTypeNoVars = erl_types:subst_all_vars_to_any(NewType),
 	{NewTypeNoVars, Constr1}
     end,
   NewTypeAcc = [TypeFun | TypeAcc],
   NewFormAcc = [{Form, Constr} | FormAcc],
-  contract_from_form(Left, Module, RecDict, FileLine, NewTypeAcc, NewFormAcc);
-contract_from_form([], _Module, _RecDict, _FileLine, TypeAcc, FormAcc) ->
+  contract_from_form(Left, MFA, RecDict, FileLine, NewTypeAcc, NewFormAcc);
+contract_from_form([], _MFA, _RecDict, _FileLine, TypeAcc, FormAcc) ->
   {lists:reverse(TypeAcc), lists:reverse(FormAcc)}.
 
-process_constraints(Constrs, Module, RecDict, ExpTypes, AllRecords) ->
-  Init0 = initialize_constraints(Constrs, Module, RecDict, ExpTypes, AllRecords),
+process_constraints(Constrs, MFA, RecDict, ExpTypes, AllRecords) ->
+  Init0 = initialize_constraints(Constrs, MFA, RecDict, ExpTypes, AllRecords),
   Init = remove_cycles(Init0),
-  constraints_fixpoint(Init, Module, RecDict, ExpTypes, AllRecords).
+  constraints_fixpoint(Init, MFA, RecDict, ExpTypes, AllRecords).
 
-initialize_constraints(Constrs, Module, RecDict, ExpTypes, AllRecords) ->
-  initialize_constraints(Constrs, Module, RecDict, ExpTypes, AllRecords, []).
+initialize_constraints(Constrs, MFA, RecDict, ExpTypes, AllRecords) ->
+  initialize_constraints(Constrs, MFA, RecDict, ExpTypes, AllRecords, []).
 
-initialize_constraints([], _Module, _RecDict, _ExpTypes, _AllRecords, Acc) ->
+initialize_constraints([], _MFA, _RecDict, _ExpTypes, _AllRecords, Acc) ->
   Acc;
-initialize_constraints([Constr|Rest], Module, RecDict, ExpTypes, AllRecords, Acc) ->
+initialize_constraints([Constr|Rest], MFA, RecDict, ExpTypes, AllRecords, Acc) ->
   case Constr of
     {type, _, constraint, [{atom, _, is_subtype}, [Type1, Type2]]} ->
-      T1 = final_form(Type1, ExpTypes, Module, AllRecords, dict:new()),
+      T1 = final_form(Type1, ExpTypes, MFA, AllRecords, dict:new()),
       Entry = {T1, Type2},
-      initialize_constraints(Rest, Module, RecDict, ExpTypes, AllRecords, [Entry|Acc]);
+      initialize_constraints(Rest, MFA, RecDict, ExpTypes, AllRecords, [Entry|Acc]);
     {type, _, constraint, [{atom,_,Name}, List]} ->
       N = length(List),
       throw({error,
 	     io_lib:format("Unsupported type guard ~w/~w\n", [Name, N])})
   end.
 
-constraints_fixpoint(Constrs, Module, RecDict, ExpTypes, AllRecords) ->
+constraints_fixpoint(Constrs, MFA, RecDict, ExpTypes, AllRecords) ->
   VarDict =
-    constraints_to_dict(Constrs, Module, RecDict, ExpTypes, AllRecords, dict:new()),
-  constraints_fixpoint(VarDict, Module, Constrs, RecDict, ExpTypes, AllRecords).
+    constraints_to_dict(Constrs, MFA, RecDict, ExpTypes, AllRecords, dict:new()),
+  constraints_fixpoint(VarDict, MFA, Constrs, RecDict, ExpTypes, AllRecords).
 
-constraints_fixpoint(OldVarDict, Module, Constrs, RecDict, ExpTypes, AllRecords) ->
+constraints_fixpoint(OldVarDict, MFA, Constrs, RecDict, ExpTypes, AllRecords) ->
   NewVarDict =
-    constraints_to_dict(Constrs, Module, RecDict, ExpTypes, AllRecords, OldVarDict),
+    constraints_to_dict(Constrs, MFA, RecDict, ExpTypes, AllRecords, OldVarDict),
   case NewVarDict of
     OldVarDict ->
       DictFold =
@@ -481,33 +480,33 @@ constraints_fixpoint(OldVarDict, Module, Constrs, RecDict, ExpTypes, AllRecords)
       FinalConstrs = dict:fold(DictFold, [], NewVarDict),
       {FinalConstrs, NewVarDict};
     _Other ->
-      constraints_fixpoint(NewVarDict, Module, Constrs, RecDict, ExpTypes, AllRecords)
+      constraints_fixpoint(NewVarDict, MFA, Constrs, RecDict, ExpTypes, AllRecords)
   end.
 
-final_form(Form, ExpTypes, Module, AllRecords, VarDict) ->
-  from_form_with_check(Form, ExpTypes, Module, AllRecords, VarDict).
+final_form(Form, ExpTypes, MFA, AllRecords, VarDict) ->
+  from_form_with_check(Form, ExpTypes, MFA, AllRecords, VarDict).
 
-from_form_with_check(Form, ExpTypes, Module, AllRecords) ->
-  erl_types:t_check_record_fields(Form, ExpTypes, Module, AllRecords),
-  erl_types:t_from_form(Form, ExpTypes, Module, AllRecords).
+from_form_with_check(Form, ExpTypes, MFA, AllRecords) ->
+  from_form_with_check(Form, ExpTypes, MFA, AllRecords, dict:new()).
 
-from_form_with_check(Form, ExpTypes, Module, AllRecords, VarDict) ->
-  erl_types:t_check_record_fields(Form, ExpTypes, Module, AllRecords,
+from_form_with_check(Form, ExpTypes, MFA, AllRecords, VarDict) ->
+  Site = {spec, MFA},
+  erl_types:t_check_record_fields(Form, ExpTypes, Site, AllRecords,
                                   VarDict),
-  erl_types:t_from_form(Form, ExpTypes, Module, AllRecords, VarDict).
+  erl_types:t_from_form(Form, ExpTypes, Site, AllRecords, VarDict).
 
-constraints_to_dict(Constrs, Module, RecDict, ExpTypes, AllRecords, VarDict) ->
+constraints_to_dict(Constrs, MFA, RecDict, ExpTypes, AllRecords, VarDict) ->
   Subtypes =
-    constraints_to_subs(Constrs, Module, RecDict, ExpTypes, AllRecords, VarDict, []),
+    constraints_to_subs(Constrs, MFA, RecDict, ExpTypes, AllRecords, VarDict, []),
   insert_constraints(Subtypes, dict:new()).
 
-constraints_to_subs([], _Module, _RecDict, _ExpTypes, _AllRecords, _VarDict, Acc) ->
+constraints_to_subs([], _MFA, _RecDict, _ExpTypes, _AllRecords, _VarDict, Acc) ->
   Acc;
-constraints_to_subs([C|Rest], Module, RecDict, ExpTypes, AllRecords, VarDict, Acc) ->
+constraints_to_subs([C|Rest], MFA, RecDict, ExpTypes, AllRecords, VarDict, Acc) ->
   {T1, Form2} = C,
-  T2 = final_form(Form2, ExpTypes, Module, AllRecords, VarDict),
+  T2 = final_form(Form2, ExpTypes, MFA, AllRecords, VarDict),
   NewAcc = [{subtype, T1, T2}|Acc],
-  constraints_to_subs(Rest, Module, RecDict, ExpTypes, AllRecords, VarDict, NewAcc).
+  constraints_to_subs(Rest, MFA, RecDict, ExpTypes, AllRecords, VarDict, NewAcc).
 
 %% Replaces variables with '_' when necessary to break up cycles among
 %% the constraints.
@@ -630,7 +629,7 @@ get_invalid_contract_warnings_funs([{MFA, {FileLine, Contract, _Xtra}}|Left],
 	  {error, {extra_range, ExtraRanges, STRange}} ->
 	    Warn =
 	      case t_from_forms_without_remote(Contract#contract.forms,
-					       RecDict) of
+					       MFA, RecDict) of
 		{ok, NoRemoteType} ->
 		  CRet = erl_types:t_fun_range(NoRemoteType),
 		  erl_types:t_is_subtype(ExtraRanges, CRet);
@@ -705,7 +704,7 @@ picky_contract_check(CSig0, Sig0, MFA, WarningInfo, Contract, RecDict, Acc) ->
       end
   end.
 
-extra_contract_warning({M, F, A}, WarningInfo, Contract, CSig, Sig, RecDict) ->
+extra_contract_warning(MFA, WarningInfo, Contract, CSig, Sig, RecDict) ->
   %% We do not want to depend upon erl_types:t_to_string() possibly
   %% hiding the contents of opaque types.
   SigUnopaque = erl_types:t_unopaque(Sig),
@@ -717,11 +716,12 @@ extra_contract_warning({M, F, A}, WarningInfo, Contract, CSig, Sig, RecDict) ->
   %% The only difference is in record fields containing 'undefined' or not.
   IsUndefRecordFieldsRelated = SigString0 =:= ContractString0,
   {IsRemoteTypesRelated, SubtypeRelation} =
-    is_remote_types_related(Contract, CSig, Sig, RecDict),
+    is_remote_types_related(Contract, CSig, Sig, MFA, RecDict),
   case IsUndefRecordFieldsRelated orelse IsRemoteTypesRelated of
     true ->
       no_warning;
     false ->
+      {M, F, A} = MFA,
       SigString = lists:flatten(dialyzer_utils:format_sig(Sig, RecDict)),
       ContractString = contract_to_string(Contract),
       {Tag, Msg} =
@@ -739,14 +739,15 @@ extra_contract_warning({M, F, A}, WarningInfo, Contract, CSig, Sig, RecDict) ->
       {warning, {Tag, WarningInfo, Msg}}
   end.
 
-is_remote_types_related(Contract, CSig, Sig, RecDict) ->
+is_remote_types_related(Contract, CSig, Sig, MFA, RecDict) ->
   case erl_types:t_is_subtype(CSig, Sig) of
     true ->
       {false, contract_is_subtype};
     false ->
       case erl_types:t_is_subtype(Sig, CSig) of
 	true ->
-	  case t_from_forms_without_remote(Contract#contract.forms, RecDict) of
+	  case t_from_forms_without_remote(Contract#contract.forms, MFA,
+                                           RecDict) of
 	    {ok, NoRemoteTypeSig} ->
 	      case blame_remote(CSig, NoRemoteTypeSig, Sig) of
 		true ->
@@ -762,13 +763,14 @@ is_remote_types_related(Contract, CSig, Sig, RecDict) ->
       end
   end.
 
-t_from_forms_without_remote([{FType, []}], RecDict) ->
-  Type1 = erl_types:t_from_form_without_remote(FType, RecDict),
+t_from_forms_without_remote([{FType, []}], MFA, RecDict) ->
+  Site = {spec, MFA},
+  Type1 = erl_types:t_from_form_without_remote(FType, Site, RecDict),
   {ok, erl_types:subst_all_vars_to_any(Type1)};
-t_from_forms_without_remote([{_FType, _Constrs}], _RecDict) ->
+t_from_forms_without_remote([{_FType, _Constrs}], _MFA, _RecDict) ->
   %% 'When' constraints
   unsupported;
-t_from_forms_without_remote(_Forms, _RecDict) ->
+t_from_forms_without_remote(_Forms, _MFA, _RecDict) ->
   %% Lots of forms
   unsupported.
 
