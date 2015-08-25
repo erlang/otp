@@ -167,9 +167,12 @@ analysis_start(Parent, Analysis, LegalWarnings) ->
       TmpCServer2 =
         dialyzer_codeserver:insert_temp_exported_types(MergedExpTypes,
                                                        TmpCServer1),
-      TmpCServer3 = dialyzer_utils:process_record_remote_types(TmpCServer2),
       ?timing(State#analysis_state.timing_server, "remote",
-	      dialyzer_contracts:process_contract_remote_types(TmpCServer3))
+              begin
+                TmpCServer3 =
+                  dialyzer_utils:process_record_remote_types(TmpCServer2),
+                dialyzer_contracts:process_contract_remote_types(TmpCServer3)
+              end)
     catch
       throw:{error, _ErrorMsg} = Error -> exit(Error)
     end,
