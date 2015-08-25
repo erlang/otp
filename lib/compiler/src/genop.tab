@@ -316,7 +316,7 @@ BEAM_FORMAT_NUMBER=0
 66: get_tuple_element/3
 
 ## @spec set_tuple_element NewElement Tuple Position
-## @doc  Update the element at postition Position of the tuple Tuple
+## @doc  Update the element at position Position of the tuple Tuple
 ##       with the new element NewElement.
 67: set_tuple_element/3
 
