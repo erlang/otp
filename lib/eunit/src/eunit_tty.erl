@@ -67,6 +67,8 @@ terminate({ok, Data}, St) ->
 		    end,
 		    if Pass =:= 1 ->
 			    fwrite("  Test passed.\n");
+		       Pass =:= 2 ->
+			    fwrite("  2 tests passed.\n");
 		       true ->
 			    fwrite("  All ~w tests passed.\n", [Pass])
 		    end
