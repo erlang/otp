@@ -79,7 +79,7 @@ erts_debug_breakpoint_2(BIF_ALIST_2)
 {
     Process* p = BIF_P;
     Eterm MFA = BIF_ARG_1;
-    Eterm bool = BIF_ARG_2;
+    Eterm boolean = BIF_ARG_2;
     Eterm* tp;
     Eterm mfa[3];
     int i;
@@ -87,7 +87,7 @@ erts_debug_breakpoint_2(BIF_ALIST_2)
     Eterm res;
     BpFunctions f;
 
-    if (bool != am_true && bool != am_false)
+    if (boolean != am_true && boolean != am_false)
 	goto error;
 
     if (is_not_tuple(MFA)) {
@@ -124,7 +124,7 @@ erts_debug_breakpoint_2(BIF_ALIST_2)
     erts_smp_thr_progress_block();
 
     erts_bp_match_functions(&f, mfa, specified);
-    if (bool == am_true) {
+    if (boolean == am_true) {
 	erts_set_debug_break(&f);
 	erts_install_breakpoints(&f);
 	erts_commit_staged_bp();
