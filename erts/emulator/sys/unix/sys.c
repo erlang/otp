@@ -195,10 +195,8 @@ extern void erl_crash_dump(char* file, int line, char* fmt, ...);
 #define ERL_BUILD_TYPE_MARKER
 #endif
 
-#define CHILD_SETUP_PROG_NAME	"child_setup" ERL_BUILD_TYPE_MARKER
-#if !DISABLE_VFORK
+#define CHILD_SETUP_PROG_NAME	"erl_child_setup" ERL_BUILD_TYPE_MARKER
 static char *child_setup_prog;
-#endif
 
 #ifdef DEBUG
 static int debug_log = 0;
