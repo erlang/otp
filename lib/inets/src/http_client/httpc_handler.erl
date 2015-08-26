@@ -1817,10 +1817,12 @@ host_header(_, URI) ->
 tls_upgrade(#state{status = 
 		       {ssl_tunnel, 
 			#request{settings = 
-				     #http_options{ssl = {_, TLSOptions} = SocketType},
-				     address = Address} = Request},
+				     #http_options{ssl = {_, TLSOptions0} = SocketType},
+				     address = {Host, _} = Address} = Request},
 		   session = #session{socket = TCPSocket} = Session0,
 		   options = Options} = State) ->
+
+    TLSOptions = maybe_add_sni(Host, TLSOptions0),
 
     case ssl:connect(TCPSocket, TLSOptions) of
 	{ok, TLSSocket} ->
@@ -1850,6 +1852,15 @@ tls_upgrade(#state{status =
 						    {tls, TLSOptions, Reason}]}),
 	    maybe_send_answer(Request, Error, State),
 	    {stop, normal, State#state{request = Request}}
+    end.
+
+maybe_add_sni(Host, Options) ->
+    case http_util:is_hostname(Host) andalso
+	  not lists:keymember(server_name_indication, 1, Options) of
+	true ->
+	    [{server_name_indication, Host} | Options];
+	false ->
+	    Options
     end.
 
 %% ---------------------------------------------------------------------
