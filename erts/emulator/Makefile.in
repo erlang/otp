@@ -798,6 +798,7 @@ OS_OBJS = \
 else
 OS_OBJS = \
 	$(OBJDIR)/sys.o \
+	$(OBJDIR)/sys_drivers.o \
 	$(OBJDIR)/driver_tab.o \
 	$(OBJDIR)/unix_efile.o \
 	$(OBJDIR)/gzio.o \
