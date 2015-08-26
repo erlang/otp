@@ -1305,7 +1305,7 @@ static int parse_match_opts_list(Eterm l, Eterm bin, Uint *posp, Uint *endp)
     Eterm *tp;
     Uint pos;
     Sint len;
-    if (l == ((Eterm) 0) || l == NIL) {
+    if (l == THE_NON_VALUE || l == NIL) {
 	/* Invalid term or NIL, we're called from binary_match(es)_2 or
 	   have no options*/
 	*posp = 0;
@@ -1535,13 +1535,13 @@ binary_matches(Process *p, Eterm arg1, Eterm arg2, Eterm arg3)
 
 BIF_RETTYPE binary_match_2(BIF_ALIST_2)
 {
-    return binary_match(BIF_P,BIF_ARG_1,BIF_ARG_2,((Eterm) 0));
+    return binary_match(BIF_P, BIF_ARG_1, BIF_ARG_2, THE_NON_VALUE);
 }
 
 
 BIF_RETTYPE binary_matches_2(BIF_ALIST_2)
 {
-    return binary_matches(BIF_P,BIF_ARG_1,BIF_ARG_2,((Eterm) 0));
+    return binary_matches(BIF_P, BIF_ARG_1, BIF_ARG_2, THE_NON_VALUE);
 }
 
 
@@ -3266,7 +3266,7 @@ static int parse_split_opts_list(Eterm l, Eterm bin, Uint *posp, Uint *endp, Uin
     *optp = 0;
     *posp = 0;
     *endp = binary_size(bin);
-    if (l == ((Eterm) 0) || l == NIL) {
+    if (l == THE_NON_VALUE || l == NIL) {
 	return 0;
     } else if (is_list(l)) {
 	while(is_list(l)) {
@@ -3427,7 +3427,7 @@ binary_split(Process *p, Eterm arg1, Eterm arg2, Eterm arg3)
 
 BIF_RETTYPE binary_split_2(BIF_ALIST_2)
 {
-    return binary_split(BIF_P,BIF_ARG_1,BIF_ARG_2,((Eterm) 0));
+    return binary_split(BIF_P, BIF_ARG_1, BIF_ARG_2, THE_NON_VALUE);
 }
 
 
