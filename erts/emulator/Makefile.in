@@ -398,7 +398,7 @@ EMULATOR_EXECUTABLE = beam$(TF_MARKER).dll
 else
 EMULATOR_EXECUTABLE = beam$(TF_MARKER)
 endif
-CS_EXECUTABLE = child_setup$(TYPEMARKER)
+CS_EXECUTABLE = erl_child_setup$(TYPEMARKER)
 
 # ----------------------------------------------------------------------
 
