@@ -76,10 +76,10 @@ do {                                                                    \
 int within(Eterm *ptr, Process *p);
 #endif
 
-ERTS_GLB_INLINE Eterm follow_moved(Eterm term);
+ERTS_GLB_INLINE Eterm follow_moved(Eterm term, Eterm xptr_tag);
 
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
-ERTS_GLB_INLINE Eterm follow_moved(Eterm term)
+ERTS_GLB_INLINE Eterm follow_moved(Eterm term, Eterm xptr_tag)
 {
     Eterm* ptr;
     switch (primary_tag(term)) {
@@ -87,11 +87,11 @@ ERTS_GLB_INLINE Eterm follow_moved(Eterm term)
 	break;
     case TAG_PRIMARY_BOXED:
 	ptr = boxed_val(term);
-	if (IS_MOVED_BOXED(*ptr)) term = *ptr;
+	if (IS_MOVED_BOXED(*ptr)) term = (*ptr) | xptr_tag;
 	break;
     case TAG_PRIMARY_LIST:
 	ptr = list_val(term);
-	if (IS_MOVED_CONS(ptr[0])) term = ptr[1];
+	if (IS_MOVED_CONS(ptr[0])) term = (ptr[1]) | xptr_tag;
 	break;
     default:
 	ASSERT(!"strange tag in follow_moved");

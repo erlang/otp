@@ -178,6 +178,12 @@ void  sys_free(void *)               __deprecated; /* erts_free()        */
 void *sys_alloc(Uint )               __deprecated; /* erts_alloc_fnf()   */
 void *sys_realloc(void *, Uint)      __deprecated; /* erts_realloc_fnf() */
 
+#undef ERTS_HAVE_IS_IN_LITERAL_RANGE
+#if defined(ARCH_32) || defined(ERTS_HAVE_OS_PHYSICAL_MEMORY_RESERVATION)
+#  define ERTS_HAVE_IS_IN_LITERAL_RANGE
+#endif
+
+
 /*
  * erts_alloc[_fnf](), erts_realloc[_fnf](), erts_free() works as
  * malloc(), realloc(), and free() with the following exceptions:
@@ -205,7 +211,9 @@ void erts_free(ErtsAlcType_t type, void *ptr);
 void *erts_alloc_fnf(ErtsAlcType_t type, Uint size);
 void *erts_realloc_fnf(ErtsAlcType_t type, void *ptr, Uint size);
 int erts_is_allctr_wrapper_prelocked(void);
-int erts_is_literal(void* ptr);
+#ifdef ERTS_HAVE_IS_IN_LITERAL_RANGE
+int erts_is_in_literal_range(void* ptr);
+#endif
 
 #endif /* #if !ERTS_ALC_DO_INLINE */
 
@@ -283,8 +291,10 @@ int erts_is_allctr_wrapper_prelocked(void)
 	&& !!erts_tsd_get(erts_allctr_prelock_tsd_key);  /* by me  */
 }
 
+#ifdef ERTS_HAVE_IS_IN_LITERAL_RANGE
+
 ERTS_ALC_INLINE
-int erts_is_literal(void* ptr)
+int erts_is_in_literal_range(void* ptr)
 {
 #if defined(ARCH_32)
     Uint ix = (UWord)ptr >> ERTS_MMAP_SUPERALIGNED_BITS;
@@ -293,17 +303,15 @@ int erts_is_literal(void* ptr)
                   & ((UWord)1 << (ix % ERTS_VSPACE_WORD_BITS));
 
 #elif defined(ARCH_64)
-# if defined(ERTS_HAVE_OS_PHYSICAL_MEMORY_RESERVATION)
     extern char* erts_literals_start;
     extern UWord erts_literals_size;
     return ErtsInArea(ptr, erts_literals_start, erts_literals_size);
-# else
-#  error Do the tag thing
-# endif
 #else
 # error No ARCH_xx
 #endif
 }
+
+#endif /* ERTS_HAVE_IS_IN_LITERAL_RANGE */
 
 #endif /* #if ERTS_ALC_DO_INLINE || defined(ERTS_ALC_INTERNAL__) */
 

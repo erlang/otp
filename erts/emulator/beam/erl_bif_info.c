@@ -2766,6 +2766,20 @@ BIF_RETTYPE system_info_1(BIF_ALIST_1)
     else if (ERTS_IS_ATOM_STR("eager_check_io",BIF_ARG_1)) {
 	BIF_RET(erts_eager_check_io ? am_true : am_false);
     }
+    else if (ERTS_IS_ATOM_STR("literal_test",BIF_ARG_1)) {
+#ifdef ERTS_HAVE_IS_IN_LITERAL_RANGE
+#ifdef ARCH_64
+	DECL_AM(range);
+	BIF_RET(AM_range);
+#else /* ARCH_32 */
+	DECL_AM(range_bitmask);
+	BIF_RET(AM_range_bitmask);
+#endif /* ARCH_32 */
+#else  /* ! ERTS_HAVE_IS_IN_LITERAL_RANGE */
+	DECL_AM(tag);
+	BIF_RET(AM_tag);
+#endif
+    }
 
     BIF_ERROR(BIF_P, BADARG);
 }
@@ -4323,12 +4337,15 @@ static void os_info_init(void)
     erts_free(ERTS_ALC_T_TMP, (void *) buf);
     hp = erts_alloc(ERTS_ALC_T_LITERAL, (3+4)*sizeof(Eterm));
     os_type_tuple = TUPLE2(hp, type, flav);
+    erts_set_literal_tag(&os_type_tuple, hp, 3);
+
     hp += 3;
     os_version(&major, &minor, &build);
     os_version_tuple = TUPLE3(hp,
 			      make_small(major),
 			      make_small(minor),
 			      make_small(build));
+    erts_set_literal_tag(&os_version_tuple, hp, 4);
 }
 
 void

@@ -3702,7 +3702,7 @@ dnl crypto
 #
 #--------------------------------------------------------------------
 
-DED_SYS_INCLUDE="-I${ERL_TOP}/erts/emulator/beam -I${ERL_TOP}/erts/include -I${ERL_TOP}/erts/include/$host -I${ERL_TOP}/erts/include/internal -I${ERL_TOP}/erts/include/internal/$host -I${ERL_TOP}/erts/emulator/sys/$ERLANG_OSTYPE"
+DED_SYS_INCLUDE="-I${ERL_TOP}/erts/emulator/beam -I${ERL_TOP}/erts/include -I${ERL_TOP}/erts/include/$host -I${ERL_TOP}/erts/include/internal -I${ERL_TOP}/erts/include/internal/$host -I${ERL_TOP}/erts/emulator/sys/$ERLANG_OSTYPE -I${ERL_TOP}/erts/emulator/sys/common"
 
 if test "X$ETHR_DEFS" = "X"; then
     DED_THR_DEFS="-D_THREAD_SAFE -D_REENTRANT"

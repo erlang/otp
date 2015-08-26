@@ -642,13 +642,13 @@ erts_move_msg_mbuf_to_heap(Eterm** hpp, ErlOffHeap* off_heap, ErlMessage *msg)
 #endif
 
     if (bp->next != NULL) {
-	move_multi_frags(hpp, off_heap, bp, msg->m, 
+	erts_move_multi_frags(hpp, off_heap, bp, msg->m, 
 #ifdef USE_VM_PROBES
-			 3
+			      3,
 #else
-			 2
+			      2,
 #endif
-			 );
+			      0);
 	goto copy_done;
     }
 

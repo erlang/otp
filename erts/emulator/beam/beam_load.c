@@ -4439,12 +4439,13 @@ freeze_code(LoaderState* stp)
 	code_hdr->literals_start = ptr;
 	code_hdr->literals_end = ptr + stp->total_literal_size;
 	for (i = 0; i < stp->num_literals; i++) {
-            if (stp->literals[i].heap_frags) {
-                move_multi_frags(&ptr, &code_off_heap, stp->literals[i].heap_frags,
-                                 &stp->literals[i].term, 1);
-                ASSERT(erts_is_literal(ptr_val(stp->literals[i].term)));
+            if (is_not_immed(stp->literals[i].term)) {
+                erts_move_multi_frags(&ptr, &code_off_heap,
+				      stp->literals[i].heap_frags,
+				      &stp->literals[i].term, 1, 1);
+                ASSERT(erts_is_literal(stp->literals[i].term,
+				       ptr_val(stp->literals[i].term)));
             }
-            else ASSERT(is_immed(stp->literals[i].term));
 	}
 	code_hdr->literals_off_heap = code_off_heap.first;
 	lp = stp->literal_patches;

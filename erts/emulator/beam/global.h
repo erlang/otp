@@ -961,8 +961,8 @@ Uint size_object(Eterm);
 Eterm copy_struct(Eterm, Uint, Eterm**, ErlOffHeap*);
 Eterm copy_shallow(Eterm*, Uint, Eterm**, ErlOffHeap*);
 
-void move_multi_frags(Eterm** hpp, ErlOffHeap*, ErlHeapFragment* first,
-		      Eterm* refs, unsigned nrefs);
+void erts_move_multi_frags(Eterm** hpp, ErlOffHeap*, ErlHeapFragment* first,
+			   Eterm* refs, unsigned nrefs, int literals);
 
 /* Utilities */
 extern void erts_delete_nodes_monitors(Process *, ErtsProcLocks);
@@ -1273,6 +1273,27 @@ Uint erts_current_reductions(Process* current, Process *p);
 int erts_print_system_version(int to, void *arg, Process *c_p);
 
 int erts_hibernate(Process* c_p, Eterm module, Eterm function, Eterm args, Eterm* reg);
+
+ERTS_GLB_INLINE int erts_is_literal(Eterm tptr, Eterm *ptr);
+
+#if ERTS_GLB_INLINE_INCL_FUNC_DEF
+
+ERTS_GLB_INLINE int erts_is_literal(Eterm tptr, Eterm *ptr)
+{
+    ASSERT(is_boxed(tptr) || is_list(tptr));
+    ASSERT(ptr == ptr_val(tptr));
+
+#if defined(ERTS_HAVE_IS_IN_LITERAL_RANGE)
+    return erts_is_in_literal_range(ptr);
+#elif defined(TAG_LITERAL_PTR)
+    return is_literal_ptr(tptr);
+#else
+#  error Not able to detect literals...
+#endif
+
+}
+
+#endif
 
 /*
 ** Call_trace uses this API for the parameter matching functions

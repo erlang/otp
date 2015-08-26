@@ -2963,6 +2963,9 @@ do {						\
 		     }
 		 }
 		 Op1 = small_to_big(ires, tmp_big);
+#ifdef TAG_LITERAL_PTR
+		 Op1 |= TAG_LITERAL_PTR;
+#endif
 
 	     big_shift:
 		 if (i > 0) {	/* Left shift. */

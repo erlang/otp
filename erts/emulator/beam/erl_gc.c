@@ -1004,6 +1004,8 @@ do_minor(Process *p, Uint new_sz, Eterm* objv, int nobj)
     Uint mature_size = (char *) HIGH_WATER(p) - heap;
     Eterm* old_htop = OLD_HTOP(p);
     Eterm* n_heap;
+    char* oh = (char *) OLD_HEAP(p);
+    Uint oh_size = (char *) OLD_HTOP(p) - oh;
 
     n_htop = n_heap = (Eterm*) ERTS_HEAP_ALLOC(ERTS_ALC_T_HEAP,
 					       sizeof(Eterm)*new_sz);
@@ -1035,8 +1037,12 @@ do_minor(Process *p, Uint new_sz, Eterm* objv, int nobj)
                 } else if (in_area(ptr, heap, mature_size)) {
                     MOVE_BOXED(ptr,val,old_htop,g_ptr++);
                 } else if (in_area(ptr, heap, heap_size)) {
+		    ASSERT(!erts_is_literal(gval, ptr)
+			   && !in_area(ptr, oh, oh_size));
                     MOVE_BOXED(ptr,val,n_htop,g_ptr++);
                 } else {
+		    ASSERT(erts_is_literal(gval, ptr)
+			   || in_area(ptr, oh, oh_size));
 		    g_ptr++;
 		}
                 break;
@@ -1050,8 +1056,12 @@ do_minor(Process *p, Uint new_sz, Eterm* objv, int nobj)
                 } else if (in_area(ptr, heap, mature_size)) {
                     MOVE_CONS(ptr,val,old_htop,g_ptr++);
                 } else if (in_area(ptr, heap, heap_size)) {
+		    ASSERT(!erts_is_literal(gval, ptr)
+			   && !in_area(ptr, oh, oh_size));
                     MOVE_CONS(ptr,val,n_htop,g_ptr++);
                 } else {
+		    ASSERT(erts_is_literal(gval, ptr)
+			   || in_area(ptr, oh, oh_size));
 		    g_ptr++;
 		}
 		break;
@@ -1094,8 +1104,12 @@ do_minor(Process *p, Uint new_sz, Eterm* objv, int nobj)
 		} else if (in_area(ptr, heap, mature_size)) {
 		    MOVE_BOXED(ptr,val,old_htop,n_hp++);
 		} else if (in_area(ptr, heap, heap_size)) {
+		    ASSERT(!erts_is_literal(gval, ptr)
+			   && !in_area(ptr, oh, oh_size));
 		    MOVE_BOXED(ptr,val,n_htop,n_hp++);
 		} else {
+		    ASSERT(erts_is_literal(gval, ptr)
+			   || in_area(ptr, oh, oh_size));
 		    n_hp++;
 		}
 		break;
@@ -1108,8 +1122,12 @@ do_minor(Process *p, Uint new_sz, Eterm* objv, int nobj)
 		} else if (in_area(ptr, heap, mature_size)) {
 		    MOVE_CONS(ptr,val,old_htop,n_hp++);
 		} else if (in_area(ptr, heap, heap_size)) {
+		    ASSERT(!erts_is_literal(gval, ptr)
+			   && !in_area(ptr, oh, oh_size));
 		    MOVE_CONS(ptr,val,n_htop,n_hp++);
 		} else {
+		    ASSERT(erts_is_literal(gval, ptr)
+			   || in_area(ptr, oh, oh_size));
 		    n_hp++;
 		}
 		break;
@@ -1131,8 +1149,14 @@ do_minor(Process *p, Uint new_sz, Eterm* objv, int nobj)
 			    MOVE_BOXED(ptr,val,old_htop,origptr);
 			    mb->base = binary_bytes(mb->orig);
 			} else if (in_area(ptr, heap, heap_size)) {
+			    ASSERT(!erts_is_literal(*origptr, origptr)
+				   && !in_area(ptr, oh, oh_size));
 			    MOVE_BOXED(ptr,val,n_htop,origptr);
 			    mb->base = binary_bytes(mb->orig);
+			}
+			else {
+			    ASSERT(erts_is_literal(*origptr, origptr)
+				   || in_area(ptr, oh, oh_size));
 			}
 		    }
 		    n_hp += (thing_arityval(gval)+1);
@@ -1275,8 +1299,10 @@ major_collection(Process* p, int need, Eterm* objv, int nobj, Uint *recl)
 		    ASSERT(is_boxed(val));
 		    *g_ptr++ = val;
 		} else if (in_area(ptr, src, src_size) || in_area(ptr, oh, oh_size)) {
+		    ASSERT(!erts_is_literal(gval, ptr));
 		    MOVE_BOXED(ptr,val,n_htop,g_ptr++);
 		} else {
+		    ASSERT(erts_is_literal(gval, ptr));
 		    g_ptr++;
 		}
 		continue;
@@ -1288,8 +1314,10 @@ major_collection(Process* p, int need, Eterm* objv, int nobj, Uint *recl)
 		if (IS_MOVED_CONS(val)) {
 		    *g_ptr++ = ptr[1];
 		} else if (in_area(ptr, src, src_size) || in_area(ptr, oh, oh_size)) {
+		    ASSERT(!erts_is_literal(gval, ptr));
 		    MOVE_CONS(ptr,val,n_htop,g_ptr++);
 		} else {
+		    ASSERT(erts_is_literal(gval, ptr));
 		    g_ptr++;
 		}
 		continue;
@@ -1330,8 +1358,10 @@ major_collection(Process* p, int need, Eterm* objv, int nobj, Uint *recl)
 		    ASSERT(is_boxed(val));
 		    *n_hp++ = val;
 		} else if (in_area(ptr, src, src_size) || in_area(ptr, oh, oh_size)) {
+		    ASSERT(!erts_is_literal(gval, ptr));
 		    MOVE_BOXED(ptr,val,n_htop,n_hp++);
 		} else {
+		    ASSERT(erts_is_literal(gval, ptr));
 		    n_hp++;
 		}
 		break;
@@ -1342,8 +1372,10 @@ major_collection(Process* p, int need, Eterm* objv, int nobj, Uint *recl)
 		if (IS_MOVED_CONS(val)) {
 		    *n_hp++ = ptr[1];
 		} else if (in_area(ptr, src, src_size) || in_area(ptr, oh, oh_size)) {
+		    ASSERT(!erts_is_literal(gval, ptr));
 		    MOVE_CONS(ptr,val,n_htop,n_hp++);
 		} else {
+		    ASSERT(erts_is_literal(gval, ptr));
 		    n_hp++;
 		}
 		break;
@@ -1363,11 +1395,15 @@ major_collection(Process* p, int need, Eterm* objv, int nobj, Uint *recl)
 			    *origptr = val;
 			    mb->base = binary_bytes(*origptr);
 			} else if (in_area(ptr, src, src_size) ||
-				   in_area(ptr, oh, oh_size)) {
+-				   in_area(ptr, oh, oh_size)) {
+			    ASSERT(!erts_is_literal(*origptr, origptr));
 			    MOVE_BOXED(ptr,val,n_htop,origptr); 
 			    mb->base = binary_bytes(*origptr);
 			    ptr = boxed_val(*origptr);
 			    val = *ptr;
+			}
+			else {
+			    ASSERT(erts_is_literal(*origptr, origptr));
 			}
 		    }
 		    n_hp += (thing_arityval(gval)+1);
@@ -1985,7 +2021,7 @@ setup_rootset(Process *p, Eterm *objv, int nobj, Rootset *rootset)
     }
 
     ASSERT((is_nil(p->seq_trace_token) ||
-	    is_tuple(follow_moved(p->seq_trace_token)) ||
+	    is_tuple(follow_moved(p->seq_trace_token, (Eterm) 0)) ||
 	    is_atom(p->seq_trace_token)));
     if (is_not_immed(p->seq_trace_token)) {
 	roots[n].v = &p->seq_trace_token;
@@ -2003,7 +2039,7 @@ setup_rootset(Process *p, Eterm *objv, int nobj, Rootset *rootset)
 	   is_internal_pid(ERTS_TRACER_PROC(p)) ||
 	   is_internal_port(ERTS_TRACER_PROC(p)));
 
-    ASSERT(is_pid(follow_moved(p->group_leader)));
+    ASSERT(is_pid(follow_moved(p->group_leader, (Eterm) 0)));
     if (is_not_immed(p->group_leader)) {
 	roots[n].v  = &p->group_leader;
 	roots[n].sz = 1;
