@@ -1187,7 +1187,10 @@ init_ssh(client = Role, Vsn, Version, Options, Socket) ->
 	 opts = Options,
 	 userauth_supported_methods = AuthMethods,
 	 peer = {PeerName, PeerAddr},
-	 available_host_keys = supported_host_keys(Role, KeyCb, Options)
+	 available_host_keys = supported_host_keys(Role, KeyCb, Options),
+	 random_length_padding = proplists:get_value(max_random_length_padding, 
+						     Options, 
+						     (#ssh{})#ssh.random_length_padding)
 	};
 
 init_ssh(server = Role, Vsn, Version, Options, Socket) ->
@@ -1207,7 +1210,10 @@ init_ssh(server = Role, Vsn, Version, Options, Socket) ->
 	 userauth_methods = AuthMethodsAsList,
 	 kb_tries_left = 3,
 	 peer = {undefined, PeerAddr},
-	 available_host_keys = supported_host_keys(Role, KeyCb, Options)
+	 available_host_keys = supported_host_keys(Role, KeyCb, Options),
+	 random_length_padding = proplists:get_value(max_random_length_padding, 
+						     Options, 
+						     (#ssh{})#ssh.random_length_padding)
 	 }.
 
 supported_host_keys(client, _, Options) ->
