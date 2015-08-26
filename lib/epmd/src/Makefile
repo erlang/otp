@@ -40,7 +40,7 @@ MODULES= \
 	 erlpmd_app \
 	 erlpmd_ctl \
 	 erlpmd_sup \
-	 tcp_listener
+	 erlpmd_tcp_listener
 
 HRL_FILES=
 
