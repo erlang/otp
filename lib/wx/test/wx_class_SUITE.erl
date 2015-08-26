@@ -387,9 +387,18 @@ listCtrlSort(Config) ->
 
     Item = wxListItem:new(),
 
-    %% Force an assert on (and debug compiled) which 3.0 is by default
+    %% Test that wx-asserts are sent to error logger
+    %% Force an assert on 3.0 (when debug compiled which it is by default)
     wxListItem:setId(Item, 200),
-    io:format("Got ~p ~n", [wxListCtrl:getItem(LC, Item)]),
+    case os:type() of
+	{win32, _} ->
+	    wxListItem:setColumn(Item, 3),
+	    io:format("Got ~p ~n", [wxListCtrl:insertItem(LC, Item)]),
+	    wxListItem:setColumn(Item, 0);
+	_ -> %% Uses generic listctrl
+	    %% we can't use the code above on linux with wx-2.8.8 because it segfaults.
+	    io:format("Got ~p ~n", [wxListCtrl:getItem(LC, Item)])
+    end,
 
     wxListItem:setMask(Item, ?wxLIST_MASK_TEXT),
     _List = wx:map(fun(Int) ->
