@@ -470,4 +470,20 @@ extern jmp_buf erts_sys_sigsegv_jmp;
     } while(0)
 #endif
 
+#ifdef USE_THREADS
+#  ifdef ENABLE_CHILD_WAITER_THREAD
+#    define CHLDWTHR ENABLE_CHILD_WAITER_THREAD
+#  else
+#    define CHLDWTHR 0
+#  endif
+#  define FDBLOCK 1
+#else
+#  define CHLDWTHR 0
+#  define FDBLOCK 0
+#endif
+
+#define ERTS_SYS_SUSPEND_SIGNAL SIGUSR2
+
+int check_children(void);
+
 #endif /* #ifndef _ERL_UNIX_SYS_H */
