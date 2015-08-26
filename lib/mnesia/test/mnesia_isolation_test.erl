@@ -1127,7 +1127,9 @@ update_shared(Tab, Me, Acc) ->
 	0 -> 
 	    case mnesia:transaction(Update) of
 		{atomic, {ok,Term,W2}} ->
-		    io:format("~p:~p:(~p,~p) ~w@~w~n", [erlang:now(),node(),Me,Acc,Term,W2]),
+		    io:format("~p:~p:(~p,~p) ~w@~w~n",
+			      [erlang:unique_integer([monotonic,positive]),
+			       node(),Me,Acc,Term,W2]),
 		    update_shared(Tab, Me, Acc+1);
 		Else -> 
 		    ?error("Trans failed on ~p with ~p~n"
