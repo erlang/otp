@@ -153,9 +153,7 @@ generator_init(Monitor, C) ->
     process_flag(trap_exit, true),
     Tables = mnesia:system_info(tables),
     ok = mnesia:wait_for_tables(Tables, infinity),
-    {_Mega, Sec, Micro} = erlang:now(),
-    Uniq = lists:sum(binary_to_list(term_to_binary(make_ref()))),
-    random:seed(Uniq, Sec, Micro),
+    rand:seed(exsplus),
     Counters = reset_counters(C, C#config.statistics_detail),
     SessionTab = ets:new(bench_sessions, [public, {keypos, 1}]),
     generator_loop(Monitor, C, SessionTab, Counters).
@@ -189,9 +187,9 @@ generator_loop(Monitor, C, SessionTab, Counters) ->
     after 0 ->
 	    {Name, {Nodes, Activity, Wlock}, Fun, CommitSessions} =
 		gen_trans(C, SessionTab),
-	    Before = erlang:now(),
+	    Before = erlang:monotonic_time(),
 	    Res  = call_worker(Nodes, Activity, Fun, Wlock, mnesia_frag),
-	    After = erlang:now(),
+	    After = erlang:monotonic_time(),
 	    Elapsed = elapsed(Before, After),
 	    post_eval(Monitor, C, Elapsed, Res, Name, CommitSessions, SessionTab, Counters)
     end.
@@ -253,10 +251,8 @@ worker_loop(Parent) ->
     end.
 
 
-elapsed({Before1, Before2, Before3}, {After1, After2, After3}) ->
-    After  = After1  * 1000000000000  + After2  * 1000000 + After3,
-    Before = Before1 * 1000000000000  + Before2 * 1000000 + Before3,
-    After - Before.
+elapsed(Before, After) ->
+    erlang:convert_time_unit(After-Before, native, micro_seconds).
 
 %% Lookup counters
 get_counters(_C, {table, Tab}) ->
@@ -351,7 +347,7 @@ commit_session(Fun) when is_function(Fun, 0) ->
 
 %% Randlomly choose a transaction type according to benchmar spec
 gen_trans(C, SessionTab) when C#config.generator_profile == random ->
-    case random:uniform(100) of
+    case rand:uniform(100) of
         Rand when Rand >   0, Rand =<  25 -> gen_t1(C, SessionTab);
         Rand when Rand >  25, Rand =<  50 -> gen_t2(C, SessionTab);
         Rand when Rand >  50, Rand =<  70 -> gen_t3(C, SessionTab);
@@ -369,7 +365,7 @@ gen_trans(C, SessionTab) ->
     end.
         
 gen_t1(C, _SessionTab) ->
-    SubscrId    = random:uniform(C#config.n_subscribers) - 1,
+    SubscrId    = rand:uniform(C#config.n_subscribers) - 1,
     SubscrKey   = bench_trans:number_to_key(SubscrId, C),
     Location    = 4711,
     ChangedBy   = <<4711:(8*25)>>,
@@ -381,7 +377,7 @@ gen_t1(C, _SessionTab) ->
     }.
 
 gen_t2(C, _SessionTab) ->
-    SubscrId  = random:uniform(C#config.n_subscribers) - 1,
+    SubscrId  = rand:uniform(C#config.n_subscribers) - 1,
     SubscrKey = bench_trans:number_to_key(SubscrId, C),
     {t2,
      nearest_node(SubscrId, sync_dirty, C),
@@ -395,9 +391,9 @@ gen_t3(C, SessionTab) ->
 	'$end_of_table' ->
 	    %% This generator does not have any session,
 	    %% try reading someone elses session details
-	    SubscrId  = random:uniform(C#config.n_subscribers) - 1,
+	    SubscrId  = rand:uniform(C#config.n_subscribers) - 1,
 	    SubscrKey = bench_trans:number_to_key(SubscrId, C),
-	    ServerId  = random:uniform(C#config.n_servers) - 1,
+	    ServerId  = rand:uniform(C#config.n_servers) - 1,
 	    ServerBit = 1 bsl ServerId,
 	    {t3,
 	     nearest_node(SubscrId, transaction, C),
@@ -419,12 +415,12 @@ gen_t4(C, SessionTab) ->
     %% This generator may already have sessions,
     %% create a new session and hope that no other
     %% generator already has occupied it
-    SubscrId   = random:uniform(C#config.n_subscribers) - 1,
+    SubscrId   = rand:uniform(C#config.n_subscribers) - 1,
     SubscrKey  = bench_trans:number_to_key(SubscrId, C),
-    ServerId   = random:uniform(C#config.n_servers) - 1,
+    ServerId   = rand:uniform(C#config.n_servers) - 1,
     ServerBit  = 1 bsl ServerId,
     Details    = <<4711:(8*2000)>>,
-    DoRollback = (random:uniform(100) =< 2),
+    DoRollback = (rand:uniform(100) =< 2),
     Insert     = fun() -> ets:insert(SessionTab, {{SubscrId, SubscrKey, ServerId}, self()}) end,
     {t4,
      nearest_node(SubscrId, transaction, C),
@@ -437,11 +433,11 @@ gen_t5(C, SessionTab) ->
 	'$end_of_table' ->
 	    %% This generator does not have any session,
 	    %% try to delete someone elses session details
-	    SubscrId   = random:uniform(C#config.n_subscribers) - 1,
+	    SubscrId   = rand:uniform(C#config.n_subscribers) - 1,
 	    SubscrKey  = bench_trans:number_to_key(SubscrId, C),
-	    ServerId   = random:uniform(C#config.n_servers) - 1,
+	    ServerId   = rand:uniform(C#config.n_servers) - 1,
 	    ServerBit  = 1 bsl ServerId,
-	    DoRollback = (random:uniform(100) =< 2),
+	    DoRollback = (rand:uniform(100) =< 2),
 	    {t5,
 	     nearest_node(SubscrId, transaction, C),
 	     fun(Wlock) -> bench_trans:delete_session_from_server(Wlock, SubscrKey, ServerBit, ServerId, DoRollback) end,
@@ -451,7 +447,7 @@ gen_t5(C, SessionTab) ->
 	    %% This generator do have at least one session,
 	    %% delete it.
 	    ServerBit  = 1 bsl ServerId,	
-	    DoRollback = (random:uniform(100) =< 2),
+	    DoRollback = (rand:uniform(100) =< 2),
 	    Delete     = fun() -> ets:delete(SessionTab, {SubscrId, SubscrKey, ServerId}) end,
 	    {t5,
 	     nearest_node(SubscrId, transaction, C),
@@ -461,7 +457,7 @@ gen_t5(C, SessionTab) ->
     end.
 
 gen_ping(C, _SessionTab) ->
-    SubscrId   = random:uniform(C#config.n_subscribers) - 1,
+    SubscrId   = rand:uniform(C#config.n_subscribers) - 1,
     {ping,
      nearest_node(SubscrId, transaction, C),
      fun(_Wlock) -> {do_commit, true, []} end,
