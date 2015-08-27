@@ -78,12 +78,13 @@ stop([Addr | _] , Port) ->
 	init:stop().
 
 sendrecv(Addr, Port, Data) ->
-	{ok, Fd} = gen_tcp:connect(Addr, Port, [binary, {packet, 2}, {active, false}]),
+	% FIXME should we use accept_timeout/packet_timeout here (or default value)?
+	{ok, Fd} = gen_tcp:connect(Addr, Port, [binary, {packet, 2}, {active, false}], 60000),
 	ok = gen_tcp:send(Fd, Data),
 	% We have to switch to raw here
 	inet:setopts(Fd, [{packet, raw}]),
 	% FIXME should we use packet_timeout here (or default value)?
-	{ok, Ret} = gen_tcp:recv(Fd, 0, 1000),
+	{ok, Ret} = gen_tcp:recv(Fd, 0, 60000),
 	ok = gen_tcp:close(Fd),
 	{ok, Ret}.
 
