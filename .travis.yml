@@ -1,0 +1,33 @@
+language: erlang
+
+otp_release:
+  - 18.0
+
+sudo: false
+
+addons:
+  apt:
+    packages:
+      - autoconf
+      - libncurses-dev
+      - build-essential
+      - libssl-dev
+      - libwxgtk2.8-dev
+      - libgl1-mesa-dev
+      - libglu1-mesa-dev
+      - libpng3
+      - default-jdk
+      - g++
+
+before_script:
+  - set -e
+  - export ERL_TOP=$PWD
+  - export PATH=$ERL_TOP/bin:$PATH
+  - export ERL_LIBS=''
+  - kerl_deactivate
+
+script:
+  - ./otp_build all -a
+
+after_success:
+  - ./otp_build tests
