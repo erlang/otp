@@ -54,7 +54,9 @@
 extern ErlDrvEntry fd_driver_entry;
 extern ErlDrvEntry vanilla_driver_entry;
 extern ErlDrvEntry spawn_driver_entry;
+#ifndef __WIN32__
 extern ErlDrvEntry forker_driver_entry;
+#endif
 extern ErlDrvEntry *driver_tab[]; /* table of static drivers, only used during initialization */
 
 erts_driver_t *driver_list; /* List of all drivers, static and dynamic. */
@@ -72,7 +74,9 @@ const Port erts_invalid_port = {{ERTS_INVALID_PORT}};
 
 erts_driver_t vanilla_driver;
 erts_driver_t spawn_driver;
+#ifndef __WIN32__
 erts_driver_t forker_driver;
+#endif
 erts_driver_t fd_driver;
 
 int erts_port_synchronous_ops = 0;
@@ -2891,7 +2895,9 @@ void erts_init_io(int port_tab_size,
     init_driver(&fd_driver, &fd_driver_entry, NULL);
     init_driver(&vanilla_driver, &vanilla_driver_entry, NULL);
     init_driver(&spawn_driver, &spawn_driver_entry, NULL);
+#ifndef __WIN32__
     init_driver(&forker_driver, &forker_driver_entry, NULL);
+#endif
     erts_init_static_drivers();
     for (dp = driver_tab; *dp != NULL; dp++)
 	erts_add_driver_entry(*dp, NULL, 1);
@@ -2953,7 +2959,9 @@ void erts_lcnt_enable_io_lock_count(int enable) {
 
     lcnt_enable_drv_lock_count(&vanilla_driver, enable);
     lcnt_enable_drv_lock_count(&spawn_driver, enable);
+#ifndef __WIN32__
     lcnt_enable_drv_lock_count(&forker_driver, enable);
+#endif
     lcnt_enable_drv_lock_count(&fd_driver, enable);
     /* enable lock counting in all drivers */
     for (dp = driver_list; dp; dp = dp->next) {
@@ -4843,8 +4851,10 @@ print_port_info(Port *p, int to, void *arg)
 	erts_print(to, arg, "Port is a file: %s\n",p->name);
     } else if (p->drv_ptr == &spawn_driver) {
 	erts_print(to, arg, "Port controls external process: %s\n",p->name);
+#ifndef __WIN32__
     } else if (p->drv_ptr == &forker_driver) {
 	erts_print(to, arg, "Port controls forker process: %s\n",p->name);
+#endif
     } else {
 	erts_print(to, arg, "Port controls linked-in driver: %s\n",p->name);
     }
