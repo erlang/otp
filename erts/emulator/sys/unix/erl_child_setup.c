@@ -109,7 +109,7 @@ static int sigchld_pipe[2];
 static int
 start_new_child(int pipes[])
 {
-    int size, res, i;
+    int size, res, i, pos = 0;
     char *buff, *o_buff;
 
     char *cmd, *wd, **new_environ, **args = NULL, cbuff[1];
@@ -126,10 +126,19 @@ start_new_child(int pipes[])
 
     DEBUG_PRINT("size = %d", size);
 
-    if ((res = read(pipes[0], buff, size)) != size) {
-        ABORT("Failed to read %d bytes from %d (%d,%d)",
-              size, pipes[0], res, errno);
-    }
+    do {
+        if ((res = read(pipes[0], buff + pos, size - pos)) < 0) {
+            if (errno == EAGAIN || errno == EINTR)
+                continue;
+            ABORT("Failed to read %d bytes from %d (%d,%d)",
+                  size, pipes[0], res, errno);
+        }
+        if (res == 0) {
+            errno = EPIPE;
+            goto child_error;
+        }
+        pos += res;
+    } while(size - pos != 0);
 
     o_buff = buff;
 
@@ -154,6 +163,7 @@ start_new_child(int pipes[])
     buff += sizeof(Sint32);
     new_environ = malloc(sizeof(char*)*(cnt + 1));
 
+    DEBUG_PRINT("env_len = %ld", cnt);
     for (i = 0; i < cnt; i++, buff++) {
         new_environ[i] = buff;
         while(*buff != '\0') buff++;
@@ -176,6 +186,7 @@ start_new_child(int pipes[])
         ABORT("Buff error: %p, %p:%p", o_buff, o_buff+size, buff);
     }
 
+    DEBUG_PRINT("read ack");
     if (read(pipes[0], cbuff, 1) < 1)
         goto child_error;
 
@@ -230,7 +241,8 @@ start_new_child(int pipes[])
         execle(SHELL, "sh", "-c", cmd, (char *) NULL, new_environ);
     }
 child_error:
-    _exit(1);
+    DEBUG_PRINT("exec error: %d\r\n",errno);
+    _exit(128 + errno);
 }
 
 
@@ -392,7 +404,7 @@ main(int argc, char *argv[])
             int ibuff[2];
             char buff[256];
             res = read(sigchld_pipe[0], ibuff, sizeof(ibuff));
-            if (res < 0) {
+            if (res <= 0) {
                 if (errno == EINTR)
                     continue;
                 ABORT("Failed to read from sigchld pipe: %d (%d)", res, errno);
