@@ -558,7 +558,7 @@ static ErlDrvData spawn_start(ErlDrvPort port_num, char* name,
 
     int len;
     char **new_environ;
-    ErtsSysDriverData *res;
+    ErtsSysDriverData *dd;
     char *cmd_line;
     char wd_buff[MAXPATHLEN+1];
     char *wd;
@@ -658,10 +658,10 @@ static ErlDrvData spawn_start(ErlDrvPort port_num, char* name,
 
     {
         struct iovec *io_vector;
-        int buffsz = 0, iov_len = 5;
+        int iov_len = 5;
         char nullbuff[] = "\0";
-        int j, i = 0;
-        Sint32 env_len = 0, argv_len = 0,
+        int j, i = 0, res;
+        Sint32 buffsz = 0, env_len = 0, argv_len = 0,
             flags = (opts->use_stdio ? FORKER_FLAG_USE_STDIO : 0)
             | (opts->exit_status ? FORKER_FLAG_EXIT_STATUS : 0)
             | (opts->read_write & DO_READ ? FORKER_FLAG_DO_READ : 0)
@@ -753,16 +753,29 @@ static ErlDrvData spawn_start(ErlDrvPort port_num, char* name,
         }
 
         /* we send the request to do the fork */
-        if (writev(ofd[1], io_vector, iov_len) < 0) {
-            int err = errno;
-            close_pipes(ifd, ofd);
-            erts_free(ERTS_ALC_T_TMP, io_vector);
-            if (new_environ != environ)
-                erts_free(ERTS_ALC_T_ENVIRONMENT, (void *) new_environ);
-            erts_smp_rwmtx_runlock(&environ_rwmtx);
-            erts_free(ERTS_ALC_T_TMP, (void *) cmd_line);
-            errno = err;
-            return ERL_DRV_ERROR_ERRNO;
+        if ((res = writev(ofd[1], io_vector, iov_len > MAXIOV ? MAXIOV : iov_len)) < 0) {
+            if (errno == ERRNO_BLOCK) {
+                res = 0;
+            } else {
+                int err = errno;
+                close_pipes(ifd, ofd);
+                erts_free(ERTS_ALC_T_TMP, io_vector);
+                if (new_environ != environ)
+                    erts_free(ERTS_ALC_T_ENVIRONMENT, (void *) new_environ);
+                erts_smp_rwmtx_runlock(&environ_rwmtx);
+                erts_free(ERTS_ALC_T_TMP, (void *) cmd_line);
+                errno = err;
+                return ERL_DRV_ERROR_ERRNO;
+            }
+        }
+
+        if (res < buffsz) {
+            /* we only wrote part of the command payload. Enqueue the rest. */
+            for (i = 0; i < iov_len; i++) {
+                driver_enq(port_num, io_vector[i].iov_base, io_vector[i].iov_len);
+            }
+            driver_deq(port_num, res);
+            driver_select(port_num, ofd[1], ERL_DRV_WRITE|ERL_DRV_USE, 1);
         }
 
         erts_free(ERTS_ALC_T_TMP, io_vector);
@@ -775,7 +788,7 @@ static ErlDrvData spawn_start(ErlDrvPort port_num, char* name,
 
     erts_smp_rwmtx_runlock(&environ_rwmtx);
 
-    res = create_driver_data(port_num, ifd[0], ofd[1], opts->packet_bytes,
+    dd = create_driver_data(port_num, ifd[0], ofd[1], opts->packet_bytes,
                              DO_WRITE | DO_READ, opts->exit_status,
                              0, 0);
 
@@ -797,12 +810,12 @@ static ErlDrvData spawn_start(ErlDrvPort port_num, char* name,
     /* we set these fds to negative to mark if
        they should be closed after the handshake */
     if (!(opts->read_write & DO_READ))
-        res->ifd->fd *= -1;
+        dd->ifd->fd *= -1;
 
     if (!(opts->read_write & DO_WRITE))
-        res->ofd->fd *= -1;
+        dd->ofd->fd *= -1;
 
-    return (ErlDrvData)res;
+    return (ErlDrvData)dd;
 #undef CMD_LINE_PREFIX_STR
 #undef CMD_LINE_PREFIX_STR_SZ
 }
@@ -1365,10 +1378,16 @@ static void ready_input(ErlDrvData e, ErlDrvEvent ready_fd)
                 return;
             }
 
-            if (write(abs(dd->ofd->fd), "A", 1) < 0)
-                ; /* do nothing on failure here. If the ofd is broken, then
-                     the ifd will probably also be broken and trigger
-                     a port_inp_failure */
+            if (driver_sizeq(port_num) > 0) {
+                driver_enq(port_num, "A", 1);
+            } else {
+                if (write(abs(dd->ofd->fd), "A", 1) < 0)
+                    if (errno == ERRNO_BLOCK || errno == EINTR)
+                        driver_enq(port_num, "A", 1);
+                /* do nothing on failure here. If the ofd is broken, then
+                   the ifd will probably also be broken and trigger
+                   a port_inp_failure */
+            }
 
             if (dd->ifd->fd < 0) {
                 driver_select(port_num, abs(dd->ifd->fd), ERL_DRV_READ|ERL_DRV_USE, 0);
@@ -1381,9 +1400,8 @@ static void ready_input(ErlDrvData e, ErlDrvEvent ready_fd)
                    child setup will close this fd if fd < 0 */
                 driver_select(port_num, abs(dd->ofd->fd), ERL_DRV_WRITE|ERL_DRV_USE, 1);
 
-            if (dd->alive == 1) {
+            if (dd->alive == 1)
                 forker_add_os_pid_mapping(dd);
-            }
 
             erl_drv_set_os_pid(port_num, dd->pid);
             erl_drv_init_ack(port_num, e);
