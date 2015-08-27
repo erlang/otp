@@ -44,6 +44,6 @@ start_link() ->
 init(_) ->
 	{ok, Argv} = application:get_env(erlpmd,argv),
 	ErlPMD = {erlpmd, {erlpmd, start_link, [Argv]}, transient, 5000, worker, [erlpmd]},
-	Listeners = [{{ip, Ip}, {erlpmd_tcp_listener, start_link, [[Ip,Argv#argv.port]]}, transient, 5000, worker, [erlpmd_tcp_listener]} || Ip <- Argv#argv.address],
+	Listeners = [{{ip, Ip}, {erlpmd_tcp_listener, start_link, [[Ip,Argv#argv.port,Argv#argv.delay_accept]]}, transient, 5000, worker, [erlpmd_tcp_listener]} || Ip <- Argv#argv.address],
 	{ok, {{one_for_one, 5, 10}, [ErlPMD | Listeners]}}.
 

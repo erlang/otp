@@ -33,13 +33,14 @@
 -record(state, {
 	listener,
 	acceptor,
+	delay_accept,
 	clients = []
 }).
 
 start_link(Args) ->
 	gen_server:start_link(?MODULE, Args, []).
 
-init ([Ip, Port]) ->
+init ([Ip, Port, DelayAccept]) ->
 	SysPid = os:getpid(),
 	{ok, Socket} = case {os:getenv("LISTEN_PID"), os:getenv("LISTEN_FDS")} of
 			       {SysPid, "1"} ->
@@ -54,7 +55,7 @@ init ([Ip, Port]) ->
 		       end,
 	{ok, Ref} = prim_inet:async_accept(Socket, -1),
 	error_logger:info_msg("ErlPMD listener: started at Ip: ~s:~b~n", [inet_parse:ntoa(Ip), Port]),
-	{ok, #state{listener = Socket, acceptor = Ref}}.
+	{ok, #state{listener = Socket, acceptor = Ref, delay_accept = DelayAccept}}.
 
 handle_call(Other, From, State) ->
 	error_logger:warning_msg("ErlPMD listener: strange call: ~p from ~p.~n", [Other, From]),
@@ -101,7 +102,10 @@ handle_info({tcp_closed, Client}, #state{clients = Clients} = State) ->
 	error_logger:info_msg("ErlPMD listener: client ~p closed connection.~n", [Client]),
 	{noreply, State#state{clients = lists:delete(Client, Clients)}};
 
-handle_info({inet_async, ListSock, Ref, {ok, CliSocket}}, #state{listener = ListSock, acceptor = Ref, clients = Clients} = State) ->
+handle_info({inet_async, ListSock, Ref, {ok, CliSocket}}, #state{listener = ListSock, acceptor = Ref, delay_accept = DelayAccept, clients = Clients} = State) ->
+	% Usually DelayAccept == 0 so there won't be any timeout here
+	timer:sleep(DelayAccept * 1000),
+
 	case set_sockopt(ListSock, CliSocket) of
 		ok -> ok;
 		{error, Reason} -> exit({set_sockopt, Reason})
