@@ -155,7 +155,7 @@ handle_cast(Msg, State) ->
 
 handle_info(notify_init, State) ->
 	error_logger:warning_msg("ErlPMD: info: ~p while ~p.~n", [notify_init, State]),
-	{module, sd_notify} == code:load_file(sd_notify) andalso sd_notify:sd_notifyf(0, "READY=1~nSTATUS=~s", ["Hello from ErlPMD"]),
+	{module, sd_notify} == code:load_file(sd_notify) andalso sd_notify:sd_notifyf(0, "READY=1~nSTATUS=~s~nMAINPID=~s", ["Processing port mapping requests...", os:getpid()]),
 	{noreply, State};
 
 handle_info(Info, State) ->
