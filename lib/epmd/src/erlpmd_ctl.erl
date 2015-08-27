@@ -58,37 +58,34 @@ start() ->
 %%
 
 names([Addr | _], Port) ->
-	{ok, Fd} = gen_tcp:connect(Addr, Port, [binary, {packet, 2}, {active, false}]),
-	ok = gen_tcp:send(Fd, <<?EPMD_NAMES>>),
-	% We have to switch to raw here
-	inet:setopts(Fd, [{packet, raw}]),
-	{ok, <<Port:32, Data/binary>>} = gen_tcp:recv(Fd, 0, 1000),
+	{ok, <<Port:32, Data/binary>>} = sendrecv(Addr, Port, <<?EPMD_NAMES>>),
 	io:format("epmd: up and running on port ~p with data:~n", [Port]),
 	io:format("~s", [Data]),
-	ok = gen_tcp:close(Fd),
 	init:stop().
 
 kill([Addr | _], Port) ->
-	{ok, Fd} = gen_tcp:connect(Addr, Port, [binary, {packet, 2}, {active, false}]),
-	ok = gen_tcp:send(Fd, <<?EPMD_KILL>>),
-	% We have to switch to raw here
-	inet:setopts(Fd, [{packet, raw}]),
-	{ok, <<"OK">>} = gen_tcp:recv(Fd, 0, 1000),
+	{ok, <<"OK">>} = sendrecv(Addr, Port, <<?EPMD_KILL>>),
 	io:format("Killed~n"),
-	ok = gen_tcp:close(Fd),
 	init:stop().
 
 stop([Addr | _] , Port) ->
 	{ok, [[N]]} = init:get_argument(stop),
 	Name = list_to_binary(N),
+
+	{ok, Ret} = sendrecv(Addr, Port, <<?EPMD_STOP, Name/binary>>),
+
+	io:format("~s~n", [Ret]),
+	init:stop().
+
+sendrecv(Addr, Port, Data) ->
 	{ok, Fd} = gen_tcp:connect(Addr, Port, [binary, {packet, 2}, {active, false}]),
-	ok = gen_tcp:send(Fd, <<?EPMD_STOP, Name/binary>>),
+	ok = gen_tcp:send(Fd, Data),
 	% We have to switch to raw here
 	inet:setopts(Fd, [{packet, raw}]),
+	% FIXME should we use packet_timeout here (or default value)?
 	{ok, Ret} = gen_tcp:recv(Fd, 0, 1000),
-	io:format("~s~n", [Ret]),
 	ok = gen_tcp:close(Fd),
-	init:stop().
+	{ok, Ret}.
 
 help() ->
     io:format(
