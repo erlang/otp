@@ -284,6 +284,7 @@ $1, list_to_bitstring_1, hipe_wrapper_$1,
 $1, send_2, hipe_wrapper_$1,
 $1, send_3, hipe_wrapper_$1,
 $1, ebif_bang_2, hipe_wrapper_$1,
+$1, maps_merge_2, hipe_wrapper_$1,
 $1)')
 
 define(BIF_LIST,`standard_bif_interface_$3(nbif_$4, CFUN($4))')
