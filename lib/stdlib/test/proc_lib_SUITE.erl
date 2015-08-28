@@ -149,7 +149,11 @@ crash(Config) when is_list(Config) ->
 	    ?line ?t:fail({unexpected_message,Any})
 	after 2000 ->
 		ok
-	end.
+	end,
+
+    error_logger:delete_report_handler(?MODULE),
+    ok.
+
 
 
 sync_start_nolink(Config) when is_list(Config) ->
@@ -301,6 +305,7 @@ hibernate(Config) when is_list(Config) ->
     ?line {value,{initial_call,{?MODULE,hib_loop,[_]}}} =
 	lists:keysearch(initial_call, 1, Report),
 
+    error_logger:delete_report_handler(?MODULE),
     ok.
 
 hib_loop(LoopData) ->
