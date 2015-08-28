@@ -45,7 +45,7 @@ BEAM_FORMAT_NUMBER=0
 ##      Save the next instruction as the return address in the CP register.
 4: call/2
 
-## @spec call_last Arity Label Dellocate
+## @spec call_last Arity Label Deallocate
 ## @doc Deallocate and do a tail recursive call to the function at Label.
 ##      Do not update the CP register.
 ##      Before the call deallocate Deallocate words of stack.
