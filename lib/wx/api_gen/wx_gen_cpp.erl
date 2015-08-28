@@ -235,7 +235,8 @@ gen_funcs(Defs) ->
     w("}} /* The End */~n~n~n"),
 
     UglySkipList = ["wxCaret", "wxCalendarDateAttr",
-		    "wxFileDataObject", "wxTextDataObject", "wxBitmapDataObject"
+		    "wxFileDataObject", "wxTextDataObject", "wxBitmapDataObject",
+		    "wxAuiSimpleTabArt"
 		   ],
 
     w("bool WxeApp::delete_object(void *ptr, wxeRefData *refd) {~n", []),
@@ -323,12 +324,8 @@ gen_method(CName,  M=#method{name=N,params=Ps0,type=T,method_type=MT,id=MethodId
     put(current_func, N),
     put(bin_count,-1),
     ?WTC("gen_method"),
-    Endif = case lists:keysearch(deprecated, 1, FOpts) of
-		{value, {deprecated, IfDef}} ->
-		    w("#if ~s~n", [IfDef]),
-		    true;
-		_ -> false
-	    end,
+    Endif1 = gen_if(deprecated, FOpts),
+    Endif2 = gen_if(test_if, FOpts),
     w("case ~s: { // ~s::~s~n", [wx_gen_erl:get_unique_name(MethodId),CName,N]),
     Ps1 = declare_variables(void, Ps0),
     {Ps2,Align} = decode_arguments(Ps1),
@@ -347,9 +344,18 @@ gen_method(CName,  M=#method{name=N,params=Ps0,type=T,method_type=MT,id=MethodId
     free_args(),
     build_return_vals(T,Ps3),
     w(" break;~n}~n", []),
-    Endif andalso w("#endif~n", []),
+    Endif1 andalso w("#endif~n", []),
+    Endif2 andalso w("#endif~n", []),
     erase(current_func),
     M.
+
+gen_if(What, Opts) ->
+    case lists:keysearch(What, 1, Opts) of
+	{value, {What, IfDef}} ->
+	    w("#if ~s~n", [IfDef]),
+	    true;
+	_ -> false
+    end.
 
 declare_variables(void,Ps) ->
     [declare_var(P) || P <- Ps];
