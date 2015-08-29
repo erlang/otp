@@ -29,7 +29,7 @@
 	 init_per_group/2,end_per_group/2,
 	 init_per_testcase/2, end_per_testcase/2]).
 -export([basic/1, resolve/1, edns0/1, txt_record/1, files_monitor/1,
-	 last_ms_answer/1]).
+	 last_ms_answer/1, server_case_scramble/1]).
 -export([
 	 gethostbyaddr/0, gethostbyaddr/1,
 	 gethostbyaddr_v6/0, gethostbyaddr_v6/1,
@@ -47,7 +47,7 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [basic, resolve, edns0, txt_record, files_monitor,
-     last_ms_answer,
+     last_ms_answer, server_case_scramble,
      gethostbyaddr, gethostbyaddr_v6, gethostbyname,
      gethostbyname_v6, getaddr, getaddr_v6, ipv4_to_ipv6,
      host_and_addr].
@@ -74,6 +74,7 @@ zone_dir(TC) ->
 	edns0 -> otptest;
 	files_monitor -> otptest;
 	last_ms_answer -> otptest;
+	server_case_scramble -> otptest;
 	_ -> undefined
     end.
 
@@ -260,7 +261,30 @@ proxy(last_ms_answer, Outbound, NS, P, Inbound) ->
 			      Inbound, SrcIP, SrcPort, BadReply, Reply, 30)
 		    end
 	    end
-    end.
+    end;
+
+proxy({server_case_scramble, 0}, _, _, _, _) ->
+    ok;
+proxy({server_case_scramble, N}, Outbound, NS, P, Inbound) when is_integer(N), N > 0 ->
+    {ClientIP, ClientPort} = receive
+	{udp, Inbound, SrcIP, SrcPort, Request} ->
+	    {ok, Msg} = inet_dns:decode(Request),
+	    Queries = inet_dns:msg(Msg, qdlist),
+	    ScrambledQueries = [scramble_query_domain(Q) || Q <- Queries],
+	    ScrambledMsg = inet_dns:make_msg(Msg, qdlist, ScrambledQueries),
+	    ScrambledReq = inet_dns:encode(ScrambledMsg),
+	    ct:pal("Proxying packet: ~9999p", [inet_dns:decode(ScrambledReq)]),
+	    ok = gen_udp:send(Outbound, NS, P, ScrambledReq),
+	    {SrcIP, SrcPort}
+    end,
+    receive
+	{udp, Outbound, NS, P, Reply} ->
+	    ok = gen_udp:send(Inbound, ClientIP, ClientPort, Reply)
+    end,
+    proxy({server_case_scramble, N-1}, Outbound, NS, P, Inbound).
+
+scramble_query_domain(#dns_query{domain = Domain} = Query) ->
+    Query#dns_query{domain = caseflip_skip(Domain)}.
 
 proxy__last_ms_answer(Socket, IP, Port, _, Reply, 0) ->
     ok = gen_udp:send(Socket, IP, Port, Reply);
@@ -331,12 +355,12 @@ basic(Config) when is_list(Config) ->
     [IP] = inet_res:lookup(NameC, in, a, [{nameservers,[NS]},verbose]),
     %%
     %% gethostbyname
-    {ok,#hostent{h_addr_list=[IP]}} = inet_res:gethostbyname(Name),
-    {ok,#hostent{h_addr_list=[IP]}} = inet_res:gethostbyname(NameC),
+    {ok,#hostent{h_name=Name, h_addr_list=[IP]}} = inet_res:gethostbyname(Name),
+    {ok,#hostent{h_name=NameC, h_addr_list=[IP]}} = inet_res:gethostbyname(NameC),
     %%
     %% getbyname
-    {ok,#hostent{h_addr_list=[IP]}} = inet_res:getbyname(Name, a),
-    {ok,#hostent{h_addr_list=[IP]}} = inet_res:getbyname(NameC, a),
+    {ok,#hostent{h_name=Name, h_addr_list=[IP]}} = inet_res:getbyname(Name, a),
+    {ok,#hostent{h_name=NameC, h_addr_list=[IP]}} = inet_res:getbyname(NameC, a),
     ok.
 
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -662,6 +686,50 @@ last_ms_answer(Config) when is_list(Config) ->
     {error,timeout} =
 	inet_res:resolve(
 	  Name, in, a, [{nameservers,[ProxyNS]},verbose], Time + 10),
+    %%
+    proxy_wait(PSpec),
+    ok.
+
+%% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+server_case_scramble(doc) ->
+    ["Test lookup when server scrambles case in host name"];
+server_case_scramble(Config) when is_list(Config) ->
+    % Purge inet_res config
+    ResolvConf = inet_db:res_option(resolv_conf),
+    inet_db:set_resolv_conf(""),
+
+    Result = try do_server_case_scramble(Config) of
+	Success -> {return, Success}
+    catch
+	Class:Reason -> {raise, {Class, Reason, erlang:get_stacktrace()}}
+    end,
+
+    % Restore inet_res config
+    inet_db:set_resolv_conf(ResolvConf),
+
+    case Result of
+	{return, Success_} -> Success_;
+	{raise, {Class_, Reason_, Stacktrace}} -> erlang:raise(Class_, Reason_, Stacktrace)
+    end.
+
+do_server_case_scramble(Config) ->
+    NS = ns(Config),
+    Name = "ns.otptest",
+    NameC = caseflip(Name),
+    PSpec = proxy_start({server_case_scramble, 4}, NS),
+    {ProxyHost, ProxyPort} = proxy_ns(PSpec),
+    inet_db:add_ns(ProxyHost, ProxyPort),
+
+    %%
+    %% gethostbyname
+    {ok,#hostent{h_name=Name, h_addr_list=[IP]}} = inet_res:gethostbyname(Name),
+    {ok,#hostent{h_name=NameC, h_addr_list=[IP]}} = inet_res:gethostbyname(NameC),
+    inet_db:clear_cache(),
+    %%
+    %% getbyname
+    {ok,#hostent{h_name=Name, h_addr_list=[IP]}} = inet_res:getbyname(Name, a),
+    {ok,#hostent{h_name=NameC, h_addr_list=[IP]}} = inet_res:getbyname(NameC, a),
     %%
     proxy_wait(PSpec),
     ok.
