@@ -115,7 +115,8 @@ lib_works_as_client(Config) ->
 	  [{set_options, [print_ops, print_seqnums, print_messages]},
 	   {connect,
 	    server_host(Config),server_port(Config),
-	    [{silently_accept_hosts, true},
+	    [{preferred_algorithms,[{kex,['diffie-hellman-group1-sha1']}]},
+	     {silently_accept_hosts, true},
 	     {user_dir, user_dir(Config)},
 	     {user_interaction, false}]},
 	   receive_hello,
@@ -207,7 +208,9 @@ lib_works_as_server(Config) ->
       end),
 
     %% and finally connect to it with a regular Erlang SSH client:
-    {ok,_} = std_connect(HostPort, Config).
+    {ok,_} = std_connect(HostPort, Config, 
+			 [{preferred_algorithms,[{kex,['diffie-hellman-group1-sha1']}]}]
+			).
 
 %%--------------------------------------------------------------------
 %%% Matching
@@ -449,24 +452,24 @@ server_user_password(N, Config) -> lists:nth(N, ?v(user_passwords,Config)).
     
 
 std_connect(Config) -> 
-    {User,Pwd} = server_user_password(Config),
-    std_connect(server_host(Config), server_port(Config),
-		Config,
-		[{user,User},{password,Pwd}]).
+    std_connect({server_host(Config), server_port(Config)}, Config).
     
 std_connect({Host,Port}, Config) ->
-    {User,Pwd} = server_user_password(Config),
-    std_connect(Host, Port, Config, [{user,User},{password,Pwd}]).
+    std_connect({Host,Port}, Config, []).
 
 std_connect({Host,Port}, Config, Opts) ->
     std_connect(Host, Port, Config, Opts).
 
 std_connect(Host, Port, Config, Opts) ->
+    {User,Pwd} = server_user_password(Config),
     ssh:connect(Host, Port, 
-		[{silently_accept_hosts, true},
-		 {user_dir, user_dir(Config)},
-		 {user_interaction, false} | Opts],
+		%% Prefere User's Opts to the default opts
+		[O || O = {Tag,_} <- [{user,User},{password,Pwd},
+				      {silently_accept_hosts, true},
+				      {user_dir, user_dir(Config)},
+				      {user_interaction, false}],
+		      not lists:keymember(Tag, 1, Opts)
+		] ++ Opts,
 		30000).
     
-
 %%%----------------------------------------------------------------	

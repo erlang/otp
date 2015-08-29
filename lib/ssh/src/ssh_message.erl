@@ -259,6 +259,14 @@ encode(#ssh_msg_kex_dh_gex_reply{
     EncSign = encode_sign(Key, Signature),
     ssh_bits:encode([?SSH_MSG_KEX_DH_GEX_REPLY, EncKey, F, EncSign], [byte, binary, mpint, binary]);
 
+encode(#ssh_msg_kex_ecdh_init{q_c = Q_c}) ->
+    ssh_bits:encode([?SSH_MSG_KEX_ECDH_INIT, Q_c], [byte, mpint]);
+
+encode(#ssh_msg_kex_ecdh_reply{public_host_key = Key, q_s = Q_s, h_sig = Sign}) ->
+    EncKey = encode_host_key(Key),
+    EncSign = encode_sign(Key, Sign),
+    ssh_bits:encode([?SSH_MSG_KEX_ECDH_REPLY, EncKey, Q_s, EncSign], [byte, binary, mpint, binary]);
+
 encode(#ssh_msg_ignore{data = Data}) ->
     ssh_bits:encode([?SSH_MSG_IGNORE, Data], [byte, string]);
 
@@ -422,30 +430,45 @@ decode(<<?BYTE(?SSH_MSG_USERAUTH_INFO_RESPONSE), ?UINT32(Num), Data/binary>>) ->
 decode(<<?BYTE(?SSH_MSG_KEXINIT), Cookie:128, Data/binary>>) ->
     decode_kex_init(Data, [Cookie, ssh_msg_kexinit], 10);
 
-decode(<<?BYTE(?SSH_MSG_KEXDH_INIT), ?UINT32(Len), E:Len/big-signed-integer-unit:8>>) ->
+decode(<<"dh",?BYTE(?SSH_MSG_KEXDH_INIT), ?UINT32(Len), E:Len/big-signed-integer-unit:8>>) ->
     #ssh_msg_kexdh_init{e = E
 		       };
+
+decode(<<"dh", ?BYTE(?SSH_MSG_KEXDH_REPLY), 
+	 ?UINT32(Len0), Key:Len0/binary,
+	 ?UINT32(Len1), F:Len1/big-signed-integer-unit:8,
+	 ?UINT32(Len2), Hashsign:Len2/binary>>) ->
+    #ssh_msg_kexdh_reply{
+       public_host_key = decode_host_key(Key),
+       f = F,
+       h_sig = decode_sign(Hashsign)
+      };
+
 decode(<<?BYTE(?SSH_MSG_KEX_DH_GEX_REQUEST), ?UINT32(Min), ?UINT32(N), ?UINT32(Max)>>) ->
     #ssh_msg_kex_dh_gex_request{
        min = Min,
        n = N,
        max = Max
       };
-decode(<<?BYTE(?SSH_MSG_KEX_DH_GEX_REQUEST_OLD), ?UINT32(N)>>) ->
+
+decode(<<"dh_gex",?BYTE(?SSH_MSG_KEX_DH_GEX_REQUEST_OLD), ?UINT32(N)>>) ->
     #ssh_msg_kex_dh_gex_request_old{
        n = N
       };
-decode(<<?BYTE(?SSH_MSG_KEX_DH_GEX_GROUP),  
+
+decode(<<"dh_gex",?BYTE(?SSH_MSG_KEX_DH_GEX_GROUP),  
 	 ?UINT32(Len0), Prime:Len0/big-signed-integer-unit:8,
 	 ?UINT32(Len1), Generator:Len1/big-signed-integer-unit:8>>) ->
     #ssh_msg_kex_dh_gex_group{
        p = Prime,
        g = Generator
       };
+
 decode(<<?BYTE(?SSH_MSG_KEX_DH_GEX_INIT), ?UINT32(Len), E:Len/big-signed-integer-unit:8>>) ->
     #ssh_msg_kex_dh_gex_init{
        e = E
       };
+
 decode(<<?BYTE(?SSH_MSG_KEX_DH_GEX_REPLY), 
 	 ?UINT32(Len0), Key:Len0/binary,
 	 ?UINT32(Len1), F:Len1/big-signed-integer-unit:8,
@@ -455,13 +478,21 @@ decode(<<?BYTE(?SSH_MSG_KEX_DH_GEX_REPLY),
        f = F,
        h_sig = decode_sign(Hashsign)
       };
-decode(<<?BYTE(?SSH_MSG_KEXDH_REPLY), ?UINT32(Len0), Key:Len0/binary,
-	 ?UINT32(Len1), F:Len1/big-signed-integer-unit:8,
-	 ?UINT32(Len2), Hashsign:Len2/binary>>) ->
-    #ssh_msg_kexdh_reply{
+
+decode(<<"ecdh",?BYTE(?SSH_MSG_KEX_ECDH_INIT),
+	 ?UINT32(Len0), Q_c:Len0/big-signed-integer-unit:8>>) ->
+    #ssh_msg_kex_ecdh_init{
+       q_c = Q_c
+      };
+
+decode(<<"ecdh",?BYTE(?SSH_MSG_KEX_ECDH_REPLY),
+	 ?UINT32(Len1), Key:Len1/binary,
+	 ?UINT32(Len2), Q_s:Len2/big-signed-integer-unit:8,
+	 ?UINT32(Len3), Sig:Len3/binary>>) ->
+    #ssh_msg_kex_ecdh_reply{
        public_host_key = decode_host_key(Key),
-       f = F,
-       h_sig = decode_sign(Hashsign)
+       q_s = Q_s,
+       h_sig = decode_sign(Sig)
       };
 
 decode(<<?SSH_MSG_SERVICE_REQUEST, ?UINT32(Len0), Service:Len0/binary>>) ->

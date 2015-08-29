@@ -533,7 +533,7 @@ receive_binary_msg(S0=#s{ssh=C0=#ssh{decrypt_block_size = BlockSize,
 	    <<Mac:MacSize/binary, Rest/binary>> = EncRest,
 
 	    case {ssh_transport:is_valid_mac(Mac, SshPacket, C2),
-		  catch ssh_message:decode(Payload)}
+		  catch ssh_message:decode(set_prefix_if_trouble(Payload,S1))}
 	    of
 		{false,         _} -> fail(bad_mac,S1);
 		{_,    {'EXIT',_}} -> fail(decode_failed,S1);
@@ -555,6 +555,24 @@ receive_binary_msg(S0=#s{ssh=C0=#ssh{decrypt_block_size = BlockSize,
 			}
 	    end
     end.
+
+
+set_prefix_if_trouble(Msg = <<?BYTE(Op),_/binary>>, #s{alg=#alg{kex=Kex}})
+  when Op == 30;
+       Op == 31
+       ->
+    case catch atom_to_list(Kex) of
+	"ecdh-sha2-" ++ _ -> 
+	    <<"ecdh",Msg/binary>>;
+	"diffie-hellman-group-exchange-" ++ _ ->
+	    <<"dh_gex",Msg/binary>>;
+	"diffie-hellman-group" ++ _ ->
+	    <<"dh",Msg/binary>>;
+	_ -> 
+	    Msg
+    end;
+set_prefix_if_trouble(Msg, _) ->
+    Msg.
 
 
 receive_poll(S=#s{socket=Sock}) -> 
