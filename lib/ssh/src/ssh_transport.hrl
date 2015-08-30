@@ -30,6 +30,13 @@
 -define(DEFAULT_CLIENT_VERSION, {2, 0}).
 -define(DEFAULT_SERVER_VERSION, {2, 0}).
 
+-define(MAX_NUM_ALGORITHMS, 100).
+
+-define(DEFAULT_DH_GROUP_MIN, 512).
+-define(DEFAULT_DH_GROUP_NBITS, 1024).
+-define(DEFAULT_DH_GROUP_MAX,  4096).
+
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%
 %% BASIC transport messages
@@ -132,10 +139,6 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %% diffie-hellman-group-exchange-sha1 | diffie-hellman-group-exchange-sha256
--define(DEFAULT_DH_GROUP_MIN,    512).
--define(DEFAULT_DH_GROUP_NBITS, 1024).
--define(DEFAULT_DH_GROUP_MAX,   4096).
-
 -define(SSH_MSG_KEX_DH_GEX_REQUEST_OLD, 30).
 -define(SSH_MSG_KEX_DH_GEX_REQUEST,     34).
 -define(SSH_MSG_KEX_DH_GEX_GROUP,       31).

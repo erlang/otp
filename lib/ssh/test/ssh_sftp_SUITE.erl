@@ -27,7 +27,7 @@
 -include_lib("common_test/include/ct.hrl").
 -include_lib("kernel/include/file.hrl").
 
-% Default timetrap timeout
+						% Default timetrap timeout
 -define(default_timeout, ?t:minutes(1)).
 
 %%--------------------------------------------------------------------
@@ -64,19 +64,11 @@ end_per_suite(Config) ->
 groups() -> 
     [{not_unicode, [], [{group,erlang_server},
 			{group,openssh_server},
-			{group,'diffie-hellman-group-exchange-sha1'},
-			{group,'diffie-hellman-group-exchange-sha256'},
 			sftp_nonexistent_subsystem]},
 
      {unicode, [], [{group,erlang_server},
 		    {group,openssh_server},
 		    sftp_nonexistent_subsystem]},
-     
-     {'diffie-hellman-group-exchange-sha1', [], [{group,erlang_server},
-						 {group,openssh_server}]},
-
-     {'diffie-hellman-group-exchange-sha256', [], [{group,erlang_server},
-						   {group,openssh_server}]},
 
      {erlang_server, [], [{group,write_read_tests},
 			  version_option,
@@ -159,7 +151,7 @@ init_per_group(unicode, Config) ->
 	_ ->
 	    {skip, "Not unicode file encoding"}
     end;
-		
+
 init_per_group(erlang_server, Config) ->
     ct:comment("Begin ~p",[grps(Config)]),
     PrivDir = ?config(priv_dir, Config),
@@ -167,20 +159,18 @@ init_per_group(erlang_server, Config) ->
     User = ?config(user, Config),
     Passwd = ?config(passwd, Config),
     Sftpd = {_, HostX, PortX} =
-	ssh_test_lib:daemon(extra_opts(Config) ++
-				[{system_dir, SysDir},
-				 {user_dir, PrivDir},
-				 {user_passwords,
-				  [{User, Passwd}]}]),
+	ssh_test_lib:daemon([{system_dir, SysDir},
+			     {user_dir, PrivDir},
+			     {user_passwords,
+			      [{User, Passwd}]}]),
     [{peer, {fmt_host(HostX),PortX}}, {group, erlang_server}, {sftpd, Sftpd} | Config];
 
 init_per_group(openssh_server, Config) ->
     ct:comment("Begin ~p",[grps(Config)]),
     Host = ssh_test_lib:hostname(),
     case (catch ssh_sftp:start_channel(Host,
-				       extra_opts(Config) ++
-					   [{user_interaction, false},
-					    {silently_accept_hosts, true}])) of
+				       [{user_interaction, false},
+					{silently_accept_hosts, true}])) of
 	{ok, _ChannelPid, Connection} ->
 	    [{peer, {_HostName,{IPx,Portx}}}] = ssh:connection_info(Connection,[peer]),
 	    ssh:close(Connection),
@@ -201,11 +191,10 @@ init_per_group(remote_tar, Config) ->
 	case ?config(group, Config) of
 	    erlang_server ->
 		ssh:connect(Host, Port,
-			    extra_opts(Config) ++
-				[{user, User},
-				 {password, Passwd},
-				 {user_interaction, false},
-				 {silently_accept_hosts, true}]);
+			    [{user, User},
+			     {password, Passwd},
+			     {user_interaction, false},
+			     {silently_accept_hosts, true}]);
 	    openssh_server ->
 		ssh:connect(Host, Port,
 			    [{user_interaction, false},
@@ -213,28 +202,6 @@ init_per_group(remote_tar, Config) ->
 	end,
     [{remote_tar, true}, 
      {connection, Connection} | Config];
-
-init_per_group('diffie-hellman-group-exchange-sha1', Config) ->
-    case lists:member('diffie-hellman-group-exchange-sha1',
-		      ssh_transport:supported_algorithms(kex)) of
-	true ->
-	    [{extra_opts, [{preferred_algorithms, [{kex,['diffie-hellman-group-exchange-sha1']}]}]}
-	     | Config]; 
-
-	false ->
-	     {skip,"'diffie-hellman-group-exchange-sha1' not supported by this version of erlang ssh"}
-    end;
-
-init_per_group('diffie-hellman-group-exchange-sha256', Config) ->
-    case lists:member('diffie-hellman-group-exchange-sha256',
-		      ssh_transport:supported_algorithms(kex)) of
-	true ->
-	    [{extra_opts, [{preferred_algorithms, [{kex,['diffie-hellman-group-exchange-sha256']}]}]}
-	     | Config]; 
-
-	false ->
-	     {skip,"'diffie-hellman-group-exchange-sha256' not supported by this version of erlang ssh"}
-    end;
 
 init_per_group(write_read_tests, Config) ->
     ct:comment("Begin ~p",[grps(Config)]),
@@ -278,12 +245,11 @@ init_per_testcase(version_option, Config) ->
     Passwd = ?config(passwd, Config),
     {ok, ChannelPid, Connection}  = 
 	ssh_sftp:start_channel(Host, Port,
-			       extra_opts(Config) ++
-				   [{sftp_vsn, 3},
-				    {user, User},
-				    {password, Passwd},
-				    {user_interaction, false},
-				    {silently_accept_hosts, true}]),
+			       [{sftp_vsn, 3},
+				{user, User},
+				{password, Passwd},
+				{user_interaction, false},
+				{silently_accept_hosts, true}]),
     Sftp = {ChannelPid, Connection},
     [{sftp,Sftp}, {watchdog, Dog} | TmpConfig];
 
@@ -301,11 +267,10 @@ init_per_testcase(Case, Config0) ->
 		{_,Host, Port} =  ?config(sftpd, Config2),
 		{ok, ChannelPid, Connection}  = 
 		    ssh_sftp:start_channel(Host, Port,
-					   extra_opts(Config2) ++
-					       [{user, User},
-						{password, Passwd},
-						{user_interaction, false},
-						{silently_accept_hosts, true}]
+					   [{user, User},
+					    {password, Passwd},
+					    {user_interaction, false},
+					    {silently_accept_hosts, true}]
 					  ),
 		Sftp = {ChannelPid, Connection},
 		[{sftp, Sftp}, {watchdog, Dog} | Config2];
@@ -315,9 +280,8 @@ init_per_testcase(Case, Config0) ->
 		Host = ssh_test_lib:hostname(),
 		{ok, ChannelPid, Connection} = 
 		    ssh_sftp:start_channel(Host, 
-					    extra_opts(Config2) ++
-					       [{user_interaction, false},
-						{silently_accept_hosts, true}]), 
+					   [{user_interaction, false},
+					    {silently_accept_hosts, true}]), 
 		Sftp = {ChannelPid, Connection},
 		[{sftp, Sftp}, {watchdog, Dog} | Config2]
 	end,
@@ -494,7 +458,7 @@ mk_rm_dir() ->
 mk_rm_dir(Config) when is_list(Config) ->
     PrivDir = ?config(priv_dir, Config),
     {Sftp, _} = ?config(sftp, Config),
- 
+
     DirName = filename:join(PrivDir, "test"),
     ok = ssh_sftp:make_dir(Sftp, DirName),
     ok = ssh_sftp:del_dir(Sftp, DirName),
@@ -767,7 +731,7 @@ directory_to_tar(Config) ->
     ok = erl_tar:add(Handle, fn("d1",Config), "d1", [verbose]),
     ok = erl_tar:close(Handle),
     chk_tar(["d1"], Config).
-    
+
 %%--------------------------------------------------------------------
 binaries_to_tar(Config) ->
     ChPid2 = ?config(channel_pid2, Config),
@@ -831,9 +795,9 @@ simple_crypto_tar_big(Config) ->
     chk_tar([{"b1",Bin}, F1, "big.txt"], Config, [{crypto,{Cinit,Cdec}}]).
 
 stuff(Bin) -> << <<C,C>> || <<C>> <= Bin >>.
-    
+
 unstuff(Bin) -> << <<C>> || <<C,C>> <= Bin >>.
-     
+
 %%--------------------------------------------------------------------
 read_tar(Config) ->
     ChPid2 = ?config(channel_pid2, Config),
@@ -1002,9 +966,6 @@ prep(Config) ->
     ok = file:write_file_info(TestFile,
 			      FileInfo#file_info{mode = Mode}).
 
-extra_opts(Config) ->
-    proplists:get_value(extra_opts, Config, []).
-
 chk_tar(Items, Config) ->
     chk_tar(Items, Config, []).
 
@@ -1041,7 +1002,7 @@ analyze_report([E={NameE,BinE}|Es], [A={NameA,BinA}|As]) ->
 	NameE < NameA ->
 	    [["Component ",NameE," is missing.\n\n"]
 	     | analyze_report(Es,[A|As])];
-	
+
 	NameE > NameA ->
 	    [["Component ",NameA," is not expected.\n\n"]
 	     | analyze_report([E|Es],As)];
@@ -1054,7 +1015,7 @@ analyze_report([], [{NameA,_BinA}|As]) ->
     [["Component ",NameA," not expected.\n\n"] | analyze_report([],As)];
 analyze_report([], []) ->
     "".
-	
+
 tar_size(TarFileName, Config) ->
     {ChPid,_} = ?config(sftp,Config),
     {ok,Data} = ssh_sftp:read_file(ChPid, TarFileName),
@@ -1088,4 +1049,4 @@ fn(Name, Config) ->
 
 fmt_host({A,B,C,D}) -> lists:concat([A,".",B,".",C,".",D]);
 fmt_host(S) -> S.
-    
+
