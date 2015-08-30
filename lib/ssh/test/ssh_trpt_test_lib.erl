@@ -23,6 +23,7 @@
 %%-compile(export_all).
 
 -export([exec/1, exec/2,
+	 instantiate/2,
 	 format_msg/1,
 	 server_host_port/1
 	]

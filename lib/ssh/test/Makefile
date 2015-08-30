@@ -32,17 +32,22 @@ VSN=$(GS_VSN)
 # ----------------------------------------------------
 
 MODULES= \
-	ssh_test_lib \
-	ssh_trpt_test_lib \
-	ssh_sup_SUITE \
+	ssh_algorithms_SUITE \
+	ssh_options_SUITE \
+	ssh_renegotiate_SUITE \
+	\
 	ssh_basic_SUITE \
+	\
+	ssh_connection_SUITE \
 	ssh_protocol_SUITE \
-	ssh_to_openssh_SUITE \
 	ssh_sftp_SUITE \
 	ssh_sftpd_SUITE \
 	ssh_sftpd_erlclient_SUITE \
+	ssh_sup_SUITE \
+	ssh_to_openssh_SUITE \
 	ssh_upgrade_SUITE \
-	ssh_connection_SUITE \
+	ssh_test_lib \
+	ssh_trpt_test_lib \
 	ssh_echo_server \
 	ssh_peername_sockname_server \
 	ssh_test_cli \

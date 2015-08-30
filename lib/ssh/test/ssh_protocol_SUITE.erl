@@ -73,6 +73,9 @@ end_per_suite(Config) ->
 
 
 
+init_per_testcase(no_common_alg_server_disconnects, Config) ->
+    start_std_daemon(Config, [{preferred_algorithms,[{public_key,['ssh-rsa']}]}]);
+
 init_per_testcase(TC, Config) when TC == gex_client_init_default_noexact ;
 				   TC == gex_client_init_default_exact ;
 				   TC == gex_client_init_option_groups ;
@@ -93,6 +96,8 @@ init_per_testcase(TC, Config) when TC == gex_client_init_default_noexact ;
 init_per_testcase(_TestCase, Config) ->
     check_std_daemon_works(Config, ?LINE).
 
+end_per_testcase(no_common_alg_server_disconnects, Config) ->
+    stop_std_daemon(Config);
 end_per_testcase(TC, Config) when TC == gex_client_init_default_noexact ;
 				  TC == gex_client_init_default_exact ;
 				  TC == gex_client_init_option_groups ;
@@ -100,7 +105,6 @@ end_per_testcase(TC, Config) when TC == gex_client_init_default_noexact ;
     stop_std_daemon(Config);
 end_per_testcase(_TestCase, Config) ->
     check_std_daemon_works(Config, ?LINE).
-
 
 %%%--------------------------------------------------------------------
 %%% Test Cases --------------------------------------------------------
@@ -412,8 +416,9 @@ start_std_daemon(Config, ExtraOpts) ->
     UserDir = filename:join(PrivDir, nopubkey), % to make sure we don't use public-key-auth
     file:make_dir(UserDir),
     UserPasswords = [{"user1","pwd1"}],
-    Options = [{system_dir, system_dir(Config)},
-	       {user_dir, user_dir(Config)},
+    Options = [%%{preferred_algorithms,[{public_key,['ssh-rsa']}]}, %% For some test cases
+	       {system_dir, system_dir(Config)},
+	       {user_dir, UserDir},
 	       {user_passwords, UserPasswords},
 	       {failfun, fun ssh_test_lib:failfun/2}
 	       | ExtraOpts],
