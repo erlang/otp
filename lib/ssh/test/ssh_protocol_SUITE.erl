@@ -343,13 +343,15 @@ gex_client_init_default_exact(Config) ->
 
 
 gex_client_init_option_groups(Config) ->
-    do_gex_client_init(Config, {2000, 2048, 4000}, {3,41}).
+    do_gex_client_init(Config, {2000, 2048, 4000}, 
+		       {'n/a',{3,41}}).
 
 
 gex_client_init_option_groups_file(Config) ->
-    do_gex_client_init(Config, {2000, 2048, 4000}, {5,61}).
+    do_gex_client_init(Config, {2000, 2048, 4000},
+		       {'n/a',{5,61}}).
 
-do_gex_client_init(Config, {Min,N,Max}, {G,P}) ->
+do_gex_client_init(Config, {Min,N,Max}, {_,{G,P}}) ->
     {ok,_} =
 	ssh_trpt_test_lib:exec(
 	  [{set_options, [print_ops, print_seqnums, print_messages]},

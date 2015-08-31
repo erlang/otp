@@ -1340,14 +1340,10 @@ peer_name({Host, _}) ->
 %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-dh_group('diffie-hellman-group1-sha1') -> ?dh_group1;
-dh_group('diffie-hellman-group14-sha1') -> ?dh_group14.
+dh_group('diffie-hellman-group1-sha1') ->  element(2, ?dh_group1);
+dh_group('diffie-hellman-group14-sha1') -> element(2, ?dh_group14).
 
-dh_gex_default_groups() ->
-    [{1024, ?dh_group1 },
-     {2048, ?dh_group14},
-     {3072, ?dh_group15},
-     {4096, ?dh_group16}].
+dh_gex_default_groups() -> ?dh_default_groups.
 
 
 dh_gex_group(Min, N, Max, undefined) ->
