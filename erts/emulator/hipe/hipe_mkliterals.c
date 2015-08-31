@@ -542,6 +542,8 @@ static void compute_crc(void)
 	crc_value = crc_update_int(crc_value, &literals[i].value);
     crc_value &= 0x07FFFFFF;
     literals_crc = crc_value;
+
+    crc_value = crc_init();
     for (i = 0; i < NR_PARAMS; ++i)
 	if (rts_params[i].is_defined)
 	    crc_value = crc_update_int(crc_value, &rts_params[i].value);
@@ -627,6 +629,7 @@ static int do_c(FILE *fp, const char* this_exe)
     print_params(fp, c_define_param);
     fprintf(fp, "#define HIPE_LITERALS_CRC %uU\n", literals_crc);
     fprintf(fp, "#define HIPE_SYSTEM_CRC %uU\n", system_crc);
+    fprintf(fp, "#define HIPE_ERTS_CHECKSUM (HIPE_LITERALS_CRC ^ HIPE_SYSTEM_CRC)\n");
     fprintf(fp, "\n");
     fprintf(fp, "#define RTS_PARAMS_CASES");
     print_params(fp, c_case_param);
@@ -644,12 +647,14 @@ static int do_e(FILE *fp, const char* this_exe)
     fprintf(fp, "\n");
     print_params(fp, e_define_param);
     fprintf(fp, "\n");
+    fprintf(fp, "-define(HIPE_LITERALS_CRC, %u).\n", literals_crc);
     if (is_xcomp) {
 	fprintf(fp, "-define(HIPE_SYSTEM_CRC, %u).\n", system_crc);
     }
     else {
 	fprintf(fp, "-define(HIPE_SYSTEM_CRC, hipe_bifs:system_crc()).\n");
     }
+    fprintf(fp, "-define(HIPE_ERTS_CHECKSUM, (?HIPE_LITERALS_CRC bxor ?HIPE_SYSTEM_CRC)).\n");
     return 0;
 }
 
