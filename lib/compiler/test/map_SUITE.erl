@@ -63,7 +63,10 @@
 	%% errors in 17.0-rc1
 	t_update_values/1,
         t_expand_map_update/1,
-        t_export/1
+        t_export/1,
+
+	%% errors in 18
+        t_register_corruption/1
     ]).
 
 suite() -> [].
@@ -108,11 +111,13 @@ all() ->
 	t_build_and_match_nil,
 	t_build_and_match_structure,
 
-
 	%% errors in 17.0-rc1
 	t_update_values,
         t_expand_map_update,
-        t_export
+        t_export,
+
+	%% errors in 18
+        t_register_corruption
     ].
 
 groups() -> [].
@@ -1827,6 +1832,53 @@ map_guard_sequence_mixed(K1,K2,M) ->
 	#{ K1 := 1, c := 6, K2 := 8, h := 3} -> 6
     end.
 
+%% register corruption discovered in 18 due to
+%% get_map_elements might destroys registers when fail-label is taken.
+%% Only seen when patterns have two targets,
+%% specifically: we copy one register, and then jump.
+%%    {test,is_map,{f,5},[{x,1}]}.
+%%
+%%    {get_map_elements,{f,7},{x,1},{list,[{atom,a},{x,1},{atom,b},{x,2}]}}.
+%%    %% if 'a' exists but not 'b' {x,1} is overwritten, jump {f,7}
+%%
+%%    {move,{integer,1},{x,0}}.
+%%    {call_only,3,{f,10}}.
+%%
+%%  {label,7}.
+%%    {get_map_elements,{f,8},{x,1},{list,[{atom,b},{x,2}]}}.
+%%    %% {x,1} (src) is now corrupt
+%%
+%%    {move,{x,0},{x,1}}.
+%%    {move,{integer,2},{x,0}}.
+%%    {call_only,3,{f,10}}.
+%%
+%% Only happens in beam_block opt_move pass with two destinations.
+
+t_register_corruption(Config) when is_list(Config) ->
+    M = #{a=> <<"value">>, c=>3},
+    {3,wanted,<<"value">>} = register_corruption_bar(M,wanted),
+    {3,wanted,<<"value">>} = register_corruption_foo(wanted,M),
+    ok.
+
+register_corruption_foo(A,#{a := V1, b := V2}) ->
+    register_corruption_dummy_call(1,V1,V2);
+register_corruption_foo(A,#{b := V}) ->
+    register_corruption_dummy_call(2,A,V);
+register_corruption_foo(A,#{a := V}) ->
+    register_corruption_dummy_call(3,A,V).
+
+register_corruption_bar(M,A) ->
+    case M of
+        #{a := V1, b := V2} ->
+            register_corruption_dummy_call(1,V1,V2);
+        #{b := V} ->
+            register_corruption_dummy_call(2,A,V);
+        #{a := V} ->
+            register_corruption_dummy_call(3,A,V)
+    end.
+
+
+register_corruption_dummy_call(A,B,C) -> {A,B,C}.
 
 
 t_frequency_table(Config) when is_list(Config) ->
