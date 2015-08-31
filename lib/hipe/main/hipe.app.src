@@ -225,4 +225,4 @@
   {applications, [kernel,stdlib]},
   {env, []},
   {runtime_dependencies, ["syntax_tools-1.6.14","stdlib-2.5","kernel-3.0",
-			  "erts-7.0","compiler-5.0"]}]}.
+			  "erts-7.1","compiler-5.0"]}]}.
