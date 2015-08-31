@@ -1741,7 +1741,7 @@ BIF_RETTYPE hipe_bifs_check_crc_1(BIF_ALIST_1)
 
     if (!term_to_Uint(BIF_ARG_1, &crc))
 	BIF_ERROR(BIF_P, BADARG);
-    if (crc == HIPE_SYSTEM_CRC)
+    if (crc == HIPE_ERTS_CHECKSUM)
 	BIF_RET(am_true);
     BIF_RET(am_false);
 }

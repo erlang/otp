@@ -208,7 +208,8 @@
 	 help_options/0,
 	 help_option/1,
 	 help_debug_options/0,
-	 version/0]).
+	 version/0,
+	 erts_checksum/0]).
 
 -ifndef(DEBUG).
 -define(DEBUG,true).
@@ -216,6 +217,7 @@
 
 -include("hipe.hrl").
 -include("../../compiler/src/beam_disasm.hrl").
+-include("../rtl/hipe_literals.hrl").
 
 %%-------------------------------------------------------------------
 %% Basic type declaration for exported functions of the 'hipe' module
@@ -1032,6 +1034,12 @@ post(Res, Icode, Options) ->
 version() ->
   ?VERSION_STRING().
 
+%% @doc Returns checksum identifying the target runtime system.
+-spec erts_checksum() -> integer().
+
+erts_checksum() ->
+  ?HIPE_ERTS_CHECKSUM.
+
 %% --------------------------------------------------------------------
 %% D O C U M E N T A T I O N   -   H E L P 
 %% --------------------------------------------------------------------
@@ -1062,6 +1070,8 @@ help() ->
     "     Prints a description of debug options.\n" ++
     "   version() ->\n" ++
     "     Returns the HiPE version as a string'.\n" ++
+    "   erts_checksum() ->\n" ++
+    "     Returns a checksum identifying the target runtime system.\n" ++
     "\n" ++
     " For HiPE developers only:\n" ++
     "  Use `help_hiper()' for information about HiPE's low-level interface\n",
