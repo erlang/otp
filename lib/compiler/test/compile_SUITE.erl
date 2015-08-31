@@ -31,7 +31,9 @@
 	 other_output/1, encrypted_abstr/1,
 	 bad_record_use1/1, bad_record_use2/1, strict_record/1,
 	 missing_testheap/1, cover/1, env/1, core/1, asm/1,
-	 sys_pre_attributes/1, dialyzer/1]).
+	 sys_pre_attributes/1, dialyzer/1,
+	 warnings/1
+	]).
 
 -export([init/3]).
 
@@ -48,7 +50,7 @@ all() ->
      other_output, encrypted_abstr,
      {group, bad_record_use}, strict_record,
      missing_testheap, cover, env, core, asm,
-     sys_pre_attributes, dialyzer].
+     sys_pre_attributes, dialyzer, warnings].
 
 groups() -> 
     [{bad_record_use, [],
@@ -894,6 +896,44 @@ dialyzer(Config) ->
     {ok,M} = c:c(M, Opts),
     [{a,b,c}] = M:M(),
     ok.
+
+
+%% Test that warnings contain filenames and line numbers.
+warnings(_Config) ->
+    TestDir = filename:dirname(code:which(?MODULE)),
+    Files = filelib:wildcard(filename:join(TestDir, "*.erl")),
+    test_lib:p_run(fun do_warnings/1, Files).
+
+do_warnings(F) ->
+    {ok,_,_,Ws} = compile:file(F, [binary,bin_opt_info,return]),
+    do_warnings_1(Ws, F).
+
+do_warnings_1([{"no_file",Ws}|_], F) ->
+    io:format("~s:\nMissing file for warnings: ~p\n",
+	      [F,Ws]),
+    error;
+do_warnings_1([{Name,Ws}|T], F) ->
+    case filename:extension(Name) of
+	".erl" ->
+	    do_warnings_2(Ws, T, F);
+	_ ->
+	    io:format("~s:\nNo .erl extension\n", [F]),
+	    error
+    end;
+do_warnings_1([], _) -> ok.
+
+do_warnings_2([{Int,_,_}=W|T], Next, F) ->
+    if
+	is_integer(Int) ->
+	    do_warnings_2(T, Next, F);
+	true ->
+	    io:format("~s:\nMissing line number: ~p\n",
+		      [F,W]),
+	    error
+    end;
+do_warnings_2([], Next, F) ->
+    do_warnings_1(Next, F).
+
 
 %%%
 %%% Utilities.
