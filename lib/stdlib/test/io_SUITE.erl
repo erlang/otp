@@ -29,7 +29,7 @@
          manpage/1, otp_6708/1, otp_7084/1, otp_7421/1,
 	 io_lib_collect_line_3_wb/1, cr_whitespace_in_string/1,
 	 io_fread_newlines/1, otp_8989/1, io_lib_fread_literal/1,
-	 printable_range/1,
+	 printable_range/1, bad_printable_range/1,
 	 io_lib_print_binary_depth_one/1, otp_10302/1, otp_10755/1,
          otp_10836/1, io_lib_width_too_small/1,
          io_with_huge_message_queue/1, format_string/1,
@@ -71,7 +71,7 @@ all() ->
      manpage, otp_6708, otp_7084, otp_7421,
      io_lib_collect_line_3_wb, cr_whitespace_in_string,
      io_fread_newlines, otp_8989, io_lib_fread_literal,
-     printable_range,
+     printable_range, bad_printable_range,
      io_lib_print_binary_depth_one, otp_10302, otp_10755, otp_10836,
      io_lib_width_too_small, io_with_huge_message_queue,
      format_string, maps].
@@ -2063,8 +2063,6 @@ printable_range(Suite) when is_list(Suite) ->
 					 [{args, " +pclatin1 -pa " ++ Pa}]),
     unicode = rpc:call(UNode,io,printable_range,[]),
     latin1 = rpc:call(LNode,io,printable_range,[]),
-    {error, _} = test_server:start_node(printable_range_unnicode, slave,
-					[{args, " +pcunnicode -pa " ++ Pa}]),
     PrettyOptions = [{column,1},
 		     {line_length,109},
 		     {depth,30},
@@ -2113,6 +2111,17 @@ printable_range(Suite) when is_list(Suite) ->
     test_server:stop_node(LNode),
     test_server:stop_node(DNode),
     ok.
+
+%% Make sure that a bad specification for a printable range is rejected.
+bad_printable_range(Config) when is_list(Config) ->
+    Cmd = lists:concat([lib:progname()," +pcunnnnnicode -run erlang halt"]),
+    case os:cmd(Cmd) of
+	"bad range of printable characters" ++ _ ->
+	    ok;
+	String ->
+	    io:format("~s\n", [String]),
+	    ?t:fail()
+    end.
 
 io_lib_print_binary_depth_one(doc) ->
     "Test binaries printed with a depth of one behave correctly";
