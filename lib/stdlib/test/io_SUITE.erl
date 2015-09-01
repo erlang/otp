@@ -2225,7 +2225,7 @@ compile_file(File, Text, Config) ->
     after ok %file:delete(Fname)
     end.
 
-io_lib_width_too_small(Config) ->
+io_lib_width_too_small(_Config) ->
     "**" = lists:flatten(io_lib:format("~2.3w", [3.14])),
     "**" = lists:flatten(io_lib:format("~2.5w", [3.14])),
     ok.
@@ -2271,7 +2271,7 @@ writes(N, F1) ->
     file:write(F1, "hello\n"),
     writes(N - 1, F1).
 
-format_string(Config) ->
+format_string(_Config) ->
     %% All but padding is tested by fmt/2.
     "xxxxxxsssx" = fmt("~10.4.xs", ["sss"]),
     "xxxxxxsssx" = fmt("~10.4.*s", [$x, "sss"]),
