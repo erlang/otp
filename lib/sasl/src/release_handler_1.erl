@@ -587,12 +587,12 @@ get_supervised_procs() ->
       get_application_names()).
 
 get_supervised_procs(_, Root, Procs, {ok, SupMod}) ->
-    get_procs(maybe_supervisor_which_children(get_proc_state(Root), SupMod, Root), Root) ++
+    get_procs(maybe_supervisor_which_children(Root, SupMod, Root), Root) ++
         [{undefined, undefined, Root, [SupMod]} |  Procs];
 get_supervised_procs(Application, Root, Procs, {error, _}) ->
     error_logger:error_msg("release_handler: cannot find top supervisor for "
                            "application ~w~n", [Application]),
-    get_procs(maybe_supervisor_which_children(get_proc_state(Root), Application, Root), Root) ++ Procs.
+    get_procs(maybe_supervisor_which_children(Root, Application, Root), Root) ++ Procs.
 
 get_application_names() ->
     lists:map(fun({Application, _Name, _Vsn}) ->
@@ -613,33 +613,54 @@ get_procs([{Name, Pid, worker, Mods} | T], Sup) when is_pid(Pid), is_list(Mods) 
     [{Sup, Name, Pid, Mods} | get_procs(T, Sup)];
 get_procs([{Name, Pid, supervisor, Mods} | T], Sup) when is_pid(Pid) ->
     [{Sup, Name, Pid, Mods} | get_procs(T, Sup)] ++
-        get_procs(maybe_supervisor_which_children(get_proc_state(Pid), Name, Pid), Pid);
+        get_procs(maybe_supervisor_which_children(Pid, Name, Pid), Pid);
 get_procs([_H | T], Sup) ->
     get_procs(T, Sup);
 get_procs(_, _Sup) ->
     [].
 
+maybe_supervisor_which_children(Proc, Name, Pid) ->
+    case get_proc_state(Proc) of
+        noproc ->
+            %% process exited before we could interrogate it.
+            %% not necessarily a bug, but reporting a warning as a curiosity.
+            error_logger:warning_msg("release_handler: a process (~p) exited"
+                                     " during supervision tree interrogation;"
+                                     " Continuing.~n", [Proc]),
+            [];
+
+        suspended ->
+            error_logger:error_msg("release_handler: a which_children call"
+                                   " to ~p (~w) was avoided. This supervisor"
+                                   " is suspended and should likely be upgraded"
+                                   " differently. Exiting ...~n", [Name, Pid]),
+            error(suspended_supervisor);
+
+        running ->
+            case catch supervisor:which_children(Pid) of
+                Res when is_list(Res) ->
+                    Res;
+                Other ->
+                    error_logger:error_msg("release_handler: ~p~nerror during"
+                                           " a which_children call to ~p (~w)."
+                                           " [State: running] Exiting ... ~n",
+                                           [Other, Name, Pid]),
+                    error(which_children_failed)
+            end
+    end.
+
 get_proc_state(Proc) ->
-    {status, _, {module, _}, [_, State, _, _, _]} = sys:get_status(Proc),
-    State.
-
-maybe_supervisor_which_children(suspended, Name, Pid) ->
-    error_logger:error_msg("release_handler: a which_children call"
-                           " to ~p (~w) was avoided. This supervisor"
-                           " is suspended and should likely be upgraded"
-                           " differently. Exiting ...~n", [Name, Pid]),
-    error(suspended_supervisor);
-
-maybe_supervisor_which_children(State, Name, Pid) ->
-    case catch supervisor:which_children(Pid) of
-        Res when is_list(Res) ->
-            Res;
-        Other ->
-            error_logger:error_msg("release_handler: ~p~nerror during"
-                                   " a which_children call to ~p (~w)."
-                                   " [State: ~p] Exiting ... ~n",
-                                   [Other, Name, Pid, State]),
-            error(which_children_failed)
+    %% sys:send_system_msg can exit with {noproc, {m,f,a}}.
+    %% This happens if a supervisor exits after which_children has provided
+    %% its pid for interrogation.
+    %% ie. Proc may no longer be running at this point.
+    try sys:get_status(Proc) of
+        %% as per sys:get_status/1, SysState can only be running | suspended.
+        {status, _, {module, _}, [_, State, _, _, _]} when State == running ;
+                                                           State == suspended ->
+            State
+    catch exit:{noproc, {sys, get_status, [Proc]}} ->
+        noproc
     end.
 
 maybe_get_dynamic_mods(Name, Pid) ->
