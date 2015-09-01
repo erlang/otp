@@ -878,7 +878,7 @@
         <p>Synchronization error during chunk sending according to one 
 	of the following:
           </p><list type="bulleted">
-	  <item>>A call is made to <c>send_chunk/2</c> or <c>send_chunk_end/1</c>
+	  <item>A call is made to <c>send_chunk/2</c> or <c>send_chunk_end/1</c>
 	  before a call to <c>send_chunk_start/2</c>.</item>
 	  <item>A call has been made to another transfer function during chunk 
 	  sending, that is, before a call to <c>send_chunk_end/1</c>.</item>
@@ -936,7 +936,9 @@
 
   <section>
     <title>SEE ALSO</title>
-    <p>file, filename, J. Postel and J. Reynolds: File Transfer Protocol
+    <p><seealso marker="kernel:file">file(3)</seealso>
+       <seealso marker="stdlib:filename">filename(3)</seealso>
+       and J. Postel and J. Reynolds: File Transfer Protocol
       (<url href="http://www.ietf.org/rfc/rfc959.txt">RFC 959</url>).
       </p>
   </section>
