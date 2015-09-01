@@ -441,11 +441,7 @@ print_term(fmtfn_t fn, void* arg, Eterm obj, long *dcount,
 	    PRINT_DOUBLE(res, fn, arg, 'e', 6, 0, ff.fd);
 	}
 	    break;
-	case BINARY_DEF:
-	    if (header_is_bin_matchstate(*boxed_val(wobj))) {
-		PRINT_STRING(res, fn, arg, "#MatchState");
-	    }
-	    else {
+	case BINARY_DEF: {
 		ProcBin* pb = (ProcBin *) binary_val(wobj);
 		if (pb->size == 1)
 		    PRINT_STRING(res, fn, arg, "<<1 byte>>");
@@ -519,6 +515,9 @@ print_term(fmtfn_t fn, void* arg, Eterm obj, long *dcount,
 		}
 	    }
 	    break;
+        case MATCHSTATE_DEF:
+            PRINT_STRING(res, fn, arg, "#MatchState");
+            break;
 	default:
 	    PRINT_STRING(res, fn, arg, "<unknown:");
 	    PRINT_POINTER(res, fn, arg, wobj);
