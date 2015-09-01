@@ -32,7 +32,8 @@
 	 printable_range/1,
 	 io_lib_print_binary_depth_one/1, otp_10302/1, otp_10755/1,
          otp_10836/1, io_lib_width_too_small/1,
-         io_with_huge_message_queue/1, format_string/1]).
+         io_with_huge_message_queue/1, format_string/1,
+	 maps/1]).
 
 -export([pretty/2]).
 
@@ -73,7 +74,7 @@ all() ->
      printable_range,
      io_lib_print_binary_depth_one, otp_10302, otp_10755, otp_10836,
      io_lib_width_too_small, io_with_huge_message_queue,
-     format_string].
+     format_string, maps].
 
 groups() -> 
     [].
@@ -2276,3 +2277,97 @@ format_string(_Config) ->
     "xxxxxxsssx" = fmt("~10.4.xs", ["sss"]),
     "xxxxxxsssx" = fmt("~10.4.*s", [$x, "sss"]),
     ok.
+
+maps(_Config) ->
+    %% Note that order in which a map is printed is arbitrary.  In
+    %% practice, small maps (non-HAMT) are printed in key order, but
+    %% the breakpoint for creating big maps (HAMT) is lower in the
+    %% debug-compiled run-time system than in the optimized run-time
+    %% system.
+    %%
+    %% Therefore, play it completely safe by not assuming any order
+    %% in a map with more than one element.
+
+    "#{}" = fmt("~w", [#{}]),
+    "#{a=>b}" = fmt("~w", [#{a=>b}]),
+    re_fmt(<<"#\\{(a=>b|c=>d),[.][.][.]=>[.][.][.]\\}">>,
+	     "~W", [#{a=>b,c=>d},2]),
+    re_fmt(<<"#\\{(a=>b|c=>d|e=>f),[.][.][.]=>[.][.][.],[.][.][.]\\}">>,
+	   "~W", [#{a=>b,c=>d,e=>f},2]),
+
+    "#{}" = fmt("~p", [#{}]),
+    "#{a => b}" = fmt("~p", [#{a=>b}]),
+    "#{...}" = fmt("~P", [#{a=>b},1]),
+    re_fmt(<<"#\\{(a => b|c => d),[.][.][.]\\}">>,
+	   "~P", [#{a=>b,c=>d},2]),
+    re_fmt(<<"#\\{(a => b|c => d|e => f),[.][.][.]\\}">>,
+	   "~P", [#{a=>b,c=>d,e=>f},2]),
+
+    List = [{I,I*I} || I <- lists:seq(1, 20)],
+    Map = maps:from_list(List),
+
+    "#{...}" = fmt("~P", [Map,1]),
+
+    %% Print a map and parse it back to a map.
+    S = fmt("~p\n", [Map]),
+    io:format("~p\n", [S]),
+    Map = parse_map(S),
+
+    %% Smoke test of a map as key.
+    MapAsKey = #{Map => "value"},
+    io:format("~s\n", [fmt("~p", [MapAsKey])]),
+    ok.
+
+re_fmt(Pattern, Format, Args) ->
+    S = list_to_binary(fmt(Format, Args)),
+    case re:run(S, Pattern, [{capture,none}]) of
+	nomatch ->
+	    io:format("Pattern: ~s", [Pattern]),
+	    io:format("Result:  ~s", [S]),
+	    ?t:fail();
+	match ->
+	    ok
+    end.
+
+%% Parse a map consisting of integer keys and values.
+parse_map(S0) ->
+    S1 = parse_expect(S0, "#{"),
+    {M,S2} = parse_map_1(S1),
+    S = parse_expect(S2, "}"),
+    S = "",
+    M.
+
+parse_map_1(S0) ->
+    {Key,S1} = parse_number(S0),
+    S2 = parse_expect(S1, "=>"),
+    {Val,S3} = parse_number(S2),
+    case S3 of
+	","++S4 ->
+	    S5 = parse_skip_ws(S4),
+	    {Map,S} = parse_map_1(S5),
+	    {Map#{Key=>Val},S};
+	S ->
+	    {#{Key=>Val},S}
+    end.
+
+parse_number(S) ->
+    parse_number(S, none).
+
+parse_number([C|S], Acc0) when $0 =< C, C =< $9 ->
+    Acc = case Acc0 of
+	      none -> 0;
+	      _ when is_integer(Acc0) -> Acc0
+	  end,
+    parse_number(S, Acc*10+C-$0);
+parse_number(S, Acc) ->
+    {Acc,parse_skip_ws(S)}.
+
+parse_expect([H|T1], [H|T2]) ->
+    parse_expect(T1, T2);
+parse_expect(S, []) ->
+    parse_skip_ws(S).
+
+parse_skip_ws([C|S]) when C =< $\s ->
+    parse_skip_ws(S);
+parse_skip_ws(S) ->
+    S.
