@@ -120,17 +120,6 @@
     </func>
 
     <func>
-      <name>stop() -> ok </name>
-      <fsummary>Stops the <c>Inets</c> application.</fsummary>
-      <desc>
-        <p>Stops the <c>Inets</c> application. See also
-	<seealso marker="kernel:application">application(3)</seealso>.</p>
-	
-	<marker id="start2"></marker>
-      </desc>
-    </func>
-
-    <func>
       <name>start(Service, ServiceConfig) -> {ok, Pid} | {error, Reason}</name>
       <name>start(Service, ServiceConfig, How) -> {ok, Pid} | {error, Reason}</name>
       <fsummary>Dynamically starts an <c>Inets</c>
@@ -166,6 +155,17 @@
       </desc>
     </func>
 
+     <func>
+      <name>stop() -> ok </name>
+      <fsummary>Stops the <c>Inets</c> application.</fsummary>
+      <desc>
+        <p>Stops the <c>Inets</c> application. See also
+	<seealso marker="kernel:application">application(3)</seealso>.</p>
+	
+	<marker id="start2"></marker>
+      </desc>
+    </func>
+    
     <func>
       <name>stop(Service, Reference) -> ok | {error, Reason} </name>
       <fsummary>Stops a started service of the <c>Inets</c> application or takes

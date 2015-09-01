@@ -927,7 +927,6 @@ text/plain	asc txt</pre>
 
   <funcs>
     <func>
-      <marker id="info1"></marker>
       <name>info(Pid) -></name>
       <name>info(Pid, Properties) -> [{Option, Value}]</name>
       <fsummary>Fetches information about the HTTP server.</fsummary>
@@ -953,8 +952,6 @@ text/plain	asc txt</pre>
     </func>
 
     <func>
-      <marker id="info2"></marker>
-
       <name>info(Address, Port) ->  </name>
       <name>info(Address, Port, Profile) ->  </name>
       <name>info(Address, Port, Profile, Properties) -> [{Option, Value}] </name>
@@ -983,7 +980,6 @@ text/plain	asc txt</pre>
     </func>
     
     <func>
-      <marker id="reload_config"></marker>
       <name>reload_config(Config, Mode) -> ok | {error, Reason}</name>
       <fsummary>Reloads the HTTP server configuration without
 	restarting the server.</fsummary>
@@ -1108,7 +1104,6 @@ text/plain	asc txt</pre>
   </section>
   <funcs>
     <func>
-      <marker id="module_do"></marker>
       <name>Module:do(ModData)-> {proceed, OldData} | {proceed, NewData} | {break, NewData} | done</name>
       <fsummary>Called for each request to the web server.</fsummary>
       <type>
@@ -1164,7 +1159,6 @@ text/plain	asc txt</pre>
     </func>
 
     <func>
-      <marker id="module_load"></marker>
       <name>Module:load(Line, AccIn)-> eof | ok | {ok, AccOut} | {ok, AccOut, {Option, Value}} | {ok, AccOut, [{Option, Value}]} | {error, Reason}</name>
       <fsummary>Converts a line in an Apache-like config 
 	file to an <c>{Option, Value}</c> tuple.</fsummary>
@@ -1186,9 +1180,23 @@ text/plain	asc txt</pre>
 	</p>
       </desc>
     </func>
-
+    
     <func>
-      <marker id="module_store"></marker>
+      <name>Module:remove(ConfigDB) -> ok | {error, Reason} </name>
+      <fsummary>Callback function that is called when the web server is closed.</fsummary>
+      <type>
+        <v>ConfigDB = ets_table()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>When <c>httpd</c> is shut down, it tries to execute
+          <c>remove/1</c> in each Erlang web server callback module. The
+          programmer can use this function to clean up resources
+          created in the store function.</p>
+      </desc>
+    </func>
+    
+    <func>
       <name>Module:store({Option, Value}, Config)-> {ok, {Option, NewValue}} | {error, Reason}</name>
       <fsummary>Checks the validity of the configuration options.</fsummary>
       <type>
@@ -1210,22 +1218,6 @@ text/plain	asc txt</pre>
 	  implemented by this particular callback module.</p>
       </desc>
     </func>
-
-    <func>
-      <marker id="module_remove"></marker>
-      <name>Module:remove(ConfigDB) -> ok | {error, Reason} </name>
-      <fsummary>Callback function that is called when the web server is closed.</fsummary>
-      <type>
-        <v>ConfigDB = ets_table()</v>
-        <v>Reason = term()</v>
-      </type>
-      <desc>
-        <p>When <c>httpd</c> is shut down, it tries to execute
-          <c>remove/1</c> in each Erlang web server callback module. The
-          programmer can use this function to clean up resources
-          created in the store function.</p>
-      </desc>
-    </func>
   </funcs>
 
   <section>
@@ -1233,7 +1225,6 @@ text/plain	asc txt</pre>
   </section>
   <funcs>
     <func>
-      <marker id="parse_query"></marker>
       <name>parse_query(QueryString) -> [{Key,Value}]</name>
       <fsummary>Parses incoming data to <c>erl</c> and <c>eval</c> scripts.</fsummary>
       <type>

@@ -146,11 +146,112 @@
 
     <p>The client can be stopped using <c>inets:stop(httpc, Pid)</c> or
     <c>inets:stop(httpc, Profile)</c>.</p>
-    
-    <marker id="request1"></marker>
   </section>
   
   <funcs>
+   
+    <func>
+      <name>cancel_request(RequestId) -></name>
+      <name>cancel_request(RequestId, Profile) -> ok</name>
+      <fsummary>Cancels an asynchronous HTTP request.</fsummary>
+      <type>
+        <v>RequestId = request_id() - A unique identifier as returned
+        by request/4</v>
+	<v>Profile = profile() | pid()</v>
+	<d>When started <c>stand_alone</c>.</d>
+      </type>
+      <desc>
+        <p>Cancels an asynchronous HTTP request. Notice that this does not guarantee
+	that the request response is not delivered. Because it is asynchronous,
+	the request can already have been completed when the cancellation arrives.
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>cookie_header(Url) -> </name>
+      <name>cookie_header(Url, Profile | Opts) -> header() | {error, Reason}</name>
+      <name>cookie_header(Url, Opts, Profile) -> header() | {error, Reason}</name>
+      <fsummary>Returns the cookie header that would have been sent when
+      making a request to URL using the profile <c>Profile</c>.</fsummary>
+      <type>
+        <v>Url = url()</v>
+        <v>Opts = [cookie_header_opt()]</v>
+	<v>Profile = profile() | pid()</v>
+	<d>When started <c>stand_alone</c>.</d>
+        <v>cookie_header_opt() = {ipv6_host_with_brackets, boolean()}</v>
+      </type>
+      <desc>
+        <p>Returns the cookie header that would have been sent
+	when making a request to <c>Url</c> using profile <c>Profile</c>.
+	If no profile is specified, the default profile is used.</p>
+	<p>Option <c>ipv6_host_with_bracket</c> deals with how to 
+	parse IPv6 addresses. For details,
+	see argument <c>Options</c> of
+	<seealso marker="#request-4">request/4,5</seealso>.</p>
+      </desc>
+    </func>
+
+     <func>
+      <name>get_options(OptionItems) -> {ok, Values} | {error, Reason}</name>
+      <name>get_options(OptionItems, Profile) -> {ok, Values} | {error, Reason}</name>
+      <fsummary>Gets the currently used options.</fsummary>
+      <type>
+        <v>OptionItems = all | [option_item()]</v>
+	<v>option_item() = proxy |
+	                   https_proxy
+                           max_sessions | 
+			   keep_alive_timeout | 
+	                   max_keep_alive_length | 
+			   pipeline_timeout | 
+			   max_pipeline_length | 
+			   cookies | 
+			   ipfamily | 
+			   ip | 
+			   port | 
+			   socket_opts | 
+	                   verbose</v>
+	<v>Profile = profile() | pid(</v>
+	<d>When started <c>stand_alone</c>.</d>
+        <v>Values = [{option_item(), term()}]</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Retrieves the options currently used by the client.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>info() -> list()</name>
+      <name>info(Profile) -> list()</name>
+      <fsummary>Produces a list of miscellaneous information.</fsummary>
+      <type>
+	<v>Profile = profile() | pid()</v>
+	<d>When started <c>stand_alone</c>.</d>
+      </type>
+      <desc>
+        <p>Produces a list of miscellaneous information. 
+	Intended for debugging. 
+	If no profile is specified, the default profile is used.</p>
+      </desc>
+    </func>
+
+    
+    <func>
+      <name>reset_cookies() -> void()</name>
+      <name>reset_cookies(Profile) -> void()</name>
+      <fsummary>Resets the cookie database.</fsummary>
+      <type>
+	<v>Profile = profile() | pid()</v>
+	<d>When started <c>stand_alone</c>.</d>
+      </type>
+      <desc>
+        <p>Resets (clears) the cookie database for the specified 
+	<c>Profile</c>. If no profile is specified the default profile 
+	is used.</p>
+      </desc>
+    </func>
+    
     <func>
       <name>request(Url) -> </name>
       <name>request(Url, Profile) -> {ok, Result} | {error, Reason}</name>
@@ -166,8 +267,6 @@
       </type>
       <desc>
         <p>Equivalent to <c>httpc:request(get, {Url, []}, [], [])</c>.</p>
-
-        <marker id="request2"></marker>
       </desc>
     </func>
 
@@ -353,7 +452,7 @@
             <p>Socket options to be used for this and subsequent 
 	    requests.</p>
 	    <p>Overrides any value set by function
-	    <seealso marker="#set_options">set_options</seealso>.</p>
+	    <seealso marker="#set_options-1">set_options</seealso>.</p>
             <p>The validity of the options is <em>not</em>
 	    checked in any way.</p>
             <p>Notice that this can change the socket behavior 
@@ -361,7 +460,7 @@
 	    for an already existing one, and therefore an already connected
 	    request handler.</p>
             <p>By default the socket options set by function
-	    <seealso marker="#set_options">set_options/1,2</seealso> 
+	    <seealso marker="#set_options-1">set_options/[1,2]</seealso> 
 	     are used when establishing a connection.</p>
 	  </item>
 
@@ -418,31 +517,10 @@
 	  </item>
 
         </taglist>
-
-        <marker id="cancel_request"></marker>
       </desc>
     </func>
 
-    <func>
-      <name>cancel_request(RequestId) -></name>
-      <name>cancel_request(RequestId, Profile) -> ok</name>
-      <fsummary>Cancels an asynchronous HTTP request.</fsummary>
-      <type>
-        <v>RequestId = request_id() - A unique identifier as returned
-        by request/4</v>
-	<v>Profile = profile() | pid()</v>
-	<d>When started <c>stand_alone</c>.</d>
-      </type>
-      <desc>
-        <p>Cancels an asynchronous HTTP request. Notice that this does not guarantee
-	that the request response is not delivered. Because it is asynchronous,
-	the request can already have been completed when the cancellation arrives.
-	</p>
-
-        <marker id="set_options"></marker>
-      </desc>
-    </func>
-
+  
     <func>
       <name>set_options(Options) -> </name>
       <name>set_options(Options, Profile) -> ok | {error, Reason}</name>
@@ -554,39 +632,27 @@
         <marker id="get_options"></marker>
       </desc>
     </func>
-    
+     
     <func>
-      <name>get_options(OptionItems) -> {ok, Values} | {error, Reason}</name>
-      <name>get_options(OptionItems, Profile) -> {ok, Values} | {error, Reason}</name>
-      <fsummary>Gets the currently used options.</fsummary>
+      <name>store_cookies(SetCookieHeaders, Url) -> </name>
+      <name>store_cookies(SetCookieHeaders, Url, Profile) -> ok | {error, Reason}</name>
+      <fsummary>Saves the cookies defined in <c>SetCookieHeaders</c> in the 
+      client profile cookie database.</fsummary>
       <type>
-        <v>OptionItems = all | [option_item()]</v>
-	<v>option_item() = proxy |
-	                   https_proxy
-                           max_sessions | 
-			   keep_alive_timeout | 
-	                   max_keep_alive_length | 
-			   pipeline_timeout | 
-			   max_pipeline_length | 
-			   cookies | 
-			   ipfamily | 
-			   ip | 
-			   port | 
-			   socket_opts | 
-	                   verbose</v>
-	<v>Profile = profile() | pid(</v>
+        <v>SetCookieHeaders = headers() - where field = "set-cookie"</v>
+        <v>Url = url()</v>
+	<v>Profile = profile() | pid()</v>
 	<d>When started <c>stand_alone</c>.</d>
-        <v>Values = [{option_item(), term()}]</v>
-        <v>Reason = term()</v>
       </type>
       <desc>
-        <p>Retrieves the options currently used by the client.</p>
-
-        <marker id="stream_next"></marker>
+        <p>Saves the cookies defined in <c>SetCookieHeaders</c>
+	in the client profile cookie database.
+	Call this function if option <c>cookies</c> is set to <c>verify</c>.
+	If no profile is specified, the default profile is used.</p>
       </desc>
     </func>
-    
-     <func>
+
+    <func>
       <name>stream_next(Pid) -> ok</name>
       <fsummary>Triggers the next message to be streamed, that is,
 	the same behavior as active ones for sockets.
@@ -605,72 +671,6 @@
     </func>
     
     <func>
-      <name>store_cookies(SetCookieHeaders, Url) -> </name>
-      <name>store_cookies(SetCookieHeaders, Url, Profile) -> ok | {error, Reason}</name>
-      <fsummary>Saves the cookies defined in <c>SetCookieHeaders</c> in the 
-      client profile cookie database.</fsummary>
-      <type>
-        <v>SetCookieHeaders = headers() - where field = "set-cookie"</v>
-        <v>Url = url()</v>
-	<v>Profile = profile() | pid()</v>
-	<d>When started <c>stand_alone</c>.</d>
-      </type>
-      <desc>
-        <p>Saves the cookies defined in <c>SetCookieHeaders</c>
-	in the client profile cookie database.
-	Call this function if option <c>cookies</c> is set to <c>verify</c>.
-	If no profile is specified, the default profile is used.</p>
-
-        <marker id="cookie_header"></marker>
-      </desc>
-    </func>
-
-    <func>
-      <name>cookie_header(Url) -> </name>
-      <name>cookie_header(Url, Profile | Opts) -> header() | {error, Reason}</name>
-      <name>cookie_header(Url, Opts, Profile) -> header() | {error, Reason}</name>
-      <fsummary>Returns the cookie header that would have been sent when
-      making a request to URL using the profile <c>Profile</c>.</fsummary>
-      <type>
-        <v>Url = url()</v>
-        <v>Opts = [cookie_header_opt()]</v>
-	<v>Profile = profile() | pid()</v>
-	<d>When started <c>stand_alone</c>.</d>
-        <v>cookie_header_opt() = {ipv6_host_with_brackets, boolean()}</v>
-      </type>
-      <desc>
-        <p>Returns the cookie header that would have been sent
-	when making a request to <c>Url</c> using profile <c>Profile</c>.
-	If no profile is specified, the default profile is used.</p>
-	<p>Option <c>ipv6_host_with_bracket</c> deals with how to 
-	parse IPv6 addresses. For details,
-	see argument <c>Options</c> of
-	<seealso marker="#request2">request/4,5</seealso>.</p>
-
-        <marker id="reset_cookies"></marker>
-      </desc>
-    </func>
-
-
-    <func>
-      <name>reset_cookies() -> void()</name>
-      <name>reset_cookies(Profile) -> void()</name>
-      <fsummary>Resets the cookie database.</fsummary>
-      <type>
-	<v>Profile = profile() | pid()</v>
-	<d>When started <c>stand_alone</c>.</d>
-      </type>
-      <desc>
-        <p>Resets (clears) the cookie database for the specified 
-	<c>Profile</c>. If no profile is specified the default profile 
-	is used.</p>
-
-        <marker id="which_cookies"></marker>
-      </desc>
-    </func>
-
-
-    <func>
       <name>which_cookies() -> cookies()</name>
       <name>which_cookies(Profile) -> cookies()</name>
       <fsummary>Dumps the entire cookie database.</fsummary>
@@ -686,8 +686,6 @@
         <p>Produces a list of the entire cookie database.
 	Intended for debugging/testing purposes. 
 	If no profile is specified, the default profile is used.</p>
-
-        <marker id="which_sessions"></marker>
       </desc>
     </func>
 
@@ -707,25 +705,10 @@
         <p>Produces a slightly processed dump of the session 
 	database. It is intended for debugging. 
 	If no profile is specified, the default profile is used.</p>
-
-        <marker id="info"></marker>
       </desc>
     </func>
 
-    <func>
-      <name>info() -> list()</name>
-      <name>info(Profile) -> list()</name>
-      <fsummary>Produces a list of miscellaneous information.</fsummary>
-      <type>
-	<v>Profile = profile() | pid()</v>
-	<d>When started <c>stand_alone</c>.</d>
-      </type>
-      <desc>
-        <p>Produces a list of miscellaneous information. 
-	Intended for debugging. 
-	If no profile is specified, the default profile is used.</p>
-      </desc>
-    </func>
+  
   </funcs>
 
   <section>

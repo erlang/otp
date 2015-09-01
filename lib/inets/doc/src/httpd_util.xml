@@ -53,8 +53,6 @@
           the Erlang date format. <c>DateString</c> must be in one of the 
 	  three date formats defined in 
 	<url href="http://www.ietf.org/rfc/rfc2616.txt">RFC 2616</url>.</p>
-
-	<marker id="create_etag"></marker>
       </desc>
     </func>
 
@@ -69,8 +67,22 @@
         <p><c>create_etag/1</c> calculates the Etag for a file from its
           size and time for last modification. <c>FileInfo</c> is a record defined 
           in <c>kernel/include/file.hrl</c>.</p>
-
-	<marker id="decode_hex"></marker>
+      </desc>
+    </func>
+    
+    <func>
+      <name>day(NthDayOfWeek) -> DayOfWeek</name>
+      <fsummary>Converts the day of the week 
+      (integer [1-7]) to an abbreviated string.</fsummary>
+      <type>
+        <v>NthDayOfWeek = 1-7</v>
+        <v>DayOfWeek = string()</v>
+      </type>
+      <desc>
+        <p><c>day/1</c> converts the day of the week
+          (<c>NthDayOfWeek</c>) from an integer (1-7) to an abbreviated
+          string, that is:</p>
+        <p>1 = "Mon", 2 = "Tue", ..., 7 = "Sat".</p>
       </desc>
     </func>
 
@@ -83,30 +95,9 @@
       <desc>
         <p>Converts the hexadecimal value <c>HexValue</c> into its
           decimal equivalent (<c>DecValue</c>).</p>
-
-	<marker id="day"></marker>
       </desc>
     </func>
-
-    <func>
-      <name>day(NthDayOfWeek) -> DayOfWeek</name>
-      <fsummary>Converts the day of the week 
-      (integer [1-7]) to an abbreviated string.</fsummary>
-      <type>
-        <v>NthDayOfWeek = 1-7</v>
-        <v>DayOfWeek = string()</v>
-      </type>
-      <desc>
-        <marker id="day"></marker>
-        <p><c>day/1</c> converts the day of the week
-          (<c>NthDayOfWeek</c>) from an integer (1-7) to an abbreviated
-          string, that is:</p>
-        <p>1 = "Mon", 2 = "Tue", ..., 7 = "Sat".</p>
-
-	<marker id="flatlength"></marker>
-      </desc>
-    </func>
-
+    
     <func>
       <name>flatlength(NestedList) -> Size</name>
       <fsummary>Computes the size of a possibly nested list.</fsummary>
@@ -115,45 +106,10 @@
         <v>Size = integer()</v>
       </type>
       <desc>
-        <marker id="flatlength"></marker>
         <p><c>flatlength/1</c> computes the size of the possibly nested
           list <c>NestedList</c>, which can contain binaries.</p>
-
-        <marker id="hexlist_to_integer"></marker>
       </desc>
     </func>
-
-<!--
-    <func>
-      <name>header(StatusCode,PersistentConn)</name>
-      <name>header(StatusCode,Date)</name>
-      <name>header(StatusCode,MimeType,Date)</name>
-      <name>header(StatusCode,MimeType,PersistentConn,Date) -> HTTPHeader</name>
-      <fsummary>Generates an HTTP 1.1 header.</fsummary>
-      <type>
-        <v>StatusCode = integer()</v>
-        <v>Date = rfc1123_date()</v>
-        <v>MimeType = string()</v>
-        <v>PersistentConn = true | false</v>
-      </type>
-      <desc>
-        <marker id="header"></marker>
-        <p><c>header</c> returns an HTTP 1.1 header string.
-          <c>StatusCode</c> is one of the status codes defined in
-	  <url href="http://www.ietf.org/rfc/rfc2616.txt">RFC 2616</url>
-          and the <c>Date</c> string is RFC 1123 
-          compliant (see <seealso marker="#rfc1123_date">rfc1123_date/0</seealso>).
-          </p>
-        <p>Notice that the two versions of <c>header/n</c> that does not
-          have a <c>PersistentConn</c> argument is only for
-          backward compatibility and must not be used in new Erlang
-          web server API modules supporting persistent
-          connections.</p>
-
-	<marker id="hexlist_to_integer"></marker>
-      </desc>
-    </func>
--->
 
     <func>
       <name>hexlist_to_integer(HexString) -> Number</name>
@@ -165,8 +121,6 @@
       <desc>
         <p><c>hexlist_to_integer</c> converts the hexadecimal value of 
           <c>HexString</c> to an integer.</p>
-
-	<marker id="integer_to_hexlist"></marker>
       </desc>
     </func>
 
@@ -178,11 +132,8 @@
         <v>HexString = string()</v>
       </type>
       <desc>
-        <marker id="integer_to_hexlist"></marker>
         <p><c>integer_to_hexlist/1</c> returns a string representing
           <c>Number</c> in a hexadecimal form.</p>
-
-	<marker id="lookup"></marker>
       </desc>
     </func>
 
@@ -205,8 +156,6 @@
           returned. <c>lookup/2</c> returns <c>undefined</c> and
           <c>lookup/3</c> returns <c>Undefined</c> if no <c>Value</c>
           is found.</p>
-
-	<marker id="lookup_mime"></marker>
       </desc>
     </func>
 
@@ -221,14 +170,11 @@
         <v>Undefined = term()</v>
       </type>
       <desc>
-        <marker id="lookup_mime"></marker>
         <p><c>lookup_mime</c> returns the MIME type associated with a
           specific file suffix as specified in the file <c>mime.types</c>
           (located in the 
           <path unix="$SERVER_ROOT/conf/mime.types" windows="%SERVER_ROOT%\conf\mime.types">
 	config directory</path>).</p>
-
-	<marker id="lookup_mime_default"></marker>
       </desc>
     </func>
 
@@ -244,7 +190,6 @@
         <v>Undefined = term()</v>
       </type>
       <desc>
-        <marker id="lookup_mime_default"></marker>
         <p><c>lookup_mime_default</c> returns the MIME type associated
           with a specific file suffix as specified in the
           <c>mime.types</c> file (located in the
@@ -252,8 +197,6 @@
 	    config  directory</path>). 
           If no appropriate association is found, the value of <c>DefaultType</c> is
           returned.</p>
-
-	<marker id="message"></marker>
       </desc>
     </func>
 
@@ -267,7 +210,6 @@
         <v>Message = string()</v>
       </type>
       <desc>
-        <marker id="message"></marker>
         <p><c>message/3</c> returns an informative HTTP 1.1 status
           string in HTML. Each <c>StatusCode</c> requires a specific
           <c>PhraseArgs</c>:
@@ -290,8 +232,6 @@
           <item><p><c>string()</c>: A string describing why the service
            was unavailable.</p></item>
         </taglist>
-
-	<marker id="month"></marker>
       </desc>
     </func>
 
@@ -303,12 +243,9 @@
         <v>Month = string()</v>
       </type>
       <desc>
-        <marker id="month"></marker>
         <p><c>month/1</c> converts the month <c>NthMonth</c> as an
           integer (1-12) to an abbreviated string, that is: </p>
         <p>1 = "Jan", 2 = "Feb", ..., 12 = "Dec".</p>
-
-	<marker id="multi_lookup"></marker>
       </desc>
     </func>
 
@@ -324,8 +261,6 @@
         <p><c>multi_lookup</c> extracts all <c>{Key,Value}</c> tuples
           from an <c>ETSTable</c> and returns <em>all</em> <c>Values</c> 
 	associated with <c>Key</c> in a list.</p>
-
-	<marker id="reason phrase"></marker>
       </desc>
     </func>
 
@@ -341,7 +276,6 @@
           HTTP 1.1 <c>StatusCode</c>, for example, 200 is "OK" and 201
           is "Created". For more information, see
 	<url href="http://www.ietf.org/rfc/rfc2616.txt">RFC 2616</url>.</p>
-	<marker id="rfc1123_date"></marker>
       </desc>
     </func>
 
@@ -354,12 +288,9 @@
         <v>RFC1123Date = string()</v>
       </type>
       <desc>
-        <marker id="rfc1123_date"></marker>
         <p><c>rfc1123_date/0</c> returns the current date in RFC 1123
           format. <c>rfc_date/1</c> converts the date in the Erlang format
           to the RFC 1123 date format.</p>
-
-	<marker id="split"></marker>
       </desc>
     </func>
 
@@ -373,14 +304,11 @@
         <v>N = integer</v>
       </type>
       <desc>
-        <marker id="split"></marker>
         <p><c>split/3</c> splits <c>String</c> in <c>N</c> chunks
           using <c>RegExp</c>. <c>split/3</c> is equivalent to
           <c>regexp:split/2</c> with the exception that <c>N</c>
           defines the maximum number of fields in
           <c>FieldList</c>.</p>
-
-	<marker id="split_script_path"></marker>
       </desc>
     </func>
 
@@ -394,13 +322,10 @@
         <v>Path = QueryString = PathInfo = string()</v>
       </type>
       <desc>
-        <marker id="split_script_path"></marker>
         <p><c>split_script_path/1</c> is equivalent to
           <c>split_path/1</c> with one exception. If the longest
           possible path is not a regular, accessible, and executable
           file, then <c>not_a_script</c> is returned.</p>
-
-	<marker id="split_path"></marker>
       </desc>
     </func>
 
@@ -412,7 +337,6 @@
         <v>RequestLine = Path = QueryStringOrPathInfo = string()</v>
       </type>
       <desc>
-        <marker id="split_path"></marker>
         <p><c>split_path/1</c> splits <c>RequestLine</c> in a file
           reference (<c>Path</c>), and a <c>QueryString</c> or a
           <c>PathInfo</c> string as specified in
@@ -428,8 +352,6 @@
           <c>Path</c>, isolated with a <c>/</c>, is regarded as
           <c>PathInfo</c>. The resulting <c>Path</c> is decoded using
           <c>decode_hex/1</c> before delivery.</p>
-
-	<marker id="strip"></marker>
       </desc>
     </func>
 
@@ -441,12 +363,9 @@
         <v>String = Stripped = string()</v>
       </type>
       <desc>
-        <marker id="strip"></marker>
         <p><c>strip/1</c> removes any leading or trailing linear white
           space from the string. Linear white space is to be read as
           horizontal tab or space.</p>
-
-	<marker id="suffix"></marker>
       </desc>
     </func>
 
@@ -457,7 +376,6 @@
         <v>FileName = Suffix = string()</v>
       </type>
       <desc>
-        <marker id="suffix"></marker>
         <p><c>suffix/1</c> is equivalent to
           <c>filename:extension/1</c> with the exception that
           <c>Suffix</c> is returned without a leading dot (<c>.</c>).</p>
@@ -466,7 +384,6 @@
   </funcs>
 
   <section>
-    <marker id="see_also"></marker>
     <title>SEE ALSO</title>
     <p><seealso marker="httpd">httpd(3)</seealso></p>
   </section>

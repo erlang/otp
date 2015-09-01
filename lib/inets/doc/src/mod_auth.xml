@@ -34,11 +34,36 @@
   <description>
     <p>This module provides for basic user authentication using
     textual files, <c>Dets</c> databases, or <c>Mnesia</c> databases.</p>
-
-    <marker id="add_user"></marker>
   </description>
 
   <funcs>
+     <func>
+      <name>add_group_member(GroupName, UserName, Options) -> true | {error, Reason}</name>
+      <name>add_group_member(GroupName, UserName, Port, Dir) -> true | {error, Reason}</name>
+      <name>add_group_member(GroupName, UserName, Address, Port, Dir) -> true | {error, Reason}</name>
+      <fsummary>Adds a user to a group.</fsummary>
+      <type>
+        <v>GroupName = string()</v>
+        <v>UserName = string()</v>
+        <v>Options = [Option]</v>
+        <v>Option = {port,Port} | {addr,Address} | {dir,Directory} | {authPassword,AuthPassword}</v>
+        <v>Port = integer()</v>
+        <v>Address = {A,B,C,D} | string() | undefined</v>
+        <v>Dir = string()</v>
+        <v>AuthPassword = string()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p><c>add_group_member/3, add_group_member/4</c>, and 
+	<c>add_group_member/5</c> each
+	adds a user to a group. If the group does not exist, it 
+	is created and the user is added to the group. Upon successful 
+	operation, this function returns <c>true</c>. 
+	When <c>add_group_members/3</c> 
+	is called, options <c>Port</c> and <c>Dir</c> are mandatory.</p>
+      </desc>
+    </func>
+    
     <func>
       <name>add_user(UserName, Options) -> true| {error, Reason}</name>
       <name>add_user(UserName, Password, UserData, Port, Dir) -> true | {error, Reason}</name>
@@ -57,19 +82,64 @@
         <v>Reason = term()</v>
       </type>
       <desc>
-        <marker id="user_api"></marker>
-        <marker id="add_user"></marker>
         <p><c>add_user/2, add_user/5</c>, and <c>add_user/6</c> each adds a 
 	user to the user database. If the operation is successful, 
 	this function returns <c>true</c>. If an error occurs, 
 	<c>{error,Reason}</c> is returned. 
 	When <c>add_user/2</c> is called, options <c>Password</c>, 
 	<c>UserData</c>, <c>Port</c>, and <c>Dir</c> are mandatory.</p>
-
-	<marker id="delete_user"></marker>
       </desc>
     </func>
 
+     <func>
+      <name>delete_group(GroupName, Options) -> true | {error,Reason} &lt;name>delete_group(GroupName, Port, Dir) -> true | {error, Reason}</name>
+      <name>delete_group(GroupName, Address, Port, Dir) -> true | {error, Reason}</name>
+      <fsummary>Deletes a group.</fsummary>
+      <type>
+        <v>Options = [Option]</v>
+        <v>Option = {port,Port} | {addr,Address} | {dir,Directory} | {authPassword,AuthPassword}</v>
+        <v>Port = integer()</v>
+        <v>Address = {A,B,C,D} | string() | undefined</v>
+        <v>Dir = string()</v>
+        <v>GroupName = string()</v>
+        <v>AuthPassword = string()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+	<p><c>delete_group/2, delete_group/3</c>, and <c>delete_group/4</c> 
+	each deletes the group specified and returns <c>true</c>. 
+	If there is an error, <c>{error, Reason}</c> is returned. 
+	When <c>delete_group/2</c> is called, option
+	<c>Port</c> and <c>Dir</c> are mandatory.</p>
+      </desc>
+    </func>
+
+     <func>
+      <name>delete_group_member(GroupName, UserName, Options) -> true | {error, Reason}</name>
+      <name>delete_group_member(GroupName, UserName, Port, Dir) -> true | {error, Reason}</name>
+      <name>delete_group_member(GroupName, UserName, Address, Port, Dir) -> true | {error, Reason}</name>
+      <fsummary>Removes a user from a group.</fsummary>
+      <type>
+        <v>GroupName = string()</v>
+        <v>UserName = string()</v>
+        <v>Options = [Option]</v>
+        <v>Option = {port,Port} | {addr,Address} | {dir,Directory} | {authPassword,AuthPassword}</v>
+        <v>Port = integer()</v>
+        <v>Address = {A,B,C,D} | string() | undefined</v>
+        <v>Dir = string()</v>
+        <v>AuthPassword = string()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+	<p><c>delete_group_member/3, delete_group_member/4</c>, and 
+	<c>delete_group_member/5</c> each deletes a user from a group. 
+	If the group or the user does not exist, 
+	this function returns an error, otherwise <c>true</c>.
+	When <c>delete_group_member/3</c> is called, the options <c>Port</c> 
+	and <c>Dir</c> are mandatory.</p>
+      </desc>
+    </func>
+    
     <func>
       <name>delete_user(UserName,Options) -> true | {error, Reason}</name>
       <name>delete_user(UserName, Port, Dir) -> true | {error, Reason}</name>
@@ -86,15 +156,12 @@
         <v>Reason = term()</v>
       </type>
       <desc>
-        <marker id="delete_user"></marker>
         <p><c>delete_user/2, delete_user/3</c>, and <c>delete_user/4</c> 
 	each deletes a user from the user database. 
 	If the operation is successful, this function returns <c>true</c>. 
 	If an error occurs, <c>{error,Reason}</c> is returned. 
 	When <c>delete_user/2</c> is called, options <c>Port</c> and <c>Dir</c> 
 	are mandatory.</p>
-
-	<marker id="get_user"></marker>
       </desc>
     </func>
 
@@ -114,103 +181,38 @@
         <v>Reason = term()</v>
       </type>
       <desc>
-        <marker id="get_user"></marker>
         <p><c>get_user/2, get_user/3</c>, and <c>get_user/4</c> each 
 	returns an <c>httpd_user</c> record containing the userdata for a 
 	specific user. If the user cannot be found, <c>{error, Reason}</c> 
 	is returned. When <c>get_user/2</c> is called, options <c>Port</c> and <c>Dir</c> 
 	are mandatory.</p>
-
-	<marker id="list_users"></marker>
       </desc>
     </func>
 
-    <func>
-      <name>list_users(Options) -> {ok, Users} | {error, Reason}</name>
-      <name>list_users(Port, Dir) -> {ok, Users} | {error, Reason}</name>
-      <name>list_users(Address, Port, Dir) -> {ok, Users} | {error, Reason}</name>
-      <fsummary>Lists users in the user database.</fsummary>
+     <func>
+      <name>list_groups(Options) -> {ok, Groups} | {error, Reason}</name>
+      <name>list_groups(Port, Dir) -> {ok, Groups} | {error, Reason}</name>
+      <name>list_groups(Address, Port, Dir) -> {ok, Groups} | {error, Reason}</name>
+      <fsummary>Lists all the groups.</fsummary>
       <type>
         <v>Options = [Option]</v>
         <v>Option = {port,Port} | {addr,Address} | {dir,Directory} | {authPassword,AuthPassword}</v>
         <v>Port = integer()</v>
         <v>Address = {A,B,C,D} | string() | undefined</v>
         <v>Dir = string()</v>
-        <v>Users = list()</v>
-        <v>AuthPassword = string()</v>
-        <v>Reason = atom()</v>
-      </type>
-      <desc>
-        <marker id="list_users"></marker>
-        <p><c>list_users/1, list_users/2</c>, and <c>list_users/3</c> 
-	each returns a list 
-	of users in the user database for a specific <c>Port/Dir</c>.
-	When <c>list_users/1</c> is called, options <c>Port</c> and <c>Dir</c> 
-	are mandatory.</p>
-
-	<marker id="add_group_member"></marker>
-      </desc>
-    </func>
-
-    <func>
-      <name>add_group_member(GroupName, UserName, Options) -> true | {error, Reason}</name>
-      <name>add_group_member(GroupName, UserName, Port, Dir) -> true | {error, Reason}</name>
-      <name>add_group_member(GroupName, UserName, Address, Port, Dir) -> true | {error, Reason}</name>
-      <fsummary>Adds a user to a group.</fsummary>
-      <type>
-        <v>GroupName = string()</v>
-        <v>UserName = string()</v>
-        <v>Options = [Option]</v>
-        <v>Option = {port,Port} | {addr,Address} | {dir,Directory} | {authPassword,AuthPassword}</v>
-        <v>Port = integer()</v>
-        <v>Address = {A,B,C,D} | string() | undefined</v>
-        <v>Dir = string()</v>
+        <v>Groups = list()</v>
         <v>AuthPassword = string()</v>
         <v>Reason = term()</v>
       </type>
       <desc>
-        <marker id="add_group_member"></marker>
-        <p><c>add_group_member/3, add_group_member/4</c>, and 
-	<c>add_group_member/5</c> each
-	adds a user to a group. If the group does not exist, it 
-	is created and the user is added to the group. Upon successful 
-	operation, this function returns <c>true</c>. 
-	When <c>add_group_members/3</c> 
-	is called, options <c>Port</c> and <c>Dir</c> are mandatory.</p>
-
-	<marker id="delete_group_member"></marker>
-      </desc>
-    </func>
-
-    <func>
-      <name>delete_group_member(GroupName, UserName, Options) -> true | {error, Reason}</name>
-      <name>delete_group_member(GroupName, UserName, Port, Dir) -> true | {error, Reason}</name>
-      <name>delete_group_member(GroupName, UserName, Address, Port, Dir) -> true | {error, Reason}</name>
-      <fsummary>Removes a user from a group.</fsummary>
-      <type>
-        <v>GroupName = string()</v>
-        <v>UserName = string()</v>
-        <v>Options = [Option]</v>
-        <v>Option = {port,Port} | {addr,Address} | {dir,Directory} | {authPassword,AuthPassword}</v>
-        <v>Port = integer()</v>
-        <v>Address = {A,B,C,D} | string() | undefined</v>
-        <v>Dir = string()</v>
-        <v>AuthPassword = string()</v>
-        <v>Reason = term()</v>
-      </type>
-      <desc>
-        <marker id="delete_group_member"></marker>
-	<p><c>delete_group_member/3, delete_group_member/4</c>, and 
-	<c>delete_group_member/5</c> each deletes a user from a group. 
-	If the group or the user does not exist, 
-	this function returns an error, otherwise <c>true</c>.
-	When <c>delete_group_member/3</c> is called, the options <c>Port</c> 
+	<p><c>list_groups/1, list_groups/2</c>, and <c>list_groups/3</c> 
+	each lists all the groups available. 
+	If there is an error, <c>{error, Reason}</c> is returned. 
+	When <c>list_groups/1</c> is called, options <c>Port</c> 
 	and <c>Dir</c> are mandatory.</p>
-
-	<marker id="list_group_members"></marker>
       </desc>
     </func>
-
+   
     <func>
       <name>list_group_members(GroupName, Options) -> {ok, Users} | {error, Reason}</name>
       <name>list_group_members(GroupName, Port, Dir) -> {ok, Users} | {error, Reason}</name>
@@ -228,71 +230,39 @@
         <v>Reason = term()</v>
       </type>
       <desc>
-        <marker id="list_group_members"></marker>
         <p><c>list_group_members/2, list_group_members/3</c>, and 
 	<c>list_group_members/4</c> each
 	lists the members of a specified group. If the group does not 
 	exist or there is an error, <c>{error, Reason}</c> is returned.
 	When <c>list_group_members/2</c> is called, options <c>Port</c> 
 	and <c>Dir</c> are mandatory.</p>
-
-	<marker id="list_groups"></marker>
       </desc>
     </func>
 
-    <func>
-      <name>list_groups(Options) -> {ok, Groups} | {error, Reason}</name>
-      <name>list_groups(Port, Dir) -> {ok, Groups} | {error, Reason}</name>
-      <name>list_groups(Address, Port, Dir) -> {ok, Groups} | {error, Reason}</name>
-      <fsummary>Lists all the groups.</fsummary>
+     <func>
+      <name>list_users(Options) -> {ok, Users} | {error, Reason}</name>
+      <name>list_users(Port, Dir) -> {ok, Users} | {error, Reason}</name>
+      <name>list_users(Address, Port, Dir) -> {ok, Users} | {error, Reason}</name>
+      <fsummary>Lists users in the user database.</fsummary>
       <type>
         <v>Options = [Option]</v>
         <v>Option = {port,Port} | {addr,Address} | {dir,Directory} | {authPassword,AuthPassword}</v>
         <v>Port = integer()</v>
         <v>Address = {A,B,C,D} | string() | undefined</v>
         <v>Dir = string()</v>
-        <v>Groups = list()</v>
+        <v>Users = list()</v>
         <v>AuthPassword = string()</v>
-        <v>Reason = term()</v>
+        <v>Reason = atom()</v>
       </type>
       <desc>
-        <marker id="list_groups"></marker>
-	<p><c>list_groups/1, list_groups/2</c>, and <c>list_groups/3</c> 
-	each lists all the groups available. 
-	If there is an error, <c>{error, Reason}</c> is returned. 
-	When <c>list_groups/1</c> is called, options <c>Port</c> 
-	and <c>Dir</c> are mandatory.</p>
-
-	<marker id="delete_group"></marker>
+        <p><c>list_users/1, list_users/2</c>, and <c>list_users/3</c> 
+	each returns a list 
+	of users in the user database for a specific <c>Port/Dir</c>.
+	When <c>list_users/1</c> is called, options <c>Port</c> and <c>Dir</c> 
+	are mandatory.</p>
       </desc>
     </func>
-
-    <func>
-      <name>delete_group(GroupName, Options) -> true | {error,Reason} &lt;name>delete_group(GroupName, Port, Dir) -> true | {error, Reason}</name>
-      <name>delete_group(GroupName, Address, Port, Dir) -> true | {error, Reason}</name>
-      <fsummary>Deletes a group.</fsummary>
-      <type>
-        <v>Options = [Option]</v>
-        <v>Option = {port,Port} | {addr,Address} | {dir,Directory} | {authPassword,AuthPassword}</v>
-        <v>Port = integer()</v>
-        <v>Address = {A,B,C,D} | string() | undefined</v>
-        <v>Dir = string()</v>
-        <v>GroupName = string()</v>
-        <v>AuthPassword = string()</v>
-        <v>Reason = term()</v>
-      </type>
-      <desc>
-        <marker id="delete_group"></marker>
-	<p><c>delete_group/2, delete_group/3</c>, and <c>delete_group/4</c> 
-	each deletes the group specified and returns <c>true</c>. 
-	If there is an error, <c>{error, Reason}</c> is returned. 
-	When <c>delete_group/2</c> is called, option
-	<c>Port</c> and <c>Dir</c> are mandatory.</p>
-
-	<marker id="update_password"></marker>
-      </desc>
-    </func>
-
+    
     <func>
       <name>update_password(Port, Dir, OldPassword, NewPassword, NewPassword) -> ok | {error, Reason}</name>
       <name>update_password(Address,Port, Dir, OldPassword, NewPassword, NewPassword) -> ok | {error, Reason}</name>
@@ -307,7 +277,6 @@
         <v>Reason = term()</v>
       </type>
       <desc>
-        <marker id="update_password"></marker>
         <p><c>update_password/5</c> and <c>update_password/6</c> each
 	updates <c>AuthAccessPassword</c> for the specified directory. 
 	If <c>NewPassword</c> is equal to "NoPassword", no password is required to
@@ -319,7 +288,6 @@
   </funcs>
 
   <section>
-    <marker id="see_also"></marker>
     <title>SEE ALSO</title>
     <p><seealso marker="httpd">httpd(3)</seealso>,
       <seealso marker="mod_alias">mod_alias(3)</seealso></p>

@@ -35,6 +35,26 @@
     <p>Security Audit and Trailing Functionality</p>
   </description>
   <funcs>
+
+      <func>
+      <name>block_user(User, Port, Dir, Seconds) -> true | {error, Reason}</name>
+      <name>block_user(User, Address, Port, Dir, Seconds) -> true | {error, Reason}</name>
+      <fsummary>Blocks a user from access to a directory for a certain amount of time.</fsummary>
+      <type>
+        <v>User = string()</v>
+        <v>Port = integer()</v>
+        <v>Address = {A,B,C,D} | string() | undefined</v>
+        <v>Dir = string()</v>
+        <v>Seconds = integer() | infinity</v>
+        <v>Reason = no_such_directory</v>
+      </type>
+      <desc>
+        <p><c>block_user/4</c> and <c>block_user/5</c> each blocks the user 
+          <c>User</c> from directory <c>Dir</c> for a specified 
+          amount of time.</p>
+      </desc>
+    </func>
+    
     <func>
       <name>list_auth_users(Port) -> Users | []</name>
       <name>list_auth_users(Address, Port) -> Users | []</name>
@@ -50,7 +70,6 @@
         <v>Users = list() = [string()]</v>
       </type>
       <desc>
-        <marker id="list_auth_users"></marker>
         <p><c>list_auth_users/1</c>, <c>list_auth_users/2</c>, and 
           <c>list_auth_users/3</c> each returns a list of users that are 
           currently authenticated. Authentications are stored for
@@ -71,31 +90,12 @@
         <v>Users = list() = [string()]</v>
       </type>
       <desc>
-        <marker id="list_blocked_users"></marker>
         <p><c>list_blocked_users/1</c>, <c>list_blocked_users/2</c>, and 
           <c>list_blocked_users/3</c> each returns a list of users that are 
           currently blocked from access.</p>
       </desc>
     </func>
-    <func>
-      <name>block_user(User, Port, Dir, Seconds) -> true | {error, Reason}</name>
-      <name>block_user(User, Address, Port, Dir, Seconds) -> true | {error, Reason}</name>
-      <fsummary>Blocks a user from access to a directory for a certain amount of time.</fsummary>
-      <type>
-        <v>User = string()</v>
-        <v>Port = integer()</v>
-        <v>Address = {A,B,C,D} | string() | undefined</v>
-        <v>Dir = string()</v>
-        <v>Seconds = integer() | infinity</v>
-        <v>Reason = no_such_directory</v>
-      </type>
-      <desc>
-        <marker id="block_user"></marker>
-        <p><c>block_user/4</c> and <c>block_user/5</c> each blocks the user 
-          <c>User</c> from directory <c>Dir</c> for a specified 
-          amount of time.</p>
-      </desc>
-    </func>
+  
     <func>
       <name>unblock_user(User, Port) -> true | {error, Reason}</name>
       <name>unblock_user(User, Address, Port) -> true | {error, Reason}</name>
@@ -110,7 +110,6 @@
         <v>Reason = term()</v>
       </type>
       <desc>
-        <marker id="unblock_user"></marker>
         <p><c>unblock_user/2</c>, <c>unblock_user/3</c>, and 
           <c>unblock_user/4</c> each removes the user <c>User</c> from 
           the list of blocked users for <c>Port</c> (and <c>Dir</c>).</p>
@@ -123,16 +122,15 @@
     <title>SecurityCallbackModule</title>
     <p>The <c>SecurityCallbackModule</c> is a user-written module that can receive 
       events from the <c>mod_security</c> Erlang web server API module. 
-      This module only exports the functions
-      <seealso marker="#callback_module_event">event/4,5</seealso>, 
+      This module only exports the functions event/[4,5]
       which are described here.
       </p>
   </section>
 
   <funcs>
     <func>
-      <name>event(What, Port, Dir, Data) -> ignored</name>
-      <name>event(What, Address, Port, Dir, Data) -> ignored</name>
+      <name>Module:event(What, Port, Dir, Data) -> ignored</name>
+      <name>Module:event(What, Address, Port, Dir, Data) -> ignored</name>
       <fsummary>Called whenever an event occurs in <c>mod_security</c>.</fsummary>
       <type>
         <v>What = atom()</v>
