@@ -2070,47 +2070,57 @@ printable_range(Suite) when is_list(Suite) ->
 		     {record_print_fun,
 		      fun(_,_) -> no end},
 		     {encoding,unicode}],
-    1025 = lists:max(lists:flatten(rpc:call(UNode,io_lib_pretty,print,
-					    [{hello, [1024,1025]},
-					     PrettyOptions]))),
-    125 = lists:max(lists:flatten(rpc:call(LNode,io_lib_pretty,print,
-					   [{hello, [1024,1025]},
-					    PrettyOptions]))),
-    125 = lists:max(lists:flatten(rpc:call(DNode,io_lib_pretty,print,
-					   [{hello, [1024,1025]},
-					    PrettyOptions]))),
-    1025 = lists:max(lists:flatten(rpc:call(UNode,io_lib_pretty,print,
-					    [{hello, <<1024/utf8,1025/utf8>>},
-					     PrettyOptions]))),
-    125 = lists:max(lists:flatten(rpc:call(LNode,io_lib_pretty,print,
-					   [{hello, <<1024/utf8,1025/utf8>>},
-					    PrettyOptions]))),
-    125 = lists:max(lists:flatten(rpc:call(DNode,io_lib_pretty,print,
-					   [{hello, <<1024/utf8,1025/utf8>>},
-					    PrettyOptions]))),
+    PrintableControls = "\t\v\b\f\e\r\n",
+
+    1025 = print_max(UNode, [{hello, [1024,1025]},
+			     PrettyOptions]),
+    125 = print_max(LNode,  [{hello, [1024,1025]},
+			     PrettyOptions]),
+    125 = print_max(DNode,  [{hello, [1024,1025]},
+			     PrettyOptions]),
+    1025 = print_max(UNode, [{hello, <<1024/utf8,1025/utf8>>},
+			     PrettyOptions]),
+    125 = print_max(LNode,  [{hello, <<1024/utf8,1025/utf8>>},
+			     PrettyOptions]),
+    125 = print_max(DNode,  [{hello, <<1024/utf8,1025/utf8>>},
+			     PrettyOptions]),
+    $v = print_max(UNode, [PrintableControls,PrettyOptions]),
+    $v = print_max(LNode, [PrintableControls,PrettyOptions]),
+    $v = print_max(DNode, [PrintableControls,PrettyOptions]),
+    16#10FFFF = print_max(UNode,
+			  [<<16#10FFFF/utf8,"\t\v\b\f\e\r\n">>,
+			   PrettyOptions]),
+    $> = print_max(LNode,
+		   [<<16#10FFFF/utf8,"\t\v\b\f\e\r\n">>,
+		    PrettyOptions]),
+    $> = print_max(DNode,
+		   [<<16#10FFFF/utf8,"\t\v\b\f\e\r\n">>,
+		    PrettyOptions]),
     
-    1025 = lists:max(lists:flatten(rpc:call(UNode,io_lib,format,
-					    ["~tp",[{hello, [1024,1025]}]]))),
-    125 = lists:max(lists:flatten(rpc:call(LNode,io_lib,format,
-					   ["~tp",[{hello, [1024,1025]}]]))),
-    125 = lists:max(lists:flatten(rpc:call(DNode,io_lib,format,
-					   ["~tp",[{hello, [1024,1025]}]]))),
-    1025 = lists:max(lists:flatten(rpc:call(UNode,io_lib,format,
-					    ["~tp",
-					     [{hello, 
-					       <<1024/utf8,1025/utf8>>}]]))),
-    125 = lists:max(lists:flatten(rpc:call(LNode,io_lib,format,
-					   ["~tp",
-					    [{hello,
-					      <<1024/utf8,1025/utf8>>}]]))),
-    125 = lists:max(lists:flatten(rpc:call(DNode,io_lib,format,
-					   ["~tp",
-					    [{hello,
-					      <<1024/utf8,1025/utf8>>}]]))),
+    1025 = format_max(UNode, ["~tp", [{hello, [1024,1025]}]]),
+    125 = format_max(LNode,  ["~tp", [{hello, [1024,1025]}]]),
+    125 = format_max(DNode,  ["~tp", [{hello, [1024,1025]}]]),
+    1025 = format_max(UNode, ["~tp", [{hello, <<1024/utf8,1025/utf8>>}]]),
+    125 = format_max(LNode,  ["~tp", [{hello, <<1024/utf8,1025/utf8>>}]]),
+    125 = format_max(DNode,  ["~tp", [{hello, <<1024/utf8,1025/utf8>>}]]),
+
+    $\e = format_max(UNode, ["~ts", [PrintableControls]]),
+    $\e = format_max(LNode, ["~ts", [PrintableControls]]),
+    $\e = format_max(DNode, ["~ts", [PrintableControls]]),
+
     test_server:stop_node(UNode),
     test_server:stop_node(LNode),
     test_server:stop_node(DNode),
     ok.
+
+print_max(Node, Args) ->
+    rpc_call_max(Node, io_lib_pretty, print, Args).
+
+format_max(Node, Args) ->
+    rpc_call_max(Node, io_lib, format, Args).
+
+rpc_call_max(Node, M, F, Args) ->
+    lists:max(lists:flatten(rpc:call(Node, M, F, Args))).
 
 %% Make sure that a bad specification for a printable range is rejected.
 bad_printable_range(Config) when is_list(Config) ->
