@@ -185,7 +185,12 @@ get_epmd_port() ->
 	{ok, [[PortStr|_]|_]} when is_list(PortStr) ->
 	    list_to_integer(PortStr);
 	error ->
-	    ?erlang_daemon_port
+	    case os:getenv("ERL_EPMD_PORT", not_found) of
+		not_found ->
+		    ?erlang_daemon_port;
+		PortStr ->
+		    list_to_integer(PortStr)
+	    end
     end.
 	    
 %%
