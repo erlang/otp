@@ -42,10 +42,7 @@
       The FTP client API is designed to allow some functions to 
       return intermediate results. This implies that only the process
       that started the FTP client can access it with
-      preserved sane semantics. (This can be solved
-      by changing the API, using the concept of a controlling
-      process as with other OTP applications, but
-      that is something for future releases of <c>Inets</c>.) 
+      preserved sane semantics. 
       If the process that started the FTP session 
       dies, the FTP client process terminates.</p>
 
