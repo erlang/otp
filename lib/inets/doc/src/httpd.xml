@@ -31,7 +31,7 @@
   </header>
   <module>httpd</module> 
   <modulesummary>An implementation of an HTTP
-    1.1 compliant web server, as defined in RFC 2616.
+    1.1 compliant web server, as defined in <url href="http://www.ietf.org/rfc/rfc2616.txt">RFC 2616</url>
   </modulesummary>
   <description>
     <p>This module provides the HTTP server start options, some administrative
@@ -115,7 +115,7 @@
       </item>
     </taglist>
     <note>
-      <p>The properties <c>proplist_file</c> and <c>file</c> are mutually exclusive.</p>
+	<p>The properties <c>proplist_file</c> and <c>file</c> are mutually exclusive. Also newer properties may not be supported as Apache-like options, this is a legacy feature.</p>
     </note>
 
     <marker id="props_mand"></marker>
@@ -124,7 +124,7 @@
       <marker id="prop_port"></marker>
       <tag>{port, integer()} </tag>
       <item> 
-	<p>The port that the HTTP server is to listen on.
+	<p>The port that the HTTP server listen to.
 	If zero is specified as port, an arbitrary available port
 	is picked and function <c>httpd:info/2</c> can be used to
 	determine which port was picked.</p>
@@ -378,15 +378,15 @@ text/plain	asc txt</pre>
 	  <tag><c>remotehost</c></tag>
 	  <item>Remote.</item>
 	  <tag><c>rfc931</c></tag>
-	  <item>The remote username of the client (RFC 931).</item>
+	  <item>The remote username of the client (<url href="http://www.ietf.org/rfc/rfc931.txt">RFC 931</url>).</item>
 	  <tag><c>authuser</c></tag>
 	  <item>The username used for authentication.</item>
 	  <tag><c>[date]</c></tag>
-	  <item>Date and time of the request (RFC 1123).</item>
+	  <item>Date and time of the request (<url href="http://www.ietf.org/rfc/rfc1123.txt">RFC 1123</url>).</item>
 	  <tag><c>"request"</c></tag>
-	  <item>The request line as it came from the client (RFC 1945).</item>
+	  <item>The request line as it came from the client  (<url href="http://www.ietf.org/rfc/rfc1945.txt">RFC 1945</url>).</item>
 	  <tag><c>status</c></tag>
-	  <item>The HTTP status code returned to the client (RFC 1945).</item>
+	  <item>The HTTP status code returned to the client (<url href="http://www.ietf.org/rfc/rfc1945.txt">RFC 1945</url>).</item>
 	  <tag><c>bytes</c></tag>
 	  <item>The content-length of the document transferred.</item>
 	</taglist>
@@ -564,7 +564,7 @@ text/plain	asc txt</pre>
 	<p><c>Method = string()</c> and <c>CgiScript = string()</c>.
 	<c>script</c> adds an action activating a CGI script
 	whenever a file is requested using a certain HTTP method. The
-	method is either GET or POST, as defined in RFC 1945. It
+	method is either GET or POST, as defined in <url href="http://www.ietf.org/rfc/rfc1945.txt">RFC 1945</url>. It
 	propagates the URL and file path of the requested document using
 	the standard CGI PATH_INFO and PATH_TRANSLATED environment
 	variables.</p>
@@ -1065,7 +1065,7 @@ text/plain	asc txt</pre>
       <c>"http://ServerName:Part/cgi-bin/find.pl?person=jocke"</c></p></item>
       <tag><c>request_uri</c></tag>
       <item><p>The <c>Request-URI</c> as defined
-       in RFC 1945, for example, <c>"/cgi-bin/find.pl?person=jocke"</c>.</p>
+       in <url href="http://www.ietf.org/rfc/rfc1945.txt">RFC 1945</url>, for example, <c>"/cgi-bin/find.pl?person=jocke"</c>.</p>
       </item>
       <tag><c>http_version</c></tag>
       <item><p>The <c>HTTP</c> version of the
@@ -1073,7 +1073,7 @@ text/plain	asc txt</pre>
       </item>
       <tag><c>request_line</c></tag>
       <item><p>The <c>Request-Line</c> as
-       defined in RFC 1945, for example, 
+       defined in<url href="http://www.ietf.org/rfc/rfc1945.txt">RFC 1945</url>, for example, 
        <c>"GET /cgi-bin/find.pl?person=jocke HTTP/1.0"</c>.</p>
       </item>
       <tag><c>parsed_header</c></tag>
@@ -1089,7 +1089,7 @@ text/plain	asc txt</pre>
       </item>
       <tag><c>entity_body</c></tag>
       <item><p>The <c>entity-Body</c> as defined
-       in RFC 2616, for example, data sent from a CGI script using the
+       in <url href="http://www.ietf.org/rfc/rfc2616.txt">RFC 2616</url>, for example, data sent from a CGI script using the
        POST method.</p>
       </item>
       <tag><c>connection</c></tag>
@@ -1142,11 +1142,10 @@ text/plain	asc txt</pre>
 	  <url href="http://www.ietf.org/rfc/rfc2616.txt">RFC 2616</url> 
 	  for the appropriate values.</p>
         <p><c>Head</c> is a key value list of HTTP header fields. The
-          server constructs an HTTP header from this data. See RFC
-          2616 for the appropriate value for each header field. If the
-          client is an HTTP/1.0 client, the server filters the
-          list so that only HTTP/1.0 header fields are sent back
-          to the client.</p>
+        server constructs an HTTP header from this data. See <url href="http://www.ietf.org/rfc/rfc2616.txt">RFC 2616</url>  for the appropriate value for each header field. If the
+        client is an HTTP/1.0 client, the server filters the
+        list so that only HTTP/1.0 header fields are sent back
+        to the client.</p>
         <p>If <c>Body</c> is returned and equal to <c>{Fun,Arg}</c>,
           the web server tries <c>apply/2</c> on <c>Fun</c> with
           <c>Arg</c> as argument. The web server expects that the fun either

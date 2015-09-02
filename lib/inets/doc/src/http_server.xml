@@ -184,7 +184,7 @@
   </section>
 
   <section>
-    <title>Htaccess - User Configurable Authentication.</title>
+    <title>Htaccess - User Configurable Authentication</title>
     <marker id="htaccess"></marker>
     <p>Web server users without server administrative privileges
         that need to manage authentication of web pages that are local 
@@ -356,7 +356,8 @@ UserName:Password</pre>
      </taglist>
       
       <section>
-        <title>CGI Version 1.1, RFC 3875</title>
+        <title>CGI Version 1.1,
+	<url href="http://www.ietf.org/rfc/rfc3875.txt">RFC 3875</url></title>
         <p>The module <c>mod_cgi</c> enables execution of CGI scripts
           on the server. A file matching the definition of a
           ScriptAlias config directive is treated as a CGI script. A CGI
@@ -453,15 +454,15 @@ http://your.server.org/eval?httpd_example:print(atom_to_list(apply(erlang,halt,[
       <tag><em>remotehost</em></tag>
       <item>Remote hostname.</item>
       <tag><em>rfc931</em></tag>
-        <item>The client remote username (RFC 931).</item>
+        <item>The client remote username (<url href="http://www.ietf.org/rfc/rfc931.txt">RFC 931</url>).</item>
       <tag><em>authuser</em></tag>
       <item>The username used for authentication.</item>
       <tag><em>[date]</em></tag>
-        <item>Date and time of the request (RFC 1123).</item>
+        <item>Date and time of the request (<url href="http://www.ietf.org/rfc/rfc1123.txt">RFC 1123</url>).</item>
       <tag><em>"request"</em></tag>
-        <item>The request line exactly as it came from the client (RFC 1945).</item>
+        <item>The request line exactly as it came from the client (<url href="http://www.ietf.org/rfc/rfc1945.txt">RFC 1945</url>).</item>
         <tag><em>status</em></tag>
-        <item>The HTTP status code returned to the client (RFC 1945).</item>
+        <item>The HTTP status code returned to the client  (<url href="http://www.ietf.org/rfc/rfc1945.txt">RFC 1945</url>).</item>
         <tag><em>bytes</em></tag>
         <item>The content-length of the document transferred. </item>
       </taglist>
@@ -546,7 +547,7 @@ http://your.server.org/eval?httpd_example:print(atom_to_list(apply(erlang,halt,[
       <p>Uses the following Erlang Web Server API interaction data:
       </p>
       <list type="bulleted">
-	<item><c>real_name</c> - from <c>mod_alias</c></item>
+	<item><c>real_name</c> - from <seealso marker="mod_alias">mod_alias</seealso>.</item>
       </list>
       <p>Exports the following Erlang Web Server API interaction data, if possible:
       </p>
@@ -579,7 +580,7 @@ http://your.server.org/eval?httpd_example:print(atom_to_list(apply(erlang,halt,[
       <p>Uses the following Erlang Web Server API interaction data:
       </p>
       <list type="bulleted">
-	<item><c>real_name</c> - from <c>mod_alias</c></item>
+	<item><c>real_name</c> - from <seealso marker="mod_alias">mod_alias</seealso></item>
         </list>
       <p>Exports the following Erlang Web Server API interaction data:
       </p>
@@ -667,7 +668,7 @@ start() ->
       <p>Uses the following Erlang Web Server API interaction data:
       </p>
       <list type="bulleted">
-	<item><c>real_name</c> - from <c>mod_alias</c></item>
+	<item><c>real_name</c> - from <seealso marker="mod_alias">mod_alias</seealso></item>
       </list>
       <p>Exports the following Erlang Web Server API interaction data:
       </p>
@@ -715,7 +716,7 @@ start() ->
         <p>Uses the following Erlang web server API interaction data:
       </p>
       <list type="bulleted">
-          <item><c>real_name</c> - from <c>mod_alias</c></item>
+          <item><c>real_name</c> - from <seealso marker="mod_alias">mod_alias</seealso></item>
       </list>
       </section>
     
@@ -727,7 +728,7 @@ start() ->
         <p>Uses the following Erlang Web Server API interaction data:
       </p>
       <list type="bulleted">
-	<item><c>real_name</c> - from <c>mod_alias</c></item>
+	<item><c>real_name</c> - from <seealso marker="mod_alias">mod_alias</seealso></item>
         </list>
     </section>
     
@@ -738,7 +739,7 @@ start() ->
       <p>Uses the following Erlang Web Server API interaction data:
       </p>
       <list type="bulleted">
-          <item><c>real_name</c> - from <c>mod_alias</c></item>
+          <item><c>real_name</c> - from <seealso marker="mod_alias">mod_alias</seealso></item>
       </list>
       <p>Exports the following Erlang Web Server API interaction data:
       </p>
@@ -769,7 +770,7 @@ start() ->
         <p>Uses the following Erlang Web Server API interaction data:
       </p>
       <list type="bulleted">
-	<item><c>real_name</c> - from <c>mod_alias</c></item>
+	<item><c>real_name</c> - from <seealso marker="mod_alias">mod_alias</seealso></item>
       </list>
     </section>
 
@@ -795,7 +796,7 @@ start() ->
       <p>Uses the following Erlang Web Server API interaction data:
       </p>
       <list type="bulleted">
-	<item><c>real_name</c> - from <c>mod_alias</c></item>
+	<item><c>real_name</c> - from  <seealso marker="mod_alias">mod_alias</seealso></item>
       </list>
       <p>Exports the following Erlang Web Server API interaction data:
       </p>
