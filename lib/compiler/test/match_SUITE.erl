@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 2004-2013. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -22,7 +23,8 @@
 	 init_per_group/2,end_per_group/2,
 	 pmatch/1,mixed/1,aliases/1,match_in_call/1,
 	 untuplify/1,shortcut_boolean/1,letify_guard/1,
-	 selectify/1,underscore/1,match_map/1,coverage/1]).
+	 selectify/1,underscore/1,match_map/1,map_vars_used/1,
+      coverage/1]).
 	 
 -include_lib("test_server/include/test_server.hrl").
 
@@ -33,10 +35,10 @@ all() ->
     [{group,p}].
 
 groups() -> 
-    [{p,test_lib:parallel(),
+    [{p,[parallel],
       [pmatch,mixed,aliases,match_in_call,untuplify,
        shortcut_boolean,letify_guard,selectify,
-       underscore,match_map,coverage]}].
+       underscore,match_map,map_vars_used,coverage]}].
 
 
 init_per_suite(Config) ->
@@ -140,6 +142,13 @@ aliases(Config) when is_list(Config) ->
     ?line {a,b} = list_alias2([a,b]),
     ?line {a,b} = list_alias3([a,b]),
 
+    %% Non-matching aliases.
+    none = mixed_aliases(<<42>>),
+    none = mixed_aliases([b]),
+    none = mixed_aliases([d]),
+    none = mixed_aliases({a,42}),
+    none = mixed_aliases(42),
+
     ok.
 
 str_alias(V) ->
@@ -242,6 +251,12 @@ list_alias2([X,Y]=[a,b]) ->
 
 list_alias3([X,b]=[a,Y]) ->
     {X,Y}.
+
+mixed_aliases(<<X:8>> = x) -> {a,X};
+mixed_aliases([b] = <<X:8>>) -> {b,X};
+mixed_aliases(<<X:8>> = {a,X}) -> {c,X};
+mixed_aliases([X] = <<X:8>>) -> {d,X};
+mixed_aliases(_) -> none.
 
 %% OTP-7018.
 
@@ -417,6 +432,18 @@ do_match_map_2(Map) ->
     case {a,Map} of
 	{a,#{k:=_}}=Tuple ->
 	    Tuple
+    end.
+
+map_vars_used(Config) when is_list(Config) ->
+    {some,value} = do_map_vars_used(a, b, #{{a,b}=>42,v=>{some,value}}),
+    ok.
+
+do_map_vars_used(X, Y, Map) ->
+    case {X,Y} of
+	T ->
+	    %% core_lib:is_var_used/2 would not consider T used.
+	    #{T:=42,v:=Val} = Map,
+	    Val
     end.
 
 coverage(Config) when is_list(Config) ->

@@ -3,16 +3,17 @@
  *
  * Copyright Ericsson AB 2010-2014. All Rights Reserved.
  *
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  * %CopyrightEnd%
  */
@@ -54,6 +55,10 @@
 #include <openssl/evp.h>
 #include <openssl/hmac.h>
 
+#if OPENSSL_VERSION_NUMBER >= 0x1000000fL
+#include <openssl/modes.h>
+#endif
+
 #include "crypto_callback.h"
 
 #if OPENSSL_VERSION_NUMBER >= 0x00908000L && !defined(OPENSSL_NO_SHA224) && defined(NID_sha224)\
@@ -85,13 +90,32 @@
 # define HAVE_AES_IGE
 #endif
 
+#if OPENSSL_VERSION_NUMBER >= 0x1000100fL
+# define HAVE_GCM
+#endif
+
+#if defined(NID_chacha20) && !defined(OPENSSL_NO_CHACHA) && !defined(OPENSSL_NO_POLY1305)
+# define HAVE_CHACHA20_POLY1305
+#endif
+
 #if defined(HAVE_EC)
 #include <openssl/ec.h>
 #include <openssl/ecdh.h>
 #include <openssl/ecdsa.h>
 #endif
 
+#if defined(HAVE_CHACHA20_POLY1305)
+#include <openssl/chacha.h>
+#include <openssl/poly1305.h>
 
+#if !defined(CHACHA20_NONCE_LEN)
+# define CHACHA20_NONCE_LEN 8
+#endif
+#if !defined(POLY1305_TAG_LEN)
+# define POLY1305_TAG_LEN 16
+#endif
+
+#endif
 
 #ifdef VALGRIND
     #  include <valgrind/memcheck.h>
@@ -219,6 +243,7 @@ static ERL_NIF_TERM aes_cfb_8_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM
 static ERL_NIF_TERM aes_cfb_128_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM aes_ctr_encrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM aes_ctr_stream_encrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM aes_ecb_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM rand_bytes_1(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM strong_rand_bytes_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM rand_bytes_3(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
@@ -257,6 +282,11 @@ static ERL_NIF_TERM ecdh_compute_key_nif(ErlNifEnv* env, int argc, const ERL_NIF
 
 static ERL_NIF_TERM rand_seed_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 
+static ERL_NIF_TERM aes_gcm_encrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM aes_gcm_decrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+
+static ERL_NIF_TERM chacha20_poly1305_encrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM chacha20_poly1305_decrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 
 /* helpers */
 static void init_algorithms_types(ErlNifEnv*);
@@ -351,6 +381,7 @@ static ErlNifFunc nif_funcs[] = {
     {"aes_ctr_decrypt", 3, aes_ctr_encrypt},
     {"aes_ctr_stream_encrypt", 2, aes_ctr_stream_encrypt},
     {"aes_ctr_stream_decrypt", 2, aes_ctr_stream_encrypt},
+    {"aes_ecb_crypt", 3, aes_ecb_crypt},
     {"rand_bytes", 1, rand_bytes_1},
     {"strong_rand_bytes_nif", 1, strong_rand_bytes_nif},
     {"rand_bytes", 3, rand_bytes_3},
@@ -382,12 +413,20 @@ static ErlNifFunc nif_funcs[] = {
     {"bf_ecb_crypt", 3, bf_ecb_crypt},
     {"blowfish_ofb64_encrypt", 3, blowfish_ofb64_encrypt},
 
-    {"ec_key_generate", 1, ec_key_generate},
+    {"ec_key_generate", 2, ec_key_generate},
     {"ecdsa_sign_nif", 4, ecdsa_sign_nif},
     {"ecdsa_verify_nif", 5, ecdsa_verify_nif},
     {"ecdh_compute_key_nif", 3, ecdh_compute_key_nif},
 
-    {"rand_seed_nif", 1, rand_seed_nif}
+    {"rand_seed_nif", 1, rand_seed_nif},
+
+    {"aes_gcm_encrypt", 4, aes_gcm_encrypt},
+    {"aes_gcm_decrypt", 5, aes_gcm_decrypt},
+
+    {"chacha20_poly1305_encrypt", 4, chacha20_poly1305_encrypt},
+    {"chacha20_poly1305_decrypt", 5, chacha20_poly1305_decrypt}
+
+
 };
 
 ERL_NIF_INIT(crypto,nif_funcs,load,NULL,upgrade,unload)
@@ -725,7 +764,7 @@ static ERL_NIF_TERM algo_hash[8];   /* increase when extending the list */
 static int algo_pubkey_cnt;
 static ERL_NIF_TERM algo_pubkey[3]; /* increase when extending the list */
 static int algo_cipher_cnt;
-static ERL_NIF_TERM algo_cipher[2]; /* increase when extending the list */
+static ERL_NIF_TERM algo_cipher[4]; /* increase when extending the list */
 
 static void init_algorithms_types(ErlNifEnv* env)
 {
@@ -762,6 +801,12 @@ static void init_algorithms_types(ErlNifEnv* env)
 #endif
 #ifdef HAVE_AES_IGE
     algo_cipher[algo_cipher_cnt++] = enif_make_atom(env,"aes_ige256");
+#endif
+#if defined(HAVE_GCM)
+    algo_cipher[algo_cipher_cnt++] = enif_make_atom(env,"aes_gcm");
+#endif
+#if defined(HAVE_CHACHA20_POLY1305)
+    algo_cipher[algo_cipher_cnt++] = enif_make_atom(env,"chacha20_poly1305");
 #endif
 
     ASSERT(algo_hash_cnt <= sizeof(algo_hash)/sizeof(ERL_NIF_TERM));
@@ -1762,6 +1807,268 @@ static ERL_NIF_TERM aes_ctr_stream_encrypt(ErlNifEnv* env, int argc, const ERL_N
     return ret;
 }
 
+static ERL_NIF_TERM aes_gcm_encrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{/* (Key,Iv,AAD,In) */
+#if defined(HAVE_GCM)
+    GCM128_CONTEXT *ctx = NULL;
+    ErlNifBinary key, iv, aad, in;
+    AES_KEY aes_key;
+    unsigned char *outp;
+    ERL_NIF_TERM out, out_tag;
+
+    CHECK_OSE_CRYPTO();
+
+    if (!enif_inspect_iolist_as_binary(env, argv[0], &key)
+	|| AES_set_encrypt_key(key.data, key.size*8, &aes_key) != 0
+	|| !enif_inspect_binary(env, argv[1], &iv) || iv.size == 0
+	|| !enif_inspect_iolist_as_binary(env, argv[2], &aad)
+	|| !enif_inspect_iolist_as_binary(env, argv[3], &in)) {
+	return enif_make_badarg(env);
+    }
+
+    if (!(ctx = CRYPTO_gcm128_new(&aes_key, (block128_f)AES_encrypt)))
+	return atom_error;
+
+    CRYPTO_gcm128_setiv(ctx, iv.data, iv.size);
+
+    if (CRYPTO_gcm128_aad(ctx, aad.data, aad.size))
+	goto out_err;
+
+    outp = enif_make_new_binary(env, in.size, &out);
+
+    /* encrypt */
+    if (CRYPTO_gcm128_encrypt(ctx, in.data, outp, in.size))
+	goto out_err;
+
+    /* calculate the tag */
+    CRYPTO_gcm128_tag(ctx, enif_make_new_binary(env, EVP_GCM_TLS_TAG_LEN, &out_tag), EVP_GCM_TLS_TAG_LEN);
+    CRYPTO_gcm128_release(ctx);
+
+    CONSUME_REDS(env, in);
+
+    return enif_make_tuple2(env, out, out_tag);
+
+out_err:
+    CRYPTO_gcm128_release(ctx);
+    return atom_error;
+
+#else
+    return atom_notsup;
+#endif
+}
+
+static ERL_NIF_TERM aes_gcm_decrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{/* (Key,Iv,AAD,In,Tag) */
+#if defined(HAVE_GCM)
+    GCM128_CONTEXT *ctx;
+    ErlNifBinary key, iv, aad, in, tag;
+    AES_KEY aes_key;
+    unsigned char *outp;
+    ERL_NIF_TERM out;
+
+    CHECK_OSE_CRYPTO();
+
+    if (!enif_inspect_iolist_as_binary(env, argv[0], &key)
+        || AES_set_encrypt_key(key.data, key.size*8, &aes_key) != 0
+	|| !enif_inspect_binary(env, argv[1], &iv) || iv.size == 0
+	|| !enif_inspect_iolist_as_binary(env, argv[2], &aad)
+	|| !enif_inspect_iolist_as_binary(env, argv[3], &in)
+	|| !enif_inspect_iolist_as_binary(env, argv[4], &tag) || tag.size != EVP_GCM_TLS_TAG_LEN) {
+	return enif_make_badarg(env);
+    }
+
+    if (!(ctx = CRYPTO_gcm128_new(&aes_key, (block128_f)AES_encrypt)))
+	return atom_error;
+
+    CRYPTO_gcm128_setiv(ctx, iv.data, iv.size);
+
+    if (CRYPTO_gcm128_aad(ctx, aad.data, aad.size))
+	goto out_err;
+
+    outp = enif_make_new_binary(env, in.size, &out);
+
+    /* decrypt */
+    if (CRYPTO_gcm128_decrypt(ctx, in.data, outp, in.size))
+	    goto out_err;
+
+    /* calculate and check the tag */
+    if (CRYPTO_gcm128_finish(ctx, tag.data, EVP_GCM_TLS_TAG_LEN))
+	    goto out_err;
+
+    CRYPTO_gcm128_release(ctx);
+    CONSUME_REDS(env, in);
+
+    return out;
+
+out_err:
+    CRYPTO_gcm128_release(ctx);
+    return atom_error;
+#else
+    return atom_notsup;
+#endif
+}
+
+#if defined(HAVE_CHACHA20_POLY1305)
+static void
+poly1305_update_with_length(poly1305_state *poly1305,
+			    const unsigned char *data, size_t data_len)
+{
+        size_t j = data_len;
+        unsigned char length_bytes[8];
+        unsigned i;
+
+        for (i = 0; i < sizeof(length_bytes); i++) {
+                length_bytes[i] = j;
+                j >>= 8;
+        }
+
+        CRYPTO_poly1305_update(poly1305, data, data_len);
+        CRYPTO_poly1305_update(poly1305, length_bytes, sizeof(length_bytes));
+}
+#endif
+
+static ERL_NIF_TERM chacha20_poly1305_encrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{/* (Key,Iv,AAD,In) */
+#if defined(HAVE_CHACHA20_POLY1305)
+    ErlNifBinary key, iv, aad, in;
+    unsigned char *outp;
+    ERL_NIF_TERM out, out_tag;
+    ErlNifUInt64 in_len_64;
+    unsigned char poly1305_key[32];
+    poly1305_state poly1305;
+
+    CHECK_OSE_CRYPTO();
+
+    if (!enif_inspect_iolist_as_binary(env, argv[0], &key) || key.size != 32
+	|| !enif_inspect_binary(env, argv[1], &iv) || iv.size != CHACHA20_NONCE_LEN
+	|| !enif_inspect_iolist_as_binary(env, argv[2], &aad)
+	|| !enif_inspect_iolist_as_binary(env, argv[3], &in)) {
+	return enif_make_badarg(env);
+    }
+
+    /* Take from OpenSSL patch set/LibreSSL:
+     *
+     * The underlying ChaCha implementation may not overflow the block
+     * counter into the second counter word. Therefore we disallow
+     * individual operations that work on more than 2TB at a time.
+     * in_len_64 is needed because, on 32-bit platforms, size_t is only
+     * 32-bits and this produces a warning because it's always false.
+     * Casting to uint64_t inside the conditional is not sufficient to stop
+     * the warning. */
+    in_len_64 = in.size;
+    if (in_len_64 >= (1ULL << 32) * 64 - 64)
+	return enif_make_badarg(env);
+
+    memset(poly1305_key, 0, sizeof(poly1305_key));
+    CRYPTO_chacha_20(poly1305_key, poly1305_key, sizeof(poly1305_key), key.data, iv.data, 0);
+
+    outp = enif_make_new_binary(env, in.size, &out);
+
+    CRYPTO_poly1305_init(&poly1305, poly1305_key);
+    poly1305_update_with_length(&poly1305, aad.data, aad.size);
+    CRYPTO_chacha_20(outp, in.data, in.size, key.data, iv.data, 1);
+    poly1305_update_with_length(&poly1305, outp, in.size);
+
+    CRYPTO_poly1305_finish(&poly1305, enif_make_new_binary(env, POLY1305_TAG_LEN, &out_tag));
+
+    CONSUME_REDS(env, in);
+
+    return enif_make_tuple2(env, out, out_tag);
+
+#else
+    return atom_notsup;
+#endif
+}
+
+static ERL_NIF_TERM chacha20_poly1305_decrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{/* (Key,Iv,AAD,In,Tag) */
+#if defined(HAVE_CHACHA20_POLY1305)
+    ErlNifBinary key, iv, aad, in, tag;
+    unsigned char *outp;
+    ERL_NIF_TERM out;
+    ErlNifUInt64 in_len_64;
+    unsigned char poly1305_key[32];
+    unsigned char mac[POLY1305_TAG_LEN];
+    poly1305_state poly1305;
+
+    CHECK_OSE_CRYPTO();
+
+    if (!enif_inspect_iolist_as_binary(env, argv[0], &key) || key.size != 32
+	|| !enif_inspect_binary(env, argv[1], &iv) || iv.size != CHACHA20_NONCE_LEN
+	|| !enif_inspect_iolist_as_binary(env, argv[2], &aad)
+	|| !enif_inspect_iolist_as_binary(env, argv[3], &in)
+	|| !enif_inspect_iolist_as_binary(env, argv[4], &tag) || tag.size != POLY1305_TAG_LEN) {
+	return enif_make_badarg(env);
+    }
+
+    /* Take from OpenSSL patch set/LibreSSL:
+     *
+     * The underlying ChaCha implementation may not overflow the block
+     * counter into the second counter word. Therefore we disallow
+     * individual operations that work on more than 2TB at a time.
+     * in_len_64 is needed because, on 32-bit platforms, size_t is only
+     * 32-bits and this produces a warning because it's always false.
+     * Casting to uint64_t inside the conditional is not sufficient to stop
+     * the warning. */
+    in_len_64 = in.size;
+    if (in_len_64 >= (1ULL << 32) * 64 - 64)
+	return enif_make_badarg(env);
+
+    memset(poly1305_key, 0, sizeof(poly1305_key));
+    CRYPTO_chacha_20(poly1305_key, poly1305_key, sizeof(poly1305_key), key.data, iv.data, 0);
+
+    CRYPTO_poly1305_init(&poly1305, poly1305_key);
+    poly1305_update_with_length(&poly1305, aad.data, aad.size);
+    poly1305_update_with_length(&poly1305, in.data, in.size);
+    CRYPTO_poly1305_finish(&poly1305, mac);
+
+    if (memcmp(mac, tag.data, POLY1305_TAG_LEN) != 0)
+	return atom_error;
+
+    outp = enif_make_new_binary(env, in.size, &out);
+
+    CRYPTO_chacha_20(outp, in.data, in.size, key.data, iv.data, 1);
+
+    CONSUME_REDS(env, in);
+
+    return out;
+#else
+    return atom_notsup;
+#endif
+}
+
+static ERL_NIF_TERM aes_ecb_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{/* (Key, Data, IsEncrypt) */    
+    ErlNifBinary key_bin, data_bin;
+    AES_KEY aes_key;
+    int i;
+    unsigned char* ret_ptr;
+    ERL_NIF_TERM ret;    
+
+    CHECK_OSE_CRYPTO();
+
+    if (!enif_inspect_iolist_as_binary(env, argv[0], &key_bin)
+    || (key_bin.size != 16 && key_bin.size != 32)
+    || !enif_inspect_iolist_as_binary(env, argv[1], &data_bin)
+    || data_bin.size % 16 != 0) {
+    return enif_make_badarg(env);
+    }
+
+    if (argv[2] == atom_true) {
+        i = AES_ENCRYPT;
+        AES_set_encrypt_key(key_bin.data, key_bin.size*8, &aes_key);
+    }
+    else {
+        i = AES_DECRYPT;
+        AES_set_decrypt_key(key_bin.data, key_bin.size*8, &aes_key);
+    }
+
+    ret_ptr = enif_make_new_binary(env, data_bin.size, &ret);
+    AES_ecb_encrypt(data_bin.data, ret_ptr, &aes_key, i);
+    CONSUME_REDS(env,data_bin);
+    return ret;
+}
+
 static ERL_NIF_TERM rand_bytes_1(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (Bytes) */     
     unsigned bytes;
@@ -2194,11 +2501,12 @@ done:
 static ERL_NIF_TERM aes_cbc_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (Key, IVec, Data, IsEncrypt) */
     ErlNifBinary key_bin, ivec_bin, data_bin;
-    AES_KEY aes_key;
     unsigned char ivec[16];
-    int i;
+    int enc, i = 0, outlen = 0;
+    EVP_CIPHER_CTX ctx;
+    const EVP_CIPHER *cipher = NULL;
     unsigned char* ret_ptr;
-    ERL_NIF_TERM ret;    
+    ERL_NIF_TERM ret;
 
     CHECK_OSE_CRYPTO();
 
@@ -2212,20 +2520,43 @@ static ERL_NIF_TERM aes_cbc_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
 	return enif_make_badarg(env);
     }
 
-    if (argv[3] == atom_true) {
-	i = AES_ENCRYPT;
-	AES_set_encrypt_key(key_bin.data, key_bin.size*8, &aes_key);
-    }
-    else {
-	i = AES_DECRYPT;
-	AES_set_decrypt_key(key_bin.data, key_bin.size*8, &aes_key);
-    }
+    if (argv[3] == atom_true)
+	enc = 1;
+    else
+	enc = 0;
 
-    ret_ptr = enif_make_new_binary(env, data_bin.size, &ret);
-    memcpy(ivec, ivec_bin.data, 16); /* writable copy */
-    AES_cbc_encrypt(data_bin.data, ret_ptr, data_bin.size, &aes_key, ivec, i);
+    EVP_CIPHER_CTX_init(&ctx);
+
+    if (key_bin.size == 16)
+	cipher = EVP_aes_128_cbc();
+    else if (key_bin.size == 32)
+	cipher = EVP_aes_256_cbc();
+
+    memcpy(ivec, ivec_bin.data, 16); /* writeable copy */
+
+    /* openssl docs say we need to leave at least 3 blocks available
+       at the end of the buffer for EVP calls. let's be safe */
+    ret_ptr = enif_make_new_binary(env, data_bin.size + 16*3, &ret);
+
+    if (EVP_CipherInit_ex(&ctx, cipher, NULL, key_bin.data, ivec, enc) != 1)
+	return enif_make_badarg(env);
+
+    /* disable padding, we only handle whole blocks */
+    EVP_CIPHER_CTX_set_padding(&ctx, 0);
+
+    if (EVP_CipherUpdate(&ctx, ret_ptr, &i, data_bin.data, data_bin.size) != 1)
+	return enif_make_badarg(env);
+    outlen += i;
+    if (EVP_CipherFinal_ex(&ctx, ret_ptr + outlen, &i) != 1)
+	return enif_make_badarg(env);
+    outlen += i;
+
+    EVP_CIPHER_CTX_cleanup(&ctx);
+
     CONSUME_REDS(env,data_bin);
-    return ret;
+
+    /* the garbage collector is going to love this */
+    return enif_make_sub_binary(env, ret, 0, outlen);
 }
 
 static ERL_NIF_TERM aes_ige_crypt_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
@@ -3419,32 +3750,37 @@ out:
 static ERL_NIF_TERM ec_key_generate(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
 #if defined(HAVE_EC)
-    EC_KEY *key = ec_key_new(env, argv[0]);
+    EC_KEY *key = NULL;
+    const EC_GROUP *group;
+    const EC_POINT *public_key;
+    ERL_NIF_TERM priv_key;
+    ERL_NIF_TERM pub_key = atom_undefined;
 
     CHECK_OSE_CRYPTO();
 
-    if (key && EC_KEY_generate_key(key)) {
-	const EC_GROUP *group;
-	const EC_POINT *public_key;
-	ERL_NIF_TERM priv_key;
-	ERL_NIF_TERM pub_key = atom_undefined;
+    if (!get_ec_key(env, argv[0], argv[1], atom_undefined, &key))
+	goto badarg;
 
-	group = EC_KEY_get0_group(key);
-	public_key = EC_KEY_get0_public_key(key);
+    if (argv[1] == atom_undefined) {
+	if (!EC_KEY_generate_key(key))
+	    goto badarg;
+    }
 
-	if (group && public_key) {
-	    pub_key = point2term(env, group, public_key,
-				 EC_KEY_get_conv_form(key));
-	}
-	priv_key = bn2term(env, EC_KEY_get0_private_key(key));
+    group = EC_KEY_get0_group(key);
+    public_key = EC_KEY_get0_public_key(key);
+
+    if (group && public_key) {
+	pub_key = point2term(env, group, public_key,
+			     EC_KEY_get_conv_form(key));
+    }
+    priv_key = bn2term(env, EC_KEY_get0_private_key(key));
+    EC_KEY_free(key);
+    return enif_make_tuple2(env, pub_key, priv_key);
+
+badarg:
+    if (key)
 	EC_KEY_free(key);
-	return enif_make_tuple2(env, pub_key, priv_key);
-    }
-    else {
-	if (key)
-	    EC_KEY_free(key);
-	return enif_make_badarg(env);
-    }
+    return enif_make_badarg(env);
 #else
     return atom_notsup;
 #endif

@@ -3,16 +3,17 @@
 %% 
 %% Copyright Ericsson AB 1999-2012. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %%
@@ -389,61 +390,63 @@ module_md5_ok(Code) ->
 
 make_stub(Config) when is_list(Config) ->
     catch erlang:purge_module(my_code_test),
+    MD5 = erlang:md5(<<>>),
 
     ?line Data = ?config(data_dir, Config),
     ?line File = filename:join(Data, "my_code_test"),
     ?line {ok,my_code_test,Code} = compile:file(File, [binary]),
 
-    ?line my_code_test = code:make_stub_module(my_code_test, Code, {[],[]}),
+    ?line my_code_test = code:make_stub_module(my_code_test, Code, {[],[],MD5}),
     ?line true = erlang:delete_module(my_code_test),
     ?line true = erlang:purge_module(my_code_test),
 
     ?line my_code_test = code:make_stub_module(my_code_test, 
  					       make_unaligned_sub_binary(Code),
- 					       {[],[]}),
+ 					       {[],[],MD5}),
     ?line true = erlang:delete_module(my_code_test),
     ?line true = erlang:purge_module(my_code_test),
 
     ?line my_code_test = code:make_stub_module(my_code_test, zlib:gzip(Code),
- 					       {[],[]}),
+ 					       {[],[],MD5}),
     ?line true = erlang:delete_module(my_code_test),
     ?line true = erlang:purge_module(my_code_test),
 
     %% Should fail.
     ?line {'EXIT',{badarg,_}} =
-	(catch code:make_stub_module(my_code_test, <<"bad">>, {[],[]})),
+	(catch code:make_stub_module(my_code_test, <<"bad">>, {[],[],MD5})),
     ?line {'EXIT',{badarg,_}} =
 	(catch code:make_stub_module(my_code_test,
 				     bit_sized_binary(Code),
-				     {[],[]})),
+				     {[],[],MD5})),
     ?line {'EXIT',{badarg,_}} =
 	(catch code:make_stub_module(my_code_test_with_wrong_name,
-				     Code, {[],[]})),
+				     Code, {[],[],MD5})),
     ok.
 
 make_stub_many_funs(Config) when is_list(Config) ->
     catch erlang:purge_module(many_funs),
+    MD5 = erlang:md5(<<>>),
 
     ?line Data = ?config(data_dir, Config),
     ?line File = filename:join(Data, "many_funs"),
     ?line {ok,many_funs,Code} = compile:file(File, [binary]),
 
-    ?line many_funs = code:make_stub_module(many_funs, Code, {[],[]}),
+    ?line many_funs = code:make_stub_module(many_funs, Code, {[],[],MD5}),
     ?line true = erlang:delete_module(many_funs),
     ?line true = erlang:purge_module(many_funs),
     ?line many_funs = code:make_stub_module(many_funs, 
  					       make_unaligned_sub_binary(Code),
- 					       {[],[]}),
+ 					       {[],[],MD5}),
     ?line true = erlang:delete_module(many_funs),
     ?line true = erlang:purge_module(many_funs),
 
     %% Should fail.
     ?line {'EXIT',{badarg,_}} =
-	(catch code:make_stub_module(many_funs, <<"bad">>, {[],[]})),
+	(catch code:make_stub_module(many_funs, <<"bad">>, {[],[],MD5})),
     ?line {'EXIT',{badarg,_}} =
 	(catch code:make_stub_module(many_funs,
 				     bit_sized_binary(Code),
-				     {[],[]})),
+				     {[],[],MD5})),
     ok.
 
 constant_pools(Config) when is_list(Config) ->

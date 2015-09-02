@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2012-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2012-2015. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -499,6 +500,8 @@ per_dec_enumerated_fix_list([], Tail, _) -> Tail.
 
 per_dec_integer_1([{'SingleValue',Value}], _Aligned) ->
     {value,Value};
+per_dec_integer_1([{'ValueRange',{'MIN',_}}], Aligned) ->
+    per_dec_unconstrained(Aligned);
 per_dec_integer_1([{'ValueRange',{Lb,'MAX'}}], Aligned) when is_integer(Lb) ->
     per_decode_semi_constrained(Lb, Aligned);
 per_dec_integer_1([{'ValueRange',{Lb,Ub}}], Aligned) when is_integer(Lb),
@@ -1094,6 +1097,9 @@ per_enc_integer_1(Val0, [Constr], Aligned) ->
 
 per_enc_integer_2(Val, {'SingleValue',Sv}, Aligned) when is_integer(Sv) ->
     per_enc_constrained(Val, Sv, Sv, Aligned);
+per_enc_integer_2(Val, {'ValueRange',{'MIN',Ub}}, Aligned)
+  when is_integer(Ub) ->
+    {[],{lt,Val,Ub+1},per_enc_unconstrained(Val, Aligned)};
 per_enc_integer_2(Val0, {'ValueRange',{Lb,'MAX'}}, Aligned)
   when is_integer(Lb) ->
     {Prefix,Val} = sub_lb(Val0, Lb),
@@ -1580,7 +1586,7 @@ do_combine_put_bits(_, _, _) ->
     throw(impossible).
 
 debit(Budget0, Alternatives) ->
-    case Budget0 - log2(Alternatives) of
+    case Budget0 - math:log2(Alternatives) of
 	Budget when Budget > 0.0 ->
 	    Budget;
 	_ ->
@@ -1593,8 +1599,6 @@ num_clauses([_|T], N) ->
     num_clauses(T, N+1);
 num_clauses([], N) -> N.
 
-log2(N) ->
-    math:log(N) / math:log(2.0).
 
 collect_put_bits(Imm) ->
     lists:splitwith(fun({put_bits,V,_,_}) when is_integer(V) -> true;
@@ -1919,16 +1923,7 @@ enc_opt(nil, St) ->
 enc_opt({seq,H0,T0}, St0) ->
     {H,St1} = enc_opt(H0, St0),
     {T,St} = enc_opt(T0, St1),
-    case {H,T} of
-	{none,_} ->
-	    {T,St};
-	{{list,Imm,Data},
-	 {seq,{call,per,complete,[Data],_},_}} ->
-	    %% Get rid of any explicit 'align' added by per_enc_open_type/2.
-	    {{seq,{list,remove_trailing_align(Imm),Data},T},St};
-	{_,_} ->
-	    {{seq,H,T},St}
-    end;
+    {enc_opt_seq(H, T),St};
 enc_opt({set,_,_}=Imm, St) ->
     {Imm,St#ost{t=undefined}};
 enc_opt({sub,Src0,Int,Dst}, St0) ->
@@ -1961,6 +1956,28 @@ remove_trailing_align({cons,H,{cons,align,nil}}) ->
 remove_trailing_align({seq,H,T}) ->
     {seq,H,remove_trailing_align(T)};
 remove_trailing_align(Imm) -> Imm.
+
+enc_opt_seq(none, T) ->
+    T;
+enc_opt_seq({list,Imm,Data}, {seq,{call,per,complete,[Data],_},_}=T) ->
+    %% Get rid of any explicit 'align' added by per_enc_open_type/2.
+    {seq,{list,remove_trailing_align(Imm),Data},T};
+enc_opt_seq({call,_,_,_,{var,_}=Dst}=H, T) ->
+    case is_var_unused(Dst, T) of
+	false -> {seq,H,T};
+	true -> T
+    end;
+enc_opt_seq(H, T) ->
+    {seq,H,T}.
+
+is_var_unused(_, align) ->
+    true;
+is_var_unused(V, {call,_,_,Args}) ->
+    not lists:member(V, Args);
+is_var_unused(V, {cons,H,T}) ->
+    is_var_unused(V, H) andalso is_var_unused(V, T);
+is_var_unused(_, _) ->
+    false.
 
 bit_size_propagate(Bin, Type, St) ->
     case t_range(Type) of
@@ -2423,7 +2440,8 @@ bit_string_name2pos_fun(NNL, Src) ->
 gen_name2pos(Fd, Name, Names) ->
     Cs0 = gen_name2pos_cs(Names, Name),
     Cs = Cs0 ++ [bit_clause(Name),nil_clause(),invalid_clause()],
-    F = {function,1,Name,1,Cs},
+    F0 = {function,1,Name,1,Cs},
+    F = erl_parse:new_anno(F0),
     file:write(Fd, [erl_pp:function(F)]).
 
 gen_name2pos_cs([{K,V}|T], Name) ->

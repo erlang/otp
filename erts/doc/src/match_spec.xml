@@ -8,16 +8,17 @@
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
-      The contents of this file are subject to the Erlang Public License,
-      Version 1.1, (the "License"); you may not use this file except in
-      compliance with the License. You should have received a copy of the
-      Erlang Public License along with this software. If not, it can be
-      retrieved online at http://www.erlang.org/.
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
 
-      Software distributed under the License is distributed on an "AS IS"
-      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-      the License for the specific language governing rights and limitations
-      under the License.
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
 
     </legalnotice>
 
@@ -76,22 +77,26 @@
        { GuardFunction, ConditionExpression, ... }
       </item>
       <item>BoolFunction ::= <c><![CDATA[is_atom]]></c> |
-      <c><![CDATA[is_float]]></c> | <c><![CDATA[is_integer]]></c> | <c><![CDATA[is_list]]></c> |
-      <c><![CDATA[is_number]]></c> | <c><![CDATA[is_pid]]></c> | <c><![CDATA[is_port]]></c> |
-      <c><![CDATA[is_reference]]></c> | <c><![CDATA[is_tuple]]></c> | <c><![CDATA[is_binary]]></c> |
-      <c><![CDATA[is_function]]></c> | <c><![CDATA[is_record]]></c> | <c><![CDATA[is_seq_trace]]></c> |
-      <c><![CDATA['and']]></c> | <c><![CDATA['or']]></c> | <c><![CDATA['not']]></c> | <c><![CDATA['xor']]></c> | 
-      <c><![CDATA[andalso]]></c> | <c><![CDATA[orelse]]></c></item>
+        <c><![CDATA[is_float]]></c> | <c><![CDATA[is_integer]]></c> |
+        <c><![CDATA[is_list]]></c> | <c><![CDATA[is_number]]></c> |
+        <c><![CDATA[is_pid]]></c> | <c><![CDATA[is_port]]></c> |
+        <c><![CDATA[is_reference]]></c> | <c><![CDATA[is_tuple]]></c> |
+        <c><![CDATA[is_map]]></c> | <c><![CDATA[is_binary]]></c> |
+        <c><![CDATA[is_function]]></c> | <c><![CDATA[is_record]]></c> |
+        <c><![CDATA[is_seq_trace]]></c> | <c><![CDATA['and']]></c> |
+        <c><![CDATA['or']]></c> | <c><![CDATA['not']]></c> |
+        <c><![CDATA['xor']]></c> | <c><![CDATA[andalso]]></c> |
+        <c><![CDATA[orelse]]></c></item>
       <item>ConditionExpression ::= ExprMatchVariable | { GuardFunction } |
        { GuardFunction, ConditionExpression, ... } | TermConstruct
       </item>
       <item>ExprMatchVariable ::= MatchVariable (bound in the MatchHead) | 
       <c><![CDATA['$_']]></c> | <c><![CDATA['$$']]></c></item>
-      <item>TermConstruct = {{}} | {{ ConditionExpression, ... }} | 
-      <c><![CDATA[[]]]></c> | [ConditionExpression, ...] | NonCompositeTerm | Constant
-      </item>
-      <item>NonCompositeTerm ::= term() (not list or tuple)
-      </item>
+      <item>TermConstruct = {{}} | {{ ConditionExpression, ... }} |
+        <c><![CDATA[[]]]></c> | [ConditionExpression, ...] |
+        <c><![CDATA[#{}]]></c> | #{term() => ConditionExpression, ...} |
+        NonCompositeTerm | Constant</item>
+      <item>NonCompositeTerm ::= term() (not list or tuple or map)</item>
       <item>Constant ::= {<c><![CDATA[const]]></c>, term()}
       </item>
       <item>GuardFunction ::= BoolFunction | <c><![CDATA[abs]]></c> |
@@ -134,22 +139,26 @@
        { GuardFunction, ConditionExpression, ... }
       </item>
       <item>BoolFunction ::= <c><![CDATA[is_atom]]></c> |
-      <c><![CDATA[is_float]]></c> | <c><![CDATA[is_integer]]></c> | <c><![CDATA[is_list]]></c> |
-      <c><![CDATA[is_number]]></c> | <c><![CDATA[is_pid]]></c> | <c><![CDATA[is_port]]></c> |
-      <c><![CDATA[is_reference]]></c> | <c><![CDATA[is_tuple]]></c> | <c><![CDATA[is_binary]]></c> |
-      <c><![CDATA[is_function]]></c> | <c><![CDATA[is_record]]></c> | <c><![CDATA[is_seq_trace]]></c> |
-      <c><![CDATA['and']]></c> | <c><![CDATA['or']]></c> | <c><![CDATA['not']]></c> | <c><![CDATA['xor']]></c> |
-      <c><![CDATA[andalso]]></c> | <c><![CDATA[orelse]]></c></item>
+        <c><![CDATA[is_float]]></c> | <c><![CDATA[is_integer]]></c> |
+        <c><![CDATA[is_list]]></c> | <c><![CDATA[is_number]]></c> |
+        <c><![CDATA[is_pid]]></c> | <c><![CDATA[is_port]]></c> |
+        <c><![CDATA[is_reference]]></c> | <c><![CDATA[is_tuple]]></c> |
+        <c><![CDATA[is_map]]></c> | <c><![CDATA[is_binary]]></c> |
+        <c><![CDATA[is_function]]></c> | <c><![CDATA[is_record]]></c> |
+        <c><![CDATA[is_seq_trace]]></c> | <c><![CDATA['and']]></c> |
+        <c><![CDATA['or']]></c> | <c><![CDATA['not']]></c> |
+        <c><![CDATA['xor']]></c> | <c><![CDATA[andalso]]></c> |
+        <c><![CDATA[orelse]]></c></item>
       <item>ConditionExpression ::= ExprMatchVariable | { GuardFunction } |
        { GuardFunction, ConditionExpression, ... } | TermConstruct
       </item>
       <item>ExprMatchVariable ::= MatchVariable (bound in the MatchHead) |
       <c><![CDATA['$_']]></c> | <c><![CDATA['$$']]></c></item>
       <item>TermConstruct = {{}} | {{ ConditionExpression, ... }} |
-      <c><![CDATA[[]]]></c> | [ConditionExpression, ...] | NonCompositeTerm | Constant
-      </item>
-      <item>NonCompositeTerm ::= term() (not list or tuple)
-      </item>
+        <c><![CDATA[[]]]></c> | [ConditionExpression, ...] | #{} |
+        #{term() => ConditionExpression, ...} | NonCompositeTerm |
+        Constant</item>
+      <item>NonCompositeTerm ::= term() (not list or tuple or map)</item>
       <item>Constant ::= {<c><![CDATA[const]]></c>, term()}
       </item>
       <item>GuardFunction ::= BoolFunction | <c><![CDATA[abs]]></c> |
@@ -172,9 +181,10 @@
       <title>Functions allowed in all types of match specifications</title>
       <p>The different functions allowed in <c><![CDATA[match_spec]]></c> work like this:
         </p>
-      <p><em>is_atom, is_float, is_integer, is_list, is_number, is_pid, is_port, is_reference, is_tuple, is_binary, is_function: </em> Like the corresponding guard tests in
-        Erlang, return <c><![CDATA[true]]></c> or <c><![CDATA[false]]></c>.
-        </p>
+      <p><em>is_atom, is_float, is_integer, is_list, is_number, is_pid, is_port,
+        is_reference, is_tuple, is_map, is_binary, is_function:</em> Like the
+        corresponding guard tests in Erlang, return <c><![CDATA[true]]></c> or
+        <c><![CDATA[false]]></c>.</p>
       <p><em>is_record: </em>Takes an additional parameter, which SHALL
         be the result of <c><![CDATA[record_info(size, <record_type>)]]></c>,
         like in <c><![CDATA[{is_record, '$1', rectype, record_info(size, rectype)}]]></c>.

@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 2007-2014. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.2
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -30,8 +31,6 @@
 %%--------------------------------------------------------------------
 %% Common Test interface functions -----------------------------------
 %%--------------------------------------------------------------------
-
-suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() ->
     [
@@ -72,10 +71,8 @@ init_per_suite(Config0) ->
     try crypto:start() of
 	ok ->
 	    %% make rsa certs using oppenssl
-	    Result =
-		(catch make_certs:all(?config(data_dir, Config0),
-				      ?config(priv_dir, Config0))),
-	    ct:log("Make certs  ~p~n", [Result]),
+	    {ok, _} = make_certs:all(?config(data_dir, Config0),
+				     ?config(priv_dir, Config0)),
 	    Config1 = ssl_test_lib:make_ecdsa_cert(Config0),
 	    Config2 = ssl_test_lib:make_ecdh_rsa_cert(Config1),
 	    ssl_test_lib:cert_options(Config2)
@@ -146,6 +143,7 @@ init_per_testcase(TestCase, Config) ->
     ct:log("Ciphers: ~p~n ", [ ssl:cipher_suites()]),
     end_per_testcase(TestCase, Config),
     ssl:start(),	
+    ct:timetrap({seconds, 15}),
     Config.
 
 end_per_testcase(_TestCase, Config) ->     
@@ -247,7 +245,6 @@ start_server(openssl, CA, OwnCa, Cert, Key, Config) ->
 	" -verify 2 -cert " ++ Cert ++ " -CAfile " ++ NewCA
 	++ " -key " ++ Key ++ " -msg -debug",
     OpenSslPort =  open_port({spawn, Cmd}, [stderr_to_stdout]),
-    ssl_test_lib:wait_for_openssl_server(),
     true = port_command(OpenSslPort, "Hello world"),
     {OpenSslPort, Port};
 

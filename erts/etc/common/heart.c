@@ -3,16 +3,17 @@
  * 
  * Copyright Ericsson AB 1996-2013. All Rights Reserved.
  * 
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
- * 
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  * 
  * %CopyrightEnd%
  */
@@ -109,7 +110,7 @@
 #  include <sys/time.h>
 #  include <unistd.h>
 #  include <signal.h>
-#  if defined(CORRECT_USING_TIMES)
+#  if defined(OS_MONOTONIC_TIME_USING_TIMES)
 #    include <sys/times.h>
 #    include <limits.h>
 #  endif
@@ -117,11 +118,12 @@
 
 #define HEART_COMMAND_ENV          "HEART_COMMAND"
 #define ERL_CRASH_DUMP_SECONDS_ENV "ERL_CRASH_DUMP_SECONDS"
+#define HEART_KILL_SIGNAL          "HEART_KILL_SIGNAL"
 
-#define MSG_HDR_SIZE        2
-#define MSG_HDR_PLUS_OP_SIZE 3
-#define MSG_BODY_SIZE      2048
-#define MSG_TOTAL_SIZE     2050
+#define MSG_HDR_SIZE         (2)
+#define MSG_HDR_PLUS_OP_SIZE (3)
+#define MSG_BODY_SIZE        (2048)
+#define MSG_TOTAL_SIZE       (2050)
 
 unsigned char cmd[MSG_BODY_SIZE];
 
@@ -555,14 +557,22 @@ kill_old_erlang(void){
 static void 
 kill_old_erlang(void){
     pid_t pid;
-    int i;
-    int res;
+    int i, res;
+    int sig = SIGKILL;
+    char *sigenv = NULL;
+
+    sigenv = get_env(HEART_KILL_SIGNAL);
+    if (sigenv && strcmp(sigenv, "SIGABRT") == 0) {
+        print_error("kill signal SIGABRT requested");
+        sig = SIGABRT;
+    }
+
     if(heart_beat_kill_pid != 0){
 	pid = (pid_t) heart_beat_kill_pid;
-	res = kill(pid,SIGKILL);
+	res = kill(pid,sig);
 	for(i=0; i < 5 && res == 0; ++i){
 	    sleep(1);
-	    res = kill(pid,SIGKILL);
+	    res = kill(pid,sig);
 	}
 	if(errno != ESRCH){
 	    print_error("Unable to kill old process, "
@@ -1084,9 +1094,9 @@ time_t timestamp(time_t *res)
     return r;
 }
 
-#elif defined(HAVE_GETHRTIME)  || defined(GETHRTIME_WITH_CLOCK_GETTIME)
+#elif defined(OS_MONOTONIC_TIME_USING_GETHRTIME) || defined(OS_MONOTONIC_TIME_USING_CLOCK_GETTIME)
 
-#if defined(GETHRTIME_WITH_CLOCK_GETTIME)
+#if defined(OS_MONOTONIC_TIME_USING_CLOCK_GETTIME)
 typedef long long SysHrTime;
 
 SysHrTime sys_gethrtime(void);
@@ -1095,7 +1105,7 @@ SysHrTime sys_gethrtime(void)
 {
     struct timespec ts;
     long long result;
-    if (clock_gettime(CLOCK_MONOTONIC,&ts) != 0) {
+    if (clock_gettime(MONOTONIC_CLOCK_ID,&ts) != 0) {
 	print_error("Fatal, could not get clock_monotonic value, terminating! "
 		    "errno = %d\n", errno);
 	exit(1);
@@ -1122,7 +1132,7 @@ time_t timestamp(time_t *res)
     return r;
 }
 
-#elif defined(CORRECT_USING_TIMES)
+#elif defined(OS_MONOTONIC_TIME_USING_TIMES)
 
 #  ifdef NO_SYSCONF
 #    include <sys/param.h>

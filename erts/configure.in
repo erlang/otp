@@ -2,18 +2,19 @@ dnl Process this file with autoconf to produce a configure script. -*-m4-*-
 
 dnl %CopyrightBegin%
 dnl
-dnl Copyright Ericsson AB 1997-2014. All Rights Reserved.
+dnl Copyright Ericsson AB 1997-2015. All Rights Reserved.
 dnl
-dnl The contents of this file are subject to the Erlang Public License,
-dnl Version 1.1, (the "License"); you may not use this file except in
-dnl compliance with the License. You should have received a copy of the
-dnl Erlang Public License along with this software. If not, it can be
-dnl retrieved online at http://www.erlang.org/.
+dnl Licensed under the Apache License, Version 2.0 (the "License");
+dnl you may not use this file except in compliance with the License.
+dnl You may obtain a copy of the License at
 dnl
-dnl Software distributed under the License is distributed on an "AS IS"
-dnl basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-dnl the License for the specific language governing rights and limitations
-dnl under the License.
+dnl     http://www.apache.org/licenses/LICENSE-2.0
+dnl
+dnl Unless required by applicable law or agreed to in writing, software
+dnl distributed under the License is distributed on an "AS IS" BASIS,
+dnl WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+dnl See the License for the specific language governing permissions and
+dnl limitations under the License.
 dnl
 dnl %CopyrightEnd%
 
@@ -264,24 +265,6 @@ AS_HELP_STRING([--enable-m32-build],
   esac
 ],enable_m32_build=no)
 
-AC_SUBST(PERFCTR_PATH)
-AC_ARG_WITH(perfctr,
-AS_HELP_STRING([--with-perfctr=PATH],
-               [specify location of perfctr include and lib])
-AS_HELP_STRING([--without-perfctr], [don't use perfctr (default)]))
-
-if test "x$with_perfctr" = "xno" -o "x$with_perfctr" = "x" ; then
-    PERFCTR_PATH=
-else
-    if test ! -f "$with_perfctr/usr.lib/libperfctr.a" ; then
-	AC_MSG_ERROR(Invalid path to option --with-perfctr=PATH)
-    fi
-    PERFCTR_PATH="$with_perfctr"
-    AC_DEFINE(USE_PERFCTR,[1],
-              [Define to enable hrvtime() on Linux systems with perfctr extension])
-fi
-
-
 AC_ARG_WITH(dynamic-trace,
 AS_HELP_STRING([--with-dynamic-trace={dtrace|systemtap}],
 	       [specify use of dynamic trace framework, dtrace or systemtap])
@@ -334,15 +317,6 @@ if test X"$use_vm_probes" = X"yes"; then
    AC_DEFINE(USE_VM_PROBES,[1],
 	     [Define to enable VM dynamic trace probes])
 fi
-
-
-AC_ARG_ENABLE(clock-gettime,
-AS_HELP_STRING([--enable-clock-gettime],
-               [use clock-gettime for time correction]),
-[ case "$enableval" in
-    no) clock_gettime_correction=no ;;
-    *) clock_gettime_correction=yes ;;
-  esac ], clock_gettime_correction=unknown)
 
 AC_ARG_WITH(assumed-cache-line-size,
 AS_HELP_STRING([--with-assumed-cache-line-size=SIZE],
@@ -649,7 +623,7 @@ fi
 case $chk_opsys_ in
     win32)			OPSYS=win32;;
     solaris2.*|SunOS5.*)	OPSYS=sol2;;
-    linux|Linux)		OPSYS=linux;;
+    linux*|Linux)		OPSYS=linux;;
     darwin|Darwin)		OPSYS=darwin;;
     freebsd|FreeBSD)		OPSYS=freebsd;;
     *)				OPSYS=noopsys
@@ -676,6 +650,7 @@ case $chk_arch_ in
     powerpc)	ARCH=ppc;;
     ppc)	ARCH=ppc;;
     ppc64)	ARCH=ppc64;;
+    ppc64le)	ARCH=ppc64;;
     "Power Macintosh")	ARCH=ppc;;
     armv5b)	ARCH=arm;;
     armv5teb)	ARCH=arm;;
@@ -1123,10 +1098,31 @@ if test $ERTS_BUILD_SMP_EMU = yes; then
 
 	case "$ethr_have_native_atomics-$smp_require_native_atomics-$ethr_have_native_spinlock" in
 	  yes-*)
+		if test "$ethr_native_atomic_implementation" = "gcc_sync"; then
+		    test -f "$ERL_TOP/erts/CONF_INFO" ||
+			echo "" > "$ERL_TOP/erts/CONF_INFO"
+		    cat >> $ERL_TOP/erts/CONF_INFO <<EOF
+
+                 WARNING:
+                   Only gcc's __sync_* builtins available for
+                   atomic memory access. This will cause lots
+                   of expensive and unnecessary memory barrier
+                   instructions to be issued which will make
+                   the performance of the runtime system
+                   suffer. You are *strongly* advised to
+                   upgrade to a gcc version that supports the
+                   __atomic_* builtins (at least gcc version
+                   4.7) or build with libatomic_ops. See the
+                   "Atomic Memory Operations and the VM"
+		   chapter of \$ERL_TOP/HOWTO/INSTALL.md for
+                   more information.
+
+EOF
+		fi
 		;;
 
 	  no-yes-*)
-		AC_MSG_ERROR([No native atomic implementation found. See Configuring section in INSTALL.md for more information.])
+		AC_MSG_ERROR([No native atomic implementation found. See the \"Atomic Memory Operations and the VM\" chapter of \$ERL_TOP/HOWTO/INSTALL.md for more information.])
 		;;
 
 	  no-no-yes)
@@ -1555,10 +1551,11 @@ if test "$have_gethostbyname_r" = yes; then
 				    [Define to flavour of gethostbyname_r]))
 		;;
 		*)
-			AC_EGREP_CPP(yes,[#include <stdio.h>
-			  #ifdef __GLIBC__
-			  yes
-			  #endif
+			AC_EGREP_CPP(^yes$,[
+#include <stdio.h>
+#ifdef __GLIBC__
+yes
+#endif
 			  ], AC_DEFINE(HAVE_GETHOSTBYNAME_R, GHBN_R_GLIBC,
 				[Define to flavour of gethostbyname_r]))
 		;;
@@ -1764,6 +1761,10 @@ have_kernel_poll=no
 AC_CHECK_HEADER(sys/event.h, have_kernel_poll=kqueue)
 AC_CHECK_HEADER(sys/epoll.h, have_kernel_poll=epoll)
 AC_CHECK_HEADER(sys/devpoll.h, have_kernel_poll=/dev/poll)
+
+dnl Check if we have timerfds to be used for high accuracy
+dnl epoll_wait timeouts
+AC_CHECK_HEADERS([sys/timerfd.h])
 
 dnl Check for kernel SCTP support
 AC_SUBST(LIBSCTP)
@@ -2110,7 +2111,7 @@ AC_CHECK_FUNCS([ieee_handler fpsetmask finite isnan isinf res_gethostbyname dlop
 		gethrtime localtime_r gmtime_r inet_pton \
 		memcpy mallopt sbrk _sbrk __sbrk brk _brk __brk \
 		flockfile fstat strlcpy strlcat setsid posix2time time2posix \
-		setlocale nl_langinfo poll mlockall])
+		setlocale nl_langinfo poll mlockall ppoll])
 
 AC_MSG_CHECKING([for isfinite])
 AC_TRY_LINK([#include <math.h>],
@@ -2913,6 +2914,10 @@ else
 #include <signal.h>
 #include <stdlib.h>
 
+#if defined(__clang__) || defined(__llvm__)
+#error "Clang/LLVM generates broken code for FP exceptions"
+#endif
+
 volatile int erl_fp_exception;
 
 /*
@@ -3501,19 +3506,6 @@ if test X${enable_native_libs} = Xyes -a X${HIPE_ENABLED} = Xyes; then
   NATIVE_LIBS_ENABLED=yes
 fi
 AC_SUBST(NATIVE_LIBS_ENABLED)
-
-#
-# Check if HiPE should use a standard installation of perfctr.
-#
-AC_SUBST(USE_PERFCTR)
-if test "x$HIPE_ENABLED" = "xyes" ; then
-  if test "x$with_perfctr" = "x" ; then
-      AC_CHECK_LIB(perfctr, vperfctr_info, [USE_PERFCTR=1
-	  AC_DEFINE(USE_PERFCTR,[1],[Define to enable hrvtime() on Linux systems with perfctr extension])])
-  elif test "x$with_perfctr" != "xno" ; then
-      USE_PERFCTR=1
-  fi
-fi
 
 #
 # Check for working poll().
@@ -4303,10 +4295,10 @@ case "$erl_xcomp_without_sysroot-$with_ssl" in
 			SSL_INCLUDE="-I$dir/include"
 			old_CPPFLAGS=$CPPFLAGS
 			CPPFLAGS=$SSL_INCLUDE
-			AC_EGREP_CPP(yes,[
+			AC_EGREP_CPP(^yes$,[
 #include <openssl/opensslv.h>
 #if OPENSSL_VERSION_NUMBER >= 0x0090700fL
-  yes
+yes
 #endif
 			],[
 			ssl_found=yes
@@ -4501,10 +4493,10 @@ if test "x$SSL_APP" != "x" ; then
     AC_MSG_CHECKING(for OpenSSL kerberos 5 support)
     old_CPPFLAGS=$CPPFLAGS
     CPPFLAGS=$SSL_INCLUDE
-    AC_EGREP_CPP(yes,[
+    AC_EGREP_CPP(^yes$,[
 #include <openssl/opensslconf.h>
 #ifndef OPENSSL_NO_KRB5
-  yes
+yes
 #endif
       ],[
       AC_MSG_RESULT([yes])
@@ -4701,18 +4693,32 @@ AC_SUBST(os_mon_programs)
 AC_SUBST(CPU_SUP_LIBS)
 
 AC_CHECK_LIB(kstat, kstat_open, [ 
-	os_mon_programs="$os_mon_programs cpu_sup"	 
+	use_cpu_sup=yes
 	CPU_SUP_LIBS="$CPU_SUP_LIBS -lkstat"
+	])
+
+AC_CHECK_LIB(kvm, kvm_open, [
+	use_cpu_sup=yes
+	CPU_SUP_LIBS="$CPU_SUP_LIBS -lkvm"
 	])
 
 case $host_os in
 	solaris2*)
 		os_mon_programs="$os_mon_programs ferrule mod_syslog" ;;
+	darwin*)
+		use_cpu_sup=yes ;;
+	openbsd*)
+		use_cpu_sup=yes ;;
 	linux*)
-		os_mon_programs="$os_mon_programs cpu_sup" ;;
+		use_cpu_sup=yes ;;
+	freebsd*)
+		use_cpu_sup=yes ;;
 esac
 
-			
+if test "$use_cpu_sup" = "yes"; then
+    os_mon_programs="$os_mon_programs cpu_sup"
+fi
+
 AC_ARG_WITH(javac,
 AS_HELP_STRING([--with-javac=JAVAC], [specify Java compiler to use])
 AS_HELP_STRING([--with-javac], [use a Java compiler if found (default)])
@@ -4743,12 +4749,12 @@ fi
 
 AC_CHECK_PROGS(JAVAC, $check_javac)
 if test -n "$JAVAC"; then
-  dnl Make sure it's at least JDK 1.5
-  AC_CACHE_CHECK(for JDK version 1.5, 
-     ac_cv_prog_javac_ver_1_5,
+  dnl Make sure it's at least JDK 1.6
+  AC_CACHE_CHECK(for JDK version 1.6, 
+     ac_cv_prog_javac_ver_1_6,
      [ERL_TRY_LINK_JAVA([], [for (String i : args);],
-        ac_cv_prog_javac_ver_1_5=yes, ac_cv_prog_javac_ver_1_5=no)])
-  if test $ac_cv_prog_javac_ver_1_5 = no; then
+        ac_cv_prog_javac_ver_1_6=yes, ac_cv_prog_javac_ver_1_6=no)])
+  if test $ac_cv_prog_javac_ver_1_6 = no; then
     unset -v JAVAC
   fi
 fi
@@ -4903,6 +4909,11 @@ esac
 CFLAGS="$CFLAGS $sanitizers"
 LDFLAGS="$LDFLAGS $sanitizers"
 ])
+
+dnl ----------------------------------------------------------------------
+dnl Check for log2
+dnl ----------------------------------------------------------------------
+AC_CHECK_FUNCS([log2])
 
 dnl ----------------------------------------------------------------------
 dnl Output the result.

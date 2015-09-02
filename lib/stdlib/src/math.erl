@@ -3,16 +3,17 @@
 %% 
 %% Copyright Ericsson AB 1996-2012. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %%
@@ -24,7 +25,7 @@
 
 -export([sin/1, cos/1, tan/1, asin/1, acos/1, atan/1, atan2/2, sinh/1,
          cosh/1, tanh/1, asinh/1, acosh/1, atanh/1, exp/1, log/1,
-         log10/1, pow/2, sqrt/1, erf/1, erfc/1]).
+         log2/1, log10/1, pow/2, sqrt/1, erf/1, erfc/1]).
 
 -spec acos(X) -> float() when
       X :: number().
@@ -90,6 +91,11 @@ exp(_) ->
 -spec log(X) -> float() when
       X :: number().
 log(_) ->
+    erlang:nif_error(undef).
+
+-spec log2(X) -> float() when
+      X :: number().
+log2(_) ->
     erlang:nif_error(undef).
 
 -spec log10(X) -> float() when

@@ -136,10 +136,14 @@ q(ab) -> rec2({a, b}); % breaks the contract
 q(ba) -> rec2({b, a}); % breaks the contract
 q(aba) -> rec2({a, {b, a}}); % breaks the contract
 q(bab) -> rec2({b, {a, b}}); % breaks the contract
-q(abab) -> rec2({a, {b, {a, b}}});
-q(baba) -> rec2({b, {a, {b, a}}});
-q(ababa) -> rec2({a, {b, {a, {b, a}}}});
-q(babab) -> rec2({b, {a, {b, {a, b}}}}).
+q(abab) -> rec2({a, {b, {a, b}}}); % breaks the contract
+q(baba) -> rec2({b, {a, {b, a}}}); % breaks the contract
+q(ababa) -> rec2({a, {b, {a, {b, a}}}}); % breaks the contract
+q(babab) -> rec2({b, {a, {b, {a, b}}}}); % breaks the contract
+q(ababab) -> rec2({a, {b, {a, {b, {a, b}}}}});
+q(bababa) -> rec2({b, {a, {b, {a, {b, a}}}}});
+q(abababa) -> rec2({a, {b, {a, {b, {a, {b, a}}}}}});
+q(bababab) -> rec2({b, {a, {b, {a, {b, {a, b}}}}}}).
 
 %===============================================================================
 

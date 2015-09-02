@@ -3,16 +3,17 @@
  * 
  * Copyright Ericsson AB 2006-2013. All Rights Reserved.
  * 
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
- * 
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  * 
  * %CopyrightEnd%
  */
@@ -28,6 +29,8 @@
 #define ERL_POLL_H__
 
 #include "sys.h"
+
+#define ERTS_POLL_NO_TIMEOUT ERTS_MONOTONIC_TIME_MIN
 
 #if 0
 #define ERTS_POLL_COUNT_AVOIDED_WAKEUPS
@@ -96,6 +99,8 @@
 #  endif
 #endif
 
+#define ERTS_POLL_USE_TIMERFD 0
+
 typedef Uint32 ErtsPollEvents;
 #undef ERTS_POLL_EV_E2N
 
@@ -127,6 +132,12 @@ struct erts_sys_fd_type {
 #elif ERTS_POLL_USE_EPOLL	/* --- epoll ------------------------------- */
 
 #include <sys/epoll.h>
+
+#ifdef HAVE_SYS_TIMERFD_H
+#include <sys/timerfd.h>
+#undef ERTS_POLL_USE_TIMERFD
+#define ERTS_POLL_USE_TIMERFD 1
+#endif
 
 #define ERTS_POLL_EV_E2N(EV) \
   ((__uint32_t) (EV))
@@ -241,7 +252,7 @@ void		ERTS_POLL_EXPORT(erts_poll_interrupt)(ErtsPollSet,
 						      int);
 void		ERTS_POLL_EXPORT(erts_poll_interrupt_timed)(ErtsPollSet,
 							    int,
-							    erts_short_time_t);
+							    ErtsMonotonicTime);
 ErtsPollEvents	ERTS_POLL_EXPORT(erts_poll_control)(ErtsPollSet,
 						    ErtsSysFdType,
 						    ErtsPollEvents,
@@ -254,7 +265,7 @@ void		ERTS_POLL_EXPORT(erts_poll_controlv)(ErtsPollSet,
 int		ERTS_POLL_EXPORT(erts_poll_wait)(ErtsPollSet,
 						 ErtsPollResFd [],
 						 int *,
-						 SysTimeval *);
+						 ErtsMonotonicTime);
 int		ERTS_POLL_EXPORT(erts_poll_max_fds)(void);
 void		ERTS_POLL_EXPORT(erts_poll_info)(ErtsPollSet,
 						 ErtsPollInfo *);
@@ -265,6 +276,6 @@ void		ERTS_POLL_EXPORT(erts_poll_get_selected_events)(ErtsPollSet,
 								ErtsPollEvents [],
 								int);
 
-int		ERTS_POLL_EXPORT(erts_poll_get_table_len)(int);
+int erts_poll_new_table_len(int old_len, int need_len);
 
 #endif /* #ifndef ERL_POLL_H__ */

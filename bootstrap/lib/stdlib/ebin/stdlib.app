@@ -2,24 +2,25 @@
 %% 
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2015. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
 {application, stdlib,
  [{description, "ERTS  CXC 138 10"},
-  {vsn, "2.3"},
+  {vsn, "2.5"},
   {modules, [array,
 	     base64,
 	     beam_lib,
@@ -39,6 +40,7 @@
 	     edlin_expand,
 	     epp,
 	     eval_bits,
+             erl_anno,
 	     erl_bits,
 	     erl_compile,
 	     erl_eval,
@@ -77,13 +79,13 @@
 	     orddict,
 	     ordsets,
 	     otp_internal,
-	     pg,
 	     pool,
 	     proc_lib,
 	     proplists,
              qlc,
              qlc_pt,
 	     queue,
+	     rand,
 	     random,
 	     re,
 	     sets,
@@ -103,7 +105,7 @@
                dets]},
   {applications, [kernel]},
   {env, []},
-  {runtime_dependencies, ["sasl-2.4","kernel-3.0.2","erts-6.2","crypto-3.3",
+  {runtime_dependencies, ["sasl-2.4","kernel-4.0","erts-7.0","crypto-3.3",
 			  "compiler-5.0"]}
 ]}.
 

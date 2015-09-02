@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 2012-2013. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 -module(observer_perf_wx).
@@ -24,7 +25,8 @@
 	 handle_event/2, handle_sync_event/3, handle_cast/2]).
 
 %% Drawing wrappers for DC and GC areas
--export([haveGC/0,
+-export([setup_graph_drawing/1, refresh_panel/6,
+	 haveGC/0,
 	 setPen/2, setFont/3, setBrush/2,
 	 strokeLine/5, strokeLines/2, drawRoundedRectangle/6,
 	 drawText/4, getTextExtent/2]).
@@ -42,13 +44,12 @@
 	  data = {0, queue:new()},
 	  panel,
 	  paint,
-	  appmon,
-	  usegc = false
+	  appmon
 	}).
 
 -define(wxGC, wxGraphicsContext).
 
--record(paint, {font, small, pen, pen2, pens}).
+-record(paint, {font, small, pen, pen2, pens, usegc = false}).
 
 -define(RQ_W,  1).
 -define(MEM_W, 2).
@@ -63,14 +64,11 @@ init([Notebook, Parent]) ->
     Main  = wxBoxSizer:new(?wxVERTICAL),
     Style = ?wxFULL_REPAINT_ON_RESIZE bor ?wxCLIP_CHILDREN,
     CPU = wxPanel:new(Panel, [{winid, ?RQ_W}, {style,Style}]),
-    wxWindow:setBackgroundColour(CPU, ?wxWHITE),
     wxSizer:add(Main, CPU, [{flag, ?wxEXPAND bor ?wxALL},
 				 {proportion, 1}, {border, 5}]),
     MemIO = wxBoxSizer:new(?wxHORIZONTAL),
     MEM = wxPanel:new(Panel, [{winid, ?MEM_W}, {style,Style}]),
-    wxWindow:setBackgroundColour(MEM, ?wxWHITE),
     IO  = wxPanel:new(Panel, [{winid, ?IO_W}, {style,Style}]),
-    wxWindow:setBackgroundColour(IO, ?wxWHITE),
     wxSizer:add(MemIO, MEM, [{flag, ?wxEXPAND bor ?wxLEFT},
 			     {proportion, 1}, {border, 5}]),
     wxSizer:add(MemIO, IO,  [{flag, ?wxEXPAND bor ?wxLEFT bor ?wxRIGHT},
@@ -79,53 +77,56 @@ init([Notebook, Parent]) ->
 			      {proportion, 1}, {border, 5}]),
     wxWindow:setSizer(Panel, Main),
 
-    wxPanel:connect(CPU, paint, [callback]),
-    wxPanel:connect(IO, paint, [callback]),
-    wxPanel:connect(MEM, paint, [callback]),
-    case os:type() of
-	{win32, _} -> %% Ignore erase on windows
-	    wxPanel:connect(CPU, erase_background, [{callback, fun(_,_) -> ok end}]),
-	    wxPanel:connect(IO,  erase_background, [{callback, fun(_,_) -> ok end}]),
-	    wxPanel:connect(MEM, erase_background, [{callback, fun(_,_) -> ok end}]);
-	_ -> ok
-    end,
+    PaintInfo = setup_graph_drawing([CPU, MEM, IO]),
 
-    UseGC = haveGC(),
-    Version28 = ?wxMAJOR_VERSION =:= 2 andalso ?wxMINOR_VERSION =:= 8,
-    {Font, SmallFont}
-	= case os:type() of
-	      {unix, _} when UseGC, Version28 ->
-		  %% Def font is really small when using Graphics contexts in 2.8
-		  %% Hardcode it
-		  F = wxFont:new(12,?wxFONTFAMILY_DECORATIVE,?wxFONTSTYLE_NORMAL,?wxFONTWEIGHT_BOLD),
-		  SF = wxFont:new(10, ?wxFONTFAMILY_DECORATIVE, ?wxFONTSTYLE_NORMAL, ?wxFONTWEIGHT_NORMAL),
-		  {F, SF};
-	      _ ->
-		  DefFont = wxSystemSettings:getFont(?wxSYS_DEFAULT_GUI_FONT),
-		  DefSize = wxFont:getPointSize(DefFont),
-		  DefFamily = wxFont:getFamily(DefFont),
-		  F = wxFont:new(DefSize, DefFamily, ?wxFONTSTYLE_NORMAL, ?wxFONTWEIGHT_BOLD),
-		  SF = wxFont:new(DefSize-1, DefFamily, ?wxFONTSTYLE_NORMAL, ?wxFONTWEIGHT_NORMAL),
-		  {F, SF}
-	  end,
-    BlackPen = wxPen:new({0,0,0}, [{width, 2}]),
-    Pens = [wxPen:new(Col, [{width, 2}]) || Col <- tuple_to_list(colors())],
     process_flag(trap_exit, true),
     {Panel, #state{parent=Parent,
 		   panel =Panel,
 		   windows = {CPU, MEM, IO},
-		   usegc=UseGC,
-		   paint=#paint{font = Font,
-				small = SmallFont,
-				pen  = ?wxGREY_PEN,
-				pen2 = BlackPen,
-				pens = list_to_tuple(Pens)
-			       }
+		   paint=PaintInfo
 		  }}
    catch _:Err ->
 	   io:format("~p crashed ~p: ~p~n",[?MODULE, Err, erlang:get_stacktrace()]),
 	   {stop, Err}
    end.
+
+setup_graph_drawing(Panels) ->
+    IsWindows = element(1, os:type()) =:= win32,
+    IgnoreCB = {callback, fun(_,_) -> ok end},
+    Do = fun(Panel) ->
+		 wxWindow:setBackgroundColour(Panel, ?wxWHITE),
+		 wxPanel:connect(Panel, paint, [callback]),
+		 IsWindows andalso
+		     wxPanel:connect(Panel, erase_background, [IgnoreCB])
+	 end,
+    _ = [Do(Panel) || Panel <- Panels],
+    UseGC = haveGC(),
+    Version28 = ?wxMAJOR_VERSION =:= 2 andalso ?wxMINOR_VERSION =:= 8,
+    {Font, SmallFont}
+	= if UseGC, Version28 ->
+		  %% Def font is really small when using Graphics contexts in 2.8
+		  %% Hardcode it
+		  F = wxFont:new(12,?wxFONTFAMILY_DECORATIVE,?wxFONTSTYLE_NORMAL,?wxFONTWEIGHT_BOLD),
+		  SF = wxFont:new(10, ?wxFONTFAMILY_DECORATIVE, ?wxFONTSTYLE_NORMAL, ?wxFONTWEIGHT_NORMAL),
+		  {F, SF};
+	     true ->
+		  DefFont = wxSystemSettings:getFont(?wxSYS_DEFAULT_GUI_FONT),
+		  DefSize = wxFont:getPointSize(DefFont),
+		  DefFamily = wxFont:getFamily(DefFont),
+		  F = wxFont:new(DefSize-1, DefFamily, ?wxFONTSTYLE_NORMAL, ?wxFONTWEIGHT_BOLD),
+		  SF = wxFont:new(DefSize-2, DefFamily, ?wxFONTSTYLE_NORMAL, ?wxFONTWEIGHT_NORMAL),
+		  {F, SF}
+	  end,
+    BlackPen = wxPen:new({0,0,0}, [{width, 2}]),
+    Pens = [wxPen:new(Col, [{width, 3}]) || Col <- tuple_to_list(colors())],
+    #paint{usegc = UseGC,
+	   font  = Font,
+	   small = SmallFont,
+	   pen   = ?wxGREY_PEN,
+	   pen2  = BlackPen,
+	   pens  = list_to_tuple(Pens)
+	  }.
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -139,21 +140,25 @@ handle_event(Event, _State) ->
 %%%%%%%%%%
 handle_sync_event(#wx{obj=Panel, event = #wxPaint{}},_,
 		  #state{active=Active, offset=Offset, paint=Paint,
-			 windows=Windows, data=Data, usegc=UseGC}) ->
-    %% PaintDC must be created in a callback to work on windows.
+			 windows=Windows, data=Data}) ->
     %% Sigh workaround bug on MacOSX (Id in paint event is always 0)
     %% Panel = element(Id, Windows),
-    Id = if Panel =:= element(?RQ_W, Windows)  -> ?RQ_W;
-	    Panel =:= element(?MEM_W, Windows) -> ?MEM_W;
-	    Panel =:= element(?IO_W, Windows)  -> ?IO_W
+    Id = if Panel =:= element(?RQ_W, Windows)  -> runq;
+	    Panel =:= element(?MEM_W, Windows) -> memory;
+	    Panel =:= element(?IO_W, Windows)  -> io
 	 end,
-    IsWindows = element(1, os:type()) =:= win32,
 
-    DC = if IsWindows -> 
+    refresh_panel(Panel, Id, Offset, Data, Active, Paint),
+    ok.
+
+refresh_panel(Panel, Id, Offset, Data, Active, #paint{usegc=UseGC} = Paint) ->
+    %% PaintDC must be created in a callback to work on windows.
+    IsWindows = element(1, os:type()) =:= win32,
+    DC = if IsWindows ->
 		 %% Ugly hack to aviod flickering on windows, works on windows only
 		 %% But the other platforms are doublebuffered by default
 		 wx:typeCast(wxBufferedPaintDC:new(Panel), wxPaintDC);
-	    true -> 
+	    true ->
 		 wxPaintDC:new(Panel)
 	 end,
     IsWindows andalso wxDC:clear(DC),
@@ -167,8 +172,9 @@ handle_sync_event(#wx{obj=Panel, event = #wxPaint{}},_,
 	    io:format("Internal error ~p ~p~n",[Err, erlang:get_stacktrace()])
     end,
     UseGC andalso ?wxGC:destroy(GC),
-    wxPaintDC:destroy(DC),
-    ok.
+    wxPaintDC:destroy(DC).
+
+
 %%%%%%%%%%
 handle_call(Event, From, _State) ->
     error({unhandled_call, Event, From}).
@@ -247,10 +253,10 @@ create_menus(Parent, _) ->
     observer_wx:create_menus(Parent, MenuEntries).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-collect_data(?RQ_W, {N, Q}) ->
+collect_data(runq, {N, Q}) ->
     case queue:to_list(Q) of
-	[] ->  {0, 0, []};
-	[_] ->  {0, 0, []};
+	[] ->  {0, 0, [], []};
+	[_] ->  {0, 0, [], []};
 	[{stats, _Ver, Init0, _IO, _Mem}|Data0] ->
 	    Init = lists:sort(Init0),
 	    [_|Data=[First|_]] = lists:foldl(fun({stats, _, T0, _, _}, [Prev|Acc]) ->
@@ -258,25 +264,46 @@ collect_data(?RQ_W, {N, Q}) ->
 					   Delta = calc_delta(TN, Prev),
 					   [TN, list_to_tuple(Delta)|Acc]
 				   end, [Init], Data0),
-	    {N, lmax(Data), lists:reverse([First|Data])}
+	    NoGraphs = tuple_size(First),
+	    {N, lmax(Data), lists:reverse([First|Data]), lists:seq(1, NoGraphs)}
     end;
-collect_data(?MEM_W, {N, Q}) ->
+collect_data(memory, {N, Q}) ->
     MemT = mem_types(),
     Data = [list_to_tuple([Value || {Type,Value} <- MemInfo,
 				    lists:member(Type, MemT)])
 	    || {stats, _Ver, _RQ, _IO, MemInfo} <- queue:to_list(Q)],
-    {N, lmax(Data), Data};
-collect_data(?IO_W, {N, Q}) ->
+    {N, lmax(Data), Data,  MemT};
+collect_data(io, {N, Q}) ->
     case queue:to_list(Q) of
-	[] ->  {0, 0, []};
-	[_] -> {0, 0, []};
+	[] ->  {0, 0, [], []};
+	[_] -> {0, 0, [], []};
 	[{stats, _Ver, _RQ, {{_,In0}, {_,Out0}}, _Mem}|Data0] ->
 	    [_,_|Data=[First|_]] =
 		lists:foldl(fun({stats, _, _, {{_,In}, {_,Out}}, _}, [PIn,Pout|Acc]) ->
 				    [In,Out,{In-PIn,Out-Pout}|Acc]
 			    end, [In0,Out0], Data0),
-	    {N, lmax(Data), lists:reverse([First|Data])}
-    end.
+	    {N, lmax(Data), lists:reverse([First|Data]), [input, output]}
+    end;
+collect_data(alloc, {N, Q}) ->
+    List = queue:to_list(Q),
+    Data = [list_to_tuple([Carrier || {_Type,_Block,Carrier} <- MemInfo])
+	    || MemInfo <- List],
+    Info = case List of  %% Varies depending on erlang build config/platform
+	       [MInfo|_] -> [Type || {Type, _, _} <- MInfo];
+	       _ -> []
+	   end,
+    {N, lmax(Data), Data, Info};
+
+collect_data(utilz, {N, Q}) ->
+    List = queue:to_list(Q),
+    Data = [list_to_tuple([round(100*Block/Carrier) || {_Type,Block,Carrier} <- MemInfo])
+	    || MemInfo <- List],
+    Info = case List of  %% Varies depending on erlang build config/platform
+	       [MInfo|_] -> [Type || {Type, _, _} <- MInfo];
+	       _ -> []
+	   end,
+    {N, lmax(Data), Data, Info}.
+
 
 mem_types() ->
     [total, processes, atom, binary, code, ets].
@@ -299,14 +326,14 @@ draw(Offset, Id, DC, Panel, Paint=#paint{pens=Pens, small=Small}, Data, Active) 
     %% This can be optimized a lot by collecting data once
     %% and draw to memory and then blit memory and only draw new entries in new memory
     %% area.  Hmm now rewritten to use ?wxGC I don't now if it is feasable.
-    {Len, Max0, Hs} = collect_data(Id, Data),
-    Max = calc_max(Max0),
-    NoGraphs = try tuple_size(hd(Hs)) catch _:_ -> 0 end,
+    {Len, Max0, Hs, Info} = collect_data(Id, Data),
+    {Max,_,_} = MaxDisp = calc_max(Id, Max0),
     Size = wxWindow:getClientSize(Panel),
-    {X0,Y0,WS,HS} = draw_borders(Id, NoGraphs, DC, Size, Max, Paint),
+    {X0,Y0,WS,HS, DrawBs} = draw_borders(Id, Info, DC, Size, MaxDisp, Paint),
     Last = 60*WS+X0-1,
     Start = max(61-Len, 0)*WS+X0 - Offset*WS,
     Samples = length(Hs),
+    NoGraphs = try tuple_size(hd(Hs)) catch _:_ -> 0 end,
     case Active andalso Samples > 1 andalso NoGraphs > 0 of
 	true ->
 	    Draw = fun(N) ->
@@ -315,14 +342,16 @@ draw(Offset, Id, DC, Panel, Paint=#paint{pens=Pens, small=Small}, Data, Active) 
 			   strokeLines(DC, Lines),
 			   N+1
 		   end,
-	    [Draw(I) || I <- lists:seq(NoGraphs, 1, -1)];
+	    [Draw(I) || I <- lists:seq(NoGraphs, 1, -1)],
+	    DrawBs();
 	false ->
-	    Info = case Active andalso Samples =< 1 of
-		       true -> "Waiting on data";
+	    DrawBs(),
+	    Text = case Active andalso Samples =< 1 of
+		       true  -> "Waiting for data";
 		       false -> "Information not available"
 		   end,
 	    setFont(DC, Small, {0,0,0}),
-	    drawText(DC, Info, X0 + 100, element(2,Size) div 2)
+	    drawText(DC, Text, X0 + 100, element(2,Size) div 2)
     end,
     ok.
 
@@ -397,9 +426,8 @@ spline_tan(Y0, Y1, Y2, Y3) ->
 -define(BW, 5).
 -define(BH, 5).
 
-draw_borders(Type, NoGraphs, DC, {W,H}, Max,
+draw_borders(Type, Info, DC, {W,H}, {Max, Unit, MaxUnit},
 	     #paint{pen=Pen, pen2=Pen2, font=Font, small=Small}) ->
-    {Unit, MaxUnit} = bytes(Type, Max),
     Str1 = observer_lib:to_str(MaxUnit),
     Str2 = observer_lib:to_str(MaxUnit div 2),
     Str3 = observer_lib:to_str(0),
@@ -410,10 +438,10 @@ draw_borders(Type, NoGraphs, DC, {W,H}, Max,
 
     GraphX0 = ?BW+TW+?BW,
     GraphX1 = W-?BW*4,
-    TopTextX = ?BW+TW+?BW,
-    MaxTextY = ?BH+TH+?BH,
+    TopTextX = ?BW*3+TW,
+    MaxTextY = TH+?BH,
     BottomTextY = H-?BH-TH,
-    SecondsY = BottomTextY - ?BH - TH,
+    SecondsY = BottomTextY - TH,
     GraphY0 = MaxTextY + (TH / 2),
     GraphY1 = SecondsY - ?BH,
     GraphW = GraphX1-GraphX0-1,
@@ -447,17 +475,7 @@ draw_borders(Type, NoGraphs, DC, {W,H}, Max,
     strokeLine(DC, GraphX0-3, GraphY50, GraphX1, GraphY50),
     strokeLine(DC, GraphX0-3, GraphY75, GraphX1, GraphY75),
 
-    setPen(DC, Pen2),
-    strokeLines(DC, [{GraphX0, GraphY0-1}, {GraphX0, GraphY1+1},
-		     {GraphX1, GraphY1+1}, {GraphX1, GraphY0-1},
-		     {GraphX0, GraphY0-1}]),
-
     setFont(DC, Font, {0,0,0}),
-    case Type of
-	?RQ_W ->  drawText(DC, "Scheduler Utilization (%) ", TopTextX,?BH);
-	?MEM_W -> drawText(DC, "Memory Usage " ++ Unit, TopTextX,?BH);
-	?IO_W ->  drawText(DC, "IO Usage " ++ Unit, TopTextX,?BH)
-    end,
 
     Text = fun(X,Y, Str, PenId) ->
 		   if PenId == 0 ->
@@ -468,32 +486,65 @@ draw_borders(Type, NoGraphs, DC, {W,H}, Max,
 		   end,
 		   drawText(DC, Str, X, Y),
 		   {StrW, _} = getTextExtent(DC, Str),
-		   StrW + X + SpaceW
+		   StrW + X + ?BW*2
 	   end,
+
     case Type of
-	?RQ_W ->
-	    TN0 = Text(?BW, BottomTextY, "Scheduler: ", 0),
+	runq ->
+	    drawText(DC, "Scheduler Utilization (%) ", TopTextX, ?BH),
+	    TN0 = Text(TopTextX, BottomTextY, "Scheduler: ", 0),
 	    lists:foldl(fun(Id, Pos0) ->
 				Text(Pos0, BottomTextY, integer_to_list(Id), Id)
-			end, TN0, lists:seq(1, NoGraphs));
-	?MEM_W ->
+			end, TN0, Info);
+	memory ->
+	    drawText(DC, "Memory Usage " ++ Unit, TopTextX,?BH),
 	    lists:foldl(fun(MType, {PenId, Pos0}) ->
-				Str = uppercase(atom_to_list(MType)),
+				Str = to_string(MType),
 				Pos = Text(Pos0, BottomTextY, Str, PenId),
 				{PenId+1, Pos}
-			end, {1, ?BW}, mem_types());
-	?IO_W ->
-	    TN0 = Text(?BW, BottomTextY, "Input", 1),
-	    Text(TN0, BottomTextY, "Output", 2)
+			end, {1, TopTextX}, Info);
+	io ->
+	    drawText(DC, "IO Usage " ++ Unit, TopTextX,?BH),
+	    lists:foldl(fun(MType, {PenId, Pos0}) ->
+				Str = to_string(MType),
+				Pos = Text(Pos0, BottomTextY, Str, PenId),
+				{PenId+1, Pos}
+			end, {1, TopTextX}, Info);
+	alloc ->
+	    drawText(DC, "Carrier Size " ++ Unit, TopTextX,?BH);
+	utilz ->
+	    drawText(DC, "Carrier Utilization (%)" ++ Unit, TopTextX,?BH),
+	    lists:foldl(fun(MType, {PenId, Pos0}) ->
+				Str = to_string(MType),
+				Pos = Text(Pos0, BottomTextY, Str, PenId),
+				{PenId+1, Pos}
+			end, {1, TopTextX}, Info)
     end,
-    {GraphX0+1, GraphY1, ScaleW, ScaleH}.
+    DrawBorder = fun() ->
+			 setPen(DC, Pen2),
+			 strokeLines(DC, [{GraphX0, GraphY0-1}, {GraphX0, GraphY1+1},
+					  {GraphX1, GraphY1+1}, {GraphX1, GraphY0-1},
+					  {GraphX0, GraphY0-1}])
+		 end,
+    {GraphX0+1, GraphY1, ScaleW, ScaleH, DrawBorder}.
+
+to_string(Atom) ->
+    Name = atom_to_list(Atom),
+    case lists:reverse(Name) of
+	"colla_" ++ Rev ->
+	    uppercase(lists:reverse(Rev));
+	_ ->
+	    uppercase(Name)
+    end.
 
 uppercase([C|Rest]) ->
     [C-$a+$A|Rest].
 
-calc_max(Max) when Max < 10 -> 10;
-calc_max(Max) -> calc_max1(Max).
+calc_max(Type, Max) ->
+    bytes(Type, Max).
 
+calc_max1(Max) when Max < 10 ->
+    10;
 calc_max1(Max) ->
     case Max div 10 of
 	X when X < 10 ->
@@ -506,23 +557,36 @@ calc_max1(Max) ->
 	    10*calc_max1(X)
     end.
 
-bytes(?RQ_W, Val) -> {"", Val};
+bytes(runq, Val) ->
+    Upper = calc_max1(Val),
+    {Upper, "", Upper};
+bytes(utilz, Val) ->
+    Upper = calc_max1(Val),
+    {Upper, "", Upper};
 bytes(_, B) ->
     KB = B div 1024,
     MB = KB div 1024,
     GB = MB div 1024,
     if
-	GB > 10 -> {"(GB)", GB};
-	MB > 10 -> {"(MB)", MB};
-	KB >  0 -> {"(KB)", KB};
-	true    -> {"(B)", B}
+	GB > 10 ->
+	    Upper = calc_max1(GB),
+	    {Upper*1024*1024*1024, "(GB)", Upper};
+	MB > 10 ->
+	    Upper = calc_max1(MB),
+	    {Upper*1024*1024, "(MB)", Upper};
+	KB >  0 ->
+	    Upper = calc_max1(KB),
+	    {Upper*1024, "(KB)", Upper};
+	true  ->
+	    Upper = calc_max1(B),
+	    {Upper, "(B)", Upper}
     end.
 
 colors() ->
-    {{200, 50, 50}, {50, 200, 50}, {50, 50, 200},
-     {255, 110, 0}, {50, 200, 200}, {200, 50, 200},
-     {240, 200, 80}, {140, 2, 140},
-     {100, 200, 240}, {100, 240, 100}
+    {{240, 100, 100}, {100, 240, 100}, {100, 100, 240},
+     {220, 220, 80}, {100, 240, 240}, {240, 100, 240},
+     {100, 25, 25}, {25, 100, 25}, {25, 25, 100},
+     {120, 120, 0}, {25, 100, 100}, {100, 50, 100}
     }.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

@@ -3,16 +3,17 @@
  * 
  * Copyright Ericsson AB 1996-2013. All Rights Reserved.
  * 
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
- * 
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  * 
  * %CopyrightEnd%
  */
@@ -46,6 +47,7 @@ static int rows;		/* Number of rows available. */
 #define OP_INSC 2
 #define OP_DELC 3
 #define OP_BEEP 4
+#define OP_PUTC_SYNC 5
 
 /* Control op */
 #define CTRL_OP_GET_WINSIZE 100
@@ -458,6 +460,7 @@ static void ttysl_from_erlang(ErlDrvData ttysl_data, char* buf, ErlDrvSizeT coun
 
     switch (buf[0]) {
     case OP_PUTC:
+    case OP_PUTC_SYNC:
 	DEBUGLOG(("OP: Putc(%I64u)",(unsigned long long)count-1));
 	if (check_buf_size((byte*)buf+1, count-1) == 0)
 	    return; 
@@ -480,6 +483,20 @@ static void ttysl_from_erlang(ErlDrvData ttysl_data, char* buf, ErlDrvSizeT coun
     default:
 	/* Unknown op, just ignore. */
 	break;
+    }
+
+    if (buf[0] == OP_PUTC_SYNC) {
+        /* On windows we do a blocking write to the tty so we just
+           send the ack immidiately. If at some point in the future
+           someone has a problem with tty output being blocking
+           this has to be changed. */
+        ErlDrvTermData spec[] = {
+            ERL_DRV_PORT, driver_mk_port(ttysl_port),
+            ERL_DRV_ATOM, driver_mk_atom("ok"),
+            ERL_DRV_TUPLE, 2
+        };
+        erl_drv_output_term(driver_mk_port(ttysl_port), spec,
+                            sizeof(spec) / sizeof(spec[0]));
     }
     return;
 }

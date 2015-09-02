@@ -3,16 +3,17 @@
 %% 
 %% Copyright Ericsson AB 1999-2009. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %%
@@ -58,7 +59,8 @@ Terminals
 
 %% Separators
 
-'(' ')' '{' '}' '[' ']' '|' ',' '->' '=' '/' '<' '>' ':' '-|' '#' '~' '::'
+'(' ')' '{' '}' '[' ']' '|' ',' '->' '=' '/' '<' '>' ':' '-|' '#'
+'~' '=>' ':='
 
 %% Keywords (atoms are assumed to always be single-quoted).
 
@@ -123,7 +125,7 @@ function_definition ->
 	{'$1','$3'}.
 
 anno_fun -> '(' fun_expr '-|' annotation ')' :
-	core_lib:set_anno('$2', '$4').
+	cerl:set_ann('$2', '$4').
 anno_fun -> fun_expr : '$1'.
 
 %% Constant terms for annotations and attributes.
@@ -162,7 +164,7 @@ tail_constant -> ',' constant tail_constant : ['$2'|'$3'].
 %%  ( ( V -| <anno> ) = ( {a} -| <anno> ) -| <anno> )
 
 anno_pattern -> '(' other_pattern '-|' annotation ')' :
-	core_lib:set_anno('$2', '$4').
+	cerl:set_ann('$2', '$4').
 anno_pattern -> other_pattern : '$1'.
 anno_pattern -> anno_variable : '$1'.
 
@@ -182,23 +184,24 @@ atomic_pattern -> atomic_literal : '$1'.
 tuple_pattern -> '{' '}' : c_tuple([]).
 tuple_pattern -> '{' anno_patterns '}' : c_tuple('$2').
 
-map_pattern -> '~' '{' '}' '~' : #c_map{es=[]}.
+map_pattern -> '~' '{' '}' '~' : c_map_pattern([]).
 map_pattern -> '~' '{' map_pair_patterns '}' '~' :
-		   #c_map{es=lists:sort('$3')}.
+		   c_map_pattern(lists:sort('$3')).
 
 map_pair_patterns -> map_pair_pattern : ['$1'].
 map_pair_patterns -> map_pair_pattern ',' map_pair_patterns : ['$1' | '$3'].
 
-map_pair_pattern -> '~' '<' anno_pattern ',' anno_pattern '>' :
-			#c_map_pair{op=#c_literal{val=exact},key='$3',val='$5'}.
+map_pair_pattern -> anno_expression ':=' anno_pattern :
+			#c_map_pair{op=#c_literal{val=exact},
+				    key='$1',val='$3'}.
 
 cons_pattern -> '[' anno_pattern tail_pattern :
-		    #c_cons{hd='$2',tl='$3'}.
+		    c_cons('$2', '$3').
 
 tail_pattern -> ']' : #c_literal{val=[]}.
 tail_pattern -> '|' anno_pattern ']' : '$2'.
 tail_pattern -> ',' anno_pattern tail_pattern :
-		    #c_cons{hd='$2',tl='$3'}.
+		    c_cons('$2', '$3').
 
 binary_pattern -> '#' '{' '}' '#' : #c_binary{segments=[]}.
 binary_pattern -> '#' '{' segment_patterns '}' '#' : #c_binary{segments='$3'}.
@@ -206,7 +209,7 @@ binary_pattern -> '#' '{' segment_patterns '}' '#' : #c_binary{segments='$3'}.
 segment_patterns -> segment_pattern ',' segment_patterns : ['$1' | '$3'].
 segment_patterns -> segment_pattern : ['$1'].
 
-segment_pattern -> '#' '<' anno_pattern '>' '(' anno_patterns ')':
+segment_pattern -> '#' '<' anno_pattern '>' '(' anno_expressions ')':
 	case '$6' of
 	    [S,U,T,Fs] ->
 		#c_bitstr{val='$3',size=S,unit=U,type=T,flags=Fs};
@@ -222,7 +225,7 @@ anno_variables -> anno_variable : ['$1'].
 
 anno_variable -> variable : '$1'.
 anno_variable -> '(' variable '-|' annotation ')' :
-	core_lib:set_anno('$2', '$4').
+	cerl:set_ann('$2', '$4').
 
 %% Expressions
 %%  Must split expressions into two levels as nested value expressions
@@ -230,7 +233,7 @@ anno_variable -> '(' variable '-|' annotation ')' :
 
 anno_expression -> expression : '$1'.
 anno_expression -> '(' expression '-|' annotation ')' :
-	core_lib:set_anno('$2', '$4').
+	cerl:set_ann('$2', '$4').
 
 anno_expressions -> anno_expression ',' anno_expressions : ['$1' | '$3'].
 anno_expressions -> anno_expression : ['$1'].
@@ -279,15 +282,15 @@ cons_literal -> '[' literal tail_literal : c_cons('$2', '$3').
 
 tail_literal -> ']' : #c_literal{val=[]}.
 tail_literal -> '|' literal ']' : '$2'.
-tail_literal -> ',' literal tail_literal : #c_cons{hd='$2',tl='$3'}.
+tail_literal -> ',' literal tail_literal : c_cons('$2', '$3').
 
 tuple -> '{' '}' : c_tuple([]).
 tuple -> '{' anno_expressions '}' : c_tuple('$2').
 
-map_expr -> '~' '{' '}' '~' : #c_map{es=[]}.
-map_expr -> '~' '{' map_pairs '}' '~' : #c_map{es='$3'}.
-map_expr -> '~' '{' map_pairs '|' variable '}' '~' : #c_map{arg='$5',es='$3'}.
-map_expr -> '~' '{' map_pairs '|' map_expr '}' '~' : #c_map{arg='$5',es='$3'}.
+map_expr -> '~' '{' '}' '~' : c_map([]).
+map_expr -> '~' '{' map_pairs '}' '~' : c_map('$3').
+map_expr -> '~' '{' map_pairs '|' variable '}' '~' : ann_c_map([], '$5', '$3').
+map_expr -> '~' '{' map_pairs '|' map_expr '}' '~' : ann_c_map([], '$5', '$3').
 
 map_pairs -> map_pair : ['$1'].
 map_pairs -> map_pair ',' map_pairs : ['$1' | '$3'].
@@ -295,10 +298,10 @@ map_pairs -> map_pair ',' map_pairs : ['$1' | '$3'].
 map_pair -> map_pair_assoc : '$1'.
 map_pair -> map_pair_exact : '$1'.
 
-map_pair_assoc -> '::' '<' anno_expression ',' anno_expression'>' :
-		#c_map_pair{op=#c_literal{val=assoc},key='$3',val='$5'}.
-map_pair_exact -> '~' '<' anno_expression ',' anno_expression'>' :
-		#c_map_pair{op=#c_literal{val=exact},key='$3',val='$5'}.
+map_pair_assoc -> anno_expression '=>' anno_expression :
+		#c_map_pair{op=#c_literal{val=assoc},key='$1',val='$3'}.
+map_pair_exact -> anno_expression ':=' anno_expression :
+		#c_map_pair{op=#c_literal{val=exact},key='$1',val='$3'}.
 
 cons -> '[' anno_expression tail : c_cons('$2', '$3').
 
@@ -307,7 +310,7 @@ tail -> '|' anno_expression ']' : '$2'.
 tail -> ',' anno_expression tail : c_cons('$2', '$3').
 
 binary -> '#' '{' '}' '#' : #c_literal{val = <<>>}.
-binary -> '#' '{' segments '}' '#' : #c_binary{segments='$3'}.
+binary -> '#' '{' segments '}' '#' : make_binary('$3').
 
 segments -> segment ',' segments : ['$1' | '$3'].
 segments -> segment : ['$1'].
@@ -326,7 +329,7 @@ function_name -> atom '/' integer :
 
 anno_function_name -> function_name : '$1'.
 anno_function_name -> '(' function_name '-|' annotation ')' :
-	core_lib:set_anno('$2', '$4').
+	cerl:set_ann('$2', '$4').
 
 let_vars -> anno_variable : ['$1'].
 let_vars -> '<' '>' : [].
@@ -354,7 +357,7 @@ anno_clauses -> anno_clause : ['$1'].
 
 anno_clause -> clause : '$1'.
 anno_clause -> '(' clause '-|' annotation ')' :
-	core_lib:set_anno('$2', '$4').
+	cerl:set_ann('$2', '$4').
 
 clause -> clause_pattern 'when' anno_expression '->' anno_expression :
 	#c_clause{pats='$1',guard='$3',body='$5'}.
@@ -410,9 +413,55 @@ Erlang code.
 
 -include("core_parse.hrl").
 
--import(cerl, [c_cons/2,c_tuple/1]).
+-import(cerl, [ann_c_map/3,c_cons/2,c_map/1,c_map_pattern/1,c_tuple/1]).
 
 tok_val(T) -> element(3, T).
 tok_line(T) -> element(2, T).
+
+%% make_binary([#c_bitstr{}]) -> #c_binary{} | #c_literal{}
+%%  Create either #c_binary{} or #c_literal{} from the binary segments.
+%%  In certain contexts, such as keys for maps, only literals and
+%%  variables are allowed, so we must not create a #c_binary{}
+%%  record in those situation.
+%%
+%%  To keep this function simple, we use a crude heuristic. We will
+%%  assume that Core Erlang has been produced by core_pp. If the
+%%  segments *could* have been output from a literal binary by
+%%  core_pp, we will create a #c_literal{}. Otherwise we will create a
+%%  #c_binary{} record.
+
+make_binary(Segs) ->
+    try make_lit_bin(<<>>, Segs) of
+	Bs when is_bitstring(Bs) ->
+	    #c_literal{val=Bs}
+    catch
+	throw:impossible ->
+	    #c_binary{segments=Segs}
+    end.
+
+make_lit_bin(Acc, [#c_bitstr{val=I0,size=Sz0,unit=U0,type=Type0,flags=F0}|T]) ->
+    I = get_lit_val(I0),
+    Sz = get_lit_val(Sz0),
+    U = get_lit_val(U0),
+    Type = get_lit_val(Type0),
+    F = get_lit_val(F0),
+    if
+	is_integer(I), U =:= 1, Type =:= integer, F =:= [unsigned,big] ->
+	    ok;
+	true ->
+	    throw(impossible)
+    end,
+    if
+	Sz =< 8, T =:= [] ->
+	    <<Acc/binary,I:Sz>>;
+	Sz =:= 8 ->
+	    make_lit_bin(<<Acc/binary,I:8>>, T);
+	true ->
+	    throw(impossible)
+    end;
+make_lit_bin(Acc, []) -> Acc.
+
+get_lit_val(#c_literal{val=Val}) -> Val;
+get_lit_val(_) -> throw(impossible).
 
 %% vim: syntax=erlang

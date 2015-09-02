@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 1996-2014. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -88,6 +89,7 @@
 %% API
 -export([start/3, start/4,
 	 start_link/3, start_link/4,
+	 stop/1, stop/3,
 	 call/2, call/3,
 	 cast/2, reply/2,
 	 abcast/2, abcast/3,
@@ -137,6 +139,15 @@
 -callback code_change(OldVsn :: (term() | {down, term()}), State :: term(),
                       Extra :: term()) ->
     {ok, NewState :: term()} | {error, Reason :: term()}.
+-callback format_status(Opt, StatusData) -> Status when
+      Opt :: 'normal' | 'terminate',
+      StatusData :: [PDict | State],
+      PDict :: [{Key :: term(), Value :: term()}],
+      State :: term(),
+      Status :: term().
+
+-optional_callbacks([format_status/2]).
+
 
 %%%  -----------------------------------------------------------------
 %%% Starts a generic server.
@@ -166,6 +177,17 @@ start_link(Mod, Args, Options) ->
 start_link(Name, Mod, Args, Options) ->
     gen:start(?MODULE, link, Name, Mod, Args, Options).
 
+
+%% -----------------------------------------------------------------
+%% Stop a generic server and wait for it to terminate.
+%% If the server is located at another node, that node will
+%% be monitored.
+%% -----------------------------------------------------------------
+stop(Name) ->
+    gen:stop(Name).
+
+stop(Name, Reason, Timeout) ->
+    gen:stop(Name, Reason, Timeout).
 
 %% -----------------------------------------------------------------
 %% Make a call to a generic server.
@@ -849,21 +871,9 @@ opt(_, []) ->
 
 debug_options(Name, Opts) ->
     case opt(debug, Opts) of
-	{ok, Options} -> dbg_options(Name, Options);
-	_ -> dbg_options(Name, [])
+	{ok, Options} -> dbg_opts(Name, Options);
+	_ -> []
     end.
-
-dbg_options(Name, []) ->
-    Opts = 
-	case init:get_argument(generic_debug) of
-	    error ->
-		[];
-	    _ ->
-		[log, statistics]
-	end,
-    dbg_opts(Name, Opts);
-dbg_options(Name, Opts) ->
-    dbg_opts(Name, Opts).
 
 dbg_opts(Name, Opts) ->
     case catch sys:debug_options(Opts) of

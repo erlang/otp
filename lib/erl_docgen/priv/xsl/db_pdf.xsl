@@ -5,16 +5,17 @@
      #
      # Copyright Ericsson AB 2009-2013. All Rights Reserved.
      #
-     # The contents of this file are subject to the Erlang Public License,
-     # Version 1.1, (the "License"); you may not use this file except in
-     # compliance with the License. You should have received a copy of the
-     # Erlang Public License along with this software. If not, it can be
-     # retrieved online at http://www.erlang.org/.
+     # Licensed under the Apache License, Version 2.0 (the "License");
+     # you may not use this file except in compliance with the License.
+     # You may obtain a copy of the License at
      #
-     # Software distributed under the License is distributed on an "AS IS"
-     # basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-     # the License for the specific language governing rights and limitations
-     # under the License.
+     #     http://www.apache.org/licenses/LICENSE-2.0
+     #
+     # Unless required by applicable law or agreed to in writing, software
+     # distributed under the License is distributed on an "AS IS" BASIS,
+     # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+     # See the License for the specific language governing permissions and
+     # limitations under the License.
      #
      # %CopyrightEnd%
 
@@ -671,6 +672,10 @@
         <fo:block xsl:use-attribute-sets="cover.version">
           <xsl:value-of select="$gendate"/>
         </fo:block>
+        <fo:block xsl:use-attribute-sets="cover.extrainfo">
+          <xsl:value-of select="$extra_front_page_info"/>
+        </fo:block>
+
 
         <!-- Inner cover (copyright notice) -->
         <fo:block break-before="page"
@@ -682,16 +687,18 @@
         <fo:block xsl:use-attribute-sets="cover.inner.copyrightnotice">
           <xsl:value-of select="/book/header/legalnotice"/>
 
-        <!--   The contents of this file are subject to the Erlang Public License,
-  Version 1.1, (the "License"); you may not use this file except in
-  compliance with the License. You should have received a copy of the
-  Erlang Public License along with this software. If not, it can be
-  retrieved online at http://www.erlang.org/.
+        <!--   
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
 
-  Software distributed under the License is distributed on an "AS IS"
-  basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-  the License for the specific language governing rights and limitations
-  under the License.
+      http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
 
   The Initial Developer of the Original Code is
 -->
@@ -1138,6 +1145,31 @@
     </fo:block>
   </xsl:template>
 
+  <!-- Do -->
+  <xsl:template match="do">
+    <xsl:param name="partnum"/>
+    <fo:block xsl:use-attribute-sets="do">
+        <fo:block xsl:use-attribute-sets="note-warning-title">
+            <xsl:text>Do:</xsl:text>
+        </fo:block>
+      <xsl:apply-templates>
+        <xsl:with-param name="partnum" select="$partnum"/>
+      </xsl:apply-templates>
+    </fo:block>
+  </xsl:template>
+
+  <!-- Dont -->
+  <xsl:template match="dont">
+    <xsl:param name="partnum"/>
+    <fo:block xsl:use-attribute-sets="dont">
+        <fo:block xsl:use-attribute-sets="note-warning-title">
+            <xsl:text>Don't:</xsl:text>
+        </fo:block>
+      <xsl:apply-templates>
+        <xsl:with-param name="partnum" select="$partnum"/>
+      </xsl:apply-templates>
+    </fo:block>
+  </xsl:template>
 
  <!-- Paragraph -->
   <xsl:template match="p">

@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 2010-2013. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 
@@ -37,7 +38,7 @@
 
 -record(options, {username, password, boot_timeout, init_timeout,
 		  startup_timeout, startup_functions, monitor_master,
-		  kill_if_fail, erl_flags, env}).
+		  kill_if_fail, erl_flags, env, ssh_port, ssh_opts}).
 
 %%%-----------------------------------------------------------------
 %%% @spec start(Node) -> Result
@@ -254,11 +255,13 @@ fetch_options(Options) ->
     KillIfFail = get_option_value(kill_if_fail, Options, true),
     ErlFlags = get_option_value(erl_flags, Options, []),
     EnvVars = get_option_value(env, Options, []),
+    SSHPort = get_option_value(ssh_port, Options, []),
+    SSHOpts = get_option_value(ssh_opts, Options, []),
     #options{username=UserName, password=Password,
 	     boot_timeout=BootTimeout, init_timeout=InitTimeout,
 	     startup_timeout=StartupTimeout, startup_functions=StartupFunctions,
 	     monitor_master=Monitor, kill_if_fail=KillIfFail,
-	     erl_flags=ErlFlags, env=EnvVars}.
+	     erl_flags=ErlFlags, env=EnvVars, ssh_port=SSHPort, ssh_opts=SSHOpts}.
 
 % send a message when slave node is started
 % @hidden
@@ -399,27 +402,18 @@ spawn_local_node(Node, Options) ->
     Cmd = get_cmd(Node, ErlFlags),
     open_port({spawn, Cmd}, [stream,{env,Env}]).
 
-% start crypto and ssh if not yet started
-check_for_ssh_running() ->
-    case application:get_application(crypto) of
-	undefined->
-	    application:start(crypto),
-	    case application:get_application(ssh) of
-		undefined->
-		    application:start(ssh);
-		{ok, ssh}->
-		    ok
-	    end;
-	{ok, crypto}->
-	    ok
-    end.
-
 % spawn node remotely
 spawn_remote_node(Host, Node, Options) ->
     #options{username=Username,
 	     password=Password,
 	     erl_flags=ErlFlags,
-	     env=Env} = Options,
+	     env=Env,
+       ssh_port=MaybeSSHPort,
+       ssh_opts=SSHOpts} = Options,
+    SSHPort = case MaybeSSHPort of
+                [] -> 22; % Use default SSH port
+                A  -> A
+              end,
     SSHOptions = case {Username, Password} of
 	{[], []}->
 	    [];
@@ -427,13 +421,12 @@ spawn_remote_node(Host, Node, Options) ->
 	    [{user, Username}];
 	{_, _}->
 	    [{user, Username}, {password, Password}]
-    end ++ [{silently_accept_hosts, true}],
-    check_for_ssh_running(),
-    {ok, SSHConnRef} = ssh:connect(atom_to_list(Host), 22, SSHOptions),
+    end ++ [{silently_accept_hosts, true}] ++ SSHOpts,
+    application:ensure_all_started(ssh),
+    {ok, SSHConnRef} = ssh:connect(atom_to_list(Host), SSHPort, SSHOptions),
     {ok, SSHChannelId} = ssh_connection:session_channel(SSHConnRef, infinity),
     ssh_setenv(SSHConnRef, SSHChannelId, Env),
     ssh_connection:exec(SSHConnRef, SSHChannelId, get_cmd(Node, ErlFlags), infinity).
-
 
 ssh_setenv(SSHConnRef, SSHChannelId, [{Var, Value} | Vars])
   when is_list(Var), is_list(Value) ->

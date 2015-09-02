@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2015. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -55,6 +56,15 @@
          token_info/1,token_info/2,
          attributes_info/1,attributes_info/2,set_attribute/3]).
 
+-export([column/1,end_location/1,line/1,location/1,text/1,
+         category/1,symbol/1]).
+
+-deprecated([{attributes_info, 1, next_major_release},
+             {attributes_info, 2, next_major_release},
+             {set_attribute, 3, next_major_release},
+             {token_info, 1, next_major_release},
+             {token_info, 2, next_major_release}]).
+
 %%% Private
 -export([continuation_location/1]).
 
@@ -78,9 +88,9 @@
 -define(SETATTRFUN(F), is_function(F, 1)).
 
 -type category() :: atom().
--type column() :: pos_integer().
--type line() :: integer().
--type location() :: line() | {line(),column()}.
+-type column() :: pos_integer().                % Deprecated
+-type line() :: integer().                      % Deprecated
+-type location() :: line() | {line(),column()}. % Deprecated
 -type resword_fun() :: fun((atom()) -> boolean()).
 -type option() :: 'return' | 'return_white_spaces' | 'return_comments'
                 | 'text' | {'reserved_word_fun', resword_fun()}.
@@ -197,6 +207,56 @@ continuation_location({erl_scan_continuation,_,no_col,_,Line,_,_,_}) ->
 continuation_location({erl_scan_continuation,_,Col,_,Line,_,_,_}) ->
     {Line,Col}.
 
+-spec column(Token) -> erl_anno:column() | 'undefined' when
+      Token :: token().
+
+column(Token) ->
+    erl_anno:column(element(2, Token)).
+
+-spec end_location(Token) -> erl_anno:location() | 'undefined' when
+      Token :: token().
+
+end_location(Token) ->
+    erl_anno:end_location(element(2, Token)).
+
+-spec line(Token) -> erl_anno:line() when
+      Token :: token().
+
+line(Token) ->
+    erl_anno:line(element(2, Token)).
+
+-spec location(Token) -> erl_anno:location() when
+      Token :: token().
+
+location(Token) ->
+    erl_anno:location(element(2, Token)).
+
+-spec text(Token) -> erl_anno:text() | 'undefined' when
+      Token :: token().
+
+text(Token) ->
+    erl_anno:text(element(2, Token)).
+
+-spec category(Token) -> category() when
+      Token :: token().
+
+category({Category,_Anno}) ->
+    Category;
+category({Category,_Anno,_Symbol}) ->
+    Category;
+category(T) ->
+    erlang:error(badarg, [T]).
+
+-spec symbol(Token) -> symbol() when
+      Token :: token().
+
+symbol({Category,_Anno}) ->
+    Category;
+symbol({_Category,_Anno,Symbol}) ->
+    Symbol;
+symbol(T) ->
+    erlang:error(badarg, [T]).
+
 -type attribute_item() :: 'column' | 'length' | 'line'
                         | 'location' | 'text'.
 -type info_location() :: location() | term().
@@ -276,7 +336,17 @@ attributes_info({Line,Column}, column=Item) when ?ALINE(Line),
 attributes_info(Line, column) when ?ALINE(Line) ->
     undefined;
 attributes_info(Attrs, column=Item) ->
-    attr_info(Attrs, Item);
+    case attr_info(Attrs, Item) of
+        undefined ->
+            case erl_anno:column(Attrs) of
+                undefined ->
+                    undefined;
+                Column ->
+                    {Item,Column}
+            end;
+        T ->
+            T
+    end;
 attributes_info(Attrs, length=Item) ->
     case attributes_info(Attrs, text) of
         undefined ->
@@ -290,14 +360,26 @@ attributes_info({Line,Column}, line=Item) when ?ALINE(Line),
                                                ?COLUMN(Column) ->
     {Item,Line};
 attributes_info(Attrs, line=Item) ->
-    attr_info(Attrs, Item);
+    case attr_info(Attrs, Item) of
+        undefined ->
+            case attr_info(Attrs, location) of
+                {location,{Line,_Column}} ->
+                    {Item,Line};
+                {location,Line} ->
+                    {Item,Line};
+                undefined ->
+                    undefined
+            end;
+        T ->
+            T
+    end;
 attributes_info({Line,Column}=Location, location=Item) when ?ALINE(Line),
                                                             ?COLUMN(Column) ->
     {Item,Location};
 attributes_info(Line, location=Item) when ?ALINE(Line) ->
     {Item,Line};
 attributes_info(Attrs, location=Item) ->
-    {line,Line} = attributes_info(Attrs, line), % assume line is present
+    {line,Line} = attributes_info(Attrs, line),
     case attributes_info(Attrs, column) of
         undefined ->
             %% If set_attribute() has assigned a term such as {17,42}
@@ -419,12 +501,28 @@ set_attr(line, {Line,Column}, Fun) when ?ALINE(Line), ?COLUMN(Column) ->
             [{line,Ln},{column,Column}]
     end;
 set_attr(line=Tag, Attrs, Fun) when is_list(Attrs) ->
-    {line,Line} = lists:keyfind(Tag, 1, Attrs),
-    case lists:keyreplace(Tag, 1, Attrs, {line,Fun(Line)}) of
-        [{line,Ln}] when ?ALINE(Ln) ->
-            Ln;
-        As ->
-            As
+    case lists:keyfind(Tag, 1, Attrs) of
+        {line,Line} ->
+            case lists:keyreplace(Tag, 1, Attrs, {line,Fun(Line)}) of
+                [{line,Ln}] when ?ALINE(Ln) ->
+                    Ln;
+                As ->
+                    As
+            end;
+        false ->
+            {location, Location} = lists:keyfind(location, 1, Attrs),
+            Ln = case Location of
+                     {Line,Column} when ?ALINE(Line), ?COLUMN(Column) ->
+                         {Fun(Line),Column};
+                     _ ->
+                         Fun(Location)
+                 end,
+            case lists:keyreplace(location, 1, Attrs, {location,Ln}) of
+                [{location,Ln}] when ?ALINE(Ln) ->
+                    Ln;
+                As ->
+                    As
+            end
     end;
 set_attr(T1, T2, T3) ->
     erlang:error(badarg, [T1,T2,T3]).
@@ -599,9 +697,6 @@ scan1("|"=Cs, _St, Line, Col, Toks) ->
 %% :=
 scan1(":="++Cs, St, Line, Col, Toks) ->
     tok2(Cs, St, Line, Col, Toks, ":=", ':=', 2);
-%% :-
-scan1(":-"++Cs, St, Line, Col, Toks) ->
-    tok2(Cs, St, Line, Col, Toks, ":-", ':-', 2);
 %% :: for typed records
 scan1("::"++Cs, St, Line, Col, Toks) ->
     tok2(Cs, St, Line, Col, Toks, "::", '::', 2);
@@ -711,17 +806,17 @@ scan_name(Cs, Ncs) ->
 -define(STR(St, S), if St#erl_scan.text -> S; true -> [] end).
 
 scan_dot([$%|_]=Cs, St, Line, Col, Toks, Ncs) ->
-    Attrs = attributes(Line, Col, St, Ncs),
-    {ok,[{dot,Attrs}|Toks],Cs,Line,incr_column(Col, 1)};
+    Anno = anno(Line, Col, St, Ncs),
+    {ok,[{dot,Anno}|Toks],Cs,Line,incr_column(Col, 1)};
 scan_dot([$\n=C|Cs], St, Line, Col, Toks, Ncs) ->
-    Attrs = attributes(Line, Col, St, ?STR(St, Ncs++[C])),
-    {ok,[{dot,Attrs}|Toks],Cs,Line+1,new_column(Col, 1)};
+    Anno = anno(Line, Col, St, ?STR(St, Ncs++[C])),
+    {ok,[{dot,Anno}|Toks],Cs,Line+1,new_column(Col, 1)};
 scan_dot([C|Cs], St, Line, Col, Toks, Ncs) when ?WHITE_SPACE(C) ->
-    Attrs = attributes(Line, Col, St, ?STR(St, Ncs++[C])),
-    {ok,[{dot,Attrs}|Toks],Cs,Line,incr_column(Col, 2)};
+    Anno = anno(Line, Col, St, ?STR(St, Ncs++[C])),
+    {ok,[{dot,Anno}|Toks],Cs,Line,incr_column(Col, 2)};
 scan_dot(eof=Cs, St, Line, Col, Toks, Ncs) ->
-    Attrs = attributes(Line, Col, St, Ncs),
-    {ok,[{dot,Attrs}|Toks],Cs,Line,incr_column(Col, 1)};
+    Anno = anno(Line, Col, St, Ncs),
+    {ok,[{dot,Anno}|Toks],Cs,Line,incr_column(Col, 1)};
 scan_dot(Cs, St, Line, Col, Toks, Ncs) ->
     tok2(Cs, St, Line, Col, Toks, Ncs, '.', 1).
 
@@ -776,12 +871,12 @@ scan_nl_tabs(Cs, St, Line, Col, Toks, N) ->
 %% stop anyway, nothing is gained by not collecting all white spaces.
 scan_nl_white_space([$\n|Cs], #erl_scan{text = false}=St, Line, no_col=Col,
                     Toks0, Ncs) ->
-    Toks = [{white_space,Line,lists:reverse(Ncs)}|Toks0],
+    Toks = [{white_space,anno(Line),lists:reverse(Ncs)}|Toks0],
     scan_newline(Cs, St, Line+1, Col, Toks);
 scan_nl_white_space([$\n|Cs], St, Line, Col, Toks, Ncs0) ->
     Ncs = lists:reverse(Ncs0),
-    Attrs = attributes(Line, Col, St, Ncs),
-    Token = {white_space,Attrs,Ncs},
+    Anno = anno(Line, Col, St, Ncs),
+    Token = {white_space,Anno,Ncs},
     scan_newline(Cs, St, Line+1, new_column(Col, length(Ncs)), [Token|Toks]);
 scan_nl_white_space([C|Cs], St, Line, Col, Toks, Ncs) when ?WHITE_SPACE(C) ->
     scan_nl_white_space(Cs, St, Line, Col, Toks, [C|Ncs]);
@@ -789,19 +884,20 @@ scan_nl_white_space([]=Cs, _St, Line, Col, Toks, Ncs) ->
     {more,{Cs,Col,Toks,Line,Ncs,fun scan_nl_white_space/6}};
 scan_nl_white_space(Cs, #erl_scan{text = false}=St, Line, no_col=Col,
                     Toks, Ncs) ->
-    scan1(Cs, St, Line+1, Col, [{white_space,Line,lists:reverse(Ncs)}|Toks]);
+    Anno = anno(Line),
+    scan1(Cs, St, Line+1, Col, [{white_space,Anno,lists:reverse(Ncs)}|Toks]);
 scan_nl_white_space(Cs, St, Line, Col, Toks, Ncs0) ->
     Ncs = lists:reverse(Ncs0),
-    Attrs = attributes(Line, Col, St, Ncs),
-    Token = {white_space,Attrs,Ncs},
+    Anno = anno(Line, Col, St, Ncs),
+    Token = {white_space,Anno,Ncs},
     scan1(Cs, St, Line+1, new_column(Col, length(Ncs)), [Token|Toks]).
 
 newline_end(Cs, #erl_scan{text = false}=St, Line, no_col=Col,
             Toks, _N, Ncs) ->
-    scan1(Cs, St, Line+1, Col, [{white_space,Line,Ncs}|Toks]);
+    scan1(Cs, St, Line+1, Col, [{white_space,anno(Line),Ncs}|Toks]);
 newline_end(Cs, St, Line, Col, Toks, N, Ncs) ->
-    Attrs = attributes(Line, Col, St, Ncs),
-    scan1(Cs, St, Line+1, new_column(Col, N), [{white_space,Attrs,Ncs}|Toks]).
+    Anno = anno(Line, Col, St, Ncs),
+    scan1(Cs, St, Line+1, new_column(Col, N), [{white_space,Anno,Ncs}|Toks]).
 
 scan_spcs([$\s|Cs], St, Line, Col, Toks, N) when N < 16 ->
     scan_spcs(Cs, St, Line, Col, Toks, N+1);
@@ -850,20 +946,20 @@ scan_char([$\\|Cs]=Cs0, St, Line, Col, Toks) ->
         {eof,Ncol} ->
             scan_error(char, Line, Col, Line, Ncol, eof);
         {nl,Val,Str,Ncs,Ncol} ->
-            Attrs = attributes(Line, Col, St, ?STR(St, "$\\"++Str)), %"
-            Ntoks = [{char,Attrs,Val}|Toks],
+            Anno = anno(Line, Col, St, ?STR(St, "$\\"++Str)), %"
+            Ntoks = [{char,Anno,Val}|Toks],
             scan1(Ncs, St, Line+1, Ncol, Ntoks);
         {Val,Str,Ncs,Ncol} ->
-            Attrs = attributes(Line, Col, St, ?STR(St, "$\\"++Str)), %"
-            Ntoks = [{char,Attrs,Val}|Toks],
+            Anno = anno(Line, Col, St, ?STR(St, "$\\"++Str)), %"
+            Ntoks = [{char,Anno,Val}|Toks],
             scan1(Ncs, St, Line, Ncol, Ntoks)
     end;
 scan_char([$\n=C|Cs], St, Line, Col, Toks) ->
-    Attrs = attributes(Line, Col, St, ?STR(St, [$$,C])),
-    scan1(Cs, St, Line+1, new_column(Col, 1), [{char,Attrs,C}|Toks]);
+    Anno = anno(Line, Col, St, ?STR(St, [$$,C])),
+    scan1(Cs, St, Line+1, new_column(Col, 1), [{char,Anno,C}|Toks]);
 scan_char([C|Cs], St, Line, Col, Toks) when ?UNICODE(C) ->
-    Attrs = attributes(Line, Col, St, ?STR(St, [$$,C])),
-    scan1(Cs, St, Line, incr_column(Col, 2), [{char,Attrs,C}|Toks]);
+    Anno = anno(Line, Col, St, ?STR(St, [$$,C])),
+    scan1(Cs, St, Line, incr_column(Col, 2), [{char,Anno,C}|Toks]);
 scan_char([C|_Cs], _St, Line, Col, _Toks) when ?CHAR(C) ->
     scan_error({illegal,character}, Line, Col, Line, incr_column(Col, 1), eof);
 scan_char([], _St, Line, Col, Toks) ->
@@ -882,8 +978,8 @@ scan_string(Cs, St, Line, Col, Toks, {Wcs,Str,Line0,Col0}) ->
             Estr = string:substr(Nwcs, 1, 16), % Expanded escape chars.
             scan_error({string,$\",Estr}, Line0, Col0, Nline, Ncol, Ncs); %"
         {Ncs,Nline,Ncol,Nstr,Nwcs} ->
-            Attrs = attributes(Line0, Col0, St, Nstr),
-            scan1(Ncs, St, Nline, Ncol, [{string,Attrs,Nwcs}|Toks])
+            Anno = anno(Line0, Col0, St, Nstr),
+            scan1(Ncs, St, Nline, Ncol, [{string,Anno,Nwcs}|Toks])
     end.
 
 scan_qatom(Cs, St, Line, Col, Toks, {Wcs,Str,Line0,Col0}) ->
@@ -899,8 +995,8 @@ scan_qatom(Cs, St, Line, Col, Toks, {Wcs,Str,Line0,Col0}) ->
         {Ncs,Nline,Ncol,Nstr,Nwcs} ->
             case catch list_to_atom(Nwcs) of
                 A when is_atom(A) ->
-                    Attrs = attributes(Line0, Col0, St, Nstr),
-                    scan1(Ncs, St, Nline, Ncol, [{atom,Attrs,A}|Toks]);
+                    Anno = anno(Line0, Col0, St, Nstr),
+                    scan1(Ncs, St, Nline, Ncol, [{atom,Anno,A}|Toks]);
                 _ ->
                     scan_error({illegal,atom}, Line0, Col0, Nline, Ncol, Ncs)
             end
@@ -1176,28 +1272,28 @@ scan_comment(Cs, St, Line, Col, Toks, Ncs0) ->
     tok3(Cs, St, Line, Col, Toks, comment, Ncs, Ncs).
 
 tok2(Cs, #erl_scan{text = false}=St, Line, no_col=Col, Toks, _Wcs, P) ->
-    scan1(Cs, St, Line, Col, [{P,Line}|Toks]);
+    scan1(Cs, St, Line, Col, [{P,anno(Line)}|Toks]);
 tok2(Cs, St, Line, Col, Toks, Wcs, P) ->
-    Attrs = attributes(Line, Col, St, Wcs),
-    scan1(Cs, St, Line, incr_column(Col, length(Wcs)), [{P,Attrs}|Toks]).
+    Anno = anno(Line, Col, St, Wcs),
+    scan1(Cs, St, Line, incr_column(Col, length(Wcs)), [{P,Anno}|Toks]).
 
 tok2(Cs, #erl_scan{text = false}=St, Line, no_col=Col, Toks, _Wcs, P, _N) ->
-    scan1(Cs, St, Line, Col, [{P,Line}|Toks]);
+    scan1(Cs, St, Line, Col, [{P,anno(Line)}|Toks]);
 tok2(Cs, St, Line, Col, Toks, Wcs, P, N) ->
-    Attrs = attributes(Line, Col, St, Wcs),
-    scan1(Cs, St, Line, incr_column(Col, N), [{P,Attrs}|Toks]).
+    Anno = anno(Line, Col, St, Wcs),
+    scan1(Cs, St, Line, incr_column(Col, N), [{P,Anno}|Toks]).
 
 tok3(Cs, #erl_scan{text = false}=St, Line, no_col=Col, Toks, Item, _S, Sym) ->
-    scan1(Cs, St, Line, Col, [{Item,Line,Sym}|Toks]);
+    scan1(Cs, St, Line, Col, [{Item,anno(Line),Sym}|Toks]);
 tok3(Cs, St, Line, Col, Toks, Item, String, Sym) ->
-    Token = {Item,attributes(Line, Col, St, String),Sym},
+    Token = {Item,anno(Line, Col, St, String),Sym},
     scan1(Cs, St, Line, incr_column(Col, length(String)), [Token|Toks]).
 
 tok3(Cs, #erl_scan{text = false}=St, Line, no_col=Col, Toks, Item,
      _String, Sym, _Length) ->
-    scan1(Cs, St, Line, Col, [{Item,Line,Sym}|Toks]);
+    scan1(Cs, St, Line, Col, [{Item,anno(Line),Sym}|Toks]);
 tok3(Cs, St, Line, Col, Toks, Item, String, Sym, Length) ->
-    Token = {Item,attributes(Line, Col, St, String),Sym},
+    Token = {Item,anno(Line, Col, St, String),Sym},
     scan1(Cs, St, Line, incr_column(Col, Length), [Token|Toks]).
 
 scan_error(Error, Line, Col, EndLine, EndCol, Rest) ->
@@ -1208,23 +1304,28 @@ scan_error(Error, Line, Col, EndLine, EndCol, Rest) ->
 scan_error(Error, ErrorLoc, EndLoc, Rest) ->
     {{error,{ErrorLoc,?MODULE,Error},EndLoc},Rest}.
 
--compile({inline,[attributes/4]}).
+-compile({inline,[anno/4]}).
 
-attributes(Line, no_col, #erl_scan{text = false}, _String) ->
-    Line;
-attributes(Line, no_col, #erl_scan{text = true}, String) ->
-    [{line,Line},{text,String}];
-attributes(Line, Col, #erl_scan{text = false}, _String) ->
-    {Line,Col};
-attributes(Line, Col, #erl_scan{text = true}, String) ->
-    [{line,Line},{column,Col},{text,String}].
+anno(Line, no_col, #erl_scan{text = false}, _String) ->
+    anno(Line);
+anno(Line, no_col, #erl_scan{text = true}, String) ->
+    Anno = anno(Line),
+    erl_anno:set_text(String, Anno);
+anno(Line, Col, #erl_scan{text = false}, _String) ->
+    anno({Line, Col});
+anno(Line, Col, #erl_scan{text = true}, String) ->
+    Anno = anno({Line, Col}),
+    erl_anno:set_text(String, Anno).
 
 location(Line, no_col) ->
     Line;
 location(Line, Col) when is_integer(Col) ->
     {Line,Col}.
 
--compile({inline,[incr_column/2,new_column/2]}).
+-compile({inline,[anno/1,incr_column/2,new_column/2]}).
+
+anno(Location) ->
+    erl_anno:new(Location).
 
 incr_column(no_col=Col, _N) ->
     Col;

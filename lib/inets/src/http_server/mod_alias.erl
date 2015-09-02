@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 1997-2015. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -212,7 +213,7 @@ load("Alias " ++ Alias, []) ->
 	{ok, [FakeName, RealName]} ->
 	    {ok,[],{alias,{FakeName,RealName}}};
 	{ok, _} ->
-	    {error,?NICE(httpd_conf:clean(Alias)++" is an invalid Alias")}
+	    {error,?NICE(string:strip(Alias)++" is an invalid Alias")}
     end;
 load("ReWrite " ++ Rule, Acc) ->
     load_re_write(Rule, Acc, "ReWrite", re_write);
@@ -223,7 +224,7 @@ load("ScriptAlias " ++ ScriptAlias, []) ->
 	    RealName1 = filename:join(filename:split(RealName)),
 	    {ok, [], {script_alias, {FakeName, RealName1++"/"}}};
 	{ok, _} ->
-	    {error, ?NICE(httpd_conf:clean(ScriptAlias)++
+	    {error, ?NICE(string:strip(ScriptAlias)++
 			  " is an invalid ScriptAlias")}
     end;
 load("ScriptReWrite " ++ Rule, Acc) ->
@@ -234,7 +235,7 @@ load_re_write(Rule0, Acc, Type, Tag) ->
 	   fun ($\s) -> true; ($\t) -> true; (_) -> false end,
 	   Rule0) of
 	"" ->
-	    {error, ?NICE(httpd_conf:clean(Rule0)++" is an invalid "++Type)};
+	    {error, ?NICE(string:strip(Rule0)++" is an invalid "++Type)};
 	Rule ->
 	    case string:chr(Rule, $\s) of
 		0 ->

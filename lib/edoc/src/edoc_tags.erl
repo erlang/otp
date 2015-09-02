@@ -42,7 +42,7 @@
 %%   Name = atom()
 %%   Parser = text | xml | (Text,Line,Where) -> term()
 %%   Flags = [Flag]
-%%   Flag = module | function | package | overview | single
+%%   Flag = module | function | overview | single
 %%
 %% Note that the pseudo-tag '@clear' is not listed here.
 %% (Cf. the function 'filter_tags'.)
@@ -57,11 +57,11 @@
 %% - @category (useless; superseded by keywords or free text search)
 
 tags() ->
-    All = [module,footer,function,package,overview],
-    [{author, fun parse_contact/4, [module,package,overview]},
-     {copyright, text, [module,package,overview,single]},
-     {deprecated, xml, [module,function,package,single]},
-     {doc, xml,	[module,function,package,overview,single]},
+    All = [module,footer,function,overview],
+    [{author, fun parse_contact/4, [module,overview]},
+     {copyright, text, [module,overview,single]},
+     {deprecated, xml, [module,function,single]},
+     {doc, xml,	[module,function,overview,single]},
      {docfile, fun parse_file/4, All},
      {'end', text, All},
      {equiv, fun parse_expr/4, [function,single]},
@@ -69,17 +69,17 @@ tags() ->
      {hidden, text, [module,function,single]},
      {param, fun parse_param/4, [function]},
      {private, text, [module,function,single]},
-     {reference, xml, [module,footer,package,overview]},
+     {reference, xml, [module,footer,overview]},
      {returns, xml, [function,single]},
-     {see, fun parse_see/4, [module,function,package,overview]},
-     {since, text, [module,function,package,overview,single]},
+     {see, fun parse_see/4, [module,function,overview]},
+     {since, text, [module,function,overview,single]},
      {spec, fun parse_spec/4, [function,single]},
      {throws, fun parse_throws/4, [function,single]},
      {title, text, [overview,single]},
      {'TODO', xml, All},
      {todo, xml, All},
      {type, fun parse_typedef/4, [module,footer,function]},
-     {version, text, [module,package,overview,single]}].
+     {version, text, [module,overview,single]}].
 
 aliases('TODO') -> todo;
 aliases(return) -> returns;
@@ -329,10 +329,7 @@ parse_typedef(Data, Line, _Env, Where) ->
     NAs = length(As),
     case edoc_types:is_predefined(T, NAs) of
 	true ->
-            case
-                edoc_types:is_new_predefined(T, NAs)
-                orelse edoc_types:is_predefined_otp_type(T, NAs)
-            of
+            case edoc_types:is_new_predefined(T, NAs) of
                 false ->
                     throw_error(Line, {"redefining built-in type '~w'.",
                                        [T]});
@@ -345,7 +342,7 @@ parse_typedef(Data, Line, _Env, Where) ->
 	    Def
     end.
 
--type line() :: erl_scan:line().
+-type line() :: erl_anno:line().
 
 -spec parse_file(_, line(), _, _) -> no_return().
 
@@ -372,7 +369,7 @@ parse_header(Data, Line, Env, Where) when is_list(Where) ->
 	{string, _, File} ->
 	    Dir = filename:dirname(Where),
 	    Path = Env#env.includes ++ [Dir],
-	    case edoc_lib:find_file(Path, "", File) of
+	    case edoc_lib:find_file(Path, File) of
 		"" ->
 		    throw_error(Line, {file_not_found, File});
 		File1 ->
@@ -499,7 +496,6 @@ check_used_type(#t_name{name = N, module = Mod}=Name, Args, P, LocalTypes) ->
         Mod =/= []
         orelse lists:member(TypeName, ets:lookup(DT, Name))
         orelse edoc_types:is_predefined(N, NArgs)
-        orelse edoc_types:is_predefined_otp_type(N, NArgs)
         orelse lists:member(TypeName, LocalTypes)
     of
         true ->

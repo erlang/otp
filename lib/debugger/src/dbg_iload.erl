@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1998-2014. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2015. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -163,11 +164,11 @@ clauses([C0|Cs]) ->
     [C1|clauses(Cs)];
 clauses([]) -> [].
 
-clause({clause,Line,H0,G0,B0}, Lc) ->
+clause({clause,Anno,H0,G0,B0}, Lc) ->
     H1 = head(H0),
     G1 = guard(G0),
     B1 = exprs(B0, Lc),
-    {clause,Line,H1,G1,B1}.
+    {clause,ln(Anno),H1,G1,B1}.
 
 head(Ps) -> patterns(Ps).
 
@@ -181,46 +182,46 @@ patterns([]) -> [].
 
 %%  N.B. Only valid patterns are included here.
 
-pattern({var,Line,V}) -> {var,Line,V};
-pattern({char,Line,I}) -> {value,Line,I};
-pattern({integer,Line,I}) -> {value,Line,I};
-pattern({match,Line,Pat1,Pat2}) ->
-    {match,Line,pattern(Pat1),pattern(Pat2)};
-pattern({float,Line,F}) -> {value,Line,F};
-pattern({atom,Line,A}) -> {value,Line,A};
-pattern({string,Line,S}) -> {value,Line,S};
-pattern({nil,Line}) -> {value,Line,[]};
-pattern({cons,Line,H0,T0}) ->
+pattern({var,Anno,V}) -> {var,ln(Anno),V};
+pattern({char,Anno,I}) -> {value,ln(Anno),I};
+pattern({integer,Anno,I}) -> {value,ln(Anno),I};
+pattern({match,Anno,Pat1,Pat2}) ->
+    {match,ln(Anno),pattern(Pat1),pattern(Pat2)};
+pattern({float,Anno,F}) -> {value,ln(Anno),F};
+pattern({atom,Anno,A}) -> {value,ln(Anno),A};
+pattern({string,Anno,S}) -> {value,ln(Anno),S};
+pattern({nil,Anno}) -> {value,ln(Anno),[]};
+pattern({cons,Anno,H0,T0}) ->
     H1 = pattern(H0),
     T1 = pattern(T0),
-    {cons,Line,H1,T1};
-pattern({tuple,Line,Ps0}) ->
+    {cons,ln(Anno),H1,T1};
+pattern({tuple,Anno,Ps0}) ->
     Ps1 = pattern_list(Ps0),
-    {tuple,Line,Ps1};
-pattern({map,Line,Fs0}) ->
+    {tuple,ln(Anno),Ps1};
+pattern({map,Anno,Fs0}) ->
     Fs1 = lists:map(fun ({map_field_exact,L,K,V}) ->
                             {map_field_exact,L,expr(K, false),pattern(V)}
                     end, Fs0),
-    {map,Line,Fs1};
-pattern({op,_,'-',{integer,Line,I}}) ->
-    {value,Line,-I};
-pattern({op,_,'+',{integer,Line,I}}) ->
-    {value,Line,I};
-pattern({op,_,'-',{char,Line,I}}) ->
-    {value,Line,-I};
-pattern({op,_,'+',{char,Line,I}}) ->
-    {value,Line,I};
-pattern({op,_,'-',{float,Line,I}}) ->
-    {value,Line,-I};
-pattern({op,_,'+',{float,Line,I}}) ->
-    {value,Line,I};
-pattern({bin,Line,Grp}) ->
+    {map,ln(Anno),Fs1};
+pattern({op,_,'-',{integer,Anno,I}}) ->
+    {value,ln(Anno),-I};
+pattern({op,_,'+',{integer,Anno,I}}) ->
+    {value,ln(Anno),I};
+pattern({op,_,'-',{char,Anno,I}}) ->
+    {value,ln(Anno),-I};
+pattern({op,_,'+',{char,Anno,I}}) ->
+    {value,ln(Anno),I};
+pattern({op,_,'-',{float,Anno,I}}) ->
+    {value,ln(Anno),-I};
+pattern({op,_,'+',{float,Anno,I}}) ->
+    {value,ln(Anno),I};
+pattern({bin,Anno,Grp}) ->
     Grp1 = pattern_list(Grp),
-    {bin,Line,Grp1};
-pattern({bin_element,Line,Expr,Size,Type}) ->
+    {bin,ln(Anno),Grp1};
+pattern({bin_element,Anno,Expr,Size,Type}) ->
     Expr1 = pattern(Expr),
     Size1 = expr(Size, false),
-    {bin_element,Line,Expr1,Size1,Type}.
+    {bin_element,ln(Anno),Expr1,Size1,Type}.
 
 %%  These patterns are processed "in parallel" for purposes of variable
 %%  definition etc.
@@ -240,90 +241,89 @@ and_guard([G0|Gs]) ->
     [G1|and_guard(Gs)];
 and_guard([]) -> [].
 
-guard_test({call,Line,{remote,_,{atom,_,erlang},{atom,_,F}},As0}) ->
+guard_test({call,Anno,{remote,_,{atom,_,erlang},{atom,_,F}},As0}) ->
     As = gexpr_list(As0),
-    {safe_bif,Line,erlang,F,As};
-guard_test({op,Line,Op,L0}) ->
+    {safe_bif,ln(Anno),erlang,F,As};
+guard_test({op,Anno,Op,L0}) ->
     true = erl_internal:arith_op(Op, 1) orelse %Assertion.
 	erl_internal:bool_op(Op, 1),
     L1 = gexpr(L0),
-    {safe_bif,Line,erlang,Op,[L1]};
-guard_test({op,Line,Op,L0,R0}) when Op =:= 'andalso'; Op =:= 'orelse' ->
+    {safe_bif,ln(Anno),erlang,Op,[L1]};
+guard_test({op,Anno,Op,L0,R0}) when Op =:= 'andalso'; Op =:= 'orelse' ->
     L1 = gexpr(L0),
     R1 = gexpr(R0),				%They see the same variables
-    {Op,Line,L1,R1};
-guard_test({op,Line,Op,L0,R0}) ->
+    {Op,ln(Anno),L1,R1};
+guard_test({op,Anno,Op,L0,R0}) ->
     true = erl_internal:comp_op(Op, 2) orelse	%Assertion.
 	erl_internal:bool_op(Op, 2) orelse
         erl_internal:arith_op(Op, 2),
     L1 = gexpr(L0),
     R1 = gexpr(R0),				%They see the same variables
-    {safe_bif,Line,erlang,Op,[L1,R1]};
+    {safe_bif,ln(Anno),erlang,Op,[L1,R1]};
 guard_test({var,_,_}=V) ->V;    % Boolean var
-guard_test({atom,Line,true}) -> {value,Line,true};
+guard_test({atom,Anno,true}) -> {value,ln(Anno),true};
 %% All other constants at this level means false.
-guard_test({atom,Line,_}) -> {value,Line,false};
-guard_test({integer,Line,_}) -> {value,Line,false};
-guard_test({char,Line,_}) -> {value,Line,false};
-guard_test({float,Line,_}) -> {value,Line,false};
-guard_test({string,Line,_}) -> {value,Line,false};
-guard_test({nil,Line}) -> {value,Line,false};
-guard_test({cons,Line,_,_}) -> {value,Line,false};
-guard_test({tuple,Line,_}) -> {value,Line,false};
-guard_test({map,Line,_}) -> {value,Line,false};
-guard_test({map,Line,_,_}) -> {value,Line,false};
-guard_test({bin,Line,_}) ->  {value,Line,false}.
+guard_test({atom,Anno,_}) -> {value,ln(Anno),false};
+guard_test({integer,Anno,_}) -> {value,ln(Anno),false};
+guard_test({char,Anno,_}) -> {value,ln(Anno),false};
+guard_test({float,Anno,_}) -> {value,ln(Anno),false};
+guard_test({string,Anno,_}) -> {value,ln(Anno),false};
+guard_test({nil,Anno}) -> {value,ln(Anno),false};
+guard_test({cons,Anno,_,_}) -> {value,ln(Anno),false};
+guard_test({tuple,Anno,_}) -> {value,ln(Anno),false};
+guard_test({map,Anno,_}) -> {value,ln(Anno),false};
+guard_test({map,Anno,_,_}) -> {value,ln(Anno),false};
+guard_test({bin,Anno,_}) ->  {value,ln(Anno),false}.
 
-gexpr({var,Line,V}) -> {var,Line,V};
-gexpr({integer,Line,I}) -> {value,Line,I};
-gexpr({char,Line,I}) -> {value,Line,I};
-gexpr({float,Line,F}) -> {value,Line,F};
-gexpr({atom,Line,A}) -> {value,Line,A};
-gexpr({string,Line,S}) -> {value,Line,S};
-gexpr({nil,Line}) -> {value,Line,[]};
-gexpr({cons,Line,H0,T0}) ->
+gexpr({var,Anno,V}) -> {var,ln(Anno),V};
+gexpr({integer,Anno,I}) -> {value,ln(Anno),I};
+gexpr({char,Anno,I}) -> {value,ln(Anno),I};
+gexpr({float,Anno,F}) -> {value,ln(Anno),F};
+gexpr({atom,Anno,A}) -> {value,ln(Anno),A};
+gexpr({string,Anno,S}) -> {value,ln(Anno),S};
+gexpr({nil,Anno}) -> {value,ln(Anno),[]};
+gexpr({cons,Anno,H0,T0}) ->
     case {gexpr(H0),gexpr(T0)} of
 	{{value,Line,H1},{value,Line,T1}} -> {value,Line,[H1|T1]};
-	{H1,T1} -> {cons,Line,H1,T1}
+	{H1,T1} -> {cons,ln(Anno),H1,T1}
     end;
-gexpr({tuple,Line,Es0}) ->
+gexpr({tuple,Anno,Es0}) ->
     Es1 = gexpr_list(Es0),
-    {tuple,Line,Es1};
-gexpr({map,Line,Fs0}) ->
-    Fs1 = map_fields(Fs0, fun gexpr/1),
-    {map,Line,Fs1};
-gexpr({map,Line,E0,Fs0}) ->
+    {tuple,ln(Anno),Es1};
+gexpr({map,Anno,Fs0}) ->
+    new_map(Fs0, Anno, fun gexpr/1);
+gexpr({map,Anno,E0,Fs0}) ->
     E1 = gexpr(E0),
     Fs1 = map_fields(Fs0, fun gexpr/1),
-    {map,Line,E1,Fs1};
-gexpr({bin,Line,Flds0}) ->
+    {map,ln(Anno),E1,Fs1};
+gexpr({bin,Anno,Flds0}) ->
     Flds = gexpr_list(Flds0),
-    {bin,Line,Flds};
-gexpr({bin_element,Line,Expr0,Size0,Type}) ->
+    {bin,ln(Anno),Flds};
+gexpr({bin_element,Anno,Expr0,Size0,Type}) ->
     Expr = gexpr(Expr0),
     Size = gexpr(Size0),
-    {bin_element,Line,Expr,Size,Type};
+    {bin_element,ln(Anno),Expr,Size,Type};
 %%% The previous passes have added the module name 'erlang' to
 %%% all BIF calls, even in guards.
-gexpr({call,Line,{remote,_,{atom,_,erlang},{atom,_,self}},[]}) ->
-    {dbg, Line, self, []};
-gexpr({call,Line,{remote,_,{atom,_,erlang},{atom,_,F}},As0}) ->
+gexpr({call,Anno,{remote,_,{atom,_,erlang},{atom,_,self}},[]}) ->
+    {dbg,ln(Anno),self,[]};
+gexpr({call,Anno,{remote,_,{atom,_,erlang},{atom,_,F}},As0}) ->
     As = gexpr_list(As0),
-    {safe_bif,Line,erlang,F,As};
-gexpr({op,Line,Op,A0}) ->
+    {safe_bif,ln(Anno),erlang,F,As};
+gexpr({op,Anno,Op,A0}) ->
     erl_internal:arith_op(Op, 1),
     A1 = gexpr(A0),
-    {safe_bif,Line,erlang,Op,[A1]};
-gexpr({op,Line,Op,L0,R0}) when Op =:= 'andalso'; Op =:= 'orelse' ->
+    {safe_bif,ln(Anno),erlang,Op,[A1]};
+gexpr({op,Anno,Op,L0,R0}) when Op =:= 'andalso'; Op =:= 'orelse' ->
     L1 = gexpr(L0),
     R1 = gexpr(R0),			%They see the same variables
-    {Op,Line,L1,R1};
-gexpr({op,Line,Op,L0,R0}) ->
+    {Op,ln(Anno),L1,R1};
+gexpr({op,Anno,Op,L0,R0}) ->
     true = erl_internal:arith_op(Op, 2) orelse erl_internal:comp_op(Op, 2)
 	orelse erl_internal:bool_op(Op, 2),
     L1 = gexpr(L0),
     R1 = gexpr(R0),			%They see the same variables
-    {safe_bif,Line,erlang,Op,[L1,R1]}.
+    {safe_bif,ln(Anno),erlang,Op,[L1,R1]}.
 
 %%  These expressions are processed "in parallel" for purposes of variable
 %%  definition etc.
@@ -343,182 +343,181 @@ exprs([E0|Es], Lc) ->
     [E1|exprs(Es, Lc)];
 exprs([], _Lc) -> [].
 
-expr({var,Line,V}, _Lc) -> {var,Line,V};
-expr({integer,Line,I}, _Lc) -> {value,Line,I};
-expr({char,Line,I}, _Lc) -> {value,Line,I};
-expr({float,Line,F}, _Lc) -> {value,Line,F};
-expr({atom,Line,A}, _Lc) -> {value,Line,A};
-expr({string,Line,S}, _Lc) -> {value,Line,S};
-expr({nil,Line}, _Lc) -> {value,Line,[]};
-expr({cons,Line,H0,T0}, _Lc) ->
+expr({var,Anno,V}, _Lc) -> {var,ln(Anno),V};
+expr({integer,Anno,I}, _Lc) -> {value,ln(Anno),I};
+expr({char,Anno,I}, _Lc) -> {value,ln(Anno),I};
+expr({float,Anno,F}, _Lc) -> {value,ln(Anno),F};
+expr({atom,Anno,A}, _Lc) -> {value,ln(Anno),A};
+expr({string,Anno,S}, _Lc) -> {value,ln(Anno),S};
+expr({nil,Anno}, _Lc) -> {value,ln(Anno),[]};
+expr({cons,Anno,H0,T0}, _Lc) ->
     case {expr(H0, false),expr(T0, false)} of
 	{{value,Line,H1},{value,Line,T1}} -> {value,Line,[H1|T1]};
-	{H1,T1} -> {cons,Line,H1,T1}
+	{H1,T1} -> {cons,ln(Anno),H1,T1}
     end;
-expr({tuple,Line,Es0}, _Lc) ->
+expr({tuple,Anno,Es0}, _Lc) ->
     Es1 = expr_list(Es0),
-    {tuple,Line,Es1};
-expr({map,Line,Fs0}, _Lc) ->
-    Fs1 = map_fields(Fs0),
-    {map,Line,Fs1};
-expr({map,Line,E0,Fs0}, _Lc) ->
+    {tuple,ln(Anno),Es1};
+expr({map,Anno,Fs}, _Lc) ->
+    new_map(Fs, Anno, fun (E) -> expr(E, false) end);
+expr({map,Anno,E0,Fs0}, _Lc) ->
     E1 = expr(E0, false),
     Fs1 = map_fields(Fs0),
-    {map,Line,E1,Fs1};
-expr({block,Line,Es0}, Lc) ->
+    {map,ln(Anno),E1,Fs1};
+expr({block,Anno,Es0}, Lc) ->
     %% Unfold block into a sequence.
     Es1 = exprs(Es0, Lc),
-    {block,Line,Es1};
-expr({'if',Line,Cs0}, Lc) ->
+    {block,ln(Anno),Es1};
+expr({'if',Anno,Cs0}, Lc) ->
     Cs1 = icr_clauses(Cs0, Lc),
-    {'if',Line,Cs1};
-expr({'case',Line,E0,Cs0}, Lc) ->
+    {'if',ln(Anno),Cs1};
+expr({'case',Anno,E0,Cs0}, Lc) ->
     E1 = expr(E0, false),
     Cs1 = icr_clauses(Cs0, Lc),
-    {'case',Line,E1,Cs1};
-expr({'receive',Line,Cs0}, Lc) ->
+    {'case',ln(Anno),E1,Cs1};
+expr({'receive',Anno,Cs0}, Lc) ->
     Cs1 = icr_clauses(Cs0, Lc),
-    {'receive',Line,Cs1};
-expr({'receive',Line,Cs0,To0,ToEs0}, Lc) ->
+    {'receive',ln(Anno),Cs1};
+expr({'receive',Anno,Cs0,To0,ToEs0}, Lc) ->
     To1 = expr(To0, false),
     ToEs1 = exprs(ToEs0, Lc),
     Cs1 = icr_clauses(Cs0, Lc),
-    {'receive',Line,Cs1,To1,ToEs1};
-expr({'fun',Line,{clauses,Cs0},{_,_,Name}}, _Lc) when is_atom(Name) ->
+    {'receive',ln(Anno),Cs1,To1,ToEs1};
+expr({'fun',Anno,{clauses,Cs0},{_,_,Name}}, _Lc) when is_atom(Name) ->
     %% New R10B-2 format (abstract_v2).
     Cs = fun_clauses(Cs0),
-    {make_fun,Line,Name,Cs};
-expr({'fun',Line,{function,F,A},{_Index,_OldUniq,Name}}, _Lc) ->
+    {make_fun,ln(Anno),Name,Cs};
+expr({'fun',Anno,{function,F,A},{_Index,_OldUniq,Name}}, _Lc) ->
     %% New R8 format (abstract_v2).
+    Line = ln(Anno),
     As = new_vars(A, Line),
     Cs = [{clause,Line,As,[],[{local_call,Line,F,As,true}]}],
     {make_fun,Line,Name,Cs};
-expr({named_fun,Line,FName,Cs0,{_,_,Name}}, _Lc) when is_atom(Name) ->
+expr({named_fun,Anno,FName,Cs0,{_,_,Name}}, _Lc) when is_atom(Name) ->
     Cs = fun_clauses(Cs0),
-    {make_named_fun,Line,Name,FName,Cs};
-expr({'fun',Line,{function,{atom,_,M},{atom,_,F},{integer,_,A}}}, _Lc)
+    {make_named_fun,ln(Anno),Name,FName,Cs};
+expr({'fun',Anno,{function,{atom,_,M},{atom,_,F},{integer,_,A}}}, _Lc)
   when 0 =< A, A =< 255 ->
     %% New format in R15 for fun M:F/A (literal values).
-    {value,Line,erlang:make_fun(M, F, A)};
-expr({'fun',Line,{function,M,F,A}}, _Lc) ->
+    {value,ln(Anno),erlang:make_fun(M, F, A)};
+expr({'fun',Anno,{function,M,F,A}}, _Lc) ->
     %% New format in R15 for fun M:F/A (one or more variables).
     MFA = expr_list([M,F,A]),
-    {make_ext_fun,Line,MFA};
-expr({call,Line,{remote,_,{atom,_,erlang},{atom,_,self}},[]}, _Lc) ->
-    {dbg,Line,self,[]};
-expr({call,Line,{remote,_,{atom,_,erlang},{atom,_,get_stacktrace}},[]}, _Lc) ->
-    {dbg,Line,get_stacktrace,[]};
-expr({call,Line,{remote,_,{atom,_,erlang},{atom,_,throw}},[_]=As}, _Lc) ->
-    {dbg,Line,throw,expr_list(As)};
-expr({call,Line,{remote,_,{atom,_,erlang},{atom,_,error}},[_]=As}, _Lc) ->
-    {dbg,Line,error,expr_list(As)};
-expr({call,Line,{remote,_,{atom,_,erlang},{atom,_,exit}},[_]=As}, _Lc) ->
-    {dbg,Line,exit,expr_list(As)};
-expr({call,Line,{remote,_,{atom,_,erlang},{atom,_,raise}},[_,_,_]=As}, _Lc) ->
-    {dbg,Line,raise,expr_list(As)};
-expr({call,Line,{remote,_,{atom,_,erlang},{atom,_,apply}},[_,_,_]=As0}, Lc) ->
+    {make_ext_fun,ln(Anno),MFA};
+expr({call,Anno,{remote,_,{atom,_,erlang},{atom,_,self}},[]}, _Lc) ->
+    {dbg,ln(Anno),self,[]};
+expr({call,Anno,{remote,_,{atom,_,erlang},{atom,_,get_stacktrace}},[]}, _Lc) ->
+    {dbg,ln(Anno),get_stacktrace,[]};
+expr({call,Anno,{remote,_,{atom,_,erlang},{atom,_,throw}},[_]=As}, _Lc) ->
+    {dbg,ln(Anno),throw,expr_list(As)};
+expr({call,Anno,{remote,_,{atom,_,erlang},{atom,_,error}},[_]=As}, _Lc) ->
+    {dbg,ln(Anno),error,expr_list(As)};
+expr({call,Anno,{remote,_,{atom,_,erlang},{atom,_,exit}},[_]=As}, _Lc) ->
+    {dbg,ln(Anno),exit,expr_list(As)};
+expr({call,Anno,{remote,_,{atom,_,erlang},{atom,_,raise}},[_,_,_]=As}, _Lc) ->
+    {dbg,ln(Anno),raise,expr_list(As)};
+expr({call,Anno,{remote,_,{atom,_,erlang},{atom,_,apply}},[_,_,_]=As0}, Lc) ->
     As = expr_list(As0),
-    {apply,Line,As,Lc};
-expr({call,Line,{remote,_,{atom,_,Mod},{atom,_,Func}},As0}, Lc) ->
+    {apply,ln(Anno),As,Lc};
+expr({call,Anno,{remote,_,{atom,_,Mod},{atom,_,Func}},As0}, Lc) ->
     As = expr_list(As0),
     case erlang:is_builtin(Mod, Func, length(As)) of
 	false ->
-	    {call_remote,Line,Mod,Func,As,Lc};
+	    {call_remote,ln(Anno),Mod,Func,As,Lc};
 	true ->
 	    case bif_type(Mod, Func, length(As0)) of
-		safe -> {safe_bif,Line,Mod,Func,As};
-		unsafe ->{bif,Line,Mod,Func,As}
+		safe -> {safe_bif,ln(Anno),Mod,Func,As};
+		unsafe ->{bif,ln(Anno),Mod,Func,As}
 	    end
     end;
-expr({call,Line,{remote,_,Mod0,Func0},As0}, Lc) ->
+expr({call,Anno,{remote,_,Mod0,Func0},As0}, Lc) ->
     %% New R8 format (abstract_v2).
     Mod = expr(Mod0, false),
     Func = expr(Func0, false),
     As = consify(expr_list(As0)),
-    {apply,Line,[Mod,Func,As],Lc};
-expr({call,Line,{atom,_,Func},As0}, Lc) ->
+    {apply,ln(Anno),[Mod,Func,As],Lc};
+expr({call,Anno,{atom,_,Func},As0}, Lc) ->
     As = expr_list(As0),
-    {local_call,Line,Func,As,Lc};
-expr({call,Line,Fun0,As0}, Lc) ->
+    {local_call,ln(Anno),Func,As,Lc};
+expr({call,Anno,Fun0,As0}, Lc) ->
     Fun = expr(Fun0, false),
     As = expr_list(As0),
-    {apply_fun,Line,Fun,As,Lc};
-expr({'catch',Line,E0}, _Lc) ->
+    {apply_fun,ln(Anno),Fun,As,Lc};
+expr({'catch',Anno,E0}, _Lc) ->
     %% No new variables added.
     E1 = expr(E0, false),
-    {'catch',Line,E1};
-expr({'try',Line,Es0,CaseCs0,CatchCs0,As0}, Lc) ->
+    {'catch',ln(Anno),E1};
+expr({'try',Anno,Es0,CaseCs0,CatchCs0,As0}, Lc) ->
     %% No new variables added.
     Es = expr_list(Es0),
     CaseCs = icr_clauses(CaseCs0, Lc),
     CatchCs = icr_clauses(CatchCs0, Lc),
     As = expr_list(As0),
-    {'try',Line,Es,CaseCs,CatchCs,As};
-expr({lc,Line,E0,Gs0}, _Lc) ->			%R8.
+    {'try',ln(Anno),Es,CaseCs,CatchCs,As};
+expr({lc,Anno,E0,Gs0}, _Lc) ->			%R8.
     Gs = lists:map(fun ({generate,L,P0,Qs}) ->
-			   {generate,L,expr(P0, false),expr(Qs, false)};
+			   {generate,L,pattern(P0),expr(Qs, false)};
 		       ({b_generate,L,P0,Qs}) -> %R12.
-			   {b_generate,L,expr(P0, false),expr(Qs, false)};
+			   {b_generate,L,pattern(P0),expr(Qs, false)};
 		       (Expr) ->
 			   case erl_lint:is_guard_test(Expr) of
 			       true -> {guard,guard([[Expr]])};
 			       false -> expr(Expr, false)
 			   end
 		   end, Gs0),
-    {lc,Line,expr(E0, false),Gs};
-expr({bc,Line,E0,Gs0}, _Lc) ->			%R12.
+    {lc,ln(Anno),expr(E0, false),Gs};
+expr({bc,Anno,E0,Gs0}, _Lc) ->			%R12.
     Gs = lists:map(fun ({generate,L,P0,Qs}) ->
-			   {generate,L,expr(P0, false),expr(Qs, false)};
+			   {generate,L,pattern(P0),expr(Qs, false)};
 		       ({b_generate,L,P0,Qs}) -> %R12.
-			   {b_generate,L,expr(P0, false),expr(Qs, false)};
+			   {b_generate,L,pattern(P0),expr(Qs, false)};
 		       (Expr) ->
 			   case erl_lint:is_guard_test(Expr) of
 			       true -> {guard,guard([[Expr]])};
 			       false -> expr(Expr, false)
 			   end
 		   end, Gs0),
-    {bc,Line,expr(E0, false),Gs};
-expr({match,Line,P0,E0}, _Lc) ->
+    {bc,ln(Anno),expr(E0, false),Gs};
+expr({match,Anno,P0,E0}, _Lc) ->
     E1 = expr(E0, false),
     P1 = pattern(P0),
-    {match,Line,P1,E1};
-expr({op,Line,Op,A0}, _Lc) ->
+    {match,ln(Anno),P1,E1};
+expr({op,Anno,Op,A0}, _Lc) ->
     A1 = expr(A0, false),
-    {op,Line,Op,[A1]};
-expr({op,Line,'++',L0,R0}, _Lc) ->
+    {op,ln(Anno),Op,[A1]};
+expr({op,Anno,'++',L0,R0}, _Lc) ->
     L1 = expr(L0, false),
     R1 = expr(R0, false),		  %They see the same variables
-    {op,Line,append,[L1,R1]};
-expr({op,Line,'--',L0,R0}, _Lc) ->
+    {op,ln(Anno),append,[L1,R1]};
+expr({op,Anno,'--',L0,R0}, _Lc) ->
     L1 = expr(L0, false),
     R1 = expr(R0, false),		  %They see the same variables
-    {op,Line,subtract,[L1,R1]};
-expr({op,Line,'!',L0,R0}, _Lc) ->
+    {op,ln(Anno),subtract,[L1,R1]};
+expr({op,Anno,'!',L0,R0}, _Lc) ->
     L1 = expr(L0, false),
     R1 = expr(R0, false),		  %They see the same variables
-    {send,Line,L1,R1};
-expr({op,Line,Op,L0,R0}, _Lc) when Op =:= 'andalso'; Op =:= 'orelse' ->
+    {send,ln(Anno),L1,R1};
+expr({op,Anno,Op,L0,R0}, _Lc) when Op =:= 'andalso'; Op =:= 'orelse' ->
     L1 = expr(L0, false),
     R1 = expr(R0, false),		  %They see the same variables
-    {Op,Line,L1,R1};
-expr({op,Line,Op,L0,R0}, _Lc) ->
+    {Op,ln(Anno),L1,R1};
+expr({op,Anno,Op,L0,R0}, _Lc) ->
     L1 = expr(L0, false),
     R1 = expr(R0, false),		  %They see the same variables
-    {op,Line,Op,[L1,R1]};
-expr({bin,Line,Grp}, _Lc) ->
+    {op,ln(Anno),Op,[L1,R1]};
+expr({bin,Anno,Grp}, _Lc) ->
     Grp1 = expr_list(Grp),
-    {bin,Line,Grp1};
-expr({bin_element,Line,Expr,Size,Type}, _Lc) ->
+    {bin,ln(Anno),Grp1};
+expr({bin_element,Anno,Expr,Size,Type}, _Lc) ->
     Expr1 = expr(Expr, false),
     Size1 = expr(Size, false),
-    {bin_element,Line,Expr1,Size1,Type};
+    {bin_element,ln(Anno),Expr1,Size1,Type};
 expr(Other, _Lc) ->
     exit({?MODULE,{unknown_expr,Other}}).
 
 consify([A|As]) -> 
     {cons,0,A,consify(As)};
 consify([]) -> {value,0,[]}.
-
 
 %% -type expr_list([Expression]) -> [Expression].
 %%  These expressions are processed "in parallel" for purposes of variable
@@ -534,17 +533,35 @@ icr_clauses([C0|Cs], Lc) ->
     [C1|icr_clauses(Cs, Lc)];
 icr_clauses([], _) -> [].
 
-fun_clauses([{clause,L,H,G,B}|Cs]) ->
-    [{clause,L,head(H),guard(G),exprs(B, true)}|fun_clauses(Cs)];
+fun_clauses([{clause,A,H,G,B}|Cs]) ->
+    [{clause,ln(A),head(H),guard(G),exprs(B, true)}|fun_clauses(Cs)];
 fun_clauses([]) -> [].
+
+
+new_map(Fs0, Anno, F) ->
+    Line = ln(Anno),
+    Fs1 = map_fields(Fs0, F),
+    Fs2 = [{ln(A),K,V} || {map_field_assoc,A,K,V} <- Fs1],
+    try
+	{value,Line,map_literal(Fs2, #{})}
+    catch
+	throw:not_literal ->
+	    {map,Line,Fs2}
+    end.
+
+map_literal([{_,{value,_,K},{value,_,V}}|T], M) ->
+    map_literal(T, maps:put(K, V, M));
+map_literal([_|_], _) ->
+    throw(not_literal);
+map_literal([], M) -> M.
 
 map_fields(Fs) ->
     map_fields(Fs, fun (E) -> expr(E, false) end).
 
-map_fields([{map_field_assoc,L,N,V}|Fs], F) ->
-    [{map_field_assoc,L,F(N),F(V)}|map_fields(Fs)];
-map_fields([{map_field_exact,L,N,V}|Fs], F) ->
-    [{map_field_exact,L,F(N),F(V)}|map_fields(Fs)];
+map_fields([{map_field_assoc,A,N,V}|Fs], F) ->
+    [{map_field_assoc,ln(A),F(N),F(V)}|map_fields(Fs)];
+map_fields([{map_field_exact,A,N,V}|Fs], F) ->
+    [{map_field_exact,ln(A),F(N),F(V)}|map_fields(Fs)];
 map_fields([], _) -> [].
 
 %% new_var_name() -> VarName.
@@ -563,6 +580,9 @@ new_vars(N, L, Vs) when N > 0 ->
     V = {var,L,new_var_name()},
     new_vars(N-1, L, [V|Vs]);
 new_vars(0, _, Vs) -> Vs.
+
+ln(Anno) ->
+    erl_anno:line(Anno).
 
 bif_type(erlang, Name, Arity) ->
     case erl_internal:guard_bif(Name, Arity) of

@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 2003-2014. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -29,7 +30,7 @@
 %% Command timeout = 10 sec (time to wait for a command to return)
 %% Max no of reconnection attempts = 3
 %% Reconnection interval = 5 sek (time to wait in between reconnection attempts)
-%% Keep alive = true (will send NOP to the server every 10 sec if connection is idle)
+%% Keep alive = true (will send NOP to the server every 8 sec if connection is idle)
 %% Polling limit = 0 (max number of times to poll to get a remaining string terminated)
 %% Polling interval = 1 sec (sleep time between polls)</pre>
 %% <p>These parameters can be altered by the user with the following
@@ -1021,7 +1022,7 @@ silent_teln_expect(Name,Pid,Data,Pattern,Prx,Opts) ->
     put(silent,Old),
     Result.
 
-%% teln_expect/5 
+%% teln_expect/6
 %%
 %% This function implements the expect functionality over telnet. In
 %% general there are three possible ways to go:

@@ -3,16 +3,17 @@
 %% 
 %% Copyright Ericsson AB 1999-2013. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %%
@@ -20,7 +21,7 @@
 
 %% Low-level debugging support. EXPERIMENTAL!
 
--export([size/1,df/1,df/2,df/3]).
+-export([size/1,df/1,df/2,df/3,ic/1]).
 
 %% This module contains the following *experimental* BIFs:
 %%   disassemble/1
@@ -33,7 +34,7 @@
 -export([breakpoint/2, disassemble/1, display/1, dist_ext_to_term/2,
          dump_monitors/1, dump_links/1, flat_size/1,
          get_internal_state/1, instructions/0, lock_counters/1,
-         same/2, set_internal_state/2]).
+         map_info/1, same/2, set_internal_state/2]).
 
 -spec breakpoint(MFA, Flag) -> non_neg_integer() when
       MFA :: {Module :: module(),
@@ -114,6 +115,19 @@ get_internal_state(_) ->
 instructions() ->
     erlang:nif_error(undef).
 
+-spec ic(F) -> Result when
+      F :: function(),
+      Result :: term().
+
+ic(F) when is_function(F) ->
+    Is0 = erlang:system_info(instruction_counts),
+    R   = F(),
+    Is1 = erlang:system_info(instruction_counts),
+    Is  = lists:keysort(2,[{I,C1 - C0}||{{I,C1},{I,C0}} <- lists:zip(Is1,Is0)]),
+    _   = [io:format("~12w ~w~n", [C,I])||{I,C}<-Is],
+    io:format("Total: ~w~n",[lists:sum([C||{_I,C}<-Is])]),
+    R.
+
 -spec lock_counters(info) -> term();
                       (clear) -> ok;
                       ({copy_save, boolean()}) -> boolean();
@@ -164,8 +178,10 @@ set_internal_state(_, _) ->
 
 -spec size(term()) -> non_neg_integer().
 
+-record(s, {seen, maps}).
+
 size(Term) ->
-    {Sum,_} = size(Term, gb_trees:empty(), 0),
+    {Sum,_} = size(Term, #s{seen=gb_trees:empty(),maps=[]}, 0),
     Sum.
 
 size([H|T]=Term, Seen0, Sum0) ->
@@ -209,10 +225,24 @@ tuple_size(I, Sz, Tuple, Seen0, Sum0) ->
     tuple_size(I+1, Sz, Tuple, Seen, Sum).
 
 map_size(Map,Seen0,Sum0) ->
-    Kt = erts_internal:map_to_tuple_keys(Map),
-    Vs = maps:values(Map),
-    {Sum1,Seen1} = size(Kt,Seen0,Sum0),
-    fold_size(Vs,Seen1,Sum1+length(Vs)+3).
+    %% Danger:
+    %% The internal nodes from erts_internal:map_hashmap_children/1
+    %% is not allowed to leak anywhere. They are only allowed in
+    %% containers (cons cells and tuples, not maps), in gc and
+    %% in erts_debug:same/2
+    case erts_internal:map_type(Map) of
+        flatmap ->
+            Kt = erts_internal:map_to_tuple_keys(Map),
+            Vs = maps:values(Map),
+            {Sum1,Seen1} = size(Kt,Seen0,Sum0),
+            fold_size(Vs,Seen1,Sum1+length(Vs)+3);
+        hashmap ->
+            Cs = erts_internal:map_hashmap_children(Map),
+            fold_size(Cs,Seen0,Sum0+length(Cs)+2);
+        hashmap_node ->
+            Cs = erts_internal:map_hashmap_children(Map),
+            fold_size(Cs,Seen0,Sum0+length(Cs)+1)
+    end.
 
 fun_size(Fun, Seen, Sum) ->
     case erlang:fun_info(Fun, type) of
@@ -229,13 +259,18 @@ fold_size([H|T], Seen0, Sum0) ->
     fold_size(T, Seen, Sum);
 fold_size([], Seen, Sum) -> {Sum,Seen}.
 
-remember_term(Term, Seen) ->
-    case gb_trees:lookup(Term, Seen) of
-	none -> gb_trees:insert(Term, [Term], Seen);
+remember_term(Term, #s{maps=Ms}=S) when is_map(Term) ->
+    case is_term_seen(Term, Ms) of
+        false -> S#s{maps=[Term|Ms]};
+        true  -> seen
+    end;
+remember_term(Term, #s{seen=T}=S) ->
+    case gb_trees:lookup(Term,T) of
+	none -> S#s{seen=gb_trees:insert(Term,[Term],T)};
 	{value,Terms} ->
 	    case is_term_seen(Term, Terms) of
-		false -> gb_trees:update(Term, [Term|Terms], Seen);
-		true -> seen
+		false -> S#s{seen=gb_trees:update(Term,[Term|Terms],T)};
+		true  -> seen
 	    end
     end.
 
@@ -313,3 +348,9 @@ cont_dis(File, {Addr,Str,MFA}, MFA) ->
     io:put_chars(File, binary_to_list(Str)),
     cont_dis(File, erts_debug:disassemble(Addr), MFA);
 cont_dis(_, {_,_,_}, _) -> ok.
+
+-spec map_info(Map) -> list() when
+      Map :: map().
+
+map_info(_) ->
+    erlang:nif_error(undef).

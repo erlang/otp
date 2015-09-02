@@ -3,16 +3,17 @@
 #
 # Copyright Ericsson AB 1996-2013. All Rights Reserved.
 #
-# The contents of this file are subject to the Erlang Public License,
-# Version 1.1, (the "License"); you may not use this file except in
-# compliance with the License. You should have received a copy of the
-# Erlang Public License along with this software. If not, it can be
-# retrieved online at http://www.erlang.org/.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
 #
-# Software distributed under the License is distributed on an "AS IS"
-# basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-# the License for the specific language governing rights and limitations
-# under the License.
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
 # %CopyrightEnd%
 #
@@ -112,16 +113,22 @@ NO_INLINE_FUNCTIONS=true
 else
 
 ifeq ($(TYPE),lcnt)
-PURIFY = 
+PURIFY =
 TYPEMARKER = .lcnt
 TYPE_FLAGS = @CFLAGS@ -DERTS_ENABLE_LOCK_COUNT
 else
 
 ifeq ($(TYPE),frmptr)
-PURIFY = 
+PURIFY =
 OMIT_OMIT_FP=yes
 TYPEMARKER = .frmptr
 TYPE_FLAGS = @CFLAGS@ -DERTS_FRMPTR
+else
+
+ifeq ($(TYPE),icount)
+PURIFY =
+TYPEMARKER = .icount
+TYPE_FLAGS = @CFLAGS@ -DERTS_OPCODE_COUNTER_SUPPORT
 else
 
 # If type isn't one of the above, it *is* opt type...
@@ -129,6 +136,7 @@ override TYPE=opt
 PURIFY =
 TYPEMARKER =
 TYPE_FLAGS = @CFLAGS@
+endif
 endif
 endif
 endif
@@ -342,16 +350,6 @@ endif
 EPCRE_LIB = $(ERL_TOP)/erts/emulator/pcre/obj/$(TARGET)/$(TYPE)/$(LIB_PREFIX)epcre$(LIB_SUFFIX)
 DEPLIBS += $(EPCRE_LIB)
 
-PERFCTR_PATH=@PERFCTR_PATH@
-USE_PERFCTR=@USE_PERFCTR@
-ifdef PERFCTR_PATH
-LIBS += $(PERFCTR_PATH)/usr.lib/libperfctr.a
-else
-ifdef USE_PERFCTR
-LIBS += -lperfctr
-endif
-endif
-
 LIBSCTP = @LIBSCTP@
 
 ORG_THR_LIBS=@EMU_THR_LIBS@
@@ -559,9 +557,6 @@ HIPE_ppc64_TAB=hipe/hipe_ppc64.tab $(HIPE_ARCH64_TAB)
 HIPE_arm_TAB=hipe/hipe_arm.tab
 HIPE_ARCH_TAB=$(HIPE_$(ARCH)_TAB)
 BIFS += hipe/hipe_bif0.tab hipe/hipe_bif1.tab hipe/hipe_bif2.tab $(HIPE_ARCH_TAB)
-ifdef USE_PERFCTR
-BIFS += hipe/hipe_perfctr.tab
-endif
 endif
 
 $(TARGET)/erl_bif_table.c \
@@ -656,10 +651,6 @@ COMMON_INCLUDES += -I../include -I../include/$(TARGET)
 COMMON_INCLUDES += -I../include/internal -I../include/internal/$(TARGET)
 
 INCLUDES  =  -I$(TTF_DIR) $(COMMON_INCLUDES)
-
-ifdef PERFCTR_PATH
-INCLUDES += -I$(PERFCTR_PATH)/usr.lib -I$(PERFCTR_PATH)/linux/include
-endif
 
 ifeq ($(TARGET),win32)
 $(OBJDIR)/dll_sys.o: sys/$(ERLANG_OSTYPE)/sys.c
@@ -764,7 +755,8 @@ RUN_OBJS = \
 	$(OBJDIR)/erl_bif_ddll.o  	$(OBJDIR)/erl_bif_guard.o \
 	$(OBJDIR)/erl_bif_info.o	$(OBJDIR)/erl_bif_op.o \
 	$(OBJDIR)/erl_bif_os.o		$(OBJDIR)/erl_bif_lists.o \
-	$(OBJDIR)/erl_bif_trace.o	$(OBJDIR)/erl_bif_wrap.o \
+	$(OBJDIR)/erl_bif_trace.o	$(OBJDIR)/erl_bif_unique.o \
+	$(OBJDIR)/erl_bif_wrap.o \
 	$(OBJDIR)/erl_trace.o		$(OBJDIR)/copy.o \
 	$(OBJDIR)/utils.o		$(OBJDIR)/bif.o \
 	$(OBJDIR)/io.o 			$(OBJDIR)/erl_printf_term.o\
@@ -788,7 +780,7 @@ RUN_OBJS = \
 	$(OBJDIR)/erl_fun.o             $(OBJDIR)/erl_bif_port.o \
 	$(OBJDIR)/erl_term.o 		$(OBJDIR)/erl_node_tables.o \
 	$(OBJDIR)/erl_monitors.o	$(OBJDIR)/erl_process_dump.o \
-	$(OBJDIR)/erl_bif_timer.o	$(OBJDIR)/erl_cpu_topology.o \
+	$(OBJDIR)/erl_hl_timer.o	$(OBJDIR)/erl_cpu_topology.o \
 	$(OBJDIR)/erl_drv_thread.o      $(OBJDIR)/erl_bif_chksum.o \
 	$(OBJDIR)/erl_bif_re.o		$(OBJDIR)/erl_unicode.o \
 	$(OBJDIR)/packet_parser.o	$(OBJDIR)/safe_hash.o \
@@ -897,7 +889,8 @@ OS_OBJS +=	$(OBJDIR)/erl_mseg.o \
 		$(OBJDIR)/erl_mmap.o \
 		$(OBJDIR)/erl_$(ERLANG_OSTYPE)_sys_ddll.o \
 		$(OBJDIR)/erl_mtrace_sys_wrap.o \
-		$(OBJDIR)/erl_sys_common_misc.o
+		$(OBJDIR)/erl_sys_common_misc.o \
+		$(OBJDIR)/erl_os_monotonic_time_extender.o
 
 HIPE_ARCH64_OBJS=$(OBJDIR)/hipe_bif64.o
 
@@ -920,14 +913,11 @@ HIPE_OBJS= \
 	$(OBJDIR)/hipe_mode_switch.o \
 	$(OBJDIR)/hipe_native_bif.o \
 	$(OBJDIR)/hipe_stack.o $(HIPE_ARCH_OBJS)
-ifdef USE_PERFCTR
-HIPE_OBJS += $(OBJDIR)/hipe_perfctr.o
-endif
 ifdef HIPE_ENABLED
 EXTRA_BASE_OBJS += $(HIPE_OBJS)
 endif
 
-BASE_OBJS = $(RUN_OBJS) $(EMU_OBJS) $(OS_OBJS) $(EXTRA_BASE_OBJS)
+BASE_OBJS = $(EMU_OBJS) $(RUN_OBJS) $(OS_OBJS) $(EXTRA_BASE_OBJS)
 
 before_DTrace_OBJS =	$(BASE_OBJS) $(DRV_OBJS)
 

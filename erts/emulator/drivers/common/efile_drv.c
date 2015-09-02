@@ -3,16 +3,17 @@
  *
  * Copyright Ericsson AB 1996-2013. All Rights Reserved.
  *
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  * %CopyrightEnd%
  */
@@ -1616,12 +1617,12 @@ static void invoke_altname(void *data)
 }
 
 static void invoke_pwritev(void *data) {
-    struct t_data    *d = (struct t_data *) data;
+    struct t_data* const d = (struct t_data *) data;
+    struct t_pwritev * const c = &d->c.pwritev;
     SysIOVec         *iov0;
     SysIOVec         *iov;
     int               iovlen;
     int               iovcnt;
-    struct t_pwritev *c = &d->c.pwritev;
     size_t            p;
     int               segment;
     size_t            size, write_size, written;
@@ -1695,9 +1696,9 @@ static void invoke_pwritev(void *data) {
 	    d->result_ok = 0;
 	    d->again = 0;
 	deq_error:
-	    MUTEX_LOCK(d->c.writev.q_mtx);
-	    driver_deq(d->c.pwritev.port, c->size);
-	    MUTEX_UNLOCK(d->c.writev.q_mtx);
+	    MUTEX_LOCK(c->q_mtx);
+	    driver_deq(c->port, c->size);
+	    MUTEX_UNLOCK(c->q_mtx);
 
 	    goto done;
 	} else {
@@ -1708,9 +1709,9 @@ static void invoke_pwritev(void *data) {
       ASSERT(written >= FILE_SEGMENT_WRITE);
     }
       
-    MUTEX_LOCK(d->c.writev.q_mtx);
-    driver_deq(d->c.pwritev.port, written);
-    MUTEX_UNLOCK(d->c.writev.q_mtx);
+    MUTEX_LOCK(c->q_mtx);
+    driver_deq(c->port, written);
+    MUTEX_UNLOCK(c->q_mtx);
  done:
     EF_FREE(iov); /* Free our copy of the vector, nothing to restore */
     
@@ -1938,6 +1939,8 @@ static void invoke_sendfile(void *data)
 	d->result_ok = 1;
 	if (d->c.sendfile.nbytes != 0)
 	  d->c.sendfile.nbytes -= nbytes;
+      } else if (nbytes == 0 && d->c.sendfile.nbytes == 0) {
+	d->result_ok = 1;
       } else
 	d->result_ok = 0;
     } else {

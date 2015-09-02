@@ -3,16 +3,17 @@
 #
 # Copyright Ericsson AB 1997-2013. All Rights Reserved.
 #
-# The contents of this file are subject to the Erlang Public License,
-# Version 1.1, (the "License"); you may not use this file except in
-# compliance with the License. You should have received a copy of the
-# Erlang Public License along with this software. If not, it can be
-# retrieved online at http://www.erlang.org/.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
 #
-# Software distributed under the License is distributed on an "AS IS"
-# basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-# the License for the specific language governing rights and limitations
-# under the License.
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
 # %CopyrightEnd%
 #
@@ -78,6 +79,7 @@ MODULES= \
 	testEnumExt \
 	testInfObjectClass \
 	testInfObj \
+	testInfObjExtract \
 	testParameterizedInfObj \
 	testFragmented \
 	testMergeCompile \
@@ -104,14 +106,19 @@ MODULES= \
 	test_compile_options \
 	testDoubleEllipses \
 	test_modified_x420 \
-	testX420 \
 	test_x691 \
 	testWSParamClass \
+	testValueTest \
+	testUniqueObjectSets \
+	testRfcs \
+	testImporting \
+	testExtensibilityImplied \
 	asn1_test_lib \
 	asn1_app_test \
 	asn1_appup_test \
 	asn1_SUITE \
-	error_SUITE
+	error_SUITE \
+	syntax_SUITE
 
 ERL_FILES= $(MODULES:%=%.erl)
 

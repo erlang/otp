@@ -3,16 +3,17 @@
  *
  * Copyright Ericsson AB 2006-2011. All Rights Reserved.
  *
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  * %CopyrightEnd%
  */
@@ -459,23 +460,25 @@ Eterm erts_gc_byte_size_1(Process* p, Eterm* reg, Uint live)
 Eterm erts_gc_map_size_1(Process* p, Eterm* reg, Uint live)
 {
     Eterm arg = reg[live];
-    if (is_map(arg)) {
-	map_t *mp = (map_t*)map_val(arg);
-	Uint size = map_get_size(mp);
-	if (IS_USMALL(0, size)) {
-	    return make_small(size);
-	} else {
-	    Eterm* hp;
-	    if (ERTS_NEED_GC(p, BIG_UINT_HEAP_SIZE)) {
-		erts_garbage_collect(p, BIG_UINT_HEAP_SIZE, reg, live);
-	    }
-	    hp = p->htop;
-	    p->htop += BIG_UINT_HEAP_SIZE;
-	    return uint_to_big(size, hp);
-	}
-    } else {
-	BIF_ERROR(p, BADARG);
+    if (is_flatmap(arg)) {
+	flatmap_t *mp = (flatmap_t*)flatmap_val(arg);
+        return make_small(flatmap_get_size(mp));
+    } else if (is_hashmap(arg)) {
+        Eterm* hp;
+        Uint size;
+	size = hashmap_size(arg);
+        if (IS_USMALL(0, size)) {
+            return make_small(size);
+        }
+        if (ERTS_NEED_GC(p, BIG_UINT_HEAP_SIZE)) {
+            erts_garbage_collect(p, BIG_UINT_HEAP_SIZE, reg, live);
+        }
+        hp = p->htop;
+        p->htop += BIG_UINT_HEAP_SIZE;
+        return uint_to_big(size, hp);
     }
+    p->fvalue = arg;
+    BIF_ERROR(p, BADMAP);
 }
 
 Eterm erts_gc_abs_1(Process* p, Eterm* reg, Uint live)

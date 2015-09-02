@@ -3,16 +3,17 @@
  *
  * Copyright Ericsson AB 1996-2012. All Rights Reserved.
  *
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  * %CopyrightEnd%
  */
@@ -20,6 +21,8 @@
 #ifdef HAVE_CONFIG_H
 #  include "config.h"
 #endif
+
+#define ERL_WANT_GC_INTERNALS__
 
 #include "sys.h"
 #include "erl_vm.h"
@@ -32,7 +35,7 @@
 #include "erl_bits.h"
 #include "dtrace-wrapper.h"
 
-static void move_one_frag(Eterm** hpp, Eterm* src, Uint src_sz, ErlOffHeap*);
+static void move_one_frag(Eterm** hpp, ErlHeapFragment*, ErlOffHeap*);
 
 /*
  *  Copy object "obj" to process p.
@@ -125,6 +128,52 @@ Uint size_object(Eterm obj)
 			obj = *bptr;
 			break;
 		    }
+		case MAP_SUBTAG:
+		    switch (MAP_HEADER_TYPE(hdr)) {
+			case MAP_HEADER_TAG_FLATMAP_HEAD :
+                            {
+                                Uint n;
+                                flatmap_t *mp;
+                                mp  = (flatmap_t*)flatmap_val_rel(obj,base);
+                                ptr = (Eterm *)mp;
+                                n   = flatmap_get_size(mp) + 1;
+                                sum += n + 2;
+                                ptr += 2; /* hdr + size words */
+                                while (n--) {
+                                    obj = *ptr++;
+                                    if (!IS_CONST(obj)) {
+                                        ESTACK_PUSH(s, obj);
+                                    }
+                                }
+                                goto pop_next;
+                            }
+			case MAP_HEADER_TAG_HAMT_HEAD_BITMAP :
+			case MAP_HEADER_TAG_HAMT_HEAD_ARRAY :
+			case MAP_HEADER_TAG_HAMT_NODE_BITMAP :
+			    {
+				Eterm *head;
+				Uint sz;
+				head  = hashmap_val_rel(obj, base);
+				sz    = hashmap_bitcount(MAP_HEADER_VAL(hdr));
+				sum  += 1 + sz + header_arity(hdr);
+				head += 1 + header_arity(hdr);
+
+				if (sz == 0) {
+				    goto pop_next;
+				}
+				while(sz-- > 1) {
+				    obj = head[sz];
+				    if (!IS_CONST(obj)) {
+					ESTACK_PUSH(s, obj);
+				    }
+				}
+				obj = head[0];
+			    }
+			    break;
+			default:
+			    erl_exit(ERTS_ABORT_EXIT, "size_object: bad hashmap type %d\n", MAP_HEADER_TYPE(hdr));
+		    }
+		    break;
 		case SUB_BINARY_SUBTAG:
 		    {
 			Eterm real_bin;
@@ -152,25 +201,7 @@ Uint size_object(Eterm obj)
 			goto pop_next;
 		    }
 		    break;
-		case MAP_SUBTAG:
-		    {
-			Uint n;
-			map_t *mp;
-			mp  = (map_t*)map_val_rel(obj,base);
-			ptr = (Eterm *)mp;
-			n   = map_get_size(mp) + 1;
-			sum += n + 2;
-			ptr += 2; /* hdr + size words */
-			while (n--) {
-			    obj = *ptr++;
-			    if (!IS_CONST(obj)) {
-				ESTACK_PUSH(s, obj);
-			    }
-			}
-			goto pop_next;
-		    }
-		    break;
-		case BIN_MATCHSTATE_SUBTAG:
+                case BIN_MATCHSTATE_SUBTAG:
 		    erl_exit(ERTS_ABORT_EXIT,
 			     "size_object: matchstate term not allowed");
 		default:
@@ -338,15 +369,6 @@ Eterm copy_struct(Eterm obj, Uint sz, Eterm** hpp, ErlOffHeap* off_heap)
 		    }
 		}
 		break;
-	    case MAP_SUBTAG:
-		{
-		    i = map_get_size(objp) + 3;
-		    *argp = make_map_rel(htop, dst_base);
-		    while (i--) {
-			*htop++ = *objp++;
-		    }
-		}
-		break;
 	    case REFC_BINARY_SUBTAG:
 		{
 		    ProcBin* pb;
@@ -457,7 +479,7 @@ Eterm copy_struct(Eterm obj, Uint sz, Eterm** hpp, ErlOffHeap* off_heap)
 		{
 		  ExternalThing *etp = (ExternalThing *) htop;
 
-		  i =  thing_arityval(hdr) + 1;
+		  i  = thing_arityval(hdr) + 1;
 		  tp = htop;
 
 		  while (i--)  {
@@ -469,6 +491,28 @@ Eterm copy_struct(Eterm obj, Uint sz, Eterm** hpp, ErlOffHeap* off_heap)
 		  erts_refc_inc(&etp->node->refc, 2);
 
 		  *argp = make_external_rel(tp, dst_base);
+		}
+		break;
+	    case MAP_SUBTAG:
+		tp = htop;
+		switch (MAP_HEADER_TYPE(hdr)) {
+		    case MAP_HEADER_TAG_FLATMAP_HEAD :
+                        i = flatmap_get_size(objp) + 3;
+                        *argp = make_flatmap_rel(htop, dst_base);
+                        while (i--) {
+                            *htop++ = *objp++;
+                        }
+			break;
+		    case MAP_HEADER_TAG_HAMT_HEAD_BITMAP :
+		    case MAP_HEADER_TAG_HAMT_HEAD_ARRAY :
+			*htop++ = *objp++;
+		    case MAP_HEADER_TAG_HAMT_NODE_BITMAP :
+			i = 1 + hashmap_bitcount(MAP_HEADER_VAL(hdr));
+			while (i--)  { *htop++ = *objp++; }
+			*argp = make_hashmap_rel(tp, dst_base);
+			break;
+		    default:
+			erl_exit(ERTS_ABORT_EXIT, "copy_struct: bad hashmap type %d\n", MAP_HEADER_TYPE(hdr));
 		}
 		break;
 	    case BIN_MATCHSTATE_SUBTAG:
@@ -565,11 +609,6 @@ Eterm copy_shallow(Eterm* ptr, Uint sz, Eterm** hpp, ErlOffHeap* off_heap)
 		    erts_refc_inc(&funp->fe->refc, 2);
 		}
 		goto off_heap_common;
-
-	    case MAP_SUBTAG:
-		*hp++ = *tp++;
-		sz--;
-		break;
 	    case EXTERNAL_PID_SUBTAG:
 	    case EXTERNAL_PORT_SUBTAG:
 	    case EXTERNAL_REF_SUBTAG:
@@ -605,7 +644,6 @@ Eterm copy_shallow(Eterm* ptr, Uint sz, Eterm** hpp, ErlOffHeap* off_heap)
 	}
     }
     *hpp = hp;
-
     return res;
 }
 
@@ -624,8 +662,7 @@ void move_multi_frags(Eterm** hpp, ErlOffHeap* off_heap, ErlHeapFragment* first,
     unsigned i;
 
     for (bp=first; bp!=NULL; bp=bp->next) {
-	move_one_frag(hpp, bp->mem, bp->used_size, off_heap);
-	OH_OVERHEAD(off_heap, bp->off_heap.overhead);
+	move_one_frag(hpp, bp, off_heap);
     }
     hp_end = *hpp;
     for (hp=hp_start; hp<hp_end; ++hp) {
@@ -661,10 +698,10 @@ void move_multi_frags(Eterm** hpp, ErlOffHeap* off_heap, ErlHeapFragment* first,
 }
 
 static void
-move_one_frag(Eterm** hpp, Eterm* src, Uint src_sz, ErlOffHeap* off_heap)
+move_one_frag(Eterm** hpp, ErlHeapFragment* frag, ErlOffHeap* off_heap)
 {
-    Eterm* ptr = src;
-    Eterm* end = ptr + src_sz;
+    Eterm* ptr = frag->mem;
+    Eterm* end = ptr + frag->used_size;
     Eterm dummy_ref;
     Eterm* hp = *hpp;
 
@@ -695,5 +732,7 @@ move_one_frag(Eterm** hpp, Eterm* src, Uint src_sz, ErlOffHeap* off_heap)
 	}
     }
     *hpp = hp;
+    OH_OVERHEAD(off_heap, frag->off_heap.overhead);
+    frag->off_heap.first = NULL;
 }
 

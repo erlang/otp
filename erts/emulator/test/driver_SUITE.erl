@@ -3,16 +3,17 @@
 %% 
 %% Copyright Ericsson AB 1997-2014. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 
@@ -390,12 +391,12 @@ timer_measure(Config) when is_list(Config) ->
 
 try_timeouts(_, 0) -> ok;
 try_timeouts(Port, Timeout) ->
-    ?line TimeBefore = now(),
+    ?line TimeBefore = erlang:monotonic_time(),
     ?line erlang:port_command(Port, <<?START_TIMER,Timeout:32>>),
     receive
 	{Port,{data,[?TIMER]}} ->
 	    ?line Elapsed = erl_millisecs() - erl_millisecs(TimeBefore),
-	    io:format("Elapsed: ~p Timeout: ~p\n", [Elapsed,Timeout]),
+	    io:format("Elapsed: ~p Timeout: ~p\n", [Elapsed, Timeout]),
 	    if
 		Elapsed < Timeout ->
 		    ?line ?t:fail(too_short);
@@ -455,7 +456,7 @@ timer_delay(Config) when is_list(Config) ->
     Name = 'timer_drv',
     ?line Port = start_driver(Config, Name, false),
 
-    ?line TimeBefore = now(),
+    ?line TimeBefore = erlang:monotonic_time(),
     Timeout0 = 350,
     ?line erlang:port_command(Port, <<?DELAY_START_TIMER,Timeout0:32>>),
     Timeout = Timeout0 +
@@ -499,7 +500,7 @@ timer_change(Config) when is_list(Config) ->
 try_change_timer(_Port, 0) -> ok;
 try_change_timer(Port, Timeout) ->
     ?line Timeout_3 = Timeout*3,
-    ?line TimeBefore = now(),
+    ?line TimeBefore = erlang:monotonic_time(),
     ?line erlang:port_command(Port, <<?START_TIMER,Timeout_3:32>>),
     ?line erlang:port_command(Port, <<?START_TIMER,Timeout:32>>),
     receive
@@ -2520,13 +2521,11 @@ uniform(N) ->
     end,
     random:uniform(N).
 
-%% return millisecs from statistics source
 erl_millisecs() ->
-    {Ms, S, Us} = erlang:now(),
-    Ms * 1000000000 + S * 1000 + Us / 1000.
+    erl_millisecs(erlang:monotonic_time()).
 
-erl_millisecs({Ms,S,Us}) ->
-    Ms * 1000000000 + S * 1000 + Us / 1000.
+erl_millisecs(MonotonicTime) ->
+    (1000*MonotonicTime)/erlang:convert_time_unit(1,seconds,native).
 
 %% Start/stop drivers.
 start_driver(Config, Name, Binary) ->
@@ -2575,18 +2574,15 @@ sleep(Ms) when is_integer(Ms), Ms >= 0 ->
 
 
 start_node(Config) when is_list(Config) ->
-    ?line Pa = filename:dirname(code:which(?MODULE)),
-    ?line {A, B, C} = now(),
-    ?line Name = list_to_atom(atom_to_list(?MODULE)
-			      ++ "-"
-			      ++ atom_to_list(?config(testcase, Config))
-			      ++ "-"
-			      ++ integer_to_list(A)
-			      ++ "-"
-			      ++ integer_to_list(B)
-			      ++ "-"
-			      ++ integer_to_list(C)),
-    ?line ?t:start_node(Name, slave, [{args, "-pa "++Pa}]).
+    Pa = filename:dirname(code:which(?MODULE)),
+    Name = list_to_atom(atom_to_list(?MODULE)
+			++ "-"
+			++ atom_to_list(?config(testcase, Config))
+			++ "-"
+			++ integer_to_list(erlang:system_time(seconds))
+			++ "-"
+			++ integer_to_list(erlang:unique_integer([positive]))),
+    ?t:start_node(Name, slave, [{args, "-pa "++Pa}]).
 
 stop_node(Node) ->
     ?t:stop_node(Node).

@@ -3,16 +3,17 @@
  *
  * Copyright Ericsson AB 1999-2013. All Rights Reserved.
  *
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  * %CopyrightEnd%
  */
@@ -42,6 +43,7 @@
 #include "erl_cpu_topology.h"
 #include "erl_async.h"
 #include "erl_thr_progress.h"
+#include "erl_bif_unique.h"
 #define ERTS_PTAB_WANT_DEBUG_FUNCS__
 #include "erl_ptab.h"
 #ifdef HIPE
@@ -59,6 +61,7 @@
 
 static Export* alloc_info_trap = NULL;
 static Export* alloc_sizes_trap = NULL;
+static Export* gather_io_bytes_trap = NULL;
 
 static Export *gather_sched_wall_time_res_trap;
 static Export *gather_gc_info_res_trap;
@@ -115,6 +118,9 @@ static char erts_system_version[] = ("Erlang/OTP " ERLANG_OTP_RELEASE
 #endif
 #ifdef ERTS_ENABLE_LOCK_COUNT
 				     " [lock-counting]"
+#endif
+#ifdef ERTS_OPCODE_COUNTER_SUPPORT
+				     " [instruction-counting]"
 #endif
 #ifdef PURIFY
 				     " [purify-compiled]"
@@ -537,6 +543,7 @@ pi_locks(Eterm info)
     switch (info) {
     case am_status:
     case am_priority:
+    case am_trap_exit:
 	return ERTS_PROC_LOCK_STATUS;
     case am_links:
     case am_monitors:
@@ -589,7 +596,7 @@ static Eterm pi_args[] = {
     am_min_bin_vheap_size,
     am_current_location,
     am_current_stacktrace,
-};    
+};
 
 #define ERTS_PI_ARGS ((int) (sizeof(pi_args)/sizeof(Eterm)))
 
@@ -1049,9 +1056,9 @@ process_info_aux(Process *BIF_P,
     case am_initial_call:
 	hp = HAlloc(BIF_P, 3+4);
 	res = TUPLE3(hp,
-		     rp->initial[INITIAL_MOD],
-		     rp->initial[INITIAL_FUN],
-		     make_small(rp->initial[INITIAL_ARI]));
+		     rp->u.initial[INITIAL_MOD],
+		     rp->u.initial[INITIAL_FUN],
+		     make_small(rp->u.initial[INITIAL_ARI]));
 	hp += 4;
 	break;
 
@@ -1101,19 +1108,18 @@ process_info_aux(Process *BIF_P,
 		    heap_need += mq[i].copy_struct_size;
 		}
 		else {
-		    mq[i].copy_struct_size = 0;
-		    if (mp->data.attached)
-			heap_need += erts_msg_attached_data_size(mp);
+		    mq[i].copy_struct_size = mp->data.attached ?
+                        erts_msg_attached_data_size(mp) : 0;
 		}
 		i++;
 	    }
 
-	    hp = HAlloc(BIF_P, heap_need);
-	    hp_end = hp + heap_need;
-	    ASSERT(i == n);
-	    for (i--; i >= 0; i--) {
-		Eterm msg = ERL_MESSAGE_TERM(mq[i].msgp);
-		if (rp != BIF_P) {
+            if (rp != BIF_P) {
+                hp = HAlloc(BIF_P, heap_need);
+                hp_end = hp + heap_need;
+                ASSERT(i == n);
+                for (i--; i >= 0; i--) {
+                    Eterm msg = ERL_MESSAGE_TERM(mq[i].msgp);
 		    if (is_value(msg)) {
 			if (mq[i].copy_struct_size)
 			    msg = copy_struct(msg,
@@ -1147,9 +1153,9 @@ process_info_aux(Process *BIF_P,
 			}
 			else {
 			    /* Make our copy of the message */
-			    ASSERT(size_object(msg) == hfp->used_size);
+			    ASSERT(size_object(msg) == erts_used_frag_sz(hfp));
 			    msg = copy_struct(msg,
-					      hfp->used_size,
+					      erts_used_frag_sz(hfp),
 					      &hp,
 					      &MSO(BIF_P));
 			}
@@ -1159,27 +1165,38 @@ process_info_aux(Process *BIF_P,
 			remove_bad_messages = 1;
 			continue;
 		    }
+                    res = CONS(hp, msg, res);
+                    hp += 2;
 		}
-		else {
+                HRelease(BIF_P, hp_end, hp+3);
+            }
+	    else {
+                for (i--; i >= 0; i--) {
+                    ErtsHeapFactory factory;
+                    Eterm msg = ERL_MESSAGE_TERM(mq[i].msgp);
+
+                    erts_factory_proc_prealloc_init(&factory, BIF_P,
+                                                    mq[i].copy_struct_size+2);
 		    if (mq[i].msgp->data.attached) {
 			/* Decode it on the heap */
-			erts_move_msg_attached_data_to_heap(&hp,
-							    &MSO(BIF_P),
+			erts_move_msg_attached_data_to_heap(&factory,
 							    mq[i].msgp);
 			msg = ERL_MESSAGE_TERM(mq[i].msgp);
 			ASSERT(!mq[i].msgp->data.attached);
-			if (is_non_value(msg)) {
-			    /* Bad distribution message; ignore */
-			    remove_bad_messages = 1;
-			    continue;
-			}
-		    }
+                    }
+                    if (is_value(msg)) {
+                        hp = erts_produce_heap(&factory, 2, 0);
+                        res = CONS(hp, msg, res);
+                    }
+                    else {
+                        /* Bad distribution message; ignore */
+                        remove_bad_messages = 1;
+                        continue;
+                    }
+                    erts_factory_close(&factory);
 		}
-		    
-		res = CONS(hp, msg, res);
-		hp += 2;
+                hp = HAlloc(BIF_P, 3);
 	    }
-	    HRelease(BIF_P, hp_end, hp+3);
 	    erts_free(ERTS_ALC_T_TMP, mq);
 	    if (remove_bad_messages) {
 		ErlMessage **mpp;
@@ -2099,6 +2116,50 @@ BIF_RETTYPE system_info_1(BIF_ALIST_1)
 	BIF_RET(am_opt);
 #endif
 	BIF_RET(res);
+    } else if (BIF_ARG_1 == am_time_offset) {
+	switch (erts_time_offset_state()) {
+	case ERTS_TIME_OFFSET_PRELIMINARY: {
+	    ERTS_DECL_AM(preliminary);
+	    BIF_RET(AM_preliminary);
+	}
+	case ERTS_TIME_OFFSET_FINAL: {
+	    ERTS_DECL_AM(final);
+	    BIF_RET(AM_final);
+	}
+	case ERTS_TIME_OFFSET_VOLATILE: {
+	    ERTS_DECL_AM(volatile);
+	    BIF_RET(AM_volatile);
+	}
+	default:
+	    ERTS_INTERNAL_ERROR("Invalid time offset state");
+	}
+    } else if (ERTS_IS_ATOM_STR("os_monotonic_time_source", BIF_ARG_1)) {
+	BIF_RET(erts_monotonic_time_source(BIF_P));
+    } else if (ERTS_IS_ATOM_STR("os_system_time_source", BIF_ARG_1)) {
+	BIF_RET(erts_system_time_source(BIF_P));
+    } else if (ERTS_IS_ATOM_STR("time_correction", BIF_ARG_1)) {
+	BIF_RET(erts_has_time_correction() ? am_true : am_false);
+    } else if (ERTS_IS_ATOM_STR("start_time", BIF_ARG_1)) {
+	BIF_RET(erts_get_monotonic_start_time(BIF_P));
+    } else if (ERTS_IS_ATOM_STR("end_time", BIF_ARG_1)) {
+	BIF_RET(erts_get_monotonic_end_time(BIF_P));
+    } else if (ERTS_IS_ATOM_STR("time_warp_mode", BIF_ARG_1)) {
+	switch (erts_time_warp_mode()) {
+	case ERTS_NO_TIME_WARP_MODE: {
+	    ERTS_DECL_AM(no_time_warp);
+	    BIF_RET(AM_no_time_warp);
+	}
+	case ERTS_SINGLE_TIME_WARP_MODE: {
+	    ERTS_DECL_AM(single_time_warp);
+	    BIF_RET(AM_single_time_warp);
+	}
+	case ERTS_MULTI_TIME_WARP_MODE: {
+	    ERTS_DECL_AM(multi_time_warp);
+	    BIF_RET(AM_multi_time_warp);
+	}
+	default:
+	    ERTS_INTERNAL_ERROR("Invalid time warp mode");
+	}
     } else if (BIF_ARG_1 == am_allocated_areas) {
 	res = erts_allocated_areas(NULL, NULL, BIF_P);
 	BIF_RET(res);
@@ -2301,7 +2362,7 @@ BIF_RETTYPE system_info_1(BIF_ALIST_1)
 	for (i = num_instructions-1; i >= 0; i--) {
 	    res = erts_bld_cons(hpp, hszp,
 				erts_bld_tuple(hpp, hszp, 2,
-					       erts_atom_put(opc[i].name,
+					       erts_atom_put((byte *)opc[i].name,
 							     strlen(opc[i].name),
 							     ERTS_ATOM_ENC_LATIN1,
 							     1),
@@ -2638,6 +2699,15 @@ BIF_RETTYPE system_info_1(BIF_ALIST_1)
 	hp = hsz ? HAlloc(BIF_P, hsz) : NULL;
 	res = erts_bld_uint(&hp, NULL, erts_dist_buf_busy_limit);
 	BIF_RET(res);
+    } else if (ERTS_IS_ATOM_STR("delayed_node_table_gc", BIF_ARG_1)) {
+	Uint hsz = 0;
+	Uint dntgc = erts_delayed_node_table_gc();
+	if (dntgc == ERTS_NODE_TAB_DELAY_GC_INFINITY)
+	    BIF_RET(am_infinity);
+ 	(void) erts_bld_uint(NULL, &hsz, dntgc);
+	hp = hsz ? HAlloc(BIF_P, hsz) : NULL;
+	res = erts_bld_uint(&hp, NULL, dntgc);
+	BIF_RET(res);
     } else if (ERTS_IS_ATOM_STR("ethread_info", BIF_ARG_1)) {
 	BIF_RET(erts_get_ethread_info(BIF_P));
     }
@@ -2700,9 +2770,11 @@ BIF_RETTYPE system_info_1(BIF_ALIST_1)
         BIF_RET(make_small(erts_db_get_max_tabs()));
     }
     else if (ERTS_IS_ATOM_STR("tolerant_timeofday",BIF_ARG_1)) {
-	BIF_RET(erts_disable_tolerant_timeofday
-		? am_disabled
-		: am_enabled);
+	if (erts_has_time_correction()
+	    && erts_time_offset_state() == ERTS_TIME_OFFSET_FINAL) {
+	    BIF_RET(am_enabled);
+	}
+	BIF_RET(am_disabled);
     }
     else if (ERTS_IS_ATOM_STR("eager_check_io",BIF_ARG_1)) {
 	BIF_RET(erts_eager_check_io ? am_true : am_false);
@@ -3150,7 +3222,6 @@ BIF_RETTYPE process_display_2(BIF_ALIST_2)
    BIF_RET(am_true);
 }
 
-
 /* this is a general call which return some possibly useful information */
 
 BIF_RETTYPE statistics_1(BIF_ALIST_1)
@@ -3223,23 +3294,8 @@ BIF_RETTYPE statistics_1(BIF_ALIST_1)
 	res = TUPLE2(hp, b1, b2);
 	BIF_RET(res);
     } else if (BIF_ARG_1 == am_io) {
-	Eterm r1, r2;
-	Eterm in, out;
-	Uint hsz = 9;
-	Uint bytes_in = (Uint) erts_smp_atomic_read_nob(&erts_bytes_in);
-	Uint bytes_out = (Uint) erts_smp_atomic_read_nob(&erts_bytes_out);
-
-	(void) erts_bld_uint(NULL, &hsz, bytes_in);
-	(void) erts_bld_uint(NULL, &hsz, bytes_out);
-	hp = HAlloc(BIF_P, hsz);
-	in = erts_bld_uint(&hp, NULL, bytes_in);
-	out = erts_bld_uint(&hp, NULL, bytes_out);
-
-	r1 = TUPLE2(hp,  am_input, in);
-	hp += 3;
-	r2 = TUPLE2(hp, am_output, out);
-	hp += 3;
-	BIF_RET(TUPLE2(hp, r1, r2));
+	Eterm ref = erts_request_io_bytes(BIF_P);
+	BIF_TRAP2(gather_io_bytes_trap, BIF_P, ref, make_small(erts_no_schedulers));
     }
     else if (ERTS_IS_ATOM_STR("run_queues", BIF_ARG_1)) {
 	Eterm res, *hp, **hpp;
@@ -3400,6 +3456,29 @@ BIF_RETTYPE erts_debug_get_internal_state_1(BIF_ALIST_1)
         else if (ERTS_IS_ATOM_STR("mmap", BIF_ARG_1)) {
             BIF_RET(erts_mmap_debug_info(BIF_P));
         }
+	else if (ERTS_IS_ATOM_STR("unique_monotonic_integer_state", BIF_ARG_1)) {
+	    BIF_RET(erts_debug_get_unique_monotonic_integer_state(BIF_P));
+	}
+	else if (ERTS_IS_ATOM_STR("min_unique_monotonic_integer", BIF_ARG_1)) {
+	    Sint64 value = erts_get_min_unique_monotonic_integer();
+	    if (IS_SSMALL(value))
+		BIF_RET(make_small(value));
+	    else {
+		Uint hsz = ERTS_SINT64_HEAP_SIZE(value);
+		Eterm *hp = HAlloc(BIF_P, hsz);
+		BIF_RET(erts_sint64_to_big(value, &hp));
+	    }
+	}
+	else if (ERTS_IS_ATOM_STR("min_unique_integer", BIF_ARG_1)) {
+	    Sint64 value = erts_get_min_unique_integer();
+	    if (IS_SSMALL(value))
+		BIF_RET(make_small(value));
+	    else {
+		Uint hsz = ERTS_SINT64_HEAP_SIZE(value);
+		Eterm *hp = HAlloc(BIF_P, hsz);
+		BIF_RET(erts_sint64_to_big(value, &hp));
+	    }
+	}
     }
     else if (is_tuple(BIF_ARG_1)) {
 	Eterm* tp = tuple_val(BIF_ARG_1);
@@ -3594,6 +3673,58 @@ BIF_RETTYPE erts_debug_get_internal_state_1(BIF_ALIST_1)
 
 		BIF_RET(erts_debug_reader_groups_map(BIF_P, (int) groups));
 	    }
+	    else if (ERTS_IS_ATOM_STR("internal_hash", tp[1])) {
+		Uint hash = (Uint) make_internal_hash(tp[2]);
+		Uint hsz = 0;
+		Eterm* hp;
+		erts_bld_uint(NULL, &hsz, hash);
+		hp = HAlloc(BIF_P,hsz);
+		return erts_bld_uint(&hp, NULL, hash);
+	    }
+	    else if (ERTS_IS_ATOM_STR("atom", tp[1])) {
+		Uint ix;
+		if (!term_to_Uint(tp[2], &ix))
+		    BIF_ERROR(BIF_P, BADARG);
+		while (ix >= atom_table_size()) {
+		    char tmp[20];
+		    erts_snprintf(tmp, sizeof(tmp), "am%x", atom_table_size());
+		    erts_atom_put((byte *) tmp, strlen(tmp), ERTS_ATOM_ENC_LATIN1, 1);
+		}
+		return make_atom(ix);
+	    }
+
+	    break;
+	}
+	case 3: {
+	    if (ERTS_IS_ATOM_STR("check_time_config", tp[1])) {
+		int res, time_correction;
+		ErtsTimeWarpMode time_warp_mode;
+		if (tp[2] == am_true)
+		    time_correction = !0;
+		else if (tp[2] == am_false)
+		    time_correction = 0;
+		else
+		    break;
+		if (ERTS_IS_ATOM_STR("no_time_warp", tp[3]))
+		    time_warp_mode = ERTS_NO_TIME_WARP_MODE;
+		else if (ERTS_IS_ATOM_STR("single_time_warp", tp[3]))
+		    time_warp_mode = ERTS_SINGLE_TIME_WARP_MODE;
+		else if (ERTS_IS_ATOM_STR("multi_time_warp", tp[3]))
+		    time_warp_mode = ERTS_MULTI_TIME_WARP_MODE;
+		else
+		    break;
+		res = erts_check_time_adj_support(time_correction,
+						  time_warp_mode);
+		BIF_RET(res ? am_true : am_false);
+	    }
+	    else if (ERTS_IS_ATOM_STR("make_unique_integer", tp[1])) {
+	      Eterm res = erts_debug_make_unique_integer(BIF_P,
+							 tp[2],
+							 tp[3]);
+	      if (is_non_value(res))
+		  break;
+	      BIF_RET(res);
+	    }
 	    break;
 	}
 	default:
@@ -3603,7 +3734,39 @@ BIF_RETTYPE erts_debug_get_internal_state_1(BIF_ALIST_1)
     BIF_ERROR(BIF_P, BADARG);
 }
 
+BIF_RETTYPE erts_internal_is_system_process_1(BIF_ALIST_1)
+{
+    if (is_internal_pid(BIF_ARG_1)) {
+	Process *rp = erts_proc_lookup(BIF_ARG_1);
+	if (rp && (rp->static_flags & ERTS_STC_FLG_SYSTEM_PROC))
+	    BIF_RET(am_true);
+	BIF_RET(am_false);
+    }
+
+    if (is_external_pid(BIF_ARG_1)
+	&& external_pid_dist_entry(BIF_ARG_1) == erts_this_dist_entry) {
+	BIF_RET(am_false);
+    }
+
+    BIF_ERROR(BIF_P, BADARG);
+}
+
+
 static erts_smp_atomic_t hipe_test_reschedule_flag;
+
+#if defined(VALGRIND) && defined(__GNUC__)
+/* Force noinline for valgrind suppression */
+static void broken_halt_test(Eterm bif_arg_2) __attribute__((noinline));
+#endif
+
+static void broken_halt_test(Eterm bif_arg_2)
+{
+    /* Ugly ugly code used by bif_SUITE:erlang_halt/1 */
+#if defined(ERTS_HAVE_TRY_CATCH)
+    erts_get_scheduler_data()->run_queue = NULL;
+#endif
+    erl_exit(ERTS_DUMP_EXIT, "%T", bif_arg_2);
+}
 
 
 BIF_RETTYPE erts_debug_set_internal_state_2(BIF_ALIST_2)
@@ -3892,9 +4055,34 @@ BIF_RETTYPE erts_debug_set_internal_state_2(BIF_ALIST_2)
 	}
 	else if (ERTS_IS_ATOM_STR("wait", BIF_ARG_1)) {
 	    if (ERTS_IS_ATOM_STR("deallocations", BIF_ARG_2)) {
-		if (erts_debug_wait_deallocations(BIF_P)) {
+		int flag = ERTS_DEBUG_WAIT_COMPLETED_DEALLOCATIONS;
+		if (erts_debug_wait_completed(BIF_P, flag)) {
 		    ERTS_BIF_YIELD_RETURN(BIF_P, am_ok);
 		}
+	    }
+	    if (ERTS_IS_ATOM_STR("timer_cancellations", BIF_ARG_2)) {
+		int flag = ERTS_DEBUG_WAIT_COMPLETED_TIMER_CANCELLATIONS;
+		if (erts_debug_wait_completed(BIF_P, flag)) {
+		    ERTS_BIF_YIELD_RETURN(BIF_P, am_ok);
+		}
+	    }
+	}
+        else if (ERTS_IS_ATOM_STR("broken_halt", BIF_ARG_1)) {
+            broken_halt_test(BIF_ARG_2);
+        }
+	else if (ERTS_IS_ATOM_STR("unique_monotonic_integer_state", BIF_ARG_1)) {
+	    int res = erts_debug_set_unique_monotonic_integer_state(BIF_ARG_2);
+	    BIF_RET(res ? am_true : am_false);
+	}
+	else if (ERTS_IS_ATOM_STR("node_tab_delayed_delete", BIF_ARG_1)) {
+	    /* node_container_SUITE */
+	    Sint64 msecs;
+	    if (term_to_Sint64(BIF_ARG_2, &msecs)) {
+		/* Negative value restore original value... */
+		erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
+		erts_debug_test_node_tab_delayed_delete(msecs);
+		erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
+		BIF_RET(am_ok);
 	    }
 	}
     }
@@ -4094,59 +4282,41 @@ BIF_RETTYPE erts_debug_lock_counters_1(BIF_ALIST_1)
 
 	BIF_RET(am_ok);
     } else if (is_tuple(BIF_ARG_1)) {
-	Eterm* tp = tuple_val(BIF_ARG_1);
+        Eterm* ptr = tuple_val(BIF_ARG_1);
 
-	switch (arityval(tp[0])) {
-	    case 2: {
-		int opt = 0;
-		int val = 0;
-		if (ERTS_IS_ATOM_STR("copy_save", tp[1])) {
-		    opt = ERTS_LCNT_OPT_COPYSAVE;
-		} else if (ERTS_IS_ATOM_STR("process_locks", tp[1])) {
-		    opt = ERTS_LCNT_OPT_PROCLOCK;
-		} else if (ERTS_IS_ATOM_STR("port_locks", tp[1])) {
-		    opt = ERTS_LCNT_OPT_PORTLOCK;
-		} else if (ERTS_IS_ATOM_STR("suspend", tp[1])) {
-		    opt = ERTS_LCNT_OPT_SUSPEND;
-		} else if (ERTS_IS_ATOM_STR("location", tp[1])) {
-		    opt = ERTS_LCNT_OPT_LOCATION;
-		} else {
-		    BIF_ERROR(BIF_P, BADARG);
-		}
-		if (tp[2] == am_true) {
-		    val = 1;
-		} else if (tp[2] == am_false) {
-		    val = 0;
-		} else {
-		    BIF_ERROR(BIF_P, BADARG);
-		}
+        if ((arityval(ptr[0]) == 2) && (ptr[2] == am_false || ptr[2] == am_true)) {
+            int lock_opt = 0, enable = (ptr[2] == am_true) ? 1 : 0;
+            if (ERTS_IS_ATOM_STR("copy_save", ptr[1])) {
+                lock_opt = ERTS_LCNT_OPT_COPYSAVE;
+            } else if (ERTS_IS_ATOM_STR("process_locks", ptr[1])) {
+                lock_opt = ERTS_LCNT_OPT_PROCLOCK;
+            } else if (ERTS_IS_ATOM_STR("port_locks", ptr[1])) {
+                lock_opt = ERTS_LCNT_OPT_PORTLOCK;
+            } else if (ERTS_IS_ATOM_STR("suspend", ptr[1])) {
+                lock_opt = ERTS_LCNT_OPT_SUSPEND;
+            } else if (ERTS_IS_ATOM_STR("location", ptr[1])) {
+                lock_opt = ERTS_LCNT_OPT_LOCATION;
+            } else {
+                BIF_ERROR(BIF_P, BADARG);
+            }
 
-		erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
-		erts_smp_thr_progress_block();
-		
-		if (val) {
-		    res = erts_lcnt_set_rt_opt(opt) ? am_true : am_false;
-		} else {
-		    res = erts_lcnt_clear_rt_opt(opt) ? am_true : am_false;
-		}
+            erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
+            erts_smp_thr_progress_block();
+
+            if (enable) res = erts_lcnt_set_rt_opt(lock_opt) ? am_true : am_false;
+            else res = erts_lcnt_clear_rt_opt(lock_opt) ? am_true : am_false;
+            
 #ifdef ERTS_SMP
-		if (res != tp[2]) {
-		    if (opt == ERTS_LCNT_OPT_PORTLOCK) {
-			erts_lcnt_enable_io_lock_count(val);
-		    } else if (opt == ERTS_LCNT_OPT_PROCLOCK) {
-			erts_lcnt_enable_proc_lock_count(val);
-		    }
-		}
+            if (res != ptr[2] && lock_opt == ERTS_LCNT_OPT_PORTLOCK) {
+                erts_lcnt_enable_io_lock_count(enable);
+            } else if (res != ptr[2] && lock_opt == ERTS_LCNT_OPT_PROCLOCK) {
+                erts_lcnt_enable_proc_lock_count(enable);
+            }
 #endif
-		erts_smp_thr_progress_unblock();
-		erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
-		BIF_RET(res);
-		break;
-	    }
-     
-	    default:
-	    break;
-	}
+            erts_smp_thr_progress_unblock();
+            erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
+            BIF_RET(res);
+        }
     } 
 
 #endif 
@@ -4186,6 +4356,8 @@ erts_bif_info_init(void)
 	= erts_export_put(am_erlang, am_gather_sched_wall_time_result, 1);
     gather_gc_info_res_trap
 	= erts_export_put(am_erlang, am_gather_gc_info_result, 1);
+    gather_io_bytes_trap
+	= erts_export_put(am_erts_internal, am_gather_io_bytes, 2);
     process_info_init();
     os_info_init();
 }

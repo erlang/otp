@@ -3,16 +3,17 @@
  *
  * Copyright Ericsson AB 2008-2014. All Rights Reserved.
  *
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  * %CopyrightEnd%
  */
@@ -67,7 +68,7 @@ void dlclose(HMODULE Lib) {
 typedef void * DL_LIB_P;
 #endif
 
-void wxe_initOpenGL(wxeReturn rt, char *bp) {
+void wxe_initOpenGL(wxeReturn *rt, char *bp) {
   DL_LIB_P LIBhandle;
   int (*init_opengl)(void *);
 #ifdef _WIN32
@@ -82,9 +83,9 @@ void wxe_initOpenGL(wxeReturn rt, char *bp) {
       wxe_gl_dispatch = (WXE_GL_DISPATCH) dlsym(LIBhandle, "egl_dispatch");
       if(init_opengl && wxe_gl_dispatch) {
 	(*init_opengl)(erlCallbacks);
-	rt.addAtom((char *) "ok");
-	rt.add(wxString::FromAscii("initiated"));
-	rt.addTupleCount(2);
+	rt->addAtom((char *) "ok");
+	rt->add(wxString::FromAscii("initiated"));
+	rt->addTupleCount(2);
 	erl_gl_initiated = TRUE;
       } else {
 	wxString msg;
@@ -95,24 +96,24 @@ void wxe_initOpenGL(wxeReturn rt, char *bp) {
 	  msg += wxT("egl_init_opengl ");
 	if(!wxe_gl_dispatch) 
 	  msg += wxT("egl_dispatch ");
-	rt.addAtom((char *) "error");
-	rt.add(msg);
-	rt.addTupleCount(2);
+	rt->addAtom((char *) "error");
+	rt->add(msg);
+	rt->addTupleCount(2);
       }
     } else {
       wxString msg;
       msg.Printf(wxT("Could not load dll: "));
       msg += wxString::FromAscii(bp);
-      rt.addAtom((char *) "error");
-      rt.add(msg);
-      rt.addTupleCount(2);
+      rt->addAtom((char *) "error");
+      rt->add(msg);
+      rt->addTupleCount(2);
     }
   } else {
-    rt.addAtom((char *) "ok");
-    rt.add(wxString::FromAscii("already initilized"));
-    rt.addTupleCount(2);
+    rt->addAtom((char *) "ok");
+    rt->add(wxString::FromAscii("already initilized"));
+    rt->addTupleCount(2);
   }
-  rt.send();
+  rt->send();
 }
 
 void setActiveGL(ErlDrvTermData caller, wxGLCanvas *canvas)
@@ -132,11 +133,15 @@ void deleteActiveGL(wxGLCanvas *canvas)
   }
 }
 
-void gl_dispatch(int op, char *bp,ErlDrvTermData caller,WXEBinRef *bins[]){
+void gl_dispatch(int op, char *bp,ErlDrvTermData caller,WXEBinRef *bins){
   if(caller != gl_active) {
     wxGLCanvas * current = glc[caller];
-    if(current) { gl_active = caller; current->SetCurrent();}
-    else {
+    if(current) {
+      if(current != glc[gl_active]) {
+	gl_active = caller;
+	current->SetCurrent();
+      }
+    } else {
       ErlDrvTermData rt[] = // Error msg
 	{ERL_DRV_ATOM, driver_mk_atom((char *) "_egl_error_"),
 	 ERL_DRV_INT,  (ErlDrvTermData) op,
@@ -149,12 +154,12 @@ void gl_dispatch(int op, char *bp,ErlDrvTermData caller,WXEBinRef *bins[]){
   char * bs[3];
   int bs_sz[3];
   for(int i=0; i<3; i++) {
-    if(bins[i]) {
-      bs[i] = bins[i]->base;
-      bs_sz[i] = bins[i]->size;
+    if(bins[i].from) {
+      bs[i] = bins[i].base;
+      bs_sz[i] = bins[i].size;
     }
-    else 
-      bs[i] = NULL;
+    else
+      break;
   }
   wxe_gl_dispatch(op, bp, WXE_DRV_PORT_HANDLE, caller, bs, bs_sz);
 }

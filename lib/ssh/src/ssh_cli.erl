@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 2005-2013. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -98,7 +99,7 @@ handle_ssh_msg({ssh_cm, ConnectionHandler,
     Pty = Pty0#ssh_pty{width = Width, height = Height,
 		       pixel_width = PixWidth,
 		       pixel_height = PixHeight},
-    {Chars, NewBuf} = io_request({window_change, Pty0}, Buf, Pty),
+    {Chars, NewBuf} = io_request({window_change, Pty0}, Buf, Pty, undefined),
     write_chars(ConnectionHandler, ChannelId, Chars),
     {ok, State#state{pty = Pty, buf = NewBuf}};
 
@@ -188,7 +189,7 @@ handle_msg({Group, tty_geometry}, #state{group = Group,
 handle_msg({Group, Req}, #state{group = Group, buf = Buf, pty = Pty,
 				 cm = ConnectionHandler,
 				 channel = ChannelId} = State) ->
-    {Chars, NewBuf} = io_request(Req, Buf, Pty),
+    {Chars, NewBuf} = io_request(Req, Buf, Pty, Group),
     write_chars(ConnectionHandler, ChannelId, Chars),
     {ok, State#state{buf = NewBuf}};
 
@@ -263,40 +264,49 @@ eval(Error) ->
 %%% displaying device...
 %%% We are *not* really unicode aware yet, we just filter away characters 
 %%% beyond the latin1 range. We however handle the unicode binaries...
-io_request({window_change, OldTty}, Buf, Tty) ->
+io_request({window_change, OldTty}, Buf, Tty, _Group) ->
     window_change(Tty, OldTty, Buf);
-io_request({put_chars, Cs}, Buf, Tty) ->
+io_request({put_chars, Cs}, Buf, Tty, _Group) ->
     put_chars(bin_to_list(Cs), Buf, Tty);
-io_request({put_chars, unicode, Cs}, Buf, Tty) ->
+io_request({put_chars, unicode, Cs}, Buf, Tty, _Group) ->
     put_chars(unicode:characters_to_list(Cs,unicode), Buf, Tty);
-io_request({insert_chars, Cs}, Buf, Tty) ->
+io_request({insert_chars, Cs}, Buf, Tty, _Group) ->
     insert_chars(bin_to_list(Cs), Buf, Tty);
-io_request({insert_chars, unicode, Cs}, Buf, Tty) ->
+io_request({insert_chars, unicode, Cs}, Buf, Tty, _Group) ->
     insert_chars(unicode:characters_to_list(Cs,unicode), Buf, Tty);
-io_request({move_rel, N}, Buf, Tty) ->
+io_request({move_rel, N}, Buf, Tty, _Group) ->
     move_rel(N, Buf, Tty);
-io_request({delete_chars,N}, Buf, Tty) ->
+io_request({delete_chars,N}, Buf, Tty, _Group) ->
     delete_chars(N, Buf, Tty);
-io_request(beep, Buf, _Tty) ->
+io_request(beep, Buf, _Tty, _Group) ->
     {[7], Buf};
 
 %% New in R12
-io_request({get_geometry,columns},Buf,Tty) ->
+io_request({get_geometry,columns},Buf,Tty, _Group) ->
     {ok, Tty#ssh_pty.width, Buf};
-io_request({get_geometry,rows},Buf,Tty) ->
+io_request({get_geometry,rows},Buf,Tty, _Group) ->
     {ok, Tty#ssh_pty.height, Buf};
-io_request({requests,Rs}, Buf, Tty) ->
-    io_requests(Rs, Buf, Tty, []);
-io_request(tty_geometry, Buf, Tty) ->
-    io_requests([{move_rel, 0}, {put_chars, unicode, [10]}], Buf, Tty, []);
+io_request({requests,Rs}, Buf, Tty, Group) ->
+    io_requests(Rs, Buf, Tty, [], Group);
+io_request(tty_geometry, Buf, Tty, Group) ->
+    io_requests([{move_rel, 0}, {put_chars, unicode, [10]}],
+                Buf, Tty, [], Group);
      %{[], Buf};
-io_request(_R, Buf, _Tty) ->
+
+%% New in 18
+io_request({put_chars_sync, Class, Cs, Reply}, Buf, Tty, Group) ->
+    %% We handle these asynchronous for now, if we need output guarantees
+    %% we have to handle these synchronously
+    Group ! {reply, Reply},
+    io_request({put_chars, Class, Cs}, Buf, Tty, Group);
+
+io_request(_R, Buf, _Tty, _Group) ->
     {[], Buf}.
 
-io_requests([R|Rs], Buf, Tty, Acc) ->
-    {Chars, NewBuf} = io_request(R, Buf, Tty),
-    io_requests(Rs, NewBuf, Tty, [Acc|Chars]);
-io_requests([], Buf, _Tty, Acc) ->
+io_requests([R|Rs], Buf, Tty, Acc, Group) ->
+    {Chars, NewBuf} = io_request(R, Buf, Tty, Group),
+    io_requests(Rs, NewBuf, Tty, [Acc|Chars], Group);
+io_requests([], Buf, _Tty, Acc, _Group) ->
     {Acc, Buf}.
 
 %%% return commands for cursor navigation, assume everything is ansi

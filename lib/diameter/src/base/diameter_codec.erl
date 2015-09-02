@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 2010-2015. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -590,6 +591,7 @@ split_head(<<Code:32, 0:1, M:1, P:1, _:5, Len:24, _/binary>>) ->
 %% Header is truncated.
 split_head(Bin) ->
     ?THROW({5014, #diameter_avp{data = Bin}}).
+%% Note that pack_avp/1 will pad this at encode if sent in a Failed-AVP.
 
 %% 3588:
 %%
@@ -619,7 +621,7 @@ split_head(Bin) ->
 %%       AVP header with zero up to the minimum AVP header length.
 %%
 %% The underlined clause must be in error since (1) a header less than
-%% the minimum value mean we don't know the identity of the AVP and
+%% the minimum value mean we might not know the identity of the AVP and
 %% (2) the last sentence covers this case.
 
 %% split_data/3
@@ -655,16 +657,23 @@ split_data(Bin, Len) ->
 
 %% The normal case here is data as an #diameter_avp{} list or an
 %% iolist, which are the cases that generated codec modules use. The
-%% other case is as a convenience in the relay case in which the
+%% other cases are a convenience in the relay case in which the
 %% dictionary doesn't know about specific AVP's.
 
-%% Grouped AVP whose components need packing ...
-pack_avp([#diameter_avp{} = A | Avps]) ->
-    pack_avp(A#diameter_avp{data = Avps});
-pack_avp(#diameter_avp{data = [#diameter_avp{} | _] = Avps} = A) ->
-    pack_avp(A#diameter_avp{data = encode_avps(Avps)});
+%% Decoded Grouped AVP with decoded components: ignore components
+%% since they're already encoded in the Grouped AVP.
+pack_avp([#diameter_avp{} = Grouped | _Components]) ->
+    pack_avp(Grouped);
 
-%% ... data as a type/value tuple ...
+%% Grouped AVP whose components need packing. It's intentional that
+%% this isn't equivalent to [Grouped | Components]: here the
+%% components need to be encoded before wrapping with the Grouped AVP,
+%% and the list is flat, nesting being accomplished in the data
+%% fields.
+pack_avp(#diameter_avp{data = [#diameter_avp{} | _] = Components} = Grouped) ->
+    pack_avp(Grouped#diameter_avp{data = encode_avps(Components)});
+
+%% Data as a type/value tuple ...
 pack_avp(#diameter_avp{data = {Type, Value}} = A)
   when is_atom(Type) ->
     pack_avp(A#diameter_avp{data = diameter_types:Type(encode, Value)});

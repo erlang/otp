@@ -1,18 +1,19 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1997-2012. All Rights Reserved.
+# Copyright Ericsson AB 1997-2015. All Rights Reserved.
 #
-# The contents of this file are subject to the Erlang Public License,
-# Version 1.1, (the "License"); you may not use this file except in
-# compliance with the License. You should have received a copy of the
-# Erlang Public License along with this software. If not, it can be
-# retrieved online at http://www.erlang.org/.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
 #
-# Software distributed under the License is distributed on an "AS IS"
-# basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-# the License for the specific language governing rights and limitations
-# under the License.
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
 # %CopyrightEnd%
 #
@@ -48,6 +49,7 @@ XML_REF3_FILES = \
 	digraph.xml \
 	digraph_utils.xml \
 	epp.xml \
+	erl_anno.xml \
 	erl_eval.xml \
 	erl_expand_records.xml \
 	erl_id_trans.xml \
@@ -76,12 +78,12 @@ XML_REF3_FILES = \
 	ms_transform.xml \
 	orddict.xml \
 	ordsets.xml \
-	pg.xml \
 	pool.xml \
 	proc_lib.xml \
 	proplists.xml \
 	qlc.xml \
 	queue.xml \
+	rand.xml \
 	random.xml \
 	re.xml \
 	sets.xml \
@@ -101,7 +103,7 @@ XML_REF3_FILES = \
 XML_REF6_FILES = stdlib_app.xml
 
 XML_PART_FILES = part.xml part_notes.xml part_notes_history.xml
-XML_CHAPTER_FILES = io_protocol.xml unicode_usage.xml notes.xml notes_history.xml
+XML_CHAPTER_FILES = io_protocol.xml unicode_usage.xml notes.xml notes_history.xml assert_hrl.xml
 
 BOOK_FILES = book.xml
 

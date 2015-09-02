@@ -8,16 +8,17 @@
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
-      The contents of this file are subject to the Erlang Public License,
-      Version 1.1, (the "License"); you may not use this file except in
-      compliance with the License. You should have received a copy of the
-      Erlang Public License along with this software. If not, it can be
-      retrieved online at http://www.erlang.org/.
-    
-      Software distributed under the License is distributed on an "AS IS"
-      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-      the License for the specific language governing rights and limitations
-      under the License.
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
     
     </legalnotice>
 
@@ -30,37 +31,39 @@
   </header>
 
   <section>
-    <title>Records vs Tuples</title>
-    <p>The main advantage of using records instead of tuples is that
+    <title>Records and Tuples</title>
+    <p>The main advantage of using records rather than tuples is that
       fields in a record are accessed by name, whereas fields in a
       tuple are accessed by position. To illustrate these differences,
-      suppose that we want to represent a person with the tuple
+      suppose that you want to represent a person with the tuple
       <c>{Name, Address, Phone}</c>.</p>
-    <p>We must remember that the <c>Name</c> field is the first
-      element of the tuple, the <c>Address</c> field is the second
-      element, and so on, in order to write functions which manipulate
-      this data. For example, to extract data from a variable <c>P</c>
-      which contains such a tuple we might write the following code
-      and then use pattern matching to extract the relevant fields.</p>
+      <p>To write functions that manipulate this data, remember the following:</p>
+      <list type="bulleted">
+       <item>The <c>Name</c> field is the first element of the tuple.</item>
+       <item>The <c>Address</c> field is the second element.</item>
+       <item>The <c>Phone</c> field is the third element.</item>
+     </list>
+    <p>For example, to extract data from a variable <c>P</c>
+      that contains such a tuple, you can write the following code
+      and then use pattern matching to extract the relevant fields:</p>
     <code type="none">
 Name = element(1, P),
 Address = element(2, P),
 ...</code>
-    <p>Code like this is difficult to read and understand and errors
-      occur if we get the numbering of the elements in the tuple wrong.
-      If we change the data representation by re-ordering the fields,
-      or by adding or removing a field, then all references to
-      the person tuple, wherever they occur, must be checked and
-      possibly modified.</p>
-    <p>Records allow us to refer to the fields by name and not
-      position. We use a record instead of a tuple to store the data.
-      If we write a record definition of the type shown below, we can
-      then refer to the fields of the record by name.</p>
+    <p>Such code is difficult to read and understand, and errors
+      occur if the numbering of the elements in the tuple is wrong.
+      If the data representation of the fields is changed, by re-ordering,
+      adding, or removing fields, all references to
+      the person tuple must be checked and possibly modified.</p>
+    <p>Records allow references to the fields by name, instead of by
+      position. In the following example, a record instead of a tuple
+      is used to store the data:</p>
     <code type="none">
 -record(person, {name, phone, address}).</code>
-    <p>For example, if <c>P</c> is now a variable whose value is a
-      <c>person</c> record, we can code as follows in order to access
-      the name and address fields of the records.</p>
+    <p>This enables references to the fields of the record by name.
+    For example, if <c>P</c> is a variable whose value is a
+      <c>person</c> record, the following code access
+      the name and address fields of the records:</p>
     <code type="none">
 Name = P#person.name,
 Address = P#person.address,
@@ -72,24 +75,25 @@ Address = P#person.address,
 
   <section>
     <title>Defining a Record</title>
-    <p>This definition of a person will be used in many of
-      the examples which follow. It contains three fields, <c>name</c>,
-      <c>phone</c> and <c>address</c>. The default values for
+    <p>This following definition of a <c>person</c> is used in several
+      examples in this section. Three fields are included, <c>name</c>,
+      <c>phone</c>, and <c>address</c>. The default values for
       <c>name</c> and <c>phone</c> is "" and [], respectively.
       The default value for <c>address</c> is the atom
       <c>undefined</c>, since no default value is supplied for this
       field:</p>
     <pre>
 -record(person, {name = "", phone = [], address}).</pre>
-    <p>We have to define the record in the shell in order to be able
-      use the record syntax in the examples:</p>
+    <p>The record must be defined in the shell to enable
+      use of the record syntax in the examples:</p>
     <pre>
 > <input>rd(person, {name = "", phone = [], address}).</input>
 person</pre>
-    <p>This is due to the fact that record definitions are available
-      at compile time only, not at runtime. See <c>shell(3)</c> for
-      details on records in the shell.
-      </p>
+    <p>This is because record definitions are only available
+      at compile time, not at runtime. For details on records
+      in the shell, see the
+      <seealso marker="stdlib:shell">shell(3)</seealso>
+      manual page in <c>stdlib</c>.</p>
   </section>
 
   <section>
@@ -98,12 +102,12 @@ person</pre>
     <pre>
 > <input>#person{phone=[0,8,2,3,4,3,1,2], name="Robert"}.</input>
 #person{name = "Robert",phone = [0,8,2,3,4,3,1,2],address = undefined}</pre>
-    <p>Since the <c>address</c> field was omitted, its default value
+    <p>As the <c>address</c> field was omitted, its default value
       is used.</p>
-    <p>There is a new feature introduced in Erlang 5.1/OTP R8B,
-      with which you can set a value to all fields in a record,
-      overriding the defaults in the record specification. The special
-      field <c>_</c>, means "all fields not explicitly specified".</p>
+      <p>From Erlang 5.1/OTP R8B, a value to all
+      fields in a record can be set with the special field <c>_</c>.
+      <c>_</c> means "all fields not explicitly specified".</p>
+      <p><em>Example:</em></p>
     <pre>
 > <input>#person{name = "Jakob", _ = '_'}.</input>
 #person{name = "Jakob",phone = '_',address = '_'}</pre>
@@ -114,6 +118,7 @@ person</pre>
 
   <section>
     <title>Accessing a Record Field</title>
+    <p>The following example shows how to access a record field:</p>
     <pre>
 > <input>P = #person{name = "Joe", phone = [0,8,2,3,4,3,1,2]}.</input>
 #person{name = "Joe",phone = [0,8,2,3,4,3,1,2],address = undefined}
@@ -123,6 +128,7 @@ person</pre>
 
   <section>
     <title>Updating a Record</title>
+    <p>The following example shows how to update a record:</p>
     <pre>
 > <input>P1 = #person{name="Joe", phone=[1,2,3], address="A street"}.</input>
 #person{name = "Joe",phone = [1,2,3],address = "A street"}
@@ -133,7 +139,7 @@ person</pre>
   <section>
     <title>Type Testing</title>
     <p>The following example shows that the guard succeeds if
-      <c>P</c> is record of type <c>person</c>.</p>
+      <c>P</c> is record of type <c>person</c>:</p>
     <pre>
 foo(P) when is_record(P, person) -> a_person;
 foo(_) -> not_a_person.</pre>
@@ -141,7 +147,7 @@ foo(_) -> not_a_person.</pre>
 
   <section>
     <title>Pattern Matching</title>
-    <p>Matching can be used in combination with records as shown in
+    <p>Matching can be used in combination with records, as shown in
       the following example:</p>
     <pre>
 > <input>P3 = #person{name="Joe", phone=[0,0,7], address="A street"}.</input>
@@ -163,7 +169,7 @@ find_phone([], Name) ->
 
   <section>
     <title>Nested Records</title>
-    <p>The value of a field in a record might be an instance of a
+    <p>The value of a field in a record can be an instance of a
       record. Retrieval of nested data can be done stepwise, or in a
       single step, as shown in the following example:</p>
     <pre>
@@ -173,11 +179,12 @@ find_phone([], Name) ->
 demo() ->
   P = #person{name= #name{first="Robert",last="Virding"}, phone=123},
   First = (P#person.name)#name.first.</pre>
-    <p>In this example, <c>demo()</c> evaluates to <c>"Robert"</c>.</p>
+    <p>Here, <c>demo()</c> evaluates to <c>"Robert"</c>.</p>
   </section>
 
   <section>
-    <title>Example</title>
+    <title>A Longer Example</title>
+    <p>Comments are embedded in the following example:</p>
     <pre>
 %% File: person.hrl
 

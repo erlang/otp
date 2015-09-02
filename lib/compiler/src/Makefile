@@ -3,16 +3,17 @@
 #
 # Copyright Ericsson AB 1996-2013. All Rights Reserved.
 #
-# The contents of this file are subject to the Erlang Public License,
-# Version 1.1, (the "License"); you may not use this file except in
-# compliance with the License. You should have received a copy of the
-# Erlang Public License along with this software. If not, it can be
-# retrieved online at http://www.erlang.org/.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
 #
-# Software distributed under the License is distributed on an "AS IS"
-# basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-# the License for the specific language governing rights and limitations
-# under the License.
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
 # %CopyrightEnd%
 #
@@ -70,6 +71,7 @@ MODULES =  \
 	cerl \
 	cerl_clauses \
 	cerl_inline \
+	cerl_sets \
 	cerl_trees \
 	compile \
 	core_lib \
@@ -81,6 +83,7 @@ MODULES =  \
 	rec_env \
 	sys_core_dsetel \
 	sys_core_fold \
+	sys_core_fold_lists \
 	sys_core_inline \
 	sys_pre_attributes \
 	sys_pre_expand \
@@ -158,6 +161,10 @@ $(EBIN)/beam_asm.beam: $(ESRC)/beam_asm.erl $(EGEN)/beam_opcodes.hrl
 $(EBIN)/cerl_inline.beam: $(ESRC)/cerl_inline.erl
 	$(V_ERLC) $(ERL_COMPILE_FLAGS) +nowarn_shadow_vars -o$(EBIN) $<
 
+# Inlining core_parse is slow and has no benefit.
+$(EBIN)/core_parse.beam: $(EGEN)/core_parse.erl
+	$(V_ERLC) $(subst +inline,,$(ERL_COMPILE_FLAGS)) -o$(EBIN) $<
+
 # ----------------------------------------------------
 # Release Target
 # ---------------------------------------------------- 
@@ -187,6 +194,7 @@ $(EBIN)/core_parse.beam: core_parse.hrl $(EGEN)/core_parse.erl
 $(EBIN)/core_pp.beam: core_parse.hrl
 $(EBIN)/sys_core_dsetel.beam: core_parse.hrl
 $(EBIN)/sys_core_fold.beam: core_parse.hrl
+$(EBIN)/sys_core_fold_lists.beam: core_parse.hrl
 $(EBIN)/sys_core_inline.beam: core_parse.hrl
 $(EBIN)/sys_pre_expand.beam: ../../stdlib/include/erl_bits.hrl
 $(EBIN)/v3_codegen.beam: v3_life.hrl

@@ -3,16 +3,17 @@
  *
  * Copyright Ericsson AB 1997-2012. All Rights Reserved.
  *
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  * %CopyrightEnd%
  */
@@ -51,6 +52,45 @@ typedef struct erl_off_heap {
 	(OHP)->first = NULL;			\
 	(OHP)->overhead = 0;			\
     } while (0)
+
+typedef struct {
+    enum {
+        FACTORY_CLOSED = 0,
+        FACTORY_HALLOC,
+        FACTORY_HEAP_FRAGS,
+        FACTORY_STATIC
+    } mode;
+    Process* p;
+    Eterm* hp_start;
+    Eterm* hp;
+    Eterm* hp_end;
+    struct erl_heap_fragment* heap_frags;
+    struct erl_heap_fragment* heap_frags_saved;
+    ErlOffHeap* off_heap;
+    ErlOffHeap off_heap_saved;
+    Uint32 alloc_type;
+} ErtsHeapFactory;
+
+void erts_factory_proc_init(ErtsHeapFactory*, Process*);
+void erts_factory_proc_prealloc_init(ErtsHeapFactory*, Process*, Sint size);
+void erts_factory_message_init(ErtsHeapFactory*, Process*, Eterm* hp, struct erl_heap_fragment*);
+void erts_factory_static_init(ErtsHeapFactory*, Eterm* hp, Uint size, ErlOffHeap*);
+void erts_factory_dummy_init(ErtsHeapFactory*);
+
+Eterm* erts_produce_heap(ErtsHeapFactory*, Uint need, Uint xtra);
+Eterm* erts_reserve_heap(ErtsHeapFactory*, Uint need);
+void erts_factory_close(ErtsHeapFactory*);
+void erts_factory_trim_and_close(ErtsHeapFactory*,Eterm *brefs, Uint brefs_size);
+void erts_factory_undo(ErtsHeapFactory*);
+
+#ifdef CHECK_FOR_HOLES
+# define ERTS_FACTORY_HOLE_CHECK(f) do {    \
+        /*if ((f)->p) erts_check_for_holes((f)->p);*/ \
+    } while (0)
+#else
+# define ERTS_FACTORY_HOLE_CHECK(p)
+#endif
+
 #include "external.h"
 #include "erl_process.h"
 
@@ -124,7 +164,7 @@ typedef struct {
     *(p)->msg.last = (mp); \
     (p)->msg.last = &(mp)->next; \
     (p)->msg.len++; \
-} while(0)
+} while (0)
 
 
 #ifdef ERTS_SMP
@@ -197,17 +237,23 @@ do {									\
 do {									\
     if ((M)->data.attached) {						\
 	Uint need__ = erts_msg_attached_data_size((M));			\
+        { SWPO ; }							\
  	if ((ST) - (HT) >= need__) {					\
-	    Uint *htop__ = (HT);					\
-	    erts_move_msg_attached_data_to_heap(&htop__, &MSO((P)), (M));\
-	    ASSERT(htop__ - (HT) <= need__);				\
-	    (HT) = htop__;						\
+            ErtsHeapFactory factory__;                                  \
+            erts_factory_proc_prealloc_init(&factory__, (P), need__);   \
+	    erts_move_msg_attached_data_to_heap(&factory__, (M));       \
+            erts_factory_close(&factory__);                             \
+            if ((P)->mbuf != NULL) {                                    \
+                /* Heap was exhausted by messages. This is a rare case */   \
+                /* that can currently (OTP 18) only happen if hamts are */  \
+                /* far exceeding the estimated heap size. Do GC. */         \
+                (FC) -= erts_garbage_collect((P), 0, NULL, 0);		\
+            }								\
 	}								\
 	else {								\
-	    { SWPO ; }							\
 	    (FC) -= erts_garbage_collect((P), 0, NULL, 0);		\
-	    { SWPI ; }							\
 	}								\
+        { SWPI ; }							\
 	ASSERT(!(M)->data.attached);					\
     }									\
 } while (0)
@@ -233,11 +279,17 @@ ErlHeapFragment* erts_resize_message_buffer(ErlHeapFragment *, Uint,
 					    Eterm *, Uint);
 void free_message_buffer(ErlHeapFragment *);
 void erts_queue_dist_message(Process*, ErtsProcLocks*, ErtsDistExternal *, Eterm);
-void erts_queue_message(Process*, ErtsProcLocks*, ErlHeapFragment*, Eterm, Eterm
 #ifdef USE_VM_PROBES
-		   , Eterm dt_utag
+void erts_queue_message_probe(Process*, ErtsProcLocks*, ErlHeapFragment*,
+                              Eterm message, Eterm seq_trace_token, Eterm dt_utag);
+#define erts_queue_message(RP,RL,BP,Msg,SEQ) \
+    erts_queue_message_probe((RP),(RL),(BP),(Msg),(SEQ),NIL)
+#else
+void erts_queue_message(Process*, ErtsProcLocks*, ErlHeapFragment*,
+                        Eterm message, Eterm seq_trace_token);
+#define erts_queue_message_probe(RP,RL,BP,Msg,SEQ,TAG) \
+    erts_queue_message((RP),(RL),(BP),(Msg),(SEQ))
 #endif
-);
 void erts_deliver_exit_message(Eterm, Process*, ErtsProcLocks *, Eterm, Eterm);
 Sint erts_send_message(Process*, Process*, ErtsProcLocks*, Eterm, unsigned);
 void erts_link_mbuf_to_proc(Process *proc, ErlHeapFragment *bp);
@@ -245,23 +297,21 @@ void erts_link_mbuf_to_proc(Process *proc, ErlHeapFragment *bp);
 void erts_move_msg_mbuf_to_heap(Eterm**, ErlOffHeap*, ErlMessage *);
 
 Uint erts_msg_attached_data_size_aux(ErlMessage *msg);
-void erts_move_msg_attached_data_to_heap(Eterm **, ErlOffHeap *, ErlMessage *);
-
+void erts_move_msg_attached_data_to_heap(ErtsHeapFactory*, ErlMessage *);
 Eterm erts_msg_distext2heap(Process *, ErtsProcLocks *, ErlHeapFragment **,
 			    Eterm *, ErtsDistExternal *);
 
 void erts_cleanup_offheap(ErlOffHeap *offheap);
 
 
-ERTS_GLB_INLINE Uint erts_msg_used_frag_sz(const ErlMessage *msg);
+ERTS_GLB_INLINE Uint erts_used_frag_sz(const ErlHeapFragment*);
 ERTS_GLB_INLINE Uint erts_msg_attached_data_size(ErlMessage *msg);
 
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
-ERTS_GLB_INLINE Uint erts_msg_used_frag_sz(const ErlMessage *msg)
+ERTS_GLB_INLINE Uint erts_used_frag_sz(const ErlHeapFragment* bp)
 {
-    const ErlHeapFragment *bp;
     Uint sz = 0;
-    for (bp = msg->data.heap_frag; bp!=NULL; bp=bp->next) {
+    for ( ; bp!=NULL; bp=bp->next) {
 	sz += bp->used_size;
     }
     return sz;
@@ -271,7 +321,7 @@ ERTS_GLB_INLINE Uint erts_msg_attached_data_size(ErlMessage *msg)
 {
     ASSERT(msg->data.attached);
     if (is_value(ERL_MESSAGE_TERM(msg)))
-	return erts_msg_used_frag_sz(msg);
+	return erts_used_frag_sz(msg->data.heap_frag);
     else if (msg->data.dist_ext->heap_size < 0)
 	return erts_msg_attached_data_size_aux(msg);
     else {

@@ -3,16 +3,17 @@
  *
  * Copyright Ericsson AB 1996-2013. All Rights Reserved.
  *
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  * %CopyrightEnd%
  */
@@ -20,7 +21,9 @@
 #ifndef __BIF_H__
 #define __BIF_H__
 
+extern Export *erts_await_result;
 extern Export* erts_format_cpu_topology_trap;
+extern Export *erts_convert_time_unit_trap;
 
 #define BIF_RETTYPE Eterm
 
@@ -30,10 +33,12 @@ extern Export* erts_format_cpu_topology_trap;
 #define BIF_ALIST_1 Process* A__p, Eterm* BIF__ARGS
 #define BIF_ALIST_2 Process* A__p, Eterm* BIF__ARGS
 #define BIF_ALIST_3 Process* A__p, Eterm* BIF__ARGS
+#define BIF_ALIST_4 Process* A__p, Eterm* BIF__ARGS
 
 #define BIF_ARG_1  (BIF__ARGS[0])
 #define BIF_ARG_2  (BIF__ARGS[1])
 #define BIF_ARG_3  (BIF__ARGS[2])
+#define BIF_ARG_4  (BIF__ARGS[3])
 
 #define ERTS_IS_PROC_OUT_OF_REDS(p)		\
     ((p)->fcalls > 0				\
@@ -465,6 +470,8 @@ erts_bif_prep_await_proc_exit_apply_trap(Process *c_p,
 					 Eterm args[],
 					 int nargs);
 
+#ifdef ERL_WANT_HIPE_BIF_WRAPPER__
+
 #ifndef HIPE
 
 #define HIPE_WRAPPER_BIF_DISABLE_GC(BIF_NAME, ARITY)
@@ -509,6 +516,7 @@ BIF_RETTYPE hipe_wrapper_ ## BIF_NAME ## _ ## ARITY (Process* c_p,	\
 
 #endif
 
+#endif /* ERL_WANT_HIPE_BIF_WRAPPER__ */
 
 #include "erl_bif_table.h"
 

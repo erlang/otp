@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2015. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -26,6 +27,8 @@
 
 -include_lib("public_key/include/public_key.hrl").
 -include_lib("common_test/include/ct.hrl").
+-include_lib("ssh/src/ssh_transport.hrl").
+
 
 -define(TIMEOUT, 50000).
 
@@ -64,6 +67,55 @@ daemon(Host, Port, Options) ->
     end.
 
 
+std_daemon(Config, ExtraOpts) ->
+    PrivDir = ?config(priv_dir, Config),
+    UserDir = filename:join(PrivDir, nopubkey), % to make sure we don't use public-key-auth
+    file:make_dir(UserDir),
+    std_daemon1(Config, 
+		ExtraOpts ++
+		    [{user_dir, UserDir},
+		     {user_passwords, [{"usr1","pwd1"}]}]).
+
+std_daemon1(Config, ExtraOpts) ->
+    SystemDir = ?config(data_dir, Config),
+    {_Server, _Host, _Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
+						   {failfun, fun ssh_test_lib:failfun/2}
+						   | ExtraOpts]).
+
+std_connect(Config, Host, Port, ExtraOpts) ->
+    UserDir = ?config(priv_dir, Config),
+    _ConnectionRef =
+	ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
+					  {user_dir, UserDir},
+					  {user, "usr1"},
+					  {password, "pwd1"},
+					  {user_interaction, false}
+					  | ExtraOpts]).
+
+std_simple_sftp(Host, Port, Config) ->
+    UserDir = ?config(priv_dir, Config),
+    DataFile = filename:join(UserDir, "test.data"),
+    ConnectionRef = ssh_test_lib:std_connect(Config, Host, Port, []),
+    {ok, ChannelRef} = ssh_sftp:start_channel(ConnectionRef),
+    Data = crypto:rand_bytes(proplists:get_value(std_simple_sftp_size,Config,10)),
+    ok = ssh_sftp:write_file(ChannelRef, DataFile, Data),
+    {ok,ReadData} = file:read_file(DataFile),
+    ok = ssh:close(ConnectionRef),
+    Data == ReadData.
+
+std_simple_exec(Host, Port, Config) ->
+    ConnectionRef = ssh_test_lib:std_connect(Config, Host, Port, []),
+    {ok, ChannelId} = ssh_connection:session_channel(ConnectionRef, infinity),
+    success = ssh_connection:exec(ConnectionRef, ChannelId, "23+21-2.", infinity),
+    Data = {ssh_cm, ConnectionRef, {data, ChannelId, 0, <<"42\n">>}},
+    case ssh_test_lib:receive_exec_result(Data) of
+	expected ->
+	    ok;
+	Other ->
+	    ct:fail(Other)
+    end,
+    ssh_test_lib:receive_exec_end(ConnectionRef, ChannelId).
+
 
 start_shell(Port, IOServer, UserDir) ->
     start_shell(Port, IOServer, UserDir, []).
@@ -96,10 +148,10 @@ loop_io_server(TestCase, Buff0) ->
 	 {input, TestCase, Line} ->
 	     loop_io_server(TestCase, Buff0 ++ [Line]);
 	 {io_request, From, ReplyAs, Request} ->
-%%ct:pal("~p",[{io_request, From, ReplyAs, Request}]),
+%%ct:log("~p",[{io_request, From, ReplyAs, Request}]),
 	     {ok, Reply, Buff} = io_request(Request, TestCase, From,
 					    ReplyAs, Buff0),
-%%ct:pal("io_request(~p)-->~p",[Request,{ok, Reply, Buff}]),
+%%ct:log("io_request(~p)-->~p",[Request,{ok, Reply, Buff}]),
 	     io_reply(From, ReplyAs, Reply),
 	     loop_io_server(TestCase, Buff);
 	 {'EXIT',_, _} ->
@@ -133,26 +185,26 @@ io_request({get_line, _Enc,_}, _, _, _, [Line | Buff]) ->
 io_reply(_, _, []) ->
     ok;
 io_reply(From, ReplyAs, Reply) ->
-%%ct:pal("io_reply ~p sending ~p ! ~p",[self(),From, {io_reply, ReplyAs, Reply}]),
+%%ct:log("io_reply ~p sending ~p ! ~p",[self(),From, {io_reply, ReplyAs, Reply}]),
     From ! {io_reply, ReplyAs, Reply}.
 
 reply(_, []) ->
     ok;
 reply(TestCase, Result) ->
-%%ct:pal("reply ~p sending ~p ! ~p",[self(), TestCase, Result]),
+%%ct:log("reply ~p sending ~p ! ~p",[self(), TestCase, Result]),
     TestCase ! Result.
 
 receive_exec_result(Msg) ->
-    ct:pal("Expect data! ~p", [Msg]),
+    ct:log("Expect data! ~p", [Msg]),
     receive
 	{ssh_cm,_,{data,_,1, Data}} ->
-	    ct:pal("StdErr: ~p~n", [Data]),
+	    ct:log("StdErr: ~p~n", [Data]),
 	    receive_exec_result(Msg);
 	Msg ->
-	    ct:pal("1: Collected data ~p", [Msg]),
+	    ct:log("1: Collected data ~p", [Msg]),
 	    expected;
 	Other ->
-	    ct:pal("Other ~p", [Other]),
+	    ct:log("Other ~p", [Other]),
 	    {unexpected_msg, Other}
     end.
 
@@ -164,15 +216,15 @@ receive_exec_end(ConnectionRef, ChannelId) ->
     case receive_exec_result(ExitStatus) of
 	{unexpected_msg, Eof} -> %% Open ssh seems to not allways send these messages
 	    %% in the same order!
-	    ct:pal("2: Collected data ~p", [Eof]),
+	    ct:log("2: Collected data ~p", [Eof]),
 	    case receive_exec_result(ExitStatus) of
 		expected ->
 		    expected = receive_exec_result(Closed);
 		{unexpected_msg, Closed} ->
-		    ct:pal("3: Collected data ~p", [Closed])
+		    ct:log("3: Collected data ~p", [Closed])
 	    end;
 	expected ->
-	    ct:pal("4: Collected data ~p", [ExitStatus]),
+	    ct:log("4: Collected data ~p", [ExitStatus]),
 	    expected = receive_exec_result(Eof),
 	    expected = receive_exec_result(Closed);
 	Other ->
@@ -358,3 +410,146 @@ do_inet_port(Node) ->
     {ok, Socket} = rpc:call(Node, gen_tcp, listen, [0, [{reuseaddr, true}]]),
     {ok, Port} = rpc:call(Node, inet, port, [Socket]),
     {Port, Socket}.
+
+openssh_sanity_check(Config) ->
+    ssh:start(),
+    case ssh:connect("localhost", 22, [{password,""}]) of
+	{ok, Pid} ->
+	    ssh:close(Pid),
+	    ssh:stop(),
+	    Config;
+	Err ->
+	    Str = lists:append(io_lib:format("~p", [Err])),
+	    ssh:stop(),
+	    {skip, Str}
+    end.
+
+%%--------------------------------------------------------------------
+%% Check if we have a "newer" ssh client that supports these test cases
+
+ssh_client_supports_Q() ->
+    ErlPort = open_port({spawn, "ssh -Q cipher"}, [exit_status, stderr_to_stdout]),
+    0 == check_ssh_client_support2(ErlPort).
+
+check_ssh_client_support2(P) ->
+    receive
+	{P, {data, _A}} ->
+	    check_ssh_client_support2(P);
+	{P, {exit_status, E}} ->
+	    E
+    after 5000 ->
+
+	    ct:log("Openssh command timed out ~n"),
+	    -1
+    end.
+
+default_algorithms(Host, Port) ->
+    KexInitPattern =
+	#ssh_msg_kexinit{
+	   kex_algorithms = '$kex_algorithms',
+	   server_host_key_algorithms = '$server_host_key_algorithms',
+	   encryption_algorithms_client_to_server = '$encryption_algorithms_client_to_server',
+	   encryption_algorithms_server_to_client = '$encryption_algorithms_server_to_client',
+	   mac_algorithms_client_to_server = '$mac_algorithms_client_to_server',
+	   mac_algorithms_server_to_client = '$mac_algorithms_server_to_client',
+	   compression_algorithms_client_to_server = '$compression_algorithms_client_to_server',
+	   compression_algorithms_server_to_client = '$compression_algorithms_server_to_client',
+	   _ = '_'
+	  },
+
+    try ssh_trpt_test_lib:exec(
+	   [{connect,Host,Port, [{silently_accept_hosts, true},
+				 {user_interaction, false}]},
+	    {send,hello},
+	    receive_hello, 
+	    {send, ssh_msg_kexinit},
+	    {match, KexInitPattern, receive_msg},
+	    close_socket])
+    of
+	{ok,E} ->
+	    [Kex, PubKey, EncC2S, EncS2C, MacC2S, MacS2C, CompC2S, CompS2C] =
+		ssh_trpt_test_lib:instantiate(['$kex_algorithms',
+					       '$server_host_key_algorithms',
+					       '$encryption_algorithms_client_to_server',
+					       '$encryption_algorithms_server_to_client',
+					       '$mac_algorithms_client_to_server',
+					       '$mac_algorithms_server_to_client',
+					       '$compression_algorithms_client_to_server',
+					       '$compression_algorithms_server_to_client'
+					      ], E),
+	    [{kex, to_atoms(Kex)},
+	     {public_key, to_atoms(PubKey)},
+	     {cipher, [{client2server, to_atoms(EncC2S)},
+		       {server2client, to_atoms(EncS2C)}]},
+	     {mac, [{client2server, to_atoms(MacC2S)},
+		    {server2client, to_atoms(MacS2C)}]},
+	     {compression, [{client2server, to_atoms(CompC2S)},
+			    {server2client, to_atoms(CompS2C)}]}];
+	_ ->
+	    []
+    catch
+	_:_ ->
+	    []
+    end.
+
+
+default_algorithms(sshd) ->
+    default_algorithms("localhost", 22);
+default_algorithms(sshc) ->
+    case os:find_executable("ssh") of
+	false -> 
+	    [];
+	_ ->
+	    Cipher = sshc(cipher),
+	    Mac = sshc(mac),
+	    [{kex, sshc(kex)},
+	     {public_key, sshc(key)},
+	     {cipher, [{client2server, Cipher},
+		       {server2client, Cipher}]},
+	     {mac, [{client2server, Mac},
+		    {server2client, Mac}]}
+	    ]
+    end.
+
+sshc(Tag) -> 
+    to_atoms(
+      string:tokens(os:cmd(lists:concat(["ssh -Q ",Tag])), "\n")
+     ).
+
+ssh_type() ->
+     case os:find_executable("ssh") of
+	 false -> not_found;
+	 _ ->
+	     case os:cmd("ssh -V") of
+		 "OpenSSH" ++ _ ->
+		     openSSH;
+		 Str -> 
+		     ct:log("ssh client ~p is unknown",[Str]),
+		     unknown
+	     end
+     end.
+
+algo_intersection([], _) -> [];
+algo_intersection(_, []) -> [];
+algo_intersection(L1=[A1|_], L2=[A2|_]) when is_atom(A1), is_atom(A2) -> 
+    true = lists:all(fun erlang:is_atom/1, L1++L2),
+    lists:foldr(fun(A,Acc) ->
+			case lists:member(A,L2) of
+			    true -> [A|Acc];
+			    false -> Acc
+			end
+		end, [], L1);
+algo_intersection([{K,V1}|T1], L2) ->
+    case lists:keysearch(K,1,L2) of
+	{value, {K,V2}} ->
+	    [{K,algo_intersection(V1,V2)} | algo_intersection(T1,L2)];
+	false ->
+	    algo_intersection(T1,L2)
+    end;
+algo_intersection(_, _) ->
+    [].
+
+
+to_atoms(L) -> lists:map(fun erlang:list_to_atom/1, L).
+    
+    

@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 2004-2014. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 
@@ -22,14 +23,13 @@
 
 %% Avoid warning for local function error/1 clashing with autoimported BIF.
 -compile({no_auto_import,[error/1]}).
--export([file/1, files/1]).
 
 %% Interface for compiler.
 -export([module/2, format_error/1]).
 
 -include("beam_disasm.hrl").
 
--import(lists, [reverse/1,foldl/3,foreach/2,member/2,dropwhile/2]).
+-import(lists, [reverse/1,foldl/3,foreach/2,dropwhile/2]).
 
 -define(MAXREG, 1024).
 
@@ -40,38 +40,12 @@
 -define(DBG_FORMAT(F, D), ok).
 -endif.
 
-%%%
-%%% API functions.
-%%%
-
--spec file(file:filename()) -> 'ok' | {'error', term()}.
-
-file(Name) when is_list(Name) ->
-    case case filename:extension(Name) of
-	     ".S" -> s_file(Name);
-	     ".beam" -> beam_file(Name)
-	 end of
-	[] -> ok;
-	Es -> {error,Es}
-    end.
-
--spec files([file:filename()]) -> 'ok'.
-
-files([F|Fs]) ->
-    ?DBG_FORMAT("# Verifying: ~p~n", [F]),
-    case file(F) of
-	ok -> ok;
-	{error,Es} -> 
-	    io:format("~tp:~n~ts~n", [F,format_error(Es)])
-    end,
-    files(Fs);
-files([]) -> ok.
-
 %% To be called by the compiler.
 module({Mod,Exp,Attr,Fs,Lc}=Code, _Opts)
   when is_atom(Mod), is_list(Exp), is_list(Attr), is_integer(Lc) ->
     case validate(Mod, Fs) of
-	[] -> {ok,Code};
+	[] ->
+	    {ok,Code};
 	Es0 ->
 	    Es = [{?MODULE,E} || E <- Es0],
 	    {error,[{atom_to_list(Mod),Es}]}
@@ -79,12 +53,6 @@ module({Mod,Exp,Attr,Fs,Lc}=Code, _Opts)
 
 -spec format_error(term()) -> iolist().
 
-format_error([]) -> [];
-format_error([{{M,F,A},{I,Off,Desc}}|Es]) ->
-    [io_lib:format("  ~p:~p/~p+~p:~n    ~p - ~p~n", 
-		   [M,F,A,Off,I,Desc])|format_error(Es)];
-format_error([Error|Es]) ->
-    [format_error(Error)|format_error(Es)];
 format_error({{_M,F,A},{I,Off,limit}}) ->
     io_lib:format(
       "function ~p/~p+~p:~n"
@@ -103,44 +71,12 @@ format_error({{_M,F,A},{I,Off,Desc}}) ->
       "  Internal consistency check failed - please report this bug.~n"
       "  Instruction: ~p~n"
       "  Error:       ~p:~n", [F,A,Off,I,Desc]);
-format_error({Module,Error}) ->
-    [Module:format_error(Error)];
 format_error(Error) ->
     io_lib:format("~p~n", [Error]).
 
 %%%
 %%% Local functions follow.
 %%% 
-
-s_file(Name) ->
-    {ok,Is} = file:consult(Name),
-    {module,Module} = lists:keyfind(module, 1, Is),
-    Fs = find_functions(Is),
-    validate(Module, Fs).
-
-find_functions(Fs) ->
-    find_functions_1(Fs, none, [], []).
-
-find_functions_1([{function,Name,Arity,Entry}|Is], Func, FuncAcc, Acc0) ->
-    Acc = add_func(Func, FuncAcc, Acc0),
-    find_functions_1(Is, {Name,Arity,Entry}, [], Acc);
-find_functions_1([I|Is], Func, FuncAcc, Acc) ->
-    find_functions_1(Is, Func, [I|FuncAcc], Acc);
-find_functions_1([], Func, FuncAcc, Acc) ->
-    reverse(add_func(Func, FuncAcc, Acc)).
-
-add_func(none, _, Acc) -> Acc;
-add_func({Name,Arity,Entry}, Is, Acc) ->
-    [{function,Name,Arity,Entry,reverse(Is)}|Acc].
-
-beam_file(Name) ->
-    try beam_disasm:file(Name) of
-	{error,beam_lib,Reason} -> [{beam_lib,Reason}];
-	#beam_file{module=Module, code=Code0} ->
-	    Code = normalize_disassembled_code(Code0),
-	    validate(Module, Code)
-    catch _:_ -> [disassembly_failed]
-    end.
 
 %%%
 %%% The validator follows.
@@ -196,22 +132,15 @@ validate_0(Module, [{function,Name,Ar,Entry,Code}|Fs], Ft) ->
     try validate_1(Code, Name, Ar, Entry, Ft) of
 	_ -> validate_0(Module, Fs, Ft)
     catch
-	Error ->
+	throw:Error ->
+	    %% Controlled error.
 	    [Error|validate_0(Module, Fs, Ft)];
-	  error:Error ->
-	    [validate_error(Error, Module, Name, Ar)|validate_0(Module, Fs, Ft)]
+	Class:Error ->
+	    %% Crash.
+	    Stack = erlang:get_stacktrace(),
+	    io:fwrite("Function: ~w/~w\n", [Name,Ar]),
+	    erlang:raise(Class, Error, Stack)
     end.
-
--ifdef(DEBUG).
-validate_error(Error, Module, Name, Ar) ->
-    exit(validate_error_1(Error, Module, Name, Ar)).
--else.
-validate_error(Error, Module, Name, Ar) ->
-    validate_error_1(Error, Module, Name, Ar).
--endif.
-validate_error_1(Error, Module, Name, Ar) ->
-    {{Module,Name,Ar},
-     {internal_error,'_',{Error,erlang:get_stacktrace()}}}.
 
 -type index() :: non_neg_integer().
 -type reg_tab() :: gb_trees:tree(index(), 'none' | {'value', _}).
@@ -225,8 +154,6 @@ validate_error_1(Error, Module, Name, Ar) ->
 	 hf=0,				%Available heap size for floats.
 	 fls=undefined,			%Floating point state.
 	 ct=[],				%List of hot catch/try labels
-	 bsm=undefined,			%Bit syntax matching state.
-	 bits=undefined,	        %Number of bits in bit syntax binary.
 	 setelem=false			%Previous instruction was setelement/3.
 	}).
 
@@ -308,7 +235,7 @@ labels_1([{label,L}|Is], R) ->
 labels_1([{line,_}|Is], R) ->
     labels_1(Is, R);
 labels_1(Is, R) ->
-    {lists:reverse(R),Is}.
+    {reverse(R),Is}.
 
 init_state(Arity) ->
     Xs = init_regs(Arity, term),
@@ -403,10 +330,6 @@ valfun_1({init,{y,_}=Reg}, Vst) ->
     set_type_y(initialized, Reg, Vst);
 valfun_1({test_heap,Heap,Live}, Vst) ->
     test_heap(Heap, Live, Vst);
-valfun_1({bif,_Op,nofail,Src,Dst}, Vst) ->
-    %% The 'nofail' atom only occurs in disassembled code.
-    validate_src(Src, Vst),
-    set_type_reg(term, Dst, Vst);
 valfun_1({bif,Op,{f,_},Src,Dst}=I, Vst) ->
     case is_bif_safe(Op, length(Src)) of
 	false ->
@@ -432,18 +355,12 @@ valfun_1({put_tuple,Sz,Dst}, Vst0) when is_integer(Sz) ->
 valfun_1({put,Src}, Vst) ->
     assert_term(Src, Vst),
     eat_heap(1, Vst);
-valfun_1({put_string,Sz,_,Dst}, Vst0) when is_integer(Sz) ->
-    Vst = eat_heap(2*Sz, Vst0),
-    set_type_reg(cons, Dst, Vst);
 %% Instructions for optimization of selective receives.
 valfun_1({recv_mark,{f,Fail}}, Vst) when is_integer(Fail) ->
     Vst;
 valfun_1({recv_set,{f,Fail}}, Vst) when is_integer(Fail) ->
     Vst;
 %% Misc.
-valfun_1({'%live',Live}, Vst) ->
-    verify_live(Live, Vst),
-    Vst;
 valfun_1(remove_message, Vst) ->
     Vst;
 valfun_1({'%',_}, Vst) ->
@@ -494,37 +411,33 @@ valfun_1({'try',Dst,{f,Fail}}, Vst0) ->
     Vst = #vst{current=#st{ct=Fails}=St} = 
 	set_type_y({trytag,[Fail]}, Dst, Vst0),
     Vst#vst{current=St#st{ct=[[Fail]|Fails]}};
-valfun_1({catch_end,Reg}, #vst{current=#st{ct=[Fail|Fails]}=St0}=Vst0) ->
+valfun_1({catch_end,Reg}, #vst{current=#st{ct=[Fail|Fails]}}=Vst0) ->
     case get_special_y_type(Reg, Vst0) of
 	{catchtag,Fail} ->
-	    Vst = #vst{current=St} = 
-		set_type_y(initialized_ct, Reg, 
-			   Vst0#vst{current=St0#st{ct=Fails}}),
+	    Vst = #vst{current=St} = set_catch_end(Reg, Vst0),
 	    Xs = gb_trees_from_list([{0,term}]),
-	    Vst#vst{current=St#st{x=Xs,fls=undefined}};
+	    Vst#vst{current=St#st{x=Xs,ct=Fails,fls=undefined}};
 	Type ->
 	    error({bad_type,Type})
     end;
-valfun_1({try_end,Reg}, #vst{current=#st{ct=[Fail|Fails]}=St}=Vst0) ->
+valfun_1({try_end,Reg}, #vst{current=#st{ct=[Fail|Fails]}=St0}=Vst0) ->
     case get_special_y_type(Reg, Vst0) of
 	{trytag,Fail} ->
 	    Vst = case Fail of
 		      [FailLabel] -> branch_state(FailLabel, Vst0);
 		      _ -> Vst0
 		  end,
-	    set_type_reg(initialized_ct, Reg, 
-			 Vst#vst{current=St#st{ct=Fails,fls=undefined}});
+	    St = St0#st{ct=Fails,fls=undefined},
+	    set_catch_end(Reg, Vst#vst{current=St});
 	Type ->
 	    error({bad_type,Type})
     end;
-valfun_1({try_case,Reg}, #vst{current=#st{ct=[Fail|Fails]}=St0}=Vst0) ->
+valfun_1({try_case,Reg}, #vst{current=#st{ct=[Fail|Fails]}}=Vst0) ->
     case get_special_y_type(Reg, Vst0) of
 	{trytag,Fail} ->
-	    Vst = #vst{current=St} = 
-		set_type_y(initialized_ct, Reg, 
-			   Vst0#vst{current=St0#st{ct=Fails}}),
-	    Xs = gb_trees_from_list([{0,{atom,[]}},{1,term},{2,term}]), %XXX
-	    Vst#vst{current=St#st{x=Xs,fls=undefined}};
+	    Vst = #vst{current=St} = set_catch_end(Reg, Vst0),
+	    Xs = gb_trees_from_list([{0,{atom,[]}},{1,term},{2,term}]),
+	    Vst#vst{current=St#st{x=Xs,ct=Fails,fls=undefined}};
 	Type ->
 	    error({bad_type,Type})
     end;
@@ -602,8 +515,6 @@ valfun_4({call_ext_last,Live,Func,StkSize},
     tail_call(Func, Live, Vst);
 valfun_4({call_ext_last,_,_,_}, #vst{current=#st{numy=NumY}}) ->
     error({allocated,NumY});
-valfun_4({make_fun,_,_,Live}, Vst) ->
-    call('fun', Live, Vst);
 valfun_4({make_fun2,_,_,_,Live}, Vst) ->
     call(make_fun, Live, Vst);
 %% Other BIFs
@@ -620,8 +531,6 @@ valfun_4({bif,element,{f,Fail},[Pos,Tuple],Dst}, Vst0) ->
     TupleType = upgrade_tuple_type({tuple,[get_tuple_size(PosType)]}, TupleType0),
     Vst = set_type(TupleType, Tuple, Vst1),
     set_type_reg(term, Dst, Vst);
-valfun_4({raise,{f,_}=Fail,Src,Dst}, Vst) ->
-    valfun_4({bif,raise,Fail,Src,Dst}, Vst);
 valfun_4({bif,Op,{f,Fail},Src,Dst}, Vst0) ->
     validate_src(Src, Vst0),
     Vst = branch_state(Fail, Vst0),
@@ -738,32 +647,6 @@ valfun_4({bs_save2,Ctx,SavePoint}, Vst) ->
 valfun_4({bs_restore2,Ctx,SavePoint}, Vst) ->
     bsm_restore(Ctx, SavePoint, Vst);
 
-%% Bit syntax instructions.
-valfun_4({bs_start_match,{f,_Fail}=F,Src}, Vst) ->
-    valfun_4({test,bs_start_match,F,[Src]}, Vst);
-valfun_4({test,bs_start_match,{f,Fail},[Src]}, Vst) ->
-    assert_term(Src, Vst),
-    bs_start_match(branch_state(Fail, Vst));
-
-valfun_4({bs_save,SavePoint}, Vst) ->
-    bs_assert_state(Vst),
-    bs_save(SavePoint, Vst);
-valfun_4({bs_restore,SavePoint}, Vst) ->
-    bs_assert_state(Vst),
-    bs_assert_savepoint(SavePoint, Vst),
-    Vst;
-valfun_4({test,bs_skip_bits,{f,Fail},[Src,_,_]}, Vst) ->
-    bs_assert_state(Vst),
-    assert_term(Src, Vst),
-    branch_state(Fail, Vst);
-valfun_4({test,bs_test_tail,{f,Fail},_}, Vst) ->
-    bs_assert_state(Vst),
-    branch_state(Fail, Vst);
-valfun_4({test,_,{f,Fail},[_,_,_,Dst]}, Vst0) ->
-    bs_assert_state(Vst0),
-    Vst = branch_state(Fail, Vst0),
-    set_type_reg({integer,[]}, Dst, Vst);
-
 %% Other test instructions.
 valfun_4({test,is_float,{f,Lbl},[Float]}, Vst) ->
     assert_term(Float, Vst),
@@ -779,9 +662,17 @@ valfun_4({test,test_arity,{f,Lbl},[Tuple,Sz]}, Vst) when is_integer(Sz) ->
     assert_type(tuple, Tuple, Vst),
     set_type_reg({tuple,Sz}, Tuple, branch_state(Lbl, Vst));
 valfun_4({test,has_map_fields,{f,Lbl},Src,{list,List}}, Vst) ->
-    validate_src([Src], Vst),
-    assert_strict_literal_termorder(List),
+    assert_type(map, Src, Vst),
+    assert_unique_map_keys(List),
     branch_state(Lbl, Vst);
+valfun_4({test,is_map,{f,Lbl},[Src]}, Vst0) ->
+    Vst = branch_state(Lbl, Vst0),
+    case Src of
+	{Tag,_} when Tag =:= x; Tag =:= y ->
+	    set_type_reg(map, Src, Vst);
+	_ ->
+	    Vst
+    end;
 valfun_4({test,_Op,{f,Lbl},Src}, Vst) ->
     validate_src(Src, Vst),
     branch_state(Lbl, Vst);
@@ -795,9 +686,6 @@ valfun_4({bs_utf8_size,{f,Fail},A,Dst}, Vst) ->
 valfun_4({bs_utf16_size,{f,Fail},A,Dst}, Vst) ->
     assert_term(A, Vst),
     set_type_reg({integer,[]}, Dst, branch_state(Fail, Vst));
-valfun_4({bs_bits_to_bytes,{f,Fail},Src,Dst}, Vst) ->
-    assert_term(Src, Vst),
-    set_type_reg({integer,[]}, Dst, branch_state(Fail, Vst));
 valfun_4({bs_init2,{f,Fail},Sz,Heap,Live,_,Dst}, Vst0) ->
     verify_live(Live, Vst0),
     if
@@ -808,8 +696,7 @@ valfun_4({bs_init2,{f,Fail},Sz,Heap,Live,_,Dst}, Vst0) ->
     end,
     Vst1 = heap_alloc(Heap, Vst0),
     Vst2 = branch_state(Fail, Vst1),
-    Vst3 = prune_x_regs(Live, Vst2),
-    Vst = bs_zero_bits(Vst3),
+    Vst = prune_x_regs(Live, Vst2),
     set_type_reg(binary, Dst, Vst);
 valfun_4({bs_init_bits,{f,Fail},Sz,Heap,Live,_,Dst}, Vst0) ->
     verify_live(Live, Vst0),
@@ -821,8 +708,7 @@ valfun_4({bs_init_bits,{f,Fail},Sz,Heap,Live,_,Dst}, Vst0) ->
     end,
     Vst1 = heap_alloc(Heap, Vst0),
     Vst2 = branch_state(Fail, Vst1),
-    Vst3 = prune_x_regs(Live, Vst2),
-    Vst = bs_zero_bits(Vst3),
+    Vst = prune_x_regs(Live, Vst2),
     set_type_reg(binary, Dst, Vst);
 valfun_4({bs_append,{f,Fail},Bits,Heap,Live,_Unit,Bin,_Flags,Dst}, Vst0) ->
     verify_live(Live, Vst0),
@@ -830,54 +716,36 @@ valfun_4({bs_append,{f,Fail},Bits,Heap,Live,_Unit,Bin,_Flags,Dst}, Vst0) ->
     assert_term(Bin, Vst0),
     Vst1 = heap_alloc(Heap, Vst0),
     Vst2 = branch_state(Fail, Vst1),
-    Vst3 = prune_x_regs(Live, Vst2),
-    Vst = bs_zero_bits(Vst3),
+    Vst = prune_x_regs(Live, Vst2),
     set_type_reg(binary, Dst, Vst);
 valfun_4({bs_private_append,{f,Fail},Bits,_Unit,Bin,_Flags,Dst}, Vst0) ->
     assert_term(Bits, Vst0),
     assert_term(Bin, Vst0),
-    Vst1 = branch_state(Fail, Vst0),
-    Vst = bs_zero_bits(Vst1),
+    Vst = branch_state(Fail, Vst0),
     set_type_reg(binary, Dst, Vst);
 valfun_4({bs_put_string,Sz,_}, Vst) when is_integer(Sz) ->
     Vst;
-valfun_4({bs_put_binary,{f,Fail},Sz,_,_,Src}=I, Vst0) ->
-    assert_term(Sz, Vst0),
-    assert_term(Src, Vst0),
-    Vst = bs_align_check(I, Vst0),
+valfun_4({bs_put_binary,{f,Fail},Sz,_,_,Src}, Vst) ->
+    assert_term(Sz, Vst),
+    assert_term(Src, Vst),
     branch_state(Fail, Vst);
-valfun_4({bs_put_float,{f,Fail},Sz,_,_,Src}=I, Vst0) ->
-    assert_term(Sz, Vst0),
-    assert_term(Src, Vst0),
-    Vst = bs_align_check(I, Vst0),
+valfun_4({bs_put_float,{f,Fail},Sz,_,_,Src}, Vst) ->
+    assert_term(Sz, Vst),
+    assert_term(Src, Vst),
     branch_state(Fail, Vst);
-valfun_4({bs_put_integer,{f,Fail},Sz,_,_,Src}=I, Vst0) ->
-    assert_term(Sz, Vst0),
-    assert_term(Src, Vst0),
-    Vst = bs_align_check(I, Vst0),
+valfun_4({bs_put_integer,{f,Fail},Sz,_,_,Src}, Vst) ->
+    assert_term(Sz, Vst),
+    assert_term(Src, Vst),
     branch_state(Fail, Vst);
-valfun_4({bs_put_utf8,{f,Fail},_,Src}=I, Vst0) ->
-    assert_term(Src, Vst0),
-    Vst = bs_align_check(I, Vst0),
+valfun_4({bs_put_utf8,{f,Fail},_,Src}, Vst) ->
+    assert_term(Src, Vst),
     branch_state(Fail, Vst);
-valfun_4({bs_put_utf16,{f,Fail},_,Src}=I, Vst0) ->
-    assert_term(Src, Vst0),
-    Vst = bs_align_check(I, Vst0),
+valfun_4({bs_put_utf16,{f,Fail},_,Src}, Vst) ->
+    assert_term(Src, Vst),
     branch_state(Fail, Vst);
-valfun_4({bs_put_utf32,{f,Fail},_,Src}=I, Vst0) ->
-    assert_term(Src, Vst0),
-    Vst = bs_align_check(I, Vst0),
+valfun_4({bs_put_utf32,{f,Fail},_,Src}, Vst) ->
+    assert_term(Src, Vst),
     branch_state(Fail, Vst);
-%% Old bit syntax construction (before R10B).
-valfun_4({bs_init,_,_}, Vst) ->
-    bs_zero_bits(Vst);
-valfun_4({bs_need_buf,_}, Vst) -> Vst;
-valfun_4({bs_final,{f,Fail},Dst}, Vst0) ->
-    Vst = branch_state(Fail, Vst0),
-    set_type_reg(binary, Dst, Vst);
-valfun_4({bs_final2,Src,Dst}, Vst0) ->
-    assert_term(Src, Vst0),
-    set_type_reg(binary, Dst, Vst0);
 %% Map instructions.
 valfun_4({put_map_assoc,{f,Fail},Src,Dst,Live,{list,List}}, Vst) ->
     verify_put_map(Fail, Src, Dst, Live, List, Vst);
@@ -889,11 +757,15 @@ valfun_4(_, _) ->
     error(unknown_instruction).
 
 verify_get_map(Fail, Src, List, Vst0) ->
-    assert_term(Src, Vst0),
+    assert_type(map, Src, Vst0),
     Vst1 = branch_state(Fail, Vst0),
-    Lits = mmap(fun(L,_R) -> [L] end, List),
-    assert_strict_literal_termorder(Lits),
+    Keys = extract_map_keys(List),
+    assert_unique_map_keys(Keys),
     verify_get_map_pair(List,Vst0,Vst1).
+
+extract_map_keys([Key,_Val|T]) ->
+    [Key|extract_map_keys(T)];
+extract_map_keys([]) -> [].
 
 verify_get_map_pair([],_,Vst) -> Vst;
 verify_get_map_pair([Src,Dst|Vs],Vst0,Vsti) ->
@@ -901,14 +773,16 @@ verify_get_map_pair([Src,Dst|Vs],Vst0,Vsti) ->
     verify_get_map_pair(Vs,Vst0,set_type_reg(term,Dst,Vsti)).
 
 verify_put_map(Fail, Src, Dst, Live, List, Vst0) ->
+    assert_type(map, Src, Vst0),
     verify_live(Live, Vst0),
     verify_y_init(Vst0),
     foreach(fun (Term) -> assert_term(Term, Vst0) end, List),
-    assert_term(Src, Vst0),
     Vst1 = heap_alloc(0, Vst0),
     Vst2 = branch_state(Fail, Vst1),
     Vst = prune_x_regs(Live, Vst2),
-    set_type_reg(term, Dst, Vst).
+    Keys = extract_map_keys(List),
+    assert_unique_map_keys(Keys),
+    set_type_reg(map, Dst, Vst).
 
 %%
 %% Common code for validating bs_get* instructions.
@@ -935,9 +809,6 @@ validate_bs_skip_utf(Fail, Ctx, Live, Vst0) ->
 %% set_tuple_element/3.
 %%
 val_dsetel({move,_,_}, Vst) ->
-    Vst;
-val_dsetel({put_string,0,{string,""},_}, Vst) ->
-    %% An empty string is OK since it doesn't build anything.
     Vst;
 val_dsetel({call_ext,3,{extfunc,erlang,setelement,3}}, #vst{current=St}=Vst) ->
     Vst#vst{current=St#st{setelem=true}};
@@ -972,7 +843,7 @@ call(Name, Live, #vst{current=St}=Vst) ->
 	Type when Type =/= exception ->
 	    %% Type is never 'exception' because it has been handled earlier.
 	    Xs = gb_trees_from_list([{0,Type}]),
-	    Vst#vst{current=St#st{x=Xs,f=init_fregs(),bsm=undefined}}
+	    Vst#vst{current=St#st{x=Xs,f=init_fregs()}}
     end.
 
 %% Tail call.
@@ -1030,7 +901,7 @@ allocate(_, _, _, _, #vst{current=#st{numy=Numy}}) ->
     error({existing_stack_frame,{size,Numy}}).
 
 deallocate(#vst{current=St}=Vst) ->
-    Vst#vst{current=St#st{y=init_regs(0, initialized),numy=none,bsm=undefined}}.
+    Vst#vst{current=St#st{y=init_regs(0, initialized),numy=none}}.
 
 test_heap(Heap, Live, Vst0) ->
     verify_live(Live, Vst0),
@@ -1038,7 +909,7 @@ test_heap(Heap, Live, Vst0) ->
     heap_alloc(Heap, Vst).
 
 heap_alloc(Heap, #vst{current=St0}=Vst) ->
-    St1 = kill_heap_allocation(St0#st{bsm=undefined}),
+    St1 = kill_heap_allocation(St0),
     St = heap_alloc_1(Heap, St1),
     Vst#vst{current=St}.
 
@@ -1122,72 +993,24 @@ assert_freg_set(Fr, _) -> error({bad_source,Fr}).
 
 %%% Maps
 
-%% ensure that a list of literals has a strict
-%% ascending term order (also meaning unique literals)
-assert_strict_literal_termorder(Ls) ->
-    Vs = lists:map(fun (L) -> get_literal(L) end, Ls),
-    case check_strict_value_termorder(Vs) of
-	true ->  ok;
-	false -> error({not_strict_order, Ls})
+%% A single item list may be either a list or a register.
+%%
+%% A list with more than item must contain unique literals.
+%%
+%% An empty list is not allowed.
+
+assert_unique_map_keys([]) ->
+    %% There is no reason to use the get_map_elements and
+    %% has_map_fields instructions with empty lists.
+    error(empty_field_list);
+assert_unique_map_keys([_]) ->
+    ok;
+assert_unique_map_keys([_,_|_]=Ls) ->
+    Vs = [get_literal(L) || L <- Ls],
+    case length(Vs) =:= sets:size(sets:from_list(Vs)) of
+	true -> ok;
+	false -> error(keys_not_unique)
     end.
-
-%% usage:
-%% mmap(fun(A,B) -> [{A,B}] end, [1,2,3,4]),
-%% [{1,2},{3,4}]
-
-mmap(F,List) ->
-    {arity,Ar} = erlang:fun_info(F,arity),
-    mmap(F,Ar,List).
-mmap(_F,_,[]) -> [];
-mmap(F,Ar,List) ->
-    {Hd,Tl} = lists:split(Ar,List),
-    apply(F,Hd) ++ mmap(F,Ar,Tl).
-
-check_strict_value_termorder([]) -> true;
-check_strict_value_termorder([_]) -> true;
-check_strict_value_termorder([V1,V2]) ->
-    erts_internal:cmp_term(V1,V2) < 0;
-check_strict_value_termorder([V1,V2|Vs]) ->
-    case erts_internal:cmp_term(V1,V2) < 0 of
-	true -> check_strict_value_termorder([V2|Vs]);
-	false -> false
-    end.
-
-%%%
-%%% Binary matching.
-%%%
-%%% Possible values for the bsm field (=bit syntax matching state).
-%%%
-%%% undefined 	- Undefined (initial state). No matching instructions allowed.
-%%%		 
-%%% (gb set)	- The gb set contains the defined save points.
-%%%
-%%% The bsm field is reset to 'undefined' by instructions that may cause a
-%%% a garbage collection (might move the binary) and/or context switch
-%%% (may invalidate the save points).
-
-bs_start_match(#vst{current=#st{bsm=undefined}=St}=Vst) ->
-    Vst#vst{current=St#st{bsm=gb_sets:empty()}};
-bs_start_match(Vst) ->
-    %% Must retain save points here - it is possible to restore back
-    %% to a previous binary.
-    Vst.
-
-bs_save(Reg, #vst{current=#st{bsm=Saved}=St}=Vst)
-  when is_integer(Reg), Reg < ?MAXREG  ->
-    Vst#vst{current=St#st{bsm=gb_sets:add(Reg, Saved)}};
-bs_save(_, _) -> error(limit).
-
-bs_assert_savepoint(Reg, #vst{current=#st{bsm=Saved}}) ->
-    case gb_sets:is_member(Reg, Saved) of
-	false -> error({no_save_point,Reg});
-	true -> ok
-    end.
-
-bs_assert_state(#vst{current=#st{bsm=undefined}}) ->
-    error(no_bs_match_state);
-bs_assert_state(_) -> ok.
-
 
 %%%
 %%% New binary matching instructions.
@@ -1234,55 +1057,7 @@ bsm_restore(Reg, SavePoint, Vst) ->
 	    end;
 	_ -> error({illegal_restore,SavePoint,range})
     end.
-    
 
-%%%
-%%% Validation of alignment in the bit syntax. (Currently, construction only.)
-%%%
-%%% We make sure that the aligned flag is only set when we can be sure of the
-%%% aligment.
-%%%
-
-bs_zero_bits(#vst{current=St}=Vst) ->
-    Vst#vst{current=St#st{bits=0}}.
-
-bs_align_check({bs_put_utf8,_,Flags,_}, #vst{current=#st{}=St}=Vst) ->
-    bs_verify_flags(Flags, St),
-    Vst;
-bs_align_check({bs_put_utf16,_,Flags,_}, #vst{current=#st{}=St}=Vst) ->
-    bs_verify_flags(Flags, St),
-    Vst;
-bs_align_check({bs_put_utf32,_,Flags,_}, #vst{current=#st{}=St}=Vst) ->
-    bs_verify_flags(Flags, St),
-    Vst;
-bs_align_check({_,_,Sz,U,Flags,_}, #vst{current=#st{bits=Bits}=St}=Vst) ->
-    bs_verify_flags(Flags, St),
-    bs_update_bits(Bits, Sz, U, St, Vst).
-
-bs_update_bits(undefined, _, _, _, Vst) -> Vst;
-bs_update_bits(Bits0, {integer,Sz}, U, St, Vst) ->
-    Bits = Bits0 + U*Sz,
-    Vst#vst{current=St#st{bits=Bits}};
-bs_update_bits(_, {atom,all}, _, _, Vst) ->
-    %% A binary will not change the alignment.
-    Vst;
-bs_update_bits(_, _, U, _, Vst) when U rem 8 =:= 0 ->
-    %% Units of 8, 16, and so on will not change the aligment.
-    Vst;
-bs_update_bits(_, _, _, St, Vst) ->
-    %% We can no longer be sure about aligment.
-    Vst#vst{current=St#st{bits=undefined}}.
-
-bs_verify_flags({field_flags,Fl}, #st{bits=Bits}) ->
-    case bs_is_aligned(Fl) of
-	false -> ok;
-	true when is_integer(Bits), Bits rem 8 =:= 0 -> ok;
-	true -> error({aligned_flag_set,{bits,Bits}})
-    end.
-
-bs_is_aligned(Fl) when is_integer(Fl) -> Fl band 1 =:= 1;
-bs_is_aligned(Fl) when is_list(Fl) -> member(aligned, Fl).
-    
 %%%
 %%% Keeping track of types.
 %%%
@@ -1298,34 +1073,25 @@ set_type_reg(Type, {x,X}, #vst{current=#st{x=Xs}=St}=Vst)
 set_type_reg(Type, Reg, Vst) ->
     set_type_y(Type, Reg, Vst).
 
-set_type_y(Type, {y,Y}=Reg, #vst{current=#st{y=Ys0,numy=NumY}=St}=Vst) 
+set_type_y(Type, {y,Y}=Reg, #vst{current=#st{y=Ys0}=St}=Vst)
   when is_integer(Y), 0 =< Y ->
     limit_check(Y),
-    case {Y,NumY} of
-	{_,none} ->
-	    error({no_stack_frame,Reg});
-	{_,_} when Y > NumY ->
-	    error({y_reg_out_of_range,Reg,NumY});
-	{_,_} ->
-	    Ys = if  Type =:= initialized_ct ->
-			 gb_trees:enter(Y, initialized, Ys0);
-		     true ->
-			 case gb_trees:lookup(Y, Ys0) of
-			     none -> 
-				 gb_trees:insert(Y, Type, Ys0);
-			     {value,uinitialized} ->
-				 gb_trees:insert(Y, Type, Ys0);
-			     {value,{catchtag,_}=Tag} ->
-				 error(Tag);
-			     {value,{trytag,_}=Tag} ->
-				 error(Tag);
-			     {value,_} ->
-				 gb_trees:update(Y, Type, Ys0)
-			 end
-		 end,
-	    Vst#vst{current=St#st{y=Ys}}
-    end;
+    Ys = case gb_trees:lookup(Y, Ys0) of
+	     none ->
+		 error({invalid_store,Reg,Type});
+	     {value,{catchtag,_}=Tag} ->
+		 error(Tag);
+	     {value,{trytag,_}=Tag} ->
+		 error(Tag);
+	     {value,_} ->
+		 gb_trees:update(Y, Type, Ys0)
+	 end,
+    Vst#vst{current=St#st{y=Ys}};
 set_type_y(Type, Reg, #vst{}) -> error({invalid_store,Reg,Type}).
+
+set_catch_end({y,Y}, #vst{current=#st{y=Ys0}=St}=Vst) ->
+    Ys = gb_trees:update(Y, initialized, Ys0),
+    Vst#vst{current=St#st{y=Ys}}.
 
 assert_term(Src, Vst) ->
     get_term_type(Src, Vst),
@@ -1387,7 +1153,8 @@ assert_term(Src, Vst) ->
 %%
 %% number		Integer or Float of unknown value
 %%
-
+%% map			Map.
+%%
 
 assert_type(WantedType, Term, Vst) ->
     assert_type(WantedType, get_term_type(Term, Vst)).
@@ -1469,6 +1236,7 @@ get_term_type_1(nil=T, _) -> T;
 get_term_type_1({atom,A}=T, _) when is_atom(A) -> T;
 get_term_type_1({float,F}=T, _) when is_float(F) -> T;
 get_term_type_1({integer,I}=T, _) when is_integer(I) -> T;
+get_term_type_1({literal,Map}, _) when is_map(Map) -> map;
 get_term_type_1({literal,_}=T, _) -> T;
 get_term_type_1({x,X}=Reg, #vst{current=#st{x=Xs}}) when is_integer(X) ->
     case gb_trees:lookup(X, Xs) of
@@ -1523,14 +1291,13 @@ merge_states(L, St, Branched) when L =/= 0 ->
 	{value,OtherSt} -> merge_states_1(St, OtherSt)
     end.
 
-merge_states_1(#st{x=Xs0,y=Ys0,numy=NumY0,h=H0,ct=Ct0,bsm=Bsm0}=St,
-	       #st{x=Xs1,y=Ys1,numy=NumY1,h=H1,ct=Ct1,bsm=Bsm1}) ->
+merge_states_1(#st{x=Xs0,y=Ys0,numy=NumY0,h=H0,ct=Ct0},
+	       #st{x=Xs1,y=Ys1,numy=NumY1,h=H1,ct=Ct1}) ->
     NumY = merge_stk(NumY0, NumY1),
     Xs = merge_regs(Xs0, Xs1),
     Ys = merge_y_regs(Ys0, Ys1),
     Ct = merge_ct(Ct0, Ct1),
-    Bsm = merge_bsm(Bsm0, Bsm1),
-    St#st{x=Xs,y=Ys,numy=NumY,h=min(H0, H1),ct=Ct,bsm=Bsm}.
+    #st{x=Xs,y=Ys,numy=NumY,h=min(H0, H1),ct=Ct}.
 
 merge_stk(S, S) -> S;
 merge_stk(_, _) -> undecided.
@@ -1560,20 +1327,24 @@ merge_regs_1([], [_|_]) -> [];
 merge_regs_1([_|_], []) -> [].
 
 merge_y_regs(Rs0, Rs1) ->
-    Rs = merge_y_regs_1(gb_trees:to_list(Rs0), gb_trees:to_list(Rs1)),
-    gb_trees_from_list(Rs).
+    case {gb_trees:size(Rs0),gb_trees:size(Rs1)} of
+	{Sz0,Sz1} when Sz0 < Sz1 ->
+	    merge_y_regs_1(Sz0-1, Rs1, Rs0);
+	{_,Sz1} ->
+	    merge_y_regs_1(Sz1-1, Rs0, Rs1)
+    end.
 
-merge_y_regs_1([Same|Rs1], [Same|Rs2]) ->
-    [Same|merge_y_regs_1(Rs1, Rs2)];
-merge_y_regs_1([{R1,_}|Rs1], [{R2,_}|_]=Rs2) when R1 < R2 ->
-    [{R1,uninitialized}|merge_y_regs_1(Rs1, Rs2)];
-merge_y_regs_1([{R1,_}|_]=Rs1, [{R2,_}|Rs2]) when R1 > R2 ->
-    [{R2,uninitialized}|merge_y_regs_1(Rs1, Rs2)];
-merge_y_regs_1([{R,Type1}|Rs1], [{R,Type2}|Rs2]) ->
-    [{R,merge_types(Type1, Type2)}|merge_y_regs_1(Rs1, Rs2)];
-merge_y_regs_1([], []) -> [];
-merge_y_regs_1([], [_|_]=Rs) -> Rs;
-merge_y_regs_1([_|_]=Rs, []) -> Rs.
+merge_y_regs_1(Y, S, Regs0) when Y >= 0 ->
+    Type0 = gb_trees:get(Y, Regs0),
+    case gb_trees:get(Y, S) of
+	Type0 ->
+	    merge_y_regs_1(Y-1, S, Regs0);
+	Type1 ->
+	    Type = merge_types(Type0, Type1),
+	    Regs = gb_trees:update(Y, Type, Regs0),
+	    merge_y_regs_1(Y-1, S, Regs)
+    end;
+merge_y_regs_1(_, _, Regs) -> Regs.
 
 %% merge_types(Type1, Type2) -> Type
 %%  Return the most specific type possible.
@@ -1612,10 +1383,6 @@ merge_types(_, {match_context,_,_}=M) ->
 merge_types(T1, T2) when T1 =/= T2 ->
     %% Too different. All we know is that the type is a 'term'.
     term.
-
-merge_bsm(undefined, _) -> undefined;
-merge_bsm(_, undefined) -> undefined;
-merge_bsm(Bsm0, Bsm1) -> gb_sets:intersection(Bsm0, Bsm1).
 
 tuple_sz([Sz]) -> Sz;
 tuple_sz(Sz) -> Sz.
@@ -1723,6 +1490,7 @@ bif_type(is_float, [_], _) -> bool;
 bif_type(is_function, [_], _) -> bool;
 bif_type(is_integer, [_], _) -> bool;
 bif_type(is_list, [_], _) -> bool;
+bif_type(is_map, [_], _) -> bool;
 bif_type(is_number, [_], _) -> bool;
 bif_type(is_pid, [_], _) -> bool;
 bif_type(is_port, [_], _) -> bool;
@@ -1752,6 +1520,7 @@ is_bif_safe(is_float, 1) -> true;
 is_bif_safe(is_function, 1) -> true;
 is_bif_safe(is_integer, 1) -> true;
 is_bif_safe(is_list, 1) -> true;
+is_bif_safe(is_map, 1) -> true;
 is_bif_safe(is_number, 1) -> true;
 is_bif_safe(is_pid, 1) -> true;
 is_bif_safe(is_port, 1) -> true;
@@ -1794,8 +1563,6 @@ return_type_1(M, F, A, _) when is_atom(M), is_atom(F), is_integer(A), A >= 0 ->
 
 return_type_erl(exit, 1) -> exception;
 return_type_erl(throw, 1) -> exception;
-return_type_erl(fault, 1) -> exception;
-return_type_erl(fault, 2) -> exception;
 return_type_erl(error, 1) -> exception;
 return_type_erl(error, 2) -> exception;
 return_type_erl(F, A) when is_atom(F), is_integer(A), A >= 0 -> term.
@@ -1816,6 +1583,7 @@ return_type_math(erf, 1) -> {float,[]};
 return_type_math(erfc, 1) -> {float,[]};
 return_type_math(exp, 1) -> {float,[]};
 return_type_math(log, 1) -> {float,[]};
+return_type_math(log2, 1) -> {float,[]};
 return_type_math(log10, 1) -> {float,[]};
 return_type_math(sqrt, 1) -> {float,[]};
 return_type_math(atan2, 2) -> {float,[]};
@@ -1837,52 +1605,3 @@ error(Error) -> exit(Error).
 -else.
 error(Error) -> throw(Error).
 -endif.
-
-
-%%%
-%%% Rewrite disassembled code to the same format as we used internally
-%%% to not have to worry later.
-%%%
-
-normalize_disassembled_code(Fs) ->
-    Index = ndc_index(Fs, []),
-    ndc(Fs, Index, []).
-
-ndc_index([{function,Name,Arity,Entry,_Code}|Fs], Acc) ->
-    ndc_index(Fs, [{{Name,Arity},Entry}|Acc]);
-ndc_index([], Acc) ->
-    gb_trees:from_orddict(lists:sort(Acc)).
-
-ndc([{function,Name,Arity,Entry,Code0}|Fs], D, Acc) ->
-    Code = ndc_1(Code0, D, []),
-    ndc(Fs, D, [{function,Name,Arity,Entry,Code}|Acc]);
-ndc([], _, Acc) -> reverse(Acc).
-    
-ndc_1([{call=Op,A,{_,F,A}}|Is], D, Acc) ->
-    ndc_1(Is, D, [{Op,A,{f,gb_trees:get({F,A}, D)}}|Acc]);
-ndc_1([{call_only=Op,A,{_,F,A}}|Is], D, Acc) ->
-    ndc_1(Is, D, [{Op,A,{f,gb_trees:get({F,A}, D)}}|Acc]);
-ndc_1([{call_last=Op,A,{_,F,A},Sz}|Is], D, Acc) ->
-    ndc_1(Is, D, [{Op,A,{f,gb_trees:get({F,A}, D)},Sz}|Acc]);
-ndc_1([{arithbif,Op,F,Src,Dst}|Is], D, Acc) ->
-    ndc_1(Is, D, [{bif,Op,F,Src,Dst}|Acc]);
-ndc_1([{arithfbif,Op,F,Src,Dst}|Is], D, Acc) ->
-    ndc_1(Is, D, [{bif,Op,F,Src,Dst}|Acc]);
-ndc_1([{test,bs_start_match2=Op,F,[A1,Live,A3,Dst]}|Is], D, Acc) ->
-    ndc_1(Is, D, [{test,Op,F,Live,[A1,A3],Dst}|Acc]);
-ndc_1([{test,bs_get_binary2=Op,F,[A1,Live,A3,A4,A5,Dst]}|Is], D, Acc) ->
-    ndc_1(Is, D, [{test,Op,F,Live,[A1,A3,A4,A5],Dst}|Acc]);
-ndc_1([{test,bs_get_float2=Op,F,[A1,Live,A3,A4,A5,Dst]}|Is], D, Acc) ->
-    ndc_1(Is, D, [{test,Op,F,Live,[A1,A3,A4,A5],Dst}|Acc]);
-ndc_1([{test,bs_get_integer2=Op,F,[A1,Live,A3,A4,A5,Dst]}|Is], D, Acc) ->
-    ndc_1(Is, D, [{test,Op,F,Live,[A1,A3,A4,A5],Dst}|Acc]);
-ndc_1([{test,bs_get_utf8=Op,F,[A1,Live,A3,Dst]}|Is], D, Acc) ->
-    ndc_1(Is, D, [{test,Op,F,Live,[A1,A3],Dst}|Acc]);
-ndc_1([{test,bs_get_utf16=Op,F,[A1,Live,A3,Dst]}|Is], D, Acc) ->
-    ndc_1(Is, D, [{test,Op,F,Live,[A1,A3],Dst}|Acc]);
-ndc_1([{test,bs_get_utf32=Op,F,[A1,Live,A3,Dst]}|Is], D, Acc) ->
-    ndc_1(Is, D, [{test,Op,F,Live,[A1,A3],Dst}|Acc]);
-ndc_1([I|Is], D, Acc) ->
-    ndc_1(Is, D, [I|Acc]);
-ndc_1([], _, Acc) ->
-    reverse(Acc).

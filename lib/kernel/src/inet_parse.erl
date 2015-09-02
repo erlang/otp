@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 1997-2013. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -675,28 +676,22 @@ ipv6_addr_done(Ar, Br, N) ->
 ipv6_addr_done(Ar) ->
     list_to_tuple(lists:reverse(Ar)).
 
-%% Collect Hex digits
-hex(Cs) -> hex(Cs, []).
+%% Collect 1-4 Hex digits
+hex(Cs) -> hex(Cs, [], 4).
 %%
-hex([C|Cs], R) when C >= $0, C =< $9 ->
-    hex(Cs, [C|R]);
-hex([C|Cs], R) when C >= $a, C =< $f ->
-    hex(Cs, [C|R]);
-hex([C|Cs], R) when C >= $A, C =< $F ->
-    hex(Cs, [C|R]);
-hex(Cs, [_|_]=R) when is_list(Cs) ->
+hex([C|Cs], R, N) when C >= $0, C =< $9, N > 0 ->
+    hex(Cs, [C|R], N-1);
+hex([C|Cs], R, N) when C >= $a, C =< $f, N > 0 ->
+    hex(Cs, [C|R], N-1);
+hex([C|Cs], R, N) when C >= $A, C =< $F, N > 0 ->
+    hex(Cs, [C|R], N-1);
+hex(Cs, [_|_]=R, _) when is_list(Cs) ->
     {lists:reverse(R),Cs};
-hex(_, _) ->
+hex(_, _, _) ->
     erlang:error(badarg).
 
 %% Hex string to integer
-hex_to_int(Cs0) ->
-    case strip0(Cs0) of
-	Cs when length(Cs) =< 4 ->
-	    erlang:list_to_integer("0"++Cs, 16);
-	_ ->
-	    erlang:error(badarg)
-    end.
+hex_to_int(Cs) -> erlang:list_to_integer(Cs, 16).
 
 %% Dup onto head of existing list
 dup(0, _, L) ->

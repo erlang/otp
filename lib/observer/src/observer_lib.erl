@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 2011-2014. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 
@@ -173,12 +174,17 @@ fill_info([{Str,SubStructure}|Rest], Data) when is_list(SubStructure) ->
     [{Str, fill_info(SubStructure, Data)}|fill_info(Rest,Data)];
 fill_info([{Str,Attrib,SubStructure}|Rest], Data) ->
     [{Str, Attrib, fill_info(SubStructure, Data)}|fill_info(Rest,Data)];
+fill_info([{Str, Key = {K,N}}|Rest], Data) when is_atom(K), is_integer(N) ->
+    case get_value(Key, Data) of
+	undefined -> [undefined | fill_info(Rest, Data)];
+	Value -> [{Str, Value} | fill_info(Rest, Data)]
+    end;
 fill_info([], _) -> [].
 
-get_value(Key, Data) when is_atom(Key) ->
-    proplists:get_value(Key,Data);
 get_value(Fun, Data) when is_function(Fun) ->
-    Fun(Data).
+    Fun(Data);
+get_value(Key, Data) ->
+    proplists:get_value(Key,Data).
 
 update_info([Fields|Fs], [{_Header, SubStructure}| Rest]) ->
     update_info2(Fields, SubStructure),
@@ -269,6 +275,8 @@ to_str(Pid) when is_pid(Pid) ->
     pid_to_list(Pid);
 to_str(No) when is_integer(No) ->
     integer_to_list(No);
+to_str(Float) when is_float(Float) ->
+    io_lib:format("~.3f", [Float]);
 to_str(Term) ->
     io_lib:format("~w", [Term]).
 

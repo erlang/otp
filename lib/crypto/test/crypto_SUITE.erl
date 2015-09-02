@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 1999-2013. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -58,10 +59,13 @@ all() ->
      {group, aes_cfb8},
      {group, aes_cfb128},
      {group, aes_cbc256},
+     {group, aes_ecb},
      {group, aes_ige256},
      {group, rc2_cbc},
      {group, rc4}, 
      {group, aes_ctr},
+     {group, aes_gcm},
+     {group, chacha20_poly1305},
      mod_pow,
      exor,
      rand_uniform
@@ -82,7 +86,7 @@ groups() ->
      {dss, [], [sign_verify]},
      {ecdsa, [], [sign_verify]},
      {dh, [], [generate_compute]},
-     {ecdh, [], [compute]},
+     {ecdh, [], [compute, generate]},
      {srp, [], [generate_compute]},
      {des_cbc, [], [block]},
      {des_cfb, [], [block]},
@@ -94,13 +98,16 @@ groups() ->
      {aes_cfb8,[], [block]},
      {aes_cfb128,[], [block]},
      {aes_cbc256,[], [block]},
+     {aes_ecb,[], [block]},
      {aes_ige256,[], [block]},
      {blowfish_cbc, [], [block]},
      {blowfish_ecb, [], [block]},
      {blowfish_cfb64, [], [block]},
      {blowfish_ofb64,[], [block]},
      {rc4, [], [stream]}, 
-     {aes_ctr, [], [stream]}
+     {aes_ctr, [], [stream]},
+     {aes_gcm, [], [aead]},
+     {chacha20_poly1305, [], [aead]}
     ].
 
 %%-------------------------------------------------------------------
@@ -203,6 +210,14 @@ stream(Config) when is_list(Config) ->
     lists:foreach(fun stream_cipher/1, stream_iolistify(Streams)),
     lists:foreach(fun stream_cipher_incment/1, stream_iolistify(Streams)).
 
+%%--------------------------------------------------------------------
+aead() ->
+      [{doc, "Test AEAD ciphers"}].
+aead(Config) when is_list(Config) ->
+    AEADs = lazy_eval(proplists:get_value(aead, Config)),
+
+    lists:foreach(fun aead_cipher/1, AEADs).
+
 %%-------------------------------------------------------------------- 
 sign_verify() ->
      [{doc, "Sign/verify digital signatures"}].
@@ -230,6 +245,12 @@ compute() ->
 compute(Config) when is_list(Config) ->
     Gen = proplists:get_value(compute, Config),
     lists:foreach(fun do_compute/1, Gen).
+%%--------------------------------------------------------------------
+generate() ->
+     [{doc, " Test crypto:generate_key"}].
+generate(Config) when is_list(Config) ->
+    Gen = proplists:get_value(generate, Config),
+    lists:foreach(fun do_generate/1, Gen).
 %%--------------------------------------------------------------------
 mod_pow() ->
     [{doc, "mod_pow testing (A ^ M % P with bignums)"}].
@@ -406,7 +427,22 @@ stream_cipher_incment(_State, OrigState, [], Acc, Plain) ->
 stream_cipher_incment(State0, OrigState, [PlainText | PlainTexts], Acc, Plain) ->
     {State, CipherText} = crypto:stream_encrypt(State0, PlainText),
     stream_cipher_incment(State, OrigState, PlainTexts, [CipherText | Acc], Plain).
-	
+
+aead_cipher({Type, Key, PlainText, IV, AAD, CipherText, CipherTag}) ->
+    Plain = iolist_to_binary(PlainText),
+    case crypto:block_encrypt(Type, Key, IV, {AAD, Plain}) of
+	{CipherText, CipherTag} ->
+	    ok;
+	Other0 ->
+	    ct:fail({{crypto, block_encrypt, [Plain, PlainText]}, {expected, {CipherText, CipherTag}}, {got, Other0}})
+    end,
+    case crypto:block_decrypt(Type, Key, IV, {AAD, CipherText, CipherTag}) of
+	Plain ->
+	    ok;
+	Other1 ->
+	    ct:fail({{crypto, block_decrypt, [CipherText]}, {expected, Plain}, {got, Other1}})
+    end.
+
 do_sign_verify({Type, Hash, Public, Private, Msg}) ->
     Signature = crypto:sign(Type, Hash, Msg, Private),
     case crypto:verify(Type, Hash, Msg, Signature, Public) of
@@ -466,6 +502,14 @@ do_compute({ecdh = Type, Pub, Priv, Curve, SharedSecret}) ->
 	 Other ->
 	     ct:fail({{crypto, compute_key, [Type, Pub, Priv, Curve]}, {expected, SharedSecret}, {got, Other}})
      end.
+
+do_generate({ecdh = Type, Curve, Priv, Pub}) ->
+    case crypto:generate_key(Type, Curve, Priv) of
+	{Pub, _} ->
+	    ok;
+	{Other, _} ->
+	    ct:fail({{crypto, generate_key, [Type, Priv, Curve]}, {expected, Pub}, {got, Other}})
+    end.
 
 hexstr2point(X, Y) ->
     <<4:8, (hexstr2bin(X))/binary, (hexstr2bin(Y))/binary>>.
@@ -694,7 +738,8 @@ group_config(srp, Config) ->
     [{generate_compute, GenerateCompute} | Config];
 group_config(ecdh, Config) ->
     Compute = ecdh(),
-    [{compute, Compute} | Config];
+    Generate = ecc(),
+    [{compute, Compute}, {generate, Generate} | Config];
 group_config(dh, Config) ->
     GenerateCompute = [dh()],
     [{generate_compute, GenerateCompute} | Config];
@@ -722,6 +767,9 @@ group_config(aes_cbc128, Config) ->
 group_config(aes_cbc256, Config) ->
     Block = aes_cbc256(),
     [{block, Block} | Config];
+group_config(aes_ecb, Config) ->
+    Block = aes_ecb(),
+    [{block, Block} | Config];    
 group_config(aes_ige256, Config) ->
     Block = aes_ige256(),
     [{block, Block} | Config];
@@ -749,6 +797,12 @@ group_config(rc4, Config) ->
 group_config(aes_ctr, Config) ->
     Stream = aes_ctr(),
     [{stream, Stream} | Config];
+group_config(aes_gcm, Config) ->
+    AEAD = aes_gcm(),
+    [{aead, AEAD} | Config];
+group_config(chacha20_poly1305, Config) ->
+    AEAD = chacha20_poly1305(),
+    [{aead, AEAD} | Config];
 group_config(_, Config) ->
     Config.
 
@@ -1150,6 +1204,106 @@ aes_cbc256() ->
        hexstr2bin("f69f2445df4f9b17ad2b417be66c3710")}
      ].
 
+aes_ecb() -> 
+    [
+     {aes_ecb,
+      <<"YELLOW SUBMARINE">>, 
+      <<"YELLOW SUBMARINE">>},
+     {aes_ecb,
+      <<"0000000000000000">>, 
+      <<"0000000000000000">>},
+     {aes_ecb,
+      <<"FFFFFFFFFFFFFFFF">>, 
+      <<"FFFFFFFFFFFFFFFF">>},
+     {aes_ecb,
+      <<"3000000000000000">>, 
+      <<"1000000000000001">>},
+     {aes_ecb,
+      <<"1111111111111111">>, 
+      <<"1111111111111111">>},
+     {aes_ecb,
+      <<"0123456789ABCDEF">>, 
+      <<"1111111111111111">>},
+     {aes_ecb,
+      <<"0000000000000000">>, 
+      <<"0000000000000000">>},
+     {aes_ecb,
+      <<"FEDCBA9876543210">>, 
+      <<"0123456789ABCDEF">>},
+     {aes_ecb,
+      <<"7CA110454A1A6E57">>, 
+      <<"01A1D6D039776742">>},
+     {aes_ecb,
+      <<"0131D9619DC1376E">>, 
+      <<"5CD54CA83DEF57DA">>},
+     {aes_ecb,
+      <<"07A1133E4A0B2686">>, 
+      <<"0248D43806F67172">>},
+     {aes_ecb,
+      <<"3849674C2602319E">>, 
+      <<"51454B582DDF440A">>},
+     {aes_ecb,
+      <<"04B915BA43FEB5B6">>, 
+      <<"42FD443059577FA2">>},
+     {aes_ecb,
+      <<"0113B970FD34F2CE">>, 
+      <<"059B5E0851CF143A">>},
+     {aes_ecb,
+      <<"0170F175468FB5E6">>, 
+      <<"0756D8E0774761D2">>},
+     {aes_ecb,
+      <<"43297FAD38E373FE">>, 
+      <<"762514B829BF486A">>},
+     {aes_ecb,
+      <<"07A7137045DA2A16">>, 
+      <<"3BDD119049372802">>},
+     {aes_ecb,
+      <<"04689104C2FD3B2F">>, 
+      <<"26955F6835AF609A">>},
+     {aes_ecb,
+      <<"37D06BB516CB7546">>, 
+      <<"164D5E404F275232">>},
+     {aes_ecb,
+      <<"1F08260D1AC2465E">>, 
+      <<"6B056E18759F5CCA">>},
+     {aes_ecb,
+      <<"584023641ABA6176">>, 
+      <<"004BD6EF09176062">>},
+     {aes_ecb,
+      <<"025816164629B007">>, 
+      <<"480D39006EE762F2">>},
+     {aes_ecb,
+      <<"49793EBC79B3258F">>, 
+      <<"437540C8698F3CFA">>},
+     {aes_ecb,
+      <<"018310DC409B26D6">>, 
+      <<"1D9D5C5018F728C2">>},
+     {aes_ecb,
+      <<"1C587F1C13924FEF">>, 
+      <<"305532286D6F295A">>},
+     {aes_ecb,
+      <<"0101010101010101">>, 
+      <<"0123456789ABCDEF">>},
+     {aes_ecb,
+      <<"1F1F1F1F0E0E0E0E">>, 
+      <<"0123456789ABCDEF">>},
+     {aes_ecb,
+      <<"E0FEE0FEF1FEF1FE">>, 
+      <<"0123456789ABCDEF">>},
+     {aes_ecb,
+      <<"0000000000000000">>, 
+      <<"FFFFFFFFFFFFFFFF">>},
+     {aes_ecb,
+      <<"FFFFFFFFFFFFFFFF">>, 
+      <<"0000000000000000">>},
+     {aes_ecb,
+      <<"0123456789ABCDEF">>, 
+      <<"0000000000000000">>},
+     {aes_ecb,
+      <<"FEDCBA9876543210">>, 
+      <<"FFFFFFFFFFFFFFFF">>}
+    ].
+
 aes_ige256() ->
     [{aes_ige256,
       hexstr2bin("603deb1015ca71be2b73aef0857d77811f352c073b6108d72d9810a30914dff4"),
@@ -1442,6 +1596,269 @@ aes_ctr() ->
 	long_msg()}
     ].
 
+
+%% AES GCM test vectors from http://csrc.nist.gov/groups/ST/toolkit/BCM/documents/proposedmodes/gcm/gcm-spec.pdf
+aes_gcm() ->
+    [
+     %% Test Case 1
+     {aes_gcm, hexstr2bin("00000000000000000000000000000000"),           %% Key
+      hexstr2bin(""),                                                    %% PlainText
+      hexstr2bin("000000000000000000000000"),                            %% IV
+      hexstr2bin(""),                                                    %% AAD
+      hexstr2bin(""),                                                    %% CipherText
+      hexstr2bin("58e2fccefa7e3061367f1d57a4e7455a")},                   %% CipherTag
+
+     %% Test Case 2
+     {aes_gcm, hexstr2bin("00000000000000000000000000000000"),           %% Key
+      hexstr2bin("00000000000000000000000000000000"),                    %% PlainText
+      hexstr2bin("000000000000000000000000"),                            %% IV
+      hexstr2bin(""),                                                    %% AAD
+      hexstr2bin("0388dace60b6a392f328c2b971b2fe78"),                    %% CipherText
+      hexstr2bin("ab6e47d42cec13bdf53a67b21257bddf")},                   %% CipherTag
+
+     %% Test Case 3
+     {aes_gcm, hexstr2bin("feffe9928665731c6d6a8f9467308308"),           %% Key
+      hexstr2bin("d9313225f88406e5a55909c5aff5269a"                      %% PlainText
+		 "86a7a9531534f7da2e4c303d8a318a72"
+		 "1c3c0c95956809532fcf0e2449a6b525"
+		 "b16aedf5aa0de657ba637b391aafd255"),
+      hexstr2bin("cafebabefacedbaddecaf888"),                            %% IV
+      hexstr2bin(""),                                                    %% AAD
+      hexstr2bin("42831ec2217774244b7221b784d0d49c"                      %% CipherText
+		 "e3aa212f2c02a4e035c17e2329aca12e"
+		 "21d514b25466931c7d8f6a5aac84aa05"
+		 "1ba30b396a0aac973d58e091473f5985"),
+      hexstr2bin("4d5c2af327cd64a62cf35abd2ba6fab4")},                   %% CipherTag
+
+     %% Test Case 4
+     {aes_gcm, hexstr2bin("feffe9928665731c6d6a8f9467308308"),           %% Key
+      hexstr2bin("d9313225f88406e5a55909c5aff5269a"                      %% PlainText
+		 "86a7a9531534f7da2e4c303d8a318a72"
+		 "1c3c0c95956809532fcf0e2449a6b525"
+		 "b16aedf5aa0de657ba637b39"),
+      hexstr2bin("cafebabefacedbaddecaf888"),                            %% IV
+      hexstr2bin("feedfacedeadbeeffeedfacedeadbeef"                      %% AAD
+		 "abaddad2"),
+      hexstr2bin("42831ec2217774244b7221b784d0d49c"                      %% CipherText
+		 "e3aa212f2c02a4e035c17e2329aca12e"
+		 "21d514b25466931c7d8f6a5aac84aa05"
+		 "1ba30b396a0aac973d58e091"),
+      hexstr2bin("5bc94fbc3221a5db94fae95ae7121a47")},                   %% CipherTag
+
+     %% Test Case 5
+     {aes_gcm, hexstr2bin("feffe9928665731c6d6a8f9467308308"),           %% Key
+      hexstr2bin("d9313225f88406e5a55909c5aff5269a"                      %% PlainText
+		 "86a7a9531534f7da2e4c303d8a318a72"
+		 "1c3c0c95956809532fcf0e2449a6b525"
+		 "b16aedf5aa0de657ba637b39"),
+      hexstr2bin("cafebabefacedbad"),                                    %% IV
+      hexstr2bin("feedfacedeadbeeffeedfacedeadbeef"                      %% AAD
+		 "abaddad2"),
+      hexstr2bin("61353b4c2806934a777ff51fa22a4755"                      %% CipherText
+		 "699b2a714fcdc6f83766e5f97b6c7423"
+		 "73806900e49f24b22b097544d4896b42"
+		 "4989b5e1ebac0f07c23f4598"),
+      hexstr2bin("3612d2e79e3b0785561be14aaca2fccb")},                   %% CipherTag
+
+     %% Test Case 6"
+     {aes_gcm, hexstr2bin("feffe9928665731c6d6a8f9467308308"),           %% Key
+      hexstr2bin("d9313225f88406e5a55909c5aff5269a"                      %% PlainText
+		 "86a7a9531534f7da2e4c303d8a318a72"
+		 "1c3c0c95956809532fcf0e2449a6b525"
+		 "b16aedf5aa0de657ba637b39"),
+      hexstr2bin("9313225df88406e555909c5aff5269aa"                      %% IV
+		 "6a7a9538534f7da1e4c303d2a318a728"
+		 "c3c0c95156809539fcf0e2429a6b5254"
+		 "16aedbf5a0de6a57a637b39b"),
+      hexstr2bin("feedfacedeadbeeffeedfacedeadbeef"                      %% AAD
+		 "abaddad2"),
+      hexstr2bin("8ce24998625615b603a033aca13fb894"                      %% CipherText
+		 "be9112a5c3a211a8ba262a3cca7e2ca7"
+		 "01e4a9a4fba43c90ccdcb281d48c7c6f"
+		 "d62875d2aca417034c34aee5"),
+      hexstr2bin("619cc5aefffe0bfa462af43c1699d050")},                   %% CipherTag
+
+     %% Test Case 7
+     {aes_gcm, hexstr2bin("00000000000000000000000000000000"             %% Key
+			  "0000000000000000"),
+      hexstr2bin(""),                                                    %% PlainText
+      hexstr2bin("000000000000000000000000"),                            %% IV
+      hexstr2bin(""),                                                    %% AAD
+      hexstr2bin(""),                                                    %% CipherText
+      hexstr2bin("cd33b28ac773f74ba00ed1f312572435")},                   %% CipherTag
+
+     %% Test Case 8
+     {aes_gcm, hexstr2bin("00000000000000000000000000000000"             %% Key
+			  "0000000000000000"),
+      hexstr2bin("00000000000000000000000000000000"),                    %% PlainText
+      hexstr2bin("000000000000000000000000"),                            %% IV
+      hexstr2bin(""),                                                    %% AAD
+      hexstr2bin("98e7247c07f0fe411c267e4384b0f600"),                    %% CipherText
+      hexstr2bin("2ff58d80033927ab8ef4d4587514f0fb")},                   %% CipherTag
+
+     %% Test Case 9
+     {aes_gcm, hexstr2bin("feffe9928665731c6d6a8f9467308308"             %% Key
+			  "feffe9928665731c"),
+      hexstr2bin("d9313225f88406e5a55909c5aff5269a"                      %% PlainText
+		 "86a7a9531534f7da2e4c303d8a318a72"
+		 "1c3c0c95956809532fcf0e2449a6b525"
+		 "b16aedf5aa0de657ba637b391aafd255"),
+      hexstr2bin("cafebabefacedbaddecaf888"),                            %% IV
+      hexstr2bin(""),                                                    %% ADD
+      hexstr2bin("3980ca0b3c00e841eb06fac4872a2757"                      %% CipherText
+		 "859e1ceaa6efd984628593b40ca1e19c"
+		 "7d773d00c144c525ac619d18c84a3f47"
+		 "18e2448b2fe324d9ccda2710acade256"),
+      hexstr2bin("9924a7c8587336bfb118024db8674a14")},                   %% CipherTag
+
+     %% Test Case 10
+     {aes_gcm, hexstr2bin("feffe9928665731c6d6a8f9467308308"             %% Key
+			  "feffe9928665731c"),
+      hexstr2bin("d9313225f88406e5a55909c5aff5269a"                      %% PlainText
+		 "86a7a9531534f7da2e4c303d8a318a72"
+		 "1c3c0c95956809532fcf0e2449a6b525"
+		 "b16aedf5aa0de657ba637b39"),
+      hexstr2bin("cafebabefacedbaddecaf888"),                            %% IV
+      hexstr2bin("feedfacedeadbeeffeedfacedeadbeef"                      %% AAD
+		 "abaddad2"),
+      hexstr2bin("3980ca0b3c00e841eb06fac4872a2757"                      %% CipherText
+		 "859e1ceaa6efd984628593b40ca1e19c"
+		 "7d773d00c144c525ac619d18c84a3f47"
+		 "18e2448b2fe324d9ccda2710"),
+      hexstr2bin("2519498e80f1478f37ba55bd6d27618c")},                   %% CipherTag
+
+     %% Test Case 11
+     {aes_gcm, hexstr2bin("feffe9928665731c6d6a8f9467308308"             %% Key
+			  "feffe9928665731c"),
+      hexstr2bin("d9313225f88406e5a55909c5aff5269a"                      %% PlainText
+		 "86a7a9531534f7da2e4c303d8a318a72"
+		 "1c3c0c95956809532fcf0e2449a6b525"
+		 "b16aedf5aa0de657ba637b39"),
+      hexstr2bin("cafebabefacedbad"),                                    %% IV
+      hexstr2bin("feedfacedeadbeeffeedfacedeadbeef"                      %% AAD
+		 "abaddad2"),
+      hexstr2bin("0f10f599ae14a154ed24b36e25324db8"                      %% CipherText
+		 "c566632ef2bbb34f8347280fc4507057"
+		 "fddc29df9a471f75c66541d4d4dad1c9"
+		 "e93a19a58e8b473fa0f062f7"),
+      hexstr2bin("65dcc57fcf623a24094fcca40d3533f8")},                   %% CipherTag
+
+     %% Test Case 12
+     {aes_gcm, hexstr2bin("feffe9928665731c6d6a8f9467308308"             %% Key
+		 "feffe9928665731c"),
+      hexstr2bin("d9313225f88406e5a55909c5aff5269a"                      %% PlainText
+		 "86a7a9531534f7da2e4c303d8a318a72"
+		 "1c3c0c95956809532fcf0e2449a6b525"
+		 "b16aedf5aa0de657ba637b39"),
+      hexstr2bin("9313225df88406e555909c5aff5269aa"                      %% IV
+		 "6a7a9538534f7da1e4c303d2a318a728"
+		 "c3c0c95156809539fcf0e2429a6b5254"
+		 "16aedbf5a0de6a57a637b39b"),
+      hexstr2bin("feedfacedeadbeeffeedfacedeadbeef"                      %% AAD
+		 "abaddad2"),
+      hexstr2bin("d27e88681ce3243c4830165a8fdcf9ff"                      %% CipherText
+		 "1de9a1d8e6b447ef6ef7b79828666e45"
+		 "81e79012af34ddd9e2f037589b292db3"
+		 "e67c036745fa22e7e9b7373b"),
+      hexstr2bin("dcf566ff291c25bbb8568fc3d376a6d9")},                   %% CipherTag
+
+     %% Test Case 13
+     {aes_gcm, hexstr2bin("00000000000000000000000000000000"             %% Key
+			  "00000000000000000000000000000000"),
+      hexstr2bin(""),                                                    %% PlainText
+      hexstr2bin("000000000000000000000000"),                            %% IV
+      hexstr2bin(""),                                                    %% AAD
+      hexstr2bin(""),                                                    %% CipherText
+      hexstr2bin("530f8afbc74536b9a963b4f1c4cb738b")},                   %% CipherTag
+
+     %% Test Case 14
+     {aes_gcm, hexstr2bin("00000000000000000000000000000000"             %% Key
+			  "00000000000000000000000000000000"),
+      hexstr2bin("00000000000000000000000000000000"),                    %% PlainText
+      hexstr2bin("000000000000000000000000"),                            %% IV
+      hexstr2bin(""),                                                    %% AAD
+      hexstr2bin("cea7403d4d606b6e074ec5d3baf39d18"),                    %% CipherText
+      hexstr2bin("d0d1c8a799996bf0265b98b5d48ab919")},                   %% CipherTag
+
+     %% Test Case 15
+     {aes_gcm, hexstr2bin("feffe9928665731c6d6a8f9467308308"             %% Key
+			  "feffe9928665731c6d6a8f9467308308"),
+      hexstr2bin("d9313225f88406e5a55909c5aff5269a"                      %% PlainText
+		 "86a7a9531534f7da2e4c303d8a318a72"
+		 "1c3c0c95956809532fcf0e2449a6b525"
+		 "b16aedf5aa0de657ba637b391aafd255"),
+      hexstr2bin("cafebabefacedbaddecaf888"),                            %% IV
+      hexstr2bin(""),                                                    %% AAD
+      hexstr2bin("522dc1f099567d07f47f37a32a84427d"                      %% CipherText
+		 "643a8cdcbfe5c0c97598a2bd2555d1aa"
+		 "8cb08e48590dbb3da7b08b1056828838"
+		 "c5f61e6393ba7a0abcc9f662898015ad"),
+      hexstr2bin("b094dac5d93471bdec1a502270e3cc6c")},                   %% CipherTag
+
+     %% Test Case 16
+     {aes_gcm, hexstr2bin("feffe9928665731c6d6a8f9467308308"             %% Key
+			  "feffe9928665731c6d6a8f9467308308"),
+      hexstr2bin("d9313225f88406e5a55909c5aff5269a"                      %% PlainText
+		 "86a7a9531534f7da2e4c303d8a318a72"
+		 "1c3c0c95956809532fcf0e2449a6b525"
+		 "b16aedf5aa0de657ba637b39"),
+      hexstr2bin("cafebabefacedbaddecaf888"),                            %% IV
+      hexstr2bin("feedfacedeadbeeffeedfacedeadbeef"                      %% AAD
+		 "abaddad2"),
+      hexstr2bin("522dc1f099567d07f47f37a32a84427d"                      %% CipherText
+		 "643a8cdcbfe5c0c97598a2bd2555d1aa"
+		 "8cb08e48590dbb3da7b08b1056828838"
+		 "c5f61e6393ba7a0abcc9f662"),
+      hexstr2bin("76fc6ece0f4e1768cddf8853bb2d551b")},                   %% CipherTag
+
+     %% Test Case 17
+     {aes_gcm, hexstr2bin("feffe9928665731c6d6a8f9467308308"             %% Key
+			  "feffe9928665731c6d6a8f9467308308"),
+      hexstr2bin("d9313225f88406e5a55909c5aff5269a"                      %% PlainText
+		 "86a7a9531534f7da2e4c303d8a318a72"
+		 "1c3c0c95956809532fcf0e2449a6b525"
+		 "b16aedf5aa0de657ba637b39"),
+      hexstr2bin("cafebabefacedbad"),                                    %% IV
+      hexstr2bin("feedfacedeadbeeffeedfacedeadbeef"                      %% AAD
+		 "abaddad2"),
+      hexstr2bin("c3762df1ca787d32ae47c13bf19844cb"                      %% CipherText
+		 "af1ae14d0b976afac52ff7d79bba9de0"
+		 "feb582d33934a4f0954cc2363bc73f78"
+		 "62ac430e64abe499f47c9b1f"),
+      hexstr2bin("3a337dbf46a792c45e454913fe2ea8f2")},                   %% CipherTag
+
+     %% Test Case 18
+     {aes_gcm, hexstr2bin("feffe9928665731c6d6a8f9467308308"             %% Key
+			  "feffe9928665731c6d6a8f9467308308"),
+      hexstr2bin("d9313225f88406e5a55909c5aff5269a"                      %% PlainText
+		 "86a7a9531534f7da2e4c303d8a318a72"
+		 "1c3c0c95956809532fcf0e2449a6b525"
+		 "b16aedf5aa0de657ba637b39"),
+      hexstr2bin("9313225df88406e555909c5aff5269aa"                      %% IV
+		 "6a7a9538534f7da1e4c303d2a318a728"
+		 "c3c0c95156809539fcf0e2429a6b5254"
+		 "16aedbf5a0de6a57a637b39b"),
+      hexstr2bin("feedfacedeadbeeffeedfacedeadbeef"                      %% AAD
+		 "abaddad2"),
+      hexstr2bin("5a8def2f0c9e53f1f75d7853659e2a20"                      %% CipherText
+		 "eeb2b22aafde6419a058ab4f6f746bf4"
+		 "0fc0c3b780f244452da3ebf1c5d82cde"
+		 "a2418997200ef82e44ae7e3f"),
+      hexstr2bin("a44a8266ee1c8eb0c8b5d4cf5ae9f19a")}                    %% CipherTag
+    ].
+
+%% http://tools.ietf.org/html/draft-agl-tls-chacha20poly1305-04
+chacha20_poly1305() ->
+    [
+     {chacha20_poly1305, hexstr2bin("4290bcb154173531f314af57f3be3b500"  %% Key
+				    "6da371ece272afa1b5dbdd1100a1007"),
+      hexstr2bin("86d09974840bded2a5ca"),                                %% PlainText
+      hexstr2bin("cd7cf67be39c794a"),                                    %% Nonce
+      hexstr2bin("87e229d4500845a079c0"),                                %% AAD
+      hexstr2bin("e3e446f7ede9a19b62a4"),                                %% CipherText
+      hexstr2bin("677dabf4e3d24b876bb284753896e1d6")}                   %% CipherTag
+    ].
+
 rsa_plain() ->
     <<"7896345786348756234 Hejsan Svejsan, erlang crypto debugger"
       "09812312908312378623487263487623412039812 huagasd">>.
@@ -1468,8 +1885,9 @@ dss_params() ->
      18320614775012672475365915366944922415598782131828709277168615511695849821411624805195787607930033958243224786899641459701930253094446221381818858674389863050420226114787005820357372837321561754462061849169568607689530279303056075793886577588606958623645901271866346406773590024901668622321064384483571751669].
 
 ec_key_named() ->
-    {D2_pub, D2_priv} = crypto:generate_key(ecdh, sect113r2),
-    {[D2_priv, sect113r2], [D2_pub, sect113r2]}.  
+    Curve = secp112r2,
+    {D2_pub, D2_priv} = crypto:generate_key(ecdh, Curve),
+    {[D2_priv, Curve], [D2_pub, Curve]}.
 
 ec_msg() ->
     <<99,234,6,64,190,237,201,99,80,248,58,40,70,45,149,218,5,246,242,63>>.
@@ -1735,6 +2153,27 @@ rsa_oaep() ->
     %%Msg = hexstr2bin("6628194e12073db03ba94cda9ef9532397d50dba79b987004afefe34"),
     Msg =  hexstr2bin("750c4047f547e8e41411856523298ac9bae245efaf1397fbe56f9dd5"),
     {rsa, Public, Private, Msg, rsa_pkcs1_oaep_padding}.
+
+ecc() ->
+%%               http://point-at-infinity.org/ecc/nisttv
+%%
+%% Test vectors for the NIST elliptic curves P192, P224, P256, P384, P521,
+%% B163, B233, B283, B409, B571, K163, K233, K283, K409 and K571. For more
+%% information about the curves see
+%%       http://csrc.nist.gov/encryption/dss/ecdsa/NISTReCur.pdf
+%%
+    [{ecdh,secp192r1,1,
+      hexstr2point("188DA80EB03090F67CBF20EB43A18800F4FF0AFD82FF1012",
+		   "07192B95FFC8DA78631011ED6B24CDD573F977A11E794811")},
+     {ecdh,secp192r1,2,
+      hexstr2point("DAFEBF5828783F2AD35534631588A3F629A70FB16982A888",
+		   "DD6BDA0D993DA0FA46B27BBC141B868F59331AFA5C7E93AB")},
+     {ecdh,secp192r1,3,
+      hexstr2point("76E32A2557599E6EDCD283201FB2B9AADFD0D359CBB263DA",
+		   "782C37E372BA4520AA62E0FED121D49EF3B543660CFD05FD")},
+     {ecdh,secp192r1,4,
+      hexstr2point("35433907297CC378B0015703374729D7A4FE46647084E4BA",
+		   "A2649984F2135C301EA3ACB0776CD4F125389B311DB3BE32")}].
 
 no_padding() ->
     Public = [_, Mod] = rsa_public(),

@@ -8,16 +8,17 @@
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
-      The contents of this file are subject to the Erlang Public License,
-      Version 1.1, (the "License"); you may not use this file except in
-      compliance with the License. You should have received a copy of the
-      Erlang Public License along with this software. If not, it can be
-      retrieved online at http://www.erlang.org/.
-    
-      Software distributed under the License is distributed on an "AS IS"
-      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-      the License for the specific language governing rights and limitations
-      under the License.
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
     
     </legalnotice>
 
@@ -100,6 +101,19 @@ DirOut = os:cmd("dir"), % on Win32 platform</code>
       </desc>
     </func>
     <func>
+      <name name="getenv" arity="2"/>
+      <fsummary>Get the value of an environment variable</fsummary>
+      <desc>
+        <p>Returns the <c><anno>Value</anno></c> of the environment variable
+          <c><anno>VarName</anno></c>, or <c>DefaultValue</c> if the environment variable
+          is undefined.</p>
+	<p>If Unicode file name encoding is in effect (see the <seealso
+	marker="erts:erl#file_name_encoding">erl manual
+	page</seealso>), the strings (both <c><anno>VarName</anno></c> and
+	<c><anno>Value</anno></c>) may contain characters with codepoints > 255.</p>
+      </desc>
+    </func>
+    <func>
       <name name="getpid" arity="0"/>
       <fsummary>Return the process identifier of the emulator process</fsummary>
       <desc>
@@ -129,14 +143,49 @@ DirOut = os:cmd("dir"), % on Win32 platform</code>
       </desc>
     </func>
     <func>
+      <name name="system_time" arity="0"/>
+      <fsummary>Current OS system time</fsummary>
+      <desc>
+	<p>Returns current
+	<seealso marker="erts:time_correction#OS_System_Time">OS system time</seealso>
+	in <c>native</c>
+	<seealso marker="erts:erlang#type_time_unit">time unit</seealso>.</p>
+
+	<note><p>This time is <em>not</em> a monotonically increasing time.</p></note>
+      </desc>
+    </func>
+    <func>
+      <name name="system_time" arity="1"/>
+      <fsummary>Current OS system time</fsummary>
+      <desc>
+	<p>Returns current
+	<seealso marker="erts:time_correction#OS_System_Time">OS system time</seealso>
+	converted into the <c><anno>Unit</anno></c> passed as argument.</p>
+
+	<p>Calling <c>os:system_time(<anno>Unit</anno>)</c> is equivalent to: 
+	<seealso marker="erts:erlang#convert_time_unit/3"><c>erlang:convert_time_unit</c></seealso><c>(</c><seealso marker="#system_time/0"><c>os:system_time()</c></seealso><c>,
+	native, <anno>Unit</anno>)</c>.</p>
+
+	<note><p>This time is <em>not</em> a monotonically increasing time.</p></note>
+      </desc>
+    </func>
+    <func>
       <name name="timestamp" arity="0"/>
       <type_desc variable="Timestamp">Timestamp = {MegaSecs, Secs, MicroSecs}</type_desc>
-      <fsummary>Returna a timestamp from the OS in the erlang:now/0 format</fsummary>
+      <fsummary>Current OS system time on the erlang:timestamp/0 format</fsummary>
       <desc>
-      <p>Returns a tuple in the same format as <seealso marker="erts:erlang#now/0">erlang:now/0</seealso>. The difference is that this function returns what the operating system thinks (a.k.a. the wall clock time) without any attempts at time correction. The result of two different calls to this function is <em>not</em> guaranteed to be different.</p>
-      <p>The most obvious use for this function is logging. The tuple can be used together with the function <seealso marker="stdlib:calendar#now_to_universal_time/1">calendar:now_to_universal_time/1</seealso> 
-or <seealso marker="stdlib:calendar#now_to_local_time/1">calendar:now_to_local_time/1</seealso> to get calendar time. Using the calendar time together with the <c>MicroSecs</c> part of the return tuple from this function allows you to log timestamps in high resolution and consistent with the time in the rest of the operating system.</p>
-      <p>Example of code formatting a string in the format &quot;DD Mon YYYY HH:MM:SS.mmmmmm&quot;, where DD is the day of month, Mon is the textual month name, YYYY is the year, HH:MM:SS is the time and mmmmmm is the microseconds in six positions:</p>
+      <p>Returns current
+	<seealso marker="erts:time_correction#OS_System_Time">OS system time</seealso>
+        in the same format as <seealso marker="erts:erlang#timestamp/0">erlang:timestamp/0</seealso>.
+	The tuple can be used together with the function
+	<seealso marker="stdlib:calendar#now_to_universal_time/1">calendar:now_to_universal_time/1</seealso> 
+        or <seealso marker="stdlib:calendar#now_to_local_time/1">calendar:now_to_local_time/1</seealso> to
+        get calendar time. Using the calendar time together with the <c>MicroSecs</c> part of the return
+        tuple from this function allows you to log timestamps in high resolution and consistent with the
+        time in the rest of the operating system.</p>
+      <p>Example of code formatting a string in the format &quot;DD Mon YYYY HH:MM:SS.mmmmmm&quot;, where
+         DD is the day of month, Mon is the textual month name, YYYY is the year, HH:MM:SS is the time and
+         mmmmmm is the microseconds in six positions:</p>
 <code>
 -module(print_time).
 -export([format_utc_timestamp/0]).
@@ -155,6 +204,9 @@ format_utc_timestamp() ->
 1> <input>io:format("~s~n",[print_time:format_utc_timestamp()]).</input>
 29 Apr 2009  9:55:30.051711
 </pre>
+       <p>OS system time can also be retreived by
+	<c><seealso marker="#system_time/0"><c>os:system_time/0</c></seealso></c>,
+	and <seealso marker="#system_time/1"><c>os:system_time/1</c></seealso>.</p>
       </desc>
     </func>
     <func>

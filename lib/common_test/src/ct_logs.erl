@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 2003-2014. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -72,6 +73,8 @@
 -define(testname_width, 60).
 
 -define(abs(Name), filename:absname(Name)).
+
+-define(now, os:timestamp()).
 
 -record(log_cache, {version,
 		    all_runs = [],
@@ -311,7 +314,7 @@ unregister_groupleader(Pid) ->
 %%% data to log (as in <code>io:format(Format,Args)</code>).</p>
 log(Heading,Format,Args) ->
     cast({log,sync,self(),group_leader(),ct_internal,?MAX_IMPORTANCE,
-	  [{int_header(),[log_timestamp(now()),Heading]},
+	  [{int_header(),[log_timestamp(?now),Heading]},
 	   {Format,Args},
 	   {int_footer(),[]}]}),
     ok.
@@ -333,7 +336,7 @@ log(Heading,Format,Args) ->
 %%% @see end_log/0
 start_log(Heading) ->
     cast({log,sync,self(),group_leader(),ct_internal,?MAX_IMPORTANCE,
-	  [{int_header(),[log_timestamp(now()),Heading]}]}),
+	  [{int_header(),[log_timestamp(?now),Heading]}]}),
     ok.
 
 %%%-----------------------------------------------------------------
@@ -491,11 +494,11 @@ tc_print(Category,Importance,Format,Args) ->
 get_heading(default) ->
     io_lib:format("\n-----------------------------"
 		  "-----------------------\n~s\n",
-		  [log_timestamp(now())]);
+		  [log_timestamp(?now)]);
 get_heading(Category) ->
     io_lib:format("\n-----------------------------"
 		  "-----------------------\n~s  ~w\n",
-		  [log_timestamp(now()),Category]).    
+		  [log_timestamp(?now),Category]).    
     
 
 %%%-----------------------------------------------------------------
@@ -553,13 +556,13 @@ div_header(Class) ->
     div_header(Class,"User").
 div_header(Class,Printer) ->
     "\n<div class=\"" ++ atom_to_list(Class) ++ "\"><b>*** " ++ Printer ++
-    " " ++ log_timestamp(now()) ++ " ***</b>".
+    " " ++ log_timestamp(?now) ++ " ***</b>".
 div_footer() ->
     "</div>".
 
 
 maybe_log_timestamp() ->
-    {MS,S,US} = now(),
+    {MS,S,US} = ?now,
     case get(log_timestamp) of
 	{MS,S,_} ->
 	    ok;
@@ -686,7 +689,7 @@ logger(Parent, Mode, Verbosity) ->
     make_last_run_index(Time),
     CtLogFd = open_ctlog(?misc_io_log),
     io:format(CtLogFd,int_header()++int_footer(),
-	      [log_timestamp(now()),"Common Test Logger started"]),
+	      [log_timestamp(?now),"Common Test Logger started"]),
     Parent ! {started,self(),{Time,filename:absname("")}},
     set_evmgr_gl(CtLogFd),
 
@@ -835,7 +838,7 @@ logger_loop(State) ->
 	stop ->
 	    io:format(State#logger_state.ct_log_fd,
 		      int_header()++int_footer(),
-		      [log_timestamp(now()),"Common Test Logger finished"]),
+		      [log_timestamp(?now),"Common Test Logger finished"]),
 	    close_ctlog(State#logger_state.ct_log_fd),
 	    ok
     end.
@@ -2052,6 +2055,13 @@ runentry(Dir, Totals={Node,Label,Logs,
 					     ?testname_width-3)),
 		lists:flatten(io_lib:format("~ts...",[Trunc]))
 	end,
+    TotMissingStr =
+	if NotBuilt > 0 ->
+		["<font color=\"red\">",
+		 integer_to_list(NotBuilt),"</font>"];
+	   true ->
+		integer_to_list(NotBuilt)
+	end,
     Total = TotSucc+TotFail+AllSkip,
     A = xhtml(["<td align=center><font size=\"-1\">",Node,
 	       "</font></td>\n",
@@ -2071,7 +2081,7 @@ runentry(Dir, Totals={Node,Label,Logs,
 	 "<td align=right>",TotFailStr,"</td>\n",
 	 "<td align=right>",integer_to_list(AllSkip),
 	 " (",UserSkipStr,"/",AutoSkipStr,")</td>\n",
-	 "<td align=right>",integer_to_list(NotBuilt),"</td>\n"],
+	 "<td align=right>",TotMissingStr,"</td>\n"],
     TotalsStr = A++B++C,
     
     XHTML = [xhtml("<tr>\n", ["<tr class=\"",odd_or_even(),"\">\n"]),

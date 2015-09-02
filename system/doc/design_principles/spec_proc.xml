@@ -8,43 +8,45 @@
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
-      The contents of this file are subject to the Erlang Public License,
-      Version 1.1, (the "License"); you may not use this file except in
-      compliance with the License. You should have received a copy of the
-      Erlang Public License along with this software. If not, it can be
-      retrieved online at http://www.erlang.org/.
-    
-      Software distributed under the License is distributed on an "AS IS"
-      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-      the License for the specific language governing rights and limitations
-      under the License.
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
     
     </legalnotice>
 
-    <title>Sys and Proc_Lib</title>
+    <title>sys and proc_lib</title>
     <prepared></prepared>
     <docno></docno>
     <date></date>
     <rev></rev>
     <file>spec_proc.xml</file>
   </header>
-  <p>The module <c>sys</c> contains functions for simple debugging of
-    processes implemented using behaviours.</p>
-  <p>There are also functions that, together with functions in
-    the module <c>proc_lib</c>, can be used to implement a
-    <em>special process</em>, a process which comply to the OTP design
-    principles without making use of a standard behaviour. They can
-    also be used to implement user defined (non-standard) behaviours.</p>
-  <p>Both <c>sys</c> and <c>proc_lib</c> belong to the STDLIB
-    application.</p>
+  <marker id="sys and proc_lib"></marker>
+    <p>The <c>sys</c> module has functions for simple debugging of
+      processes implemented using behaviours. It also has functions that,
+      together with functions in the <c>proc_lib</c> module, can be used
+      to implement a <em>special process</em> that complies to the OTP
+      design principles without using a standard behaviour. These
+      functions can also be used to implement user-defined (non-standard)
+      behaviours.</p>
+    <p>Both <c>sys</c> and <c>proc_lib</c> belong to the STDLIB
+      application.</p>
 
   <section>
     <title>Simple Debugging</title>
-    <p>The module <c>sys</c> contains some functions for simple debugging
-      of processes implemented using behaviours. We use the
-      <c>code_lock</c> example from
-      the <seealso marker="fsm#ex">gen_fsm</seealso> chapter to
-      illustrate this:</p>
+    <p>The <c>sys</c> module has functions for simple debugging of
+    processes implemented using behaviours. The <c>code_lock</c>
+    example from
+    <seealso marker="fsm#ex">gen_fsm Behaviour</seealso>
+    is used to illustrate this:</p>
     <pre>
 % <input>erl</input>
 Erlang (BEAM) emulator version 5.2.3.6 [hipe] [threads:0]
@@ -102,16 +104,18 @@ ok
 
   <section>
     <title>Special Processes</title>
-    <p>This section describes how to write a process which comply to
-      the OTP design principles, without making use of a standard
-      behaviour. Such a process should:</p>
+    <p>This section describes how to write a process that complies to
+    the OTP design principles, without using a standard behaviour.
+    Such a process is to:</p>
     <list type="bulleted">
-      <item>be started in a way that makes the process fit into a
-       supervision tree,</item>
-      <item>support the <c>sys</c> <seealso marker="#debug">debug facilities</seealso>, and</item>
-      <item>take care of <seealso marker="#msg">system messages</seealso>.</item>
+      <item>Be started in a way that makes the process fit into a
+      supervision tree</item>
+      <item>Support the <c>sys</c>
+      <seealso marker="#debug">debug facilities</seealso></item>
+      <item>Take care of
+      <seealso marker="#msg">system messages</seealso>.</item>
     </list>
-    <p>System messages are messages with special meaning, used in
+    <p>System messages are messages with a special meaning, used in
       the supervision tree. Typical system messages are requests for
       trace output, and requests to suspend or resume process execution
       (used during release handling). Processes implemented using
@@ -120,9 +124,9 @@ ok
     <section>
       <title>Example</title>
       <p>The simple server from
-        the <seealso marker="des_princ#ch1">Overview</seealso> chapter,
-        implemented using <c>sys</c> and <c>proc_lib</c> so it fits into
-        a supervision tree:</p>
+      <seealso marker="des_princ#ch1">Overview</seealso>,
+      implemented using <c>sys</c> and <c>proc_lib</c> so it fits into a
+      supervision tree:</p>
       <marker id="ex"></marker>
       <pre>
 -module(ch4).
@@ -190,8 +194,8 @@ system_replace_state(StateFun, Chs) ->
 
 write_debug(Dev, Event, Name) ->
     io:format(Dev, "~p event = ~p~n", [Name, Event]).</pre>
-      <p>Example on how the simple debugging functions in <c>sys</c> can
-        be used for <c>ch4</c> as well:</p>
+      <p>Example on how the simple debugging functions in the <c>sys</c>
+      module can also be used for <c>ch4</c>:</p>
       <pre>
 % <input>erl</input>
 Erlang (BEAM) emulator version 5.2.3.6 [hipe] [threads:0]
@@ -230,31 +234,32 @@ ok
 
     <section>
       <title>Starting the Process</title>
-      <p>A function in the <c>proc_lib</c> module should be used to
-        start the process. There are several possible functions, for
-        example <c>spawn_link/3,4</c> for asynchronous start and
+      <p>A function in the <c>proc_lib</c> module is to be used to
+        start the process. Several functions are available, for
+        example, <c>spawn_link/3,4</c> for asynchronous start and
         <c>start_link/3,4,5</c> for synchronous start.</p>
-      <p>A process started using one of these functions will store
-        information that is needed for a process in a supervision tree,
-        for example about the ancestors and initial call.</p>
-      <p>Also, if the process terminates with another reason than
-        <c>normal</c> or <c>shutdown</c>, a crash report (see SASL
-        User's Guide) is generated.</p>
-      <p>In the example, synchronous start is used. The process is
-        started by calling <c>ch4:start_link()</c>:</p>
+      <p>A process started using one of these functions stores
+        information (for example, about the ancestors and initial call)
+	that is needed for a process in a supervision tree.</p>
+      <p>If the process terminates with another reason than
+        <c>normal</c> or <c>shutdown</c>, a crash report is generated.
+	For more information about the crash report, see the SASL
+        User's Guide.</p>
+      <p>In the example, synchronous start is used. The process
+        starts by calling <c>ch4:start_link()</c>:</p>
       <code type="none">
 start_link() ->
     proc_lib:start_link(ch4, init, [self()]).</code>
       <p><c>ch4:start_link</c> calls the function
         <c>proc_lib:start_link</c>. This function takes a module name,
-        a function name and an argument list as arguments and spawns
+        a function name, and an argument list as arguments, spawns,
         and links to a new process. The new process starts by executing
-        the given function, in this case <c>ch4:init(Pid)</c>, where
-        <c>Pid</c> is the pid (<c>self()</c>) of the first process, that
-        is the parent process.</p>
-      <p>In <c>init</c>, all initialization including name registration
-        is done. The new process must also acknowledge that it has been
-        started to the parent:</p>
+        the given function, here <c>ch4:init(Pid)</c>, where
+        <c>Pid</c> is the pid (<c>self()</c>) of the first process,
+	which is the parent process.</p>
+      <p>All initialization, including name registration, is done in
+      <c>init</c>. The new process must also acknowledge that it has
+      been started to the parent:</p>
       <code type="none">
 init(Parent) ->
     ...
@@ -267,8 +272,8 @@ init(Parent) ->
     <section>
       <marker id="debug"></marker>
       <title>Debugging</title>
-      <p>To support the debug facilites in <c>sys</c>, we need a
-        <em>debug structure</em>, a term <c>Deb</c> which is
+      <p>To support the debug facilites in <c>sys</c>, a
+        <em>debug structure</em> is needed. The <c>Deb</c> term is
         initialized using <c>sys:debug_options/1</c>:</p>
       <code type="none">
 init(Parent) ->
@@ -278,50 +283,41 @@ init(Parent) ->
     loop(Chs, Parent, Deb).</code>
       <p><c>sys:debug_options/1</c> takes a list of options as argument.
         Here the list is empty, which means no debugging is enabled
-        initially. See <c>sys(3)</c> for information about possible
-        options.</p>
-      <p>Then for each <em>system event</em> that we want to be logged
-        or traced, the following function should be called.</p>
+        initially. For information about the possible options, see the
+        <c>sys(3)</c> manual page in STDLIB.</p>
+      <p>Then, for each <em>system event</em> to be logged
+        or traced, the following function is to be called.</p>
       <code type="none">
 sys:handle_debug(Deb, Func, Info, Event) => Deb1</code>
+<p>Here:</p>
       <list type="bulleted">
-        <item>
-          <p><c>Deb</c> is the debug structure.</p>
-        </item>
-        <item>
-          <p><c>Func</c> is a fun specifying
-            a (user defined) function used to format
+        <item><c>Deb</c> is the debug structure.</item>
+        <item><c>Func</c> is a fun specifying
+            a (user-defined) function used to format
             trace output. For each system event, the format function is
-            called as <c>Func(Dev, Event, Info)</c>, where:</p>
+            called as <c>Func(Dev, Event, Info)</c>, where:
           <list type="bulleted">
-            <item>
-              <p><c>Dev</c> is the IO device to which the output should
-                be printed. See <c>io(3)</c>.</p>
-            </item>
-            <item>
-              <p><c>Event</c> and <c>Info</c> are passed as-is from
-                <c>handle_debug</c>.</p>
-            </item>
+            <item><c>Dev</c> is the I/O device to which the output is to
+	      be printed. See the <c>io(3)</c> manual page in
+	      STDLIB.</item>
+            <item><c>Event</c> and <c>Info</c> are passed as is from
+                <c>handle_debug</c>.</item>
           </list>
         </item>
-        <item>
-          <p><c>Info</c> is used to pass additional information to
-            <c>Func</c>, it can be any term and is passed as-is.</p>
-        </item>
-        <item>
-          <p><c>Event</c> is the system event. It is up to the user to
-            define what a system event is and how it should be
-            represented, but typically at least incoming and outgoing
+        <item><c>Info</c> is used to pass more information to
+            <c>Func</c>. It can be any term and is passed as is.</item>
+        <item><c>Event</c> is the system event. It is up to the user to
+            define what a system event is and how it is to be
+            represented. Typically at least incoming and outgoing
             messages are considered system events and represented by
             the tuples <c>{in,Msg[,From]}</c> and <c>{out,Msg,To}</c>,
-            respectively.</p>
-        </item>
+            respectively.</item>
       </list>
       <p><c>handle_debug</c> returns an updated debug structure
         <c>Deb1</c>.</p>
       <p>In the example, <c>handle_debug</c> is called for each incoming
         and outgoing message. The format function <c>Func</c> is
-        the function <c>ch4:write_debug/3</c> which prints the message
+        the function <c>ch4:write_debug/3</c>, which prints the message
         using <c>io:format/3</c>.</p>
       <code type="none">
 loop(Chs, Parent, Deb) ->
@@ -354,22 +350,22 @@ write_debug(Dev, Event, Name) ->
 {system, From, Request}</code>
       <p>The content and meaning of these messages do not need to be
         interpreted by the process. Instead the following function
-        should be called:</p>
+        is to be called:</p>
       <code type="none">
 sys:handle_system_msg(Request, From, Parent, Module, Deb, State)</code>
-      <p>This function does not return. It will handle the system
-        message and then call:</p>
+      <p>This function does not return. It handles the system
+      message and then either calls the following if process execution is
+      to continue:</p>
       <code type="none">
 Module:system_continue(Parent, Deb, State)</code>
-      <p>if process execution should continue, or:</p>
+      <p>Or calls the following if the process is to terminate:</p>
       <code type="none">
 Module:system_terminate(Reason, Parent, Deb, State)</code>
-      <p>if the process should terminate. Note that a process in a
-        supervision tree is expected to terminate with the same reason as
-        its parent.</p>
+      <p>A process in a supervision tree is expected to terminate with
+      the same reason as its parent.</p>
       <list type="bulleted">
-        <item><c>Request</c> and <c>From</c> should be passed as-is from
-         the system message to the call to <c>handle_system_msg</c>.</item>
+        <item><c>Request</c> and <c>From</c> are to be passed as is from
+	the system message to the call to <c>handle_system_msg</c>.</item>
         <item><c>Parent</c> is the pid of the parent.</item>
         <item><c>Module</c> is the name of the module.</item>
         <item><c>Deb</c> is the debug structure.</item>
@@ -377,10 +373,12 @@ Module:system_terminate(Reason, Parent, Deb, State)</code>
          is passed to <c>system_continue</c>/<c>system_terminate</c>/
          <c>system_get_state</c>/<c>system_replace_state</c>.</item>
       </list>
-      <p>If the process should return its state <c>handle_system_msg</c> will call:</p>
+      <p>If the process is to return its state, <c>handle_system_msg</c>
+      calls:</p>
       <code type="none">
 Module:system_get_state(State)</code>
-      <p>or if the process should replace its state using the fun <c>StateFun</c>:</p>
+      <p>If the process is to replace its state using the fun <c>StateFun</c>,
+      <c>handle_system_msg</c> calls:</p>
       <code type="none">
 Module:system_replace_state(StateFun, State)</code>
       <p>In the example:</p>
@@ -407,9 +405,9 @@ system_replace_state(StateFun, Chs) ->
     NChs = StateFun(Chs),
     {ok, NChs, NChs}.
 </code>
-      <p>If the special process is set to trap exits, note that if
-        the parent process terminates, the expected behavior is to
-        terminate with the same reason:</p>
+      <p>If the special process is set to trap exits and if the parent
+      process terminates, the expected behavior is to terminate with
+      the same reason:</p>
       <code type="none">
 init(...) ->
     ...,
@@ -431,43 +429,74 @@ loop(...) ->
 
   <section>
     <title>User-Defined Behaviours</title>
-    <p><marker id="behaviours"/>To implement a user-defined behaviour, write code similar to
-      code for a special process but calling functions in a callback
+    <p><marker id="behaviours"/>To implement a user-defined behaviour,
+      write code similar to
+      code for a special process, but call functions in a callback
       module for handling specific tasks.</p>
-    <p>If it is desired that the compiler should warn for missing callback
-    functions, as it does for the OTP behaviours, add <c>-callback</c> attributes in the
+    <p>If the compiler is to warn for missing callback functions, as it
+    does for the OTP behaviours, add <c>-callback</c> attributes in the
     behaviour module to describe the expected callbacks:</p>
     <code type="none">
 -callback Name1(Arg1_1, Arg1_2, ..., Arg1_N1) -> Res1.
 -callback Name2(Arg2_1, Arg2_2, ..., Arg2_N2) -> Res2.
 ...
 -callback NameM(ArgM_1, ArgM_2, ..., ArgM_NM) -> ResM.</code>
-    <p>where <c>NameX</c> are the names of the expected callbacks and
-    <c>ArgX_Y</c>, <c>ResX</c> are types as they are described in Specifications
-    for functions in <seealso marker="../reference_manual/typespec">Types and
-    Function Specifications</seealso>. The whole syntax of <c>-spec</c> attribute is
-    supported by <c>-callback</c> attribute.</p>
-    <p>Alternatively you may directly implement and export the function:</p>
+    <p><c>NameX</c> are the names of the expected callbacks.
+      <c>ArgX_Y</c> and <c>ResX</c> are types as they are described in
+      <seealso marker="../reference_manual/typespec">Types and
+      Function Specifications</seealso>. The whole syntax of the <c>-spec</c>
+      attribute is supported by the <c>-callback</c> attribute.</p>
+    <p>Callback functions that are optional for the user of the
+      behaviour to implement are specified by use of the
+      <c>-optional_callbacks</c> attribute:</p>
+
+<code type="none">
+-optional_callbacks([OptName1/OptArity1, ..., OptNameK/OptArityK]).</code>
+
+    <p>where each <c>OptName/OptArity</c> specifies the name and arity
+      of a callback function. Note that the <c>-optional_callbacks</c>
+      attribute is to be used together with the <c>-callback</c>
+      attribute; it cannot be combined with the
+      <c>behaviour_info()</c> function described below.</p>
+    <p>Tools that need to know about optional callback functions can
+      call <c>Behaviour:behaviour_info(optional_callbacks)</c> to get
+      a list of all optional callback functions.</p>
+
+    <note><p>We recommend using the <c>-callback</c> attribute rather
+      than the <c>behaviour_info()</c> function. The reason is that
+      the extra type information can be used by tools to produce
+      documentation or find discrepancies.</p></note>
+
+    <p>As an alternative to the <c>-callback</c> and
+      <c>-optional_callbacks</c> attributes you may directly implement
+      and export <c>behaviour_info()</c>:</p>
+
     <code type="none">
 behaviour_info(callbacks) ->
     [{Name1, Arity1},...,{NameN, ArityN}].</code>
-    <p>where each <c>{Name, Arity}</c> specifies the name and arity of a callback
-    function. This function is otherwise automatically generated by the compiler
-    using the <c>-callback</c> attributes.</p>
+
+    <p>where each <c>{Name, Arity}</c> specifies the name and arity of
+      a callback function. This function is otherwise automatically
+      generated by the compiler using the <c>-callback</c>
+      attributes.</p>
     <p>When the compiler encounters the module attribute
-    <c>-behaviour(Behaviour).</c> in a module <c>Mod</c>, it will call
-    <c>Behaviour:behaviour_info(callbacks)</c> and compare the result with the
-    set of functions actually exported from <c>Mod</c>, and issue a warning if
-    any callback function is missing.</p>
+      <c>-behaviour(Behaviour).</c> in a module <c>Mod</c>, it
+      calls <c>Behaviour:behaviour_info(callbacks)</c> and compares the
+      result with the set of functions actually exported from
+      <c>Mod</c>, and issues a warning if any callback function is
+      missing.</p>
     <p>Example:</p>
     <code type="none">
 %% User-defined behaviour module
 -module(simple_server).
--export([start_link/2,...]).
+-export([start_link/2, init/3, ...]).
 
 -callback init(State :: term()) -> 'ok'.
 -callback handle_req(Req :: term(), State :: term()) -> {'ok', Reply :: term()}.
 -callback terminate() -> 'ok'.
+-callback format_state(State :: term()) -> term().
+
+-optional_callbacks([format_state/1]).
 
 %% Alternatively you may define:
 %%

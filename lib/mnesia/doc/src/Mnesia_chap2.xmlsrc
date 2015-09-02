@@ -8,20 +8,21 @@
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
-      The contents of this file are subject to the Erlang Public License,
-      Version 1.1, (the "License"); you may not use this file except in
-      compliance with the License. You should have received a copy of the
-      Erlang Public License along with this software. If not, it can be
-      retrieved online at http://www.erlang.org/.
-    
-      Software distributed under the License is distributed on an "AS IS"
-      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-      the License for the specific language governing rights and limitations
-      under the License.
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
     
     </legalnotice>
 
-    <title>Getting Started with Mnesia</title>
+    <title>Getting Started</title>
     <prepared>Claes Wikstr&ouml;m, Hans Nilsson and H&aring;kan Mattsson</prepared>
     <responsible></responsible>
     <docno></docno>
@@ -31,27 +32,31 @@
     <rev>C</rev>
     <file>Mnesia_chap2.xml</file>
   </header>
-  <p>This chapter introduces Mnesia. Following a brief discussion
-    about the first  initial setup, a Mnesia database example is
-    demonstrated. This database example will be referenced in the
-    following chapters, where this example is modified in order to
-    illustrate various program constructs. In this chapter, the
-    following mandatory procedures are illustrated by examples: 
-    </p>
+    <marker id="getting_started"></marker>
+  <p>This section introduces <c>Mnesia</c> with an example database.
+    This example is referenced in the
+    following sections, where the example is modified to
+    illustrate various program constructs. This section illustrates
+    the following mandatory procedures through examples:</p>
   <list type="bulleted">
-    <item>Starting an Erlang session and specifying a directory for the 
-     Mnesia database.
+    <item>Starting the Erlang session.
     </item>
-    <item>Initializing a database schema.
+    <item>Specifying the <c>Mnesia</c> directory where the database
+      is to be stored.
     </item>
-    <item>Starting Mnesia and creating the required tables.</item>
+    <item>Initializing a new database schema with an attribute that
+      specifies on which node, or nodes, that database is to operate.
+    </item>
+    <item>Starting <c>Mnesia</c>.
+    </item>
+    <item>Creating and populating the database tables.
+    </item>
   </list>
 
   <section>
-    <title>Starting Mnesia for the first time</title>
-    <p>Following is a simplified demonstration of a Mnesia system startup.  This is the dialogue from the Erlang
-      shell:
-      </p>
+    <title>Starting Mnesia for the First Time</title>
+    <p>This section provides a simplified demonstration of a <c>Mnesia</c>
+      system startup. The dialogue from the Erlang shell is as follows:</p>
     <pre><![CDATA[
         unix>  erl -mnesia dir '"/tmp/funky"'
         Erlang (BEAM) emulator version 4.9
@@ -89,79 +94,62 @@
         0 transactions waits for other nodes: []
         ok      
     ]]></pre>
-    <p>In the example above the following actions were performed:
-      </p>
+    <p>In this example, the following actions are performed:</p>
     <list type="bulleted">
-      <item>The Erlang system was started from the UNIX prompt
-       with a flag <c>-mnesia dir '"/tmp/funky"'</c>. This flag indicates
-       to Mnesia which directory will  store the data.
+      <item><em>Step 1:</em> The Erlang system is started from the UNIX
+       prompt with a flag <c>-mnesia dir '"/tmp/funky"'</c>, which indicates
+       in which directory to store the data.
       </item>
-      <item>A new empty schema was initialized on the local node by evaluating 
-      <c>mnesia:create_schema([node()]).</c> The schema contains
-       information about the database in general. This will be
-       thoroughly explained  later on.
+      <item><em>Step 2:</em> A new empty schema is initialized on the local
+       node by evaluating
+       <seealso marker="mnesia#create_schema/1">mnesia:create_schema([node()])</seealso>.
+       The schema contains information about the database in general.
+       This is explained in detail later.
       </item>
-      <item>The DBMS was started by evaluating <c>mnesia:start()</c>.
+      <item><em>Step 3:</em> The DBMS is started by evaluating
+       <seealso marker="mnesia#start/0">mnesia:start()</seealso>.
       </item>
-      <item>A first table was created, called <c>funky</c> by evaluating
-       the expression <c>mnesia:create_table(funky, [])</c>. The table
-       was given default properties.
+      <item><em>Step 4:</em> A first table is created, called <c>funky</c>,
+       by evaluating the expression <c>mnesia:create_table(funky, [])</c>.
+       The table is given default properties.
       </item>
-      <item><c>mnesia:info()</c> was evaluated and subsequently displayed  
-       information regarding the status of the database on the terminal.
+      <item><em>Step 5:</em> <seealso marker="mnesia#info/0">mnesia:info()</seealso>
+       is evaluated to
+       display information on the terminal about the status of the database.
       </item>
     </list>
   </section>
 
   <section>
-    <title>An Introductory Example</title>
-    <p>A Mnesia database is organized as a set of tables.
+    <title>Example</title>
+    <p>A <c>Mnesia</c> database is organized as a set of tables.
       Each table is populated with instances (Erlang records).
-      A table also has a number of properties, such as location and
-      persistence.
-      </p>
-    <p>In this example we shall:
-      </p>
-    <list type="bulleted">
-      <item>Start an Erlang system, and specify the directory where
-       the database will be located. 
-      </item>
-      <item>Initiate a new schema with an attribute that specifies
-       on which node, or nodes, the database will operate. 
-      </item>
-      <item>Start Mnesia itself.
-      </item>
-      <item>Create and populate the database tables.
-      </item>
-    </list>
+      A table has also a number of properties, such as location and
+      persistence.</p>
 
     <section>
-      <title>The Example Database</title>
+      <title>Database</title>
     </section>
-    <p>In this database example, we will create the database and
-      relationships depicted in the following diagram. We will call this
-      database the <em>Company</em> database. 
-      </p>
+    <p>This example shows how to create a database called <c>Company</c>
+      and the relationships shown in the following diagram:</p>
     <image file="company.gif">
       <icaption>Company Entity-Relation Diagram</icaption>
     </image>
-    <p>The database model looks as follows:
-      </p>
+    <p>The database model is as follows:</p>
     <list type="bulleted">
-      <item>There are three entities: employee, project, and
-       department. 
+      <item>There are three entities: department, employee, and project.
       </item>
       <item>
         <p>There are three relationships between these entities:</p>
         <list type="ordered">
-          <item>A department is managed by an employee, hence the
-          <em>manager</em> relationship. 
+          <item>A department is managed by an employee,
+            hence the <c>manager</c> relationship.
           </item>
           <item>An employee works at a department, hence the
-          <em>at_dep</em> relationship. 
+            <c>at_dep</c> relationship.
           </item>
-          <item>Each employee works on a number of projects, hence
-           the <em>in_proj</em> relationship.
+          <item>Each employee works on a number of projects,
+            hence the <c>in_proj</c> relationship.
           </item>
         </list>
       </item>
@@ -169,35 +157,32 @@
 
     <section>
       <title>Defining Structure and Content</title>
-      <p>We first enter our record definitions into a text file
+      <p>First the record definitions are entered into a text file
         named <c>company.hrl</c>. This file defines the following
-        structure for our sample database: 
-        </p>
+        structure for the example database: </p>
       <codeinclude file="company.hrl" tag="%0" type="erl"></codeinclude>
-      <p>The structure defines six tables in our database. In Mnesia,
-        the function <c>mnesia:create_table(Name, ArgList)</c> is
-        used to create tables. <c>Name</c> is the  table
-        name  <em>Note:</em> The current version of Mnesia does 
-        not require that the name of the table is the same as the record
-        name, See  Chapter 4:
-        <seealso marker="Mnesia_chap4#recordnames_tablenames">Record Names Versus Table Names.</seealso></p>
-      <p>For example, the table
-        for employees will be created with the function
-        <c>mnesia:create_table(employee, [{attributes, record_info(fields, employee)}]).</c> The table
+      <p>The structure defines six tables in the database. In <c>Mnesia</c>,
+        the function
+        <seealso marker="mnesia#create_table/2">mnesia:create_table(Name, ArgList)</seealso>
+        creates tables. <c>Name</c> is the table name.</p>
+        <note><p>The current version of <c>Mnesia</c> does not require that
+        the name of the table is the same as the record name, see
+        <seealso marker="Mnesia_chap4#recordnames_tablenames">Record Names versus Table Names.</seealso>.</p></note>
+      <p>For example, the table for employees is created with the
+        function <c>mnesia:create_table(employee,
+        [{attributes, record_info(fields, employee)}])</c>. The table
         name <c>employee</c> matches the name for records specified
-        in <c>ArgList</c>. The expression <c>record_info(fields, RecordName)</c> is processed by the Erlang preprocessor and
-        evaluates to a list containing the names of the different
-        fields for a record. 
-        </p>
+        in <c>ArgList</c>. The expression
+        <c>record_info(fields, RecordName)</c> is processed by the Erlang
+        preprocessor and evaluates to a list containing the names of the
+        different fields for a record.</p>
     </section>
 
     <section>
-      <title>The Program</title>
-      <p>The following shell interaction starts Mnesia and
-        initializes the schema for our <c>company</c> database: 
-        </p>
+      <title>Program</title>
+      <p>The following shell interaction starts <c>Mnesia</c> and
+        initializes the schema for the <c>Company</c> database:</p>
       <pre>
-
         % <input>erl -mnesia dir '"/ldisc/scratch/Mnesia.Company"'</input>
          Erlang (BEAM) emulator version 4.9
           
@@ -205,37 +190,39 @@
           1> mnesia:create_schema([node()]).
           ok
           2> mnesia:start().
-          ok
-      </pre>
-      <p>The following program module  creates and populates previously defined tables:
-        </p>
+          ok</pre>
+      <p>The following program module creates and populates previously
+        defined tables:</p>
       <codeinclude file="company.erl" tag="%0" type="erl"></codeinclude>
     </section>
 
     <section>
-      <title>The Program Explained</title>
-      <p>The following commands and functions were used to initiate the 
-        Company database:
-        </p>
+      <title>Program Explained</title>
+      <p>The following commands and functions are used to initiate the
+        <c>Company</c> database:</p>
       <list type="bulleted">
-        <item><c>% erl -mnesia dir '"/ldisc/scratch/Mnesia.Company"'.</c> This is a UNIX
-         command line entry which starts the Erlang system. The flag
-        <c>-mnesia dir Dir</c> specifies the location of the
+        <item><c>% erl -mnesia dir '"/ldisc/scratch/Mnesia.Company"'</c>.
+         This is a UNIX
+         command-line entry that starts the Erlang system. The flag
+         <c>-mnesia dir Dir</c> specifies the location of the
          database directory. The system responds and waits for
-         further input with the prompt <em>1></em>. 
+         further input with the prompt <c>1></c>.
         </item>
-        <item><c>mnesia:create_schema([node()]).</c> This function
-         has the format <c>mnesia:create_schema(DiscNodeList)</c> and 
-         initiates a new schema. In this example, we have created a
-         non-distributed system using only one node. Schemas are fully
-         explained in Chapter 3:<seealso marker="Mnesia_chap3#def_schema">Defining a Schema</seealso>. 
+        <item>
+        <seealso marker="mnesia#create_schema/1">mnesia:create_schema([node()])</seealso>.
+         This function
+         has the format <c>mnesia:create_schema(DiscNodeList)</c> and
+         initiates a new schema. In this example, a non-distributed system
+         using only one node is created. Schemas are fully explained in
+         <seealso marker="Mnesia_chap3#def_schema">Define a Schema</seealso>.
         </item>
-        <item><c>mnesia:start().</c> This function starts
-         Mnesia. This function is fully explained in Chapter 3:
-        <seealso marker="Mnesia_chap3#start_mnesia">Starting Mnesia</seealso>.
+        <item><seealso marker="mnesia#start/0">mnesia:start()</seealso>.
+         This function starts <c>Mnesia</c> and is fully explained in
+         <seealso marker="Mnesia_chap3#start_mnesia">Start Mnesia</seealso>.
         </item>
       </list>
-      <p>Continuing the dialogue with the Erlang shell will produce the following:</p>
+      <p>Continuing the dialogue with the Erlang shell produces the
+        following:</p>
       <pre><![CDATA[
         3> company:init().
         {atomic,ok}
@@ -271,63 +258,58 @@
         0 transactions waits for other nodes: []
         ok
       ]]></pre>
-      <p>A set of tables is created:
-        </p>
-      <list type="bulleted">
-        <item><c>mnesia:create_table(Name,ArgList)</c>. This
-         function is used to create the required database tables. The
-         options available with <c>ArgList</c> are explained in
-         Chapter 3: <seealso marker="Mnesia_chap3#create_tables">Creating New Tables</seealso>. </item>
-      </list>
-      <p>The <c>company:init/0</c> function creates our tables. Two tables are
-        of type <c>bag</c>. This is the <c>manager</c> relation as well
-        the <c>in_proj</c> relation. This shall be interpreted as: An
+      <p>A set of tables is created. The function
+        <seealso marker="mnesia#create_table/2">mnesia:create_table(Name, ArgList)</seealso>
+        creates the required database tables. The
+        options available with <c>ArgList</c> are explained in
+        <seealso marker="Mnesia_chap3#create_tables">Create New Tables</seealso>.</p>
+      <p>The function <c>company:init/0</c> creates the tables. Two tables
+        are of type <c>bag</c>. This is the <c>manager</c> relation as well
+        the <c>in_proj</c> relation. This is interpreted as: an
         employee can be manager over several departments, and an employee
         can participate in several projects. However, the <c>at_dep</c>
-        relation is <c>set</c> because an employee can only work in one department.
-        In this data model we have examples of relations that are one-to-one (<c>set</c>),
-        as well as one-to-many (<c>bag</c>).
-        </p>
-      <p><c>mnesia:info()</c> now indicates that a database
-        which has seven local tables, of which, six are our
-        user defined tables and one is the schema.
-        Six transactions have been committed, as six successful transactions were run when
-        creating the tables. 
-        </p>
-      <p>To write a function which inserts an employee record into the database, there must be an 
-        <c>at_dep</c> record and a set of <c>in_proj</c> records inserted. Examine the following
-        code used to complete this action:
-        </p>
-      <codeinclude file="company.erl" tag="%1" type="erl"></codeinclude>
+        relation is <c>set</c>, as an employee can only work in one department.
+        In this data model, there are examples of relations that are 1-to-1
+        (<c>set</c>) and  1-to-many (<c>bag</c>).</p>
+      <p><seealso marker="mnesia#info/0">mnesia:info()</seealso>
+        now indicates that a database has seven
+        local tables, where six are the user-defined tables and one is
+        the schema. Six transactions have been committed, as six successful
+        transactions were run when creating the tables.</p>
+      <p>To write a function that inserts an employee record into the
+        database, there must be an <c>at_dep</c> record and a set of
+        <c>in_proj</c> records inserted. Examine the following
+        code used to complete this action:</p>
+     <codeinclude file="company.erl" tag="%1" type="erl"></codeinclude>
       <list type="bulleted">
         <item>
-          <p><c>insert_emp(Emp, DeptId, ProjNames) -></c>. The
-            <c>insert_emp/3</c> arguments are:</p>
+          <p>The <c>insert_emp/3</c> arguments are as follows:</p>
           <list type="ordered">
             <item><c>Emp</c> is an employee record.
             </item>
-            <item><c>DeptId</c> is the identity of the department where the employee is working.
+            <item><c>DeptId</c> is the identity of the department where
+             the employee works.
             </item>
-            <item><c>ProjNames</c> is a list of the names of the projects where the employee are working.</item>
+            <item><c>ProjNames</c> is a list of the names of the projects
+             where the employee works.</item>
           </list>
         </item>
       </list>
-      <p>The <c>insert_emp(Emp, DeptId, ProjNames) -></c> function
-        creates a <em>functional object</em>. Functional objects
-        are identified by the term <c>Fun</c>. The Fun is passed
+      <p>The function <c>insert_emp/3</c> creates a Functional Object (Fun).
+        <c>Fun</c> is passed
         as a single argument to the function
-        <c>mnesia:transaction(Fun)</c>. This means that Fun is
-        run as a transaction with the following properties: 
-        </p>
+        <seealso marker="mnesia#transaction/2">mnesia:transaction(Fun)</seealso>.
+        This means that <c>Fun</c> is
+        run as a transaction with the following properties:</p>
       <list type="bulleted">
-        <item>Fun either succeeds or fails completely.
+        <item>A <c>Fun</c> either succeeds or fails.
         </item>
-        <item>Code which manipulates the same data records can be
+        <item>Code that manipulates the same data records can be
          run concurrently without the different processes interfering
          with each other. 
         </item>
       </list>
-      <p>The function can be used as:</p>
+      <p>The function can be used as follows:</p>
       <code type="none">
           Emp  = #employee{emp_no= 104732,
                            name = klacke,
@@ -335,20 +317,17 @@
                            sex = male,
                            phone = 98108,
                            room_no = {221, 015}},
-        insert_emp(Me, 'B/SFR', [Erlang, mnesia, otp]).
-      </code>
-      <note>
-        <p>Functional Objects (Funs) are described  in the
-          Erlang Reference Manual, "Fun Expressions". 
-          </p>
+        insert_emp(Me, 'B/SFR', [Erlang, mnesia, otp]).</code>
+      <note><p>For information about Funs, see "Fun Expressions" in
+        section <c>Erlang Reference Manual</c> in System
+        Documentation..</p>
       </note>
     </section>
 
     <section>
       <title>Initial Database Content</title>
-      <p>After the insertion of the  employee named <c>klacke</c>
-        we have the following records in the database: 
-        </p>
+      <p>After the insertion of the  employee named <c>klacke</c>,
+        the databse has the following records:</p>
       <marker id="table2_1"></marker>
       <table>
         <row>
@@ -364,14 +343,14 @@
           <cell align="left" valign="middle">klacke</cell>
           <cell align="left" valign="middle">7</cell>
           <cell align="left" valign="middle">male</cell>
-          <cell align="left" valign="middle">99586</cell>
+          <cell align="left" valign="middle">98108</cell>
           <cell align="left" valign="middle">{221, 015}</cell>
         </row>
-        <tcaption>        
-Employee</tcaption>      
+        <tcaption>employee Database Record</tcaption>
       </table>
-      <p>An employee record has the following Erlang record/tuple
-        representation: <c>{employee, 104732, klacke, 7, male, 98108, {221, 015}}</c></p>
+      <p>This <c>employee</c> record has the Erlang record/tuple
+        representation
+        <c>{employee, 104732, klacke, 7, male, 98108, {221, 015}}</c>.</p>
       <marker id="table2_2"></marker>
       <table>
         <row>
@@ -382,12 +361,10 @@ Employee</tcaption>
           <cell align="left" valign="middle">klacke</cell>
           <cell align="left" valign="middle">B/SFR</cell>
         </row>
-        <tcaption>        
-At_dep</tcaption>
+        <tcaption>at_dep Database Record</tcaption>
       </table>
-      <p>At_dep has the following Erlang tuple representation:
-        <c>{at_dep, klacke, 'B/SFR'}</c>. 
-        </p>
+      <p>This <c>at_dep</c> record has the Erlang tuple representation
+        <c>{at_dep, klacke, 'B/SFR'}</c>.</p>
       <marker id="table3_3"></marker>
       <table>
         <row>
@@ -406,39 +383,36 @@ At_dep</tcaption>
           <cell align="left" valign="middle">klacke</cell>
           <cell align="left" valign="middle">mnesia</cell>
         </row>
-        <tcaption>
-In_proj</tcaption>
+        <tcaption>in_proj Database Record</tcaption>
       </table>
-      <p>In_proj has the following Erlang tuple representation:
-        <c>{in_proj, klacke, 'Erlang', klacke, 'otp', klacke, 'mnesia'}</c></p>
-      <p>There is no difference between rows in a table and Mnesia
-        records. Both concepts are the same and will be used
-        interchangeably throughout this book. 
-        </p>
-      <p>A Mnesia table is populated by Mnesia records. For example,
-        the tuple <c>{boss, klacke, bjarne}</c> is a record.  The
-        second element in this tuple is the key. In order to uniquely
-        identify a table row both the key and the table name is
-        needed. The term <em>object identifier</em>, 
-        (oid) is sometimes used for the arity two tuple {Tab, Key}. The oid for
-        the <c>{boss, klacke, bjarne}</c> record is the arity two
+      <p>This <c>in_proj</c> record has the Erlang tuple representation
+        <c>{in_proj, klacke, 'Erlang', klacke, 'otp', klacke,
+        'mnesia'}</c>.</p>
+      <p>There is no difference between rows in a table and <c>Mnesia</c>
+        records. Both concepts are the same and are used
+        interchangeably throughout this User's Guide.</p>
+      <p>A <c>Mnesia</c> table is populated by <c>Mnesia</c> records. For
+        example, the tuple <c>{boss, klacke, bjarne}</c> is a record. The
+        second element in this tuple is the key. To identify a table
+        uniquely, both the key and the table name is needed.
+        The term Object Identifier (OID) is
+        sometimes used for the arity two tuple {Tab, Key}. The OID for
+        the record <c>{boss, klacke, bjarne}</c> is the arity two
         tuple <c>{boss, klacke}</c>. The first element of the tuple is
         the type of the record and the second element is the key. An
-        oid can lead to zero, one, or more records depending on
-        whether the table type is <c>set</c> or <c>bag</c>.
-        </p>
-      <p>We were also able to insert the <c>{boss, klacke, bjarne}</c> record which contains an implicit reference to
-        another employee which does not yet exist in the
-        database. Mnesia does not enforce this. 
-        </p>
+        OID can lead to zero, one, or more records depending on
+        whether the table type is <c>set</c> or <c>bag</c>.</p>
+      <p>The record <c>{boss, klacke, bjarne}</c> can also be inserted.
+        This record contains an implicit reference to
+        another employee that does not yet exist in the
+        database. <c>Mnesia</c> does not enforce this.</p>
     </section>
 
     <section>
-      <title>Adding Records and Relationships to the Database</title>
-      <p>After adding additional record to the Company database, we
-        may end up with the following records: 
-        </p>
-      <p><em>Employees</em></p>
+      <title>Adding Records and Relationships to Database</title>
+      <p>After adding more records to the <c>Company</c> database, the
+        result can be the following records:</p>
+      <p><c>employees</c>:</p>
       <code type="none">
         {employee, 104465, "Johnson Torbjorn",   1, male,  99184, {242,038}}.
         {employee, 107912, "Carlsson Tuula",     2, female,94556, {242,056}}.
@@ -447,16 +421,13 @@ In_proj</tcaption>
         {employee, 104659, "Tornkvist Torbjorn", 2, male,  99514, {222,022}}.
         {employee, 104732, "Wikstrom Claes",     2, male,  99586, {221,015}}.
         {employee, 117716, "Fedoriw Anna",       1, female,99143, {221,031}}.
-        {employee, 115018, "Mattsson Hakan",     3, male,  99251, {203,348}}.
-      </code>
-      <p><em>Dept</em></p>
+        {employee, 115018, "Mattsson Hakan",     3, male,  99251, {203,348}}.</code>
+      <p><c>dept</c>:</p>
       <code type="none">
-
         {dept, 'B/SF',  "Open Telecom Platform"}.
         {dept, 'B/SFP', "OTP - Product Development"}.
-        {dept, 'B/SFR', "Computer Science Laboratory"}.
-      </code>
-      <p><em>Projects</em></p>
+        {dept, 'B/SFR', "Computer Science Laboratory"}.</code>
+      <p><c>projects</c>:</p>
       <code type="none">
         %% projects
         {project, erlang, 1}.
@@ -465,23 +436,19 @@ In_proj</tcaption>
         {project, mnesia, 5}.
         {project, wolf, 6}.
         {project, documentation, 7}.
-        {project, www, 8}.
-      </code>
-      <p>The above three tables, titled <c>employees</c>,
-        <c>dept</c>, and <c>projects</c>, are the tables which are
+        {project, www, 8}.</code>
+      <p>These three tables, <c>employees</c>, <c>dept</c>, and
+        <c>projects</c>, are
         made up of real records. The following database content is
-        stored in the tables which is built on
-        relationships. These tables are titled <c>manager</c>,
-        <c>at_dep</c>, and <c>in_proj</c>.  
-        </p>
-      <p><em>Manager</em></p>
+        stored in the tables and is built on
+        relationships. These tables are <c>manager</c>,
+        <c>at_dep</c>, and <c>in_proj</c>.</p>
+      <p><c>manager</c>:</p>
       <code type="none">
-
         {manager, 104465, 'B/SF'}.
         {manager, 104465, 'B/SFP'}.
-        {manager, 114872, 'B/SFR'}.
-      </code>
-      <p><em>At_dep</em></p>
+        {manager, 114872, 'B/SFR'}.</code>
+      <p><c>at_dep</c>:</p>
       <code type="none">
         {at_dep, 104465, 'B/SF'}.
         {at_dep, 107912, 'B/SF'}.
@@ -490,9 +457,8 @@ In_proj</tcaption>
         {at_dep, 104659, 'B/SFR'}.
         {at_dep, 104732, 'B/SFR'}.
         {at_dep, 117716, 'B/SFP'}.
-        {at_dep, 115018, 'B/SFP'}.
-      </code>
-      <p><em>In_proj</em></p>
+        {at_dep, 115018, 'B/SFP'}.</code>
+      <p><c>in_proj</c>:</p>
       <code type="none">
         {in_proj, 104465, otp}.
         {in_proj, 107912, otp}.
@@ -508,136 +474,118 @@ In_proj</tcaption>
         {in_proj, 117716, otp}.
         {in_proj, 117716, documentation}.
         {in_proj, 115018, otp}.
-        {in_proj, 115018, mnesia}.
-      </code>
+        {in_proj, 115018, mnesia}.</code>
       <p>The room number is an attribute of the employee
-        record. This is a structured attribute which consists of a
+        record. This is a structured attribute that consists of a
         tuple. The first element of the tuple identifies a corridor,
-        and the second element identifies the actual room in the
-        corridor. We could have chosen to represent this as a record
+        and the second element identifies the room in that
+        corridor. An alternative is to represent this as a record
         <c>-record(room, {corr, no}).</c> instead of an anonymous
-        tuple representation.  
-        </p>
-      <p>The Company database is now initialized and contains
-        data. </p>
+        tuple representation.</p>
+      <p>The <c>Company</c> database is now initialized and contains
+        data.</p>
     </section>
 
     <section>
       <title>Writing Queries</title>
-      <p>Retrieving data from DBMS should usually be done with <c>mnesia:read/3</c> or
-        <c>mnesia:read/1</c> functions. The following function raises the salary:</p>
+      <p>Retrieving data from DBMS is usually to be done with the
+        functions
+        <seealso marker="mnesia#read/3">mnesia:read/3</seealso> or
+        <seealso marker="mnesia#read/2">mnesia:read/1</seealso>.
+        The following function raises the salary:</p>
       <codeinclude file="company.erl" tag="%5" type="erl"></codeinclude>
-      <p>Since we want to update the record using <c>mnesia:write/1</c> after we have 
-        increased the salary we acquire a write lock (third argument to read) when we read the 
-        record from the table.
-        </p>
-      <p>It is not always the case that we can directly read the values from the table, 
-        we might need to search the table or several tables to get the data we want, this 
-        is done by writing database queries. Queries are always more expensive operations 
-        than direct lookups done with <c>mnesia:read</c> and should be avoided in performance 
-        critical code.</p>
-      <p>There are two methods for writing database queries:
-        </p>
+      <p>Since it is desired to update the record using the function
+        <seealso marker="mnesia#write/1">mnesia:write/1</seealso>
+        after the salary has been increased, a write
+        lock (third argument to <c>read</c>) is acquired when the record from
+        the table is read.</p>
+      <p>To read the values from the table directly is not always possible.
+        It can be needed to search one or more tables to get the
+        wanted data, and this is done by writing database queries. Queries
+        are always more expensive operations than direct lookups done with
+        <c>mnesia:read</c>. Therefore, avoid queries in
+        performance-critical code.</p>
+      <p>Two methods are available for writing database queries:</p>
       <list type="bulleted">
-        <item>Mnesia functions
-        </item>
+        <item><c>Mnesia</c> functions</item>
         <item>QLC</item>
       </list>
 
       <section>
-        <title>Mnesia functions </title>
-        <p></p>
+        <title>Using Mnesia Functions</title>
         <p>The following function extracts the names of the female employees
-          stored in the database: 
-          </p>
+          stored in the database:</p>
         <pre>
-mnesia:select(employee, [{#employee{sex = female, name = '$1', _ = '_'},[], ['$1']}]).
-        </pre>
-        <p>Select must always run within an activity such as a
-          transaction. To be able to call from the shell we might
-          construct a function as:
-          </p>
+mnesia:select(employee, [{#employee{sex = female, name = '$1', _ = '_'},[], ['$1']}]).</pre>
+        <p><c>select</c> must always run within an activity, such as a
+          transaction. The following function can be constructed to call
+          from the shell:</p>
         <codeinclude file="company.erl" tag="%20" type="erl"></codeinclude>
-        <p>The select expression matches all entries in table employee with
-          the field sex set to female.
-          </p>
-        <p>This function can be called from the shell as follows:
-          </p>
+        <p>The <c>select</c> expression matches all entries in table
+          employee with the field <c>sex</c> set to <c>female</c>.</p>
+        <p>This function can be called from the shell as follows:</p>
         <pre>
           (klacke@gin)1> <input>company:all_females().</input>
-          {atomic,  ["Carlsson Tuula", "Fedoriw Anna"]}
-        </pre>
-        <p>See also the <seealso marker="Mnesia_chap4#matching">Pattern Matching </seealso>
-          chapter for a description of select and its syntax.
-          </p>
+          {atomic,  ["Carlsson Tuula", "Fedoriw Anna"]}</pre>
+        <p>For a description of <c>select</c> and its syntax, see
+          <seealso marker="Mnesia_chap4#matching">Pattern Matching</seealso>.
+	</p>
       </section>
 
       <section>
         <title>Using QLC </title>
-        <p>This section contains simple introductory examples
-          only. Refer to <em>QLC reference manual</em> for a
-          full description of the QLC query language. Using QLC 
-          might be more expensive than using Mnesia functions directly but 
-          offers a nice syntax.
-          </p>
+        <p>This section contains simple introductory examples only. For
+          a full description of the QLC query language, see the
+          <seealso marker="stdlib:qlc">qlc</seealso> manual page in
+          <c>STDLIB</c>.</p>
+        <p>Using QLC can be more expensive than using <c>Mnesia</c>
+          functions directly but offers a nice syntax.</p>
         <p>The following function extracts a list of female employees
-          from the database: 
-          </p>
+          from the database:</p>
         <pre>
           Q = qlc:q([E#employee.name || E <![CDATA[<-]]> mnesia:table(employee),
                                 E#employee.sex == female]),
-          qlc:e(Q),
-        </pre>
-        <p>Accessing mnesia tables from a QLC list comprehension must
+          qlc:e(Q),</pre>
+        <p>Accessing <c>Mnesia</c> tables from a QLC list comprehension must
           always be done within a transaction. Consider the following
-          function:
-          </p>
+          function:</p>
         <codeinclude file="company.erl" tag="%2" type="erl"></codeinclude>
-        <p>This function can be called from the shell as follows:
-          </p>
+        <p>This function can be called from the shell as follows:</p>
         <pre>
           (klacke@gin)1> <input>company:females().</input>
-          {atomic, ["Carlsson Tuula", "Fedoriw Anna"]}
-        </pre>
-        <p>In traditional relational database terminology, the above
-          operation would be called a selection, followed by a projection. 
-          </p>
-        <p>The list comprehension expression shown above contains a
-          number of syntactical elements.  
-          </p>
+          {atomic, ["Carlsson Tuula", "Fedoriw Anna"]}</pre>
+        <p>In traditional relational database terminology, this
+          operation is called a selection, followed by a projection.</p>
+        <p>The previous list comprehension expression contains a
+          number of syntactical elements:</p>
         <list type="bulleted">
-          <item>the first <c>[</c> bracket should be read as "build the
-           list" 
+          <item>The first <c>[</c> bracket is read as "build the
+           list".
           </item>
-          <item>the <c>||</c> "such that" and the arrow <c><![CDATA[<-]]></c> should
-           be read as "taken from" 
+          <item>The <c>||</c> "such that" and the arrow <c><![CDATA[<-]]></c>
+           is read as "taken from".
           </item>
         </list>
-        <p>Hence, the above list comprehension demonstrates the
-          formation of the list  <c>E#employee.name</c> such that  <c>E</c> is
-          taken from the table of employees and the <c>sex</c> attribute
-          of each records is equal with the atom <c>female</c>. 
-          </p>
-        <p>The whole list comprehension must be given to the
-          <c>qlc:q/1</c> function.
-          </p>
-        <p>It is possible to combine list comprehensions with low
-          level Mnesia functions in the same transaction. If we want to
-          raise the salary of all female employees we execute: 
-          </p>
+        <p>Hence, the previous list comprehension demonstrates the
+          formation of the list <c>E#employee.name</c> such that <c>E</c> is
+          taken from the table of employees, and attribute <c>sex</c>
+          of each record is equal to the atom <c>female</c>.</p>
+        <p>The whole list comprehension must be given to the function
+          <c>qlc:q/1</c>.</p>
+        <p>List comprehensions with low-level <c>Mnesia</c> functions
+          can be combined in the same transaction. To raise the
+          salary of all female employees, execute the following:</p>
         <codeinclude file="company.erl" tag="%4" type="erl"></codeinclude>
         <p>The function <c>raise_females/1</c> returns the tuple
           <c>{atomic, Number}</c>, where <c>Number</c> is the number of
-          female employees who received a salary increase. Should an error
-          occur, the value <c>{aborted, Reason}</c> is returned. In the
-          case of an error, Mnesia guarantees that the salary is not
-          raised for any employees at all. 
-          </p>
+          female employees who received a salary increase. If an error
+          occurs, the value <c>{aborted, Reason}</c> is returned, and
+          <c>Mnesia</c> guarantees that the salary is not
+          raised for any employee.</p>
+        <p><em>Example:</em></p>
         <pre>
-
           33><input>company:raise_females(33).</input>
-          {atomic,2}
-        </pre>
+          {atomic,2}</pre>
       </section>
     </section>
   </section>

@@ -3,16 +3,17 @@
  *
  * Copyright Ericsson AB 1998-2013. All Rights Reserved.
  *
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  * %CopyrightEnd%
  */
@@ -297,8 +298,8 @@ erts_debug_disassemble_1(BIF_ALIST_1)
     (void) erts_bld_uword(NULL, &hsz, (BeamInstr) code_ptr);
     hp = HAlloc(p, hsz);
     addr = erts_bld_uword(&hp, NULL, (BeamInstr) code_ptr);
-    ASSERT(is_atom(funcinfo[0]));
-    ASSERT(is_atom(funcinfo[1]));
+    ASSERT(is_atom(funcinfo[0]) || funcinfo[0] == NIL);
+    ASSERT(is_atom(funcinfo[1]) || funcinfo[1] == NIL);
     mfa = TUPLE3(hp, (Eterm) funcinfo[0], (Eterm) funcinfo[1], make_small((Eterm) funcinfo[2]));
     hp += 4;
     return TUPLE3(hp, addr, bin, mfa);
@@ -579,9 +580,29 @@ print_op(int to, void *to_arg, int op, int size, BeamInstr* addr)
     unpacked = ap;
     ap = addr + size;
     switch (op) {
-    case op_i_select_val_rfI:
-    case op_i_select_val_xfI:
-    case op_i_select_val_yfI:
+    case op_i_select_val_lins_rfI:
+    case op_i_select_val_lins_xfI:
+    case op_i_select_val_lins_yfI:
+	{
+	    int n = ap[-1];
+	    int ix = n;
+
+	    while (ix--) {
+		erts_print(to, to_arg, "%T ", (Eterm) ap[0]);
+		ap++;
+		size++;
+	    }
+	    ix = n;
+	    while (ix--) {
+		erts_print(to, to_arg, "f(" HEXF ") ", (Eterm) ap[0]);
+		ap++;
+		size++;
+	    }
+	}
+	break;
+    case op_i_select_val_bins_rfI:
+    case op_i_select_val_bins_xfI:
+    case op_i_select_val_bins_yfI:
 	{
 	    int n = ap[-1];
 
@@ -596,18 +617,28 @@ print_op(int to, void *to_arg, int op, int size, BeamInstr* addr)
     case op_i_select_tuple_arity_rfI:
     case op_i_select_tuple_arity_xfI:
     case op_i_select_tuple_arity_yfI:
-	{
-	    int n = ap[-1];
+        {
+            int n = ap[-1];
+            int ix = n - 1; /* without sentinel */
 
-	    while (n > 0) {
-		Uint arity = arityval(ap[0]);
-		erts_print(to, to_arg, " {%d} f(" HEXF ")", arity, ap[1]);
-		ap += 2;
-		size += 2;
-		n--;
-	    }
-	}
-	break;
+            while (ix--) {
+                Uint arity = arityval(ap[0]);
+                erts_print(to, to_arg, "{%d} ", arity, ap[1]);
+                ap++;
+                size++;
+            }
+            /* print sentinel */
+            erts_print(to, to_arg, "{%T} ", ap[0], ap[1]);
+            ap++;
+            size++;
+            ix = n;
+            while (ix--) {
+                erts_print(to, to_arg, "f(" HEXF ") ", ap[0]);
+                ap++;
+                size++;
+            }
+        }
+        break;
     case op_i_jump_on_val_rfII:
     case op_i_jump_on_val_xfII:
     case op_i_jump_on_val_yfII:
@@ -635,16 +666,40 @@ print_op(int to, void *to_arg, int op, int size, BeamInstr* addr)
     case op_i_put_tuple_rI:
     case op_i_put_tuple_xI:
     case op_i_put_tuple_yI:
-    case op_new_map_jdII:
+    case op_new_map_dII:
     case op_update_map_assoc_jsdII:
     case op_update_map_exact_jsdII:
-    case op_i_has_map_fields_fsI:
-    case op_i_get_map_elements_fsI:
 	{
 	    int n = unpacked[-1];
 
 	    while (n > 0) {
 		if (!is_header(ap[0])) {
+		    erts_print(to, to_arg, " %T", (Eterm) ap[0]);
+		} else {
+		    switch ((ap[0] >> 2) & 0x03) {
+		    case R_REG_DEF:
+			erts_print(to, to_arg, " x(0)");
+			break;
+		    case X_REG_DEF:
+			erts_print(to, to_arg, " x(%d)", ap[0] >> 4);
+			break;
+		    case Y_REG_DEF:
+			erts_print(to, to_arg, " y(%d)", ap[0] >> 4);
+			break;
+		    }
+		}
+		ap++, size++, n--;
+	    }
+	}
+	break;
+    case op_i_get_map_elements_fsI:
+	{
+	    int n = unpacked[-1];
+
+	    while (n > 0) {
+		if (n % 3 == 1) {
+		    erts_print(to, to_arg, " %X", ap[0]);
+		} else if (!is_header(ap[0])) {
 		    erts_print(to, to_arg, " %T", (Eterm) ap[0]);
 		} else {
 		    switch ((ap[0] >> 2) & 0x03) {

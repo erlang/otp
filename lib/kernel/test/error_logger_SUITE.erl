@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 1996-2011. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -32,7 +33,7 @@
 	 error_report/1, info_report/1, error/1, info/1,
 	 emulator/1, tty/1, logfile/1, add/1, delete/1]).
 
--export([generate_error/0]).
+-export([generate_error/2]).
 
 -export([init/1,
 	 handle_event/2, handle_call/2, handle_info/2,
@@ -210,13 +211,16 @@ emulator(suite) -> [];
 emulator(doc) -> [];
 emulator(Config) when is_list(Config) ->
     ?line error_logger:add_report_handler(?MODULE, self()),
-    spawn(?MODULE, generate_error, []),
-    reported(emulator),
+    Msg = "Error in process ~p on node ~p with exit value:~n~p~n",
+    Error = {badmatch,4},
+    Stack = [{module, function, 2, []}],
+    Pid = spawn(?MODULE, generate_error, [Error, Stack]),
+    reported(error, Msg, [Pid, node(), {Error, Stack}]),
     ?line my_yes = error_logger:delete_report_handler(?MODULE),
     ok.
 
-generate_error() ->
-    erlang:error({badmatch,4}).
+generate_error(Error, Stack) ->
+    erlang:raise(error, Error, Stack).
 
 %%-----------------------------------------------------------------
 %% We don't enables or disables tty error logging here. We do not
@@ -277,15 +281,6 @@ delete(Config) when is_list(Config) ->
 reported(Tag, Type, Report) ->
     receive
 	{Tag, Type, Report} ->
-	    test_server:messages_get(),
-	    ok
-    after 1000 ->
-	    test_server:fail(no_report_received)
-    end.
-
-reported(emulator) ->
-    receive
-	{error, "~s~n", String} when is_list(String) ->
 	    test_server:messages_get(),
 	    ok
     after 1000 ->

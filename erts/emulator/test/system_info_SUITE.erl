@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 2005-2011. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -263,6 +264,37 @@ memory_test(_Config) ->
 		     end,
 		     []),
     cmp_memory(MWs, "unlink procs"),
+
+    mem_workers_call(MWs, 
+		     fun () ->
+			     lists:foreach(
+			       fun (P) ->
+				       Tmr = erlang:start_timer(1 bsl 34,
+								P,
+								hello),
+				       Tmrs = case get('BIF_TMRS') of
+						  undefined -> [];
+						  Rs -> Rs
+					      end,
+				       true = is_reference(Tmr),
+				       put('BIF_TMRS', [Tmr|Tmrs])
+			       end, Ps)
+		     end,
+		     []),
+    cmp_memory(MWs, "start BIF timer procs"),
+
+    mem_workers_call(MWs, 
+		     fun () ->
+			     lists:foreach(fun (Tmr) ->
+						   true = is_reference(Tmr),
+						   true = is_integer(erlang:cancel_timer(Tmr))
+					   end, get('BIF_TMRS')),
+			     put('BIF_TMRS', undefined),
+			     garbage_collect()
+		     end,
+		     []),
+    erts_debug:set_internal_state(wait, deallocations),
+    cmp_memory(MWs, "cancel BIF timer procs"),
 
     DMs = mem_workers_call(MWs,
 			   fun () ->
@@ -533,16 +565,13 @@ get_ets_limit(Config, EtsMax) ->
 
 start_node(Config, Envs) when is_list(Config) ->
     Pa = filename:dirname(code:which(?MODULE)),
-    {A, B, C} = now(),
     Name = list_to_atom(atom_to_list(?MODULE)
                         ++ "-"
                         ++ atom_to_list(?config(testcase, Config))
                         ++ "-"
-                        ++ integer_to_list(A)
+                        ++ integer_to_list(erlang:system_time(seconds))
                         ++ "-"
-                        ++ integer_to_list(B)
-                        ++ "-"
-                        ++ integer_to_list(C)),
+                        ++ integer_to_list(erlang:unique_integer([positive]))),
     ?t:start_node(Name, peer, [{args, "-pa "++Pa}, {env, Envs}]).
 
 stop_node(Node) ->

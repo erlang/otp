@@ -4,20 +4,21 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2013</year>
+      <year>1996</year><year>2015</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
-      The contents of this file are subject to the Erlang Public License,
-      Version 1.1, (the "License"); you may not use this file except in
-      compliance with the License. You should have received a copy of the
-      Erlang Public License along with this software. If not, it can be
-      retrieved online at http://www.erlang.org/.
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
 
-      Software distributed under the License is distributed on an "AS IS"
-      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-      the License for the specific language governing rights and limitations
-      under the License.
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
 
     </legalnotice>
 
@@ -120,7 +121,7 @@
           <c>string(<anno>String</anno>,
           <anno>StartLocation</anno>, [])</c>.</p>
         <p><c><anno>StartLocation</anno></c> indicates the initial location
-          when scanning starts. If <c><anno>StartLocation</anno></c> is a line
+          when scanning starts. If <c><anno>StartLocation</anno></c> is a line,
           <c>attributes()</c> as well as <c><anno>EndLocation</anno></c> and
           <c><anno>ErrorLocation</anno></c> will be lines. If
           <c><anno>StartLocation</anno></c> is a pair of a line and a column
@@ -132,8 +133,12 @@
           line where the token begins, as well as the text of the
           token (if the <c>text</c> option is given), all of which can
           be accessed by calling <seealso
-          marker="#token_info/1">token_info/1,2</seealso> or <seealso
-          marker="#attributes_info/1">attributes_info/1,2</seealso>.</p>
+          marker="#token_info/1">token_info/1,2</seealso>, <seealso
+          marker="#attributes_info/1">attributes_info/1,2</seealso>,
+          <seealso marker="#column/1">column/1</seealso>,
+          <seealso marker="#line/1">line/1</seealso>,
+          <seealso marker="#location/1">location/1</seealso>, and
+          <seealso marker="#text/1">text/1</seealso>.</p>
         <p>A <em>token</em> is a tuple containing information about
           syntactic category, the token attributes, and the actual
           terminal symbol. For punctuation characters (e.g. <c>;</c>,
@@ -234,6 +239,70 @@
       <desc>
         <p>Returns <c>true</c> if <c><anno>Atom</anno></c> is an Erlang
          reserved word, otherwise <c>false</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="category" arity="1"/>
+      <fsummary>Return the category</fsummary>
+      <desc>
+        <p>Returns the category of <c><anno>Token</anno></c>.
+        </p>
+      </desc>
+    </func>
+    <func>
+      <name name="symbol" arity="1"/>
+      <fsummary>Return the symbol</fsummary>
+      <desc>
+        <p>Returns the symbol of <c><anno>Token</anno></c>.
+        </p>
+      </desc>
+    </func>
+    <func>
+      <name name="column" arity="1"/>
+      <fsummary>Return the column</fsummary>
+      <desc>
+        <p>Returns the column of <c><anno>Token</anno></c>'s
+          collection of annotations.
+        </p>
+      </desc>
+    </func>
+    <func>
+      <name name="end_location" arity="1"/>
+      <fsummary>Return the end location of the text</fsummary>
+      <desc>
+        <p>Returns the end location of the text of
+          <c><anno>Token</anno></c>'s collection of annotations. If
+            there is no text,
+          <c>undefined</c> is returned.
+        </p>
+      </desc>
+    </func>
+    <func>
+      <name name="line" arity="1"/>
+      <fsummary>Return the line</fsummary>
+      <desc>
+        <p>Returns the line of <c><anno>Token</anno></c>'s collection
+          of annotations.
+        </p>
+      </desc>
+    </func>
+    <func>
+      <name name="location" arity="1"/>
+      <fsummary>Return the location</fsummary>
+      <desc>
+        <p>Returns the location of <c><anno>Token</anno></c>'s
+          collection of annotations.
+        </p>
+      </desc>
+    </func>
+    <func>
+      <name name="text" arity="1"/>
+      <fsummary>Return the text</fsummary>
+      <desc>
+        <p>Returns the text of <c><anno>Token</anno></c>'s collection
+        of annotations. If there is no text, <c>undefined</c> is
+        returned.
+        </p>
       </desc>
     </func>
     <func>
@@ -417,6 +486,7 @@ Module:format_error(ErrorDescriptor)</code>
   <section>
     <title>See Also</title>
     <p><seealso marker="io">io(3)</seealso>,
-      <seealso marker="erl_parse">erl_parse(3)</seealso></p>
+       <seealso marker="erl_anno">erl_anno(3)</seealso>,
+       <seealso marker="erl_parse">erl_parse(3)</seealso></p>
   </section>
 </erlref>

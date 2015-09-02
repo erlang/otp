@@ -3,16 +3,17 @@
 %% 
 %% Copyright Ericsson AB 2003-2011. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %%
@@ -23,7 +24,7 @@
 
 
 -include("xmerl.hrl").		% record def, macros
-
+-include("xmerl_internal.hrl").
 
 
 %% +type validate(xmerl_scanner(),xmlElement())->
@@ -300,7 +301,7 @@ test_attribute_value('NMTOKEN',#xmlAttribute{name=Name,value=V}=Attr,
 		    true->
 			ok;
 		    false->
-			%%io:format("Warning*** nmtoken,value_incorrect:  ~p~n",[V]),
+			%%?dbg("nmtoken,value_incorrect:  ~p~n",[V]),
 			exit({error,{invalid_value_nmtoken,Name,V}})
 		end
 	end,
@@ -381,7 +382,7 @@ test_attribute_value({Type,L},#xmlAttribute{value=Value}=Attr,Default,_S)
 	    exit({error,{duplicate_tokens_not_allowed,{list,L}}})
     end;
 test_attribute_value(_Rule,Attr,_,_) ->
-%    io:format("Attr Value*****~nRule~p~nValue~p~n",[Rule,Attr]),
+%    ?dbg("Attr Value*****~nRule~p~nValue~p~n",[Rule,Attr]),
     Attr.
 
 
@@ -423,11 +424,11 @@ parse({'+',SubRule}, XMLS, Rules, WSaction, S) ->
 parse({choice,CHOICE}, XMLS, Rules, WSaction, S)->
 %    case XMLS of
 %	[] ->
-%	    io:format("~p~n",[{choice,CHOICE,[]}]);
+%	    ?dbg("~p~n",[{choice,CHOICE,[]}]);
 %	[#xmlElement{name=Name,pos=Pos}|_] ->
-%	    io:format("~p~n",[{choice,CHOICE,{Name,Pos}}]);
+%	    ?dbg("~p~n",[{choice,CHOICE,{Name,Pos}}]);
 %	[#xmlText{value=V}|_] ->
-%	    io:format("~p~n",[{choice,CHOICE,{text,V}}])
+%	    ?dbg("~p~n",[{choice,CHOICE,{text,V}}])
 %    end,
     choice(CHOICE, XMLS, Rules, WSaction, S);
 parse(empty, [], _Rules, _WSaction, _S) ->
@@ -550,10 +551,10 @@ star(Rule,XMLS,Rules,WSaction,Tree,S) ->
     {WS,XMLS1} = whitespace_action(XMLS,WSaction),
     case parse(Rule,XMLS1,Rules,WSaction,S) of
 	{error, _E, {{next,N},{act,A}}}->
-	    %%io:format("Error~p~n",[_E]),
+	    %%?dbg("Error~p~n",[_E]),
 	    {WS++Tree++A,N};
 	{error, _E}->
-	    %%io:format("Error~p~n",[_E]),
+	    %%?dbg("Error~p~n",[_E]),
 %	    {WS++[Tree],[]};
 	    case  whitespace_action(XMLS,ws_action(WSaction,remove)) of
 		{[],_} ->

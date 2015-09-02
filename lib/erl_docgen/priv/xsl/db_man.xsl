@@ -5,16 +5,17 @@
      #
      # Copyright Ericsson AB 2009-2012. All Rights Reserved.
      #
-     # The contents of this file are subject to the Erlang Public License,
-     # Version 1.1, (the "License"); you may not use this file except in
-     # compliance with the License. You should have received a copy of the
-     # Erlang Public License along with this software. If not, it can be
-     # retrieved online at http://www.erlang.org/.
+     # Licensed under the Apache License, Version 2.0 (the "License");
+     # you may not use this file except in compliance with the License.
+     # You may obtain a copy of the License at
      #
-     # Software distributed under the License is distributed on an "AS IS"
-     # basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-     # the License for the specific language governing rights and limitations
-     # under the License.
+     #     http://www.apache.org/licenses/LICENSE-2.0
+     #
+     # Unless required by applicable law or agreed to in writing, software
+     # distributed under the License is distributed on an "AS IS" BASIS,
+     # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+     # See the License for the specific language governing permissions and
+     # limitations under the License.
      #
      # %CopyrightEnd%
 
@@ -543,7 +544,29 @@
     <xsl:text>&#10;</xsl:text>
   </xsl:template>
 
-  <xsl:template match="warning/p | note/p">
+  <!-- Do -->
+  <xsl:template match="do">
+    <xsl:text>&#10;.LP&#10;</xsl:text>
+    <xsl:text>&#10;.RS -4</xsl:text>
+    <xsl:text>&#10;.B&#10;</xsl:text>
+    <xsl:text>Do:</xsl:text>
+    <xsl:text>&#10;.RE</xsl:text>
+    <xsl:apply-templates/>
+    <xsl:text>&#10;</xsl:text>
+  </xsl:template>
+
+  <!-- Dont -->
+  <xsl:template match="dont">
+    <xsl:text>&#10;.LP&#10;</xsl:text>
+    <xsl:text>&#10;.RS -4</xsl:text>
+    <xsl:text>&#10;.B&#10;</xsl:text>
+    <xsl:text>Dont:</xsl:text>
+    <xsl:text>&#10;.RE</xsl:text>
+    <xsl:apply-templates/>
+    <xsl:text>&#10;</xsl:text>
+  </xsl:template>
+
+  <xsl:template match="warning/p | note/p | dont/p | do/p">
     <xsl:variable name="content">
       <xsl:text>&#10;</xsl:text>
       <xsl:apply-templates/>

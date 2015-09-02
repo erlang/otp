@@ -8,16 +8,17 @@
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
-      The contents of this file are subject to the Erlang Public License,
-      Version 1.1, (the "License"); you may not use this file except in
-      compliance with the License. You should have received a copy of the
-      Erlang Public License along with this software. If not, it can be
-      retrieved online at http://www.erlang.org/.
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
 
-      Software distributed under the License is distributed on an "AS IS"
-      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-      the License for the specific language governing rights and limitations
-      under the License.
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
 
     </legalnotice>
 
@@ -41,7 +42,7 @@
       </item>
       <item>
         <p>Block ciphers - <url href="http://csrc.nist.gov/groups/ST/toolkit/block_ciphers.html"> </url> DES and AES in
-        Block Cipher Modes - <url href="http://csrc.nist.gov/groups/ST/toolkit/BCM/index.html"> ECB, CBC, CFB, OFB and CTR </url></p>
+        Block Cipher Modes - <url href="http://csrc.nist.gov/groups/ST/toolkit/BCM/index.html"> ECB, CBC, CFB, OFB, CTR and GCM </url></p>
       </item>
       <item>
         <p><url href="http://www.ietf.org/rfc/rfc1321.txt"> RSA encryption RFC 1321 </url> </p>
@@ -52,6 +53,12 @@
       </item>
       <item>
         <p><url href="http://www.ietf.org/rfc/rfc2945.txt"> Secure Remote Password Protocol (SRP - RFC 2945) </url></p>
+      </item>
+      <item>
+        <p>gcm: Dworkin, M., "Recommendation for Block Cipher Modes of
+        Operation: Galois/Counter Mode (GCM) and GMAC",
+        National Institute of Standards and Technology SP 800-
+        38D, November 2007.</p>
       </item>
     </list>
   </description>
@@ -132,6 +139,8 @@
      blowfish_cfb64 | des_cbc | des_cfb | des3_cbc | des3_cbf
      | des_ede3 | rc2_cbc </code></p>
 
+     <p><code>aead_cipher() =  aes_gcm | chacha20_poly1305 </code></p>
+
      <p><code>stream_key() =  aes_key() | rc4_key() </code></p>
 
      <p><code>block_key() =  aes_key() |  blowfish_key() | des_key()| des3_key() </code></p>
@@ -152,7 +161,7 @@
      Note that both md4 and md5 are recommended only for compatibility with existing applications.
      </p>
      <p><code> cipher_algorithms() = des_cbc | des_cfb |  des3_cbc | des3_cbf | des_ede3 |
-     blowfish_cbc | blowfish_cfb64 | aes_cbc128 | aes_cfb8 | aes_cfb128| aes_cbc256 | aes_ige256 | rc2_cbc | aes_ctr| rc4  </code> </p>
+     blowfish_cbc | blowfish_cfb64 | aes_cbc128 | aes_cfb8 | aes_cfb128| aes_cbc256 | aes_ige256 | aes_gcm | chacha20_poly1305 | rc2_cbc | aes_ctr| rc4  </code> </p>
      <p><code> public_key_algorithms() =   rsa |dss | ecdsa | dh | ecdh | ec_gf2m</code>
      Note that ec_gf2m is not strictly a public key algorithm, but a restriction on what curves are supported
      with ecdsa and ecdh.
@@ -161,18 +170,53 @@
  </section>
 
   <funcs>
-      <func>
-      <name>block_encrypt(Type, Key, Ivec, PlainText) -> CipherText</name>
-      <fsummary>Encrypt <c>PlainText</c>according to <c>Type</c> block cipher</fsummary>
+    <func>
+      <name>block_encrypt(Type, Key, PlainText) -> CipherText</name>
+      <fsummary>Encrypt <c>PlainText</c> according to <c>Type</c> block cipher</fsummary>
       <type>
-	<v>Type = block_cipher() </v>
-	<v>Key = block_key() </v>
+  <v>Type = des_ecb | blowfish_ecb | aes_ecb </v>
+  <v>Key = block_key() </v>
         <v>PlainText = iodata() </v>
-        <v>IVec = CipherText = binary()</v>
       </type>
       <desc>
-        <p>Encrypt <c>PlainText</c>according to <c>Type</c> block cipher.
+        <p>Encrypt <c>PlainText</c> according to <c>Type</c> block cipher.</p>
+  <p>May throw exception <c>notsup</c> in case the chosen <c>Type</c>
+  is not supported by the underlying OpenSSL implementation.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>block_decrypt(Type, Key, CipherText) -> PlainText</name>
+      <fsummary>Decrypt <c>CipherText</c> according to <c>Type</c> block cipher</fsummary>
+      <type>
+  <v>Type = des_ecb | blowfish_ecb | aes_ecb </v>
+  <v>Key = block_key() </v>
+        <v>PlainText = iodata() </v>
+      </type>
+      <desc>
+        <p>Decrypt <c>CipherText</c> according to <c>Type</c> block cipher.</p>
+  <p>May throw exception <c>notsup</c> in case the chosen <c>Type</c>
+  is not supported by the underlying OpenSSL implementation.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>block_encrypt(Type, Key, Ivec, PlainText) -> CipherText</name>
+      <name>block_encrypt(AeadType, Key, Ivec, {AAD, PlainText}) -> {CipherText, CipherTag}</name>
+      <fsummary>Encrypt <c>PlainText</c> according to <c>Type</c> block cipher</fsummary>
+      <type>
+	<v>Type = block_cipher() </v>
+	<v>AeadType = aead_cipher() </v>
+	<v>Key = block_key() </v>
+        <v>PlainText = iodata() </v>
+        <v>AAD = IVec = CipherText = CipherTag = binary()</v>
+      </type>
+      <desc>
+        <p>Encrypt <c>PlainText</c> according to <c>Type</c> block cipher.
 	<c>IVec</c> is an arbitrary initializing vector.</p>
+	<p>In AEAD (Authenticated Encryption with Associated Data) mode, encrypt
+	<c>PlainText</c>according to <c>Type</c> block cipher and calculate
+	<c>CipherTag</c> that also authenticates the <c>AAD</c> (Associated Authenticated Data).</p>
 	<p>May throw exception <c>notsup</c> in case the chosen <c>Type</c>
 	is not supported by the underlying OpenSSL implementation.</p>
       </desc>
@@ -180,16 +224,22 @@
 
     <func>
       <name>block_decrypt(Type, Key, Ivec, CipherText) -> PlainText</name>
-      <fsummary>Decrypt <c>CipherText</c>according to <c>Type</c> block cipher</fsummary>
+      <name>block_decrypt(AeadType, Key, Ivec, {AAD, CipherText, CipherTag}) -> PlainText | error</name>
+      <fsummary>Decrypt <c>CipherText</c> according to <c>Type</c> block cipher</fsummary>
       <type>
 	<v>Type = block_cipher() </v>
+	<v>AeadType = aead_cipher() </v>
 	<v>Key = block_key() </v>
         <v>PlainText = iodata() </v>
-        <v>IVec = CipherText = binary()</v>
+        <v>AAD = IVec = CipherText = CipherTag = binary()</v>
       </type>
       <desc>
-        <p>Decrypt <c>CipherText</c>according to <c>Type</c> block cipher.
+        <p>Decrypt <c>CipherText</c> according to <c>Type</c> block cipher.
 	<c>IVec</c> is an arbitrary initializing vector.</p>
+        <p>In AEAD (Authenticated Encryption with Associated Data) mode, decrypt
+	<c>CipherText</c>according to <c>Type</c> block cipher and check the authenticity
+	the <c>PlainText</c> and <c>AAD</c> (Associated Authenticated Data) using the
+	<c>CipherTag</c>. May return <c>error</c> if the decryption or validation fail's</p>
 	<p>May throw exception <c>notsup</c> in case the chosen <c>Type</c>
 	is not supported by the underlying OpenSSL implementation.</p>
       </desc>
@@ -250,7 +300,7 @@
 	<v>SrpUserParams = {user, [Generator::binary(), Prime::binary(), Version::atom()]}</v>
 	<v>SrpHostParams = {host, [Verifier::binary(), Generator::binary(), Prime::binary(), Version::atom()]}</v>
 	<v>PublicKey =  dh_public() | ecdh_public() | srp_public() </v>
-	<v>PrivKeyIn = undefined | dh_private() | srp_private() </v>
+	<v>PrivKeyIn = undefined | dh_private() | ecdh_private() | srp_private() </v>
 	<v>PrivKeyOut =  dh_private() | ecdh_private() | srp_private() </v>
       </type>
       <desc>

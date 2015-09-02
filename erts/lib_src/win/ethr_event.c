@@ -3,16 +3,17 @@
  *
  * Copyright Ericsson AB 2009-2011. All Rights Reserved.
  *
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  * %CopyrightEnd%
  */
@@ -25,8 +26,15 @@
 #define ETHR_EVENT_IMPL__
 
 #include "ethread.h"
+#include "ethr_internal.h"
 
 /* --- Windows implementation of thread events ------------------------------ */
+
+void
+ethr_init_event__(void)
+{
+
+}
 
 int
 ethr_event_init(ethr_event *e)
@@ -58,10 +66,28 @@ ethr_event_reset(ethr_event *e)
 }
 
 static ETHR_INLINE int
-wait(ethr_event *e, int spincount)
+wait(ethr_event *e, int spincount, ethr_sint64_t timeout)
 {
-    DWORD code;
+    DWORD code, tmo;
     int sc, res, until_yield = ETHR_YIELD_AFTER_BUSY_LOOPS;
+
+    if (timeout < 0)
+	tmo = INFINITE;
+    else if (timeout == 0) {
+	ethr_sint32_t state = ethr_atomic32_read(&e->state);
+	if (state == ETHR_EVENT_ON__) {
+	    ETHR_MEMBAR(ETHR_LoadLoad|ETHR_LoadStore);
+	    return 0;
+	}
+	return ETIMEDOUT;
+    }	    
+    else {
+	/*
+	 * Timeout in nano-seconds, but we can only
+	 * wait for milli-seconds...
+	 */
+	tmo = (DWORD) (timeout - 1) / (1000*1000) + 1;
+    }
 
     if (spincount < 0)
 	ETHR_FATAL_ERROR__(EINVAL);
@@ -72,8 +98,10 @@ wait(ethr_event *e, int spincount)
 	ethr_sint32_t state;
 	while (1) {
 	    state = ethr_atomic32_read(&e->state);
-	    if (state == ETHR_EVENT_ON__)
+	    if (state == ETHR_EVENT_ON__) {
+		ETHR_MEMBAR(ETHR_LoadLoad|ETHR_LoadStore);
 		return 0;
+	    }
 	    if (sc == 0)
 		break;
 	    sc--;
@@ -95,7 +123,9 @@ wait(ethr_event *e, int spincount)
 	    ETHR_ASSERT(state == ETHR_EVENT_OFF__);
 	}
 
-	code = WaitForSingleObject(e->handle, INFINITE);
+	code = WaitForSingleObject(e->handle, tmo);
+        if (code == WAIT_TIMEOUT)
+            return ETIMEDOUT;
 	if (code != WAIT_OBJECT_0)
 	    ETHR_FATAL_ERROR__(ethr_win_get_errno__());
     }
@@ -105,11 +135,23 @@ wait(ethr_event *e, int spincount)
 int
 ethr_event_wait(ethr_event *e)
 {
-    return wait(e, 0);
+    return wait(e, 0, -1);
 }
 
 int
 ethr_event_swait(ethr_event *e, int spincount)
 {
-    return wait(e, spincount);
+    return wait(e, spincount, -1);
+}
+
+int
+ethr_event_twait(ethr_event *e, ethr_sint64_t timeout)
+{
+    return wait(e, 0, timeout);
+}
+
+int
+ethr_event_stwait(ethr_event *e, int spincount, ethr_sint64_t timeout)
+{
+    return wait(e, spincount, timeout);
 }

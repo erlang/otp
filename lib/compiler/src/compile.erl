@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2015. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -41,7 +42,7 @@
 
 -type option() :: atom() | {atom(), term()} | {'d', atom(), term()}.
 
--type err_info() :: {erl_scan:line() | 'none',
+-type err_info() :: {erl_anno:line() | 'none',
 		     module(), term()}. %% ErrorDescriptor
 -type errors()   :: [{file:filename(), [err_info()]}].
 -type warnings() :: [{file:filename(), [err_info()]}].
@@ -132,7 +133,8 @@ env_default_opts() ->
 	Str when is_list(Str) ->
 	    case erl_scan:string(Str) of
 		{ok,Tokens,_} ->
-		    case erl_parse:parse_term(Tokens ++ [{dot, 1}]) of
+                    Dot = {dot, erl_anno:new(1)},
+		    case erl_parse:parse_term(Tokens ++ [Dot]) of
 			{ok,List} when is_list(List) -> List;
 			{ok,Term} -> [Term];
 			{error,_Reason} ->
@@ -285,11 +287,20 @@ internal_comp(Passes, File, Suffix, St0) ->
     St1 = St0#compile{filename=File, dir=Dir, base=Base,
 		      ifile=erlfile(Dir, Base, Suffix),
 		      ofile=objfile(Base, St0)},
-    Run = case member(time, St1#compile.options) of
-	      true  ->
-		  io:format("Compiling ~tp\n", [File]),
-		  fun run_tc/2;
-	      false -> fun({_Name,Fun}, St) -> catch Fun(St) end
+    Opts = St1#compile.options,
+    Run0 = case member(time, Opts) of
+	       true  ->
+		   io:format("Compiling ~tp\n", [File]),
+		   fun run_tc/2;
+	       false -> fun({_Name,Fun}, St) -> catch Fun(St) end
+	   end,
+    Run = case keyfind(eprof, 1, Opts) of
+	      {eprof,EprofPass} ->
+		  fun(P, St) ->
+			  run_eprof(P, EprofPass, St)
+		  end;
+	      false ->
+		  Run0
 	  end,
     case fold_comp(Passes, Run, St1) of
 	{ok,St2} -> comp_ret_ok(St2);
@@ -320,16 +331,25 @@ fold_comp([{Name,Pass}|Ps], Run, St0) ->
 fold_comp([], _Run, St) -> {ok,St}.
 
 run_tc({Name,Fun}, St) ->
-    Before0 = statistics(runtime),
+    T1 = erlang:monotonic_time(),
     Val = (catch Fun(St)),
-    After0 = statistics(runtime),
-    {Before_c, _} = Before0,
-    {After_c, _} = After0,
+    T2 = erlang:monotonic_time(),
+    Elapsed = erlang:convert_time_unit(T2 - T1, native, milli_seconds),
     Mem0 = erts_debug:flat_size(Val)*erlang:system_info(wordsize),
     Mem = lists:flatten(io_lib:format("~.1f kB", [Mem0/1024])),
-    io:format(" ~-30s: ~10.2f s ~12s\n",
-	      [Name,(After_c-Before_c) / 1000,Mem]),
+    io:format(" ~-30s: ~10.3f s ~12s\n",
+	      [Name,Elapsed/1000,Mem]),
     Val.
+
+run_eprof({Name,Fun}, Name, St) ->
+    io:format("~p: Running eprof\n", [Name]),
+    c:appcall(tools, eprof, start_profiling, [[self()]]),
+    Val = (catch Fun(St)),
+    c:appcall(tools, eprof, stop_profiling, []),
+    c:appcall(tools, eprof, analyze, []),
+    Val;
+run_eprof({_,Fun}, _, St) ->
+    catch Fun(St).
 
 comp_ret_ok(#compile{code=Code,warnings=Warn0,module=Mod,options=Opts}=St) ->
     case werror(St) of
@@ -431,11 +451,6 @@ pass(from_core) ->
     {".core",[?pass(parse_core)|core_passes()]};
 pass(from_asm) ->
     {".S",[?pass(beam_consult_asm)|asm_passes()]};
-pass(asm) ->
-    %% TODO: remove 'asm' in 18.0
-    io:format("compile:file/2 option 'asm' has been deprecated and will be~n"
-	      "removed in the 18.0 release. Use 'from_asm' instead.~n"),
-    pass(from_asm);
 pass(from_beam) ->
     {".beam",[?pass(read_beam_file)|binary_passes()]};
 pass(_) -> none.
@@ -611,7 +626,7 @@ standard_passes() ->
      {iff,'to_exp',{done,"E"}},
 
      %% Conversion to Core Erlang.
-     ?pass(core_module),
+     {pass,v3_core},
      {iff,'dcore',{listing,"core"}},
      {iff,'to_core0',{done,"core"}}
      | core_passes()].
@@ -623,7 +638,7 @@ core_passes() ->
       [{unless,no_copt,
        [{core_old_inliner,fun test_old_inliner/1,fun core_old_inliner/1},
 	{iff,doldinline,{listing,"oldinline"}},
-	?pass(core_fold_module),
+	{pass,sys_core_fold},
 	{iff,dcorefold,{listing,"corefold"}},
 	{core_inline_module,fun test_core_inliner/1,fun core_inline_module/1},
 	{iff,dinline,{listing,"inline"}},
@@ -636,14 +651,14 @@ core_passes() ->
 
 kernel_passes() ->
     %% Destructive setelement/3 optimization and core lint.
-    [?pass(core_dsetel_module),
+    [{pass,sys_core_dsetel},
      {iff,dsetel,{listing,"dsetel"}},
 
      {iff,clint,?pass(core_lint_module)},
      {iff,core,?pass(save_core_code)},
 
      %% Kernel Erlang and code generation.
-     ?pass(kernel_module),
+     {pass,v3_kernel},
      {iff,dkern,{listing,"kernel"}},
      {iff,'to_kernel',{done,"kernel"}},
      {pass,v3_life},
@@ -906,28 +921,35 @@ transform_module(#compile{options=Opt,code=Code0}=St0) ->
 
 foldl_transform(St, [T|Ts]) ->
     Name = "transform " ++ atom_to_list(T),
-    Fun = fun(S) -> T:parse_transform(S#compile.code, S#compile.options) end,
-    Run = case member(time, St#compile.options) of
-	      true  -> fun run_tc/2;
-	      false -> fun({_Name,F}, S) -> catch F(S) end
-	  end,
-    case Run({Name, Fun}, St) of
-	{error,Es,Ws} ->
-	    {error,St#compile{warnings=St#compile.warnings ++ Ws,
-			      errors=St#compile.errors ++ Es}};
-	{'EXIT',{undef,_}} ->
-	    Es = [{St#compile.ifile,[{none,compile,
-				      {undef_parse_transform,T}}]}],
-	    {error,St#compile{errors=St#compile.errors ++ Es}};
-	{'EXIT',R} ->
-	    Es = [{St#compile.ifile,[{none,compile,{parse_transform,T,R}}]}],
-	    {error,St#compile{errors=St#compile.errors ++ Es}};
-	{warning, Forms, Ws} ->
-	    foldl_transform(
-	      St#compile{code=Forms,
-			 warnings=St#compile.warnings ++ Ws}, Ts);
-	Forms ->
-	    foldl_transform(St#compile{code=Forms}, Ts)
+    case code:ensure_loaded(T) =:= {module,T} andalso
+                erlang:function_exported(T, parse_transform, 2) of
+        true ->
+            Fun = fun(S) ->
+                         T:parse_transform(S#compile.code, S#compile.options)
+                  end,
+            Run = case member(time, St#compile.options) of
+                      true  -> fun run_tc/2;
+                      false -> fun({_Name,F}, S) -> catch F(S) end
+                  end,
+            case Run({Name, Fun}, St) of
+                {error,Es,Ws} ->
+                    {error,St#compile{warnings=St#compile.warnings ++ Ws,
+                                      errors=St#compile.errors ++ Es}};
+                {'EXIT',R} ->
+                    Es = [{St#compile.ifile,[{none,compile,
+                                              {parse_transform,T,R}}]}],
+                    {error,St#compile{errors=St#compile.errors ++ Es}};
+                {warning, Forms, Ws} ->
+                    foldl_transform(
+                      St#compile{code=Forms,
+                                 warnings=St#compile.warnings ++ Ws}, Ts);
+                Forms ->
+                    foldl_transform(St#compile{code=Forms}, Ts)
+            end;
+        false ->
+            Es = [{St#compile.ifile,[{none,compile,
+                                      {undef_parse_transform,T}}]}],
+            {error,St#compile{errors=St#compile.errors ++ Es}}
     end;
 foldl_transform(St, []) -> {ok,St}.
 
@@ -1181,14 +1203,6 @@ expand_module(#compile{code=Code,options=Opts0}=St0) ->
     Opts = expand_opts(Opts1),
     {ok,St0#compile{module=Mod,options=Opts,code={Mod,Exp,Forms}}}.
 
-core_module(#compile{code=Code0,options=Opts}=St) ->
-    {ok,Code,Ws} = v3_core:module(Code0, Opts),
-    {ok,St#compile{code=Code,warnings=St#compile.warnings ++ Ws}}.
-
-core_fold_module(#compile{code=Code0,options=Opts,warnings=Warns}=St) ->
-    {ok,Code,Ws} = sys_core_fold:module(Code0, Opts),
-    {ok,St#compile{code=Code,warnings=Warns ++ Ws}}.
-
 core_fold_module_after_inlining(#compile{code=Code0,options=Opts}=St) ->
     %% Inlining may produce code that generates spurious warnings.
     %% Ignore all warnings.
@@ -1224,14 +1238,6 @@ core_inline_module(#compile{code=Code0,options=Opts}=St) ->
     Code = cerl_inline:core_transform(Code0, Opts),
     {ok,St#compile{code=Code}}.
 
-core_dsetel_module(#compile{code=Code0,options=Opts}=St) ->
-    {ok,Code} = sys_core_dsetel:module(Code0, Opts),
-    {ok,St#compile{code=Code}}.
-
-kernel_module(#compile{code=Code0,options=Opts}=St) ->
-    {ok,Code,Ws} = v3_kernel:module(Code0, Opts),
-    {ok,St#compile{code=Code,warnings=St#compile.warnings ++ Ws}}.
-
 save_abstract_code(#compile{ifile=File}=St) ->
     case abstract_code(St) of
 	{ok,Code} ->
@@ -1240,7 +1246,8 @@ save_abstract_code(#compile{ifile=File}=St) ->
 	    {error,St#compile{errors=St#compile.errors ++ [{File,Es}]}}
     end.
 
-abstract_code(#compile{code=Code,options=Opts,ofile=OFile}) ->
+abstract_code(#compile{code=Code0,options=Opts,ofile=OFile}) ->
+    Code = erl_parse:anno_to_term(Code0),
     Abstr = erlang:term_to_binary({raw_abstract_v1,Code}, [compressed]),
     case member(encrypt_debug_info, Opts) of
 	true ->
@@ -1300,8 +1307,9 @@ encrypt({des3_cbc=Type,Key,IVec,BlockSize}, Bin0) ->
     list_to_binary([0,length(TypeString),TypeString,Bin]).
 
 random_bytes(N) ->
-    {A,B,C} = now(),
-    _ = random:seed(A, B, C),
+    _ = random:seed(erlang:time_offset(),
+		    erlang:monotonic_time(),
+		    erlang:unique_integer()),
     random_bytes_1(N, []).
 
 random_bytes_1(0, Acc) -> Acc;

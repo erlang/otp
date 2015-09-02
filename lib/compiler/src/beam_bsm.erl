@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2007-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2015. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %%
@@ -20,7 +21,7 @@
 -module(beam_bsm).
 -export([module/2,format_error/1]).
 
--import(lists, [member/2,foldl/3,reverse/1,sort/1,all/2,dropwhile/2]).
+-import(lists, [member/2,foldl/3,reverse/1,sort/1,all/2]).
 
 %%%
 %%% We optimize bit syntax matching where the tail end of a binary is
@@ -240,6 +241,12 @@ btb_reaches_match_2([{gc_bif,_,{f,F},Live,Ss,Dst}=I|Is], Regs0, D0) ->
 btb_reaches_match_2([{bif,_,{f,F},Ss,Dst}=I|Is], Regs0, D0) ->
     btb_ensure_not_used(Ss, I, Regs0),
     Regs = btb_kill([Dst], Regs0),
+    D = btb_follow_branch(F, Regs, D0),
+    btb_reaches_match_1(Is, Regs, D);
+btb_reaches_match_2([{get_map_elements,{f,F},Src,{list,Ls}}=I|Is], Regs0, D0) ->
+    {Ss,Ds} = beam_utils:split_even(Ls),
+    btb_ensure_not_used([Src|Ss], I, Regs0),
+    Regs = btb_kill(Ds, Regs0),
     D = btb_follow_branch(F, Regs, D0),
     btb_reaches_match_1(Is, Regs, D);
 btb_reaches_match_2([{test,bs_start_match2,{f,F},Live,[Ctx,_],Ctx}=I|Is],
@@ -542,16 +549,13 @@ btb_context_regs_1(Regs, N, Tag, Acc) ->
 %%  a binary. MustSave is true if the function may pass the match
 %%  context to the bs_context_to_binary instruction (in which case
 %%  the current position in the binary must have saved into the
-%%  start position using "bs_save_2 Ctx start".
+%%  start position using "bs_save_2 Ctx start").
 
 btb_index(Fs) ->
     btb_index_1(Fs, []).
 
 btb_index_1([{function,_,_,Entry,Is0}|Fs], Acc0) ->
-    [{label,Entry}|Is] =
-	dropwhile(fun({label,L}) when L =:= Entry -> false;
-		     (_) -> true
-		  end, Is0),
+    Is = drop_to_label(Is0, Entry),
     Acc = btb_index_2(Is, Entry, false, Acc0),
     btb_index_1(Fs, Acc);
 btb_index_1([], Acc) -> gb_trees:from_orddict(sort(Acc)).
@@ -565,6 +569,9 @@ btb_index_2(Is0, Entry, _, Acc) ->
     catch
 	throw:none -> Acc
     end.
+
+drop_to_label([{label,L}|Is], L) -> Is;
+drop_to_label([_|Is], L) -> drop_to_label(Is, L).
 
 btb_index_find_start_match([{test,_,{f,F},_},{bs_context_to_binary,_}|Is]) ->
     btb_index_find_label(Is, F);
@@ -615,7 +622,7 @@ collect_warnings_instr([_|Is], D, Acc) ->
 collect_warnings_instr([], _, Acc) -> Acc.
 
 add_warning(Term, Anno, Ws) ->
-    Line = abs(get_line(Anno)),
+    Line = get_line(Anno),
     File = get_file(Anno),
     [{File,[{Line,?MODULE,Term}]}|Ws].
 

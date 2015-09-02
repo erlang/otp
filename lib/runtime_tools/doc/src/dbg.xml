@@ -8,16 +8,17 @@
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
-      The contents of this file are subject to the Erlang Public License,
-      Version 1.1, (the "License"); you may not use this file except in
-      compliance with the License. You should have received a copy of the
-      Erlang Public License along with this software. If not, it can be
-      retrieved online at http://www.erlang.org/.
-    
-      Software distributed under the License is distributed on an "AS IS"
-      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-      the License for the specific language governing rights and limitations
-      under the License.
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
     
     </legalnotice>
 
@@ -167,7 +168,8 @@ Error: fun containing local erlang function calls ('is_atomm' called in guard)\
           <item>If the <c>Item</c> is a <c>pid()</c>, the corresponding
            process is traced.  The process may be a remote process
            (on another Erlang node). The node must be in the list of
-           traced nodes (<seealso marker="#n">see</seealso><c>n/1</c> and <c>tracer/0/2/3</c>).</item>
+           traced nodes (see <seealso marker="#n"><c>n/1</c></seealso> and
+           <c>tracer/0/2/3</c>).</item>
           <item>If the <c>Item</c> is the atom <c>all</c>, all processes in the
            system as well as all processes created hereafter are
            to be traced. This also affects all nodes added with the
@@ -648,7 +650,7 @@ Error: fun containing local erlang function calls ('is_atomm' called in guard)\
         <p>If <c>Nodename</c> is the local node, the error reason
           <c>cant_add_local_node</c> is returned.
           </p>
-        <p>If a trace port (<seealso marker="#trace_port">see</seealso><c>trace_port/2</c>) is
+        <p>If a trace port (see <seealso marker="#trace_port"><c>trace_port/2</c></seealso>) is
           running on the local node, remote nodes can not be traced with
           a tracer process. The error reason
           <c>cant_trace_remote_pid_to_local_port</c> is returned. A
@@ -761,7 +763,7 @@ Error: fun containing local erlang function calls ('is_atomm' called in guard)\
             type which is independent of the tracer on the trace control
             node.</p>
         </note>
-        <p>For details, <seealso marker="#tracer2">see</seealso><c>tracer/2</c>.</p>
+        <p>For details, see <seealso marker="#tracer2"><c>tracer/2</c></seealso>.</p>
       </desc>
     </func>
     <func>

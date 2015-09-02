@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 2009-2013. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -69,12 +70,7 @@
 
 init_per_testcase(_Case, Config) ->
     ?line Dog = ?t:timetrap(?default_timeout),
-    Term = case os:getenv("TERM") of
-	       List when is_list(List) ->
-		   List;
-	       _ ->
-		   "dumb"
-	   end,
+    Term = os:getenv("TERM", "dumb"),
     os:putenv("TERM","vt100"),
     [{watchdog, Dog}, {term, Term} | Config].
 end_per_testcase(_Case, Config) ->
@@ -481,148 +477,181 @@ unicode_options(Config) when is_list(Config) ->
 
     ok.
     
-unicode_options_gen(suite) ->		   
-    [];
-unicode_options_gen(doc) ->
-    ["Tests various unicode options on random generated files"];
+%% Tests various unicode options on random generated files.
 unicode_options_gen(Config) when is_list(Config) ->
-    ?line random:seed(1240,900586,553728),
-    ?line PrivDir = ?config(priv_dir,Config),
-    ?line AllModes = [utf8,utf16,{utf16,big},{utf16,little},utf32,{utf32,big},{utf32,little}],
-    ?line FSize = 17*1024,
-    ?line NumItersRead = 2,
-    ?line NumItersWrite = 2,
-    ?line Dir =  filename:join([PrivDir,"GENDATA1"]),
-    ?line file:make_dir(Dir),
+    random:seed(1240, 900586, 553728),
+    PrivDir = ?config(priv_dir, Config),
+    AllModes = [utf8,utf16,{utf16,big},{utf16,little},
+		utf32,{utf32,big},{utf32,little}],
+    FSize = 9*1024,
+    NumItersRead = 2,
+    NumItersWrite = 2,
+    Dir = filename:join(PrivDir, "GENDATA1"),
+    file:make_dir(Dir),
 
-    %dbg:tracer(process,{fun(A,_) -> erlang:display(A) end,true}),
-    %dbg:tpl(file_io_server,x),
-    %dbg:ctpl(file_io_server,cafu),
-    %dbg:tp(unicode,x),
+    DoOneFile1 =
+	fun(Encoding, N, M) ->
+		?dbg({Encoding,M,N}),
+		io:format("Read test: Encoding ~p, Chunk size ~p, Iteration ~p~n",[Encoding,M,N]),
+		io:format(standard_error,
+			  "Read test: Encoding ~p, Chunk size ~p, Iteration ~p\r\n",[Encoding,M,N]),
+		Fname = filename:join(Dir,
+				      "genfile_"++enc2str(Encoding)++
+					  "_"++integer_to_list(N)),
+		Ulist = random_unicode(FSize),
+		Bin = unicode:characters_to_binary(Ulist, utf8, Encoding),
+		ok = file:write_file(Fname, Bin),
 
-    DoOneFile1 = fun(Encoding,N,M) ->
-			 ?dbg({Encoding,M,N}),
-			 io:format("Read test: Encoding ~p, Chunk size ~p, Iteration ~p~n",[Encoding,M,N]),
-			 io:format(standard_error,"Read test: Encoding ~p, Chunk size ~p, Iteration ~p\r\n",[Encoding,M,N]),
-			 ?line Fname = filename:join([Dir,"genfile_"++enc2str(Encoding)++"_"++integer_to_list(N)]), 
-			 ?dbg(?LINE),
-			 ?line Ulist = random_unicode(FSize),
-			 ?dbg(?LINE),
-			 ?line my_write_file(Fname,Ulist,Encoding),
-			 ?dbg(?LINE),
-			 ?line {ok,F1} = file:open(Fname,[read,{encoding,Encoding}]),
-			 
-			 ?dbg(?LINE),
-			 ?line Res1 = read_whole_file(fun(FD) -> io:get_line(FD,'') end,F1),
-			 ?dbg(?LINE),
-			 ?line Ulist = unicode:characters_to_list(Res1,unicode),
-			 ?dbg(?LINE),
-			 ?line file:close(F1),
-			 ?line {ok,F2} = file:open(Fname, [read,binary,{encoding,Encoding}]),
-			 ?line Res2 = read_whole_file(fun(FD) -> io:get_chars(FD,'',M) end,F2),
-			 ?line Ulist = unicode:characters_to_list(Res2,unicode),
-			 ?dbg(?LINE),
-			 ?line file:close(F2),
-			 ?line {ok,F3} = file:open(Fname, [read,binary,{encoding,Encoding}]),
-			 ?dbg(?LINE),
-%% 			 case {Encoding,M,N} of
-%% 			     {{utf16,little},10,2} ->
-%% 				 dbg:p(F3,call);
-%% 			     _ ->
-%% 				 ok
-%% 			 end,
+		Read1 = fun(FD) -> io:get_line(FD, '') end,
+		Res1 = read_whole_file(Fname,
+				       [read,read_ahead,{encoding,Encoding}],
+				       Read1),
 
-			 ?line Res3 = read_whole_file(fun(FD) -> case io:fread(FD,'',"~ts") of {ok,D} -> D; O -> O end end, F3),
-			 ?dbg(?LINE),
-			 ?line Ulist2 = [ X || X <- Ulist,
-					       X =/= $\n, X =/= $  ],
-			 ?dbg(?LINE),
-			 ?line Ulist2 = unicode:characters_to_list(Res3,unicode),
-			 ?dbg(?LINE),
-			 ?line file:close(F3),
-			 ?line {ok,F4} = file:open(Fname, [read,{encoding,Encoding}]),
-			 ?line Res4 = read_whole_file(fun(FD) -> case io:fread(FD,'',"~tc") of {ok,D} -> D; O -> O end end,F4),
-			 ?line Ulist3 = [ X || X <- Ulist,
-					       X =/= $\n ],
-			 ?line Ulist3 = unicode:characters_to_list(Res4,unicode),
-			 ?dbg(?LINE),
-			 ?line file:close(F4),
-			 ?line file:delete(Fname)
-		 end,
-    
-    [ [ [ DoOneFile1(E,N,M) || E <- AllModes ] || M <- [10,1000,128,1024,8192,8193] ] || N <- lists:seq(1,NumItersRead)],
-    DoOneFile2 = fun(Encoding,N,M) ->
-			 ?dbg({Encoding,M,N}),
-			 io:format("Write test: Encoding ~p, Chunk size ~p, Iteration ~p~n",[Encoding,M,N]),
-			 io:format(standard_error,"Write test: Encoding ~p, Chunk size ~p, Iteration ~p\r\n",[Encoding,M,N]),
-			 ?line Fname = filename:join([Dir,"genfile_"++enc2str(Encoding)++"_"++integer_to_list(N)]), 
-			 ?dbg(?LINE),
-			 ?line Ulist = random_unicode(FSize),
-			 ?dbg(?LINE),
-			 ?line {ok,F1} = file:open(Fname,[write,{encoding,Encoding}]),
-			 ?line io:put_chars(F1,Ulist),
-			 ?line file:close(F1),
-			 ?line Ulist = my_read_file(Fname,Encoding),
-			 ?line file:delete(Fname),
-			 ?line {ok,F2} = file:open(Fname,[write,binary,{encoding,Encoding}]),
-			 ?line io:put_chars(F2,Ulist),
-			 ?line file:close(F2),
-			 ?line Ulist = my_read_file(Fname,Encoding),
-			 ?line file:delete(Fname),
-			 ?line {ok,F3} = file:open(Fname,[write,{encoding,Encoding}]),
-			 ?line LL = string:tokens(Ulist,"\n"),
-			 ?line Ulist2 = lists:flatten(LL),
-			 ?line [ io:format(F3,"~ts",[L]) || L <- LL ],
-			 ?line file:close(F3),
-			 ?line Ulist2 = my_read_file(Fname,Encoding),
-			 ?line file:delete(Fname),
-			 ?line {ok,F4} = file:open(Fname,[write,{encoding,Encoding}]),
-			 ?line [ io:format(F4,"~tc",[C]) || C <- Ulist ],
-			 ?line file:close(F4),
-			 ?line Ulist = my_read_file(Fname,Encoding),
-			 ?line file:delete(Fname),
-			 ?line {ok,F5} = file:open(Fname,[write,{encoding,Encoding}]),
-			 ?line io:put_chars(F5,unicode:characters_to_binary(Ulist)),
-			 ?line file:close(F5),
-			 ?line Ulist = my_read_file(Fname,Encoding),
-			 ?line file:delete(Fname),
-			 ok
-		 end,
-    [ [ [ DoOneFile2(E,N,M) || E <- AllModes ] || M <- [10,1000,128,1024,8192,8193] ] || N <- lists:seq(1,NumItersWrite)],
+		Read2 = fun(FD) -> io:get_chars(FD, '', M) end,
+		Res2 = read_whole_file(Fname,
+				       [read,binary,
+					read_ahead,{encoding,Encoding}],
+				       Read2),
+
+		Read3 = fun(FD) ->
+				case io:fread(FD, '', "~ts") of
+				    {ok,D} -> D;
+				    Other -> Other end
+			end,
+		Res3 = read_whole_file(Fname,
+				       [read,binary,
+					read_ahead,{encoding,Encoding}],
+				       Read3),
+
+		Read4 = fun(FD) ->
+				case io:fread(FD, '', "~ts") of
+				    {ok,D} -> D;
+				    Other -> Other end
+			end,
+		Res4 = read_whole_file(Fname,
+				       [read,read_ahead,{encoding,Encoding}],
+				       Read4),
+
+		Ulist2 = [X || X <- Ulist, X =/= $\n, X =/= $\s],
+		Ulist3 = [X || X <- Ulist, X =/= $\n],
+		Ulist = done(Res1),
+		Ulist = done(Res2),
+		Ulist2 = done(Res3),
+		Ulist3 = done(Res4),
+
+		file:delete(Fname)
+	end,
+    [ [ [ DoOneFile1(E, N, M) || E <- AllModes ] ||
+	  M <- [10,1000,128,1024,8192,8193] ] ||
+	N <- lists:seq(1, NumItersRead) ],
+
+    DoOneFile2 =
+	fun(Encoding,N,M) ->
+		?dbg({Encoding,M,N}),
+		io:format("Write test: Encoding ~p, Chunk size ~p, Iteration ~p~n",[Encoding,M,N]),
+		io:format(standard_error,
+			  "Write test: Encoding ~p, Chunk size ~p, Iteration ~p\r\n",[Encoding,M,N]),
+		Fname = filename:join(Dir,
+				      "genfile_"++enc2str(Encoding)++
+					  "_"++integer_to_list(N)),
+		Ulist = random_unicode(FSize),
+
+		Res1 = write_read_file(Fname, 1,
+				       [write],
+				       Encoding,
+				       fun(FD) -> io:put_chars(FD, Ulist) end),
+
+		Res2 = write_read_file(Fname, 2,
+				       [write,binary],
+				       Encoding,
+				       fun(FD) -> io:put_chars(FD, Ulist) end),
+
+		Fun3 = fun(FD) ->
+			       _ = [io:format(FD, "~tc", [C]) || C <- Ulist],
+			       ok
+		       end,
+		Res3 = write_read_file(Fname, 3,
+				       [write],
+				       Encoding,
+				       Fun3),
+
+		Fun4 = fun(FD) ->
+			       io:put_chars(FD,
+					    unicode:characters_to_binary(Ulist))
+		       end,
+		Res4 = write_read_file(Fname, 4,
+				       [write],
+				       Encoding,
+				       Fun4),
+
+		LL = string:tokens(Ulist, "\n"),
+		Fun5 = fun(FD) ->
+			       _ = [io:format(FD, "~ts", [L]) || L <- LL],
+			       ok
+		       end,
+		Res5 = write_read_file(Fname, 5,
+				       [write],
+				       Encoding,
+				       Fun5),
+
+		Ulist2 = lists:flatten(LL),
+		ResBin = done(Res1),
+		ResBin = done(Res2),
+		ResBin = done(Res3),
+		ResBin = done(Res4),
+		Ulist = unicode:characters_to_list(ResBin, Encoding),
+
+		ResBin2 = done(Res5),
+		Ulist2 = unicode:characters_to_list(ResBin2, Encoding),
+
+		ok
+	end,
+    [ [ [ DoOneFile2(E, N, M) || E <- AllModes ] ||
+	  M <- [10,1000,128,1024,8192,8193] ] ||
+	N <- lists:seq(1, NumItersWrite) ],
     ok.
 
+read_whole_file(Fname, Options, Fun) ->
+    do(fun() ->
+	       do_read_whole_file(Fname, Options, Fun)
+       end).
 
+do_read_whole_file(Fname, Options, Fun) ->
+    {ok,F} = file:open(Fname, Options),
+    Res = do_read_whole_file_1(Fun, F),
+    ok = file:close(F),
+    unicode:characters_to_list(Res, unicode).
 			 
-			 
-read_whole_file(Fun,F) ->			 
+do_read_whole_file_1(Fun, F) ->
     case Fun(F) of
 	eof ->
 	    [];
 	{error,Error} ->
-	    ?dbg(Error),
 	    receive after 10000 -> ok end,
 	    exit(Error);
 	Other ->
-	    %?dbg(Other),
-	    [Other | read_whole_file(Fun,F)]
+	    [Other|do_read_whole_file_1(Fun, F)]
     end.
-			
 
+write_read_file(Fname0, N, Options, Enc, Writer) ->
+    Fname = Fname0 ++ "_" ++ integer_to_list(N),
+    do(fun() ->
+	       do_write_read_file(Fname, Options, Enc, Writer)
+       end).
+
+do_write_read_file(Fname, Options, Encoding, Writer) ->
+    {ok,F} = file:open(Fname, [{encoding,Encoding}|Options]),
+    Writer(F),
+    ok = file:close(F),
+    {ok,Bin} = file:read_file(Fname),
+    ok = file:delete(Fname),
+    Bin.
+			
 enc2str(Atom) when is_atom(Atom) ->
     atom_to_list(Atom);
 enc2str({A1,A2}) when is_atom(A1), is_atom(A2) ->
     atom_to_list(A1)++"_"++atom_to_list(A2).
 
-
-
-
-my_write_file(Filename,UniList,Encoding) ->
-    Bin = unicode:characters_to_binary(UniList,utf8,Encoding),
-    file:write_file(Filename,Bin).
-
-my_read_file(Filename,Encoding) ->
-    {ok,Bin} = file:read_file(Filename),
-    unicode:characters_to_list(Bin,Encoding).
 
 random_unicode(0) ->
     [];
@@ -1738,8 +1767,7 @@ toerl_loop(Port,Acc) ->
     end.
 	
 millistamp() ->
-    {Mega, Secs, Micros} = erlang:now(),
-    (Micros div 1000) + Secs * 1000 + Mega * 1000000000.
+    erlang:monotonic_time(milli_seconds).
     
 get_data_within(Port, X, Acc) when X =< 0 ->
     ?dbg({get_data_within, X, Acc, ?LINE}),
@@ -1937,3 +1965,15 @@ chomp(<<Ch,Rest/binary>>) ->
     <<Ch,X/binary>>;
 chomp(Atom) ->
     Atom.
+
+do(Fun) ->
+    {_,Ref} = spawn_monitor(fun() ->
+				    exit(Fun())
+			    end),
+    Ref.
+
+done(Ref) ->
+    receive
+	{'DOWN',Ref,process,_,Result} ->
+	    Result
+    end.

@@ -1,19 +1,20 @@
 /*
  * %CopyrightBegin%
- * 
+ *
  * Copyright Ericsson AB 2000-2009. All Rights Reserved.
- * 
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
- * 
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
- * 
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
  * %CopyrightEnd%
  */
 package com.ericsson.otp.erlang;
@@ -21,13 +22,13 @@ package com.ericsson.otp.erlang;
 /**
  * Exception raised when a communication channel is broken. This can be caused
  * for a number of reasons, for example:
- * 
+ *
  * <ul>
- * <li> an error in communication has occurred
- * <li> a remote process has sent an exit signal
- * <li> a linked process has exited
+ * <li>an error in communication has occurred
+ * <li>a remote process has sent an exit signal
+ * <li>a linked process has exited
  * </ul>
- * 
+ *
  * @see OtpConnection
  */
 
@@ -39,13 +40,13 @@ public class OtpErlangExit extends OtpErlangException {
 
     /**
      * Create an OtpErlangExit exception with the given reason.
-     * 
+     *
      * @param reason
-     *                the reason this exit signal has been sent.
+     *            the reason this exit signal has been sent.
      */
     public OtpErlangExit(final OtpErlangObject reason) {
-	super(reason.toString());
-	this.reason = reason;
+        super(reason.toString());
+        this.reason = reason;
     }
 
     /**
@@ -53,29 +54,29 @@ public class OtpErlangExit extends OtpErlangException {
      * Equivalent to <code>OtpErlangExit(new
      * OtpErlangAtom(reason)</code>.
      * </p>
-     * 
+     *
      * @param reason
-     *                the reason this exit signal has been sent.
-     * 
+     *            the reason this exit signal has been sent.
+     *
      * @see #OtpErlangExit(OtpErlangObject)
      */
     public OtpErlangExit(final String reason) {
-	this(new OtpErlangAtom(reason));
+        this(new OtpErlangAtom(reason));
     }
 
     /**
      * Create an OtpErlangExit exception with the given reason and sender pid.
-     * 
+     *
      * @param reason
-     *                the reason this exit signal has been sent.
-     * 
+     *            the reason this exit signal has been sent.
+     *
      * @param pid
-     *                the pid that sent this exit.
+     *            the pid that sent this exit.
      */
     public OtpErlangExit(final OtpErlangObject reason, final OtpErlangPid pid) {
-	super(reason.toString());
-	this.reason = reason;
-	this.pid = pid;
+        super(reason.toString());
+        this.reason = reason;
+        this.pid = pid;
     }
 
     /**
@@ -83,30 +84,30 @@ public class OtpErlangExit extends OtpErlangException {
      * Equivalent to <code>OtpErlangExit(new OtpErlangAtom(reason),
      * pid)</code>.
      * </p>
-     * 
+     *
      * @param reason
-     *                the reason this exit signal has been sent.
-     * 
+     *            the reason this exit signal has been sent.
+     *
      * @param pid
-     *                the pid that sent this exit.
-     * 
+     *            the pid that sent this exit.
+     *
      * @see #OtpErlangExit(OtpErlangObject, OtpErlangPid)
      */
     public OtpErlangExit(final String reason, final OtpErlangPid pid) {
-	this(new OtpErlangAtom(reason), pid);
+        this(new OtpErlangAtom(reason), pid);
     }
 
     /**
      * Get the reason associated with this exit signal.
      */
     public OtpErlangObject reason() {
-	return reason;
+        return reason;
     }
 
     /**
      * Get the pid that sent this exit.
      */
     public OtpErlangPid pid() {
-	return pid;
+        return pid;
     }
 }

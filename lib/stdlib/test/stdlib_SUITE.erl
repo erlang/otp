@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2014. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2015. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %%
@@ -22,14 +23,7 @@
 -module(stdlib_SUITE).
 -include_lib("test_server/include/test_server.hrl").
 
-
-% Test server specific exports
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
-	 init_per_group/2,end_per_group/2]).
--export([init_per_testcase/2, end_per_testcase/2]).
-
-% Test cases must be exported.
--export([app_test/1, appup_test/1]).
+-compile(export_all).
 
 %%
 %% all/1
@@ -37,10 +31,10 @@
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    [app_test, appup_test].
+    [app_test, appup_test, assert_test, {group,upgrade}].
 
 groups() -> 
-    [].
+    [{upgrade,[minor_upgrade,major_upgrade]}].
 
 init_per_suite(Config) ->
     Config.
@@ -48,9 +42,13 @@ init_per_suite(Config) ->
 end_per_suite(_Config) ->
     ok.
 
+init_per_group(upgrade, Config) ->
+    ct_release_test:init(Config);
 init_per_group(_GroupName, Config) ->
     Config.
 
+end_per_group(upgrade, Config) ->
+    ct_release_test:cleanup(Config);
 end_per_group(_GroupName, Config) ->
     Config.
 
@@ -164,4 +162,92 @@ check_appup([Vsn|Vsns],Instrs,Expected) ->
 	Other -> ct:fail({unexpected_result_for_vsn,Vsn,Other})
     end;
 check_appup([],_,_) ->
+    ok.
+
+
+minor_upgrade(Config) ->
+    ct_release_test:upgrade(stdlib,minor,{?MODULE,[]},Config).
+
+major_upgrade(Config) ->
+    ct_release_test:upgrade(stdlib,major,{?MODULE,[]},Config).
+
+%% Version numbers are checked by ct_release_test, so there is nothing
+%% more to check here...
+upgrade_init(CtData,State) ->
+    {ok,{FromVsn,ToVsn}} = ct_release_test:get_app_vsns(CtData,stdlib),
+    case ct_release_test:get_appup(CtData,stdlib) of
+	{ok,{FromVsn,ToVsn,[restart_new_emulator],[restart_new_emulator]}} ->
+	    io:format("Upgrade/downgrade ~p <--> ~p",[FromVsn,ToVsn]);
+	{error,{vsn_not_found,_}} when FromVsn==ToVsn ->
+	    io:format("No upgrade test for stdlib, same version")
+    end,
+    State.
+upgrade_upgraded(_CtData,State) ->
+    State.
+upgrade_downgraded(_CtData,State) ->
+    State.
+
+
+-include_lib("stdlib/include/assert.hrl").
+-include_lib("stdlib/include/assert.hrl"). % test repeated inclusion
+assert_test(suite) ->
+    [];
+assert_test(doc) ->
+    ["Assert macros test."];
+assert_test(_Config) ->
+    ok = ?assert(true),
+    {'EXIT',{{assert, _},_}} = (catch ?assert(false)),
+    {'EXIT',{{assert, Info1},_}} = (catch ?assert(0)),
+    {not_boolean,0} = lists:keyfind(not_boolean,1,Info1),
+
+    ok = ?assertNot(false),
+    {'EXIT',{{assert, _},_}} = (catch ?assertNot(true)),
+    {'EXIT',{{assert, Info2},_}} = (catch ?assertNot(0)),
+    {not_boolean,0} = lists:keyfind(not_boolean,1,Info2),
+
+    ok = ?assertMatch({foo,_}, {foo,bar}),
+    {'EXIT',{{assertMatch,_},_}} =
+        (catch ?assertMatch({foo,_}, {foo})),
+
+    ok = ?assertMatch({foo,N} when N > 0, {foo,1}),
+    {'EXIT',{{assertMatch,_},_}} =
+        (catch ?assertMatch({foo,N} when N > 0, {foo,0})),
+
+    ok = ?assertNotMatch({foo,_}, {foo,bar,baz}),
+    {'EXIT',{{assertNotMatch,_},_}} =
+        (catch ?assertNotMatch({foo,_}, {foo,baz})),
+
+    ok = ?assertNotMatch({foo,N} when N > 0, {foo,0}),
+    {'EXIT',{{assertNotMatch,_},_}} =
+        (catch ?assertNotMatch({foo,N} when N > 0, {foo,1})),
+
+    ok = ?assertEqual(1.0, 1.0),
+    {'EXIT',{{assertEqual,_},_}} = (catch ?assertEqual(1, 1.0)),
+
+    ok = ?assertNotEqual(1, 1.0),
+    {'EXIT',{{assertNotEqual,_},_}} = (catch ?assertNotEqual(1.0, 1.0)),
+
+    ok = ?assertException(error, badarith, 1/0),
+    ok = ?assertException(exit, foo, exit(foo)),
+    ok = ?assertException(throw, foo, throw(foo)),
+    ok = ?assertException(throw, {foo,_}, throw({foo,bar})),
+    ok = ?assertException(throw, {foo,N} when N > 0, throw({foo,1})),
+    {'EXIT',{{assertException,Why1},_}} =
+        (catch ?assertException(error, badarith, 0/1)),
+    true = lists:keymember(unexpected_success,1,Why1),
+    {'EXIT',{{assertException,Why2},_}} =
+        (catch ?assertException(error, badarith, 1/length(0))),
+    true = lists:keymember(unexpected_exception,1,Why2),
+    {'EXIT',{{assertException,Why3},_}} =
+        (catch ?assertException(throw, {foo,N} when N > 0, throw({foo,0}))),
+    true = lists:keymember(unexpected_exception,1,Why3),
+
+    ok = ?assertNotException(throw, {foo,baz}, throw({foo,bar})),
+    {'EXIT',{{assertNotException,Why4},_}} =
+        (catch ?assertNotException(throw, {foo,bar}, throw({foo,bar}))),
+    true = lists:keymember(unexpected_exception,1,Why4),
+
+    ok = ?assertError(badarith, 1/0),
+    ok = ?assertExit(foo, exit(foo)),
+    ok = ?assertThrow(foo, throw(foo)),
     ok.

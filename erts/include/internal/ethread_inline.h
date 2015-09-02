@@ -3,22 +3,46 @@
  *
  * Copyright Ericsson AB 2004-2014. All Rights Reserved.
  *
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  * %CopyrightEnd%
  */
 
 #ifndef ETHREAD_INLINE_H__
 #define ETHREAD_INLINE_H__
+
+#define ETHR_GCC_COMPILER_FALSE 0 /* Not a gcc compatible compiler */
+#define ETHR_GCC_COMPILER_TRUE 1 /* The GNU gcc compiler */
+/* Negative integers for gcc compatible compilers */
+#define ETHR_GCC_COMPILER_CLANG -1 /* The Clang gcc compatible compiler */
+#define ETHR_GCC_COMPILER_ICC -2 /* The Intel gcc compatible compiler */
+/* Line them up... */
+
+/*
+ * Unfortunately there is no easy and certain way of
+ * detecting a true gcc compiler, since the compatible
+ * ones all define the same defines as the true gnu-gcc...
+ */
+#if !defined(__GNUC__) && !defined(__GNUG__) 
+#  define ETHR_GCC_COMPILER ETHR_GCC_COMPILER_FALSE
+#elif defined(__clang__)
+#  define ETHR_GCC_COMPILER ETHR_GCC_COMPILER_CLANG
+#elif defined(__ICC) || defined(__INTEL_COMPILER)
+#  define ETHR_GCC_COMPILER ETHR_GCC_COMPILER_ICC
+#else
+/* Seems to be the true gnu-gcc... */
+#  define ETHR_GCC_COMPILER ETHR_GCC_COMPILER_TRUE
+#endif
 
 #if !defined(__GNUC__)
 #  define ETHR_AT_LEAST_GCC_VSN__(MAJ, MIN, PL) 0

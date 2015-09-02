@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 1997-2011. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -98,40 +99,40 @@ load("ErlScriptAlias " ++ ErlScriptAlias, []) ->
     case inets_regexp:split(ErlScriptAlias," ") of
 	{ok, [ErlName | StrModules]} ->
 	    Modules = lists:map(fun(Str) -> 
-					list_to_atom(httpd_conf:clean(Str)) 
+					list_to_atom(string:strip(Str)) 
 				end, StrModules),
 	    {ok, [], {erl_script_alias, {ErlName, Modules}}};
 	{ok, _} ->
-	    {error, ?NICE(httpd_conf:clean(ErlScriptAlias) ++
+	    {error, ?NICE(string:strip(ErlScriptAlias) ++
 			 " is an invalid ErlScriptAlias")}
     end;
 load("EvalScriptAlias " ++ EvalScriptAlias, []) ->
     case inets_regexp:split(EvalScriptAlias, " ") of
 	{ok, [EvalName | StrModules]} ->
 	    Modules = lists:map(fun(Str) -> 
-					list_to_atom(httpd_conf:clean(Str)) 
+					list_to_atom(string:strip(Str)) 
 				end, StrModules),
 	    {ok, [], {eval_script_alias, {EvalName, Modules}}};
 	{ok, _} ->
-	    {error, ?NICE(httpd_conf:clean(EvalScriptAlias) ++
+	    {error, ?NICE(string:strip(EvalScriptAlias) ++
 			  " is an invalid EvalScriptAlias")}
     end;
 load("ErlScriptTimeout " ++ Timeout, [])->
-    case catch list_to_integer(httpd_conf:clean(Timeout)) of
+    case catch list_to_integer(string:strip(Timeout)) of
 	TimeoutSec when is_integer(TimeoutSec)  ->
 	   {ok, [], {erl_script_timeout, TimeoutSec * 1000}};
 	_ ->
-	   {error, ?NICE(httpd_conf:clean(Timeout) ++
+	   {error, ?NICE(string:strip(Timeout) ++
 			 " is an invalid ErlScriptTimeout")}
     end;
 load("ErlScriptNoCache " ++ CacheArg, [])->
-    case catch list_to_atom(httpd_conf:clean(CacheArg)) of
+    case catch list_to_atom(string:strip(CacheArg)) of
         true ->
 	    {ok, [], {erl_script_nocache, true}};
 	false ->
 	   {ok, [], {erl_script_nocache, false}};
 	_ ->
-	   {error, ?NICE(httpd_conf:clean(CacheArg)++
+	   {error, ?NICE(string:strip(CacheArg)++
 			 " is an invalid ErlScriptNoCache directive")}
     end.
 

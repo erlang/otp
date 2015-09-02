@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 1996-2014. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -200,7 +201,7 @@ log_header(Kind, Version) ->
 		log_kind=Kind,
 		mnesia_version=mnesia:system_info(version),
 		node=node(),
-		now=now()}.
+		now=erlang:timestamp()}.
 
 version() -> "4.3".
 
@@ -349,6 +350,8 @@ open_log(Name, Header, Fname, Exists, Repair, Mode) ->
 	    mnesia_lib:important("Data may be missing, log ~p repaired: Lost ~p bytes~n",
 				 [Fname, BadBytes]),
 	    Log;
+	{error, Reason = {file_error, _Fname, emfile}} ->
+	    fatal("Cannot open log file ~p: ~p~n", [Fname, Reason]);
 	{error, Reason} when Repair == true ->
 	    file:delete(Fname),
 	    mnesia_lib:important("Data may be missing, Corrupt logfile deleted: ~p, ~p ~n",
@@ -462,7 +465,7 @@ chunk_log(Cont) ->
 chunk_log(_Log, eof) ->
     eof;
 chunk_log(Log, Cont) ->
-    case catch disk_log:chunk(Log, Cont) of
+    case disk_log:chunk(Log, Cont) of
 	{error, Reason} ->
 	    fatal("Possibly truncated ~p file: ~p~n",
 		  [Log, Reason]);
@@ -647,11 +650,11 @@ backup_checkpoint(Name, Opaque, Args) when is_list(Args) ->
     end.
 
 check_backup_args([Arg | Tail], B) ->
-    case catch check_backup_arg_type(Arg, B) of
-	{'EXIT', _Reason} ->
-	    {error, {badarg, Arg}};
+    try check_backup_arg_type(Arg, B) of
 	B2 ->
 	    check_backup_args(Tail, B2)
+    catch error:_ ->
+	    {error, {badarg, Arg}}
     end;
 
 check_backup_args([], B) ->
@@ -674,11 +677,11 @@ check_backup_arg_type(Arg, B) ->
 
 backup_master(ClientPid, B) ->
     process_flag(trap_exit, true),
-    case catch do_backup_master(B) of
-	{'EXIT', Reason} ->
-	    ClientPid ! {self(), ClientPid, {error, {'EXIT', Reason}}};
+    try do_backup_master(B) of
 	Res ->
 	    ClientPid ! {self(), ClientPid, Res}
+    catch _:Reason ->
+	    ClientPid ! {self(), ClientPid, {error, {'EXIT', Reason}}}
     end,
     unlink(ClientPid),
     exit(normal).
@@ -736,10 +739,10 @@ safe_apply(B, What, Args) ->
 	{'EXIT', Pid, R} -> Abort({'EXIT', Pid, R})
     after 0 ->
 	    Mod = B#backup_args.module,
-	    case catch apply(Mod, What, Args) of
+	    try apply(Mod, What, Args) of
 		{ok, Opaque} -> B#backup_args{opaque=Opaque};
-		{error, R} -> Abort(R);
-		R -> Abort(R)
+		{error, R} -> Abort(R)
+	    catch _:R -> Abort(R)
 	    end
     end.
 
@@ -748,10 +751,9 @@ abort_write(B, What, Args, Reason) ->
     Opaque = B#backup_args.opaque,
     dbg_out("Failed to perform backup. M=~p:F=~p:A=~p -> ~p~n",
 	    [Mod, What, Args, Reason]),
-    case catch apply(Mod, abort_write, [Opaque]) of
-	{ok, _Res} ->
-	    throw({error, Reason});
-	Other ->
+    try apply(Mod, abort_write, [Opaque]) of
+	{ok, _Res} -> throw({error, Reason})
+    catch _:Other ->
 	    error("Failed to abort backup. ~p:~p~p -> ~p~n",
 		  [Mod, abort_write, [Opaque], Other]),
 	    throw({error, Reason})
@@ -892,10 +894,8 @@ tab_receiver(Pid, B, Tab, RecName, Slot) ->
     end.
 
 rec_filter(B, schema, _RecName, Recs) ->
-    case catch mnesia_bup:refresh_cookie(Recs, B#backup_args.cookie) of
-	Recs2 when is_list(Recs2) ->
-	    Recs2;
-	{error, _Reason} ->
+    try mnesia_bup:refresh_cookie(Recs, B#backup_args.cookie)
+    catch throw:{error, _Reason} ->
 	    %% No schema table cookie
 	    Recs
     end;
@@ -1006,13 +1006,14 @@ add_recs([{{Tab, _Key}, Val, delete_object} | Rest], N) ->
     add_recs(Rest, N+1);
 add_recs([{{Tab, Key}, Val, update_counter} | Rest], N) ->
     {RecName, Incr} = Val,
-    case catch ets:update_counter(Tab, Key, Incr) of
-	CounterVal when is_integer(CounterVal) ->
-	    ok;
-	_ when Incr < 0 ->
+    try
+	CounterVal = ets:update_counter(Tab, Key, Incr),
+	true = (CounterVal >= 0)
+    catch
+	error:_ when Incr < 0 ->
 	    Zero = {RecName, Key, 0},
 	    true = ets:insert(Tab, Zero);
-	_ ->
+	error:_ ->
 	    Zero = {RecName, Key, Incr},
 	    true = ets:insert(Tab, Zero)
     end,

@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 2010-2015. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -119,7 +120,6 @@
          service      :: #diameter_service{},
          dpr = false  :: false
                        | true  %% DPR received, DPA sent
-                       | {uint32(), uint32()}  %% set in old code
                        | {boolean(), uint32(), uint32()},
                        %% hop by hop and end to end identifiers in
                        %% outgoing DPR; boolean says whether or not
@@ -155,8 +155,7 @@
 %% # start/3
 %% ---------------------------------------------------------------------------
 
--spec start(T, [Opt], {[diameter:service_opt()]
-                       | diameter:sequence(),  %% from old code
+-spec start(T, [Opt], {[diameter:service_opt()],
                        [node()],
                        module(),
                        #diameter_service{}})
@@ -194,9 +193,6 @@ start_link(T) ->
 init(T) ->
     proc_lib:init_ack({ok, self()}),
     gen_server:enter_loop(?MODULE, [], i(T)).
-
-i({Ack, WPid, T, Opts, {{_,_} = Mask, Nodes, Dict0, Svc}}) -> %% from old code
-    i({Ack, WPid, T, Opts, {[{sequence, Mask}], Nodes, Dict0, Svc}});
 
 i({Ack, WPid, {M, Ref} = T, Opts, {SvcOpts, Nodes, Dict0, Svc}}) ->
     erlang:monitor(process, WPid),
@@ -319,7 +315,7 @@ handle_info(T, #state{} = State) ->
             ?LOG(stop, Reason),
             {stop, {shutdown, Reason}, State};
         stop ->
-            ?LOG(stop, T),
+            ?LOG(stop, truncate(T)),
             {stop, {shutdown, T}, State}
     catch
         exit: {diameter_codec, encode, T} = Reason ->
@@ -329,13 +325,10 @@ handle_info(T, #state{} = State) ->
         {?MODULE, Tag, Reason}  ->
             ?LOG(stop, Tag),
             {stop, {shutdown, Reason}, State}
-    end;
+    end.
 %% The form of the throw caught here is historical. It's
 %% significant that it's not a 2-tuple, as in ?FAILURE(Reason),
 %% since these are caught elsewhere.
-
-handle_info(T, S) ->  %% started in old code
-    handle_info(T, #state{} = erlang:append_element(S, infinity)).
 
 %% Note that there's no guarantee that the service and transport
 %% capabilities are good enough to build a CER/CEA that can be
@@ -355,6 +348,11 @@ code_change(_, State, _) ->
 %% ---------------------------------------------------------------------------
 %% ---------------------------------------------------------------------------
 
+truncate({'DOWN' = T, _, process, Pid, _}) ->
+    {T, Pid};
+truncate(T) ->
+    T.
+
 putr(Key, Val) ->
     put({?MODULE, Key}, Val).
 
@@ -365,9 +363,6 @@ eraser(Key) ->
     erase({?MODULE, Key}).
 
 %% transition/2
-
-transition(T, #state{dpr = {Hid, Eid}} = S) -> %% DPR sent from old code
-    transition(T, S#state{dpr = {false, Hid, Eid}});
 
 %% Connection to peer.
 transition({diameter, {TPid, connected, Remote}},
@@ -1296,25 +1291,15 @@ dpa_timer(Tmo) ->
     erlang:send_after(Tmo, self(), dpa_timeout).
 
 dpa_timeout() ->
-    dpa_timeout(getr(?DPA_KEY)).
-
-dpa_timeout({_, Tmo}) ->
-    Tmo;
-dpa_timeout(undefined) ->  %% set in old code
-    ?DPA_TIMEOUT;
-dpa_timeout(Tmo) ->        %% ditto
+    {_, Tmo} = getr(?DPA_KEY),
     Tmo.
 
 dpr_timer() ->
     dpa_timer(dpr_timeout()).
 
 dpr_timeout() ->
-    dpr_timeout(getr(?DPA_KEY)).
-
-dpr_timeout({Tmo, _}) ->
-    Tmo;
-dpr_timeout(_) ->  %% set in old code
-    ?DPR_TIMEOUT.
+    {Tmo, _} = getr(?DPA_KEY),
+    Tmo.
 
 %% register_everywhere/1
 %%

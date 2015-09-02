@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2002-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2015. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %%
@@ -32,19 +33,6 @@
 
 
 %% Test server callbacks
-init_per_testcase(undef_funcs, Config) ->
-    NewConfig = lists:keydelete(watchdog, 1, Config),
-    Dog = test_server:timetrap(inets_test_lib:minutes(10)),
-
-    %% We need to check if there is a point to run this test.
-    %% On some platforms, crypto will not build, which in turn
-    %% causes ssl to not build (at this time, this will
-    %% change in the future).
-    %% So, we first check if we can start crypto, and if not,
-    %% we skip this test case!
-    ?ENSURE_STARTED(crypto),
-
-    [{watchdog, Dog}| NewConfig];
 init_per_testcase(_, Config) ->
     Config.
 
@@ -54,7 +42,7 @@ end_per_testcase(_Case, Config) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 all() -> 
-    [fields, modules, exportall, app_depend, undef_funcs].
+    [fields, modules, exportall, app_depend].
 
 groups() -> 
     [].
@@ -241,56 +229,6 @@ check_apps([App|Apps]) ->
 	    throw({error, {missing_app, {App, Error}}})
     end.
 
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-undef_funcs(suite) ->
-    [];
-undef_funcs(doc) ->
-    [];
-undef_funcs(Config) when is_list(Config) ->
-    App            = inets,
-    AppFile        = key1search(app_file, Config),
-    Mods           = key1search(modules, AppFile),
-    Root           = code:root_dir(),
-    LibDir         = code:lib_dir(App),
-    EbinDir        = filename:join([LibDir,"ebin"]),
-    XRefTestName   = undef_funcs_make_name(App, xref_test_name),
-    {ok, XRef}     = xref:start(XRefTestName),
-    ok             = xref:set_default(XRef, 
-				      [{verbose,false},{warnings,false}]),
-    XRefName       = undef_funcs_make_name(App, xref_name),
-    {ok, XRefName} = xref:add_release(XRef, Root, {name, XRefName}),
-    {ok, App}      = xref:replace_application(XRef, App, EbinDir),
-    {ok, Undefs}   = xref:analyze(XRef, undefined_function_calls),
-    xref:stop(XRef),
-    analyze_undefined_function_calls(Undefs, Mods, []).
-
-analyze_undefined_function_calls([], _, []) ->
-    ok;
-analyze_undefined_function_calls([], _, AppUndefs) ->
-    exit({suite_failed, {undefined_function_calls, AppUndefs}});
-analyze_undefined_function_calls([{{Mod, _F, _A}, _C} = AppUndef|Undefs], 
-				 AppModules, AppUndefs) ->
-    %% Check that this module is our's
-    case lists:member(Mod,AppModules) of
-	true ->
-	    {Calling,Called} = AppUndef,
-	    {Mod1,Func1,Ar1} = Calling,
-	    {Mod2,Func2,Ar2} = Called,
-	    io:format("undefined function call: "
-		      "~n   ~w:~w/~w calls ~w:~w/~w~n", 
-		      [Mod1,Func1,Ar1,Mod2,Func2,Ar2]),
-	    analyze_undefined_function_calls(Undefs, AppModules, 
-					     [AppUndef|AppUndefs]);
-	false ->
-	    io:format("dropping ~p~n", [Mod]),
-	    analyze_undefined_function_calls(Undefs, AppModules, AppUndefs)
-    end.
-
-%% This function is used simply to avoid cut-and-paste errors later...
-undef_funcs_make_name(App, PostFix) ->
-    list_to_atom(atom_to_list(App) ++ "_" ++ atom_to_list(PostFix)).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 

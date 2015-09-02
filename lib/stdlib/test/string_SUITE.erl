@@ -3,16 +3,17 @@
 %% 
 %% Copyright Ericsson AB 2004-2013. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %%
@@ -120,7 +121,7 @@ chr_rchr(suite) ->
 chr_rchr(doc) ->
     [];
 chr_rchr(Config) when is_list(Config) ->
-    ?line {_,_,X} = now(),
+    {_,_,X} = erlang:timestamp(),
     ?line 0 = string:chr("", (X rem (255-32)) + 32),
     ?line 0 = string:rchr("", (X rem (255-32)) + 32),
     ?line 1 = string:chr("x", $x),
@@ -144,7 +145,7 @@ str_rstr(suite) ->
 str_rstr(doc) ->
     [];
 str_rstr(Config) when is_list(Config) ->
-    ?line {_,_,X} = now(),
+    {_,_,X} = erlang:timestamp(),
     ?line 0 = string:str("", [(X rem (255-32)) + 32]),
     ?line 0 = string:rstr("", [(X rem (255-32)) + 32]),
     ?line 1 = string:str("x", "x"),
@@ -217,21 +218,39 @@ substr(Config) when is_list(Config) ->
     ?line {'EXIT',_} = (catch string:substr("1234", "1")),
     ok.
 
-tokens(suite) ->
-    [];
-tokens(doc) ->
-    [];
 tokens(Config) when is_list(Config) ->
-    ?line [] = string:tokens("",""),
-    ?line [] = string:tokens("abc","abc"),
-    ?line ["abc"] = string:tokens("abc", ""),
-    ?line ["1","2 34","4","5"] = string:tokens("1,2 34,4;5", ";,"),
+    [] = string:tokens("",""),
+    [] = string:tokens("abc","abc"),
+    ["abc"] = string:tokens("abc", ""),
+    ["1","2 34","45","5","6","7"] = do_tokens("1,2 34,45;5,;6;,7", ";,"),
+
     %% invalid arg type
-    ?line {'EXIT',_} = (catch string:tokens('x,y', ",")), 
-    %% invalid arg type
-    ?line {'EXIT',_} = (catch string:tokens("x,y", ',')), 
+    {'EXIT',_} = (catch string:tokens('x,y', ",")),
+    {'EXIT',_} = (catch string:tokens("x,y", ',')),
     ok.
 
+do_tokens(S0, Sep0) ->
+    [H|T] = Sep0,
+    S = [replace_sep(C, T, H) || C <- S0],
+    Sep = [H],
+    io:format("~p ~p\n", [S0,Sep0]),
+    io:format("~p ~p\n", [S,Sep]),
+
+    Res = string:tokens(S0, Sep0),
+    Res = string:tokens(Sep0++S0, Sep0),
+    Res = string:tokens(S0++Sep0, Sep0),
+
+    Res = string:tokens(S, Sep),
+    Res = string:tokens(Sep++S, Sep),
+    Res = string:tokens(S++Sep, Sep),
+
+    Res.
+
+replace_sep(C, Seps, New) ->
+    case lists:member(C, Seps) of
+	true -> New;
+	false -> C
+    end.
 
 chars(suite) ->
     [];

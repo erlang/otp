@@ -3,16 +3,17 @@
 %% 
 %% Copyright Ericsson AB 2003-2014. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %%
@@ -63,6 +64,7 @@
 	 allocator_info/0,
 	 hash_tables/0,
 	 index_tables/0,
+	 schedulers/0,
 	 expand_binary/1]).
 
 %% Library function
@@ -114,6 +116,7 @@
 -define(proc_heap,proc_heap).
 -define(proc_messages,proc_messages).
 -define(proc_stack,proc_stack).
+-define(scheduler,scheduler).
 -define(timer,timer).
 -define(visible_node,visible_node).
 
@@ -267,6 +270,8 @@ hash_tables() ->
     call(hash_tables).
 index_tables() ->
     call(index_tables).
+schedulers() ->
+    call(schedulers).
 
 %%%-----------------------------------------------------------------
 %%% Called when a link to a process (Pid) is clicked.
@@ -320,6 +325,8 @@ handle_call(general_info,_From,State=#state{file=File}) ->
 		      "Some information might be missing."];
 	     false -> []
 	 end,
+    ets:insert(cdv_reg_proc_table,
+	       {cdv_dump_node_name,GenInfo#general_info.node_name}),
     {reply,{ok,GenInfo,TW},State#state{wordsize=WS, num_atoms=NumAtoms}};
 handle_call({expand_binary,{Offset,Size,Pos}},_From,State=#state{file=File}) ->
     Fd = open(File),
@@ -429,7 +436,11 @@ handle_call(hash_tables,_From,State=#state{file=File}) ->
 handle_call(index_tables,_From,State=#state{file=File}) ->
     IndexTables=index_tables(File),
     TW = truncated_warning([?hash_table,?index_table]),
-    {reply,{ok,IndexTables,TW},State}.
+    {reply,{ok,IndexTables,TW},State};
+handle_call(schedulers,_From,State=#state{file=File}) ->
+    Schedulers=schedulers(File),
+    TW = truncated_warning([?scheduler]),
+    {reply,{ok,Schedulers,TW},State}.
 
 
 
@@ -675,9 +686,11 @@ skip(Fd,<<>>) ->
 
 
 val(Fd) ->
+    val(Fd, "-1").
+val(Fd, NoExist) ->
     case get_rest_of_line(Fd) of
-	{eof,[]} -> "-1";
-	[] -> "-1";
+	{eof,[]} -> NoExist;
+	[] -> NoExist;
 	{eof,Val} -> Val;
 	Val -> Val
     end.
@@ -926,7 +939,7 @@ general_info(File) ->
 		N;
 	    [] ->
 		case lookup_index(?no_distribution) of
-		    [_] -> "nonode@nohost";
+		    [_] -> "'nonode@nohost'";
 		    [] -> "unknown"
 		end
 	end,
@@ -965,6 +978,8 @@ get_general_info(Fd,GenInfo) ->
 	    get_general_info(Fd,GenInfo#general_info{taints=Val});
 	"Atoms" ->
 	    get_general_info(Fd,GenInfo#general_info{num_atoms=val(Fd)});
+	"Calling Thread" ->
+	    get_general_info(Fd,GenInfo#general_info{thread=val(Fd)});
 	"=" ++ _next_tag ->
 	    GenInfo;
 	Other ->
@@ -1131,6 +1146,10 @@ all_procinfo(Fd,Fun,Proc,WS,LineHead) ->
 	"arity = " ++ Arity ->
 	    %%! Temporary workaround
 	    get_procinfo(Fd,Fun,Proc#proc{arity=Arity--"\r\n"},WS);
+	"Run queue" ->
+	    get_procinfo(Fd,Fun,Proc#proc{run_queue=val(Fd)},WS);
+	"Internal State" ->
+	    get_procinfo(Fd,Fun,Proc#proc{int_state=val(Fd)},WS);
 	"=" ++ _next_tag ->
 	    Proc;
 	Other ->
@@ -1165,6 +1184,19 @@ parse_pid(Str) ->
     {Pid,Rest} = parse_link(Str,[]),
     {{Pid,Pid},Rest}.
 
+parse_monitor("{"++Str) ->
+    %% Named process
+    {Name,Node,Rest1} = parse_name_node(Str,[]),
+    Pid = get_pid_from_name(Name,Node),
+    case parse_link(string:strip(Rest1,left,$,),[]) of
+	{Ref,"}"++Rest2} ->
+	    %% Bug in break.c - prints an extra "}" for remote
+	    %% nodes... thus the strip
+	    {{Pid,"{"++Name++","++Node++"} ("++Ref++")"},
+	     string:strip(Rest2,left,$})};
+	{Ref,[]} ->
+	    {{Pid,"{"++Name++","++Node++"} ("++Ref++")"},[]}
+    end;
 parse_monitor(Str) ->
     case parse_link(Str,[]) of
 	{Pid,","++Rest1} ->
@@ -1186,23 +1218,58 @@ parse_link([],Acc) ->
     %% truncated
     {lists:reverse(Acc),[]}.
 
+parse_name_node(","++Rest,Name) ->
+    parse_name_node(Rest,Name,[]);
+parse_name_node([H|T],Name) ->
+    parse_name_node(T,[H|Name]);
+parse_name_node([],Name) ->
+    %% truncated
+    {lists:reverse(Name),[],[]}.
+
+parse_name_node("}"++Rest,Name,Node) ->
+    {lists:reverse(Name),lists:reverse(Node),Rest};
+parse_name_node([H|T],Name,Node) ->
+    parse_name_node(T,Name,[H|Node]);
+parse_name_node([],Name,Node) ->
+    %% truncated
+    {lists:reverse(Name),lists:reverse(Node),[]}.
+
+get_pid_from_name(Name,Node) ->
+    case ets:lookup(cdv_reg_proc_table,cdv_dump_node_name) of
+	[{_,Node}] ->
+	    case ets:lookup(cdv_reg_proc_table,Name) of
+		[{_,Pid}] when is_pid(Pid) ->
+		    pid_to_list(Pid);
+		_ ->
+		    "<unkonwn_pid>"
+	    end;
+	_ ->
+	    "<unknown_pid_other_node>"
+    end.
+
 maybe_other_node(Id) ->
     Channel = 
 	case split($.,Id) of
 	    {"<" ++ N, _Rest} ->
 		N;
 	    {"#Port<" ++ N, _Rest} ->
-		N
+		N;
+	    {_, []} ->
+		not_found
 	end,
+    maybe_other_node2(Channel).
+
+maybe_other_node2(not_found) -> not_found;
+maybe_other_node2(Channel) ->
     Ms = ets:fun2ms(
-	   fun({{Tag,Start},Ch}) when Tag=:=?visible_node, Ch=:=Channel -> 
+	   fun({{Tag,Start},Ch}) when Tag=:=?visible_node, Ch=:=Channel ->
 		   {"Visible Node",Start};
 	      ({{Tag,Start},Ch}) when Tag=:=?hidden_node, Ch=:=Channel ->
 		   {"Hidden Node",Start};
-	      ({{Tag,Start},Ch}) when Tag=:=?not_connected, Ch=:=Channel -> 
+	      ({{Tag,Start},Ch}) when Tag=:=?not_connected, Ch=:=Channel ->
 		   {"Not Connected Node",Start}
 	   end),
-    
+
     case ets:select(cdv_dump_index_table,Ms) of
 	[] ->
 	    not_found;
@@ -1457,7 +1524,7 @@ get_ets_tables(File,Pid,WS) ->
 	       end,
     lookup_and_parse_index(File,{?ets,Pid},ParseFun,"ets").
 
-get_etsinfo(Fd,EtsTable,WS) ->
+get_etsinfo(Fd,EtsTable = #ets_table{details=Ds},WS) ->
     case line_head(Fd) of
 	"Slot" ->
 	    get_etsinfo(Fd,EtsTable#ets_table{slot=list_to_integer(val(Fd))},WS);
@@ -1467,7 +1534,7 @@ get_etsinfo(Fd,EtsTable,WS) ->
 	    get_etsinfo(Fd,EtsTable#ets_table{name=val(Fd)},WS);
 	"Ordered set (AVL tree), Elements" ->
 	    skip_rest_of_line(Fd),
-	    get_etsinfo(Fd,EtsTable#ets_table{type="tree",buckets="-"},WS);
+	    get_etsinfo(Fd,EtsTable#ets_table{data_type="tree"},WS);
 	"Buckets" ->
 	    %% A bug in erl_db_hash.c prints a space after the buckets
 	    %% - need to strip the string to make list_to_integer/1 happy.
@@ -1482,9 +1549,42 @@ get_etsinfo(Fd,EtsTable,WS) ->
 		    -1 -> -1; % probably truncated
 		    _ -> Words * WS
 		end,
-	    get_etsinfo(Fd,EtsTable#ets_table{memory=Bytes},WS);
+	    get_etsinfo(Fd,EtsTable#ets_table{memory={bytes,Bytes}},WS);
 	"=" ++ _next_tag ->
 	    EtsTable;
+	"Chain Length Min" ->
+	    Val = val(Fd),
+	    get_etsinfo(Fd,EtsTable#ets_table{details=Ds#{chain_min=>Val}},WS);
+	"Chain Length Avg" ->
+	    Val = try list_to_float(string:strip(val(Fd))) catch _:_ -> "-" end,
+	    get_etsinfo(Fd,EtsTable#ets_table{details=Ds#{chain_avg=>Val}},WS);
+	"Chain Length Max" ->
+	    Val = val(Fd),
+	    get_etsinfo(Fd,EtsTable#ets_table{details=Ds#{chain_max=>Val}},WS);
+	"Chain Length Std Dev" ->
+	    Val = val(Fd),
+	    get_etsinfo(Fd,EtsTable#ets_table{details=Ds#{chain_stddev=>Val}},WS);
+	"Chain Length Expected Std Dev" ->
+	    Val = val(Fd),
+	    get_etsinfo(Fd,EtsTable#ets_table{details=Ds#{chain_exp_stddev=>Val}},WS);
+	"Fixed" ->
+	    Val = val(Fd),
+	    get_etsinfo(Fd,EtsTable#ets_table{details=Ds#{fixed=>Val}},WS);
+	"Type" ->
+	    Val = val(Fd),
+	    get_etsinfo(Fd,EtsTable#ets_table{details=Ds#{data_type=>Val}},WS);
+	"Protection" ->
+	    Val = val(Fd),
+	    get_etsinfo(Fd,EtsTable#ets_table{details=Ds#{protection=>Val}},WS);
+	"Compressed" ->
+	    Val = val(Fd),
+	    get_etsinfo(Fd,EtsTable#ets_table{details=Ds#{compressed=>Val}},WS);
+	"Write Concurrency" ->
+	    Val = val(Fd),
+	    get_etsinfo(Fd,EtsTable#ets_table{details=Ds#{write_c=>Val}},WS);
+	"Read Concurrency" ->
+	    Val = val(Fd),
+	    get_etsinfo(Fd,EtsTable#ets_table{details=Ds#{read_c=>Val}},WS);
 	Other ->
 	    unexpected(Fd,Other,"ETS info"),
 	    EtsTable
@@ -2224,6 +2324,89 @@ get_indextableinfo1(Fd,IndexTable) ->
 	    IndexTable
     end.
 
+
+%%-----------------------------------------------------------------
+%% Page with scheduler table information
+schedulers(File) ->
+    case lookup_index(?scheduler) of
+	[] ->
+	    [];
+	Schedulers ->
+	    Fd = open(File),
+	    R = lists:map(fun({Name,Start}) ->
+				  get_schedulerinfo(Fd,Name,Start)
+			  end,
+			  Schedulers),
+	    close(Fd),
+	    R
+    end.
+
+get_schedulerinfo(Fd,Name,Start) ->
+    pos_bof(Fd,Start),
+    get_schedulerinfo1(Fd,#sched{name=Name}).
+
+get_schedulerinfo1(Fd,Sched=#sched{details=Ds}) ->
+    case line_head(Fd) of
+	"Current Process" ->
+	    get_schedulerinfo1(Fd,Sched#sched{process=val(Fd, "None")});
+	"Current Port" ->
+	    get_schedulerinfo1(Fd,Sched#sched{port=val(Fd, "None")});
+	"Run Queue Max Length" ->
+	    RQMax = list_to_integer(val(Fd)),
+	    RQ = RQMax + Sched#sched.run_q,
+	    get_schedulerinfo1(Fd,Sched#sched{run_q=RQ, details=Ds#{runq_max=>RQMax}});
+	"Run Queue High Length" ->
+	    RQHigh = list_to_integer(val(Fd)),
+	    RQ = RQHigh + Sched#sched.run_q,
+	    get_schedulerinfo1(Fd,Sched#sched{run_q=RQ, details=Ds#{runq_high=>RQHigh}});
+	"Run Queue Normal Length" ->
+	    RQNorm = list_to_integer(val(Fd)),
+	    RQ = RQNorm + Sched#sched.run_q,
+	    get_schedulerinfo1(Fd,Sched#sched{run_q=RQ, details=Ds#{runq_norm=>RQNorm}});
+	"Run Queue Low Length" ->
+	    RQLow = list_to_integer(val(Fd)),
+	    RQ = RQLow + Sched#sched.run_q,
+	    get_schedulerinfo1(Fd,Sched#sched{run_q=RQ, details=Ds#{runq_low=>RQLow}});
+	"Run Queue Port Length" ->
+	    RQ = list_to_integer(val(Fd)),
+	    get_schedulerinfo1(Fd,Sched#sched{port_q=RQ});
+
+	"Scheduler Sleep Info Flags" ->
+	    get_schedulerinfo1(Fd,Sched#sched{details=Ds#{sleep_info=>val(Fd, "None")}});
+	"Scheduler Sleep Info Aux Work" ->
+	    get_schedulerinfo1(Fd,Sched#sched{details=Ds#{sleep_aux=>val(Fd, "None")}});
+
+	"Run Queue Flags" ->
+	    get_schedulerinfo1(Fd,Sched#sched{details=Ds#{runq_flags=>val(Fd, "None")}});
+
+	"Current Process State" ->
+	    get_schedulerinfo1(Fd,Sched#sched{details=Ds#{currp_state=>val(Fd)}});
+	"Current Process Internal State" ->
+	    get_schedulerinfo1(Fd,Sched#sched{details=Ds#{currp_int_state=>val(Fd)}});
+	"Current Process Program counter" ->
+	    get_schedulerinfo1(Fd,Sched#sched{details=Ds#{currp_prg_cnt=>val(Fd)}});
+	"Current Process CP" ->
+	    get_schedulerinfo1(Fd,Sched#sched{details=Ds#{currp_cp=>val(Fd)}});
+	"Current Process Limited Stack Trace" ->
+	    %% If there shall be last in scheduler information block
+	    Sched#sched{details=get_limited_stack(Fd, 0, Ds)};
+	"=" ++ _next_tag ->
+	    Sched;
+	Other ->
+	    unexpected(Fd,Other,"scheduler information"),
+	    Sched
+    end.
+
+get_limited_stack(Fd, N, Ds) ->
+    case val(Fd) of
+	Addr = "0x" ++ _ ->
+	    get_limited_stack(Fd, N+1, Ds#{{currp_stack, N} => Addr});
+	"=" ++ _next_tag ->
+	    Ds;
+	Line ->
+	    get_limited_stack(Fd, N+1, Ds#{{currp_stack, N} => Line})
+    end.
+
 %%%-----------------------------------------------------------------
 %%% Parse memory in crashdump version 0.1 and newer
 %%%
@@ -2526,6 +2709,7 @@ tag_to_atom("proc_dictionary") -> ?proc_dictionary;
 tag_to_atom("proc_heap") -> ?proc_heap;
 tag_to_atom("proc_messages") -> ?proc_messages;
 tag_to_atom("proc_stack") -> ?proc_stack;
+tag_to_atom("scheduler") -> ?scheduler;
 tag_to_atom("timer") -> ?timer;
 tag_to_atom("visible_node") -> ?visible_node;
 tag_to_atom(UnknownTag) ->

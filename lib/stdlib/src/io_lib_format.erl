@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2014. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %%
@@ -20,10 +21,9 @@
 
 %% Formatting functions of io library.
 
--export([fwrite/2,fwrite_g/1,indentation/2]).
+-export([fwrite/2,fwrite_g/1,indentation/2,scan/2,unscan/1,build/1]).
 
-%% fwrite(Format, ArgList) -> string().
-%%  Format the arguments in ArgList after string Format. Just generate
+%%  Format the arguments in Args after string Format. Just generate
 %%  an error if there is an error in the arguments.
 %%
 %%  To do the printing command correctly we need to calculate the
@@ -37,14 +37,83 @@
 %%  and it also splits the handling of the control characters into two
 %%  parts.
 
-fwrite(Format, Args) when is_atom(Format) ->
-    fwrite(atom_to_list(Format), Args);
-fwrite(Format, Args) when is_binary(Format) ->
-    fwrite(binary_to_list(Format), Args);
+-spec fwrite(Format, Data) -> FormatList when
+      Format :: io:format(),
+      Data :: [term()],
+      FormatList :: [char() | io_lib:format_spec()].
+
 fwrite(Format, Args) ->
-    Cs = collect(Format, Args),
+    build(scan(Format, Args)).
+
+%% Build the output text for a pre-parsed format list.
+
+-spec build(FormatList) -> io_lib:chars() when
+      FormatList :: [char() | io_lib:format_spec()].
+
+build(Cs) ->
     Pc = pcount(Cs),
     build(Cs, Pc, 0).
+
+%% Parse all control sequences in the format string.
+
+-spec scan(Format, Data) -> FormatList when
+      Format :: io:format(),
+      Data :: [term()],
+      FormatList :: [char() | io_lib:format_spec()].
+
+scan(Format, Args) when is_atom(Format) ->
+    scan(atom_to_list(Format), Args);
+scan(Format, Args) when is_binary(Format) ->
+    scan(binary_to_list(Format), Args);
+scan(Format, Args) ->
+    collect(Format, Args).
+
+%% Revert a pre-parsed format list to a plain character list and a
+%% list of arguments.
+
+-spec unscan(FormatList) -> {Format, Data} when
+      FormatList :: [char() | io_lib:format_spec()],
+      Format :: io:format(),
+      Data :: [term()].
+
+unscan(Cs) ->
+    {print(Cs), args(Cs)}.
+
+args([#{args := As} | Cs]) ->
+    As ++ args(Cs);
+args([_C | Cs]) ->
+    args(Cs);
+args([]) ->
+    [].
+
+print([#{control_char := C, width := F, adjust := Ad, precision := P,
+         pad_char := Pad, encoding := Encoding, strings := Strings} | Cs]) ->
+    print(C, F, Ad, P, Pad, Encoding, Strings) ++ print(Cs);
+print([C | Cs]) ->
+    [C | print(Cs)];
+print([]) ->
+    [].
+
+print(C, F, Ad, P, Pad, Encoding, Strings) ->
+    [$~] ++ print_field_width(F, Ad) ++ print_precision(P) ++
+        print_pad_char(Pad) ++ print_encoding(Encoding) ++
+        print_strings(Strings) ++ [C].
+
+print_field_width(none, _Ad) -> "";
+print_field_width(F, left) -> integer_to_list(-F);
+print_field_width(F, right) -> integer_to_list(F).
+
+print_precision(none) -> "";
+print_precision(P) -> [$. | integer_to_list(P)].
+
+print_pad_char($\s) -> ""; % default, no need to make explicit
+print_pad_char(Pad) -> [$., Pad].
+
+print_encoding(unicode) -> "t";
+print_encoding(latin1) -> "".
+
+print_strings(false) -> "l";
+print_strings(true) -> "".
 
 collect([$~|Fmt0], Args0) ->
     {C,Fmt1,Args1} = collect_cseq(Fmt0, Args0),
@@ -60,7 +129,10 @@ collect_cseq(Fmt0, Args0) ->
     {Encoding,Fmt4,Args4} = encoding(Fmt3, Args3),
     {Strings,Fmt5,Args5} = strings(Fmt4, Args4),
     {C,As,Fmt6,Args6} = collect_cc(Fmt5, Args5),
-    {{C,As,F,Ad,P,Pad,Encoding,Strings},Fmt6,Args6}.
+    FormatSpec = #{control_char => C, args => As, width => F, adjust => Ad,
+                   precision => P, pad_char => Pad, encoding => Encoding,
+                   strings => Strings},
+    {FormatSpec,Fmt6,Args6}.
 
 encoding([$t|Fmt],Args) ->
     true = hd(Fmt) =/= $l,
@@ -136,17 +208,19 @@ collect_cc([$i|Fmt], [A|Args]) -> {$i,[A],Fmt,Args}.
 
 pcount(Cs) -> pcount(Cs, 0).
 
-pcount([{$p,_As,_F,_Ad,_P,_Pad,_Enc,_Str}|Cs], Acc) -> pcount(Cs, Acc+1);
-pcount([{$P,_As,_F,_Ad,_P,_Pad,_Enc,_Str}|Cs], Acc) -> pcount(Cs, Acc+1);
+pcount([#{control_char := $p}|Cs], Acc) -> pcount(Cs, Acc+1);
+pcount([#{control_char := $P}|Cs], Acc) -> pcount(Cs, Acc+1);
 pcount([_|Cs], Acc) -> pcount(Cs, Acc);
 pcount([], Acc) -> Acc.
 
-%% build([Control], Pc, Indentation) -> string().
+%% build([Control], Pc, Indentation) -> io_lib:chars().
 %%  Interpret the control structures. Count the number of print
 %%  remaining and only calculate indentation when necessary. Must also
 %%  be smart when calculating indentation for characters in format.
 
-build([{C,As,F,Ad,P,Pad,Enc,Str}|Cs], Pc0, I) ->
+build([#{control_char := C, args := As, width := F, adjust := Ad,
+         precision := P, pad_char := Pad, encoding := Enc,
+         strings := Str} | Cs], Pc0, I) ->
     S = control(C, As, F, Ad, P, Pad, Enc, Str, I),
     Pc1 = decr_pc(C, Pc0),
     if
@@ -162,9 +236,13 @@ decr_pc($p, Pc) -> Pc - 1;
 decr_pc($P, Pc) -> Pc - 1;
 decr_pc(_, Pc) -> Pc.
 
-%% indentation(String, Indentation) -> Indentation.
+
 %%  Calculate the indentation of the end of a string given its start
 %%  indentation. We assume tabs at 8 cols.
+
+-spec indentation(String, StartIndent) -> integer() when
+      String :: io_lib:chars(),
+      StartIndent :: integer().
 
 indentation([$\n|Cs], _I) -> indentation(Cs, 0);
 indentation([$\t|Cs], I) -> indentation(Cs, ((I + 8) div 8) * 8);
@@ -366,13 +444,14 @@ float_data([D|Cs], Ds) when D >= $0, D =< $9 ->
 float_data([_|Cs], Ds) ->
     float_data(Cs, Ds).
 
-%% fwrite_g(Float)
 %%  Writes the shortest, correctly rounded string that converts
 %%  to Float when read back with list_to_float/1.
 %%
 %%  See also "Printing Floating-Point Numbers Quickly and Accurately"
 %%  in Proceedings of the SIGPLAN '96 Conference on Programming
 %%  Language Design and Implementation.
+
+-spec fwrite_g(float()) -> string().
 
 fwrite_g(0.0) ->
     "0.0";
@@ -642,7 +721,7 @@ prefixed_integer(Int, F, Adj, Base, Pad, Prefix, Lowercase)
 	    term([Prefix|S], F, Adj, none, Pad)
     end.
 
-%% char(Char, Field, Adjust, Precision, PadChar) -> string().
+%% char(Char, Field, Adjust, Precision, PadChar) -> chars().
 
 char(C, none, _Adj, none, _Pad) -> [C];
 char(C, F, _Adj, none, _Pad) -> chars(C, F);

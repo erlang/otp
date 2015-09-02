@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 1998-2013. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -324,12 +325,15 @@ handle_call({load_binary,Mod,File,Bin}, Caller, S) ->
     do_load_binary(Mod, File, Bin, Caller, S);
 
 handle_call({load_native_partial,Mod,Bin}, {_From,_Tag}, S) ->
-    Result = (catch hipe_unified_loader:load(Mod, Bin)),
+    Architecture = erlang:system_info(hipe_architecture),
+    Result = (catch hipe_unified_loader:load(Mod, Bin, Architecture)),
     Status = hipe_result_to_status(Result),
     {reply,Status,S};
 
 handle_call({load_native_sticky,Mod,Bin,WholeModule}, {_From,_Tag}, S) ->
-    Result = (catch hipe_unified_loader:load_module(Mod, Bin, WholeModule)),
+    Architecture = erlang:system_info(hipe_architecture),
+    Result = (catch hipe_unified_loader:load_module(Mod, Bin, WholeModule,
+                                                    Architecture)),
     Status = hipe_result_to_status(Result),
     {reply,Status,S};
 
@@ -1256,33 +1260,43 @@ try_load_module(File, Mod, Bin, {From,_}=Caller, St0) ->
 try_load_module_1(File, Mod, Bin, Caller, #state{moddb=Db}=St) ->
     case is_sticky(Mod, Db) of
 	true ->                         %% Sticky file reject the load
-	    error_msg("Can't load module that resides in sticky dir\n",[]),
+	    error_msg("Can't load module '~w' that resides in sticky dir\n",[Mod]),
 	    {reply,{error,sticky_directory},St};
 	false ->
-	    case catch load_native_code(Mod, Bin) of
-		{module,Mod} = Module ->
-		    ets:insert(Db, {Mod,File}),
-		    {reply,Module,St};
-		no_native ->
-		    case erlang:load_module(Mod, Bin) of
-			{module,Mod} = Module ->
-			    ets:insert(Db, {Mod,File}),
-			    post_beam_load(Mod),
-			    {reply,Module,St};
-			{error,on_load} ->
-			    handle_on_load(Mod, File, Caller, St);
-			{error,What} = Error ->
-			    error_msg("Loading of ~ts failed: ~p\n", [File, What]),
-			    {reply,Error,St}
-		    end;
-		Error ->
-		    error_msg("Native loading of ~ts failed: ~p\n",
-			      [File,Error]),
-		    {reply,ok,St}
-	    end
+            Architecture = erlang:system_info(hipe_architecture),
+            try_load_module_2(File, Mod, Bin, Caller, Architecture, St)
     end.
 
-load_native_code(Mod, Bin) ->
+try_load_module_2(File, Mod, Bin, Caller, undefined, St) ->
+    try_load_module_3(File, Mod, Bin, Caller, undefined, St);
+try_load_module_2(File, Mod, Bin, Caller, Architecture,
+                  #state{moddb=Db}=St) ->
+    case catch load_native_code(Mod, Bin, Architecture) of
+        {module,Mod} = Module ->
+            ets:insert(Db, {Mod,File}),
+            {reply,Module,St};
+        no_native ->
+            try_load_module_3(File, Mod, Bin, Caller, Architecture, St);
+        Error ->
+            error_msg("Native loading of ~ts failed: ~p\n", [File,Error]),
+            {reply,ok,St}
+    end.
+
+try_load_module_3(File, Mod, Bin, Caller, Architecture,
+                  #state{moddb=Db}=St) ->
+    case erlang:load_module(Mod, Bin) of
+        {module,Mod} = Module ->
+            ets:insert(Db, {Mod,File}),
+            post_beam_load(Mod, Architecture),
+            {reply,Module,St};
+        {error,on_load} ->
+            handle_on_load(Mod, File, Caller, St);
+        {error,What} = Error ->
+            error_msg("Loading of ~ts failed: ~p\n", [File, What]),
+            {reply,Error,St}
+    end.
+
+load_native_code(Mod, Bin, Architecture) ->
     %% During bootstrapping of Open Source Erlang, we don't have any hipe
     %% loader modules, but the Erlang emulator might be hipe enabled.
     %% Therefore we must test for that the loader modules are available
@@ -1291,7 +1305,8 @@ load_native_code(Mod, Bin) ->
 	false ->
 	    no_native;
 	true ->
-	    Result = hipe_unified_loader:load_native_code(Mod, Bin),
+	    Result = hipe_unified_loader:load_native_code(Mod, Bin,
+                                                          Architecture),
 	    case Result of
 		{module,_} ->
 		    put(?ANY_NATIVE_CODE_LOADED, true);
@@ -1310,12 +1325,12 @@ hipe_result_to_status(Result) ->
 	    {error,Result}
     end.
 
-post_beam_load(Mod) ->
-    %% post_beam_load/1 can potentially be very expensive because it
+post_beam_load(Mod, Architecture) ->
+    %% post_beam_load/2 can potentially be very expensive because it
     %% blocks multi-scheduling; thus we want to avoid the call if we
     %% know that it is not needed.
     case get(?ANY_NATIVE_CODE_LOADED) of
-	true -> hipe_unified_loader:post_beam_load(Mod);
+	true -> hipe_unified_loader:post_beam_load(Mod, Architecture);
 	false -> ok
     end.
 

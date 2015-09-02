@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 1997-2013. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -1337,10 +1338,7 @@ unwanted_cixs() ->
 get_conflicting_atoms(_CIX, 0) ->
     [];
 get_conflicting_atoms(CIX, N) ->
-    {A, B, C} = now(),
-    Atom = list_to_atom("atom" ++ integer_to_list(A*1000000000000
-						  + B*1000000
-						  + C)),
+    Atom = list_to_atom("atom" ++ integer_to_list(erlang:unique_integer([positive]))),
     case erts_debug:get_internal_state({atom_out_cache_index, Atom}) of
 	CIX ->
 	    [Atom|get_conflicting_atoms(CIX, N-1)];
@@ -1351,10 +1349,7 @@ get_conflicting_atoms(CIX, N) ->
 get_conflicting_unicode_atoms(_CIX, 0) ->
     [];
 get_conflicting_unicode_atoms(CIX, N) ->
-    {A, B, C} = now(),
-    Atom = string_to_atom([16#1f608] ++ "atom" ++ integer_to_list(A*1000000000000
-								  + B*1000000
-								  + C)),
+    Atom = string_to_atom([16#1f608] ++ "atom" ++ integer_to_list(erlang:unique_integer([positive]))),
     case erts_debug:get_internal_state({atom_out_cache_index, Atom}) of
 	CIX ->
 	    [Atom|get_conflicting_unicode_atoms(CIX, N-1)];
@@ -1967,8 +1962,7 @@ dmsg_bad_atom_cache_ref() ->
 %%% Utilities
 
 timestamp() ->
-    {A,B,C} = erlang:now(),
-    (C div 1000) + (B * 1000) + (A * 1000000000).
+    erlang:monotonic_time(milli_seconds).
 
 start_node(X) ->
     start_node(X, [], []).
@@ -1992,7 +1986,9 @@ start_node(Config, Args, Rel) when is_list(Config), is_list(Rel) ->
 			 ++ "-"
 			 ++ atom_to_list(?config(testcase, Config))
 			 ++ "-"
-			 ++ integer_to_list(timestamp()))),
+			 ++ integer_to_list(erlang:system_time(seconds))
+			 ++ "-"
+			 ++ integer_to_list(erlang:unique_integer([positive])))),
     start_node(Name, Args, Rel).
 
 stop_node(Node) ->
@@ -2109,7 +2105,7 @@ node_monitor(Master) ->
 				  Master ! {nodeup, node(), Node}
 			  end,
 			  Nodes0),
-	    ?t:format("~p ~p: ~p~n", [node(), erlang:now(), Nodes0]),
+	    ?t:format("~p ~p: ~p~n", [node(), erlang:system_time(micro_seconds), Nodes0]),
 	    node_monitor_loop(Master);
 	false ->
 	    net_kernel:monitor_nodes(false, Opts),
@@ -2130,7 +2126,7 @@ node_monitor_loop(Master) ->
     receive
 	{nodeup, Node, _InfoList} = Msg ->
 	    Master ! {nodeup, node(), Node},
-	    ?t:format("~p ~p: ~p~n", [node(), erlang:now(), Msg]),
+	    ?t:format("~p ~p: ~p~n", [node(), erlang:system_time(micro_seconds), Msg]),
 	    node_monitor_loop(Master);
 	{nodedown, Node, InfoList} = Msg ->
 	    Reason = case lists:keysearch(nodedown_reason, 1, InfoList) of
@@ -2138,7 +2134,7 @@ node_monitor_loop(Master) ->
 			 _ -> undefined
 		     end,
 	    Master ! {nodedown, node(), Node, Reason},
-	    ?t:format("~p ~p: ~p~n", [node(), erlang:now(), Msg]),
+	    ?t:format("~p ~p: ~p~n", [node(), erlang:system_time(micro_seconds), Msg]),
 	    node_monitor_loop(Master)
     end.
 

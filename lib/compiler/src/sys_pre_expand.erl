@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2012. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2015. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -33,19 +34,19 @@
 
 -include("../include/erl_bits.hrl").
 
+-type fa() :: {atom(), arity()}.
+
 -record(expand, {module=[],                     %Module name
                  exports=[],                    %Exports
                  imports=[],                    %Imports
-                 compile=[],                    %Compile flags
                  attributes=[],                 %Attributes
                  callbacks=[],                  %Callbacks
+                 optional_callbacks=[] :: [fa()],  %Optional callbacks
                  defined,			%Defined functions (gb_set)
                  vcount=0,                      %Variable counter
                  func=[],                       %Current function
                  arity=[],                      %Arity for current function
-                 fcount=0,                      %Local fun count
-                 bitdefault,
-                 bittypes
+                 fcount=0			%Local fun count
                 }).
 
 %% module(Forms, CompileOptions)
@@ -66,15 +67,12 @@ module(Fs0, Opts0) ->
 
     %% Build initial expand record.
     St0 = #expand{exports=PreExp,
-                  compile=Opts,
-                  defined=PreExp,
-                  bitdefault = erl_bits:system_bitdefault(),
-                  bittypes = erl_bits:system_bittypes()
+                  defined=PreExp
                  },
     %% Expand the functions.
     {Tfs,St1} = forms(Fs, define_functions(Fs, St0)),
     %% Get the correct list of exported functions.
-    Exports = case member(export_all, St1#expand.compile) of
+    Exports = case member(export_all, Opts) of
                   true -> gb_sets:to_list(St1#expand.defined);
                   false -> St1#expand.exports
               end,
@@ -82,7 +80,7 @@ module(Fs0, Opts0) ->
     {Ats,St3} = module_attrs(St1#expand{exports = Exports}),
     {Mfs,St4} = module_predef_funcs(St3),
     {St4#expand.module, St4#expand.exports, Ats ++ Tfs ++ Mfs,
-     St4#expand.compile}.
+     Opts}.
 
 compiler_options(Forms) ->
     lists:flatten([C || {attribute,_,compile,C} <- Forms]).
@@ -99,28 +97,48 @@ define_functions(Forms, #expand{defined=Predef}=St) ->
 module_attrs(#expand{attributes=Attributes}=St) ->
     Attrs = [{attribute,Line,Name,Val} || {Name,Line,Val} <- Attributes],
     Callbacks = [Callback || {_,_,callback,_}=Callback <- Attrs],
-    {Attrs,St#expand{callbacks=Callbacks}}.
+    OptionalCallbacks = get_optional_callbacks(Attrs),
+    {Attrs,St#expand{callbacks=Callbacks,
+                     optional_callbacks=OptionalCallbacks}}.
+
+get_optional_callbacks(Attrs) ->
+    L = [O ||
+            {attribute, _, optional_callbacks, O} <- Attrs,
+            is_fa_list(O)],
+    lists:append(L).
+
+is_fa_list([{FuncName, Arity}|L])
+  when is_atom(FuncName), is_integer(Arity), Arity >= 0 ->
+    is_fa_list(L);
+is_fa_list([]) -> true;
+is_fa_list(_) -> false.
 
 module_predef_funcs(St) ->
     {Mpf1,St1}=module_predef_func_beh_info(St),
     {Mpf2,St2}=module_predef_funcs_mod_info(St1),
-    {Mpf1++Mpf2,St2}.
+    Mpf = [erl_parse:new_anno(F) || F <- Mpf1++Mpf2],
+    {Mpf,St2}.
 
 module_predef_func_beh_info(#expand{callbacks=[]}=St) ->
     {[], St};
-module_predef_func_beh_info(#expand{callbacks=Callbacks,defined=Defined,
+module_predef_func_beh_info(#expand{callbacks=Callbacks,
+                                    optional_callbacks=OptionalCallbacks,
+                                    defined=Defined,
 				    exports=Exports}=St) ->
     PreDef=[{behaviour_info,1}],
     PreExp=PreDef,
-    {[gen_beh_info(Callbacks)],
+    {[gen_beh_info(Callbacks, OptionalCallbacks)],
      St#expand{defined=gb_sets:union(gb_sets:from_list(PreDef), Defined),
 	       exports=union(from_list(PreExp), Exports)}}.
 
-gen_beh_info(Callbacks) ->
+gen_beh_info(Callbacks, OptionalCallbacks) ->
     List = make_list(Callbacks),
+    OptionalList = make_optional_list(OptionalCallbacks),
     {function,0,behaviour_info,1,
      [{clause,0,[{atom,0,callbacks}],[],
-       [List]}]}.
+       [List]},
+      {clause,0,[{atom,0,optional_callbacks}],[],
+       [OptionalList]}]}.
 
 make_list([]) -> {nil,0};
 make_list([{_,_,_,[{{Name,Arity},_}]}|Rest]) ->
@@ -129,6 +147,14 @@ make_list([{_,_,_,[{{Name,Arity},_}]}|Rest]) ->
       [{atom,0,Name},
        {integer,0,Arity}]},
      make_list(Rest)}.
+
+make_optional_list([]) -> {nil,0};
+make_optional_list([{Name,Arity}|Rest]) ->
+    {cons,0,
+     {tuple,0,
+      [{atom,0,Name},
+       {integer,0,Arity}]},
+     make_optional_list(Rest)}.
 
 module_predef_funcs_mod_info(St) ->
     PreDef = [{module_info,0},{module_info,1}],
@@ -232,9 +258,18 @@ pattern({map,Line,Ps}, St0) ->
     {TPs,St1} = pattern_list(Ps, St0),
     {{map,Line,TPs},St1};
 pattern({map_field_exact,Line,K0,V0}, St0) ->
-    {K,St1} = expr(K0, St0),
+    %% Key should be treated as an expression
+    %% but since expressions are not allowed yet,
+    %% process it through pattern .. and handle assoc
+    %% (normalise unary op integer -> integer)
+    {K,St1} = pattern(K0, St0),
     {V,St2} = pattern(V0, St1),
     {{map_field_exact,Line,K,V},St2};
+pattern({map_field_assoc,Line,K0,V0}, St0) ->
+    %% when keys are Maps
+    {K,St1} = pattern(K0, St0),
+    {V,St2} = pattern(V0, St1),
+    {{map_field_assoc,Line,K,V},St2};
 %%pattern({struct,Line,Tag,Ps}, St0) ->
 %%    {TPs,TPsvs,St1} = pattern_list(Ps, St0),
 %%    {{tuple,Line,[{atom,Line,Tag}|TPs]},TPsvs,St1};

@@ -3,16 +3,17 @@
 %% 
 %% Copyright Ericsson AB 2008-2014. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %%
@@ -72,6 +73,10 @@ start(Pid, TraceWin, BackTrace) ->
 
 start(Pid, TraceWin, BackTrace, Strings) ->
     case whereis(dbg_wx_mon) of
+        undefined ->
+            Parent = wx:new(),
+            Env = wx:get_env(),
+            start(Pid, Env, Parent, TraceWin, BackTrace, Strings);
 	Monitor when is_pid(Monitor) ->
 	    Monitor ! {?MODULE, self(), get_env},
 	    receive
@@ -140,7 +145,7 @@ init(Pid, Parent, Meta, TraceWin, BackTrace, Strings) ->
 
     int:meta(Meta, trace, State3#state.trace),
 
-    gui_enable_updown(stack_trace, {1,1}),
+    gui_enable_updown(State3#state.stack_trace, {1,1}),
     gui_enable_btrace(false, false),
     dbg_wx_trace_win:display(Win,idle),
 

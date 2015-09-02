@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 2007-2015. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -61,14 +62,19 @@
 -define(CDR_HDR_SIZE, 12).
 
 -define(DEFAULT_TIMEOUT, 5000).
+-define(NO_DIST_POINT, "http://dummy/no_distribution_point").
+-define(NO_DIST_POINT_PATH, "dummy/no_distribution_point").
 
 %% Common enumerate values in for SSL-protocols 
 -define(NULL, 0).
 -define(TRUE, 0).
 -define(FALSE, 1).
 
--define(ALL_SUPPORTED_VERSIONS, ['tlsv1.2', 'tlsv1.1', tlsv1, sslv3]).
--define(MIN_SUPPORTED_VERSIONS, ['tlsv1.1', tlsv1, sslv3]).
+%% sslv3 is considered insecure due to lack of padding check (Poodle attack)
+%% Keep as interop with legacy software but do not support as default 
+-define(ALL_AVAILABLE_VERSIONS, ['tlsv1.2', 'tlsv1.1', tlsv1, sslv3]).
+-define(ALL_SUPPORTED_VERSIONS, ['tlsv1.2', 'tlsv1.1', tlsv1]).
+-define(MIN_SUPPORTED_VERSIONS, ['tlsv1.1', tlsv1]).
 -define(ALL_DATAGRAM_SUPPORTED_VERSIONS, ['dtlsv1.2', dtlsv1]).
 -define(MIN_DATAGRAM_SUPPORTED_VERSIONS, ['dtlsv1.2', dtlsv1]).
 
@@ -105,21 +111,28 @@
 	  reuse_sessions       :: boolean(),
 	  renegotiate_at,
 	  secure_renegotiate,
+	  client_renegotiation,
 	  %% undefined if not hibernating, or number of ms of
 	  %% inactivity after which ssl_connection will go into
 	  %% hibernation
 	  hibernate_after      :: boolean(),
 	  %% This option should only be set to true by inet_tls_dist
 	  erl_dist = false     :: boolean(),
-	  next_protocols_advertised = undefined, %% [binary()],
+          alpn_advertised_protocols = undefined :: [binary()] | undefined ,
+          alpn_preferred_protocols = undefined  :: [binary()] | undefined,
+	  next_protocols_advertised = undefined :: [binary()] | undefined,
 	  next_protocol_selector = undefined,  %% fun([binary()]) -> binary())
 	  log_alert             :: boolean(),
 	  server_name_indication = undefined,
+	  sni_hosts  :: [{inet:hostname(), [tuple()]}],
+	  sni_fun :: function() | undefined,
 	  %% Should the server prefer its own cipher order over the one provided by
 	  %% the client?
-	  honor_cipher_order = false,
-	  padding_check = true,
-	  fallback = false
+	  honor_cipher_order = false :: boolean(),
+	  padding_check = true       :: boolean(),
+	  fallback = false           :: boolean(),
+	  crl_check                  :: boolean() | peer | best_effort, 
+	  crl_cache
 	  }).
 
 -record(socket_options,

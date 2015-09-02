@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 1996-2013. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -161,10 +162,11 @@ sleep(T) ->
       Time :: integer(),
       Value :: term().
 tc(F) ->
-    Before = os:timestamp(),
+    T1 = erlang:monotonic_time(),
     Val = F(),
-    After = os:timestamp(),
-    {now_diff(After, Before), Val}.
+    T2 = erlang:monotonic_time(),
+    Time = erlang:convert_time_unit(T2 - T1, native, micro_seconds),
+    {Time, Val}.
 
 %%
 %% Measure the execution time (in microseconds) for Fun(Args).
@@ -175,10 +177,11 @@ tc(F) ->
       Time :: integer(),
       Value :: term().
 tc(F, A) ->
-    Before = os:timestamp(),
+    T1 = erlang:monotonic_time(),
     Val = apply(F, A),
-    After = os:timestamp(),
-    {now_diff(After, Before), Val}.
+    T2 = erlang:monotonic_time(),
+    Time = erlang:convert_time_unit(T2 - T1, native, micro_seconds),
+    {Time, Val}.
 
 %%
 %% Measure the execution time (in microseconds) for an MFA.
@@ -190,10 +193,11 @@ tc(F, A) ->
       Time :: integer(),
       Value :: term().
 tc(M, F, A) ->
-    Before = os:timestamp(),
+    T1 = erlang:monotonic_time(),
     Val = apply(M, F, A),
-    After = os:timestamp(),
-    {now_diff(After, Before), Val}.
+    T2 = erlang:monotonic_time(),
+    Time = erlang:convert_time_unit(T2 - T1, native, micro_seconds),
+    {Time, Val}.
 
 %%
 %% Calculate the time difference (in microseconds) of two
@@ -437,10 +441,8 @@ positive(X) ->
 %%
 %%  system_time() -> time in microseconds
 %%
-system_time() ->    
-    {M,S,U} = erlang:now(),
-    1000000 * (M*1000000 + S) + U.
-
+system_time() ->
+    erlang:monotonic_time(1000000).
 
 send([Pid, Msg]) ->
     Pid ! Msg.

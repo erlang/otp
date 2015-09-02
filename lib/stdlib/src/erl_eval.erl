@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2015. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %%
@@ -246,18 +247,14 @@ expr({record,_,_,Name,_}, _Bs, _Lf, _Ef, _RBs) ->
 %% map
 expr({map,_,Binding,Es}, Bs0, Lf, Ef, RBs) ->
     {value, Map0, Bs1} = expr(Binding, Bs0, Lf, Ef, none),
-    case Map0 of
-        #{} ->
-            {Vs,Bs2} = eval_map_fields(Es, Bs0, Lf, Ef),
-            Map1 = lists:foldl(fun ({map_assoc,K,V}, Mi) ->
-                                       maps:put(K, V, Mi);
-                                   ({map_exact,K,V}, Mi) ->
-                                       maps:update(K, V, Mi)
-                               end, Map0, Vs),
-            ret_expr(Map1, merge_bindings(Bs2, Bs1), RBs);
-        _ ->
-            erlang:raise(error, {badarg,Map0}, stacktrace())
-    end;
+    {Vs,Bs2} = eval_map_fields(Es, Bs0, Lf, Ef),
+    _ = maps:put(k, v, Map0),			%Validate map.
+    Map1 = lists:foldl(fun ({map_assoc,K,V}, Mi) ->
+			       maps:put(K, V, Mi);
+			   ({map_exact,K,V}, Mi) ->
+			       maps:update(K, V, Mi)
+		       end, Map0, Vs),
+    ret_expr(Map1, merge_bindings(Bs2, Bs1), RBs);
 expr({map,_,Es}, Bs0, Lf, Ef, RBs) ->
     {Vs,Bs} = eval_map_fields(Es, Bs0, Lf, Ef),
     ret_expr(lists:foldl(fun
@@ -483,12 +480,13 @@ expr({value,_,Val}, Bs, _Lf, _Ef, RBs) ->    % Special case straight values.
 
 find_maxline(LC) ->
     put('$erl_eval_max_line', 0),
-    F = fun(L) ->
+    F = fun(A) ->
+                L = erl_anno:line(A),
                 case is_integer(L) and (L > get('$erl_eval_max_line')) of
                     true -> put('$erl_eval_max_line', L);
                     false -> ok
                 end end,
-    _ = erl_lint:modify_line(LC, F),
+    _ = erl_parse:map_anno(F, LC),
     erase('$erl_eval_max_line').
 
 hide_calls(LC, MaxLine) ->
@@ -498,14 +496,16 @@ hide_calls(LC, MaxLine) ->
 
 %% v/1 and local calls are hidden.
 hide({value,L,V}, Id, D) ->
-    {{atom,Id,ok}, Id+1, dict:store(Id, {value,L,V}, D)};
+    A = erl_anno:new(Id),
+    {{atom,A,ok}, Id+1, dict:store(Id, {value,L,V}, D)};
 hide({call,L,{atom,_,N}=Atom,Args}, Id0, D0) ->
     {NArgs, Id, D} = hide(Args, Id0, D0),
     C = case erl_internal:bif(N, length(Args)) of
             true ->
                 {call,L,Atom,NArgs};
             false -> 
-                {call,Id,{remote,L,{atom,L,m},{atom,L,f}},NArgs}
+                A = erl_anno:new(Id),
+                {call,A,{remote,L,{atom,L,m},{atom,L,f}},NArgs}
         end,
     {C, Id+1, dict:store(Id, {call,Atom}, D)};
 hide(T0, Id0, D0) when is_tuple(T0) -> 
@@ -518,11 +518,23 @@ hide([E0 | Es0], Id0, D0) ->
 hide(E, Id, D) -> 
     {E, Id, D}.
 
-unhide_calls({atom,Id,ok}, MaxLine, D) when Id > MaxLine ->
-    dict:fetch(Id, D);
-unhide_calls({call,Id,{remote,L,_M,_F},Args}, MaxLine, D) when Id > MaxLine ->
-    {call,Atom} = dict:fetch(Id, D),
-    {call,L,Atom,unhide_calls(Args, MaxLine, D)};
+unhide_calls({atom,A,ok}=E, MaxLine, D) ->
+    L = erl_anno:line(A),
+    if
+        L > MaxLine ->
+            dict:fetch(L, D);
+        true ->
+            E
+    end;
+unhide_calls({call,A,{remote,L,{atom,L,m},{atom,L,f}}=F,Args}, MaxLine, D) ->
+    Line = erl_anno:line(A),
+    if
+        Line > MaxLine ->
+            {call,Atom} = dict:fetch(Line, D),
+            {call,L,Atom,unhide_calls(Args, MaxLine, D)};
+        true ->
+            {call,A,F,unhide_calls(Args, MaxLine, D)}
+    end;
 unhide_calls(T, MaxLine, D) when is_tuple(T) -> 
     list_to_tuple(unhide_calls(tuple_to_list(T), MaxLine, D));
 unhide_calls([E | Es], MaxLine, D) -> 
@@ -1172,7 +1184,7 @@ match_tuple([], _, _, Bs, _BBs) ->
 
 match_map([{map_field_exact, _, K, V}|Fs], Map, Bs0, BBs) ->
     Vm = try
-	{value, Ke, _} = expr(K, new_bindings()),
+	{value, Ke, _} = expr(K, Bs0),
 	maps:get(Ke,Map)
     catch error:_ ->
 	throw(nomatch)

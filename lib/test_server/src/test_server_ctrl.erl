@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 2002-2014. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -99,7 +100,7 @@
 -define(last_link, "last_link").
 -define(last_test, "last_test").
 -define(html_ext, ".html").
--define(now, erlang:now()).
+-define(now, os:timestamp()).
 
 -define(void_fun, fun() -> ok end).
 -define(mod_result(X), if X == skip -> skipped;
@@ -1204,19 +1205,14 @@ init_tester(Mod, Func, Args, Dir, Name, {_,_,MinLev}=Levels,
 report_severe_error(Reason) ->
     test_server_sup:framework_call(report, [severe_error,Reason]).
 
-%% timer:tc/3
-ts_tc(M, F, A) ->
-    Before = ?now,
-    Val = (catch apply(M, F, A)),
-    After = ?now,
-    Elapsed = elapsed_time(Before, After),
-    {Elapsed,Val}.
-
-elapsed_time(Before, After) ->
-    (element(1,After)*1000000000000 +
-     element(2,After)*1000000 + element(3,After)) -
-    (element(1,Before)*1000000000000 +
-     element(2,Before)*1000000 + element(3,Before)).
+ts_tc(M,F,A) ->
+    Before = erlang:monotonic_time(),
+    Result = (catch apply(M, F, A)),
+    After   = erlang:monotonic_time(),
+    Elapsed = erlang:convert_time_unit(After-Before,
+				       native,
+				       micro_seconds),
+    {Elapsed, Result}.
 
 start_extra_tools(ExtraTools) ->
     start_extra_tools(ExtraTools, []).
@@ -1812,26 +1808,31 @@ start_minor_log_file1(Mod, Func, LogDir, AbsName, MFA) ->
     io:put_chars(Fd, "<pre>\n"),
 
     SrcListing = downcase(atom_to_list(Mod)) ++ ?src_listing_ext,
-    
-    {Info,Arity} =
-	if Func == init_per_suite; Func == end_per_suite ->
-		{"Config function: ", 1};
-	   Func == init_per_group; Func == end_per_group ->
-		{"Config function: ", 2};
-	   true ->
-		{"Test case: ", 1}
-	end,
 
-    case {filelib:is_file(filename:join(LogDir, SrcListing)),
-	  lists:member(no_src, get(test_server_logopts))} of
-	{true,false} ->
-	    print(Lev, Info ++ "<a href=\"~ts#~ts\">~w:~w/~w</a> "
-		  "(click for source code)\n",
-		  [uri_encode(SrcListing),
-		   uri_encode(atom_to_list(Func)++"-1",utf8),
-		   Mod,Func,Arity]);
+    case get_fw_mod(?MODULE) of
+	Mod when Func == error_in_suite ->
+	    ok;
 	_ ->
-	    print(Lev, Info ++ "~w:~w/~w\n", [Mod,Func,Arity])
+	    {Info,Arity} =
+		if Func == init_per_suite; Func == end_per_suite ->
+			{"Config function: ", 1};
+		   Func == init_per_group; Func == end_per_group ->
+			{"Config function: ", 2};
+		   true ->
+			{"Test case: ", 1}
+		end,
+	    
+	    case {filelib:is_file(filename:join(LogDir, SrcListing)),
+		  lists:member(no_src, get(test_server_logopts))} of
+		{true,false} ->
+		    print(Lev, Info ++ "<a href=\"~ts#~ts\">~w:~w/~w</a> "
+			  "(click for source code)\n",
+			  [uri_encode(SrcListing),
+			   uri_encode(atom_to_list(Func)++"-1",utf8),
+			   Mod,Func,Arity]);
+		_ ->
+		    print(Lev, Info ++ "~w:~w/~w\n", [Mod,Func,Arity])
+	    end
     end,
 
     AbsName.
@@ -2025,7 +2026,7 @@ add_init_and_end_per_suite([{conf,_,_,{Mod,_}}=Case|Cases], LastMod,
     PreCases ++ [Case|add_init_and_end_per_suite(Cases, NextMod,
 						 NextRef, FwMod)];
 add_init_and_end_per_suite([SkipCase|Cases], LastMod, LastRef, FwMod)
-  when element(1,SkipCase) == skip_case ->
+  when element(1,SkipCase) == skip_case;  element(1,SkipCase) == auto_skip_case->
     [SkipCase|add_init_and_end_per_suite(Cases, LastMod, LastRef, FwMod)];
 add_init_and_end_per_suite([{conf,_,_,_}=Case|Cases], LastMod, LastRef, FwMod) ->
     [Case|add_init_and_end_per_suite(Cases, LastMod, LastRef, FwMod)];
@@ -2490,7 +2491,7 @@ run_test_cases_loop([{conf,Ref,Props,{Mod,Func}}|_Cases]=Cs0,
 			file:set_cwd(filename:dirname(get(test_server_dir))),
 			After = ?now,
 			Before = get(test_server_parallel_start_time),
-			Elapsed = elapsed_time(Before, After)/1000000,
+			Elapsed = timer:now_diff(After, Before)/1000000,
 			put(test_server_total_time, Elapsed),
 			{false,tl(Mode0),undefined,Elapsed,
 			 update_status(Ref, OkSkipFail, Status)};
@@ -2499,7 +2500,7 @@ run_test_cases_loop([{conf,Ref,Props,{Mod,Func}}|_Cases]=Cs0,
 			%% parallel group (io buffering is active)
 			OkSkipFail = wait_for_cases(Ref),
 			queue_test_case_io(Ref, self(), 0, Mod, Func),
-			Elapsed = elapsed_time(conf_start(Ref, Mode0),?now)/1000000,
+			Elapsed = timer:now_diff(?now, conf_start(Ref, Mode0))/1000000,
 			case CurrIOHandler of
 			    {Ref,_} ->
 				%% current_io_handler was set by start conf of this
@@ -2516,12 +2517,12 @@ run_test_cases_loop([{conf,Ref,Props,{Mod,Func}}|_Cases]=Cs0,
 		%% this is an end conf for a non-parallel group that's not
 		%% nested under a parallel group, so no need to buffer io
 		{false,tl(Mode0),undefined,
-		 elapsed_time(conf_start(Ref, Mode0),?now)/1000000, Status};
+		 timer:now_diff(?now, conf_start(Ref, Mode0))/1000000, Status};
 	    {Ref,_} ->
 		%% this is an end conf for a non-parallel group nested under
 		%% a parallel group (io buffering is active)
 		queue_test_case_io(Ref, self(), 0, Mod, Func),
-		Elapsed = elapsed_time(conf_start(Ref, Mode0),?now)/1000000,
+		Elapsed = timer:now_diff(?now, conf_start(Ref, Mode0))/1000000,
 		case CurrIOHandler of
 		    {Ref,_} ->
 			%% current_io_handler was set by start conf of this
@@ -2576,7 +2577,7 @@ run_test_cases_loop([{conf,Ref,Props,{Mod,Func}}|_Cases]=Cs0,
 			    %% 1. check the TS_RANDOM_SEED env variable
 			    %% 2. check random_seed in process state
 			    %% 3. use value provided with shuffle option
-			    %% 4. use now() values for seed
+			    %% 4. use timestamp() values for seed
 			    case os:getenv("TS_RANDOM_SEED") of
 				Undef when Undef == false ; Undef == "undefined" ->
 				    case get(test_server_random_seed) of
@@ -3710,8 +3711,8 @@ run_test_case1(Ref, Num, Mod, Func, Args, RunInit,
 		RunDir = filename:dirname(MinorName),
 		Ext =
 		    if Num == 0 ->
-			    {_,S,Us} = now(),
-			    lists:flatten(io_lib:format(".~w.~w", [S,Us]));
+			    Nr = erlang:unique_integer([positive]),
+			    lists:flatten(io_lib:format(".~w", [Nr]));
 		       true ->
 			    lists:flatten(io_lib:format(".~w", [Num]))
 		    end,
@@ -3951,8 +3952,8 @@ progress(skip, CaseNum, Mod, Func, GrName, Loc, Reason, Time,
 	  "<td>~ts~ts</td></tr>\n",
 	  [Time,Color,ReasonStr2,Comment1]),
     FormatLoc = test_server_sup:format_loc(Loc),
-    print(minor, "=== location ~ts", [FormatLoc]),
-    print(minor, "=== reason = ~ts", [ReasonStr1]),
+    print(minor, "=== Location: ~ts", [FormatLoc]),
+    print(minor, "=== Reason: ~ts", [ReasonStr1]),
     Ret;
 
 progress(failed, CaseNum, Mod, Func, GrName, Loc, timetrap_timeout, T,
@@ -3977,8 +3978,8 @@ progress(failed, CaseNum, Mod, Func, GrName, Loc, timetrap_timeout, T,
 	  "<td>~ts</td></tr>\n",
 	  [T/1000,Comment]),
     FormatLoc = test_server_sup:format_loc(Loc),
-    print(minor, "=== location ~ts", [FormatLoc]),
-    print(minor, "=== reason = timetrap timeout", []),
+    print(minor, "=== Location: ~ts", [FormatLoc]),
+    print(minor, "=== Reason: timetrap timeout", []),
     failed;
 
 progress(failed, CaseNum, Mod, Func, GrName, Loc, {testcase_aborted,Reason}, _T,
@@ -4003,13 +4004,13 @@ progress(failed, CaseNum, Mod, Func, GrName, Loc, {testcase_aborted,Reason}, _T,
 	  "<td>~ts</td></tr>\n",
 	  [Comment]),
     FormatLoc = test_server_sup:format_loc(Loc),
-    print(minor, "=== location ~ts", [FormatLoc]),
-    print(minor, "=== reason = {testcase_aborted,~p}", [Reason]),
+    print(minor, "=== Location: ~ts", [FormatLoc]),
+    print(minor, "=== Reason: {testcase_aborted,~p}", [Reason]),
     failed;
 
 progress(failed, CaseNum, Mod, Func, GrName, unknown, Reason, Time,
 	 Comment0, {St0,St1}) ->
-    print(major, "=result        failed: ~p, ~w", [Reason,unknown]),
+    print(major, "=result        failed: ~p, ~w", [Reason,unknown_location]),
     print(1, "*** FAILED ~ts ***",
 	  [get_info_str(Mod,Func, CaseNum, get(test_server_cases))]),
     test_server_sup:framework_call(report, [tc_done,{Mod,{Func,GrName},
@@ -4038,14 +4039,21 @@ progress(failed, CaseNum, Mod, Func, GrName, unknown, Reason, Time,
 	  "<td><font color=\"red\">FAILED</font></td>"
 	  "<td>~ts</td></tr>\n",
 	  [TimeStr,Comment]),
-    print(minor, "=== location ~w", [unknown]),
+    print(minor, "=== Location: ~w", [unknown]),
     {FStr,FormattedReason} = format_exception(Reason),
-    print(minor, "=== reason = " ++ FStr, [FormattedReason]),
+    print(minor, "=== Reason: " ++ FStr, [FormattedReason]),
     failed;
 
 progress(failed, CaseNum, Mod, Func, GrName, Loc, Reason, Time,
 	 Comment0, {St0,St1}) ->
-    print(major, "=result        failed: ~p, ~p", [Reason,Loc]),
+    {LocMaj,LocMin} = if Func == error_in_suite ->
+			      case get_fw_mod(undefined) of
+				  Mod -> {unknown_location,unknown};
+				  _   -> {Loc,Loc}
+			      end;
+			 true -> {Loc,Loc}
+		       end,
+    print(major, "=result        failed: ~p, ~p", [Reason,LocMaj]),
     print(1, "*** FAILED ~ts ***",
 	  [get_info_str(Mod,Func, CaseNum, get(test_server_cases))]),
     test_server_sup:framework_call(report, [tc_done,{Mod,{Func,GrName},
@@ -4058,16 +4066,16 @@ progress(failed, CaseNum, Mod, Func, GrName, Loc, Reason, Time,
 	    "" -> "";
 	    _ -> xhtml("<br>","<br />") ++ to_string(Comment0)
 	end,
-    FormatLastLoc = test_server_sup:format_loc(get_last_loc(Loc)),
+    FormatLastLoc = test_server_sup:format_loc(get_last_loc(LocMaj)),
     print(html,
 	  "<td>" ++ St0 ++ "~ts" ++ St1 ++ "</td>"
 	  "<td><font color=\"red\">FAILED</font></td>"
 	  "<td><font color=\"red\">~ts</font>~ts</td></tr>\n",
 	  [TimeStr,FormatLastLoc,Comment]),
-    FormatLoc = test_server_sup:format_loc(Loc),
-    print(minor, "=== location ~ts", [FormatLoc]),
+    FormatLoc = test_server_sup:format_loc(LocMin),
+    print(minor, "=== Location: ~ts", [FormatLoc]),
     {FStr,FormattedReason} = format_exception(Reason),
-    print(minor, "=== reason = " ++ FStr, [FormattedReason]),
+    print(minor, "=== Reason: " ++ FStr, [FormattedReason]),
     failed;
 
 progress(ok, _CaseNum, Mod, Func, GrName, _Loc, RetVal, Time,
@@ -4096,7 +4104,7 @@ progress(ok, _CaseNum, Mod, Func, GrName, _Loc, RetVal, Time,
 	  "<td><font color=\"green\">Ok</font></td>"
 	  "~ts</tr>\n",
 	  [Time,Comment]),
-    print(minor, "=== returned value = ~p", [RetVal]),
+    print(minor, "=== Returned value: ~p", [RetVal]),
     ok.
 
 %%--------------------------------------------------------------------
@@ -4684,10 +4692,10 @@ collect_cases({make,InitMFA,CaseList,FinMFA}, St0, Mode) ->
 
 collect_cases({Module, Cases}, St, Mode) when is_list(Cases)  ->
     case (catch collect_case(Cases, St#cc{mod=Module}, [], Mode)) of
-	{ok, NewCases, NewSt} ->
- 	    {ok, NewCases, NewSt};
+	Result = {ok,_,_} ->
+ 	    Result;
  	Other ->
-	    {error, Other}
+	    {error,Other}
      end;
 
 collect_cases({_Mod,_Case}=Spec, St, Mode) ->
@@ -4705,9 +4713,9 @@ collect_case({Mod,{conf,_,_,_,_}=Conf}, St, Mode) ->
 
 collect_case(MFA, St, Mode) ->
     case in_skip_list(MFA, St#cc.skip) of
-	{true,Comment} ->
+	{true,Comment} when Comment /= make_failed ->
 	    {ok,[{skip_case,{MFA,Comment},Mode}],St};
-	false ->
+	_ ->
 	    case MFA of
 		{Mod,Case} -> collect_case_invoke(Mod, Case, MFA, St, Mode);
 		{_Mod,_Case,_Args} -> {ok,[MFA],St}
@@ -4769,17 +4777,25 @@ collect_case_subcases(Mod, Case, SubCases, St0, Mode) ->
 collect_files(Dir, Pattern, St, Mode) ->
     {ok,Cwd} = file:get_cwd(),
     Dir1 = filename:join(Cwd, Dir),
-    Wc = filename:join([Dir1,Pattern++code:objfile_extension()]),
+    Wc = filename:join([Dir1,Pattern++"{.erl,"++code:objfile_extension()++"}"]),
     case catch filelib:wildcard(Wc) of
 	{'EXIT', Reason} ->
 	    io:format("Could not collect files: ~p~n", [Reason]),
 	    {error,{collect_fail,Dir,Pattern}};
-	Mods0 ->
-	    Mods = [{path_to_module(Mod),all} || Mod <- lists:sort(Mods0)],
-	    collect_cases(Mods, St, Mode)
+	Files ->
+	    %% convert to module names and remove duplicates
+	    Mods = lists:foldl(fun(File, Acc) ->
+				       Mod = fullname_to_mod(File),
+				       case lists:member(Mod, Acc) of
+					   true  -> Acc;
+					   false -> [Mod | Acc]
+				       end
+			       end, [], Files),
+	    Tests = [{Mod,all} || Mod <- lists:sort(Mods)],
+	    collect_cases(Tests, St, Mode)
     end.
 
-path_to_module(Path) when is_list(Path) ->
+fullname_to_mod(Path) when is_list(Path) ->
     %% If this is called with a binary, then we are probably in +fnu
     %% mode and have found a beam file with name encoded as latin1. We
     %% will let this crash since it can not work to load such a module

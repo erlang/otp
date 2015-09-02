@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 2001-2013. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -33,7 +34,7 @@ all() ->
     [{group,p}].
 
 groups() -> 
-    [{p,test_lib:parallel(),
+    [{p,[parallel],
       [t_case,t_and_or,t_andalso,t_orelse,inside,overlap,
        combined,in_case,before_and_inside_if]}].
 
@@ -173,7 +174,13 @@ t_and_or(Config) when is_list(Config) ->
 
     true = (fun (X = true) when X or true or X -> true end)(True),
 
-   ok.
+    Tuple = id({a,b}),
+    case Tuple of
+	{_,_} ->
+	    {'EXIT',{badarg,_}} = (catch true and Tuple)
+    end,
+
+    ok.
 
 t_andalso(Config) when is_list(Config) ->
     Bs = [true,false],
@@ -364,6 +371,11 @@ combined(Config) when is_list(Config) ->
     ?line true = ?COMB(false, blurf, true),
     ?line true = ?COMB(true, true, blurf),
 
+    false = simple_comb(false, false),
+    false = simple_comb(false, true),
+    false = simple_comb(true, false),
+    true = simple_comb(true, true),
+
     ok.
 -undef(COMB).
 
@@ -389,6 +401,13 @@ comb(A, B, C) ->
 	      true -> false
 	  end,
     id(Res).
+
+simple_comb(A, B) ->
+    %% Use Res twice, to ensure that a careless optimization of 'not'
+    %% doesn't leave Res as a free variable.
+    Res = A andalso B,
+    _ = id(not Res),
+    Res.
 
 %% Test that a boolean expression in a case expression is properly
 %% optimized (in particular, that the error behaviour is correct).

@@ -8,16 +8,17 @@
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
-      The contents of this file are subject to the Erlang Public License,
-      Version 1.1, (the "License"); you may not use this file except in
-      compliance with the License. You should have received a copy of the
-      Erlang Public License along with this software. If not, it can be
-      retrieved online at http://www.erlang.org/.
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
 
-      Software distributed under the License is distributed on an "AS IS"
-      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-      the License for the specific language governing rights and limitations
-      under the License.
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
 
     </legalnotice>
 
@@ -99,7 +100,7 @@ list_to_binary([Compressed|Last])</pre>
     <datatype>
       <name name="zwindowbits"/>
       <desc>
-        <p>Normally in the range <c>-15..-9 | 9..15</c>.</p>
+        <p>Normally in the range <c>-15..-8 | 8..15</c>.</p>
       </desc>
     </datatype>
   </datatypes>
@@ -149,7 +150,7 @@ list_to_binary([Compressed|Last])</pre>
           currently the only supported method is <c>deflated</c>.</p>
         <p>The <c><anno>WindowBits</anno></c> parameter is the base two logarithm
           of the window size (the size of the history buffer).  It
-          should be in the range 9 through 15. Larger values
+          should be in the range 8 through 15. Larger values
           of this parameter result in better compression at the
           expense of memory usage. The default value is 15 if
           <c>deflateInit/2</c>. A negative <c><anno>WindowBits</anno></c>
@@ -288,7 +289,7 @@ list_to_binary([B1,B2])</pre>
         <p>Initialize decompression session on zlib stream.</p>
         <p>The <c><anno>WindowBits</anno></c> parameter is the base two logarithm
           of the maximum window size (the size of the history buffer).
-          It should be in the range 9 through 15.
+          It should be in the range 8 through 15.
           The default value is 15 if <c>inflateInit/1</c> is used.
           If a compressed stream with a larger window size is
           given as input, inflate() will throw the <c>data_error</c>
@@ -309,6 +310,53 @@ list_to_binary([B1,B2])</pre>
           <c>{need_dictionary,Adler}</c> exception where <c>Adler</c> is 
           the adler32 checksum of the dictionary chosen by the
           compressor.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="inflateChunk" arity="2"/>
+      <fsummary>Decompress data with limited output size</fsummary>
+      <desc>
+        <p>Like <c>inflate/2</c>, but decompress no more data than
+          will fit in the buffer configured via <c>setBufSize/2</c>.
+          Is is useful when decompressing a stream with a high compression
+          ratio such that a small amount of compressed input may expand up to
+          1000 times.
+          It returns <c>{more, Decompressed}</c>, when there is more output
+          available, and <c>inflateChunk/1</c> should be used to read it.
+          It may introduce some output latency (reading
+          input without producing any output).</p>
+        <p>If a preset dictionary is needed at this point (see
+          <c>inflateSetDictionary</c> below), <c>inflateChunk/2</c> throws a
+          <c>{need_dictionary,Adler}</c> exception where <c>Adler</c> is
+          the adler32 checksum of the dictionary chosen by the
+          compressor.</p>
+
+        <pre>
+walk(Compressed, Handler) ->
+    Z = zlib:open(),
+    zlib:inflateInit(Z),
+    % Limit single uncompressed chunk size to 512kb
+    zlib:setBufSize(Z, 512 * 1024),
+    loop(Z, Handler, zlib:inflateChunk(Z, Compressed)),
+    zlib:inflateEnd(Z),
+    zlib:close(Z).
+
+loop(Z, Handler, {more, Uncompressed}) ->
+    Handler(Uncompressed),
+    loop(Z, Handler, zlib:inflateChunk(Z));
+loop(Z, Handler, Uncompressed) ->
+    Handler(Uncompressed).
+        </pre>
+      </desc>
+    </func>
+    <func>
+      <name name="inflateChunk" arity="1"/>
+      <fsummary>Read next uncompressed chunk</fsummary>
+      <desc>
+        <p>Read next chunk of uncompressed data, initialized by
+          <c>inflateChunk/2</c>.</p>
+        <p>This function should be repeatedly called, while it returns
+          <c>{more, Decompressed}</c>.</p>
       </desc>
     </func>
     <func>

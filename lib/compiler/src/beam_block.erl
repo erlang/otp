@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 1999-2013. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -61,15 +62,6 @@ blockify(Is) ->
 blockify([{loop_rec,{f,Fail},{x,0}},{loop_rec_end,_Lbl},{label,Fail}|Is], Acc) ->
     %% Useless instruction sequence.
     blockify(Is, Acc);
-
-%% New bit syntax matching.
-blockify([{bs_save2,R,Point}=I,{bs_restore2,R,Point}|Is], Acc) ->
-    blockify([I|Is], Acc);
-blockify([{bs_save2,R,Point}=I,{test,is_eq_exact,_,_}=Test,
-	  {bs_restore2,R,Point}|Is], Acc) ->
-    blockify([I,Test|Is], Acc);
-
-%% Do other peep-hole optimizations.
 blockify([{test,is_atom,{f,Fail},[Reg]}=I|
 	  [{select,select_val,Reg,{f,Fail},
 	    [{atom,false},{f,_}=BrFalse,
@@ -155,7 +147,8 @@ collect(remove_message)      -> {set,[],[],remove_message};
 collect({put_map,F,Op,S,D,R,{list,Puts}}) ->
     {set,[D],[S|Puts],{alloc,R,{put_map,Op,F}}};
 collect({get_map_elements,F,S,{list,Gets}}) ->
-    {set,Gets,[S],{get_map_elements,F}};
+    {Ss,Ds} = beam_utils:split_even(Gets),
+    {set,Ds,[S|Ss],{get_map_elements,F}};
 collect({'catch',R,L})       -> {set,[R],[],{'catch',L}};
 collect(fclearerror)         -> {set,[],[],fclearerror};
 collect({fcheckerror,{f,0}}) -> {set,[],[],fcheckerror};
@@ -183,7 +176,7 @@ embed_lines([], Acc) -> Acc.
 
 opt_blocks([{block,Bl0}|Is]) ->
     %% The live annotation at the beginning is not useful.
-    [{'%live',_}|Bl] = Bl0,
+    [{'%live',_,_}|Bl] = Bl0,
     [{block,opt_block(Bl)}|opt_blocks(Is)];
 opt_blocks([I|Is]) ->
     [I|opt_blocks(Is)];
@@ -251,13 +244,6 @@ combine_alloc({_,Ns,Nh1,Init}, {_,nostack,Nh2,[]})  ->
 %% opt([Instruction]) -> [Instruction]
 %%  Optimize the instruction stream inside a basic block.
 
-opt([{set,[Dst],As,{bif,Bif,Fail}}=I1,
-     {set,[Dst],[Dst],{bif,'not',Fail}}=I2|Is]) ->
-    %% Get rid of the 'not' if the operation can be inverted.
-    case inverse_comp_op(Bif) of
- 	none -> [I1,I2|opt(Is)];
- 	RevBif -> [{set,[Dst],As,{bif,RevBif,Fail}}|opt(Is)]
-    end;
 opt([{set,[X],[X],move}|Is]) -> opt(Is);
 opt([{set,_,_,{line,_}}=Line1,
      {set,[D1],[{integer,Idx1},Reg],{bif,element,{f,0}}}=I1,
@@ -268,7 +254,7 @@ opt([{set,_,_,{line,_}}=Line1,
 opt([{set,Ds0,Ss,Op}|Is0]) ->	
     {Ds,Is} = opt_moves(Ds0, Is0),
     [{set,Ds,Ss,Op}|opt(Is)];
-opt([{'%live',_}=I|Is]) ->
+opt([{'%live',_,_}=I|Is]) ->
     [I|opt(Is)];
 opt([]) -> [].
 
@@ -426,18 +412,6 @@ x_dead([], Regs) -> Regs.
 x_live([{x,N}|Rs], Regs) -> x_live(Rs, Regs bor (1 bsl N));
 x_live([_|Rs], Regs) -> x_live(Rs, Regs);
 x_live([], Regs) -> Regs.
-
-%% inverse_comp_op(Op) -> none|RevOp
-
-inverse_comp_op('=:=') -> '=/=';
-inverse_comp_op('=/=') -> '=:=';
-inverse_comp_op('==') -> '/=';
-inverse_comp_op('/=') -> '==';
-inverse_comp_op('>') -> '=<';
-inverse_comp_op('<') -> '>=';
-inverse_comp_op('>=') -> '<';
-inverse_comp_op('=<') -> '>';
-inverse_comp_op(_) -> none.
 
 %%%
 %%% Evaluation of constant bit fields.

@@ -8,17 +8,17 @@
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
-      The contents of this file are subject to the Erlang Public License,
-      Version 1.1, (the "License"); you may not use this file except in
-      compliance with the License. You should have received a copy of the
-      Erlang Public License along with this software. If not, it can be
-      retrieved online at http://www.erlang.org/.
-    
-      Software distributed under the License is distributed on an "AS IS"
-      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-      the License for the specific language governing rights and limitations
-      under the License.
-    
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
     </legalnotice>
 
     <title>Introduction</title>
@@ -32,38 +32,39 @@
   <section>
     <title>Purpose</title>
 
-    <quote><p>Premature optimization is the root of all evil. -- D.E. Knuth</p></quote>
+    <quote><p>"Premature optimization is the root of all evil"
+    (D.E. Knuth)</p></quote>
 
-    <p>Efficient code can be well-structured and clean code, based on
+    <p>Efficient code can be well-structured and clean, based
     on a sound overall architecture and sound algorithms.
     Efficient code can be highly implementation-code that bypasses
     documented interfaces and takes advantage of obscure quirks in
     the current implementation.</p>
     
-    <p>Ideally, your code should only contain the first kind of efficient
-    code. If that turns out to be too slow, you should profile the application
+    <p>Ideally, your code only contains the first type of efficient
+    code. If that turns out to be too slow, profile the application
     to find out where the performance bottlenecks are and optimize only the
-    bottlenecks. Other code should stay as clean as possible.</p>
+    bottlenecks. Let other code stay as clean as possible.</p>
 
-    <p>Fortunately, compiler and run-time optimizations introduced in
-    R12B makes it easier to write code that is both clean and
-    efficient. For instance, the ugly workarounds needed in R11B and earlier
+    <p>Fortunately, compiler and runtime optimizations introduced in
+    Erlang/OTP R12B makes it easier to write code that is both clean and
+    efficient. For example, the ugly workarounds needed in R11B and earlier
     releases to get the most speed out of binary pattern matching are
     no longer necessary. In fact, the ugly code is slower
     than the clean code (because the clean code has become faster, not
     because the uglier code has become slower).</p>
     
-    <p>This Efficiency Guide cannot really learn you how to write efficient
+    <p>This Efficiency Guide cannot really teach you how to write efficient
     code. It can give you a few pointers about what to avoid and what to use,
     and some understanding of how certain language features are implemented.
-    We have generally not included general tips about optimization that will
-    work in any language, such as moving common calculations out of loops.</p>
+    This guide does not include general tips about optimization that
+    works in any language, such as moving common calculations out of loops.</p>
   </section>
 
   <section>
     <title>Prerequisites</title>
-    <p>It is assumed that the reader is familiar with the Erlang
-      programming language and concepts of OTP.</p>
+    <p>It is assumed that you are familiar with the Erlang programming
+    language and the OTP concepts.</p>
   </section>
 </chapter>
 

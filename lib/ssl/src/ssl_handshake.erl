@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 2013-2015. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 
@@ -49,7 +50,7 @@
 	 finished/5,  next_protocol/1]).
 
 %% Handle handshake messages
--export([certify/8, client_certificate_verify/6, certificate_verify/6, verify_signature/5,
+-export([certify/10, client_certificate_verify/6, certificate_verify/6, verify_signature/5,
 	 master_secret/5, server_key_exchange_hash/2, verify_connection/6,
 	 init_handshake_history/0, update_handshake_history/2, verify_server_key/5
 	]).
@@ -136,6 +137,7 @@ client_hello_extensions(Host, Version, CipherSuites, SslOpts, ConnectionStates, 
        hash_signs = advertised_hash_signs(Version),
        ec_point_formats = EcPointFormats,
        elliptic_curves = EllipticCurves,
+       alpn = encode_alpn(SslOpts#ssl_options.alpn_advertised_protocols, Renegotiation),
        next_protocol_negotiation =
 	   encode_client_protocol_negotiation(SslOpts#ssl_options.next_protocol_selector,
 					      Renegotiation),
@@ -149,7 +151,7 @@ client_hello_extensions(Host, Version, CipherSuites, SslOpts, ConnectionStates, 
 certificate(OwnCert, CertDbHandle, CertDbRef, client) ->
     Chain =
 	case ssl_certificate:certificate_chain(OwnCert, CertDbHandle, CertDbRef) of
-	    {ok, CertChain} ->
+	    {ok, _,  CertChain} ->
 		CertChain;
 	    {error, _} ->
 		%% If no suitable certificate is available, the client
@@ -161,7 +163,7 @@ certificate(OwnCert, CertDbHandle, CertDbRef, client) ->
 
 certificate(OwnCert, CertDbHandle, CertDbRef, server) ->
     case ssl_certificate:certificate_chain(OwnCert, CertDbHandle, CertDbRef) of
-	{ok, Chain} ->
+	{ok, _, Chain} ->
 	    #certificate{asn1_certificates = Chain};
 	{error, _} ->
 	    ?ALERT_REC(?FATAL, ?INTERNAL_ERROR)
@@ -242,7 +244,7 @@ key_exchange(client, _Version, {dh, PublicKey}) ->
 		dh_public = PublicKey}
 	       };
 
-key_exchange(client, _Version, {ecdh, #'ECPrivateKey'{publicKey = {0, ECPublicKey}}}) ->
+key_exchange(client, _Version, {ecdh, #'ECPrivateKey'{publicKey =  ECPublicKey}}) ->
     #client_key_exchange{
 	      exchange_keys = #client_ec_diffie_hellman_public{
 		dh_public = ECPublicKey}
@@ -283,7 +285,7 @@ key_exchange(server, Version, {dh, {PublicKey, _},
     enc_server_key_exchange(Version, ServerDHParams, HashSign,
 			    ClientRandom, ServerRandom, PrivateKey);
 
-key_exchange(server, Version, {ecdh,  #'ECPrivateKey'{publicKey =  {0, ECPublicKey},
+key_exchange(server, Version, {ecdh,  #'ECPrivateKey'{publicKey =  ECPublicKey,
 						      parameters = ECCurve}, HashSign,
 			       ClientRandom, ServerRandom, PrivateKey}) ->
     ServerECParams = #server_ecdh_params{curve = ECCurve, public = ECPublicKey},
@@ -383,49 +385,24 @@ verify_signature(_Version, Hash, {HashAlgo, ecdsa}, Signature,
 
 %%--------------------------------------------------------------------
 -spec certify(#certificate{}, db_handle(), certdb_ref(), integer() | nolimit,
-	      verify_peer | verify_none, {fun(), term}, fun(),
+	      verify_peer | verify_none, {fun(), term}, fun(), term(), term(),
 	      client | server) ->  {der_cert(), public_key_info()} | #alert{}.
 %%
 %% Description: Handles a certificate handshake message
 %%--------------------------------------------------------------------
 certify(#certificate{asn1_certificates = ASN1Certs}, CertDbHandle, CertDbRef,
-	MaxPathLen, _Verify, VerifyFunAndState, PartialChain, Role) ->
+	MaxPathLen, _Verify, ValidationFunAndState0, PartialChain, CRLCheck, CRLDbHandle, Role) ->
     [PeerCert | _] = ASN1Certs,
-
-    ValidationFunAndState =
-	case VerifyFunAndState of
-	    undefined ->
-		{fun(OtpCert, ExtensionOrVerifyResult, SslState) ->
-			 ssl_certificate:validate_extension(OtpCert,
-							    ExtensionOrVerifyResult, SslState)
-		 end, Role};
-	    {Fun, UserState0} ->
-		{fun(OtpCert, {extension, _} = Extension, {SslState, UserState}) ->
-			 case ssl_certificate:validate_extension(OtpCert,
-								 Extension,
-								 SslState) of
-			     {valid, NewSslState} ->
-				 {valid, {NewSslState, UserState}};
-			     {fail, Reason} ->
-				 apply_user_fun(Fun, OtpCert, Reason, UserState,
-						SslState);
-			     {unknown, _} ->
-				 apply_user_fun(Fun, OtpCert,
-						Extension, UserState, SslState)
-			 end;
-		    (OtpCert, VerifyResult, {SslState, UserState}) ->
-			 apply_user_fun(Fun, OtpCert, VerifyResult, UserState,
-					SslState)
-		 end, {Role, UserState0}}
-	end,
+        
+    ValidationFunAndState = validation_fun_and_state(ValidationFunAndState0, Role, 
+						     CertDbHandle, CertDbRef,  CRLCheck, CRLDbHandle),
 
     try
-	{TrustedErlCert, CertPath}  =
+	{TrustedCert, CertPath}  =
 	    ssl_certificate:trusted_cert_and_path(ASN1Certs, CertDbHandle, CertDbRef, PartialChain),
-	case public_key:pkix_path_validation(TrustedErlCert,
-					      CertPath,
-					     [{max_path_length,
-					       MaxPathLen},
+	case public_key:pkix_path_validation(TrustedCert,
+					     CertPath,
+					     [{max_path_length, MaxPathLen},
 					      {verify_fun, ValidationFunAndState}]) of
 	    {ok, {PublicKeyInfo,_}} ->
 		{PeerCert, PublicKeyInfo};
@@ -604,11 +581,10 @@ prf({3,_N}, Secret, Label, Seed, WantedLength) ->
 %%--------------------------------------------------------------------
 select_hashsign(_, undefined, _Version) ->
     {null, anon};
-select_hashsign(undefined,  Cert, Version) ->
-    #'OTPCertificate'{tbsCertificate = TBSCert} = public_key:pkix_decode_cert(Cert, otp),
-    #'OTPSubjectPublicKeyInfo'{algorithm = {_,Algo, _}} = TBSCert#'OTPTBSCertificate'.subjectPublicKeyInfo,
-    select_hashsign_algs(undefined, Algo, Version);
-select_hashsign(#hash_sign_algos{hash_sign_algos = HashSigns}, Cert, Version) ->
+%% The signature_algorithms extension was introduced with TLS 1.2. Ignore it if we have
+%% negotiated a lower version.
+select_hashsign(#hash_sign_algos{hash_sign_algos = HashSigns}, Cert, {Major, Minor} = Version)
+  when Major >= 3 andalso Minor >= 3 ->
     #'OTPCertificate'{tbsCertificate = TBSCert} =public_key:pkix_decode_cert(Cert, otp),
     #'OTPSubjectPublicKeyInfo'{algorithm = {_,Algo, _}} = TBSCert#'OTPTBSCertificate'.subjectPublicKeyInfo,
     DefaultHashSign = {_, Sign} = select_hashsign_algs(undefined, Algo, Version),
@@ -626,7 +602,11 @@ select_hashsign(#hash_sign_algos{hash_sign_algos = HashSigns}, Cert, Version) ->
 	    DefaultHashSign;
 	[HashSign| _] ->
 	    HashSign
-    end.
+    end;
+select_hashsign(_, Cert, Version) ->
+    #'OTPCertificate'{tbsCertificate = TBSCert} = public_key:pkix_decode_cert(Cert, otp),
+    #'OTPSubjectPublicKeyInfo'{algorithm = {_,Algo, _}} = TBSCert#'OTPTBSCertificate'.subjectPublicKeyInfo,
+    select_hashsign_algs(undefined, Algo, Version).
 
 %%--------------------------------------------------------------------
 -spec select_hashsign_algs(#hash_sign_algos{}| undefined, oid(), ssl_record:ssl_version()) ->
@@ -791,6 +771,11 @@ encode_hello_extensions([], Acc) ->
     Size = byte_size(Acc),
     <<?UINT16(Size), Acc/binary>>;
 
+encode_hello_extensions([#alpn{extension_data = ExtensionData} | Rest], Acc) ->
+	Len = byte_size(ExtensionData),
+    ExtLen = Len + 2,
+	encode_hello_extensions(Rest, <<?UINT16(?ALPN_EXT), ?UINT16(ExtLen), ?UINT16(Len),
+					ExtensionData/binary, Acc/binary>>);
 encode_hello_extensions([#next_protocol_negotiation{extension_data = ExtensionData} | Rest], Acc) ->
     Len = byte_size(ExtensionData),
     encode_hello_extensions(Rest, <<?UINT16(?NEXTPROTONEG_EXT), ?UINT16(Len),
@@ -888,6 +873,25 @@ decode_client_key(ClientKey, Type, Version) ->
 %%--------------------------------------------------------------------
 decode_server_key(ServerKey, Type, Version) ->
     dec_server_key(ServerKey, key_exchange_alg(Type), Version).
+
+%%
+%% Description: Encode and decode functions for ALPN extension data.
+%%--------------------------------------------------------------------
+
+%% While the RFC opens the door to allow ALPN during renegotiation, in practice
+%% this does not work and it is recommended to ignore any ALPN extension during
+%% renegotiation, as done here.
+encode_alpn(_, true) ->
+    undefined;
+encode_alpn(undefined, _) ->
+    undefined;
+encode_alpn(Protocols, _) ->
+    #alpn{extension_data = lists:foldl(fun encode_protocol/2, <<>>, Protocols)}.
+
+decode_alpn(undefined) ->
+    undefined;
+decode_alpn(#alpn{extension_data=Data}) ->
+    decode_protocols(Data, []).
 
 encode_client_protocol_negotiation(undefined, _) ->
     undefined;
@@ -1151,8 +1155,10 @@ handle_client_hello_extensions(RecordCB, Random, ClientCipherSuites,
 			       #hello_extensions{renegotiation_info = Info,
 						 srp = SRP,
 						 ec_point_formats = ECCFormat,
+                         alpn = ALPN,
 						 next_protocol_negotiation = NextProtocolNegotiation}, Version,
-			       #ssl_options{secure_renegotiate = SecureRenegotation} = Opts,
+			       #ssl_options{secure_renegotiate = SecureRenegotation,
+                                            alpn_preferred_protocols = ALPNPreferredProtocols} = Opts,
 			       #session{cipher_suite = NegotiatedCipherSuite,
 					compression_method = Compression} = Session0,
 			       ConnectionStates0, Renegotiation) ->
@@ -1161,19 +1167,34 @@ handle_client_hello_extensions(RecordCB, Random, ClientCipherSuites,
 						      Random, NegotiatedCipherSuite, 
 						      ClientCipherSuites, Compression,
 						      ConnectionStates0, Renegotiation, SecureRenegotation),
-    ProtocolsToAdvertise = handle_next_protocol_extension(NextProtocolNegotiation, Renegotiation, Opts),
-   
+
     ServerHelloExtensions =  #hello_extensions{
 				renegotiation_info = renegotiation_info(RecordCB, server,
 									ConnectionStates, Renegotiation),
-				ec_point_formats = server_ecc_extension(Version, ECCFormat),
-				next_protocol_negotiation =
-				    encode_protocols_advertised_on_server(ProtocolsToAdvertise)
+				ec_point_formats = server_ecc_extension(Version, ECCFormat)
 			       },
-    {Session, ConnectionStates, ServerHelloExtensions}.
+
+    %% If we receive an ALPN extension and have ALPN configured for this connection,
+    %% we handle it. Otherwise we check for the NPN extension.
+    if
+        ALPN =/= undefined, ALPNPreferredProtocols =/= undefined ->
+			case handle_alpn_extension(ALPNPreferredProtocols, decode_alpn(ALPN)) of
+                #alert{} = Alert ->
+                    Alert;
+                Protocol ->
+                    {Session, ConnectionStates, Protocol,
+                        ServerHelloExtensions#hello_extensions{alpn=encode_alpn([Protocol], Renegotiation)}}
+            end;
+        true ->
+            ProtocolsToAdvertise = handle_next_protocol_extension(NextProtocolNegotiation, Renegotiation, Opts),
+            {Session, ConnectionStates, undefined,
+				ServerHelloExtensions#hello_extensions{next_protocol_negotiation=
+                	encode_protocols_advertised_on_server(ProtocolsToAdvertise)}}
+    end.
 
 handle_server_hello_extensions(RecordCB, Random, CipherSuite, Compression,
 			       #hello_extensions{renegotiation_info = Info,
+                                                 alpn = ALPN,
 						 next_protocol_negotiation = NextProtocolNegotiation}, Version,
 			       #ssl_options{secure_renegotiate = SecureRenegotation,
 					    next_protocol_selector = NextProtoSelector},
@@ -1182,11 +1203,23 @@ handle_server_hello_extensions(RecordCB, Random, CipherSuite, Compression,
 						      CipherSuite, undefined,
 						      Compression, ConnectionStates0,
 						      Renegotiation, SecureRenegotation),
-    case handle_next_protocol(NextProtocolNegotiation, NextProtoSelector, Renegotiation) of
-	#alert{} = Alert ->
-	    Alert;
-	Protocol ->
-	    {ConnectionStates, Protocol}
+
+    %% If we receive an ALPN extension then this is the protocol selected,
+    %% otherwise handle the NPN extension.
+    case decode_alpn(ALPN) of
+        %% ServerHello contains exactly one protocol: the one selected.
+        %% We also ignore the ALPN extension during renegotiation (see encode_alpn/2).
+        [Protocol] when not Renegotiation ->
+            {ConnectionStates, alpn, Protocol};
+        undefined ->
+            case handle_next_protocol(NextProtocolNegotiation, NextProtoSelector, Renegotiation) of
+                #alert{} = Alert ->
+                    Alert;
+                Protocol ->
+                    {ConnectionStates, npn, Protocol}
+            end;
+        _ -> %% {error, _Reason} or a list of 0/2+ protocols.
+            ?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE)
     end.
 
 select_version(RecordCB, ClientVersion, Versions) ->
@@ -1294,10 +1327,11 @@ hello_extensions_list(#hello_extensions{renegotiation_info = RenegotiationInfo,
 					hash_signs = HashSigns,
 					ec_point_formats = EcPointFormats,
 					elliptic_curves = EllipticCurves,
+                                        alpn = ALPN,
 					next_protocol_negotiation = NextProtocolNegotiation,
 					sni = Sni}) ->
     [Ext || Ext <- [RenegotiationInfo, SRP, HashSigns,
-		    EcPointFormats, EllipticCurves, NextProtocolNegotiation, Sni], Ext =/= undefined].
+		    EcPointFormats, EllipticCurves, ALPN, NextProtocolNegotiation, Sni], Ext =/= undefined].
 
 srp_user(#ssl_options{srp_identity = {UserName, _}}) ->
     #srp{username = UserName};
@@ -1376,15 +1410,66 @@ sni1(Hostname) ->
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
+validation_fun_and_state({Fun, UserState0}, Role,  CertDbHandle, CertDbRef, CRLCheck, CRLDbHandle) ->
+    {fun(OtpCert, {extension, _} = Extension, {SslState, UserState}) ->
+	     case ssl_certificate:validate(OtpCert,
+					   Extension,
+					   SslState) of
+		 {valid, NewSslState} ->
+		     {valid, {NewSslState, UserState}};
+		 {fail, Reason} ->
+		     apply_user_fun(Fun, OtpCert, Reason, UserState,
+				    SslState);
+		 {unknown, _} ->
+		     apply_user_fun(Fun, OtpCert,
+				    Extension, UserState, SslState)
+	     end;
+	(OtpCert, VerifyResult, {SslState, UserState}) ->
+	     apply_user_fun(Fun, OtpCert, VerifyResult, UserState,
+			    SslState)
+     end, {{Role, CertDbHandle, CertDbRef, CRLCheck, CRLDbHandle}, UserState0}};
+validation_fun_and_state(undefined, Role, CertDbHandle, CertDbRef, CRLCheck, CRLDbHandle) ->
+    {fun(OtpCert, {extension, _} = Extension, SslState) ->
+	     ssl_certificate:validate(OtpCert,
+				      Extension,
+				      SslState);
+	(OtpCert, VerifyResult, SslState) when (VerifyResult == valid) or (VerifyResult == valid_peer) -> 
+	     case crl_check(OtpCert, CRLCheck, CertDbHandle, CertDbRef, CRLDbHandle, VerifyResult) of
+		 valid ->
+		     {VerifyResult, SslState};
+		 Reason ->
+		     {fail, Reason}
+	     end;
+	(OtpCert, VerifyResult, SslState) ->
+	     ssl_certificate:validate(OtpCert,
+				      VerifyResult,
+				      SslState)
+     end, {Role, CertDbHandle, CertDbRef, CRLCheck, CRLDbHandle}}.
+
+apply_user_fun(Fun, OtpCert, VerifyResult, UserState0, 
+	       {_, CertDbHandle, CertDbRef, CRLCheck, CRLDbHandle} = SslState) when
+      (VerifyResult == valid) or (VerifyResult == valid_peer) ->
+    case Fun(OtpCert, VerifyResult, UserState0) of
+	{Valid, UserState} when (Valid == valid) or (Valid == valid_peer) ->
+	    case crl_check(OtpCert, CRLCheck, CertDbHandle, CertDbRef, CRLDbHandle, VerifyResult) of
+		valid ->
+		    {Valid, {SslState, UserState}};
+		Result ->
+		    apply_user_fun(Fun, OtpCert, Result, UserState, SslState)
+	    end;
+	{fail, _} = Fail ->
+	    Fail
+    end;
 apply_user_fun(Fun, OtpCert, ExtensionOrError, UserState0, SslState) ->
     case Fun(OtpCert, ExtensionOrError, UserState0) of
-	{valid, UserState} ->
-	    {valid, {SslState, UserState}};
+	{Valid, UserState} when (Valid == valid) or (Valid == valid_peer)->
+	    {Valid, {SslState, UserState}};
 	{fail, _} = Fail ->
 	    Fail;
 	{unknown, UserState} ->
 	    {unknown, {SslState, UserState}}
     end.
+
 path_validation_alert({bad_cert, cert_expired}) ->
     ?ALERT_REC(?FATAL, ?CERTIFICATE_EXPIRED);
 path_validation_alert({bad_cert, invalid_issuer}) ->
@@ -1395,8 +1480,10 @@ path_validation_alert({bad_cert, name_not_permitted}) ->
     ?ALERT_REC(?FATAL, ?BAD_CERTIFICATE);
 path_validation_alert({bad_cert, unknown_critical_extension}) ->
     ?ALERT_REC(?FATAL, ?UNSUPPORTED_CERTIFICATE);
-path_validation_alert({bad_cert, cert_revoked}) ->
+path_validation_alert({bad_cert, {revoked, _}}) ->
     ?ALERT_REC(?FATAL, ?CERTIFICATE_REVOKED);
+path_validation_alert({bad_cert, revocation_status_undetermined}) ->
+    ?ALERT_REC(?FATAL, ?BAD_CERTIFICATE);
 path_validation_alert({bad_cert, selfsigned_peer}) ->
     ?ALERT_REC(?FATAL, ?BAD_CERTIFICATE);
 path_validation_alert({bad_cert, unknown_ca}) ->
@@ -1437,6 +1524,7 @@ calc_finished({3, N}, Role, PrfAlgo, MasterSecret, Handshake) ->
 
 master_secret(_RecordCB, Version, MasterSecret,
 	      #security_parameters{
+		 bulk_cipher_algorithm = BCA,
 		 client_random = ClientRandom,
 		 server_random = ServerRandom,
 		 hash_size = HashSize,
@@ -1455,8 +1543,8 @@ master_secret(_RecordCB, Version, MasterSecret,
 	ssl_record:set_mac_secret(ClientWriteMacSecret, ServerWriteMacSecret,
 				  Role, ConnStates1),
 
-    ClientCipherState = #cipher_state{iv = ClientIV, key = ClientWriteKey},
-    ServerCipherState = #cipher_state{iv = ServerIV, key = ServerWriteKey},
+    ClientCipherState = ssl_cipher:cipher_init(BCA, ClientIV, ClientWriteKey),
+    ServerCipherState = ssl_cipher:cipher_init(BCA, ServerIV, ServerWriteKey),
     {MasterSecret,
      ssl_record:set_pending_cipher_state(ConnStates2, ClientCipherState,
 					 ServerCipherState, Role)}.
@@ -1681,6 +1769,10 @@ dec_server_key_signature(_, _, _) ->
 
 dec_hello_extensions(<<>>, Acc) ->
     Acc;
+dec_hello_extensions(<<?UINT16(?ALPN_EXT), ?UINT16(ExtLen), ?UINT16(Len), ExtensionData:Len/binary, Rest/binary>>, Acc)
+        when Len + 2 =:= ExtLen ->
+    ALPN = #alpn{extension_data = ExtensionData},
+    dec_hello_extensions(Rest, Acc#hello_extensions{alpn = ALPN});
 dec_hello_extensions(<<?UINT16(?NEXTPROTONEG_EXT), ?UINT16(Len), ExtensionData:Len/binary, Rest/binary>>, Acc) ->
     NextP = #next_protocol_negotiation{extension_data = ExtensionData},
     dec_hello_extensions(Rest, Acc#hello_extensions{next_protocol_negotiation = NextP});
@@ -1761,18 +1853,19 @@ dec_sni(<<?BYTE(_), ?UINT16(Len), _:Len, Rest/binary>>) -> dec_sni(Rest);
 dec_sni(_) -> undefined.
 
 decode_next_protocols({next_protocol_negotiation, Protocols}) ->
-    decode_next_protocols(Protocols, []).
-decode_next_protocols(<<>>, Acc) ->
+    decode_protocols(Protocols, []).
+
+decode_protocols(<<>>, Acc) ->
     lists:reverse(Acc);
-decode_next_protocols(<<?BYTE(Len), Protocol:Len/binary, Rest/binary>>, Acc) ->
+decode_protocols(<<?BYTE(Len), Protocol:Len/binary, Rest/binary>>, Acc) ->
     case Len of
         0 ->
-            {error, invalid_next_protocols};
+            {error, invalid_protocols};
         _ ->
-            decode_next_protocols(Rest, [Protocol|Acc])
+            decode_protocols(Rest, [Protocol|Acc])
     end;
-decode_next_protocols(_Bytes, _Acc) ->
-    {error, invalid_next_protocols}.
+decode_protocols(_Bytes, _Acc) ->
+    {error, invalid_protocols}.
 
 %% encode/decode stream of certificate data to/from list of certificate data
 certs_to_list(ASN1Certs) ->
@@ -1825,6 +1918,17 @@ key_exchange_alg(_) ->
     ?NULL.
 
 %%-------------Extension handling --------------------------------
+
+%% Receive protocols, choose one from the list, return it.
+handle_alpn_extension(_, {error, _Reason}) ->
+    ?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE);
+handle_alpn_extension([], _) ->
+	?ALERT_REC(?FATAL, ?NO_APPLICATION_PROTOCOL);
+handle_alpn_extension([ServerProtocol|Tail], ClientProtocols) ->
+	case lists:member(ServerProtocol, ClientProtocols) of
+		true -> ServerProtocol;
+		false -> handle_alpn_extension(Tail, ClientProtocols)
+	end.
 
 handle_next_protocol(undefined,
 		     _NextProtocolSelector, _Renegotiating) ->
@@ -1955,3 +2059,70 @@ handle_psk_identity(_PSKIdentity, LookupFun)
     error;
 handle_psk_identity(PSKIdentity, {Fun, UserState}) ->
     Fun(psk, PSKIdentity, UserState).
+
+crl_check(_, false, _,_,_, _) ->
+    valid;
+crl_check(_, peer, _, _,_, valid) -> %% Do not check CAs with this option.
+    valid;
+crl_check(OtpCert, Check, CertDbHandle, CertDbRef, {Callback, CRLDbHandle}, _) ->
+    Options = [{issuer_fun, {fun(_DP, CRL, Issuer, DBInfo) ->
+				     ssl_crl:trusted_cert_and_path(CRL, Issuer, DBInfo)
+			     end, {CertDbHandle, CertDbRef}}}, 
+	       {update_crl, fun(DP, CRL) -> Callback:fresh_crl(DP, CRL) end}
+	      ],
+    case dps_and_crls(OtpCert, Callback, CRLDbHandle, ext) of
+	no_dps ->
+	    case dps_and_crls(OtpCert, Callback, CRLDbHandle, same_issuer) of
+		[] ->
+		    valid; %% No relevant CRL existed
+		DpsAndCRls ->
+		    crl_check_same_issuer(OtpCert, Check, DpsAndCRls, Options)		
+	    end;
+	DpsAndCRLs ->  %% This DP list may be empty if relevant CRLs existed 
+	    %% but could not be retrived, will result in {bad_cert, revocation_status_undetermined}
+	    case public_key:pkix_crls_validate(OtpCert, DpsAndCRLs, Options) of
+		{bad_cert, revocation_status_undetermined} ->
+		    crl_check_same_issuer(OtpCert, Check, dps_and_crls(OtpCert, Callback, 
+								       CRLDbHandle, same_issuer), Options);
+		Other ->
+		    Other
+	    end
+    end.
+
+crl_check_same_issuer(OtpCert, best_effort, Dps, Options) ->		
+    case public_key:pkix_crls_validate(OtpCert, Dps, Options) of 
+	{bad_cert, revocation_status_undetermined}  ->
+	    valid;
+	Other ->
+	    Other
+    end;
+crl_check_same_issuer(OtpCert, _, Dps, Options) ->    
+    public_key:pkix_crls_validate(OtpCert, Dps, Options).
+
+dps_and_crls(OtpCert, Callback, CRLDbHandle, ext) ->
+	case public_key:pkix_dist_points(OtpCert) of
+	    [] ->
+		no_dps;
+	    DistPoints ->
+		distpoints_lookup(DistPoints, Callback, CRLDbHandle) 
+	end;
+    
+dps_and_crls(OtpCert, Callback, CRLDbHandle, same_issuer) ->    
+    DP = #'DistributionPoint'{distributionPoint = {fullName, GenNames}} = 
+	public_key:pkix_dist_point(OtpCert),
+    CRLs = lists:flatmap(fun({directoryName, Issuer}) -> 
+				 Callback:select(Issuer, CRLDbHandle);
+			    (_) ->
+				 []
+			 end, GenNames),
+    [{DP, {CRL, public_key:der_decode('CertificateList', CRL)}} ||  CRL <- CRLs].
+
+distpoints_lookup([], _, _) ->
+    [];
+distpoints_lookup([DistPoint | Rest], Callback, CRLDbHandle) ->
+    case Callback:lookup(DistPoint, CRLDbHandle) of
+	not_available ->
+	    distpoints_lookup(Rest, Callback, CRLDbHandle);
+	CRLs ->
+	    [{DistPoint, {CRL, public_key:der_decode('CertificateList', CRL)}} ||  CRL <- CRLs]
+    end.	

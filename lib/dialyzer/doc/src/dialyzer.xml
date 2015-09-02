@@ -4,20 +4,21 @@
 <erlref>
   <header>
     <copyright>
-      <year>2006</year><year>2014</year>
+      <year>2006</year><year>2015</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
-      The contents of this file are subject to the Erlang Public License,
-      Version 1.1, (the "License"); you may not use this file except in
-      compliance with the License. You should have received a copy of the
-      Erlang Public License along with this software. If not, it can be
-      retrieved online at http://www.erlang.org/.
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
 
-      Software distributed under the License is distributed on an "AS IS"
-      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-      the License for the specific language governing rights and limitations
-      under the License.
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
 
     </legalnotice>
 
@@ -70,7 +71,7 @@
 		[--build_plt] [--add_to_plt] [--remove_from_plt]
 		[--check_plt] [--no_check_plt] [--plt_info] [--get_warnings]
                 [--dump_callgraph file] [--no_native] [--fullpath]
-                [--statistics]</code>
+                [--statistics] [--no_native_cache]</code>
     <p>Options:</p>
     <taglist>
       <tag><c><![CDATA[files_or_dirs]]></c> (for backwards compatibility also
@@ -139,7 +140,11 @@
       <tag><c><![CDATA[-Wwarn]]></c></tag>
       <item>A family of options which selectively turn on/off warnings
         (for help on the names of warnings use
-        <c><![CDATA[dialyzer -Whelp]]></c>).</item>
+        <c><![CDATA[dialyzer -Whelp]]></c>).
+        Note that the options can also be given in the file with a
+        <c>-dialyzer()</c> attribute. See <seealso
+        marker="#suppression">Requesting or Suppressing Warnings in
+        Source Files</seealso> below for details.</item>
       <tag><c><![CDATA[--shell]]></c></tag>
       <item>Do not disable the Erlang shell while running the GUI.</item>
       <tag><c><![CDATA[--version]]></c> (or <c><![CDATA[-v]]></c>)</tag>
@@ -194,6 +199,11 @@
          heuristically performs when dialyzing many files; this avoids the
          compilation time but it may result in (much) longer analysis
          time.</item>
+       <tag><c><![CDATA[--no_native_cache]]></c></tag>
+       <item>By default, Dialyzer caches the results of native compilation in the
+         <c>$XDG_CACHE_HOME/erlang/dialyzer_hipe_cache</c> directory.
+         <c>XDG_CACHE_HOME</c> defaults to <c>$HOME/.cache</c>.
+         Use this option to disable caching.</item>
        <tag><c><![CDATA[--fullpath]]></c></tag>
        <item>Display the full path names of files for which warnings are emitted.</item>
        <tag><c><![CDATA[--gui]]></c></tag>
@@ -227,6 +237,8 @@
       <tag><c><![CDATA[-Wno_behaviours]]></c></tag>
       <item>Suppress warnings about behaviour callbacks which drift from the
        published recommended interfaces.</item>
+      <tag><c><![CDATA[-Wno_missing_calls]]></c></tag>
+      <item>Suppress warnings about calls to missing functions.</item>
       <tag><c><![CDATA[-Wno_undefined_callbacks]]></c></tag>
       <item>Suppress warnings about behaviours that have no
         <c>-callback</c> attributes for their callbacks.</item>
@@ -242,9 +254,16 @@
       analysis that finds data races performs intra-procedural data flow analysis
       and can sometimes explode in time. Enable it at your own risk.
       </item>
-      <tag><c><![CDATA[-Wunderspecs]]></c>***</tag>
+i      <tag><c><![CDATA[-Wunderspecs]]></c>***</tag>
       <item>Warn about underspecified functions
       (the -spec is strictly more allowing than the success typing).</item>
+      <tag><c><![CDATA[-Wunknown]]></c>***</tag>
+      <item>Let warnings about unknown functions and types affect the
+      exit status of the command line version. The default is to ignore
+      warnings about unknown functions and types when setting the exit
+      status. When using the Dialyzer from Erlang, warnings about unknown
+      functions and types are returned; the default is not to return
+      these warnings.</item>
     </taglist>
     <p>The following options are also available but their use is not
       recommended: (they are mostly for Dialyzer developers and internal
@@ -269,6 +288,71 @@
       given from the command line, so please refer to the sections above for
       a description of these.</p>
   </section>
+
+  <section>
+    <marker id="suppression"></marker>
+    <title>Requesting or Suppressing Warnings in Source Files</title>
+    <p>
+      The <c>-dialyzer()</c> attribute can be used for turning off
+      warnings in a module by specifying functions or warning options.
+      For example, to turn off all warnings for the function
+      <c>f/0</c>, include the following line:
+    </p>
+<code type="none">
+-dialyzer({nowarn_function, f/0}).
+</code>
+    <p>To turn off warnings for improper lists, add the following line
+      to the source file:
+    </p>
+<code type="none">
+-dialyzer(no_improper_lists).
+</code>
+    <p>The <c>-dialyzer()</c> attribute is allowed after function
+    declarations. Lists of warning options or functions are allowed:
+    </p>
+<code type="none">
+-dialyzer([{nowarn_function, [f/0]}, no_improper_lists]).
+</code>
+    <p>
+      Warning options can be restricted to functions:
+    </p>
+<code type="none">
+-dialyzer({no_improper_lists, g/0}).
+</code>
+<code type="none">
+-dialyzer({[no_return, no_match], [g/0, h/0]}).
+</code>
+    <p>
+      For help on the warning options use <c>dialyzer -Whelp</c>. The
+      options are also enumerated <seealso
+      marker="#gui/1">below</seealso> (<c>WarnOpts</c>).
+    </p>
+    <note>
+      <p>
+        The <c>-dialyzer()</c> attribute is not checked by the Erlang
+              Compiler, but by the Dialyzer itself.
+      </p>
+    </note>
+    <note>
+      <p>
+        The warning option <c>-Wrace_conditions</c> has no effect when
+        set in source files.
+      </p>
+    </note>
+    <p>
+      The <c>-dialyzer()</c> attribute can also be used for turning on
+      warnings. For instance, if a module has been fixed regarding
+      unmatched returns, adding the line
+    </p>
+<code type="none">
+-dialyzer(unmatched_returns).
+</code>
+    <p>
+      can help in assuring that no new unmatched return warnings are
+      introduced.
+    </p>
+  </section>
+
   <funcs>
     <func>
       <name>gui() -> ok | {error, Msg}</name>
@@ -283,13 +367,14 @@
 OptList  :: [Option]
 Option   :: {files,          [Filename :: string()]}
           | {files_rec,      [DirName :: string()]}
-          | {defines,        [{Macro: atom(), Value : term()}]}
+          | {defines,        [{Macro :: atom(), Value :: term()}]}
           | {from,           src_code | byte_code}   %% Defaults to byte_code
           | {init_plt,       FileName :: string()}   %% If changed from default
           | {plts,           [FileName :: string()]} %% If changed from default
           | {include_dirs,   [DirName :: string()]}
           | {output_file,    FileName :: string()}
           | {output_plt,     FileName :: string()}
+          | {check_plt,      boolean()},
           | {analysis_type,  'succ_typings' |
                              'plt_add' |
                              'plt_build' |
@@ -313,7 +398,8 @@ WarnOpts :: no_return
           | race_conditions
           | overspecs
           | underspecs
-          | specdiffs</code>
+          | specdiffs
+          | unknown</code>
       </desc>
     </func>
     <func>
@@ -347,6 +433,7 @@ Tag :: 'warn_behaviour'
      | 'warn_return_only_exit'
      | 'warn_umatched_return'
      | 'warn_undefined_callbacks'
+     | 'warn_unknown'
 Id = {File :: string(), Line :: integer()}
 Msg = msg() -- Undefined</code>
       </desc>

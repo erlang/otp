@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 2011-2014. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -106,9 +107,8 @@ pbdkdf2(Password, Salt, Count, DerivedKeyLen, Prf, PrfHash, PrfOutputLen)->
 %%--------------------------------------------------------------------
 decrypt_parameters(#'EncryptedPrivateKeyInfo_encryptionAlgorithm'{
 		      algorithm = Oid, parameters = Param}) ->
-     decrypt_parameters(Oid, Param).
+     decrypt_parameters(Oid, decode_handle_open_type_wrapper(Param)).
     
-
 %%--------------------------------------------------------------------
 -spec encrypt_parameters({Cipher::string(), Params::term()}) -> 
 			#'EncryptedPrivateKeyInfo_encryptionAlgorithm'{}.
@@ -129,7 +129,7 @@ password_to_key_and_iv(Password, _, #'PBES2-params'{} = Params) ->
 password_to_key_and_iv(Password, _Cipher, {#'PBEParameter'{salt = Salt,
 							  iterationCount = Count}, Hash}) ->
     <<Key:8/binary, IV:8/binary, _/binary>> 
-	= pbdkdf1(Password, erlang:iolist_to_binary(Salt), Count, Hash),
+	= pbdkdf1(Password, Salt, Count, Hash),
     {Key, IV};
 password_to_key_and_iv(Password, Cipher, Salt) ->
  KeyLen = derived_key_length(Cipher, undefined),
@@ -151,15 +151,15 @@ do_pbdkdf1(Prev, Count, Acc, Hash) ->
     do_pbdkdf1(Result, Count-1 , <<Result/binary, Acc/binary>>, Hash).
 
 iv(#'PBES2-params_encryptionScheme'{algorithm = Algo,
-				    parameters = ASNIV}) when (Algo == ?'desCBC') or
-							      (Algo == ?'des-EDE3-CBC') ->
-    %% This is an so called open ASN1-type that in this
-    %% case will be an octet-string of length 8
-    <<?ASN1_OCTET_STR_TAG, ?IV_LEN, IV:?IV_LEN/binary>> = ASNIV,
+				    parameters = ASN1IV}) 
+  when (Algo == ?'desCBC') or
+       (Algo == ?'des-EDE3-CBC') ->
+    <<?ASN1_OCTET_STR_TAG, ?IV_LEN, IV:?IV_LEN/binary>> = decode_handle_open_type_wrapper(ASN1IV),
     IV;
 iv(#'PBES2-params_encryptionScheme'{algorithm = ?'rc2CBC',
-				    parameters = ASN1IV}) ->
-    {ok, #'RC2-CBC-Parameter'{iv = IV}} = 'PKCS-FRAME':decode('RC2-CBC-Parameter', ASN1IV),
+				    parameters =  ASN1IV}) ->
+    {ok, #'RC2-CBC-Parameter'{iv = IV}} 
+	= 'PKCS-FRAME':decode('RC2-CBC-Parameter', decode_handle_open_type_wrapper(ASN1IV)),
     iolist_to_binary(IV).
 
 blocks(1, N, Index, Password, Salt, Count, Prf, PrfHash, PrfLen, Acc) ->
@@ -200,13 +200,13 @@ encrypt_parameters(_Cipher, #'PBES2-params'{} = Params) ->
     {ok, Der} ='PKCS-FRAME':encode('PBES2-params', Params),
     #'EncryptedPrivateKeyInfo_encryptionAlgorithm'{
        algorithm = ?'id-PBES2', 
-       parameters = Der};
+       parameters = encode_handle_open_type_wrapper(Der)};
 
 encrypt_parameters(Cipher, {#'PBEParameter'{} = Params, Hash}) ->
     {ok, Der} ='PKCS-FRAME':encode('PBEParameter', Params),
     #'EncryptedPrivateKeyInfo_encryptionAlgorithm'{
        algorithm = pbe1_oid(Cipher, Hash), 
-       parameters = Der}.
+       parameters = encode_handle_open_type_wrapper(Der)}.
 
 pbe1_oid("RC2-CBC", sha) ->
     ?'pbeWithSHA1AndRC2-CBC';
@@ -277,3 +277,8 @@ cipher(#'PBES2-params_encryptionScheme'{algorithm = ?'rc2CBC'}) ->
 
 ceiling(Float) -> 
     erlang:round(Float + 0.5).
+
+decode_handle_open_type_wrapper({asn1_OPENTYPE, Type}) ->
+    Type.
+encode_handle_open_type_wrapper(Type) ->
+    {asn1_OPENTYPE, Type}.

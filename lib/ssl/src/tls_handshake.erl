@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 2007-2015. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -78,12 +79,14 @@ client_hello(Host, Port, ConnectionStates,
 %%--------------------------------------------------------------------
 -spec hello(#server_hello{} | #client_hello{}, #ssl_options{},
 	    #connection_states{} | {inet:port_number(), #session{}, db_handle(),
-				    atom(), #connection_states{}, binary() | undefined},
+				    atom(), #connection_states{}, 
+				    binary() | undefined},
 	    boolean()) ->
-		   {tls_record:tls_version(), session_id(), #connection_states{}, binary() | undefined}|
-		   {tls_record:tls_version(), {resumed | new, #session{}}, #connection_states{},
-		    [binary()] | undefined,
-		    [ssl_handshake:oid()] | undefined, [ssl_handshake:oid()] | undefined} |
+		   {tls_record:tls_version(), session_id(), 
+		    #connection_states{}, alpn | npn, binary() | undefined}|
+		   {tls_record:tls_version(), {resumed | new, #session{}}, 
+		    #connection_states{}, binary() | undefined, 
+		    #hello_extensions{}} |
 		   #alert{}.
 %%
 %% Description: Handles a recieved hello message
@@ -246,8 +249,10 @@ handle_client_hello_extensions(Version, Type, Random, CipherSuites,
     try ssl_handshake:handle_client_hello_extensions(tls_record, Random, CipherSuites,
 						     HelloExt, Version, SslOpts,
 						     Session0, ConnectionStates0, Renegotiation) of
-	{Session, ConnectionStates, ServerHelloExt} ->
-	    {Version, {Type, Session}, ConnectionStates, ServerHelloExt}
+	#alert{} = Alert ->
+	    Alert;
+	{Session, ConnectionStates, Protocol, ServerHelloExt} ->
+	    {Version, {Type, Session}, ConnectionStates, Protocol, ServerHelloExt}
     catch throw:Alert ->
 	    Alert
     end.
@@ -260,7 +265,7 @@ handle_server_hello_extensions(Version, SessionId, Random, CipherSuite,
 						      SslOpt, ConnectionStates0, Renegotiation) of
 	#alert{} = Alert ->
 	    Alert;
-	{ConnectionStates, Protocol} ->
-	    {Version, SessionId, ConnectionStates, Protocol}
+	{ConnectionStates, ProtoExt, Protocol} ->
+	    {Version, SessionId, ConnectionStates, ProtoExt, Protocol}
     end.
 

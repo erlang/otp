@@ -4,16 +4,17 @@
 %%
 %% Copyright Ericsson AB 1997-2013. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -34,7 +35,8 @@
 %% Application internal exports
 -export([compile_asn/3,compile_asn1/3,compile_py/3,compile/3,
 	 vsn/0,
-	 get_name_of_def/1,get_pos_of_def/1]).
+	 get_name_of_def/1,get_pos_of_def/1,
+	 unset_pos_mod/1]).
 -export([read_config_data/1,get_gen_state_field/1,
 	 partial_inc_dec_toptype/1,update_gen_state/2,
 	 get_tobe_refed_func/1,reset_gen_state/0,is_function_generated/1,
@@ -166,46 +168,26 @@ set_scan_parse_pass(#st{files=Files}=St) ->
 	    {error,St#st{error=Error}}
     end.
 
-set_scan_parse_pass_1([F|Fs], St) ->
+set_scan_parse_pass_1([F|Fs], #st{file=File}=St) ->
     case asn1ct_tok:file(F) of
 	{error,Error} ->
 	    throw(Error);
 	Tokens when is_list(Tokens) ->
-	    case catch asn1ct_parser2:parse(Tokens) of
+	    case asn1ct_parser2:parse(File, Tokens) of
 		{ok,M} ->
 		    [M|set_scan_parse_pass_1(Fs, St)];
-		{error,ErrorTerm} ->
-		    throw(handle_parse_error(ErrorTerm, St))
+		{error,Errors} ->
+		    throw(Errors)
 	    end
     end;
 set_scan_parse_pass_1([], _) -> [].
 
-parse_pass(#st{code=Tokens}=St) ->
-    case catch asn1ct_parser2:parse(Tokens) of
+parse_pass(#st{file=File,code=Tokens}=St) ->
+    case asn1ct_parser2:parse(File, Tokens) of
 	{ok,M} ->
 	    {ok,St#st{code=M}};
-	{error,ErrorTerm} ->
-	    {error,St#st{error=handle_parse_error(ErrorTerm, St)}}
-    end.
-
-handle_parse_error(ErrorTerm, #st{file=File,opts=Opts}) ->
-    case ErrorTerm of
-	{{Line,_Mod,Message},_TokTup} ->
-	    if
-		is_integer(Line) ->
-		    BaseName = filename:basename(File),
-		    error("syntax error at line ~p in module ~s:~n",
-			  [Line,BaseName], Opts);
-		true ->
-		    error("syntax error in module ~p:~n",
-			  [File], Opts)
-	    end,
-	    print_error_message(Message),
-	    Message;
-	{Line,_Mod,[Message,Token]} ->
-	    error("syntax error: ~p ~p at line ~p~n",
-		  [Message,Token,Line], Opts),
-	    {Line,[Message,Token]}
+	{error,Errors} ->
+	    {error,St#st{error=Errors}}
     end.
 
 merge_pass(#st{file=Base,code=Code}=St) ->
@@ -559,7 +541,10 @@ unset_pos_mod(Def) when is_record(Def,pvaluesetdef) ->
 unset_pos_mod(Def) when is_record(Def,pobjectdef) ->
     Def#pobjectdef{pos=undefined};
 unset_pos_mod(Def) when is_record(Def,pobjectsetdef) ->
-    Def#pobjectsetdef{pos=undefined}.
+    Def#pobjectsetdef{pos=undefined};
+unset_pos_mod(#'ComponentType'{} = Def) ->
+    Def#'ComponentType'{pos=undefined};
+unset_pos_mod(Def) -> Def.
 
 get_pos_of_def(#typedef{pos=Pos}) ->
     Pos;
@@ -1405,33 +1390,6 @@ prepare_bytes(Bytes) -> list_to_binary(Bytes).
 
 vsn() ->
     ?vsn.
-
-
-
-print_error_message([got,H|T]) when is_list(H) ->
-    io:format(" got:"),
-    print_listing(H,"and"),
-    print_error_message(T);
-print_error_message([expected,H|T]) when is_list(H) ->
-    io:format(" expected one of:"),
-    print_listing(H,"or"),
-    print_error_message(T);
-print_error_message([H|T])  ->
-    io:format(" ~p",[H]),
-    print_error_message(T);
-print_error_message([]) ->
-    io:format("~n").
-
-print_listing([H1,H2|[]],AndOr) ->
-    io:format(" ~p ~s ~p",[H1,AndOr,H2]);
-print_listing([H1,H2|T],AndOr) ->
-    io:format(" ~p,",[H1]),
-    print_listing([H2|T],AndOr);
-print_listing([H],_AndOr) ->
-    io:format(" ~p",[H]);
-print_listing([],_) ->
-    ok.
-
 
 specialized_decode_prepare(Erule,M,TsAndVs,Options) ->
     case lists:member(asn1config,Options) of

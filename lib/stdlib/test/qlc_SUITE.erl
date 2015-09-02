@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2015. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -73,6 +74,7 @@
 	  otp_5644/1, otp_5195/1, otp_6038_bug/1, otp_6359/1, otp_6562/1,
 	  otp_6590/1, otp_6673/1, otp_6964/1, otp_7114/1, otp_7238/1,
 	  otp_7232/1, otp_7552/1, otp_6674/1, otp_7714/1, otp_11758/1,
+          otp_12946/1,
 
 	  manpage/1,
 
@@ -142,7 +144,7 @@ groups() ->
      {tickets, [],
       [otp_5644, otp_5195, otp_6038_bug, otp_6359, otp_6562,
        otp_6590, otp_6673, otp_6964, otp_7114, otp_7232,
-       otp_7238, otp_7552, otp_6674, otp_7714, otp_11758]},
+       otp_7238, otp_7552, otp_6674, otp_7714, otp_11758, otp_12946]},
      {compat, [], [backward, forward]}].
 
 init_per_suite(Config) ->
@@ -396,7 +398,8 @@ nomatch(Config) when is_list(Config) ->
               qlc:q([3 || {3=4} <- []]).
         ">>,
         [],
-        {warnings,[{{2,27},qlc,nomatch_pattern}]}},
+        %% {warnings,[{{2,27},qlc,nomatch_pattern}]}},
+        {warnings,[{2,v3_core,nomatch}]}},
 
        {nomatch2,
         <<"nomatch() ->
@@ -407,7 +410,8 @@ nomatch(Config) when is_list(Config) ->
           end, [{1},{2}]).
         ">>,
         [],
-        {warnings,[{{3,33},qlc,nomatch_pattern}]}},
+        %% {warnings,[{{3,33},qlc,nomatch_pattern}]}},
+        {warnings,[{3,v3_core,nomatch}]}},
  
        {nomatch3,
         <<"nomatch() ->
@@ -419,7 +423,8 @@ nomatch(Config) when is_list(Config) ->
                     end, [{1,2},{2,3}]).
         ">>,
         [],
-        {warnings,[{{3,52},qlc,nomatch_pattern}]}},
+        %% {warnings,[{{3,52},qlc,nomatch_pattern}]}},
+        {warnings,[{3,v3_core,nomatch}]}},
 
        {nomatch4,
         <<"nomatch() ->
@@ -2487,8 +2492,11 @@ info(Config) when is_list(Config) ->
                (catch qlc:info([X || {X} <- []], {n_elements, 0})),
           L = lists:seq(1, 1000),
           \"[1,2,3,4,5,6,7,8,9,10|'...']\" = qlc:info(L, {n_elements, 10}),
-          {cons,1,{integer,1,1},{atom,1,'...'}} = 
+          {cons,A1,{integer,A2,1},{atom,A3,'...'}} =
             qlc:info(L, [{n_elements, 1},{format,abstract_code}]),
+          1 = erl_anno:line(A1),
+          1 = erl_anno:line(A2),
+          1 = erl_anno:line(A3),
           Q = qlc:q([{X} || X <- [a,b,c,d,e,f]]),
           {call,_,_,[{cons,_,{atom,_,a},{cons,_,{atom,_,b},{cons,_,{atom,_,c},
                                                             {atom,_,'...'}}}},
@@ -2905,7 +2913,8 @@ lookup1(Config) when is_list(Config) ->
                  [] = qlc:e(Q),
                  false = lookup_keys(Q)
          end, [{1},{a}])">>,
-       {warnings,[{{2,37},qlc,nomatch_pattern}]}},
+        %% {warnings,[{{2,37},qlc,nomatch_pattern}]}},
+        []},
 
        <<"etsc(fun(E) ->
                 Q = qlc:q([X || {X=X,Y=Y}={Y=Y,X=X} <- ets:table(E), 
@@ -2933,7 +2942,8 @@ lookup1(Config) when is_list(Config) ->
                  [] = qlc:e(Q),
                  false = lookup_keys(Q)
          end, [{a},{b}])">>,
-        {warnings,[{{2,35},qlc,nomatch_pattern}]}},
+        %% {warnings,[{{2,35},qlc,nomatch_pattern}]}},
+        []},
 
        {cres,
         <<"etsc(fun(E) ->
@@ -2941,7 +2951,8 @@ lookup1(Config) when is_list(Config) ->
                  [] = qlc:e(Q),
                  false = lookup_keys(Q)
          end, [{a},{b}])">>,
-        {warnings,[{{2,35},qlc,nomatch_pattern}]}},
+        %% {warnings,[{{2,35},qlc,nomatch_pattern}]}},
+        []},
 
        <<"etsc(fun(E) ->
                 Q = qlc:q([X || X = <<X>> <- ets:table(E)]),
@@ -2988,7 +2999,8 @@ lookup1(Config) when is_list(Config) ->
                  [] = qlc:e(Q),
                  false = lookup_keys(Q)
          end, [{a,b,c},{d,e,f}])">>,
-        {warnings,[{{2,34},qlc,nomatch_pattern}]}}
+        %% {warnings,[{{2,34},qlc,nomatch_pattern}]}}
+        []}
 
        ],
     ?line run(Config, Ts),
@@ -3021,8 +3033,9 @@ lookup2(Config) when is_list(Config) ->
          end, [{3,true},{4,true}])">>,
 
        <<"%% Only guards are inspected. No lookup.
-          E1 = create_ets(1, 10),
-          E2 = ets:new(join, []),
+          E1 = ets:new(e, [ordered_set]),
+          true = ets:insert(E1, [{1,1}, {2,2}, {3,3}, {4,4}, {5,5}]),
+          E2 = ets:new(join, [ordered_set]),
           true = ets:insert(E2, [{true,1},{false,2}]),
           Q = qlc:q([{X,Z} || {_,X} <- ets:table(E1),
                               {Y,Z} <- ets:table(E2),
@@ -3051,7 +3064,8 @@ lookup2(Config) when is_list(Config) ->
                  [] = qlc:e(Q),
                  false = lookup_keys(Q)
          end, [{1}, {2}])">>,
-        {warnings,[{{3,46},qlc,nomatch_filter}]}},
+        %% {warnings,[{{3,46},qlc,nomatch_filter}]}},
+        []},
 
        {cres,
         <<"etsc(fun(E) ->
@@ -3060,7 +3074,8 @@ lookup2(Config) when is_list(Config) ->
                 [] = qlc:e(Q),
                 false = lookup_keys(Q)
         end, [{1}, {2}])">>,
-        {warnings,[{{3,43},qlc,nomatch_filter}]}},
+        %% {warnings,[{{3,43},qlc,nomatch_filter}]}},
+        []},
 
        {cres,
         <<"etsc(fun(E) ->
@@ -3069,7 +3084,8 @@ lookup2(Config) when is_list(Config) ->
                  [] = qlc:e(Q),
                  false = lookup_keys(Q)
          end, [{1}, {2}])">>,
-        {warnings,[{{3,48},qlc,nomatch_filter}]}},
+        %% {warnings,[{{3,48},qlc,nomatch_filter}]}},
+        []},
 
        <<"etsc(fun(E) ->
                 Q = qlc:q([{X,Y} || {X,Y} <- ets:table(E), 
@@ -3084,7 +3100,8 @@ lookup2(Config) when is_list(Config) ->
                  [] = qlc:e(Q),
                  false = lookup_keys(Q)
          end, [{[3]},{[3,4]}])">>,
-        {warnings,[{{2,61},qlc,nomatch_filter}]}},
+        %% {warnings,[{{2,61},qlc,nomatch_filter}]}},
+        []},
 
        <<"etsc(fun(E) ->
                 U = 18, 
@@ -3116,7 +3133,8 @@ lookup2(Config) when is_list(Config) ->
                  [] = lists:sort(qlc:e(Q)),
                  false = lookup_keys(Q)
          end, [{2},{3},{4},{8}])">>,
-        {warnings,[{{4,44},qlc,nomatch_filter}]}},
+        %% {warnings,[{{4,44},qlc,nomatch_filter}]}},
+        []},
 
        {cres,
         <<"etsc(fun(E) ->
@@ -3126,7 +3144,8 @@ lookup2(Config) when is_list(Config) ->
                  [] = lists:sort(qlc:e(Q)),
                  false = lookup_keys(Q)
          end, [{2},{3},{4},{8}])">>,
-        {warnings,[{{4,35},qlc,nomatch_filter}]}},
+        %% {warnings,[{{4,35},qlc,nomatch_filter}]}},
+        []},
 
        <<"F = fun(U) ->
                 Q = qlc:q([X || {X} <- [a,b,c], 
@@ -3142,7 +3161,8 @@ lookup2(Config) when is_list(Config) ->
                  [] = qlc:e(Q),
                  false = lookup_keys(Q)
            end, [{1,1},{2,1}])">>,
-        {warnings,[{{2,61},qlc,nomatch_filter}]}},
+        %% {warnings,[{{2,61},qlc,nomatch_filter}]}},
+        []},
 
        <<"Two = 2.0,
           etsc(fun(E) ->
@@ -3203,8 +3223,10 @@ lookup2(Config) when is_list(Config) ->
                  [] = qlc:e(Q),
                  false = lookup_keys(Q)
          end, [{1,b},{2,3}])">>,
+        %% {warnings,[{2,sys_core_fold,nomatch_guard},
+	%% 	   {3,qlc,nomatch_filter},
+	%% 	   {3,sys_core_fold,{eval_failure,badarg}}]}},
         {warnings,[{2,sys_core_fold,nomatch_guard},
-		   {3,qlc,nomatch_filter},
 		   {3,sys_core_fold,{eval_failure,badarg}}]}},
 
        <<"etsc(fun(E) ->
@@ -3227,7 +3249,8 @@ lookup2(Config) when is_list(Config) ->
                  [] = qlc:e(Q),
                  false = lookup_keys(Q)
          end, [{{1}},{{2}}])">>,
-        {warnings,[{{4,47},qlc,nomatch_filter}]}},
+        %% {warnings,[{{4,47},qlc,nomatch_filter}]}},
+        []},
 
        {cres,
         <<"etsc(fun(E) ->
@@ -3237,7 +3260,8 @@ lookup2(Config) when is_list(Config) ->
                  [] = qlc:e(Q),
                  false = lookup_keys(Q)
          end, [{{1}},{{2}}])">>,
-        {warnings,[{{4,47},qlc,nomatch_filter}]}},
+        %% {warnings,[{{4,47},qlc,nomatch_filter}]}},
+        []},
 
        <<"etsc(fun(E) ->
                 Q = qlc:q([X || {X} <- ets:table(E),
@@ -3297,7 +3321,8 @@ lookup2(Config) when is_list(Config) ->
                  [] = qlc:e(Q),
                  false = lookup_keys(Q)
          end, [{3}, {4}])">>,
-        {warnings,[{{3,44},qlc,nomatch_filter}]}},
+        %% {warnings,[{{3,44},qlc,nomatch_filter}]}},
+        []},
 
        <<"etsc(fun(E) ->
                 Q = qlc:q([X || {{X,Y}} <- ets:table(E), 
@@ -3418,7 +3443,8 @@ lookup2(Config) when is_list(Config) ->
            end, [{1},{2}])">>
 
        ],
-    ?line run(Config, Ts),
+
+    ok = run(Config, Ts),
 
     TsR = [
        %% is_record/2,3:
@@ -3456,7 +3482,8 @@ lookup2(Config) when is_list(Config) ->
          end, [{keypos,1}], [#r{}])">>
 
        ],
-    ?line run(Config, <<"-record(r, {a}).\n">>, TsR),
+
+    ok = run(Config, <<"-record(r, {a}).\n">>, TsR),
 
     Ts2 = [
        <<"etsc(fun(E) ->
@@ -3566,7 +3593,6 @@ lookup2(Config) when is_list(Config) ->
                        [{1,2},{2,2}] = qlc:e(Q),
                        [2] = lookup_keys(Q)
                end, [{keypos,1}], [{1},{2},{3}])">>,
-
        <<"%% Matchspec only. No cache.
           etsc(fun(E) ->
                        Q = qlc:q([{X,Y} ||
@@ -3578,7 +3604,7 @@ lookup2(Config) when is_list(Config) ->
                                {generate,_,
                                 {table,{ets,_,[_,[{traverse,_}]]}}}],[]} = 
                                        i(Q),
-                       [{1,2},{1,3},{2,2},{2,3}] = qlc:e(Q),
+                       [{1,2},{1,3},{2,2},{2,3}] = lists:sort(qlc:e(Q)),
                        false = lookup_keys(Q)
                end, [{keypos,1}], [{1},{2},{3}])">>,
        <<"%% Matchspec only. Cache
@@ -3592,7 +3618,7 @@ lookup2(Config) when is_list(Config) ->
                             {generate,_,{qlc,_,
                            [{generate,_,{table,{ets,_,[_,[{traverse,_}]]}}}],
                           [{cache,ets}]}}],[]} = i(Q),
-                       [{1,2},{1,3},{2,2},{2,3}] = qlc:e(Q),
+                       [{1,2},{1,3},{2,2},{2,3}] = lists:sort(qlc:e(Q)),
                        false = lookup_keys(Q)
                end, [{keypos,1}], [{1},{2},{3}])">>,
        <<"%% An empty list. Always unique and cached.
@@ -3645,7 +3671,7 @@ lookup2(Config) when is_list(Config) ->
 
       ],
 
-    ?line run(Config, Ts2),
+    ok = run(Config, Ts2),
 
     LTs = [
        <<"etsc(fun(E) ->
@@ -3677,7 +3703,8 @@ lookup2(Config) when is_list(Config) ->
                end, [{1,a},{2,b}])">>
 
        ],
-    ?line run(Config, LTs),
+
+    ok = run(Config, LTs),
 
     ok.
 
@@ -3700,7 +3727,8 @@ lookup_rec(Config) when is_list(Config) ->
                  [] = qlc:e(Q),
                  false = lookup_keys(Q)
              end, [{keypos,2}], [#r{a = 17}, #r{a = 3}, #r{a = 5}])">>,
-        {warnings,[{{4,44},qlc,nomatch_filter}]}},
+        %% {warnings,[{{4,44},qlc,nomatch_filter}]}},
+        []},
 
       <<"%% Compares an integer and a float.
          etsc(fun(E) ->
@@ -4004,7 +4032,8 @@ skip_filters(Config) when is_list(Config) ->
                   [] = qlc:e(Q),
                   false = lookup_keys(Q)
           end, [{1,1},{2,0}])">>,
-        {warnings,[{{4,37},qlc,nomatch_filter}]}},
+        %% {warnings,[{{4,37},qlc,nomatch_filter}]}},
+        []},
 
        <<"etsc(fun(E) ->
                  Q = qlc:q([{A,B,C} ||
@@ -6093,7 +6122,7 @@ otp_6964(Config) when is_list(Config) ->
               lists:flatten(qlc:format_error(ErrReply)),
           qlc_SUITE:install_error_logger(),
           20000 = length(F(warning_msg)),
-          {error, joining} = qlc_SUITE:read_error_logger(),
+          {warning, joining} = qlc_SUITE:read_error_logger(),
           20000 = length(F(info_msg)),
           {info, joining} = qlc_SUITE:read_error_logger(),
           20000 = length(F(error_msg)),
@@ -6128,8 +6157,8 @@ otp_6964(Config) when is_list(Config) ->
           {error, caching} = qlc_SUITE:read_error_logger(),
           {error, caching} = qlc_SUITE:read_error_logger(),
           1 = length(F(warning_msg)),
-          {error, caching} = qlc_SUITE:read_error_logger(),
-          {error, caching} = qlc_SUITE:read_error_logger(),
+          {warning, caching} = qlc_SUITE:read_error_logger(),
+          {warning, caching} = qlc_SUITE:read_error_logger(),
           1 = length(F(info_msg)),
           {info, caching} = qlc_SUITE:read_error_logger(),
           {info, caching} = qlc_SUITE:read_error_logger(),
@@ -6161,7 +6190,7 @@ otp_6964(Config) when is_list(Config) ->
           L = F(info_msg),
           {info, sorting} = qlc_SUITE:read_error_logger(),
           L = F(warning_msg),
-          {error, sorting} = qlc_SUITE:read_error_logger(),
+          {warning, sorting} = qlc_SUITE:read_error_logger(),
           qlc_SUITE:uninstall_error_logger(),
           ets:delete(E1),
           ets:delete(E2)">>],
@@ -6188,7 +6217,7 @@ otp_6964(Config) when is_list(Config) ->
                        R = lists:sort(F(error_msg)),
                        {error, caching} = qlc_SUITE:read_error_logger(),
                        R = lists:sort(F(warning_msg)),
-                       {error, caching} = qlc_SUITE:read_error_logger(),
+                       {warning, caching} = qlc_SUITE:read_error_logger(),
                        qlc_SUITE:uninstall_error_logger(),
                        ErrReply = F(not_allowed),
                        {error,qlc,{tmpdir_usage,caching}} = ErrReply,
@@ -6217,8 +6246,9 @@ otp_7238(Config) when is_list(Config) ->
         <<"nomatch_1() ->
                {qlc:q([X || X={X} <- []]), [t || \"a\"=\"b\" <- []]}.">>,
         [],
-        {warnings,[{{2,30},qlc,nomatch_pattern},
-                   {{2,44},v3_core,nomatch}]}},
+        %% {warnings,[{{2,30},qlc,nomatch_pattern},
+        %%            {{2,44},v3_core,nomatch}]}},
+        {warnings,[{2,v3_core,nomatch}]}},
 
        %% Not found by qlc...
        {nomatch_2,
@@ -6231,7 +6261,8 @@ otp_7238(Config) when is_list(Config) ->
         <<"nomatch_3() ->
                qlc:q([t || [$a, $b] = \"ba\" <- []]).">>,
         [],
-        {warnings,[{{2,37},qlc,nomatch_pattern}]}},
+        %% {warnings,[{{2,37},qlc,nomatch_pattern}]}},
+        {warnings,[{2,v3_core,nomatch}]}},
 
        %% Not found by qlc...
        {nomatch_4,
@@ -6252,44 +6283,51 @@ otp_7238(Config) when is_list(Config) ->
                qlc:q([X || X <- [],
                            X =:= {X}]).">>,
         [],
-        {warnings,[{{3,30},qlc,nomatch_filter}]}},
+        %% {warnings,[{{3,30},qlc,nomatch_filter}]}},
+        []},
 
        {nomatch_7,
         <<"nomatch_7() ->
                qlc:q([X || {X=Y,{Y}=X} <- []]).">>,
         [],
-        {warnings,[{{2,28},qlc,nomatch_pattern}]}},
+        %% {warnings,[{{2,28},qlc,nomatch_pattern}]}},
+        []},
 
        {nomatch_8,
         <<"nomatch_8() ->
                qlc:q([X || {X={},X=[]} <- []]).">>,
         [],
-        {warnings,[{{2,28},qlc,nomatch_pattern}]}},
+        %% {warnings,[{{2,28},qlc,nomatch_pattern}]}},
+        []},
 
        {nomatch_9,
         <<"nomatch_9() ->
                qlc:q([X || X <- [], X =:= {}, X =:= []]).">>,
         [],
-        {warnings,[{{2,49},qlc,nomatch_filter}]}},
+        %% {warnings,[{{2,49},qlc,nomatch_filter}]}},
+        []},
 
        {nomatch_10,
         <<"nomatch_10() ->
                qlc:q([X || X <- [],
                            ((X =:= 1) or (X =:= 2)) and (X =:= 3)]).">>,
         [],
-        {warnings,[{{3,53},qlc,nomatch_filter}]}},
+        %% {warnings,[{{3,53},qlc,nomatch_filter}]}},
+        []},
 
        {nomatch_11,
         <<"nomatch_11() ->
                qlc:q([X || X <- [], x =:= []]).">>,
         [],
-        {warnings,[{{2,39},qlc,nomatch_filter}]}},
+        %% {warnings,[{{2,39},qlc,nomatch_filter}]}},
+        {warnings,[{2,sys_core_fold,nomatch_guard}]}},
 
        {nomatch_12,
         <<"nomatch_12() ->
                qlc:q([X || X={} <- [], X =:= []]).">>,
         [],
-        {warnings,[{{2,42},qlc,nomatch_filter}]}},
+        %% {warnings,[{{2,42},qlc,nomatch_filter}]}},
+        []},
 
        {nomatch_13,
         <<"nomatch_13() ->
@@ -6297,8 +6335,9 @@ otp_7238(Config) when is_list(Config) ->
                            X={X} <- [], 
                            Y={Y} <- []]).">>,
         [],
-        {warnings,[{{3,29},qlc,nomatch_pattern},
-                   {{4,29},qlc,nomatch_pattern}]}},
+        %% {warnings,[{{3,29},qlc,nomatch_pattern},
+        %%            {{4,29},qlc,nomatch_pattern}]}},
+        []},
 
        {nomatch_14,
         <<"nomatch_14() ->
@@ -6306,7 +6345,8 @@ otp_7238(Config) when is_list(Config) ->
                            1 > 0,
                            1 > X]).">>,
         [],
-        {warnings,[{{2,29},qlc,nomatch_pattern}]}},
+        %% {warnings,[{{2,29},qlc,nomatch_pattern}]}},
+        []},
 
        {nomatch_15,
         <<"nomatch_15() ->
@@ -6315,7 +6355,8 @@ otp_7238(Config) when is_list(Config) ->
                               1 > 0,
                               1 > X]).">>,
         [],
-        {warnings,[{{2,32},qlc,nomatch_pattern}]}},
+        %% {warnings,[{{2,32},qlc,nomatch_pattern}]}},
+        []},
 
        %% Template warning.
        {nomatch_template1,
@@ -6553,18 +6594,19 @@ otp_7238(Config) when is_list(Config) ->
     ?line run(Config, T2),
 
     T3 = [
-       {nomatch_6,
-        <<"nomatch_6() ->
-               qlc:q([X || X <- [],
-                           X =:= {X}]).">>,
-        [],
-        {[],["filter evaluates to 'false'"]}},
+%%        {nomatch_6,
+%%         <<"nomatch_6() ->
+%%                qlc:q([X || X <- [],
+%%                            X =:= {X}]).">>,
+%%         [],
+%%         {[],["filter evaluates to 'false'"]}},
 
-       {nomatch_7,
-        <<"nomatch_7() ->
-               qlc:q([X || {X=Y,{Y}=X} <- []]).">>,
-        [],
-        {[],["pattern cannot possibly match"]}}],
+%%        {nomatch_7,
+%%         <<"nomatch_7() ->
+%%                qlc:q([X || {X=Y,{Y}=X} <- []]).">>,
+%%         [],
+%%         {[],["pattern cannot possibly match"]}}
+       ],
     ?line compile_format(Config, T3),
 
     %% *Very* simple test - just check that it doesn't crash.
@@ -6822,7 +6864,8 @@ otp_6674(Config) when is_list(Config) ->
                             A == 192, B =:= 192.0,
                             {Y} <- [{0},{1},{2}],
                             X == Y]),
-       {block,0,
+       A0 = erl_anno:new(0),
+       {block,A0,
          [{match,_,_,
            {call,_,_,
             [{lc,_,_,
@@ -7112,6 +7155,18 @@ otp_6674(Config) when is_list(Config) ->
 
     ?line run(Config, Ts).
 
+otp_12946(doc) ->
+    ["Syntax error."];
+otp_12946(suite) -> [];
+otp_12946(Config) when is_list(Config) ->
+    Text =
+        <<"-export([init/0]).
+           init() ->
+               ok.
+           y">>,
+    {errors,[{4,erl_parse,_}],[]} = compile_file(Config, Text, []),
+    ok.
+
 manpage(doc) ->
     "Examples from qlc(3).";
 manpage(suite) -> [];
@@ -7392,7 +7447,8 @@ try_old_join_info(Config) ->
     {ok, M} = compile:file(File, [{outdir, ?datadir}]),
     {module, M} = code:load_abs(filename:rootname(File)),
     H = M:create_handle(),
-    {block,0,
+    A0 = erl_anno:new(0),
+    {block,A0,
      [{match,_,_,
        {call,_,_,
         [{lc,_,_,
@@ -7772,8 +7828,8 @@ table(List, Indices, KeyPos, ParentFun) ->
 
                 end,
     FormatFun = fun(all) ->
-                        L = 17,
-                        {call,L,{remote,L,{atom,1,?MODULE},{atom,L,the_list}},
+                        L = erl_anno:new(17),
+                        {call,L,{remote,L,{atom,L,?MODULE},{atom,L,the_list}},
                                  [erl_parse:abstract(List, 17)]};
                    ({lookup, Column, Values}) ->
                         {?MODULE, list_keys, [Values, Column, List]}
@@ -7891,7 +7947,7 @@ run_test(Config, Extra, {cres, Body, Opts, ExpectedCompileReturn}) ->
     {module, _} = code:load_abs(AbsFile, Mod),
 
     Ms0 = erlang:process_info(self(),messages),
-    Before = {get(), pps(), ets:all(), Ms0},
+    Before = {{get(), ets:all(), Ms0}, pps()},
 
     %% Prepare the check that the qlc module does not call qlc_pt.
     _ = [unload_pt() || {file, Name} <- [code:is_loaded(qlc_pt)], 
@@ -7921,12 +7977,29 @@ run_test(Config, Extra, {cres, Body, Opts, ExpectedCompileReturn}) ->
 run_test(Config, Extra, Body) ->
     run_test(Config, Extra, {cres,Body,[]}).
 
-wait_for_expected(R, Before, SourceFile, Wait) ->
+wait_for_expected(R, {Strict0,PPS0}=Before, SourceFile, Wait) ->
     Ms = erlang:process_info(self(),messages),
-    After = {get(), pps(), ets:all(), Ms},
+    After = {_,PPS1} = {{get(), ets:all(), Ms}, pps()},
     case {R, After} of
         {ok, Before} ->
             ok;
+        {ok, {Strict0,_}} ->
+            {Ports0,Procs0} = PPS0,
+            {Ports1,Procs1} = PPS1,
+            case {Ports1 -- Ports0, Procs1 -- Procs0} of
+                {[], []} -> ok;
+                _ when Wait ->
+                    timer:sleep(1000),
+                    wait_for_expected(R, Before, SourceFile, false);
+                {PortsDiff,ProcsDiff} ->
+                    io:format("failure, got ~p~n, expected ~p\n",
+                              [PPS1, PPS0]),
+                    show("Old port", Ports0 -- Ports1),
+                    show("New port", PortsDiff),
+                    show("Old proc", Procs0 -- Procs1),
+                    show("New proc", ProcsDiff),
+                    fail(SourceFile)
+            end;
         _ when Wait ->
             timer:sleep(1000),
             wait_for_expected(R, Before, SourceFile, false);
@@ -7993,7 +8066,7 @@ compile_file(Config, Test0, Opts0) ->
     case compile:file(File, Opts) of
         {ok, _M, Ws} -> warnings(File, Ws);
         {error, [{File,Es}], []} -> {errors, Es, []};
-        {error, [{File,Es}], [{File,Ws}]} -> {error, Es, Ws}
+        {error, [{File,Es}], [{File,Ws}]} -> {errors, Es, Ws}
     end.
 
 comp_compare(T, T) ->
@@ -8058,6 +8131,17 @@ filename(Name, Config) when is_atom(Name) ->
 filename(Name, Config) ->
     filename:join(?privdir, Name).
 
+show(_S, []) ->
+    ok;
+show(S, [{Pid, Name, InitCall}|Pids]) when is_pid(Pid) ->
+    io:format("~s: ~w (~w), ~w: ~p~n",
+              [S, Pid, proc_reg_name(Name), InitCall,
+               erlang:process_info(Pid)]),
+    show(S, Pids);
+show(S, [{Port, _}|Ports]) when is_port(Port)->
+    io:format("~s: ~w: ~p~n", [S, Port, erlang:port_info(Port)]),
+    show(S, Ports).
+
 pps() ->
     {port_list(), process_list()}.
 
@@ -8069,6 +8153,9 @@ process_list() ->
     [{P,process_info(P, registered_name),
       safe_second_element(process_info(P, initial_call))} || 
         P <- processes(), is_process_alive(P)].
+
+proc_reg_name({registered_name, Name}) -> Name;
+proc_reg_name([]) -> no_reg_name.
 
 safe_second_element({_,Info}) -> Info;
 safe_second_element(Other) -> Other.
@@ -8105,6 +8192,8 @@ read_error_logger() ->
             {error, Why};
         {info, Why} ->
             {info, Why};
+        {warning, Why} ->
+            {warning, Why};
         {error, Pid, Tuple} ->
             {error, Pid, Tuple}
     after 1000 ->
@@ -8119,8 +8208,7 @@ read_error_logger() ->
 init(Tester) ->
     {ok, Tester}.
     
-handle_event({error, _GL, {_Pid, _Msg, [Why, _]}}, Tester) 
-                     when is_atom(Why) ->
+handle_event({error, _GL, {_Pid, _Msg, [Why, _]}}, Tester) when is_atom(Why) ->
     Tester ! {error, Why},
     {ok, Tester};
 handle_event({error, _GL, {_Pid, _Msg, [P, T]}}, Tester) when is_pid(P) ->
@@ -8128,6 +8216,9 @@ handle_event({error, _GL, {_Pid, _Msg, [P, T]}}, Tester) when is_pid(P) ->
     {ok, Tester};
 handle_event({info_msg, _GL, {_Pid, _Msg, [Why, _]}}, Tester) ->
     Tester ! {info, Why},
+    {ok, Tester};
+handle_event({warning_msg, _GL, {_Pid, _Msg, [Why, _]}}, Tester) when is_atom(Why) ->
+    Tester ! {warning, Why},
     {ok, Tester};
 handle_event(_Event, State) ->
     {ok, State}.

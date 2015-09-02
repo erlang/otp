@@ -3,16 +3,17 @@
  *
  * Copyright Ericsson AB 1999-2014. All Rights Reserved.
  *
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  * %CopyrightEnd%
  */
@@ -130,13 +131,8 @@ do { \
     enqueue_sys_msg_unlocked(SYS_MSG_TYPE_TRACE, (FPID), (TPID), (MSG), (BP)); \
 } while(0)
 #else
-#ifdef USE_VM_PROBES
-#define ERTS_ENQ_TRACE_MSG(FPID, TPROC, MSG, BP) \
-    erts_queue_message((TPROC), NULL, (BP), (MSG), NIL, NIL)
-#else
 #define ERTS_ENQ_TRACE_MSG(FPID, TPROC, MSG, BP) \
     erts_queue_message((TPROC), NULL, (BP), (MSG), NIL)
-#endif
 #endif
 
 /*
@@ -636,11 +632,7 @@ profile_send(Eterm from, Eterm message) {
 	hp = erts_alloc_message_heap(sz, &bp, &off_heap, profile_p, 0);
 	msg = copy_struct(message, sz, &hp, &bp->off_heap);
 	
-    	erts_queue_message(profile_p, NULL, bp, msg, NIL
-#ifdef USE_VM_PROBES
-			   , NIL
-#endif
-			   );
+        erts_queue_message(profile_p, NULL, bp, msg, NIL);
     }
 }
 
@@ -1240,11 +1232,8 @@ seq_trace_output_generic(Eterm token, Eterm msg, Uint type,
 	enqueue_sys_msg_unlocked(SYS_MSG_TYPE_SEQTRACE, NIL, NIL, mess, bp);
 	erts_smp_mtx_unlock(&smq_mtx);
 #else
-	erts_queue_message(tracer, NULL, bp, mess, NIL
-#ifdef USE_VM_PROBES
-			   , NIL
-#endif
-			   ); /* trace_token must be NIL here */
+        /* trace_token must be NIL here */
+	erts_queue_message(tracer, NULL, bp, mess, NIL);
 #endif
     }
 }
@@ -2225,7 +2214,7 @@ trace_gc(Process *p, Eterm what)
     Eterm* limit;
 #endif
 
-    ASSERT(sizeof(values)/sizeof(*values) == sizeof(tags)/sizeof(Eterm));
+    ERTS_CT_ASSERT(sizeof(values)/sizeof(*values) == sizeof(tags)/sizeof(Eterm));
 
     UseTmpHeap(LOCAL_HEAP_SIZE,p);
 
@@ -2343,11 +2332,7 @@ monitor_long_schedule_proc(Process *p, BeamInstr *in_fp, BeamInstr *out_fp, Uint
 #ifdef ERTS_SMP
     enqueue_sys_msg(SYS_MSG_TYPE_SYSMON, p->common.id, NIL, msg, bp);
 #else
-    erts_queue_message(monitor_p, NULL, bp, msg, NIL
-#ifdef USE_VM_PROBES
-			   , NIL
-#endif
-		       );
+    erts_queue_message(monitor_p, NULL, bp, msg, NIL);
 #endif
 }
 void 
@@ -2408,11 +2393,7 @@ monitor_long_schedule_port(Port *pp, ErtsPortTaskType type, Uint time)
 #ifdef ERTS_SMP
     enqueue_sys_msg(SYS_MSG_TYPE_SYSMON, pp->common.id, NIL, msg, bp);
 #else
-    erts_queue_message(monitor_p, NULL, bp, msg, NIL
-#ifdef USE_VM_PROBES
-			   , NIL
-#endif
-		       );
+    erts_queue_message(monitor_p, NULL, bp, msg, NIL);
 #endif
 }
 
@@ -2483,11 +2464,7 @@ monitor_long_gc(Process *p, Uint time) {
 #ifdef ERTS_SMP
     enqueue_sys_msg(SYS_MSG_TYPE_SYSMON, p->common.id, NIL, msg, bp);
 #else
-    erts_queue_message(monitor_p, NULL, bp, msg, NIL
-#ifdef USE_VM_PROBES
-			   , NIL
-#endif
-		       );
+    erts_queue_message(monitor_p, NULL, bp, msg, NIL);
 #endif
 }
 
@@ -2558,11 +2535,7 @@ monitor_large_heap(Process *p) {
 #ifdef ERTS_SMP
     enqueue_sys_msg(SYS_MSG_TYPE_SYSMON, p->common.id, NIL, msg, bp);
 #else
-    erts_queue_message(monitor_p, NULL, bp, msg, NIL
-#ifdef USE_VM_PROBES
-		       , NIL
-#endif
-		       );
+    erts_queue_message(monitor_p, NULL, bp, msg, NIL);
 #endif
 }
 
@@ -2590,11 +2563,7 @@ monitor_generic(Process *p, Eterm type, Eterm spec) {
 #ifdef ERTS_SMP
     enqueue_sys_msg(SYS_MSG_TYPE_SYSMON, p->common.id, NIL, msg, bp);
 #else
-    erts_queue_message(monitor_p, NULL, bp, msg, NIL
-#ifdef USE_VM_PROBES
-		       , NIL
-#endif
-		       );
+    erts_queue_message(monitor_p, NULL, bp, msg, NIL);
 #endif
 
 }
@@ -3389,11 +3358,7 @@ sys_msg_dispatcher_func(void *unused)
 		}
 		else {
 		queue_proc_msg:
-		    erts_queue_message(proc,&proc_locks,smqp->bp,smqp->msg,NIL
-#ifdef USE_VM_PROBES
-				       , NIL
-#endif
-				       );
+		    erts_queue_message(proc,&proc_locks,smqp->bp,smqp->msg,NIL);
 #ifdef DEBUG_PRINTOUTS
 		    erts_fprintf(stderr, "delivered\n");
 #endif
@@ -3492,15 +3457,12 @@ init_sys_msg_dispatcher(void)
     thr_opts.coreNo   = 0;
 #endif
     thr_opts.detached = 1;
+    thr_opts.name = "sys_msg_dispatcher";
     init_smq_element_alloc();
     sys_message_queue = NULL;
     sys_message_queue_end = NULL;
     erts_smp_cnd_init(&smq_cnd);
     erts_smp_mtx_init(&smq_mtx, "sys_msg_q");
-
-#ifdef ETHR_HAVE_THREAD_NAMES
-    thr_opts.name = "sys_msg_dispatcher";
-#endif
 
     erts_smp_thr_create(&sys_msg_dispatcher_tid,
 			sys_msg_dispatcher_func,

@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 1999-2013. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -31,7 +32,7 @@
 
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2,
-	 simple/1, complicated/1, heavy/1, info/1]).
+	 simple/1, complicated/1, heavy/1, simple_all_keys/1, info/1]).
 -export([init_per_testcase/2, end_per_testcase/2]).
 -export([other_process/2]).
 
@@ -46,7 +47,7 @@ end_per_testcase(_Case, Config) ->
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    [simple, complicated, heavy, info].
+    [simple, complicated, heavy, simple_all_keys, info].
 
 groups() -> 
     [].
@@ -70,6 +71,7 @@ simple(suite) ->
     [];
 simple(Config) when is_list(Config) ->
     XX = get(),
+    ok = match_keys(XX),
     erase(),
     L = [a,b,c,d,e,f,g,h,i,j,k,l,m,n,o,p,
 	    q,r,s,t,u,v,x,y,z,'A','B','C','D'],
@@ -105,6 +107,7 @@ simple(Config) when is_list(Config) ->
 
 complicated(Config) when is_list(Config) ->
     Previous = get(),
+    ok = match_keys(Previous),
     Previous = erase(),
     N = case ?t:is_debug() of
 	    false -> 500000;
@@ -113,8 +116,10 @@ complicated(Config) when is_list(Config) ->
     comp_1(N),
     comp_2(N),
     N = comp_3(lists:sort(get()), 1),
+    ok = match_keys(get()),
     comp_4(get()),
     [] = get(),
+    [] = get_keys(),
     [put(Key, Value) || {Key,Value} <- Previous],
     ok.
 
@@ -159,6 +164,26 @@ heavy(Config) when is_list(Config) ->
     end,
     [put(Key, Value) || {Key,Value} <- XX],
     ok.
+
+simple_all_keys(Config) when is_list(Config) ->
+    erase(),
+    ok = simple_all_keys_add_loop(1000),
+    [] = get_keys(),
+    [] = get(),
+    ok.
+
+simple_all_keys_add_loop(0) ->
+    simple_all_keys_del_loop(erlang:get_keys());
+simple_all_keys_add_loop(N) ->
+   put(gen_key(N),value),
+   ok = match_keys(get()),
+   simple_all_keys_add_loop(N-1).
+
+simple_all_keys_del_loop([]) -> ok;
+simple_all_keys_del_loop([K|Ks]) ->
+    value = erase(K),
+    ok = match_keys(get()),
+    simple_all_keys_del_loop(Ks).
 
 info(doc) ->
     ["Tests process_info(Pid, dictionary)"];
@@ -339,3 +364,8 @@ m(A,B,Module,Line) ->
 		      [A,B,Module,Line]),
 	    exit({no_match,{A,B},Module,Line})
     end.
+
+match_keys(All) ->
+    Ks = lists:sort([K||{K,_}<-All]),
+    Ks = lists:sort(erlang:get_keys()),
+    ok.

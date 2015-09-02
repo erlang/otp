@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 1997-2015. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -120,36 +121,37 @@ t_gethostbyaddr() ->
     required(v4).
 t_gethostbyaddr(doc) -> "Test the inet:gethostbyaddr/1 function.";
 t_gethostbyaddr(Config) when is_list(Config) ->
-    ?line {Name,FullName,IPStr,{A,B,C,D}=IP,Aliases,_,_} =
-	ct:get_config(test_host_ipv4_only),
-    ?line Rname = integer_to_list(D) ++ "." ++
-	integer_to_list(C) ++ "." ++
-	integer_to_list(B) ++ "." ++
-	integer_to_list(A) ++ ".in-addr.arpa",
-    ?line {ok,HEnt} = inet:gethostbyaddr(IPStr),
-    ?line {ok,HEnt} = inet:gethostbyaddr(IP),
-    ?line {error,Error} = inet:gethostbyaddr(Name),
-    ?line ok = io:format("Failure reason: ~p: ~s",
-			 [error,inet:format_error(Error)]),
-    ?line HEnt_ = HEnt#hostent{h_addrtype = inet,
-			       h_length = 4,
-			       h_addr_list = [IP]},
-    ?line HEnt_ = HEnt,
+    {Name,FullName,IPStr,{A,B,C,D}=IP,Aliases,_,_} = ct:get_config(test_host_ipv4_only),
+    Rname = integer_to_list(D) ++ "." ++
+            integer_to_list(C) ++ "." ++
+            integer_to_list(B) ++ "." ++
+            integer_to_list(A) ++ ".in-addr.arpa",
+    {ok,HEnt} = inet:gethostbyaddr(IPStr),
+    {ok,HEnt} = inet:gethostbyaddr(IP),
+    {error,Error} = inet:gethostbyaddr(Name),
+    ok = io:format("Failure reason: ~p: ~s", [error,inet:format_error(Error)]),
+    HEnt_ = HEnt#hostent{h_addrtype = inet,
+                         h_length = 4,
+                         h_addr_list = [IP]},
+    HEnt_ = HEnt,
     case {os:type(),os:version()} of
-	{{unix,freebsd},{5,0,0}} ->
-	    %% The alias list seems to be buggy in FreeBSD 5.0.0.
-	    ?line check_elems([{HEnt#hostent.h_name,[Name,FullName]}]),
-	    io:format("Buggy alias list: ~p", [HEnt#hostent.h_aliases]),
-	    ok;
-	_ ->
-	    ?line check_elems([{HEnt#hostent.h_name,[Name,FullName]},
-			       {HEnt#hostent.h_aliases,[[],Aliases,[Rname]]}])
+        {{unix,freebsd},{5,0,0}} ->
+            %% The alias list seems to be buggy in FreeBSD 5.0.0.
+            check_elems([{HEnt#hostent.h_name,[Name,FullName]}]),
+            io:format("Buggy alias list: ~p", [HEnt#hostent.h_aliases]),
+            ok;
+        _ ->
+            io:format("alias list: ~p", [HEnt#hostent.h_aliases]),
+            io:format("check alias list: ~p", [[Aliases,[Rname]]]),
+            io:format("name: ~p", [HEnt#hostent.h_name]),
+            io:format("check name: ~p", [[Name,FullName]]),
+            check_elems([{HEnt#hostent.h_name,[Name,FullName]},
+                         {HEnt#hostent.h_aliases,[[],Aliases,[Rname]]}])
     end,
 
-    ?line {_DName, _DFullName, DIPStr, DIP, _, _, _} =
-	ct:get_config(test_dummy_host),
-    ?line {error,nxdomain} = inet:gethostbyaddr(DIPStr),
-    ?line {error,nxdomain} = inet:gethostbyaddr(DIP),
+    {_DName, _DFullName, DIPStr, DIP, _, _, _} = ct:get_config(test_dummy_host),
+    {error,nxdomain} = inet:gethostbyaddr(DIPStr),
+    {error,nxdomain} = inet:gethostbyaddr(DIP),
     ok.
 
 t_gethostbyaddr_v6() -> required(v6).
@@ -569,8 +571,11 @@ parse_address(Config) when is_list(Config) ->
 	 "::-1",
 	 "::g",
 	 "f:f11::10100:2",
+	 "f:f11::01100:2",
 	 "::17000",
+	 "::01700",
 	 "10000::",
+	 "01000::",
 	 "::8:7:6:5:4:3:2:1",
 	 "8:7:6:5:4:3:2:1::",
 	 "8:7:6:5:4::3:2:1",

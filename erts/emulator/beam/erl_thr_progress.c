@@ -3,16 +3,17 @@
  *
  * Copyright Ericsson AB 2011-2013. All Rights Reserved.
  *
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  * %CopyrightEnd%
  */
@@ -1335,25 +1336,10 @@ erts_thr_progress_block(void)
     thr_progress_block(tmp_thr_prgr_data(NULL), 1);
 }
 
-void
-erts_thr_progress_fatal_error_block(SWord timeout,
-				    ErtsThrPrgrData *tmp_tpd_bufp)
+int
+erts_thr_progress_fatal_error_block(ErtsThrPrgrData *tmp_tpd_bufp)
 {
     ErtsThrPrgrData *tpd = perhaps_thr_prgr_data(NULL);
-    erts_aint32_t bc;
-    SWord time_left = timeout;
-    SysTimeval to;
-
-    /*
-     * Counting poll intervals may give us a too long timeout
-     * if cpu is busy. If we got tolerant time of day we use it
-     * to prevent this.
-     */
-    if (!erts_disable_tolerant_timeofday) {
-	erts_get_timeval(&to);
-	to.tv_sec += timeout / 1000;
-	to.tv_sec += timeout % 1000;
-    }
 
     if (!tpd) {
 	/*
@@ -1366,9 +1352,25 @@ erts_thr_progress_fatal_error_block(SWord timeout,
 	init_tmp_thr_prgr_data(tpd);
     }
 
-    bc = thr_progress_block(tpd, 0);
-    if (bc == 0)
-	return; /* Succefully blocked all managed threads */
+    /* Returns number of threads that have not yes been blocked */
+    return thr_progress_block(tpd, 0);
+}
+
+void
+erts_thr_progress_fatal_error_wait(SWord timeout) {
+    erts_aint32_t bc;
+    SWord time_left = timeout;
+    ErtsMonotonicTime timeout_time;
+    ErtsSchedulerData *esdp = erts_get_scheduler_data();
+
+    /*
+     * Counting poll intervals may give us a too long timeout
+     * if cpu is busy. We use timeout time to try to prevent
+     * this. In case we havn't got time correction this may
+     * however fail too...
+     */
+    timeout_time = erts_get_monotonic_time(esdp);
+    timeout_time += ERTS_MSEC_TO_MONOTONIC((ErtsMonotonicTime) timeout);
 
     while (1) {
 	if (erts_milli_sleep(ERTS_THR_PRGR_FTL_ERR_BLCK_POLL_INTERVAL) == 0)
@@ -1378,14 +1380,8 @@ erts_thr_progress_fatal_error_block(SWord timeout,
 	    break; /* Succefully blocked all managed threads */
 	if (time_left <= 0)
 	    break; /* Timeout */
-	if (!erts_disable_tolerant_timeofday) {
-	    SysTimeval now;
-	    erts_get_timeval(&now);
-	    if (now.tv_sec > to.tv_sec)
-		break; /* Timeout */
-	    if (now.tv_sec == to.tv_sec && now.tv_usec >= to.tv_usec)
-		break; /* Timeout */
-	}
+	if (timeout_time <= erts_get_monotonic_time(esdp))
+	    break; /* Timeout */
     }
 }
 

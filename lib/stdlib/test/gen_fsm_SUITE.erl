@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 1996-2014. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -26,6 +27,9 @@
 
 -export([start1/1, start2/1, start3/1, start4/1, start5/1, start6/1,
 	 start7/1, start8/1, start9/1, start10/1, start11/1, start12/1]).
+
+-export([stop1/1, stop2/1, stop3/1, stop4/1, stop5/1, stop6/1, stop7/1,
+	 stop8/1, stop9/1, stop10/1]).
 
 -export([ abnormal1/1, abnormal2/1]).
 
@@ -66,6 +70,8 @@ groups() ->
     [{start, [],
       [start1, start2, start3, start4, start5, start6, start7,
        start8, start9, start10, start11, start12]},
+     {stop, [],
+      [stop1, stop2, stop3, stop4, stop5, stop6, stop7, stop8, stop9, stop10]},
      {abnormal, [], [abnormal1, abnormal2]},
      {sys, [],
       [sys1, call_format_status, error_format_status, terminate_crash_format,
@@ -281,6 +287,105 @@ start12(Config) when is_list(Config) ->
     ok.
 
 
+%% Anonymous, reason 'normal'
+stop1(_Config) ->
+    {ok, Pid} = gen_fsm:start(?MODULE, [], []),
+    ok = gen_fsm:stop(Pid),
+    false = erlang:is_process_alive(Pid),
+    {'EXIT',noproc} = (catch gen_fsm:stop(Pid)),
+    ok.
+
+%% Anonymous, other reason
+stop2(_Config) ->
+    {ok,Pid} = gen_fsm:start(?MODULE, [], []),
+    ok = gen_fsm:stop(Pid, other_reason, infinity),
+    false = erlang:is_process_alive(Pid),
+    ok.
+
+%% Anonymous, invalid timeout
+stop3(_Config) ->
+    {ok,Pid} = gen_fsm:start(?MODULE, [], []),
+    {'EXIT',_} = (catch gen_fsm:stop(Pid, other_reason, invalid_timeout)),
+    true = erlang:is_process_alive(Pid),
+    ok = gen_fsm:stop(Pid),
+    false = erlang:is_process_alive(Pid),
+    ok.
+
+%% Registered name
+stop4(_Config) ->
+    {ok,Pid} = gen_fsm:start({local,to_stop},?MODULE, [], []),
+    ok = gen_fsm:stop(to_stop),
+    false = erlang:is_process_alive(Pid),
+    {'EXIT',noproc} = (catch gen_fsm:stop(to_stop)),
+    ok.
+
+%% Registered name and local node
+stop5(_Config) ->
+    {ok,Pid} = gen_fsm:start({local,to_stop},?MODULE, [], []),
+    ok = gen_fsm:stop({to_stop,node()}),
+    false = erlang:is_process_alive(Pid),
+    {'EXIT',noproc} = (catch gen_fsm:stop({to_stop,node()})),
+    ok.
+
+%% Globally registered name
+stop6(_Config) ->
+    {ok, Pid} = gen_fsm:start({global, to_stop}, ?MODULE, [], []),
+    ok = gen_fsm:stop({global,to_stop}),
+    false = erlang:is_process_alive(Pid),
+    {'EXIT',noproc} = (catch gen_fsm:stop({global,to_stop})),
+    ok.
+
+%% 'via' registered name
+stop7(_Config) ->
+    dummy_via:reset(),
+    {ok, Pid} = gen_fsm:start({via, dummy_via, to_stop},
+				  ?MODULE, [], []),
+    ok = gen_fsm:stop({via, dummy_via, to_stop}),
+    false = erlang:is_process_alive(Pid),
+    {'EXIT',noproc} = (catch gen_fsm:stop({via, dummy_via, to_stop})),
+    ok.
+
+%% Anonymous on remote node
+stop8(_Config) ->
+    {ok,Node} = test_server:start_node(gen_fsm_SUITE_stop8,slave,[]),
+    Dir = filename:dirname(code:which(?MODULE)),
+    rpc:call(Node,code,add_path,[Dir]),
+    {ok, Pid} = rpc:call(Node,gen_fsm,start,[?MODULE,[],[]]),
+    ok = gen_fsm:stop(Pid),
+    false = rpc:call(Node,erlang,is_process_alive,[Pid]),
+    {'EXIT',noproc} = (catch gen_fsm:stop(Pid)),
+    true = test_server:stop_node(Node),
+    {'EXIT',{{nodedown,Node},_}} = (catch gen_fsm:stop(Pid)),
+    ok.
+
+%% Registered name on remote node
+stop9(_Config) ->
+    {ok,Node} = test_server:start_node(gen_fsm_SUITE_stop9,slave,[]),
+    Dir = filename:dirname(code:which(?MODULE)),
+    rpc:call(Node,code,add_path,[Dir]),
+    {ok, Pid} = rpc:call(Node,gen_fsm,start,[{local,to_stop},?MODULE,[],[]]),
+    ok = gen_fsm:stop({to_stop,Node}),
+    undefined = rpc:call(Node,erlang,whereis,[to_stop]),
+    false = rpc:call(Node,erlang,is_process_alive,[Pid]),
+    {'EXIT',noproc} = (catch gen_fsm:stop({to_stop,Node})),
+    true = test_server:stop_node(Node),
+    {'EXIT',{{nodedown,Node},_}} = (catch gen_fsm:stop({to_stop,Node})),
+    ok.
+
+%% Globally registered name on remote node
+stop10(_Config) ->
+    {ok,Node} = test_server:start_node(gen_fsm_SUITE_stop10,slave,[]),
+    Dir = filename:dirname(code:which(?MODULE)),
+    rpc:call(Node,code,add_path,[Dir]),
+    {ok, Pid} = rpc:call(Node,gen_fsm,start,[{global,to_stop},?MODULE,[],[]]),
+    global:sync(),
+    ok = gen_fsm:stop({global,to_stop}),
+    false = rpc:call(Node,erlang,is_process_alive,[Pid]),
+    {'EXIT',noproc} = (catch gen_fsm:stop({global,to_stop})),
+    true = test_server:stop_node(Node),
+    {'EXIT',noproc} = (catch gen_fsm:stop({global,to_stop})),
+    ok.
+
 %% Check that time outs in calls work
 abnormal1(suite) -> [];
 abnormal1(Config) when is_list(Config) ->
@@ -492,129 +597,123 @@ replace_state(Config) when is_list(Config) ->
     ok.
 
 %% Hibernation
-hibernate(suite) -> [];
 hibernate(Config) when is_list(Config) ->
     OldFl = process_flag(trap_exit, true),
 
-    ?line {ok, Pid0} = gen_fsm:start_link(?MODULE, hiber_now, []),
-    ?line receive after 1000 -> ok end,
-    ?line {current_function,{erlang,hibernate,3}} = 
-	erlang:process_info(Pid0,current_function),
-    ?line stop_it(Pid0),
+    {ok, Pid0} = gen_fsm:start_link(?MODULE, hiber_now, []),
+    is_in_erlang_hibernate(Pid0),
+    stop_it(Pid0),
     test_server:messages_get(),
 
+    {ok, Pid} = gen_fsm:start_link(?MODULE, hiber, []),
+    true = ({current_function,{erlang,hibernate,3}} =/=
+		erlang:process_info(Pid,current_function)),
+    hibernating = gen_fsm:sync_send_event(Pid, hibernate_sync),
+    is_in_erlang_hibernate(Pid),
+    good_morning = gen_fsm:sync_send_event(Pid, wakeup_sync),
+    is_not_in_erlang_hibernate(Pid),
+    hibernating = gen_fsm:sync_send_event(Pid, hibernate_sync),
+    is_in_erlang_hibernate(Pid),
+    five_more = gen_fsm:sync_send_event(Pid, snooze_sync),
+    is_in_erlang_hibernate(Pid),
+    good_morning = gen_fsm:sync_send_event(Pid, wakeup_sync),
+    is_not_in_erlang_hibernate(Pid),
+    ok = gen_fsm:send_event(Pid, hibernate_async),
+    is_in_erlang_hibernate(Pid),
+    ok = gen_fsm:send_event(Pid, wakeup_async),
+    is_not_in_erlang_hibernate(Pid),
+    ok = gen_fsm:send_event(Pid, hibernate_async),
+    is_in_erlang_hibernate(Pid),
+    ok = gen_fsm:send_event(Pid, snooze_async),
+    is_in_erlang_hibernate(Pid),
+    ok = gen_fsm:send_event(Pid, wakeup_async),
+    is_not_in_erlang_hibernate(Pid),
 
-    ?line {ok, Pid} = gen_fsm:start_link(?MODULE, hiber, []),
-    ?line true = ({current_function,{erlang,hibernate,3}} =/= erlang:process_info(Pid,current_function)),
-    ?line hibernating = gen_fsm:sync_send_event(Pid,hibernate_sync),
-    ?line receive after 1000 -> ok end,
-    ?line {current_function,{erlang,hibernate,3}} = 
-	erlang:process_info(Pid,current_function),
-    ?line good_morning  = gen_fsm:sync_send_event(Pid,wakeup_sync),
-    ?line receive after 1000 -> ok end,
-    ?line true = ({current_function,{erlang,hibernate,3}} =/= erlang:process_info(Pid,current_function)),
-    ?line hibernating = gen_fsm:sync_send_event(Pid,hibernate_sync),
-    ?line receive after 1000 -> ok end,
-    ?line {current_function,{erlang,hibernate,3}} = 
-	erlang:process_info(Pid,current_function),
-    ?line five_more  = gen_fsm:sync_send_event(Pid,snooze_sync),
-    ?line receive after 1000 -> ok end,
-    ?line {current_function,{erlang,hibernate,3}} = 
-	erlang:process_info(Pid,current_function),
-    ?line good_morning  = gen_fsm:sync_send_event(Pid,wakeup_sync),
-    ?line receive after 1000 -> ok end,
-    ?line true = ({current_function,{erlang,hibernate,3}} =/= erlang:process_info(Pid,current_function)),
-    ?line ok = gen_fsm:send_event(Pid,hibernate_async),
-    ?line receive after 1000 -> ok end,
-    ?line {current_function,{erlang,hibernate,3}} = 
-	erlang:process_info(Pid,current_function),
-    ?line ok  = gen_fsm:send_event(Pid,wakeup_async),
-    ?line receive after 1000 -> ok end,
-    ?line true = ({current_function,{erlang,hibernate,3}} =/= erlang:process_info(Pid,current_function)),
-    ?line ok = gen_fsm:send_event(Pid,hibernate_async),
-    ?line receive after 1000 -> ok end,
-    ?line {current_function,{erlang,hibernate,3}} = 
-	erlang:process_info(Pid,current_function),
-    ?line ok  = gen_fsm:send_event(Pid,snooze_async),
-    ?line receive after 1000 -> ok end,
-    ?line {current_function,{erlang,hibernate,3}} = 
-	erlang:process_info(Pid,current_function),
-    ?line ok = gen_fsm:send_event(Pid,wakeup_async),
-    ?line receive after 1000 -> ok end,
-    ?line true = ({current_function,{erlang,hibernate,3}} =/= erlang:process_info(Pid,current_function)),
-    ?line Pid ! hibernate_later,
-    ?line true = ({current_function,{erlang,hibernate,3}} =/= erlang:process_info(Pid,current_function)),
-    ?line receive after 2000 -> ok end,
-    ?line ({current_function,{erlang,hibernate,3}} = erlang:process_info(Pid,current_function)),
-    ?line 'alive!' = gen_fsm:sync_send_event(Pid,'alive?'),
-    ?line true = ({current_function,{erlang,hibernate,3}} =/= erlang:process_info(Pid,current_function)),
-    ?line Pid ! hibernate_now,
-    ?line receive after 1000 -> ok end,
-    ?line ({current_function,{erlang,hibernate,3}} = erlang:process_info(Pid,current_function)),
-    ?line 'alive!' = gen_fsm:sync_send_event(Pid,'alive?'),
-    ?line true = ({current_function,{erlang,hibernate,3}} =/= erlang:process_info(Pid,current_function)),
-    
+    Pid ! hibernate_later,
+    true = ({current_function,{erlang,hibernate,3}} =/=
+		erlang:process_info(Pid, current_function)),
+    is_in_erlang_hibernate(Pid),
 
-    ?line hibernating = gen_fsm:sync_send_all_state_event(Pid,hibernate_sync),
-    ?line receive after 1000 -> ok end,
-    ?line {current_function,{erlang,hibernate,3}} = 
-	erlang:process_info(Pid,current_function),
-    ?line good_morning  = gen_fsm:sync_send_all_state_event(Pid,wakeup_sync),
-    ?line receive after 1000 -> ok end,
-    ?line true = ({current_function,{erlang,hibernate,3}} =/= erlang:process_info(Pid,current_function)),
-    ?line hibernating = gen_fsm:sync_send_all_state_event(Pid,hibernate_sync),
-    ?line receive after 1000 -> ok end,
-    ?line {current_function,{erlang,hibernate,3}} = 
-	erlang:process_info(Pid,current_function),
-    ?line five_more  = gen_fsm:sync_send_all_state_event(Pid,snooze_sync),
-    ?line receive after 1000 -> ok end,
-    ?line {current_function,{erlang,hibernate,3}} = 
-	erlang:process_info(Pid,current_function),
-    ?line good_morning  = gen_fsm:sync_send_all_state_event(Pid,wakeup_sync),
-    ?line receive after 1000 -> ok end,
-    ?line true = ({current_function,{erlang,hibernate,3}} =/= erlang:process_info(Pid,current_function)),
-    ?line ok = gen_fsm:send_all_state_event(Pid,hibernate_async),
-    ?line receive after 1000 -> ok end,
-    ?line {current_function,{erlang,hibernate,3}} = 
-	erlang:process_info(Pid,current_function),
-    ?line ok  = gen_fsm:send_all_state_event(Pid,wakeup_async),
-    ?line receive after 1000 -> ok end,
-    ?line true = ({current_function,{erlang,hibernate,3}} =/= erlang:process_info(Pid,current_function)),
-    ?line ok = gen_fsm:send_all_state_event(Pid,hibernate_async),
-    ?line receive after 1000 -> ok end,
-    ?line {current_function,{erlang,hibernate,3}} = 
-	erlang:process_info(Pid,current_function),
-    ?line ok  = gen_fsm:send_all_state_event(Pid,snooze_async),
-    ?line receive after 1000 -> ok end,
-    ?line {current_function,{erlang,hibernate,3}} = 
-	erlang:process_info(Pid,current_function),
-    ?line ok = gen_fsm:send_all_state_event(Pid,wakeup_async),
-    ?line receive after 1000 -> ok end,
-    ?line true = ({current_function,{erlang,hibernate,3}} =/= erlang:process_info(Pid,current_function)),
+    'alive!' = gen_fsm:sync_send_event(Pid,'alive?'),
+    true = ({current_function,{erlang,hibernate,3}} =/=
+		erlang:process_info(Pid, current_function)),
+    Pid ! hibernate_now,
+    is_in_erlang_hibernate(Pid),
 
-    ?line hibernating = gen_fsm:sync_send_all_state_event(Pid,hibernate_sync),
-    ?line receive after 1000 -> ok end,
-    ?line {current_function,{erlang,hibernate,3}} = 
-	erlang:process_info(Pid,current_function),
-    ?line sys:suspend(Pid),
-    ?line receive after 1000 -> ok end,
-    ?line {current_function,{erlang,hibernate,3}} = erlang:process_info(Pid,current_function),
-    ?line sys:resume(Pid),
-    ?line receive after 1000 -> ok end,
-    ?line {current_function,{erlang,hibernate,3}} = erlang:process_info(Pid,current_function),
+    'alive!' = gen_fsm:sync_send_event(Pid,'alive?'),
+    true = ({current_function,{erlang,hibernate,3}} =/=
+		erlang:process_info(Pid, current_function)),
 
-    ?line receive after 1000 -> ok end,
-    ?line {current_function,{erlang,hibernate,3}} = 
-	erlang:process_info(Pid,current_function),
-    ?line good_morning  = gen_fsm:sync_send_all_state_event(Pid,wakeup_sync),
-    ?line receive after 1000 -> ok end,
-    ?line true = ({current_function,{erlang,hibernate,3}} =/= erlang:process_info(Pid,current_function)),
-    ?line stop_it(Pid),
+    hibernating = gen_fsm:sync_send_all_state_event(Pid, hibernate_sync),
+    is_in_erlang_hibernate(Pid),
+    good_morning = gen_fsm:sync_send_all_state_event(Pid, wakeup_sync),
+    is_not_in_erlang_hibernate(Pid),
+    hibernating = gen_fsm:sync_send_all_state_event(Pid, hibernate_sync),
+    is_in_erlang_hibernate(Pid),
+    five_more = gen_fsm:sync_send_all_state_event(Pid, snooze_sync),
+    is_in_erlang_hibernate(Pid),
+    good_morning = gen_fsm:sync_send_all_state_event(Pid, wakeup_sync),
+    is_not_in_erlang_hibernate(Pid),
+    ok = gen_fsm:send_all_state_event(Pid, hibernate_async),
+    is_in_erlang_hibernate(Pid),
+    ok  = gen_fsm:send_all_state_event(Pid, wakeup_async),
+    is_not_in_erlang_hibernate(Pid),
+    ok = gen_fsm:send_all_state_event(Pid, hibernate_async),
+    is_in_erlang_hibernate(Pid),
+    ok = gen_fsm:send_all_state_event(Pid, snooze_async),
+    is_in_erlang_hibernate(Pid),
+    ok = gen_fsm:send_all_state_event(Pid, wakeup_async),
+    is_not_in_erlang_hibernate(Pid),
+
+    hibernating = gen_fsm:sync_send_all_state_event(Pid, hibernate_sync),
+    is_in_erlang_hibernate(Pid),
+    sys:suspend(Pid),
+    is_in_erlang_hibernate(Pid),
+    sys:resume(Pid),
+    is_in_erlang_hibernate(Pid),
+    receive after 1000 -> ok end,
+    is_in_erlang_hibernate(Pid),
+
+    good_morning  = gen_fsm:sync_send_all_state_event(Pid, wakeup_sync),
+    is_not_in_erlang_hibernate(Pid),
+    stop_it(Pid),
     test_server:messages_get(),
     process_flag(trap_exit, OldFl),
     ok.
 
+is_in_erlang_hibernate(Pid) ->
+    receive after 1 -> ok end,
+    is_in_erlang_hibernate_1(200, Pid).
 
+is_in_erlang_hibernate_1(0, Pid) ->
+    io:format("~p\n", [erlang:process_info(Pid, current_function)]),
+    ?t:fail(not_in_erlang_hibernate_3);
+is_in_erlang_hibernate_1(N, Pid) ->
+    {current_function,MFA} = erlang:process_info(Pid, current_function),
+    case MFA of
+	{erlang,hibernate,3} ->
+	    ok;
+	_ ->
+	    receive after 10 -> ok end,
+	    is_in_erlang_hibernate_1(N-1, Pid)
+    end.
+
+is_not_in_erlang_hibernate(Pid) ->
+    receive after 1 -> ok end,
+    is_not_in_erlang_hibernate_1(200, Pid).
+
+is_not_in_erlang_hibernate_1(0, Pid) ->
+    io:format("~p\n", [erlang:process_info(Pid, current_function)]),
+    ?t:fail(not_in_erlang_hibernate_3);
+is_not_in_erlang_hibernate_1(N, Pid) ->
+    {current_function,MFA} = erlang:process_info(Pid, current_function),
+    case MFA of
+	{erlang,hibernate,3} ->
+	    receive after 10 -> ok end,
+	    is_not_in_erlang_hibernate_1(N-1, Pid);
+	_ ->
+	    ok
+    end.
 
 %%sys1(suite) -> [];
 %%sys1(_) ->

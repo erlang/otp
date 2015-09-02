@@ -25,16 +25,17 @@
 <holder>Ericsson AB. All Rights Reserved.</holder>
 </copyright>
 <legalnotice>
-The contents of this file are subject to the Erlang Public License,
-Version 1.1, (the "License"); you may not use this file except in
-compliance with the License. You should have received a copy of the
-Erlang Public License along with this software. If not, it can be
-retrieved online at http://www.erlang.org/.
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+ 
+    http://www.apache.org/licenses/LICENSE-2.0
 
-Software distributed under the License is distributed on an "AS IS"
-basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-the License for the specific language governing rights and limitations
-under the License.
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
 
 </legalnotice>
 
@@ -794,14 +795,6 @@ Messages larger than the specified number of bytes are discarded.</p>
 Defaults to <c>16777215</c>, the maximum value of the 24-bit Message
 Length field in a Diameter Header.</p>
 
-<warning>
-<p>
-This option should be set to as low a value as is sufficient for the
-Diameter applications and peers in question, since decoding incoming
-messages from a malicious peer can otherwise generate significant
-load.</p>
-</warning>
-
 </item>
 
 <tag><c>{restrict_connections, false
@@ -1231,9 +1224,7 @@ is not the length of the message in question, as received over the
 transport interface documented in &man_transport;.</p>
 
 <p>
-If <c>exit</c> then a warning report is emitted and the parent of the
-transport process in question exits, which causes the transport
-process itself to exit as described in &man_transport;.
+If <c>exit</c> then the transport process in question exits.
 If <c>handle</c> then the message is processed as usual, a resulting
 &app_handle_request; or &app_handle_answer; callback (if one takes
 place) indicating the <c>5015</c> error (DIAMETER_INVALID_MESSAGE_LENGTH).

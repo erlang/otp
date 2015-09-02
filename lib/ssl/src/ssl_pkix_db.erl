@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 2007-2015. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -27,9 +28,9 @@
 -include_lib("public_key/include/public_key.hrl").
 -include_lib("kernel/include/file.hrl").
 
--export([create/0, remove/1, add_trusted_certs/3, 
+-export([create/0, add_crls/3, remove_crls/2, remove/1, add_trusted_certs/3, 
 	 remove_trusted_certs/2, insert/3, remove/2, clear/1, db_size/1,
-	 ref_count/3, lookup_trusted_cert/4, foldl/3,
+	 ref_count/3, lookup_trusted_cert/4, foldl/3, select_cert_by_issuer/2,
 	 lookup_cached_pem/2, cache_pem_file/2, cache_pem_file/3,
 	 lookup/2]).
 
@@ -51,16 +52,24 @@ create() ->
      ets:new(ssl_otp_cacertificate_db, [set, public]),
      %% Let connection processes call ref_count/3 directly
      ets:new(ssl_otp_ca_file_ref, [set, public]),
-     ets:new(ssl_otp_pem_cache, [set, protected])
+     ets:new(ssl_otp_pem_cache, [set, protected]),
+     %% Default cache
+     {ets:new(ssl_otp_crl_cache, [set, protected]),
+      ets:new(ssl_otp_crl_issuer_mapping, [bag, protected])}
     ].
 
 %%--------------------------------------------------------------------
--spec remove([db_handle()]) -> ok.
+-spec remove([db_handle()]) -> ok. 
 %%
 %% Description: Removes database db  
 %%--------------------------------------------------------------------
 remove(Dbs) ->
-    lists:foreach(fun(Db) ->
+    lists:foreach(fun({Db0, Db1})  ->
+			  true = ets:delete(Db0),
+			  true = ets:delete(Db1);
+		     (undefined) -> 
+			  ok;
+		     (Db) ->
 			  true = ets:delete(Db)
 		  end, Dbs).
 
@@ -81,7 +90,7 @@ lookup_trusted_cert(DbHandle, Ref, SerialNumber, Issuer) ->
 	    {ok, Certs}
     end.
 
-lookup_cached_pem([_, _, PemChache], File) ->
+lookup_cached_pem([_, _, PemChache | _], File) ->
     lookup_cached_pem(PemChache, File);
 lookup_cached_pem(PemChache, File) ->
     lookup(File, PemChache).
@@ -94,12 +103,12 @@ lookup_cached_pem(PemChache, File) ->
 %% runtime database. Returns Ref that should be handed to lookup_trusted_cert
 %% together with the cert serialnumber and issuer.
 %%--------------------------------------------------------------------
-add_trusted_certs(_Pid, {der, DerList}, [CerDb, _,_]) ->
+add_trusted_certs(_Pid, {der, DerList}, [CertDb, _,_ | _]) ->
     NewRef = make_ref(),
-    add_certs_from_der(DerList, NewRef, CerDb),
+    add_certs_from_der(DerList, NewRef, CertDb),
     {ok, NewRef};
 
-add_trusted_certs(_Pid, File, [CertsDb, RefDb, PemChache] = Db) ->
+add_trusted_certs(_Pid, File, [CertsDb, RefDb, PemChache | _] = Db) ->
     case lookup_cached_pem(Db, File) of
 	[{_Content, Ref}] ->
 	    ref_count(Ref, RefDb, 1),
@@ -118,14 +127,15 @@ add_trusted_certs(_Pid, File, [CertsDb, RefDb, PemChache] = Db) ->
 %% Description: Cache file as binary in DB
 %%--------------------------------------------------------------------
 -spec cache_pem_file(binary(), [db_handle()]) -> {ok, term()}.
-cache_pem_file(File, [_CertsDb, _RefDb, PemChache]) ->
+cache_pem_file(File, [_CertsDb, _RefDb, PemChache | _]) ->
     {ok, PemBin} = file:read_file(File),
     Content = public_key:pem_decode(PemBin),
     insert(File, Content, PemChache),
     {ok, Content}.
 
+
 -spec cache_pem_file(reference(), binary(), [db_handle()]) -> {ok, term()}.
-cache_pem_file(Ref, File, [_CertsDb, _RefDb, PemChache]) ->
+cache_pem_file(Ref, File, [_CertsDb, _RefDb, PemChache| _]) ->
     {ok, PemBin} = file:read_file(File),
     Content = public_key:pem_decode(PemBin),
     insert(File, {Content, Ref}, PemChache),
@@ -146,6 +156,15 @@ remove_trusted_certs(Ref, CertsDb) ->
 %%--------------------------------------------------------------------
 remove(Key, Db) ->
     ets:delete(Db, Key),
+    ok.
+
+%%--------------------------------------------------------------------
+-spec remove(term(), term(), db_handle()) -> ok.
+%%
+%% Description: Removes an element in a <Db>.
+%%--------------------------------------------------------------------
+remove(Key, Data, Db) ->
+    ets:delete_object(Db, {Key, Data}),
     ok.
 
 %%--------------------------------------------------------------------
@@ -174,6 +193,10 @@ lookup(Key, Db) ->
 %%--------------------------------------------------------------------
 foldl(Fun, Acc0, Cache) ->
     ets:foldl(Fun, Acc0, Cache).
+
+
+select_cert_by_issuer(Cache, Issuer) ->    
+    ets:select(Cache, [{{{'_','_', Issuer},{'_', '$1'}},[],['$$']}]).
 
 %%--------------------------------------------------------------------
 -spec ref_count(term(), db_handle(), integer()) -> integer().
@@ -244,9 +267,39 @@ add_certs(Cert, Ref, CertsDb) ->
 	    error_logger:info_report(Report)
     end.
 
-new_trusted_cert_entry(File, [CertsDb, RefDb, _] = Db) ->
+new_trusted_cert_entry(File, [CertsDb, RefDb, _ | _] = Db) ->
     Ref = make_ref(),
     update_counter(Ref, 1, RefDb),
     {ok, Content} = cache_pem_file(Ref, File, Db),
     add_certs_from_pem(Content, Ref, CertsDb),
     {ok, Ref}.
+
+add_crls([_,_,_, {_, Mapping} | _], ?NO_DIST_POINT, CRLs) ->
+    [add_crls(CRL, Mapping) || CRL <- CRLs];
+add_crls([_,_,_, {Cache, Mapping} | _], Path, CRLs) ->
+    insert(Path, CRLs, Cache), 
+    [add_crls(CRL, Mapping) || CRL <- CRLs].
+
+add_crls(CRL, Mapping) ->
+    insert(crl_issuer(CRL), CRL, Mapping).
+
+remove_crls([_,_,_, {_, Mapping} | _], {?NO_DIST_POINT, CRLs}) ->
+    [rm_crls(CRL, Mapping) || CRL <- CRLs];
+	
+remove_crls([_,_,_, {Cache, Mapping} | _], Path) ->
+    case lookup(Path, Cache) of
+	undefined ->
+	    ok;
+	CRLs ->
+	    remove(Path, Cache),
+	    [rm_crls(CRL, Mapping) || CRL <- CRLs]
+    end.
+
+rm_crls(CRL, Mapping) ->
+   remove(crl_issuer(CRL), CRL, Mapping). 
+
+crl_issuer(DerCRL) ->
+    CRL = public_key:der_decode('CertificateList', DerCRL),
+    TBSCRL = CRL#'CertificateList'.tbsCertList,
+    TBSCRL#'TBSCertList'.issuer.
+

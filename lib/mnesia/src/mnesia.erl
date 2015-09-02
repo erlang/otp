@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 1996-2014. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -145,7 +146,7 @@
 %% Local function in order to avoid external function call
 val(Var) ->
     case ?catch_val(Var) of
-	{'EXIT', Reason} -> mnesia_lib:other_val(Var, Reason);
+	{'EXIT', _} -> mnesia_lib:other_val(Var);
 	Value -> Value
     end.
 
@@ -306,6 +307,8 @@ ms() ->
 
 -spec abort(_) -> no_return().
 
+abort(Reason = {aborted, _}) ->
+    exit(Reason);
 abort(Reason) ->
     exit({aborted, Reason}).
 
@@ -807,7 +810,7 @@ next(Tid,Ts,Tab,Key)
 	tid ->
 	    lock_table(Tid, Ts, Tab, read),
 	    do_fixtable(Tab,Ts),
-	    New = (catch dirty_next(Tab,Key)),
+	    New = ?CATCH(dirty_next(Tab,Key)),
 	    stored_keys(Tab,New,Key,Ts,next,
 			val({Tab, setorbag}));
 	_Protocol ->
@@ -833,7 +836,7 @@ prev(Tid,Ts,Tab,Key)
 	tid ->
 	    lock_table(Tid, Ts, Tab, read),
 	    do_fixtable(Tab,Ts),
-	    New = (catch dirty_prev(Tab,Key)),
+	    New = ?CATCH(dirty_prev(Tab,Key)),
 	    stored_keys(Tab,New,Key,Ts,prev,
 			val({Tab, setorbag}));
 	_Protocol ->
@@ -965,7 +968,7 @@ foldl(Fun, Acc, Tab, LockKind) when is_function(Fun) ->
 
 foldl(ActivityId, Opaque, Fun, Acc, Tab, LockKind) ->
     {Type, Prev} = init_iteration(ActivityId, Opaque, Tab, LockKind),
-    Res = (catch do_foldl(ActivityId, Opaque, Tab, dirty_first(Tab), Fun, Acc, Type, Prev)),
+    Res = ?CATCH(do_foldl(ActivityId, Opaque, Tab, dirty_first(Tab), Fun, Acc, Type, Prev)),
     close_iteration(Res, Tab).
 
 do_foldl(A, O, Tab, '$end_of_table', Fun, RAcc, _Type, Stored) ->
@@ -1011,7 +1014,7 @@ foldr(ActivityId, Opaque, Fun, Acc, Tab, LockKind) ->
 	    true ->      %% Order doesn't matter for set and bag
 		TempPrev %% Keep the order so we can use ordsets:del_element
 	end,
-    Res = (catch do_foldr(ActivityId, Opaque, Tab, dirty_last(Tab), Fun, Acc, Type, Prev)),
+    Res = ?CATCH(do_foldr(ActivityId, Opaque, Tab, dirty_last(Tab), Fun, Acc, Type, Prev)),
     close_iteration(Res, Tab).
 
 do_foldr(A, O, Tab, '$end_of_table', Fun, RAcc, _Type, Stored) ->
@@ -1626,13 +1629,7 @@ dirty_read(Oid) ->
 
 dirty_read(Tab, Key)
   when is_atom(Tab), Tab /= schema ->
-%%    case catch ?ets_lookup(Tab, Key) of
-%%        {'EXIT', _} ->
-            %% Bad luck, we have to perform a real lookup
-            dirty_rpc(Tab, mnesia_lib, db_get, [Tab, Key]);
-%%        Val ->
-%%            Val
-%%    end;
+    dirty_rpc(Tab, mnesia_lib, db_get, [Tab, Key]);
 dirty_read(Tab, _Key) ->
     abort({bad_type, Tab}).
 
@@ -1905,21 +1902,21 @@ any_table_info(Tab, _Item) ->
     abort({bad_type, Tab}).
 
 raw_table_info(Tab, Item) ->
-    case ?catch_val({Tab, storage_type}) of
-	ram_copies ->
-	    info_reply(catch ?ets_info(Tab, Item), Tab, Item);
-	disc_copies ->
-	    info_reply(catch ?ets_info(Tab, Item), Tab, Item);
-	disc_only_copies ->
-	    info_reply(catch dets:info(Tab, Item), Tab, Item);
-	unknown ->
-	    bad_info_reply(Tab, Item);
-	{'EXIT', _} ->
+    try
+	case ?ets_lookup_element(mnesia_gvar, {Tab, storage_type}, 2) of
+	    ram_copies ->
+		info_reply(?ets_info(Tab, Item), Tab, Item);
+	    disc_copies ->
+		info_reply(?ets_info(Tab, Item), Tab, Item);
+	    disc_only_copies ->
+		info_reply(dets:info(Tab, Item), Tab, Item);
+	    unknown ->
+		bad_info_reply(Tab, Item)
+	end
+    catch error:_ ->
 	    bad_info_reply(Tab, Item)
     end.
 
-info_reply({'EXIT', _Reason}, Tab, Item) ->
-    bad_info_reply(Tab, Item);
 info_reply({error, _Reason}, Tab, Item) ->
     bad_info_reply(Tab, Item);
 info_reply(Val, _Tab, _Item) ->
@@ -2063,9 +2060,8 @@ storage_count(T, {U, R, D, DO}) ->
     end.
 
 system_info(Item) ->
-    case catch system_info2(Item) of
-	{'EXIT',Error} -> abort(Error);
-	Other -> Other
+    try system_info2(Item)
+    catch _:Error -> abort(Error)
     end.
 
 system_info2(all) ->
@@ -2171,7 +2167,7 @@ system_info2(version) ->
 		    Version;
 		false ->
 		    %% Ensure that it does not match
-		    {mnesia_not_loaded, node(), now()}
+		    {mnesia_not_loaded, node(), erlang:timestamp()}
 	    end;
 	Version ->
 	    Version
@@ -2381,11 +2377,10 @@ del_table_index(Tab, Ix) ->
     mnesia_schema:del_table_index(Tab, Ix).
 
 transform_table(Tab, Fun, NewA) ->
-    case catch val({Tab, record_name}) of
-	{'EXIT', Reason} ->
-	    mnesia:abort(Reason);
-	OldRN ->
-	    mnesia_schema:transform_table(Tab, Fun, NewA, OldRN)
+    try val({Tab, record_name}) of
+	OldRN -> mnesia_schema:transform_table(Tab, Fun, NewA, OldRN)
+    catch exit:Reason ->
+	    mnesia:abort(Reason)
     end.
 
 transform_table(Tab, Fun, NewA, NewRN) ->
@@ -2796,7 +2791,7 @@ pre_qlc(Opts, Tab) ->
     end.
 
 post_qlc(Tab) ->
-    case catch get(mnesia_activity_state) of
+    case get(mnesia_activity_state) of
 	{_,#tid{},_} -> ok;
 	_ ->
 	    case ?catch_val({Tab, setorbag}) of

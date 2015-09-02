@@ -3,16 +3,17 @@
  *
  * Copyright Ericsson AB 2007-2011. All Rights Reserved.
  *
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  * %CopyrightEnd%
  */
@@ -25,6 +26,7 @@
 #include "sys.h"
 #include "erl_alloc.h"
 #include "erl_poll.h"
+#include "erl_time.h"
 
 /*
  * Some debug macros 
@@ -285,7 +287,7 @@ struct ErtsPollSet_ {
 #ifdef ERTS_SMP
     erts_smp_mtx_t mtx;
 #endif
-    erts_smp_atomic32_t timeout;
+    erts_atomic64_t timeout_time;
 };
 
 #ifdef ERTS_SMP
@@ -363,6 +365,26 @@ do { \
     wait_standby(PS); \
  } while(0)
 
+static ERTS_INLINE void
+init_timeout_time(ErtsPollSet ps)
+{
+    erts_atomic64_init_nob(&ps->timeout_time,
+			   (erts_aint64_t) ERTS_MONOTONIC_TIME_MAX);
+}
+
+static ERTS_INLINE void
+set_timeout_time(ErtsPollSet ps, ErtsMonotonicTime time)
+{
+    erts_atomic64_set_relb(&ps->timeout_time,
+			   (erts_aint64_t) time);
+}
+
+static ERTS_INLINE ErtsMonotonicTime
+get_timeout_time(ErtsPollSet ps)
+{
+    return (ErtsMonotonicTime) erts_atomic64_read_acqb(&ps->timeout_time);
+}
+
 #define ERTS_POLL_NOT_WOKEN		((erts_aint32_t) 0)
 #define ERTS_POLL_WOKEN_IO_READY	((erts_aint32_t) 1)
 #define ERTS_POLL_WOKEN_INTR		((erts_aint32_t) 2)
@@ -422,14 +444,28 @@ wakeup_cause(ErtsPollSet ps)
 }
 
 static ERTS_INLINE DWORD
-poll_wait_timeout(ErtsPollSet ps, SysTimeval *tvp)
+poll_wait_timeout(ErtsPollSet ps, ErtsMonotonicTime timeout_time)
 {
-    time_t timeout = tvp->tv_sec * 1000 + tvp->tv_usec / 1000;
+    ErtsMonotonicTime current_time, diff_time, timeout;
 
-    if (timeout <= 0) {
+    if (timeout_time == ERTS_POLL_NO_TIMEOUT) {
+    no_timeout:
+	set_timeout_time(ps, ERTS_MONOTONIC_TIME_MIN);
 	woke_up(ps);
 	return (DWORD) 0;
     }
+
+    current_time = erts_get_monotonic_time(NULL);
+    diff_time = timeout_time - current_time;
+    if (diff_time <= 0)
+	goto no_timeout;
+
+    /* Round up to nearest milli second */
+    timeout = (ERTS_MONOTONIC_TO_MSEC(diff_time - 1) + 1);
+    if (timeout > INT_MAX)
+	timeout = INT_MAX; /* Also prevents DWORD overflow */
+
+    set_timeout_time(ps, current_time + ERTS_MSEC_TO_MONOTONIC(timeout));
 
     ResetEvent(ps->event_io_ready);
     /*
@@ -442,10 +478,6 @@ poll_wait_timeout(ErtsPollSet ps, SysTimeval *tvp)
     if (erts_atomic32_read_nob(&ps->wakeup_state) != ERTS_POLL_NOT_WOKEN)
 	return (DWORD) 0;
 
-    if (timeout > ((time_t) ERTS_AINT32_T_MAX))
-	timeout = ERTS_AINT32_T_MAX; /* Also prevents DWORD overflow */
-
-    erts_smp_atomic32_set_relb(&ps->timeout, (erts_aint32_t) timeout);
     return (DWORD) timeout;
 }
 
@@ -1012,12 +1044,12 @@ void  erts_poll_interrupt(ErtsPollSet ps, int set /* bool */)
 
 void erts_poll_interrupt_timed(ErtsPollSet ps,
 			       int set /* bool */,
-			       erts_short_time_t msec)
+			       ErtsMonotonicTime timeout_time)
 {
-    HARDTRACEF(("In erts_poll_interrupt_timed(%d,%ld)",set,msec));
+    HARDTRACEF(("In erts_poll_interrupt_timed(%d,%ld)",set,timeout_time));
     if (!set)
 	reset_interrupt(ps);
-    else if (erts_smp_atomic32_read_acqb(&ps->timeout) > (erts_aint32_t) msec)
+    else if (get_timeout_time(ps) > timeout_time)
 	set_interrupt(ps);
     HARDTRACEF(("Out erts_poll_interrupt_timed"));
 }
@@ -1092,7 +1124,7 @@ void erts_poll_controlv(ErtsPollSet ps,
 int erts_poll_wait(ErtsPollSet ps,
 		   ErtsPollResFd pr[],
 		   int *len,
-		   SysTimeval *tvp)
+		   ErtsMonotonicTime timeout_time)
 {
     int no_fds;
     DWORD timeout;
@@ -1149,7 +1181,7 @@ int erts_poll_wait(ErtsPollSet ps,
 	no_fds = ERTS_POLL_MAX_RES;
 #endif
 
-    timeout = poll_wait_timeout(ps, tvp);
+    timeout = poll_wait_timeout(ps, timeout_time);
 
     /*HARDDEBUGF(("timeout = %ld",(long) timeout));*/
 
@@ -1242,7 +1274,7 @@ int erts_poll_wait(ErtsPollSet ps,
 	erts_mtx_unlock(&w->mtx);
     }
  done:
-    erts_smp_atomic32_set_nob(&ps->timeout, ERTS_AINT32_T_MAX);
+    set_timeout_time(ps, ERTS_MONOTONIC_TIME_MAX);
     *len = num;
     ERTS_POLLSET_UNLOCK(ps);
     HARDTRACEF(("Out erts_poll_wait"));
@@ -1326,7 +1358,7 @@ ErtsPollSet erts_poll_create_pollset(void)
 #ifdef ERTS_SMP
     erts_smp_mtx_init(&ps->mtx, "pollset");
 #endif
-    erts_smp_atomic32_init_nob(&ps->timeout, ERTS_AINT32_T_MAX);
+    init_timeout_time(ps);
 
     HARDTRACEF(("Out erts_poll_create_pollset"));
     return ps;

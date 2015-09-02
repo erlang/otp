@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 2013-2015. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 
@@ -48,7 +49,8 @@
 -export([compress/3, uncompress/3, compressions/0]).
 
 %% Payload encryption/decryption
--export([cipher/4, decipher/4, is_correct_mac/2]).
+-export([cipher/4, decipher/4, is_correct_mac/2,
+	 cipher_aead/4, decipher_aead/4]).
 
 -export_type([ssl_version/0, ssl_atom_version/0]).
 
@@ -376,6 +378,23 @@ cipher(Version, Fragment,
     {CipherFragment, CipherS1} =
 	ssl_cipher:cipher(BulkCipherAlgo, CipherS0, MacHash, Fragment, Version),
     {CipherFragment,  WriteState0#connection_state{cipher_state = CipherS1}}.
+%%--------------------------------------------------------------------
+-spec cipher_aead(ssl_version(), iodata(), #connection_state{}, MacHash::binary()) ->
+			 {CipherFragment::binary(), #connection_state{}}.
+%%
+%% Description: Payload encryption
+%%--------------------------------------------------------------------
+cipher_aead(Version, Fragment,
+       #connection_state{cipher_state = CipherS0,
+			 sequence_number = SeqNo,
+			 security_parameters=
+			     #security_parameters{bulk_cipher_algorithm =
+						      BulkCipherAlgo}
+			} = WriteState0, AAD) ->
+
+    {CipherFragment, CipherS1} =
+	ssl_cipher:cipher_aead(BulkCipherAlgo, CipherS0, SeqNo, AAD, Fragment, Version),
+    {CipherFragment,  WriteState0#connection_state{cipher_state = CipherS1}}.
 
 %%--------------------------------------------------------------------
 -spec decipher(ssl_version(), binary(), #connection_state{}, boolean()) -> {binary(), binary(), #connection_state{}} | #alert{}.
@@ -393,6 +412,25 @@ decipher(Version, CipherFragment,
 	{PlainFragment, Mac, CipherS1} ->
 	    CS1 = ReadState#connection_state{cipher_state = CipherS1},
 	    {PlainFragment, Mac, CS1};
+	#alert{} = Alert ->
+	    Alert
+    end.
+%%--------------------------------------------------------------------
+-spec decipher_aead(ssl_version(), binary(), #connection_state{}, binary()) -> {binary(), binary(), #connection_state{}} | #alert{}.
+%%
+%% Description: Payload decryption
+%%--------------------------------------------------------------------
+decipher_aead(Version, CipherFragment,
+	 #connection_state{sequence_number = SeqNo,
+			   security_parameters =
+			       #security_parameters{bulk_cipher_algorithm =
+							BulkCipherAlgo},
+			   cipher_state = CipherS0
+			  } = ReadState, AAD) ->
+    case ssl_cipher:decipher_aead(BulkCipherAlgo, CipherS0, SeqNo, AAD, CipherFragment, Version) of
+	{PlainFragment, CipherS1} ->
+	    CS1 = ReadState#connection_state{cipher_state = CipherS1},
+	    {PlainFragment, CS1};
 	#alert{} = Alert ->
 	    Alert
     end.

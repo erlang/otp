@@ -3,16 +3,17 @@
  *
  * Copyright Ericsson AB 2001-2013. All Rights Reserved.
  *
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  * %CopyrightEnd%
  */
@@ -102,7 +103,8 @@ BIF_RETTYPE hipe_set_timeout(BIF_ALIST_1)
      * p->def_arg_reg[0] and p->i are both defined and used.
      * If a message arrives, BEAM resumes at p->i.
      * If a timeout fires, BEAM resumes at p->def_arg_reg[0].
-     * (See set_timer() and timeout_proc() in erl_process.c.)
+     * (See erts_set_proc_timer() and proc_timeout_common() in
+     * erl_hl_timer.c.)
      *
      * Here we set p->def_arg_reg[0] to hipe_beam_pc_resume.
      * Assuming our caller invokes suspend immediately after
@@ -135,28 +137,21 @@ BIF_RETTYPE hipe_set_timeout(BIF_ALIST_1)
      */
     if (p->flags & (F_INSLPQUEUE | F_TIMO))
 	return NIL;	/* caller had better call nbif_suspend ASAP! */
-    if (is_small(timeout_value) && signed_val(timeout_value) >= 0 &&
-#if defined(ARCH_64)
-	(unsigned_val(timeout_value) >> 32) == 0
-#else
-	1
-#endif
-	) {
-	set_timer(p, unsigned_val(timeout_value));
-    } else if (timeout_value == am_infinity) {
+
+    if (timeout_value == am_infinity) {
 	/* p->flags |= F_TIMO; */	/* XXX: nbif_suspend_msg_timeout */
-#if !defined(ARCH_64)
-    } else if (term_to_Uint(timeout_value, &time_val)) {
-	set_timer(p, time_val);
-#endif
-    } else {
+    }
+    else {
+	int tres = erts_set_proc_timer_term(p, timeout_value);
+	if (tres != 0) { /* Wrong time */
 #ifdef ERTS_SMP
-	if (p->hipe_smp.have_receive_locks) {
-	    p->hipe_smp.have_receive_locks = 0;
-	    erts_smp_proc_unlock(p, ERTS_PROC_LOCKS_MSG_RECEIVE);
-	}
+	    if (p->hipe_smp.have_receive_locks) {
+		p->hipe_smp.have_receive_locks = 0;
+		erts_smp_proc_unlock(p, ERTS_PROC_LOCKS_MSG_RECEIVE);
+	    }
 #endif
-	BIF_ERROR(p, EXC_TIMEOUT_VALUE);
+	    BIF_ERROR(p, EXC_TIMEOUT_VALUE);
+	}
     }
     return NIL;	/* caller had better call nbif_suspend ASAP! */
 }
@@ -170,7 +165,7 @@ void hipe_select_msg(Process *p)
     msgp = PEEK_MESSAGE(p);
     UNLINK_MESSAGE(p, msgp);	/* decrements global 'erts_proc_tot_mem' variable */
     JOIN_MESSAGE(p);
-    CANCEL_TIMER(p);		/* calls erl_cancel_timer() */
+    CANCEL_TIMER(p);		/* calls erts_cancel_proc_timer() */
     free_message(msgp);
 }
 
@@ -330,8 +325,6 @@ char *hipe_bs_allocate(int len)
     Binary *bptr;
 
     bptr = erts_bin_nrml_alloc(len);
-    bptr->flags = 0;
-    bptr->orig_size = len;
     erts_smp_atomic_init_nob(&bptr->refc, 1);
     return bptr->orig_bytes;
 }
@@ -341,7 +334,6 @@ Binary *hipe_bs_reallocate(Binary* oldbptr, int newsize)
     Binary *bptr;
 
     bptr = erts_bin_realloc(oldbptr, newsize);
-    bptr->orig_size = newsize;
     return bptr;
 }
 

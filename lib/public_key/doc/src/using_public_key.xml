@@ -8,62 +8,65 @@
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
-      The contents of this file are subject to the Erlang Public License,
-      Version 1.1, (the "License"); you may not use this file except in
-      compliance with the License. You should have received a copy of the
-      Erlang Public License along with this software. If not, it can be
-      retrieved online at http://www.erlang.org/.
-    
-      Software distributed under the License is distributed on an "AS IS"
-      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-      the License for the specific language governing rights and limitations
-      under the License.
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
     
     </legalnotice>
 
     <title>Getting Started</title>
+    <prepared></prepared>
+    <docno></docno>
+    <date></date>
+    <rev></rev>
     <file>using_public_key.xml</file>
   </header>
 
+  <p>This section describes examples of how to use the 
+    Public Key API. Keys and certificates used in the following 
+    sections are generated only for testing the Public Key 
+    application.</p>
+
+    <p>Some shell printouts in the following examples
+    are abbreviated for increased readability.</p>
+
+     
   <section>
-    <title>General information</title>
-
-    <p> This chapter is dedicated to showing some
-    examples of how to use the public_key API. Keys and certificates
-    used in the following sections are generated only for the purpose
-    of testing the public key application.</p>
-
-    <p>Note that some shell printouts, in the following examples,
-    have been abbreviated for increased readability.</p>
+    <title>PEM Files</title>
+    <p>Public-key data (keys, certificates, and so on) can be stored in 
+    Privacy Enhanced Mail (PEM) format. 
+    The PEM files have the following structure:</p>
     
-  </section>
+    <code>
+    &lt;text&gt;
+    -----BEGIN &lt;SOMETHING&gt;-----
+    &lt;Attribute&gt; : &lt;Value&gt;
+    &lt;Base64 encoded DER data&gt;
+    -----END &lt;SOMETHING&gt;-----
+    &lt;text&gt;</code>
     
-  <section>
-    <title>PEM files</title>
-    <p> Public key data (keys, certificates etc) may be stored in PEM format. PEM files
-    comes from the Private Enhanced Mail Internet standard and has a
-    structure that looks like this:</p>
-
-    <code>&lt;text&gt;
-	-----BEGIN &lt;SOMETHING&gt;-----
-	&lt;Attribute&gt; : &lt;Value&gt;
-	&lt;Base64 encoded DER data&gt;
-	-----END &lt;SOMETHING&gt;-----
-	&lt;text&gt;</code>
-
-    <p>A file can contain several BEGIN/END blocks. Text lines between
-    blocks are ignored.  Attributes, if present, are currently ignored except
-    for <c>Proc-Type</c> and <c>DEK-Info</c> that are used when the DER data is
-    encrypted.</p>
+    <p>A file can contain several <c>BEGIN/END</c> blocks. Text lines between
+    blocks are ignored. Attributes, if present, are ignored except
+    for <c>Proc-Type</c> and <c>DEK-Info</c>, which are used when <c>DER</c> 
+    data is encrypted.</p>
 
     <section>
-      <title>DSA private key</title>
+      <title>DSA Private Key</title>
+      <p>A DSA private key can look as follows:</p>
+      <note><p>File handling is not done by the Public Key application.</p></note>
       
-      <p>Note file handling is not done by the public_key application. </p>
       <code>1> {ok, PemBin} = file:read_file("dsa.pem").
 {ok,&lt;&lt;"-----BEGIN DSA PRIVATE KEY-----\nMIIBuw"...&gt;&gt;}</code>
       
-      <p>This PEM file only has one entry, a private DSA key.</p>
+      <p>The following PEM file has only one entry, a private DSA key:</p>
       <code>2> [DSAEntry] =  public_key:pem_decode(PemBin).
 [{'DSAPrivateKey',&lt;&lt;48,130,1,187,2,1,0,2,129,129,0,183,
                     179,230,217,37,99,144,157,21,228,204,
@@ -80,21 +83,20 @@
     </section>
 
     <section>
-      <title>RSA private key encrypted with a password.</title>
+      <title>RSA Private Key with Password</title>
+      <p>An RSA private key encrypted with a password can look as follows:</p>
       
       <code>1> {ok, PemBin} = file:read_file("rsa.pem").
 {ok,&lt;&lt;"Bag Attribut"...&gt;&gt;}</code>
 
-    <p>This PEM file only has one entry a private RSA key.</p>
+    <p>The following PEM file has only one entry, a private RSA key:</p>
     <code>2>[RSAEntry] = public_key:pem_decode(PemBin).
 [{'RSAPrivateKey',&lt;&lt;224,108,117,203,152,40,15,77,128,126,
                     221,195,154,249,85,208,202,251,109,
                     119,120,57,29,89,19,9,...&gt;&gt;,
-                  {"DES-EDE3-CBC",&lt;&lt;"kÙeø¼pµL"&gt;&gt;}}]
+                  {"DES-EDE3-CBC",&lt;&lt;"kÙeø¼pµL"&gt;&gt;}}]</code>
 
-    </code>
-
-    <p>In this example the password is "abcd1234".</p>
+    <p>In this following example, the password is <c>"abcd1234"</c>:</p>
     <code>3> Key = public_key:pem_entry_decode(RSAEntry, "abcd1234").
     #'RSAPrivateKey'{version = 'two-prime',
                  modulus = 1112355156729921663373...2737107,
@@ -110,11 +112,12 @@
   
   <section>
     <title>X509 Certificates</title>
+    <p>The following is an example of X509 certificates:</p>
     
       <code>1> {ok, PemBin} = file:read_file("cacerts.pem").
 {ok,&lt;&lt;"-----BEGIN CERTIFICATE-----\nMIIC7jCCAl"...&gt;&gt;}</code>
 
-      <p>This file includes two certificates</p>
+      <p>The following file includes two certificates:</p>
       <code>2> [CertEntry1, CertEntry2] = public_key:pem_decode(PemBin).
 [{'Certificate',&lt;&lt;48,130,2,238,48,130,2,87,160,3,2,1,2,2,
                   9,0,230,145,97,214,191,2,120,150,48,13,
@@ -124,7 +127,7 @@
                   1,48,13,6,9,42,134,72,134,247,...&gt;&gt;>,
                 not_encrypted}]</code>
       
-      <p>Certificates may of course be decoded as usual ... </p>
+      <p>Certificates can be decoded as usual:</p>
       <code>2> Cert = public_key:pem_entry_decode(CertEntry1).
 #'Certificate'{
     tbsCertificate =
@@ -210,24 +213,24 @@
             algorithm = {1,2,840,113549,1,1,5},
             parameters = &lt;&lt;5,0&gt;&gt;},
     signature =
-        {0,
-         &lt;&lt;163,186,7,163,216,152,63,47,154,234,139,73,154,96,120,
-           165,2,52,196,195,109,167,192,...&gt;&gt;}}
-</code>
+    &lt;&lt;163,186,7,163,216,152,63,47,154,234,139,73,154,96,120,
+    165,2,52,196,195,109,167,192,...&gt;&gt;}</code>
 
-      <p> Parts of certificates can be decoded with
-      public_key:der_decode/2 using that parts ASN.1 type.
-      Although application specific certificate
-      extension requires application specific ASN.1 decode/encode-functions.
-      Example, the first value of the rdnSequence above is of ASN.1 type
-      'X520CommonName'. ({2,5,4,3} = ?id-at-commonName)</p>
+      <p>Parts of certificates can be decoded with
+      <c>public_key:der_decode/2</c>, using the ASN.1 type of that part.
+      However, an application-specific certificate extension requires 
+      application-specific ASN.1 decode/encode-functions.
+      In the recent example, the first value of <c>rdnSequence</c> is 
+      of ASN.1 type <c>'X520CommonName'. ({2,5,4,3} = ?id-at-commonName)</c>:</p>
       
       <code>public_key:der_decode('X520CommonName', &lt;&lt;19,8,101,114,108,97,110,103,67,65&gt;&gt;).
 {printableString,"erlangCA"}</code>
 
-      <p>... but certificates can also be decode using the pkix_decode_cert/2 that
-      can customize and recursively decode standard parts of a certificate.</p>
+      <p>However, certificates can also be decoded using <c>pkix_decode_cert/2</c>, 
+      which can customize and recursively decode standard parts of a certificate:</p>
+
       <code>3>{_, DerCert, _} = CertEntry1.</code>
+
       <code>4> public_key:pkix_decode_cert(DerCert, otp).
 #'OTPCertificate'{
     tbsCertificate =
@@ -314,30 +317,27 @@
             algorithm = {1,2,840,113549,1,1,5},
             parameters = 'NULL'},
     signature =
-        {0,
          &lt;&lt;163,186,7,163,216,152,63,47,154,234,139,73,154,96,120,
-           165,2,52,196,195,109,167,192,...&gt;&gt;}}
-</code>
+           165,2,52,196,195,109,167,192,...&gt;&gt;}</code>
 
-      <p>This call is equivalent to public_key:pem_entry_decode(CertEntry1)</p>
+      <p>This call is equivalent to <c>public_key:pem_entry_decode(CertEntry1)</c>:</p>
       <code>5> public_key:pkix_decode_cert(DerCert, plain).
-#'Certificate'{ ...}
-</code>
+#'Certificate'{ ...}</code>
   </section>
 
   <section>
-    <title>Encoding public key data to PEM format</title>
+    <title>Encoding Public-Key Data to PEM Format</title>
 
-    <p>If you have public key data and and want to create a PEM file
-    you can do that by calling the functions
-    public_key:pem_entry_encode/2 and pem_encode/1 and then saving the
-    result to a file. For example assume you have PubKey =
-    'RSAPublicKey'{} then you can create a PEM-"RSA PUBLIC KEY" file
-    (ASN.1 type 'RSAPublicKey') or a PEM-"PUBLIC KEY" file
-    ('SubjectPublicKeyInfo' ASN.1 type).</p>
+    <p>If you have public-key data and want to create a PEM file
+    this can be done by calling functions
+    <c>public_key:pem_entry_encode/2</c> and <c>pem_encode/1</c> and 
+    saving the result to a file. For example, assume that you have 
+    <c>PubKey = 'RSAPublicKey'{}</c>. Then you can create a PEM-"RSA PUBLIC KEY" 
+    file (ASN.1 type <c>'RSAPublicKey'</c>) or a PEM-"PUBLIC KEY" file
+    (<c>'SubjectPublicKeyInfo'</c> ASN.1 type).</p>
 
-    <p> The second element of the PEM-entry will be the ASN.1 DER encoded
-    key data.</p>
+    <p>The second element of the PEM-entry is the ASN.1 <c>DER</c> encoded
+    key data:</p>
 
     <code>1> PemEntry = public_key:pem_entry_encode('RSAPublicKey', RSAPubKey).
 {'RSAPublicKey', &lt;&lt;48,72,...&gt;&gt;, not_encrypted}
@@ -348,7 +348,7 @@
 3> file:write_file("rsa_pub_key.pem", PemBin).
 ok</code>
 
-    <p> or </p>
+    <p>or:</p>
 
     <code>1> PemEntry = public_key:pem_entry_encode('SubjectPublicKeyInfo', RSAPubKey).
 {'SubjectPublicKeyInfo', &lt;&lt;48,92...&gt;&gt;, not_encrypted}
@@ -363,96 +363,108 @@ ok</code>
 </section>
 
 <section>
-      <title>RSA public key cryptography </title>
-       <p> Suppose you have PrivateKey = #'RSAPrivateKey{}' and the
-       plaintext Msg = binary() and the corresponding public key
-       PublicKey = #'RSAPublicKey'{} then you can do the following.
-       Note that you normally will only do one of the encrypt or
-       decrypt operations and the peer will do the other.
-       </p>
+      <title>RSA Public-Key Cryptography</title>
+       <p>Suppose you have the following private key and a corresponding public key:</p>
+       <list type="bulleted">
+	 <item><c>PrivateKey = #'RSAPrivateKey{}'</c> and 
+	 the plaintext <c>Msg = binary()</c></item>
+	 <item><c>PublicKey = #'RSAPublicKey'{}</c>
+	 </item>
+       </list>
+       <p>Then you can proceed as follows:</p>
 
-       <p>Encrypt with the private key </p>
+       <p>Encrypt with the private key:</p>
        <code>RsaEncrypted = public_key:encrypt_private(Msg, PrivateKey),
 Msg = public_key:decrypt_public(RsaEncrypted, PublicKey),</code>
 
-       <p>Encrypt with the public key </p>
+       <p>Encrypt with the public key:</p>
        <code>RsaEncrypted = public_key:encrypt_public(Msg, PublicKey),
 Msg = public_key:decrypt_private(RsaEncrypted, PrivateKey),</code>
+
+      <note><p>You normally do only one of the encrypt or decrypt operations, 
+      and the peer does the other. This normaly used in legacy applications
+      as a primitive digital signature.
+      </p></note>
+
   </section>
 
   <section>
-    <title>Digital signatures</title>
+    <title>Digital Signatures</title>
 
-    <p> Suppose you have PrivateKey = #'RSAPrivateKey{}'or
-    #'DSAPrivateKey'{} and the plaintext Msg = binary() and the
-    corresponding public key PublicKey = #'RSAPublicKey'{} or
-    {integer(), #'DssParams'{}} then you can do the following.  Note
-    that you normally will only do one of the sign or verify operations
-    and the peer will do the other. </p>
+    <p>Suppose you have the following private key and a corresponding public key:</p>
+    
+    <list type="bulleted">
+       <item><c>PrivateKey = #'RSAPrivateKey{}'</c> or
+       <c>#'DSAPrivateKey'{}</c> and the plaintext <c>Msg = binary()</c></item>
+       <item><c>PublicKey = #'RSAPublicKey'{}</c> or
+       <c>{integer(), #'DssParams'{}}</c></item>
+     </list>
+     <p>Then you can proceed as follows:</p>
 
     <code>Signature = public_key:sign(Msg, sha, PrivateKey),
 true = public_key:verify(Msg, sha, Signature, PublicKey),</code>
 
-    <p>It might be appropriate to calculate the message digest before
-    calling sign or verify and then you can use the none as second
-    argument.</p>
+    <note><p>You normally do only one of the sign or verify operations,
+    and the peer does the other.</p></note>
+
+    <p>It can be appropriate to calculate the message digest before
+    calling <c>sign</c> or <c>verify</c>, and then use <c>none</c> as 
+    second argument:</p>
 
     <code>Digest = crypto:sha(Msg),
 Signature = public_key:sign(Digest, none, PrivateKey),
-true = public_key:verify(Digest, none, Signature, PublicKey),
-    </code>
+true = public_key:verify(Digest, none, Signature, PublicKey),</code>
     
   </section>
   
   <section>
-    <title>SSH files</title>
+    <title>SSH Files</title>
     
     <p>SSH typically uses PEM files for private keys but has its
-    own file format for storing public keys. The erlang public_key
-    application can be used to parse the content of SSH public key files.</p>
+    own file format for storing public keys. The <c>public_key</c>
+    application can be used to parse the content of SSH public-key files.</p>
 
     <section>
-   <title> RFC 4716 SSH public key files </title>
+   <title>RFC 4716 SSH Public-Key Files</title>
 
     <p>RFC 4716 SSH files looks confusingly like PEM files,
-       but there are some differences.</p>
+       but there are some differences:</p>
       <code>1> {ok, SshBin} = file:read_file("ssh2_rsa_pub").
 {ok, &lt;&lt;"---- BEGIN SSH2 PUBLIC KEY ----\nAAAA"...&gt;&gt;}</code>
 
-    <p>This is equivalent to calling public_key:ssh_decode(SshBin, rfc4716_public_key).
+    <p>This is equivalent to calling <c>public_key:ssh_decode(SshBin, rfc4716_public_key)</c>:
     </p>
       <code>2> public_key:ssh_decode(SshBin, public_key).
 [{#'RSAPublicKey'{modulus = 794430685...91663,
-                  publicExponent = 35}, []}]
-</code>
+                  publicExponent = 35}, []}]</code>
 
  </section>
 
  <section>
-   <title> Openssh public key format </title>
+   <title>OpenSSH Public-Key Format</title>
+   <p>OpenSSH public-key format looks as follows:</p>
       <code>1> {ok, SshBin} = file:read_file("openssh_dsa_pub").
 {ok,&lt;&lt;"ssh-dss AAAAB3Nza"...&gt;&gt;}</code>
 
-    <p>This is equivalent to calling public_key:ssh_decode(SshBin, openssh_public_key).
+    <p>This is equivalent to calling <c>public_key:ssh_decode(SshBin, openssh_public_key)</c>:
     </p>
     <code>2>  public_key:ssh_decode(SshBin, public_key).
 [{{15642692...694280725,
    #'Dss-Parms'{p = 17291273936...696123221,
                 q = 1255626590179665817295475654204371833735706001853,
                 g = 10454211196...480338645}},
-  [{comment,"dhopson@VMUbuntu-DSH"}]}]
-</code>
+  [{comment,"dhopson@VMUbuntu-DSH"}]}]</code>
  </section>
 
  <section>
-   <title> Known hosts - openssh format</title>
-
+   <title>Known Hosts - OpenSSH Format</title>
+   <p>Known hosts - OpenSSH format looks as follows:</p>
       <code>1> {ok, SshBin} = file:read_file("known_hosts").
 {ok,&lt;&lt;"hostname.domain.com,192.168.0.1 ssh-rsa AAAAB...&gt;&gt;}</code>
 
-    <p>Returns a list of public keys and their related attributes
-    each pair of key and attributes corresponds to one entry in
-    the known hosts file.</p>
+    <p>Returns a list of public keys and their related attributes.
+    Each pair of key and attribute corresponds to one entry in
+    the known hosts file:</p>
     
     <code>2>  public_key:ssh_decode(SshBin, known_hosts).
 [{#'RSAPublicKey'{modulus = 1498979460408...72721699,
@@ -461,19 +473,19 @@ true = public_key:verify(Digest, none, Signature, PublicKey),
  {#'RSAPublicKey'{modulus = 14989794604088...2721699,
                   publicExponent = 35},
   [{comment,"foo@bar.com"},
-   {hostnames,["|1|BWO5qDxk/cFH0wa05JLdHn+j6xQ=|rXQvIxh5cDD3C43k5DPDamawVNA="]}]}]
-</code>
+   {hostnames,["|1|BWO5qDxk/cFH0wa05JLdHn+j6xQ=|rXQvIxh5cDD3C43k5DPDamawVNA="]}]}]</code>
   </section>
 
   <section>
-    <title> Authorized keys - openssh format</title>
+    <title>Authorized Keys - OpenSSH Format</title>
+    <p>Authorized keys - OpenSSH format looks as follows:</p>
 
     <code>1> {ok, SshBin} = file:read_file("auth_keys").
 {ok, &lt;&lt;"command=\"dump /home\",no-pty,no-port-forwarding ssh-rsa AAA...&gt;&gt;}</code>
 
-    <p>Returns a list of public keys and their related attributes
-    each pair of key and attributes corresponds to one entry in
-    the authorized key file.</p>
+    <p>Returns a list of public keys and their related attributes.
+    Each pair of key and attribute corresponds to one entry in
+    the authorized key file:</p>
 
     <code>2> public_key:ssh_decode(SshBin, auth_keys).
 [{#'RSAPublicKey'{modulus = 794430685...691663,
@@ -485,16 +497,15 @@ true = public_key:verify(Digest, none, Signature, PublicKey),
    #'Dss-Parms'{p = 17291273936185...763696123221,
                 q = 1255626590179665817295475654204371833735706001853,
                 g = 10454211195705...60511039590076780999046480338645}},
-  [{comment,"dhopson@VMUbuntu-DSH"}]}]
-</code>
+  [{comment,"dhopson@VMUbuntu-DSH"}]}]</code>
     </section>
 
     <section>
-      <title> Creating an SSH file from public key data </title>
+      <title>Creating an SSH File from Public-Key Data</title>
 
       <p>If you got a public key <c>PubKey</c> and a related list of
       attributes <c>Attributes</c> as returned
-      by ssh_decode/2 you can create a new ssh file for example</p>
+      by <c>ssh_decode/2</c>, you can create a new SSH file, for example:</p>
       <code>N> SshBin = public_key:ssh_encode([{PubKey, Attributes}], openssh_public_key),
 &lt;&lt;"ssh-rsa "...&gt;&gt;
 N+1> file:write_file("id_rsa.pub", SshBin).

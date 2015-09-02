@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 1997-2013. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -531,34 +532,30 @@ gen_part_decode_funcs({primitive,bif},_TypeName,
 gen_part_decode_funcs(WhatKind,_TypeName,{_,Directive,_,_}) ->
     throw({error,{asn1,{"Not implemented yet",WhatKind," partial incomplete directive:",Directive}}}).
 
-
-gen_types(Erules,Tname,{RootL1,ExtList,RootL2}) 
+%% EncDec = 'gen_encode' | 'gen_decode'
+gen_types(Erules, Tname, {RootL1,ExtList,RootL2}, EncDec)
   when is_list(RootL1), is_list(RootL2) ->
-    gen_types(Erules,Tname,RootL1),
+    gen_types(Erules, Tname, RootL1, EncDec),
     Rtmod = ct_gen_module(Erules),
-    gen_types(Erules,Tname,Rtmod:extaddgroup2sequence(ExtList)),
-    gen_types(Erules,Tname,RootL2);
-gen_types(Erules,Tname,{RootList,ExtList}) when is_list(RootList) ->
-    gen_types(Erules,Tname,RootList),
+    gen_types(Erules, Tname, Rtmod:extaddgroup2sequence(ExtList), EncDec),
+    gen_types(Erules, Tname, RootL2, EncDec);
+gen_types(Erules, Tname, {RootList,ExtList}, EncDec) when is_list(RootList) ->
+    gen_types(Erules, Tname, RootList, EncDec),
     Rtmod = ct_gen_module(Erules),
-    gen_types(Erules,Tname,Rtmod:extaddgroup2sequence(ExtList));
-gen_types(Erules,Tname,[{'EXTENSIONMARK',_,_}|Rest]) ->
-    gen_types(Erules,Tname,Rest);
-gen_types(Erules,Tname,[ComponentType|Rest]) ->
+    gen_types(Erules, Tname, Rtmod:extaddgroup2sequence(ExtList), EncDec);
+gen_types(Erules, Tname, [{'EXTENSIONMARK',_,_}|T], EncDec) ->
+    gen_types(Erules, Tname, T, EncDec);
+gen_types(Erules, Tname, [ComponentType|T], EncDec) ->
+    asn1ct_name:clear(),
     Rtmod = ct_gen_module(Erules),
+    Rtmod:EncDec(Erules, Tname, ComponentType),
+    gen_types(Erules, Tname, T, EncDec);
+gen_types(_, _, [], _) ->
+    ok;
+gen_types(Erules, Tname, #type{}=Type, EncDec) ->
     asn1ct_name:clear(),
-    Rtmod:gen_encode(Erules,Tname,ComponentType),
-    asn1ct_name:clear(),
-    Rtmod:gen_decode(Erules,Tname,ComponentType),
-    gen_types(Erules,Tname,Rest);
-gen_types(_,_,[]) ->
-    true;
-gen_types(Erules,Tname,Type) when is_record(Type,type) ->
     Rtmod = ct_gen_module(Erules),
-    asn1ct_name:clear(),
-    Rtmod:gen_encode(Erules,Tname,Type),
-    asn1ct_name:clear(),
-    Rtmod:gen_decode(Erules,Tname,Type).
+    Rtmod:EncDec(Erules, Tname, Type).
 
 %% VARIOUS GENERATOR STUFF 
 %% *************************************************
@@ -599,25 +596,25 @@ gen_encode_constructed(Erules,Typename,InnerType,D) when is_record(D,type) ->
 	'SET' ->
 	    Rtmod:gen_encode_set(Erules,Typename,D),
 	    #'SET'{components=Components} = D#type.def,
-	    gen_types(Erules,Typename,Components);
+	    gen_types(Erules, Typename, Components, gen_encode);
 	'SEQUENCE' ->
 	    Rtmod:gen_encode_sequence(Erules,Typename,D),
 	    #'SEQUENCE'{components=Components} = D#type.def,
-	    gen_types(Erules,Typename,Components);
+	    gen_types(Erules, Typename, Components, gen_encode);
 	'CHOICE' ->
 	    Rtmod:gen_encode_choice(Erules,Typename,D),
 	    {_,Components} = D#type.def,
-	    gen_types(Erules,Typename,Components);
+	    gen_types(Erules, Typename, Components, gen_encode);
 	'SEQUENCE OF' ->
 	    Rtmod:gen_encode_sof(Erules,Typename,InnerType,D),
 	    {_,Type} = D#type.def,
 	    NameSuffix = asn1ct_gen:constructed_suffix(InnerType,Type#type.def),
-	    gen_types(Erules,[NameSuffix|Typename],Type);
+	    gen_types(Erules, [NameSuffix|Typename], Type, gen_encode);
 	'SET OF' ->
 	    Rtmod:gen_encode_sof(Erules,Typename,InnerType,D),
 	    {_,Type} = D#type.def,
 	    NameSuffix = asn1ct_gen:constructed_suffix(InnerType,Type#type.def),
-	    gen_types(Erules,[NameSuffix|Typename],Type);
+	    gen_types(Erules, [NameSuffix|Typename], Type, gen_encode);
 	_ ->
 	    exit({nyi,InnerType})
     end;
@@ -630,19 +627,28 @@ gen_decode_constructed(Erules,Typename,InnerType,D) when is_record(D,type) ->
     asn1ct:step_in_constructed(), %% updates namelist for exclusive decode
     case InnerType of
 	'SET' ->
-	    Rtmod:gen_decode_set(Erules,Typename,D);
+	    Rtmod:gen_decode_set(Erules,Typename,D),
+	    #'SET'{components=Components} = D#type.def,
+	    gen_types(Erules, Typename, Components, gen_decode);
 	'SEQUENCE' ->
-	    Rtmod:gen_decode_sequence(Erules,Typename,D);
+	    Rtmod:gen_decode_sequence(Erules,Typename,D),
+	    #'SEQUENCE'{components=Components} = D#type.def,
+	    gen_types(Erules, Typename, Components, gen_decode);
 	'CHOICE' ->
-	    Rtmod:gen_decode_choice(Erules,Typename,D);
+	    Rtmod:gen_decode_choice(Erules,Typename,D),
+	    {_,Components} = D#type.def,
+	    gen_types(Erules, Typename, Components, gen_decode);
 	'SEQUENCE OF' ->
-	    Rtmod:gen_decode_sof(Erules,Typename,InnerType,D);
+	    Rtmod:gen_decode_sof(Erules,Typename,InnerType,D),
+	    {_,#type{def=Def}=Type} = D#type.def,
+	    NameSuffix = asn1ct_gen:constructed_suffix(InnerType, Def),
+	    gen_types(Erules, [NameSuffix|Typename], Type, gen_decode);
 	'SET OF' ->
-	    Rtmod:gen_decode_sof(Erules,Typename,InnerType,D);
-	_ ->
-	    exit({nyi,InnerType})
+	    Rtmod:gen_decode_sof(Erules,Typename,InnerType,D),
+	    {_,#type{def=Def}=Type} = D#type.def,
+	    NameSuffix = asn1ct_gen:constructed_suffix(InnerType, Def),
+	    gen_types(Erules, [NameSuffix|Typename], Type, gen_decode)
     end;
-
 
 gen_decode_constructed(Erules,Typename,InnerType,D) when is_record(D,typedef) ->
     gen_decode_constructed(Erules,Typename,InnerType,D#typedef.typespec).

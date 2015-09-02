@@ -1,21 +1,21 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2014. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2015. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
-%%
 -module(test_server).
 
 -define(DEFAULT_TIMETRAP_SECS, 60).
@@ -178,68 +178,35 @@ module_names(Beams) ->
 
 do_cover_compile(Modules) ->
     cover:start(),
-    pmap1(fun(M) -> do_cover_compile1(M) end,lists:usort(Modules)),
+    Sticky = prepare_cover_compile(Modules,[]),
+    R = cover:compile_beam(Modules),
+    [warn_compile(Error) || Error <- R,element(1,Error)=/=ok],
+    [code:stick_mod(M) || M <- Sticky],
     ok.
 
-do_cover_compile1(M) ->
+warn_compile({error,{Reason,Module}}) ->
+    io:fwrite("\nWARNING: Could not cover compile ~ts: ~p\n",
+	      [Module,{error,Reason}]).
+
+%% Make sure all modules are loaded and unstick if sticky
+prepare_cover_compile([M|Ms],Sticky) ->
     case {code:is_sticky(M),code:is_loaded(M)} of
 	{true,_} ->
 	    code:unstick_mod(M),
-	    case cover:compile_beam(M) of
-		{ok,_} ->
-		    ok;
-		Error ->
-		    io:fwrite("\nWARNING: Could not cover compile ~w: ~p\n",
-			      [M,Error])
-	    end,
-	    code:stick_mod(M);
+	    prepare_cover_compile(Ms,[M|Sticky]);
 	{false,false} ->
 	    case code:load_file(M) of
 		{module,_} ->
-		    do_cover_compile1(M);
+		    prepare_cover_compile([M|Ms],Sticky);
 		Error ->
-		    io:fwrite("\nWARNING: Could not load ~w: ~p\n",[M,Error])
+		    io:fwrite("\nWARNING: Could not load ~w: ~p\n",[M,Error]),
+		    prepare_cover_compile(Ms,Sticky)
 	    end;
 	{false,_} ->
-	    case cover:compile_beam(M) of
-		{ok,_} ->
-		    ok;
-		Error ->
-		    io:fwrite("\nWARNING: Could not cover compile ~w: ~p\n",
-			      [M,Error])
-	    end
-    end.
-
-pmap1(Fun,List) ->
-    NTot = length(List),
-    NProcs = erlang:system_info(schedulers) * 2,
-    NPerProc = (NTot div NProcs) + 1,
-
-    {[],Pids} =
-	lists:foldr(
-	  fun(_,{L,Ps}) ->
-		  {L1,L2} = if length(L)>=NPerProc -> lists:split(NPerProc,L);
-			       true -> {L,[]} % last chunk
-			    end,
-		  {P,_Ref} =
-		      spawn_monitor(fun() ->
-					    exit(lists:map(Fun,L1))
-				    end),
-		  {L2,[P|Ps]}
-	  end,
-	  {List,[]},
-	  lists:seq(1,NProcs)),
-    collect(Pids,[]).
-
-collect([],Acc) ->
-    lists:append(Acc);
-collect([Pid|Pids],Acc) ->
-    receive
-	{'DOWN', _Ref, process, Pid, Result} ->
-	    %% collect(lists:delete(Pid,Pids),[Result|Acc])
-	    collect(Pids,[Result|Acc])
-    end.
-
+	    prepare_cover_compile(Ms,Sticky)
+    end;
+prepare_cover_compile([],Sticky) ->
+    Sticky.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% cover_analyse(Dir,#cover{level=Analyse,mods=Modules,stop=Stop) ->
@@ -269,45 +236,40 @@ collect([Pid|Pids],Acc) ->
 %% after the test is completed.
 cover_analyse(Dir,#cover{level=Analyse,mods=Modules,stop=Stop}) ->
     io:fwrite(user, "Cover analysing... ", []),
-    DetailsFun =
+    {ATFOk,ATFFail} =
 	case Analyse of
 	    details ->
 		case cover:export(filename:join(Dir,"all.coverdata")) of
 		    ok ->
-			fun(M) ->
-				OutFile = filename:join(Dir,
-							atom_to_list(M) ++
-							".COVER.html"),
-				case cover:analyse_to_file(M,OutFile,[html]) of
-				    {ok,_} ->
-					{file,OutFile};
-				    Error ->
-					Error
-				end
-			end;
+			{result,Ok1,Fail1} =
+			    cover:analyse_to_file(Modules,[{outdir,Dir},html]),
+			{lists:map(fun(OutFile) ->
+					   M = list_to_atom(
+						 filename:basename(
+						   filename:rootname(OutFile,
+								     ".COVER.html")
+						  )
+						),
+					   {M,{file,OutFile}}
+				   end, Ok1),
+			lists:map(fun({Reason,M}) ->
+					  {M,{error,Reason}}
+				  end, Fail1)};
 		    Error ->
-			fun(_) -> Error end
+			{[],lists:map(fun(M) -> {M,Error} end, Modules)}
 		end;
 	    overview ->
 		case cover:export(filename:join(Dir,"all.coverdata")) of
 		    ok ->
-			fun(_) -> undefined end;
+			{[],lists:map(fun(M) -> {M,undefined} end, Modules)};
 		    Error ->
-			fun(_) -> Error end
+			{[],lists:map(fun(M) -> {M,Error} end, Modules)}
 		end
 	end,
-    R = pmap2(
-	  fun(M) ->
-		  case cover:analyse(M,module) of
-		      {ok,{M,{Cov,NotCov}}} ->
-			  {M,{Cov,NotCov,DetailsFun(M)}};
-		      Err ->
-			  io:fwrite(user,
-				    "\nWARNING: Analysis failed for ~w. Reason: ~p\n",
-				    [M,Err]),
-			  {M,Err}
-		  end
-	  end, Modules),
+    {result,AOk,AFail} = cover:analyse(Modules,module),
+    R0 = merge_analysis_results(AOk,ATFOk++ATFFail,[]) ++
+	[{M,{error,Reason}} || {Reason,M} <- AFail],
+    R = lists:sort(R0),
     io:fwrite(user, "done\n\n", []),
 
     case Stop of
@@ -320,19 +282,15 @@ cover_analyse(Dir,#cover{level=Analyse,mods=Modules,stop=Stop}) ->
     end,
     R.
 
-pmap2(Fun,List) ->
-    Collector = self(),
-    Pids = lists:map(fun(E) ->
-			     spawn(fun() ->
-					   Collector ! {res,self(),Fun(E)}
-				   end)
-		     end, List),
-    lists:map(fun(Pid) ->
-		      receive
-			  {res,Pid,Res} ->
-			      Res
-		      end
-	      end, Pids).
+merge_analysis_results([{M,{Cov,NotCov}}|T],ATF,Acc) ->
+    case lists:keytake(M,1,ATF) of
+	{value,{_,R},ATF1} ->
+	    merge_analysis_results(T,ATF1,[{M,{Cov,NotCov,R}}|Acc]);
+	false ->
+	    merge_analysis_results(T,ATF,Acc)
+    end;
+merge_analysis_results([],_,Acc) ->
+    Acc.
 
 do_cover_for_node(Node,CoverFunc) ->
     do_cover_for_node(Node,CoverFunc,true).
@@ -1445,7 +1403,7 @@ lookup_config(Key,Config) ->
 %% stack traces. If the name changes, get_loc/1 must be updated!
 %%
 ts_tc(M, F, A) ->
-    Before = erlang:now(),
+    Before = erlang:monotonic_time(),
     Result = try
 		 apply(M, F, A)
 	     catch
@@ -1465,12 +1423,8 @@ ts_tc(M, F, A) ->
 			     {'EXIT',Reason}
 		     end
 	     end,
-    After = erlang:now(),
-    Elapsed =
-	(element(1,After)*1000000000000
-	 +element(2,After)*1000000+element(3,After)) -
-	(element(1,Before)*1000000000000
-	 +element(2,Before)*1000000+element(3,Before)),
+    After   = erlang:monotonic_time(),
+    Elapsed = erlang:convert_time_unit(After-Before, native, micro_seconds),
     {Elapsed, Result}.
 
 set_loc(Stk) ->
@@ -1889,7 +1843,7 @@ time_ms_check(Other) ->
 time_ms_apply(Func, TCPid, MultAndScale) ->
     {_,GL} = process_info(TCPid, group_leader),
     WhoAmI = self(),				% either TC or IO server
-    T0 = now(),
+    T0 = erlang:monotonic_time(),
     UserTTSup = 
 	spawn(fun() -> 
 		      user_timetrap_supervisor(Func, WhoAmI, TCPid,
@@ -1922,7 +1876,8 @@ user_timetrap_supervisor(Func, Spawner, TCPid, GL, T0, MultAndScale) ->
     receive
 	{UserTT,Result} ->
 	    demonitor(MonRef, [flush]),
-	    Elapsed = trunc(timer:now_diff(now(), T0) / 1000),
+	    T1 = erlang:monotonic_time(),
+	    Elapsed = erlang:convert_time_unit(T1-T0, native, milli_seconds),
 	    try time_ms_check(Result) of
 		TimeVal ->
 		    %% this is the new timetrap value to set (return value
@@ -1990,7 +1945,7 @@ update_user_timetraps(TCPid, StartTime) ->
 			proplists:delete(TCPid, UserTTs)),
 		    proceed;
 		{OtherUserTTSup,OtherStartTime} ->
-		    case timer:now_diff(OtherStartTime, StartTime) of
+		    case OtherStartTime - StartTime of
 			Diff when Diff >= 0 ->
 			    ignore;
 			_ ->
@@ -2445,9 +2400,8 @@ is_release_available(Release) ->
 %%
 
 run_on_shielded_node(Fun, CArgs) when is_function(Fun), is_list(CArgs) ->
-    {A,B,C} = now(),
-    Name = "shielded_node-" ++ integer_to_list(A) ++ "-" ++ integer_to_list(B)
-	++ "-" ++ integer_to_list(C),
+    Nr = erlang:unique_integer([positive]),
+    Name = "shielded_node-" ++ integer_to_list(Nr),
     Node = case start_node(Name, slave, [{args, "-hidden " ++ CArgs}]) of
 	       {ok, N} -> N;
 	       Err -> fail({failed_to_start_shielded_node, Err})
@@ -2506,9 +2460,8 @@ is_cover(Name) ->
 %% A filename of the form <Stem><Number> is generated, and the
 %% function checks that that file doesn't already exist.
 temp_name(Stem) ->
-    {A,B,C} = erlang:now(),
-    RandomNum = A bxor B bxor C,
-    RandomName = Stem ++ integer_to_list(RandomNum),
+    Num = erlang:unique_integer([positive]),
+    RandomName = Stem ++ integer_to_list(Num),
     {ok,Files} = file:list_dir(filename:dirname(Stem)),
     case lists:member(RandomName,Files) of
 	true ->
@@ -2538,11 +2491,7 @@ appup_test(App) ->
 %% Checks wether the module is natively compiled or not.
 
 is_native(Mod) ->
-    case catch Mod:module_info(native_addresses) of
-	[_|_] -> true;
-	_Other -> false
-    end.
-
+    (catch Mod:module_info(native)) =:= true.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% comment(String) -> ok

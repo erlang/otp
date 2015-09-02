@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2002-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2015. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %%
@@ -87,7 +88,7 @@
 %% block the httpc manager process in odd cases such as trying to call
 %% a server that does not exist. (See OTP-6735) The only API function
 %% sending messages to the handler process that can be called before
-%% init has compleated is cancel and that is not a problem! (Send and
+%% init has completed is cancel and that is not a problem! (Send and
 %% stream will not be called before the first request has been sent and
 %% the reply or part of it has arrived.)
 %%--------------------------------------------------------------------
@@ -316,8 +317,9 @@ handle_call(#request{address = Addr} = Request, _,
                     {reply, ok, State}
             end;
         {error, Reason} ->
-            ?hcri("failed sending request", [{reason, Reason}]),
-            {reply, {pipeline_failed, Reason}, State0}
+		    ?hcri("failed sending request", [{reason, Reason}]),
+            NewPipeline = queue:in(Request, State0#state.pipeline),
+            {stop, shutdown, {pipeline_failed, Reason}, State0#state{pipeline = NewPipeline}}
     end;
 
 handle_call(#request{address = Addr} = Request, _, 
@@ -355,25 +357,25 @@ handle_call(#request{address = Addr} = Request, _,
 	    ?hcrd("no current request", []),
 	    cancel_timer(Timers#timers.queue_timer,
 			 timeout_queue),
+	    NewTimers = Timers#timers{queue_timer = undefined},
+	    State1 = State0#state{timers = NewTimers},
 	    Address = handle_proxy(Addr, Proxy),
 	    case httpc_request:send(Address, Session, Request) of
 		ok ->
 		    ?hcrd("request sent", []),
 
 		    %% Activate the request time out for the new request
-		    State1 =
-			activate_request_timeout(State0#state{request = Request}),
-		    NewTimers = State1#state.timers,
+		    State2 =
+			activate_request_timeout(State1#state{request = Request}),
 		    NewSession =
 			Session#session{queue_length = 1,
 					client_close = ClientClose},
 		    insert_session(NewSession, ProfileName),
-		    State = init_wait_for_response_state(Request, State1#state{session = NewSession,
-								      timers = NewTimers}),
+		    State = init_wait_for_response_state(Request, State2#state{session = NewSession}),
 		    {reply, ok, State};
 		{error, Reason} ->
 		    ?hcri("failed sending request", [{reason, Reason}]),
-		    {reply, {request_failed, Reason}, State0}
+		    {stop, shutdown, {keepalive_failed, Reason}, State1}
 	    end
     end;
 
@@ -391,7 +393,7 @@ handle_call(info, _, State) ->
 %% When the request in process has been canceled the handler process is
 %% stopped and the pipelined requests will be reissued or remaining
 %% requests will be sent on a new connection. This is is
-%% based on the assumption that it is proably cheaper to reissue the
+%% based on the assumption that it is probably cheaper to reissue the
 %% requests than to wait for a potentiall large response that we then
 %% only throw away. This of course is not always true maybe we could
 %% do something smarter here?! If the request canceled is not
@@ -419,6 +421,16 @@ handle_cast({cancel, RequestId},
                      {profile, ProfileName},
                      {canceled,   Canceled}]),
     {noreply, State#state{canceled = [RequestId | Canceled]}};
+handle_cast({cancel, RequestId},
+            #state{profile_name = ProfileName,
+                   request      = undefined,
+                   canceled     = Canceled} = State) ->
+    ?hcrv("cancel", [{request_id, RequestId},
+                     {curr_req_id, undefined},
+                     {profile, ProfileName},
+                     {canceled,   Canceled}]),
+    {noreply, State};
+
 
 handle_cast(stream_next, #state{session = Session} = State) ->
     activate_once(Session), 
@@ -1121,7 +1133,7 @@ handle_http_body(Body, #state{headers       = Headers,
                            handle_response(State#state{headers = NewHeaders,
                                                 body    = NewBody});
                         _ ->
-                           {NewBody2, NewRequest} =
+                           {NewBody2, _NewRequest} =
                                 stream(NewBody, Request, Code),
                            handle_response(State#state{headers = NewHeaders,
                                        body    = NewBody2})
@@ -1301,7 +1313,8 @@ handle_pipeline(#state{status       = pipeline,
 handle_keep_alive_queue(#state{status       = keep_alive,
 			       session      = Session,
 			       profile_name = ProfileName,
-			       options      = #options{keep_alive_timeout = TimeOut}} = State,
+			       options      = #options{keep_alive_timeout = TimeOut,
+						       proxy              = Proxy}} = State,
 			Data) ->
 
     ?hcrd("handle keep_alive", [{profile, ProfileName}, 
@@ -1322,14 +1335,15 @@ handle_keep_alive_queue(#state{status       = keep_alive,
 		      State#state{keep_alive = KeepAlive}, Data);
 		false ->
 		    ?hcrv("next request", [{request, NextRequest}]),
-		    #request{address = Address} = NextRequest,
+		    #request{address = Addr} = NextRequest,
+		    Address = handle_proxy(Addr, Proxy),
 		    case httpc_request:send(Address, Session, NextRequest) of
 			ok ->
 			    receive_response(NextRequest,
 					     Session, <<>>,
 					     State#state{keep_alive = KeepAlive});
 			{error, Reason} ->
-			    {reply, {keep_alive_failed, Reason}, State}
+			    {stop, {shutdown, {keepalive_failed, Reason}}, State}
 		    end
 	    end
     end.
@@ -1344,7 +1358,7 @@ handle_empty_queue(Session, ProfileName, TimeOut, State) ->
     %% closed by the server, the client may want to close it.
     NewState = activate_queue_timeout(TimeOut, State),
     update_session(ProfileName, Session, #session.queue_length, 0),
-    %% Note mfa will be initilized when a new request
+    %% Note mfa will be initialized when a new request
     %% arrives.
     {noreply,
      NewState#state{request     = undefined,
@@ -1387,6 +1401,8 @@ case_insensitive_header(Str) ->
 activate_once(#session{socket = Socket, socket_type = SocketType}) ->
     http_transport:setopts(SocketType, Socket, [{active, once}]).
 
+close_socket(#session{socket = {remote_close,_}}) ->
+    ok;
 close_socket(#session{socket = Socket, socket_type = SocketType}) ->
     http_transport:close(SocketType, Socket).
 
@@ -1850,6 +1866,7 @@ update_session(ProfileName, #session{id = SessionId} = Session, Pos, Value) ->
 	    Session2 = erlang:setelement(Pos, Session, Value),
 	    insert_session(Session2, ProfileName);
 	  T:E ->
+            Stacktrace = erlang:get_stacktrace(),
             error_logger:error_msg("Failed updating session: "
                                    "~n   ProfileName: ~p"
                                    "~n   SessionId:   ~p"
@@ -1873,7 +1890,7 @@ update_session(ProfileName, #session{id = SessionId} = Session, Pos, Value) ->
                    {value,      Value}, 
                    {etype,      T}, 
                    {error,      E}, 
-                   {stacktrace, erlang:get_stacktrace()}]})	    
+                   {stacktrace, Stacktrace}]})
     end.
 
 

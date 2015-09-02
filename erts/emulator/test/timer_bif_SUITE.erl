@@ -3,16 +3,17 @@
 %% 
 %% Copyright Ericsson AB 1998-2013. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %%
@@ -26,10 +27,17 @@
 	 cancel_timer_1/1,
 	 start_timer_big/1, send_after_big/1,
 	 start_timer_e/1, send_after_e/1, cancel_timer_e/1,
-	 read_timer_trivial/1, read_timer/1,
-	 cleanup/1, evil_timers/1, registered_process/1]).
+	 read_timer_trivial/1, read_timer/1, read_timer_async/1,
+	 cleanup/1, evil_timers/1, registered_process/1, same_time_yielding/1,
+	 same_time_yielding_with_cancel/1, same_time_yielding_with_cancel_other/1,
+%	 same_time_yielding_with_cancel_other_accessor/1,
+	 auto_cancel_yielding/1]).
 
 -include_lib("test_server/include/test_server.hrl").
+
+-define(SHORT_TIMEOUT, 5000). %% Bif timers as short as this may be pre-allocated
+-define(TIMEOUT_YIELD_LIMIT, 100).
+-define(AUTO_CANCEL_YIELD_LIMIT, 100).
 
 init_per_testcase(_Case, Config) ->
     ?line Dog=test_server:timetrap(test_server:seconds(30)),
@@ -45,6 +53,7 @@ end_per_testcase(_Case, Config) ->
     ok.
 
 init_per_suite(Config) ->
+    erts_debug:set_internal_state(available_internal_state, true),
     Config.
 
 end_per_suite(_Config) ->
@@ -56,8 +65,12 @@ all() ->
     [start_timer_1, send_after_1, send_after_2,
      cancel_timer_1, start_timer_e, send_after_e,
      cancel_timer_e, start_timer_big, send_after_big,
-     read_timer_trivial, read_timer, cleanup, evil_timers,
-     registered_process].
+     read_timer_trivial, read_timer, read_timer_async,
+     cleanup, evil_timers, registered_process,
+     same_time_yielding, same_time_yielding_with_cancel,
+     same_time_yielding_with_cancel_other,
+%     same_time_yielding_with_cancel_other_accessor,
+     auto_cancel_yielding].
 
 groups() -> 
     [].
@@ -162,7 +175,7 @@ cancel_timer_1(Config) when is_list(Config) ->
 start_timer_e(doc) -> ["Error cases for start_timer/3"];
 start_timer_e(Config) when is_list(Config) ->
     ?line {'EXIT', _} = (catch erlang:start_timer(-4, self(), hej)),
-    ?line {'EXIT', _} = (catch erlang:start_timer(4728472847827482,
+    ?line {'EXIT', _} = (catch erlang:start_timer(1 bsl 64,
 						  self(), hej)),
 
     ?line {'EXIT', _} = (catch erlang:start_timer(4.5, self(), hej)),
@@ -180,7 +193,7 @@ send_after_e(doc) -> ["Error cases for send_after/3"];
 send_after_e(suite) -> [];
 send_after_e(Config) when is_list(Config) ->
     ?line {'EXIT', _} = (catch erlang:send_after(-4, self(), hej)),
-    ?line {'EXIT', _} = (catch erlang:send_after(4728472847827482,
+    ?line {'EXIT', _} = (catch erlang:send_after(1 bsl 64,
 						 self(), hej)),
 
     ?line {'EXIT', _} = (catch erlang:send_after(4.5, self(), hej)),
@@ -213,20 +226,58 @@ read_timer_trivial(Config) when is_list(Config) ->
 read_timer(doc) -> ["Test that read_timer/1 seems to return the correct values."];
 read_timer(suite) -> [];
 read_timer(Config) when is_list(Config) ->
-    ?line Big = 1 bsl 31,
-    ?line R = erlang:send_after(Big, self(), hej_hopp),
+    process_flag(scheduler, 1),
+    Big = 1 bsl 31,
+    R = erlang:send_after(Big, self(), hej_hopp),
 
-    ?line receive after 200 -> ok end,		% Delay and clear reductions.
-    ?line Left = erlang:read_timer(R),
-    ?line Left = erlang:cancel_timer(R),
-    ?line false = erlang:read_timer(R),
+    receive after 200 -> ok end,		% Delay and clear reductions.
+    Left = erlang:read_timer(R),
+    Left2 = erlang:cancel_timer(R),
+    case Left == Left2 of
+	true -> ok;
+	false -> Left = Left2 + 1
+    end,
+    false = erlang:read_timer(R),
 
-    ?line case Big - Left of
-	      Diff when Diff >= 200, Diff < 10000 ->
-		  ok;
-	      _Diff ->
-		  test_server:fail({big, Big, Left})
-	  end,
+    case Big - Left of
+	Diff when Diff >= 200, Diff < 10000 ->
+	    ok;
+	_Diff ->
+	    test_server:fail({big, Big, Left})
+    end,
+    process_flag(scheduler, 0),
+    ok.
+
+read_timer_async(doc) -> ["Test that read_timer/1 seems to return the correct values."];
+read_timer_async(suite) -> [];
+read_timer_async(Config) when is_list(Config) ->
+    process_flag(scheduler, 1),
+    Big = 1 bsl 33,
+    R = erlang:send_after(Big, self(), hej_hopp),
+
+    %% Access from another scheduler
+    process_flag(scheduler, erlang:system_info(schedulers_online)),
+
+    receive after 200 -> ok end,		% Delay and clear reductions.
+    ok = erlang:read_timer(R, [{async, true}]),
+    ok = erlang:cancel_timer(R, [{async, true}, {info, true}]),
+    ok = erlang:read_timer(R, [{async, true}]),
+
+    {read_timer, R, Left} = receive_one(),
+    {cancel_timer, R, Left2} = receive_one(),
+    case Left == Left2 of
+	true -> ok;
+	false -> Left = Left2 + 1
+    end,
+    {read_timer, R, false} = receive_one(),
+
+    case Big - Left of
+	Diff when Diff >= 200, Diff < 10000 ->
+	    ok;
+	_Diff ->
+	    test_server:fail({big, Big, Left})
+    end,
+    process_flag(scheduler, 0),
     ok.
 
 cleanup(doc) -> [];
@@ -236,39 +287,42 @@ cleanup(Config) when is_list(Config) ->
     %% Timer on dead process
     ?line P1 = spawn(fun () -> ok end),
     ?line wait_until(fun () -> process_is_cleaned_up(P1) end),
-    ?line T1 = erlang:start_timer(10000, P1, "hej"),
-    ?line T2 = erlang:send_after(10000, P1, "hej"),
+    ?line T1 = erlang:start_timer(?SHORT_TIMEOUT*2, P1, "hej"),
+    ?line T2 = erlang:send_after(?SHORT_TIMEOUT*2, P1, "hej"),
+    receive after 1000 -> ok end,
     ?line Mem = mem(),
     ?line false = erlang:read_timer(T1),
     ?line false = erlang:read_timer(T2),
     ?line Mem = mem(),
     %% Process dies before timeout
-    ?line P2 = spawn(fun () -> receive after 500 -> ok end end),
-    ?line T3 = erlang:start_timer(10000, P2, "hej"),
-    ?line T4 = erlang:send_after(10000, P2, "hej"),
-    ?line true = Mem < mem(),
+    ?line P2 = spawn(fun () -> receive after (?SHORT_TIMEOUT div 10) -> ok end end),
+    ?line T3 = erlang:start_timer(?SHORT_TIMEOUT*2, P2, "hej"),
+    ?line T4 = erlang:send_after(?SHORT_TIMEOUT*2, P2, "hej"),
+    ?line true = mem_larger_than(Mem),
     ?line true = is_integer(erlang:read_timer(T3)),
     ?line true = is_integer(erlang:read_timer(T4)),
     ?line wait_until(fun () -> process_is_cleaned_up(P2) end),
+    receive after 1000 -> ok end,
     ?line false = erlang:read_timer(T3),
     ?line false = erlang:read_timer(T4),
     ?line Mem = mem(),
     %% Cancel timer
-    ?line P3 = spawn(fun () -> receive after 20000 -> ok end end),
-    ?line T5 = erlang:start_timer(10000, P3, "hej"),
-    ?line T6 = erlang:send_after(10000, P3, "hej"),
-    ?line true = Mem < mem(),
+    ?line P3 = spawn(fun () -> receive after ?SHORT_TIMEOUT*4 -> ok end end),
+    ?line T5 = erlang:start_timer(?SHORT_TIMEOUT*2, P3, "hej"),
+    ?line T6 = erlang:send_after(?SHORT_TIMEOUT*2, P3, "hej"),
+    ?line true = mem_larger_than(Mem),
     ?line true = is_integer(erlang:cancel_timer(T5)),
     ?line true = is_integer(erlang:cancel_timer(T6)),
     ?line false = erlang:read_timer(T5),
     ?line false = erlang:read_timer(T6),
     ?line exit(P3, kill),
+    ?line wait_until(fun () -> process_is_cleaned_up(P3) end),
     ?line Mem = mem(),
     %% Timeout
     ?line Ref = make_ref(),
-    ?line T7 = erlang:start_timer(500, self(), Ref),
-    ?line T8 = erlang:send_after(500, self(), Ref),
-    ?line true = Mem < mem(),
+    ?line T7 = erlang:start_timer(?SHORT_TIMEOUT+1, self(), Ref),
+    ?line T8 = erlang:send_after(?SHORT_TIMEOUT+1, self(), Ref),
+    ?line true = mem_larger_than(Mem),
     ?line true = is_integer(erlang:read_timer(T7)),
     ?line true = is_integer(erlang:read_timer(T8)),
     ?line receive {timeout, T7, Ref} -> ok end,
@@ -420,10 +474,10 @@ registered_process(suite) -> [];
 registered_process(Config) when is_list(Config) ->
     ?line Mem = mem(),
     %% Cancel
-    ?line T1 = erlang:start_timer(500, ?MODULE, "hej"),
-    ?line T2 = erlang:send_after(500, ?MODULE, "hej"),
+    ?line T1 = erlang:start_timer(?SHORT_TIMEOUT+1, ?MODULE, "hej"),
+    ?line T2 = erlang:send_after(?SHORT_TIMEOUT+1, ?MODULE, "hej"),
     ?line undefined = whereis(?MODULE),
-    ?line true = Mem < mem(),
+    ?line true = mem_larger_than(Mem),
     ?line true = is_integer(erlang:cancel_timer(T1)),
     ?line true = is_integer(erlang:cancel_timer(T2)),
     ?line false = erlang:read_timer(T1),
@@ -431,10 +485,10 @@ registered_process(Config) when is_list(Config) ->
     ?line Mem = mem(),
     %% Timeout register after start
     ?line Ref1 = make_ref(),
-    ?line T3 = erlang:start_timer(500, ?MODULE, Ref1),
-    ?line T4 = erlang:send_after(500, ?MODULE, Ref1),
+    ?line T3 = erlang:start_timer(?SHORT_TIMEOUT+1, ?MODULE, Ref1),
+    ?line T4 = erlang:send_after(?SHORT_TIMEOUT+1, ?MODULE, Ref1),
     ?line undefined = whereis(?MODULE),
-    ?line true = Mem < mem(),
+    ?line true = mem_larger_than(Mem),
     ?line true = is_integer(erlang:read_timer(T3)),
     ?line true = is_integer(erlang:read_timer(T4)),
     ?line true = register(?MODULE, self()),
@@ -443,9 +497,9 @@ registered_process(Config) when is_list(Config) ->
     ?line Mem = mem(),
     %% Timeout register before start
     ?line Ref2 = make_ref(),
-    ?line T5 = erlang:start_timer(500, ?MODULE, Ref2),
-    ?line T6 = erlang:send_after(500, ?MODULE, Ref2),
-    ?line true = Mem < mem(),
+    ?line T5 = erlang:start_timer(?SHORT_TIMEOUT+1, ?MODULE, Ref2),
+    ?line T6 = erlang:send_after(?SHORT_TIMEOUT+1, ?MODULE, Ref2),
+    ?line true = mem_larger_than(Mem),
     ?line true = is_integer(erlang:read_timer(T5)),
     ?line true = is_integer(erlang:read_timer(T6)),
     ?line receive {timeout, T5, Ref2} -> ok end,
@@ -454,10 +508,133 @@ registered_process(Config) when is_list(Config) ->
     ?line true = unregister(?MODULE),
     ?line ok.
 
-mem() ->
-    AA = erlang:system_info(allocated_areas),
-    {value,{bif_timer,Mem}} = lists:keysearch(bif_timer, 1, AA),
-    Mem.
+same_time_yielding(Config) when is_list(Config) ->
+    Mem = mem(),
+    SchdlrsOnln = erlang:system_info(schedulers_online),
+    Tmo = erlang:monotonic_time(milli_seconds) + 3000,
+    Tmrs = lists:map(fun (I) ->
+			     process_flag(scheduler, (I rem SchdlrsOnln) + 1),
+			     erlang:start_timer(Tmo, self(), hej, [{abs, true}])
+		     end,
+		     lists:seq(1, (?TIMEOUT_YIELD_LIMIT*3+1)*SchdlrsOnln)),
+    true = mem_larger_than(Mem),
+    lists:foreach(fun (Tmr) -> receive {timeout, Tmr, hej} -> ok end end, Tmrs),
+    Done = erlang:monotonic_time(milli_seconds),
+    true = Done >= Tmo,
+    case erlang:system_info(build_type) of
+	opt -> true = Done < Tmo + 200;
+	_ -> true = Done < Tmo + 1000
+    end,
+    Mem = mem(),
+    ok.
+
+same_time_yielding_with_cancel(Config) when is_list(Config) ->
+    same_time_yielding_with_cancel_test(false, false).
+
+same_time_yielding_with_cancel_other(Config) when is_list(Config) ->
+    same_time_yielding_with_cancel_test(true, false).
+
+%same_time_yielding_with_cancel_other_accessor(Config) when is_list(Config) ->
+%    same_time_yielding_with_cancel_test(true, true).
+
+do_cancel_tmrs(Tmo, Tmrs, Tester) ->
+    BeginCancel = erlang:convert_time_unit(Tmo,
+					   milli_seconds,
+					   micro_seconds) - 100,
+    busy_wait_until(fun () ->
+			    erlang:monotonic_time(micro_seconds) >= BeginCancel
+		    end),
+    lists:foreach(fun (Tmr) ->
+			  erlang:cancel_timer(Tmr,
+					      [{async, true},
+					       {info, true}])
+		  end, Tmrs),
+    case Tester == self() of
+	true -> ok;
+	false -> forward_msgs(Tester)
+    end.
+
+same_time_yielding_with_cancel_test(Other, Accessor) ->
+    Mem = mem(),
+    SchdlrsOnln = erlang:system_info(schedulers_online),
+    Tmo = erlang:monotonic_time(milli_seconds) + 3000,
+    Tester = self(),
+    Cancelor = case Other of
+		   false ->
+		       Tester;
+		   true ->
+		       spawn(fun () ->
+				     receive
+					 {timers, Tmrs} ->
+					     do_cancel_tmrs(Tmo, Tmrs, Tester)
+				     end
+			     end)
+	       end,
+    Opts = case Accessor of
+	       false -> [{abs, true}];
+	       true -> [{accessor, Cancelor}, {abs, true}]
+	   end,
+    Tmrs = lists:map(fun (I) ->
+			     process_flag(scheduler, (I rem SchdlrsOnln) + 1),
+			     erlang:start_timer(Tmo, self(), hej, Opts)
+		     end,
+		     lists:seq(1, (?TIMEOUT_YIELD_LIMIT*3+1)*SchdlrsOnln)),
+    true = mem_larger_than(Mem),
+    case Other of
+	false ->
+	    do_cancel_tmrs(Tmo, Tmrs, Tester);
+	true ->
+	    Cancelor ! {timers, Tmrs}
+    end,
+    {Tmos, Cncls} = lists:foldl(fun (Tmr, {T, C}) ->
+					receive
+					    {timeout, Tmr, hej} ->
+						receive
+						    {cancel_timer, Tmr, Info} ->
+							false = Info,
+							{T+1, C}
+						end;
+					    {cancel_timer, Tmr, false} ->
+						receive
+						    {timeout, Tmr, hej} ->
+							{T+1, C}
+						end;
+					    {cancel_timer, Tmr, TimeLeft} ->
+						true = is_integer(TimeLeft),
+						{T, C+1}
+					end
+				end,
+				{0, 0},
+				Tmrs),
+    io:format("Timeouts: ~p Cancels: ~p~n", [Tmos, Cncls]),
+    Mem = mem(),
+    case Other of
+	true -> exit(Cancelor, bang);
+	false -> ok
+    end,
+    {comment,
+     "Timeouts: " ++ integer_to_list(Tmos) ++ " Cancels: "
+     ++ integer_to_list(Cncls)}.
+
+auto_cancel_yielding(Config) when is_list(Config) ->
+    Mem = mem(),
+    SchdlrsOnln = erlang:system_info(schedulers_online),
+    P = spawn(fun () ->
+		      lists:foreach(
+			fun (I) ->
+				process_flag(scheduler, (I rem SchdlrsOnln)+1),
+				erlang:start_timer((1 bsl 28)+I*10, self(), hej)
+			end,
+			lists:seq(1,
+				  ((?AUTO_CANCEL_YIELD_LIMIT*3+1)
+				   *SchdlrsOnln))),
+		      receive after infinity -> ok end
+	      end),
+    true = mem_larger_than(Mem),
+    exit(P, bang),
+    wait_until(fun () -> process_is_cleaned_up(P) end),
+    Mem = mem(),
+    ok.
 
 process_is_cleaned_up(P) when is_pid(P) ->
     undefined == erts_debug:get_internal_state({process_status, P}).
@@ -467,6 +644,19 @@ wait_until(Pred) when is_function(Pred) ->
 	true -> ok;
 	_ -> receive after 50 -> ok end, wait_until(Pred)
     end.
+
+busy_wait_until(Pred) when is_function(Pred) ->
+    case catch Pred() of
+	true -> ok;
+	_ -> busy_wait_until(Pred)
+    end.
+
+forward_msgs(To) ->
+    receive
+	Msg ->
+	    To ! Msg
+    end,
+    forward_msgs(To).
 
 get(Time, Msg) ->
     receive 
@@ -486,9 +676,10 @@ get_msg() ->
     end.
 
 start_slave() ->
-    ?line {A, B, C} = now(),
     ?line Pa = filename:dirname(code:which(?MODULE)),
-    ?line Name = atom_to_list(?MODULE) ++ "-" ++ integer_to_list(A+B+C),
+    ?line Name = atom_to_list(?MODULE)
+	++ "-" ++ integer_to_list(erlang:system_time(seconds))
+	++ "-" ++ integer_to_list(erlang:unique_integer([positive])),
     {ok, Node} = ?t:start_node(Name, slave, [{args, "-pa " ++ Pa}]),
     Node.
 
@@ -549,5 +740,58 @@ type(X) when is_port(X) -> {port, node(X)};
 type(X) when is_binary(X) -> binary;
 type(X) when is_atom(X) -> atom;
 type(_) -> unknown.
-    
 
+
+mem_larger_than(no_fix_alloc) ->
+    true;
+mem_larger_than(Mem) ->
+    mem() > Mem.
+
+mem() ->
+    erts_debug:set_internal_state(wait, timer_cancellations),
+    erts_debug:set_internal_state(wait, deallocations),
+    case mem_get() of
+	{-1, -1} -> no_fix_alloc;
+	{A, U} -> io:format("mem = ~p ~p~n", [A, U]), U
+    end.
+
+mem_get() ->
+    % Bif timer memory
+    Ref = make_ref(),
+    erlang:system_info({memory_internal, Ref, [fix_alloc]}),
+    mem_recv(erlang:system_info(schedulers), Ref, {0, 0}).
+
+mem_recv(0, _Ref, AU) ->
+    AU;
+mem_recv(N, Ref, AU) ->
+    receive
+	{Ref, _, IL} ->
+	    mem_recv(N-1, Ref, mem_parse_ilists(IL, AU))
+    end.
+
+
+mem_parse_ilists([], AU) ->
+    AU;
+mem_parse_ilists([I|Is], AU) ->
+    mem_parse_ilists(Is, mem_parse_ilist(I, AU)).
+
+mem_parse_ilist({fix_alloc, false}, _) ->
+    {-1, -1};
+mem_parse_ilist({fix_alloc, _, IDL}, {A, U}) ->
+    case lists:keyfind(fix_types, 1, IDL) of
+	{fix_types, TL} ->
+	    {ThisA, ThisU} = mem_get_btm_aus(TL, 0, 0),
+	    {ThisA + A, ThisU + U};
+	{fix_types, Mask, TL} ->
+	    {ThisA, ThisU} = mem_get_btm_aus(TL, 0, 0),
+	    {(ThisA + A) band Mask , (ThisU + U) band Mask}
+    end.
+
+mem_get_btm_aus([], A, U) ->
+    {A, U};
+mem_get_btm_aus([{BtmType, BtmA, BtmU} | Types],
+	    A, U) when BtmType == bif_timer;
+		       BtmType == accessor_bif_timer ->
+    mem_get_btm_aus(Types, BtmA+A, BtmU+U);
+mem_get_btm_aus([_|Types], A, U) ->
+    mem_get_btm_aus(Types, A, U).

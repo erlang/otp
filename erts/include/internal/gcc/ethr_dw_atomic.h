@@ -1,52 +1,57 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2011. All Rights Reserved.
+ * Copyright Ericsson AB 2011-2015. All Rights Reserved.
  *
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  * %CopyrightEnd%
  */
 
 /*
- * Description: Native double word atomics using gcc's builtins
+ * Description: Native double word atomics using gcc's __atomic
+ *              and __sync builtins
  * Author: Rickard Green
+ *
+ * Note: The C11 memory model implemented by gcc's __atomic
+ *       builtins does not match the ethread API very well.
+ *
+ *       Due to this we cannot use the __ATOMIC_SEQ_CST
+ *       memory model. For more information see the comment
+ *       in the begining of ethr_membar.h in this directory.
  */
 
 #undef ETHR_INCLUDE_DW_ATOMIC_IMPL__
-#ifndef ETHR_GCC_DW_ATOMIC_H__
-#  define ETHR_GCC_DW_ATOMIC_H__
-#  if ((ETHR_SIZEOF_PTR == 4 \
-        && defined(ETHR_HAVE___SYNC_VAL_COMPARE_AND_SWAP64)) \
-       || (ETHR_SIZEOF_PTR == 8 \
-           && defined(ETHR_HAVE___SYNC_VAL_COMPARE_AND_SWAP128) \
-	   && defined(ETHR_HAVE_INT128_T)))
-#    define ETHR_INCLUDE_DW_ATOMIC_IMPL__
-#  endif
+#if !defined(ETHR_GCC_ATOMIC_DW_ATOMIC_H__)				\
+    && ((ETHR_HAVE___sync_val_compare_and_swap & (2*ETHR_SIZEOF_PTR))	\
+	|| (ETHR_HAVE___atomic_compare_exchange_n & (2*ETHR_SIZEOF_PTR)))
+#  define ETHR_GCC_ATOMIC_DW_ATOMIC_H__
+#  define ETHR_INCLUDE_DW_ATOMIC_IMPL__
 #endif
 
 #ifdef ETHR_INCLUDE_DW_ATOMIC_IMPL__
 #  define ETHR_HAVE_NATIVE_SU_DW_ATOMIC
-#  define ETHR_NATIVE_DW_ATOMIC_IMPL "gcc"
 
-#  if defined(__i386__) || defined(__x86_64__)
-/*
- * If ETHR_RTCHK_USE_NATIVE_DW_ATOMIC_IMPL__ is defined, it will be used
- * at runtime in order to determine if native or fallback implementation
- * should be used.
- */
-#    define ETHR_RTCHK_USE_NATIVE_DW_ATOMIC_IMPL__ \
-       ETHR_X86_RUNTIME_CONF_HAVE_DW_CMPXCHG__
-#  endif
+#if ((ETHR_HAVE___sync_val_compare_and_swap & (2*ETHR_SIZEOF_PTR))	\
+     && (ETHR_HAVE___atomic_compare_exchange_n & (2*ETHR_SIZEOF_PTR)))
+#  define ETHR_NATIVE_DW_ATOMIC_IMPL "gcc_atomic_and_sync_builtins"
+#elif (ETHR_HAVE___atomic_compare_exchange_n & (2*ETHR_SIZEOF_PTR))
+#  define ETHR_NATIVE_DW_ATOMIC_IMPL "gcc_atomic_builtins"
+#elif (ETHR_HAVE___sync_val_compare_and_swap & (2*ETHR_SIZEOF_PTR))
+#  define ETHR_NATIVE_DW_ATOMIC_IMPL "gcc_sync_builtins"
+#else
+#  error "!?"
+#endif
 
 #  if ETHR_SIZEOF_PTR == 4
 #    define ETHR_DW_NATMC_ALIGN_MASK__ 0x7
@@ -89,15 +94,138 @@ typedef union {
 #    define ETHR_DW_DBG_ALIGNED__(PTR)
 #  endif
 
-#define ETHR_HAVE_ETHR_NATIVE_DW_ATOMIC_ADDR
+
+#define ETHR_HAVE_ETHR_NATIVE_DW_ATOMIC_ADDR 1
+
 static ETHR_INLINE ethr_sint_t *
 ethr_native_dw_atomic_addr(ethr_native_dw_atomic_t *var)
 {
     return (ethr_sint_t *) ETHR_DW_NATMC_MEM__(var);
 }
 
+#if (ETHR_HAVE___atomic_store_n & (2*ETHR_SIZEOF_PTR))
 
-#define ETHR_HAVE_ETHR_NATIVE_SU_DW_ATOMIC_CMPXCHG_MB
+#if (ETHR_GCC_RELAXED_VERSIONS__ & (2*ETHR_SIZEOF_PTR))
+
+#define ETHR_HAVE_ETHR_NATIVE_SU_DW_ATOMIC_SET 1
+
+static ETHR_INLINE void
+ethr_native_su_dw_atomic_set(ethr_native_dw_atomic_t *var,
+			     ETHR_NATIVE_SU_DW_SINT_T value)
+{
+    ethr_native_dw_ptr_t p = (ethr_native_dw_ptr_t) ETHR_DW_NATMC_MEM__(var);
+    ETHR_DW_DBG_ALIGNED__(p);
+    __atomic_store_n(p, value, __ATOMIC_RELAXED);
+}
+
+#endif /* ETHR_GCC_RELAXED_VERSIONS__ */
+
+#if (ETHR_GCC_RELB_VERSIONS__ & (2*ETHR_SIZEOF_PTR))
+
+#define ETHR_HAVE_ETHR_NATIVE_SU_DW_ATOMIC_SET_RELB 1
+
+static ETHR_INLINE void
+ethr_native_su_dw_atomic_set_relb(ethr_native_dw_atomic_t *var,
+				  ETHR_NATIVE_SU_DW_SINT_T value)
+{
+    ethr_native_dw_ptr_t p = (ethr_native_dw_ptr_t) ETHR_DW_NATMC_MEM__(var);
+    ETHR_DW_DBG_ALIGNED__(p);
+    __atomic_store_n(p, value, __ATOMIC_RELEASE);
+}
+
+#endif /* ETHR_GCC_RELB_VERSIONS__ */
+
+#endif /* ETHR_HAVE___atomic_store_n */
+
+#if (ETHR_HAVE___atomic_load_n & (2*ETHR_SIZEOF_PTR))
+
+#if (ETHR_GCC_RELAXED_VERSIONS__ & (2*ETHR_SIZEOF_PTR))
+
+#define ETHR_HAVE_ETHR_NATIVE_SU_DW_ATOMIC_READ 1
+
+static ETHR_INLINE ETHR_NATIVE_SU_DW_SINT_T
+ethr_native_su_dw_atomic_read(ethr_native_dw_atomic_t *var)
+{
+    ethr_native_dw_ptr_t p = (ethr_native_dw_ptr_t) ETHR_DW_NATMC_MEM__(var);
+    ETHR_DW_DBG_ALIGNED__(p);
+    return __atomic_load_n(p, __ATOMIC_RELAXED);
+}
+
+#endif /* ETHR_GCC_RELAXED_VERSIONS__ */
+
+#if ((ETHR_GCC_ACQB_VERSIONS__ & (2*ETHR_SIZEOF_PTR))	\
+     & ~ETHR___atomic_load_ACQUIRE_barrier_bug)
+
+#define ETHR_HAVE_ETHR_NATIVE_SU_DW_ATOMIC_READ_ACQB 1
+
+static ETHR_INLINE ETHR_NATIVE_SU_DW_SINT_T
+ethr_native_su_dw_atomic_read_acqb(ethr_native_dw_atomic_t *var)
+{
+    ethr_native_dw_ptr_t p = (ethr_native_dw_ptr_t) ETHR_DW_NATMC_MEM__(var);
+    ETHR_DW_DBG_ALIGNED__(p);
+    return __atomic_load_n(p, __ATOMIC_ACQUIRE);
+}
+
+#endif /* ETHR_GCC_ACQB_VERSIONS__ */
+
+#endif /* ETHR_HAVE___atomic_load_n */
+
+#if (ETHR_HAVE___atomic_compare_exchange_n & (2*ETHR_SIZEOF_PTR))
+
+#if (ETHR_GCC_RELAXED_MOD_VERSIONS__ & (2*ETHR_SIZEOF_PTR))
+
+#define ETHR_HAVE_ETHR_NATIVE_SU_DW_ATOMIC_CMPXCHG 1
+
+static ETHR_INLINE ETHR_NATIVE_SU_DW_SINT_T
+ethr_native_su_dw_atomic_cmpxchg(ethr_native_dw_atomic_t *var,
+				 ETHR_NATIVE_SU_DW_SINT_T new,
+				 ETHR_NATIVE_SU_DW_SINT_T exp)
+{
+    ethr_native_dw_ptr_t p = (ethr_native_dw_ptr_t) ETHR_DW_NATMC_MEM__(var);
+    ETHR_NATIVE_SU_DW_SINT_T xchg = exp;
+    ETHR_DW_DBG_ALIGNED__(p);
+    if (__atomic_compare_exchange_n(p,
+				    &xchg,
+				    new,
+				    0,
+				    __ATOMIC_RELAXED,
+				    __ATOMIC_RELAXED))
+	return exp;
+    return xchg;
+}
+
+#endif /* ETHR_GCC_RELAXED_MOD_VERSIONS__ */
+
+#if (ETHR_GCC_ACQB_MOD_VERSIONS__ & (2*ETHR_SIZEOF_PTR))
+
+#define ETHR_HAVE_ETHR_NATIVE_SU_DW_ATOMIC_CMPXCHG_ACQB 1
+
+static ETHR_INLINE ETHR_NATIVE_SU_DW_SINT_T
+ethr_native_su_dw_atomic_cmpxchg_acqb(ethr_native_dw_atomic_t *var,
+				      ETHR_NATIVE_SU_DW_SINT_T new,
+				      ETHR_NATIVE_SU_DW_SINT_T exp)
+{
+    ethr_native_dw_ptr_t p = (ethr_native_dw_ptr_t) ETHR_DW_NATMC_MEM__(var);
+    ETHR_NATIVE_SU_DW_SINT_T xchg = exp;
+    ETHR_DW_DBG_ALIGNED__(p);
+    if (__atomic_compare_exchange_n(p,
+				    &xchg,
+				    new,
+				    0,
+				    __ATOMIC_ACQUIRE,
+				    __ATOMIC_ACQUIRE))
+	return exp;
+    return xchg;
+}
+
+#endif /* ETHR_GCC_ACQB_MOD_VERSIONS__ */
+
+#endif /* ETHR_HAVE___atomic_compare_exchange_n */
+
+#if ((ETHR_HAVE___sync_val_compare_and_swap & (2*ETHR_SIZEOF_PTR)) \
+     & ETHR_GCC_MB_MOD_VERSIONS__)
+
+#define ETHR_HAVE_ETHR_NATIVE_SU_DW_ATOMIC_CMPXCHG_MB 1
 
 static ETHR_INLINE ETHR_NATIVE_SU_DW_SINT_T
 ethr_native_su_dw_atomic_cmpxchg_mb(ethr_native_dw_atomic_t *var,
@@ -109,7 +237,8 @@ ethr_native_su_dw_atomic_cmpxchg_mb(ethr_native_dw_atomic_t *var,
     return __sync_val_compare_and_swap(p, old, new);
 }
 
+#endif /* ETHR_HAVE___sync_val_compare_and_swap */
+
 #endif /* ETHR_TRY_INLINE_FUNCS */
 
-#endif /* ETHR_GCC_DW_ATOMIC_H__ */
-
+#endif /* ETHR_INCLUDE_DW_ATOMIC_IMPL__ */

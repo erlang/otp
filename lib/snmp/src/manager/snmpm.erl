@@ -3,16 +3,17 @@
 %% 
 %% Copyright Ericsson AB 2004-2014. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %% 
@@ -520,7 +521,7 @@ sync_get(UserId, TargetName, Context, Oids, Timeout, ExtraInfo) ->
 
 
 
-%% --- asynchroneous get-request ---
+%% --- asynchronous get-request ---
 %% 
 %% The reply will be delivered to the user
 %% through a call to handle_pdu/5
@@ -588,7 +589,7 @@ sync_get_next(UserId, TargetName, Context, Oids, Timeout, ExtraInfo) ->
 %% </BACKWARD-COMPAT>
 
 
-%% --- asynchroneous get_next-request ---
+%% --- asynchronous get_next-request ---
 %% 
 
 async_get_next2(UserId, TargetName, Oids) ->
@@ -654,7 +655,7 @@ sync_set(UserId, TargetName, Context, VarsAndVals, Timeout, ExtraInfo) ->
 %% </BACKWARD-COMPAT>
 
 
-%% --- asynchroneous set-request --- 
+%% --- asynchronous set-request ---
 %% 
 
 async_set2(UserId, TargetName, VarsAndVals) ->
@@ -746,7 +747,7 @@ sync_get_bulk(UserId, TargetName, NonRep, MaxRep, Context, Oids, Timeout,
 %% </BACKWARD-COMPAT>
 
 
-%% --- asynchroneous get-bulk ---
+%% --- asynchronous get-bulk ---
 %% 
 
 async_get_bulk2(UserId, TargetName, NonRep, MaxRep, Oids) ->

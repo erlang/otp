@@ -3,16 +3,17 @@
  *
  * Copyright Ericsson AB 2009-2014. All Rights Reserved.
  *
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  * %CopyrightEnd%
  */
@@ -46,9 +47,10 @@
 **           remove enif_schedule_dirty_nif, enif_schedule_dirty_nif_finalizer, enif_dirty_nif_finalizer
 **           add ErlNifEntry options
 **           add ErlNifFunc flags
+** 2.8: 18.0 add enif_has_pending_exception
 */
 #define ERL_NIF_MAJOR_VERSION 2
-#define ERL_NIF_MINOR_VERSION 7
+#define ERL_NIF_MINOR_VERSION 8
 
 /*
  * The emulator will refuse to load a nif-lib with a major version
@@ -201,16 +203,28 @@ typedef enum
 typedef struct /* All fields all internal and may change */
 {
     ERL_NIF_TERM map;
-    ERL_NIF_UINT t_limit;
+    ERL_NIF_UINT size;
     ERL_NIF_UINT idx;
-    ERL_NIF_TERM *ks;
-    ERL_NIF_TERM *vs;
+    union {
+        struct {
+            ERL_NIF_TERM *ks;
+            ERL_NIF_TERM *vs;
+        }flat;
+        struct {
+            struct ErtsDynamicWStack_* wstack;
+            ERL_NIF_TERM* kv;
+        }hash;
+    }u;
     void* __spare__[2]; /* for future additions to be ABI compatible (same struct size) */
 } ErlNifMapIterator;
 
 typedef enum {
-    ERL_NIF_MAP_ITERATOR_HEAD = 1,
-    ERL_NIF_MAP_ITERATOR_TAIL = 2
+    ERL_NIF_MAP_ITERATOR_FIRST = 1,
+    ERL_NIF_MAP_ITERATOR_LAST = 2,
+
+    /* deprecated synonyms (undocumented in 17 and 18-rc) */
+    ERL_NIF_MAP_ITERATOR_HEAD = ERL_NIF_MAP_ITERATOR_FIRST,
+    ERL_NIF_MAP_ITERATOR_TAIL = ERL_NIF_MAP_ITERATOR_LAST
 } ErlNifMapIteratorEntry;
 
 #if (defined(__WIN32__) || defined(_WIN32) || defined(_WIN32_))

@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 2002-2013. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -21,112 +22,10 @@
 
 -export([module/2]).
 
-%%% The following optimisations are done:
-%%%
-%%% (1) In this code
-%%%
-%%%     	move DeadValue {x,0}
-%%%     	jump L2
-%%%        .
-%%%        .
-%%%        .
-%%%     L2:	move Anything {x,0}
-%%%        .
-%%%        .
-%%%        .
-%%%
-%%%     the first assignment to {x,0} has no effect (is dead),
-%%%     so it can be removed. Besides removing a move instruction,
-%%%     if the move was preceeded by a label, the resulting code
-%%%	will look this
-%%%
-%%%     L1:	jump L2
-%%%        .
-%%%        .
-%%%        .
-%%%     L2:	move Anything {x,0}
-%%%        .
-%%%        .
-%%%        .
-%%%
-%%%	which can be further optimized by the jump optimizer (beam_jump).
-%%%
-%%% (2) In this code
-%%%
-%%%     L1:	move AtomLiteral {x,0}
-%%%     	jump L2
-%%%        .
-%%%        .
-%%%        .
-%%%     L2:	test is_atom FailLabel {x,0}
-%%%    		select_val {x,0}, FailLabel [... AtomLiteral => L3...]
-%%%        .
-%%%        .
-%%%        .
-%%%	L3:	...
-%%%
-%%%     FailLabel: ...
-%%%
-%%%	the first code fragment can be changed to
-%%%
-%%%     L1:	move AtomLiteral {x,0}
-%%%     	jump L3
-%%%
-%%%     If the literal is not included in the table of literals in the
-%%%     select_val instruction, the first code fragment will instead be
-%%%     rewritten as:
-%%%
-%%%     L1:	move AtomLiteral {x,0}
-%%%     	jump FailLabel
-%%%
-%%%	The move instruction will be removed by optimization (1) above,
-%%%	if the code following the L3 label overwrites {x,0}.
-%%%
-%%% 	The code following the L2 label will be kept, but it will be removed later
-%%%	by the jump optimizer.
-%%%
-%%% (3) In this code
-%%%
-%%%     	test is_eq_exact ALabel Src Dst
-%%%     	move Src Dst
-%%%
-%%%	the move instruction can be removed.
-%%%     Same thing for
-%%%
-%%%     	test is_nil ALabel Dst
-%%%     	move [] Dst
-%%%
-%%%
-%%% (4) In this code
-%%%
-%%%    		select_val {x,Reg}, ALabel [... Literal => L1...]
-%%%        .
-%%%        .
-%%%        .
-%%%	L1:	move Literal {x,Reg}
-%%%
-%%%     we can remove the move instruction.
-%%%
-%%% (5) In the following code
-%%%
-%%%     	bif '=:=' Fail Src1 Src2 {x,0}
-%%%    		jump L1
-%%%	   .
-%%%	   .
-%%%	   .
-%%%        L1:	select_val {x,0}, ALabel [... true => L2..., ...false => L3...]
-%%%	   .
-%%%	   .
-%%%	   .
-%%%        L2: ....      L3: ....
-%%%
-%%%  the first two instructions can be replaced with
-%%%
-%%%		test is_eq_exact L3 Src1 Src2
-%%%		jump L2
-%%%
-%%%  provided that {x,0} is killed at both L2 and L3.
-%%%
+%%% Dead code is code that is executed but has no effect. This
+%%% optimization pass either removes dead code or jumps around it,
+%%% potentially making it unreachable and a target for the
+%%% the beam_jump pass.
 
 -import(lists, [mapfoldl/3,reverse/1]).
 
@@ -173,12 +72,39 @@ move_move_into_block([I|Is], Acc) ->
 move_move_into_block([], Acc) -> reverse(Acc).
 
 %%%
-%%% Scan instructions in execution order and remove dead code.
+%%% Scan instructions in execution order and remove redundant 'move'
+%%% instructions. 'move' instructions are redundant if we know that
+%%% the register already contains the value being assigned, as in the
+%%% following code:
+%%%
+%%%           test is_eq_exact SomeLabel Src Dst
+%%%           move Src Dst
+%%%
+%%% or in:
+%%%
+%%%           test is_nil SomeLabel Dst
+%%%           move nil Dst
+%%%
+%%% or in:
+%%%
+%%%           select_val Register FailLabel [... Literal => L1...]
+%%%                      .
+%%%                      .
+%%%                      .
+%%%   L1:     move Literal Register
+%%%
+%%% Also add extra labels to help the second backward pass.
 %%%
 
 forward(Is, Lc) ->
-    forward(Is, gb_trees:empty(), Lc, []).
+    forward(Is, #{}, Lc, []).
 
+forward([{move,_,_}=Move|[{label,L}|_]=Is], D, Lc, Acc) ->
+    %% move/2 followed by jump/1 is optimized by backward/3.
+    forward([Move,{jump,{f,L}}|Is], D, Lc, Acc);
+forward([{bif,_,_,_,_}=Bif|[{label,L}|_]=Is], D, Lc, Acc) ->
+    %% bif/4 followed by jump/1 is optimized by backward/3.
+    forward([Bif,{jump,{f,L}}|Is], D, Lc, Acc);
 forward([{block,[]}|Is], D, Lc, Acc) ->
     %% Empty blocks can prevent optimizations.
     forward(Is, D, Lc, Acc);
@@ -190,21 +116,24 @@ forward([{label,Lbl}=LblI,{block,[{set,[Dst],[Lit],move}|BlkIs]}=Blk|Is], D, Lc,
     %% cannot be reached in any other way than through the select_val/3
     %% instruction (i.e. there can be no fallthrough to such label and
     %% it cannot be referenced by, for example, a jump/1 instruction).
-    Block = case gb_trees:lookup({Lbl,Dst}, D) of
-		{value,Lit} -> {block,BlkIs}; %Safe to remove move instruction.
-		_ -> Blk		      %Must keep move instruction.
-	    end,
+    Key = {Lbl,Dst},
+    Block = case D of
+                #{Key := Lit} -> {block,BlkIs}; %Safe to remove move instruction.
+                _ -> Blk                        %Must keep move instruction.
+            end,
     forward([Block|Is], D, Lc, [LblI|Acc]);
 forward([{label,Lbl}=LblI|[{move,Lit,Dst}|Is1]=Is0], D, Lc, Acc) ->
     %% Assumption: The target labels in a select_val/3 instruction
     %% cannot be reached in any other way than through the select_val/3
     %% instruction (i.e. there can be no fallthrough to such label and
     %% it cannot be referenced by, for example, a jump/1 instruction).
-    Is = case gb_trees:lookup({Lbl,Dst}, D) of
-	     {value,Lit} -> Is1;     %Safe to remove move instruction.
-	     _ -> Is0		     %Keep move instruction.
+    Is = case maps:find({Lbl,Dst}, D) of
+	     {ok,Lit} -> Is1;     %Safe to remove move instruction.
+	     _ -> Is0		  %Keep move instruction.
 	 end,
     forward(Is, D, Lc, [LblI|Acc]);
+forward([{test,is_eq_exact,_,[Same,Same]}|Is], D, Lc, Acc) ->
+    forward(Is, D, Lc, Acc);
 forward([{test,is_eq_exact,_,[Dst,Src]}=I,
 	 {block,[{set,[Dst],[Src],move}|Bl]}|Is], D, Lc, Acc) ->
     forward([I,{block,Bl}|Is], D, Lc, Acc);
@@ -215,15 +144,13 @@ forward([{test,is_eq_exact,_,[Dst,Src]}=I,{move,Src,Dst}|Is], D, Lc, Acc) ->
     forward([I|Is], D, Lc, Acc);
 forward([{test,is_nil,_,[Dst]}=I,{move,nil,Dst}|Is], D, Lc, Acc) ->
     forward([I|Is], D, Lc, Acc);
-forward([{test,is_eq_exact,_,_}=I|Is], D, Lc, Acc) ->
-    case Is of
-	[{label,_}|_] -> forward(Is, D, Lc, [I|Acc]);
-	_ -> forward(Is, D, Lc+1, [{label,Lc},I|Acc])
-    end;
-forward([{test,is_ne_exact,_,_}=I|Is], D, Lc, Acc) ->
-    case Is of
-	[{label,_}|_] -> forward(Is, D, Lc, [I|Acc]);
-	_ -> forward(Is, D, Lc+1, [{label,Lc},I|Acc])
+forward([{test,_,_,_}=I|Is]=Is0, D, Lc, Acc) ->
+    %% Help the second, backward pass to by inserting labels after
+    %% relational operators so that they can be skipped if they are
+    %% known to be true.
+    case useful_to_insert_label(Is0) of
+	false -> forward(Is, D, Lc, [I|Acc]);
+	true -> forward(Is, D, Lc+1, [{label,Lc},I|Acc])
     end;
 forward([I|Is], D, Lc, Acc) ->
     forward(Is, D, Lc, [I|Acc]);
@@ -231,17 +158,57 @@ forward([], _, Lc, Acc) -> {Acc,Lc}.
 
 update_value_dict([Lit,{f,Lbl}|T], Reg, D0) ->
     Key = {Lbl,Reg},
-    D = case gb_trees:lookup(Key, D0) of
-	    none -> gb_trees:insert(Key, Lit, D0); %New.
-	    {value,inconsistent} -> D0;		%Inconsistent.
-	    {value,_} -> gb_trees:update(Key, inconsistent, D0)
-	end,
+    D = case D0 of
+            #{Key := inconsistent} -> D0;
+            #{Key := _} -> D0#{Key := inconsistent};
+            _ -> D0#{Key => Lit}
+        end,
     update_value_dict(T, Reg, D);
 update_value_dict([], _, D) -> D.
 
+useful_to_insert_label([_,{label,_}|_]) ->
+    false;
+useful_to_insert_label([{test,Op,_,_}|_]) ->
+    case Op of
+	is_lt -> true;
+	is_ge -> true;
+	is_eq_exact -> true;
+	is_ne_exact -> true;
+	_ -> false
+    end.
+
 %%%
-%%% Scan instructions in reverse execution order and remove dead code.
+%%% Scan instructions in reverse execution order and try to
+%%% shortcut branch instructions.
 %%%
+%%% For example, in this code:
+%%%
+%%%             move Literal Register
+%%%             jump L1
+%%%                .
+%%%                .
+%%%                .
+%%%     L1:     test is_{integer,atom} FailLabel Register
+%%%             select_val {x,0} FailLabel [... Literal => L2...]
+%%%                .
+%%%                .
+%%%                .
+%%%     L2:        ...
+%%%
+%%% the 'selectval' instruction will always transfer control to L2,
+%%% so we can just as well jump to L2 directly by rewriting the
+%%% first part of the sequence like this:
+%%%
+%%%           move Literal Register
+%%%           jump L2
+%%%
+%%% If register Register is killed at label L2, we can remove the
+%%% 'move' instruction, leaving just the 'jump' instruction:
+%%%
+%%%           jump L2
+%%%
+%%% These transformations may leave parts of the code unreachable.
+%%% The beam_jump pass will remove the unreachable code.
 
 backward(Is, D) ->
     backward(Is, D, []).
@@ -277,15 +244,8 @@ backward([{select,select_val,Reg,{f,Fail0},List0}|Is], D, Acc) ->
     Fail = shortcut_bs_test(Fail1, Is, D),
     Sel = {select,select_val,Reg,{f,Fail},List},
     backward(Is, D, [Sel|Acc]);
-backward([{jump,{f,To0}},{move,Src,Reg}=Move0|Is], D, Acc) ->
-    {To,Move} = case Src of
-		    {atom,Val0} ->
-			To1 = shortcut_select_label(To0, Reg, Val0, D),
-			{To2,Val} = shortcut_boolean_label(To1, Reg, Val0, D),
-			{To2,{move,{atom,Val},Reg}};
-		    _ ->
-			{shortcut_label(To0, D),Move0}
-		end,
+backward([{jump,{f,To0}},{move,Src,Reg}=Move|Is], D, Acc) ->
+    To = shortcut_select_label(To0, Reg, Src, D),
     Jump = {jump,{f,To}},
     case beam_utils:is_killed_at(Reg, To, D) of
 	false -> backward([Move|Is], D, [Jump|Acc]);
@@ -297,32 +257,39 @@ backward([{jump,{f,To}}=J|[{bif,Op,_,Ops,Reg}|Is]=Is0], D, Acc) ->
     catch
 	throw:not_possible -> backward(Is0, D, [J|Acc])
     end;
+backward([{test,bs_start_match2,F,_,[R,_],Ctxt}=I|Is], D,
+	 [{test,bs_match_string,F,[Ctxt,Bs]},
+	  {test,bs_test_tail2,F,[Ctxt,0]}|Acc0]=Acc) ->
+    case beam_utils:is_killed(Ctxt, Acc0, D) of
+	true ->
+	    Eq = {test,is_eq_exact,F,[R,{literal,Bs}]},
+	    backward(Is, D, [Eq|Acc0]);
+	false ->
+	    backward(Is, D, [I|Acc])
+    end;
 backward([{test,bs_start_match2,{f,To0},Live,[Src|_]=Info,Dst}|Is], D, Acc) ->
     To = shortcut_bs_start_match(To0, Src, D),
     I = {test,bs_start_match2,{f,To},Live,Info,Dst},
     backward(Is, D, [I|Acc]);
-backward([{test,is_eq_exact,{f,To0},[Reg,{atom,Val}]=Ops}|Is], D, Acc) ->
-    To1 = shortcut_bs_test(To0, Is, D),
-    To = shortcut_fail_label(To1, Reg, Val, D),
-    I = combine_eqs(To, Ops, D, Acc),
-    backward(Is, D, [I|Acc]);
 backward([{test,Op,{f,To0},Ops0}|Is], D, Acc) ->
     To1 = shortcut_bs_test(To0, Is, D),
     To2 = shortcut_label(To1, D),
+    To3 = shortcut_rel_op(To2, Op, Ops0, D),
+
     %% Try to shortcut a repeated test:
     %%
     %%        test Op {f,Fail1} Operands	test Op {f,Fail2} Operands
     %%        . . .		          ==>   ...
     %% Fail1: test Op {f,Fail2} Operands        Fail1: test Op {f,Fail2} Operands
     %%
-    To = case beam_utils:code_at(To2, D) of
-	     [{test,Op,{f,To3},Ops}|_] ->
+    To = case beam_utils:code_at(To3, D) of
+	     [{test,Op,{f,To4},Ops}|_] ->
 		 case equal_ops(Ops0, Ops) of
-		     true -> To3;
-		     false -> To2
+		     true -> To4;
+		     false -> To3
 		 end;
 	     _Code ->
-		 To2
+		 To3
 	 end,
     I = case Op of
 	    is_eq_exact -> combine_eqs(To, Ops0, D, Acc);
@@ -367,8 +334,8 @@ equal_ops([Op|T0], [Op|T1]) ->
 equal_ops([], []) -> true;
 equal_ops(_, _) -> false.
     
-shortcut_select_list([{_,Val}=Lit,{f,To0}|T], Reg, D, Acc) ->
-    To = shortcut_select_label(To0, Reg, Val, D),
+shortcut_select_list([Lit,{f,To0}|T], Reg, D, Acc) ->
+    To = shortcut_select_label(To0, Reg, Lit, D),
     shortcut_select_list(T, Reg, D, [{f,To},Lit|Acc]);
 shortcut_select_list([], _, _, Acc) -> reverse(Acc).
 
@@ -378,58 +345,29 @@ shortcut_label(To0, D) ->
 	_ -> To0
     end.
 
-shortcut_select_label(To0, Reg, Val, D) ->
-    case beam_utils:code_at(To0, D) of
- 	[{jump,{f,To}}|_] ->
- 	    shortcut_select_label(To, Reg, Val, D);
-	[{test,is_atom,_,[Reg]},{select,select_val,Reg,{f,Fail},Map}|_] ->
-	    To = find_select_val(Map, Val, Fail),
-	    shortcut_select_label(To, Reg, Val, D);
-  	[{test,is_eq_exact,{f,_},[Reg,{atom,Val}]},{label,To}|_] when is_atom(Val) ->
-	    shortcut_select_label(To, Reg, Val, D);
-  	[{test,is_eq_exact,{f,_},[Reg,{atom,Val}]},{jump,{f,To}}|_] when is_atom(Val) ->
-	    shortcut_select_label(To, Reg, Val, D);
-  	[{test,is_eq_exact,{f,To},[Reg,{atom,AnotherVal}]}|_]
-	when is_atom(Val), Val =/= AnotherVal ->
-	    shortcut_select_label(To, Reg, Val, D);
-  	[{test,is_ne_exact,{f,To},[Reg,{atom,Val}]}|_] when is_atom(Val) ->
-	    shortcut_select_label(To, Reg, Val, D);
-  	[{test,is_ne_exact,{f,_},[Reg,{atom,_}]},{label,To}|_] when is_atom(Val) ->
-	    shortcut_select_label(To, Reg, Val, D);
-	[{test,is_tuple,{f,To},[Reg]}|_] when is_atom(Val) ->
-	    shortcut_select_label(To, Reg, Val, D);
-	_ ->
-	    To0
-    end.
+shortcut_select_label(To, Reg, Lit, D) ->
+    shortcut_rel_op(To, is_ne_exact, [Reg,Lit], D).
 
-shortcut_fail_label(To0, Reg, Val, D) ->
-    case beam_utils:code_at(To0, D) of
- 	[{jump,{f,To}}|_] ->
-	    shortcut_fail_label(To, Reg, Val, D);
-  	[{test,is_eq_exact,{f,To},[Reg,{atom,Val}]}|_] when is_atom(Val) ->
-	    shortcut_fail_label(To, Reg, Val, D);
-	_ ->
-	    To0
-    end.
-
-shortcut_boolean_label(To0, Reg, Bool0, D) when is_boolean(Bool0) ->
-    case beam_utils:code_at(To0, D) of
-	[{line,_},{bif,'not',_,[Reg],Reg},{jump,{f,To}}|_] ->
-	    Bool = not Bool0,
-	    {shortcut_select_label(To, Reg, Bool, D),Bool};
-	_ ->
-	    {To0,Bool0}
-    end;
-shortcut_boolean_label(To, _, Bool, _) -> {To,Bool}.
-
-find_select_val([{_,Val},{f,To}|_], Val, _) -> To;
-find_select_val([{_,_}, {f,_}|T], Val, Fail) ->
-    find_select_val(T, Val, Fail);
-find_select_val([], _, Fail) -> Fail.
+%% Replace a comparison operator with a test instruction and a jump.
+%% For example, if we have this code:
+%%
+%%     	  bif '=:=' Fail Src1 Src2 {x,0}
+%%    	  jump L1
+%%           .
+%%           .
+%%           .
+%%   L1:  select_val {x,0} FailLabel [... true => L2..., ...false => L3...]
+%%
+%% the first two instructions can be replaced with
+%%
+%%        test is_eq_exact L3 Src1 Src2
+%%	  jump L2
+%%
+%% provided that {x,0} is killed at both L2 and L3.
 
 replace_comp_op(To, Reg, Op, Ops, D) ->
-    False = comp_op_find_shortcut(To, Reg, false, D),
-    True = comp_op_find_shortcut(To, Reg, true, D),
+    False = comp_op_find_shortcut(To, Reg, {atom,false}, D),
+    True = comp_op_find_shortcut(To, Reg, {atom,true}, D),
     [bif_to_test(Op, Ops, False),{jump,{f,True}}].
 
 comp_op_find_shortcut(To0, Reg, Val, D) ->
@@ -461,9 +399,9 @@ not_possible() -> throw(not_possible).
 %%
 %%      is_eq_exact F1 Reg Lit1		    select_val Reg F2 [ Lit1 L1
 %%   L1:                .                                       Lit2 L2 ]
-%%              	.
-%%                	.	     ==>
-%%                	.
+%%                      .
+%%                      .	     ==>
+%%                      .
 %%   F1:  is_eq_exact F2 Reg Lit2          F1: is_eq_exact F2 Reg Lit2
 %%   L2:  ....				   L2:
 %%
@@ -488,31 +426,26 @@ remove_from_list(Lit, [Val,{f,_}=Fail|T]) ->
     [Val,Fail|remove_from_list(Lit, T)];
 remove_from_list(_, []) -> [].
 
-%% shortcut_bs_test(TargetLabel, [Instruction], D) -> TargetLabel'
-%%  Try to shortcut the failure label for a bit syntax matching.
-%%  We know that the binary contains at least Bits bits after
-%%  the latest save point.
+%% shortcut_bs_test(TargetLabel, ReversedInstructions, D) -> TargetLabel'
+%%  Try to shortcut the failure label for bit syntax matching.
 
 shortcut_bs_test(To, Is, D) ->
     shortcut_bs_test_1(beam_utils:code_at(To, D), Is, To, D).
 
-shortcut_bs_test_1([{bs_restore2,Reg,SavePoint}|Is], PrevIs, To, D) ->
-    shortcut_bs_test_2(Is, {Reg,SavePoint}, PrevIs, To, D);
-shortcut_bs_test_1([_|_], _, To, _) -> To.
-
-shortcut_bs_test_2([{label,_}|Is], Save, PrevIs, To, D) ->
-    shortcut_bs_test_2(Is, Save, PrevIs, To, D);
-shortcut_bs_test_2([{test,bs_test_tail2,{f,To},[_,TailBits]}|_],
-		   {Reg,_Point} = RP, PrevIs, To0, D) ->
-    case count_bits_matched(PrevIs, RP, 0) of
+shortcut_bs_test_1([{bs_restore2,Reg,SavePoint},
+		    {label,_},
+		    {test,bs_test_tail2,{f,To},[_,TailBits]}|_],
+		   PrevIs, To0, D) ->
+    case count_bits_matched(PrevIs, {Reg,SavePoint}, 0) of
 	Bits when Bits > TailBits ->
 	    %% This instruction will fail. We know because a restore has been
-	    %% done from the previous point SavePoint in the binary, and we also know
-	    %% that the binary contains at least Bits bits from SavePoint.
+	    %% done from the previous point SavePoint in the binary, and we
+	    %% also know that the binary contains at least Bits bits from
+	    %% SavePoint.
 	    %%
 	    %% Since we will skip a bs_restore2 if we shortcut to label To,
-	    %% we must now make sure that code at To does not depend on the position
-	    %% in the context in any way.
+	    %% we must now make sure that code at To does not depend on
+	    %% the position in the context in any way.
 	    case shortcut_bs_pos_used(To, Reg, D) of
 		false -> To;
 		true -> To0
@@ -520,15 +453,26 @@ shortcut_bs_test_2([{test,bs_test_tail2,{f,To},[_,TailBits]}|_],
 	_Bits ->
 	    To0
     end;
-shortcut_bs_test_2([_|_], _, _, To, _) -> To.
+shortcut_bs_test_1([_|_], _, To, _) -> To.
 
+%% counts_bits_matched(ReversedInstructions, SavePoint, Bits) -> Bits'
+%%  Given a reversed instruction stream, determine the minimum number
+%%  of bits that will be matched by bit syntax instructions up to the
+%%  given save point.
+
+count_bits_matched([{test,bs_get_utf8,{f,_},_,_,_}|Is], SavePoint, Bits) ->
+    count_bits_matched(Is, SavePoint, Bits+8);
+count_bits_matched([{test,bs_get_utf16,{f,_},_,_,_}|Is], SavePoint, Bits) ->
+    count_bits_matched(Is, SavePoint, Bits+16);
+count_bits_matched([{test,bs_get_utf32,{f,_},_,_,_}|Is], SavePoint, Bits) ->
+    count_bits_matched(Is, SavePoint, Bits+32);
 count_bits_matched([{test,_,_,_,[_,Sz,U,{field_flags,_}],_}|Is], SavePoint, Bits) ->
     case Sz of
 	{integer,N} -> count_bits_matched(Is, SavePoint, Bits+N*U);
 	_ -> count_bits_matched(Is, SavePoint, Bits)
     end;
-count_bits_matched([{test,bs_match_string,_,[_,Bits,_]}|Is], SavePoint, Bits0) ->
-    count_bits_matched(Is, SavePoint, Bits0+Bits);
+count_bits_matched([{test,bs_match_string,_,[_,Bs]}|Is], SavePoint, Bits) ->
+    count_bits_matched(Is, SavePoint, Bits+bit_size(Bs));
 count_bits_matched([{test,_,_,_}|Is], SavePoint, Bits) ->
     count_bits_matched(Is, SavePoint, Bits);
 count_bits_matched([{bs_save2,Reg,SavePoint}|_], {Reg,SavePoint}, Bits) ->
@@ -545,20 +489,332 @@ shortcut_bs_pos_used_1(Is, Reg, D) ->
     not beam_utils:is_killed(Reg, Is, D).
 
 %% shortcut_bs_start_match(TargetLabel, Reg) -> TargetLabel
-%%  A failing bs_start_match2 instruction means that the source
-%%  cannot be a binary, so there is no need to jump bs_context_to_binary/1
-%%  or another bs_start_match2 instruction.
+%%  A failing bs_start_match2 instruction means that the source (Reg)
+%%  cannot be a binary. That means that it is safe to skip
+%%  bs_context_to_binary instructions operating on Reg, and
+%%  bs_start_match2 instructions operating on Reg.
 
 shortcut_bs_start_match(To, Reg, D) ->
-    shortcut_bs_start_match_1(beam_utils:code_at(To, D), Reg, To).
+    shortcut_bs_start_match_1(beam_utils:code_at(To, D), Reg, To, D).
 
-shortcut_bs_start_match_1([{bs_context_to_binary,Reg}|Is], Reg, To) ->
-    shortcut_bs_start_match_2(Is, Reg, To);
-shortcut_bs_start_match_1(_, _, To) -> To.
-
-shortcut_bs_start_match_2([{jump,{f,To}}|_], _, _) ->
-    To;
-shortcut_bs_start_match_2([{test,bs_start_match2,{f,To},_,[Reg|_],_}|_], Reg, _) ->
-    To;
-shortcut_bs_start_match_2(_Is, _Reg, To) ->
+shortcut_bs_start_match_1([{bs_context_to_binary,Reg}|Is], Reg, To, D) ->
+    shortcut_bs_start_match_1(Is, Reg, To, D);
+shortcut_bs_start_match_1([{jump,{f,To}}|_], Reg, _, D) ->
+    Code = beam_utils:code_at(To, D),
+    shortcut_bs_start_match_1(Code, Reg, To, D);
+shortcut_bs_start_match_1([{test,bs_start_match2,{f,To},_,[Reg|_],_}|_],
+			  Reg, _, D) ->
+    Code = beam_utils:code_at(To, D),
+    shortcut_bs_start_match_1(Code, Reg, To, D);
+shortcut_bs_start_match_1(_, _, To, _) ->
     To.
+
+%% shortcut_rel_op(FailLabel, Operator, [Operand], D) -> FailLabel'
+%%  Try to shortcut the given test instruction. Example:
+%%
+%%           is_ge L1 {x,0} 48
+%%     .
+%%     .
+%%     .
+%%     L1:   is_ge L2 {x,0} 65
+%%
+%%  The first test instruction can be rewritten to "is_ge L2 {x,0} 48"
+%%  since the instruction at L1 will also fail.
+%%
+%%  If there are instructions between L1 and the other test instruction
+%%  it may still be possible to do the shortcut. For example:
+%%
+%%     L1:   is_eq_exact L3 {x,0} 92
+%%           is_ge L2 {x,0} 65
+%%
+%%  Since the first test instruction failed, we know that {x,0} must
+%%  be less than 48; therefore, we know that {x,0} cannot be equal to
+%%  92 and the jump to L3 cannot happen.
+
+shortcut_rel_op(To, Op, Ops, D) ->
+    case normalize_op({test,Op,{f,To},Ops}) of
+	{{NormOp,A,B},_} ->
+	    Normalized = {negate_op(NormOp),A,B},
+	    shortcut_rel_op_fp(To, Normalized, D);
+	{_,_} ->
+	    To;
+	error ->
+	    To
+    end.
+
+shortcut_rel_op_fp(To0, Normalized, D) ->
+    Code = beam_utils:code_at(To0, D),
+    case shortcut_any_label(Code, Normalized) of
+	error ->
+	    To0;
+	To ->
+	    shortcut_rel_op_fp(To, Normalized, D)
+    end.
+
+%% shortcut_any_label([Instruction], PrevCondition) -> FailLabel | error
+%%  Using PrevCondition (a previous condition known to be true),
+%%  try to shortcut to another failure label.
+
+shortcut_any_label([{jump,{f,Lbl}}|_], _Prev) ->
+    Lbl;
+shortcut_any_label([{label,Lbl}|_], _Prev) ->
+    Lbl;
+shortcut_any_label([{select,select_val,R,{f,Fail},L}|_], Prev) ->
+    shortcut_selectval(L, R, Fail, Prev);
+shortcut_any_label([I|Is], Prev) ->
+    case normalize_op(I) of
+	error ->
+	    error;
+	{Normalized,Fail} ->
+	    %% We have a relational operator.
+	    case will_succeed(Prev, Normalized) of
+		no ->
+		    %% This test instruction will always branch
+		    %% to Fail.
+		    Fail;
+		yes ->
+		    %% This test instruction will never branch,
+		    %% so we will look at the next instruction.
+		    shortcut_any_label(Is, Prev);
+		maybe ->
+		    %% May or may not branch. From now on, we can only
+		    %% shortcut to the this specific failure label
+		    %% Fail.
+		    shortcut_specific_label(Is, Fail, Prev)
+	    end
+    end.
+
+%% shortcut_specific_label([Instruction], FailLabel, PrevCondition) ->
+%%    FailLabel | error
+%%  We have previously encountered a test instruction that may or
+%%  may not branch to FailLabel. Therefore we are only allowed
+%%  to do the shortcut to the same fail label (FailLabel).
+
+shortcut_specific_label([{label,_}|Is], Fail, Prev) ->
+    shortcut_specific_label(Is, Fail, Prev);
+shortcut_specific_label([{select,select_val,R,{f,F},L}|_], Fail, Prev) ->
+    case shortcut_selectval(L, R, F, Prev) of
+	Fail -> Fail;
+	_ -> error
+    end;
+shortcut_specific_label([I|Is], Fail, Prev) ->
+    case normalize_op(I) of
+	error ->
+	    error;
+	{Normalized,Fail} ->
+	    case will_succeed(Prev, Normalized) of
+		no ->
+		    %% Will branch to FailLabel.
+		    Fail;
+		yes ->
+		    %% Will definitely never branch.
+		    shortcut_specific_label(Is, Fail, Prev);
+		maybe ->
+		    %% May branch, but still OK since it will branch
+		    %% to FailLabel.
+		    shortcut_specific_label(Is, Fail, Prev)
+	    end;
+	{Normalized,_} ->
+	    %% This test instruction will branch to a different
+	    %% fail label, if it branches at all.
+	    case will_succeed(Prev, Normalized) of
+		yes ->
+		    %% Still OK, since the branch will never be
+		    %% taken.
+		    shortcut_specific_label(Is, Fail, Prev);
+		no ->
+		    %% Give up. The branch will definitely be taken
+		    %% to a different fail label.
+		    error;
+		maybe ->
+		    %% Give up. If the branch is taken, it will be
+		    %% to a different fail label.
+		    error
+	    end
+    end.
+
+
+%% shortcut_selectval(List, Reg, Fail, PrevCond) -> FailLabel | error
+%%  Try to shortcut a selectval instruction. A selectval instruction
+%%  is equivalent to the following instruction sequence:
+%%
+%%      is_ne_exact L1 Reg Value1
+%%              .
+%%              .
+%%              .
+%%      is_ne_exact LN Reg ValueN
+%%      jump DefaultFailLabel
+%%
+shortcut_selectval([Val,{f,Lbl}|T], R, Fail, Prev) ->
+    case will_succeed(Prev, {'=/=',R,get_literal(Val)}) of
+	yes -> shortcut_selectval(T, R, Fail, Prev);
+	no -> Lbl;
+	maybe -> error
+    end;
+shortcut_selectval([], _, Fail, _) -> Fail.
+
+%% will_succeed(PrevCondition, Condition) -> yes | no | maybe
+%%  PrevCondition is a condition known to be true. This function
+%%  will tell whether Condition will succeed.
+
+will_succeed({Op1,Reg,A}, {Op2,Reg,B}) ->
+    will_succeed_1(Op1, A, Op2, B);
+will_succeed({'=:=',Reg,{literal,A}}, {TypeTest,Reg}) ->
+    case erlang:TypeTest(A) of
+	false -> no;
+	true -> yes
+    end;
+will_succeed({_,_,_}, maybe) ->
+    maybe;
+will_succeed({_,_,_}, Test) when is_tuple(Test) ->
+    maybe.
+
+will_succeed_1('=:=', A, '<', B) ->
+    if
+	B =< A -> no;
+	true -> yes
+    end;
+will_succeed_1('=:=', A, '=<', B) ->
+    if
+	B < A -> no;
+	true -> yes
+    end;
+will_succeed_1('=:=', A, '=:=', B) ->
+    if
+	A =:= B -> yes;
+	true -> no
+    end;
+will_succeed_1('=:=', A, '=/=', B) ->
+    if
+	A =:= B -> no;
+	true -> yes
+    end;
+will_succeed_1('=:=', A, '>=', B) ->
+    if
+	B > A -> no;
+	true -> yes
+    end;
+will_succeed_1('=:=', A, '>', B) ->
+    if
+	B >= A -> no;
+	true -> yes
+    end;
+
+will_succeed_1('=/=', A, '=/=', B) when A =:= B -> yes;
+will_succeed_1('=/=', A, '=:=', B) when A =:= B -> no;
+
+will_succeed_1('<', A, '=:=', B)  when B >= A -> no;
+will_succeed_1('<', A, '=/=', B)  when B >= A -> yes;
+will_succeed_1('<', A, '<',   B)  when B >= A -> yes;
+will_succeed_1('<', A, '=<',  B)  when B > A  -> yes;
+will_succeed_1('<', A, '>=',  B)  when B > A  -> no;
+will_succeed_1('<', A, '>',   B)  when B >= A -> no;
+
+will_succeed_1('=<', A, '=:=', B) when B > A  -> no;
+will_succeed_1('=<', A, '=/=', B) when B > A  -> yes;
+will_succeed_1('=<', A, '<',   B) when B > A  -> yes;
+will_succeed_1('=<', A, '=<',  B) when B >= A -> yes;
+will_succeed_1('=<', A, '>=',  B) when B > A  -> no;
+will_succeed_1('=<', A, '>',   B) when B >= A -> no;
+
+will_succeed_1('>=', A, '=:=', B) when B < A  -> no;
+will_succeed_1('>=', A, '=/=', B) when B < A  -> yes;
+will_succeed_1('>=', A, '<',   B) when B =< A -> no;
+will_succeed_1('>=', A, '=<',  B) when B < A  -> no;
+will_succeed_1('>=', A, '>=',  B) when B =< A -> yes;
+will_succeed_1('>=', A, '>',   B) when B < A  -> yes;
+
+will_succeed_1('>', A, '=:=', B)  when B =< A -> no;
+will_succeed_1('>', A, '=/=', B)  when B =< A -> yes;
+will_succeed_1('>', A, '<',   B)  when B =< A -> no;
+will_succeed_1('>', A, '=<',  B)  when B < A  -> no;
+will_succeed_1('>', A, '>=',  B)  when B =< A -> yes;
+will_succeed_1('>', A, '>',   B)  when B < A  -> yes;
+
+will_succeed_1(_, _, _, _) -> maybe.
+
+%% normalize_op(Instruction) -> {Normalized,FailLabel} | error
+%%    Normalized = {Operator,Register,Literal} |
+%%                 {TypeTest,Register} |
+%%                 maybe
+%%    Operation = '<' | '=<' | '=:=' | '=/=' | '>=' | '>'
+%%    TypeTest = is_atom | is_integer ...
+%%    Literal = {literal,Term}
+%%
+%%  Normalize a relational operator to facilitate further
+%%  comparisons between operators. Always make the register
+%%  operand the first operand. Thus the following instruction:
+%%
+%%    {test,is_ge,{f,99},{integer,13},{x,0}}
+%%
+%%  will be normalized to:
+%%
+%%    {'=<',{x,0},{literal,13}}
+%%
+%%  NOTE: Bit syntax test instructions are scary. They may change the
+%%  state of match contexts and update registers, so we don't dare
+%%  mess with them.
+
+normalize_op({test,is_ge,{f,Fail},Ops}) ->
+    normalize_op_1('>=', Ops, Fail);
+normalize_op({test,is_lt,{f,Fail},Ops}) ->
+    normalize_op_1('<', Ops, Fail);
+normalize_op({test,is_eq_exact,{f,Fail},Ops}) ->
+    normalize_op_1('=:=', Ops, Fail);
+normalize_op({test,is_ne_exact,{f,Fail},Ops}) ->
+    normalize_op_1('=/=', Ops, Fail);
+normalize_op({test,is_nil,{f,Fail},[R]}) ->
+    normalize_op_1('=:=', [R,nil], Fail);
+normalize_op({test,Op,{f,Fail},[R]}) ->
+    case erl_internal:new_type_test(Op, 1) of
+	true -> {{Op,R},Fail};
+	false -> {maybe,Fail}
+    end;
+normalize_op({test,_,{f,Fail},_}=I) ->
+    case beam_utils:is_pure_test(I) of
+	true -> {maybe,Fail};
+	false -> error
+    end;
+normalize_op(_) ->
+    error.
+
+normalize_op_1(Op, [Op1,Op2], Fail) ->
+    case {get_literal(Op1),get_literal(Op2)} of
+	{error,error} ->
+	    %% Both operands are registers.
+	    {maybe,Fail};
+	{error,Lit} ->
+	    {{Op,Op1,Lit},Fail};
+	{Lit,error} ->
+	    {{turn_op(Op),Op2,Lit},Fail};
+	{_,_} ->
+	    %% Both operands are literals. Can probably only
+	    %% happen if the Core Erlang optimizations passes were
+	    %% turned off, so don't bother trying to do something
+	    %% smart here.
+	    {maybe,Fail}
+    end.
+
+turn_op('<') -> '>';
+turn_op('>=') -> '=<';
+turn_op('=:='=Op) -> Op;
+turn_op('=/='=Op) -> Op.
+
+negate_op('>=') -> '<';
+negate_op('<') -> '>=';
+negate_op('=<') -> '>';
+negate_op('>') -> '=<';
+negate_op('=:=') -> '=/=';
+negate_op('=/=') -> '=:='.
+
+get_literal({atom,Val}) ->
+    {literal,Val};
+get_literal({integer,Val}) ->
+    {literal,Val};
+get_literal({float,Val}) ->
+    {literal,Val};
+get_literal(nil) ->
+    {literal,[]};
+get_literal({literal,_}=Lit) ->
+    Lit;
+get_literal({_,_}) -> error.

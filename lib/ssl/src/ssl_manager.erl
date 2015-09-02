@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 2007-2015. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -26,10 +27,11 @@
 
 %% Internal application API
 -export([start_link/1, start_link_dist/1,
-	 connection_init/2, cache_pem_file/2,
+	 connection_init/3, cache_pem_file/2,
 	 lookup_trusted_cert/4,
 	 new_session_id/1, clean_cert_db/2,
 	 register_session/2, register_session/3, invalidate_session/2,
+	 insert_crls/2, insert_crls/3, delete_crls/1, delete_crls/2, 
 	 invalidate_session/3, invalidate_pem/1, clear_pem_cache/0, manager_name/1]).
 
 % Spawn export
@@ -44,7 +46,8 @@
 -include_lib("kernel/include/file.hrl").
 
 -record(state, {
-	  session_cache,
+	  session_cache_client,
+	  session_cache_server,
 	  session_cache_cb,
 	  session_lifetime,
 	  certificate_db,
@@ -99,19 +102,21 @@ start_link_dist(Opts) ->
     gen_server:start_link({local, DistMangerName}, ?MODULE, [DistMangerName, Opts], []).
 
 %%--------------------------------------------------------------------
--spec connection_init(binary()| {der, list()}, client | server) ->
-			     {ok, certdb_ref(), db_handle(), db_handle(), db_handle(), db_handle()}.
+-spec connection_init(binary()| {der, list()}, client | server, 
+		      {Cb :: atom(), Handle:: term()}) ->
+			     {ok, certdb_ref(), db_handle(), db_handle(), 
+			      db_handle(), db_handle(), CRLInfo::term()}.
 %%			     
 %% Description: Do necessary initializations for a new connection.
 %%--------------------------------------------------------------------
-connection_init({der, _} = Trustedcerts, Role) ->
-    call({connection_init, Trustedcerts, Role});
+connection_init({der, _} = Trustedcerts, Role, CRLCache) ->
+    call({connection_init, Trustedcerts, Role, CRLCache});
 
-connection_init(<<>> = Trustedcerts, Role) ->
-    call({connection_init, Trustedcerts, Role});
+connection_init(<<>> = Trustedcerts, Role, CRLCache) ->
+    call({connection_init, Trustedcerts, Role, CRLCache});
 
-connection_init(Trustedcerts, Role) ->
-    call({connection_init, Trustedcerts, Role}).
+connection_init(Trustedcerts, Role, CRLCache) ->
+    call({connection_init, Trustedcerts, Role, CRLCache}).
 
 %%--------------------------------------------------------------------
 -spec cache_pem_file(binary(), term()) -> {ok, term()} | {error, reason()}.
@@ -123,7 +128,7 @@ cache_pem_file(File, DbHandle) ->
 	[{Content,_}] ->
 	    {ok, Content};
 	[Content] ->
-	   {ok, Content};
+	    {ok, Content};
 	undefined ->
 	    call({cache_pem, File})
     end.
@@ -192,10 +197,27 @@ invalidate_session(Host, Port, Session) ->
 invalidate_session(Port, Session) ->
     cast({invalidate_session, Port, Session}).
 
-
 -spec invalidate_pem(File::binary()) -> ok.
 invalidate_pem(File) ->
     cast({invalidate_pem, File}).
+
+insert_crls(Path, CRLs)->
+    insert_crls(Path, CRLs, normal).
+insert_crls(?NO_DIST_POINT_PATH = Path, CRLs, ManagerType)->
+    put(ssl_manager, manager_name(ManagerType)),
+    cast({insert_crls, Path, CRLs});
+insert_crls(Path, CRLs, ManagerType)->
+    put(ssl_manager, manager_name(ManagerType)),
+    call({insert_crls, Path, CRLs}).
+
+delete_crls(Path)->
+    delete_crls(Path, normal).
+delete_crls(?NO_DIST_POINT_PATH = Path, ManagerType)->
+    put(ssl_manager, manager_name(ManagerType)),
+    cast({delete_crls, Path});
+delete_crls(Path, ManagerType)->
+    put(ssl_manager, manager_name(ManagerType)),
+    call({delete_crls, Path}).
 
 %%====================================================================
 %% gen_server callbacks
@@ -215,13 +237,17 @@ init([Name, Opts]) ->
     SessionLifeTime =  
 	proplists:get_value(session_lifetime, Opts, ?'24H_in_sec'),
     CertDb = ssl_pkix_db:create(),
-    SessionCache = CacheCb:init(proplists:get_value(session_cb_init_args, Opts, [])),
+    ClientSessionCache = CacheCb:init([{role, client} | 
+				       proplists:get_value(session_cb_init_args, Opts, [])]),
+    ServerSessionCache = CacheCb:init([{role, server} | 
+				       proplists:get_value(session_cb_init_args, Opts, [])]),
     Timer = erlang:send_after(SessionLifeTime * 1000 + 5000, 
 			      self(), validate_sessions),
     Interval = pem_check_interval(),
     erlang:send_after(Interval, self(), clear_pem_cache),
     {ok, #state{certificate_db = CertDb,
-		session_cache = SessionCache,
+		session_cache_client = ClientSessionCache,
+		session_cache_server = ServerSessionCache,
 		session_cache_cb = CacheCb,
 		session_lifetime = SessionLifeTime,
 		session_validation_timer = Timer,
@@ -240,31 +266,37 @@ init([Name, Opts]) ->
 %%
 %% Description: Handling call messages
 %%--------------------------------------------------------------------
-handle_call({{connection_init, <<>>, _Role}, _Pid}, _From,
-	    #state{certificate_db = [CertDb, FileRefDb, PemChace],
-		   session_cache = Cache} = State) ->
-    Result = {ok, make_ref(),CertDb, FileRefDb, PemChace, Cache},
-    {reply, Result, State};
+handle_call({{connection_init, <<>>, Role, {CRLCb, UserCRLDb}}, _Pid}, _From,
+	    #state{certificate_db = [CertDb, FileRefDb, PemChace | _] = Db} = State) ->
+    Ref = make_ref(), 
+    Result = {ok, Ref, CertDb, FileRefDb, PemChace, session_cache(Role, State), {CRLCb, crl_db_info(Db, UserCRLDb)}},
+    {reply, Result, State#state{certificate_db = Db}};
 
-handle_call({{connection_init, Trustedcerts, _Role}, Pid}, _From,
-	    #state{certificate_db = [CertDb, FileRefDb, PemChace] = Db,
-		   session_cache = Cache} = State) ->
-    Result = 
-	try
-	    {ok, Ref} = ssl_pkix_db:add_trusted_certs(Pid, Trustedcerts, Db),
-	    {ok, Ref, CertDb, FileRefDb, PemChace, Cache}
-	catch
-	    _:Reason ->
-		{error, Reason}
-	end,
-    {reply, Result, State};
+handle_call({{connection_init, Trustedcerts, Role, {CRLCb, UserCRLDb}}, Pid}, _From,
+	    #state{certificate_db = [CertDb, FileRefDb, PemChace | _] = Db} = State) ->
+    case add_trusted_certs(Pid, Trustedcerts, Db) of
+	{ok, Ref} ->
+	    {reply, {ok, Ref, CertDb, FileRefDb, PemChace, session_cache(Role, State), 
+		     {CRLCb, crl_db_info(Db, UserCRLDb)}}, State};
+	{error, _} = Error ->
+	    {reply, Error, State}
+    end;
 
-handle_call({{new_session_id,Port}, _},
+handle_call({{insert_crls, Path, CRLs}, _}, _From,   
+	    #state{certificate_db = Db} = State) ->
+    ssl_pkix_db:add_crls(Db, Path, CRLs),
+    {reply, ok, State};
+
+handle_call({{delete_crls, CRLsOrPath}, _}, _From,   
+	    #state{certificate_db = Db} = State) ->
+    ssl_pkix_db:remove_crls(Db, CRLsOrPath),
+    {reply, ok, State};
+
+handle_call({{new_session_id, Port}, _},
 	    _, #state{session_cache_cb = CacheCb,
-		      session_cache = Cache} = State) ->
+		      session_cache_server = Cache} = State) ->
     Id = new_id(Port, ?GEN_UNIQUE_ID_MAX_TRIES, Cache, CacheCb),
     {reply, Id, State};
-
 
 handle_call({{cache_pem,File}, _Pid}, _,
 	    #state{certificate_db = Db} = State) ->
@@ -275,7 +307,7 @@ handle_call({{cache_pem,File}, _Pid}, _,
 	_:Reason ->
 	    {reply, {error, Reason}, State}
     end;
-handle_call({unconditionally_clear_pem_cache, _},_, #state{certificate_db = [_,_,PemChace]} = State) ->
+handle_call({unconditionally_clear_pem_cache, _},_, #state{certificate_db = [_,_,PemChace | _]} = State) ->
     ssl_pkix_db:clear(PemChace),
     {reply, ok,  State}.
 
@@ -288,16 +320,22 @@ handle_call({unconditionally_clear_pem_cache, _},_, #state{certificate_db = [_,_
 %% Description: Handling cast messages
 %%--------------------------------------------------------------------
 handle_cast({register_session, Host, Port, Session}, 
-	    #state{session_cache = Cache,
+	    #state{session_cache_client = Cache,
 		   session_cache_cb = CacheCb} = State) ->
     TimeStamp = calendar:datetime_to_gregorian_seconds({date(), time()}),
     NewSession = Session#session{time_stamp = TimeStamp},
-    CacheCb:update(Cache, {{Host, Port}, 
-		   NewSession#session.session_id}, NewSession),
+    
+    case CacheCb:select_session(Cache, {Host, Port}) of
+	no_session ->
+	    CacheCb:update(Cache, {{Host, Port}, 
+				   NewSession#session.session_id}, NewSession);
+	Sessions ->
+	    register_unique_session(Sessions, NewSession, CacheCb, Cache, {Host, Port})
+    end,
     {noreply, State};
 
 handle_cast({register_session, Port, Session},  
-	    #state{session_cache = Cache,
+	    #state{session_cache_server = Cache,
 		   session_cache_cb = CacheCb} = State) ->    
     TimeStamp = calendar:datetime_to_gregorian_seconds({date(), time()}),
     NewSession = Session#session{time_stamp = TimeStamp},
@@ -306,17 +344,28 @@ handle_cast({register_session, Port, Session},
 
 handle_cast({invalidate_session, Host, Port,
 	     #session{session_id = ID} = Session},
-	    #state{session_cache = Cache,
+	    #state{session_cache_client = Cache,
 		   session_cache_cb = CacheCb} = State) ->
     invalidate_session(Cache, CacheCb, {{Host, Port}, ID}, Session, State);
 
 handle_cast({invalidate_session, Port, #session{session_id = ID} = Session},
-	    #state{session_cache = Cache,
+	    #state{session_cache_server = Cache,
 		   session_cache_cb = CacheCb} = State) ->
     invalidate_session(Cache, CacheCb, {Port, ID}, Session, State);
 
+
+handle_cast({insert_crls, Path, CRLs},   
+	    #state{certificate_db = Db} = State) ->
+    ssl_pkix_db:add_crls(Db, Path, CRLs),
+    {noreply, State};
+
+handle_cast({delete_crls, CRLsOrPath},   
+	    #state{certificate_db = Db} = State) ->
+    ssl_pkix_db:remove_crls(Db, CRLsOrPath),
+    {noreply, State};
+
 handle_cast({invalidate_pem, File},
-	    #state{certificate_db = [_, _, PemCache]} = State) ->
+	    #state{certificate_db = [_, _, PemCache | _]} = State) ->
     ssl_pkix_db:remove(File, PemCache),
     {noreply, State}.
 
@@ -329,21 +378,23 @@ handle_cast({invalidate_pem, File},
 %% Description: Handling all non call/cast messages
 %%-------------------------------------------------------------------
 handle_info(validate_sessions, #state{session_cache_cb = CacheCb,
-				      session_cache = Cache,
+				      session_cache_client = ClientCache,
+				      session_cache_server = ServerCache,
 				      session_lifetime = LifeTime
 				     } = State) ->
     Timer = erlang:send_after(?SESSION_VALIDATION_INTERVAL, 
 			      self(), validate_sessions),
-    start_session_validator(Cache, CacheCb, LifeTime),
+    start_session_validator(ClientCache, CacheCb, LifeTime),
+    start_session_validator(ServerCache, CacheCb, LifeTime),
     {noreply, State#state{session_validation_timer = Timer}};
 
-handle_info({delayed_clean_session, Key}, #state{session_cache = Cache,
-                   session_cache_cb = CacheCb
-                   } = State) ->
+
+handle_info({delayed_clean_session, Key, Cache}, #state{session_cache_cb = CacheCb
+						       } = State) ->
     CacheCb:delete(Cache, Key),
     {noreply, State};
 
-handle_info(clear_pem_cache, #state{certificate_db = [_,_,PemChace],
+handle_info(clear_pem_cache, #state{certificate_db = [_,_,PemChace | _],
 				    clear_pem_cache = Interval,
 				    last_pem_check = CheckPoint} = State) ->
     NewCheckPoint = os:timestamp(),
@@ -351,9 +402,8 @@ handle_info(clear_pem_cache, #state{certificate_db = [_,_,PemChace],
     erlang:send_after(Interval, self(), clear_pem_cache),
     {noreply, State#state{last_pem_check = NewCheckPoint}};
 
-
 handle_info({clean_cert_db, Ref, File},
-	    #state{certificate_db = [CertDb,RefDb, PemCache]} = State) ->
+	    #state{certificate_db = [CertDb,RefDb, PemCache | _]} = State) ->
     
     case ssl_pkix_db:lookup(Ref, RefDb) of
 	undefined -> %% Alredy cleaned
@@ -380,12 +430,14 @@ handle_info(_Info, State) ->
 %% The return value is ignored.
 %%--------------------------------------------------------------------
 terminate(_Reason, #state{certificate_db = Db,
-			  session_cache = SessionCache,
+			  session_cache_client = ClientSessionCache,
+			  session_cache_server = ServerSessionCache,
 			  session_cache_cb = CacheCb,
 			  session_validation_timer = Timer}) ->
     erlang:cancel_timer(Timer),
     ssl_pkix_db:remove(Db),
-    CacheCb:terminate(SessionCache),
+    catch CacheCb:terminate(ClientSessionCache),
+    catch CacheCb:terminate(ServerSessionCache),
     ok.
 
 %%--------------------------------------------------------------------
@@ -458,7 +510,7 @@ invalidate_session(Cache, CacheCb, Key, Session, #state{last_delay_timer = LastT
 	    %% up the session data but new connections should not get to use this session.
 	    CacheCb:update(Cache, Key, Session#session{is_resumable = false}),
 	    TRef =
-		erlang:send_after(delay_time(), self(), {delayed_clean_session, Key}),
+		erlang:send_after(delay_time(), self(), {delayed_clean_session, Key, Cache}),
 	    {noreply, State#state{last_delay_timer = last_delay_timer(Key, TRef, LastTimer)}}
     end.
 
@@ -507,6 +559,37 @@ clean_cert_db(Ref, CertDb, RefDb, PemCache, File) ->
 	    ok
     end.
 
+%% Do not let dumb clients create a gigantic session table
+%% for itself creating big delays at connection time. 
+register_unique_session(Sessions, Session, CacheCb, Cache, PartialKey) ->
+    case exists_equivalent(Session , Sessions) of
+	true ->
+	    ok;
+	false ->
+	    CacheCb:update(Cache, {PartialKey, 
+				   Session#session.session_id}, Session)
+    end.
+
+exists_equivalent(_, []) ->
+    false;
+exists_equivalent(#session{
+		     peer_certificate = PeerCert,
+		     own_certificate = OwnCert,
+		     compression_method = Compress,
+		     cipher_suite = CipherSuite,
+		     srp_username = SRP,
+		     ecc = ECC} , 
+		  [#session{
+		      peer_certificate = PeerCert,
+		      own_certificate = OwnCert,
+		      compression_method = Compress,
+		      cipher_suite = CipherSuite,
+		      srp_username = SRP,
+		      ecc = ECC} | _]) ->
+    true;
+exists_equivalent(Session, [ _ | Rest]) ->
+    exists_equivalent(Session, Rest).
+
 start_pem_cache_validator(PemCache, CheckPoint) ->
     spawn_link(?MODULE, init_pem_cache_validator, 
 	       [[get(ssl_manager), PemCache, CheckPoint]]).
@@ -541,4 +624,22 @@ pem_check_interval() ->
 is_before_checkpoint(Time, CheckPoint) ->
     calendar:datetime_to_gregorian_seconds(calendar:now_to_datetime(CheckPoint)) -
     calendar:datetime_to_gregorian_seconds(Time) > 0.
+
+add_trusted_certs(Pid, Trustedcerts, Db) ->
+    try
+	ssl_pkix_db:add_trusted_certs(Pid, Trustedcerts, Db) 	    
+    catch
+	_:Reason ->
+	    {error, Reason}
+    end.
+
+session_cache(client, #state{session_cache_client = Cache}) ->
+    Cache;
+session_cache(server, #state{session_cache_server = Cache}) ->
+    Cache.
+
+crl_db_info([_,_,_,Local], {internal, Info}) ->
+    {Local, Info};
+crl_db_info(_, UserCRLDb) ->
+    UserCRLDb.
 

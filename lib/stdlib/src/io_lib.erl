@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2014. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -60,6 +61,7 @@
 -module(io_lib).
 
 -export([fwrite/2,fread/2,fread/3,format/2]).
+-export([scan_format/2,unscan_format/1,build_text/1]).
 -export([print/1,print/4,indentation/2]).
 
 -export([write/1,write/2,write/3,nl/0,format_prompt/1,format_prompt/2]).
@@ -83,7 +85,7 @@
          deep_unicode_char_list/1]).
 
 -export_type([chars/0, latin1_string/0, continuation/0,
-              fread_error/0, fread_item/0]).
+              fread_error/0, fread_item/0, format_spec/0]).
 
 %%----------------------------------------------------------------------
 
@@ -107,6 +109,18 @@
                      | 'unsigned'.
 
 -type fread_item() :: string() | atom() | integer() | float().
+
+-type format_spec() ::
+        #{
+           control_char => char(),
+           args         => [any()],
+           width        => 'none' | integer(),
+           adjust       => 'left' | 'right',
+           precision    => 'none' | integer(),
+           pad_char     => char(),
+           encoding     => 'unicode' | 'latin1',
+           strings      => boolean()
+         }.
 
 %%----------------------------------------------------------------------
 
@@ -155,6 +169,31 @@ format(Format, Args) ->
 	Other ->
 	    Other
     end.
+
+-spec scan_format(Format, Data) -> FormatList when
+      Format :: io:format(),
+      Data :: [term()],
+      FormatList :: [char() | format_spec()].
+
+scan_format(Format, Args) ->
+    try io_lib_format:scan(Format, Args)
+    catch
+        _:_ -> erlang:error(badarg, [Format, Args])
+    end.
+
+-spec unscan_format(FormatList) -> {Format, Data} when
+      FormatList :: [char() | format_spec()],
+      Format :: io:format(),
+      Data :: [term()].
+
+unscan_format(FormatList) ->
+    io_lib_format:unscan(FormatList).
+
+-spec build_text(FormatList) -> chars() when
+      FormatList :: [char() | format_spec()].
+
+build_text(FormatList) ->
+    io_lib_format:build(FormatList).
 
 -spec print(Term) -> chars() when
       Term :: term().
@@ -249,6 +288,8 @@ write([H|T], D) ->
     end;
 write(F, _D) when is_function(F) ->
     erlang:fun_to_list(F);
+write(Term, D) when is_map(Term) ->
+    write_map(Term, D);
 write(T, D) when is_tuple(T) ->
     if
 	D =:= 1 -> "{...}";
@@ -257,9 +298,7 @@ write(T, D) when is_tuple(T) ->
 	     [write(element(1, T), D-1)|
               write_tail(tl(tuple_to_list(T)), D-1, $,)],
 	     $}]
-    end;
-%write(Term, D)  when is_map(Term) -> write_map(Term, D);
-write(Term, D) -> write_map(Term, D).
+    end.
 
 %% write_tail(List, Depth, CharacterBeforeDots)
 %%  Test the terminating case first as this looks better with depth.

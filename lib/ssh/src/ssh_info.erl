@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 2008-2015. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -79,7 +80,7 @@ print_clients(D) ->
 
 print_client(D, {undefined,Pid,supervisor,[ssh_connection_handler]}) ->
     {{Local,Remote},_Str} = ssh_connection_handler:get_print_info(Pid),
-    io:format(D, "    Local=~s Remote=~s~n",[fmt_host_port(Local),fmt_host_port(Remote)]);
+    io:format(D, "    Local=~s  Remote=~s  ConnectionRef=~p~n",[fmt_host_port(Local),fmt_host_port(Remote),Pid]);
 print_client(D, Other) ->
     io:format(D, "    [[Other 1: ~p]]~n",[Other]).
 
@@ -134,10 +135,11 @@ walk_sups(D, StartPid) ->
     io:format(D, "Start at ~p, ~s.~n",[StartPid,dead_or_alive(StartPid)]),
     walk_sups(D, children(StartPid), _Indent=?inc(0)).
 
-walk_sups(D, [H={_,Pid,SupOrWorker,_}|T], Indent) ->
+walk_sups(D, [H={_,Pid,_,_}|T], Indent) ->
     indent(D, Indent), io:format(D, '~200p  ~p is ~s~n',[H,Pid,dead_or_alive(Pid)]),
-    case SupOrWorker of
-	supervisor -> walk_sups(D, children(Pid), ?inc(Indent));
+    case H of
+	{_,_,supervisor,[ssh_connection_handler]} -> ok;
+	{_,Pid,supervisor,_} -> walk_sups(D, children(Pid), ?inc(Indent));
 	_ -> ok
     end,
     walk_sups(D, T, Indent);
@@ -187,7 +189,7 @@ line(D, Len, Char) ->
 	    
 
 datetime() ->
-    {{YYYY,MM,DD}, {H,M,S}} = calendar:now_to_universal_time(now()),
+    {{YYYY,MM,DD}, {H,M,S}} = calendar:now_to_universal_time(erlang:timestamp()),
     lists:flatten(io_lib:format('~4w-~2..0w-~2..0w ~2..0w:~2..0w:~2..0w UTC',[YYYY,MM,DD, H,M,S])).
 
 

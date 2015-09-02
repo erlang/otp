@@ -8,16 +8,17 @@
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
-      The contents of this file are subject to the Erlang Public License,
-      Version 1.1, (the "License"); you may not use this file except in
-      compliance with the License. You should have received a copy of the
-      Erlang Public License along with this software. If not, it can be
-      retrieved online at http://www.erlang.org/.
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
 
-      Software distributed under the License is distributed on an "AS IS"
-      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-      the License for the specific language governing rights and limitations
-      under the License.
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
 
     </legalnotice>
 
@@ -58,7 +59,78 @@
     </datatype>
     <datatype>
       <name name="timestamp"></name>
-      <desc><p>See <seealso marker="#now/0">now/0</seealso>.</p>
+      <desc><p>See <seealso marker="#timestamp/0">erlang:timestamp/0</seealso>.</p>
+      </desc>
+    </datatype>
+    <marker id="type_time_unit"/>
+    <datatype>
+      <name name="time_unit"></name>
+      <desc><p>Currently supported time unit representations:</p>
+        <taglist>
+	  <tag><c>PartsPerSecond :: integer() >= 1</c></tag>
+	  <item><p>Time unit expressed in parts per second. That is,
+	  the time unit equals <c>1/PartsPerSecond</c> second.</p></item>
+
+	  <tag><c>seconds</c></tag>
+	  <item><p>Symbolic representation of the time unit
+	  represented by the integer <c>1</c>.</p></item>
+
+	  <tag><c>milli_seconds</c></tag>
+	  <item><p>Symbolic representation of the time unit
+	  represented by the integer <c>1000</c>.</p></item>
+
+	  <tag><c>micro_seconds</c></tag>
+	  <item><p>Symbolic representation of the time unit
+	  represented by the integer <c>1000000</c>.</p></item>
+
+	  <tag><c>nano_seconds</c></tag>
+	  <item><p>Symbolic representation of the time unit
+	  represented by the integer <c>1000000000</c>.</p></item>
+
+	  <tag><c>native</c></tag>
+	  <item><p>Symbolic representation of the native time unit
+	  used by the Erlang runtime system.</p>
+
+	  <p>The <c>native</c> time unit is determined at
+	  runtime system start, and will remain the same until
+	  the runtime system terminates. If a runtime system
+	  is stopped and then started again (even on the same
+	  machine), the <c>native</c> time unit of the new
+	  runtime system instance may differ from the
+	  <c>native</c> time unit of the old runtime system
+	  instance.</p>
+
+	  <p>One can get an approximation of the <c>native</c>
+	  time unit by calling <c>erlang:convert_time_unit(1,
+	  seconds, native)</c>. The result equals the number
+	  of whole <c>native</c> time units per second. In case
+	  the number of <c>native</c> time units per second does
+	  not add up to a whole number, the result will be
+	  rounded downwards.</p>
+
+	  <note>
+	    <p>The value of the <c>native</c> time unit gives
+	    you more or less no information at all about the
+	    quality of time values. It sets a limit for
+	    the
+	    <seealso marker="time_correction#Time_Resolution">resolution</seealso>
+	    as well as for the
+	    <seealso marker="time_correction#Time_Precision">precision</seealso>
+	    of time values,
+	    but it gives absolutely no information at all about the
+	    <seealso marker="time_correction#Time_Accuracy">accuracy</seealso>
+	    of time values. The resolution of the <c>native</c> time
+	    unit and the resolution of time values may differ
+	    significantly.</p>
+	  </note>
+	  </item>
+
+	</taglist>
+
+	<p>The <c>time_unit/0</c> type may be extended. Use
+	<seealso marker="#convert_time_unit/3"><c>erlang:convert_time_unit/3</c></seealso>
+	in order to convert time values between time units.</p>
+
       </desc>
     </datatype>
   </datatypes>
@@ -465,29 +537,108 @@
       </desc>
     </func>
     <func>
+      <name name="cancel_timer" arity="2"/>
+      <fsummary>Cancel a timer</fsummary>
+      <desc>
+        <p>
+	  Cancels a timer that has been created by either
+	  <seealso marker="#start_timer/4"><c>erlang:start_timer()</c></seealso>,
+	  or <seealso marker="#send_after/4"><c>erlang:send_after()</c></seealso>.
+	  <c><anno>TimerRef</anno></c> identifies the timer, and
+	  was returned by the BIF that created the timer.
+	</p>
+	<p>Currently available <c><anno>Option</anno></c>s:</p>
+        <taglist>
+          <tag><c>{async, Async}</c></tag>
+          <item>
+	    <p>
+	      Asynchronous request for cancellation. <c>Async</c>
+	      defaults to <c>false</c> which will cause the
+	      cancellation to be performed synchronously. When
+	      <c>Async</c> is set to <c>true</c>, the cancel
+	      operation will be performed asynchronously. That is,
+	      <c>erlang:cancel_timer()</c> will send an asynchronous
+	      request for cancellation to the timer service that
+	      manages the timer, and then return <c>ok</c>.
+	  </p>
+	  </item>
+          <tag><c>{info, Info}</c></tag>
+          <item>
+	    <p>
+	      Request information about the <c><anno>Result</anno></c>
+	      of the cancellation. <c>Info</c> defaults to <c>true</c>
+	      which means that the <c><anno>Result</anno></c> will
+	      be given. When <c>Info</c> is set to <c>false</c>, no
+	      information about the result of the cancellation
+	      will be given. When the operation is performed</p>
+              <taglist>
+		<tag>synchronously</tag>
+		<item>
+		  <p>
+		    If <c>Info</c> is <c>true</c>, the <c>Result</c> will
+		    returned by <c>erlang:cancel_timer()</c>; otherwise,
+		    <c>ok</c> will be returned.
+		  </p>
+		</item>
+		<tag>asynchronously</tag>
+		<item>
+		  <p>
+		    If <c>Info</c> is <c>true</c>, a message on the form
+		    <c>{cancel_timer, <anno>TimerRef</anno>,
+		    <anno>Result</anno>}</c> will be sent to the
+		    caller of <c>erlang:cancel_timer()</c> when the
+		    cancellation operation has been performed; otherwise,
+		    no message will be sent.
+		  </p>
+		</item>
+            </taglist>
+	  </item>
+        </taglist>
+	<p>
+	  More <c><anno>Option</anno></c>s may be added in the future.
+	</p>
+	<p>
+	  When the <c><anno>Result</anno></c> equals <c>false</c>, a
+	  timer corresponding to <c><anno>TimerRef</anno></c> could not
+	  be found. This can be either because the timer had expired,
+	  already had been canceled, or because <c><anno>TimerRef</anno></c>
+	  never has corresponded to a timer. If the timer has expired,
+	  the timeout message has been sent, but it does not tell you
+	  whether or not it has arrived at its destination yet. When the
+	  <c><anno>Result</anno></c> is an integer, it represents the
+	  time in milli-seconds left until the timer will expire.
+	</p>
+	<note>
+	  <p>
+	    The timer service that manages the timer may be co-located
+	    with another scheduler than the scheduler that the calling
+	    process is executing on. If this is the case, communication
+	    with the timer service will take much longer time than if it
+	    is located locally. If the calling process is in critical
+	    path, and can do other things while waiting for the result
+	    of this operation, or is not interested in the result of
+	    the operation, you want to use the <c>{async, true}</c>
+	    option. If using the <c>{async, false}</c> option, the calling
+	    process will be blocked until the operation has been
+	    performed.
+	  </p>
+	</note>
+        <p>See also 
+          <seealso marker="#send_after/4"><c>erlang:send_after/4</c></seealso>,
+          <seealso marker="#start_timer/4"><c>erlang:start_timer/4</c></seealso>,
+          and
+          <seealso marker="#read_timer/2"><c>erlang:read_timer/2</c></seealso>.</p>
+      </desc>
+    </func>
+    <func>
       <name name="cancel_timer" arity="1"/>
       <fsummary>Cancel a timer</fsummary>
       <desc>
-        <p>Cancels a timer, where <c><anno>TimerRef</anno></c> was returned by
-          either
-          <seealso marker="#send_after/3">erlang:send_after/3</seealso>
-          or
-          <seealso marker="#start_timer/3">erlang:start_timer/3</seealso>.
-          If the timer is there to be removed, the function returns
-          the time in milliseconds left until the timer would have expired,
-          otherwise <c>false</c> (which means that <c><anno>TimerRef</anno></c> was
-          never a timer, that it has already been cancelled, or that it
-          has already delivered its message).</p>
-        <p>See also 
-          <seealso marker="#send_after/3">erlang:send_after/3</seealso>,
-          <seealso marker="#start_timer/3">erlang:start_timer/3</seealso>,
-          and
-          <seealso marker="#read_timer/1">erlang:read_timer/1</seealso>.</p>
-        <p>Note: Cancelling a timer does not guarantee that the message
-          has not already been delivered to the message queue.</p>
+        <p>Cancels a timer. The same as calling
+	<seealso marker="#cancel_timer/2"><c>erlang:cancel_timer(TimerRef,
+	[])</c></seealso>.</p>
       </desc>
     </func>
-
     <func>
       <name name="check_old_code" arity="1"/>
       <fsummary>Check if a module has old code</fsummary>
@@ -582,6 +733,22 @@
 	    If <c><anno>OptionList</anno></c> is not a valid list of options.
 	  </item>
         </taglist>
+      </desc>
+    </func>
+    <func>
+      <name name="convert_time_unit" arity="3"/>
+      <fsummary>Convert time unit of a time value</fsummary>
+      <desc>
+	<p>Converts the <c><anno>Time</anno></c> value of time unit
+	<c><anno>FromUnit</anno></c> to the corresponding
+	<c><anno>ConvertedTime</anno></c> value of time unit
+	<c><anno>ToUnit</anno></c>. The result is rounded
+	using the floor function.</p>
+
+	<warning><p>You may lose accuracy and precision when converting
+	between	time units. In order to minimize such loss, collect all
+	data at <c>native</c> time unit and do the conversion on the end
+	result.</p></warning>
       </desc>
     </func>
     <func>
@@ -1252,10 +1419,11 @@ true
       <fsummary>Check if a function is exported and loaded</fsummary>
       <desc>
         <p>Returns <c>true</c> if the module <c><anno>Module</anno></c> is loaded
-          and contains an exported function <c><anno>Function</anno>/<anno>Arity</anno></c>;
-          otherwise <c>false</c>.</p>
-        <p>Returns <c>false</c> for any BIF (functions implemented in C
-          rather than in Erlang).</p>
+          and contains an exported function <c><anno>Function</anno>/<anno>Arity</anno></c>,
+	  or if there is a BIF (a built-in function implemented in C)
+	  with the given name; otherwise returns <c>false</c>.</p>
+	  <note><p>This function used to return false for built-in
+	  functions before the 18.0 release.</p></note>
       </desc>
     </func>
     <func>
@@ -1373,6 +1541,19 @@ true
       <desc>
         <p>Returns the magic cookie of the local node, if the node is
           alive; otherwise the atom <c>nocookie</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="get_keys" arity="0"/>
+      <fsummary>Return a list of all keys from the process dictionary</fsummary>
+      <desc>
+        <p>Returns a list of keys all keys present in the process dictionary.</p>
+        <pre>
+> <input>put(dog, {animal,1}),</input>
+<input>put(cow, {animal,2}),</input>
+<input>put(lamb, {animal,3}),</input>
+<input>get_keys().</input>
+[dog,cow,lamb]</pre>
       </desc>
     </func>
     <func>
@@ -2191,14 +2372,15 @@ os_prompt% </pre>
     </func>
     <func>
       <name name="make_ref" arity="0"/>
-      <fsummary>Return an almost unique reference</fsummary>
+      <fsummary>Return a unique reference</fsummary>
       <desc>
-        <p>Returns an almost unique reference.</p>
-        <p>The returned reference will re-occur after approximately 2^82
-          calls; therefore it is unique enough for practical purposes.</p>
-        <pre>
-> <input>make_ref().</input>
-#Ref&lt;0.0.0.135></pre>
+	<p>Return a <seealso marker="doc/efficiency_guide:advanced#unique_references">unique
+	reference</seealso>. The reference is unique among
+	connected nodes.</p>
+	<warning><p>Known issue: When a node is restarted multiple
+	times with the same node name, references created
+	on a newer node can be mistaken for a reference
+	created on an older node with the same node name.</p></warning>
       </desc>
     </func>
     <func>
@@ -2499,97 +2681,178 @@ os_prompt% </pre>
       </desc>
     </func>
     <func>
-      <name name="monitor" arity="2"/>
+      <name name="monitor" arity="2" clause_i="1"/>
+      <name name="monitor" arity="2" clause_i="2"/>
+      <type name="registered_name"/>
+      <type name="registered_process_identifier"/>
+      <type name="monitor_process_identifier"/>
       <fsummary>Start monitoring</fsummary>
       <desc>
-        <p>The calling process starts monitoring <c><anno>Item</anno></c> which is
-          an object of type <c><anno>Type</anno></c>.</p>
-        <p>Currently only processes can be monitored, i.e. the only
-          allowed <c><anno>Type</anno></c> is <c>process</c>, but other types may be
-          allowed in the future.</p>
-        <p><c><anno>Item</anno></c> can be:</p>
-        <taglist>
-          <tag><c>pid()</c></tag>
-          <item>
-            <p>The pid of the process to monitor.</p>
-          </item>
-          <tag><c>{RegName, Node}</c></tag>
-          <item>
-            <p>A tuple consisting of a registered name of a process and
-              a node name. The process residing on the node <c>Node</c>
-              with the registered name <c>RegName</c> will be monitored.</p>
-          </item>
-          <tag><c>RegName</c></tag>
-          <item>
-            <p>The process locally registered as <c>RegName</c> will be
-              monitored.</p>
-          </item>
-        </taglist>
-        <note>
-          <p>When a process is monitored by registered name, the process
-            that has the registered name at the time when
-            <c>monitor/2</c> is called will be monitored.
+	<p>Send a monitor request of type <c><anno>Type</anno></c> to the
+	entity identified by <c><anno>Item</anno></c>. The caller of
+	<c>monitor/2</c> will later be notified by a monitor message on the
+	following format if the monitored state is changed:</p>
+        <code type="none">{Tag, <anno>MonitorRef</anno>, <anno>Type</anno>, Object, Info}</code>
+	<note><p>The monitor request is an asynchronous signal. That is, it
+	takes time before the signal reach its destination.</p></note>
+	<p>Currently valid <c><anno>Type</anno></c>s:</p>
+	<taglist>
+	  <tag><marker id="monitor_process"/><c>process</c></tag>
+	  <item>
+	    <p>Monitor the existence of the process identified by
+	    <c><anno>Item</anno></c>. Currently valid
+	    <c><anno>Item</anno></c>s in combination with the
+	    <c>process <anno>Type</anno></c>:</p>
+            <taglist>
+              <tag><c>pid()</c></tag>
+              <item>
+		<p>The process identifier of the process to monitor.</p>
+              </item>
+              <tag><c>{RegisteredName, Node}</c></tag>
+              <item>
+		<p>A tuple consisting of a registered name of a process and
+		a node name. The process residing on the node <c>Node</c>
+		with the registered name <c>{RegisteredName, Node}</c> will
+		be monitored.</p>
+              </item>
+              <tag><c>RegisteredName</c></tag>
+              <item>
+		<p>The process locally registered as <c>RegisteredName</c>
+		will become monitored.</p>
+              </item>
+            </taglist>
+            <note><p>When a process is monitored by registered name, the
+	    process that has the registered name at the time when the
+            monitor request reach its destination will be monitored.
             The monitor will not be effected, if the registered name is
-            unregistered.</p>
-        </note>
-        <p>A <c>'DOWN'</c> message will be sent to the monitoring
-          process if <c><anno>Item</anno></c> dies, if <c><anno>Item</anno></c> does not exist,
-          or if the connection is lost to the node which <c><anno>Item</anno></c>
-          resides on. A <c>'DOWN'</c> message has the following pattern:</p>
-        <code type="none">
-{'DOWN', MonitorRef, Type, Object, Info}</code>
-        <p>where <c>MonitorRef</c> and <c>Type</c> are the same as
-          described above, and:</p>
-        <taglist>
-          <tag><c>Object</c></tag>
-          <item>
-            <p>A reference to the monitored object:</p>
-            <list type="bulleted">
-              <item>the pid of the monitored process, if <c><anno>Item</anno></c> was
-               specified as a pid.</item>
-              <item><c>{RegName, Node}</c>, if <c><anno>Item</anno></c> was specified as
-              <c>{RegName, Node}</c>.</item>
-              <item><c>{RegName, Node}</c>, if <c><anno>Item</anno></c> was specified as
-              <c>RegName</c>. <c>Node</c> will in this case be the
-               name of the local node (<c>node()</c>).</item>
-            </list>
-          </item>
-          <tag><c>Info</c></tag>
-          <item>
-            <p>Either the exit reason of the process, <c>noproc</c>
-              (non-existing process), or <c>noconnection</c> (no
-              connection to <c><anno>Node</anno></c>).</p>
-          </item>
-        </taglist>
+            unregistered, or unregistered and later registered on another
+	    process.</p></note>
+	    <p>The monitor is triggered either when the monitored process
+	    terminates, is non existing, or if the connection to it is
+	    lost. In the case the connection to it is lost, we do not know
+	    if it still exist or not. After this type of monitor has been
+	    triggered, the monitor is automatically removed.</p>
+            <p>When the monitor is triggered a <c>'DOWN'</c> message will
+	    be sent to the monitoring process. A <c>'DOWN'</c> message has
+	    the following pattern:</p>
+            <code type="none">{'DOWN', MonitorRef, Type, Object, Info}</code>
+            <p>where <c>MonitorRef</c> and <c>Type</c> are the same as
+            described above, and:</p>
+            <taglist>
+              <tag><c>Object</c></tag>
+              <item>
+		<p>equals:</p>
+		<taglist>
+		  <tag><c><anno>Item</anno></c></tag>
+		  <item>If <c><anno>Item</anno></c> was specified by a
+		  pid.</item>
+		  <tag><c>{RegisteredName, Node}</c></tag>
+		  <item>If <c><anno>Item</anno></c> was specified as
+		  <c>RegisteredName</c>, or <c>{RegisteredName, Node}</c>
+		  where <c>Node</c> corresponds to the node that the
+		  monitored process resides on.</item>
+		</taglist>
+              </item>
+              <tag><c>Info</c></tag>
+              <item>
+		<p>Either the exit reason of the process, <c>noproc</c>
+		(non-existing process), or <c>noconnection</c> (no
+		connection to the node where the monitored process
+		resides).</p></item>
+	    </taglist>
+	    <p>The monitoring is turned off either when the <c>'DOWN'</c>
+	    message is sent, or when
+	    <seealso marker="#demonitor/1">demonitor/1</seealso>
+	    is called.</p>
+	    <p>If an attempt is made to monitor a process on an older node
+	    (where remote process monitoring is not implemented or one
+	    where remote process monitoring by registered name is not
+	    implemented), the call fails with <c>badarg</c>.</p>
+	    <note>
+	      <p>The format of the <c>'DOWN'</c> message changed in the 5.2
+	      version of the emulator (OTP release R9B) for monitor
+	      <em>by registered name</em>. The <c>Object</c> element of
+	      the <c>'DOWN'</c> message could in earlier versions
+	      sometimes be the pid of the monitored process and sometimes
+	      be the registered name. Now the <c>Object</c> element is
+	      always a tuple consisting of the registered name and
+	      the node name. Processes on new nodes (emulator version 5.2
+	      or greater) will always get <c>'DOWN'</c> messages on
+	      the new format even if they are monitoring processes on old
+	      nodes. Processes on old nodes will always get <c>'DOWN'</c>
+	      messages on the old format.</p>
+	    </note>
+	  </item>
+	  <tag><marker id="monitor_time_offset"/><c>time_offset</c></tag>
+	  <item>
+	    <p>Monitor changes in
+	    <seealso marker="#time_offset/0">time offset</seealso>
+	    between
+	    <seealso marker="time_correction#Erlang_Monotonic_Time">Erlang
+	    monotonic time</seealso> and
+	    <seealso marker="time_correction#Erlang_System_Time">Erlang
+	    system time</seealso>. There is only one valid
+	    <c><anno>Item</anno></c> in combination with the
+	    <c>time_offset <anno>Type</anno></c>, namely the atom
+	    <c>clock_service</c>. Note that the atom <c>clock_service</c> is
+	    <em>not</em> the registered name of a process. In this specific
+	    case it serves as an identifier of the runtime system internal
+	    clock service at current runtime system instance.</p>
+
+	    <p>The monitor is triggered when the time offset is changed.
+	    This either if the time offset value is changed, or if the
+	    offset is changed from preliminary to final during
+	    <seealso marker="#system_flag_time_offset">finalization
+	    of the time offset</seealso> when the
+	    <seealso marker="time_correction#Single_Time_Warp_Mode">single
+	    time warp mode</seealso> is used. When a change from preliminary
+	    to final time offset is made, the monitor will be triggered once
+	    regardless of whether the time offset value was changed due to
+	    the finalization or not.</p>
+
+	    <p>If the runtime system is in
+	    <seealso marker="time_correction#Multi_Time_Warp_Mode">multi
+	    time warp mode</seealso>, the time offset will be changed when
+	    the runtime system detects that the
+	    <seealso marker="time_correction#OS_System_Time">OS system
+	    time</seealso> has changed. The runtime system will, however,
+	    not detect this immediately when it happens. A task checking
+	    the time offset is scheduled to execute at least once a minute,
+	    so under normal operation this should be detected within a
+	    minute, but during heavy load it might take longer time.</p>
+
+	    <p>The monitor will <em>not</em> be automatically removed
+	    after it has been triggered. That is, repeated changes of
+	    the time offset will trigger the monitor repeatedly.</p>
+
+            <p>When the monitor is triggered a <c>'CHANGE'</c> message will
+	    be sent to the monitoring process. A <c>'CHANGE'</c> message has
+	    the following pattern:</p>
+            <code type="none">{'CHANGE', MonitorRef, Type, Item, NewTimeOffset}</code>
+            <p>where <c>MonitorRef</c>, <c><anno>Type</anno></c>, and 
+	    <c><anno>Item</anno></c> are the same as described above, and
+	    <c>NewTimeOffset</c> is the new time offset.</p>
+
+	    <p>When the <c>'CHANGE'</c> message has been received you are
+	    guaranteed not to retrieve the old time offset when calling
+	    <seealso marker="#time_offset/0"><c>erlang:time_offset()</c></seealso>.
+	    Note that you may observe the change of the time offset
+	    when calling <c>erlang:time_offset()</c> before you
+	    get the <c>'CHANGE'</c> message.</p>
+
+	  </item>
+	</taglist>
+	<p>Making several calls to <c>monitor/2</c> for the same
+	<c><anno>Item</anno></c> and/or <c><anno>Type</anno></c> is not
+	an error; it results in many, completely independent,
+	monitorings.</p>
+	<p>The monitor functionality is expected to be extended. That is,
+	other <c><anno>Type</anno></c>s and <c><anno>Item</anno></c>s
+	are expected to be supported in	the future.</p>
         <note>
-          <p>If/when <c>monitor/2</c> is extended (e.g. to
-            handle other item types than <c>process</c>), other
-            possible values for <c>Object</c>, and <c>Info</c> in the
-            <c>'DOWN'</c> message will be introduced.</p>
-        </note>
-        <p>The monitoring is turned off either when the <c>'DOWN'</c>
-          message is sent, or when
-          <seealso marker="#demonitor/1">demonitor/1</seealso>
-          is called.</p>
-        <p>If an attempt is made to monitor a process on an older node
-          (where remote process monitoring is not implemented or one
-          where remote process monitoring by registered name is not
-          implemented), the call fails with <c>badarg</c>.</p>
-        <p>Making several calls to <c>monitor/2</c> for the same
-          <c><anno>Item</anno></c> is not an error; it results in as many, completely
-          independent, monitorings.</p>
-        <note>
-          <p>The format of the <c>'DOWN'</c> message changed in the 5.2
-            version of the emulator (OTP release R9B) for monitor <em>by registered name</em>. The <c>Object</c> element of
-            the <c>'DOWN'</c> message could in earlier versions
-            sometimes be the pid of the monitored process and sometimes
-            be the registered name. Now the <c>Object</c> element is
-            always a tuple consisting of the registered name and
-            the node name. Processes on new nodes (emulator version 5.2
-            or greater) will always get <c>'DOWN'</c> messages on
-            the new format even if they are monitoring processes on old
-            nodes. Processes on old nodes will always get <c>'DOWN'</c>
-            messages on the old format.</p>
+          <p>If/when <c>monitor/2</c> is extended, other
+            possible values for <c>Tag</c>, <c>Object</c>, and
+	    <c>Info</c> in the monitor message will be introduced.</p>
         </note>
       </desc>
     </func>
@@ -2637,6 +2900,51 @@ os_prompt% </pre>
         </note>
         <p>Failure: <c>badarg</c> if the local node is not alive or the
           option list is malformed.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="monotonic_time" arity="0"/>
+      <fsummary>Current Erlang monotonic time</fsummary>
+      <desc>
+	<p>Returns the current
+	<seealso marker="time_correction#Erlang_Monotonic_Time">Erlang
+	monotonic time</seealso> in <c>native</c>
+	<seealso marker="#type_time_unit">time unit</seealso>. This
+	is a monotonically increasing time since some unspecified point in
+	time.</p>
+
+	<note><p>This is a
+	<seealso marker="time_correction#Monotonically_Increasing">monotonically increasing</seealso> time, but <em>not</em> a
+	<seealso marker="time_correction#Strictly_Monotonically_Increasing">strictly monotonically increasing</seealso>
+	time. That is, consecutive calls to
+	<c>erlang:monotonic_time/0</c> may produce the same result.</p>
+
+	<p>Different runtime system instances will use different
+	unspecified points in time as base for their Erlang monotonic clocks.
+	That is, it is <em>pointless</em> comparing monotonic times from
+	different runtime system instances. Different runtime system instances
+	may also place this unspecified point in time different relative
+	runtime system start. It may be placed in the future (time at start
+	will be a negative value), the past (time at start will be a
+	positive value), or the runtime system start (time at start will
+	be zero). The monotonic time as of runtime system start can be
+	retrieved by calling
+	<seealso marker="#system_info_start_time"><c>erlang:system_info(start_time)</c></seealso>.</p></note>
+      </desc>
+    </func>
+    <func>
+      <name name="monotonic_time" arity="1"/>
+      <fsummary>Current Erlang monotonic time</fsummary>
+      <desc>
+	<p>Returns the current
+	<seealso marker="time_correction#Erlang_Monotonic_Time">Erlang
+	monotonic time</seealso> converted
+	into the <c><anno>Unit</anno></c> passed as argument.</p>
+
+	<p>Same as calling
+	<seealso marker="#convert_time_unit/3"><c>erlang:convert_time_unit</c></seealso><c>(</c><seealso marker="#monotonic_time/0"><c>erlang:monotonic_time()</c></seealso><c>,
+	native, <anno>Unit</anno>)</c>
+	however optimized for commonly used <c><anno>Unit</anno></c>s.</p>
       </desc>
     </func>
     <func>
@@ -2734,6 +3042,13 @@ os_prompt% </pre>
       <type name="timestamp"/>
       <fsummary>Elapsed time since 00:00 GMT</fsummary>
       <desc>
+	<warning><p><em>This function is deprecated! Do not use it!</em>
+	See the users guide chapter
+	<seealso marker="time_correction">Time and Time Correction</seealso>
+	for more information. Specifically the 
+	<seealso marker="time_correction#Dos_and_Donts">Dos and Dont's</seealso>
+	section for information on what to use instead of <c>erlang:now/0</c>.
+	</p></warning>
         <p>Returns the tuple <c>{MegaSecs, Secs, MicroSecs}</c> which is
           the elapsed time since 00:00 GMT, January 1, 1970 (zero hour)
           on the assumption that the underlying OS supports this.
@@ -2746,10 +3061,6 @@ os_prompt% </pre>
         <p>It can only be used to check the local time of day if
           the time-zone info of the underlying operating system is
           properly configured.</p>
-        <p>If you do not need the return value to be unique and
-          monotonically increasing, use
-          <seealso marker="kernel:os#timestamp/0">os:timestamp/0</seealso>
-          instead to avoid some overhead.</p>
       </desc>
     </func>
     <func>
@@ -4274,23 +4585,77 @@ os_prompt% </pre>
       </desc>
     </func>
     <func>
-      <name name="read_timer" arity="1"/>
-      <fsummary>Number of milliseconds remaining for a timer</fsummary>
+      <name name="read_timer" arity="2"/>
+      <fsummary>Read the state of a timer</fsummary>
       <desc>
-        <p><c><anno>TimerRef</anno></c> is a timer reference returned by
-          <seealso marker="#send_after/3">erlang:send_after/3</seealso>
-          or
-          <seealso marker="#start_timer/3">erlang:start_timer/3</seealso>.
-          If the timer is active, the function returns the time in
-          milliseconds left until the timer will expire, otherwise
-          <c>false</c> (which means that <c><anno>TimerRef</anno></c> was never a
-          timer, that it has been cancelled, or that it has already
-          delivered its message).</p>
+        <p>
+	  Read the state of a timer that has been created by either
+	  <seealso marker="#start_timer/4"><c>erlang:start_timer()</c></seealso>,
+	  or <seealso marker="#send_after/4"><c>erlang:send_after()</c></seealso>.
+	  <c><anno>TimerRef</anno></c> identifies the timer, and
+	  was returned by the BIF that created the timer.
+	</p>
+	<p>Currently available <c><anno>Option</anno>s</c>:</p>
+        <taglist>
+          <tag><c>{async, Async}</c></tag>
+          <item>
+	    <p>
+	      Asynchronous request for state information. <c>Async</c>
+	      defaults to <c>false</c> which will cause the operation
+	      to be performed synchronously. In this case, the <c>Result</c>
+	      will be returned by <c>erlang:read_timer()</c>. When
+	      <c>Async</c> is set to <c>true</c>, <c>erlang:read_timer()</c>
+	      will send an asynchronous request for the state information
+	      to the timer service that manages the timer, and then return
+	      <c>ok</c>. A message on the format <c>{read_timer,
+	      <anno>TimerRef</anno>, <anno>Result</anno>}</c> will be
+	      sent to the caller of <c>erlang:read_timer()</c> when the
+	      operation has been processed.
+	    </p>
+	  </item>
+        </taglist>
+	<p>
+	  More <c><anno>Option</anno></c>s may be added in the future.
+	</p>
+	<p>
+	  When the <c><anno>Result</anno></c> equals <c>false</c>, a
+	  timer corresponding to <c><anno>TimerRef</anno></c> could not
+	  be found. This can be either because the timer had expired,
+	  had been canceled, or because <c><anno>TimerRef</anno></c>
+	  never has corresponded to a timer. If the timer has expired,
+	  the timeout message has been sent, but it does not tell you
+	  whether or not it has arrived at its destination yet. When the
+	  <c><anno>Result</anno></c> is an integer, it represents the
+	  time in milli-seconds left until the timer will expire.
+	</p>
+	<note>
+	  <p>
+	    The timer service that manages the timer may be co-located
+	    with another scheduler than the scheduler that the calling
+	    process is executing on. If this is the case, communication
+	    with the timer service will take much longer time than if it
+	    is located locally. If the calling process is in critical
+	    path, and can do other things while waiting for the result
+	    of this operation you want to use the <c>{async, true}</c>
+	    option. If using the <c>{async, false}</c> option, the calling
+	    process will be blocked until the operation has been
+	    performed.
+	  </p>
+	</note>
         <p>See also 
-          <seealso marker="#send_after/3">erlang:send_after/3</seealso>,
-          <seealso marker="#start_timer/3">erlang:start_timer/3</seealso>,
+          <seealso marker="#send_after/4"><c>erlang:send_after/4</c></seealso>,
+          <seealso marker="#start_timer/4"><c>erlang:start_timer/4</c></seealso>,
           and
-          <seealso marker="#cancel_timer/1">erlang:cancel_timer/1</seealso>.</p>
+          <seealso marker="#cancel_timer/2"><c>erlang:cancel_timer/2</c></seealso>.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="read_timer" arity="1"/>
+      <fsummary>Read the state of a timer</fsummary>
+      <desc>
+        <p>Read the state of a timer. The same as calling
+	<seealso marker="#read_timer/2"><c>erlang:read_timer(TimerRef,
+	[])</c></seealso>.</p>
       </desc>
     </func>
     <func>
@@ -4439,31 +4804,26 @@ true</pre>
       </desc>
     </func>
     <func>
-      <name name="send_after" arity="3"/>
-      <type_desc variable="Time">0 &lt;= Time &lt;= 4294967295</type_desc>
+      <name name="send_after" arity="4"/>
       <fsummary>Start a timer</fsummary>
       <desc>
-        <p>Starts a timer which will send the message <c>Msg</c>
-          to <c><anno>Dest</anno></c> after <c><anno>Time</anno></c> milliseconds.</p>
-	<p>If <c><anno>Dest</anno></c> is a <c>pid()</c> it has to be a <c>pid()</c> of a local process, dead or alive.</p>
-	<p>The <c><anno>Time</anno></c> value can, in the current implementation, not be greater than 4294967295.</p>
-        <p>If <c><anno>Dest</anno></c> is an <c>atom()</c>, it is supposed to be the name of
-          a registered process. The process referred to by the name is
-          looked up at the time of delivery. No error is given if
-          the name does not refer to a process.</p>
-
-        <p>If <c><anno>Dest</anno></c> is a <c>pid()</c>, the timer will be automatically
-          canceled if the process referred to by the <c>pid()</c> is not alive,
-          or when the process exits. This feature was introduced in
-          erts version 5.4.11. Note that timers will not be
-          automatically canceled when <c><anno>Dest</anno></c> is an <c>atom</c>.</p>
-        <p>See also
-          <seealso marker="#start_timer/3">erlang:start_timer/3</seealso>,
-          <seealso marker="#cancel_timer/1">erlang:cancel_timer/1</seealso>,
-          and
-          <seealso marker="#read_timer/1">erlang:read_timer/1</seealso>.</p>
-        <p>Failure: <c>badarg</c> if the arguments does not satisfy
-          the requirements specified above.</p>
+        <p>
+	  Starts a timer. When the timer expires, the message
+          <c><anno>Msg</anno></c> will be sent to the process
+	  identified by <c><anno>Dest</anno></c>. Appart from
+	  the format of the message sent to
+	  <c><anno>Dest</anno></c> when the timer expires
+	  <c>erlang:send_after/4</c> works exactly as
+	  <seealso marker="#start_timer/4"><c>erlang:start_timer/4</c></seealso>.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="send_after" arity="3"/>
+      <fsummary>Start a timer</fsummary>
+      <desc>
+        <p>Starts a timer. The same as calling
+	<seealso marker="#send_after/4"><c>erlang:send_after(<anno>Time</anno>,
+	<anno>Dest</anno>, <anno>Msg</anno>, [])</c></seealso>.</p>
       </desc>
     </func>
     <func>
@@ -4869,31 +5229,78 @@ true</pre>
       </desc>
     </func>
     <func>
-      <name name="start_timer" arity="3"/>
-      <type_desc variable="Time">0 &lt;= Time &lt;= 4294967295</type_desc>
+      <name name="start_timer" arity="4"/>
       <fsummary>Start a timer</fsummary>
       <desc>
-        <p>Starts a timer which will send the message
-          <c>{timeout, <anno>TimerRef</anno>, <anno>Msg</anno>}</c> to <c><anno>Dest</anno></c>
-          after <c><anno>Time</anno></c> milliseconds.</p>
-	<p>If <c><anno>Dest</anno></c> is a <c>pid()</c> it has to be a <c>pid()</c> of a local process, dead or alive.</p>
-	<p>The <c><anno>Time</anno></c> value can, in the current implementation, not be greater than 4294967295.</p>
-        <p>If <c><anno>Dest</anno></c> is an <c>atom()</c>, it is supposed to be the name of
-          a registered process. The process referred to by the name is
-          looked up at the time of delivery. No error is given if
-          the name does not refer to a process.</p>
-        <p>If <c><anno>Dest</anno></c> is a <c>pid()</c>, the timer will be automatically
-          canceled if the process referred to by the <c>pid()</c> is not alive,
-          or when the process exits. This feature was introduced in
-          erts version 5.4.11. Note that timers will not be
-          automatically canceled when <c><anno>Dest</anno></c> is an <c>atom()</c>.</p>
+        <p>
+	  Starts a timer. When the timer expires, the message
+          <c>{timeout, <anno>TimerRef</anno>, <anno>Msg</anno>}</c>
+	  will be sent to the process identified by
+	  <c><anno>Dest</anno></c>.
+	</p>
+	<p>Currently available <c><anno>Option</anno></c>s:</p>
+        <taglist>
+          <tag><c>{abs, Abs}</c></tag>
+          <item>
+	    <p>
+	      Absolute <c><anno>Time</anno></c> value. <c>Abs</c>
+	      defaults to <c>false</c> which means that the
+	      <c><anno>Time</anno></c> value will be interpreted
+	      as a time in milli-seconds relative current
+	      <seealso marker="time_correction#Erlang_Monotonic_Time">Erlang
+	      monotonic time</seealso>. When <c>Abs</c> is set to
+	      <c>true</c>, the <c><anno>Time</anno></c> value will
+	      be interpreted as an absolute Erlang monotonic time of
+	      milli-seconds
+	      <seealso marker="#type_time_unit">time unit</seealso>.
+	    </p>
+	  </item>
+        </taglist>
+	<p>
+	  More <c><anno>Option</anno></c>s may be added in the future.
+	</p>
+	<p>
+	  The absolute point in time that the timer is set to expire on
+	  has to be in the interval
+	  <c>[</c><seealso marker="#system_info_start_time"><c>erlang:system_info(start_time)</c></seealso><c>,
+	  </c><seealso marker="#system_info_end_time"><c>erlang:system_info(end_time)</c></seealso><c>]</c>.
+	  Further, if a relative time is specified, the <c><anno>Time</anno></c> value
+	  is not allowed to be negative.
+	</p>
+	<p>
+	  If <c><anno>Dest</anno></c> is a <c>pid()</c>, it has to
+	  be a <c>pid()</c> of a process created on the current
+	  runtime system instance. This process may or may not
+	  have terminated. If <c><anno>Dest</anno></c> is an
+	  <c>atom()</c>, it will be interpreted as the name of a
+	  locally registered process. The process referred to by the
+	  name is looked up at the time of timer expiration. No error
+	  is given if the name does not refer to a process.
+	</p>
+        <p>
+	  If <c><anno>Dest</anno></c> is a <c>pid()</c>, the timer will
+	  be automatically canceled if the process referred to by the
+	  <c>pid()</c> is not alive, or when the process exits. This
+	  feature was introduced in erts version 5.4.11. Note that
+	  timers will not be automatically canceled when
+	  <c><anno>Dest</anno></c> is an <c>atom()</c>.
+	</p>
         <p>See also
-          <seealso marker="#send_after/3">erlang:send_after/3</seealso>,
-          <seealso marker="#cancel_timer/1">erlang:cancel_timer/1</seealso>,
+          <seealso marker="#send_after/4"><c>erlang:send_after/4</c></seealso>,
+          <seealso marker="#cancel_timer/2"><c>erlang:cancel_timer/2</c></seealso>,
           and
-          <seealso marker="#read_timer/1">erlang:read_timer/1</seealso>.</p>
+          <seealso marker="#read_timer/2"><c>erlang:read_timer/2</c></seealso>.</p>
         <p>Failure: <c>badarg</c> if the arguments does not satisfy
           the requirements specified above.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="start_timer" arity="3"/>
+      <fsummary>Start a timer</fsummary>
+      <desc>
+        <p>Starts a timer. The same as calling
+	<seealso marker="#start_timer/4"><c>erlang:start_timer(<anno>Time</anno>,
+	<anno>Dest</anno>, <anno>Msg</anno>, [])</c></seealso>.</p>
       </desc>
     </func>
     <func>
@@ -5496,6 +5903,35 @@ ok
         <p>Returns the old value of the flag.</p>
       </desc>
     </func>
+    <marker id="system_flag_time_offset"/>
+    <func>
+      <name name="system_flag" arity="2" clause_i="12"/>
+      <fsummary>Finalize the Time Offset</fsummary>
+      <desc>
+        <p>Finalizes the <seealso marker="#time_offset/0">time offset</seealso>
+	when the <seealso marker="time_correction#Single_Time_Warp_Mode">single
+	time warp mode</seealso> is being used. If another time warp mode than
+	the "single time warp mode" is used, the time offset state will be left
+	unchanged.</p>
+        <p>Returns the old state identifier. That is, if:</p>
+	<list>
+	  <item><p><c>preliminary</c> is returned, finalization was
+	  performed and the time offset is now final.</p></item>
+
+	  <item><p><c>final</c> is returned, the time offset was
+	  already in the final state. This either due to another
+	  <c>erlang:system_flag(time_offset, finalize)</c> call, or
+	  due to the
+	  <seealso marker="time_correction#No_Time_Warp_Mode">no
+	  time warp mode</seealso> being used.</p></item>
+
+	  <item><p><c>volatile</c> is returned, the time offset
+	  cannot be finalized due to the 
+	  <seealso marker="time_correction#Multi_Time_Warp_Mode">multi
+	  time warp mode</seealso> being used.</p></item>
+	</list>
+      </desc>
+    </func>
     <func>
       <name name="system_info" arity="1" clause_i="1"/>
       <name name="system_info" arity="1" clause_i="2"/>
@@ -5776,6 +6212,18 @@ ok
       <name name="system_info" arity="1" clause_i="53"/>
       <name name="system_info" arity="1" clause_i="54"/>
       <name name="system_info" arity="1" clause_i="55"/>
+      <name name="system_info" arity="1" clause_i="56"/>
+      <name name="system_info" arity="1" clause_i="57"/>
+      <name name="system_info" arity="1" clause_i="58"/>
+      <name name="system_info" arity="1" clause_i="59"/>
+      <name name="system_info" arity="1" clause_i="60"/>
+      <name name="system_info" arity="1" clause_i="61"/>
+      <name name="system_info" arity="1" clause_i="62"/>
+      <name name="system_info" arity="1" clause_i="63"/>
+      <name name="system_info" arity="1" clause_i="64"/>
+      <name name="system_info" arity="1" clause_i="65"/>
+      <name name="system_info" arity="1" clause_i="66"/>
+      <name name="system_info" arity="1" clause_i="67"/>
       <fsummary>Information about the system</fsummary>
       <desc>
         <p>Returns various information about the current system
@@ -5844,6 +6292,15 @@ ok
             <p>Returns <c>true</c> if the emulator has been debug
 	       compiled; otherwise, <c>false</c>.
 	    </p>
+          </item>
+          <tag><marker id="system_info_delayed_node_table_gc"><c>delayed_node_table_gc</c></marker></tag>
+          <item>
+            <p>Returns the amount of time in seconds that garbage collection
+	    of an entry in a node table will be delayed. This limit can be set
+	    on startup by passing the
+	    <seealso marker="erts:erl#+zdntgc">+zdntgc</seealso> command line
+	    flag to <c>erl</c>. For more information see the documentation of the
+	    command line flag.</p>
           </item>
           <tag><marker id="system_info_dirty_cpu_schedulers"><c>dirty_cpu_schedulers</c></marker></tag>
           <item>
@@ -5965,6 +6422,14 @@ ok
             (i.e. <c>system_info(dynamic_trace)</c> returns
             <c>dtrace</c> or <c>systemtap</c>).</p>
           </item>
+	  <tag><marker id="system_info_end_time"/><c>end_time</c></tag>
+	  <item><p>The last <seealso marker="#monotonic_time/0">Erlang monotonic
+	  time</seealso> in <c>native</c>
+	  <seealso marker="#type_time_unit">time unit</seealso> that
+	  can be represented internally in the current Erlang runtime system
+	  instance. The time between the
+	  <seealso marker="#system_info_start_time">start time</seealso> and
+	  the end time is at least a quarter of a millennium.</p></item>
           <tag><c>elib_malloc</c></tag>
           <item>
             <p>This option will be removed in a future release.
@@ -6163,6 +6628,123 @@ ok
 	    documentation of versions in the system principles
 	    guide</seealso>.</p>
           </item>
+          <tag><marker id="system_info_os_monotonic_time_source"><c>os_monotonic_time_source</c></marker></tag>
+          <item>
+            <p>Returns a list containing information about the source of
+	    <seealso marker="erts:time_correction#OS_Monotonic_Time">OS
+	    monotonic time</seealso> that is used by the runtime system.</p>
+	    <p>In case <c>[]</c> is returned, no OS monotonic time is
+	    available. The list contains two-tuples with <c>Key</c>s
+	    as first element, and <c>Value</c>s as second element. The
+	    order if these tuples is undefined. Currently the following
+	    tuples may be part of the list, but more tuples may be
+	    introduced in the future:</p>
+	    <taglist>
+	      <tag><c>{function, Function}</c></tag>
+	      <item><p><c>Function</c> is the name of the funcion
+	      used. This tuple always exist if OS monotonic time is
+	      available to the runtime system.</p></item>
+
+	      <tag><c>{clock_id, ClockId}</c></tag>
+	      <item><p>This tuple only exist if <c>Function</c>
+	      can be used with different clocks. <c>ClockId</c>
+	      corresponds to the clock identifer used when calling
+	      <c>Function</c>.</p></item>
+
+	      <tag><c>{resolution, OsMonotonicTimeResolution}</c></tag>
+	      <item><p>Highest possible
+	      <seealso marker="time_correction#Time_Resolution">resolution</seealso>
+	      of current OS monotonic time source as parts per
+	      second. If no resolution information can be retreived
+	      from the OS, <c>OsMonotonicTimeResolution</c> will be
+	      set to the resolution of the time unit of
+	      <c>Function</c>s return value. That is, the actual
+	      resolution may be lower than
+	      <c>OsMonotonicTimeResolution</c>. Also note that
+	      the resolution does not say anything about the
+	      <seealso marker="time_correction#Time_Accuracy">accuracy</seealso>,
+	      and that the
+	      <seealso marker="time_correction#Time_Precision">precision</seealso>
+	      might not align with the resolution. You do,
+	      however, know that the precision won't be
+	      better than
+	      <c>OsMonotonicTimeResolution</c>.</p></item>
+
+	      <tag><c>{extended, Extended}</c></tag>
+	      <item><p><c>Extended</c> equals <c>yes</c> if
+	      the range of time values has been extended;
+	      otherwise, <c>Extended</c> equals <c>no</c>. The
+	      range needs to be extended if <c>Function</c>
+	      returns values that wrap fast. This typically
+	      is the case when the return value is a 32-bit
+	      value.</p></item>
+
+	      <tag><c>{parallel, Parallel}</c></tag>
+	      <item><p><c>Parallel</c> equals <c>yes</c> if
+	      <c>Function</c> is called in parallel from multiple
+	      threads. If it is not called in parallel, because
+	      calls needs to be serialized, <c>Parallel</c> equals
+	      <c>no</c>.</p></item>
+
+	      <tag><c>{time, OsMonotonicTime}</c></tag>
+	      <item><p><c>OsMonotonicTime</c> equals current OS
+	      monotonic time in <c>native</c>
+	      <seealso marker="#type_time_unit">time unit</seealso>.</p></item>
+	    </taglist>
+          </item>
+          <tag><marker id="system_info_os_system_time_source"><c>os_system_time_source</c></marker></tag>
+          <item>
+            <p>Returns a list containing information about the source of
+	    <seealso marker="erts:time_correction#OS_System_Time">OS
+	    system time</seealso> that is used by the runtime system.</p>
+	    <p>The list contains two-tuples with <c>Key</c>s
+	    as first element, and <c>Value</c>s as second element. The
+	    order if these tuples is undefined. Currently the following
+	    tuples may be part of the list, but more tuples may be
+	    introduced in the future:</p>
+	    <taglist>
+	      <tag><c>{function, Function}</c></tag>
+	      <item><p><c>Function</c> is the name of the funcion
+	      used.</p></item>
+
+	      <tag><c>{clock_id, ClockId}</c></tag>
+	      <item><p>This tuple only exist if <c>Function</c>
+	      can be used with different clocks. <c>ClockId</c>
+	      corresponds to the clock identifer used when calling
+	      <c>Function</c>.</p></item>
+
+	      <tag><c>{resolution, OsSystemTimeResolution}</c></tag>
+	      <item><p>Highest possible
+	      <seealso marker="time_correction#Time_Resolution">resolution</seealso>
+	      of current OS system time source as parts per
+	      second. If no resolution information can be retreived
+	      from the OS, <c>OsSystemTimeResolution</c> will be
+	      set to the resolution of the time unit of
+	      <c>Function</c>s return value. That is, the actual
+	      resolution may be lower than
+	      <c>OsSystemTimeResolution</c>. Also note that
+	      the resolution does not say anything about the
+	      <seealso marker="time_correction#Time_Accuracy">accuracy</seealso>,
+	      and that the
+	      <seealso marker="time_correction#Time_Precision">precision</seealso>
+	      might not align with the resolution. You do,
+	      however, know that the precision won't be
+	      better than
+	      <c>OsSystemTimeResolution</c>.</p></item>
+
+	      <tag><c>{parallel, Parallel}</c></tag>
+	      <item><p><c>Parallel</c> equals <c>yes</c> if
+	      <c>Function</c> is called in parallel from multiple
+	      threads. If it is not called in parallel, because
+	      calls needs to be serialized, <c>Parallel</c> equals
+	      <c>no</c>.</p></item>
+
+	      <tag><c>{time, OsSystemTime}</c></tag>
+	      <item><p><c>OsSystemTime</c> equals current OS
+	      system time in <c>native</c>
+	      <seealso marker="#type_time_unit">time unit</seealso>.</p></item>
+	    </taglist>
+          </item>
 	  <tag><marker id="system_info_port_parallelism"><c>port_parallelism</c></marker></tag>
 	  <item><p>Returns the default port parallelism scheduling hint used.
 	  For more information see the
@@ -6288,6 +6870,13 @@ ok
             <p>Returns <c>true</c> if the emulator has been compiled
               with smp support; otherwise, <c>false</c>.</p>
           </item>
+	  <tag><marker id="system_info_start_time"/><c>start_time</c></tag>
+	  <item><p>The <seealso marker="#monotonic_time/0">Erlang monotonic
+	  time</seealso> in <c>native</c>
+	  <seealso marker="#type_time_unit">time unit</seealso> at the
+	  time when current Erlang runtime system instance started. See also
+	  <seealso marker="#system_info_end_time"><c>erlang:system_info(end_time)</c></seealso>.
+	  </p></item>
           <tag><c>system_version</c></tag>
           <item>
             <p>Returns a string containing version number and
@@ -6311,12 +6900,64 @@ ok
               (<seealso marker="erts:erl_driver#driver_async">driver_async()</seealso>)
               as an integer.</p>
           </item>
+	  <tag><marker id="system_info_time_correction"/><c>time_correction</c></tag>
+	  <item><p>Returns a boolean value indicating whether
+	  <seealso marker="time_correction#Time_Correction">time correction</seealso>
+	  is enabled or not.
+	  </p></item>
+	  <tag><marker id="system_info_time_offset"/><c>time_offset</c></tag>
+	  <item><p>Returns the state of the time offset:</p>
+	  <taglist>
+	    <tag><c>preliminary</c></tag>
+	    <item><p>The time offset is preliminary, and will be changed
+	    at a later time when being finalized. The preliminary time offset
+	    is used during the preliminary phase of the
+	    <seealso marker="time_correction#Single_Time_Warp_Mode">single
+	    time warp mode</seealso>.</p></item>
+
+	    <tag><c>final</c></tag>
+	    <item><p>The time offset is final. This
+	    either due to the use of the
+	    <seealso marker="time_correction#No_Time_Warp_Mode">no
+	    time warp mode</seealso>, or due to the time offset having
+	    been finalized when using the
+	    <seealso marker="time_correction#Single_Time_Warp_Mode">single
+	    time warp mode</seealso>.</p></item>
+
+	    <tag><c>volatile</c></tag>
+	    <item><p>The time offset is volatile. That is, it may
+	    change at any time. This due to the
+	    <seealso marker="time_correction#Multi_Time_Warp_Mode">multi
+	    time warp mode</seealso> being used.</p></item>
+	  </taglist>
+	  </item>
+	  <tag><marker id="system_info_time_warp_mode"/><c>time_warp_mode</c></tag>
+	  <item><p>Returns a value identifying the
+	  <seealso marker="time_correction#Time_Warp_Modes">time warp
+	  mode</seealso> being used:</p>
+	  <taglist>
+	    <tag><c>no_time_warp</c></tag>
+	    <item><p>The <seealso marker="time_correction#No_Time_Warp_Mode">no
+	    time warp mode</seealso> is being used.</p></item>
+
+	    <tag><c>single_time_warp</c></tag>
+	    <item><p>The <seealso marker="time_correction#Single_Time_Warp_Mode">single
+	    time warp mode</seealso> is being used.</p></item>
+
+	    <tag><c>multi_time_warp</c></tag>
+	    <item><p>The <seealso marker="time_correction#Multi_Time_Warp_Mode">multi
+	    time warp mode</seealso> is being used.</p></item>
+	  </taglist>
+	  </item>
           <tag><marker id="system_info_tolerant_timeofday"><c>tolerant_timeofday</c></marker></tag>
           <item>
-            <p>Returns whether compensation for sudden changes of system
-              time is <c>enabled</c> or <c>disabled</c>.</p>
-            <p>See also <seealso marker="erts:erl#+c">+c</seealso>
-              command line flag.</p>
+            <p>Returns whether a pre erts-7.0 backwards compatible compensation
+	    for sudden changes of system time is <c>enabled</c> or <c>disabled</c>.
+	    Such compensation is <c>enabled</c> when the
+	    <seealso marker="#system_info_time_offset">time offset</seealso> is
+	    <c>final</c>, and
+	    <seealso marker="#system_info_time_correction">time correction</seealso>
+	    is enabled.</p>
           </item>
           <tag><c>trace_control_word</c></tag>
           <item>
@@ -6595,7 +7236,44 @@ ok
         </note>
       </desc>
     </func>
+    <func>
+      <name name="system_time" arity="0"/>
+      <fsummary>Current Erlang system time</fsummary>
+      <desc>
+	<p>Returns current
+	<seealso marker="time_correction#Erlang_System_Time">Erlang system time</seealso>
+	in <c>native</c>
+	<seealso marker="#type_time_unit">time unit</seealso>.</p>
 
+	<p>Calling <c>erlang:system_time()</c> is equivalent to: 
+	<seealso marker="#monotonic_time/0"><c>erlang:monotonic_time()</c></seealso><c>
+	+
+        </c><seealso marker="#time_offset/0"><c>erlang:time_offset()</c></seealso>.</p>
+
+	<note><p>This time is <em>not</em> a monotonically increasing time
+	in the general case. For more information, see the documentation of
+	<seealso marker="time_correction#Time_Warp_Modes">time warp modes</seealso> in the
+	ERTS User's Guide.</p></note>
+      </desc>
+    </func>
+    <func>
+      <name name="system_time" arity="1"/>
+      <fsummary>Current Erlang system time</fsummary>
+      <desc>
+	<p>Returns current
+	<seealso marker="time_correction#Erlang_System_Time">Erlang system time</seealso>
+	converted into the <c><anno>Unit</anno></c> passed as argument.</p>
+
+	<p>Calling <c>erlang:system_time(<anno>Unit</anno>)</c> is equivalent to: 
+	<seealso marker="#convert_time_unit/3"><c>erlang:convert_time_unit</c></seealso><c>(</c><seealso marker="#system_time/0"><c>erlang:system_time()</c></seealso><c>,
+	native, <anno>Unit</anno>)</c>.</p>
+
+	<note><p>This time is <em>not</em> a monotonically increasing time
+	in the general case. For more information, see the documentation of
+	<seealso marker="time_correction#Time_Warp_Modes">time warp modes</seealso> in the
+	ERTS User's Guide.</p></note>
+      </desc>
+    </func>
     <func>
       <name name="term_to_binary" arity="1"/>
       <fsummary>Encode a term to an Erlang external term format binary</fsummary>
@@ -6670,6 +7348,88 @@ ok
 > <input>time().</input>
 {9,42,44}</pre>
       </desc>
+    </func>
+    <func>
+      <name name="time_offset" arity="0"/>
+      <fsummary>Current time offset</fsummary>
+      <desc>
+	<p>Returns the current time offset between
+	<seealso marker="time_correction#Erlang_Monotonic_Time">Erlang monotonic time</seealso>
+	and
+	<seealso marker="time_correction#Erlang_System_Time">Erlang system time</seealso> in
+	<c>native</c> <seealso marker="#type_time_unit">time unit</seealso>.
+	Current time offset added to an Erlang monotonic time gives
+	corresponding Erlang system time.</p>
+
+	<p>The time offset may or may not change during operation depending
+	on the <seealso marker="time_correction#Time_Warp_Modes">time
+	warp mode</seealso> used.</p>
+
+	<note>
+	  <p>A change in time offset may be observed at slightly
+	  different points in time by different processes.</p>
+
+	  <p>If the runtime system is in
+	  <seealso marker="time_correction#Multi_Time_Warp_Mode">multi
+	  time warp mode</seealso>, the time offset will be changed when
+	  the runtime system detects that the
+	  <seealso marker="time_correction#OS_System_Time">OS system
+	  time</seealso> has changed. The runtime system will, however,
+	  not detect this immediately when it happens. A task checking
+	  the time offset is scheduled to execute at least once a minute,
+	  so under normal operation this should be detected within a
+	  minute, but during heavy load it might take longer time.</p>
+	</note>
+      </desc>
+    </func>
+    <func>
+      <name name="time_offset" arity="1"/>
+      <fsummary>Current time offset</fsummary>
+      <desc>
+	<p>Returns the current time offset between
+	<seealso marker="time_correction#Erlang_Monotonic_Time">Erlang monotonic time</seealso>
+	and
+	<seealso marker="time_correction#Erlang_System_Time">Erlang system time</seealso>
+	converted into the <c><anno>Unit</anno></c> passed as argument.</p>
+
+	<p>Same as calling	
+	<seealso marker="#convert_time_unit/3"><c>erlang:convert_time_unit</c></seealso><c>(</c><seealso marker="#time_offset/0"><c>erlang:time_offset()</c></seealso><c>, native, <anno>Unit</anno>)</c>
+	however optimized for commonly used <c><anno>Unit</anno></c>s.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="timestamp" arity="0"/>
+      <type name="timestamp"/>
+      <fsummary>Current Erlang System time</fsummary>
+      <desc>
+	<p>Returns current
+	<seealso marker="time_correction#Erlang_System_Time">Erlang system time</seealso>
+	on the format <c>{MegaSecs, Secs, MicroSecs}</c>. This format is 
+	the same that <seealso marker="kernel:os#timestamp/0"><c>os:timestamp/0</c></seealso>
+	and the now deprecated <seealso marker="#now/0"><c>erlang:now/0</c></seealso>
+	uses. The reason for the existence of <c>erlang:timestamp()</c> is
+	purely to simplify usage for existing code that assumes this timestamp
+	format. Current Erlang system time can more efficiently be retrieved in
+	the time unit of your choice using
+	<seealso marker="#system_time/1"><c>erlang:system_time/1</c></seealso>.</p>
+
+	<p>The <c>erlang:timestamp()</c> BIF is equivalent to:</p><code type="none">
+timestamp() ->
+    ErlangSystemTime = erlang:system_time(micro_seconds),
+    MegaSecs = ErlangSystemTime div 1000000000000,
+    Secs = ErlangSystemTime div 1000000 - MegaSecs*1000000,
+    MicroSecs = ErlangSystemTime rem 1000000,
+    {MegaSecs, Secs, MicroSecs}.</code>
+        <p>It however use a native implementation which does
+	not build garbage on the heap and with slightly better
+	performance.</p>
+
+	<note><p>This time is <em>not</em> a monotonically increasing time
+	in the general case. For more information, see the documentation of
+	<seealso marker="time_correction#Time_Warp_Modes">time warp modes</seealso> in the
+	ERTS User's Guide.</p></note>
+      </desc>
+
     </func>
     <func>
       <name name="tl" arity="1"/>
@@ -6815,7 +7575,9 @@ ok
               only allowed with <c>PidSpec==all</c>. If the host
               machine operating system does not support high resolution
               CPU time measurements, <c>trace/3</c> exits with
-              <c>badarg</c>.</p>
+              <c>badarg</c>. Note that most operating systems do
+              not synchronize this value across cores, so be prepared
+              that time might seem to go backwards when using this option.</p>
           </item>
           <tag><c>arity</c></tag>
           <item>
@@ -7433,6 +8195,100 @@ ok
 {{1996,11,7},{15,18,43}}</pre>
         <p>Failure: <c>badarg</c> if <c>Universaltime</c> does not denote
           a valid date and time.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="unique_integer" arity="0"/>
+      <fsummary>Get a unique integer value</fsummary>
+      <desc>
+	<p>Generates and returns an
+	<seealso marker="doc/efficiency_guide:advanced#unique_integers">integer
+	unique on current runtime system instance</seealso>. The same as calling
+	<seealso marker="#unique_integer/1"><c>erlang:unique_integer([])</c></seealso>.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="unique_integer" arity="1"/>
+      <fsummary>Get a unique integer value</fsummary>
+      <desc>
+	<p>Generates and returns an
+	<seealso marker="doc/efficiency_guide:advanced#unique_integers">integer
+	unique on current runtime system
+	instance</seealso>. The integer is unique in the
+	sense that this BIF, using the same set of
+	modifiers, will not return the same integer more
+	than once on the current runtime system instance.
+	Each integer value can of course be constructed
+	by other means.</p>
+
+	<p>By default, i.e. when <c>[]</c> is passed as
+	<c><anno>ModifierList</anno></c>, both negative and
+	positive integers will be returned. This is order
+	to be able to utilize the range of integers that do
+	not need to be heap allocated as much as possible.
+	By default the returned integers are also only
+	guaranteed to be unique, i.e., any integer returned
+	may be either smaller, or larger than previously
+	returned integers.</p>
+
+	<p>Currently valid <c><anno>Modifier</anno></c>s:</p>
+	<taglist>
+
+	  <tag>positive</tag>
+	  <item><p>Return only positive integers.</p>
+	  <p>Note that by passing the <c>positive</c> modifier
+	  you will get heap allocated integers (big-nums)
+	  quicker.</p>
+	  </item>
+
+	  <tag>monotonic</tag>
+	  <item><p>Return
+	  <seealso marker="time_correction#Strictly_Monotonically_Increasing">strictly
+	  monotonically increasing</seealso> integers
+	  corresponding to creation time. That is, the integer
+	  returned will always be larger than previously
+	  returned integers on the current runtime system
+	  instance.</p>
+	  <p>These values can be used when ordering events
+	  on the runtime system instance. That is, if both
+	  <c>X = erlang:unique_integer([monotonic])</c> and
+	  <c>Y = erlang:unique_integer([monotonic])</c> are
+	  executed by different processes (or the same
+	  process) on the same runtime system instance and
+	  <c>X &lt; Y</c> we know that <c>X</c> was created
+	  before <c>Y</c>.</p>
+	  <warning><p>Strictly monotonically increasing values
+	  are inherently quite expensive to generate and scales
+	  poorly. This since the values needs to be
+	  synchronized. That is, do not pass the <c>monotonic</c>
+	  modifier unless you really need strictly monotonically
+	  increasing values.</p></warning>
+	  </item>
+
+	</taglist>
+
+	<p>All currently valid <c><anno>Modifier</anno></c>s
+	can be combined. Repeated (valid)
+	<c><anno>Modifier</anno></c>s in the <c>ModifierList</c>
+	are ignored.</p>
+
+	<note><p>Note that the set of integers returned by
+	<c>unique_integer/1</c> using diffrent sets of
+	<c><anno>Modifier</anno></c>s <em>will overlap</em>.
+	For example, by calling	<c>unique_integer([monotonic])</c>,
+	and <c>unique_integer([positive, monotonic])</c>
+	repeatedly, you will eventually see some integers being
+	returned by both calls.</p></note>
+
+        <p>Failures:</p>
+	<taglist>
+	  <tag><c>badarg</c></tag>
+	  <item>if <c><anno>ModifierList</anno></c> is not a
+	  proper list.</item>
+	  <tag><c>badarg</c></tag>
+	  <item>if <c><anno>Modifier</anno></c> is not a
+	  valid modifier.</item>
+	</taglist>
       </desc>
     </func>
     <func>

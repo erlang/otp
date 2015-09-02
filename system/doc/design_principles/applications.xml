@@ -8,16 +8,17 @@
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
-      The contents of this file are subject to the Erlang Public License,
-      Version 1.1, (the "License"); you may not use this file except in
-      compliance with the License. You should have received a copy of the
-      Erlang Public License along with this software. If not, it can be
-      retrieved online at http://www.erlang.org/.
-    
-      Software distributed under the License is distributed on an "AS IS"
-      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-      the License for the specific language governing rights and limitations
-      under the License.
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
     
     </legalnotice>
 
@@ -29,55 +30,63 @@
     <file>applications.xml</file>
   </header>
   <marker id="appl"></marker>
-  <p>This chapter should be read in conjunction with <c>app(4)</c> and
-    <c>application(3)</c>.</p>
+  <p>This section is to be read with the <c>app(4)</c> and
+  <c>application(3)</c> manual pages in Kernel.</p>
 
   <section>
     <title>Application Concept</title>
-    <p>When we have written code implementing some specific
-      functionality, we might want to make the code into an
-      <em>application</em>, that is a component that can be started and
-      stopped as a unit, and which can be re-used in other systems as
-      well.</p>
-    <p>To do this, we create an
-      <seealso marker="#callback_module">application callback module</seealso>, where we describe how the application should
-      be started and stopped.</p>
+    <p>When you have written code implementing some specific functionality
+      you might want to make the code into an <em>application</em>,
+      that is, a component that can be started and stopped as a unit,
+      and which can also be reused in other systems.</p>
+    <p>To do this, create an
+      <seealso marker="#callback_module">application callback module</seealso>,
+      and describe how the application is to be started and stopped.</p>
     <p>Then, an <em>application specification</em> is needed, which is
-      put in an <seealso marker="#appl_res_file">application resource file</seealso>. Among other things, we specify which
-      modules the application consists of and the name of the callback
-      module.</p>
-    <p>If we use <c>systools</c>, the Erlang/OTP tools for packaging code
+      put in an
+      <seealso marker="#appl_res_file">application resource file</seealso>.
+      Among other things, this file specifies which modules the application
+      consists of and the name of the callback module.</p>
+    <p>If you use <c>systools</c>, the Erlang/OTP tools for packaging code
       (see <seealso marker="release_structure">Releases</seealso>),
-      the code for each application is placed in a separate directory
-      following a pre-defined <seealso marker="#app_dir">directory structure</seealso>.</p>
+      the code for each application is placed in a
+      separate directory following a pre-defined
+    <seealso marker="#app_dir">directory structure</seealso>.</p>
   </section>
 
   <section>
     <marker id="callback_module"></marker>
     <title>Application Callback Module</title>
-    <p>How to start and stop the code for the application, i.e.
+    <p>How to start and stop the code for the application, that is,
       the supervision tree, is described by two callback functions:</p>
     <code type="none">
 start(StartType, StartArgs) -> {ok, Pid} | {ok, Pid, State}
-stop(State)</code>
-    <p><c>start</c> is called when starting the application and should
-      create the supervision tree by starting the top supervisor.
-      It is expected to return the pid of the top supervisor and an
-      optional term <c>State</c>, which defaults to []. This term is
-      passed as-is to <c>stop</c>.</p>
-    <p><c>StartType</c> is usually the atom <c>normal</c>. It has other
+stop(State)
+    </code>
+    <list type="bulleted">
+      <item><c>start</c> is called when starting the application and is to
+      create the supervision tree by starting the top supervisor. It is
+      expected to return the pid of the top supervisor and an optional
+      term, <c>State</c>, which defaults to <c>[]</c>. This term is passed
+      as is to <c>stop</c>.</item>
+      <item><c>StartType</c> is usually the atom <c>normal</c>. It has other
       values only in the case of a takeover or failover, see
-      <seealso marker="distributed_applications">Distributed Applications</seealso>. <c>StartArgs</c> is defined by the key
-      <c>mod</c> in the <seealso marker="#appl_res_file">application resource file</seealso> file.</p>
-    <p><c>stop/1</c> is called <em>after</em> the application has been
-      stopped and should do any necessary cleaning up. Note that
-      the actual stopping of the application, that is the shutdown of
-      the supervision tree, is handled automatically as described in
-      <seealso marker="#stopping">Starting and Stopping Applications</seealso>.</p>
+      <seealso marker="distributed_applications">Distributed Applications</seealso>.
+      </item>
+      <item><c>StartArgs</c> is defined by the key <c>mod</c> in the
+      <seealso marker="#appl_res_file">application
+      resource file</seealso>.</item>
+      <item><c>stop/1</c> is called <em>after</em> the application has been
+      stopped and is to do any necessary cleaning up. The actual stopping of
+      the application, that is, the shutdown of the supervision tree, is
+      handled automatically as described in
+      <seealso marker="#stopping">Starting and Stopping Applications</seealso>.
+      </item>
+    </list>
     <marker id="ch_app"></marker>
     <p>Example of an application callback module for packaging
       the supervision tree from
-      the <seealso marker="sup_princ#ex">Supervisor</seealso> chapter:</p>
+      <seealso marker="sup_princ#ex">Supervisor Behaviour</seealso>:</p>
     <code type="none">
 -module(ch_app).
 -behaviour(application).
@@ -89,44 +98,48 @@ start(_Type, _Args) ->
 
 stop(_State) ->
     ok.</code>
-    <p>A library application, which can not be started or stopped,
-      does not need any application callback module.</p>
+    <p>A library application that cannot be started or stopped, does not
+      need any application callback module.</p>
   </section>
 
   <section>
     <marker id="appl_res_file"></marker>
     <title>Application Resource File</title>
-    <p>To define an application, we create an <em>application specification</em> which is put in an <em>application resource file</em>, or in short <c>.app</c> file:</p>
+    <p>To define an application, an <em>application specification</em> is
+      created, which is put in an <em>application resource file</em>, or in
+      short an <c>.app</c> file:</p>
     <code type="none">
 {application, Application, [Opt1,...,OptN]}.</code>
-    <p><c>Application</c>, an atom, is the name of the application.
-      The file must be named <c>Application.app</c>.</p>
-    <p>Each <c>Opt</c> is a tuple <c>{Key, Value}</c> which define a
+<list>
+    <item><c>Application</c>, an atom, is the name of the application.
+      The file must be named <c>Application.app</c>.</item>
+    <item>Each <c>Opt</c> is a tuple <c>{Key,Value}</c>, which define a
       certain property of the application. All keys are optional.
-      Default values are used for any omitted keys.</p>
+      Default values are used for any omitted keys.</item>
+</list>
     <p>The contents of a minimal <c>.app</c> file for a library
-      application <c>libapp</c> looks like this:</p>
+      application <c>libapp</c> looks as follows:</p>
     <code type="none">
 {application, libapp, []}.</code>
     <p>The contents of a minimal <c>.app</c> file <c>ch_app.app</c> for
-      a supervision tree application like <c>ch_app</c> looks like this:</p>
+      a supervision tree application like <c>ch_app</c> looks as follows:</p>
     <code type="none">
 {application, ch_app,
  [{mod, {ch_app,[]}}]}.</code>
-    <p>The key <c>mod</c> defines the callback module and start
-      argument of the application, in this case <c>ch_app</c> and
-      [], respectively. This means that</p>
+    <p>The key <c>mod</c> defines the callback module and start argument of
+      the application, in this case <c>ch_app</c> and <c>[]</c>, respectively.
+      This means that the following is called when the application is to be
+      started:</p>
     <code type="none">
 ch_app:start(normal, [])</code>
-    <p>will be called when the application should be started and</p>
+    <p>The following is called when the application is stopped.</p>
     <code type="none">
 ch_app:stop([])</code>
-    <p>will be called when the application has been stopped.</p>
     <p>When using <c>systools</c>, the Erlang/OTP tools for packaging
-      code (see <seealso marker="release_structure">Releases</seealso>),
-      the keys <c>description</c>, <c>vsn</c>, <c>modules</c>,
-      <c>registered</c> and <c>applications</c> should also be
-      specified:</p>
+      code (see Section
+      <seealso marker="release_structure">Releases</seealso>), the keys
+      <c>description</c>, <c>vsn</c>, <c>modules</c>, <c>registered</c>,
+      and <c>applications</c> are also to be specified:</p>
     <code type="none">
 {application, ch_app,
  [{description, "Channel allocator"},
@@ -136,67 +149,54 @@ ch_app:stop([])</code>
   {applications, [kernel, stdlib, sasl]},
   {mod, {ch_app,[]}}
  ]}.</code>
-    <taglist>
-      <tag><c>description</c></tag>
-      <item>A short description, a string. Defaults to "".</item>
-      <tag><c>vsn</c></tag>
-      <item>Version number, a string. Defaults to "".</item>
-      <tag><c>modules</c></tag>
-      <item>All modules <em>introduced</em> by this application.
-      <c>systools</c> uses this list when generating boot scripts and
-       tar files. A module must be defined in one and only one
-       application. Defaults to [].</item>
-      <tag><c>registered</c></tag>
-      <item>All names of registered processes in the application.
-      <c>systools</c> uses this list to detect name clashes
-       between applications. Defaults to [].</item>
-      <tag><c>applications</c></tag>
-      <item>All applications which must be started before this
-       application is started. <c>systools</c> uses this list to
-       generate correct boot scripts. Defaults to [], but note that
-       all applications have dependencies to at least <c>kernel</c>
-       and <c>stdlib</c>.</item>
-    </taglist>
-    <note><p>The syntax and contents of of the application resource file
-      are described in detail in the<seealso marker="kernel:app">
-      Application resource file reference</seealso>.</p></note>
+ <list>
+   <item><c>description</c> - A short description, a string. Defaults to
+   "".</item>
+   <item><c>vsn</c> - Version number, a string. Defaults to "".</item>
+   <item><c>modules</c> - All modules <em>introduced</em> by this
+   application. <c>systools</c> uses this list when generating boot scripts
+   and tar files. A module must be defined in only one application.
+   Defaults to <c>[]</c>.</item>
+   <item><c>registered</c> - All names of registered processes in the
+   application. <c>systools</c> uses this list to detect name clashes
+   between applications. Defaults to <c>[]</c>.</item>
+   <item><c>applications</c> - All applications that must be
+   started before this application is started. <c>systools</c> uses this
+   list to generate correct boot scripts. Defaults to <c>[]</c>. Notice
+   that all applications have dependencies to at least Kernel
+   and STDLIB.</item>
+ </list>
+    <note><p>For details about the syntax and contents of the application
+    resource file, see the <seealso marker="kernel:app">app</seealso>
+    manual page in Kernel.</p></note>
   </section>
 
   <section>
     <marker id="app_dir"></marker>
     <title>Directory Structure</title>
     <p>When packaging code using <c>systools</c>, the code for each
-      application is placed in a separate directory
+      application is placed in a separate directory,
       <c>lib/Application-Vsn</c>, where <c>Vsn</c> is the version number.</p>
-    <p>This may be useful to know, even if <c>systools</c> is not used,
-      since Erlang/OTP itself is packaged according to the OTP principles
+    <p>This can be useful to know, even if <c>systools</c> is not used,
+      since Erlang/OTP is packaged according to the OTP principles
       and thus comes with this directory structure. The code server
-      (see <c>code(3)</c>) will automatically use code from
-      the directory with the highest version number, if there are
-      more than one version of an application present.</p>
-    <p>The application directory structure can of course be used in
-      the development environment as well. The version number may then
+      (see the <c>code(3)</c> manual page in Kernel) automatically
+      uses code from
+      the directory with the highest version number, if more than one
+      version of an application is present.</p>
+    <p>The application directory structure can also be used in the
+      development environment. The version number can then
       be omitted from the name.</p>
-    <p>The application directory have the following sub-directories:</p>
+    <p>The application directory has the following sub-directories:</p>
     <list type="bulleted">
-      <item><c>src</c></item>
-      <item><c>ebin</c></item>
-      <item><c>priv</c></item>
-      <item><c>include</c></item>
+      <item><c>src</c> - Contains the Erlang source code.</item>
+      <item><c>ebin</c> - Contains the Erlang object code, the
+      <c>beam</c> files. The <c>.app</c> file is also placed here.</item>
+      <item><c>priv</c> - Used for application specific files. For
+      example, C executables are placed here. The function
+      <c>code:priv_dir/1</c> is to be used to access this directory.</item>
+      <item><c>include</c> - Used for include files.</item>
     </list>
-    <taglist>
-      <tag><c>src</c></tag>
-      <item>Contains the Erlang source code.</item>
-      <tag><c>ebin</c></tag>
-      <item>Contains the Erlang object code, the <c>beam</c> files.
-       The <c>.app</c> file is also placed here.</item>
-      <tag><c>priv</c></tag>
-      <item>Used for application specific files. For example, C
-       executables are placed here. The function <c>code:priv_dir/1</c>
-       should be used to access this directory.</item>
-      <tag><c>include</c></tag>
-      <item>Used for include files.</item>
-    </taglist>
   </section>
 
   <section>
@@ -207,17 +207,17 @@ ch_app:stop([])</code>
       processes is the <em>application controller</em> process,
       registered as <c>application_controller</c>.</p>
     <p>All operations on applications are coordinated by the application
-      controller. It is interfaced through the functions in
-      the module <c>application</c>, see <c>application(3)</c>.
-      In particular, applications can be loaded, unloaded, started and
-      stopped.</p>
+      controller. It is interacted through the functions in
+      the module <c>application</c>, see the <c>application(3)</c>
+      manual page in Kernel. In particular, applications can be
+      loaded, unloaded, started, and stopped.</p>
   </section>
 
   <section>
     <title>Loading and Unloading Applications</title>
     <p>Before an application can be started, it must be <em>loaded</em>.
       The application controller reads and stores the information from
-      the <c>.app</c> file.</p>
+      the <c>.app</c> file:</p>
     <pre>
 1> <input>application:load(ch_app).</input>
 ok
@@ -236,7 +236,7 @@ ok
  {stdlib,"ERTS  CXC 138 10","1.11.4.3"}]</pre>
     <note>
       <p>Loading/unloading an application does not load/unload the code
-        used by the application. Code loading is done the usual way.</p>
+      used by the application. Code loading is done the usual way.</p>
     </note>
   </section>
 
@@ -252,13 +252,14 @@ ok
  {stdlib,"ERTS  CXC 138 10","1.11.4.3"},
  {ch_app,"Channel allocator","1"}]</pre>
     <p>If the application is not already loaded, the application
-      controller will first load it using <c>application:load/1</c>. It
-      will check the value of the <c>applications</c> key, to ensure
-      that all applications that should be started before this
+      controller first loads it using <c>application:load/1</c>. It
+      checks the value of the <c>applications</c> key, to ensure
+      that all applications that are to be started before this
       application are running.</p>
     <marker id="application_master"></marker>
-    <p>The application controller then creates an <em>application master</em> for the application. The application master is
-      the group leader of all the processes in the application.
+    <p>The application controller then creates an
+    <em>application master</em> for the application. The application master
+      is the group leader of all the processes in the application.
       The application master starts the application by calling
       the application callback function <c>start/2</c> in the module,
       and with the start argument, defined by the <c>mod</c> key in
@@ -268,8 +269,8 @@ ok
 7> <input>application:stop(ch_app).</input>
 ok</pre>
     <p>The application master stops the application by telling the top
-      supervisor to shutdown. The top supervisor tells all its child
-      processes to shutdown etc. and the entire tree is terminated in
+      supervisor to shut down. The top supervisor tells all its child
+      processes to shut down, and so on; the entire tree is terminated in
       reversed start order. The application master then calls
       the application callback function <c>stop/1</c> in the module
       defined by the <c>mod</c> key.</p>
@@ -277,8 +278,10 @@ ok</pre>
 
   <section>
     <title>Configuring an Application</title>
-    <p>An application can be configured using <em>configuration parameters</em>. These are a list of <c>{Par, Val}</c> tuples
-      specified by a key <c>env</c> in the <c>.app</c> file.</p>
+    <p>An application can be configured using
+    <em>configuration parameters</em>. These are a list of
+    <c>{Par,Val}</c> tuples
+    specified by a key <c>env</c> in the <c>.app</c> file:</p>
     <code type="none">
 {application, ch_app,
  [{description, "Channel allocator"},
@@ -289,11 +292,12 @@ ok</pre>
   {mod, {ch_app,[]}},
   {env, [{file, "/usr/local/log"}]}
  ]}.</code>
-    <p><c>Par</c> should be an atom, <c>Val</c> is any term.
+    <p><c>Par</c> is to be an atom. <c>Val</c> is any term.
       The application can retrieve the value of a configuration
       parameter by calling <c>application:get_env(App, Par)</c> or a
-      number of similar functions, see <c>application(3)</c>.</p>
-    <p>Example:</p>
+      number of similar functions, see the <c>application(3)</c>
+      manual page in Kernel.</p>
+    <p><em>Example:</em></p>
     <pre>
 % <input>erl</input>
 Erlang (BEAM) emulator version 5.2.3.6 [hipe] [threads:0]
@@ -304,20 +308,21 @@ ok
 2> <input>application:get_env(ch_app, file).</input>
 {ok,"/usr/local/log"}</pre>
     <p>The values in the <c>.app</c> file can be overridden by values
-      in a <em>system configuration file</em>. This is a file which
+      in a <em>system configuration file</em>. This is a file that
       contains configuration parameters for relevant applications:</p>
     <code type="none">
 [{Application1, [{Par11,Val11},...]},
  ...,
  {ApplicationN, [{ParN1,ValN1},...]}].</code>
-    <p>The system configuration should be called <c>Name.config</c> and
-      Erlang should be started with the command line argument
-      <c>-config Name</c>. See <c>config(4)</c> for more information.</p>
-    <p>Example: A file <c>test.config</c> is created with the following
-      contents:</p>
+    <p>The system configuration is to be called <c>Name.config</c> and
+      Erlang is to be started with the command-line argument
+      <c>-config Name</c>. For details, see the <c>config(4)</c>
+      manual page in Kernel.</p>
+    <p><em>Example:</em></p>
+    <p>A file <c>test.config</c> is created with the following contents:</p>
     <code type="none">
 [{ch_app, [{file, "testlog"}]}].</code>
-    <p>The value of <c>file</c> will override the value of <c>file</c>
+    <p>The value of <c>file</c> overrides the value of <c>file</c>
       as defined in the <c>.app</c> file:</p>
     <pre>
 % <input>erl -config test</input>
@@ -330,14 +335,14 @@ ok
 {ok,"testlog"}</pre>
     <p>If
       <seealso marker="release_handling#sys">release handling</seealso>
-      is used, exactly one system configuration file should be used and
-      that file should be called <c>sys.config</c></p>
-    <p>The values in the <c>.app</c> file, as well as the values in a
-      system configuration file, can be overridden directly from
+      is used, exactly one system configuration file is to be used and
+      that file is to be called <c>sys.config</c>.</p>
+    <p>The values in the <c>.app</c> file and the values in a
+      system configuration file can be overridden directly from
       the command line:</p>
     <pre>
 % <input>erl -ApplName Par1 Val1 ... ParN ValN</input></pre>
-    <p>Example:</p>
+    <p><em>Example:</em></p>
     <pre>
 % <input>erl -ch_app file '"testlog"'</input>
 Erlang (BEAM) emulator version 5.2.3.6 [hipe] [threads:0]
@@ -368,10 +373,10 @@ application:start(Application, Type)</code>
       <item>If a temporary application terminates, this is reported but
        no other applications are terminated.</item>
     </list>
-    <p>It is always possible to stop an application explicitly by
+    <p>An application can always be stopped explicitly by
       calling <c>application:stop/1</c>. Regardless of the mode, no
-      other applications will be affected.</p>
-    <p>Note that transient mode is of little practical use, since when
+      other applications are affected.</p>
+    <p>The transient mode is of little practical use, since when
       a supervision tree terminates, the reason is set to
       <c>shutdown</c>, not <c>normal</c>.</p>
   </section>

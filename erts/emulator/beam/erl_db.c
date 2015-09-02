@@ -3,16 +3,17 @@
  *
  * Copyright Ericsson AB 1996-2014. All Rights Reserved.
  *
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  * %CopyrightEnd%
  */
@@ -279,6 +280,8 @@ static ERTS_INLINE void db_init_lock(DbTable* tb, int use_frequent_read_lock,
     erts_smp_rwmtx_opt_t rwmtx_opt = ERTS_SMP_RWMTX_OPT_DEFAULT_INITER;
     if (use_frequent_read_lock)
 	rwmtx_opt.type = ERTS_SMP_RWMTX_TYPE_FREQUENT_READ;
+    if (erts_ets_rwmtx_spin_count >= 0)
+	rwmtx_opt.main_spincount = erts_ets_rwmtx_spin_count;
 #endif
 #ifdef ERTS_SMP
     erts_smp_rwmtx_init_opt_x(&tb->common.rwlock, &rwmtx_opt,
@@ -620,7 +623,7 @@ BIF_RETTYPE ets_safe_fixtable_2(BIF_ALIST_2)
     erts_fprintf(stderr,
 		"ets:safe_fixtable(%T,%T); Process: %T, initial: %T:%T/%bpu\n",
 		BIF_ARG_1, BIF_ARG_2, BIF_P->common.id,
-		BIF_P->initial[0], BIF_P->initial[1], BIF_P->initial[2]);
+		BIF_P->u.initial[0], BIF_P->u.initial[1], BIF_P->u.initial[2]);
 #endif
     kind = (BIF_ARG_2 == am_true) ? LCK_READ : LCK_WRITE_REC; 
 
@@ -753,6 +756,31 @@ BIF_RETTYPE ets_prev_2(BIF_ALIST_2)
     BIF_RET(ret);
 }
 
+/*
+** take(Tab, Key)
+*/
+BIF_RETTYPE ets_take_2(BIF_ALIST_2)
+{
+    DbTable* tb;
+#ifdef DEBUG
+    int cret;
+#endif
+    Eterm ret;
+    CHECK_TABLES();
+
+    tb = db_get_table(BIF_P, BIF_ARG_1, DB_WRITE, LCK_WRITE_REC);
+    if (!tb) {
+        BIF_ERROR(BIF_P, BADARG);
+    }
+#ifdef DEBUG
+    cret =
+#endif
+        tb->common.meth->db_take(BIF_P, tb, BIF_ARG_2, &ret);
+    ASSERT(cret == DB_ERROR_NONE);
+    db_unlock(tb, LCK_WRITE_REC);
+    BIF_RET(ret);
+}
+
 /* 
 ** update_element(Tab, Key, {Pos, Value})
 ** update_element(Tab, Key, [{Pos, Value}])
@@ -780,7 +808,7 @@ BIF_RETTYPE ets_update_element_3(BIF_ALIST_3)
 	list = BIF_ARG_3;
     }
 
-    if (!tb->common.meth->db_lookup_dbterm(tb, BIF_ARG_2, &handle)) {
+    if (!tb->common.meth->db_lookup_dbterm(BIF_P, tb, BIF_ARG_2, THE_NON_VALUE, &handle)) {
 	cret = DB_ERROR_BADKEY;
 	goto bail_out;
     }
@@ -819,7 +847,7 @@ BIF_RETTYPE ets_update_element_3(BIF_ALIST_3)
     }
 
 finalize:
-    tb->common.meth->db_finalize_dbterm(&handle);
+    tb->common.meth->db_finalize_dbterm(cret, &handle);
 
 bail_out:
     UnUseTmpHeap(2,BIF_P);
@@ -838,14 +866,8 @@ bail_out:
     }
 }
 
-/* 
-** update_counter(Tab, Key, Incr) 
-** update_counter(Tab, Key, {Upop}) 
-** update_counter(Tab, Key, [{Upop}]) 
-** Upop = {Pos,Incr} | {Pos,Incr,Threshold,WarpTo}
-** Returns new value(s) (integer or [integer])
-*/
-BIF_RETTYPE ets_update_counter_3(BIF_ALIST_3)
+static BIF_RETTYPE
+do_update_counter(Process *p, Eterm arg1, Eterm arg2, Eterm arg3, Eterm arg4)
 {
     DbTable* tb;
     int cret = DB_ERROR_BADITEM;
@@ -855,7 +877,7 @@ BIF_RETTYPE ets_update_counter_3(BIF_ALIST_3)
     Eterm* ret_list_currp = NULL;
     Eterm* ret_list_prevp = NULL;
     Eterm iter;
-    DeclareTmpHeap(cell,5,BIF_P);
+    DeclareTmpHeap(cell, 5, p);
     Eterm *tuple = cell+2;
     DbUpdateHandle handle;
     Uint halloc_size = 0; /* overestimated heap usage */
@@ -863,28 +885,29 @@ BIF_RETTYPE ets_update_counter_3(BIF_ALIST_3)
     Eterm* hstart;
     Eterm* hend;
 
-    if ((tb = db_get_table(BIF_P, BIF_ARG_1, DB_WRITE, LCK_WRITE_REC)) == NULL) {
-	BIF_ERROR(BIF_P, BADARG);
+    if ((tb = db_get_table(p, arg1, DB_WRITE, LCK_WRITE_REC)) == NULL) {
+        BIF_ERROR(p, BADARG);
     }
 
-    UseTmpHeap(5,BIF_P);
+    UseTmpHeap(5, p);
 
     if (!(tb->common.status & (DB_SET | DB_ORDERED_SET))) {
 	goto bail_out;
     }
-    if (is_integer(BIF_ARG_3)) {  /* Incr */
-	upop_list = CONS(cell, TUPLE2(tuple, make_small(tb->common.keypos+1),
-				      BIF_ARG_3), NIL);
+    if (is_integer(arg3)) { /* Incr */
+        upop_list = CONS(cell,
+                         TUPLE2(tuple, make_small(tb->common.keypos+1), arg3),
+                         NIL);
     }
-    else if (is_tuple(BIF_ARG_3)) { /* {Upop} */
-	upop_list = CONS(cell, BIF_ARG_3, NIL);
+    else if (is_tuple(arg3)) { /* {Upop} */
+        upop_list = CONS(cell, arg3, NIL);
     }
     else { /* [{Upop}] (probably) */
-	upop_list = BIF_ARG_3;
+        upop_list = arg3;
 	ret_list_prevp = &ret;
     }
 
-    if (!tb->common.meth->db_lookup_dbterm(tb, BIF_ARG_2, &handle)) {
+    if (!tb->common.meth->db_lookup_dbterm(p, tb, arg2, arg4, &handle)) {
 	goto bail_out; /* key not found */
     }
 
@@ -957,13 +980,13 @@ BIF_RETTYPE ets_update_counter_3(BIF_ALIST_3)
     if (ret_list_prevp) { /* Prepare to return a list */
 	ret = NIL;
 	halloc_size += list_size;
-	hstart = HAlloc(BIF_P, halloc_size);
+	hstart = HAlloc(p, halloc_size);
 	ret_list_currp = hstart;
 	htop = hstart + list_size;
 	hend = hstart + halloc_size;
     }
     else {
-	hstart = htop = HAlloc(BIF_P, halloc_size);
+	hstart = htop = HAlloc(p, halloc_size);
     }
     hend = hstart + halloc_size;
 
@@ -1010,25 +1033,53 @@ BIF_RETTYPE ets_update_counter_3(BIF_ALIST_3)
 	   (is_list(ret) && (list_val(ret)+list_size)==ret_list_currp));
     ASSERT(htop <= hend);
 
-    HRelease(BIF_P,hend,htop);
+    HRelease(p, hend, htop);
 
 finalize:
-    tb->common.meth->db_finalize_dbterm(&handle);
+    tb->common.meth->db_finalize_dbterm(cret, &handle);
 
 bail_out:
-    UnUseTmpHeap(5,BIF_P);
+    UnUseTmpHeap(5, p);
     db_unlock(tb, LCK_WRITE_REC);
 
     switch (cret) {
     case DB_ERROR_NONE:
 	BIF_RET(ret);
     case DB_ERROR_SYSRES:
-	BIF_ERROR(BIF_P, SYSTEM_LIMIT);
+        BIF_ERROR(p, SYSTEM_LIMIT);
     default:
-	BIF_ERROR(BIF_P, BADARG);
+        BIF_ERROR(p, BADARG);
 	break;
     }
 }
+
+/*
+** update_counter(Tab, Key, Incr)
+** update_counter(Tab, Key, Upop)
+** update_counter(Tab, Key, [{Upop}])
+** Upop = {Pos,Incr} | {Pos,Incr,Threshold,WarpTo}
+** Returns new value(s) (integer or [integer])
+*/
+BIF_RETTYPE ets_update_counter_3(BIF_ALIST_3)
+{
+    return do_update_counter(BIF_P, BIF_ARG_1, BIF_ARG_2, BIF_ARG_3, THE_NON_VALUE);
+}
+
+/*
+** update_counter(Tab, Key, Incr, Default)
+** update_counter(Tab, Key, Upop, Default)
+** update_counter(Tab, Key, [{Upop}], Default)
+** Upop = {Pos,Incr} | {Pos,Incr,Threshold,WarpTo}
+** Returns new value(s) (integer or [integer])
+*/
+BIF_RETTYPE ets_update_counter_4(BIF_ALIST_4)
+{
+    if (is_not_tuple(BIF_ARG_4)) {
+        BIF_ERROR(BIF_P, BADARG);
+    }
+    return do_update_counter(BIF_P, BIF_ARG_1, BIF_ARG_2, BIF_ARG_3, BIF_ARG_4);
+}
+
 
 /* 
 ** The put BIF 
@@ -1199,7 +1250,7 @@ BIF_RETTYPE ets_rename_2(BIF_ALIST_2)
     erts_fprintf(stderr,
 		"ets:rename(%T,%T); Process: %T, initial: %T:%T/%bpu\n",
 		BIF_ARG_1, BIF_ARG_2, BIF_P->common.id,
-		BIF_P->initial[0], BIF_P->initial[1], BIF_P->initial[2]);
+		BIF_P->u.initial[0], BIF_P->u.initial[1], BIF_P->u.initial[2]);
 #endif
 
 
@@ -1515,7 +1566,7 @@ BIF_RETTYPE ets_new_2(BIF_ALIST_2)
     erts_fprintf(stderr,
 		"ets:new(%T,%T)=%T; Process: %T, initial: %T:%T/%bpu\n",
 		 BIF_ARG_1, BIF_ARG_2, ret, BIF_P->common.id,
-		 BIF_P->initial[0], BIF_P->initial[1], BIF_P->initial[2]);
+		 BIF_P->u.initial[0], BIF_P->u.initial[1], BIF_P->u.initial[2]);
 	erts_fprintf(stderr, "ets: new: meta_pid_to_tab common.memory_size = %ld\n",
 		     erts_smp_atomic_read_nob(&meta_pid_to_tab->common.memory_size));
 	erts_fprintf(stderr, "ets: new: meta_pid_to_fixed_tab common.memory_size = %ld\n",
@@ -1648,7 +1699,7 @@ BIF_RETTYPE ets_delete_1(BIF_ALIST_1)
     erts_fprintf(stderr,
 		"ets:delete(%T); Process: %T, initial: %T:%T/%bpu\n",
 		BIF_ARG_1, BIF_P->common.id,
-		BIF_P->initial[0], BIF_P->initial[1], BIF_P->initial[2]);
+		BIF_P->u.initial[0], BIF_P->u.initial[1], BIF_P->u.initial[2]);
 #endif
 
     CHECK_TABLES();
@@ -2643,7 +2694,9 @@ BIF_RETTYPE ets_match_object_3(BIF_ALIST_3)
 BIF_RETTYPE ets_info_1(BIF_ALIST_1)
 {
     static Eterm fields[] = {am_protection, am_keypos, am_type, am_named_table,
-	am_node, am_size, am_name, am_heir, am_owner, am_memory, am_compressed};
+                             am_node, am_size, am_name, am_heir, am_owner, am_memory, am_compressed,
+                             am_write_concurrency,
+                             am_read_concurrency};
     Eterm results[sizeof(fields)/sizeof(Eterm)];
     DbTable* tb;
     Eterm res;
@@ -2806,10 +2859,11 @@ BIF_RETTYPE ets_match_spec_run_r_3(BIF_ALIST_3)
 ** External interface (NOT BIF's)
 */
 
+int erts_ets_rwmtx_spin_count = -1;
 
 /* Init the db */
 
-void init_db(void)
+void init_db(ErtsDbSpinCount db_spin_count)
 {
     DbTable init_tb;
     int i;
@@ -2818,9 +2872,47 @@ void init_db(void)
     size_t size;
 
 #ifdef ERTS_SMP
+    int max_spin_count = (1 << 15) - 1; /* internal limit */
     erts_smp_rwmtx_opt_t rwmtx_opt = ERTS_SMP_RWMTX_OPT_DEFAULT_INITER;
     rwmtx_opt.type = ERTS_SMP_RWMTX_TYPE_FREQUENT_READ;
     rwmtx_opt.lived = ERTS_SMP_RWMTX_LONG_LIVED;
+
+    switch (db_spin_count) {
+    case ERTS_DB_SPNCNT_NONE:
+	erts_ets_rwmtx_spin_count = 0;
+	break;
+    case ERTS_DB_SPNCNT_VERY_LOW:
+	erts_ets_rwmtx_spin_count = 100;
+	break;
+    case ERTS_DB_SPNCNT_LOW:
+	erts_ets_rwmtx_spin_count = 200;
+	erts_ets_rwmtx_spin_count += erts_no_schedulers * 50;
+	if (erts_ets_rwmtx_spin_count > 1000)
+	    erts_ets_rwmtx_spin_count = 1000;
+	break;
+    case ERTS_DB_SPNCNT_HIGH:
+	erts_ets_rwmtx_spin_count = 2000;
+	erts_ets_rwmtx_spin_count += erts_no_schedulers * 100;
+	if (erts_ets_rwmtx_spin_count > 15000)
+	    erts_ets_rwmtx_spin_count = 15000;
+	break;
+    case ERTS_DB_SPNCNT_VERY_HIGH:
+	erts_ets_rwmtx_spin_count = 15000;
+	erts_ets_rwmtx_spin_count += erts_no_schedulers * 500;
+	if (erts_ets_rwmtx_spin_count > max_spin_count)
+	    erts_ets_rwmtx_spin_count = max_spin_count;
+	break;
+    case ERTS_DB_SPNCNT_EXTREMELY_HIGH:
+	erts_ets_rwmtx_spin_count = max_spin_count;
+	break;
+    case ERTS_DB_SPNCNT_NORMAL:
+    default:
+	erts_ets_rwmtx_spin_count = -1;
+	break;
+    }
+
+    if (erts_ets_rwmtx_spin_count >= 0)
+	rwmtx_opt.main_spincount = erts_ets_rwmtx_spin_count;
 
     meta_main_tab_locks =
 	erts_alloc_permanent_cache_aligned(ERTS_ALC_T_DB_TABLES,
@@ -3670,6 +3762,10 @@ static Eterm table_info(Process* p, DbTable* tb, Eterm What)
 	    ret = am_protected;
 	else if (tb->common.status & DB_PUBLIC)
 	    ret = am_public;
+    } else if (What == am_write_concurrency) {
+        ret = tb->common.status & DB_FINE_LOCKED ? am_true : am_false;
+    } else if (What == am_read_concurrency) {
+        ret = tb->common.status & DB_FREQ_READ ? am_true : am_false;
     } else if (What == am_name) {
 	ret = tb->common.the_name;
     } else if (What == am_keypos) {
@@ -3752,7 +3848,7 @@ static Eterm table_info(Process* p, DbTable* tb, Eterm What)
 			 avg, std_dev_real, std_dev_exp,
 			 make_small(stats.min_chain_len),
 			 make_small(stats.max_chain_len),
-			 make_small(db_kept_items_hash(&tb->hash)));
+			 make_small(stats.kept_items));
 	}
 	else {
 	    ret = am_false;
@@ -3774,6 +3870,11 @@ static void print_table(int to, void *to_arg, int show,  DbTable* tb)
 			+ sizeof(Uint)
 			- 1)
 		       / sizeof(Uint)));
+    erts_print(to, to_arg, "Type: %T\n", table_info(NULL, tb, am_type));
+    erts_print(to, to_arg, "Protection: %T\n", table_info(NULL, tb, am_protection));
+    erts_print(to, to_arg, "Compressed: %T\n", table_info(NULL, tb, am_compressed));
+    erts_print(to, to_arg, "Write Concurrency: %T\n", table_info(NULL, tb, am_write_concurrency));
+    erts_print(to, to_arg, "Read Concurrency: %T\n", table_info(NULL, tb, am_read_concurrency));
 }
 
 void db_info(int to, void *to_arg, int show)    /* Called by break handler */

@@ -4,24 +4,25 @@
 <chapter>
   <header>
     <copyright>
-      <year>2003</year><year>2013</year>
+      <year>2003</year><year>2015</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
-      The contents of this file are subject to the Erlang Public License,
-      Version 1.1, (the "License"); you may not use this file except in
-      compliance with the License. You should have received a copy of the
-      Erlang Public License along with this software. If not, it can be
-      retrieved online at http://www.erlang.org/.
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
 
-      Software distributed under the License is distributed on an "AS IS"
-      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-      the License for the specific language governing rights and limitations
-      under the License.
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
 
     </legalnotice>
 
-    <title>The Preprocessor</title>
+    <title>Preprocessor</title>
     <prepared></prepared>
     <docno></docno>
     <date></date>
@@ -31,17 +32,17 @@
 
     <section>
       <title>File Inclusion</title>
-      <p>A file can be included in the following way:</p>
+      <p>A file can be included as follows:</p>
       <pre>
 -include(File).
 -include_lib(File).</pre>
-      <p><c>File</c>, a string, should point out a file. The contents of
-        this file are included as-is, at the position of the directive.</p>
+      <p><c>File</c>, a string, is to point out a file. The contents of
+        this file are included as is, at the position of the directive.</p>
       <p>Include files are typically used for record and macro
         definitions that are shared by several modules. It is
-        recommended that the file name extension <c>.hrl</c> be used
-        for include files.</p>
-      <p><c>File</c> may start with a path component <c>$VAR</c>, for
+        recommended to use the file name extension <c>.hrl</c> for
+        include files.</p>
+      <p><c>File</c> can start with a path component <c>$VAR</c>, for
         some string <c>VAR</c>. If that is the case, the value of
         the environment variable <c>VAR</c> as returned by
         <c>os:getenv(VAR)</c> is substituted for <c>$VAR</c>. If
@@ -49,21 +50,29 @@
         as is.</p>
       <p>If the filename <c>File</c> is absolute (possibly after
         variable substitution), the include file with that name is
-        included. Otherwise, the specified file is searched for in
-        the current working directory, in the same directory as
-        the module being compiled, and in the directories given by
-        the <c>include</c> option, in that order.
-        See <c>erlc(1)</c> and <c>compile(3)</c> for details.</p>
-      <p>Examples:</p>
+        included. Otherwise, the specified file is searched for
+	in the following directories, and in this order:</p>
+	<list type="ordered">
+	  <item>The current working directory</item>
+	  <item>The directory where the module is being compiled</item>
+	  <item>The directories given by the <c>include</c> option</item>
+	</list>
+	<p>For details, see the
+          <seealso marker="erts:erlc">erlc(1)</seealso> manual page
+           in ERTS and
+           <seealso marker="compiler:compile">compile(3)</seealso>
+           manual page in Compiler.</p>
+      <p><em>Examples:</em></p>
       <pre>
 -include("my_records.hrl").
 -include("incdir/my_records.hrl").
 -include("/home/user/proj/my_records.hrl").
 -include("$PROJ_ROOT/my_records.hrl").</pre>
-      <p><c>include_lib</c> is similar to <c>include</c>, but should not
+      <p><c>include_lib</c> is similar to <c>include</c>, but is not to
         point out an absolute file. Instead, the first path component
         (possibly after variable substitution) is assumed to be
-        the name of an application. Example:</p>
+        the name of an application.</p>
+	<p><em>Example:</em></p>
       <pre>
 -include_lib("kernel/include/file.hrl").</pre>
       <p>The code server uses <c>code:lib_dir(kernel)</c> to find
@@ -74,7 +83,7 @@
 
   <section>
     <title>Defining and Using Macros</title>
-    <p>A macro is defined the following way:</p>
+    <p>A macro is defined as follows:</p>
     <code type="none">
 -define(Const, Replacement).
 -define(Func(Var1,...,VarN), Replacement).</code>
@@ -83,33 +92,34 @@
       come before any usage of the macro.</p>
     <p>If a macro is used in several modules, it is recommended that
       the macro definition is placed in an include file.</p>
-    <p>A macro is used the following way:</p>
+    <p>A macro is used as follows:</p>
     <code type="none">
 ?Const
 ?Func(Arg1,...,ArgN)</code>
     <p>Macros are expanded during compilation. A simple macro
-      <c>?Const</c> will be replaced with <c>Replacement</c>.
-      Example:</p>
+      <c>?Const</c> is replaced with <c>Replacement</c>.</p>
+      <p><em>Example:</em></p>
     <code type="none">
 -define(TIMEOUT, 200).
 ...
 call(Request) ->
     server:call(refserver, Request, ?TIMEOUT).</code>
-    <p>This will be expanded to:</p>
+    <p>This is expanded to:</p>
     <code type="none">
 call(Request) ->
     server:call(refserver, Request, 200).</code>
-    <p>A macro <c>?Func(Arg1,...,ArgN)</c> will be replaced with
+    <p>A macro <c>?Func(Arg1,...,ArgN)</c> is replaced with
       <c>Replacement</c>, where all occurrences of a variable <c>Var</c>
       from the macro definition are replaced with the corresponding
-      argument <c>Arg</c>. Example:</p>
+      argument <c>Arg</c>.</p>
+      <p><em>Example:</em></p>
     <code type="none">
 -define(MACRO1(X, Y), {a, X, b, Y}).
 ...
 bar(X) ->
     ?MACRO1(a, b),
     ?MACRO1(X, 123)</code>
-    <p>This will be expanded to:</p>
+    <p>This is expanded to:</p>
     <code type="none">
 bar(X) ->
     {a,a,b,b},
@@ -154,7 +164,7 @@ bar(X) ->
 -define(F0(), c).
 -define(F1(A), A).
 -define(C, m:f).</code>
-    <p>the following will not work:</p>
+    <p>the following does not work:</p>
     <code type="none">
 f0() ->
     ?F0. % No, an empty list of arguments expected.
@@ -165,7 +175,7 @@ f1(A) ->
     <code>
 f() ->
     ?C().</code>
-    <p>will expand to</p>
+    <p>is expanded to</p>
     <code>
 f() ->
     m:f().</code>
@@ -185,7 +195,7 @@ f() ->
        defined.</item>
       <tag><c>-else.</c></tag>
       <item>Only allowed after an <c>ifdef</c> or <c>ifndef</c>
-       directive. If that condition was false, the lines following
+       directive. If that condition is false, the lines following
       <c>else</c> are evaluated instead.</item>
       <tag><c>-endif.</c></tag>
       <item>Specifies the end of an <c>ifdef</c> or <c>ifndef</c>
@@ -194,7 +204,7 @@ f() ->
     <note>
       <p>The macro directives cannot be used inside functions.</p>
     </note>
-    <p>Example:</p>
+    <p><em>Example:</em></p>
     <code type="none">
 -module(m).
 ...
@@ -206,7 +216,7 @@ f() ->
 -endif.
 
 ...</code>
-    <p>When trace output is desired, <c>debug</c> should be defined
+    <p>When trace output is desired, <c>debug</c> is to be defined
       when the module <c>m</c> is compiled:</p>
     <pre>
 % <input>erlc -Ddebug m.erl</input>
@@ -215,18 +225,18 @@ or
 
 1> <input>c(m, {d, debug}).</input>
 {ok,m}</pre>
-    <p><c>?LOG(Arg)</c> will then expand to a call to <c>io:format/2</c>
+    <p><c>?LOG(Arg)</c> is then expanded to a call to <c>io:format/2</c>
       and provide the user with some simple trace output.</p>
   </section>
 
   <section>
     <title>Stringifying Macro Arguments</title>
     <p>The construction <c>??Arg</c>, where <c>Arg</c> is a macro
-      argument, will be expanded to a string containing the tokens of
+      argument, is expanded to a string containing the tokens of
       the argument. This is similar to the <c>#arg</c> stringifying
       construction in C.</p>
     <p>The feature was added in Erlang 5.0/OTP R7.</p>
-    <p>Example:</p>
+    <p><em>Example:</em></p>
     <code type="none">
 -define(TESTCALL(Call), io:format("Call ~s: ~w~n", [??Call, Call])).
 
@@ -236,7 +246,7 @@ or
     <code type="none">
 io:format("Call ~s: ~w~n",["myfunction ( 1 , 2 )",myfunction(1,2)]),
 io:format("Call ~s: ~w~n",["you : function ( 2 , 1 )",you:function(2,1)]).</code>
-    <p>That is, a trace output with both the function called and
+    <p>That is, a trace output, with both the function called and
       the resulting value.</p>
   </section>
 </chapter>

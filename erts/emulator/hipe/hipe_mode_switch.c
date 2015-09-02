@@ -4,16 +4,17 @@
  *
  * Copyright Ericsson AB 2001-2014. All Rights Reserved.
  *
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  * %CopyrightEnd%
  */
@@ -140,7 +141,6 @@ void hipe_check_pcb(Process *p, const char *file, unsigned line)
 #endif	/* HIPE_DEBUG > 0 */
 
 /* ensure that at least nwords words are available on the native stack */
-static void hipe_check_nstack(Process *p, unsigned nwords);
 
 #if defined(__sparc__)
 #include "hipe_sparc_glue.h"
@@ -159,7 +159,7 @@ static void hipe_check_nstack(Process *p, unsigned nwords);
 Uint hipe_beam_pc_return[1];	/* needed in hipe_debug.c */
 Uint hipe_beam_pc_throw[1];	/* needed in hipe_debug.c */
 Uint hipe_beam_pc_resume[1];	/* needed by hipe_set_timeout() */
-static Eterm hipe_beam_catch_throw;
+Eterm hipe_beam_catch_throw;
 
 void hipe_mode_switch_init(void)
 {
@@ -185,22 +185,6 @@ void hipe_set_call_trap(Uint *bfun, void *nfun, int is_closure)
     bfun[-4] = (Uint)nfun;
 }
 
-void hipe_reserve_beam_trap_frame(Process *p, Eterm reg[], unsigned arity)
-{
-    if (!hipe_bifcall_from_native_is_recursive(p))
-	return;
-
-    /* ensure that at least 2 words are available on the BEAM stack */
-    if ((p->stop - 2) < p->htop) {
-	DPRINTF("calling gc to reserve BEAM stack size");
-	p->fcalls -= erts_garbage_collect(p, 2, reg, arity);
-	ASSERT(!((p->stop - 2) < p->htop));
-    }
-    p->stop -= 2;
-    p->stop[0] = NIL;
-    p->stop[1] = hipe_beam_catch_throw;
-}
-
 static __inline__ void
 hipe_push_beam_trap_frame(Process *p, Eterm reg[], unsigned arity)
 {
@@ -221,15 +205,6 @@ hipe_push_beam_trap_frame(Process *p, Eterm reg[], unsigned arity)
     p->stop[0] = make_cp(p->cp);
     ++p->catches;
     p->cp = hipe_beam_pc_return;
-}
-
-void hipe_unreserve_beam_trap_frame(Process *p)
-{
-    if (!hipe_bifcall_from_native_is_recursive(p))
-	return;
-
-    ASSERT(p->stop[0] == NIL && p->stop[1] == hipe_beam_catch_throw);
-    p->stop += 2;
 }
 
 static __inline__ void hipe_pop_beam_trap_frame(Process *p)
@@ -265,14 +240,14 @@ Process *hipe_mode_switch(Process *p, unsigned cmd, Eterm reg[])
 	  /* BEAM calls a native code function */
 	  unsigned arity = cmd >> 8;
 
-	  /* p->hipe.ncallee set in beam_emu */
+	  /* p->hipe.u.ncallee set in beam_emu */
 	  if (p->cp == hipe_beam_pc_return) {
 	    /* Native called BEAM, which now tailcalls native. */
 	    hipe_pop_beam_trap_frame(p);
 	    result = hipe_tailcall_to_native(p, arity, reg);
 	    break;
 	  }
-	  DPRINTF("calling %#lx/%u", (long)p->hipe.ncallee, arity);
+	  DPRINTF("calling %#lx/%u", (long)p->hipe.u.ncallee, arity);
 	  result = hipe_call_to_native(p, arity, reg);
 	  break;
       }
@@ -290,18 +265,18 @@ Process *hipe_mode_switch(Process *p, unsigned cmd, Eterm reg[])
 	  arity -= funp->num_free;	/* arity == #formals */
 	  reg[arity] = fun;
 	  ++arity;	/* correct for having added the closure */
-	  /* HIPE_ASSERT(p->hipe.ncallee == (void(*)(void))funp->native_address); */
+	  /* HIPE_ASSERT(p->hipe.u.ncallee == (void(*)(void))funp->native_address); */
 
 	  /* just like a normal call from now on */
 
-	  /* p->hipe.ncallee set in beam_emu */
+	  /* p->hipe.u.ncallee set in beam_emu */
 	  if (p->cp == hipe_beam_pc_return) {
 	      /* Native called BEAM, which now tailcalls native. */
 	      hipe_pop_beam_trap_frame(p);
 	      result = hipe_tailcall_to_native(p, arity, reg);
 	      break;
 	  }
-	  DPRINTF("calling %#lx/%u", (long)p->hipe.ncallee, arity);
+	  DPRINTF("calling %#lx/%u", (long)p->hipe.u.ncallee, arity);
 	  result = hipe_call_to_native(p, arity, reg);
 	  break;
       }
@@ -404,13 +379,13 @@ Process *hipe_mode_switch(Process *p, unsigned cmd, Eterm reg[])
 	  if (is_recursive)
 	      hipe_push_beam_trap_frame(p, reg, p->arity);
 	  
-	  result = HIPE_MODE_SWITCH_RES_CALL;
+	  result = HIPE_MODE_SWITCH_RES_CALL_BEAM;
 	  break;
       }
-      case HIPE_MODE_SWITCH_RES_CALL: {
+      case HIPE_MODE_SWITCH_RES_CALL_EXPORTED: {
 	  /* Native code calls or tailcalls BEAM.
 	   *
-	   * p->i is the callee's BEAM code
+	   * p->hipe.u.callee_exp is the callee's export entry
 	   * p->arity is the callee's arity
 	   * p->def_arg_reg[] contains the register parameters
 	   * p->hipe.nsp[] contains the stacked parameters
@@ -430,15 +405,15 @@ Process *hipe_mode_switch(Process *p, unsigned cmd, Eterm reg[])
 	   * F(A1, ..., AN, FV1, ..., FVM, Closure)
 	   *  (Where Ai is argument i and FVj is free variable j)
 	   *
-	   * p->hipe.closure contains the closure
+	   * p->hipe.u.closure contains the closure
 	   * p->def_arg_reg[] contains the register parameters
 	   * p->hipe.nsp[] contains the stacked parameters
 	   */
 	  ErlFunThing *closure;
 	  unsigned num_free, arity, i, is_recursive;
 
-	  HIPE_ASSERT(is_fun(p->hipe.closure));
-	  closure = (ErlFunThing*)fun_val(p->hipe.closure);
+	  HIPE_ASSERT(is_fun(p->hipe.u.closure));
+	  closure = (ErlFunThing*)fun_val(p->hipe.u.closure);
 	  num_free = closure->num_free;
 	  arity = closure->fe->arity;
 
@@ -468,10 +443,10 @@ Process *hipe_mode_switch(Process *p, unsigned cmd, Eterm reg[])
 	      p->i = closure->fe->address;
 
 	      /* Change result code to the faster plain CALL type. */
-	      result = HIPE_MODE_SWITCH_RES_CALL;
+	      result = HIPE_MODE_SWITCH_RES_CALL_BEAM;
 	  }
 	  /* Append the closure as the last parameter. Don't increment arity. */
-	  reg[arity] = p->hipe.closure;
+	  reg[arity] = p->hipe.u.closure;
 
 	  if (is_recursive) {
 	      /* BEAM called native, which now calls BEAM.
@@ -549,7 +524,7 @@ Process *hipe_mode_switch(Process *p, unsigned cmd, Eterm reg[])
 	      }
 	  }
 	  HIPE_CHECK_PCB(p);
-	  result = HIPE_MODE_SWITCH_RES_CALL;
+	  result = HIPE_MODE_SWITCH_RES_CALL_BEAM;
 	  p->def_arg_reg[3] = result;
 	  return p;
       }
@@ -577,7 +552,7 @@ Process *hipe_mode_switch(Process *p, unsigned cmd, Eterm reg[])
 	  address = hipe_get_remote_na(mfa[0], mfa[1], arity);
 	  if (!address)
 		  goto do_apply_fail;
-	  p->hipe.ncallee = (void(*)(void)) address;
+	  p->hipe.u.ncallee = (void(*)(void)) address;
 	  result = hipe_tailcall_to_native(p, arity, reg);
 	  goto do_return_from_native;
       do_apply_fail:
@@ -607,7 +582,6 @@ static unsigned hipe_next_nstack_size(unsigned size)
 }
 
 #if 0 && defined(HIPE_NSTACK_GROWS_UP)
-#define hipe_nstack_avail(p)	((p)->hipe.nstend - (p)->hipe.nsp)
 void hipe_inc_nstack(Process *p)
 {
     Eterm *old_nstack = p->hipe.nstack;
@@ -631,7 +605,6 @@ void hipe_inc_nstack(Process *p)
 #endif
 
 #if defined(HIPE_NSTACK_GROWS_DOWN)
-#define hipe_nstack_avail(p)	((unsigned)((p)->hipe.nsp - (p)->hipe.nstack))
 void hipe_inc_nstack(Process *p)
 {
     unsigned old_size = p->hipe.nstend - p->hipe.nstack;
@@ -661,12 +634,6 @@ void hipe_empty_nstack(Process *p)
     p->hipe.nsp = NULL;
     p->hipe.nstack = NULL;
     p->hipe.nstend = NULL;
-}
-
-static void hipe_check_nstack(Process *p, unsigned nwords)
-{
-    while (hipe_nstack_avail(p) < nwords)
-	hipe_inc_nstack(p);
 }
 
 void hipe_set_closure_stub(ErlFunEntry *fe, unsigned num_free)

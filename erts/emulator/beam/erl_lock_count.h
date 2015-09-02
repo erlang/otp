@@ -3,16 +3,17 @@
  *
  * Copyright Ericsson AB 2008-2012. All Rights Reserved.
  *
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  * %CopyrightEnd%
  */
@@ -20,7 +21,7 @@
 /*
  * Description:	Statistics for locks.
  *
- * Author:	Björn-Egil Dahlberg
+ * Author:	BjÃ¶rn-Egil Dahlberg
  * Date:	2008-07-03
  * Abstract:
  * 	Locks statistics internal representation.
@@ -76,7 +77,7 @@
 
 /* histogram */
 #define ERTS_LCNT_HISTOGRAM_MAX_NS    (((unsigned long)1LL << 28) - 1)
-#if 0 || defined(HAVE_GETHRTIME)
+#if 0 || defined(ERTS_HAVE_OS_MONOTONIC_TIME_SUPPORT)
 #define ERTS_LCNT_HISTOGRAM_SLOT_SIZE (30)
 #define ERTS_LCNT_HISTOGRAM_RSHIFT    (0)
 #else
@@ -95,30 +96,35 @@
 #define ERTS_LCNT_LO_WRITE      (((Uint16) 1) << 7)
 
 #define ERTS_LCNT_LO_READ_WRITE ( ERTS_LCNT_LO_READ  \
-				| ERTS_LCNT_LO_WRITE )
+                                | ERTS_LCNT_LO_WRITE )
 
 #define ERTS_LCNT_LT_ALL        ( ERTS_LCNT_LT_SPINLOCK   \
-				| ERTS_LCNT_LT_RWSPINLOCK \
-				| ERTS_LCNT_LT_MUTEX      \
-				| ERTS_LCNT_LT_RWMUTEX    \
-				| ERTS_LCNT_LT_PROCLOCK   )
+                                | ERTS_LCNT_LT_RWSPINLOCK \
+                                | ERTS_LCNT_LT_MUTEX      \
+                                | ERTS_LCNT_LT_RWMUTEX    \
+                                | ERTS_LCNT_LT_PROCLOCK   )
+
+#define ERTS_LCNT_LOCK_TYPE(lock)       ((lock)->flag & ERTS_LCNT_LT_ALL)
+#define ERTS_LCNT_IS_LOCK_INVALID(lock) (!((lock)->flag & ERTS_LCNT_LT_ALL))
+#define ERTS_LCNT_CLEAR_FLAG(lock)      ((lock)->flag = 0)
+
 /* runtime options */
 
-#define ERTS_LCNT_OPT_SUSPEND   (((Uint16) 1) << 0)
-#define ERTS_LCNT_OPT_LOCATION  (((Uint16) 1) << 1)
-#define ERTS_LCNT_OPT_PROCLOCK  (((Uint16) 1) << 2)
-#define ERTS_LCNT_OPT_COPYSAVE  (((Uint16) 1) << 3)
-#define ERTS_LCNT_OPT_PORTLOCK  (((Uint16) 1) << 4)
+#define ERTS_LCNT_OPT_SUSPEND  (((Uint16) 1) << 0)
+#define ERTS_LCNT_OPT_LOCATION (((Uint16) 1) << 1)
+#define ERTS_LCNT_OPT_PROCLOCK (((Uint16) 1) << 2)
+#define ERTS_LCNT_OPT_PORTLOCK (((Uint16) 1) << 3)
+#define ERTS_LCNT_OPT_COPYSAVE (((Uint16) 1) << 4)
 
 typedef struct {
     unsigned long s;
     unsigned long ns;
 } erts_lcnt_time_t;
-    
+
 extern erts_lcnt_time_t timer_start;
 
 typedef struct {
-   Uint32 ns[ERTS_LCNT_HISTOGRAM_SLOT_SIZE]; /* log2 array of nano seconds occurences */
+    Uint32 ns[ERTS_LCNT_HISTOGRAM_SLOT_SIZE]; /* log2 array of nano seconds occurences */
 } erts_lcnt_hist_t;
 
 typedef struct erts_lcnt_lock_stats_s {
@@ -129,10 +135,10 @@ typedef struct erts_lcnt_lock_stats_s {
 
     char         *file;       /* which file the lock was taken */
     unsigned int  line;       /* line number in file */
-    
+
     ethr_atomic_t tries;      /* n tries to get lock */
     ethr_atomic_t colls;      /* n collisions of tries to get lock */
-    
+
     unsigned long timer_n;    /* #times waited for lock */
     erts_lcnt_time_t timer;   /* total wait time for lock */
     erts_lcnt_hist_t hist;
@@ -155,7 +161,7 @@ typedef struct erts_lcnt_lock_s {
     /* statistics */
     unsigned int n_stats;
     erts_lcnt_lock_stats_t stats[ERTS_LCNT_MAX_LOCK_LOCATIONS]; /* first entry is "undefined"*/
-    
+
     /* chains for list handling  */
     /* data is hold by lcnt_lock */
     struct erts_lcnt_lock_s *prev;
@@ -167,7 +173,7 @@ typedef struct {
     erts_lcnt_lock_t *tail;
     unsigned long n;
 } erts_lcnt_lock_list_t;
-    
+
 typedef struct {
     erts_lcnt_time_t duration;			/* time since last clear */
     erts_lcnt_lock_list_t *current_locks;
@@ -205,6 +211,7 @@ void erts_lcnt_list_delete(erts_lcnt_lock_list_t *list, erts_lcnt_lock_t *lock);
 /* lock operations (global) */
 void erts_lcnt_init_lock(erts_lcnt_lock_t *lock, char *name, Uint16 flag);
 void erts_lcnt_init_lock_x(erts_lcnt_lock_t *lock, char *name, Uint16 flag, Eterm id);
+void erts_lcnt_init_lock_empty(erts_lcnt_lock_t *lock);
 void erts_lcnt_destroy_lock(erts_lcnt_lock_t *lock);
 
 void erts_lcnt_lock(erts_lcnt_lock_t *lock);
@@ -225,8 +232,6 @@ Uint16 erts_lcnt_clear_rt_opt(Uint16 opt);
 void   erts_lcnt_clear_counters(void);
 char  *erts_lcnt_lock_type(Uint16 type);
 erts_lcnt_data_t *erts_lcnt_get_data(void);
-
-#define ERTS_LCNT_LOCK_TYPE(lockp)	((lockp)->flag & ERTS_LCNT_LT_ALL)
 
 #endif /* ifdef  ERTS_ENABLE_LOCK_COUNT  */
 #endif /* ifndef ERTS_LOCK_COUNT_H__     */

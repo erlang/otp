@@ -8,16 +8,17 @@
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
-      The contents of this file are subject to the Erlang Public License,
-      Version 1.1, (the "License"); you may not use this file except in
-      compliance with the License. You should have received a copy of the
-      Erlang Public License along with this software. If not, it can be
-      retrieved online at http://www.erlang.org/.
-    
-      Software distributed under the License is distributed on an "AS IS"
-      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-      the License for the specific language governing rights and limitations
-      under the License.
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
     
     </legalnotice>
 
@@ -28,50 +29,52 @@
     <rev></rev>
     <file>des_princ.xml</file>
   </header>
-  <p>The <em>OTP Design Principles</em> is a set of principles for how
-    to structure Erlang code in terms of processes, modules and
-    directories.</p>
+  <marker id="otp design principles"></marker>
+  <p>The <em>OTP design principles</em> define how to
+    structure Erlang code in terms of processes, modules,
+    and directories.</p>
 
   <section>
     <title>Supervision Trees</title>
     <p>A basic concept in Erlang/OTP is the <em>supervision tree</em>.
       This is a process structuring model based on the idea of
-      <em>workers</em> and <em>supervisors</em>.</p>
+      <em>workers</em> and <em>supervisors</em>:</p>
     <list type="bulleted">
-      <item>Workers are processes which perform computations, that is,
+      <item>Workers are processes that perform computations, that is,
        they do the actual work.</item>
-      <item>Supervisors are processes which monitor the behaviour of
+      <item>Supervisors are processes that monitor the behaviour of
        workers. A supervisor can restart a worker if something goes
        wrong.</item>
       <item>The supervision tree is a hierarchical arrangement of
-       code into supervisors and workers, making it possible to
+       code into supervisors and workers, which makes it possible to
        design and program fault-tolerant software.</item>
     </list>
+    <p>In the following figure, square boxes represents supervisors and
+      circles represent workers:</p>
     <marker id="sup6"></marker>
     <image file="../design_principles/sup6.gif">
       <icaption>Supervision Tree</icaption>
     </image>
-    <p>In the figure above, square boxes represents supervisors and
-      circles represent workers.</p>
   </section>
 
   <section>
     <title>Behaviours</title>
     <p>In a supervision tree, many of the processes have similar
       structures, they follow similar patterns. For example,
-      the supervisors are very similar in structure. The only difference
-      between them is which child processes they supervise. Also, many
-      of the workers are servers in a server-client relation, finite
-      state machines, or event handlers such as error loggers.</p>
+      the supervisors are similar in structure. The only difference
+      between them is which child processes they supervise. Many
+      of the workers are servers in a server-client relation,
+      finite-state machines, or event handlers such as error loggers.</p>
     <p><em>Behaviours</em> are formalizations of these common patterns.
       The idea is to divide the code for a process in a generic part
-      (a behaviour module) and a specific part (a <em>callback module</em>).</p>
+      (a behaviour module) and a specific part (a
+      <em>callback module</em>).</p>
     <p>The behaviour module is part of Erlang/OTP. To implement a
       process such as a supervisor, the user only has to implement
-      the callback module which should export a pre-defined set of
+      the callback module which is to export a pre-defined set of
       functions, the <em>callback functions</em>.</p>
-    <p>An example to illustrate how code can be divided into a generic
-      and a specific part: Consider the following code (written in
+    <p>The following example illustrate how code can be divided into a
+      generic and a specific part. Consider the following code (written in
       plain Erlang) for a simple server, which keeps track of a number
       of "channels". Other processes can allocate and free the channels
       by calling the functions <c>alloc/0</c> and <c>free/1</c>,
@@ -149,7 +152,7 @@ loop(Mod, State) ->
             State2 = Mod:handle_cast(Req, State),
             loop(Mod, State2)
     end.</code>
-    <p>and a callback module <c>ch2.erl</c>:</p>
+    <p>And a callback module <c>ch2.erl</c>:</p>
     <code type="none">
 -module(ch2).
 -export([start/0]).
@@ -173,27 +176,27 @@ handle_call(alloc, Chs) ->
 
 handle_cast({free, Ch}, Chs) ->
     free(Ch, Chs). % => Chs2</code>
-    <p>Note the following:</p>
+    <p>Notice the following:</p>
     <list type="bulleted">
-      <item>The code in <c>server</c> can be re-used to build many
+      <item>The code in <c>server</c> can be reused to build many
        different servers.</item>
-      <item>The name of the server, in this example the atom
-      <c>ch2</c>, is hidden from the users of the client functions.
-       This means the name can be changed without affecting them.</item>
+      <item>The server name, in this example the atom
+      <c>ch2</c>, is hidden from the users of the client functions. This
+       means that the name can be changed without affecting them.</item>
       <item>The protcol (messages sent to and received from the server)
-       is hidden as well. This is good programming practice and allows
-       us to change the protocol without making changes to code using
+       is also hidden. This is good programming practice and allows
+       one to change the protocol without changing the code using
        the interface functions.</item>
-      <item>We can extend the functionality of <c>server</c>, without
+      <item>The functionality of <c>server</c> can be extended without
        having to change <c>ch2</c> or any other callback module.</item>
     </list>
-    <p>(In <c>ch1.erl</c> and <c>ch2.erl</c> above, the implementation
-      of <c>channels/0</c>, <c>alloc/1</c> and <c>free/2</c> has been
+    <p>In <c>ch1.erl</c> and <c>ch2.erl</c> above, the implementation
+      of <c>channels/0</c>, <c>alloc/1</c>, and <c>free/2</c> has been
       intentionally left out, as it is not relevant to the example.
       For completeness, one way to write these functions are given
-      below. Note that this is an example only, a realistic
+      below. This is an example only, a realistic
       implementation must be able to handle situations like running out
-      of channels to allocate etc.)</p>
+      of channels to allocate, and so on.</p>
     <code type="none">
 channels() ->
    {_Allocated = [], _Free = lists:seq(1,100)}.
@@ -208,30 +211,30 @@ free(Ch, {Alloc, Free} = Channels) ->
       false ->
          Channels
    end.        </code>
-    <p>Code written without making use of behaviours may be more
-      efficient, but the increased efficiency will be at the expense of
+    <p>Code written without using behaviours can be more
+      efficient, but the increased efficiency is at the expense of
       generality. The ability to manage all applications in the system
-      in a consistent manner is very important.</p>
+      in a consistent manner is important.</p>
     <p>Using behaviours also makes it easier to read and understand
-      code written by other programmers. Ad hoc programming structures,
+      code written by other programmers. Improvised programming structures,
       while possibly more efficient, are always more difficult to
       understand.</p>
-    <p>The module <c>server</c> corresponds, greatly simplified,
+    <p>The <c>server</c> module corresponds, greatly simplified,
       to the Erlang/OTP behaviour <c>gen_server</c>.</p>
     <p>The standard Erlang/OTP behaviours are:</p>
-    <taglist>
-      <tag><seealso marker="gen_server_concepts">gen_server</seealso></tag>
-      <item>For implementing the server of a client-server relation.</item>
-      <tag><seealso marker="fsm">gen_fsm</seealso></tag>
-      <item>For implementing finite state machines.</item>
-      <tag><seealso marker="events">gen_event</seealso></tag>
-      <item>For implementing event handling functionality.</item>
-      <tag><seealso marker="sup_princ">supervisor</seealso></tag>
-      <item>For implementing a supervisor in a supervision tree.</item>
-    </taglist>
+    <list type="bulleted">
+      <item><p><seealso marker="gen_server_concepts">gen_server</seealso></p>
+      <p>For implementing the server of a client-server relation</p></item>
+      <item><p><seealso marker="fsm">gen_fsm</seealso></p>
+      <p>For implementing finite-state machines</p></item>
+      <item><p><seealso marker="events">gen_event</seealso></p>
+      <p>For implementing event handling functionality</p></item>
+      <item><p><seealso marker="sup_princ">supervisor</seealso></p>
+      <p>For implementing a supervisor in a supervision tree</p></item>
+      </list>
     <p>The compiler understands the module attribute
       <c>-behaviour(Behaviour)</c> and issues warnings about
-      missing callback functions. Example:</p>
+      missing callback functions, for example:</p>
     <code type="none">
 -module(chs3).
 -behaviour(gen_server).
@@ -248,13 +251,17 @@ free(Ch, {Alloc, Free} = Channels) ->
       some specific functionality. Components are with Erlang/OTP
       terminology called <em>applications</em>. Examples of Erlang/OTP
       applications are Mnesia, which has everything needed for
-      programming database services, and Debugger which is used to
-      debug Erlang programs. The minimal system based on Erlang/OTP
-      consists of the applications Kernel and STDLIB.</p>
+      programming database services, and Debugger, which is used
+      to debug Erlang programs. The minimal system based on Erlang/OTP
+      consists of the following two applications:</p>
+      <list type="bulleted">
+	<item>Kernel - Functionality necessary to run Erlang</item>
+	<item>STDLIB - Erlang standard libraries</item>
+      </list>
     <p>The application concept applies both to program structure
       (processes) and directory structure (modules).</p>
-    <p>The simplest kind of application does not have any processes,
-      but consists of a collection of functional modules. Such an
+    <p>The simplest applications do not have any processes,
+      but consist of a collection of functional modules. Such an
       application is called a <em>library application</em>. An example
       of a library application is STDLIB.</p>
     <p>An application with processes is easiest implemented as a
@@ -266,12 +273,11 @@ free(Ch, {Alloc, Free} = Channels) ->
   <section>
     <title>Releases</title>
     <p>A <em>release</em> is a complete system made out from a subset of
-      the Erlang/OTP applications and a set of user-specific
-      applications.</p>
+      Erlang/OTP applications and a set of user-specific applications.</p>
     <p>How to program releases is described in
       <seealso marker="release_structure">Releases</seealso>.</p>
     <p>How to install a release in a target environment is described
-      in the chapter about Target Systems in System Principles.</p>
+      in the section about target systems in Section 2 System Principles.</p>
   </section>
 
   <section>

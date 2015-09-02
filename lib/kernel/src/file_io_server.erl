@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 2000-2013. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -307,18 +308,18 @@ io_request({get_chars,Enc,_Prompt,N},
 	   #state{}=State) ->
     get_chars(N, Enc, State);
 
-%%
-%% This optimization gives almost nothing - needs more working... 
-%% Disabled for now. /PaN
-%%
-%% io_request({get_line,Enc,_Prompt}, 
-%%  	   #state{unic=latin1}=State) ->
-%%     get_line(Enc,State);
-
-io_request({get_line,Enc,_Prompt}, 
-	   #state{}=State) ->
-    get_chars(io_lib, collect_line, [], Enc, State);
-
+io_request({get_line,OutEnc,_Prompt}, #state{buf=Buf, read_mode=Mode, unic=InEnc} = State0) ->
+    try
+	%% Minimize the encoding conversions
+	WorkEnc = case InEnc of
+		      {_,_} -> OutEnc; %% utf16 or utf32
+		      _ -> InEnc %% Byte oriented utf8 or latin1
+		  end,
+	{Res, State} = get_line(start, convert_enc(Buf, InEnc, WorkEnc), WorkEnc, State0),
+	{reply, cast(Res, Mode, WorkEnc, OutEnc), State}
+    catch exit:ExError ->
+	    {stop,ExError,{error,ExError},State0#state{buf= <<>>}}
+    end;
 
 io_request({setopts, Opts}, 
 	   #state{}=State) when is_list(Opts) ->
@@ -386,56 +387,40 @@ put_chars(Chars, InEncoding, #state{handle=Handle, unic=OutEncoding}=State) ->
 	    {stop,normal,{error,{no_translation, InEncoding, OutEncoding}},State}
     end.
 
-%%
-%% Process the I/O request get_line for latin1 encoding of file specially
-%% Unfortunately this function gives almost nothing, it needs more work
-%% I disable it for now /PaN
-%%
-%% srch(<<>>,_,_) ->
-%%     nomatch;
-%% srch(<<X:8,_/binary>>,X,N) ->
-%%     {match,N};
-%% srch(<<_:8,T/binary>>,X,N) ->
-%%     srch(T,X,N+1).
-%% get_line(OutEnc, #state{handle=Handle,buf = <<>>,unic=latin1}=State) ->
-%%     case ?PRIM_FILE:read(Handle,?READ_SIZE_BINARY) of
-%% 	{ok, B} ->
-%% 	    get_line(OutEnc, State#state{buf = B});
-%% 	eof ->
-%% 	    {reply,eof,State};
-%% 	{error,Reason}=Error ->
-%% 	    {stop,Reason,Error,State}
-%%     end;
-%% get_line(OutEnc, #state{handle=Handle,buf=Buf,read_mode=ReadMode,unic=latin1}=State) ->
-%%     case srch(Buf,$\n,0) of
-%% 	nomatch ->
-%% 	    case ?PRIM_FILE:read(Handle,?READ_SIZE_BINARY) of
-%% 		{ok, B} ->
-%% 		    get_line(OutEnc,State#state{buf = <<Buf/binary,B/binary>>});
-%% 		eof ->
-%% 		    std_reply(cast(Buf, ReadMode,latin1,OutEnc), State);
-%% 		{error,Reason}=Error ->
-%% 		    {stop,Reason,Error,State#state{buf= <<>>}}
-%% 	    end;
-%% 	{match,Pos} when Pos >= 1->
-%% 	    PosP1 = Pos + 1,
-%% 	    <<Res0:PosP1/binary,NewBuf/binary>> = Buf,
-%% 	    PosM1 = Pos - 1,
-%% 	    Res = case Res0 of
-%% 		      <<Chomped:PosM1/binary,$\r:8,$\n:8>> ->
-%% 			  cat(Chomped, <<"\n">>, ReadMode,latin1,OutEnc);
-%% 		      _Other ->
-%% 			  cast(Res0, ReadMode,latin1,OutEnc)
-%% 		  end,
-%% 	    {reply,Res,State#state{buf=NewBuf}};
-%% 	 {match,Pos} ->
-%% 	    PosP1 = Pos + 1,
-%% 	    <<Res:PosP1/binary,NewBuf/binary>> = Buf,
-%% 	    {reply,Res,State#state{buf=NewBuf}}
-%%     end;
-%% get_line(_, #state{}=State) ->
-%%     {error,{error,get_line},State}.
-	    
+get_line(S, {<<>>, Cont}, OutEnc,
+	 #state{handle=Handle, read_mode=Mode, unic=InEnc}=State) ->
+    case ?PRIM_FILE:read(Handle, read_size(Mode)) of
+	{ok,Bin} ->
+	    get_line(S, convert_enc([Cont, Bin], InEnc, OutEnc), OutEnc, State);
+	eof ->
+	    get_line(S, {eof, Cont}, OutEnc, State);
+	{error,Reason}=Error ->
+	    {stop,Reason,Error,State}
+    end;
+get_line(S0, {Buf, BCont}, OutEnc, #state{unic=InEnc}=State) ->
+    case io_lib:collect_line(S0, Buf, OutEnc, []) of
+	{stop, Result, Cont0} ->
+	    %% Convert both buffers back to file InEnc encoding
+	    {Cont, <<>>} = convert_enc(Cont0, OutEnc, InEnc),
+	    {Result, State#state{buf=cast_binary([Cont, BCont])}};
+	S ->
+	    get_line(S, {<<>>, BCont}, OutEnc, State)
+    end.
+
+convert_enc(Bins, Enc, Enc) ->
+    {cast_binary(Bins), <<>>};
+convert_enc(eof, _, _) ->
+    {<<>>, <<>>};
+convert_enc(Bin, InEnc, OutEnc) ->
+    case unicode:characters_to_binary(Bin, InEnc, OutEnc) of
+	Res when is_binary(Res) ->
+	    {Res, <<>>};
+	{incomplete, Res, Cont} ->
+	    {Res, Cont};
+	{error, _, _} ->
+	    exit({no_translation, InEnc, OutEnc})
+    end.
+
 %%    
 %% Process the I/O request get_chars
 %%
@@ -640,8 +625,6 @@ invalid_unicode_error(Mod, Func, XtraArg, S) ->
 
 %% Convert error code to make it look as before
 err_func(io_lib, get_until, {_,F,_}) ->
-    F;
-err_func(_, F, _) ->
     F.
 
 
@@ -713,6 +696,8 @@ cat(B1, B2, list, latin1,_) ->
     binary_to_list(B1)++binary_to_list(B2).
 
 %% Cast binary to list or binary
+cast(eof, _, _, _) ->
+    eof;
 cast(B, binary, latin1, latin1) ->
     B;
 cast(B, binary, InEncoding, OutEncoding) ->
@@ -736,6 +721,8 @@ cast(B, list, InEncoding, OutEncoding) ->
 %% Convert buffer to binary
 cast_binary(Binary) when is_binary(Binary) ->
     Binary;
+cast_binary([<<>>|List]) ->
+    cast_binary(List);
 cast_binary(List) when is_list(List) ->
     list_to_binary(List);
 cast_binary(_EOF) ->

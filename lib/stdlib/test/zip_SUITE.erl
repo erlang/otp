@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 2006-2013. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -23,7 +24,7 @@
          bad_zip/1, unzip_from_binary/1, unzip_to_binary/1,
          zip_to_binary/1,
          unzip_options/1, zip_options/1, list_dir_options/1, aliases/1,
-         openzip_api/1, zip_api/1, unzip_jar/1,
+         openzip_api/1, zip_api/1, open_leak/1, unzip_jar/1,
          compress_control/1,
 	 foldl/1]).
 
@@ -38,7 +39,7 @@ all() ->
     [borderline, atomic, bad_zip, unzip_from_binary,
      unzip_to_binary, zip_to_binary, unzip_options,
      zip_options, list_dir_options, aliases, openzip_api,
-     zip_api, unzip_jar, compress_control, foldl].
+     zip_api, open_leak, unzip_jar, compress_control, foldl].
 
 groups() -> 
     [].
@@ -84,7 +85,7 @@ borderline_test(Size, TempDir) ->
     io:format("Testing size ~p", [Size]),
 
     %% Create a file and archive it.
-    {_, _, X0} = erlang:now(),
+    {_, _, X0} = erlang:timestamp(),
     file:write_file(Name, random_byte_list(X0, Size)),
     {ok, Archive} = zip:zip(Archive, [Name]),
     ok = file:delete(Name),
@@ -318,7 +319,45 @@ zip_api(Config) when is_list(Config) ->
     %% Clean up.
     delete_files([Names]),
 
+   ok.
+
+open_leak(doc) ->
+    ["Test that zip doesn't leak processes and ports where the "
+     "controlling process dies without closing an zip opened with "
+     "zip:zip_open/1."];
+open_leak(suite) -> [];
+open_leak(Config) when is_list(Config) ->
+    %% Create a zip archive
+    Zip = "zip.zip",
+    {ok, Zip} = zip:zip(Zip, [], []),
+
+    %% Open archive in a another process that dies immediately.
+    ZipSrv = spawn_zip(Zip, [memory]),
+
+    %% Expect the ZipSrv process to die soon after.
+    true = spawned_zip_dead(ZipSrv),
+
+    %% Clean up.
+    delete_files([Zip]),
+
     ok.
+
+spawn_zip(Zip, Options) ->
+    Self = self(),
+    spawn(fun() -> Self ! zip:zip_open(Zip, Options) end),
+    receive
+        {ok, ZipSrv} ->
+            ZipSrv
+    end.
+
+spawned_zip_dead(ZipSrv) ->
+    Ref = monitor(process, ZipSrv),
+    receive
+        {'DOWN', Ref, _, ZipSrv, _} ->
+            true
+    after 1000 ->
+            false
+    end.
 
 unzip_options(doc) ->
     ["Test options for unzip, only cwd and file_list currently"];
@@ -568,7 +607,7 @@ zip_to_binary(Config) when is_list(Config) ->
 aliases(doc) ->
     ["Test using the aliases, extract/2, table/2 and create/3"];
 aliases(Config) when is_list(Config) ->
-    {_, _, X0} = erlang:now(),
+    {_, _, X0} = erlang:timestamp(),
     Size = 100,
     B = list_to_binary(random_byte_list(X0, Size)),
     %% create

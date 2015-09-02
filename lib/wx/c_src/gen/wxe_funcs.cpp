@@ -1,18 +1,19 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2008-2014. All Rights Reserved.
+ * Copyright Ericsson AB 2008-2015. All Rights Reserved.
  *
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  * %CopyrightEnd% 
 */
@@ -51,8 +52,8 @@ void WxeApp::wxe_dispatch(wxeCommand& Ecmd)
        if(recurse_level > 1 && refd->type != 4) {
           delayed_delete->Append(Ecmd.Save());
        } else {
-          ((WxeApp *) wxTheApp)->clearPtr(This);
-          delete_object(This, refd); }
+          delete_object(This, refd);
+          ((WxeApp *) wxTheApp)->clearPtr(This);}
   } } break;
   case WXE_REGISTER_OBJECT: {
      registerPid(bp, Ecmd.caller, memenv);
@@ -60,13 +61,13 @@ void WxeApp::wxe_dispatch(wxeCommand& Ecmd)
      break;
  }
  case WXE_BIN_INCR:
-   driver_binary_inc_refc(Ecmd.bin[0]->bin);
+   driver_binary_inc_refc(Ecmd.bin[0].bin);
    break;
  case WXE_BIN_DECR:
-   driver_binary_dec_refc(Ecmd.bin[0]->bin);
+   driver_binary_dec_refc(Ecmd.bin[0].bin);
    break;
  case WXE_INIT_OPENGL:
-  wxe_initOpenGL(rt, bp);
+  wxe_initOpenGL(&rt, bp);
    break;
 
 case 100: { // wxEvtHandler::Connect
@@ -81,7 +82,7 @@ case 100: { // wxEvtHandler::Connect
   int * class_nameLen = (int *) bp; bp += 4;
 
   if(*haveUserData) {
-      userData = new wxeErlTerm(Ecmd.bin[0]);
+      userData = new wxeErlTerm(&Ecmd.bin[0]);
   }
 
   int eventType = wxeEventTypeFromAtom(bp); bp += *eventTypeLen;
@@ -5533,6 +5534,7 @@ case wxDC_GetUserScale: { // wxDC::GetUserScale
  wxDC *This = (wxDC *) getPtr(bp,memenv); bp += 4;
  if(!This) throw wxe_badarg(0);
  This->GetUserScale(&x,&y);
+ rt.ensureFloatCount(3);
  rt.addFloat(x);
  rt.addFloat(y);
  rt.addTupleCount(2);
@@ -6430,6 +6432,7 @@ case wxGraphicsContext_GetTextExtent: { // wxGraphicsContext::GetTextExtent
  bp += *textLen+((8-((0+ *textLen) & 7)) & 7);
  if(!This) throw wxe_badarg(0);
  This->GetTextExtent(text,&width,&height,&descent,&externalLeading);
+ rt.ensureFloatCount(5);
  rt.addFloat(width);
  rt.addFloat(height);
  rt.addFloat(descent);
@@ -6575,6 +6578,7 @@ case wxGraphicsMatrix_Get: { // wxGraphicsMatrix::Get
  wxGraphicsMatrix *This = (wxGraphicsMatrix *) getPtr(bp,memenv); bp += 4;
  if(!This) throw wxe_badarg(0);
  This->Get(&a,&b,&c,&d,&tx,&ty);
+ rt.ensureFloatCount(7);
  rt.addFloat(a);
  rt.addFloat(b);
  rt.addFloat(c);
@@ -6676,6 +6680,7 @@ case wxGraphicsMatrix_TransformPoint: { // wxGraphicsMatrix::TransformPoint
  wxGraphicsMatrix *This = (wxGraphicsMatrix *) getPtr(bp,memenv); bp += 4;
  if(!This) throw wxe_badarg(0);
  This->TransformPoint(&x,&y);
+ rt.ensureFloatCount(3);
  rt.addFloat(x);
  rt.addFloat(y);
  rt.addTupleCount(2);
@@ -6687,6 +6692,7 @@ case wxGraphicsMatrix_TransformDistance: { // wxGraphicsMatrix::TransformDistanc
  wxGraphicsMatrix *This = (wxGraphicsMatrix *) getPtr(bp,memenv); bp += 4;
  if(!This) throw wxe_badarg(0);
  This->TransformDistance(&dx,&dy);
+ rt.ensureFloatCount(3);
  rt.addFloat(dx);
  rt.addFloat(dy);
  rt.addTupleCount(2);
@@ -7348,7 +7354,7 @@ case wxControlWithItems_Append_2: { // wxControlWithItems::Append
  int * itemLen = (int *) bp; bp += 4;
  wxString item = wxString(bp, wxConvUTF8);
  bp += *itemLen+((8-((0+ *itemLen) & 7)) & 7);
- wxeErlTerm * clientData =  new wxeErlTerm(Ecmd.bin[0]);
+ wxeErlTerm * clientData =  new wxeErlTerm(&Ecmd.bin[0]);
  if(!This) throw wxe_badarg(0);
  int Result = This->Append(item,clientData);
  rt.addInt(Result);
@@ -7410,7 +7416,7 @@ case wxControlWithItems_getClientData: { // wxControlWithItems::GetClientObject
 case wxControlWithItems_setClientData: { // wxControlWithItems::SetClientObject
  wxControlWithItems *This = (wxControlWithItems *) getPtr(bp,memenv); bp += 4;
  unsigned int * n = (unsigned int *) bp; bp += 4;
- wxeErlTerm * clientData =  new wxeErlTerm(Ecmd.bin[0]);
+ wxeErlTerm * clientData =  new wxeErlTerm(&Ecmd.bin[0]);
  if(!This) throw wxe_badarg(0);
  This->SetClientObject(*n,clientData);
  break;
@@ -7461,7 +7467,7 @@ case wxControlWithItems_Insert_3: { // wxControlWithItems::Insert
  wxString item = wxString(bp, wxConvUTF8);
  bp += *itemLen+((8-((0+ *itemLen) & 7)) & 7);
  unsigned int * pos = (unsigned int *) bp; bp += 4;
- wxeErlTerm * clientData =  new wxeErlTerm(Ecmd.bin[0]);
+ wxeErlTerm * clientData =  new wxeErlTerm(&Ecmd.bin[0]);
  if(!This) throw wxe_badarg(0);
  int Result = This->Insert(item,*pos,clientData);
  rt.addInt(Result);
@@ -8985,7 +8991,7 @@ case wxBitmap_new_3: { // wxBitmap::wxBitmap
 }
 case wxBitmap_new_4: { // wxBitmap::wxBitmap
  int depth=1;
- const char * bits = (const char*) Ecmd.bin[0]->base;
+ const char * bits = (const char*) Ecmd.bin[0].base;
  int * width = (int *) bp; bp += 4;
  int * height = (int *) bp; bp += 4;
  while( * (int*) bp) { switch (* (int*) bp) {
@@ -9325,7 +9331,7 @@ case wxCursor_new_1_1: { // wxCursor::wxCursor
 case wxCursor_new_4: { // wxCursor::wxCursor
  int hotSpotX=-1;
  int hotSpotY=-1;
- const char * bits = (const char*) Ecmd.bin[0]->base;
+ const char * bits = (const char*) Ecmd.bin[0].base;
  int * width = (int *) bp; bp += 4;
  int * height = (int *) bp; bp += 4;
  while( * (int*) bp) { switch (* (int*) bp) {
@@ -9436,13 +9442,13 @@ case wxImage_new_4: { // wxImage::wxImage
  bool static_data=false;
  int * width = (int *) bp; bp += 4;
  int * height = (int *) bp; bp += 4;
- unsigned char * data = (unsigned char*) Ecmd.bin[0]->base;
+ unsigned char * data = (unsigned char*) Ecmd.bin[0].base;
  while( * (int*) bp) { switch (* (int*) bp) {
   case 1: {bp += 4;
  static_data = *(bool *) bp; bp += 4;
   } break;
  }};
- if(!static_data) {data = (unsigned char *) malloc(Ecmd.bin[0]->size);memcpy(data,Ecmd.bin[0]->base,Ecmd.bin[0]->size);};
+ if(!static_data) {data = (unsigned char *) malloc(Ecmd.bin[0].size);memcpy(data,Ecmd.bin[0].base,Ecmd.bin[0].size);};
  wxImage * Result = new EwxImage(*width,*height,data,static_data);
  newPtr((void *) Result, 1, memenv);
  rt.addRef(getRef((void *)Result,memenv), "wxImage");
@@ -9452,14 +9458,14 @@ case wxImage_new_5: { // wxImage::wxImage
  bool static_data=false;
  int * width = (int *) bp; bp += 4;
  int * height = (int *) bp; bp += 4;
- unsigned char * data = (unsigned char*) Ecmd.bin[0]->base;
- unsigned char * alpha = (unsigned char*) Ecmd.bin[1]->base;
+ unsigned char * data = (unsigned char*) Ecmd.bin[0].base;
+ unsigned char * alpha = (unsigned char*) Ecmd.bin[1].base;
  while( * (int*) bp) { switch (* (int*) bp) {
   case 1: {bp += 4;
  static_data = *(bool *) bp; bp += 4;
   } break;
  }};
- if(!static_data) { data = (unsigned char *) malloc(Ecmd.bin[0]->size); alpha = (unsigned char *) malloc(Ecmd.bin[1]->size); memcpy(data,Ecmd.bin[0]->base,Ecmd.bin[0]->size); memcpy(alpha,Ecmd.bin[1]->base,Ecmd.bin[1]->size);};
+ if(!static_data) { data = (unsigned char *) malloc(Ecmd.bin[0].size); alpha = (unsigned char *) malloc(Ecmd.bin[1].size); memcpy(data,Ecmd.bin[0].base,Ecmd.bin[0].size); memcpy(alpha,Ecmd.bin[1].base,Ecmd.bin[1].size);};
  wxImage * Result = new EwxImage(*width,*height,data,alpha,static_data);
  newPtr((void *) Result, 1, memenv);
  rt.addRef(getRef((void *)Result,memenv), "wxImage");
@@ -9603,14 +9609,14 @@ case wxImage_Create_4: { // wxImage::Create
  wxImage *This = (wxImage *) getPtr(bp,memenv); bp += 4;
  int * width = (int *) bp; bp += 4;
  int * height = (int *) bp; bp += 4;
- unsigned char * data = (unsigned char*) Ecmd.bin[0]->base;
+ unsigned char * data = (unsigned char*) Ecmd.bin[0].base;
  bp += 4; /* Align */
  while( * (int*) bp) { switch (* (int*) bp) {
   case 1: {bp += 4;
  static_data = *(bool *) bp; bp += 4;
   } break;
  }};
- if(!static_data) {data = (unsigned char *) malloc(Ecmd.bin[0]->size);memcpy(data,Ecmd.bin[0]->base,Ecmd.bin[0]->size);};
+ if(!static_data) {data = (unsigned char *) malloc(Ecmd.bin[0].size);memcpy(data,Ecmd.bin[0].base,Ecmd.bin[0].size);};
  if(!This) throw wxe_badarg(0);
  bool Result = This->Create(*width,*height,data,static_data);
  rt.addBool(Result);
@@ -9621,15 +9627,15 @@ case wxImage_Create_5: { // wxImage::Create
  wxImage *This = (wxImage *) getPtr(bp,memenv); bp += 4;
  int * width = (int *) bp; bp += 4;
  int * height = (int *) bp; bp += 4;
- unsigned char * data = (unsigned char*) Ecmd.bin[0]->base;
- unsigned char * alpha = (unsigned char*) Ecmd.bin[1]->base;
+ unsigned char * data = (unsigned char*) Ecmd.bin[0].base;
+ unsigned char * alpha = (unsigned char*) Ecmd.bin[1].base;
  bp += 4; /* Align */
  while( * (int*) bp) { switch (* (int*) bp) {
   case 1: {bp += 4;
  static_data = *(bool *) bp; bp += 4;
   } break;
  }};
- if(!static_data) { data =  (unsigned char *) malloc(Ecmd.bin[0]->size); alpha = (unsigned char *) malloc(Ecmd.bin[1]->size); memcpy(data,Ecmd.bin[0]->base,Ecmd.bin[0]->size); memcpy(alpha,Ecmd.bin[1]->base,Ecmd.bin[1]->size);};
+ if(!static_data) { data =  (unsigned char *) malloc(Ecmd.bin[0].size); alpha = (unsigned char *) malloc(Ecmd.bin[1].size); memcpy(data,Ecmd.bin[0].base,Ecmd.bin[0].size); memcpy(alpha,Ecmd.bin[1].base,Ecmd.bin[1].size);};
  if(!This) throw wxe_badarg(0);
  bool Result = This->Create(*width,*height,data,alpha,static_data);
  rt.addBool(Result);
@@ -10142,14 +10148,14 @@ case wxImage_SetAlpha_3: { // wxImage::SetAlpha
 case wxImage_SetAlpha_2: { // wxImage::SetAlpha
  bool static_data=false;
  wxImage *This = (wxImage *) getPtr(bp,memenv); bp += 4;
- unsigned char * alpha = (unsigned char*) Ecmd.bin[0]->base;
+ unsigned char * alpha = (unsigned char*) Ecmd.bin[0].base;
  bp += 4; /* Align */
  while( * (int*) bp) { switch (* (int*) bp) {
   case 1: {bp += 4;
  static_data = *(bool *) bp; bp += 4;
   } break;
  }};
- if(!static_data) {alpha = (unsigned char *) malloc(Ecmd.bin[0]->size);memcpy(alpha,Ecmd.bin[0]->base,Ecmd.bin[0]->size);};
+ if(!static_data) {alpha = (unsigned char *) malloc(Ecmd.bin[0].size);memcpy(alpha,Ecmd.bin[0].base,Ecmd.bin[0].size);};
  if(!This) throw wxe_badarg(0);
  This->SetAlpha(alpha,static_data);
  break;
@@ -10157,14 +10163,14 @@ case wxImage_SetAlpha_2: { // wxImage::SetAlpha
 case wxImage_SetData_2: { // wxImage::SetData
  bool static_data=false;
  wxImage *This = (wxImage *) getPtr(bp,memenv); bp += 4;
- unsigned char * data = (unsigned char*) Ecmd.bin[0]->base;
+ unsigned char * data = (unsigned char*) Ecmd.bin[0].base;
  bp += 4; /* Align */
  while( * (int*) bp) { switch (* (int*) bp) {
   case 1: {bp += 4;
  static_data = *(bool *) bp; bp += 4;
   } break;
  }};
- if(!static_data) {data = (unsigned char *) malloc(Ecmd.bin[0]->size);memcpy(data,Ecmd.bin[0]->base,Ecmd.bin[0]->size);};
+ if(!static_data) {data = (unsigned char *) malloc(Ecmd.bin[0].size);memcpy(data,Ecmd.bin[0].base,Ecmd.bin[0].size);};
  if(!This) throw wxe_badarg(0);
  This->SetData(data,static_data);
  break;
@@ -10172,7 +10178,7 @@ case wxImage_SetData_2: { // wxImage::SetData
 case wxImage_SetData_4: { // wxImage::SetData
  bool static_data=false;
  wxImage *This = (wxImage *) getPtr(bp,memenv); bp += 4;
- unsigned char * data = (unsigned char*) Ecmd.bin[0]->base;
+ unsigned char * data = (unsigned char*) Ecmd.bin[0].base;
  int * new_width = (int *) bp; bp += 4;
  int * new_height = (int *) bp; bp += 4;
  bp += 4; /* Align */
@@ -10181,7 +10187,7 @@ case wxImage_SetData_4: { // wxImage::SetData
  static_data = *(bool *) bp; bp += 4;
   } break;
  }};
- if(!static_data) {data = (unsigned char *) malloc(Ecmd.bin[0]->size);memcpy(data,Ecmd.bin[0]->base,Ecmd.bin[0]->size);};
+ if(!static_data) {data = (unsigned char *) malloc(Ecmd.bin[0].size);memcpy(data,Ecmd.bin[0].base,Ecmd.bin[0].size);};
  if(!This) throw wxe_badarg(0);
  This->SetData(data,*new_width,*new_height,static_data);
  break;
@@ -18546,7 +18552,7 @@ case wxTreeCtrl_AddRoot: { // wxTreeCtrl::AddRoot
  selectedImage = (int)*(int *) bp; bp += 4;
   } break;
   case 3: {bp += 4;
- data = new wxETreeItemData(Ecmd.bin[0]->size, Ecmd.bin[0]->base);
+ data = new wxETreeItemData(Ecmd.bin[0].size, Ecmd.bin[0].base);
  bp += 4; /* Align */
   } break;
  }};
@@ -18573,7 +18579,7 @@ case wxTreeCtrl_AppendItem: { // wxTreeCtrl::AppendItem
  selectedImage = (int)*(int *) bp; bp += 4;
   } break;
   case 3: {bp += 4;
- data = new wxETreeItemData(Ecmd.bin[0]->size, Ecmd.bin[0]->base);
+ data = new wxETreeItemData(Ecmd.bin[0].size, Ecmd.bin[0].base);
  bp += 4; /* Align */
   } break;
  }};
@@ -18975,7 +18981,7 @@ case wxTreeCtrl_InsertItem: { // wxTreeCtrl::InsertItem
  selImage = (int)*(int *) bp; bp += 4;
   } break;
   case 3: {bp += 4;
- data = new wxETreeItemData(Ecmd.bin[0]->size, Ecmd.bin[0]->base);
+ data = new wxETreeItemData(Ecmd.bin[0].size, Ecmd.bin[0].base);
  bp += 4; /* Align */
   } break;
  }};
@@ -19054,7 +19060,7 @@ case wxTreeCtrl_PrependItem: { // wxTreeCtrl::PrependItem
  selectedImage = (int)*(int *) bp; bp += 4;
   } break;
   case 3: {bp += 4;
- data = new wxETreeItemData(Ecmd.bin[0]->size, Ecmd.bin[0]->base);
+ data = new wxETreeItemData(Ecmd.bin[0].size, Ecmd.bin[0].base);
  bp += 4; /* Align */
   } break;
  }};
@@ -19138,7 +19144,7 @@ case wxTreeCtrl_SetItemData: { // wxTreeCtrl::SetItemData
  wxTreeCtrl *This = (wxTreeCtrl *) getPtr(bp,memenv); bp += 4;
  bp += 4; /* Align */
  wxTreeItemId item = wxTreeItemId((void *) *(wxUint64 *) bp); bp += 8;
- wxETreeItemData * data =  new wxETreeItemData(Ecmd.bin[0]->size, Ecmd.bin[0]->base);
+ wxETreeItemData * data =  new wxETreeItemData(Ecmd.bin[0].size, Ecmd.bin[0].base);
  if(!This) throw wxe_badarg(0);
  This->SetItemData(item,data);
  break;
@@ -20593,21 +20599,21 @@ case wxPalette_new_0: { // wxPalette::wxPalette
  break;
 }
 case wxPalette_new_4: { // wxPalette::wxPalette
- const unsigned char * red = (const unsigned char*) Ecmd.bin[0]->base;
- const unsigned char * green = (const unsigned char*) Ecmd.bin[1]->base;
- const unsigned char * blue = (const unsigned char*) Ecmd.bin[2]->base;
- wxPalette * Result = new EwxPalette(Ecmd.bin[0]->size,red,green,blue);
+ const unsigned char * red = (const unsigned char*) Ecmd.bin[0].base;
+ const unsigned char * green = (const unsigned char*) Ecmd.bin[1].base;
+ const unsigned char * blue = (const unsigned char*) Ecmd.bin[2].base;
+ wxPalette * Result = new EwxPalette(Ecmd.bin[0].size,red,green,blue);
  newPtr((void *) Result, 1, memenv);
  rt.addRef(getRef((void *)Result,memenv), "wxPalette");
  break;
 }
 case wxPalette_Create: { // wxPalette::Create
  wxPalette *This = (wxPalette *) getPtr(bp,memenv); bp += 4;
- const unsigned char * red = (const unsigned char*) Ecmd.bin[0]->base;
- const unsigned char * green = (const unsigned char*) Ecmd.bin[1]->base;
- const unsigned char * blue = (const unsigned char*) Ecmd.bin[2]->base;
+ const unsigned char * red = (const unsigned char*) Ecmd.bin[0].base;
+ const unsigned char * green = (const unsigned char*) Ecmd.bin[1].base;
+ const unsigned char * blue = (const unsigned char*) Ecmd.bin[2].base;
  if(!This) throw wxe_badarg(0);
- bool Result = This->Create(Ecmd.bin[0]->size,red,green,blue);
+ bool Result = This->Create(Ecmd.bin[0].size,red,green,blue);
  rt.addBool(Result);
  break;
 }
@@ -23746,6 +23752,7 @@ case wxAuiManager_GetDockSizeConstraint: { // wxAuiManager::GetDockSizeConstrain
  wxAuiManager *This = (wxAuiManager *) getPtr(bp,memenv); bp += 4;
  if(!This) throw wxe_badarg(0);
  This->GetDockSizeConstraint(&width_pct,&height_pct);
+ rt.ensureFloatCount(3);
  rt.addFloat(width_pct);
  rt.addFloat(height_pct);
  rt.addTupleCount(2);
@@ -30254,7 +30261,7 @@ case wxStyledTextCtrl_GetUseAntiAliasing: { // wxStyledTextCtrl::GetUseAntiAlias
 }
 case wxStyledTextCtrl_AddTextRaw: { // wxStyledTextCtrl::AddTextRaw
  wxStyledTextCtrl *This = (wxStyledTextCtrl *) getPtr(bp,memenv); bp += 4;
- const char * text = (const char*) Ecmd.bin[0]->base;
+ const char * text = (const char*) Ecmd.bin[0].base;
  if(!This) throw wxe_badarg(0);
  This->AddTextRaw(text);
  break;
@@ -30262,7 +30269,7 @@ case wxStyledTextCtrl_AddTextRaw: { // wxStyledTextCtrl::AddTextRaw
 case wxStyledTextCtrl_InsertTextRaw: { // wxStyledTextCtrl::InsertTextRaw
  wxStyledTextCtrl *This = (wxStyledTextCtrl *) getPtr(bp,memenv); bp += 4;
  int * pos = (int *) bp; bp += 4;
- const char * text = (const char*) Ecmd.bin[0]->base;
+ const char * text = (const char*) Ecmd.bin[0].base;
  if(!This) throw wxe_badarg(0);
  This->InsertTextRaw(*pos,text);
  break;
@@ -30311,7 +30318,7 @@ case wxStyledTextCtrl_GetTextRangeRaw: { // wxStyledTextCtrl::GetTextRangeRaw
 }
 case wxStyledTextCtrl_SetTextRaw: { // wxStyledTextCtrl::SetTextRaw
  wxStyledTextCtrl *This = (wxStyledTextCtrl *) getPtr(bp,memenv); bp += 4;
- const char * text = (const char*) Ecmd.bin[0]->base;
+ const char * text = (const char*) Ecmd.bin[0].base;
  if(!This) throw wxe_badarg(0);
  This->SetTextRaw(text);
  break;
@@ -30327,7 +30334,7 @@ case wxStyledTextCtrl_GetTextRaw: { // wxStyledTextCtrl::GetTextRaw
 }
 case wxStyledTextCtrl_AppendTextRaw: { // wxStyledTextCtrl::AppendTextRaw
  wxStyledTextCtrl *This = (wxStyledTextCtrl *) getPtr(bp,memenv); bp += 4;
- const char * text = (const char*) Ecmd.bin[0]->base;
+ const char * text = (const char*) Ecmd.bin[0].base;
  if(!This) throw wxe_badarg(0);
  This->AppendTextRaw(text);
  break;

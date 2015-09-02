@@ -4,20 +4,21 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2013</year>
+      <year>1996</year><year>2014</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
-      The contents of this file are subject to the Erlang Public License,
-      Version 1.1, (the "License"); you may not use this file except in
-      compliance with the License. You should have received a copy of the
-      Erlang Public License along with this software. If not, it can be
-      retrieved online at http://www.erlang.org/.
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
 
-      Software distributed under the License is distributed on an "AS IS"
-      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-      the License for the specific language governing rights and limitations
-      under the License.
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
 
     </legalnotice>
 
@@ -44,6 +45,7 @@
     <pre>
 gen_event module                   Callback module
 ----------------                   ---------------
+gen_event:start
 gen_event:start_link       ----->  -
 
 gen_event:add_handler
@@ -177,7 +179,7 @@ gen_event:stop             ----->  Module:terminate/2
       <name>add_handler(EventMgrRef, Handler, Args) -> Result</name>
       <fsummary>Add an event handler to a generic event manager.</fsummary>
       <type>
-        <v>EventMgr = Name | {Name,Node} | {global,GlobalName}
+        <v>EventMgrRef = Name | {Name,Node} | {global,GlobalName}
 	| {via,Module,ViaName} | pid()</v>
         <v>&nbsp;Name = Node = atom()</v>
         <v>&nbsp;GlobalName = ViaName = term()</v>
@@ -223,7 +225,7 @@ gen_event:stop             ----->  Module:terminate/2
       <name>add_sup_handler(EventMgrRef, Handler, Args) -> Result</name>
       <fsummary>Add a supervised event handler to a generic event manager.</fsummary>
       <type>
-        <v>EventMgr = Name | {Name,Node} | {global,GlobalName}
+        <v>EventMgrRef = Name | {Name,Node} | {global,GlobalName}
 	| {via,Module,ViaName} | pid()</v>
         <v>&nbsp;Name = Node = atom()</v>
         <v>&nbsp;GlobalName = ViaName = term()</v>
@@ -456,19 +458,37 @@ gen_event:stop             ----->  Module:terminate/2
     </func>
     <func>
       <name>stop(EventMgrRef) -> ok</name>
+      <name>stop(EventMgrRef, Reason, Timeout) -> ok</name>
       <fsummary>Terminate a generic event manager.</fsummary>
       <type>
         <v>EventMgrRef = Name | {Name,Node} | {global,GlobalName}
 	| {via,Module,ViaName} | pid()</v>
         <v>Name = Node = atom()</v>
         <v>GlobalName = ViaName = term()</v>
+        <v>Reason = term()</v>
+        <v>Timeout = int()>0 | infinity</v>
       </type>
       <desc>
-        <p>Terminates the event manager <c>EventMgrRef</c>. Before
-          terminating, the event manager will call
-          <c>Module:terminate(stop,...)</c> for each installed event
-          handler.</p>
-        <p>See <c>add_handler/3</c> for a description of the argument.</p>
+        <p>Orders the event manager <c>EventMgrRef</c> to exit with
+          the given <c>Reason</c> and waits for it to
+          terminate. Before terminating, the gen_event will call
+          <seealso marker="#Module:terminate/2">Module:terminate(stop,...)</seealso>
+	  for each installed event handler.</p>
+	<p>The function returns <c>ok</c> if the event manager terminates
+	  with the expected reason. Any other reason than <c>normal</c>,
+          <c>shutdown</c>, or <c>{shutdown,Term}</c> will cause an
+          error report to be issued using
+          <seealso marker="kernel:error_logger#format/2">error_logger:format/2</seealso>.
+	  The default <c>Reason</c> is <c>normal</c>.</p>
+	<p><c>Timeout</c> is an integer greater than zero which
+          specifies how many milliseconds to wait for the event manager to
+          terminate, or the atom <c>infinity</c> to wait
+          indefinitely. The default value is <c>infinity</c>. If the
+          event manager has not terminated within the specified time, a
+          <c>timeout</c> exception is raised.</p>
+	<p>If the process does not exist, a <c>noproc</c> exception
+	  is raised.</p>
+        <p>See <c>add_handler/3</c> for a description of <c>EventMgrRef</c>.</p>
       </desc>
     </func>
   </funcs>

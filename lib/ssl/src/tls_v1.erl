@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2015. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -208,37 +209,54 @@ suites(Minor) when Minor == 1; Minor == 2 ->
       ?TLS_ECDH_ECDSA_WITH_AES_128_CBC_SHA,
       ?TLS_ECDH_RSA_WITH_AES_128_CBC_SHA,
       ?TLS_RSA_WITH_AES_128_CBC_SHA,
-
-      ?TLS_ECDHE_ECDSA_WITH_RC4_128_SHA,
-      ?TLS_ECDHE_RSA_WITH_RC4_128_SHA,
-      ?TLS_RSA_WITH_RC4_128_SHA,
-      ?TLS_RSA_WITH_RC4_128_MD5,
       ?TLS_DHE_RSA_WITH_DES_CBC_SHA,
-      ?TLS_ECDH_ECDSA_WITH_RC4_128_SHA,
-      ?TLS_ECDH_RSA_WITH_RC4_128_SHA,
-
       ?TLS_RSA_WITH_DES_CBC_SHA
     ];
 suites(3) ->
     [
+     ?TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256,
+     ?TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256,
+
+     ?TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
+     ?TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
      ?TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA384,
      ?TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA384,
+     ?TLS_ECDH_ECDSA_WITH_AES_256_GCM_SHA384,
+     ?TLS_ECDH_RSA_WITH_AES_256_GCM_SHA384,
      ?TLS_ECDH_ECDSA_WITH_AES_256_CBC_SHA384,
      ?TLS_ECDH_RSA_WITH_AES_256_CBC_SHA384,
 
+     ?TLS_DHE_RSA_WITH_CHACHA20_POLY1305_SHA256,
+     ?TLS_DHE_RSA_WITH_AES_256_GCM_SHA384,
+     ?TLS_DHE_DSS_WITH_AES_256_GCM_SHA384,
      ?TLS_DHE_RSA_WITH_AES_256_CBC_SHA256,
      ?TLS_DHE_DSS_WITH_AES_256_CBC_SHA256,
+     ?TLS_RSA_WITH_AES_256_GCM_SHA384,
      ?TLS_RSA_WITH_AES_256_CBC_SHA256,
 
+     ?TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
+     ?TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
      ?TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256,
      ?TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256,
+     ?TLS_ECDH_ECDSA_WITH_AES_128_GCM_SHA256,
+     ?TLS_ECDH_RSA_WITH_AES_128_GCM_SHA256,
      ?TLS_ECDH_ECDSA_WITH_AES_128_CBC_SHA256,
      ?TLS_ECDH_RSA_WITH_AES_128_CBC_SHA256,
 
+     ?TLS_DHE_RSA_WITH_AES_128_GCM_SHA256,
+     ?TLS_DHE_DSS_WITH_AES_128_GCM_SHA256,
      ?TLS_DHE_RSA_WITH_AES_128_CBC_SHA256,
      ?TLS_DHE_DSS_WITH_AES_128_CBC_SHA256,
+     ?TLS_RSA_WITH_AES_128_GCM_SHA256,
      ?TLS_RSA_WITH_AES_128_CBC_SHA256
+
+     %% not supported
+     %% ?TLS_DH_RSA_WITH_AES_256_GCM_SHA384,
+     %% ?TLS_DH_DSS_WITH_AES_256_GCM_SHA384,
+     %% ?TLS_DH_RSA_WITH_AES_128_GCM_SHA256,
+     %% ?TLS_DH_DSS_WITH_AES_128_GCM_SHA256
     ] ++ suites(2).
+
 
 %%--------------------------------------------------------------------
 %%% Internal functions

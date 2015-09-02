@@ -8,16 +8,17 @@
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
-      The contents of this file are subject to the Erlang Public License,
-      Version 1.1, (the "License"); you may not use this file except in
-      compliance with the License. You should have received a copy of the
-      Erlang Public License along with this software. If not, it can be
-      retrieved online at http://www.erlang.org/.
-    
-      Software distributed under the License is distributed on an "AS IS"
-      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-      the License for the specific language governing rights and limitations
-      under the License.
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
     
     </legalnotice>
 
@@ -28,41 +29,43 @@
     <rev></rev>
     <file>error_logging.xml</file>
   </header>
+  <marker id="error logging"></marker>
 
   <section>
     <title>Error Information From the Runtime System</title>
     <p>Error information from the runtime system, that is, information
-      about a process terminating due to an uncaught error exception,
+      about a process terminating because of an uncaught error exception,
       is by default written to terminal (tty):</p>
     <code type="none"><![CDATA[
 =ERROR REPORT==== 9-Dec-2003::13:25:02 ===
 Error in process <0.27.0> with exit value: {{badmatch,[1,2,3]},[{m,f,1},{shell,eval_loop,2}]}]]></code>
     <p>The error information is handled by the <em>error logger</em>, a
       system process registered as <c>error_logger</c>. This process
-      receives all error messages from the Erlang runtime system and
-      also from the standard behaviours and different Erlang/OTP
+      receives all error messages from the Erlang runtime system as
+      well as from the standard behaviours and different Erlang/OTP
       applications.</p>
-    <p>The exit reasons (such as <c>badarg</c> above) used by
+    <p>The exit reasons (such as <c>badarg</c>) used by
       the runtime system are described in
-      <seealso marker="doc/reference_manual:errors#exit_reasons">Errors and Error Handling</seealso>
-      in the Erlang Reference Manual.</p>
-    <p>The process <c>error_logger</c> and its user interface (with
-      the same name) are described in
-      <seealso marker="kernel:error_logger">error_logger(3)</seealso>.
-      It is possible to configure the system so that error information
-      is written to file instead/as well as tty. Also, it is possible
-      for user defined applications to send and format error
-      information using <c>error_logger</c>.</p>
+      <seealso marker="doc/reference_manual:errors#exit_reasons">
+      Errors and Error Handling</seealso>.</p>
+    <p>For information about the process <c>error_logger</c> and its user
+      interface (with the same name), see the
+      <seealso marker="kernel:error_logger">error_logger(3)</seealso>
+      manual page in Kernel. The system can be configured so that
+      error information
+      is written to file or to tty, or both. In addition, user-defined
+      applications can send and format error information using
+      <c>error_logger</c>.</p>
   </section>
 
   <section>
     <title>SASL Error Logging</title>
-    <p>The standard behaviors (<c>supervisor</c>, <c>gen_server</c>,
-      etc.) sends progress and error information to <c>error_logger</c>.
-      If the SASL application is started, this information is written
-      to tty as well. See
+    <p>The standard behaviours (<c>supervisor</c>, <c>gen_server</c>,
+      and so on) send progress and error information to <c>error_logger</c>.
+      If the SASL application is started, this information is
+      written to tty as well. For more information, see
       <seealso marker="sasl:error_logging">SASL Error Logging</seealso>
-      in the SASL User's Guide for further information.</p>
+      in the SASL User's Guide.</p>
     <pre>
 % <input>erl -boot start_sasl</input>
 Erlang (BEAM) emulator version 5.4.13 [hipe] [threads:0] [kernel-poll]

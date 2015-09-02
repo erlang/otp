@@ -4,21 +4,23 @@ changecom(`/*', `*/')dnl
  *
  * Copyright Ericsson AB 2004-2012. All Rights Reserved.
  *
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  * %CopyrightEnd%
  */
 
 
+#`define ASM'
 include(`hipe/hipe_ppc_asm.m4')
 #`include' "config.h"
 #`include' "hipe_literals.h"
@@ -45,9 +47,10 @@ define(HANDLE_GOT_MBUF,`
  * standard_bif_interface_1(nbif_name, cbif_name)
  * standard_bif_interface_2(nbif_name, cbif_name)
  * standard_bif_interface_3(nbif_name, cbif_name)
+ * standard_bif_interface_4(nbif_name, cbif_name)
  * standard_bif_interface_0(nbif_name, cbif_name)
  *
- * Generate native interface for a BIF with 0-3 parameters and
+ * Generate native interface for a BIF with 0-4 parameters and
  * standard failure mode.
  */
 define(standard_bif_interface_1,
@@ -139,6 +142,41 @@ ASYM($1):
 1:	/* workaround for bc:s small offset operand */
 	b	CSYM(nbif_3_simple_exception)
 	HANDLE_GOT_MBUF(3)
+	SET_SIZE(ASYM($1))
+	TYPE_FUNCTION(ASYM($1))
+#endif')
+
+define(standard_bif_interface_4,
+`
+#ifndef HAVE_$1
+#`define' HAVE_$1
+	GLOBAL(ASYM($1))
+ASYM($1):
+	/* Set up C argument registers. */
+	mr	r3, P
+	NBIF_ARG(r4,4,0)
+	NBIF_ARG(r5,4,1)
+	NBIF_ARG(r6,4,2)
+	NBIF_ARG(r7,4,3)
+
+	/* Save caller-save registers and call the C function. */
+	SAVE_CONTEXT_BIF
+	STORE	r4, P_ARG0(r3)		/* Store BIF__ARGS in def_arg_reg[] */
+	STORE	r5, P_ARG1(r3)
+	STORE	r6, P_ARG2(r3)
+	STORE	r7, P_ARG3(r3)
+	addi	r4, r3, P_ARG0
+	CALL_BIF($2)
+	TEST_GOT_MBUF
+
+	/* Restore registers. Check for exception. */
+	CMPI	r3, THE_NON_VALUE
+	RESTORE_CONTEXT_BIF
+	beq-	1f
+	NBIF_RET(4)
+1:	/* workaround for bc:s small offset operand */
+	b	CSYM(nbif_4_simple_exception)
+	HANDLE_GOT_MBUF(4)
 	SET_SIZE(ASYM($1))
 	TYPE_FUNCTION(ASYM($1))
 #endif')

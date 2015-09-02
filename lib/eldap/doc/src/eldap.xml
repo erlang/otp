@@ -8,16 +8,17 @@
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
-      The contents of this file are subject to the Erlang Public License,
-      Version 1.1, (the "License"); you may not use this file except in
-      compliance with the License. You should have received a copy of the
-      Erlang Public License along with this software. If not, it can be
-      retrieved online at http://www.erlang.org/.
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
 
-      Software distributed under the License is distributed on an "AS IS"
-      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-      the License for the specific language governing rights and limitations
-      under the License.
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
 
     </legalnotice>
 
@@ -121,7 +122,7 @@ filter()    See present/1, substrings/2,
 	  <item>Any error responded from ssl:connect/3</item>
 	</taglist>
 	<p>The <c>Timeout</c> parameter is for the actual tls upgrade (phase 2) while the timeout in
-	<seealso marker="#open/2">erl_tar:open/2</seealso> is used for the initial negotiation about
+	<seealso marker="#open/2">eldap:open/2</seealso> is used for the initial negotiation about
 	upgrade (phase 1).
 	</p>
       </desc>
@@ -218,6 +219,46 @@ filter()    See present/1, substrings/2,
       </desc>
     </func>
     <func>
+      <name>modify_password(Handle, Dn, NewPasswd) -> ok | {ok, GenPasswd} | {error, Reason}</name>
+      <fsummary>Modify the password of a user.</fsummary>
+      <type>
+        <v>Dn = string()</v>
+        <v>NewPasswd = string()</v>
+      </type>
+      <desc>
+	<p>Modify the password of a user. See <seealso marker="#modify_password/4">modify_password/4</seealso>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>modify_password(Handle, Dn, NewPasswd, OldPasswd) -> ok | {ok, GenPasswd} | {error, Reason}</name>
+      <fsummary>Modify the password of a user.</fsummary>
+      <type>
+        <v>Dn = string()</v>
+        <v>NewPasswd = string()</v>
+        <v>OldPasswd = string()</v>
+        <v>GenPasswd = string()</v>
+      </type>
+      <desc>
+	<p>Modify the password of a user.</p>
+        <list type="bulleted">
+          <item>
+            <p><c>Dn</c>. The user to modify. Should be "" if the
+            modify request is for the user of the LDAP session.</p>
+          </item>
+          <item>
+            <p><c>NewPasswd</c>. The new password to set. Should be ""
+            if the server is to generate the password. In this case,
+            the result will be <c>{ok, GenPasswd}</c>.</p>
+          </item>
+          <item>
+            <p><c>OldPasswd</c>. Sometimes required by server policy
+            for a user to change their password. If not required, use
+            <seealso marker="#modify_password/3">modify_password/3</seealso>.</p>
+          </item>
+        </list>
+      </desc>
+    </func>
+    <func>
       <name>modify_dn(Handle, Dn, NewRDN, DeleteOldRDN, NewSupDN) -> ok | {error, Reason}</name>
       <fsummary>Modify the DN of an entry.</fsummary>
       <type>
@@ -258,7 +299,7 @@ filter()    See present/1, substrings/2,
   search(Handle, [{base, "dc=example, dc=com"}, {filter, Filter}, {attributes, ["cn"]}]),
 	</pre>
 	<p>The <c>timeout</c> option in the <c>SearchOptions</c> is for the ldap server, while
-	the timeout in <seealso marker="#open/2">erl_tar:open/2</seealso> is used for each
+	the timeout in <seealso marker="#open/2">eldap:open/2</seealso> is used for each
 	individual request in the search operation.
 	</p>
       </desc>
@@ -363,7 +404,11 @@ filter()    See present/1, substrings/2,
 	<v>OptionalAttrs = [Attr]</v>
 	<v>Attr = {matchingRule,string()} | {type,string()} | {dnAttributes,boolean()}</v>
       </type>
-      <desc> <p>Creates an extensible match filter. For example, <c>eldap:extensibleMatch("Bar",[{type,"sn"},{matchingRule,"caseExactMatch"}]))</c> creates a filter which performs a <c>caseExactMatch</c> on the attribute <c>sn</c> and matches with the value <c>"Bar"</c>. The default value of <c>dnAttributes</c> is <c>false</c>.</p> </desc>
+      <desc> <p>Creates an extensible match filter. For example, </p>
+      <code>
+	eldap:extensibleMatch("Bar", [{type,"sn"}, {matchingRule,"caseExactMatch"}]))
+      </code>
+      <p>creates a filter which performs a <c>caseExactMatch</c> on the attribute <c>sn</c> and matches with the value <c>"Bar"</c>. The default value of <c>dnAttributes</c> is <c>false</c>.</p> </desc>
     </func>
     <func>
       <name>'and'([Filter]) -> filter()</name>

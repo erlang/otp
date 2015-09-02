@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2014. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -63,7 +64,8 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() ->
     [
-     default
+     netconfc1_SUITE,
+     netconfc_remote_SUITE
     ].
 
 %%--------------------------------------------------------------------
@@ -72,14 +74,21 @@ all() ->
 
 %%%-----------------------------------------------------------------
 %%%
-default(Config) when is_list(Config) ->
+netconfc1_SUITE(Config) when is_list(Config) ->
     DataDir = ?config(data_dir, Config),
     Suite = filename:join(DataDir, "netconfc1_SUITE"),
     CfgFile = filename:join(DataDir, "netconfc1.cfg"),
     {Opts,ERPid} = setup([{suite,Suite},{config,CfgFile},
-			  {label,default}], Config),
+			  {label,netconfc1_SUITE}], Config),
 
-    ok = execute(default, Opts, ERPid, Config).
+    ok = execute(netconfc1_SUITE, Opts, ERPid, Config).
+
+netconfc_remote_SUITE(Config) when is_list(Config) ->
+    DataDir = ?config(data_dir, Config),
+    Suite = filename:join(DataDir, "netconfc_remote_SUITE"),
+    {Opts,ERPid} = setup([{suite,Suite},{label,netconfc_remote_SUITE}], Config),
+
+    ok = execute(netconfc_remote_SUITE, Opts, ERPid, Config).
 
 
 %%%-----------------------------------------------------------------
@@ -112,16 +121,15 @@ reformat(Events, EH) ->
 %%%-----------------------------------------------------------------
 %%% TEST EVENTS
 %%%-----------------------------------------------------------------
-events_to_check(default,Config) ->
-    {module,_} = code:load_abs(filename:join(?config(data_dir,Config),
-					     netconfc1_SUITE)),
-    TCs = netconfc1_SUITE:all(),
-    code:purge(netconfc1_SUITE),
-    code:delete(netconfc1_SUITE),
+events_to_check(Suite,Config) ->
+    {module,_} = code:load_abs(filename:join(?config(data_dir,Config),Suite)),
+    TCs = Suite:all(),
+    code:purge(Suite),
+    code:delete(Suite),
 
     OneTest =
 	[{?eh,start_logging,{'DEF','RUNDIR'}}] ++
-	[{?eh,tc_done,{netconfc1_SUITE,TC,ok}} || TC <- TCs] ++
+	[{?eh,tc_done,{Suite,TC,ok}} || TC <- TCs] ++
 	[{?eh,stop_logging,[]}],
 
     %% 2 tests (ct:run_test + script_start) is default

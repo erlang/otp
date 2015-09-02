@@ -3,16 +3,17 @@
 %% 
 %% Copyright Ericsson AB 1998-2014. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %%
@@ -31,22 +32,22 @@
 
 -type index() :: non_neg_integer().
 
--type atom_tab()   :: gb_trees:tree(atom(), index()).
+-type atom_tab()   :: #{atom() => index()}.
 -type import_tab() :: gb_trees:tree(mfa(), index()).
--type fname_tab()  :: gb_trees:tree(Name :: term(), index()).
--type line_tab()   :: gb_trees:tree({Fname :: index(), Line :: term()}, index()).
+-type fname_tab()  :: #{Name :: term() => index()}.
+-type line_tab()   :: #{{Fname :: index(), Line :: term()} => index()}.
 -type literal_tab() :: dict:dict(Literal :: term(), index()).
 
 -record(asm,
-	{atoms = gb_trees:empty()   :: atom_tab(),
+	{atoms = #{}                :: atom_tab(),
 	 exports = []		    :: [{label(), arity(), label()}],
 	 locals = []		    :: [{label(), arity(), label()}],
 	 imports = gb_trees:empty() :: import_tab(),
 	 strings = <<>>		    :: binary(),	%String pool
 	 lambdas = [],				%[{...}]
 	 literals = dict:new()	    :: literal_tab(),
-	 fnames = gb_trees:empty()  :: fname_tab(),
-	 lines = gb_trees:empty()   :: line_tab(),
+	 fnames = #{}               :: fname_tab(),
+	 lines = #{}                :: line_tab(),
 	 num_lines = 0		    :: non_neg_integer(), %Number of line instructions
 	 next_import = 0	    :: non_neg_integer(),
 	 string_offset = 0	    :: non_neg_integer(),
@@ -65,7 +66,7 @@ new() ->
 %% Remember the highest opcode.
 -spec opcode(non_neg_integer(), bdict()) -> bdict().
 
-opcode(Op, Dict) when Dict#asm.highest_opcode > Op -> Dict;
+opcode(Op, Dict) when Dict#asm.highest_opcode >= Op -> Dict;
 opcode(Op, Dict) -> Dict#asm{highest_opcode=Op}.
 
 %% Returns the highest opcode encountered.
@@ -77,14 +78,12 @@ highest_opcode(#asm{highest_opcode=Op}) -> Op.
 %%    atom(Atom, Dict) -> {Index,Dict'}
 -spec atom(atom(), bdict()) -> {pos_integer(), bdict()}.
 
-atom(Atom, #asm{atoms=Atoms0}=Dict) when is_atom(Atom) ->
-    case gb_trees:lookup(Atom, Atoms0) of
-	{value,Index} ->
-	    {Index,Dict};
-	none ->
-	    NextIndex = gb_trees:size(Atoms0) + 1,
-	    Atoms = gb_trees:insert(Atom, NextIndex, Atoms0),
-	    {NextIndex,Dict#asm{atoms=Atoms}}
+atom(Atom, #asm{atoms=Atoms}=Dict) when is_atom(Atom) ->
+    case Atoms of
+        #{ Atom := Index} -> {Index,Dict};
+        _ ->
+            NextIndex = maps:size(Atoms) + 1,
+            {NextIndex,Dict#asm{atoms=Atoms#{Atom=>NextIndex}}}
     end.
 
 %% Remembers an exported function.
@@ -177,26 +176,22 @@ line([], #asm{num_lines=N}=Dict) ->
     %% No location available. Return the special pre-defined
     %% index 0.
     {0,Dict#asm{num_lines=N+1}};
-line([{location,Name,Line}], #asm{lines=Lines0,num_lines=N}=Dict0) ->
+line([{location,Name,Line}], #asm{lines=Lines,num_lines=N}=Dict0) ->
     {FnameIndex,Dict1} = fname(Name, Dict0),
-    case gb_trees:lookup({FnameIndex,Line}, Lines0) of
-	{value,Index} ->
-	    {Index,Dict1#asm{num_lines=N+1}};
-	none ->
-	    Index = gb_trees:size(Lines0) + 1,
-	    Lines = gb_trees:insert({FnameIndex,Line}, Index, Lines0),
-	    Dict = Dict1#asm{lines=Lines,num_lines=N+1},
-	    {Index,Dict}
+    Key = {FnameIndex,Line},
+    case Lines of
+        #{Key := Index} -> {Index,Dict1#asm{num_lines=N+1}};
+        _ ->
+	    Index = maps:size(Lines) + 1,
+            {Index, Dict1#asm{lines=Lines#{Key=>Index},num_lines=N+1}}
     end.
 
-fname(Name, #asm{fnames=Fnames0}=Dict) ->
-    case gb_trees:lookup(Name, Fnames0) of
-	{value,Index} ->
-	    {Index,Dict};
-	none ->
-	    Index = gb_trees:size(Fnames0),
-	    Fnames = gb_trees:insert(Name, Index, Fnames0),
-	    {Index,Dict#asm{fnames=Fnames}}
+fname(Name, #asm{fnames=Fnames}=Dict) ->
+    case Fnames of
+        #{Name := Index} -> {Index,Dict};
+        _ ->
+            Index = maps:size(Fnames),
+	    {Index,Dict#asm{fnames=Fnames#{Name=>Index}}}
     end.
 
 %% Returns the atom table.
@@ -204,14 +199,12 @@ fname(Name, #asm{fnames=Fnames0}=Dict) ->
 -spec atom_table(bdict()) -> {non_neg_integer(), [[non_neg_integer(),...]]}.
 
 atom_table(#asm{atoms=Atoms}) ->
-    NumAtoms = gb_trees:size(Atoms),
-    Sorted = lists:keysort(2, gb_trees:to_list(Atoms)),
-    Fun = fun({A,_}) ->
-		  L = atom_to_list(A),
-		  [length(L)|L]
-	  end,
-    AtomTab = lists:map(Fun, Sorted),
-    {NumAtoms,AtomTab}.
+    NumAtoms = maps:size(Atoms),
+    Sorted = lists:keysort(2, maps:to_list(Atoms)),
+    {NumAtoms,[begin
+                   L = atom_to_list(A),
+                   [length(L)|L]
+               end || {A,_} <- Sorted]}.
 
 %% Returns the table of local functions.
 %%    local_table(Dict) -> {NumLocals, [{Function, Arity, Label}...]}
@@ -273,11 +266,11 @@ my_term_to_binary(Term) ->
      non_neg_integer(),[{non_neg_integer(),non_neg_integer()}]}.
 
 line_table(#asm{fnames=Fnames0,lines=Lines0,num_lines=NumLineInstrs}) ->
-    NumFnames = gb_trees:size(Fnames0),
-    Fnames1 = lists:keysort(2, gb_trees:to_list(Fnames0)),
+    NumFnames = maps:size(Fnames0),
+    Fnames1 = lists:keysort(2, maps:to_list(Fnames0)),
     Fnames = [Name || {Name,_} <- Fnames1],
-    NumLines = gb_trees:size(Lines0),
-    Lines1 = lists:keysort(2, gb_trees:to_list(Lines0)),
+    NumLines = maps:size(Lines0),
+    Lines1 = lists:keysort(2, maps:to_list(Lines0)),
     Lines = [L || {L,_} <- Lines1],
     {NumLineInstrs,NumFnames,Fnames,NumLines,Lines}.
 

@@ -8,16 +8,17 @@
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
-      The contents of this file are subject to the Erlang Public License,
-      Version 1.1, (the "License"); you may not use this file except in
-      compliance with the License. You should have received a copy of the
-      Erlang Public License along with this software. If not, it can be
-      retrieved online at http://www.erlang.org/.
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
 
-      Software distributed under the License is distributed on an "AS IS"
-      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-      the License for the specific language governing rights and limitations
-      under the License.
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
 
     </legalnotice>
 
@@ -46,8 +47,7 @@
       Layer), ESI (Erlang Scripting Interface), CGI (Common Gateway
       Interface), User Authentication(using Mnesia, dets or plain text
       database), Common Logfile Format (with or without disk_log(3)
-      support), URL Aliasing, Action Mappings, Directory Listings and SSI
-      (Server-Side Includes).</p>
+      support), URL Aliasing, Action Mappings, and Directory Listings</p>
 
     <p>The configuration of the server is provided as an erlang
       property list, and for backwards compatibility also a configuration
@@ -478,170 +478,9 @@ http://your.server.org/eval?httpd_example:print(atom_to_list(apply(erlang,halt,[
         </p>
       <p><em>[date]</em> access to <em>path</em> failed for
         <em>remotehost</em>, reason: <em>reason</em></p>
-
-    <marker id="ssi"></marker>
   </section>
-
+  
   <section>
-      <title>Server Side Includes</title>
-    <p>Server Side Includes enables the server to run code embedded
-        in HTML pages to generate the response to the client.</p>
-      <note>
-        <p>Having the server parse HTML pages is a double edged sword!
-          It can be costly for a heavily loaded server to perform
-          parsing of HTML pages while sending them. Furthermore, it can
-          be considered a security risk to have average users executing 
-          commands in the name of the  Erlang node user. Carefully
-          consider these items before activating server-side includes.</p>
-      </note>
-
-      <section>
-        <marker id="ssi_setup"></marker>
-        <title>SERVER-SIDE INCLUDES (SSI) SETUP</title>
-        <p>The server must be told which filename extensions to be used
-          for the parsed files. These files, while very similar to HTML,
-          are not HTML and are thus not treated the same. Internally, the
-          server uses the magic MIME type <c>text/x-server-parsed-html</c>
-          to identify parsed documents. It will then perform a format
-          conversion to change these files into HTML for the
-          client. Update the <c>mime.types</c> file, as described in the
-          Mime Type Settings, to tell the server which extension to use
-          for parsed files, for example:
-          </p>
-        <pre>
-	text/x-server-parsed-html shtml shtm
-        </pre>
-        <p>This makes files ending with <c>.shtml</c> and <c>.shtm</c>
-          into parsed files. Alternatively, if the performance hit is not a
-          problem, <em>all</em> HTML pages can be marked as parsed:
-          </p>
-        <pre>
-	text/x-server-parsed-html html htm
-        </pre>
-      </section>
-
-      <section>
-        <marker id="ssi_format"></marker>
-        <title>Server-Side Includes (SSI) Format</title>
-        <p>All server-side include directives to the server are formatted
-          as SGML comments within the HTML page. This is in case the
-          document should ever  find itself in the client's hands
-          unparsed. Each directive has the following format:
-          </p>
-        <pre>
-	&lt;!--#command tag1="value1" tag2="value2" --&gt;
-        </pre>
-        <p>Each command takes different arguments, most only accept one
-          tag at a time. Here is a breakdown of the commands and their
-          associated tags:
-          </p>
-        <p>The config directive controls various aspects of the
-          file parsing. There are two valid tags:
-          </p>
-        <taglist>
-          <tag><c>errmsg</c></tag>
-          <item>
-            <p>controls the message sent back to the client if an
-              error occurred while parsing the document. All errors are
-              logged in the server's error log.</p>
-          </item>
-          <tag><c>sizefmt</c></tag>
-          <item>
-            <p>determines the format used to  display the size of
-              a file. Valid choices are <c>bytes</c> or
-              <c>abbrev</c>. <c>bytes</c> for a formatted byte count
-              or <c>abbrev</c> for an abbreviated version displaying
-              the number of kilobytes.</p>
-          </item>
-        </taglist>
-        <p>The include directory 
-          will insert the text of a document into the parsed
-          document. This command accepts two tags:</p>
-        <taglist>
-          <tag><c>virtual</c></tag>
-          <item>
-            <p>gives a virtual path to a document on the
-              server. Only normal files and other parsed documents can
-              be accessed in this way.</p>
-          </item>
-          <tag><c>file</c></tag>
-          <item>
-            <p>gives a pathname relative to the current
-              directory. <c>../</c> cannot be used in this pathname, nor
-              can absolute paths. As above, you can send other parsed
-              documents, but you cannot send CGI scripts.</p>
-          </item>
-        </taglist>
-        <p>The echo directive prints the value of one of the include
-          variables (defined below). The only valid tag to this
-          command is <c>var</c>, whose value is the name of the
-          variable you wish to echo.</p>
-        <p>The fsize directive prints the size of the specified
-          file. Valid tags are the same as with the <c>include</c>
-          command. The resulting format of this command is subject
-          to the <c>sizefmt</c> parameter to the <c>config</c>
-          command.</p>
-        <p>The lastmod directive prints the last modification date of
-          the specified file. Valid tags are the same as with the
-          <c>include</c> command.</p>
-        <p>The exec directive executes a given shell command or CGI
-          script. Valid tags are:</p>
-        <taglist>
-          <tag><c>cmd</c></tag>
-          <item>
-            <p>executes the given string using <c>/bin/sh</c>. All
-              of the variables defined below are defined, and can be
-              used in the command.</p>
-          </item>
-          <tag><c>cgi</c></tag>
-          <item>
-            <p>executes the given virtual path to a CGI script and
-              includes its output. The server does not perform error
-              checking on the script output.</p>
-          </item>
-        </taglist>
-      </section>
-
-      <section>
-        <marker id="ssi_environment_variables"></marker>
-        <title>Server-Side Includes (SSI) Environment Variables</title>
-        <p>A number of variables are made available to parsed
-          documents. In addition to the CGI variable set, the following
-          variables are made available: 
-          </p>
-        <taglist>
-          <tag><c>DOCUMENT_NAME</c></tag>
-          <item>
-            <p>The current filename.</p>
-          </item>
-          <tag><c>DOCUMENT_URI</c></tag>
-          <item>
-            <p>The virtual path to this document (such as
-              <c>/docs/tutorials/foo.shtml</c>).</p>
-          </item>
-          <tag><c>QUERY_STRING_UNESCAPED</c></tag>
-          <item>
-            <p>The unescaped version of any search query the client
-              sent, with all shell-special characters escaped with
-              <c>\</c>.</p>
-          </item>
-          <tag><c>DATE_LOCAL</c></tag>
-          <item>
-            <p>The current date, local time zone.</p>
-          </item>
-          <tag><c>DATE_GMT</c></tag>
-          <item>
-            <p>Same as DATE_LOCAL but in Greenwich mean time.</p>
-          </item>
-          <tag><c>LAST_MODIFIED</c></tag>
-          <item>
-            <p>The last modification date of the current document.</p>
-          </item>
-        </taglist>
-      </section>
-    </section>
-
-    <section>
       <title>The Erlang Web Server API</title>
       <p>The process of handling a HTTP request involves several steps
         such as:</p>
@@ -907,28 +746,6 @@ start() ->
         </taglist>
     </section>
     
-      <section>
-      <title>mod_include - SSI</title>
-      <p>This module makes it possible to expand "macros" embedded in
-	HTML pages before they are delivered to the client, that is
-	Server-Side Includes (SSI).
-          </p>
-      <p>Uses the following Erlang Webserver API interaction data:
-      </p>
-        <list type="bulleted">
-	<item>real_name - from mod_alias</item>
-	<item>remote_user - from mod_auth</item>
-      </list>
-        <p>Exports the following Erlang Webserver API interaction data:
-      </p>
-      <taglist>
-	<tag><c>{mime_type, MimeType}</c></tag>
-	<item>The file suffix of the incoming URL mapped into a
-          <c>MimeType</c> as defined in the Mime Type Settings
-	  section.</item>
-      </taglist>
-    </section>
-
     <section>
       <title>mod_log - Logging Using Text Files.</title>
       <p>Standard logging using the "Common Logfile Format" and text

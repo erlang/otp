@@ -3,156 +3,45 @@
 %%
 %% Copyright Ericsson AB 1997-2015. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
 %%
 -module(httpd_conf).
 
-%% EWSAPI 
+%% Application internal API
+-export([load/1, load/2, load_mime_types/1, store/1, store/2,
+	 remove/1, remove_all/1, get_config/3, get_config/4,
+	 lookup_socket_type/1, 
+	 lookup/2, lookup/3, lookup/4, 
+	 validate_properties/1, white_space_clean/1]).
+
+%% Deprecated 
 -export([is_directory/1, is_file/1, make_integer/1, clean/1, 
 	 custom_clean/3, check_enum/2]).
 
-%% Application internal API
--export([load/1, load/2, load_mime_types/1, store/1, store/2,
-	 remove/1, remove_all/1, get_config/2, get_config/3,
-	 lookup_socket_type/1, 
-	 lookup/2, lookup/3, lookup/4, 
-	 validate_properties/1]).
+-deprecated({is_directory, 1, next_major_release}).
+-deprecated({is_file, 1, next_major_release}).
+-deprecated({make_integer, 1, next_major_release}).
+-deprecated({clean, 1, next_major_release}).
+-deprecated({custom_clean, 3, next_major_release}).
+-deprecated({check_enum, 2, next_major_release}).
 
 -define(VMODULE,"CONF").
 -include("httpd_internal.hrl").
 -include("httpd.hrl").
 -include_lib("inets/src/http_lib/http_internal.hrl").
-
-
-%%%=========================================================================
-%%%  EWSAPI
-%%%=========================================================================
-%%-------------------------------------------------------------------------
-%%  is_directory(FilePath) -> Result
-%%	FilePath = string()
-%%      Result = {ok,Directory} | {error,Reason}
-%%      Directory = string()
-%%      Reason = string() | enoent | eacces | enotdir | FileInfo
-%%      FileInfo = File info record
-%%
-%% Description: Checks if FilePath is a directory in which case it is
-%% returned. 
-%%-------------------------------------------------------------------------
-is_directory(Directory) ->
-    case file:read_file_info(Directory) of
-	{ok,FileInfo} ->
-	    #file_info{type = Type, access = Access} = FileInfo,
-	    is_directory(Type,Access,FileInfo,Directory);
-	{error,Reason} ->
-	    {error,Reason}
-    end.
-is_directory(directory,read,_FileInfo,Directory) ->
-    {ok,Directory};
-is_directory(directory,read_write,_FileInfo,Directory) ->
-    {ok,Directory};
-is_directory(_Type,_Access,FileInfo,_Directory) ->
-    {error,FileInfo}.
-
-
-%%-------------------------------------------------------------------------
-%% is_file(FilePath) -> Result
-%%	FilePath = string()
-%%      Result = {ok,File} | {error,Reason}
-%%      File = string()
-%%      Reason = string() | enoent | eacces | enotdir | FileInfo
-%%      FileInfo = File info record
-%%
-%% Description: Checks if FilePath is a regular file in which case it
-%% is returned.
-%%-------------------------------------------------------------------------
-is_file(File) ->
-    case file:read_file_info(File) of
-	{ok,FileInfo} ->
-	    #file_info{type = Type, access = Access} = FileInfo,
-	    is_file(Type,Access,FileInfo,File);
-	{error,Reason} ->
-	    {error,Reason}
-    end.
-is_file(regular,read,_FileInfo,File) ->
-    {ok,File};
-is_file(regular,read_write,_FileInfo,File) ->
-    {ok,File};
-is_file(_Type,_Access,FileInfo,_File) ->
-    {error,FileInfo}.
-
-
-%%-------------------------------------------------------------------------
-%% make_integer(String) -> Result
-%% String = string()
-%% Result = {ok,integer()} | {error,nomatch}
-%%
-%% Description: make_integer/1 returns an integer representation of String. 
-%%-------------------------------------------------------------------------
-make_integer(String) ->
-    case inets_regexp:match(clean(String),"[0-9]+") of
-	{match, _, _} ->
-	    {ok, list_to_integer(clean(String))};
-	nomatch ->
-	    {error, nomatch}
-    end.
-
-
-%%-------------------------------------------------------------------------
-%% clean(String) -> Stripped
-%% String = Stripped = string()
-%%
-%% Description:clean/1 removes leading and/or trailing white spaces
-%% from String.
-%%-------------------------------------------------------------------------
-clean(String) ->
-    {ok,CleanedString,_} = 
-	inets_regexp:gsub(String, "^[ \t\n\r\f]*|[ \t\n\r\f]*\$",""),
-    CleanedString.
-
-
-%%-------------------------------------------------------------------------
-%% custom_clean(String,Before,After) -> Stripped
-%% Before = After = regexp()
-%% String = Stripped = string()
-%%
-%% Description: custom_clean/3 removes leading and/or trailing white
-%% spaces and custom characters from String. 
-%%-------------------------------------------------------------------------
-custom_clean(String,MoreBefore,MoreAfter) ->
-    {ok,CleanedString,_} = inets_regexp:gsub(String,"^[ \t\n\r\f"++MoreBefore++
-				       "]*|[ \t\n\r\f"++MoreAfter++"]*\$",""),
-    CleanedString.
-
-
-%%-------------------------------------------------------------------------
-%% check_enum(EnumString,ValidEnumStrings) -> Result
-%%	EnumString = string()
-%%      ValidEnumStrings = [string()]
-%%      Result = {ok,atom()} | {error,not_valid}
-%%
-%% Description: check_enum/2 checks if EnumString is a valid
-%% enumeration of ValidEnumStrings in which case it is returned as an
-%% atom.
-%%-------------------------------------------------------------------------
-check_enum(_Enum,[]) ->
-    {error, not_valid};
-check_enum(Enum,[Enum|_Rest]) ->
-    {ok, list_to_atom(Enum)};
-check_enum(Enum, [_NotValid|Rest]) ->
-    check_enum(Enum, Rest).
-
 
 %%%=========================================================================
 %%%  Application internal API
@@ -192,7 +81,7 @@ load("MaxHeaderSize " ++ MaxHeaderSize, []) ->
         {ok, Integer} ->
             {ok, [], {max_header_size,Integer}};
         {error, _} ->
-            {error, ?NICE(clean(MaxHeaderSize)++
+            {error, ?NICE(string:strip(MaxHeaderSize)++
                           " is an invalid number of MaxHeaderSize")}
     end;
 
@@ -201,7 +90,7 @@ load("MaxURISize " ++ MaxHeaderSize, []) ->
         {ok, Integer} ->
             {ok, [], {max_uri_size, Integer}};
         {error, _} ->
-            {error, ?NICE(clean(MaxHeaderSize)++
+            {error, ?NICE(string:strip(MaxHeaderSize)++
                           " is an invalid number of MaxHeaderSize")}
     end;
 
@@ -210,12 +99,12 @@ load("MaxContentLength " ++ Max, []) ->
         {ok, Integer} ->
             {ok, [], {max_content_length, Integer}};
         {error, _} ->
-            {error, ?NICE(clean(Max) ++
+            {error, ?NICE(string:strip(Max) ++
 			      " is an invalid number of MaxContentLength")}
     end;
 
 load("ServerName " ++ ServerName, []) ->
-    {ok,[], {server_name, clean(ServerName)}};
+    {ok,[], {server_name, string:strip(ServerName)}};
 
 load("ServerTokens " ++ ServerTokens, []) ->
     %% These are the valid *plain* server tokens: 
@@ -223,28 +112,28 @@ load("ServerTokens " ++ ServerTokens, []) ->
     %% It can also be a "private" server token: private:<any string>
     case string:tokens(ServerTokens, [$:]) of
 	["private", Private] ->
-	    {ok,[], {server_tokens, clean(Private)}};
+	    {ok,[], {server_tokens, string:strip(Private)}};
 	[TokStr] ->
-	    Tok = list_to_atom(clean(TokStr)),
+	    Tok = list_to_atom(string:strip(TokStr)),
 	    case lists:member(Tok, [none, prod, major, minor, minimum, os, full]) of
 		true ->
 		    {ok,[], {server_tokens, Tok}};
 		false ->
-		    {error, ?NICE(clean(ServerTokens) ++ 
+		    {error, ?NICE(string:strip(ServerTokens) ++ 
 				  " is an invalid ServerTokens")}
 	    end;
 	_ ->
-	    {error, ?NICE(clean(ServerTokens) ++ " is an invalid ServerTokens")}
+	    {error, ?NICE(string:strip(ServerTokens) ++ " is an invalid ServerTokens")}
     end;
 
 load("SocketType " ++ SocketType, []) ->
     %% ssl is the same as HTTP_DEFAULT_SSL_KIND
     %% essl is the pure Erlang-based ssl (the "new" ssl)
-    case check_enum(clean(SocketType), ["ssl", "essl", "ip_comm"]) of
+    case check_enum(string:strip(SocketType), ["ssl", "essl", "ip_comm"]) of
 	{ok, ValidSocketType} ->
 	    {ok, [], {socket_type, ValidSocketType}};
 	{error,_} ->
-	    {error, ?NICE(clean(SocketType) ++ " is an invalid SocketType")}
+	    {error, ?NICE(string:strip(SocketType) ++ " is an invalid SocketType")}
     end;
 
 load("Port " ++ Port, []) ->
@@ -252,7 +141,7 @@ load("Port " ++ Port, []) ->
 	{ok, Integer} ->
 	    {ok, [], {port, Integer}};
 	{error, _} ->
-	    {error, ?NICE(clean(Port)++" is an invalid Port")}
+	    {error, ?NICE(string:strip(Port)++" is an invalid Port")}
     end;
 
 load("BindAddress " ++ Address0, []) ->
@@ -308,7 +197,7 @@ load("BindAddress " ++ Address0, []) ->
     end;
 
 load("KeepAlive " ++ OnorOff, []) ->
-    case list_to_atom(clean(OnorOff)) of
+    case list_to_atom(string:strip(OnorOff)) of
 	off ->
 	    {ok, [], {keep_alive, false}};
 	_ ->
@@ -320,7 +209,7 @@ load("MaxKeepAliveRequests " ++  MaxRequests, []) ->
 	{ok, Integer} ->
 	    {ok, [], {max_keep_alive_request, Integer}};
 	{error, _} ->
-	    {error, ?NICE(clean(MaxRequests) ++
+	    {error, ?NICE(string:strip(MaxRequests) ++
 			  " is an invalid MaxKeepAliveRequests")}
     end;
 
@@ -330,7 +219,7 @@ load("MaxKeepAliveRequest " ++  MaxRequests, []) ->
 	{ok, Integer} ->
 	    {ok, [], {max_keep_alive_request, Integer}};
 	{error, _} ->
-	    {error, ?NICE(clean(MaxRequests) ++
+	    {error, ?NICE(string:strip(MaxRequests) ++
 			  " is an invalid MaxKeepAliveRequest")}
     end;
 
@@ -339,7 +228,7 @@ load("KeepAliveTimeout " ++ Timeout, []) ->
 	{ok, Integer} ->
 	    {ok, [], {keep_alive_timeout, Integer}};
 	{error, _} ->
-	    {error, ?NICE(clean(Timeout)++" is an invalid KeepAliveTimeout")}
+	    {error, ?NICE(string:strip(Timeout)++" is an invalid KeepAliveTimeout")}
     end;
 
 load("Modules " ++ Modules, []) ->
@@ -347,18 +236,18 @@ load("Modules " ++ Modules, []) ->
     {ok, [], {modules,[list_to_atom(X) || X <- ModuleList]}};
 
 load("ServerAdmin " ++ ServerAdmin, []) ->
-    {ok, [], {server_admin,clean(ServerAdmin)}};
+    {ok, [], {server_admin,string:strip(ServerAdmin)}};
 
 load("ServerRoot " ++ ServerRoot, []) ->
-    case is_directory(clean(ServerRoot)) of
+    case is_directory(string:strip(ServerRoot)) of
 	{ok, Directory} ->
 	    {ok, [], [{server_root,string:strip(Directory,right,$/)}]};
 	{error, _} ->
-	    {error, ?NICE(clean(ServerRoot)++" is an invalid ServerRoot")}
+	    {error, ?NICE(string:strip(ServerRoot)++" is an invalid ServerRoot")}
     end;
 
 load("MimeTypes " ++ MimeTypes, []) ->
-    case load_mime_types(clean(MimeTypes)) of
+    case load_mime_types(white_space_clean(MimeTypes)) of
 	{ok, MimeTypesList} ->
 	    {ok, [], [{mime_types, MimeTypesList}]};
 	{error, Reason} ->
@@ -370,24 +259,24 @@ load("MaxClients " ++ MaxClients, []) ->
 	{ok, Integer} ->
 	    {ok, [], {max_clients,Integer}};
 	{error, _} ->
-	    {error, ?NICE(clean(MaxClients) ++
+	    {error, ?NICE(string:strip(MaxClients) ++
 			  " is an invalid number of MaxClients")}
     end;
 load("DocumentRoot " ++ DocumentRoot,[]) ->
-    case is_directory(clean(DocumentRoot)) of
+    case is_directory(string:strip(DocumentRoot)) of
 	{ok, Directory} ->
 	    {ok, [], {document_root,string:strip(Directory,right,$/)}};
 	{error, _} ->
-	    {error, ?NICE(clean(DocumentRoot)++" is an invalid DocumentRoot")}
+	    {error, ?NICE(string:strip(DocumentRoot)++" is an invalid DocumentRoot")}
     end;
 load("DefaultType " ++ DefaultType, []) ->
-    {ok, [], {default_type,clean(DefaultType)}};
+    {ok, [], {default_type,string:strip(DefaultType)}};
 load("SSLCertificateFile " ++ SSLCertificateFile, []) ->
-    case is_file(clean(SSLCertificateFile)) of
+    case is_file(string:strip(SSLCertificateFile)) of
 	{ok, File} ->
 	    {ok, [], {ssl_certificate_file,File}};
     {error, _} ->
-	    {error, ?NICE(clean(SSLCertificateFile)++
+	    {error, ?NICE(string:strip(SSLCertificateFile)++
 			  " is an invalid SSLCertificateFile")}
     end;
 load("SSLLogLevel " ++ SSLLogAlert, []) ->
@@ -398,69 +287,69 @@ load("SSLLogLevel " ++ SSLLogAlert, []) ->
 	    {ok, [], {ssl_log_alert, true}}
     end;
 load("SSLCertificateKeyFile " ++ SSLCertificateKeyFile, []) ->
-    case is_file(clean(SSLCertificateKeyFile)) of
+    case is_file(string:strip(SSLCertificateKeyFile)) of
 	{ok, File} ->
 	    {ok, [], {ssl_certificate_key_file,File}};
 	{error, _} ->
-	    {error, ?NICE(clean(SSLCertificateKeyFile)++
+	    {error, ?NICE(string:strip(SSLCertificateKeyFile)++
 			  " is an invalid SSLCertificateKeyFile")}
     end;
 load("SSLVerifyClient " ++ SSLVerifyClient, []) ->
-    case make_integer(clean(SSLVerifyClient)) of
+    case make_integer(string:strip(SSLVerifyClient)) of
 	{ok, Integer} when (Integer >=0) andalso (Integer =< 2) ->
 	    {ok, [], {ssl_verify_client,Integer}};
 	{ok, _Integer} ->
-	    {error,?NICE(clean(SSLVerifyClient) ++
+	    {error,?NICE(string:strip(SSLVerifyClient) ++
 			 " is an invalid SSLVerifyClient")};
 	{error, nomatch} ->
-	    {error,?NICE(clean(SSLVerifyClient) ++ 
+	    {error,?NICE(string:strip(SSLVerifyClient) ++ 
 			 " is an invalid SSLVerifyClient")}
     end;
 load("SSLVerifyDepth " ++ SSLVerifyDepth, []) ->
-    case make_integer(clean(SSLVerifyDepth)) of
+    case make_integer(string:strip(SSLVerifyDepth)) of
 	{ok, Integer} when Integer > 0 ->
 	    {ok, [], {ssl_verify_client_depth,Integer}};
 	{ok, _Integer} ->
-	    {error,?NICE(clean(SSLVerifyDepth) ++
+	    {error,?NICE(string:strip(SSLVerifyDepth) ++
 			 " is an invalid SSLVerifyDepth")};
 	{error, nomatch} ->
-	    {error,?NICE(clean(SSLVerifyDepth) ++
+	    {error,?NICE(string:strip(SSLVerifyDepth) ++
 			 " is an invalid SSLVerifyDepth")}
     end;
 load("SSLCiphers " ++ SSLCiphers, []) ->
-    {ok, [], {ssl_ciphers, clean(SSLCiphers)}};
+    {ok, [], {ssl_ciphers, string:strip(SSLCiphers)}};
 load("SSLCACertificateFile " ++ SSLCACertificateFile, []) ->
-    case is_file(clean(SSLCACertificateFile)) of
+    case is_file(string:strip(SSLCACertificateFile)) of
 	{ok, File} ->
 	    {ok, [], {ssl_ca_certificate_file,File}};
 	{error, _} ->
-	    {error, ?NICE(clean(SSLCACertificateFile)++
+	    {error, ?NICE(string:strip(SSLCACertificateFile)++
 			  " is an invalid SSLCACertificateFile")}
     end;
 load("SSLPasswordCallbackModule " ++ SSLPasswordCallbackModule, []) ->
     {ok, [], {ssl_password_callback_module,
-	      list_to_atom(clean(SSLPasswordCallbackModule))}};
+	      list_to_atom(string:strip(SSLPasswordCallbackModule))}};
 load("SSLPasswordCallbackFunction " ++ SSLPasswordCallbackFunction, []) ->
     {ok, [], {ssl_password_callback_function,
-	      list_to_atom(clean(SSLPasswordCallbackFunction))}};
+	      list_to_atom(string:strip(SSLPasswordCallbackFunction))}};
 load("SSLPasswordCallbackArguments " ++ SSLPasswordCallbackArguments, []) ->
     {ok, [], {ssl_password_callback_arguments, 
 	                         SSLPasswordCallbackArguments}};
 load("DisableChunkedTransferEncodingSend " ++ TrueOrFalse, []) ->
-    case list_to_atom(clean(TrueOrFalse)) of
+    case list_to_atom(string:strip(TrueOrFalse)) of
 	true ->
 	    {ok, [], {disable_chunked_transfer_encoding_send, true}};
 	_ ->
 	    {ok, [], {disable_chunked_transfer_encoding_send, false}}
     end;
 load("LogFormat " ++ LogFormat, []) ->
-    {ok,[],{log_format, list_to_atom(httpd_conf:clean(LogFormat))}};
+    {ok,[],{log_format, list_to_atom(string:strip(LogFormat))}};
 load("ErrorLogFormat " ++ LogFormat, []) ->
-    {ok,[],{error_log_format, list_to_atom(httpd_conf:clean(LogFormat))}}.
+    {ok,[],{error_log_format, list_to_atom(string:strip(LogFormat))}}.
 
 
 clean_address(Addr) ->
-    string:strip(string:strip(clean(Addr), left, $[), right, $]).
+    string:strip(string:strip(string:strip(Addr), left, $[), right, $]).
 
 
 make_ipfamily(IpFamilyStr) ->
@@ -757,8 +646,9 @@ store(ConfigList0) ->
 	    ?hdrt("store", [{modules, Modules}]),
 	    Port = proplists:get_value(port, ConfigList0),
 	    Addr = proplists:get_value(bind_address, ConfigList0, any),
+	    Profile = proplists:get_value(profile, ConfigList0, default),
 	    ConfigList = fix_mime_types(ConfigList0),
-	    Name = httpd_util:make_name("httpd_conf", Addr, Port),
+	    Name = httpd_util:make_name("httpd_conf", Addr, Port, Profile),
 	    ConfigDB = ets:new(Name, [named_table, bag, protected]),
 	    store(ConfigDB, ConfigList, 
 		  lists:append(Modules, [?MODULE]), 
@@ -785,8 +675,15 @@ fix_mime_types(ConfigList0) ->
 			  [{"html","text/html"},{"htm","text/html"}]} 
 			 | ConfigList0]
 		end;
-	_ ->
-	    ConfigList0
+    MimeTypes ->
+        case filelib:is_file(MimeTypes) of
+            true ->
+                {ok, MimeTypesList} = load_mime_types(MimeTypes),
+                ConfigList = proplists:delete(mime_types, ConfigList0),
+                [{mime_types, MimeTypesList} | ConfigList];
+            false ->
+                ConfigList0
+        end
     end.
 
 store({mime_types,MimeTypesList},ConfigList) ->
@@ -902,15 +799,15 @@ remove(ConfigDB) ->
 %%     end.
 
 
-get_config(Address, Port) ->    
-    Tab = httpd_util:make_name("httpd_conf", Address, Port),
+get_config(Address, Port, Profile) ->    
+    Tab = httpd_util:make_name("httpd_conf", Address, Port, Profile),
     Properties =  ets:tab2list(Tab),
     MimeTab = proplists:get_value(mime_types, Properties),
     NewProperties = proplists:delete(mime_types, Properties),
     [{mime_types, ets:tab2list(MimeTab)} | NewProperties].
      
-get_config(Address, Port, Properties) ->    
-    Tab = httpd_util:make_name("httpd_conf", Address, Port),
+get_config(Address, Port, Profile, Properties) ->    
+    Tab = httpd_util:make_name("httpd_conf", Address, Port, Profile),
     Config = 
 	lists:map(fun(Prop) -> {Prop, httpd_util:lookup(Tab, Prop)} end,
 		  Properties),
@@ -1078,7 +975,7 @@ verify_modules([]) ->
 verify_modules([Mod|Rest]) ->
     case code:which(Mod) of
 	non_existing ->
-	    {error, ?NICE(atom_to_list(Mod)++" does not exist")};
+	    {error, ?NICE(string:strip(atom_to_list(Mod), right, $\n) ++" does not exist")};
 	_Path ->
 	    verify_modules(Rest)
     end.
@@ -1120,7 +1017,7 @@ parse_mime_types(Stream,MimeTypesList) ->
 	    eof ->
 		eof;
 	    String ->
-		clean(String)
+		white_space_clean(String)
 	end,
     parse_mime_types(Stream, MimeTypesList, Line).
 parse_mime_types(Stream, MimeTypesList, eof) ->
@@ -1306,4 +1203,68 @@ plain_server_tokens() ->
 error_report(Where,M,F,Error) ->
     error_logger:error_report([{?MODULE, Where}, 
 			       {apply, {M, F, []}}, Error]).
+white_space_clean(String) ->
+    {ok,CleanedString,_} = 
+	inets_regexp:gsub(String, "^[ \t\n\r\f]*|[ \t\n\r\f]*\$",""),
+    CleanedString.
+
+
+%%%=========================================================================
+%%%  Deprecated remove in 19
+%%%=========================================================================
+is_directory(Directory) ->
+    case file:read_file_info(Directory) of
+	{ok,FileInfo} ->
+	    #file_info{type = Type, access = Access} = FileInfo,
+	    is_directory(Type,Access,FileInfo,Directory);
+	{error,Reason} ->
+	    {error,Reason}
+    end.
+is_directory(directory,read,_FileInfo,Directory) ->
+    {ok,Directory};
+is_directory(directory,read_write,_FileInfo,Directory) ->
+    {ok,Directory};
+is_directory(_Type,_Access,FileInfo,_Directory) ->
+    {error,FileInfo}.
+
+is_file(File) ->
+    case file:read_file_info(File) of
+	{ok,FileInfo} ->
+	    #file_info{type = Type, access = Access} = FileInfo,
+	    is_file(Type,Access,FileInfo,File);
+	{error,Reason} ->
+	    {error,Reason}
+    end.
+is_file(regular,read,_FileInfo,File) ->
+    {ok,File};
+is_file(regular,read_write,_FileInfo,File) ->
+    {ok,File};
+is_file(_Type,_Access,FileInfo,_File) ->
+    {error,FileInfo}.
+
+make_integer(String) ->
+    case inets_regexp:match(string:strip(String),"[0-9]+") of
+	{match, _, _} ->
+	    {ok, list_to_integer(string:strip(String))};
+	nomatch ->
+	    {error, nomatch}
+    end.
+
+clean(String) ->
+    {ok,CleanedString,_} = 
+	inets_regexp:gsub(String, "^[ \t\n\r\f]*|[ \t\n\r\f]*\$",""),
+    CleanedString.
+
+custom_clean(String,MoreBefore,MoreAfter) ->
+    {ok,CleanedString,_} = inets_regexp:gsub(String,"^[ \t\n\r\f"++MoreBefore++
+				       "]*|[ \t\n\r\f"++MoreAfter++"]*\$",""),
+    CleanedString.
+
+check_enum(_Enum,[]) ->
+    {error, not_valid};
+check_enum(Enum,[Enum|_Rest]) ->
+    {ok, list_to_atom(Enum)};
+check_enum(Enum, [_NotValid|Rest]) ->
+    check_enum(Enum, Rest).
+
 

@@ -3,16 +3,17 @@
  *
  * Copyright Ericsson AB 2000-2013. All Rights Reserved.
  *
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  * %CopyrightEnd%
  */
@@ -176,7 +177,7 @@ erts_init_async(void)
 	ErtsThrQInit_t qinit = ERTS_THR_Q_INIT_DEFAULT;
 #endif
 	erts_thr_opts_t thr_opts = ERTS_THR_OPTS_DEFAULT_INITER;
-	char *ptr;
+	char *ptr, thr_name[16];
 	size_t tot_size = 0;
 	int i;
 
@@ -227,23 +228,16 @@ erts_init_async(void)
 	thr_opts.suggested_stack_size
 	    = erts_async_thread_suggested_stack_size;
 
-#ifdef ETHR_HAVE_THREAD_NAMES
-	thr_opts.name = malloc(sizeof(char)*(strlen("async_XXXX")+1));
-#endif
+	thr_opts.name = thr_name;
 
 	for (i = 0; i < erts_async_max_threads; i++) {
 	    ErtsAsyncQ *aq = async_q(i);
 
-#ifdef ETHR_HAVE_THREAD_NAMES
-            sprintf(thr_opts.name, "async_%d", i+1);
-#endif
+            erts_snprintf(thr_opts.name, 16, "async_%d", i+1);
 
 	    erts_thr_create(&aq->thr_id, async_main, (void*) aq, &thr_opts);
 	}
 
-#ifdef ETHR_HAVE_THREAD_NAMES
-	free(thr_opts.name);
-#endif
 	/* Wait for async threads to initialize... */
 
 	erts_mtx_lock(&async->init.data.mtx);

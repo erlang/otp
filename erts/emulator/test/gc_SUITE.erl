@@ -3,16 +3,17 @@
 %% 
 %% Copyright Ericsson AB 1997-2013. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %%
@@ -77,7 +78,7 @@ grow_heap1(List, MaxLen, CurLen, up) ->
 grow_heap1([], _MaxLen, _, down) ->
     ok;
 grow_heap1([_|List], MaxLen, CurLen, down) ->
-    {_,_,C} = erlang:now(),
+    C=erlang:unique_integer([positive]),
     Num     = C rem (length(List))+1,
     Elem    = lists:nth(Num, List),
     NewList = lists:delete(Elem, List),
@@ -136,7 +137,7 @@ grow_stack_heap1(List, MaxLen, CurLen, up) ->
 grow_stack_heap1([], _MaxLen, _, down) -> ok;
 grow_stack_heap1([_|List], MaxLen, CurLen, down) ->
     grow_stack1(CurLen*2,0),
-    {_,_,C}=erlang:now(),
+    C=erlang:unique_integer([positive]),
     Num=C rem (length(List))+1,
     Elem=lists:nth(Num, List),
     NewList=lists:delete(Elem, List),
@@ -146,8 +147,8 @@ grow_stack_heap1([_|List], MaxLen, CurLen, down) ->
 
 %% Create an arbitrary element/term.
 make_arbit() ->
-    {AA,BB,CC}=erlang:now(),
-    A=AA+1, B=BB+1, C=CC+1,
+    {AA,BB,CC}=erlang:timestamp(),
+    A=AA+1, B=BB+1, C=(CC+erlang:unique_integer([positive])) rem 1000000 + 1,
     New =
 	case C rem 9 of
 	    0 -> make_string((B div C) +5);
@@ -171,7 +172,7 @@ make_string(Length) ->
 make_string(_, 0, Acc) ->
     Acc;
 make_string(Alph, Length, Acc) ->
-    {_,_,C}=erlang:now(),
+    C=erlang:unique_integer([positive]),
     Pos=1+(Length*C rem length(Alph)),
     make_string(Alph, Length-1, 
 		[lists:nth(Pos,Alph)|Acc]).

@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 1999-2013. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -106,6 +107,20 @@ simplify_basic_1([{test,test_arity,_,[R,Arity]}=I|Is], Ts0, Acc) ->
 	    Ts = update(I, Ts0),
 	    simplify_basic_1(Is, Ts, [I|Acc])
     end;
+simplify_basic_1([{test,is_map,_,[R]}=I|Is], Ts0, Acc) ->
+    case tdb_find(R, Ts0) of
+	map -> simplify_basic_1(Is, Ts0, Acc);
+	_Other ->
+	    Ts = update(I, Ts0),
+	    simplify_basic_1(Is, Ts, [I|Acc])
+    end;
+simplify_basic_1([{test,is_nonempty_list,_,[R]}=I|Is], Ts0, Acc) ->
+    case tdb_find(R, Ts0) of
+	nonempty_list -> simplify_basic_1(Is, Ts0, Acc);
+	_Other ->
+	    Ts = update(I, Ts0),
+	    simplify_basic_1(Is, Ts, [I|Acc])
+    end;
 simplify_basic_1([{test,is_eq_exact,Fail,[R,{atom,_}=Atom]}=I|Is0], Ts0, Acc0) ->
     Acc = case tdb_find(R, Ts0) of
 	      {atom,_}=Atom -> Acc0;
@@ -135,9 +150,10 @@ simplify_basic_1([], Ts, Acc) ->
 %%
 simplify_float(Is0, Ts0) ->
     {Is1,Ts} = simplify_float_1(Is0, Ts0, [], []),
-    Is2 = flt_need_heap(Is1),
+    Is2 = opt_fmoves(Is1, []),
+    Is3 = flt_need_heap(Is2),
     try
-	{flt_liveness(Is2),Ts}
+	{flt_liveness(Is3),Ts}
     catch
 	throw:not_possible -> not_possible
     end.
@@ -188,14 +204,15 @@ simplify_float_1([{set,_,_,{'catch',_}}=I|Is]=Is0, _Ts, Rs0, Acc0) ->
     simplify_float_1(Is, tdb_new(), Rs0, [I|Acc]);
 simplify_float_1([{set,_,_,{line,_}}=I|Is], Ts, Rs, Acc) ->
     simplify_float_1(Is, Ts, Rs, [I|Acc]);
+simplify_float_1([I|Is], Ts0, [], Acc) ->
+    Ts = update(I, Ts0),
+    simplify_float_1(Is, Ts, [], [I|Acc]);
 simplify_float_1([I|Is]=Is0, Ts0, Rs0, Acc0) ->
     Ts = update(I, Ts0),
     {Rs,Acc} = flush(Rs0, Is0, Acc0),
     simplify_float_1(Is, Ts, Rs, [I|checkerror(Acc)]);
-simplify_float_1([], Ts, Rs, Acc0) ->
-    Acc = checkerror(Acc0),
-    Is0 = reverse(flush_all(Rs, [], Acc)),
-    Is = opt_fmoves(Is0, []),
+simplify_float_1([], Ts, [], Acc) ->
+    Is = reverse(Acc),
     {Is,Ts}.
 
 coerce_to_float({integer,I}=Int) ->
@@ -230,7 +247,7 @@ clearerror([], OrigIs) -> [{set,[],[],fclearerror}|OrigIs].
 %%  Combine two blocks and eliminate any move instructions that assign
 %%  to registers that are killed later in the block.
 %%
-merge_blocks(B1, [{'%live',_}|B2]) ->
+merge_blocks(B1, [{'%live',_,_}|B2]) ->
     merge_blocks_1(B1++[{set,[],[],stop_here}|B2]).
 
 merge_blocks_1([{set,[],_,stop_here}|Is]) -> Is;
@@ -315,27 +332,27 @@ build_alloc(Words, Floats) -> {alloc,[{words,Words},{floats,Floats}]}.
 
 %% flt_liveness([Instruction]) -> [Instruction]
 %%  (Re)calculate the number of live registers for each heap allocation
-%%  function. We base liveness of the number of live registers at
-%%  entry to the instruction sequence.
+%%  function. We base liveness of the number of register map at the
+%%  beginning of the instruction sequence.
 %%
 %%  A 'not_possible' term will be thrown if the set of live registers
 %%  is not continous at an allocation function (e.g. if {x,0} and {x,2}
 %%  are live, but not {x,1}).
 
-flt_liveness([{'%live',Live}=LiveInstr|Is]) ->
-    flt_liveness_1(Is, init_regs(Live), [LiveInstr]).
+flt_liveness([{'%live',_Live,Regs}=LiveInstr|Is]) ->
+    flt_liveness_1(Is, Regs, [LiveInstr]).
 
-flt_liveness_1([{set,Ds,Ss,{alloc,_,Alloc}}|Is], Regs0, Acc) ->
-    Live = live_regs(Regs0),
+flt_liveness_1([{set,Ds,Ss,{alloc,Live0,Alloc}}|Is], Regs0, Acc) ->
+    Live = min(Live0, live_regs(Regs0)),
     I = {set,Ds,Ss,{alloc,Live,Alloc}},
-    Regs = foldl(fun(R, A) -> set_live(R, A) end, Regs0, Ds),
+    Regs1 = init_regs(Live),
+    Regs = x_live(Ds, Regs1),
     flt_liveness_1(Is, Regs, [I|Acc]);
 flt_liveness_1([{set,Ds,_,_}=I|Is], Regs0, Acc) ->
-    Regs = foldl(fun(R, A) -> set_live(R, A) end, Regs0, Ds),
+    Regs = x_live(Ds, Regs0),
     flt_liveness_1(Is, Regs, [I|Acc]);
-flt_liveness_1([{'%live',_}=I|Is], Regs, Acc) ->
-    flt_liveness_1(Is, Regs, [I|Acc]);
-flt_liveness_1([], _Regs, Acc) -> reverse(Acc).
+flt_liveness_1([{'%live',_,_}], _Regs, Acc) ->
+    reverse(Acc).
 
 init_regs(Live) ->
     (1 bsl Live) - 1.
@@ -350,14 +367,15 @@ live_regs_1(R, N) ->
 	1 -> live_regs_1(R bsr 1, N+1)
     end.
 
-set_live({x,X}, Regs) -> Regs bor (1 bsl X);
-set_live(_, Regs) -> Regs.
+x_live([{x,N}|Rs], Regs) -> x_live(Rs, Regs bor (1 bsl N));
+x_live([_|Rs], Regs) -> x_live(Rs, Regs);
+x_live([], Regs) -> Regs.
 
 %% update(Instruction, TypeDb) -> NewTypeDb
 %%  Update the type database to account for executing an instruction.
 %%
 %%  First the cases for instructions inside basic blocks.
-update({'%live',_}, Ts) -> Ts;
+update({'%live',_,_}, Ts) -> Ts;
 update({set,[D],[S],move}, Ts) ->
     tdb_copy(S, D, Ts);
 update({set,[D],[{integer,I},Reg],{bif,element,_}}, Ts0) ->
@@ -402,6 +420,10 @@ update({test,is_float,_Fail,[Src]}, Ts0) ->
     tdb_update([{Src,float}], Ts0);
 update({test,test_arity,_Fail,[Src,Arity]}, Ts0) ->
     tdb_update([{Src,{tuple,Arity,[]}}], Ts0);
+update({test,is_map,_Fail,[Src]}, Ts0) ->
+    tdb_update([{Src,map}], Ts0);
+update({test,is_nonempty_list,_Fail,[Src]}, Ts0) ->
+    tdb_update([{Src,nonempty_list}], Ts0);
 update({test,is_eq_exact,_,[Reg,{atom,_}=Atom]}, Ts) ->
     case tdb_find(Reg, Ts) of
 	error ->
@@ -451,6 +473,7 @@ is_math_bif(erf, 1) -> true;
 is_math_bif(erfc, 1) -> true;
 is_math_bif(exp, 1) -> true;
 is_math_bif(log, 1) -> true;
+is_math_bif(log2, 1) -> true;
 is_math_bif(log10, 1) -> true;
 is_math_bif(sqrt, 1) -> true;
 is_math_bif(atan2, 2) -> true;
@@ -532,10 +555,10 @@ flush(Rs, [{set,[_],[],{put_tuple,_}}|_]=Is0, Acc0) ->
     Acc = flush_all(Rs, Is0, Acc0),
     {[],Acc};
 flush(Rs0, [{set,Ds,Ss,_Op}|_], Acc0) ->
-    Save = gb_sets:from_list(Ss),
+    Save = cerl_sets:from_list(Ss),
     Acc = save_regs(Rs0, Save, Acc0),
     Rs1 = foldl(fun(S, A) -> mark(S, A, clean) end, Rs0, Ss),
-    Kill = gb_sets:from_list(Ds),
+    Kill = cerl_sets:from_list(Ds),
     Rs = kill_regs(Rs1, Kill),
     {Rs,Acc};
 flush(Rs0, Is, Acc0) ->
@@ -558,7 +581,7 @@ save_regs(Rs, Save, Acc) ->
     foldl(fun(R, A) -> save_reg(R, Save, A) end, Acc, Rs).
 
 save_reg({I,V,dirty}, Save, Acc) ->
-    case gb_sets:is_member(V, Save) of
+    case cerl_sets:is_element(V, Save) of
 	true -> [{set,[V],[{fr,I}],fmove}|checkerror(Acc)];
 	false -> Acc
     end;
@@ -568,7 +591,7 @@ kill_regs(Rs, Kill) ->
     [kill_reg(R, Kill) || R <- Rs].
 
 kill_reg({_,V,_}=R, Kill) ->
-    case gb_sets:is_member(V, Kill) of
+    case cerl_sets:is_element(V, Kill) of
 	true -> free;
 	false -> R
     end;
@@ -710,6 +733,8 @@ merge_type_info(NewType, _) ->
     verify_type(NewType),
     NewType.
 
+verify_type(map) -> ok;
+verify_type(nonempty_list) -> ok;
 verify_type({tuple,Sz,[]}) when is_integer(Sz) -> ok;
 verify_type({tuple,Sz,[_]}) when is_integer(Sz) -> ok;
 verify_type({tuple_element,_,_}) -> ok;

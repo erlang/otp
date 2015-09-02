@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 2001-2013. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -74,6 +75,12 @@ main(_Erule) ->
 	      {'ConstructedPdu',7,[]}),
     roundtrip('InfObj', 'ConstructedPdu',
 	      {'ConstructedPdu',7,[64,1,19,17,35]}),
+    {'ConstructedPdu',8,[{_,-15,35},{_,533,-70}]} =
+	enc_dec('InfObj', 'ConstructedPdu',
+		{'ConstructedPdu',8,[{'_',-15,35},{'_',533,-70}]}),
+    {'ConstructedPdu',9,[{RecTag9,-15,35},{RecTag9,533,-70}]} =
+	enc_dec('InfObj', 'ConstructedPdu',
+		{'ConstructedPdu',9,[{'_',-15,35},{'_',533,-70}]}),
 
     roundtrip('InfObj', 'ConstructedSet',
 	      {'ConstructedSet',1,{'CONSTRUCTED-DEFAULT_Type',-2001,true}}),
@@ -96,6 +103,12 @@ main(_Erule) ->
 	      {'ConstructedSet',7,[]}),
     roundtrip('InfObj', 'ConstructedSet',
 	      {'ConstructedSet',7,[64,1,19,17,35]}),
+    {'ConstructedSet',8,[{_,-15,35},{_,533,-70}]} =
+	enc_dec('InfObj', 'ConstructedSet',
+		{'ConstructedSet',8,[{'_',-15,35},{'_',533,-70}]}),
+    {'ConstructedSet',9,[{_,-15,35},{_,533,-70}]} =
+	enc_dec('InfObj', 'ConstructedSet',
+		{'ConstructedSet',9,[{'_',-15,35},{'_',533,-70}]}),
 
     roundtrip('InfObj', 'Seq2',
 	      {'Seq2',42,[true,false,false,true],
@@ -126,11 +139,36 @@ main(_Erule) ->
     test_objset('OstSeq45', [4,5]),
     test_objset('OstSeq12345', [1,2,3,4,5]),
 
+    test_objset('OstSeq12Except', [1,2]),
+    test_objset('OstSeq123Except', [1,2]),
+
     test_objset('ExOstSeq12', [1,2]),
     test_objset('ExOstSeq123', [1,2,3]),
-    %%test_objset('ExOstSeq1234', [1,2,3,4]),
+    test_objset('ExOstSeq1234', [1,2,3,4]),
     test_objset('ExOstSeq45', [4,5]),
     test_objset('ExOstSeq12345', [1,2,3,4,5]),
+
+    test_objset('ExOstSeq12Except', [1,2]),
+    test_objset('ExOstSeq123Except', [1,2]),
+
+    roundtrip('InfObj', 'ExtClassSeq', {'ExtClassSeq', 4}),
+
+    {1,2,42} = 'InfObj':'value-1'(),
+    {1,2,42,25} = 'InfObj':'value-2'(),
+    {100,101} = 'InfObj':'value-3'(),
+    {1,2,100,101} = 'InfObj':'value-4'(),
+
+    roundtrip('InfObj', 'Rdn', {'Rdn',{2,5,4,41},"abc"}),
+
+    roundtrip('InfObj', 'TiAliasSeq',
+	      {'TiAliasSeq',{'TiAliasSeq_prf',{2,1,2},'NULL'}}),
+
+    roundtrip('InfObj', 'ContentInfo',
+	      {'ContentInfo',{2,7,8,9},"string"}),
+    {2,7,8,9} = 'InfObj':'id-content-type'(),
+
+    <<2#1011:4>> = 'InfObj':'tricky-bit-string'(),
+    <<16#CAFE:16>> = 'InfObj':'tricky-octet-string'(),
 
     ok.
 

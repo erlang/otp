@@ -3,16 +3,17 @@
  *
  * Copyright Ericsson AB 1996-2014. All Rights Reserved.
  *
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  * %CopyrightEnd%
  */
@@ -1575,6 +1576,46 @@ Eterm erts_sint64_to_big(Sint64 x, Eterm **hpp)
 	*hpp += 2;
     }
     return make_big(hp);
+}
+
+Eterm
+erts_uint64_array_to_big(Uint **hpp, int neg, int len, Uint64 *array)
+{
+    Uint *headerp;
+    int i, pot_digits, digits;
+
+    headerp = *hpp;
+
+    pot_digits = digits = 0;
+    for (i = 0; i < len; i++) {
+#if defined(ARCH_32) || HALFWORD_HEAP
+	Uint low_val = array[i] & ((Uint) 0xffffffff);
+	Uint high_val = (array[i] >> 32) & ((Uint) 0xffffffff);
+	BIG_DIGIT(headerp, pot_digits) = low_val;
+	pot_digits++;
+	if (low_val)
+	    digits = pot_digits;
+	BIG_DIGIT(headerp, pot_digits) = high_val;
+	pot_digits++;
+	if (high_val)
+	    digits = pot_digits;
+#else
+	Uint val = array[i];
+	BIG_DIGIT(headerp, pot_digits) = val;
+	pot_digits++;
+	if (val)
+	    digits = pot_digits;
+#endif
+    }	
+
+    if (neg)
+	*headerp = make_neg_bignum_header(digits);
+    else
+	*headerp = make_pos_bignum_header(digits);
+
+    *hpp = headerp + 1 + digits;
+
+    return make_big(headerp);
 }
 
 /*

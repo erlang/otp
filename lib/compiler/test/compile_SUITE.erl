@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2014. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -30,7 +31,7 @@
 	 other_output/1, encrypted_abstr/1,
 	 bad_record_use1/1, bad_record_use2/1, strict_record/1,
 	 missing_testheap/1, cover/1, env/1, core/1, asm/1,
-	 sys_pre_attributes/1]).
+	 sys_pre_attributes/1, dialyzer/1]).
 
 -export([init/3]).
 
@@ -47,7 +48,7 @@ all() ->
      other_output, encrypted_abstr,
      {group, bad_record_use}, strict_record,
      missing_testheap, cover, env, core, asm,
-     sys_pre_attributes].
+     sys_pre_attributes, dialyzer].
 
 groups() -> 
     [{bad_record_use, [],
@@ -102,6 +103,8 @@ file_1(Config) when is_list(Config) ->
     ?line compile_and_verify(Simple, Target, [debug_info]),
     ?line {ok,simple} = compile:file(Simple, [no_line_info]), %Coverage
 
+    {ok,simple} = compile:file(Simple, [{eprof,beam_z}]), %Coverage
+
     ?line ok = file:set_cwd(Cwd),
     ?line true = exists(Target),
     ?line passed = run(Target, test, []),
@@ -124,7 +127,8 @@ file_1(Config) when is_list(Config) ->
 forms_2(Config) when is_list(Config) ->
     Src = "/foo/bar",
     AbsSrc = filename:absname(Src),
-    {ok,simple,Binary} = compile:forms([{attribute,1,module,simple}],
+    Anno = erl_anno:new(1),
+    {ok,simple,Binary} = compile:forms([{attribute,Anno,module,simple}],
 				       [binary,{source,Src}]),
     code:load_binary(simple, Src, Binary),
     Info = simple:module_info(compile),
@@ -365,7 +369,7 @@ listings_big(Config) when is_list(Config) ->
     ?line do_listing(Big, TargetDir, dkern, ".kernel"),
 
     ?line Target = filename:join(TargetDir, big),
-    ?line {ok,big} = compile:file(Target, [asm,{outdir,TargetDir}]),
+    {ok,big} = compile:file(Target, [from_asm,{outdir,TargetDir}]),
 
     %% Cleanup.
     ?line ok = file:delete(Target ++ ".beam"),
@@ -748,40 +752,63 @@ env_1(Simple, Target) ->
 %% compile the generated Core Erlang files.
 
 core(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:minutes(5)),
-    ?line PrivDir = ?config(priv_dir, Config),
-    ?line Outdir = filename:join(PrivDir, "core"),
-    ?line ok = file:make_dir(Outdir),
+    PrivDir = ?config(priv_dir, Config),
+    Outdir = filename:join(PrivDir, "core"),
+    ok = file:make_dir(Outdir),
 
-    ?line Wc = filename:join(filename:dirname(code:which(?MODULE)), "*.beam"),
-    ?line TestBeams = filelib:wildcard(Wc),
-    ?line Abstr = [begin {ok,{Mod,[{abstract_code,
+    Wc = filename:join(filename:dirname(code:which(?MODULE)), "*.beam"),
+    TestBeams = filelib:wildcard(Wc),
+    Abstr = [begin {ok,{Mod,[{abstract_code,
 				    {raw_abstract_v1,Abstr}}]}} = 
 			     beam_lib:chunks(Beam, [abstract_code]),
 			 {Mod,Abstr} end || Beam <- TestBeams],
-    ?line Res = test_lib:p_run(fun(F) -> do_core(F, Outdir) end, Abstr),
-    ?line test_server:timetrap_cancel(Dog),
-    Res.
-
+    test_lib:p_run(fun(F) -> do_core(F, Outdir) end, Abstr).
     
 do_core({M,A}, Outdir) ->
     try
-	{ok,M,Core} = compile:forms(A, [to_core,report]),
-	CoreFile = filename:join(Outdir, atom_to_list(M)++".core"),
-	CorePP = core_pp:format(Core),
-	ok = file:write_file(CoreFile, CorePP),
-	case compile:file(CoreFile, [clint,from_core,binary]) of
-	    {ok,M,_} ->
-		ok = file:delete(CoreFile);
-	    Other ->
-		io:format("*** core_lint failure '~p' for ~s\n",
-			  [Other,CoreFile]),
-		error
-	end
-    catch Class:Error ->
+	do_core_1(M, A, Outdir)
+    catch
+	throw:{error,Error} ->
+	    io:format("*** compilation failure '~p' for module ~s\n",
+		      [Error,M]),
+	    error;
+	Class:Error ->
 	    io:format("~p: ~p ~p\n~p\n",
 		      [M,Class,Error,erlang:get_stacktrace()]),
 	    error
+    end.
+
+do_core_1(M, A, Outdir) ->
+    {ok,M,Core0} = compile:forms(A, [to_core]),
+    CoreFile = filename:join(Outdir, atom_to_list(M)++".core"),
+    CorePP = core_pp:format(Core0),
+    ok = file:write_file(CoreFile, CorePP),
+
+    %% Parse the .core file and return the result as Core Erlang Terms.
+    Core = case compile:file(CoreFile, [report_errors,from_core,no_copt,to_core,binary]) of
+	       {ok,M,Core1} -> Core1;
+	       Other -> throw({error,Other})
+	   end,
+    ok = file:delete(CoreFile),
+
+    %% Compile as usual (including optimizations).
+    compile_forms(Core, [clint,from_core,binary]),
+
+    %% Don't optimize to test that we are not dependent
+    %% on the Core Erlang optmimization passes.
+    %% (Example of a previous bug: The core_parse pass
+    %% would not turn map literals into #c_literal{}
+    %% records; if sys_core_fold was run it would fix
+    %% that; if sys_core_fold was not run v3_kernel would
+    %% crash.)
+    compile_forms(Core, [clint,from_core,no_copt,binary]),
+
+    ok.
+
+compile_forms(Forms, Opts) ->
+    case compile:forms(Forms, [report_errors|Opts]) of
+	{ok,[],_} ->  ok;
+	Other -> throw({error,Other})
     end.
 
 %% Compile to Beam assembly language (.S) and then try to
@@ -852,6 +879,20 @@ sys_pre_attributes(Config) ->
     {ok,Mod,_} = compile:file(File, PrePostOpts ++ PreOpts ++
 				  PostOpts ++ CommonOpts --
 				  [report,verbose]),
+    ok.
+
+%% Test the dialyzer option to cover more code.
+dialyzer(Config) ->
+    Priv = ?config(priv_dir, Config),
+    file:set_cwd(?config(data_dir, Config)),
+    Opts = [{outdir,Priv},report_errors],
+    M = dialyzer_test,
+    {ok,M} = c:c(M, [dialyzer|Opts]),
+    [{a,b,c}] = M:M(),
+
+    %% Cover huge line numbers without the 'dialyzer' option.
+    {ok,M} = c:c(M, Opts),
+    [{a,b,c}] = M:M(),
     ok.
 
 %%%

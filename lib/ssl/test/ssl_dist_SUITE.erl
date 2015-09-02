@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 2007-2013. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -38,10 +39,6 @@
 %%--------------------------------------------------------------------
 %% Common Test interface functions -----------------------------------
 %%--------------------------------------------------------------------
-
-suite() ->
-    [{ct_hooks,[ts_install_cth]}].
-
 all() ->
     [basic, payload, plain_options, plain_verify_options].
 
@@ -90,17 +87,15 @@ init_per_testcase(Case, Config) when is_list(Config) ->
     common_init(Case, Config).
 
 common_init(Case, Config) ->
-    Dog = ?t:timetrap(?t:seconds(?DEFAULT_TIMETRAP_SECS)),
-    [{watchdog, Dog},{testcase, Case}|Config].
+    ct:timetrap({seconds, ?DEFAULT_TIMETRAP_SECS}),
+    [{testcase, Case}|Config].
 
 end_per_testcase(Case, Config) when is_list(Config) ->
     Flags = proplists:get_value(old_flags, Config),
     catch os:putenv("ERL_FLAGS", Flags),
     common_end(Case, Config).
 
-common_end(_, Config) ->
-    Dog = ?config(watchdog, Config),
-    ?t:timetrap_cancel(Dog),
+common_end(_, _Config) ->
     ok.
 
 %%--------------------------------------------------------------------
@@ -617,7 +612,7 @@ setup_certs(Config) ->
     ok = file:make_dir(NodeDir),
     ok = file:make_dir(RGenDir),
     make_randfile(RGenDir),
-    make_certs:all(RGenDir, NodeDir),
+    {ok, _} = make_certs:all(RGenDir, NodeDir),
     SDir = filename:join([NodeDir, "server"]),
     SC = filename:join([SDir, "cert.pem"]),
     SK = filename:join([SDir, "key.pem"]),

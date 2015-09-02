@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2015. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -202,7 +203,8 @@ t_clause(Name, Type) ->
 pp_clause(Pre, Type) ->
     Types = ot_utype([Type]),
     Atom = lists:duplicate(iolist_size(Pre), $a),
-    L1 = erl_pp:attribute({attribute,0,spec,{{list_to_atom(Atom),0},[Types]}}),
+    Attr = {attribute,0,spec,{{list_to_atom(Atom),0},[Types]}},
+    L1 = erl_pp:attribute(erl_parse:new_anno(Attr)),
     "-spec " ++ L2 = lists:flatten(L1),
     L3 = Pre ++ lists:nthtail(length(Atom), L2),
     re:replace(L3, "\n      ", "\n", [{return,list},global]).
@@ -222,7 +224,8 @@ format_type(_Name, Type, _Opts) ->
 
 pp_type(Prefix, Type) ->
     Atom = list_to_atom(lists:duplicate(iolist_size(Prefix), $a)),
-    L1 = erl_pp:attribute({attribute,0,type,{Atom,ot_utype(Type),[]}}),
+    Attr = {attribute,0,type,{Atom,ot_utype(Type),[]}},
+    L1 = erl_pp:attribute(erl_parse:new_anno(Attr)),
     {L2,N} = case lists:dropwhile(fun(C) -> C =/= $: end, lists:flatten(L1)) of
                  ":: " ++ L3 -> {L3,9}; % compensation for extra "()" and ":"
                  "::\n" ++ L3 -> {"\n"++L3,6}
@@ -569,8 +572,8 @@ ot_var(E) ->
     {var,0,list_to_atom(get_attrval(name, E))}.
 
 ot_atom(E) ->
-    {ok, [Atom], _} = erl_scan:string(get_attrval(value, E), 0),
-    Atom.
+    {ok, [{atom,A,Name}], _} = erl_scan:string(get_attrval(value, E), 0),
+    {atom,erl_anno:line(A),Name}.
 
 ot_integer(E) ->
     {integer,0,list_to_integer(get_attrval(value, E))}.
@@ -616,7 +619,7 @@ ot_map(Es) ->
     {type,0,map,[ot_map_field(E) || E <- get_elem(map_field,Es)]}.
 
 ot_map_field(#xmlElement{content=[K,V]}) ->
-    {type,0,map_field_assoc, ot_utype_elem(K), ot_utype_elem(V)}.
+    {type,0,map_field_assoc,[ot_utype_elem(K),ot_utype_elem(V)]}.
 
 ot_fun(Es) ->
     Range = ot_utype(get_elem(type, Es)),

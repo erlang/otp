@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 2008-2015. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -196,15 +197,16 @@ reply_request(_,false, _, _) ->
 %%--------------------------------------------------------------------
 ptty_alloc(ConnectionHandler, Channel, Options) ->
     ptty_alloc(ConnectionHandler, Channel, Options, infinity).
-ptty_alloc(ConnectionHandler, Channel, Options, TimeOut) ->
+ptty_alloc(ConnectionHandler, Channel, Options0, TimeOut) ->
+    Options = backwards_compatible(Options0, []),
     {Width, PixWidth} = pty_default_dimensions(width, Options),
-    {Hight, PixHight} = pty_default_dimensions(hight, Options),
+    {Height, PixHeight} = pty_default_dimensions(height, Options),
     pty_req(ConnectionHandler, Channel,
-	    proplists:get_value(term, Options, default_term()),
+	    proplists:get_value(term, Options, os:getenv("TERM", ?DEFAULT_TERMINAL)),
 	    proplists:get_value(width, Options, Width),
-	    proplists:get_value(hight, Options, Hight),
+	    proplists:get_value(height, Options, Height),
 	    proplists:get_value(pixel_widh, Options, PixWidth),
-	    proplists:get_value(pixel_hight, Options, PixHight),
+	    proplists:get_value(pixel_height, Options, PixHeight),
 	    proplists:get_value(pty_opts, Options, []), TimeOut
 	   ).
 %%--------------------------------------------------------------------
@@ -1340,10 +1342,11 @@ decode_ip(Addr) when is_binary(Addr) ->
 	{ok,A}    -> A
     end.
 
-default_term() ->
-    case os:getenv("TERM") of
-	false ->
-	    ?DEFAULT_TERMINAL;
-	Str when is_list(Str)->
-	    Str
-    end.	
+backwards_compatible([], Acc) ->
+    Acc;
+backwards_compatible([{hight, Value} | Rest], Acc) ->
+    backwards_compatible(Rest, [{height, Value} | Acc]);
+backwards_compatible([{pixel_hight, Value} | Rest], Acc) ->
+    backwards_compatible(Rest, [{height, Value} | Acc]);
+backwards_compatible([Value| Rest], Acc) ->
+    backwards_compatible(Rest, [ Value | Acc]).

@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 2011. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -326,10 +327,10 @@ combo(Config) when is_list(Config) ->
 
     %%
     ?line [3,2,1] = seq_r(1, 3, fun(X) -> X+1 end),
-    ?line T0 = now(),
+    ?line T0 = erlang:monotonic_time(),
     ?line with_bif(Nbc),
-    ?line T1 = now(),
-    ?line TimeB = timer:now_diff(T1,T0),
+    ?line T1 = erlang:monotonic_time(),
+    ?line TimeB = erlang:convert_time_unit(T1-T0, native, micro_seconds),
     %%
 
     ?line List = collect(100),
@@ -695,17 +696,17 @@ setup(Opts) ->
     Pid.
 
 execute(Pids, Mfa) when is_list(Pids) ->
-    T0 = now(),
+    T0 = erlang:monotonic_time(),
     [P  ! {self(), execute, Mfa} || P <- Pids],
     As = [receive {P, answer, Answer} -> Answer end || P <- Pids],
-    T1 = now(),
-    {As, timer:now_diff(T1,T0)};
+    T1 = erlang:monotonic_time(),
+    {As, erlang:convert_time_unit(T1-T0, native, micro_seconds)};
 execute(P, Mfa) ->
-    T0 = now(),
+    T0 = erlang:monotonic_time(),
     P  ! {self(), execute, Mfa},
     A  = receive {P, answer, Answer} -> Answer end,
-    T1 = now(),
-    {A, timer:now_diff(T1,T0)}.
+    T1 = erlang:monotonic_time(),
+    {A, erlang:convert_time_unit(T1-T0, native, micro_seconds)}.
 
 
 

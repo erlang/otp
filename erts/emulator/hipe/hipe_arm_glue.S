@@ -3,24 +3,24 @@
  *
  * Copyright Ericsson AB 2005-2011. All Rights Reserved.
  *
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  * %CopyrightEnd%
  */
 
-
+#define ASM
 #include "hipe_arm_asm.h"
 #include "hipe_literals.h"
-#define ASM
 #include "hipe_mode_switch.h"
 
 	.text
@@ -141,7 +141,7 @@ hipe_arm_throw_to_native:
  * which should look as follows:
  *
  * stub for f/N:
- *	<set r8 to f's BEAM code address>
+ *	<set r8 to f's export entry address>
  *	<set r0 to N>
  *	b nbif_callemu
  *
@@ -150,10 +150,10 @@ hipe_arm_throw_to_native:
 	.global	nbif_callemu
 	.type	nbif_callemu, %function
 nbif_callemu:
-	str	r8, [P, #P_BEAM_IP]
+	str	r8, [P, #P_CALLEE_EXP]
 	str	r0, [P, #P_ARITY]
 	STORE_ARG_REGS
-	mov	r0, #HIPE_MODE_SWITCH_RES_CALL
+	mov	r0, #HIPE_MODE_SWITCH_RES_CALL_EXPORTED
 	b	.suspend_exit
 
 /*
@@ -331,6 +331,12 @@ nbif_2_gc_after_bif:
 	.type	nbif_3_gc_after_bif, %function
 nbif_3_gc_after_bif:
 	mov	r1, #3
+	b	.gc_after_bif
+
+	.global	nbif_4_gc_after_bif
+	.type	nbif_4_gc_after_bif, %function
+nbif_4_gc_after_bif:
+	mov	r1, #4
 	/*FALLTHROUGH*/
 .gc_after_bif:
 	str	r1, [P, #P_NARITY]
@@ -377,6 +383,12 @@ nbif_2_simple_exception:
 	.type	nbif_3_simple_exception, %function
 nbif_3_simple_exception:
 	mov	r1, #3
+	b	.nbif_simple_exception
+
+	.global	nbif_4_simple_exception
+	.type	nbif_4_simple_exception, %function
+nbif_4_simple_exception:
+	mov	r1, #4
 	/*FALLTHROUGH*/
 .nbif_simple_exception:
 	ldr	r0, [P, #P_FREASON]

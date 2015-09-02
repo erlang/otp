@@ -4,20 +4,21 @@
 <chapter>
   <header>
     <copyright>
-      <year>2001</year><year>2013</year>
+      <year>2001</year><year>2015</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
-      The contents of this file are subject to the Erlang Public License,
-      Version 1.1, (the "License"); you may not use this file except in
-      compliance with the License. You should have received a copy of the
-      Erlang Public License along with this software. If not, it can be
-      retrieved online at http://www.erlang.org/.
-    
-      Software distributed under the License is distributed on an "AS IS"
-      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-      the License for the specific language governing rights and limitations
-      under the License.
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
     
     </legalnotice>
 
@@ -80,6 +81,28 @@
       <item>If F is a record declaration <c><![CDATA[-record(Name,{V_1, ..., V_k})]]></c>, then
        Rep(F) =
       <c><![CDATA[{attribute,LINE,record,{Name,[Rep(V_1), ..., Rep(V_k)]}}]]></c>. For Rep(V), see below.</item>
+      <item>If F is a type attribute (i.e. <c><![CDATA[opaque]]></c> or
+       <c><![CDATA[type]]></c>)
+       <c><![CDATA[-Attr Name(A_1, ..., A_k) :: T]]></c> where each
+       <c><![CDATA[A_i]]></c> is a variable, then Rep(F) =
+       <c><![CDATA[{attribute,LINE,Attr,{Name,Rep(T),[Rep(A_1), ..., Rep(A_k)]}}]]></c>.
+       For Rep(T), see below.</item>
+      <item>If F is a type spec (i.e. <c><![CDATA[callback]]></c> or
+       <c><![CDATA[spec]]></c>)
+       <c><![CDATA[-Attr F Tc_1; ...; Tc_k]]></c>,
+       where each <c><![CDATA[Tc_i]]></c> is a fun type clause with an
+       argument sequence of the same length <c><![CDATA[Arity]]></c>, then
+       Rep(F) =
+       <c><![CDATA[{Attr,LINE,{{F,Arity},[Rep(Tc_1), ..., Rep(Tc_k)]}}]]></c>.
+       For Rep(Tc_i), see below.</item>
+      <item>If F is a type spec (i.e. <c><![CDATA[callback]]></c> or
+       <c><![CDATA[spec]]></c>)
+       <c><![CDATA[-Attr Mod:F Tc_1; ...; Tc_k]]></c>,
+       where each <c><![CDATA[Tc_i]]></c> is a fun type clause with an
+       argument sequence of the same length <c><![CDATA[Arity]]></c>, then
+       Rep(F) =
+       <c><![CDATA[{Attr,LINE,{{Mod,F,Arity},[Rep(Tc_1), ..., Rep(Tc_k)]}}]]></c>.
+       For Rep(Tc_i), see below.</item>
       <item>If F is a wild attribute <c><![CDATA[-A(T)]]></c>, then
        Rep(F) = <c><![CDATA[{attribute,LINE,A,T}]]></c>.
       <br></br></item>
@@ -90,6 +113,127 @@
     </list>
 
     <section>
+      <title>Type clauses</title>
+      <list type="bulleted">
+       <item>If T is a fun type clause
+        <c><![CDATA[(A_1, ..., A_n) -> Ret]]></c>, where each
+        <c><![CDATA[A_i]]></c> and <c><![CDATA[Ret]]></c> are types, then
+        Rep(T) =
+        <c><![CDATA[{type,LINE,'fun',[{type,LINE,product,[Rep(A_1), ..., Rep(A_n)]},Rep(Ret)]}]]></c>.
+        </item>
+       <item>If T is a bounded fun type clause <c><![CDATA[Tc when Tg]]></c>,
+        where <c><![CDATA[Tc]]></c> is an unbounded fun type clause and
+        <c><![CDATA[Tg]]></c> is a type guard sequence, then Rep(T) =
+        <c><![CDATA[{type,LINE,bounded_fun,[Rep(Tc),Rep(Tg)]}]]></c>.</item>
+      </list>
+    </section>
+
+    <section>
+      <title>Type guards</title>
+      <list type="bulleted">
+       <item>If G is a constraint <c><![CDATA[F(A_1, ..., A_k)]]></c>, where
+        <c><![CDATA[F]]></c> is an atom and each <c><![CDATA[A_i]]></c> is a
+        type, then Rep(G) =
+        <c><![CDATA[{type,LINE,constraint,[Rep(F),[Rep(A_1), ..., Rep(A_k)]]}]]></c>.
+        </item>
+       <item>If G is a type definition <c><![CDATA[Name :: Type]]></c>,
+        where <c><![CDATA[Name]]></c> is a variable and
+        <c><![CDATA[Type]]></c> is a type, then Rep(G) =
+        <c><![CDATA[{type,LINE,constraint,[{atom,LINE,is_subtype},[Rep(Name),Rep(Type)]]}]]></c>.</item>
+      </list>
+    </section>
+
+    <section>
+      <title>Types</title>
+      <list type="bulleted">
+       <item>If T is a type definition <c><![CDATA[Name :: Type]]></c>,
+        where <c><![CDATA[Name]]></c> is a variable and
+        <c><![CDATA[Type]]></c> is a type, then Rep(T) =
+        <c><![CDATA[{ann_type,LINE,[Rep(Name),Rep(Type)]}]]></c>.</item>
+       <item>If T is a type union <c><![CDATA[A_1 | ... | A_k]]></c>,
+        where each <c><![CDATA[A_i]]></c> is a type, then Rep(T) =
+        <c><![CDATA[{type,LINE,union,[Rep(A_1), ..., Rep(A_k)]}]]></c>.</item>
+       <item>If T is a type range <c><![CDATA[L .. R]]></c>,
+        where <c><![CDATA[L]]></c> and <c><![CDATA[R]]></c> are types, then
+        Rep(T) = <c><![CDATA[{type,LINE,range,[Rep(L), Rep(R)]}]]></c>.</item>
+       <item>If T is a binary operation <c><![CDATA[L Op R]]></c>,
+        where <c><![CDATA[Op]]></c> is an arithmetic or bitwise binary operator
+        and <c><![CDATA[L]]></c> and <c><![CDATA[R]]></c> are types, then
+        Rep(T) = <c><![CDATA[{op,LINE,Op,Rep(L),Rep(R)}]]></c>.</item>
+       <item>If T is <c><![CDATA[Op A]]></c>, where <c><![CDATA[Op]]></c> is an
+        arithmetic or bitwise unary operator and <c><![CDATA[A]]></c> is a
+        type, then Rep(T) = <c><![CDATA[{op,LINE,Op,Rep(A)}]]></c>.</item>
+       <item>If T is a fun type <c><![CDATA[fun()]]></c>, then Rep(T) =
+        <c><![CDATA[{type,LINE,'fun',[]}]]></c>.</item>
+       <item>If T is a variable <c><![CDATA[V]]></c>, then Rep(T) =
+        <c><![CDATA[{var,LINE,A}]]></c>, where <c><![CDATA[A]]></c> is an atom
+        with a printname consisting of the same characters as
+        <c><![CDATA[V]]></c>.</item>
+       <item>If T is an atomic literal L and L is not a string literal, then
+        Rep(T) = Rep(L).</item>
+       <item>If T is a tuple or map type <c><![CDATA[F()]]></c> (i.e.
+        <c><![CDATA[tuple]]></c> or <c><![CDATA[map]]></c>), then Rep(T) =
+        <c><![CDATA[{type,LINE,F,any}]]></c>.</item>
+       <item>If T is a type <c><![CDATA[F(A_1, ..., A_k)]]></c>, where each
+        <c><![CDATA[A_i]]></c> is a type, then Rep(T) =
+        <c><![CDATA[{user_type,LINE,F,[Rep(A_1), ..., Rep(A_k)]}]]></c>.</item>
+       <item>If T is a remote type <c><![CDATA[M:F(A_1, ..., A_k)]]></c>, where
+        each <c><![CDATA[A_i]]></c> is a type and <c><![CDATA[M]]></c> and
+        <c><![CDATA[F]]></c>, then Rep(T) =
+        <c><![CDATA[{remote_type,LINE,[Rep(M),Rep(F),[Rep(A_1), ..., Rep(A_k)]]}]]></c>.
+        </item>
+       <item>If T is the nil type <c><![CDATA[[]]]></c>, then Rep(T) =
+        <c><![CDATA[{type,LINE,nil,[]}]]></c>.</item>
+       <item>If T is a list type <c><![CDATA[[A]]]></c>, where
+        <c><![CDATA[A]]></c> is a type, then Rep(T) =
+        <c><![CDATA[{type,LINE,list,[Rep(A)]}]]></c>.</item>
+       <item>If T is a non-empty list type <c><![CDATA[[A, ...]]]></c>, where
+        <c><![CDATA[A]]></c> is a type, then Rep(T) =
+        <c><![CDATA[{type,LINE,nonempty_list,[Rep(A)]}]]></c>.</item>
+       <item>If T is a map type <c><![CDATA[#{P_1, ..., P_k}]]></c>, where each
+        <c><![CDATA[P_i]]></c> is a map pair type, then Rep(T) =
+        <c><![CDATA[{type,LINE,map,[Rep(P_1), ..., Rep(P_k)]}]]></c>.</item>
+       <item>If T is a map pair type <c><![CDATA[K => V]]></c>, where
+        <c><![CDATA[K]]></c> and <c><![CDATA[V]]></c> are types,
+        then Rep(T) =
+        <c><![CDATA[{type,LINE,map_field_assoc,[Rep(K),Rep(V)]}]]></c>.</item>
+       <item>If T is a tuple type <c><![CDATA[{A_1, ..., A_k}]]></c>, where
+        each <c><![CDATA[A_i]]></c> is a type, then Rep(T) =
+        <c><![CDATA[{type,LINE,tuple,[Rep(A_1), ..., Rep(A_k)]}]]></c>.</item>
+       <item>If T is a record type <c><![CDATA[#Name{}]]></c>, where
+        <c><![CDATA[Name]]></c> is an atom, then Rep(T) =
+        <c><![CDATA[{type,LINE,record,[Rep(Name)]}]]></c>.</item>
+       <item>If T is a record type <c><![CDATA[#Name{F_1, ..., F_k}]]></c>,
+        where <c><![CDATA[Name]]></c> is an atom, then Rep(T) =
+        <c><![CDATA[{type,LINE,record,[Rep(Name),[Rep(F_1), ..., Rep(F_k)]]}]]></c>.
+        </item>
+       <item>If T is a record field type <c><![CDATA[Name :: Type]]></c>,
+        where <c><![CDATA[Name]]></c> is an atom, then Rep(T) =
+        <c><![CDATA[{type,LINE,field_type,[Rep(Name),Rep(Type)]}]]></c>.</item>
+       <item>If T is a record field type <c><![CDATA[<<>>]]></c>, then Rep(T) =
+        <c><![CDATA[{type,LINE,binary,[{integer,LINE,0},{integer,LINE,0}]}]]></c>.
+        </item>
+       <item>If T is a binary type <c><![CDATA[<< _ : B >>]]></c>, where
+        <c><![CDATA[B]]></c> is a type, then Rep(T) =
+        <c><![CDATA[{type,LINE,binary,[Rep(B),{integer,LINE,0}]}]]></c>.</item>
+       <item>If T is a binary type <c><![CDATA[<< _ : _ * U >>]]></c>,
+        where <c><![CDATA[U]]></c> is a type, then Rep(T) =
+        <c><![CDATA[{type,LINE,binary,[{integer,LINE,0},Rep(U)]}]]></c>.</item>
+       <item>If T is a binary type <c><![CDATA[<< _ : B , _ : _ * U >>]]></c>,
+        where <c><![CDATA[B]]></c> and <c><![CDATA[U]]></c> is a type, then
+        Rep(T) =
+        <c><![CDATA[{type,LINE,binary,[Rep(B),Rep(U)]}]]></c>.</item>
+
+       <item>If T is a fun type <c><![CDATA[fun((...) -> Ret)]]></c>, then
+        Rep(T) = <c><![CDATA[{type,LINE,'fun',[{type,LINE,product,[]},Rep(Ret)]}]]></c>.
+        </item>
+       <item>If T is a fun type <c><![CDATA[fun(Tc)]]></c>, where
+        <c><![CDATA[Tc]]></c> is an unbounded fun type clause,
+        then Rep(T) = <c><![CDATA[Rep(Tc)]]></c>.</item>
+      </list>
+    </section>
+
+    <section>
       <title>Record fields</title>
       <p>Each field in a record declaration may have an optional
         explicit default initializer expression</p>
@@ -98,6 +242,21 @@
          Rep(V) = <c><![CDATA[{record_field,LINE,Rep(A)}]]></c>.</item>
         <item>If V is <c><![CDATA[A = E]]></c>, then
          Rep(V) = <c><![CDATA[{record_field,LINE,Rep(A),Rep(E)}]]></c>.</item>
+        <item>If V is <c><![CDATA[A :: T]]></c>, where <c><![CDATA[A]]></c> is
+         an atom and <c><![CDATA[T]]></c> is a type and it does not contain
+         <c><![CDATA[undefined]]></c> syntactically, then Rep(V) =
+         <c><![CDATA[{typed_record_field,{record_field,LINE,Rep(A)},Rep(undefined | T)}]]></c>.
+         Note that if <![CDATA[T]]> is an annotated type, it will be wrapped in
+         parentheses.</item>
+        <item>If V is <c><![CDATA[A :: T]]></c>, where <c><![CDATA[A]]></c> is
+         an atom and <c><![CDATA[T]]></c> is a type, then Rep(V) =
+         <c><![CDATA[{typed_record_field,{record_field,LINE,Rep(A)},Rep(T)}]]></c>.
+         </item>
+        <item>If V is <c><![CDATA[A = E :: T]]></c>, where <c><![CDATA[A]]></c>
+         is an atom, <c><![CDATA[E]]></c> is an expression and
+         <c><![CDATA[T]]></c> is a type, then Rep(V) =
+         <c><![CDATA[{typed_record_field,{record_field,LINE,Rep(A),Rep(E)},Rep(T)}]]></c>.
+         </item>
       </list>
     </section>
 

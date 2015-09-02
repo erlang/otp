@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 2008-2015. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -20,6 +21,8 @@
 %%
 
 -module(ssh_acceptor).
+
+-include("ssh.hrl").
 
 %% Internal application API
 -export([start_link/5,
@@ -82,8 +85,10 @@ acceptor_loop(Callback, Port, Address, Opts, ListenSocket, AcceptTimeout) ->
     end.
 
 handle_connection(Callback, Address, Port, Options, Socket) ->
-    SystemSup = ssh_system_sup:system_supervisor(Address, Port),
     SSHopts = proplists:get_value(ssh_opts, Options, []),
+    Profile =  proplists:get_value(profile, SSHopts, ?DEFAULT_PROFILE),
+    SystemSup = ssh_system_sup:system_supervisor(Address, Port, Profile),
+
     MaxSessions = proplists:get_value(max_sessions,SSHopts,infinity),
     case number_of_connections(SystemSup) < MaxSessions of
 	true ->

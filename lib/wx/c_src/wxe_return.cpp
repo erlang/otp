@@ -3,26 +3,22 @@
  *
  * Copyright Ericsson AB 2008-2013. All Rights Reserved.
  *
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  * %CopyrightEnd% 
  */
 
 #include "wxe_return.h"
-
-// see http://docs.wxwidgets.org/stable/wx_wxarray.html#arraymacros
-// this is a magic incantation which must be done!
-#include <wx/arrimpl.cpp> 
-WX_DEFINE_OBJARRAY(wxErlDrvTermDataArray);
 
 #define INLINE
 
@@ -31,79 +27,87 @@ wxeReturn::wxeReturn (ErlDrvTermData   _port,
 		      bool             _isResult) {
     port    = _port;
     caller  = _caller;
-    
+
     isResult = _isResult;
-    
-     if (isResult) {
-         addAtom("_wxe_result_");
-     }
-}
-
-wxeReturn::~wxeReturn () {
-    //depending on which version of wxArray we use, we may have to clear it ourselves.
-}
-
-int wxeReturn::send() {      
-    if ((rt.GetCount() == 2 && isResult) || rt.GetCount() == 0)
-      return 1;  // not a call bail out
-    
+    rtb = buff;
+    rt_max = RT_BUFF_SZ;
+    rt_n = 0;
     if (isResult) {
-        addTupleCount(2);
-    }    
-
-    // rt to array
-    unsigned int rtLength = rt.GetCount(); //signed int
-
-    size_t size = sizeof(ErlDrvTermData)*(rtLength);
-    
-    ErlDrvTermData* rtData = (ErlDrvTermData *) driver_alloc(size);
-    for (unsigned int i=0; i < rtLength; i++) {
-        rtData[i] = rt[i];
+      addAtom("_wxe_result_");
     }
- 
-    int res = erl_drv_send_term(port, caller, rtData, rtLength);
-    driver_free(rtData);
-
-#ifdef DEBUG
-    if(res == -1) {
-      fprintf(stderr, "Failed to send return or event msg\r\n");
-    }
-#endif
-
-    reset();
-    return res;
 }
 
 //clear everything so we can re-use if we want
- void wxeReturn::reset() {
-     rt.empty();
-     temp_float.empty();
+void wxeReturn::reset() {
+  rt_n = 0;
+  temp_float.empty();
+}
+
+wxeReturn::~wxeReturn () {
+  if(rtb != buff)
+    driver_free(rtb);
+}
+
+int wxeReturn::send() {
+  if ((rt_n == 2 && isResult) || rt_n == 0)
+    return 1;  // not a call bail out
+
+  if (isResult) {
+    addTupleCount(2);
+  }
+
+  int res = erl_drv_send_term(port, caller, rtb, rt_n);
+
+#ifdef DEBUG
+  if(res == -1) {
+    fprintf(stderr, "Failed to send return or event msg\r\n");
+  }
+#endif
+
+  reset();
+  return res;
 }
 
 INLINE
 unsigned  int wxeReturn::size() {
-     return rt.GetCount();
- }
- 
-INLINE
-void wxeReturn::add(ErlDrvTermData type, ErlDrvTermData data) {
-    rt.Add(type);
-    rt.Add(data);
+  return rt_n;
 }
 
 
-// INLINE 
-// void wxeReturn::addRef(const void *ptr, const char* className) {
-//    unsigned int ref_idx = wxe_app->getRef((void *)ptr, memEnv); 
-//    addRef(ref_idx, className);
-// }
+INLINE
+void wxeReturn::ensureFloatCount(size_t n) {
+  temp_float.Alloc(n);
+}
+
+INLINE
+void wxeReturn::do_add(ErlDrvTermData val) {
+  if(rt_n >= rt_max) {  // realloc
+    rt_max += RT_BUFF_SZ;
+    if(rtb == buff) {
+      rtb = (ErlDrvTermData *) driver_alloc(rt_max * sizeof(ErlDrvTermData));
+      for(int i = 0; i < RT_BUFF_SZ; i++)
+	rtb[i] = buff[i];
+    } else {
+      rtb = (ErlDrvTermData *) driver_realloc(rtb, rt_max * sizeof(ErlDrvTermData));
+    }
+  }
+  rtb[rt_n++] = val;
+}
+
+
+INLINE
+void wxeReturn::add(ErlDrvTermData type, ErlDrvTermData data) {
+  do_add(type);
+  do_add(data);
+}
+
 
 INLINE 
 void wxeReturn::addRef(const unsigned int ref, const char* className) {
    addAtom("wx_ref");
    addUint(ref);
    addAtom(className);
-   rt.Add(ERL_DRV_NIL);
+   do_add(ERL_DRV_NIL);
    addTupleCount(4);
 }
 
@@ -115,30 +119,30 @@ void wxeReturn::addAtom(const char* atomName) {
 
 INLINE 
 void wxeReturn::addBinary(const char* buf, const size_t size) {
-    rt.Add(ERL_DRV_BUF2BINARY);
-    rt.Add((ErlDrvTermData)buf);
-    rt.Add((ErlDrvTermData)size);
+    do_add(ERL_DRV_BUF2BINARY);
+    do_add((ErlDrvTermData)buf);
+    do_add((ErlDrvTermData)size);
 }
 
 INLINE 
 void wxeReturn::addExt2Term(wxeErlTerm *term) {
   if(term) {
-    rt.Add(ERL_DRV_EXT2TERM);
-    rt.Add((ErlDrvTermData)term->bin);
-    rt.Add((ErlDrvTermData)term->size);
+    do_add(ERL_DRV_EXT2TERM);
+    do_add((ErlDrvTermData)term->bin);
+    do_add((ErlDrvTermData)term->size);
   } else {
-    rt.Add(ERL_DRV_NIL);
+    do_add(ERL_DRV_NIL);
   }
 }
 
 INLINE
 void wxeReturn::addExt2Term(wxETreeItemData *val) {
   if(val) {
-    rt.Add(ERL_DRV_EXT2TERM);
-    rt.Add((ErlDrvTermData)(val->bin));
-    rt.Add((ErlDrvTermData)(val->size));
+    do_add(ERL_DRV_EXT2TERM);
+    do_add((ErlDrvTermData)(val->bin));
+    do_add((ErlDrvTermData)(val->size));
   } else
-    rt.Add(ERL_DRV_NIL);
+    do_add(ERL_DRV_NIL);
 }
 
 INLINE
@@ -168,8 +172,8 @@ void wxeReturn::addTupleCount(unsigned int n) {
 
 INLINE 
 void wxeReturn::endList(unsigned int n) {
-    rt.Add(ERL_DRV_NIL);
-    add(ERL_DRV_LIST, (ErlDrvTermData)(n+1));
+  do_add(ERL_DRV_NIL);
+  add(ERL_DRV_LIST, (ErlDrvTermData)(n+1));
 }
 
 INLINE 
@@ -222,6 +226,7 @@ INLINE
 void  wxeReturn::add(wxArrayDouble val) {
   unsigned int len = val.GetCount();
 
+  temp_float.Alloc(len);
   for (unsigned int i = 0; i< len; i++) {
     addFloat(val[i]);
   }

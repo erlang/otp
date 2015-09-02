@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 1997-2010. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -95,24 +96,24 @@ do(ModData) ->
 %%                           or cache                                 
 %%                                                                             
 load("ScriptNoCache " ++ CacheArg, [])->
-    case catch list_to_atom(httpd_conf:clean(CacheArg)) of
+    case catch list_to_atom(string:strip(CacheArg)) of
         true ->
 	    {ok, [], {script_nocache, true}};
 	false ->
 	   {ok, [], {script_nocache, false}};
 	_ ->
-	   {error, ?NICE(httpd_conf:clean(CacheArg)++
+	   {error, ?NICE(string:strip(CacheArg)++
 			 " is an invalid ScriptNoCache directive")}
     end;
 %% ScriptTimeout Seconds, The number of seconds that the server       
 %%                        maximum will wait for the script to         
 %%                        generate a part of the document   
 load("ScriptTimeout " ++ Timeout, [])->
-    case catch list_to_integer(httpd_conf:clean(Timeout)) of
+    case catch list_to_integer(string:strip(Timeout)) of
 	TimeoutSec when is_integer(TimeoutSec)  ->
 	   {ok, [], {script_timeout,TimeoutSec*1000}};
 	_ ->
-	   {error, ?NICE(httpd_conf:clean(Timeout)++
+	   {error, ?NICE(string:strip(Timeout)++
 			 " is an invalid ScriptTimeout")}
     end.
 

@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 1996-2014. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -114,9 +115,7 @@
 	 lock_table/1,
 	 mkcore/1,
 	 not_active_here/1,
-	 other_val/2,
          other_val/1,
-         pr_other/2,
          overload_read/0,
          overload_read/1,
          overload_set/2,
@@ -380,8 +379,8 @@ search_key(_Key, []) ->
 
 val(Var) ->
     case ?catch_val(Var) of
-	{'EXIT', _ReASoN_} -> mnesia_lib:other_val(Var, _ReASoN_); 
-	_VaLuE_ -> _VaLuE_ 
+	{'EXIT', _} -> other_val(Var);
+	_VaLuE_ -> _VaLuE_
     end.
 
 set(Var, Val) ->
@@ -390,13 +389,13 @@ set(Var, Val) ->
 unset(Var) ->
     ?ets_delete(mnesia_gvar, Var).
 
-other_val(Var, Other) ->
-    case other_val(Var) of
-        error -> pr_other(Var, Other);
+other_val(Var) ->
+    case other_val_1(Var) of
+        error -> pr_other(Var);
         Val -> Val
     end.
 
-other_val(Var) ->
+other_val_1(Var) ->
     case Var of
 	{_, where_to_read} -> nowhere;
 	{_, where_to_write} -> [];
@@ -404,21 +403,16 @@ other_val(Var) ->
 	_ -> error
     end.
 
-pr_other(Var, Other) ->
-    Why = 
+pr_other(Var) ->
+    Why =
 	case is_running() of
 	    no -> {node_not_running, node()};
 	    _ -> {no_exists, Var}
 	end,
-    verbose("~p (~p) val(mnesia_gvar, ~w) -> ~p ~p ~n",
+    verbose("~p (~p) val(mnesia_gvar, ~w) -> ~p ~n",
 	    [self(), process_info(self(), registered_name),
-	     Var, Other, Why]),
-    case Other of
-	{badarg, [{ets, lookup_element, _, _}|_]} ->
-	    exit(Why);
-	_ ->
-	    erlang:error(Why)
-    end.
+	     Var, Why]),
+    mnesia:abort(Why).
 
 %% Some functions for list valued variables
 add(Var, Val) ->
@@ -905,7 +899,7 @@ dirty_rpc_error_tag(Reason) ->
     end.
 
 fatal(Format, Args) ->
-    catch set(mnesia_status, stopping),
+    ?SAFE(catch set(mnesia_status, stopping)),
     Core = mkcore({crashinfo, {Format, Args}}),
     report_fatal(Format, Args, Core),
     timer:sleep(10000), % Enough to write the core dump to disc?
@@ -917,7 +911,7 @@ report_fatal(Format, Args) ->
 
 report_fatal(Format, Args, Core) ->
     report_system_event({mnesia_fatal, Format, Args, Core}),
-    catch exit(whereis(mnesia_monitor), fatal).
+    ?SAFE(exit(whereis(mnesia_monitor), fatal)).
 
 %% We sleep longer and longer the more we try
 %% Made some testing and came up with the following constants
@@ -930,8 +924,9 @@ random_time(Retries, _Counter0) ->
     
     case get(random_seed) of
 	undefined ->
-	    {X, Y, Z} = erlang:now(), %% time()
-	    _ = random:seed(X, Y, Z),
+	    _ = random:seed(erlang:unique_integer(),
+			    erlang:monotonic_time(),
+			    erlang:unique_integer()),
 	    Time = Dup + random:uniform(MaxIntv),
 	    %%	    dbg_out("---random_test rs ~w max ~w val ~w---~n", [Retries, MaxIntv, Time]),
 	    Time;
@@ -1013,7 +1008,7 @@ dbg_out(Format, Args) ->
 
 %% Keep the last 10 debug print outs
 save(DbgInfo) ->
-    catch save2(DbgInfo).
+    ?SAFE(save2(DbgInfo)).
 
 save2(DbgInfo) ->
     Key = {'$$$_report', current_pos},
@@ -1089,34 +1084,28 @@ db_match_object(Tab, Pat) ->
     db_match_object(val({Tab, storage_type}), Tab, Pat).
 db_match_object(Storage, Tab, Pat) ->
     db_fixtable(Storage, Tab, true),
-    Res = catch_match_object(Storage, Tab, Pat),
-    db_fixtable(Storage, Tab, false),
-    case Res of
-	{'EXIT', Reason} -> exit(Reason);
-	_ -> Res
+    try
+	case Storage of
+	    disc_only_copies -> dets:match_object(Tab, Pat);
+	    _ -> ets:match_object(Tab, Pat)
+	end
+    after
+	db_fixtable(Storage, Tab, false)
     end.
-
-catch_match_object(disc_only_copies, Tab, Pat) ->
-    catch dets:match_object(Tab, Pat);
-catch_match_object(_, Tab, Pat) ->
-    catch ets:match_object(Tab, Pat).
 
 db_select(Tab, Pat) ->
     db_select(val({Tab, storage_type}), Tab, Pat).
 
 db_select(Storage, Tab, Pat) ->
     db_fixtable(Storage, Tab, true),
-    Res = catch_select(Storage, Tab, Pat),
-    db_fixtable(Storage, Tab, false),
-    case Res of
-	{'EXIT', Reason} -> exit(Reason);
-	_ -> Res
+    try
+	case Storage of
+	    disc_only_copies -> dets:select(Tab, Pat);
+	    _ -> ets:select(Tab, Pat)
+	end
+    after
+	db_fixtable(Storage, Tab, false)
     end.
-
-catch_select(disc_only_copies, Tab, Pat) ->
-    catch dets:select(Tab, Pat);
-catch_select(_, Tab, Pat) ->
-    catch ets:select(Tab, Pat).
 
 db_select_init(disc_only_copies, Tab, Pat, Limit) ->
     dets:select(Tab, Pat, Limit);
@@ -1261,7 +1250,7 @@ dets_sync_open(Tab, Args) ->
     end.
 
 dets_sync_close(Tab) ->
-    catch dets:close(Tab),
+    ?SAFE(dets:close(Tab)),
     unlock_table(Tab),
     ok.
 
@@ -1297,7 +1286,7 @@ readable_indecies(Tab) ->
 
 scratch_debug_fun() ->
     dbg_out("scratch_debug_fun(): ~p~n", [?DEBUG_TAB]),
-    (catch ?ets_delete_table(?DEBUG_TAB)),
+    ?SAFE(?ets_delete_table(?DEBUG_TAB)),
     ?ets_new_table(?DEBUG_TAB, [set, public, named_table, {keypos, 2}]).
 
 activate_debug_fun(FunId, Fun, InitialContext, File, Line) ->
@@ -1310,43 +1299,45 @@ activate_debug_fun(FunId, Fun, InitialContext, File, Line) ->
     update_debug_info(Info).
 
 update_debug_info(Info) ->
-    case catch ?ets_insert(?DEBUG_TAB, Info) of
-	{'EXIT', _} ->
+    try ?ets_insert(?DEBUG_TAB, Info),
+	 ok
+    catch error:_ ->
 	    scratch_debug_fun(),
-	    ?ets_insert(?DEBUG_TAB, Info);
-	_ ->
-	    ok
+	    ?ets_insert(?DEBUG_TAB, Info)
     end,
     dbg_out("update_debug_info(~p)~n", [Info]),
     ok.
 
 deactivate_debug_fun(FunId, _File, _Line) ->
-    catch ?ets_delete(?DEBUG_TAB, FunId),
+    ?SAFE(?ets_delete(?DEBUG_TAB, FunId)),
     ok.
 
 eval_debug_fun(FunId, EvalContext, EvalFile, EvalLine) ->
-    case catch ?ets_lookup(?DEBUG_TAB, FunId) of
-	[] ->
-	    ok;
-	[Info] ->
-	    OldContext = Info#debug_info.context,
-	    dbg_out("~s(~p): ~w "
-		    "activated in ~s(~p)~n  "
-		    "eval_debug_fun(~w, ~w)~n",
-		    [filename:basename(EvalFile), EvalLine, Info#debug_info.id,
-		     filename:basename(Info#debug_info.file), Info#debug_info.line,
-		     OldContext, EvalContext]),
-	    Fun = Info#debug_info.function,
-	    NewContext = Fun(OldContext, EvalContext),
-	    
-	    case catch ?ets_lookup(?DEBUG_TAB, FunId) of
-		[Info] when NewContext /= OldContext ->
-		    NewInfo = Info#debug_info{context = NewContext},
-		    update_debug_info(NewInfo);
-		_ ->
-		    ok
-	    end;
-	{'EXIT', _} -> ok    
+    try 
+	case ?ets_lookup(?DEBUG_TAB, FunId) of
+	    [] ->
+		ok;
+	    [Info] ->
+		OldContext = Info#debug_info.context,
+		dbg_out("~s(~p): ~w "
+			"activated in ~s(~p)~n  "
+			"eval_debug_fun(~w, ~w)~n",
+			[filename:basename(EvalFile), EvalLine, Info#debug_info.id,
+			 filename:basename(Info#debug_info.file), Info#debug_info.line,
+			 OldContext, EvalContext]),
+		Fun = Info#debug_info.function,
+		NewContext = Fun(OldContext, EvalContext),
+
+		case ?ets_lookup(?DEBUG_TAB, FunId) of
+		    [Info] when NewContext /= OldContext ->
+			NewInfo = Info#debug_info{context = NewContext},
+			update_debug_info(NewInfo);
+		    _ ->
+			ok
+		end
+	end
+    catch error ->
+	    ok
     end.
 	
 -ifdef(debug).

@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 2007-2015. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -132,6 +133,23 @@ encode_plain_text(Type, Version, Data,
 					    sequence_number = Seq,
 					    compression_state=CompS0,
 					    security_parameters=
+						#security_parameters{
+						   cipher_type = ?AEAD,
+						   compression_algorithm=CompAlg}
+					   }= WriteState0} = ConnectionStates) ->
+    {Comp, CompS1} = ssl_record:compress(CompAlg, Data, CompS0),
+    WriteState1 = WriteState0#connection_state{compression_state = CompS1},
+    AAD = calc_aad(Type, Version, WriteState1),
+    {CipherFragment, WriteState} = ssl_record:cipher_aead(Version, Comp, WriteState1, AAD),
+    CipherText = encode_tls_cipher_text(Type, Version, CipherFragment),
+    {CipherText, ConnectionStates#connection_states{current_write = WriteState#connection_state{sequence_number = Seq +1}}};
+
+encode_plain_text(Type, Version, Data,
+		  #connection_states{current_write =
+					 #connection_state{
+					    sequence_number = Seq,
+					    compression_state=CompS0,
+					    security_parameters=
 						#security_parameters{compression_algorithm=CompAlg}
 					   }= WriteState0} = ConnectionStates) ->
     {Comp, CompS1} = ssl_record:compress(CompAlg, Data, CompS0),
@@ -154,14 +172,39 @@ decode_cipher_text(#ssl_tls{type = Type, version = Version,
 					     compression_state = CompressionS0,
 					     sequence_number = Seq,
 					     security_parameters=
-						 #security_parameters{compression_algorithm = CompressAlg}
+						 #security_parameters{
+						    cipher_type = ?AEAD,
+						    compression_algorithm=CompAlg}
+					    } = ReadState0} = ConnnectionStates0, _) ->
+    AAD = calc_aad(Type, Version, ReadState0),
+    case ssl_record:decipher_aead(Version, CipherFragment, ReadState0, AAD) of
+	{PlainFragment, ReadState1} ->
+	    {Plain, CompressionS1} = ssl_record:uncompress(CompAlg,
+							   PlainFragment, CompressionS0),
+	    ConnnectionStates = ConnnectionStates0#connection_states{
+				  current_read = ReadState1#connection_state{
+						   sequence_number = Seq + 1,
+						   compression_state = CompressionS1}},
+	    {CipherText#ssl_tls{fragment = Plain}, ConnnectionStates};
+	#alert{} = Alert ->
+	    Alert
+    end;
+
+decode_cipher_text(#ssl_tls{type = Type, version = Version,
+			    fragment = CipherFragment} = CipherText,
+		   #connection_states{current_read =
+					  #connection_state{
+					     compression_state = CompressionS0,
+					     sequence_number = Seq,
+					     security_parameters=
+						 #security_parameters{compression_algorithm=CompAlg}
 					    } = ReadState0} = ConnnectionStates0, PaddingCheck) ->
     case ssl_record:decipher(Version, CipherFragment, ReadState0, PaddingCheck) of
 	{PlainFragment, Mac, ReadState1} ->
 	    MacHash = calc_mac_hash(Type, Version, PlainFragment, ReadState1),
 	    case ssl_record:is_correct_mac(Mac, MacHash) of
 		true ->
-		    {Plain, CompressionS1} = ssl_record:uncompress(CompressAlg,
+		    {Plain, CompressionS1} = ssl_record:uncompress(CompAlg,
 								   PlainFragment, CompressionS0),
 		    ConnnectionStates = ConnnectionStates0#connection_states{
 					  current_read = ReadState1#connection_state{
@@ -276,8 +319,17 @@ supported_protocol_versions([]) ->
     Vsns;
 
 supported_protocol_versions([_|_] = Vsns) ->
-    Vsns.
-
+    case sufficient_tlsv1_2_crypto_support() of
+	true -> 
+	    Vsns;
+	false ->
+	    case Vsns -- ['tlsv1.2'] of
+		[] ->
+		    ?MIN_SUPPORTED_VERSIONS;
+		NewVsns ->
+		    NewVsns
+	    end
+    end.
 %%--------------------------------------------------------------------
 %%     
 %% Description: ssl version 2 is not acceptable security risks are too big.
@@ -331,3 +383,7 @@ calc_mac_hash(Type, Version,
     mac_hash(Version, SecPars#security_parameters.mac_algorithm,
 	     MacSecret, SeqNo, Type,
 	     Length, PlainFragment).
+
+calc_aad(Type, {MajVer, MinVer},
+	 #connection_state{sequence_number = SeqNo}) ->
+    <<SeqNo:64/integer, ?BYTE(Type), ?BYTE(MajVer), ?BYTE(MinVer)>>.

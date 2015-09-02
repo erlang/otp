@@ -1,24 +1,25 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2014. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2015. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
 -module(otp_internal).
 
--export([obsolete/3]).
+-export([obsolete/3, obsolete_type/3]).
 
 %%----------------------------------------------------------------------
 
@@ -26,7 +27,7 @@
 -type mfas()    :: mfa() | {atom(), atom(), [byte()]}.
 -type release() :: string().
 
--spec obsolete(atom(), atom(), byte()) ->
+-spec obsolete(module(), atom(), arity()) ->
 	'no' | {tag(), string()} | {tag(), mfas(), release()}.
 
 obsolete(Module, Name, Arity) ->
@@ -58,6 +59,11 @@ obsolete_1(erl_eval, arg_list, 3) ->
 
 obsolete_1(erlang, hash, 2) ->
     {deprecated, {erlang, phash2, 2}};
+
+obsolete_1(erlang, now, 0) ->
+    {deprecated,
+     "Deprecated BIF. See the \"Time and Time Correction in Erlang\" "
+     "chapter of the ERTS User's Guide for more information."};
 
 obsolete_1(calendar, local_time_to_universal_time, 1) ->
     {deprecated, {calendar, local_time_to_universal_time_dst, 1}};
@@ -577,8 +583,70 @@ obsolete_1(asn1rt, utf8_binary_to_list, 1) ->
     {deprecated,{unicode,characters_to_list,1}};
 obsolete_1(asn1rt, utf8_list_to_binary, 1) ->
     {deprecated,{unicode,characters_to_binary,1}};
-obsolete_1(pg, _, _) ->
-    {deprecated,"deprecated; will be removed in OTP 18"};
+
+%% Added in OTP 18.
+obsolete_1(core_lib, get_anno, 1) ->
+    {deprecated,{cerl,get_ann,1}};
+obsolete_1(core_lib, set_anno, 2) ->
+    {deprecated,{cerl,set_ann,2}};
+obsolete_1(core_lib, is_literal, 1) ->
+    {deprecated,{cerl,is_literal,1}};
+obsolete_1(core_lib, is_literal_list, 1) ->
+    {deprecated,"deprecated; use lists:all(fun cerl:is_literal/1, L)"
+     " instead"};
+obsolete_1(core_lib, literal_value, 1) ->
+    {deprecated,{core_lib,concrete,1}};
+obsolete_1(erl_scan, set_attribute, 3) ->
+    {deprecated,
+     "deprecated (will be removed in OTP 19); use erl_anno:set_line/2 instead"};
+obsolete_1(erl_scan, attributes_info, 1) ->
+    {deprecated,
+     "deprecated (will be removed in OTP 19); use "
+     "erl_anno:{column,line,location,text}/1 instead"};
+obsolete_1(erl_scan, attributes_info, 2) ->
+    {deprecated,
+     "deprecated (will be removed in OTP 19); use "
+     "erl_anno:{column,line,location,text}/1 instead"};
+obsolete_1(erl_scan, token_info, 1) ->
+    {deprecated,
+     "deprecated (will be removed in OTP 19); use "
+     "erl_scan:{category,column,line,location,symbol,text}/1 instead"};
+obsolete_1(erl_scan, token_info, 2) ->
+    {deprecated,
+     "deprecated (will be removed in OTP 19); use "
+     "erl_scan:{category,column,line,location,symbol,text}/1 instead"};
+obsolete_1(erl_parse, set_line, 2) ->
+    {deprecated,
+     "deprecated (will be removed in OTP 19); use erl_anno:set_line/2 instead"};
+obsolete_1(erl_parse, get_attributes, 1) ->
+    {deprecated,
+     "deprecated (will be removed in OTP 19); use "
+     "erl_anno:{column,line,location,text}/1 instead"};
+obsolete_1(erl_parse, get_attribute, 2) ->
+    {deprecated,
+     "deprecated (will be removed in OTP 19); use "
+     "erl_anno:{column,line,location,text}/1 instead"};
+obsolete_1(erl_lint, modify_line, 2) ->
+    {deprecated,
+     "deprecated (will be removed in OTP 19); use erl_parse:map_anno/2 instead"};
+obsolete_1(ssl, negotiated_next_protocol, 1) ->
+    {deprecated,{ssl,negotiated_protocol,1}};
+
+obsolete_1(ssl, connection_info, 1) ->
+    {deprecated, "deprecated; use connection_information/[1,2] instead"};
+
+obsolete_1(httpd_conf, check_enum, 2) ->
+    {deprecated, "deprecated; use lists:member/2 instead"};
+obsolete_1(httpd_conf, clean, 1) ->
+    {deprecated, "deprecated; use sting:strip/1 instead or possible the re module"};
+obsolete_1(httpd_conf, custom_clean, 3) ->
+    {deprecated, "deprecated; use sting:strip/3 instead or possible the re module"};
+obsolete_1(httpd_conf, is_directory, 1) ->
+    {deprecated, "deprecated; use filelib:is_dir/1 instead"};
+obsolete_1(httpd_conf, is_file, 1) ->
+    {deprecated, "deprecated; use filelib:is_file/1 instead"};
+obsolete_1(httpd_conf, make_integer, 1) ->
+    {deprecated, "deprecated; use erlang:list_to_integer/1 instead"};
 
 obsolete_1(_, _, _) ->
     no.
@@ -626,3 +694,30 @@ is_snmp_agent_function(add_agent_caps,        2) -> true;
 is_snmp_agent_function(del_agent_caps,        1) -> true;
 is_snmp_agent_function(get_agent_caps,        0) -> true;
 is_snmp_agent_function(_,		      _) -> false.
+
+-spec obsolete_type(module(), atom(), arity()) ->
+	'no' | {tag(), string()} | {tag(), mfas(), release()}.
+
+obsolete_type(Module, Name, NumberOfVariables) ->
+    case obsolete_type_1(Module, Name, NumberOfVariables) of
+%% 	{deprecated=Tag,{_,_,_}=Replacement} ->
+%% 	    {Tag,Replacement,"in a future release"};
+	{_,String}=Ret when is_list(String) ->
+	    Ret;
+%% 	{_,_,_}=Ret ->
+%% 	    Ret;
+	no ->
+	    no
+    end.
+
+obsolete_type_1(erl_scan,column,0) ->
+    {deprecated,
+     "deprecated (will be removed in OTP 19); use erl_anno:column() instead"};
+obsolete_type_1(erl_scan,line,0) ->
+    {deprecated,
+     "deprecated (will be removed in OTP 19); use erl_anno:line() instead"};
+obsolete_type_1(erl_scan,location,0) ->
+    {deprecated,
+     "deprecated (will be removed in OTP 19); use erl_anno:location() instead"};
+obsolete_type_1(_,_,_) ->
+    no.

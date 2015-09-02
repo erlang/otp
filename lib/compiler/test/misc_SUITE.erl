@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 2006-2012. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -60,7 +61,7 @@ all() ->
     [{group,p}].
 
 groups() -> 
-    [{p,[],%%test_lib:parallel(),
+    [{p,[],
       [tobias,empty_string,md5,silly_coverage,
        confused_literals,integer_encoding,override_bif]}].
 
@@ -225,14 +226,15 @@ silly_coverage(Config) when is_list(Config) ->
 		     {label,2}|non_proper_list]}],99},
     ?line expect_error(fun() -> beam_bool:module(BoolInput, []) end),
 
-    %% beam_dead
+    %% beam_dead. This is tricky. Our function must look OK to
+    %% beam_utils:clean_labels/1, but must crash beam_dead.
     DeadInput = {?MODULE,[{foo,0}],[],
 		  [{function,foo,0,2,
 		    [{label,1},
 		     {func_info,{atom,?MODULE},{atom,foo},0},
 		     {label,2},
-		     {jump,bad}]}],99},
-    ?line expect_error(fun() -> beam_block:module(DeadInput, []) end),
+		     {test,is_eq_exact,{f,1},[bad,operands]}]}],99},
+    expect_error(fun() -> beam_dead:module(DeadInput, []) end),
 
     %% beam_clean
     CleanInput = {?MODULE,[{foo,0}],[],
@@ -278,6 +280,14 @@ silly_coverage(Config) when is_list(Config) ->
 		     {func_info,{atom,?MODULE},{atom,foo},0},
 		     {label,2}|non_proper_list]}],99},
     expect_error(fun() -> beam_z:module(BeamZInput, []) end),
+
+    %% beam_validator.
+    BeamValInput = {?MODULE,[{foo,0}],[],
+		    [{function,foo,0,2,
+		      [{label,1},
+		       {func_info,{atom,?MODULE},{atom,foo},0},
+		       {label,2}|non_proper_list]}],99},
+    expect_error(fun() -> beam_validator:module(BeamValInput, []) end),
 
     ok.
 
@@ -329,8 +339,16 @@ integer_encoding_1(Config) ->
 
     ?line do_integer_encoding(-(id(1) bsl 10000), Src, Data),
     ?line do_integer_encoding(id(1) bsl 10000, Src, Data),
-    ?line do_integer_encoding(2048, 0, Src, Data),
-
+    do_integer_encoding(1024, 0, Src, Data),
+    _ = [begin
+	     B = 1 bsl I,
+	     do_integer_encoding(-B-1, Src, Data),
+	     do_integer_encoding(-B, Src, Data),
+	     do_integer_encoding(-B+1, Src, Data),
+	     do_integer_encoding(B-1, Src, Data),
+	     do_integer_encoding(B, Src, Data),
+	     do_integer_encoding(B+1, Src, Data)
+	 end || I <- lists:seq(1, 128)],
     io:put_chars(Src, "Last].\n\n"),
     ?line ok = file:close(Src),
     io:put_chars(Data, "0].\n\n"),
@@ -363,11 +381,9 @@ do_integer_encoding(N, I0, Src, Data) ->
 
 do_integer_encoding(I, Src, Data) ->
     Str = integer_to_list(I),
-    io:put_chars(Src, Str),
-    io:put_chars(Src, ", \n"),
-    io:put_chars(Data, Str),
-    io:put_chars(Data, ", \n").
-    
+    io:put_chars(Src, [Str,",\n"]),
+    io:put_chars(Data, [Str,",\n"]).
+
     
 id(I) -> I.
     

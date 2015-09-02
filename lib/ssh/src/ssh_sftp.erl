@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 2005-2014. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -111,7 +112,7 @@ start_channel(Cm, Opts) when is_pid(Cm) ->
 			    TimeOut
 		    end;
 		{error, Reason} ->
-		    {error, Reason};
+		    {error, format_channel_start_error(Reason)};
 		ignore ->
 		    {error, ignore}
 	    end;
@@ -136,7 +137,7 @@ start_channel(Host, Port, Opts) ->
 			    TimeOut
 		    end;
 		{error, Reason} ->
-		    {error, Reason};
+		    {error, format_channel_start_error(Reason)};
 		ignore ->
 		    {error, ignore}
 	    end;
@@ -438,7 +439,7 @@ write_file(Pid, Name, List) ->
     write_file(Pid, Name, List, ?FILEOP_TIMEOUT).
 
 write_file(Pid, Name, List, FileOpTimeout) when is_list(List) ->
-    write_file(Pid, Name, unicode:characters_to_binary(List), FileOpTimeout);
+    write_file(Pid, Name, list_to_binary(List), FileOpTimeout);
 write_file(Pid, Name, Bin, FileOpTimeout) ->
     case open(Pid, Name, [write, binary], FileOpTimeout) of
 	{ok, Handle} ->
@@ -491,9 +492,9 @@ init([Cm, ChannelId, Options]) ->
 			inf = new_inf(),
 			opts = Options}};
 	failure ->
-	    {stop, "server failed to start sftp subsystem"};
+	    {stop, {shutdown, "server failed to start sftp subsystem"}};
 	Error ->
-	    {stop, Error}
+	    {stop, {shutdown, Error}}
     end.
     
 %%--------------------------------------------------------------------
@@ -508,12 +509,12 @@ init([Cm, ChannelId, Options]) ->
 %%--------------------------------------------------------------------
 handle_call({{timeout, infinity}, wait_for_version_negotiation}, From,
 	    #state{xf = #ssh_xfer{vsn = undefined} = Xf} = State) ->
-    {noreply, State#state{xf = Xf#ssh_xfer{vsn = From}}}; 
+    {noreply, State#state{xf = Xf#ssh_xfer{vsn = {wait, From, undefined}}}};
 
 handle_call({{timeout, Timeout}, wait_for_version_negotiation}, From,
 	    #state{xf = #ssh_xfer{vsn = undefined} = Xf} = State) ->
-    timer:send_after(Timeout, {timeout, undefined, From}),
-    {noreply, State#state{xf = Xf#ssh_xfer{vsn = From}}}; 
+    TRef = erlang:send_after(Timeout, self(), {timeout, undefined, From}),
+    {noreply, State#state{xf = Xf#ssh_xfer{vsn = {wait, From, TRef}}}};
 
 handle_call({_, wait_for_version_negotiation}, _, State) ->
     {reply, ok, State};
@@ -610,8 +611,7 @@ do_handle_call({pread,Async,Handle,At,Length}, From, State) ->
 			    fun({ok,Data}, State2) ->
 				    case get_mode(Handle, State2) of
 					binary -> {{ok,Data}, State2};
-					text ->
-					    {{ok,unicode:characters_to_list(Data)}, State2}
+					text -> {{ok,binary_to_list(Data)}, State2}
 				    end;
 			       (Rep, State2) -> 
 				    {Rep, State2}
@@ -865,7 +865,12 @@ do_handle_reply(#state{xf = Xf} = State,
     case Xf#ssh_xfer.vsn of
 	undefined ->
 	    ok;
-	From ->
+	{wait, From, TRef} ->
+	    if is_reference(TRef) ->
+		    erlang:cancel_timer(TRef);
+	       true ->
+		    ok
+	    end,
 	    ssh_channel:reply(From, ok)
     end,    
     State#state{xf = Xf#ssh_xfer{vsn = Version, ext = Ext}, rep_buf = Rest};
@@ -1412,3 +1417,8 @@ open_buf1(Pid, BufInfo0, FileOpTimeout, CryptoState, ChunkSize) ->
     BufHandle = make_ref(),
     call(Pid, {put_bufinf,BufHandle,BufInfo}, FileOpTimeout),
     {ok,BufHandle}.
+
+format_channel_start_error({shutdown, Reason}) ->
+    Reason;
+format_channel_start_error(Reason) ->
+    Reason.

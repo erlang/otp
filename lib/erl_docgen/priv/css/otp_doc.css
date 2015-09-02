@@ -66,7 +66,7 @@ a:visited      { color: blue; text-decoration: none }
 span.bold_code   { font-family: Courier, monospace; font-weight: bold }
 span.code        { font-family: Courier, monospace; font-weight: normal }
 
-.note, .warning {
+.note, .warning, .do, .dont {
   border: solid black 1px;
   margin: 1em 3em;
 }
@@ -96,9 +96,40 @@ span.code        { font-family: Courier, monospace; font-weight: normal }
   font-size: 90%;
   padding: 5px 10px;
 }
+.do .label {
+  background: #30d42a;
+  color: white;
+  font-weight: bold;
+  padding: 5px 10px;
+}
+.do .content {
+  background: #eafeea;
+  color: black;
+  line-height: 120%;
+  font-size: 90%;
+  padding: 5px 10px;
+}
+.dont .label {
+  background: #C00;
+  color: white;
+  font-weight: bold;
+  padding: 5px 10px;
+}
+.dont .content {
+  background: #FFF0F0;
+  color: black;
+  line-height: 120%;
+  font-size: 90%;
+  padding: 5px 10px;
+}
 .example {
   background-color:#eeeeff;
   padding: 0px 10px;
+}
+.extrafrontpageinfo {
+  color: #C00;
+  font-weight: bold;
+  font-size: 120%;
 }
 
 pre          { font-family: Courier, monospace; font-weight: normal }

@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2011. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2015. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %%
@@ -226,10 +227,11 @@ literal_type_tests(Config) when is_list(Config) ->
     %% Generate an Erlang module with all different type of type tests.
     ?line Tests = make_test([{T, L} || T <- type_tests(), L <- literals()]),
     ?line Mod = literal_test,
-    ?line Func = {function, 0, test, 0, [{clause,0,[],[],Tests}]},
-    ?line Form = [{attribute,0,module,Mod},
-		  {attribute,0,compile,export_all},
-		  Func, {eof,0}],
+    Anno = erl_anno:new(0),
+    Func = {function, Anno, test, 0, [{clause,Anno,[],[],Tests}]},
+    Form = [{attribute,Anno,module,Mod},
+            {attribute,Anno,compile,export_all},
+            Func, {eof,Anno}],
 
     %% Print generated code for inspection.
     ?line lists:foreach(fun (F) -> io:put_chars([erl_pp:form(F),"\n"]) end, Form),
@@ -261,7 +263,8 @@ test(T, L) ->
     {ok,Toks,_Line} = erl_scan:string(S),
     {ok,E} = erl_parse:parse_exprs(Toks),
     {value,Val,_Bs} = erl_eval:exprs(E, []),
-    {match,0,{atom,0,Val},hd(E)}.
+    Anno = erl_anno:new(0),
+    {match,Anno,{atom,Anno,Val},hd(E)}.
 
 test(T, A, L) ->
     S = lists:flatten(io_lib:format("begin io:format(\"~~p~n\", [{~p,~p,~p}]), if ~w(~w, ~w) -> true; true -> false end end. ",
@@ -269,7 +272,8 @@ test(T, A, L) ->
     {ok,Toks,_Line} = erl_scan:string(S),
     {ok,E} = erl_parse:parse_exprs(Toks),
     {value,Val,_Bs} = erl_eval:exprs(E, []),
-    {match,0,{atom,0,Val},hd(E)}.
+    Anno = erl_anno:new(0),
+    {match,Anno,{atom,Anno,Val},hd(E)}.
     
 literals() ->
     [42,

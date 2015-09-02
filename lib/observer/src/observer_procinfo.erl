@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 2011-2014. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 
@@ -43,6 +44,8 @@
 
 -record(worker, {panel, callback}).
 
+-record(io, {rdata=""}).
+
 start(Process, ParentFrame, Parent) ->
     wx_object:start_link(?MODULE, [Process, ParentFrame, Parent], []).
 
@@ -69,6 +72,10 @@ init([Pid, ParentFrame, Parent]) ->
 	DictPage    = init_panel(Notebook, "Dictionary", [Pid,Table], fun init_dict_page/3),
 	StackPage   = init_panel(Notebook, "Stack Trace", [Pid], fun init_stack_page/2),
 	StatePage   = init_panel(Notebook, "State", [Pid,Table], fun init_state_page/3),
+        Ps = case gen_server:call(observer, log_status) of
+		 true  -> [init_panel(Notebook, "Log", [Pid,Table], fun init_log_page/3)];
+		 false -> []
+	     end,
 
 	wxFrame:connect(Frame, close_window),
 	wxMenu:connect(Frame, command_menu_selected),
@@ -78,7 +85,7 @@ init([Pid, ParentFrame, Parent]) ->
 		       pid=Pid,
 		       frame=Frame,
 		       notebook=Notebook,
-		       pages=[ProcessPage,MessagePage,DictPage,StackPage,StatePage],
+		       pages=[ProcessPage,MessagePage,DictPage,StackPage,StatePage|Ps],
 		       expand_table=Table
 		      }}
     catch error:{badrpc, _} ->
@@ -144,7 +151,7 @@ handle_event(#wx{event=#wxHtmlLink{linkInfo=#wxHtmlLinkInfo{href=Href}}},
 	    Opened =
 		case lists:keyfind(Id,1,Opened0) of
 		    false ->
-			Win = cdv_detail_wx:start_link(Id,Frame,Callback),
+			Win = cdv_detail_wx:start_link(Id,[],Frame,Callback),
 			[{Id,Win}|Opened0];
 		    {_,Win} ->
 			wxFrame:raise(Win),
@@ -327,6 +334,26 @@ fetch_state_info2(Pid, M) ->
 	{badrpc,{'EXIT',{timeout, _}}} -> []
     end.
 
+init_log_page(Parent, Pid, Table) ->
+    Win = observer_lib:html_window(Parent),
+    Update = fun() ->
+		     Fd = spawn_link(fun() -> io_server() end),
+		     rpc:call(node(Pid), rb, rescan, [[{start_log, Fd}]]),
+		     rpc:call(node(Pid), rb, grep, [local_pid_str(Pid)]),
+		     Logs = io_get_data(Fd),
+		     %% Replace remote local pid notation to global notation
+		     Pref = global_pid_node_pref(Pid),
+		     ExpPid = re:replace(Logs,"<0\.","<" ++ Pref ++ ".",[global, {return, list}]),
+		     %% Try to keep same look by removing blanks at right of rewritten PID
+		     NbBlanks = length(Pref) - 1,
+		     Re = "(<" ++ Pref ++ "\.[^>]{1,}>)[ ]{"++ integer_to_list(NbBlanks) ++ "}",
+		     Look = re:replace(ExpPid, Re, "\\1", [global, {return, list}]),
+		     Html = observer_html_lib:expandable_term("SaslLog", Look, Table),
+		     wxHtmlWindow:setPage(Win, Html)
+	     end,
+    Update(),
+    {Win, Update}.
+
 create_menus(MenuBar) ->
     Menus = [{"File", [#create_menu{id=?wxID_CLOSE, text="Close"}]},
 	     {"View", [#create_menu{id=?REFRESH, text="Refresh\tCtrl-R"}]}],
@@ -409,3 +436,51 @@ filter_monitor_info() ->
 	    Ms = proplists:get_value(monitors, Data),
 	    [Pid || {process, Pid} <- Ms]
     end.
+
+local_pid_str(Pid) ->
+    %% observer can observe remote nodes
+    %% There is no function to get the local
+    %% pid from the remote pid ...
+    %% So grep will fail to find remote pid in remote local log.
+    %% i.e. <4589.42.1> will not be found, but <0.42.1> will
+    %% Let's replace first integer by zero
+    "<0" ++ re:replace(pid_to_list(Pid),"\<([0-9]{1,})","",[{return, list}]).
+
+global_pid_node_pref(Pid) ->
+    %% Global PID node prefix : X of <X.Y.Z>
+    string:strip(string:sub_word(pid_to_list(Pid),1,$.),left,$<).
+    
+
+io_get_data(Pid) ->
+    Pid ! {self(), get_data_and_close},
+    receive
+	{Pid, data, Data} ->  lists:flatten(Data)
+    end.
+
+io_server() ->
+    io_server(#io{}).
+
+io_server(State) ->
+    receive
+	{io_request, From, ReplyAs, Request} ->
+	    {_, Reply, NewState} =  io_request(Request,State),
+	    From ! {io_reply, ReplyAs, Reply},
+	    io_server(NewState);
+	{Pid, get_data_and_close} ->
+	    Pid ! {self(), data, lists:reverse(State#io.rdata)},
+	    normal;
+	_Unknown ->
+	    io_server(State)
+    end.
+
+io_request({put_chars, _Encoding, Chars}, State = #io{rdata=Data}) ->
+    {ok, ok, State#io{rdata=[Chars|Data]}};
+io_request({put_chars, Encoding, Module, Function, Args}, State) ->
+    try
+	io_request({put_chars, Encoding, apply(Module, Function, Args)}, State)
+    catch _:_ ->
+	    {error, {error, Function}, State}
+    end;
+io_request(_Req, State) ->
+    %% io:format("~p: Unknown req: ~p ~n",[?LINE, _Req]),
+    {ok, {error, request}, State}.

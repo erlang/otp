@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 1996-2014. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -36,6 +37,9 @@
 	 get_state/1, replace_state/1, call_with_huge_message_queue/1
 	]).
 
+-export([stop1/1, stop2/1, stop3/1, stop4/1, stop5/1, stop6/1, stop7/1,
+	 stop8/1, stop9/1, stop10/1]).
+
 % spawn export
 -export([spec_init_local/2, spec_init_global/2, spec_init_via/2,
 	 spec_init_default_timeout/2, spec_init_global_default_timeout/2,
@@ -51,7 +55,7 @@
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    [start, crash, call, cast, cast_fast, info, abcast,
+    [start, {group,stop}, crash, call, cast, cast_fast, info, abcast,
      multicall, multicall_down, call_remote1, call_remote2,
      call_remote3, call_remote_n1, call_remote_n2,
      call_remote_n3, spec_init,
@@ -63,7 +67,8 @@ all() ->
      call_with_huge_message_queue].
 
 groups() -> 
-    [].
+    [{stop, [],
+      [stop1, stop2, stop3, stop4, stop5, stop6, stop7, stop8, stop9, stop10]}].
 
 init_per_suite(Config) ->
     Config.
@@ -235,6 +240,105 @@ start(Config) when is_list(Config) ->
     test_server:messages_get(),
 
     process_flag(trap_exit, OldFl),
+    ok.
+
+%% Anonymous, reason 'normal'
+stop1(_Config) ->
+    {ok, Pid} = gen_server:start(?MODULE, [], []),
+    ok = gen_server:stop(Pid),
+    false = erlang:is_process_alive(Pid),
+    {'EXIT',noproc} = (catch gen_server:stop(Pid)),
+    ok.
+
+%% Anonymous, other reason
+stop2(_Config) ->
+    {ok,Pid} = gen_server:start(?MODULE, [], []),
+    ok = gen_server:stop(Pid, other_reason, infinity),
+    false = erlang:is_process_alive(Pid),
+    ok.
+
+%% Anonymous, invalid timeout
+stop3(_Config) ->
+    {ok,Pid} = gen_server:start(?MODULE, [], []),
+    {'EXIT',_} = (catch gen_server:stop(Pid, other_reason, invalid_timeout)),
+    true = erlang:is_process_alive(Pid),
+    ok = gen_server:stop(Pid),
+    false = erlang:is_process_alive(Pid),
+    ok.
+
+%% Registered name
+stop4(_Config) ->
+    {ok,Pid} = gen_server:start({local,to_stop},?MODULE, [], []),
+    ok = gen_server:stop(to_stop),
+    false = erlang:is_process_alive(Pid),
+    {'EXIT',noproc} = (catch gen_server:stop(to_stop)),
+    ok.
+
+%% Registered name and local node
+stop5(_Config) ->
+    {ok,Pid} = gen_server:start({local,to_stop},?MODULE, [], []),
+    ok = gen_server:stop({to_stop,node()}),
+    false = erlang:is_process_alive(Pid),
+    {'EXIT',noproc} = (catch gen_server:stop({to_stop,node()})),
+    ok.
+
+%% Globally registered name
+stop6(_Config) ->
+    {ok, Pid} = gen_server:start({global, to_stop}, ?MODULE, [], []),
+    ok = gen_server:stop({global,to_stop}),
+    false = erlang:is_process_alive(Pid),
+    {'EXIT',noproc} = (catch gen_server:stop({global,to_stop})),
+    ok.
+
+%% 'via' registered name
+stop7(_Config) ->
+    dummy_via:reset(),
+    {ok, Pid} = gen_server:start({via, dummy_via, to_stop},
+				  ?MODULE, [], []),
+    ok = gen_server:stop({via, dummy_via, to_stop}),
+    false = erlang:is_process_alive(Pid),
+    {'EXIT',noproc} = (catch gen_server:stop({via, dummy_via, to_stop})),
+    ok.
+
+%% Anonymous on remote node
+stop8(_Config) ->
+    {ok,Node} = test_server:start_node(gen_server_SUITE_stop8,slave,[]),
+    Dir = filename:dirname(code:which(?MODULE)),
+    rpc:call(Node,code,add_path,[Dir]),
+    {ok, Pid} = rpc:call(Node,gen_server,start,[?MODULE,[],[]]),
+    ok = gen_server:stop(Pid),
+    false = rpc:call(Node,erlang,is_process_alive,[Pid]),
+    {'EXIT',noproc} = (catch gen_server:stop(Pid)),
+    true = test_server:stop_node(Node),
+    {'EXIT',{{nodedown,Node},_}} = (catch gen_server:stop(Pid)),
+    ok.
+
+%% Registered name on remote node
+stop9(_Config) ->
+    {ok,Node} = test_server:start_node(gen_server_SUITE_stop9,slave,[]),
+    Dir = filename:dirname(code:which(?MODULE)),
+    rpc:call(Node,code,add_path,[Dir]),
+    {ok, Pid} = rpc:call(Node,gen_server,start,[{local,to_stop},?MODULE,[],[]]),
+    ok = gen_server:stop({to_stop,Node}),
+    undefined = rpc:call(Node,erlang,whereis,[to_stop]),
+    false = rpc:call(Node,erlang,is_process_alive,[Pid]),
+    {'EXIT',noproc} = (catch gen_server:stop({to_stop,Node})),
+    true = test_server:stop_node(Node),
+    {'EXIT',{{nodedown,Node},_}} = (catch gen_server:stop({to_stop,Node})),
+    ok.
+
+%% Globally registered name on remote node
+stop10(_Config) ->
+    {ok,Node} = test_server:start_node(gen_server_SUITE_stop10,slave,[]),
+    Dir = filename:dirname(code:which(?MODULE)),
+    rpc:call(Node,code,add_path,[Dir]),
+    {ok, Pid} = rpc:call(Node,gen_server,start,[{global,to_stop},?MODULE,[],[]]),
+    global:sync(),
+    ok = gen_server:stop({global,to_stop}),
+    false = rpc:call(Node,erlang,is_process_alive,[Pid]),
+    {'EXIT',noproc} = (catch gen_server:stop({global,to_stop})),
+    true = test_server:stop_node(Node),
+    {'EXIT',noproc} = (catch gen_server:stop({global,to_stop})),
     ok.
 
 crash(Config) when is_list(Config) ->
@@ -538,15 +642,13 @@ info(Config) when is_list(Config) ->
 	  end,
     ok.
 
-hibernate(suite) -> [];
 hibernate(Config) when is_list(Config) ->
     OldFl = process_flag(trap_exit, true),
-    ?line {ok, Pid0} =
+    {ok, Pid0} =
 	gen_server:start_link({local, my_test_name_hibernate0},
-			 gen_server_SUITE, hibernate, []),
-    ?line receive after 1000 -> ok end,
-    ?line {current_function,{erlang,hibernate,3}} = erlang:process_info(Pid0,current_function),
-    ?line ok = gen_server:call(my_test_name_hibernate0, stop),
+			      gen_server_SUITE, hibernate, []),
+    is_in_erlang_hibernate(Pid0),
+    ok = gen_server:call(my_test_name_hibernate0, stop),
     receive 
 	{'EXIT', Pid0, stopped} ->
  	    ok
@@ -554,70 +656,66 @@ hibernate(Config) when is_list(Config) ->
 	    test_server:fail(gen_server_did_not_die)
     end,
 
-    ?line {ok, Pid} =
+    {ok, Pid} =
 	gen_server:start_link({local, my_test_name_hibernate},
-			 gen_server_SUITE, [], []),
+			      gen_server_SUITE, [], []),
 
-    ?line ok = gen_server:call(my_test_name_hibernate, started_p),
-    ?line true = gen_server:call(my_test_name_hibernate, hibernate),
-    ?line receive after 1000 -> ok end,
-    ?line {current_function,{erlang,hibernate,3}} = erlang:process_info(Pid,current_function),
-    ?line Parent = self(),
+    ok = gen_server:call(my_test_name_hibernate, started_p),
+    true = gen_server:call(my_test_name_hibernate, hibernate),
+    is_in_erlang_hibernate(Pid),
+    Parent = self(),
     Fun = fun() ->
- 		  receive
- 		      go ->
- 			  ok
- 		  end,
- 		  receive 
- 		  after 1000 ->
- 			  ok 
- 		  end,
- 		  X = erlang:process_info(Pid,current_function),
+		  receive go -> ok end,
+		  receive after 1000 -> ok end,
+		  X = erlang:process_info(Pid, current_function),
  		  Pid ! continue,
  		  Parent ! {result,X}
  	  end,
-    ?line Pid2 = spawn_link(Fun),
-    ?line true = gen_server:call(my_test_name_hibernate, {hibernate_noreply,Pid2}),
+    Pid2 = spawn_link(Fun),
+    true = gen_server:call(my_test_name_hibernate, {hibernate_noreply,Pid2}),
 
-    ?line gen_server:cast(my_test_name_hibernate, hibernate_later),
-    ?line true = ({current_function,{erlang,hibernate,3}} =/= erlang:process_info(Pid,current_function)),
-    ?line receive after 2000 -> ok end,
-    ?line ({current_function,{erlang,hibernate,3}} = erlang:process_info(Pid,current_function)),
-    ?line ok = gen_server:call(my_test_name_hibernate, started_p),
-    ?line true = ({current_function,{erlang,hibernate,3}} =/= erlang:process_info(Pid,current_function)),
-    ?line gen_server:cast(my_test_name_hibernate, hibernate_now),
-    ?line receive after 1000 -> ok end,
-    ?line ({current_function,{erlang,hibernate,3}} = erlang:process_info(Pid,current_function)),
-    ?line ok = gen_server:call(my_test_name_hibernate, started_p),
-    ?line true = ({current_function,{erlang,hibernate,3}} =/= erlang:process_info(Pid,current_function)),
-    ?line Pid ! hibernate_later,
-    ?line true = ({current_function,{erlang,hibernate,3}} =/= erlang:process_info(Pid,current_function)),
-    ?line receive after 2000 -> ok end,
-    ?line ({current_function,{erlang,hibernate,3}} = erlang:process_info(Pid,current_function)),
-    ?line ok = gen_server:call(my_test_name_hibernate, started_p),
-    ?line true = ({current_function,{erlang,hibernate,3}} =/= erlang:process_info(Pid,current_function)),
-    ?line Pid ! hibernate_now,
-    ?line receive after 1000 -> ok end,
-    ?line ({current_function,{erlang,hibernate,3}} = erlang:process_info(Pid,current_function)),
-    ?line ok = gen_server:call(my_test_name_hibernate, started_p),
-    ?line true = ({current_function,{erlang,hibernate,3}} =/= erlang:process_info(Pid,current_function)),
-    ?line receive
- 	      {result,R} ->
- 		  ?line  {current_function,{erlang,hibernate,3}} = R
- 	  end,
-    ?line true = gen_server:call(my_test_name_hibernate, hibernate),
-    ?line receive after 1000 -> ok end,
-    ?line {current_function,{erlang,hibernate,3}} = erlang:process_info(Pid,current_function),
-    ?line sys:suspend(my_test_name_hibernate),
-    ?line receive after 1000 -> ok end,
-    ?line {current_function,{erlang,hibernate,3}} = erlang:process_info(Pid,current_function),
-    ?line sys:resume(my_test_name_hibernate),
-    ?line receive after 1000 -> ok end,
-    ?line {current_function,{erlang,hibernate,3}} = erlang:process_info(Pid,current_function),
-    ?line ok = gen_server:call(my_test_name_hibernate, started_p),
-    ?line true = ({current_function,{erlang,hibernate,3}} =/= erlang:process_info(Pid,current_function)),
-    
-    ?line ok = gen_server:call(my_test_name_hibernate, stop),
+    gen_server:cast(my_test_name_hibernate, hibernate_later),
+    true = ({current_function,{erlang,hibernate,3}} =/=
+		erlang:process_info(Pid, current_function)),
+    is_in_erlang_hibernate(Pid),
+    ok = gen_server:call(my_test_name_hibernate, started_p),
+    true = ({current_function,{erlang,hibernate,3}} =/=
+		erlang:process_info(Pid, current_function)),
+
+    gen_server:cast(my_test_name_hibernate, hibernate_now),
+    is_in_erlang_hibernate(Pid),
+    ok = gen_server:call(my_test_name_hibernate, started_p),
+    true = ({current_function,{erlang,hibernate,3}} =/=
+		erlang:process_info(Pid, current_function)),
+
+    Pid ! hibernate_later,
+    true = ({current_function,{erlang,hibernate,3}} =/=
+		erlang:process_info(Pid, current_function)),
+    is_in_erlang_hibernate(Pid),
+    ok = gen_server:call(my_test_name_hibernate, started_p),
+    true = ({current_function,{erlang,hibernate,3}} =/=
+		erlang:process_info(Pid, current_function)),
+
+    Pid ! hibernate_now,
+    is_in_erlang_hibernate(Pid),
+    ok = gen_server:call(my_test_name_hibernate, started_p),
+    true = ({current_function,{erlang,hibernate,3}} =/=
+		erlang:process_info(Pid, current_function)),
+    receive
+	{result,R} ->
+	    {current_function,{erlang,hibernate,3}} = R
+    end,
+
+    true = gen_server:call(my_test_name_hibernate, hibernate),
+    is_in_erlang_hibernate(Pid),
+    sys:suspend(my_test_name_hibernate),
+    is_in_erlang_hibernate(Pid),
+    sys:resume(my_test_name_hibernate),
+    is_in_erlang_hibernate(Pid),
+    ok = gen_server:call(my_test_name_hibernate, started_p),
+    true = ({current_function,{erlang,hibernate,3}} =/= erlang:process_info(Pid,current_function)),
+
+    ok = gen_server:call(my_test_name_hibernate, stop),
     receive 
 	{'EXIT', Pid, stopped} ->
  	    ok
@@ -626,6 +724,23 @@ hibernate(Config) when is_list(Config) ->
     end,
     process_flag(trap_exit, OldFl),
     ok.
+
+is_in_erlang_hibernate(Pid) ->
+    receive after 1 -> ok end,
+    is_in_erlang_hibernate_1(200, Pid).
+
+is_in_erlang_hibernate_1(0, Pid) ->
+    io:format("~p\n", [erlang:process_info(Pid, current_function)]),
+    ?t:fail(not_in_erlang_hibernate_3);
+is_in_erlang_hibernate_1(N, Pid) ->
+    {current_function,MFA} = erlang:process_info(Pid, current_function),
+    case MFA of
+	{erlang,hibernate,3} ->
+	    ok;
+	_ ->
+	    receive after 10 -> ok end,
+	    is_in_erlang_hibernate_1(N-1, Pid)
+    end.
 
 %% --------------------------------------
 %% Test gen_server:abcast and handle_cast.

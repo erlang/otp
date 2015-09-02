@@ -3,22 +3,29 @@
 %% 
 %% Copyright Ericsson AB 2000-2009. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %%
 %% Purpose: Core Erlang abstract syntax functions.
 
 -module(core_lib).
+
+-deprecated({get_anno,1,next_major_release}).
+-deprecated({set_anno,2,next_major_release}).
+-deprecated({is_literal,1,next_major_release}).
+-deprecated({is_literal_list,1,next_major_release}).
+-deprecated({literal_value,1,next_major_release}).
 
 -export([get_anno/1,set_anno/2]).
 -export([is_literal/1,is_literal_list/1]).
@@ -33,59 +40,27 @@
 %%
 -spec get_anno(cerl:cerl()) -> term().
 
-get_anno(C) -> element(2, C).
+get_anno(C) -> cerl:get_ann(C).
 
 -spec set_anno(cerl:cerl(), term()) -> cerl:cerl().
 
-set_anno(C, A) -> setelement(2, C, A).
+set_anno(C, A) -> cerl:set_ann(C, A).
 
 -spec is_literal(cerl:cerl()) -> boolean().
 
-is_literal(#c_literal{}) -> true;
-is_literal(#c_cons{hd=H,tl=T}) ->
-    is_literal(H) andalso is_literal(T);
-is_literal(#c_tuple{es=Es}) -> is_literal_list(Es);
-is_literal(#c_binary{segments=Es}) -> is_lit_bin(Es);
-is_literal(_) -> false.
+is_literal(Cerl) ->
+    cerl:is_literal(cerl:fold_literal(Cerl)).
 
 -spec is_literal_list([cerl:cerl()]) -> boolean().
 
 is_literal_list(Es) -> lists:all(fun is_literal/1, Es).
 
-is_lit_bin(Es) ->
-    lists:all(fun (#c_bitstr{val=E,size=S}) ->
-		      is_literal(E) andalso is_literal(S)
-	      end, Es).
-
 %% Return the value of LitExpr.
 -spec literal_value(cerl:c_literal() | cerl:c_binary() |
 		    cerl:c_map() | cerl:c_cons() | cerl:c_tuple()) -> term().
 
-literal_value(#c_literal{val=V}) -> V;
-literal_value(#c_binary{segments=Es}) ->
-    list_to_binary([literal_value_bin(Bit) || Bit <- Es]);
-literal_value(#c_cons{hd=H,tl=T}) ->
-    [literal_value(H)|literal_value(T)];
-literal_value(#c_tuple{es=Es}) ->
-    list_to_tuple(literal_value_list(Es));
-literal_value(#c_map{arg=Cm,es=Cmps}) ->
-    M = literal_value(Cm),
-    lists:foldl(fun(#c_map_pair{ key=Ck, val=Cv },Mi) ->
-		K = literal_value(Ck),
-		V = literal_value(Cv),
-		maps:put(K,V,Mi)
-	end, M, Cmps).
-
-literal_value_list(Vals) -> [literal_value(V) || V <- Vals].
-
-literal_value_bin(#c_bitstr{val=Val,size=Sz,unit=U,type=T,flags=Fs}) ->
-    %% We will only handle literals constructed by make_literal/1.
-    %% Could be made more general in the future if the need arises.
-    8 = literal_value(Sz),
-    1 = literal_value(U),
-    integer = literal_value(T),
-    [unsigned,big] = literal_value(Fs),
-    literal_value(Val).
+literal_value(Cerl) ->
+    cerl:concrete(cerl:fold_literal(Cerl)).
 
 %% Make a suitable values structure, expr or values, depending on Expr.
 -spec make_values([cerl:cerl()] | cerl:cerl()) -> cerl:cerl().
@@ -236,10 +211,15 @@ vu_pat_seg_list(V, Ss, St) ->
 			end
 		end, St, Ss).
 
-vu_map_pairs(V, [#c_map_pair{val=Pat}|T], St0) ->
-    case vu_pattern(V, Pat, St0) of
-	{true,_}=St -> St;
-	St -> vu_map_pairs(V, T, St)
+vu_map_pairs(V, [#c_map_pair{key=Key,val=Pat}|T], St0) ->
+    case vu_expr(V, Key) of
+	true ->
+	    {true,false};
+	false ->
+	    case vu_pattern(V, Pat, St0) of
+		{true,_}=St -> St;
+		St -> vu_map_pairs(V, T, St)
+	    end
     end;
 vu_map_pairs(_, [], St) -> St.
 

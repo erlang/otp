@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 2010-2013. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -238,12 +239,15 @@ generate_nodenames2(0, _Hosts, Acc) ->
     Acc;
 generate_nodenames2(N, Hosts, Acc) ->
     Host=lists:nth((N rem (length(Hosts)))+1, Hosts),
-    Name=list_to_atom(temp_nodename("nod", []) ++ "@" ++ Host),
+    Name=list_to_atom(temp_nodename("nod",N) ++ "@" ++ Host),
     generate_nodenames2(N-1, Hosts, [Name|Acc]).
 
-temp_nodename([], Acc) ->
-    lists:flatten(Acc);
-temp_nodename([Chr|Base], Acc) ->
-    {A,B,C} = erlang:now(),
-    New = [Chr | integer_to_list(Chr bxor A bxor B+A bxor C+B)],
-    temp_nodename(Base, [New|Acc]).
+%% We cannot use erlang:unique_integer([positive])
+%% here since this code in run on older test releases as well.
+temp_nodename(Base,I) ->
+    {A,B,C} = os:timestamp(),
+    Nstr = integer_to_list(I),
+    Astr = integer_to_list(A),
+    Bstr = integer_to_list(B),
+    Cstr = integer_to_list(C),
+    Base++Nstr++Astr++Bstr++Cstr.

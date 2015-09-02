@@ -3,16 +3,17 @@
 %% 
 %% Copyright Ericsson AB 2005-2014. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %%
@@ -279,7 +280,10 @@ generate_external_terms_files(BaseDir) ->
 	 {4444444444444444,-44444, [[[[[[[[[[[5]]]]]]]]]]], make_ref()},
 	 {444444444444444444444,-44444, {{{{{{{{{{{{6}}}}}}}}}}}}, make_ref()},
 	 {444444444444444,-44444, {{{{{{{{{{{{7}}}}}}}}}}}}, make_ref()},
-	 {4444444444444444444,-44444, {{{{{{{{{{{{8}}}}}}}}}}}}, make_ref()}],
+	 {4444444444444444444,-44444, {{{{{{{{{{{{8}}}}}}}}}}}}, make_ref()},
+         #{},
+	 #{1 => 11, 2 => 22, 3 => 33},
+	 maps:from_list([{K,K*11} || K <- lists:seq(1,100)])],
     ok = file:write_file(filename:join([BaseDir,
 					"send_term_SUITE_data",
 					"ext_terms.bin"]),
@@ -354,16 +358,17 @@ write_bytes(IoDev, Prefix, [B|Bs], N) ->
     write_bytes(IoDev, ",", Bs, N+1).
 
 write_license(IoDev) ->
-    S =	"/* ``The contents of this file are subject to the Erlang Public License,~n"
-	" * Version 1.1, (the \"License\"); you may not use this file except in~n"
-	" * compliance with the License. You should have received a copy of the~n"
-	" * Erlang Public License along with this software. If not, it can be~n"
-	" * retrieved via the world wide web at http://www.erlang.org/.~n"
-	" * ~n"
-	" * Software distributed under the License is distributed on an \"AS IS\"~n"
-	" * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See~n"
-	" * the License for the specific language governing rights and limitations~n"
-	" * under the License.~n"
+    S = "/* ``Licensed under the Apache License, Version 2.0 (the \"License\");~n"
+        " * you may not use this file except in compliance with the License.~n"
+        " * You may obtain a copy of the License at~n"
+        " * ~n"
+        " *     http://www.apache.org/licenses/LICENSE-2.0~n"
+        " * ~n"
+        " * Unless required by applicable law or agreed to in writing, software~n"
+        " * distributed under the License is distributed on an \"AS IS\" BASIS,~n"
+        " * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.~n"
+        " * See the License for the specific language governing permissions and~n"
+        " * limitations under the License.~n"
 	" * ~n"
 	" * The Initial Developer of the Original Code is Ericsson AB.~n"
 	" * Portions created by Ericsson are Copyright 2007, Ericsson AB.~n"

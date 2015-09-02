@@ -2,18 +2,19 @@
 %%-----------------------------------------------------------------------
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2006-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2015. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -162,14 +163,7 @@ run(Opts) ->
     {error, Msg} ->
       throw({dialyzer_error, Msg});
     OptsRecord ->
-      case OptsRecord#options.check_plt of
-        true ->
-          case cl_check_init(OptsRecord) of
-            {ok, ?RET_NOTHING_SUSPICIOUS} -> ok;
-            {error, ErrorMsg1} -> throw({dialyzer_error, ErrorMsg1})
-          end;
-        false -> ok
-      end,
+      ok = check_init(OptsRecord),
       case dialyzer_cl:start(OptsRecord) of
         {?RET_DISCREPANCIES, Warnings} -> Warnings;
         {?RET_NOTHING_SUSPICIOUS, _}  -> []
@@ -178,6 +172,16 @@ run(Opts) ->
     throw:{dialyzer_error, ErrorMsg} ->
       erlang:error({dialyzer_error, lists:flatten(ErrorMsg)})
   end.
+
+check_init(#options{analysis_type = plt_check}) ->
+    ok;
+check_init(#options{check_plt = true} = OptsRecord) ->
+    case cl_check_init(OptsRecord) of
+	{ok, _} -> ok;
+	{error, Msg} -> throw({dialyzer_error, Msg})
+    end;
+check_init(#options{check_plt = false}) ->
+    ok.
 
 internal_gui(OptsRecord) ->
   F = fun() ->
@@ -199,17 +203,13 @@ gui(Opts) ->
       throw({dialyzer_error, Msg});
     OptsRecord ->
       ok = check_gui_options(OptsRecord),
-      case cl_check_init(OptsRecord) of
-	{ok, ?RET_NOTHING_SUSPICIOUS} ->
-	  F = fun() ->
-		  dialyzer_gui_wx:start(OptsRecord)
-	      end,
-	  case doit(F) of
-	    {ok, _} -> ok;
-	    {error, Msg} -> throw({dialyzer_error, Msg})
-	  end;
-	{error, ErrorMsg1} ->
-	  throw({dialyzer_error, ErrorMsg1})
+      ok = check_init(OptsRecord),
+      F = fun() ->
+          dialyzer_gui_wx:start(OptsRecord)
+      end,
+      case doit(F) of
+	  {ok, _} -> ok;
+	  {error, Msg} -> throw({dialyzer_error, Msg})
       end
   catch
     throw:{dialyzer_error, ErrorMsg} ->
@@ -282,15 +282,17 @@ cl_check_log(none) ->
 cl_check_log(Output) ->
   io:format("  Check output file `~s' for details\n", [Output]).
 
--spec format_warning(dial_warning()) -> string().
+-spec format_warning(raw_warning()) -> string().
 
 format_warning(W) ->
   format_warning(W, basename).
 
--spec format_warning(dial_warning(), fopt()) -> string().
+-spec format_warning(raw_warning() | dial_warning(), fopt()) -> string().
 
+format_warning({Tag, {File, Line, _MFA}, Msg}, FOpt) ->
+  format_warning({Tag, {File, Line}, Msg}, FOpt);
 format_warning({_Tag, {File, Line}, Msg}, FOpt) when is_list(File),
-						     is_integer(Line) ->
+                                                     is_integer(Line) ->
   F = case FOpt of
 	fullpath -> File;
 	basename -> filename:basename(File)

@@ -3,16 +3,17 @@
  * 
  * Copyright Ericsson AB 1997-2013. All Rights Reserved.
  * 
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
- * 
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  * 
  * %CopyrightEnd%
  */
@@ -25,6 +26,11 @@
 #endif
 #include "sys.h"
 #include "assert.h"
+#include "erl_os_monotonic_time_extender.h"
+#include "erl_time.h"
+
+/* Need to look more closely at qpc before use... */
+#define ERTS_DISABLE_USE_OF_QPC_FOR_MONOTONIC_TIME 1
 
 #define LL_LITERAL(X) ERTS_I64_LITERAL(X)
 
@@ -61,11 +67,6 @@
 	(epoch) = ((ull.QuadPart / TICKS_PER_SECOND) - EPOCH_JULIAN_DIFF); \
     } while(0)
  
-static SysHrTime wrap = 0;
-static DWORD last_tick_count = 0;
-static erts_smp_mtx_t wrap_lock;
-static ULONGLONG (WINAPI *pGetTickCount64)(void) = NULL;
-
 /* Getting timezone information is a heavy operation, so we want to do this 
    only once */
 
@@ -76,27 +77,348 @@ static int days_in_month[2][13] = {
     {0,31,28,31,30,31,30,31,31,30,31,30,31},
     {0,31,29,31,30,31,30,31,31,30,31,30,31}};
 
-int 
-sys_init_time(void)
+#define ERTS_GET_TICK_COUNT_TIME_UNIT_SHIFT 10
+
+/*
+ * erts_os_monotonic_time()
+ */
+
+struct sys_time_internal_state_read_only__ {
+    ULONGLONG (WINAPI *pGetTickCount64)(void);
+    BOOL (WINAPI *pQueryPerformanceCounter)(LARGE_INTEGER *);
+    Sint32 pcf;
+    int using_get_tick_count_time_unit;
+};
+
+struct sys_time_internal_state_read_mostly__ {
+    ErtsOsMonotonicTimeExtendState os_mtime_xtnd;
+};
+
+struct sys_time_internal_state_write_freq__ {
+    erts_smp_mtx_t mtime_mtx;
+    ULONGLONG wrap;
+    ULONGLONG last_tick_count;
+};
+
+__declspec(align(ASSUMED_CACHE_LINE_SIZE)) struct {
+    union {
+	struct sys_time_internal_state_read_only__ o;
+	char align__[(((sizeof(struct sys_time_internal_state_read_only__) - 1)
+		       / ASSUMED_CACHE_LINE_SIZE) + 1)
+		     * ASSUMED_CACHE_LINE_SIZE];
+    } r;
+    union {
+	struct sys_time_internal_state_read_mostly__ m;
+	char align__[(((sizeof(struct sys_time_internal_state_read_mostly__) - 1)
+		       / ASSUMED_CACHE_LINE_SIZE) + 1)
+		     * ASSUMED_CACHE_LINE_SIZE];
+    } wr;
+    union {
+	struct sys_time_internal_state_write_freq__ f;
+	char align__[(((sizeof(struct sys_time_internal_state_write_freq__) - 1)
+		       / ASSUMED_CACHE_LINE_SIZE) + 1)
+		     * ASSUMED_CACHE_LINE_SIZE];
+    } w;
+} internal_state;
+
+__declspec(align(ASSUMED_CACHE_LINE_SIZE)) ErtsSysTimeData__ erts_sys_time_data__;
+
+
+static ERTS_INLINE ErtsSystemTime
+SystemTime2MilliSec(SYSTEMTIME *stp)
 {
+    ErtsSystemTime stime;
+    FILETIME ft;
+    ULARGE_INTEGER ull;
+
+    SystemTimeToFileTime(stp, &ft);
+    FILETIME_TO_ULI(ull,ft);
+    /* now in 100 ns units */
+    stime = (ErtsSystemTime) ull.QuadPart;
+    stime -= (((ErtsSystemTime) EPOCH_JULIAN_DIFF)
+	      * ((ErtsSystemTime) (10*1000*1000)));
+    stime /= (ErtsSystemTime) (10*1000); /* ms */
+    return stime;
+}
+
+static ErtsMonotonicTime
+os_monotonic_time_qpc(void)
+{
+    LARGE_INTEGER pc;
+
+    if (!(*internal_state.r.o.pQueryPerformanceCounter)(&pc))
+	erl_exit(ERTS_ABORT_EXIT, "QueryPerformanceCounter() failed\n");
+
+    return (ErtsMonotonicTime) pc.QuadPart;
+}
+
+static void
+os_times_qpc(ErtsMonotonicTime *mtimep, ErtsSystemTime *stimep)
+{
+    LARGE_INTEGER pc;
+    SYSTEMTIME st;
+    ErtsSystemTime stime;
+    BOOL qpcr;
+
+    qpcr = (*internal_state.r.o.pQueryPerformanceCounter)(&pc);
+    GetSystemTime(&st);
+
+    if (!qpcr)
+	erl_exit(ERTS_ABORT_EXIT, "QueryPerformanceCounter() failed\n");
+
+    *mtimep = (ErtsMonotonicTime) pc.QuadPart;
+
+    stime = SystemTime2MilliSec(&st);
+
+    *stimep = ((ErtsSystemTime)
+	       erts_time_unit_conversion((Uint64) stime,
+					 (Uint32) 1000,
+					 internal_state.r.o.pcf));
+}
+
+static Uint32
+get_tick_count(void)
+{
+    return (Uint32) GetTickCount();
+}
+
+static ErtsMonotonicTime
+os_monotonic_time_gtc32(void) 
+{
+    ErtsMonotonicTime mtime;
+    Uint32 ticks = (Uint32) GetTickCount();
+    ERTS_CHK_EXTEND_OS_MONOTONIC_TIME(&internal_state.wr.m.os_mtime_xtnd,
+				      ticks);
+    mtime = ERTS_EXTEND_OS_MONOTONIC_TIME(&internal_state.wr.m.os_mtime_xtnd,
+					  ticks);
+    mtime <<= ERTS_GET_TICK_COUNT_TIME_UNIT_SHIFT;
+    return mtime;
+}
+
+static void
+os_times_gtc32(ErtsMonotonicTime *mtimep, ErtsSystemTime *stimep)
+{
+    SYSTEMTIME st;
+    ErtsSystemTime stime, mtime;
+    Uint32 ticks;
+
+    ticks = (Uint32) GetTickCount();
+    GetSystemTime(&st);
+
+    ERTS_CHK_EXTEND_OS_MONOTONIC_TIME(&internal_state.wr.m.os_mtime_xtnd,
+				      ticks);
+    mtime = ERTS_EXTEND_OS_MONOTONIC_TIME(&internal_state.wr.m.os_mtime_xtnd,
+					  ticks);
+    mtime <<= ERTS_GET_TICK_COUNT_TIME_UNIT_SHIFT;
+    *mtimep = mtime;
+
+    stime = SystemTime2MilliSec(&st);
+    stime <<= ERTS_GET_TICK_COUNT_TIME_UNIT_SHIFT;
+    *stimep = stime;
+
+}
+
+static ErtsMonotonicTime
+os_monotonic_time_gtc64(void) 
+{
+    ULONGLONG ticks = (*internal_state.r.o.pGetTickCount64)();
+    ErtsMonotonicTime mtime = (ErtsMonotonicTime) ticks;
+    return mtime << ERTS_GET_TICK_COUNT_TIME_UNIT_SHIFT;
+}
+
+static void
+os_times_gtc64(ErtsMonotonicTime *mtimep, ErtsSystemTime *stimep)
+{
+    SYSTEMTIME st;
+    ErtsSystemTime stime, mtime;
+    ULONGLONG ticks;
+
+    ticks = (*internal_state.r.o.pGetTickCount64)();
+    GetSystemTime(&st);
+
+    mtime = (ErtsMonotonicTime) ticks;
+    mtime <<= ERTS_GET_TICK_COUNT_TIME_UNIT_SHIFT;
+    *mtimep = mtime;
+
+    stime = SystemTime2MilliSec(&st);
+    stime <<= ERTS_GET_TICK_COUNT_TIME_UNIT_SHIFT;
+    *stimep = stime;
+}
+
+static ErtsSysHrTime
+sys_hrtime_qpc(void)
+{
+    LARGE_INTEGER pc;
+
+    if (!(*internal_state.r.o.pQueryPerformanceCounter)(&pc))
+	erl_exit(ERTS_ABORT_EXIT, "QueryPerformanceCounter() failed\n");
+
+    ASSERT(pc.QuadPart > 0);
+
+    return (ErtsSysHrTime) erts_time_unit_conversion((Uint64) pc.QuadPart,
+						     internal_state.r.o.pcf,
+						     (Uint32) 1000*1000*1000);
+}
+
+static ErtsSysHrTime
+sys_hrtime_gtc32(void)
+{
+    ErtsSysHrTime time;
+    Uint32 ticks = (Uint32) GetTickCount();
+    ERTS_CHK_EXTEND_OS_MONOTONIC_TIME(&internal_state.wr.m.os_mtime_xtnd,
+				      tick_count);
+    time = (ErtsSysHrTime) ERTS_EXTEND_OS_MONOTONIC_TIME(&internal_state.wr.m.os_mtime_xtnd,
+							 ticks);
+    time *= (ErtsSysHrTime) (1000 * 1000);
+    return time;
+}
+
+static ErtsSysHrTime
+sys_hrtime_gtc64(void)
+{
+    ErtsSysHrTime time = (*internal_state.r.o.pGetTickCount64)();
+    time *= (ErtsSysHrTime) (1000*1000);
+    return time;
+}
+
+/*
+ * Init
+ */
+
+void
+sys_init_time(ErtsSysInitTimeResult *init_resp)
+{
+    ErtsMonotonicTime (*os_mtime_func)(void);
+    void (*os_times_func)(ErtsMonotonicTime *, ErtsSystemTime *);
+    ErtsSysHrTime (*sys_hrtime_func)(void) = NULL;
+    ErtsMonotonicTime time_unit;
     char kernel_dll_name[] = "kernel32";
     HMODULE module;
 
+    init_resp->os_monotonic_time_info.clock_id = NULL;
+
     module = GetModuleHandle(kernel_dll_name);
-    pGetTickCount64 = (module != NULL) ? 
-	(ULONGLONG (WINAPI *)(void)) 
-	GetProcAddress(module,"GetTickCount64") : 
-	NULL;
+    if (!module) {
+    get_tick_count:
+	erts_smp_mtx_init(&internal_state.w.f.mtime_mtx,
+			  "os_monotonic_time");
+	internal_state.w.f.wrap = 0;
+	internal_state.w.f.last_tick_count = 0;
+
+	init_resp->os_monotonic_time_info.func = "GetTickCount";
+	init_resp->os_monotonic_time_info.locked_use = 0;
+	/* 10-16 ms resolution according to MicroSoft documentation */
+	init_resp->os_monotonic_time_info.resolution = 100; /* 10 ms */
+	time_unit = (ErtsMonotonicTime) 1000;
+	time_unit <<= ERTS_GET_TICK_COUNT_TIME_UNIT_SHIFT;
+	internal_state.r.o.using_get_tick_count_time_unit = 1;
+	os_mtime_func = os_monotonic_time_gtc32;
+	os_times_func = os_times_gtc32;
+	init_resp->os_monotonic_time_info.extended = 1;
+	erts_init_os_monotonic_time_extender(&internal_state.wr.m.os_mtime_xtnd,
+					     get_tick_count,
+					     60*60*24*7); /* Check once a week */
+	if (!sys_hrtime_func)
+	    sys_hrtime_func = sys_hrtime_gtc32;
+    }
+    else {
+	int major, minor, build;
+
+	os_version(&major, &minor, &build);
+
+	if (major < 6) {
+
+	get_tick_count64:
+
+	    internal_state.r.o.pGetTickCount64
+		= ((ULONGLONG (WINAPI *)(void))
+		   GetProcAddress(module, "GetTickCount64"));
+	    if (!internal_state.r.o.pGetTickCount64)
+		goto get_tick_count;
+
+	    init_resp->os_monotonic_time_info.func = "GetTickCount64";
+	    init_resp->os_monotonic_time_info.locked_use = 0;
+	    /* 10-16 ms resolution according to MicroSoft documentation */
+	    init_resp->os_monotonic_time_info.resolution = 100; /* 10 ms */
+	    time_unit = (ErtsMonotonicTime) 1000;
+	    time_unit <<= ERTS_GET_TICK_COUNT_TIME_UNIT_SHIFT;
+	    internal_state.r.o.using_get_tick_count_time_unit = 1;
+	    os_mtime_func = os_monotonic_time_gtc64;
+	    os_times_func = os_times_gtc64;
+	    if (!sys_hrtime_func)
+		sys_hrtime_func = sys_hrtime_gtc64;
+	}
+	else { /* Vista or newer... */
+
+	    LARGE_INTEGER pf;
+	    BOOL (WINAPI *QPF)(LARGE_INTEGER *);
+
+	    QPF = ((BOOL (WINAPI *)(LARGE_INTEGER *))
+		   GetProcAddress(module, "QueryPerformanceFrequency"));
+	    if (!QPF)
+		goto get_tick_count64;
+	    if (!(*QPF)(&pf))
+		goto get_tick_count64;
+
+	    internal_state.r.o.pQueryPerformanceCounter
+		= ((BOOL (WINAPI *)(LARGE_INTEGER *))
+		   GetProcAddress(module, "QueryPerformanceCounter"));
+	    if (!internal_state.r.o.pQueryPerformanceCounter)
+		goto get_tick_count64;
+
+	    if (pf.QuadPart > (((LONGLONG) 1) << 32))
+		goto get_tick_count64;
+
+	    internal_state.r.o.pcf = (Uint32) pf.QuadPart;
+	    sys_hrtime_func = sys_hrtime_qpc;
+	    
+	    /*
+	     * We only use QueryPerformanceCounter() for
+	     * os-monotonic-time if its frequency is equal
+	     * to, or larger than GHz in order to ensure
+	     * that the user wont be able to observe faulty
+	     * order between values retrieved on different threads.
+	     */
+	    if (pf.QuadPart < (LONGLONG) 1000*1000*1000)
+		goto get_tick_count64;
+
+	    if (ERTS_DISABLE_USE_OF_QPC_FOR_MONOTONIC_TIME)
+		goto get_tick_count64;
+
+	    init_resp->os_monotonic_time_info.func = "QueryPerformanceCounter";
+	    init_resp->os_monotonic_time_info.locked_use = 0;
+	    time_unit = (ErtsMonotonicTime) pf.QuadPart;
+	    internal_state.r.o.using_get_tick_count_time_unit = 0;
+	    init_resp->os_monotonic_time_info.resolution = time_unit;
+	    os_mtime_func = os_monotonic_time_qpc;
+	    os_times_func = os_times_qpc;
+	}
+    }
+
+    erts_sys_time_data__.r.o.os_monotonic_time = os_mtime_func;
+    erts_sys_time_data__.r.o.os_times = os_times_func;
+    init_resp->os_monotonic_time_unit = time_unit;
+    init_resp->have_os_monotonic_time = 1;
+    init_resp->have_corrected_os_monotonic_time = 0;
+    init_resp->sys_clock_resolution = 1;
+
+    init_resp->os_system_time_info.func = "GetSystemTime";    
+    init_resp->os_system_time_info.clock_id = NULL;
+    init_resp->os_system_time_info.resolution = 100;
+    init_resp->os_system_time_info.locked_use = 0;
 
     if(GetTimeZoneInformation(&static_tzi) && 
        static_tzi.StandardDate.wMonth != 0 &&
        static_tzi.DaylightDate.wMonth != 0) {
 	have_static_tzi = 1;
     }
+}
 
-    erts_smp_mtx_init(&wrap_lock, "sys_gethrtime");
-
-    return 1;
+void
+erts_late_sys_init_time(void)
+{
+    if (erts_sys_time_data__.r.o.os_monotonic_time == os_monotonic_time_gtc32)
+	erts_late_init_os_monotonic_time_extender(&internal_state.wr.m.os_mtime_xtnd);
 }
 
 /* Returns a switchtimes for DST as UTC filetimes given data from a 
@@ -377,40 +699,26 @@ sys_gettimeofday(SysTimeval *tv)
 			 EPOCH_JULIAN_DIFF);
 }
 
-extern int erts_initialized;
-SysHrTime 
-sys_gethrtime(void) 
+ErtsSystemTime
+erts_os_system_time(void)
 {
-    if (pGetTickCount64 != NULL) {
-	return ((SysHrTime) pGetTickCount64()) * LL_LITERAL(1000000);
-    } else {
-	DWORD ticks;
-	SysHrTime res;
-	erts_smp_mtx_lock(&wrap_lock);
-	ticks = (SysHrTime) (GetTickCount() & 0x7FFFFFFF);
-	if (ticks < (SysHrTime) last_tick_count) {
-	    /* Detect a race that should no longer be here... */
-	    if ((((SysHrTime) last_tick_count) - ((SysHrTime) ticks)) > 1000) {
-		wrap += LL_LITERAL(1) << 31;
-	    } else {
-		/* 
-		 * XXX Debug: Violates locking order, remove all this,
-		 * after testing!
-		 */
-		erts_dsprintf_buf_t *dsbufp = erts_create_logger_dsbuf();
-		erts_dsprintf(dsbufp, "Did not wrap when last_tick %d "
-			      "and tick %d", 
-			      last_tick_count, ticks);
-		erts_send_error_to_logger_nogl(dsbufp);
-		ticks = last_tick_count;
-	    }
-	}
-	last_tick_count = ticks;
-	res = ((((LONGLONG) ticks) + wrap) * LL_LITERAL(1000000));
-	erts_smp_mtx_unlock(&wrap_lock);
-	return res;
+    SYSTEMTIME st;
+    ErtsSystemTime stime;
+
+    GetSystemTime(&st);
+    stime = SystemTime2MilliSec(&st);
+
+    if (internal_state.r.o.using_get_tick_count_time_unit) {
+	stime <<= ERTS_GET_TICK_COUNT_TIME_UNIT_SHIFT;
+	return stime;
     }
+
+    return ((ErtsSystemTime)
+	    erts_time_unit_conversion((Uint64) stime,
+				      (Uint32) 1000,
+				      internal_state.r.o.pcf));
 }
+
 
 clock_t 
 sys_times(SysTimes *buffer) {

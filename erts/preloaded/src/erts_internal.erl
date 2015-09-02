@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 2012-2013. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -30,13 +31,21 @@
 
 -export([await_port_send_result/3]).
 -export([cmp_term/2]).
--export([map_to_tuple_keys/1]).
+-export([map_to_tuple_keys/1, map_type/1, map_hashmap_children/1]).
 -export([port_command/3, port_connect/2, port_close/1,
 	 port_control/3, port_call/3, port_info/1, port_info/2]).
 
 -export([request_system_task/3]).
 
 -export([check_process_code/2]).
+
+-export([flush_monitor_messages/3]).
+
+-export([await_result/1, gather_io_bytes/2]).
+
+-export([time_unit/0]).
+
+-export([is_system_process/1]).
 
 %%
 %% Await result of send to port
@@ -46,6 +55,33 @@ await_port_send_result(Ref, Busy, Ok) ->
     receive
 	{Ref, false} -> Busy;
 	{Ref, _} -> Ok
+    end.
+
+%%
+%% Await result...
+%%
+
+await_result(Ref) when is_reference(Ref) ->
+    receive
+	{Ref, Result} ->
+	    Result
+    end.
+
+%%
+%% statistics(io) end up in gather_io_bytes/2
+%%
+
+gather_io_bytes(Ref, No) when is_reference(Ref),
+			      is_integer(No),
+			      No > 0 ->
+    gather_io_bytes(Ref, No, 0, 0).
+
+gather_io_bytes(_Ref, 0, InAcc, OutAcc) ->
+    {{input, InAcc}, {output, OutAcc}};
+gather_io_bytes(Ref, No, InAcc, OutAcc) ->
+    receive
+	{Ref, _SchedId, In, Out} ->
+	    gather_io_bytes(Ref, No-1, InAcc + In, OutAcc + Out)
     end.
 
 %%
@@ -177,4 +213,53 @@ cmp_term(_A,_B) ->
     Keys :: tuple().
 
 map_to_tuple_keys(_M) ->
+    erlang:nif_error(undefined).
+
+%% return the internal map type
+-spec map_type(M) -> Type when
+    M :: map(),
+    Type :: 'flatmap' | 'hashmap' | 'hashmap_node'.
+
+map_type(_M) ->
+    erlang:nif_error(undefined).
+
+%% return the internal hashmap sub-nodes from
+%% a hashmap node
+-spec map_hashmap_children(M) -> Children when
+    M :: map(), %% hashmap node
+    Children :: [map() | nonempty_improper_list(term(),term())].
+
+map_hashmap_children(_M) ->
+    erlang:nif_error(undefined).
+
+-spec erts_internal:flush_monitor_messages(Ref, Multi, Res) -> term() when
+      Ref :: reference(),
+      Multi :: boolean(),
+      Res :: term().
+
+%% erlang:demonitor(Ref, [flush]) traps to
+%% erts_internal:flush_monitor_messages(Ref, Res) when
+%% it needs to flush monitor messages.
+flush_monitor_messages(Ref, Multi, Res) when is_reference(Ref) ->
+    receive
+	{_, Ref, _, _, _} ->
+	    case Multi of
+		false ->
+		    Res;
+		_ ->
+		    flush_monitor_messages(Ref, Multi, Res)
+	    end
+    after 0 ->
+	    Res
+    end.
+
+-spec erts_internal:time_unit() -> pos_integer().
+
+time_unit() ->
+    erlang:nif_error(undefined).
+
+-spec erts_internal:is_system_process(Pid) -> boolean() when
+      Pid :: pid().
+
+is_system_process(_Pid) ->
     erlang:nif_error(undefined).

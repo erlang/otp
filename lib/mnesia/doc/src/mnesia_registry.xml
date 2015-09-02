@@ -9,16 +9,17 @@
       <holder>Ericsson AB, All Rights Reserved</holder>
     </copyright>
     <legalnotice>
-  The contents of this file are subject to the Erlang Public License,
-  Version 1.1, (the "License"); you may not use this file except in
-  compliance with the License. You should have received a copy of the
-  Erlang Public License along with this software. If not, it can be
-  retrieved online at http://www.erlang.org/.
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+ 
+      http://www.apache.org/licenses/LICENSE-2.0
 
-  Software distributed under the License is distributed on an "AS IS"
-  basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-  the License for the specific language governing rights and limitations
-  under the License.
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
 
   The Initial Developer of the Original Code is Ericsson AB.
     </legalnotice>
@@ -34,71 +35,66 @@
     <file>mnesia_registry.sgml</file>
   </header>
   <module>mnesia_registry</module>
-  <modulesummary>Dump support for registries in erl_interface. </modulesummary>
+  <modulesummary>Dump support for registries in erl_interface.</modulesummary>
   <description>
-    <p>The module <c>mnesia_registry</c> is usually  part of
-      <c>erl_interface</c>, but for the time being, it is a part of the
-      Mnesia application.
-      </p>
-    <p><c>mnesia_registry</c> is mainly an module intended for
-      internal usage within OTP, but it has two functions that
-      are exported for public use.
-      </p>
-    <p>On C-nodes <c>erl_interface</c> has support for registry
-      tables. These reside in RAM on the C-node but they may also be
-      dumped into Mnesia tables. By default, the dumping of registry
-      tables via <c>erl_interface</c> causes a corresponding Mnesia
-      table to be created with <c>mnesia_registry:create_table/1</c>
-      if necessary.
-      </p>
-    <p>The tables that are created with these functions can be
-      administered as all other Mnesia tables. They may be included in
-      backups or replicas may be added etc. The tables are in fact
-      normal Mnesia tables owned by the user of the corresponding
-      <c>erl_interface</c> registries.
-      </p>
+    <p>This module is usually part of the <c>erl_interface</c>
+      application, but is currently part of the <c>Mnesia</c>
+      application.</p>
+    <p>This module is mainly intended for internal use within OTP,
+      but it has two functions that are exported for public use.</p>
+    <p>On C-nodes, <c>erl_interface</c> has support for registry
+      tables. These tables reside in RAM on the C-node, but can also
+      be dumped into <c>Mnesia</c> tables. By default, the dumping
+      of registry tables through <c>erl_interface</c> causes a
+      corresponding <c>Mnesia</c> table to be created with
+      <c>mnesia_registry:create_table/1</c>, if necessary.</p>
+    <p>Tables that are created with these functions can be
+      administered as all other <c>Mnesia</c> tables. They can be
+      included in backups, replicas can be added, and so on.
+      The tables are normal <c>Mnesia</c> tables owned by the user
+      of the corresponding <c>erl_interface</c> registries.</p>
   </description>
+
   <funcs>
     <func>
       <name>create_table(Tab) -> ok | exit(Reason)</name>
       <fsummary>Creates a registry table in Mnesia.</fsummary>
       <desc>
-        <p>This is a wrapper function for
-          <c>mnesia:create_table/2</c> which creates a table (if there is no existing table)
-          with an appropriate set of <c>attributes</c>. The table will
-          only reside on the local node and its storage type will be
-          the same as the <c>schema</c> table on the local
-          node, ie. <c>{ram_copies,[node()]}</c> or
-          <c>{disc_copies,[node()]}</c>.
-          </p>
-        <p>It is this function that is used by <c>erl_interface</c> to
-          create the Mnesia table if it did not already exist.</p>
+        <p>A wrapper function for <c>mnesia:create_table/2</c>,
+          which creates a table (if there is no existing table)
+          with an appropriate set of <c>attributes</c>. The table
+          only resides on the local node and its storage type is
+          the same as the <c>schema</c> table on the local node,
+          that is, <c>{ram_copies,[node()]}</c> or
+          <c>{disc_copies,[node()]}</c>.</p>
+        <p>This function is used by <c>erl_interface</c> to
+          create the <c>Mnesia</c> table if it does not already
+          exist.</p>
       </desc>
     </func>
     <func>
       <name>create_table(Tab, TabDef) -> ok | exit(Reason)</name>
-      <fsummary>Creates a customized registry table in Mnesia. </fsummary>
+      <fsummary>Creates a customized registry table in Mnesia.</fsummary>
       <desc>
-        <p>This is a wrapper function for
-          <c>mnesia:create_table/2</c> which creates a table (if there is no existing table)
-          with an appropriate set of <c>attributes</c>. The attributes
-          and <c>TabDef</c> are forwarded to
-          <c>mnesia:create_table/2</c>.  For example, if the table should
-          reside as <c>disc_only_copies</c> on all nodes a call would
-          look like:</p>
+        <p>A wrapper function for <c>mnesia:create_table/2</c>,
+          which creates a table (if there is no existing table)
+          with an appropriate set of <c>attributes</c>. The
+          attributes and <c>TabDef</c> are forwarded to
+          <c>mnesia:create_table/2</c>. For example, if the table
+          is to reside as <c>disc_only_copies</c> on all nodes,
+          a call looks as follows:</p>
         <code type="none">
           TabDef = [{{disc_only_copies, node()|nodes()]}],
-          mnesia_registry:create_table(my_reg, TabDef)
-        </code>
+          mnesia_registry:create_table(my_reg, TabDef)</code>
       </desc>
     </func>
   </funcs>
 
   <section>
     <title>See Also</title>
-    <p>mnesia(3), erl_interface(3)
-      </p>
+    <p><seealso marker="erl_interface:index">erl_interface(3)</seealso>,
+      <seealso marker="mnesia:mnesia">mnesia(3)</seealso></p>
   </section>
-  
+
 </erlref>
 

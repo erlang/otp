@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 2008-2015. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -120,7 +121,7 @@ pem_encode(PemEntries) when is_list(PemEntries) ->
 %% pem entries.
 %%--------------------------------------------------------------------
 pem_entry_decode({'SubjectPublicKeyInfo', Der, _}) ->
-    {_, {'AlgorithmIdentifier', AlgId, Params}, {0, Key0}}
+    {_, {'AlgorithmIdentifier', AlgId, Params}, Key0}
         = der_decode('SubjectPublicKeyInfo', Der),
     KeyType = pubkey_cert_records:supportedPublicKeyAlgorithms(AlgId),
     case KeyType of
@@ -168,14 +169,14 @@ pem_entry_decode({Asn1Type, CryptDer, {Cipher, Salt}} = PemEntry,
 pem_entry_encode('SubjectPublicKeyInfo', Entity=#'RSAPublicKey'{}) ->
     Der = der_encode('RSAPublicKey', Entity),
     Spki = {'SubjectPublicKeyInfo',
-            {'AlgorithmIdentifier', ?'rsaEncryption', ?DER_NULL}, {0, Der}},
+            {'AlgorithmIdentifier', ?'rsaEncryption', ?DER_NULL}, Der},
     pem_entry_encode('SubjectPublicKeyInfo', Spki);
 pem_entry_encode('SubjectPublicKeyInfo',
                  {DsaInt, Params=#'Dss-Parms'{}}) when is_integer(DsaInt) ->
     KeyDer = der_encode('DSAPublicKey', DsaInt),
     ParamDer = der_encode('DSAParams', {params, Params}),
     Spki = {'SubjectPublicKeyInfo',
-            {'AlgorithmIdentifier', ?'id-dsa', ParamDer}, {0, KeyDer}},
+            {'AlgorithmIdentifier', ?'id-dsa', ParamDer}, KeyDer},
     pem_entry_encode('SubjectPublicKeyInfo', Spki);
 pem_entry_encode(Asn1Type, Entity)  when is_atom(Asn1Type) ->
     Der = der_encode(Asn1Type, Entity),
@@ -234,7 +235,7 @@ der_encode(Asn1Type, Entity) when (Asn1Type == 'PrivateKeyInfo') or
 				  (Asn1Type == 'EncryptedPrivateKeyInfo') ->
      try
 	{ok, Encoded} = 'PKCS-FRAME':encode(Asn1Type, Entity),
-	iolist_to_binary(Encoded)
+	Encoded
     catch
 	error:{badmatch, {error, _}} = Error ->
 	    erlang:error(Error)
@@ -243,7 +244,7 @@ der_encode(Asn1Type, Entity) when (Asn1Type == 'PrivateKeyInfo') or
 der_encode(Asn1Type, Entity) when is_atom(Asn1Type) ->
     try 
 	{ok, Encoded} = 'OTP-PUB-KEY':encode(Asn1Type, Entity),
-	iolist_to_binary(Encoded)
+	Encoded
     catch	    
 	error:{badmatch, {error, _}} = Error ->
 	    erlang:error(Error)
@@ -391,7 +392,7 @@ generate_key(#'ECParameters'{} = Params) ->
 compute_key(#'ECPoint'{point = Point}, #'ECPrivateKey'{privateKey = PrivKey,
 						       parameters = Param}) ->
     ECCurve = ec_curve_spec(Param),
-    crypto:compute_key(ecdh, Point, list_to_binary(PrivKey), ECCurve).
+    crypto:compute_key(ecdh, Point, PrivKey, ECCurve).
 
 compute_key(PubKey, PrivKey, #'DHParameter'{prime = P, base = G}) ->
     crypto:compute_key(dh, PubKey, PrivKey, [P, G]).
@@ -446,7 +447,7 @@ sign(DigestOrPlainText, sha, #'DSAPrivateKey'{p = P, q = Q, g = G, x = X}) ->
 sign(DigestOrPlainText, DigestType, #'ECPrivateKey'{privateKey = PrivKey,
 						    parameters = Param}) ->
     ECCurve = ec_curve_spec(Param),
-    crypto:sign(ecdsa, DigestType, DigestOrPlainText, [list_to_binary(PrivKey), ECCurve]);
+    crypto:sign(ecdsa, DigestType, DigestOrPlainText, [PrivKey, ECCurve]);
 
 %% Backwards compatible
 sign(Digest, none, #'DSAPrivateKey'{} = Key) ->
@@ -458,22 +459,12 @@ sign(Digest, none, #'DSAPrivateKey'{} = Key) ->
 	     | dsa_public_key() | ec_public_key()) -> boolean().
 %% Description: Verifies a digital signature.
 %%--------------------------------------------------------------------
-verify(DigestOrPlainText, DigestType, Signature,
-       #'RSAPublicKey'{modulus = Mod, publicExponent = Exp}) ->
-    crypto:verify(rsa, DigestType, DigestOrPlainText, Signature,
-		  [Exp, Mod]);
-
-verify(DigestOrPlaintext, DigestType, Signature, {#'ECPoint'{point = Point}, Param}) ->
-    ECCurve = ec_curve_spec(Param),
-    crypto:verify(ecdsa, DigestType, DigestOrPlaintext, Signature, [Point, ECCurve]);
-
-%% Backwards compatibility
-verify(Digest, none, Signature, {_,  #'Dss-Parms'{}} = Key ) ->
-    verify({digest,Digest}, sha, Signature, Key);
-
-verify(DigestOrPlainText, sha = DigestType, Signature, {Key,  #'Dss-Parms'{p = P, q = Q, g = G}})
-  when is_integer(Key), is_binary(Signature) ->
-    crypto:verify(dss, DigestType, DigestOrPlainText, Signature, [P, Q, G, Key]).
+verify(DigestOrPlainText, DigestType, Signature, Key) when is_binary(Signature) ->
+    do_verify(DigestOrPlainText, DigestType, Signature, Key);
+verify(_,_,_,_) -> 
+    %% If Signature is a bitstring and not a binary we know already at this
+    %% point that the signature is invalid.
+    false.
 
 %%--------------------------------------------------------------------
 -spec pkix_dist_point(der_encoded() | #'OTPCertificate'{}) -> 
@@ -530,7 +521,7 @@ pkix_sign(#'OTPTBSCertificate'{signature =
     Signature = sign(Msg, DigestType, Key),
     Cert = #'OTPCertificate'{tbsCertificate= TBSCert,
 			     signatureAlgorithm = SigAlg,
-			     signature = {0, Signature}
+			     signature = Signature
 			    },
     pkix_encode('OTPCertificate', Cert, otp).
 
@@ -753,6 +744,23 @@ ssh_encode(Entries, Type) when is_list(Entries),
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
+do_verify(DigestOrPlainText, DigestType, Signature,
+       #'RSAPublicKey'{modulus = Mod, publicExponent = Exp}) ->
+    crypto:verify(rsa, DigestType, DigestOrPlainText, Signature,
+		  [Exp, Mod]);
+
+do_verify(DigestOrPlaintext, DigestType, Signature, {#'ECPoint'{point = Point}, Param}) ->
+    ECCurve = ec_curve_spec(Param),
+    crypto:verify(ecdsa, DigestType, DigestOrPlaintext, Signature, [Point, ECCurve]);
+
+%% Backwards compatibility
+do_verify(Digest, none, Signature, {_,  #'Dss-Parms'{}} = Key ) ->
+    verify({digest,Digest}, sha, Signature, Key);
+
+do_verify(DigestOrPlainText, sha = DigestType, Signature, {Key,  #'Dss-Parms'{p = P, q = Q, g = G}})
+  when is_integer(Key), is_binary(Signature) ->
+    crypto:verify(dss, DigestType, DigestOrPlainText, Signature, [P, Q, G, Key]).
+
 do_pem_entry_encode(Asn1Type, Entity, CipherInfo, Password) ->
     Der = der_encode(Asn1Type, Entity),
     DecryptDer = pubkey_pem:cipher(Der, CipherInfo, Password),
@@ -985,14 +993,14 @@ ec_generate_key(Params) ->
 ec_curve_spec( #'ECParameters'{fieldID = FieldId, curve = PCurve, base = Base, order = Order, cofactor = CoFactor }) ->
     Field = {pubkey_cert_records:supportedCurvesTypes(FieldId#'FieldID'.fieldType),
 	     FieldId#'FieldID'.parameters},
-    Curve = {erlang:list_to_binary(PCurve#'Curve'.a), erlang:list_to_binary(PCurve#'Curve'.b), none},
-    {Field, Curve, erlang:list_to_binary(Base), Order, CoFactor};
+    Curve = {PCurve#'Curve'.a, PCurve#'Curve'.b, none},
+    {Field, Curve, Base, Order, CoFactor};
 ec_curve_spec({namedCurve, OID}) ->
     pubkey_cert_records:namedCurves(OID).
 
 ec_key({PubKey, PrivateKey}, Params) ->
     #'ECPrivateKey'{version = 1,
-		    privateKey = binary_to_list(PrivateKey),
+		    privateKey = PrivateKey,
 		    parameters = Params,
-		    publicKey = {0, PubKey}}.
+		    publicKey = PubKey}.
 

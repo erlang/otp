@@ -9,16 +9,17 @@
       <holder>Ericsson AB, All Rights Reserved</holder>
     </copyright>
     <legalnotice>
-  The contents of this file are subject to the Erlang Public License,
-  Version 1.1, (the "License"); you may not use this file except in
-  compliance with the License. You should have received a copy of the
-  Erlang Public License along with this software. If not, it can be
-  retrieved online at http://www.erlang.org/.
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+ 
+      http://www.apache.org/licenses/LICENSE-2.0
 
-  Software distributed under the License is distributed on an "AS IS"
-  basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-  the License for the specific language governing rights and limitations
-  under the License.
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
 
   The Initial Developer of the Original Code is Ericsson AB.
     </legalnotice>
@@ -31,47 +32,48 @@
     <file>myths.xml</file>
   </header>
 
+  <marker id="myths"></marker>
   <p>Some truths seem to live on well beyond their best-before date,
-  perhaps because "information" spreads more rapidly from person-to-person
-  faster than a single release note that notes, for instance, that funs
+  perhaps because "information" spreads faster from person-to-person
+  than a single release note that says, for example, that funs
   have become faster.</p>
 
-  <p>Here we try to kill the old truths (or semi-truths) that have
+  <p>This section tries to kill the old truths (or semi-truths) that have
   become myths.</p>
 
   <section>
-    <title>Myth: Funs are slow</title>
-    <p>Yes, funs used to be slow. Very slow. Slower than <c>apply/3</c>.
+    <title>Myth: Funs are Slow</title>
+    <p>Funs used to be very slow, slower than <c>apply/3</c>.
     Originally, funs were implemented using nothing more than
     compiler trickery, ordinary tuples, <c>apply/3</c>, and a great
     deal of ingenuity.</p>
 
-    <p>But that is ancient history. Funs was given its own data type
-    in the R6B release and was further optimized in the R7B release.
-    Now the cost for a fun call falls roughly between the cost for a call to
-    local function and <c>apply/3</c>.</p>
+    <p>But that is history. Funs was given its own data type
+    in R6B and was further optimized in R7B.
+    Now the cost for a fun call falls roughly between the cost for a call
+    to a local function and <c>apply/3</c>.</p>
   </section>
 
   <section>
-    <title>Myth: List comprehensions are slow</title>
+    <title>Myth: List Comprehensions are Slow</title>
 
     <p>List comprehensions used to be implemented using funs, and in the
-    bad old days funs were really slow.</p>
+    old days funs were indeed slow.</p>
 
-    <p>Nowadays the compiler rewrites list comprehensions into an ordinary
-    recursive function. Of course, using a tail-recursive function with
+    <p>Nowadays, the compiler rewrites list comprehensions into an ordinary
+    recursive function. Using a tail-recursive function with
     a reverse at the end would be still faster. Or would it?
     That leads us to the next myth.</p>
   </section>
 
   <section>
-    <title>Myth: Tail-recursive functions are MUCH faster
-    than recursive functions</title>
+    <title>Myth: Tail-Recursive Functions are Much Faster
+    Than Recursive Functions</title>
 
     <p><marker id="tail_recursive"></marker>According to the myth,
     recursive functions leave references
-    to dead terms on the stack and the garbage collector will have to
-    copy all those dead terms, while tail-recursive functions immediately
+    to dead terms on the stack and the garbage collector has to copy
+    all those dead terms, while tail-recursive functions immediately
     discard those terms.</p>
 
     <p>That used to be true before R7B. In R7B, the compiler started
@@ -79,48 +81,47 @@
     be used with an empty list, so that the garbage collector would not
     keep dead values any longer than necessary.</p>
 
-    <p>Even after that optimization, a tail-recursive function would
-    still most of the time be faster than a body-recursive function. Why?</p>
+    <p>Even after that optimization, a tail-recursive function is
+    still most of the times faster than a body-recursive function. Why?</p>
 
     <p>It has to do with how many words of stack that are used in each
-    recursive call. In most cases, a recursive function would use more words
+    recursive call. In most cases, a recursive function uses more words
     on the stack for each recursion than the number of words a tail-recursive
-    would allocate on the heap. Since more memory is used, the garbage
-    collector will be invoked more frequently, and it will have more work traversing
+    would allocate on the heap. As more memory is used, the garbage
+    collector is invoked more frequently, and it has more work traversing
     the stack.</p>
 
-    <p>In R12B and later releases, there is an optimization that will
+    <p>In R12B and later releases, there is an optimization that
     in many cases reduces the number of words used on the stack in
-    body-recursive calls, so that a body-recursive list function and
+    body-recursive calls. A body-recursive list function and a
     tail-recursive function that calls <seealso
-    marker="stdlib:lists#reverse/1">lists:reverse/1</seealso> at the
-    end will use exactly the same amount of memory.
+    marker="stdlib:lists#reverse/1">lists:reverse/1</seealso> at
+    the end will use the same amount of memory.
     <c>lists:map/2</c>, <c>lists:filter/2</c>, list comprehensions,
     and many other recursive functions now use the same amount of space
     as their tail-recursive equivalents.</p>
 
-    <p>So which is faster?</p>
+    <p>So, which is faster?
+    It depends. On Solaris/Sparc, the body-recursive function seems to
+    be slightly faster, even for lists with a lot of elements. On the x86
+    architecture, tail-recursion was up to about 30% faster.</p>
 
-    <p>It depends. On Solaris/Sparc, the body-recursive function seems to
-    be slightly faster, even for lists with very many elements. On the x86
-    architecture, tail-recursion was up to about 30 percent faster.</p>
-
-    <p>So the choice is now mostly a matter of taste. If you really do need
+    <p>So, the choice is now mostly a matter of taste. If you really do need
     the utmost speed, you must <em>measure</em>. You can no longer be
-    absolutely sure that the tail-recursive list function will be the fastest
-    in all circumstances.</p>
+    sure that the tail-recursive list function always is the fastest.</p>
 
-    <p>Note: A tail-recursive function that does not need to reverse the
-    list at the end is, of course, faster than a body-recursive function,
+    <note><p>A tail-recursive function that does not need to reverse the
+    list at the end is faster than a body-recursive function,
     as are tail-recursive functions that do not construct any terms at all
-    (for instance, a function that sums all integers in a list).</p>
+    (for example, a function that sums all integers in a list).</p></note>
   </section>
 
   <section>
-    <title>Myth: '++' is always bad</title>
+    <title>Myth: Operator "++" is Always Bad</title>
 
-    <p>The <c>++</c> operator has, somewhat undeservedly, got a very bad reputation.
-    It probably has something to do with code like</p>
+    <p>The <c>++</c> operator has, somewhat undeservedly, got a bad reputation.
+    It probably has something to do with code like the following,
+    which is the most inefficient way there is to reverse a list:</p>
     
     <p><em>DO NOT</em></p>
     <code type="erl">
@@ -129,12 +130,10 @@ naive_reverse([H|T]) ->
 naive_reverse([]) ->
     [].</code>
 
-    <p>which is the most inefficient way there is to reverse a list.
-    Since the <c>++</c> operator copies its left operand, the result
-    will be copied again and again and again... leading to quadratic
-    complexity.</p>
+    <p>As the <c>++</c> operator copies its left operand, the result
+    is copied repeatedly, leading to quadratic complexity.</p>
 
-    <p>On the other hand, using <c>++</c> like this</p>
+    <p>But using <c>++</c> as follows is not bad:</p>
 
     <p><em>OK</em></p>
     <code type="erl">
@@ -143,11 +142,11 @@ naive_but_ok_reverse([H|T], Acc) ->
 naive_but_ok_reverse([], Acc) ->
     Acc.</code>
 
-    <p>is not bad. Each list element will only be copied once.
+    <p>Each list element is copied only once.
     The growing result <c>Acc</c> is the right operand
-    for the <c>++</c> operator, and it will <em>not</em> be copied.</p>
+    for the <c>++</c> operator, and it is <em>not</em> copied.</p>
 
-    <p>Of course, experienced Erlang programmers would actually write</p>
+    <p>Experienced Erlang programmers would write as follows:</p>
 
     <p><em>DO</em></p>
     <code type="erl">
@@ -156,32 +155,34 @@ vanilla_reverse([H|T], Acc) ->
 vanilla_reverse([], Acc) ->
     Acc.</code>
 
-    <p>which is slightly more efficient because you don't build a
-    list element only to directly copy it. (Or it would be more efficient
-    if the the compiler did not automatically rewrite <c>[H]++Acc</c>
+    <p>This is slightly more efficient because here you do not build a
+    list element only to copy it directly. (Or it would be more efficient
+    if the compiler did not automatically rewrite <c>[H]++Acc</c>
     to <c>[H|Acc]</c>.)</p>
   </section>
 
   <section>
-    <title>Myth: Strings are slow</title>
+    <title>Myth: Strings are Slow</title>
 
-    <p>Actually, string handling could be slow if done improperly.
-    In Erlang, you'll have to think a little more about how the strings
-    are used and choose an appropriate representation and use
-    the <seealso marker="stdlib:re">re</seealso> module instead of the obsolete
-    <c>regexp</c> module if you are going to use regular expressions.</p>
+    <p>String handling can be slow if done improperly.
+    In Erlang, you need to think a little more about how the strings
+    are used and choose an appropriate representation. If you
+    use regular expressions, use the
+    <seealso marker="stdlib:re">re</seealso> module in STDLIB
+    instead of the obsolete <c>regexp</c> module.</p>
   </section>
 
   <section>
-    <title>Myth: Repairing a Dets file is very slow</title>
+    <title>Myth: Repairing a Dets File is Very Slow</title>
 
     <p>The repair time is still proportional to the number of records
-    in the file, but Dets repairs used to be much, much slower in the past.
+    in the file, but Dets repairs used to be much slower in the past.
     Dets has been massively rewritten and improved.</p>
   </section>
 
   <section>
-    <title>Myth: BEAM is a stack-based byte-code virtual machine (and therefore slow)</title>
+    <title>Myth: BEAM is a Stack-Based Byte-Code Virtual Machine
+    (and Therefore Slow)</title>
 
     <p>BEAM is a register-based virtual machine. It has 1024 virtual registers
     that are used for holding temporary values and for passing arguments when
@@ -193,11 +194,11 @@ vanilla_reverse([], Acc) ->
   </section>
 
   <section>
-    <title>Myth: Use '_' to speed up your program when a variable is not used</title>
+    <title>Myth: Use "_" to Speed Up Your Program When a Variable
+    is Not Used</title>
 
-    <p>That was once true, but since R6B the BEAM compiler is quite capable of seeing itself
+    <p>That was once true, but from R6B the BEAM compiler can see
     that a variable is not used.</p>
   </section>
-
 </chapter>
 

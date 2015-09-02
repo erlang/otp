@@ -3,16 +3,17 @@
  *
  * Copyright Ericsson AB 1998-2014. All Rights Reserved.
  *
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  * %CopyrightEnd%
  */
@@ -198,11 +199,6 @@ set_match_trace(Process *tracee_p, Eterm fail_term, Eterm tracer,
     return ret;
 }
 
-
-/* Type checking... */
-
-#define BOXED_IS_TUPLE(Boxed) is_arity_value(*boxed_val((Boxed)))
-
 /*
 **
 ** Types and enum's (compiled matches)
@@ -218,7 +214,9 @@ typedef enum {
     matchTuple,
     matchPushT,
     matchPushL,
+    matchPushM,
     matchPop,
+    matchSwap,
     matchBind,
     matchCmp,
     matchEqBin,
@@ -227,11 +225,15 @@ typedef enum {
     matchEqRef,
     matchEq,
     matchList,
+    matchMap,
+    matchKey,
     matchSkip,
     matchPushC,
     matchConsA, /* Car is below Cdr */
     matchConsB, /* Cdr is below Car (unusual) */
     matchMkTuple,
+    matchMkFlatMap,
+    matchMkHashMap,
     matchCall0,
     matchCall1,
     matchCall2,
@@ -856,6 +858,13 @@ static int match_compact(ErlHeapFragment *expr, DMCErrInfo *err_info);
 static Uint my_size_object(Eterm t);
 static Eterm my_copy_struct(Eterm t, Eterm **hp, ErlOffHeap* off_heap);
 
+/* Guard subroutines */
+static void
+dmc_rearrange_constants(DMCContext *context, DMC_STACK_TYPE(UWord) *text,
+                        int textpos, Eterm *p, Uint nelems);
+static DMCRet
+dmc_array(DMCContext *context, DMCHeap *heap, DMC_STACK_TYPE(UWord) *text,
+          Eterm *p, Uint nelems, int *constant);
 /* Guard compilation */
 static void do_emit_constant(DMCContext *context, DMC_STACK_TYPE(UWord) *text,
 			     Eterm t);
@@ -869,6 +878,9 @@ static DMCRet dmc_tuple(DMCContext *context,
 		       DMC_STACK_TYPE(UWord) *text,
 		       Eterm t,
 		       int *constant);
+static DMCRet
+dmc_map(DMCContext *context, DMCHeap *heap, DMC_STACK_TYPE(UWord) *text,
+        Eterm t, int *constant);
 static DMCRet dmc_variable(DMCContext *context,
 			   DMCHeap *heap,
 			   DMC_STACK_TYPE(UWord) *text,
@@ -888,12 +900,14 @@ static DMCRet compile_guard_expr(DMCContext *context,
 				    DMCHeap *heap,
 				    DMC_STACK_TYPE(UWord) *text,
 				    Eterm t);
-/* match expression subroutine */
+/* match expression subroutines */
 static DMCRet dmc_one_term(DMCContext *context, 
 			   DMCHeap *heap,
 			   DMC_STACK_TYPE(Eterm) *stack,
 			   DMC_STACK_TYPE(UWord) *text,
 			   Eterm c);
+static Eterm
+dmc_private_copy(DMCContext *context, Eterm c);
 
 
 #ifdef DMC_DEBUG
@@ -1364,7 +1378,112 @@ restart:
 	for (;;) {
 	    switch (t & _TAG_PRIMARY_MASK) {
 	    case TAG_PRIMARY_BOXED:
-		if (!BOXED_IS_TUPLE(t)) {
+                if (is_flatmap(t)) {
+                    num_iters = flatmap_get_size(flatmap_val(t));
+                    if (!structure_checked) {
+                        DMC_PUSH(text, matchMap);
+                        DMC_PUSH(text, num_iters);
+                    }
+                    structure_checked = 0;
+                    for (i = 0; i < num_iters; ++i) {
+                        Eterm key = flatmap_get_keys(flatmap_val(t))[i];
+                        if (db_is_variable(key) >= 0) {
+                            if (context.err_info) {
+                                add_dmc_err(context.err_info,
+                                            "Variable found in map key.",
+                                            -1, 0UL, dmcError);
+                            }
+                            goto error;
+                        } else if (key == am_Underscore) {
+                            if (context.err_info) {
+                                add_dmc_err(context.err_info,
+                                            "Underscore found in map key.",
+                                            -1, 0UL, dmcError);
+                            }
+                            goto error;
+                        }
+                        DMC_PUSH(text, matchKey);
+                        DMC_PUSH(text, dmc_private_copy(&context, key));
+                        {
+                            int old_stack = ++(context.stack_used);
+                            Eterm value = flatmap_get_values(flatmap_val(t))[i];
+                            res = dmc_one_term(&context, &heap, &stack, &text,
+                                               value);
+                            ASSERT(res != retFail);
+                            if (res == retRestart) {
+                                goto restart;
+                            }
+                            if (old_stack != context.stack_used) {
+                                ASSERT(old_stack + 1 == context.stack_used);
+                                DMC_PUSH(text, matchSwap);
+                            }
+                            if (context.stack_used > context.stack_need) {
+                                context.stack_need = context.stack_used;
+                            }
+                            DMC_PUSH(text, matchPop);
+                            --(context.stack_used);
+                        }
+                    }
+                    break;
+                }
+                if (is_hashmap(t)) {
+                    DECLARE_WSTACK(wstack);
+                    Eterm *kv;
+                    num_iters = hashmap_size(t);
+                    if (!structure_checked) {
+                        DMC_PUSH(text, matchMap);
+                        DMC_PUSH(text, num_iters);
+                    }
+                    structure_checked = 0;
+
+                    hashmap_iterator_init(&wstack, t, 0);
+
+                    while ((kv=hashmap_iterator_next(&wstack)) != NULL) {
+                        Eterm key = CAR(kv);
+                        Eterm value = CDR(kv);
+                        if (db_is_variable(key) >= 0) {
+                            if (context.err_info) {
+                                add_dmc_err(context.err_info,
+                                        "Variable found in map key.",
+                                        -1, 0UL, dmcError);
+                            }
+                            DESTROY_WSTACK(wstack);
+                            goto error;
+                        } else if (key == am_Underscore) {
+                            if (context.err_info) {
+                                add_dmc_err(context.err_info,
+                                        "Underscore found in map key.",
+                                        -1, 0UL, dmcError);
+                            }
+                            DESTROY_WSTACK(wstack);
+                            goto error;
+                        }
+                        DMC_PUSH(text, matchKey);
+                        DMC_PUSH(text, dmc_private_copy(&context, key));
+                        {
+                            int old_stack = ++(context.stack_used);
+                            res = dmc_one_term(&context, &heap, &stack, &text,
+                                               value);
+                            ASSERT(res != retFail);
+                            if (res == retRestart) {
+                                DESTROY_WSTACK(wstack);
+                                goto restart;
+                            }
+                            if (old_stack != context.stack_used) {
+                                ASSERT(old_stack + 1 == context.stack_used);
+                                DMC_PUSH(text, matchSwap);
+                            }
+                            if (context.stack_used > context.stack_need) {
+                                context.stack_need = context.stack_used;
+                            }
+                            DMC_PUSH(text, matchPop);
+                            --(context.stack_used);
+                        }
+                    }
+                    DESTROY_WSTACK(wstack);
+                    break;
+                }
+		if (!is_tuple(t)) {
 		    goto simple_term;
 		}
 		num_iters = arityval(*tuple_val(t));
@@ -1715,10 +1834,8 @@ Eterm db_prog_match(Process *c_p, Binary *bprog,
 		    Uint32 *return_flags)
 {
     MatchProg *prog = Binary2MatchProg(bprog);
-    Eterm *ep;
-    Eterm *tp;
+    const Eterm *ep, *tp, **sp;
     Eterm t;
-    Eterm **sp;
     Eterm *esp;
     MatchVariable* variables;
     BeamInstr *cp;
@@ -1808,7 +1925,7 @@ Eterm db_prog_match(Process *c_p, Binary *bprog,
 restart:
     ep = &term;
     esp = (Eterm*)((char*)mpsp->u.heap + prog->stack_offset);
-    sp = (Eterm **) esp;
+    sp = (const Eterm **)esp;
     ret = am_true;
     do_catch = 0;
     fail_label = -1;
@@ -1887,9 +2004,57 @@ restart:
 	    *sp++ = list_val_rel(*ep,base);
 	    ++ep;
 	    break;
+        case matchMap:
+            if (!is_map_rel(*ep, base)) {
+                FAIL();
+            }
+            n = *pc++;
+            if (is_flatmap_rel(*ep,base)) {
+		if (flatmap_get_size(flatmap_val_rel(*ep, base)) < n) {
+		    FAIL();
+		}
+            } else {
+		ASSERT(is_hashmap_rel(*ep,base));
+		if (hashmap_size_rel(*ep, base) < n) {
+		    FAIL();
+		}
+	    }
+            ep = flatmap_val_rel(*ep, base);
+            break;
+        case matchPushM:
+            if (!is_map_rel(*ep, base)) {
+                FAIL();
+            }
+            n = *pc++;
+            if (is_flatmap_rel(*ep,base)) {
+		if (flatmap_get_size(flatmap_val_rel(*ep, base)) < n) {
+		    FAIL();
+		}
+	    } else {
+		ASSERT(is_hashmap_rel(*ep,base));
+		if (hashmap_size_rel(*ep, base) < n) {
+		    FAIL();
+		}
+	    }
+            *sp++ = flatmap_val_rel(*ep++, base);
+            break;
+        case matchKey:
+            t = (Eterm) *pc++;
+            tp = erts_maps_get_rel(t, make_boxed_rel(ep, base), base);
+            if (!tp) {
+                FAIL();
+            }
+            *sp++ = ep;
+            ep = tp;
+            break;
 	case matchPop:
 	    ep = *(--sp);
 	    break;
+        case matchSwap:
+            tp = sp[-1];
+            sp[-1] = sp[-2];
+            sp[-2] = tp;
+            break;
 	case matchBind:
 	    n = *pc++;
 	    variables[n].term = *ep++;
@@ -1987,6 +2152,39 @@ restart:
 	    }
 	    *esp++ = t;
 	    break;
+        case matchMkFlatMap:
+            n = *pc++;
+            ehp = HAllocX(build_proc, MAP_HEADER_FLATMAP_SZ + n, HEAP_XTRA);
+            t = *--esp;
+            {
+                flatmap_t *m = (flatmap_t *)ehp;
+                m->thing_word = MAP_HEADER_FLATMAP;
+                m->size = n;
+                m->keys = t;
+            }
+            t = make_flatmap(ehp);
+            ehp += MAP_HEADER_FLATMAP_SZ;
+            while (n--) {
+                *ehp++ = *--esp;
+            }
+            *esp++ = t;
+            break;
+        case matchMkHashMap:
+            n = *pc++;
+            esp -= 2*n;
+            ehp = HAllocX(build_proc, 2*n, HEAP_XTRA);
+            {
+                ErtsHeapFactory factory;
+                Uint ix;
+                for (ix = 0; ix < 2*n; ix++){
+                    ehp[ix] = esp[ix];
+                }
+                erts_factory_proc_init(&factory, build_proc);
+                t = erts_hashmap_from_array(&factory, ehp, n, 0);
+                erts_factory_close(&factory);
+            }
+            *esp++ = t;
+            break;
 	case matchCall0:
 	    bif = (Eterm (*)(Process*, ...)) *pc++;
 	    t = (*bif)(build_proc, bif_args);
@@ -2601,10 +2799,10 @@ Wterm db_do_read_element(DbUpdateHandle* handle, Sint position)
     }
 
     ASSERT(((DbTableCommon*)handle->tb)->compress);
-    ASSERT(!handle->mustResize);
+    ASSERT(!(handle->flags & DB_MUST_RESIZE));
     handle->dbterm = db_alloc_tmp_uncompressed(&handle->tb->common,
 					       handle->dbterm);
-    handle->mustResize = 1;
+    handle->flags |= DB_MUST_RESIZE;
     return handle->dbterm->tpl[position];
 }
 
@@ -2637,11 +2835,11 @@ void db_do_update_element(DbUpdateHandle* handle,
     #endif
 	return;
     }
-    if (!handle->mustResize) {
+    if (!(handle->flags & DB_MUST_RESIZE)) {
 	if (handle->tb->common.compress) {
 	    handle->dbterm = db_alloc_tmp_uncompressed(&handle->tb->common,
 						       handle->dbterm);
-	    handle->mustResize = 1;
+	    handle->flags |= DB_MUST_RESIZE;
 	    oldval = handle->dbterm->tpl[position];
         #if HALFWORD_HEAP
 	    old_base = NULL;
@@ -2701,7 +2899,7 @@ both_size_set:
 
     /* write new value in old dbterm, finalize will make a flat copy */
     handle->dbterm->tpl[position] = newval;
-    handle->mustResize = 1;
+    handle->flags |= DB_MUST_RESIZE;
 
 #if HALFWORD_HEAP
     if (old_base && newval_sz > 0) {
@@ -2996,6 +3194,7 @@ Eterm db_copy_from_comp(DbTableCommon* tb, DbTerm* bp, Eterm** hpp,
 {
     Eterm* hp = *hpp;
     int i, arity = arityval(bp->tpl[0]);
+    ErtsHeapFactory factory;
 
     hp[0] = bp->tpl[0];
     *hpp += arity + 1;
@@ -3003,17 +3202,23 @@ Eterm db_copy_from_comp(DbTableCommon* tb, DbTerm* bp, Eterm** hpp,
     hp[tb->keypos] = copy_struct_rel(bp->tpl[tb->keypos],
 				     size_object_rel(bp->tpl[tb->keypos], bp->tpl),
 				     hpp, off_heap, bp->tpl, NULL);
+
+    erts_factory_static_init(&factory, *hpp, bp->size - (arity+1), off_heap);
+
     for (i=arity; i>0; i--) {
 	if (i != tb->keypos) {
 	    if (is_immed(bp->tpl[i])) {
 		hp[i] = bp->tpl[i];
 	    }
 	    else {
-		hp[i] = erts_decode_ext_ets(hpp, off_heap,
+		hp[i] = erts_decode_ext_ets(&factory,
 					    elem2ext(bp->tpl, i));
 	    }
 	}
     }
+    *hpp = factory.hp;
+    erts_factory_close(&factory);
+
     ASSERT((*hpp - hp) <= bp->size);
 #ifdef DEBUG_CLONE
     ASSERT(eq_rel(make_tuple(hp),NULL,make_tuple(bp->debug_clone),bp->debug_clone));
@@ -3032,12 +3237,13 @@ Eterm db_copy_element_from_ets(DbTableCommon* tb, Process* p,
     if (tb->compress && pos != tb->keypos) {
 	byte* ext = elem2ext(obj->tpl, pos);
 	Sint sz = erts_decode_ext_size_ets(ext, db_alloced_size_comp(obj)) + extra;
-	Eterm* hp = HAlloc(p, sz);
-	Eterm* endp = hp + sz;
-	Eterm copy = erts_decode_ext_ets(&hp, &MSO(p), ext);
-	*hpp = hp;
-	hp += extra;
-	HRelease(p, endp, hp);
+	Eterm copy;
+        ErtsHeapFactory factory;
+
+        erts_factory_proc_prealloc_init(&factory, p, sz);
+        copy = erts_decode_ext_ets(&factory, ext);
+	*hpp = erts_produce_heap(&factory, extra, 0);
+        erts_factory_close(&factory);
 #ifdef DEBUG_CLONE
 	ASSERT(eq_rel(copy, NULL, obj->debug_clone[pos], obj->debug_clone));
 #endif
@@ -3151,39 +3357,86 @@ int db_is_variable(Eterm obj)
     return N;
 }
 
+/* check if node is (or contains) a map
+ * return 1 if node contains a map
+ * return 0 otherwise
+ */
+
+int db_has_map(Eterm node) {
+    DECLARE_ESTACK(s);
+
+    ESTACK_PUSH(s,node);
+    while (!ESTACK_ISEMPTY(s)) {
+	node = ESTACK_POP(s);
+        if (is_list(node)) {
+	    while (is_list(node)) {
+		ESTACK_PUSH(s,CAR(list_val(node)));
+		node = CDR(list_val(node));
+	    }
+	    ESTACK_PUSH(s,node);    /* Non wellformed list or [] */
+        } else if (is_tuple(node)) {
+            Eterm *tuple = tuple_val(node);
+            int arity = arityval(*tuple);
+            while(arity--) {
+                ESTACK_PUSH(s,*(++tuple));
+            }
+        } else if is_map(node) {
+            DESTROY_ESTACK(s);
+            return 1;
+        }
+    }
+    DESTROY_ESTACK(s);
+    return 0;
+}
 
 /* check if obj is (or contains) a variable */
 /* return 1 if obj contains a variable or underscore */
 /* return 0 if obj is fully ground                   */
 
-int db_has_variable(Eterm obj)
-{
-    switch(obj & _TAG_PRIMARY_MASK) {
-    case TAG_PRIMARY_LIST: {
-	while (is_list(obj)) {
-	    if (db_has_variable(CAR(list_val(obj))))
-		return 1;
-	    obj = CDR(list_val(obj));
-	}
-	return(db_has_variable(obj));  /* Non wellformed list or [] */
-    }
-    case TAG_PRIMARY_BOXED: 
-	if (!BOXED_IS_TUPLE(obj)) {
-	    return 0;
-	} else {
-	    Eterm *tuple = tuple_val(obj);
-	    int arity = arityval(*tuple++);
-	    while(arity--) {
-		if (db_has_variable(*tuple))
-		    return 1;
-		tuple++;
+int db_has_variable(Eterm node) {
+    DECLARE_ESTACK(s);
+
+    ESTACK_PUSH(s,node);
+    while (!ESTACK_ISEMPTY(s)) {
+	node = ESTACK_POP(s);
+	switch(node & _TAG_PRIMARY_MASK) {
+	case TAG_PRIMARY_LIST:
+	    while (is_list(node)) {
+		ESTACK_PUSH(s,CAR(list_val(node)));
+		node = CDR(list_val(node));
 	    }
-	    return(0);
+	    ESTACK_PUSH(s,node);    /* Non wellformed list or [] */
+	    break;
+	case TAG_PRIMARY_BOXED:
+	    if (is_tuple(node)) {
+		Eterm *tuple = tuple_val(node);
+		int arity = arityval(*tuple);
+		while(arity--) {
+		    ESTACK_PUSH(s,*(++tuple));
+		}
+            } else if (is_flatmap(node)) {
+                Eterm *values = flatmap_get_values(flatmap_val(node));
+                Uint size = flatmap_get_size(flatmap_val(node));
+                ESTACK_PUSH(s, ((flatmap_t *) flatmap_val(node))->keys);
+                while (size--) {
+                    ESTACK_PUSH(s, *(values++));
+                }
+            } else if (is_map(node)) { /* other map-nodes or map-heads */
+                Eterm *ptr = hashmap_val(node);
+                int i = hashmap_bitcount(MAP_HEADER_VAL(*ptr));
+                ptr += MAP_HEADER_ARITY(*ptr);
+                while(i--) { ESTACK_PUSH(s, *++ptr); }
+            }
+	    break;
+	case TAG_PRIMARY_IMMED1:
+	    if (node == am_Underscore || db_is_variable(node) >= 0) {
+		DESTROY_ESTACK(s);
+		return 1;
+	    }
+	    break;
 	}
-    case TAG_PRIMARY_IMMED1:
-	if (obj == am_Underscore || db_is_variable(obj) >= 0)
-	    return 1;
     }
+    DESTROY_ESTACK(s);
     return 0;
 }
 
@@ -3243,10 +3496,8 @@ static DMCRet dmc_one_term(DMCContext *context,
 {
     Sint n;
     Eterm *hp;
-    ErlHeapFragment *tmp_mb;
     Uint sz, sz2, sz3;
     Uint i, j;
-
 
     switch (c & _TAG_PRIMARY_MASK) {
     case TAG_PRIMARY_IMMED1:
@@ -3334,6 +3585,16 @@ static DMCRet dmc_one_term(DMCContext *context,
 	    DMC_PUSH(*text, n);
 	    DMC_PUSH(*stack, c);
 	    break;
+        case (_TAG_HEADER_MAP >> _TAG_PRIMARY_SIZE):
+            if (is_flatmap(c))
+                n = flatmap_get_size(flatmap_val(c));
+            else
+                n = hashmap_size(c);
+            DMC_PUSH(*text, matchPushM);
+            ++(context->stack_used);
+            DMC_PUSH(*text, n);
+            DMC_PUSH(*stack, c);
+            break;
 	case (_TAG_HEADER_REF >> _TAG_PRIMARY_SIZE):
 	{
 	    Eterm* ref_val = internal_ref_val(c);
@@ -3415,16 +3676,8 @@ static DMCRet dmc_one_term(DMCContext *context,
 #endif
 	    break;
 	default: /* BINARY, FUN, VECTOR, or EXTERNAL */
-	    /*
-	    ** Make a private copy...
-	    */
-	    n = size_object(c);
-	    tmp_mb = new_message_buffer(n);
-	    hp = tmp_mb->mem;
 	    DMC_PUSH(*text, matchEqBin);
-	    DMC_PUSH(*text, copy_struct(c, n, &hp, &(tmp_mb->off_heap)));
-	    tmp_mb->next = context->save;
-	    context->save = tmp_mb;
+            DMC_PUSH(*text, dmc_private_copy(context, c));
 	    break;
 	}
 	break;
@@ -3434,6 +3687,22 @@ static DMCRet dmc_one_term(DMCContext *context,
 		 "Bad object on heap: 0x%bex\n", c);
     }
     return retOk;
+}
+
+/*
+** Make a private copy of a term in a context.
+*/
+
+static Eterm
+dmc_private_copy(DMCContext *context, Eterm c)
+{
+    Uint n = size_object(c);
+    ErlHeapFragment *tmp_mb = new_message_buffer(n);
+    Eterm *hp = tmp_mb->mem;
+    Eterm copy = copy_struct(c, n, &hp, &(tmp_mb->off_heap));
+    tmp_mb->next = context->save;
+    context->save = tmp_mb;
+    return copy;
 }
 
 /*
@@ -3527,63 +3796,171 @@ static DMCRet dmc_list(DMCContext *context,
     return retOk;
 }
 
-static DMCRet dmc_tuple(DMCContext *context,
-		       DMCHeap *heap,
-		       DMC_STACK_TYPE(UWord) *text,
-		       Eterm t,
-		       int *constant)
+static void
+dmc_rearrange_constants(DMCContext *context, DMC_STACK_TYPE(UWord) *text,
+                        int textpos, Eterm *p, Uint nelems)
 {
     DMC_STACK_TYPE(UWord) instr_save;
+    Uint i;
+
+    DMC_INIT_STACK(instr_save);
+    while (DMC_STACK_NUM(*text) > textpos) {
+        DMC_PUSH(instr_save, DMC_POP(*text));
+    }
+    for (i = nelems; i--;) {
+        do_emit_constant(context, text, p[i]);
+    }
+    while(!DMC_EMPTY(instr_save)) {
+        DMC_PUSH(*text, DMC_POP(instr_save));
+    }
+    DMC_FREE(instr_save);
+}
+
+static DMCRet
+dmc_array(DMCContext *context, DMCHeap *heap, DMC_STACK_TYPE(UWord) *text,
+          Eterm *p, Uint nelems, int *constant)
+{
     int all_constant = 1;
     int textpos = DMC_STACK_NUM(*text);
-    Eterm *p = tuple_val(t);
-    Uint nelems = arityval(*p);
     Uint i;
-    int c;
-    DMCRet ret;
 
     /*
-    ** We remember where we started to layout code, 
+    ** We remember where we started to layout code,
     ** assume all is constant and back up and restart if not so.
-    ** The tuple should be laid out with the last element first,
-    ** so we can memcpy the tuple to the eheap.
+    ** The array should be laid out with the last element first,
+    ** so we can memcpy it to the eheap.
     */
-    for (i = nelems; i > 0; --i) {
-	if ((ret = dmc_expr(context, heap, text, p[i], &c)) != retOk)
-	    return ret;
-	if (!c && all_constant) {
-	    all_constant = 0;
-	    if (i < nelems) {
-		Uint j;
+    for (i = nelems; i--;) {
+        DMCRet ret;
+        int c;
 
-		/*
-		 * Oops, we need to relayout the constants.
-		 * Save the already laid out instructions.
-		 */
-		DMC_INIT_STACK(instr_save);
-		while (DMC_STACK_NUM(*text) > textpos) 
-		    DMC_PUSH(instr_save, DMC_POP(*text));
-		for (j = nelems; j > i; --j)
-		    do_emit_constant(context, text, p[j]);
-		while(!DMC_EMPTY(instr_save))
-		    DMC_PUSH(*text, DMC_POP(instr_save));
-		DMC_FREE(instr_save);
-	    }
-	} else if (c && !all_constant) {
-	    /* push a constant */
-	    do_emit_constant(context, text, p[i]);
-	}
+        ret = dmc_expr(context, heap, text, p[i], &c);
+        if (ret != retOk) {
+            return ret;
+        }
+        if (!c && all_constant) {
+            all_constant = 0;
+            if (i < nelems - 1) {
+                dmc_rearrange_constants(context, text, textpos,
+                                        p + i + 1, nelems - i - 1);
+            }
+        } else if (c && !all_constant) {
+            do_emit_constant(context, text, p[i]);
+        }
     }
-    
+    *constant = all_constant;
+    return retOk;
+}
+
+static DMCRet
+dmc_tuple(DMCContext *context, DMCHeap *heap, DMC_STACK_TYPE(UWord) *text,
+          Eterm t, int *constant)
+{
+    int all_constant;
+    Eterm *p = tuple_val(t);
+    Uint nelems = arityval(*p);
+    DMCRet ret;
+
+    ret = dmc_array(context, heap, text, p + 1, nelems, &all_constant);
+    if (ret != retOk) {
+        return ret;
+    }
     if (all_constant) {
-	*constant = 1;
-	return retOk;
+        *constant = 1;
+        return retOk;
     }
     DMC_PUSH(*text, matchMkTuple);
     DMC_PUSH(*text, nelems);
     context->stack_used -= (nelems - 1);
     *constant = 0;
     return retOk;
+}
+
+static DMCRet
+dmc_map(DMCContext *context, DMCHeap *heap, DMC_STACK_TYPE(UWord) *text,
+        Eterm t, int *constant)
+{
+    int nelems;
+    int constant_values;
+    DMCRet ret;
+    if (is_flatmap(t)) {
+        flatmap_t *m = (flatmap_t *)flatmap_val(t);
+        Eterm *values = flatmap_get_values(m);
+
+        nelems = flatmap_get_size(m);
+        ret = dmc_array(context, heap, text, values, nelems, &constant_values);
+
+        if (ret != retOk) {
+            return ret;
+        }
+        if (constant_values) {
+            *constant = 1;
+            return retOk;
+        }
+        DMC_PUSH(*text, matchPushC);
+        DMC_PUSH(*text, dmc_private_copy(context, m->keys));
+        if (++context->stack_used > context->stack_need) {
+            context->stack_need = context->stack_used;
+        }
+        DMC_PUSH(*text, matchMkFlatMap);
+        DMC_PUSH(*text, nelems);
+        context->stack_used -= nelems;
+        *constant = 0;
+        return retOk;
+    } else {
+        DECLARE_WSTACK(wstack);
+        Eterm *kv;
+        int c;
+
+        ASSERT(is_hashmap(t));
+
+        hashmap_iterator_init(&wstack, t, 1);
+        constant_values = 1;
+        nelems = hashmap_size(t);
+
+        while ((kv=hashmap_iterator_prev(&wstack)) != NULL) {
+            if ((ret = dmc_expr(context, heap, text, CDR(kv), &c)) != retOk) {
+                DESTROY_WSTACK(wstack);
+                return ret;
+            }
+            if (!c)
+                constant_values = 0;
+        }
+
+        if (constant_values) {
+            *constant = 1;
+            DESTROY_WSTACK(wstack);
+            return retOk;
+        }
+
+        *constant = 0;
+
+        hashmap_iterator_init(&wstack, t, 1);
+
+        while ((kv=hashmap_iterator_prev(&wstack)) != NULL) {
+            /* push key */
+            if ((ret = dmc_expr(context, heap, text, CAR(kv), &c)) != retOk) {
+                DESTROY_WSTACK(wstack);
+                return ret;
+            }
+            if (c) {
+                do_emit_constant(context, text, CAR(kv));
+            }
+            /* push value */
+            if ((ret = dmc_expr(context, heap, text, CDR(kv), &c)) != retOk) {
+                DESTROY_WSTACK(wstack);
+                return ret;
+            }
+            if (c) {
+                do_emit_constant(context, text, CDR(kv));
+            }
+        }
+        DMC_PUSH(*text, matchMkHashMap);
+        DMC_PUSH(*text, nelems);
+        context->stack_used -= nelems;
+        DESTROY_WSTACK(wstack);
+        return retOk;
+    }
 }
 
 static DMCRet dmc_whole_expression(DMCContext *context,
@@ -4580,7 +4957,10 @@ static DMCRet dmc_expr(DMCContext *context,
 	    return ret;
 	break;
     case TAG_PRIMARY_BOXED:
-	if (!BOXED_IS_TUPLE(t)) {
+        if (is_map(t)) {
+            return dmc_map(context, heap, text, t, constant);
+        }
+	if (!is_tuple(t)) {
 	    goto simple_term;
 	}
 	p = tuple_val(t);
@@ -4855,7 +5235,7 @@ static Eterm my_copy_struct(Eterm t, Eterm **hp, ErlOffHeap* off_heap)
 	*hp += 2;
 	break;
     case TAG_PRIMARY_BOXED:
-	if (BOXED_IS_TUPLE(t)) {
+	if (is_tuple(t)) {
 	    if (arityval(*tuple_val(t)) == 1 && 
 		is_tuple(a = tuple_val(t)[1])) {
 		Uint i,n;
@@ -5126,6 +5506,18 @@ void db_match_dis(Binary *bp)
 	    ++t;
 	    erts_printf("Tuple\t%beu\n", n);
 	    break;
+        case matchMap:
+            ++t;
+            n = *t;
+            ++t;
+            erts_printf("Map\t%beu\n", n);
+            break;
+        case matchKey:
+            ++t;
+            p = (Eterm) *t;
+            ++t;
+            erts_printf("Key\t%p (%T)\n", t, p);
+            break;
 	case matchPushT:
 	    ++t;
 	    n = *t;
@@ -5136,10 +5528,20 @@ void db_match_dis(Binary *bp)
 	    ++t;
 	    erts_printf("PushL\n");
 	    break;
+        case matchPushM:
+            ++t;
+            n = *t;
+            ++t;
+            erts_printf("PushM\t%beu\n", n);
+            break;
 	case matchPop:
 	    ++t;
 	    erts_printf("Pop\n");
 	    break;
+        case matchSwap:
+            ++t;
+            erts_printf("Swap\n");
+            break;
 	case matchBind:
 	    ++t;
 	    n = *t;
@@ -5252,6 +5654,18 @@ void db_match_dis(Binary *bp)
 	    ++t;
 	    erts_printf("MkTuple\t%beu\n", n);
 	    break;
+        case matchMkFlatMap:
+            ++t;
+            n = *t;
+            ++t;
+            erts_printf("MkFlatMap\t%beu\n", n);
+            break;
+        case matchMkHashMap:
+            ++t;
+            n = *t;
+            ++t;
+            erts_printf("MkHashMap\t%beu\n", n);
+            break;
 	case matchOr:
 	    ++t;
 	    n = *t;

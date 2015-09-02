@@ -8,16 +8,17 @@
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
-      The contents of this file are subject to the Erlang Public License,
-      Version 1.1, (the "License"); you may not use this file except in
-      compliance with the License. You should have received a copy of the
-      Erlang Public License along with this software. If not, it can be
-      retrieved online at http://www.erlang.org/.
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
 
-      Software distributed under the License is distributed on an "AS IS"
-      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-      the License for the specific language governing rights and limitations
-      under the License.
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
 
     </legalnotice>
 
@@ -29,6 +30,329 @@
     <file>notes.xml</file>
   </header>
   <p>This document describes the changes made to the STDLIB application.</p>
+
+<section><title>STDLIB 2.5</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix handling of single dot in filename:join/2</p>
+          <p>
+	    The reference manual says that filename:join(A,B) is
+	    equivalent to filename:join([A,B]). In some rare cases
+	    this turns out not to be true. For example:</p>
+          <p>
+	    <c>filename:join("/a/.","b") -&gt; "/a/./b"</c> vs
+	    <c>filename:join(["/a/.","b"]) -&gt; "/a/b"</c>.</p>
+          <p>
+	    This has been corrected. A single dot is now only kept if
+	    it occurs at the very beginning or the very end of the
+	    resulting path.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-12158</p>
+        </item>
+        <item>
+          <p>
+	    The undocumented option <c>generic_debug</c> for
+	    <c>gen_server</c> has been removed.</p>
+          <p>
+	    Own Id: OTP-12183</p>
+        </item>
+        <item>
+          <p>
+	    erl_lint:icrt_export/4 has been rewritten to make the
+	    code really follow the scoping rules of Erlang, and not
+	    just in most situations by accident.</p>
+          <p>
+	    Own Id: OTP-12186</p>
+        </item>
+        <item>
+          <p>
+	    Add 'trim_all' option to binary:split/3</p>
+          <p>
+	    This option can be set to remove _ALL_ empty parts of the
+	    result of a call to binary:split/3.</p>
+          <p>
+	    Own Id: OTP-12301</p>
+        </item>
+        <item>
+	    <p> Correct orddict(3) regarding evaluation order of
+	    <c>fold()</c> and <c>map()</c>. </p>
+          <p>
+	    Own Id: OTP-12651 Aux Id: seq12832 </p>
+        </item>
+        <item>
+          <p>
+	    Correct <c>maps</c> module error exceptions </p>
+          <p>
+	    Bad input to maps module function will now yield the
+	    following exceptions: <list> <item>{badmap,NotMap}
+	    or,</item> <item>badarg</item> </list></p>
+          <p>
+	    Own Id: OTP-12657</p>
+        </item>
+        <item>
+          <p>
+	    It is now possible to paste text in JCL mode (using
+	    Ctrl-Y) that has been copied in the previous shell
+	    session. Also a bug that caused the JCL mode to crash
+	    when pasting text has been fixed.</p>
+          <p>
+	    Own Id: OTP-12673</p>
+        </item>
+        <item>
+          <p>
+	    Add <c>uptime()</c> shell command.</p>
+          <p>
+	    Own Id: OTP-12752</p>
+        </item>
+        <item>
+          <p>
+	    Cache nowarn_bif_clash functions in erl_lint.</p>
+          <p>
+	    This patch stores nowarn_bif_clash in the lint record. By
+	    using erlc +'{eprof,lint_module}' when compiling the
+	    erlang parser, we noticed the time spent on
+	    nowarn_function/2 reduced from 30% to 0.01%.</p>
+          <p>
+	    Own Id: OTP-12754</p>
+        </item>
+        <item>
+          <p>
+	    Optimize the Erlang Code Linter by using the cached
+	    filename information.</p>
+          <p>
+	    Own Id: OTP-12772</p>
+        </item>
+        <item>
+          <p>
+	    If a child of a simple_one_for_one returns ignore from
+	    its start function no longer store the child for any
+	    restart type. It is not possible to restart or delete the
+	    child because the supervisor is a simple_one_for_one.</p>
+          <p>
+	    Own Id: OTP-12793</p>
+        </item>
+        <item>
+          <p>
+	    Make <c>ets:file2tab</c> preserve enabled
+	    <c>read_concurrency</c> and <c>write_concurrency</c>
+	    options for tables.</p>
+          <p>
+	    Own Id: OTP-12814</p>
+        </item>
+        <item>
+          <p>
+	    There are many cases where user code needs to be able to
+	    distinguish between a socket that was closed normally and
+	    one that was aborted. Setting the option
+	    {show_econnreset, true} enables the user to receive
+	    ECONNRESET errors on both active and passive sockets.</p>
+          <p>
+	    Own Id: OTP-12841</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Allow maps for supervisor flags and child specs</p>
+          <p>
+	    Earlier, supervisor flags and child specs were given as
+	    tuples. While this is kept for backwards compatibility,
+	    it is now also allowed to give these parameters as maps,
+	    see <seealso
+	    marker="stdlib:supervisor#sup_flags">sup_flags</seealso>
+	    and <seealso
+	    marker="stdlib:supervisor#child_spec">child_spec</seealso>.</p>
+          <p>
+	    Own Id: OTP-11043</p>
+        </item>
+        <item>
+          <p>
+	    A new system message, <c>terminate</c>, is added. This
+	    can be sent with <c>sys:terminate/2,3</c>. If the
+	    receiving process handles system messages properly it
+	    will terminate shortly after receiving this message.</p>
+          <p>
+	    The new function <c>proc_lib:stop/1,3</c> utilizes this
+	    new system message and monitors the receiving process in
+	    order to facilitate a synchronous stop mechanism for
+	    'special processes'.</p>
+          <p>
+	    <c>proc_lib:stop/1,3</c> is used by the following
+	    functions:</p>
+          <p>
+	    <list> <item><c>gen_server:stop/1,3</c> (new)</item>
+	    <item><c>gen_fsm:stop/1,3</c> (new)</item>
+	    <item><c>gen_event:stop/1,3</c> (modified to be
+	    synchronous)</item> <item><c>wx_object:stop/1,3</c>
+	    (new)</item> </list></p>
+          <p>
+	    Own Id: OTP-11173 Aux Id: seq12353 </p>
+        </item>
+        <item>
+          <p>
+	    Remove the <c>pg</c> module, which has been deprecated
+	    through OTP-17, is now removed from the STDLIB
+	    application. This module has been marked experimental for
+	    more than 15 years, and has largely been superseded by
+	    the <c>pg2</c> module from the Kernel application.</p>
+          <p>
+	    Own Id: OTP-11907</p>
+        </item>
+        <item>
+          <p>
+	    New BIF: <c>erlang:get_keys/0</c>, lists all keys
+	    associated with the process dictionary. Note:
+	    <c>erlang:get_keys/0</c> is auto-imported.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-12151 Aux Id: seq12521 </p>
+        </item>
+        <item>
+	    <p> Add three new functions to <c>io_lib</c>--
+	    <c>scan_format/2</c>, <c>unscan_format/1</c>, and
+	    <c>build_text/1</c>-- which expose the parsed form of the
+	    format control sequences to make it possible to easily
+	    modify or filter the input to <c>io_lib:format/2</c>.
+	    This can e.g. be used in order to replace unbounded-size
+	    control sequences like <c>~w</c> or <c>~p</c> with
+	    corresponding depth-limited <c>~W</c> and <c>~P</c>
+	    before doing the actual formatting. </p>
+          <p>
+	    Own Id: OTP-12167</p>
+        </item>
+        <item>
+	    <p> Introduce the <c>erl_anno</c> module, an abstraction
+	    of the second element of tokens and tuples in the
+	    abstract format. </p>
+          <p>
+	    Own Id: OTP-12195</p>
+        </item>
+        <item>
+          <p>
+	    Support variables as Map keys in expressions and patterns</p>
+	    <p>Erlang will accept any expression as keys in Map
+	    expressions and it will accept literals or bound
+	    variables as keys in Map patterns.</p>
+          <p>
+	    Own Id: OTP-12218</p>
+        </item>
+        <item>
+	    <p> The last traces of Mnemosyne Rules have been removed.
+	    </p>
+          <p>
+	    Own Id: OTP-12257</p>
+        </item>
+        <item>
+          <p>
+	    Properly support maps in match_specs</p>
+          <p>
+	    Own Id: OTP-12270</p>
+        </item>
+        <item>
+          <p>
+	    New function <c>ets:take/2</c>. Works the same as
+	    <c>ets:delete/2</c> but also returns the deleted
+	    object(s).</p>
+          <p>
+	    Own Id: OTP-12309</p>
+        </item>
+        <item>
+	    <p><c>string:tokens/2</c> is somewhat faster, especially
+	    if the list of separators only contains one separator
+	    character.</p>
+          <p>
+	    Own Id: OTP-12422 Aux Id: seq12774 </p>
+        </item>
+        <item>
+	    <p>The documentation of the Abstract Format (in the ERTS
+	    User's Guide) has been updated with types and
+	    specification. (Thanks to Anthony Ramine.) </p> <p> The
+	    explicit representation of parentheses used in types of
+	    the abstract format has been removed. Instead the new
+	    functions <c>erl_parse:type_inop_prec()</c> and
+	    <c>erl_parse:type_preop_prec()</c> can be used for
+	    inserting parentheses where needed. </p>
+          <p>
+	    Own Id: OTP-12492</p>
+        </item>
+        <item>
+          <p>
+	    Prevent zip:zip_open/[12] from leaking file descriptors
+	    if parent process dies.</p>
+          <p>
+	    Own Id: OTP-12566</p>
+        </item>
+        <item>
+          <p>
+	    Add a new random number generator, see <c>rand</c>
+	    module. It have better characteristics and an improved
+	    interface.</p>
+          <p>
+	    Own Id: OTP-12586 Aux Id: OTP-12501, OTP-12502 </p>
+        </item>
+        <item>
+	    <p><c>filename:split/1</c> when given an empty binary
+	    will now return an empty list, to make it consistent with
+	    return value when given an empty list.</p>
+          <p>
+	    Own Id: OTP-12716</p>
+        </item>
+        <item>
+          <p>
+	    Add <c>sync</c> option to <c>ets:tab2file/3</c>.</p>
+          <p>
+	    Own Id: OTP-12737 Aux Id: seq12805 </p>
+        </item>
+        <item>
+	    <p> Add functions <c>gb_sets:iterator_from()</c> and
+	    <c>gb_trees:iterator_from()</c>. (Thanks to Kirill
+	    Kinduk.) </p>
+          <p>
+	    Own Id: OTP-12742</p>
+        </item>
+        <item>
+          <p>
+	    Add <c>maps:filter/2</c> to maps module.</p>
+          <p>
+	    Own Id: OTP-12745</p>
+        </item>
+        <item>
+          <p>
+	    Change some internal data structures to Maps in order to
+	    speed up compilation time. Measured speed up is around
+	    10%-15%.</p>
+          <p>
+	    Own Id: OTP-12774</p>
+        </item>
+        <item>
+	    <p> Update <c>orddict</c> to use parameterized types and
+	    specs. (Thanks to UENISHI Kota.) </p>
+          <p>
+	    Own Id: OTP-12785</p>
+        </item>
+        <item>
+	    <p>The assert macros in <c>eunit</c> has been moved out
+	    to <c>stdlib/include/assert.hrl</c>. This files get
+	    included by <c>eunit.hrl</c>. Thus, nothing changes for
+	    eunit users, but the asserts can now also be included
+	    separately.</p>
+          <p>
+	    Own Id: OTP-12808</p>
+        </item>
+      </list>
+    </section>
+
+</section>
 
 <section><title>STDLIB 2.4</title>
 

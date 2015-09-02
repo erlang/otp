@@ -142,7 +142,10 @@ SeqImp3 ::= SET
   set  Set1
 }
 
-
+SeqCompOf ::= SEQUENCE {
+  ...,
+  COMPONENTS OF SeqS3
+}
 
 END
 

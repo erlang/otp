@@ -3,16 +3,17 @@
 # 
 # Copyright Ericsson AB 1997-2013. All Rights Reserved.
 # 
-# The contents of this file are subject to the Erlang Public License,
-# Version 1.1, (the "License"); you may not use this file except in
-# compliance with the License. You should have received a copy of the
-# Erlang Public License along with this software. If not, it can be
-# retrieved online at http://www.erlang.org/.
-# 
-# Software distributed under the License is distributed on an "AS IS"
-# basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-# the License for the specific language governing rights and limitations
-# under the License.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 # 
 # %CopyrightEnd%
 #
@@ -206,6 +207,7 @@ $(EBIN)/asn1ct_constructed_per.beam: asn1ct_constructed_per.erl asn1_records.hrl
 $(EBIN)/asn1ct_func.beam: asn1ct_func.erl
 $(EBIN)/asn1ct_gen.beam: asn1ct_gen.erl asn1_records.hrl
 $(EBIN)/asn1ct_gen_ber_bin_v2.beam: asn1ct_gen_ber_bin_v2.erl asn1_records.hrl
+$(EBIN)/asn1ct_gen_check.beam: asn1_records.hrl
 $(EBIN)/asn1ct_gen_per.beam: asn1ct_gen_per.erl asn1_records.hrl
 $(EBIN)/asn1ct_gen_per_rt2ct.beam: asn1ct_gen_per_rt2ct.erl asn1_records.hrl
 $(EBIN)/asn1ct_imm.beam: asn1ct_imm.erl

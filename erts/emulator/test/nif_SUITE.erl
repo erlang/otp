@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 2010-2014. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -39,7 +40,9 @@
 	 get_length/1, make_atom/1, make_string/1, reverse_list_test/1,
 	 otp_9828/1,
 	 otp_9668/1, consume_timeslice/1, dirty_nif/1, dirty_nif_send/1,
-	 dirty_nif_exception/1, nif_schedule/1
+	 dirty_nif_exception/1, call_dirty_nif_exception/1, nif_schedule/1,
+	 nif_exception/1, call_nif_exception/1,
+	 nif_nan_and_inf/1, nif_atom_too_long/1
 	]).
 
 -export([many_args_100/100]).
@@ -68,7 +71,8 @@ all() ->
      make_string,reverse_list_test,
      otp_9828,
      otp_9668, consume_timeslice,
-     nif_schedule, dirty_nif, dirty_nif_send, dirty_nif_exception
+     nif_schedule, dirty_nif, dirty_nif_send, dirty_nif_exception,
+     nif_exception, nif_nan_and_inf, nif_atom_too_long
     ].
 
 groups() -> 
@@ -451,7 +455,7 @@ maps(Config) when is_list(Config) ->
     M  = maps_from_list_nif(Pairs),
     R = {RIs,Is} = sorted_list_from_maps_nif(M),
     io:format("Pairs: ~p~nMap: ~p~nReturned: ~p~n", [lists:sort(Pairs),M,R]),
-    Is = lists:sort(Pairs),
+    true = (lists:sort(Is) =:= lists:sort(Pairs)),
     Is = lists:reverse(RIs),
 
     #{} = maps_from_list_nif([]),
@@ -1188,7 +1192,9 @@ send3(Config) when is_list(Config) ->
     %% Let a number of processes send random message blobs between each other
     %% using enif_send. Kill and spawn new ones randomly to keep a ~constant
     %% number of workers running.
-    Seed = now(),
+    Seed = {erlang:monotonic_time(),
+	    erlang:time_offset(),
+	    erlang:unique_integer()},
     io:format("seed: ~p\n",[Seed]), 
     random:seed(Seed),    
     ets:new(nif_SUITE,[named_table,public]),
@@ -1383,7 +1389,7 @@ is_checks(Config) when is_list(Config) ->
 			self(), hd(erlang:ports()), [], [1,9,9,8],
 			{hejsan, "hejsan", [$h,"ejs",<<"an">>]}, -18446744073709551616.2e2),
     try
-        ?line error = check_is_exception(),
+        ?line check_is_exception(),
         ?line throw(expected_badarg)
     catch
         error:badarg ->
@@ -1595,17 +1601,92 @@ dirty_nif_exception(Config) when is_list(Config) ->
 	N when is_integer(N) ->
 	    ensure_lib_loaded(Config),
 	    try
-	        call_dirty_nif_exception(),
+		%% this checks that the expected exception occurs when the
+		%% dirty NIF returns the result of enif_make_badarg
+		%% directly
+	        call_dirty_nif_exception(1),
 	        ?t:fail(expected_badarg)
 	    catch
 	        error:badarg ->
-		    [{?MODULE,call_dirty_nif_exception,[],_}|_] =
+		    [{?MODULE,call_dirty_nif_exception,[1],_}|_] =
 			erlang:get_stacktrace(),
 		    ok
-	    end
+	    end,
+	    try
+		%% this checks that the expected exception occurs when the
+		%% dirty NIF calls enif_make_badarg at some point but then
+		%% returns a value that isn't an exception
+	        call_dirty_nif_exception(0),
+	        ?t:fail(expected_badarg)
+	    catch
+	        error:badarg ->
+		    [{?MODULE,call_dirty_nif_exception,[0],_}|_] =
+			erlang:get_stacktrace(),
+		    ok
+	    end,
+	    %% this checks that a dirty NIF can raise various terms as
+	    %% exceptions
+	    ok = nif_raise_exceptions(call_dirty_nif_exception)
     catch
 	error:badarg ->
 	    {skipped,"No dirty scheduler support"}
+    end.
+
+nif_exception(Config) when is_list(Config) ->
+    ensure_lib_loaded(Config),
+    try
+	%% this checks that the expected exception occurs when the NIF
+	%% calls enif_make_badarg at some point but then tries to return a
+	%% value that isn't an exception
+	call_nif_exception(0),
+	?t:fail(expected_badarg)
+    catch
+	error:badarg ->
+	    ok
+    end,
+    %% this checks that a NIF can raise various terms as exceptions
+    ok = nif_raise_exceptions(call_nif_exception),
+    ok.
+
+nif_nan_and_inf(Config) when is_list(Config) ->
+    ensure_lib_loaded(Config),
+    try
+	call_nif_nan_or_inf(nan),
+	?t:fail(expected_badarg)
+    catch
+	error:badarg ->
+	    ok
+    end,
+    try
+	call_nif_nan_or_inf(inf),
+	?t:fail(expected_badarg)
+    catch
+	error:badarg ->
+	    ok
+    end,
+    try
+	call_nif_nan_or_inf(tuple),
+	?t:fail(expected_badarg)
+    catch
+	error:badarg ->
+	    ok
+    end.
+
+nif_atom_too_long(Config) when is_list(Config) ->
+    ensure_lib_loaded(Config),
+    try
+	call_nif_atom_too_long(all),
+	?t:fail(expected_badarg)
+    catch
+	error:badarg ->
+	    ok
+    end,
+    try
+	call_nif_atom_too_long(len),
+	?t:fail(expected_badarg)
+    catch
+	error:badarg ->
+	    ok
     end.
 
 next_msg(_Pid) ->
@@ -1687,7 +1768,20 @@ check(Exp,Got,Line) ->
   	    io:format("CHECK at ~p: Expected ~p but got ~p\n",[Line,Exp,Got]),
  	    Got
     end.
-	    
+
+nif_raise_exceptions(NifFunc) ->
+    ExcTerms = [{error, test}, "a string", <<"a binary">>,
+		42, [1,2,3,4,5], [{p,1},{p,2},{p,3}]],
+    lists:foldl(fun(Term, ok) ->
+			try
+			    erlang:apply(?MODULE,NifFunc,[Term]),
+			    ?t:fail({expected,Term})
+			catch
+			    error:Term ->
+				[{?MODULE,NifFunc,[Term],_}|_] = erlang:get_stacktrace(),
+				ok
+			end
+		end, ok, ExcTerms).
 
 %% The NIFs:
 lib_version() -> undefined.
@@ -1741,8 +1835,11 @@ consume_timeslice_nif(_,_) -> ?nif_stub.
 call_nif_schedule(_,_) -> ?nif_stub.
 call_dirty_nif(_,_,_) -> ?nif_stub.
 send_from_dirty_nif(_) -> ?nif_stub.
-call_dirty_nif_exception() -> ?nif_stub.
+call_dirty_nif_exception(_) -> ?nif_stub.
 call_dirty_nif_zero_args() -> ?nif_stub.
+call_nif_exception(_) -> ?nif_stub.
+call_nif_nan_or_inf(_) -> ?nif_stub.
+call_nif_atom_too_long(_) -> ?nif_stub.
 
 %% maps
 is_map_nif(_) -> ?nif_stub.

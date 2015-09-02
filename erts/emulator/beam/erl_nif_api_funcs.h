@@ -3,16 +3,17 @@
  *
  * Copyright Ericsson AB 2009-2014. All Rights Reserved.
  *
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  * %CopyrightEnd%
  */
@@ -156,6 +157,8 @@ ERL_NIF_API_FUNC_DECL(int, enif_map_iterator_next, (ErlNifEnv *env, ErlNifMapIte
 ERL_NIF_API_FUNC_DECL(int, enif_map_iterator_prev, (ErlNifEnv *env, ErlNifMapIterator *iter));
 ERL_NIF_API_FUNC_DECL(int, enif_map_iterator_get_pair, (ErlNifEnv *env, ErlNifMapIterator *iter, ERL_NIF_TERM *key, ERL_NIF_TERM *value));
 ERL_NIF_API_FUNC_DECL(ERL_NIF_TERM,enif_schedule_nif,(ErlNifEnv*,const char*,int,ERL_NIF_TERM (*)(ErlNifEnv*,int,const ERL_NIF_TERM[]),int,const ERL_NIF_TERM[]));
+ERL_NIF_API_FUNC_DECL(int, enif_has_pending_exception, (ErlNifEnv *env, ERL_NIF_TERM* reason));
+ERL_NIF_API_FUNC_DECL(ERL_NIF_TERM, enif_raise_exception, (ErlNifEnv *env, ERL_NIF_TERM reason));
 
 /*
 ** ADD NEW ENTRIES HERE (before this comment) !!!
@@ -305,6 +308,8 @@ ERL_NIF_API_FUNC_DECL(int,enif_is_on_dirty_scheduler,(ErlNifEnv*));
 #  define enif_map_iterator_prev ERL_NIF_API_FUNC_MACRO(enif_map_iterator_prev)
 #  define enif_map_iterator_get_pair ERL_NIF_API_FUNC_MACRO(enif_map_iterator_get_pair)
 #  define enif_schedule_nif ERL_NIF_API_FUNC_MACRO(enif_schedule_nif)
+#  define enif_has_pending_exception ERL_NIF_API_FUNC_MACRO(enif_has_pending_exception)
+#  define enif_raise_exception ERL_NIF_API_FUNC_MACRO(enif_raise_exception)
 
 /*
 ** ADD NEW ENTRIES HERE (before this comment)

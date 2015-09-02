@@ -3,16 +3,17 @@
 %% 
 %% Copyright Ericsson AB 2007-2013. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %%
@@ -172,6 +173,10 @@ remap([{bif,Name,Fail,Ss,D}|Is], Map, Acc) ->
 remap([{gc_bif,Name,Fail,Live,Ss,D}|Is], Map, Acc) ->
     I = {gc_bif,Name,Fail,Live,[Map(S) || S <- Ss],Map(D)},
     remap(Is, Map, [I|Acc]);
+remap([{get_map_elements,Fail,M,{list,L0}}|Is], Map, Acc) ->
+    L = [Map(E) || E <- L0],
+    I = {get_map_elements,Fail,Map(M),{list,L}},
+    remap(Is, Map, [I|Acc]);
 remap([{bs_init,Fail,Info,Live,Ss0,Dst0}|Is], Map, Acc) ->
     Ss = [Map(Src) || Src <- Ss0],
     Dst = Map(Dst0),
@@ -275,6 +280,8 @@ frame_size([{kill,_}|Is], Safe) ->
     frame_size(Is, Safe);
 frame_size([{make_fun2,_,_,_,_}|Is], Safe) ->
     frame_size(Is, Safe);
+frame_size([{get_map_elements,{f,L},_,_}|Is], Safe) ->
+    frame_size_branch(L, Is, Safe);
 frame_size([{deallocate,N}|_], _) -> N;
 frame_size([{line,_}|Is], Safe) ->
     frame_size(Is, Safe);

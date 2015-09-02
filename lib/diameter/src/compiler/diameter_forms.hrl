@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2015. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -28,8 +29,10 @@
                     [],
                     [?APPLY(erlang, error, [?ATOM(badarg)])]}).
 
+-define(ANNO(L), erl_anno:new(L)).
+
 %% Form tag with line number.
--define(F(T), T, ?LINE).
+-define(F(T), T, ?ANNO(?LINE)).
 %% Yes, that's right. The replacement is to the first unmatched ')'.
 
 -define(attribute,    ?F(attribute)).
@@ -47,10 +50,10 @@
 -define(record_index, ?F(record_index)).
 -define(tuple,        ?F(tuple)).
 
--define(ATOM(T),      {atom, ?LINE, T}).
--define(INTEGER(N),   {integer, ?LINE, N}).
--define(VAR(V),       {var, ?LINE, V}).
--define(NIL,          {nil, ?LINE}).
+-define(ATOM(T),      {atom, ?ANNO(?LINE), T}).
+-define(INTEGER(N),   {integer, ?ANNO(?LINE), N}).
+-define(VAR(V),       {var, ?ANNO(?LINE), V}).
+-define(NIL,          {nil, ?ANNO(?LINE)}).
 
 -define(CALL(F,A),    {?call, ?ATOM(F), A}).
 -define(APPLY(M,F,A), {?call, {?remote, ?ATOM(M), ?ATOM(F)}, A}).

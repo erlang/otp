@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2015. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -1006,7 +1007,7 @@ listify(T) ->
 -record(simple_qlc,
         {p,         % atom(), pattern variable
          le,
-         line,
+         line :: erl_anno:anno(),
          init_value,
          optz       % #optz
          }).
@@ -1148,15 +1149,18 @@ abstract(Info, true=_Flat, NElements, Depth) ->
         [{match,_,Expr,Q}] ->
             Q;
         [{match,_,Expr,Q} | Body] ->
-            {block, 0, lists:reverse(Body, [Q])};
+            {block, anno0(), lists:reverse(Body, [Q])};
         _ ->
-            {block, 0, lists:reverse(Body0, [Expr])}
+            {block, anno0(), lists:reverse(Body0, [Expr])}
     end.
 
-abstract({qlc, E0, Qs0, Opt}, NElements, Depth) ->
+abstract(Info, NElements, Depth) ->
+    abstract1(Info, NElements, Depth, anno1()).
+
+abstract1({qlc, E0, Qs0, Opt}, NElements, Depth, A) ->
     Qs = lists:map(fun({generate, P, LE}) ->
-                           {generate, 1, binary_to_term(P), 
-                            abstract(LE, NElements, Depth)};
+                           {generate, A, binary_to_term(P),
+                            abstract1(LE, NElements, Depth, A)};
                       (F) -> 
                            binary_to_term(F)
                    end, Qs0),
@@ -1165,12 +1169,12 @@ abstract({qlc, E0, Qs0, Opt}, NElements, Depth) ->
              [] -> [];
              _ -> [abstract_term(Opt, 1)]
          end,
-    ?QLC_Q(1, 1, 1, 1, {lc,1,E,Qs}, Os);
-abstract({table, {M, F, As0}}, _NElements, _Depth) 
+    ?QLC_Q(A, A, A, A, {lc,A,E,Qs}, Os);
+abstract1({table, {M, F, As0}}, _NElements, _Depth, Anno)
                           when is_atom(M), is_atom(F), is_list(As0) ->
     As = [abstract_term(A, 1) || A <- As0],
-    {call, 1, {remote, 1, {atom, 1, M}, {atom, 1, F}}, As};
-abstract({table, TableDesc}, _NElements, _Depth) ->
+    {call, Anno, {remote, Anno, {atom, Anno, M}, {atom, Anno, F}}, As};
+abstract1({table, TableDesc}, _NElements, _Depth, _A) ->
     case io_lib:deep_char_list(TableDesc) of
         true ->
             {ok, Tokens, _} = erl_scan:string(lists:flatten(TableDesc++".")),
@@ -1179,27 +1183,28 @@ abstract({table, TableDesc}, _NElements, _Depth) ->
         false -> % abstract expression
             TableDesc
     end;
-abstract({append, Infos}, NElements, Depth) ->
+abstract1({append, Infos}, NElements, Depth, A) ->
     As = lists:foldr(fun(Info, As0) -> 
-                             {cons,1,abstract(Info, NElements, Depth),As0}
-                     end, {nil, 1}, Infos),
-    {call, 1, {remote, 1, {atom, 1, ?MODULE}, {atom, 1, append}}, [As]};
-abstract({sort, Info, SortOptions}, NElements, Depth) ->    
-    {call, 1, {remote, 1, {atom, 1, ?MODULE}, {atom, 1, sort}},
-     [abstract(Info, NElements, Depth), abstract_term(SortOptions, 1)]};
-abstract({keysort, Info, Kp, SortOptions}, NElements, Depth) ->
-    {call, 1, {remote, 1, {atom, 1, ?MODULE}, {atom, 1, keysort}},
-     [abstract_term(Kp, 1), abstract(Info, NElements, Depth), 
+                             {cons,A,abstract1(Info, NElements, Depth, A),
+                              As0}
+                     end, {nil, A}, Infos),
+    {call, A, {remote, A, {atom, A, ?MODULE}, {atom, A, append}}, [As]};
+abstract1({sort, Info, SortOptions}, NElements, Depth, A) ->
+    {call, A, {remote, A, {atom, A, ?MODULE}, {atom, A, sort}},
+     [abstract1(Info, NElements, Depth, A), abstract_term(SortOptions, 1)]};
+abstract1({keysort, Info, Kp, SortOptions}, NElements, Depth, A) ->
+    {call, A, {remote, A, {atom, A, ?MODULE}, {atom, A, keysort}},
+     [abstract_term(Kp, 1), abstract1(Info, NElements, Depth, A),
       abstract_term(SortOptions, 1)]};
-abstract({list,L,MS}, NElements, Depth) ->
-    {call, 1, {remote, 1, {atom, 1, ets}, {atom, 1, match_spec_run}},
-     [abstract(L, NElements, Depth),
-      {call, 1, {remote, 1, {atom, 1, ets}, {atom, 1, match_spec_compile}},
+abstract1({list,L,MS}, NElements, Depth, A) ->
+    {call, A, {remote, A, {atom, A, ets}, {atom, A, match_spec_run}},
+     [abstract1(L, NElements, Depth, A),
+      {call, A, {remote, A, {atom, A, ets}, {atom, A, match_spec_compile}},
        [abstract_term(depth(MS, Depth), 1)]}]};
-abstract({list, L}, NElements, Depth) when NElements =:= infinity; 
-                                           NElements >= length(L) ->
+abstract1({list, L}, NElements, Depth, _A) when NElements =:= infinity;
+                                                NElements >= length(L) ->
     abstract_term(depth(L, Depth), 1);
-abstract({list, L}, NElements, Depth) ->
+abstract1({list, L}, NElements, Depth, _A) ->
     abstract_term(depth(lists:sublist(L, NElements), Depth) ++ '...', 1).
 
 depth(List, infinity) ->
@@ -1251,14 +1256,14 @@ abstract_term(Term) ->
     abstract_term(Term, 0).
 
 abstract_term(Term, Line) ->
-    abstr_term(Term, Line).
+    abstr_term(Term, anno(Line)).
 
 abstr_term(Tuple, Line) when is_tuple(Tuple) ->
     {tuple,Line,[abstr_term(E, Line) || E <- tuple_to_list(Tuple)]};
 abstr_term([_ | _]=L, Line) ->
     case io_lib:char_list(L) of
         true ->
-            erl_parse:abstract(L, Line);
+            erl_parse:abstract(L, erl_anno:line(Line));
         false ->
             abstr_list(L, Line)
     end;
@@ -1285,7 +1290,7 @@ abstr_term(Fun, Line) when is_function(Fun) ->
 abstr_term(PPR, Line) when is_pid(PPR); is_port(PPR); is_reference(PPR) ->
     {special, Line, lists:flatten(io_lib:write(PPR))};    
 abstr_term(Simple, Line) ->
-    erl_parse:abstract(Simple, Line).
+    erl_parse:abstract(Simple, erl_anno:line(Line)).
 
 abstr_list([H | T], Line) ->
     {cons, Line, abstr_term(H, Line), abstr_list(T, Line)};
@@ -1519,7 +1524,7 @@ join_info(Join, QInfo, Qdata, Code) ->
                          %% Only compared constants (==).
                          [Cs1_0, Cs2_0]
                  end,
-    L = 0,
+    L = anno0(),
     G1_0 = {var,L,'G1'}, G2_0 = {var,L,'G2'},
     JP = element(JQNum + 1, Code),
     %% Create code for wh1 and wh2 in #join{}:
@@ -1571,7 +1576,7 @@ join_merge_info(QNum, QInfo, Code, G, ExtraConstants) ->
                         {P, P};
                     _ -> 
                         {PV, _} = aux_name1('P', 0, abstract_vars(P)),
-                        L = 0,
+                        L = erl_anno:new(0),
                         V = {var, L, PV},
                         {V, {match, L, V, P}}
                  end,
@@ -1579,19 +1584,20 @@ join_merge_info(QNum, QInfo, Code, G, ExtraConstants) ->
             LEI = {generate, term_to_binary(M), LEInfo},
             TP = term_to_binary(G),
             CFs = [begin
-                       Call = {call,0,{atom,0,element},[{integer,0,Col},EPV]},
-                       F = list2op([{op,0,Op,abstract_term(Con),Call}
-                                      || {Con,Op} <- ConstOps], 'or'),
+                       A = anno0(),
+                       Call = {call,A,{atom,A,element},[{integer,A,Col},EPV]},
+                       F = list2op([{op,A,Op,abstract_term(Con),Call}
+                                      || {Con,Op} <- ConstOps], 'or', A),
                        term_to_binary(F)
                    end ||
                       {Col,ConstOps} <- ExtraConstants],
             {{I,G}, [{generate, TP, {qlc, DQP, [LEI | CFs], []}}]}
     end.
 
-list2op([E], _Op) ->
+list2op([E], _Op, _Anno) ->
     E;
-list2op([E | Es], Op) ->
-    {op,0,Op,E,list2op(Es, Op)}.
+list2op([E | Es], Op, Anno) ->
+    {op,Anno,Op,E,list2op(Es, Op, Anno)}.
 
 join_lookup_info(QNum, QInfo, G) ->
     {generate, _, LEInfo}=I = lists:nth(QNum, QInfo),
@@ -1704,7 +1710,7 @@ eval_le(LE_fun, GOpt) ->
 
 prep_qlc_lc({simple_v1, PVar, LE_fun, L}, Opt, GOpt, _H) ->
     check_lookup_option(Opt, false),
-    prep_simple_qlc(PVar, L, eval_le(LE_fun, GOpt), Opt);
+    prep_simple_qlc(PVar, anno(L), eval_le(LE_fun, GOpt), Opt);
 prep_qlc_lc({qlc_v1, QFun, CodeF, Qdata0, QOpt}, Opt, GOpt, _H) ->
     F = fun(?qual_data(_QNum, _GoI, _SI, fil)=QualData, ModGens) -> 
                 {QualData, ModGens};
@@ -1821,7 +1827,7 @@ may_create_simple(#qlc_opt{unique = Unique, cache = Cache} = Opt,
     if 
         Unique and not IsUnique; 
         (Cache =/= false) and not IsCached ->
-            prep_simple_qlc(?SIMPLE_QVAR, 1, Prep, Opt);
+            prep_simple_qlc(?SIMPLE_QVAR, anno(1), Prep, Opt);
         true ->
             Prep
     end.
@@ -2764,8 +2770,8 @@ tmp_filename(TmpDirOpt) ->
     U = "_",
     Node = node(),
     Pid = os:getpid(),
-    {MSecs,Secs,MySecs} = erlang:now(),
-    F = lists:concat([?MODULE,U,Node,U,Pid,U,MSecs,U,Secs,U,MySecs]),
+    Unique = erlang:unique_integer(),
+    F = lists:concat([?MODULE,U,Node,U,Pid,U,Unique]),
     TmpDir = case TmpDirOpt of
                  "" ->
                      {ok, CurDir} = file:get_cwd(),
@@ -3771,6 +3777,15 @@ grd(Fun, Arg) ->
         _ ->
             false
     end.
+
+anno0() ->
+    anno(0).
+
+anno1() ->
+    anno(1).
+
+anno(L) ->
+    erl_anno:new(L).
 
 family(L) ->
     sofs:to_external(sofs:relation_to_family(sofs:relation(L))).

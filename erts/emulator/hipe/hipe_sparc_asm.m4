@@ -4,16 +4,17 @@ changecom(`/*', `*/')dnl
  *
  * Copyright Ericsson AB 2007-2011. All Rights Reserved.
  *
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  * %CopyrightEnd%
  */
@@ -29,6 +30,14 @@ define(LEAF_WORDS,16)dnl number of stack words for leaf functions
 define(NR_ARG_REGS,4)dnl admissible values are 0 to 6, inclusive
 
 `#define SPARC_LEAF_WORDS	'LEAF_WORDS
+`#define SPARC_NR_ARG_REGS	'NR_ARG_REGS
+`#define NR_ARG_REGS	'NR_ARG_REGS
+
+
+`#ifdef ASM'
+/*
+ * Only assembler stuff from here on (when included from *.S)
+ */
 
 /*
  * Reserved registers.
@@ -80,9 +89,6 @@ define(NR_ARG_REGS,4)dnl admissible values are 0 to 6, inclusive
 /*
  * Argument (parameter) registers.
  */
-`#define SPARC_NR_ARG_REGS	'NR_ARG_REGS
-`#define NR_ARG_REGS	'NR_ARG_REGS
-
 define(defarg,`define(ARG$1,`$2')dnl
 #`define ARG'$1	$2'
 )dnl
@@ -171,6 +177,10 @@ define(NBIF_ARG,`ifelse(eval($3 >= NR_ARG_REGS),0,`NBIF_REG_ARG($1,$3)',`NBIF_ST
 `/* #define NBIF_ARG_3_0	'NBIF_ARG(r1,3,0)` */'
 `/* #define NBIF_ARG_3_1	'NBIF_ARG(r2,3,1)` */'
 `/* #define NBIF_ARG_3_2	'NBIF_ARG(r3,3,2)` */'
+`/* #define NBIF_ARG_4_0	'NBIF_ARG(r1,4,0)` */'
+`/* #define NBIF_ARG_4_1	'NBIF_ARG(r2,4,1)` */'
+`/* #define NBIF_ARG_4_2	'NBIF_ARG(r3,4,2)` */'
+`/* #define NBIF_ARG_4_3	'NBIF_ARG(r3,4,3)` */'
 `/* #define NBIF_ARG_5_0	'NBIF_ARG(r1,5,0)` */'
 `/* #define NBIF_ARG_5_1	'NBIF_ARG(r2,5,1)` */'
 `/* #define NBIF_ARG_5_2	'NBIF_ARG(r3,5,2)` */'
@@ -195,6 +205,7 @@ define(NBIF_RET,`NBIF_RET_N(eval(RET_POP($1)))')dnl
 `/* #define NBIF_RET_1	'NBIF_RET(1)` */'
 `/* #define NBIF_RET_2	'NBIF_RET(2)` */'
 `/* #define NBIF_RET_3	'NBIF_RET(3)` */'
+`/* #define NBIF_RET_4	'NBIF_RET(4)` */'
 `/* #define NBIF_RET_5	'NBIF_RET(5)` */'
 
 dnl
@@ -209,5 +220,7 @@ define(QUICK_CALL_RET,`ba $1; NBIF_POP_N(eval(RET_POP($2)))')dnl
 `/* #define QUICK_CALL_RET_F_2 'QUICK_CALL_RET(F,2)` */'
 `/* #define QUICK_CALL_RET_F_3 'QUICK_CALL_RET(F,3)` */'
 `/* #define QUICK_CALL_RET_F_5 'QUICK_CALL_RET(F,5)` */'
+
+`#endif /* ASM */'
 
 `#endif /* HIPE_SPARC_ASM_H */'

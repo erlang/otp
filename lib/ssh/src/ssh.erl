@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 2004-2014. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -24,11 +25,14 @@
 -include("ssh.hrl").
 -include("ssh_connect.hrl").
 -include_lib("public_key/include/public_key.hrl").
+-include_lib("kernel/include/file.hrl").
 
 -export([start/0, start/1, stop/0, connect/3, connect/4, close/1, connection_info/2,
 	 channel_info/3,
 	 daemon/1, daemon/2, daemon/3,
-	 stop_listener/1, stop_listener/2, stop_daemon/1, stop_daemon/2,
+	 default_algorithms/0,
+	 stop_listener/1, stop_listener/2,  stop_listener/3,
+	 stop_daemon/1, stop_daemon/2, stop_daemon/3,
 	 shell/1, shell/2, shell/3]).
 
 %%--------------------------------------------------------------------
@@ -157,7 +161,9 @@ daemon(HostAddr, Port, Options0) ->
 stop_listener(SysSup) ->
     ssh_system_sup:stop_listener(SysSup).
 stop_listener(Address, Port) ->
-    ssh_system_sup:stop_listener(Address, Port).
+    stop_listener(Address, Port, ?DEFAULT_PROFILE).
+stop_listener(Address, Port, Profile) ->
+    ssh_system_sup:stop_listener(Address, Port, Profile).
 
 %%--------------------------------------------------------------------
 -spec stop_daemon(pid()) -> ok.
@@ -169,8 +175,9 @@ stop_listener(Address, Port) ->
 stop_daemon(SysSup) ->
     ssh_system_sup:stop_system(SysSup).
 stop_daemon(Address, Port) ->
-    ssh_system_sup:stop_system(Address, Port).
-
+    ssh_system_sup:stop_system(Address, Port, ?DEFAULT_PROFILE).
+stop_daemon(Address, Port, Profile) ->
+    ssh_system_sup:stop_system(Address, Port, Profile).
 %%--------------------------------------------------------------------
 -spec shell(string()) ->  _.
 -spec shell(string(), proplists:proplist()) ->  _.
@@ -208,6 +215,11 @@ shell(Host, Port, Options) ->
     end.
 
 %%--------------------------------------------------------------------
+%%--------------------------------------------------------------------
+default_algorithms() -> 
+    ssh_transport:default_algorithms().
+
+%%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
 fix_idle_time(SshOptions) ->
@@ -226,7 +238,8 @@ start_daemon(Host, Port, Options, Inet) ->
     end.
     
 do_start_daemon(Host, Port, Options, SocketOptions) ->
-    case ssh_system_sup:system_supervisor(Host, Port) of
+    Profile = proplists:get_value(profile, Options, ?DEFAULT_PROFILE),
+    case ssh_system_sup:system_supervisor(Host, Port, Profile) of
 	undefined ->
 	    %% It would proably make more sense to call the
 	    %% address option host but that is a too big change at the
@@ -259,13 +272,42 @@ do_start_daemon(Host, Port, Options, SocketOptions) ->
     end.
 
 handle_options(Opts) ->
-    try handle_option(proplists:unfold(Opts), [], []) of
+    try handle_option(algs_compatibility(proplists:unfold(Opts)), [], []) of
 	{Inet, Ssh} ->
 	    {handle_ip(Inet), Ssh}
     catch
 	throw:Error ->
 	    Error
     end.
+
+
+algs_compatibility(Os) ->
+    %% Take care of old options 'public_key_alg' and 'pref_public_key_algs'
+    comp_pk(proplists:get_value(preferred_algorithms,Os),
+	    proplists:get_value(pref_public_key_algs,Os),
+	    proplists:get_value(public_key_alg, Os),
+	    [{K,V} || {K,V} <- Os,
+		      K =/= public_key_alg,
+		      K =/= pref_public_key_algs]
+	   ).
+
+comp_pk(undefined, undefined, undefined, Os) -> Os;
+comp_pk( PrefAlgs,         _,         _, Os) when PrefAlgs =/= undefined -> Os;
+
+comp_pk(undefined, undefined,   ssh_dsa, Os) -> comp_pk(undefined, undefined, 'ssh-dss', Os);
+comp_pk(undefined, undefined,   ssh_rsa, Os) -> comp_pk(undefined, undefined, 'ssh-rsa', Os);
+comp_pk(undefined, undefined,        PK, Os) -> 
+    PKs = [PK | ssh_transport:supported_algorithms(public_key)--[PK]],
+    [{preferred_algorithms, [{public_key,PKs}] } | Os];
+
+comp_pk(undefined, PrefPKs, _, Os) when PrefPKs =/= undefined ->
+    PKs = [case PK of
+	       ssh_dsa -> 'ssh-dss';
+	       ssh_rsa -> 'ssh-rsa';
+	       _ -> PK
+	   end || PK <- PrefPKs],
+    [{preferred_algorithms, [{public_key,PKs}]} | Os].
+
 
 handle_option([], SocketOptions, SshOptions) ->
     {SocketOptions, SshOptions};
@@ -278,8 +320,6 @@ handle_option([{user_dir_fun, _} = Opt | Rest], SocketOptions, SshOptions) ->
 handle_option([{silently_accept_hosts, _} = Opt | Rest], SocketOptions, SshOptions) ->
     handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
 handle_option([{user_interaction, _} = Opt | Rest], SocketOptions, SshOptions) ->
-    handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
-handle_option([{public_key_alg, _} = Opt | Rest], SocketOptions, SshOptions) ->
     handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
 handle_option([{connect_timeout, _} = Opt | Rest], SocketOptions, SshOptions) ->
     handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
@@ -297,10 +337,6 @@ handle_option([{pwdfun, _} = Opt | Rest], SocketOptions, SshOptions) ->
     handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
 handle_option([{key_cb, _} = Opt | Rest], SocketOptions, SshOptions) ->
     handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
-handle_option([{role, _} = Opt | Rest], SocketOptions, SshOptions) ->
-    handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
-handle_option([{compression, _} = Opt | Rest], SocketOptions, SshOptions) ->
-    handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
 %%Backwards compatibility
 handle_option([{allow_user_interaction, Value}  | Rest], SocketOptions, SshOptions) ->
     handle_option(Rest, SocketOptions, [handle_ssh_option({user_interaction, Value}) | SshOptions]);
@@ -309,6 +345,8 @@ handle_option([{infofun, _} = Opt | Rest],SocketOptions, SshOptions) ->
 handle_option([{connectfun, _} = Opt | Rest], SocketOptions, SshOptions) ->
     handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
 handle_option([{disconnectfun, _} = Opt | Rest], SocketOptions, SshOptions) ->
+    handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
+handle_option([{unexpectedfun, _} = Opt | Rest], SocketOptions, SshOptions) ->
     handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
 handle_option([{failfun, _} = Opt | Rest],  SocketOptions, SshOptions) ->
     handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
@@ -333,7 +371,11 @@ handle_option([{auth_methods, _} = Opt | Rest], SocketOptions, SshOptions) ->
     handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
 handle_option([{auth_method_kb_interactive_data, _} = Opt | Rest], SocketOptions, SshOptions) ->
     handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
-handle_option([{pref_public_key_algs, _} = Opt | Rest], SocketOptions, SshOptions) ->
+handle_option([{preferred_algorithms,_} = Opt | Rest], SocketOptions, SshOptions) ->
+    handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
+handle_option([{dh_gex_groups,_} = Opt | Rest], SocketOptions, SshOptions) ->
+    handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
+handle_option([{dh_gex_limits,_} = Opt | Rest], SocketOptions, SshOptions) ->
     handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
 handle_option([{quiet_mode, _} = Opt|Rest], SocketOptions, SshOptions) ->
     handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
@@ -353,6 +395,10 @@ handle_option([{minimal_remote_max_packet_size, _} = Opt|Rest], SocketOptions, S
     handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
 handle_option([{id_string, _ID} = Opt|Rest], SocketOptions, SshOptions) ->
     handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
+handle_option([{profile, _ID} = Opt|Rest], SocketOptions, SshOptions) ->
+    handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
+handle_option([{max_random_length_padding, _Bool} = Opt|Rest], SocketOptions, SshOptions) ->
+    handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
 handle_option([Opt | Rest], SocketOptions, SshOptions) ->
     handle_option(Rest, [handle_inet_option(Opt) | SocketOptions], SshOptions).
 
@@ -360,28 +406,39 @@ handle_option([Opt | Rest], SocketOptions, SshOptions) ->
 handle_ssh_option({minimal_remote_max_packet_size, Value} = Opt) when is_integer(Value), Value >=0 ->
     Opt;
 handle_ssh_option({system_dir, Value} = Opt) when is_list(Value) ->
-    Opt;
+    check_dir(Opt);
 handle_ssh_option({user_dir, Value} = Opt) when is_list(Value) ->
-    Opt;
+    check_dir(Opt);
 handle_ssh_option({user_dir_fun, Value} = Opt) when is_function(Value) ->
     Opt;
 handle_ssh_option({silently_accept_hosts, Value} = Opt) when is_boolean(Value) ->
     Opt;
 handle_ssh_option({user_interaction, Value} = Opt) when is_boolean(Value) ->
     Opt;
-handle_ssh_option({public_key_alg, ssh_dsa}) ->
-    {public_key_alg, 'ssh-dss'};
-handle_ssh_option({public_key_alg, ssh_rsa})  ->
-    {public_key_alg, 'ssh-rsa'};
-handle_ssh_option({public_key_alg, Value} = Opt) when Value == 'ssh-rsa'; Value == 'ssh-dss' ->
-    Opt;
-handle_ssh_option({pref_public_key_algs, Value} = Opt) when is_list(Value), length(Value) >= 1 ->
-    case handle_pref_algs(Value, []) of
-	{true, NewOpts} ->
-	    NewOpts;
-	_ ->
-	    throw({error, {eoptions, Opt}})
+handle_ssh_option({preferred_algorithms,[_|_]} = Opt) -> 
+    handle_pref_algs(Opt);
+handle_ssh_option({dh_gex_groups,L=[{I1,I2,I3}|_]}) when is_integer(I1), I1>0, 
+							 is_integer(I2), I2>0,
+							 is_integer(I3), I3>0 ->
+    {dh_gex_groups, lists:map(fun({N,G,P}) -> {N,{G,P}} end, L)};
+handle_ssh_option({dh_gex_groups,{file,File=[C|_]}}=Opt) when is_integer(C), C>0 ->
+    %% A string, (file name)
+    case file:consult(File) of
+	{ok, List} ->
+	    try handle_ssh_option({dh_gex_groups,List}) of
+		{dh_gex_groups,_} = NewOpt ->
+		    NewOpt
+	    catch
+		_:_ ->
+		    throw({error, {{eoptions, Opt}, "Bad format in file"}})
+	    end;
+	Error ->
+	    throw({error, {{eoptions, Opt},{"Error reading file",Error}}})
     end;
+handle_ssh_option({dh_gex_limits,{Min,I,Max}} = Opt) when is_integer(Min), Min>0, 
+							  is_integer(I),   I>=Min,
+							  is_integer(Max), Max>=I ->
+    Opt;
 handle_ssh_option({connect_timeout, Value} = Opt) when is_integer(Value); Value == infinity ->
     Opt;
 handle_ssh_option({max_sessions, Value} = Opt) when is_integer(Value), Value>0 ->
@@ -424,7 +481,9 @@ handle_ssh_option({infofun, Value} = Opt)  when is_function(Value) ->
     Opt;
 handle_ssh_option({connectfun, Value} = Opt) when is_function(Value) ->
     Opt;
-handle_ssh_option({disconnectfun , Value} = Opt) when is_function(Value) ->
+handle_ssh_option({disconnectfun, Value} = Opt) when is_function(Value) ->
+    Opt;
+handle_ssh_option({unexpectedfun, Value} = Opt) when is_function(Value,2) ->
     Opt;
 handle_ssh_option({failfun, Value} = Opt) when is_function(Value) ->
     Opt;
@@ -458,6 +517,11 @@ handle_ssh_option({id_string, random}) ->
     {id_string, {random,2,5}}; %% 2 - 5 random characters
 handle_ssh_option({id_string, ID} = Opt) when is_list(ID) ->
     Opt;
+handle_ssh_option({max_random_length_padding, Value} = Opt) when is_integer(Value),
+								 Value =< 255 ->
+    Opt;
+handle_ssh_option({profile, Value} = Opt) when is_atom(Value) ->
+    Opt;
 handle_ssh_option(Opt) ->
     throw({error, {eoptions, Opt}}).
 
@@ -474,23 +538,83 @@ handle_inet_option({reuseaddr, _} = Opt) ->
 %% Option verified by inet
 handle_inet_option(Opt) ->
     Opt.
+
+
 %% Check preferred algs
-handle_pref_algs([], Acc) ->
-    {true, lists:reverse(Acc)};
-handle_pref_algs([H|T], Acc) ->
-    case H of
-	ssh_dsa ->
-	    handle_pref_algs(T, ['ssh-dss'| Acc]);
-	ssh_rsa ->
-	    handle_pref_algs(T, ['ssh-rsa'| Acc]);
-	'ssh-dss' ->
-	    handle_pref_algs(T, ['ssh-dss'| Acc]);
-	'ssh-rsa' ->
-	    handle_pref_algs(T, ['ssh-rsa'| Acc]);
-	_ ->
-	    false
+
+handle_pref_algs({preferred_algorithms,Algs}) ->
+    try alg_duplicates(Algs, [], []) of
+	[] ->
+	    {preferred_algorithms,
+	     [try ssh_transport:supported_algorithms(Key)
+	      of
+		  DefAlgs -> handle_pref_alg(Key,Vals,DefAlgs)
+	      catch
+		  _:_ -> throw({error, {{eoptions, {preferred_algorithms,Key}}, 
+					"Bad preferred_algorithms key"}})
+	      end  || {Key,Vals} <- Algs]
+	    };
+		    
+	Dups ->
+	    throw({error, {{eoptions, {preferred_algorithms,Dups}}, "Duplicates found"}})
+    catch
+	_:_ ->
+	    throw({error, {{eoptions, preferred_algorithms}, "Malformed"}})
     end.
 
+alg_duplicates([{K,V}|KVs], Ks, Dups0) ->
+    Dups =
+	case lists:member(K,Ks) of
+	    true ->
+		[K|Dups0];
+	    false ->
+		Dups0
+	end,
+    case V--lists:usort(V) of
+	[] ->
+	    alg_duplicates(KVs, [K|Ks], Dups);
+	Ds ->
+	    alg_duplicates(KVs, [K|Ks], Dups++Ds)
+    end;
+alg_duplicates([], _Ks, Dups) ->
+    Dups.
+
+handle_pref_alg(Key,
+		Vs=[{client2server,C2Ss=[_|_]},{server2client,S2Cs=[_|_]}],
+		[{client2server,Sup_C2Ss},{server2client,Sup_S2Cs}]
+	       ) ->
+    chk_alg_vs(Key, C2Ss, Sup_C2Ss),
+    chk_alg_vs(Key, S2Cs, Sup_S2Cs),
+    {Key, Vs};
+
+handle_pref_alg(Key,
+		Vs=[{server2client,[_|_]},{client2server,[_|_]}],
+		Sup=[{client2server,_},{server2client,_}]
+	       ) ->
+    handle_pref_alg(Key, lists:reverse(Vs), Sup);
+
+handle_pref_alg(Key, 
+		Vs=[V|_],
+		Sup=[{client2server,_},{server2client,_}]
+	       ) when is_atom(V) ->
+    handle_pref_alg(Key, [{client2server,Vs},{server2client,Vs}], Sup);
+
+handle_pref_alg(Key, 
+		Vs=[V|_],
+		Sup=[S|_]
+	       ) when is_atom(V), is_atom(S) ->
+    chk_alg_vs(Key, Vs, Sup),
+    {Key, Vs};
+
+handle_pref_alg(Key, Vs, _) ->
+    throw({error, {{eoptions, {preferred_algorithms,[{Key,Vs}]}}, "Badly formed list"}}).
+
+chk_alg_vs(OptKey, Values, SupportedValues) ->
+    case (Values -- SupportedValues) of
+	[] -> Values;
+	Bad -> throw({error, {{eoptions, {OptKey,Bad}}, "Unsupported value(s) found"}})
+    end.
+	    
 handle_ip(Inet) -> %% Default to ipv4
     case lists:member(inet, Inet) of
 	true ->
@@ -503,4 +627,31 @@ handle_ip(Inet) -> %% Default to ipv4
 		    [inet | Inet]
 	    end
     end.
-	
+
+check_dir({_,Dir} = Opt) ->
+    case directory_exist_readable(Dir) of
+	ok ->
+	    Opt;
+	{error,Error} ->
+	    throw({error, {eoptions,{Opt,Error}}})
+    end.
+
+directory_exist_readable(Dir) ->
+    case file:read_file_info(Dir) of
+	{ok, #file_info{type = directory,
+			access = Access}} ->
+	    case Access of
+		read -> ok;
+		read_write -> ok;
+		_ -> {error, eacces}
+	    end;
+
+	{ok, #file_info{}}->
+	    {error, enotdir};
+
+	{error, Error} ->
+	    {error, Error}
+    end.
+		
+		    
+

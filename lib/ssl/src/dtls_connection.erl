@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2013-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2013-2015. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -146,7 +147,7 @@ init([Role, Host, Port, Socket, {SSLOpts0, _} = Options,  User, CbInfo]) ->
     Handshake = ssl_handshake:init_handshake_history(),
     TimeStamp = calendar:datetime_to_gregorian_seconds({date(), time()}),
     try ssl_config:init(SSLOpts0, Role) of
-	{ok, Ref, CertDbHandle, FileRefHandle, CacheHandle, OwnCert, Key, DHParams} ->
+	{ok, Ref, CertDbHandle, FileRefHandle, CacheHandle,  CRLDbInfo, OwnCert, Key, DHParams} ->
 	    Session = State0#state.session,
 	    State = State0#state{
 		      tls_handshake_history = Handshake,
@@ -155,6 +156,7 @@ init([Role, Host, Port, Socket, {SSLOpts0, _} = Options,  User, CbInfo]) ->
 		      file_ref_db = FileRefHandle,
 		      cert_db_ref = Ref,
 		      cert_db = CertDbHandle,
+		      crl_db = CRLDbInfo,
 		      session_cache = CacheHandle,
 		      private_key = Key,
 		      diffie_hellman_params = DHParams},
@@ -227,9 +229,9 @@ hello(Hello,
     case dtls_handshake:hello(Hello, SslOptions, ConnectionStates0, Renegotiation) of
 	#alert{} = Alert ->
 	    handle_own_alert(Alert, ReqVersion, hello, State);
-	{Version, NewId, ConnectionStates, NextProtocol} ->
+	{Version, NewId, ConnectionStates, ProtoExt, Protocol} ->
 	    ssl_connection:handle_session(Hello, 
-					  Version, NewId, ConnectionStates, NextProtocol, State)
+					  Version, NewId, ConnectionStates, ProtoExt, Protocol, State)
     end;
 
 hello(Msg, State) ->
@@ -513,6 +515,7 @@ initial_state(Role, Host, Port, Socket, {SSLOptions, SocketOptions}, User,
 	   user_data_buffer = <<>>,
 	   session_cache_cb = SessionCacheCb,
 	   renegotiation = {false, first},
+	   allow_renegotiate = SSLOptions#ssl_options.client_renegotiation,
 	   start_or_recv_from = undefined,
 	   send_queue = queue:new(),
 	   protocol_cb = ?MODULE

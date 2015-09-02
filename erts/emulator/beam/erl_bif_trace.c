@@ -3,16 +3,17 @@
  *
  * Copyright Ericsson AB 1999-2013. All Rights Reserved.
  *
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  * %CopyrightEnd%
  */
@@ -38,6 +39,7 @@
 #include "beam_bp.h"
 #include "erl_binary.h"
 #include "erl_thr_progress.h"
+#include "erl_bif_unique.h"
 
 #define DECL_AM(S) Eterm AM_ ## S = am_atom_put(#S, sizeof(#S) - 1)
 
@@ -358,7 +360,7 @@ trace_pattern(Process* p, Eterm MFA, Eterm Pattern, Eterm flaglist)
 	ASSERT(finish_bp.stager == NULL);
 	finish_bp.stager = p;
 	erts_schedule_thr_prgr_later_op(smp_bp_finisher, NULL, &finish_bp.lop);
-	erts_smp_proc_inc_refc(p);
+	erts_proc_inc_refc(p);
 	erts_suspend(p, ERTS_PROC_LOCK_MAIN, NULL);
 	ERTS_BIF_YIELD_RETURN(p, make_small(matches));
     }
@@ -392,7 +394,7 @@ static void smp_bp_finisher(void* null)
 	    erts_resume(p, ERTS_PROC_LOCK_STATUS);
 	}
 	erts_smp_proc_unlock(p, ERTS_PROC_LOCK_STATUS);
-	erts_smp_proc_dec_refc(p);
+	erts_proc_dec_refc(p);
     }
 }
 #endif /* ERTS_SMP */
@@ -651,7 +653,7 @@ Eterm trace_3(BIF_ALIST_3)
 	    if (pid_spec == am_all) {
 		if (on) {
 		    if (!erts_cpu_timestamp) {
-#ifdef HAVE_CLOCK_GETTIME
+#ifdef HAVE_CLOCK_GETTIME_CPU_TIME
 			/* 
 			   Perhaps clock_gettime was found during config
 			   on a different machine than this. We check
@@ -678,7 +680,7 @@ Eterm trace_3(BIF_ALIST_3)
 			if (erts_start_now_cpu() < 0) {
 			    goto error;
 			}
-#endif /* HAVE_CLOCK_GETTIME */
+#endif /* HAVE_CLOCK_GETTIME_CPU_TIME */
 			erts_cpu_timestamp = !0;
 		    }
 		}

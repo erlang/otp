@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 1999-2013. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -211,7 +212,7 @@ supports()->
     [{hashs, Hashs},
      {ciphers, [des_cbc, des_cfb, des3_cbc, des_ede3, blowfish_cbc,
 		blowfish_cfb64, blowfish_ofb64, blowfish_ecb, aes_cbc128, aes_cfb8, aes_cfb128,
-		aes_cbc256, rc2_cbc, aes_ctr, rc4] ++ Ciphers},
+		aes_cbc256, rc2_cbc, aes_ctr, rc4, aes_ecb] ++ Ciphers},
      {public_keys, [rsa, dss, dh, srp] ++ PubKeys}
     ].
 
@@ -282,7 +283,8 @@ hmac_final_n(_Context, _HashLen) -> ? nif_stub.
 
 -spec block_encrypt(des_cbc | des_cfb | des3_cbc | des3_cbf | des_ede3 | blowfish_cbc |
 		    blowfish_cfb64 | aes_cbc128 | aes_cfb8 | aes_cfb128 | aes_cbc256 | rc2_cbc,
-		    Key::iodata(), Ivec::binary(), Data::iodata()) -> binary().
+		    Key::iodata(), Ivec::binary(), Data::iodata()) -> binary();
+		   (aes_gcm | chacha20_poly1305, Key::iodata(), Ivec::binary(), {AAD::binary(), Data::iodata()}) -> {binary(), binary()}.
 
 block_encrypt(des_cbc, Key, Ivec, Data) ->
     des_cbc_encrypt(Key, Ivec, Data);
@@ -310,14 +312,25 @@ block_encrypt(aes_cfb8, Key, Ivec, Data) ->
     aes_cfb_8_encrypt(Key, Ivec, Data);
 block_encrypt(aes_cfb128, Key, Ivec, Data) ->
     aes_cfb_128_encrypt(Key, Ivec, Data);
+block_encrypt(aes_gcm, Key, Ivec, {AAD, Data}) ->
+    case aes_gcm_encrypt(Key, Ivec, AAD, Data) of
+	notsup -> erlang:error(notsup);
+	Return -> Return
+    end;
+block_encrypt(chacha20_poly1305, Key, Ivec, {AAD, Data}) ->
+    case chacha20_poly1305_encrypt(Key, Ivec, AAD, Data) of
+	notsup -> erlang:error(notsup);
+	Return -> Return
+    end;
 block_encrypt(rc2_cbc, Key, Ivec, Data) ->
     rc2_cbc_encrypt(Key, Ivec, Data).
 
 -spec block_decrypt(des_cbc | des_cfb | des3_cbc | des3_cbf | des_ede3 | blowfish_cbc |
-	      blowfish_cfb64 | blowfish_ofb64  | aes_cbc128 | aes_cbc256 | aes_ige256 |
-          aes_cfb8 | aes_cfb128 | rc2_cbc,
-	      Key::iodata(), Ivec::binary(), Data::iodata()) -> binary().
-
+		    blowfish_cfb64 | blowfish_ofb64  | aes_cbc128 | aes_cbc256 | aes_ige256 |
+		    aes_cfb8 | aes_cfb128 | rc2_cbc,
+		    Key::iodata(), Ivec::binary(), Data::iodata()) -> binary();
+		   (aes_gcm | chacha20_poly1305, Key::iodata(), Ivec::binary(),
+		    {AAD::binary(), Data::iodata(), Tag::binary()}) -> binary() | error.
 block_decrypt(des_cbc, Key, Ivec, Data) ->
     des_cbc_decrypt(Key, Ivec, Data);
 block_decrypt(des_cfb, Key, Ivec, Data) ->
@@ -344,22 +357,36 @@ block_decrypt(aes_cfb8, Key, Ivec, Data) ->
     aes_cfb_8_decrypt(Key, Ivec, Data);
 block_decrypt(aes_cfb128, Key, Ivec, Data) ->
     aes_cfb_128_decrypt(Key, Ivec, Data);
+block_decrypt(aes_gcm, Key, Ivec, {AAD, Data, Tag}) ->
+    case aes_gcm_decrypt(Key, Ivec, AAD, Data, Tag) of
+	notsup -> erlang:error(notsup);
+	Return -> Return
+    end;
+block_decrypt(chacha20_poly1305, Key, Ivec, {AAD, Data, Tag}) ->
+    case chacha20_poly1305_decrypt(Key, Ivec, AAD, Data, Tag) of
+	notsup -> erlang:error(notsup);
+	Return -> Return
+    end;
 block_decrypt(rc2_cbc, Key, Ivec, Data) ->
     rc2_cbc_decrypt(Key, Ivec, Data).
 
--spec block_encrypt(des_ecb | blowfish_ecb, Key::iodata(), Data::iodata()) -> binary().
+-spec block_encrypt(des_ecb | blowfish_ecb | aes_ecb, Key::iodata(), Data::iodata()) -> binary().
 
 block_encrypt(des_ecb, Key, Data) ->
     des_ecb_encrypt(Key, Data);
 block_encrypt(blowfish_ecb, Key, Data) ->
-    blowfish_ecb_encrypt(Key, Data).
+    blowfish_ecb_encrypt(Key, Data);
+block_encrypt(aes_ecb, Key, Data) ->
+    aes_ecb_encrypt(Key, Data).       
 
--spec block_decrypt(des_ecb | blowfish_ecb, Key::iodata(), Data::iodata()) -> binary().
+-spec block_decrypt(des_ecb | blowfish_ecb | aes_ecb, Key::iodata(), Data::iodata()) -> binary().
 
 block_decrypt(des_ecb, Key, Data) ->
     des_ecb_decrypt(Key, Data);
 block_decrypt(blowfish_ecb, Key, Data) ->
-    blowfish_ecb_decrypt(Key, Data).
+    blowfish_ecb_decrypt(Key, Data);
+block_decrypt(aes_ecb, Key, Data) ->
+    aes_ecb_decrypt(Key, Data).       
 
 -spec next_iv(des_cbc | des3_cbc | aes_cbc | aes_ige, Data::iodata()) -> binary().
 
@@ -567,9 +594,8 @@ generate_key(srp, {user, [Generator, Prime, Version]}, PrivateArg)
 	      end,
     user_srp_gen_key(Private, Generator, Prime);
 
-generate_key(ecdh, Curve, undefined) ->
-    ec_key_generate(nif_curve_params(Curve)).
-
+generate_key(ecdh, Curve, PrivKey) ->
+    ec_key_generate(nif_curve_params(Curve), ensure_int_as_bin(PrivKey)).
 
 compute_key(dh, OthersPublicKey, MyPrivateKey, DHParameters) ->
     case dh_compute_key_nif(ensure_int_as_bin(OthersPublicKey),
@@ -1190,6 +1216,17 @@ aes_cfb_128_decrypt(Key, IVec, Data) ->
 
 aes_cfb_128_crypt(_Key, _IVec, _Data, _IsEncrypt) -> ?nif_stub.     
 
+%%
+%% AES - in Galois/Counter Mode (GCM)
+%%
+aes_gcm_encrypt(_Key, _Ivec, _AAD, _In) -> ?nif_stub.
+aes_gcm_decrypt(_Key, _Ivec, _AAD, _In, _Tag) -> ?nif_stub.
+
+%%
+%% Chacha20/Ppoly1305
+%%
+chacha20_poly1305_encrypt(_Key, _Ivec, _AAD, _In) -> ?nif_stub.
+chacha20_poly1305_decrypt(_Key, _Ivec, _AAD, _In, _Tag) -> ?nif_stub.
 
 %%
 %% DES - in cipher block chaining mode (CBC)
@@ -1361,6 +1398,18 @@ aes_ctr_encrypt(_Key, _IVec, _Data) -> ?nif_stub.
 aes_ctr_decrypt(_Key, _IVec, _Cipher) -> ?nif_stub.
 
 %%
+%% AES - in electronic codebook mode (ECB)
+%%
+aes_ecb_encrypt(Key, Data) ->
+    aes_ecb_crypt(Key, Data, true).
+
+aes_ecb_decrypt(Key, Data) ->
+    aes_ecb_crypt(Key, Data, false).
+
+aes_ecb_crypt(_Key, __Data, _IsEncrypt) -> ?nif_stub.
+
+
+%%
 %% AES - in counter mode (CTR) with state maintained for multi-call streaming 
 %%
 -type ctr_state() :: { iodata(), binary(), binary(), integer() }.
@@ -1523,7 +1572,7 @@ dh_compute_key(OthersPublicKey, MyPrivateKey, DHParameters) ->
 
 dh_compute_key_nif(_OthersPublicKey, _MyPrivateKey, _DHParameters) -> ?nif_stub.
 
-ec_key_generate(_Key) -> ?nif_stub.
+ec_key_generate(_Curve, _Key) -> ?nif_stub.
 
 ecdh_compute_key_nif(_Others, _Curve, _My) -> ?nif_stub.
 

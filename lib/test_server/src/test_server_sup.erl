@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 1998-2014. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -125,14 +126,8 @@ messages_get(Msgs) ->
     end.
 
 timecall(M, F, A) ->
-    Befor = erlang:now(),
-    Val = apply(M, F, A),
-    After = erlang:now(),
-    Elapsed =
-        (element(1,After)*1000000+element(2,After)+element(3,After)/1000000)-
-        (element(1,Befor)*1000000+element(2,Befor)+element(3,Befor)/1000000),
-    {Elapsed, Val}.
-
+    {Elapsed, Val} = timer:tc(M, F, A),
+    {Elapsed / 1000000, Val}.
 
 
 call_crash(Time,Crash,M,F,A) ->
@@ -887,9 +882,8 @@ unique_name() ->
 util_loop(State) ->		       
     receive
 	{From,unique_name} ->
-	    {_,S,Us} = now(),
-	    Ms = trunc(Us/1000),
-	    Name = lists:flatten(io_lib:format("~w.~w", [S,Ms])),
+	    Nr = erlang:unique_integer([positive]),
+	    Name = integer_to_list(Nr),
 	    if Name == State#util_state.latest_name ->
 		    timer:sleep(1),
 		    self() ! {From,unique_name},

@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2014 All Rights Reserved.
+%% Copyright Ericsson AB 2007-2015 All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -33,7 +34,8 @@
 -export([trusted_cert_and_path/4,
 	 certificate_chain/3,
 	 file_to_certificats/2,
-	 validate_extension/3,
+	 file_to_crls/2,
+	 validate/3,
 	 is_valid_extkey_usage/2,
 	 is_valid_key_usage/2,
 	 select_extension/2,
@@ -83,16 +85,19 @@ trusted_cert_and_path(CertChain, CertDbHandle, CertDbRef, PartialChainHandler) -
     end.
 
 %%--------------------------------------------------------------------
--spec certificate_chain(undefined | binary(), db_handle(), certdb_ref()) ->
-			  {error, no_cert} | {ok, [der_cert()]}.
+-spec certificate_chain(undefined | binary() | #'OTPCertificate'{} , db_handle(), certdb_ref()) ->
+			  {error, no_cert} | {ok, #'OTPCertificate'{} | undefined, [der_cert()]}.
 %%
 %% Description: Return the certificate chain to send to peer.
 %%--------------------------------------------------------------------
 certificate_chain(undefined, _, _) ->
     {error, no_cert};
-certificate_chain(OwnCert, CertDbHandle, CertsDbRef) ->
+certificate_chain(OwnCert, CertDbHandle, CertsDbRef) when is_binary(OwnCert) ->
     ErlCert = public_key:pkix_decode_cert(OwnCert, otp),
-    certificate_chain(ErlCert, OwnCert, CertDbHandle, CertsDbRef, [OwnCert]).
+    certificate_chain(ErlCert, OwnCert, CertDbHandle, CertsDbRef, [OwnCert]);
+certificate_chain(OwnCert, CertDbHandle, CertsDbRef) ->
+    DerCert = public_key:pkix_encode('OTPCertificate', OwnCert, otp),
+    certificate_chain(OwnCert, DerCert, CertDbHandle, CertsDbRef, [DerCert]).
 %%--------------------------------------------------------------------
 -spec file_to_certificats(binary(), term()) -> [der_cert()].
 %%
@@ -101,29 +106,39 @@ certificate_chain(OwnCert, CertDbHandle, CertsDbRef) ->
 file_to_certificats(File, DbHandle) ->
     {ok, List} = ssl_manager:cache_pem_file(File, DbHandle),
     [Bin || {'Certificate', Bin, not_encrypted} <- List].
+
 %%--------------------------------------------------------------------
--spec validate_extension(term(), {extension, #'Extension'{}} | {bad_cert, atom()} | valid,
-			 term()) -> {valid, term()} |
-				    {fail, tuple()} |
-				    {unknown, term()}.
+-spec file_to_crls(binary(), term()) -> [der_cert()].
+%%
+%% Description: Return list of DER encoded certificates.
+%%--------------------------------------------------------------------
+file_to_crls(File, DbHandle) ->
+    {ok, List} = ssl_manager:cache_pem_file(File, DbHandle),
+    [Bin || {'CertificateList', Bin, not_encrypted} <- List].
+
+%%--------------------------------------------------------------------
+-spec validate(term(), {extension, #'Extension'{}} | {bad_cert, atom()} | valid,
+	       term()) -> {valid, term()} |
+			  {fail, tuple()} |
+			  {unknown, term()}.
 %%
 %% Description:  Validates ssl/tls specific extensions
 %%--------------------------------------------------------------------
-validate_extension(_,{extension, #'Extension'{extnID = ?'id-ce-extKeyUsage',
-					      extnValue = KeyUse}}, Role) ->
+validate(_,{extension, #'Extension'{extnID = ?'id-ce-extKeyUsage',
+				    extnValue = KeyUse}}, {Role, _,_, _, _}) ->
     case is_valid_extkey_usage(KeyUse, Role) of
 	true ->
 	    {valid, Role};
 	false ->
 	    {fail, {bad_cert, invalid_ext_key_usage}}
     end;
-validate_extension(_, {bad_cert, _} = Reason, _) ->
-    {fail, Reason};
-validate_extension(_, {extension, _}, Role) ->
+validate(_, {extension, _}, Role) ->
     {unknown, Role};
-validate_extension(_, valid, Role) ->
+validate(_, {bad_cert, _} = Reason, _) ->
+    {fail, Reason};
+validate(_, valid, Role) ->
     {valid, Role};
-validate_extension(_, valid_peer, Role) ->
+validate(_, valid_peer, Role) ->
     {valid, Role}.
 
 %%--------------------------------------------------------------------
@@ -194,14 +209,14 @@ certificate_chain(OtpCert, _Cert, CertDbHandle, CertsDbRef, Chain) ->
 		    %% certificate. The verification of the
 		    %% cert chain will fail if guess is
 		    %% incorrect.
-		    {ok, lists:reverse(Chain)}
+		    {ok, undefined, lists:reverse(Chain)}
 	    end;
 	{{ok, {SerialNr, Issuer}}, SelfSigned} -> 
 	    certificate_chain(CertDbHandle, CertsDbRef, Chain, SerialNr, Issuer, SelfSigned)
     end.
   
-certificate_chain(_,_, Chain, _SerialNr, _Issuer, true) ->
-    {ok, lists:reverse(Chain)};
+certificate_chain(_, _, [RootCert | _] = Chain, _, _, true) ->	  
+    {ok, RootCert, lists:reverse(Chain)};		      
 
 certificate_chain(CertDbHandle, CertsDbRef, Chain, SerialNr, Issuer, _SelfSigned) ->
     case ssl_manager:lookup_trusted_cert(CertDbHandle, CertsDbRef,
@@ -214,7 +229,7 @@ certificate_chain(CertDbHandle, CertsDbRef, Chain, SerialNr, Issuer, _SelfSigned
 	    %% The trusted cert may be obmitted from the chain as the
 	    %% counter part needs to have it anyway to be able to
 	    %% verify it.
-	    {ok, lists:reverse(Chain)}		      
+	    {ok, undefined, lists:reverse(Chain)}		      
     end.
 
 find_issuer(OtpCert, CertDbHandle) ->

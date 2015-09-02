@@ -8,16 +8,17 @@
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
-      The contents of this file are subject to the Erlang Public License,
-      Version 1.1, (the "License"); you may not use this file except in
-      compliance with the License. You should have received a copy of the
-      Erlang Public License along with this software. If not, it can be
-      retrieved online at http://www.erlang.org/.
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
 
-      Software distributed under the License is distributed on an "AS IS"
-      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-      the License for the specific language governing rights and limitations
-      under the License.
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
 
     </legalnotice>
 
@@ -104,6 +105,29 @@
     <note>
       <p><em>Reds</em> can be presented as accumulated values or as values since last update.</p>
     </note>
+    <p><c>Process info</c> open a detailed information window on the selected process.
+    <taglist>
+      <tag>Process Information</tag>
+      <item>Shows the process information.</item>
+      <tag>Messages</tag>
+      <item>Shows the process messages.</item>
+      <tag>Dictionary</tag>
+      <item>Shows the process dictionary.</item>
+      <tag>Stack Trace</tag>
+      <item>Shows the process current stack trace.</item>
+      <tag>State</tag>
+      <item>Show the process state.</item>
+      <tag>Log</tag>
+      <item>If enabled and available, show the process SASL log entries.</item>
+    </taglist>
+    <note>
+      <p><c>Log</c> needs SASL application to be started on the observed node, with log_mf_h as log handler.
+      The Observed node must be R16B02 or higher.
+      <c>rb</c> server must not be started on the observed node when clicking on menu 'Log/Toggle log view'.
+      <c>rb</c> server will be stopped on the observed node when exiting or changing observed node.
+      </p>
+    </note>
+    </p>
     <p><c>Trace Processes</c> will add the selected process identifiers to the <c>Trace Overview</c> view and the
     node the processes reside on will be added as well.
     <c>Trace Named Processes</c> will add the registered name of processes. This can be useful

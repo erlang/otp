@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 1997-2010. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -21,191 +22,177 @@
 
 %% Tokenize ASN.1 code (input to parser generated with yecc)   
 
--export([get_name/2,tokenise/4, file/1]).
+-export([file/1,format_error/1]).
 
-
-file(File) ->
-    case file:open(File, [read])  of
+file(File0) ->
+    case file:open(File0, [read])  of
 	{error, Reason} ->
-	    {error,{File,file:format_error(Reason)}};
+	    {error,{File0,file:format_error(Reason)}};
 	{ok,Stream} ->
-	    process(Stream,0,[])
+	    try
+		process(Stream, 1, [])
+	    catch
+		throw:{error,Line,Reason} ->
+		    File = filename:basename(File0),
+		    Error = {structured_error,{File,Line},?MODULE,Reason},
+		    {error,[Error]}
+	    end
     end.
 
-process(Stream,Lno,R) ->
-    process(io:get_line(Stream, ''), Stream,Lno+1,R).
+process(Stream, Lno, R) ->
+    process(io:get_line(Stream, ''), Stream, Lno, R).
 
-process(eof, Stream,Lno,R) ->
+process(eof, Stream, Lno, Acc) ->
     ok = file:close(Stream),
-    lists:flatten(lists:reverse([{'$end',Lno}|R]));
+    lists:reverse([{'$end',Lno}|Acc]);
+process(L, Stream, Lno0, Acc) when is_list(L) ->
+    try tokenise(Stream, L, Lno0, []) of
+	{Lno,[]} ->
+	    process(Stream, Lno, Acc);
+	{Lno,Ts} ->
+	    process(Stream, Lno, Ts++Acc)
+    catch
+	throw:{error,Reason} ->
+	    throw({error,Lno0,Reason})
+    end.
 
+format_error(eof_in_comment) ->
+    "premature end of file in multi-line comment";
+format_error(eol_in_token) ->
+    "end of line in token";
+format_error({invalid_binary_number,Str}) ->
+    io_lib:format("invalid binary number: '~s'", [Str]);
+format_error({invalid_hex_number,Str}) ->
+    io_lib:format("invalid hex number: '~s'", [Str]);
+format_error(Other) ->
+    io_lib:format("~p", [Other]).
 
-process(L, Stream,Lno,R) when is_list(L) ->
-    %%io:format('read:~s',[L]),
-    case catch tokenise(Stream,L,Lno,[]) of
-	{'ERR',Reason} ->
-	    io:format("Tokeniser error on line: ~w ~w~n",[Lno,Reason]),
-	    exit(0);
-	{NewLno,T} ->
-	    %%io:format('toks:~w~n',[T]),
-	    process(Stream,NewLno,[T|R])
-    end. 
+tokenise(Stream, [$&,H|T], Lno, R) when $A =< H , H =< $Z ->
+    {X,T1} = get_name(T, [H]),
+    tokenise(Stream, T1, Lno, [{typefieldreference,Lno,X}|R]);
+tokenise(Stream, [$&,H|T], Lno, R) when $a =< H , H =< $z ->
+    {X,T1} = get_name(T, [H]),
+    tokenise(Stream, T1, Lno, [{valuefieldreference,Lno,X}|R]);
 
-tokenise(Stream,[H|T],Lno,R) when $a =< H , H =< $z ->
-    {X, T1} = get_name(T, [H]),
-    tokenise(Stream,T1,Lno,[{identifier,Lno, list_to_atom(X)}|R]);
+tokenise(Stream, "--"++T, Lno, R) ->
+    tokenise(Stream, skip_comment(T), Lno, R);
 
-tokenise(Stream,[$&,H|T],Lno,R) when $A =< H , H =< $Z ->
-    {Y, T1} = get_name(T, [H]),
-    X = list_to_atom(Y),
-    tokenise(Stream,T1,Lno,[{typefieldreference, Lno, X} | R]);
-
-tokenise(Stream,[$&,H|T],Lno,R) when $a =< H , H =< $z ->
-    {Y, T1} = get_name(T, [H]),
-    X = list_to_atom(Y),
-    tokenise(Stream,T1,Lno,[{valuefieldreference, Lno, X} | R]);
-
-tokenise(Stream,[H|T],Lno,R) when $A =< H , H =< $Z ->
-    {Y, T1} = get_name(T, [H]),
-    X = list_to_atom(Y),
-    case reserved_word(X) of
-	true ->
-	    tokenise(Stream,T1,Lno,[{X,Lno}|R]);
-	false ->
-	    tokenise(Stream,T1,Lno,[{typereference,Lno,X}|R]);
-	rstrtype ->
-	    tokenise(Stream,T1,Lno,[{restrictedcharacterstringtype,Lno,X}|R])
-    end;
-
-tokenise(Stream,[$-,H|T],Lno,R) when $0 =< H , H =< $9 ->
+tokenise(Stream, [$-,H|T], Lno, R) when $0 =< H , H =< $9 ->
     {X, T1} = get_number(T, [H]),
-    tokenise(Stream,T1,Lno,[{number,Lno,-1 * list_to_integer(X)}|R]);
+    tokenise(Stream, T1, Lno, [{number,Lno,-list_to_integer(X)}|R]);
 
-tokenise(Stream,[H|T],Lno,R) when $0 =< H , H =< $9 ->
-    {X, T1} = get_number(T, [H]),
-    tokenise(Stream,T1,Lno,[{number,Lno,list_to_integer(X)}|R]);
+tokenise(Stream, "/*"++T, Lno0, R) ->
+    {Lno,T1} = skip_multiline_comment(Stream, T, Lno0, 0),
+    tokenise(Stream, T1, Lno, R);
 
-tokenise(Stream,[$-,$-|T],Lno,R) ->
-    tokenise(Stream,skip_comment(T),Lno,R);
+tokenise(Stream, "::="++T, Lno, R) ->
+    tokenise(Stream, T, Lno, [{'::=',Lno}|R]);
+tokenise(Stream, ":"++T, Lno, R) ->
+    tokenise(Stream, T, Lno, [{':',Lno}|R]);
 
-tokenise(Stream,[$/,$*|T],Lno,R) ->
-    {NewLno,T1} = skip_multiline_comment(Stream,T,Lno,0),
-    tokenise(Stream,T1,NewLno,R);
-
-tokenise(Stream,[$:,$:,$=|T],Lno,R) ->
-    tokenise(Stream,T,Lno,[{'::=',Lno}|R]);
-
-tokenise(Stream,[$'|T],Lno,R) ->
-    case catch collect_quoted(T,Lno,[]) of
-         {'ERR',_} ->
-             throw({'ERR','bad_quote'});
-         {Thing, T1} ->
-             tokenise(Stream,T1,Lno,[Thing|R])
-    end;
-
+tokenise(Stream, "'"++T0, Lno, R) ->
+    {Thing, T1} = collect_quoted(T0, Lno, []),
+    tokenise(Stream, T1, Lno, [Thing|R]);
 tokenise(Stream,[$"|T],Lno,R) ->
     {Str,T1} = collect_string(T,Lno),
     tokenise(Stream,T1,Lno,[Str|R]);
 
-tokenise(Stream,[${|T],Lno,R) ->
-    tokenise(Stream,T,Lno,[{'{',Lno}|R]);
-
-tokenise(Stream,[$}|T],Lno,R) ->
-    tokenise(Stream,T,Lno,[{'}',Lno}|R]);
-
-%% tokenise(Stream,[$],$]|T],Lno,R) ->
-%%     tokenise(Stream,T,Lno,[{']]',Lno}|R]);
+tokenise(Stream, "{"++T, Lno, R) ->
+    tokenise(Stream, T, Lno, [{'{',Lno}|R]);
+tokenise(Stream, "}"++T, Lno, R) ->
+    tokenise(Stream, T, Lno, [{'}',Lno}|R]);
 
 %% Even though x.680 specify '[[' and ']]' as lexical items
-%% it does not work to have them as such since the single [ and ] can
-%% be used beside each other in the SYNTAX OF in x.681
-%% the solution chosen here , i.e. to have them as separate lexical items
+%% it does not work to have them as such since the single '[' and ']' can
+%% be used beside each other in 'WITH SYNTAX' in x.681.
+%% The solution chosen here, i.e. to have them as separate lexical items
 %% will not detect the cases where there is white space between them
-%% which would be an error in the use in ExtensionAdditionGroups
+%% which would be an error in the use in ExtensionAdditionGroups.
 
-%% tokenise(Stream,[$[,$[|T],Lno,R) ->
-%%     tokenise(Stream,T,Lno,[{'[[',Lno}|R]);
+tokenise(Stream, "]"++T, Lno, R) ->
+    tokenise(Stream, T, Lno, [{']',Lno}|R]);
+tokenise(Stream, "["++T,Lno,R) ->
+    tokenise(Stream, T, Lno, [{'[',Lno}|R]);
 
-tokenise(Stream,[$]|T],Lno,R) ->
-    tokenise(Stream,T,Lno,[{']',Lno}|R]);
+tokenise(Stream, ","++T,Lno,R) ->
+    tokenise(Stream, T, Lno, [{',',Lno}|R]);
 
-tokenise(Stream,[$[|T],Lno,R) ->
-    tokenise(Stream,T,Lno,[{'[',Lno}|R]);
+tokenise(Stream, "("++T, Lno, R) ->
+    tokenise(Stream, T, Lno, [{'(',Lno}|R]);
+tokenise(Stream, ")"++T, Lno, R) ->
+    tokenise(Stream, T, Lno, [{')',Lno}|R]);
 
-tokenise(Stream,[$,|T],Lno,R) ->
-    tokenise(Stream,T,Lno,[{',',Lno}|R]);
+tokenise(Stream, "..."++T,Lno,R) ->
+    tokenise(Stream, T, Lno, [{'...',Lno}|R]);
+tokenise(Stream, ".."++T, Lno, R) ->
+    tokenise(Stream, T, Lno, [{'..',Lno}|R]);
+tokenise(Stream, "."++T, Lno, R) ->
+    tokenise(Stream, T, Lno, [{'.',Lno}|R]);
 
-tokenise(Stream,[$(|T],Lno,R) ->
-    tokenise(Stream,T,Lno,[{'(',Lno}|R]);
-tokenise(Stream,[$)|T],Lno,R) ->
-    tokenise(Stream,T,Lno,[{')',Lno}|R]);
+tokenise(Stream, "|"++T, Lno, R) ->
+    tokenise(Stream, T, Lno, [{'|',Lno}|R]);
 
-tokenise(Stream,[$.,$.,$.|T],Lno,R) ->
-    tokenise(Stream,T,Lno,[{'...',Lno}|R]);
-
-tokenise(Stream,[$.,$.|T],Lno,R) ->
-    tokenise(Stream,T,Lno,[{'..',Lno}|R]);
-
-tokenise(Stream,[$.|T],Lno,R) ->
-    tokenise(Stream,T,Lno,[{'.',Lno}|R]);
-tokenise(Stream,[$^|T],Lno,R) ->
-    tokenise(Stream,T,Lno,[{'^',Lno}|R]);
-tokenise(Stream,[$!|T],Lno,R) ->
-    tokenise(Stream,T,Lno,[{'!',Lno}|R]);
-tokenise(Stream,[$||T],Lno,R) ->
-    tokenise(Stream,T,Lno,[{'|',Lno}|R]);
-
-tokenise(Stream,[H|T],Lno,R) ->
-    case white_space(H) of
+tokenise(Stream, [H|T], Lno, R) when $A =< H , H =< $Z ->
+    {X,T1} = get_name(T, [H]),
+    case reserved_word(X) of
 	true ->
-	    tokenise(Stream,T,Lno,R);
+	    tokenise(Stream, T1, Lno, [{X,Lno}|R]);
 	false ->
-	    tokenise(Stream,T,Lno,[{list_to_atom([H]),Lno}|R])
+	    tokenise(Stream, T1, Lno, [{typereference,Lno,X}|R]);
+	rstrtype ->
+	    tokenise(Stream, T1, Lno, [{restrictedcharacterstringtype,Lno,X}|R])
     end;
-tokenise(_Stream,[],Lno,R) ->
-    {Lno,lists:reverse(R)}.
+
+tokenise(Stream, [H|T], Lno, R) when $a =< H , H =< $z ->
+    {X, T1} = get_name(T, [H]),
+    tokenise(Stream, T1, Lno, [{identifier,Lno,X}|R]);
+
+tokenise(Stream, [H|T], Lno, R) when $0 =< H , H =< $9 ->
+    {X, T1} = get_number(T, [H]),
+    tokenise(Stream, T1, Lno, [{number,Lno,list_to_integer(X)}|R]);
+
+tokenise(Stream, [H|T], Lno, R) when H =< $\s ->
+    tokenise(Stream, T, Lno, R);
+
+tokenise(Stream, [H|T], Lno, R) ->
+    tokenise(Stream, T, Lno, [{list_to_atom([H]),Lno}|R]);
+tokenise(_Stream, [], Lno, R) ->
+    {Lno+1,R}.
 
 
-collect_string(L,Lno) ->
-    collect_string(L,Lno,[]).
+collect_string(L, Lno) ->
+    collect_string(L, Lno, []).
 
-collect_string([],_,_) ->
-    throw({'ERR','bad_quote found eof'});
-
-collect_string([H|T],Lno,Str) ->
-    case H of
-	$" ->
-           {{cstring,1,lists:reverse(Str)},T};
-        Ch ->
-           collect_string(T,Lno,[Ch|Str])
-    end.
+collect_string([$"|T], _Lno, Str) ->
+    {{cstring,1,lists:reverse(Str)},T};
+collect_string([H|T], Lno, Str) ->
+    collect_string(T, Lno, [H|Str]);
+collect_string([], _, _) ->
+    throw({error,missing_quote_at_eof}).
            
+%% <name> is letters digits hyphens.
+%% Hypen is not the last character. Hypen hyphen is NOT allowed.
+%%
+%% <identifier> ::= <lowercase> <name>
 
-
-% <name> is letters digits hyphens
-% hypen is not the last character. Hypen hyphen is NOT allowed
-%
-% <identifier> ::= <lowercase> <name>
-
-get_name([$-,Char|T], L) ->
+get_name([$-,Char|T]=T0, Acc) ->
     case isalnum(Char) of
 	true ->
-	    get_name(T,[Char,$-|L]);
+	    get_name(T, [Char,$-|Acc]);
 	false ->
-	    {lists:reverse(L),[$-,Char|T]}
+	    {list_to_atom(lists:reverse(Acc)),T0}
     end;
-get_name([$-|T], L) ->
-    {lists:reverse(L),[$-|T]};
-get_name([Char|T], L) ->
+get_name([$-|_]=T, Acc) ->
+    {list_to_atom(lists:reverse(Acc)),T};
+get_name([Char|T]=T0, Acc) ->
     case isalnum(Char) of
 	true ->
-	    get_name(T,[Char|L]);
+	    get_name(T, [Char|Acc]);
 	false ->
-	    {lists:reverse(L),[Char|T]}
+	    {list_to_atom(lists:reverse(Acc)),T0}
     end;
-get_name([], L) ->
-    {lists:reverse(L), []}.
-
+get_name([], Acc) ->
+    {list_to_atom(lists:reverse(Acc)),[]}.
 	    
 isalnum(H) when $A =< H , H =< $Z ->
     true;
@@ -221,67 +208,54 @@ isdigit(H) when $0 =< H , H =< $9 ->
 isdigit(_) ->
     false.
 
-white_space(9) -> true;
-white_space(10) -> true;
-white_space(13) -> true;
-white_space(32) -> true;
-white_space(_) -> false.
-
-
-get_number([H|T], L) ->
+get_number([H|T]=T0, L) ->
     case isdigit(H) of
 	true ->
 	    get_number(T, [H|L]);
 	false ->
-	    {lists:reverse(L), [H|T]}
+	    {lists:reverse(L), T0}
     end;
 get_number([], L) ->
     {lists:reverse(L), []}.
 
-skip_comment([]) ->
-    [];
-skip_comment([$-,$-|T]) ->
-    T;
-skip_comment([_|T]) ->
-    skip_comment(T).
+skip_comment([]) -> [];
+skip_comment("--"++T) -> T;
+skip_comment([_|T]) -> skip_comment(T).
 
-
-skip_multiline_comment(Stream,[],Lno,Level) ->
-    case io:get_line(Stream,'') of
+skip_multiline_comment(Stream, [], Lno, Level) ->
+    case io:get_line(Stream, '') of
 	eof ->
-	    io:format("Tokeniser error on line: ~w~n"
-		      "premature end of multiline comment~n",[Lno]),
-	    exit(0);
+	    throw({error,eof_in_comment});
 	Line ->
-	    skip_multiline_comment(Stream,Line,Lno+1,Level)
+	    skip_multiline_comment(Stream, Line, Lno+1, Level)
     end;
-skip_multiline_comment(_Stream,[$*,$/|T],Lno,0) ->
+skip_multiline_comment(_Stream, "*/"++T, Lno, 0) ->
     {Lno,T};
-skip_multiline_comment(Stream,[$*,$/|T],Lno,Level) ->
-    skip_multiline_comment(Stream,T,Lno,Level - 1);
-skip_multiline_comment(Stream,[$/,$*|T],Lno,Level) ->
-    skip_multiline_comment(Stream,T,Lno,Level + 1);
-skip_multiline_comment(Stream,[_|T],Lno,Level) ->
-    skip_multiline_comment(Stream,T,Lno,Level).
+skip_multiline_comment(Stream, "*/"++T, Lno, Level) ->
+    skip_multiline_comment(Stream, T, Lno, Level - 1);
+skip_multiline_comment(Stream, "/*"++T, Lno, Level) ->
+    skip_multiline_comment(Stream, T, Lno, Level + 1);
+skip_multiline_comment(Stream, [_|T], Lno, Level) ->
+    skip_multiline_comment(Stream, T, Lno, Level).
 
-collect_quoted([$',$B|T],Lno, L) ->
+collect_quoted("'B"++T, Lno, L) ->
     case check_bin(L) of
         true ->
-            {{bstring,Lno, lists:reverse(L)}, T};
+            {{bstring,Lno,lists:reverse(L)}, T};
         false ->
-            throw({'ERR',{invalid_binary_number, lists:reverse(L)}})
+            throw({error,{invalid_binary_number,lists:reverse(L)}})
     end;
-collect_quoted([$',$H|T],Lno, L) ->
+collect_quoted("'H"++T, Lno, L) ->
     case check_hex(L) of
         true ->
-            {{hstring,Lno, lists:reverse(L)}, T};
+            {{hstring,Lno,lists:reverse(L)}, T};
         false ->
-            throw({'ERR',{invalid_binary_number, lists:reverse(L)}})
+            throw({error,{invalid_hex_number,lists:reverse(L)}})
     end;
 collect_quoted([H|T], Lno, L) ->
     collect_quoted(T, Lno,[H|L]);
 collect_quoted([], _, _) ->        % This should be allowed FIX later
-    throw({'ERR',{eol_in_token}}).
+    throw({error,eol_in_token}).
 
 check_bin([$0|T]) ->
     check_bin(T);
@@ -351,7 +325,6 @@ reserved_word('INCLUDES') -> true;
 reserved_word('INSTANCE') -> true;
 reserved_word('INTEGER') -> true;
 reserved_word('INTERSECTION') -> true;
-reserved_word('ISO646String') -> rstrtype;
 reserved_word('MAX') -> true;
 reserved_word('MIN') -> true;
 reserved_word('MINUS-INFINITY') -> true;

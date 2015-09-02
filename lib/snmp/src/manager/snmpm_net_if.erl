@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 2004-2015. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %% 
@@ -489,11 +490,6 @@ handle_call({verbosity, Verbosity}, _From, State) ->
     put(verbosity, Verbosity),
     {reply, ok, State};
 
-%% handle_call({system_info_updated, What}, _From, State) ->
-%%     ?vlog("received system_info_updated request with What = ~p", [What]),
-%%     {NewState, Reply} = handle_system_info_updated(State, What),
-%%     {reply, Reply, NewState};
-
 handle_call(get_log_type, _From, State) ->
     ?vlog("received get-log-type request", []),
     Reply = (catch handle_get_log_type(State)),
@@ -816,7 +812,7 @@ handle_inform_request(
 	    ok;
 	[] ->
 	    RePdu  = make_response_pdu(Pdu),
-	    Expire = t() + To, 
+	    Expire = snmp_misc:now(ms) + To,
 	    Rec    = {Key, Expire, {Vsn, ACM, RePdu}},
 	    ets:insert(snmpm_inform_request_table, Rec)
     end.
@@ -876,7 +872,7 @@ maybe_send_inform_response(
     
 handle_inform_response_gc(#state{irb = IRB} = State) ->
     ets:safe_fixtable(snmpm_inform_request_table, true),
-    do_irgc(ets:first(snmpm_inform_request_table), t()),
+    do_irgc(ets:first(snmpm_inform_request_table), snmp_misc:now(ms)),
     ets:safe_fixtable(snmpm_inform_request_table, false),
     State#state{irgc = irgc_start(IRB)}.
 
@@ -1023,110 +1019,6 @@ handle_disk_log(_Log, _Info, State) ->
     State.
 
 
-%% mk_discovery_msg('version-3', Pdu, _VsnHdr, UserName) ->
-%%     ScopedPDU = #scopedPdu{contextEngineID = "",
-%% 			   contextName = "",
-%% 			   data = Pdu},
-%%     Bytes = snmp_pdus:enc_scoped_pdu(ScopedPDU),
-%%     MsgID = get(msg_id),
-%%     put(msg_id,MsgID+1),
-%%     UsmSecParams = 
-%% 	#usmSecurityParameters{msgAuthoritativeEngineID = "",
-%% 			       msgAuthoritativeEngineBoots = 0,
-%% 			       msgAuthoritativeEngineTime = 0,
-%% 			       msgUserName = UserName,
-%% 			       msgPrivacyParameters = "",
-%% 			       msgAuthenticationParameters = ""},
-%%     SecBytes = snmp_pdus:enc_usm_security_parameters(UsmSecParams),
-%%     PduType = Pdu#pdu.type,
-%%     Hdr = #v3_hdr{msgID = MsgID, 
-%% 		  msgMaxSize = 1000,
-%% 		  msgFlags = snmp_misc:mk_msg_flags(PduType, 0),
-%% 		  msgSecurityModel = ?SEC_USM,
-%% 		  msgSecurityParameters = SecBytes},
-%%     Msg = #message{version = 'version-3', vsn_hdr = Hdr, data = Bytes},
-%%     case (catch snmp_pdus:enc_message_only(Msg)) of
-%% 	{'EXIT', Reason} ->
-%% 	    error("Encoding error. Pdu: ~w. Reason: ~w",[Pdu, Reason]),
-%% 	    error;
-%% 	L when list(L) ->
-%% 	    {Msg, L}
-%%     end;
-%% mk_discovery_msg(Version, Pdu, {Com, _, _, _, _}, UserName) ->
-%%     Msg = #message{version = Version, vsn_hdr = Com, data = Pdu},
-%%     case catch snmp_pdus:enc_message(Msg) of
-%% 	{'EXIT', Reason} ->
-%% 	    error("Encoding error. Pdu: ~w. Reason: ~w",[Pdu, Reason]),
-%% 	    error;
-%% 	L when list(L) -> 
-%% 	    {Msg, L}
-%%     end.
-
-
-%% mk_msg('version-3', Pdu, {Context, User, EngineID, CtxEngineId, SecLevel}, 
-%%        MsgData) ->
-%%     %% Code copied from snmp_mpd.erl
-%%     {MsgId, SecName, SecData} =
-%% 	if
-%% 	    tuple(MsgData), Pdu#pdu.type == 'get-response' ->
-%% 		MsgData;
-%% 	    true -> 
-%% 		Md = get(msg_id),
-%% 		put(msg_id, Md + 1),
-%% 		{Md, User, []}
-%% 	end,
-%%     ScopedPDU = #scopedPdu{contextEngineID = CtxEngineId,
-%% 			   contextName = Context,
-%% 			   data = Pdu},
-%%     ScopedPDUBytes = snmp_pdus:enc_scoped_pdu(ScopedPDU),
-
-%%     PduType = Pdu#pdu.type,
-%%     V3Hdr = #v3_hdr{msgID      = MsgId,
-%% 		    msgMaxSize = 1000,
-%% 		    msgFlags   = snmp_misc:mk_msg_flags(PduType, SecLevel),
-%% 		    msgSecurityModel = ?SEC_USM},
-%%     Message = #message{version = 'version-3', vsn_hdr = V3Hdr,
-%% 		       data = ScopedPDUBytes},
-%%     SecEngineID = case PduType of
-%% 		      'get-response' -> snmp_framework_mib:get_engine_id();
-%% 		      _ -> EngineID
-%% 		  end,
-%%     case catch snmp_usm:generate_outgoing_msg(Message, SecEngineID,
-%% 					      SecName, SecData, SecLevel) of
-%% 	{'EXIT', Reason} ->
-%% 	    error("Encoding error. Pdu: ~w. Reason: ~w",[Pdu, Reason]),
-%% 	    error;
-%% 	{error, Reason} ->
-%% 	    error("Encoding error. Pdu: ~w. Reason: ~w",[Pdu, Reason]),
-%% 	    error;
-%% 	Packet ->
-%% 	    Packet
-%%     end;
-%% mk_msg(Version, Pdu, {Com, _User, _EngineID, _Ctx, _SecLevel}, _SecData) ->
-%%     Msg = #message{version = Version, vsn_hdr = Com, data = Pdu},
-%%     case catch snmp_pdus:enc_message(Msg) of
-%% 	{'EXIT', Reason} ->
-%% 	    error("Encoding error. Pdu: ~w. Reason: ~w",[Pdu, Reason]),
-%% 	    error;
-%% 	B when list(B) -> 
-%% 	    B
-%%     end.
-
-
-%% handle_system_info_updated(#state{log = {Log, _OldType}} = State, 
-%% 			   audit_trail_log_type = _What) ->
-%%     %% Just to make sure, check that ATL is actually enabled
-%%     case snmpm_config:system_info(audit_trail_log) of
-%% 	{ok, true} ->
-%% 	    {ok, Type} = snmpm_config:system_info(audit_trail_log_type),
-%% 	    NewState = State#state{log = {Log, Type}},
-%% 	    {NewState, ok};
-%% 	_ ->
-%% 	    {State, {error, {adt_not_enabled}}}
-%%     end;
-%% handle_system_info_updated(_State, _What) ->
-%%     ok.
-
 handle_get_log_type(#state{log = {_Log, Value}} = State) ->
     %% Just to make sure, check that ATL is actually enabled
     case snmpm_config:system_info(audit_trail_log) of
@@ -1257,13 +1149,6 @@ maybe_process_extra_info(_ExtraInfo) ->
 
 %% -------------------------------------------------------------------
 
-t() ->
-    {A,B,C} = erlang:now(),
-    A*1000000000+B*1000+(C div 1000).
-
-
-%% -------------------------------------------------------------------
-
 %% info_msg(F, A) ->
 %%     ?snmpm_info("NET-IF server: " ++ F, A).
 
@@ -1301,8 +1186,6 @@ proc_mem(P) when is_pid(P) ->
 	_ ->
 	    undefined
     end.
-%% proc_mem(_) ->
-%%     undefined.
 
 
 get_port_info(Id) ->
@@ -1381,20 +1264,6 @@ counters() ->
 
 inc(Name)    -> inc(Name, 1).
 inc(Name, N) -> snmpm_config:incr_stats_counter(Name, N).
-
-%% get_counters() ->
-%%     Counters = counters(),
-%%     get_counters(Counters, []).
-
-%% get_counters([], Acc) ->
-%%     lists:reverse(Acc);
-%% get_counters([Counter|Counters], Acc) ->
-%%     case snmpm_config:get_stats_counter(Counter) of
-%%         {ok, CounterVal} ->
-%%             get_counters(Counters, [{Counter, CounterVal}|Acc]);
-%%         _ ->
-%%             get_counters(Counters, Acc)
-%%     end.
 
 
 %% ----------------------------------------------------------------

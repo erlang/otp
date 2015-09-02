@@ -3,16 +3,17 @@
 %% 
 %% Copyright Ericsson AB 1999-2009. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %%
@@ -45,7 +46,7 @@ format(Node) ->
     format(Node, #ctxt{}).
 
 maybe_anno(Node, Fun, Ctxt) ->
-    As = core_lib:get_anno(Node),
+    As = cerl:get_ann(Node),
     case get_line(As) of
 	none ->
 	    maybe_anno(Node, Fun, Ctxt, As);
@@ -125,8 +126,8 @@ format_1(#c_literal{anno=A,val=M},Ctxt) when is_map(M) ->
 	_ -> assoc
     end,
     Cpairs = [#c_map_pair{op=#c_literal{val=Op},
-			  key=#c_literal{val=V},
-			  val=#c_literal{val=K}} || {K,V} <- Pairs],
+			  key=#c_literal{val=K},
+			  val=#c_literal{val=V}} || {K,V} <- Pairs],
 	format_1(#c_map{anno=A,arg=#c_literal{val=#{}},es=Cpairs},Ctxt);
 format_1(#c_var{name={I,A}}, _) ->
     [core_atom(I),$/,integer_to_list(A)];
@@ -183,15 +184,9 @@ format_1(#c_map{arg=Var,es=Es}, Ctxt) ->
      "}~"
     ];
 format_1(#c_map_pair{op=#c_literal{val=assoc},key=K,val=V}, Ctxt) ->
-    ["::<",
-     format_hseq([K,V], ",", add_indent(Ctxt, 1), fun format/2),
-     ">"
-    ];
+    format_map_pair("=>", K, V, Ctxt);
 format_1(#c_map_pair{op=#c_literal{val=exact},key=K,val=V}, Ctxt) ->
-    ["~<",
-     format_hseq([K,V], ",", add_indent(Ctxt, 1), fun format/2),
-     ">"
-    ];
+    format_map_pair(":=", K, V, Ctxt);
 format_1(#c_cons{hd=H,tl=T}, Ctxt) ->
     Txt = ["["|format(H, add_indent(Ctxt, 1))],
     [Txt|format_list_tail(T, add_indent(Ctxt, width(Txt, Ctxt)))];
@@ -201,7 +196,7 @@ format_1(#c_alias{var=V,pat=P}, Ctxt) ->
     Txt = [format(V, Ctxt)|" = "],
     [Txt|format(P, add_indent(Ctxt, width(Txt, Ctxt)))];
 format_1(#c_let{vars=Vs0,arg=A,body=B}, Ctxt) ->
-    Vs = [core_lib:set_anno(V, []) || V <- Vs0],
+    Vs = [cerl:set_ann(V, []) || V <- Vs0],
     case is_simple_term(A) of
 	false ->
 	    Ctxt1 = add_indent(Ctxt, Ctxt#ctxt.body_indent),
@@ -219,7 +214,7 @@ format_1(#c_let{vars=Vs0,arg=A,body=B}, Ctxt) ->
 	    ["let ",
 	     format_values(Vs, add_indent(Ctxt, 4)),
 	     " = ",
-	     format(core_lib:set_anno(A, []), Ctxt1),
+	     format(cerl:set_ann(A, []), Ctxt1),
 	     nl_indent(Ctxt),
 	     "in  "
 	     | format(B, add_indent(Ctxt, 4))
@@ -447,6 +442,12 @@ format_list_tail(#c_cons{anno=[],hd=H,tl=T}, Ctxt) ->
     [Txt|format_list_tail(T, Ctxt1)];
 format_list_tail(Tail, Ctxt) ->
     ["|",format(Tail, add_indent(Ctxt, 1)),"]"].
+
+format_map_pair(Op, K, V, Ctxt0) ->
+    Ctxt1 = add_indent(Ctxt0, 1),
+    Txt = format(K, set_class(Ctxt1, expr)),
+    Ctxt2 = add_indent(Ctxt0, width(Txt, Ctxt1)),
+    [Txt,Op,format(V, Ctxt2)].
 
 indent(Ctxt) -> indent(Ctxt#ctxt.indent, Ctxt).
 

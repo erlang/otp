@@ -8,16 +8,17 @@
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
-      The contents of this file are subject to the Erlang Public License,
-      Version 1.1, (the "License"); you may not use this file except in
-      compliance with the License. You should have received a copy of the
-      Erlang Public License along with this software. If not, it can be
-      retrieved online at http://www.erlang.org/.
-    
-      Software distributed under the License is distributed on an "AS IS"
-      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-      the License for the specific language governing rights and limitations
-      under the License.
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
     
     </legalnotice>
 
@@ -31,23 +32,20 @@
     <rev>B</rev>
     <file>ssl_distribution.xml</file>
   </header>
-  <p>This chapter describes how the Erlang distribution can use 
-    SSL to get additional verification and security.
-  </p>
+  <p>This section describes how the Erlang distribution can use 
+    SSL to get extra verification and security.</p>
 
-  <section>
-    <title>Introduction</title>
-    <p>The Erlang distribution can in theory use almost any connection
-      based protocol as bearer. A module that implements the protocol
-      specific parts of the connection setup is however needed. The
-      default distribution module is <c>inet_tcp_dist</c> which is
-      included in the Kernel application. When starting an
+    <p>The Erlang distribution can in theory use almost any 
+      connection-based protocol as bearer. However, a module that 
+      implements the protocol-specific parts of the connection setup is 
+      needed. The default distribution module is <c>inet_tcp_dist</c> 
+      in the Kernel application. When starting an
       Erlang node distributed, <c>net_kernel</c> uses this module to
-      setup listen ports and connections. </p>
+      set up listen ports and connections.</p>
 
-      <p>In the SSL application there is an additional distribution
-      module, <c>inet_tls_dist</c> which can be used as an
-      alternative. All distribution connections will be using SSL and
+      <p>In the SSL application, an exra distribution
+      module, <c>inet_tls_dist</c>, can be used as an
+      alternative. All distribution connections will use SSL and
       all participating Erlang nodes in a distributed system must use
       this distribution module.</p>
 
@@ -55,35 +53,45 @@
       SSL connection setup. Erlang node cookies are however always
       used, as they can be used to differentiate between two different
       Erlang networks.</p>
-    <p>Setting up Erlang distribution over SSL involves some simple but
-      necessary steps:</p>
+
+    <p>To set up Erlang distribution over SSL:</p>
 
       <list type="bulleted">
-      <item>Building boot scripts including the SSL application</item>
-      <item>Specifying the distribution module for net_kernel</item>
-      <item>Specifying security options and other SSL options</item>
+      <item><em>Step 1:</em> Build boot scripts including the
+      SSL application.</item>
+      <item><em>Step 2:</em> Specify the distribution module for 
+      <c>net_kernel</c>.</item>
+      <item><em>Step 3:</em> Specify the security options and other 
+      SSL options.</item>
+      <item><em>Step 4:</em> Set up the environment to always use SSL.</item>
     </list>
-    <p>The rest of this chapter describes the above mentioned steps in
-      more detail.</p>
-  </section>
+
+    <p>The following sections describe these steps.</p>
 
   <section>
-    <title>Building boot scripts including the SSL application</title>
+    <title>Building Boot Scripts Including the ssl Application</title>
     <p>Boot scripts are built using the <c>systools</c> utility in the
-      SASL application. Refer to the SASL documentations
-      for more information on systools. This is only an example of
+      <c>sasl</c> application. For more information on <c>systools</c>,
+      see the <c>sasl</c> documentation. This is only an example of
       what can be done.</p>
 
-      <p>The simplest boot script possible includes only the Kernel
-      and STDLIB applications. Such a script is located in the
-      Erlang distributions bin directory. The source for the script
-      can be found under the Erlang installation top directory under
-      <c><![CDATA[releases/<OTP version>/start_clean.rel]]></c>. Copy that
-      script to another location (and preferably another name) 
-      and add the applications crypto, public_key and SSL with their current version numbers
-      after the STDLIB application.</p>
-    <p>An example .rel file with SSL added may look like this:</p>
+      <p>The simplest boot script possible includes only the Kernel 
+      and STDLIB applications. Such a script is located in the 
+      <c>bin</c> directory of the Erlang distribution. The source for the 
+      script is found under the Erlang installation top directory under
+      <c><![CDATA[releases/<OTP version>/start_clean.rel]]></c>.</p>
 
+      <p>Do the following:</p>
+      <list type="bulleted">
+	<item><p>Copy that script to another location (and preferably another 
+      name).</p></item>
+        <item><p>Add the applications Crypto, Public Key, and 
+	SSL with their current version numbers after the 
+	STDLIB application.</p></item>
+      </list>
+
+    <p>The following shows an example <c>.rel</c> file with SSL 
+    added:</p>
     <code type="none">
       {release, {"OTP  APN 181 01","R15A"}, {erts, "5.9"},
       [{kernel,"2.15"},
@@ -94,23 +102,29 @@
       ]}.
    </code>
 
-   <p>Note that the version numbers surely will differ in your system.
-   Whenever one of the applications included in the script is
-   upgraded, the script has to be changed.</p>
-   <p>Assuming the above .rel file is stored in a file
-   <c>start_ssl.rel</c> in the current directory, a boot script
-   can be built like this:</p>
+   <p>The version numbers differ in your system. Whenever one of the 
+   applications included in the script is upgraded, change the script.</p>
 
+      <p>Do the following:</p>
+      <list type="bulleted">
+	<item><p>Build the boot script.</p>
+	<p>Assuming the <c>.rel file</c> is stored in a file
+	<c>start_ssl.rel</c> in the current directory, a boot script
+	can be built as follows:</p></item>
+      </list>
    <code type="none">
    1> systools:make_script("start_ssl",[]).    </code>
 
-   <p>There will now be a file <c>start_ssl.boot</c> in the current
-   directory. To test the boot script, start Erlang with the
-   <c>-boot</c> command line parameter specifying this boot script
-   (with its full path but without the <c>.boot</c> suffix), in
-   Unix it could look like this:</p>
-   <p></p>
+   <p>There is now a <c>start_ssl.boot</c> file in the current
+   directory.</p>
 
+   <p>Do the following:</p>
+   <list type="bulleted">
+     <item><p>Test the boot script. To do this, start Erlang with the
+     <c>-boot</c> command-line parameter specifying this boot script
+     (with its full path, but without the <c>.boot</c> suffix). In
+     UNIX it can look as follows:</p></item>
+   </list>
    <code type="none"><![CDATA[
 $ erl -boot /home/me/ssl/start_ssl
 Erlang (BEAM) emulator version 5.0
@@ -118,86 +132,99 @@ Erlang (BEAM) emulator version 5.0
 Eshell V5.0  (abort with ^G)
 1> whereis(ssl_manager).
 <0.41.0>    ]]></code>
-    <p>The <c>whereis</c> function call verifies that the SSL
-      application is really started.</p>
 
-      <p>As an alternative to building a bootscript, one can explicitly
+    <p>The <c>whereis</c> function-call verifies that the SSL 
+      application is started.</p>
+
+      <p>As an alternative to building a bootscript, you can explicitly
       add the path to the SSL <c>ebin</c> directory on the command
-      line. This is done with the command line option <c>-pa</c>. This
+      line. This is done with command-line option <c>-pa</c>. This
       works as the SSL application does not need to be started for the
       distribution to come up, as a clone of the SSL application is
-      hooked into the kernel application, so as long as the
-      SSL applications code can be reached, the distribution will
-      start. The <c>-pa</c> method is only recommended for testing
-      purposes.</p>
+      hooked into the Kernel application. So, as long as the
+      SSL application code can be reached, the distribution starts. 
+      The <c>-pa</c> method is only recommended for testing purposes.</p>
 
-      <note><p>Note that the clone of the SSL application is necessary to
+      <note><p>The clone of the SSL application must
       enable the use of the SSL code in such an early bootstage as
-      needed to setup the distribution, however this will make it
+      needed to set up the distribution. However, this makes it
       impossible to soft upgrade the SSL application.</p></note>
   </section>
 
   <section>
-    <title>Specifying distribution module for net_kernel</title>
+    <title>Specifying Distribution Module for net_kernel</title>
     <p>The distribution module for SSL is named <c>inet_tls_dist</c>
-      and is specified on the command line with the <c>-proto_dist</c>
-      option. The argument to <c>-proto_dist</c> should be the module
-      name without the <c>_dist</c> suffix, so this distribution
+      and is specified on the command line with option <c>-proto_dist</c>.
+      The argument to <c>-proto_dist</c> is to be the module
+      name without suffix <c>_dist</c>. So, this distribution
       module is specified with <c>-proto_dist inet_tls</c> on the
       command line.</p>
-    <p></p>
 
-    <p>Extending the command line from above gives us the following:</p>
+    <p>Extending the command line gives the following:</p>
     <code type="none">
 $ erl -boot /home/me/ssl/start_ssl -proto_dist inet_tls    </code>
 
-<p>For the distribution to actually be started, we need to give
-the emulator a name as well:</p>
+<p>For the distribution to be started, give the emulator a name as well:</p>
     <code type="none">
 $ erl -boot /home/me/ssl/start_ssl -proto_dist inet_tls -sname ssl_test
 Erlang (BEAM) emulator version 5.0 [source]
  
 Eshell V5.0  (abort with ^G)
 (ssl_test@myhost)1>     </code>
-    <p>Note however that a node started in this way will refuse to talk
-      to other nodes, as no ssl parameters are supplied
-      (see below).</p>
+
+    <p>However, a node started in this way refuses to talk
+      to other nodes, as no SSL parameters are supplied
+      (see the next section).</p>
   </section>
 
   <section>
-    <title>Specifying SSL options</title> <p>For SSL to work, at least
-    a public key and certificate needs to be specified for the server
-    side.  In the following example the PEM-files consists of two
-    entries the servers certificate and its private key.</p>
+    <title>Specifying SSL Options</title>
+    <p>For SSL to work, at least
+    a public key and a certificate must be specified for the server
+    side. In the following example, the PEM-files consist of two
+    entries, the server certificate and its private key.</p>
 
-    <p>On the <c>erl</c> command line one can specify options that the
-    SSL distribution will add when creating a socket.</p>
+    <p>On the <c>erl</c> command line you can specify options that the
+    SSL distribution adds when creating a socket.</p>
 
-    <p>One can specify the simpler SSL options certfile, keyfile,
-    password, cacertfile, verify, reuse_sessions,
-    secure_renegotiate, depth, hibernate_after and ciphers (use old
-    string format) by adding the prefix server_ or client_ to the
-    option name. The server can also take the options dhfile and
-    fail_if_no_peer_cert (also prefixed).
-    <c>client_</c>-prfixed options are used when the distribution initiates a
-    connection to another node and the <c>server_</c>-prefixed options are used
-    when accepting a connection from a remote node. </p>
+    <p>The simplest SSL options in the following list can be specified 
+    by adding the 
+    prefix <c>server_</c> or <c>client_</c> to the option name:</p>
+    <list type="bulleted">
+      <item><c>certfile</c></item>
+      <item><c>keyfile</c></item>
+      <item><c>password</c></item>
+      <item><c>cacertfile</c></item>
+      <item><c>verify</c></item>
+      <item><c>reuse_sessions</c></item>
+      <item><c>secure_renegotiate</c></item>
+      <item><c>depth</c></item>
+      <item><c>hibernate_after</c></item>
+      <item><c>ciphers</c> (use old string format)</item>
+    </list>
 
-    <p> More complex options such as verify_fun are not available at
-    the moment but a mechanism to handle such options may be added in
-    a future release. </p>
+    <p>The server can also take the options <c>dhfile</c> and
+    <c>fail_if_no_peer_cert</c> (also prefixed).</p>
 
-    <p> Raw socket options such as packet and size must not be specified on
-    the command line</p>.
+    <p><c>client_</c>-prefixed options are used when the distribution 
+    initiates a connection to another node. <c>server_</c>-prefixed 
+    options are used when accepting a connection from a remote node.</p>
 
-    <p>The command line argument for specifying the SSL options is named
-    <c>-ssl_dist_opt</c> and should be followed by pairs of
-    SSL options and their values. The <c>-ssl_dist_opt</c> argument can
+    <p>More complex options, such as <c>verify_fun</c>, are currently not 
+    available, but a mechanism to handle such options may be added in
+    a future release.</p>
+
+    <p>Raw socket options, such as <c>packet</c> and <c>size</c> must not 
+    be specified on the command line.</p>
+
+    <p>The command-line argument for specifying the SSL options is named
+    <c>-ssl_dist_opt</c> and is to be followed by pairs of
+    SSL options and their values. Argument <c>-ssl_dist_opt</c> can
     be repeated any number of times.</p>
 
-      <p>An example command line would now look something like this
+      <p>An example command line can now look as follows
       (line breaks in the command are for readability, 
-      they should not be there when typed):</p>
+      and are not be there when typed):</p>
     <code type="none">
 $ erl -boot /home/me/ssl/start_ssl -proto_dist inet_tls
   -ssl_dist_opt server_certfile "/home/me/ssl/erlserver.pem" 
@@ -207,20 +234,20 @@ Erlang (BEAM) emulator version 5.0 [source]
  
 Eshell V5.0  (abort with ^G)
 (ssl_test@myhost)1>     </code>
-    <p>A node started in this way will be fully functional, using SSL
+    <p>A node started in this way is fully functional, using SSL
       as the distribution protocol.</p>
   </section>
 
   <section>
-    <title>Setting up environment to always use SSL</title>
-    <p>A convenient way to specify arguments to Erlang is to use the
-      <c>ERL_FLAGS</c> environment variable. All the flags needed to
-      use SSL distribution can be specified in that variable and will
-      then be interpreted as command line arguments for all
+    <title>Setting up Environment to Always Use SSL</title>
+    <p>A convenient way to specify arguments to Erlang is to use environment 
+      variable <c>ERL_FLAGS</c>. All the flags needed to
+      use the SSL distribution can be specified in that variable and are
+      then interpreted as command-line arguments for all
       subsequent invocations of Erlang.</p>
-    <p></p>
-    <p>In a Unix (Bourne) shell it could look like this (line breaks for
-      readability, they should not be there when typed):</p>
+
+    <p>In a Unix (Bourne) shell, it can look as follows (line breaks are for
+      readability, they are not to be there when typed):</p>
     <code type="none">
 $ ERL_FLAGS="-boot /home/me/ssl/start_ssl -proto_dist inet_tls
   -ssl_dist_opt server_certfile /home/me/ssl/erlserver.pem
@@ -240,7 +267,8 @@ Eshell V5.0  (abort with ^G)
  {ssl_dist_opt,["server_secure_renegotiate","true",
                 "client_secure_renegotiate","true"]
  {home,["/home/me"]}]    </code>
+
     <p>The <c>init:get_arguments()</c> call verifies that the correct
-      arguments are supplied to the emulator. </p>
+      arguments are supplied to the emulator.</p>
   </section>
 </chapter>

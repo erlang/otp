@@ -4,20 +4,21 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2013</year>
+      <year>1996</year><year>2014</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
-      The contents of this file are subject to the Erlang Public License,
-      Version 1.1, (the "License"); you may not use this file except in
-      compliance with the License. You should have received a copy of the
-      Erlang Public License along with this software. If not, it can be
-      retrieved online at http://www.erlang.org/.
-    
-      Software distributed under the License is distributed on an "AS IS"
-      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-      the License for the specific language governing rights and limitations
-      under the License.
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
     
     </legalnotice>
 
@@ -58,6 +59,35 @@
     </datatype>
     <datatype>
       <name name="latin1_string"/>
+    </datatype>
+    <datatype>
+      <name name="format_spec"/>
+      <desc><p>Description:</p>
+      <list type="bulleted">
+        <item><p><c>control_char</c> is the type of control
+          sequence: <c>$P</c>, <c>$w</c>, and so on;</p>
+        </item>
+        <item><p><c>args</c> is a list of the arguments used by the
+          control sequence, or an empty list if the control sequence
+          does not take any arguments;</p>
+        </item>
+        <item><p><c>width</c> is the field width;</p>
+        </item>
+        <item><p><c>adjust</c> is the adjustment;</p>
+        </item>
+        <item><p><c>precision</c> is the precision of the printed
+          argument;</p>
+        </item>
+        <item><p><c>pad_char</c> is the padding character;</p>
+        </item>
+        <item><p><c>encoding</c> is set to <c>true</c> if the translation
+          modifier <c>t</c> is present;</p>
+        </item>
+        <item><p><c>strings</c> is set to <c>false</c> if the modifier
+          <c>l</c> is present.</p>
+        </item>
+      </list>
+      </desc>
     </datatype>
   </datatypes>
   <funcs>
@@ -257,6 +287,45 @@
       <desc>
         <p>Returns the list of characters needed to print a character
           constant in the ISO-latin-1 character set.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="scan_format" arity="2"/>
+      <fsummary>Parse all control sequences in the format string</fsummary>
+      <desc>
+        <p>Returns a list corresponding to the given format string,
+          where control sequences have been replaced with
+          corresponding tuples. This list can be passed to <seealso
+          marker="#build_text/1">io_lib:build_text/1</seealso> to have
+          the same effect as <c>io_lib:format(Format, Args)</c>, or to
+          <seealso
+          marker="#unscan_format/1">io_lib:unscan_format/1</seealso>
+          in order to get the corresponding pair of <c>Format</c> and
+          <c>Args</c> (with every <c>*</c> and corresponding argument
+          expanded to numeric values).</p>
+        <p>A typical use of this function is to replace unbounded-size
+          control sequences like <c>~w</c> and <c>~p</c> with the
+          depth-limited variants <c>~W</c> and <c>~P</c> before
+          formatting to text, e.g. in a logger.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="unscan_format" arity="1"/>
+      <fsummary>Revert a pre-parsed format list to a plain character list
+                and a list of arguments</fsummary>
+      <desc>
+        <p>See <seealso
+          marker="#scan_format/2">io_lib:scan_format/2</seealso> for
+          details.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="build_text" arity="1"/>
+      <fsummary>Build the output text for a pre-parsed format list</fsummary>
+      <desc>
+        <p>See <seealso
+          marker="#scan_format/2">io_lib:scan_format/2</seealso> for
+          details.</p>
       </desc>
     </func>
     <func>

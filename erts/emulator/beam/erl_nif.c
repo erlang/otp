@@ -3,16 +3,17 @@
  *
  * Copyright Ericsson AB 2009-2014. All Rights Reserved.
  *
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  * %CopyrightEnd%
  */
@@ -36,6 +37,7 @@
 #include "erl_thr_progress.h"
 #include "dtrace-wrapper.h"
 #include "erl_process.h"
+#include "erl_bif_unique.h"
 #if defined(USE_DYNAMIC_TRACE) && (defined(USE_DTRACE) || defined(USE_SYSTEMTAP))
 #define HAVE_USE_DTRACE 1
 #endif
@@ -127,6 +129,7 @@ void erts_pre_nif(ErlNifEnv* env, Process* p, struct erl_module_nif* mod_nif)
     env->heap_frag = NULL;
     env->fpe_was_unmasked = erts_block_fpe();
     env->tmp_obj_list = NULL;
+    env->exception_thrown = 0;
 }
 
 static void pre_nif_noproc(ErlNifEnv* env, struct erl_module_nif* mod_nif)
@@ -334,7 +337,7 @@ int enif_send(ErlNifEnv* env, const ErlNifPid* to_pid,
     rp = (scheduler
 	  ? erts_proc_lookup(receiver)
 	  : erts_pid2proc_opt(c_p, ERTS_PROC_LOCK_MAIN,
-			      receiver, rp_locks, ERTS_P2P_FLG_SMP_INC_REFC));
+			      receiver, rp_locks, ERTS_P2P_FLG_INC_REFC));
     if (rp == NULL) {
 	ASSERT(env == NULL || receiver != c_p->common.id);
 	return 0;
@@ -356,17 +359,13 @@ int enif_send(ErlNifEnv* env, const ErlNifPid* to_pid,
     if (flush_me) {	
 	flush_env(env); /* Needed for ERTS_HOLE_CHECK */ 
     }
-    erts_queue_message(rp, &rp_locks, frags, msg, am_undefined
-#ifdef USE_VM_PROBES
-		       , NIL
-#endif
-		       );
+    erts_queue_message(rp, &rp_locks, frags, msg, am_undefined);
     if (c_p == rp)
 	rp_locks &= ~ERTS_PROC_LOCK_MAIN;
     if (rp_locks)
 	erts_smp_proc_unlock(rp, rp_locks);
     if (!scheduler)
-	erts_smp_proc_dec_refc(rp);
+	erts_proc_dec_refc(rp);
     if (flush_me) {
 	cache_env(env);
     }
@@ -447,7 +446,7 @@ int enif_is_list(ErlNifEnv* env, ERL_NIF_TERM term)
 
 int enif_is_exception(ErlNifEnv* env, ERL_NIF_TERM term)
 {
-    return term == THE_NON_VALUE;
+    return env->exception_thrown && term == THE_NON_VALUE;
 }
 
 int enif_is_number(ErlNifEnv* env, ERL_NIF_TERM term)
@@ -551,9 +550,7 @@ int enif_alloc_binary(size_t size, ErlNifBinary* bin)
     if (refbin == NULL) {
 	return 0; /* The NIF must take action */
     }
-    refbin->flags = BIN_FLAG_DRV; /* BUGBUG: Flag? */
     erts_refc_init(&refbin->refc, 1);
-    refbin->orig_size = (SWord) size;
 
     bin->size = size;
     bin->data = (unsigned char*) refbin->orig_bytes;
@@ -573,7 +570,6 @@ int enif_realloc_binary(ErlNifBinary* bin, size_t size)
 	if (!newbin) {
 	    return 0;
 	}    
-	newbin->orig_size = size;
 	bin->ref_bin = newbin;
 	bin->data = (unsigned char*) newbin->orig_bytes;
 	bin->size = size;
@@ -742,7 +738,22 @@ Eterm enif_make_sub_binary(ErlNifEnv* env, ERL_NIF_TERM bin_term,
 
 Eterm enif_make_badarg(ErlNifEnv* env)
 {
-    BIF_ERROR(env->proc, BADARG);
+    return enif_raise_exception(env, am_badarg);
+}
+
+Eterm enif_raise_exception(ErlNifEnv* env, ERL_NIF_TERM reason)
+{
+    env->exception_thrown = 1;
+    env->proc->fvalue = reason;
+    BIF_ERROR(env->proc, EXC_ERROR);
+}
+
+int enif_has_pending_exception(ErlNifEnv* env, ERL_NIF_TERM* reason)
+{
+    if (env->exception_thrown && reason != NULL) {
+	*reason = env->proc->fvalue;
+    }
+    return env->exception_thrown;
 }
 
 int enif_get_atom(ErlNifEnv* env, Eterm atom, char* buf, unsigned len,
@@ -964,8 +975,12 @@ ERL_NIF_TERM enif_make_uint64(ErlNifEnv* env, ErlNifUInt64 i)
 
 ERL_NIF_TERM enif_make_double(ErlNifEnv* env, double d)
 {
-    Eterm* hp = alloc_heap(env,FLOAT_SIZE_OBJECT);
+    Eterm* hp;
     FloatDef f;
+
+    if (!erts_isfinite(d))
+        return enif_make_badarg(env);
+    hp = alloc_heap(env,FLOAT_SIZE_OBJECT);
     f.fd = d;
     PUT_DOUBLE(f, hp);
     return make_float(hp);
@@ -978,6 +993,8 @@ ERL_NIF_TERM enif_make_atom(ErlNifEnv* env, const char* name)
 
 ERL_NIF_TERM enif_make_atom_len(ErlNifEnv* env, const char* name, size_t len)
 {
+    if (len > MAX_ATOM_CHARACTERS)
+        return enif_make_badarg(env);
     return erts_atom_put((byte*)name, len, ERTS_ATOM_ENC_LATIN1, 1);
 }
 
@@ -991,6 +1008,8 @@ int enif_make_existing_atom_len(ErlNifEnv* env, const char* name, size_t len,
 				ERL_NIF_TERM* atom, ErlNifCharEncoding encoding)
 {
     ASSERT(encoding == ERL_NIF_LATIN1);
+    if (len > MAX_ATOM_CHARACTERS)
+        return 0;
     return erts_atom_get(name, len, atom, ERTS_ATOM_ENC_LATIN1);
 }
 
@@ -1190,7 +1209,11 @@ typedef struct enif_resource_t
     struct enif_resource_type_t* type;
 #ifdef DEBUG
     erts_refc_t nif_refc;
+# ifdef ARCH_32
+    byte align__[4];
+# endif
 #endif
+
     char data[1];
 }ErlNifResource;
 
@@ -1366,7 +1389,7 @@ static void rollback_opened_resource_types(void)
 
 static void nif_resource_dtor(Binary* bin)
 {
-    ErlNifResource* resource = (ErlNifResource*) ERTS_MAGIC_BIN_DATA(bin);
+    ErlNifResource* resource = (ErlNifResource*) ERTS_MAGIC_BIN_UNALIGNED_DATA(bin);
     ErlNifResourceType* type = resource->type;
     ASSERT(ERTS_MAGIC_BIN_DESTRUCTOR(bin) == &nif_resource_dtor);
 
@@ -1387,8 +1410,10 @@ static void nif_resource_dtor(Binary* bin)
 
 void* enif_alloc_resource(ErlNifResourceType* type, size_t size)
 {
-    Binary* bin = erts_create_magic_binary(SIZEOF_ErlNifResource(size), &nif_resource_dtor);
-    ErlNifResource* resource = ERTS_MAGIC_BIN_DATA(bin);
+    Binary* bin = erts_create_magic_binary_x(SIZEOF_ErlNifResource(size),
+                                             &nif_resource_dtor,
+                                             1); /* unaligned */
+    ErlNifResource* resource = ERTS_MAGIC_BIN_UNALIGNED_DATA(bin);
 
     ASSERT(type->owner && type->next && type->prev); /* not allowed in load/upgrade */
     resource->type = type;
@@ -1403,7 +1428,7 @@ void* enif_alloc_resource(ErlNifResourceType* type, size_t size)
 void enif_release_resource(void* obj)
 {
     ErlNifResource* resource = DATA_TO_RESOURCE(obj);
-    ErtsBinary* bin = ERTS_MAGIC_BIN_FROM_DATA(resource);
+    ErtsBinary* bin = ERTS_MAGIC_BIN_FROM_UNALIGNED_DATA(resource);
 
     ASSERT(ERTS_MAGIC_BIN_DESTRUCTOR(bin) == &nif_resource_dtor);
 #ifdef DEBUG
@@ -1417,7 +1442,7 @@ void enif_release_resource(void* obj)
 void enif_keep_resource(void* obj)
 {
     ErlNifResource* resource = DATA_TO_RESOURCE(obj);
-    ErtsBinary* bin = ERTS_MAGIC_BIN_FROM_DATA(resource);
+    ErtsBinary* bin = ERTS_MAGIC_BIN_FROM_UNALIGNED_DATA(resource);
 
     ASSERT(ERTS_MAGIC_BIN_DESTRUCTOR(bin) == &nif_resource_dtor);
 #ifdef DEBUG
@@ -1429,7 +1454,7 @@ void enif_keep_resource(void* obj)
 ERL_NIF_TERM enif_make_resource(ErlNifEnv* env, void* obj)
 {
     ErlNifResource* resource = DATA_TO_RESOURCE(obj);
-    ErtsBinary* bin = ERTS_MAGIC_BIN_FROM_DATA(resource);
+    ErtsBinary* bin = ERTS_MAGIC_BIN_FROM_UNALIGNED_DATA(resource);
     Eterm* hp = alloc_heap(env,PROC_BIN_SIZE);
     return erts_mk_magic_binary_term(&hp, &MSO(env->proc), &bin->binary);
 }
@@ -1458,7 +1483,7 @@ int enif_get_resource(ErlNifEnv* env, ERL_NIF_TERM term, ErlNifResourceType* typ
 	return 0; / * Or should we allow "resource binaries" as handles? * /
     }*/
     mbin = pb->val;
-    resource = (ErlNifResource*) ERTS_MAGIC_BIN_DATA(mbin);
+    resource = (ErlNifResource*) ERTS_MAGIC_BIN_UNALIGNED_DATA(mbin);
     if (ERTS_MAGIC_BIN_DESTRUCTOR(mbin) != &nif_resource_dtor
 	|| resource->type != type) {	
 	return 0;
@@ -1470,8 +1495,8 @@ int enif_get_resource(ErlNifEnv* env, ERL_NIF_TERM term, ErlNifResourceType* typ
 size_t enif_sizeof_resource(void* obj)
 {
     ErlNifResource* resource = DATA_TO_RESOURCE(obj);
-    Binary* bin = &ERTS_MAGIC_BIN_FROM_DATA(resource)->binary;
-    return ERTS_MAGIC_BIN_DATA_SIZE(bin) - offsetof(ErlNifResource,data);
+    Binary* bin = &ERTS_MAGIC_BIN_FROM_UNALIGNED_DATA(resource)->binary;
+    return ERTS_MAGIC_BIN_UNALIGNED_DATA_SIZE(bin) - offsetof(ErlNifResource,data);
 }
 
 
@@ -1529,12 +1554,13 @@ int enif_consume_timeslice(ErlNifEnv* env, int percent)
  * NIF exports need a few more items than the Export struct provides,
  * including the erl_module_nif* and a NIF function pointer, so the
  * NifExport below adds those. The Export member must be first in the
- * struct. The saved_mfa, saved_argc, nif_level, alloced_argv_sz and argv
- * members are used to track the MFA and arguments of the top NIF in case a
- * chain of one or more enif_schedule_nif() calls results in an exception,
- * since in that case the original MFA and registers have to be restored
- * before returning to Erlang to ensure stacktrace information associated
- * with the exception is correct.
+ * struct. The saved_mfa, exception_thrown, saved_argc, rootset_extra, and
+ * rootset members are used to track the MFA, any pending exception, and
+ * arguments of the top NIF in case a chain of one or more
+ * enif_schedule_nif() calls results in an exception, since in that case
+ * the original MFA and registers have to be restored before returning to
+ * Erlang to ensure stacktrace information associated with the exception is
+ * correct.
  */
 typedef ERL_NIF_TERM (*NativeFunPtr)(ErlNifEnv*, int, const ERL_NIF_TERM[]);
 
@@ -1543,25 +1569,28 @@ typedef struct {
     struct erl_module_nif* m;
     NativeFunPtr fp;
     Eterm saved_mfa[3];
+    int exception_thrown;
     int saved_argc;
-    int alloced_argv_sz;
-    Eterm argv[1];
+    int rootset_extra;
+    Eterm rootset[1];
 } NifExport;
 
 /*
  * If a process has saved arguments, they need to be part of the GC
  * rootset. The function below is called from setup_rootset() in
- * erl_gc.c. This function is declared in erl_process.h.
+ * erl_gc.c. This function is declared in erl_process.h. Any exception term
+ * saved in the NifExport is also made part of the GC rootset here; it
+ * always resides in rootset[0].
  */
 int
 erts_setup_nif_gc(Process* proc, Eterm** objv, int* nobj)
 {
     NifExport* ep = (NifExport*) ERTS_PROC_GET_NIF_TRAP_EXPORT(proc);
-    int gc = (ep && ep->saved_argc > 0);
+    int gc = ep && (ep->saved_argc > 0 || ep->rootset[0] != NIL);
 
     if (gc) {
-	*objv = ep->argv;
-	*nobj = ep->saved_argc;
+	*objv = ep->rootset;
+	*nobj = 1 + ep->saved_argc;
     }
     return gc;
 }
@@ -1573,14 +1602,14 @@ static NifExport*
 allocate_nif_sched_data(Process* proc, int argc)
 {
     NifExport* ep;
-    size_t argv_extra, total;
+    size_t total;
     int i;
 
-    argv_extra = argc > 1 ? sizeof(Eterm)*(argc-1) : 0;
-    total = sizeof(NifExport) + argv_extra;
+    total = sizeof(NifExport) + argc*sizeof(Eterm);
     ep = erts_alloc(ERTS_ALC_T_NIF_TRAP_EXPORT, total);
     sys_memset((void*) ep, 0, total);
-    ep->alloced_argv_sz = argc;
+    ep->rootset_extra = argc;
+    ep->rootset[0] = NIL;
     for (i=0; i<ERTS_NUM_CODE_IX; i++) {
 	ep->exp.addressv[i] = &ep->exp.code[3];
     }
@@ -1621,15 +1650,22 @@ init_nif_sched_data(ErlNifEnv* env, NativeFunPtr direct_fp, NativeFunPtr indirec
     ep = (NifExport*) ERTS_PROC_GET_NIF_TRAP_EXPORT(proc);
     if (!ep)
 	ep = allocate_nif_sched_data(proc, argc);
-    else if (need_save && ep->alloced_argv_sz < argc) {
+    else if (need_save && ep->rootset_extra < argc) {
 	NifExport* new_ep = allocate_nif_sched_data(proc, argc);
 	destroy_nif_export(ep);
 	ep = new_ep;
     }
+    if (env->exception_thrown) {
+	ep->exception_thrown = 1;
+	ep->rootset[0] = env->proc->fvalue;
+    } else {
+	ep->exception_thrown = 0;
+	ep->rootset[0] = NIL;
+    }
     ERTS_VBUMP_ALL_REDS(proc);
     for (i = 0; i < argc; i++) {
 	if (need_save)
-	    ep->argv[i] = reg[i];
+	    ep->rootset[i+1] = reg[i];
 	reg[i] = (Eterm) argv[i];
     }
     if (need_save) {
@@ -1665,7 +1701,7 @@ restore_nif_mfa(Process* proc, NifExport* ep, int exception)
     proc->current[2] = ep->saved_mfa[2];
     if (exception)
 	for (i = 0; i < ep->saved_argc; i++)
-	    reg[i] = ep->argv[i];
+	    reg[i] = ep->rootset[i+1];
     ep->saved_argc = 0;
     ep->saved_mfa[0] = THE_NON_VALUE;
 }
@@ -1690,6 +1726,7 @@ dirty_nif_finalizer(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     ASSERT(!ERTS_SCHEDULER_IS_DIRTY(env->proc->scheduler_data));
     ep = (NifExport*) ERTS_PROC_GET_NIF_TRAP_EXPORT(proc);
     ASSERT(ep);
+    ASSERT(!ep->exception_thrown);
     if (ep->fp)
 	restore_nif_mfa(proc, ep, 0);
     return argv[0];
@@ -1707,9 +1744,10 @@ dirty_nif_exception(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     ASSERT(!ERTS_SCHEDULER_IS_DIRTY(env->proc->scheduler_data));
     ep = (NifExport*) ERTS_PROC_GET_NIF_TRAP_EXPORT(proc);
     ASSERT(ep);
+    ASSERT(ep->exception_thrown);
     if (ep->fp)
 	restore_nif_mfa(proc, ep, 1);
-    return enif_make_badarg(env);
+    return enif_raise_exception(env, ep->rootset[0]);
 }
 
 /*
@@ -1754,14 +1792,13 @@ execute_dirty_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     ASSERT(ep);
     if (ep->fp)
 	fp = NULL;
-    if (is_non_value(result)) {
+    if (is_non_value(result) || env->exception_thrown) {
 	if (proc->freason != TRAP) {
-	    ASSERT(proc->freason == BADARG);
 	    return init_nif_sched_data(env, dirty_nif_exception, fp, 0, argc, argv);
 	} else {
 	    if (ep->fp == NULL)
 		restore_nif_mfa(proc, ep, 1);
-	    return result;
+	    return THE_NON_VALUE;
 	}
     }
     else
@@ -1835,6 +1872,7 @@ execute_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     NifExport* ep;
     ERL_NIF_TERM result;
 
+    ASSERT(!env->exception_thrown);
     ep = (NifExport*) ERTS_PROC_GET_NIF_TRAP_EXPORT(proc);
     ASSERT(ep);
     ep->fp = NULL;
@@ -1847,7 +1885,7 @@ execute_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
      * which case we need to restore the original NIF MFA.
      */
     if (ep->fp == NULL)
-	restore_nif_mfa(proc, ep, is_non_value(result) && proc->freason != TRAP);
+	restore_nif_mfa(proc, ep, env->exception_thrown);
     return result;
 }
 
@@ -1913,29 +1951,33 @@ int enif_is_map(ErlNifEnv* env, ERL_NIF_TERM term)
 
 int enif_get_map_size(ErlNifEnv* env, ERL_NIF_TERM term, size_t *size)
 {
-    if (is_map(term)) {
-	map_t *mp;
-	mp    = (map_t*)map_val(term);
-	*size = map_get_size(mp);
+    if (is_flatmap(term)) {
+	flatmap_t *mp;
+	mp    = (flatmap_t*)flatmap_val(term);
+	*size = flatmap_get_size(mp);
 	return 1;
+    }
+    else if (is_hashmap(term)) {
+        *size = hashmap_size(term);
+        return 1;
     }
     return 0;
 }
 
 ERL_NIF_TERM enif_make_new_map(ErlNifEnv* env)
 {
-    Eterm* hp = alloc_heap(env,MAP_HEADER_SIZE+1);
+    Eterm* hp = alloc_heap(env,MAP_HEADER_FLATMAP_SZ+1);
     Eterm tup;
-    map_t *mp;
+    flatmap_t *mp;
 
     tup   = make_tuple(hp);
     *hp++ = make_arityval(0);
-    mp    = (map_t*)hp;
-    mp->thing_word = MAP_HEADER;
+    mp    = (flatmap_t*)hp;
+    mp->thing_word = MAP_HEADER_FLATMAP;
     mp->size = 0;
     mp->keys = tup;
 
-    return make_map(mp);
+    return make_flatmap(mp);
 }
 
 int enif_make_map_put(ErlNifEnv* env,
@@ -1944,7 +1986,7 @@ int enif_make_map_put(ErlNifEnv* env,
 		      Eterm value,
 		      Eterm *map_out)
 {
-    if (is_not_map(map_in)) {
+    if (!is_map(map_in)) {
 	return 0;
     }
     flush_env(env);
@@ -1958,10 +2000,16 @@ int enif_get_map_value(ErlNifEnv* env,
 		       Eterm key,
 		       Eterm *value)
 {
-    if (is_not_map(map)) {
+    const Eterm *ret;
+    if (!is_map(map)) {
 	return 0;
     }
-    return erts_maps_get(key, map, value);
+    ret = erts_maps_get(key, map);
+    if (ret) {
+        *value = *ret;
+        return 1;
+    }
+    return 0;
 }
 
 int enif_make_map_update(ErlNifEnv* env,
@@ -1971,7 +2019,7 @@ int enif_make_map_update(ErlNifEnv* env,
 			 Eterm *map_out)
 {
     int res;
-    if (is_not_map(map_in)) {
+    if (!is_map(map_in)) {
 	return 0;
     }
 
@@ -1987,7 +2035,7 @@ int enif_make_map_remove(ErlNifEnv* env,
 			 Eterm *map_out)
 {
     int res;
-    if (is_not_map(map_in)) {
+    if (!is_map(map_in)) {
 	return 0;
     }
     flush_env(env);
@@ -2001,13 +2049,13 @@ int enif_map_iterator_create(ErlNifEnv *env,
 			     ErlNifMapIterator *iter,
 			     ErlNifMapIteratorEntry entry)
 {
-    if (is_map(map)) {
-	map_t *mp = (map_t*)map_val(map);
+    if (is_flatmap(map)) {
+	flatmap_t *mp = (flatmap_t*)flatmap_val(map);
 	size_t offset;
 
 	switch (entry) {
-	    case ERL_NIF_MAP_ITERATOR_HEAD: offset = 0; break;
-	    case ERL_NIF_MAP_ITERATOR_TAIL: offset = map_get_size(mp) - 1; break;
+	    case ERL_NIF_MAP_ITERATOR_FIRST: offset = 0; break;
+	    case ERL_NIF_MAP_ITERATOR_LAST: offset = flatmap_get_size(mp) - 1; break;
 	    default: goto error;
 	}
 
@@ -2016,14 +2064,37 @@ int enif_map_iterator_create(ErlNifEnv *env,
 	 */
 
 	iter->map     = map;
-	iter->ks      = ((Eterm *)map_get_keys(mp)) + offset;
-	iter->vs      = ((Eterm *)map_get_values(mp)) + offset;
-	iter->t_limit = map_get_size(mp) + 1;
+	iter->u.flat.ks = ((Eterm *)flatmap_get_keys(mp)) + offset;
+	iter->u.flat.vs = ((Eterm *)flatmap_get_values(mp)) + offset;
+	iter->size    = flatmap_get_size(mp);
 	iter->idx     = offset + 1;
 
 	return 1;
     }
+    else if (is_hashmap(map)) {
+        iter->map = map;
+        iter->size = hashmap_size(map);
+        iter->u.hash.wstack = erts_alloc(ERTS_ALC_T_NIF, sizeof(ErtsDynamicWStack));
+        WSTACK_INIT(iter->u.hash.wstack, ERTS_ALC_T_NIF);
 
+        switch (entry) {
+	    case ERL_NIF_MAP_ITERATOR_FIRST:
+                iter->idx = 1;
+                hashmap_iterator_init(&iter->u.hash.wstack->ws, map, 0);
+                iter->u.hash.kv = hashmap_iterator_next(&iter->u.hash.wstack->ws);
+                break;
+	    case ERL_NIF_MAP_ITERATOR_LAST:
+                iter->idx = hashmap_size(map);
+                hashmap_iterator_init(&iter->u.hash.wstack->ws, map, 1);
+                iter->u.hash.kv = hashmap_iterator_prev(&iter->u.hash.wstack->ws);
+                break;
+	    default:
+                goto error;
+	}
+        ASSERT(!!iter->u.hash.kv == (iter->idx >= 1 &&
+                                     iter->idx <= iter->size));
+        return 1;
+    }
 error:
 #ifdef DEBUG
     iter->map = THE_NON_VALUE;
@@ -2033,48 +2104,97 @@ error:
 
 void enif_map_iterator_destroy(ErlNifEnv *env, ErlNifMapIterator *iter)
 {
-    /* not used */
+    if (is_hashmap(iter->map)) {
+        WSTACK_DESTROY(iter->u.hash.wstack->ws);
+        erts_free(ERTS_ALC_T_NIF, iter->u.hash.wstack);
+    }
+    else
+        ASSERT(is_flatmap(iter->map));
+
 #ifdef DEBUG
     iter->map = THE_NON_VALUE;
 #endif
-
 }
 
 int enif_map_iterator_is_tail(ErlNifEnv *env, ErlNifMapIterator *iter)
 {
-    ASSERT(iter && is_map(iter->map));
-    ASSERT(iter->idx >= 0 && (iter->idx <= map_get_size(map_val(iter->map)) + 1));
-    return (iter->t_limit == 1 || iter->idx == iter->t_limit);
+    ASSERT(iter);
+    if (is_flatmap(iter->map)) {
+        ASSERT(iter->idx >= 0);
+        ASSERT(iter->idx <= flatmap_get_size(flatmap_val(iter->map)) + 1);
+        return (iter->size == 0 || iter->idx > iter->size);
+    }
+    else {
+        ASSERT(is_hashmap(iter->map));
+        return iter->idx > iter->size;
+    }
 }
 
 int enif_map_iterator_is_head(ErlNifEnv *env, ErlNifMapIterator *iter)
 {
-    ASSERT(iter && is_map(iter->map));
-    ASSERT(iter->idx >= 0 && (iter->idx <= map_get_size(map_val(iter->map)) + 1));
-    return (iter->t_limit == 1 || iter->idx == 0);
+    ASSERT(iter);
+    if (is_flatmap(iter->map)) {
+        ASSERT(iter->idx >= 0);
+        ASSERT(iter->idx <= flatmap_get_size(flatmap_val(iter->map)) + 1);
+        return (iter->size == 0 || iter->idx == 0);
+    }
+    else {
+        ASSERT(is_hashmap(iter->map));
+        return iter->idx == 0;
+    }
 }
 
 
 int enif_map_iterator_next(ErlNifEnv *env, ErlNifMapIterator *iter)
 {
-    ASSERT(iter && is_map(iter->map));
-    if (iter->idx < iter->t_limit) {
-	iter->idx++;
-	iter->ks++;
-	iter->vs++;
+    ASSERT(iter);
+    if (is_flatmap(iter->map)) {
+        if (iter->idx <= iter->size) {
+            iter->idx++;
+            iter->u.flat.ks++;
+            iter->u.flat.vs++;
+        }
+        return (iter->idx <= iter->size);
     }
-    return (iter->idx != iter->t_limit);
+    else {
+        ASSERT(is_hashmap(iter->map));
+
+        if (iter->idx <= hashmap_size(iter->map)) {
+            if (iter->idx < 1) {
+                hashmap_iterator_init(&iter->u.hash.wstack->ws, iter->map, 0);
+            }
+            iter->u.hash.kv = hashmap_iterator_next(&iter->u.hash.wstack->ws);
+            iter->idx++;
+            ASSERT(!!iter->u.hash.kv == (iter->idx <= iter->size));
+        }
+        return iter->idx <= iter->size;
+    }
 }
 
 int enif_map_iterator_prev(ErlNifEnv *env, ErlNifMapIterator *iter)
 {
-    ASSERT(iter && is_map(iter->map));
-    if (iter->idx > 0) {
-	iter->idx--;
-	iter->ks--;
-	iter->vs--;
+    ASSERT(iter);
+    if (is_flatmap(iter->map)) {
+        if (iter->idx > 0) {
+            iter->idx--;
+            iter->u.flat.ks--;
+            iter->u.flat.vs--;
+        }
+        return iter->idx > 0;
     }
-    return (iter->idx > 0);
+    else {
+        ASSERT(is_hashmap(iter->map));
+
+        if (iter->idx > 0) {
+            if (iter->idx > iter->size) {
+                hashmap_iterator_init(&iter->u.hash.wstack->ws, iter->map, 1);
+            }
+            iter->u.hash.kv = hashmap_iterator_prev(&iter->u.hash.wstack->ws);
+            iter->idx--;
+            ASSERT(!!iter->u.hash.kv == (iter->idx > 0));
+        }
+        return iter->idx > 0;
+    }
 }
 
 int enif_map_iterator_get_pair(ErlNifEnv *env,
@@ -2082,15 +2202,25 @@ int enif_map_iterator_get_pair(ErlNifEnv *env,
 			       Eterm *key,
 			       Eterm *value)
 {
-    ASSERT(iter && is_map(iter->map));
-    if (iter->idx > 0 && iter->idx < iter->t_limit) {
-	ASSERT(iter->ks >= map_get_keys(map_val(iter->map)) &&
-	       iter->ks  < (map_get_keys(map_val(iter->map)) + map_get_size(map_val(iter->map))));
-	ASSERT(iter->vs >= map_get_values(map_val(iter->map)) &&
-	       iter->vs  < (map_get_values(map_val(iter->map)) + map_get_size(map_val(iter->map))));
-	*key   = *(iter->ks);
-	*value = *(iter->vs);
-	return 1;
+    ASSERT(iter);
+    if (is_flatmap(iter->map)) {
+        if (iter->idx > 0 && iter->idx <= iter->size) {
+            ASSERT(iter->u.flat.ks >= flatmap_get_keys(flatmap_val(iter->map)) &&
+                   iter->u.flat.ks  < (flatmap_get_keys(flatmap_val(iter->map)) + flatmap_get_size(flatmap_val(iter->map))));
+            ASSERT(iter->u.flat.vs >= flatmap_get_values(flatmap_val(iter->map)) &&
+                   iter->u.flat.vs  < (flatmap_get_values(flatmap_val(iter->map)) + flatmap_get_size(flatmap_val(iter->map))));
+            *key   = *(iter->u.flat.ks);
+            *value = *(iter->u.flat.vs);
+            return 1;
+        }
+    }
+    else {
+        ASSERT(is_hashmap(iter->map));
+        if (iter->idx > 0 && iter->idx <= iter->size) {
+            *key   = CAR(iter->u.hash.kv);
+            *value = CDR(iter->u.hash.kv);
+            return 1;
+        }
     }
     return 0;
 }
@@ -2589,6 +2719,8 @@ erts_unload_nif(struct erl_module_nif* lib)
 
 void erl_nif_init()
 {
+    ERTS_CT_ASSERT((offsetof(ErlNifResource,data) % 8) == ERTS_MAGIC_BIN_BYTES_TO_ALIGN);
+
     resource_type_list.next = &resource_type_list;
     resource_type_list.prev = &resource_type_list;
     resource_type_list.dtor = NULL;

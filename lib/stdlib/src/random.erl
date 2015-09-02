@@ -3,16 +3,17 @@
 %% 
 %% Copyright Ericsson AB 1996-2011. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %%
@@ -57,11 +58,17 @@ seed() ->
 %% seed({A1, A2, A3}) 
 %%  Seed random number generation 
 
--spec seed({A1, A2, A3}) -> 'undefined' | ran() when
+-spec seed(SValue) -> 'undefined' | ran() when
+      SValue :: {A1, A2, A3} | integer(),
       A1 :: integer(),
       A2 :: integer(),
       A3 :: integer().
 
+seed(Int) when is_integer(Int) ->
+    A1 = (Int bsr 16) band 16#fffffff,
+    A2 = Int band 16#ffffff,
+    A3 = (Int bsr 36) bor (A2 bsr 16),
+    seed(A1, A2, A3);
 seed({A1, A2, A3}) ->
     seed(A1, A2, A3).
 

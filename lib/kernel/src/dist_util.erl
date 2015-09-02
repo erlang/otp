@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 1999-2014. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -298,7 +299,7 @@ shutdown(_Module, _Line, _Data, Reason) ->
     exit(Reason).
 %% Use this line to debug connection.  
 %% Set net_kernel verbose = 1 as well.
-%%    exit({Reason, ?MODULE, _Line, _Data, erlang:now()}).
+%%    exit({Reason, ?MODULE, _Line, _Data, erlang:timestamp()}).
 
 
 flush_down() ->
@@ -373,7 +374,9 @@ gen_digest(Challenge, Cookie) when is_integer(Challenge), is_atom(Cookie) ->
 %% gen_challenge() returns a "random" number
 %% ---------------------------------------------------------------
 gen_challenge() ->
-    {A,B,C} = erlang:now(),
+    A = erlang:phash2([erlang:node()]),
+    B = erlang:monotonic_time(),
+    C = erlang:unique_integer(),
     {D,_}   = erlang:statistics(reductions),
     {E,_}   = erlang:statistics(runtime),
     {F,_}   = erlang:statistics(wall_clock),

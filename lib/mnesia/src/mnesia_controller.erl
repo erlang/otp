@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 1996-2014. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -51,6 +52,7 @@
 	 force_load_table/1,
 	 async_dump_log/1,
 	 sync_dump_log/1,
+	 snapshot_dcd/1,
 	 connect_nodes/1,
          connect_nodes/2,
 	 wait_for_schema_commit_lock/0,
@@ -139,7 +141,8 @@ max_loaders() ->
 -record(block_controller, {owner}).
 
 -record(dump_log, {initiated_by,
-		   opt_reply_to
+		   opt_reply_to,
+		   operation = dump_log
 		  }).
 
 -record(net_load, {table,
@@ -184,7 +187,7 @@ max_loaders() ->
 
 val(Var) ->
     case ?catch_val(Var) of
-	{'EXIT', Reason} -> mnesia_lib:other_val(Var, Reason);
+	{'EXIT', _} -> mnesia_lib:other_val(Var);
 	Value -> Value
     end.
 
@@ -200,6 +203,15 @@ sync_dump_log(InitBy) ->
 async_dump_log(InitBy) ->
     ?SERVER_NAME ! {async_dump_log, InitBy},
     ok.
+
+snapshot_dcd(Tables) when is_list(Tables) ->
+    case [T || T <- Tables,
+	       mnesia_lib:storage_type_at_node(node(), T) =/= disc_copies] of
+	[] ->
+	    call({snapshot_dcd, Tables});
+	BadTabs ->
+	    {error, {not_disc_copies, BadTabs}}
+    end.
 
 %% Wait for tables to be active
 %% If needed, we will wait for Mnesia to start
@@ -230,9 +242,7 @@ do_wait_for_tables(Tabs, Timeout) ->
     end.
 
 reply_wait(Tabs) ->
-    case catch mnesia_lib:active_tables() of
-	{'EXIT', _} ->
-	    {error, {node_not_running, node()}};
+    try mnesia_lib:active_tables() of
 	Active when is_list(Active) ->
 	    case Tabs -- Active of
 		[] ->
@@ -240,6 +250,7 @@ reply_wait(Tabs) ->
 		BadTabs ->
 		    {timeout, BadTabs}
 	    end
+    catch exit:_ -> {error, {node_not_running, node()}}
     end.
 
 wait_for_tables_init(From, Tabs) ->
@@ -250,13 +261,12 @@ wait_for_tables_init(From, Tabs) ->
     exit(normal).
 
 wait_for_init(From, Tabs, Init) ->
-    case catch link(Init) of
-	{'EXIT', _} ->
-	    %% Mnesia is not started
-	    {error, {node_not_running, node()}};
+    try link(Init) of
 	true when is_pid(Init) ->
 	    cast({sync_tabs, Tabs, self()}),
 	    rec_tabs(Tabs, Tabs, From, Init)
+    catch error:_ -> %% Mnesia is not started
+	    {error, {node_not_running, node()}}
     end.
 
 sync_reply(Waiter, Tab) ->
@@ -332,7 +342,7 @@ get_network_copy(Tab, Cs) ->
     %% might be solved by using monitor in subscr instead.
     process_flag(trap_exit, true),
     Load = load_table_fun(Work),
-    Res = (catch Load()),
+    Res = ?CATCH(Load()),
     process_flag(trap_exit, false),
     call({del_other, self()}),
     case Res of
@@ -581,11 +591,8 @@ call(Msg) ->
     end.
 
 remote_call(Node, Func, Args) ->
-    case catch gen_server:call({?MODULE, Node}, {Func, Args, self()}, infinity) of
-	{'EXIT', Error} ->
-	    {error, Error};
-	Else ->
-	    Else
+    try gen_server:call({?MODULE, Node}, {Func, Args, self()}, infinity)
+    catch exit:Error -> {error, Error}
     end.
 
 multicall(Nodes, Msg) ->
@@ -646,6 +653,15 @@ handle_call({sync_dump_log, InitBy}, From, State) ->
     State2 = add_worker(Worker, State),
     noreply(State2);
 
+handle_call({snapshot_dcd, Tables}, From, State) ->
+    Worker = #dump_log{initiated_by = user,
+		       opt_reply_to = From,
+		       operation = fun() ->
+					   mnesia_dumper:snapshot_dcd(Tables)
+				   end},
+    State2 = add_worker(Worker, State),
+    noreply(State2);
+
 handle_call(wait_for_schema_commit_lock, From, State) ->
     Worker = #schema_commit_lock{owner = From},
     State2 = add_worker(Worker, State),
@@ -657,7 +673,7 @@ handle_call(block_controller, From, State) ->
     noreply(State2);
 
 handle_call({update,Fun}, From, State) ->
-    Res = (catch Fun()),
+    Res = ?CATCH(Fun()),
     reply(From, Res),
     noreply(State);
 
@@ -1236,7 +1252,7 @@ handle_info(#sender_done{worker_pid=Pid, worker_res=Res}, State)  ->
     end;
 
 handle_info({'EXIT', Pid, R}, State) when Pid == State#state.supervisor ->
-    catch set(mnesia_status, stopping),
+    ?SAFE(set(mnesia_status, stopping)),
     case State#state.dumper_pid of
 	undefined ->
 	    dbg_out("~p was ~p~n", [?SERVER_NAME, R]),
@@ -1460,9 +1476,9 @@ orphan_tables([], _, _, LocalOrphans, RemoteMasters) ->
 
 node_has_tabs([Tab | Tabs], Node, State) when Node /= node() ->
     State2 =
-	case catch update_whereabouts(Tab, Node, State) of
-	    State1 = #state{} -> State1;
-	    {'EXIT', R} ->  %% Tab was just deleted?
+	try update_whereabouts(Tab, Node, State) of
+	    State1 = #state{} -> State1
+	catch exit:R -> %% Tab was just deleted?
 		case ?catch_val({Tab, cstruct}) of
 		    {'EXIT', _} -> State; % yes
 		    _ ->  erlang:error(R)
@@ -1748,22 +1764,17 @@ change_table_majority(Cs) ->
 
 update_where_to_wlock(Tab) ->
     WNodes = val({Tab, where_to_write}),
-    Majority = case catch val({Tab, majority}) of
-		   true -> true;
-		   _    -> false
-	       end,
+    Majority = ?catch_val({Tab, majority}) == true,
     set({Tab, where_to_wlock}, {WNodes, Majority}).
 
 %% node To now has tab loaded, but this must be undone
 %% This code is rpc:call'ed from the tab_copier process
 %% when it has *not* released it's table lock
 unannounce_add_table_copy(Tab, To) ->
-    catch del_active_replica(Tab, To),
-    case catch val({Tab , where_to_read}) of
-	To ->
-	    mnesia_lib:set_remote_where_to_read(Tab);
-	_ ->
-	    ignore
+    ?SAFE(del_active_replica(Tab, To)),
+    try To = val({Tab , where_to_read}),
+	 mnesia_lib:set_remote_where_to_read(Tab)
+    catch _:_ -> ignore
     end.
 
 user_sync_tab(Tab) ->
@@ -2089,7 +2100,12 @@ start_remote_sender(Node, Tab, Receiver, Storage) ->
 
 dump_and_reply(ReplyTo, Worker) ->
     %% No trap_exit, die intentionally instead
-    Res = mnesia_dumper:opt_dump_log(Worker#dump_log.initiated_by),
+    Res = case Worker#dump_log.operation of
+	      dump_log ->
+		  mnesia_dumper:opt_dump_log(Worker#dump_log.initiated_by);
+	      F when is_function(F, 0) ->
+		  F()
+	  end,
     ReplyTo ! #dumper_done{worker_pid = self(),
 			   worker_res = Res},
     unlink(ReplyTo),

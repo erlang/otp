@@ -8,16 +8,17 @@
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
-      The contents of this file are subject to the Erlang Public License,
-      Version 1.1, (the "License"); you may not use this file except in
-      compliance with the License. You should have received a copy of the
-      Erlang Public License along with this software. If not, it can be
-      retrieved online at http://www.erlang.org/.
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
 
-      Software distributed under the License is distributed on an "AS IS"
-      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-      the License for the specific language governing rights and limitations
-      under the License.
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
 
     </legalnotice>
 
@@ -30,6 +31,119 @@
   </header>
   <p>This document describes the changes made to the Compiler
     application.</p>
+
+<section><title>Compiler 6.0</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The compiler optimizes away building of terms that are
+	    never actually used. As a result, the compiler in OTP 18
+	    may produce more warnings for terms that are built but
+	    not used than the compiler in OTP 17.</p>
+          <p>
+	    Own Id: OTP-12453</p>
+        </item>
+        <item>
+          <p>
+	    Using a map could incorrectly suppress warnings for
+	    unused variables.</p>
+          <p>
+	    Own Id: OTP-12515</p>
+        </item>
+        <item>
+          <p>
+	    The compiler now properly reports unknown parse
+	    transforms. That is, <c>undef</c> exceptions coming from
+	    the parse transform itself is reported differently from
+	    the absence of the parse transform.</p>
+          <p>
+	    Own Id: OTP-12723</p>
+        </item>
+        <item>
+          <p>
+	    Allow for 'creation of sub binary delayed' optimization
+	    if maps instructions are in a clause.</p>
+          <p>
+	    Own Id: OTP-12758</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    The <c>cerl</c> and <c>cerl_trees</c> modules in the
+	    <c>compiler</c> application are now documented.</p>
+          <p>
+	    Own Id: OTP-11978</p>
+        </item>
+        <item>
+          <p>
+	    The deprecated '<c>asm</c>' option has been removed.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-12100</p>
+        </item>
+        <item>
+          <p>
+	    Support variables as Map keys in expressions and patterns</p>
+	    <p>Erlang will accept any expression as keys in Map
+	    expressions and it will accept literals or bound
+	    variables as keys in Map patterns.</p>
+          <p>
+	    Own Id: OTP-12218</p>
+        </item>
+        <item>
+          <p>
+	    Infer Map type information in beam_type compiler
+	    optimization pass.</p>
+          <p>
+	    Own Id: OTP-12253</p>
+        </item>
+        <item>
+          <p>
+	    Compiler optimizations have been improved.</p>
+          <p>
+	    Own Id: OTP-12393</p>
+        </item>
+        <item>
+          <p>
+	    Five undocumented functions in the module <c>core_lib</c>
+	    have been deprecated and will be removed in the next
+	    major release. The functions are: <c>get_anno/{1,2}</c>,
+	    <c>is_literal/1</c>, <c>is_literal_list/1</c>, and
+	    <c>literal_value</c>. Use the appropriate functions in
+	    the <c>cerl</c> module instead.</p>
+          <p>
+	    Own Id: OTP-12497</p>
+        </item>
+        <item>
+          <p>
+	    Change some internal data structures to Maps in order to
+	    speed up compilation time. Measured speed up is around
+	    10%-15%.</p>
+          <p>
+	    Own Id: OTP-12774</p>
+        </item>
+        <item>
+          <p>
+	    Fix beam_bool pass for Maps instruction get_map_elements</p>
+          <p>
+	    Before beam_split the get_map_elements instruction is
+	    still in blocks and the helper function in beam_jump did
+	    not reflect this.</p>
+          <p>
+	    Own Id: OTP-12844 Aux Id: 17 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
 
 <section><title>Compiler 5.0.4</title>
 

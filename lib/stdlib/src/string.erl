@@ -3,16 +3,17 @@
 %% 
 %% Copyright Ericsson AB 1996-2013. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %%
@@ -221,23 +222,47 @@ substr2([_|String], S) -> substr2(String, S-1).
       Tokens :: [Token :: nonempty_string()].
 
 tokens(S, Seps) ->
-    tokens1(S, Seps, []).
+    case Seps of
+	[] ->
+	    case S of
+		[] -> [];
+		[_|_] -> [S]
+	    end;
+	[C] ->
+	    tokens_single_1(reverse(S), C, []);
+	[_|_] ->
+	    tokens_multiple_1(reverse(S), Seps, [])
+    end.
 
-tokens1([C|S], Seps, Toks) ->
-    case member(C, Seps) of
-	true -> tokens1(S, Seps, Toks);
-	false -> tokens2(S, Seps, Toks, [C])
-    end;
-tokens1([], _Seps, Toks) ->
-    reverse(Toks).
+tokens_single_1([Sep|S], Sep, Toks) ->
+    tokens_single_1(S, Sep, Toks);
+tokens_single_1([C|S], Sep, Toks) ->
+    tokens_single_2(S, Sep, Toks, [C]);
+tokens_single_1([], _, Toks) ->
+    Toks.
 
-tokens2([C|S], Seps, Toks, Cs) ->
+tokens_single_2([Sep|S], Sep, Toks, Tok) ->
+    tokens_single_1(S, Sep, [Tok|Toks]);
+tokens_single_2([C|S], Sep, Toks, Tok) ->
+    tokens_single_2(S, Sep, Toks, [C|Tok]);
+tokens_single_2([], _Sep, Toks, Tok) ->
+    [Tok|Toks].
+
+tokens_multiple_1([C|S], Seps, Toks) ->
     case member(C, Seps) of
-	true -> tokens1(S, Seps, [reverse(Cs)|Toks]);
-	false -> tokens2(S, Seps, Toks, [C|Cs])
+	true -> tokens_multiple_1(S, Seps, Toks);
+	false -> tokens_multiple_2(S, Seps, Toks, [C])
     end;
-tokens2([], _Seps, Toks, Cs) ->
-    reverse([reverse(Cs)|Toks]).
+tokens_multiple_1([], _Seps, Toks) ->
+    Toks.
+
+tokens_multiple_2([C|S], Seps, Toks, Tok) ->
+    case member(C, Seps) of
+	true -> tokens_multiple_1(S, Seps, [Tok|Toks]);
+	false -> tokens_multiple_2(S, Seps, Toks, [C|Tok])
+    end;
+tokens_multiple_2([], _Seps, Toks, Tok) ->
+    [Tok|Toks].
 
 -spec chars(Character, Number) -> String when
       Character :: char(),

@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 2013-2015. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 
@@ -120,6 +121,26 @@ get_dtls_records_aux(Data, Acc) ->
     end.
 
 encode_plain_text(Type, Version, Data,
+		  #connection_states{current_write =
+					 #connection_state{
+					    epoch = Epoch,
+					    sequence_number = Seq,
+					    compression_state=CompS0,
+					    security_parameters=
+						#security_parameters{
+						   cipher_type = ?AEAD,
+						   compression_algorithm=CompAlg}
+					   }= WriteState0} = ConnectionStates) ->
+    {Comp, CompS1} = ssl_record:compress(CompAlg, Data, CompS0),
+    WriteState1 = WriteState0#connection_state{compression_state = CompS1},
+    AAD = calc_aad(Type, Version, Epoch, Seq),
+    {CipherFragment, WriteState} = ssl_record:cipher_aead(dtls_v1:corresponding_tls_version(Version),
+							  Comp, WriteState1, AAD),
+    CipherText = encode_tls_cipher_text(Type, Version, Epoch, Seq, CipherFragment),
+    {CipherText, ConnectionStates#connection_states{current_write =
+							WriteState#connection_state{sequence_number = Seq +1}}};
+
+encode_plain_text(Type, Version, Data,
 		  #connection_states{current_write=#connection_state{
 						      epoch = Epoch,
 						      sequence_number = Seq,
@@ -141,16 +162,44 @@ decode_cipher_text(#ssl_tls{type = Type, version = Version,
 			    sequence_number = Seq,
 			    fragment = CipherFragment} = CipherText,
 		   #connection_states{current_read =
-					  #connection_state{compression_state = CompressionS0,
-							    security_parameters = SecParams} = ReadState0}
-		   = ConnnectionStates0) ->
-    CompressAlg = SecParams#security_parameters.compression_algorithm,
+					  #connection_state{
+					     compression_state = CompressionS0,
+					     security_parameters=
+						 #security_parameters{
+						    cipher_type = ?AEAD,
+						    compression_algorithm=CompAlg}
+					    } = ReadState0}= ConnnectionStates0) ->
+    AAD = calc_aad(Type, Version, Epoch, Seq),
+    case ssl_record:decipher_aead(dtls_v1:corresponding_tls_version(Version),
+				  CipherFragment, ReadState0, AAD) of
+	{PlainFragment, ReadState1} ->
+	    {Plain, CompressionS1} = ssl_record:uncompress(CompAlg,
+							   PlainFragment, CompressionS0),
+	    ConnnectionStates = ConnnectionStates0#connection_states{
+				  current_read = ReadState1#connection_state{
+						   compression_state = CompressionS1}},
+	    {CipherText#ssl_tls{fragment = Plain}, ConnnectionStates};
+	#alert{} = Alert ->
+	    Alert
+    end;
+
+decode_cipher_text(#ssl_tls{type = Type, version = Version,
+			    epoch = Epoch,
+			    sequence_number = Seq,
+			    fragment = CipherFragment} = CipherText,
+		   #connection_states{current_read =
+					  #connection_state{
+					     compression_state = CompressionS0,
+					     security_parameters=
+						 #security_parameters{
+						    compression_algorithm=CompAlg}
+					    } = ReadState0}= ConnnectionStates0) ->
     {PlainFragment, Mac, ReadState1} = ssl_record:decipher(dtls_v1:corresponding_tls_version(Version),
 							   CipherFragment, ReadState0, true),
     MacHash = calc_mac_hash(ReadState1, Type, Version, Epoch, Seq, PlainFragment),
     case ssl_record:is_correct_mac(Mac, MacHash) of
 	true ->
-	    {Plain, CompressionS1} = ssl_record:uncompress(CompressAlg,
+	    {Plain, CompressionS1} = ssl_record:uncompress(CompAlg,
 							   PlainFragment, CompressionS0),
 	    ConnnectionStates = ConnnectionStates0#connection_states{
 				  current_read = ReadState1#connection_state{
@@ -368,3 +417,7 @@ calc_mac_hash(#connection_state{mac_secret = MacSecret,
 mac_hash(Version, MacAlg, MacSecret, SeqNo, Type, Length, Fragment) ->
     dtls_v1:mac_hash(Version, MacAlg, MacSecret, SeqNo, Type,
 		     Length, Fragment).
+
+calc_aad(Type, {MajVer, MinVer}, Epoch, SeqNo) ->
+    NewSeq = (Epoch bsl 48) + SeqNo,
+    <<NewSeq:64/integer, ?BYTE(Type), ?BYTE(MajVer), ?BYTE(MinVer)>>.

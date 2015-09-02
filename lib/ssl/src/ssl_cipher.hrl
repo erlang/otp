@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 2007-2015. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -46,7 +47,8 @@
 -record(cipher_state, {
 	  iv,
 	  key,
-	  state
+	  state,
+	  nonce
 	 }).
 
 %%% TLS_NULL_WITH_NULL_NULL is specified and is the initial state of a
@@ -399,6 +401,24 @@
 
 %%% TLS 1.2 PSK Cipher Suites RFC 5487
 
+%%      TLS_PSK_WITH_AES_128_GCM_SHA256       = {0x00,0xA8};
+-define(TLS_PSK_WITH_AES_128_GCM_SHA256, <<?BYTE(16#00), ?BYTE(16#A8)>>).
+
+%%      TLS_PSK_WITH_AES_256_GCM_SHA384       = {0x00,0xA9};
+-define(TLS_PSK_WITH_AES_256_GCM_SHA384, <<?BYTE(16#00), ?BYTE(16#A9)>>).
+
+%%      TLS_DHE_PSK_WITH_AES_128_GCM_SHA256   = {0x00,0xAA};
+-define(TLS_DHE_PSK_WITH_AES_128_GCM_SHA256, <<?BYTE(16#00), ?BYTE(16#AA)>>).
+
+%%      TLS_DHE_PSK_WITH_AES_256_GCM_SHA384   = {0x00,0xAB};
+-define(TLS_DHE_PSK_WITH_AES_256_GCM_SHA384, <<?BYTE(16#00), ?BYTE(16#AB)>>).
+
+%%      TLS_RSA_PSK_WITH_AES_128_GCM_SHA256   = {0x00,0xAC};
+-define(TLS_RSA_PSK_WITH_AES_128_GCM_SHA256, <<?BYTE(16#00), ?BYTE(16#AC)>>).
+
+%%      TLS_RSA_PSK_WITH_AES_256_GCM_SHA384   = {0x00,0xAD};
+-define(TLS_RSA_PSK_WITH_AES_256_GCM_SHA384, <<?BYTE(16#00), ?BYTE(16#AD)>>).
+
 %%      TLS_PSK_WITH_AES_128_CBC_SHA256       = {0x00,0xAE};
 -define(TLS_PSK_WITH_AES_128_CBC_SHA256, <<?BYTE(16#00), ?BYTE(16#AE)>>).
 
@@ -463,5 +483,80 @@
 
 %%      TLS_SRP_SHA_DSS_WITH_AES_256_CBC_SHA  = { 0xC0,0x22 };
 -define(TLS_SRP_SHA_DSS_WITH_AES_256_CBC_SHA, <<?BYTE(16#C0), ?BYTE(16#22)>>).
+
+%%% AES-GCM Cipher Suites RFC 5288
+
+%%      TLS_RSA_WITH_AES_128_GCM_SHA256     = {0x00,0x9C}
+-define(TLS_RSA_WITH_AES_128_GCM_SHA256, <<?BYTE(16#00), ?BYTE(16#9C)>>).
+
+%%      TLS_RSA_WITH_AES_256_GCM_SHA384     = {0x00,0x9D}
+-define(TLS_RSA_WITH_AES_256_GCM_SHA384, <<?BYTE(16#00), ?BYTE(16#9D)>>).
+
+%%      TLS_DHE_RSA_WITH_AES_128_GCM_SHA256 = {0x00,0x9E}
+-define(TLS_DHE_RSA_WITH_AES_128_GCM_SHA256, <<?BYTE(16#00), ?BYTE(16#9E)>>).
+
+%%      TLS_DHE_RSA_WITH_AES_256_GCM_SHA384 = {0x00,0x9F}
+-define(TLS_DHE_RSA_WITH_AES_256_GCM_SHA384, <<?BYTE(16#00), ?BYTE(16#9F)>>).
+
+%%      TLS_DH_RSA_WITH_AES_128_GCM_SHA256  = {0x00,0xA0}
+-define(TLS_DH_RSA_WITH_AES_128_GCM_SHA256, <<?BYTE(16#00), ?BYTE(16#A0)>>).
+
+%%      TLS_DH_RSA_WITH_AES_256_GCM_SHA384  = {0x00,0xA1}
+-define(TLS_DH_RSA_WITH_AES_256_GCM_SHA384, <<?BYTE(16#00), ?BYTE(16#A1)>>).
+
+%%      TLS_DHE_DSS_WITH_AES_128_GCM_SHA256 = {0x00,0xA2}
+-define(TLS_DHE_DSS_WITH_AES_128_GCM_SHA256, <<?BYTE(16#00), ?BYTE(16#A2)>>).
+
+%%      TLS_DHE_DSS_WITH_AES_256_GCM_SHA384 = {0x00,0xA3}
+-define(TLS_DHE_DSS_WITH_AES_256_GCM_SHA384, <<?BYTE(16#00), ?BYTE(16#A3)>>).
+
+%%      TLS_DH_DSS_WITH_AES_128_GCM_SHA256  = {0x00,0xA4}
+-define(TLS_DH_DSS_WITH_AES_128_GCM_SHA256, <<?BYTE(16#00), ?BYTE(16#A4)>>).
+
+%%      TLS_DH_DSS_WITH_AES_256_GCM_SHA384  = {0x00,0xA5}
+-define(TLS_DH_DSS_WITH_AES_256_GCM_SHA384, <<?BYTE(16#00), ?BYTE(16#A5)>>).
+
+%%      TLS_DH_anon_WITH_AES_128_GCM_SHA256 = {0x00,0xA6}
+-define(TLS_DH_anon_WITH_AES_128_GCM_SHA256, <<?BYTE(16#00), ?BYTE(16#A6)>>).
+
+%%      TLS_DH_anon_WITH_AES_256_GCM_SHA384 = {0x00,0xA7}
+-define(TLS_DH_anon_WITH_AES_256_GCM_SHA384, <<?BYTE(16#00), ?BYTE(16#A7)>>).
+
+%%% ECC AES-GCM Cipher Suites RFC 5289
+
+%%      TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256  = {0xC0,0x2B};
+-define(TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256, <<?BYTE(16#C0), ?BYTE(16#2B)>>).
+
+%%      TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384  = {0xC0,0x2C};
+-define(TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384, <<?BYTE(16#C0), ?BYTE(16#2C)>>).
+
+%%      TLS_ECDH_ECDSA_WITH_AES_128_GCM_SHA256   = {0xC0,0x2D};
+-define(TLS_ECDH_ECDSA_WITH_AES_128_GCM_SHA256, <<?BYTE(16#C0), ?BYTE(16#2D)>>).
+
+%%      TLS_ECDH_ECDSA_WITH_AES_256_GCM_SHA384   = {0xC0,0x2E};
+-define(TLS_ECDH_ECDSA_WITH_AES_256_GCM_SHA384, <<?BYTE(16#C0), ?BYTE(16#2E)>>).
+
+%%      TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256    = {0xC0,0x2F};
+-define(TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256, <<?BYTE(16#C0), ?BYTE(16#2F)>>).
+
+%%      TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384    = {0xC0,0x30};
+-define(TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384, <<?BYTE(16#C0), ?BYTE(16#30)>>).
+
+%%      TLS_ECDH_RSA_WITH_AES_128_GCM_SHA256     = {0xC0,0x31};
+-define(TLS_ECDH_RSA_WITH_AES_128_GCM_SHA256, <<?BYTE(16#C0), ?BYTE(16#31)>>).
+
+%%      TLS_ECDH_RSA_WITH_AES_256_GCM_SHA384     = {0xC0,0x32};
+-define(TLS_ECDH_RSA_WITH_AES_256_GCM_SHA384, <<?BYTE(16#C0), ?BYTE(16#32)>>).
+
+%%% Chacha20/Poly1305 Suites draft-agl-tls-chacha20poly1305-04
+
+%%      TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256   = {0xcc, 0x13}
+-define(TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256, <<?BYTE(16#CC), ?BYTE(16#13)>>).
+
+%%      TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256 = {0xcc, 0x14}
+-define(TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256, <<?BYTE(16#CC), ?BYTE(16#14)>>).
+
+%%      TLS_DHE_RSA_WITH_CHACHA20_POLY1305_SHA256     = {0xcc, 0x15}
+-define(TLS_DHE_RSA_WITH_CHACHA20_POLY1305_SHA256, <<?BYTE(16#CC), ?BYTE(16#15)>>).
 
 -endif. % -ifdef(ssl_cipher).

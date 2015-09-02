@@ -27,7 +27,7 @@
 
 -module(edoc_layout).
 
--export([module/2, package/2, overview/2, type/1]).
+-export([module/2, overview/2, type/1]).
 
 -import(edoc_report, [report/2]).
 
@@ -520,7 +520,7 @@ format_spec(Name, Type, Defs, #opts{pretty_printer = erl_pp}=Opts) ->
         {R, ".\n"} = etypef(L, O),
         [{pre, R}]
     catch _:_ ->
-        %% Example: "@spec ... -> record(a)"
+        %% Should not happen.
         format_spec(Name, Type, Defs, Opts#opts{pretty_printer=''})
     end;
 format_spec(Sep, Type, Defs, _Opts) ->
@@ -535,7 +535,8 @@ t_clause(Name, Type) ->
 pp_clause(Pre, Type) ->
     Types = ot_utype([Type]),
     Atom = lists:duplicate(iolist_size(Pre), $a),
-    L1 = erl_pp:attribute({attribute,0,spec,{{list_to_atom(Atom),0},[Types]}}),
+    Attr = {attribute,0,spec,{{list_to_atom(Atom),0},[Types]}},
+    L1 = erl_pp:attribute(erl_parse:new_anno(Attr)),
     "-spec " ++ L2 = lists:flatten(L1),
     L3 = Pre ++ lists:nthtail(length(Atom), L2),
     re:replace(L3, "\n      ", "\n", [{return,list},global]).
@@ -555,7 +556,8 @@ format_type(Prefix, _Name, Type, Last, _Opts) ->
 
 pp_type(Prefix, Type) ->
     Atom = list_to_atom(lists:duplicate(iolist_size(Prefix), $a)),
-    L1 = erl_pp:attribute({attribute,0,type,{Atom,ot_utype(Type),[]}}),
+    Attr = {attribute,0,type,{Atom,ot_utype(Type),[]}},
+    L1 = erl_pp:attribute(erl_parse:new_anno(Attr)),
     {L2,N} = case lists:dropwhile(fun(C) -> C =/= $: end, lists:flatten(L1)) of
                  ":: " ++ L3 -> {L3,9}; % compensation for extra "()" and ":"
                  "::\n" ++ L3 -> {"\n"++L3,6}
@@ -701,6 +703,8 @@ deprecated(Es, S) ->
     end.
 
 behaviours(Es, Name) ->
+    CBs = get_content(callbacks, Es),
+    OCBs = get_content(optional_callbacks, Es),
     (case get_elem(behaviour, Es) of
 	 [] -> [];
 	 Es1 ->
@@ -709,13 +713,24 @@ behaviours(Es, Name) ->
 	      ?NL]
      end
      ++
-     case get_content(callbacks, Es) of
-	 [] -> [];
-	 Es1 ->
+     if CBs =:= [], OCBs =:= [] ->
+             [];
+	 true ->
+             Req = if CBs =:= [] ->
+                       [];
+                       true ->
+                           [br, " Required callback functions: "]
+                           ++ seq(fun callback/1, CBs, ["."])
+                   end,
+             Opt = if OCBs =:= [] ->
+                       [];
+                       true ->
+                           [br, " Optional callback functions: "]
+                           ++ seq(fun callback/1, OCBs, ["."])
+                   end,
 	     [{p, ([{b, ["This module defines the ", {tt, [Name]},
-			 " behaviour."]},
-		    br, " Required callback functions: "]
-		   ++ seq(fun callback/1, Es1, ["."]))},
+			 " behaviour."]}]
+                   ++ Req ++ Opt)},
 	      ?NL]
      end).
 
@@ -965,9 +980,6 @@ get_text(Name, Es) ->
 local_label(R) ->
     "#" ++ R.
 
-xhtml(Title, CSS, Body) ->
-    xhtml(Title, CSS, Body, "latin1").
-
 xhtml(Title, CSS, Body, Encoding) ->
     EncString = case Encoding of
                     "latin1" -> "ISO-8859-1";
@@ -996,27 +1008,6 @@ type(E, Ds) ->
     Opts = [],
     xmerl:export_simple_content(t_utype_elem(E) ++ local_defs(Ds, Opts),
 				?HTML_EXPORT).
-
-package(E=#xmlElement{name = package, content = Es}, Options) ->
-    Opts = init_opts(E, Options),
-    Name = get_text(packageName, Es),
-    Title = ["Package ", Name],
-    Desc = get_content(description, Es),
-%    ShortDesc = get_content(briefDescription, Desc),
-    FullDesc = get_content(fullDescription, Desc),
-    Body = ([?NL, {h1, [Title]}, ?NL]
-%	    ++ ShortDesc
-	    ++ copyright(Es)
-	    ++ deprecated(Es, "package")
-	    ++ version(Es)
-	    ++ since(Es)
-	    ++ authors(Es)
-	    ++ references(Es)
-	    ++ sees(Es)
-	    ++ todos(Es)
-	    ++ FullDesc),
-    XML = xhtml(Title, stylesheet(Opts), Body),
-    xmerl:export_simple(XML, ?HTML_EXPORT, []).
 
 overview(E=#xmlElement{name = overview, content = Es}, Options) ->
     Opts = init_opts(E, Options),
@@ -1096,8 +1087,8 @@ ot_var(E) ->
     {var,0,list_to_atom(get_attrval(name, E))}.
 
 ot_atom(E) ->
-    {ok, [Atom], _} = erl_scan:string(get_attrval(value, E), 0),
-    Atom.
+    {ok, [{atom,A,Name}], _} = erl_scan:string(get_attrval(value, E), 0),
+    {atom,erl_anno:line(A),Name}.
 
 ot_integer(E) ->
     {integer,0,list_to_integer(get_attrval(value, E))}.

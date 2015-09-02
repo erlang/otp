@@ -3,16 +3,17 @@
 %% 
 %% Copyright Ericsson AB 2001-2010. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %%
@@ -22,246 +23,184 @@
 
 -include("httpd.hrl").
 -include("httpd_internal.hrl").
--include("inets_internal.hrl").
 
 -behaviour(gen_server).
 
-
 %% mod_auth exports 
--export([start/2, stop/2, 
+-export([start/3, stop/3, 
 	 add_password/4, update_password/5, 
 	 add_user/5, delete_user/5, get_user/5, list_users/4, 
 	 add_group_member/6, delete_group_member/6, list_group_members/5, 
 	 delete_group/5, list_groups/4]).
 
 %% gen_server exports
--export([start_link/2, init/1,
+-export([start_link/3, init/1,
 	 handle_call/3, handle_cast/2, handle_info/2,
 	 terminate/2, code_change/3]).
 
 -record(state, {tab}).
 
+%%====================================================================
+%% Internal application API
+%%====================================================================	     
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%                                                                  %%
-%% External API                                                     %%
-%%                                                                  %%
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-%% start_link/3
-%% 
 %% NOTE: This is called by httpd_misc_sup when the process is started
 %% 
-start_link(Addr, Port) ->
-    ?hdrt("start_link", [{address, Addr}, {port, Port}]),
-    Name = make_name(Addr, Port),
+start_link(Addr, Port, Profile) ->
+    Name = make_name(Addr, Port, Profile),
     gen_server:start_link({local, Name}, ?MODULE, [], [{timeout, infinity}]).
 
-
-%% start/2
-
-start(Addr, Port) ->
-    ?hdrd("start", [{address, Addr}, {port, Port}]),
-    Name = make_name(Addr, Port),
+start(Addr, Port, Profile) ->
+    Name = make_name(Addr, Port, Profile),
     case whereis(Name) of
 	undefined ->
-	    httpd_misc_sup:start_auth_server(Addr, Port);
+	    httpd_misc_sup:start_auth_server(Addr, Port, Profile);
 	_ -> %% Already started...
 	    ok
     end.
 
-
-%% stop/2
-
-stop(Addr, Port) ->
-    ?hdrd("stop", [{address, Addr}, {port, Port}]),
-    Name = make_name(Addr, Port),
+stop(Addr, Port, Profile) ->
+    Name = make_name(Addr, Port, Profile),
     case whereis(Name) of
 	undefined -> %% Already stopped
 	    ok;
 	_ ->
-           (catch httpd_misc_sup:stop_auth_server(Addr, Port))
+           (catch httpd_misc_sup:stop_auth_server(Addr, Port, Profile))
     end.
 
-%% add_password/4
-
 add_password(Addr, Port, Dir, Password) ->
-    ?hdrt("add password", [{address, Addr}, {port, Port}]),
-    Name = make_name(Addr, Port),
+    add_password(Addr, Port, ?DEFAULT_PROFILE, Dir, Password).
+add_password(Addr, Port, Profile, Dir, Password) ->
+    Name = make_name(Addr, Port, Profile),
     Req  = {add_password, Dir, Password},
     call(Name, Req).
 
-
-%% update_password/6
-
-update_password(Addr, Port, Dir, Old, New) when is_list(New) ->
-    ?hdrt("update password", 
-	  [{address, Addr}, {port, Port}, {dir, Dir}, {old, Old}, {new, New}]),
-    Name = make_name(Addr, Port),
+update_password(Addr, Port, Dir, Old, New) ->
+    update_password(Addr, Port, ?DEFAULT_PROFILE, Dir, Old, New).
+update_password(Addr, Port, Profile, Dir, Old, New) when is_list(New) ->
+    Name = make_name(Addr, Port, Profile),
     Req  = {update_password, Dir, Old, New},
     call(Name, Req).
-	   
- 
-%% add_user/5
 
 add_user(Addr, Port, Dir, User, Password) ->
-    ?hdrt("add user", 
-	  [{address, Addr}, {port, Port}, 
-	   {dir, Dir}, {user, User}, {passwd, Password}]),
-    Name = make_name(Addr, Port),
-    Req  = {add_user, Addr, Port, Dir, User, Password},
+    add_user(Addr, Port, ?DEFAULT_PROFILE, Dir, User, Password).
+add_user(Addr, Port, Profile, Dir, User, Password) ->
+    Name = make_name(Addr, Port, Profile),
+    Req  = {add_user, Addr, Port, Profile, Dir, User, Password},
     call(Name, Req).
-
-
-%% delete_user/5
 
 delete_user(Addr, Port, Dir, UserName, Password) ->
-    ?hdrt("delete user", 
-	  [{address, Addr}, {port, Port}, 
-	   {dir, Dir}, {user, UserName}, {passwd, Password}]),
-    Name = make_name(Addr, Port),
-    Req  = {delete_user, Addr, Port, Dir, UserName, Password},
+    delete_user(Addr, Port, ?DEFAULT_PROFILE, Dir, UserName, Password).
+delete_user(Addr, Port, Profile, Dir, UserName, Password) ->
+    Name = make_name(Addr, Port, Profile),
+    Req  = {delete_user, Addr, Port, Profile, Dir, UserName, Password},
     call(Name, Req).
-
-
-%% get_user/5
 
 get_user(Addr, Port, Dir, UserName, Password) ->
-    ?hdrt("get user", 
-	  [{address, Addr}, {port, Port}, 
-	   {dir, Dir}, {user, UserName}, {passwd, Password}]),
-    Name = make_name(Addr, Port),
-    Req  = {get_user, Addr, Port, Dir, UserName, Password},
+    get_user(Addr, Port, ?DEFAULT_PROFILE, Dir, UserName, Password).
+get_user(Addr, Port, Profile,Dir, UserName, Password) ->
+    Name = make_name(Addr, Port, Profile),
+    Req  = {get_user, Addr, Port, Profile, Dir, UserName, Password},
     call(Name, Req).
-
-
-%% list_users/4
 
 list_users(Addr, Port, Dir, Password) ->
-    ?hdrt("list users", 
-	  [{address, Addr}, {port, Port}, {dir, Dir}, {passwd, Password}]),
-    Name = make_name(Addr,Port),
-    Req  = {list_users, Addr, Port, Dir, Password},
+    list_users(Addr, Port, ?DEFAULT_PROFILE, Dir, Password).
+list_users(Addr, Port, Profile, Dir, Password) ->
+    Name = make_name(Addr,Port, Profile),
+    Req  = {list_users, Addr, Port, Profile, Dir, Password},
     call(Name, Req).
-
-
-%% add_group_member/6
 
 add_group_member(Addr, Port, Dir, GroupName, UserName, Password) ->
-    ?hdrt("add group member", 
-	  [{address, Addr}, {port, Port}, {dir, Dir}, 
-	   {group, GroupName}, {user, UserName}, {passwd, Password}]),
-    Name = make_name(Addr,Port),
-    Req  = {add_group_member, Addr, Port, Dir, GroupName, UserName, Password},
+    add_group_member(Addr, Port, ?DEFAULT_PROFILE, Dir, GroupName, UserName, Password).
+add_group_member(Addr, Port, Profile, Dir, GroupName, UserName, Password) ->
+    Name = make_name(Addr,Port, Profile),
+    Req  = {add_group_member, Addr, Port, Profile, Dir, GroupName, UserName, Password},
     call(Name, Req).
-
-
-%% delete_group_member/6
 
 delete_group_member(Addr, Port, Dir, GroupName, UserName, Password) ->
-    ?hdrt("delete group member", 
-	  [{address, Addr}, {port, Port}, {dir, Dir}, 
-	   {group, GroupName}, {user, UserName}, {passwd, Password}]),
-    Name = make_name(Addr,Port),
-    Req  = {delete_group_member, Addr, Port, Dir, GroupName, UserName, Password},
+    delete_group_member(Addr, Port, ?DEFAULT_PROFILE, Dir, GroupName, UserName, Password).
+delete_group_member(Addr, Port, Profile, Dir, GroupName, UserName, Password) ->
+    Name = make_name(Addr,Port,Profile),
+    Req  = {delete_group_member, Addr, Port, Profile, Dir, GroupName, UserName, Password},
     call(Name, Req).
 
-
-%% list_group_members/4
-
 list_group_members(Addr, Port, Dir, Group, Password) ->
-    ?hdrt("list group members", 
-	  [{address, Addr}, {port, Port}, {dir, Dir}, 
-	   {group, Group}, {passwd, Password}]),
-    Name = make_name(Addr, Port),
+    list_group_members(Addr, Port, ?DEFAULT_PROFILE, Dir, Group, Password).
+list_group_members(Addr, Port, Profile, Dir, Group, Password) ->
+    Name = make_name(Addr, Port, Profile),
     Req  = {list_group_members, Addr, Port, Dir, Group, Password},
     call(Name, Req).
 
-
-%% delete_group/5
-
 delete_group(Addr, Port, Dir, GroupName, Password) ->
-    ?hdrt("delete group", 
-	  [{address, Addr}, {port, Port}, {dir, Dir}, 
-	   {group, GroupName}, {passwd, Password}]),
-    Name = make_name(Addr, Port),
-    Req  = {delete_group, Addr, Port, Dir, GroupName, Password},
+    delete_group(Addr, Port, ?DEFAULT_PROFILE, Dir, GroupName, Password).
+delete_group(Addr, Port, Profile, Dir, GroupName, Password) ->
+    Name = make_name(Addr, Port, Profile),
+    Req  = {delete_group, Addr, Port, Profile, Dir, GroupName, Password},
     call(Name, Req).
-
-
-%% list_groups/4
 
 list_groups(Addr, Port, Dir, Password) ->
-    ?hdrt("list groups", 
-	  [{address, Addr}, {port, Port}, {dir, Dir}, {passwd, Password}]),
-    Name = make_name(Addr, Port),
-    Req  = {list_groups, Addr, Port, Dir, Password},
+    list_groups(Addr, Port, ?DEFAULT_PROFILE, Dir, Password).
+list_groups(Addr, Port, Profile, Dir, Password) ->
+    Name = make_name(Addr, Port, Profile),
+    Req  = {list_groups, Addr, Port,Profile, Dir, Password},
     call(Name, Req).
 
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%                                                                  %%
-%% Server call-back functions                                       %%
-%%                                                                  %%
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-%% init
-
+%%====================================================================
+%% Behavior call backs
+%%====================================================================	     
 init(_) ->
-    ?hdrv("initiating", []),
     {ok,#state{tab = ets:new(auth_pwd,[set,protected])}}.
 
 %% handle_call
 
 %% Add a user
-handle_call({add_user, Addr, Port, Dir, User, AuthPwd}, _From, State) ->
-    Reply = api_call(Addr, Port, Dir, add_user, User, AuthPwd, State),
-    ?hdrt("add user", [{reply, Reply}]),
+handle_call({add_user, Addr, Port, Profile, Dir, User, AuthPwd}, _From, State) ->
+    Reply = api_call(Addr, Port, Profile, Dir, add_user, User, AuthPwd, State),
     {reply, Reply, State};
 
 %% Get data about a user
-handle_call({get_user, Addr, Port, Dir, User, AuthPwd}, _From, State) ->
-    Reply = api_call(Addr, Port, Dir, get_user, [User], AuthPwd, State),
+handle_call({get_user, Addr, Port, Profile, Dir, User, AuthPwd}, _From, State) ->
+    Reply = api_call(Addr, Port, Profile, Dir, get_user, [User], AuthPwd, State),
     {reply, Reply, State};
 
 %% Add a group member
-handle_call({add_group_member, Addr, Port, Dir, Group, User, AuthPwd},
+handle_call({add_group_member, Addr, Port, Profile, Dir, Group, User, AuthPwd},
 	    _From, State) ->
-    Reply = api_call(Addr, Port, Dir, add_group_member, [Group, User], 
+    Reply = api_call(Addr, Port, Profile, Dir, add_group_member, [Group, User], 
 		     AuthPwd, State),
     {reply, Reply, State};
 
 %% delete a group
-handle_call({delete_group_member, Addr, Port, Dir, Group, User, AuthPwd},
+handle_call({delete_group_member, Addr, Port, Profile, Dir, Group, User, AuthPwd},
 	    _From, State) ->
-    Reply = api_call(Addr, Port, Dir, delete_group_member, [Group, User], 
+    Reply = api_call(Addr, Port, Profile, Dir, delete_group_member, [Group, User], 
 		     AuthPwd, State), 
     {reply, Reply, State};
 
 %% List all users thats standalone users
-handle_call({list_users, Addr, Port, Dir, AuthPwd}, _From, State) ->
-    Reply = api_call(Addr, Port, Dir, list_users, [], AuthPwd, State),
+handle_call({list_users, Addr, Port, Profile, Dir, AuthPwd}, _From, State) ->
+    Reply = api_call(Addr, Port, Profile, Dir, list_users, [], AuthPwd, State),
     {reply, Reply, State};
 
 %% Delete a user
-handle_call({delete_user, Addr, Port, Dir, User, AuthPwd}, _From, State) ->
-    Reply = api_call(Addr, Port, Dir, delete_user, [User], AuthPwd, State),
+handle_call({delete_user, Addr, Port, Profile, Dir, User, AuthPwd}, _From, State) ->
+    Reply = api_call(Addr, Port, Profile, Dir, delete_user, [User], AuthPwd, State),
     {reply, Reply, State};
 
 %% Delete a group
-handle_call({delete_group, Addr, Port, Dir, Group, AuthPwd}, _From, State) ->
-    Reply = api_call(Addr, Port, Dir, delete_group, [Group], AuthPwd, State),
+handle_call({delete_group, Addr, Port, Profile, Dir, Group, AuthPwd}, _From, State) ->
+    Reply = api_call(Addr, Port, Profile, Dir, delete_group, [Group], AuthPwd, State),
     {reply, Reply, State};
 
 %% List the current groups
-handle_call({list_groups, Addr, Port, Dir, AuthPwd}, _From, State) ->
-    Reply = api_call(Addr, Port, Dir, list_groups, [], AuthPwd, State),
+handle_call({list_groups, Addr, Port, Profile, Dir, AuthPwd}, _From, State) ->
+    Reply = api_call(Addr, Port, Profile, Dir, list_groups, [], AuthPwd, State),
     {reply, Reply, State};
 
 %% List the members of the given group
-handle_call({list_group_members, Addr, Port, Dir, Group, AuthPwd},
+handle_call({list_group_members, Addr, Port, Profile, Dir, Group, AuthPwd},
 	    _From, State) ->
-    Reply = api_call(Addr, Port, Dir, list_group_members, [Group],
+    Reply = api_call(Addr, Port, Profile, Dir, list_group_members, [Group],
 		     AuthPwd, State), 
     {reply, Reply, State};
 
@@ -306,26 +245,16 @@ terminate(_Reason,State) ->
     ets:delete(State#state.tab),
     ok.
 
-
-%% code_change(Vsn, State, Extra)
-%%
 code_change(_Vsn, State, _Extra) ->
     {ok, State}.
 
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%                                                                  %%
-%% The functions that really changes the data in the database       %%
-%% of users to different directories                                %%
-%%                                                                  %%
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 
-
-%% API gateway
-
-api_call(Addr, Port, Dir, Func, Args,Password,State) ->
+%%--------------------------------------------------------------------
+%%% Internal functions
+%%--------------------------------------------------------------------
+api_call(Addr, Port, Profile, Dir, Func, Args,Password,State) ->
     case controlPassword(Password, State, Dir) of
 	ok->
-	    ConfigName = httpd_util:make_name("httpd_conf", Addr, Port),
+	    ConfigName = httpd_util:make_name("httpd_conf", Addr, Port, Profile),
 	    case ets:match_object(ConfigName, {directory, {Dir, '$1'}}) of
 		[{directory, {Dir, DirData}}] ->
 		    AuthMod = auth_mod_name(DirData),
@@ -386,8 +315,8 @@ lookup(Db, Key) ->
     ets:lookup(Db, Key).
 
 
-make_name(Addr,Port) ->
-    httpd_util:make_name("httpd_auth",Addr,Port).
+make_name(Addr, Port, Profile) ->
+    httpd_util:make_name(?MODULE, Addr, Port, Profile).
 
 
 call(Name, Req) ->
@@ -397,5 +326,3 @@ call(Name, Req) ->
 	Reply ->
 	    Reply
     end.
-    
-

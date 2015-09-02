@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 1999-2012. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -43,7 +44,7 @@
 -export([module/2]).
 
 -import(lists, [member/2,keymember/3,keysort/2,keydelete/3,
-		append/1,map/2,flatmap/2,filter/2,foldl/3,foldr/3,mapfoldl/3,
+		append/1,flatmap/2,filter/2,foldl/3,foldr/3,mapfoldl/3,
 		sort/1,reverse/1,reverse/2]).
 -import(v3_life, [vdb_find/2]).
 
@@ -57,8 +58,7 @@
 	     break,				%Break label
 	     recv,				%Receive label
 	     is_top_block,			%Boolean: top block or not
-	     functable=gb_trees:empty(),	%Gb tree of local functions:
-						% {{Name,Arity},Label}
+	     functable=#{},	                %Map of local functions: {Name,Arity}=>Label
 	     in_catch=false,			%Inside a catch or not.
 	     need_frame,			%Need a stack frame.
 	     ultimate_failure			%Label for ultimate match failure.
@@ -69,10 +69,8 @@
 	     stk=[],				%Stack table
 	     res=[]}).				%Reserved regs: [{reserved,I,V}]
 
-module({Mod,Exp,Attr,Forms}, Options) ->
-    put(?MODULE, Options),
+module({Mod,Exp,Attr,Forms}, _Options) ->
     {Fs,St} = functions(Forms, {atom,Mod}),
-    erase(?MODULE),
     {ok,{Mod,Exp,Attr,Fs,St#cg.lcount}}.
 
 functions(Forms, AtomMod) ->
@@ -123,23 +121,14 @@ cg_fun(Les, Hvs, Vdb, AtomMod, NameArity, Anno, St0) ->
 					   put_reg(V, Reg)
 				   end, [], Hvs),
 			 stk=[]}, 0, Vdb),
-    {B0,_Aft,St} = cg_list(Les, 0, Vdb, Bef,
+    {B,_Aft,St} = cg_list(Les, 0, Vdb, Bef,
 			  St3#cg{bfail=0,
 				 ultimate_failure=UltimateMatchFail,
 				 is_top_block=true}),
-    B = fix_bs_match_strings(B0),
     {Name,Arity} = NameArity,
     Asm = [{label,Fi},line(Anno),{func_info,AtomMod,{atom,Name},Arity},
 	   {label,Fl}|B++[{label,UltimateMatchFail},if_end]],
     {Asm,Fl,St}.
-
-fix_bs_match_strings([{test,bs_match_string,F,[Ctx,BinList]}|Is])
-  when is_list(BinList) ->
-    I = {test,bs_match_string,F,[Ctx,list_to_bitstring(BinList)]},
-    [I|fix_bs_match_strings(Is)];
-fix_bs_match_strings([I|Is]) ->
-    [I|fix_bs_match_strings(Is)];
-fix_bs_match_strings([]) -> [].
 
 %% cg(Lkexpr, Vdb, StackReg, State) -> {[Ainstr],StackReg,State}.
 %%  Generate code for a kexpr.
@@ -210,7 +199,7 @@ need_heap_0([], H, Acc) ->
 
 need_heap_1(#l{ke={set,_,{binary,_}},i=I}, H) ->
     {need_heap_need(I, H),0};
-need_heap_1(#l{ke={set,_,{map,_,_}},i=I}, H) ->
+need_heap_1(#l{ke={set,_,{map,_,_,_}},i=I}, H) ->
     {need_heap_need(I, H),0};
 need_heap_1(#l{ke={set,_,Val}}, H) ->
     %% Just pass through adding to needed heap.
@@ -586,7 +575,7 @@ top_level_block(Keis, Bef, MaxRegs, _St) ->
 			(return) ->
 			    [{deallocate,FrameSz},return];
 			(Tuple) when is_tuple(Tuple) ->
-			    [turn_yregs(tuple_size(Tuple), Tuple, MaxY)];
+			    [turn_yregs(Tuple, MaxY)];
 			(Other) ->
 			    [Other]
 		    end, Keis),
@@ -598,14 +587,49 @@ top_level_block(Keis, Bef, MaxRegs, _St) ->
 %%   catches work.  The code generation algorithm gives a lower register
 %%   number to the outer catch, which is wrong.
 
-turn_yregs(0, Tp, _) -> Tp;
-turn_yregs(El, Tp, MaxY) ->
-    turn_yregs(El-1,setelement(El,Tp,turn_yreg(element(El,Tp),MaxY)),MaxY).
+turn_yregs({call,_,_}=I, _MaxY) -> I;
+turn_yregs({call_ext,_,_}=I, _MaxY) -> I;
+turn_yregs({jump,_}=I, _MaxY) -> I;
+turn_yregs({label,_}=I, _MaxY) -> I;
+turn_yregs({line,_}=I, _MaxY) -> I;
+turn_yregs({test_heap,_,_}=I, _MaxY) -> I;
+turn_yregs({bif,Op,F,A,B}, MaxY) ->
+    {bif,Op,F,turn_yreg(A, MaxY),turn_yreg(B, MaxY)};
+turn_yregs({gc_bif,Op,F,Live,A,B}, MaxY) when is_integer(Live) ->
+    {gc_bif,Op,F,Live,turn_yreg(A, MaxY),turn_yreg(B, MaxY)};
+turn_yregs({get_tuple_element,S,N,D}, MaxY) ->
+    {get_tuple_element,turn_yreg(S, MaxY),N,turn_yreg(D, MaxY)};
+turn_yregs({put_tuple,Arity,D}, MaxY) ->
+    {put_tuple,Arity,turn_yreg(D, MaxY)};
+turn_yregs({select_val,R,F,L}, MaxY) ->
+    {select_val,turn_yreg(R, MaxY),F,L};
+turn_yregs({test,Op,F,L}, MaxY) ->
+    {test,Op,F,turn_yreg(L, MaxY)};
+turn_yregs({test,Op,F,Live,A,B}, MaxY) when is_integer(Live) ->
+    {test,Op,F,Live,turn_yreg(A, MaxY),turn_yreg(B, MaxY)};
+turn_yregs({Op,A}, MaxY) ->
+    {Op,turn_yreg(A, MaxY)};
+turn_yregs({Op,A,B}, MaxY) ->
+    {Op,turn_yreg(A, MaxY),turn_yreg(B, MaxY)};
+turn_yregs({Op,A,B,C}, MaxY) ->
+    {Op,turn_yreg(A, MaxY),turn_yreg(B, MaxY),turn_yreg(C, MaxY)};
+turn_yregs(Tuple, MaxY) ->
+    turn_yregs(tuple_size(Tuple), Tuple, MaxY).
 
-turn_yreg({yy,YY},MaxY) -> {y,MaxY-YY};
-turn_yreg({list,Ls},MaxY) -> {list, turn_yreg(Ls,MaxY)};
-turn_yreg(Ts,MaxY) when is_list(Ts) -> [turn_yreg(T,MaxY)||T<-Ts];
-turn_yreg(Other,_MaxY) -> Other.
+turn_yregs(1, Tp, _) ->
+    Tp;
+turn_yregs(N, Tp, MaxY) ->
+    E = turn_yreg(element(N, Tp), MaxY),
+    turn_yregs(N-1, setelement(N, Tp, E), MaxY).
+
+turn_yreg({yy,YY}, MaxY) ->
+    {y,MaxY-YY};
+turn_yreg({list,Ls},MaxY) ->
+    {list,turn_yreg(Ls, MaxY)};
+turn_yreg([_|_]=Ts, MaxY) ->
+    [turn_yreg(T, MaxY) || T <- Ts];
+turn_yreg(Other, _MaxY) ->
+    Other.
 
 %% select_cg(Sclause, V, TypeFail, ValueFail, StackReg, State) ->
 %%      {Is,StackReg,State}.
@@ -643,19 +667,13 @@ select_val_cg(tuple, R, [Arity,{f,Lbl}], Tf, Vf, [{label,Lbl}|Sis]) ->
     [{test,is_tuple,{f,Tf},[R]},{test,test_arity,{f,Vf},[R,Arity]}|Sis];
 select_val_cg(tuple, R, Vls, Tf, Vf, Sis) ->
     [{test,is_tuple,{f,Tf},[R]},{select_tuple_arity,R,{f,Vf},{list,Vls}}|Sis];
-select_val_cg(map, R, [_Val,{f,Lbl}], Fail, Fail, [{label,Lbl}|Sis]) ->
-    [{test,is_map,{f,Fail},[R]}|Sis];
-select_val_cg(map, R, [_Val,{f,Lbl}|_], Tf, _Vf, [{label,Lbl}|Sis]) ->
-    [{test,is_map,{f,Tf},[R]}|Sis];
 select_val_cg(Type, R, [Val, {f,Lbl}], Fail, Fail, [{label,Lbl}|Sis]) ->
     [{test,is_eq_exact,{f,Fail},[R,{Type,Val}]}|Sis];
 select_val_cg(Type, R, [Val, {f,Lbl}], Tf, Vf, [{label,Lbl}|Sis]) ->
     [{test,select_type_test(Type),{f,Tf},[R]},
      {test,is_eq_exact,{f,Vf},[R,{Type,Val}]}|Sis];
 select_val_cg(Type, R, Vls0, Tf, Vf, Sis) ->
-    Vls1 = map(fun ({f,_Lbl} = F) -> F;
-		   (Value) -> {Type,Value}
-	       end, Vls0),
+    Vls1 = [case Value of {f,_Lbl} -> Value; _ -> {Type,Value} end || Value <- Vls0],
     [{test,select_type_test(Type),{f,Tf},[R]}, {select_val,R,{f,Vf},{list,Vls1}}|Sis].
     
 select_type_test(integer) -> is_integer;
@@ -688,22 +706,37 @@ select_nil(#l{ke={val_clause,nil,B}}, V, Tf, Vf, Bef, St0) ->
 select_binary(#l{ke={val_clause,{binary,{var,V}},B},i=I,vdb=Vdb},
 	      V, Tf, Vf, Bef, St0) ->
     Int0 = clear_dead(Bef#sr{reg=Bef#sr.reg}, I, Vdb),
-    {Bis,Aft,St1} = match_cg(B, Vf, Int0, St0),
+    {Bis0,Aft,St1} = match_cg(B, Vf, Int0, St0),
     CtxReg = fetch_var(V, Int0),
     Live = max_reg(Bef#sr.reg),
-    {[{test,bs_start_match2,{f,Tf},Live,[CtxReg,V],CtxReg},
-      {bs_save2,CtxReg,{V,V}}|Bis],
-     Aft,St1};
+    Bis1 = [{test,bs_start_match2,{f,Tf},Live,[CtxReg,V],CtxReg},
+	    {bs_save2,CtxReg,{V,V}}|Bis0],
+    Bis = finish_select_binary(Bis1),
+    {Bis,Aft,St1};
 select_binary(#l{ke={val_clause,{binary,{var,Ivar}},B},i=I,vdb=Vdb},
 	      V, Tf, Vf, Bef, St0) ->
     Regs = put_reg(Ivar, Bef#sr.reg),
     Int0 = clear_dead(Bef#sr{reg=Regs}, I, Vdb),
-    {Bis,Aft,St1} = match_cg(B, Vf, Int0, St0),
+    {Bis0,Aft,St1} = match_cg(B, Vf, Int0, St0),
     CtxReg = fetch_var(Ivar, Int0),
     Live = max_reg(Bef#sr.reg),
-    {[{test,bs_start_match2,{f,Tf},Live,[fetch_var(V, Bef),Ivar],CtxReg},
-      {bs_save2,CtxReg,{Ivar,Ivar}}|Bis],
-     Aft,St1}.
+    Bis1 = [{test,bs_start_match2,{f,Tf},Live,[fetch_var(V, Bef),Ivar],CtxReg},
+	    {bs_save2,CtxReg,{Ivar,Ivar}}|Bis0],
+    Bis = finish_select_binary(Bis1),
+    {Bis,Aft,St1}.
+
+finish_select_binary([{bs_save2,R,Point}=I,{bs_restore2,R,Point}|Is]) ->
+    [I|finish_select_binary(Is)];
+finish_select_binary([{bs_save2,R,Point}=I,{test,is_eq_exact,_,_}=Test,
+		      {bs_restore2,R,Point}|Is]) ->
+    [I,Test|finish_select_binary(Is)];
+finish_select_binary([{test,bs_match_string,F,[Ctx,BinList]}|Is])
+  when is_list(BinList) ->
+    I = {test,bs_match_string,F,[Ctx,list_to_bitstring(BinList)]},
+    [I|finish_select_binary(Is)];
+finish_select_binary([I|Is]) ->
+    [I|finish_select_binary(Is)];
+finish_select_binary([]) -> [].
 
 %% New instructions for selection of binary segments.
 
@@ -928,7 +961,7 @@ select_extract_tuple(Src, Vs, I, Vdb, Bef, St) ->
 select_map(Scs, V, Tf, Vf, Bef, St0) ->
     Reg = fetch_var(V, Bef),
     {Is,Aft,St1} =
-	match_fmf(fun(#l{ke={val_clause,{map,_,Es},B},i=I,vdb=Vdb}, Fail, St1) ->
+	match_fmf(fun(#l{ke={val_clause,{map,exact,_,Es},B},i=I,vdb=Vdb}, Fail, St1) ->
 			  select_map_val(V, Es, B, Fail, I, Vdb, Bef, St1)
 		  end, Vf, St0, Scs),
     {[{test,is_map,{f,Tf},[Reg]}|Is],Aft,St1}.
@@ -947,27 +980,34 @@ select_extract_map(Src, Vs, Fail, I, Vdb, Bef, St) ->
     %% Assume keys are term-sorted
     Rsrc = fetch_var(Src, Bef),
 
-    {{HasKs,GetVs},Aft} = lists:foldr(fun
-	    ({map_pair,Key,{var,V}},{{HasKsi,GetVsi},Int0}) ->
+    {{HasKs,GetVs,HasVarKs,GetVarVs},Aft} = lists:foldr(fun
+	    ({map_pair,{var,K},{var,V}},{{HasKsi,GetVsi,HasVarVsi,GetVarVsi},Int0}) ->
 		case vdb_find(V, Vdb) of
 		    {V,_,L} when L =< I ->
-			{{[Key|HasKsi],GetVsi},Int0};
+			RK = fetch_var(K,Int0),
+			{{HasKsi,GetVsi,[RK|HasVarVsi],GetVarVsi},Int0};
 		    _Other ->
 			Reg1 = put_reg(V, Int0#sr.reg),
 			Int1 = Int0#sr{reg=Reg1},
-			{{HasKsi,[Key,fetch_reg(V, Reg1)|GetVsi]},Int1}
+			RK = fetch_var(K,Int0),
+			RV = fetch_reg(V,Reg1),
+			{{HasKsi,GetVsi,HasVarVsi,[[RK,RV]|GetVarVsi]},Int1}
+		end;
+	    ({map_pair,Key,{var,V}},{{HasKsi,GetVsi,HasVarVsi,GetVarVsi},Int0}) ->
+		case vdb_find(V, Vdb) of
+		    {V,_,L} when L =< I ->
+			{{[Key|HasKsi],GetVsi,HasVarVsi,GetVarVsi},Int0};
+		    _Other ->
+			Reg1 = put_reg(V, Int0#sr.reg),
+			Int1 = Int0#sr{reg=Reg1},
+			{{HasKsi,[Key,fetch_reg(V, Reg1)|GetVsi],HasVarVsi,GetVarVsi},Int1}
 		end
-	end, {{[],[]},Bef}, Vs),
+	end, {{[],[],[],[]},Bef}, Vs),
 
-    Code = case {HasKs,GetVs} of
-	{HasKs,[]} ->
-	    [{test,has_map_fields,{f,Fail},Rsrc,{list,HasKs}}];
-	{[],GetVs} ->
-	    [{get_map_elements,   {f,Fail},Rsrc,{list,GetVs}}];
-	{HasKs,GetVs} ->
-	    [{test,has_map_fields,{f,Fail},Rsrc,{list,HasKs}},
-	     {get_map_elements,   {f,Fail},Rsrc,{list,GetVs}}]
-    end,
+    Code = [{test,has_map_fields,{f,Fail},Rsrc,{list,HasKs}} || HasKs =/= []] ++
+	   [{test,has_map_fields,{f,Fail},Rsrc,{list,[K]}}   || K <- HasVarKs] ++
+	   [{get_map_elements,   {f,Fail},Rsrc,{list,GetVs}} || GetVs =/= []] ++
+	   [{get_map_elements,   {f,Fail},Rsrc,{list,[K,V]}} || [K,V] <- GetVarVs],
     {Code, Aft, St}.
 
 
@@ -1038,7 +1078,7 @@ protected_cg(Ts, Rs, _Fail, I, Vdb, Bef, St0) ->
 				  St2#cg{bfail=Pfail}),
     %%ok = io:fwrite("cg ~w: ~p~n", [?LINE,{Rs,I,Vdb,Aft}]),
     %% Set return values to false.
-    Mis = map(fun ({var,V}) -> {move,{atom,false},fetch_var(V, Aft)} end, Rs),
+    Mis = [{move,{atom,false},fetch_var(V,Aft)}||{var,V} <- Rs],
     {Tis ++ [{jump,{f,Psucc}},
 	     {label,Pfail}] ++ Mis ++ [{label,Psucc}],
      Aft,St3#cg{bfail=St0#cg.bfail}}.    
@@ -1221,13 +1261,12 @@ enter_line(_, _, _) ->
 local_func_label(Name, Arity, St) ->
     local_func_label({Name,Arity}, St).
 
-local_func_label(Key, #cg{functable=Tab}=St0) ->
-    case gb_trees:lookup(Key, Tab) of
-	{value,Label} ->
-	    {Label,St0};
-	none ->
+local_func_label(Key, #cg{functable=Map}=St0) ->
+    case Map of
+        #{Key := Label} -> {Label,St0};
+        _ ->
   	    {Label,St} = new_label(St0),
-	    {Label,St#cg{functable=gb_trees:insert(Key, Label, Tab)}}
+	    {Label,St#cg{functable=Map#{Key => Label}}}
     end.
 
 %% need_stack_frame(State) -> State'
@@ -1504,7 +1543,8 @@ set_cg([{var,R}], {binary,Segs}, Le, Vdb, Bef,
     %% Now generate the complete code for constructing the binary.
     Code = cg_binary(PutCode, Target, Temp, Fail, MaxRegs, Le#l.a),
     {Sis++Code,Aft,St};
-set_cg([{var,R}], {map,Op,Map,Es}, Le, Vdb, Bef,
+% Map single variable key
+set_cg([{var,R}], {map,Op,Map,[{map_pair,{var,_}=K,V}]}, Le, Vdb, Bef,
        #cg{in_catch=InCatch,bfail=Bfail}=St) ->
 
     Fail = {f,Bfail},
@@ -1516,17 +1556,47 @@ set_cg([{var,R}], {map,Op,Map,Es}, Le, Vdb, Bef,
     SrcReg = cg_reg_arg(Map,Int0),
     Line = line(Le#l.a),
 
-    %% The instruction needs to store keys in term sorted order
-    %% All keys has to be unique here
-    Pairs = map_pair_strip_and_termsort(Es),
+    List = [cg_reg_arg(K,Int0),cg_reg_arg(V,Int0)],
+
+    Live = max_reg(Bef#sr.reg),
+
+    %% The target register can reuse one of the source registers.
+    Aft0 = clear_dead(Int0, Le#l.i, Vdb),
+    Aft = Aft0#sr{reg=put_reg(R, Aft0#sr.reg)},
+    Target = fetch_reg(R, Aft#sr.reg),
+
+    I = case Op of
+	assoc -> put_map_assoc;
+	exact -> put_map_exact
+    end,
+    {Sis++[Line]++[{I,Fail,SrcReg,Target,Live,{list,List}}],Aft,St};
+
+% Map (possibly) multiple literal keys
+set_cg([{var,R}], {map,Op,Map,Es}, Le, Vdb, Bef,
+       #cg{in_catch=InCatch,bfail=Bfail}=St) ->
+
+    %% assert key literals
+    [] = [Var||{map_pair,{var,_}=Var,_} <- Es],
+
+    Fail = {f,Bfail},
+    {Sis,Int0} =
+	case InCatch of
+	    true -> adjust_stack(Bef, Le#l.i, Le#l.i+1, Vdb);
+	    false -> {[],Bef}
+	end,
+    SrcReg = cg_reg_arg(Map,Int0),
+    Line = line(Le#l.a),
 
     %% fetch registers for values to be put into the map
+    Pairs = [{K,V} || {_,K,V} <- Es],
     List = flatmap(fun({K,V}) -> [K,cg_reg_arg(V,Int0)] end, Pairs),
 
     Live = max_reg(Bef#sr.reg),
-    Int1 = Int0#sr{reg=put_reg(R, Int0#sr.reg)},
-    Aft = clear_dead(Int1, Le#l.i, Vdb),
-    Target = fetch_reg(R, Int1#sr.reg),
+
+    %% The target register can reuse one of the source registers.
+    Aft0 = clear_dead(Int0, Le#l.i, Vdb),
+    Aft = Aft0#sr{reg=put_reg(R, Aft0#sr.reg)},
+    Target = fetch_reg(R, Aft#sr.reg),
 
     I = case Op of
 	assoc -> put_map_assoc;
@@ -1544,16 +1614,6 @@ set_cg([{var,R}], Con, Le, Vdb, Bef, St) ->
 		  [{move,cg_reg_arg(Other, Int),Ret}]
 	  end,
     {Ais,clear_dead(Int, Le#l.i, Vdb),St}.
-
-map_pair_strip_and_termsort(Es) ->
-    %% format in
-    %%    [{map_pair,K,V}]
-    %% where K is for example {integer, 1} and we want to sort on 1.
-    Ls = [{K,V}||{_,K,V}<-Es],
-    lists:sort(fun ({{_,A},_}, {{_,B},_}) -> erts_internal:cmp_term(A,B) =< 0;
-                   ({nil,_},   {{_,B},_}) -> [] =< B;
-                   ({{_,A},_}, {nil,_})   -> A =< []
-               end, Ls).
 
 %%%
 %%% Code generation for constructing binaries.
@@ -1929,25 +1989,28 @@ clear_dead(Sr, Until, Vdb) ->
 	  stk=clear_dead_stk(Sr#sr.stk, Until, Vdb)}.
 
 clear_dead_reg(Sr, Until, Vdb) ->
-    Reg = map(fun ({_I,V} = IV) ->
-		      case vdb_find(V, Vdb) of
-			  {V,_,L} when L > Until -> IV;
-			  _ -> free		%Remove anything else
-		      end;
-		  ({reserved,_I,_V} = Reserved) -> Reserved;
-		  (free) -> free
-	      end, Sr#sr.reg),
+    Reg = [case R of
+            {_I,V} = IV ->
+                case vdb_find(V, Vdb) of
+                    {V,_,L} when L > Until -> IV;
+                    _ -> free		%Remove anything else
+                end;
+            {reserved,_I,_V} = Reserved -> Reserved;
+            free -> free
+        end || R <- Sr#sr.reg],
     reserve(Sr#sr.res, Reg, Sr#sr.stk).
 
 clear_dead_stk(Stk, Until, Vdb) ->
-    map(fun ({V} = T) ->
-		case vdb_find(V, Vdb) of
-		    {V,_,L} when L > Until -> T;
-		    _ -> dead			%Remove anything else
-		end;
-	    (free) -> free;
-	    (dead) -> dead
-	end, Stk).
+    [case S of
+	    {V} = T ->
+            case vdb_find(V, Vdb) of
+                {V,_,L} when L > Until -> T;
+                _ -> dead   %Remove anything else
+            end;
+        free -> free;
+        dead -> dead
+     end || S <- Stk].
+
 
 %% sr_merge(Sr1, Sr2) -> Sr.
 %%  Merge two stack/register states keeping the longest of both stack
@@ -2077,9 +2140,11 @@ put_stack(Val, [free|Stk]) -> [{Val}|Stk];
 put_stack(Val, [NotFree|Stk]) -> [NotFree|put_stack(Val, Stk)].
 
 put_stack_carefully(Val, Stk0) ->
-    case catch put_stack_carefully1(Val, Stk0) of
-	error -> error;
-	Stk1 when is_list(Stk1) -> Stk1
+    try
+	put_stack_carefully1(Val, Stk0)
+    catch
+	throw:error ->
+	    error
     end.
 
 put_stack_carefully1(_, []) -> throw(error);

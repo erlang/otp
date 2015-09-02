@@ -8,16 +8,17 @@
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
-      The contents of this file are subject to the Erlang Public License,
-      Version 1.1, (the "License"); you may not use this file except in
-      compliance with the License. You should have received a copy of the
-      Erlang Public License along with this software. If not, it can be
-      retrieved online at http://www.erlang.org/.
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
 
-      Software distributed under the License is distributed on an "AS IS"
-      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-      the License for the specific language governing rights and limitations
-      under the License.
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
 
     </legalnotice>
 
@@ -33,25 +34,23 @@
   </header>
   <section>
     <title>Windows</title>
+    <p>The system is delivered as a Windows Installer executable.
+    Get it from http://www.erlang.org/download.html</p>
 
     <section>
-      <title>Introduction</title>
-      <p>The system is delivered as a Windows Installer executable.
-        Get it from our <url href="http://www.erlang.org/download.html">download page</url>.</p>
-    </section>
-
-    <section>
-      <title>Installation</title>
-      <p>The installation procedure is is automated. Double-click the
+      <title>Installing</title>
+      <p>The installation procedure is automated. Double-click the
         <c>.exe</c> file icon and follow the instructions.</p>
     </section>
+
     <section>
-    <title>Verification</title>
+    <title>Verifying</title>
     <list type="bulleted">
       <item>
         <p>Start Erlang/OTP by double-clicking on the Erlang shortcut icon on the
           desktop.</p>
-        <p>Expect a command line window to pop up with an output looking something like this:</p>
+        <p>Expect a command-line window to pop up with an output looking
+	something like this:</p>
         <pre>
   Erlang/OTP 17 [erts-6.0] [64-bit] [smp:2:2]
 
@@ -59,12 +58,12 @@
   1></pre>
       </item>
       <item>
-        <p>Exit by entering the command <c>halt()</c>,</p>
+        <p>Exit by entering the command <c>halt()</c>.</p>
         <pre>
   2> <input>halt().</input></pre>
-        <p>which will close the Erlang/OTP shell. </p>
+        <p>This closes the Erlang/OTP shell.</p>
       </item>
     </list>
-  </section>
+    </section>
   </section>
 </chapter>

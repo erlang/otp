@@ -3,16 +3,17 @@
  * 
  * Copyright Ericsson AB 2006-2013. All Rights Reserved.
  * 
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
- * 
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  * 
  * %CopyrightEnd%
  */
@@ -38,9 +39,10 @@
 #include "erl_check_io.h"
 #include "erl_thr_progress.h"
 #include "dtrace-wrapper.h"
+#define ERTS_WANT_TIMER_WHEEL_API
+#include "erl_time.h"
 
-#ifdef ERTS_SYS_CONTINOUS_FD_NUMBERS
-#else
+#ifndef ERTS_SYS_CONTINOUS_FD_NUMBERS
 #  include "safe_hash.h"
 #  define DRV_EV_STATE_HTAB_SIZE 1024
 #endif
@@ -411,14 +413,16 @@ static void
 grow_drv_ev_state(int min_ix)
 {
     int i;
+    int old_len;
     int new_len;
 
-    new_len = ERTS_POLL_EXPORT(erts_poll_get_table_len)(min_ix + 1);
-    if (new_len > max_fds)
-	new_len = max_fds;
-
     erts_smp_mtx_lock(&drv_ev_state_grow_lock);
-    if (erts_smp_atomic_read_nob(&drv_ev_state_len) <= min_ix) {
+    old_len = erts_smp_atomic_read_nob(&drv_ev_state_len);
+    if (min_ix >= old_len) {
+        new_len = erts_poll_new_table_len(old_len, min_ix + 1);
+        if (new_len > max_fds)
+            new_len = max_fds;
+
 	for (i=0; i<DRV_EV_STATE_LOCK_CNT; i++) { /* lock all fd's */
 	    erts_smp_mtx_lock(&drv_ev_state_locks[i].lck);
 	}
@@ -428,7 +432,7 @@ grow_drv_ev_state(int min_ix)
 				       sizeof(ErtsDrvEventState)*new_len)
 			: erts_alloc(ERTS_ALC_T_DRV_EV_STATE,
 				     sizeof(ErtsDrvEventState)*new_len));
-	for (i = erts_smp_atomic_read_nob(&drv_ev_state_len); i < new_len; i++) {
+	for (i = old_len; i < new_len; i++) {
 	    drv_ev_state[i].fd = (ErtsSysFdType) i;
 	    drv_ev_state[i].driver.select = NULL;
 #if ERTS_CIO_HAVE_DRV_EVENT
@@ -1590,9 +1594,9 @@ ERTS_CIO_EXPORT(erts_check_io_interrupt)(int set)
 
 void
 ERTS_CIO_EXPORT(erts_check_io_interrupt_timed)(int set,
-					       erts_short_time_t msec)
+					       ErtsMonotonicTime timeout_time)
 {
-    ERTS_CIO_POLL_INTR_TMD(pollset.ps, set, msec);
+    ERTS_CIO_POLL_INTR_TMD(pollset.ps, set, timeout_time);
 }
 
 void
@@ -1600,9 +1604,12 @@ ERTS_CIO_EXPORT(erts_check_io)(int do_wait)
 {
     ErtsPollResFd *pollres;
     int pollres_len;
-    SysTimeval wait_time;
+    ErtsMonotonicTime timeout_time;
     int poll_ret, i;
     erts_aint_t current_cio_time;
+    ErtsSchedulerData *esdp = erts_get_scheduler_data();
+
+    ASSERT(esdp);
 
  restart:
 
@@ -1612,12 +1619,9 @@ ERTS_CIO_EXPORT(erts_check_io)(int do_wait)
 #endif
 
     /* Figure out timeout value */
-    if (do_wait) {
-	erts_time_remaining(&wait_time);
-    } else {			/* poll only */
-	wait_time.tv_sec = 0;
-	wait_time.tv_usec = 0;
-    }
+    timeout_time = (do_wait
+		    ? erts_check_next_timeout_time(esdp)
+		    : ERTS_POLL_NO_TIMEOUT /* poll only */);
 
     /*
      * No need for an atomic inc op when incrementing
@@ -1640,13 +1644,11 @@ ERTS_CIO_EXPORT(erts_check_io)(int do_wait)
 
     erts_smp_atomic_set_nob(&pollset.in_poll_wait, 1);
 
-    poll_ret = ERTS_CIO_POLL_WAIT(pollset.ps, pollres, &pollres_len, &wait_time);
+    poll_ret = ERTS_CIO_POLL_WAIT(pollset.ps, pollres, &pollres_len, timeout_time);
 
 #ifdef ERTS_ENABLE_LOCK_CHECK
     erts_lc_check_exact(NULL, 0); /* No locks should be locked */
 #endif
-
-    erts_deliver_time(); /* sync the machine's idea of time */
 
 #ifdef ERTS_BREAK_REQUESTED
     if (ERTS_BREAK_REQUESTED)

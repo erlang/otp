@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 2005-2012. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -24,7 +25,7 @@
 
 
 -export([wrong_path/1,comp/2,path/1,ticket_6143/1,noobj/1,
-	 record_name_prefix/1,verbose/1,warnings_as_errors/1]).
+	 record_name_prefix/1,verbose/1]).
 
 %% OTP-5689
 wrong_path(Config) ->
@@ -130,43 +131,6 @@ verbose(Config) when is_list(Config) ->
     ?line ok = asn1ct:compile(Asn1File, [{i,DataDir},{outdir,OutDir},noobj]),
     ?line test_server:capture_stop(),
     ?line [] = test_server:capture_get(),
-    ok.
-
-warnings_as_errors(Config) when is_list(Config) ->
-    PrivDir = ?config(priv_dir,Config),
-    Asn1File = filename:join([PrivDir,"WERROR.asn1"]),
-    OutFile = filename:join([PrivDir,"WERROR.erl"]),
-    Opts = [{outdir,PrivDir},noobj,verbose],
-
-    %% Generate WERR.asn to emit warning
-    %% Warning: Wrong format of type/value
-    %%     false/{'Externalvaluereference',_,'WERR',noInvokeId}
-    Warn = <<"WERROR DEFINITIONS IMPLICIT TAGS ::=\n"
-	     "\n"
-	     "BEGIN\n"
-	     "\n"
-	     "InvokeId ::= CHOICE\n"
-	     "{\n"
-	     "    present INTEGER,\n"
-	     "    absent NULL\n"
-	     "}\n"
-	     "\n"
-	     "noInvokeId InvokeId ::= absent:NULL\n"
-	     "\n"
-	     "NoInvokeId InvokeId ::= {noInvokeId}\n"
-	     "\n"
-	     "END -- end of useful definitions.\n">>,
-    ?line ok = file:write_file(Asn1File, Warn),
-
-    %% Test warnings_as_errors compile
-    ?line false = filelib:is_regular(OutFile),
-    ?line {error, _} = asn1ct:compile(Asn1File, [warnings_as_errors|Opts]),
-    ?line false = filelib:is_regular(OutFile),
-
-    %% Test normal compile
-    ?line ok = asn1ct:compile(Asn1File, Opts),
-    ?line true = filelib:is_regular(OutFile),
-    ?line ok = file:delete(OutFile),
     ok.
 
 outfiles_check(OutDir) ->

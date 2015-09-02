@@ -3,16 +3,17 @@
 ;;
 ;; Copyright Ericsson AB 2010. All Rights Reserved.
 ;;
-;; The contents of this file are subject to the Erlang Public License,
-;; Version 1.1, (the "License"); you may not use this file except in
-;; compliance with the License. You should have received a copy of the
-;; Erlang Public License along with this software. If not, it can be
-;; retrieved online at http://www.erlang.org/.
+;; Licensed under the Apache License, Version 2.0 (the "License");
+;; you may not use this file except in compliance with the License.
+;; You may obtain a copy of the License at
 ;;
-;; Software distributed under the License is distributed on an "AS IS"
-;; basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-;; the License for the specific language governing rights and limitations
-;; under the License.
+;;     http://www.apache.org/licenses/LICENSE-2.0
+;;
+;; Unless required by applicable law or agreed to in writing, software
+;; distributed under the License is distributed on an "AS IS" BASIS,
+;; WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+;; See the License for the specific language governing permissions and
+;; limitations under the License.
 ;;
 ;; %CopyrightEnd%
 ;;;
@@ -838,7 +839,7 @@ Please see the function `tempo-define-template'.")
     "Config." n n
 
     (erlang-skel-separator 2)
-    "%% Function: end_per_suite(Config) -> void()" n
+    "%% Function: end_per_suite(Config) -> term()" n
     "%%" n
     "%% Config = [tuple()]" n
     "%%   A list of key/value pairs, holding the test case configuration." n
@@ -867,7 +868,7 @@ Please see the function `tempo-define-template'.")
     "Config." n n
 
     (erlang-skel-separator 2)
-    "%% Function: end_per_testcase(TestCase, Config) -> void()" n
+    "%% Function: end_per_testcase(TestCase, Config) -> term()" n
     "%%" n
     "%% TestCase = atom()" n
     "%%   Name of the test case that is finished." n
@@ -993,7 +994,7 @@ Please see the function `tempo-define-template'.")
     "Config." n n
 
     (erlang-skel-separator 2)
-    "%% Function: end_per_suite(Config0) -> void() | {save_config,Config1}" n
+    "%% Function: end_per_suite(Config0) -> term() | {save_config,Config1}" n
     "%%" n
     "%% Config0 = Config1 = [tuple()]" n
     "%%   A list of key/value pairs, holding the test case configuration." n
@@ -1021,7 +1022,7 @@ Please see the function `tempo-define-template'.")
 
     (erlang-skel-separator 2)
     "%% Function: end_per_group(GroupName, Config0) ->" n
-    "%%               void() | {save_config,Config1}" n
+    "%%               term() | {save_config,Config1}" n
     "%%" n
     "%% GroupName = atom()" n
     "%%   Name of the test case group that is finished." n
@@ -1054,7 +1055,7 @@ Please see the function `tempo-define-template'.")
 
     (erlang-skel-separator 2)
     "%% Function: end_per_testcase(TestCase, Config0) ->" n
-    "%%               void() | {save_config,Config1} | {fail,Reason}" n
+    "%%               term() | {save_config,Config1} | {fail,Reason}" n
     "%%" n
     "%% TestCase = atom()" n
     "%%   Name of the test case that is finished." n
@@ -1175,7 +1176,7 @@ Please see the function `tempo-define-template'.")
     "Config." n n
 
     (erlang-skel-separator 2)
-    "%% Function: end_per_suite(Config0) -> void() | {save_config,Config1}" n
+    "%% Function: end_per_suite(Config0) -> term() | {save_config,Config1}" n
     "%% Config0 = Config1 = [tuple()]" n
     (erlang-skel-separator 2)
     "end_per_suite(_Config) ->" n >
@@ -1193,7 +1194,7 @@ Please see the function `tempo-define-template'.")
 
     (erlang-skel-separator 2)
     "%% Function: end_per_group(GroupName, Config0) ->" n
-    "%%               void() | {save_config,Config1}" n
+    "%%               term() | {save_config,Config1}" n
     "%% GroupName = atom()" n
     "%% Config0 = Config1 = [tuple()]" n
     (erlang-skel-separator 2)
@@ -1212,7 +1213,7 @@ Please see the function `tempo-define-template'.")
 
     (erlang-skel-separator 2)
     "%% Function: end_per_testcase(TestCase, Config0) ->" n
-    "%%               void() | {save_config,Config1} | {fail,Reason}" n
+    "%%               term() | {save_config,Config1} | {fail,Reason}" n
     "%% TestCase = atom()" n
     "%% Config0 = Config1 = [tuple()]" n
     "%% Reason = term()" n

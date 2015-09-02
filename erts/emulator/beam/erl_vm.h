@@ -3,24 +3,23 @@
  *
  * Copyright Ericsson AB 1996-2014. All Rights Reserved.
  *
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  * %CopyrightEnd%
  */
 
 #ifndef __ERL_VM_H__
 #define __ERL_VM_H__
-
-/* #define ERTS_OPCODE_COUNTER_SUPPORT */
 
 /* FORCE_HEAP_FRAGS:
  * Debug provocation to make HAlloc always create heap fragments (if allowed)
@@ -119,9 +118,9 @@
 
 #if defined(DEBUG) || defined(CHECK_FOR_HOLES)
 #if HALFWORD_HEAP
-# define ERTS_HOLE_MARKER (0xaf5e78ccU)
+# define ERTS_HOLE_MARKER (0xdeadbeef)
 #else
-# define ERTS_HOLE_MARKER (((0xaf5e78ccUL << 24) << 8) | 0xaf5e78ccUL)
+# define ERTS_HOLE_MARKER (((0xdeadbeef << 24) << 8) | 0xdeadbeef)
 #endif
 #endif
 

@@ -3,16 +3,17 @@
 %% 
 %% Copyright Ericsson AB 1996-2013. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %%
@@ -29,6 +30,7 @@
 -define(OP_INSC,2).
 -define(OP_DELC,3).
 -define(OP_BEEP,4).
+-define(OP_PUTC_SYNC,5).
 % Control op
 -define(CTRL_OP_GET_WINSIZE,100).
 -define(CTRL_OP_GET_UNICODE_STATE,101).
@@ -132,8 +134,9 @@ server1(Iport, Oport, Shell) ->
 		flatten(io_lib:format("~ts\n",
 				      [erlang:system_info(system_version)]))},
 	       Iport, Oport),
+
     %% Enter the server loop.
-    server_loop(Iport, Oport, Curr, User, Gr).
+    server_loop(Iport, Oport, Curr, User, Gr, {false, queue:new()}).
 
 rem_sh_opts(Node) ->
     [{expand_fun,fun(B)-> rpc:call(Node,edlin_expand,expand,[B]) end}].
@@ -158,42 +161,41 @@ start_user() ->
 	    User
     end.
    
-server_loop(Iport, Oport, User, Gr) ->
+server_loop(Iport, Oport, User, Gr, IOQueue) ->
     Curr = gr_cur_pid(Gr),
     put(current_group, Curr),
-    server_loop(Iport, Oport, Curr, User, Gr).
+    server_loop(Iport, Oport, Curr, User, Gr, IOQueue).
 
-server_loop(Iport, Oport, Curr, User, Gr) ->
+server_loop(Iport, Oport, Curr, User, Gr, {Resp, IOQ} = IOQueue) ->
     receive
 	{Iport,{data,Bs}} ->
 	    BsBin = list_to_binary(Bs),
 	    Unicode = unicode:characters_to_list(BsBin,utf8),
-	    port_bytes(Unicode, Iport, Oport, Curr, User, Gr);
+	    port_bytes(Unicode, Iport, Oport, Curr, User, Gr, IOQueue);
 	{Iport,eof} ->
 	    Curr ! {self(),eof},
-	    server_loop(Iport, Oport, Curr, User, Gr);
-	{User,Req} ->	% never block from user!
-	    io_request(Req, Iport, Oport),
-	    server_loop(Iport, Oport, Curr, User, Gr);
-	{Curr,tty_geometry} ->
-	    Curr ! {self(),tty_geometry,get_tty_geometry(Iport)},
-	    server_loop(Iport, Oport, Curr, User, Gr);
-	{Curr,get_unicode_state} ->
-	    Curr ! {self(),get_unicode_state,get_unicode_state(Iport)},
-	    server_loop(Iport, Oport, Curr, User, Gr);
-	{Curr,set_unicode_state, Bool} ->
-	    Curr ! {self(),set_unicode_state,set_unicode_state(Iport,Bool)},
-	    server_loop(Iport, Oport, Curr, User, Gr);
-	{Curr,Req} ->
-	    io_request(Req, Iport, Oport),
-	    server_loop(Iport, Oport, Curr, User, Gr);
+	    server_loop(Iport, Oport, Curr, User, Gr, IOQueue);
+        Req when element(1,Req) =:= User orelse element(1,Req) =:= Curr,
+                 tuple_size(Req) =:= 2 orelse tuple_size(Req) =:= 3 ->
+            %% We match {User|Curr,_}|{User|Curr,_,_}
+            NewQ = handle_req(Req, Iport, Oport, IOQueue),
+            server_loop(Iport, Oport, Curr, User, Gr, NewQ);
+        {Oport,ok} ->
+            %% We get this ok from the port, in io_request we store
+            %% info about where to send reply at head of queue
+            {Origin,Reply} = Resp,
+            Origin ! {reply,Reply},
+            NewQ = handle_req(next, Iport, Oport, {false, IOQ}),
+            server_loop(Iport, Oport, Curr, User, Gr, NewQ);
 	{'EXIT',Iport,_R} ->
-	    server_loop(Iport, Oport, Curr, User, Gr);
+	    server_loop(Iport, Oport, Curr, User, Gr, IOQueue);
 	{'EXIT',Oport,_R} ->
-	    server_loop(Iport, Oport, Curr, User, Gr);
+	    server_loop(Iport, Oport, Curr, User, Gr, IOQueue);
+        {'EXIT',User,shutdown} ->               % force data to port
+	    server_loop(Iport, Oport, Curr, User, Gr, IOQueue);
 	{'EXIT',User,_R} ->			% keep 'user' alive
 	    NewU = start_user(),
-	    server_loop(Iport, Oport, Curr, NewU, gr_set_num(Gr, 1, NewU, {}));
+	    server_loop(Iport, Oport, Curr, NewU, gr_set_num(Gr, 1, NewU, {}), IOQueue);
 	{'EXIT',Pid,R} ->			% shell and group leader exit
 	    case gr_cur_pid(Gr) of
 		Pid when R =/= die ,
@@ -213,53 +215,88 @@ server_loop(Iport, Oport, Curr, User, Gr) ->
 			    {ok,Gr2} = gr_set_cur(gr_set_num(Gr1, Ix, Pid1, 
 							     {shell,start,Params}), Ix),
 			    put(current_group, Pid1),
-			    server_loop(Iport, Oport, Pid1, User, Gr2);
+			    server_loop(Iport, Oport, Pid1, User, Gr2, IOQueue);
 			_ -> % remote shell
 			    io_requests([{put_chars,unicode,"(^G to start new job) ***\n"}],
 					Iport, Oport),	    
-			    server_loop(Iport, Oport, Curr, User, Gr1)
+			    server_loop(Iport, Oport, Curr, User, Gr1, IOQueue)
 		    end;
 		_ ->				% not current, just remove it
-		    server_loop(Iport, Oport, Curr, User, gr_del_pid(Gr, Pid))
+		    server_loop(Iport, Oport, Curr, User, gr_del_pid(Gr, Pid), IOQueue)
 	    end;
 	_X ->
 	    %% Ignore unknown messages.
-	    server_loop(Iport, Oport, Curr, User, Gr)
+	    server_loop(Iport, Oport, Curr, User, Gr, IOQueue)
     end.
+
+%% We always handle geometry and unicode requests
+handle_req({Curr,tty_geometry},Iport,_Oport,IOQueue) ->
+    Curr ! {self(),tty_geometry,get_tty_geometry(Iport)},
+    IOQueue;
+handle_req({Curr,get_unicode_state},Iport,_Oport,IOQueue) ->
+    Curr ! {self(),get_unicode_state,get_unicode_state(Iport)},
+    IOQueue;
+handle_req({Curr,set_unicode_state, Bool},Iport,_Oport,IOQueue) ->
+    Curr ! {self(),set_unicode_state,set_unicode_state(Iport,Bool)},
+    IOQueue;
+handle_req(next,Iport,Oport,{false,IOQ}=IOQueue) ->
+    case queue:out(IOQ) of
+        {empty,_} ->
+	    IOQueue;
+        {{value,{Origin,Req}},ExecQ} ->
+            case io_request(Req, Iport, Oport) of
+                ok ->
+		    handle_req(next,Iport,Oport,{false,ExecQ});
+                Reply ->
+		    {{Origin,Reply}, ExecQ}
+            end
+    end;
+handle_req(Msg,Iport,Oport,{false,IOQ}=IOQueue) ->
+    empty = queue:peek(IOQ),
+    {Origin,Req} = Msg,
+    case io_request(Req, Iport, Oport) of
+	ok ->
+	    IOQueue;
+	Reply ->
+	    {{Origin,Reply}, IOQ}
+    end;
+handle_req(Msg,_Iport,_Oport,{Resp, IOQ}) ->
+    %% All requests are queued when we have outstanding sync put_chars
+    {Resp, queue:in(Msg,IOQ)}.
 
 %% port_bytes(Bytes, InPort, OutPort, CurrentProcess, UserProcess, Group)
 %%  Check the Bytes from the port to see if it contains a ^G. If so,
 %%  either escape to switch_loop or restart the shell. Otherwise send 
 %%  the bytes to Curr.
 
-port_bytes([$\^G|_Bs], Iport, Oport, _Curr, User, Gr) ->
-    handle_escape(Iport, Oport, User, Gr);
+port_bytes([$\^G|_Bs], Iport, Oport, _Curr, User, Gr, IOQueue) ->
+    handle_escape(Iport, Oport, User, Gr, IOQueue);
 
-port_bytes([$\^C|_Bs], Iport, Oport, Curr, User, Gr) ->
-    interrupt_shell(Iport, Oport, Curr, User, Gr);
+port_bytes([$\^C|_Bs], Iport, Oport, Curr, User, Gr, IOQueue) ->
+    interrupt_shell(Iport, Oport, Curr, User, Gr, IOQueue);
 
-port_bytes([B], Iport, Oport, Curr, User, Gr) ->
+port_bytes([B], Iport, Oport, Curr, User, Gr, IOQueue) ->
     Curr ! {self(),{data,[B]}},
-    server_loop(Iport, Oport, Curr, User, Gr);
-port_bytes(Bs, Iport, Oport, Curr, User, Gr) ->
+    server_loop(Iport, Oport, Curr, User, Gr, IOQueue);
+port_bytes(Bs, Iport, Oport, Curr, User, Gr, IOQueue) ->
     case member($\^G, Bs) of
 	true ->
-	    handle_escape(Iport, Oport, User, Gr);
+	    handle_escape(Iport, Oport, User, Gr, IOQueue);
 	false ->
 	    Curr ! {self(),{data,Bs}},
-	    server_loop(Iport, Oport, Curr, User, Gr)
+	    server_loop(Iport, Oport, Curr, User, Gr, IOQueue)
     end.
 
-interrupt_shell(Iport, Oport, Curr, User, Gr) ->
+interrupt_shell(Iport, Oport, Curr, User, Gr, IOQueue) ->
     case gr_get_info(Gr, Curr) of
 	undefined -> 
 	    ok;					% unknown
 	_ ->
 	    exit(Curr, interrupt)
     end,
-    server_loop(Iport, Oport, Curr, User, Gr).
+    server_loop(Iport, Oport, Curr, User, Gr, IOQueue).
 
-handle_escape(Iport, Oport, User, Gr) ->
+handle_escape(Iport, Oport, User, Gr, IOQueue) ->
     case application:get_env(stdlib, shell_esc) of
 	{ok,abort} ->
 	    Pid = gr_cur_pid(Gr),
@@ -278,11 +315,14 @@ handle_escape(Iport, Oport, User, Gr) ->
 	    Pid1 = group:start(self(), {shell,start,[]}),
 	    io_request({put_chars,unicode,"\n"}, Iport, Oport),
 	    server_loop(Iport, Oport, User, 
-			gr_add_cur(Gr1, Pid1, {shell,start,[]}));
+			gr_add_cur(Gr1, Pid1, {shell,start,[]}), IOQueue);
 
 	_ ->					% {ok,jcl} | undefined
 	    io_request({put_chars,unicode,"\nUser switch command\n"}, Iport, Oport),
-	    server_loop(Iport, Oport, User, switch_loop(Iport, Oport, Gr))
+	    %% init edlin used by switch command and have it copy the
+	    %% text buffer from current group process
+	    edlin:init(gr_cur_pid(Gr)),
+	    server_loop(Iport, Oport, User, switch_loop(Iport, Oport, Gr), IOQueue)
     end.
 
 switch_loop(Iport, Oport, Gr) ->
@@ -492,9 +532,12 @@ set_unicode_state(Iport, Bool) ->
 
 io_request(Request, Iport, Oport) ->
     try io_command(Request) of
-        Command ->
+        {command,_} = Command ->
             Oport ! {self(),Command},
-            ok
+            ok;
+        {Command,Reply} ->
+            Oport ! {self(),Command},
+            Reply
     catch
         {requests,Rs} ->
             io_requests(Rs, Iport, Oport);
@@ -511,6 +554,13 @@ io_requests([], _Iport, _Oport) ->
 put_int16(N, Tail) ->
     [(N bsr 8)band 255,N band 255|Tail].
 
+%% When a put_chars_sync command is used, user_drv guarantees that
+%% the bytes have been put in the buffer of the port before an acknowledgement
+%% is sent back to the process sending the request. This command was added in
+%% OTP 18 to make sure that data sent from io:format is actually printed
+%% to the console before the vm stops when calling erlang:halt(integer()).
+io_command({put_chars_sync, unicode,Cs,Reply}) ->
+    {{command,[?OP_PUTC_SYNC|unicode:characters_to_binary(Cs,utf8)]},Reply};
 io_command({put_chars, unicode,Cs}) ->
     {command,[?OP_PUTC|unicode:characters_to_binary(Cs,utf8)]};
 io_command({move_rel,N}) ->

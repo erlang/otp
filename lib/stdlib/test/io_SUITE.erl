@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2014. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %%
@@ -31,7 +32,7 @@
 	 printable_range/1,
 	 io_lib_print_binary_depth_one/1, otp_10302/1, otp_10755/1,
          otp_10836/1, io_lib_width_too_small/1,
-         io_with_huge_message_queue/1]).
+         io_with_huge_message_queue/1, format_string/1]).
 
 -export([pretty/2]).
 
@@ -71,7 +72,8 @@ all() ->
      io_fread_newlines, otp_8989, io_lib_fread_literal,
      printable_range,
      io_lib_print_binary_depth_one, otp_10302, otp_10755, otp_10836,
-     io_lib_width_too_small, io_with_huge_message_queue].
+     io_lib_width_too_small, io_with_huge_message_queue,
+     format_string].
 
 groups() -> 
     [].
@@ -1035,7 +1037,14 @@ rp(Term, Col, Ll, D, M, RF) ->
     lists:flatten(io_lib:format("~s", [R])).
 
 fmt(Fmt, Args) ->
-    lists:flatten(io_lib:format(Fmt, Args)).
+    FormatList = io_lib:scan_format(Fmt, Args),
+    {Fmt2, Args2} = io_lib:unscan_format(FormatList),
+    Chars1 = lists:flatten(io_lib:build_text(FormatList)),
+    Chars2 = lists:flatten(io_lib:format(Fmt2, Args2)),
+    Chars3 = lists:flatten(io_lib:format(Fmt, Args)),
+    Chars1 = Chars2,
+    Chars2 = Chars3,
+    Chars3.
 
 rfd(a, 0) ->
     [];
@@ -2261,3 +2270,9 @@ writes(0, _) -> ok;
 writes(N, F1) ->
     file:write(F1, "hello\n"),
     writes(N - 1, F1).
+
+format_string(Config) ->
+    %% All but padding is tested by fmt/2.
+    "xxxxxxsssx" = fmt("~10.4.xs", ["sss"]),
+    "xxxxxxsssx" = fmt("~10.4.*s", [$x, "sss"]),
+    ok.

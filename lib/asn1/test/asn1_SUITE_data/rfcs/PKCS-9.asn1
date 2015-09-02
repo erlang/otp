@@ -1,0 +1,391 @@
+PKCS-9 {iso(1) member-body(2) us(840) rsadsi(113549) pkcs(1)
+pkcs-9(9) modules(0) pkcs-9(1)}
+
+-- $Revision$
+
+DEFINITIONS IMPLICIT TAGS ::=
+
+BEGIN
+
+-- EXPORTS All --
+-- All types and values defined in this module is exported for use in
+-- other ASN.1 modules.
+
+IMPORTS
+
+informationFramework, authenticationFramework, selectedAttributeTypes,
+        upperBounds , id-at
+        FROM UsefulDefinitions {joint-iso-itu-t ds(5) module(1)
+        usefulDefinitions(0) 3}
+
+ub-name
+        FROM UpperBounds upperBounds
+
+OBJECT-CLASS, ATTRIBUTE, MATCHING-RULE, Attribute, top, objectIdentifierMatch
+        FROM InformationFramework informationFramework
+
+ALGORITHM, Extensions, Time
+        FROM AuthenticationFramework authenticationFramework
+
+DirectoryString, octetStringMatch, caseIgnoreMatch, caseExactMatch,
+        generalizedTimeMatch, integerMatch, serialNumber
+        FROM SelectedAttributeTypes selectedAttributeTypes
+
+ContentInfo, SignerInfo
+        FROM CryptographicMessageSyntax-2009 {iso(1) member-body(2) us(840)
+        rsadsi(113549) pkcs(1) pkcs-9(9) smime(16) modules(0) cms(1)}
+
+EncryptedPrivateKeyInfo
+        FROM PKCS-8 {iso(1) member-body(2) us(840) rsadsi(113549)
+        pkcs(1) pkcs-8(8) modules(1) pkcs-8(1)}
+
+PFX
+        FROM PKCS-12 {iso(1) member-body(2) us(840) rsadsi(113549)
+        pkcs(1) pkcs-12(12) modules(0) pkcs-12(1)}
+
+-- PKCS15Token
+--        FROM PKCS-15 {iso(1) member-body(2) us(840) rsadsi(113549)
+--        pkcs(1) pkcs-15(15) modules(1) pkcs-15(1)}
+;
+
+-- Upper bounds
+pkcs-9-ub-pkcs9String          		INTEGER ::= 255
+pkcs-9-ub-emailAddress         		INTEGER ::= pkcs-9-ub-pkcs9String
+pkcs-9-ub-unstructuredName      	INTEGER ::= pkcs-9-ub-pkcs9String
+pkcs-9-ub-unstructuredAddress   	INTEGER ::= pkcs-9-ub-pkcs9String
+pkcs-9-ub-challengePassword     	INTEGER ::= pkcs-9-ub-pkcs9String
+pkcs-9-ub-friendlyName         		INTEGER ::= pkcs-9-ub-pkcs9String
+pkcs-9-ub-signingDescription    	INTEGER ::= pkcs-9-ub-pkcs9String
+pkcs-9-ub-match                		INTEGER ::= pkcs-9-ub-pkcs9String
+pkcs-9-ub-pseudonym            		INTEGER ::= ub-name
+pkcs-9-ub-placeOfBirth         		INTEGER ::= ub-name
+
+-- Object Identifiers
+
+pkcs-9 OBJECT IDENTIFIER ::= {iso(1) member-body(2) us(840)
+                              rsadsi(113549) pkcs(1) 9}
+
+  -- Main arcs
+pkcs-9-mo	OBJECT IDENTIFIER ::= {pkcs-9 0}  -- Modules branch
+pkcs-9-oc    	OBJECT IDENTIFIER ::= {pkcs-9 24} -- Object class branch
+pkcs-9-at       OBJECT IDENTIFIER ::= {pkcs-9 25} -- Attribute branch, for new  attributes
+pkcs-9-sx	OBJECT IDENTIFIER ::= {pkcs-9 26} -- For syntaxes (RFC 2252)
+pkcs-9-mr       OBJECT IDENTIFIER ::= {pkcs-9 27} -- Matching rules
+
+  -- Object classes
+pkcs-9-oc-pkcsEntity   			OBJECT IDENTIFIER ::= {pkcs-9-oc 1}
+pkcs-9-oc-naturalPerson                 OBJECT IDENTIFIER ::= {pkcs-9-oc 2}
+
+  -- Attributes
+pkcs-9-at-emailAddress                  OBJECT IDENTIFIER ::= {pkcs-9 1}
+pkcs-9-at-unstructuredName              OBJECT IDENTIFIER ::= {pkcs-9 2}
+pkcs-9-at-contentType                   OBJECT IDENTIFIER ::= {pkcs-9 3}
+pkcs-9-at-messageDigest                 OBJECT IDENTIFIER ::= {pkcs-9 4}
+pkcs-9-at-signingTime                   OBJECT IDENTIFIER ::= {pkcs-9 5}
+pkcs-9-at-counterSignature              OBJECT IDENTIFIER ::= {pkcs-9 6}
+pkcs-9-at-challengePassword             OBJECT IDENTIFIER ::= {pkcs-9 7}
+pkcs-9-at-unstructuredAddress           OBJECT IDENTIFIER ::= {pkcs-9 8}
+pkcs-9-at-extendedCertificateAttributes OBJECT IDENTIFIER ::= {pkcs-9 9}
+
+-- Obsolete (?) attribute identifiers, purportedly from "tentative
+-- PKCS #9 draft"
+-- pkcs-9-at-issuerAndSerialNumber      OBJECT IDENTIFIER ::= {pkcs-9 10}
+-- pkcs-9-at-passwordCheck              OBJECT IDENTIFIER ::= {pkcs-9 11}
+-- pkcs-9-at-publicKey                  OBJECT IDENTIFIER ::= {pkcs-9 12}
+
+pkcs-9-at-signingDescription            OBJECT IDENTIFIER ::= {pkcs-9 13}
+pkcs-9-at-extensionRequest              OBJECT IDENTIFIER ::= {pkcs-9 14}
+pkcs-9-at-smimeCapabilities             OBJECT IDENTIFIER ::= {pkcs-9 15}
+
+-- Unused (?)
+-- pkcs-9-at-?                          OBJECT IDENTIFIER ::= {pkcs-9 17}
+-- pkcs-9-at-?                          OBJECT IDENTIFIER ::= {pkcs-9 18}
+-- pkcs-9-at-?                          OBJECT IDENTIFIER ::= {pkcs-9 19}
+
+pkcs-9-at-friendlyName                  OBJECT IDENTIFIER ::= {pkcs-9 20}
+pkcs-9-at-localKeyId                    OBJECT IDENTIFIER ::= {pkcs-9 21}
+pkcs-9-at-userPKCS12                    OBJECT IDENTIFIER ::= {2 16 840 1 113730 3 1 216}
+pkcs-9-at-pkcs15Token                   OBJECT IDENTIFIER ::= {pkcs-9-at 1}
+pkcs-9-at-encryptedPrivateKeyInfo       OBJECT IDENTIFIER ::= {pkcs-9-at 2}
+pkcs-9-at-randomNonce                   OBJECT IDENTIFIER ::= {pkcs-9-at 3}
+pkcs-9-at-sequenceNumber                OBJECT IDENTIFIER ::= {pkcs-9-at 4}
+pkcs-9-at-pkcs7PDU                      OBJECT IDENTIFIER ::= {pkcs-9-at 5}
+
+  -- IETF PKIX Attribute branch
+ietf-at         			OBJECT IDENTIFIER ::= {1 3 6 1 5 5 7 9}
+
+pkcs-9-at-dateOfBirth                   OBJECT IDENTIFIER ::= {ietf-at 1}
+pkcs-9-at-placeOfBirth                  OBJECT IDENTIFIER ::= {ietf-at 2}
+pkcs-9-at-gender                        OBJECT IDENTIFIER ::= {ietf-at 3}
+pkcs-9-at-countryOfCitizenship          OBJECT IDENTIFIER ::= {ietf-at 4}
+pkcs-9-at-countryOfResidence            OBJECT IDENTIFIER ::= {ietf-at 5}
+
+  -- Syntaxes (for use with LDAP accessible directories)
+pkcs-9-sx-pkcs9String                   OBJECT IDENTIFIER ::= {pkcs-9-sx 1}
+pkcs-9-sx-signingTime                   OBJECT IDENTIFIER ::= {pkcs-9-sx 2}
+
+  -- Matching rules
+pkcs-9-mr-caseIgnoreMatch               OBJECT IDENTIFIER ::= {pkcs-9-mr 1}
+pkcs-9-mr-signingTimeMatch              OBJECT IDENTIFIER ::= {pkcs-9-mr 2}
+
+  -- Arcs with attributes defined elsewhere
+smime             			OBJECT IDENTIFIER ::= {pkcs-9 16}
+  -- Main arc for S/MIME (RFC 2633)
+certTypes         			OBJECT IDENTIFIER ::= {pkcs-9 22}
+  -- Main arc for certificate types defined in PKCS #12
+crlTypes          			OBJECT IDENTIFIER ::= {pkcs-9 23}
+  -- Main arc for crl types defined in PKCS #12
+
+  -- Other object identifiers
+id-at-pseudonym				OBJECT IDENTIFIER ::= {id-at 65}
+
+-- Useful types
+
+PKCS9String {INTEGER : maxSize} ::= CHOICE {
+        ia5String IA5String (SIZE(1..maxSize)),
+        directoryString DirectoryString {maxSize}
+}
+
+-- Object classes
+
+pkcsEntity OBJECT-CLASS ::= {
+        SUBCLASS OF	{ top }
+        KIND           	auxiliary
+        MAY CONTAIN	{ PKCSEntityAttributeSet }
+        ID              pkcs-9-oc-pkcsEntity
+}
+
+naturalPerson OBJECT-CLASS ::= {
+        SUBCLASS OF 	{ top }
+        KIND 		auxiliary
+        MAY CONTAIN 	{ NaturalPersonAttributeSet }
+        ID 		pkcs-9-oc-naturalPerson
+}
+
+-- Attribute sets
+
+PKCSEntityAttributeSet ATTRIBUTE ::= {
+        pKCS7PDU       |
+        userPKCS12     |
+--        pKCS15Token    |
+        encryptedPrivateKeyInfo,
+        ... -- For future extensions
+}
+
+NaturalPersonAttributeSet ATTRIBUTE ::= {
+        emailAddress	     |
+        unstructuredName     |
+        unstructuredAddress  |
+        dateOfBirth	     |
+        placeOfBirth	     |
+        gender		     |
+        countryOfCitizenship |
+        countryOfResidence   |
+        pseudonym	     |
+        serialNumber,
+        ... -- For future extensions
+}
+
+-- Attributes
+
+pKCS7PDU ATTRIBUTE ::= {
+        WITH SYNTAX ContentInfo
+        ID pkcs-9-at-pkcs7PDU
+}
+
+userPKCS12 ATTRIBUTE ::= {
+        WITH SYNTAX PFX
+        ID pkcs-9-at-userPKCS12
+}
+
+-- pKCS15Token ATTRIBUTE ::= {
+--        WITH SYNTAX PKCS15Token
+--        ID pkcs-9-at-pkcs15Token
+-- }
+
+encryptedPrivateKeyInfo ATTRIBUTE ::= {
+        WITH SYNTAX EncryptedPrivateKeyInfo
+        ID pkcs-9-at-encryptedPrivateKeyInfo
+}
+
+emailAddress ATTRIBUTE ::= {
+        WITH SYNTAX IA5String (SIZE(1..pkcs-9-ub-emailAddress))
+        EQUALITY MATCHING RULE pkcs9CaseIgnoreMatch
+        ID pkcs-9-at-emailAddress
+}
+
+unstructuredName ATTRIBUTE ::= {
+        WITH SYNTAX PKCS9String {pkcs-9-ub-unstructuredName}
+        EQUALITY MATCHING RULE pkcs9CaseIgnoreMatch
+        ID pkcs-9-at-unstructuredName
+}
+
+unstructuredAddress ATTRIBUTE ::= {
+        WITH SYNTAX DirectoryString {pkcs-9-ub-unstructuredAddress}
+        EQUALITY MATCHING RULE caseIgnoreMatch
+        ID pkcs-9-at-unstructuredAddress
+}
+
+dateOfBirth ATTRIBUTE ::= {
+        WITH SYNTAX GeneralizedTime
+        EQUALITY MATCHING RULE generalizedTimeMatch
+        SINGLE VALUE TRUE
+        ID pkcs-9-at-dateOfBirth
+}
+
+placeOfBirth ATTRIBUTE ::= {
+        WITH SYNTAX DirectoryString {pkcs-9-ub-placeOfBirth}
+        EQUALITY MATCHING RULE caseExactMatch
+        SINGLE VALUE TRUE
+        ID pkcs-9-at-placeOfBirth
+}
+
+gender ATTRIBUTE ::= {
+        WITH SYNTAX PrintableString (SIZE(1) ^ FROM ("M" | "F" | "m" | "f"))
+        EQUALITY MATCHING RULE caseIgnoreMatch
+        SINGLE VALUE TRUE
+        ID pkcs-9-at-gender
+}
+
+countryOfCitizenship ATTRIBUTE ::= {
+        WITH SYNTAX PrintableString (SIZE(2))(CONSTRAINED BY {
+        -- Must be a two-letter country acronym in accordance with
+        -- ISO/IEC 3166 --})
+        EQUALITY MATCHING RULE caseIgnoreMatch
+        ID pkcs-9-at-countryOfCitizenship
+}
+
+countryOfResidence ATTRIBUTE ::= {
+        WITH SYNTAX PrintableString (SIZE(2))(CONSTRAINED BY {
+        -- Must be a two-letter country acronym in accordance with
+        -- ISO/IEC 3166 --})
+        EQUALITY MATCHING RULE caseIgnoreMatch
+        ID pkcs-9-at-countryOfResidence
+}
+
+pseudonym ATTRIBUTE ::= {
+        WITH SYNTAX DirectoryString {pkcs-9-ub-pseudonym}
+        EQUALITY MATCHING RULE caseExactMatch
+        ID id-at-pseudonym
+}
+
+contentType ATTRIBUTE ::= {
+        WITH SYNTAX ContentType
+        EQUALITY MATCHING RULE objectIdentifierMatch
+        SINGLE VALUE TRUE
+        ID pkcs-9-at-contentType
+}
+
+ContentType ::= OBJECT IDENTIFIER
+
+messageDigest ATTRIBUTE ::= {
+        WITH SYNTAX MessageDigest
+        EQUALITY MATCHING RULE octetStringMatch
+        SINGLE VALUE TRUE
+        ID pkcs-9-at-messageDigest
+}
+
+MessageDigest ::= OCTET STRING
+
+signingTime ATTRIBUTE ::= {
+        WITH SYNTAX SigningTime
+        EQUALITY MATCHING RULE signingTimeMatch
+        SINGLE VALUE TRUE
+        ID pkcs-9-at-signingTime
+}
+
+SigningTime ::= Time -- imported from ISO/IEC 9594-8
+
+randomNonce ATTRIBUTE ::= {
+        WITH SYNTAX RandomNonce
+        EQUALITY MATCHING RULE octetStringMatch
+        SINGLE VALUE TRUE
+        ID pkcs-9-at-randomNonce
+}
+
+RandomNonce ::= OCTET STRING (SIZE(4..MAX)) -- At least four bytes long
+
+sequenceNumber ATTRIBUTE ::= {
+        WITH SYNTAX SequenceNumber
+        EQUALITY MATCHING RULE integerMatch
+        SINGLE VALUE TRUE
+        ID pkcs-9-at-sequenceNumber
+}
+
+SequenceNumber ::= INTEGER (1..MAX)
+
+counterSignature ATTRIBUTE ::= {
+        WITH SYNTAX SignerInfo
+        ID pkcs-9-at-counterSignature
+}
+
+challengePassword ATTRIBUTE ::= {
+        WITH SYNTAX DirectoryString {pkcs-9-ub-challengePassword}
+        EQUALITY MATCHING RULE caseExactMatch
+        SINGLE VALUE TRUE
+        ID pkcs-9-at-challengePassword
+}
+
+extensionRequest ATTRIBUTE ::= {
+        WITH SYNTAX ExtensionRequest
+        SINGLE VALUE TRUE
+        ID pkcs-9-at-extensionRequest
+}
+
+ExtensionRequest ::= Extensions
+
+extendedCertificateAttributes ATTRIBUTE ::= {
+        WITH SYNTAX SET OF Attribute
+        SINGLE VALUE TRUE
+        ID pkcs-9-at-extendedCertificateAttributes
+}
+
+friendlyName ATTRIBUTE ::= {
+        WITH SYNTAX BMPString (SIZE(1..pkcs-9-ub-friendlyName))
+        EQUALITY MATCHING RULE caseIgnoreMatch
+        SINGLE VALUE TRUE
+        ID pkcs-9-at-friendlyName
+}
+
+localKeyId ATTRIBUTE ::= {
+        WITH SYNTAX OCTET STRING
+        EQUALITY MATCHING RULE octetStringMatch
+        SINGLE VALUE TRUE
+        ID pkcs-9-at-localKeyId
+}
+
+signingDescription ATTRIBUTE ::= {
+        WITH SYNTAX DirectoryString {pkcs-9-ub-signingDescription}
+        EQUALITY MATCHING RULE caseIgnoreMatch
+        SINGLE VALUE TRUE
+        ID pkcs-9-at-signingDescription
+}
+
+smimeCapabilities ATTRIBUTE ::= {
+        WITH SYNTAX SMIMECapabilities
+        SINGLE VALUE TRUE
+        ID pkcs-9-at-smimeCapabilities
+}
+
+SMIMECapabilities ::= SEQUENCE OF SMIMECapability
+
+SMIMECapability ::= SEQUENCE {
+        algorithm  ALGORITHM.&id ({SMIMEv3Algorithms}),
+        parameters ALGORITHM.&Type ({SMIMEv3Algorithms}{@algorithm})
+}
+
+SMIMEv3Algorithms ALGORITHM ::= {...-- See RFC 2633 --}
+
+ -- Matching rules
+
+pkcs9CaseIgnoreMatch MATCHING-RULE ::= {
+        SYNTAX PKCS9String {pkcs-9-ub-match}
+        ID pkcs-9-mr-caseIgnoreMatch
+}
+
+signingTimeMatch MATCHING-RULE ::= {
+        SYNTAX SigningTime
+        ID pkcs-9-mr-signingTimeMatch
+}
+
+END

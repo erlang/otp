@@ -4,16 +4,17 @@ changecom(`/*', `*/')dnl
  *
  * Copyright Ericsson AB 2004-2011. All Rights Reserved.
  *
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  * %CopyrightEnd%
  */
@@ -33,7 +34,35 @@ define(HEAP_LIMIT_IN_REGISTER,0)dnl global for HL
 define(SIMULATE_NSP,0)dnl change to 1 to simulate call/ret insns
 
 `#define AMD64_LEAF_WORDS	'LEAF_WORDS
-`#define LEAF_WORDS	'LEAF_WORDS
+`#define LEAF_WORDS		'LEAF_WORDS
+`#define AMD64_NR_ARG_REGS	'NR_ARG_REGS
+`#define NR_ARG_REGS		'NR_ARG_REGS
+
+`#define AMD64_HP_IN_REGISTER	'HP_IN_REGISTER
+`#if AMD64_HP_IN_REGISTER'
+`#define AMD64_HEAP_POINTER 15'
+define(HP,%r15)dnl Only change this together with above
+`#endif'
+
+`#define AMD64_FCALLS_IN_REGISTER 'FCALLS_IN_REGISTER
+`#if AMD64_FCALLS_IN_REGISTER'
+`#define AMD64_FCALLS_REGISTER 11'
+define(FCALLS,%r11)dnl This goes together with line above
+`#endif'
+
+`#define AMD64_HEAP_LIMIT_IN_REGISTER 'HEAP_LIMIT_IN_REGISTER
+`#if AMD64_HEAP_LIMIT_IN_REGISTER'
+`#define AMD64_HEAP_LIMIT_REGISTER 12'
+define(HEAP_LIMIT,%r12)dnl Change this together with line above
+`#endif'
+
+`#define AMD64_SIMULATE_NSP	'SIMULATE_NSP
+
+
+`#ifdef ASM'
+/*
+ * Only assembler stuff from here on (when included from *.S)
+ */
 
 /*
  * Workarounds for Darwin.
@@ -63,33 +92,24 @@ ifelse(OPSYS,darwin,``
  */
 `#define P		%rbp'
 
-`#define AMD64_HP_IN_REGISTER	'HP_IN_REGISTER
 `#if AMD64_HP_IN_REGISTER
-#define AMD64_HEAP_POINTER 15'
-define(HP,%r15)dnl Only change this together with above
-`#define SAVE_HP	movq 'HP`, P_HP(P)
+#define SAVE_HP	        movq 'HP`, P_HP(P)
 #define RESTORE_HP	movq P_HP(P), 'HP`
 #else
 #define SAVE_HP		/*empty*/
 #define RESTORE_HP	/*empty*/
 #endif'
 
-`#define AMD64_FCALLS_IN_REGISTER 'FCALLS_IN_REGISTER
 `#if AMD64_FCALLS_IN_REGISTER
-#define AMD64_FCALLS_REGISTER 11'
-define(FCALLS,%r11)dnl This goes together with line above
-`#define SAVE_FCALLS	movq 'FCALLS`, P_FCALLS(P)
+#define SAVE_FCALLS	movq 'FCALLS`, P_FCALLS(P)
 #define RESTORE_FCALLS	movq P_FCALLS(P), 'FCALLS`
 #else
 #define SAVE_FCALLS	/*empty*/
 #define RESTORE_FCALLS	/*empty*/
 #endif'
 
-`#define AMD64_HEAP_LIMIT_IN_REGISTER 'HEAP_LIMIT_IN_REGISTER
 `#if AMD64_HEAP_LIMIT_IN_REGISTER
-#define AMD64_HEAP_LIMIT_REGISTER 12'
-define(HEAP_LIMIT,%r12)dnl Change this together with line above
-`#define RESTORE_HEAP_LIMIT	movq P_HP_LIMIT(P), 'HEAP_LIMIT`
+#define RESTORE_HEAP_LIMIT	movq P_HP_LIMIT(P), 'HEAP_LIMIT`
 #else
 #define RESTORE_HEAP_LIMIT	/*empty*/
 #endif'
@@ -99,7 +119,6 @@ define(NSP,%rsp)dnl
 `#define SAVE_CSP	movq	%rsp, P_CSP(P)
 #define RESTORE_CSP	movq	P_CSP(P), %rsp'
 
-`#define AMD64_SIMULATE_NSP	'SIMULATE_NSP
 
 /*
  * Context switching macros.
@@ -132,8 +151,6 @@ define(NSP,%rsp)dnl
 /*
  * Argument (parameter) registers.
  */
-`#define AMD64_NR_ARG_REGS	'NR_ARG_REGS
-`#define NR_ARG_REGS		'NR_ARG_REGS
 
 define(defarg,`define(ARG$1,`$2')dnl
 #`define ARG'$1	$2'
@@ -237,6 +254,10 @@ define(NBIF_ARG,`ifelse(eval($3 >= NR_ARG_REGS),0,`NBIF_REG_ARG($1,$3)',`NBIF_ST
 `/* #define NBIF_ARG_3_0	'NBIF_ARG(%rsi,3,0)` */'
 `/* #define NBIF_ARG_3_1	'NBIF_ARG(%rdx,3,1)` */'
 `/* #define NBIF_ARG_3_2	'NBIF_ARG(%rcx,3,2)` */'
+`/* #define NBIF_ARG_4_0	'NBIF_ARG(%rsi,4,0)` */'
+`/* #define NBIF_ARG_4_1	'NBIF_ARG(%rdx,4,1)` */'
+`/* #define NBIF_ARG_4_2	'NBIF_ARG(%rcx,4,2)` */'
+`/* #define NBIF_ARG_4_3	'NBIF_ARG(%r8,4,3)` */'
 `/* #define NBIF_ARG_5_0	'NBIF_ARG(%rsi,5,0)` */'
 `/* #define NBIF_ARG_5_1	'NBIF_ARG(%rdx,5,1)` */'
 `/* #define NBIF_ARG_5_2	'NBIF_ARG(%rcx,5,2)` */'
@@ -261,6 +282,9 @@ define(NBIF_RET,`NBIF_RET_N(eval(RET_POP($1)))')dnl
 `/* #define NBIF_RET_1	'NBIF_RET(1)` */'
 `/* #define NBIF_RET_2	'NBIF_RET(2)` */'
 `/* #define NBIF_RET_3	'NBIF_RET(3)` */'
+`/* #define NBIF_RET_4	'NBIF_RET(4)` */'
 `/* #define NBIF_RET_5	'NBIF_RET(5)` */'
+
+`#endif /* ASM */'
 
 `#endif /* HIPE_AMD64_ASM_H */'

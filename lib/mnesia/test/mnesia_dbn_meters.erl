@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 1996-2010. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -92,7 +93,7 @@ some_meters() ->
 report_meter(Meter) ->
     Times = 100,
     Micros = repeat_meter(Meter,{atomic,{0,ignore}},Times) div Times,
-    io:format("\t~-30w ~-10w micro seconds (mean of ~p repetitions)~n",[Meter,Micros,Times]).
+    io:format("\t~-30w ~-10w nano seconds (mean of ~p repetitions)~n",[Meter,Micros,Times]).
 
 repeat_meter(_Meter,{atomic,{Micros,_Result}},0) ->
     Micros;
@@ -109,9 +110,9 @@ meter(create) ->
     Key = 1,
     mnesia:transaction(fun() -> mnesia:delete({simple,Key}) end),
     Fun = fun() ->
-		  BeforeT = erlang:now(),
+		  BeforeT = erlang:monotonic_time(),
 		  R = mnesia:write(#simple{key=Key}),
-		  AfterT = erlang:now(),
+		  AfterT = erlang:monotonic_time(),
 		  elapsed_time(BeforeT,AfterT,R)
 	  end,
     mnesia:transaction(Fun);
@@ -120,9 +121,9 @@ meter(open_safe_read) ->
     Key = 2,
     mnesia:transaction(fun() -> mnesia:write(#simple{key=Key}) end),
     Fun = fun() ->
-		  BeforeT = erlang:now(),
+		  BeforeT = erlang:monotonic_time(),
 		  R = mnesia:read({simple,Key}),
-		  AfterT = erlang:now(),
+		  AfterT = erlang:monotonic_time(),
 		  elapsed_time(BeforeT,AfterT,R)
 	  end,
     mnesia:transaction(Fun);
@@ -131,9 +132,9 @@ meter(open_dirty_read) ->
     Key = 21,
     mnesia:transaction(fun() -> mnesia:write(#simple{key=Key}) end),
     Fun = fun() ->
-		  BeforeT = erlang:now(),
+		  BeforeT = erlang:monotonic_time(),
 		  R = mnesia:dirty_read({simple,Key}),
-		  AfterT = erlang:now(),
+		  AfterT = erlang:monotonic_time(),
 		  elapsed_time(BeforeT,AfterT,R)
 	  end,
     mnesia:transaction(Fun);
@@ -143,9 +144,9 @@ meter(get_int) ->
     mnesia:transaction(fun() -> mnesia:write(#simple{key=Key}) end),
     Fun = fun() ->
 		  [Simple] = mnesia:read({simple,Key}),
-		  BeforeT = erlang:now(),
+		  BeforeT = erlang:monotonic_time(),
 		  Int = Simple#simple.val,
-		  AfterT = erlang:now(),
+		  AfterT = erlang:monotonic_time(),
 		  elapsed_time(BeforeT,AfterT,Int)
 	  end,
     mnesia:transaction(Fun);
@@ -154,9 +155,9 @@ meter(open_update) ->
     Key = 3,
     mnesia:transaction(fun() -> mnesia:write(#simple{key=Key}) end),
     Fun = fun() ->
-		  BeforeT = erlang:now(),
+		  BeforeT = erlang:monotonic_time(),
 		  R = mnesia:wread({simple,Key}),
-		  AfterT = erlang:now(),
+		  AfterT = erlang:monotonic_time(),
 		  elapsed_time(BeforeT,AfterT,R)
 	  end,
     mnesia:transaction(Fun);
@@ -166,9 +167,9 @@ meter(put_int) ->
     mnesia:transaction(fun() -> mnesia:write(#simple{key=Key}) end),
     Fun = fun() ->
 		  [Simple] = mnesia:wread({simple,Key}),
-		  BeforeT = erlang:now(),
+		  BeforeT = erlang:monotonic_time(),
 		  R = Simple#simple{val=7},
-		  AfterT = erlang:now(),
+		  AfterT = erlang:monotonic_time(),
 		  elapsed_time(BeforeT,AfterT,R)
 	  end,
     mnesia:transaction(Fun);
@@ -178,10 +179,10 @@ meter(put_int_and_copy) ->
     mnesia:transaction(fun() -> mnesia:write(#simple{key=Key}) end),
     Fun = fun() ->
 		  [Simple] = mnesia:wread({simple,Key}),
-		  BeforeT = erlang:now(),
+		  BeforeT = erlang:monotonic_time(),
 		  Simple2 = Simple#simple{val=17},
 		  R = mnesia:write(Simple2),
-		  AfterT = erlang:now(),
+		  AfterT = erlang:monotonic_time(),
 		  elapsed_time(BeforeT,AfterT,R)
 	  end,
     mnesia:transaction(Fun);
@@ -190,15 +191,15 @@ meter(dirty_put_int_and_copy) ->
     Key = 55,
     mnesia:dirty_write(#simple{key=Key}),
     [Simple] = mnesia:dirty_read({simple,Key}),
-    BeforeT = erlang:now(),
+    BeforeT = erlang:monotonic_time(),
     Simple2 = Simple#simple{val=17},
     R = mnesia:dirty_write(Simple2),
-    AfterT = erlang:now(),
+    AfterT = erlang:monotonic_time(),
     {atomic,elapsed_time(BeforeT,AfterT,R)};
 
 meter(start_trans) ->
-    BeforeT = erlang:now(),
-    {atomic,AfterT} = mnesia:transaction(fun() -> erlang:now() end),
+    BeforeT = erlang:monotonic_time(),
+    {atomic,AfterT} = mnesia:transaction(fun() -> erlang:monotonic_time() end),
     {atomic,elapsed_time(BeforeT,AfterT,ok)};
 
 meter(commit_one_update) ->
@@ -208,19 +209,19 @@ meter(commit_one_update) ->
 		  [Simple] = mnesia:wread({simple,Key}),
 		  Simple2 = Simple#simple{val=27},
 		  _R = mnesia:write(Simple2),
-		  erlang:now()
+		  erlang:monotonic_time()
 	  end,
     {atomic,BeforeT} = mnesia:transaction(Fun),
-    AfterT = erlang:now(),
+    AfterT = erlang:monotonic_time(),
     {atomic,elapsed_time(BeforeT,AfterT,ok)};
 
 meter(delete) ->
     Key = 7,
     mnesia:transaction(fun() -> mnesia:write(#simple{key=Key}) end),
     Fun = fun() ->
-		  BeforeT = erlang:now(),
+		  BeforeT = erlang:monotonic_time(),
 		  R = mnesia:delete({simple,Key}),
-		  AfterT = erlang:now(),
+		  AfterT = erlang:monotonic_time(),
 		  elapsed_time(BeforeT,AfterT,R)
 	  end,
     mnesia:transaction(Fun);
@@ -228,15 +229,12 @@ meter(delete) ->
 meter(dirty_delete) ->
     Key = 75,
     mnesia:dirty_write(#simple{key=Key}),
-    BeforeT = erlang:now(),
+    BeforeT = erlang:monotonic_time(),
     R = mnesia:dirty_delete({simple,Key}),
-    AfterT = erlang:now(),
+    AfterT = erlang:monotonic_time(),
     {atomic, elapsed_time(BeforeT,AfterT,R)}.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Calculate the elapsed time
 elapsed_time(BeforeT,AfterT,Result) ->
-    {(element(1,AfterT)*1000000000000
-     +element(2,AfterT)*1000000+element(3,AfterT)) -
-	(element(1,BeforeT)*1000000000000
-	 +element(2,BeforeT)*1000000+element(3,BeforeT)),Result}.
+    {erlang:convert_time_unit(AfterT-BeforeT, native, nano_seconds),Result}.

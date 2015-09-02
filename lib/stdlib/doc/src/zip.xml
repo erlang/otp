@@ -8,16 +8,17 @@
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
-      The contents of this file are subject to the Erlang Public License,
-      Version 1.1, (the "License"); you may not use this file except in
-      compliance with the License. You should have received a copy of the
-      Erlang Public License along with this software. If not, it can be
-      retrieved online at http://www.erlang.org/.
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
 
-      Software distributed under the License is distributed on an "AS IS"
-      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-      the License for the specific language governing rights and limitations
-      under the License.
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
 
     </legalnotice>
 
@@ -134,6 +135,12 @@
       <desc>
         <p>These options are described in <seealso marker="#zip_options">create/3</seealso>.</p>
       </desc>
+    </datatype>
+    <datatype>
+      <name name="handle"/>                                                                          
+      <desc>
+        <p>As returned by <seealso marker="#zip_open/2">zip_open/2</seealso>.</p>                     
+      </desc>                                                        
     </datatype>
   </datatypes>
   <funcs>
@@ -430,6 +437,8 @@
           means that subsequently reading files from the archive will be
           faster than unzipping files one at a time with <c>unzip</c>.</p>
         <p>The archive must be closed with <c>zip_close/1</c>.</p>
+        <p>The <c><anno>ZipHandle</anno></c> will be closed if the
+          process which originally opened the archive dies.</p>
       </desc>
     </func>
     <func>

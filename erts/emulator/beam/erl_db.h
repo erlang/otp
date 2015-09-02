@@ -3,16 +3,17 @@
  * 
  * Copyright Ericsson AB 1996-2013. All Rights Reserved.
  * 
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
- * 
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  * 
  * %CopyrightEnd%
  */
@@ -61,7 +62,17 @@ union db_table {
 				"ERL_MAX_ETS_TABLES" */
 #define ERL_MAX_ETS_TABLES_ENV "ERL_MAX_ETS_TABLES"
 
-void init_db(void);
+typedef enum {
+    ERTS_DB_SPNCNT_NONE,
+    ERTS_DB_SPNCNT_VERY_LOW,
+    ERTS_DB_SPNCNT_LOW,
+    ERTS_DB_SPNCNT_NORMAL,
+    ERTS_DB_SPNCNT_HIGH,
+    ERTS_DB_SPNCNT_VERY_HIGH,
+    ERTS_DB_SPNCNT_EXTREMELY_HIGH
+} ErtsDbSpinCount;
+
+void init_db(ErtsDbSpinCount);
 int erts_db_process_exiting(Process *, ErtsProcLocks);
 void db_info(int, void *, int);
 void erts_db_foreach_table(void (*)(DbTable *, void *), void *);
@@ -69,6 +80,7 @@ void erts_db_foreach_offheap(DbTable *,
 			     void (*func)(ErlOffHeap *, void *),
 			     void *);
 
+extern int erts_ets_rwmtx_spin_count;
 extern int user_requested_db_max_tabs; /* set in erl_init */
 extern int erts_ets_realloc_always_moves;  /* set in erl_init */
 extern int erts_ets_always_compress;  /* set in erl_init */

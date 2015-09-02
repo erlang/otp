@@ -3,16 +3,17 @@
  *
  * Copyright Ericsson AB 2002-2013. All Rights Reserved.
  *
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  * %CopyrightEnd%
  */
@@ -39,7 +40,7 @@
 #include "erl_instrument.h"
 #include "erl_mseg.h"
 #include "erl_monitors.h"
-#include "erl_bif_timer.h"
+#include "erl_hl_timer.h"
 #include "erl_cpu_topology.h"
 #include "erl_thr_queue.h"
 #if defined(ERTS_ALC_T_DRV_SEL_D_STATE) || defined(ERTS_ALC_T_DRV_EV_D_STATE)
@@ -575,6 +576,17 @@ erts_alloc_init(int *argc, char **argv, ErtsAllocInitOpts *eaiop)
     fix_type_sizes[ERTS_ALC_FIX_TYPE_IX(ERTS_ALC_T_THR_Q_EL_SL)]
 	= sizeof(ErtsThrQElement_t);
 #endif
+    fix_type_sizes[ERTS_ALC_FIX_TYPE_IX(ERTS_ALC_T_LL_PTIMER)]
+	= erts_timer_type_size(ERTS_ALC_T_LL_PTIMER);
+    fix_type_sizes[ERTS_ALC_FIX_TYPE_IX(ERTS_ALC_T_HL_PTIMER)]
+	= erts_timer_type_size(ERTS_ALC_T_HL_PTIMER);
+    fix_type_sizes[ERTS_ALC_FIX_TYPE_IX(ERTS_ALC_T_BIF_TIMER)]
+	= erts_timer_type_size(ERTS_ALC_T_BIF_TIMER);
+#ifdef ERTS_BTM_ACCESSOR_SUPPORT
+    fix_type_sizes[ERTS_ALC_FIX_TYPE_IX(ERTS_ALC_T_ABIF_TIMER)]
+	= erts_timer_type_size(ERTS_ALC_T_ABIF_TIMER);
+#endif
+
 #ifdef HARD_DEBUG
     hdbg_init();
 #endif
@@ -1873,8 +1885,8 @@ erts_alc_fatal_error(int error, int func, ErtsAlcType_t n, ...)
 	size = va_arg(argp, Uint);
 	va_end(argp);
 	erl_exit(1,
-		 "%s: Cannot %s %lu bytes of memory (of type \"%s\", thread %d).\n",
-		 allctr_str, op, size, t_str, ERTS_ALC_GET_THR_IX());
+		 "%s: Cannot %s %lu bytes of memory (of type \"%s\").\n",
+		 allctr_str, op, size, t_str);
 	break;
     }
     case ERTS_ALC_E_NOALLCTR:
@@ -2322,6 +2334,24 @@ erts_memory(int *print_to_p, void *print_to_arg, void *proc, Eterm earg)
 		       &size.processes_used,
 		       fi,
 		       ERTS_ALC_T_MSG_REF);
+	add_fix_values(&size.processes,
+		       &size.processes_used,
+		       fi,
+		       ERTS_ALC_T_LL_PTIMER);
+	add_fix_values(&size.processes,
+		       &size.processes_used,
+		       fi,
+		       ERTS_ALC_T_HL_PTIMER);
+	add_fix_values(&size.processes,
+		       &size.processes_used,
+		       fi,
+		       ERTS_ALC_T_BIF_TIMER);
+#ifdef ERTS_BTM_ACCESSOR_SUPPORT
+	add_fix_values(&size.processes,
+		       &size.processes_used,
+		       fi,
+		       ERTS_ALC_T_ABIF_TIMER);
+#endif
     }
 
     if (want.atom || want.atom_used) {
@@ -3180,17 +3210,13 @@ reply_alloc_info(void *vair)
 	HRelease(rp, hp_end, hp);	    
     }
 
-    erts_queue_message(rp, &rp_locks, bp, msg, NIL
-#ifdef USE_VM_PROBES
-		       , NIL
-#endif
-		       );
+    erts_queue_message(rp, &rp_locks, bp, msg, NIL);
 
     if (air->req_sched == sched_id)
 	rp_locks &= ~ERTS_PROC_LOCK_MAIN;
  
     erts_smp_proc_unlock(rp, rp_locks);
-    erts_smp_proc_dec_refc(rp);
+    erts_proc_dec_refc(rp);
 
     if (erts_smp_atomic32_dec_read_nob(&air->refc) == 0)
 	aireq_free(air);
@@ -3264,7 +3290,7 @@ erts_request_alloc_info(struct process *c_p,
     erts_smp_atomic32_init_nob(&air->refc,
 			       (erts_aint32_t) erts_no_schedulers);
 
-    erts_smp_proc_add_refc(c_p, (Sint32) erts_no_schedulers);
+    erts_proc_add_refc(c_p, (Sint) erts_no_schedulers);
 
 #ifdef ERTS_SMP
     if (erts_no_schedulers > 1)
@@ -3939,7 +3965,7 @@ static Uint
 install_debug_functions(void)
 {
     int i;
-    ASSERT(sizeof(erts_allctrs) == sizeof(real_allctrs));
+    ERTS_CT_ASSERT(sizeof(erts_allctrs) == sizeof(real_allctrs));
 
     sys_memcpy((void *)real_allctrs,(void *)erts_allctrs,sizeof(erts_allctrs));
 

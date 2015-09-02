@@ -4,20 +4,21 @@
 <chapter>
   <header>
     <copyright>
-      <year>2003</year><year>2013</year>
+      <year>2003</year><year>2015</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
-      The contents of this file are subject to the Erlang Public License,
-      Version 1.1, (the "License"); you may not use this file except in
-      compliance with the License. You should have received a copy of the
-      Erlang Public License along with this software. If not, it can be
-      retrieved online at http://www.erlang.org/.
-    
-      Software distributed under the License is distributed on an "AS IS"
-      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-      the License for the specific language governing rights and limitations
-      under the License.
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
     
     </legalnotice>
 
@@ -36,22 +37,24 @@
       runtime system is called a <em>node</em>. Message passing between
       processes at different nodes, as well as links and monitors, are
       transparent when pids are used. Registered names, however, are
-      local to each node. This means the node must be specified as well
-      when sending messages etc. using registered names.</p>
+      local to each node. This means that the node must be specified as well
+      when sending messages, and so on, using registered names.</p>
     <p>The distribution mechanism is implemented using TCP/IP sockets.
-      How to implement an alternative carrier is described in <em>ERTS User's Guide</em>.</p>
+      How to implement an alternative carrier is described in the
+      <seealso marker="erts:alt_dist">ERTS User's Guide</seealso>.</p>
   </section>
 
   <section>
     <title>Nodes</title>
-    <p>A <em>node</em> is an executing Erlang runtime system which has
-      been given a name, using the command line flag <c>-name</c>
+    <p>A <em>node</em> is an executing Erlang runtime system that has
+      been given a name, using the command-line flag <c>-name</c>
       (long names) or <c>-sname</c> (short names).</p>
-    <p>The format of the node name is an atom <c>name@host</c> where
-      <c>name</c> is the name given by the user and <c>host</c> is
+    <p>The format of the node name is an atom <c>name@host</c>.
+      <c>name</c> is the name given by the user. <c>host</c> is
       the full host name if long names are used, or the first part of
       the host name if short names are used. <c>node()</c> returns
-      the name of the node. Example:</p>
+      the name of the node.</p>
+      <p><em>Example:</em></p>
     <pre>
 % <input>erl -name dilbert</input>
 (dilbert@uab.ericsson.se)1> <input>node().</input>
@@ -69,16 +72,16 @@ dilbert@uab</pre>
   <section>
     <title>Node Connections</title>
     <p>The nodes in a distributed Erlang system are loosely connected.
-      The first time the name of another node is used, for example if
+      The first time the name of another node is used, for example, if
       <c>spawn(Node,M,F,A)</c> or <c>net_adm:ping(Node)</c> is called,
-      a connection attempt to that node will be made.</p>
+      a connection attempt to that node is made.</p>
     <p>Connections are by default transitive. If a node A connects to
-      node B, and node B has a connection to node C, then node A will
-      also try to connect to node C. This feature can be turned off by
-      using the command line flag <c>-connect_all false</c>, see
-      <c>erl(1)</c>.</p>
+      node B, and node B has a connection to node C, then node A
+      also tries to connect to node C. This feature can be turned off by
+      using the command-line flag <c>-connect_all false</c>, see the
+      <seealso marker="erts:erl">erl(1)</seealso> manual page in ERTS.</p>
     <p>If a node goes down, all connections to that node are removed.
-      Calling <c>erlang:disconnect_node(Node)</c> will force disconnection
+      Calling <c>erlang:disconnect_node(Node)</c> forces disconnection
       of a node.</p>
     <p>The list of (visible) nodes currently connected to is returned by
       <c>nodes()</c>.</p>
@@ -89,23 +92,24 @@ dilbert@uab</pre>
     <p>The Erlang Port Mapper Daemon <em>epmd</em> is automatically
       started at every host where an Erlang node is started. It is
       responsible for mapping the symbolic node names to machine
-      addresses. See <c>epmd(1)</c>.</p>
+      addresses. See the
+      <seealso marker="erts:epmd">epmd(1)</seealso> manual page in ERTS.</p>
   </section>
 
   <section>
     <title>Hidden Nodes</title>
     <p>In a distributed Erlang system, it is sometimes useful to
       connect to a node without also connecting to all other nodes.
-      An example could be some kind of O&amp;M functionality used to
-      inspect the status of a system without disturbing it. For this
-      purpose, a <em>hidden node</em> may be used.</p>
-    <p>A hidden node is a node started with the command line flag
+      An example is some kind of O&amp;M functionality used to
+      inspect the status of a system, without disturbing it. For this
+      purpose, a <em>hidden node</em> can be used.</p>
+    <p>A hidden node is a node started with the command-line flag
       <c>-hidden</c>. Connections between hidden nodes and other nodes
       are not transitive, they must be set up explicitly. Also, hidden
       nodes does not show up in the list of nodes returned by
       <c>nodes()</c>. Instead, <c>nodes(hidden)</c> or
       <c>nodes(connected)</c> must be used. This means, for example,
-      that the hidden node will not be added to the set of nodes that
+      that the hidden node is not added to the set of nodes that
       <c>global</c> is keeping track of.</p>
     <p>This feature was added in Erlang 5.0/OTP R7.</p>
   </section>
@@ -114,9 +118,11 @@ dilbert@uab</pre>
     <title>C Nodes</title>
     <p>A <em>C node</em> is a C program written to act as a hidden node
       in a distributed Erlang system. The library <em>Erl_Interface</em>
-      contains functions for this purpose. Refer to the documentation
-      for Erl_Interface and <em>Interoperability Tutorial</em> for more
-      information about C nodes.</p>
+      contains functions for this purpose. For more information about
+      C nodes, see the <seealso marker="erl_interface:ei_users_guide">
+      Erl_Interface</seealso> application and
+      <seealso marker="doc/tutorial:introduction#interoperability tutorial">
+      Interoperability Tutorial.</seealso>.</p>
   </section>
 
   <section>
@@ -125,7 +131,7 @@ dilbert@uab</pre>
       with each other. In a network of different Erlang nodes, it is
       built into the system at the lowest possible level. Each node has
       its own <em>magic cookie</em>, which is an Erlang atom.</p>
-    <p>When a nodes tries to connect to another node, the magic cookies
+    <p>When a node tries to connect to another node, the magic cookies
       are compared. If they do not match, the connected node rejects
       the connection.</p>
     <p>At start-up, a node has a random atom assigned as its magic
@@ -141,8 +147,8 @@ dilbert@uab</pre>
       the local node assume that all other nodes have the same cookie
       <c>Cookie</c>.</p>
     <p>Thus, groups of users with identical cookie files get Erlang
-      nodes which can communicate freely and without interference from
-      the magic cookie system. Users who want run nodes on separate
+      nodes that can communicate freely and without interference from
+      the magic cookie system. Users who want to run nodes on separate
       file systems must make certain that their cookie files are
       identical on the different file systems.</p>
     <p>For a node <c>Node1</c> with magic cookie <c>Cookie</c> to be
@@ -154,18 +160,24 @@ dilbert@uab</pre>
     <p>The default when a connection is established between two nodes,
       is to immediately connect all other visible nodes as well. This
       way, there is always a fully connected network. If there are
-      nodes with different cookies, this method might be inappropriate
-      and the command line flag <c>-connect_all false</c> must be set,
-      see <seealso marker="erts:erl">erl(1)</seealso>.</p>
+      nodes with different cookies, this method can be inappropriate
+      and the command-line flag <c>-connect_all false</c> must be set,
+      see the <seealso marker="erts:erl">erl(1)</seealso>
+      manual page in ERTS.</p>
     <p>The magic cookie of the local node is retrieved by calling
       <c>erlang:get_cookie()</c>.</p>
   </section>
 
   <section>
     <title>Distribution BIFs</title>
-    <p>Some useful BIFs for distributed programming, see
-      <c>erlang(3)</c> for more information:</p>
+    <p>Some useful BIFs for distributed programming
+      (for more information, see the <seealso marker="erts:erlang">
+      erlang(3)</seealso> manual page in ERTS:</p>
     <table>
+      <row>
+        <cell align="left" valign="middle"><em>BIF</em></cell>
+        <cell align="left" valign="middle"><em>Description</em></cell>
+      </row>
       <row>
         <cell align="left" valign="middle"><c>erlang:disconnect_node(Node)</c></cell>
         <cell align="left" valign="middle">Forces the disconnection of a node.</cell>
@@ -180,7 +192,9 @@ dilbert@uab</pre>
       </row>
       <row>
         <cell align="left" valign="middle"><c>monitor_node(Node, true|false)</c></cell>
-        <cell align="left" valign="middle">Monitor the status of <c>Node</c>. A message<c>{nodedown, Node}</c> is received if the connection to it is lost.</cell>
+        <cell align="left" valign="middle">Monitors the status of
+        <c>Node</c>. A message<c>{nodedown, Node}</c> is received
+        if the connection to it is lost.</cell>
       </row>
       <row>
         <cell align="left" valign="middle"><c>node()</c></cell>
@@ -196,11 +210,16 @@ dilbert@uab</pre>
       </row>
       <row>
         <cell align="left" valign="middle"><c>nodes(Arg)</c></cell>
-        <cell align="left" valign="middle">Depending on <c>Arg</c>, this function  can return a list not only of visible nodes, but also hidden nodes and previously known nodes, etc.</cell>
+        <cell align="left" valign="middle">Depending on <c>Arg</c>,
+        this function can return a list not only of visible nodes,
+        but also hidden nodes and previously known nodes, and so on.</cell>
       </row>
       <row>
         <cell align="left" valign="middle"><c>erlang:set_cookie(Node, Cookie)</c></cell>
-        <cell align="left" valign="middle">Sets the magic cookie used when connecting to <c>Node</c>. If <c>Node</c> is the current node, <c>Cookie</c> will be used when connecting to all new nodes.</cell>
+        <cell align="left" valign="middle">Sets the magic cookie used
+        when connecting to <c>Node</c>. If <c>Node</c> is the
+        current node, <c>Cookie</c> is used when connecting to
+        all new nodes.</cell>
       </row>
       <row>
         <cell align="left" valign="middle"><c>spawn[_link|_opt](Node, Fun)</c></cell>
@@ -210,18 +229,24 @@ dilbert@uab</pre>
         <cell align="left" valign="middle"><c>spawn[_link|opt](Node, Module, FunctionName, Args)</c></cell>
         <cell align="left" valign="middle">Creates a process at a remote node.</cell>
       </row>
-      <tcaption>Distribution BIFs.</tcaption>
+      <tcaption>Distribution BIFs</tcaption>
     </table>
   </section>
 
   <section>
-    <title>Distribution Command Line Flags</title>
-    <p>Examples of command line flags used for distributed programming,
-      see <c>erl(1)</c> for more information:</p>
+    <title>Distribution Command-Line Flags</title>
+    <p>Examples of command-line flags used for distributed programming
+      (for more information, see the <seealso marker="erts:erl">erl(1)
+      </seealso> manual page in ERTS:</p>
     <table>
       <row>
+        <cell align="left" valign="middle"><em>Command-Line Flag</em></cell>
+        <cell align="left" valign="middle"><em>Description</em></cell>
+      </row>
+      <row>
         <cell align="left" valign="middle"><c>-connect_all false</c></cell>
-        <cell align="left" valign="middle">Only explicit connection set-ups will be used.</cell>
+        <cell align="left" valign="middle">Only explicit connection
+        set-ups are used.</cell>
       </row>
       <row>
         <cell align="left" valign="middle"><c>-hidden</c></cell>
@@ -239,15 +264,19 @@ dilbert@uab</pre>
         <cell align="left" valign="middle"><c>-sname Name</c></cell>
         <cell align="left" valign="middle">Makes a runtime system into a node, using short node names.</cell>
       </row>
-      <tcaption>Distribution Command Line Flags.</tcaption>
+      <tcaption>Distribution Command-Line Flags</tcaption>
     </table>
   </section>
 
   <section>
     <title>Distribution Modules</title>
     <p>Examples of modules useful for distributed programming:</p>
-    <p>In Kernel:</p>
+    <p>In the Kernel application:</p>
     <table>
+      <row>
+        <cell align="left" valign="middle"><em>Module</em></cell>
+        <cell align="left" valign="middle"><em>Description</em></cell>
+      </row>
       <row>
         <cell align="left" valign="middle"><c>global</c></cell>
         <cell align="left" valign="middle">A global name registration facility.</cell>
@@ -266,8 +295,12 @@ dilbert@uab</pre>
       </row>
       <tcaption>Kernel Modules Useful For Distribution.</tcaption>
     </table>
-    <p>In STDLIB:</p>
+    <p>In the STDLIB application:</p>
     <table>
+      <row>
+        <cell align="left" valign="middle"><em>Module</em></cell>
+        <cell align="left" valign="middle"><em>Description</em></cell>
+      </row>
       <row>
         <cell align="left" valign="middle"><c>slave</c></cell>
         <cell align="left" valign="middle">Start and control of slave nodes.</cell>

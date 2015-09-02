@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2015. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -314,7 +315,8 @@ prompt(N, Eval0, Bs0, RT, Ds0) ->
     case get_prompt_func() of
         {M,F} ->
             L = [{history,N}],
-            C = {call,1,{remote,1,{atom,1,M},{atom,1,F}},[{value,1,L}]},
+            A = erl_anno:new(1),
+            C = {call,A,{remote,A,{atom,A,M},{atom,A,F}},[{value,A,L}]},
             {V,Eval,Bs,Ds} = shell_cmd([C], Eval0, Bs0, RT, Ds0, pmt),
             {Eval,Bs,Ds,case V of
                             {pmt,Val} ->
@@ -416,7 +418,7 @@ expand_expr({call,_L,{atom,_,v},[N]}, C) ->
         {_,undefined,_} ->
 	    no_command(N);
 	{Ces,V,CommandN} when is_list(Ces) ->
-            {value,CommandN,V}
+            {value,erl_anno:new(CommandN),V}
     end;
 expand_expr({call,L,F,Args}, C) ->
     {call,L,expand_expr(F, C),expand_exprs(Args, C)};
@@ -901,7 +903,7 @@ prep_check({call,Line,{atom,_,f},[{var,_,_Name}]}) ->
     {atom,Line,ok};
 prep_check({value,_CommandN,_Val}) ->
     %% erl_lint cannot handle the history expansion {value,_,_}.
-    {atom,0,ok};
+    {atom,a0(),ok};
 prep_check(T) when is_tuple(T) ->
     list_to_tuple(prep_check(tuple_to_list(T)));
 prep_check([E | Es]) ->
@@ -913,7 +915,7 @@ expand_records([], E0) ->
     E0;
 expand_records(UsedRecords, E0) ->
     RecordDefs = [Def || {_Name,Def} <- UsedRecords],
-    L = 1,
+    L = erl_anno:new(1),
     E = prep_rec(E0),
     Forms = RecordDefs ++ [{function,L,foo,0,[{clause,L,[],[],[E]}]}],
     [{function,L,foo,0,[{clause,L,[],[],[NE]}]}] = 
@@ -1320,13 +1322,15 @@ list_bindings([{Name,Val}|Bs], RT) ->
     case erl_eval:fun_data(Val) of
         {fun_data,_FBs,FCs0} ->
             FCs = expand_value(FCs0), % looks nicer
-            F = {'fun',0,{clauses,FCs}},
-            M = {match,0,{var,0,Name},F},
+            A = a0(),
+            F = {'fun',A,{clauses,FCs}},
+            M = {match,A,{var,A,Name},F},
             io:fwrite(<<"~ts\n">>, [erl_pp:expr(M, enc())]);
         {named_fun_data,_FBs,FName,FCs0} ->
             FCs = expand_value(FCs0), % looks nicer
-            F = {named_fun,0,FName,FCs},
-            M = {match,0,{var,0,Name},F},
+            A = a0(),
+            F = {named_fun,A,FName,FCs},
+            M = {match,A,{var,A,Name},F},
             io:fwrite(<<"~ts\n">>, [erl_pp:expr(M, enc())]);
         false ->
             Namel = io_lib:fwrite(<<"~s = ">>, [Name]),
@@ -1356,13 +1360,18 @@ expand_value(E) ->
 %% There is no abstract representation of funs.
 try_abstract(V, CommandN) ->
     try erl_parse:abstract(V)
-    catch _:_ -> {call,0,{atom,0,v},[{integer,0,CommandN}]}
+    catch
+        _:_ ->
+            A = a0(),
+            {call,A,{atom,A,v},[{integer,A,CommandN}]}
     end.
 
 %% Rather than listing possibly huge results the calls to v/1 are shown.
 prep_list_commands(E) ->
-    substitute_v1(fun({value,CommandN,_V}) -> 
-                          {call,0,{atom,0,v},[{integer,0,CommandN}]}
+    A = a0(),
+    substitute_v1(fun({value,Anno,_V}) ->
+                          CommandN = erl_anno:line(Anno),
+                          {call,A,{atom,A,v},[{integer,A,CommandN}]}
                   end, E).
 
 substitute_v1(F, {value,_,_}=Value) ->
@@ -1373,6 +1382,9 @@ substitute_v1(F, [E | Es]) ->
     [substitute_v1(F, E) | substitute_v1(F, Es)];
 substitute_v1(_F, E) -> 
     E.
+
+a0() ->
+    erl_anno:new(0).
 
 check_and_get_history_and_results() ->
     check_env(shell_history_length),

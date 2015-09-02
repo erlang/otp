@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2015. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %%
@@ -109,26 +110,26 @@ parse_file(File, InclPath) ->
 	    Error
     end.
 
-parse_preprocessed_file(Epp,File,InCorrectFile) ->
+parse_preprocessed_file(Epp, File, InCorrectFile) ->
     case epp:parse_erl_form(Epp) of
 	{ok,Form} ->
 	    case Form of
 		{attribute,_,file,{File,_}} ->
-		    parse_preprocessed_file(Epp,File,true);
+		    parse_preprocessed_file(Epp, File, true);
 		{attribute,_,file,{_OtherFile,_}} ->
-		    parse_preprocessed_file(Epp,File,false);
-		{function,L,F,A,Cs} when InCorrectFile ->
-		    {CLs,LastCL} = find_clause_lines(Cs, []),
+		    parse_preprocessed_file(Epp, File, false);
+                {function,L,F,A,Cs} when InCorrectFile ->
+                    {CLs,LastCL} = find_clause_lines(Cs, []),
 		    %% tl(CLs) cause we know the start line already
-		    [{atom_to_list(F),A,L,LastCL} | tl(CLs)] ++
-			parse_preprocessed_file(Epp,File,true);
+		    [{atom_to_list(F),A,get_line(L),LastCL} | tl(CLs)] ++
+			parse_preprocessed_file(Epp, File, true);
 		_ ->
-		    parse_preprocessed_file(Epp,File,InCorrectFile)
+		    parse_preprocessed_file(Epp, File, InCorrectFile)
 	    end;
 	{error,Reason={_L,epp,{undefined,_Macro,none}}} ->
 	    throw({error,Reason,InCorrectFile});
 	{error,_Reason} ->
-	    parse_preprocessed_file(Epp,File,InCorrectFile);
+	    parse_preprocessed_file(Epp, File, InCorrectFile);
 	{eof,_Location} ->
 	    []
     end.
@@ -147,10 +148,10 @@ parse_non_preprocessed_file(Epp, File, Location) ->
     case epp_dodger:parse_form(Epp, Location) of
 	{ok,Tree,Location1} ->
 	    try erl_syntax:revert(Tree) of
-		{function,L,F,A,Cs} ->
-		    {CLs,LastCL} = find_clause_lines(Cs, []),
+                {function,L,F,A,Cs} ->
+                    {CLs,LastCL} = find_clause_lines(Cs, []),
 		    %% tl(CLs) cause we know the start line already
-		    [{atom_to_list(F),A,L,LastCL} | tl(CLs)] ++
+                    [{atom_to_list(F),A,get_line(L),LastCL} | tl(CLs)] ++
 			parse_non_preprocessed_file(Epp, File, Location1);
 		_ ->
 		    parse_non_preprocessed_file(Epp, File, Location1)
@@ -163,21 +164,28 @@ parse_non_preprocessed_file(Epp, File, Location) ->
 	    []
     end.
 
+get_line(Anno) ->
+    erl_anno:line(Anno).
+
 %%%-----------------------------------------------------------------
 %%% Find the line number of the last expression in the function
 find_clause_lines([{clause,CL,_Params,_Op,Exprs}], CLs) -> % last clause
     try tuple_to_list(lists:last(Exprs)) of
-	[_Type,ExprLine | _] ->
-	    {lists:reverse([{clause,CL}|CLs]), ExprLine};
+	[_Type,ExprLine | _] when is_integer(ExprLine) ->
+	    {lists:reverse([{clause,get_line(CL)}|CLs]), get_line(ExprLine)};
+	[tree,_ | Exprs1] ->
+	    find_clause_lines([{clause,CL,undefined,undefined,Exprs1}], CLs);
+	[macro,{_var,ExprLine,_MACRO} | _] when is_integer(ExprLine) ->
+	    {lists:reverse([{clause,get_line(CL)}|CLs]), get_line(ExprLine)};
 	_ ->
-	    {lists:reverse([{clause,CL}|CLs]), CL}
+	    {lists:reverse([{clause,get_line(CL)}|CLs]), get_line(CL)}
     catch
 	_:_ ->
-	    {lists:reverse([{clause,CL}|CLs]), CL}
+	    {lists:reverse([{clause,get_line(CL)}|CLs]), get_line(CL)}
     end;
 
 find_clause_lines([{clause,CL,_Params,_Op,_Exprs} | Cs], CLs) ->
-    find_clause_lines(Cs, [{clause,CL}|CLs]).
+    find_clause_lines(Cs, [{clause,get_line(CL)}|CLs]).
 
 %%%-----------------------------------------------------------------
 %%% Add a link target for each line and one for each function definition.
@@ -185,18 +193,18 @@ build_html(SFd,DFd,Encoding,FuncsAndCs) ->
     build_html(SFd,DFd,Encoding,file:read_line(SFd),1,FuncsAndCs,
 	       false,undefined).
 
-%% function start line found
-build_html(SFd,DFd,Enc,{ok,Str},L0,[{F,A,L0,LastL}|FuncsAndCs],
-	   _IsFuncDef,_FAndLastL) ->
-    FALink = test_server_ctrl:uri_encode(F++"-"++integer_to_list(A),utf8),
-    file:write(DFd,["<a name=\"",to_raw_list(FALink,Enc),"\"/>"]),
-    build_html(SFd,DFd,Enc,{ok,Str},L0,FuncsAndCs,true,{F,LastL});
 %% line of last expression in function found
 build_html(SFd,DFd,Enc,{ok,Str},LastL,FuncsAndCs,_IsFuncDef,{F,LastL}) ->
     LastLineLink = test_server_ctrl:uri_encode(F++"-last_expr",utf8),
 	    file:write(DFd,["<a name=\"",
 			    to_raw_list(LastLineLink,Enc),"\"/>"]),
     build_html(SFd,DFd,Enc,{ok,Str},LastL,FuncsAndCs,true,undefined);
+%% function start line found
+build_html(SFd,DFd,Enc,{ok,Str},L0,[{F,A,L0,LastL}|FuncsAndCs],
+	   _IsFuncDef,_FAndLastL) ->
+    FALink = test_server_ctrl:uri_encode(F++"-"++integer_to_list(A),utf8),
+    file:write(DFd,["<a name=\"",to_raw_list(FALink,Enc),"\"/>"]),
+    build_html(SFd,DFd,Enc,{ok,Str},L0,FuncsAndCs,true,{F,LastL});
 build_html(SFd,DFd,Enc,{ok,Str},L,[{clause,L}|FuncsAndCs],
 	   _IsFuncDef,FAndLastL) ->
     build_html(SFd,DFd,Enc,{ok,Str},L,FuncsAndCs,true,FAndLastL);

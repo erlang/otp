@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 2008-2013. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -21,6 +22,7 @@
 
 -export([compile/3,compile_all/3,compile_erlang/3,
 	 hex_to_bin/1,
+	 match_value/2,
 	 parallel/0,
 	 roundtrip/3,roundtrip/4,roundtrip_enc/3,roundtrip_enc/4]).
 
@@ -106,6 +108,24 @@ compile_erlang(Mod, Config, Options) ->
 hex_to_bin(S) ->
     << <<(hex2num(C)):4>> || C <- S, C =/= $\s >>.
 
+%% match_value(Pattern, Value) -> ok.
+%%  Match Pattern against Value. If the Pattern contains in any
+%%  position, the corresponding position in the Value can be
+%%  anything. Generate an exception if the Pattern and Value don't
+%%  match.
+
+match_value('_', _) ->
+    ok;
+match_value([H1|T1], [H2|T2]) ->
+    match_value(H1, H2),
+    match_value(T1, T2);
+match_value(T1, T2) when tuple_size(T1) =:= tuple_size(T2) ->
+    match_value_tuple(1, T1, T2);
+match_value(Same, Same) ->
+    ok;
+match_value(V1, V2) ->
+    error({nomatch,V1,V2}).
+
 roundtrip(Mod, Type, Value) ->
     roundtrip(Mod, Type, Value, Value).
 
@@ -131,6 +151,12 @@ roundtrip_enc(Mod, Type, Value, ExpectedValue) ->
 hex2num(C) when $0 =< C, C =< $9 -> C - $0;
 hex2num(C) when $A =< C, C =< $F -> C - $A + 10;
 hex2num(C) when $a =< C, C =< $f -> C - $a + 10.
+
+match_value_tuple(I, T1, T2) when I =< tuple_size(T1) ->
+    match_value(element(I, T1), element(I, T2)),
+    match_value_tuple(I+1, T1, T2);
+match_value_tuple(_, _, _) ->
+    ok.
 
 test_ber_indefinite(Mod, Type, Encoded, ExpectedValue) ->
     case Mod:encoding_rule() of

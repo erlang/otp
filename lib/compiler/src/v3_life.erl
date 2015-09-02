@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 1999-2012. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -45,7 +46,7 @@
 
 -export([vdb_find/2]).
 
--import(lists, [member/2,map/2,foldl/3,reverse/1,sort/1]).
+-import(lists, [member/2,map/2,reverse/1,sort/1]).
 -import(ordsets, [add_element/2,intersection/2,union/2]).
 
 -include("v3_kernel.hrl").
@@ -68,7 +69,7 @@ functions([], Acc) -> reverse(Acc).
 function(#k_fdef{anno=#k{a=Anno},func=F,arity=Ar,vars=Vs,body=Kb}) ->
     try
 	As = var_list(Vs),
-	Vdb0 = foldl(fun ({var,N}, Vdb) -> new_var(N, 0, Vdb) end, [], As),
+	Vdb0 = init_vars(As),
 	%% Force a top-level match!
 	B0 = case Kb of
 		 #k_match{} -> Kb;
@@ -94,14 +95,14 @@ function(#k_fdef{anno=#k{a=Anno},func=F,arity=Ar,vars=Vs,body=Kb}) ->
 body(#k_seq{arg=Ke,body=Kb}, I, Vdb0) ->
     %%ok = io:fwrite("life ~w:~p~n", [?LINE,{Ke,I,Vdb0}]),
     A = get_kanno(Ke),
-    Vdb1 = use_vars(A#k.us, I, new_vars(A#k.ns, I, Vdb0)),
+    Vdb1 = use_vars(union(A#k.us, A#k.ns), I, Vdb0),
     {Es,MaxI,Vdb2} = body(Kb, I+1, Vdb1),
     E = expr(Ke, I, Vdb2),
     {[E|Es],MaxI,Vdb2};
 body(Ke, I, Vdb0) ->
     %%ok = io:fwrite("life ~w:~p~n", [?LINE,{Ke,I,Vdb0}]),
     A = get_kanno(Ke),
-    Vdb1 = use_vars(A#k.us, I, new_vars(A#k.ns, I, Vdb0)),
+    Vdb1 = use_vars(union(A#k.us, A#k.ns), I, Vdb0),
     E = expr(Ke, I, Vdb1),
     {[E],I,Vdb1}.
 
@@ -150,12 +151,12 @@ expr(#k_try_enter{anno=A,arg=Ka,vars=Vs,body=Kb,evars=Evs,handler=Kh}, I, Vdb) -
     %% the body and handler. Add try tag 'variable'.
     Ab = get_kanno(Kb),
     Ah = get_kanno(Kh),
-    Tdb1 = use_vars(Ab#k.us, I+3, use_vars(Ah#k.us, I+3, Tdb0)),
+    Tdb1 = use_vars(union(Ab#k.us, Ah#k.us), I+3, Tdb0),
     Tdb2 = vdb_sub(I, I+2, Tdb1),
     Vnames = fun (Kvar) -> Kvar#k_var.name end,	%Get the variable names
     {Aes,_,Adb} = body(Ka, I+2, add_var({catch_tag,I+1}, I+1, 1000000, Tdb2)),
-    {Bes,_,Bdb} = body(Kb, I+4, new_vars(map(Vnames, Vs), I+3, Tdb2)),
-    {Hes,_,Hdb} = body(Kh, I+4, new_vars(map(Vnames, Evs), I+3, Tdb2)),
+    {Bes,_,Bdb} = body(Kb, I+4, new_vars(sort(map(Vnames, Vs)), I+3, Tdb2)),
+    {Hes,_,Hdb} = body(Kh, I+4, new_vars(sort(map(Vnames, Evs)), I+3, Tdb2)),
     #l{ke={try_enter,#l{ke={block,Aes},i=I+1,vdb=Adb,a=[]},
 	   var_list(Vs),#l{ke={block,Bes},i=I+3,vdb=Bdb,a=[]},
 	   var_list(Evs),#l{ke={block,Hes},i=I+3,vdb=Hdb,a=[]}},
@@ -171,7 +172,7 @@ expr(#k_receive{anno=A,var=V,body=Kb,timeout=T,action=Ka,ret=Rs}, I, Vdb) ->
     %% Work out imported variables which need to be locked.
     Rdb = vdb_sub(I, I+1, Vdb),
     M = match(Kb, add_element(V#k_var.name, A#k.us), I+1, [],
- 	      new_var(V#k_var.name, I, Rdb)),
+	      new_vars([V#k_var.name], I, Rdb)),
     {Tes,_,Adb} = body(Ka, I+1, Rdb),
     #l{ke={receive_loop,atomic(T),variable(V),M,
 	   #l{ke=Tes,i=I+1,vdb=Adb,a=[]},var_list(Rs)},
@@ -199,12 +200,12 @@ body_try(#k_try{anno=A,arg=Ka,vars=Vs,body=Kb,evars=Evs,handler=Kh,ret=Rs},
     %% the body and handler. Add try tag 'variable'.
     Ab = get_kanno(Kb),
     Ah = get_kanno(Kh),
-    Tdb1 = use_vars(Ab#k.us, I+3, use_vars(Ah#k.us, I+3, Tdb0)),
+    Tdb1 = use_vars(union(Ab#k.us, Ah#k.us), I+3, Tdb0),
     Tdb2 = vdb_sub(I, I+2, Tdb1),
     Vnames = fun (Kvar) -> Kvar#k_var.name end,	%Get the variable names
     {Aes,_,Adb} = body(Ka, I+2, add_var({catch_tag,I+1}, I+1, locked, Tdb2)),
-    {Bes,_,Bdb} = body(Kb, I+4, new_vars(map(Vnames, Vs), I+3, Tdb2)),
-    {Hes,_,Hdb} = body(Kh, I+4, new_vars(map(Vnames, Evs), I+3, Tdb2)),
+    {Bes,_,Bdb} = body(Kb, I+4, new_vars(sort(map(Vnames, Vs)), I+3, Tdb2)),
+    {Hes,_,Hdb} = body(Kh, I+4, new_vars(sort(map(Vnames, Evs)), I+3, Tdb2)),
     #l{ke={'try',#l{ke={block,Aes},i=I+1,vdb=Adb,a=[]},
 	   var_list(Vs),#l{ke={block,Bes},i=I+3,vdb=Bdb,a=[]},
 	   var_list(Evs),#l{ke={block,Hes},i=I+3,vdb=Hdb,a=[]},
@@ -270,7 +271,7 @@ match(#k_select{anno=A,var=V,types=Kts}, Ls0, I, Ctxt, Vdb0) ->
 	   end,
     Vdb1 = use_vars(union(A#k.us, Ls1), I, Vdb0),
     Ts = [type_clause(Tc, Ls1, I+1, Ctxt, Vdb1) || Tc <- Kts],
-    #l{ke={select,literal2(V, Ctxt),Ts},i=I,vdb=Vdb1,a=Anno};
+    #l{ke={select,literal(V, Ctxt),Ts},i=I,vdb=Vdb1,a=Anno};
 match(#k_guard{anno=A,clauses=Kcs}, Ls, I, Ctxt, Vdb0) ->
     Vdb1 = use_vars(union(A#k.us, Ls), I, Vdb0),
     Cs = [guard_clause(G, Ls, I+1, Ctxt, Vdb1) || G <- Kcs],
@@ -297,7 +298,7 @@ val_clause(#k_val_clause{anno=A,val=V,body=Kb}, Ls0, I, Ctxt0, Vdb0) ->
 	       _ -> Ctxt0
 	   end,
     B = match(Kb, Ls1, I+1, Ctxt, Vdb1),
-    #l{ke={val_clause,literal2(V, Ctxt),B},i=I,vdb=use_vars(Bus, I+1, Vdb1),a=A#k.a}.
+    #l{ke={val_clause,literal(V, Ctxt),B},i=I,vdb=use_vars(Bus, I+1, Vdb1),a=A#k.a}.
 
 guard_clause(#k_guard_clause{anno=A,guard=Kg,body=Kb}, Ls, I, Ctxt, Vdb0) ->
     Vdb1 = use_vars(union(A#k.us, Ls), I+2, Vdb0),
@@ -350,6 +351,7 @@ atomic_list(Ks) -> [atomic(K) || K <- Ks].
 %% literal_list([Klit]) -> [Lit].
 
 literal(#k_var{name=N}, _) -> {var,N};
+literal(#k_literal{val=I}, _) -> {literal,I};
 literal(#k_int{val=I}, _) -> {integer,I};
 literal(#k_float{val=F}, _) -> {float,F};
 literal(#k_atom{val=N}, _) -> {atom,N};
@@ -358,57 +360,28 @@ literal(#k_nil{}, _) -> nil;
 literal(#k_cons{hd=H,tl=T}, Ctxt) ->
     {cons,[literal(H, Ctxt),literal(T, Ctxt)]};
 literal(#k_binary{segs=V}, Ctxt) ->
-	    {binary,literal(V, Ctxt)};
+    {binary,literal(V, Ctxt)};
+literal(#k_bin_seg{size=S,unit=U,type=T,flags=Fs,seg=Seg,next=[]}, Ctxt) ->
+    %% Only occurs in patterns.
+    {bin_seg,Ctxt,literal(S, Ctxt),U,T,Fs,[literal(Seg, Ctxt)]};
 literal(#k_bin_seg{size=S,unit=U,type=T,flags=Fs,seg=Seg,next=N}, Ctxt) ->
     {bin_seg,Ctxt,literal(S, Ctxt),U,T,Fs,
      [literal(Seg, Ctxt),literal(N, Ctxt)]};
+literal(#k_bin_int{size=S,unit=U,flags=Fs,val=Int,next=N}, Ctxt) ->
+    %% Only occurs in patterns.
+    {bin_int,Ctxt,literal(S, Ctxt),U,Fs,Int,
+     [literal(N, Ctxt)]};
 literal(#k_bin_end{}, Ctxt) ->
     {bin_end,Ctxt};
 literal(#k_tuple{es=Es}, Ctxt) ->
     {tuple,literal_list(Es, Ctxt)};
-literal(#k_map{op=Op,var=Var,es=Es}, Ctxt) ->
-    {map,Op,literal(Var, Ctxt),literal_list(Es, Ctxt)};
+literal(#k_map{op=Op,var=Var,es=Es0}, Ctxt) ->
+    {map,Op,literal(Var, Ctxt),literal_list(Es0, Ctxt)};
 literal(#k_map_pair{key=K,val=V}, Ctxt) ->
-    {map_pair,literal(K, Ctxt),literal(V, Ctxt)};
-literal(#k_literal{val=V}, _Ctxt) ->
-    {literal,V}.
+    {map_pair,literal(K, Ctxt),literal(V, Ctxt)}.
 
 literal_list(Ks, Ctxt) ->
     [literal(K, Ctxt) || K <- Ks].
-
-literal2(#k_var{name=N}, _) -> {var,N};
-literal2(#k_literal{val=I}, _) -> {literal,I};
-literal2(#k_int{val=I}, _) -> {integer,I};
-literal2(#k_float{val=F}, _) -> {float,F};
-literal2(#k_atom{val=N}, _) -> {atom,N};
-%%literal2(#k_char{val=C}, _) -> {char,C};
-literal2(#k_nil{}, _) -> nil;
-literal2(#k_cons{hd=H,tl=T}, Ctxt) ->
-    {cons,[literal2(H, Ctxt),literal2(T, Ctxt)]};
-literal2(#k_binary{segs=V}, Ctxt) ->
-    {binary,literal2(V, Ctxt)};
-literal2(#k_bin_seg{size=S,unit=U,type=T,flags=Fs,seg=Seg,next=[]}, Ctxt) ->
-    {bin_seg,Ctxt,literal2(S, Ctxt),U,T,Fs,[literal2(Seg, Ctxt)]};
-literal2(#k_bin_seg{size=S,unit=U,type=T,flags=Fs,seg=Seg,next=N}, Ctxt) ->
-    {bin_seg,Ctxt,literal2(S, Ctxt),U,T,Fs,
-     [literal2(Seg, Ctxt),literal2(N, Ctxt)]};
-literal2(#k_bin_int{size=S,unit=U,flags=Fs,val=Int,next=N}, Ctxt) ->
-    {bin_int,Ctxt,literal2(S, Ctxt),U,Fs,Int,
-     [literal2(N, Ctxt)]};
-literal2(#k_bin_end{}, Ctxt) ->
-    {bin_end,Ctxt};
-literal2(#k_tuple{es=Es}, Ctxt) ->
-    {tuple,literal_list2(Es, Ctxt)};
-literal2(#k_map{op=Op,es=Es}, Ctxt) ->
-    {map,Op,literal_list2(Es, Ctxt)};
-literal2(#k_map_pair{key=K,val=V}, Ctxt) ->
-    {map_pair,literal2(K, Ctxt),literal2(V, Ctxt)}.
-
-literal_list2(Ks, Ctxt) ->
-    [literal2(K, Ctxt) || K <- Ks].
-
-%% literal_bin(#k_bin_seg{size=S,unit=U,type=T,flags=Fs,seg=Seg,next=N}) ->
-%%     {bin_seg,literal(S),U,T,Fs,[literal(Seg),literal(N)]}
 
 
 %% is_gc_bif(Name, Arity) -> true|false
@@ -428,79 +401,78 @@ is_gc_bif(Bif, Arity) ->
 	 erl_internal:new_type_test(Bif, Arity) orelse
 	 erl_internal:comp_op(Bif, Arity)).
 
-%% new_var(VarName, I, Vdb) -> Vdb.
+%% Keep track of life time for variables.
+%%
+%% init_vars([{var,VarName}]) -> Vdb.
 %% new_vars([VarName], I, Vdb) -> Vdb.
-%% use_var(VarName, I, Vdb) -> Vdb.
 %% use_vars([VarName], I, Vdb) -> Vdb.
 %% add_var(VarName, F, L, Vdb) -> Vdb.
+%%
+%% The list of variable names for new_vars/3 and use_vars/3
+%% must be sorted.
 
-new_var(V, I, Vdb) ->
-    vdb_store_new(V, I, I, Vdb).
+init_vars(Vs) ->
+    vdb_new(Vs).
 
-new_vars(Vs, I, Vdb0) ->
-    foldl(fun (V, Vdb) -> new_var(V, I, Vdb) end, Vdb0, Vs).
+new_vars([], _, Vdb) -> Vdb;
+new_vars([V], I, Vdb) -> vdb_store_new(V, {V,I,I}, Vdb);
+new_vars(Vs, I, Vdb) -> vdb_update_vars(Vs, Vdb, I).
 
-use_var(V, I, Vdb) ->
+use_vars([], _, Vdb) ->
+    Vdb;
+use_vars([V], I, Vdb) ->
     case vdb_find(V, Vdb) of
-	{V,F,L} when I > L -> vdb_update(V, F, I, Vdb);
+	{V,F,L} when I > L -> vdb_update(V, {V,F,I}, Vdb);
 	{V,_,_} -> Vdb;
-	error -> vdb_store_new(V, I, I, Vdb)
-    end.
-
-use_vars([], _, Vdb) -> Vdb;
-use_vars([V], I, Vdb) -> use_var(V, I, Vdb);
-use_vars(Vs, I, Vdb) ->
-    Res = use_vars_1(sort(Vs), Vdb, I),
-    %% The following line can be used as an assertion.
-    %%   Res = foldl(fun (V, Vdb) -> use_var(V, I, Vdb) end, Vdb, Vs),
-    Res.
-
-%% Measurements show that it is worthwhile having this special
-%% function that updates/inserts several variables at once.
-
-use_vars_1([V|_]=Vs, [{V1,_,_}=Vd|Vdb], I) when V > V1 ->
-    [Vd|use_vars_1(Vs, Vdb, I)];
-use_vars_1([V|Vs], [{V1,_,_}|_]=Vdb, I) when V < V1 ->
-    %% New variable.
-    [{V,I,I}|use_vars_1(Vs, Vdb, I)];
-use_vars_1([V|Vs], [{_,F,L}=Vd|Vdb], I) ->
-    %% Existing variable.
-    if
-	I > L ->[{V,F,I}|use_vars_1(Vs, Vdb, I)];
-	true -> [Vd|use_vars_1(Vs, Vdb, I)]
+	error -> vdb_store_new(V, {V,I,I}, Vdb)
     end;
-use_vars_1([V|Vs], [], I) ->
-    %% New variable.
-    [{V,I,I}|use_vars_1(Vs, [], I)];
-use_vars_1([], Vdb, _) -> Vdb.
+use_vars(Vs, I, Vdb) -> vdb_update_vars(Vs, Vdb, I).
 
 add_var(V, F, L, Vdb) ->
-    vdb_store_new(V, F, L, Vdb).
+    vdb_store_new(V, {V,F,L}, Vdb).
+
+%% is_in_guard() -> true|false.
+
+is_in_guard() ->
+    get(guard_refc) > 0.
+
+%% vdb
+
+vdb_new(Vs) ->
+    sort([{V,0,0} || {var,V} <- Vs]).
 
 vdb_find(V, Vdb) ->
-    %% Performance note: Profiling shows that this function accounts for
-    %% a lot of the execution time when huge constant terms are built.
-    %% Using the BIF lists:keyfind/3 is a lot faster than the
-    %% original Erlang version.
     case lists:keyfind(V, 1, Vdb) of
 	false -> error;
 	Vd -> Vd
     end.
 
-%vdb_find(V, [{V1,F,L}=Vd|Vdb]) when V < V1 -> error;
-%vdb_find(V, [{V1,F,L}=Vd|Vdb]) when V == V1 -> Vd;
-%vdb_find(V, [{V1,F,L}=Vd|Vdb]) when V > V1 -> vdb_find(V, Vdb);
-%vdb_find(V, []) -> error.
+vdb_update(V, Update, [{V,_,_}|Vdb]) ->
+    [Update|Vdb];
+vdb_update(V, Update, [Vd|Vdb]) ->
+    [Vd|vdb_update(V, Update, Vdb)].
 
-vdb_update(V, F, L, [{V1,_,_}=Vd|Vdb]) when V > V1 ->
-    [Vd|vdb_update(V, F, L, Vdb)];
-vdb_update(V, F, L, [{V1,_,_}|Vdb]) when V == V1 ->
-    [{V,F,L}|Vdb].
+vdb_store_new(V, New, [{V1,_,_}=Vd|Vdb]) when V > V1 ->
+    [Vd|vdb_store_new(V, New, Vdb)];
+vdb_store_new(V, New, [{V1,_,_}|_]=Vdb) when V < V1 ->
+    [New|Vdb];
+vdb_store_new(_, New, []) -> [New].
 
-vdb_store_new(V, F, L, [{V1,_,_}=Vd|Vdb]) when V > V1 ->
-    [Vd|vdb_store_new(V, F, L, Vdb)];
-vdb_store_new(V, F, L, [{V1,_,_}|_]=Vdb) when V < V1 -> [{V,F,L}|Vdb];
-vdb_store_new(V, F, L, []) -> [{V,F,L}].
+vdb_update_vars([V|_]=Vs, [{V1,_,_}=Vd|Vdb], I) when V > V1 ->
+    [Vd|vdb_update_vars(Vs, Vdb, I)];
+vdb_update_vars([V|Vs], [{V1,_,_}|_]=Vdb, I) when V < V1 ->
+    %% New variable.
+    [{V,I,I}|vdb_update_vars(Vs, Vdb, I)];
+vdb_update_vars([V|Vs], [{_,F,L}=Vd|Vdb], I) ->
+    %% Existing variable.
+    if
+	I > L -> [{V,F,I}|vdb_update_vars(Vs, Vdb, I)];
+	true ->  [Vd|vdb_update_vars(Vs, Vdb, I)]
+    end;
+vdb_update_vars([V|Vs], [], I) ->
+    %% New variable.
+    [{V,I,I}|vdb_update_vars(Vs, [], I)];
+vdb_update_vars([], Vdb, _) -> Vdb.
 
 %% vdb_sub(Min, Max, Vdb) -> Vdb.
 %%  Extract variables which are used before and after Min.  Lock
@@ -510,8 +482,3 @@ vdb_sub(Min, Max, Vdb) ->
     [ if L >= Max -> {V,F,locked};
 	 true -> Vd
       end || {V,F,L}=Vd <- Vdb, F < Min, L >= Min ].
-
-%% is_in_guard() -> true|false.
-
-is_in_guard() ->
-    get(guard_refc) > 0.

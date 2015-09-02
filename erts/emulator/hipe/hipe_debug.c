@@ -3,16 +3,17 @@
  *
  * Copyright Ericsson AB 2001-2013. All Rights Reserved.
  *
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  * %CopyrightEnd%
  */
@@ -172,8 +173,10 @@ void hipe_print_pcb(Process *p)
     printf("P: 0x%0*lx\r\n", 2*(int)sizeof(long), (unsigned long)p);
     printf("-----------------------------------------------\r\n");
     printf("Offset| Name        | Value      | *Value     |\r\n");
+#undef U
 #define U(n,x) \
     printf(" % 4d | %s | 0x%0*lx |            |\r\n", (int)offsetof(Process,x), n, 2*(int)sizeof(long), (unsigned long)p->x)
+#undef P
 #define P(n,x) \
     printf(" % 4d | %s | 0x%0*lx | 0x%0*lx |\r\n", (int)offsetof(Process,x), n, 2*(int)sizeof(long), (unsigned long)p->x, 2*(int)sizeof(long), p->x ? (unsigned long)*(p->x) : -1UL)
 
@@ -211,9 +214,9 @@ void hipe_print_pcb(Process *p)
     U("seq..clock ", seq_trace_clock);
     U("seq..astcnt", seq_trace_lastcnt);
     U("seq..token ", seq_trace_token);
-    U("intial[0]  ", initial[0]);
-    U("intial[1]  ", initial[1]);
-    U("intial[2]  ", initial[2]);
+    U("intial[0]  ", u.initial[0]);
+    U("intial[1]  ", u.initial[1]);
+    U("intial[2]  ", u.initial[2]);
     P("current    ", current);
     P("cp         ", cp);
     P("i          ", i);
@@ -231,7 +234,7 @@ void hipe_print_pcb(Process *p)
     U("nsp        ", hipe.nsp);
     U("nstack     ", hipe.nstack);
     U("nstend     ", hipe.nstend);
-    U("ncallee    ", hipe.ncallee);
+    U("ncallee    ", hipe.u.ncallee);
     hipe_arch_print_pcb(&p->hipe);
 #endif	/* HIPE */
 #undef U

@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 2001-2010. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 
@@ -123,11 +124,14 @@
 	 bitstr_flags/1,
 
 	 %% keep map exports here for now
+	 c_map_pattern/1,
+	 is_c_map/1,
 	 map_es/1,
 	 map_arg/1,
 	 update_c_map/3,
 	 c_map/1, is_c_map_empty/1,
 	 ann_c_map/2, ann_c_map/3,
+	 ann_c_map_pattern/2,
 	 map_pair_op/1,map_pair_key/1,map_pair_val/1,
 	 update_c_map_pair/4,
 	 c_map_pair/2,
@@ -135,7 +139,8 @@
      ]).
 
 -export_type([c_binary/0, c_bitstr/0, c_call/0, c_clause/0, c_cons/0, c_fun/0,
-	      c_literal/0, c_map/0, c_map_pair/0, c_module/0, c_tuple/0,
+	      c_let/0, c_literal/0, c_map/0, c_map_pair/0,
+	      c_module/0, c_tuple/0,
 	      c_values/0, c_var/0, cerl/0, var_name/0]).
 
 -include("core_parse.hrl").
@@ -252,7 +257,7 @@
 %% @see c_primop/2
 %% @see c_receive/1
 %% @see c_seq/2
-%% @see c_try/3
+%% @see c_try/5
 %% @see c_tuple/1
 %% @see c_values/1
 %% @see c_var/1
@@ -431,6 +436,8 @@ is_literal_term([H | T]) ->
 is_literal_term(T) when is_tuple(T) ->
     is_literal_term_list(tuple_to_list(T));
 is_literal_term(B) when is_bitstring(B) -> true;
+is_literal_term(M) when is_map(M) ->
+    is_literal_term_list(maps:to_list(M));
 is_literal_term(_) ->
     false.
 
@@ -1450,7 +1457,7 @@ is_proper_list(_) ->
 %% X4]</code>.
 %%
 %% @see c_cons/2
-%% @see c_nil/1
+%% @see c_nil/0
 %% @see is_c_list/1
 %% @see list_length/1
 %% @see make_list/2
@@ -1481,7 +1488,7 @@ abstract_list([]) ->
 %% efficient.</p>
 %%
 %% @see c_cons/2
-%% @see c_nil/1
+%% @see c_nil/0
 %% @see is_c_list/1
 %% @see list_elements/1
 
@@ -1577,6 +1584,20 @@ ann_make_list(_, [], Node) ->
 %% ---------------------------------------------------------------------
 %% maps
 
+%% @spec is_c_map(Node::cerl()) -> boolean()
+%%
+%% @doc Returns <code>true</code> if <code>Node</code> is an abstract
+%% map constructor, otherwise <code>false</code>.
+
+-spec is_c_map(cerl()) -> boolean().
+
+is_c_map(#c_map{}) ->
+    true;
+is_c_map(#c_literal{val = V}) when is_map(V) ->
+    true;
+is_c_map(_) ->
+    false.
+
 -spec map_es(c_map()) -> [c_map_pair()].
 
 map_es(#c_map{es = Es}) ->
@@ -1590,7 +1611,17 @@ map_arg(#c_map{arg=M}) ->
 -spec c_map([c_map_pair()]) -> c_map().
 
 c_map(Pairs) ->
-    #c_map{es=Pairs}.
+    ann_c_map([], Pairs).
+
+-spec c_map_pattern([c_map_pair()]) -> c_map().
+
+c_map_pattern(Pairs) ->
+    #c_map{es=Pairs, is_pat=true}.
+
+-spec ann_c_map_pattern([term()], [c_map_pair()]) -> c_map().
+
+ann_c_map_pattern(As, Pairs) ->
+    #c_map{anno=As, es=Pairs, is_pat=true}.
 
 -spec is_c_map_empty(c_map() | c_literal()) -> boolean().
 
@@ -1598,25 +1629,13 @@ is_c_map_empty(#c_map{ es=[] }) -> true;
 is_c_map_empty(#c_literal{val=M}) when is_map(M),map_size(M) =:= 0 -> true;
 is_c_map_empty(_) -> false.
 
--spec ann_c_map([term()], [cerl()]) -> c_map() | c_literal().
+-spec ann_c_map([term()], [c_map_pair()]) -> c_map() | c_literal().
 
-ann_c_map(As,Es) ->
+ann_c_map(As, Es) ->
     ann_c_map(As, #c_literal{val=#{}}, Es).
 
 -spec ann_c_map([term()], c_map() | c_literal(), [c_map_pair()]) -> c_map() | c_literal().
 
-ann_c_map(As,#c_literal{val=Mval}=M,Es) when is_map(Mval), map_size(Mval) =:= 0 ->
-    Pairs = [[Ck,Cv]||#c_map_pair{key=Ck,val=Cv}<-Es],
-    IsLit = lists:foldl(fun(Pair,Res) ->
-		Res andalso is_lit_list(Pair)
-	end, true, Pairs),
-    Fun = fun(Pair) -> [K,V] = lit_list_vals(Pair), {K,V} end,
-    case IsLit of
-	false ->
-	    #c_map{arg=M, es=Es, anno=As };
-	true ->
-	    #c_literal{anno=As, val=maps:from_list(lists:map(Fun, Pairs))}
-	end;
 ann_c_map(As,#c_literal{val=M},Es) when is_map(M) ->
     fold_map_pairs(As,Es,M);
 ann_c_map(As,M,Es) ->
@@ -1644,14 +1663,14 @@ fold_map_pairs(As,[#c_map_pair{op=#c_literal{val=exact},key=Ck,val=Cv}=E|Es],M) 
 	    end;
 	false ->
 	    #c_map{arg=#c_literal{val=M,anno=As}, es=[E|Es], anno=As }
-    end;
-fold_map_pairs(As,Es,M) ->
-    #c_map{arg=#c_literal{val=M,anno=As}, es=Es, anno=As }.
+    end.
 
-%-spec update_c_map(c_map() | c_literal(), [c_map_pair()]) -> c_map() | c_literal().
+-spec update_c_map(c_map(), cerl(), [cerl()]) -> c_map() | c_literal().
 
-update_c_map(Old,M,Es) ->
-    #c_map{arg=M, es = Es, anno = get_ann(Old)}.
+update_c_map(#c_map{is_pat=true}=Old, M, Es) ->
+    Old#c_map{arg=M, es=Es};
+update_c_map(#c_map{is_pat=false}=Old, M, Es) ->
+    ann_c_map(get_ann(Old), M, Es).
 
 map_pair_key(#c_map_pair{key=K}) -> K.
 map_pair_val(#c_map_pair{val=V}) -> V.
@@ -1974,7 +1993,7 @@ update_c_fname(Node, Atom, Arity) ->
 %%
 %% @see c_fname/2
 %% @see c_var/1
-%% @see c_var_name/1
+%% @see var_name/1
 
 -spec is_c_fname(cerl()) -> boolean().
 
@@ -3063,10 +3082,12 @@ pat_vars(Node, Vs) ->
 	map ->
 	    pat_list_vars(map_es(Node), Vs);
 	map_pair ->
-	    pat_list_vars([map_pair_op(Node),map_pair_key(Node),map_pair_val(Node)],Vs);
+	    %% map_pair_key is not a pattern var, excluded
+	    pat_list_vars([map_pair_op(Node),map_pair_val(Node)],Vs);
 	binary ->
 	    pat_list_vars(binary_segments(Node), Vs);
 	bitstr ->
+	    %% bitstr_size is not a pattern var, excluded
 	    pat_vars(bitstr_val(Node), Vs);
 	alias ->
 	    pat_vars(alias_pat(Node), [alias_var(Node) | Vs])
@@ -3650,7 +3671,7 @@ c_try(Expr, Vs, Body, Evs, Handler) ->
 %% @spec ann_c_try(As::[term()], Expression::cerl(),
 %%                 Variables::[cerl()], Body::cerl(),
 %%                 EVars::[cerl()], Handler::cerl()) -> cerl()
-%% @see c_try/3
+%% @see c_try/5
 
 -spec ann_c_try([term()], cerl(), [cerl()], cerl(), [cerl()], cerl()) ->
         c_try().
@@ -3663,7 +3684,7 @@ ann_c_try(As, Expr, Vs, Body, Evs, Handler) ->
 %% @spec update_c_try(Old::cerl(), Expression::cerl(),
 %%                    Variables::[cerl()], Body::cerl(),
 %%                    EVars::[cerl()], Handler::cerl()) -> cerl()
-%% @see c_try/3
+%% @see c_try/5
 
 -spec update_c_try(c_try(), cerl(), [cerl()], cerl(), [cerl()], cerl()) ->
         c_try().
@@ -3678,7 +3699,7 @@ update_c_try(Node, Expr, Vs, Body, Evs, Handler) ->
 %% @doc Returns <code>true</code> if <code>Node</code> is an abstract
 %% try-expression, otherwise <code>false</code>.
 %%
-%% @see c_try/3
+%% @see c_try/5
 
 -spec is_c_try(cerl()) -> boolean().
 
@@ -3692,7 +3713,7 @@ is_c_try(_) ->
 %%
 %% @doc Returns the expression subtree of an abstract try-expression.
 %%
-%% @see c_try/3
+%% @see c_try/5
 
 -spec try_arg(c_try()) -> cerl().
 
@@ -3705,7 +3726,7 @@ try_arg(Node) ->
 %% @doc Returns the list of success variable subtrees of an abstract
 %% try-expression.
 %%
-%% @see c_try/3
+%% @see c_try/5
 
 -spec try_vars(c_try()) -> [cerl()].
 
@@ -3717,7 +3738,7 @@ try_vars(Node) ->
 %%
 %% @doc Returns the success body subtree of an abstract try-expression.
 %%
-%% @see c_try/3
+%% @see c_try/5
 
 -spec try_body(c_try()) -> cerl().
 
@@ -3730,7 +3751,7 @@ try_body(Node) ->
 %% @doc Returns the list of exception variable subtrees of an abstract
 %% try-expression.
 %%
-%% @see c_try/3
+%% @see c_try/5
 
 -spec try_evars(c_try()) -> [cerl()].
 
@@ -3743,7 +3764,7 @@ try_evars(Node) ->
 %% @doc Returns the exception body subtree of an abstract
 %% try-expression.
 %%
-%% @see c_try/3
+%% @see c_try/5
 
 -spec try_handler(c_try()) -> cerl().
 
@@ -3765,7 +3786,7 @@ try_handler(Node) ->
 %% @see update_c_catch/2
 %% @see is_c_catch/1
 %% @see catch_body/1
-%% @see c_try/3
+%% @see c_try/5
 
 -spec c_catch(cerl()) -> c_catch().
 

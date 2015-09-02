@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 1996-2013. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -111,8 +112,13 @@ start_shell1(Fun) ->
 server_loop(Drv, Shell, Buf0) ->
     receive
 	{io_request,From,ReplyAs,Req} when is_pid(From) ->
-	    Buf = io_request(Req, From, ReplyAs, Drv, Buf0),
-	    server_loop(Drv, Shell, Buf);
+            %% This io_request may cause a transition to a couple of
+            %% selective receive loops elsewhere in this module.
+            Buf = io_request(Req, From, ReplyAs, Drv, Buf0),
+            server_loop(Drv, Shell, Buf);
+        {reply,{{From,ReplyAs},Reply}} ->
+            io_reply(From, ReplyAs, Reply),
+	    server_loop(Drv, Shell, Buf0);
 	{driver_id,ReplyTo} ->
 	    ReplyTo ! {self(),driver_id,Drv},
 	    server_loop(Drv, Shell, Buf0);
@@ -172,10 +178,13 @@ set_unicode_state(Drv,Bool) ->
 			   
 
 io_request(Req, From, ReplyAs, Drv, Buf0) ->
-    case io_request(Req, Drv, Buf0) of
+    case io_request(Req, Drv, {From,ReplyAs}, Buf0) of
 	{ok,Reply,Buf} ->
 	    io_reply(From, ReplyAs, Reply),
 	    Buf;
+        {noreply,Buf} ->
+            %% We expect a {reply,_} message from the Drv when request is done
+            Buf;
 	{error,Reply,Buf} ->
 	    io_reply(From, ReplyAs, Reply),
 	    Buf;
@@ -196,78 +205,85 @@ io_request(Req, From, ReplyAs, Drv, Buf0) ->
 %% io_request({put_chars,unicode,Binary}, Drv, Buf) when is_binary(Binary) -> 
 %%     send_drv(Drv, {put_chars,Binary}),
 %%     {ok,ok,Buf};
-io_request({put_chars,unicode,Chars}, Drv, Buf) ->
+%%
+%% These put requests have to be synchronous to the driver as otherwise
+%% there is no guarantee that the data has actually been printed.
+io_request({put_chars,unicode,Chars}, Drv, From, Buf) ->
     case catch unicode:characters_to_binary(Chars,utf8) of
 	Binary when is_binary(Binary) ->
-	    send_drv(Drv, {put_chars, unicode, Binary}),
-	    {ok,ok,Buf};
+	    send_drv(Drv, {put_chars_sync, unicode, Binary, {From,ok}}),
+	    {noreply,Buf};
 	_ ->
 	    {error,{error,{put_chars, unicode,Chars}},Buf}
     end;
-io_request({put_chars,unicode,M,F,As}, Drv, Buf) ->
+io_request({put_chars,unicode,M,F,As}, Drv, From, Buf) ->
     case catch apply(M, F, As) of
 	Binary when is_binary(Binary) ->
-	    send_drv(Drv, {put_chars, unicode,Binary}),
-	    {ok,ok,Buf};
+	    send_drv(Drv, {put_chars_sync, unicode, Binary, {From,ok}}),
+	    {noreply,Buf};
 	Chars ->
 	    case catch unicode:characters_to_binary(Chars,utf8) of
 		B when is_binary(B) ->
-		    send_drv(Drv, {put_chars, unicode,B}),
-		    {ok,ok,Buf};
+		    send_drv(Drv, {put_chars_sync, unicode, B, {From,ok}}),
+		    {noreply,Buf};
 		_ ->
 		    {error,{error,F},Buf}
 	    end
     end;
-io_request({put_chars,latin1,Binary}, Drv, Buf) when is_binary(Binary) -> 
-    send_drv(Drv, {put_chars, unicode,unicode:characters_to_binary(Binary,latin1)}),
-    {ok,ok,Buf};
-io_request({put_chars,latin1,Chars}, Drv, Buf) ->
+io_request({put_chars,latin1,Binary}, Drv, From, Buf) when is_binary(Binary) -> 
+    send_drv(Drv, {put_chars_sync, unicode,
+                   unicode:characters_to_binary(Binary,latin1),
+                   {From,ok}}),
+    {noreply,Buf};
+io_request({put_chars,latin1,Chars}, Drv, From, Buf) ->
     case catch unicode:characters_to_binary(Chars,latin1) of
 	Binary when is_binary(Binary) ->
-	    send_drv(Drv, {put_chars, unicode,Binary}),
-	    {ok,ok,Buf};
+	    send_drv(Drv, {put_chars_sync, unicode, Binary, {From,ok}}),
+	    {noreply,Buf};
 	_ ->
 	    {error,{error,{put_chars,latin1,Chars}},Buf}
     end;
-io_request({put_chars,latin1,M,F,As}, Drv, Buf) ->
+io_request({put_chars,latin1,M,F,As}, Drv, From, Buf) ->
     case catch apply(M, F, As) of
 	Binary when is_binary(Binary) ->
-	    send_drv(Drv, {put_chars, unicode,unicode:characters_to_binary(Binary,latin1)}),
-	    {ok,ok,Buf};
+	    send_drv(Drv, {put_chars_sync, unicode,
+                           unicode:characters_to_binary(Binary,latin1),
+                           {From,ok}}),
+	    {noreply,Buf};
 	Chars ->
 	    case catch unicode:characters_to_binary(Chars,latin1) of
 		B when is_binary(B) ->
-		    send_drv(Drv, {put_chars, unicode,B}),
-		    {ok,ok,Buf};
+		    send_drv(Drv, {put_chars_sync, unicode, B, {From,ok}}),
+		    {noreply,Buf};
 		_ ->
 		    {error,{error,F},Buf}
 	    end
     end;
 
-io_request({get_chars,Encoding,Prompt,N}, Drv, Buf) ->
+io_request({get_chars,Encoding,Prompt,N}, Drv, _From, Buf) ->
     get_chars(Prompt, io_lib, collect_chars, N, Drv, Buf, Encoding);
-io_request({get_line,Encoding,Prompt}, Drv, Buf) ->
+io_request({get_line,Encoding,Prompt}, Drv, _From, Buf) ->
     get_chars(Prompt, io_lib, collect_line, [], Drv, Buf, Encoding);
-io_request({get_until,Encoding, Prompt,M,F,As}, Drv, Buf) ->
+io_request({get_until,Encoding, Prompt,M,F,As}, Drv, _From, Buf) ->
     get_chars(Prompt, io_lib, get_until, {M,F,As}, Drv, Buf, Encoding);
-io_request({get_password,_Encoding},Drv,Buf) ->
+io_request({get_password,_Encoding},Drv,_From,Buf) ->
     get_password_chars(Drv, Buf);
-io_request({setopts,Opts}, Drv, Buf) when is_list(Opts) ->
+io_request({setopts,Opts}, Drv, _From, Buf) when is_list(Opts) ->
     setopts(Opts, Drv, Buf);
-io_request(getopts, Drv, Buf) ->
+io_request(getopts, Drv, _From, Buf) ->
     getopts(Drv, Buf);
-io_request({requests,Reqs}, Drv, Buf) ->
-    io_requests(Reqs, {ok,ok,Buf}, Drv);
+io_request({requests,Reqs}, Drv, From, Buf) ->
+    io_requests(Reqs, {ok,ok,Buf}, From, Drv);
 
 %% New in R12
-io_request({get_geometry,columns},Drv,Buf) ->
+io_request({get_geometry,columns},Drv,_From,Buf) ->
     case get_tty_geometry(Drv) of
 	{W,_H} ->
 	    {ok,W,Buf};
 	_ ->
 	    {error,{error,enotsup},Buf}
     end;
-io_request({get_geometry,rows},Drv,Buf) ->
+io_request({get_geometry,rows},Drv,_From,Buf) ->
     case get_tty_geometry(Drv) of
 	{_W,H} ->
 	    {ok,H,Buf};
@@ -276,38 +292,49 @@ io_request({get_geometry,rows},Drv,Buf) ->
     end;
 
 %% BC with pre-R13
-io_request({put_chars,Chars}, Drv, Buf) ->
-    io_request({put_chars,latin1,Chars}, Drv, Buf);
-io_request({put_chars,M,F,As}, Drv, Buf) ->
-    io_request({put_chars,latin1,M,F,As}, Drv, Buf);
-io_request({get_chars,Prompt,N}, Drv, Buf) ->
-    io_request({get_chars,latin1,Prompt,N}, Drv, Buf);
-io_request({get_line,Prompt}, Drv, Buf) ->
-    io_request({get_line,latin1,Prompt}, Drv, Buf);
-io_request({get_until, Prompt,M,F,As}, Drv, Buf) ->
-    io_request({get_until,latin1, Prompt,M,F,As}, Drv, Buf);
-io_request(get_password,Drv,Buf) ->
-    io_request({get_password,latin1},Drv,Buf);
+io_request({put_chars,Chars}, Drv, From, Buf) ->
+    io_request({put_chars,latin1,Chars}, Drv, From, Buf);
+io_request({put_chars,M,F,As}, Drv, From, Buf) ->
+    io_request({put_chars,latin1,M,F,As}, Drv, From, Buf);
+io_request({get_chars,Prompt,N}, Drv, From, Buf) ->
+    io_request({get_chars,latin1,Prompt,N}, Drv, From, Buf);
+io_request({get_line,Prompt}, Drv, From, Buf) ->
+    io_request({get_line,latin1,Prompt}, Drv, From, Buf);
+io_request({get_until, Prompt,M,F,As}, Drv, From, Buf) ->
+    io_request({get_until,latin1, Prompt,M,F,As}, Drv, From, Buf);
+io_request(get_password,Drv,From,Buf) ->
+    io_request({get_password,latin1},Drv,From,Buf);
 
 
 
-io_request(_, _Drv, Buf) ->
+io_request(_, _Drv, _From, Buf) ->
     {error,{error,request},Buf}.
 
-%% Status = io_requests(RequestList, PrevStat, Drv)
-%%  Process a list of output requests as long as the previous status is 'ok'.
-
-io_requests([R|Rs], {ok,ok,Buf}, Drv) ->
-    io_requests(Rs, io_request(R, Drv, Buf), Drv);
-io_requests([_|_], Error, _Drv) ->
+%% Status = io_requests(RequestList, PrevStat, From, Drv)
+%%  Process a list of output requests as long as
+%%  the previous status is 'ok' or noreply.
+%%
+%%  We use undefined as the From for all but the last request
+%%  in order to discards acknowledgements from those requests.
+%%
+io_requests([R|Rs], {noreply,Buf}, From, Drv) ->
+    ReqFrom = if Rs =:= [] -> From; true -> undefined end,
+    io_requests(Rs, io_request(R, Drv, ReqFrom, Buf), From, Drv);
+io_requests([R|Rs], {ok,ok,Buf}, From, Drv) ->
+    ReqFrom = if Rs =:= [] -> From; true -> undefined end,
+    io_requests(Rs, io_request(R, Drv, ReqFrom, Buf), From, Drv);
+io_requests([_|_], Error, _From, _Drv) ->
     Error;
-io_requests([], Stat, _) ->
+io_requests([], Stat, _From, _) ->
     Stat.
 
 %% io_reply(From, ReplyAs, Reply)
 %%  The function for sending i/o command acknowledgement.
 %%  The ACK contains the return value.
 
+io_reply(undefined, _ReplyAs, _Reply) ->
+    %% Ignore these replies as they are generated from io_requests/4.
+    ok;
 io_reply(From, ReplyAs, Reply) ->
     From ! {io_reply,ReplyAs,Reply},
     ok.
@@ -619,6 +646,10 @@ more_data(What, Cont0, Drv, Ls, Encoding) ->
 	    io_request(Req, From, ReplyAs, Drv, []), %WRONG!!!
 	    send_drv_reqs(Drv, edlin:redraw_line(Cont)),
 	    get_line1({more_chars,Cont,[]}, Drv, Ls, Encoding);
+        {reply,{{From,ReplyAs},Reply}} ->
+            %% We take care of replies from puts here as well
+            io_reply(From, ReplyAs, Reply),
+            more_data(What, Cont0, Drv, Ls, Encoding);
 	{'EXIT',Drv,interrupt} ->
 	    interrupted;
 	{'EXIT',Drv,_} ->
@@ -641,6 +672,10 @@ get_line_echo_off1({Chars,[]}, Drv) ->
 	{io_request,From,ReplyAs,Req} when is_pid(From) ->
 	    io_request(Req, From, ReplyAs, Drv, []),
 	    get_line_echo_off1({Chars,[]}, Drv);
+        {reply,{{From,ReplyAs},Reply}} when From =/= undefined ->
+            %% We take care of replies from puts here as well
+            io_reply(From, ReplyAs, Reply),
+            get_line_echo_off1({Chars,[]},Drv);
 	{'EXIT',Drv,interrupt} ->
 	    interrupted;
 	{'EXIT',Drv,_} ->
@@ -790,6 +825,10 @@ get_password1({Chars,[]}, Drv) ->
 	    %% set to []. But do we expect anything but plain output?
 
 	    get_password1({Chars, []}, Drv);
+        {reply,{{From,ReplyAs},Reply}} ->
+            %% We take care of replies from puts here as well
+            io_reply(From, ReplyAs, Reply),
+            get_password1({Chars, []},Drv);
 	{'EXIT',Drv,interrupt} ->
 	    interrupted;
 	{'EXIT',Drv,_} ->

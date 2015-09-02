@@ -4,16 +4,17 @@ changecom(`/*', `*/')dnl
  *
  * Copyright Ericsson AB 2002-2011. All Rights Reserved.
  *
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  * %CopyrightEnd%
  */
@@ -32,6 +33,18 @@ define(SIMULATE_NSP,0)dnl change to 1 to simulate call/ret insns
 
 `#define X86_LEAF_WORDS	'LEAF_WORDS
 `#define LEAF_WORDS	'LEAF_WORDS
+
+`#define X86_NR_ARG_REGS	'NR_ARG_REGS
+`#define NR_ARG_REGS	'NR_ARG_REGS
+
+`#define X86_HP_IN_ESI	'HP_IN_ESI
+`#define X86_SIMULATE_NSP	'SIMULATE_NSP
+
+
+`#ifdef ASM'
+/*
+ * Only assembler stuff from here on (when included from *.S)
+ */
 
 /*
  * Workarounds for Darwin.
@@ -60,7 +73,6 @@ ifelse(OPSYS,darwin,``
  */
 `#define P	%ebp'
 
-`#define X86_HP_IN_ESI	'HP_IN_ESI
 `#if X86_HP_IN_ESI
 #define SAVE_HP		movl %esi, P_HP(P)
 #define RESTORE_HP	movl P_HP(P), %esi
@@ -73,7 +85,6 @@ ifelse(OPSYS,darwin,``
 #define SAVE_CSP	movl %esp, P_CSP(P)
 #define RESTORE_CSP	movl P_CSP(P), %esp'
 
-`#define X86_SIMULATE_NSP	'SIMULATE_NSP
 
 /*
  * Context switching macros.
@@ -100,12 +111,10 @@ ifelse(OPSYS,darwin,``
 	SAVE_CACHED_STATE;	\
 	SWITCH_ERLANG_TO_C_QUICK'
 
+
 /*
  * Argument (parameter) registers.
  */
-`#define X86_NR_ARG_REGS	'NR_ARG_REGS
-`#define NR_ARG_REGS	'NR_ARG_REGS
-
 ifelse(eval(NR_ARG_REGS >= 1),0,,
 ``#define ARG0	%eax
 '')dnl
@@ -204,6 +213,7 @@ define(NBIF_COPY_NSP,`ifelse(eval($1 > NR_ARG_REGS),0,,`movl	%esp, TEMP_NSP')')d
 `/* #define NBIF_COPY_NSP_1	'NBIF_COPY_NSP(1)` */'
 `/* #define NBIF_COPY_NSP_2	'NBIF_COPY_NSP(2)` */'
 `/* #define NBIF_COPY_NSP_3	'NBIF_COPY_NSP(3)` */'
+`/* #define NBIF_COPY_NSP_4	'NBIF_COPY_NSP(4)` */'
 `/* #define NBIF_COPY_NSP_5	'NBIF_COPY_NSP(5)` */'
 
 dnl
@@ -227,6 +237,10 @@ define(NBIF_ARG_OPND,`ifelse(eval($2 >= NR_ARG_REGS),0,`ARG'$2,BASE_OFFSET(eval(
 `/* #define NBIF_ARG_OPND_3_0	'NBIF_ARG_OPND(3,0)` */'
 `/* #define NBIF_ARG_OPND_3_1	'NBIF_ARG_OPND(3,1)` */'
 `/* #define NBIF_ARG_OPND_3_2	'NBIF_ARG_OPND(3,2)` */'
+`/* #define NBIF_ARG_OPND_4_0	'NBIF_ARG_OPND(4,0)` */'
+`/* #define NBIF_ARG_OPND_4_1	'NBIF_ARG_OPND(4,1)` */'
+`/* #define NBIF_ARG_OPND_4_2	'NBIF_ARG_OPND(4,2)` */'
+`/* #define NBIF_ARG_OPND_4_3	'NBIF_ARG_OPND(4,3)` */'
 `/* #define NBIF_ARG_OPND_5_0	'NBIF_ARG_OPND(5,0)` */'
 `/* #define NBIF_ARG_OPND_5_1	'NBIF_ARG_OPND(5,1)` */'
 `/* #define NBIF_ARG_OPND_5_2	'NBIF_ARG_OPND(5,2)` */'
@@ -266,6 +280,7 @@ define(NBIF_RET,`NBIF_RET_N(eval(RET_POP($1)))')dnl
 `/* #define NBIF_RET_1	'NBIF_RET(1)` */'
 `/* #define NBIF_RET_2	'NBIF_RET(2)` */'
 `/* #define NBIF_RET_3	'NBIF_RET(3)` */'
+`/* #define NBIF_RET_4	'NBIF_RET(4)` */'
 `/* #define NBIF_RET_5	'NBIF_RET(5)` */'
 
 dnl
@@ -281,5 +296,7 @@ define(STORE_CALLER_SAVE,`SAR_N(eval(NR_CALLER_SAVE-1))')dnl
 define(LOAD_CALLER_SAVE,`LAR_N(eval(NR_CALLER_SAVE-1))')dnl
 `#define STORE_CALLER_SAVE	'STORE_CALLER_SAVE
 `#define LOAD_CALLER_SAVE	'LOAD_CALLER_SAVE
+
+`#endif /* ASM */'
 
 `#endif /* HIPE_X86_ASM_H */'

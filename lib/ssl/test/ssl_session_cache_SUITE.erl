@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2015. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.2
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -41,8 +42,6 @@
 %% Common Test interface functions -----------------------------------
 %%--------------------------------------------------------------------
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
-
 all() ->
     [session_cleanup,
      session_cache_process_list,
@@ -52,20 +51,15 @@ groups() ->
     [].
 
 init_per_suite(Config0) ->
-    Dog = ct:timetrap(?LONG_TIMEOUT *2),
     catch crypto:stop(),
     try crypto:start() of
 	ok ->
 	    ssl:start(),
-	    %% make rsa certs using oppenssl
-	    Result =
-		(catch make_certs:all(?config(data_dir, Config0),
-				      ?config(priv_dir, Config0))),
-	    ct:log("Make certs  ~p~n", [Result]),
-
-	    Config1 = ssl_test_lib:make_dsa_cert(Config0),
-	    Config = ssl_test_lib:cert_options(Config1),
-	    [{watchdog, Dog} | Config]
+	    %% make rsa certs using 
+	    {ok, _} = make_certs:all(?config(data_dir, Config0),
+				     ?config(priv_dir, Config0)),
+	    Config = ssl_test_lib:make_dsa_cert(Config0),
+	    ssl_test_lib:cert_options(Config)
     catch _:_ ->
 	    {skip, "Crypto did not start"}
     end.
@@ -87,30 +81,31 @@ init_per_testcase(session_cache_process_mnesia, Config) ->
     mnesia:start(),
     init_customized_session_cache(mnesia, Config);
 
-init_per_testcase(session_cleanup, Config0) ->
-    Config = lists:keydelete(watchdog, 1, Config0),
-    Dog = ct:timetrap(?TIMEOUT),
+init_per_testcase(session_cleanup, Config) ->
     ssl:stop(),
     application:load(ssl),
     application:set_env(ssl, session_lifetime, 5),
     application:set_env(ssl, session_delay_cleanup_time, ?DELAY),
     ssl:start(),
-    [{watchdog, Dog} | Config];
+    ct:timetrap({seconds, 20}),
+    Config;
 
-init_per_testcase(_TestCase, Config0) ->
-    Config = lists:keydelete(watchdog, 1, Config0),
-    Dog = ct:timetrap(?TIMEOUT),
-   [{watchdog, Dog} | Config].
+init_per_testcase(_TestCase, Config) ->
+    ct:timetrap({seconds, 5}),
+    Config.
 
-init_customized_session_cache(Type, Config0) ->
-    Config = lists:keydelete(watchdog, 1, Config0),
-    Dog = ct:timetrap(?TIMEOUT),
+init_customized_session_cache(Type, Config) ->
     ssl:stop(),
     application:load(ssl),
     application:set_env(ssl, session_cb, ?MODULE),
-    application:set_env(ssl, session_cb_init_args, [Type]),
+    application:set_env(ssl, session_cb_init_args, [{type, Type}]),
     ssl:start(),
-    [{watchdog, Dog} | Config].
+    catch (end_per_testcase(list_to_atom("session_cache_process" ++ atom_to_list(Type)),
+	   Config)),
+    ets:new(ssl_test, [named_table, public, set]),
+    ets:insert(ssl_test, {type, Type}),
+    ct:timetrap({seconds, 5}),
+    Config.
 
 end_per_testcase(session_cache_process_list, Config) ->
     application:unset_env(ssl, session_cb),
@@ -126,7 +121,11 @@ end_per_testcase(session_cleanup, Config) ->
     application:unset_env(ssl, session_delay_cleanup_time),
     application:unset_env(ssl, session_lifetime),
     end_per_testcase(default_action, Config);
-end_per_testcase(_TestCase, Config) ->
+end_per_testcase(Case, Config) when Case == session_cache_process_list;
+				    Case == session_cache_process_mnesia ->
+    ets:delete(ssl_test),
+    Config;
+end_per_testcase(_, Config) ->
     Config.
 
 %%--------------------------------------------------------------------
@@ -164,12 +163,13 @@ session_cleanup(Config)when is_list(Config) ->
     {status, _, _, StatusInfo} = sys:get_status(whereis(ssl_manager)),
     [_, _,_, _, Prop] = StatusInfo,
     State = ssl_test_lib:state(Prop),
-    Cache = element(2, State),
-    SessionTimer = element(6, State),
+    ClientCache = element(2, State),
+    ServerCache = element(3, State),
+    SessionTimer = element(7, State),
 
     Id = proplists:get_value(session_id, SessionInfo),
-    CSession = ssl_session_cache:lookup(Cache, {{Hostname, Port}, Id}),
-    SSession = ssl_session_cache:lookup(Cache, {Port, Id}),
+    CSession = ssl_session_cache:lookup(ClientCache, {{Hostname, Port}, Id}),
+    SSession = ssl_session_cache:lookup(ServerCache, {Port, Id}),
 
     true = CSession =/= undefined,
     true = SSession =/= undefined,
@@ -185,8 +185,8 @@ session_cleanup(Config)when is_list(Config) ->
 
     ct:sleep(?SLEEP),  %% Make sure clean has had time to run
 
-    undefined = ssl_session_cache:lookup(Cache, {{Hostname, Port}, Id}),
-    undefined = ssl_session_cache:lookup(Cache, {Port, Id}),
+    undefined = ssl_session_cache:lookup(ClientCache, {{Hostname, Port}, Id}),
+    undefined = ssl_session_cache:lookup(ServerCache, {Port, Id}),
 
     process_flag(trap_exit, false),
     ssl_test_lib:close(Server),
@@ -208,7 +208,7 @@ get_delay_timers() ->
     {status, _, _, StatusInfo} = sys:get_status(whereis(ssl_manager)),
     [_, _,_, _, Prop] = StatusInfo,
     State = ssl_test_lib:state(Prop),
-    case element(7, State) of
+    case element(8, State) of
 	{undefined, undefined} ->
 	    ct:sleep(?SLEEP),
 	    get_delay_timers();
@@ -236,16 +236,16 @@ session_cache_process_mnesia(Config) when is_list(Config) ->
 %%% Session cache API callbacks
 %%--------------------------------------------------------------------
 
-init([Type]) ->
-    ets:new(ssl_test, [named_table, public, set]),
-    ets:insert(ssl_test, {type, Type}),
-    case Type of
+init(Opts) ->
+    case proplists:get_value(type, Opts) of
 	list ->
 	    spawn(fun() -> session_loop([]) end);
 	mnesia ->
 	    mnesia:start(),
-	    {atomic,ok} = mnesia:create_table(sess_cache, []),
-	    sess_cache
+	    Name = atom_to_list(proplists:get_value(role, Opts)),
+	    TabName = list_to_atom(Name ++ "sess_cache"),
+	    {atomic,ok} = mnesia:create_table(TabName, []),
+	    TabName
     end.
 
 session_cb() ->
@@ -258,7 +258,7 @@ terminate(Cache) ->
 	    Cache ! terminate;
 	mnesia ->
 	    catch {atomic,ok} =
-		mnesia:delete_table(sess_cache)
+		mnesia:delete_table(Cache)
     end.
 
 lookup(Cache, Key) ->
@@ -268,10 +268,10 @@ lookup(Cache, Key) ->
 	    receive {Cache, Res} -> Res end;
 	mnesia ->
 	    case mnesia:transaction(fun() ->
-					    mnesia:read(sess_cache,
+					    mnesia:read(Cache,
 							Key, read)
 				    end) of
-		{atomic, [{sess_cache, Key, Value}]} ->
+		{atomic, [{Cache, Key, Value}]} ->
 		    Value;
 		_ ->
 		    undefined
@@ -285,8 +285,8 @@ update(Cache, Key, Value) ->
 	mnesia ->
 	    {atomic, ok} =
 		mnesia:transaction(fun() ->
-					   mnesia:write(sess_cache,
-							{sess_cache, Key, Value}, write)
+					   mnesia:write(Cache,
+							{Cache, Key, Value}, write)
 				   end)
     end.
 
@@ -297,7 +297,7 @@ delete(Cache, Key) ->
 	mnesia ->
 	    {atomic, ok} =
 		mnesia:transaction(fun() ->
-					   mnesia:delete(sess_cache, Key)
+					   mnesia:delete(Cache, Key)
 				   end)
     end.
 
@@ -308,7 +308,7 @@ foldl(Fun, Acc, Cache) ->
 	    receive {Cache, Res} -> Res end;
 	mnesia ->
 	    Foldl = fun() ->
-			    mnesia:foldl(Fun, Acc, sess_cache)
+			    mnesia:foldl(Fun, Acc, Cache)
 		    end,
 	    {atomic, Res} = mnesia:transaction(Foldl),
 	    Res
@@ -325,7 +325,7 @@ select_session(Cache, PartialKey) ->
 	mnesia ->
 	    Sel = fun() ->
 			  mnesia:select(Cache,
-					[{{sess_cache,{PartialKey,'$1'}, '$2'},
+					[{{Cache,{PartialKey,'$1'}, '$2'},
 					  [],['$$']}])
 		  end,
 	    {atomic, Res} = mnesia:transaction(Sel),

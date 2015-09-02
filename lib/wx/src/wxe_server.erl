@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 2008-2014. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%%-------------------------------------------------------------------
@@ -239,6 +240,8 @@ handle_connect(Object, EvData=#evh{handler=Handler},
 invoke_cb({{Ev=#wx{}, Ref=#wx_ref{}}, FunId,_}, _S) ->
     %% Event callbacks
     case get(FunId) of
+	{{nospawn, Fun}, _} when is_function(Fun) ->
+	    invoke_callback_fun(fun() -> Fun(Ev, Ref), <<>> end);
 	{Fun,_} when is_function(Fun) ->
 	    invoke_callback(fun() -> Fun(Ev, Ref), <<>> end);
 	{Pid,_} when is_pid(Pid) -> %% wx_object sync event
@@ -257,21 +260,10 @@ invoke_cb({FunId, Args, _}, _S) when is_list(Args), is_integer(FunId) ->
 
 invoke_callback(Fun) ->
     Env = get(?WXE_IDENTIFIER),
-    CB = fun() ->
-		 wx:set_env(Env),
-		 wxe_util:cast(?WXE_CB_START, <<>>),
-		 Res = try
-			   Return = Fun(),
-			   true = is_binary(Return),
-			   Return
-		       catch _:Reason ->
-			       ?log("Callback fun crashed with {'EXIT, ~p, ~p}~n",
-				    [Reason, erlang:get_stacktrace()]),
-			       <<>>
-		       end,
-		 wxe_util:cast(?WXE_CB_RETURN, Res)
-	 end,
-    spawn(CB),
+    spawn(fun() ->
+		  wx:set_env(Env),
+		  invoke_callback_fun(Fun)
+	  end),
     ok.
 
 invoke_callback(Pid, Ev, Ref) ->
@@ -300,6 +292,20 @@ invoke_callback(Pid, Ev, Ref) ->
 	 end,
     spawn(CB),
     ok.
+
+invoke_callback_fun(Fun) ->
+    wxe_util:cast(?WXE_CB_START, <<>>),
+    Res = try
+	      Return = Fun(),
+	      true = is_binary(Return),
+	      Return
+	  catch _:Reason ->
+		  ?log("Callback fun crashed with {'EXIT, ~p, ~p}~n",
+		       [Reason, erlang:get_stacktrace()]),
+		  <<>>
+	  end,
+    wxe_util:cast(?WXE_CB_RETURN, Res).
+
 
 get_wx_object_state(Pid) ->
     case process_info(Pid, dictionary) of

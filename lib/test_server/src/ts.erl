@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 1997-2014. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -24,15 +25,20 @@
 
 -module(ts).
 
--export([run/0, run/1, run/2, run/3, run/4, run/5,
-	 tests/0, tests/1,
+-export([cl_run/1,
+	 run/0, run/1, run/2, run/3, run/4, run/5,
+	 run_category/1, run_category/2, run_category/3,
+	 tests/0, tests/1, suites/1, categories/1,
 	 install/0, install/1,
-	 bench/0, bench/1, bench/2, benchmarks/0,
-	 smoke_test/0, smoke_test/1,smoke_test/2, smoke_tests/0,
 	 estone/0, estone/1,
 	 cross_cover_analyse/1,
 	 compile_testcases/0, compile_testcases/1,
 	 help/0]).
+
+%% Functions kept for backwards compatibility
+-export([bench/0, bench/1, bench/2, benchmarks/0,
+	 smoke_test/0, smoke_test/1,smoke_test/2, smoke_tests/0]).
+
 -export([i/0, l/1, r/0, r/1, r/2, r/3]).
 
 %%%----------------------------------------------------------------------
@@ -82,10 +88,13 @@
 -define(
    install_help,
    [
-    "  ts:install()           - Install TS with no Options.\n"
-    "  ts:install([Options])  - Install TS with Options\n"
+    "  ts:install()\n",
+    "    Install ts with no options.\n",
     "\n",
-    "Installation options supported:\n",
+    "  ts:install(Options)\n",
+    "    Install ts with a list of options, see below.\n",
+    "\n",
+    "Installation options supported:\n\n",
     "  {longnames, true} - Use fully qualified hostnames\n",
     "  {verbose, Level}  - Sets verbosity level for TS output (0,1,2), 0 is\n"
     "                      quiet(default).\n"
@@ -110,21 +119,64 @@ help() ->
     end.
 
 help(uninstalled) ->
-    H = ["TS is not installed yet.  To install use:\n\n"],
+    H = ["ts is not yet installed. To install use:\n\n"],
     show_help([H,?install_help]);
 help(installed) ->
-    H = ["Run functions:\n",
-	 "  ts:run()          - Run all available tests.\n",
-	 "  ts:run(Spec)      - Run all tests in given test spec file.\n",
-	 "                      The spec file is actually ../*_test/Spec.spec\n",
-	 "  ts:run([Specs])   - Run all tests in all given test spec files.\n",
-	 "  ts:run(Spec, Mod) - Run a single test suite.\n",
-	 "  ts:run(Spec, Mod, Case)\n",
-	 "                    - Run a single test case.\n",
-	 "  All above run functions can have an additional Options argument\n",
-	 "  which is a list of options.\n",
+    H = ["\n",
+	 "Run functions:\n\n",
+	 "  ts:run()\n",
+	 "    Run the tests for all apps. The tests are defined by the\n",
+	 "    main test specification for each app: ../App_test/App.spec.\n",
 	 "\n",
-	 "Run options supported:\n",
+	 "  ts:run(Apps)\n",
+	 "    Apps = atom() | [atom()]\n",
+	 "    Run the tests for an app, or set of apps. The tests are\n",
+	 "    defined by the main test specification for each app:\n",
+	 "    ../App_test/App.spec.\n",
+	 "\n",
+	 "  ts:run(App, Suites)\n",
+	 "    App = atom(), Suites = atom() | [atom()]\n",
+	 "    Run one or more test suites for App (i.e. modules named\n",
+	 "    *_SUITE.erl, located in ../App_test/).\n",
+	 "\n",
+	 "  ts:run(App, Suite, TestCases)\n",
+	 "    App = atom(), Suite = atom(),\n",
+	 "    TestCases = TCs | {testcase,TCs}, TCs = atom() | [atom()]\n",
+	 "    Run one or more test cases (functions) in Suite.\n",
+	 "\n",
+	 "  ts:run(App, Suite, {group,Groups})\n",
+	 "    App = atom(), Suite = atom(), Groups = atom() | [atom()]\n",
+	 "    Run one or more test case groups in Suite.\n",
+	 "\n",
+	 "  ts:run(App, Suite, {group,Group}, {testcase,TestCases})\n",
+	 "    App = atom(), Suite = atom(), Group = atom(),\n",
+	 "    TestCases = atom() | [atom()]\n",
+ 	 "    Run one or more test cases in a test case group in Suite.\n",
+	 "\n",
+	 "  ts:run_category(TestCategory)\n",
+	 "    TestCategory = smoke | essential | bench | atom()\n",
+	 "    Run the specified category of tests for all apps.\n",
+	 "    For each app, the tests are defined by the specification:\n",
+	 "    ../App_test/App_TestCategory.spec.\n",
+	 "\n",
+	 "  ts:run_category(Apps, TestCategory)\n",
+	 "    Apps = atom() | [atom()],\n",
+	 "    TestCategory = smoke | essential | bench | atom()\n",
+	 "    Run the specified category of tests for the given app or apps.\n",
+	 "\n",
+	 "    Note that the test category parameter may have arbitrary value,\n",
+	 "    but should correspond to an existing test specification with file\n",
+	 "    name: ../App_test/App_TestCategory.spec.\n",
+	 "    Predefined categories exist for smoke tests, essential tests and\n",
+	 "    benchmark tests. The corresponding specs are:\n",
+	 "    ../*_test/Spec_smoke.spec, ../*_test/Spec_essential.spec and\n",
+	 "    ../*_test/Spec_bench.spec.\n",
+	 "\n",
+	 "  All above run functions can take an additional last argument,\n",
+	 "  Options, which is a list of options (e.g. ts:run(App, Options),\n",
+	 "  or ts:run_category(Apps, TestCategory, Options)).\n",
+	 "\n",
+	 "Run options supported:\n\n",
 	 "  batch             - Do not start a new xterm\n",
 	 "  {verbose, Level}  - Same as the verbosity option for install\n",
 	 "  verbose           - Same as {verbose, 1}\n",
@@ -143,47 +195,46 @@ help(installed) ->
 	 "                      files are. The default location is\n"
 	 "                      tests/test_server/.\n"
 	 "\n",
-	 "Supported trace information elements\n",
+	 "Supported trace information elements:\n\n",
 	 "  {tp | tpl, Mod, [] | match_spec()}\n",
 	 "  {tp | tpl, Mod, Func, [] | match_spec()}\n",
 	 "  {tp | tpl, Mod, Func, Arity, [] | match_spec()}\n",
 	 "  {ctp | ctpl, Mod}\n",
 	 "  {ctp | ctpl, Mod, Func}\n",
 	 "  {ctp | ctpl, Mod, Func, Arity}\n",
+	 "\n\n",
+	 "Support functions:\n\n",
+	 "  ts:tests()\n",
+	 "    Returns all apps available for testing.\n",
 	 "\n",
-	 "Support functions:\n",
-	 "  ts:tests()        - Shows all available families of tests.\n",
-	 "  ts:tests(Spec)    - Shows all available test modules in Spec,\n",
-	 "                      i.e. ../Spec_test/*_SUITE.erl\n",
-	 "  ts:estone()       - Run estone_SUITE in kernel application with\n"
-	 "                      no run options\n",
-	 "  ts:estone(Opts)   - Run estone_SUITE in kernel application with\n"
-	 "                      the given run options\n",
-	 "  ts:cross_cover_analyse(Level)\n"
-	 "                    - Used after ts:run with option cover or \n"
-	 "                      cover_details. Analyses modules specified with\n"
-	 "                      a 'cross' statement in the cover spec file.\n"
-	 "                      Level can be 'overview' or 'details'.\n",
-	 "  ts:compile_testcases()~n"
-	 "  ts:compile_testcases(Apps)~n"
-	 "                    - Compile all testcases for usage in a cross ~n"
-	 "                      compile environment."
-	 " \n"
-	 "Benchmark functions:\n"
-	 "  ts:benchmarks()   - Get all available families of benchmarks\n"
-	 "  ts:bench()        - Runs all benchmarks\n"
-	 "  ts:bench(Spec)    - Runs all benchmarks in the given spec file.\n"
-	 "                      The spec file is actually ../*_test/Spec_bench.spec\n\n"
-	 "                      ts:bench can take the same Options argument as ts:run.\n"
-	 "Smoke test functions:\n"
-	 "  ts:smoke_tests()  - Get all available families of smoke tests\n"
-	 "  ts:smoke_test()   - Runs all smoke tests\n"
-	 "  ts:smoke_test(Spec)\n"
-	 "                    - Runs all smoke tests in the given spec file.\n"
-	 "                      The spec file is actually ../*_test/Spec_smoke.spec\n\n"
-	 "                      ts:smoke_test can take the same Options argument as ts:run.\n"
-	 "\n"
-	 "Installation (already done):\n"
+	 "  ts:tests(TestCategory)\n",
+	 "    Returns all apps that provide tests in the given category.\n",
+	 "\n",
+	 "  ts:suites(App)\n",
+	 "    Returns all available test suites for App,\n",
+	 "    i.e. ../App_test/*_SUITE.erl\n",
+	 "\n",
+	 "  ts:categories(App)\n",
+	 "    Returns all test categories available for App.\n",
+	 "\n",
+	 "  ts:estone()\n",
+	 "    Runs estone_SUITE in the kernel application with no run options\n",
+	 "\n",
+	 "  ts:estone(Opts)\n",
+	 "    Runs estone_SUITE in the kernel application with the given\n",
+	 "    run options\n",
+	 "\n",
+	 "  ts:cross_cover_analyse(Level)\n",
+	 "    Use after ts:run with option cover or cover_details. Analyses\n",
+	 "    modules specified with a 'cross' statement in the cover spec file.\n",
+	 "    Level can be 'overview' or 'details'.\n",
+	 "\n",
+	 "  ts:compile_testcases()\n",
+	 "  ts:compile_testcases(Apps)\n",
+	 "    Compiles all test cases for the given apps, for usage in a\n",
+	 "    cross compilation environment.\n",
+	 "\n\n",
+	 "Installation (already done):\n\n"
 	],
     show_help([H,?install_help]).
 
@@ -212,86 +263,138 @@ run_all(_Vars) ->
 
 run_some([], _Opts) ->
     ok;
-run_some([{Spec,Mod}|Specs], Opts) ->
-    case run(Spec, Mod, Opts) of
-	ok -> ok;
-	Error -> io:format("~p: ~p~n",[{Spec,Mod},Error])
-    end,
-    run_some(Specs, Opts);
-run_some([Spec|Specs], Opts) ->
-    case run(Spec, Opts) of
-	ok -> ok;
-	Error -> io:format("~p: ~p~n",[Spec,Error])
-    end,
-    run_some(Specs, Opts).
+run_some(Apps, Opts) ->
+    case proplists:get_value(test_category, Opts) of
+	bench ->
+	    check_and_run(fun(Vars) -> ts_benchmark:run(Apps, Opts, Vars) end);
+	_Other ->
+	    run_some1(Apps, Opts)
+    end.
 
-%% Runs one test spec (interactive).
-run(Testspec) when is_atom(Testspec) ->
-    Options=check_test_get_opts(Testspec, []),
-    File = atom_to_list(Testspec),
-    run_test(File, [{spec,[File++".spec"]}], Options);
+run_some1([], _Opts) ->
+    ok;
+run_some1([{App,Mod}|Apps], Opts) ->
+    case run(App, Mod, Opts) of
+	ok -> ok;
+	Error -> io:format("~p: ~p~n",[{App,Mod},Error])
+    end,
+    run_some1(Apps, Opts);
+run_some1([App|Apps], Opts) ->
+    case run(App, Opts) of
+	ok -> ok;
+	Error -> io:format("~p: ~p~n",[App,Error])
+    end,
+    run_some1(Apps, Opts).
 
-%% This can be used from command line, e.g.
-%% erl -s ts run all_tests <config>
-%% When using the all_tests flag and running with cover, one can also
-%% use the cross_cover_analysis flag.
-run([all_tests|Config0]) ->
+%% This can be used from command line. Both App and
+%% TestCategory must be specified. App may be 'all'
+%% and TestCategory may be 'main'. Examples:
+%% erl -s ts cl_run kernel smoke <options>
+%% erl -s ts cl_run kernel main <options>
+%% erl -s ts cl_run all essential <options>
+%% erl -s ts cl_run all main <options>
+%% When using the 'main' category and running with cover,
+%% one can also use the cross_cover_analysis flag.
+cl_run([App,Cat|Options0]) when is_atom(App) ->
+
     AllAtomsFun = fun(X) when is_atom(X) -> true; 
 		     (_) -> false 
 		  end,
-    Config1 = 
-	case lists:all(AllAtomsFun,Config0) of
+    Options1 = 
+	case lists:all(AllAtomsFun, Options0) of
 	    true ->
 		%% Could be from command line
-		lists:map(fun(Conf)->to_erlang_term(Conf) end,Config0)--[batch];
+		lists:map(fun(Opt) ->
+				  to_erlang_term(Opt)
+			  end, Options0) -- [batch];
 	    false ->
-		Config0--[batch]
+		Options0 -- [batch]
 	end,
     %% Make sure there is exactly one occurence of 'batch'
-    Config2 = [batch|Config1],
+    Options2 = [batch|Options1],
 
-    R = run(tests(),Config2),
-
-    case check_for_cross_cover_analysis_flag(Config2) of
+    Result =
+	case {App,Cat} of
+	    {all,main} ->
+		run(tests(), Options2);
+	    {all,Cat} ->
+		run_category(Cat, Options2);
+	    {_,main} ->
+		run(App, Options2);
+	    {_,Cat} ->
+		run_category(App, Cat, Options2)
+	end,
+    case check_for_cross_cover_analysis_flag(Options2) of
 	false ->
 	    ok;
 	Level ->
 	    cross_cover_analyse(Level)
     end,
+    Result.
 
-    R;
+%% run/1
+%% Runs tests for one app (interactive).
+run(App) when is_atom(App) ->
+    Options = check_test_get_opts(App, []),
+    File = atom_to_list(App),
+    run_test(File, [{spec,[File++".spec"]},{allow_user_terms,true}], Options);
 
-%% ts:run(ListOfTests)
-run(List) when is_list(List) ->
-    run(List, [batch]).
+%% This can be used from command line, e.g.
+%% erl -s ts run all <options>
+%% erl -s ts run main <options>
+run([all,main|Opts]) ->
+    cl_run([all,main|Opts]);
+run([all|Opts]) ->
+    cl_run([all,main|Opts]);
+run([main|Opts]) ->
+    cl_run([all,main|Opts]);
+%% Backwards compatible
+run([all_tests|Opts]) ->
+    cl_run([all,main|Opts]);
 
-run(List, Opts) when is_list(List), is_list(Opts) ->
-    run_some(List, Opts);
+%% run/1
+%% Runs the main tests for all available apps
+run(Apps) when is_list(Apps) ->
+    run(Apps, [batch]).
 
 %% run/2
-%% Runs one test spec with list of suites or with options
-run(Testspec, ModsOrConfig) when is_atom(Testspec),
-				 is_list(ModsOrConfig) ->
-    case is_list_of_suites(ModsOrConfig) of
+%% Runs the main tests for all available apps
+run(Apps, Opts) when is_list(Apps), is_list(Opts) ->
+    run_some(Apps, Opts);
+
+%% Runs tests for one app with list of suites or with options
+run(App, ModsOrOpts) when is_atom(App),
+			  is_list(ModsOrOpts) ->
+    case is_list_of_suites(ModsOrOpts) of
 	false ->
-	    run(Testspec, {config_list,ModsOrConfig});
+	    run(App, {opts_list,ModsOrOpts});
 	true ->
-	    run_some([{Testspec,M} || M <- ModsOrConfig],
+	    run_some([{App,M} || M <- ModsOrOpts],
 		     [batch])
     end;
-run(Testspec, {config_list,Config}) ->
-    Options=check_test_get_opts(Testspec, Config),
-    IsSmoke=proplists:get_value(smoke,Config),
-    File=atom_to_list(Testspec),
+
+run(App, {opts_list,Opts}) ->
+    Options = check_test_get_opts(App, Opts),
+    File = atom_to_list(App),
+
+    %% check if other test category than main has been specified
+    {CatSpecName,TestCat} =
+	case proplists:get_value(test_category, Opts) of
+	    undefined ->
+		{"",main};
+	    Cat ->
+		{"_" ++ atom_to_list(Cat),Cat}
+	end,
+
     WhatToDo =
-	case Testspec of
+	case App of
 	    %% Known to exist but fails generic tests below
 	    emulator -> test;
 	    system -> test;
 	    erl_interface -> test;
 	    epmd -> test;
 	    _ ->
-		case code:lib_dir(Testspec) of
+		case code:lib_dir(App) of
 		    {error,bad_name} ->
 			%% Application does not exist
 			skip;
@@ -313,92 +416,167 @@ run(Testspec, {config_list,Config}) ->
 			end
 		end
 	end,
-    Spec =
-	case WhatToDo of
-	    skip ->
-		create_skip_spec(Testspec, tests(Testspec));
-	    test when IsSmoke ->
-		File++"_smoke.spec";
-	    test ->
-		File++".spec"
-	end,
-    run_test(File, [{spec,[Spec]}], Options);
-%% Runs one module in a spec (interactive)
-run(Testspec, Mod) when is_atom(Testspec), is_atom(Mod) ->
-    run_test({atom_to_list(Testspec),Mod}, 
+    case WhatToDo of
+	skip ->
+	    SkipSpec = create_skip_spec(App, suites(App)),
+	    run_test(File, [{spec,[SkipSpec]}], Options);
+	test when TestCat == bench ->
+	    check_and_run(fun(Vars) ->
+				  ts_benchmark:run([App], Options, Vars)
+			  end);
+	test ->
+	    Spec = File ++ CatSpecName ++ ".spec",
+	    run_test(File, [{spec,[Spec]},{allow_user_terms,true}], Options)
+	end;
+
+%% Runs one module for an app (interactive)
+run(App, Mod) when is_atom(App), is_atom(Mod) ->
+    run_test({atom_to_list(App),Mod}, 
 	     [{suite,Mod}], 
 	     [interactive]).
 
 %% run/3
-%% Run one module in a spec with Config
-run(Testspec, Mod, Config) when is_atom(Testspec),
-				is_atom(Mod),
-				is_list(Config) ->
-    Options=check_test_get_opts(Testspec, Config),
-    run_test({atom_to_list(Testspec),Mod},
+%% Run one module for an app with Opts
+run(App, Mod, Opts) when is_atom(App),
+			 is_atom(Mod),
+			 is_list(Opts) ->
+    Options = check_test_get_opts(App, Opts),
+    run_test({atom_to_list(App),Mod},
 	     [{suite,Mod}], Options);
-%% Run multiple modules with Config
-run(Testspec, Mods, Config) when is_atom(Testspec),
-				 is_list(Mods),
-				 is_list(Config) ->
-    run_some([{Testspec,M} || M <- Mods], Config);
+
+%% Run multiple modules with Opts
+run(App, Mods, Opts) when is_atom(App),
+			  is_list(Mods),
+			  is_list(Opts) ->
+    run_some([{App,M} || M <- Mods], Opts);
+
 %% Runs one test case in a module.
-run(Testspec, Mod, Case) when is_atom(Testspec),
-			      is_atom(Mod),
-			      is_atom(Case) ->
-    Options=check_test_get_opts(Testspec, []),
+run(App, Mod, Case) when is_atom(App),
+			 is_atom(Mod),
+			 is_atom(Case) ->
+    Options = check_test_get_opts(App, []),
     Args = [{suite,Mod},{testcase,Case}],
-    run_test(atom_to_list(Testspec), Args, Options);
+    run_test(atom_to_list(App), Args, Options);
+
 %% Runs one or more groups in a module.
-run(Testspec, Mod, Grs={group,_Groups}) when is_atom(Testspec),
-					    is_atom(Mod) ->
-    Options=check_test_get_opts(Testspec, []),
+run(App, Mod, Grs={group,_Groups}) when is_atom(App),
+					is_atom(Mod) ->
+    Options = check_test_get_opts(App, []),
     Args = [{suite,Mod},Grs],
-    run_test(atom_to_list(Testspec), Args, Options);
+    run_test(atom_to_list(App), Args, Options);
+
 %% Runs one or more test cases in a module.
-run(Testspec, Mod, TCs={testcase,_Cases}) when is_atom(Testspec),
-					       is_atom(Mod) ->
-    Options=check_test_get_opts(Testspec, []),
+run(App, Mod, TCs={testcase,_Cases}) when is_atom(App),
+					  is_atom(Mod) ->
+    Options = check_test_get_opts(App, []),
     Args = [{suite,Mod},TCs],
-    run_test(atom_to_list(Testspec), Args, Options).
+    run_test(atom_to_list(App), Args, Options).
 
 %% run/4
 %% Run one test case in a module with Options.
-run(Testspec, Mod, Case, Config) when is_atom(Testspec), 
-				      is_atom(Mod), 
-				      is_atom(Case), 
-				      is_list(Config) ->
-    Options=check_test_get_opts(Testspec, Config),
+run(App, Mod, Case, Opts) when is_atom(App), 
+			       is_atom(Mod), 
+			       is_atom(Case), 
+			       is_list(Opts) ->
+    Options = check_test_get_opts(App, Opts),
     Args = [{suite,Mod},{testcase,Case}],
-    run_test(atom_to_list(Testspec), Args, Options);
+    run_test(atom_to_list(App), Args, Options);
+
 %% Run one or more test cases in a module with Options.
-run(Testspec, Mod, {testcase,Cases}, Config) when is_atom(Testspec), 
-						  is_atom(Mod) ->
-    run(Testspec, Mod, Cases, Config);
-run(Testspec, Mod, Cases, Config) when is_atom(Testspec), 
-				       is_atom(Mod),
-				       is_list(Cases),
-				       is_list(Config) ->
-    Options=check_test_get_opts(Testspec, Config),
+run(App, Mod, {testcase,Cases}, Opts) when is_atom(App), 
+					   is_atom(Mod) ->
+    run(App, Mod, Cases, Opts);
+run(App, Mod, Cases, Opts) when is_atom(App), 
+				is_atom(Mod),
+				is_list(Cases),
+				is_list(Opts) ->
+    Options = check_test_get_opts(App, Opts),
     Args = [{suite,Mod},Cases],
-    run_test(atom_to_list(Testspec), Args, Options);
+    run_test(atom_to_list(App), Args, Options);
+
+%% Run one or more test cases in a group.
+run(App, Mod, Gr={group,_Group}, {testcase,Cases}) when is_atom(App),
+							is_atom(Mod) ->
+    run(App, Mod, Gr, Cases, [batch]);
+
+
 %% Run one or more groups in a module with Options.
-run(Testspec, Mod, Grs={group,_Groups}, Config) when is_atom(Testspec), 
-						     is_atom(Mod) ->
-    Options=check_test_get_opts(Testspec, Config),
+run(App, Mod, Grs={group,_Groups}, Opts) when is_atom(App), 
+					      is_atom(Mod),
+					      is_list(Opts) ->
+    Options = check_test_get_opts(App, Opts),
     Args = [{suite,Mod},Grs],
-    run_test(atom_to_list(Testspec), Args, Options).
+    run_test(atom_to_list(App), Args, Options).
 
 %% run/5
 %% Run one or more test cases in a group with Options.
-run(Testspec, Mod, Group, Cases, Config) when is_atom(Testspec), 
-					      is_atom(Mod),
-					      is_list(Config) ->
+run(App, Mod, Group, Cases, Opts) when is_atom(App), 
+				       is_atom(Mod),
+				       is_list(Opts) ->
     Group1 = if is_tuple(Group) -> Group; true -> {group,Group} end,
     Cases1 = if is_tuple(Cases) -> Cases; true -> {testcase,Cases} end,
-    Options=check_test_get_opts(Testspec, Config),
+    Options = check_test_get_opts(App, Opts),
     Args = [{suite,Mod},Group1,Cases1],
-    run_test(atom_to_list(Testspec), Args, Options).
+    run_test(atom_to_list(App), Args, Options).
+
+%% run_category/1
+run_category(TestCategory) when is_atom(TestCategory) ->
+    run_category(TestCategory, [batch]).
+
+%% run_category/2
+run_category(TestCategory, Opts) when is_atom(TestCategory),
+				      is_list(Opts) ->
+    case ts:tests(TestCategory) of
+	[] ->
+	    {error, no_tests_available};
+	Apps ->
+	    Opts1 = [{test_category,TestCategory} | Opts],
+	    run_some(Apps, Opts1)
+    end;
+
+run_category(Apps, TestCategory) when is_atom(TestCategory) ->
+    run_category(Apps, TestCategory, [batch]).
+
+%% run_category/3
+run_category(App, TestCategory, Opts) ->
+    Apps = if is_atom(App) -> [App];
+	      is_list(App) -> App
+	   end,
+    Opts1 = [{test_category,TestCategory} | Opts],
+    run_some(Apps, Opts1).
+
+%%-----------------------------------------------------------------
+%% Functions kept for backwards compatibility
+
+bench() ->
+    run_category(bench, []).
+bench(Opts) when is_list(Opts) ->
+    run_category(bench, Opts);
+bench(App) ->
+    run_category(App, bench, []).
+bench(App, Opts) when is_atom(App) ->
+    run_category(App, bench, Opts);
+bench(Apps, Opts) when is_list(Apps) ->
+    run_category(Apps, bench, Opts).
+
+benchmarks() ->
+    tests(bench).
+
+smoke_test() ->
+    run_category(smoke, []).
+smoke_test(Opts) when is_list(Opts) ->
+    run_category(smoke, Opts);
+smoke_test(App) ->
+    run_category(App, smoke, []).
+smoke_test(App, Opts) when is_atom(App) ->
+    run_category(App, smoke, Opts);
+smoke_test(Apps, Opts) when is_list(Apps) ->
+    run_category(Apps, smoke, Opts).
+
+smoke_tests() ->
+    tests(smoke).
+
+%%-----------------------------------------------------------------
 
 is_list_of_suites(List) ->
     lists:all(fun(Suite) ->
@@ -416,29 +594,29 @@ is_list_of_suites(List) ->
 
 %% Create a spec to skip all SUITES, this is used when the application
 %% to be tested is not part of the OTP release to be tested.
-create_skip_spec(Testspec, SuitesToSkip) ->
+create_skip_spec(App, SuitesToSkip) ->
     {ok,Cwd} = file:get_cwd(),
-    TestspecString = atom_to_list(Testspec),
-    Specname = TestspecString++"_skip.spec",
+    AppString = atom_to_list(App),
+    Specname = AppString++"_skip.spec",
     {ok,D} = file:open(filename:join([filename:dirname(Cwd),
-				      TestspecString++"_test",Specname]),
+				      AppString++"_test",Specname]),
 		       [write]),
-    TestDir = "\"../"++TestspecString++"_test\"",
+    TestDir = "\"../"++AppString++"_test\"",
     io:format(D,"{suites, "++TestDir++", all}.~n",[]),
     io:format(D,"{skip_suites, "++TestDir++", ~w, \"Skipped as application"
 	      " is not in path!\"}.",[SuitesToSkip]),
     Specname.
 
-%% Check testspec to be valid and get possible Options
-%% from the config.
-check_test_get_opts(Testspec, Config) ->
-    validate_test(Testspec),
-    Mode = configmember(batch, {batch, interactive}, Config),
-    Vars = configvars(Config),
-    Trace = get_config(trace,Config),
-    ConfigPath = get_config(config,Config),
-    KeepTopcase = configmember(keep_topcase, {keep_topcase,[]}, Config),
-    Cover = configcover(Testspec,Config),
+%% Check testspec for App to be valid and get possible options
+%% from the list.
+check_test_get_opts(App, Opts) ->
+    validate_test(App),
+    Mode = configmember(batch, {batch, interactive}, Opts),
+    Vars = configvars(Opts),
+    Trace = get_config(trace,Opts),
+    ConfigPath = get_config(config,Opts),
+    KeepTopcase = configmember(keep_topcase, {keep_topcase,[]}, Opts),
+    Cover = configcover(App,Opts),
     lists:flatten([Vars,Mode,Trace,KeepTopcase,Cover,ConfigPath]).
     
 to_erlang_term(Atom) ->
@@ -447,7 +625,7 @@ to_erlang_term(Atom) ->
     {ok, Term} = erl_parse:parse_term(Tokens),
     Term.
 
-%% Validate that a Testspec really is a testspec,
+%% Validate that Testspec really is a testspec,
 %% and exit if not.
 validate_test(Testspec) ->
     case lists:member(Testspec, tests()) of
@@ -460,10 +638,10 @@ validate_test(Testspec) ->
 	    exit(self(), {error, test_not_available})
     end.
     
-configvars(Config) ->
-    case lists:keysearch(vars, 1, Config) of
+configvars(Opts) ->
+    case lists:keysearch(vars, 1, Opts) of
 	{value, {vars, List}} ->
-	    List0 = special_vars(Config),
+	    List0 = special_vars(Opts),
 	    Key = fun(T) -> element(1,T) end,
 	    DelDupList = 
 		lists:filter(fun(V) -> 
@@ -474,17 +652,17 @@ configvars(Config) ->
 			     end, List),
 	    {vars, [List0|DelDupList]};
 	_ ->
-	    {vars, special_vars(Config)}
+	    {vars, special_vars(Opts)}
     end.
 
-%% Allow some shortcuts in the Options...
-special_vars(Config) ->
+%% Allow some shortcuts in the options...
+special_vars(Opts) ->
     SpecVars =
-	case lists:member(verbose, Config) of
+	case lists:member(verbose, Opts) of
 	    true ->
 		[{verbose, 1}];
 	    false ->
-		case lists:keysearch(verbose, 1, Config) of
+		case lists:keysearch(verbose, 1, Opts) of
 		    {value, {verbose, Lvl}} ->
 			[{verbose, Lvl}];
 		    _ ->
@@ -492,13 +670,13 @@ special_vars(Config) ->
 		end
 	end,
     SpecVars1 =
-	case lists:keysearch(diskless, 1, Config) of
+	case lists:keysearch(diskless, 1, Opts) of
 	    {value,{diskless, true}} ->
 		[{diskless, true} | SpecVars];
 	    _ ->
 		SpecVars
 	end,
-    case lists:keysearch(testcase_callback, 1, Config) of
+    case lists:keysearch(testcase_callback, 1, Opts) of
 	{value,{testcase_callback, CBM, CBF}} ->
 	    [{ts_testcase_callback, {CBM,CBF}} | SpecVars1];
 	{value,{testcase_callback, CB}} ->
@@ -566,50 +744,31 @@ check_for_cross_cover_analysis_flag([_|Config],Level,CrossFlag) ->
 check_for_cross_cover_analysis_flag([],_,_) ->
     false.
 
-%% Returns a list of available test suites.
 
+%% Returns all available apps.
 tests() ->
     {ok, Cwd} = file:get_cwd(),
     ts_lib:specs(Cwd).
 
-tests(Spec) ->
+%% Returns all apps that provide tests in the given test category
+tests(main) ->
     {ok, Cwd} = file:get_cwd(),
-    ts_lib:suites(Cwd, atom_to_list(Spec)).
-
-%% Benchmark related functions
-
-bench() ->
-    bench([]).
-
-bench(Opts) when is_list(Opts) ->
-    bench(benchmarks(),Opts);
-bench(Spec) ->
-    bench([Spec],[]).
-
-bench(Spec, Opts) when is_atom(Spec) ->
-    bench([Spec],Opts);
-bench(Specs, Opts) ->
-    check_and_run(fun(Vars) -> ts_benchmark:run(Specs, Opts, Vars) end).
-
-benchmarks() ->
-    ts_benchmark:benchmarks().
-
-smoke_test() ->
-    smoke_test([]).
-
-smoke_test(Opts) when is_list(Opts) ->
-    smoke_test(smoke_tests(),Opts);
-smoke_test(Spec) ->
-    smoke_test([Spec],[]).
-
-smoke_test(Spec, Opts) when is_atom(Spec) ->
-    smoke_test([Spec],Opts);
-smoke_test(Specs, Opts) ->
-    run(Specs, [{smoke,true}|Opts]).
-
-smoke_tests() ->
+    ts_lib:specs(Cwd);
+tests(bench) ->
+    ts_benchmark:benchmarks();
+tests(TestCategory) ->
     {ok, Cwd} = file:get_cwd(),
-    ts_lib:specialized_specs(Cwd,"smoke").
+    ts_lib:specialized_specs(Cwd, atom_to_list(TestCategory)).
+    
+%% Returns a list of available test suites for App.
+suites(App) ->
+    {ok, Cwd} = file:get_cwd(),
+    ts_lib:suites(Cwd, atom_to_list(App)).
+
+%% Returns all available test categories for App
+categories(App) ->
+    {ok, Cwd} = file:get_cwd(),
+    ts_lib:test_categories(Cwd, atom_to_list(App)).
 
 %% 
 %% estone/0, estone/1

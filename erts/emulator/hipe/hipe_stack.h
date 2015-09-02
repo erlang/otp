@@ -3,16 +3,17 @@
  *
  * Copyright Ericsson AB 2001-2012. All Rights Reserved.
  *
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  * %CopyrightEnd%
  */
@@ -108,11 +109,22 @@ extern int hipe_fill_stacktrace(Process*, int, Eterm**);
 #if 0 && defined(HIPE_NSTACK_GROWS_UP)
 #define hipe_nstack_start(p)	((p)->hipe.nstack)
 #define hipe_nstack_used(p)	((p)->hipe.nsp - (p)->hipe.nstack)
+#define hipe_nstack_avail(p)	((p)->hipe.nstend - (p)->hipe.nsp)
 #endif
 #if defined(HIPE_NSTACK_GROWS_DOWN)
 #define hipe_nstack_start(p)	((p)->hipe.nsp)
 #define hipe_nstack_used(p)	((p)->hipe.nstend - (p)->hipe.nsp)
+#define hipe_nstack_avail(p)	((unsigned)((p)->hipe.nsp - (p)->hipe.nstack))
 #endif
+
+/* ensure that at least nwords words are available on the native stack */
+static __inline__ void hipe_check_nstack(Process *p, unsigned nwords)
+{
+    extern void hipe_inc_nstack(Process *p);
+
+    while (hipe_nstack_avail(p) < nwords)
+	hipe_inc_nstack(p);
+}
 
 /*
  * GC support procedures

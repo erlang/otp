@@ -1,18 +1,19 @@
 ;;
 ;; %CopyrightBegin%
 ;;
-;; Copyright Ericsson AB 2010. All Rights Reserved.
+;; Copyright Ericsson AB 2010-2014. All Rights Reserved.
 ;;
-;; The contents of this file are subject to the Erlang Public License,
-;; Version 1.1, (the "License"); you may not use this file except in
-;; compliance with the License. You should have received a copy of the
-;; Erlang Public License along with this software. If not, it can be
-;; retrieved online at http://www.erlang.org/.
+;; Licensed under the Apache License, Version 2.0 (the "License");
+;; you may not use this file except in compliance with the License.
+;; You may obtain a copy of the License at
 ;;
-;; Software distributed under the License is distributed on an "AS IS"
-;; basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-;; the License for the specific language governing rights and limitations
-;; under the License.
+;;     http://www.apache.org/licenses/LICENSE-2.0
+;;
+;; Unless required by applicable law or agreed to in writing, software
+;; distributed under the License is distributed on an "AS IS" BASIS,
+;; WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+;; See the License for the specific language governing permissions and
+;; limitations under the License.
 ;;
 ;; %CopyrightEnd%
 ;;;
@@ -352,26 +353,25 @@ Please see the function `tempo-define-template'.")
     "%% @doc" n
     "%% Whenever a supervisor is started using supervisor:start_link/[2,3]," n
     "%% this function is called by the new process to find out about" n
-    "%% restart strategy, maximum restart frequency and child" n
+    "%% restart strategy, maximum restart intensity, and child" n
     "%% specifications." n
     "%%" n
     "%% @spec init(Args) -> {ok, {SupFlags, [ChildSpec]}} |" n
     "%%                     ignore |" n
     "%%                     {error, Reason}" n
     (erlang-skel-separator-end 2)
-    "init([]) ->" n>
-    "RestartStrategy = one_for_one," n>
-    "MaxRestarts = 1000," n>
-    "MaxSecondsBetweenRestarts = 3600," n
+    "init([]) ->" n
     "" n>
-    "SupFlags = {RestartStrategy, MaxRestarts, MaxSecondsBetweenRestarts}," n
+    "SupFlags = #{strategy => one_for_one," n>
+    "intensity => 1," n>
+    "period => 5}," n
     "" n>
-    "Restart = permanent," n>
-    "Shutdown = 2000," n>
-    "Type = worker," n
-    "" n>
-    "AChild = {'AName', {'AModule', start_link, []}," n>
-    "Restart, Shutdown, Type, ['AModule']}," n
+    "AChild = #{id => 'AName'," n>
+    "start => {'AModule', start_link, []}," n>
+    "restart => permanent," n>
+    "shutdown => 5000," n>
+    "type => worker," n>
+    "modules => ['AModule']}," n
     "" n>
     "{ok, {SupFlags, [AChild]}}." n
     n
@@ -379,7 +379,7 @@ Please see the function `tempo-define-template'.")
     "%%% Internal functions" n
     (erlang-skel-double-separator-end 3)
     )
-  "*The template of an supervisor behaviour.
+  "*The template of a supervisor behaviour.
 Please see the function `tempo-define-template'.")
 
 (defvar erlang-skel-supervisor-bridge
@@ -449,7 +449,7 @@ Please see the function `tempo-define-template'.")
     "%%% Internal functions" n
     (erlang-skel-double-separator-end 3)
     )
-  "*The template of an supervisor_bridge behaviour.
+  "*The template of a supervisor_bridge behaviour.
 Please see the function `tempo-define-template'.")
 
 (defvar erlang-skel-generic-server
@@ -1235,7 +1235,7 @@ Please see the function `tempo-define-template'.")
     "Config." n n
 
     (erlang-skel-separator-start 2)
-    "%% @spec end_per_suite(Config0) -> void() | {save_config,Config1}" n
+    "%% @spec end_per_suite(Config0) -> term() | {save_config,Config1}" n
     "%% Config0 = Config1 = [tuple()]" n
     (erlang-skel-separator-end 2)
     "end_per_suite(_Config) ->" n >
@@ -1253,7 +1253,7 @@ Please see the function `tempo-define-template'.")
 
     (erlang-skel-separator-start 2)
     "%% @spec end_per_group(GroupName, Config0) ->" n
-    "%%               void() | {save_config,Config1}" n
+    "%%               term() | {save_config,Config1}" n
     "%% GroupName = atom()" n
     "%% Config0 = Config1 = [tuple()]" n
     (erlang-skel-separator-end 2)
@@ -1272,7 +1272,7 @@ Please see the function `tempo-define-template'.")
 
     (erlang-skel-separator-start 2)
     "%% @spec end_per_testcase(TestCase, Config0) ->" n
-    "%%               void() | {save_config,Config1} | {fail,Reason}" n
+    "%%               term() | {save_config,Config1} | {fail,Reason}" n
     "%% TestCase = atom()" n
     "%% Config0 = Config1 = [tuple()]" n
     "%% Reason = term()" n
@@ -1413,7 +1413,7 @@ Please see the function `tempo-define-template'.")
     "%%   A list of key/value pairs, holding configuration data for the group." n
     "%%" n
     "%% @spec end_per_group(GroupName, Config0) ->" n
-    "%%               void() | {save_config,Config1}" n
+    "%%               term() | {save_config,Config1}" n
     (erlang-skel-separator-end 2)
     "end_per_group(_GroupName, _Config) ->" n >
     "ok." n n
@@ -1447,7 +1447,7 @@ Please see the function `tempo-define-template'.")
     "%%   A list of key/value pairs, holding the test case configuration." n
     "%%" n
     "%% @spec end_per_testcase(TestCase, Config0) ->" n
-    "%%               void() | {save_config,Config1} | {fail,Reason}" n
+    "%%               term() | {save_config,Config1} | {fail,Reason}" n
     (erlang-skel-separator-end 2)
     "end_per_testcase(_TestCase, _Config) ->" n >
     "ok." n n

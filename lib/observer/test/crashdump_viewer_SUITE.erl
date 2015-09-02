@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 2003-2014. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -101,7 +102,7 @@ end_per_group(_GroupName, Config) ->
 init_per_suite(Config) when is_list(Config) ->
     delete_saved(Config),
     DataDir = ?config(data_dir,Config),
-    Rels = [R || R <- [r15b,r16b], ?t:is_release_available(R)] ++ [current],
+    Rels = [R || R <- [r16b,'17'], ?t:is_release_available(R)] ++ [current],
     io:format("Creating crash dumps for the following releases: ~p", [Rels]),
     AllDumps = create_dumps(DataDir,Rels),
     [{dumps,AllDumps}|Config].
@@ -563,12 +564,6 @@ dump_with_strange_module_name(DataDir,Rel,DumpName) ->
     CD.
 
 dump(Node,DataDir,Rel,DumpName) ->
-    case Rel of
-	_ when Rel<r15b, Rel=/=current ->
-	    rpc:call(Node,os,putenv,["ERL_CRASH_DUMP_SECONDS","600"]);
-	_ ->
-	    ok
-    end,
     rpc:call(Node,erlang,halt,[DumpName]),
     Crashdump0 = filename:join(filename:dirname(code:which(?t)),
 			       "erl_crash_dump.n1"),
@@ -623,42 +618,21 @@ dos_dump(DataDir,Rel,Dump) ->
 
 rel_opt(Rel) ->
     case Rel of
-	r9b -> [{erl,[{release,"r9b_patched"}]}];
-	r9c -> [{erl,[{release,"r9c_patched"}]}];
-	r10b -> [{erl,[{release,"r10b_patched"}]}];
-	r11b -> [{erl,[{release,"r11b_patched"}]}];
-	r12b -> [{erl,[{release,"r12b_patched"}]}];
-	r13b -> [{erl,[{release,"r13b_patched"}]}];
-	r14b -> [{erl,[{release,"r14b_latest"}]}]; %naming convention changed
-	r15b -> [{erl,[{release,"r15b_latest"}]}];
 	r16b -> [{erl,[{release,"r16b_latest"}]}];
+	'17' -> [{erl,[{release,"17_latest"}]}];
 	current -> []
     end.
 
 dump_prefix(Rel) ->
     case Rel of
-	r9b -> "r9b_dump.";
-	r9c -> "r9c_dump.";
-	r10b -> "r10b_dump.";
-	r11b -> "r11b_dump.";
-	r12b -> "r12b_dump.";
-	r13b -> "r13b_dump.";
-	r14b -> "r14b_dump.";
-	r15b -> "r15b_dump.";
 	r16b -> "r16b_dump.";
-	current -> "r17b_dump."
+	'17' -> "r17_dump.";
+	current -> "r18_dump."
     end.
 
 compat_rel(Rel) ->
     case Rel of
-	r9b -> "+R9 ";
-	r9c -> "+R9 ";
-	r10b -> "+R10 ";
-	r11b -> "+R11 ";
-	r12b -> "+R12 ";
-	r13b -> "+R13 ";
-	r14b -> "+R14 ";
-	r15b -> "+R15 ";
 	r16b -> "+R16 ";
+	'17' -> "+R17 ";
 	current -> ""
     end.

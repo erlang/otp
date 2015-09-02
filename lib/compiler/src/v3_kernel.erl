@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 1999-2013. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -114,7 +115,7 @@ copy_anno(Kdst, Ksrc) ->
 	       ff,				%Current function
 	       vcount=0,			%Variable counter
 	       fcount=0,			%Fun counter
-	       ds=[],				%Defined variables
+               ds=cerl_sets:new() :: cerl_sets:set(), %Defined variables
 	       funs=[],				%Fun functions
 	       free=[],				%Free variables
 	       ws=[]   :: [warning()],		%Warnings.
@@ -131,12 +132,12 @@ module(#c_module{anno=A,name=M,exports=Es,attrs=As,defs=Fs}, _Options) ->
     {ok,#k_mdef{anno=A,name=M#c_literal.val,exports=Kes,attributes=Kas,
 		body=Kfs ++ St#kern.funs},lists:sort(St#kern.ws)}.
 
-attributes([{#c_literal{val=Name},Val}|As]) ->
+attributes([{#c_literal{val=Name},#c_literal{val=Val}}|As]) ->
     case include_attribute(Name) of
 	false ->
 	    attributes(As);
 	true ->
-	    [{Name,core_lib:literal_value(Val)}|attributes(As)]
+	    [{Name,Val}|attributes(As)]
     end;
 attributes([]) -> [].
 
@@ -148,7 +149,7 @@ include_attribute(_) -> true.
 
 function({#c_var{name={F,Arity}=FA},Body}, St0) ->
     try
-	St1 = St0#kern{func=FA,ff=undefined,vcount=0,fcount=0,ds=sets:new()},
+	St1 = St0#kern{func=FA,ff=undefined,vcount=0,fcount=0,ds=cerl_sets:new()},
 	{#ifun{anno=Ab,vars=Kvs,body=B0},[],St2} = expr(Body, new_sub(), St1),
 	{B1,_,St3} = ubody(B0, return, St2),
 	%%B1 = B0, St3 = St2,				%Null second pass
@@ -273,17 +274,7 @@ expr(#c_tuple{anno=A,es=Ces}, Sub, St0) ->
     {Kes,Ep,St1} = atomic_list(Ces, Sub, St0),
     {#k_tuple{anno=A,es=Kes},Ep,St1};
 expr(#c_map{anno=A,arg=Var,es=Ces}, Sub, St0) ->
-    try expr_map(A,Var,Ces,Sub,St0) of
-	{_,_,_}=Res -> Res
-    catch
-	throw:bad_map ->
-	    St1 = add_warning(get_line(A), bad_map, A, St0),
-	    Erl = #c_literal{val=erlang},
-	    Name = #c_literal{val=error},
-	    Args = [#c_literal{val=badarg}],
-	    Error = #c_call{anno=A,module=Erl,name=Name,args=Args},
-	    expr(Error, Sub, St1)
-    end;
+    expr_map(A, Var, Ces, Sub, St0);
 expr(#c_binary{anno=A,segments=Cv}, Sub, St0) ->
     try atomic_bin(Cv, Sub, St0) of
 	{Kv,Ep,St1} ->
@@ -506,82 +497,87 @@ translate_fc(Args) ->
     [#c_literal{val=function_clause},make_list(Args)].
 
 expr_map(A,Var0,Ces,Sub,St0) ->
-    %% An extra pass of validation of Map src because of inlining
     {Var,Mps,St1} = expr(Var0, Sub, St0),
-    case is_valid_map_src(Var) of
-	true ->
-	    {Km,Eps,St2} = map_split_pairs(A, Var, Ces, Sub, St1),
-	    {Km,Eps++Mps,St2};
-	false -> throw(bad_map)
-    end.
-
-is_valid_map_src(#k_map{}) -> true;
-is_valid_map_src(#k_literal{val=M}) when is_map(M) -> true;
-is_valid_map_src(#k_var{}) -> true;
-is_valid_map_src(_) -> false.
+    {Km,Eps,St2} = map_split_pairs(A, Var, Ces, Sub, St1),
+    {Km,Eps++Mps,St2}.
 
 map_split_pairs(A, Var, Ces, Sub, St0) ->
-    %% two steps
-    %% 1. force variables
-    %% 2. remove multiples
-    Pairs0 = [{Op,K,V} || #c_map_pair{op=#c_literal{val=Op},key=K,val=V} <- Ces],
+    %% 1. Force variables.
+    %% 2. Group adjacent pairs with literal keys.
+    %% 3. Within each such group, remove multiple assignments to the same key.
+    %% 4. Partition each group according to operator ('=>' and ':=').
+    Pairs0 = [{Op,K,V} ||
+		 #c_map_pair{op=#c_literal{val=Op},key=K,val=V} <- Ces],
     {Pairs,Esp,St1} = foldr(fun
 	    ({Op,K0,V0}, {Ops,Espi,Sti0}) when Op =:= assoc; Op =:= exact ->
-		{K,[],Sti1} = expr(K0, Sub, Sti0),
-		{V,Ep,Sti2} = atomic(V0, Sub, Sti1),
-		{[{Op,K,V}|Ops],Ep ++ Espi,Sti2}
+		{K,Eps1,Sti1} = atomic(K0, Sub, Sti0),
+		{V,Eps2,Sti2} = atomic(V0, Sub, Sti1),
+		{[{Op,K,V}|Ops],Eps1 ++ Eps2 ++ Espi,Sti2}
 	end, {[],[],St0}, Pairs0),
+    map_split_pairs_1(A, Var, Pairs, Esp, St1).
 
-    case map_group_pairs(Pairs) of
-	{Assoc,[]} ->
-	    Kes = [#k_map_pair{key=K,val=V}||{_,{assoc,K,V}} <- Assoc],
-	    {#k_map{anno=A,op=assoc,var=Var,es=Kes},Esp,St1};
-	{[],Exact} ->
-	    Kes = [#k_map_pair{key=K,val=V}||{_,{exact,K,V}} <- Exact],
-	    {#k_map{anno=A,op=exact,var=Var,es=Kes},Esp,St1};
-	{Assoc,Exact} ->
-	    Kes1 = [#k_map_pair{key=K,val=V}||{_,{assoc,K,V}} <- Assoc],
-	    {Mvar,Em,St2} = force_atomic(#k_map{anno=A,op=assoc,var=Var,es=Kes1},St1),
-	    Kes2 = [#k_map_pair{key=K,val=V}||{_,{exact,K,V}} <- Exact],
-	    {#k_map{anno=A,op=exact,var=Mvar,es=Kes2},Esp ++ Em,St2}
+map_split_pairs_1(A, Map0, [{Op,Key,Val}|Pairs1]=Pairs0, Esp0, St0) ->
+    {Map1,Em,St1} = force_atomic(Map0, St0),
+    case Key of
+	#k_var{} ->
+	    %% Don't combine variable keys with other keys.
+	    Kes = [#k_map_pair{key=Key,val=Val}],
+	    Map = #k_map{anno=A,op=Op,var=Map1,es=Kes},
+	    map_split_pairs_1(A, Map, Pairs1, Esp0 ++ Em, St1);
+	_ ->
+	    %% Literal key. Split off all literal keys.
+	    {L,Pairs} = splitwith(fun({_,#k_var{},_}) -> false;
+				     ({_,_,_}) -> true
+				  end, Pairs0),
+	    {Map,Esp,St2} = map_group_pairs(A, Map1, L, Esp0 ++ Em, St1),
+	    map_split_pairs_1(A, Map, Pairs, Esp, St2)
+    end;
+map_split_pairs_1(_, Map, [], Esp, St0) ->
+    {Map,Esp,St0}.
 
+map_group_pairs(A, Var, Pairs0, Esp, St0) ->
+    Pairs = map_remove_dup_keys(Pairs0),
+    Assoc = [#k_map_pair{key=K,val=V} || {_,{assoc,K,V}} <- Pairs],
+    Exact = [#k_map_pair{key=K,val=V} || {_,{exact,K,V}} <- Pairs],
+    case {Assoc,Exact} of
+	{[_|_],[]} ->
+	    {#k_map{anno=A,op=assoc,var=Var,es=Assoc},Esp,St0};
+	{[],[_|_]} ->
+	    {#k_map{anno=A,op=exact,var=Var,es=Exact},Esp,St0};
+	{[_|_],[_|_]} ->
+	    Map = #k_map{anno=A,op=assoc,var=Var,es=Assoc},
+	    {Mvar,Em,St1} = force_atomic(Map, St0),
+	    {#k_map{anno=A,op=exact,var=Mvar,es=Exact},Esp ++ Em,St1}
     end.
 
-%% Group map by Assoc operations and Exact operations
+map_remove_dup_keys(Es) ->
+    dict:to_list(map_remove_dup_keys(Es, dict:new())).
 
-map_group_pairs(Es) ->
-    Groups = dict:to_list(map_group_pairs(Es,dict:new())),
-    partition(fun({_,{Op,_,_}}) -> Op =:= assoc end, Groups).
+map_remove_dup_keys([{assoc,K0,V}|Es0],Used0) ->
+    K = map_key_clean(K0),
+    Op = case dict:find(K, Used0) of
+	     {ok,{exact,_,_}} -> exact;
+	     _                -> assoc
+	 end,
+    Used1 = dict:store(K, {Op,K0,V}, Used0),
+    map_remove_dup_keys(Es0, Used1);
+map_remove_dup_keys([{exact,K0,V}|Es0],Used0) ->
+    K = map_key_clean(K0),
+    Op = case dict:find(K, Used0) of
+	     {ok,{assoc,_,_}} -> assoc;
+	     _                -> exact
+	 end,
+    Used1 = dict:store(K, {Op,K0,V}, Used0),
+    map_remove_dup_keys(Es0, Used1);
+map_remove_dup_keys([], Used) -> Used.
 
-map_group_pairs([{assoc,K,V}|Es0],Used0) ->
-    Used1 = case map_key_is_used(K,Used0) of
-	{ok, {assoc,_,_}} -> map_key_set_used(K,{assoc,K,V},Used0);
-	{ok, {exact,_,_}} -> map_key_set_used(K,{exact,K,V},Used0);
-	_                 -> map_key_set_used(K,{assoc,K,V},Used0)
-    end,
-    map_group_pairs(Es0,Used1);
-map_group_pairs([{exact,K,V}|Es0],Used0) ->
-    Used1 = case map_key_is_used(K,Used0) of
-	{ok, {assoc,_,_}} -> map_key_set_used(K,{assoc,K,V},Used0);
-	{ok, {exact,_,_}} -> map_key_set_used(K,{exact,K,V},Used0);
-	_                 -> map_key_set_used(K,{exact,K,V},Used0)
-    end,
-    map_group_pairs(Es0,Used1);
-map_group_pairs([],Used) ->
-    Used.
-
-map_key_set_used(K,How,Used) ->
-    dict:store(map_key_clean(K),How,Used).
-
-map_key_is_used(K,Used) ->
-    dict:find(map_key_clean(K),Used).
-
-%% Be explicit instead of using set_kanno(K,[])
-map_key_clean(#k_literal{val=V}) -> {k_literal,V};
-map_key_clean(#k_int{val=V})     -> {k_int,V};
-map_key_clean(#k_float{val=V})   -> {k_float,V};
-map_key_clean(#k_atom{val=V})    -> {k_atom,V};
-map_key_clean(#k_nil{})          -> k_nil.
+%% Be explicit instead of using set_kanno(K, []).
+map_key_clean(#k_var{name=V})    -> {var,V};
+map_key_clean(#k_literal{val=V}) -> {lit,V};
+map_key_clean(#k_int{val=V})     -> {lit,V};
+map_key_clean(#k_float{val=V})   -> {lit,V};
+map_key_clean(#k_atom{val=V})    -> {lit,V};
+map_key_clean(#k_nil{})          -> {lit,[]}.
 
 
 %% call_type(Module, Function, Arity) -> call | bif | apply | error.
@@ -660,12 +656,12 @@ atomic_bin([#c_bitstr{anno=A,val=E0,size=S0,unit=U0,type=T,flags=Fs0}|Es0],
     {E,Ap1,St1} = atomic(E0, Sub, St0),
     {S1,Ap2,St2} = atomic(S0, Sub, St1),
     validate_bin_element_size(S1),
-    U1 = core_lib:literal_value(U0),
-    Fs1 = core_lib:literal_value(Fs0),
+    U1 = cerl:concrete(U0),
+    Fs1 = cerl:concrete(Fs0),
     {Es,Ap3,St3} = atomic_bin(Es0, Sub, St2),
     {#k_bin_seg{anno=A,size=S1,
 		unit=U1,
-		type=core_lib:literal_value(T),
+		type=cerl:concrete(T),
 		flags=Fs1,
 		seg=E,next=Es},
      Ap1++Ap2++Ap3,St3};
@@ -720,15 +716,15 @@ force_variable(Ke, St0) ->
 %%  handling.
 
 pattern(#c_var{anno=A,name=V}, _Isub, Osub, St0) ->
-    case sets:is_element(V, St0#kern.ds) of
+    case cerl_sets:is_element(V, St0#kern.ds) of
 	true ->
 	    {New,St1} = new_var_name(St0),
 	    {#k_var{anno=A,name=New},
 	     set_vsub(V, New, Osub),
-	     St1#kern{ds=sets:add_element(New, St1#kern.ds)}};
+	     St1#kern{ds=cerl_sets:add_element(New, St1#kern.ds)}};
 	false ->
 	    {#k_var{anno=A,name=V},Osub,
-	     St0#kern{ds=sets:add_element(V, St0#kern.ds)}}
+	     St0#kern{ds=cerl_sets:add_element(V, St0#kern.ds)}}
     end;
 pattern(#c_literal{anno=A,val=Val}, _Isub, Osub, St) ->
     {#k_literal{anno=A,val=Val},Osub,St};
@@ -757,23 +753,22 @@ flatten_alias(#c_alias{var=V,pat=P}) ->
 flatten_alias(Pat) -> {[],Pat}.
 
 pattern_map_pairs(Ces0, Isub, Osub0, St0) ->
-    %% It is assumed that all core keys are literals
-    %% It is later assumed that these keys are term sorted
-    %% so we need to sort them here
-    Ces1 = lists:sort(fun
-	    (#c_map_pair{key=CkA},#c_map_pair{key=CkB}) ->
-		A = core_lib:literal_value(CkA),
-		B = core_lib:literal_value(CkB),
-		erts_internal:cmp_term(A,B) < 0
-	end, Ces0),
     %% pattern the pair keys and values as normal
     {Kes,{Osub1,St1}} = lists:mapfoldl(fun
 	    (#c_map_pair{anno=A,key=Ck,val=Cv},{Osubi0,Sti0}) ->
-		{Kk,Osubi1,Sti1} = pattern(Ck, Isub, Osubi0, Sti0),
-		{Kv,Osubi2,Sti2} = pattern(Cv, Isub, Osubi1, Sti1),
+		{Kk,[],Sti1} = expr(Ck, Isub, Sti0),
+		{Kv,Osubi2,Sti2} = pattern(Cv, Isub, Osubi0, Sti1),
 		{#k_map_pair{anno=A,key=Kk,val=Kv},{Osubi2,Sti2}}
-	end, {Osub0, St0}, Ces1),
-    {Kes,Osub1,St1}.
+	end, {Osub0, St0}, Ces0),
+    %% It is later assumed that these keys are term sorted
+    %% so we need to sort them here
+    Kes1 = lists:sort(fun
+	    (#k_map_pair{key=KkA},#k_map_pair{key=KkB}) ->
+		A = map_key_clean(KkA),
+		B = map_key_clean(KkB),
+		erts_internal:cmp_term(A,B) < 0
+	end, Kes),
+    {Kes1,Osub1,St1}.
 
 pattern_bin(Es, Isub, Osub0, St0) ->
     {Kbin,{_,Osub},St} = pattern_bin_1(Es, Isub, Osub0, St0),
@@ -793,8 +788,8 @@ pattern_bin_1([#c_bitstr{anno=A,val=E0,size=S0,unit=U,type=T,flags=Fs}|Es0],
 		%% problems.
 		#k_atom{val=bad_size}
 	end,
-    U0 = core_lib:literal_value(U),
-    Fs0 = core_lib:literal_value(Fs),
+    U0 = cerl:concrete(U),
+    Fs0 = cerl:concrete(Fs),
     %%ok= io:fwrite("~w: ~p~n", [?LINE,{B0,S,U0,Fs0}]),
     {E,Osub1,St2} = pattern(E0, Isub0, Osub0, St1),
     Isub1 = case E0 of
@@ -805,7 +800,7 @@ pattern_bin_1([#c_bitstr{anno=A,val=E0,size=S0,unit=U,type=T,flags=Fs}|Es0],
     {Es,{Isub,Osub},St3} = pattern_bin_1(Es0, Isub1, Osub1, St2),
     {#k_bin_seg{anno=A,size=S,
 		unit=U0,
-		type=core_lib:literal_value(T),
+		type=cerl:concrete(T),
 		flags=Fs0,
 		seg=E,next=Es},
      {Isub,Osub},St3};
@@ -842,12 +837,23 @@ get_vsub(V, Vsub) ->
 set_vsub(V, S, Vsub) ->
     orddict:store(V, S, Vsub).
 
-subst_vsub(V, S, Vsub0) ->
-    %% Fold chained substitutions.
-    Vsub1 = orddict:map(fun (_, V1) when V1 =:= V -> S;
-			    (_, V1) -> V1
-			end, Vsub0),
-    orddict:store(V, S, Vsub1).
+subst_vsub(Key, New, [{K,Key}|Dict]) ->
+    %% Fold chained substitution.
+    [{K,New}|subst_vsub(Key, New, Dict)];
+subst_vsub(Key, New, [{K,_}|_]=Dict) when Key < K ->
+    %% Insert the new substitution here, and continue
+    %% look for chained substitutions.
+    [{Key,New}|subst_vsub_1(Key, New, Dict)];
+subst_vsub(Key, New, [{K,_}=E|Dict]) when Key > K ->
+    [E|subst_vsub(Key, New, Dict)];
+subst_vsub(Key, New, []) -> [{Key,New}].
+
+subst_vsub_1(V, S, [{K,V}|Dict]) ->
+    %% Fold chained substitution.
+    [{K,S}|subst_vsub_1(V, S, Dict)];
+subst_vsub_1(V, S, [E|Dict]) ->
+    [E|subst_vsub_1(V, S, Dict)];
+subst_vsub_1(_, _, []) -> [].
 
 get_fsub(F, A, Fsub) ->
     case orddict:find({F,A}, Fsub) of
@@ -892,7 +898,7 @@ new_vars(0, St, Vs) -> {Vs,St}.
 make_vars(Vs) -> [ #k_var{name=V} || V <- Vs ].
 
 add_var_def(V, St) ->
-    St#kern{ds=sets:add_element(V#k_var.name, St#kern.ds)}.
+    St#kern{ds=cerl_sets:add_element(V#k_var.name, St#kern.ds)}.
 
 %%add_vars_def(Vs, St) ->
 %%    Ds = foldl(fun (#k_var{name=V}, Ds) -> add_element(V, Ds) end,
@@ -1550,13 +1556,11 @@ arg_val(Arg, C) ->
 		    {set_kanno(S, []),U,T,Fs}
 	    end;
 	#k_map{op=exact,es=Es} ->
-	    Keys = [begin
-			#k_map_pair{key=#k_literal{val=Key}} = Pair,
-			Key
-		    end || Pair <- Es],
-	    %% multiple keys may have the same name
-	    %% do not use ordsets
-	    lists:sort(fun(A,B) -> erts_internal:cmp_term(A,B) < 0 end, Keys)
+	    lists:sort(fun(A,B) ->
+			%% on the form K :: {'lit' | 'var', term()}
+			%% lit < var as intended
+			erts_internal:cmp_term(A,B) < 0
+		end, [map_key_clean(Key) || #k_map_pair{key=Key} <- Es])
     end.
 
 %% ubody_used_vars(Expr, State) -> [UsedVar]
@@ -1943,6 +1947,7 @@ lit_list_vars(Ps) ->
 %% pat_vars(Pattern) -> {[UsedVarName],[NewVarName]}.
 %%  Return variables in a pattern.  All variables are new variables
 %%  except those in the size field of binary segments.
+%%  and map_pair keys
 
 pat_vars(#k_var{name=N}) -> {[],[N]};
 %%pat_vars(#k_char{}) -> {[],[]};
@@ -1967,8 +1972,10 @@ pat_vars(#k_tuple{es=Es}) ->
     pat_list_vars(Es);
 pat_vars(#k_map{es=Es}) ->
     pat_list_vars(Es);
-pat_vars(#k_map_pair{val=V}) ->
-    pat_vars(V).
+pat_vars(#k_map_pair{key=K,val=V}) ->
+    {U1,New} = pat_vars(V),
+    {[], U2} = pat_vars(K),
+    {union(U1,U2),New}.
 
 pat_list_vars(Ps) ->
     foldl(fun (P, {Used0,New0}) ->
@@ -2009,9 +2016,7 @@ format_error(nomatch_shadow) ->
 format_error(bad_call) ->
     "invalid module and/or function name; this call will always fail";
 format_error(bad_segment_size) ->
-    "binary construction will fail because of a type mismatch";
-format_error(bad_map) ->
-    "map construction will fail because of a type mismatch".
+    "binary construction will fail because of a type mismatch".
 
 add_warning(none, Term, Anno, #kern{ws=Ws}=St) ->
     File = get_file(Anno),

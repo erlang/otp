@@ -8,16 +8,17 @@
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
-      The contents of this file are subject to the Erlang Public License,
-      Version 1.1, (the "License"); you may not use this file except in
-      compliance with the License. You should have received a copy of the
-      Erlang Public License along with this software. If not, it can be
-      retrieved online at http://www.erlang.org/.
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
 
-      Software distributed under the License is distributed on an "AS IS"
-      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-      the License for the specific language governing rights and limitations
-      under the License.
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
     </legalnotice>
 
     <title>Crashdump Viewer</title>
@@ -228,19 +229,16 @@
     <p>The <em>ETS Tables</em> panel shows all ETS table information
     found in the dump. The 'Id' is the same as the 'Table' field found
     in the raw crashdump, and 'Memory' is the 'Words' field from the
-    raw crashdump translated into bytes. 'Type' is the type of table,
-    and it can be either "hash" or "tree". For tree tables there will
-    be no value in the 'Bucket' field.</p>
+    raw crashdump translated into bytes. For tree tables there will
+    be no value in the 'Objects' field.</p>
+
+    <p>To open the detailed information page about the table, double
+    click or right click the row and select "Properties for
+    'Identifier'".</p>
 
     <p>To open the detailed information page about the owner process
     of an ETS table, right click the row and select "Properties for
     &lt;pid&gt;".</p>
-
-    <p>Double clicking a row in the ETS Tables panel has no
-    effect.</p>
-
-    <p>From the left hand menu you can also select to see internal ETS
-    tables.</p>
 
     <p>
       <seealso marker="erts:crash_dump#ets_tables">
@@ -263,6 +261,22 @@
 
     <p>
       <seealso marker="erts:crash_dump#timers">More...</seealso>
+    </p>
+  </section>
+
+  <section>
+    <marker id="schedulers"/>
+    <title>Schedulers</title>
+
+    <p>The <em>Schedulers</em> panel shows all scheduler information
+    found in the dump.</p>
+
+    <p>To open the detailed information page about the scheduler,
+    double click or right click the row and select "Properties for
+    'Identifier'".</p>
+
+    <p>
+      <seealso marker="erts:crash_dump">More...</seealso>
     </p>
   </section>
 

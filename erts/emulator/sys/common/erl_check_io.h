@@ -3,16 +3,17 @@
  * 
  * Copyright Ericsson AB 2006-2011. All Rights Reserved.
  * 
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
- * 
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  * 
  * %CopyrightEnd%
  */
@@ -47,8 +48,8 @@ void erts_check_io_async_sig_interrupt_nkp(void);
 #endif
 void erts_check_io_interrupt_kp(int);
 void erts_check_io_interrupt_nkp(int);
-void erts_check_io_interrupt_timed_kp(int, erts_short_time_t);
-void erts_check_io_interrupt_timed_nkp(int, erts_short_time_t);
+void erts_check_io_interrupt_timed_kp(int, ErtsMonotonicTime);
+void erts_check_io_interrupt_timed_nkp(int, ErtsMonotonicTime);
 void erts_check_io_kp(int);
 void erts_check_io_nkp(int);
 void erts_init_check_io_kp(void);
@@ -65,7 +66,7 @@ int erts_check_io_max_files(void);
 void erts_check_io_async_sig_interrupt(void);
 #endif
 void erts_check_io_interrupt(int);
-void erts_check_io_interrupt_timed(int, erts_short_time_t);
+void erts_check_io_interrupt_timed(int, ErtsMonotonicTime);
 void erts_check_io(int);
 void erts_init_check_io(void);
 

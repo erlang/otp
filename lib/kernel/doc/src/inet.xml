@@ -8,16 +8,17 @@
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
-      The contents of this file are subject to the Erlang Public License,
-      Version 1.1, (the "License"); you may not use this file except in
-      compliance with the License. You should have received a copy of the
-      Erlang Public License along with this software. If not, it can be
-      retrieved online at http://www.erlang.org/.
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
 
-      Software distributed under the License is distributed on an "AS IS"
-      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-      the License for the specific language governing rights and limitations
-      under the License.
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
 
     </legalnotice>
 
@@ -1035,6 +1036,36 @@ setcap cap_sys_admin,cap_sys_ptrace,cap_dac_read_search+epi beam.smp
               <c>true</c> which will automatically close the socket.
               Default is <c>false</c> due to backward compatibility.</p>
 			<marker id="option-sndbuf"></marker>
+          </item>
+
+          <tag><c>{show_econnreset, Boolean}</c>(TCP/IP sockets)</tag>
+          <item>
+            <p>When this option is set to <c>false</c>, as it is by
+              default, an RST that is received from the TCP peer is treated
+              as a normal close (as though a FIN was sent). A caller
+              to <seealso marker="gen_tcp#recv/2">gen_tcp:recv/2</seealso>
+              will get <c>{error, closed}</c>. In active
+              mode the controlling process will receive a
+              <c>{tcp_close, Socket}</c> message, indicating that the
+              peer has closed the connection.</p>
+            <p>Setting this option to <c>true</c> will allow you to
+              distinguish between a connection that was closed normally,
+              and one which was aborted (intentionally or unintentionally)
+              by the TCP peer. A call to
+              <seealso marker="gen_tcp#recv/2">gen_tcp:recv/2</seealso>
+              will return <c>{error, econnreset}</c>. In
+              active mode, the controlling process will receive a
+              <c>{tcp_error, Socket, econnreset}</c> message
+              before the usual <c>{tcp_closed, Socket}</c>, as is
+              the case for any other socket error. Calls to
+              <seealso marker="gen_tcp#send/2">gen_tcp:send/2</seealso>
+              will also return <c>{error, econnreset}</c> when it
+              is detected that a TCP peer has sent an RST.</p>
+            <p>A connected socket returned from
+              <seealso marker="gen_tcp#accept/1">gen_tcp:accept/1</seealso>
+              will inherit the <c>show_econnreset</c> setting from the
+              listening socket.</p>
+			<marker id="option-show_econnreset"></marker>
           </item>
 
           <tag><c>{sndbuf, Size}</c></tag>

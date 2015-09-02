@@ -3,16 +3,17 @@
 %% 
 %% Copyright Ericsson AB 2003-2012. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %%
@@ -24,7 +25,8 @@
 	 catch_oops/1,after_oops/1,eclectic/1,rethrow/1,
 	 nested_of/1,nested_catch/1,nested_after/1,
 	 nested_horrid/1,last_call_optimization/1,bool/1,
-	 plain_catch_coverage/1,andalso_orelse/1,get_in_try/1]).
+	 plain_catch_coverage/1,andalso_orelse/1,get_in_try/1,
+	 hockey/1]).
 
 -include_lib("test_server/include/test_server.hrl").
 
@@ -35,11 +37,12 @@ all() ->
     [{group,p}].
 
 groups() -> 
-    [{p,test_lib:parallel(),
+    [{p,[parallel],
       [basic,lean_throw,try_of,try_after,catch_oops,
        after_oops,eclectic,rethrow,nested_of,nested_catch,
        nested_after,nested_horrid,last_call_optimization,
-       bool,plain_catch_coverage,andalso_orelse,get_in_try]}].
+       bool,plain_catch_coverage,andalso_orelse,get_in_try,
+       hockey]}].
 
 
 init_per_suite(Config) ->
@@ -790,7 +793,6 @@ nested_after_1({X1,C1,V1},
 
 
 nested_horrid(Config) when is_list(Config) ->
-    _V = {make_ref(),nested_horrid,4.711},
     {[true,true],{[true,1.0],1.0}} =
 	nested_horrid_1({true,void,void}, 1.0),
     ok.
@@ -944,3 +946,14 @@ get_valid_line([_|T]=Path, Annotations) ->
         _:not_found ->
             get_valid_line(T, Annotations)
     end.
+
+hockey(_) ->
+    {'EXIT',{{badmatch,_},[_|_]}} = (catch hockey()),
+    ok.
+
+hockey() ->
+    %% beam_jump used to generate a call into the try block.
+    %% beam_validator disapproved.
+    receive _ -> (b = fun() -> ok end)
+    + hockey, +x after 0 -> ok end, try (a = fun() -> ok end) + hockey, +
+    y catch _ -> ok end.

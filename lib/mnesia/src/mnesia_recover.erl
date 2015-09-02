@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 1997-2014. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -178,11 +179,8 @@ log_decision(D) ->
 
 val(Var) ->
     case ?catch_val(Var) of
-	{'EXIT', Reason} ->
-            case mnesia_lib:other_val(Var) of
-                error -> mnesia_lib:pr_other(Var, Reason);
-                Val -> Val
-            end;
+	{'EXIT', _Reason} ->
+	    mnesia_lib:other_val(Var);
 	Value -> Value
     end.
 
@@ -373,11 +371,8 @@ log_master_nodes2([], _UseDir, IsRunning, WorstRes) ->
 get_master_node_info() ->
     Tab = mnesia_decision,
     Pat = {master_nodes, '_', '_'},
-    case catch mnesia_lib:db_match_object(ram_copies,Tab, Pat) of
-	{'EXIT', _} ->
-	    [];
-	Masters ->
-	    Masters
+    try mnesia_lib:db_match_object(ram_copies,Tab, Pat)
+    catch error:_ -> []
     end.
 
 get_master_node_tables() ->
@@ -385,9 +380,8 @@ get_master_node_tables() ->
     [Tab || {master_nodes, Tab, _Nodes} <- Masters].
 
 get_master_nodes(Tab) ->
-    case catch ?ets_lookup_element(mnesia_decision, Tab, 3) of
-	{'EXIT', _} -> [];
-	Nodes  -> Nodes
+    try ?ets_lookup_element(mnesia_decision, Tab, 3)
+    catch error:_ -> []
     end.
 
 %% Determine what has happened to the transaction
@@ -485,8 +479,6 @@ load_decision_tab() ->
     load_decision_tab(Cont, load_decision_tab),
     mnesia_log:close_decision_tab().
 
-load_decision_tab(eof, _InitBy) ->
-    ok;
 load_decision_tab(Cont, InitBy) ->
     case mnesia_log:chunk_decision_tab(Cont) of
 	{Cont2, Decisions} ->
@@ -519,8 +511,6 @@ dump_decision_log(InitBy) ->
     Cont = mnesia_log:prepare_decision_log_dump(),
     perform_dump_decision_log(Cont, InitBy).
 
-perform_dump_decision_log(eof, _InitBy) ->
-    confirm_decision_log_dump();
 perform_dump_decision_log(Cont, InitBy) when InitBy == startup ->
     case mnesia_log:chunk_decision_log(Cont) of
 	{Cont2, Decisions} ->
@@ -1024,7 +1014,7 @@ decision(Tid) ->
     decision(Tid, tabs()).
 
 decision(Tid, [Tab | Tabs]) ->
-    case catch ?ets_lookup(Tab, Tid) of
+    try ?ets_lookup(Tab, Tid) of
 	[D] when is_record(D, decision) ->
 	    D;
 	[C] when is_record(C, transient_decision) ->
@@ -1034,8 +1024,8 @@ decision(Tid, [Tab | Tabs]) ->
 		      ram_nodes = []
 		     };
 	[] ->
-	    decision(Tid, Tabs);
-	{'EXIT', _} ->
+	    decision(Tid, Tabs)
+    catch error:_ ->
 	    %% Recently switched transient decision table
 	    decision(Tid, Tabs)
     end;
@@ -1046,11 +1036,8 @@ outcome(Tid, Default) ->
     outcome(Tid, Default, tabs()).
 
 outcome(Tid, Default, [Tab | Tabs]) ->
-    case catch ?ets_lookup_element(Tab, Tid, 3) of
-	{'EXIT', _} ->
-	    outcome(Tid, Default, Tabs);
-	Val ->
-	    Val
+    try ?ets_lookup_element(Tab, Tid, 3)
+    catch error:_ -> outcome(Tid, Default, Tabs)
     end;
 outcome(_Tid, Default, []) ->
     Default.

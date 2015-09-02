@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 2000-2015. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -23,7 +24,7 @@
 	 init_per_suite/1,end_per_suite/1]).
 -export([undefined_functions/1,deprecated_not_in_obsolete/1,
 	 obsolete_but_not_deprecated/1,call_to_deprecated/1,
-         call_to_size_1/1,strong_components/1,
+         call_to_size_1/1,call_to_now_0/1,strong_components/1,
 	 erl_file_encoding/1,xml_file_encoding/1,runtime_dependencies/1]).
 
 -include_lib("test_server/include/test_server.hrl").
@@ -35,7 +36,7 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 all() -> 
     [undefined_functions, deprecated_not_in_obsolete,
      obsolete_but_not_deprecated, call_to_deprecated,
-     call_to_size_1, strong_components,
+     call_to_size_1, call_to_now_0, strong_components,
      erl_file_encoding, xml_file_encoding,
      runtime_dependencies].
 
@@ -287,48 +288,58 @@ call_to_deprecated(Config) when is_list(Config) ->
     {comment,integer_to_list(length(DeprecatedCalls))++" calls to deprecated functions"}.
 
 call_to_size_1(Config) when is_list(Config) ->
-    Server = ?config(xref_server, Config),
-
     %% Applications that do not call erlang:size/1:
     Apps = [asn1,compiler,debugger,kernel,observer,parsetools,
 	    runtime_tools,stdlib,tools,webtool],
+    not_recommended_calls(Config, Apps, {erlang,size,1}).
 
-    Fs = [{erlang,size,1}],
+call_to_now_0(Config) when is_list(Config) ->
+    %% Applications that do not call erlang:now/1:
+    Apps = [asn1,common_test,compiler,debugger,dialyzer,
+	    gs,kernel,mnesia,observer,parsetools,reltool,
+	    runtime_tools,sasl,stdlib,syntax_tools,
+	    test_server,tools,webtool],
+    not_recommended_calls(Config, Apps, {erlang,now,0}).
+
+not_recommended_calls(Config, Apps, MFA) ->
+    Server = ?config(xref_server, Config),
+
+    Fs = [MFA],
 
     Q1 = io_lib:format("E || ~p : Fun", [Fs]),
-    ?line {ok,AllCallsToSize1} = xref:q(Server, lists:flatten(Q1)),
+    {ok,AllCallsToMFA} = xref:q(Server, lists:flatten(Q1)),
 
     Q2 = io_lib:format("E | ~p : App || ~p : Fun", [Apps,Fs]),
-    ?line {ok,CallsToSize1} = xref:q(Server, lists:flatten(Q2)),
+    {ok,CallsToMFA} = xref:q(Server, lists:flatten(Q2)),
 
-    case CallsToSize1 of
+    case CallsToMFA of
 	[] -> 
             ok;
 	_ ->
-            io:format("These calls cause an error:~n"),
+            io:format("These calls are not allowed:\n"),
 	    foreach(fun ({MFA1,MFA2}) ->
-			    io:format("~s calls soon to be deprecated ~s",
+			    io:format("~s calls non-recommended ~s",
 				      [format_mfa(MFA1),format_mfa(MFA2)])
-		    end, CallsToSize1)
+		    end, CallsToMFA)
     end,
 
-    %% Enumerate calls to erlang:size/1 from other applications than
-    %% the ones known not to call erlang:size/1:
-    case AllCallsToSize1--CallsToSize1 of
+    %% Enumerate calls to MFA from other applications than
+    %% the ones known not to call MFA:
+    case AllCallsToMFA--CallsToMFA of
         [] ->
             ok;
         Calls ->
-            io:format("~n~nThese calls do not cause an error (yet):~n"),
+            io:format("~n~nThese calls are allowed for now:\n"),
             foreach(fun ({MFA1,MFA2}) ->
-                            io:format("~s calls soon to be deprecated ~s",
+                            io:format("~s calls non-recommended ~s",
                                       [format_mfa(MFA1),format_mfa(MFA2)])
                     end, Calls)
     end,
-    case CallsToSize1 of
+    case CallsToMFA of
 	[] -> 
             ok;
 	_ ->
-	    ?line ?t:fail({length(CallsToSize1),calls_to_size_1})
+	    ?t:fail({length(CallsToMFA),calls_to_size_1})
     end.
 
 strong_components(Config) when is_list(Config) ->

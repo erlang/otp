@@ -8,16 +8,17 @@
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
-      The contents of this file are subject to the Erlang Public License,
-      Version 1.1, (the "License"); you may not use this file except in
-      compliance with the License. You should have received a copy of the
-      Erlang Public License along with this software. If not, it can be
-      retrieved online at http://www.erlang.org/.
-    
-      Software distributed under the License is distributed on an "AS IS"
-      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-      the License for the specific language governing rights and limitations
-      under the License.
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
     
     </legalnotice>
 
@@ -65,34 +66,6 @@
 	to lengthy work may also vary between OTP releases.</p></item>
       </list>
       </warning>
-
-     <p>The NIF concept is officially supported from R14B. NIF source code
-     written for earlier experimental versions might need adaption to run on R14B
-     or later versions:</p>
-     <list>
-       <item>No incompatible changes between <em>R14B</em> and R14A.</item>
-       <item>Incompatible changes between <em>R14A</em> and R13B04:
-       <list>
-	 <item>Environment argument removed for <c>enif_alloc</c>,
-	 <c>enif_realloc</c>, <c>enif_free</c>, <c>enif_alloc_binary</c>,
-	 <c>enif_realloc_binary</c>, <c>enif_release_binary</c>,
-	 <c>enif_alloc_resource</c>, <c>enif_release_resource</c>,
-	 <c>enif_is_identical</c> and <c>enif_compare</c>.</item>
-	 <item>Character encoding argument added to <c>enif_get_atom</c>
-	 and <c>enif_make_existing_atom</c>.</item>
-	 <item>Module argument added to <c>enif_open_resource_type</c>
-	 while changing name spaces of resource types from global to module local.</item>
-       </list>
-     </item>
-     <item>Incompatible changes between <em>R13B04</em> and R13B03:
-     <list>
-       <item>The function prototypes of the NIFs have  changed to expect <c>argc</c> and <c>argv</c>
-       arguments. The arity of a NIF is by that no longer limited to 3.</item>
-       <item><c>enif_get_data</c> renamed as <c>enif_priv_data</c>.</item>
-       <item><c>enif_make_string</c> got a third argument for character encoding.</item>
-     </list>
-     </item>
-    </list>
 
     <p>A minimal example of a NIF library can look like this:</p>
       <p/>
@@ -489,8 +462,9 @@ ok
         independent environment with all its terms is valid until you explicitly
         invalidates it with <seealso marker="#enif_free_env">enif_free_env</seealso>
         or <c>enif_send</c>.</p>
-        <p>All elements of a list/tuple must belong to the same environment as the
-        list/tuple itself. Terms can be copied between environments with
+        <p>All contained terms of a list/tuple/map must belong to the same
+	environment as the list/tuple/map itself. Terms can be copied between
+	environments with
         <seealso marker="#enif_make_copy">enif_make_copy</seealso>.</p>
       </item>
     <tag><marker id="ErlNifFunc"/>ErlNifFunc</tag>
@@ -592,11 +566,11 @@ typedef enum {
 
   <funcs>
     <func><name><ret>void *</ret><nametext>enif_alloc(size_t size)</nametext></name>
-      <fsummary>Allocate dynamic memory.</fsummary>
+      <fsummary>Allocate dynamic memory</fsummary>
       <desc><p>Allocate memory of <c>size</c> bytes. Return NULL if allocation failed.</p></desc>
     </func>
     <func><name><ret>int</ret><nametext>enif_alloc_binary(size_t size, ErlNifBinary* bin)</nametext></name>
-      <fsummary>Create a new binary.</fsummary>
+      <fsummary>Create a new binary</fsummary>
       <desc><p>Allocate a new binary of size <c>size</c>
       bytes. Initialize the structure pointed to by <c>bin</c> to
       refer to the allocated binary. The binary must either be released by 
@@ -623,7 +597,7 @@ typedef enum {
       <desc><p>Allocate a memory managed resource object of type <c>type</c> and size <c>size</c> bytes.</p></desc>
     </func>
     <func><name><ret>void</ret><nametext>enif_clear_env(ErlNifEnv* env)</nametext></name>
-      <fsummary>Clear an environment for reuse.</fsummary>
+      <fsummary>Clear an environment for reuse</fsummary>
       <desc><p>Free all terms in an environment and clear it for reuse. The environment must
       have been allocated with <seealso marker="#enif_alloc_env">enif_alloc_env</seealso>.
       </p></desc>
@@ -711,14 +685,14 @@ typedef enum {
               <c>size-1</c>.</p></desc>
     </func>
     <func><name><ret>int</ret><nametext>enif_get_atom_length(ErlNifEnv* env, ERL_NIF_TERM term, unsigned* len, ErlNifCharEncoding encode)</nametext></name>
-      <fsummary>Get the length of atom <c>term</c>.</fsummary>
+      <fsummary>Get the length of atom <c>term</c></fsummary>
       <desc><p>Set <c>*len</c> to the length (number of bytes excluding
       terminating null character) of the atom <c>term</c> with encoding
       <c>encode</c>. Return true on success or false if <c>term</c> is not an
       atom.</p></desc>
     </func>
     <func><name><ret>int</ret><nametext>enif_get_double(ErlNifEnv* env, ERL_NIF_TERM term, double* dp)</nametext></name>
-      <fsummary>Read a floating-point number term.</fsummary>
+      <fsummary>Read a floating-point number term</fsummary>
       <desc><p>Set <c>*dp</c> to the floating point value of
       <c>term</c>. Return true on success or false if <c>term</c> is not a float.</p></desc>
     </func>
@@ -747,17 +721,28 @@ typedef enum {
       non-empty list.</p></desc>
     </func>
     <func><name><ret>int</ret><nametext>enif_get_list_length(ErlNifEnv* env, ERL_NIF_TERM term, unsigned* len)</nametext></name>
-      <fsummary>Get the length of list <c>term</c>.</fsummary>
+      <fsummary>Get the length of list <c>term</c></fsummary>
       <desc><p>Set <c>*len</c> to the length of list <c>term</c> and return true,
       or return false if <c>term</c> is not a list.</p></desc>
     </func>
     <func><name><ret>int</ret><nametext>enif_get_long(ErlNifEnv* env, ERL_NIF_TERM term, long int* ip)</nametext></name>
-      <fsummary>Read an long integer term.</fsummary>
+      <fsummary>Read an long integer term</fsummary>
       <desc><p>Set <c>*ip</c> to the long integer value of <c>term</c> and
       return true, or return false if <c>term</c> is not an integer or is
       outside the bounds of type <c>long int</c>.</p></desc>
     </func>
-    <func><name><ret>int</ret><nametext>enif_get_resource(ErlNifEnv* env, ERL_NIF_TERM term, ErlNifResourceType* type, void** objp)</nametext></name>
+    <func><name><ret>int</ret><nametext>enif_get_map_size(ErlNifEnv* env, ERL_NIF_TERM term, size_t *size)</nametext></name>
+      <fsummary>Read the size of a map term</fsummary>
+      <desc><p>Set <c>*size</c> to the number of key-value pairs in the map <c>term</c> and
+      return true, or return false if <c>term</c> is not a map.</p></desc>
+    </func>
+    <func><name><ret>int</ret><nametext>enif_get_map_value(ErlNifEnv* env, ERL_NIF_TERM map, ERL_NIF_TERM key, ERL_NIF_TERM* value)</nametext></name>
+     <fsummary>Get the value of a key in a map</fsummary>
+      <desc><p>Set <c>*value</c> to the value associated with <c>key</c> in the
+      map <c>map</c> and return true. Return false if <c>map</c> is not a map
+      or if <c>map</c> does not contain <c>key</c>.</p></desc>
+    </func>
+   <func><name><ret>int</ret><nametext>enif_get_resource(ErlNifEnv* env, ERL_NIF_TERM term, ErlNifResourceType* type, void** objp)</nametext></name>
       <fsummary>Get the pointer to a resource object</fsummary>
       <desc><p>Set <c>*objp</c> to point to the resource object referred to by <c>term</c>.</p>
       <p>Return true on success or false if <c>term</c> is not a handle to a resource object
@@ -766,7 +751,7 @@ typedef enum {
     <func><name><ret>int</ret><nametext>enif_get_string(ErlNifEnv* env, 
                                 ERL_NIF_TERM list, char* buf, unsigned size,
                                 ErlNifCharEncoding encode)</nametext></name>
-      <fsummary>Get a C-string from a list.</fsummary>
+      <fsummary>Get a C-string from a list</fsummary>
       <desc><p>Write a null-terminated string, in the buffer pointed to by
               <c>buf</c> with size <c>size</c>, consisting of the characters
               in the string <c>list</c>. The characters are written using encoding
@@ -779,7 +764,7 @@ typedef enum {
               <c>size</c> is less than 1.</p></desc>
     </func>
     <func><name><ret>int</ret><nametext>enif_get_tuple(ErlNifEnv* env, ERL_NIF_TERM term, int* arity, const ERL_NIF_TERM** array)</nametext></name>
-      <fsummary>Inspect the elements of a tuple.</fsummary>
+      <fsummary>Inspect the elements of a tuple</fsummary>
       <desc><p>If <c>term</c> is a tuple, set <c>*array</c> to point
       to an array containing the elements of the tuple and set
       <c>*arity</c> to the number of elements. Note that the array
@@ -789,22 +774,35 @@ typedef enum {
       tuple.</p></desc>
     </func>
     <func><name><ret>int</ret><nametext>enif_get_uint(ErlNifEnv* env, ERL_NIF_TERM term, unsigned int* ip)</nametext></name>
-      <fsummary>Read an unsigned integer term.</fsummary>
+      <fsummary>Read an unsigned integer term</fsummary>
       <desc><p>Set <c>*ip</c> to the unsigned integer value of <c>term</c> and
       return true, or return false if <c>term</c> is not an unsigned integer or
       is outside the bounds of type <c>unsigned int</c>.</p></desc>
     </func>
     <func><name><ret>int</ret><nametext>enif_get_uint64(ErlNifEnv* env, ERL_NIF_TERM term, ErlNifUInt64* ip)</nametext></name>
-      <fsummary>Read an unsigned 64-bit integer term.</fsummary>
+      <fsummary>Read an unsigned 64-bit integer term</fsummary>
       <desc><p>Set <c>*ip</c> to the unsigned integer value of <c>term</c> and
       return true, or return false if <c>term</c> is not an unsigned integer or
       is outside the bounds of an unsigned 64-bit integer.</p></desc>
     </func>
     <func><name><ret>int</ret><nametext>enif_get_ulong(ErlNifEnv* env, ERL_NIF_TERM term, unsigned long* ip)</nametext></name>
-      <fsummary>Read an unsigned integer term.</fsummary>
+      <fsummary>Read an unsigned integer term</fsummary>
       <desc><p>Set <c>*ip</c> to the unsigned long integer value of <c>term</c>
       and return true, or return false if <c>term</c> is not an unsigned integer or is
       outside the bounds of type <c>unsigned long</c>.</p></desc>
+    </func>
+    <func><name><ret>int</ret><nametext>enif_has_pending_exception(ErlNifEnv* env, ERL_NIF_TERM* reason)</nametext></name>
+      <fsummary>Check if an exception has been raised</fsummary>
+      <desc><p>Return true if a pending exception is associated
+      with the environment <c>env</c>. If <c>reason</c> is a null pointer, ignore it.
+      Otherwise, if there's a pending exception associated with <c>env</c>, set the ERL_NIF_TERM
+      to which <c>reason</c> points to the value of the exception's term. For example, if
+      <seealso marker="#enif_make_badarg">enif_make_badarg</seealso> is called to set a
+      pending <c>badarg</c> exception, a subsequent call to <c>enif_has_pending_exception(env, &amp;reason)</c>
+      will set <c>reason</c> to the atom <c>badarg</c>, then return true.</p>
+      <p>See also: <seealso marker="#enif_make_badarg">enif_make_badarg</seealso>
+      and <seealso marker="#enif_raise_exception">enif_raise_exception</seealso>.</p>
+      </desc>
     </func>
     <func><name><ret>int</ret><nametext>enif_inspect_binary(ErlNifEnv* env, ERL_NIF_TERM bin_term, ErlNifBinary* bin)</nametext></name>
       <fsummary>Inspect the content of a binary</fsummary>
@@ -838,6 +836,10 @@ typedef enum {
     <marker id="enif_is_exception"/><func><name><ret>int</ret><nametext>enif_is_exception(ErlNifEnv* env, ERL_NIF_TERM term)</nametext></name>
       <fsummary>Determine if a term is an exception</fsummary>
       <desc><p>Return true if <c>term</c> is an exception.</p></desc>
+    </func>
+    <func><name><ret>int</ret><nametext>enif_is_map(ErlNifEnv* env, ERL_NIF_TERM term)</nametext></name>
+      <fsummary>Determine if a term is a map</fsummary>
+      <desc><p>Return true if <c>term</c> is a map, false otherwise.</p></desc>
     </func>
     <func><name><ret>int</ret><nametext>enif_is_number(ErlNifEnv* env, ERL_NIF_TERM term)</nametext></name>
       <fsummary>Determine if a term is a number (integer or float)</fsummary>
@@ -898,40 +900,58 @@ typedef enum {
     <func><name><ret>ERL_NIF_TERM</ret><nametext>enif_make_atom(ErlNifEnv* env, const char* name)</nametext></name>
       <fsummary>Create an atom term</fsummary>
       <desc><p>Create an atom term from the null-terminated C-string <c>name</c>
-      with iso-latin-1 encoding.</p></desc>
+      with iso-latin-1 encoding. If the length of <c>name</c> exceeds the maximum length
+      allowed for an atom (255 characters), <c>enif_make_atom</c> invokes
+      <seealso marker="#enif_make_badarg">enif_make_badarg</seealso>.
+      </p></desc>
     </func>
     <func><name><ret>ERL_NIF_TERM</ret><nametext>enif_make_atom_len(ErlNifEnv* env, const char* name, size_t len)</nametext></name>
       <fsummary>Create an atom term</fsummary>
       <desc><p>Create an atom term from the string <c>name</c> with length <c>len</c>.
-      Null-characters are treated as any other characters.</p></desc>
+      Null-characters are treated as any other characters. If <c>len</c> is greater than the maximum length
+      allowed for an atom (255 characters), <c>enif_make_atom</c> invokes
+      <seealso marker="#enif_make_badarg">enif_make_badarg</seealso>.
+      </p></desc>
     </func>
     <func><name><ret>ERL_NIF_TERM</ret><nametext>enif_make_badarg(ErlNifEnv* env)</nametext></name>
-      <fsummary>Make a badarg exception.</fsummary>
-      <desc><p>Make a badarg exception to be returned from a NIF, and set
-      an associated exception reason in <c>env</c>. If
-      <c>enif_make_badarg</c> is called, the term it returns <em>must</em>
-      be returned from the function that called it. No other return value
-      is allowed. Also, the term returned from <c>enif_make_badarg</c> may
-      be passed only to
-      <seealso marker="#enif_is_exception">enif_is_exception</seealso> and
-      not to any other NIF API function.</p></desc>
+      <fsummary>Make a badarg exception</fsummary>
+      <desc><p>Make a badarg exception to be returned from a NIF, and associate
+      it with the environment <c>env</c>. Once a NIF or any function
+      it calls invokes <c>enif_make_badarg</c>, the runtime ensures that a
+      <c>badarg</c> exception is raised when the NIF returns, even if the NIF
+      attempts to return a non-exception term instead.
+      The return value from <c>enif_make_badarg</c> may be used only as the
+      return value from the NIF that invoked it (directly or indirectly)
+      or be passed to
+      <seealso marker="#enif_is_exception">enif_is_exception</seealso>, but
+      not to any other NIF API function.</p>
+      <p>See also: <seealso marker="#enif_has_pending_exception">enif_has_pending_exception</seealso>
+      and <seealso marker="#enif_raise_exception">enif_raise_exception</seealso>
+      </p>
+      <note><p>In earlier versions (older than erts-7.0, OTP 18) the return value
+      from <c>enif_make_badarg</c> had to be returned from the NIF. This
+      requirement is now lifted as the return value from the NIF is ignored
+      if <c>enif_make_badarg</c> has been invoked.</p></note></desc>
     </func>
     <func><name><ret>ERL_NIF_TERM</ret><nametext>enif_make_binary(ErlNifEnv* env, ErlNifBinary* bin)</nametext></name>
-      <fsummary>Make a binary term.</fsummary>
+      <fsummary>Make a binary term</fsummary>
       <desc><p>Make a binary term from <c>bin</c>. Any ownership of 
               the binary data will be transferred to the created term and
               <c>bin</c> should be considered read-only for the rest of the NIF
               call and then as released.</p></desc>
     </func>
     <func><name><ret>ERL_NIF_TERM</ret><nametext>enif_make_copy(ErlNifEnv* dst_env, ERL_NIF_TERM src_term)</nametext></name>
-      <fsummary>Make a copy of a term.</fsummary>
+      <fsummary>Make a copy of a term</fsummary>
       <desc><p>Make a copy of term <c>src_term</c>. The copy will be created in
       environment <c>dst_env</c>. The source term may be located in any
       environment.</p></desc>        
     </func>
     <func><name><ret>ERL_NIF_TERM</ret><nametext>enif_make_double(ErlNifEnv* env, double d)</nametext></name>
       <fsummary>Create a floating-point term</fsummary>
-      <desc><p>Create a floating-point term from a <c>double</c>.</p></desc>
+      <desc><p>Create a floating-point term from a <c>double</c>. If the <c>double</c> argument is
+      not finite or is NaN, <c>enif_make_double</c> invokes
+      <seealso marker="#enif_make_badarg">enif_make_badarg</seealso>.
+      </p></desc>
     </func>
     <func><name><ret>int</ret><nametext>enif_make_existing_atom(ErlNifEnv* env, const char* name, ERL_NIF_TERM* atom, ErlNifCharEncoding encode)</nametext></name>
       <fsummary>Create an existing atom term</fsummary>
@@ -939,7 +959,9 @@ typedef enum {
       the null-terminated C-string <c>name</c> with encoding
       <seealso marker="#ErlNifCharEncoding">encode</seealso>. If the atom
       already exists store the term in <c>*atom</c> and return true, otherwise
-      return false.</p></desc>
+      return false. If the length of <c>name</c> exceeds the maximum length
+      allowed for an atom (255 characters), <c>enif_make_existing_atom</c>
+      returns false.</p></desc>
     </func>
     <func><name><ret>int</ret><nametext>enif_make_existing_atom_len(ErlNifEnv* env, const char* name, size_t len, ERL_NIF_TERM* atom, ErlNifCharEncoding encoding)</nametext></name>
       <fsummary>Create an existing atom term</fsummary>
@@ -947,7 +969,9 @@ typedef enum {
       string <c>name</c> with length <c>len</c> and encoding
       <seealso marker="#ErlNifCharEncoding">encode</seealso>. Null-characters
       are treated as any other characters. If the atom already exists store the term
-      in <c>*atom</c> and return true, otherwise return false.</p></desc>
+      in <c>*atom</c> and return true, otherwise return false. If <c>len</c> is greater
+      than the maximum length allowed for an atom (255 characters),
+      <c>enif_make_existing_atom_len</c> returns false.</p></desc>
     </func>
     <func><name><ret>ERL_NIF_TERM</ret><nametext>enif_make_int(ErlNifEnv* env, int i)</nametext></name>
       <fsummary>Create an integer term</fsummary>
@@ -958,7 +982,7 @@ typedef enum {
       <desc><p>Create an integer term from a signed 64-bit integer.</p></desc>
     </func>
     <func><name><ret>ERL_NIF_TERM</ret><nametext>enif_make_list(ErlNifEnv* env, unsigned cnt, ...)</nametext></name>
-      <fsummary>Create a list term.</fsummary>
+      <fsummary>Create a list term</fsummary>
       <desc><p>Create an ordinary list term of length <c>cnt</c>. Expects
       <c>cnt</c> number of arguments (after <c>cnt</c>) of type ERL_NIF_TERM as the
       elements of the list. An empty list is returned if <c>cnt</c> is 0.</p></desc>
@@ -972,27 +996,20 @@ typedef enum {
     <name><ret>ERL_NIF_TERM</ret><nametext>enif_make_list7(ErlNifEnv* env, ERL_NIF_TERM e1, ..., ERL_NIF_TERM e7)</nametext></name>
     <name><ret>ERL_NIF_TERM</ret><nametext>enif_make_list8(ErlNifEnv* env, ERL_NIF_TERM e1, ..., ERL_NIF_TERM e8)</nametext></name>
     <name><ret>ERL_NIF_TERM</ret><nametext>enif_make_list9(ErlNifEnv* env, ERL_NIF_TERM e1, ..., ERL_NIF_TERM e9)</nametext></name>
-      <fsummary>Create a list term.</fsummary>
+      <fsummary>Create a list term</fsummary>
       <desc><p>Create an ordinary list term with length indicated by the
       function name. Prefer these functions (macros) over the variadic
       <c>enif_make_list</c>  to get a compile time error if the number of
       arguments does not match.</p></desc>
     </func>
     <func><name><ret>ERL_NIF_TERM</ret><nametext>enif_make_list_cell(ErlNifEnv* env, ERL_NIF_TERM head, ERL_NIF_TERM tail)</nametext></name>
-      <fsummary>Create a list cell.</fsummary>
+      <fsummary>Create a list cell</fsummary>
       <desc><p>Create a list cell <c>[head | tail]</c>.</p></desc>
     </func>
     <func><name><ret>ERL_NIF_TERM</ret><nametext>enif_make_list_from_array(ErlNifEnv* env, const ERL_NIF_TERM arr[], unsigned cnt)</nametext></name>
-      <fsummary>Create a list term from an array.</fsummary>
+      <fsummary>Create a list term from an array</fsummary>
       <desc><p>Create an ordinary list containing the elements of array <c>arr</c>
       of length <c>cnt</c>. An empty list is returned if <c>cnt</c> is 0.</p></desc>
-    </func>
-    <func><name><ret>int</ret><nametext>enif_make_reverse_list(ErlNifEnv* env, ERL_NIF_TERM term, ERL_NIF_TERM *list)</nametext></name>
-      <fsummary>Create the reverse list of the list <c>term</c>.</fsummary>
-      <desc><p>Set <c>*list</c> to the reverse list of the list <c>term</c> and return true,
-      or return false if <c>term</c> is not a list. This function should only be used on
-      short lists as a copy will be created of the list which will not be released until after the
-      nif returns.</p></desc>
     </func>
     <func><name><ret>ERL_NIF_TERM</ret><nametext>enif_make_long(ErlNifEnv* env, long int i)</nametext></name>
       <fsummary>Create an integer term from a long int</fsummary>
@@ -1008,12 +1025,42 @@ typedef enum {
       reallocated.</p><p>Return a pointer to the raw binary data and set
       <c>*termp</c> to the binary term.</p></desc>
     </func>
+    <func><name><ret>ERL_NIF_TERM</ret><nametext>enif_make_new_map(ErlNifEnv* env)</nametext></name>
+      <fsummary>Make an empty map term</fsummary>
+      <desc><p>Make an empty map term.</p></desc>
+    </func>
+    <func><name><ret>int</ret><nametext>enif_make_map_put(ErlNifEnv* env, ERL_NIF_TERM map_in, ERL_NIF_TERM key, ERL_NIF_TERM value, ERL_NIF_TERM* map_out)</nametext></name>
+      <fsummary>Insert key-value pair in map</fsummary>
+      <desc><p>Make a copy of map <c>map_in</c> and insert <c>key</c> with
+      <c>value</c>. If <c>key</c> already exists in <c>map_in</c>, the old
+      associated value is replaced by <c>value</c>. If successful set
+      <c>*map_out</c> to the new map and return true. Return false if
+      <c>map_in</c> is not a map.</p>
+      <p>The <c>map_in</c> term must belong to the environment <c>env</c>.</p></desc>
+    </func>
+    <func><name><ret>int</ret><nametext>enif_make_map_update(ErlNifEnv* env, ERL_NIF_TERM map_in, ERL_NIF_TERM key, ERL_NIF_TERM new_value, ERL_NIF_TERM* map_out)</nametext></name>
+      <fsummary>Replace value for key in map</fsummary>
+      <desc><p>Make a copy of map <c>map_in</c> and replace the old associated
+      value for <c>key</c> with <c>new_value</c>. If successful set
+      <c>*map_out</c> to the new map and return true. Return false if
+      <c>map_in</c> is not a map or if it does no contain <c>key</c>.</p>
+      <p>The <c>map_in</c> term must belong to the environment <c>env</c>.</p></desc>
+    </func>
+    <func><name><ret>int</ret><nametext>enif_make_map_remove(ErlNifEnv* env, ERL_NIF_TERM map_in, ERL_NIF_TERM key, ERL_NIF_TERM* map_out)</nametext></name>
+      <fsummary>Remove key from map</fsummary>
+      <desc><p>If map <c>map_in</c> contains <c>key</c>, make a copy of
+      <c>map_in</c> in <c>*map_out</c> and remove <c>key</c> and associated
+      value. If map <c>map_in</c> does not contain <c>key</c>, set
+      <c>*map_out</c> to <c>map_in</c>. Return true for success or false if
+      <c>map_in</c> is not a map.</p>
+      <p>The <c>map_in</c> term must belong to the environment <c>env</c>.</p></desc>
+    </func>
     <func><name><ret>ERL_NIF_TERM</ret><nametext>enif_make_pid(ErlNifEnv* env, const ErlNifPid* pid)</nametext></name>
       <fsummary>Make a pid term</fsummary>
       <desc><p>Make a pid term from <c>*pid</c>.</p></desc>
     </func>
     <func><name><ret>ERL_NIF_TERM</ret><nametext>enif_make_ref(ErlNifEnv* env)</nametext></name>
-      <fsummary>Create a reference.</fsummary>
+      <fsummary>Create a reference</fsummary>
       <desc><p>Create a reference like <seealso marker="erlang#make_ref-0">erlang:make_ref/0</seealso>.</p></desc>
     </func>
     <func><name><ret>ERL_NIF_TERM</ret><nametext>enif_make_resource(ErlNifEnv* env, void* obj)</nametext></name>
@@ -1051,20 +1098,28 @@ typedef enum {
       <seealso marker="#enif_release_resource">enif_release_resource</seealso>.</p>
       </desc>
     </func>
+    <func><name><ret>int</ret><nametext>enif_make_reverse_list(ErlNifEnv* env, ERL_NIF_TERM list_in, ERL_NIF_TERM *list_out)</nametext></name>
+      <fsummary>Create the reverse of a list</fsummary>
+      <desc><p>Set <c>*list_out</c> to the reverse list of the list <c>list_in</c> and return true,
+      or return false if <c>list_in</c> is not a list. This function should only be used on
+      short lists as a copy will be created of the list which will not be released until after the
+      nif returns.</p>
+      <p>The <c>list_in</c> term must belong to the environment <c>env</c>.</p></desc>
+    </func>
     <func><name><ret>ERL_NIF_TERM</ret><nametext>enif_make_string(ErlNifEnv* env, const char* string, ErlNifCharEncoding encoding)</nametext></name>
-      <fsummary>Create a string.</fsummary>
+      <fsummary>Create a string</fsummary>
       <desc><p>Create a list containing the characters of the
       null-terminated string <c>string</c> with encoding <seealso marker="#ErlNifCharEncoding">encoding</seealso>.</p></desc>
     </func>
     <func><name><ret>ERL_NIF_TERM</ret><nametext>enif_make_string_len(ErlNifEnv* env, const char* string, size_t len, ErlNifCharEncoding encoding)</nametext></name>
-      <fsummary>Create a string.</fsummary>
+      <fsummary>Create a string</fsummary>
       <desc><p>Create a list containing the characters of the string <c>string</c> with
       length <c>len</c> and encoding <seealso marker="#ErlNifCharEncoding">encoding</seealso>.
       Null-characters are treated as any other characters.</p></desc>
     </func>
     <func><name><ret>ERL_NIF_TERM</ret><nametext>enif_make_sub_binary(ErlNifEnv* 
       env, ERL_NIF_TERM bin_term, size_t pos, size_t size)</nametext></name>
-      <fsummary>Make a subbinary term.</fsummary>
+      <fsummary>Make a subbinary term</fsummary>
       <desc><p>Make a subbinary of binary <c>bin_term</c>, starting at 
               zero-based position <c>pos</c> with a length of <c>size</c> bytes. 
               <c>bin_term</c> must be a binary or bitstring and
@@ -1072,7 +1127,7 @@ typedef enum {
               bytes in <c>bin_term</c>.</p></desc>
     </func>
     <func><name><ret>ERL_NIF_TERM</ret><nametext>enif_make_tuple(ErlNifEnv* env, unsigned cnt, ...)</nametext></name>
-      <fsummary>Create a tuple term.</fsummary>
+      <fsummary>Create a tuple term</fsummary>
       <desc><p>Create a tuple term of arity <c>cnt</c>. Expects
       <c>cnt</c> number of arguments (after <c>cnt</c>) of type ERL_NIF_TERM as the
       elements of the tuple.</p></desc>
@@ -1086,14 +1141,14 @@ typedef enum {
     <name><ret>ERL_NIF_TERM</ret><nametext>enif_make_tuple7(ErlNifEnv* env, ERL_NIF_TERM e1, ..., ERL_NIF_TERM e7)</nametext></name>
     <name><ret>ERL_NIF_TERM</ret><nametext>enif_make_tuple8(ErlNifEnv* env, ERL_NIF_TERM e1, ..., ERL_NIF_TERM e8)</nametext></name>
     <name><ret>ERL_NIF_TERM</ret><nametext>enif_make_tuple9(ErlNifEnv* env, ERL_NIF_TERM e1, ..., ERL_NIF_TERM e9)</nametext></name>
-      <fsummary>Create a tuple term.</fsummary>
+      <fsummary>Create a tuple term</fsummary>
       <desc><p>Create a tuple term with length indicated by the
       function name. Prefer these functions (macros) over the variadic
       <c>enif_make_tuple</c>  to get a compile time error if the number of
       arguments does not match.</p></desc>
     </func>
     <func><name><ret>ERL_NIF_TERM</ret><nametext>enif_make_tuple_from_array(ErlNifEnv* env, const ERL_NIF_TERM arr[], unsigned cnt)</nametext></name>
-      <fsummary>Create a tuple term from an array.</fsummary>
+      <fsummary>Create a tuple term from an array</fsummary>
       <desc><p>Create a tuple containing the elements of array <c>arr</c>
       of length <c>cnt</c>.</p></desc>
     </func>
@@ -1108,6 +1163,72 @@ typedef enum {
     <func><name><ret>ERL_NIF_TERM</ret><nametext>enif_make_ulong(ErlNifEnv* env, unsigned long i)</nametext></name>
       <fsummary>Create an integer term from an unsigned long int</fsummary>
       <desc><p>Create an integer term from an <c>unsigned long int</c>.</p></desc>
+    </func>
+    <func><name><ret>int</ret><nametext>enif_map_iterator_create(ErlNifEnv *env, ERL_NIF_TERM map, ErlNifMapIterator *iter, ErlNifMapIteratorEntry entry)</nametext></name>
+      <fsummary>Create a map iterator</fsummary>
+      <desc><p>Create an iterator for the map <c>map</c> by initializing the
+      structure pointed to by <c>iter</c>. The <c>entry</c> argument determines
+      the start position of the iterator: <c>ERL_NIF_MAP_ITERATOR_FIRST</c> or
+      <c>ERL_NIF_MAP_ITERATOR_LAST</c>. Return true on success or false if
+      <c>map</c> is not a map.</p>
+      <p>A map iterator is only useful during the lifetime of the environment
+      <c>env</c> that the <c>map</c> belongs to. The iterator must be destroyed by
+      calling <seealso marker="#enif_map_iterator_destroy">
+      enif_map_iterator_destroy</seealso>.</p>
+      <code type="none">
+ERL_NIF_TERM key, value;
+ErlNifMapIterator iter;
+enif_map_iterator_create(env, my_map, &amp;iter, ERL_NIF_MAP_ITERATOR_FIRST);
+
+while (enif_map_iterator_get_pair(env, &amp;iter, &amp;key, &amp;value)) {
+    do_something(key,value);
+    enif_map_iterator_next(env, &amp;iter);
+}
+enif_map_iterator_destroy(env, &amp;iter);
+      </code>
+     <note><p>The key-value pairs of a map have no defined iteration
+     order. The only guarantee is that the iteration order of a single map
+     instance is preserved during the lifetime of the environment that the map
+     belongs to.</p>
+    </note>
+      </desc>
+    </func>
+    <func><name><ret>void</ret><nametext>enif_map_iterator_destroy(ErlNifEnv *env, ErlNifMapIterator *iter)</nametext></name>
+      <fsummary>Destroy a map iterator</fsummary>
+      <desc><p>Destroy a map iterator created by
+      <seealso marker="#enif_map_iterator_create">enif_map_iterator_create</seealso>.
+      </p></desc>
+    </func>
+    <func><name><ret>int</ret><nametext>enif_map_iterator_get_pair(ErlNifEnv *env, ErlNifMapIterator *iter, ERL_NIF_TERM *key, ERL_NIF_TERM *value)</nametext></name>
+      <fsummary>Get key and value at current map iterator position</fsummary>
+      <desc><p>Get key and value terms at current map iterator position.
+      On success set <c>*key</c> and <c>*value</c> and return true.
+      Return false if the iterator is positioned at head (before first entry)
+      or tail (beyond last entry).</p></desc>
+    </func>
+    <func><name><ret>int</ret><nametext>enif_map_iterator_is_head(ErlNifEnv *env, ErlNifMapIterator *iter)</nametext></name>
+      <fsummary>Check if map iterator is positioned before first</fsummary>
+      <desc><p>Return true if map iterator <c>iter</c> is positioned
+      before first entry.</p></desc>
+    </func>
+    <func><name><ret>int</ret><nametext>enif_map_iterator_is_tail(ErlNifEnv *env, ErlNifMapIterator *iter)</nametext></name>
+      <fsummary>Check if map iterator is positioned after last</fsummary>
+      <desc><p>Return true if map iterator <c>iter</c> is positioned
+      after last entry.</p></desc>
+    </func>
+    <func><name><ret>int</ret><nametext>enif_map_iterator_next(ErlNifEnv *env, ErlNifMapIterator *iter)</nametext></name>
+      <fsummary>Increment map iterator to point to next entry</fsummary>
+      <desc><p>Increment map iterator to point to next key-value entry.
+      Return true if the iterator is now positioned at a valid key-value entry,
+      or false if the iterator is positioned at the tail (beyond the last
+      entry).</p></desc>
+    </func>
+    <func><name><ret>int</ret><nametext>enif_map_iterator_prev(ErlNifEnv *env, ErlNifMapIterator *iter)</nametext></name>
+      <fsummary>Decrement map iterator to point to previous entry</fsummary>
+      <desc><p>Decrement map iterator to point to previous key-value entry.
+      Return true if the iterator is now positioned at a valid key-value entry,
+      or false if the iterator is positioned at the head (before the first
+      entry).</p></desc>
     </func>
     <func><name><ret>ErlNifMutex *</ret><nametext>enif_mutex_create(char *name)</nametext></name>
     <fsummary></fsummary>
@@ -1169,19 +1290,32 @@ typedef enum {
       <c>reload</c> or <c>upgrade</c>.</p>
       <p>Was previously named <c>enif_get_data</c>.</p></desc>
     </func>
+    <func><name><ret>ERL_NIF_TERM</ret><nametext>enif_raise_exception(ErlNifEnv* env, ERL_NIF_TERM reason)</nametext></name>
+      <fsummary>Raise a NIF error exception</fsummary>
+      <desc><p>Create an error exception with the term <c>reason</c> to be returned from a NIF,
+      and associate it with the environment <c>env</c>. Once a NIF or any function it calls
+      invokes <c>enif_raise_exception</c>, the runtime ensures that the exception it creates
+      is raised when the NIF returns, even if the NIF attempts to return a non-exception
+      term instead. The return value from <c>enif_raise_exception</c> may be used only as
+      the return value from the NIF that invoked it (directly or indirectly) or be passed
+      to <seealso marker="#enif_is_exception">enif_is_exception</seealso>, but
+      not to any other NIF API function.</p>
+      <p>See also: <seealso marker="#enif_has_pending_exception">enif_has_pending_exception</seealso>
+      and <seealso marker="#enif_make_badarg">enif_make_badarg</seealso>.</p></desc>
+    </func>
     <func><name><ret>int</ret><nametext>enif_realloc_binary(ErlNifBinary* bin, size_t size)</nametext></name>
-      <fsummary>Change the size of a binary.</fsummary>
+      <fsummary>Change the size of a binary</fsummary>
       <desc><p>Change the size of a binary <c>bin</c>. The source binary
       may be read-only, in which case it will be left untouched and
       a mutable copy is allocated and assigned to <c>*bin</c>. Return true on success,
       false if memory allocation failed.</p></desc>
     </func>
     <func><name><ret>void</ret><nametext>enif_release_binary(ErlNifBinary* bin)</nametext></name>
-      <fsummary>Release a binary.</fsummary>
+      <fsummary>Release a binary</fsummary>
       <desc><p>Release a binary obtained from <c>enif_alloc_binary</c>.</p></desc>
     </func>
     <func><name><ret>void</ret><nametext>enif_release_resource(void* obj)</nametext></name>
-      <fsummary>Release a resource object.</fsummary>
+      <fsummary>Release a resource object</fsummary>
       <desc><p>Remove a reference to resource object <c>obj</c>obtained from
       <seealso marker="#enif_alloc_resource">enif_alloc_resource</seealso>.
       The resource object will be destructed when the last reference is removed.
@@ -1257,12 +1391,12 @@ typedef enum {
       </desc>
     </func>
     <func><name><ret>ErlNifPid *</ret><nametext>enif_self(ErlNifEnv* caller_env, ErlNifPid* pid)</nametext></name>
-      <fsummary>Get the pid of the calling process.</fsummary>
+      <fsummary>Get the pid of the calling process</fsummary>
       <desc><p>Initialize the pid variable <c>*pid</c> to represent the
       calling process. Return <c>pid</c>.</p></desc>
     </func>
     <func><name><ret>int</ret><nametext>enif_send(ErlNifEnv* env, ErlNifPid* to_pid, ErlNifEnv* msg_env, ERL_NIF_TERM msg)</nametext></name>
-      <fsummary>Send a message to a process.</fsummary>
+      <fsummary>Send a message to a process</fsummary>
       <desc><p>Send a message to a process.</p>
       <taglist>
         <tag><c>env</c></tag>

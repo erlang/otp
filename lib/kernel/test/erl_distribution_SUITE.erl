@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 1997-2015. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -235,11 +236,10 @@ do_test_setuptime(Setuptime) when is_list(Setuptime) ->
     Res.
 
 time_ping(Node) ->
-    T0 = erlang:now(),
+    T0 = erlang:monotonic_time(),
     pang = net_adm:ping(Node),
-    T1 = erlang:now(),
-    time_diff(T0,T1).
-    
+    T1 = erlang:monotonic_time(),
+    erlang:convert_time_unit(T1 - T0, native, milli_seconds).
 
 %% Keep the connection with the client node up.
 %% This is neccessary as the client node runs with much shorter
@@ -276,13 +276,15 @@ tick_cli_test1(Node) ->
     erlang:monitor_node(Node, true),
     sleep(2),
     rpc:call(Node, erlang, time, []), %% simulate action on the connection
-    T1 = now(),
+    T1 = erlang:monotonic_time(),
     receive
 	{nodedown, Node} ->
-	    T2 = now(),
+	    T2 = erlang:monotonic_time(),
 	    receive
 		{whats_the_result, From} ->
-		    case time_diff(T1, T2) of
+		    Diff = erlang:convert_time_unit(T2-T1, native,
+						    milli_seconds),
+		    case Diff of
 			T when T > 8000, T < 16000 ->
 			    From ! {tick_test, T};
 			T ->
@@ -1208,19 +1210,6 @@ print_my_messages() ->
     ?line ?t:format("Messages: ~p~n", [Messages]),
     ?line ok.
 
-%% Time difference in milliseconds !!
-time_diff({TimeM, TimeS, TimeU}, {CurM, CurS, CurU}) when CurM > TimeM ->
-    ((CurM - TimeM) * 1000000000) + sec_diff({TimeS, TimeU}, {CurS, CurU});
-time_diff({_, TimeS, TimeU}, {_, CurS, CurU}) ->
-    sec_diff({TimeS, TimeU}, {CurS, CurU}).
-
-sec_diff({TimeS, TimeU}, {CurS, CurU}) when CurS > TimeS ->
-    ((CurS - TimeS) * 1000) + micro_diff(TimeU, CurU);
-sec_diff({_, TimeU}, {_, CurU}) ->
-    micro_diff(TimeU, CurU).
-
-micro_diff(TimeU, CurU) ->
-    trunc(CurU/1000) - trunc(TimeU/1000).
 
 sleep(T) -> receive after T * 1000 -> ok end.	
 
@@ -1267,16 +1256,12 @@ get_nodenames(N, T) ->
 get_nodenames(0, _, Acc) ->
     Acc;
 get_nodenames(N, T, Acc) ->
-    {A, B, C} = now(),
+    U = erlang:unique_integer([positive]),
     get_nodenames(N-1, T, [list_to_atom(atom_to_list(T)
 					++ "-"
-					++ atom_to_list(?MODULE)
+					++ ?MODULE_STRING
 					++ "-"
-					++ integer_to_list(A)
-					++ "-"
-					++ integer_to_list(B)
-					++ "-"
-					++ integer_to_list(C)) | Acc]).
+					++ integer_to_list(U)) | Acc]).
 
 get_numbered_nodenames(N, T) ->
     get_numbered_nodenames(N, T, []).
@@ -1284,16 +1269,12 @@ get_numbered_nodenames(N, T) ->
 get_numbered_nodenames(0, _, Acc) ->
     Acc;
 get_numbered_nodenames(N, T, Acc) ->
-    {A, B, C} = now(),
+    U = erlang:unique_integer([positive]),
     NL = [list_to_atom(atom_to_list(T) ++ integer_to_list(N)
 		       ++ "-"
-		       ++ atom_to_list(?MODULE)
+		       ++ ?MODULE_STRING
 		       ++ "-"
-		       ++ integer_to_list(A)
-		       ++ "-"
-		       ++ integer_to_list(B)
-		       ++ "-"
-		       ++ integer_to_list(C)) | Acc],
+		       ++ integer_to_list(U)) | Acc],
     get_numbered_nodenames(N-1, T, NL).
 
 wait_until(Fun) ->

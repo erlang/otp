@@ -4,16 +4,17 @@
 %%% 
 %%% Copyright Ericsson AB 2007-2013. All Rights Reserved.
 %%% 
-%%% The contents of this file are subject to the Erlang Public License,
-%%% Version 1.1, (the "License"); you may not use this file except in
-%%% compliance with the License. You should have received a copy of the
-%%% Erlang Public License along with this software. If not, it can be
-%%% retrieved online at http://www.erlang.org/.
-%%% 
-%%% Software distributed under the License is distributed on an "AS IS"
-%%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%%% the License for the specific language governing rights and limitations
-%%% under the License.
+%%% Licensed under the Apache License, Version 2.0 (the "License");
+%%% you may not use this file except in compliance with the License.
+%%% You may obtain a copy of the License at
+%%%
+%%%     http://www.apache.org/licenses/LICENSE-2.0
+%%%
+%%% Unless required by applicable law or agreed to in writing, software
+%%% distributed under the License is distributed on an "AS IS" BASIS,
+%%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%%% See the License for the specific language governing permissions and
+%%% limitations under the License.
 %%% 
 %%% %CopyrightEnd%
 %%%
@@ -697,13 +698,22 @@ get_binary_bytes(Binary, BinSize, Base, Offset, Orig,
 %%%%%%%%%%%%%%%%%%%%%%%%% UTILS %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 get_base(Orig,Base) ->
-  [HeapLbl,REFCLbl,EndLbl] = create_lbls(3),
+  [HeapLbl,REFCLbl,WritableLbl,NotWritableLbl,EndLbl] = create_lbls(5),
+  Flags = hipe_rtl:mk_new_reg_gcsafe(),
+
   [hipe_tagscheme:test_heap_binary(Orig, hipe_rtl:label_name(HeapLbl),
 				   hipe_rtl:label_name(REFCLbl)),
    HeapLbl,
    hipe_rtl:mk_alu(Base, Orig, 'add', hipe_rtl:mk_imm(?HEAP_BIN_DATA-2)),
    hipe_rtl:mk_goto(hipe_rtl:label_name(EndLbl)),
    REFCLbl,
+   get_field_from_term({proc_bin, flags}, Orig, Flags),
+   hipe_rtl:mk_branch(Flags, 'ne', hipe_rtl:mk_imm(0),
+		      hipe_rtl:label_name(WritableLbl),
+		      hipe_rtl:label_name(NotWritableLbl)),
+   WritableLbl,
+   hipe_rtl:mk_call([], emasculate_binary, [Orig], [], [], 'not_remote'),
+   NotWritableLbl,
    hipe_rtl:mk_load(Base, Orig, hipe_rtl:mk_imm(?PROC_BIN_BYTES-2)),
    EndLbl].
 

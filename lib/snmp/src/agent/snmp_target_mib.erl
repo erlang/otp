@@ -1,18 +1,19 @@
 %% 
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1998-2014. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2015. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %% 
@@ -346,13 +347,6 @@ check_target_params(X) ->
     error({invalid_target_params, X}).
 
 
-
-%% maybe_create_table(Name) ->
-%%     case snmpa_local_db:table_exists(db(Name)) of
-%% 	true -> ok;
-%% 	_ -> snmpa_local_db:table_create(db(Name))
-%%     end.
-
 init_tabs(Addrs, Params) ->
     ?vdebug("create target address table",[]),
     AddrDB = db(snmpTargetAddrTable),
@@ -679,8 +673,9 @@ snmpTargetSpinLock(print) ->
     
 snmpTargetSpinLock(new) ->
     snmp_generic:variable_func(new, {snmpTargetSpinLock, volatile}),
-    {A1,A2,A3} = erlang:now(),
-    random:seed(A1,A2,A3),
+    random:seed(erlang:phash2([node()]),
+                erlang:monotonic_time(),
+                erlang:unique_integer()),
     Val = random:uniform(2147483648) - 1,
     snmp_generic:variable_func(set, Val, {snmpTargetSpinLock, volatile});
 
@@ -1080,5 +1075,3 @@ error(Reason) ->
 
 config_err(F, A) ->
     snmpa_error:config_err("[TARGET-MIB]: " ++ F, A).
-
-

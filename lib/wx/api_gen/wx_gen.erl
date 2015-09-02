@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 2008-2014. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -1195,7 +1196,7 @@ translate_constants(Enums, NotConsts0, Skip0) ->
 
 create_consts([{{enum, Name},Enum = #enum{vals=Vals}}|R], Skip, NotConsts, Acc0) ->
     CC = fun(What, Acc) ->
-		 create_const(What, Skip, NotConsts, Acc)
+		 create_const(What, Name, Skip, NotConsts, Acc)
 	 end,
     Acc = case Vals of
 	      undefined -> 
@@ -1209,17 +1210,17 @@ create_consts([{{enum, Name},Enum = #enum{vals=Vals}}|R], Skip, NotConsts, Acc0)
     create_consts(R, Skip, NotConsts, Acc);
 create_consts([],_,_,Acc) -> Acc.
 
-create_const({Name, Val}, Skip, NotConsts, Acc) ->
+create_const({Name, Val}, EnumName, Skip, NotConsts, Acc) ->
     case gb_sets:is_member(Name, Skip) of
 	true -> Acc;
 	false ->
-	    case gb_sets:is_member(Name, NotConsts) of
+	    case gb_sets:is_member(Name, NotConsts) orelse
+		gb_sets:is_member(EnumName, NotConsts)
+	    of
 		true ->
 		    [#const{name=Name,val=next_id(const),is_const=false}|Acc];
 		false ->
 		    [#const{name=Name,val=Val,is_const=true}|Acc]
-%% 		false ->
-%% 		    [#const{name=Name,val=Val}|Acc]
 	    end
     end.
 

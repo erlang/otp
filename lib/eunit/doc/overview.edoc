@@ -569,6 +569,9 @@ Examples:
 ```?assertMatch({found, {fred, _}}, lookup(bloggs, Table))'''
 ```?assertMatch([X|_] when X > 0, binary_to_list(B))'''
 </dd>
+<dt>`assertNotMatch(GuardedPattern, Expr)'</dt>
+<dd>The inverse case of assertMatch, for convenience.
+</dd>
 <dt>`assertEqual(Expect, Expr)'</dt>
 <dd>Evaluates the expressions `Expect' and `Expr' and compares the
 results for equality, if testing is enabled. If the values are not
@@ -582,6 +585,9 @@ gives more details than `?assert(Expect =:= Expr)'.
 Examples:
 ```?assertEqual("b" ++ "a", lists:reverse("ab"))'''
 ```?assertEqual(foo(X), bar(Y))'''
+</dd>
+<dt>`assertNotEqual(Unexpected, Expr)'</dt>
+<dd>The inverse case of assertEqual, for convenience.
 </dd>
 <dt>`assertException(ClassPattern, TermPattern, Expr)'</dt>
 <dt>`assertError(TermPattern, Expr)'</dt>

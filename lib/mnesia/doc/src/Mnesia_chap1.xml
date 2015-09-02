@@ -8,16 +8,17 @@
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
-      The contents of this file are subject to the Erlang Public License,
-      Version 1.1, (the "License"); you may not use this file except in
-      compliance with the License. You should have received a copy of the
-      Erlang Public License along with this software. If not, it can be
-      retrieved online at http://www.erlang.org/.
-    
-      Software distributed under the License is distributed on an "AS IS"
-      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-      the License for the specific language governing rights and limitations
-      under the License.
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
     
     </legalnotice>
 
@@ -31,235 +32,82 @@
     <rev>C</rev>
     <file>Mnesia_chap1.xml</file>
   </header>
-  <p>This book describes the Mnesia DataBase Management
-    System (DBMS). <em>Mnesia</em> is a distributed Database Management
-    System, appropriate for telecommunications applications and other
-    Erlang applications which require continuous operation and soft
-    real-time properties. It is one section of the Open Telecom Platform
-    (OTP), which is a control system platform for building
-    telecommunications applications.</p>
-
-  <section>
-    <title>About Mnesia</title>
-    <p>The management of data in telecommunications system has many
-      aspects whereof some, but not all, are addressed by traditional
-      commercial DBMSs (Data Base Management Systems). In particular the
-      very high level of fault tolerance which is required in many nonstop
-      systems,  combined with requirements on the DBMS to run in the same
-      address space as the application, have led us to implement a brand new
-      DBMS. called Mnesia. Mnesia is implemented in, and very tightly
-      connected to, the programming language Erlang and it provides the
-      functionality that is necessary for the implementation of fault 
-      tolerant telecommunications systems. Mnesia is a multiuser Distributed
-      DBMS specially made for industrial telecommunications applications
-      written in the symbolic programming language Erlang, which is also 
-      the intended target language. Mnesia tries to address all of the data
-      management issues required for typical telecommunications systems and
-      it has a number of features that are not normally found in traditional
-      databases.      <br></br>
-
-      In telecommunications applications there are different needs 
-      from the features provided by traditional DBMSs. The applications now
-      implemented in the Erlang language need a mixture of a broad range
-      of features, which generally are not satisfied by traditional DBMSs.
-      Mnesia is designed with requirements like the following in mind:</p>
-    <list type="ordered">
-      <item>Fast real-time key/value lookup</item>
-      <item>Complicated non real-time queries mainly for
-       operation and maintenance</item>
-      <item>Distributed data due to distributed 
-       applications</item>
-      <item>High fault tolerance</item>
-      <item>Dynamic re-configuration</item>
-      <item>Complex objects</item>
-    </list>
-    <p>What
-      sets Mnesia apart from most other DBMSs is that it is designed with
-      the typical data management problems of telecommunications applications
-      in mind. Hence Mnesia combines many concepts found in traditional
-      databases, such as transactions and queries with concepts found in data
-      management systems for telecommunications applications, such as very
-      fast real-time operations, configurable degree of fault tolerance (by
-      means of replication) and the ability to reconfigure the system without
-      stopping or suspending it. Mnesia is also interesting due to its tight
-      coupling to the programming language Erlang, thus almost turning Erlang
-      into a database programming language. This has many benefits, the
-      foremost is that
-      the impedance mismatch between data format used by the
-      DBMS and data format used by the programming language, which is used
-      to manipulate the data, completely disappears.      <br></br>
-</p>
-  </section>
-
-  <section>
-    <title>The Mnesia DataBase Management System (DBMS)</title>
-    <p></p>
+  <p>The <c>Mnesia</c> application provides a heavy duty real-time
+    distributed database.</p>
 
     <section>
-      <title>Features</title>
-      <p>Mnesia contains the following features which combine to produce a fault-tolerant,
-        distributed database management system written in Erlang:
-        </p>
-      <list type="bulleted">
-        <item>Database schema can be dynamically reconfigured at runtime.
-        </item>
-        <item>Tables can be declared to have properties such as location, 
-         replication, and persistence.
-        </item>
-        <item>Tables can be moved or replicated to several nodes to improve 
-         fault tolerance. The rest of the system can still access the tables 
-         to read, write, and delete records.
-        </item>
-        <item>Table locations are transparent to the programmer. 
-         Programs address table names and the system itself keeps track of 
-         table locations.
-        </item>
-        <item>Database transactions can be distributed, and a large number of 
-         functions can be called within one transaction.
-        </item>
-        <item>Several transactions can run concurrently, and their execution is 
-         fully synchronized by the database management system. 
-         Mnesia ensures that no two processes manipulate data simultaneously.
-        </item>
-        <item>Transactions can be assigned the property of being executed on 
-         all nodes in the system, or on none. Transactions can also be bypassed 
-         in favor of running so called "dirty operations", which reduce 
-         overheads and run very fast.
-        </item>
-      </list>
-      <p>Details of these features are described in the following sections.</p>
-    </section>
-    <p></p>
-
-    <section>
-      <title>Add-on Applications</title>
-      <p>QLC and Mnesia Session can be used in conjunction with Mnesia to produce 
-        specialized functions which enhance the  operational ability of Mnesia.  
-        Both Mnesia Session and QLC have their own documentation as part
-        of the OTP documentation set.  Below are the main features of Mnesia Session
-        and QLC when used in conjunction with Mnesia:</p>
-      <list type="bulleted">
-        <item><em>QLC</em> has the ability to optimize the query
-         compiler for the Mnesia Database Management System, essentially making
-         the DBMS more efficient.</item>
-        <item><em>QLC</em>, can be used as a database programming
-         language for Mnesia. It includes a notation called "list
-         comprehensions" and can be used to make complex database
-         queries over a set of tables.</item>
-        <item><em>Mnesia Session</em> is an interface for the Mnesia Database 
-         Management System</item>
-        <item><em>Mnesia Session</em> enables access to the
-         Mnesia DBMS from foreign programming languages (i.e. other
-         languages than Erlang).</item>
-      </list>
-      <p></p>
-
-      <section>
-        <title>When to Use Mnesia</title>
-        <p>Use Mnesia with the following types of applications:
-          </p>
-        <list type="bulleted">
-          <item>Applications that need to replicate data.
-          </item>
-          <item>Applications that perform complicated searches on data.
-          </item>
-          <item>Applications that need to use atomic transactions to 
-           update several records simultaneously.
-          </item>
-          <item>Applications that  use soft real-time characteristics.
-          </item>
-        </list>
-        <p>On the other hand, Mnesia may not be appropriate with the 
-          following types of applications:
-          </p>
-        <list type="bulleted">
-          <item>Programs that process plain text or binary data files
-          </item>
-          <item>Applications that merely need a look-up dictionary
-           which can be stored to disc can utilize the standard
-           library module <c>dets</c>, which is a disc based version
-           of the module <c>ets</c>. 
-          </item>
-          <item>Applications which need disc logging facilities can
-           utilize the module <c>disc_log</c> by preference.
-          </item>
-          <item>Not suitable for hard real time systems.
-          </item>
-        </list>
-      </section>
-    </section>
-
-    <section>
-      <title>Scope and Purpose</title>
-      <p>This manual is included in the OTP document set. It describes
-        how to build Mnesia database applications, and how to integrate
-        and utilize the Mnesia database management system with
+      <title>Scope</title>
+      <p>This User's Guide describes how to
+        build <c>Mnesia</c> database applications, and how to integrate
+        and use the <c>Mnesia</c> database management system with
         OTP. Programming constructs are described, and numerous
         programming examples are included to illustrate the use of
-        Mnesia.
-        </p>
+        <c>Mnesia</c>.</p>
+      <p>This User's Guide is organized as follows:</p>
+      <list type="bulleted">
+        <item><seealso marker="Mnesia_overview">Mnesia</seealso>
+	provides an introduction to
+	<c>Mnesia</c>.
+        </item>
+        <item><seealso marker="Mnesia_chap2">Getting Started</seealso>
+        introduces <c>Mnesia</c> with an example database. Examples
+        are included how to start an Erlang session, specify a
+        <c>Mnesia</c> database directory, initialize a database
+        schema, start <c>Mnesia</c>, and create tables. Initial
+        prototyping of record definitions is also discussed.
+        </item>
+        <item><seealso marker="Mnesia_chap3">Build a Mnesia
+        Database</seealso> more formally describes the steps
+        introduced in the previous section, namely the <c>Mnesia</c>
+        functions that define a database schema, start <c>Mnesia</c>,
+        and create the required tables.
+        </item>
+        <item><seealso marker="Mnesia_chap4">Transactions and Other Access Contexts</seealso>
+         describes the transactions properties that make <c>Mnesia</c> into
+         a fault tolerant, real-time distributed database management
+         system. This section also describes the concept of locking
+         to ensure consistency in tables, and "dirty
+         operations", or short cuts, which bypass the transaction system
+         to improve speed and reduce overheads.
+        </item>
+        <item><seealso marker="Mnesia_chap5">Miscellaneous Mnesia
+        Features</seealso> describes features that enable the
+        construction of more complex database applications. These
+        features include indexing, checkpoints, distribution and fault
+        tolerance, disc-less nodes, replication manipulation, local
+        content tables, concurrency, and object-based programming in
+        <c>Mnesia</c>.
+        </item>
+        <item><seealso marker="Mnesia_chap7">Mnesia System
+        Information</seealso> describes the files contained in the
+        <c>Mnesia</c> database directory, database configuration data,
+        core and table dumps, as well as the important subject of
+        backup, fall-back, and disaster recovery principles.
+        </item>
+        <item><seealso marker="Mnesia_chap8">Combine Mnesia with
+        SNMP</seealso> is a short section that outlines <c>Mnesia</c>
+        integrated with SNMP.
+        </item>
+        <item><seealso marker="Mnesia_App_A">Appendix A: Backup
+        Callback Interface</seealso> is a program listing of the
+        default implementation of this facility.
+        </item>
+        <item><seealso marker="Mnesia_App_B">Appendix B: Activity
+        Access Callback Interface</seealso> is a program outlining
+        one possible implementation of this facility.
+        </item>
+        <item><seealso marker="Mnesia_App_C">Appendix C: Fragmented
+        Table Hashing Callback Interface</seealso> is a program
+        outlining one possible implementation of this facility.
+        </item>
+      </list>
     </section>
 
     <section>
       <title>Prerequisites</title>
-      <p>Readers of this manual are assumed to be familiar with system
-        development principles and database management systems. Readers
-        are also assumed to be familiar with the Erlang programming
-        language.</p>
+      <p>It is assumed that the reader is familiar with the Erlang
+        programming language, system development principles, and
+        database management systems.</p>
     </section>
-
-    <section>
-      <title>About This Book</title>
-      <p>This book contains the following chapters:
-        </p>
-      <list type="bulleted">
-        <item>Chapter 2, "Getting Started with Mnesia", introduces
-         Mnesia with an example database. Examples are shown of how to
-         start an Erlang session, specify a Mnesia database directory,
-         initialize a database schema, start Mnesia, and create
-         tables. Initial prototyping of record definitions is also
-         discussed.
-        </item>
-        <item>Chapter 3, "Building a Mnesia Database", more formally
-         describes the steps introduced in Chapter 2, namely the Mnesia
-         functions which define a database schema, start Mnesia, and
-         create the required tables.
-        </item>
-        <item>Chapter 4, "Transactions and other access contexts",
-         describes the transactions properties which make Mnesia into a
-         fault tolerant, real-time distributed database management
-         system. This chapter also describes the concept of locking in
-         order to ensure consistency in tables, and so called "dirty
-         operations", or short cuts which bypass the transaction system
-         to improve speed and reduce overheads.
-        </item>
-        <item>Chapter 5, "Miscellaneous Mnesia Features", describes
-         features which enable the construction of more complex
-         database applications. These features includes indexing,
-         checkpoints, distribution and fault tolerance, disc-less
-         nodes, replication manipulation, local content tables, concurrency,
-         and object based programming in Mnesia.
-        </item>
-        <item>Chapter 6, "Mnesia System Information", describes the
-         files contained in the Mnesia database directory, database
-         configuration data, core and table dumps, as well as the
-         important subject of backup, fall-back, and disaster recovery
-         principles.
-        </item>
-        <item>Chapter 7, "Combining Mnesia with SNMP", is a short
-         chapter which outlines  Mnesia  integrated with SNMP.
-        </item>
-        <item>Appendix A, "Mnesia Errors Messages", lists Mnesia error
-         messages and their meanings.
-        </item>
-        <item>Appendix B, "The Backup Call Back Interface", is a
-         program listing of the default implementation of this facility.
-        </item>
-        <item>Appendix C, "The Activity Access Call Back Interface",
-         is a program outlining of one possible implementations of this facility.
-        </item>
-      </list>
-    </section>
-  </section>
 </chapter>
 

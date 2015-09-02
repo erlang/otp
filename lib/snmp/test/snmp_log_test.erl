@@ -1,18 +1,19 @@
 %% 
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2015. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %% 
@@ -633,11 +634,11 @@ log_to_txt3(Config) when is_list(Config) ->
 	log_reader_log_to(Reader, 
 			  fun() -> 
 				  I = disk_log:info(Log),
-				  T1 = t(), 
+				  T1 = snmp_misc:now(ms),
 				  R = snmp_log:log_to_txt(Log, LogFile, Dir, 
 							  Mibs, TxtFile),
-				  T2 = t(), 
-				  io:format(user, 
+				  T2 = snmp_misc:now(ms),
+				  io:format(user,
 					    "Time converting file: ~w ms~n",
 					    [T2 - T1]),
 				  {R, I}
@@ -704,10 +705,10 @@ log_writer_start(Name, File, Size, Repair) ->
 
 log_writer_stop(Pid) ->
     Pid ! {stop, self()},
-    _T1 = t(),
+    _T1 = snmp_misc:now(ms),
     receive
 	{'EXIT', Pid, normal} ->
-	    _T2 = t(),
+	    _T2 = snmp_misc:now(ms),
 	    ?DBG("it took ~w ms to stop the writer", [_T2 - _T1]),
 	    ok
     after 60000 ->
@@ -721,10 +722,10 @@ log_writer_info(Pid) ->
 
 log_writer_sleep(Pid, Time) ->
     Pid ! {sleep, Time, self()},
-    _T1 = t(),
+    _T1 = snmp_misc:now(ms),
     receive 
 	{sleeping, Pid} ->
-	    _T2 = t(),
+	    _T2 = snmp_misc:now(ms),
 	    ?DBG("it took ~w ms to put the writer to sleep", [_T2 - _T1]),
 	    ok;
 	{'EXIT', Pid, Reason} ->
@@ -793,10 +794,10 @@ lp(F, A) ->
 
 log_reader_start() ->
     Pid = spawn_link(?MODULE, log_reader_main, [self()]),
-    _T1 = t(),
+    _T1 = snmp_misc:now(ms),
     receive 
 	{started, Pid} ->
-	    _T2 = t(),
+	    _T2 = snmp_misc:now(ms),
 	    ?DBG("it took ~w ms to start the reader", [_T2 - _T1]),
 	    {ok, Pid};
 	{'EXIT', Pid, Reason} ->
@@ -807,10 +808,10 @@ log_reader_start() ->
 
 log_reader_stop(Pid) ->
     Pid ! {stop, self()},
-    _T1 = t(),
+    _T1 = snmp_misc:now(ms),
     receive
 	{'EXIT', Pid, normal} ->
-	    _T2 = t(),
+	    _T2 = snmp_misc:now(ms),
 	    ?DBG("it took ~w ms to put the reader to eleep", [_T2 - _T1]),
 	    ok
     after 1000 ->
@@ -1124,8 +1125,3 @@ join(D, F) ->
 
 p(Case) ->
     io:format(user, "test case: ~w~n", [Case]).
-
-%% Time in milli sec
-t() ->
-    {A,B,C} = erlang:now(),
-    A*1000000000+B*1000+(C div 1000).

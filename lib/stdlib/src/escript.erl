@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2015. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 
@@ -620,12 +621,13 @@ parse_source(S, File, Fd, StartLine, HeaderSz, CheckOnly) ->
                     {ok, {attribute,_, module, M} = Form} ->
                         epp_parse_file(Epp, S2#state{module = M}, [Form, FileForm]);
                     {ok, _} ->
-                        ModForm = {attribute,1,module, Module},
+                        ModForm = {attribute,a1(),module, Module},
                         epp_parse_file2(Epp, S2, [ModForm, FileForm], OptModRes);
                     {error, _} ->
                         epp_parse_file2(Epp, S2, [FileForm], OptModRes);
-                    {eof, _LastLine} = Eof ->
-                        S#state{forms_or_bin = [FileForm, Eof]}
+                    {eof, LastLine} ->
+                        Anno = anno(LastLine),
+                        S#state{forms_or_bin = [FileForm, {eof, Anno}]}
                 end,
             ok = epp:close(Epp),
             ok = file:close(Fd),
@@ -644,7 +646,7 @@ check_source(S, CheckOnly) ->
 	    %% Optionally add export of main/1
 	    Forms2 =
 		case ExpMain of
-		    false -> [{attribute,0,export, [{main,1}]} | Forms];
+		    false -> [{attribute, a0(), export, [{main,1}]} | Forms];
 		    true  -> Forms
 		end,
 	    Forms3 = [FileForm2, ModForm2 | Forms2],
@@ -663,7 +665,8 @@ check_source(S, CheckOnly) ->
     end.
 
 pre_def_macros(File) ->
-    {MegaSecs, Secs, MicroSecs} = erlang:now(),
+    {MegaSecs, Secs, MicroSecs} = erlang:timestamp(),
+    Unique = erlang:unique_integer([positive]),
     Replace = fun(Char) ->
 		      case Char of
 			  $\. -> $\_;
@@ -675,8 +678,9 @@ pre_def_macros(File) ->
 	CleanBase ++ "__" ++
         "escript__" ++
         integer_to_list(MegaSecs) ++ "__" ++
-        integer_to_list(Secs) ++ "__" ++
-        integer_to_list(MicroSecs),
+	integer_to_list(Secs) ++ "__" ++
+	integer_to_list(MicroSecs) ++ "__" ++
+	integer_to_list(Unique),
     Module = list_to_atom(ModuleStr),
     PreDefMacros = [{'MODULE', Module, redefine},
                     {'MODULE_STRING', ModuleStr, redefine}],
@@ -720,8 +724,9 @@ epp_parse_file2(Epp, S, Forms, Parsed) ->
             io:format("~ts:~w: ~ts\n",
                       [S#state.file,Ln,Mod:format_error(Args)]),
             epp_parse_file(Epp, S#state{n_errors = S#state.n_errors + 1}, [Form | Forms]);
-        {eof, _LastLine} = Eof ->
-            S#state{forms_or_bin = lists:reverse([Eof | Forms])}
+        {eof, LastLine} ->
+            Anno = anno(LastLine),
+            S#state{forms_or_bin = lists:reverse([{eof, Anno} | Forms])}
     end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -776,7 +781,8 @@ interpret(Forms, HasRecs,  File, Args) ->
 	end,
     Dict = parse_to_dict(Forms2),
     ArgsA = erl_parse:abstract(Args, 0),
-    Call = {call,0,{atom,0,main},[ArgsA]},
+    Anno = a0(),
+    Call = {call,Anno,{atom,Anno,main},[ArgsA]},
     try
         _ = erl_eval:expr(Call,
                           erl_eval:new_bindings(),
@@ -887,6 +893,15 @@ enc() ->
         false -> [{encoding,latin1}]; % should never happen
         Enc -> [Enc]
     end.
+
+a0() ->
+    anno(0).
+
+a1() ->
+    anno(1).
+
+anno(L) ->
+    erl_anno:new(L).
 
 fatal(Str) ->
     throw(Str).

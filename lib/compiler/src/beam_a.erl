@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 2012-2013. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -54,6 +55,9 @@ rename_instrs([{call_only,A,F}|Is]) ->
     [{call,A,F},return|rename_instrs(Is)];
 rename_instrs([{call_ext_only,A,F}|Is]) ->
     [{call_ext,A,F},return|rename_instrs(Is)];
+rename_instrs([{'%live',_}|Is]) ->
+    %% When compiling from old .S files.
+    rename_instrs(Is);
 rename_instrs([I|Is]) ->
     [rename_instr(I)|rename_instrs(Is)];
 rename_instrs([]) -> [].
@@ -88,6 +92,10 @@ rename_instr({bs_private_append=I,F,Sz,U,Src,Flags,Dst}) ->
     {bs_init,F,{I,U,Flags},none,[Sz,Src],Dst};
 rename_instr(bs_init_writable=I) ->
     {bs_init,{f,0},I,1,[{x,0}],{x,0}};
+rename_instr({test,Op,F,[Ctx,Bits,{string,Str}]}) ->
+    %% When compiling from a .S file.
+    <<Bs:Bits/bits,_/bits>> = list_to_binary(Str),
+    {test,Op,F,[Ctx,Bs]};
 rename_instr({put_map_assoc,Fail,S,D,R,L}) ->
     {put_map,Fail,assoc,S,D,R,L};
 rename_instr({put_map_exact,Fail,S,D,R,L}) ->

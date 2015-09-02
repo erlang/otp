@@ -8,16 +8,17 @@
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
-      The contents of this file are subject to the Erlang Public License,
-      Version 1.1, (the "License"); you may not use this file except in
-      compliance with the License. You should have received a copy of the
-      Erlang Public License along with this software. If not, it can be
-      retrieved online at http://www.erlang.org/.
-    
-      Software distributed under the License is distributed on an "AS IS"
-      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-      the License for the specific language governing rights and limitations
-      under the License.
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
     
     </legalnotice>
 
@@ -180,15 +181,28 @@
       <c>Mod</c> when upgrading, and vice versa when downgrading.</p>
     <pre>
 {add_module, Mod}
+{add_module, Mod, DepMods}
   Mod = atom()
+  DepMods = [Mod]
     </pre>
     <p>Loads a new module <c>Mod</c>.</p>
+    <p><c>DepMods</c> defaults to [] and defines which other modules
+      <c>Mod</c> is dependent on. In <c>relup</c>, instructions
+      related to these modules will come before the instruction for
+      loading <c>Mod</c> when upgrading, and vice versa when
+      downgrading.</p>
     <pre>
 {delete_module, Mod}
+{delete_module, Mod, DepMods}
   Mod = atom()
     </pre>
     <p>Deletes a module <c>Mod</c> using the low-level instructions
       <c>remove</c> and <c>purge</c>.</p>
+    <p><c>DepMods</c> defaults to [] and defines which other modules
+      <c>Mod</c> is dependent on. In <c>relup</c>, instructions
+      related to these modules will come before the instruction for
+      removing <c>Mod</c> when upgrading, and vice versa when
+      downgrading.</p>
     <pre>
 {add_application, Application}
 {add_application, Application, Type}

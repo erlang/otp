@@ -5,16 +5,17 @@
      #
      # Copyright Ericsson AB 2009-2012. All Rights Reserved.
      #
-     # The contents of this file are subject to the Erlang Public License,
-     # Version 1.1, (the "License"); you may not use this file except in
-     # compliance with the License. You should have received a copy of the
-     # Erlang Public License along with this software. If not, it can be
-     # retrieved online at http://www.erlang.org/.
+     # Licensed under the Apache License, Version 2.0 (the "License");
+     # you may not use this file except in compliance with the License.
+     # You may obtain a copy of the License at
      #
-     # Software distributed under the License is distributed on an "AS IS"
-     # basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-     # the License for the specific language governing rights and limitations
-     # under the License.
+     #     http://www.apache.org/licenses/LICENSE-2.0
+     #
+     # Unless required by applicable law or agreed to in writing, software
+     # distributed under the License is distributed on an "AS IS" BASIS,
+     # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+     # See the License for the specific language governing permissions and
+     # limitations under the License.
      #
      # %CopyrightEnd%
 
@@ -952,6 +953,36 @@
     </div>
   </xsl:template>
 
+  <!-- Do -->
+  <xsl:template match="do">
+    <xsl:param name="chapnum"/>
+    <div class="do">
+      <div class="label">Do</div>
+      <div class="content">
+        <p>
+          <xsl:apply-templates>
+            <xsl:with-param name="chapnum" select="$chapnum"/>
+          </xsl:apply-templates>
+        </p>
+      </div>
+    </div>
+  </xsl:template>
+
+  <!-- Dont -->
+  <xsl:template match="dont">
+    <xsl:param name="chapnum"/>
+    <div class="dont">
+      <div class="label">Don't</div>
+      <div class="content">
+        <p>
+          <xsl:apply-templates>
+            <xsl:with-param name="chapnum" select="$chapnum"/>
+          </xsl:apply-templates>
+        </p>
+      </div>
+    </div>
+  </xsl:template>
+
  <!-- Paragraph -->
   <xsl:template match="p">
     <p>
@@ -1102,6 +1133,9 @@
 
     <center><h4>Version <xsl:value-of select="$appver"/></h4></center>
     <center><h4><xsl:value-of select="$gendate"/></h4></center>
+    <div class="extrafrontpageinfo">
+    <center><xsl:value-of select="$extra_front_page_info"/></center>
+    </div>
 
     <xsl:apply-templates select="chapter"/>
 
@@ -1267,6 +1301,9 @@
 
     <center><h4>Version <xsl:value-of select="$appver"/></h4></center>
     <center><h4><xsl:value-of select="$gendate"/></h4></center>
+    <div class="extrafrontpageinfo">
+    <center><xsl:value-of select="$extra_front_page_info"/></center>
+    </div>
 
     <xsl:apply-templates select="erlref|cref|comref|fileref|appref"/>
 
@@ -2089,6 +2126,9 @@
 
     <center><h4>Version <xsl:value-of select="$appver"/></h4></center>
     <center><h4><xsl:value-of select="$gendate"/></h4></center>
+    <div class="extrafrontpageinfo">
+    <center><xsl:value-of select="$extra_front_page_info"/></center>
+    </div>
 
     <xsl:apply-templates select="chapter"/>
 

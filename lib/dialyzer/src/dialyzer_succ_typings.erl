@@ -4,16 +4,17 @@
 %%
 %% Copyright Ericsson AB 2006-2014. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -29,7 +30,7 @@
 
 -export([analyze_callgraph/3, 
 	 analyze_callgraph/6,
-	 get_warnings/8
+	 get_warnings/7
 	]).
 
 -export([
@@ -69,10 +70,8 @@
 
 -type scc()             :: [mfa_or_funlbl()] | [module()].
 
-
 -record(st, {callgraph      :: dialyzer_callgraph:callgraph(),
 	     codeserver     :: dialyzer_codeserver:codeserver(),
-	     no_warn_unused :: sets:set(mfa()),
 	     parent = none  :: parent(),
 	     timing_server  :: dialyzer_timing:timing_server(),
              solvers        :: [solver()],
@@ -137,18 +136,17 @@ get_refined_success_typings(SCCs, #st{callgraph = Callgraph,
 
 -type doc_plt() :: 'undefined' | dialyzer_plt:plt().
 -spec get_warnings(dialyzer_callgraph:callgraph(), dialyzer_plt:plt(),
-		   doc_plt(), dialyzer_codeserver:codeserver(), sets:set(mfa()),
+		   doc_plt(), dialyzer_codeserver:codeserver(),
 		   dialyzer_timing:timing_server(), [solver()], pid()) ->
-	 {[dial_warning()], dialyzer_plt:plt(), doc_plt()}.
+	 {[raw_warning()], dialyzer_plt:plt(), doc_plt()}.
 
 get_warnings(Callgraph, Plt, DocPlt, Codeserver,
-	     NoWarnUnused, TimingServer, Solvers, Parent) ->
+	     TimingServer, Solvers, Parent) ->
   InitState =
     init_state_and_get_success_typings(Callgraph, Plt, Codeserver,
 				       TimingServer, Solvers, Parent),
-  NewState = InitState#st{no_warn_unused = NoWarnUnused},
-  Mods = dialyzer_callgraph:modules(NewState#st.callgraph),
-  MiniPlt = NewState#st.plt,
+  Mods = dialyzer_callgraph:modules(InitState#st.callgraph),
+  MiniPlt = InitState#st.plt,
   FindOpaques = lookup_and_find_opaques_fun(Codeserver),
   CWarns =
     dialyzer_contracts:get_invalid_contract_warnings(Mods, Codeserver,
@@ -156,31 +154,30 @@ get_warnings(Callgraph, Plt, DocPlt, Codeserver,
   MiniDocPlt = dialyzer_plt:get_mini_plt(DocPlt),
   ModWarns =
     ?timing(TimingServer, "warning",
-	    get_warnings_from_modules(Mods, NewState, MiniDocPlt)),
+	    get_warnings_from_modules(Mods, InitState, MiniDocPlt)),
   {postprocess_warnings(CWarns ++ ModWarns, Codeserver),
    dialyzer_plt:restore_full_plt(MiniPlt, Plt),
    dialyzer_plt:restore_full_plt(MiniDocPlt, DocPlt)}.
 
 get_warnings_from_modules(Mods, State, DocPlt) ->
   #st{callgraph = Callgraph, codeserver = Codeserver,
-      no_warn_unused = NoWarnUnused, plt = Plt,
-      timing_server = TimingServer} = State,
-  Init = {Codeserver, Callgraph, NoWarnUnused, Plt, DocPlt},
+      plt = Plt, timing_server = TimingServer} = State,
+  Init = {Codeserver, Callgraph, Plt, DocPlt},
   dialyzer_coordinator:parallel_job(warnings, Mods, Init, TimingServer).
 
--spec collect_warnings(module(), warnings_init_data()) -> [dial_warning()].
+-spec collect_warnings(module(), warnings_init_data()) -> [raw_warning()].
 
-collect_warnings(M, {Codeserver, Callgraph, NoWarnUnused, Plt, DocPlt}) ->
+collect_warnings(M, {Codeserver, Callgraph, Plt, DocPlt}) ->
   ModCode = dialyzer_codeserver:lookup_mod_code(M, Codeserver),
   Records = dialyzer_codeserver:lookup_mod_records(M, Codeserver),
   Contracts = dialyzer_codeserver:lookup_mod_contracts(M, Codeserver),
   AllFuns = collect_fun_info([ModCode]),
   %% Check if there are contracts for functions that do not exist
-  Warnings1 = 
+  Warnings1 =
     dialyzer_contracts:contracts_without_fun(Contracts, AllFuns, Callgraph),
   {Warnings2, FunTypes} =
-    dialyzer_dataflow:get_warnings(ModCode, Plt, Callgraph,
-				   Records, NoWarnUnused),
+    dialyzer_dataflow:get_warnings(ModCode, Plt, Callgraph, Codeserver,
+				   Records),
   Attrs = cerl:module_attrs(ModCode),
   Warnings3 =
     dialyzer_behaviours:check_callbacks(M, Attrs, Records, Plt, Codeserver),
@@ -197,17 +194,19 @@ postprocess_warnings(RawWarnings, Codeserver) ->
 
 postprocess_dataflow_warns([], _Callgraph, WAcc, Acc) ->
   lists:reverse(Acc, WAcc);
-postprocess_dataflow_warns([{?WARN_CONTRACT_RANGE, {CallF, CallL}, Msg}|Rest],
+postprocess_dataflow_warns([{?WARN_CONTRACT_RANGE, WarningInfo, Msg}|Rest],
 			   Codeserver, WAcc, Acc) ->
+  {CallF, CallL, _CallMFA} = WarningInfo,
   {contract_range, [Contract, M, F, A, ArgStrings, CRet]} = Msg,
   case dialyzer_codeserver:lookup_mfa_contract({M,F,A}, Codeserver) of
-    {ok, {{ContrF, _ContrL} = FileLine, _C}} ->
+    {ok, {{ContrF, ContrL}, _C, _X}} ->
       case CallF =:= ContrF of
 	true ->
 	  NewMsg = {contract_range, [Contract, M, F, ArgStrings, CallL, CRet]},
-	  W = {?WARN_CONTRACT_RANGE, FileLine, NewMsg},
+          WarningInfo2 = {ContrF, ContrL, {M, F, A}},
+	  W = {?WARN_CONTRACT_RANGE, WarningInfo2, NewMsg},
 	  Filter =
-	    fun({?WARN_CONTRACT_TYPES, FL, _}) when FL =:= FileLine -> false;
+	    fun({?WARN_CONTRACT_TYPES, WI, _}) when WI =:= WarningInfo2 -> false;
 	       (_) -> true
 	    end,
 	  FilterWAcc = lists:filter(Filter, WAcc),
@@ -219,7 +218,7 @@ postprocess_dataflow_warns([{?WARN_CONTRACT_RANGE, {CallF, CallL}, Msg}|Rest],
       %% The contract is not in a module that is currently under analysis.
       %% We display the warning in the file/line of the call.
       NewMsg = {contract_range, [Contract, M, F, ArgStrings, CallL, CRet]},
-      W = {?WARN_CONTRACT_RANGE, {CallF, CallL}, NewMsg},
+      W = {?WARN_CONTRACT_RANGE, WarningInfo, NewMsg},
       postprocess_dataflow_warns(Rest, Codeserver, WAcc, [W|Acc])
   end.
   
@@ -262,7 +261,7 @@ refine_one_module(M, {CodeServer, Callgraph, Plt, _Solvers}) ->
   Records = dialyzer_codeserver:lookup_mod_records(M, CodeServer),
   FunTypes = get_fun_types_from_plt(AllFuns, Callgraph, Plt),
   NewFunTypes =
-    dialyzer_dataflow:get_fun_types(ModCode, Plt, Callgraph, Records),
+    dialyzer_dataflow:get_fun_types(ModCode, Plt, Callgraph, CodeServer, Records),
   Contracts1 = dialyzer_codeserver:lookup_mod_contracts(M, CodeServer),
   Contracts = orddict:from_list(dict:to_list(Contracts1)),
   FindOpaques = find_opaques_fun(Records),
@@ -401,7 +400,7 @@ decorate_succ_typings(Contracts, Callgraph, FunTypes, FindOpaques) ->
           case dialyzer_callgraph:lookup_name(Label, Callgraph) of
             {ok, MFA} ->
               case orddict:find(MFA, Contracts) of
-                {ok, {_FileLine, Contract}} ->
+                {ok, {_FileLine, Contract, _Xtra}} ->
                   Args = dialyzer_contracts:get_contract_args(Contract),
                   Ret = dialyzer_contracts:get_contract_return(Contract),
                   C = erl_types:t_fun(Args, Ret),
@@ -422,10 +421,7 @@ lookup_and_find_opaques_fun(Codeserver) ->
   end.
 
 find_opaques_fun(Records) ->
-  fun(Module) ->
-      erl_types:module_builtin_opaques(Module) ++
-      erl_types:t_opaque_from_records(Records)
-  end.
+  fun(_Module) -> erl_types:t_opaque_from_records(Records) end.
 
 get_fun_types_from_plt(FunList, Callgraph, Plt) ->
   get_fun_types_from_plt(FunList, Callgraph, Plt, dict:new()).

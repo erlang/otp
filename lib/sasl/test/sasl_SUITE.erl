@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 2011-2014. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -26,10 +27,11 @@
 %% Test cases must be exported.
 -export([app_test/1,
 	 appup_test/1,
-	 log_mf_h_env/1]).
+	 log_mf_h_env/1,
+	 log_file/1]).
 
 all() -> 
-    [log_mf_h_env, app_test, appup_test].
+    [log_mf_h_env, log_file, app_test, appup_test].
 
 groups() -> 
     [].
@@ -151,10 +153,9 @@ check_appup([],_,_) ->
 log_mf_h_env(Config) ->
     PrivDir = ?config(priv_dir,Config),
     LogDir = filename:join(PrivDir,sasl_SUITE_log_dir),
-    ok = file:make_dir(LogDir),
+    ok = filelib:ensure_dir(LogDir),
     application:stop(sasl),
-    SaslEnv = application:get_all_env(sasl),
-    lists:foreach(fun({E,_V}) -> application:unset_env(sasl,E) end, SaslEnv),
+    clear_env(sasl),
 
     ok = application:set_env(sasl,error_logger_mf_dir,LogDir),
     match_error(missing_config,application:start(sasl)),
@@ -178,6 +179,23 @@ log_mf_h_env(Config) ->
     ok = application:set_env(sasl,error_logger_mf_dir,LogDir),
     ok = application:start(sasl).
 
+log_file(Config) ->
+    PrivDir = ?config(priv_dir,Config),
+    LogDir  = filename:join(PrivDir,sasl_SUITE_log_dir),
+    ok      = filelib:ensure_dir(LogDir),
+    File    = filename:join(LogDir, "file.log"),
+    application:stop(sasl),
+    clear_env(sasl),
+
+    ok = application:set_env(sasl,sasl_error_logger,{file, File}, [{persistent, true}]),
+    ok = application:start(sasl),
+    application:stop(sasl),
+    ok = application:set_env(sasl,sasl_error_logger,{file, File, [append]}, [{persistent, true}]),
+    ok = application:start(sasl),
+    application:stop(sasl),
+    ok = application:set_env(sasl,sasl_error_logger, tty, [{persistent, false}]),
+    ok = application:start(sasl).
+
 
 %%-----------------------------------------------------------------
 %% Internal
@@ -185,3 +203,7 @@ match_error(Expected,{error,{bad_return,{_,{'EXIT',{Expected,{sasl,_}}}}}}) ->
     ok;
 match_error(Expected,Actual) ->
     ?t:fail({unexpected_return,Expected,Actual}).
+
+clear_env(App) ->
+    [application:unset_env(App,Opt) || {Opt,_} <- application:get_all_env(App)],
+    ok.

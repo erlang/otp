@@ -4,20 +4,21 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2013</year>
+      <year>1996</year><year>2014</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
-      The contents of this file are subject to the Erlang Public License,
-      Version 1.1, (the "License"); you may not use this file except in
-      compliance with the License. You should have received a copy of the
-      Erlang Public License along with this software. If not, it can be
-      retrieved online at http://www.erlang.org/.
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
 
-      Software distributed under the License is distributed on an "AS IS"
-      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-      the License for the specific language governing rights and limitations
-      under the License.
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
 
     </legalnotice>
 
@@ -43,7 +44,10 @@
     <pre>
 gen_fsm module                    Callback module
 --------------                    ---------------
+gen_fsm:start
 gen_fsm:start_link                -----> Module:init/1
+
+gen_fsm:stop                      -----> Module:terminate/3
 
 gen_fsm:send_event                -----> Module:StateName/2
 
@@ -184,6 +188,39 @@ gen_fsm:sync_send_all_state_event -----> Module:handle_sync_event/4
           is not part of a supervision tree and thus has no supervisor.</p>
         <p>See <seealso marker="#start_link/3">start_link/3,4</seealso>
           for a description of arguments and return values.</p>
+      </desc>
+    </func>
+    <func>
+      <name>stop(FsmRef) -> ok</name>
+      <name>stop(FsmRef, Reason, Timeout) -> ok</name>
+      <fsummary>Synchronously stop a generic FSM.</fsummary>
+      <type>
+        <v>FsmRef = Name | {Name,Node} | {global,GlobalName}
+	| {via,Module,ViaName} | pid()</v>
+        <v>&nbsp;Node = atom()</v>
+        <v>&nbsp;GlobalName = ViaName = term()</v>
+        <v>Reason = term()</v>
+        <v>Timeout = int()>0 | infinity</v>
+      </type>
+      <desc>
+	<p>Orders a generic FSM to exit with the given <c>Reason</c>
+	  and waits for it to terminate. The gen_fsm will call
+          <seealso marker="#Module:terminate/3">Module:terminate/3</seealso>
+	  before exiting.</p>
+	<p>The function returns <c>ok</c> if the generic FSM terminates
+	  with the expected reason. Any other reason than <c>normal</c>,
+          <c>shutdown</c>, or <c>{shutdown,Term}</c> will cause an
+          error report to be issued using
+          <seealso marker="kernel:error_logger#format/2">error_logger:format/2</seealso>.
+	  The default <c>Reason</c> is <c>normal</c>.</p>
+	<p><c>Timeout</c> is an integer greater than zero which
+          specifies how many milliseconds to wait for the generic FSM
+          to terminate, or the atom <c>infinity</c> to wait
+          indefinitely. The default value is <c>infinity</c>. If the
+          generic FSM has not terminated within the specified time, a
+	  <c>timeout</c> exception is raised.</p>
+	<p>If the process does not exist, a <c>noproc</c> exception
+	  is raised.</p>
       </desc>
     </func>
     <func>
@@ -528,7 +565,8 @@ gen_fsm:sync_send_all_state_event -----> Module:handle_sync_event/4
           <c>Module:init/1</c> for a description of <c>Timeout</c> and <c>hibernate</c>.</p>
         <p>If the function returns <c>{stop,Reason,NewStateData}</c>,
           the gen_fsm will call
-          <c>Module:terminate(Reason,NewStateData)</c> and terminate.</p>
+          <c>Module:terminate(Reason,StateName,NewStateData)</c> and
+          terminate.</p>
       </desc>
     </func>
     <func>
@@ -614,7 +652,8 @@ gen_fsm:sync_send_all_state_event -----> Module:handle_sync_event/4
           <c>{stop,Reason,NewStateData}</c>, any reply to <c>From</c>
           must be given explicitly using <c>gen_fsm:reply/2</c>.
           The gen_fsm will then call
-          <c>Module:terminate(Reason,NewStateData)</c> and terminate.</p>
+          <c>Module:terminate(Reason,StateName,NewStateData)</c> and
+          terminate.</p>
       </desc>
     </func>
     <func>

@@ -4,20 +4,21 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2013</year>
+      <year>1996</year><year>2014</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
-      The contents of this file are subject to the Erlang Public License,
-      Version 1.1, (the "License"); you may not use this file except in
-      compliance with the License. You should have received a copy of the
-      Erlang Public License along with this software. If not, it can be
-      retrieved online at http://www.erlang.org/.
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
 
-      Software distributed under the License is distributed on an "AS IS"
-      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-      the License for the specific language governing rights and limitations
-      under the License.
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
 
     </legalnotice>
 
@@ -43,7 +44,10 @@
     <pre>
 gen_server module            Callback module
 -----------------            ---------------
+gen_server:start
 gen_server:start_link -----> Module:init/1
+
+gen_server:stop       -----> Module:terminate/2
 
 gen_server:call
 gen_server:multi_call -----> Module:handle_call/3
@@ -184,6 +188,40 @@ gen_server:abcast     -----> Module:handle_cast/2
       </desc>
     </func>
     <func>
+      <name>stop(ServerRef) -> ok</name>
+      <name>stop(ServerRef, Reason, Timeout) -> ok</name>
+      <fsummary>Synchronously stop a generic server.</fsummary>
+      <type>
+        <v>ServerRef = Name | {Name,Node} | {global,GlobalName}
+	| {via,Module,ViaName} | pid()</v>
+        <v>&nbsp;Node = atom()</v>
+        <v>&nbsp;GlobalName = ViaName = term()</v>
+        <v>Reason = term()</v>
+        <v>Timeout = int()>0 | infinity</v>
+      </type>
+      <desc>
+	<p>Orders a generic server to exit with the
+	  given <c>Reason</c> and waits for it to terminate. The
+	  gen_server will call
+          <seealso marker="#Module:terminate/2">Module:terminate/2</seealso>
+	  before exiting.</p>
+	<p>The function returns <c>ok</c> if the server terminates
+	  with the expected reason. Any other reason than <c>normal</c>,
+          <c>shutdown</c>, or <c>{shutdown,Term}</c> will cause an
+          error report to be issued using
+          <seealso marker="kernel:error_logger#format/2">error_logger:format/2</seealso>.
+	  The default <c>Reason</c> is <c>normal</c>.</p>
+	<p><c>Timeout</c> is an integer greater than zero which
+          specifies how many milliseconds to wait for the server to
+          terminate, or the atom <c>infinity</c> to wait
+          indefinitely. The default value is <c>infinity</c>. If the
+          server has not terminated within the specified time, a
+          <c>timeout</c> exception is raised.</p>
+	<p>If the process does not exist, a <c>noproc</c> exception
+	  is raised.</p>
+      </desc>
+    </func>
+    <func>
       <name>call(ServerRef, Request) -> Reply</name>
       <name>call(ServerRef, Request, Timeout) -> Reply</name>
       <fsummary>Make a synchronous call to a generic server.</fsummary>
@@ -284,7 +322,7 @@ gen_server:abcast     -----> Module:handle_cast/2
              which may be infinity.</p>
           <p>This problem does not exist if all nodes are Erlang nodes.</p>
         </warning>
-        <p>To avoid that late answers (after the timeout) pollutes
+        <p>To prevent late answers (after the timeout) from polluting
           the caller's message queue, a middleman process is used to
           do the actual calls. Late answers will then be discarded
           when they arrive to a terminated process.</p>

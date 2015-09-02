@@ -1,20 +1,21 @@
 /*
  * %CopyrightBegin%
- * 
+ *
  * Copyright Ericsson AB 2000-2014. All Rights Reserved.
- * 
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
- * 
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
- * 
- * %CopyrightEnd% 
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * %CopyrightEnd%
  */
 package com.ericsson.otp.erlang;
 
@@ -29,7 +30,7 @@ import java.net.UnknownHostException;
  * <p>
  * Represents an OTP node.
  * </p>
- * 
+ *
  * <p>
  * About nodenames: Erlang nodenames consist of two components, an alivename and
  * a hostname separated by '@'. Additionally, there are two nodename formats:
@@ -40,7 +41,7 @@ import java.net.UnknownHostException;
  * however Jinterface makes no distinction. See the Erlang documentation for
  * more information about nodenames.
  * </p>
- * 
+ *
  * <p>
  * The constructors for the AbstractNode classes will create names exactly as
  * you provide them as long as the name contains '@'. If the string you provide
@@ -48,7 +49,7 @@ import java.net.UnknownHostException;
  * host will be appended, resulting in a shortname. Nodenames longer than 255
  * characters will be truncated without warning.
  * </p>
- * 
+ *
  * <p>
  * Upon initialization, this class attempts to read the file .erlang.cookie in
  * the user's home directory, and uses the trimmed first line of the file as the
@@ -58,19 +59,20 @@ import java.net.UnknownHostException;
  * using the system property "user.home", which may not be automatically set on
  * all platforms.
  * </p>
- * 
+ *
  * <p>
  * Instances of this class cannot be created directly, use one of the subclasses
  * instead.
  * </p>
  */
-public class AbstractNode {
+public class AbstractNode implements OtpTransportFactory {
     static String localHost = null;
     String node;
     String host;
     String alive;
     String cookie;
     static String defaultCookie = null;
+    final OtpTransportFactory transportFactory;
 
     // Node types
     static final int NTYPE_R6 = 110; // 'n' post-r5, all nodes
@@ -100,172 +102,207 @@ public class AbstractNode {
     int distLow = 5; // Cannot talk to nodes before R6
     int creation = 0;
     int flags = dFlagExtendedReferences | dFlagExtendedPidsPorts
-	    | dFlagBitBinaries | dFlagNewFloats | dFlagFunTags
-	    | dflagNewFunTags | dFlagUtf8Atoms | dFlagMapTag;
+            | dFlagBitBinaries | dFlagNewFloats | dFlagFunTags
+            | dflagNewFunTags | dFlagUtf8Atoms | dFlagMapTag;
 
     /* initialize hostname and default cookie */
     static {
-	try {
-	    localHost = InetAddress.getLocalHost().getHostName();
-	    /*
-	     * Make sure it's a short name, i.e. strip of everything after first
-	     * '.'
-	     */
-	    final int dot = localHost.indexOf(".");
-	    if (dot != -1) {
-		localHost = localHost.substring(0, dot);
-	    }
-	} catch (final UnknownHostException e) {
-	    localHost = "localhost";
-	}
+        try {
+            localHost = InetAddress.getLocalHost().getHostName();
+            /*
+             * Make sure it's a short name, i.e. strip of everything after first
+             * '.'
+             */
+            final int dot = localHost.indexOf(".");
+            if (dot != -1) {
+                localHost = localHost.substring(0, dot);
+            }
+        } catch (final UnknownHostException e) {
+            localHost = "localhost";
+        }
 
-	final String homeDir = getHomeDir();
-	final String dotCookieFilename = homeDir + File.separator
+        final String homeDir = getHomeDir();
+        final String dotCookieFilename = homeDir + File.separator
                 + ".erlang.cookie";
-	BufferedReader br = null;
+        BufferedReader br = null;
 
-	try {
-	    final File dotCookieFile = new File(dotCookieFilename);
+        try {
+            final File dotCookieFile = new File(dotCookieFilename);
 
-	    br = new BufferedReader(new FileReader(dotCookieFile));
-			final String line = br.readLine();
-			if (line == null) {
-				defaultCookie = "";
-			} else {
-				defaultCookie = line.trim();
-			}
-	} catch (final IOException e) {
-	    defaultCookie = "";
-	} finally {
-	    try {
-		if (br != null) {
-		    br.close();
-		}
-	    } catch (final IOException e) {
-	    }
-	}
+            br = new BufferedReader(new FileReader(dotCookieFile));
+            final String line = br.readLine();
+            if (line == null) {
+                defaultCookie = "";
+            } else {
+                defaultCookie = line.trim();
+            }
+        } catch (final IOException e) {
+            defaultCookie = "";
+        } finally {
+            try {
+                if (br != null) {
+                    br.close();
+                }
+            } catch (final IOException e) {
+            }
+        }
     }
 
-    protected AbstractNode() {
+    protected AbstractNode(final OtpTransportFactory transportFactory) {
+        this.transportFactory = transportFactory;
     }
 
     /**
-     * Create a node with the given name and the default cookie.
+     * Create a node with the given name and default cookie and transport
+     * factory.
      */
     protected AbstractNode(final String node) {
-	this(node, defaultCookie);
+        this(node, defaultCookie, new OtpSocketTransportFactory());
     }
 
     /**
-     * Create a node with the given name and cookie.
+     * Create a node with the given name, transport factory and the default
+     * cookie.
+     */
+    protected AbstractNode(final String node,
+            final OtpTransportFactory transportFactory) {
+        this(node, defaultCookie, transportFactory);
+    }
+
+    /**
+     * Create a node with the given name, cookie and default transport factory.
      */
     protected AbstractNode(final String name, final String cookie) {
-	this.cookie = cookie;
+        this(name, cookie, new OtpSocketTransportFactory());
+    }
 
-	final int i = name.indexOf('@', 0);
-	if (i < 0) {
-	    alive = name;
-	    host = localHost;
-	} else {
-	    alive = name.substring(0, i);
-	    host = name.substring(i + 1, name.length());
-	}
+    /**
+     * Create a node with the given name, cookie and transport factory.
+     */
+    protected AbstractNode(final String name, final String cookie,
+            final OtpTransportFactory transportFactory) {
+        this.cookie = cookie;
+        this.transportFactory = transportFactory;
 
-	if (alive.length() > 0xff) {
-	    alive = alive.substring(0, 0xff);
-	}
+        final int i = name.indexOf('@', 0);
+        if (i < 0) {
+            alive = name;
+            host = localHost;
+        } else {
+            alive = name.substring(0, i);
+            host = name.substring(i + 1, name.length());
+        }
 
-	node = alive + "@" + host;
+        if (alive.length() > 0xff) {
+            alive = alive.substring(0, 0xff);
+        }
+
+        node = alive + "@" + host;
     }
 
     /**
      * Get the name of this node.
-     * 
+     *
      * @return the name of the node represented by this object.
      */
     public String node() {
-	return node;
+        return node;
     }
 
     /**
      * Get the hostname part of the nodename. Nodenames are composed of two
      * parts, an alivename and a hostname, separated by '@'. This method returns
      * the part of the nodename following the '@'.
-     * 
+     *
      * @return the hostname component of the nodename.
      */
     public String host() {
-	return host;
+        return host;
     }
 
     /**
      * Get the alivename part of the hostname. Nodenames are composed of two
      * parts, an alivename and a hostname, separated by '@'. This method returns
      * the part of the nodename preceding the '@'.
-     * 
+     *
      * @return the alivename component of the nodename.
      */
     public String alive() {
-	return alive;
+        return alive;
     }
 
     /**
      * Get the authorization cookie used by this node.
-     * 
+     *
      * @return the authorization cookie used by this node.
      */
     public String cookie() {
-	return cookie;
+        return cookie;
     }
 
     // package scope
     int type() {
-	return ntype;
+        return ntype;
     }
 
     // package scope
     int distHigh() {
-	return distHigh;
+        return distHigh;
     }
 
     // package scope
     int distLow() {
-	return distLow;
+        return distLow;
     }
 
     // package scope: useless information?
     int proto() {
-	return proto;
+        return proto;
     }
 
     // package scope
     int creation() {
-	return creation;
+        return creation;
     }
 
     /**
      * Set the authorization cookie used by this node.
-     * 
+     *
      * @return the previous authorization cookie used by this node.
      */
     public String setCookie(final String cookie) {
-	final String prev = this.cookie;
-	this.cookie = cookie;
-	return prev;
+        final String prev = this.cookie;
+        this.cookie = cookie;
+        return prev;
     }
 
     @Override
     public String toString() {
-	return node();
+        return node();
     }
 
     private static String getHomeDir() {
-	final String home = System.getProperty("user.home");
-	if (System.getProperty("os.name").toLowerCase().contains("windows")) {
-	    final String drive = System.getenv("HOMEDRIVE");
-	    final String path = System.getenv("HOMEPATH");
-	    return (drive != null && path != null) ? drive + path : home;
-	}
-    return home;
+        final String home = System.getProperty("user.home");
+        if (System.getProperty("os.name").toLowerCase().contains("windows")) {
+            final String drive = System.getenv("HOMEDRIVE");
+            final String path = System.getenv("HOMEPATH");
+            return drive != null && path != null ? drive + path : home;
+        }
+        return home;
+    }
+
+    public OtpTransport createTransport(final String addr, final int port)
+            throws IOException {
+        return transportFactory.createTransport(addr, port);
+    }
+
+    public OtpTransport createTransport(final InetAddress addr, final int port)
+            throws IOException {
+        return transportFactory.createTransport(addr, port);
+    }
+
+    public OtpServerTransport createServerTransport(final int port)
+            throws IOException {
+        return transportFactory.createServerTransport(port);
     }
 }

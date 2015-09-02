@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 1997-2014. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -1407,6 +1408,12 @@ spawn_executable(Config) when is_list(Config) ->
 	run_echo_args(SpaceDir,[ExactFile2,"hello world","dlrow olleh"]),
     [ExactFile2,"hello world","dlrow olleh"] =
 	run_echo_args(SpaceDir,[binary, ExactFile2,"hello world","dlrow olleh"]),
+
+    [ExactFile2,"hello \"world\"","\"dlrow\" olleh"] =
+	run_echo_args(SpaceDir,[binary, ExactFile2,"hello \"world\"","\"dlrow\" olleh"]),
+    [ExactFile2,"hello \"world\"","\"dlrow\" olleh"] =
+	run_echo_args(SpaceDir,[binary, ExactFile2,"hello \"world\"","\"dlrow\" olleh"]),
+
     [ExactFile2] = run_echo_args(SpaceDir,[default]),
     [ExactFile2,"hello world","dlrow olleh"] = 
 	run_echo_args(SpaceDir,[switch_order,ExactFile2,"hello world",
@@ -1809,7 +1816,7 @@ exit_status_msb_test(Config, SleepSecs) when is_list(Config) ->
     Parent = self(),
     ?t:format("SleepSecs = ~p~n", [SleepSecs]),
     PortProg = "sleep " ++ integer_to_list(SleepSecs),
-    Start = now(),
+    Start = erlang:monotonic_time(micro_seconds),
     NoProcs = case NoSchedsOnln of
 			NProcs when NProcs < ?EXIT_STATUS_MSB_MAX_PROCS ->
 			    NProcs;
@@ -1881,12 +1888,12 @@ exit_status_msb_test(Config, SleepSecs) when is_list(Config) ->
 				   receive {P, started, SIds} -> SIds end
 			   end,
 			   Procs),
-    StartedTime = timer:now_diff(now(), Start)/1000000,
+    StartedTime = (erlang:monotonic_time(micro_seconds) - Start)/1000000,
     ?t:format("StartedTime = ~p~n", [StartedTime]),
     true = StartedTime < SleepSecs,
     erlang:system_flag(multi_scheduling, block),
     lists:foreach(fun (P) -> receive {P, done} -> ok end end, Procs),
-    DoneTime = timer:now_diff(now(), Start)/1000000,
+    DoneTime = (erlang:monotonic_time(micro_seconds) - Start)/1000000,
     ?t:format("DoneTime = ~p~n", [DoneTime]),
     true = DoneTime > SleepSecs,
     ok = verify_multi_scheduling_blocked(),

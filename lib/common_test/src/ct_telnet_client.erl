@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 2003-2014. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -39,7 +40,7 @@
 
 -define(TELNET_PORT, 23).
 -define(OPEN_TIMEOUT,10000).
--define(IDLE_TIMEOUT,10000).
+-define(IDLE_TIMEOUT,8000).
 
 %% telnet control characters
 -define(SE,	240).
@@ -114,7 +115,7 @@ get_data(Pid) ->
 %%%-----------------------------------------------------------------
 %%% Internal functions
 init(Parent, Server, Port, Timeout, KeepAlive, ConnName) ->
-    case gen_tcp:connect(Server, Port, [list,{packet,0}], Timeout) of
+    case gen_tcp:connect(Server, Port, [list,{packet,0},{nodelay,true}], Timeout) of
 	{ok,Sock} ->
 	    dbg("~p connected to: ~p (port: ~w, keep_alive: ~w)\n",
 		[ConnName,Server,Port,KeepAlive]),
@@ -393,7 +394,7 @@ cmd_dbg(Prefix,Cmd) ->
     end.
 
 timestamp() ->
-    {MS,S,US} = now(),
+    {MS,S,US} = os:timestamp(),
     {{Year,Month,Day}, {Hour,Min,Sec}} =
         calendar:now_to_local_time({MS,S,US}),
     MilliSec = trunc(US/1000),

@@ -3,16 +3,17 @@
  *
  * Copyright Ericsson AB 2010-2011. All Rights Reserved.
  *
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  * %CopyrightEnd%
  */
@@ -56,6 +57,33 @@ ETHR_PROTO_NORETURN__ ethr_abort__(void);
 #ifdef ETHR_WIN32_THREADS
 int ethr_win_get_errno__(void);
 #endif
+
+#ifdef ETHR_INCLUDE_MONOTONIC_CLOCK__
+#undef ETHR_HAVE_ETHR_GET_MONOTONIC_TIME
+#if defined(ETHR_HAVE_CLOCK_GETTIME_MONOTONIC)		\
+    || defined(ETHR_HAVE_MACH_CLOCK_GET_TIME)		\
+    || defined(ETHR_HAVE_GETHRTIME)
+#ifdef ETHR_TIME_WITH_SYS_TIME
+#  include <time.h>
+#  include <sys/time.h>
+#else
+#  ifdef ETHR_HAVE_SYS_TIME_H
+#    include <sys/time.h>
+#  else
+#    include <time.h>
+#  endif
+#endif
+#ifdef ETHR_HAVE_MACH_CLOCK_GET_TIME
+#include <mach/clock.h>
+#include <mach/mach.h>
+#endif
+#define ETHR_HAVE_ETHR_GET_MONOTONIC_TIME
+ethr_sint64_t ethr_get_monotonic_time(void);
+int ethr_get_monotonic_time_is_broken(void);
+#endif
+#endif /* ETHR_INCLUDE_MONOTONIC_CLOCK__ */
+
+void ethr_init_event__(void);
 
 /* implemented in lib_src/common/ethread_aux.c */
 int ethr_init_common__(ethr_init_data *id);

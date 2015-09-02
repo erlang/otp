@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 2010-2013. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -441,10 +442,10 @@ hammer_ets_rwlock_test(XOpts, UW, C, N, NP, SC) ->
 										      receive after infinity -> ok end
 									      end) | Ps0]
 							 end,
-						    Start = now(),
+						    Start = erlang:monotonic_time(),
 						    lists:foreach(fun (P) -> P ! go end, Ps),
 						    lists:foreach(fun (P) -> receive {done, P} -> ok end end, Ps),
-						    Stop = now(),
+						    Stop = erlang:monotonic_time(),
 						    lists:foreach(fun (P) ->
 									  unlink(P),
 									  exit(P, bang),
@@ -453,7 +454,7 @@ hammer_ets_rwlock_test(XOpts, UW, C, N, NP, SC) ->
 									      {'DOWN', M, process, P, _} -> ok
 									  end
 								  end, Ps),
-						    Res = timer:now_diff(Stop, Start)/1000000,
+						    Res = (Stop-Start)/erlang:convert_time_unit(1,seconds,native),
 						    Caller ! {?MODULE, self(), Res}
 					    end,
 					TP = spawn_link(T),

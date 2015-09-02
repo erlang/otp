@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 1996-2014. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -34,11 +35,13 @@
 -export([
 	 get_log_writes/0,
 	 incr_log_writes/0,
+         needs_dump_ets/1,
 	 raw_dump_table/2,
 	 raw_named_dump_table/2,
 	 start_regulator/0,
 	 opt_dump_log/1,
-	 update/3
+	 update/3,
+	 snapshot_dcd/1
 	]).
 
  %% Internal stuff
@@ -99,6 +102,19 @@ opt_dump_log(InitBy) ->
 	  end,
     perform_dump(InitBy, Reg).
 
+snapshot_dcd(Tables) ->
+    lists:foreach(
+      fun(Tab) ->
+	      case mnesia_lib:storage_type_at_node(node(), Tab) of
+		  disc_copies ->
+		      mnesia_log:ets2dcd(Tab);
+		  _ ->
+		      %% Storage type was checked before queueing the op, though
+		      skip
+	      end
+      end, Tables),
+    dumped.
+
 %% Scan for decisions
 perform_dump(InitBy, Regulator) when InitBy == scan_decisions ->
     ?eval_debug_fun({?MODULE, perform_dump}, [InitBy]),
@@ -122,7 +138,7 @@ perform_dump(InitBy, Regulator) ->
 	    U = mnesia_monitor:get_env(dump_log_update_in_place),
 	    Cont = mnesia_log:init_log_dump(),
 	    mnesia_recover:sync(),
-	    case catch do_perform_dump(Cont, U, InitBy, Regulator, undefined) of
+	    try do_perform_dump(Cont, U, InitBy, Regulator, undefined) of
 		ok ->
 		    ?eval_debug_fun({?MODULE, post_dump}, [InitBy]),
 		    case mnesia_monitor:use_dir() of
@@ -133,17 +149,15 @@ perform_dump(InitBy, Regulator) ->
 		    end,
 		    mnesia_recover:allow_garb(),
 		    %% And now to the crucial point...
-		    mnesia_log:confirm_log_dump(Diff);
-		{error, Reason} ->
-		    {error, Reason};
- 		{'EXIT', {Desc, Reason}} ->
+		    mnesia_log:confirm_log_dump(Diff)
+	    catch exit:Reason when Reason =/= fatal ->
 		    case mnesia_monitor:get_env(auto_repair) of
 			true ->
-			    mnesia_lib:important(Desc, Reason),
+			    mnesia_lib:important(error, Reason),
 			    %% Ignore rest of the log
 			    mnesia_log:confirm_log_dump(Diff);
 			false ->
-			    fatal(Desc, Reason)
+			    fatal(error, Reason)
 		    end
 	    end;
 	{error, Reason} ->
@@ -161,24 +175,25 @@ scan_decisions(Fname, InitBy, Regulator) ->
 	    mnesia_log:open_log(Name, Header, Fname, Exists,
 				mnesia_monitor:get_env(auto_repair), read_only),
 	    Cont = start,
-	    Res = (catch do_perform_dump(Cont, false, InitBy, Regulator, undefined)),
-	    mnesia_log:close_log(Name),
-	    case Res of
-		ok -> ok;
-		{'EXIT', Reason} -> {error, Reason}
+	    try
+		do_perform_dump(Cont, false, InitBy, Regulator, undefined)
+	    catch exit:Reason when Reason =/= fatal ->
+		    {error, Reason}
+	    after mnesia_log:close_log(Name)
 	    end
     end.
 
 do_perform_dump(Cont, InPlace, InitBy, Regulator, OldVersion) ->
     case mnesia_log:chunk_log(Cont) of
 	{C2, Recs} ->
-	    case catch insert_recs(Recs, InPlace, InitBy, Regulator, OldVersion) of
-		{'EXIT', R} ->
-		    Reason = {"Transaction log dump error: ~p~n", [R]},
-		    close_files(InPlace, {error, Reason}, InitBy),
-		    exit(Reason);
+	    try insert_recs(Recs, InPlace, InitBy, Regulator, OldVersion) of
 		Version ->
 		    do_perform_dump(C2, InPlace, InitBy, Regulator, Version)
+	    catch _:R when R =/= fatal ->
+		    ST = erlang:get_stacktrace(),
+		    Reason = {"Transaction log dump error: ~p~n", [{R, ST}]},
+		    close_files(InPlace, {error, Reason}, InitBy),
+		    exit(Reason)
 	    end;
 	eof ->
 	    close_files(InPlace, ok, InitBy),
@@ -288,17 +303,16 @@ perform_update(Tid, SchemaOps, _DumperMode, _UseDir) ->
 
     InitBy = fast_schema_update,
     InPlace = mnesia_monitor:get_env(dump_log_update_in_place),
-    ?eval_debug_fun({?MODULE, dump_schema_op}, [InitBy]),
-    case catch insert_ops(Tid, schema_ops, SchemaOps, InPlace, InitBy,
-			  mnesia_log:version()) of
-	{'EXIT', Reason} ->
-	    Error = {error, {"Schema update error", Reason}},
+    try insert_ops(Tid, schema_ops, SchemaOps, InPlace, InitBy,
+		   mnesia_log:version()),
+	 ?eval_debug_fun({?MODULE, post_dump}, [InitBy]),
+	 close_files(InPlace, ok, InitBy),
+	 ok
+    catch _:Reason when Reason =/= fatal ->
+	    ST = erlang:get_stacktrace(),
+	    Error = {error, {"Schema update error", {Reason, ST}}},
 	    close_files(InPlace, Error, InitBy),
-            fatal("Schema update error ~p ~p", [Reason, SchemaOps]);
-	_ ->
-	    ?eval_debug_fun({?MODULE, post_dump}, [InitBy]),
-	    close_files(InPlace, ok, InitBy),
-	    ok
+            fatal("Schema update error ~p ~p", [{Reason,ST}, SchemaOps])
     end.
 
 insert_ops(_Tid, _Storage, [], _InPlace, _InitBy, _) ->    ok;
@@ -347,13 +361,11 @@ dets_insert(Op,Tab,Key,Val) ->
 	    case dets_incr_counter(Tab,Key) of
 		true ->
 		    {RecName, Incr} = Val,
-		    case catch dets:update_counter(Tab, Key, Incr) of
-			CounterVal when is_integer(CounterVal) ->
-			    ok;
-			_ when Incr < 0 ->
+		    try _ = dets:update_counter(Tab, Key, Incr)
+		    catch error:_ when Incr < 0 ->
 			    Zero = {RecName, Key, 0},
 			    ok = dets:insert(Tab, Zero);
-			_ ->
+			  error:_ ->
 			    Init = {RecName, Key, Incr},
 			    ok = dets:insert(Tab, Init)
 		    end;
@@ -771,7 +783,7 @@ insert_op(Tid, _, {op, clear_table, TabDef}, InPlace, InitBy) ->
 	    end,
 	    %% Need to catch this, it crashes on ram_copies if
 	    %% the op comes before table is loaded at startup.
-	    catch insert(Tid, Storage, Tab, '_', Oid, clear_table, InPlace, InitBy)
+	    ?CATCH(insert(Tid, Storage, Tab, '_', Oid, clear_table, InPlace, InitBy))
     end;
 
 insert_op(Tid, _, {op, merge_schema, TabDef}, InPlace, InitBy) ->
@@ -981,28 +993,10 @@ open_files(_Tab, _Storage, _UpdateInPlace, _InitBy) ->
     false.
 
 open_disc_copies(Tab, InitBy) ->
-    DclF = mnesia_lib:tab2dcl(Tab),
-    DumpEts =
-	case file:read_file_info(DclF) of
-	    {error, enoent} ->
-		false;
-	    {ok, DclInfo} ->
-		DcdF =  mnesia_lib:tab2dcd(Tab),
-		case file:read_file_info(DcdF) of
-		    {error, Reason} ->
-			mnesia_lib:dbg_out("File ~p info_error ~p ~n",
-					   [DcdF, Reason]),
-			true;
-		    {ok, DcdInfo} ->
-			Mul = case ?catch_val(dc_dump_limit) of
-				  {'EXIT', _} -> ?DumpToEtsMultiplier;
-				  Val -> Val
-			      end,
-			DcdInfo#file_info.size =< (DclInfo#file_info.size * Mul)
-		end
-	end,
+    DumpEts = needs_dump_ets(Tab),
     if
 	DumpEts == false; InitBy == startup ->
+            DclF = mnesia_lib:tab2dcl(Tab),
 	    mnesia_log:open_log({?MODULE,Tab},
 				mnesia_log:dcl_log_header(),
 				DclF,
@@ -1015,6 +1009,27 @@ open_disc_copies(Tab, InitBy) ->
 	    mnesia_log:ets2dcd(Tab),
 	    put({?MODULE, Tab}, already_dumped),
 	    false
+    end.
+
+needs_dump_ets(Tab) ->
+    DclF = mnesia_lib:tab2dcl(Tab),
+    case file:read_file_info(DclF) of
+        {error, enoent} ->
+            false;
+        {ok, DclInfo} ->
+            DcdF =  mnesia_lib:tab2dcd(Tab),
+            case file:read_file_info(DcdF) of
+                {error, Reason} ->
+                    mnesia_lib:dbg_out("File ~p info_error ~p ~n",
+                                       [DcdF, Reason]),
+                    true;
+                {ok, DcdInfo} ->
+                    Mul = case ?catch_val(dc_dump_limit) of
+                              {'EXIT', _} -> ?DumpToEtsMultiplier;
+                              Val -> Val
+                          end,
+                    DcdInfo#file_info.size =< (DclInfo#file_info.size * Mul)
+            end
     end.
 
 %% Always opens the dcl file for writing overriding already_dumped
@@ -1042,14 +1057,13 @@ prepare_open(Tab, UpdateInPlace) ->
 	    Dat;
 	false ->
 	    Tmp = mnesia_lib:tab2tmp(Tab),
-	    case catch mnesia_lib:copy_file(Dat, Tmp) of
-		ok ->
-		    Tmp;
-		Error ->
+	    try ok = mnesia_lib:copy_file(Dat, Tmp)
+	    catch error:Error ->
 		    fatal("Cannot copy dets file ~p to ~p: ~p~n",
 			  [Dat, Tmp, Error])
-	    end
-	end.
+	    end,
+	    Tmp
+    end.
 
 del_opened_tab(Tab) ->
     erase({?MODULE, Tab}).
@@ -1171,18 +1185,16 @@ raw_named_dump_table(Tab, Ftype) ->
 		    Storage = ram_copies,
 		    mnesia_lib:db_fixtable(Storage, Tab, true),
 
-		    case catch raw_dump_table(TabRef, Tab) of
-			{'EXIT', Reason} ->
-			    mnesia_lib:db_fixtable(Storage, Tab, false),
-			    mnesia_lib:dets_sync_close(Tab),
-			    file:delete(TmpFname),
-			    mnesia_lib:unlock_table(Tab),
-			    exit({"Dump of table to disc failed", Reason});
-			ok ->
-			    mnesia_lib:db_fixtable(Storage, Tab, false),
-			    mnesia_lib:dets_sync_close(Tab),
-			    mnesia_lib:unlock_table(Tab),
-			    ok = file:rename(TmpFname, Fname)
+		    try
+			ok = raw_dump_table(TabRef, Tab),
+			ok = file:rename(TmpFname, Fname)
+		    catch _:Reason ->
+			    ?SAFE(file:delete(TmpFname)),
+			    exit({"Dump of table to disc failed", Reason})
+		    after
+			mnesia_lib:db_fixtable(Storage, Tab, false),
+			mnesia_lib:dets_sync_close(Tab),
+			mnesia_lib:unlock_table(Tab)
 		    end;
 		{error, Reason} ->
 		    mnesia_lib:unlock_table(Tab),
@@ -1248,6 +1260,6 @@ regulate(RegulatorPid) ->
 
 val(Var) ->
     case ?catch_val(Var) of
-	{'EXIT', Reason} -> mnesia_lib:other_val(Var, Reason);
+	{'EXIT', _} -> mnesia_lib:other_val(Var);
 	Value -> Value
     end.

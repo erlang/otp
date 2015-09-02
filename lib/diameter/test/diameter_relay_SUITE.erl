@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 2010-2015. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -333,13 +334,39 @@ realm(Host) ->
 
 call(Server) ->
     Realm = realm(Server),
+    %% Include some arbitrary AVPs to exercise encode/decode, that
+    %% are received back in the STA.
+    Avps = [#diameter_avp{code = 111,
+                          data = [#diameter_avp{code = 222,
+                                                data = <<222:24>>},
+                                  #diameter_avp{code = 333,
+                                                data = <<333:16>>}]},
+            #diameter_avp{code = 444,
+                          data = <<444:24>>},
+            #diameter_avp{code = 555,
+                          data = [#diameter_avp{code = 666,
+                                                data = [#diameter_avp
+                                                        {code = 777,
+                                                         data = <<7>>}]},
+                                  #diameter_avp{code = 888,
+                                                data = <<8>>},
+                                  #diameter_avp{code = 999,
+                                                data = <<9>>}]}],
+
     Req = ['STR', {'Destination-Realm', Realm},
                   {'Destination-Host', [Server]},
                   {'Termination-Cause', ?LOGOUT},
-                  {'Auth-Application-Id', ?APP_ID}],
+                  {'Auth-Application-Id', ?APP_ID},
+                  {'AVP', Avps}],
+
     #diameter_base_STA{'Result-Code' = ?SUCCESS,
                        'Origin-Host' = Server,
-                       'Origin-Realm' = Realm}
+                       'Origin-Realm' = Realm,
+                       %% Unknown AVPs can't be decoded as Grouped since
+                       %% types aren't known.
+                       'AVP' = [#diameter_avp{code = 111},
+                                #diameter_avp{code = 444},
+                                #diameter_avp{code = 555}]}
         = call(Req, [{filter, realm}]).
 
 call(Req, Opts) ->
@@ -433,9 +460,18 @@ request(_Pkt, #diameter_caps{origin_host = {OH, _}})
 request(#diameter_packet{msg = #diameter_base_STR{'Session-Id' = SId,
                                                   'Origin-Host' = Host,
                                                   'Origin-Realm' = Realm,
-                                                  'Route-Record' = Route}},
+                                                  'Route-Record' = Route,
+                                                  'AVP' = Avps}},
         #diameter_caps{origin_host  = {OH, _},
                        origin_realm = {OR, _}}) ->
+
+    %% Payloads of unknown AVPs aren't decoded, so we don't know that
+    %% some types here are Grouped.
+    [#diameter_avp{code = 111, vendor_id = undefined},
+     #diameter_avp{code = 444, vendor_id = undefined, data = <<444:24>>},
+     #diameter_avp{code = 555, vendor_id = undefined}]
+        = Avps,
+
     %% The request should have the Origin-Host/Realm of the original
     %% sender.
     R = realm(?CLIENT),
@@ -446,4 +482,5 @@ request(#diameter_packet{msg = #diameter_base_STR{'Session-Id' = SId,
     {reply, #diameter_base_STA{'Result-Code' = ?SUCCESS,
                                'Session-Id' = SId,
                                'Origin-Host' = OH,
-                               'Origin-Realm' = OR}}.
+                               'Origin-Realm' = OR,
+                               'AVP' = Avps}}.

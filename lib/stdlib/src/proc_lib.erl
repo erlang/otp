@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2014. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -30,7 +31,8 @@
 	 hibernate/3,
 	 init_ack/1, init_ack/2,
 	 init_p/3,init_p/5,format/1,format/2,initial_call/1,
-         translate_initial_call/1]).
+         translate_initial_call/1,
+	 stop/1, stop/3]).
 
 %% Internal exports.
 -export([wake_up/3]).
@@ -748,3 +750,50 @@ format_tag(Tag, Data) ->
 
 modifier(latin1) -> "";
 modifier(_) -> "t".
+
+
+%%% -----------------------------------------------------------
+%%% Stop a process and wait for it to terminate
+%%% -----------------------------------------------------------
+-spec stop(Process) -> 'ok' when
+      Process :: pid() | RegName | {RegName,node()},
+      RegName :: atom().
+stop(Process) ->
+    stop(Process, normal, infinity).
+
+-spec stop(Process, Reason, Timeout) -> 'ok' when
+      Process :: pid() | RegName | {RegName,node()},
+      RegName :: atom(),
+      Reason :: term(),
+      Timeout :: timeout().
+stop(Process, Reason, Timeout) ->
+    {Pid, Mref} = erlang:spawn_monitor(do_stop(Process, Reason)),
+    receive
+	{'DOWN', Mref, _, _, Reason} ->
+	    ok;
+	{'DOWN', Mref, _, _, {noproc,{sys,terminate,_}}} ->
+	    exit(noproc);
+	{'DOWN', Mref, _, _, CrashReason} ->
+	    exit(CrashReason)
+    after Timeout ->
+	    exit(Pid, kill),
+	    receive
+		{'DOWN', Mref, _, _, _} ->
+		    exit(timeout)
+	    end
+    end.
+
+-spec do_stop(Process, Reason) -> Fun when
+      Process :: pid() | RegName | {RegName,node()},
+      RegName :: atom(),
+      Reason :: term(),
+      Fun :: fun(() -> no_return()).
+do_stop(Process, Reason) ->
+    fun() ->
+	    Mref = erlang:monitor(process, Process),
+	    ok = sys:terminate(Process, Reason, infinity),
+	    receive
+		{'DOWN', Mref, _, _, ExitReason} ->
+		    exit(ExitReason)
+	    end
+    end.

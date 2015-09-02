@@ -3,16 +3,17 @@
 %% 
 %% Copyright Ericsson AB 2003-2014. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %%
@@ -60,7 +61,8 @@ expandable_term_body(Heading,[],_Tab) ->
 	 "StackDump"  -> "No stack dump was found";
 	 "Dictionary" -> "No dictionary was found";
 	 "ProcState"  -> "Information could not be retrieved,"
-			     " system messages may not be handled by this process."
+			     " system messages may not be handled by this process.";
+         "SaslLog"    -> "No log entry was found"
      end];
 expandable_term_body(Heading,Expanded,Tab) ->
     Attr = "BORDER=0 CELLPADDING=0 CELLSPACING=1 WIDTH=100%",
@@ -102,7 +104,10 @@ expandable_term_body(Heading,Expanded,Tab) ->
 		    element(1, lists:mapfoldl(fun(Entry, Even) ->
 						      {proc_state(Tab, Entry,Even),
 						       not Even}
-					      end, true, Expanded))]);
+					      end, true, Expanded))]);         
+     "SaslLog"  ->
+             table(Attr,
+                   [tr("BGCOLOR=white",[td("ALIGN=left", pre(href_proc_port(Expanded)))])]) ;
 	 _ ->
 	     table(Attr,
 		   [tr(
@@ -151,7 +156,7 @@ all_or_expand(_Tab,Term,Str,false)
     href_proc_port(lists:flatten(Str));
 all_or_expand(Tab,Term,Preview,true)
   when not is_binary(Term) ->
-    Key = {Key1,Key2,Key3} = now(),
+    Key = {Key1,Key2,Key3} = {erlang:unique_integer([positive]),1,2},
     ets:insert(Tab,{Key,Term}),
     [href_proc_port(lists:flatten(Preview), false), $\n,
      href("TARGET=\"expanded\"",

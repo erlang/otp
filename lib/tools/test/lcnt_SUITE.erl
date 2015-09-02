@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 2010-2011. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -97,12 +98,12 @@ t_conflicts_file([File|Files]) ->
     {ok, _} = lcnt:start(),
     ok = lcnt:load(File),
     ok = lcnt:conflicts(),
-    THs   = [-1, 0, 100, 1000],
+    THs   = [-1, 5],
     Print = [name , id , type , entry , tries , colls , ratio , time , duration],
     Opts  = [
 	[{sort, Sort}, {reverse, Rev}, {max_locks, ML}, {combine, Combine}, {thresholds, [TH]}, {print, [Print]}] ||
-	    Sort    <- [name , id , type , tries , colls , ratio , time , entry],
-	    ML      <- [none, 1 , 32,  4096],
+	    Sort    <- [name , type , tries , colls , ratio , time],
+	    ML      <- [none, 32],
 	    Combine <- [true, false],
 	    TH      <- [{tries, Tries} || Tries <- THs] ++ [{colls, Colls} || Colls <- THs] ++ [{time, Time} || Time <- THs],
 	    Rev     <- [true, false]
@@ -131,12 +132,12 @@ t_locations_file([File|Files]) ->
     {ok, _} = lcnt:start(),
     ok = lcnt:load(File),
     ok = lcnt:locations(),
-    THs   = [-1, 0, 100, 1000],
+    THs   = [-1, 0, 100],
     Print = [name , id , type , entry , tries , colls , ratio , time , duration],
     Opts  = [
 	[{full_id, Id}, {sort, Sort}, {max_locks, ML}, {combine, Combine}, {thresholds, [TH]}, {print, Print}] ||
 	    Sort    <- [name , id , type , tries , colls , ratio , time , entry],
-	    ML      <- [none, 1 , 64],
+	    ML      <- [none, 64],
 	    Combine <- [true, false],
 	    TH      <- [{tries, Tries} || Tries <- THs] ++ [{colls, Colls} || Colls <- THs] ++ [{time, Time} || Time <- THs],
 	    Id      <- [true, false]

@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2012. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2014. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %%
@@ -27,7 +28,7 @@
 	 init_per_group/2,end_per_group/2, 
 	 crash/1, sync_start_nolink/1, sync_start_link/1,
          spawn_opt/1, sp1/0, sp2/0, sp3/1, sp4/2, sp5/1,
-	 hibernate/1]).
+	 hibernate/1, stop/1]).
 -export([ otp_6345/1, init_dont_hang/1]).
 
 -export([hib_loop/1, awaken/1]).
@@ -38,6 +39,7 @@
 
 -export([otp_6345_init/1, init_dont_hang_init/1]).
 
+-export([system_terminate/4]).
 
 -ifdef(STANDALONE).
 -define(line, noop, ).
@@ -49,7 +51,7 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [crash, {group, sync_start}, spawn_opt, hibernate,
-     {group, tickets}].
+     {group, tickets}, stop].
 
 groups() -> 
     [{tickets, [], [otp_6345, init_dont_hang]},
@@ -361,10 +363,94 @@ init_dont_hang(Config) when is_list(Config) ->
 	    exit(Error)
     end.
 
-init_dont_hang_init(Parent) ->
+init_dont_hang_init(_Parent) ->
     1 = 2.
 
+%% Test proc_lib:stop/1,3
+stop(_Config) ->
+    Parent = self(),
+    SysMsgProc =
+	fun() ->
+		receive
+		    {system,From,Request} ->
+			sys:handle_system_msg(Request,From,Parent,?MODULE,[],[])
+		end
+	end,
 
+    %% Normal case:
+    %% Process handles system message and terminated with given reason
+    Pid1 = proc_lib:spawn(SysMsgProc),
+    ok = proc_lib:stop(Pid1),
+    false = erlang:is_process_alive(Pid1),
+
+    %% Process does not exit
+    {'EXIT',noproc} = (catch proc_lib:stop(Pid1)),
+
+    %% Badly handled system message
+    DieProc =
+	fun() ->
+		receive
+		    {system,_From,_Request} ->
+			exit(die)
+		end
+	end,
+    Pid2 = proc_lib:spawn(DieProc),
+    {'EXIT',{die,_}} = (catch proc_lib:stop(Pid2)),
+
+    %% Hanging process => timeout
+    HangProc =
+	fun() ->
+		receive
+		    {system,_From,_Request} ->
+			timer:sleep(5000)
+		end
+	end,
+    Pid3 = proc_lib:spawn(HangProc),
+    {'EXIT',timeout} = (catch proc_lib:stop(Pid3,normal,1000)),
+
+    %% Success case with other reason than 'normal'
+    Pid4 = proc_lib:spawn(SysMsgProc),
+    ok = proc_lib:stop(Pid4,other_reason,infinity),
+    false = erlang:is_process_alive(Pid4),
+
+    %% System message is handled, but process dies with other reason
+    %% than the given (in system_terminate/4 below)
+    Pid5 = proc_lib:spawn(SysMsgProc),
+    {'EXIT',{badmatch,2}} = (catch proc_lib:stop(Pid5,crash,infinity)),
+    false = erlang:is_process_alive(Pid5),
+
+    %% Local registered name
+    Pid6 = proc_lib:spawn(SysMsgProc),
+    register(to_stop,Pid6),
+    ok = proc_lib:stop(to_stop),
+    undefined = whereis(to_stop),
+    false = erlang:is_process_alive(Pid6),
+
+    %% Remote registered name
+    {ok,Node} = test_server:start_node(proc_lib_SUITE_stop,slave,[]),
+    Dir = filename:dirname(code:which(?MODULE)),
+    rpc:call(Node,code,add_path,[Dir]),
+    Pid7 = spawn(Node,SysMsgProc),
+    true = rpc:call(Node,erlang,register,[to_stop,Pid7]),
+    Pid7 = rpc:call(Node,erlang,whereis,[to_stop]),
+    ok = proc_lib:stop({to_stop,Node}),
+    undefined = rpc:call(Node,erlang,whereis,[to_stop]),
+    false = rpc:call(Node,erlang,is_process_alive,[Pid7]),
+
+    %% Local and remote registered name, but non-existing
+    {'EXIT',noproc} = (catch proc_lib:stop(to_stop)),
+    {'EXIT',noproc} = (catch proc_lib:stop({to_stop,Node})),
+
+    true = test_server:stop_node(Node),
+    
+    %% Remote registered name, but non-existing node
+    {'EXIT',{{nodedown,Node},_}} = (catch proc_lib:stop({to_stop,Node})),
+    ok.
+
+system_terminate(crash,_Parent,_Deb,_State) ->
+    1 = 2;
+system_terminate(Reason,_Parent,_Deb,_State) ->
+    exit(Reason).
 
 %%-----------------------------------------------------------------
 %% The error_logger handler used.

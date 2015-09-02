@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 1997-2014. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -23,6 +24,7 @@
 -behaviour(inets_service).
 
 -include("httpd.hrl").
+-include("httpd_internal.hrl").
 
 %% Behavior callbacks
 -export([
@@ -61,18 +63,27 @@ info(Pid, Properties) when is_pid(Pid) andalso is_list(Properties) ->
     {ok, ServiceInfo} = service_info(Pid), 
     Address = proplists:get_value(bind_address, ServiceInfo),
     Port = proplists:get_value(port, ServiceInfo),
+    Profile = proplists:get_value(profile, ServiceInfo, default),
     case Properties of
 	[] ->
-	    info(Address, Port);
+	    info(Address, Port, Profile);
 	_ ->
-	    info(Address, Port, Properties)
+	    info(Address, Port, Profile, Properties)
     end; 
+
 info(Address, Port) when is_integer(Port) ->    
-    httpd_conf:get_config(Address, Port).
+    info(Address, Port, default).
+
+info(Address, Port, Profile) when is_integer(Port), is_atom(Profile) ->    
+    httpd_conf:get_config(Address, Port, Profile);
 
 info(Address, Port, Properties) when is_integer(Port) andalso 
 				     is_list(Properties) ->    
-    httpd_conf:get_config(Address, Port, Properties).
+    httpd_conf:get_config(Address, Port, default, Properties).
+
+info(Address, Port, Profile, Properties) when is_integer(Port) andalso 
+					      is_atom(Profile) andalso is_list(Properties) ->    
+    httpd_conf:get_config(Address, Port, Profile, Properties).
 
 
 %%%========================================================================
@@ -86,14 +97,16 @@ start_service(Conf) ->
     httpd_sup:start_child(Conf).
 
 stop_service({Address, Port}) ->
-    httpd_sup:stop_child(Address, Port);
-
+    stop_service({Address, Port, ?DEFAULT_PROFILE});
+stop_service({Address, Port, Profile}) ->
+     httpd_sup:stop_child(Address, Port, Profile);
 stop_service(Pid) when is_pid(Pid) ->
     case service_info(Pid)  of
 	{ok, Info} ->	   
 	    Address = proplists:get_value(bind_address, Info),
 	    Port = proplists:get_value(port, Info),
-	    stop_service({Address, Port});
+	    Profile = proplists:get_value(profile, Info, ?DEFAULT_PROFILE),
+	    stop_service({Address, Port, Profile});
 	Error ->
 	    Error
     end.
@@ -101,7 +114,6 @@ stop_service(Pid) when is_pid(Pid) ->
 services() ->
     [{httpd, ChildPid} || {_, ChildPid, _, _} <- 
 			      supervisor:which_children(httpd_sup)].
-
 service_info(Pid) ->
     try
 	[{ChildName, ChildPid} || 
@@ -113,7 +125,6 @@ service_info(Pid) ->
 	exit:{noproc, _} ->
 	    {error, service_not_available} 
     end.
-
 
 %%%--------------------------------------------------------------
 %%% Internal functions
@@ -128,12 +139,12 @@ child_name(Pid, [_ | Children]) ->
 
 child_name2info(undefined) ->
     {error, no_such_service};
-child_name2info({httpd_instance_sup, any, Port}) ->
+child_name2info({httpd_instance_sup, any, Port, Profile}) ->
     {ok, Host} = inet:gethostname(),
-    Info = info(any, Port, [server_name]),
+    Info = info(any, Port, Profile, [server_name]),
     {ok, [{bind_address,  any}, {host, Host}, {port, Port} | Info]};
-child_name2info({httpd_instance_sup, Address, Port}) ->
-    Info = info(Address, Port, [server_name]),
+child_name2info({httpd_instance_sup, Address, Port, Profile}) ->
+    Info = info(Address, Port, Profile, [server_name]),
     case inet:gethostbyaddr(Address) of
 	{ok, {_, Host, _, _,_, _}} ->
 	    {ok, [{bind_address, Address}, 
@@ -143,8 +154,8 @@ child_name2info({httpd_instance_sup, Address, Port}) ->
     end.
 
 
-reload(Config, Address, Port) ->
-    Name = make_name(Address,Port),
+reload(Config, Address, Port, Profile) ->
+    Name = make_name(Address,Port, Profile),
     case whereis(Name) of
 	Pid when is_pid(Pid) ->
 	    httpd_manager:reload(Pid, Config);
@@ -191,51 +202,19 @@ reload(Config, Address, Port) ->
 %%%              Timeout    -> integer()
 %%%
 
-block(Addr, Port, disturbing) when is_integer(Port) ->
-    do_block(Addr, Port, disturbing);
-block(Addr, Port, non_disturbing) when is_integer(Port) ->
-    do_block(Addr, Port, non_disturbing);
-
-block(ConfigFile, Mode, Timeout) 
-  when is_list(ConfigFile) andalso 
-       is_atom(Mode) andalso 
-       is_integer(Timeout) ->
-    case get_addr_and_port(ConfigFile) of
-	{ok, Addr, Port} ->
-	    block(Addr, Port, Mode, Timeout);
-	Error ->
-	    Error
-    end.
-
-
-block(Addr, Port, non_disturbing, Timeout) 
-  when is_integer(Port) andalso is_integer(Timeout) ->
-    do_block(Addr, Port, non_disturbing, Timeout);
-block(Addr,Port,disturbing,Timeout) 
-  when is_integer(Port) andalso is_integer(Timeout) ->
-    do_block(Addr, Port, disturbing, Timeout).
-
-do_block(Addr, Port, Mode) when is_integer(Port) andalso is_atom(Mode) -> 
-    Name = make_name(Addr,Port),
+block(Addr, Port, Profile, disturbing) when is_integer(Port) ->
+    do_block(Addr, Port, Profile, disturbing);
+block(Addr, Port, Profile, non_disturbing) when is_integer(Port) ->
+    do_block(Addr, Port, Profile, non_disturbing).
+do_block(Addr, Port, Profile, Mode) when is_integer(Port) andalso is_atom(Mode) -> 
+    Name = make_name(Addr, Port, Profile),
     case whereis(Name) of
 	Pid when is_pid(Pid) ->
-	    httpd_manager:block(Pid,Mode);
+	    httpd_manager:block(Pid, Mode);
 	_ ->
 	    {error,not_started}
     end.
     
-
-do_block(Addr, Port, Mode, Timeout) 
-  when is_integer(Port) andalso is_atom(Mode) -> 
-    Name = make_name(Addr,Port),
-    case whereis(Name) of
-	Pid when is_pid(Pid) ->
-	    httpd_manager:block(Pid,Mode,Timeout);
-	_ ->
-	    {error,not_started}
-    end.
-    
-
 %%% =========================================================
 %%% Function:    unblock/2
 %%%              unblock(Addr, Port)
@@ -248,8 +227,8 @@ do_block(Addr, Port, Mode, Timeout)
 %%%              ConfigFile -> string()
 %%%
 
-unblock(Addr, Port) when is_integer(Port) -> 
-    Name = make_name(Addr,Port),
+unblock(Addr, Port, Profile) when is_integer(Port) -> 
+    Name = make_name(Addr,Port, Profile),
     case whereis(Name) of
 	Pid when is_pid(Pid) ->
 	    httpd_manager:unblock(Pid);
@@ -269,24 +248,9 @@ foreach([KeyValue|Rest]) ->
       foreach(Rest)
   end.
 
-get_addr_and_port(ConfigFile) ->
-    case httpd_conf:load(ConfigFile) of
-	{ok, ConfigList} ->
-	    case (catch httpd_conf:validate_properties(ConfigList)) of
-		{ok, Config} ->
-		    Address = proplists:get_value(bind_address, Config, any), 
-		    Port    = proplists:get_value(port, Config, 80),
-		    {ok, Address, Port};
-		Error ->
-		    Error
-	    end;
-	Error ->
-	    Error
-    end.
 
-
-make_name(Addr, Port) ->
-    httpd_util:make_name("httpd", Addr, Port).
+make_name(Addr, Port, Profile) ->
+    httpd_util:make_name("httpd", Addr, Port, Profile).
 
 
 do_reload_config(ConfigList, Mode) ->
@@ -294,10 +258,11 @@ do_reload_config(ConfigList, Mode) ->
 	{ok, Config} ->
 	    Address = proplists:get_value(bind_address, Config, any), 
 	    Port    = proplists:get_value(port, Config, 80),
-	    case block(Address, Port, Mode) of
+	    Profile = proplists:get_value(profile, Config, default),
+	    case block(Address, Port, Profile, Mode) of
 		ok ->
-		    reload(Config, Address, Port),
-		    unblock(Address, Port);
+		    reload(Config, Address, Port, Profile),
+		    unblock(Address, Port, Profile);
 		Error ->
 		    Error
 	    end;

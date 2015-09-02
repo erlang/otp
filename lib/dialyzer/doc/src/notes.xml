@@ -8,16 +8,17 @@
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
-      The contents of this file are subject to the Erlang Public License,
-      Version 1.1, (the "License"); you may not use this file except in
-      compliance with the License. You should have received a copy of the
-      Erlang Public License along with this software. If not, it can be
-      retrieved online at http://www.erlang.org/.
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
 
-      Software distributed under the License is distributed on an "AS IS"
-      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-      the License for the specific language governing rights and limitations
-      under the License.
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
 
     </legalnotice>
 
@@ -30,6 +31,130 @@
   </header>
   <p>This document describes the changes made to the Dialyzer
     application.</p>
+
+<section><title>Dialyzer 2.8</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> The translation of Erlang forms to the type
+	    representation used by Dialyzer has been improved in
+	    several ways. The most important change is that deeply
+	    nested records can be handled. </p>
+          <p>
+	    Own Id: OTP-12350</p>
+        </item>
+        <item>
+	    <p> Fix a bug that could cause bogus warnings for opaque
+	    types. </p> <p>In Erlang/OTP 18 two parameterized types
+	    declared in the same module always result in a
+	    contradiction (<c>none()</c>) when combined outside of
+	    the module where they are declared, unless they have the
+	    same number of parameters. </p> <p> The behaviour is
+	    different from Erlang/OTP 17 where, for instance,
+	    <c>dict:dict()</c> and <c>dict:dict(_, _)</c>, which are
+	    both opaque, can be combined outside of the <c>dict</c>
+	    module. </p> <p> In Erlang/OTP 18, <c>dict:dict()</c> and
+	    <c>dict:dict(_, _)</c> can still be combined outside of
+	    the <c>dict</c> module. That has been made possible by
+	    not declaring <c>dict:dict()</c> as opaque. </p>
+          <p>
+	    Own Id: OTP-12493</p>
+        </item>
+        <item>
+	    <p> Update the PLT properly when a module is changed.
+	    (Thanks to James Fish for the bug report, and to Stavros
+	    Aronis for fixing the bug.) </p>
+          <p>
+	    Own Id: OTP-12637</p>
+        </item>
+        <item>
+          <p>
+	    An argument of '*'/2 is not constraind if the other
+	    operand can be zero.</p>
+          <p>
+	    Own Id: OTP-12725</p>
+        </item>
+        <item>
+	    <p> Mention the option <c>check_plt</c> among the
+	    <c>dialyzer:gui()</c> options. (Thanks to James Fish.)
+	    </p>
+          <p>
+	    Own Id: OTP-12750</p>
+        </item>
+        <item>
+	    <p>Fix a bug which could cause an infinite loop in
+	    Dialyzer.</p>
+          <p>
+	    Own Id: OTP-12826</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p> The <c>-dialyzer()</c> attribute can be used for
+	    suppressing warnings in a module by specifying functions
+	    or warning options. It can also be used for requesting
+	    warnings in a module. </p>
+          <p>
+	    Own Id: OTP-10280</p>
+        </item>
+        <item>
+	    <p> The pre-defined types <c>array()</c>, <c>dict()</c>,
+	    <c>digraph()</c>, <c>gb_set()</c>, <c>gb_tree()</c>,
+	    <c>queue()</c>, <c>set()</c>, and <c>tid()</c> have been
+	    removed. </p>
+          <p>
+	    Own Id: OTP-11445 Aux Id: OTP-10342, OTP-9352 </p>
+        </item>
+        <item>
+	    <p> A few type names that have been used for representing
+	    certain predefined types can now be used for user-defined
+	    types. This affects the types <c>product/_</c>,
+	    <c>union/_</c>, and <c>range/2</c> as well as
+	    <c>tuple/N</c> (N > 0), <c>map/N</c> (N > 0),
+	    <c>atom/1</c>, <c>integer/1</c>, <c>binary/2</c>,
+	    <c>record/_,</c> and <c>'fun'/_</c>. A consequence is
+	    that, for example, it is no longer possible to refer to a
+	    record type with <c>record(r)</c>; instead the usual
+	    record notation, <c>#r{}</c>, is to be used. </p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-11851</p>
+        </item>
+        <item>
+	    <p> When implementing user-defined behaviours it is now
+	    possible to specify optional callback functions. See OTP
+	    Design Principles User's Guide, Sys and Proc_Lib,
+	    User-Defined Behaviours, for details. </p>
+          <p>
+	    Own Id: OTP-11861</p>
+        </item>
+        <item>
+	    <p>Add two options to the Dialyzer:
+	    <c>no_missing_calls</c> suppresses warnings about calls
+	    to missing or unexported functions; <c>unknown</c> lets
+	    warnings about unknown functions or types affect the exit
+	    status. See also dialyzer(3). </p>
+          <p>
+	    Own Id: OTP-12682</p>
+        </item>
+        <item>
+	    <p>By default, dialyzer will now cache native versions of
+	    dialyzer modules to avoid having to re-compile them each
+	    time dialyzer is started. Caching can be disabled using
+	    the option <c>--no_native_cache</c>.</p>
+          <p>
+	    Own Id: OTP-12779</p>
+        </item>
+      </list>
+    </section>
+
+</section>
 
 <section><title>Dialyzer 2.7.4</title>
 

@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 1997-2013. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -715,10 +716,10 @@ udp_send(#sock{inet=I}, {A,B,C,D}=IP, Port, Buffer)
 
 udp_recv(#sock{inet6=I}, {A,B,C,D,E,F,G,H}=IP, Port, Timeout, Decode)
   when ?ip6(A,B,C,D,E,F,G,H), ?port(Port) ->
-    do_udp_recv(I, IP, Port, Timeout, Decode, erlang:now(), Timeout);
+    do_udp_recv(I, IP, Port, Timeout, Decode, time_now(), Timeout);
 udp_recv(#sock{inet=I}, {A,B,C,D}=IP, Port, Timeout, Decode)
   when ?ip(A,B,C,D), ?port(Port) ->
-    do_udp_recv(I, IP, Port, Timeout, Decode, erlang:now(), Timeout).
+    do_udp_recv(I, IP, Port, Timeout, Decode, time_now(), Timeout).
 
 do_udp_recv(_I, _IP, _Port, 0, _Decode, _Start, _T) ->
     timeout;
@@ -742,7 +743,7 @@ do_udp_recv(I, IP, Port, Timeout, Decode, Start, T) ->
 		    NewTimeout = erlang:max(0, Timeout - 50),
 		    do_udp_recv(I, IP, Port, NewTimeout, Decode, Start, T);
 		false ->
-		    Now = erlang:now(),
+		    Now = time_now(),
 		    NewT = erlang:max(0, Timeout - now_ms(Now, Start)),
 		    do_udp_recv(I, IP, Port, Timeout, Decode, Start, NewT);
 		Result ->
@@ -1057,5 +1058,9 @@ dns_msg(Msg) ->
     end.
 
 -compile({inline, [now_ms/2]}).
-now_ms({Meg1,Sec1,Mic1}, {Meg0,Sec0,Mic0}) ->
-    ((Meg1-Meg0)*1000000 + (Sec1-Sec0))*1000 + ((Mic1-Mic0) div 1000).
+now_ms(Int1, Int0) ->
+    Int1 - Int0.
+
+-compile({inline, [time_now/0]}).
+time_now() ->
+	erlang:monotonic_time(1000).

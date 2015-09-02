@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 2010-2015. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -48,6 +49,7 @@
          send_unknown_mandatory/1,
          send_unknown_short_mandatory/1,
          send_noreply/1,
+         send_grouped_error/1,
          send_unsupported/1,
          send_unsupported_app/1,
          send_error_bit/1,
@@ -268,15 +270,15 @@ groups() ->
             SD <- ?STRING_DECODES,
             CD <- ?STRING_DECODES]
         ++
-        [{traffic, [parallel], [{group, ?util:name([T,R,D,A,C,SD,CD])}
-                                || T <- ?TRANSPORTS,
-                                   T /= sctp orelse Sctp,
-                                   R <- ?ENCODINGS,
-                                   D <- ?RFCS,
-                                   A <- ?ENCODINGS,
-                                   C <- ?CONTAINERS,
-                                   SD <- ?STRING_DECODES,
-                                   CD <- ?STRING_DECODES]}].
+        [{traffic, [], [{group, ?util:name([T,R,D,A,C,SD,CD])}
+                        || T <- ?TRANSPORTS,
+                           T /= sctp orelse Sctp,
+                           R <- ?ENCODINGS,
+                           D <- ?RFCS,
+                           A <- ?ENCODINGS,
+                           C <- ?CONTAINERS,
+                           SD <- ?STRING_DECODES,
+                           CD <- ?STRING_DECODES]}].
 
 init_per_group(Name, Config) ->
     case ?util:name(Name) of
@@ -329,6 +331,7 @@ tc() ->
      send_unknown_mandatory,
      send_unknown_short_mandatory,
      send_noreply,
+     send_grouped_error,
      send_unsupported,
      send_unsupported_app,
      send_error_bit,
@@ -573,7 +576,7 @@ send_unknown_mandatory(Config) ->
 send_unknown_short_mandatory(Config) ->
     send_unknown_short(Config, true, ?INVALID_AVP_LENGTH).
 
-%% Send an ACR containing an unexpected mandatory Session-Timeout.
+%% Send an ASR containing an unexpected mandatory Session-Timeout.
 %% Expect 5001, and check that the value in Failed-AVP was decoded.
 send_unexpected_mandatory_decode(Config) ->
     Req = ['ASR', {'AVP', [#diameter_avp{code = 27,  %% Session-Timeout
@@ -588,6 +591,25 @@ send_unexpected_mandatory_decode(Config) ->
                    value = 12,
                    data = <<12:32>>}]
         = As.
+
+%% Send an containing a faulty Grouped AVP (empty Proxy-Host in
+%% Proxy-Info) and expect that only the faulty AVP is sent in
+%% Failed-AVP. The encoded values of Proxy-Host and Proxy-State are
+%% swapped in prepare_request since an empty Proxy-Host is an encode
+%% error.
+send_grouped_error(Config) ->
+    Req = ['ASR', {'Proxy-Info', [[{'Proxy-Host', "abcd"},
+                                   {'Proxy-State', ""}]]}],
+    ['ASA', {'Session-Id', _}, {'Result-Code', ?INVALID_AVP_LENGTH} | Avps]
+        = call(Config, Req),
+    [#'diameter_base_Failed-AVP'{'AVP' = As}]
+        = proplists:get_value('Failed-AVP', Avps),
+    [#diameter_avp{name = 'Proxy-Info',
+                   value = #'diameter_base_Proxy-Info'
+                            {'Proxy-Host' = Empty,
+                             'Proxy-State' = undefined}}]
+        = As,
+    <<0>> = iolist_to_binary(Empty).
 
 %% Send an STR that the server ignores.
 send_noreply(Config) ->
@@ -1069,6 +1091,38 @@ prepare(Pkt, Caps, send_unexpected_mandatory, #group{client_dict0 = Dict0}
     Avp = <<Code:32, Flags, 8:24>>,
     E#diameter_packet{bin = <<V, (Len+8):24, T/binary, Avp/binary>>};
 
+prepare(Pkt, Caps, send_grouped_error, #group{client_dict0 = Dict0}
+                                              = Group) ->
+    Req = prepare(Pkt, Caps, Group),
+    #diameter_packet{bin = Bin}
+        = E
+        = diameter_codec:encode(Dict0, Pkt#diameter_packet{msg = Req}),
+    {Code, Flags, undefined} = Dict0:avp_header('Proxy-Info'),
+    %% Find Proxy-Info by looking for its header.
+    Pattern = <<Code:32, Flags, 28:24>>,
+    {Offset, 8} = binary:match(Bin, Pattern),
+
+    %% Extract and swap Proxy-Host/State payloads.
+
+    <<H:Offset/binary,
+      PI:8/binary,
+      PH:5/binary,
+      12:24,
+      Payload:4/binary,
+      PS:5/binary,
+      8:24,
+      T/binary>>
+        = Bin,
+
+    E#diameter_packet{bin = <<H/binary,
+                              PI/binary,
+                              PH/binary,
+                              8:24,
+                              PS:5/binary,
+                              12:24,
+                              Payload/binary,
+                              T/binary>>};
+
 prepare(Pkt, Caps, send_unsupported, #group{client_dict0 = Dict0} = Group) ->
     Req = prepare(Pkt, Caps, Group),
     #diameter_packet{bin = <<H:5/binary, _CmdCode:3/binary, T/binary>>}
@@ -1175,7 +1229,7 @@ answer(Pkt, Req, _Peer, Name, #group{client_dict0 = Dict0}) ->
     [R | Vs] = Dict:'#get-'(answer(Ans, Es, Name)),
     [Dict:rec2msg(R) | Vs].
 
-%% Missing Result-Codec and inapproriate Experimental-Result-Code.
+%% Missing Result-Code and inappropriate Experimental-Result-Code.
 answer(Rec, Es, send_experimental_result) ->
     [{5004, #diameter_avp{name = 'Experimental-Result'}},
      {5005, #diameter_avp{name = 'Result-Code'}}]

@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 2004-2013. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -28,7 +29,7 @@
 
 %% Internal application API
 -export([start_link/1, start_link/2]).
--export([start_child/1, restart_child/2, stop_child/2]).
+-export([start_child/1, restart_child/3, stop_child/3]).
 
 %% Supervisor callback
 -export([init/1]).
@@ -37,7 +38,6 @@
 
 -define(TIMEOUT, 15000).
 -include("httpd_internal.hrl").
--include("inets_internal.hrl").
 
 %%%=========================================================================
 %%%  API
@@ -64,33 +64,32 @@ start_child(Config) ->
     end.
     
 
-restart_child(Address, Port) ->
-    Name = id(Address, Port),
+restart_child(Address, Port, Profile) ->
+    Name = id(Address, Port, Profile),
     case supervisor:terminate_child(?MODULE, Name) of
-        ok ->
-            supervisor:restart_child(?MODULE, Name);
-        Error ->
+	ok ->
+             supervisor:restart_child(?MODULE, Name);
+	Error ->
+             Error
+     end.
+
+stop_child(Address, Port, Profile) ->
+    Name = id(Address, Port, Profile),
+    case supervisor:terminate_child(?MODULE, Name) of
+         ok ->
+	    supervisor:delete_child(?MODULE, Name);
+         Error ->
             Error
     end.
-    
-stop_child(Address, Port) ->
-    Name = id(Address, Port),
-    case supervisor:terminate_child(?MODULE, Name) of
-        ok ->
-            supervisor:delete_child(?MODULE, Name);
-        Error ->
-            Error
-    end.
-    
-id(Address, Port) ->
-    {httpd_instance_sup, Address, Port}.
+
+id(Address, Port, Profile) ->
+    {httpd_instance_sup, Address, Port, Profile}.
 
 
 %%%=========================================================================
 %%%  Supervisor callback
 %%%=========================================================================
 init([HttpdServices]) ->
-    ?hdrd("starting", [{httpd_service, HttpdServices}]),
     RestartStrategy = one_for_one,
     MaxR = 10,
     MaxT = 3600,
@@ -118,23 +117,18 @@ init([HttpdServices]) ->
 child_specs([], Acc) ->
     Acc;
 child_specs([{httpd, HttpdService} | Rest], Acc) ->
-    ?hdrd("child specs", [{httpd, HttpdService}]),
     NewHttpdService = (catch mk_tuple_list(HttpdService)),
-    ?hdrd("child specs", [{new_httpd, NewHttpdService}]),
     case catch child_spec(NewHttpdService) of
 	{error, Reason} ->
-	    ?hdri("failed generating child spec", [{reason, Reason}]),
 	    error_msg("Failed to start service: ~n~p ~n due to: ~p~n",
 		      [HttpdService, Reason]),
 	    child_specs(Rest, Acc);
 	Spec ->
-	    ?hdrt("child spec", [{child_spec, Spec}]),
 	    child_specs(Rest, [Spec | Acc])
     end.
 
 child_spec(HttpdService) ->
     {ok, Config}  = httpd_config(HttpdService),
-    ?hdrt("child spec", [{config, Config}]),
     Debug         = proplists:get_value(debug, Config, []),
     AcceptTimeout = proplists:get_value(accept_timeout, Config, 15000),
     httpd_util:valid_options(Debug, AcceptTimeout, Config),
@@ -162,32 +156,27 @@ httpd_config([Value| _] = Config) when is_tuple(Value) ->
 
 httpd_child_spec([Value| _] = Config, AcceptTimeout, Debug)  
   when is_tuple(Value)  ->
-    ?hdrt("httpd_child_spec - entry", [{accept_timeout, AcceptTimeout}, 
-				       {debug,          Debug}]),
     Address = proplists:get_value(bind_address, Config, any),
     Port    = proplists:get_value(port, Config, 80),
-    httpd_child_spec(Config, AcceptTimeout, Debug, Address, Port);
+    Profile =  proplists:get_value(profile, Config, ?DEFAULT_PROFILE),
+    httpd_child_spec(Config, AcceptTimeout, Debug, Address, Port, Profile);
 
 %% In this case the AcceptTimeout and Debug will only have default values...
 httpd_child_spec(ConfigFile, AcceptTimeoutDef, DebugDef) ->
-    ?hdrt("httpd_child_spec - entry", [{config_file,        ConfigFile}, 
-				       {accept_timeout_def, AcceptTimeoutDef}, 
-				       {debug_def,          DebugDef}]),
     case httpd_conf:load(ConfigFile) of
 	{ok, ConfigList} ->
-	    ?hdrt("httpd_child_spec - loaded", [{config_list, ConfigList}]),
 	    case (catch httpd_conf:validate_properties(ConfigList)) of
 		{ok, Config} ->
-		    ?hdrt("httpd_child_spec - validated", [{config, Config}]),
 		    Address = proplists:get_value(bind_address, Config, any), 
 		    Port    = proplists:get_value(port, Config, 80),
+		    Profile = proplists:get_value(profile, Config, ?DEFAULT_PROFILE),
 		    AcceptTimeout = 
 			proplists:get_value(accept_timeout, Config, 
 					    AcceptTimeoutDef),
 		    Debug   = 
 			proplists:get_value(debug, Config, DebugDef),
 		    httpd_child_spec([{file, ConfigFile} | Config], 
-				     AcceptTimeout, Debug, Address, Port);
+				     AcceptTimeout, Debug, Address, Port, Profile);
 		Error ->
 		    Error
 	    end;
@@ -195,19 +184,19 @@ httpd_child_spec(ConfigFile, AcceptTimeoutDef, DebugDef) ->
 	    Error
     end.
 
-httpd_child_spec(Config, AcceptTimeout, Debug, Addr, Port) ->
+httpd_child_spec(Config, AcceptTimeout, Debug, Addr, Port, Profile) ->
     Fd  = proplists:get_value(fd, Config, undefined),
     case Port == 0 orelse Fd =/= undefined of
 	true ->
-	    httpd_child_spec_listen(Config, AcceptTimeout, Debug, Addr, Port);
+	    httpd_child_spec_listen(Config, AcceptTimeout, Debug, Addr, Port, Profile);
 	false ->
-	    httpd_child_spec_nolisten(Config, AcceptTimeout, Debug, Addr, Port)
+	    httpd_child_spec_nolisten(Config, AcceptTimeout, Debug, Addr, Port, Profile)
     end.
 
-httpd_child_spec_listen(Config, AcceptTimeout, Debug, Addr, Port) ->
+httpd_child_spec_listen(Config, AcceptTimeout, Debug, Addr, Port, Profile) ->
     case start_listen(Addr, Port, Config) of
 	{Pid, {NewPort, NewConfig, ListenSocket}} ->
-	    Name      = {httpd_instance_sup, Addr, NewPort},
+	    Name      = {httpd_instance_sup, Addr, NewPort, Profile},
 	    StartFunc = {httpd_instance_sup, start_link,
 			 [NewConfig, AcceptTimeout, 
 			  {Pid, ListenSocket}, Debug]},
@@ -221,8 +210,8 @@ httpd_child_spec_listen(Config, AcceptTimeout, Debug, Addr, Port) ->
 	    {error, Reason}
     end.
 		    
-httpd_child_spec_nolisten(Config, AcceptTimeout, Debug, Addr, Port) ->
-    Name = {httpd_instance_sup, Addr, Port},
+httpd_child_spec_nolisten(Config, AcceptTimeout, Debug, Addr, Port, Profile) ->    
+    Name = {httpd_instance_sup, Addr, Port, Profile},
     StartFunc = {httpd_instance_sup, start_link,
 		 [Config, AcceptTimeout, Debug]},
     Restart = permanent, 

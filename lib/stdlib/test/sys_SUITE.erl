@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2014. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %%
@@ -202,14 +203,7 @@ spec_proc(Mod) ->
 		       {Mod,system_get_state},{throw,fail}},_}} ->
 		 ok
 	 end,
-    Mod:stop(),
-    WaitForUnregister = fun W() ->
-		       case whereis(Mod) of
-			   undefined -> ok;
-			   _ -> timer:sleep(10), W()
-		       end
-	       end,
-    WaitForUnregister(),
+    ok = sys:terminate(Mod, normal),
     {ok,_} = Mod:start_link(4),
     ok = case catch sys:replace_state(Mod, fun(_) -> {} end) of
 	     {} ->
@@ -218,8 +212,7 @@ spec_proc(Mod) ->
 		       {Mod,system_replace_state},{throw,fail}},_}} ->
 		 ok
 	 end,
-    Mod:stop(),
-    WaitForUnregister(),
+    ok = sys:terminate(Mod, normal),
     {ok,_} = Mod:start_link(4),
     StateFun = fun(_) -> error(fail) end,
     ok = case catch sys:replace_state(Mod, StateFun) of
@@ -231,7 +224,7 @@ spec_proc(Mod) ->
 	     {'EXIT',{{callback_failed,StateFun,{error,fail}},_}} ->
 		 ok
 	 end,
-    Mod:stop().
+    ok = sys:terminate(Mod, normal).
 
 %%%%%%%%%%%%%%%%%%%%
 %% Dummy server

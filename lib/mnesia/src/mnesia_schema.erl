@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 1996-2011. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -151,7 +152,7 @@ exit_on_error(GoodRes) ->
 
 val(Var) ->
     case ?catch_val(Var) of
-	{'EXIT', Reason} -> mnesia_lib:other_val(Var, Reason);
+	{'EXIT', _} -> mnesia_lib:other_val(Var);
 	Value -> Value
     end.
 
@@ -262,7 +263,7 @@ incr_version(Cs) ->
             [] -> {Major + 1, 0};    % All replicas are active
             _ -> {Major, Minor + 1}  % Some replicas are inactive
         end,
-    Cs#cstruct{version = {V, {node(), now()}}}.
+    Cs#cstruct{version = {V, {node(), erlang:timestamp()}}}.
 
 %% Returns table name
 insert_cstruct(Tid, Cs, KeepWhereabouts) ->
@@ -2151,14 +2152,14 @@ prepare_op(_Tid, {op, transform, Fun, TabDef}, _WaitFor) ->
 	    mnesia_lib:db_fixtable(Storage, Tab, true),
             Key = mnesia_lib:db_first(Tab),
 	    Op = {op, transform, Fun, TabDef},
-            case catch transform_objs(Fun, Tab, RecName,
-				      Key, NewArity, Storage, Type, [Op]) of
-                {'EXIT', Reason} ->
-		    mnesia_lib:db_fixtable(Storage, Tab, false),
-                    exit({"Bad transform function", Tab, Fun, node(), Reason});
+            try transform_objs(Fun, Tab, RecName, Key,
+			       NewArity, Storage, Type, [Op]) of
                 Objs ->
 		    mnesia_lib:db_fixtable(Storage, Tab, false),
                     {true, Objs, mandatory}
+	    catch _:Reason ->
+		    mnesia_lib:db_fixtable(Storage, Tab, false),
+                    exit({"Bad transform function", Tab, Fun, node(), Reason})
             end
     end;
 
@@ -2342,7 +2343,7 @@ undo_prepare_commit(Tid, Commit) ->
 	    ignore;
 	Ops ->
 	    %% Catch to allow failure mnesia_controller may not be started
-	    catch mnesia_controller:release_schema_commit_lock(),
+	    ?SAFE(mnesia_controller:release_schema_commit_lock()),
 	    undo_prepare_ops(Tid, Ops)
     end,
     Commit.
@@ -2489,14 +2490,14 @@ ram_delete_table(Tab, Storage) ->
 	    %% delete possible index files and data .....
 	    %% Got to catch this since if no info has been set in the
 	    %% mnesia_gvar it will crash
-	    catch mnesia_index:del_transient(Tab, Storage),
+	    ?CATCH(mnesia_index:del_transient(Tab, Storage)),
 	    case ?catch_val({Tab, {index, snmp}}) of
 		{'EXIT', _} ->
 		    ignore;
 		Etab ->
-		    catch mnesia_snmp_hook:delete_table(Tab, Etab)
+		    ?SAFE(mnesia_snmp_hook:delete_table(Tab, Etab))
 	    end,
-	    catch ?ets_delete_table(Tab)
+	    ?SAFE(?ets_delete_table(Tab))
     end.
 
 purge_dir(Dir, KeepFiles) ->
@@ -2584,10 +2585,7 @@ info2(_, []) ->
     io:format("~n", []).
 
 get_table_properties(Tab) ->
-    case catch mnesia_lib:db_match_object(ram_copies,
-					  mnesia_gvar, {{Tab, '_'}, '_'}) of
-	{'EXIT', _} ->
-	    mnesia:abort({no_exists, Tab, all});
+    try mnesia_lib:db_match_object(ram_copies, mnesia_gvar, {{Tab, '_'}, '_'}) of
 	RawGvar ->
 	    case [{Item, Val} || {{_Tab, Item}, Val} <- RawGvar] of
 		[] ->
@@ -2598,6 +2596,8 @@ get_table_properties(Tab) ->
 		    Master = {master_nodes, mnesia:table_info(Tab, master_nodes)},
 		    lists:sort([Size, Memory, Master | Gvar])
 	    end
+    catch error:_ ->
+	    mnesia:abort({no_exists, Tab, all})
     end.
 
 %%%%%%%%%%% RESTORE %%%%%%%%%%%
@@ -2620,15 +2620,15 @@ restore(_Opaque, BadArg) ->
     {aborted, {badarg, BadArg}}.
 restore(Opaque, Args, Module) when is_list(Args), is_atom(Module) ->
     InitR = #r{opaque = Opaque, module = Module},
-    case catch lists:foldl(fun check_restore_arg/2, InitR, Args) of
+    try lists:foldl(fun check_restore_arg/2, InitR, Args) of
 	R when is_record(R, r) ->
 	    case mnesia_bup:read_schema(R#r.module, Opaque) of
 		{error, Reason} ->
 		    {aborted, Reason};
 		BupSchema ->
 		    schema_transaction(fun() -> do_restore(R, BupSchema) end)
-	    end;
-	{'EXIT', Reason} ->
+	    end
+    catch exit:Reason ->
 	    {aborted, Reason}
     end;
 restore(_Opaque, Args, Module) ->
@@ -3073,15 +3073,13 @@ do_make_merge_schema(Node, NeedsConv, RemoteCs = #cstruct{}) ->
 %% Returns a new cstruct or issues a fatal error
 merge_cstructs(Cs, RemoteCs, Force) ->
     verify_cstruct(Cs),
-    case catch do_merge_cstructs(Cs, RemoteCs, Force) of
-	{'EXIT', {aborted, _Reason}} when Force == true ->
-	    Cs;
-	{'EXIT', Reason} ->
-	    exit(Reason);
+    try do_merge_cstructs(Cs, RemoteCs, Force) of
 	MergedCs when is_record(MergedCs, cstruct) ->
-	    MergedCs;
-	Other ->
-	    throw(Other)
+	    MergedCs
+    catch exit:{aborted, _Reason} when Force == true ->
+	    Cs;
+	  exit:Reason -> exit(Reason);
+	  error:Reason -> exit(Reason)
     end.
 
 do_merge_cstructs(Cs, RemoteCs, Force) ->

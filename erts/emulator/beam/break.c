@@ -3,16 +3,17 @@
  *
  * Copyright Ericsson AB 1996-2013. All Rights Reserved.
  *
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  * %CopyrightEnd%
  */
@@ -36,7 +37,7 @@
 #include "atom.h"
 #include "beam_load.h"
 #include "erl_instrument.h"
-#include "erl_bif_timer.h"
+#include "erl_hl_timer.h"
 #include "erl_thr_progress.h"
 
 /* Forward declarations -- should really appear somewhere else */
@@ -108,7 +109,7 @@ process_killer(void)
 		case 'k': {
 		    ErtsProcLocks rp_locks = ERTS_PROC_LOCKS_XSIG_SEND;
 		    erts_aint32_t state;
-		    erts_smp_proc_inc_refc(rp);
+		    erts_proc_inc_refc(rp);
 		    erts_smp_proc_lock(rp, rp_locks);
 		    state = erts_smp_atomic32_read_acqb(&rp->state);
 		    if (state & (ERTS_PSFLG_FREE
@@ -131,7 +132,7 @@ process_killer(void)
 						     0);
 		    }
 		    erts_smp_proc_unlock(rp, rp_locks);
-		    erts_smp_proc_dec_refc(rp);
+		    erts_proc_dec_refc(rp);
 		}
 		case 'n': br = 1; break;
 		case 'r': return;
@@ -209,25 +210,12 @@ print_process_info(int to, void *to_arg, Process *p)
     erts_print(to, to_arg, "State: ");
 
     state = erts_smp_atomic32_read_acqb(&p->state);
-    if (state & ERTS_PSFLG_FREE)
-	erts_print(to, to_arg, "Non Existing\n"); /* Should never happen */
-    else if (state & ERTS_PSFLG_EXITING)
-	erts_print(to, to_arg, "Exiting\n");
-    else if (state & ERTS_PSFLG_GC) {
-	garbing = 1;
-	running = 1;
-	erts_print(to, to_arg, "Garbing\n");
-    }
-    else if (state & ERTS_PSFLG_SUSPENDED)
-	erts_print(to, to_arg, "Suspended\n");
-    else if (state & ERTS_PSFLG_RUNNING) {
-	running = 1;
-	erts_print(to, to_arg, "Running\n");
-    }
-    else if (state & ERTS_PSFLG_ACTIVE)
-	erts_print(to, to_arg, "Scheduled\n");
-    else
-	erts_print(to, to_arg, "Waiting\n");
+    erts_dump_process_state(to, to_arg, state);
+    if (state & ERTS_PSFLG_GC) {
+        garbing = 1;
+        running = 1;
+    } else if (state & ERTS_PSFLG_RUNNING)
+        running = 1;
 
     /*
      * If the process is registered as a global process, display the
@@ -240,9 +228,9 @@ print_process_info(int to, void *to_arg, Process *p)
      * Display the initial function name
      */
     erts_print(to, to_arg, "Spawned as: %T:%T/%bpu\n",
-	       p->initial[INITIAL_MOD],
-	       p->initial[INITIAL_FUN],
-	       p->initial[INITIAL_ARI]);
+	       p->u.initial[INITIAL_MOD],
+	       p->u.initial[INITIAL_FUN],
+	       p->u.initial[INITIAL_ARI]);
     
     if (p->current != NULL) {
 	if (running) {
@@ -255,7 +243,6 @@ print_process_info(int to, void *to_arg, Process *p)
 		   p->current[1],
 		   p->current[2]);
     }
-    erts_print(to, to_arg, "Run queue: %d\n", erts_get_runq_proc(p)->ix);
 
     erts_print(to, to_arg, "Spawned by: %T\n", p->parent);
     approx_started = (time_t) p->approx_started;
@@ -351,6 +338,10 @@ print_process_info(int to, void *to_arg, Process *p)
 #endif
 	    erts_stack_dump(to, to_arg, p);
     }
+
+    /* Display all states */
+    erts_print(to, to_arg, "Internal State: ");
+    erts_dump_extended_process_state(to, to_arg, state);
 }
 
 static void
@@ -680,27 +671,39 @@ erl_crash_dump_v(char *file, int line, char* fmt, va_list args)
     char* dumpname;
     int secs;
     int env_erl_crash_dump_seconds_set = 1;
+    int i;
 
     if (ERTS_SOMEONE_IS_CRASH_DUMPING)
 	return;
 
 #ifdef ERTS_SMP
+    /* Order all managed threads to block, this has to be done
+       first to guarantee that this is the only thread to generate
+       crash dump. */
+    erts_thr_progress_fatal_error_block(&tpd_buf);
+
+#ifdef ERTS_THR_HAVE_SIG_FUNCS
     /*
-     * Wait for all managed threads to block. If all threads haven't blocked
-     * after a minute, we go anyway and hope for the best...
-     *
-     * We do not release system again. We expect an exit() or abort() after
-     * dump has been written.
+     * We suspend all scheduler threads so that we can dump some
+     * data about the currently running processes and scheduler data.
+     * We have to be very very careful when doing this as the schedulers
+     * could be anywhere.
      */
-    erts_thr_progress_fatal_error_block(60000, &tpd_buf);
-    /* Either worked or not... */
+    for (i = 0; i < erts_no_schedulers; i++) {
+        erts_tid_t tid = ERTS_SCHEDULER_IX(i)->tid;
+        if (!erts_equal_tids(tid,erts_thr_self()))
+            sys_thr_suspend(tid);
+    }
+
+#endif
 
     /* Allow us to pass certain places without locking... */
     erts_smp_atomic32_set_mb(&erts_writing_erl_crash_dump, 1);
     erts_smp_tsd_set(erts_is_crash_dumping_key, (void *) 1);
-#else
+
+#else /* !ERTS_SMP */
     erts_writing_erl_crash_dump = 1;
-#endif
+#endif /* ERTS_SMP */
 
     envsz = sizeof(env);
     /* ERL_CRASH_DUMP_SECONDS not set
@@ -753,11 +756,12 @@ erl_crash_dump_v(char *file, int line, char* fmt, va_list args)
 	dumpname = "erl_crash.dump";
     else
 	dumpname = &dumpnamebuf[0];
+    
+    erts_fprintf(stderr,"\nCrash dump is being written to: %s...", dumpname);
 
     fd = open(dumpname,O_WRONLY | O_CREAT | O_TRUNC,0640);
-    if (fd < 0) 
+    if (fd < 0)
 	return; /* Can't create the crash dump, skip it */
-    
     time(&now);
     erts_fdprintf(fd, "=erl_crash_dump:0.3\n%s", ctime(&now));
 
@@ -771,9 +775,74 @@ erl_crash_dump_v(char *file, int line, char* fmt, va_list args)
     erts_fdprintf(fd, "System version: ");
     erts_print_system_version(fd, NULL, NULL);
     erts_fdprintf(fd, "%s\n", "Compiled: " ERLANG_COMPILE_DATE);
+
     erts_fdprintf(fd, "Taints: ");
     erts_print_nif_taints(fd, NULL);
     erts_fdprintf(fd, "Atoms: %d\n", atom_table_size());
+
+#ifdef USE_THREADS
+    /* We want to note which thread it was that called erl_exit */
+    if (erts_get_scheduler_data()) {
+        erts_fdprintf(fd, "Calling Thread: scheduler:%d\n",
+                      erts_get_scheduler_data()->no);
+    } else {
+        if (!erts_thr_getname(erts_thr_self(), dumpnamebuf, MAXPATHLEN))
+            erts_fdprintf(fd, "Calling Thread: %s\n", dumpnamebuf);
+        else
+            erts_fdprintf(fd, "Calling Thread: %p\n", erts_thr_self());
+    }
+#else
+    erts_fdprintf(fd, "Calling Thread: scheduler:1\n");
+#endif
+
+#if defined(ERTS_HAVE_TRY_CATCH)
+
+    /*
+     * erts_print_scheduler_info is not guaranteed to be safe to call
+     * here for all schedulers as we may have suspended a scheduler
+     * in the middle of updating the STACK_TOP and STACK_START
+     * variables and thus when scanning the stack we could get
+     * segmentation faults. We protect against this very unlikely
+     * scenario by using the ERTS_SYS_TRY_CATCH.
+     */
+    for (i = 0; i < erts_no_schedulers; i++) {
+        ERTS_SYS_TRY_CATCH(
+            erts_print_scheduler_info(fd, NULL, ERTS_SCHEDULER_IX(i)),
+            erts_fdprintf(fd, "** crashed **\n"));
+    }
+#endif
+
+#ifdef ERTS_SMP
+
+#if defined(ERTS_THR_HAVE_SIG_FUNCS)
+
+    /* We resume all schedulers so that we are in a known safe state
+       when we write the rest of the crash dump */
+    for (i = 0; i < erts_no_schedulers; i++) {
+        erts_tid_t tid = ERTS_SCHEDULER_IX(i)->tid;
+        if (!erts_equal_tids(tid,erts_thr_self()))
+	    sys_thr_resume(tid);
+    }
+#endif
+
+    /*
+     * Wait for all managed threads to block. If all threads haven't blocked
+     * after a minute, we go anyway and hope for the best...
+     *
+     * We do not release system again. We expect an exit() or abort() after
+     * dump has been written.
+     */
+    erts_thr_progress_fatal_error_wait(60000);
+    /* Either worked or not... */
+#endif
+
+#ifndef ERTS_HAVE_TRY_CATCH
+    /* This is safe to call here, as all schedulers are blocked */
+    for (i = 0; i < erts_no_schedulers; i++) {
+        erts_print_scheduler_info(fd, NULL, ERTS_SCHEDULER_IX(i));
+    }
+#endif
+    
     info(fd, NULL); /* General system info */
     if (erts_ptab_initialized(&erts_proc))
 	process_info(fd, NULL); /* Info about each process and port */
@@ -803,7 +872,7 @@ erl_crash_dump_v(char *file, int line, char* fmt, va_list args)
 
     erts_fdprintf(fd, "=end\n");
     close(fd);
-    erts_fprintf(stderr,"\nCrash dump was written to: %s\n", dumpname);
+    erts_fprintf(stderr,"done\n");
 }
 
 void

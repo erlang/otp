@@ -3,16 +3,17 @@
  *
  * Copyright Ericsson AB 2000-2013. All Rights Reserved.
  *
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  * %CopyrightEnd%
  */
@@ -194,6 +195,9 @@ ERTS_GLB_INLINE Binary *erts_bin_nrml_alloc(Uint size);
 ERTS_GLB_INLINE Binary *erts_bin_realloc_fnf(Binary *bp, Uint size);
 ERTS_GLB_INLINE Binary *erts_bin_realloc(Binary *bp, Uint size);
 ERTS_GLB_INLINE void erts_bin_free(Binary *bp);
+ERTS_GLB_INLINE Binary *erts_create_magic_binary_x(Uint size,
+                                                  void (*destructor)(Binary *),
+                                                  int unaligned);
 ERTS_GLB_INLINE Binary *erts_create_magic_binary(Uint size,
 						 void (*destructor)(Binary *));
 
@@ -231,41 +235,58 @@ erts_free_aligned_binary_bytes(byte* buf)
 #  define CHICKEN_PAD (sizeof(void*) - 1)
 #endif
 
+/* Caller must initialize 'refc'
+*/
 ERTS_GLB_INLINE Binary *
 erts_bin_drv_alloc_fnf(Uint size)
 {
     Uint bsize = ERTS_SIZEOF_Binary(size) + CHICKEN_PAD;
-    void *res;
+    Binary *res;
+
     if (bsize < size) /* overflow */
 	return NULL;
     res = erts_alloc_fnf(ERTS_ALC_T_DRV_BINARY, bsize);
     ERTS_CHK_BIN_ALIGNMENT(res);
-    return (Binary *) res;
+    if (res) {
+	res->orig_size = size;
+	res->flags = BIN_FLAG_DRV;
+    }
+    return res;
 }
 
+/* Caller must initialize 'refc'
+*/
 ERTS_GLB_INLINE Binary *
 erts_bin_drv_alloc(Uint size)
 {
     Uint bsize = ERTS_SIZEOF_Binary(size) + CHICKEN_PAD;
-    void *res;
+    Binary *res;
+
     if (bsize < size) /* overflow */
 	erts_alloc_enomem(ERTS_ALC_T_DRV_BINARY, size);
     res = erts_alloc(ERTS_ALC_T_DRV_BINARY, bsize);
     ERTS_CHK_BIN_ALIGNMENT(res);
-    return (Binary *) res;
+    res->orig_size = size;
+    res->flags = BIN_FLAG_DRV;
+    return res;
 }
 
 
+/* Caller must initialize 'refc'
+*/
 ERTS_GLB_INLINE Binary *
 erts_bin_nrml_alloc(Uint size)
 {
     Uint bsize = ERTS_SIZEOF_Binary(size) + CHICKEN_PAD;
-    void *res;
+    Binary *res;
+
     if (bsize < size) /* overflow */
 	erts_alloc_enomem(ERTS_ALC_T_BINARY, size);
     res = erts_alloc(ERTS_ALC_T_BINARY, bsize);
     ERTS_CHK_BIN_ALIGNMENT(res);
-    return (Binary *) res;
+    res->orig_size = size;
+    res->flags = 0;
+    return res;
 }
 
 ERTS_GLB_INLINE Binary *
@@ -280,6 +301,8 @@ erts_bin_realloc_fnf(Binary *bp, Uint size)
 	return NULL;
     nbp = erts_realloc_fnf(type, (void *) bp, bsize);
     ERTS_CHK_BIN_ALIGNMENT(nbp);
+    if (nbp)
+	nbp->orig_size = size;
     return nbp;
 }
 
@@ -297,6 +320,7 @@ erts_bin_realloc(Binary *bp, Uint size)
     if (!nbp)
 	erts_realloc_enomem(type, bp, bsize);
     ERTS_CHK_BIN_ALIGNMENT(nbp);
+    nbp->orig_size = size;
     return nbp;
 }
 
@@ -312,21 +336,30 @@ erts_bin_free(Binary *bp)
 }
 
 ERTS_GLB_INLINE Binary *
-erts_create_magic_binary(Uint size, void (*destructor)(Binary *))
+erts_create_magic_binary_x(Uint size, void (*destructor)(Binary *),
+                           int unaligned)
 {
-    Uint bsize = ERTS_MAGIC_BIN_SIZE(size);
+    Uint bsize = unaligned ? ERTS_MAGIC_BIN_UNALIGNED_SIZE(size)
+                           : ERTS_MAGIC_BIN_SIZE(size);
     Binary* bptr = erts_alloc_fnf(ERTS_ALC_T_BINARY, bsize);
     ASSERT(bsize > size);
     if (!bptr)
 	erts_alloc_n_enomem(ERTS_ALC_T2N(ERTS_ALC_T_BINARY), bsize);
     ERTS_CHK_BIN_ALIGNMENT(bptr);
     bptr->flags = BIN_FLAG_MAGIC;
-    bptr->orig_size = ERTS_MAGIC_BIN_ORIG_SIZE(size);
+    bptr->orig_size = unaligned ? ERTS_MAGIC_BIN_UNALIGNED_ORIG_SIZE(size)
+                                : ERTS_MAGIC_BIN_ORIG_SIZE(size);
     erts_refc_init(&bptr->refc, 0);
     ERTS_MAGIC_BIN_DESTRUCTOR(bptr) = destructor;
     return bptr;
 }
 
+ERTS_GLB_INLINE Binary *
+erts_create_magic_binary(Uint size, void (*destructor)(Binary *))
+{
+    return erts_create_magic_binary_x(size, destructor, 0);
+}
+
 #endif /* #if ERTS_GLB_INLINE_INCL_FUNC_DEF */
 
-#endif
+#endif /* !__ERL_BINARY_H */

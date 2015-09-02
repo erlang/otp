@@ -3,16 +3,17 @@
  *
  * Copyright Ericsson AB 2005-2013. All Rights Reserved.
  *
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  * %CopyrightEnd%
  */
@@ -91,6 +92,7 @@ static erts_lc_lock_order_t erts_lock_order[] = {
     {   "driver_list",                          NULL                    },
     {	"proc_link",				"pid"			},
     {	"proc_msgq",				"pid"			},
+    {	"proc_btm",				"pid"			},
     {	"dist_entry",				"address"		},
     {	"dist_entry_links",			"address"		},
     {   "code_write_permission",                NULL                    },
@@ -140,7 +142,6 @@ static erts_lc_lock_order_t erts_lock_order[] = {
     {	"async_enq_mtx",			NULL			},
 #ifdef ERTS_SMP
     {	"atom_tab",				NULL			},
-    {	"make_ref",				NULL			},
     {	"misc_op_list_pre_alloc_lock",		"address"		},
     {	"message_pre_alloc_lock",		"address"		},
     {	"ptimer_pre_alloc_lock",		"address",		},
@@ -168,6 +169,8 @@ static erts_lc_lock_order_t erts_lock_order[] = {
     {	"timer_wheel",				NULL			},
     {	"system_block",				NULL			},
     {	"timeofday",				NULL			},
+    {	"get_time",				NULL			},
+    {	"get_corrected_time",			NULL			},
     {	"breakpoints",				NULL			},
     {	"pollsets_lock",			NULL			},
     {	"pix_lock",				"address"		},
@@ -184,10 +187,8 @@ static erts_lc_lock_order_t erts_lock_order[] = {
     {   "efile_drv dtrace mutex",               NULL                    },
 #endif
     {	"mtrace_buf",				NULL			},
-#ifdef __WIN32__
 #ifdef ERTS_SMP
-    {   "sys_gethrtime",                        NULL                    },
-#endif
+    {	"os_monotonic_time",			NULL			},
 #endif
     {	"erts_alloc_hard_debug",		NULL			},
     {	"hard_dbg_mseg",		        NULL	                },

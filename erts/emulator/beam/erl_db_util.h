@@ -3,16 +3,17 @@
  *
  * Copyright Ericsson AB 1998-2013. All Rights Reserved.
  *
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  * %CopyrightEnd%
  */
@@ -76,6 +77,9 @@ typedef struct db_term {
 union db_table;
 typedef union db_table DbTable;
 
+#define DB_MUST_RESIZE 1
+#define DB_NEW_OBJECT 2
+
 /* Info about a database entry while it's being updated
  * (by update_counter or update_element)
  */
@@ -84,7 +88,7 @@ typedef struct {
     DbTerm* dbterm;
     void** bp;         /* {Hash|Tree}DbTerm** */
     Uint new_size;
-    int mustResize;
+    int flags;
     void* lck;
 #if HALFWORD_HEAP
     unsigned char* abs_vec;  /* [i] true if dbterm->tpl[i] is absolute Eterm */
@@ -165,6 +169,7 @@ typedef struct db_table_method
 				    DbTable* tb, /* [in out] */ 
 				    Eterm continuation, 
 				    Eterm* ret);
+    int (*db_take)(Process *, DbTable *, Eterm, Eterm *);
 
     int (*db_delete_all_objects)(Process* p,
 				 DbTable* db /* [in out] */ );
@@ -182,15 +187,14 @@ typedef struct db_table_method
 			       void *arg);
     void (*db_check_table)(DbTable* tb);
 
-    /* Lookup a dbterm for updating. Return false if not found.
-    */
-    int (*db_lookup_dbterm)(DbTable*, Eterm key, 
-			    DbUpdateHandle* handle); /* [out] */
+    /* Lookup a dbterm for updating. Return false if not found. */
+    int (*db_lookup_dbterm)(Process *, DbTable *, Eterm key, Eterm obj,
+                            DbUpdateHandle* handle);
 
-    /* Must be called for each db_lookup_dbterm that returned true,
-    ** even if dbterm was not updated.
-    */
-    void (*db_finalize_dbterm)(DbUpdateHandle* handle);
+    /* Must be called for each db_lookup_dbterm that returned true, even if
+    ** dbterm was not updated. If the handle was of a new object and cret is
+    ** not DB_ERROR_NONE, the object is removed from the table. */
+    void (*db_finalize_dbterm)(int cret, DbUpdateHandle* handle);
 
 } DbTableMethod;
 
@@ -339,6 +343,7 @@ void* db_store_term(DbTableCommon *tb, DbTerm* old, Uint offset, Eterm obj);
 void* db_store_term_comp(DbTableCommon *tb, DbTerm* old, Uint offset, Eterm obj);
 Eterm db_copy_element_from_ets(DbTableCommon* tb, Process* p, DbTerm* obj,
 			       Uint pos, Eterm** hpp, Uint extra);
+int db_has_map(Eterm obj);
 int db_has_variable(Eterm obj);
 int db_is_variable(Eterm obj);
 void db_do_update_element(DbUpdateHandle* handle,

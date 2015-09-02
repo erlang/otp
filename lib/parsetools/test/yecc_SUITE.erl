@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2015. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -340,8 +341,8 @@ syntax(Config) when is_list(Config) ->
                           {_,[{L1,_,{undefined_function,{yeccpars2_2_,1}}},
                               {L2,_,{bad_inline,{yeccpars2_2_,1}}}]}],
                    []} = compile:file(Parserfile1, [basic_validation,return]),
-            ?line L1 = 28 + SzYeccPre,
-            ?line L2 = 35 + SzYeccPre
+            ?line L1 = 31 + SzYeccPre,
+            ?line L2 = 38 + SzYeccPre
     end(),
 
     %% Bad macro in action. OTP-7224.
@@ -358,8 +359,8 @@ syntax(Config) when is_list(Config) ->
                           {_,[{L1,_,{undefined_function,{yeccpars2_2_,1}}},
                               {L2,_,{bad_inline,{yeccpars2_2_,1}}}]}],
                    []} = compile:file(Parserfile1, [basic_validation,return]),
-            ?line L1 = 28 + SzYeccPre,
-            ?line L2 = 35 + SzYeccPre
+            ?line L1 = 31 + SzYeccPre,
+            ?line L2 = 38 + SzYeccPre
     end(),
 
     %% Check line numbers. OTP-7224.
@@ -1521,7 +1522,9 @@ otp_7945(doc) ->
     "OTP-7945. A bug introduced in R13A.";
 otp_7945(suite) -> [];
 otp_7945(Config) when is_list(Config) ->
-    ?line {error,_} = erl_parse:parse([{atom,3,foo},{'.',2,9,9}]),
+    A2 = erl_anno:new(2),
+    A3 = erl_anno:new(3),
+    {error,_} = erl_parse:parse([{atom,3,foo},{'.',A2,9,9}]),
     ok.
 
 otp_8483(doc) ->
@@ -1619,8 +1622,8 @@ otp_7292(Config) when is_list(Config) ->
                         {L2,_,{bad_inline,{yeccpars2_2_,1}}}]}],
                    [{_,[{16,_,{unused_function,{foo,0}}}]}]} = 
                 compile:file(Parserfile1, [basic_validation, return]),
-            ?line L1 = 38 + SzYeccPre,
-            ?line L2 = 45 + SzYeccPre
+            L1 = 41 + SzYeccPre,
+            L2 = 48 + SzYeccPre
     end(),
 
     YeccPre = filename:join(Dir, "yeccpre.hrl"),
@@ -1637,8 +1640,8 @@ otp_7292(Config) when is_list(Config) ->
                         {L2,_,{bad_inline,{yeccpars2_2_,1}}}]}],
                    [{_,[{16,_,{unused_function,{foo,0}}}]}]} = 
                 compile:file(Parserfile1, [basic_validation, return]),
-            ?line L1 = 37 + SzYeccPre,
-            ?line L2 = 44 + SzYeccPre
+            ?line L1 = 40 + SzYeccPre,
+            ?line L2 = 47 + SzYeccPre
     end(),
 
     file:delete(YeccPre),
@@ -1786,7 +1789,8 @@ otp_7969(Config) when is_list(Config) ->
 
     ?line {ok, Ts11, _}=R1 = erl_scan:string("f() -> a."),
     ?line F1 = fun() -> {ok,Ts11 ++ [{'$end',2}],2} end,
-    ?line{ok,{function,1,f,0,[{clause,1,[],[],[{atom,1,a}]}]}} =
+    A1 = erl_anno:new(1),
+    {ok,{function,A1,f,0,[{clause,A1,[],[],[{atom,A1,a}]}]}} =
         erl_parse:parse_and_scan({F1, []}),
     ?line F2 = fun() -> erl_scan:string("f() -> ,") end,
     ?line {error,{1,erl_parse,_}} = erl_parse:parse_and_scan({F2, []}),
@@ -1797,7 +1801,7 @@ otp_7969(Config) when is_list(Config) ->
                                 put(foo,bar), R1
                         end
                end,
-    ?line {ok,{function,1,f,0,[{clause,1,[],[],[{atom,1,a}]}]}} =
+    {ok,{function,A1,f,0,[{clause,A1,[],[],[{atom,A1,a}]}]}} =
         erl_parse:parse_and_scan({F3,[]}),
     F4 = fun() -> {error, {1, ?MODULE, bad}, 2} end,
     ?line {error, {1,?MODULE,bad}} = erl_parse:parse_and_scan({F4, []}),
@@ -1813,7 +1817,8 @@ otp_8919(doc) ->
     "OTP-8919. Improve formating of Yecc error messages.";
 otp_8919(suite) -> [];
 otp_8919(Config) when is_list(Config) ->
-    {error,{1,Mod,Mess}} = erl_parse:parse([{cat,1,"hello"}]),
+    A1 = erl_anno:new(1),
+    {error,{1,Mod,Mess}} = erl_parse:parse([{cat,A1,"hello"}]),
     "syntax error before: \"hello\"" = lists:flatten(Mod:format_error(Mess)),
     ok.
 

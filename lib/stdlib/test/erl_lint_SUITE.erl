@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2014. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2015. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -42,6 +43,7 @@
 	  unused_vars_warn_rec/1,
 	  unused_vars_warn_fun/1, 
 	  unused_vars_OTP_4858/1,
+          unused_unsafe_vars_warn/1,
 	  export_vars_warn/1,
 	  shadow_vars/1,
 	  unused_import/1,
@@ -55,7 +57,7 @@
           otp_11772/1, otp_11771/1, otp_11872/1,
           export_all/1,
 	  bif_clash/1,
-	  behaviour_basic/1, behaviour_multiple/1,
+	  behaviour_basic/1, behaviour_multiple/1, otp_11861/1,
 	  otp_7550/1,
 	  otp_8051/1,
 	  format_warn/1,
@@ -63,7 +65,7 @@
 	  too_many_arguments/1,
 	  basic_errors/1,bin_syntax_errors/1,
           predef/1,
-          maps/1,maps_type/1
+          maps/1,maps_type/1,otp_11851/1,otp_12195/1
         ]).
 
 % Default timetrap timeout (set in init_per_testcase).
@@ -89,16 +91,16 @@ all() ->
      otp_5362, otp_5371, otp_7227, otp_5494, otp_5644,
      otp_5878, otp_5917, otp_6585, otp_6885, otp_10436, otp_11254,
      otp_11772, otp_11771, otp_11872, export_all,
-     bif_clash, behaviour_basic, behaviour_multiple,
+     bif_clash, behaviour_basic, behaviour_multiple, otp_11861,
      otp_7550, otp_8051, format_warn, {group, on_load},
      too_many_arguments, basic_errors, bin_syntax_errors, predef,
-     maps, maps_type].
+     maps, maps_type, otp_11851, otp_12195].
 
 groups() -> 
     [{unused_vars_warn, [],
       [unused_vars_warn_basic, unused_vars_warn_lc,
        unused_vars_warn_rec, unused_vars_warn_fun,
-       unused_vars_OTP_4858]},
+       unused_vars_OTP_4858, unused_unsafe_vars_warn]},
      {on_load, [], [on_load_successful, on_load_failing]}].
 
 init_per_suite(Config) ->
@@ -730,6 +732,48 @@ unused_vars_OTP_4858(Config) when is_list(Config) ->
     ?line [] = run(Config, Ts),
     ok.
 
+unused_unsafe_vars_warn(Config) when is_list(Config) ->
+    Ts = [{unused_unsafe1,
+           <<"t1() ->
+                  UnusedVar1 = unused1,
+                  try
+                      UnusedVar2 = unused2
+                  catch
+                      _:_ ->
+                          ok
+                  end,
+                  ok.
+           ">>,
+           [warn_unused_vars],
+           {warnings,[{2,erl_lint,{unused_var,'UnusedVar1'}},
+                      {4,erl_lint,{unused_var,'UnusedVar2'}}]}},
+          {unused_unsafe2,
+           <<"t2() ->
+                  try
+                      X = 1
+                  catch
+                      _:_ -> ok
+                  end.
+           ">>,
+           [warn_unused_vars],
+           {warnings,[{3,erl_lint,{unused_var,'X'}}]}},
+          {unused_unsafe2,
+           <<"t3(X, Y) ->
+                  X andalso Y.
+           ">>,
+           [warn_unused_vars],
+           []},
+          {unused_unsafe4,
+           <<"t4() ->
+                  _ = (catch X = X = 1),
+                  _ = case ok of _ -> fun() -> ok end end,
+                  fun (X) -> X end.
+           ">>,
+           [warn_unused_vars],
+           []}],
+    run(Config, Ts),
+    ok.
+
 export_vars_warn(doc) ->
     "Warnings for exported variables";
 export_vars_warn(suite) -> [];
@@ -808,7 +852,19 @@ export_vars_warn(Config) when is_list(Config) ->
            [],
            {error,[{9,erl_lint,{unbound_var,'B'}}],
                   [{9,erl_lint,{exported_var,'Y',{'receive',2}}},
-                   {10,erl_lint,{shadowed_var,'B',generate}}]}}
+                   {10,erl_lint,{shadowed_var,'B',generate}}]}},
+
+          {exp4,
+           <<"t(X) ->
+                  if true -> Z = X end,
+                  case X of
+                      1 -> Z;
+                      2 -> X
+                  end,
+                  Z = X.
+           ">>,
+           [],
+           {warnings,[{7,erl_lint,{exported_var,'Z',{'if',2}}}]}}
          ],
     ?line [] = run(Config, Ts),
     ok.
@@ -832,8 +888,15 @@ shadow_vars(Config) when is_list(Config) ->
            ">>,
 	   [nowarn_shadow_vars],
 	   {error,[{9,erl_lint,{unbound_var,'B'}}],
-	    [{9,erl_lint,{exported_var,'Y',{'receive',2}}}]}}],
-    
+	    [{9,erl_lint,{exported_var,'Y',{'receive',2}}}]}},
+          {shadow2,
+           <<"t() ->
+                  _ = (catch MS = MS = 1), % MS used unsafe
+                  _ = case ok of _ -> fun() -> ok end end,
+                  fun (MS) -> MS end. % MS not shadowed here
+           ">>,
+           [],
+           []}],
     ?line [] = run(Config, Ts),
     ok.
 
@@ -958,6 +1021,45 @@ unsafe_vars(Config) when is_list(Config) ->
            [warn_unused_vars],
            {errors,[{3,erl_lint,{unsafe_var,'X',{'if',2}}},
                     {4,erl_lint,{unsafe_var,'X',{'if',2}}}],
+            []}},
+          {unsafe8,
+           <<"t8(X) ->
+                  case X of _ -> catch _Y = 1 end,
+                  _Y."
+           >>,
+           [],
+           {errors,[{3,erl_lint,{unsafe_var,'_Y',{'catch',2}}}],
+            []}},
+           {unsafe9,
+           <<"t9(X) ->
+                  case X of
+                      1 ->
+                          catch A = 1, % unsafe only here
+                          B = 1,
+                          C = 1,
+                          D = 1;
+                      2 ->
+                          A = 2,
+                          % B not bound here
+                          C = 2,
+                          catch D = 2; % unsafe in two clauses
+                      3 ->
+                          A = 3,
+                          B = 3,
+                          C = 3,
+                          catch D = 3; % unsafe in two clauses
+                      4 ->
+                          A = 4,
+                          B = 4,
+                          C = 4,
+                          D = 4
+                  end,
+                  {A,B,C,D}."
+           >>,
+           [],
+           {errors,[{24,erl_lint,{unsafe_var,'A',{'catch',4}}},
+                    {24,erl_lint,{unsafe_var,'B',{'case',2}}},
+                    {24,erl_lint,{unsafe_var,'D',{'case',2}}}],
             []}}
          ],
     ?line [] = run(Config, Ts),
@@ -2648,8 +2750,9 @@ otp_11872(Config) when is_list(Config) ->
             t() ->
                 1.
          ">>,
-    {error,[{6,erl_lint,{undefined_type,{product,0}}}],
-     [{8,erl_lint,{new_var_arity_type,map}}]} =
+    {error,[{6,erl_lint,{undefined_type,{product,0}}},
+            {8,erl_lint,{undefined_type,{dict,0}}}],
+           [{8,erl_lint,{new_builtin_type,{map,0}}}]} =
         run_test2(Config, Ts, []),
     ok.
 
@@ -3080,6 +3183,193 @@ behaviour_multiple(Config) when is_list(Config) ->
     ?line [] = run(Config, Ts),
     ok.
 
+otp_11861(doc) ->
+    "OTP-11861. behaviour_info() and -callback.";
+otp_11861(suite) -> [];
+otp_11861(Conf) when is_list(Conf) ->
+    CallbackFiles = [callback1, callback2, callback3,
+                     bad_behaviour1, bad_behaviour2],
+    lists:foreach(fun(M) ->
+                          F = filename:join(?datadir, M),
+                          Opts = [{outdir,?privdir}, return],
+                          {ok, M, []} = compile:file(F, Opts)
+                  end, CallbackFiles),
+    CodePath = code:get_path(),
+    true = code:add_path(?privdir),
+    Ts = [{otp_11861_1,
+           <<"
+              -export([b1/1]).
+              -behaviour(callback1).
+              -behaviour(callback2).
+
+              -spec b1(atom()) -> integer().
+              b1(A) when is_atom(A)->
+                  3.
+             ">>,
+           [],
+           %% b2/1 is optional in both modules
+           {warnings,[{4,erl_lint,
+                       {conflicting_behaviours,{b1,1},callback2,3,callback1}}]}},
+          {otp_11861_2,
+           <<"
+              -export([b2/1]).
+              -behaviour(callback1).
+              -behaviour(callback2).
+
+              -spec b2(integer()) -> atom().
+              b2(I) when is_integer(I)->
+                  a.
+             ">>,
+           [],
+           %% b2/1 is optional in callback2, but not in callback1
+           {warnings,[{3,erl_lint,{undefined_behaviour_func,{b1,1},callback1}},
+                      {4,erl_lint,
+                       {conflicting_behaviours,{b2,1},callback2,3,callback1}}]}},
+          {otp_11861_3,
+           <<"
+              -callback b(_) -> atom().
+              -optional_callbacks({b1,1}). % non-existing and ignored
+             ">>,
+           [],
+           []},
+          {otp_11861_4,
+           <<"
+              -callback b(_) -> atom().
+              -optional_callbacks([{b1,1}]). % non-existing
+             ">>,
+           [],
+           %% No behaviour-info(), but callback.
+           {errors,[{3,erl_lint,{undefined_callback,{lint_test,b1,1}}}],[]}},
+          {otp_11861_5,
+           <<"
+              -optional_callbacks([{b1,1}]). % non-existing
+             ">>,
+           [],
+           %% No behaviour-info() and no callback: warning anyway
+           {errors,[{2,erl_lint,{undefined_callback,{lint_test,b1,1}}}],[]}},
+          {otp_11861_6,
+           <<"
+              -optional_callbacks([b1/1]). % non-existing
+              behaviour_info(callbacks) -> [{b1,1}].
+             ">>,
+           [],
+           %% behaviour-info() and no callback: warning anyway
+           {errors,[{2,erl_lint,{undefined_callback,{lint_test,b1,1}}}],[]}},
+          {otp_11861_7,
+           <<"
+              -optional_callbacks([b1/1]). % non-existing
+              -callback b(_) -> atom().
+              behaviour_info(callbacks) -> [{b1,1}].
+             ">>,
+           [],
+           %% behaviour-info() callback: warning
+           {errors,[{2,erl_lint,{undefined_callback,{lint_test,b1,1}}},
+                    {3,erl_lint,{behaviour_info,{lint_test,b,1}}}],
+            []}},
+          {otp_11861_8,
+           <<"
+              -callback b(_) -> atom().
+              -optional_callbacks([b/1, {b, 1}]).
+             ">>,
+           [],
+           {errors,[{3,erl_lint,{redefine_optional_callback,{b,1}}}],[]}},
+          {otp_11861_9,
+           <<"
+              -behaviour(gen_server).
+              -export([handle_call/3,handle_cast/2,handle_info/2,
+                       code_change/3, init/1, terminate/2]).
+              handle_call(_, _, _) -> ok.
+              handle_cast(_, _) -> ok.
+              handle_info(_, _) -> ok.
+              code_change(_, _, _) -> ok.
+              init(_) -> ok.
+              terminate(_, _) -> ok.
+             ">>,
+           [],
+           []},
+          {otp_11861_9,
+           <<"
+              -behaviour(gen_server).
+              -export([handle_call/3,handle_cast/2,handle_info/2,
+                       code_change/3, init/1, terminate/2, format_status/2]).
+              handle_call(_, _, _) -> ok.
+              handle_cast(_, _) -> ok.
+              handle_info(_, _) -> ok.
+              code_change(_, _, _) -> ok.
+              init(_) -> ok.
+              terminate(_, _) -> ok.
+              format_status(_, _) -> ok. % optional callback
+             ">>,
+           [],
+           %% Nothing...
+           []},
+          {otp_11861_10,
+           <<"
+              -optional_callbacks([{b1,1,bad}]). % badly formed and ignored
+              behaviour_info(callbacks) -> [{b1,1}].
+             ">>,
+           [],
+           []},
+          {otp_11861_11,
+           <<"
+              -behaviour(bad_behaviour1).
+             ">>,
+           [],
+           {warnings,[{2,erl_lint,
+                       {ill_defined_behaviour_callbacks,bad_behaviour1}}]}},
+          {otp_11861_12,
+           <<"
+              -behaviour(non_existing_behaviour).
+             ">>,
+           [],
+           {warnings,[{2,erl_lint,
+                       {undefined_behaviour,non_existing_behaviour}}]}},
+          {otp_11861_13,
+           <<"
+              -behaviour(bad_behaviour_none).
+             ">>,
+           [],
+           {warnings,[{2,erl_lint,{undefined_behaviour,bad_behaviour_none}}]}},
+          {otp_11861_14,
+           <<"
+              -callback b(_) -> atom().
+             ">>,
+           [],
+           []},
+          {otp_11861_15,
+           <<"
+              -optional_callbacks([{b1,1,bad}]). % badly formed
+              -callback b(_) -> atom().
+             ">>,
+           [],
+           []},
+          {otp_11861_16,
+           <<"
+              -callback b(_) -> atom().
+              -callback b(_) -> atom().
+             ">>,
+           [],
+           {errors,[{3,erl_lint,{redefine_callback,{b,1}}}],[]}},
+          {otp_11861_17,
+           <<"
+              -behaviour(bad_behaviour2).
+             ">>,
+           [],
+           {warnings,[{2,erl_lint,{undefined_behaviour_callbacks,
+                                   bad_behaviour2}}]}},
+          {otp_11861_18,
+           <<"
+              -export([f1/1]).
+              -behaviour(callback3).
+              f1(_) -> ok.
+             ">>,
+           [],
+           []}
+	 ],
+    ?line [] = run(Conf, Ts),
+    true = code:set_path(CodePath),
+    ok.
+
 otp_7550(doc) ->
     "Test that the new utf8/utf16/utf32 types do not allow size or unit specifiers.";
 otp_7550(Config) when is_list(Config) ->
@@ -3145,8 +3435,8 @@ format_warn(Config) when is_list(Config) ->
     ok.
 
 format_level(Level, Count, Config) ->
-    ?line W = get_compilation_warnings(Config, "format",
-                                       [{warn_format, Level}]),
+    ?line W = get_compilation_result(Config, "format",
+                                     [{warn_format, Level}]),
     %% Pick out the 'format' warnings.
     ?line FW = lists:filter(fun({_Line, erl_lint, {format_error, _}}) -> true;
                                (_) -> false
@@ -3330,42 +3620,22 @@ bin_syntax_errors(Config) ->
     ok.
 
 predef(doc) ->
-    "OTP-10342: Predefined types: array(), digraph(), and so on";
+    "OTP-10342: No longer predefined types: array(), digraph(), and so on";
 predef(suite) -> [];
 predef(Config) when is_list(Config) ->
-    W = get_compilation_warnings(Config, "predef", []),
+    W = get_compilation_result(Config, "predef", []),
     [] = W,
-    W2 = get_compilation_warnings(Config, "predef2", []),
-    Tag = deprecated_builtin_type,
-    [{7,erl_lint,{Tag,{array,0},{array,array,1},"OTP 18.0"}},
-     {12,erl_lint,{Tag,{dict,0},{dict,dict,2},"OTP 18.0"}},
-     {17,erl_lint,{Tag,{digraph,0},{digraph,graph},"OTP 18.0"}},
-     {27,erl_lint,{Tag,{gb_set,0},{gb_sets,set,1},"OTP 18.0"}},
-     {32,erl_lint,{Tag,{gb_tree,0},{gb_trees,tree,2},"OTP 18.0"}},
-     {37,erl_lint,{Tag,{queue,0},{queue,queue,1},"OTP 18.0"}},
-     {42,erl_lint,{Tag,{set,0},{sets,set,1},"OTP 18.0"}},
-     {47,erl_lint,{Tag,{tid,0},{ets,tid},"OTP 18.0"}}] = W2,
-    Ts = [{otp_10342_1,
-           <<"-compile(nowarn_deprecated_type).
-
-              -spec t(dict()) -> non_neg_integer().
-
-              t(D) ->
-                  erlang:phash2(D, 3000).
-             ">>,
-           {[nowarn_unused_function]},
-           []},
-         {otp_10342_2,
-           <<"-spec t(dict()) -> non_neg_integer().
-
-              t(D) ->
-                  erlang:phash2(D, 3000).
-             ">>,
-           {[nowarn_unused_function]},
-           {warnings,[{1,erl_lint,
-                       {deprecated_builtin_type,{dict,0},{dict,dict,2},
-                        "OTP 18.0"}}]}}],
-    [] = run(Config, Ts),
+    %% dict(), digraph() and so on were removed in Erlang/OTP 18.0.
+    E2 = get_compilation_result(Config, "predef2", []),
+    Tag = undefined_type,
+    {[{7,erl_lint,{Tag,{array,0}}},
+      {12,erl_lint,{Tag,{dict,0}}},
+      {17,erl_lint,{Tag,{digraph,0}}},
+      {27,erl_lint,{Tag,{gb_set,0}}},
+      {32,erl_lint,{Tag,{gb_tree,0}}},
+      {37,erl_lint,{Tag,{queue,0}}},
+      {42,erl_lint,{Tag,{set,0}}},
+      {47,erl_lint,{Tag,{tid,0}}}],[]} = E2,
     ok.
 
 maps(Config) ->
@@ -3398,7 +3668,8 @@ maps(Config) ->
                    g := 1 + 1,
                    h := _,
                    i := (_X = _Y),
-                   j := (x ! y) }) ->
+                   j := (x ! y),
+		   <<0:300>> := 33}) ->
                   {A,F}.
             ">>,
            [],
@@ -3411,9 +3682,10 @@ maps(Config) ->
 	   {errors,[{1,erl_lint,illegal_map_construction},
                     {1,erl_lint,{unbound_var,'X'}}],
             []}},
-	  {errors_in_map_keys,
+	  {legal_map_construction,
 	   <<"t(V) -> #{ a => 1,
 			#{a=>V} => 2,
+			#{{a,V}=>V} => 2,
 			#{ \"hi\" => wazzup, hi => ho } => yep,
 			[try a catch _:_ -> b end] => nope,
 			ok => 1.0,
@@ -3425,11 +3697,7 @@ maps(Config) ->
 		      }.
 	   ">>,
 	   [],
-	   {errors,[{2,erl_lint,{illegal_map_key_variable,'V'}},
-		    {4,erl_lint,illegal_map_key},
-		    {6,erl_lint,illegal_map_key},
-		    {8,erl_lint,illegal_map_key},
-		    {10,erl_lint,illegal_map_key}],[]}},
+	   []},
 	   {errors_in_map_keys_pattern,
 	   <<"t(#{ a := 2,
 	           #{} := A,
@@ -3440,8 +3708,14 @@ maps(Config) ->
 	       A.
 	   ">>,
 	   [],
-	   {errors,[{4,erl_lint,illegal_map_key},
-		    {6,erl_lint,{illegal_map_key_variable,'V'}}],[]}}],
+	   {errors,[{4,erl_lint,illegal_map_construction},
+                    {6,erl_lint,illegal_map_key}],[]}},
+          {unused_vars_with_empty_maps,
+           <<"t(Foo, Bar, Baz) -> {#{},#{}}.">>,
+           [warn_unused_variables],
+           {warnings,[{1,erl_lint,{unused_var,'Bar'}},
+                      {1,erl_lint,{unused_var,'Baz'}},
+                      {1,erl_lint,{unused_var,'Foo'}}]}}],
     [] = run(Config, Ts),
     ok.
 
@@ -3470,7 +3744,128 @@ maps_type(Config) when is_list(Config) ->
 	    t(M) -> M.
 	 ">>,
 	 [],
-	 {warnings,[{3,erl_lint,{new_var_arity_type,map}}]}}],
+	 {warnings,[{3,erl_lint,{new_builtin_type,{map,0}}}]}}],
+    [] = run(Config, Ts),
+    ok.
+
+otp_11851(doc) ->
+    "OTP-11851: More atoms can be used as type names + bug fixes.";
+otp_11851(Config) when is_list(Config) ->
+    Ts = [
+	{otp_11851_1,
+	 <<"-export([t/0]).
+            -type range(A, B) :: A | B.
+
+            -type union(A) :: A.
+
+            -type product() :: integer().
+
+            -type tuple(A) :: A.
+
+            -type map(A) :: A.
+
+            -type record() :: a | b.
+
+            -type integer(A) :: A.
+
+            -type atom(A) :: A.
+
+            -type binary(A, B) :: A | B.
+
+            -type 'fun'() :: integer().
+
+            -type 'fun'(X) :: X.
+
+            -type 'fun'(X, Y) :: X | Y.
+
+            -type all() :: range(atom(), integer()) | union(pid()) | product()
+                         | tuple(reference()) | map(function()) | record()
+                         | integer(atom()) | atom(integer())
+                         | binary(pid(), tuple()) | 'fun'(port())
+                         | 'fun'() | 'fun'(<<>>, 'none').
+
+            -spec t() -> all().
+
+            t() ->
+                a.
+	">>,
+	[],
+	[]},
+	{otp_11851_2,
+	 <<"-export([a/1, b/1, t/0]).
+
+            -callback b(_) -> integer().
+
+            -callback ?MODULE:a(_) -> integer().
+
+            a(_) -> 3.
+
+            b(_) -> a.
+
+            t()-> a.
+	">>,
+	[],
+	{errors,[{5,erl_lint,{bad_callback,{lint_test,a,1}}}],[]}},
+	{otp_11851_3,
+	 <<"-export([a/1]).
+
+            -spec a(_A) -> boolean() when
+                  _ :: atom(),
+                  _A :: integer().
+
+            a(_) -> true.
+	">>,
+	[],
+	{errors,[{4,erl_parse,"bad type variable"}],[]}},
+	{otp_11851_4,
+	 <<"
+            -spec a(_) -> ok.
+            -spec a(_) -> ok.
+
+            -spec ?MODULE:a(_) -> ok.
+            -spec ?MODULE:a(_) -> ok.
+	">>,
+	[],
+         {errors,[{3,erl_lint,{redefine_spec,{a,1}}},
+                  {5,erl_lint,{redefine_spec,{lint_test,a,1}}},
+                  {6,erl_lint,{redefine_spec,{lint_test,a,1}}},
+                  {6,erl_lint,{spec_fun_undefined,{a,1}}}],
+          []}}
+          ],
+    [] = run(Config, Ts),
+    ok.
+
+otp_12195(doc) ->
+    "OTP-12195: Check obsolete types (tailor made for OTP 18).";
+otp_12195(Config) when is_list(Config) ->
+    Ts = [{otp_12195_1,
+           <<"-export_type([r1/0]).
+              -type r1() :: erl_scan:line()
+                          | erl_scan:column()
+                          | erl_scan:location()
+                          | erl_anno:line().">>,
+           [],
+           {warnings,[{2,erl_lint,
+                       {deprecated_type,{erl_scan,line,0},
+                        "deprecated (will be removed in OTP 19); "
+                        "use erl_anno:line() instead"}},
+                      {3,erl_lint,
+                       {deprecated_type,{erl_scan,column,0},
+                        "deprecated (will be removed in OTP 19); use "
+                        "erl_anno:column() instead"}},
+                      {4,erl_lint,
+                       {deprecated_type,{erl_scan,location,0},
+                        "deprecated (will be removed in OTP 19); "
+                        "use erl_anno:location() instead"}}]}},
+          {otp_12195_2,
+           <<"-export_type([r1/0]).
+              -compile(nowarn_deprecated_type).
+              -type r1() :: erl_scan:line()
+                          | erl_scan:column()
+                          | erl_scan:location()
+                          | erl_anno:line().">>,
+           [],
+           []}],
     [] = run(Config, Ts),
     ok.
 
@@ -3487,9 +3882,9 @@ run(Config, Tests) ->
         end,
     lists:foldl(F, [], Tests).
 
-%% Compiles a test file and returns the list of warnings.
+%% Compiles a test file and returns the list of warnings/errors.
 
-get_compilation_warnings(Conf, Filename, Warnings) ->
+get_compilation_result(Conf, Filename, Warnings) ->
     ?line DataDir = ?datadir,
     ?line File = filename:join(DataDir, Filename),
     {ok,Bin} = file:read_file(File++".erl"),
@@ -3498,6 +3893,7 @@ get_compilation_warnings(Conf, Filename, Warnings) ->
     Test = lists:nthtail(Start+Length, FileS),
     case run_test(Conf, Test, Warnings) of
         {warnings, Ws} -> Ws;
+        {errors,Es,Ws} -> {Es,Ws};
         [] -> []
     end.
 

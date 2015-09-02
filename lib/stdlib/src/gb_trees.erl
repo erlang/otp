@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2001-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2015. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %%
@@ -102,6 +103,10 @@
 %%   approach is that it does not require the complete list of all
 %%   elements to be built in memory at one time.
 %%
+%% - iterator_from(K, T): returns an iterator that can be used for
+%%   traversing the entries of tree T with key greater than or
+%%   equal to K; see `next'.
+%%
 %% - next(S): returns {X, V, S1} where X is the smallest key referred to
 %%   by the iterator S, and S1 is the new iterator to be used for
 %%   traversing the remaining entries, or the atom `none' if no entries
@@ -117,7 +122,7 @@
 	 update/3, enter/3, delete/2, delete_any/2, balance/1,
 	 is_defined/2, keys/1, values/1, to_list/1, from_orddict/1,
 	 smallest/1, largest/1, take_smallest/1, take_largest/1,
-	 iterator/1, next/1, map/2]).
+	 iterator/1, iterator_from/2, next/1, map/2]).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -156,11 +161,10 @@
 
 -type gb_tree_node(K, V) :: 'nil'
                           | {K, V, gb_tree_node(K, V), gb_tree_node(K, V)}.
--type gb_tree_node() :: gb_tree_node(_, _).
 -opaque tree(Key, Value) :: {non_neg_integer(), gb_tree_node(Key, Value)}.
--opaque tree() :: tree(_, _).
+-type tree() :: tree(_, _).
 -opaque iter(Key, Value) :: [gb_tree_node(Key, Value)].
--opaque iter() :: [gb_tree_node()].
+-type iter() :: iter(_, _).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -528,6 +532,29 @@ iterator({_, _, L, _} = T, As) ->
     iterator(L, [T | As]);
 iterator(nil, As) ->
     As.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+-spec iterator_from(Key, Tree) -> Iter when
+      Tree :: tree(Key, Value),
+      Iter :: iter(Key, Value).
+
+iterator_from(S, {_, T}) ->
+    iterator_1_from(S, T).
+
+iterator_1_from(S, T) ->
+    iterator_from(S, T, []).
+
+iterator_from(S, {K, _, _, T}, As) when K < S ->
+    iterator_from(S, T, As);
+iterator_from(_, {_, _, nil, _} = T, As) ->
+    [T | As];
+iterator_from(S, {_, _, L, _} = T, As) ->
+    iterator_from(S, L, [T | As]);
+iterator_from(_, nil, As) ->
+    As.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 -spec next(Iter1) -> 'none' | {Key, Value, Iter2} when
       Iter1 :: iter(Key, Value),

@@ -4,20 +4,21 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2014</year>
+      <year>1996</year><year>2015</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
-      The contents of this file are subject to the Erlang Public License,
-      Version 1.1, (the "License"); you may not use this file except in
-      compliance with the License. You should have received a copy of the
-      Erlang Public License along with this software. If not, it can be
-      retrieved online at http://www.erlang.org/.
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
 
-      Software distributed under the License is distributed on an "AS IS"
-      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-      the License for the specific language governing rights and limitations
-      under the License.
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
 
     </legalnotice>
 
@@ -192,6 +193,97 @@
           considered a string.</p>
       </desc>
     </func>
+    <func>
+      <name name="map_anno" arity="2"/>
+      <fsummary>
+        Map a function over the annotations of an abstract form
+      </fsummary>
+      <desc>
+        <p>Modifies the abstract form <anno>Abstr</anno> by applying
+          <anno>Fun</anno> on every collection of annotations of the
+          abstract form. The abstract form is traversed in a
+          depth-first, left-to-right, fashion.
+        </p>
+      </desc>
+    </func>
+    <func>
+      <name name="fold_anno" arity="3"/>
+      <fsummary>
+        Fold a function over the annotations of an abstract form
+      </fsummary>
+      <desc>
+        <p>Updates an accumulator by applying <anno>Fun</anno> on
+          every collection of annotations of the abstract form
+          <anno>Abstr</anno>. The first call to <anno>Fun</anno> has
+          <anno>AccIn</anno> as argument, and the returned accumulator
+          <anno>AccOut</anno> is passed to the next call, and so on.
+          The final value of the accumulator is returned. The abstract
+          form is traversed in a depth-first, left-to-right, fashion.
+        </p>
+      </desc>
+    </func>
+    <func>
+      <name name="mapfold_anno" arity="3"/>
+      <fsummary>
+        Map and fold a function over the annotations of an abstract form
+      </fsummary>
+      <desc>
+        <p>Modifies the abstract form <anno>Abstr</anno> by applying
+          <anno>Fun</anno> on every collection of annotations of the
+          abstract form, while at the same time updating an
+          accumulator. The first call to <anno>Fun</anno> has
+          <anno>AccIn</anno> as second argument, and the returned
+          accumulator <anno>AccOut</anno> is passed to the next call,
+          and so on. The modified abstract form as well as the the
+          final value of the accumulator is returned. The abstract
+          form is traversed in a depth-first, left-to-right, fashion.
+        </p>
+      </desc>
+    </func>
+    <func>
+      <name name="new_anno" arity="1"/>
+      <fsummary>
+        Create new annotations
+      </fsummary>
+      <desc>
+        <p>Creates an abstract form from a term which has the same
+          structure as an abstract form, but <seealso
+          marker="erl_anno#type-location">locations</seealso> where the
+          abstract form has annotations. For each location, <seealso
+          marker="erl_anno#new/1"><c>erl_anno:new/1</c></seealso> is
+          called, and the annotations replace the location.
+        </p>
+      </desc>
+    </func>
+    <func>
+      <name name="anno_from_term" arity="1"/>
+      <fsummary>
+        Return annotations as terms
+      </fsummary>
+      <desc>
+        <p>Assumes that <anno>Term</anno> is a term with the same
+          structure as an abstract form, but with terms, T say, on
+          those places where an abstract form has annotations. Returns
+          an abstract form where every term T has been replaced by the
+          value returned by calling <c>erl_anno:from_term(T)</c>. The
+          term <anno>Term</anno> is traversed in a depth-first,
+          left-to-right, fashion.
+        </p>
+      </desc>
+    </func>
+    <func>
+      <name name="anno_to_term" arity="1"/>
+      <fsummary>
+        Return the representation of annotations
+      </fsummary>
+      <desc>
+        <p>Returns a term where every collection of annotations Anno of
+          <anno>Abstr</anno> has been replaced by the term returned by
+          calling <c>erl_anno:to_term(Anno)</c>. The abstract form is
+          traversed in a depth-first, left-to-right, fashion.
+        </p>
+      </desc>
+    </func>
   </funcs>
 
   <section>
@@ -211,8 +303,9 @@
   <section>
     <title>See Also</title>
     <p><seealso marker="io">io(3)</seealso>,
-      <seealso marker="erl_scan">erl_scan(3)</seealso>,
-      ERTS User's Guide</p>
+       <seealso marker="erl_anno">erl_anno(3)</seealso>,
+       <seealso marker="erl_scan">erl_scan(3)</seealso>,
+       <seealso marker="erts:absform">ERTS User's Guide</seealso></p>
   </section>
 </erlref>
 

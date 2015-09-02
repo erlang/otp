@@ -400,6 +400,12 @@ Some of the available `configure` options are:
 	no automatic dependency handling between applications. If you disable
 	an application that another application depends on, you also have to disable the
 	dependant application.
+*   `--enable-gettimeofday-as-os-system-time` - Force usage of `gettimeofday()` for
+    OS system time.
+*   `--enable-prefer-elapsed-monotonic-time-during-suspend` - Prefer an OS monotonic
+    time source with elapsed time during suspend.
+*   `--disable-prefer-elapsed-monotonic-time-during-suspend` - Do not prefer an OS
+    monotonic time source with elapsed time during suspend.
 *   `--enable-dirty-schedulers` - Enable the **experimental** dirty schedulers
     functionality. Note that the dirty schedulers functionality is experimental,
     and **not supported**. This functionality **will** be subject to backward
@@ -417,22 +423,33 @@ important when building Erlang/OTP. By default the VM will refuse to build
 if native atomic memory operations are not available.
 
 Erlang/OTP itself provides implementations of native atomic memory operations
-that can be used when compiling with a `gcc` compatible compiler on 32-bit
-and 64-bit x86, 32-bit and 64-bit SPARC V9, and 32-bit PowerPC. When compiling
-with a `gcc` compatible compiler on other architectures, the VM may be able to
-make use of native atomic operations using the `__sync_*` primitives, but this
-should only be used as a last resort since this wont give you optimal
-performance. When compiling on Windows using a MicroSoft Visual C++ compiler
-native atomic memory operations are provided by Windows APIs.
+that can be used when compiling with a `gcc` compatible compiler for 32/64-bit
+x86, 32/64-bit SPARC V9, 32-bit PowerPC, or 32-bit Tile. When compiling with
+a `gcc` compatible compiler for other architectures, the VM may be able to make
+use of native atomic operations using the `__atomic_*` builtins (may be
+available when using a `gcc` of at least version 4.7) and/or using the
+`__sync_*` builtins (may be available when using a `gcc` of at least version
+4.1). If only the `gcc`'s `__sync_*` builtins are available, the performance
+will suffer. Such a configuration should only be used as a last resort. When
+compiling on Windows using a MicroSoft Visual C++ compiler native atomic
+memory operations are provided by Windows APIs.
 
-You are recommended to use the native atomic implementation provided by
-Erlang/OTP, or the API provided by Windows. If these do not provide native
-atomics on your platform, you are recommended to build and install
-[libatomic_ops][] before building Erlang/OTP. The `libatomic_ops` library
-provides native atomic memory operations for a variety of platforms and
-compilers. When building Erlang/OTP you need to inform the build system of
-where the `libatomic_ops` library is installed using the
-`--with-libatomic_ops=PATH` configure switch.
+Native atomic implementation in the order preferred:
+1.  The implementation provided by Erlang/OTP.
+2.  The API provided by Windows.
+3.  The implementation based on the `gcc` `__atomic_*` builtins.
+4.  If none of the above are available for your architecture/compiler, you
+    are recommended to build and install [libatomic_ops][] before building
+    Erlang/OTP. The `libatomic_ops` library provides native atomic memory
+    operations for a variety of architectures and compilers. When building
+    Erlang/OTP you need to inform the build system of where the
+    `libatomic_ops` library is installed using the
+    `--with-libatomic_ops=PATH` `configure` switch.
+5.  As a last resort, the implementation solely based on the `gcc`
+    `__sync_*` builtins. This will however cause lots of expensive and
+    unnecessary memory barrier instructions to be issued. That is,
+    performance will suffer. The `configure` script will warn at the end
+    of its execution if it cannot find any other alternative than this.
 
 ### Building ###
 
@@ -849,18 +866,19 @@ Copyright and License
 
 %CopyrightBegin%
 
-Copyright Ericsson AB 1998-2014. All Rights Reserved.
+Copyright Ericsson AB 1998-2015. All Rights Reserved.
 
-The contents of this file are subject to the Erlang Public License,
-Version 1.1, (the "License"); you may not use this file except in
-compliance with the License. You should have received a copy of the
-Erlang Public License along with this software. If not, it can be
-retrieved online at http://www.erlang.org/.
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+ 
+    http://www.apache.org/licenses/LICENSE-2.0
 
-Software distributed under the License is distributed on an "AS IS"
-basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-the License for the specific language governing rights and limitations
-under the License.
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
 
 %CopyrightEnd%
 

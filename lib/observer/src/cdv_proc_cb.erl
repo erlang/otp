@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 2013. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 -module(cdv_proc_cb).
@@ -21,7 +22,7 @@
 	 col_spec/0,
 	 get_info/1,
 	 get_detail_cols/1,
-	 get_details/1,
+	 get_details/2,
 	 detail_pages/0]).
 
 -include_lib("wx/include/wx.hrl").
@@ -57,10 +58,10 @@ get_info(_) ->
     {Info,TW}.
 
 get_detail_cols(_) ->
-    {[?COL_ID],true}.
+    {[{process, ?COL_ID}],true}.
 
 %% Callbacks for cdv_detail_wx
-get_details(Id) ->
+get_details(Id, _) ->
     case crashdump_viewer:proc_details(Id) of
 	{ok,Info,TW} ->
 	    %% The following table is used by observer_html_lib
@@ -76,7 +77,7 @@ get_details(Id) ->
 	    Info = "The process you are searching for was residing on "
 		"a remote node. No process information is available. "
 		"Show information about the remote node?",
-	    Fun = fun() -> cdv_virtual_list_wx:start_detail_win(NodeId) end,
+	    Fun = fun() -> cdv_virtual_list_wx:start_detail_win(NodeId, port) end,
 	    {yes_no, Info, Fun};
 	{error,not_found} ->
 	    Info = "The process you are searching for could not be found.",
@@ -126,10 +127,13 @@ info_fields() ->
        {dynamic,            current_func},
        {"Registered Name",  name},
        {"Status",           state},
+       {"Internal State",   int_state},
        {"Started",          start_time},
        {"Parent",           {click,parent}},
        {"Message Queue Len",msg_q_len},
+       {"Run queue",        run_queue},
        {"Reductions",       reds},
+
        {"Program counter",  prog_count},
        {"Continuation pointer",cp},
        {"Arity",arity}]},

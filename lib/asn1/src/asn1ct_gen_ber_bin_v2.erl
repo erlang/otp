@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2002-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2014. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -24,7 +25,7 @@
 
 -include("asn1_records.hrl").
 
--export([decode_class/1, decode_type/1]).
+-export([decode_class/1]).
 -export([gen_encode/2,gen_encode/3,gen_decode/2,gen_decode/3]).
 -export([gen_encode_prim/4]).
 -export([gen_dec_prim/3]).
@@ -278,8 +279,7 @@ emit_enc_enumerated_cases(L, Tags) ->
     emit_enc_enumerated_cases(L, Tags, noext).
 
 emit_enc_enumerated_cases([{EnumName,EnumVal}|T], Tags, Ext) ->
-    Bytes = encode_pos_integer(EnumVal, []),
-    Len = length(Bytes),
+    {Bytes,Len} = encode_integer(EnumVal),
     emit([{asis,EnumName}," -> ",
 	  {call,ber,encode_tags,[Tags,{asis,Bytes},Len]},";",nl]),
     emit_enc_enumerated_cases(T, Tags, Ext);
@@ -288,10 +288,25 @@ emit_enc_enumerated_cases([], _Tags, _Ext) ->
     emit([{curr,enumval}," -> exit({error,{asn1, {enumerated_not_in_range,",{curr, enumval},"}}})"]),
     emit([nl,"end"]).
 
-encode_pos_integer(0, [B|_Acc] = L) when B < 128 ->
+encode_integer(Val) ->
+    Bytes =
+	if
+	    Val >= 0 ->
+		encode_integer_pos(Val, []);
+	    true ->
+		encode_integer_neg(Val, [])
+	end,
+    {Bytes,length(Bytes)}.
+
+encode_integer_pos(0, [B|_Acc]=L) when B < 128 ->
     L;
-encode_pos_integer(N, Acc) ->
-    encode_pos_integer(N bsr 8, [N band 255|Acc]).
+encode_integer_pos(N, Acc) ->
+    encode_integer_pos((N bsr 8), [N band 16#ff| Acc]).
+
+encode_integer_neg(-1, [B1|_T]=L) when B1 > 127 ->
+    L;
+encode_integer_neg(N, Acc) ->
+    encode_integer_neg(N bsr 8, [N band 16#ff|Acc]).
 
 %%===============================================================================
 %%===============================================================================
@@ -1179,23 +1194,25 @@ gen_objset_enc(_,_,{unique,undefined},_,_,_,_,_) ->
 gen_objset_enc(Erules, ObjSetName, UniqueName,
 	       [{ObjName,Val,Fields}|T], ClName, ClFields,
 	       NthObj,Acc)->
-    emit(["'getenc_",ObjSetName,"'(",{asis,Val},") ->",nl]),
     CurrMod = get(currmod),
     {InternalFunc,NewNthObj}=
 	case ObjName of
 	    {no_mod,no_name} ->
-		gen_inlined_enc_funs(Fields,ClFields,ObjSetName,NthObj);
+		gen_inlined_enc_funs(Fields, ClFields, ObjSetName, Val, NthObj);
 	    {CurrMod,Name} ->
-		emit({"    fun 'enc_",Name,"'/3"}),
+		emit(["'getenc_",ObjSetName,"'(",{asis,Val},") ->",nl,
+		      "    fun 'enc_",Name,"'/3;",nl]),
 		{[],NthObj};
 	    {ModuleName,Name} ->
+		emit(["'getenc_",ObjSetName,"'(",{asis,Val},") ->",nl]),
 		emit_ext_fun(enc,ModuleName,Name),
+		emit([";",nl]),
 		{[],NthObj};
 	    _ ->
-		emit({"    fun 'enc_",ObjName,"'/3"}),
+		emit(["'getenc_",ObjSetName,"'(",{asis,Val},") ->",nl,
+		      "    fun 'enc_",ObjName,"'/3;",nl]),
 		{[],NthObj}
 	end,
-    emit({";",nl}),
     gen_objset_enc(Erules, ObjSetName, UniqueName, T, ClName, ClFields,
 		   NewNthObj, InternalFunc ++ Acc);
 %% See X.681 Annex E for the following case
@@ -1223,13 +1240,14 @@ emit_default_getenc(ObjSetName,UniqueName) ->
 %% gen_inlined_enc_funs for each object iterates over all fields of a
 %% class, and for each typefield it checks if the object has that
 %% field and emits the proper code.
-gen_inlined_enc_funs(Fields, [{typefield,_,_}|_]=T, ObjSetName, NthObj) ->
-    emit([indent(3),"fun(Type, Val, _RestPrimFieldName) ->",nl,
+gen_inlined_enc_funs(Fields, [{typefield,_,_}|_]=T, ObjSetName, Val, NthObj) ->
+    emit(["'getenc_",ObjSetName,"'(",{asis,Val},") ->",nl,
+	  indent(3),"fun(Type, Val, _RestPrimFieldName) ->",nl,
 	  indent(6),"case Type of",nl]),
     gen_inlined_enc_funs1(Fields, T, ObjSetName, [], NthObj, []);
-gen_inlined_enc_funs(Fields,[_|Rest],ObjSetName,NthObj) ->
-    gen_inlined_enc_funs(Fields,Rest,ObjSetName,NthObj);
-gen_inlined_enc_funs(_,[],_,NthObj) ->
+gen_inlined_enc_funs(Fields, [_|Rest], ObjSetName, Val, NthObj) ->
+    gen_inlined_enc_funs(Fields, Rest, ObjSetName, Val, NthObj);
+gen_inlined_enc_funs(_, [], _, _, NthObj) ->
     {[],NthObj}.
 
 gen_inlined_enc_funs1(Fields, [{typefield,Name,_}|Rest], ObjSetName,
@@ -1276,7 +1294,7 @@ gen_inlined_enc_funs1(Fields,[_|Rest], ObjSetName, Sep, NthObj, Acc)->
     gen_inlined_enc_funs1(Fields, Rest, ObjSetName, Sep, NthObj, Acc);
 gen_inlined_enc_funs1(_, [], _, _, NthObj, Acc) ->
     emit([nl,indent(6),"end",nl,
-	  indent(3),"end"]),
+	  indent(3),"end;",nl]),
     {Acc,NthObj}.
 
 emit_enc_open_type(I) ->
@@ -1358,23 +1376,25 @@ gen_objset_dec(_,_,{unique,undefined},_,_,_,_) ->
     ok;
 gen_objset_dec(Erules, ObjSName, UniqueName, [{ObjName,Val,Fields}|T],
 	       ClName, ClFields, NthObj)->
-    emit(["'getdec_",ObjSName,"'(",{asis,Val},") ->",nl]),
     CurrMod = get(currmod),
     NewNthObj=
 	case ObjName of
 	    {no_mod,no_name} ->
-		gen_inlined_dec_funs(Fields,ClFields,ObjSName,NthObj);
+		gen_inlined_dec_funs(Fields,ClFields,ObjSName,Val,NthObj);
 	    {CurrMod,Name} ->
-		emit(["    fun 'dec_",Name,"'/3"]),
+		emit(["'getdec_",ObjSName,"'(",{asis,Val},") ->",nl,
+		      "    fun 'dec_",Name,"'/3;", nl]),
 		NthObj;
 	    {ModuleName,Name} ->
+		emit(["'getdec_",ObjSName,"'(",{asis,Val},") ->",nl]),
 		emit_ext_fun(dec,ModuleName,Name),
+		emit([";",nl]),
 		NthObj;
 	    _ ->
-		emit(["    fun 'dec_",ObjName,"'/3"]),
+		emit(["'getdec_",ObjSName,"'(",{asis,Val},") ->",nl,
+		      "    fun 'dec_",ObjName,"'/3;", nl]),
 		NthObj
 	end,
-    emit([";",nl]),
     gen_objset_dec(Erules, ObjSName, UniqueName, T, ClName,
 		   ClFields, NewNthObj);
 gen_objset_dec(_,ObjSetName,_UniqueName,['EXTENSIONMARK'],_ClName,
@@ -1394,10 +1414,15 @@ emit_default_getdec(ObjSetName,UniqueName) ->
     emit(["'getdec_",ObjSetName,"'(ErrV) ->",nl]),
     emit([indent(2), "fun(C,V,_) -> exit({{component,C},{value,V},{unique_name_and_value,",{asis,UniqueName},", ErrV}}) end"]).
 
-gen_inlined_dec_funs(Fields, ClFields, ObjSetName, NthObj) ->
+gen_inlined_dec_funs(Fields, [{typefield,_,_}|_]=ClFields, ObjSetName, Val, NthObj) ->
+    emit(["'getdec_",ObjSetName,"'(",{asis,Val},") ->",nl]),
     emit([indent(3),"fun(Type, Bytes, _RestPrimFieldName) ->",nl,
 	  indent(6),"case Type of",nl]),
-    gen_inlined_dec_funs1(Fields, ClFields, ObjSetName, "", NthObj).
+    gen_inlined_dec_funs1(Fields, ClFields, ObjSetName, "", NthObj);
+gen_inlined_dec_funs(Fields, [_|ClFields], ObjSetName, Val, NthObj) ->
+    gen_inlined_dec_funs(Fields, ClFields, ObjSetName, Val, NthObj);
+gen_inlined_dec_funs(_, _, _, _,NthObj) ->
+    NthObj.
 
 gen_inlined_dec_funs1(Fields, [{typefield,Name,Prop}|Rest],
 		      ObjSetName, Sep0, NthObj) ->
@@ -1439,7 +1464,7 @@ gen_inlined_dec_funs1(Fields, [_|Rest], ObjSetName, Sep, NthObj)->
     gen_inlined_dec_funs1(Fields, Rest, ObjSetName, Sep, NthObj);
 gen_inlined_dec_funs1(_, [], _, _, NthObj) ->
     emit([nl,indent(6),"end",nl,
-	  indent(3),"end"]),
+	  indent(3),"end;",nl]),
     NthObj.
 
 emit_dec_open_type(I) ->
@@ -1533,39 +1558,6 @@ decode_class('CONTEXT') ->
     ?CONTEXT;
 decode_class('PRIVATE') ->
     ?PRIVATE.
-
-decode_type('BOOLEAN') -> 1;
-decode_type('INTEGER') -> 2;
-decode_type('BIT STRING') -> 3; 
-decode_type('OCTET STRING') -> 4; 
-decode_type('NULL') -> 5;
-decode_type('OBJECT IDENTIFIER') -> 6;
-decode_type('ObjectDescriptor') -> 7;
-decode_type('EXTERNAL') -> 8;
-decode_type('REAL') -> 9;
-decode_type('ENUMERATED') -> 10;
-decode_type('EMBEDDED_PDV') -> 11;
-decode_type('UTF8String') -> 12;
-decode_type('RELATIVE-OID') -> 13;
-decode_type('SEQUENCE') -> 16;
-decode_type('SEQUENCE OF') -> 16;
-decode_type('SET') -> 17;
-decode_type('SET OF') -> 17;
-decode_type('NumericString') -> 18;  
-decode_type('PrintableString') -> 19;  
-decode_type('TeletexString') -> 20;  
-decode_type('T61String') -> 20;
-decode_type('VideotexString') -> 21;  
-decode_type('IA5String') -> 22;  
-decode_type('UTCTime') -> 23;  
-decode_type('GeneralizedTime') -> 24;  
-decode_type('GraphicString') -> 25;  
-decode_type('VisibleString') -> 26;  
-decode_type('GeneralString') -> 27;  
-decode_type('UniversalString') -> 28;  
-decode_type('BMPString') -> 30;
-decode_type('CHOICE') -> 'CHOICE'; % choice gets the tag from the actual alternative  
-decode_type(Else) -> exit({error,{asn1,{unrecognized_type,Else}}}).
 
 mkfuncname(#'Externaltypereference'{module=Mod,type=EType}, DecOrEnc) ->
     CurrMod = get(currmod),

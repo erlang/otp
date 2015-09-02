@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 1997-2013. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -26,7 +27,8 @@
 
 %%% BIFs
 
--export([getenv/0, getenv/1, getpid/0, putenv/2, timestamp/0, unsetenv/1]).
+-export([getenv/0, getenv/1, getenv/2, getpid/0, putenv/2, system_time/0, system_time/1,
+	 timestamp/0, unsetenv/1]).
 
 -spec getenv() -> [string()].
 
@@ -39,6 +41,19 @@ getenv() -> erlang:nif_error(undef).
 getenv(_) ->
     erlang:nif_error(undef).
 
+-spec getenv(VarName, DefaultValue) -> Value when
+      VarName :: string(),
+      DefaultValue :: string(),
+      Value :: string().
+
+getenv(VarName, DefaultValue) ->
+    case os:getenv(VarName) of
+        false ->
+           DefaultValue;
+        Value ->
+            Value
+    end.
+
 -spec getpid() -> Value when
       Value :: string().
 
@@ -50,6 +65,17 @@ getpid() ->
       Value :: string().
 
 putenv(_, _) ->
+    erlang:nif_error(undef).
+
+-spec system_time() -> integer().
+
+system_time() ->
+    erlang:nif_error(undef).
+
+-spec system_time(Unit) -> integer() when
+      Unit :: erlang:time_unit().
+
+system_time(_Unit) ->
     erlang:nif_error(undef).
 
 -spec timestamp() -> Timestamp when
@@ -85,10 +111,7 @@ version() ->
       Name :: string(),
       Filename :: string().
 find_executable(Name) ->
-    case os:getenv("PATH") of
-	false -> find_executable(Name, []);
-	Path  -> find_executable(Name, Path)
-    end.
+    find_executable(Name, os:getenv("PATH", "")).
 
 -spec find_executable(Name, Path) -> Filename | 'false' when
       Name :: string(),

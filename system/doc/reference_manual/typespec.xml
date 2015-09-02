@@ -4,20 +4,21 @@
 <chapter>
   <header>
     <copyright>
-      <year>2003</year><year>2014</year>
+      <year>2003</year><year>2015</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
-      The contents of this file are subject to the Erlang Public License,
-      Version 1.1, (the "License"); you may not use this file except in
-      compliance with the License. You should have received a copy of the
-      Erlang Public License along with this software. If not, it can be
-      retrieved online at http://www.erlang.org/.
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
 
-      Software distributed under the License is distributed on an "AS IS"
-      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-      the License for the specific language governing rights and limitations
-      under the License.
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
 
     </legalnotice>
 
@@ -34,43 +35,46 @@
     <p>
       Erlang is a dynamically typed language. Still, it comes with a
       notation for declaring sets of Erlang terms to form a particular
-      type, effectively forming a specific sub-type of the set of all
+      type. This effectively forms specific subtypes of the set of all
       Erlang terms.
     </p>
     <p>
       Subsequently, these types can be used to specify types of record fields
-      and the argument and return types of functions.
+      and also the argument and return types of functions.
     </p>
     <p>
-      Type information can be used to document function interfaces,
-      provide more information for bug detection tools such as <c>Dialyzer</c>,
-      and can be exploited by documentation tools such as <c>Edoc</c> for
-      generating program documentation of various forms.
-      It is expected that the type language described in this document will
-      supersede and replace the purely comment-based <c>@type</c> and
-      <c>@spec</c> declarations used by <c>Edoc</c>.
-    </p>
+      Type information can be used for the following:</p>
+    <list type="bulleted">
+      <item>To document function interfaces</item>
+      <item>To provide more information for bug detection tools,
+      such as <c>Dialyzer</c></item>
+      <item>To be exploited by documentation tools, such as EDoc, for
+      generating program documentation of various forms</item>
+    </list>
+    <p>It is expected that the type language described in this section
+      supersedes and replaces the purely comment-based <c>@type</c> and
+      <c>@spec</c> declarations used by EDoc.</p>
   </section>
   <section>
     <marker id="syntax"></marker>
     <title>Types and their Syntax</title>
     <p>
       Types describe sets of Erlang terms.
-      Types consist and are built from a set of predefined types
-      (e.g. <c>integer()</c>, <c>atom()</c>, <c>pid()</c>, ...)
-      described below.
-      Predefined types represent a typically infinite set of Erlang terms which
+      Types consist of, and are built from, a set of predefined types,
+      for example, <c>integer()</c>, <c>atom()</c>, and <c>pid()</c>.
+      Predefined types represent a typically infinite set of Erlang terms that
       belong to this type.  For example, the type <c>atom()</c> stands for the
       set of all Erlang atoms.
     </p>
     <p>
-      For integers and atoms, we allow for singleton types (e.g. the integers
-      <c>-1</c> and <c>42</c> or the atoms <c>'foo'</c> and <c>'bar'</c>).
+      For integers and atoms, it is allowed for singleton types; for example,
+      the integers
+      <c>-1</c> and <c>42</c>, or the atoms <c>'foo'</c> and <c>'bar'</c>).
 
       All other types are built using unions of either predefined
       types or singleton types. In a type union between a type and one
-      of its sub-types the sub-type is absorbed by the super-type and
-      the union is subsequently treated as if the sub-type was not a
+      of its subtypes, the subtype is absorbed by the supertype. Thus,
+      the union is then treated as if the subtype was not a
       constituent of the union. For example, the type union:
     </p>
     <pre>  atom() | 'bar' | integer() | 42</pre>
@@ -79,13 +83,13 @@
     </p>
     <pre>  atom() | integer()</pre>
     <p>
-      Because of sub-type relations that exist between types, types
-      form a lattice where the topmost element, <c>any()</c>, denotes
+      Because of subtype relations that exist between types, types
+      form a lattice where the top-most element, <c>any()</c>, denotes
       the set of all Erlang terms and the bottom-most element, <c>none()</c>,
       denotes the empty set of terms.
     </p>
     <p>
-      The set of predefined types and the syntax for types is given below:
+      The set of predefined types and the syntax for types follows:
     </p>
     <pre><![CDATA[
   Type :: any()                 %% The top type, the set of all Erlang terms
@@ -103,7 +107,7 @@
         | Map
         | Tuple
         | Union
-        | UserDefined           %% described in Section 7.3
+        | UserDefined           %% described in Type Declarations of User-Defined Types
 
   Atom :: atom()
         | Erlang_Atom           %% 'foo', 'bar', ...
@@ -146,22 +150,22 @@
   <p>
     The general form of bitstrings is <c>&lt;&lt;_:M, _:_*N&gt;&gt;</c>,
     where <c>M</c> and <c>N</c> are positive integers. It denotes a
-    bitstring that is <c>M + (k*N)</c> bits long (i.e., a bitstring that
+    bitstring that is <c>M + (k*N)</c> bits long (that is, a bitstring that
     starts with <c>M</c> bits and continues with <c>k</c> segments of
     <c>N</c> bits each, where <c>k</c> is also a positive integer).
     The notations <c>&lt;&lt;_:_*N&gt;&gt;</c>, <c>&lt;&lt;_:M&gt;&gt;</c>,
     and <c>&lt;&lt;&gt;&gt;</c> are convenient shorthands for the cases
-    that <c>M</c>, <c>N</c>, or both, respectively, are zero.
+    that <c>M</c> or <c>N</c>, or both, are zero.
   </p>
   <p>
     Because lists are commonly used, they have shorthand type notations. 
     The types <c>list(T)</c> and <c>nonempty_list(T)</c> have the shorthands
     <c>[T]</c> and <c>[T,...]</c>, respectively.
-    The only difference between the two shorthands is that <c>[T]</c> may be an 
-    empty list but <c>[T,...]</c> may not.
+    The only difference between the two shorthands is that <c>[T]</c> can be an
+    empty list but <c>[T,...]</c> cannot.
   </p>
   <p>
-    Notice that the shorthand for <c>list()</c>, i.e. the list of
+    Notice that the shorthand for <c>list()</c>, that is, the list of
     elements of unknown type, is <c>[_]</c> (or <c>[any()]</c>), not <c>[]</c>. 
     The notation <c>[]</c> specifies the singleton type for the empty list.
   </p>
@@ -172,7 +176,7 @@
   </p>
   <table>
     <row>
-      <cell><b>Built-in type</b></cell><cell><b>Defined as</b></cell>
+      <cell><em>Built-in type</em></cell><cell><em>Defined as</em></cell>
     </row>
     <row>
       <cell><c>term()</c></cell><cell><c>any()</c></cell>
@@ -223,10 +227,13 @@
       <cell><c>module()</c></cell><cell><c>atom()</c></cell>
     </row>
     <row> 
-      <cell><c>mfa()</c></cell><cell><c>{atom(),atom(),arity()}</c></cell>
+      <cell><c>mfa()</c></cell><cell><c>{module(),atom(),arity()}</c></cell>
     </row>
     <row>
       <cell><c>arity()</c></cell><cell><c>0..255</c></cell>
+    </row>
+    <row>
+      <cell><c>identifier()</c></cell><cell><c>pid() | port() | reference()</c></cell>
     </row>
     <row>
       <cell><c>node()</c></cell><cell><c>atom()</c></cell>
@@ -237,6 +244,7 @@
     <row>
       <cell><c>no_return()</c></cell><cell><c>none()</c></cell> 
     </row>
+    <tcaption>Built-in types, predefined aliases</tcaption>
   </table>
   <p>
   In addition, the following three built-in types exist and can be
@@ -245,7 +253,8 @@
   </p>
   <table>
     <row>
-      <cell><b>Built-in type</b></cell><cell><b>Could be thought defined by the syntax</b></cell>
+      <cell><em>Built-in type</em></cell><cell><em>
+        Can be thought defined by the syntax</em></cell>
     </row>
     <row>
       <cell><c>non_neg_integer()</c></cell><cell><c>0..</c></cell>
@@ -256,6 +265,7 @@
     <row>
       <cell><c>neg_integer()</c></cell><cell><c>..-1</c></cell>
     </row>
+    <tcaption>Additional built-in types</tcaption>
   </table>
   
   <p>
@@ -264,8 +274,10 @@
     its violation results in a compilation error. 
   </p>
   <note>
-    The following built-in list types also exist, 
-    but they are expected to be rarely used. Hence, they have long names:
+    <p>
+      The following built-in list types also exist,
+      but they are expected to be rarely used. Hence, they have long names:
+    </p>
   </note>
   <pre>
   nonempty_maybe_improper_list() :: nonempty_maybe_improper_list(any(), any())
@@ -276,109 +288,118 @@
     define the set of Erlang terms one would expect.
   </p>
   <p>
-    Also for convenience, we allow for record notation to be used. 
-    Records are just shorthands for the corresponding tuples.
+    Also for convenience, record notation is allowed to be used.
+    Records are shorthands for the corresponding tuples:
   </p>
   <pre>
   Record :: #Erlang_Atom{}
           | #Erlang_Atom{Fields}</pre>
   <p>
-    Records have been extended to possibly contain type information. 
-    This is described in the sub-section <seealso marker="#typeinrecords">"Type information in record declarations"</seealso> below.
+    Records are extended to possibly contain type information.
+    This is described in <seealso marker="#typeinrecords">
+    Type Information in Record Declarations</seealso>.
   </p>
   <note>
-	  <p>Map types, both <c>map()</c> and <c>#{ ... }</c>, are considered experimental during OTP 17.</p>
-	  <p>No type information of maps pairs, only the containing map types, are used by Dialyzer in OTP 17.</p>
+    <p>Map types, both <c>map()</c> and <c>#{...}</c>,
+      are considered experimental during OTP 17.</p>
+    <p>No type information of maps pairs, only the containing map types,
+      are used by Dialyzer in OTP 17.</p>
   </note>
   </section>
-  
+
   <section>
-    <title>Type declarations of user-defined types</title>
+    <title>Type Declarations of User-Defined Types</title>
     <p>
       As seen, the basic syntax of a type is an atom followed by closed
-      parentheses. New types are declared using '-type' and '-opaque'
+      parentheses. New types are declared using <c>-type</c> and <c>-opaque</c>
       compiler attributes as in the following:
     </p>
     <pre>
   -type my_struct_type() :: Type.
   -opaque my_opaq_type() :: Type.</pre>
     <p>
-      where the type name is an atom (<c>'my_struct_type'</c> in the above)
-      followed by parentheses. Type is a type as defined in the
+      The type name is the atom <c>my_struct_type</c>,
+      followed by parentheses. <c>Type</c> is a type as defined in the
       previous section.
-      A current restriction is that Type can contain only predefined types,
-      or user-defined types which are either module-local (i.e., with a
-      definition that is present in the code of the module) or are remote
-      types (i.e., types defined in and exported by other modules; see below).
-      For module-local types, the restriction that their definition
-      exists in the module is enforced by the compiler and results in a
-      compilation error. (A similar restriction currently exists for records.)
+      A current restriction is that <c>Type</c> can contain
+      only predefined types,
+      or user-defined types which are either of the following:
     </p>
+    <list type="bulleted">
+      <item>Module-local type, that is, with a
+      definition that is present in the code of the module</item>
+      <item>Remote type, that is, type defined in, and exported by,
+      other modules; more about this soon.</item>
+    </list>
+    <p>For module-local types, the restriction that their definition
+      exists in the module is enforced by the compiler and results in a
+      compilation error. (A similar restriction currently exists for records.)    </p>
     <p>
       Type declarations can also be parameterized by including type variables
       between the parentheses. The syntax of type variables is the same as
-      Erlang variables (starts with an upper case letter).
-      Naturally, these variables can - and should - appear on the RHS of the
-      definition. A concrete example appears below:
+      Erlang variables, that is, starts with an upper-case letter.
+      Naturally, these variables can - and is to - appear on the RHS of the
+      definition. A concrete example follows:
     </p>
     <pre>
   -type orddict(Key, Val) :: [{Key, Val}].</pre>
     <p>
-      A module can export some types in order to declare that other modules
+      A module can export some types to declare that other modules
       are allowed to refer to them as <em>remote types</em>.
-      This declaration has the following form:
+      This declaration has the following form:</p>
       <pre>
   -export_type([T1/A1, ..., Tk/Ak]).</pre>
-      where the Ti's are atoms (the name of the type) and the Ai's are their
-      arguments.  An example is given below:
+    <p>Here the Ti's are atoms (the name of the type) and the Ai's are their
+      arguments</p>
+      <p><em>Example:</em></p>
       <pre>
   -export_type([my_struct_type/0, orddict/2]).</pre>
-      Assuming that these types are exported from module <c>'mod'</c> then
-      one can refer to them from other modules using remote type expressions
-      like those below:
+    <p>Assuming that these types are exported from module <c>'mod'</c>,
+      you can refer to them from other modules using remote type expressions
+      like the following:</p>
       <pre>
   mod:my_struct_type()
   mod:orddict(atom(), term())</pre>
-      One is not allowed to refer to types which are not declared as exported.
+    <p>It is not allowed to refer to types that are not declared as exported.
     </p>
     <p>
       Types declared as <c>opaque</c> represent sets of terms whose
-      structure is not supposed to be visible in any way outside of
-      their defining module (i.e., only the module defining them is
-      allowed to depend on their term structure). Consequently, such
+      structure is not supposed to be visible from outside of
+      their defining module. That is, only the module defining them
+      is allowed to depend on their term structure. Consequently, such
       types do not make much sense as module local - module local
-      types are not accessible by other modules anyway - and should
-      always be exported.
+      types are not accessible by other modules anyway - and is
+      always to be exported.
     </p>
   </section>
-  
-  <marker id="typeinrecords"/>
+
   <section>
-    <title>Type information in record declarations</title>
+    <marker id="typeinrecords"/>
+    <title>Type Information in Record Declarations</title>
     <p>
-      The types of record fields can be specified in the declaration of the 
-      record. The syntax for this is:
+      The types of record fields can be specified in the declaration of the
+      record. The syntax for this is as follows:
     </p>
     <pre>
   -record(rec, {field1 :: Type1, field2, field3 :: Type3}).</pre>
     <p>
       For fields without type annotations, their type defaults to any(). 
-      I.e., the above is a shorthand for:
+      That is, the previous example is a shorthand for the following:
     </p>
     <pre>
   -record(rec, {field1 :: Type1, field2 :: any(), field3 :: Type3}).</pre>
     <p>
       In the presence of initial values for fields, 
-      the type must be declared after the initialization as in the following:
+      the type must be declared after the initialization, as follows:
     </p>
     <pre>
   -record(rec, {field1 = [] :: Type1, field2, field3 = 42 :: Type3}).</pre>
     <p>
-      Naturally, the initial values for fields should be compatible 
-      with (i.e. a member of) the corresponding types. 
-      This is checked by the compiler and results in a compilation error 
-      if a violation is detected. For fields without initial values, 
-      the singleton type <c>'undefined'</c> is added to all declared types. 
+      The initial values for fields are to be compatible
+      with (that is, a member of) the corresponding types.
+      This is checked by the compiler and results in a compilation error
+      if a violation is detected. For fields without initial values,
+      the singleton type <c>'undefined'</c> is added to all declared types.
       In other words, the following two record declarations have identical 
       effects:
     </p>
@@ -396,13 +417,13 @@
     </p>
     <p>
       Any record, containing type information or not, once defined, 
-      can be used as a type using the syntax:
+      can be used as a type using the following syntax:
     </p>
     <pre>  #rec{}</pre>
     <p>
       In addition, the record fields can be further specified when using 
-      a record type by adding type information about the field in
-      the following manner:
+      a record type by adding type information about the field
+      as follows:
     </p>
     <pre>  #rec{some_field :: Type}</pre>
     <p>
@@ -412,16 +433,16 @@
   </section>
 	
   <section>
-    <title>Specifications for functions</title>
+    <title>Specifications for Functions</title>
     <p>
       A specification (or contract) for a function is given using the new 
-      compiler attribute <c>'-spec'</c>. The general format is as follows:
+      compiler attribute <c>-spec</c>. The general format is as follows:
     </p>
     <pre>
   -spec Module:Function(ArgType1, ..., ArgTypeN) -> ReturnType.</pre>
     <p>
-      The arity of the function has to match the number of arguments, 
-      or else a compilation error occurs.
+      The arity of the function must match the number of arguments,
+      else a compilation error occurs.
     </p>
     <p>
       This form can also be used in header files (.hrl) to declare type 
@@ -430,7 +451,7 @@
       explicitly) import these functions.
     </p>
     <p>
-      For most uses within a given module, the following shorthand suffices:
+      Within a given module, the following shorthand suffice in most cases:
     </p>
     <pre>
   -spec Function(ArgType1, ..., ArgTypeN) -> ReturnType.</pre>
@@ -448,8 +469,8 @@
          ; (T4, T5) -> T6.</pre>
     <p>
       A current restriction, which currently results in a warning 
-      (OBS: not an error) by the compiler, is that the domains of
-      the argument types cannot be overlapping.
+      (not an error) by the compiler, is that the domains of
+      the argument types cannot overlap.
       For example, the following specification results in a warning:
     </p>
     <pre>
@@ -464,62 +485,67 @@
     <pre>
   -spec id(X) -> X.</pre>
     <p>
-      However, note that the above specification does not restrict the input 
-      and output type in any way. 
-      We can constrain these types by guard-like subtype constraints
+      Notice that the above specification does not restrict the input
+      and output type in any way.
+      These types can be constrained by guard-like subtype constraints
       and provide bounded quantification:
     </p>
     <pre>  -spec id(X) -> X when X :: tuple().</pre>
     <p>
       Currently, the <c>::</c> constraint (read as <c>is_subtype</c>) is
-      the only guard constraint which can be used in the <c>'when'</c>
+      the only guard constraint that can be used in the <c>'when'</c>
       part of a <c>'-spec'</c> attribute.
     </p>
     <note>
       <p>
-      The above function specification, using multiple occurrences of
-      the same type variable, provides more type information than the
-      function specification below where the type variables are missing:
+      The above function specification uses multiple occurrences of
+      the same type variable. That provides more type information than the
+      following function specification, where the type variables are missing:
       </p>
       <pre>  -spec id(tuple()) -> tuple().</pre>
       <p>
 	The latter specification says that the function takes some tuple
-	and returns some tuple, while the one with the <c>X</c> type
+	and returns some tuple. The specification with the <c>X</c> type
 	variable specifies that the function takes a tuple and returns
 	<em>the same</em> tuple.
       </p>
       <p>
-	However, it's up to the tools that process the specs to choose
-	whether to take this extra information into account or ignore it.
+	However, it is up to the tools that process the specificationss
+        to choose whether to take this extra information into account
+        or not.
       </p>
     </note>
     <p>
-      The scope of an <c>::</c> constraint is the 
-      <c>(...) -> RetType</c> 
-      specification after which it appears. To avoid confusion, 
-      we suggest that different variables are used in different
-      constituents of an overloaded contract as in the example below:
+      The scope of a <c>::</c> constraint is the
+      <c>(...) -> RetType</c>
+      specification after which it appears. To avoid confusion,
+      it is suggested that different variables are used in different
+      constituents of an overloaded contract, as shown in the
+      following example:
     </p>
     <pre>
   -spec foo({X, integer()}) -> X when X :: atom()
          ; ([Y]) -> Y when Y :: number().</pre>
     <note>
+      <p>
       For backwards compatibility the following form is also allowed:
+      </p>
       <pre>  -spec id(X) -> X when is_subtype(X, tuple()).</pre>
       <p>
-	but its use is discouraged. It will be taken out in a future
+	but its use is discouraged. It will be removed in a future
 	Erlang/OTP release.
       </p>
     </note>
     <p>
       Some functions in Erlang are not meant to return; 
       either because they define servers or because they are used to 
-      throw exceptions as the function below:
+      throw exceptions, as in the following function:
     </p>
     <pre>  my_error(Err) -> erlang:throw({error, Err}).</pre>
     <p>
-      For such functions we recommend the use of the special <c>no_return()</c>
-      type for their "return", via a contract of the form:
+      For such functions, it is recommended to use the special
+      <c>no_return()</c> type for their "return", through a contract
+      of the following form:
     </p>
     <pre>  -spec my_error(term()) -> no_return().</pre>
   </section>

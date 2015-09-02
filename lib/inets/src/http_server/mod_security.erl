@@ -3,16 +3,17 @@
 %% 
 %% Copyright Ericsson AB 1998-2010. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %%
@@ -32,14 +33,13 @@
 
 -include("httpd.hrl").
 -include("httpd_internal.hrl").
--include("inets_internal.hrl").
 
 -define(VMODULE,"SEC").
 
-
-%% do/1
+%%====================================================================
+%% Internal application API
+%%====================================================================	     
 do(Info) ->
-    ?hdrt("do", [{info, Info}]),
     %% Check and see if any user has been authorized.
     case proplists:get_value(remote_user, Info#mod.data,not_defined_user) of
 	not_defined_user ->
@@ -84,21 +84,152 @@ do(Info) ->
 	    {_Dir, SDirData} = secretp(Path, Info#mod.config_db),
 	    Addr = httpd_util:lookup(Info#mod.config_db, bind_address),
 	    Port = httpd_util:lookup(Info#mod.config_db, port),
+	    Profile = httpd_util:lookup(Info#mod.config_db, profile, ?DEFAULT_PROFILE),
 	    case mod_security_server:check_blocked_user(Info, User, 
 							SDirData, 
-							Addr, Port) of
+							Addr, Port, Profile) of
 		true ->
 		    report_failed(Info, User ,"User Blocked"),
 		    {proceed, [{status, {403, Info#mod.request_uri, ""}} |
 			       Info#mod.data]};
 		false ->
 		    report_failed(Info, User,"Authentication Succedded"),
-		    mod_security_server:store_successful_auth(Addr, Port, 
+		    mod_security_server:store_successful_auth(Addr, Port, Profile, 
 							      User, 
 							      SDirData),
 		    {proceed, Info#mod.data}
 	    end
     end.
+
+load("<Directory " ++ Directory, []) ->
+    Dir = string:strip(string:strip(Directory),right, $>),
+    {ok, [{security_directory, {Dir, [{path, Dir}]}}]};
+load(eof,[{security_directory, {Directory, _DirData}}|_]) ->
+    {error, ?NICE("Premature end-of-file in "++Directory)};
+load("SecurityDataFile " ++ FileName, 
+     [{security_directory, {Dir, DirData}}]) ->
+    File = string:strip(FileName),
+    {ok, [{security_directory, {Dir, [{data_file, File}|DirData]}}]};
+load("SecurityCallbackModule " ++ ModuleName,
+     [{security_directory, {Dir, DirData}}]) ->
+    Mod = list_to_atom(string:strip(ModuleName)),
+    {ok, [{security_directory, {Dir, [{callback_module, Mod}|DirData]}}]};
+load("SecurityMaxRetries " ++ Retries,
+     [{security_directory, {Dir, DirData}}]) ->
+    load_return_int_tag("SecurityMaxRetries", max_retries, 
+			string:strip(Retries), Dir, DirData);
+load("SecurityBlockTime " ++ Time,
+      [{security_directory, {Dir, DirData}}]) ->
+    load_return_int_tag("SecurityBlockTime", block_time,
+			string:strip(Time), Dir, DirData);
+load("SecurityFailExpireTime " ++ Time,
+     [{security_directory, {Dir, DirData}}]) ->
+    load_return_int_tag("SecurityFailExpireTime", fail_expire_time,
+			string:strip(Time), Dir, DirData);
+load("SecurityAuthTimeout " ++ Time0,
+     [{security_directory, {Dir, DirData}}]) ->
+    Time = string:strip(Time0),
+    load_return_int_tag("SecurityAuthTimeout", auth_timeout,
+			string:strip(Time), Dir, DirData);
+load("AuthName " ++ Name0,
+     [{security_directory, {Dir, DirData}}]) ->
+    Name = string:strip(Name0),
+    {ok, [{security_directory, {Dir, [{auth_name, Name}|DirData]}}]};
+load("</Directory>",[{security_directory, {Dir, DirData}}]) ->
+    {ok, [], {security_directory, {Dir, DirData}}}.
+
+store({security_directory, {Dir, DirData}}, ConfigList) 
+  when is_list(Dir) andalso is_list(DirData) ->
+    Addr = proplists:get_value(bind_address, ConfigList),
+    Port = proplists:get_value(port, ConfigList),
+    Profile = proplists:get_value(profile, ConfigList, ?DEFAULT_PROFILE),
+    mod_security_server:start(Addr, Port, Profile),
+    SR = proplists:get_value(server_root, ConfigList),
+    case proplists:get_value(data_file, DirData, no_data_file) of
+	no_data_file ->
+	    {error, {missing_security_data_file, {security_directory, {Dir, DirData}}}};
+	DataFile0 ->
+	    DataFile = 
+		case filename:pathtype(DataFile0) of
+		    relative ->
+			filename:join(SR, DataFile0);
+		    _ ->
+			DataFile0
+		end,
+	    case mod_security_server:new_table(Addr, Port, Profile, DataFile) of
+		{ok, TwoTables} ->
+		    NewDirData0 = lists:keyreplace(data_file, 1, DirData, 
+						   {data_file, TwoTables}),
+		    NewDirData1 = case Addr of
+				      undefined ->
+					  [{port,Port}|NewDirData0];
+				      _ ->
+					  [{port,Port},{bind_address,Addr}|
+					   NewDirData0]
+				  end,
+		    {ok, {security_directory, {Dir, NewDirData1}}};
+		{error, Err} ->
+		    {error, {{open_data_file, DataFile}, Err}}
+	    end
+    end;
+store({directory, {Directory, DirData}}, _) ->
+    {error, {wrong_type, {security_directory, {Directory, DirData}}}}.
+
+remove(ConfigDB) ->
+    Addr = httpd_util:lookup(ConfigDB, bind_address, undefined),
+    Port = httpd_util:lookup(ConfigDB, port),
+    Profile = httpd_util:lookup(ConfigDB, profile, ?DEFAULT_PROFILE),
+    mod_security_server:delete_tables(Addr, Port, Profile),
+    mod_security_server:stop(Addr, Port, Profile).
+    
+
+list_blocked_users(Port) ->
+    list_blocked_users(undefined, Port).
+
+list_blocked_users(Port, Dir) when is_integer(Port) ->
+    list_blocked_users(undefined,Port,Dir);
+list_blocked_users(Addr, Port) when is_integer(Port) ->
+    lists:map(fun({User, Addr0, Port0, ?DEFAULT_PROFILE, Dir0, Time}) ->
+		      {User, Addr0, Port0, Dir0,Time}
+	      end,
+	      mod_security_server:list_blocked_users(Addr, Port)).
+
+list_blocked_users(Addr, Port, Dir) ->
+    lists:map(fun({User, Addr0, Port0, ?DEFAULT_PROFILE, Dir0, Time}) ->
+		      {User, Addr0, Port0, Dir0,Time}
+	      end,
+	      mod_security_server:list_blocked_users(Addr, Port, Dir)).
+
+block_user(User, Port, Dir, Time) ->
+    block_user(User, undefined, Port, Dir, Time).
+block_user(User, Addr, Port, Dir, Time) ->
+    mod_security_server:block_user(User, Addr, Port, Dir, Time).
+
+unblock_user(User, Port) ->
+    unblock_user(User, undefined, Port).
+
+unblock_user(User, Port, Dir) when is_integer(Port) ->
+    unblock_user(User, undefined, Port, Dir);
+unblock_user(User, Addr, Port) when is_integer(Port) ->
+    mod_security_server:unblock_user(User, Addr, Port).
+
+unblock_user(User, Addr, Port, Dir) ->
+    mod_security_server:unblock_user(User, Addr, Port, Dir).
+
+list_auth_users(Port) ->
+    list_auth_users(undefined,Port).
+
+list_auth_users(Port, Dir) when is_integer(Port) ->
+    list_auth_users(undefined, Port, Dir);
+list_auth_users(Addr, Port) when is_integer(Port) ->
+    mod_security_server:list_auth_users(Addr, Port).
+
+list_auth_users(Addr, Port, Dir) ->
+    mod_security_server:list_auth_users(Addr, Port, Dir).
+
+%%--------------------------------------------------------------------
+%%% Internal functions
+%%--------------------------------------------------------------------
 
 report_failed(Info, Auth, Event) ->
     Request = Info#mod.request_line,
@@ -109,20 +240,19 @@ report_failed(Info, Auth, Event) ->
     mod_log:security_log(Info, String).
 
 take_failed_action(Info, Auth) ->
-    ?hdrd("take failed action", [{auth, Auth}]),
     Path = mod_alias:path(Info#mod.data, Info#mod.config_db, 
 			  Info#mod.request_uri),
     {_Dir, SDirData} = secretp(Path, Info#mod.config_db),
     Addr = httpd_util:lookup(Info#mod.config_db, bind_address),
     Port = httpd_util:lookup(Info#mod.config_db, port),
-    mod_security_server:store_failed_auth(Info, Addr, Port, 
+    Profile = httpd_util:lookup(Info#mod.config_db, profile, ?DEFAULT_PROFILE),
+    mod_security_server:store_failed_auth(Info, Addr, Port, Profile, 
 					  Auth, SDirData).
 
 secretp(Path, ConfigDB) ->
     Directories = ets:match(ConfigDB,{directory,{'$1','_'}}),
     case secret_path(Path, Directories) of
 	{yes, Directory} ->
-	    ?hdrd("secretp - yes", [{dir, Directory}]),
 	    SDirs0 = httpd_util:multi_lookup(ConfigDB, security_directory),
 	    [SDir] = lists:filter(fun({Directory0, _}) 
 				     when Directory0 == Directory ->
@@ -155,59 +285,6 @@ secret_path(Path, [[NewDir]|Rest], Dir) ->
     end.
 
 
-load("<Directory " ++ Directory, []) ->
-    ?hdrt("load security directory - begin", [{directory, Directory}]),
-    Dir = httpd_conf:custom_clean(Directory,"",">"),
-    {ok, [{security_directory, {Dir, [{path, Dir}]}}]};
-load(eof,[{security_directory, {Directory, _DirData}}|_]) ->
-    {error, ?NICE("Premature end-of-file in "++Directory)};
-load("SecurityDataFile " ++ FileName, 
-     [{security_directory, {Dir, DirData}}]) ->
-    ?hdrt("load security directory", 
-	  [{file, FileName}, {dir, Dir}, {dir_data, DirData}]),
-    File = httpd_conf:clean(FileName),
-    {ok, [{security_directory, {Dir, [{data_file, File}|DirData]}}]};
-load("SecurityCallbackModule " ++ ModuleName,
-     [{security_directory, {Dir, DirData}}]) ->
-    ?hdrt("load security directory", 
-	  [{module, ModuleName}, {dir, Dir}, {dir_data, DirData}]),
-    Mod = list_to_atom(httpd_conf:clean(ModuleName)),
-    {ok, [{security_directory, {Dir, [{callback_module, Mod}|DirData]}}]};
-load("SecurityMaxRetries " ++ Retries,
-     [{security_directory, {Dir, DirData}}]) ->
-    ?hdrt("load security directory", 
-	  [{max_retries, Retries}, {dir, Dir}, {dir_data, DirData}]),
-    load_return_int_tag("SecurityMaxRetries", max_retries, 
-			httpd_conf:clean(Retries), Dir, DirData);
-load("SecurityBlockTime " ++ Time,
-      [{security_directory, {Dir, DirData}}]) ->
-    ?hdrt("load security directory", 
-	  [{block_time, Time}, {dir, Dir}, {dir_data, DirData}]),
-    load_return_int_tag("SecurityBlockTime", block_time,
-			httpd_conf:clean(Time), Dir, DirData);
-load("SecurityFailExpireTime " ++ Time,
-     [{security_directory, {Dir, DirData}}]) ->
-    ?hdrt("load security directory", 
-	  [{expire_time, Time}, {dir, Dir}, {dir_data, DirData}]),
-    load_return_int_tag("SecurityFailExpireTime", fail_expire_time,
-			httpd_conf:clean(Time), Dir, DirData);
-load("SecurityAuthTimeout " ++ Time0,
-     [{security_directory, {Dir, DirData}}]) ->
-    ?hdrt("load security directory", 
-	  [{auth_timeout, Time0}, {dir, Dir}, {dir_data, DirData}]),
-    Time = httpd_conf:clean(Time0),
-    load_return_int_tag("SecurityAuthTimeout", auth_timeout,
-			httpd_conf:clean(Time), Dir, DirData);
-load("AuthName " ++ Name0,
-     [{security_directory, {Dir, DirData}}]) ->
-    ?hdrt("load security directory", 
-	  [{name, Name0}, {dir, Dir}, {dir_data, DirData}]),
-    Name = httpd_conf:clean(Name0),
-    {ok, [{security_directory, {Dir, [{auth_name, Name}|DirData]}}]};
-load("</Directory>",[{security_directory, {Dir, DirData}}]) ->
-    ?hdrt("load security directory - end", 
-	  [{dir, Dir}, {dir_data, DirData}]),
-    {ok, [], {security_directory, {Dir, DirData}}}.
 
 load_return_int_tag(Name, Atom, Time, Dir, DirData) ->
     case Time of
@@ -222,105 +299,3 @@ load_return_int_tag(Name, Atom, Time, Dir, DirData) ->
 		    {ok, [{security_directory, {Dir, [{Atom, Val}|DirData]}}]}
 	    end
     end.
-
-store({security_directory, {Dir, DirData}}, ConfigList) 
-  when is_list(Dir) andalso is_list(DirData) ->
-    ?hdrt("store security directory", [{dir, Dir}, {dir_data, DirData}]),
-    Addr = proplists:get_value(bind_address, ConfigList),
-    Port = proplists:get_value(port, ConfigList),
-    mod_security_server:start(Addr, Port),
-    SR = proplists:get_value(server_root, ConfigList),
-    case proplists:get_value(data_file, DirData, no_data_file) of
-	no_data_file ->
-	    {error, {missing_security_data_file, {security_directory, {Dir, DirData}}}};
-	DataFile0 ->
-	    DataFile = 
-		case filename:pathtype(DataFile0) of
-		    relative ->
-			filename:join(SR, DataFile0);
-		    _ ->
-			DataFile0
-		end,
-	    case mod_security_server:new_table(Addr, Port, DataFile) of
-		{ok, TwoTables} ->
-		    NewDirData0 = lists:keyreplace(data_file, 1, DirData, 
-						   {data_file, TwoTables}),
-		    NewDirData1 = case Addr of
-				      undefined ->
-					  [{port,Port}|NewDirData0];
-				      _ ->
-					  [{port,Port},{bind_address,Addr}|
-					   NewDirData0]
-				  end,
-		    {ok, {security_directory, {Dir, NewDirData1}}};
-		{error, Err} ->
-		    {error, {{open_data_file, DataFile}, Err}}
-	    end
-    end;
-store({directory, {Directory, DirData}}, _) ->
-    {error, {wrong_type, {security_directory, {Directory, DirData}}}}.
-
-remove(ConfigDB) ->
-    Addr = case ets:lookup(ConfigDB, bind_address) of
-	       [] -> 
-		   undefined;
-	       [{bind_address, Address}] ->
-		   Address
-	   end,
-    [{port, Port}] = ets:lookup(ConfigDB, port),
-    mod_security_server:delete_tables(Addr, Port),
-    mod_security_server:stop(Addr, Port).
-    
-
-%%
-%% User API
-%%
-
-%% list_blocked_users
-
-list_blocked_users(Port) ->
-    list_blocked_users(undefined, Port).
-
-list_blocked_users(Port, Dir) when is_integer(Port) ->
-    list_blocked_users(undefined,Port,Dir);
-list_blocked_users(Addr, Port) when is_integer(Port) ->
-    mod_security_server:list_blocked_users(Addr, Port).
-
-list_blocked_users(Addr, Port, Dir) ->
-    mod_security_server:list_blocked_users(Addr, Port, Dir).
-
-
-%% block_user
-
-block_user(User, Port, Dir, Time) ->
-    block_user(User, undefined, Port, Dir, Time).
-block_user(User, Addr, Port, Dir, Time) ->
-    mod_security_server:block_user(User, Addr, Port, Dir, Time).
-
-
-%% unblock_user
-
-unblock_user(User, Port) ->
-    unblock_user(User, undefined, Port).
-
-unblock_user(User, Port, Dir) when is_integer(Port) ->
-    unblock_user(User, undefined, Port, Dir);
-unblock_user(User, Addr, Port) when is_integer(Port) ->
-    mod_security_server:unblock_user(User, Addr, Port).
-
-unblock_user(User, Addr, Port, Dir) ->
-    mod_security_server:unblock_user(User, Addr, Port, Dir).
-
-
-%% list_auth_users
-
-list_auth_users(Port) ->
-    list_auth_users(undefined,Port).
-
-list_auth_users(Port, Dir) when is_integer(Port) ->
-    list_auth_users(undefined, Port, Dir);
-list_auth_users(Addr, Port) when is_integer(Port) ->
-    mod_security_server:list_auth_users(Addr, Port).
-
-list_auth_users(Addr, Port, Dir) ->
-    mod_security_server:list_auth_users(Addr, Port, Dir).

@@ -3,16 +3,17 @@
  *
  * Copyright Ericsson AB 2009-2014. All Rights Reserved.
  *
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  * %CopyrightEnd%
  */
@@ -380,7 +381,8 @@ static ERL_NIF_TERM type_test(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[
     ErlNifSInt64 sint64;
     ErlNifUInt64 uint64;
     double d;
-    ERL_NIF_TERM atom, ref1, ref2;
+    ERL_NIF_TERM atom, ref1, ref2, term;
+    size_t len;
 
     sint = INT_MIN;
     do {
@@ -502,6 +504,7 @@ static ERL_NIF_TERM type_test(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[
 	    goto error;
 	}
     }
+
     ref1 = enif_make_ref(env);
     ref2 = enif_make_ref(env);
     if (!enif_is_ref(env,ref1) || !enif_is_ref(env,ref2) 
@@ -881,15 +884,19 @@ static ERL_NIF_TERM check_is(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]
  *
  * This function is separate from check_is because it calls enif_make_badarg
  * and so it must return the badarg exception as its return value. Thus, the
- * badarg exception indicates success. Failure is indicated by returning an
- * error atom.
+ * badarg exception indicates success.
  */
 static ERL_NIF_TERM check_is_exception(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
+    ERL_NIF_TERM badarg, exc_term;
     ERL_NIF_TERM error_atom = enif_make_atom(env, "error");
-    ERL_NIF_TERM badarg = enif_make_badarg(env);
-    if (enif_is_exception(env, error_atom)) return error_atom;
-    if (!enif_is_exception(env, badarg)) return error_atom;
+    ERL_NIF_TERM badarg_atom = enif_make_atom(env, "badarg");
+    assert(!enif_is_exception(env, error_atom));
+    badarg = enif_make_badarg(env);
+    assert(enif_is_exception(env, badarg));
+    assert(enif_has_pending_exception(env, NULL));
+    assert(enif_has_pending_exception(env, &exc_term));
+    assert(enif_is_identical(exc_term, badarg_atom));
     return badarg;
 }
 
@@ -1533,9 +1540,12 @@ static ERL_NIF_TERM nif_sched1(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
 
 static ERL_NIF_TERM call_nif_schedule(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
+    ERL_NIF_TERM result;
     if (argc != 2)
 	return enif_make_atom(env, "false");
-    return enif_schedule_nif(env, "nif_sched1", 0, nif_sched1, argc, argv);
+    result = enif_schedule_nif(env, "nif_sched1", 0, nif_sched1, argc, argv);
+    assert(!enif_is_exception(env, result));
+    return result;
 }
 
 #ifdef ERL_NIF_DIRTY_SCHEDULER_SUPPORT
@@ -1608,16 +1618,31 @@ static ERL_NIF_TERM send_from_dirty_nif(ErlNifEnv* env, int argc, const ERL_NIF_
 static ERL_NIF_TERM call_dirty_nif_exception(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
     switch (argc) {
-    case 0: {
-	ERL_NIF_TERM args[255];
-	int i;
-	for (i = 0; i < 255; i++)
-	    args[i] = enif_make_int(env, i);
-	return enif_schedule_nif(env, "call_dirty_nif_exception", ERL_NIF_DIRTY_JOB_CPU_BOUND,
-				 call_dirty_nif_exception, 255, argv);
+    case 1: {
+	int arg;
+	if (enif_get_int(env, argv[0], &arg) && arg < 2) {
+	    ERL_NIF_TERM args[255];
+	    int i;
+	    args[0] = argv[0];
+	    for (i = 1; i < 255; i++)
+		args[i] = enif_make_int(env, i);
+	    return enif_schedule_nif(env, "call_dirty_nif_exception", ERL_NIF_DIRTY_JOB_CPU_BOUND,
+				     call_dirty_nif_exception, 255, args);
+	} else {
+	    return enif_raise_exception(env, argv[0]);
+	}
     }
-    case 1:
-	return enif_make_badarg(env);
+    case 2: {
+        int return_badarg_directly;
+        enif_get_int(env, argv[0], &return_badarg_directly);
+        assert(return_badarg_directly == 1 || return_badarg_directly == 0);
+        if (return_badarg_directly)
+            return enif_make_badarg(env);
+        else {
+            /* ignore return value */ enif_make_badarg(env);
+            return enif_make_atom(env, "ok");
+        }
+    }
     default:
 	return enif_schedule_nif(env, "call_dirty_nif_exception", ERL_NIF_DIRTY_JOB_CPU_BOUND,
 				 call_dirty_nif_exception, argc-1, argv);
@@ -1636,6 +1661,100 @@ static ERL_NIF_TERM call_dirty_nif_zero_args(ErlNifEnv* env, int argc, const ERL
     return enif_make_list_from_array(env, result, i);
 }
 #endif
+
+/*
+ * If argv[0] is the integer 0, call enif_make_badarg, but don't return its
+ * return value. Instead, return ok.  Result should still be a badarg
+ * exception for the erlang caller.
+ *
+ * For any other value of argv[0], use it as an exception term and return
+ * the exception.
+ */
+static ERL_NIF_TERM call_nif_exception(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    ERL_NIF_TERM exc_term;
+    ERL_NIF_TERM badarg_atom = enif_make_atom(env, "badarg");
+    int arg;
+
+    if (enif_get_int(env, argv[0], &arg) && arg == 0) {
+	/* ignore return value */ enif_make_badarg(env);
+	assert(enif_has_pending_exception(env, NULL));
+	assert(enif_has_pending_exception(env, &exc_term));
+	assert(enif_is_identical(badarg_atom, exc_term));
+	return enif_make_atom(env, "ok");
+    } else {
+	ERL_NIF_TERM exc_retval = enif_raise_exception(env, argv[0]);
+	assert(enif_has_pending_exception(env, NULL));
+	assert(enif_has_pending_exception(env, &exc_term));
+	assert(enif_is_identical(argv[0], exc_term));
+	return exc_retval;
+    }
+}
+
+#if !defined(NAN) || !defined(INFINITY)
+double zero(void)
+{
+    return 0.0;
+}
+#endif
+
+static ERL_NIF_TERM call_nif_nan_or_inf(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    double val;
+    char arg[6];
+    ERL_NIF_TERM res;
+
+    assert(argc == 1);
+    enif_get_atom(env, argv[0], arg, sizeof arg, ERL_NIF_LATIN1);
+    if (strcmp(arg, "nan") == 0) {
+        /* Verify that enif_make_double raises a badarg for NaN */
+#ifdef NAN
+        val = NAN;
+#else
+        val = 0.0/zero();
+#endif
+    } else {
+        /* Verify that enif_make_double raises a badarg for NaN and infinity */
+#ifdef INFINITY
+        val = INFINITY;
+#else
+        val = 1.0/zero();
+#endif
+    }
+    res = enif_make_double(env, val);
+    assert(enif_is_exception(env, res));
+    assert(enif_has_pending_exception(env, NULL));
+    if (strcmp(arg, "tuple") == 0) {
+        return enif_make_tuple2(env, argv[0], res);
+    } else {
+        return res;
+    }
+}
+
+static ERL_NIF_TERM call_nif_atom_too_long(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    char str[257];
+    char arg[4];
+    size_t len;
+    int i;
+    ERL_NIF_TERM res;
+
+    assert(argc == 1);
+    enif_get_atom(env, argv[0], arg, sizeof arg, ERL_NIF_LATIN1);
+    /* Verify that creating an atom from a string that's too long results in a badarg */
+    for (i = 0; i < sizeof str; ++i) {
+        str[i] = 'a';
+    }
+    str[256] = '\0';
+    if (strcmp(arg, "len") == 0) {
+        len = strlen(str);
+        res = enif_make_atom_len(env, str, len);
+    } else {
+        res = enif_make_atom(env, str);
+    }
+    assert(enif_is_exception(env, res));
+    return res;
+}
 
 static ERL_NIF_TERM is_map_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
@@ -1713,12 +1832,13 @@ static ERL_NIF_TERM sorted_list_from_maps_nif(ErlNifEnv* env, int argc, const ER
     if (argc != 1 && !enif_is_map(env, map))
 	return enif_make_int(env, __LINE__);
 
-    if(!enif_map_iterator_create(env, map, &iter_f, ERL_NIF_MAP_ITERATOR_HEAD))
+    if(!enif_map_iterator_create(env, map, &iter_f, ERL_NIF_MAP_ITERATOR_FIRST))
 	return enif_make_int(env, __LINE__);
 
     cnt = 0;
+    next_ret = 1;
     while(enif_map_iterator_get_pair(env,&iter_f,&key,&value)) {
-	if (cnt && !next_ret)
+	if (!next_ret)
 	    return enif_make_int(env, __LINE__);
 	list_f = enif_make_list_cell(env, enif_make_tuple2(env, key, value), list_f);
 	next_ret = enif_map_iterator_next(env,&iter_f);
@@ -1727,12 +1847,13 @@ static ERL_NIF_TERM sorted_list_from_maps_nif(ErlNifEnv* env, int argc, const ER
     if (cnt && next_ret)
 	return enif_make_int(env, __LINE__);
 
-    if(!enif_map_iterator_create(env, map, &iter_b, ERL_NIF_MAP_ITERATOR_TAIL))
+    if(!enif_map_iterator_create(env, map, &iter_b, ERL_NIF_MAP_ITERATOR_LAST))
 	return enif_make_int(env, __LINE__);
 
     cnt = 0;
+    prev_ret = 1;
     while(enif_map_iterator_get_pair(env,&iter_b,&key,&value)) {
-	if (cnt && !prev_ret)
+	if (!prev_ret)
 	    return enif_make_int(env, __LINE__);
 
 	/* Test that iter_f can step "backwards" */
@@ -1744,6 +1865,7 @@ static ERL_NIF_TERM sorted_list_from_maps_nif(ErlNifEnv* env, int argc, const ER
 
 	list_b = enif_make_list_cell(env, enif_make_tuple2(env, key, value), list_b);
 	prev_ret = enif_map_iterator_prev(env,&iter_b);
+	cnt++;
     }
 
     if (cnt) {
@@ -1818,9 +1940,12 @@ static ErlNifFunc nif_funcs[] =
 #ifdef ERL_NIF_DIRTY_SCHEDULER_SUPPORT
     {"call_dirty_nif", 3, call_dirty_nif},
     {"send_from_dirty_nif", 1, send_from_dirty_nif, ERL_NIF_DIRTY_JOB_CPU_BOUND},
-    {"call_dirty_nif_exception", 0, call_dirty_nif_exception, ERL_NIF_DIRTY_JOB_IO_BOUND},
+    {"call_dirty_nif_exception", 1, call_dirty_nif_exception, ERL_NIF_DIRTY_JOB_IO_BOUND},
     {"call_dirty_nif_zero_args", 0, call_dirty_nif_zero_args, ERL_NIF_DIRTY_JOB_CPU_BOUND},
 #endif
+    {"call_nif_exception", 1, call_nif_exception},
+    {"call_nif_nan_or_inf", 1, call_nif_nan_or_inf},
+    {"call_nif_atom_too_long", 1, call_nif_atom_too_long},
     {"is_map_nif", 1, is_map_nif},
     {"get_map_size_nif", 1, get_map_size_nif},
     {"make_new_map_nif", 0, make_new_map_nif},

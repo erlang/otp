@@ -3,19 +3,19 @@
 %% 
 %% Copyright Ericsson AB 1997-2013. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
-%%
 %%% Purpose : Compiles various modules with tough code
 
 -module(compilation_SUITE).
@@ -309,8 +309,8 @@ load_and_call(Out, Module) ->
     %% Smoke-test of beam disassembler.
     ?line test_lib:smoke_disasm(Module),
 
-    ?line true = erlang:delete_module(Module),
-    ?line true = erlang:purge_module(Module),
+    _ = code:delete(Module),
+    _ = code:purge(Module),
 
     %% Restore state of trap_exit just in case. (Since the compiler
     %% uses a temporary process, we will get {'EXIT',Pid,normal} messages
@@ -428,41 +428,35 @@ self_compile_old_inliner(Config) when is_list(Config) ->
     self_compile_1(Config, "old", [verbose,{inline,500}]).
 
 self_compile_1(Config, Prefix, Opts) ->
-    ?line Dog = test_server:timetrap(test_server:minutes(40)),
+    Dog = test_server:timetrap(test_server:minutes(40)),
 
-    ?line Priv = ?config(priv_dir,Config),
-    ?line Version = compiler_version(),
+    Priv = ?config(priv_dir,Config),
+    Version = compiler_version(),
 
     %% Compile the compiler. (In this node to get better coverage.)
-    ?line CompA = make_compiler_dir(Priv, Prefix++"compiler_a"),
-    ?line VsnA = Version ++ ".0",
-    ?line compile_compiler(compiler_src(), CompA, VsnA, [clint|Opts]),
+    CompA = make_compiler_dir(Priv, Prefix++"compiler_a"),
+    VsnA = Version ++ ".0",
+    compile_compiler(compiler_src(), CompA, VsnA, [clint0,clint|Opts]),
 
     %% Compile the compiler again using the newly compiled compiler.
     %% (In another node because reloading the compiler would disturb cover.)
     CompilerB = Prefix++"compiler_b",
     CompB = make_compiler_dir(Priv, CompilerB),
-    ?line VsnB = VsnA ++ ".0",
+    VsnB = VsnA ++ ".0",
     self_compile_node(CompA, CompB, VsnB, Opts),
 
-    %% Compare compiler directories.
-    ?line compare_compilers(CompA, CompB),
+    %% Compare compiler directories. The compiler directories should
+    %% be equal (except for beam_asm that contains the compiler version).
+    compare_compilers(CompA, CompB),
 
-    %% Compile and compare compiler C.
-    ?line CompilerC = Prefix++"compiler_c",
-    ?line CompC = make_compiler_dir(Priv, CompilerC),
-    ?line VsnC = VsnB ++ ".0",
-    self_compile_node(CompB, CompC, VsnC, Opts),
-    ?line compare_compilers(CompB, CompC),
-
-    ?line test_server:timetrap_cancel(Dog),
+    test_server:timetrap_cancel(Dog),
     ok.
 
 self_compile_node(CompilerDir, OutDir, Version, Opts) ->
-    ?line Dog = test_server:timetrap(test_server:minutes(15)),
-    ?line Pa = "-pa " ++ filename:dirname(code:which(?MODULE)) ++
+    Dog = test_server:timetrap(test_server:minutes(15)),
+    Pa = "-pa " ++ filename:dirname(code:which(?MODULE)) ++
 	" -pa " ++ CompilerDir,
-    ?line Files = compiler_src(),
+    Files = compiler_src(),
 
     %% We don't want the cover server started on the other node,
     %% because it will load the same cover-compiled code as on this
@@ -472,7 +466,7 @@ self_compile_node(CompilerDir, OutDir, Version, Opts) ->
        fun() ->
 	       compile_compiler(Files, OutDir, Version, Opts)
        end, Pa),
-    ?line test_server:timetrap_cancel(Dog),
+    test_server:timetrap_cancel(Dog),
     ok.
 
 compile_compiler(Files, OutDir, Version, InlineOpts) ->
@@ -499,27 +493,22 @@ compiler_modules(Dir) ->
     [list_to_atom(filename:rootname(filename:basename(F))) || F <- Files].
 
 make_compiler_dir(Priv, Dir0) ->
-    ?line Dir = filename:join(Priv, Dir0),
-    ?line ok = file:make_dir(Dir),
+    Dir = filename:join(Priv, Dir0),
+    ok = file:make_dir(Dir),
     Dir.
 
-make_current(Dir) ->    
-    true = code:add_patha(Dir),
-    lists:foreach(fun(File) ->
-			  c:l(File)
-		  end, compiler_modules(Dir)),
-    io:format("~p\n", [code:which(compile)]).
-
 compiler_version() ->
-    {value,{version,Version}} = lists:keysearch(version, 1,
-						compile:module_info(compile)),
+    {version,Version} = lists:keyfind(version, 1,
+				      compile:module_info(compile)),
     Version.
 
 compare_compilers(ADir, BDir) ->
     {[],[],D} = beam_lib:cmp_dirs(ADir, BDir),
-    [] = [T || {A,_}=T <- D,
-	       filename:basename(A) =/= "beam_asm.beam"]. %Contains compiler version.
 
+    %% beam_asm.beam contains compiler version and therefore it *must*
+    %% compare unequal.
+    ["beam_asm.beam"] = [filename:basename(A) || {A,_} <- D],
+    ok.
 
 %%%
 %%% The only test of the following code is that it compiles.
@@ -611,12 +600,10 @@ otp_7345(Config) when is_list(Config) ->
 
 otp_7345(ObjRef, _RdEnv, Args) ->
     Cid = ObjRef#contextId.cid,
-    _DpRef =
-	#dpRef{cid = Cid,
+    _ =	#dpRef{cid = Cid,
 		     ms_device_context_id = cid_id,
 		     tlli = #ptmsi{value = 0}},
-    _QosProfile =
-	#qosProfileBssgp{peak_bit_rate_msb = 0,
+    _ =	#qosProfileBssgp{peak_bit_rate_msb = 0,
 			 peak_bit_rate_lsb = 80,
 			 t_a_precedence = 49},
     [Cpdu|_] = Args,

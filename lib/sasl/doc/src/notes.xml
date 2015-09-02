@@ -8,16 +8,17 @@
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
-      The contents of this file are subject to the Erlang Public License,
-      Version 1.1, (the "License"); you may not use this file except in
-      compliance with the License. You should have received a copy of the
-      Erlang Public License along with this software. If not, it can be
-      retrieved online at http://www.erlang.org/.
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
 
-      Software distributed under the License is distributed on an "AS IS"
-      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-      the License for the specific language governing rights and limitations
-      under the License.
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
 
     </legalnotice>
 
@@ -29,6 +30,44 @@
     <file>notes.xml</file>
   </header>
   <p>This document describes the changes made to the SASL application.</p>
+
+<section><title>SASL 2.5</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The undocumented upgrade instruction
+	    <c>{remove_module,PrePurge,PostPurge,DepMods}</c> is
+	    removed. This instruction was added for symmetry reasons
+	    in OTP R7B, but was never documented or tested.</p>
+          <p>
+	    The existing instruction <c>{add_module,Mod,DepMods}</c>
+	    is now documented, and the complementing instruction
+	    <c>{delete_module,Mod,DepMods}</c> is added.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-11540</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>The <c>sasl_error_logger</c> configuration parameter
+	    now supports the value <c>{file,FileName,Modes}</c> which
+	    allows the log file to be opened in other mode than write
+	    (for example, append mode).</p>
+          <p>
+	    Own Id: OTP-12778</p>
+        </item>
+      </list>
+    </section>
+
+</section>
 
 <section><title>SASL 2.4.1</title>
 

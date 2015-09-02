@@ -4,16 +4,17 @@
 %% 
 %% Copyright Ericsson AB 2002-2009. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %%
@@ -46,27 +47,27 @@ tr(F) ->
   {R,{WT-EWT,(RT-ERT)/1000}}.
 
 empty_time() ->
-  {WT1,WT2,WT3} = erlang:now(),
+  WTA = erlang:monotonic_time(),
   {A,_} = erlang:statistics(runtime),
-  {WT12,WT22,WT32} = erlang:now(),
+  WTB = erlang:monotonic_time(),
   {B,_} = erlang:statistics(runtime),
-  {(WT12-WT1)*1000000+(WT22-WT2)+(WT32-WT3)/1000000,B-A}.
+  {(WTB-WTA)/erlang:convert_time_unit(1, seconds, native),B-A}.
 
 time(F) -> 
-  {WT1,WT2,WT3} = erlang:now(),
+  WTA = erlang:monotonic_time(),
   {A,_} = erlang:statistics(runtime),
   F(),
-  {WT12,WT22,WT32} = erlang:now(),
+  WTB = erlang:monotonic_time(),
   {B,_} = erlang:statistics(runtime),
-  {(WT12-WT1)*1000000+(WT22-WT2)+(WT32-WT3)/1000000,B-A}.
+  {(WTB-WTA)/erlang:convert_time_unit(1, seconds, native),B-A}.
 
 timer(F) -> 
-  {WT1,WT2,WT3} = erlang:now(),
+  WTA = erlang:monotonic_time(),
   {A,_} = erlang:statistics(runtime),
   R = F(),
-  {WT12,WT22,WT32} = erlang:now(),
+  WTB = erlang:monotonic_time(),
   {B,_} = erlang:statistics(runtime),
-  {R,{(WT12-WT1)*1000000+(WT22-WT2)+(WT32-WT3)/1000000,B-A}}.
+  {R,{(WTB-WTA)/erlang:convert_time_unit(1, seconds, native),B-A}}.
 
 advanced(_Fun, I) when I < 2 -> false;
 advanced(Fun, Iterations) ->

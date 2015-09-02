@@ -23,6 +23,7 @@ MODULES= \
 	dummy_via \
 	edlin_expand_SUITE \
 	epp_SUITE \
+	erl_anno_SUITE \
 	erl_eval_SUITE \
 	erl_expand_records_SUITE \
 	erl_internal_SUITE \
@@ -53,6 +54,7 @@ MODULES= \
 	proc_lib_SUITE \
 	qlc_SUITE \
 	queue_SUITE \
+	rand_SUITE \
 	random_SUITE \
 	re_SUITE \
 	run_pcre_tests \
@@ -105,7 +107,8 @@ RELSYSDIR = $(RELEASE_PATH)/stdlib_test
 
 ERL_MAKE_FLAGS +=
 ERL_COMPILE_FLAGS += -I$(ERL_TOP)/lib/test_server/include \
-		-I$(ERL_TOP)/lib/kernel/include
+		-I$(ERL_TOP)/lib/kernel/include \
+		-I$(ERL_TOP)/lib/stdlib/include
 
 EBIN = .
 

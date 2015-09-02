@@ -1,13 +1,14 @@
-%% ``The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved via the world wide web at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% ``Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% The Initial Developer of the Original Code is Ericsson Utvecklings AB.
 %% Portions created by Ericsson are Copyright 1999, Ericsson Utvecklings
@@ -22,12 +23,12 @@
 	 init_per_group/2,end_per_group/2]).
 
 %% Test cases
--export([app/1,appup/1,build_std/1,build_map_module/1,otp_12008/1]).
+-export([app/1,appup/1,build_std/1,build_map_module/1,otp_12008/1, build_app/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    [app,appup,build_std,build_map_module,otp_12008].
+    [app,appup,build_std,build_map_module,otp_12008, build_app].
 
 groups() -> 
     [].
@@ -95,3 +96,20 @@ otp_12008(Config) when is_list(Config) ->
     ok = edoc:files([Un2], Opts2),
     {'EXIT', error} = (catch edoc:files([Un3], Opts2)),
     ok.
+
+build_app(suite) -> [];
+build_app(doc) -> ["Build a local app with nested source directories"];
+build_app(Config) ->
+    DataDir  = ?config(data_dir, Config),
+    PrivDir  = ?config(priv_dir, Config),
+	OutDir = filename:join(PrivDir, "myapp"),
+	Src = filename:join(DataDir, "myapp"),
+
+	ok = edoc:application(myapp, Src, [{dir, OutDir}, {subpackages, false}]),
+	true = filelib:is_regular(filename:join(OutDir, "a.html")),
+	false = filelib:is_regular(filename:join(OutDir, "b.html")),
+
+	ok = edoc:application(myapp, Src, [{dir, OutDir}]),
+	true = filelib:is_regular(filename:join(OutDir, "a.html")),
+	true = filelib:is_regular(filename:join(OutDir, "b.html")),
+	ok.

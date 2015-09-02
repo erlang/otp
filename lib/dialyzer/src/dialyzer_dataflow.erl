@@ -2,18 +2,19 @@
 %%--------------------------------------------------------------------
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2006-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2015. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -28,14 +29,15 @@
 
 -module(dialyzer_dataflow).
 
--export([get_fun_types/4, get_warnings/5, format_args/3]).
+-export([get_fun_types/5, get_warnings/5, format_args/3]).
 
 %% Data structure interfaces.
 -export([state__add_warning/2, state__cleanup/1,
 	 state__duplicate/1, dispose_state/1,
          state__get_callgraph/1, state__get_races/1,
          state__get_records/1, state__put_callgraph/2,
-         state__put_races/2, state__records_only/1]).
+         state__put_races/2, state__records_only/1,
+         state__find_function/2]).
 
 -export_type([state/0]).
 
@@ -89,6 +91,8 @@
 -type type()      :: erl_types:erl_type().
 -type types()     :: erl_types:type_table().
 
+-type curr_fun()  :: 'undefined' | 'top' | mfa_or_funlbl().
+
 -define(no_arg, no_arg).
 
 -define(TYPE_LIMIT, 3).
@@ -96,17 +100,20 @@
 -define(BITS, 128).
 
 -record(state, {callgraph            :: dialyzer_callgraph:callgraph(),
+                codeserver           :: dialyzer_codeserver:codeserver(),
 		envs                 :: env_tab(),
 		fun_tab		     :: fun_tab(),
+                fun_homes            :: dict:dict(label(), mfa()),
 		plt		     :: dialyzer_plt:plt(),
 		opaques              :: [type()],
 		races = dialyzer_races:new() :: dialyzer_races:races(),
 		records = dict:new() :: types(),
 		tree_map	     :: dict:dict(label(), cerl:cerl()),
 		warning_mode = false :: boolean(),
-		warnings = []        :: [dial_warning()],
+		warnings = []        :: [raw_warning()],
 		work                 :: {[_], [_], sets:set()},
-		module               :: module()
+		module               :: module(),
+                curr_fun             :: curr_fun()
                }).
 
 -record(map, {dict = dict:new()   :: type_tab(),
@@ -115,7 +122,6 @@
               modified_stack = [] :: [{[Key :: term()],reference()}],
               ref = undefined     :: reference() | undefined}).
 
--type nowarn()    :: dialyzer_analysis_callgraph:no_warn_unused().
 -type env_tab()   :: dict:dict(label(), #map{}).
 -type fun_entry() :: {Args :: [type()], RetType :: type()}.
 -type fun_tab()   :: dict:dict('top' | label(),
@@ -133,22 +139,24 @@
 -type fun_types() :: dict:dict(label(), type()).
 
 -spec get_warnings(cerl:c_module(), dialyzer_plt:plt(),
-                   dialyzer_callgraph:callgraph(), types(), nowarn()) ->
-	{[dial_warning()], fun_types()}.
+                   dialyzer_callgraph:callgraph(),
+                   dialyzer_codeserver:codeserver(),
+                   types()) ->
+	{[raw_warning()], fun_types()}.
 
-get_warnings(Tree, Plt, Callgraph, Records, NoWarnUnused) ->
-  State1 = analyze_module(Tree, Plt, Callgraph, Records, true),
-  State2 =
-    state__renew_warnings(state__get_warnings(State1, NoWarnUnused), State1),
+get_warnings(Tree, Plt, Callgraph, Codeserver, Records) ->
+  State1 = analyze_module(Tree, Plt, Callgraph, Codeserver, Records, true),
+  State2 = state__renew_warnings(state__get_warnings(State1), State1),
   State3 = state__get_race_warnings(State2),
   {State3#state.warnings, state__all_fun_types(State3)}.
 
 -spec get_fun_types(cerl:c_module(), dialyzer_plt:plt(),
                     dialyzer_callgraph:callgraph(),
+                    dialyzer_codeserver:codeserver(),
                     types()) -> fun_types().
 
-get_fun_types(Tree, Plt, Callgraph, Records) ->
-  State = analyze_module(Tree, Plt, Callgraph, Records, false),
+get_fun_types(Tree, Plt, Callgraph, Codeserver, Records) ->
+  State = analyze_module(Tree, Plt, Callgraph, Codeserver, Records, false),
   state__all_fun_types(State).
 
 %%% ===========================================================================
@@ -157,11 +165,11 @@ get_fun_types(Tree, Plt, Callgraph, Records) ->
 %%%
 %%% ===========================================================================
 
-analyze_module(Tree, Plt, Callgraph, Records, GetWarnings) ->
+analyze_module(Tree, Plt, Callgraph, Codeserver, Records, GetWarnings) ->
   debug_pp(Tree, false),
   Module = cerl:atom_val(cerl:module_name(Tree)),
   TopFun = cerl:ann_c_fun([{label, top}], [], Tree),
-  State = state__new(Callgraph, TopFun, Plt, Module, Records),
+  State = state__new(Callgraph, Codeserver, TopFun, Plt, Module, Records),
   State1 = state__race_analysis(not GetWarnings, State),
   State2 = analyze_loop(State1),
   case GetWarnings of
@@ -175,25 +183,26 @@ analyze_module(Tree, Plt, Callgraph, Records, GetWarnings) ->
 
 analyze_loop(State) ->
   case state__get_work(State) of
-    none -> State;
-    {Fun, NewState1} ->
+    none -> state__set_curr_fun(undefined, State);
+    {Fun, NewState0} ->
+      NewState1 = state__set_curr_fun(get_label(Fun), NewState0),
       {ArgTypes, IsCalled} = state__get_args_and_status(Fun, NewState1),
       case not IsCalled of
 	true ->
 	  ?debug("Not handling (not called) ~w: ~s\n",
-		 [state__lookup_name(get_label(Fun), State),
+		 [NewState1#state.curr_fun,
 		  t_to_string(t_product(ArgTypes))]),
 	  analyze_loop(NewState1);
 	false ->
 	  case state__fun_env(Fun, NewState1) of
 	    none ->
 	      ?debug("Not handling (no env) ~w: ~s\n",
-		     [state__lookup_name(get_label(Fun), State),
+		     [NewState1#state.curr_fun,
 		      t_to_string(t_product(ArgTypes))]),
 	      analyze_loop(NewState1);
 	    Map ->
 	      ?debug("Handling fun ~p: ~s\n",
-		     [state__lookup_name(get_label(Fun), State),
+		     [NewState1#state.curr_fun,
 		      t_to_string(state__fun_type(Fun, NewState1))]),
 	      Vars = cerl:fun_vars(Fun),
 	      Map1 = enter_type_lists(Vars, ArgTypes, Map),
@@ -212,7 +221,7 @@ analyze_loop(State) ->
 	      {NewState4, _Map2, BodyType} =
 		traverse(Body, Map1, NewState3),
 	      ?debug("Done analyzing: ~w:~s\n",
-		     [state__lookup_name(get_label(Fun), State),
+		     [NewState1#state.curr_fun,
 		      t_to_string(t_fun(ArgTypes, BodyType))]),
               NewState5 =
                 case IsRaceAnalysisEnabled of
@@ -2780,10 +2789,9 @@ filter_match_fail([]) ->
 %%%
 %%% ===========================================================================
 
-state__new(Callgraph, Tree, Plt, Module, Records) ->
-  Opaques = erl_types:module_builtin_opaques(Module) ++
-    erl_types:t_opaque_from_records(Records),
-  TreeMap = build_tree_map(Tree),
+state__new(Callgraph, Codeserver, Tree, Plt, Module, Records) ->
+  Opaques = erl_types:t_opaque_from_records(Records),
+  {TreeMap, FunHomes} = build_tree_map(Tree, Callgraph),
   Funs = dict:fetch_keys(TreeMap),
   FunTab = init_fun_tab(Funs, dict:new(), TreeMap, Callgraph, Plt),
   ExportedFuns =
@@ -2791,7 +2799,8 @@ state__new(Callgraph, Tree, Plt, Module, Records) ->
   Work = init_work(ExportedFuns),
   Env = lists:foldl(fun(Fun, Env) -> dict:store(Fun, map__new(), Env) end,
 		    dict:new(), Funs),
-  #state{callgraph = Callgraph, envs = Env, fun_tab = FunTab, opaques = Opaques,
+  #state{callgraph = Callgraph, codeserver = Codeserver,
+         envs = Env, fun_tab = FunTab, fun_homes = FunHomes, opaques = Opaques,
 	 plt = Plt, races = dialyzer_races:new(), records = Records,
 	 warning_mode = false, warnings = [], work = Work, tree_map = TreeMap,
 	 module = Module}.
@@ -2830,7 +2839,7 @@ state__renew_race_list(RaceList, RaceListSize,
 state__renew_warnings(Warnings, State) ->
   State#state{warnings = Warnings}.
 
--spec state__add_warning(dial_warning(), state()) -> state().
+-spec state__add_warning(raw_warning(), state()) -> state().
 
 state__add_warning(Warn, #state{warnings = Warnings} = State) ->
   State#state{warnings = [Warn|Warnings]}.
@@ -2845,29 +2854,45 @@ state__add_warning(#state{warnings = Warnings, warning_mode = true} = State,
   Ann = cerl:get_ann(Tree),
   case Force of
     true ->
-      Warn = {Tag, {get_file(Ann), abs(get_line(Ann))}, Msg},
+      WarningInfo = {get_file(Ann),
+                     abs(get_line(Ann)),
+                     State#state.curr_fun},
+      Warn = {Tag, WarningInfo, Msg},
       ?debug("MSG ~s\n", [dialyzer:format_warning(Warn)]),
       State#state{warnings = [Warn|Warnings]};
     false ->
       case is_compiler_generated(Ann) of
-	true -> State;
-	false ->
-	  Warn = {Tag, {get_file(Ann), get_line(Ann)}, Msg},
+        true -> State;
+        false ->
+          WarningInfo = {get_file(Ann), get_line(Ann), State#state.curr_fun},
+          Warn = {Tag, WarningInfo, Msg},
           ?debug("MSG ~s\n", [dialyzer:format_warning(Warn)]),
-	  State#state{warnings = [Warn|Warnings]}
+          State#state{warnings = [Warn|Warnings]}
       end
   end.
+
+-spec state__set_curr_fun(curr_fun(), state()) -> state().
+
+state__set_curr_fun(undefined, State) ->
+  State#state{curr_fun = undefined};
+state__set_curr_fun(FunLbl, State) ->
+  State#state{curr_fun = find_function(FunLbl, State)}.
+
+-spec state__find_function(mfa_or_funlbl(), state()) -> mfa_or_funlbl().
+
+state__find_function(FunLbl, State) ->
+  find_function(FunLbl, State).
 
 state__get_race_warnings(#state{races = Races} = State) ->
   {Races1, State1} = dialyzer_races:get_race_warnings(Races, State),
   State1#state{races = Races1}.
 
 state__get_warnings(#state{tree_map = TreeMap, fun_tab = FunTab,
-			   callgraph = Callgraph, plt = Plt} = State,
-		    NoWarnUnused) ->
+			   callgraph = Callgraph, plt = Plt} = State) ->
   FoldFun =
     fun({top, _}, AccState) -> AccState;
        ({FunLbl, Fun}, AccState) ->
+        AccState1 = state__set_curr_fun(FunLbl, AccState),
 	{NotCalled, Ret} =
 	  case dict:fetch(get_label(Fun), FunTab) of
 	    {not_handled, {_Args0, Ret0}} -> {true, Ret0};
@@ -2875,17 +2900,12 @@ state__get_warnings(#state{tree_map = TreeMap, fun_tab = FunTab,
 	  end,
 	case NotCalled of
 	  true ->
-	    {Warn, Msg} =
-	      case dialyzer_callgraph:lookup_name(FunLbl, Callgraph) of
-		error -> {false, {}};
-		{ok, {_M, F, A} = MFA} ->
-		  {not sets:is_element(MFA, NoWarnUnused),
-		   {unused_fun, [F, A]}}
-	      end,
-	    case Warn of
-	      true -> state__add_warning(AccState, ?WARN_NOT_CALLED, Fun, Msg);
-	      false -> AccState
-	    end;
+            case dialyzer_callgraph:lookup_name(FunLbl, Callgraph) of
+              error -> AccState1;
+              {ok, {_M, F, A}} ->
+                Msg = {unused_fun, [F, A]},
+                state__add_warning(AccState1, ?WARN_NOT_CALLED, Fun, Msg)
+            end;
 	  false ->
 	    {Name, Contract} =
 	      case dialyzer_callgraph:lookup_name(FunLbl, Callgraph) of
@@ -2898,7 +2918,7 @@ state__get_warnings(#state{tree_map = TreeMap, fun_tab = FunTab,
 		%% Check if the function has a contract that allows this.
 		Warn =
 		  case Contract of
-		    none -> not parent_allows_this(FunLbl, State);
+		    none -> not parent_allows_this(FunLbl, AccState1);
 		    {value, C} ->
 		      GenRet = dialyzer_contracts:get_contract_return(C),
 		      not t_is_unit(GenRet)
@@ -2908,19 +2928,19 @@ state__get_warnings(#state{tree_map = TreeMap, fun_tab = FunTab,
 		    case classify_returns(Fun) of
 		      no_match ->
 			Msg = {no_return, [no_match|Name]},
-			state__add_warning(AccState, ?WARN_RETURN_NO_RETURN,
+			state__add_warning(AccState1, ?WARN_RETURN_NO_RETURN,
 					   Fun, Msg);
 		      only_explicit ->
 			Msg = {no_return, [only_explicit|Name]},
-			state__add_warning(AccState, ?WARN_RETURN_ONLY_EXIT,
+			state__add_warning(AccState1, ?WARN_RETURN_ONLY_EXIT,
 					   Fun, Msg);
 		      only_normal ->
 			Msg = {no_return, [only_normal|Name]},
-			state__add_warning(AccState, ?WARN_RETURN_NO_RETURN,
+			state__add_warning(AccState1, ?WARN_RETURN_NO_RETURN,
 					   Fun, Msg);
 		      both ->
 			Msg = {no_return, [both|Name]},
-			state__add_warning(AccState, ?WARN_RETURN_NO_RETURN,
+			state__add_warning(AccState1, ?WARN_RETURN_NO_RETURN,
 					   Fun, Msg)
 		    end;
 		  false ->
@@ -2958,8 +2978,10 @@ state__lookup_name(Fun, #state{callgraph = Callgraph}) ->
 state__lookup_record(Tag, Arity, #state{records = Records}) ->
   case erl_types:lookup_record(Tag, Arity, Records) of
     {ok, Fields} ->
-      {ok, t_tuple([t_atom(Tag)|
-		    [FieldType || {_FieldName, FieldType} <- Fields]])};
+      RecType =
+        t_tuple([t_atom(Tag)|
+                 [FieldType || {_FieldName, _Abstr, FieldType} <- Fields]]),
+      {ok, RecType};
     error ->
       error
   end.
@@ -2971,17 +2993,31 @@ state__get_args_and_status(Tree, #state{fun_tab = FunTab}) ->
     {ok, {ArgTypes, _}} -> {ArgTypes, true}
   end.
 
-build_tree_map(Tree) ->
+build_tree_map(Tree, Callgraph) ->
   Fun =
-    fun(T, Dict) ->
+    fun(T, {Dict, Homes, FunLbls} = Acc) ->
 	case cerl:is_c_fun(T) of
 	  true ->
-	    dict:store(get_label(T), T, Dict);
+            FunLbl = get_label(T),
+	    Dict1 = dict:store(FunLbl, T, Dict),
+            case catch dialyzer_callgraph:lookup_name(FunLbl, Callgraph) of
+              {ok, MFA} ->
+                F2 =
+                  fun(Lbl, Dict0) ->
+                      dict:store(Lbl, MFA, Dict0)
+                  end,
+                Homes1 = lists:foldl(F2, Homes, [FunLbl|FunLbls]),
+                {Dict1, Homes1, []};
+              _ ->
+                {Dict1, Homes, [FunLbl|FunLbls]}
+            end;
 	  false ->
-	    Dict
+            Acc
 	end
     end,
-  cerl_trees:fold(Fun, dict:new(), Tree).
+  Dict0 = dict:new(),
+  {Dict, Homes, _} = cerl_trees:fold(Fun, {Dict0, Dict0, []}, Tree),
+  {Dict, Homes}.
 
 init_fun_tab([top|Left], Dict, TreeMap, Callgraph, Plt) ->
   NewDict = dict:store(top, {[], t_none()}, Dict),
@@ -3438,6 +3474,13 @@ parent_allows_this(FunLbl, #state{callgraph = Callgraph, plt = Plt} =State) ->
 	  end
       end
   end.
+
+find_function({_, _, _} = MFA, _State) ->
+  MFA;
+find_function(top, _State) ->
+  top;
+find_function(FunLbl, #state{fun_homes = Homes}) ->
+  dict:fetch(FunLbl, Homes).
 
 classify_returns(Tree) ->
   case find_terminals(cerl:fun_body(Tree)) of

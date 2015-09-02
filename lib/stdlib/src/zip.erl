@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 2006-2013. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -24,7 +25,7 @@
 	 list_dir/1, list_dir/2, table/1, table/2,
 	 t/1, tt/1]).
 
-%% unzipping peicemeal
+%% unzipping piecemeal
 -export([openzip_open/1, openzip_open/2,
 	 openzip_get/1, openzip_get/2,
 	 openzip_t/1, openzip_tt/1,
@@ -214,7 +215,9 @@
 -type zip_comment() :: #zip_comment{}.
 -type zip_file() :: #zip_file{}.
 
--export_type([create_option/0, filename/0]).
+-opaque handle() :: pid().
+
+-export_type([create_option/0, filename/0, handle/0]).
 
 %% Open a zip archive with options
 %%
@@ -500,7 +503,7 @@ do_list_dir(F, Options) ->
 
 -spec(t(Archive) -> ok when
       Archive :: file:name() | binary() | ZipHandle,
-      ZipHandle :: pid()).
+      ZipHandle :: handle()).
 
 t(F) when is_pid(F) -> zip_t(F);
 t(F) when is_record(F, openzip) -> openzip_t(F);
@@ -524,7 +527,7 @@ do_t(F, RawPrint) ->
 
 -spec(tt(Archive) -> ok when
       Archive :: file:name() | binary() | ZipHandle,
-      ZipHandle :: pid()).
+      ZipHandle :: handle()).
 
 tt(F) when is_pid(F) -> zip_tt(F);
 tt(F) when is_record(F, openzip) -> openzip_tt(F);
@@ -1114,15 +1117,19 @@ local_file_header_from_info_method_name(#file_info{mtime = MTime},
 		       file_name_length = length(Name),
 		       extra_field_length = 0}.
 
+server_init(Parent) ->
+    %% we want to know if our parent dies
+    process_flag(trap_exit, true),
+    server_loop(Parent, not_open).
 
 %% small, simple, stupid zip-archive server
-server_loop(OpenZip) ->
+server_loop(Parent, OpenZip) ->
     receive
 	{From, {open, Archive, Options}} ->
 	    case openzip_open(Archive, Options) of
 		{ok, NewOpenZip} ->
 		    From ! {self(), {ok, self()}},
-		    server_loop(NewOpenZip);
+		    server_loop(Parent, NewOpenZip);
 		Error ->
 		    From ! {self(), Error}
 	    end;
@@ -1130,43 +1137,47 @@ server_loop(OpenZip) ->
 	    From ! {self(), openzip_close(OpenZip)};
 	{From, get} ->
 	    From ! {self(), openzip_get(OpenZip)},
-	    server_loop(OpenZip);
+	    server_loop(Parent, OpenZip);
 	{From, {get, FileName}} ->
 	    From ! {self(), openzip_get(FileName, OpenZip)},
-	    server_loop(OpenZip);
+	    server_loop(Parent, OpenZip);
 	{From, list_dir} ->
 	    From ! {self(), openzip_list_dir(OpenZip)},
-	    server_loop(OpenZip);
+	    server_loop(Parent, OpenZip);
 	{From, {list_dir, Opts}} ->
 	    From ! {self(), openzip_list_dir(OpenZip, Opts)},
-	    server_loop(OpenZip);
+	    server_loop(Parent, OpenZip);
 	{From, get_state} ->
 	    From ! {self(), OpenZip},
-	    server_loop(OpenZip);
+	    server_loop(Parent, OpenZip);
+        {'EXIT', Parent, Reason} ->
+            _ = openzip_close(OpenZip),
+            exit({parent_died, Reason});
 	_ ->
 	    {error, bad_msg}
     end.
 
 -spec(zip_open(Archive) -> {ok, ZipHandle} | {error, Reason} when
       Archive :: file:name() | binary(),
-      ZipHandle :: pid(),
+      ZipHandle :: handle(),
       Reason :: term()).
 
 zip_open(Archive) -> zip_open(Archive, []).
 
 -spec(zip_open(Archive, Options) -> {ok, ZipHandle} | {error, Reason} when
       Archive :: file:name() | binary(),
-      ZipHandle :: pid(),
+      ZipHandle :: handle(),
       Options :: [Option],
       Option :: cooked | memory | {cwd, CWD :: file:filename()},
       Reason :: term()).
 
 zip_open(Archive, Options) ->
-    Pid = spawn(fun() -> server_loop(not_open) end),
-    request(self(), Pid, {open, Archive, Options}).
+    Self = self(),
+    Pid = spawn_link(fun() -> server_init(Self) end),
+    request(Self, Pid, {open, Archive, Options}).
 
 -spec(zip_get(ZipHandle) -> {ok, [Result]} | {error, Reason} when
-      ZipHandle :: pid(),
+      ZipHandle :: handle(),
       Result :: file:name() | {file:name(), binary()},
       Reason :: term()).
 
@@ -1174,14 +1185,14 @@ zip_get(Pid) when is_pid(Pid) ->
     request(self(), Pid, get).
 
 -spec(zip_close(ZipHandle) -> ok | {error, einval} when
-      ZipHandle :: pid()).
+      ZipHandle :: handle()).
 
 zip_close(Pid) when is_pid(Pid) ->
     request(self(), Pid, close).
 
 -spec(zip_get(FileName, ZipHandle) -> {ok, Result} | {error, Reason} when
       FileName :: file:name(),
-      ZipHandle :: pid(),
+      ZipHandle :: handle(),
       Result :: file:name() | {file:name(), binary()},
       Reason :: term()).
 
@@ -1190,7 +1201,7 @@ zip_get(FileName, Pid) when is_pid(Pid) ->
 
 -spec(zip_list_dir(ZipHandle) -> {ok, Result} | {error, Reason} when
       Result :: [zip_comment() | zip_file()],
-      ZipHandle :: pid(),
+      ZipHandle :: handle(),
       Reason :: term()).
 
 zip_list_dir(Pid) when is_pid(Pid) ->
@@ -1539,57 +1550,33 @@ unix_extra_field_and_var_from_bin(_) ->
 
 %% A pwrite-like function for iolists (used by memory-option)
 
-split_iolist(B, Pos) when is_binary(B) ->
-    split_binary(B, Pos);
-split_iolist(L, Pos) when is_list(L) ->
-    splitter([], L, Pos).
+pwrite_binary(B, Pos, Bin) when byte_size(B) =:= Pos ->
+    append_bins(Bin, B);
+pwrite_binary(B, Pos, Bin) ->
+    erlang:iolist_to_binary(pwrite_iolist(B, Pos, Bin)).
 
-splitter(Left, Right, 0) ->
-    {Left, Right};
-splitter(Left, [A | Right], RelPos) when is_list(A) or is_binary(A) ->
-    Sz = erlang:iolist_size(A),
-    case Sz > RelPos of
-	true ->
-	    {Leftx, Rightx} = split_iolist(A, RelPos),
-	    {[Left | Leftx], [Rightx, Right]};
-	_ ->
-	    splitter([Left | A], Right, RelPos - Sz)
-    end;
-splitter(Left, [A | Right], RelPos) when is_integer(A) ->
-    splitter([Left, A], Right, RelPos - 1);
-splitter(Left, Right, RelPos) when is_binary(Right) ->
-    splitter(Left, [Right], RelPos).
+append_bins([Bin|Bins], B) when is_binary(Bin) ->
+    append_bins(Bins, <<B/binary, Bin/binary>>);
+append_bins([List|Bins], B) when is_list(List) ->
+    append_bins(Bins, append_bins(List, B));
+append_bins(Bin, B) when is_binary(Bin) ->
+    <<B/binary, Bin/binary>>;
+append_bins([_|_]=List, B) ->
+    <<B/binary, (iolist_to_binary(List))/binary>>;
+append_bins([], B) ->
+    B.
 
-skip_iolist(B, Pos) when is_binary(B) ->
+pwrite_iolist(B, Pos, Bin) ->
+    {Left, Right} = split_binary(B, Pos),
+    Sz = erlang:iolist_size(Bin),
+    R = skip_bin(Right, Sz),
+    [Left, Bin | R].
+
+skip_bin(B, Pos) when is_binary(B) ->
     case B of
 	<<_:Pos/binary, Bin/binary>> -> Bin;
 	_ -> <<>>
-    end;
-skip_iolist(L, Pos) when is_list(L) ->
-    skipper(L, Pos).
-
-skipper(Right, 0) ->
-    Right;
-skipper([A | Right], RelPos) when is_list(A) or is_binary(A) ->
-    Sz = erlang:iolist_size(A),
-    case Sz > RelPos of
-	true ->
-	    Rightx = skip_iolist(A, RelPos),
-	    [Rightx, Right];
-	_ ->
-	    skip_iolist(Right, RelPos - Sz)
-    end;
-skipper([A | Right], RelPos) when is_integer(A) ->
-    skip_iolist(Right, RelPos - 1).
-
-pwrite_iolist(Iolist, Pos, Bin) ->
-    {Left, Right} = split_iolist(Iolist, Pos),
-    Sz = erlang:iolist_size(Bin),
-    R = skip_iolist(Right, Sz),
-    [Left, Bin | R].
-
-pwrite_binary(B, Pos, Bin) ->
-    erlang:iolist_to_binary(pwrite_iolist(B, Pos, Bin)).
+    end.
 
 
 %% ZIP header manipulations

@@ -3,25 +3,23 @@
 %%
 %% Copyright Ericsson AB 2010-2015. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
 
 -module(diameter_peer).
 -behaviour(gen_server).
-
--compile({no_auto_import, [now/0]}).
--import(diameter_lib, [now/0]).
 
 %% Interface towards transport modules ...
 -export([recv/2,
@@ -59,7 +57,7 @@
 -define(SERVER, ?MODULE).
 
 %% Server state.
--record(state, {id = now()}).
+-record(state, {id = diameter_lib:now()}).
 
 %% Default transport_module/config.
 -define(DEFAULT_TMOD, diameter_tcp).
@@ -121,7 +119,7 @@ pair([{transport_module, M} | Rest], Mods, Acc) ->
 pair([{transport_config = T, C} | Rest], Mods, Acc) ->
     pair([{T, C, ?DEFAULT_TTMO} | Rest], Mods, Acc);
 pair([{transport_config, C, Tmo} | Rest], Mods, Acc) ->
-    pair(Rest, [], acc({Mods, C, Tmo}, Acc));
+    pair(Rest, [], acc({lists:reverse(Mods), C, Tmo}, Acc));
 
 pair([_ | Rest], Mods, Acc) ->
     pair(Rest, Mods, Acc);
@@ -130,13 +128,16 @@ pair([_ | Rest], Mods, Acc) ->
 pair([], [], []) ->
     [{[?DEFAULT_TMOD], ?DEFAULT_TCFG, ?DEFAULT_TTMO}];
 
-%% One transport_module, one transport_config.
-pair([], [M], [{[], Cfg, Tmo}]) ->
-    [{[M], Cfg, Tmo}];
+%% One transport_module, one transport_config: ignore option order.
+%% That is, interpret [{transport_config, _}, {transport_module, _}]
+%% as if the order was reversed, not as config with default module and
+%% module with default config.
+pair([], [_] = Mods, [{[], Cfg, Tmo}]) ->
+    [{Mods, Cfg, Tmo}];
 
 %% Trailing transport_module: default transport_config.
 pair([], [_|_] = Mods, Acc) ->
-    lists:reverse(acc({Mods, ?DEFAULT_TCFG, ?DEFAULT_TTMO}, Acc));
+    pair([{transport_config, ?DEFAULT_TCFG}], Mods, Acc);
 
 pair([], [], Acc) ->
     lists:reverse(def(Acc)).

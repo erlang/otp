@@ -4,20 +4,21 @@
 <chapter>
   <header>
     <copyright>
-      <year>2003</year><year>2014</year>
+      <year>2003</year><year>2015</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
-      The contents of this file are subject to the Erlang Public License,
-      Version 1.1, (the "License"); you may not use this file except in
-      compliance with the License. You should have received a copy of the
-      Erlang Public License along with this software. If not, it can be
-      retrieved online at http://www.erlang.org/.
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
 
-      Software distributed under the License is distributed on an "AS IS"
-      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-      the License for the specific language governing rights and limitations
-      under the License.
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
 
     </legalnotice>
 
@@ -33,7 +34,8 @@
     <title>Module Syntax</title>
     <p>Erlang code is divided into <em>modules</em>. A module consists
       of a sequence of attributes and function declarations, each
-      terminated by period (.). Example:</p>
+      terminated by period (.).</p>
+      <p><em>Example:</em></p>
     <pre>
 -module(m).          % module attribute
 -export([fact/1]).   % module attribute
@@ -42,50 +44,52 @@ fact(N) when N>0 ->  % beginning of function declaration
     N * fact(N-1);   %  |
 fact(0) ->           %  |
     1.               % end of function declaration</pre>
-    <p>See the <seealso marker="functions">Functions</seealso> chapter
-      for a description of function declarations.</p>
+    <p>For a description of function declarations, see
+    <seealso marker="functions">Function Declaration Syntax</seealso>.</p>
   </section>
 
   <section>
     <title>Module Attributes</title>
     <p>A <em>module attribute</em> defines a certain property of a
-      module. A module attribute consists of a tag and a value.</p>
+      module.</p>
+    <p>A module attribute consists of a tag and a value:</p>
     <pre>
 -Tag(Value).</pre>
     <p><c>Tag</c> must be an atom, while <c>Value</c> must be a literal
       term. As a convenience in user-defined attributes, if the literal term
       <c>Value</c> has the syntax <c>Name/Arity</c>
       (where <c>Name</c> is an atom and <c>Arity</c> a positive integer),
-	  the term <c>Name/Arity</c> will be translated to <c>{Name,Arity}</c>.</p>
+	  the term <c>Name/Arity</c> is translated to <c>{Name,Arity}</c>.</p>
 
     <p>Any module attribute can be specified. The attributes are stored
       in the compiled code and can be retrieved by calling
-      <c>Module:module_info(attributes)</c> or by using
-      <seealso marker="stdlib:beam_lib#chunks/2">beam_lib(3)</seealso>.</p>
+      <c>Module:module_info(attributes)</c>, or by using the module
+      <seealso marker="stdlib:beam_lib#chunks/2">beam_lib(3)</seealso>
+       in STDLIB.</p>
 
-    <p>There are several module attributes with predefined meanings,
-      some of which have arity two, but user-defined module
+    <p>Several module attributes have predefined meanings.
+      Some of them have arity two, but user-defined module
       attributes must have arity one.</p>
 
     <section>
       <title>Pre-Defined Module Attributes</title>
-      <p>Pre-defined module attributes should be placed before any
+      <p>Pre-defined module attributes is to be placed before any
         function declaration.</p>
       <taglist>
         <tag><c>-module(Module).</c></tag>
         <item>
           <p>Module declaration, defining the name of the module.
-            The name <c>Module</c>, an atom, should be the same as
-            the file name minus the extension <c>erl</c>. Otherwise
-            <seealso marker="code_loading#loading">code loading</seealso> will
+            The name <c>Module</c>, an atom, is to be same as
+            the file name minus the extension <c>.erl</c>. Otherwise
+            <seealso marker="code_loading#loading">code loading</seealso> does
             not work as intended.</p>
-          <p>This attribute should be specified first and is the only
-            attribute which is mandatory.</p>
+          <p>This attribute is to be specified first and is the only
+            mandatory attribute.</p>
         </item>
         <tag><c>-export(Functions).</c></tag>
         <item>
-          <p>Exported functions. Specifies which of the functions
-            defined within the module that are visible outside
+          <p>Exported functions. Specifies which of the functions,
+            defined within the module, that are visible from outside
             the module.</p>
           <p><c>Functions</c> is a list
             <c>[Name1/Arity1, ..., NameN/ArityN]</c>, where each
@@ -93,32 +97,37 @@ fact(0) ->           %  |
         </item>
         <tag><c>-import(Module,Functions).</c></tag>
         <item>
-          <p>Imported functions. Imported functions can be called
-            the same way as local functions, that is without any module
+          <p>Imported functions. Can be called
+            the same way as local functions, that is, without any module
             prefix.</p>
           <p><c>Module</c>, an atom, specifies which module to import
             functions from. <c>Functions</c> is a list similar as for
-            <c>export</c> above.</p>
+            <c>export</c>.</p>
         </item>
         <tag><c>-compile(Options).</c></tag>
         <item>
-          <p>Compiler options. <c>Options</c>, which is a single option
-            or a list of options, will be added to the option list when
-            compiling the module. See <c>compile(3)</c>.</p>
+          <p>Compiler options. <c>Options</c> is a single option
+            or a list of options.
+            This attribute is added to the option list when
+            compiling the module. See the <seealso marker="compiler:compile">
+            compile(3)</seealso> manual page in Compiler.</p>
         </item>
         <tag><c>-vsn(Vsn).</c></tag>
         <item>
           <p>Module version. <c>Vsn</c> is any literal term and can be
-            retrieved using <c>beam_lib:version/1</c>, see
-            <seealso marker="stdlib:beam_lib#version/1">beam_lib(3)</seealso>.</p>
+            retrieved using <c>beam_lib:version/1</c>, see the
+            <seealso marker="stdlib:beam_lib#version/1">beam_lib(3)</seealso>
+            manual page in STDLIB.</p>
           <p>If this attribute is not specified, the version defaults
             to the MD5 checksum of the module.</p>
         </item>
         <tag><c>-on_load(Function).</c></tag>
         <item>
-          <p>Names a function that should be run automatically when a
-            module a loaded. See <seealso marker="code_loading#on_load">
-            code loading</seealso> for more information.</p>
+          <p>This attribute names a function that is to be run
+            automatically when a
+            module is loaded. For more information, see
+	    <seealso marker="code_loading#on_load">
+            Running a Function When a Module is Loaded</seealso>.</p>
         </item>
       </taglist>
     </section>
@@ -130,9 +139,14 @@ fact(0) ->           %  |
       <pre>
 -behaviour(Behaviour).</pre>
       <p>The atom <c>Behaviour</c> gives the name of the behaviour,
-        which can be a user defined behaviour or one of the OTP
-        standard behaviours <c>gen_server</c>, <c>gen_fsm</c>,
-        <c>gen_event</c> or <c>supervisor</c>.</p>
+        which can be a user-defined behaviour or one of the following OTP
+        standard behaviours:</p>
+	<list type="bulleted">
+	  <item><c>gen_server</c></item>
+	  <item><c>gen_fsm</c></item>
+	  <item><c>gen_event</c></item>
+	  <item><c>supervisor</c></item>
+	</list>
       <p>The spelling <c>behavior</c> is also accepted.</p>
       <p>The callback functions of the module can be specified either
         directly by the exported function <c>behaviour_info/1</c>:</p>
@@ -142,7 +156,7 @@ behaviour_info(callbacks) -> Callbacks.</pre>
         function:</p>
       <pre>
 -callback Name(Arguments) -> Result.</pre>
-      <p>where <c>Arguments</c> is a list of zero or more arguments.
+      <p>Here, <c>Arguments</c> is a list of zero or more arguments.
        The <c>-callback</c> attribute is to be preferred since the
        extra type information can be used by tools to produce
        documentation or find discrepancies.</p>
@@ -153,7 +167,7 @@ behaviour_info(callbacks) -> Callbacks.</pre>
 
     <section>
       <title>Record Definitions</title>
-      <p>The same syntax as for module attributes is used by
+      <p>The same syntax as for module attributes is used
         for record definitions:</p>
       <pre>
 -record(Record,Fields).</pre>
@@ -163,7 +177,7 @@ behaviour_info(callbacks) -> Callbacks.</pre>
     </section>
 
     <section>
-      <title>The Preprocessor</title>
+      <title>Preprocessor</title>
       <p>The same syntax as for module attributes is used by
         the preprocessor, which supports file inclusion, macros,
 	and conditional compilation:</p>
@@ -171,7 +185,7 @@ behaviour_info(callbacks) -> Callbacks.</pre>
 -include("SomeFile.hrl").
 -define(Macro,Replacement).</pre>
 
-      <p>Read more in <seealso marker="macros">The Preprocessor</seealso>.</p>
+      <p>Read more in <seealso marker="macros">Preprocessor</seealso>.</p>
     </section>
 
     <section>
@@ -180,109 +194,124 @@ behaviour_info(callbacks) -> Callbacks.</pre>
         changing the pre-defined macros <c>?FILE</c> and <c>?LINE</c>:</p>
       <pre>
 -file(File, Line).</pre>
-      <p>This attribute is used by tools such as Yecc to inform the
-        compiler that the source program was generated by another tool
-        and indicates the correspondence of source files to lines of
-        the original user-written file from which the source program
-        was produced.</p>
+      <p>This attribute is used by tools, such as Yecc, to inform the
+        compiler that the source program is generated by another tool.
+        It also indicates the correspondence of source files to lines of
+        the original user-written file, from which the source program
+        is produced.</p>
     </section>
 
     <section>
         <title>Types and function specifications</title>
 	<p>A similar syntax as for module attributes is used for 
-	specifying types and function specifications.
+	specifying types and function specifications:
 	</p>
 	<pre>
 -type my_type() :: atom() | integer().
--spec my_function(integer()) -> integer().
-	</pre>
+-spec my_function(integer()) -> integer().</pre>
         <p>Read more in <seealso marker="typespec">Types and Function specifications</seealso>.
 	</p>
 	<p>
 	  The description is based on
 	    <url href="http://www.erlang.org/eeps/eep-0008.html">EEP8 -
-	    Types and function specifications</url>
-	    which will not be further updated.
+	    Types and function specifications</url>,
+	    which is not to be further updated.
 	</p>
     </section>
   </section>
 
   <section>
     <title>Comments</title>
-    <p>Comments may be placed anywhere in a module except within strings
-      and quoted atoms. The comment begins with the character "%",
+    <p>Comments can be placed anywhere in a module except within strings
+      and quoted atoms. A comment begins with the character "%",
       continues up to, but does not include the next end-of-line, and
-      has no effect. Note that the terminating end-of-line has
+      has no effect. Notice that the terminating end-of-line has
       the effect of white space.</p>
   </section>
 
   <section>
-    <title>The module_info/0 and module_info/1 functions</title>
+    <title>module_info/0 and module_info/1 functions</title>
 
     <p>The compiler automatically inserts the two special, exported
-      functions into each module: <c>Module:module_info/0</c> and
-      <c>Module:module_info/1</c>. These functions can be called to
-      retrieve information about the module.</p>
+      functions into each module:</p>
+      <list type="bulleted">
+	<item><c>Module:module_info/0</c></item>
+	<item><c>Module:module_info/1</c></item>
+      </list>
+      <p>These functions can be called to retrieve information
+        about the module.</p>
 
     <section>
       <title>module_info/0</title>
-      <p>The <c>module_info/0</c> function in each module returns
+      <p>The <c>module_info/0</c> function in each module, returns
       a list of <c>{Key,Value}</c> tuples with information about
       the module. Currently, the list contain tuples with the following
-      <c>Key</c>s: <c>attributes</c>, <c>compile</c>, 
-      <c>exports</c>, and <c>imports</c>. The order and number of tuples
+      <c>Key</c>s: <c>module</c>, <c>attributes</c>, <c>compile</c>,
+      <c>exports</c>, <c>md5</c> and <c>native</c>.
+      The order and number of tuples
       may change without prior notice.</p>
-
-      <warning><p>The <c>{imports,Value}</c> tuple may be removed in a future
-      release because <c>Value</c> is always an empty list.
-      Do not write code that depends on it being present.</p></warning>
     </section>
 
     <section>
       <title>module_info/1</title>
-      <p>The call <c>module_info(Key)</c>, where key is an atom,
+      <p>The call <c>module_info(Key)</c>, where <c>Key</c> is an atom,
        returns a single piece of information about the module.</p>
 
       <p>The following values are allowed for <c>Key</c>:</p>
 
       <taglist>
+        <tag><c>module</c></tag>
+	  <item>
+	  <p>Returns an atom representing the module name.</p>
+	  </item>
+
         <tag><c>attributes</c></tag>
 	  <item>
-	  <p>Return a list of <c>{AttributeName,ValueList}</c> tuples,
+	  <p>Returns a list of <c>{AttributeName,ValueList}</c> tuples,
 	  where <c>AttributeName</c> is the name of an attribute,
-	  and <c>ValueList</c> is a list of values. Note: a given
-	  attribute may occur more than once in the list with different
+	  and <c>ValueList</c> is a list of values. Notice that a given
+	  attribute can occur more than once in the list with different
 	  values if the attribute occurs more than once in the module.</p>
 
-	  <p>The list of attributes will be empty if
-	  the module has been stripped with
-	  <seealso marker="stdlib:beam_lib#strip/1">beam_lib(3)</seealso>.</p>
+	  <p>The list of attributes becomes empty if
+	  the module is stripped with the
+	  <seealso marker="stdlib:beam_lib#strip/1">beam_lib(3)</seealso>
+	  module (in STDLIB).</p>
 	  </item>
 
         <tag><c>compile</c></tag>
 	  <item>
-	  <p>Return a list of tuples containing information about
-	  how the module was compiled. This list will be empty if
-	  the module has been stripped with
-	  <seealso marker="stdlib:beam_lib#strip/1">beam_lib(3)</seealso>.</p>
+	  <p>Returns a list of tuples with information about
+	  how the module was compiled. This list is empty if
+	  the module has been stripped with the
+	  <seealso marker="stdlib:beam_lib#strip/1">beam_lib(3)</seealso>
+	  module (in STDLIB).</p>
 	  </item>
 
-        <tag><c>imports</c></tag>
+        <tag><c>md5</c></tag>
 	  <item>
-	  <p>Always return an empty list. The <c>imports</c> key may not
-	  be supported in future release.</p>
+	  <p>Returns a binary representing the MD5 checksum of the module.
+          If the module has native code loaded, this will be the MD5 of the
+          native code, not the BEAM bytecode.</p>
 	  </item>
 
         <tag><c>exports</c></tag>
 	  <item>
-	  <p>Return a list of <c>{Name,Arity}</c> tuples with
+	  <p>Returns a list of <c>{Name,Arity}</c> tuples with
 	  all exported functions in the module.</p>
 	  </item>
 
         <tag><c>functions</c></tag>
 	  <item>
-	  <p>Return a list of <c>{Name,Arity}</c> tuples with
+	  <p>Returns a list of <c>{Name,Arity}</c> tuples with
 	  all functions in the module.</p>
+	  </item>
+
+        <tag><c>native</c></tag>
+	  <item>
+	  <p>Return <c>true</c> if the module has native compiled code.
+          Return <c>false</c> otherwise. In a system compiled without HiPE
+          support, the result is always <c>false</c></p>
 	  </item>
       </taglist>
     </section>

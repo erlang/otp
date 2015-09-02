@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 2010-2014. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -22,14 +23,16 @@
 -include_lib("sasl/src/systools.hrl").
 -export([all/0,groups/0,init_per_group/2,end_per_group/2, 
 	 syntax_check/1, translate/1, translate_app/1,
-	 translate_emulator_restarts/1]).
+	 translate_emulator_restarts/1,
+	 translate_add_delete_module/1]).
 
 %%-----------------------------------------------------------------
 %% erl -compile systools_rc_SUITE @i ../src/ @i ../../test_server/include/
 %% c(systools_rc_SUITE, [{i, "../src"}, {i, "../../test_server/include"}]).
 %%-----------------------------------------------------------------
 all() -> 
-    [syntax_check, translate, translate_app, translate_emulator_restarts].
+    [syntax_check, translate, translate_app, translate_emulator_restarts,
+     translate_add_delete_module].
 
 groups() -> 
     [].
@@ -705,5 +708,61 @@ translate_emulator_restarts(_Config) ->
     {ok, X6} = systools_rc:translate_scripts([Up6], Apps, []),
     [point_of_no_return,
      restart_emulator] = X6,
+
+    ok.
+
+translate_add_delete_module(_Config) ->
+    PreApps =
+	[#application{name = test,
+		      description = "TEST",
+		      vsn = "0.1",
+		      modules = [foo,bar,baz,old_mod],
+		      regs = [],
+		      mod = {sasl, []}}],
+    Apps =
+	[#application{name = test,
+		      description = "TEST",
+		      vsn = "1.0",
+		      modules = [foo,bar,baz,new_mod],
+		      regs = [],
+		      mod = {sasl, []}}],
+    S1 = [
+	  {delete_module, old_mod},
+	  {add_module, new_mod},
+	  {load_module, foo}
+	 ],
+    {ok, X1} = systools_rc:translate_scripts([S1], Apps, PreApps),
+    [{load_object_code,{test,"1.0",[new_mod,foo]}},
+     point_of_no_return,
+     {remove,{old_mod,brutal_purge,brutal_purge}},
+     {purge,[old_mod]},
+     {load,{new_mod,brutal_purge,brutal_purge}},
+     {load,{foo,brutal_purge,brutal_purge}}] = X1,
+
+    S2 = [
+	  {delete_module, old_mod},
+	  {add_module, new_mod, [foo]},
+	  {load_module, foo}
+	 ],
+    {ok, X2} = systools_rc:translate_scripts([S2], Apps, PreApps),
+    [{load_object_code,{test,"1.0",[new_mod,foo]}},
+     point_of_no_return,
+     {remove,{old_mod,brutal_purge,brutal_purge}},
+     {purge,[old_mod]},
+     {load,{foo,brutal_purge,brutal_purge}},
+     {load,{new_mod,brutal_purge,brutal_purge}}] = X2,
+
+    S3 = [
+	  {delete_module, old_mod, [new_mod]},
+	  {add_module, new_mod, [foo]},
+	  {load_module, foo}
+	 ],
+    {ok, X3} = systools_rc:translate_scripts([S3], Apps, PreApps),
+    [{load_object_code,{test,"1.0",[new_mod,foo]}},
+     point_of_no_return,
+     {load,{foo,brutal_purge,brutal_purge}},
+     {load,{new_mod,brutal_purge,brutal_purge}},
+     {remove,{old_mod,brutal_purge,brutal_purge}},
+     {purge,[old_mod]}] = X3,
 
     ok.

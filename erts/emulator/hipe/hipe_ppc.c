@@ -3,16 +3,17 @@
  *
  * Copyright Ericsson AB 2004-2011. All Rights Reserved.
  *
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  * %CopyrightEnd%
  */
@@ -285,7 +286,7 @@ int hipe_patch_insn(void *address, Uint64 value, Eterm type)
     }
 }
 
-void *hipe_make_native_stub(void *beamAddress, unsigned int beamArity)
+void *hipe_make_native_stub(void *callee_exp, unsigned int beamArity)
 {
     unsigned int *code;
 
@@ -293,17 +294,19 @@ void *hipe_make_native_stub(void *beamAddress, unsigned int beamArity)
 	abort();
 
     code = alloc_stub(7);
+    if (!code)
+	return NULL;
 
-    /* addis r12,0,beamAddress@highest */
-    code[0] = 0x3d800000 | (((unsigned long)beamAddress >> 48) & 0xffff);
-    /* ori r12,r12,beamAddress@higher */
-    code[1] = 0x618c0000 | (((unsigned long)beamAddress >> 32) & 0xffff);
+    /* addis r12,0,callee_exp@highest */
+    code[0] = 0x3d800000 | (((unsigned long)callee_exp >> 48) & 0xffff);
+    /* ori r12,r12,callee_exp@higher */
+    code[1] = 0x618c0000 | (((unsigned long)callee_exp >> 32) & 0xffff);
     /* sldi r12,r12,32 (rldicr r12,r12,32,31) */
     code[2] = 0x798c07c6;
-    /* oris r12,r12,beamAddress@h */
-    code[3] = 0x658c0000 | (((unsigned long)beamAddress >> 16) & 0xffff);
-    /* ori r12,r12,beamAddress@l */
-    code[4] = 0x618c0000 | ((unsigned long)beamAddress & 0xffff);
+    /* oris r12,r12,callee_exp@h */
+    code[3] = 0x658c0000 | (((unsigned long)callee_exp >> 16) & 0xffff);
+    /* ori r12,r12,callee_exp@l */
+    code[4] = 0x618c0000 | ((unsigned long)callee_exp & 0xffff);
     /* addi r0,0,beamArity */
     code[5] = 0x38000000 | (beamArity & 0x7FFF);
     /* ba nbif_callemu */
@@ -355,18 +358,16 @@ int hipe_patch_insn(void *address, Uint32 value, Eterm type)
     return 0;
 }
 
-/* called from hipe_bif0.c:hipe_bifs_make_native_stub_2()
-   and hipe_bif0.c:hipe_make_stub() */
-void *hipe_make_native_stub(void *beamAddress, unsigned int beamArity)
+void *hipe_make_native_stub(void *callee_exp, unsigned int beamArity)
 {
     unsigned int *code;
 
     /*
      * Native code calls BEAM via a stub looking as follows:
      *
-     * addi r12,0,beamAddress@l
+     * addi r12,0,callee_exp@l
      * addi r0,0,beamArity
-     * addis r12,r12,beamAddress@ha
+     * addis r12,r12,callee_exp@ha
      * ba nbif_callemu
      *
      * I'm using r0 and r12 since the standard SVR4 ABI allows
@@ -383,13 +384,15 @@ void *hipe_make_native_stub(void *beamAddress, unsigned int beamArity)
 	abort();
 
     code = alloc_stub(4);
+    if (!code)
+	return NULL;
 
-    /* addi r12,0,beamAddress@l */
-    code[0] = 0x39800000 | ((unsigned long)beamAddress & 0xFFFF);
+    /* addi r12,0,callee_exp@l */
+    code[0] = 0x39800000 | ((unsigned long)callee_exp & 0xFFFF);
     /* addi r0,0,beamArity */
     code[1] = 0x38000000 | (beamArity & 0x7FFF);
-    /* addis r12,r12,beamAddress@ha */
-    code[2] = 0x3D8C0000 | at_ha((unsigned long)beamAddress);
+    /* addis r12,r12,callee_exp@ha */
+    code[2] = 0x3D8C0000 | at_ha((unsigned long)callee_exp);
     /* ba nbif_callemu */
     code[3] = 0x48000002 | (unsigned long)&nbif_callemu;
 

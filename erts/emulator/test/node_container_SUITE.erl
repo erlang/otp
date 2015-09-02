@@ -3,16 +3,17 @@
 %% 
 %% Copyright Ericsson AB 2002-2012. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %%
@@ -73,6 +74,8 @@ init_per_suite(Config) ->
     Config.
 
 end_per_suite(_Config) ->
+    erts_debug:set_internal_state(available_internal_state, true),
+    erts_debug:set_internal_state(node_tab_delayed_delete, -1), %% restore original value
     available_internal_state(false).
 
 init_per_group(_GroupName, Config) ->
@@ -419,6 +422,8 @@ node_table_gc(doc) ->
     ["Tests that node tables are garbage collected."];
 node_table_gc(suite) -> [];
 node_table_gc(Config) when is_list(Config) ->
+    erts_debug:set_internal_state(available_internal_state, true),
+    erts_debug:set_internal_state(node_tab_delayed_delete, 0),
     ?line PreKnown = nodes(known),
     ?line ?t:format("PreKnown = ~p~n", [PreKnown]),
     ?line make_node_garbage(0, 200000, 1000, []),
@@ -428,6 +433,7 @@ node_table_gc(Config) when is_list(Config) ->
     ?line ?t:format("PostAreas = ~p~n", [PostAreas]),
     ?line true = length(PostKnown) =< length(PreKnown),
     ?line nc_refc_check(node()),
+    erts_debug:set_internal_state(node_tab_delayed_delete, -1), %% restore original value
     ?line ok.
 
 make_node_garbage(N, L, I, Ps) when N < L ->
@@ -579,6 +585,8 @@ node_controller_refc(doc) ->
      "as they should for entities controlling a connections."];
 node_controller_refc(suite) -> [];
 node_controller_refc(Config) when is_list(Config) ->
+    erts_debug:set_internal_state(available_internal_state, true),
+    erts_debug:set_internal_state(node_tab_delayed_delete, 0),
     ?line NodeFirstName = get_nodefirstname(),
     ?line ?line {ok, Node} = start_node(NodeFirstName),
     ?line true = lists:member(Node, nodes()),
@@ -606,6 +614,7 @@ node_controller_refc(Config) when is_list(Config) ->
     ?line false = get_dist_references(Node),
     ?line false = lists:member(Node, nodes(known)),
     ?line nc_refc_check(node()),
+    erts_debug:set_internal_state(node_tab_delayed_delete, -1), %% restore original value
     ?line ok.
 
 %%
@@ -989,23 +998,32 @@ check_nd_refc({ThisNodeName, ThisCreation}, NodeRefs, DistRefs, Fail) ->
 check_refc(ThisNodeName,ThisCreation,Table,EntryList) when is_list(EntryList) ->
     lists:foreach(
       fun ({Entry, Refc, ReferrerList}) ->
-	      FoundRefs =
+	      {DelayedDeleteTimer,
+	       FoundRefs} =
 		  lists:foldl(
-		    fun ({_Referrer, ReferencesList}, A1) ->
-			    A1 + lists:foldl(fun ({_T,Rs},A2) ->
-						     A2+Rs
-					     end,
-					     0,
-					     ReferencesList)
+		    fun ({Referrer, ReferencesList}, {DDT, A1}) ->
+			    {case Referrer of
+				 {system,delayed_delete_timer} ->
+				     true;
+				 _ ->
+				     DDT
+			     end,
+			     A1 + lists:foldl(fun ({_T,Rs},A2) ->
+						      A2+Rs
+					      end,
+					      0,
+					      ReferencesList)}
 		    end,
-		    0,
+		    {false, 0},
 		    ReferrerList),
 	      
-	      %% Reference count equals found references ?
-	      case Refc =:= FoundRefs of
-		  true ->
+	      %% Reference count equals found references?
+	      case {Refc, FoundRefs, DelayedDeleteTimer} of
+		  {X, X, _} ->
 		      ok;
-		  false ->
+		  {0, 1, true} ->
+		      ok;
+		  _ ->
 		      exit({invalid_reference_count, Table, Entry})
 	      end,
 
@@ -1013,7 +1031,8 @@ check_refc(ThisNodeName,ThisCreation,Table,EntryList) when is_list(EntryList) ->
 	      case {Entry, Refc} of
 		  {ThisNodeName, 0} -> ok;
 		  {{ThisNodeName, ThisCreation}, 0} -> ok;
-		  {_, 0} -> exit({not_referred_entry_in_table, Table, Entry});
+		  {_, 0} when DelayedDeleteTimer == false ->
+		      exit({not_referred_entry_in_table, Table, Entry});
 		  {_, _} -> ok 
 	      end
 
@@ -1117,26 +1136,18 @@ wait_until(Pred) ->
 	false -> receive after 100 -> wait_until(Pred) end
     end.
 
+get_nodefirstname_string() ->
+    atom_to_list(?MODULE)
+	++ "-"
+	++ integer_to_list(erlang:system_time(seconds))
+	++ "-"
+	++ integer_to_list(erlang:unique_integer([positive])).
 
 get_nodefirstname() ->
-    {A, B, C} = now(),
-    list_to_atom(atom_to_list(?MODULE)
-		 ++ "-"
-		 ++ integer_to_list(A)
-		 ++ "-"
-		 ++ integer_to_list(B)
-		 ++ "-"
-		 ++ integer_to_list(C)).
+    list_to_atom(get_nodefirstname_string()).
 
 get_nodename() ->
-    {A, B, C} = now(),
-    list_to_atom(atom_to_list(?MODULE)
-		 ++ "-"
-		 ++ integer_to_list(A)
-		 ++ "-"
-		 ++ integer_to_list(B)
-		 ++ "-"
-		 ++ integer_to_list(C)
+    list_to_atom(get_nodefirstname_string()
 		 ++ "@"
 		 ++ hostname()).
     

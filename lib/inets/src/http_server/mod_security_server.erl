@@ -3,16 +3,17 @@
 %% 
 %% Copyright Ericsson AB 2001-2010. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %%
@@ -45,7 +46,6 @@
 
 -include("httpd.hrl").
 -include("httpd_internal.hrl").
--include("inets_internal.hrl").
 
 -behaviour(gen_server).
 
@@ -57,129 +57,105 @@
 	 list_auth_users/2, list_auth_users/3]).
 
 %% Internal exports (for mod_security only)
--export([start/2, stop/1, stop/2,
-	 new_table/3, delete_tables/2, 
-	 store_failed_auth/5, store_successful_auth/4, 
-	 check_blocked_user/5]).
+-export([start/3, stop/2, stop/3,
+	 new_table/4, delete_tables/3, 
+	 store_failed_auth/6, store_successful_auth/5, 
+	 check_blocked_user/6]).
 
 %% gen_server exports
--export([start_link/2, init/1, 
+-export([start_link/3, init/1, 
 	 handle_info/2, handle_call/3, handle_cast/2, 
 	 terminate/2,
 	 code_change/3]).
 
+%%====================================================================
+%% Internal application API
+%%====================================================================	     
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%                                                                  %%
-%% External API                                                     %%
-%%                                                                  %%
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-%% start_link/3
-%% 
 %% NOTE: This is called by httpd_misc_sup when the process is started
-%% 
-
-start_link(Addr, Port) ->
-    ?hdrt("start_link", [{address, Addr}, {port, Port}]),
-    Name = make_name(Addr, Port),
+start_link(Addr, Port, Profile) ->
+    Name = make_name(Addr, Port, Profile),
     gen_server:start_link({local, Name}, ?MODULE, [], [{timeout, infinity}]).
 
-
-%% start/2
 %% Called  by the mod_security module.
-
-start(Addr, Port) ->
-    ?hdrt("start", [{address, Addr}, {port, Port}]),
-    Name = make_name(Addr, Port),
+start(Addr, Port, Profile) ->
+    Name = make_name(Addr, Port, Profile),
     case whereis(Name) of
 	undefined ->
-	   httpd_misc_sup:start_sec_server(Addr, Port);
+	   httpd_misc_sup:start_sec_server(Addr, Port, Profile);
 	_ -> %% Already started...
 	    ok
     end.
 
-
-%% stop
-
-stop(Port) ->
-    stop(undefined, Port).
-stop(Addr, Port) ->
-    ?hdrt("stop", [{address, Addr}, {port, Port}]),
-    Name = make_name(Addr, Port),
+stop(Port, Profile) ->
+    stop(undefined, Port, Profile).
+stop(Addr, Port, Profile) ->
+    Name = make_name(Addr, Port, Profile),
     case whereis(Name) of
 	undefined ->
 	    ok;
 	_ ->
-	    httpd_misc_sup:stop_sec_server(Addr, Port)
+	    httpd_misc_sup:stop_sec_server(Addr, Port, Profile)
     end.
-
 
 addr(undefined) ->
     any;
 addr(Addr) ->
     Addr.
 
-
-%% list_blocked_users
-
 list_blocked_users(Addr, Port) ->
-    Name = make_name(Addr, Port),
-    Req  = {list_blocked_users, addr(Addr), Port, '_'},
-    call(Name, Req).
-
+    list_blocked_users(Addr, Port, ?DEFAULT_PROFILE).
+list_blocked_users(Addr, Port, Profile) when is_atom(Profile)->
+    Name = make_name(Addr, Port, Profile),
+    Req  = {list_blocked_users, addr(Addr), Port, Profile,'_'},
+    call(Name, Req);
 list_blocked_users(Addr, Port, Dir) ->
-    Name = make_name(Addr, Port),
-    Req  = {list_blocked_users, addr(Addr), Port, Dir},
+    list_blocked_users(Addr, Port, ?DEFAULT_PROFILE, Dir).
+list_blocked_users(Addr, Port, Profile, Dir) ->
+    Name = make_name(Addr, Port, Profile),
+    Req  = {list_blocked_users, addr(Addr), Port, Profile, Dir},
     call(Name, Req).
-
-
-%% block_user
 
 block_user(User, Addr, Port, Dir, Time) ->
-    Name = make_name(Addr, Port),
-    Req  = {block_user, User, addr(Addr), Port, Dir, Time},
+    block_user(User, Addr, Port, ?DEFAULT_PROFILE, Dir, Time).
+block_user(User, Addr, Port, Profile, Dir, Time) ->
+    Name = make_name(Addr, Port, Profile),
+    Req  = {block_user, User, addr(Addr), Port, Profile, Dir, Time},
     call(Name, Req).
-
-
-%% unblock_user
 
 unblock_user(User, Addr, Port) ->
-    Name = make_name(Addr, Port),
-    Req  = {unblock_user, User, addr(Addr), Port, '_'},
-    call(Name, Req).
-
+    unblock_user(User, Addr, Port, ?DEFAULT_PROFILE).
+unblock_user(User, Addr, Port, Profile) when is_atom(Profile)->
+    Name = make_name(Addr, Port, Profile),
+    Req  = {unblock_user, User, addr(Addr), Port, Profile, '_'},
+    call(Name, Req);
 unblock_user(User, Addr, Port, Dir) ->
-    Name = make_name(Addr, Port),
-    Req  = {unblock_user, User, addr(Addr), Port, Dir},
+    unblock_user(User, Addr, Port, ?DEFAULT_PROFILE, Dir).
+unblock_user(User, Addr, Port, Profile, Dir) ->
+    Name = make_name(Addr, Port, Profile),
+    Req  = {unblock_user, User, addr(Addr), Port, Profile, Dir},
     call(Name, Req).
-
-
-%% list_auth_users
 
 list_auth_users(Addr, Port) ->
-    Name = make_name(Addr, Port),
-    Req  = {list_auth_users, addr(Addr), Port, '_'},
-    call(Name, Req).
-
+    list_auth_users(Addr, Port, ?DEFAULT_PROFILE).
+list_auth_users(Addr, Port, Profile) when is_atom(Profile) ->
+    Name = make_name(Addr, Port, Profile),
+    Req  = {list_auth_users, addr(Addr), Port, Profile, '_'},
+    call(Name, Req);
 list_auth_users(Addr, Port, Dir) ->
-    Name = make_name(Addr,Port),
-    Req  = {list_auth_users, addr(Addr), Port, Dir}, 
-    call(Name, Req).
-    
-
-%% new_table
-
-new_table(Addr, Port, TabName) ->
-    Name = make_name(Addr,Port),
-    Req  = {new_table, addr(Addr), Port, TabName}, 
+    list_auth_users(Addr, Port, ?DEFAULT_PROFILE, Dir).
+list_auth_users(Addr, Port, Profile, Dir) ->
+    Name = make_name(Addr,Port, Profile),
+    Req  = {list_auth_users, addr(Addr), Port, Profile, Dir}, 
     call(Name, Req).
 
+new_table(Addr, Port, Profile, TabName) ->
+    Name = make_name(Addr,Port, Profile),
+    Req  = {new_table, addr(Addr), Port, Profile, TabName}, 
+    call(Name, Req).
 
-%% delete_tables
-    
-delete_tables(Addr, Port) ->
-    Name = make_name(Addr, Port),
+delete_tables(Addr, Port, Profile) ->
+    Name = make_name(Addr, Port, Profile),
     case whereis(Name) of
 	undefined ->
 	    ok;
@@ -187,79 +163,53 @@ delete_tables(Addr, Port) ->
 	    call(Name, delete_tables)
     end.
 
-
-%% store_failed_auth
-
-store_failed_auth(Info, Addr, Port, DecodedString, SDirData) ->
-    ?hdrv("store failed auth", 
-	  [{addr, Addr}, {port, Port}, 
-	   {decoded_string, DecodedString}, {sdir_data, SDirData}]),
-    Name = make_name(Addr,Port),
-    Msg  = {store_failed_auth,[Info,DecodedString,SDirData]},
+store_failed_auth(Info, Addr, Port, Profile, DecodedString, SDirData) ->
+    Name = make_name(Addr, Port, Profile),
+    Msg  = {store_failed_auth, Profile, [Info,DecodedString,SDirData]},
     cast(Name, Msg).
 
-
-%% store_successful_auth
-
-store_successful_auth(Addr, Port, User, SDirData) ->
-    Name = make_name(Addr,Port),
-    Msg  = {store_successful_auth, [User,Addr,Port,SDirData]}, 
+store_successful_auth(Addr, Port, Profile, User, SDirData) ->
+    Name = make_name(Addr,Port, Profile),
+    Msg  = {store_successful_auth, [User,Addr,Port, Profile, SDirData]}, 
     cast(Name, Msg).
-    
-
-%% check_blocked_user
-
-check_blocked_user(Info, User, SDirData, Addr, Port) ->
-    Name = make_name(Addr, Port),
-    Req  = {check_blocked_user, [Info, User, SDirData]}, 
+ 
+check_blocked_user(Info, User, SDirData, Addr, Port, Profile) ->
+    Name = make_name(Addr, Port, Profile),
+    Req  = {check_blocked_user, Profile, [Info, User, SDirData]}, 
     call(Name, Req).
 
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%                                                                  %%
-%% Server call-back functions                                       %%
-%%                                                                  %%
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
+%%====================================================================
+%% Behavior call backs
+%%====================================================================	     
 init(_) ->
-    ?hdrv("initiating", []),
     process_flag(trap_exit, true),
     {ok, []}.
 
 handle_call(stop, _From, _Tables) ->
     {stop, normal, ok, []};
 
-handle_call({block_user, User, Addr, Port, Dir, Time}, _From, Tables) ->
-    ?hdrv("block user", 
-	  [{user, User}, {addr, Addr}, {port, Port}, {dir, Dir}, 
-	   {time, Time}]), 
-    Ret = block_user_int(User, Addr, Port, Dir, Time),
+handle_call({block_user, User, Addr, Port, Profile, Dir, Time}, _From, Tables) ->
+    Ret = block_user_int(User, Addr, Port, Profile, Dir, Time),
     {reply, Ret, Tables};
 
-handle_call({list_blocked_users, Addr, Port, Dir}, _From, Tables) ->
-    ?hdrv("list blocked users", 
-	  [{addr, Addr}, {port, Port}, {dir, Dir}]),
-    Blocked = list_blocked(Tables, Addr, Port, Dir, []),
+handle_call({list_blocked_users, Addr, Port, Profile, Dir}, _From, Tables) ->
+    Blocked = list_blocked(Tables, Addr, Port, Profile, Dir, []),
     {reply, Blocked, Tables};
 
-handle_call({unblock_user, User, Addr, Port, Dir}, _From, Tables) ->
-    ?hdrv("block user", 
-	  [{user, User}, {addr, Addr}, {port, Port}, {dir, Dir}]), 
-    Ret = unblock_user_int(User, Addr, Port, Dir),
+handle_call({unblock_user, User, Addr, Port, Profile, Dir}, _From, Tables) ->
+    Ret = unblock_user_int(User, Addr, Port, Profile,Dir),
     {reply, Ret, Tables};
 
-handle_call({list_auth_users, Addr, Port, Dir}, _From, Tables) ->
-    ?hdrv("list auth users", 
-	  [{addr, Addr}, {port, Port}, {dir, Dir}]), 
-    Auth = list_auth(Tables, Addr, Port, Dir, []),
+handle_call({list_auth_users, Addr, Port, Profile, Dir}, _From, Tables) ->
+    Auth = list_auth(Tables, Addr, Port, Profile, Dir, []),
     {reply, Auth, Tables};
 
-handle_call({new_table, Addr, Port, Name}, _From, Tables) ->
+handle_call({new_table, Addr, Port, Profile, Name}, _From, Tables) ->
     case lists:keysearch(Name, 1, Tables) of
 	{value, {Name, {Ets, Dets}}} ->
 	    {reply, {ok, {Ets, Dets}}, Tables};
 	false ->
-	    TName = make_name(Addr,Port,length(Tables)),
+	    TName = make_name(Addr,Port, Profile, length(Tables)),
 	    case dets:open_file(TName, [{type, bag}, {file, Name}, 
 					{repair, true}, 
 					{access, read_write}]) of
@@ -280,7 +230,7 @@ handle_call(delete_tables, _From, Tables) ->
 		  end, Tables),
     {reply, ok, []};
 
-handle_call({check_blocked_user, [Info, User, SDirData]}, _From, Tables) ->
+handle_call({check_blocked_user, Profile, [Info, User, SDirData]}, _From, Tables) ->
     {ETS, DETS} = proplists:get_value(data_file, SDirData),
     Dir = proplists:get_value(path, SDirData),
     Addr = proplists:get_value(bind_address, SDirData),
@@ -288,27 +238,24 @@ handle_call({check_blocked_user, [Info, User, SDirData]}, _From, Tables) ->
     CBModule = 
 	proplists:get_value(callback_module, SDirData, no_module_at_all),
     Ret = 
-	check_blocked_user(Info, User, Dir, Addr, Port, ETS, DETS, CBModule),
+	check_blocked_user(Info, User, Dir, Addr, Port, Profile, ETS, DETS, CBModule),
     {reply, Ret, Tables};
 
 handle_call(_Request,_From,Tables) ->
     {reply,ok,Tables}.
 
-
-%% handle_cast
-
-handle_cast({store_failed_auth, [_, _, []]}, Tables) ->
+handle_cast({store_failed_auth, _,[_, _, []]}, Tables) ->
     %% Some other authentication scheme than mod_auth (example mod_htacess)
     %% was the source for the authentication failure so we should ignor it!
     {noreply, Tables};
-handle_cast({store_failed_auth, [Info, DecodedString, SDirData]}, Tables) ->
+handle_cast({store_failed_auth, Profile, [Info, DecodedString, SDirData]}, Tables) ->
     {ETS, DETS} = proplists:get_value(data_file, SDirData),
     Dir  = proplists:get_value(path, SDirData),
     Addr = proplists:get_value(bind_address, SDirData),
     Port = proplists:get_value(port, SDirData),
     {ok, [User,Password]} = httpd_util:split(DecodedString,":",2),
     Seconds = universal_time(),
-    Key = {User, Dir, Addr, Port},
+    Key = {User, Dir, Addr, Port, Profile},
     %% Event
     CBModule = proplists:get_value(callback_module, 
 				     SDirData, no_module_at_all),
@@ -363,7 +310,7 @@ handle_cast({store_failed_auth, [Info, DecodedString, SDirData]}, Tables) ->
 	    dets:match_delete(DETS, {blocked_user,
 				     {User, Addr, Port, Dir, '$1'}}),
 	    BlockRecord = {blocked_user, 
-			   {User, Addr, Port, Dir, Future}},
+			   {User, Addr, Port, Profile, Dir, Future}},
 	    ets:insert(ETS, BlockRecord),
 	    dets:insert(DETS, BlockRecord),
 	    %% Remove previous failed requests.
@@ -374,11 +321,11 @@ handle_cast({store_failed_auth, [Info, DecodedString, SDirData]}, Tables) ->
     end,
     {noreply, Tables};
 
-handle_cast({store_successful_auth, [User, Addr, Port, SDirData]}, Tables) ->
+handle_cast({store_successful_auth, [User, Addr, Port, Profile, SDirData]}, Tables) ->
     {ETS, DETS} = proplists:get_value(data_file, SDirData),
     AuthTimeOut = proplists:get_value(auth_timeout, SDirData, 30),
     Dir = proplists:get_value(path, SDirData),
-    Key = {User, Dir, Addr, Port},
+    Key = {User, Dir, Addr, Port, Profile},
 
     %% Remove failed entries for this Key
     dets:match_delete(DETS, {failed, {Key, '_', '_'}}),
@@ -396,33 +343,22 @@ handle_cast(Req, Tables) ->
     error_msg("security server got unknown cast: ~p",[Req]),
     {noreply, Tables}.
 
-
-%% handle_info
-
 handle_info(_Info, State) ->
     {noreply, State}.
-
-
-%% terminate
 
 terminate(_Reason, _Tables) ->
     ok.
 
-
-%% code_change({down, ToVsn}, State, Extra)
-%% 
-code_change({down, _}, State, _Extra) ->
-    {ok, State};
-
-
-%% code_change(FromVsn, State, Extra)
-%%
 code_change(_, State, _Extra) ->
     {ok, State}.
 
+%%--------------------------------------------------------------------
+%%% Internal functions
+%%--------------------------------------------------------------------
+
 %% block_user_int/5
-block_user_int(User, Addr, Port, Dir, Time) ->
-    Dirs = httpd_manager:config_match(Addr, Port, 
+block_user_int(User, Addr, Port, Profile, Dir, Time) ->
+    Dirs = httpd_manager:config_match(Addr, Port, Profile, 
 				      {security_directory, {'_', '_'}}),
     case find_dirdata(Dirs, Dir) of
 	{ok, DirData, {ETS, DETS}} ->
@@ -434,11 +370,11 @@ block_user_int(User, Addr, Port, Dir, Time) ->
 			Time
 		end,
 	    Future = universal_time()+Time1,
-	    ets:match_delete(ETS, {blocked_user, {User,Addr,Port,Dir,'_'}}),
+	    ets:match_delete(ETS, {blocked_user, {User,Addr,Port,Profile, Dir,'_'}}),
 	    dets:match_delete(DETS, {blocked_user, 
-				     {User,Addr,Port,Dir,'_'}}),
-	    ets:insert(ETS, {blocked_user, {User,Addr,Port,Dir,Future}}),
-	    dets:insert(DETS, {blocked_user, {User,Addr,Port,Dir,Future}}),
+				     {User,Addr,Port,Profile, Dir,'_'}}),
+	    ets:insert(ETS, {blocked_user, {User,Addr,Port, Profile, Dir,Future}}),
+	    dets:insert(DETS, {blocked_user, {User,Addr,Port,Profile, Dir,Future}}),
 	    CBModule = proplists:get_value(callback_module, DirData, 
 					     no_module_at_all),
 	    user_block_event(CBModule,Addr,Port,Dir,User),
@@ -447,7 +383,6 @@ block_user_int(User, Addr, Port, Dir, Time) ->
 	    {error, no_such_directory}
     end.
     
-
 find_dirdata([], _Dir) ->
     false;
 find_dirdata([{security_directory, {_, DirData}}|SDirs], Dir) ->
@@ -460,21 +395,20 @@ find_dirdata([{security_directory, {_, DirData}}|SDirs], Dir) ->
 	    find_dirdata(SDirs, Dir)
     end.
 
-%% unblock_user_int/4
-unblock_user_int(User, Addr, Port, Dir) ->
-    Dirs = httpd_manager:config_match(Addr, Port, 
+unblock_user_int(User, Addr, Port, Profile, Dir) ->
+    Dirs = httpd_manager:config_match(Addr, Port, Profile, 
 				      {security_directory, {'_', '_'}}),
     case find_dirdata(Dirs, Dir) of
 	{ok, DirData, {ETS, DETS}} ->
 	    case ets:match_object(ETS,
-				  {blocked_user,{User,Addr,Port,Dir,'_'}}) of
+				  {blocked_user,{User,Addr,Port,Profile,Dir,'_'}}) of
 		[] ->
 		    {error, not_blocked};
 		_Objects ->
 		    ets:match_delete(ETS, {blocked_user,
-					   {User, Addr, Port, Dir, '_'}}),
+					   {User, Addr, Port, Profile, Dir, '_'}}),
 		    dets:match_delete(DETS, {blocked_user,
-					     {User, Addr, Port, Dir, '_'}}),
+					     {User, Addr, Port, Profile, Dir, '_'}}),
 	       	    CBModule = proplists:get_value(callback_module, 
 						     DirData, 
 						     no_module_at_all),
@@ -485,63 +419,51 @@ unblock_user_int(User, Addr, Port, Dir) ->
 	    {error, no_such_directory}
     end.
 
-
-
-%% list_auth/2
-
-list_auth([], _Addr, _Port, _Dir, Acc) ->
+list_auth([], _, _, _, _, Acc) ->
     Acc;
-list_auth([{_Name, {ETS, DETS}}|Tables], Addr, Port, Dir, Acc) ->
-    case ets:match_object(ETS, {success, {{'_', Dir, Addr, Port}, '_'}}) of
+list_auth([{_Name, {ETS, DETS}}|Tables], Addr, Port, Profile, Dir, Acc) ->
+    case ets:match_object(ETS, {success, {{'_', Dir, Addr, Port, Profile}, '_'}}) of
 	[] ->
-	    list_auth(Tables, Addr, Port, Dir, Acc);
+	    list_auth(Tables, Addr, Port, Profile, Dir, Acc);
 	List ->
 	    TN = universal_time(),
-	    NewAcc = lists:foldr(fun({success,{{U,Ad,P,D},T}},Ac) -> 
+	    NewAcc = lists:foldr(fun({success,{{U,Ad,P, Pr,D},T}},Ac) -> 
 					 if
 					     T-TN > 0 ->
 						 [U|Ac];
 					     true ->
 						 Rec = {success,
-							{{U,Ad,P,D},T}},
+							{{U,Ad,P,Pr,D},T}},
 						 ets:match_delete(ETS,Rec),
 						 dets:match_delete(DETS,Rec),
 						 Ac
 					 end
 				 end,
 				 Acc, List),
-	    list_auth(Tables, Addr, Port, Dir, NewAcc)
+	    list_auth(Tables, Addr, Port, Profile, Dir, NewAcc)
     end.
 
-
-%% list_blocked/2
-
-list_blocked([], _Addr, _Port, _Dir, Acc) ->
-    ?hdrv("list blocked", [{acc, Acc}]), 
+list_blocked([], _, _, _, _, Acc) ->
     TN = universal_time(),
-    lists:foldl(fun({U,Ad,P,D,T}, Ac) ->
+    lists:foldl(fun({U,Ad,P,Pr,D,T}, Ac) ->
 			if
 			    T-TN > 0 ->
-				[{U,Ad,P,D,local_time(T)}|Ac];
+				[{U,Ad,P, Pr,D,local_time(T)}|Ac];
 			    true ->
 				Ac
 			end
 		end, 
 		[], Acc);
-list_blocked([{_Name, {ETS, _DETS}}|Tables], Addr, Port, Dir, Acc) ->
-    ?hdrv("list blocked", [{ets, ETS}, {tab2list, ets:tab2list(ETS)}]), 
+list_blocked([{_Name, {ETS, _DETS}}|Tables], Addr, Port, Profile, Dir, Acc) ->
     List = ets:match_object(ETS, {blocked_user, 
-				  {'_',Addr,Port,Dir,'_'}}),
+				  {'_',Addr,Port,Profile, Dir,'_'}}),
     
     NewBlocked = lists:foldl(fun({blocked_user, X}, A) -> 
 				     [X|A] end, Acc, List),
     
-    list_blocked(Tables, Addr, Port, Dir, NewBlocked).
+    list_blocked(Tables, Addr, Port, Profile, Dir, NewBlocked).
 
 
-%%
-%% sync_dets_to_ets/2
-%%
 %% Reads dets-table DETS and syncronizes it with the ets-table ETS.
 %%
 sync_dets_to_ets(DETS, ETS) ->
@@ -550,68 +472,62 @@ sync_dets_to_ets(DETS, ETS) ->
 				continue
 			end).
 
-%%
-%% check_blocked_user/7 -> true | false
-%%
 %% Check if a specific user is blocked from access.
 %%
 %% The sideeffect of this routine is that it unblocks also other users
 %% whos blocking time has expired. This to keep the tables as small
 %% as possible.
 %%
-check_blocked_user(Info, User, Dir, Addr, Port, ETS, DETS, CBModule) ->
+check_blocked_user(Info, User, Dir, Addr, Port, Profile, ETS, DETS, CBModule) ->
     TN = universal_time(),
-    BlockList = ets:match_object(ETS, {blocked_user, {User, '_', '_', '_', '_'}}), 
+    BlockList = ets:match_object(ETS, {blocked_user, {User, '_', '_', '_', '_', '_'}}), 
     Blocked = lists:foldl(fun({blocked_user, X}, A) ->
 				  [X|A] end, [], BlockList),
     check_blocked_user(Info,User,Dir,
-		       Addr,Port,ETS,DETS,TN,Blocked,CBModule).
+		       Addr,Port, Profile, ETS,DETS,TN,Blocked,CBModule).
 
-check_blocked_user(_Info, _User, _Dir, _Addr, _Port, _ETS, _DETS, _TN,
-		   [], _CBModule) ->
+check_blocked_user(_Info, _, _, _, _, _, _, _, _,[], _CBModule) ->
     false;
-check_blocked_user(Info, User, Dir, Addr, Port, ETS, DETS, TN, 
-		   [{User,Addr,Port,Dir,T}| _], CBModule) ->
+check_blocked_user(Info, User, Dir, Addr, Port, Profile, ETS, DETS, TN, 
+		   [{User,Addr,Port,Profile, Dir,T}| _], CBModule) ->
     TD = T-TN,
     if
 	TD =< 0 ->
 	    %% Blocking has expired, remove and grant access.
-	    unblock_user(Info, User, Dir, Addr, Port, ETS, DETS, CBModule),
+	    unblock_user(Info, User, Dir, Addr, Port, Profile, ETS, DETS, CBModule),
 	    false;
 	true ->
 	    true
     end;
-check_blocked_user(Info, User, Dir, Addr, Port, ETS, DETS, TN, 
-		   [{OUser,ODir,OAddr,OPort,T}|Ls], CBModule) ->
+check_blocked_user(Info, User, Dir, Addr, Port, Profile, ETS, DETS, TN, 
+		   [{OUser,ODir,OAddr,OPort, OProfile, T}|Ls], CBModule) ->
     TD = T-TN,
     if
 	TD =< 0 ->
 	    %% Blocking has expired, remove.
-	    unblock_user(Info, OUser, ODir, OAddr, OPort, 
+	    unblock_user(Info, OUser, ODir, OAddr, OPort, OProfile,
 			 ETS, DETS, CBModule);
 	true ->
 	    true
     end,
-    check_blocked_user(Info, User, Dir, Addr, Port, ETS, DETS, 
+    check_blocked_user(Info, User, Dir, Addr, Port, Profile, ETS, DETS, 
 		       TN, Ls, CBModule).
 
-unblock_user(Info, User, Dir, Addr, Port, ETS, DETS, CBModule) ->
+unblock_user(Info, User, Dir, Addr, Port, Profile, ETS, DETS, CBModule) ->
     Reason =
 	io_lib:format("User ~s was removed from the block list for dir ~s",
 			 [User, Dir]),
     mod_log:security_log(Info, lists:flatten(Reason)),
     user_unblock_event(CBModule,Addr,Port,Dir,User),
-    dets:match_delete(DETS, {blocked_user, {User, Addr, Port, Dir, '_'}}),
-    ets:match_delete(ETS, {blocked_user, {User, Addr, Port, Dir, '_'}}).
+    dets:match_delete(DETS, {blocked_user, {User, Addr, Port, Profile, Dir, '_'}}),
+    ets:match_delete(ETS, {blocked_user, {User, Addr, Port, Profile, Dir, '_'}}).
   
+make_name(Addr,Port, Profile) ->
+    httpd_util:make_name(?MODULE,Addr,Port, Profile).
 
-make_name(Addr,Port) ->
-    httpd_util:make_name("httpd_security",Addr,Port).
-
-make_name(Addr,Port,Num) ->
-    httpd_util:make_name("httpd_security",Addr,Port,
-			 "__" ++ integer_to_list(Num)).
-
+make_name(Addr,Port, Profile, Num) ->
+    httpd_util:make_name(?MODULE,Addr,Port,
+			 atom_to_list(Profile) ++ "__" ++ integer_to_list(Num)).
 
 auth_fail_event(Mod,Addr,Port,Dir,User,Passwd) ->
     event(auth_fail,Mod,Addr,Port,Dir,[{user,User},{password,Passwd}]).
@@ -623,17 +539,10 @@ user_unblock_event(Mod,Addr,Port,Dir,User) ->
     event(user_unblock,Mod,Addr,Port,Dir,[{user,User}]).
 
 event(Event, Mod, undefined, Port, Dir, Info) ->
-    ?hdrt("event", 
-	  [{event, Event}, {mod, Mod}, {port, Port}, {dir, Dir}]),
     (catch Mod:event(Event,Port,Dir,Info));
 event(Event, Mod, any, Port, Dir, Info) ->
-    ?hdrt("event", 
-	  [{event, Event}, {mod, Mod}, {port, Port}, {dir, Dir}]),
     (catch Mod:event(Event,Port,Dir,Info));
 event(Event, Mod, Addr, Port, Dir, Info) ->
-    ?hdrt("event", 
-	  [{event, Event}, {mod, Mod}, 
-	   {addr, Addr}, {port, Port}, {dir, Dir}]),
     (catch Mod:event(Event,Addr,Port,Dir,Info)).
 
 universal_time() ->
@@ -643,10 +552,8 @@ local_time(T) ->
     calendar:universal_time_to_local_time(
       calendar:gregorian_seconds_to_datetime(T)).
 
-
 error_msg(F, A) ->
     error_logger:error_msg(F, A).
-
 
 call(Name, Req) ->
     case (catch gen_server:call(Name, Req)) of
@@ -655,7 +562,6 @@ call(Name, Req) ->
         Reply ->
             Reply
     end.
-
 
 cast(Name, Msg) ->
     case (catch gen_server:cast(Name, Msg)) of

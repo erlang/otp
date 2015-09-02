@@ -8,16 +8,17 @@
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
-      The contents of this file are subject to the Erlang Public License,
-      Version 1.1, (the "License"); you may not use this file except in
-      compliance with the License. You should have received a copy of the
-      Erlang Public License along with this software. If not, it can be
-      retrieved online at http://www.erlang.org/.
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
 
-      Software distributed under the License is distributed on an "AS IS"
-      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-      the License for the specific language governing rights and limitations
-      under the License.
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
 
     </legalnotice>
 
@@ -55,10 +56,12 @@
     emulator or the operating system can be reconfigured to avoid the
     crash, which is why interpreting the crash dump correctly is
     important.</p>
+  <p>On systems that support OS signals, it is also possible to stop
+    the runtime system and generate a crash dump by sending the SIGUSR1.</p>
   <p>The erlang crash dump is a readable text file, but it might not be
     very easy to read. Using the Crashdump Viewer tool in the
     <c><![CDATA[observer]]></c> application will simplify the task. This is an
-    HTML based tool for browsing Erlang crash dumps.</p>
+    wx-widget based tool for browsing Erlang crash dumps.</p>
 
   <section>
     <marker id="general_info"></marker>
@@ -66,8 +69,9 @@
     <p>The first part of the dump shows the creation time for the dump,
       a slogan indicating the reason for the dump, the system version,
       of the node from which the dump originates, the compile time of
-      the emulator running the originating node and the number of
-      atoms in the atom table.
+      the emulator running the originating node, the number of
+      atoms in the atom table and the runtime system thread that caused
+      the crash dump to happen.
       </p>
 
     <section>
@@ -85,22 +89,20 @@
         operating system.</p>
       <list type="bulleted">
         <item>"<em>&lt;A&gt;</em>: Cannot allocate <em>&lt;N&gt;</em>
-         bytes of memory (of type "<em>&lt;T&gt;</em>", thread
-         <em>&lt;I&gt;</em>em>)." - The system has run out of memory. &lt;A&gt;
-         is the allocator that failed to allocate memory, &lt;N&gt; is the
-         number of bytes that &lt;A&gt; tried to allocate, &lt;T&gt; is the
-         memory block type that the memory was needed for, and &lt;I&gt; is the
-         thread identifier. The most common case is that a process stores huge
-         amounts of data. In this case &lt;T&gt; is most often
-         <c><![CDATA[heap]]></c>, <c><![CDATA[old_heap]]></c>,
-         <c><![CDATA[heap_frag]]></c>, or <c><![CDATA[binary]]></c>.
-         For more information on allocators see
-         <seealso marker="erts_alloc">erts_alloc(3)</seealso>.</item>
+         bytes of memory (of type "<em>&lt;T&gt;</em>")." - The system
+         has run out of memory. &lt;A&gt; is the allocator that failed
+         to allocate memory, &lt;N&gt; is the number of bytes that
+         &lt;A&gt; tried to allocate, and &lt;T&gt; is the memory block
+         type that the memory was needed for. The most common case is
+         that a process stores huge amounts of data. In this case
+         &lt;T&gt; is most often <c><![CDATA[heap]]></c>, <c><![CDATA[old_heap]]></c>,
+        <c><![CDATA[heap_frag]]></c>, or <c><![CDATA[binary]]></c>. For more information on
+         allocators see
+        <seealso marker="erts_alloc">erts_alloc(3)</seealso>.</item>
         <item>"<em>&lt;A&gt;</em>: Cannot reallocate <em>&lt;N&gt;</em>
-         bytes of memory (of type "<em>&lt;T&gt;</em>", thread
-         <em>&lt;I&gt;</em>em>)." - Same as above with the exception that memory
-         was being reallocated instead of being allocated when the system ran
-         out of memory.</item>
+         bytes of memory (of type "<em>&lt;T&gt;</em>")." - Same as
+         above with the exception that memory was being reallocated
+         instead of being allocated when the system ran out of memory.</item>
         <item>"Unexpected op code <em>N</em>" - Error in compiled
          code, <c><![CDATA[beam]]></c> file damaged or error in the compiler.</item>
         <item>"Module <em>Name</em> undefined" <c><![CDATA[|]]></c> "Function
@@ -167,6 +169,60 @@
         <c><![CDATA[erlang:list_to_atom/1]]></c> is used to dynamically generate a
         lot of <em>different</em> atoms, which is never a good idea.</p>
     </section>
+  </section>
+
+  <section>
+    <marker id="scheduler"></marker>
+    <title>Scheduler information</title>
+    <p>Under the tag <em>=scheduler</em> information about the current state
+    and statistics of the schedulers in the runtime system is displayed.
+    On OSs that do allow instant suspension of other threads, the data within
+    this section will reflect what the runtime system looks like at the moment
+    when the crash happens.</p>
+    <p>The following fields can exist for a process:</p>
+    <taglist>
+      <tag><em>=scheduler:id</em></tag>
+      <item>Header, states the scheduler identifier.</item>
+      <tag><em>Scheduler Sleep Info Flags</em></tag>
+      <item>If empty the scheduler was doing some work.
+      If not empty the scheduler is either in some state of sleep,
+      or suspended. This entry is only present in a SMP enabled emulator</item>
+      <tag><em>Scheduler Sleep Info Aux Work</em></tag>
+      <item>If not empty, a scheduler internal auxiliary work is scheduled
+      to be done.</item>
+      <tag><em>Current Port</em></tag>
+      <item>The port identifier of the port that is currently being
+      executed by the scheduler.</item>
+      <tag><em>Current Process</em></tag>
+      <item>The process identifier of the process that is currently being
+      executed by the scheduler. If there is such a process this entry is
+      followed by the <em>State</em>,<em>Internal State</em>,
+      <em>Program Counter</em>, <em>CP</em> of that same process. See
+      <seealso marker="#processes">Process Information</seealso> for a
+      description what the different entries mean. Keep in mind that
+      this is a snapshot of what the entries are exactly when the crash
+      dump is starting to be generated. Therefore they will most likely
+      be different (and more telling) then the entries for the same
+      processes found in the <em>=proc</em> section. If there is no currently
+      running process, only the <em>Current Process</em> entry will be printed.
+      </item>
+      <tag><em>Current Process Limited Stack Trace</em></tag>
+      <item>This entry only shows up if there is a current process. It is very
+      similar to <seealso marker="#proc_data"><em>=proc_stack</em></seealso>,
+      except that only the function frames are printed (i.e. the stack variables
+      are omited). It is also limited to only print the top and bottom part
+      of the stack. If the stack is small (less that 512 slots) then the
+      entire stack will be printed. If not, an entry stating
+      <code>skipping ## slots</code> will be printed where ## is
+      replaced by the number of slots that has been skipped.</item>
+      <tag><em>Run Queue</em></tag>
+      <item>Displays statistics about how many processes and ports
+      of different priorities are scheduled on this scheduler.</item>
+      <tag><em>** crashed **</em></tag>
+      <item>This entry is normally not printed. It signifies that getting
+      the rest of the information about this scheduler failed for some reason.
+      </item>
+    </taglist>
   </section>
 
   <section>
@@ -249,9 +305,6 @@
       <tag><em>Last scheduled in for | Current call</em></tag>
       <item>The current function of the process. These fields will not
        always exist.</item>
-      <tag><em>Run queue</em></tag>
-      <item>The identifier of the scheduler run queue in which the process is
-       running.</item>
       <tag><em>Spawned by</em></tag>
       <item>The parent of the process, i.e. the process which executed
       <c><![CDATA[spawn]]></c> or <c><![CDATA[spawn_link]]></c>.</item>
@@ -314,6 +367,9 @@
       <item>The number of live argument registers. The argument registers,
        if any are live, will follow. These may contain the arguments
        of the function if they are not yet moved to the stack.</item>
+       <item><em>Internal State</em></item>
+       <item>A more detailed internal represantation of the state of
+       this process.</item>
     </taglist>
     <p>See also the section about <seealso marker="#proc_data">process data</seealso>.</p>
   </section>
@@ -339,18 +395,38 @@
       <tag><em>Name</em></tag>
       <item>The name of the table, regardless of whether it is a
       <c><![CDATA[named_table]]></c> or not.</item>
-      <tag><em>Buckets</em></tag>
+      <tag><em>Hash table, Buckets</em></tag>
       <item>This occurs if the table is a hash table, i.e. if it is not an
       <c><![CDATA[ordered_set]]></c>.</item>
+      <tag><em>Hash table, Chain Length</em></tag>
+      <item>Only applicable for hash tables. Contains statistics about the
+      hash table, such as the max, min and avg chain length. Having a max much
+      larger than the avg, and a std dev much larger that
+      the expected std dev is a sign that the hashing of the terms is
+      behaving badly for some reason.</item>
       <tag><em>Ordered set (AVL tree), Elements</em></tag>
       <item>This occurs only if the table is an <c><![CDATA[ordered_set]]></c>. (The
        number of elements is the same as the number of objects in the
        table.)</item>
+      <tag><em>Fixed</em></tag>
+      <item>If the table is fixed using ets:safe_fixtable or some internal
+      mechanism.</item>
       <tag><em>Objects</em></tag>
       <item>The number of objects in the table</item>
       <tag><em>Words</em></tag>
       <item>The number of words (usually 4 bytes/word) allocated to data
        in the table.</item>
+      <tag><em>Type</em></tag>
+      <item>The type of the table, i.e. <c>set</c>, <c>bag</c>,
+      <c>dublicate_bag</c> or <c>ordered_set</c>.</item>
+      <tag><em>Compressed</em></tag>
+      <item>If this table was compressed.</item>
+      <tag><em>Protection</em></tag>
+      <item>The protection of this table.</item>
+      <tag><em>Write Concurrency</em></tag>
+      <item>If write_concurrency was enabled for this table.</item>
+      <tag><em>Read Concurrency</em></tag>
+      <item>If read_concurrency was enabled for this table.</item>
     </taglist>
   </section>
 

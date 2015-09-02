@@ -8,16 +8,17 @@
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
-      The contents of this file are subject to the Erlang Public License,
-      Version 1.1, (the "License"); you may not use this file except in
-      compliance with the License. You should have received a copy of the
-      Erlang Public License along with this software. If not, it can be
-      retrieved online at http://www.erlang.org/.
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
 
-      Software distributed under the License is distributed on an "AS IS"
-      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-      the License for the specific language governing rights and limitations
-      under the License.
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
 
     </legalnotice>
 
@@ -29,6 +30,134 @@
     <file>notes.xml</file>
   </header>
   <p>This document describes the changes made to the Kernel application.</p>
+
+<section><title>Kernel 4.0</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix error handling in <c>file:read_line/1</c> for Unicode
+	    contents.</p>
+          <p>
+	    Own Id: OTP-12144</p>
+        </item>
+        <item>
+          <p>
+	    Introduce <c>os:getenv/2</c> which is similar to
+	    <c>os:getenv/1</c> but returns the passed default value
+	    if the required environment variable is undefined.</p>
+          <p>
+	    Own Id: OTP-12342</p>
+        </item>
+        <item>
+          <p>
+	    It is now possible to paste text in JCL mode (using
+	    Ctrl-Y) that has been copied in the previous shell
+	    session. Also a bug that caused the JCL mode to crash
+	    when pasting text has been fixed.</p>
+          <p>
+	    Own Id: OTP-12673</p>
+        </item>
+        <item>
+          <p>
+	    Ensure that each segment of an IPv6 address when parsed
+	    from a string has a maximum of 4 hex digits</p>
+          <p>
+	    Own Id: OTP-12773</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    New BIF: <c>erlang:get_keys/0</c>, lists all keys
+	    associated with the process dictionary. Note:
+	    <c>erlang:get_keys/0</c> is auto-imported.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-12151 Aux Id: seq12521 </p>
+        </item>
+        <item>
+          <p>
+	    The internal group to user_drv protocol has been changed
+	    to be synchronous in order to guarantee that output sent
+	    to a process implementing the user_drv protocol is
+	    printed before replying. This protocol is used by the
+	    standard_output device and the ssh application when
+	    acting as a client. </p>
+          <p>
+	    This change changes the previous unlimited buffer when
+	    printing to standard_io and other devices that end up in
+	    user_drv to 1KB.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-12240</p>
+        </item>
+        <item>
+	    <p>The <c>inflateInit/2</c> and <c>deflateInit/6</c>
+	    functions now accepts a WindowBits argument equal to 8
+	    and -8.</p>
+          <p>
+	    Own Id: OTP-12564</p>
+        </item>
+        <item>
+          <p>
+	    Map error logger warnings to warning messages by default.</p>
+          <p>
+	    Own Id: OTP-12755</p>
+        </item>
+        <item>
+          <p>
+	    Map beam error logger warnings to warning messages by
+	    default. Previously these messages were mapped to the
+	    error channel by default.</p>
+          <p>
+	    Own Id: OTP-12781</p>
+        </item>
+        <item>
+          <p>
+	    gen_tcp:shutdown/2 is now asynchronous</p>
+          <p>
+	    This solves the following problems with the old
+	    implementation:</p>
+          <p>
+	    It doesn't block when the TCP peer is idle or slow. This
+	    is the expected behaviour when shutdown() is called: the
+	    caller needs to be able to continue reading from the
+	    socket, not be prevented from doing so.</p>
+          <p>
+	    It doesn't truncate the output. The current version of
+	    gen_tcp:shutdown/2 will truncate any outbound data in the
+	    driver queue after about 10 seconds if the TCP peer is
+	    idle of slow. Worse yet, it doesn't even inform anyone
+	    that the data has been truncated: 'ok' is returned to the
+	    caller; and a FIN rather than an RST is sent to the TCP
+	    peer.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-12797</p>
+        </item>
+        <item>
+          <p>
+	    There are many cases where user code needs to be able to
+	    distinguish between a socket that was closed normally and
+	    one that was aborted. Setting the option
+	    {show_econnreset, true} enables the user to receive
+	    ECONNRESET errors on both active and passive sockets.</p>
+          <p>
+	    Own Id: OTP-12843</p>
+        </item>
+      </list>
+    </section>
+
+</section>
 
 <section><title>Kernel 3.2</title>
 

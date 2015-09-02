@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2013-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2013-2015. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -41,11 +42,12 @@
 
 %% User Events 
 -export([send/2, recv/3, close/1, shutdown/2,
-	 new_user/2, get_opts/2, set_opts/2, info/1, session_info/1, 
-	 peer_certificate/1, renegotiation/1, negotiated_next_protocol/1, prf/5	
+	 new_user/2, get_opts/2, set_opts/2, session_info/1, 
+	 peer_certificate/1, renegotiation/1, negotiated_protocol/1, prf/5,
+	 connection_information/1
 	]).
 
--export([handle_session/6]).
+-export([handle_session/7]).
 
 %% SSL FSM state functions 
 -export([hello/3, abbreviated/3, certify/3, cipher/3, connection/3]).
@@ -161,6 +163,14 @@ recv(Pid, Length, Timeout) ->
     sync_send_all_state_event(Pid, {recv, Length, Timeout}).
 
 %%--------------------------------------------------------------------
+-spec connection_information(pid()) -> {ok, list()} | {error, reason()}.
+%%
+%% Description: Get the SNI hostname
+%%--------------------------------------------------------------------
+connection_information(Pid) when is_pid(Pid) ->
+    sync_send_all_state_event(Pid, connection_information).
+
+%%--------------------------------------------------------------------
 -spec close(pid()) -> ok | {error, reason()}.  
 %%
 %% Description:  Close an ssl connection
@@ -191,12 +201,12 @@ new_user(ConnectionPid, User) ->
     sync_send_all_state_event(ConnectionPid, {new_user, User}).
 
 %%--------------------------------------------------------------------
--spec negotiated_next_protocol(pid()) -> {ok, binary()} | {error, reason()}.
+-spec negotiated_protocol(pid()) -> {ok, binary()} | {error, reason()}.
 %%
 %% Description:  Returns the negotiated protocol
 %%--------------------------------------------------------------------
-negotiated_next_protocol(ConnectionPid) ->
-    sync_send_all_state_event(ConnectionPid, negotiated_next_protocol).
+negotiated_protocol(ConnectionPid) ->
+    sync_send_all_state_event(ConnectionPid, negotiated_protocol).
 
 %%--------------------------------------------------------------------
 -spec get_opts(pid(), list()) -> {ok, list()} | {error, reason()}.    
@@ -212,14 +222,6 @@ get_opts(ConnectionPid, OptTags) ->
 %%--------------------------------------------------------------------
 set_opts(ConnectionPid, Options) ->
     sync_send_all_state_event(ConnectionPid, {set_opts, Options}).
-
-%%--------------------------------------------------------------------
--spec info(pid()) ->  {ok, {atom(), tuple()}} | {error, reason()}. 
-%%
-%% Description:  Returns ssl protocol and cipher used for the connection
-%%--------------------------------------------------------------------
-info(ConnectionPid) ->
-    sync_send_all_state_event(ConnectionPid, info). 
 
 %%--------------------------------------------------------------------
 -spec session_info(pid()) -> {ok, list()} | {error, reason()}. 
@@ -258,27 +260,26 @@ prf(ConnectionPid, Secret, Label, Seed, WantedLength) ->
 
 handle_session(#server_hello{cipher_suite = CipherSuite,
 			     compression_method = Compression}, 
-	       Version, NewId, ConnectionStates, NextProtocol, 
+	       Version, NewId, ConnectionStates, ProtoExt, Protocol0,
 	       #state{session = #session{session_id = OldId},
-		      negotiated_version = ReqVersion} = State0) ->
+		      negotiated_version = ReqVersion,
+			  negotiated_protocol = CurrentProtocol} = State0) ->
     {KeyAlgorithm, _, _, _} =
 	ssl_cipher:suite_definition(CipherSuite),
     
     PremasterSecret = make_premaster_secret(ReqVersion, KeyAlgorithm),
-    
-    NewNextProtocol = case NextProtocol of
-			  undefined ->
-			      State0#state.next_protocol;
-			  _ ->
-			      NextProtocol
-		      end,
-    
+
+	{ExpectNPN, Protocol} = case Protocol0 of
+		undefined -> {false, CurrentProtocol};
+		_ -> {ProtoExt =:= npn, Protocol0}
+	end,
+
     State = State0#state{key_algorithm = KeyAlgorithm,
 				 negotiated_version = Version,
 			 connection_states = ConnectionStates,
 			 premaster_secret = PremasterSecret,
-			 expecting_next_protocol_negotiation = NextProtocol =/= undefined,
-			 next_protocol = NewNextProtocol},
+			 expecting_next_protocol_negotiation = ExpectNPN,
+			 negotiated_protocol = Protocol},
     
     case ssl_session:is_new(OldId, NewId) of
 	true ->
@@ -371,7 +372,7 @@ abbreviated(#finished{verify_data = Data} = Finished,
 abbreviated(#next_protocol{selected_protocol = SelectedProtocol},
 	    #state{role = server, expecting_next_protocol_negotiation = true} = State0,
 	    Connection) ->
-    {Record, State} = Connection:next_record(State0#state{next_protocol = SelectedProtocol}),
+    {Record, State} = Connection:next_record(State0#state{negotiated_protocol = SelectedProtocol}),
     Connection:next_state(abbreviated, abbreviated, Record, State#state{expecting_next_protocol_negotiation = false});
 
 abbreviated(timeout, State, _) ->
@@ -411,11 +412,15 @@ certify(#certificate{} = Cert,
 	       role = Role,
 	       cert_db = CertDbHandle,
 	       cert_db_ref = CertDbRef,
+	       crl_db = CRLDbInfo,
 	       ssl_options = Opts} = State, Connection) ->
-    case ssl_handshake:certify(Cert, CertDbHandle, CertDbRef, Opts#ssl_options.depth,
+    case ssl_handshake:certify(Cert, CertDbHandle, CertDbRef, 
+			       Opts#ssl_options.depth,
 			       Opts#ssl_options.verify,
 			       Opts#ssl_options.verify_fun,
 			       Opts#ssl_options.partial_chain,
+			       Opts#ssl_options.crl_check,
+			       CRLDbInfo,		       
 			       Role) of
         {PeerCert, PublicKeyInfo} ->
 	    handle_peer_cert(Role, PeerCert, PublicKeyInfo,
@@ -589,7 +594,7 @@ cipher(#certificate_verify{signature = Signature, hashsign_algorithm = CertHashS
 
 %% client must send a next protocol message if we are expecting it
 cipher(#finished{}, #state{role = server, expecting_next_protocol_negotiation = true,
-			   next_protocol = undefined, negotiated_version = Version} = State0,
+			   negotiated_protocol = undefined, negotiated_version = Version} = State0,
        Connection) ->
     Connection:handle_own_alert(?ALERT_REC(?FATAL,?UNEXPECTED_MESSAGE), Version, cipher, State0);
 
@@ -619,7 +624,7 @@ cipher(#finished{verify_data = Data} = Finished,
 cipher(#next_protocol{selected_protocol = SelectedProtocol},
        #state{role = server, expecting_next_protocol_negotiation = true,
 	      expecting_finished = true} = State0, Connection) ->
-    {Record, State} = Connection:next_record(State0#state{next_protocol = SelectedProtocol}),
+    {Record, State} = Connection:next_record(State0#state{negotiated_protocol = SelectedProtocol}),
     Connection:next_state(cipher, cipher, Record, State#state{expecting_next_protocol_negotiation = false});
 
 cipher(timeout, State, _) ->
@@ -755,10 +760,10 @@ handle_sync_event({get_opts, OptTags}, _From, StateName,
 			 socket_options = SockOpts} = State) ->
     OptsReply = get_socket_opts(Transport, Socket, OptTags, SockOpts, []),
     {reply, OptsReply, StateName, State, get_timeout(State)};
-handle_sync_event(negotiated_next_protocol, _From, StateName, #state{next_protocol = undefined} = State) ->
-    {reply, {error, next_protocol_not_negotiated}, StateName, State, get_timeout(State)};
-handle_sync_event(negotiated_next_protocol, _From, StateName, #state{next_protocol = NextProtocol} = State) ->
-    {reply, {ok, NextProtocol}, StateName, State, get_timeout(State)};
+handle_sync_event(negotiated_protocol, _From, StateName, #state{negotiated_protocol = undefined} = State) ->
+    {reply, {error, protocol_not_negotiated}, StateName, State, get_timeout(State)};
+handle_sync_event(negotiated_protocol, _From, StateName, #state{negotiated_protocol = SelectedProtocol} = State) ->
+    {reply, {ok, SelectedProtocol}, StateName, State, get_timeout(State)};
 handle_sync_event({set_opts, Opts0}, _From, StateName0, 
 		  #state{socket_options = Opts1, 
 			 protocol_cb = Connection,
@@ -826,13 +831,6 @@ handle_sync_event({prf, Secret, Label, Seed, WantedLength}, _, StateName,
 		error:Reason -> {error, Reason}
 	    end,
     {reply, Reply, StateName, State, get_timeout(State)};
-handle_sync_event(info, _, StateName, 
-		  #state{negotiated_version = Version,
-			 session = #session{cipher_suite = Suite}} = State) ->
-    
-    AtomVersion = tls_record:protocol_version(Version),
-    {reply, {ok, {AtomVersion, ssl:suite_definition(Suite)}},
-     StateName, State, get_timeout(State)};
 handle_sync_event(session_info, _, StateName, 
 		  #state{session = #session{session_id = Id,
 					    cipher_suite = Suite}} = State) ->
@@ -842,7 +840,10 @@ handle_sync_event(session_info, _, StateName,
 handle_sync_event(peer_certificate, _, StateName, 
 		  #state{session = #session{peer_certificate = Cert}} 
 		  = State) ->
-    {reply, {ok, Cert}, StateName, State, get_timeout(State)}.
+    {reply, {ok, Cert}, StateName, State, get_timeout(State)};
+handle_sync_event(connection_information, _, StateName, #state{sni_hostname = SNIHostname, session = #session{cipher_suite = CipherSuite}, negotiated_version = Version} = State) ->
+    {reply, {ok, [{protocol, tls_record:protocol_version(Version)}, {cipher_suite, ssl:suite_definition(CipherSuite)}, {sni_hostname, SNIHostname}]}, StateName, State, get_timeout(State)}.
+
 
 handle_info({ErrorTag, Socket, econnaborted}, StateName,  
 	    #state{socket = Socket, transport_cb = Transport,
@@ -964,7 +965,7 @@ format_status(terminate, [_, State]) ->
 %%% Internal functions
 %%--------------------------------------------------------------------
 ssl_config(Opts, Role, State) ->
-    {ok, Ref, CertDbHandle, FileRefHandle, CacheHandle, OwnCert, Key, DHParams} = 
+    {ok, Ref, CertDbHandle, FileRefHandle, CacheHandle, CRLDbInfo, OwnCert, Key, DHParams} = 
 	ssl_config:init(Opts, Role), 
     Handshake = ssl_handshake:init_handshake_history(),
     TimeStamp = calendar:datetime_to_gregorian_seconds({date(), time()}),
@@ -975,6 +976,7 @@ ssl_config(Opts, Role, State) ->
 		file_ref_db = FileRefHandle,
 		cert_db_ref = Ref,
 		cert_db = CertDbHandle,
+		crl_db = CRLDbInfo,
 		session_cache = CacheHandle,
 		private_key = Key,
 		diffie_hellman_params = DHParams,
@@ -1479,11 +1481,11 @@ finalize_handshake(State0, StateName, Connection) ->
 
 next_protocol(#state{role = server} = State, _) ->
     State;
-next_protocol(#state{next_protocol = undefined} = State, _) ->
+next_protocol(#state{negotiated_protocol = undefined} = State, _) ->
     State;
 next_protocol(#state{expecting_next_protocol_negotiation = false} = State, _) ->
     State;
-next_protocol(#state{next_protocol = NextProtocol} = State0, Connection) ->
+next_protocol(#state{negotiated_protocol = NextProtocol} = State0, Connection) ->
     NextProtocolMessage = ssl_handshake:next_protocol(NextProtocol),
     Connection:send_handshake(NextProtocolMessage, State0).
 

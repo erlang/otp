@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2001-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2015. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %%
@@ -29,9 +30,12 @@
 	 export_import/1,
 	 otp_5031/1, eif/1, otp_5305/1, otp_5418/1, otp_6115/1, otp_7095/1,
          otp_8188/1, otp_8270/1, otp_8273/1, otp_8340/1,
-	 otp_10979_hanging_node/1, compile_beam_opts/1, eep37/1]).
+         otp_10979_hanging_node/1, compile_beam_opts/1, eep37/1,
+         analyse_no_beam/1]).
 
 -export([do_coverage/1]).
+
+-export([distribution_performance/1]).
 
 -include_lib("test_server/include/test_server.hrl").
 
@@ -50,7 +54,8 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     NoStartStop = [eif,otp_5305,otp_5418,otp_7095,otp_8273,
-		   otp_8340,otp_8188,compile_beam_opts,eep37],
+                   otp_8340,otp_8188,compile_beam_opts,eep37,
+		   analyse_no_beam],
     StartStop = [start, compile, analyse, misc, stop,
 		 distribution, reconnect, die_and_reconnect,
 		 dont_reconnect_after_stop, stop_node_after_disconnect,
@@ -170,9 +175,14 @@ compile(Config) when is_list(Config) ->
     ?line {ok, CWD} = file:get_cwd(),
     ?line Result2 = cover:compile_directory(CWD),
     ?line SortedResult = lists:sort(Result2),
-    ?line [{error,_DFile},{ok,a},{ok,b},{ok,cc},{ok,f}] = SortedResult,
+    ?line [{error,DFile},{ok,a},{ok,b},{ok,cc},{ok,f}] = SortedResult,
     ?line [{ok,e}] = cover:compile_directory("d1"),
     ?line {error,enoent} = cover:compile_directory("d2"),
+
+    [] = cover:compile([]),
+    Result21 = cover:compile([a,b,"cc.erl",d,"f"]),
+    SortedResult21 = lists:sort(Result21),
+    [{error,DFile},{ok,a},{ok,b},{ok,cc},{ok,f}] = SortedResult21,
 
     ?line {ok,a} = cover:compile(a),
     ?line {ok,b} = compile:file(b),
@@ -213,8 +223,14 @@ compile(Config) when is_list(Config) ->
     ?line {error,non_existing} = cover:compile_beam(z),
     ?line [{ok,y}] = cover:compile_beam_directory("d"),
     ?line Result3 = lists:sort(cover:compile_beam_directory()),
-    ?line [{error,{no_abstract_code,_XBeam}},{ok,crypt},{ok,v},{ok,w}] = Result3,
+    ?line [{error,{no_abstract_code,XBeam}},{ok,crypt},{ok,v},{ok,w}] = Result3,
     ?line {error,enoent} = cover:compile_beam_directory("d2"),
+
+    [] = cover:compile_beam([]),
+    Result31 = cover:compile_beam([crypt,"v.beam",w,"x"]),
+    SortedResult31 = lists:sort(Result31),
+    [{error,{no_abstract_code,XBeam}},{ok,crypt},{ok,v},{ok,w}] = SortedResult31,
+
     ?line decompile([v,w,y]),
     ?line Files = lsfiles(),
     ?line remove(files(Files, ".beam")).
@@ -239,20 +255,22 @@ analyse(Config) when is_list(Config) ->
 
     ?line done = a:start(5),
 
-    ?line {ok, {a,{17,2}}} = cover:analyse(a, coverage, module),
-    ?line {ok, [{{a,start,1},{6,0}},
-		{{a,stop,1},{0,1}},
-		{{a,pong,1},{1,0}},
-		{{a,loop,3},{5,1}},
-		{{a,trycatch,1},{4,0}},
-		{{a,exit_kalle,0},{1,0}}]} = cover:analyse(a, coverage, function),
-    ?line {ok, [{{a,start,1,1},{6,0}},
-		{{a,stop,1,1},{0,1}},
-		{{a,pong,1,1},{1,0}},
+    {ok, {a,{17,2}}=ACovMod} = cover:analyse(a, coverage, module),
+    {ok, [{{a,exit_kalle,0},{1,0}},
+	  {{a,loop,3},{5,1}},
+	  {{a,pong,1},{1,0}},
+	  {{a,start,1},{6,0}},
+	  {{a,stop,1},{0,1}},
+	  {{a,trycatch,1},{4,0}}]=ACovFunc} =
+	cover:analyse(a, coverage, function),
+    {ok, [{{a,exit_kalle,0,1},{1,0}},
 		{{a,loop,3,1},{3,1}},
 		{{a,loop,3,2},{2,0}},
-		{{a,trycatch,1,1},{4,0}},
-		{{a,exit_kalle,0,1},{1,0}}]} = cover:analyse(a, coverage, clause),
+		{{a,pong,1,1},{1,0}},
+		{{a,start,1,1},{6,0}},
+		{{a,stop,1,1},{0,1}},
+		{{a,trycatch,1,1},{4,0}}]=ACovClause} =
+	cover:analyse(a, coverage, clause),
     ?line {ok, [{{a,9},{1,0}},
 		{{a,10},{1,0}},
 		{{a,11},{1,0}},
@@ -271,22 +289,22 @@ analyse(Config) when is_list(Config) ->
 		{{a,47},{1,0}},
 		{{a,49},{1,0}},
 		{{a,51},{1,0}},
-		{{a,55},{1,0}}]} = cover:analyse(a, coverage, line),
+		{{a,55},{1,0}}]=ACovLine} = cover:analyse(a, coverage, line),
 
-    ?line {ok, {a,15}} = cover:analyse(a, calls, module),
-    ?line {ok, [{{a,start,1},1},
-		{{a,stop,1},0},
-		{{a,pong,1},5},
-		{{a,loop,3},6},
-		{{a,trycatch,1},2},
-		{{a,exit_kalle,0},1}]} = cover:analyse(a, calls, function),
-    ?line {ok, [{{a,start,1,1},1},
-		{{a,stop,1,1},0},
-		{{a,pong,1,1},5},
-		{{a,loop,3,1},5},
-		{{a,loop,3,2},1},
-		{{a,trycatch,1,1},2},
-		{{a,exit_kalle,0,1},1}]} = cover:analyse(a, calls, clause),
+    {ok, {a,15}=ACallsMod} = cover:analyse(a, calls, module),
+    {ok, [{{a,exit_kalle,0},1},
+	  {{a,loop,3},6},
+	  {{a,pong,1},5},
+	  {{a,start,1},1},
+	  {{a,stop,1},0},
+	  {{a,trycatch,1},2}]=ACallsFunc} = cover:analyse(a, calls, function),
+    {ok, [{{a,exit_kalle,0,1},1},
+	  {{a,loop,3,1},5},
+	  {{a,loop,3,2},1},
+	  {{a,pong,1,1},5},
+	  {{a,start,1,1},1},
+	  {{a,stop,1,1},0},
+	  {{a,trycatch,1,1},2}]=ACallsClause} = cover:analyse(a, calls, clause),
     ?line {ok, [{{a,9},1},
 		{{a,10},1},
 		{{a,11},1},
@@ -305,26 +323,84 @@ analyse(Config) when is_list(Config) ->
 		{{a,47},1},
 		{{a,49},1},
 		{{a,51},2},
-		{{a,55},1}]} = cover:analyse(a, calls, line),
+		{{a,55},1}]=ACallsLine} = cover:analyse(a, calls, line),
 
-    ?line {ok, [{{a,start,1},{6,0}},
-		{{a,stop,1},{0,1}},
-		{{a,pong,1},{1,0}},
-		{{a,loop,3},{5,1}},
-		{{a,trycatch,1},{4,0}},
-		{{a,exit_kalle,0},{1,0}}]} = cover:analyse(a),
-    ?line {ok, {a,{17,2}}} = cover:analyse(a, module),
-    ?line {ok, [{{a,start,1},1},
-		{{a,stop,1},0},
-		{{a,pong,1},5},
-		{{a,loop,3},6},
-		{{a,trycatch,1},2},
-		{{a,exit_kalle,0},1}]} = cover:analyse(a, calls),
+    {ok,ACovFunc} = cover:analyse(a),
+    {ok,ACovMod} = cover:analyse(a, module),
+    {ok,ACallsFunc} = cover:analyse(a, calls),
 
     ?line {ok, "a.COVER.out"} = cover:analyse_to_file(a),
     ?line {ok, "e.COVER.out"} = cover:analyse_to_file(e),
     ?line {ok, "a.COVER.html"} = cover:analyse_to_file(a,[html]),
     ?line {ok, "e.COVER.html"} = cover:analyse_to_file(e,[html]),
+
+    %% Analyse all modules
+    Modules = cover:modules(),
+    N = length(Modules),
+
+    {result,CovFunc,[]} = cover:analyse(), % default = coverage, function
+    ACovFunc = [A || {{a,_,_},_}=A<-CovFunc],
+
+    {result,CovMod,[]} = cover:analyse(coverage,module),
+    ACovMod = lists:keyfind(a,1,CovMod),
+
+    {result,CovClause,[]} = cover:analyse(coverage,clause),
+    ACovClause = [A || {{a,_,_,_},_}=A<-CovClause],
+
+    {result,CovLine,[]} = cover:analyse(coverage,line),
+    ACovLine = [A || {{a,_},_}=A<-CovLine],
+
+    {result,CallsFunc,[]} = cover:analyse(calls,function),
+    ACallsFunc = [A || {{a,_,_},_}=A<-CallsFunc],
+
+    {result,CallsMod,[]} = cover:analyse(calls,module),
+    ACallsMod = lists:keyfind(a,1,CallsMod),
+
+    {result,CallsClause,[]} = cover:analyse(calls,clause),
+    ACallsClause = [A || {{a,_,_,_},_}=A<-CallsClause],
+
+    {result,CallsLine,[]} = cover:analyse(calls,line),
+    ACallsLine = [A || {{a,_},_}=A<-CallsLine],
+
+    {result,AllToFile,[]} = cover:analyse_to_file(),
+    N = length(AllToFile),
+    true = lists:member("a.COVER.out",AllToFile),
+    {result,AllToFileHtml,[]} = cover:analyse_to_file([html]),
+    N = length(AllToFileHtml),
+    true = lists:member("a.COVER.html",AllToFileHtml),
+
+    %% Analyse list of modules
+    %% Listing all modules so we can compare result with above result
+    %% from analysing all.
+
+    {result,CovFunc1,[]} = cover:analyse(Modules), % default = coverage, function
+    true = lists:sort(CovFunc) == lists:sort(CovFunc1),
+
+    {result,CovMod1,[]} = cover:analyse(Modules,coverage,module),
+    true = lists:sort(CovMod) == lists:sort(CovMod1),
+
+    {result,CovClause1,[]} = cover:analyse(Modules,coverage,clause),
+    true = lists:sort(CovClause) == lists:sort(CovClause1),
+    
+    {result,CovLine1,[]} = cover:analyse(Modules,coverage,line),
+    true = lists:sort(CovLine) == lists:sort(CovLine1),
+
+    {result,CallsFunc1,[]} = cover:analyse(Modules,calls,function),
+    true = lists:sort(CallsFunc1) == lists:sort(CallsFunc1),
+
+    {result,CallsMod1,[]} = cover:analyse(Modules,calls,module),
+    true = lists:sort(CallsMod) == lists:sort(CallsMod1),
+
+    {result,CallsClause1,[]} = cover:analyse(Modules,calls,clause),
+    true = lists:sort(CallsClause) == lists:sort(CallsClause1),
+
+    {result,CallsLine1,[]} = cover:analyse(Modules,calls,line),
+    true = lists:sort(CallsLine) == lists:sort(CallsLine1),
+
+    {result,AllToFile1,[]} = cover:analyse_to_file(Modules),
+    true = lists:sort(AllToFile) == lists:sort(AllToFile1),
+    {result,AllToFileHtml1,[]} = cover:analyse_to_file(Modules,[html]),
+    true = lists:sort(AllToFileHtml) == lists:sort(AllToFileHtml1),
 
     %% analyse_to_file of file which is compiled from beam
     ?line {ok,f} = compile:file(f,[debug_info]),
@@ -348,14 +424,17 @@ analyse(Config) when is_list(Config) ->
     {module,z} = code:load_file(z),
     {ok,z} = cover:compile_beam(z),
     ok = file:delete("z.erl"),
-    {error,no_source_code_found} = cover:analyse_to_file(z),
+    {error,{no_source_code_found,z}} = cover:analyse_to_file(z),
+    {result,[],[{no_source_code_found,z}]} = cover:analyse_to_file([z]),
     code:purge(z),
     code:delete(z),
 
     ?line {error,{not_cover_compiled,b}} = cover:analyse(b),
     ?line {error,{not_cover_compiled,g}} = cover:analyse(g),
+    {result,[],[{not_cover_compiled,b}]} = cover:analyse([b]),
     ?line {error,{not_cover_compiled,b}} = cover:analyse_to_file(b),
-    ?line {error,{not_cover_compiled,g}} = cover:analyse_to_file(g).
+    {error,{not_cover_compiled,g}} = cover:analyse_to_file(g),
+    {result,[],[{not_cover_compiled,g}]} = cover:analyse_to_file([g]).
 
 misc(suite) -> [];
 misc(Config) when is_list(Config) ->
@@ -680,6 +759,119 @@ stop_node_after_disconnect(Config) ->
     ?t:stop_node(N1),
     ok.
 
+distribution_performance(Config) ->
+    PrivDir = ?config(priv_dir,Config),
+    Dir = filename:join(PrivDir,"distribution_performance"),
+    AllFiles = filename:join(Dir,"*"),
+    ok = filelib:ensure_dir(AllFiles),
+    code:add_patha(Dir),
+    M = 9,   % Generate M modules
+    F = 210, % with F functions
+    C = 10,  % and each function of C clauses
+    Mods = generate_modules(M,F,C,Dir),
+
+%    ?t:break(""),
+
+    NodeName = cover_SUITE_distribution_performance,
+    {ok,N1} = ?t:start_node(NodeName,peer,[{start_cover,false}]),
+    %% CFun = fun() ->
+    %% 		   [{ok,_} = cover:compile_beam(Mod) || Mod <- Mods]
+    %% 	   end,
+    CFun = fun() -> cover:compile_beam(Mods) end,
+    {CT,CA} = timer:tc(CFun),
+%    erlang:display(CA),
+    erlang:display({compile,CT}),
+
+    {SNT,_} = timer:tc(fun() -> {ok,[N1]} = cover:start(nodes()) end),
+    erlang:display({start_node,SNT}),
+
+    [1 = rpc:call(N1,Mod,f1,[1]) || Mod <- Mods],
+
+%    Fun = fun() -> [cover:analyse(Mod,calls,function) || Mod<-Mods] end,
+%    Fun = fun() -> analyse_all(Mods,calls,function) end,
+%    Fun = fun() -> cover:analyse('_',calls,function) end,
+    Fun = fun() -> cover:analyse(Mods,calls,function) end,
+
+%    Fun = fun() -> [begin cover:analyse_to_file(Mod,[html]) end || Mod<-Mods] end,
+%    Fun = fun() -> analyse_all_to_file(Mods,[html]) end,
+%    Fun = fun() -> cover:analyse_to_file(Mods,[html]) end,
+%    Fun = fun() -> cover:analyse_to_file([html]) end,
+
+%    Fun = fun() -> cover:reset() end,
+
+    {AT,A} = timer:tc(Fun),
+    erlang:display({analyse,AT}),
+%    erlang:display(lists:sort([X || X={_MFA,N} <- lists:append([L || {ok,L}<-A]), N=/=0])),
+
+    %% fprof:apply(Fun, [],[{procs,[whereis(cover_server)]}]),
+    %% fprof:profile(),
+    %% fprof:analyse(dest,[]),
+
+    {SNT2,_} = timer:tc(fun() -> ?t:stop_node(N1) end),
+    erlang:display({stop_node,SNT2}),
+
+    code:del_path(Dir),
+    Files = filelib:wildcard(AllFiles),
+    [ok = file:delete(File) || File <- Files],
+    ok = file:del_dir(Dir),
+    ok.
+
+%% Run analysis in parallel
+analyse_all(Mods,Analysis,Level) ->
+    Pids = [begin
+		Pid = spawn(fun() ->
+				    {ok,A} = cover:analyse(Mod,Analysis,Level),
+				    exit(A)
+			    end),
+                erlang:monitor(process,Pid),
+                Pid
+            end || Mod <- Mods],
+    get_downs(Pids,[]).
+
+analyse_all_to_file(Mods,Opts) ->
+    Pids = [begin
+		Pid = cover:async_analyse_to_file(Mod,Opts),
+		erlang:monitor(process,Pid),
+		Pid
+	    end || Mod <- Mods],
+    get_downs(Pids,[]).
+
+get_downs([],Acc) ->
+    Acc;
+get_downs(Pids,Acc) ->
+    receive
+	{'DOWN', _Ref, _Type, Pid, A} -> 
+	    get_downs(lists:delete(Pid,Pids),[A|Acc])
+    end.
+
+generate_modules(0,_,_,_) ->
+    [];
+generate_modules(M,F,C,Dir) ->
+    ModStr = "m" ++ integer_to_list(M),
+    Mod = list_to_atom(ModStr),
+    Src = ["-module(",ModStr,").\n"
+	   "-compile(export_all).\n" |
+	   generate_functions(F,C)],
+    Erl = filename:join(Dir,ModStr++".erl"),
+    ok = file:write_file(Erl,Src),
+    {ok,Mod} = compile:file(Erl,[{outdir,Dir},debug_info,report]),
+    [Mod | generate_modules(M-1,F,C,Dir)].
+
+generate_functions(0,_) ->
+    [];
+generate_functions(F,C) ->
+    Func = "f" ++ integer_to_list(F),
+    [generate_clauses(C,Func) | generate_functions(F-1,C)].
+
+generate_clauses(0,_) ->
+    [];
+generate_clauses(C,Func) ->
+    CStr = integer_to_list(C),
+    Sep = if C==1 -> "."; true -> ";" end,
+    [Func,"(",CStr,") -> ",CStr,Sep,"\n" |
+     generate_clauses(C-1,Func)].
+
+
 export_import(suite) -> [];
 export_import(Config) when is_list(Config) ->
     ?line DataDir = ?config(data_dir, Config),
@@ -788,10 +980,11 @@ otp_5031(Config) when is_list(Config) ->
 
     Dog = ?t:timetrap(?t:seconds(10)),
 
-    ?line {ok,N1} = ?t:start_node(cover_SUITE_distribution1,slave,[]),
+    {ok,N1} = ?t:start_node(cover_SUITE_otp_5031,slave,[]),
     ?line {ok,[N1]} = cover:start(N1),
     ?line {error,not_main_node} = rpc:call(N1,cover,modules,[]),
     ?line cover:stop(),
+    ?t:stop_node(N1),
     
     ?t:timetrap_cancel(Dog),
     ok.
@@ -1005,6 +1198,7 @@ otp_7095(Config) when is_list(Config) ->
 
     ok.
 
+
 otp_8270(doc) ->
     ["OTP-8270. Bug."];
 otp_8270(suite) -> [];
@@ -1020,7 +1214,7 @@ otp_8270(Config) when is_list(Config) ->
     ?line {ok,N3} = ?t:start_node(cover_n3,slave,As),
     
     timer:sleep(500),
-    cover:start(nodes()),
+    {ok,[_,_,_]} = cover:start(nodes()),
 
     Test = <<
      "-module(m).\n"
@@ -1058,6 +1252,7 @@ otp_8270(Config) when is_list(Config) ->
     ?line {N2,true} = {N2,is_list(N2_info)},
     ?line {N3,true} = {N3,is_list(N3_info)},
 
+    exit(Pid1,kill),
     ?line ?t:stop_node(N1),
     ?line ?t:stop_node(N2),
     ?line ?t:stop_node(N3),
@@ -1495,6 +1690,43 @@ compile_beam_opts(Config) when is_list(Config) ->
     ok = file:set_cwd(Cwd),
     ok.
 
+analyse_no_beam(doc) ->
+    ["Don't crash if beam is not available"];
+analyse_no_beam(suite) -> [];
+analyse_no_beam(Config) when is_list(Config) ->
+    {ok, Cwd} = file:get_cwd(),
+    ok = file:set_cwd(?config(data_dir, Config)),
+
+    code:purge(t),
+    code:delete(t),
+
+    {ok,_} = file:copy("compile_beam/t.erl", "t.erl"),
+    {ok,t} = compile:file(t, [debug_info]),
+    {module,t} = code:load_file(t),
+    {ok,t} = cover:compile_beam(t),
+    t:f(),
+    ok = cover:export("t.coverdata"),
+
+    code:purge(t),
+    code:delete(t),
+
+    %% this is just so that cover realises (without stopping)
+    %% that this module is not cover compiled any more
+    {error, {not_cover_compiled,t}} = cover:analyse(t),
+
+    %% source and beam not available any more
+    ok = file:delete("t.erl"),
+    ok = file:delete("t.beam"),
+
+    ok = cover:import("t.coverdata"),
+
+    {error,{no_source_code_found,t}} = cover:analyse_to_file(t),
+    {result,[],[{no_source_code_found,t}]} = cover:analyse_to_file([t]),
+
+    ok = file:delete("t.coverdata"),
+    ok = file:set_cwd(Cwd),
+    ok.
+
 %%--Auxiliary------------------------------------------------------------
 
 analyse_expr(Expr, Config) ->
@@ -1572,7 +1804,9 @@ is_unloaded(What) ->
     end.
 
 check_f_calls(F1,F2) ->
-    {ok,[{{f,f1,0},F1},{{f,f2,0},F2}|_]} = cover:analyse(f,calls,function).
+    {ok,A} = cover:analyse(f,calls,function),
+    {_,F1} = lists:keyfind({f,f1,0},1,A),
+    {_,F2} = lists:keyfind({f,f2,0},1,A).
 
 cover_which_nodes(Expected) ->
     case cover:which_nodes() of

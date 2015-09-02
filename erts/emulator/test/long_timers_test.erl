@@ -3,16 +3,17 @@
 %% 
 %% Copyright Ericsson AB 2006-2010. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %%
@@ -28,7 +29,7 @@
 
 
 -define(MAX_TIMEOUT, 60). % Minutes
--define(MAX_LATE, 10*1000). % Milliseconds
+-define(MAX_LATE_MS, 15*1000). % Milliseconds
 -define(REG_NAME, '___LONG___TIMERS___TEST___SERVER___').
 
 -define(DRV_NAME, timer_driver).
@@ -75,7 +76,7 @@ check_result() ->
 	    erlang:demonitor(Mon),
 	    receive {'DOWN', Mon, _, _, _} -> ok after 0 -> ok end,
 	    stop_node(Node),
-	    check(TORs, (timer:now_diff(End, Start) div 1000) - ?MAX_LATE, ok)
+	    check(TORs, ms((End - Start) - max_late()), ok)
     end.
 
 check([#timeout_rec{timeout = Timeout,
@@ -83,7 +84,7 @@ check([#timeout_rec{timeout = Timeout,
 		    timeout_diff = undefined} | TORs],
       NeedRes,
       _Ok) when Timeout < NeedRes ->
-    io:format("~p timeout = ~p failed! No timeout.~n",
+    io:format("~p timeout = ~p ms failed! No timeout.~n",
 	      [Type, Timeout]),
     check(TORs, NeedRes, failed);
 check([#timeout_rec{timeout_diff = undefined} | TORs],
@@ -95,7 +96,7 @@ check([#timeout_rec{timeout = Timeout,
 		    timeout_diff = {error, Reason}} | TORs],
       NeedRes,
       _Ok) ->
-    io:format("~p timeout = ~p failed! exit reason ~p~n",
+    io:format("~p timeout = ~p ms failed! exit reason ~p~n",
 	      [Type, Timeout, Reason]),
     check(TORs, NeedRes, failed);
 check([#timeout_rec{timeout = Timeout,
@@ -103,43 +104,77 @@ check([#timeout_rec{timeout = Timeout,
 		    timeout_diff = TimeoutDiff} | TORs],
       NeedRes,
       Ok) ->
-    case (0 =< TimeoutDiff) and (TimeoutDiff =< ?MAX_LATE) of
-	true ->
-	    io:format("~p timeout = ~p succeded! timeout diff = ~p.~n",
-		      [Type, Timeout, TimeoutDiff]),
-	    check(TORs, NeedRes, Ok);
-	false ->
-	    io:format("~p timeout = ~p failed! timeout diff = ~p.~n",
-		      [Type, Timeout, TimeoutDiff]),
-	    check(TORs, NeedRes, failed)
-    end;
+    {NewOk, SuccessStr} = case ((0 =< TimeoutDiff)
+				andalso (TimeoutDiff =< max_late())) of
+			      true -> {Ok, "succeeded"};
+			      false -> {failed, "FAILED"}
+			  end,
+    io:format("~s timeout = ~s ms ~s! timeout diff = ~s.~n",
+	      [type_str(Type),
+	       time_str(Timeout),
+	       SuccessStr,
+	       time_str(TimeoutDiff, erlang:convert_time_unit(1, seconds, native))]),
+    check(TORs, NeedRes, NewOk);
 check([], _NeedRes, Ok) ->
     Ok.
 
+type_str(receive_after) -> "receive ... after";
+type_str(bif_timer) -> "BIF timer";
+type_str(driver) -> "driver".
+
+time_str(Time, Unit) ->
+    lists:flatten([time_str(Time), " ", unit_str(Unit)]).
+
+time_str(Time) ->
+    lists:reverse(conv_time_str(lists:reverse(integer_to_list(Time)))).
+
+conv_time_str([X,Y,Z,C|Cs]) when C /= $- ->
+    [X,Y,Z,$`|conv_time_str([C|Cs])];
+conv_time_str(Cs) ->
+    Cs.
+
+unit_str(1) -> "s";
+unit_str(1000) -> "ms";
+unit_str(1000000) -> "us";
+unit_str(1000000000) -> "ns";
+unit_str(Res) when is_integer(Res) -> ["/ ", integer_to_list(Res), " s"];
+unit_str(Res) -> Res.
+
+to_diff(Timeout, Start, Stop) ->
+    %% 'Timeout' in milli seconds
+    %% 'Start', 'Stop', and result in native unit
+    (Stop - Start) - erlang:convert_time_unit(Timeout, milli_seconds, native).
+
+ms(Time) ->
+    erlang:convert_time_unit(Time, native, milli_seconds).
+
+max_late() ->
+    erlang:convert_time_unit(?MAX_LATE_MS, milli_seconds, native).
+
 receive_after(Timeout) ->
-    Start = now(),
+    Start = erlang:monotonic_time(),
     receive
 	{get_result, ?REG_NAME} ->
 	    ?REG_NAME ! #timeout_rec{pid = self(),
 				     type = receive_after,
 				     timeout = Timeout}
     after Timeout ->
-	    Stop = now(),
+	    Stop = erlang:monotonic_time(),
 	    receive
 		{get_result, ?REG_NAME} ->
-	    	    TimeoutDiff = ((timer:now_diff(Stop, Start) div 1000)
-				   - Timeout),
 		    ?REG_NAME ! #timeout_rec{pid = self(),
 					     type = receive_after,
 					     timeout = Timeout,
-					     timeout_diff = TimeoutDiff}
+					     timeout_diff = to_diff(Timeout,
+								    Start,
+								    Stop)}
 	    end
     end.
 
 driver(Timeout) ->
     Port = open_port({spawn, ?DRV_NAME},[]),
     link(Port),
-    Start = now(),
+    Start = erlang:monotonic_time(),
     erlang:port_command(Port, <<?START_TIMER, Timeout:32>>),
     receive
 	{get_result, ?REG_NAME} ->
@@ -147,38 +182,38 @@ driver(Timeout) ->
 				     type = driver,
 				     timeout = Timeout};
 	{Port,{data,[?TIMER]}} ->
-	    Stop = now(),
+	    Stop = erlang:monotonic_time(),
 	    unlink(Port),
 	    true = erlang:port_close(Port),
 	    receive
 		{get_result, ?REG_NAME} ->
-	    	    TimeoutDiff = ((timer:now_diff(Stop, Start) div 1000)
-				   - Timeout),
 		    ?REG_NAME ! #timeout_rec{pid = self(),
 					     type = driver,
 					     timeout = Timeout,
-					     timeout_diff = TimeoutDiff}
+					     timeout_diff = to_diff(Timeout,
+								    Start,
+								    Stop)}
 	    end
     end.
 
 bif_timer(Timeout) ->
+    Start = erlang:monotonic_time(),
     Tmr = erlang:start_timer(Timeout, self(), ok),
-    Start = now(),
     receive
 	{get_result, ?REG_NAME} ->
 	    ?REG_NAME ! #timeout_rec{pid = self(),
 				     type = bif_timer,
 				     timeout = Timeout};
 	{timeout, Tmr, ok} ->
-	    Stop = now(),
+	    Stop = erlang:monotonic_time(),
 	    receive
 		{get_result, ?REG_NAME} ->
-	    	    TimeoutDiff = ((timer:now_diff(Stop, Start) div 1000)
-				   - Timeout),
 		    ?REG_NAME ! #timeout_rec{pid = self(),
 					     type = bif_timer,
 					     timeout = Timeout,
-					     timeout_diff = TimeoutDiff}
+					     timeout_diff = to_diff(Timeout,
+								    Start,
+								    Stop)}
 	    end
     end.
 
@@ -189,7 +224,7 @@ test(Starter, DrvDir, StartDone) ->
     register(?REG_NAME, self()),
     {group_leader, GL} = process_info(whereis(net_kernel),group_leader),
     group_leader(GL, self()),
-    Start = now(),
+    Start = erlang:monotonic_time(),
     TORs = lists:map(fun (Min) ->
 			     TO = Min*60*1000,
 			     [#timeout_rec{pid = spawn_opt(
@@ -222,7 +257,7 @@ test(Starter, DrvDir, StartDone) ->
 test_loop(TORs, Start) ->
     receive
 	{get_result, ?REG_NAME, Pid} ->
-	    End = now(),
+	    End = erlang:monotonic_time(),
 	    Pid ! {result, ?REG_NAME, get_test_results(TORs), Start, End},
 	    erl_ddll:unload_driver(?DRV_NAME),
 	    erl_ddll:stop(),

@@ -3,16 +3,17 @@
  *
  * Copyright Ericsson AB 2001-2013. All Rights Reserved.
  *
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  * %CopyrightEnd%
  */
@@ -476,6 +477,7 @@ ERTS_GLB_INLINE void erts_thr_detach(erts_tid_t tid);
 ERTS_GLB_INLINE void erts_thr_exit(void *res);
 ERTS_GLB_INLINE void erts_thr_install_exit_handler(void (*exit_handler)(void));
 ERTS_GLB_INLINE erts_tid_t erts_thr_self(void);
+ERTS_GLB_INLINE int erts_thr_getname(erts_tid_t tid, char *buf, size_t len);
 ERTS_GLB_INLINE int erts_equal_tids(erts_tid_t x, erts_tid_t y);
 ERTS_GLB_INLINE void erts_mtx_init_x(erts_mtx_t *mtx, char *name, Eterm extra,
 				     int enable_lcnt);
@@ -651,16 +653,24 @@ ERTS_GLB_INLINE void erts_tse_set(erts_tse_t *ep);
 ERTS_GLB_INLINE void erts_tse_reset(erts_tse_t *ep);
 ERTS_GLB_INLINE int erts_tse_wait(erts_tse_t *ep);
 ERTS_GLB_INLINE int erts_tse_swait(erts_tse_t *ep, int spincount);
+ERTS_GLB_INLINE int erts_tse_twait(erts_tse_t *ep, Sint64 tmo);
+ERTS_GLB_INLINE int erts_tse_stwait(erts_tse_t *ep, int spincount, Sint64 tmo);
 ERTS_GLB_INLINE int erts_tse_is_tmp(erts_tse_t *ep);
 ERTS_GLB_INLINE void erts_thr_set_main_status(int, int);
 ERTS_GLB_INLINE int erts_thr_get_main_status(void);
 ERTS_GLB_INLINE void erts_thr_yield(void);
+
 
 #ifdef ETHR_HAVE_ETHR_SIG_FUNCS
 #define ERTS_THR_HAVE_SIG_FUNCS 1
 ERTS_GLB_INLINE void erts_thr_sigmask(int how, const sigset_t *set,
 				      sigset_t *oset);
 ERTS_GLB_INLINE void erts_thr_sigwait(const sigset_t *set, int *sig);
+
+#ifdef USE_THREADS
+ERTS_GLB_INLINE void erts_thr_kill(erts_tid_t tid, int sig);
+#endif
+
 #endif /* #ifdef HAVE_ETHR_SIG_FUNCS */
 
 #ifdef USE_THREADS
@@ -2129,6 +2139,16 @@ erts_thr_self(void)
 #endif
 }
 
+ERTS_GLB_INLINE int
+erts_thr_getname(erts_tid_t tid, char *buf, size_t len)
+{
+#ifdef USE_THREADS
+    return ethr_getname(tid, buf, len);
+#else
+    return -1;
+#endif
+}
+
 
 ERTS_GLB_INLINE int
 erts_equal_tids(erts_tid_t x, erts_tid_t y)
@@ -3473,6 +3493,27 @@ ERTS_GLB_INLINE int erts_tse_swait(erts_tse_t *ep, int spincount)
 #endif
 }
 
+ERTS_GLB_INLINE int erts_tse_twait(erts_tse_t *ep, Sint64 tmo)
+{
+#ifdef USE_THREADS
+    return ethr_event_twait(&((ethr_ts_event *) ep)->event,
+			    (ethr_sint64_t) tmo);
+#else
+    return ENOTSUP;
+#endif
+}
+
+ERTS_GLB_INLINE int erts_tse_stwait(erts_tse_t *ep, int spincount, Sint64 tmo)
+{
+#ifdef USE_THREADS
+    return ethr_event_stwait(&((ethr_ts_event *) ep)->event,
+			     spincount,
+			     (ethr_sint64_t) tmo);
+#else
+    return ENOTSUP;
+#endif
+}
+
 ERTS_GLB_INLINE int erts_tse_is_tmp(erts_tse_t *ep)
 {
 #ifdef USE_THREADS
@@ -3515,6 +3556,15 @@ ERTS_GLB_INLINE void erts_thr_yield(void)
 
 
 #ifdef ETHR_HAVE_ETHR_SIG_FUNCS
+
+ERTS_GLB_INLINE void
+erts_thr_kill(erts_tid_t tid, int sig) {
+#ifdef USE_THREADS
+  int res = ethr_kill((ethr_tid)tid, sig);
+  if (res)
+    erts_thr_fatal_error(res, "killing thread");
+#endif
+}
 
 ERTS_GLB_INLINE void
 erts_thr_sigmask(int how, const sigset_t *set, sigset_t *oset)

@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 1997-2012. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -308,7 +309,7 @@ scheduler_wall_time(Config) when is_list(Config) ->
     try
 	Schedulers = erlang:system_info(schedulers_online),
 	%% Let testserver and everyone else finish their work
-	timer:sleep(500),
+	timer:sleep(1500),
 	%% Empty load
 	EmptyLoad = get_load(),
 	{false, _} = {lists:any(fun(Load) -> Load > 50 end, EmptyLoad),EmptyLoad},
@@ -347,7 +348,7 @@ scheduler_wall_time(Config) when is_list(Config) ->
 
 	[exit(Pid, kill) || Pid <- [P1|HalfHogs++LastHogs]],
 	AfterLoad = get_load(),
-	{false,_} = {lists:any(fun(Load) -> Load > 5 end, AfterLoad),AfterLoad},
+	{false,_} = {lists:any(fun(Load) -> Load > 25 end, AfterLoad),AfterLoad},
 	true = erlang:system_flag(scheduler_wall_time, false)
     after
 	erlang:system_flag(scheduler_wall_time, false)
@@ -355,7 +356,7 @@ scheduler_wall_time(Config) when is_list(Config) ->
 
 get_load() ->
     Start = erlang:statistics(scheduler_wall_time),
-    timer:sleep(500),
+    timer:sleep(1500),
     End = erlang:statistics(scheduler_wall_time),
     lists:reverse(lists:sort(load_percentage(lists:sort(Start),lists:sort(End)))).
 

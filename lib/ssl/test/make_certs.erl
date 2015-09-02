@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2007-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2015. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %%
@@ -81,7 +82,7 @@ all(DataDir, PrivDir, C = #config{}) ->
     create_rnd(DataDir, PrivDir),			% For all requests
     rootCA(PrivDir, "erlangCA", C),
     intermediateCA(PrivDir, "otpCA", "erlangCA", C),
-    endusers(PrivDir, "otpCA", ["client", "server", "revoked"], C),
+    endusers(PrivDir, "otpCA", ["client", "server", "revoked", "a.server", "b.server"], C),
     endusers(PrivDir, "erlangCA", ["localhost"], C),
     %% Create keycert files 
     SDir = filename:join([PrivDir, "server"]),
@@ -324,8 +325,9 @@ eval_cmd(Port, Cmd) ->
 	    ok
     end,
     receive
-	{Port, {exit_status, Status}} when Status /= 0 ->
-	    %% io:fwrite("exit status: ~w~n", [Status]),
+	{Port, {exit_status, 0}}  ->
+	    ok;
+	{Port, {exit_status, Status}} ->
 	    exit({eval_cmd, Cmd, Status})
     after 0 ->
 	    ok
@@ -369,7 +371,7 @@ req_cnf(C) ->
      "subjectKeyIdentifier = hash\n"
      "subjectAltName	= email:copy\n"].
 
-ca_cnf(C) ->
+ca_cnf(C = #config{issuing_distribution_point = true}) ->
     ["# Purpose: Configuration for CAs.\n"
      "\n"
      "ROOTDIR	        = $ENV::ROOTDIR\n"
@@ -446,5 +448,83 @@ ca_cnf(C) ->
      "subjectAltName	= email:copy\n"
      "issuerAltName	= issuer:copy\n"
      "crlDistributionPoints=@crl_section\n"
-    ].
+    ];
 
+ca_cnf(C = #config{issuing_distribution_point = false}) ->
+    ["# Purpose: Configuration for CAs.\n"
+     "\n"
+     "ROOTDIR	        = $ENV::ROOTDIR\n"
+     "default_ca	= ca\n"
+     "\n"
+
+     "[ca]\n"
+     "dir		= $ROOTDIR/", C#config.commonName, "\n"
+     "certs		= $dir/certs\n"
+     "crl_dir	        = $dir/crl\n"
+     "database	        = $dir/index.txt\n"
+     "new_certs_dir	= $dir/newcerts\n"
+     "certificate	= $dir/cert.pem\n"
+     "serial		= $dir/serial\n"
+     "crl		= $dir/crl.pem\n",
+     ["crlnumber		= $dir/crlnumber\n" || C#config.v2_crls],
+     "private_key	= $dir/private/key.pem\n"
+     "RANDFILE	        = $dir/private/RAND\n"
+     "\n"
+     "x509_extensions   = user_cert\n",
+     ["crl_extensions = crl_ext\n" || C#config.v2_crls],
+     "unique_subject  = no\n"
+     "default_days	= 3600\n"
+     "default_md	= md5\n"
+     "preserve	        = no\n"
+     "policy		= policy_match\n"
+     "\n"
+
+     "[policy_match]\n"
+     "commonName		= supplied\n"
+     "organizationalUnitName	= optional\n"
+     "organizationName	        = match\n"
+     "countryName		= match\n"
+     "localityName		= match\n"
+     "emailAddress		= supplied\n"
+     "\n"
+
+     "[crl_ext]\n"
+     "authorityKeyIdentifier=keyid:always,issuer:always\n",
+     %["issuingDistributionPoint=critical, @idpsec\n" || C#config.issuing_distribution_point],
+
+     %"[idpsec]\n"
+     %"fullname=URI:http://localhost:8000/",C#config.commonName,"/crl.pem\n"
+
+     "[user_cert]\n"
+     "basicConstraints	= CA:false\n"
+     "keyUsage 		= nonRepudiation, digitalSignature, keyEncipherment\n"
+     "subjectKeyIdentifier = hash\n"
+     "authorityKeyIdentifier = keyid,issuer:always\n"
+     "subjectAltName	= email:copy\n"
+     "issuerAltName	= issuer:copy\n"
+     %"crlDistributionPoints=@crl_section\n"
+
+     %%"[crl_section]\n"
+     %% intentionally invalid
+     %%"URI.1=http://localhost/",C#config.commonName,"/crl.pem\n"
+     %%"URI.2=http://localhost:",integer_to_list(C#config.crl_port),"/",C#config.commonName,"/crl.pem\n"
+     %%"\n"
+
+     "[user_cert_digital_signature_only]\n"
+     "basicConstraints	= CA:false\n"
+     "keyUsage 		= digitalSignature\n"
+     "subjectKeyIdentifier = hash\n"
+     "authorityKeyIdentifier = keyid,issuer:always\n"
+     "subjectAltName	= email:copy\n"
+     "issuerAltName	= issuer:copy\n"
+     "\n"
+
+     "[ca_cert]\n"
+     "basicConstraints 	= critical,CA:true\n"
+     "keyUsage 		= cRLSign, keyCertSign\n"
+     "subjectKeyIdentifier = hash\n"
+     "authorityKeyIdentifier = keyid:always,issuer:always\n"
+     "subjectAltName	= email:copy\n"
+     "issuerAltName	= issuer:copy\n"
+     %"crlDistributionPoints=@crl_section\n"
+    ].

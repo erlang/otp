@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 2002-2014. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -119,7 +120,16 @@ end_per_suite(_Config) ->
 %% Note: This function is free to add any key/value pairs to the Config
 %% variable, but should NOT alter/remove any existing entries.
 %%--------------------------------------------------------------------
+init_per_testcase(connect_port_timeout, Config) ->
+    odbc:stop(),
+    application:load(odbc),
+    application:set_env(odbc, port_timeout, 0),
+    odbc:start(),
+    init_per_testcase_common(Config);
 init_per_testcase(_TestCase, Config) ->
+    init_per_testcase_common(Config).
+
+init_per_testcase_common(Config) ->
     test_server:format("ODBCINI = ~p~n", [os:getenv("ODBCINI")]),
     Dog = test_server:timetrap(?default_timeout),
     Temp = lists:keydelete(connection_ref, 1, Config),
@@ -134,7 +144,16 @@ init_per_testcase(_TestCase, Config) ->
 %%   A list of key/value pairs, holding the test case configuration.
 %% Description: Cleanup after each test case
 %%--------------------------------------------------------------------
+
+end_per_testcase(connect_port_timeout, Config) ->
+    application:unset_env(odbc, port_timeout),
+    odbc:stop(),
+    odbc:start(),
+    end_per_testcase_common(Config);
 end_per_testcase(_TestCase, Config) ->
+    end_per_testcase_common(Config).
+
+end_per_testcase_common(Config) ->
     Table = ?config(tableName, Config),
     {ok, Ref} = odbc:connect(?RDBMS:connection_string(), odbc_test_lib:platform_options()),
     Result = odbc:sql_query(Ref, "DROP TABLE " ++ Table),
@@ -422,6 +441,18 @@ connect_timeout(Config) when is_list(Config) ->
     %% Need to return ok here "{'EXIT',timeout} return value" will
     %% be interpreted as that the testcase has timed out.
     ok.
+
+%%-------------------------------------------------------------------------
+connect_port_timeout(doc) ->
+    ["Test the timeout for the port program to connect back to the odbc "
+     "application within the connect function."];
+connect_port_timeout(suite) -> [];
+connect_port_timeout(Config) when is_list(Config) ->
+    %% Application environment var 'port_timeout' has been set to 0 by
+    %% init_per_testcase/2.
+    {error,timeout} = odbc:connect(?RDBMS:connection_string(),
+                                   odbc_test_lib:platform_options()).
+
 %%-------------------------------------------------------------------------
 timeout(doc) ->
     ["Test that timeouts don't cause unwanted behavior sush as receiving"

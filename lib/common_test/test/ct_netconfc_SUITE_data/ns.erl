@@ -1,18 +1,19 @@
 %%--------------------------------------------------------------------
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2012-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2012-2014. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -382,6 +383,7 @@ event({startElement,_,Name,_,Attrs},[ignore,{se,Name,As}|Match]) ->
 event({startPrefixMapping,_,Ns},[{ns,Ns}|Match]) -> Match;
 event({startPrefixMapping,_,Ns},[ignore,{ns,Ns}|Match]) -> Match;
 event({endPrefixMapping,_},Match) -> Match;
+event({characters,Chs},[{characters,Chs}|Match]) -> Match;
 event({endElement,_,Name,_},[{ee,Name}|Match]) -> Match;
 event({endElement,_,Name,_},[ignore,{ee,Name}|Match]) -> Match;
 event(endDocument,Match) when Match==[]; Match==[ignore] -> ok;
@@ -471,14 +473,17 @@ capabilities(no_caps) ->
 %%% expect_do_reply/3.
 %%%
 %%% match(term()) -> [Match].
-%%% Match = ignore | {se,Name} | {se,Name,Attrs} | {ee,Name} | {ns,Namespace}
+%%% Match = ignore | {se,Name} | {se,Name,Attrs} | {ee,Name} |
+%%%         {ns,Namespace} | {characters,Chs}
 %%% Name = string()
+%%% Chs = string()
 %%% Attrs = [{atom(),string()}]
 %%% Namespace = string()
 %%%
 %%% 'se' means start element, 'ee' means end element - i.e. to match
 %%% an XML element you need one 'se' entry and one 'ee' entry with the
-%%% same name in the match list.
+%%% same name in the match list. 'characters' can be used for matching
+%%% character data (cdata) inside an element.
 match(hello) ->
     [ignore,{se,"hello"},ignore,{ee,"hello"},ignore];
 match('close-session') ->
@@ -486,6 +491,10 @@ match('close-session') ->
      {ee,"close-session"},{ee,"rpc"},ignore];
 match('edit-config') ->
     [ignore,{se,"rpc"},{se,"edit-config"},{se,"target"},ignore,{ee,"target"},
+     {se,"config"},ignore,{ee,"config"},{ee,"edit-config"},{ee,"rpc"},ignore];
+match({'edit-config',{'default-operation',DO}}) ->
+    [ignore,{se,"rpc"},{se,"edit-config"},{se,"target"},ignore,{ee,"target"},
+     {se,"default-operation"},{characters,DO},{ee,"default-operation"},
      {se,"config"},ignore,{ee,"config"},{ee,"edit-config"},{ee,"rpc"},ignore];
 match('get') ->
     match({get,subtree});

@@ -8,16 +8,17 @@
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
-      The contents of this file are subject to the Erlang Public License,
-      Version 1.1, (the "License"); you may not use this file except in
-      compliance with the License. You should have received a copy of the
-      Erlang Public License along with this software. If not, it can be
-      retrieved online at http://www.erlang.org/.
-    
-      Software distributed under the License is distributed on an "AS IS"
-      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-      the License for the specific language governing rights and limitations
-      under the License.
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
     
     </legalnotice>
 
@@ -29,11 +30,14 @@
     <file>part.sgml</file>
   </header>
   <description>
-    <p>The <em>Asn1</em> application 
-      contains modules with compile-time and run-time support for ASN.1.
+    <p>The <c>ASN.1</c> application
+      contains modules with compile-time and runtime support for
+      Abstract Syntax Notation One (ASN.1).
       </p>
   </description>
-  <xi:include href="asn1_ug.xml"/>
+  <xi:include href="asn1_introduction.xml"/>
+  <xi:include href="asn1_overview.xml"/>
+  <xi:include href="asn1_getting_started.xml"/>
   <xi:include href="asn1_spec.xml"/>
 </part>
 

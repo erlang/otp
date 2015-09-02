@@ -3,16 +3,17 @@
  * 
  * Copyright Ericsson AB 1997-2014. All Rights Reserved.
  * 
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
- * 
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  * 
  * %CopyrightEnd%
  */
@@ -120,9 +121,6 @@
 /*
  * For erl_time_sup
  */
-#define HAVE_GETHRTIME
-
-#define sys_init_hrtime() /* Nothing */
 
 #define SYS_CLK_TCK 1000
 #define SYS_CLOCK_RESOLUTION 1
@@ -164,18 +162,81 @@ typedef struct {
 #if defined (__GNUC__)
 typedef unsigned long long Uint64;
 typedef long long          Sint64;
+#  ifdef ULLONG_MAX
+#    define ERTS_UINT64_MAX ULLONG_MAX
+#  endif
+#  ifdef LLONG_MAX
+#    define ERTS_SINT64_MAX LLONG_MAX
+#  endif
+#  ifdef LLONG_MIN
+#    define ERTS_SINT64_MIN LLONG_MIN
+#  endif
 
-typedef long long SysHrTime;
+typedef long long ErtsMonotonicTime;
+typedef long long ErtsSysHrTime;
 #else
 typedef ULONGLONG Uint64;
 typedef LONGLONG  Sint64;
 
-typedef LONGLONG SysHrTime;
+typedef LONGLONG ErtsMonotonicTime;
+typedef LONGLONG ErtsSysHrTime;
 #endif
 
-extern int sys_init_time(void);
+typedef ErtsMonotonicTime ErtsSystemTime;
+
+ErtsSystemTime erts_os_system_time(void);
+
+#define ERTS_MONOTONIC_TIME_MIN (((ErtsMonotonicTime) 1) << 63)
+#define ERTS_MONOTONIC_TIME_MAX (~ERTS_MONOTONIC_TIME_MIN)
+
+#define ERTS_HAVE_OS_MONOTONIC_TIME_SUPPORT 1
+#define ERTS_COMPILE_TIME_MONOTONIC_TIME_UNIT 0
+
+struct erts_sys_time_read_only_data__ {
+    ErtsMonotonicTime (*os_monotonic_time)(void);
+    void (*os_times)(ErtsMonotonicTime *, ErtsSystemTime*);
+    ErtsSysHrTime (*sys_hrtime)(void);
+};
+
+typedef struct {
+    union {
+	struct erts_sys_time_read_only_data__ o;
+	char align__[(((sizeof(struct erts_sys_time_read_only_data__) - 1)
+		       / ASSUMED_CACHE_LINE_SIZE) + 1)
+		     * ASSUMED_CACHE_LINE_SIZE];
+    } r;
+} ErtsSysTimeData__;
+
+extern ErtsSysTimeData__ erts_sys_time_data__;
+
+ERTS_GLB_INLINE ErtsMonotonicTime erts_os_monotonic_time(void);
+ERTS_GLB_INLINE void erts_os_times(ErtsMonotonicTime *,
+				   ErtsSystemTime *);
+ERTS_GLB_INLINE ErtsSysHrTime erts_sys_hrtime(void);
+
+#if ERTS_GLB_INLINE_INCL_FUNC_DEF
+
+ERTS_GLB_INLINE ErtsMonotonicTime
+erts_os_monotonic_time(void)
+{
+    return (*erts_sys_time_data__.r.o.os_monotonic_time)();
+}
+
+ERTS_GLB_INLINE void
+erts_os_times(ErtsMonotonicTime *mtimep, ErtsSystemTime *stimep)
+{
+    (*erts_sys_time_data__.r.o.os_times)(mtimep, stimep);
+}
+
+ERTS_GLB_INLINE ErtsSysHrTime
+erts_sys_hrtime(void)
+{
+    return (*erts_sys_time_data__.r.o.sys_hrtime)();
+}
+
+#endif /* ERTS_GLB_INLINE_INCL_FUNC_DEF */
+
 extern void sys_gettimeofday(SysTimeval *tv);
-extern SysHrTime sys_gethrtime(void);
 extern clock_t sys_times(SysTimes *buffer);
 
 extern char *win_build_environment(char *);
@@ -207,6 +268,8 @@ extern volatile int erl_fp_exception;
 int _finite(double x);
 #endif
 
+#define erts_isfinite _finite
+
 /*#define NO_FPE_SIGNALS*/
 #define erts_get_current_fp_exception() NULL
 #define __ERTS_FP_CHECK_INIT(fpexnp) do {} while (0)
@@ -236,4 +299,16 @@ typedef long ssize_t;
 int init_async(int);
 int exit_async(void);
 #endif
+
+#define ERTS_HAVE_TRY_CATCH 1
+
+#define ERTS_SYS_TRY_CATCH(EXPR,CATCH)                                  \
+    __try {                                                             \
+    EXPR;                                                               \
+    }                                                                   \
+    __except(GetExceptionCode() == EXCEPTION_ACCESS_VIOLATION ? EXCEPTION_EXECUTE_HANDLER : EXCEPTION_CONTINUE_SEARCH) \
+    {                                                                   \
+        CATCH;                                                          \
+    }
+
 #endif

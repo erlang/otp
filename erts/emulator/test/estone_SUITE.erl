@@ -3,16 +3,17 @@
 %% 
 %% Copyright Ericsson AB 2002-2013. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 
@@ -339,7 +340,6 @@ micros() ->
     ].
 
 macro(Ms,DataDir) ->
-    erlang:now(),  %% compensate for old 4.3 firsttime clock bug :-(
     statistics(reductions),
     statistics(runtime),
     lists(500),  %% fixup cache on first round
@@ -369,10 +369,9 @@ run_micro(Top, M, DataDir) ->
 apply_micro(M) ->
     {GC0, Words0, _} = statistics(garbage_collection),
     statistics(reductions),
-    Before = erlang:now(),
-
+    Before = monotonic_time(),
     Compensate = apply_micro(M#micro.function, M#micro.loops),
-    After = erlang:now(),
+    After = monotonic_time(),
     {GC1, Words1, _} = statistics(garbage_collection),
     {_, Reds} = statistics(reductions),
     Elapsed = subtr(Before, After),
@@ -389,12 +388,13 @@ apply_micro(M) ->
      {kilo_reductions, Reds div 1000},
      {gc_intensity, gci(Elapsed, GC1 - GC0, Words1 - Words0)}].
 
+monotonic_time() ->
+    try erlang:monotonic_time() catch error:undef -> erlang:now() end.
 
-subtr(Before, After) ->
-    (element(1,After)*1000000000000
-     +element(2,After)*1000000+element(3,After)) -
-        (element(1,Before)*1000000000000
-         +element(2,Before)*1000000+element(3,Before)).
+subtr(Before, After) when is_integer(Before), is_integer(After) ->
+    erlang:convert_time_unit(After-Before, native, micro_seconds);
+subtr({_,_,_}=Before, {_,_,_}=After) ->
+    timer:now_diff(After, Before).
 
 gci(Micros, Words, Gcs) ->
     ((256 * Gcs) / Micros) + (Words / Micros).
@@ -633,10 +633,10 @@ tup_trav(T, P, End) ->
 %% Port I/O
 port_io(I) ->
     EstoneCat = get(estone_cat),
-    Before = erlang:now(),
+    Before = monotonic_time(),
     Pps = make_port_pids(5, I, EstoneCat),  %% 5 ports
     send_procs(Pps, go),
-    After = erlang:now(),
+    After = monotonic_time(),
     wait_for_pids(Pps),
     subtr(Before, After).
 
@@ -854,10 +854,10 @@ handle_call(_From, State, [abc]) ->
 
 %% Binary handling, creating, manipulating and sending binaries
 binary_h(I) ->
-    Before = erlang:now(),
+    Before = monotonic_time(),
     P = spawn(?MODULE, echo, [self()]),
     B = list_to_binary(lists:duplicate(2000, 5)),
-    After = erlang:now(),
+    After = monotonic_time(),
     Compensate = subtr(Before, After),
     binary_h_2(I, P, B),
     Compensate.

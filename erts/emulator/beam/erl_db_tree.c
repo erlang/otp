@@ -3,16 +3,17 @@
  *
  * Copyright Ericsson AB 1998-2013. All Rights Reserved.
  *
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  * %CopyrightEnd%
  */
@@ -383,6 +384,7 @@ static int db_select_delete_tree(Process *p, DbTable *tbl,
 				 Eterm pattern,  Eterm *ret);
 static int db_select_delete_continue_tree(Process *p, DbTable *tbl, 
 					  Eterm continuation, Eterm *ret);
+static int db_take_tree(Process *, DbTable *, Eterm, Eterm *);
 static void db_print_tree(int to, void *to_arg,
 			  int show, DbTable *tbl);
 static int db_free_table_tree(DbTable *tbl);
@@ -398,8 +400,11 @@ static int db_delete_all_objects_tree(Process* p, DbTable* tbl);
 #ifdef HARDDEBUG
 static void db_check_table_tree(DbTable *tbl);
 #endif
-static int db_lookup_dbterm_tree(DbTable *, Eterm key, DbUpdateHandle*);
-static void db_finalize_dbterm_tree(DbUpdateHandle*);
+static int
+db_lookup_dbterm_tree(Process *, DbTable *, Eterm key, Eterm obj,
+                      DbUpdateHandle*);
+static void
+db_finalize_dbterm_tree(int cret, DbUpdateHandle *);
 
 /*
 ** Static variables
@@ -431,6 +436,7 @@ DbTableMethod db_tree =
     db_select_delete_continue_tree,
     db_select_count_tree,
     db_select_count_continue_tree,
+    db_take_tree,
     db_delete_all_objects_tree,
     db_free_table_tree,
     db_free_table_continue_tree,
@@ -1111,7 +1117,7 @@ static int db_select_tree(Process *p, DbTable *tbl,
     sc.all_objects = mpi.all_objects;
 
     if (!mpi.got_partial && mpi.some_limitation && 
-	CMP(mpi.least,mpi.most) == 0) {
+	CMP_EQ(mpi.least,mpi.most)) {
 	doit_select(tb,mpi.save_term,&sc,0 /* direction doesn't matter */);
 	RET_TO_BIF(sc.accum,DB_ERROR_NONE);
     }
@@ -1319,7 +1325,7 @@ static int db_select_count_tree(Process *p, DbTable *tbl,
     sc.all_objects = mpi.all_objects;
 
     if (!mpi.got_partial && mpi.some_limitation && 
-	CMP(mpi.least,mpi.most) == 0) {
+	CMP_EQ(mpi.least,mpi.most)) {
 	doit_select_count(tb,mpi.save_term,&sc,0 /* dummy */);
 	RET_TO_BIF(erts_make_integer(sc.got,p),DB_ERROR_NONE);
     }
@@ -1424,7 +1430,7 @@ static int db_select_chunk_tree(Process *p, DbTable *tbl,
     sc.all_objects = mpi.all_objects;
 
     if (!mpi.got_partial && mpi.some_limitation && 
-	CMP(mpi.least,mpi.most) == 0) {
+	CMP_EQ(mpi.least,mpi.most)) {
 	doit_select(tb,mpi.save_term,&sc, 0 /* direction doesn't matter */);
 	if (sc.accum != NIL) {
 	    hp=HAlloc(p, 3);
@@ -1668,7 +1674,7 @@ static int db_select_delete_tree(Process *p, DbTable *tbl,
     sc.mp = mpi.mp;
 
     if (!mpi.got_partial && mpi.some_limitation && 
-	CMP(mpi.least,mpi.most) == 0) {
+	CMP_EQ(mpi.least,mpi.most)) {
 	doit_select_delete(tb,mpi.save_term,&sc, 0 /* direction doesn't 
 						      matter */);
 	RET_TO_BIF(erts_make_integer(sc.accum,p),DB_ERROR_NONE);
@@ -1720,6 +1726,28 @@ static int db_select_delete_tree(Process *p, DbTable *tbl,
 
 #undef RET_TO_BIF
 
+}
+
+static int db_take_tree(Process *p, DbTable *tbl, Eterm key, Eterm *ret)
+{
+    DbTableTree *tb = &tbl->tree;
+    TreeDbTerm *this;
+
+    *ret = NIL;
+    this = linkout_tree(tb, key, NULL);
+    if (this) {
+        Eterm copy, *hp, *hend;
+
+        hp = HAlloc(p, this->dbterm.size + 2);
+        hend = hp + this->dbterm.size + 2;
+        copy = db_copy_object_from_ets(&tb->common,
+                                       &this->dbterm, &hp, &MSO(p));
+        *ret = CONS(hp, copy, NIL);
+        hp += 2;
+        HRelease(p, hend, hp);
+        free_term(tb, this);
+    }
+    return DB_ERROR_NONE;
 }
 
 /*
@@ -2522,16 +2550,43 @@ static TreeDbTerm **find_node2(DbTableTree *tb, Eterm key)
     return this;
 }
 
-static int db_lookup_dbterm_tree(DbTable *tbl, Eterm key, DbUpdateHandle* handle)
+static int
+db_lookup_dbterm_tree(Process *p, DbTable *tbl, Eterm key, Eterm obj,
+                      DbUpdateHandle* handle)
 {
     DbTableTree *tb = &tbl->tree;
     TreeDbTerm **pp = find_node2(tb, key);
+    int flags = 0;
 
-    if (pp == NULL) return 0;
+    if (pp == NULL) {
+        if (obj == THE_NON_VALUE) {
+            return 0;
+        } else {
+            Eterm *objp = tuple_val(obj);
+            int arity = arityval(*objp);
+            Eterm *htop, *hend;
+
+            ASSERT(arity >= tb->common.keypos);
+            htop = HAlloc(p, arity + 1);
+            hend = htop + arity + 1;
+            sys_memcpy(htop, objp, sizeof(Eterm) * (arity + 1));
+            htop[tb->common.keypos] = key;
+            obj = make_tuple(htop);
+
+            if (db_put_tree(tbl, obj, 1) != DB_ERROR_NONE) {
+                return 0;
+            }
+
+            pp = find_node2(tb, key);
+            ASSERT(pp != NULL);
+            HRelease(p, hend, htop);
+            flags |= DB_NEW_OBJECT;
+        }
+    }
 
     handle->tb = tbl;
     handle->dbterm = &(*pp)->dbterm;
-    handle->mustResize = 0;
+    handle->flags = flags;
     handle->bp = (void**) pp;
     handle->new_size = (*pp)->dbterm.size;
 #if HALFWORD_HEAP
@@ -2540,15 +2595,21 @@ static int db_lookup_dbterm_tree(DbTable *tbl, Eterm key, DbUpdateHandle* handle
     return 1;
 }
 
-static void db_finalize_dbterm_tree(DbUpdateHandle* handle)
+static void
+db_finalize_dbterm_tree(int cret, DbUpdateHandle *handle)
 {
-    if (handle->mustResize) {
-	TreeDbTerm* oldp = (TreeDbTerm*) *handle->bp;
+    DbTable *tbl = handle->tb;
+    DbTableTree *tb = &tbl->tree;
+    TreeDbTerm *bp = (TreeDbTerm *) *handle->bp;
 
+    if (handle->flags & DB_NEW_OBJECT && cret != DB_ERROR_NONE) {
+        Eterm ret;
+        db_erase_tree(tbl, GETKEY(tb, bp->dbterm.tpl), &ret);
+    } else if (handle->flags & DB_MUST_RESIZE) {
 	db_finalize_resize(handle, offsetof(TreeDbTerm,dbterm));
-	reset_static_stack(&handle->tb->tree);
+        reset_static_stack(tb);
 
-	free_term(&handle->tb->tree, oldp);
+        free_term(tb, bp);
     }
 #ifdef DEBUG
     handle->dbterm = 0;
@@ -2656,7 +2717,7 @@ static int key_given(DbTableTree *tb, Eterm pattern, TreeDbTerm **ret,
 	*ret = this;
 	return 1;
     } else if (partly_bound != NULL && key != am_Underscore && 
-	       db_is_variable(key) < 0)
+	       db_is_variable(key) < 0 && !db_has_map(key))
 	*partly_bound = key;
 	
     return 0;

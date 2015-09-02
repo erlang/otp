@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 1997-2013. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -27,7 +28,7 @@
 	 erlang_type/1,
 	 initial_capital/1,
 	 specs/1, suites/2,
-	 specialized_specs/2,
+	 test_categories/2, specialized_specs/2,
 	 subst_file/3, subst/2, print_data/1,
 	 make_non_erlang/2,
 	 maybe_atom_to_list/1, progress/4,
@@ -96,26 +97,47 @@ specialized_specs(Dir,PostFix) ->
     Specs = filelib:wildcard(filename:join([filename:dirname(Dir),
 					    "*_test", "*_"++PostFix++".spec"])),
     sort_tests([begin
-		    Base = filename:basename(Name),
-		    list_to_atom(string:substr(Base,1,string:rstr(Base,"_")-1))
+		    DirPart = filename:dirname(Name),
+		    AppTest = hd(lists:reverse(filename:split(DirPart))),
+		    list_to_atom(string:substr(AppTest, 1, length(AppTest)-5))
 		end || Name <- Specs]).
 
 specs(Dir) ->
     Specs = filelib:wildcard(filename:join([filename:dirname(Dir),
 					    "*_test", "*.{dyn,}spec"])),
-    % Filter away all spec which end with {_bench,_smoke}.spec
-    NoBench = fun(SpecName) ->
-		      case lists:reverse(SpecName) of
-			  "ceps.hcneb_"++_ -> false;
-			  "ceps.ekoms_"++_ -> false;
-			  _ -> true
-		      end
-	      end,
+    %% Make sure only to include the main spec for each application
+    MainSpecs =
+	lists:flatmap(fun(FullName) ->
+			      [Spec,TestDir|_] =
+				  lists:reverse(filename:split(FullName)),
+			      [_TestSuffix|TDParts] = 
+				  lists:reverse(string:tokens(TestDir,[$_,$.])),
+			      [_SpecSuffix|SParts] = 
+				  lists:reverse(string:tokens(Spec,[$_,$.])),
+			      if TDParts == SParts ->
+				      [filename_to_atom(FullName)];	  
+				 true ->
+				      []
+			      end
+		      end, Specs),
+    sort_tests(MainSpecs).
 
-    sort_tests([filename_to_atom(Name) || Name <- Specs, NoBench(Name)]).
+test_categories(Dir, App) ->
+    Specs = filelib:wildcard(filename:join([filename:dirname(Dir),
+					    App++"_test", "*.spec"])),
+    lists:flatmap(fun(FullName) ->
+			  [Spec,_TestDir|_] =
+			      lists:reverse(filename:split(FullName)),	 
+			  case filename:rootname(Spec -- App) of
+			      "" ->
+				  [];
+			      [_Sep | Cat] ->
+				  [list_to_atom(Cat)]
+			  end
+		  end, Specs).
 
-suites(Dir, Spec) ->
-    Glob=filename:join([filename:dirname(Dir), Spec++"_test",
+suites(Dir, App) ->
+    Glob=filename:join([filename:dirname(Dir), App++"_test",
 			"*_SUITE.erl"]),
     Suites=filelib:wildcard(Glob),
     [filename_to_atom(Name) || Name <- Suites].

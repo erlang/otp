@@ -3,16 +3,17 @@
 %% 
 %% Copyright Ericsson AB 2003-2013. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 
@@ -241,18 +242,15 @@ receive_drv_result(Port, CaseName) ->
 start_node(Config) ->
     start_node(Config, []).
 start_node(Config, Opts) when is_list(Config), is_list(Opts) ->
-    ?line Pa = filename:dirname(code:which(?MODULE)),
-    ?line {A, B, C} = now(),
-    ?line Name = list_to_atom(atom_to_list(?MODULE)
-			      ++ "-"
-			      ++ atom_to_list(?config(testcase, Config))
-			      ++ "-"
-			      ++ integer_to_list(A)
-			      ++ "-"
-			      ++ integer_to_list(B)
-			      ++ "-"
-			      ++ integer_to_list(C)),
-    ?line ?t:start_node(Name, slave, [{args, Opts++" -pa "++Pa}]).
+    Pa = filename:dirname(code:which(?MODULE)),
+    Name = list_to_atom(atom_to_list(?MODULE)
+			++ "-"
+			++ atom_to_list(?config(testcase, Config))
+			++ "-"
+			++ integer_to_list(erlang:system_time(seconds))
+			++ "-"
+			++ integer_to_list(erlang:unique_integer([positive]))),
+    ?t:start_node(Name, slave, [{args, Opts++" -pa "++Pa}]).
 
 stop_node(Node) ->
     ?t:stop_node(Node).
