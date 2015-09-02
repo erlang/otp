@@ -2668,7 +2668,7 @@ erts_allocator_info(int to, void *arg)
 	    erts_mseg_info(i, &to, arg, 0, NULL, NULL);
 	}
 	erts_print(to, arg, "=allocator:mseg_alloc.erts_mmap\n");
-	erts_mmap_info(&to, arg, NULL, NULL, &emis);
+	erts_mmap_info(&erts_dflt_mmapper, &to, arg, NULL, NULL, &emis);
     }
 #endif
 
@@ -3020,7 +3020,8 @@ reply_alloc_info(void *vair)
 
 		    ai_list = erts_bld_cons(hpp, szp,
 					    ainfo, ai_list);
-		    ainfo = (air->only_sz ? NIL : erts_mmap_info(NULL, NULL, hpp, szp, &emis));
+		    ainfo = (air->only_sz ? NIL :
+                             erts_mmap_info(&erts_dflt_mmapper, NULL, NULL, hpp, szp, &emis));
 		    ainfo = erts_bld_tuple3(hpp, szp,
                                             alloc_atom,
                                             erts_bld_atom(hpp,szp,"erts_mmap"),
