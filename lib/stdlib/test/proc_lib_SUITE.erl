@@ -369,7 +369,7 @@ init_dont_hang(Config) when is_list(Config) ->
     end.
 
 init_dont_hang_init(_Parent) ->
-    1 = 2.
+    error(bad_init).
 
 %% Test proc_lib:stop/1,3
 stop(_Config) ->
@@ -453,7 +453,7 @@ stop(_Config) ->
     ok.
 
 system_terminate(crash,_Parent,_Deb,_State) ->
-    1 = 2;
+    error({badmatch,2});
 system_terminate(Reason,_Parent,_Deb,_State) ->
     exit(Reason).
 
