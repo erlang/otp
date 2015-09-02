@@ -49,12 +49,12 @@
 	be started. When <c>https</c> links need to go through a proxy, the
 	CONNECT method extension to HTTP-1.1 is used to establish a
 	tunnel and then the connection is upgraded to TLS.
-	However, "TLS upgrade" according to RFC 2817 is not
+	However, "TLS upgrade" according to <url href="http://www.ietf.org/rfc/rfc2817.txt">RFC 2817</url>is not
 	supported.</p>
 
       <p>Pipelining is only used if the pipeline
       time-out is set, otherwise persistent connections without
-      pipelining are used. For example, the client always waits for
+      pipelining are used. That is, the client always waits for
       the previous response before sending the next request.</p>
     </note>
     <p>Some examples are provided in the <seealso
@@ -158,7 +158,7 @@
         <v>RequestId = request_id() - A unique identifier as returned
         by request/4</v>
 	<v>Profile = profile() | pid()</v>
-	<d>When started <c>stand_alone</c>.</d>
+	<d>When started <c>stand_alone</c> only the pid can be used.</d>
       </type>
       <desc>
         <p>Cancels an asynchronous HTTP request. Notice that this does not guarantee
@@ -188,7 +188,7 @@
 	<p>Option <c>ipv6_host_with_bracket</c> deals with how to 
 	parse IPv6 addresses. For details,
 	see argument <c>Options</c> of
-	<seealso marker="#request-4">request/4,5</seealso>.</p>
+	<seealso marker="#request-4">request/[4,5]</seealso>.</p>
       </desc>
     </func>
 
@@ -199,7 +199,7 @@
       <type>
         <v>OptionItems = all | [option_item()]</v>
 	<v>option_item() = proxy |
-	                   https_proxy
+	                   https_proxy |
                            max_sessions | 
 			   keep_alive_timeout | 
 	                   max_keep_alive_length | 
@@ -211,8 +211,8 @@
 			   port | 
 			   socket_opts | 
 	                   verbose</v>
-	<v>Profile = profile() | pid(</v>
-	<d>When started <c>stand_alone</c>.</d>
+	<v>Profile = profile() | pid()</v>
+	<d>When started <c>stand_alone</c> only the pid can used.</d>
         <v>Values = [{option_item(), term()}]</v>
         <v>Reason = term()</v>
       </type>
@@ -227,7 +227,7 @@
       <fsummary>Produces a list of miscellaneous information.</fsummary>
       <type>
 	<v>Profile = profile() | pid()</v>
-	<d>When started <c>stand_alone</c>.</d>
+	<d>When started <c>stand_alone</c> only the pid can be used.</d>
       </type>
       <desc>
         <p>Produces a list of miscellaneous information. 
@@ -243,7 +243,7 @@
       <fsummary>Resets the cookie database.</fsummary>
       <type>
 	<v>Profile = profile() | pid()</v>
-	<d>When started <c>stand_alone</c>.</d>
+	<d>When started <c>stand_alone</c> only the pid can be used.</d>
       </type>
       <desc>
         <p>Resets (clears) the cookie database for the specified 
@@ -262,7 +262,7 @@
                     {status_code(), Body} | request_id()</v>
 	<v>Body = string() | binary()</v>
 	<v>Profile = profile() | pid()</v>
-	<d>When started <c>stand_alone</c>.</d>
+	<d>When started <c>stand_alone</c> only the pid can be used.</d>
 	<v>Reason = term()</v>
       </type>
       <desc>
@@ -311,7 +311,7 @@
                     {status_code(), Body} | request_id()</v>
         <v>Body = string() | binary()</v>
         <v>Profile = profile() | pid()</v>
-	<d>When started <c>stand_alone</c>.</d>
+	<d>When started <c>stand_alone</c> only the pid can be used.</d>
         <v>Reason = {connect_failed, term()} | 
                     {send_failed, term()} | term()</v>
       </type>
@@ -343,8 +343,8 @@
 
           <tag><c><![CDATA[ssl]]></c></tag>
           <item>
-            <p>This is the default <c>SSL</c> configuration option.</p>
-            <p>Defaults to <c>[]</c>.</p>
+            <p>This is the <c>SSL/TLS</c> connectin configuration option.</p>
+            <p>Defaults to <c>[]</c>. See <seealso marker="ssl:ssl">ssl:connect/[2, 3,4]</seealso>  for availble options.</p>
 	  </item>
 
           <tag><c><![CDATA[autoredirect]]></c></tag>
@@ -353,8 +353,8 @@
 	    from the new URI and returns that as the result, instead 
 	    of a 30X-result code.</p>
 	    <p>For some 30X-result codes, automatic redirect 
-	    is not allowed. In these cases the 30X-result is always to
-	    be returned.</p>
+	    is not allowed. In these cases the 30X-result is always
+	    returned.</p>
 	    <p>Default is <c>true</c>.</p>
 	  </item>
 
@@ -453,12 +453,14 @@
 	    requests.</p>
 	    <p>Overrides any value set by function
 	    <seealso marker="#set_options-1">set_options</seealso>.</p>
-            <p>The validity of the options is <em>not</em>
-	    checked in any way.</p>
-            <p>Notice that this can change the socket behavior 
-	    (see <seealso marker="kernel:inet#setopts/2">inet:setopts/2</seealso>) 
-	    for an already existing one, and therefore an already connected
-	    request handler.</p>
+            <p>The validity of the options is <em>not</em> checked by
+            the HTTP client they are assumed to be correct and passed
+            on to ssl application and inet driver, which may reject
+            them if they are not correct. Note that the current
+            implementation assumes the requests to the same host, port
+            combination will use the same socket options.
+	    </p>
+	    
             <p>By default the socket options set by function
 	    <seealso marker="#set_options-1">set_options/[1,2]</seealso> 
 	     are used when establishing a connection.</p>
@@ -502,7 +504,7 @@
 {RequestId, stream, BinBodyPart}
 {RequestId, stream_end, Headers}</pre>
 
-            <p>Default is the <c>pid()</c> of the process calling the request 
+            <p>Default is the <c>pid</c> of the process calling the request 
 	    function (<c>self()</c>). </p>
 
 	    <marker id="ipv6_host_with_brackets"></marker>
@@ -582,12 +584,8 @@
 	If option <c>verify</c> is used, function <c>store_cookies/2</c>
 	has to be called for the cookies to be saved. 
 	Default is <c>disabled</c>.</d>
-	<v>IpFamily = inet | inet6 | inet6fb4</v>
-	<d>When set to <c>inet6fb4</c>, both IPv4 and IPv6 can be used.
-	First <c>inet6</c> is tried and if that does not work it falls 
-	back to <c>inet</c>. 
-	The option is to provide a workaround for buggy IPv6 stacks to ensure that 
-	IPv4 always works. Default is <c>inet</c>.</d>
+	<v>IpFamily = inet | inet6 </v>
+	<d>Default is <c>inet</c>.</d>
 	<v>IpAddress = ip_address()</v>
 	<d>If the host has several network interfaces, this option specifies 
 	which one to use. 
@@ -610,7 +608,7 @@
 	different levels of Erlang trace on the client. 
 	It is a debug feature.</d>
 	<v>Profile = profile() | pid()</v>
-	<d>When started <c>stand_alone</c>.</d>
+	<d>When started <c>stand_alone</c> only the pid can be used.</d>
       </type>
       <desc>
 	<p>Sets options to be used for subsequent requests.</p>
@@ -642,7 +640,7 @@
         <v>SetCookieHeaders = headers() - where field = "set-cookie"</v>
         <v>Url = url()</v>
 	<v>Profile = profile() | pid()</v>
-	<d>When started <c>stand_alone</c>.</d>
+	<d>When started <c>stand_alone</c> only the pid can be used.</d>
       </type>
       <desc>
         <p>Saves the cookies defined in <c>SetCookieHeaders</c>
@@ -655,7 +653,7 @@
     <func>
       <name>stream_next(Pid) -> ok</name>
       <fsummary>Triggers the next message to be streamed, that is,
-	the same behavior as active ones for sockets.
+	the same behavior as active one for sockets.
       </fsummary>
       <type>
         <v>Pid = pid()</v>
@@ -676,7 +674,7 @@
       <fsummary>Dumps the entire cookie database.</fsummary>
       <type>
 	<v>Profile = profile() | pid()</v>
-	<d>When started <c>stand_alone</c>.</d>
+	<d>When started <c>stand_alone</c> only the pid can be used.</d>
 	<v>cookies() = [cookie_stores()]</v>
 	<v>cookie_stores() = {cookies, cookies()} | {session_cookies, cookies()}</v>
 	<v>cookies() = [cookie()]</v>
@@ -695,7 +693,7 @@
       <fsummary>Produces a slightly processed dump of the sessions database.</fsummary>
       <type>
 	<v>Profile = profile() | pid()</v>
-	<d>When started <c>stand_alone</c>.</d>
+	<d>When started <c>stand_alone</c> only the pid can be used.</d>
 	<v>session_info() = {GoodSessions, BadSessions, NonSessions}</v>
 	<v>GoodSessions = session()</v>
 	<v>BadSessions = tuple()</v>
