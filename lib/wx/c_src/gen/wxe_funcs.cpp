@@ -23735,8 +23735,11 @@ case wxAuiManager_DetachPane: { // wxAuiManager::DetachPane
 case wxAuiManager_GetAllPanes: { // wxAuiManager::GetAllPanes
  wxAuiManager *This = (wxAuiManager *) getPtr(bp,memenv); bp += 4;
  if(!This) throw wxe_badarg(0);
- wxAuiPaneInfoArray * Result = &This->GetAllPanes();
- rt.addRef(getRef((void *)Result,memenv), "wxAuiPaneInfoArray");
+ wxAuiPaneInfoArray Result = This->GetAllPanes();
+ for(unsigned int i=0; i < Result.GetCount(); i++) {
+  rt.addRef(getRef((void *) &Result.Item(i), memenv), "wxAuiPaneInfo");
+ }
+ rt.endList(Result.GetCount());
  break;
 }
 case wxAuiManager_GetArtProvider: { // wxAuiManager::GetArtProvider
@@ -24593,6 +24596,102 @@ case wxAuiPaneInfo_Window: { // wxAuiPaneInfo::Window
  if(!This) throw wxe_badarg(0);
  wxAuiPaneInfo * Result = &This->Window(w);
  rt.addRef(getRef((void *)Result,memenv), "wxAuiPaneInfo");
+ break;
+}
+case wxAuiPaneInfo_GetWindow: { // wxAuiPaneInfo::GetWindow
+ wxAuiPaneInfo *This = (wxAuiPaneInfo *) getPtr(bp,memenv); bp += 4;
+ #if 0
+;
+ if(!This) throw wxe_badarg(0);
+ wxWindow * Result = (wxWindow*)This->GetWindow();
+ #endif
+ if(!This) throw wxe_badarg(0);
+ wxWindow* Result = This->window;
+ rt.addRef(getRef((void *)Result,memenv), "wxWindow");
+ break;
+}
+case wxAuiPaneInfo_GetFrame: { // wxAuiPaneInfo::GetFrame
+ wxAuiPaneInfo *This = (wxAuiPaneInfo *) getPtr(bp,memenv); bp += 4;
+ #if 0
+;
+ if(!This) throw wxe_badarg(0);
+ wxFrame * Result = (wxFrame*)This->GetFrame();
+ #endif
+ if(!This) throw wxe_badarg(0);
+ wxFrame* Result = This->frame;
+ rt.addRef(getRef((void *)Result,memenv), "wxFrame");
+ break;
+}
+case wxAuiPaneInfo_GetDirection: { // wxAuiPaneInfo::GetDirection
+ wxAuiPaneInfo *This = (wxAuiPaneInfo *) getPtr(bp,memenv); bp += 4;
+ #if 0
+;
+ if(!This) throw wxe_badarg(0);
+ int Result = This->GetDirection();
+ #endif
+ if(!This) throw wxe_badarg(0);
+ int Result = This->dock_direction;
+ rt.addInt(Result);
+ break;
+}
+case wxAuiPaneInfo_GetLayer: { // wxAuiPaneInfo::GetLayer
+ wxAuiPaneInfo *This = (wxAuiPaneInfo *) getPtr(bp,memenv); bp += 4;
+ #if 0
+;
+ if(!This) throw wxe_badarg(0);
+ int Result = This->GetLayer();
+ #endif
+ if(!This) throw wxe_badarg(0);
+ int Result = This->dock_layer;
+ rt.addInt(Result);
+ break;
+}
+case wxAuiPaneInfo_GetRow: { // wxAuiPaneInfo::GetRow
+ wxAuiPaneInfo *This = (wxAuiPaneInfo *) getPtr(bp,memenv); bp += 4;
+ #if 0
+;
+ if(!This) throw wxe_badarg(0);
+ int Result = This->GetRow();
+ #endif
+ if(!This) throw wxe_badarg(0);
+ int Result = This->dock_row;
+ rt.addInt(Result);
+ break;
+}
+case wxAuiPaneInfo_GetPosition: { // wxAuiPaneInfo::GetPosition
+ wxAuiPaneInfo *This = (wxAuiPaneInfo *) getPtr(bp,memenv); bp += 4;
+ #if 0
+;
+ if(!This) throw wxe_badarg(0);
+ int Result = This->GetPosition();
+ #endif
+ if(!This) throw wxe_badarg(0);
+ int Result = This->dock_pos;
+ rt.addInt(Result);
+ break;
+}
+case wxAuiPaneInfo_GetFloatingPosition: { // wxAuiPaneInfo::GetFloatingPosition
+ wxAuiPaneInfo *This = (wxAuiPaneInfo *) getPtr(bp,memenv); bp += 4;
+ #if 0
+;
+ if(!This) throw wxe_badarg(0);
+ wxPoint Result = This->GetFloatingPosition();
+ #endif
+ if(!This) throw wxe_badarg(0);
+ wxPoint Result = This->floating_pos;
+ rt.add(Result);
+ break;
+}
+case wxAuiPaneInfo_GetFloatingSize: { // wxAuiPaneInfo::GetFloatingSize
+ wxAuiPaneInfo *This = (wxAuiPaneInfo *) getPtr(bp,memenv); bp += 4;
+ #if 0
+;
+ if(!This) throw wxe_badarg(0);
+ wxSize Result = This->GetFloatingSize();
+ #endif
+ if(!This) throw wxe_badarg(0);
+ wxSize Result = This->floating_size;
+ rt.add(Result);
  break;
 }
 #endif // wxUSE_AUI

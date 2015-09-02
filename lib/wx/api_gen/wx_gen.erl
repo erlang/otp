@@ -771,6 +771,10 @@ parse_type2([N="wxGridCellCoordsArray"|R],Info,Opts,T) ->
     parse_type2(R,Info,Opts,T#type{name=N,base={comp,"wxGridCellCoords",
 						[{int,"R"},{int,"C"}]},
 				   single=array});
+parse_type2([N="wxAuiPaneInfoArray"|R],Info,Opts,T) ->
+    parse_type2(R,Info,Opts,T#type{name=N,base={class,"wxAuiPaneInfo"},
+				   single=array});
+
 parse_type2([N="wxRect"|R],Info,Opts,T) -> 
     parse_type2(R,Info,Opts,T#type{name=N,base={comp,N,[{int,"X"},{int,"Y"},
 							{int,"W"},{int,"H"}]}});

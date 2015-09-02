@@ -1020,6 +1020,10 @@ build_ret(Name,_,#type{base={comp,_,_},single=array}) ->
     w(" for(unsigned int i=0; i < ~s.GetCount(); i++) {~n", [Name]),
     w("  rt.add(~s[i]);~n }~n",[Name]),
     w(" rt.endList(~s.GetCount());~n",[Name]);
+build_ret(Name,_,#type{base={class,Class},single=array}) ->
+    w(" for(unsigned int i=0; i < ~s.GetCount(); i++) {~n", [Name]),
+    w("  rt.addRef(getRef((void *) &~s.Item(i), memenv), \"~s\");~n }~n",[Name, Class]),
+    w(" rt.endList(~s.GetCount());~n",[Name]);
 build_ret(Name,_,#type{name=List,single=list,base={class,Class}}) ->
     w(" int i=0;~n"),
     w(" for(~s::const_iterator it = ~s.begin(); it != ~s.end(); ++it) {~n",
