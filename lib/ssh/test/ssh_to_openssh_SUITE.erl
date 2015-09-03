@@ -389,7 +389,7 @@ erlang_server_openssh_client_kexs(Config) when is_list(Config) ->
     {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
 					     {failfun, fun ssh_test_lib:failfun/2},
 					     {preferred_algorithms,
-					      [{kex,ssh_transport:supported_algorithms(kex)}]}
+					      [{kex,ssh_transport:default_algorithms(kex)}]}
 					    ]),
     ct:sleep(500),
 

@@ -286,6 +286,7 @@ setup_dsa(DataDir, UserDir) ->
     file:make_dir(System),
     file:copy(filename:join(DataDir, "ssh_host_dsa_key"), filename:join(System, "ssh_host_dsa_key")),
     file:copy(filename:join(DataDir, "ssh_host_dsa_key.pub"), filename:join(System, "ssh_host_dsa_key.pub")),
+ct:pal("DataDir ~p:~n ~p~n~nSystDir ~p:~n ~p~n~nUserDir ~p:~n ~p",[DataDir, file:list_dir(DataDir), System, file:list_dir(System), UserDir, file:list_dir(UserDir)]),
     setup_dsa_known_host(DataDir, UserDir),
     setup_dsa_auth_keys(DataDir, UserDir).
     
@@ -294,9 +295,20 @@ setup_rsa(DataDir, UserDir) ->
     System = filename:join(UserDir, "system"),
     file:make_dir(System),
     file:copy(filename:join(DataDir, "ssh_host_rsa_key"), filename:join(System, "ssh_host_rsa_key")),
-    file:copy(filename:join(DataDir, "ssh_host_rsa_key"), filename:join(System, "ssh_host_rsa_key.pub")),
+    file:copy(filename:join(DataDir, "ssh_host_rsa_key.pub"), filename:join(System, "ssh_host_rsa_key.pub")),
+ct:pal("DataDir ~p:~n ~p~n~nSystDir ~p:~n ~p~n~nUserDir ~p:~n ~p",[DataDir, file:list_dir(DataDir), System, file:list_dir(System), UserDir, file:list_dir(UserDir)]),
     setup_rsa_known_host(DataDir, UserDir),
     setup_rsa_auth_keys(DataDir, UserDir).
+
+setup_ecdsa(Size, DataDir, UserDir) ->
+    file:copy(filename:join(DataDir, "id_ecdsa"++Size), filename:join(UserDir, "id_ecdsa")),
+    System = filename:join(UserDir, "system"),
+    file:make_dir(System),
+    file:copy(filename:join(DataDir, "ssh_host_ecdsa_key"++Size), filename:join(System, "ssh_host_ecdsa_key")),
+    file:copy(filename:join(DataDir, "ssh_host_ecdsa_key"++Size++".pub"), filename:join(System, "ssh_host_ecdsa_key.pub")),
+ct:pal("DataDir ~p:~n ~p~n~nSystDir ~p:~n ~p~n~nUserDir ~p:~n ~p",[DataDir, file:list_dir(DataDir), System, file:list_dir(System), UserDir, file:list_dir(UserDir)]),
+    setup_ecdsa_known_host(Size, System, UserDir),
+    setup_ecdsa_auth_keys(Size, UserDir, UserDir).
 
 clean_dsa(UserDir) ->
     del_dirs(filename:join(UserDir, "system")),
@@ -349,6 +361,11 @@ setup_rsa_known_host(SystemDir, UserDir) ->
     [{Key, _}] = public_key:ssh_decode(SshBin, public_key),
     setup_known_hosts(Key, UserDir).
 
+setup_ecdsa_known_host(_Size, SystemDir, UserDir) ->
+    {ok, SshBin} = file:read_file(filename:join(SystemDir, "ssh_host_ecdsa_key.pub")),
+    [{Key, _}] = public_key:ssh_decode(SshBin, public_key),
+    setup_known_hosts(Key, UserDir).
+
 setup_known_hosts(Key, UserDir) ->
     {ok, Hostname} = inet:gethostname(),
     {ok, {A, B, C, D}} = inet:getaddr(Hostname, inet),
@@ -375,6 +392,19 @@ setup_rsa_auth_keys(Dir, UserDir) ->
     #'RSAPrivateKey'{publicExponent = E, modulus = N} = RSA,
     PKey = #'RSAPublicKey'{publicExponent = E, modulus = N},
     setup_auth_keys([{ PKey, [{comment, "Test"}]}], UserDir).
+
+setup_ecdsa_auth_keys(Size, Dir, UserDir) ->
+    {ok, Pem} = file:read_file(filename:join(Dir, "id_ecdsa")),
+    ECDSA = public_key:pem_entry_decode(hd(public_key:pem_decode(Pem))),
+    #'ECPrivateKey'{publicKey = Q,
+		    parameters = {namedCurve,Id0}} = ECDSA,
+    PKey = #'ECPoint'{point = Q},
+    Id = case pubkey_cert_records:namedCurves(Id0) of
+	     secp256r1 when Size=="256" -> <<"nistp256">>;
+	     secp384r1 when Size=="384" -> <<"nistp384">>;
+	     secp521r1 when Size=="521" -> <<"nistp521">>
+	 end,
+    setup_auth_keys([{ {PKey,Id}, [{comment, "Test"}]}], UserDir).
 
 setup_auth_keys(Keys, Dir) ->
     AuthKeys = public_key:ssh_encode(Keys, auth_keys),
