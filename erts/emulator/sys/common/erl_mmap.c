@@ -67,7 +67,6 @@
      (((UWord) (PTR)) - ((UWord) mmap_state.sua.bot)			\
       < ((UWord) mmap_state.sua.top) - ((UWord) mmap_state.sua.bot)))
 
-int erts_have_erts_mmap;
 UWord erts_page_inv_mask;
 
 #if defined(DEBUG) || defined(ERTS_MMAP_DEBUG)
@@ -2131,8 +2130,6 @@ erts_mmap_init(ErtsMMapInit *init)
 
     ERTS_MMAP_OP_RINGBUF_INIT();
 
-    erts_have_erts_mmap = 0;
-
     mmap_state.supercarrier = 0;
     mmap_state.reserve_physical = reserve_noop;
     mmap_state.unreserve_physical = unreserve_noop;
@@ -2206,8 +2203,6 @@ erts_mmap_init(ErtsMMapInit *init)
 	}
 #endif
     }
-    if (!mmap_state.no_os_mmap)
-	erts_have_erts_mmap |= ERTS_HAVE_ERTS_OS_MMAP;
 #endif
 
     mmap_state.no.free_seg_descs = 0;
@@ -2291,7 +2286,6 @@ erts_mmap_init(ErtsMMapInit *init)
 	init_free_seg_map(&mmap_state.sua.map, SZ_REVERSE_ADDR_ORDER);
 
 	mmap_state.supercarrier = 1;
-	erts_have_erts_mmap |= ERTS_HAVE_ERTS_SUPERCARRIER_MMAP;
 
 	mmap_state.desc.new_area_hint = end;
 

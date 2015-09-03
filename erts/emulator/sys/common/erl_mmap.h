@@ -30,9 +30,6 @@
 #define ERTS_MMAPFLG_SUPERCARRIER_ONLY		(((Uint32) 1) << 1)
 #define ERTS_MMAPFLG_SUPERALIGNED		(((Uint32) 1) << 2)
 
-#define ERTS_HAVE_ERTS_OS_MMAP			(1 << 0)
-#define ERTS_HAVE_ERTS_SUPERCARRIER_MMAP	(1 << 1)
-extern int erts_have_erts_mmap;
 extern UWord erts_page_inv_mask;
 
 typedef struct {
