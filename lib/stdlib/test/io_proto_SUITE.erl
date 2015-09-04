@@ -1791,10 +1791,22 @@ get_data_within(Port, Timeout, Acc) ->
     end.
 
 get_default_shell() ->
+    Match = fun(Data) ->
+		    case lists:prefix("undefined", Data) of
+			true ->
+			    yes;
+			false ->
+			    case re:run(Data, "<\\d+[.]\\d+[.]\\d+>",
+					[{capture,none}]) of
+				match -> no;
+				_ -> maybe
+			    end
+		    end
+	    end,
     try
 	rtnode([{putline,""},
 		{putline, "whereis(user_drv)."},
-		{getline, "undefined"}],[]),
+		{getline_pred, Match, "matching of user_drv pid"}], []),
 	old
     catch _E:_R ->
 	    ?dbg({_E,_R}),
