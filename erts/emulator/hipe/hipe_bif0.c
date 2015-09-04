@@ -488,7 +488,7 @@ static void *const_term_alloc(void *tmpl)
     alloc_size = size + (offsetof(struct const_term, mem)/sizeof(Eterm));
     hipe_constants_size += alloc_size;
 
-    p = (struct const_term*)erts_alloc(ERTS_ALC_T_HIPE, alloc_size * sizeof(Eterm));
+    p = (struct const_term*)erts_alloc(ERTS_ALC_T_LITERAL, alloc_size * sizeof(Eterm));
 
     /* I have absolutely no idea if having a private 'off_heap'
        works or not. _Some_ off_heap object is required for

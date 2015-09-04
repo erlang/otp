@@ -684,6 +684,9 @@ BIF_RETTYPE finish_after_on_load_2(BIF_ALIST_2)
 	erts_cleanup_funs_on_purge(code, end);
 	beam_catches_delmod(modp->curr.catches, code, modp->curr.code_length,
 			    erts_active_code_ix());
+        if (code[MI_LITERALS_START]) {
+            erts_free(ERTS_ALC_T_LITERAL, (void *) code[MI_LITERALS_START]);
+        }
 	erts_free(ERTS_ALC_T_CODE, (void *) code);
 	modp->curr.code = NULL;
 	modp->curr.code_length = 0;
@@ -1019,6 +1022,9 @@ BIF_RETTYPE purge_module_1(BIF_ALIST_1)
 	    beam_catches_delmod(modp->old.catches, code, modp->old.code_length,
 				code_ix);
 	    decrement_refc(code);
+            if (code[MI_LITERALS_START]) {
+                erts_free(ERTS_ALC_T_LITERAL, (void *) code[MI_LITERALS_START]);
+            }
 	    erts_free(ERTS_ALC_T_CODE, (void *) code);
 	    modp->old.code = NULL;
 	    modp->old.code_length = 0;

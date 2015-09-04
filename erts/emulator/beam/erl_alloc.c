@@ -130,6 +130,7 @@ static ErtsAllocatorState_t binary_alloc_state;
 static ErtsAllocatorState_t ets_alloc_state;
 static ErtsAllocatorState_t driver_alloc_state;
 static ErtsAllocatorState_t fix_alloc_state;
+static ErtsAllocatorState_t literal_alloc_state;
 
 typedef struct {
     erts_smp_atomic32_t refc;
@@ -211,6 +212,7 @@ typedef struct {
     struct au_init ets_alloc;
     struct au_init driver_alloc;
     struct au_init fix_alloc;
+    struct au_init literal_alloc;
 } erts_alc_hndl_args_init_t;
 
 #define ERTS_AU_INIT__ {0, 0, 1, GOODFIT, DEFAULT_ALLCTR_INIT, {1,1,1,1}}
@@ -282,6 +284,32 @@ set_default_ll_alloc_opts(struct au_init *ip)
     ip->init.util.rsbcmt	= 0;
     ip->init.util.rmbcmt	= 0;
     ip->init.util.acul		= ERTS_ALC_DEFAULT_ACUL_LL_ALLOC;
+}
+
+static void
+set_default_literal_alloc_opts(struct au_init *ip)
+{
+    SET_DEFAULT_ALLOC_OPTS(ip);
+    ip->enable			= AU_ALLOC_DEFAULT_ENABLE(1);
+    ip->thr_spec		= 0;
+    ip->atype			= BESTFIT;
+    ip->init.bf.ao		= 1;
+    ip->init.util.ramv		= 0;
+    ip->init.util.mmsbc		= 0;
+    ip->init.util.sbct		= ~((UWord) 0);
+    ip->init.util.name_prefix	= "literal_";
+    ip->init.util.alloc_no	= ERTS_ALC_A_LITERAL;
+#ifndef SMALL_MEMORY
+    ip->init.util.mmbcs 	= 2*1024*1024; /* Main carrier size */
+#else
+    ip->init.util.mmbcs 	= 1*1024*1024; /* Main carrier size */
+#endif
+    ip->init.util.ts 		= ERTS_ALC_MTA_LITERAL;
+    ip->init.util.asbcst	= 0;
+    ip->init.util.rsbcst	= 0;
+    ip->init.util.rsbcmt	= 0;
+    ip->init.util.rmbcmt	= 0;
+    ip->init.util.acul		= 0;
 }
 
 static void
@@ -577,6 +605,7 @@ erts_alloc_init(int *argc, char **argv, ErtsAllocInitOpts *eaiop)
     set_default_driver_alloc_opts(&init.driver_alloc);
     set_default_fix_alloc_opts(&init.fix_alloc,
 			       fix_type_sizes);
+    set_default_literal_alloc_opts(&init.literal_alloc);
 
     if (argc && argv)
 	handle_args(argc, argv, &init);
@@ -604,6 +633,7 @@ erts_alloc_init(int *argc, char **argv, ErtsAllocInitOpts *eaiop)
     init.ets_alloc.thr_spec = 0;
     init.driver_alloc.thr_spec = 0;
     init.fix_alloc.thr_spec = 0;
+    init.literal_alloc.thr_spec = 0;
 #endif
 
     /* Make adjustments for carrier migration support */
@@ -616,6 +646,7 @@ erts_alloc_init(int *argc, char **argv, ErtsAllocInitOpts *eaiop)
     adjust_carrier_migration_support(&init.ets_alloc);
     adjust_carrier_migration_support(&init.driver_alloc);
     adjust_carrier_migration_support(&init.fix_alloc);
+    adjust_carrier_migration_support(&init.literal_alloc);
 
     if (init.erts_alloc_config) {
 	/* Adjust flags that erts_alloc_config won't like */
@@ -630,6 +661,7 @@ erts_alloc_init(int *argc, char **argv, ErtsAllocInitOpts *eaiop)
 	init.ets_alloc.thr_spec = 0;
 	init.driver_alloc.thr_spec = 0;
 	init.fix_alloc.thr_spec = 0;
+        init.literal_alloc.thr_spec = 0;
 
 	/* No carrier migration */
 	init.temp_alloc.init.util.acul = 0;
@@ -641,6 +673,7 @@ erts_alloc_init(int *argc, char **argv, ErtsAllocInitOpts *eaiop)
 	init.ets_alloc.init.util.acul = 0;
 	init.driver_alloc.init.util.acul = 0;
 	init.fix_alloc.init.util.acul = 0;
+        init.literal_alloc.init.util.acul = 0;
     }
 
 #ifdef ERTS_SMP
@@ -657,6 +690,7 @@ erts_alloc_init(int *argc, char **argv, ErtsAllocInitOpts *eaiop)
     adjust_tpref(&init.ets_alloc, erts_no_schedulers);
     adjust_tpref(&init.driver_alloc, erts_no_schedulers);
     adjust_tpref(&init.fix_alloc, erts_no_schedulers);
+    adjust_tpref(&init.literal_alloc, erts_no_schedulers);
 
 #else
     /* No thread specific if not smp */
@@ -675,6 +709,7 @@ erts_alloc_init(int *argc, char **argv, ErtsAllocInitOpts *eaiop)
     refuse_af_strategy(&init.ets_alloc);
     refuse_af_strategy(&init.driver_alloc);
     refuse_af_strategy(&init.fix_alloc);
+    refuse_af_strategy(&init.literal_alloc);
 
 #ifdef ERTS_SMP 
     if (!init.temp_alloc.thr_spec)
@@ -718,6 +753,7 @@ erts_alloc_init(int *argc, char **argv, ErtsAllocInitOpts *eaiop)
     set_au_allocator(ERTS_ALC_A_ETS, &init.ets_alloc, ncpu);
     set_au_allocator(ERTS_ALC_A_DRIVER, &init.driver_alloc, ncpu);
     set_au_allocator(ERTS_ALC_A_FIXED_SIZE, &init.fix_alloc, ncpu);
+    set_au_allocator(ERTS_ALC_A_LITERAL, &init.literal_alloc, ncpu);
 
     for (i = ERTS_ALC_A_MIN; i <= ERTS_ALC_A_MAX; i++) {
 	if (!erts_allctrs[i].alloc)
@@ -770,6 +806,9 @@ erts_alloc_init(int *argc, char **argv, ErtsAllocInitOpts *eaiop)
     start_au_allocator(ERTS_ALC_A_FIXED_SIZE,
 		       &init.fix_alloc,
 		       &fix_alloc_state);
+    start_au_allocator(ERTS_ALC_A_LITERAL,
+                       &init.literal_alloc,
+                       &literal_alloc_state);
 
     erts_mtrace_install_wrapper_functions();
     extra_block_size += erts_instr_init(init.instr.stat, init.instr.map);

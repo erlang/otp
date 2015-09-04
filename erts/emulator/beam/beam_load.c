@@ -654,6 +654,7 @@ erts_prepare_loading(Binary* magic, Process *c_p, Eterm group_leader,
     stp->code[MI_COMPILE_PTR] = 0;
     stp->code[MI_COMPILE_SIZE] = 0;
     stp->code[MI_COMPILE_SIZE_ON_HEAP] = 0;
+    stp->code[MI_LITERALS_START] = 0;
     stp->code[MI_MD5_PTR] = 0;
 
     /*
@@ -921,6 +922,9 @@ loader_state_dtor(Binary* magic)
 	stp->bin = 0;
     }
     if (stp->code != 0) {
+        if (stp->code[MI_LITERALS_START]) {
+            erts_free(ERTS_ALC_T_LITERAL, (void*) stp->code[MI_LITERALS_START]);
+        }
 	erts_free(ERTS_ALC_T_CODE, stp->code);
 	stp->code = 0;
     }
@@ -4348,7 +4352,6 @@ static int
 freeze_code(LoaderState* stp)
 {
     BeamInstr* code = stp->code;
-    Uint *literal_end = NULL;
     int i;
     byte* str_table;
     unsigned strtab_size = stp->chunks[STR_CHUNK].size;
@@ -4378,7 +4381,6 @@ freeze_code(LoaderState* stp)
 	    sizeof(Eterm) + (stp->current_li+1) * stp->loc_size;
     }
     size = (stp->ci * sizeof(BeamInstr)) +
-	(stp->total_literal_size * sizeof(Eterm)) +
 	strtab_size + attr_size + compile_size + MD5_SIZE + line_size;
 
     /*
@@ -4406,10 +4408,9 @@ freeze_code(LoaderState* stp)
     }
     CHKBLK(ERTS_ALC_T_CODE,code);
 
-    literal_end = (Uint *) (code+stp->ci);
     /*
-     * Place the literal heap directly after the code and fix up all
-     * instructions that refer to it.
+     * Place the literals in their own allocated heap (for fast range check)
+     * and fix up all instructions that refer to it.
      */
     {
 	Uint* ptr;
@@ -4420,7 +4421,8 @@ freeze_code(LoaderState* stp)
 
         ERTS_INIT_OFF_HEAP(&code_off_heap);
 
-	low = (Uint *) (code+stp->ci);
+        low = erts_alloc(ERTS_ALC_T_LITERAL,
+                         stp->total_literal_size*sizeof(Eterm));
 	high = low + stp->total_literal_size;
 	code[MI_LITERALS_START] = (BeamInstr) low;
 	code[MI_LITERALS_END] = (BeamInstr) high;
@@ -4443,7 +4445,6 @@ freeze_code(LoaderState* stp)
 	    op_ptr[0] = lit->term;
 	    lp = lp->next;
 	}
-	literal_end += stp->total_literal_size;
     }
     CHKBLK(ERTS_ALC_T_CODE,code);
 
@@ -4452,9 +4453,9 @@ freeze_code(LoaderState* stp)
      */
     if (stp->line_instr == 0) {
 	code[MI_LINE_TABLE] = (BeamInstr) 0;
-	str_table = (byte *) literal_end;
+	str_table = (byte *) (code+stp->ci);
     } else {
-	Eterm* line_tab = (Eterm *) literal_end;
+	Eterm* line_tab = (Eterm *) (code+stp->ci);
 	Eterm* p;
 	int ftab_size = stp->num_functions;
 	int num_instrs = stp->current_li;
@@ -4486,7 +4487,7 @@ freeze_code(LoaderState* stp)
 		*locp++ = (Uint16) stp->line_instr[i].loc;
 	    }
 	    *locp++ = LINE_INVALID_LOCATION;
-	    str_table = (byte *) locp;
+            str_table = (byte *) locp;
 	} else {
 	    Uint32* locp = (Uint32 *) p;
 	    ASSERT(stp->loc_size == 4);
@@ -4494,9 +4495,8 @@ freeze_code(LoaderState* stp)
 		*locp++ = stp->line_instr[i].loc;
 	    }
 	    *locp++ = LINE_INVALID_LOCATION;
-	    str_table = (byte *) locp;
+            str_table = (byte *) locp;
 	}
-
 	CHKBLK(ERTS_ALC_T_CODE,code);
     }
 
