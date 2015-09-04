@@ -45,7 +45,8 @@
 all() ->
     [session_cleanup,
      session_cache_process_list,
-     session_cache_process_mnesia].
+     session_cache_process_mnesia,
+     client_unique_session].
 
 groups() ->
     [].
@@ -90,8 +91,8 @@ init_per_testcase(session_cleanup, Config) ->
     ct:timetrap({seconds, 20}),
     Config;
 
-init_per_testcase(_TestCase, Config) ->
-    ct:timetrap({seconds, 5}),
+init_per_testcase(client_unique_session, Config) ->
+    ct:timetrap({seconds, 20}),
     Config.
 
 init_customized_session_cache(Type, Config) ->
@@ -131,10 +132,40 @@ end_per_testcase(_, Config) ->
 %%--------------------------------------------------------------------
 %% Test Cases --------------------------------------------------------
 %%--------------------------------------------------------------------
+client_unique_session() ->
+    [{doc, "Test session table does not grow when client "
+      "sets up many connections"}].
+client_unique_session(Config) when is_list(Config) ->
+    process_flag(trap_exit, true),
+    ClientOpts = ?config(client_opts, Config),
+    ServerOpts = ?config(server_opts, Config),
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    Server =
+	ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+				   {from, self()},
+				    {from, self()},
+				   {mfa, {ssl_test_lib, no_result, []}},
+				   {options, ServerOpts}]),
+    Port = ssl_test_lib:inet_port(Server),
+    LastClient = clients_start(Server, 
+			    ClientNode, Hostname, Port, ClientOpts, 20),
+    receive 
+	{LastClient, {ok, _}} ->
+	    ok
+    end,
+    {status, _, _, StatusInfo} = sys:get_status(whereis(ssl_manager)),
+    [_, _,_, _, Prop] = StatusInfo,
+    State = ssl_test_lib:state(Prop),
+    ClientCache = element(2, State),
+    1 = ets:info(ClientCache, size),
+  
+    ssl_test_lib:close(Server, 500),
+    ssl_test_lib:close(LastClient).
+		
 session_cleanup() ->
     [{doc, "Test that sessions are cleand up eventually, so that the session table "
      "does not grow and grow ..."}].
-session_cleanup(Config)when is_list(Config) ->
+session_cleanup(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
     ClientOpts = ?config(client_opts, Config),
     ServerOpts = ?config(server_opts, Config),
@@ -148,9 +179,9 @@ session_cleanup(Config)when is_list(Config) ->
     Port = ssl_test_lib:inet_port(Server),
     Client =
 	ssl_test_lib:start_client([{node, ClientNode},
-		      {port, Port}, {host, Hostname},
+				   {port, Port}, {host, Hostname},
 				   {mfa, {ssl_test_lib, no_result, []}},
-		      {from, self()},  {options, ClientOpts}]),
+				   {from, self()},  {options, ClientOpts}]),
     SessionInfo =
 	receive
 	    {Server, Info} ->
@@ -325,8 +356,8 @@ select_session(Cache, PartialKey) ->
 	mnesia ->
 	    Sel = fun() ->
 			  mnesia:select(Cache,
-					[{{Cache,{PartialKey,'$1'}, '$2'},
-					  [],['$$']}])
+					[{{Cache,{PartialKey,'_'}, '$1'},
+					  [],['$1']}])
 		  end,
 	    {atomic, Res} = mnesia:transaction(Sel),
 	    Res
@@ -354,8 +385,8 @@ session_loop(Sess) ->
 	    Pid ! {self(), Res},
 	    session_loop(Sess);
 	{Pid,select_session,PKey} ->
-	    Sel = fun({{PKey0, Id},Session}, Acc) when PKey == PKey0 ->
-			  [[Id, Session]|Acc];
+	    Sel = fun({{PKey0, _Id},Session}, Acc) when PKey == PKey0 ->
+			  [Session | Acc];
 		     (_,Acc) ->
 			  Acc
 		  end,
@@ -370,3 +401,23 @@ session_loop(Sess) ->
 
 session_cache_process(_Type,Config) when is_list(Config) ->
     ssl_basic_SUITE:reuse_session(Config).
+
+
+clients_start(_Server, ClientNode, Hostname, Port, ClientOpts, 0) ->
+    %% Make sure session is registered
+    ct:sleep(?SLEEP * 2),
+    ssl_test_lib:start_client([{node, ClientNode},
+			       {port, Port}, {host, Hostname},
+			       {mfa, {?MODULE, connection_info_result, []}},
+			       {from, self()},  {options, ClientOpts}]);
+clients_start(Server, ClientNode, Hostname, Port, ClientOpts, N) ->
+    spawn_link(ssl_test_lib, start_client, 
+	       [[{node, ClientNode},
+		 {port, Port}, {host, Hostname},
+		 {mfa, {ssl_test_lib, no_result, []}},
+		 {from, self()},  {options, ClientOpts}]]),
+    Server ! listen,
+    clients_start(Server, ClientNode, Hostname, Port, ClientOpts, N-1).
+	
+connection_info_result(Socket) ->
+    ssl:connection_information(Socket, [protocol, cipher_suite]).
