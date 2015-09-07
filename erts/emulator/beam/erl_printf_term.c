@@ -460,10 +460,7 @@ print_term(fmtfn_t fn, void* arg, Eterm obj, long *dcount) {
 	}
 	    break;
 	case BINARY_DEF:
-	    if (header_is_bin_matchstate(*boxed_val(wobj))) {
-		PRINT_STRING(res, fn, arg, "#MatchState");
-	    }
-	    else {
+	    {
 		byte* bytep;
 		Uint bytesize = binary_size(obj);
 		Uint bitoffs;
@@ -626,6 +623,9 @@ print_term(fmtfn_t fn, void* arg, Eterm obj, long *dcount) {
                 }
             }
             break;
+	case MATCHSTATE_DEF:
+	    PRINT_STRING(res, fn, arg, "#MatchState");
+	    break;
         default:
 	    PRINT_STRING(res, fn, arg, "<unknown:");
 	    PRINT_POINTER(res, fn, arg, wobj);

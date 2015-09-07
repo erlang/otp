@@ -844,7 +844,6 @@ Uint32 make_hash(Eterm term_arg)
     Eterm hash = 0;
     unsigned op;
 
-    /* Must not collide with the real tag_val_def's: */
 #define MAKE_HASH_TUPLE_OP      (FIRST_VACANT_TAG_DEF)
 #define MAKE_HASH_TERM_ARRAY_OP (FIRST_VACANT_TAG_DEF+1)
 #define MAKE_HASH_CDR_PRE_OP    (FIRST_VACANT_TAG_DEF+2)

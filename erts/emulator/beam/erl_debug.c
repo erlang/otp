@@ -189,6 +189,9 @@ pdisplay1(int to, void *to_arg, Process* p, Eterm obj)
     case BINARY_DEF:
 	erts_print(to, to_arg, "#Bin");
 	break;
+    case MATCHSTATE_DEF:
+        erts_print(to, to_arg, "#Matchstate");
+        break;
     default:
 	erts_print(to, to_arg, "unknown object %x", obj);
     }
