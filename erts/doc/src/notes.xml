@@ -30,6 +30,23 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 6.4.1.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    When tracing with <c>process_dump</c> option, the VM
+	    could abort if there was an ongoing binary match
+	    somewhere in the call stack of the traced process./</p>
+          <p>
+	    Own Id: OTP-12968</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 6.4.1.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
