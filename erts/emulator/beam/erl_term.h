@@ -1136,8 +1136,9 @@ _ET_DECLARE_CHECKED(Uint,y_reg_index,Uint)
 #define FLOAT_DEF		0xe
 #define BIG_DEF			0xf
 #define SMALL_DEF		0x10
+#define MATCHSTATE_DEF          0x11   /* not a "real" term */
 
-#define FIRST_VACANT_TAG_DEF    0x11
+#define FIRST_VACANT_TAG_DEF    0x12
 
 #if ET_DEBUG
 extern unsigned tag_val_def_debug(Wterm, const char*, unsigned);
