@@ -758,10 +758,20 @@ valfun_4(_, _) ->
 
 verify_get_map(Fail, Src, List, Vst0) ->
     assert_type(map, Src, Vst0),
-    Vst1 = branch_state(Fail, Vst0),
+    Vst1 = foldl(fun(D, Vsti) ->
+                         case is_reg_defined(D,Vsti) of
+                             true -> set_type_reg(term,D,Vsti);
+                             false -> Vsti
+                         end
+                 end, Vst0, extract_map_vals(List)),
+    Vst2 = branch_state(Fail, Vst1),
     Keys = extract_map_keys(List),
     assert_unique_map_keys(Keys),
-    verify_get_map_pair(List,Vst0,Vst1).
+    verify_get_map_pair(List,Vst0,Vst2).
+
+extract_map_vals([_Key,Val|T]) ->
+    [Val|extract_map_vals(T)];
+extract_map_vals([]) -> [].
 
 extract_map_keys([Key,_Val|T]) ->
     [Key|extract_map_keys(T)];
@@ -1092,6 +1102,17 @@ set_type_y(Type, Reg, #vst{}) -> error({invalid_store,Reg,Type}).
 set_catch_end({y,Y}, #vst{current=#st{y=Ys0}=St}=Vst) ->
     Ys = gb_trees:update(Y, initialized, Ys0),
     Vst#vst{current=St#st{y=Ys}}.
+
+
+is_reg_defined({x,_}=Reg, Vst) -> is_type_defined_x(Reg, Vst);
+is_reg_defined({y,_}=Reg, Vst) -> is_type_defined_y(Reg, Vst);
+is_reg_defined(V, #vst{}) -> error({not_a_register, V}).
+
+is_type_defined_x({x,X}, #vst{current=#st{x=Xs}}) ->
+    gb_trees:is_defined(X,Xs).
+
+is_type_defined_y({y,Y}, #vst{current=#st{y=Ys}}) ->
+    gb_trees:is_defined(Y,Ys).
 
 assert_term(Src, Vst) ->
     get_term_type(Src, Vst),
