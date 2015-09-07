@@ -220,7 +220,7 @@ erts_aint32_t erts_alcu_fix_alloc_shrink(Allctr_t *, erts_aint32_t);
 
 #if ERTS_HAVE_MSEG_SUPER_ALIGNED \
     || (!HAVE_ERTS_MSEG && ERTS_HAVE_ERTS_SYS_ALIGNED_ALLOC)
-#  ifndef MSEG_ALIGN_BITS
+#  ifdef MSEG_ALIGN_BITS
 #    define ERTS_SUPER_ALIGN_BITS MSEG_ALIGN_BITS
 #  else
 #    define ERTS_SUPER_ALIGN_BITS 18

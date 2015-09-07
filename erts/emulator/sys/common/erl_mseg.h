@@ -42,16 +42,6 @@
 
 #if ERTS_HAVE_MSEG_SUPER_ALIGNED
 #  define MSEG_ALIGN_BITS ERTS_MMAP_SUPERALIGNED_BITS
-#else
-/* If we don't use super aligned multiblock carriers
- * we will mmap with page size alignment (and thus use corresponding
- * align bits).
- *
- * Current implementation needs this to be a constant and
- * only uses this for user dev testing so setting page size
- * to 4096 (12 bits) is fine.
- */
-#  define MSEG_ALIGN_BITS       (12)
 #endif
 
 #if HAVE_ERTS_MSEG
