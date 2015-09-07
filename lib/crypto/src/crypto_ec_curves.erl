@@ -4,11 +4,13 @@
 
 curves() ->
     CryptoSupport = crypto:supports(),
-    HasGF2m = proplists:get_bool(ec_gf2m,  proplists:get_value(public_keys, CryptoSupport)),
-    prime_curves() ++ characteristic_two_curves(HasGF2m).
+    PubKeys = proplists:get_value(public_keys, CryptoSupport),
+    HasEC   = proplists:get_bool(ecdh, PubKeys),
+    HasGF2m = proplists:get_bool(ec_gf2m, PubKeys),
+    prime_curves(HasEC) ++ characteristic_two_curves(HasGF2m).
 
 
-prime_curves() ->
+prime_curves(true) ->
     [secp112r1,secp112r2,secp128r1,secp128r2,secp160k1,secp160r1,secp160r2,
      secp192r1,secp192k1,secp224k1,secp224r1,secp256k1,secp256r1,secp384r1,
      secp521r1,prime192v1,prime192v2,prime192v3,prime239v1,prime239v2,prime239v3,
@@ -16,7 +18,9 @@ prime_curves() ->
      brainpoolP160r1,brainpoolP160t1,brainpoolP192r1,brainpoolP192t1,
      brainpoolP224r1,brainpoolP224t1,brainpoolP256r1,brainpoolP256t1,
      brainpoolP320r1,brainpoolP320t1,brainpoolP384r1,brainpoolP384t1,
-     brainpoolP512r1,brainpoolP512t1].
+     brainpoolP512r1,brainpoolP512t1];
+prime_curves(_) ->
+    [].
 
 characteristic_two_curves(true) ->
     [sect113r1,sect113r2,sect131r1,sect131r2,sect163k1,sect163r1,
