@@ -165,14 +165,14 @@
       <marker id="profile"></marker>
       <tag>{profile, atom()}</tag>
       <item>
-        <p>Used together with <seealso marker="prop_bind_address"><c>bind_address</c></seealso>
-	and <seealso marker="prop_port"><c>port</c></seealso> to uniquely identify
+        <p>Used together with <seealso marker="#prop_bind_address"><c>bind_address</c></seealso>
+	and <seealso marker="#prop_port"><c>port</c></seealso> to uniquely identify
 	a HTTP server. This can be useful in a virtualized environment,
 	where there can
 	be more that one server that has the same bind_address and port.
 	If this property is not explicitly set, it is assumed that the
-	<seealso marker="prop_bind_address"><c>bind_address</c></seealso> and
-	<seealso marker="prop_port"><c>port</c></seealso>uniquely identifies the HTTP server.
+	<seealso marker="#prop_bind_address"><c>bind_address</c></seealso> and
+	<seealso marker="#prop_port"><c>port</c></seealso>uniquely identifies the HTTP server.
 	</p>
       </item>
 
@@ -227,7 +227,7 @@
       <tag>{customize, atom()}</tag>
       <item> 
 	<p>A callback module to customize the inets HTTP servers behaviour
-	see <seealso marker="http_custom_api"> httpd_custom_api</seealso> </p>
+	see <seealso marker="httpd_custom_api"> httpd_custom_api</seealso> </p>
       </item>
       
       <marker id="prop_disable_chunked_encoding"></marker>
