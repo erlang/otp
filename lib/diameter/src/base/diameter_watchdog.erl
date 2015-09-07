@@ -541,12 +541,12 @@ set_watchdog(#watchdog{tref = undefined} = S) ->
 
 %% Timer already set: start at new one only at expiry.
 set_watchdog(#watchdog{} = S) ->
-    S#watchdog{tref = diameter_lib:now()};
-
-set_watchdog(stop = No) ->
-    No.
+    S#watchdog{tref = diameter_lib:now()}.
 
 %% set_watchdog/2
+
+set_watchdog(_, stop = No) ->
+    No;
 
 set_watchdog(Ms, #watchdog{tw = TwInit} = S) ->
     S#watchdog{tref = erlang:start_timer(tw(TwInit, Ms), self(), tw)}.
