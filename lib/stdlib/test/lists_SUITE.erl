@@ -44,7 +44,7 @@
 	
 	 sublist_2/1, sublist_3/1, sublist_2_e/1, sublist_3_e/1,
 	 flatten_1/1, flatten_2/1, flatten_1_e/1, flatten_2_e/1,
-	 dropwhile/1,
+	 dropwhile/1, takewhile/1,
 	 sort_1/1, sort_stable/1, merge/1, rmerge/1, sort_rand/1,
 	 usort_1/1, usort_stable/1, umerge/1, rumerge/1,usort_rand/1,
 	 keymerge/1, rkeymerge/1,
@@ -122,8 +122,8 @@ groups() ->
       [flatten_1, flatten_2, flatten_1_e, flatten_2_e]},
      {tickets, [parallel], [otp_5939, otp_6023, otp_6606, otp_7230]},
      {zip, [parallel], [zip_unzip, zip_unzip3, zipwith, zipwith3]},
-     {misc, [parallel], [reverse, member, dropwhile, filter_partition,
-			 suffix, subtract]}
+     {misc, [parallel], [reverse, member, dropwhile, takewhile,
+			 filter_partition, suffix, subtract]}
     ].
 
 init_per_suite(Config) ->
@@ -355,6 +355,33 @@ dropwhile(Config) when is_list(Config) ->
     Shorter = lists:seq(800, 1024),
 
     ?line Shorter = lists:dropwhile(fun(E) -> E < 800 end, Long),
+
+    ok.
+
+takewhile(Config) when is_list(Config) ->
+    F = fun(C) -> C =/= $@ end,
+
+    [] = lists:takewhile(F, []),
+    [a] = lists:takewhile(F, [a]),
+    [a,b] = lists:takewhile(F, [a,b]),
+    [a,b,c] = lists:takewhile(F, [a,b,c]),
+
+    [] = lists:takewhile(F, [$@]),
+    [] = lists:takewhile(F, [$@,$@]),
+    [a] = lists:takewhile(F, [a,$@]),
+
+    [$k] = lists:takewhile(F, [$k,$@]),
+    [$k,$l] = lists:takewhile(F, [$k,$l,$@,$@]),
+    [a] = lists:takewhile(F, [a,$@,$@,$@]),
+
+    [] = lists:takewhile(F, [$@,a,$@,b]),
+    [] = lists:takewhile(F, [$@,$@,a,$@,b]),
+    [] = lists:takewhile(F, [$@,$@,$@,a,$@,b]),
+
+    Long = lists:seq(1, 1024),
+    Shorter = lists:seq(1, 400),
+
+    Shorter = lists:takewhile(fun(E) -> E =< 400 end, Long),
 
     ok.
 
