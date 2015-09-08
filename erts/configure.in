@@ -2084,8 +2084,7 @@ fi
 
 case X$erl_xcomp_posix_memalign in
      Xno) ;;
-     Xyes) AC_DEFINE(HAVE_POSIX_MEMALIGN,[1],
-                [Define to 1 if you have the `posix_memalign' function.]) ;;
+     Xyes) have_posix_memalign=yes ;;
      *)
 	AC_CHECK_FUNC(
 		[posix_memalign],
@@ -2100,14 +2099,18 @@ int main(void) {
       return error;
     return 0;
 }
-],AC_DEFINE(HAVE_POSIX_MEMALIGN,[1],
-    [Define to 1 if you have the `posix_memalign' function.])
+],have_posix_memalign=yes
 )
 		 else
-			AC_DEFINE(HAVE_POSIX_MEMALIGN,[1],
-		[Define to 1 if you have the `posix_memalign' function.])
+			have_posix_memalign=yes
 		 fi]);;
 esac
+
+if test $have_posix_memalign = yes; then
+   AC_DEFINE(HAVE_POSIX_MEMALIGN,[1],
+	     [Define to 1 if you have the `posix_memalign' function.])
+fi
+
 
 dnl writev on OS X snow leopard is broken for files > 4GB
 case $host_os in
