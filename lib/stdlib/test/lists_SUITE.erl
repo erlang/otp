@@ -2326,18 +2326,24 @@ sublist_3_e(Config) when is_list(Config) ->
 -define(flatten_error1(X), ?line {'EXIT', _} = (catch lists:flatten(X))).
 -define(flatten_error2(X,Y), ?line {'EXIT', _} = (catch lists:flatten(X,Y))).
 
-flatten_1(doc) ->   ["flatten/1"];
-flatten_1(suite) -> [];
+%% Test lists:flatten/1,2 and lists:flatlength/1.
 flatten_1(Config) when is_list(Config) ->
-    ?line [] = lists:flatten([]),
-    ?line [1,2] = lists:flatten([1,2]),
-    ?line [1,2] = lists:flatten([1,[2]]),
-    ?line [1,2] = lists:flatten([[1],2]),
-    ?line [1,2] = lists:flatten([[1],[2]]),
-    ?line [1,2] = lists:flatten([[1,2]]),
-    ?line [a,b,c,d] = lists:flatten([[a],[b,c,[d]]]),
+    [] = lists_flatten([]),
+    [1,2] = lists_flatten([1,2]),
+    [1,2] = lists_flatten([1,[2]]),
+    [1,2] = lists_flatten([[1],2]),
+    [1,2] = lists_flatten([[1],[2]]),
+    [1,2] = lists_flatten([[1,2]]),
+    [a,b,c,d] = lists_flatten([[a],[b,c,[d]]]),
 
     ok.
+
+lists_flatten(List) ->
+    Flat = lists:flatten(List),
+    Flat = lists:flatten(List, []),
+    Len = lists:flatlength(List),
+    Len = length(Flat),
+    Flat.
 
 flatten_1_e(doc) ->   ["flatten/1 error cases"];
 flatten_1_e(suite) -> [];
