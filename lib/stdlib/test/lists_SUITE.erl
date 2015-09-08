@@ -2351,11 +2351,11 @@ flatten_1_e(Config) when is_list(Config) ->
 %%% clear-cut. Right now, I think that any term should be allowed.
 %%% But I also wish this function didn't exist at all.
 
-flatten_2(doc) ->   ["flatten/2"];
-flatten_2(suite) -> [];
+%% Test lists:flatten/2.
 flatten_2(Config) when is_list(Config) ->
-    ?line [] = lists:flatten([]),
-    ?line [a] = lists:flatten([a]),
+    [] = lists:flatten([], []),
+    [a] = lists:flatten([a], []),
+    [a,b,c,[no,flatten]] = lists:flatten([[a,[b,c]]], [[no,flatten]]),
     ok.
 
 flatten_2_e(doc) ->   ["flatten/2 error cases"];
