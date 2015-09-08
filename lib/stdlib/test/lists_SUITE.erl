@@ -38,7 +38,7 @@
 % Test cases must be exported.
 -export([member/1, reverse/1,
 	 keymember/1, keysearch_keyfind/1,
-         keystore/1, keytake/1,
+         keystore/1, keytake/1, keyreplace/1,
 	 append_1/1, append_2/1,
 	 seq_loop/1, seq_2/1, seq_3/1, seq_2_e/1, seq_3_e/1,
 	
@@ -82,7 +82,8 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [{group, append}, reverse, member, keymember,
-     keysearch_keyfind, keystore, keytake, dropwhile, {group,sort},
+     keysearch_keyfind, keystore, keytake, keyreplace,
+     dropwhile, {group,sort},
      {group, usort}, {group, keysort}, {group, ukeysort},
      {group, funsort}, {group, ufunsort}, {group, sublist},
      {group, flatten}, {group, seq}, zip_unzip, zip_unzip3,
@@ -380,6 +381,17 @@ keytake(Config) when is_list(Config) ->
     ?line {value,{b,2},[{a,1},{c,3}]} = lists:keytake(2, 2, L),
     ?line {value,{c,3},[{a,1},{b,2}]} = lists:keytake(3, 2, L),
     ?line false = lists:keytake(4, 2, L),
+    ok.
+
+%% Test lists:keyreplace/4.
+keyreplace(Config) when is_list(Config) ->
+    [{new,42}] = lists:keyreplace(k, 1, [{k,1}], {new,42}),
+    [atom,{new,a,b}] = lists:keyreplace(k, 1, [atom,{k,1}], {new,a,b}),
+    [a,{x,y,z}] = lists:keyreplace(a, 5, [a,{x,y,z}], {no,use}),
+
+    %% Error cases.
+    {'EXIT',_} = (catch lists:keyreplace(k, 1, [], not_tuple)),
+    {'EXIT',_} = (catch lists:keyreplace(k, 0, [], {a,b})),
     ok.
 
 merge(doc) ->   ["merge functions"];
