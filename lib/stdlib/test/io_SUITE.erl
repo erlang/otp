@@ -33,7 +33,7 @@
 	 io_lib_print_binary_depth_one/1, otp_10302/1, otp_10755/1,
          otp_10836/1, io_lib_width_too_small/1,
          io_with_huge_message_queue/1, format_string/1,
-	 maps/1]).
+	 maps/1, coverage/1]).
 
 -export([pretty/2]).
 
@@ -74,7 +74,7 @@ all() ->
      printable_range, bad_printable_range,
      io_lib_print_binary_depth_one, otp_10302, otp_10755, otp_10836,
      io_lib_width_too_small, io_with_huge_message_queue,
-     format_string, maps].
+     format_string, maps, coverage].
 
 groups() -> 
     [].
@@ -2390,3 +2390,14 @@ parse_skip_ws([C|S]) when C =< $\s ->
     parse_skip_ws(S);
 parse_skip_ws(S) ->
     S.
+
+%% Cover the last uncovered lines for completeness.
+coverage(_Config) ->
+    S1 = io_lib_pretty:print({a,term}, fun(_, _) -> no end),
+    io:format("~s\n", [S1]),
+
+    %% The tuple of arity three will be ignored.
+    S2 = io_lib_pretty:print(lists:seq(1, 100), [{depth,1,1}]),
+    io:format("~s\n", [S2]),
+
+    ok.
