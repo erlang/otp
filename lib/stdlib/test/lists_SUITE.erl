@@ -81,38 +81,50 @@
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    [{group, append}, reverse, member, keymember,
-     keysearch_keyfind, keystore, keytake, keyreplace,
-     dropwhile, {group,sort},
-     {group, usort}, {group, keysort}, {group, ukeysort},
-     {group, funsort}, {group, ufunsort}, {group, sublist},
-     {group, flatten}, {group, seq}, zip_unzip, zip_unzip3,
-     zipwith, zipwith3, filter_partition, {group, tickets},
-     suffix, subtract].
+    [{group, append},
+     {group, key},
+     {group,sort},
+     {group, usort},
+     {group, keysort},
+     {group, ukeysort},
+     {group, funsort},
+     {group, ufunsort},
+     {group, sublist},
+     {group, flatten},
+     {group, seq},
+     {group, tickets},
+     {group, zip},
+     {group, misc}].
 
 groups() -> 
-    [{append, [], [append_1, append_2]},
-     {usort, [],
+    [{append, [parallel], [append_1, append_2]},
+     {usort, [parallel],
       [umerge, rumerge, usort_1, usort_rand, usort_stable]},
-     {keysort, [],
+     {keysort, [parallel],
       [keymerge, rkeymerge, keysort_1, keysort_rand,
        keysort_i, keysort_stable, keysort_error]},
-     {sort,[],[merge, rmerge, sort_1, sort_rand]},
-     {ukeysort, [],
+     {key, [parallel], [keymember, keysearch_keyfind, keystore,
+			keytake, keyreplace]},
+     {sort,[parallel],[merge, rmerge, sort_1, sort_rand]},
+     {ukeysort, [parallel],
       [ukeymerge, rukeymerge, ukeysort_1, ukeysort_rand,
        ukeysort_i, ukeysort_stable, ukeysort_error]},
-     {funsort, [],
+     {funsort, [parallel],
       [funmerge, rfunmerge, funsort_1, funsort_stable,
        funsort_error, funsort_rand]},
-     {ufunsort, [],
+     {ufunsort, [parallel],
       [ufunmerge, rufunmerge, ufunsort_1, ufunsort_stable,
        ufunsort_error, ufunsort_rand]},
-     {seq, [], [seq_loop, seq_2, seq_3, seq_2_e, seq_3_e]},
-     {sublist, [],
+     {seq, [parallel], [seq_loop, seq_2, seq_3, seq_2_e, seq_3_e]},
+     {sublist, [parallel],
       [sublist_2, sublist_3, sublist_2_e, sublist_3_e]},
-     {flatten, [],
+     {flatten, [parallel],
       [flatten_1, flatten_2, flatten_1_e, flatten_2_e]},
-     {tickets, [], [otp_5939, otp_6023, otp_6606, otp_7230]}].
+     {tickets, [parallel], [otp_5939, otp_6023, otp_6606, otp_7230]},
+     {zip, [parallel], [zip_unzip, zip_unzip3, zipwith, zipwith3]},
+     {misc, [parallel], [reverse, member, dropwhile, filter_partition,
+			 suffix, subtract]}
+    ].
 
 init_per_suite(Config) ->
     Config.
