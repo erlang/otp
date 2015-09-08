@@ -62,7 +62,7 @@
 	 zip_unzip/1, zip_unzip3/1, zipwith/1, zipwith3/1,
 	 filter_partition/1, 
 	 otp_5939/1, otp_6023/1, otp_6606/1, otp_7230/1,
-	 suffix/1, subtract/1, droplast/1]).
+	 suffix/1, subtract/1, droplast/1, hof/1]).
 
 %% Sort randomized lists until stopped.
 %%
@@ -123,7 +123,8 @@ groups() ->
      {tickets, [parallel], [otp_5939, otp_6023, otp_6606, otp_7230]},
      {zip, [parallel], [zip_unzip, zip_unzip3, zipwith, zipwith3]},
      {misc, [parallel], [reverse, member, dropwhile, takewhile,
-			 filter_partition, suffix, subtract]}
+			 filter_partition, suffix, subtract,
+			 hof]}
     ].
 
 init_per_suite(Config) ->
@@ -2706,5 +2707,42 @@ droplast(Config) when is_list(Config) ->
     ?line [x] = lists:droplast([x, y]),
     ?line {'EXIT', {function_clause, _}} = (catch lists:droplast([])),
     ?line {'EXIT', {function_clause, _}} = (catch lists:droplast(x)),
+
+    ok.
+
+%% Briefly test the common high-order functions to ensure they
+%% are covered.
+hof(Config) when is_list(Config) ->
+    L = [1,2,3],
+    [1,4,9] = lists:map(fun(N) -> N*N end, L),
+    [1,4,5,6] = lists:flatmap(fun(1) -> [1];
+				 (2) -> [];
+				 (3) -> [4,5,6]
+			      end, L),
+    [{1,[a]},{2,[b]},{3,[c]}] =
+	lists:keymap(fun(A) -> [A] end, 2, [{1,a},{2,b},{3,c}]),
+
+    [1,3] = lists:filter(fun(N) -> N rem 2 =:= 1 end, L),
+    FilterMapFun = fun(1) -> true;
+		      (2) -> {true,42};
+		      (3) -> false
+		   end,
+    [1,42] = lists:filtermap(FilterMapFun, L),
+    [1,42] = lists:zf(FilterMapFun, L),
+
+    [3,2,1] = lists:foldl(fun(E, A) -> [E|A] end, [], L),
+    [1,2,3] = lists:foldr(fun(E, A) -> [E|A] end, [], L),
+    {[1,4,9],[3,2,1]} = lists:mapfoldl(fun(E, A) ->
+					       {E*E,[E|A]}
+				       end, [], L),
+    {[1,4,9],[1,2,3]} = lists:mapfoldr(fun(E, A) ->
+					       {E*E,[E|A]}
+				       end, [], L),
+
+    true = lists:any(fun(N) -> N =:= 2 end, L),
+    false = lists:any(fun(N) -> N =:= 42 end, L),
+
+    true = lists:all(fun(N) -> is_integer(N) end, L),
+    false = lists:all(fun(N) -> N rem 2 =:= 0 end, L),
 
     ok.
