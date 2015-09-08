@@ -62,8 +62,7 @@
 	 zip_unzip/1, zip_unzip3/1, zipwith/1, zipwith3/1,
 	 filter_partition/1, 
 	 otp_5939/1, otp_6023/1, otp_6606/1, otp_7230/1,
-	 prefix/1, suffix/1, subtract/1, droplast/1, hof/1,
-	 split/1, concat/1]).
+	 suffix/1, subtract/1, droplast/1, hof/1]).
 
 %% Sort randomized lists until stopped.
 %%
@@ -124,8 +123,8 @@ groups() ->
      {tickets, [parallel], [otp_5939, otp_6023, otp_6606, otp_7230]},
      {zip, [parallel], [zip_unzip, zip_unzip3, zipwith, zipwith3]},
      {misc, [parallel], [reverse, member, dropwhile, takewhile,
-			 filter_partition, prefix, suffix, subtract,
-			 hof, split, concat]}
+			 filter_partition, suffix, subtract,
+			 hof]}
     ].
 
 init_per_suite(Config) ->
@@ -2630,19 +2629,6 @@ otp_6606(Config) when is_list(Config) ->
     ?line L2 = lists:sort(L2),
     ok.
 
-%% Test lists:prefix/2.
-prefix(Config) when is_list(Config) ->
-    true = lists:prefix([], []),
-    true = lists:prefix([], lists:seq(1, 10)),
-    true = lists:prefix([a], [a,b]),
-    true = lists:prefix(lists:seq(1, 10), lists:seq(1, 100)),
-
-    false = lists:prefix([a], []),
-    false = lists:prefix([a], [b]),
-    false = lists:prefix([a], [b,a]),
-
-    ok.
-
 %% Test lists:suffix/2.
 suffix(Config) when is_list(Config) ->
     ?line true = lists:suffix([], []),
@@ -2759,38 +2745,4 @@ hof(Config) when is_list(Config) ->
     true = lists:all(fun(N) -> is_integer(N) end, L),
     false = lists:all(fun(N) -> N rem 2 =:= 0 end, L),
 
-    ok.
-
-%% Test lists:split/2
-split(Config) when is_list(Config) ->
-    Lens = lists:seq(0, 32),
-    do_split(Lens),
-
-    %% Error cases.
-    {'EXIT',_} = (catch lists:split(a, [])),
-    {'EXIT',_} = (catch lists:split(-1, [])),
-    {'EXIT',_} = (catch lists:split(0, {a,b})),
-    ok.
-
-do_split([Len|Lens]) ->
-    List = [rand:uniform(1000) || _ <- lists:seq(1, Len)],
-    do_split_1(0, Len, List),
-    do_split(Lens);
-do_split([]) ->
-    ok.
-
-do_split_1(N, Len, List)  when N =:= Len + 1 ->
-    {'EXIT',_} = (catch lists:split(N, List));
-do_split_1(N, Len, List) ->
-    {A,B} = lists:split(N, List),
-    List = A ++ B,
-    N = length(A),
-    LenB = length(B),
-    LenB = Len - N,
-    do_split_1(N+1, Len, List).
-
-%% Test lists:concat/1 mainly for coverage.
-concat(Config) when is_list(Config) ->
-    S = integer_to_list(42) ++ "pi: " ++ float_to_list(math:pi()),
-    S = lists:concat([42,pi,": ",math:pi()]),
     ok.
