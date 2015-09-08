@@ -563,3 +563,12 @@ stop_apps(Apps) ->
 			  application:stop(App)
 		  end, Apps).
 
+inet_port(Node) ->
+    {Port, Socket} = do_inet_port(Node),
+     rpc:call(Node, gen_tcp, close, [Socket]),
+     Port.
+
+do_inet_port(Node) ->
+    {ok, Socket} = rpc:call(Node, gen_tcp, listen, [0, [{reuseaddr, true}]]),
+    {ok, Port} = rpc:call(Node, inet, port, [Socket]),
+    {Port, Socket}.
