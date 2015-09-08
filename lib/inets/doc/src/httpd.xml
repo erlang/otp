@@ -215,7 +215,7 @@
 	Notice that some <c>mod</c>-modules are dependent on
 	others, so the order cannot be entirely arbitrary. See the
 	<seealso marker="http_server">Inets Web Server Modules</seealso> in the
-	User’s Guide for details.</p>
+	User's Guide for details.</p>
       </item>
     </taglist>
     

@@ -57,7 +57,7 @@
 	file is found or if <c>Path</c> is not a directory.
 	<c>config_db()</c> is the server config file in ETS table format
 	as described in
-	<seealso marker="http_server">Inets User’s Guide</seealso>.</p>
+	<seealso marker="http_server">Inets User's Guide</seealso>.</p>
 
 	<marker id="path"></marker>
       </desc>
@@ -82,7 +82,7 @@
 	exported, <c>ServerRoot</c> is used to
 	generate a file <c>Path</c>. <c>config_db()</c> and
 	<c>interaction_data()</c> are as defined in 
-	<seealso marker="http_server">Inets User’s Guide</seealso>.</p>
+	<seealso marker="http_server">Inets User's Guide</seealso>.</p>
 
 	<marker id="real_name"></marker>
       </desc>
@@ -113,7 +113,7 @@
 	<c>ShortPath</c> as an argument.
 	<c>config_db()</c> is the server config file in ETS table
 	format as described in 
-	<seealso marker="http_server">Inets User’s Guide</seealso>.</p>
+	<seealso marker="http_server">Inets User's Guide</seealso>.</p>
 
 	<marker id="real_script_name"></marker>
       </desc>
@@ -143,7 +143,7 @@
 	<seealso marker="httpd_util#split_script_path">httpd_util:split_script_path/1</seealso>.
 	<c>config_db()</c> is the server config file in ETS table
 	format as described in 
-	<seealso marker="http_server">Inets User’s Guide</seealso>.</p>
+	<seealso marker="http_server">Inets User's Guide</seealso>.</p>
       </desc>
     </func>
   </funcs>
