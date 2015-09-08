@@ -63,7 +63,7 @@
 	 filter_partition/1, 
 	 otp_5939/1, otp_6023/1, otp_6606/1, otp_7230/1,
 	 prefix/1, suffix/1, subtract/1, droplast/1, hof/1,
-	 split/1]).
+	 split/1, concat/1]).
 
 %% Sort randomized lists until stopped.
 %%
@@ -125,7 +125,7 @@ groups() ->
      {zip, [parallel], [zip_unzip, zip_unzip3, zipwith, zipwith3]},
      {misc, [parallel], [reverse, member, dropwhile, takewhile,
 			 filter_partition, prefix, suffix, subtract,
-			 hof, split]}
+			 hof, split, concat]}
     ].
 
 init_per_suite(Config) ->
@@ -2788,3 +2788,9 @@ do_split_1(N, Len, List) ->
     LenB = length(B),
     LenB = Len - N,
     do_split_1(N+1, Len, List).
+
+%% Test lists:concat/1 mainly for coverage.
+concat(Config) when is_list(Config) ->
+    S = integer_to_list(42) ++ "pi: " ++ float_to_list(math:pi()),
+    S = lists:concat([42,pi,": ",math:pi()]),
+    ok.
