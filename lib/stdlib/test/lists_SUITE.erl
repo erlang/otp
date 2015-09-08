@@ -62,7 +62,8 @@
 	 zip_unzip/1, zip_unzip3/1, zipwith/1, zipwith3/1,
 	 filter_partition/1, 
 	 otp_5939/1, otp_6023/1, otp_6606/1, otp_7230/1,
-	 prefix/1, suffix/1, subtract/1, droplast/1, hof/1]).
+	 prefix/1, suffix/1, subtract/1, droplast/1, hof/1,
+	 split/1]).
 
 %% Sort randomized lists until stopped.
 %%
@@ -124,7 +125,7 @@ groups() ->
      {zip, [parallel], [zip_unzip, zip_unzip3, zipwith, zipwith3]},
      {misc, [parallel], [reverse, member, dropwhile, takewhile,
 			 filter_partition, prefix, suffix, subtract,
-			 hof]}
+			 hof, split]}
     ].
 
 init_per_suite(Config) ->
@@ -2759,3 +2760,31 @@ hof(Config) when is_list(Config) ->
     false = lists:all(fun(N) -> N rem 2 =:= 0 end, L),
 
     ok.
+
+%% Test lists:split/2
+split(Config) when is_list(Config) ->
+    Lens = lists:seq(0, 32),
+    do_split(Lens),
+
+    %% Error cases.
+    {'EXIT',_} = (catch lists:split(a, [])),
+    {'EXIT',_} = (catch lists:split(-1, [])),
+    {'EXIT',_} = (catch lists:split(0, {a,b})),
+    ok.
+
+do_split([Len|Lens]) ->
+    List = [rand:uniform(1000) || _ <- lists:seq(1, Len)],
+    do_split_1(0, Len, List),
+    do_split(Lens);
+do_split([]) ->
+    ok.
+
+do_split_1(N, Len, List)  when N =:= Len + 1 ->
+    {'EXIT',_} = (catch lists:split(N, List));
+do_split_1(N, Len, List) ->
+    {A,B} = lists:split(N, List),
+    List = A ++ B,
+    N = length(A),
+    LenB = length(B),
+    LenB = Len - N,
+    do_split_1(N+1, Len, List).
