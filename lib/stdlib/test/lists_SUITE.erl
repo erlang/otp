@@ -62,7 +62,7 @@
 	 zip_unzip/1, zip_unzip3/1, zipwith/1, zipwith3/1,
 	 filter_partition/1, 
 	 otp_5939/1, otp_6023/1, otp_6606/1, otp_7230/1,
-	 suffix/1, subtract/1, droplast/1, hof/1]).
+	 prefix/1, suffix/1, subtract/1, droplast/1, hof/1]).
 
 %% Sort randomized lists until stopped.
 %%
@@ -123,7 +123,7 @@ groups() ->
      {tickets, [parallel], [otp_5939, otp_6023, otp_6606, otp_7230]},
      {zip, [parallel], [zip_unzip, zip_unzip3, zipwith, zipwith3]},
      {misc, [parallel], [reverse, member, dropwhile, takewhile,
-			 filter_partition, suffix, subtract,
+			 filter_partition, prefix, suffix, subtract,
 			 hof]}
     ].
 
@@ -2627,6 +2627,19 @@ otp_6606(Config) when is_list(Config) ->
     L2 = [{I,I},{I,F},{F,I},{F,F}],
     ?line L2 = lists:keysort(1, L2),
     ?line L2 = lists:sort(L2),
+    ok.
+
+%% Test lists:prefix/2.
+prefix(Config) when is_list(Config) ->
+    true = lists:prefix([], []),
+    true = lists:prefix([], lists:seq(1, 10)),
+    true = lists:prefix([a], [a,b]),
+    true = lists:prefix(lists:seq(1, 10), lists:seq(1, 100)),
+
+    false = lists:prefix([a], []),
+    false = lists:prefix([a], [b]),
+    false = lists:prefix([a], [b,a]),
+
     ok.
 
 %% Test lists:suffix/2.
