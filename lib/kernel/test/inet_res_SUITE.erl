@@ -273,7 +273,6 @@ proxy({server_case_scramble, N}, Outbound, NS, P, Inbound) when is_integer(N), N
 	    ScrambledQueries = [scramble_query_domain(Q) || Q <- Queries],
 	    ScrambledMsg = inet_dns:make_msg(Msg, qdlist, ScrambledQueries),
 	    ScrambledReq = inet_dns:encode(ScrambledMsg),
-	    ct:pal("Proxying packet: ~9999p", [inet_dns:decode(ScrambledReq)]),
 	    ok = gen_udp:send(Outbound, NS, P, ScrambledReq),
 	    {SrcIP, SrcPort}
     end,
