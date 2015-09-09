@@ -43,6 +43,7 @@
       <item><c>erl_boot_server</c></item>
       <item><c>erl_ddll</c></item>
       <item><c>error_logger</c></item>
+      <item><c>error_logger_format_depth</c></item>
       <item><c>file</c></item>
       <item><c>global</c></item>
       <item><c>global_group</c></item>
@@ -152,6 +153,42 @@
           </item>
         </taglist>
       </item>
+      <tag><c>error_logger_format_depth = Depth</c></tag>
+      <item>
+        <marker id="error_logger_format_depth"></marker>
+	<p>This parameter can be used to limit the size of the
+	formatted output from the error logger event handlers.</p>
+
+	<note><p>This configuration parameter was introduced in OTP 18.1.
+	It is currently experimental. Based on user feedback it
+	may be changed or improved in future releases, for example
+	to gain better control over how to limit the size of the
+	formatted output. We have no plans to entirely remove this
+	new feature, unless it turns out to be completely
+	useless. In OTP 19, the default may be changed to limit the
+	formatted output.</p></note>
+
+        <p><c>Depth</c> is a positive integer that is the maximum
+        depth to which terms are printed by the error logger event
+        handlers included in OTP. Specifically, the two event handlers
+        defined by the <c>Kernel</c> application and the two event
+        handlers in the <c>SASL</c> application will use this
+        configuration parameter. (If you have implemented you own
+        error handlers, this configuration parameter will have no
+        effect on them.)</p>
+
+	<p>The way <c>Depth</c> is used, is that format strings
+	string passed to the event handlers will be rewritten.
+	The "~p" and "~w" format controls will be replaced with
+	"~P" and "~W", respectively, and <c>Depth</c> will be
+	used as the depth parameter. See
+	<seealso marker="stdlib:io#format/2">io:format/2</seealso>.</p>
+
+	<note><p>A reasonable starting value for <c>Depth</c> is
+	<c>30</c>.  You should test crashing various processes in your
+	application and examine the logs from the crashes, and then
+	either increase or decrease the value.</p></note>
+     </item>
       <tag><c>global_groups = [GroupTuple]</c></tag>
       <item>
         <p>Defines global groups, see

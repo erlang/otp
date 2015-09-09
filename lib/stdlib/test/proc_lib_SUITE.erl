@@ -28,7 +28,7 @@
 	 init_per_group/2,end_per_group/2, 
 	 crash/1, sync_start_nolink/1, sync_start_link/1,
          spawn_opt/1, sp1/0, sp2/0, sp3/1, sp4/2, sp5/1,
-	 hibernate/1, stop/1]).
+	 hibernate/1, stop/1, t_format/1]).
 -export([ otp_6345/1, init_dont_hang/1]).
 
 -export([hib_loop/1, awaken/1]).
@@ -51,7 +51,7 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [crash, {group, sync_start}, spawn_opt, hibernate,
-     {group, tickets}, stop].
+     {group, tickets}, stop, t_format].
 
 groups() -> 
     [{tickets, [], [otp_6345, init_dont_hang]},
@@ -149,7 +149,11 @@ crash(Config) when is_list(Config) ->
 	    ?line ?t:fail({unexpected_message,Any})
 	after 2000 ->
 		ok
-	end.
+	end,
+
+    error_logger:delete_report_handler(?MODULE),
+    ok.
+
 
 
 sync_start_nolink(Config) when is_list(Config) ->
@@ -301,6 +305,7 @@ hibernate(Config) when is_list(Config) ->
     ?line {value,{initial_call,{?MODULE,hib_loop,[_]}}} =
 	lists:keysearch(initial_call, 1, Report),
 
+    error_logger:delete_report_handler(?MODULE),
     ok.
 
 hib_loop(LoopData) ->
@@ -451,6 +456,51 @@ system_terminate(crash,_Parent,_Deb,_State) ->
     1 = 2;
 system_terminate(Reason,_Parent,_Deb,_State) ->
     exit(Reason).
+
+
+t_format(_Config) ->
+    error_logger:tty(false),
+    try
+	t_format()
+    after
+	error_logger:tty(true)
+    end,
+    ok.
+
+t_format() ->
+    error_logger:add_report_handler(?MODULE, self()),
+    Pid = proc_lib:spawn(fun t_format_looper/0),
+    HugeData = gb_sets:from_list(lists:seq(1, 100)),
+    Pid ! {die,HugeData},
+    Report = receive
+		 {crash_report, Pid, Report0} -> Report0
+	     end,
+    Usz = do_test_format(Report, unlimited),
+    Tsz = do_test_format(Report, 20),
+
+    if
+	Tsz >= Usz ->
+	    ?t:fail();
+	true ->
+	    ok
+    end,
+
+    ok.
+
+do_test_format(Report, Depth) ->
+    io:format("*** Depth = ~p", [Depth]),
+    S0 = proc_lib:format(Report, latin1, Depth),
+    S = lists:flatten(S0),
+    io:put_chars(S),
+    length(S).
+
+t_format_looper() ->
+    receive
+	{die,Data} ->
+	    exit(Data);
+	_ ->
+	    t_format_looper()
+    end.
 
 %%-----------------------------------------------------------------
 %% The error_logger handler used.
