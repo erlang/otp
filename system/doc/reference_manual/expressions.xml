@@ -568,10 +568,14 @@ Expr1 <input>op</input> Expr2</pre>
     <p>The arguments can be of different data types. The following
       order is defined:</p>
     <pre>
-number &lt; atom &lt; reference &lt; fun &lt; port &lt; pid &lt; tuple &lt; list &lt; bit string</pre>
+number &lt; atom &lt; reference &lt; fun &lt; port &lt; pid &lt; tuple &lt; map &lt; nil &lt; list &lt; bit string</pre>
     <p>Lists are compared element by element. Tuples are ordered by
       size, two tuples with the same size are compared element by
       element.</p>
+    <p>Maps are ordered by size, two maps with the same size are compared by keys in
+        ascending term order and then by values in key order.
+        In maps key order integers types are considered less than floats types.
+    </p>
       <p>When comparing an integer to a float, the term with the lesser
       precision is converted into the type of the other term, unless the
       operator is one of <c>=:=</c> or <c>=/=</c>. A float is more precise than
@@ -591,7 +595,11 @@ true
 2> <input>1=:=1.0.</input>
 false
 3> <input>1 > a.</input>
-false</pre>
+false
+4> <input>#{c => 3} > #{a => 1, b => 2}.</input>
+false
+4> <input>#{a => 1, b => 2} == #{a => 1.0, b => 2.0}.</input>
+true</pre>
   </section>
 
   <section>
