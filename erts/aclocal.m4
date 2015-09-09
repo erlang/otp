@@ -940,16 +940,16 @@ AC_DEFUN(ERL_WALL_CLOCK,
 
   erl_wall_clock_low_resolution=no
   erl_wall_clock_id=
-  case $erl_cv_clock_gettime_wall_$1-$erl_cv_mach_clock_get_time_wall-$ac_cv_func_gettimeofday-$host_os in
-    *-*-*-win32)
+  case $1-$erl_cv_clock_gettime_wall_$1-$erl_cv_mach_clock_get_time_wall-$ac_cv_func_gettimeofday-$host_os in
+    *-*-*-*-win32)
       erl_wall_clock_func=WindowsAPI
       erl_wall_clock_low_resolution=yes
       ;;
-    no-yes-*-*)
+    high_resolution-no-yes-*-*)
       erl_wall_clock_func=mach_clock_get_time
       erl_wall_clock_id=CALENDAR_CLOCK
       ;;
-    CLOCK_*-*-*-*)
+    *-CLOCK_*-*-*-*)
       erl_wall_clock_func=clock_gettime
       erl_wall_clock_id=$erl_cv_clock_gettime_wall_$1
       for low_res_id in $low_resolution_clock_gettime_wall; do
@@ -959,7 +959,7 @@ AC_DEFUN(ERL_WALL_CLOCK,
 	  fi
       done
       ;;
-    no-no-yes-*)
+    *-no-*-yes-*)
       erl_wall_clock_func=gettimeofday
       ;;
     *)
@@ -2219,10 +2219,10 @@ AS_HELP_STRING([--with-clock-gettime-monotonic-id=CLOCKID],
                [specify clock id to use with clock_gettime() for monotonic time)]))
 
 AC_ARG_ENABLE(prefer-elapsed-monotonic-time-during-suspend,
-	      AS_HELP_STRING([--enable-prefer-elapsed-monotonic-time-during-suspend],
-                             [Prefer an OS monotonic time source with elapsed time during suspend])
-	      AS_HELP_STRING([--disable-prefer-elapsed-monotonic-time-during-suspend],
-                             [Do not prefer an OS monotonic time source with elapsed time during suspend]),
+AS_HELP_STRING([--enable-prefer-elapsed-monotonic-time-during-suspend],
+               [Prefer an OS monotonic time source with elapsed time during suspend])
+AS_HELP_STRING([--disable-prefer-elapsed-monotonic-time-during-suspend],
+               [Do not prefer an OS monotonic time source with elapsed time during suspend]),
 [ case "$enableval" in
     yes) prefer_elapsed_monotonic_time_during_suspend=yes ;;
     *)  prefer_elapsed_monotonic_time_during_suspend=no ;;
@@ -2296,6 +2296,9 @@ case "$erl_wall_clock_func-$erl_wall_clock_id-$with_clock_gettime_realtime_id" i
 esac
 
 case $erl_wall_clock_func in
+  none)
+    AC_MSG_ERROR([No wall clock source found])
+    ;;
   mach_clock_get_time)
     AC_DEFINE(OS_SYSTEM_TIME_USING_MACH_CLOCK_GET_TIME, [1], [Define if you want to implement erts_os_system_time() using mach clock_get_time()])
     ;;
