@@ -536,7 +536,9 @@ do_break(void)
 	    erts_printf("Erlang (%s) emulator version "
 		       ERLANG_VERSION "\n",
 		       EMULATOR);
+#if ERTS_SAVED_COMPILE_TIME
 	    erts_printf("Compiled on " ERLANG_COMPILE_DATE "\n");
+#endif
 	    return;
 	case 'd':
 	    distribution_info(ERTS_PRINT_STDOUT, NULL);
@@ -774,7 +776,9 @@ erl_crash_dump_v(char *file, int line, char* fmt, va_list args)
     }
     erts_fdprintf(fd, "System version: ");
     erts_print_system_version(fd, NULL, NULL);
+#if ERTS_SAVED_COMPILE_TIME
     erts_fdprintf(fd, "%s\n", "Compiled: " ERLANG_COMPILE_DATE);
+#endif
 
     erts_fdprintf(fd, "Taints: ");
     erts_print_nif_taints(fd, NULL);

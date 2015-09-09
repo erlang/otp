@@ -649,6 +649,7 @@ ERTS_GLB_INLINE void erts_tsd_set(erts_tsd_key_t key, void *value);
 ERTS_GLB_INLINE void * erts_tsd_get(erts_tsd_key_t key);
 ERTS_GLB_INLINE erts_tse_t *erts_tse_fetch(void);
 ERTS_GLB_INLINE void erts_tse_return(erts_tse_t *ep);
+ERTS_GLB_INLINE void erts_tse_prepare_timed(erts_tse_t *ep);
 ERTS_GLB_INLINE void erts_tse_set(erts_tse_t *ep);
 ERTS_GLB_INLINE void erts_tse_reset(erts_tse_t *ep);
 ERTS_GLB_INLINE int erts_tse_wait(erts_tse_t *ep);
@@ -3458,6 +3459,15 @@ ERTS_GLB_INLINE void erts_tse_return(erts_tse_t *ep)
 {
 #ifdef USE_THREADS
     ethr_leave_ts_event(ep);
+#endif
+}
+
+ERTS_GLB_INLINE void erts_tse_prepare_timed(erts_tse_t *ep)
+{
+#ifdef USE_THREADS
+    int res = ethr_event_prepare_timed(&((ethr_ts_event *) ep)->event);
+    if (res != 0)
+	erts_thr_fatal_error(res, "prepare timed");
 #endif
 }
 

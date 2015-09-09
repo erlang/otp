@@ -7875,11 +7875,16 @@ sched_thread_func(void *vesdp)
     ErtsThrPrgrCallbacks callbacks;
     ErtsSchedulerData *esdp = vesdp;
     Uint no = esdp->no;
+#ifdef ERTS_SMP
+    erts_tse_t *tse;
+#endif
 
     erts_sched_init_time_sup(esdp);
 
 #ifdef ERTS_SMP
-    ERTS_SCHED_SLEEP_INFO_IX(no - 1)->event = erts_tse_fetch();
+    tse = erts_tse_fetch();
+    erts_tse_prepare_timed(tse);
+    ERTS_SCHED_SLEEP_INFO_IX(no - 1)->event = tse;
     callbacks.arg = (void *) esdp->ssi;
     callbacks.wakeup = thr_prgr_wakeup;
     callbacks.prepare_wait = thr_prgr_prep_wait;

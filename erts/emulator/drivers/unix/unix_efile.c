@@ -45,10 +45,10 @@
 #endif
 
 #if defined(__APPLE__) && defined(__MACH__) && !defined(__DARWIN__)
-#define DARWIN 1
+#define __DARWIN__ 1
 #endif
 
-#if defined(DARWIN) || defined(HAVE_LINUX_FALLOC_H) || defined(HAVE_POSIX_FALLOCATE)
+#if defined(__DARWIN__) || defined(HAVE_LINUX_FALLOC_H) || defined(HAVE_POSIX_FALLOCATE)
 #include <fcntl.h>
 #endif
 
@@ -476,11 +476,11 @@ efile_fsync(Efile_error *errInfo, /* Where to return error codes. */
 #ifdef NO_FSYNC
   undefined fsync /* XXX: Really? */
 #else
-#if defined(DARWIN) && defined(F_FULLFSYNC)
+#if defined(__DARWIN__) && defined(F_FULLFSYNC)
     return check_error(fcntl(fd, F_FULLFSYNC), errInfo);
 #else
     return check_error(fsync(fd), errInfo);
-#endif /* DARWIN */
+#endif /* __DARWIN__ */
 #endif /* NO_FSYNC */
 }
 
@@ -962,7 +962,7 @@ efile_sendfile(Efile_error* errInfo, int in_fd, int out_fd,
 	  retval = len;
       }
     } while (len == SENDFILE_CHUNK_SIZE);
-#elif defined(DARWIN)
+#elif defined(__DARWIN__)
     int retval;
     off_t len;
     do {

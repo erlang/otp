@@ -59,7 +59,11 @@ print FILE <<EOF;
 #define ERLANG_OTP_RELEASE "$release"
 #define ERLANG_OTP_VERSION "$otp_version"
 #define ERLANG_VERSION "$version"
-#define ERLANG_COMPILE_DATE "$time_str"
+#if ERTS_SAVED_COMPILE_TIME
+#  define ERLANG_COMPILE_DATE "$time_str"
+#else
+#  define ERLANG_COMPILE_DATE ""
+#endif
 #define ERLANG_ARCHITECTURE "$architecture"
 EOF
 

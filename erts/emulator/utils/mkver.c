@@ -35,8 +35,10 @@ int argc;
 char** argv;
 {
     FILE *file;
+#if ERTS_SAVED_COMPILE_TIME
     time_t now;
-    char *cnow;
+#endif
+    char *cnow = "";
 
     if (argc != 2) {
 	fprintf(stderr, "usage: mkver version\n");
@@ -48,9 +50,11 @@ char** argv;
 	exit(1);
     }
 
+#if ERTS_SAVED_COMPILE_TIME
     time(&now);
     cnow = ctime(&now);
     cnow[24] = '\0';		/* tidelipom */
+#endif
     fprintf(file, "/* This file was created by mkver -- don't modify.*/\n");
     fprintf(file, "#define ERLANG_VERSION \"%s\"\n", argv[1]);
     fprintf(file, "#define ERLANG_COMPILE_DATE \"%s\"\n", cnow);
