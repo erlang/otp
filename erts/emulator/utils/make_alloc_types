@@ -246,7 +246,7 @@ print DST "
 
 print DST "#define ERTS_ALC_C_MIN ($c_no)\n\n";
 
-foreach my $c (keys(%c_tab)) {
+foreach my $c (sort keys(%c_tab)) {
   push(@c_order, $c);
   set_number($c_tab{$c}, $c_no);
   print DST "#define ERTS_ALC_C_$c  ($c_no)\n";

@@ -406,6 +406,8 @@ Some of the available `configure` options are:
     time source with elapsed time during suspend.
 *   `--disable-prefer-elapsed-monotonic-time-during-suspend` - Do not prefer an OS
     monotonic time source with elapsed time during suspend.
+*   `--disable-saved-compile-time` - Disable saving of compile date and time
+    in the emulator binary.
 *   `--enable-dirty-schedulers` - Enable the **experimental** dirty schedulers
     functionality. Note that the dirty schedulers functionality is experimental,
     and **not supported**. This functionality **will** be subject to backward
