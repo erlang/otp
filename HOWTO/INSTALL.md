@@ -410,6 +410,8 @@ Some of the available `configure` options are:
     time, and OS monotonic time with higher or lower resolution than chosen by
     default. Note that both alternatives may have a negative impact on the performance
     and scalability compared to the default clock sources chosen.
+*   `--disable-saved-compile-time` - Disable saving of compile date and time
+    in the emulator binary.
 *   `--enable-dirty-schedulers` - Enable the **experimental** dirty schedulers
     functionality. Note that the dirty schedulers functionality is experimental,
     and **not supported**. This functionality **will** be subject to backward

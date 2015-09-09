@@ -342,6 +342,15 @@ AS_HELP_STRING([--enable-systemd], [enable systemd support in epmd]),
 [],
 [enable_systemd=no])
 
+AC_ARG_ENABLE(saved-compile-time,
+AS_HELP_STRING([--disable-saved-compile-time], [disable saved compile time]),
+[ case "$enableval" in
+    no) save_compile_time=0 ;;
+    *)  save_compile_time=1 ;;
+  esac ], save_compile_time=1)
+
+AC_DEFINE_UNQUOTED(ERTS_SAVED_COMPILE_TIME, $save_compile_time, [Save compile time?])
+
 dnl Magic test for clearcase.
 OTP_RELEASE=
 if test "${ERLANG_COMMERCIAL_BUILD}" != ""; then
