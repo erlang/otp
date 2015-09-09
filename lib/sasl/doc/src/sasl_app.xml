@@ -57,11 +57,19 @@
     <taglist>
       <tag><c>sasl_report_tty_h</c></tag>
       <item>
-        <p>Formats and writes <em>supervisor reports</em>, <em>crash reports</em> and <em>progress reports</em> to <c>stdio</c>.</p>
+        <p>Formats and writes <em>supervisor reports</em>, <em>crash reports</em> and <em>progress reports</em> to <c>stdio</c>.
+	This error logger event handler will use
+	<seealso marker="kernel:kernel_app#error_logger_format_depth">error_logger_format_depth</seealso>
+	in the Kernel application to limit how much detail are printed to
+	for crash and supervisor reports.</p>
       </item>
       <tag><c>sasl_report_file_h</c></tag>
       <item>
-        <p>Formats and writes <em>supervisor reports</em>, <em>crash report</em> and <em>progress report</em> to a single file.</p>
+        <p>Formats and writes <em>supervisor reports</em>, <em>crash report</em> and <em>progress report</em> to a single file.
+	This error logger event handler will use
+	<seealso marker="kernel:kernel_app#error_logger_format_depth">error_logger_format_depth</seealso>
+	in the Kernel application to limit how much detail are printed to
+	for crash and supervisor reports.</p>
       </item>
       <tag><c>log_mf_h</c></tag>
       <item>

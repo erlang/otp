@@ -556,9 +556,10 @@ unzip_to_binary(doc) ->
 unzip_to_binary(Config) when is_list(Config) ->
     DataDir = ?config(data_dir, Config),
     PrivDir = ?config(priv_dir, Config),
+    WorkDir = filename:join(PrivDir, "unzip_to_binary"),
+    _ = file:make_dir(WorkDir),
 
-    delete_all_in(PrivDir),
-    file:set_cwd(PrivDir),
+    ok = file:set_cwd(WorkDir),
     Long = filename:join(DataDir, "abc.zip"),
 
     %% Unzip a zip file into a binary
@@ -569,7 +570,7 @@ unzip_to_binary(Config) when is_list(Config) ->
                   end, FBList),
 
     %% Make sure no files created in cwd
-    {ok,[]} = file:list_dir(PrivDir),
+    {ok,[]} = file:list_dir(WorkDir),
 
     ok.
 
@@ -578,8 +579,10 @@ zip_to_binary(doc) ->
 zip_to_binary(Config) when is_list(Config) ->
     DataDir = ?config(data_dir, Config),
     PrivDir = ?config(priv_dir, Config),
-    delete_all_in(PrivDir),
-    file:set_cwd(PrivDir),
+    WorkDir = filename:join(PrivDir, "zip_to_binary"),
+    _ = file:make_dir(WorkDir),
+
+    file:set_cwd(WorkDir),
     FileName = "abc.txt",
     ZipName = "t.zip",
     FilePath = filename:join(DataDir, FileName),
@@ -589,7 +592,7 @@ zip_to_binary(Config) when is_list(Config) ->
     {ok, {ZipName, ZipB}} = zip:zip(ZipName, [FileName], [memory]),
 
     %% Make sure no files created in cwd
-    {ok,[FileName]} = file:list_dir(PrivDir),
+    {ok,[FileName]} = file:list_dir(WorkDir),
 
     %% Zip to a file
     {ok, ZipName} = zip:zip(ZipName, [FileName]),
@@ -695,11 +698,6 @@ do_delete_files([Item|Rest], Cnt) ->
             DelCnt = 0
     end,
     do_delete_files(Rest, Cnt + DelCnt).
-
-delete_all_in(Dir) ->
-    {ok, Files} = file:list_dir(Dir),
-    delete_files(lists:map(fun(F) -> filename:join(Dir,F) end,
-                           Files)).
 
 compress_control(doc) ->
     ["Test control of which files that should be compressed"];

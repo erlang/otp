@@ -30,7 +30,8 @@
 	 start/3, start/4, start/5, start_link/3, start_link/4, start_link/5,
 	 hibernate/3,
 	 init_ack/1, init_ack/2,
-	 init_p/3,init_p/5,format/1,format/2,initial_call/1,
+	 init_p/3,init_p/5,format/1,format/2,format/3,
+	 initial_call/1,
          translate_initial_call/1,
 	 stop/1, stop/3]).
 
@@ -700,53 +701,71 @@ format(CrashReport) ->
       CrashReport :: [term()],
       Encoding :: latin1 | unicode | utf8.
 
-format([OwnReport,LinkReport], Encoding) ->
-    OwnFormat = format_report(OwnReport, Encoding),
-    LinkFormat = format_report(LinkReport, Encoding),
+format(CrashReport, Encoding) ->
+    format(CrashReport, Encoding, unlimited).
+
+-spec format(CrashReport, Encoding, Depth) -> string() when
+      CrashReport :: [term()],
+      Encoding :: latin1 | unicode | utf8,
+      Depth :: unlimited | pos_integer().
+
+format([OwnReport,LinkReport], Encoding, Depth) ->
+    Extra = {Encoding,Depth},
+    OwnFormat = format_report(OwnReport, Extra),
+    LinkFormat = format_report(LinkReport, Extra),
     Str = io_lib:format("  crasher:~n~ts  neighbours:~n~ts",
                         [OwnFormat, LinkFormat]),
     lists:flatten(Str).
 
-format_report(Rep, Enc) when is_list(Rep) ->
-    format_rep(Rep,Enc);
-format_report(Rep, Enc) ->
+format_report(Rep, Extra) when is_list(Rep) ->
+    format_rep(Rep, Extra);
+format_report(Rep, {Enc,_}) ->
     io_lib:format("~"++modifier(Enc)++"p~n", [Rep]).
 
-format_rep([{initial_call,InitialCall}|Rep], Enc) ->
-    [format_mfa(InitialCall)|format_rep(Rep, Enc)];
-format_rep([{error_info,{Class,Reason,StackTrace}}|Rep], Enc) ->
-    [format_exception(Class, Reason, StackTrace, Enc)|format_rep(Rep, Enc)];
-format_rep([{Tag,Data}|Rep], Enc) ->
-    [format_tag(Tag, Data)|format_rep(Rep, Enc)];
-format_rep(_, _Enc) ->
+format_rep([{initial_call,InitialCall}|Rep], {_Enc,Depth}=Extra) ->
+    [format_mfa(InitialCall, Depth)|format_rep(Rep, Extra)];
+format_rep([{error_info,{Class,Reason,StackTrace}}|Rep], Extra) ->
+    [format_exception(Class, Reason, StackTrace, Extra)|format_rep(Rep, Extra)];
+format_rep([{Tag,Data}|Rep], Extra) ->
+    [format_tag(Tag, Data, Extra)|format_rep(Rep, Extra)];
+format_rep(_, _Extra) ->
     [].
 
-format_exception(Class, Reason, StackTrace, Enc) ->
-    PF = pp_fun(Enc),
+format_exception(Class, Reason, StackTrace, {Enc,_}=Extra) ->
+    PF = pp_fun(Extra),
     StackFun = fun(M, _F, _A) -> (M =:= erl_eval) or (M =:= ?MODULE) end,
     %% EI = "    exception: ",
     EI = "    ",
     [EI, lib:format_exception(1+length(EI), Class, Reason, 
                               StackTrace, StackFun, PF, Enc), "\n"].
 
-format_mfa({M,F,Args}=StartF) ->
+format_mfa({M,F,Args}=StartF, Depth) ->
     try
 	A = length(Args),
 	["    initial call: ",atom_to_list(M),$:,atom_to_list(F),$/,
 	 integer_to_list(A),"\n"]
     catch
 	error:_ ->
-	    format_tag(initial_call, StartF)
+	    format_tag(initial_call, StartF, Depth)
     end.
 
-pp_fun(Enc) ->
-    P = modifier(Enc) ++ "p",
+pp_fun({Enc,Depth}) ->
+    {Letter,Tl} = case Depth of
+		      unlimited -> {"p",[]};
+		      _ -> {"P",[Depth]}
+		  end,
+    P = modifier(Enc) ++ Letter,
     fun(Term, I) -> 
-            io_lib:format("~." ++ integer_to_list(I) ++ P, [Term])
+            io_lib:format("~." ++ integer_to_list(I) ++ P, [Term|Tl])
     end.
 
-format_tag(Tag, Data) ->
-    io_lib:format("    ~p: ~80.18p~n", [Tag, Data]).
+format_tag(Tag, Data, {_Enc,Depth}) ->
+    case Depth of
+	unlimited ->
+	    io_lib:format("    ~p: ~80.18p~n", [Tag, Data]);
+	_ ->
+	    io_lib:format("    ~p: ~80.18P~n", [Tag, Data, Depth])
+    end.
 
 modifier(latin1) -> "";
 modifier(_) -> "t".
