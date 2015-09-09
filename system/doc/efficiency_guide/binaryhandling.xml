@@ -190,15 +190,15 @@ Bin4 = <<Bin1/binary,17>>,       %% 5 !!!
     its size set to the size of the data stored in the binary, while
     the binary object has extra space allocated.
     The size of the binary object is either twice the
-    size of <c>Bin0</c> or 256, whichever is larger. In this case
+    size of <c>Bin1</c> or 256, whichever is larger. In this case
     it is 256.</item>
 
     <item>Line 3 is more interesting.
     <c>Bin1</c> <em>has</em> been used in an append operation,
-    and it has 255 bytes of unused storage at the end, so the 3 new
+    and it has 252 bytes of unused storage at the end, so the 3 new
     bytes are stored there.</item>
 
-    <item>Line 4. The same applies here. There are 252 bytes left,
+    <item>Line 4. The same applies here. There are 249 bytes left,
     so there is no problem storing another 3 bytes.</item>
 
     <item>Line 5. Here, something <em>interesting</em> happens. Notice
