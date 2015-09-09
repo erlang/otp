@@ -750,8 +750,8 @@ AC_DEFUN(ERL_MONOTONIC_CLOCK,
 	prefer_resolution_clock_gettime_monotonic="$2"
 	;;
     *)
-	check_msg=""
-	prefer_resolution_clock_gettime_monotonic=
+	check_msg="custom "
+	prefer_resolution_clock_gettime_monotonic="$2"
 	;;
   esac
 
@@ -1472,7 +1472,7 @@ AC_ARG_WITH(with_sparc_memory_order,
 LM_CHECK_THR_LIB
 ERL_INTERNAL_LIBS
 
-ERL_MONOTONIC_CLOCK(high_resolution, undefined, no)
+ERL_MONOTONIC_CLOCK(try_find_pthread_compatible, CLOCK_HIGHRES CLOCK_MONOTONIC, no)
 
 case $erl_monotonic_clock_func in
   clock_gettime)
