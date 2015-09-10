@@ -174,7 +174,8 @@ MODULES =                 		\
         inets_appup_test  		\
         tftp_test_lib			\
         tftp_SUITE                      \
-	uri_SUITE
+	uri_SUITE                       \
+	inets_socketwrap_SUITE
 
 
 EBIN = .
@@ -203,7 +204,7 @@ INETS_FILES = inets.config $(INETS_SPECS)
 # 	inets_ftp_suite \
 # 	inets_tftp_suite
 
-INETS_DATADIRS = inets_SUITE_data inets_sup_SUITE_data 
+INETS_DATADIRS = inets_SUITE_data inets_socketwrap_SUITE_data
 HTTPD_DATADIRS = httpd_test_data httpd_SUITE_data httpd_basic_SUITE_data old_httpd_SUITE_data
 HTTPC_DATADIRS = httpc_SUITE_data httpc_proxy_SUITE_data
 FTP_DATADIRS   = ftp_SUITE_data  
@@ -250,7 +251,7 @@ ERL_COMPILE_FLAGS += \
 # 1) INETS_PRIV_DIR must be created
 # ----------------------------------------------------
 
-tests debug opt: $(BUILDTARGET)
+tests debug opt: $(BUILDTARGET) 
 
 targets: $(TARGET_FILES)
 
