@@ -69,7 +69,7 @@
     <p>
       For integers and atoms, it is allowed for singleton types; for example,
       the integers
-      <c>-1</c> and <c>42</c>, or the atoms <c>'foo'</c> and <c>'bar'</c>).
+      <c>-1</c> and <c>42</c>, or the atoms <c>'foo'</c> and <c>'bar'</c>.
 
       All other types are built using unions of either predefined
       types or singleton types. In a type union between a type and one
