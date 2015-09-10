@@ -31,12 +31,12 @@
   </header>
   <module>httpd_socket</module>
   <modulesummary>Communication utility functions to be used by the Erlang
-    Web server API programmer.</modulesummary>
+    web server API programmer.</modulesummary>
   <description>
-    <p>This module provides the Erlang Web server API module programmer
+    <p>This module provides the Erlang web server API module programmer
     with utility functions for generic sockets communication. The
     appropriate communication mechanism is transparently used, that
-    is <c>ip_comm</c> or <c>ssl</c>.</p>
+    is, <c>ip_comm</c> or <c>ssl</c>.</p>
     
     <marker id="deliver"></marker>
   </description>
@@ -44,7 +44,7 @@
   <funcs>
     <func>
       <name>deliver(SocketType, Socket, Data) -> Result</name>
-      <fsummary>Send binary data over socket.</fsummary>
+      <fsummary>Sends binary data over socket.</fsummary>
       <type>
         <v>SocketType = socket_type()</v>
         <v>Socket = socket()</v>
@@ -53,10 +53,10 @@
       </type>
       <desc>
         <marker id="deliver"></marker>
-        <p><c>deliver/3</c> sends the <c>Binary</c> over the
-	<c>Socket</c> using the specified <c>SocketType</c>. Socket
-	and SocketType should be the socket and the socket_type form
-	the mod record as defined in httpd.hrl</p>
+        <p><c>deliver/3</c> sends <c>Data</c> over
+	<c>Socket</c> using the specified <c>SocketType</c>. <c>Socket</c>
+	and <c>SocketType</c> is to be the socket and the <c>socket_type</c> 
+	form the <c>mod</c> record as defined in <c>httpd.hrl</c></p>
     
 	<marker id="peername"></marker>
       </desc>
@@ -64,7 +64,7 @@
 
     <func>
       <name>peername(SocketType,Socket) -> {Port,IPAddress}</name>
-      <fsummary>Return the port and IP-address of the remote socket.</fsummary>
+      <fsummary>Returns the port and IP address of the remote socket.</fsummary>
       <type>
         <v>SocketType = socket_type()</v>
         <v>Socket = socket()</v>
@@ -73,8 +73,8 @@
       </type>
       <desc>
         <marker id="peername"></marker>
-        <p><c>peername/3</c> returns the <c>Port</c> and
-	<c>IPAddress</c> of the remote <c>Socket</c>. </p>
+        <p><c>peername/2</c> returns the <c>Port</c> and
+	<c>IPAddress</c> of the remote <c>Socket</c>.</p>
     
 	<marker id="resolve"></marker>
       </desc>
@@ -82,7 +82,7 @@
 
     <func>
       <name>resolve() -> HostName</name>
-      <fsummary>Return the official name of the current host.</fsummary>
+      <fsummary>Returns the official name of the current host.</fsummary>
       <type>
         <v>HostName = string()</v>
       </type>
