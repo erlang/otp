@@ -728,8 +728,8 @@ static Eterm
 check_process_code(Process* rp, Module* modp, int allow_gc, int *redsp)
 {
     BeamInstr* start;
-    char* mod_start;
-    Uint mod_size;
+    char* literals;
+    Uint lit_bsize;
     BeamInstr* end;
     Eterm* sp;
     struct erl_off_heap_header* oh;
@@ -742,8 +742,6 @@ check_process_code(Process* rp, Module* modp, int allow_gc, int *redsp)
      */
     start = modp->old.code;
     end = (BeamInstr *)((char *)start + modp->old.code_length);
-    mod_start = (char *) start;
-    mod_size = modp->old.code_length;
 
     /*
      * Check if current instruction or continuation pointer points into module.
@@ -834,22 +832,24 @@ check_process_code(Process* rp, Module* modp, int allow_gc, int *redsp)
      * See if there are constants inside the module referenced by the process.
      */
     done_gc = 0;
+    literals = (char*) modp->old.code[MI_LITERALS_START];
+    lit_bsize = (char*) modp->old.code[MI_LITERALS_END] - literals;
     for (;;) {
 	ErlMessage* mp;
 
-	if (any_heap_ref_ptrs(&rp->fvalue, &rp->fvalue+1, mod_start, mod_size)) {
+	if (any_heap_ref_ptrs(&rp->fvalue, &rp->fvalue+1, literals, lit_bsize)) {
 	    rp->freason = EXC_NULL;
 	    rp->fvalue = NIL;
 	    rp->ftrace = NIL;
 	}
-	if (any_heap_ref_ptrs(rp->stop, rp->hend, mod_start, mod_size)) {
+	if (any_heap_ref_ptrs(rp->stop, rp->hend, literals, lit_bsize)) {
 	    goto need_gc;
 	}
-	if (any_heap_refs(rp->heap, rp->htop, mod_start, mod_size)) {
+	if (any_heap_refs(rp->heap, rp->htop, literals, lit_bsize)) {
 	    goto need_gc;
 	}
 
-	if (any_heap_refs(rp->old_heap, rp->old_htop, mod_start, mod_size)) {
+	if (any_heap_refs(rp->old_heap, rp->old_htop, literals, lit_bsize)) {
 	    goto need_gc;
 	}
 
@@ -857,13 +857,13 @@ check_process_code(Process* rp, Module* modp, int allow_gc, int *redsp)
 	    Eterm* start = rp->dictionary->data;
 	    Eterm* end = start + rp->dictionary->used;
 
-	    if (any_heap_ref_ptrs(start, end, mod_start, mod_size)) {
+	    if (any_heap_ref_ptrs(start, end, literals, lit_bsize)) {
 		goto need_gc;
 	    }
 	}
 
 	for (mp = rp->msg.first; mp != NULL; mp = mp->next) {
-	    if (any_heap_ref_ptrs(mp->m, mp->m+2, mod_start, mod_size)) {
+	    if (any_heap_ref_ptrs(mp->m, mp->m+2, literals, lit_bsize)) {
 		goto need_gc;
 	    }
 	}
@@ -873,8 +873,6 @@ check_process_code(Process* rp, Module* modp, int allow_gc, int *redsp)
 	if (done_gc) {
 	    return am_true;
 	} else {
-	    Eterm* literals;
-	    Uint lit_size;
 	    struct erl_off_heap_header* oh;
 
 	    if (!allow_gc)
@@ -890,12 +888,10 @@ check_process_code(Process* rp, Module* modp, int allow_gc, int *redsp)
 	    done_gc = 1;
 	    FLAGS(rp) |= F_NEED_FULLSWEEP;
 	    *redsp += erts_garbage_collect(rp, 0, rp->arg_reg, rp->arity);
-	    literals = (Eterm *) modp->old.code[MI_LITERALS_START];
-	    lit_size = (Eterm *) modp->old.code[MI_LITERALS_END] - literals;
 	    oh = (struct erl_off_heap_header *)
 		modp->old.code[MI_LITERALS_OFF_HEAP];
-	    *redsp += lit_size / 10; /* Need, better value... */
-	    erts_garbage_collect_literals(rp, literals, lit_size, oh);
+	    *redsp += lit_bsize / 64; /* Need, better value... */
+	    erts_garbage_collect_literals(rp, (Eterm*)literals, lit_bsize, oh);
 	}
     }
     return am_false;
