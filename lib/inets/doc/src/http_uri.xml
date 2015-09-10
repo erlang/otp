@@ -35,64 +35,86 @@
 
   <description>
     <p>This module provides utility functions for working with URIs, 
-    according to RFC 3986. </p>
-
+    according to 
+    <url href="http://www.ietf.org/rfc/rfc3986.txt">RFC 3986</url>.</p>
   </description>
   
   <section>
-    <title>COMMON DATA TYPES </title>
+    <title>DATA TYPES</title>
     <p>Type definitions that are used more than once in
       this module:</p>
-    <code type="none"><![CDATA[
-boolean() = true | false 
-string()  = list of ASCII characters 
-    ]]></code>
+    <p><c>boolean() = true | false</c></p>
+    <p><c>string()</c> = list of ASCII characters</p>
 
   </section>
   
   <section>
-    <title>URI DATA TYPES </title>
+    <title>URI DATA TYPES</title>
     <p>Type definitions that are related to URI:</p>
-    <p>For more information about URI, see RFC 3986. </p>
-
-    <code type="none"><![CDATA[
-uri()       = string() - Syntax according to the URI definition in rfc 3986,
-                         e.g.: "http://www.erlang.org/"
-user_info() = string()
-scheme()    = atom()   - Example: http, https
-host()      = string()
-port()      = pos_integer()
-path()      = string() - Representing a file path or directory path 
-query()     = string()
-fragment()  = string()
-    ]]></code>
-
+    
+<taglist>
+       <tag><c>uri() = string()</c></tag>
+       <item><p>Syntax according to the URI definition in RFC 3986,
+       for example, "http://www.erlang.org/"</p></item>
+       <tag><c>user_info() = string()</c></tag>
+       <item><p></p></item>
+       <tag><c>scheme() = atom()</c></tag>
+       <item><p>Example: http, https</p></item>
+       <tag><c>host() = string()</c></tag>
+       <item><p></p></item>
+       <tag><c>port() = pos_integer()</c></tag>
+       <item><p></p></item>
+       <tag><c>path() = string()</c></tag>
+       <item><p>Represents a file path or directory path</p></item>
+       <tag><c>query() = string()</c></tag>
+       <item><p></p></item>
+       <tag><c>fragment() = string()</c></tag>
+       <item><p></p></item>
+     </taglist>
+   
+     <p>For more information about URI, see
+     <url href="http://www.ietf.org/rfc/rfc3986.txt">RFC 3986</url>.</p>
     <marker id="scheme_defaults"></marker>
   </section>
   
   <funcs>
     <func>
-      <name>scheme_defaults() -> SchemeDefaults</name>
-      <fsummary>A list of scheme and their default ports</fsummary>
+      <name>decode(HexEncodedURI) -> URI</name>
+      
+      <fsummary>Decodes a hexadecimal encoded URI.</fsummary>
       <type>
-        <v>SchemeDefaults = [{scheme(), default_scheme_port_number()}] </v> 
-	<v>default_scheme_port_number() = pos_integer()</v>
+        <v>HexEncodedURI = string() - A possibly hexadecimal encoded URI</v>
+        <v>URI = uri()</v>
       </type>
-      <desc>
-        <p>This function provides a list of the scheme and their default 
-	port numbers currently supported (by default) by this utility. </p>
 
-        <marker id="parse"></marker>
+      <desc>
+        <p>Decodes a possibly hexadecimal encoded URI.</p>
+
+      </desc>
+    </func>
+    <func>
+      <name>encode(URI) -> HexEncodedURI</name>
+      
+      <fsummary>Encodes a hexadecimal encoded URI.</fsummary>
+      <type>
+        <v>URI = uri()</v>
+        <v>HexEncodedURI = string() - Hexadecimal encoded URI</v>
+      </type>
+
+      <desc>
+        <p>Encodes a hexadecimal encoded URI.</p>
+
+        <marker id="decode"></marker>
       </desc>
     </func>
 
     <func>
       <name>parse(URI) -> {ok, Result} | {error, Reason}</name>
       <name>parse(URI, Options) -> {ok, Result} | {error, Reason}</name>
-      <fsummary>Parse an URI</fsummary>
+      <fsummary>Parses a URI.</fsummary>
       <type>
-        <v>URI = uri() </v> 
-        <v>Options = [Option] </v> 
+        <v>URI = uri()</v> 
+        <v>Options = [Option]</v> 
         <v>Option = {ipv6_host_with_brackets, boolean()} | 
                     {scheme_defaults, scheme_defaults()} |
                     {fragment, boolean()}]</v>
@@ -104,62 +126,49 @@ fragment()  = string()
 	<v>Path = path()</v>
 	<v>Query = query()</v>
         <v>Fragment = fragment()</v>
-	<v>Reason = term() </v>
+	<v>Reason = term()</v>
       </type>
       <desc>
-        <p>This function is used to parse an URI. If no scheme defaults 
-	are provided, the value of 
+        <p>Parses a URI. If no scheme defaults 
+	are provided, the value of the
 	<seealso marker="#scheme_defaults">scheme_defaults</seealso>
-	function will be used. </p>
+	function is used.</p>
 
-        <p>Note that when parsing an URI with an unknown scheme (that is, 
-	a scheme not found in the scheme defaults) a port number must be 
-	provided or else the parsing will fail. </p>
+        <p>When parsing a URI with an unknown scheme (that is, 
+	a scheme not found in the scheme defaults), a port number must be 
+	provided, otherwise the parsing fails.</p>
 
-        <p>If the fragment option is true, the URI fragment will be returned as
-          part of the parsing result, otherwise it is completely ignored.</p>
+        <p>If the fragment option is <c>true</c>, the URI fragment is returned as
+          part of the parsing result, otherwise it is ignored.</p>
 
         <marker id="encode"></marker>
       </desc>
     </func>
 
     <func>
-      <name>encode(URI) -> HexEncodedURI</name>
-      
-      <fsummary>Hex encode an URI</fsummary>
+      <name>scheme_defaults() -> SchemeDefaults</name>
+      <fsummary>A list of the scheme and their default ports.</fsummary>
       <type>
-        <v>URI = uri()</v>
-        <v>HexEncodedURI = string() - Hex encoded uri</v>
+        <v>SchemeDefaults = [{scheme(), default_scheme_port_number()}] </v> 
+	<v>default_scheme_port_number() = pos_integer()</v>
       </type>
-
       <desc>
-        <p>Hex encode an URI. </p>
+        <p>Provides a list of the scheme and their default 
+	port numbers supported (by default) by this utility.</p>
 
-        <marker id="decode"></marker>
+        <marker id="parse"></marker>
       </desc>
     </func>
 
-    <func>
-      <name>decode(HexEncodedURI) -> URI</name>
-      
-      <fsummary>Decode a hex encoded URI</fsummary>
-      <type>
-        <v>HexEncodedURI = string() - A possibly hex encoded uri</v>
-        <v>URI = uri()</v>
-      </type>
-
-      <desc>
-        <p>Decode a possibly hex encoded URI. </p>
-
-      </desc>
-    </func>
+   
 
   </funcs>
 
 <!--
   <section>
     <title>SEE ALSO</title>
-    <p>RFC 2616, <seealso marker="inets">inets(3)</seealso>,
+    <p><url href="http://www.ietf.org/rfc/rfc2616.txt">RFC 2616</url>, 
+    <seealso marker="inets">inets(3)</seealso>,
       <seealso marker="kernel:gen_tcp">gen_tcp(3)</seealso>, 
       <seealso marker="ssl:ssl">ssl(3)</seealso>
     </p>

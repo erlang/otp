@@ -765,9 +765,9 @@
           <p>Better handling of errorI(s) during update of the session 
 	  database. </p>
 	  <p>Also added and updated some debugging functions 
-	  <seealso marker="httpc#which_sessions">which_sessions/10,1</seealso>
+	  <seealso marker="httpc#which_sessions-0">which_sessions/[0,1]</seealso>
 	  and 
-	  <seealso marker="httpc#info">info/0</seealso>. </p>
+	  <seealso marker="httpc#info-0">info/0</seealso>. </p>
 	  <p>Own Id: OTP-10093</p>
           <p>Aux Id: Seq 12062</p>
         </item>
@@ -861,7 +861,7 @@
 
         <item>
           <p>[httpc] Add function for retrieving current options, 
-	  <seealso marker="httpc#get_options">get_options/1,2</seealso>. </p>
+	  <seealso marker="httpc#get_options-1">get_options/[1,2]</seealso>. </p>
 	  <p>Own Id: OTP-9979</p>
         </item>
 
@@ -1038,15 +1038,11 @@
 
     <section>
       <title>Incompatibilities</title>
-<!--
-      <p>-</p>
--->
-
       <list>
         <item>
           <p>[httpc] Deprecated interface module <c>http</c> has been removed. 
 	  It has (long) been replaced by http client interface module 
-	  <seealso marker="httpc#">httpc</seealso>. </p>
+	  <seealso marker="httpc">httpc</seealso>. </p>
 	  <p>Own Id: OTP-9359</p>
         </item>
 
@@ -1234,15 +1230,13 @@
   <section><title>Inets 5.6</title>
 
     <section><title>Improvements and New Features</title>
-<!--
-    <p>-</p>
--->
+
       <list>
         <item>
           <p>[httpc] Add support for upload body streaming (PUT and POST).</p>
 	  <p>For more info, 
 	  see the definition of the <c>Body</c> argument of the 
-	  <seealso marker="httpc#request2">request/4,5</seealso> 
+	  <seealso marker="httpc#request-4">request/[4,5]</seealso> 
 	  function. </p>
 	  <p>Filipe David Manana</p>
 	  <p>Own Id: OTP-9094</p>
@@ -1255,7 +1249,7 @@
 
         <item>
           <p>[httpd] 
-	  <seealso marker="mod_esi#deliver">mod_esi:deliver/2</seealso> 
+	  <seealso marker="mod_esi#deliver-2">mod_esi:deliver/2</seealso> 
 	  made to accept binary data. </p>
           <p>Bernard Duggan</p>
           <p>Own Id: OTP-9123</p>
@@ -1283,7 +1277,7 @@
 	  for using file descriptors has been improved. 
 	  It is now possible to add the file descriptor to the config 
 	  (option fd) when calling the 
-	  <seealso marker="inets#start2">inets:start(httpd, ...)</seealso> 
+	  <seealso marker="inets#start-2">inets:start(httpd, ...)</seealso> 
 	  function. </p>
 	  <p>Attila Rajmund Nohl</p>
           <p>Own Id: OTP-9202</p>
@@ -1297,7 +1291,7 @@
 	  <p>See the httpd 
 	  <seealso marker="httpd#props_comm">socket_type</seealso> 
 	  communication property or the httpc 
-	  <seealso marker="httpc#request2">request/4,5</seealso> function
+	  <seealso marker="httpc#request-4">request/[4,5]</seealso> function
 	  for more info. </p>
 	  <p>Own Id: OTP-9230</p>
 	  <p>*** POTENTIAL INCOMPATIBILITY ***</p>
@@ -1497,7 +1491,7 @@
 	  <p>[httpc|httpd] - Now allow the use of the "new" ssl, by using
             the <c>essl</c> tag instead. </p> 
           <p>See the <c>http_option</c> option in the 
-            <seealso marker="httpc#request2">request/4,5</seealso> or 
+            <seealso marker="httpc#request-4">request/[4,5]</seealso> or 
             the <seealso marker="httpd#props_comm">socket-type</seealso>
             section of the Communication properties chapter for more info, </p>
 	  <p>Own Id: OTP-7907</p>
@@ -1729,8 +1723,8 @@
 	  <p>[httpc] - Allow users to pass socket options to the transport 
             module when making requests. </p> 
           <p>See the <c>socket_opts</c> option in the 
-            <seealso marker="httpc#request2">request/4</seealso> or 
-            <seealso marker="httpc#set_options">set_options/1,2</seealso>
+            <seealso marker="httpc#request-4">request/4</seealso> or 
+            <seealso marker="httpc#set_options-1">set_options/[1,2]</seealso>
             for more info, </p>
 	  <p>Own Id: OTP-8352</p>
         </item>
@@ -1771,7 +1765,7 @@
             deliver an async reply to more receivers then the calling 
             process. </p> 
           <p>See the 
-            <seealso marker="httpc#request2">receiver</seealso>
+            <seealso marker="httpc#request-2">receiver</seealso>
             option for more info, </p>
 	  <p>Own Id: OTP-8106</p>
         </item>
@@ -2040,7 +2034,7 @@
               request, when the client connects to the server. Default 
               value is that of the <c>timeout</c> option. </p>
             <p>See the 
-	      <seealso marker="httpc#request2">request/4,5</seealso> 
+	      <seealso marker="httpc#request-4">request/[4,5]</seealso> 
               function for more info. </p>
 	    <p>Own Id: OTP-7298</p>
 	    <!-- <p>Aux Id: seq11086</p> -->
@@ -2147,7 +2141,7 @@
               the client connects to the server. </p>
 	    <p>As a side-effect of this, the option <c>ipv6</c> has been 
               removed and replaced by the <c>ipfamily</c> option. </p>
-	    <p>See <seealso marker="httpc#set_options">http:set_options/1,2</seealso> 
+	    <p>See <seealso marker="httpc#set_options-1">http:set_options/[1,2]</seealso> 
               for more info. </p>
             <p>*** POTENTIAL INCOMPATIBILITY ***</p>
 	    <p>Own Id: OTP-8004</p>
