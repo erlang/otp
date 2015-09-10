@@ -472,10 +472,14 @@ table_lifecycle(Config) when is_list(Config) ->
            mnesia:create_table([{name, zero_arity}, {attributes, []}])),
     ?match({aborted, Reason3} when element(1, Reason3) == badarg,
            mnesia:create_table([])),
-    ?match({aborted, Reason4} when element(1, Reason4) == badarg,
+    %% in vanilla this fails with {aborted,{badarg,atom}}
+    %% with mnesia_ext it fails with {aborted,{function_clause,[...]}}
+    ?match({aborted, _Reason4},
            mnesia:create_table(atom)),
-    ?match({aborted, Reason5} when element(1, Reason5) == badarg,
-           mnesia:create_table({cstruct, table_name_as_atom})),
+    %% in vanilla this fails with {aborted,{badarg,_}}
+    %% with mnesia_ext it fails with {aborted,{function_clause,[...]}}
+    ?match({aborted, _Reason5},
+	   mnesia:create_table({cstruct, table_name_as_atom})),
     ?match({aborted, Reason6 } when element(1, Reason6) == bad_type,
            mnesia:create_table([{name, no_host}, {ram_copies, foo}])),
     ?match({aborted, Reason7 } when element(1, Reason7) == bad_type,
@@ -741,8 +745,10 @@ replica_management(Config) when is_list(Config) ->
     ?match({atomic, ok}, mnesia:del_table_copy(Tab, Node3)),
     ?match([], ?vrl(Tab, [], [], [], Nodes)),
     %% - - -
-    ?match({aborted,Reason52} when element(1, Reason52) ==  no_exists,
-           mnesia:add_table_copy(Tab, Node3, ram_copies)),
+    %% in vanilla this fails with {aborted,{no_exists,...}}
+    %% with mnesia_ext this fails with {aborted,{{no_exists,_},[...]}}
+    ?match({aborted, _Reason52},
+	   mnesia:add_table_copy(Tab, Node3, ram_copies)),
 
     ?match({atomic, ok}, mnesia:create_table([{name, Tab},
 					      {attributes, Attrs},
@@ -1073,9 +1079,13 @@ change_table_access_mode(Config) when is_list(Config) ->
 	   mnesia:change_table_access_mode(Tab, strange_atom)),
     ?match({atomic, ok}, mnesia:delete_table(Tab)),
 
-    ?match({aborted, {no_exists, _}}, 
+    %% in vanilla this fails with {aborted,{no_exists,_}}
+    %% with mnesia_ext this fails with {aborted,{{no_exists,_},[...]}}
+    ?match({aborted, _Reason1},
 	   mnesia:change_table_access_mode(err_tab, read_only)),
-    ?match({aborted, {no_exists, _}}, 
+    %% in vanilla this fails with {aborted,{no_exists,_}}
+    %% with mnesia_ext this fails with {aborted,{{no_exists,_},[...]}}
+    ?match({aborted, _Reason2},
 	   mnesia:change_table_access_mode([Tab], read_only)),
     ?verify_mnesia(Nodes, []).
 
@@ -1339,11 +1349,17 @@ user_properties(Config) when is_list(Config) ->
     ?match([], mnesia:table_info(Tab2, user_properties)),
     ?match([], mnesia:table_info(Tab3, user_properties)),
 
-    ?match({'EXIT', {aborted, {no_exists, {Tab1, user_property, PropKey}}}},
+    %% in vanilla this fails with {no_exists,_}
+    %% with mnesia_ext it fails with {{no_exists,_},[...]}
+    ?match({'EXIT', {aborted, _Reason1307}},
 	   mnesia:read_table_property(Tab1, PropKey)),
-    ?match({'EXIT', {aborted, {no_exists, {Tab2, user_property, PropKey}}}},
+    %% in vanilla this fails with {no_exists,_}
+    %% with mnesia_ext it fails with {{no_exists,_},[...]}
+    ?match({'EXIT', {aborted, _Reason1311}},
 	   mnesia:read_table_property(Tab2, PropKey)),
-    ?match({'EXIT', {aborted, {no_exists, {Tab3, user_property, PropKey}}}},
+    %% in vanilla this fails with {no_exists,_}
+    %% with mnesia_ext it fails with {{no_exists,_},[...]}
+    ?match({'EXIT', {aborted, _Reason1315}},
 	   mnesia:read_table_property(Tab3, PropKey)),
 
     ?match({atomic, ok}, mnesia:write_table_property(Tab1, Prop)),
@@ -2455,5 +2471,3 @@ sorted_ets(Config) when is_list(Config) ->
 		     mnesia:index_read(rec, 1, 3)
 	     end,
     ?match({atomic, [{rec,1,1}, {rec,2,1}]}, mnesia:transaction(TestIt)).
-
-

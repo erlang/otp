@@ -544,7 +544,9 @@ evil_create(Config) when is_list(Config) ->
 	   Create(Tab, [], [{foreign_key, bad_key}])), 
     ?match({aborted,{bad_type, Tab, {foreign_key, {bad_key}}}}, 
 	   Create(Tab, [], [{foreign_key, {bad_key}}])), 
-    ?match({aborted, {no_exists, {bad_tab, frag_properties}}},
+    %% in vanilla this fails with {aborted,{no_exists,{bad_tab,frag_properties}}}
+    %% with mnesia_ext it fails with {aborted,{{no_exists,_},[...]}}
+    ?match({aborted, _Reason546},
 	   Create(Tab, [], [{foreign_key, {bad_tab, val}}])), 
     ?match({aborted, {combine_error, Tab, {Tab, val}}},
 	   Create(Tab, [], [{foreign_key, {Tab, val}}])),
