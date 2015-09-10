@@ -328,7 +328,7 @@ status_service_unavailable(Response = {_, Headers, _}, Request) ->
 	undefined ->
 	    status_server_error_50x(Response, Request);
 	Time when (length(Time) < 3) -> % Wait only 99 s or less 
-	    NewTime = list_to_integer(Time) * 100, % time in ms
+	    NewTime = list_to_integer(Time) * 1000, % time in ms
 	    {_, Data} =  format_response(Response),
 	    {retry, {NewTime, Request}, Data};
 	_ ->
