@@ -185,12 +185,16 @@ httpd_child_spec(ConfigFile, AcceptTimeoutDef, DebugDef) ->
     end.
 
 httpd_child_spec(Config, AcceptTimeout, Debug, Addr, Port, Profile) ->
-    Fd  = proplists:get_value(fd, Config, undefined),
-    case Port == 0 orelse Fd =/= undefined of
-	true ->
-	    httpd_child_spec_listen(Config, AcceptTimeout, Debug, Addr, Port, Profile);
-	false ->
-	    httpd_child_spec_nolisten(Config, AcceptTimeout, Debug, Addr, Port, Profile)
+    case get_fd(Port) of
+	{ok, Fd} ->
+	    case Port == 0 orelse Fd =/= undefined of
+		true ->
+		    httpd_child_spec_listen(Config, AcceptTimeout, Debug, Addr, Port, Profile);
+		false ->
+		    httpd_child_spec_nolisten(Config, AcceptTimeout, Debug, Addr, Port, Profile)
+	    end;
+	Error ->
+	    Error
     end.
 
 httpd_child_spec_listen(Config, AcceptTimeout, Debug, Addr, Port, Profile) ->
@@ -236,7 +240,7 @@ listen(Address, Port, Config)  ->
 	SocketType ->
 	    case http_transport:start(SocketType) of
 		ok ->
-		    Fd = proplists:get_value(fd, Config),
+		    {ok, Fd} = get_fd(Port),
 		    IpFamily =  proplists:get_value(ipfamily, Config, inet6fb4),
 		    case http_transport:listen(SocketType, Address, Port, Fd, IpFamily) of
 			{ok, ListenSocket} ->
@@ -354,4 +358,20 @@ ssl_ca_certificate_file(Config) ->
 	    [];
 	File ->
 	    [{cacertfile, File}]
+    end.
+
+get_fd(0) ->
+    {ok, undefined};
+get_fd(Port) ->
+    FdKey = list_to_atom("httpd_" ++ integer_to_list(Port)),
+    case init:get_argument(FdKey) of
+	{ok, [[Value]]} ->
+	    case (catch list_to_integer(Value)) of
+		N when is_integer(N) ->
+		    {ok, N};
+		_ ->
+		    {error, {bad_descriptor, Value}}
+	    end;
+	_ ->
+	    {ok, undefined}
     end.
