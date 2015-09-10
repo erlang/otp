@@ -2749,7 +2749,7 @@ int ssl_tls_inetdrv(void* arg, unsigned type, unsigned major, unsigned minor,
 {
     tcp_descriptor* desc = (tcp_descriptor*) arg;
     int i = 0;
-    ErlDrvTermData spec[28];
+    ErlDrvTermData spec[30];
     ErlDrvTermData caller = ERL_DRV_NIL;
     ErlDrvBinary* bin;
     int ret;
@@ -2790,11 +2790,11 @@ int ssl_tls_inetdrv(void* arg, unsigned type, unsigned major, unsigned minor,
     if (desc->inet.active == INET_PASSIVE) {
         i = LOAD_TUPLE(spec, i, 2);
         i = LOAD_TUPLE(spec, i, 4);
-        ASSERT(i <= 28);
+        ASSERT(i <= sizeof(spec)/sizeof(*spec));
         ret = erl_drv_send_term(desc->inet.dport, caller, spec, i);
     }
     else {
-        ASSERT(i <= 28);
+        ASSERT(i <= sizeof(spec)/sizeof(*spec));
         ret = erl_drv_output_term(desc->inet.dport, spec, i);
     }
 done:
