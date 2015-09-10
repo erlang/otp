@@ -804,6 +804,7 @@ validate_option(key, {KeyType, Value}) when is_binary(Value),
 					    KeyType == dsa; %% Backwards compatibility
 					    KeyType == 'RSAPrivateKey';
 					    KeyType == 'DSAPrivateKey';
+					    KeyType == 'ECPrivateKey';
 					    KeyType == 'PrivateKeyInfo' ->
     {KeyType, Value};
 
