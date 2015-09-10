@@ -30,7 +30,7 @@
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
-	 terminate/2, code_change/3]).
+	 terminate/2, code_change/3, format_status/2]).
 
 -include("httpd.hrl").
 -include("http_internal.hrl").
@@ -310,6 +310,18 @@ do_terminate(#state{mod = ModData} = State) ->
     cancel_request_timeout(State),
     httpd_socket:close(ModData#mod.socket_type, ModData#mod.socket).
 
+format_status(normal, [_, State]) ->
+    [{data, [{"StateData", State}]}];  
+format_status(terminate, [_, State]) ->
+    Mod = (State#state.mod),
+    case Mod#mod.socket_type of
+	ip_comm ->
+	    [{data, [{"StateData", State}]}];  
+	{essl, _} ->
+	    %% Do not print ssl options in superviosr reports
+	    [{data, [{"StateData", 
+		      State#state{mod = Mod#mod{socket_type = 'TLS'}}}]}]
+    end.
 
 %%--------------------------------------------------------------------
 %% code_change(OldVsn, State, Extra) -> {ok, NewState}
