@@ -401,8 +401,25 @@ dirty_index_read(Config, Storage) ->
     ?match({'EXIT', _},  mnesia:dirty_index_read(Tab, 2, BadValPos)), 
     ?match({'EXIT', _},  mnesia:dirty_index_read(foo, 2, ValPos)), 
     ?match({'EXIT', _},  mnesia:dirty_index_read([], 2, ValPos)), 
-    
+
+    mnesia:dirty_write({Tab, 5, 1}),
+    ?match(ok, index_read_loop(Tab, 0)),
+
     ?verify_mnesia(Nodes, []).
+
+
+index_read_loop(Tab, N) when N =< 1000 ->
+    spawn_link(fun() ->
+		       mnesia:transaction(fun() -> mnesia:write({Tab, 5, 1}) end)
+	       end),
+    case mnesia:dirty_match_object({Tab, '_', 1}) of
+	[{Tab, 5, 1}] ->
+	    index_read_loop(Tab, N+1);
+	Other -> {N, Other}
+    end;
+index_read_loop(_, _) ->
+    ok.
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
