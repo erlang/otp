@@ -32,8 +32,6 @@
 -import(ordsets, [from_list/1,union/2]).
 -import(lists,   [member/2,foldl/3,foldr/3]).
 
--include("../include/erl_bits.hrl").
-
 -type fa() :: {atom(), arity()}.
 
 -record(expand, {module=[],                     %Module name
