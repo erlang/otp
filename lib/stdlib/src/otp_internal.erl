@@ -408,7 +408,7 @@ obsolete_1(docb_xml_check, _, _) ->
 
 %% Added in R15B
 obsolete_1(asn1rt, F, _) when F == load_driver; F == unload_driver ->
-    {deprecated,"deprecated (will be removed in OTP 18); has no effect as drivers are no longer used"};
+    {removed,"removed (will be removed in OTP 18); has no effect as drivers are no longer used"};
 obsolete_1(ssl, pid, 1) ->
     {removed,"was removed in R16; is no longer needed"};
 obsolete_1(inviso, _, _) ->
@@ -463,21 +463,23 @@ obsolete_1(wxCursor, new, 4) ->
 
 %% Added in OTP 17.
 obsolete_1(asn1ct, decode,3) ->
-    {deprecated,"deprecated; use Mod:decode/2 instead"};
+    {removed,"removed; use Mod:decode/2 instead"};
+obsolete_1(asn1ct, encode, 2) ->
+    {removed,"removed; use Mod:encode/2 instead"};
 obsolete_1(asn1ct, encode, 3) ->
-    {deprecated,"deprecated; use Mod:encode/2 instead"};
+    {removed,"removed; use Mod:encode/2 instead"};
 obsolete_1(asn1rt, decode,3) ->
-    {deprecated,"deprecated; use Mod:decode/2 instead"};
+    {removed,"removed; use Mod:decode/2 instead"};
 obsolete_1(asn1rt, encode, 2) ->
-    {deprecated,"deprecated; use Mod:encode/2 instead"};
+    {removed,"removed; use Mod:encode/2 instead"};
 obsolete_1(asn1rt, encode, 3) ->
-    {deprecated,"deprecated; use Mod:encode/2 instead"};
+    {removed,"removed; use Mod:encode/2 instead"};
 obsolete_1(asn1rt, info, 1) ->
-    {deprecated,"deprecated; use Mod:info/0 instead"};
+    {removed,"removed; use Mod:info/0 instead"};
 obsolete_1(asn1rt, utf8_binary_to_list, 1) ->
-    {deprecated,{unicode,characters_to_list,1}};
+    {removed,{unicode,characters_to_list,1},"OTP 20"};
 obsolete_1(asn1rt, utf8_list_to_binary, 1) ->
-    {deprecated,{unicode,characters_to_binary,1}};
+    {removed,{unicode,characters_to_binary,1},"OTP 20"};
 
 %% Added in OTP 18.
 obsolete_1(core_lib, get_anno, 1) ->

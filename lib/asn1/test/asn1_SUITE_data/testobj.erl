@@ -1410,16 +1410,14 @@ int2bin(Int) ->
 %%%%%%%%%%%%%%%%% wrappers %%%%%%%%%%%%%%%%%%%%%%%%
 
 wrapper_encode(Module,Type,Value) ->
-    case asn1rt:encode(Module,Type,Value) of
-	{ok,X} when binary(X) ->
+    case Module:encode(Type, Value) of
+	{ok,X} when is_binary(X) ->
 	    {ok, binary_to_list(X)};
-	{ok,X} ->
-	    {ok, binary_to_list(list_to_binary(X))};
 	Error ->
 	    Error
     end.
 
 wrapper_decode(Module, Type, Bytes) when is_binary(Bytes) ->
-    asn1rt:decode(Module, Type, Bytes);
+    Module:decode(Type, Bytes);
 wrapper_decode(Module, Type, Bytes) when is_list(Bytes) ->
-    asn1rt:decode(Module, Type, list_to_binary(Bytes)).
+    Module:decode(Type, list_to_binary(Bytes)).

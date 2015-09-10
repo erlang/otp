@@ -20,17 +20,12 @@
 %%
 %%
 -module(asn1ct).
--deprecated([decode/3,encode/3]).
--compile([{nowarn_deprecated_function,{asn1rt,decode,3}},
-	  {nowarn_deprecated_function,{asn1rt,encode,2}},
-	  {nowarn_deprecated_function,{asn1rt,encode,3}}]).
 
 %% Compile Time functions for ASN.1 (e.g ASN.1 compiler).
 
 %%-compile(export_all).
 %% Public exports
 -export([compile/1, compile/2]).
--export([encode/2, encode/3, decode/3]).
 -export([test/1, test/2, test/3, value/2, value/3]).
 %% Application internal exports
 -export([compile_asn/3,compile_asn1/3,compile_py/3,compile/3,
@@ -1271,21 +1266,6 @@ pretty2(Module,AbsFile) ->
 start(Includes) when is_list(Includes) ->
     asn1_db:dbstart(Includes).
 
-
-encode(Module,Term) ->
-    asn1rt:encode(Module,Term).
-
-encode(Module,Type,Term) when is_list(Module) ->
-    asn1rt:encode(list_to_atom(Module),Type,Term);
-encode(Module,Type,Term) ->
-    asn1rt:encode(Module,Type,Term).
-
-decode(Module,Type,Bytes) when is_list(Module) ->
-    asn1rt:decode(list_to_atom(Module),Type,Bytes);
-decode(Module,Type,Bytes) ->
-    asn1rt:decode(Module,Type,Bytes).
-
-
 test(Module)                             -> test_module(Module, []).
 
 test(Module, [] = Options)               -> test_module(Module, Options);
@@ -1330,10 +1310,10 @@ test_type(Module, Type) ->
 
 test_value(Module, Type, Value) ->
     in_process(fun() ->
-                   case catch encode(Module, Type, Value) of
+                   case catch Module:encode(Type, Value) of
                        {ok, Bytes} ->
                            NewBytes = prepare_bytes(Bytes),
-                           case decode(Module, Type, NewBytes) of
+                           case Module:decode(Type, NewBytes) of
                                {ok, Value} ->
                                    {ok, {Module, Type, Value}};
                                {ok, Res}   ->
