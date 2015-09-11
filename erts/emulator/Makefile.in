@@ -690,7 +690,7 @@ $(OBJDIR)/%.o: drivers/$(ERLANG_OSTYPE)/%.c
 # ----------------------------------------------------------------------
 # Specials
 #
-CS_OBJ = $(OBJDIR)/erl_child_setup.o $(OBJDIR)/sys_uds.o
+CS_OBJ = $(OBJDIR)/erl_child_setup.o $(OBJDIR)/sys_uds.o $(OBJDIR)/hash.o
 
 $(BINDIR)/$(CS_EXECUTABLE): $(TTF_DIR)/GENERATED $(PRELOAD_SRC) $(CS_OBJ) $(ERTS_LIB)
 	$(ld_verbose)$(CS_PURIFY) $(LD) $(CS_LDFLAGS) -o $(BINDIR)/$(CS_EXECUTABLE) \
