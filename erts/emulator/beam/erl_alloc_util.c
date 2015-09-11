@@ -3534,7 +3534,21 @@ create_carrier(Allctr_t *allctr, Uint umem_sz, UWord flags)
 	return NULL;
     }
 
-    blk_sz = UMEMSZ2BLKSZ(allctr, umem_sz);
+    if (flags & CFLG_MAIN_CARRIER) {
+        ASSERT(flags & CFLG_MBC);
+        ASSERT(flags & CFLG_NO_CPOOL);
+        ASSERT(umem_sz == allctr->main_carrier_size);
+        ERTS_UNDEF(blk_sz, 0);
+
+        if (allctr->main_carrier_size < allctr->min_mbc_size)
+            allctr->main_carrier_size = allctr->min_mbc_size;
+        crr_sz = bcrr_sz = allctr->main_carrier_size;
+    }
+    else {
+        ERTS_UNDEF(bcrr_sz, 0);
+	ERTS_UNDEF(crr_sz, 0);
+        blk_sz = UMEMSZ2BLKSZ(allctr, umem_sz);
+    }
 
 #ifdef ERTS_SMP
     allctr->cpool.disable_abandon = ERTS_ALC_CPOOL_MAX_DISABLE_ABANDON;
@@ -3580,10 +3594,12 @@ create_carrier(Allctr_t *allctr, Uint umem_sz, UWord flags)
 	mseg_flags = ERTS_MSEG_FLG_NONE;
     }
     else {
-	crr_sz = (*allctr->get_next_mbc_size)(allctr);
-	if (crr_sz < MBC_HEADER_SIZE(allctr) + blk_sz)
-	    crr_sz = MBC_HEADER_SIZE(allctr) + blk_sz;
-	mseg_flags = ERTS_MSEG_FLG_2POW;
+        if (!(flags & CFLG_MAIN_CARRIER)) {
+            crr_sz = (*allctr->get_next_mbc_size)(allctr);
+            if (crr_sz < MBC_HEADER_SIZE(allctr) + blk_sz)
+                crr_sz = MBC_HEADER_SIZE(allctr) + blk_sz;
+        }
+        mseg_flags = ERTS_MSEG_FLG_2POW;
     }
 
     crr = (Carrier_t *) alcu_mseg_alloc(allctr, &crr_sz, mseg_flags);
@@ -3618,11 +3634,10 @@ create_carrier(Allctr_t *allctr, Uint umem_sz, UWord flags)
     if (flags & CFLG_SBC) {
 	bcrr_sz = blk_sz + SBC_HEADER_SIZE;
     }
-    else {
+    else if (!(flags & CFLG_MAIN_CARRIER)) {
 	bcrr_sz = MBC_HEADER_SIZE(allctr) + blk_sz;
-	if (!(flags & CFLG_MAIN_CARRIER)
-	    && bcrr_sz < allctr->smallest_mbc_size)
-	    bcrr_sz = allctr->smallest_mbc_size;
+	if (bcrr_sz < allctr->smallest_mbc_size)
+            bcrr_sz = allctr->smallest_mbc_size;
     }
 
     crr_sz = (flags & CFLG_FORCE_SIZE
