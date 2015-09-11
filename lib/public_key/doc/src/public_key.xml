@@ -498,13 +498,13 @@
     <name>pkix_path_validation(TrustedCert, CertChain, Options) -> {ok, {PublicKeyInfo, PolicyTree}} | {error, {bad_cert, Reason}} </name>
     <fsummary>Performs a basic path validation according to RFC 5280.</fsummary>
      <type>
-       <v>TrustedCert =  #'OTPCertificate'{} | der_encode() | atom()</v>
+       <v>TrustedCert =  #'OTPCertificate'{} | der_encoded() | atom()</v>
        <d>Normally a trusted certificate, but it can also be a path-validation
        error that can be discovered while
        constructing the input to this function and that is to be run through the <c>verify_fun</c>.
        Examples are <c>unknown_ca</c> and <c>selfsigned_peer.</c>
        </d>
-       <v>CertChain = [der_encode()]</v>
+       <v>CertChain = [der_encoded()]</v>
        <d>A list of DER-encoded certificates in trust order ending with the peer certificate.</d>
        <v>Options = proplists:proplist()</v>
        <v>PublicKeyInfo = {?'rsaEncryption' | ?'id-dsa',
