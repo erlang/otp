@@ -410,15 +410,6 @@ void erts_sys_unblock_fpe(int);
 #define ERTS_FP_ERROR_THOROUGH(p, f, A)	__ERTS_FP_ERROR_THOROUGH(&(p)->fp_exception, f, A)
 
 
-#define FORKER_ARGV_NO_OF_ARGS  3
-#define FORKER_ARGV_PROGNAME_IX	0    /* Program name                          */
-#define FORKER_ARGV_MAX_FILES	1    /* max_files                             */
-
-#define FORKER_FLAG_USE_STDIO   (1 << 0)    /* dup the pipe to stdin/stderr   */
-#define FORKER_FLAG_EXIT_STATUS (1 << 1)    /* send the exit status to parent */
-#define FORKER_FLAG_DO_READ     (1 << 2)    /* dup write fd */
-#define FORKER_FLAG_DO_WRITE    (1 << 3)    /* dup read fd  */
-
 /* Threads */
 #ifdef USE_THREADS
 extern int init_async(int);

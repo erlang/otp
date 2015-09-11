@@ -76,6 +76,8 @@ static Eterm forker_port;
 #include "erl_sys_driver.h"
 #include "sys_uds.h"
 
+#include "erl_child_setup.h"
+
 #if defined IOV_MAX
 #define MAXIOV IOV_MAX
 #elif defined UIO_MAXIOV
@@ -119,12 +121,6 @@ typedef struct driver_data {
     int terminating;
     ErtsSysBlocking *blocking;
 } ErtsSysDriverData;
-
-typedef struct exit_status {
-    HashBucket hb;
-    pid_t os_pid;
-    Eterm port_id;
-} ErtsSysExitStatus;
 
 #define DIR_SEPARATOR_CHAR    '/'
 
@@ -241,21 +237,18 @@ static void outputv(ErlDrvData, ErlIOVec*);
 static void stop_select(ErlDrvEvent, void*);
 
 /* II.V Forker prototypes */
-static int forker_init(void);
 static ErlDrvData forker_start(ErlDrvPort, char*, SysDriverOpts*);
 static void forker_stop(ErlDrvData);
 static void forker_ready_input(ErlDrvData, ErlDrvEvent);
 static void forker_ready_output(ErlDrvData, ErlDrvEvent);
 static ErlDrvSSizeT forker_control(ErlDrvData, unsigned int, char *,
                                    ErlDrvSizeT, char **, ErlDrvSizeT);
-static void forker_add_os_pid_mapping(ErtsSysDriverData *);
-static void forker_remove_os_pid_mapping(ErtsSysDriverData *);
 
 /* III Driver entries */
 
 /* III.I The spawn driver */
 struct erl_drv_entry spawn_driver_entry = {
-    forker_init,
+    NULL,
     spawn_start,
     stop,
     output,
@@ -794,12 +787,16 @@ static ErlDrvData spawn_start(ErlDrvPort port_num, char* name,
 
     {
         /* send ofd[0] + ifd[1] + stderrfd to forker port */
-        int *fds = erts_alloc(ERTS_ALC_T_DRV_CTRL_DATA, sizeof(int)*3);
-        memset(fds, 0, sizeof(int)*3);
-        fds[0] = ofd[0];
-        fds[1] = ifd[1];
-        fds[2] = stderrfd;
-        if (erl_drv_port_control(forker_port, 'S', (char*)fds, sizeof(int)*3)) {
+        ErtsSysForkerProto *proto =
+            erts_alloc(ERTS_ALC_T_DRV_CTRL_DATA,
+                       sizeof(ErtsSysForkerProto));
+        memset(proto, 0, sizeof(ErtsSysForkerProto));
+        proto->action = ErtsSysForkerProtoAction_Start;
+        proto->u.start.fds[0] = ofd[0];
+        proto->u.start.fds[1] = ifd[1];
+        proto->u.start.fds[2] = stderrfd;
+        proto->u.start.port_id = opts->exit_status ? erts_drvport2id(port_num) : THE_NON_VALUE;
+        if (erl_drv_port_control(forker_port, 'S', (char*)proto, sizeof(*proto))) {
             /* The forker port has been killed, we close both fd's which will
                make open_port throw an epipe error */
             close(ofd[0]);
@@ -824,8 +821,12 @@ static ErlDrvSSizeT spawn_control(ErlDrvData e, unsigned int cmd, char *buf,
                                   ErlDrvSizeT len, char **rbuf, ErlDrvSizeT rlen)
 {
     ErtsSysDriverData *dd = (ErtsSysDriverData*)e;
+    ErtsSysForkerProto *proto = (ErtsSysForkerProto *)buf;
 
-    memcpy(&dd->status, buf, sizeof(dd->status));
+    ASSERT(len == sizeof(*proto));
+    ASSERT(proto->action == ErtsSysForkerProtoAction_SigChld);
+
+    dd->status = proto->u.sigchld.error_number;
     dd->alive = -1;
 
     if (dd->ifd)
@@ -1134,10 +1135,6 @@ static void stop(ErlDrvData ev)
     ErtsSysDriverData* dd = (ErtsSysDriverData*)ev;
     ErlDrvPort prt = dd->port_num;
 
-    if (dd->alive == 1)
-        /* Stop has been called before the exit status has been reported */
-        forker_remove_os_pid_mapping(dd);
-
     if (dd->ifd) {
         nbio_stop_fd(prt, dd->ifd);
         driver_select(prt, abs(dd->ifd->fd), ERL_DRV_USE, 0);  /* close(ifd); */
@@ -1354,10 +1351,10 @@ static void ready_input(ErlDrvData e, ErlDrvEvent ready_fd)
 
     if (dd->pid == 0) {
         /* the pid is sent from erl_child_setup. spawn driver only. */
-        char message_buffer[3 + 10 + 1 + 10 + 1];
-        int reason, res;
+        ErtsSysForkerProto proto;
+        int res;
 
-        if((res = read(ready_fd, message_buffer, sizeof(message_buffer))) <= 0) {
+        if((res = read(ready_fd, &proto, sizeof(proto))) <= 0) {
             /* hmm, child setup seems to have closed the pipe too early...
                we close the port as there is not much else we can do */
             if (res < 0 && errno == ERRNO_BLOCK)
@@ -1369,21 +1366,25 @@ static void ready_input(ErlDrvData e, ErlDrvEvent ready_fd)
             return;
         }
 
-        if(sscanf(message_buffer,"GO:%010d:%010d", &dd->pid, &reason) == 2) {
-            if (dd->pid == -1) {
-                /* Setup failed! The only reason why this should happen is if
-                   the fork fails. */
-                errno = reason;
-                port_inp_failure(dd, -1);
-                return;
-            }
+        ASSERT(proto.action == ErtsSysForkerProtoAction_Go);
+        dd->pid = proto.u.go.os_pid;
 
-            if (driver_sizeq(port_num) > 0) {
-                driver_enq(port_num, "A", 1);
+        if (dd->pid == -1) {
+            /* Setup failed! The only reason why this should happen is if
+               the fork fails. */
+            errno = proto.u.go.error_number;
+            port_inp_failure(dd, -1);
+            return;
+        }
+
+        proto.action = ErtsSysForkerProtoAction_Ack;
+
+        if (driver_sizeq(port_num) > 0) {
+            driver_enq(port_num, (char*)&proto, sizeof(proto));
             } else {
-                if (write(abs(dd->ofd->fd), "A", 1) < 0)
+                if (write(abs(dd->ofd->fd), &proto, sizeof(proto)) < 0)
                     if (errno == ERRNO_BLOCK || errno == EINTR)
-                        driver_enq(port_num, "A", 1);
+                        driver_enq(port_num, (char*)&proto, sizeof(proto));
                 /* do nothing on failure here. If the ofd is broken, then
                    the ifd will probably also be broken and trigger
                    a port_inp_failure */
@@ -1400,15 +1401,9 @@ static void ready_input(ErlDrvData e, ErlDrvEvent ready_fd)
                    child setup will close this fd if fd < 0 */
                 driver_select(port_num, abs(dd->ofd->fd), ERL_DRV_WRITE|ERL_DRV_USE, 1);
 
-            if (dd->alive == 1)
-                forker_add_os_pid_mapping(dd);
-
             erl_drv_set_os_pid(port_num, dd->pid);
             erl_drv_init_ack(port_num, e);
             return;
-        }
-        ASSERT(0);
-        return;
     }
 
     if (packet_bytes == 0) {
@@ -1652,10 +1647,6 @@ void fd_ready_async(ErlDrvData drv_data,
 /* Forker driver */
 
 static int forker_fd;
-static Hash *forker_hash;
-static erts_smp_mtx_t forker_hash_mtx;
-
-static void ffree(void *e);
 
 static ErlDrvData forker_start(ErlDrvPort port_num, char* name,
                                SysDriverOpts* opts)
@@ -1749,16 +1740,18 @@ static ErlDrvData forker_start(ErlDrvPort port_num, char* name,
 
 static void forker_stop(ErlDrvData e)
 {
-    /* we probably should do something here */
+    /* we probably should do something here,
+       the port has been closed by the user. */
 }
 
 static void forker_ready_input(ErlDrvData e, ErlDrvEvent fd)
 {
-    int res, *exit_status;
-    char buff[8+10+1+10+1] = {0};
-    ErtsSysExitStatus est, *es;
+    int res;
+    ErtsSysForkerProto *proto;
 
-    if ((res = read(fd, buff, sizeof(buff))) < 0) {
+    proto = erts_alloc(ERTS_ALC_T_DRV_CTRL_DATA, sizeof(*proto));
+
+    if ((res = read(fd, proto, sizeof(*proto))) < 0) {
         if (errno == ERRNO_BLOCK)
             return;
         erl_exit(ERTS_DUMP_EXIT, "Failed to read from erl_child_setup: %d\n", errno);
@@ -1767,26 +1760,15 @@ static void forker_ready_input(ErlDrvData e, ErlDrvEvent fd)
     if (res == 0)
         erl_exit(ERTS_DUMP_EXIT, "erl_child_setup closed\n");
 
-    if (sscanf(buff, "SIGCHLD:%010d:%010d", &est.os_pid, &res) != 2)
-        erl_exit(ERTS_DUMP_EXIT, "Got corrupt data from erl_child_setup: %.s\n",
-                 buff, sizeof(buff));
+    ASSERT(res == sizeof(*proto));
+    ASSERT(proto->action == ErtsSysForkerProtoAction_SigChld);
 
-    erts_smp_mtx_lock(&forker_hash_mtx);
-    es = hash_remove(forker_hash, &est);
-    erts_smp_mtx_unlock(&forker_hash_mtx);
-
-    if (!es)
-        return;
-
-    exit_status = erts_alloc(ERTS_ALC_T_DRV_CTRL_DATA, sizeof(int));
-    exit_status[0] = res;
     /* ideally this would be a port_command call, but as command is
        already used by the spawn_driver, we use control instead.
        Note that when using erl_drv_port_control it is an asynchronous
        control. */
-    erl_drv_port_control(es->port_id, 'S', (char*)exit_status, sizeof(int));
-
-    ffree(es);
+    erl_drv_port_control(proto->u.sigchld.port_id, 'S',
+                         (char*)proto, sizeof(*proto));
 
 }
 
@@ -1797,18 +1779,19 @@ static void forker_ready_output(ErlDrvData e, ErlDrvEvent fd)
     while(driver_sizeq(port_num) > 0) {
         int vlen;
         SysIOVec *iov = driver_peekq(port_num, &vlen);
-        int *fds = (int*)iov[0].iov_base;
-        ASSERT(iov[0].iov_len >= sizeof(int)*3);
-        if (sys_uds_write(forker_fd, "S", 1, fds, 3, 0) < 0) {
+        ErtsSysForkerProto *proto = (ErtsSysForkerProto *)iov[0].iov_base;
+        ASSERT(iov[0].iov_len >= (sizeof(*proto)));
+        if (sys_uds_write(forker_fd, (char*)proto, sizeof(*proto),
+                          proto->u.start.fds, 3, 0) < 0) {
             if (errno == ERRNO_BLOCK)
                 return;
             erl_exit(ERTS_DUMP_EXIT, "Failed to write to erl_child_setup: %d\n", errno);
         }
-        close(fds[0]);
-        close(fds[1]);
-        if (fds[1] != fds[2])
-            close(fds[2]);
-        driver_deq(port_num, sizeof(int)*3);
+        close(proto->u.start.fds[0]);
+        close(proto->u.start.fds[1]);
+        if (proto->u.start.fds[1] != proto->u.start.fds[2])
+            close(proto->u.start.fds[2]);
+        driver_deq(port_num, sizeof(*proto));
     }
 
     driver_select(port_num, forker_fd, ERL_DRV_WRITE, 0);
@@ -1817,7 +1800,7 @@ static void forker_ready_output(ErlDrvData e, ErlDrvEvent fd)
 static ErlDrvSSizeT forker_control(ErlDrvData e, unsigned int cmd, char *buf,
                                    ErlDrvSizeT len, char **rbuf, ErlDrvSizeT rlen)
 {
-    int *fds = (int*)buf;
+    ErtsSysForkerProto *proto = (ErtsSysForkerProto *)buf;
     ErlDrvPort port_num = (ErlDrvPort)e;
     int res;
 
@@ -1826,7 +1809,8 @@ static ErlDrvSSizeT forker_control(ErlDrvData e, unsigned int cmd, char *buf,
         return 0;
     }
 
-    if ((res = sys_uds_write(forker_fd, "S", 1, fds, 3, 0)) < 0) {
+    if ((res = sys_uds_write(forker_fd, (char*)proto, sizeof(*proto),
+                             proto->u.start.fds, 3, 0)) < 0) {
         if (errno == ERRNO_BLOCK) {
             driver_enq(port_num, buf, len);
             driver_select(port_num, forker_fd, ERL_DRV_WRITE|ERL_DRV_USE, 1);
@@ -1834,74 +1818,11 @@ static ErlDrvSSizeT forker_control(ErlDrvData e, unsigned int cmd, char *buf,
         }
         erl_exit(ERTS_DUMP_EXIT, "Failed to write to erl_child_setup: %d\n", errno);
     }
-    close(fds[0]);
-    close(fds[1]);
-    if (fds[1] != fds[2])
-        close(fds[2]);
+
+    ASSERT(res == sizeof(*proto));
+    close(proto->u.start.fds[0]);
+    close(proto->u.start.fds[1]);
+    if (proto->u.start.fds[1] != proto->u.start.fds[2])
+        close(proto->u.start.fds[2]);
     return 0;
-}
-
-static void forker_add_os_pid_mapping(ErtsSysDriverData *dd)
-{
-    Eterm port_id = erts_drvport2id(dd->port_num);
-    ErtsSysExitStatus es;
-    es.os_pid = dd->pid;
-    es.port_id = port_id;
-    erts_smp_mtx_lock(&forker_hash_mtx);
-    hash_put(forker_hash, &es);
-    erts_smp_mtx_unlock(&forker_hash_mtx);
-}
-
-static void forker_remove_os_pid_mapping(ErtsSysDriverData *dd)
-{
-    ErtsSysExitStatus est, *es;
-    est.os_pid = dd->pid;
-    erts_smp_mtx_lock(&forker_hash_mtx);
-    es = hash_remove(forker_hash, &est);
-    erts_smp_mtx_unlock(&forker_hash_mtx);
-    if (es)
-        ffree(es);
-}
-
-static int fcmp(void *a, void *b)
-{
-    ErtsSysExitStatus *sa = a;
-    ErtsSysExitStatus *sb = b;
-    return !(sa->os_pid == sb->os_pid);
-}
-
-static HashValue fhash(void *e)
-{
-    ErtsSysExitStatus *se = e;
-    return make_hash2(make_small(se->os_pid));
-}
-
-static void *falloc(void *e)
-{
-    ErtsSysExitStatus *se = e;
-    ErtsSysExitStatus *ne = erts_alloc(ERTS_ALC_T_DRV, sizeof(ErtsSysExitStatus));
-    erts_smp_atomic_add_nob(&sys_misc_mem_sz, sizeof(ErtsSysBlocking));
-    ne->os_pid = se->os_pid;
-    ne->port_id = se->port_id;
-    return ne;
-}
-
-static void ffree(void *e)
-{
-    erts_free(ERTS_ALC_T_DRV, e);
-    erts_smp_atomic_add_nob(&sys_misc_mem_sz, -sizeof(ErtsSysBlocking));
-}
-
-static int forker_init(void)
-{
-    HashFunctions forker_hash_functions;
-    forker_hash_functions.hash = fhash;
-    forker_hash_functions.cmp = fcmp;
-    forker_hash_functions.alloc = falloc;
-    forker_hash_functions.free = ffree;
-    forker_hash = hash_new(ERTS_ALC_T_DRV, "forker_hash",
-                           16, forker_hash_functions);
-    erts_smp_mtx_init(&forker_hash_mtx, "forker_hash_mtx");
-
-    return 1;
 }

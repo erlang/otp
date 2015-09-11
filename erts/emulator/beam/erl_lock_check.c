@@ -184,7 +184,6 @@ static erts_lc_lock_order_t erts_lock_order[] = {
 #ifdef ERTS_SMP
     {	"os_monotonic_time",			NULL			},
 #endif
-    {   "forker_hash_mtx",                      NULL                    },
     {	"erts_alloc_hard_debug",		NULL			},
     {	"hard_dbg_mseg",		        NULL	                },
     {	"erts_mmap",				NULL			}
