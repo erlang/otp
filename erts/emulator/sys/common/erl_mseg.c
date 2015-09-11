@@ -1402,7 +1402,7 @@ erts_mseg_init(ErtsMsegInit_t *init)
 
     erts_mtx_init(&init_atoms_mutex, "mseg_init_atoms");
 
-    erts_mmap_init(&erts_dflt_mmapper, &init->mmap);
+    erts_mmap_init(&erts_dflt_mmapper, &init->dflt_mmap);
 
     if (!IS_2POW(GET_PAGE_SIZE))
 	erl_exit(ERTS_ABORT_EXIT, "erts_mseg: Unexpected page_size %beu\n", GET_PAGE_SIZE);

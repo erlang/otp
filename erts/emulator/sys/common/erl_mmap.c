@@ -349,6 +349,12 @@ struct ErtsMemMapper_ {
 
 ErtsMemMapper erts_dflt_mmapper;
 
+#if defined(ARCH_64) && defined(ERTS_HAVE_OS_PHYSICAL_MEMORY_RESERVATION)
+ErtsMemMapper erts_literal_mmapper;
+char* erts_literals_start;
+UWord erts_literals_size;
+#endif
+
 #define ERTS_MMAP_SIZE_SC_SA_INC(SZ) 						\
     do {									\
 	mm->size.supercarrier.used.total += (SZ);			\
@@ -2108,6 +2114,7 @@ static void hard_dbg_mseg_init(void);
 void
 erts_mmap_init(ErtsMemMapper* mm, ErtsMMapInit *init)
 {
+    static int is_first_call = 1;
     int virtual_map = 0;
     char *start = NULL, *end = NULL;
     UWord pagesize;
@@ -2145,7 +2152,9 @@ erts_mmap_init(ErtsMemMapper* mm, ErtsMMapInit *init)
 #endif
 
     erts_smp_mtx_init(&mm->mtx, "erts_mmap");
-    erts_mtx_init(&am.init_mutex, "mmap_init_atoms");
+    if (is_first_call) {
+        erts_mtx_init(&am.init_mutex, "mmap_init_atoms");
+    }
 
 #ifdef ERTS_HAVE_OS_PHYSICAL_MEMORY_RESERVATION
     if (init->virtual_range.start) {
@@ -2302,6 +2311,14 @@ erts_mmap_init(ErtsMemMapper* mm, ErtsMMapInit *init)
 #ifdef HARD_DEBUG_MSEG
     hard_dbg_mseg_init();
 #endif
+
+#if defined(ARCH_64) && defined(ERTS_HAVE_OS_PHYSICAL_MEMORY_RESERVATION)
+   if (mm == &erts_literal_mmapper) {
+       erts_literals_start = erts_literal_mmapper.sa.bot;
+       erts_literals_size  = erts_literal_mmapper.sua.top - erts_literals_start;
+    }
+#endif
+    is_first_call = 0;
 }
 
 

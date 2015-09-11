@@ -24,6 +24,12 @@
 #define ERTS_ALCU_VSN_STR "3.0"
 
 #include "erl_alloc_types.h"
+#ifdef USE_THREADS
+#define ERL_THREADS_EMU_INTERNAL__
+#include "erl_threads.h"
+#endif
+
+#include "erl_mseg.h"
 
 #define ERTS_AU_PREF_ALLOC_BITS 11
 #define ERTS_AU_MAX_PREF_ALLOC_INSTANCES (1 << ERTS_AU_PREF_ALLOC_BITS)
@@ -60,6 +66,15 @@ typedef struct {
 
     void *fix;
     size_t *fix_type_size;
+
+#if HAVE_ERTS_MSEG
+    void* (*mseg_alloc)(Allctr_t*, Uint *size_p, Uint flags);
+    void* (*mseg_realloc)(Allctr_t*, void *seg, Uint old_size, Uint *new_size_p);
+    void  (*mseg_dealloc)(Allctr_t*, void *seg, Uint size, Uint flags);
+#endif
+    void* (*sys_alloc)(Allctr_t *allctr, Uint size, int superalign);
+    void* (*sys_realloc)(Allctr_t *allctr, void *ptr, Uint size, Uint old_size, int superalign);
+    void  (*sys_dealloc)(Allctr_t *allctr, void *ptr, Uint size, int superalign);
 } AllctrInit_t;
 
 typedef struct {
@@ -173,19 +188,43 @@ void    erts_alcu_check_delayed_dealloc(Allctr_t *, int, int *, ErtsThrPrgrVal *
 #endif
 erts_aint32_t erts_alcu_fix_alloc_shrink(Allctr_t *, erts_aint32_t);
 
+#ifdef ARCH_32
+extern UWord erts_literal_vspace_map[];
+# define ERTS_VSPACE_WORD_BITS (sizeof(UWord)*8)
 #endif
+
+void* erts_alcu_mseg_alloc(Allctr_t*, Uint *size_p, Uint flags);
+void* erts_alcu_mseg_realloc(Allctr_t*, void *seg, Uint old_size, Uint *new_size_p);
+void  erts_alcu_mseg_dealloc(Allctr_t*, void *seg, Uint size, Uint flags);
+
+#if HAVE_ERTS_MSEG
+# if defined(ARCH_32)
+void* erts_alcu_literal_32_mseg_alloc(Allctr_t*, Uint *size_p, Uint flags);
+void* erts_alcu_literal_32_mseg_realloc(Allctr_t*, void *seg, Uint old_size, Uint *new_size_p);
+void  erts_alcu_literal_32_mseg_dealloc(Allctr_t*, void *seg, Uint size, Uint flags);
+
+# elif defined(ARCH_64) && defined(ERTS_HAVE_OS_PHYSICAL_MEMORY_RESERVATION)
+void* erts_alcu_literal_64_mseg_alloc(Allctr_t*, Uint *size_p, Uint flags);
+void* erts_alcu_literal_64_mseg_realloc(Allctr_t*, void *seg, Uint old_size, Uint *new_size_p);
+void  erts_alcu_literal_64_mseg_dealloc(Allctr_t*, void *seg, Uint size, Uint flags);
+# endif
+#endif /* HAVE_ERTS_MSEG */
+
+void* erts_alcu_sys_alloc(Allctr_t*, Uint size, int superalign);
+void* erts_alcu_sys_realloc(Allctr_t*, void *ptr, Uint size, Uint old_size, int superalign);
+void  erts_alcu_sys_dealloc(Allctr_t*, void *ptr, Uint size, int superalign);
+#ifdef ARCH_32
+void* erts_alcu_literal_32_sys_alloc(Allctr_t*, Uint size, int superalign);
+void* erts_alcu_literal_32_sys_realloc(Allctr_t*, void *ptr, Uint size, Uint old_size, int superalign);
+void  erts_alcu_literal_32_sys_dealloc(Allctr_t*, void *ptr, Uint size, int superalign);
+#endif
+
+#endif /* !ERL_ALLOC_UTIL__ */
 
 #if defined(GET_ERL_ALLOC_UTIL_IMPL) && !defined(ERL_ALLOC_UTIL_IMPL__)
 #define ERL_ALLOC_UTIL_IMPL__
 
 #define ERTS_ALCU_FLG_FAIL_REALLOC_MOVE		(((Uint32) 1) << 0)
-
-#ifdef USE_THREADS
-#define ERL_THREADS_EMU_INTERNAL__
-#include "erl_threads.h"
-#endif
-
-#include "erl_mseg.h"
 
 #undef ERTS_ALLOC_UTIL_HARD_DEBUG
 #ifdef DEBUG
@@ -498,6 +537,8 @@ struct Allctr_t_ {
     Uint		min_mbc_size;
     Uint		min_mbc_first_free_size;
     Uint		min_block_size;
+    UWord               crr_set_flgs;
+    UWord               crr_clr_flgs;
 
     /* Carriers */
     CarrierList_t	mbc_list;
@@ -542,6 +583,15 @@ struct Allctr_t_ {
     void		(*add_mbc)		(Allctr_t *, Carrier_t *);
     void		(*remove_mbc)	        (Allctr_t *, Carrier_t *);
     UWord		(*largest_fblk_in_mbc)  (Allctr_t *, Carrier_t *);
+
+#if HAVE_ERTS_MSEG
+    void*               (*mseg_alloc)(Allctr_t*, Uint *size_p, Uint flags);
+    void*               (*mseg_realloc)(Allctr_t*, void *seg, Uint old_size, Uint *new_size_p);
+    void                (*mseg_dealloc)(Allctr_t*, void *seg, Uint size, Uint flags);
+#endif
+    void*               (*sys_alloc)(Allctr_t *allctr, Uint size, int superalign);
+    void*               (*sys_realloc)(Allctr_t *allctr, void *ptr, Uint size, Uint old_size, int superalign);
+    void                (*sys_dealloc)(Allctr_t *allctr, void *ptr, Uint size, int superalign);
 
     void		(*init_atoms)		(void);
 

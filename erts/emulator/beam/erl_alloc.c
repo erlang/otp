@@ -310,6 +310,25 @@ set_default_literal_alloc_opts(struct au_init *ip)
     ip->init.util.rsbcmt	= 0;
     ip->init.util.rmbcmt	= 0;
     ip->init.util.acul		= 0;
+
+#if defined(ARCH_32)
+# if HAVE_ERTS_MSEG
+    ip->init.util.mseg_alloc   = &erts_alcu_literal_32_mseg_alloc;
+    ip->init.util.mseg_realloc = &erts_alcu_literal_32_mseg_realloc;
+    ip->init.util.mseg_dealloc = &erts_alcu_literal_32_mseg_dealloc;
+# endif
+    ip->init.util.sys_alloc    = &erts_alcu_literal_32_sys_alloc;
+    ip->init.util.sys_realloc  = &erts_alcu_literal_32_sys_realloc;
+    ip->init.util.sys_dealloc  = &erts_alcu_literal_32_sys_dealloc;
+#elif defined(ARCH_64)
+# ifdef ERTS_HAVE_OS_PHYSICAL_MEMORY_RESERVATION
+    ip->init.util.mseg_alloc    = &erts_alcu_literal_64_mseg_alloc;
+    ip->init.util.mseg_realloc  = &erts_alcu_literal_64_mseg_realloc;
+    ip->init.util.mseg_dealloc  = &erts_alcu_literal_64_mseg_dealloc;
+# endif
+#else
+# error Unknown architecture
+#endif
 }
 
 static void
@@ -720,6 +739,9 @@ erts_alloc_init(int *argc, char **argv, ErtsAllocInitOpts *eaiop)
 #if HAVE_ERTS_MSEG
     init.mseg.nos = erts_no_schedulers;
     erts_mseg_init(&init.mseg);
+# if defined(ARCH_64) && defined(ERTS_HAVE_OS_PHYSICAL_MEMORY_RESERVATION)
+    erts_mmap_init(&erts_literal_mmapper, &init.mseg.literal_mmap);
+# endif
 #endif
 
     erts_alcu_init(&init.alloc_util);
@@ -991,7 +1013,7 @@ start_au_allocator(ErtsAlcType_t alctr_n,
     }
 
     for (i = 0; i < size; i++) {
-	void *as;
+	Allctr_t *as;
 	atype = init->atype;
 
 	if (!init->thr_spec)
@@ -1028,22 +1050,22 @@ start_au_allocator(ErtsAlcType_t alctr_n,
 
 	switch (atype) {
 	case GOODFIT:
-	    as = (void *) erts_gfalc_start((GFAllctr_t *) as0,
+	    as = erts_gfalc_start((GFAllctr_t *) as0,
 					   &init->init.gf,
 					   &init->init.util);
 	    break;
 	case BESTFIT:
-	    as = (void *) erts_bfalc_start((BFAllctr_t *) as0,
+	    as = erts_bfalc_start((BFAllctr_t *) as0,
 					   &init->init.bf,
 					   &init->init.util);
 	    break;
 	case AFIT:
-	    as = (void *) erts_afalc_start((AFAllctr_t *) as0,
+	    as = erts_afalc_start((AFAllctr_t *) as0,
 					   &init->init.af,
 					   &init->init.util);
 	    break;
     	case AOFIRSTFIT:
-	    as = (void *) erts_aoffalc_start((AOFFAllctr_t *) as0,
+	    as = erts_aoffalc_start((AOFFAllctr_t *) as0,
 					     &init->init.aoff,
 					     &init->init.util);
 	    break;
@@ -1445,25 +1467,25 @@ handle_args(int *argc, char **argv, erts_alc_hndl_args_init_t *init)
 		    }
 		    else if (has_prefix("scs", argv[i]+3)) {
 #if HAVE_ERTS_MSEG
-			init->mseg.mmap.scs =
+			init->mseg.dflt_mmap.scs =
 #endif
 			    get_mb_value(argv[i]+6, argv, &i);
 		    }
 		    else if (has_prefix("sco", argv[i]+3)) {
 #if HAVE_ERTS_MSEG
-			init->mseg.mmap.sco =
+			init->mseg.dflt_mmap.sco =
 #endif
 			    get_bool_value(argv[i]+6, argv, &i);
 		    }
 		    else if (has_prefix("scrpm", argv[i]+3)) {
 #if HAVE_ERTS_MSEG
-			init->mseg.mmap.scrpm =
+			init->mseg.dflt_mmap.scrpm =
 #endif
 			    get_bool_value(argv[i]+8, argv, &i);
 		    }
 		    else if (has_prefix("scrfsd", argv[i]+3)) {
 #if HAVE_ERTS_MSEG
-			init->mseg.mmap.scrfsd =
+			init->mseg.dflt_mmap.scrfsd =
 #endif
 			    get_amount_value(argv[i]+9, argv, &i);
 		    }

@@ -30,6 +30,7 @@
 #ifdef USE_THREADS
 #include "erl_threads.h"
 #endif
+#include "erl_mmap.h"
 
 #ifdef DEBUG
 #  undef ERTS_ALC_WANT_INLINE
@@ -204,6 +205,7 @@ void erts_free(ErtsAlcType_t type, void *ptr);
 void *erts_alloc_fnf(ErtsAlcType_t type, Uint size);
 void *erts_realloc_fnf(ErtsAlcType_t type, void *ptr, Uint size);
 int erts_is_allctr_wrapper_prelocked(void);
+int erts_is_literal(void* ptr);
 
 #endif /* #if !ERTS_ALC_DO_INLINE */
 
@@ -279,6 +281,28 @@ int erts_is_allctr_wrapper_prelocked(void)
 {
     return erts_allctr_wrapper_prelocked                 /* locked */
 	&& !!erts_tsd_get(erts_allctr_prelock_tsd_key);  /* by me  */
+}
+
+ERTS_ALC_INLINE
+int erts_is_literal(void* ptr)
+{
+#if defined(ARCH_32)
+    Uint ix = (UWord)ptr >> ERTS_MMAP_SUPERALIGNED_BITS;
+
+    return erts_literal_vspace_map[ix / ERTS_VSPACE_WORD_BITS]
+                  & ((UWord)1 << (ix % ERTS_VSPACE_WORD_BITS));
+
+#elif defined(ARCH_64)
+# if defined(ERTS_HAVE_OS_PHYSICAL_MEMORY_RESERVATION)
+    extern char* erts_literals_start;
+    extern UWord erts_literals_size;
+    return ErtsInArea(ptr, erts_literals_start, erts_literals_size);
+# else
+#  error Do the tag thing
+# endif
+#else
+# error No ARCH_xx
+#endif
 }
 
 #endif /* #if ERTS_ALC_DO_INLINE || defined(ERTS_ALC_INTERNAL__) */

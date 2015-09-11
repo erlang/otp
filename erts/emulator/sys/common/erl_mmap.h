@@ -50,8 +50,11 @@ typedef struct {
 #define ERTS_MMAP_INIT_DEFAULT_INITER \
     {{NULL, NULL}, {NULL, NULL}, 0, 1, (1 << 16), 1}
 
+#define ERTS_MMAP_INIT_LITERAL_INITER \
+    {{NULL, NULL}, {NULL, NULL}, 1024*1024*1024, 1, (1 << 16), 0}
+
 typedef struct ErtsMemMapper_ ErtsMemMapper;
-extern ErtsMemMapper erts_dflt_mmapper;
+
 void *erts_mmap(ErtsMemMapper*, Uint32 flags, UWord *sizep);
 void erts_munmap(ErtsMemMapper*, Uint32 flags, void *ptr, UWord size);
 void *erts_mremap(ErtsMemMapper*, Uint32 flags, void *ptr, UWord old_size, UWord *sizep);
@@ -119,6 +122,11 @@ Eterm erts_mmap_debug_info(ErtsMemMapper*, struct process*);
 #endif
 #if HAVE_VIRTUALALLOC
 #  define ERTS_HAVE_OS_MMAP 1
+#endif
+
+extern ErtsMemMapper erts_dflt_mmapper;
+#if defined(ARCH_64) && defined(ERTS_HAVE_OS_PHYSICAL_MEMORY_RESERVATION)
+extern ErtsMemMapper erts_literal_mmapper;
 #endif
 
 /*#define HARD_DEBUG_MSEG*/

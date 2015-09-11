@@ -4431,6 +4431,7 @@ freeze_code(LoaderState* stp)
             if (stp->literals[i].heap_frags) {
                 move_multi_frags(&ptr, &code_off_heap, stp->literals[i].heap_frags,
                                  &stp->literals[i].term, 1);
+                ASSERT(erts_is_literal(ptr_val(stp->literals[i].term)));
             }
             else ASSERT(is_immed(stp->literals[i].term));
 	}
