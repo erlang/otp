@@ -60,6 +60,8 @@
 
 #include "erl_driver.h"
 #include "sys_uds.h"
+#include "hash.h"
+#include "erl_child_setup.h"
 
 #define SET_CLOEXEC(fd) fcntl(fd, F_SETFD, fcntl(fd, F_GETFD) | FD_CLOEXEC)
 
@@ -105,6 +107,10 @@ void sys_sigrelease(int sig)
     sigprocmask(SIG_UNBLOCK, &mask, (sigset_t *)NULL);
 }
 
+static void add_os_pid_to_port_id_mapping(Eterm, pid_t);
+static Eterm get_port_id(pid_t);
+static int forker_hash_init(void);
+
 static int max_files = -1;
 static int sigchld_pipe[2];
 
@@ -114,7 +120,7 @@ start_new_child(int pipes[])
     int size, res, i, pos = 0;
     char *buff, *o_buff;
 
-    char *cmd, *wd, **new_environ, **args = NULL, cbuff[1];
+    char *cmd, *wd, **new_environ, **args = NULL;
 
     Sint cnt, flags;
 
@@ -194,7 +200,12 @@ start_new_child(int pipes[])
 
     DEBUG_PRINT("read ack");
     do {
-        res = read(pipes[0], cbuff, 1);
+        ErtsSysForkerProto proto;
+        res = read(pipes[0], &proto, sizeof(proto));
+        if (res > 0) {
+            ASSERT(proto.action == ErtsSysForkerProtoAction_Ack);
+            ASSERT(res == sizeof(proto));
+        }
     } while(res < 0 && (errno == EINTR || errno == ERRNO_BLOCK));
     if (res < 1) {
         errno = EPIPE;
@@ -355,6 +366,8 @@ main(int argc, char *argv[])
         exit(1);
     }
 
+    forker_hash_init();
+
     SET_CLOEXEC(uds_fd);
 
     DEBUG_PRINT("Starting forker %d", max_files);
@@ -376,9 +389,10 @@ main(int argc, char *argv[])
 
         if (FD_ISSET(uds_fd, &read_fds)) {
             int pipes[3], res, os_pid;
-            char buff[256];
+            ErtsSysForkerProto proto;
             errno = 0;
-            if ((res = sys_uds_read(uds_fd, buff, 1, pipes, 3, MSG_DONTWAIT)) < 0) {
+            if ((res = sys_uds_read(uds_fd, (char*)&proto, sizeof(proto),
+                                    pipes, 3, MSG_DONTWAIT)) < 0) {
                 if (errno == EINTR)
                     continue;
                 DEBUG_PRINT("erl_child_setup failed to read from uds: %d, %d", res, errno);
@@ -391,8 +405,8 @@ main(int argc, char *argv[])
             }
             /* Since we use unix domain sockets and send the entire data in
                one go we *should* get the entire payload at once. */
-            ASSERT(res == 1);
-            ASSERT(buff[0] == 'S');
+            ASSERT(res == sizeof(proto));
+            ASSERT(proto.action == ErtsSysForkerProtoAction_Start);
 
             sys_sigblock(SIGCHLD);
 
@@ -402,10 +416,14 @@ main(int argc, char *argv[])
             if (os_pid == 0)
                 start_new_child(pipes);
 
+            add_os_pid_to_port_id_mapping(proto.u.start.port_id, os_pid);
+
             /* We write an ack here, but expect the reply on
                the pipes[0] inside the fork */
-            res = sprintf(buff,"GO:%010d:%010d", os_pid, errno);
-            while (write(pipes[1], buff, res + 1) < 0 && errno == EINTR)
+            proto.action = ErtsSysForkerProtoAction_Go;
+            proto.u.go.os_pid = os_pid;
+            proto.u.go.error_number = errno;
+            while (write(pipes[1], &proto, sizeof(proto)) < 0 && errno == EINTR)
                 ; /* remove gcc warning */
 
             sys_sigrelease(SIGCHLD);
@@ -416,16 +434,23 @@ main(int argc, char *argv[])
 
         if (FD_ISSET(sigchld_pipe[0], &read_fds)) {
             int ibuff[2];
-            char buff[256];
+            ErtsSysForkerProto proto;
             res = read(sigchld_pipe[0], ibuff, sizeof(ibuff));
             if (res <= 0) {
                 if (errno == EINTR)
                     continue;
                 ABORT("Failed to read from sigchld pipe: %d (%d)", res, errno);
             }
-            res = snprintf(buff, 256, "SIGCHLD:%010d:%010d", ibuff[0], ibuff[1]);
+
+            proto.u.sigchld.port_id = get_port_id((pid_t)(ibuff[0]));
+
+            if (proto.u.sigchld.port_id == THE_NON_VALUE)
+                continue; /* exit status report not requested */
+
+            proto.action = ErtsSysForkerProtoAction_SigChld;
+            proto.u.sigchld.error_number = ibuff[1];
             DEBUG_PRINT("send %s to %d", buff, uds_fd);
-            if (write(uds_fd, buff, res + 1) < 0) {
+            if (write(uds_fd, &proto, sizeof(proto)) < 0) {
                 if (errno == EINTR)
                     continue;
                 /* The uds was close, which most likely means that the VM
@@ -435,5 +460,85 @@ main(int argc, char *argv[])
             }
         }
     }
+    return 1;
+}
+
+typedef struct exit_status {
+    HashBucket hb;
+    pid_t os_pid;
+    Eterm port_id;
+} ErtsSysExitStatus;
+
+static Hash *forker_hash;
+
+static void add_os_pid_to_port_id_mapping(Eterm port_id, pid_t os_pid)
+{
+    if (port_id != THE_NON_VALUE) {
+        /* exit status report requested */
+        ErtsSysExitStatus es;
+        es.os_pid = os_pid;
+        es.port_id = port_id;
+        hash_put(forker_hash, &es);
+    }
+}
+
+static Eterm get_port_id(pid_t os_pid)
+{
+    ErtsSysExitStatus est, *es;
+    Eterm port_id;
+    est.os_pid = os_pid;
+    es = hash_remove(forker_hash, &est);
+    if (!es) return THE_NON_VALUE;
+    port_id = es->port_id;
+    free(es);
+    return port_id;
+}
+
+static int fcmp(void *a, void *b)
+{
+    ErtsSysExitStatus *sa = a;
+    ErtsSysExitStatus *sb = b;
+    return !(sa->os_pid == sb->os_pid);
+}
+
+static HashValue fhash(void *e)
+{
+    ErtsSysExitStatus *se = e;
+    Uint32 val = se->os_pid;
+    val = (val+0x7ed55d16) + (val<<12);
+    val = (val^0xc761c23c) ^ (val>>19);
+    val = (val+0x165667b1) + (val<<5);
+    val = (val+0xd3a2646c) ^ (val<<9);
+    val = (val+0xfd7046c5) + (val<<3);
+    val = (val^0xb55a4f09) ^ (val>>16);
+    return val;
+}
+
+static void *falloc(void *e)
+{
+    ErtsSysExitStatus *se = e;
+    ErtsSysExitStatus *ne = malloc(sizeof(ErtsSysExitStatus));
+    ne->os_pid = se->os_pid;
+    ne->port_id = se->port_id;
+    return ne;
+}
+
+static void *meta_alloc(int type, size_t size) { return malloc(size); }
+static void meta_free(int type, void *p)       { free(p); }
+
+static int forker_hash_init(void)
+{
+    HashFunctions forker_hash_functions;
+    forker_hash_functions.hash = fhash;
+    forker_hash_functions.cmp = fcmp;
+    forker_hash_functions.alloc = falloc;
+    forker_hash_functions.free = free;
+    forker_hash_functions.meta_alloc = meta_alloc;
+    forker_hash_functions.meta_free  = meta_free;
+    forker_hash_functions.meta_print = NULL;
+
+    forker_hash = hash_new(0, "forker_hash",
+                           16, forker_hash_functions);
+
     return 1;
 }
