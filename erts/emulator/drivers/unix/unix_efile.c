@@ -36,10 +36,16 @@
 #ifdef HAVE_UNISTD_H
 #include <unistd.h>
 #endif
-#ifdef HAVE_SYS_UIO_H
+
+#if defined(HAVE_SYS_UIO_H) || defined(__FreeBSD__) || defined(__DragonFly__)
 #include <sys/types.h>
 #include <sys/uio.h>
+#if defined(__FreeBSD__) || defined(__DragonFly__)
+#define __BSD_VISIBLE 1
+#include <sys/socket.h>
 #endif
+#endif
+
 #if defined(HAVE_SENDFILE) && (defined(__linux__) || (defined(__sun) && defined(__SVR4)))
 #include <sys/sendfile.h>
 #endif
