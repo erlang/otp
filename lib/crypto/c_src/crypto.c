@@ -2042,13 +2042,14 @@ static ERL_NIF_TERM aes_ecb_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
     ErlNifBinary key_bin, data_bin;
     AES_KEY aes_key;
     int i;
+    int j;
     unsigned char* ret_ptr;
     ERL_NIF_TERM ret;    
 
     CHECK_OSE_CRYPTO();
 
     if (!enif_inspect_iolist_as_binary(env, argv[0], &key_bin)
-    || (key_bin.size != 16 && key_bin.size != 32)
+    || (key_bin.size != 16 && key_bin.size != 24 && key_bin.size != 32)
     || !enif_inspect_iolist_as_binary(env, argv[1], &data_bin)
     || data_bin.size % 16 != 0) {
     return enif_make_badarg(env);
@@ -2064,7 +2065,9 @@ static ERL_NIF_TERM aes_ecb_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
     }
 
     ret_ptr = enif_make_new_binary(env, data_bin.size, &ret);
-    AES_ecb_encrypt(data_bin.data, ret_ptr, &aes_key, i);
+    for (j = 0; j <= data_bin.size; j += 16) {
+	AES_ecb_encrypt(data_bin.data+j, ret_ptr+j, &aes_key, i);
+    }
     CONSUME_REDS(env,data_bin);
     return ret;
 }

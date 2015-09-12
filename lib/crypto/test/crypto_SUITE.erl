@@ -1301,7 +1301,31 @@ aes_ecb() ->
       <<"0000000000000000">>},
      {aes_ecb,
       <<"FEDCBA9876543210">>, 
-      <<"FFFFFFFFFFFFFFFF">>}
+      <<"FFFFFFFFFFFFFFFF">>},
+     %% AES ECB test vectors from http://csrc.nist.gov/publications/nistpubs/800-38a/sp800-38a.pdf
+     %% F.1.1 ECB-AES128.Encrypt, F.1.2 ECB-AES128.Decrypt
+     {aes_ecb,
+      hexstr2bin("2b7e151628aed2a6abf7158809cf4f3c"),
+      hexstr2bin("6bc1bee22e409f96e93d7e117393172a"
+		 "ae2d8a571e03ac9c9eb76fac45af8e51"
+		 "30c81c46a35ce411e5fbc1191a0a52ef"
+		 "f69f2445df4f9b17ad2b417be66c3710")},
+     %% F.1.3 ECB-AES192.Encrypt, F.1.4 ECB-AES192.Decrypt
+     {aes_ecb,
+      hexstr2bin("8e73b0f7da0e6452c810f32b809079e5"
+		 "62f8ead2522c6b7b"),
+      hexstr2bin("6bc1bee22e409f96e93d7e117393172a"
+		 "ae2d8a571e03ac9c9eb76fac45af8e51"
+		 "30c81c46a35ce411e5fbc1191a0a52ef"
+		 "f69f2445df4f9b17ad2b417be66c3710")},
+     %% F.1.5 ECB-AES256.Encrypt, F.1.6 ECB-AES256.Decrypt
+     {aes_ecb,
+      hexstr2bin("603deb1015ca71be2b73aef0857d7781"
+		 "1f352c073b6108d72d9810a30914dff4"),
+      hexstr2bin("6bc1bee22e409f96e93d7e117393172a"
+		 "ae2d8a571e03ac9c9eb76fac45af8e51"
+		 "30c81c46a35ce411e5fbc1191a0a52ef"
+		 "f69f2445df4f9b17ad2b417be66c3710")}
     ].
 
 aes_ige256() ->
