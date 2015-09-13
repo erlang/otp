@@ -837,14 +837,7 @@ get_term_list(Process *p, DbTableHash *tb, Eterm key, HashValue hval,
     Eterm copy;
     Uint sz = b1->dbterm.size + 2;
 
-    if (tb->common.status & (DB_BAG | DB_DUPLICATE_BAG)) {
-        while (b2 && has_key(tb, b2, key, hval)) {
-	    if (b2->hvalue != INVALID_HASH)
-		sz += b2->dbterm.size + 2;
-
-            b2 = b2->next;
-        }
-    }
+    ASSERT(tb->common.status & DB_SET);
     copy = build_term_list(p, b1, b2, sz, tb);
     CHECK_TABLES();
     if (bend) {

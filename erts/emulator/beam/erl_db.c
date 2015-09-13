@@ -604,7 +604,7 @@ static ERTS_INLINE void local_fix_table(DbTable* tb)
     erts_smp_refc_inc(&tb->common.ref, 1);
 }	    
 static ERTS_INLINE void local_unfix_table(DbTable* tb)
-{	
+{
     if (erts_smp_refc_dectest(&tb->common.ref, 0) == 0) {
         if (IS_NESTED_HASH_TABLE(tb->common.status)) {
             db_unfix_table_nhash(&(tb->nested));
@@ -3888,7 +3888,7 @@ static Eterm table_info(Process* p, DbTable* tb, Eterm What)
 			 avg, std_dev_real, std_dev_exp,
 			 make_small(stats.min_chain_len),
 			 make_small(stats.max_chain_len),
-			 make_small(db_kept_items_nhash(&tb->nested)));
+			 make_small(stats.kept_items));
 	}
 	else if (IS_HASH_TABLE(tb->common.status)) {
 	    FloatDef f;

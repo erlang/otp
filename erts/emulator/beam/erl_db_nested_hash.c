@@ -3,16 +3,17 @@
  *
  * Copyright Ericsson AB 1998-2012. All Rights Reserved.
  *
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  * %CopyrightEnd%
  */
@@ -227,7 +228,7 @@ WUNLOCK_HASH(erts_smp_rwmtx_t *lck)
 #define MAKE_HASH(term)                                \
     ((is_atom(term)                                    \
       ? (atom_tab(atom_val(term))->slot.bucket.hvalue) \
-      : make_hash2(term))                              \
+      : make_internal_hash(term))                      \
      % MAX_HASH)
 
 /*
@@ -1144,8 +1145,8 @@ build_term_list(Process *p, RootDbTerm *rp1,
 /*
  * Remember a slot containing a pseudo-deleted item (INVALID_HASH)
  */
-static ERTS_INLINE void
-add_fixed_deletion(DbTableNestedHash *tb, int ix)
+static ERTS_INLINE int
+add_fixed_deletion(DbTableNestedHash *tb, int ix, erts_aint_t fixated_by_me)
 {
     erts_aint_t was_next, exp_next;
     NestedFixedDeletion *fixd;
@@ -1157,12 +1158,19 @@ add_fixed_deletion(DbTableNestedHash *tb, int ix)
     was_next = erts_smp_atomic_read_acqb(&tb->fixdel);
     do {
         /* Lockless atomic insertion in linked list: */
+        if (NFIXED(tb) <= fixated_by_me) {
+            /* raced by unfixer */
+            erts_db_free(ERTS_ALC_T_DB_FIX_DEL, (DbTable*)tb,
+                         fixd, sizeof(FixedDeletion));
+            return 0;
+        }
         exp_next = was_next;
         fixd->next = (NestedFixedDeletion *)exp_next;
         was_next =
-            erts_smp_atomic_cmpxchg_relb(&tb->fixdel,
-                                         (erts_aint_t)fixd, exp_next);
+            erts_smp_atomic_cmpxchg_mb(&tb->fixdel,
+                                       (erts_aint_t)fixd, exp_next);
     } while (was_next != exp_next);
+    return 1;
 }
 
 /*
@@ -1727,7 +1735,7 @@ db_mark_all_deleted_nhash(DbTable *tbl)
         rpp = &BUCKET(tb, i);
         if (*rpp == NULL)
             continue;
-        add_fixed_deletion(tb, i);
+        add_fixed_deletion(tb, i, 0);
         max_free = DELETE_RECORD_LIMIT;
         /* !!! yield !!! */
         while (!free_bucket(tb, rpp, &max_free, 1))
@@ -1762,6 +1770,8 @@ db_create_nhash(Process *p, DbTable *tbl)
         erts_smp_rwmtx_opt_t rwmtx_opt = ERTS_SMP_RWMTX_OPT_DEFAULT_INITER;
         if (tb->common.type & DB_FREQ_READ)
             rwmtx_opt.type = ERTS_SMP_RWMTX_TYPE_FREQUENT_READ;
+	if (erts_ets_rwmtx_spin_count >= 0)
+	    rwmtx_opt.main_spincount = erts_ets_rwmtx_spin_count;
         tb->locks = (DbTableNestedHashFineLocks *)
             erts_db_alloc_fnf(ERTS_ALC_T_DB_SEG, /* Other type maybe? */
                               (DbTable *)tb,
@@ -1970,7 +1980,7 @@ db_get_nhash(Process *p, DbTable *tbl, Eterm key, Eterm *ret)
     DbTableNestedHash *tb = &tbl->nested;
     *ret = NIL;
     hval = MAKE_HASH(key);
-    lck = RLOCK_HASH(tb,hval);
+    lck = RLOCK_HASH(tb, hval);
     ix = hash_to_ix(tb, hval);
     rp = BUCKET(tb, ix);
     while (rp != NULL) {
@@ -2066,7 +2076,7 @@ db_member_nhash(DbTable *tbl, Eterm key, Eterm *ret)
 int
 db_erase_nhash(DbTable *tbl, Eterm key, Eterm *ret)
 {
-    int ix, nitems_diff, max_free;
+    int fixed, ix, nitems_diff, max_free;
     HashValue hval;
     RootDbTerm **rpp, *rp;
     erts_smp_rwmtx_t *lck;
@@ -2081,14 +2091,13 @@ db_erase_nhash(DbTable *tbl, Eterm key, Eterm *ret)
             if (rp->hvalue == INVALID_HASH)
                 break;
             nitems_diff = max_free = DELETE_RECORD_LIMIT;
+            fixed = IS_FIXED(tb) && add_fixed_deletion(tb, ix, 0);
             /* !!! yield !!! */
-            while (!remove_key(tb, &rpp, &max_free, IS_FIXED(tb))) {
+            while (!remove_key(tb, &rpp, &max_free, fixed)) {
                 nitems_diff += DELETE_RECORD_LIMIT;
                 max_free += DELETE_RECORD_LIMIT;
             }
             nitems_diff -= max_free;
-            if (IS_FIXED(tb))
-                add_fixed_deletion(tb, ix);
             break;
         }
         rpp = &rp->next;
@@ -2112,7 +2121,8 @@ db_erase_object_nhash(DbTable *tbl, Eterm object, Eterm *ret)
     int ix, nix, nitems_diff, nkeys_diff;
     Eterm key;
     HashValue hval;
-    RootDbTerm **rpp, *rp;
+    RootDbTerm *rp;
+    RootDbTerm **rpp, **rpp2;
     TrunkDbTerm *ntp;
     TrunkDbTerm **ntpp, **tpp;
     erts_smp_rwmtx_t *lck;
@@ -2135,11 +2145,15 @@ db_erase_object_nhash(DbTable *tbl, Eterm object, Eterm *ret)
                     if (db_eq(&tb->common, object, &ntp->dbterm)) {
                         --nitems_diff;
                         if (IS_FIXED(tb)) {
+                            rpp2 = rpp;
                             if (remove_object_and_nested(tb, rpp, ntp,
                                                          ntpp, 1)) {
                                 --nkeys_diff;
                                 /* pseudo-deletion */
-                                add_fixed_deletion(tb, ix);
+                                if (!add_fixed_deletion(tb, ix, 0)) {
+                                    rpp = rpp2;
+                                    remove_key(tb, &rpp, NULL, 0);
+                                }
                                 break;
                             }
                         } else {
@@ -2161,10 +2175,14 @@ db_erase_object_nhash(DbTable *tbl, Eterm object, Eterm *ret)
                     if (db_eq(&tb->common, object, &(*tpp)->dbterm)) {
                         --nitems_diff;
                         if (IS_FIXED(tb)) {
+                            rpp2 = rpp;
                             if (remove_object_no_nested(tb, rpp, tpp, 1)) {
                                 --nkeys_diff;
                                 /* pseudo-deletion */
-                                add_fixed_deletion(tb, ix);
+                                if (!add_fixed_deletion(tb, ix, 0)) {
+                                    rpp = rpp2;
+                                    remove_key(tb, &rpp, NULL, 0);
+                                }
                                 break;
                             }
                         } else {
@@ -2409,7 +2427,7 @@ db_select_delete_nhash(Process *p, DbTable *tbl, Eterm pattern, Eterm *ret)
     erts_aint_t fixated_by_me;
     struct mp_info mpi;
     erts_smp_rwmtx_t *lck;
-    RootDbTerm **rpp;
+    RootDbTerm **rpp, **rpp2;
     TrunkDbTerm **tpp;
     DbTableNestedHash *tb = &tbl->nested;
 #ifdef ERTS_SMP
@@ -2453,12 +2471,17 @@ db_select_delete_nhash(Process *p, DbTable *tbl, Eterm pattern, Eterm *ret)
                                           &object, &uterm)) {
                     /* fixated by others? */
                     if (NFIXED(tb) > fixated_by_me) {
+                        rpp2 = rpp;
                         if (remove_object(tb, &rpp, &tpp, object, 1)) {
                             erts_smp_atomic_dec_nob(&tb->nkeys);
                             /* Pseudo deletion */
                             if (slot_ix != last_pseudo_delete) {
-                                add_fixed_deletion(tb, slot_ix);
-                                last_pseudo_delete = slot_ix;
+                                if (add_fixed_deletion(tb, slot_ix, fixated_by_me)) {
+                                    last_pseudo_delete = slot_ix;
+                                } else {
+                                    rpp = rpp2;
+                                    remove_key(tb, &rpp, NULL, 0);
+                                }
                             }
                         }
                     } else {
@@ -2686,7 +2709,7 @@ db_select_delete_continue_nhash(Process *p, DbTable *tbl,
     DbTerm *uterm;
     Binary *mp;
     erts_smp_rwmtx_t *lck;
-    RootDbTerm **rpp;
+    RootDbTerm **rpp, **rpp2;
     TrunkDbTerm **tpp;
     DbTableNestedHash *tb = &tbl->nested;
     /* ToDo: something nicer */
@@ -2724,12 +2747,17 @@ db_select_delete_continue_nhash(Process *p, DbTable *tbl,
                                           &object, &uterm)) {
                     /* fixated by others? */
                     if (NFIXED(tb) > fixated_by_me) {
+                        rpp2 = rpp;
                         if (remove_object(tb, &rpp, &tpp, object, 1)) {
                             erts_smp_atomic_dec_nob(&tb->nkeys);
                             /* Pseudo deletion */
                             if (slot_ix != last_pseudo_delete) {
-                                add_fixed_deletion(tb, slot_ix);
-                                last_pseudo_delete = slot_ix;
+                                if (add_fixed_deletion(tb, slot_ix, fixated_by_me)) {
+                                    last_pseudo_delete = slot_ix;
+                                } else {
+                                    rpp = rpp2;
+                                    remove_key(tb, &rpp, NULL, 0);
+                                }
                             }
                         }
                     } else {
@@ -2942,6 +2970,47 @@ trap:
 }
 
 static int
+db_take_nhash(Process *p, DbTable *tbl, Eterm key, Eterm *ret)
+{
+    int fixed, ix, nitems_diff, max_free;
+    HashValue hval;
+    RootDbTerm **rpp, *rp;
+    erts_smp_rwmtx_t *lck;
+    DbTableNestedHash *tb = &tbl->nested;
+    *ret = NIL;
+    nitems_diff = 0;
+    hval = MAKE_HASH(key);
+    lck = WLOCK_HASH(tb, hval);
+    ix = hash_to_ix(tb, hval);
+    rpp = &BUCKET(tb, ix);
+    while ((rp = *rpp) != NULL) {
+        if (has_key(tb, rp, key, hval)) {
+            if (rp->hvalue == INVALID_HASH)
+                break;
+            *ret = build_term_list(p, rp, rp->next, tb);
+            nitems_diff = max_free = DELETE_RECORD_LIMIT;
+            fixed = IS_FIXED(tb) && add_fixed_deletion(tb, ix, 0);
+            /* !!! yield !!! */
+            while (!remove_key(tb, &rpp, &max_free, fixed)) {
+                nitems_diff += DELETE_RECORD_LIMIT;
+                max_free += DELETE_RECORD_LIMIT;
+            }
+            nitems_diff -= max_free;
+            CHECK_TABLES();
+            break;
+        }
+        rpp = &rp->next;
+    }
+    WUNLOCK_HASH(lck);
+    if (nitems_diff) {
+        erts_smp_atomic_add_nob(&tb->common.nitems, -nitems_diff);
+        erts_smp_atomic_dec_nob(&tb->nkeys);
+        try_shrink(tb);
+    }
+    return DB_ERROR_NONE;
+}
+
+static int
 db_free_table_continue_nhash(DbTable *tbl)
 {
     int max_free = DELETE_RECORD_LIMIT;
@@ -3018,8 +3087,34 @@ db_print_nhash(int to, void *to_arg, int show, DbTable *tbl)
     Eterm key, obj;
     RootDbTerm *rp;
     TrunkDbTerm *tp;
+    DbNestedHashStats stats;
     DbTableNestedHash *tb = &tbl->nested;
     erts_print(to, to_arg, "Buckets: %d\n", NACTIVE(tb));
+#ifdef ERTS_SMP
+    i = tbl->common.is_thread_safe;
+    /*
+     * If crash dumping we set table to thread safe in order to
+     * avoid taking any locks
+     */
+    if (ERTS_IS_CRASH_DUMPING)
+        tbl->common.is_thread_safe = 1;
+    db_calc_stats_nhash(&tbl->nested, &stats);
+    tbl->common.is_thread_safe = i;
+#else
+    db_calc_stats_nhash(&tbl->nested, &stats);
+#endif
+    erts_print(to, to_arg, "Chain Length Avg: %f\n", stats.avg_chain_len);
+    erts_print(to, to_arg, "Chain Length Max: %d\n", stats.max_chain_len);
+    erts_print(to, to_arg, "Chain Length Min: %d\n", stats.min_chain_len);
+    erts_print(to, to_arg, "Chain Length Std Dev: %f\n",
+               stats.std_dev_chain_len);
+    erts_print(to, to_arg, "Chain Length Expected Std Dev: %f\n",
+               stats.std_dev_expected);
+    if (IS_FIXED(tb)) {
+        erts_print(to, to_arg, "Fixed: %d\n", stats.kept_items);
+    } else {
+        erts_print(to, to_arg, "Fixed: false\n");
+    }
     if (!show)
         return;
     for (i = 0; i < NACTIVE(tb); i++) {
@@ -3155,6 +3250,7 @@ DbTableMethod db_nested_hash = {
     db_select_delete_continue_nhash,
     db_select_count_nhash,
     db_select_count_continue_nhash,
+    db_take_nhash,
     db_delete_all_objects_nhash,
     db_free_table_nhash,
     db_free_table_continue_nhash,
@@ -3253,33 +3349,6 @@ restart:
         ERTS_ETS_MISC_MEM_ADD(-sizeof(NestedFixedDeletion));
     }
     /* ToDo: Maybe try grow/shrink the table as well */
-}
-
-/*
- * Only used by tests
- */
-Uint
-db_kept_items_nhash(DbTableNestedHash *tb)
-{
-    Uint kept_items, ix;
-    RootDbTerm *rp;
-    erts_smp_rwmtx_t *lck;
-    kept_items = ix = 0;
-    lck = RLOCK_HASH(tb, ix);
-    do {
-        rp = BUCKET(tb, ix);
-        while (rp != NULL) {
-            if (rp->hvalue == INVALID_HASH)
-                /*
-                 * If pseudo-deleted then the whole trunk
-                 * chain contains one term only.
-                 */
-                ++kept_items;
-            rp = rp->next;
-        }
-        ix = next_slot(tb, ix, &lck);
-    } while (ix);
-    return kept_items;
 }
 
 int
@@ -3398,11 +3467,11 @@ db_erase_bag_exact2(DbTable *tbl, Eterm key, Eterm value)
 void
 db_calc_stats_nhash(DbTableNestedHash *tb, DbNestedHashStats *stats)
 {
-    int ix, len, sq_sum, sum;
+    int ix, kept_items, len, sq_sum, sum;
     RootDbTerm *rp;
     TrunkDbTerm *tp;
     erts_smp_rwmtx_t *lck;
-    ix = sum = sq_sum = 0;
+    ix = kept_items = sum = sq_sum = 0;
     stats->min_chain_len = INT_MAX;
     stats->max_chain_len = 0;
     lck = RLOCK_HASH(tb, ix);
@@ -3413,6 +3482,8 @@ db_calc_stats_nhash(DbTableNestedHash *tb, DbNestedHashStats *stats)
         /* !!! yield !!! */
         while (tp != NULL) {
             ++len;
+            if (rp->hvalue == INVALID_HASH)
+                ++kept_items;
             NEXT_DBTERM(rp, tp);
         }
         sum += len;
@@ -3432,4 +3503,5 @@ db_calc_stats_nhash(DbTableNestedHash *tb, DbNestedHashStats *stats)
      */
     stats->std_dev_expected =
         sqrt(stats->avg_chain_len * (1 - 1.0/NACTIVE(tb)));
+    stats->kept_items = kept_items;
 }
