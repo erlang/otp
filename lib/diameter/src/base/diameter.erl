@@ -312,6 +312,7 @@ call(SvcName, App, Message) ->
     | {sequence, sequence() | evaluable()}
     | {share_peers, remotes()}
     | {string_decode, boolean()}
+    | {strict_mbit, boolean()}
     | {incoming_maxlen, message_length()}
     | {use_shared_peers, remotes()}
     | {spawn_opt, list()}.

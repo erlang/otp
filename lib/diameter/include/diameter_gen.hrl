@@ -31,7 +31,10 @@
 
 %% Key to a value in the process dictionary that determines whether or
 %% not an unrecognized AVP setting the M-bit should be regarded as an
-%% error or not. See is_strict/0.
+%% error or not. See is_strict/0. This is only used to relax M-bit
+%% interpretation inside Grouped AVPs not setting the M-bit. The
+%% service_opt() strict_mbit can be used to disable the check
+%% globally.
 -define(STRICT_KEY, strict).
 
 %% Key that says whether or not we should do a best-effort decode
@@ -448,7 +451,8 @@ relax(_, _) ->
     false.
 
 is_strict() ->
-    false /= getr(?STRICT_KEY).
+    diameter_codec:getopt(strict_mbit)
+        andalso false /= getr(?STRICT_KEY).
 
 %% relax/1
 %%

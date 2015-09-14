@@ -80,6 +80,7 @@
          apps         :: [#diameter_app{}],
          sequence     :: diameter:sequence(),
          codec        :: [{string_decode, boolean()}
+                          | {strict_mbit, boolean()}
                           | {incoming_maxlen, diameter:message_length()}]}).
 %% Note that incoming_maxlen is currently handled in diameter_peer_fsm,
 %% so that any message exceeding the maximum is discarded. Retain the
@@ -106,7 +107,8 @@ make_recvdata([SvcName, PeerT, Apps, SvcOpts | _]) ->
               sequence = Mask,
               codec = [T || {K,_} = T <- SvcOpts,
                             lists:member(K, [string_decode,
-                                             incoming_maxlen])]}.
+                                             incoming_maxlen,
+                                             strict_mbit])]}.
 
 %% ---------------------------------------------------------------------------
 %% peer_up/1
