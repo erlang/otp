@@ -38,13 +38,13 @@
 % Test cases must be exported.
 -export([member/1, reverse/1,
 	 keymember/1, keysearch_keyfind/1,
-         keystore/1, keytake/1,
+         keystore/1, keytake/1, keyreplace/1,
 	 append_1/1, append_2/1,
 	 seq_loop/1, seq_2/1, seq_3/1, seq_2_e/1, seq_3_e/1,
 	
 	 sublist_2/1, sublist_3/1, sublist_2_e/1, sublist_3_e/1,
 	 flatten_1/1, flatten_2/1, flatten_1_e/1, flatten_2_e/1,
-	 dropwhile/1,
+	 dropwhile/1, takewhile/1,
 	 sort_1/1, sort_stable/1, merge/1, rmerge/1, sort_rand/1,
 	 usort_1/1, usort_stable/1, umerge/1, rumerge/1,usort_rand/1,
 	 keymerge/1, rkeymerge/1,
@@ -62,7 +62,7 @@
 	 zip_unzip/1, zip_unzip3/1, zipwith/1, zipwith3/1,
 	 filter_partition/1, 
 	 otp_5939/1, otp_6023/1, otp_6606/1, otp_7230/1,
-	 suffix/1, subtract/1, droplast/1]).
+	 suffix/1, subtract/1, droplast/1, hof/1]).
 
 %% Sort randomized lists until stopped.
 %%
@@ -81,37 +81,51 @@
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    [{group, append}, reverse, member, keymember,
-     keysearch_keyfind, keystore, keytake, dropwhile, {group,sort},
-     {group, usort}, {group, keysort}, {group, ukeysort},
-     {group, funsort}, {group, ufunsort}, {group, sublist},
-     {group, flatten}, {group, seq}, zip_unzip, zip_unzip3,
-     zipwith, zipwith3, filter_partition, {group, tickets},
-     suffix, subtract].
+    [{group, append},
+     {group, key},
+     {group,sort},
+     {group, usort},
+     {group, keysort},
+     {group, ukeysort},
+     {group, funsort},
+     {group, ufunsort},
+     {group, sublist},
+     {group, flatten},
+     {group, seq},
+     {group, tickets},
+     {group, zip},
+     {group, misc}].
 
 groups() -> 
-    [{append, [], [append_1, append_2]},
-     {usort, [],
+    [{append, [parallel], [append_1, append_2]},
+     {usort, [parallel],
       [umerge, rumerge, usort_1, usort_rand, usort_stable]},
-     {keysort, [],
+     {keysort, [parallel],
       [keymerge, rkeymerge, keysort_1, keysort_rand,
        keysort_i, keysort_stable, keysort_error]},
-     {sort,[],[merge, rmerge, sort_1, sort_rand]},
-     {ukeysort, [],
+     {key, [parallel], [keymember, keysearch_keyfind, keystore,
+			keytake, keyreplace]},
+     {sort,[parallel],[merge, rmerge, sort_1, sort_rand]},
+     {ukeysort, [parallel],
       [ukeymerge, rukeymerge, ukeysort_1, ukeysort_rand,
        ukeysort_i, ukeysort_stable, ukeysort_error]},
-     {funsort, [],
+     {funsort, [parallel],
       [funmerge, rfunmerge, funsort_1, funsort_stable,
        funsort_error, funsort_rand]},
-     {ufunsort, [],
+     {ufunsort, [parallel],
       [ufunmerge, rufunmerge, ufunsort_1, ufunsort_stable,
        ufunsort_error, ufunsort_rand]},
-     {seq, [], [seq_loop, seq_2, seq_3, seq_2_e, seq_3_e]},
-     {sublist, [],
+     {seq, [parallel], [seq_loop, seq_2, seq_3, seq_2_e, seq_3_e]},
+     {sublist, [parallel],
       [sublist_2, sublist_3, sublist_2_e, sublist_3_e]},
-     {flatten, [],
+     {flatten, [parallel],
       [flatten_1, flatten_2, flatten_1_e, flatten_2_e]},
-     {tickets, [], [otp_5939, otp_6023, otp_6606, otp_7230]}].
+     {tickets, [parallel], [otp_5939, otp_6023, otp_6606, otp_7230]},
+     {zip, [parallel], [zip_unzip, zip_unzip3, zipwith, zipwith3]},
+     {misc, [parallel], [reverse, member, dropwhile, takewhile,
+			 filter_partition, suffix, subtract,
+			 hof]}
+    ].
 
 init_per_suite(Config) ->
     Config.
@@ -345,6 +359,33 @@ dropwhile(Config) when is_list(Config) ->
 
     ok.
 
+takewhile(Config) when is_list(Config) ->
+    F = fun(C) -> C =/= $@ end,
+
+    [] = lists:takewhile(F, []),
+    [a] = lists:takewhile(F, [a]),
+    [a,b] = lists:takewhile(F, [a,b]),
+    [a,b,c] = lists:takewhile(F, [a,b,c]),
+
+    [] = lists:takewhile(F, [$@]),
+    [] = lists:takewhile(F, [$@,$@]),
+    [a] = lists:takewhile(F, [a,$@]),
+
+    [$k] = lists:takewhile(F, [$k,$@]),
+    [$k,$l] = lists:takewhile(F, [$k,$l,$@,$@]),
+    [a] = lists:takewhile(F, [a,$@,$@,$@]),
+
+    [] = lists:takewhile(F, [$@,a,$@,b]),
+    [] = lists:takewhile(F, [$@,$@,a,$@,b]),
+    [] = lists:takewhile(F, [$@,$@,$@,a,$@,b]),
+
+    Long = lists:seq(1, 1024),
+    Shorter = lists:seq(1, 400),
+
+    Shorter = lists:takewhile(fun(E) -> E =< 400 end, Long),
+
+    ok.
+
 keystore(doc) ->
     ["OTP-XXX."];
 keystore(suite) -> [];
@@ -380,6 +421,17 @@ keytake(Config) when is_list(Config) ->
     ?line {value,{b,2},[{a,1},{c,3}]} = lists:keytake(2, 2, L),
     ?line {value,{c,3},[{a,1},{b,2}]} = lists:keytake(3, 2, L),
     ?line false = lists:keytake(4, 2, L),
+    ok.
+
+%% Test lists:keyreplace/4.
+keyreplace(Config) when is_list(Config) ->
+    [{new,42}] = lists:keyreplace(k, 1, [{k,1}], {new,42}),
+    [atom,{new,a,b}] = lists:keyreplace(k, 1, [atom,{k,1}], {new,a,b}),
+    [a,{x,y,z}] = lists:keyreplace(a, 5, [a,{x,y,z}], {no,use}),
+
+    %% Error cases.
+    {'EXIT',_} = (catch lists:keyreplace(k, 1, [], not_tuple)),
+    {'EXIT',_} = (catch lists:keyreplace(k, 0, [], {a,b})),
     ok.
 
 merge(doc) ->   ["merge functions"];
@@ -2326,18 +2378,24 @@ sublist_3_e(Config) when is_list(Config) ->
 -define(flatten_error1(X), ?line {'EXIT', _} = (catch lists:flatten(X))).
 -define(flatten_error2(X,Y), ?line {'EXIT', _} = (catch lists:flatten(X,Y))).
 
-flatten_1(doc) ->   ["flatten/1"];
-flatten_1(suite) -> [];
+%% Test lists:flatten/1,2 and lists:flatlength/1.
 flatten_1(Config) when is_list(Config) ->
-    ?line [] = lists:flatten([]),
-    ?line [1,2] = lists:flatten([1,2]),
-    ?line [1,2] = lists:flatten([1,[2]]),
-    ?line [1,2] = lists:flatten([[1],2]),
-    ?line [1,2] = lists:flatten([[1],[2]]),
-    ?line [1,2] = lists:flatten([[1,2]]),
-    ?line [a,b,c,d] = lists:flatten([[a],[b,c,[d]]]),
+    [] = lists_flatten([]),
+    [1,2] = lists_flatten([1,2]),
+    [1,2] = lists_flatten([1,[2]]),
+    [1,2] = lists_flatten([[1],2]),
+    [1,2] = lists_flatten([[1],[2]]),
+    [1,2] = lists_flatten([[1,2]]),
+    [a,b,c,d] = lists_flatten([[a],[b,c,[d]]]),
 
     ok.
+
+lists_flatten(List) ->
+    Flat = lists:flatten(List),
+    Flat = lists:flatten(List, []),
+    Len = lists:flatlength(List),
+    Len = length(Flat),
+    Flat.
 
 flatten_1_e(doc) ->   ["flatten/1 error cases"];
 flatten_1_e(suite) -> [];
@@ -2351,11 +2409,11 @@ flatten_1_e(Config) when is_list(Config) ->
 %%% clear-cut. Right now, I think that any term should be allowed.
 %%% But I also wish this function didn't exist at all.
 
-flatten_2(doc) ->   ["flatten/2"];
-flatten_2(suite) -> [];
+%% Test lists:flatten/2.
 flatten_2(Config) when is_list(Config) ->
-    ?line [] = lists:flatten([]),
-    ?line [a] = lists:flatten([a]),
+    [] = lists:flatten([], []),
+    [a] = lists:flatten([a], []),
+    [a,b,c,[no,flatten]] = lists:flatten([[a,[b,c]]], [[no,flatten]]),
     ok.
 
 flatten_2_e(doc) ->   ["flatten/2 error cases"];
@@ -2649,5 +2707,42 @@ droplast(Config) when is_list(Config) ->
     ?line [x] = lists:droplast([x, y]),
     ?line {'EXIT', {function_clause, _}} = (catch lists:droplast([])),
     ?line {'EXIT', {function_clause, _}} = (catch lists:droplast(x)),
+
+    ok.
+
+%% Briefly test the common high-order functions to ensure they
+%% are covered.
+hof(Config) when is_list(Config) ->
+    L = [1,2,3],
+    [1,4,9] = lists:map(fun(N) -> N*N end, L),
+    [1,4,5,6] = lists:flatmap(fun(1) -> [1];
+				 (2) -> [];
+				 (3) -> [4,5,6]
+			      end, L),
+    [{1,[a]},{2,[b]},{3,[c]}] =
+	lists:keymap(fun(A) -> [A] end, 2, [{1,a},{2,b},{3,c}]),
+
+    [1,3] = lists:filter(fun(N) -> N rem 2 =:= 1 end, L),
+    FilterMapFun = fun(1) -> true;
+		      (2) -> {true,42};
+		      (3) -> false
+		   end,
+    [1,42] = lists:filtermap(FilterMapFun, L),
+    [1,42] = lists:zf(FilterMapFun, L),
+
+    [3,2,1] = lists:foldl(fun(E, A) -> [E|A] end, [], L),
+    [1,2,3] = lists:foldr(fun(E, A) -> [E|A] end, [], L),
+    {[1,4,9],[3,2,1]} = lists:mapfoldl(fun(E, A) ->
+					       {E*E,[E|A]}
+				       end, [], L),
+    {[1,4,9],[1,2,3]} = lists:mapfoldr(fun(E, A) ->
+					       {E*E,[E|A]}
+				       end, [], L),
+
+    true = lists:any(fun(N) -> N =:= 2 end, L),
+    false = lists:any(fun(N) -> N =:= 42 end, L),
+
+    true = lists:all(fun(N) -> is_integer(N) end, L),
+    false = lists:all(fun(N) -> N rem 2 =:= 0 end, L),
 
     ok.
