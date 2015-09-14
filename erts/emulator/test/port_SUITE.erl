@@ -86,7 +86,7 @@
 	 iter_max_ports/1, eof/1, input_only/1, output_only/1,
 	 name1/1,
 	 t_binary/1, parallell/1, t_exit/1,
-	 env/1, bad_env/1, cd/1, exit_status/1,
+	 env/1, huge_env/1, bad_env/1, cd/1, exit_status/1,
 	 tps_16_bytes/1, tps_1K/1, line/1, stderr_to_stdout/1,
 	 otp_3906/1, otp_4389/1, win_massive/1, win_massive_client/1,
 	 mix_up_ports/1, otp_5112/1, otp_5119/1, otp_6224/1,
@@ -112,7 +112,7 @@ all() ->
      bad_packet, bad_port_messages, {group, options},
      {group, multiple_packets}, parallell, dying_port,
      port_program_with_path, open_input_file_port,
-     open_output_file_port, name1, env, bad_env, cd,
+     open_output_file_port, name1, env, huge_env, bad_env, cd,
      exit_status, iter_max_ports, count_fds, t_exit, {group, tps}, line,
      stderr_to_stdout, otp_3906, otp_4389, win_massive,
      mix_up_ports, otp_5112, otp_5119,
@@ -961,6 +961,34 @@ try_bad_env(Env) ->
     catch
 	error:badarg -> ok
     end.
+
+%% Test that we can handle a very very large environment gracefully.
+huge_env(Config) when is_list(Config) ->
+    %% We create a huge environment, this is about 25MB which seems to
+    %% be the limit on Linux.
+    Env = [{[$a + I div (25*25*25*25) rem 25,
+              $a + I div (25*25*25) rem 25,
+              $a + I div (25*25) rem 25,
+              $a+I div 25 rem 25, $a+I rem 25],
+            lists:duplicate(100,$a+I rem 25)}
+           || I <- lists:seq(1,20000)],
+    try erlang:open_port({spawn,"ls"},[exit_status, {env, Env}]) of
+        P ->
+            receive
+                {P, {exit_status,N}} = M ->
+                    %% We test that the exit status is an integer, this means
+                    %% that the child program has started. If we get an atom
+                    %% something went wrong in the driver which is not ok.
+                    ct:log("Got ~p",[M]),
+                    true = is_integer(N)
+            end
+    catch E:R ->
+            %% Have to catch the error here, as printing the stackdump
+            %% in the ct log is way to heavy for some test machines.
+            ct:fail("Open port failed ~p:~p",[E,R])
+    end.
+
+
 
 %% 'cd' option
 %% (Can perhaps be made smaller by calling the other utility functions
