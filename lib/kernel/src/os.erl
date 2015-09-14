@@ -212,174 +212,33 @@ extensions() ->
       Command :: atom() | io_lib:chars().
 cmd(Cmd) ->
     validate(Cmd),
-    Bytes = case type() of
-		{unix, _} ->
-		    unix_cmd(Cmd);
-		{win32, Wtype} ->
-		    Command0 = case {os:getenv("COMSPEC"),Wtype} of
-				  {false,windows} -> lists:concat(["command.com /c", Cmd]);
-				  {false,_} -> lists:concat(["cmd /c", Cmd]);
-				  {Cspec,_} -> lists:concat([Cspec," /c",Cmd])
-			      end,
-		    %% open_port/2 awaits string() in Command, but io_lib:chars() can be
-		    %% deep lists according to io_lib module description.
-		    Command = lists:flatten(Command0),
-		    Port = open_port({spawn, Command}, [stream, in, eof, hide]),
-		    get_data(Port, [])
-	    end,
-    String = unicode:characters_to_list(list_to_binary(Bytes)),
+    {SpawnCmd, SpawnOpts, SpawnInput} = mk_cmd(os:type(), Cmd),
+    Port = open_port({spawn, SpawnCmd}, [binary, stderr_to_stdout,
+                                         stream, in, eof, hide | SpawnOpts]),
+    true = port_command(Port, SpawnInput),
+    Bytes = get_data(Port, []),
+    String = unicode:characters_to_list(Bytes),
     if  %% Convert to unicode list if possible otherwise return bytes
 	is_list(String) -> String;
-	true -> Bytes
+	true -> binary_to_list(Bytes)
     end.
 
-unix_cmd(Cmd) ->
-    Tag = make_ref(),
-    {Pid,Mref} = erlang:spawn_monitor(
-		   fun() ->
-			   process_flag(trap_exit, true),
-			   Port = start_port(),
-			   erlang:port_command(Port, mk_cmd(Cmd)),
-			   exit({Tag,unix_get_data(Port)})
-		   end),
-    receive
-	{'DOWN',Mref,_,Pid,{Tag,Result}} ->
-	    Result;
-	{'DOWN',Mref,_,Pid,Reason} ->
-	    exit(Reason)
-    end.
-
-%% The -s flag implies that only the positional parameters are set,
-%% and the commands are read from standard input. We set the
-%% $1 parameter for easy identification of the resident shell.
-%%
--define(ROOT,          "/").
--define(ROOT_ANDROID,  "/system").
--define(SHELL, "bin/sh -s unix:cmd 2>&1").
--define(PORT_CREATOR_NAME, os_cmd_port_creator).
-
-%%
-%% Serializing open_port through a process to avoid smp lock contention
-%% when many concurrent os:cmd() want to do vfork (OTP-7890).
-%%
--spec start_port() -> port().
-start_port() ->
-    Ref = make_ref(),
-    Request = {Ref,self()},
-    {Pid, Mon} = case whereis(?PORT_CREATOR_NAME) of
-		     undefined ->
-			 spawn_monitor(fun() ->
-					       start_port_srv(Request)
-				       end);
-		     P ->
-			 P ! Request,
-			 M = erlang:monitor(process, P),
-			 {P, M}
-		 end,
-    receive
-	{Ref, Port} when is_port(Port) ->
-	    erlang:demonitor(Mon, [flush]),
-	    Port;
-	{Ref, Error} ->
-	    erlang:demonitor(Mon, [flush]),
-	    exit(Error);
-	{'DOWN', Mon, process, Pid, _Reason} ->
-	    start_port()
-    end.
-
-start_port_srv(Request) ->
-    %% We don't want a group leader of some random application. Use
-    %% kernel_sup's group leader.
-    {group_leader, GL} = process_info(whereis(kernel_sup),
-				      group_leader),
-    true = group_leader(GL, self()),
-    process_flag(trap_exit, true),
-    StayAlive = try register(?PORT_CREATOR_NAME, self())
-		catch
-		    error:_ -> false
-		end,
-    start_port_srv_handle(Request),
-    case StayAlive of
-	true -> start_port_srv_loop();
-	false -> exiting
-    end.
-
-start_port_srv_handle({Ref,Client}) ->
-    Path  = case lists:reverse(erlang:system_info(system_architecture)) of
-      % androideabi
-      "ibaediordna" ++ _ -> filename:join([?ROOT_ANDROID, ?SHELL]);
-      _ -> filename:join([?ROOT, ?SHELL])
-    end,
-    Reply = try open_port({spawn, Path},[stream]) of
-		Port when is_port(Port) ->
-		    (catch port_connect(Port, Client)),
-		    unlink(Port),
-		    Port
-	    catch
-		error:Reason ->
-		    {Reason,erlang:get_stacktrace()}
-	    end,
-    Client ! {Ref,Reply},
-    ok.
-
-start_port_srv_loop() ->
-    receive
-	{Ref, Client} = Request when is_reference(Ref),
-				     is_pid(Client) ->
-	    start_port_srv_handle(Request);
-	_Junk ->
-	    ok
-    end,
-    start_port_srv_loop().
-
-%%
-%%  unix_get_data(Port) -> Result
-%%
-unix_get_data(Port) ->
-    unix_get_data(Port, []).
-
-unix_get_data(Port, Sofar) ->
-    receive
-	{Port,{data, Bytes}} ->
-	    case eot(Bytes) of
-		{done, Last} ->
-		    lists:flatten([Sofar|Last]);
-		more  ->
-		    unix_get_data(Port, [Sofar|Bytes])
-	    end;
-	{'EXIT', Port, _} ->
-	    lists:flatten(Sofar)
-    end.
-
-%%
-%% eot(String) -> more | {done, Result}
-%%
-eot(Bs) ->
-    eot(Bs, []).
-
-eot([4| _Bs], As) ->
-    {done, lists:reverse(As)};
-eot([B| Bs], As) ->
-    eot(Bs, [B| As]);
-eot([], _As) ->
-    more.
-
-%%
-%% mk_cmd(Cmd) -> {ok, ShellCommandString} | {error, ErrorString}
-%%
-%% We do not allow any input to Cmd (hence commands that want
-%% to read from standard input will return immediately).
-%% Standard error is redirected to standard output.
-%%
-%% We use ^D (= EOT = 4) to mark the end of the stream.
-%%
-mk_cmd(Cmd) when is_atom(Cmd) ->		% backward comp.
-    mk_cmd(atom_to_list(Cmd));
-mk_cmd(Cmd) ->
-    %% We insert a new line after the command, in case the command
-    %% contains a comment character.
-    [$(, unicode:characters_to_binary(Cmd), "\n) </dev/null; echo  \"\^D\"\n"].
-
+mk_cmd({win32,Wtype}, Cmd) ->
+    Command = case {os:getenv("COMSPEC"),Wtype} of
+                  {false,windows} -> lists:concat(["command.com /c", Cmd]);
+                  {false,_} -> lists:concat(["cmd /c", Cmd]);
+                  {Cspec,_} -> lists:concat([Cspec," /c",Cmd])
+              end,
+    {Command, [], []};
+mk_cmd(OsType,Cmd) when is_atom(Cmd) ->
+    mk_cmd(OsType, atom_to_list(Cmd));
+mk_cmd(_,Cmd) ->
+    %% Have to send command in like this in order to make sh commands like
+    %% cd and ulimit available
+    {"/bin/sh -s unix:cmd", [out],
+     %% We insert a new line after the command, in case the command
+     %% contains a comment character.
+     ["(", unicode:characters_to_binary(Cmd), "\n); exit\n"]}.
 
 validate(Atom) when is_atom(Atom) ->
     ok;
@@ -397,7 +256,7 @@ validate1([]) ->
 get_data(Port, Sofar) ->
     receive
 	{Port, {data, Bytes}} ->
-	    get_data(Port, [Sofar|Bytes]);
+	    get_data(Port, [Sofar,Bytes]);
 	{Port, eof} ->
 	    Port ! {self(), close},
 	    receive
@@ -410,5 +269,5 @@ get_data(Port, Sofar) ->
 	    after 1 ->				% force context switch
 		    ok
 	    end,
-	    lists:flatten(Sofar)
+	    iolist_to_binary(Sofar)
     end.
