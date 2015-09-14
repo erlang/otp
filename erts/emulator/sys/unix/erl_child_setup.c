@@ -56,6 +56,8 @@
 #include <stdio.h>
 #include <sys/wait.h>
 
+#define WANT_NONBLOCKING
+
 #include "erl_driver.h"
 #include "sys_uds.h"
 
@@ -118,7 +120,11 @@ start_new_child(int pipes[])
 
     /* only child executes here */
 
-    if ((res = read(pipes[0], (char*)&size, sizeof(size))) < 0) {
+    do {
+        res = read(pipes[0], (char*)&size, sizeof(size));
+    } while(res < 0 && (errno == EINTR || errno == ERRNO_BLOCK));
+
+    if (res <= 0) {
         ABORT("Failed to read size from %d (%d)", pipes[0], errno);
     }
 
@@ -128,7 +134,7 @@ start_new_child(int pipes[])
 
     do {
         if ((res = read(pipes[0], buff + pos, size - pos)) < 0) {
-            if (errno == EAGAIN || errno == EINTR)
+            if (errno == ERRNO_BLOCK || errno == EINTR)
                 continue;
             ABORT("Failed to read %d bytes from %d (%d,%d)",
                   size, pipes[0], res, errno);
@@ -187,8 +193,13 @@ start_new_child(int pipes[])
     }
 
     DEBUG_PRINT("read ack");
-    if (read(pipes[0], cbuff, 1) < 1)
+    do {
+        res = read(pipes[0], cbuff, 1);
+    } while(res < 0 && (errno == EINTR || errno == ERRNO_BLOCK));
+    if (res < 1) {
+        errno = EPIPE;
         goto child_error;
+    }
 
     DEBUG_PRINT("Do that forking business: '%s'\n",cmd);
 
@@ -270,7 +281,10 @@ static void handle_sigchld(int sig) {
     sys_sigblock(SIGCHLD);
 
     while ((buff[0] = waitpid((pid_t)(-1), buff+1, WNOHANG)) > 0) {
-        if ((res = write(sigchld_pipe[1], buff, sizeof(buff))) <= 0)
+        do {
+            res = write(sigchld_pipe[1], buff, sizeof(buff));
+        } while (res < 0 && errno == EINTR);
+        if (res <= 0)
             ABORT("Failed to write to sigchld_pipe (%d): %d (%d)", sigchld_pipe[1], res, errno);
         DEBUG_PRINT("Reap child %d (%d)", buff[0], buff[1]);
     }
@@ -391,7 +405,7 @@ main(int argc, char *argv[])
             /* We write an ack here, but expect the reply on
                the pipes[0] inside the fork */
             res = sprintf(buff,"GO:%010d:%010d", os_pid, errno);
-            if (write(pipes[1], buff, res + 1))
+            while (write(pipes[1], buff, res + 1) < 0 && errno == EINTR)
                 ; /* remove gcc warning */
 
             sys_sigrelease(SIGCHLD);
