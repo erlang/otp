@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2015. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -73,7 +73,7 @@
 %% Define the lint state record.
 
 -record(lint, {module       :: module(),		% Current module
-	       func         :: fa(),			% Current function
+	       func         :: fa() | 'undefined',	% Current function
 	       errors  = [] :: [error()],		% Errors
 	       warnings= [] :: [warning()]}).		% Warnings
 
