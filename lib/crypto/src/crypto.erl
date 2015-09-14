@@ -123,15 +123,12 @@
 -deprecated({blowfish_ofb64_encrypt, 3, next_major_release}).
 -export([aes_cfb_128_encrypt/3, aes_cfb_128_decrypt/3]).
 -export([aes_cbc_128_encrypt/3, aes_cbc_128_decrypt/3]).
--export([aes_cbc_192_encrypt/3, aes_cbc_192_decrypt/3]).
 -export([aes_cbc_256_encrypt/3, aes_cbc_256_decrypt/3]).
 -export([aes_cbc_ivec/1]).
 -deprecated({aes_cfb_128_encrypt, 3, next_major_release}).
 -deprecated({aes_cfb_128_decrypt, 3, next_major_release}).
 -deprecated({aes_cbc_128_encrypt, 3, next_major_release}).
 -deprecated({aes_cbc_128_decrypt, 3, next_major_release}).
--deprecated({aes_cbc_192_encrypt, 3, next_major_release}).
--deprecated({aes_cbc_192_decrypt, 3, next_major_release}).
 -deprecated({aes_cbc_256_encrypt, 3, next_major_release}).
 -deprecated({aes_cbc_256_decrypt, 3, next_major_release}).
 -deprecated({aes_cbc_ivec, 1, next_major_release}).
@@ -214,8 +211,8 @@ supports()->
 
     [{hashs, Hashs},
      {ciphers, [des_cbc, des_cfb, des3_cbc, des_ede3, blowfish_cbc,
-		blowfish_cfb64, blowfish_ofb64, blowfish_ecb, aes_cbc128, aes_cfb8, aes_cfb128,
-		aes_cbc256, rc2_cbc, aes_ctr, rc4, aes_ecb, aes_cbc192, aes_cbc] ++ Ciphers},
+		blowfish_cfb64, blowfish_ofb64, blowfish_ecb, aes_cfb8, aes_cfb128,
+		rc2_cbc, aes_ctr, rc4, aes_ecb, aes_cbc] ++ Ciphers},
      {public_keys, [rsa, dss, dh, srp] ++ PubKeys}
     ].
 
@@ -285,8 +282,7 @@ hmac_final_n(_Context, _HashLen) -> ? nif_stub.
 %% Ecrypt/decrypt %%%
 
 -spec block_encrypt(des_cbc | des_cfb | des3_cbc | des3_cbf | des_ede3 | blowfish_cbc |
-		    blowfish_cfb64 | aes_cbc128 | aes_cfb8 | aes_cfb128 | aes_cbc256 | rc2_cbc |
-		    aes_cbc192 | aes_cbc,
+		    blowfish_cfb64 | aes_cbc128 | aes_cfb8 | aes_cfb128 | aes_cbc256 | rc2_cbc | aes_cbc,
 		    Key::iodata(), Ivec::binary(), Data::iodata()) -> binary();
 		   (aes_gcm | chacha20_poly1305, Key::iodata(), Ivec::binary(), {AAD::binary(), Data::iodata()}) -> {binary(), binary()}.
 
@@ -310,8 +306,6 @@ block_encrypt(aes_cbc, Key, Ivec, Data) ->
     aes_cbc_crypt(Key, Ivec, Data, true);
 block_encrypt(aes_cbc128, Key, Ivec, Data) ->
     aes_cbc_128_encrypt(Key, Ivec, Data);
-block_encrypt(aes_cbc192, Key, Ivec, Data) ->
-    aes_cbc_192_encrypt(Key, Ivec, Data);
 block_encrypt(aes_cbc256, Key, Ivec, Data) ->
     aes_cbc_256_encrypt(Key, Ivec, Data);
 block_encrypt(aes_ige256, Key, Ivec, Data) ->
@@ -334,7 +328,7 @@ block_encrypt(rc2_cbc, Key, Ivec, Data) ->
     rc2_cbc_encrypt(Key, Ivec, Data).
 
 -spec block_decrypt(des_cbc | des_cfb | des3_cbc | des3_cbf | des_ede3 | blowfish_cbc |
-		    blowfish_cfb64 | blowfish_ofb64 | aes_cbc | aes_cbc128 | aes_cbc192 | aes_cbc256 |
+		    blowfish_cfb64 | blowfish_ofb64 | aes_cbc | aes_cbc128 | aes_cbc256 |
 		    aes_ige256 | aes_cfb8 | aes_cfb128 | rc2_cbc,
 		    Key::iodata(), Ivec::binary(), Data::iodata()) -> binary();
 		   (aes_gcm | chacha20_poly1305, Key::iodata(), Ivec::binary(),
@@ -359,8 +353,6 @@ block_decrypt(aes_cbc, Key, Ivec, Data) ->
     aes_cbc_crypt(Key, Ivec, Data, false);
 block_decrypt(aes_cbc128, Key, Ivec, Data) ->
     aes_cbc_128_decrypt(Key, Ivec, Data);
-block_decrypt(aes_cbc192, Key, Ivec, Data) ->
-    aes_cbc_192_decrypt(Key, Ivec, Data);
 block_decrypt(aes_cbc256, Key, Ivec, Data) ->
     aes_cbc_256_decrypt(Key, Ivec, Data);
 block_decrypt(aes_ige256, Key, Ivec, Data) ->
@@ -1304,10 +1296,6 @@ des_cfb_ivec(IVec, Data) ->
 				 binary().
 -spec aes_cbc_128_decrypt(iodata(), binary(), iodata()) ->
 				 binary().
--spec aes_cbc_192_encrypt(iodata(), binary(), iodata()) ->
-				 binary().
--spec aes_cbc_192_decrypt(iodata(), binary(), iodata()) ->
-				 binary().
 -spec aes_cbc_256_encrypt(iodata(), binary(), iodata()) ->
 				 binary().
 -spec aes_cbc_256_decrypt(iodata(), binary(), iodata()) ->
@@ -1317,12 +1305,6 @@ aes_cbc_128_encrypt(Key, IVec, Data) ->
     aes_cbc_crypt(Key, IVec, Data, true).
 
 aes_cbc_128_decrypt(Key, IVec, Data) ->
-    aes_cbc_crypt(Key, IVec, Data, false).
-
-aes_cbc_192_encrypt(Key, IVec, Data) ->
-    aes_cbc_crypt(Key, IVec, Data, true).
-
-aes_cbc_192_decrypt(Key, IVec, Data) ->
     aes_cbc_crypt(Key, IVec, Data, false).
 
 aes_cbc_256_encrypt(Key, IVec, Data) ->
@@ -1861,7 +1843,6 @@ mod_exp_nif(_Base,_Exp,_Mod,_bin_hdr) -> ?nif_stub.
 		    rc2_cbc_encrypt, rc2_cbc_decrypt,
 		    rc2_40_cbc_encrypt, rc2_40_cbc_decrypt,
 		    aes_cbc_128_encrypt, aes_cbc_128_decrypt,
-		    aes_cbc_192_encrypt, aes_cbc_192_decrypt,
 		    aes_cbc_256_encrypt, aes_cbc_256_decrypt,
 		    blowfish_cbc_encrypt, blowfish_cbc_decrypt,
 		    blowfish_cfb64_encrypt, blowfish_cfb64_decrypt,

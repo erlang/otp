@@ -66,7 +66,6 @@ all() ->
      {group, aes_ctr},
      {group, aes_gcm},
      {group, chacha20_poly1305},
-     {group, aes_cbc192},
      {group, aes_cbc},
      mod_pow,
      exor,
@@ -110,7 +109,6 @@ groups() ->
      {aes_ctr, [], [stream]},
      {aes_gcm, [], [aead]},
      {chacha20_poly1305, [], [aead]},
-     {aes_cbc192, [], [block]},
      {aes_cbc, [], [block]}
     ].
 
@@ -828,9 +826,6 @@ group_config(aes_gcm, Config) ->
 group_config(chacha20_poly1305, Config) ->
     AEAD = chacha20_poly1305(),
     [{aead, AEAD} | Config];
-group_config(aes_cbc192, Config) ->
-    Block = aes_cbc192(),
-    [{block, Block} | Config];
 group_config(aes_cbc, Config) ->
     Block = aes_cbc(),
     [{block, Block} | Config];
@@ -1259,25 +1254,6 @@ aes_cbc128() ->
       hexstr2bin("73BED6B8E3C1743B7116E69E22229516"),
       hexstr2bin("f69f2445df4f9b17ad2b417be66c3710")}
     ].
-
-aes_cbc192() ->
-    [{aes_cbc192,
-      hexstr2bin("8e73b0f7da0e6452c810f32b809079e562f8ead2522c6b7b"),
-      hexstr2bin("000102030405060708090a0b0c0d0e0f"),
-      hexstr2bin("6bc1bee22e409f96e93d7e117393172a")},
-     {aes_cbc192,
-      hexstr2bin("8e73b0f7da0e6452c810f32b809079e562f8ead2522c6b7b"),
-      hexstr2bin("4f021db243bc633d7178183a9fa071e8"),
-      hexstr2bin("ae2d8a571e03ac9c9eb76fac45af8e51")},
-     {aes_cbc192,
-      hexstr2bin("8e73b0f7da0e6452c810f32b809079e562f8ead2522c6b7b"),
-      hexstr2bin("b4d9ada9ad7dedf4e5e738763f69145a"),
-      hexstr2bin("30c81c46a35ce411e5fbc1191a0a52ef")},
-     {aes_cbc192,
-      hexstr2bin("8e73b0f7da0e6452c810f32b809079e562f8ead2522c6b7b"),
-      hexstr2bin("571b242012fb7ae07fa9baac3df102e0"),
-      hexstr2bin("f69f2445df4f9b17ad2b417be66c3710")}
-     ].
 
 aes_cbc256() -> 
     [{aes_cbc256,
