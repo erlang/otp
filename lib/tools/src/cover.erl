@@ -2437,7 +2437,7 @@ do_analyse_to_file1(Module, OutFile, ErlFile, HTML) ->
                                 "\n\n"]),
 
 		    Pattern = {#bump{module=Module,line='$1',_='_'},'$2'},
-		    MS = [{Pattern,[],[{{'$1','$2'}}]}],
+		    MS = [{Pattern,[{is_integer,'$1'},{'>','$1',0}],[{{'$1','$2'}}]}],
 		    CovLines = lists:keysort(1,ets:select(?COLLECTION_TABLE, MS)),
 		    print_lines(Module, CovLines, InFd, OutFd, 1, HTML),
 		    

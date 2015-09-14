@@ -339,11 +339,12 @@ gen_fsm:sync_send_all_state_event -----> Module:handle_sync_event/4
       </desc>
     </func>
     <func>
-      <name>reply(Caller, Reply) -> true</name>
+      <name>reply(Caller, Reply) -> Result</name>
       <fsummary>Send a reply to a caller.</fsummary>
       <type>
         <v>Caller - see below</v>
         <v>Reply = term()</v>
+	<v>Result = term()</v>
       </type>
       <desc>
         <p>This function can be used by a gen_fsm to explicitly send a
@@ -358,6 +359,8 @@ gen_fsm:sync_send_all_state_event -----> Module:handle_sync_event/4
           which will be given back to the client as the return value of
           <c>sync_send_event/2,3</c> or
           <c>sync_send_all_state_event/2,3</c>.</p>
+        <p>The return value <c>Result</c> is not further defined, and
+	   should always be ignored.</p>
       </desc>
     </func>
     <func>
