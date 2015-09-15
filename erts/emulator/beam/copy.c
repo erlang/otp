@@ -298,11 +298,7 @@ do {									\
  *  It is argued whether the size of subterms in constant pools
  *  should be counted or not.
  */
-#if HALFWORD_HEAP
-Uint size_shared_rel(Eterm obj, Eterm* base)
-#else
 Uint size_shared(Eterm obj)
-#endif
 {
     Eterm saved_obj = obj;
     Uint sum = 0;
@@ -320,7 +316,7 @@ Uint size_shared(Eterm obj)
 	switch (primary_tag(obj)) {
 	case TAG_PRIMARY_LIST: {
 	    Eterm head, tail;
-	    ptr = list_val_rel(obj, base);
+	    ptr = list_val(obj);
 	    /* we're not counting anything that's outside our heap */
 	    if (!COUNT_OFF_HEAP && !INHEAP_SIMPLE(myself, ptr)) {
 		goto pop_next;
@@ -357,7 +353,7 @@ Uint size_shared(Eterm obj)
 	}
 	case TAG_PRIMARY_BOXED: {
 	    Eterm hdr;
-	    ptr = boxed_val_rel(obj, base);
+	    ptr = boxed_val(obj);
 	    /* we're not counting anything that's outside our heap */
 	    if (!COUNT_OFF_HEAP && !INHEAP_SIMPLE(myself, ptr)) {
 		goto pop_next;
@@ -414,13 +410,13 @@ Uint size_shared(Eterm obj)
 		} else {
 		    extra_bytes = 0;
 		}
-		ptr = binary_val_rel(sb->orig, base);
+		ptr = binary_val(sb->orig);
 		hdr = (*ptr) & ~BOXED_VISITED_MASK;
 		if (thing_subtag(hdr) == REFC_BINARY_SUBTAG) {
 		    sum += PROC_BIN_SIZE;
 		} else {
 		    ASSERT(thing_subtag(hdr) == HEAP_BINARY_SUBTAG);
-		    sum += heap_bin_size(binary_size_rel(obj, base) + extra_bytes);
+		    sum += heap_bin_size(binary_size(obj) + extra_bytes);
 		}
 		goto pop_next;
 	    }
@@ -465,7 +461,7 @@ cleanup:
 	switch (primary_tag(obj)) {
 	case TAG_PRIMARY_LIST: {
 	    Eterm head, tail;
-	    ptr = list_val_rel(obj, base);
+	    ptr = list_val(obj);
 	    if (!COUNT_OFF_HEAP && !INHEAP_SIMPLE(myself, ptr)) {
 		goto cleanup_next;
 	    }
@@ -495,7 +491,7 @@ cleanup:
 	}
 	case TAG_PRIMARY_BOXED: {
 	    Eterm hdr;
-	    ptr = boxed_val_rel(obj, base);
+	    ptr = boxed_val(obj);
 	    if (!COUNT_OFF_HEAP && !INHEAP_SIMPLE(myself, ptr)) {
 		goto cleanup_next;
 	    }
@@ -912,7 +908,7 @@ do {								\
     *s.sp++ = (x);						\
     *s.sp++ = (y);						\
     *s.sp++ = (Eterm) NULL;					\
-    *s.sp++ = (Eterm) (b);	/* bad in HALF_WORD */		\
+    *s.sp++ = (Eterm) (b);		                	\
     ESTK_CONCAT(s,_offset) += SHTABLE_INCR;			\
 } while(0)
 #define SHTABLE_X(s,e) (s.start[e])
@@ -1004,7 +1000,6 @@ do {								\
 /*
  *  Copy object "obj" preserving sharing.
  *  First half: count size and calculate sharing.
- *  NOTE: We do not support HALF_WORD (yet?).
  */
 Uint copy_shared_calculate(Eterm obj, shcopy_info *info, unsigned flags)
 {
@@ -1060,7 +1055,7 @@ Uint copy_shared_calculate(Eterm obj, shcopy_info *info, unsigned flags)
 	switch (primary_tag(obj)) {
 	case TAG_PRIMARY_LIST: {
 	    Eterm head, tail;
-	    ptr = list_val_rel(obj, base);
+	    ptr = list_val(obj);
 	    /* off heap list pointers are copied verbatim */
 	    if (!INHEAP(myself, ptr)) {
 		VERBOSE(DEBUG_SHCOPY, ("[pid=%T] bypassed copying %p is %T\n", myself->common.id, ptr, obj));
@@ -1109,7 +1104,7 @@ Uint copy_shared_calculate(Eterm obj, shcopy_info *info, unsigned flags)
 	}
 	case TAG_PRIMARY_BOXED: {
 	    Eterm hdr;
-	    ptr = boxed_val_rel(obj, base);
+	    ptr = boxed_val(obj);
 	    /* off heap pointers to boxes are copied verbatim */
 	    if (!INHEAP(myself, ptr)) {
 		VERBOSE(DEBUG_SHCOPY, ("[pid=%T] bypassed copying %p is %T\n", myself->common.id, ptr, obj));
@@ -1178,11 +1173,11 @@ Uint copy_shared_calculate(Eterm obj, shcopy_info *info, unsigned flags)
 		} else {
 		    extra_bytes = 0;
 		}
-		ASSERT(is_boxed(rterm2wterm(real_bin, base)) &&
-		       (((*boxed_val(rterm2wterm(real_bin, base))) &
+		ASSERT(is_boxed(real_bin) &&
+		       (((*boxed_val(real_bin)) &
 			 (_TAG_HEADER_MASK - _BINARY_XXX_MASK - BOXED_VISITED_MASK))
 			== _TAG_HEADER_REFC_BIN));
-		hdr = *_unchecked_binary_val(rterm2wterm(real_bin, base)) & ~BOXED_VISITED_MASK;
+		hdr = *_unchecked_binary_val(real_bin) & ~BOXED_VISITED_MASK;
 		if (thing_subtag(hdr) == HEAP_BINARY_SUBTAG) {
 		    sum += heap_bin_size(size+extra_bytes);
 		} else {
@@ -1243,7 +1238,6 @@ Uint copy_shared_calculate(Eterm obj, shcopy_info *info, unsigned flags)
 /*
  *  Copy object "obj" preserving sharing.
  *  Second half: copy and restore the object.
- *  NOTE: We do not support HALF_WORD (yet?).
  */
 Uint copy_shared_perform(Eterm obj, Uint size, shcopy_info *info, Eterm** hpp, ErlOffHeap* off_heap, unsigned flags)
 {
@@ -1309,7 +1303,7 @@ Uint copy_shared_perform(Eterm obj, Uint size, shcopy_info *info, Eterm** hpp, E
 	switch (primary_tag(obj)) {
 	case TAG_PRIMARY_LIST: {
 	    Eterm head, tail;
-	    ptr = list_val_rel(obj, base);
+	    ptr = list_val(obj);
 	    /* off heap list pointers are copied verbatim */
 	    if (!INHEAP(myself, ptr)) {
 		*resp = obj;
@@ -1370,7 +1364,7 @@ Uint copy_shared_perform(Eterm obj, Uint size, shcopy_info *info, Eterm** hpp, E
 	}
 	case TAG_PRIMARY_BOXED: {
 	    Eterm hdr;
-	    ptr = boxed_val_rel(obj, base);
+	    ptr = boxed_val(obj);
 	    /* off heap pointers to boxes are copied verbatim */
 	    if (!INHEAP(myself, ptr)) {
 		*resp = obj;
@@ -1500,11 +1494,11 @@ Uint copy_shared_perform(Eterm obj, Uint size, shcopy_info *info, Eterm** hpp, E
 		    extra_bytes = 0;
 		}
 		real_size = size+extra_bytes;
-		ASSERT(is_boxed(rterm2wterm(real_bin, base)) &&
-		       (((*boxed_val(rterm2wterm(real_bin, base))) &
+		ASSERT(is_boxed(real_bin) &&
+		       (((*boxed_val(real_bin)) &
 			 (_TAG_HEADER_MASK - _BINARY_XXX_MASK - BOXED_VISITED_MASK))
 			== _TAG_HEADER_REFC_BIN));
-		ptr = _unchecked_binary_val(rterm2wterm(real_bin, base));
+		ptr = _unchecked_binary_val(real_bin);
 		*resp = make_binary(hp);
 		if (extra_bytes != 0) {
 		    ErlSubBin* res = (ErlSubBin *) hp;
