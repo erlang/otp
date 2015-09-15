@@ -169,6 +169,8 @@ MaxRequestsPerChild 0
 ViaProxyName "tinyproxy"
 
 ConnectPort $APACHE_HTTPS_PORT
+# to test connect error
+ConnectPort $APACHE_HTTP_PORT
 EOF
 	(tinyproxy -d -c tinyproxy.conf 1>/dev/null 2>&1 </dev/null &)&
 	wait_for_pidfile tinyproxy.pid
