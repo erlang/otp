@@ -34,7 +34,7 @@
          init_per_testcase/2, end_per_testcase/2]).
 
 -export([new/1, is_anno/1, generated/1, end_location/1, file/1,
-         line/1, location/1, record/1, text/1, bad/1, neg_line/1]).
+         line/1, location/1, record/1, text/1, bad/1]).
 
 -export([parse_abstract/1, mapfold_anno/1]).
 
@@ -43,7 +43,7 @@ all() ->
 
 groups() ->
     [{anno, [], [new, is_anno, generated, end_location, file,
-                 line, location, record, text, bad, neg_line]},
+                 line, location, record, text, bad]},
      {parse, [], [parse_abstract, mapfold_anno]}].
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
@@ -228,74 +228,6 @@ bad(_Config) ->
     {'EXIT', {badarg, _}} =
         (catch erl_anno:record(bad)), % 1st arg not opaque
     ok.
-
-neg_line(doc) ->
-    ["Test negative line numbers (OTP 18)"];
-neg_line(_Config) ->
-    neg_line1(false),
-    neg_line1(true),
-    ok.
-
-neg_line1(TextToo) ->
-    Minus8_0 = erl_anno:new(-8),
-    Plus8_0 = erl_anno:new(8),
-    Minus8C_0 = erl_anno:new({-8, 17}),
-    Plus8C_0 = erl_anno:new({8, 17}),
-
-    [Minus8, Plus8, Minus8C, Plus8C] =
-        [case TextToo of
-             true ->
-                 erl_anno:set_text("foo", A);
-             false ->
-                 A
-         end || A <- [Minus8_0, Plus8_0, Minus8C_0, Plus8C_0]],
-
-    tst(-3, erl_anno:set_location(3, Minus8)),
-    tst(-3, erl_anno:set_location(-3, Plus8)),
-    tst(-3, erl_anno:set_location(-3, Minus8)),
-    tst({-3,9}, erl_anno:set_location({3, 9}, Minus8)),
-    tst({-3,9}, erl_anno:set_location({-3, 9}, Plus8)),
-    tst({-3,9}, erl_anno:set_location({-3, 9}, Minus8)),
-    tst(-3, erl_anno:set_location(3, Minus8C)),
-    tst(-3, erl_anno:set_location(-3, Plus8C)),
-    tst(-3, erl_anno:set_location(-3, Minus8C)),
-    tst({-3,9}, erl_anno:set_location({3, 9}, Minus8C)),
-    tst({-3,9}, erl_anno:set_location({-3, 9}, Plus8C)),
-    tst({-3,9}, erl_anno:set_location({-3, 9}, Minus8C)),
-
-    tst(-8, erl_anno:set_generated(true, Plus8)),
-    tst(-8, erl_anno:set_generated(true, Minus8)),
-    tst({-8,17}, erl_anno:set_generated(true, Plus8C)),
-    tst({-8,17}, erl_anno:set_generated(true, Minus8C)),
-    tst(8, erl_anno:set_generated(false, Plus8)),
-    tst(8, erl_anno:set_generated(false, Minus8)),
-    tst({8,17}, erl_anno:set_generated(false, Plus8C)),
-    tst({8,17}, erl_anno:set_generated(false, Minus8C)),
-
-    tst(-3, erl_anno:set_line(3, Minus8)),
-    tst(-3, erl_anno:set_line(-3, Plus8)),
-    tst(-3, erl_anno:set_line(-3, Minus8)),
-    tst({-3,17}, erl_anno:set_line(3, Minus8C)),
-    tst({-3,17}, erl_anno:set_line(-3, Plus8C)),
-    tst({-3,17}, erl_anno:set_line(-3, Minus8C)),
-    ok.
-
-tst(Term, Anno) ->
-    ?format("Term: ~p\n", [Term]),
-    ?format("Anno: ~p\n", [Anno]),
-    case anno_to_term(Anno) of
-        Term ->
-            ok;
-        Else ->
-            case lists:keyfind(location, 1, Else) of
-                {location, Term} ->
-                    ok;
-                _Else2 ->
-                    ?format("Else2 ~p\n", [_Else2]),
-                    io:format("expected ~p\n got     ~p\n", [Term, Else]),
-                    exit({Term, Else})
-            end
-    end.
 
 parse_abstract(doc) ->
     ["Test erl_parse:new_anno/1, erl_parse:anno_to_term/1"

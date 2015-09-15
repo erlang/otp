@@ -597,38 +597,29 @@ obsolete_1(core_lib, is_literal_list, 1) ->
 obsolete_1(core_lib, literal_value, 1) ->
     {deprecated,{core_lib,concrete,1}};
 obsolete_1(erl_scan, set_attribute, 3) ->
-    {deprecated,
-     "deprecated (will be removed in OTP 19); use erl_anno:set_line/2 instead"};
+    {removed,{erl_anno,set_line,2},"19.0"};
 obsolete_1(erl_scan, attributes_info, 1) ->
-    {deprecated,
-     "deprecated (will be removed in OTP 19); use "
+    {removed,"removed in 19.0; use "
      "erl_anno:{column,line,location,text}/1 instead"};
 obsolete_1(erl_scan, attributes_info, 2) ->
-    {deprecated,
-     "deprecated (will be removed in OTP 19); use "
+    {removed,"removed in 19.0; use "
      "erl_anno:{column,line,location,text}/1 instead"};
 obsolete_1(erl_scan, token_info, 1) ->
-    {deprecated,
-     "deprecated (will be removed in OTP 19); use "
+    {removed,"removed in 19.0; use "
      "erl_scan:{category,column,line,location,symbol,text}/1 instead"};
 obsolete_1(erl_scan, token_info, 2) ->
-    {deprecated,
-     "deprecated (will be removed in OTP 19); use "
+    {removed,"removed in 19.0; use "
      "erl_scan:{category,column,line,location,symbol,text}/1 instead"};
 obsolete_1(erl_parse, set_line, 2) ->
-    {deprecated,
-     "deprecated (will be removed in OTP 19); use erl_anno:set_line/2 instead"};
+    {removed,{erl_anno,set_line,2},"19.0"};
 obsolete_1(erl_parse, get_attributes, 1) ->
-    {deprecated,
-     "deprecated (will be removed in OTP 19); use "
+    {removed,"removed in 19.0; use "
      "erl_anno:{column,line,location,text}/1 instead"};
 obsolete_1(erl_parse, get_attribute, 2) ->
-    {deprecated,
-     "deprecated (will be removed in OTP 19); use "
+    {removed,"removed in 19.0; use "
      "erl_anno:{column,line,location,text}/1 instead"};
 obsolete_1(erl_lint, modify_line, 2) ->
-    {deprecated,
-     "deprecated (will be removed in OTP 19); use erl_parse:map_anno/2 instead"};
+    {removed,{erl_parse,map_anno,2},"19.0"};
 obsolete_1(ssl, negotiated_next_protocol, 1) ->
     {deprecated,{ssl,negotiated_protocol,1}};
 
@@ -698,26 +689,24 @@ is_snmp_agent_function(_,		      _) -> false.
 -spec obsolete_type(module(), atom(), arity()) ->
 	'no' | {tag(), string()} | {tag(), mfas(), release()}.
 
+-dialyzer({no_match, obsolete_type/3}).
 obsolete_type(Module, Name, NumberOfVariables) ->
     case obsolete_type_1(Module, Name, NumberOfVariables) of
-%% 	{deprecated=Tag,{_,_,_}=Replacement} ->
-%% 	    {Tag,Replacement,"in a future release"};
+	{deprecated=Tag,{_,_,_}=Replacement} ->
+	    {Tag,Replacement,"in a future release"};
 	{_,String}=Ret when is_list(String) ->
 	    Ret;
-%% 	{_,_,_}=Ret ->
-%% 	    Ret;
+	{_,_,_}=Ret ->
+	    Ret;
 	no ->
 	    no
     end.
 
 obsolete_type_1(erl_scan,column,0) ->
-    {deprecated,
-     "deprecated (will be removed in OTP 19); use erl_anno:column() instead"};
+    {removed,{erl_anno,column,0},"19.0"};
 obsolete_type_1(erl_scan,line,0) ->
-    {deprecated,
-     "deprecated (will be removed in OTP 19); use erl_anno:line() instead"};
+    {removed,{erl_anno,line,0},"19.0"};
 obsolete_type_1(erl_scan,location,0) ->
-    {deprecated,
-     "deprecated (will be removed in OTP 19); use erl_anno:location() instead"};
+    {removed,{erl_anno,location,0},"19.0"};
 obsolete_type_1(_,_,_) ->
     no.

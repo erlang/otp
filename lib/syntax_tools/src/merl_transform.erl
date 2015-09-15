@@ -68,8 +68,7 @@ case_guard([{expr,_}, {text,Text}]) ->
     erl_syntax:is_literal(Text).
 
 case_body([{expr,Expr}, {text,_Text}], T) ->
-    pre_expand_case(Expr, erl_syntax:case_expr_clauses(T),
-                    erl_syntax:get_pos(T)).
+    pre_expand_case(Expr, erl_syntax:case_expr_clauses(T), get_location(T)).
 
 post(T) ->
     merl:switch(
@@ -79,7 +78,7 @@ post(T) ->
                   lists:all(fun erl_syntax:is_literal/1, [F|As])
           end,
           fun ([{args, As}, {function, F}]) ->
-                  Line = erl_syntax:get_pos(F),
+                  Line = get_location(F),
                   [F1|As1] = lists:map(fun erl_syntax:concrete/1, [F|As]),
                   eval_call(Line, F1, As1, T)
           end},
@@ -118,7 +117,7 @@ expand_qquote(_As, T, _StartPos) ->
 expand_template(F, [Pattern | Args], T) ->
     case erl_syntax:is_literal(Pattern) of
         true ->
-            Line = erl_syntax:get_pos(Pattern),
+            Line = get_location(Pattern),
             As = [erl_syntax:concrete(Pattern)],
             merl:qquote(Line, "merl:_@function(_@pattern, _@args)",
                [{function, F},
@@ -260,3 +259,12 @@ is_erlang_var([C|_]) when C >= $A, C =< $Z ; C >= $À, C =< $Þ, C /= $× ->
     true;
 is_erlang_var(_) ->
     false.
+
+get_location(T) ->
+    Pos = erl_syntax:get_pos(T),
+    case erl_anno:is_anno(Pos) of
+        true ->
+            erl_anno:location(Pos);
+        false ->
+            Pos
+    end.

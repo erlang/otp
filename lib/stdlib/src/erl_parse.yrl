@@ -525,11 +525,6 @@ Erlang code.
 -export([type_inop_prec/1,type_preop_prec/1]).
 -export([map_anno/2, fold_anno/3, mapfold_anno/3,
          new_anno/1, anno_to_term/1, anno_from_term/1]).
--export([set_line/2,get_attribute/2,get_attributes/1]).
-
--deprecated([{set_line, 2, next_major_release},
-             {get_attribute, 2, next_major_release},
-             {get_attributes, 1, next_major_release}]).
 
 %% The following directive is needed for (significantly) faster compilation
 %% of the generated .erl file by the HiPE compiler.  Please do not remove.
@@ -1117,28 +1112,6 @@ type_preop_prec('+') -> {600,700};
 type_preop_prec('-') -> {600,700};
 type_preop_prec('bnot') -> {600,700};
 type_preop_prec('#') -> {700,800}.
-
-%%% [Experimental]. The parser just copies the attributes of the
-%%% scanner tokens to the abstract format. This design decision has
-%%% been hidden to some extent: use set_line() and get_attribute() to
-%%% access the second element of (almost all) of the abstract format
-%%% tuples. A typical use is to negate line numbers to prevent the
-%%% compiler from emitting warnings and errors. The second element can
-%%% (of course) be set to any value, but then these functions no
-%%% longer apply. To get all present attributes as a property list
-%%% get_attributes() should be used.
-
--compile({nowarn_deprecated_function,{erl_scan,set_attribute,3}}).
-set_line(L, F) ->
-    erl_scan:set_attribute(line, L, F).
-
--compile({nowarn_deprecated_function,{erl_scan,attributes_info,2}}).
-get_attribute(L, Name) ->
-    erl_scan:attributes_info(L, Name).
-
--compile({nowarn_deprecated_function,{erl_scan,attributes_info,1}}).
-get_attributes(L) ->
-    erl_scan:attributes_info(L).
 
 -spec map_anno(Fun, Abstr) -> NewAbstr when
       Fun :: fun((Anno) -> Anno),

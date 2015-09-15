@@ -191,8 +191,7 @@ otp_7810(Config) when is_list(Config) ->
 
     ?line ok = more_chars(),
     ?line ok = more_options(),
-    ?line ok = attributes_info(),
-    ?line ok = set_attribute(),
+    ?line ok = anno_info(),
 
     ok.
 
@@ -269,7 +268,7 @@ punctuations() ->
 
 comments() ->
     ?line test("a %%\n b"),
-    {ok,[],1} = erl_scan_string("%"),
+    ?line {ok,[],1} = erl_scan_string("%"),
     ?line test("a %%\n b"),
     {ok,[{atom,{1,1},a},{atom,{2,2},b}],{2,3}} =
         erl_scan_string("a %%\n b", {1,1}),
@@ -338,7 +337,7 @@ base_integers() ->
              erl_scan:string(Str)
      end || {BS,S} <- [{"3","3"},{"15","f"}, {"12","c"}] ],
 
-    {ok,[{integer,1,239},{'@',1}],1} = erl_scan_string("16#ef@"),
+    ?line {ok,[{integer,1,239},{'@',1}],1} = erl_scan_string("16#ef@"),
     {ok,[{integer,{1,1},239},{'@',{1,6}}],{1,7}} =
         erl_scan_string("16#ef@", {1,1}, []),
     {ok,[{integer,{1,1},14},{atom,{1,5},g@}],{1,7}} =
@@ -387,20 +386,15 @@ dots() ->
          R2 = erl_scan_string(S, {1,1}, [])
      end || {S, R, R2} <- Dot],
 
-    ?line {ok,[{dot,_}=T1],{1,2}} = erl_scan:string(".", {1,1}, text),
-    ?line [{column,1},{length,1},{line,1},{text,"."}] =
-        erl_scan:token_info(T1, [column, length, line, text]),
-    ?line {ok,[{dot,_}=T2],{1,3}} = erl_scan:string(".%", {1,1}, text),
-    ?line [{column,1},{length,1},{line,1},{text,"."}] =
-        erl_scan:token_info(T2, [column, length, line, text]),
-    ?line {ok,[{dot,_}=T3],{1,6}} =
+    {ok,[{dot,_}=T1],{1,2}} = erl_scan:string(".", {1,1}, text),
+    [1, 1, "."] = token_info(T1),
+    {ok,[{dot,_}=T2],{1,3}} = erl_scan:string(".%", {1,1}, text),
+    [1, 1, "."] = token_info(T2),
+    {ok,[{dot,_}=T3],{1,6}} =
         erl_scan:string(".% öh", {1,1}, text),
-    ?line [{column,1},{length,1},{line,1},{text,"."}] =
-        erl_scan:token_info(T3, [column, length, line, text]),
-    ?line {error,{{1,2},erl_scan,char},{1,3}} =
-        erl_scan:string(".$", {1,1}),
-    ?line {error,{{1,2},erl_scan,char},{1,4}} =
-        erl_scan:string(".$\\", {1,1}),
+    [1, 1, "."] = token_info(T3),
+    {error,{{1,2},erl_scan,char},{1,3}} = erl_scan:string(".$", {1,1}),
+    {error,{{1,2},erl_scan,char},{1,4}} = erl_scan:string(".$\\", {1,1}),
 
     test_string(". ", [{dot,{1,1}}]),
     test_string(".  ", [{dot,{1,1}}]),
@@ -413,18 +407,18 @@ dots() ->
     test_string(".a", [{'.',{1,1}},{atom,{1,2},a}]),
 
     test_string("%. \n. ", [{dot,{2,1}}]),
-    ?line {more,C} = erl_scan:tokens([], "%. ",{1,1}, return),
+    {more,C} = erl_scan:tokens([], "%. ",{1,1}, return),
     {done,{ok,[{comment,{1,1},"%. "},
                {white_space,{1,4},"\n"},
                {dot,{2,1}}],
            {2,3}}, ""} =
         erl_scan_tokens(C, "\n. ", {1,1}, return), % any loc, any options
 
-    ?line [test_string(S, R) ||
-              {S, R} <- [{".$\n",   [{'.',{1,1}},{char,{1,2},$\n}]},
-                         {"$\\\n",  [{char,{1,1},$\n}]},
-                         {"'\\\n'", [{atom,{1,1},'\n'}]},
-                         {"$\n",    [{char,{1,1},$\n}]}] ],
+    [test_string(S, R) ||
+        {S, R} <- [{".$\n",   [{'.',{1,1}},{char,{1,2},$\n}]},
+                   {"$\\\n",  [{char,{1,1},$\n}]},
+                   {"'\\\n'", [{atom,{1,1},'\n'}]},
+                   {"$\n",    [{char,{1,1},$\n}]}] ],
     ok.
 
 chars() ->
@@ -540,8 +534,8 @@ eof() ->
 
     %% A dot followed by eof is special:
     ?line {more, C} = erl_scan:tokens([], "a.", 1),
-    {done,{ok,[{atom,1,a},{dot,1}],1},eof} = erl_scan_tokens(C,eof,1),
-    {ok,[{atom,1,foo},{dot,1}],1} = erl_scan_string("foo."),
+    ?line {done,{ok,[{atom,1,a},{dot,1}],1},eof} = erl_scan_tokens(C,eof,1),
+    ?line {ok,[{atom,1,foo},{dot,1}],1} = erl_scan_string("foo."),
 
     %% With column.
     {more, CCol} = erl_scan:tokens([], "a.", {1,1}),
@@ -655,143 +649,70 @@ options() ->
     ok.
 
 more_options() ->
-    ?line {ok,[{atom,A1,foo}],{19,20}} =
+    {ok,[{atom,_,foo}=T1],{19,20}} =
         erl_scan:string("foo", {19,17},[]),
-    ?line [{column,17},{line,19}] = erl_scan:attributes_info(A1),
-    ?line {done,{ok,[{atom,A2,foo},{dot,_}],{19,22}},[]} =
+    {19,17} = erl_scan:location(T1),
+    {done,{ok,[{atom,_,foo}=T2,{dot,_}],{19,22}},[]} =
         erl_scan:tokens([], "foo. ", {19,17}, [bad_opt]), % type error
-    ?line [{column,17},{line,19}] = erl_scan:attributes_info(A2),
-    ?line {ok,[{atom,A3,foo}],{19,20}} =
+    {19,17} = erl_scan:location(T2),
+    {ok,[{atom,_,foo}=T3],{19,20}} =
         erl_scan:string("foo", {19,17},[text]),
-    ?line [{column,17},{length,3},{line,19},{text,"foo"}] =
-        erl_scan:attributes_info(A3),
+    {19,17} = erl_scan:location(T3),
+    "foo" = erl_scan:text(T3),
 
-    ?line {ok,[{atom,A4,foo}],1} = erl_scan:string("foo", 1, [text]),
-    ?line [{length,3},{line,1},{text,"foo"}] = erl_scan:attributes_info(A4),
+    {ok,[{atom,_,foo}=T4],1} = erl_scan:string("foo", 1, [text]),
+    1 = erl_scan:line(T4),
+    1 = erl_scan:location(T4),
+    "foo" = erl_scan:text(T4),
 
     ok.
 
 token_info() ->
-    ?line {ok,[T1],_} = erl_scan:string("foo", {1,18}, [text]),
+    {ok,[T1],_} = erl_scan:string("foo", {1,18}, [text]),
     {'EXIT',{badarg,_}} =
-        (catch {foo, erl_scan:token_info(T1, foo)}), % type error
-    ?line {line,1} = erl_scan:token_info(T1, line),
-    ?line {column,18} = erl_scan:token_info(T1, column),
-    ?line {length,3} = erl_scan:token_info(T1, length),
-    ?line {text,"foo"} = erl_scan:token_info(T1, text),
-    ?line [{category,atom},{column,18},{length,3},{line,1},
-           {symbol,foo},{text,"foo"}] =
-        erl_scan:token_info(T1),
-    ?line [{length,3},{column,18}] =
-        erl_scan:token_info(T1, [length, column]),
-    ?line [{location,{1,18}}] =
-        erl_scan:token_info(T1, [location]),
-    ?line {category,atom} = erl_scan:token_info(T1, category),
-    ?line [{symbol,foo}] = erl_scan:token_info(T1, [symbol]),
+        (catch {foo, erl_scan:category(foo)}), % type error
+    {'EXIT',{badarg,_}} =
+        (catch {foo, erl_scan:symbol(foo)}), % type error
+    atom = erl_scan:category(T1),
+    foo = erl_scan:symbol(T1),
 
-    ?line {ok,[T2],_} = erl_scan:string("foo", 1, []),
-    ?line {line,1} = erl_scan:token_info(T2, line),
-    ?line undefined = erl_scan:token_info(T2, column),
-    ?line undefined = erl_scan:token_info(T2, length),
-    ?line undefined = erl_scan:token_info(T2, text),
-    ?line {location,1} = erl_scan:token_info(T2, location),
-    ?line [{category,atom},{line,1},{symbol,foo}] = erl_scan:token_info(T2),
-    ?line [{line,1}] = erl_scan:token_info(T2, [length, line]),
+    {ok,[T2],_} = erl_scan:string("foo", 1, []),
+    1 = erl_scan:line(T2),
+    undefined = erl_scan:column(T2),
+    undefined = erl_scan:text(T2),
+    1 = erl_scan:location(T2),
 
-    ?line {ok,[T3],_} = erl_scan:string("=", 1, []),
-    ?line [{line,1}] = erl_scan:token_info(T3, [column, line]),
-    ?line {category,'='} = erl_scan:token_info(T3, category),
-    ?line [{symbol,'='}] = erl_scan:token_info(T3, [symbol]),
+    {ok,[T3],_} = erl_scan:string("=", 1, []),
+    '=' = erl_scan:category(T3),
+    '=' = erl_scan:symbol(T3),
     ok.
 
-attributes_info() ->
-    ?line {'EXIT',_} =
-        (catch {foo,erl_scan:attributes_info(foo)}), % type error
-    [{line,18}] = erl_scan:attributes_info(erl_anno:new(18)),
-    {location,19} =
-        erl_scan:attributes_info(erl_anno:new(19), location),
-    ?line {ok,[{atom,A0,foo}],_} = erl_scan:string("foo", 19, [text]),
-    ?line {location,19} = erl_scan:attributes_info(A0, location),
+anno_info() ->
+    {'EXIT',_} =
+        (catch {foo,erl_scan:line(foo)}), % type error
+    {ok,[{atom,_,foo}=T0],_} = erl_scan:string("foo", 19, [text]),
+    19 = erl_scan:location(T0),
+    19 = erl_scan:end_location(T0),
 
-    ?line {ok,[{atom,A3,foo}],_} = erl_scan:string("foo", {1,3}, [text]),
-    ?line {line,1} = erl_scan:attributes_info(A3, line),
-    ?line {column,3} = erl_scan:attributes_info(A3, column),
-    ?line {location,{1,3}} = erl_scan:attributes_info(A3, location),
-    ?line {text,"foo"} = erl_scan:attributes_info(A3, text),
+    {ok,[{atom,_,foo}=T3],_} = erl_scan:string("foo", {1,3}, [text]),
+    1 = erl_scan:line(T3),
+    3 = erl_scan:column(T3),
+    {1,3} = erl_scan:location(T3),
+    {1,6} = erl_scan:end_location(T3),
+    "foo" = erl_scan:text(T3),
 
-    ?line {ok,[{atom,A4,foo}],_} = erl_scan:string("foo", 2, [text]),
-    ?line {line,2} = erl_scan:attributes_info(A4, line),
-    ?line undefined = erl_scan:attributes_info(A4, column),
-    ?line {location,2} = erl_scan:attributes_info(A4, location),
-    ?line {text,"foo"} = erl_scan:attributes_info(A4, text),
+    {ok,[{atom,_,foo}=T4],_} = erl_scan:string("foo", 2, [text]),
+    2 = erl_scan:line(T4),
+    undefined = erl_scan:column(T4),
+    2 = erl_scan:location(T4),
+    "foo" = erl_scan:text(T4),
 
-    ?line {ok,[{atom,A5,foo}],_} = erl_scan:string("foo", {1,3}, []),
-    ?line {line,1} = erl_scan:attributes_info(A5, line),
-    ?line {column,3} = erl_scan:attributes_info(A5, column),
-    ?line {location,{1,3}} = erl_scan:attributes_info(A5, location),
-    ?line undefined = erl_scan:attributes_info(A5, text),
+    {ok,[{atom,_,foo}=T5],_} = erl_scan:string("foo", {1,3}, []),
+    1 = erl_scan:line(T5),
+    3 = erl_scan:column(T5),
+    {1,3} = erl_scan:location(T5),
+    undefined = erl_scan:text(T5),
 
-    ?line undefined = erl_scan:attributes_info([], line), % type error
-
-    ok.
-
-set_attribute() ->
-    F = fun(Line) -> -Line end,
-    Anno2 = erl_anno:new(2),
-    A0 = erl_scan:set_attribute(line, Anno2, F),
-    {line, -2} = erl_scan:attributes_info(A0, line),
-    ?line {ok,[{atom,A1,foo}],_} = erl_scan:string("foo", {9,17}),
-    ?line A2 = erl_scan:set_attribute(line, A1, F),
-    ?line {line,-9} = erl_scan:attributes_info(A2, line),
-    ?line {location,{-9,17}} = erl_scan:attributes_info(A2, location),
-    ?line [{line,-9},{column,17}] =
-        erl_scan:attributes_info(A2, [line,column,text]),
-
-    F2 = fun(Line) -> {17,Line} end,
-    ?line Attr1 = erl_scan:set_attribute(line, 2, F2),
-    ?line {line,{17,2}} = erl_scan:attributes_info(Attr1, line),
-    ?line undefined = erl_scan:attributes_info(Attr1, column),
-    ?line {location,{17,2}} = % a bit mixed up
-        erl_scan:attributes_info(Attr1, location),
-
-    ?line A3 = erl_scan:set_attribute(line, A1, F2),
-    ?line {line,{17,9}} = erl_scan:attributes_info(A3, line),
-    ?line {location,{{17,9},17}} = erl_scan:attributes_info(A3, location),
-    ?line [{line,{17,9}},{column,17}] =
-        erl_scan:attributes_info(A3, [line,column,text]),
-
-    ?line {ok,[{atom,A4,foo}],_} = erl_scan:string("foo", {9,17}, [text]),
-    ?line A5 = erl_scan:set_attribute(line, A4, F),
-    ?line {line,-9} = erl_scan:attributes_info(A5, line),
-    ?line {location,{-9,17}} = erl_scan:attributes_info(A5, location),
-    ?line [{line,-9},{column,17},{text,"foo"}] =
-        erl_scan:attributes_info(A5, [line,column,text]),
-
-    ?line {ok,[{atom,A6,foo}],_} = erl_scan:string("foo", 11, [text]),
-    ?line A7 = erl_scan:set_attribute(line, A6, F2),
-    %% Incompatible with pre 18:
-    %% {line,{17,11}} = erl_scan:attributes_info(A7, line),
-    {line,17} = erl_scan:attributes_info(A7, line),
-    ?line {location,{17,11}} = % mixed up
-        erl_scan:attributes_info(A7, location),
-    %% Incompatible with pre 18:
-    %% [{line,{17,11}},{text,"foo"}] =
-    %%   erl_scan:attributes_info(A7, [line,column,text]),
-    [{line,17},{column,11},{text,"foo"}] =
-        erl_scan:attributes_info(A7, [line,column,text]),
-
-    ?line {'EXIT',_} =
-        (catch {foo, erl_scan:set_attribute(line, [], F2)}), % type error
-    ?line {'EXIT',{badarg,_}} =
-        (catch {foo, erl_scan:set_attribute(column, [], F2)}), % type error
-
-    Attr10 = erl_anno:new(8),
-    Attr20 = erl_scan:set_attribute(line, Attr10,
-                                    fun(L) -> {nos,'X',L} end),
-    %% OTP-9412
-    Attr30 = erl_scan:set_attribute(line, Attr20,
-                                    fun({nos,_V,VL}) -> VL end),
-    8 = erl_anno:to_term(Attr30),
     ok.
 
 column_errors() ->
@@ -892,14 +813,13 @@ unicode() ->
         erl_scan_string(Qs, 1),
     {ok,[Q2],{1,9}} =
         erl_scan:string("$\\x{aaa}", {1,1}, [text]),
-    [{category,char},{column,1},{length,8},
-           {line,1},{symbol,16#aaa},{text,Qs}] =
-        erl_scan:token_info(Q2),
+    [{category,char},{column,1},{line,1},{symbol,16#aaa},{text,Qs}] =
+        token_info_long(Q2),
 
     U1 = "\"\\x{aaa}\"",
-    {ok,[{string,A1,[2730]}],{1,10}} = erl_scan:string(U1, {1,1}, [text]),
-    [{line,1},{column,1},{text,"\"\\x{aaa}\""}] =
-        erl_scan:attributes_info(A1, [line, column, text]),
+    {ok,[{string,_,[2730]}=T1],{1,10}} = erl_scan:string(U1, {1,1}, [text]),
+    {1,1} = erl_scan:location(T1),
+    "\"\\x{aaa}\"" = erl_scan:text(T1),
     {ok,[{string,1,[2730]}],1} = erl_scan_string(U1, 1),
 
     U2 = "\"\\x41\\x{fff}\\x42\"",
@@ -1012,16 +932,13 @@ otp_10302(Config) when is_list(Config) ->
     Qs = "$\\x{aaa}",
     {ok,[{char,1,2730}],1} = erl_scan_string(Qs, 1),
     {ok,[Q2],{1,9}} = erl_scan:string(Qs,{1,1},[text]),
-    [{category,char},{column,1},{length,8},
-     {line,1},{symbol,16#aaa},{text,Qs}] =
-        erl_scan:token_info(Q2),
-
-    Tags = [category, column, length, line, symbol, text],
+    [{category,char},{column,1},{line,1},{symbol,16#aaa},{text,Qs}] =
+        token_info_long(Q2),
 
     U1 = "\"\\x{aaa}\"",
     {ok,[T1],{1,10}} = erl_scan:string(U1, {1,1}, [text]),
-    [{category,string},{column,1},{length,9},{line,1},
-     {symbol,[16#aaa]},{text,U1}] = erl_scan:token_info(T1, Tags),
+    [{category,string},{column,1},{line,1},{symbol,[16#aaa]},{text,U1}] =
+        token_info_long(T1),
 
     U2 = "\"\\x41\\x{fff}\\x42\"",
     {ok,[{string,1,[65,4095,66]}],1} = erl_scan_string(U2, 1),
@@ -1353,9 +1270,7 @@ test_wsc([], []) ->
     ok;
 test_wsc([Token|Tokens], [Token2|Tokens2]) ->
     [Text, Text2] = [Text ||
-                        {text, Text} <-
-                            [erl_scan:token_info(T, text) ||
-                                T <- [Token, Token2]]],
+                        Text <- [erl_scan:text(T) || T <- [Token, Token2]]],
     Sz = erts_debug:size(Text),
     Sz2 = erts_debug:size({Text, Text2}),
     IsCompacted = Sz2 < 2*Sz+erts_debug:size({a,a}),
@@ -1394,7 +1309,7 @@ all_same(L, Char) ->
 newlines_first([]) ->
     ok;
 newlines_first([Token|Tokens]) ->
-    {text,Text} = erl_scan:token_info(Token, text),
+    Text = erl_scan:text(Token),
     Nnls = length([C || C <- Text, C =:= $\n]),
     OK = case Text of
              [$\n|_] ->
@@ -1414,7 +1329,7 @@ select_tokens(Tokens, Tags) ->
     lists:filter(fun(T) -> lists:member(element(1, T), Tags) end, Tokens).
 
 simplify([Token|Tokens]) ->
-    {line,Line} = erl_scan:token_info(Token, line),
+    Line = erl_scan:line(Token),
     [setelement(2, Token, erl_anno:new(Line)) | simplify(Tokens)];
 simplify([]) ->
     [].
@@ -1423,17 +1338,31 @@ get_text(Tokens) ->
     lists:flatten(
       [T ||
           Token <- Tokens,
-          ({text,T} = erl_scan:token_info(Token, text)) =/= []]).
+          (T = erl_scan:text(Token)) =/= []]).
 
 test_decorated_tokens(String, Tokens) ->
     ToksAttrs = token_attrs(Tokens),
     test_strings(ToksAttrs, String, 1, 1).
 
 token_attrs(Tokens) ->
-    [{L,C,Len,T} ||
+    [{L,C,length(T),T} ||
         Token <- Tokens,
-        ([{line,L},{column,C},{length,Len},{text,T}] =
-         erl_scan:token_info(Token, [line,column,length,text])) =/= []].
+        ([C,L,T] = token_info(Token)) =/= []].
+
+token_info(T) ->
+    Column = erl_scan:column(T),
+    Line = erl_scan:line(T),
+    Text = erl_scan:text(T),
+    [Column, Line, Text].
+
+token_info_long(T) ->
+    Column = erl_scan:column(T),
+    Line = erl_scan:line(T),
+    Text = erl_scan:text(T),
+    Category = erl_scan:category(T),
+    Symbol = erl_scan:symbol(T),
+    [{category,Category},{column,Column},{line,Line},
+     {symbol,Symbol},{text,Text}].
 
 test_strings([], _S, Line, Column) ->
     {Line,Column};
@@ -1514,8 +1443,7 @@ consistent_attributes([Ts | TsL]) ->
     L = [T || T <- Ts, is_integer(element(2, T))],
     case L of
         [] ->
-            TagsL = [[Tag || {Tag,_} <-
-                                 erl_scan:attributes_info(element(2, T))] ||
+            TagsL = [[Tag || {Tag,_} <- defined(token_info_long(T))] ||
                         T <- Ts],
             case lists:usort(TagsL) of
                 [_] ->
@@ -1530,6 +1458,9 @@ consistent_attributes([Ts | TsL]) ->
         _ ->
             Ts
     end.
+
+defined(L) ->
+    [{T,V} || {T,V} <- L, V =/= undefined].
 
 family_list(L) ->
     sofs:to_external(family(L)).
