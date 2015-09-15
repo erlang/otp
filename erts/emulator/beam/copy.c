@@ -907,7 +907,7 @@ int disable_copy_shared = ERTS_SHCOPY_FLG_NONE;
 #define SHTABLE_PUSH(s,x,y,b)					\
 do {								\
     if (s.sp > s.end - SHTABLE_INCR) {				\
-        erl_grow_estack(&s, ESTK_DEF_STACK(s));			\
+        erl_grow_estack(&(s), SHTABLE_INCR);	       		\
     }								\
     *s.sp++ = (x);						\
     *s.sp++ = (y);						\
@@ -959,6 +959,7 @@ do {								\
         WSTK_DEF_STACK(s),  /* wstart */		\
         WSTK_DEF_STACK(s),  /* wsp */			\
         WSTK_DEF_STACK(s) + DEF_WSTACK_SIZE, /* wend */	\
+        WSTK_DEF_STACK(s),  /* wdflt */ 		\
         ERTS_ALC_T_ESTACK /* alloc_type */		\
     };							\
     int WSTK_CONCAT(s,_bitoffs) = 0;			\
@@ -969,8 +970,9 @@ do {								\
     /* no WSTK_DEF_STACK(s), read-only */		\
     ErtsWStack s = {					\
         info->bitstore_start,  /* wstart */		\
-        NULL,                  /* wsp, read-only */	\
+        NULL,                  /* wsp,  read-only */	\
         NULL,                  /* wend, read-only */	\
+        NULL,                  /* wdef, read-only */	\
         info->bitstore_alloc_type /* alloc_type */	\
     };							\
     int WSTK_CONCAT(s,_bitoffs) = 0;			\
@@ -983,6 +985,7 @@ do {								\
         ESTK_DEF_STACK(s),  /* start */			\
         ESTK_DEF_STACK(s),  /* sp */			\
         ESTK_DEF_STACK(s) + DEF_ESTACK_SIZE, /* end */	\
+        ESTK_DEF_STACK(s),  /* default */		\
         ERTS_ALC_T_ESTACK /* alloc_type */		\
     };							\
     Uint ESTK_CONCAT(s,_offset) = 0
@@ -991,8 +994,9 @@ do {								\
     /* no ESTK_DEF_STACK(s), read-only */		\
     ErtsEStack s = {					\
         info->shtable_start,     /* start */		\
-        NULL,                    /* sp, read-only */	\
+        NULL,                    /* sp,  read-only */	\
         NULL,                    /* end, read-only */	\
+        NULL,                    /* def, read-only */	\
         info->shtable_alloc_type /* alloc_type */	\
     };							\
     /* no ESTK_CONCAT(s,_offset), read-only */
