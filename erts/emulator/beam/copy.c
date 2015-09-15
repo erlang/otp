@@ -420,19 +420,28 @@ Uint size_shared(Eterm obj)
 		}
 		goto pop_next;
 	    }
-            case MAP_SUBTAG: {
-                map_t *mp = (map_t *) ptr;
-                Uint n = map_get_size(mp) + 1;
-                sum += n + 2;
-                ptr += 2; /* hdr + size words */
-                while (n-- > 0) {
-                    obj = *ptr++;
-                    if (!IS_CONST(obj)) {
-                        EQUEUE_PUT(s, obj);
+            case MAP_SUBTAG:
+                switch (MAP_HEADER_TYPE(hdr)) {
+                    case MAP_HEADER_TAG_FLATMAP_HEAD : {
+                        flatmap_t *mp  = (flatmap_t*)flatmap_val(obj);
+                        Uint n = flatmap_get_size(mp) + 1;
+                        ptr  = (Eterm *)mp;
+                        sum += n + 2;
+                        ptr += 2; /* hdr + size words */
+                        while (n--) {
+                            obj = *ptr++;
+                            if (!IS_CONST(obj)) {
+                                EQUEUE_PUT(s, obj);
+                            }
+                        }
+                        goto pop_next;
                     }
+                    case MAP_HEADER_TAG_HAMT_HEAD_BITMAP :
+                    case MAP_HEADER_TAG_HAMT_HEAD_ARRAY :
+                    case MAP_HEADER_TAG_HAMT_NODE_BITMAP :
+                    default:
+                        erl_exit(ERTS_ABORT_EXIT, "size_shared: bad hashmap type %d\n", MAP_HEADER_TYPE(hdr));
                 }
-                goto pop_next;
-            }
 	    case BIN_MATCHSTATE_SUBTAG:
 		erl_exit(ERTS_ABORT_EXIT,
 			 "size_shared: matchstate term not allowed");
@@ -533,10 +542,10 @@ cleanup:
 		goto cleanup_next;
 	    }
             case MAP_SUBTAG: {
-                map_t *mp = (map_t *) ptr;
-                Uint n = map_get_size(mp) + 1;
+                flatmap_t *mp = (flatmap_t *) ptr;
+                Uint n = flatmap_get_size(mp) + 1;
                 ptr += 2; /* hdr + size words */
-                while (n-- > 0) {
+                while (n--) {
                     obj = *ptr++;
                     if (!IS_CONST(obj)) {
                         EQUEUE_PUT_UNCHECKED(s, obj);
@@ -1186,20 +1195,28 @@ Uint copy_shared_calculate(Eterm obj, shcopy_info *info, unsigned flags)
 		}
 		goto pop_next;
 	    }
-            case MAP_SUBTAG: {
-                map_t *mp = (map_t *) ptr;
-                Uint n = map_get_size(mp) + 1;
-                sum += n + 2;
-                ptr += 2; /* hdr + size words */
-                while (n-- > 0) {
-                    obj = *ptr++;
-                    if (!IS_CONST(obj)) {
-                        EQUEUE_PUT(s, obj);
+            case MAP_SUBTAG:
+                switch (MAP_HEADER_TYPE(hdr)) {
+                    case MAP_HEADER_TAG_FLATMAP_HEAD : {
+                        flatmap_t *mp = (flatmap_t *) ptr;
+                        Uint n = flatmap_get_size(mp) + 1;
+                        sum += n + 2;
+                        ptr += 2; /* hdr + size words */
+                        while (n--) {
+                            obj = *ptr++;
+                            if (!IS_CONST(obj)) {
+                                EQUEUE_PUT(s, obj);
+                            }
+                        }
+                        goto pop_next;
                     }
+                    case MAP_HEADER_TAG_HAMT_HEAD_BITMAP :
+                    case MAP_HEADER_TAG_HAMT_HEAD_ARRAY :
+                    case MAP_HEADER_TAG_HAMT_NODE_BITMAP :
+                    default:
+                        erl_exit(ERTS_ABORT_EXIT, "copy_shared_calculate: bad hashmap type %d\n", MAP_HEADER_TYPE(hdr));
                 }
-                goto pop_next;
-            }
-	    case BIN_MATCHSTATE_SUBTAG:
+            case BIN_MATCHSTATE_SUBTAG:
 		erl_exit(ERTS_ABORT_EXIT,
 			 "size_shared: matchstate term not allowed");
 	    default:
@@ -1233,7 +1250,6 @@ Uint copy_shared_calculate(Eterm obj, shcopy_info *info, unsigned flags)
 	}
     }
 }
-
 
 /*
  *  Copy object "obj" preserving sharing.
@@ -1440,23 +1456,31 @@ Uint copy_shared_perform(Eterm obj, Uint size, shcopy_info *info, Eterm** hpp, E
 		erts_refc_inc(&funp->fe->refc, 2);
 		goto cleanup_next;
 	    }
-	    case MAP_SUBTAG: {
-		map_t *mp = (map_t *) ptr;
-		Uint n = map_get_size(mp) + 1;
-		*resp = make_map(hp);
-		*hp++ = hdr;
-                *hp++ = *++ptr;
-		while (n-- > 0) {
-		    obj = *++ptr;
-		    if (IS_CONST(obj)) {
-			*hp++ = obj;
-		    } else {
-			EQUEUE_PUT_UNCHECKED(s, obj);
-			*hp++ = HEAP_ELEM_TO_BE_FILLED;
-		    }
-		}
-		goto cleanup_next;
-	    }
+	    case MAP_SUBTAG:
+                switch (MAP_HEADER_TYPE(hdr)) {
+                    case MAP_HEADER_TAG_FLATMAP_HEAD : {
+                        flatmap_t *mp = (flatmap_t *) ptr;
+                        Uint n = flatmap_get_size(mp) + 1;
+                        *resp  = make_flatmap(hp);
+                        *hp++  = hdr;
+                        *hp++  = *++ptr;
+                        while (n--) {
+                            obj = *++ptr;
+                            if (IS_CONST(obj)) {
+                                *hp++ = obj;
+                            } else {
+                                EQUEUE_PUT_UNCHECKED(s, obj);
+                                *hp++ = HEAP_ELEM_TO_BE_FILLED;
+                            }
+                        }
+                        goto cleanup_next;
+                    }
+                    case MAP_HEADER_TAG_HAMT_HEAD_BITMAP :
+                    case MAP_HEADER_TAG_HAMT_HEAD_ARRAY :
+                    case MAP_HEADER_TAG_HAMT_NODE_BITMAP :
+                    default:
+                        erl_exit(ERTS_ABORT_EXIT, "copy_shared_perform: bad hashmap type %d\n", MAP_HEADER_TYPE(hdr));
+                }
 	    case REFC_BINARY_SUBTAG: {
 		ProcBin* pb = (ProcBin *) ptr;
 		sz = thing_arityval(hdr);
@@ -1592,12 +1616,23 @@ Uint copy_shared_perform(Eterm obj, Uint size, shcopy_info *info, Eterm** hpp, E
 			    remaining = 1 + funp->num_free;
 			    break;
 			}
-			case MAP_SUBTAG: {
-			    map_t *mp = (map_t *) hscan;
-			    remaining = map_get_size(mp) + 1;
-                            hscan += 2;
-			    break;
-			}
+			case MAP_SUBTAG:
+                            switch (MAP_HEADER_TYPE(*hscan)) {
+                                case MAP_HEADER_TAG_FLATMAP_HEAD : {
+                                    flatmap_t *mp = (flatmap_t *) hscan;
+                                    remaining = flatmap_get_size(mp) + 1;
+                                    hscan += 2;
+                                    break;
+                                }
+                                case MAP_HEADER_TAG_HAMT_HEAD_BITMAP :
+                                case MAP_HEADER_TAG_HAMT_HEAD_ARRAY :
+                                case MAP_HEADER_TAG_HAMT_NODE_BITMAP :
+                                default:
+                                    erl_exit(ERTS_ABORT_EXIT,
+                                            "copy_shared_perform: bad hashmap type %d\n",
+                                            MAP_HEADER_TYPE(*hscan));
+                            }
+                            break;
 			case SUB_BINARY_SUBTAG:
 			    ASSERT(((ErlSubBin *) hscan)->bitoffs +
 				   ((ErlSubBin *) hscan)->bitsize > 0);
