@@ -32,6 +32,9 @@
 #endif
 
 
+/*
+ * The TrunkDbTerm is used in stages 2 and 3.
+ */
 typedef struct trunk_db_term {
     /*
      * The following three fields are allocated
@@ -58,23 +61,23 @@ typedef struct trunk_db_term {
     DbTerm dbterm; /* the actual term */
 } TrunkDbTerm;
 
-typedef struct root_db_term {
-    struct root_db_term *next; /* next root term (different key) */
-
+/*
+ * The TailDbTerm is used in stages 2 and 3.
+ */
+typedef struct tail_db_term {
     /*
      * The first trunk term of the chain (it's never NULL).
      * Its lsb is used as a flag:
-     * o if zero, this RootDbTerm is truncated at the szm field
-     * o if set, this RootDbTerm includes szm and successive fields
-     * Use GET_TRUNK() and SET_TRUNK() to access this field.
+     * - if zero, this TailDbTerm is truncated at the szm field
+     * - if one, this TailDbTerm includes szm and successive fields
      */
     TrunkDbTerm *trunk;
 
-    HashValue hvalue; /* hash value of the key */
-    int nkitems;      /* length of trunk chain */
+    int nkitems; /* length of trunk chain */
 
     /*
-     * The following fields are allocated if a nested LHT is required.
+     * The following fields are allocated if a nested
+     * LHT is required (stage 3).
      */
 
     HashValue szm; /* current size mask. */
@@ -82,6 +85,22 @@ typedef struct root_db_term {
     int nslots;  /* total number of slots */
     int nsegs;   /* size of segment table */
     int nactive; /* number of active slots */
+} TailDbTerm;
+
+typedef struct root_db_term {
+    struct root_db_term *next; /* next root term (different key) */
+    HashValue hvalue;          /* hash value of the key */
+
+    /*
+     * The lsb of the pointer to this struct determines the data contained
+     * in dt (all the NULL pointers have their lsb set to zero):
+     * - if zero, it contains a DbTerm (stage 1)
+     * - if one, it contains a TailDbTerm (stages 2 and 3)
+     */
+    union {
+        DbTerm dbterm;
+        TailDbTerm tail;
+    } dt;
 } RootDbTerm;
 
 typedef struct nested_fixed_deletion {

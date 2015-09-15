@@ -452,7 +452,7 @@ static void db_foreach_offheap_hash(DbTable *,
 
 static int db_delete_all_objects_hash(Process* p, DbTable* tbl);
 #ifdef HARDDEBUG
-static void db_check_table_hash(DbTableHash *tb);
+static void db_check_table_hash(DbTable *tb);
 #endif
 static int
 db_lookup_dbterm_hash(Process *p, DbTable *tbl, Eterm key, Eterm obj,
