@@ -771,14 +771,19 @@ parse_type2([N="wxGridCellCoordsArray"|R],Info,Opts,T) ->
     parse_type2(R,Info,Opts,T#type{name=N,base={comp,"wxGridCellCoords",
 						[{int,"R"},{int,"C"}]},
 				   single=array});
+parse_type2([N="wxAuiPaneInfoArray"|R],Info,Opts,T) ->
+    parse_type2(R,Info,Opts,T#type{name=N,base={class,"wxAuiPaneInfo"},
+				   single=array});
+
 parse_type2([N="wxRect"|R],Info,Opts,T) -> 
     parse_type2(R,Info,Opts,T#type{name=N,base={comp,N,[{int,"X"},{int,"Y"},
 							{int,"W"},{int,"H"}]}});
 parse_type2([N="wxColour"|R],Info,Opts,T) -> 
     parse_type2(R,Info,Opts,T#type{name=N,
 				   base={comp,N,[{int,"R"},{int,"G"},{int,"B"},{int,"A"}]}});
-parse_type2([N="wxColor"|R],Info,Opts,T) -> 
-    parse_type2(R,Info,Opts,T#type{name="wxColour",
+parse_type2(["wxColor"|R],Info,Opts,T) ->
+    N = "wxColour",
+    parse_type2(R,Info,Opts,T#type{name=N,
 				   base={comp,N,[{int,"R"},{int,"G"},{int,"B"},{int,"A"}]}});
 
 parse_type2([N="wxPoint2DDouble"|R],Info,Opts,T) -> 

@@ -295,7 +295,7 @@
 	veto_flag :: boolean(),
 	canveto_flag :: boolean(),
 	dc :: wxDC:wxDC()}).
--type wxAuiManagerEventType() :: aui_pane_button | aui_pane_close | aui_pane_maximize | aui_pane_restore | aui_render | aui_find_manager.
+-type wxAuiManagerEventType() :: aui_pane_button | aui_pane_close | aui_pane_maximize | aui_pane_restore | aui_pane_activated | aui_render | aui_find_manager.
 -type wxAuiManager() :: #wxAuiManager{}. %% Callback event: {@link wxAuiManagerEvent}
 
 -record(wxInitDialog, {type :: wxInitDialogEventType()}). %% Callback event: {@link wxInitDialogEvent}
