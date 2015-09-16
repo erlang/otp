@@ -3149,7 +3149,7 @@ cpool_fetch(Allctr_t *allctr, UWord size)
 	cpool_entrance = sentinel;
 	cpdp = cpool_aint2cpd(cpool_read(&cpool_entrance->prev));
 	if (cpdp == sentinel)
-	    return NULL;
+	    goto check_dc_list;
     }
 
     has_passed_sentinel = 0;
@@ -3160,18 +3160,18 @@ cpool_fetch(Allctr_t *allctr, UWord size)
 	    if (cpool_entrance == sentinel) {
 		cpdp = cpool_aint2cpd(cpool_read(&cpdp->prev));
 		if (cpdp == sentinel)
-		    return NULL;
+		    break;
 	    }
 	    i = 0; /* Last one to inspect */
 	}
 	else if (cpdp == sentinel) {
 	    if (has_passed_sentinel) {
 		/* We been here before. cpool_entrance must have been removed */
-		return NULL;
+		break;
 	    }
 	    cpdp = cpool_aint2cpd(cpool_read(&cpdp->prev));
 	    if (cpdp == sentinel)
-		return NULL;
+                break;
 	    has_passed_sentinel = 1;
 	}
 	crr = (Carrier_t *)(((char *)cpdp) - offsetof(Carrier_t, cpool));
@@ -3195,10 +3195,12 @@ cpool_fetch(Allctr_t *allctr, UWord size)
 	    return NULL;
     }
 
+check_dc_list:
     /* Last; check our own pending dealloc carrier list... */
     crr = allctr->cpool.dc_list.last;
     while (crr) {
 	if (erts_atomic_read_nob(&crr->cpool.max_size) >= size) {
+	    Block_t* blk;
 	    unlink_carrier(&allctr->cpool.dc_list, crr);
 #ifdef ERTS_ALC_CPOOL_DEBUG
 	    ERTS_ALC_CPOOL_ASSERT(erts_smp_atomic_xchg_nob(&crr->allctr,
@@ -3207,6 +3209,9 @@ cpool_fetch(Allctr_t *allctr, UWord size)
 #else
 	    erts_smp_atomic_set_nob(&crr->allctr, ((erts_aint_t) allctr));
 #endif
+	    blk = MBC_TO_FIRST_BLK(allctr, crr);
+	    ASSERT(FBLK_TO_MBC(blk) == crr);
+	    allctr->link_free_block(allctr, blk);
 	    return crr;
 	}
 	crr = crr->prev;
@@ -3279,7 +3284,6 @@ schedule_dealloc_carrier(Allctr_t *allctr, Carrier_t *crr)
     orig_allctr = crr->cpool.orig_allctr;
 
     if (allctr != orig_allctr) {
-	Block_t *blk = MBC_TO_FIRST_BLK(allctr, crr);
 	int cinit = orig_allctr->dd.ix - allctr->dd.ix;
 
 	/*
@@ -3296,6 +3300,7 @@ schedule_dealloc_carrier(Allctr_t *allctr, Carrier_t *crr)
 	 * since the block is an mbc block that is free and last
 	 * in the carrier.
 	 */
+	blk = MBC_TO_FIRST_BLK(allctr, crr);
 	ERTS_ALC_CPOOL_ASSERT(IS_FREE_LAST_MBC_BLK(blk));
 
 	ERTS_ALC_CPOOL_ASSERT(IS_MBC_FIRST_ABLK(allctr, blk));
@@ -3319,7 +3324,9 @@ schedule_dealloc_carrier(Allctr_t *allctr, Carrier_t *crr)
 	return;
     }
 
-    max_size = (erts_aint_t) allctr->largest_fblk_in_mbc(allctr, crr);
+    blk = MBC_TO_FIRST_BLK(allctr, crr);
+    ASSERT(IS_FREE_LAST_MBC_BLK(blk));
+    max_size = (erts_aint_t) MBC_FBLK_SZ(blk);
     erts_atomic_set_nob(&crr->cpool.max_size, max_size);
 
     crr->next = NULL;
