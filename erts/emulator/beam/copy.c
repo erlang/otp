@@ -279,7 +279,7 @@ Eterm copy_struct(Eterm obj, Uint sz, Eterm** hpp, ErlOffHeap* off_heap)
 	    break;
 	case TAG_PRIMARY_LIST:
 	    objp = list_val(obj);
-	    if (in_area(objp,hstart,hsize)) {
+	    if (ErtsInArea(objp,hstart,hsize)) {
 		hp++;
 		break;
 	    }
@@ -318,7 +318,7 @@ Eterm copy_struct(Eterm obj, Uint sz, Eterm** hpp, ErlOffHeap* off_heap)
 	    }
 	    
 	case TAG_PRIMARY_BOXED:
-	    if (in_area(boxed_val(obj),hstart,hsize)) {
+	    if (ErtsInArea(boxed_val(obj),hstart,hsize)) {
 		hp++;
 		break;
 	    }

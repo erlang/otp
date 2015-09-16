@@ -902,7 +902,7 @@ static ErlHeapFragment* new_literal_fragment(Uint size)
     ErlHeapFragment* bp;
     bp = (ErlHeapFragment*) ERTS_HEAP_ALLOC(ERTS_ALC_T_PREPARED_CODE,
 					    ERTS_HEAP_FRAG_SIZE(size));
-    ERTS_INIT_HEAP_FRAG(bp, size);
+    ERTS_INIT_HEAP_FRAG(bp, size, size);
     return bp;
 }
 
@@ -1528,8 +1528,8 @@ read_literal_table(LoaderState* stp)
 	}
 
         if (heap_size > 0) {
-            erts_factory_message_init(&factory, NULL, NULL,
-                                      new_literal_fragment(heap_size));
+            erts_factory_heap_frag_init(&factory,
+					new_literal_fragment(heap_size));
 	    factory.alloc_type = ERTS_ALC_T_PREPARED_CODE;
             val = erts_decode_ext(&factory, &p);
 

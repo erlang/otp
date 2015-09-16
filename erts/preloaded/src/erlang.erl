@@ -2044,6 +2044,9 @@ open_port(_PortName,_PortSettings) ->
                   (min_bin_vheap_size, MinBinVHeapSize) -> OldMinBinVHeapSize when
       MinBinVHeapSize :: non_neg_integer(),
       OldMinBinVHeapSize :: non_neg_integer();
+                  (off_heap_message_queue, OHMQ) -> OldOHMQ when
+      OHMQ :: boolean(),
+      OldOHMQ :: boolean();
                   (priority, Level) -> OldLevel when
       Level :: priority_level(),
       OldLevel :: priority_level();
@@ -2082,6 +2085,7 @@ process_flag(_Flag, _Value) ->
       min_bin_vheap_size |
       monitored_by |
       monitors |
+      off_heap_message_queue |
       priority |
       reductions |
       registered_name |
@@ -2123,6 +2127,7 @@ process_flag(_Flag, _Value) ->
       {monitors,
        Monitors :: [{process, Pid :: pid() |
                                      {RegName :: atom(), Node :: node()}}]} |
+      {off_heap_message_queue, OHMQ :: boolean()} |
       {priority, Level :: priority_level()} |
       {reductions, Number :: non_neg_integer()} |
       {registered_name, Atom :: atom()} |
@@ -2425,6 +2430,7 @@ tuple_to_list(_Tuple) ->
          (multi_scheduling) -> disabled | blocked | enabled;
          (multi_scheduling_blockers) -> [PID :: pid()];
          (nif_version) -> string();
+         (off_heap_message_queue) -> boolean();
          (otp_release) -> string();
          (os_monotonic_time_source) -> [{atom(),term()}];
          (os_system_time_source) -> [{atom(),term()}];
@@ -2552,14 +2558,19 @@ spawn_monitor(M, F, A) when erlang:is_atom(M),
 spawn_monitor(M, F, A) ->
     erlang:error(badarg, [M,F,A]).
 
+
+-type spawn_opt_option() ::
+	link
+      | monitor
+      | {priority, Level :: priority_level()}
+      | {fullsweep_after, Number :: non_neg_integer()}
+      | {min_heap_size, Size :: non_neg_integer()}
+      | {min_bin_vheap_size, VSize :: non_neg_integer()}
+      | {off_heap_message_queue, OHMQ :: boolean()}.
+
 -spec spawn_opt(Fun, Options) -> pid() | {pid(), reference()} when
       Fun :: function(),
-      Options :: [Option],
-      Option :: link | monitor
-              | {priority, Level :: priority_level()}
-              | {fullsweep_after, Number :: non_neg_integer()}
-              | {min_heap_size, Size :: non_neg_integer()}
-              | {min_bin_vheap_size, VSize :: non_neg_integer()}.
+      Options :: [spawn_opt_option()].
 spawn_opt(F, O) when erlang:is_function(F) ->
     spawn_opt(erlang, apply, [F, []], O);
 spawn_opt({M,F}=MF, O) when erlang:is_atom(M), erlang:is_atom(F) ->
@@ -2572,12 +2583,7 @@ spawn_opt(F, O) ->
 -spec spawn_opt(Node, Fun, Options) -> pid() | {pid(), reference()} when
       Node :: node(),
       Fun :: function(),
-      Options :: [Option],
-      Option :: link | monitor
-              | {priority, Level :: priority_level()}
-              | {fullsweep_after, Number :: non_neg_integer()}
-              | {min_heap_size, Size :: non_neg_integer()}
-              | {min_bin_vheap_size, VSize :: non_neg_integer()}.
+      Options :: [spawn_opt_option()].
 spawn_opt(N, F, O) when N =:= erlang:node() ->
     spawn_opt(F, O);
 spawn_opt(N, F, O) when erlang:is_function(F) ->
@@ -2664,12 +2670,7 @@ spawn_link(N,M,F,A) ->
       Module :: module(),
       Function :: atom(),
       Args :: [term()],
-      Options :: [Option],
-      Option :: link | monitor
-              | {priority, Level :: priority_level()}
-              | {fullsweep_after, Number :: non_neg_integer()}
-              | {min_heap_size, Size :: non_neg_integer()}
-              | {min_bin_vheap_size, VSize :: non_neg_integer()}.
+      Options :: [spawn_opt_option()].
 spawn_opt(M, F, A, Opts) ->
     case catch erlang:spawn_opt({M,F,A,Opts}) of
 	{'EXIT',{Reason,_}} ->
@@ -2684,12 +2685,7 @@ spawn_opt(M, F, A, Opts) ->
       Module :: module(),
       Function :: atom(),
       Args :: [term()],
-      Options :: [Option],
-      Option :: link | monitor
-              | {priority, Level :: priority_level()}
-              | {fullsweep_after, Number :: non_neg_integer()}
-              | {min_heap_size, Size :: non_neg_integer()}
-              | {min_bin_vheap_size, VSize :: non_neg_integer()}.
+      Options :: [spawn_opt_option()].
 spawn_opt(N, M, F, A, O) when N =:= erlang:node(),
 			      erlang:is_atom(M), erlang:is_atom(F),
                               erlang:is_list(A), erlang:is_list(O) ->

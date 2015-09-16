@@ -4058,8 +4058,46 @@ os_prompt% </pre>
           process.</p>
         <p>Returns the old value of the flag.</p>      </desc>
     </func>
+    <marker id="process_flag_off_heap_message_queue"/>
     <func>
       <name name="process_flag" arity="2" clause_i="5"/>
+      <fsummary>Set process flag <c>off_heap_message_queue</c> for the calling process</fsummary>
+      <desc>
+	<p>This flag determines how messages in the message queue
+	are stored. When the flag is:</p>
+        <taglist>
+          <tag><c>true</c></tag>
+	  <item><p>
+	    <em>All</em> messages in the message queue will be stored
+	    outside of the process heap. This implies that <em>no</em>
+	    messages in the message queue will be part of a garbage
+	    collection of the process.
+	  </p></item>
+          <tag><c>false</c></tag>
+	  <item><p>
+	    Messages may be placed either on the heap or outside
+	    of the heap.
+	  </p></item>
+        </taglist>
+	<p>
+	  If the process potentially may get a hugh amount of messages,
+	  you are recommended to set the flag to <c>true</c>. This since
+	  a garbage collection with lots of messages placed on the heap
+	  may become extremly expensive. Performance of the actual
+	  message passing is however generally better when setting the
+	  flag to <c>false</c>.
+	</p>
+	<p>
+	  When changing this flag from <c>false</c> to <c>true</c>,
+	  all messages in the message queue are moved off heap. This
+	  work has been initiated but not completed when this function
+	  call returns.
+	</p>
+        <p>Returns the old value of the flag.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="process_flag" arity="2" clause_i="6"/>
       <type name="priority_level"/>
       <fsummary>Set process flag priority for the calling process</fsummary>
       <desc>
@@ -4138,7 +4176,7 @@ os_prompt% </pre>
       </desc>
     </func>
     <func>
-      <name name="process_flag" arity="2" clause_i="6"/>
+      <name name="process_flag" arity="2" clause_i="7"/>
       <fsummary>Set process flag save_calls for the calling process</fsummary>
       <desc>
         <p><c><anno>N</anno></c> must be an integer in the interval 0..10000.
@@ -4162,7 +4200,7 @@ os_prompt% </pre>
       </desc>
     </func>
     <func>
-      <name name="process_flag" arity="2" clause_i="7"/>
+      <name name="process_flag" arity="2" clause_i="8"/>
       <fsummary>Set process flag sensitive for the calling process</fsummary>
       <desc>
         <p>Set or clear the <c>sensitive</c> flag for the current process.
@@ -4407,6 +4445,14 @@ os_prompt% </pre>
               is <c>{process, <anno>Pid</anno>}</c>, and for a remote process
               monitor by name, the list item is
               <c>{process, {<anno>RegName</anno>, <anno>Node</anno>}}</c>.</p>
+          </item>
+          <tag><c>{off_heap_message_queue, <anno>OHMQ</anno>}</c></tag>
+          <item>
+            <p>Returns the current state of the <c>off_heap_message_queue</c>
+	    process flag. <c><anno>OHMQ</anno></c> is either <c>true</c>, or
+	    <c>false</c>. For more information, see the documentation of
+            <seealso marker="#process_flag_off_heap_message_queue"><c>process_flag(off_heap_message_queue,
+	    OHMQ)</c></seealso>.</p>
           </item>
           <tag><c>{priority, Level}</c></tag>
           <item>
@@ -5067,6 +5113,7 @@ true</pre>
     <func>
       <name name="spawn_opt" arity="2"/>
       <type name="priority_level" />
+      <type name="spawn_opt_option" />
       <fsummary>Create a new process with a fun as entry point</fsummary>
       <desc>
         <p>Returns the pid of a new process started by the application
@@ -5081,6 +5128,7 @@ true</pre>
     <func>
       <name name="spawn_opt" arity="3"/>
       <type name="priority_level" />
+      <type name="spawn_opt_option" />
       <fsummary>Create a new process with a fun as entry point on a given node</fsummary>
       <desc>
         <p>Returns the pid of a new process started by the application
@@ -5093,6 +5141,7 @@ true</pre>
     <func>
       <name name="spawn_opt" arity="4"/>
       <type name="priority_level" />
+      <type name="spawn_opt_option" />
       <fsummary>Create a new process with a function as entry point</fsummary>
       <desc>
         <p>Works exactly like
@@ -5188,6 +5237,18 @@ true</pre>
               fine-tuning an application and to measure the execution
               time with various <c><anno>VSize</anno></c> values.</p>
           </item>
+          <tag><c>{off_heap_message_queue, <anno>OHMQ</anno>}</c></tag>
+          <item>
+            <p>Sets the state of the <c>off_heap_message_queue</c> process
+	    flag. <c><anno>OHMQ</anno></c> should be either <c>true</c>, or
+	    <c>false</c>. The default <c>off_heap_message_queue</c> process
+	    flag is determined by the
+	    <seealso marker="erl#+xohmq"><c>+xohmq</c></seealso> <c>erl</c>
+	    command line argument. For more information, see the
+	    documentation of
+            <seealso marker="#process_flag_off_heap_message_queue"><c>process_flag(off_heap_message_queue,
+	    <anno>OHMQ</anno>)</c></seealso>.</p>
+          </item>
 
         </taglist>
       </desc>
@@ -5195,6 +5256,7 @@ true</pre>
     <func>
       <name name="spawn_opt" arity="5"/>
       <type name="priority_level" />
+      <type name="spawn_opt_option" />
       <fsummary>Create a new process with a function as entry point on a given node</fsummary>
       <desc>
         <p>Returns the pid of a new process started by the application
@@ -6224,6 +6286,7 @@ ok
       <name name="system_info" arity="1" clause_i="65"/>
       <name name="system_info" arity="1" clause_i="66"/>
       <name name="system_info" arity="1" clause_i="67"/>
+      <name name="system_info" arity="1" clause_i="68"/>
       <fsummary>Information about the system</fsummary>
       <desc>
         <p>Returns various information about the current system
@@ -6613,6 +6676,16 @@ ok
           <item>
             <p>Returns a string containing the erlang NIF version
               used by the runtime system. It will be on the form "&lt;major ver&gt;.&lt;minor ver&gt;".</p>
+          </item>
+          <tag><marker id="system_info_off_heap_message_queue"><c>off_heap_message_queue</c></marker></tag>
+          <item>
+            <p>Returns the default value of the <c>off_heap_message_queue</c>
+	    process flag which is either <c>true</c> or <c>false</c>. This
+	    default is set by the <c>erl</c> command line argument
+	    <seealso marker="erl#+xohmq"><c>+xohmq</c></seealso>. For more information on the
+	    <c>off_heap_message_queue</c> process flag, see documentation of
+            <seealso marker="#process_flag_off_heap_message_queue"><c>process_flag(off_heap_message_queue,
+	    OHMQ)</c></seealso>.</p>
           </item>
           <tag><marker id="system_info_otp_release"><c>otp_release</c></marker></tag>
           <item>

@@ -854,9 +854,6 @@ ERTS_GLB_INLINE void erts_proc_dec_refc(Process *p)
 #endif
     if (!referred) {
 	ASSERT(ERTS_PROC_IS_EXITING(p));
-	ASSERT(ERTS_AINT_NULL
-	       == erts_ptab_pix2intptr_ddrb(&erts_proc,
-					    internal_pid_index(p->common.id)));
 	erts_free_proc(p);
     }
 }
@@ -872,9 +869,6 @@ ERTS_GLB_INLINE void erts_proc_add_refc(Process *p, Sint add_refc)
 #endif
     if (!referred) {
 	ASSERT(ERTS_PROC_IS_EXITING(p));
-	ASSERT(ERTS_AINT_NULL
-	       == erts_ptab_pix2intptr_ddrb(&erts_proc,
-					    internal_pid_index(p->common.id)));
 	erts_free_proc(p);
     }
 }

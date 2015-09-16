@@ -110,7 +110,6 @@ Eterm*
 erts_heap_alloc(Process* p, Uint need, Uint xtra)
 {
     ErlHeapFragment* bp;
-    Eterm* htop;
     Uint n;
 #if defined(DEBUG) || defined(CHECK_FOR_HOLES)
     Uint i;
@@ -155,16 +154,6 @@ erts_heap_alloc(Process* p, Uint need, Uint xtra)
 #ifdef DEBUG
     n--;
 #endif
-
-    /*
-     * When we have created a heap fragment, we are no longer allowed
-     * to store anything more on the heap. 
-     */
-    htop = HEAP_TOP(p);
-    if (htop < HEAP_LIMIT(p)) {
-	*htop = make_pos_bignum_header(HEAP_LIMIT(p)-htop-1);
-	HEAP_TOP(p) = HEAP_LIMIT(p);
-    }
 
     bp->next = MBUF(p);
     MBUF(p) = bp;
@@ -2285,7 +2274,11 @@ static void do_send_logger_message(Eterm *hp, ErlOffHeap *ohp, ErlHeapFragment *
 	erts_queue_error_logger_message(from, message, bp);
     }
 #else
-    erts_queue_message(p, NULL /* only used for smp build */, bp, message, NIL);
+    {
+	ErtsMessage *mp = erts_alloc_message(0, NULL);
+	mp->data.heap_frag = bp;
+	erts_queue_message(p, NULL /* only used for smp build */, mp, message, NIL);
+    }
 #endif
 }
 

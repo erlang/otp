@@ -1401,56 +1401,50 @@ setup_reference_table(void)
     for (i = 0; i < max; i++) {
 	Process *proc = erts_pix2proc(i);
 	if (proc) {
-	    ErlMessage *msg;
+	    int mli;
+	    ErtsMessage *msg_list[] = {
+		proc->msg.first,
+#ifdef ERTS_SMP
+		proc->msg_inq.first,
+#endif
+		proc->msg_frag};
 
 	    /* Insert Heap */
 	    insert_offheap(&(proc->off_heap),
 			   HEAP_REF,
 			   proc->common.id);
-	    /* Insert message buffers */
+	    /* Insert heap fragments buffers */
 	    for(hfp = proc->mbuf; hfp; hfp = hfp->next)
 		insert_offheap(&(hfp->off_heap),
 			       HEAP_REF,
 			       proc->common.id);
-	    /* Insert msg msg buffers */
-	    for (msg = proc->msg.first; msg; msg = msg->next) {
-		ErlHeapFragment *heap_frag = NULL;
-		if (msg->data.attached) {
-		    if (is_value(ERL_MESSAGE_TERM(msg)))
-			heap_frag = msg->data.heap_frag;
-		    else {
-			if (msg->data.dist_ext->dep)
-			    insert_dist_entry(msg->data.dist_ext->dep,
-					      HEAP_REF, proc->common.id, 0);
-			if (is_not_nil(ERL_MESSAGE_TOKEN(msg)))
-			    heap_frag = erts_dist_ext_trailer(msg->data.dist_ext);
+
+	    /* Insert msg buffers */
+	    for (mli = 0; mli < sizeof(msg_list)/sizeof(msg_list[0]); mli++) {
+		ErtsMessage *msg;
+		for (msg = msg_list[mli]; msg; msg = msg->next) {
+		    ErlHeapFragment *heap_frag = NULL;
+		    if (msg->data.attached) {
+			if (msg->data.attached == ERTS_MSG_COMBINED_HFRAG)
+			    heap_frag = &msg->hfrag;
+			else if (is_value(ERL_MESSAGE_TERM(msg)))
+			    heap_frag = msg->data.heap_frag;
+			else {
+			    if (msg->data.dist_ext->dep)
+				insert_dist_entry(msg->data.dist_ext->dep,
+						  HEAP_REF, proc->common.id, 0);
+			    if (is_not_nil(ERL_MESSAGE_TOKEN(msg)))
+				heap_frag = erts_dist_ext_trailer(msg->data.dist_ext);
+			}
+		    }
+		    while (heap_frag) {
+			insert_offheap(&(heap_frag->off_heap),
+				       HEAP_REF,
+				       proc->common.id);
+			heap_frag = heap_frag->next;
 		    }
 		}
-		if (heap_frag)
-		    insert_offheap(&(heap_frag->off_heap),
-				   HEAP_REF,
-				   proc->common.id);
 	    }
-#ifdef ERTS_SMP
-	    for (msg = proc->msg_inq.first; msg; msg = msg->next) {
-		ErlHeapFragment *heap_frag = NULL;
-		if (msg->data.attached) {
-		    if (is_value(ERL_MESSAGE_TERM(msg)))
-			heap_frag = msg->data.heap_frag;
-		    else {
-			if (msg->data.dist_ext->dep)
-			    insert_dist_entry(msg->data.dist_ext->dep,
-					      HEAP_REF, proc->common.id, 0);
-			if (is_not_nil(ERL_MESSAGE_TOKEN(msg)))
-			    heap_frag = erts_dist_ext_trailer(msg->data.dist_ext);
-		    }
-		}
-		if (heap_frag)
-		    insert_offheap(&(heap_frag->off_heap),
-				   HEAP_REF,
-				   proc->common.id);
-	    }
-#endif
 	    /* Insert links */
 	    if (ERTS_P_LINKS(proc))
 		insert_links(ERTS_P_LINKS(proc), proc->common.id);

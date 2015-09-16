@@ -314,6 +314,7 @@ int enif_send(ErlNifEnv* env, const ErlNifPid* to_pid,
     ErtsProcLocks rp_locks = 0;
     Process* rp;
     Process* c_p;
+    ErtsMessage *mp;
     ErlHeapFragment* frags;
     Eterm receiver = to_pid->pid;
     int flush_me = 0;
@@ -347,7 +348,7 @@ int enif_send(ErlNifEnv* env, const ErlNifPid* to_pid,
     ASSERT(frags == MBUF(&menv->phony_proc));
     if (frags != NULL) {
 	/* Move all offheap's from phony proc to the first fragment.
-	   Quick and dirty, but erts_move_msg_mbuf_to_heap doesn't care. */
+	   Quick and dirty... */
 	ASSERT(!is_offheap(&frags->off_heap));
 	frags->off_heap = MSO(&menv->phony_proc);
 	clear_offheap(&MSO(&menv->phony_proc));
@@ -359,7 +360,9 @@ int enif_send(ErlNifEnv* env, const ErlNifPid* to_pid,
     if (flush_me) {	
 	flush_env(env); /* Needed for ERTS_HOLE_CHECK */ 
     }
-    erts_queue_message(rp, &rp_locks, frags, msg, am_undefined);
+    mp = erts_alloc_message(0, NULL);
+    mp->data.heap_frag = frags;
+    erts_queue_message(rp, &rp_locks, mp, msg, am_undefined);
     if (c_p == rp)
 	rp_locks &= ~ERTS_PROC_LOCK_MAIN;
     if (rp_locks)

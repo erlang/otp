@@ -70,8 +70,10 @@
 #endif
 
 #if ERTS_CAN_INLINE
+#define ERTS_GLB_FORCE_INLINE static ERTS_FORCE_INLINE
 #define ERTS_GLB_INLINE static ERTS_INLINE
 #else
+#define ERTS_GLB_FORCE_INLINE
 #define ERTS_GLB_INLINE
 #endif
 

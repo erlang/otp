@@ -44,9 +44,11 @@
 #if ERTS_CAN_INLINE && ERTS_ALC_WANT_INLINE
 #  define ERTS_ALC_DO_INLINE 1
 #  define ERTS_ALC_INLINE static ERTS_INLINE
+#  define ERTS_ALC_FORCE_INLINE static ERTS_FORCE_INLINE
 #else
 #  define ERTS_ALC_DO_INLINE 0
 #  define ERTS_ALC_INLINE
+#  define ERTS_ALC_FORCE_INLINE
 #endif
 
 #define ERTS_ALC_NO_FIXED_SIZES \
@@ -293,7 +295,7 @@ int erts_is_allctr_wrapper_prelocked(void)
 
 #ifdef ERTS_HAVE_IS_IN_LITERAL_RANGE
 
-ERTS_ALC_INLINE
+ERTS_ALC_FORCE_INLINE
 int erts_is_in_literal_range(void* ptr)
 {
 #if defined(ARCH_32)

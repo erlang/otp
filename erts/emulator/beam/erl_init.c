@@ -431,7 +431,7 @@ erl_first_process_otp(char* modname, void* code, unsigned size, int argc, char**
     hp += 2;
     args = CONS(hp, env, args);
 
-    so.flags = SPO_SYSTEM_PROC;
+    so.flags = erts_default_spo_flags|SPO_SYSTEM_PROC;
     res = erl_create_process(&parent, start_mod, am_start, args, &so);
     erts_smp_proc_unlock(&parent, ERTS_PROC_LOCK_MAIN);
     erts_cleanup_empty_process(&parent);
@@ -630,6 +630,7 @@ void erts_usage(void)
 
     erts_fprintf(stderr, "-W<i|w|e>      set error logger warnings mapping,\n");
     erts_fprintf(stderr, "               see error_logger documentation for details\n");
+    erts_fprintf(stderr, "-xohmq  bool   set default off_heap_message_queue flag for processes\n");
     erts_fprintf(stderr, "-zdbbl size    set the distribution buffer busy limit in kilobytes\n");
     erts_fprintf(stderr, "               valid range is [1-%d]\n", INT_MAX/1024);
     erts_fprintf(stderr, "-zdntgc time   set delayed node table gc in seconds\n");
@@ -2015,6 +2016,26 @@ erl_start(int argc, char **argv)
 	    }
 	    break;
 
+	case 'x': {
+	    char *sub_param = argv[i]+2;
+	    if (has_prefix("ohmq", sub_param)) {
+		arg = get_arg(sub_param+4, argv[i+1], &i);
+		if (sys_strcmp(arg, "true") == 0)
+		    erts_default_spo_flags |= SPO_OFF_HEAP_MSGQ;
+		else if (sys_strcmp(arg, "false") == 0)
+		    erts_default_spo_flags &= ~SPO_OFF_HEAP_MSGQ;
+		else {
+		    erts_fprintf(stderr,
+				 "Invalid off_heap_message_queue flag: %s\n", arg);
+		    erts_usage();
+		}
+	    } else {
+		erts_fprintf(stderr, "bad -x option %s\n", argv[i]);
+		erts_usage();
+	    }
+	    break;
+        }
+
 	case 'z': {
 	    char *sub_param = argv[i]+2;
 
@@ -2068,7 +2089,8 @@ erl_start(int argc, char **argv)
 				 "Invalid ets busy wait threshold: %s\n", arg);
 		    erts_usage();
 		}
-	    } else {
+	    }
+	    else {
 		erts_fprintf(stderr, "bad -z option %s\n", argv[i]);
 		erts_usage();
 	    }
