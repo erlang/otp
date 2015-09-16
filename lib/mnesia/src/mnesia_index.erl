@@ -70,17 +70,24 @@ add_index(Index, Tab, Key, Obj, Old) ->
 add_index2([{Pos, Ixt} |Tail], bag, Tab, K, Obj, OldRecs) ->
     db_put(Ixt, {element(Pos, Obj), K}),
     add_index2(Tail, bag, Tab, K, Obj, OldRecs);
-add_index2([{Pos, Ixt} |Tail], Type, Tab, K, Obj, OldRecs) ->
+add_index2([{Pos, Ixt} |Tail], Type, Tab, K, Obj, OldRecs0) ->
     %% Remove old tuples in index if Tab is updated
-    case OldRecs of 
-	undefined -> 
-	    Old = mnesia_lib:db_get(Tab, K),
-	    del_ixes(Ixt, Old, Pos, K);
-	Old -> 
-	    del_ixes(Ixt, Old, Pos, K)
-    end,
-    db_put(Ixt, {element(Pos, Obj), K}),
-    add_index2(Tail, Type, Tab, K, Obj, OldRecs);
+    OldRecs1 = case OldRecs0 of
+		   undefined -> mnesia_lib:db_get(Tab, K);
+		   _ -> OldRecs0
+	       end,
+    IdxVal = element(Pos, Obj),
+    case [Old || Old <- OldRecs1, element(Pos, Old) =/= IdxVal] of
+	[] when OldRecs1 =:= [] ->  %% Write
+	    db_put(Ixt, {element(Pos, Obj), K}),
+	    add_index2(Tail, Type, Tab, K, Obj, OldRecs0);
+	[] -> %% when OldRecs1 =/= [] Update without modifying index field
+	    add_index2(Tail, Type, Tab, K, Obj, OldRecs0);
+	OldRecs -> %% Update
+	    db_put(Ixt, {element(Pos, Obj), K}),
+	    del_ixes(Ixt, OldRecs, Pos, K),
+	    add_index2(Tail, Type, Tab, K, Obj, OldRecs0)
+    end;
 add_index2([], _, _Tab, _K, _Obj, _) -> ok.
 
 delete_index(Index, Tab, K) ->
