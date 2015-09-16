@@ -766,6 +766,21 @@ fun(srp, Username :: string(), UserState :: term()) ->
     </func>
 
     <func>
+      <name>close(SslSocket, How) -> ok | {ok, port()} | {error, Reason}</name>
+      <fsummary>Closes an SSL connection.</fsummary>
+      <type>
+	  <v>SslSocket = sslsocket()</v>
+	  <v>How =  timeout() | {NewController::pid(), timeout()} </v>
+	  <v>Reason = term()</v>
+      </type>
+      <desc><p>Closes or downgrades an SSL connection, in the later case the transport
+      connection will be handed over to the <c>NewController</c> process after reciving
+      the TLS close alert from the peer. The retuned transport socket will have
+      the following options set [{active, false}, {packet, 0}, {mode, binary}].</p>
+      </desc>
+    </func>
+
+    <func>
 	<name>connection_info(SslSocket) ->
 	  {ok, {ProtocolVersion, CipherSuite}} | {error, Reason}</name>
       <fsummary>Returns the Negotiated Protocol version and cipher suite.
