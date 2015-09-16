@@ -42,10 +42,75 @@
 #include "dtrace-wrapper.h"
 #include "erl_bif_unique.h"
 
+#define ERTS_CONTINUOUS_NEW_HEAP
+
 #define ERTS_INACT_WR_PB_LEAVE_MUCH_LIMIT 1
 #define ERTS_INACT_WR_PB_LEAVE_MUCH_PERCENTAGE 20
 #define ERTS_INACT_WR_PB_LEAVE_LIMIT 10
 #define ERTS_INACT_WR_PB_LEAVE_PERCENTAGE 10
+
+#if defined(DEBUG) || 0
+#define ERTS_GC_DEBUG
+#else
+#undef ERTS_GC_DEBUG
+#endif
+#ifdef ERTS_GC_DEBUG
+#  define ERTS_GC_ASSERT ASSERT
+#else
+#  define ERTS_GC_ASSERT(B) ((void) 1)
+#endif
+
+#ifdef ERTS_CONTINUOUS_NEW_HEAP
+#define ERTS_IS_NEW_HEAP_PTR__(TPtr, Ptr, NhPtr, NhSz, OhPtr, OhSz)	\
+    ErtsInArea((Ptr), (NhPtr), (NhSz))
+#define ERTS_IS_LITERAL_PTR__(TPtr, Ptr, NhPtr, NhSz, OhPtr, OhSz)	\
+    (!ErtsInArea((Ptr), (NhPtr), (NhSz))				\
+     && !ErtsInArea((Ptr), (OhPtr), (OhSz)))
+
+#ifdef ERTS_GC_DEBUG
+#define ERTS_IS_NEW_HEAP_PTR(TPtr, Ptr, NhPtr, NhSz, OhPtr, OhSz)	\
+    (ERTS_IS_NEW_HEAP_PTR__((TPtr), (Ptr), (NhPtr), (NhSz), (OhPtr), (OhSz)) \
+     ? (ERTS_GC_ASSERT(!erts_is_literal((TPtr), (Ptr))			\
+		       && !ErtsInArea((Ptr), (OhPtr), (OhSz))), 1)	\
+     : (ERTS_GC_ASSERT(erts_is_literal((TPtr), (Ptr))			\
+		       || ErtsInArea((Ptr), (OhPtr), (OhSz))), 0))
+#define ERTS_IS_LITERAL_PTR(TPtr, Ptr, NhPtr, NhSz, OhPtr, OhSz)	\
+    (ERTS_IS_LITERAL_PTR__((TPtr), (Ptr), (NhPtr), (NhSz), (OhPtr), (OhSz)) \
+     ? (ERTS_GC_ASSERT(erts_is_literal((TPtr), (Ptr))), 1)		\
+     : (ERTS_GC_ASSERT(!erts_is_literal((TPtr), (Ptr))), 0))
+#endif
+
+#else
+
+#define ERTS_IS_NEW_HEAP_PTR__(TPtr, Ptr, NhPtr, NhSz, OhPtr, OhSz)	\
+    (!erts_is_literal((TPtr), (Ptr)) && !ErtsInArea((Ptr), (OhPtr), (OhSz)))
+#define ERTS_IS_LITERAL_PTR__(TPtr, Ptr, NhPtr, NhSz, OhPtr, OhSz)	\
+    (erts_is_literal((TPtr), (Ptr)))
+
+#ifdef ERTS_GC_DEBUG
+#define ERTS_IS_NEW_HEAP_PTR(TPtr, Ptr, NhPtr, NhSz, OhPtr, OhSz)	\
+    (ERTS_IS_NEW_HEAP_PTR__((TPtr), (Ptr), (NhPtr), (NhSz), (OhPtr), (OhSz)) \
+     ? (ERTS_GC_ASSERT(ErtsInArea((Ptr), (NhPtr), (NhSz))), 1)		\
+     : (ERTS_GC_ASSERT(!ErtsInArea((Ptr), (NhPtr), (NhSz))), 0))
+#define ERTS_IS_LITERAL_PTR(TPtr, Ptr, NhPtr, NhSz, OhPtr, OhSz)	\
+    (ERTS_IS_LITERAL_PTR__((TPtr), (Ptr), (NhPtr), (NhSz), (OhPtr), (OhSz)) \
+     ? (ERTS_GC_ASSERT(!ErtsInArea((Ptr), (NhPtr), (NhSz))		\
+		       && !ErtsInArea((Ptr), (OhPtr), (OhSz))), 1)	\
+     : (ERTS_GC_ASSERT(ErtsInArea((Ptr), (NhPtr), (NhSz))		\
+		       || ErtsInArea((Ptr), (OhPtr), (OhSz))), 0))
+#endif
+
+#endif
+
+#ifndef ERTS_IS_NEW_HEAP_PTR
+#define ERTS_IS_NEW_HEAP_PTR(TPtr, Ptr, NhPtr, NhSz, OhPtr, OhSz)	\
+    ERTS_IS_NEW_HEAP_PTR__((TPtr), (Ptr), (NhPtr), (NhSz), (OhPtr), (OhSz))
+#endif
+
+#ifndef ERTS_IS_LITERAL_PTR
+#define ERTS_IS_LITERAL_PTR(TPtr, Ptr, NhPtr, NhSz, OhPtr, OhSz)	\
+    ERTS_IS_LITERAL_PTR__((TPtr), (Ptr), (NhPtr), (NhSz), (OhPtr), (OhSz))
+#endif
 
 /*
  * Returns number of elements in an array.
@@ -100,13 +165,27 @@ static Uint setup_rootset(Process*, Eterm*, int, Rootset*);
 static void cleanup_rootset(Rootset *rootset);
 static Uint combined_message_size(Process* p);
 static void remove_message_buffers(Process* p);
+static Eterm *full_sweep_heaps(Process *p,
+			       int hibernate,
+			       Eterm *n_heap, Eterm* n_htop,
+			       char *h, Uint h_size,
+			       char *oh, Uint oh_size,
+			       Eterm *objv, int nobj);
 static int major_collection(Process* p, int need, Eterm* objv, int nobj, Uint *recl);
 static int minor_collection(Process* p, int need, Eterm* objv, int nobj, Uint *recl);
 static void do_minor(Process *p, Uint new_sz, Eterm* objv, int nobj);
-static Eterm* sweep_rootset(Rootset *rootset, Eterm* htop, char* src, Uint src_size);
-static Eterm* sweep_one_area(Eterm* n_hp, Eterm* n_htop, char* src, Uint src_size);
-static Eterm* sweep_one_heap(Eterm* heap_ptr, Eterm* heap_end, Eterm* htop,
-			     char* src, Uint src_size);
+static Eterm *sweep_new_heap(Eterm *n_hp, Eterm *n_htop,
+			     char* new_heap, Uint new_heap_size,
+			     char* old_heap, Uint old_heap_size);
+static Eterm *sweep_heaps(Eterm *n_hp, Eterm *n_htop,
+			  char* new_heap, Uint new_heap_size,
+			  char* old_heap, Uint old_heap_size);
+static Eterm* sweep_literal_area(Eterm* n_hp, Eterm* n_htop,
+				    char* new_heap, Uint new_heap_size,
+				    char* old_heap, Uint old_heap_size,
+				    char* src, Uint src_size);
+static Eterm* sweep_literals_to_old_heap(Eterm* heap_ptr, Eterm* heap_end, Eterm* htop,
+					 char* src, Uint src_size);
 static Eterm* collect_heap_frags(Process* p, Eterm* heap,
 				 Eterm* htop, Eterm* objv, int nobj);
 static void adjust_after_fullsweep(Process *p, int need, Eterm *objv, int nobj);
@@ -514,9 +593,6 @@ erts_garbage_collect_hibernate(Process* p)
     Uint heap_size;
     Eterm* heap;
     Eterm* htop;
-    Rootset rootset;
-    char* src;
-    Uint src_size;
     Uint actual_size;
     char* area;
     Uint area_size;
@@ -544,41 +620,16 @@ erts_garbage_collect_hibernate(Process* p)
 				    sizeof(Eterm)*heap_size);
     htop = heap;
 
-    (void) setup_rootset(p, p->arg_reg, p->arity, &rootset);
-#if HIPE
-    hipe_empty_nstack(p);
-#endif
-
-    src = (char *) p->heap;
-    src_size = (char *) p->htop - src;
-    htop = sweep_rootset(&rootset, htop, src, src_size);
-    htop = sweep_one_area(heap, htop, src, src_size);
-
-    if (p->old_heap) {
-	src = (char *) p->old_heap;
-	src_size = (char *) p->old_htop - src;
-	htop = sweep_rootset(&rootset, htop, src, src_size);
-	htop = sweep_one_area(heap, htop, src, src_size);
-    }
-
-    cleanup_rootset(&rootset);
-
-    if (MSO(p).first) {
-        sweep_off_heap(p, 1);
-    }
-
-    /*
-     *  Update all pointers.
-     */
-    ERTS_HEAP_FREE(ERTS_ALC_T_HEAP,
-		   (void*)HEAP_START(p),
-		   HEAP_SIZE(p) * sizeof(Eterm));
-    if (p->old_heap) {
-	ERTS_HEAP_FREE(ERTS_ALC_T_OLD_HEAP,
-		       (void*)p->old_heap,
-		       (p->old_hend - p->old_heap) * sizeof(Eterm));
-	p->old_heap = p->old_htop = p->old_hend = 0;
-    }
+    htop = full_sweep_heaps(p,
+			    1,
+			    heap,
+			    htop,
+			    (char *) p->heap,
+			    (char *) p->htop - (char *) p->heap,
+			    (char *) p->old_heap,
+			    (char *) p->old_htop - (char *) p->old_heap,
+			    p->arg_reg,
+			    p->arity);
 
     p->heap = heap;
     p->high_water = htop;
@@ -724,7 +775,7 @@ erts_garbage_collect_literals(Process* p, Eterm* literals,
                 if (IS_MOVED_BOXED(val)) {
 		    ASSERT(is_boxed(val));
                     *g_ptr++ = val;
-		} else if (in_area(ptr, area, area_size)) {
+		} else if (ErtsInArea(ptr, area, area_size)) {
                     MOVE_BOXED(ptr,val,old_htop,g_ptr++);
 		} else {
 		    g_ptr++;
@@ -735,7 +786,7 @@ erts_garbage_collect_literals(Process* p, Eterm* literals,
                 val = *ptr;
                 if (IS_MOVED_CONS(val)) { /* Moved */
                     *g_ptr++ = ptr[1];
-		} else if (in_area(ptr, area, area_size)) {
+		} else if (ErtsInArea(ptr, area, area_size)) {
                     MOVE_CONS(ptr,val,old_htop,g_ptr++);
                 } else {
 		    g_ptr++;
@@ -755,8 +806,11 @@ erts_garbage_collect_literals(Process* p, Eterm* literals,
      * Now we'll have to go through all heaps updating all other references.
      */
 
-    old_htop = sweep_one_heap(p->heap, p->htop, old_htop, area, area_size);
-    old_htop = sweep_one_area(p->old_heap, old_htop, area, area_size);
+    old_htop = sweep_literals_to_old_heap(p->heap, p->htop, old_htop, area, area_size);
+    old_htop = sweep_literal_area(p->old_heap, old_htop,
+				  (char *) p->heap, sizeof(Eterm)*p->heap_sz,
+				  (char *) p->old_heap, sizeof(Eterm)*old_heap_size,
+				  area, area_size);
     ASSERT(p->old_htop <= old_htop && old_htop <= p->old_hend);
     p->old_htop = old_htop;
 
@@ -1034,15 +1088,13 @@ do_minor(Process *p, Uint new_sz, Eterm* objv, int nobj)
                 if (IS_MOVED_BOXED(val)) {
 		    ASSERT(is_boxed(val));
                     *g_ptr++ = val;
-                } else if (in_area(ptr, heap, mature_size)) {
+                } else if (ErtsInArea(ptr, heap, mature_size)) {
                     MOVE_BOXED(ptr,val,old_htop,g_ptr++);
-                } else if (in_area(ptr, heap, heap_size)) {
-		    ASSERT(!erts_is_literal(gval, ptr)
-			   && !in_area(ptr, oh, oh_size));
+                } else if (ERTS_IS_NEW_HEAP_PTR(gval, ptr,
+						heap, heap_size,
+						oh, oh_size)) {
                     MOVE_BOXED(ptr,val,n_htop,g_ptr++);
                 } else {
-		    ASSERT(erts_is_literal(gval, ptr)
-			   || in_area(ptr, oh, oh_size));
 		    g_ptr++;
 		}
                 break;
@@ -1053,15 +1105,13 @@ do_minor(Process *p, Uint new_sz, Eterm* objv, int nobj)
                 val = *ptr;
                 if (IS_MOVED_CONS(val)) { /* Moved */
                     *g_ptr++ = ptr[1];
-                } else if (in_area(ptr, heap, mature_size)) {
+                } else if (ErtsInArea(ptr, heap, mature_size)) {
                     MOVE_CONS(ptr,val,old_htop,g_ptr++);
-                } else if (in_area(ptr, heap, heap_size)) {
-		    ASSERT(!erts_is_literal(gval, ptr)
-			   && !in_area(ptr, oh, oh_size));
+                } else if (ERTS_IS_NEW_HEAP_PTR(gval, ptr,
+						heap, heap_size,
+						oh, oh_size)) {
                     MOVE_CONS(ptr,val,n_htop,g_ptr++);
                 } else {
-		    ASSERT(erts_is_literal(gval, ptr)
-			   || in_area(ptr, oh, oh_size));
 		    g_ptr++;
 		}
 		break;
@@ -1084,7 +1134,8 @@ do_minor(Process *p, Uint new_sz, Eterm* objv, int nobj)
      */
 
     if (mature_size == 0) {
-	n_htop = sweep_one_area(n_heap, n_htop, heap, heap_size);
+	n_htop = sweep_new_heap(n_heap, n_htop, heap, heap_size,
+				oh, oh_size);
     } else {
 	Eterm* n_hp = n_heap;
 	Eterm* ptr;
@@ -1101,15 +1152,13 @@ do_minor(Process *p, Uint new_sz, Eterm* objv, int nobj)
 		if (IS_MOVED_BOXED(val)) {
 		    ASSERT(is_boxed(val));
 		    *n_hp++ = val;
-		} else if (in_area(ptr, heap, mature_size)) {
+		} else if (ErtsInArea(ptr, heap, mature_size)) {
 		    MOVE_BOXED(ptr,val,old_htop,n_hp++);
-		} else if (in_area(ptr, heap, heap_size)) {
-		    ASSERT(!erts_is_literal(gval, ptr)
-			   && !in_area(ptr, oh, oh_size));
+		} else if (ERTS_IS_NEW_HEAP_PTR(gval, ptr,
+						heap, heap_size,
+						oh, oh_size)) {
 		    MOVE_BOXED(ptr,val,n_htop,n_hp++);
 		} else {
-		    ASSERT(erts_is_literal(gval, ptr)
-			   || in_area(ptr, oh, oh_size));
 		    n_hp++;
 		}
 		break;
@@ -1119,15 +1168,13 @@ do_minor(Process *p, Uint new_sz, Eterm* objv, int nobj)
 		val = *ptr;
 		if (IS_MOVED_CONS(val)) {
 		    *n_hp++ = ptr[1];
-		} else if (in_area(ptr, heap, mature_size)) {
+		} else if (ErtsInArea(ptr, heap, mature_size)) {
 		    MOVE_CONS(ptr,val,old_htop,n_hp++);
-		} else if (in_area(ptr, heap, heap_size)) {
-		    ASSERT(!erts_is_literal(gval, ptr)
-			   && !in_area(ptr, oh, oh_size));
+		} else if (ERTS_IS_NEW_HEAP_PTR(gval, ptr,
+						heap, heap_size,
+						oh, oh_size)) {
 		    MOVE_CONS(ptr,val,n_htop,n_hp++);
 		} else {
-		    ASSERT(erts_is_literal(gval, ptr)
-			   || in_area(ptr, oh, oh_size));
 		    n_hp++;
 		}
 		break;
@@ -1145,18 +1192,14 @@ do_minor(Process *p, Uint new_sz, Eterm* objv, int nobj)
 			if (IS_MOVED_BOXED(val)) {
 			    *origptr = val;
 			    mb->base = binary_bytes(val);
-			} else if (in_area(ptr, heap, mature_size)) {
+			} else if (ErtsInArea(ptr, heap, mature_size)) {
 			    MOVE_BOXED(ptr,val,old_htop,origptr);
 			    mb->base = binary_bytes(mb->orig);
-			} else if (in_area(ptr, heap, heap_size)) {
-			    ASSERT(!erts_is_literal(*origptr, origptr)
-				   && !in_area(ptr, oh, oh_size));
+			} else if (ERTS_IS_NEW_HEAP_PTR(*origptr, ptr,
+							heap, heap_size,
+							oh, oh_size)) {
 			    MOVE_BOXED(ptr,val,n_htop,origptr);
 			    mb->base = binary_bytes(mb->orig);
-			}
-			else {
-			    ASSERT(erts_is_literal(*origptr, origptr)
-				   || in_area(ptr, oh, oh_size));
 			}
 		    }
 		    n_hp += (thing_arityval(gval)+1);
@@ -1176,7 +1219,9 @@ do_minor(Process *p, Uint new_sz, Eterm* objv, int nobj)
      */
 
     if (OLD_HTOP(p) < old_htop) {
-	old_htop = sweep_one_area(OLD_HTOP(p), old_htop, heap, heap_size);
+	old_htop = sweep_new_heap(OLD_HTOP(p), old_htop,
+				  heap, heap_size,
+				  oh, oh_size);
     }
     OLD_HTOP(p) = old_htop;
     HIGH_WATER(p) = n_htop;
@@ -1229,8 +1274,6 @@ do_minor(Process *p, Uint new_sz, Eterm* objv, int nobj)
 static int
 major_collection(Process* p, int need, Eterm* objv, int nobj, Uint *recl)
 {
-    Rootset rootset;
-    Roots* roots;
     const Uint size_before = ((HEAP_TOP(p) - HEAP_START(p))
                               + (OLD_HTOP(p) - OLD_HEAP(p))
                               + MBUF_SIZE(p));
@@ -1240,8 +1283,7 @@ major_collection(Process* p, int need, Eterm* objv, int nobj, Uint *recl)
     Uint src_size = (char *) HEAP_TOP(p) - src;
     char* oh = (char *) OLD_HEAP(p);
     Uint oh_size = (char *) OLD_HTOP(p) - oh;
-    Uint n;
-    Uint new_sz;
+    Uint new_sz, stk_sz;
 
     /*
      * Do a fullsweep GC. First figure out the size of the heap
@@ -1272,166 +1314,13 @@ major_collection(Process* p, int need, Eterm* objv, int nobj, Uint *recl)
 	n_htop = collect_heap_frags(p, n_heap, n_htop, objv, nobj);
     }
 
-    /*
-     * Copy all top-level terms directly referenced by the rootset to
-     * the new new_heap.
-     */
-
-    n = setup_rootset(p, objv, nobj, &rootset);
-    n_htop = fullsweep_nstack(p, n_htop);
-    roots = rootset.roots;
-    while (n--) {
-	Eterm* g_ptr = roots->v;
-	Eterm g_sz = roots->sz;
-
-	roots++;
-	while (g_sz--) {
-	    Eterm* ptr;
-	    Eterm val;
-	    Eterm gval = *g_ptr;
-	    
-	    switch (primary_tag(gval)) {
-
-	    case TAG_PRIMARY_BOXED: {
-		ptr = boxed_val(gval);
-		val = *ptr;
-		if (IS_MOVED_BOXED(val)) {
-		    ASSERT(is_boxed(val));
-		    *g_ptr++ = val;
-		} else if (in_area(ptr, src, src_size) || in_area(ptr, oh, oh_size)) {
-		    ASSERT(!erts_is_literal(gval, ptr));
-		    MOVE_BOXED(ptr,val,n_htop,g_ptr++);
-		} else {
-		    ASSERT(erts_is_literal(gval, ptr));
-		    g_ptr++;
-		}
-		continue;
-	    }
-
-	    case TAG_PRIMARY_LIST: {
-		ptr = list_val(gval);
-		val = *ptr;
-		if (IS_MOVED_CONS(val)) {
-		    *g_ptr++ = ptr[1];
-		} else if (in_area(ptr, src, src_size) || in_area(ptr, oh, oh_size)) {
-		    ASSERT(!erts_is_literal(gval, ptr));
-		    MOVE_CONS(ptr,val,n_htop,g_ptr++);
-		} else {
-		    ASSERT(erts_is_literal(gval, ptr));
-		    g_ptr++;
-		}
-		continue;
-	    }
-
-	    default: {
-		g_ptr++;
-		continue;
-	    }
-	    }
-	}
-    }
-
-    cleanup_rootset(&rootset);
-
-    /*
-     * Now all references on the stack point to the new heap. However,
-     * most references on the new heap point to the old heap so the next stage
-     * is to scan through the new heap evacuating data from the old heap
-     * until all is copied.
-     */
-
-    if (oh_size == 0) {
-	n_htop = sweep_one_area(n_heap, n_htop, src, src_size);
-    } else {
-	Eterm* n_hp = n_heap;
-
-	while (n_hp != n_htop) {
-	    Eterm* ptr;
-	    Eterm val;
-	    Eterm gval = *n_hp;
-
-	    switch (primary_tag(gval)) {
-	    case TAG_PRIMARY_BOXED: {
-		ptr = boxed_val(gval);
-		val = *ptr;
-		if (IS_MOVED_BOXED(val)) {
-		    ASSERT(is_boxed(val));
-		    *n_hp++ = val;
-		} else if (in_area(ptr, src, src_size) || in_area(ptr, oh, oh_size)) {
-		    ASSERT(!erts_is_literal(gval, ptr));
-		    MOVE_BOXED(ptr,val,n_htop,n_hp++);
-		} else {
-		    ASSERT(erts_is_literal(gval, ptr));
-		    n_hp++;
-		}
-		break;
-	    }
-	    case TAG_PRIMARY_LIST: {
-		ptr = list_val(gval);
-		val = *ptr;
-		if (IS_MOVED_CONS(val)) {
-		    *n_hp++ = ptr[1];
-		} else if (in_area(ptr, src, src_size) || in_area(ptr, oh, oh_size)) {
-		    ASSERT(!erts_is_literal(gval, ptr));
-		    MOVE_CONS(ptr,val,n_htop,n_hp++);
-		} else {
-		    ASSERT(erts_is_literal(gval, ptr));
-		    n_hp++;
-		}
-		break;
-	    }
-	    case TAG_PRIMARY_HEADER: {
-		if (!header_is_thing(gval))
-		    n_hp++;
-		else {
-		    if (header_is_bin_matchstate(gval)) {
-			ErlBinMatchState *ms = (ErlBinMatchState*) n_hp;
-			ErlBinMatchBuffer *mb = &(ms->mb);
-			Eterm* origptr;	
-			origptr = &(mb->orig);
-			ptr = boxed_val(*origptr);
-			val = *ptr;
-			if (IS_MOVED_BOXED(val)) {
-			    *origptr = val;
-			    mb->base = binary_bytes(*origptr);
-			} else if (in_area(ptr, src, src_size) ||
--				   in_area(ptr, oh, oh_size)) {
-			    ASSERT(!erts_is_literal(*origptr, origptr));
-			    MOVE_BOXED(ptr,val,n_htop,origptr); 
-			    mb->base = binary_bytes(*origptr);
-			    ptr = boxed_val(*origptr);
-			    val = *ptr;
-			}
-			else {
-			    ASSERT(erts_is_literal(*origptr, origptr));
-			}
-		    }
-		    n_hp += (thing_arityval(gval)+1);
-		}
-		break;
-	    }
-	    default:
-		n_hp++;
-		break;
-	    }
-	}
-    }
-
-    if (MSO(p).first) {
-	sweep_off_heap(p, 1);
-    }
-
-    if (OLD_HEAP(p) != NULL) {       
-	ERTS_HEAP_FREE(ERTS_ALC_T_OLD_HEAP,
-		       OLD_HEAP(p),
-		       (OLD_HEND(p) - OLD_HEAP(p)) * sizeof(Eterm));
-	OLD_HEAP(p) = OLD_HTOP(p) = OLD_HEND(p) = NULL;
-    }
+    n_htop = full_sweep_heaps(p, 0, n_heap, n_htop, src, src_size,
+			      oh, oh_size, objv, nobj);
 
     /* Move the stack to the end of the heap */
-    n = HEAP_END(p) - p->stop;
-    sys_memcpy(n_heap + new_sz - n, p->stop, n * sizeof(Eterm));
-    p->stop = n_heap + new_sz - n;
+    stk_sz = HEAP_END(p) - p->stop;
+    sys_memcpy(n_heap + new_sz - stk_sz, p->stop, stk_sz * sizeof(Eterm));
+    p->stop = n_heap + new_sz - stk_sz;
 
 #ifdef USE_VM_PROBES
     if (HEAP_SIZE(p) != new_sz && DTRACE_ENABLED(process_heap_grow)) {
@@ -1484,6 +1373,109 @@ major_collection(Process* p, int need, Eterm* objv, int nobj, Uint *recl)
 
     ErtsGcQuickSanityCheck(p);
     return 1;			/* We are done. */
+}
+
+static Eterm *
+full_sweep_heaps(Process *p,
+		 int hibernate,
+		 Eterm *n_heap, Eterm* n_htop,
+		 char *h, Uint h_size,
+		 char *oh, Uint oh_size,
+		 Eterm *objv, int nobj)
+{
+    Rootset rootset;
+    Roots *roots;
+    Uint n;
+
+    /*
+     * Copy all top-level terms directly referenced by the rootset to
+     * the new new_heap.
+     */
+
+    n = setup_rootset(p, objv, nobj, &rootset);
+
+#ifdef HIPE
+    if (hibernate)
+	hipe_empty_nstack(p);
+    else
+	n_htop = fullsweep_nstack(p, n_htop);
+#endif
+
+    roots = rootset.roots;
+    while (n--) {
+	Eterm* g_ptr = roots->v;
+	Eterm g_sz = roots->sz;
+
+	roots++;
+	while (g_sz--) {
+	    Eterm* ptr;
+	    Eterm val;
+	    Eterm gval = *g_ptr;
+	    
+	    switch (primary_tag(gval)) {
+
+	    case TAG_PRIMARY_BOXED: {
+		ptr = boxed_val(gval);
+		val = *ptr;
+		if (IS_MOVED_BOXED(val)) {
+		    ASSERT(is_boxed(val));
+		    *g_ptr++ = val;
+		} else if (!ERTS_IS_LITERAL_PTR(gval, ptr,
+						h, h_size,
+						oh, oh_size)) {
+		    MOVE_BOXED(ptr,val,n_htop,g_ptr++);
+		} else {
+		    g_ptr++;
+		}
+		continue;
+	    }
+
+	    case TAG_PRIMARY_LIST: {
+		ptr = list_val(gval);
+		val = *ptr;
+		if (IS_MOVED_CONS(val)) {
+		    *g_ptr++ = ptr[1];
+		} else if (!ERTS_IS_LITERAL_PTR(gval, ptr,
+						h, h_size,
+						oh, oh_size)) {
+		    MOVE_CONS(ptr,val,n_htop,g_ptr++);
+		} else {
+		    g_ptr++;
+		}
+		continue;
+	    }
+
+	    default: {
+		g_ptr++;
+		continue;
+	    }
+	    }
+	}
+    }
+
+    cleanup_rootset(&rootset);
+
+    /*
+     * Now all references on the stack point to the new heap. However,
+     * most references on the new heap point to the old heap so the next stage
+     * is to scan through the new heap evacuating data from the old heap
+     * until all is copied.
+     */
+
+    n_htop = sweep_heaps(n_heap, n_htop, h, h_size, oh, oh_size);
+
+    if (MSO(p).first) {
+	sweep_off_heap(p, 1);
+    }
+
+    if (OLD_HEAP(p) != NULL) {       
+	ERTS_HEAP_FREE(ERTS_ALC_T_OLD_HEAP,
+		       OLD_HEAP(p),
+		       (OLD_HEND(p) - OLD_HEAP(p)) * sizeof(Eterm));
+	OLD_HEAP(p) = OLD_HTOP(p) = OLD_HEND(p) = NULL;
+    }
+
+    return n_htop;
 }
 
 static void
@@ -1585,7 +1577,7 @@ disallow_heap_frag_ref(Process* p, Eterm* n_htop, Eterm* objv, int nobj)
 		objv++;
 	    } else {
  		for (qb = mbuf; qb != NULL; qb = qb->next) {
-		    if (in_area(ptr, qb->mem, qb->alloc_size*sizeof(Eterm))) {
+		    if (ErtsInArea(ptr, qb->mem, qb->alloc_size*sizeof(Eterm))) {
 			abort();
 		    }
 		}
@@ -1601,7 +1593,7 @@ disallow_heap_frag_ref(Process* p, Eterm* n_htop, Eterm* objv, int nobj)
 		objv++;
 	    } else {
 		for (qb = mbuf; qb != NULL; qb = qb->next) {
-		    if (in_area(ptr, qb->mem, qb->alloc_size*sizeof(Eterm))) {
+		    if (ErtsInArea(ptr, qb->mem, qb->alloc_size*sizeof(Eterm))) {
 			abort();
 		    }
 		}
@@ -1644,9 +1636,9 @@ disallow_heap_frag_ref_in_heap(Process* p)
 	switch (primary_tag(val)) {
 	case TAG_PRIMARY_BOXED:
 	    ptr = _unchecked_boxed_val(val);
-	    if (!in_area(ptr, heap, heap_size)) {
+	    if (!ErtsInArea(ptr, heap, heap_size)) {
 		for (qb = MBUF(p); qb != NULL; qb = qb->next) {
-		    if (in_area(ptr, qb->mem, qb->alloc_size*sizeof(Eterm))) {
+		    if (ErtsInArea(ptr, qb->mem, qb->alloc_size*sizeof(Eterm))) {
 			abort();
 		    }
 		}
@@ -1654,9 +1646,9 @@ disallow_heap_frag_ref_in_heap(Process* p)
 	    break;
 	case TAG_PRIMARY_LIST:
 	    ptr = _unchecked_list_val(val);
-	    if (!in_area(ptr, heap, heap_size)) {
+	    if (!ErtsInArea(ptr, heap, heap_size)) {
 		for (qb = MBUF(p); qb != NULL; qb = qb->next) {
-		    if (in_area(ptr, qb->mem, qb->alloc_size*sizeof(Eterm))) {
+		    if (ErtsInArea(ptr, qb->mem, qb->alloc_size*sizeof(Eterm))) {
 			abort();
 		    }
 		}
@@ -1699,12 +1691,12 @@ disallow_heap_frag_ref_in_old_heap(Process* p)
 	switch (primary_tag(val)) {
 	case TAG_PRIMARY_BOXED:
 	    ptr = (Eterm *) val;
-	    if (!in_area(ptr, old_heap, old_heap_size)) {
-		if (in_area(ptr, new_heap, new_heap_size)) {
+	    if (!ErtsInArea(ptr, old_heap, old_heap_size)) {
+		if (ErtsInArea(ptr, new_heap, new_heap_size)) {
 		    abort();
 		}
 		for (qb = MBUF(p); qb != NULL; qb = qb->next) {
-		    if (in_area(ptr, qb->mem, qb->alloc_size*sizeof(Eterm))) {
+		    if (ErtsInArea(ptr, qb->mem, qb->alloc_size*sizeof(Eterm))) {
 			abort();
 		    }
 		}
@@ -1712,12 +1704,12 @@ disallow_heap_frag_ref_in_old_heap(Process* p)
 	    break;
 	case TAG_PRIMARY_LIST:
 	    ptr = (Eterm *) val;
-	    if (!in_area(ptr, old_heap, old_heap_size)) {
-		if (in_area(ptr, new_heap, new_heap_size)) {
+	    if (!ErtsInArea(ptr, old_heap, old_heap_size)) {
+		if (ErtsInArea(ptr, new_heap, new_heap_size)) {
 		    abort();
 		}
 		for (qb = MBUF(p); qb != NULL; qb = qb->next) {
-		    if (in_area(ptr, qb->mem, qb->alloc_size*sizeof(Eterm))) {
+		    if (ErtsInArea(ptr, qb->mem, qb->alloc_size*sizeof(Eterm))) {
 			abort();
 		    }
 		}
@@ -1726,7 +1718,7 @@ disallow_heap_frag_ref_in_old_heap(Process* p)
 	case TAG_PRIMARY_HEADER:
 	    if (header_is_thing(val)) {
 		hp += _unchecked_thing_arityval(val);
-		if (!in_area(hp, old_heap, old_heap_size+1)) {
+		if (!ErtsInArea(hp, old_heap, old_heap_size+1)) {
 		    abort();
 		}
 	    }
@@ -1736,66 +1728,35 @@ disallow_heap_frag_ref_in_old_heap(Process* p)
 }
 #endif
 
-static Eterm*
-sweep_rootset(Rootset* rootset, Eterm* htop, char* src, Uint src_size)
-{
-    Roots* roots = rootset->roots;
-    Uint n = rootset->num_roots;
-    Eterm* ptr;
-    Eterm gval;
-    Eterm val;
+typedef enum {
+    ErtsSweepNewHeap,
+    ErtsSweepHeaps,
+    ErtsSweepLiteralArea
+} ErtsSweepType;
 
-    while (n--) {
-        Eterm* g_ptr = roots->v;
-        Uint g_sz = roots->sz;
-
-	roots++;
-        while (g_sz--) {
-            gval = *g_ptr;
-
-            switch (primary_tag(gval)) {
-	    case TAG_PRIMARY_BOXED: {
-		ptr = boxed_val(gval);
-                val = *ptr;
-                if (IS_MOVED_BOXED(val)) {
-		    ASSERT(is_boxed(val));
-                    *g_ptr++ = val;
-                } else if (in_area(ptr, src, src_size)) {
-                    MOVE_BOXED(ptr,val,htop,g_ptr++);
-                } else {
-		    g_ptr++;
-		}
-                break;
-	    }
-	    case TAG_PRIMARY_LIST: {
-                ptr = list_val(gval);
-                val = *ptr;
-                if (IS_MOVED_CONS(val)) {
-                    *g_ptr++ = ptr[1];
-                } else if (in_area(ptr, src, src_size)) {
-                    MOVE_CONS(ptr,val,htop,g_ptr++);
-                } else {
-		    g_ptr++;
-		}
-		break;
-	    }
-
-	    default:
-                g_ptr++;
-		break;
-            }
-        }
-    }
-    return htop;
-}
-
-
-static Eterm*
-sweep_one_area(Eterm* n_hp, Eterm* n_htop, char* src, Uint src_size)
+static ERTS_FORCE_INLINE Eterm *
+sweep(Eterm *n_hp, Eterm *n_htop,
+      ErtsSweepType type,
+      char *h, Uint hsz,
+      char *oh, Uint ohsz,
+      char *src, Uint src_size)
 {
     Eterm* ptr;
     Eterm val;
     Eterm gval;
+
+#undef ERTS_IS_IN_SWEEP_AREA
+
+#define ERTS_IS_IN_SWEEP_AREA(TPtr, Ptr)				\
+    (type == ErtsSweepHeaps						\
+     ? !ERTS_IS_LITERAL_PTR((TPtr), (Ptr), h, hsz, oh, ohsz)		\
+     : (type == ErtsSweepNewHeap					\
+	? ERTS_IS_NEW_HEAP_PTR((TPtr), (Ptr), h, hsz, oh, ohsz)		\
+	: (ErtsInArea((Ptr), src, src_size)				\
+	   ? (ERTS_GC_ASSERT(erts_is_literal((TPtr), (Ptr))		\
+			     && !ErtsInArea((Ptr), h, hsz)		\
+			     && !ErtsInArea((Ptr), oh, ohsz)), 1)	\
+	   : 0)))
 
     while (n_hp != n_htop) {
 	ASSERT(n_hp < n_htop);
@@ -1807,7 +1768,7 @@ sweep_one_area(Eterm* n_hp, Eterm* n_htop, char* src, Uint src_size)
 	    if (IS_MOVED_BOXED(val)) {
 		ASSERT(is_boxed(val));
 		*n_hp++ = val;
-	    } else if (in_area(ptr, src, src_size)) {
+	    } else if (ERTS_IS_IN_SWEEP_AREA(gval, ptr)) {
 		MOVE_BOXED(ptr,val,n_htop,n_hp++);
 	    } else {
 		n_hp++;
@@ -1819,7 +1780,7 @@ sweep_one_area(Eterm* n_hp, Eterm* n_htop, char* src, Uint src_size)
 	    val = *ptr;
 	    if (IS_MOVED_CONS(val)) {
 		*n_hp++ = ptr[1];
-	    } else if (in_area(ptr, src, src_size)) {
+	    } else if (ERTS_IS_IN_SWEEP_AREA(gval, ptr)) {
 		MOVE_CONS(ptr,val,n_htop,n_hp++);
 	    } else {
 		n_hp++;
@@ -1840,7 +1801,7 @@ sweep_one_area(Eterm* n_hp, Eterm* n_htop, char* src, Uint src_size)
 		    if (IS_MOVED_BOXED(val)) {
 			*origptr = val;
 			mb->base = binary_bytes(*origptr);
-		    } else if (in_area(ptr, src, src_size)) {
+		    } else if (ERTS_IS_IN_SWEEP_AREA(*origptr, ptr)) {
 			MOVE_BOXED(ptr,val,n_htop,origptr); 
 			mb->base = binary_bytes(*origptr);
 		    }
@@ -1855,10 +1816,49 @@ sweep_one_area(Eterm* n_hp, Eterm* n_htop, char* src, Uint src_size)
 	}
     }
     return n_htop;
+#undef ERTS_IS_IN_SWEEP_AREA
+}
+
+static Eterm *
+sweep_new_heap(Eterm *n_hp, Eterm *n_htop,
+	       char* new_heap, Uint new_heap_size,
+	       char* old_heap, Uint old_heap_size)
+{
+    return sweep(n_hp, n_htop,
+		 ErtsSweepNewHeap,
+		 new_heap, new_heap_size,
+		 old_heap, old_heap_size,
+		 NULL, 0);
+}
+
+static Eterm *
+sweep_heaps(Eterm *n_hp, Eterm *n_htop,
+	    char* new_heap, Uint new_heap_size,
+	    char* old_heap, Uint old_heap_size)
+{
+    return sweep(n_hp, n_htop,
+		 ErtsSweepHeaps,
+		 new_heap, new_heap_size,
+		 old_heap, old_heap_size,
+		 NULL, 0);
+}
+
+static Eterm *
+sweep_literal_area(Eterm *n_hp, Eterm *n_htop,
+		   char* new_heap, Uint new_heap_size,
+		   char* old_heap, Uint old_heap_size,
+		   char* src, Uint src_size)
+{
+    return sweep(n_hp, n_htop,
+		 ErtsSweepLiteralArea,
+		 new_heap, new_heap_size,
+		 old_heap, old_heap_size,
+		 src, src_size);
 }
 
 static Eterm*
-sweep_one_heap(Eterm* heap_ptr, Eterm* heap_end, Eterm* htop, char* src, Uint src_size)
+sweep_literals_to_old_heap(Eterm* heap_ptr, Eterm* heap_end, Eterm* htop,
+			   char* src, Uint src_size)
 {
     while (heap_ptr < heap_end) {
 	Eterm* ptr;
@@ -1872,7 +1872,7 @@ sweep_one_heap(Eterm* heap_ptr, Eterm* heap_end, Eterm* htop, char* src, Uint sr
 	    if (IS_MOVED_BOXED(val)) {
 		ASSERT(is_boxed(val));
 		*heap_ptr++ = val;
-	    } else if (in_area(ptr, src, src_size)) {
+	    } else if (ErtsInArea(ptr, src, src_size)) {
 		MOVE_BOXED(ptr,val,htop,heap_ptr++);
 	    } else {
 		heap_ptr++;
@@ -1884,7 +1884,7 @@ sweep_one_heap(Eterm* heap_ptr, Eterm* heap_end, Eterm* htop, char* src, Uint sr
 	    val = *ptr;
 	    if (IS_MOVED_CONS(val)) {
 		*heap_ptr++ = ptr[1];
-	    } else if (in_area(ptr, src, src_size)) {
+	    } else if (ErtsInArea(ptr, src, src_size)) {
 		MOVE_CONS(ptr,val,htop,heap_ptr++);
 	    } else {
 		heap_ptr++;
@@ -1905,7 +1905,7 @@ sweep_one_heap(Eterm* heap_ptr, Eterm* heap_end, Eterm* htop, char* src, Uint sr
 		    if (IS_MOVED_BOXED(val)) {
 			*origptr = val;
 			mb->base = binary_bytes(*origptr);
-		    } else if (in_area(ptr, src, src_size)) {
+		    } else if (ErtsInArea(ptr, src, src_size)) {
 			MOVE_BOXED(ptr,val,htop,origptr);
 			mb->base = binary_bytes(*origptr);
 		    }
@@ -2340,11 +2340,11 @@ sweep_off_heap(Process *p, int fullsweep)
      */
     while (ptr) {
 	if (IS_MOVED_BOXED(ptr->thing_word)) {
-	    ASSERT(!in_area(ptr, oheap, oheap_sz));
+	    ASSERT(!ErtsInArea(ptr, oheap, oheap_sz));
 	    *prev = ptr = (struct erl_off_heap_header*) boxed_val(ptr->thing_word);
 	    ASSERT(!IS_MOVED_BOXED(ptr->thing_word));
 	    if (ptr->thing_word == HEADER_PROC_BIN) {
-		int to_new_heap = !in_area(ptr, oheap, oheap_sz);
+		int to_new_heap = !ErtsInArea(ptr, oheap, oheap_sz);
 		ASSERT(to_new_heap == !seen_mature || (!to_new_heap && (seen_mature=1)));
 		if (to_new_heap) {
 		    bin_vheap += ptr->size / sizeof(Eterm);
@@ -2358,7 +2358,7 @@ sweep_off_heap(Process *p, int fullsweep)
 		ptr = ptr->next;
 	    }
 	}
-	else if (!in_area(ptr, oheap, oheap_sz)) {
+	else if (!ErtsInArea(ptr, oheap, oheap_sz)) {
 	    /* garbage */
 	    switch (thing_subtag(ptr->thing_word)) {
 	    case REFC_BINARY_SUBTAG:
@@ -2390,7 +2390,7 @@ sweep_off_heap(Process *p, int fullsweep)
      * generational collection - keep objects in list.
      */
     while (ptr) {
-	ASSERT(in_area(ptr, oheap, oheap_sz));
+	ASSERT(ErtsInArea(ptr, oheap, oheap_sz));
 	ASSERT(!IS_MOVED_BOXED(ptr->thing_word));       
 	if (ptr->thing_word == HEADER_PROC_BIN) {
 	    BIN_OLD_VHEAP(p) += ptr->size / sizeof(Eterm); /* for binary gc (words)*/
@@ -2480,7 +2480,7 @@ offset_heap(Eterm* hp, Uint sz, Sint offs, char* area, Uint area_size)
 	switch (primary_tag(val)) {
 	  case TAG_PRIMARY_LIST:
 	  case TAG_PRIMARY_BOXED:
-	      if (in_area(ptr_val(val), area, area_size)) {
+	      if (ErtsInArea(ptr_val(val), area, area_size)) {
 		  *hp = offset_ptr(val, offs);
 	      }
 	      hp++;
@@ -2502,7 +2502,7 @@ offset_heap(Eterm* hp, Uint sz, Sint offs, char* area, Uint area_size)
 		  {
 		      struct erl_off_heap_header* oh = (struct erl_off_heap_header*) hp;
 
-		      if (in_area(oh->next, area, area_size)) {
+		      if (ErtsInArea(oh->next, area, area_size)) {
 			  Eterm** uptr = (Eterm **) (void *) &oh->next;
 			  *uptr += offs; /* Patch the mso chain */
 		      }
@@ -2512,7 +2512,7 @@ offset_heap(Eterm* hp, Uint sz, Sint offs, char* area, Uint area_size)
 		{	
 		  ErlBinMatchState *ms = (ErlBinMatchState*) hp;
 		  ErlBinMatchBuffer *mb = &(ms->mb);
-		  if (in_area(ptr_val(mb->orig), area, area_size)) {
+		  if (ErtsInArea(ptr_val(mb->orig), area, area_size)) {
 		      mb->orig = offset_ptr(mb->orig, offs);
 		      mb->base = binary_bytes(mb->orig);
 		  }
@@ -2542,7 +2542,7 @@ offset_heap_ptr(Eterm* hp, Uint sz, Sint offs, char* area, Uint area_size)
 	switch (primary_tag(val)) {
 	case TAG_PRIMARY_LIST:
 	case TAG_PRIMARY_BOXED:
-	    if (in_area(ptr_val(val), area, area_size)) {
+	    if (ErtsInArea(ptr_val(val), area, area_size)) {
 		*hp = offset_ptr(val, offs);
 	    }
 	    hp++;
@@ -2557,7 +2557,7 @@ offset_heap_ptr(Eterm* hp, Uint sz, Sint offs, char* area, Uint area_size)
 static void
 offset_off_heap(Process* p, Sint offs, char* area, Uint area_size)
 {
-    if (MSO(p).first && in_area((Eterm *)MSO(p).first, area, area_size)) {
+    if (MSO(p).first && ErtsInArea((Eterm *)MSO(p).first, area, area_size)) {
         Eterm** uptr = (Eterm**) (void *) &MSO(p).first;
         *uptr += offs;
     }
@@ -2577,19 +2577,19 @@ offset_mqueue(Process *p, Sint offs, char* area, Uint area_size)
 	    switch (primary_tag(mesg)) {
 	    case TAG_PRIMARY_LIST:
 	    case TAG_PRIMARY_BOXED:
-		if (in_area(ptr_val(mesg), area, area_size)) {
+		if (ErtsInArea(ptr_val(mesg), area, area_size)) {
 		    ERL_MESSAGE_TERM(mp) = offset_ptr(mesg, offs);
 		}
 		break;
 	    }
 	}
 	mesg = ERL_MESSAGE_TOKEN(mp);
-	if (is_boxed(mesg) && in_area(ptr_val(mesg), area, area_size)) {
+	if (is_boxed(mesg) && ErtsInArea(ptr_val(mesg), area, area_size)) {
 	    ERL_MESSAGE_TOKEN(mp) = offset_ptr(mesg, offs);
         }
 #ifdef USE_VM_PROBES
 	mesg = ERL_MESSAGE_DT_UTAG(mp);
-	if (is_boxed(mesg) && in_area(ptr_val(mesg), area, area_size)) {
+	if (is_boxed(mesg) && ErtsInArea(ptr_val(mesg), area, area_size)) {
 	    ERL_MESSAGE_DT_UTAG(mp) = offset_ptr(mesg, offs);
         }
 #endif	

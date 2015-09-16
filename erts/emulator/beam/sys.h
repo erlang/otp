@@ -21,6 +21,19 @@
 #ifndef __SYS_H__
 #define __SYS_H__
 
+#if !defined(__GNUC__)
+#  define ERTS_AT_LEAST_GCC_VSN__(MAJ, MIN, PL) 0
+#elif !defined(__GNUC_MINOR__)
+#  define ERTS_AT_LEAST_GCC_VSN__(MAJ, MIN, PL) \
+  ((__GNUC__ << 24) >= (((MAJ) << 24) | ((MIN) << 12) | (PL)))
+#elif !defined(__GNUC_PATCHLEVEL__)
+#  define ERTS_AT_LEAST_GCC_VSN__(MAJ, MIN, PL) \
+  (((__GNUC__ << 24) | (__GNUC_MINOR__ << 12)) >= (((MAJ) << 24) | ((MIN) << 12) | (PL)))
+#else
+#  define ERTS_AT_LEAST_GCC_VSN__(MAJ, MIN, PL) \
+  (((__GNUC__ << 24) | (__GNUC_MINOR__ << 12) | __GNUC_PATCHLEVEL__) >= (((MAJ) << 24) | ((MIN) << 12) | (PL)))
+#endif
+
 #ifdef ERTS_INLINE
 #  ifndef ERTS_CAN_INLINE
 #    define ERTS_CAN_INLINE 1
@@ -35,6 +48,17 @@
 #  else
 #    define ERTS_CAN_INLINE 0
 #    define ERTS_INLINE
+#  endif
+#endif
+
+#ifndef ERTS_FORCE_INLINE
+#  if ERTS_AT_LEAST_GCC_VSN__(3,1,1)
+#    define ERTS_FORCE_INLINE __inline__ __attribute__((__always_inline__))
+#  elif defined(__WIN32__)
+#    define ERTS_FORCE_INLINE __forceinline
+#  endif
+#  ifndef ERTS_FORCE_INLINE
+#    define ERTS_FORCE_INLINE ERTS_INLINE
 #  endif
 #endif
 
@@ -110,19 +134,6 @@ typedef int ErtsSysFdType;
 # error missing ERTS_SYS_FD_INVALID
 #endif
 typedef ERTS_SYS_FD_TYPE ErtsSysFdType;
-#endif
-
-#if !defined(__GNUC__)
-#  define ERTS_AT_LEAST_GCC_VSN__(MAJ, MIN, PL) 0
-#elif !defined(__GNUC_MINOR__)
-#  define ERTS_AT_LEAST_GCC_VSN__(MAJ, MIN, PL) \
-  ((__GNUC__ << 24) >= (((MAJ) << 24) | ((MIN) << 12) | (PL)))
-#elif !defined(__GNUC_PATCHLEVEL__)
-#  define ERTS_AT_LEAST_GCC_VSN__(MAJ, MIN, PL) \
-  (((__GNUC__ << 24) | (__GNUC_MINOR__ << 12)) >= (((MAJ) << 24) | ((MIN) << 12) | (PL)))
-#else
-#  define ERTS_AT_LEAST_GCC_VSN__(MAJ, MIN, PL) \
-  (((__GNUC__ << 24) | (__GNUC_MINOR__ << 12) | __GNUC_PATCHLEVEL__) >= (((MAJ) << 24) | ((MIN) << 12) | (PL)))
 #endif
 
 #if ERTS_AT_LEAST_GCC_VSN__(2, 96, 0)
