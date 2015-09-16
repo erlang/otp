@@ -34,7 +34,7 @@
 	 listen/2, transport_accept/1, transport_accept/2,
 	 ssl_accept/1, ssl_accept/2, ssl_accept/3,
 	 controlling_process/2, peername/1, peercert/1, sockname/1,
-	 close/1, shutdown/2, recv/2, recv/3, send/2, getopts/2, setopts/2
+	 close/1, close/2, shutdown/2, recv/2, recv/3, send/2, getopts/2, setopts/2
 	]).
 %% SSL/TLS protocol handling
 -export([cipher_suites/0, cipher_suites/1, suite_definition/1,
@@ -99,7 +99,8 @@ stop() ->
 connect(Socket, SslOptions) when is_port(Socket) ->
     connect(Socket, SslOptions, infinity).
 
-connect(Socket, SslOptions0, Timeout) when is_port(Socket) ->
+connect(Socket, SslOptions0, Timeout) when is_port(Socket),
+					    (is_integer(Timeout) andalso Timeout > 0) or (Timeout == infinity) ->
     {Transport,_,_,_} = proplists:get_value(cb_info, SslOptions0,
 					      {gen_tcp, tcp, tcp_closed, tcp_error}),
     EmulatedOptions = ssl_socket:emulated_options(),
@@ -125,7 +126,7 @@ connect(Socket, SslOptions0, Timeout) when is_port(Socket) ->
 connect(Host, Port, Options) ->
     connect(Host, Port, Options, infinity).
 
-connect(Host, Port, Options, Timeout) ->
+connect(Host, Port, Options, Timeout) when (is_integer(Timeout) andalso Timeout > 0) or (Timeout == infinity) ->
     try handle_options(Options) of
 	{ok, Config} ->
 	    do_connect(Host,Port,Config,Timeout)
@@ -175,7 +176,7 @@ transport_accept(#sslsocket{pid = {ListenSocket,
 				   #config{transport_info =  {Transport,_,_, _} =CbInfo,
 					   connection_cb = ConnectionCb,
 					   ssl = SslOpts,
-					   emulated = Tracker}}}, Timeout) ->   
+					   emulated = Tracker}}}, Timeout) when (is_integer(Timeout) andalso Timeout > 0) or (Timeout == infinity) ->   
     case Transport:accept(ListenSocket, Timeout) of
 	{ok, Socket} ->
 	    {ok, EmOpts} = ssl_socket:get_emulated_opts(Tracker),
@@ -208,15 +209,16 @@ transport_accept(#sslsocket{pid = {ListenSocket,
 ssl_accept(ListenSocket) ->
     ssl_accept(ListenSocket, infinity).
 
-ssl_accept(#sslsocket{} = Socket, Timeout) ->
+ssl_accept(#sslsocket{} = Socket, Timeout) when  (is_integer(Timeout) andalso Timeout > 0) or (Timeout == infinity) ->
     ssl_connection:handshake(Socket, Timeout);
     
 ssl_accept(ListenSocket, SslOptions)  when is_port(ListenSocket) -> 
     ssl_accept(ListenSocket, SslOptions, infinity).
 
-ssl_accept(#sslsocket{} = Socket, [], Timeout) ->
+ssl_accept(#sslsocket{} = Socket, [], Timeout) when (is_integer(Timeout) andalso Timeout > 0) or (Timeout == infinity)->
     ssl_accept(#sslsocket{} = Socket, Timeout);
-ssl_accept(#sslsocket{fd = {_, _, _, Tracker}} = Socket, SslOpts0, Timeout) ->
+ssl_accept(#sslsocket{fd = {_, _, _, Tracker}} = Socket, SslOpts0, Timeout) when 
+      (is_integer(Timeout) andalso Timeout > 0) or (Timeout == infinity)->
     try 
 	{ok, EmOpts, InheritedSslOpts} = ssl_socket:get_all_opts(Tracker),	
 	SslOpts = handle_options(SslOpts0, InheritedSslOpts),
@@ -224,7 +226,8 @@ ssl_accept(#sslsocket{fd = {_, _, _, Tracker}} = Socket, SslOpts0, Timeout) ->
     catch
 	Error = {error, _Reason} -> Error
     end;
-ssl_accept(Socket, SslOptions, Timeout) when is_port(Socket) -> 
+ssl_accept(Socket, SslOptions, Timeout) when is_port(Socket),
+					     (is_integer(Timeout) andalso Timeout > 0) or (Timeout == infinity) -> 
     {Transport,_,_,_} =
 	proplists:get_value(cb_info, SslOptions, {gen_tcp, tcp, tcp_closed, tcp_error}),
     EmulatedOptions = ssl_socket:emulated_options(),
@@ -247,8 +250,24 @@ ssl_accept(Socket, SslOptions, Timeout) when is_port(Socket) ->
 %% Description: Close an ssl connection
 %%--------------------------------------------------------------------
 close(#sslsocket{pid = Pid}) when is_pid(Pid) ->
-    ssl_connection:close(Pid);
+    ssl_connection:close(Pid, {close, ?DEFAULT_TIMEOUT});
 close(#sslsocket{pid = {ListenSocket, #config{transport_info={Transport,_, _, _}}}}) ->
+    Transport:close(ListenSocket).
+
+%%--------------------------------------------------------------------
+-spec  close(#sslsocket{}, integer() | {pid(), integer()}) -> term().
+%%
+%% Description: Close an ssl connection
+%%--------------------------------------------------------------------
+close(#sslsocket{pid = TLSPid}, 
+      {Pid, Timeout} = DownGrade) when is_pid(TLSPid), 
+				       is_pid(Pid), 
+				       (is_integer(Timeout) andalso Timeout > 0) or (Timeout == infinity) ->
+    ssl_connection:close(TLSPid, {close, DownGrade});
+close(#sslsocket{pid = TLSPid}, Timeout) when is_pid(TLSPid), 
+					      (is_integer(Timeout) andalso Timeout > 0) or (Timeout == infinity) ->
+    ssl_connection:close(TLSPid, {close, Timeout});
+close(#sslsocket{pid = {ListenSocket, #config{transport_info={Transport,_, _, _}}}}, _) ->
     Transport:close(ListenSocket).
 
 %%--------------------------------------------------------------------
@@ -269,7 +288,8 @@ send(#sslsocket{pid = {ListenSocket, #config{transport_info={Transport, _, _, _}
 %%--------------------------------------------------------------------
 recv(Socket, Length) ->
     recv(Socket, Length, infinity).
-recv(#sslsocket{pid = Pid}, Length, Timeout) when is_pid(Pid) ->
+recv(#sslsocket{pid = Pid}, Length, Timeout) when is_pid(Pid),
+						  (is_integer(Timeout) andalso Timeout > 0) or (Timeout == infinity)->
     ssl_connection:recv(Pid, Length, Timeout);
 recv(#sslsocket{pid = {Listen,
 		       #config{transport_info = {Transport, _, _, _}}}}, _,_) when is_port(Listen)->

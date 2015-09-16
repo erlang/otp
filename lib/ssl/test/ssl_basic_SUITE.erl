@@ -129,6 +129,8 @@ api_tests() ->
      controlling_process,
      upgrade,
      upgrade_with_timeout,
+     downgrade,
+     close_with_timeout,
      shutdown,
      shutdown_write,
      shutdown_both,
@@ -320,7 +322,8 @@ init_per_testcase(rizzo, Config) ->
     Config;
 
 init_per_testcase(TestCase, Config) when TestCase == ssl_accept_timeout;
-					 TestCase == client_closes_socket ->
+					 TestCase == client_closes_socket;
+					 TestCase == downgrade ->
     ct:log("TLS/SSL version ~p~n ", [tls_record:supported_protocol_versions()]),
     ct:timetrap({seconds, 15}),
     Config;
@@ -1406,6 +1409,53 @@ upgrade_with_timeout(Config) when is_list(Config) ->
     
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client).
+
+%%--------------------------------------------------------------------
+downgrade() ->
+      [{doc,"Test that you can downgarde an ssl connection to an tcp connection"}].
+downgrade(Config) when is_list(Config) -> 
+    ClientOpts = ?config(client_opts, Config),
+    ServerOpts = ?config(server_opts, Config),
+    
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+
+    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+					{from, self()},
+					{mfa, {?MODULE, tls_downgrade, []}},
+					{options, [{active, false} | ServerOpts]}]),
+    Port = ssl_test_lib:inet_port(Server),
+    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
+					{host, Hostname},
+					{from, self()},
+					{mfa, {?MODULE, tls_downgrade, []}},
+					{options, [{active, false} |ClientOpts]}]),
+
+    ssl_test_lib:check_result(Server, ok, Client, ok),
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close(Client).
+
+%%--------------------------------------------------------------------
+close_with_timeout() ->
+      [{doc,"Test normal (not downgrade) ssl:close/2"}].
+close_with_timeout(Config) when is_list(Config) -> 
+    ClientOpts = ?config(client_opts, Config),
+    ServerOpts = ?config(server_opts, Config),
+    
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+
+    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+					{from, self()},
+					{mfa, {?MODULE, tls_close, []}},
+					{options,[{active, false} | ServerOpts]}]),
+    Port = ssl_test_lib:inet_port(Server),
+    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
+					{host, Hostname},
+					{from, self()},
+					{mfa, {?MODULE, tls_close, []}},
+					{options, [{active, false} |ClientOpts]}]),
+
+    ssl_test_lib:check_result(Server, ok, Client, ok).
+
 
 %%--------------------------------------------------------------------
 tcp_connect() ->
@@ -3930,6 +3980,30 @@ connect_dist_c(S) ->
     Test = binary_to_list(term_to_binary({erlang,term})),
     {ok, Test} = ssl:recv(S, 0, 10000),
     ok.
+
+tls_downgrade(Socket) ->
+    ok = ssl_test_lib:send_recv_result(Socket),
+    case ssl:close(Socket, {self(), 5000})  of
+	{ok, TCPSocket} -> 
+	    inet:setopts(TCPSocket, [{active, true}]),
+	    gen_tcp:send(TCPSocket, "Downgraded"),
+	    receive 
+		{tcp, TCPSocket, <<"Downgraded">>} ->
+		    ok;
+		Other ->
+		   {error, Other}
+	    end;
+	{error, timeout} ->
+	    ct:pal("Timed out, downgrade aborted"),
+	    ok;
+	Fail ->
+	    {error, Fail}
+    end.
+
+tls_close(Socket) ->
+    ok = ssl_test_lib:send_recv_result(Socket),
+    ok = ssl:close(Socket, 5000).
+    
 
  %% First two clauses handles 1/n-1 splitting countermeasure Rizzo/Duong-Beast
 treashold(N, {3,0}) ->
