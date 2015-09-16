@@ -157,6 +157,16 @@
 
      <p><code>digest_type() =  md5 | sha | sha224 | sha256 | sha384 | sha512</code></p>
 
+     <p><code>rsa_digest_type() = md5 | ripemd160 | sha | sha224 | sha256 | sha384 | sha512</code></p>
+
+     <p><code>dss_digest_type() = sha | sha224 | sha256 | sha384 | sha512</code></p>
+
+     <p><code>ecdsa_digest_type() = sha | sha224 | sha256 | sha384 | sha512</code></p>
+
+     <p><code>sign_options() = [{rsa_pad, rsa_sign_padding()} | {rsa_pss_saltlen, integer()}]</code></p>
+
+     <p><code>rsa_sign_padding() = rsa_pkcs1_padding | rsa_pkcs1_pss_padding</code></p>
+
      <p><code> hash_algorithms() =  md5 | ripemd160 | sha | sha224 | sha256 | sha384 | sha512 </code> md4 is also supported for hash_init/1 and hash/2.
      Note that both md4 and md5 are recommended only for compatibility with existing applications.
      </p>
@@ -636,6 +646,7 @@
 
     <func>
       <name>sign(Algorithm, DigestType, Msg, Key) -> binary()</name>
+      <name>sign(Algorithm, DigestType, Msg, Key, Options) -> binary()</name>
       <fsummary> Create digital signature.</fsummary>
       <type>
 	<v>Algorithm = rsa | dss | ecdsa </v>
@@ -643,8 +654,9 @@
 	<d>The msg is either the binary "cleartext" data to be
 	signed or it is the hashed value of "cleartext" i.e. the
 	digest (plaintext).</d>
-	<v>DigestType = digest_type()</v>
+	<v>DigestType = rsa_digest_type() | dss_digest_type() | ecdsa_digest_type()</v>
 	<v>Key = rsa_private() | dss_private() | [ecdh_private(),ecdh_params()]</v>
+	<v>Options = sign_options()</v>
       </type>
       <desc>
 	<p>Creates a digital signature.</p>
@@ -787,15 +799,17 @@
 
   <func>
       <name>verify(Algorithm, DigestType, Msg, Signature, Key) -> boolean()</name>
+      <name>verify(Algorithm, DigestType, Msg, Signature, Key, Options) -> boolean()</name>
       <fsummary>Verifies a digital signature.</fsummary>
       <type>
 	<v> Algorithm = rsa | dss | ecdsa </v>
 	<v>Msg = binary() | {digest,binary()}</v>
 	<d>The msg is either the binary "cleartext" data
         or it is the hashed value of "cleartext" i.e. the digest (plaintext).</d>
-	<v>DigestType = digest_type()</v>
+	<v>DigestType = rsa_digest_type() | dss_digest_type() | ecdsa_digest_type()</v>
 	<v>Signature = binary()</v>
 	<v>Key = rsa_public() | dss_public() | [ecdh_public(),ecdh_params()]</v>
+	<v>Options = sign_options()</v>
       </type>
       <desc>
 	<p>Verifies a digital signature</p>

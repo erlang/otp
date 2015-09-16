@@ -156,18 +156,27 @@
 	<p><c>| 'rsa_no_padding'</c></p>
       </item>
 
+      <tag><c>public_sign_options() =</c></tag>
+      <item><p><c>[{rsa_pad, rsa_sign_padding()} | {rsa_pss_saltlen, integer()}]</c></p></item>
+
+      <tag><c>rsa_sign_padding() =</c></tag>
+      <item>
+	<p><c>'rsa_pkcs1_padding'</c></p>
+	<p><c>| 'rsa_pkcs1_pss_padding'</c></p>
+      </item>
+
       <tag><c>digest_type() = </c></tag>
       <item><p>Union of <c>rsa_digest_type()</c>, <c>dss_digest_type()</c>, 
       and <c>ecdsa_digest_type()</c>.</p></item>
 
       <tag><c>rsa_digest_type() = </c></tag>
-      <item><p><c>'md5' | 'sha' | 'sha224' | 'sha256' | 'sha384' | 'sha512'</c></p></item>
+      <item><p><c>'md5' | 'ripemd160' | 'sha' | 'sha224' | 'sha256' | 'sha384' | 'sha512'</c></p></item>
 
       <tag><c>dss_digest_type() = </c></tag>
-      <item><p><c>'sha'</c></p></item>
+      <item><p><c>'sha' | 'sha224' | 'sha256' | 'sha384' | 'sha512'</c></p></item>
 
       <tag><c>ecdsa_digest_type() = </c></tag>
-      <item><p><c>'sha'| 'sha224' | 'sha256' | 'sha384' | 'sha512'</c></p></item>
+      <item><p><c>'sha' | 'sha224' | 'sha256' | 'sha384' | 'sha512'</c></p></item>
       
       <tag><c>crl_reason() = </c></tag>
       <item>
@@ -736,6 +745,7 @@ fun(#'DistributionPoint'{}, #'CertificateList'{},
 
   <func>
     <name>sign(Msg, DigestType, Key) -> binary()</name>
+    <name>sign(Msg, DigestType, Key, Options) -> binary()</name>
     <fsummary>Creates a digital signature.</fsummary>
     <type>
        <v>Msg = binary() | {digest,binary()}</v>
@@ -744,6 +754,7 @@ fun(#'DistributionPoint'{}, #'CertificateList'{},
        digest.</d>
        <v>DigestType = rsa_digest_type() | dss_digest_type() | ecdsa_digest_type()</v>
        <v>Key = rsa_private_key() | dsa_private_key() | ec_private_key()</v>
+       <v>Options = public_sign_options()</v>
   </type>
   <desc>
     <p>Creates a digital signature.</p> 
@@ -801,6 +812,7 @@ fun(#'DistributionPoint'{}, #'CertificateList'{},
 
   <func>
     <name>verify(Msg, DigestType, Signature, Key) -> boolean()</name>
+    <name>verify(Msg, DigestType, Signature, Key, Options) -> boolean()</name>
     <fsummary>Verifies a digital signature.</fsummary>
     <type>
       <v>Msg = binary() | {digest,binary()}</v>
@@ -809,6 +821,7 @@ fun(#'DistributionPoint'{}, #'CertificateList'{},
       <v>DigestType = rsa_digest_type() | dss_digest_type() | ecdsa_digest_type()</v>
       <v>Signature = binary()</v>
       <v>Key = rsa_public_key() | dsa_public_key() | ec_public_key()</v>
+      <v>Options = public_sign_options()</v>
   </type>
   <desc>
     <p>Veryfies a digital signature.</p>

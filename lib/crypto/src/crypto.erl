@@ -24,7 +24,7 @@
 
 -export([start/0, stop/0, info_lib/0, supports/0, version/0, bytes_to_integer/1]).
 -export([hash/2, hash_init/1, hash_update/2, hash_final/1]).
--export([sign/4, verify/5]).
+-export([sign/4, sign/5, verify/5, verify/6]).
 -export([generate_key/2, generate_key/3, compute_key/4]).
 -export([hmac/3, hmac/4, hmac_init/2, hmac_update/2, hmac_final/1, hmac_final_n/2]).
 -export([exor/2, strong_rand_bytes/1, mod_pow/3]).
@@ -171,11 +171,14 @@
 -define(MAX_BYTES_TO_NIF, 20000). %%  Current value is: erlang:system_info(context_reductions) * 10
 
 -type mpint() :: binary().
--type rsa_digest_type() :: 'md5' | 'sha' | 'sha224' | 'sha256' | 'sha384' | 'sha512'.
--type dss_digest_type() :: 'none' | 'sha'.
-%%-type ecdsa_digest_type() :: 'md5' | 'sha' | 'sha256' | 'sha384' | 'sha512'.
+-type rsa_digest_type() :: 'md5' | 'ripemd160' | 'sha' | 'sha224' | 'sha256' | 'sha384' | 'sha512'.
+-type dss_digest_type() :: 'none' | 'sha' | 'sha224' | 'sha256' | 'sha384' | 'sha512'.
+-type ecdsa_digest_type() :: 'sha' | 'sha224' | 'sha256' | 'sha384' | 'sha512'.
 -type data_or_digest() :: binary() | {digest, binary()}.
 -type crypto_integer() :: binary() | integer().
+-type rsa_sign_padding() :: 'rsa_pkcs1_padding' | 'rsa_pkcs1_pss_padding'.
+-type sign_algorithm() :: 'rsa' | 'dss' | 'ecdsa'.
+-type sign_options() :: [{rsa_pad, rsa_sign_padding()} | {rsa_pss_saltlen, integer()}].
 %%-type ec_named_curve() :: atom().
 %%-type ec_point() :: crypto_integer().
 %%-type ec_basis() :: {tpbasis, K :: non_neg_integer()} | {ppbasis, K1 :: non_neg_integer(), K2 :: non_neg_integer(), K3 :: non_neg_integer()} | onbasis.
@@ -481,40 +484,39 @@ mod_pow(Base, Exponent, Prime) ->
 	<<0>> -> error;
 	R -> R
     end.
-verify(dss, none, Data, Signature, Key) when is_binary(Data) ->
-    verify(dss, sha, {digest, Data}, Signature, Key);
-verify(Alg, Type, Data, Signature, Key) when is_binary(Data) ->
-    verify(Alg, Type,  {digest, hash(Type, Data)}, Signature, Key);
-verify(dss, Type, Data, Signature, Key) ->
-    dss_verify_nif(Type, Data, Signature, map_ensure_int_as_bin(Key));
-verify(rsa, Type, DataOrDigest, Signature, Key) ->
-    case rsa_verify_nif(Type, DataOrDigest, Signature, map_ensure_int_as_bin(Key)) of
+
+-spec verify(sign_algorithm(), rsa_digest_type() | dss_digest_type() | ecdsa_digest_type(),
+	     data_or_digest(), binary(), [binary()] | tuple()) -> binary().
+-spec verify(sign_algorithm(), rsa_digest_type() | dss_digest_type() | ecdsa_digest_type(),
+	     data_or_digest(), binary(), [binary()] | tuple(), sign_options()) -> binary().
+-spec sign(sign_algorithm(), rsa_digest_type() | dss_digest_type() | ecdsa_digest_type(),
+	   data_or_digest(), [binary()] | tuple()) -> binary().
+-spec sign(sign_algorithm(), rsa_digest_type() | dss_digest_type() | ecdsa_digest_type(),
+	   data_or_digest(), [binary()] | tuple(), sign_options()) -> binary().
+
+verify(Algorithm, Type, Data, Signature, Key) ->
+    verify(Algorithm, Type, Data, Signature, Key, []).
+
+%% Backwards compatible
+verify(Algorithm = dss, none, Digest, Signature, Key, Options) ->
+    verify(Algorithm, sha, {digest, Digest}, Signature, Key, Options);
+verify(Algorithm, Type, Data, Signature, Key, Options) ->
+    case verify_nif(Algorithm, Type, Data, Signature, format_pkey(Algorithm, Key), Options) of
 	notsup -> erlang:error(notsup);
-	Bool -> Bool
-    end;
-verify(ecdsa, Type, DataOrDigest, Signature, [Key, Curve]) ->
-    case ecdsa_verify_nif(Type, DataOrDigest, Signature, nif_curve_params(Curve), ensure_int_as_bin(Key)) of
-	notsup -> erlang:error(notsup);
-	Bool -> Bool
+	Boolean -> Boolean
     end.
-sign(dss, none, Data, Key) when is_binary(Data) ->
-    sign(dss, sha, {digest, Data}, Key);
-sign(Alg, Type, Data, Key) when is_binary(Data) ->
-    sign(Alg, Type, {digest, hash(Type, Data)}, Key);
-sign(rsa, Type, DataOrDigest, Key) ->
-    case rsa_sign_nif(Type, DataOrDigest, map_ensure_int_as_bin(Key)) of
-	error -> erlang:error(badkey, [Type,DataOrDigest,Key]);
-	Sign -> Sign
-    end;
-sign(dss, Type, DataOrDigest, Key) ->
-    case dss_sign_nif(Type, DataOrDigest, map_ensure_int_as_bin(Key)) of
-	error -> erlang:error(badkey, [DataOrDigest, Key]);
-	Sign -> Sign
-    end;
-sign(ecdsa, Type, DataOrDigest, [Key, Curve]) ->
-    case ecdsa_sign_nif(Type, DataOrDigest, nif_curve_params(Curve), ensure_int_as_bin(Key)) of
-	error -> erlang:error(badkey, [Type,DataOrDigest,Key]);
-	Sign -> Sign
+
+sign(Algorithm, Type, Data, Key) ->
+    sign(Algorithm, Type, Data, Key, []).
+
+%% Backwards compatible
+sign(Algorithm = dss, none, Digest, Key, Options) ->
+    sign(Algorithm, sha, {digest, Digest}, Key, Options);
+sign(Algorithm, Type, Data, Key, Options) ->
+    case sign_nif(Algorithm, Type, Data, format_pkey(Algorithm, Key), Options) of
+	error -> erlang:error(badkey, [Algorithm, Type, Data, Key, Options]);
+	notsup -> erlang:error(notsup);
+	Signature -> Signature
     end.
 
 -spec public_encrypt(rsa, binary(), [binary()], rsa_padding()) ->
@@ -1515,13 +1517,8 @@ srp_value_B_nif(_Multiplier, _Verifier, _Generator, _Exponent, _Prime) -> ?nif_s
 
 
 %% Digital signatures  --------------------------------------------------------------------
-rsa_sign_nif(_Type,_Data,_Key) -> ?nif_stub.
-dss_sign_nif(_Type,_Data,_Key) -> ?nif_stub.
-ecdsa_sign_nif(_Type, _DataOrDigest, _Curve, _Key) -> ?nif_stub.
-
-dss_verify_nif(_Type, _Data, _Signature, _Key) -> ?nif_stub.
-rsa_verify_nif(_Type, _Data, _Signature, _Key) -> ?nif_stub.
-ecdsa_verify_nif(_Type, _DataOrDigest, _Signature, _Curve, _Key) -> ?nif_stub.
+sign_nif(_Algorithm, _Type, _Data, _Key, _Options) -> ?nif_stub.
+verify_nif(_Algorithm, _Type, _Data, _Signature, _Key, _Options) -> ?nif_stub.
 
 %% Public Keys  --------------------------------------------------------------------
 %% DH Diffie-Hellman functions
@@ -1653,6 +1650,15 @@ map_to_norm_bin([H|_]=List) when is_integer(H) ->
     lists:map(fun(E) -> int_to_bin(E) end, List);
 map_to_norm_bin(List) ->
     lists:map(fun(E) -> mpint_to_bin(E) end, List).
+
+format_pkey(rsa, Key) ->
+    map_ensure_int_as_bin(Key);
+format_pkey(ecdsa, [Key, Curve]) ->
+    {nif_curve_params(Curve), ensure_int_as_bin(Key)};
+format_pkey(dss, Key) ->
+    map_ensure_int_as_bin(Key);
+format_pkey(_, Key) ->
+    Key.
 
 %%--------------------------------------------------------------------
 %%% Deprecated
