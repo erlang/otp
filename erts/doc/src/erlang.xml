@@ -6868,7 +6868,7 @@ ok
           <tag><c>smp_support</c></tag>
           <item>
             <p>Returns <c>true</c> if the emulator has been compiled
-              with smp support; otherwise, <c>false</c>.</p>
+              with smp support and is run on a server with multiple physical or logical processors; otherwise, <c>false</c>.</p>
           </item>
 	  <tag><marker id="system_info_start_time"/><c>start_time</c></tag>
 	  <item><p>The <seealso marker="#monotonic_time/0">Erlang monotonic
