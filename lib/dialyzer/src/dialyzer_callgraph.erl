@@ -106,12 +106,7 @@
                     self_rec	                   :: ets:tid(),
                     calls                          :: ets:tid(),
                     race_detection = false         :: boolean(),
-		    race_data_server = new_race_data_server() :: pid()}).
-
--record(race_data_state, {race_code     = dict:new() :: dict:dict(),
-			  public_tables = []         :: [label()],
-			  named_tables  = []         :: [string()],
-			  beh_api_calls = []         :: [{mfa(), mfa()}]}).
+		    race_data_server = dialyzer_race_data_server:new() :: pid()}).
 
 %% Exported Types
 
@@ -586,16 +581,10 @@ digraph_reaching_subgraph(Funs, DG) ->
 
 renew_race_info(#callgraph{race_data_server = RaceDataServer} = CG,
 		RaceCode, PublicTables, NamedTables) ->
-  ok = race_data_server_cast(
+  ok = dialyzer_race_data_server:cast(
 	 {renew_race_info, {RaceCode, PublicTables, NamedTables}},
 	 RaceDataServer),
   CG.
-
-renew_race_info({RaceCode, PublicTables, NamedTables},
-		#race_data_state{} = State) ->
-  State#race_data_state{race_code = RaceCode,
-			public_tables = PublicTables,
-			named_tables = NamedTables}.
 
 -spec renew_race_code(dialyzer_races:races(), callgraph()) -> callgraph().
 
@@ -603,27 +592,18 @@ renew_race_code(Races, #callgraph{race_data_server = RaceDataServer} = CG) ->
   Fun = dialyzer_races:get_curr_fun(Races),
   FunArgs = dialyzer_races:get_curr_fun_args(Races),
   Code = lists:reverse(dialyzer_races:get_race_list(Races)),
-  ok = race_data_server_cast(
+  ok = dialyzer_race_data_server:cast(
 	 {renew_race_code, {Fun, FunArgs, Code}},
 	 RaceDataServer),
   CG.
-
-renew_race_code_handler({Fun, FunArgs, Code},
-		      #race_data_state{race_code = RaceCode} = State) ->
-  State#race_data_state{race_code = dict:store(Fun, [FunArgs, Code], RaceCode)}.
 
 -spec renew_race_public_tables(label(), callgraph()) -> callgraph().
 
 renew_race_public_tables(VarLabel,
 			 #callgraph{race_data_server = RaceDataServer} = CG) ->
   ok =
-    race_data_server_cast({renew_race_public_tables, VarLabel}, RaceDataServer),
+    dialyzer_race_data_server:cast({renew_race_public_tables, VarLabel}, RaceDataServer),
   CG.
-
-renew_race_public_tables_handler(VarLabel,
-				 #race_data_state{public_tables = PT}
-				 = State) ->
-  State#race_data_state{public_tables = ordsets:add_element(VarLabel, PT)}.
 
 -spec cleanup(callgraph()) -> callgraph().
 
@@ -634,18 +614,18 @@ cleanup(#callgraph{digraph = Digraph,
   #callgraph{digraph = Digraph,
 	     name_map = NameMap,
              rev_name_map = RevNameMap,
-	     race_data_server = race_data_server_call(dup, RaceDataServer)}.
+	     race_data_server = dialyzer_race_data_server:duplicate(RaceDataServer)}.
 
 -spec duplicate(callgraph()) -> callgraph().
 
 duplicate(#callgraph{race_data_server = RaceDataServer} = Callgraph) ->
   Callgraph#callgraph{
-    race_data_server = race_data_server_call(dup, RaceDataServer)}.
+    race_data_server = dialyzer_race_data_server:duplicate(RaceDataServer)}.
 
 -spec dispose_race_server(callgraph()) -> ok.
 
 dispose_race_server(#callgraph{race_data_server = RaceDataServer}) ->
-  race_data_server_cast(stop, RaceDataServer).
+  dialyzer_race_data_server:stop(RaceDataServer).
 
 -spec get_digraph(callgraph()) -> digraph:graph().
 
@@ -655,17 +635,17 @@ get_digraph(#callgraph{digraph = Digraph}) ->
 -spec get_named_tables(callgraph()) -> [string()].
 
 get_named_tables(#callgraph{race_data_server = RaceDataServer}) ->
-  race_data_server_call(get_named_tables, RaceDataServer).
+  dialyzer_race_data_server:call(get_named_tables, RaceDataServer).
 
 -spec get_public_tables(callgraph()) -> [label()].
 
 get_public_tables(#callgraph{race_data_server = RaceDataServer}) ->
-  race_data_server_call(get_public_tables, RaceDataServer).
+  dialyzer_race_data_server:call(get_public_tables, RaceDataServer).
 
 -spec get_race_code(callgraph()) -> dict:dict().
 
 get_race_code(#callgraph{race_data_server = RaceDataServer}) ->
-  race_data_server_call(get_race_code, RaceDataServer).
+  dialyzer_race_data_server:call(get_race_code, RaceDataServer).
 
 -spec get_race_detection(callgraph()) -> boolean().
 
@@ -675,12 +655,12 @@ get_race_detection(#callgraph{race_detection = RD}) ->
 -spec get_behaviour_api_calls(callgraph()) -> [{mfa(), mfa()}].
 
 get_behaviour_api_calls(#callgraph{race_data_server = RaceDataServer}) ->
-  race_data_server_call(get_behaviour_api_calls, RaceDataServer).
+  dialyzer_race_data_server:call(get_behaviour_api_calls, RaceDataServer).
 
 -spec race_code_new(callgraph()) -> callgraph().
 
 race_code_new(#callgraph{race_data_server = RaceDataServer} = CG) ->
-  ok = race_data_server_cast(race_code_new, RaceDataServer),
+  ok = dialyzer_race_data_server:cast(race_code_new, RaceDataServer),
   CG.
 
 -spec put_digraph(digraph:graph(), callgraph()) -> callgraph().
@@ -691,7 +671,7 @@ put_digraph(Digraph, Callgraph) ->
 -spec put_race_code(dict:dict(), callgraph()) -> callgraph().
 
 put_race_code(RaceCode, #callgraph{race_data_server = RaceDataServer} = CG) ->
-  ok = race_data_server_cast({put_race_code, RaceCode}, RaceDataServer),
+  ok = dialyzer_race_data_server:cast({put_race_code, RaceCode}, RaceDataServer),
   CG.
 
 -spec put_race_detection(boolean(), callgraph()) -> callgraph().
@@ -703,77 +683,22 @@ put_race_detection(RaceDetection, Callgraph) ->
 
 put_named_tables(NamedTables,
 		 #callgraph{race_data_server = RaceDataServer} = CG) ->
-  ok = race_data_server_cast({put_named_tables, NamedTables}, RaceDataServer),
+  ok = dialyzer_race_data_server:cast({put_named_tables, NamedTables}, RaceDataServer),
   CG.
 
 -spec put_public_tables([label()], callgraph()) -> callgraph().
 
 put_public_tables(PublicTables,
 		 #callgraph{race_data_server = RaceDataServer} = CG) ->
-  ok = race_data_server_cast({put_public_tables, PublicTables}, RaceDataServer),
+  ok = dialyzer_race_data_server:cast({put_public_tables, PublicTables}, RaceDataServer),
   CG.
 
 -spec put_behaviour_api_calls([{mfa(), mfa()}], callgraph()) -> callgraph().
 
 put_behaviour_api_calls(Calls,
 		 #callgraph{race_data_server = RaceDataServer} = CG) ->
-  ok = race_data_server_cast({put_behaviour_api_calls, Calls}, RaceDataServer),
+  ok = dialyzer_race_data_server:cast({put_behaviour_api_calls, Calls}, RaceDataServer),
   CG.
-
-
-new_race_data_server() ->
-  spawn_link(fun() -> race_data_server_loop(#race_data_state{}) end).
-
-race_data_server_loop(State) ->
-  receive
-    {call, From, Ref, Query} ->
-      Reply = race_data_server_handle_call(Query, State),
-      From ! {Ref, Reply},
-      race_data_server_loop(State);
-    {cast, stop} ->
-      ok;
-    {cast, Message} ->
-      NewState = race_data_server_handle_cast(Message, State),
-      race_data_server_loop(NewState)
-  end.
-
-race_data_server_call(Query, Server) ->
-  Ref = make_ref(),
-  Server ! {call, self(), Ref, Query},
-  receive
-    {Ref, Reply} -> Reply
-  end.
-
-race_data_server_cast(Message, Server) ->
-  Server ! {cast, Message},
-  ok.
-
-race_data_server_handle_cast(race_code_new, State) ->
-  State#race_data_state{race_code = dict:new()};
-race_data_server_handle_cast({Tag, Data}, State) ->
-  case Tag of
-    renew_race_info -> renew_race_info(Data, State);
-    renew_race_code -> renew_race_code_handler(Data, State);
-    renew_race_public_tables -> renew_race_public_tables_handler(Data, State);
-    put_race_code -> State#race_data_state{race_code = Data};
-    put_public_tables -> State#race_data_state{public_tables = Data};
-    put_named_tables -> State#race_data_state{named_tables = Data};
-    put_behaviour_api_calls -> State#race_data_state{beh_api_calls = Data}
-  end.
-
-race_data_server_handle_call(Query,
-			     #race_data_state{race_code = RaceCode,
-					      public_tables = PublicTables,
-					      named_tables = NamedTables,
-					      beh_api_calls = BehApiCalls}
-			     = State) ->
-  case Query of
-    dup -> spawn_link(fun() -> race_data_server_loop(State) end);
-    get_race_code -> RaceCode;
-    get_public_tables -> PublicTables;
-    get_named_tables -> NamedTables;
-    get_behaviour_api_calls -> BehApiCalls
-  end.
 
 %%=============================================================================
 %% Utilities for 'dot'

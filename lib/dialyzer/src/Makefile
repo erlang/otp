@@ -61,6 +61,7 @@ MODULES =  \
 	dialyzer_gui_wx \
 	dialyzer_options \
 	dialyzer_plt \
+	dialyzer_race_data_server \
 	dialyzer_races \
 	dialyzer_succ_typings \
 	dialyzer_timing \
@@ -140,6 +141,7 @@ $(EBIN)/dialyzer_explanation.beam: dialyzer.hrl
 $(EBIN)/dialyzer_gui_wx.beam: dialyzer.hrl dialyzer_gui_wx.hrl
 $(EBIN)/dialyzer_options.beam: dialyzer.hrl
 $(EBIN)/dialyzer_plt.beam: dialyzer.hrl
+$(EBIN)/dialyzer_race_data_server.beam: dialyzer.hrl
 $(EBIN)/dialyzer_races.beam: dialyzer.hrl
 $(EBIN)/dialyzer_succ_typings.beam: dialyzer.hrl
 $(EBIN)/dialyzer_typesig.beam: dialyzer.hrl
