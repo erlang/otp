@@ -115,7 +115,7 @@
 
 %% Exported Types
 
--type callgraph() :: #callgraph{}.
+-opaque callgraph() :: #callgraph{}.
 
 -type active_digraph() :: {'d', digraph:graph()} | {'e', ets:tid(), ets:tid()}.
 
