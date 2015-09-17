@@ -65,6 +65,12 @@ logfile(Config) ->
     error_logger:logfile(close),
     analyse_events(Log, Ev, [AtNode], unlimited),
 
+    [] = [{X, file:pid2name(X)} || X <- processes(), Data <- [process_info(X, [current_function])],
+				   Data =/= undefined,
+				   element(1, element(2, lists:keyfind(current_function, 1, Data)))
+				       =:= file_io_server,
+				   file:pid2name(X) =:= {ok, Log}],
+
     test_server:stop_node(Node),
 
     cleanup(Log),
