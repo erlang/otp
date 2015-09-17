@@ -733,13 +733,13 @@ static void ttysl_from_erlang(ErlDrvData ttysl_data, char* buf, ErlDrvSizeT coun
             else
                 written = 0;
             if (written < 0) {
-                if (errno == EAGAIN) {
+                if (errno == ERRNO_BLOCK || errno == EINTR) {
                     driver_select(ttysl_port,(ErlDrvEvent)(long)ttysl_fd,
                                   ERL_DRV_USE|ERL_DRV_WRITE,1);
                     break;
                 } else {
-                    /* we ignore all other errors */
-                    break;
+		    driver_failure_posix(ttysl_port, errno);
+		    return;
                 }
             } else {
                 if (driver_deq(ttysl_port, written) == 0)
@@ -779,11 +779,12 @@ static void ttysl_to_tty(ErlDrvData ttysl_data, ErlDrvEvent fd) {
         else
             written = 0;
         if (written < 0) {
-            if (errno == EAGAIN) {
-                break;
-            } else {
-                /* we ignore all other errors */
+            if (errno == EINTR) {
+	        continue;
+	    } else if (errno != ERRNO_BLOCK){
+	        driver_failure_posix(ttysl_port, errno);
             }
+            break;
         } else {
             sz = driver_deq(ttysl_port, written);
             if (sz < TTY_BUFFSIZE && ttysl_send_ok) {
