@@ -611,7 +611,7 @@ cleanup:
 /*
  *  Copy a structure to a heap.
  */
-Eterm copy_struct(Eterm obj, Uint sz, Eterm** hpp, ErlOffHeap* off_heap)
+Eterm copy_struct_x(Eterm obj, Uint sz, Eterm** hpp, ErlOffHeap* off_heap, Uint *bsz)
 {
     char* hstart;
     Uint hsize;
@@ -626,6 +626,7 @@ Eterm copy_struct(Eterm obj, Uint sz, Eterm** hpp, ErlOffHeap* off_heap)
     Eterm* argp;
     Eterm* const_tuple;
     Eterm hdr;
+    Eterm *hend;
     int i;
 #ifdef DEBUG
     Eterm org_obj = obj;
@@ -641,7 +642,7 @@ Eterm copy_struct(Eterm obj, Uint sz, Eterm** hpp, ErlOffHeap* off_heap)
     DTRACE1(copy_struct, (int32_t)sz);
 
     hp = htop = *hpp;
-    hbot   = htop + sz;
+    hbot = hend = htop + sz;
     hstart = (char *)htop;
     hsize = (char*) hbot - hstart;
     const_tuple = 0;
@@ -906,19 +907,24 @@ Eterm copy_struct(Eterm obj, Uint sz, Eterm** hpp, ErlOffHeap* off_heap)
 	}
     }
 
+    if (bsz) {
+        *hpp = htop;
+        *bsz = hend - hbot;
+    } else {
 #ifdef DEBUG
-    if (htop != hbot)
-	erl_exit(ERTS_ABORT_EXIT,
-		 "Internal error in copy_struct() when copying %T:"
-		 " htop=%p != hbot=%p (sz=%beu)\n",
-		 org_obj, htop, hbot, org_sz); 
+        if (htop != hbot)
+            erl_exit(ERTS_ABORT_EXIT,
+                    "Internal error in copy_struct() when copying %T:"
+                    " htop=%p != hbot=%p (sz=%beu)\n",
+                    org_obj, htop, hbot, org_sz);
 #else
-    if (htop > hbot) {
-	erl_exit(ERTS_ABORT_EXIT,
-		 "Internal error in copy_struct(): htop, hbot overrun\n");
-    }
+        if (htop > hbot) {
+            erl_exit(ERTS_ABORT_EXIT,
+                    "Internal error in copy_struct(): htop, hbot overrun\n");
+        }
 #endif
-    *hpp = (Eterm *) (hstart+hsize);
+        *hpp = (Eterm *) (hstart+hsize);
+    }
     VERBOSE(DEBUG_SHCOPY, ("[pid=%T] result is at %p\n", mypid, res));
     return res;
 }
@@ -1098,6 +1104,7 @@ Uint copy_shared_calculate(Eterm obj, erts_shcopy_t *info, Uint32 flags)
 	    /* off heap list pointers are copied verbatim */
 	    if (!INHEAP(myself, ptr)) {
 		VERBOSE(DEBUG_SHCOPY, ("[pid=%T] bypassed copying %p is %T\n", myself->common.id, ptr, obj));
+                info->literal_size += size_object(obj);
 		goto pop_next;
 	    }
 	    head = CAR(ptr);
@@ -1147,6 +1154,7 @@ Uint copy_shared_calculate(Eterm obj, erts_shcopy_t *info, Uint32 flags)
 	    /* off heap pointers to boxes are copied verbatim */
 	    if (!INHEAP(myself, ptr)) {
 		VERBOSE(DEBUG_SHCOPY, ("[pid=%T] bypassed copying %p is %T\n", myself->common.id, ptr, obj));
+                info->literal_size += size_object(obj);
 		goto pop_next;
 	    }
 	    hdr = *ptr;
@@ -1286,7 +1294,7 @@ Uint copy_shared_calculate(Eterm obj, erts_shcopy_t *info, Uint32 flags)
                 info->shtable_alloc_type = t.alloc_type;
                 /* single point of return: the size of the object */
                 VERBOSE(DEBUG_SHCOPY, ("[pid=%T] size was: %u\n", myself->common.id, sum));
-                return sum;
+                return sum + info->literal_size;
 	    }
 	    obj = EQUEUE_GET(s);
 	    break;
@@ -1309,6 +1317,7 @@ Uint copy_shared_perform(Eterm obj, Uint size, erts_shcopy_t *info,
     Eterm* hscan;
     Eterm result;
     Eterm* resp;
+    Eterm *hbot, *hend;
     unsigned remaining;
     Process* myself;
     int force_local = flags & ERTS_SHCOPY_FLG_TMPBUF;
@@ -1346,6 +1355,7 @@ Uint copy_shared_perform(Eterm obj, Uint size, erts_shcopy_t *info,
     */
 
     hscan = hp = *hpp;
+    hbot  = hend = hp + size;
 
     /* step #3:
        -------------------------------------------------------
@@ -1367,7 +1377,9 @@ Uint copy_shared_perform(Eterm obj, Uint size, erts_shcopy_t *info,
 	    ptr = list_val(obj);
 	    /* off heap list pointers are copied verbatim */
 	    if (!INHEAP(myself, ptr)) {
-		*resp = obj;
+                Uint bsz;
+                *resp = copy_struct_x(obj, hbot - hp, &hp, off_heap, &bsz);
+                hbot -= bsz;
 		goto cleanup_next;
 	    }
 	    head = CAR(ptr);
@@ -1428,7 +1440,9 @@ Uint copy_shared_perform(Eterm obj, Uint size, erts_shcopy_t *info,
 	    ptr = boxed_val(obj);
 	    /* off heap pointers to boxes are copied verbatim */
 	    if (!INHEAP(myself, ptr)) {
-		*resp = obj;
+                Uint bsz;
+                *resp = copy_struct_x(obj, hbot - hp, &hp, off_heap, &bsz);
+                hbot -= bsz;
 		goto cleanup_next;
 	    }
 	    hdr = *ptr;
@@ -1759,8 +1773,9 @@ all_clean:
     VERBOSE(DEBUG_SHCOPY, ("[pid=%T] copy is %T\n", myself->common.id, result));
     VERBOSE(DEBUG_SHCOPY, ("[pid=%T] result is at %p\n", myself->common.id, result));
 
-    ASSERT(hp == *hpp + size);
-    *hpp = hp;
+    ASSERT(hbot == hp);
+    ASSERT(size == ((hp - *hpp) + (hend - hbot)));
+    *hpp = hend;
     return result;
 }
 

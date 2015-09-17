@@ -1062,6 +1062,7 @@ typedef struct {
     Eterm  shtable_default[DEF_ESTACK_SIZE];
     Eterm* shtable_start;
     ErtsAlcType_t shtable_alloc_type;
+    Uint literal_size;
 } erts_shcopy_t;
 
 #define INITIALIZE_SHCOPY(info)                         \
@@ -1069,6 +1070,7 @@ do {                                                    \
     info.queue_start = info.queue_default;              \
     info.bitstore_start = info.bitstore_default;        \
     info.shtable_start = info.shtable_default;          \
+    info.literal_size = 0;                              \
 } while(0)
 
 #define DESTROY_SHCOPY(info)                                            \
@@ -1094,7 +1096,9 @@ Eterm copy_shared_perform(Eterm, Uint, erts_shcopy_t*, Eterm**, ErlOffHeap*, Uin
 
 Uint size_shared(Eterm);
 
-Eterm copy_struct(Eterm, Uint, Eterm**, ErlOffHeap*);
+Eterm copy_struct_x(Eterm, Uint, Eterm**, ErlOffHeap*, Uint* bsz);
+#define copy_struct(Obj,Sz,HPP,OH) \
+    copy_struct_x(Obj,Sz,HPP,OH,NULL)
 Eterm copy_shallow(Eterm*, Uint, Eterm**, ErlOffHeap*);
 
 void erts_move_multi_frags(Eterm** hpp, ErlOffHeap*, ErlHeapFragment* first,
