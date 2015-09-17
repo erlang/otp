@@ -40,7 +40,7 @@
 %% - typer requires hipe (in the .app file)
 %% - erl_interface, jinterface support no upgrade
 -define(appup_exclude, 
-	[dialyzer,hipe,typer,erl_interface,jinterface]).
+	[dialyzer,hipe,typer,erl_interface,jinterface,ose]).
 
 init_per_suite(Config) ->
     %% Check that a real release is running, not e.g. cerl
