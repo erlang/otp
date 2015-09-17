@@ -3983,12 +3983,15 @@ connect_dist_c(S) ->
 
 tls_downgrade(Socket) ->
     ok = ssl_test_lib:send_recv_result(Socket),
-    case ssl:close(Socket, {self(), 5000})  of
+    case ssl:close(Socket, {self(), 10000})  of
 	{ok, TCPSocket} -> 
 	    inet:setopts(TCPSocket, [{active, true}]),
 	    gen_tcp:send(TCPSocket, "Downgraded"),
 	    receive 
 		{tcp, TCPSocket, <<"Downgraded">>} ->
+		    ok;
+		{tcp_closed, TCPSocket} ->
+		    ct:pal("Peer timed out, downgrade aborted"),
 		    ok;
 		Other ->
 		   {error, Other}
