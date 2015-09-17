@@ -1040,14 +1040,14 @@ do {								\
  *  Copy object "obj" preserving sharing.
  *  First half: count size and calculate sharing.
  */
-Uint copy_shared_calculate(Eterm obj, shcopy_info *info, unsigned flags)
+Uint copy_shared_calculate(Eterm obj, erts_shcopy_t *info, Uint32 flags)
 {
     Uint sum;
     Uint e;
     unsigned sz;
     Eterm* ptr;
     Process* myself;
-    int force_local = flags & ERTS_SHCOPY_FLG_TMP_BUF;
+    int force_local = flags & ERTS_SHCOPY_FLG_TMPBUF;
 
     DECLARE_EQUEUE_INIT_INFO(s, info);
     DECLARE_BITSTORE_INIT_INFO(b, info);
@@ -1300,8 +1300,8 @@ Uint copy_shared_calculate(Eterm obj, shcopy_info *info, unsigned flags)
  *  Copy object "obj" preserving sharing.
  *  Second half: copy and restore the object.
  */
-Uint copy_shared_perform(Eterm obj, Uint size, shcopy_info *info, Eterm** hpp, ErlOffHeap* off_heap, unsigned flags)
-{
+Uint copy_shared_perform(Eterm obj, Uint size, erts_shcopy_t *info,
+                         Eterm** hpp, ErlOffHeap* off_heap, Uint32 flags) {
     Uint e;
     unsigned sz;
     Eterm* ptr;
@@ -1311,7 +1311,7 @@ Uint copy_shared_perform(Eterm obj, Uint size, shcopy_info *info, Eterm** hpp, E
     Eterm* resp;
     unsigned remaining;
     Process* myself;
-    int force_local = flags & ERTS_SHCOPY_FLG_TMP_BUF;
+    int force_local = flags & ERTS_SHCOPY_FLG_TMPBUF;
 #ifdef DEBUG
     Eterm saved_obj = obj;
 #endif

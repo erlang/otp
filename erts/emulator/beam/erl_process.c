@@ -10749,8 +10749,8 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
     erts_aint32_t prio = (erts_aint32_t) PRIORITY_NORMAL;
 #ifdef SHCOPY_SPAWN
     unsigned shflags = 0;	/* could be taken from so->flags, if necessary */
-    shcopy_info info;
-    INITIALIZE_INFO(info);
+    erts_shcopy_t info;
+    INITIALIZE_SHCOPY(info);
 #endif
 
 #ifdef ERTS_SMP
@@ -10887,7 +10887,7 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
     BM_SWAP_TIMER(system,copy);
 #ifdef SHCOPY_SPAWN
     p->arg_reg[2] = copy_shared_perform(args, arg_size, &info, &p->htop, &p->off_heap, shflags);
-    DESTROY_INFO(info);
+    DESTROY_SHCOPY(info);
 #else
     p->arg_reg[2] = copy_struct(args, arg_size, &p->htop, &p->off_heap);
 #endif

@@ -1045,13 +1045,13 @@ void erl_error(char*, va_list);
 #undef SHCOPY_DISABLE
 #endif
 
-#define ERTS_SHCOPY_FLG_MASK	(((unsigned) 3) << 0)
-#define ERTS_SHCOPY_FLG_NONE	(((unsigned) 1) << 0)
-#define ERTS_SHCOPY_FLG_TMP_BUF	(((unsigned) 1) << 1)
+#define ERTS_SHCOPY_FLG_MASK    (((Uint32) 3) << 0)
+#define ERTS_SHCOPY_FLG_NONE    (((Uint32) 1) << 0)
+#define ERTS_SHCOPY_FLG_TMPBUF  (((Uint32) 1) << 1) /* forces INHEAP to true */
 
 /* The persistent state while the sharing-preserving copier works */
 
-typedef struct shcopy_info {
+typedef struct {
     Eterm  queue_default[DEF_EQUEUE_SIZE];
     Eterm* queue_start;
     Eterm* queue_end;
@@ -1062,26 +1062,26 @@ typedef struct shcopy_info {
     Eterm  shtable_default[DEF_ESTACK_SIZE];
     Eterm* shtable_start;
     ErtsAlcType_t shtable_alloc_type;
-} shcopy_info;
+} erts_shcopy_t;
 
-#define INITIALIZE_INFO(info)						\
-do {									\
-    info.queue_start = info.queue_default;				\
-    info.bitstore_start = info.bitstore_default;			\
-    info.shtable_start = info.shtable_default;				\
+#define INITIALIZE_SHCOPY(info)                         \
+do {                                                    \
+    info.queue_start = info.queue_default;              \
+    info.bitstore_start = info.bitstore_default;        \
+    info.shtable_start = info.shtable_default;          \
 } while(0)
 
-#define DESTROY_INFO(info)						\
-do {									\
-    if (info.queue_start != info.queue_default) {			\
-	erts_free(info.queue_alloc_type, info.queue_start);		\
-    }									\
-    if (info.bitstore_start != info.bitstore_default) {			\
-	erts_free(info.bitstore_alloc_type, info.bitstore_start);	\
-    }									\
-    if (info.shtable_start != info.shtable_default) {			\
-	erts_free(info.shtable_alloc_type, info.shtable_start);		\
-    }									\
+#define DESTROY_SHCOPY(info)                                            \
+do {                                                                    \
+    if (info.queue_start != info.queue_default) {                       \
+        erts_free(info.queue_alloc_type, info.queue_start);             \
+    }                                                                   \
+    if (info.bitstore_start != info.bitstore_default) {                 \
+        erts_free(info.bitstore_alloc_type, info.bitstore_start);       \
+    }                                                                   \
+    if (info.shtable_start != info.shtable_default) {                   \
+        erts_free(info.shtable_alloc_type, info.shtable_start);         \
+    }                                                                   \
 } while(0)
 
 /* copy.c */
@@ -1089,8 +1089,8 @@ Eterm copy_object_x(Eterm, Process*, Uint);
 #define copy_object(Term, Proc) copy_object_x(Term,Proc,0)
 
 Uint size_object(Eterm);
-Uint copy_shared_calculate(Eterm, shcopy_info*, unsigned);
-Eterm copy_shared_perform(Eterm, Uint, shcopy_info*, Eterm**, ErlOffHeap*, unsigned);
+Uint copy_shared_calculate(Eterm, erts_shcopy_t*, Uint32);
+Eterm copy_shared_perform(Eterm, Uint, erts_shcopy_t*, Eterm**, ErlOffHeap*, Uint32);
 
 Uint size_shared(Eterm);
 
