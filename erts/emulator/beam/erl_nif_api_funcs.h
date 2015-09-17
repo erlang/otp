@@ -543,7 +543,7 @@ static ERL_NIF_INLINE ERL_NIF_TERM enif_make_list9(ErlNifEnv* env,
 
 #ifndef enif_make_pid
 
-#  define enif_make_pid(ENV, PID) ((const ERL_NIF_TERM)((PID)->pid))
+#  define enif_make_pid(ENV, PID) ((void)(ENV),(const ERL_NIF_TERM)((PID)->pid))
 
 #if SIZEOF_LONG == 8
 #  define enif_get_int64 enif_get_long
