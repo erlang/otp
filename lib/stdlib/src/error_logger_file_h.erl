@@ -94,14 +94,8 @@ handle_call(filename, #st{filename=File}=State) ->
 handle_call(_Query, State) ->
     {ok, {error, bad_query}, State}.
 
-terminate(_Reason, State) ->
-    case State of
-        {Fd, _File, _Prev} ->
-            ok = file:close(Fd);
-        _ ->
-            ok
-    end,
-    [].
+terminate(_Reason, #st{fd=Fd}) ->
+    file:close(Fd).
 
 code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
