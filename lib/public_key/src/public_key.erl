@@ -81,14 +81,22 @@
 -type asn1_type()            :: atom(). %% see "OTP-PUB-KEY.hrl
 -type ssh_file()             :: openssh_public_key | rfc4716_public_key | known_hosts |
 				auth_keys.
--type rsa_padding()          :: 'rsa_pkcs1_padding' | 'rsa_pkcs1_oaep_padding' 
-			      | 'rsa_no_padding'.
--type rsa_sign_padding()     :: 'rsa_pkcs1_padding' | 'rsa_pkcs1_pss_padding'.
--type public_crypt_options() :: [{rsa_pad, rsa_padding()}].
--type rsa_digest_type()      :: 'md5' | 'ripemd160' | 'sha' | 'sha224' | 'sha256' | 'sha384' | 'sha512'.
+-type rsa_crypt_padding()    ::  'rsa_no_padding' | 'rsa_pkcs1_padding' | 'rsa_pkcs1_oaep_padding'
+			       | 'rsa_sslv23_padding' | 'rsa_x931_padding'.
+-type rsa_crypt_option()     ::  {'rsa_mgf1_md', rsa_digest_type()}
+			       | {'rsa_oaep_label', binary()}
+			       | {'rsa_oaep_md', rsa_digest_type()}
+			       | {'rsa_padding', rsa_crypt_padding()}.
+-type public_crypt_options() :: [rsa_crypt_option()].
+-type rsa_digest_type()      :: 'md5' | 'none' | 'ripemd160' | 'sha' | 'sha224' | 'sha256' | 'sha384' | 'sha512'.
 -type dss_digest_type()      :: 'none' | 'sha' | 'sha224' | 'sha256' | 'sha384' | 'sha512'. %% None is for backwards compatibility
 -type ecdsa_digest_type()    :: 'sha' | 'sha224' | 'sha256' | 'sha384' | 'sha512'.
--type public_sign_options()  :: [{rsa_pad, rsa_sign_padding()} | {rsa_pss_saltlen, integer()}].
+-type rsa_sign_padding()     ::  'rsa_no_padding' | 'rsa_pkcs1_padding' | 'rsa_pkcs1_pss_padding'
+			       | 'rsa_x931_padding'.
+-type rsa_sign_option()      ::  {'rsa_mgf1_md', rsa_digest_type()}
+			       | {'rsa_padding', rsa_sign_padding()}
+			       | {'rsa_pss_saltlen', integer()}.
+-type public_sign_options()  :: [rsa_sign_option()].
 -type crl_reason()           ::  unspecified | keyCompromise | cACompromise | affiliationChanged | superseded
 			       | cessationOfOperation | certificateHold | privilegeWithdrawn |  aACompromise.
 -type oid()                  :: tuple().
@@ -304,8 +312,7 @@ decrypt_private(CipherText,
 		Options)
   when is_binary(CipherText),
        is_list(Options) ->
-    Padding = proplists:get_value(rsa_pad, Options, rsa_pkcs1_padding),
-    crypto:private_decrypt(rsa, CipherText, format_rsa_private_key(Key), Padding).
+    crypto:private_decrypt(rsa, CipherText, format_rsa_private_key(Key), Options).
 
 %%--------------------------------------------------------------------
 -spec decrypt_public(CipherText :: binary(), rsa_public_key() | rsa_private_key()) ->
@@ -370,8 +377,7 @@ encrypt_private(PlainText,
   when is_binary(PlainText),
        is_integer(N), is_integer(E), is_integer(D),
        is_list(Options) ->
-    Padding = proplists:get_value(rsa_pad, Options, rsa_pkcs1_padding),
-    crypto:private_encrypt(rsa, PlainText, format_rsa_private_key(Key), Padding).
+    crypto:private_encrypt(rsa, PlainText, format_rsa_private_key(Key), Options).
 
 %%--------------------------------------------------------------------
 -spec generate_key(#'DHParameter'{} | {namedCurve, Name ::oid()} |
@@ -802,12 +808,10 @@ do_pem_entry_decode({Asn1Type,_, _} = PemEntry, Password) ->
     der_decode(Asn1Type, Der).
 
 encrypt_public(PlainText, N, E, Options)->
-    Padding = proplists:get_value(rsa_pad, Options, rsa_pkcs1_padding),
-    crypto:public_encrypt(rsa, PlainText, [E,N], Padding).
+    crypto:public_encrypt(rsa, PlainText, [E, N], Options).
 
 decrypt_public(CipherText, N,E, Options) ->
-    Padding = proplists:get_value(rsa_pad, Options, rsa_pkcs1_padding),
-    crypto:public_decrypt(rsa, CipherText,[E, N], Padding).
+    crypto:public_decrypt(rsa, CipherText, [E, N], Options).
 
 path_validation([], #path_validation_state{working_public_key_algorithm
 					   = Algorithm,

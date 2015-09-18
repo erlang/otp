@@ -4,7 +4,8 @@
 <erlref>
   <header>
     <copyright>
-      <year>1999</year><year>2014</year>
+      <year>1999</year>
+      <year>2015</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -157,15 +158,19 @@
 
      <p><code>digest_type() =  md5 | sha | sha224 | sha256 | sha384 | sha512</code></p>
 
-     <p><code>rsa_digest_type() = md5 | ripemd160 | sha | sha224 | sha256 | sha384 | sha512</code></p>
+     <p><code>rsa_digest_type() = md5 | none | ripemd160 | sha | sha224 | sha256 | sha384 | sha512</code></p>
 
      <p><code>dss_digest_type() = sha | sha224 | sha256 | sha384 | sha512</code></p>
 
      <p><code>ecdsa_digest_type() = sha | sha224 | sha256 | sha384 | sha512</code></p>
 
-     <p><code>sign_options() = [{rsa_pad, rsa_sign_padding()} | {rsa_pss_saltlen, integer()}]</code></p>
+     <p><code>rsa_crypt_padding() = rsa_no_padding | rsa_pkcs1_padding | rsa_pkcs1_oaep_padding | rsa_sslv23_padding | rsa_x931_padding</code></p>
 
-     <p><code>rsa_sign_padding() = rsa_pkcs1_padding | rsa_pkcs1_pss_padding</code></p>
+     <p><code>rsa_crypt_option() = {rsa_mgf1_md, rsa_digest_type()} | {rsa_oaep_label, binary()} | {rsa_oaep_md, rsa_digest_type()} | {rsa_padding, rsa_crypt_padding()}</code></p>
+
+     <p><code>rsa_sign_padding() = rsa_no_padding | rsa_pkcs1_padding | rsa_pkcs1_pss_padding | rsa_x931_padding</code></p>
+
+     <p><code>rsa_sign_option() = {rsa_mgf1_md, rsa_digest_type()} | {rsa_padding, rsa_sign_padding()} | {rsa_pss_saltlen, integer()}</code></p>
 
      <p><code> hash_algorithms() =  md5 | ripemd160 | sha | sha224 | sha256 | sha384 | sha512 </code> md4 is also supported for hash_init/1 and hash/2.
      Note that both md4 and md5 are recommended only for compatibility with existing applications.
@@ -516,13 +521,13 @@
     </func>
 
     <func>
-      <name>private_decrypt(Type, CipherText, PrivateKey, Padding) -> PlainText</name>
+      <name>private_decrypt(Type, CipherText, PrivateKey, Options) -> PlainText</name>
       <fsummary>Decrypts CipherText using the private Key.</fsummary>
       <type>
 	<v>Type = rsa</v>
 	<v>CipherText = binary()</v>
 	<v>PrivateKey = rsa_private()</v>
-	<v>Padding = rsa_pkcs1_padding | rsa_pkcs1_oaep_padding | rsa_no_padding</v>
+	<v>Options = [rsa_crypt_option()]</v>
         <v>PlainText = binary()</v>
       </type>
       <desc>
@@ -531,42 +536,47 @@
 	  using the <c>PrivateKey</c>, and returns the
 	  plaintext (message digest). This is a low level signature  verification operation
 	used for instance by older versions of the SSL protocol.
-	  See also <seealso marker="public_key:public_key#decrypt_private-2">public_key:decrypt_private/[2,3]</seealso>
 	</p>
+	<p>May throw exception <c>notsup</c> in case the chosen <c>Options</c>
+        are not supported by the underlying OpenSSL implementation.</p>
+        See also <seealso marker="public_key:public_key#decrypt_private-2">public_key:decrypt_private/[2,3]</seealso>
       </desc>
     </func>
     
     <func>
-      <name>private_encrypt(Type, PlainText, PrivateKey, Padding) -> CipherText</name>
+      <name>private_encrypt(Type, PlainText, PrivateKey, Options) -> CipherText</name>
       <fsummary>Encrypts PlainText using the private Key.</fsummary>
       <type>
 	<v>Type = rsa</v>
 	<v>PlainText = binary()</v>
 	<d> The size of the <c>PlainText</c> must be less
-	than <c>byte_size(N)-11</c> if <c>rsa_pkcs1_padding</c> is
-	used, and <c>byte_size(N)</c> if <c>rsa_no_padding</c> is
-	used, where N is public modulus of the RSA key.</d>
+	than <c>byte_size(N)-11</c> if <c>rsa_pkcs1_padding</c> or
+	<c>rsa_sslv23_padding</c> is used, <c>byte_size(N)-2</c> if
+	<c>rsa_x931_padding</c> is used, and <c>byte_size(N)</c>
+	if <c>rsa_no_padding</c> is used, where N is public modulus
+	of the RSA key.</d>
 	<v>PrivateKey = rsa_private()</v>
-	<v>Padding = rsa_pkcs1_padding | rsa_no_padding</v>
+	<v>Options = [rsa_crypt_option()]</v>
         <v>CipherText = binary()</v>
       </type>
       <desc>
 	<p>Encrypts the <c>PlainText</c> using the <c>PrivateKey</c>
 	and returns the ciphertext. This is a low level signature operation
-	used for instance by older versions of the SSL protocol. See
-	also <seealso
-	marker="public_key:public_key#encrypt_private-2">public_key:encrypt_private/[2,3]</seealso>
+	used for instance by older versions of the SSL protocol.
 	</p>
+	<p>May throw exception <c>notsup</c> in case the chosen <c>Options</c>
+        are not supported by the underlying OpenSSL implementation.</p>
+        See also <seealso marker="public_key:public_key#encrypt_private-2">public_key:encrypt_private/[2,3]</seealso>
       </desc>
     </func>
     <func>
-      <name>public_decrypt(Type, CipherText, PublicKey, Padding) -> PlainText</name>
+      <name>public_decrypt(Type, CipherText, PublicKey, Options) -> PlainText</name>
       <fsummary>Decrypts CipherText using the public Key.</fsummary>
       <type>
 	<v>Type = rsa</v>
 	<v>CipherText = binary()</v>
 	<v>PublicKey =  rsa_public() </v>
-	<v>Padding = rsa_pkcs1_padding | rsa_no_padding</v>
+	<v>Options = [rsa_crypt_option()]</v>
         <v>PlainText = binary()</v>
       </type>
       <desc>
@@ -575,31 +585,37 @@
 	  using the <c>PrivateKey</c>, and returns the
 	  plaintext (message digest). This is a low level signature verification operation
 	  used for instance by older versions of the SSL protocol.
-	  See also <seealso marker="public_key:public_key#decrypt_public-2">public_key:decrypt_public/[2,3]</seealso>
 	</p>
+	<p>May throw exception <c>notsup</c> in case the chosen <c>Options</c>
+        are not supported by the underlying OpenSSL implementation.</p>
+        See also <seealso marker="public_key:public_key#decrypt_public-2">public_key:decrypt_public/[2,3]</seealso>
       </desc>
     </func>
 
     <func>
-      <name>public_encrypt(Type, PlainText, PublicKey, Padding) -> CipherText</name>
+      <name>public_encrypt(Type, PlainText, PublicKey, Options) -> CipherText</name>
       <fsummary>Encrypts PlainText using the public Key.</fsummary>
       <type>
 	<v>Type = rsa</v>
 	<v>PlainText = binary()</v>
 	<d> The size of the <c>PlainText</c> must be less
-	than <c>byte_size(N)-11</c> if <c>rsa_pkcs1_padding</c> is
-	used, and <c>byte_size(N)</c> if <c>rsa_no_padding</c> is
-	used, where N is public modulus of the RSA key.</d>
+	than <c>byte_size(N)-11</c> if <c>rsa_pkcs1_padding</c> or
+	<c>rsa_sslv23_padding</c> is used, <c>byte_size(N)-2-byte_size(H)*2</c>
+	if <c>rsa_pkcs1_oaep_padding</c> is used, and <c>byte_size(N)</c>
+	if <c>rsa_no_padding</c> is used, where N is public modulus
+	of the RSA key and H is the hash function specified
+	by <c>rsa_oaep_md</c> (defaults to <c>sha</c>).</d>
 	<v>PublicKey = rsa_public()</v>
-	<v>Padding = rsa_pkcs1_padding | rsa_pkcs1_oaep_padding | rsa_no_padding</v>
+	<v>Options = [rsa_crypt_option()]</v>
         <v>CipherText = binary()</v>
       </type>
       <desc>
 	<p>Encrypts the <c>PlainText</c> (message digest) using the <c>PublicKey</c>
 	and returns the <c>CipherText</c>. This is a low level signature operation
-	used for instance by older versions of the SSL protocol. See also <seealso
-	marker="public_key:public_key#encrypt_public-2">public_key:encrypt_public/[2,3]</seealso>
-	</p>
+	used for instance by older versions of the SSL protocol.</p>
+	<p>May throw exception <c>notsup</c> in case the chosen <c>Options</c>
+        are not supported by the underlying OpenSSL implementation.</p>
+	See also <seealso marker="public_key:public_key#encrypt_public-2">public_key:encrypt_public/[2,3]</seealso>
       </desc>
     </func>
 
@@ -656,13 +672,13 @@
 	digest (plaintext).</d>
 	<v>DigestType = rsa_digest_type() | dss_digest_type() | ecdsa_digest_type()</v>
 	<v>Key = rsa_private() | dss_private() | [ecdh_private(),ecdh_params()]</v>
-	<v>Options = sign_options()</v>
+	<v>Options = [rsa_sign_option()]</v>
       </type>
       <desc>
 	<p>Creates a digital signature.</p>
-	<p>Algorithm <c>dss</c> can only be used together with digest type
-	<c>sha</c>.</p>
-	See also <seealso marker="public_key:public_key#sign-3">public_key:sign/3</seealso>
+	<p>May throw exception <c>notsup</c> in case the chosen <c>DigestType</c>
+        or <c>Options</c> are not supported by the underlying OpenSSL implementation.</p>
+	See also <seealso marker="public_key:public_key#sign-3">public_key:sign/[2,3]</seealso>
       </desc>
     </func>
 
@@ -809,14 +825,13 @@
 	<v>DigestType = rsa_digest_type() | dss_digest_type() | ecdsa_digest_type()</v>
 	<v>Signature = binary()</v>
 	<v>Key = rsa_public() | dss_public() | [ecdh_public(),ecdh_params()]</v>
-	<v>Options = sign_options()</v>
+	<v>Options = [rsa_sign_option()]</v>
       </type>
       <desc>
 	<p>Verifies a digital signature</p>
-	<p>Algorithm <c>dss</c> can only be used together with digest type
-	<c>sha</c>.</p>
-
-	See also <seealso marker="public_key:public_key#verify-4">public_key:verify/4</seealso>
+	<p>May throw exception <c>notsup</c> in case the chosen <c>DigestType</c>
+        or <c>Options</c> are not supported by the underlying OpenSSL implementation.</p>
+	See also <seealso marker="public_key:public_key#verify-4">public_key:verify/[4,5]</seealso>
       </desc>
     </func>
 

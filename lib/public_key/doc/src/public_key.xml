@@ -147,22 +147,41 @@
       <item><p><c>#'ECPrivateKey'{}</c></p></item>
 
       <tag><c>public_crypt_options() =</c></tag>
-      <item><p><c>[{rsa_pad, rsa_padding()}]</c></p></item>
+      <item><p><c>[rsa_crypt_option()]</c></p></item>
 
-      <tag><c>rsa_padding() =</c></tag>
+      <tag><c>rsa_crypt_option() =</c></tag>
       <item>
-	<p><c>'rsa_pkcs1_padding'</c></p>
+	<p><c>{'rsa_mgf1_md', rsa_digest_type()}</c></p>
+	<p><c>| {'rsa_oaep_label', binary()}</c></p>
+	<p><c>| {'rsa_oaep_md', rsa_digest_type()}</c></p>
+	<p><c>| {'rsa_padding', rsa_crypt_padding()}</c></p>
+      </item>
+
+      <tag><c>rsa_crypt_padding() =</c></tag>
+      <item>
+	<p><c>'rsa_no_padding'</c></p>
+	<p><c>| 'rsa_pkcs1_padding'</c></p>
 	<p><c>| 'rsa_pkcs1_oaep_padding'</c></p>
-	<p><c>| 'rsa_no_padding'</c></p>
+	<p><c>| 'rsa_sslv23_padding'</c></p>
+	<p><c>| 'rsa_x931_padding'</c></p>
       </item>
 
       <tag><c>public_sign_options() =</c></tag>
-      <item><p><c>[{rsa_pad, rsa_sign_padding()} | {rsa_pss_saltlen, integer()}]</c></p></item>
+      <item><p><c>[rsa_sign_option()]</c></p></item>
+
+      <tag><c>rsa_sign_option() =</c></tag>
+      <item>
+	<p><c>{'rsa_mgf1_md', rsa_digest_type()}</c></p>
+	<p><c>| {'rsa_padding', rsa_sign_padding()}</c></p>
+	<p><c>| {'rsa_pss_saltlen', integer()}</c></p>
+      </item>
 
       <tag><c>rsa_sign_padding() =</c></tag>
       <item>
-	<p><c>'rsa_pkcs1_padding'</c></p>
+	<p><c>'rsa_no_padding'</c></p>
+	<p><c>| 'rsa_pkcs1_padding'</c></p>
 	<p><c>| 'rsa_pkcs1_pss_padding'</c></p>
+	<p><c>| 'rsa_x931_padding'</c></p>
       </item>
 
       <tag><c>digest_type() = </c></tag>
@@ -170,7 +189,7 @@
       and <c>ecdsa_digest_type()</c>.</p></item>
 
       <tag><c>rsa_digest_type() = </c></tag>
-      <item><p><c>'md5' | 'ripemd160' | 'sha' | 'sha224' | 'sha256' | 'sha384' | 'sha512'</c></p></item>
+      <item><p><c>'md5' | 'none' | 'ripemd160' | 'sha' | 'sha224' | 'sha256' | 'sha384' | 'sha512'</c></p></item>
 
       <tag><c>dss_digest_type() = </c></tag>
       <item><p><c>'sha' | 'sha224' | 'sha256' | 'sha384' | 'sha512'</c></p></item>
@@ -310,10 +329,12 @@
 
     <func>
     <name>encrypt_private(PlainText, Key) -> binary()</name>
+    <name>encrypt_private(PlainText, Key, Options) -> binary()</name>
     <fsummary>Public-key encryption using the private key.</fsummary>
     <type>
       <v>PlainText = binary()</v>
       <v>Key = rsa_private_key()</v> 
+      <v>Options = public_crypt_options()</v>
   </type> 
   <desc> 
     <p>Public-key encryption using the private key.
@@ -324,10 +345,12 @@
 
   <func>
     <name>encrypt_public(PlainText, Key) -> binary()</name>
+    <name>encrypt_public(PlainText, Key, Options) -> binary()</name>
     <fsummary>Public-key encryption using the public key.</fsummary>
     <type>
       <v>PlainText = binary()</v>
       <v>Key = rsa_public_key()</v> 
+      <v>Options = public_crypt_options()</v>
   </type> 
   <desc> 
     <p>Public-key encryption using the public key. See also <seealso

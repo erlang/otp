@@ -171,14 +171,26 @@
 -define(MAX_BYTES_TO_NIF, 20000). %%  Current value is: erlang:system_info(context_reductions) * 10
 
 -type mpint() :: binary().
--type rsa_digest_type() :: 'md5' | 'ripemd160' | 'sha' | 'sha224' | 'sha256' | 'sha384' | 'sha512'.
+-type rsa_digest_type() :: 'md5' | 'none' | 'ripemd160' | 'sha' | 'sha224' | 'sha256' | 'sha384' | 'sha512'.
 -type dss_digest_type() :: 'none' | 'sha' | 'sha224' | 'sha256' | 'sha384' | 'sha512'.
 -type ecdsa_digest_type() :: 'sha' | 'sha224' | 'sha256' | 'sha384' | 'sha512'.
 -type data_or_digest() :: binary() | {digest, binary()}.
 -type crypto_integer() :: binary() | integer().
--type rsa_sign_padding() :: 'rsa_pkcs1_padding' | 'rsa_pkcs1_pss_padding'.
+-type rsa_crypt_padding() ::  'rsa_no_padding' | 'rsa_pkcs1_padding' | 'rsa_pkcs1_oaep_padding'
+			    | 'rsa_sslv23_padding' | 'rsa_x931_padding'.
+-type crypt_algorithm() :: 'rsa'.
+-type rsa_crypt_option() ::  {'rsa_mgf1_md', rsa_digest_type()}
+			   | {'rsa_oaep_label', binary()}
+			   | {'rsa_oaep_md', rsa_digest_type()}
+			   | {'rsa_padding', rsa_crypt_padding()}.
+-type crypt_options() :: [rsa_crypt_option()].
+-type rsa_sign_padding() ::  'rsa_no_padding' | 'rsa_pkcs1_padding' | 'rsa_pkcs1_pss_padding'
+			   | 'rsa_x931_padding'.
 -type sign_algorithm() :: 'rsa' | 'dss' | 'ecdsa'.
--type sign_options() :: [{rsa_pad, rsa_sign_padding()} | {rsa_pss_saltlen, integer()}].
+-type rsa_sign_option() ::  {'rsa_mgf1_md', rsa_digest_type()}
+			  | {'rsa_padding', rsa_sign_padding()}
+			  | {'rsa_pss_saltlen', integer()}.
+-type sign_options() :: [rsa_sign_option()].
 %%-type ec_named_curve() :: atom().
 %%-type ec_point() :: crypto_integer().
 %%-type ec_basis() :: {tpbasis, K :: non_neg_integer()} | {ppbasis, K1 :: non_neg_integer(), K2 :: non_neg_integer(), K3 :: non_neg_integer()} | onbasis.
@@ -501,7 +513,7 @@ verify(Algorithm, Type, Data, Signature, Key) ->
 verify(Algorithm = dss, none, Digest, Signature, Key, Options) ->
     verify(Algorithm, sha, {digest, Digest}, Signature, Key, Options);
 verify(Algorithm, Type, Data, Signature, Key, Options) ->
-    case verify_nif(Algorithm, Type, Data, Signature, format_pkey(Algorithm, Key), Options) of
+    case pkey_verify_nif(Algorithm, Type, Data, Signature, format_pkey(Algorithm, Key), Options) of
 	notsup -> erlang:error(notsup);
 	Boolean -> Boolean
     end.
@@ -513,52 +525,69 @@ sign(Algorithm, Type, Data, Key) ->
 sign(Algorithm = dss, none, Digest, Key, Options) ->
     sign(Algorithm, sha, {digest, Digest}, Key, Options);
 sign(Algorithm, Type, Data, Key, Options) ->
-    case sign_nif(Algorithm, Type, Data, format_pkey(Algorithm, Key), Options) of
+    case pkey_sign_nif(Algorithm, Type, Data, format_pkey(Algorithm, Key), Options) of
 	error -> erlang:error(badkey, [Algorithm, Type, Data, Key, Options]);
 	notsup -> erlang:error(notsup);
 	Signature -> Signature
     end.
 
--spec public_encrypt(rsa, binary(), [binary()], rsa_padding()) ->
+-spec public_encrypt(crypt_algorithm(), binary(), [integer() | binary()],
+		     crypt_options() | rsa_padding()) ->
 				binary().
--spec public_decrypt(rsa, binary(), [integer() | binary()], rsa_padding()) ->
+-spec public_decrypt(crypt_algorithm(), binary(), [integer() | binary()],
+		     crypt_options() | rsa_padding()) ->
 				binary().
--spec private_encrypt(rsa, binary(), [integer() | binary()], rsa_padding()) ->
+-spec private_encrypt(crypt_algorithm(), binary(), [integer() | binary()],
+		      crypt_options() | rsa_padding()) ->
 				binary().
--spec private_decrypt(rsa, binary(), [integer() | binary()], rsa_padding()) ->
+-spec private_decrypt(crypt_algorithm(), binary(), [integer() | binary()],
+		      crypt_options() | rsa_padding()) ->
 				binary().
 
-public_encrypt(rsa, BinMesg, Key, Padding) ->
-    case rsa_public_crypt(BinMesg,  map_ensure_int_as_bin(Key), Padding, true) of
-	error ->
-	    erlang:error(encrypt_failed, [BinMesg,Key, Padding]);
-	Sign -> Sign
-    end.
-
-%% Binary, Key = [E,N,D]
-private_decrypt(rsa, BinMesg, Key, Padding) ->
-    case rsa_private_crypt(BinMesg, map_ensure_int_as_bin(Key), Padding, false) of
-	error ->
-	    erlang:error(decrypt_failed, [BinMesg,Key, Padding]);
-	Sign -> Sign
-    end.
-
+public_encrypt(Algorithm, In, Key, Options) when is_list(Options) ->
+    case pkey_crypt_nif(Algorithm, In, format_pkey(Algorithm, Key), Options, false, true) of
+	error -> erlang:error(encrypt_failed, [Algorithm, In, Key, Options]);
+	notsup -> erlang:error(notsup);
+	Out -> Out
+    end;
+%% Backwards compatible
+public_encrypt(Algorithm = rsa, In, Key, Padding) when is_atom(Padding) ->
+    public_encrypt(Algorithm, In, Key, [{rsa_padding, Padding}]).
 
 %% Binary, Key = [E,N,D]
-private_encrypt(rsa, BinMesg, Key, Padding) ->
-    case rsa_private_crypt(BinMesg, map_ensure_int_as_bin(Key), Padding, true) of
-	error ->
-	    erlang:error(encrypt_failed, [BinMesg,Key, Padding]);
-	Sign -> Sign
-    end.
+private_decrypt(Algorithm, In, Key, Options) when is_list(Options) ->
+    case pkey_crypt_nif(Algorithm, In, format_pkey(Algorithm, Key), Options, true, false) of
+	error -> erlang:error(decrypt_failed, [Algorithm, In, Key, Options]);
+	notsup -> erlang:error(notsup);
+	Out -> Out
+    end;
+%% Backwards compatible
+private_decrypt(Algorithm = rsa, In, Key, Padding) when is_atom(Padding) ->
+    private_decrypt(Algorithm, In, Key, [{rsa_padding, Padding}]).
+
+%% Binary, Key = [E,N,D]
+private_encrypt(Algorithm, In, Key, Options) when is_list(Options) ->
+    case pkey_crypt_nif(Algorithm, In, format_pkey(Algorithm, Key), Options, true, true) of
+	error -> erlang:error(encrypt_failed, [Algorithm, In, Key, Options]);
+	notsup -> erlang:error(notsup);
+	Out -> Out
+    end;
+%% Backwards compatible
+private_encrypt(Algorithm = rsa, In, Key, Padding) when is_atom(Padding) ->
+    private_encrypt(Algorithm, In, Key, [{rsa_padding, Padding}]).
 
 %% Binary, Key = [E,N]
-public_decrypt(rsa, BinMesg, Key, Padding) ->
-    case rsa_public_crypt(BinMesg, map_ensure_int_as_bin(Key), Padding, false) of
-	error ->
-	    erlang:error(decrypt_failed, [BinMesg,Key, Padding]);
-	Sign -> Sign
-    end.
+public_decrypt(Algorithm, In, Key, Options) when is_list(Options) ->
+    case pkey_crypt_nif(Algorithm, In, format_pkey(Algorithm, Key), Options, false, false) of
+	error -> erlang:error(decrypt_failed, [Algorithm, In, Key, Options]);
+	notsup -> erlang:error(notsup);
+	Out -> Out
+    end;
+%% Backwards compatible
+public_decrypt(Algorithm = rsa, In, Key, Padding) when is_atom(Padding) ->
+    public_decrypt(Algorithm, In, Key, [{rsa_padding, Padding}]).
+
+pkey_crypt_nif(_Algorithm, _In, _Key, _Options, _IsPrivate, _IsEncrypt) -> ?nif_stub.
 
 %%
 %% XOR - xor to iolists and return a binary
@@ -1517,8 +1546,8 @@ srp_value_B_nif(_Multiplier, _Verifier, _Generator, _Exponent, _Prime) -> ?nif_s
 
 
 %% Digital signatures  --------------------------------------------------------------------
-sign_nif(_Algorithm, _Type, _Data, _Key, _Options) -> ?nif_stub.
-verify_nif(_Algorithm, _Type, _Data, _Signature, _Key, _Options) -> ?nif_stub.
+pkey_sign_nif(_Algorithm, _Type, _Data, _Key, _Options) -> ?nif_stub.
+pkey_verify_nif(_Algorithm, _Type, _Data, _Signature, _Key, _Options) -> ?nif_stub.
 
 %% Public Keys  --------------------------------------------------------------------
 %% DH Diffie-Hellman functions
@@ -1679,40 +1708,19 @@ format_pkey(_, Key) ->
 
 %% Binary, Key = [E,N]
 rsa_public_encrypt(BinMesg, Key, Padding) ->
-    case rsa_public_crypt(BinMesg, map_to_norm_bin(Key), Padding, true) of
-	error ->
-	    erlang:error(encrypt_failed, [BinMesg,Key, Padding]);
-	Sign -> Sign
-    end.
-
-rsa_public_crypt(_BinMsg, _Key, _Padding, _IsEncrypt) -> ?nif_stub.
+    public_encrypt(rsa, BinMesg, map_to_norm_bin(Key), Padding).
 
 %% Binary, Key = [E,N,D]
 rsa_private_decrypt(BinMesg, Key, Padding) ->
-    case rsa_private_crypt(BinMesg, map_to_norm_bin(Key), Padding, false) of
-	error ->
-	    erlang:error(decrypt_failed, [BinMesg,Key, Padding]);
-	Sign -> Sign
-    end.
-
-rsa_private_crypt(_BinMsg, _Key, _Padding, _IsEncrypt) -> ?nif_stub.
-
+    private_decrypt(rsa, BinMesg, map_to_norm_bin(Key), Padding).
 
 %% Binary, Key = [E,N,D]
 rsa_private_encrypt(BinMesg, Key, Padding) ->
-    case rsa_private_crypt(BinMesg, map_to_norm_bin(Key), Padding, true) of
-	error ->
-	    erlang:error(encrypt_failed, [BinMesg,Key, Padding]);
-	Sign -> Sign
-    end.
+    private_encrypt(rsa, BinMesg, map_to_norm_bin(Key), Padding).
 
 %% Binary, Key = [E,N]
 rsa_public_decrypt(BinMesg, Key, Padding) ->
-    case rsa_public_crypt(BinMesg, map_to_norm_bin(Key), Padding, false) of
-	error ->
-	    erlang:error(decrypt_failed, [BinMesg,Key, Padding]);
-	Sign -> Sign
-    end.
+    public_decrypt(rsa, BinMesg, map_to_norm_bin(Key), Padding).
 
 map_mpint_to_bin(List) ->
     lists:map(fun(E) -> mpint_to_bin(E) end, List ).
