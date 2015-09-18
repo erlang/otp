@@ -1032,6 +1032,17 @@ typedef struct BinaryFindState {
     Eterm (*global_result)    (Process *, Eterm, struct BinaryFindState *, FindallData *, Uint);
 } BinaryFindState;
 
+typedef struct BinaryFindState_bignum {
+    Eterm           bignum_hdr;
+    BinaryFindState bfs;
+    union {
+	BMFindFirstState bmffs;
+	BMFindAllState   bmfas;
+	ACFindFirstState acffs;
+	ACFindAllState   acfas;
+    } data;
+} BinaryFindState_bignum;
+
 #define SIZEOF_BINARY_FIND_STATE(S) \
 	  (sizeof(BinaryFindState)+sizeof(S))
 
@@ -1197,7 +1208,7 @@ static int do_binary_find(Process *p, Eterm subject, BinaryFindState *bfs, Binar
     byte *bytes;
     Uint bitoffs, bitsize;
     byte *temp_alloc = NULL;
-    char *state_ptr = NULL;
+    BinaryFindState_bignum *state_ptr = NULL;
 
     ERTS_GET_BINARY_BYTES(subject, bytes, bitoffs, bitsize);
     if (bitsize != 0) {
@@ -1207,10 +1218,8 @@ static int do_binary_find(Process *p, Eterm subject, BinaryFindState *bfs, Binar
 	bytes = erts_get_aligned_binary_bytes(subject, &temp_alloc);
     }
     if (state_term != NIL) {
-	state_ptr = (char *)(big_val(state_term));
-	state_ptr += sizeof(Eterm);
-	bfs = (BinaryFindState *)(state_ptr);
-	state_ptr += sizeof(BinaryFindState);
+	state_ptr = (BinaryFindState_bignum *)(big_val(state_term));
+	bfs = &(state_ptr->bfs);
     }
 
     if (bfs->flags & BINARY_FIND_ALL) {
@@ -1218,6 +1227,7 @@ static int do_binary_find(Process *p, Eterm subject, BinaryFindState *bfs, Binar
 	    BMData *bm;
 	    Sint pos;
 	    Eterm *hp;
+	    char *buff;
 	    BMFindAllState state;
 	    Uint reds = get_reds(p, BM_LOOP_FACTOR);
 	    Uint save_reds = reds;
@@ -1229,7 +1239,7 @@ static int do_binary_find(Process *p, Eterm subject, BinaryFindState *bfs, Binar
 	    if (state_term == NIL) {
 		bm_init_find_all(&state, bfs->hsstart, bfs->hsend);
 	    } else {
-		bm_restore_find_all(&state, state_ptr);
+		bm_restore_find_all(&state, (char *)(&(state_ptr->data.bmfas)));
 	    }
 
 	    pos = bm_find_all_non_overlapping(&state, bm, bytes, &reds);
@@ -1244,9 +1254,11 @@ static int do_binary_find(Process *p, Eterm subject, BinaryFindState *bfs, Binar
 #endif
 		hp = HAlloc(p, x+1);
 		hp[0] = make_pos_bignum_header(x);
-		state_ptr = (char *)(hp);
-		memcpy((void *)(state_ptr+sizeof(Eterm)), bfs, sizeof(BinaryFindState));
-		bm_serialize_find_all(&state, state_ptr+sizeof(Eterm)+sizeof(BinaryFindState));
+		buff = (char *)(hp);
+		buff += sizeof(Eterm);
+		memcpy((void *)(buff), bfs, sizeof(BinaryFindState));
+		buff += sizeof(BinaryFindState);
+		bm_serialize_find_all(&state, buff);
 		*res_term = make_big(hp);
 		erts_free_aligned_binary_bytes(temp_alloc);
 		bm_clean_find_all(&state);
@@ -1263,6 +1275,7 @@ static int do_binary_find(Process *p, Eterm subject, BinaryFindState *bfs, Binar
 	    int acr;
 	    ACFindAllState state;
 	    Eterm *hp;
+	    char *buff;
 	    Uint reds = get_reds(p, AC_LOOP_FACTOR);
 	    Uint save_reds = reds;
 
@@ -1273,7 +1286,7 @@ static int do_binary_find(Process *p, Eterm subject, BinaryFindState *bfs, Binar
 	    if (state_term == NIL) {
 		ac_init_find_all(&state, act, bfs->hsstart, bfs->hsend);
 	    } else {
-		ac_restore_find_all(&state, state_ptr);
+		ac_restore_find_all(&state, (char *)(&(state_ptr->data.acfas)));
 	    }
 	    acr = ac_find_all_non_overlapping(&state, bytes, &reds);
 	    if (acr == AC_NOT_FOUND) {
@@ -1287,9 +1300,11 @@ static int do_binary_find(Process *p, Eterm subject, BinaryFindState *bfs, Binar
 #endif
 		hp = HAlloc(p, x+1);
 		hp[0] = make_pos_bignum_header(x);
-		state_ptr = (char *)(hp);
-		memcpy((void *)(state_ptr+sizeof(Eterm)), bfs, sizeof(BinaryFindState));
-		ac_serialize_find_all(&state, state_ptr+sizeof(Eterm)+sizeof(BinaryFindState));
+		buff = (char *)(hp);
+		buff += sizeof(Eterm);
+		memcpy((void *)(buff), bfs, sizeof(BinaryFindState));
+		buff += sizeof(BinaryFindState);
+		ac_serialize_find_all(&state, buff);
 		*res_term = make_big(hp);
 		erts_free_aligned_binary_bytes(temp_alloc);
 		ac_clean_find_all(&state);
@@ -1307,6 +1322,7 @@ static int do_binary_find(Process *p, Eterm subject, BinaryFindState *bfs, Binar
 	    BMData *bm;
 	    Sint pos;
 	    Eterm *hp;
+	    char *buff;
 	    BMFindFirstState state;
 	    Uint reds = get_reds(p, BM_LOOP_FACTOR);
 	    Uint save_reds = reds;
@@ -1318,7 +1334,8 @@ static int do_binary_find(Process *p, Eterm subject, BinaryFindState *bfs, Binar
 	    if (state_term == NIL) {
 		bm_init_find_first_match(&state, bfs->hsstart, bfs->hsend);
 	    } else {
-		memcpy((void *)(&state), (const void *)(state_ptr), sizeof(BMFindFirstState));
+		memcpy((void *)(&state), (const void *)(&(state_ptr->data.bmffs)),
+		       sizeof(BMFindFirstState));
 	    }
 
 #ifdef HARDDEBUG
@@ -1337,10 +1354,11 @@ static int do_binary_find(Process *p, Eterm subject, BinaryFindState *bfs, Binar
 #endif
 		hp = HAlloc(p, x+1);
 		hp[0] = make_pos_bignum_header(x);
-		state_ptr = (char *)(hp);
-		memcpy((void *)(state_ptr+sizeof(Eterm)), bfs, sizeof(BinaryFindState));
-		memcpy((void *)(state_ptr+sizeof(Eterm)+sizeof(BinaryFindState)),
-		       (const void *)(&state), sizeof(BMFindFirstState));
+		buff = (char *)(hp);
+		buff += sizeof(Eterm);
+		memcpy((void *)(buff), bfs, sizeof(BinaryFindState));
+		buff += sizeof(BinaryFindState);
+		memcpy((void *)(buff), (const void *)(&state), sizeof(BMFindFirstState));
 		*res_term = make_big(hp);
 		erts_free_aligned_binary_bytes(temp_alloc);
 		return DO_BIN_MATCH_RESTART;
@@ -1356,6 +1374,7 @@ static int do_binary_find(Process *p, Eterm subject, BinaryFindState *bfs, Binar
 	    int acr;
 	    ACFindFirstState state;
 	    Eterm *hp;
+	    char *buff;
 	    Uint reds = get_reds(p, AC_LOOP_FACTOR);
 	    Uint save_reds = reds;
 
@@ -1366,7 +1385,8 @@ static int do_binary_find(Process *p, Eterm subject, BinaryFindState *bfs, Binar
 	    if (state_term == NIL) {
 		ac_init_find_first_match(&state, act, bfs->hsstart, bfs->hsend);
 	    } else {
-		memcpy((void *)(&state), (const void *)(state_ptr), sizeof(ACFindFirstState));
+		memcpy((void *)(&state), (const void *)(&(state_ptr->data.acffs)),
+		       sizeof(ACFindFirstState));
 	    }
 	    acr = ac_find_first_match(&state, bytes, &pos, &rlen, &reds);
 	    if (acr == AC_NOT_FOUND) {
@@ -1380,10 +1400,11 @@ static int do_binary_find(Process *p, Eterm subject, BinaryFindState *bfs, Binar
 #endif
 		hp = HAlloc(p, x+1);
 		hp[0] = make_pos_bignum_header(x);
-		state_ptr = (char *)(hp);
-		memcpy((void *)(state_ptr+sizeof(Eterm)), bfs, sizeof(BinaryFindState));
-		memcpy((void *)(state_ptr+sizeof(Eterm)+sizeof(BinaryFindState)),
-		       (const void *)(&state), sizeof(ACFindFirstState));
+		buff = (char *)(hp);
+		buff += sizeof(Eterm);
+		memcpy((void *)(buff), bfs, sizeof(BinaryFindState));
+		buff += sizeof(BinaryFindState);
+		memcpy((void *)(buff), (const void *)(&state), sizeof(ACFindFirstState));
 		*res_term = make_big(hp);
 		erts_free_aligned_binary_bytes(temp_alloc);
 		return DO_BIN_MATCH_RESTART;
@@ -1763,7 +1784,7 @@ static BIF_RETTYPE binary_find_trap(BIF_ALIST_3)
     int runres;
     Eterm result;
     Binary *bin = ((ProcBin *) binary_val(BIF_ARG_3))->val;
-    runres = do_binary_find(BIF_P, BIF_ARG_1, THE_NON_VALUE, bin, BIF_ARG_2, &result);
+    runres = do_binary_find(BIF_P, BIF_ARG_1, NULL, bin, BIF_ARG_2, &result);
     if (runres == DO_BIN_MATCH_OK) {
 	BIF_RET(result);
     } else {
