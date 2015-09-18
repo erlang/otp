@@ -531,21 +531,23 @@ static void ac_init_find_all(ACFindAllState *state, ACTrie *act, Sint startpos, 
     state->out = NULL;
 }
 
-static void ac_restore_find_all(ACFindAllState *state, char *buff)
+static void ac_restore_find_all(ACFindAllState *state,
+                                const ACFindAllState *src)
 {
-    memcpy(state,buff,sizeof(ACFindAllState));
+    memcpy(state, src, sizeof(ACFindAllState));
     if (state->allocated > 0) {
 	state->out = erts_alloc(ERTS_ALC_T_TMP, sizeof(FindallData) * (state->allocated));
-	memcpy(state->out,buff+sizeof(ACFindAllState),sizeof(FindallData)*state->m);
+	memcpy(state->out, src+1, sizeof(FindallData)*state->m);
     } else {
 	state->out = NULL;
     }
 }
 
-static void ac_serialize_find_all(ACFindAllState *state, char *buff)
+static void ac_serialize_find_all(const ACFindAllState *state,
+                                  ACFindAllState *dst)
 {
-    memcpy(buff,state,sizeof(ACFindAllState));
-    memcpy(buff+sizeof(ACFindAllState),state->out,sizeof(FindallData)*state->m);
+    memcpy(dst, state, sizeof(ACFindAllState));
+    memcpy(dst+1, state->out, sizeof(FindallData)*state->m);
 }
 
 static void ac_clean_find_all(ACFindAllState *state)
@@ -805,24 +807,24 @@ static void bm_init_find_all(BMFindAllState *state, Sint startpos, Uint len)
     state->out = NULL;
 }
 
-static void bm_restore_find_all(BMFindAllState *state, char *buff)
+static void bm_restore_find_all(BMFindAllState *state,
+                                const BMFindAllState *src)
 {
-    memcpy(state,buff,sizeof(BMFindAllState));
+    memcpy(state, src, sizeof(BMFindAllState));
     if (state->allocated > 0) {
 	state->out = erts_alloc(ERTS_ALC_T_TMP, sizeof(FindallData) *
 				(state->allocated));
-	memcpy(state->out,buff+sizeof(BMFindAllState),
-	       sizeof(FindallData)*state->m);
+	memcpy(state->out, src+1, sizeof(FindallData)*state->m);
     } else {
 	state->out = NULL;
     }
 }
 
-static void bm_serialize_find_all(BMFindAllState *state, char *buff)
+static void bm_serialize_find_all(const BMFindAllState *state,
+                                  BMFindAllState *dst)
 {
-    memcpy(buff,state,sizeof(BMFindAllState));
-    memcpy(buff+sizeof(BMFindAllState),state->out,
-	   sizeof(FindallData)*state->m);
+    memcpy(dst, state, sizeof(BMFindAllState));
+    memcpy(dst+1, state->out, sizeof(FindallData)*state->m);
 }
 
 static void bm_clean_find_all(BMFindAllState *state)
@@ -1226,8 +1228,6 @@ static int do_binary_find(Process *p, Eterm subject, BinaryFindState *bfs, Binar
 	if (bfs->type == am_bm) {
 	    BMData *bm;
 	    Sint pos;
-	    Eterm *hp;
-	    char *buff;
 	    BMFindAllState state;
 	    Uint reds = get_reds(p, BM_LOOP_FACTOR);
 	    Uint save_reds = reds;
@@ -1239,7 +1239,7 @@ static int do_binary_find(Process *p, Eterm subject, BinaryFindState *bfs, Binar
 	    if (state_term == NIL) {
 		bm_init_find_all(&state, bfs->hsstart, bfs->hsend);
 	    } else {
-		bm_restore_find_all(&state, (char *)(&(state_ptr->data.bmfas)));
+		bm_restore_find_all(&state, &(state_ptr->data.bmfas));
 	    }
 
 	    pos = bm_find_all_non_overlapping(&state, bm, bytes, &reds);
@@ -1252,14 +1252,11 @@ static int do_binary_find(Process *p, Eterm subject, BinaryFindState *bfs, Binar
 #ifdef HARDDEBUG
 		erts_printf("Trap bm!\n");
 #endif
-		hp = HAlloc(p, x+1);
-		hp[0] = make_pos_bignum_header(x);
-		buff = (char *)(hp);
-		buff += sizeof(Eterm);
-		memcpy((void *)(buff), bfs, sizeof(BinaryFindState));
-		buff += sizeof(BinaryFindState);
-		bm_serialize_find_all(&state, buff);
-		*res_term = make_big(hp);
+		state_ptr = (BinaryFindState_bignum*) HAlloc(p, x+1);
+		state_ptr->bignum_hdr = make_pos_bignum_header(x);
+		memcpy(&state_ptr->bfs, bfs, sizeof(BinaryFindState));
+		bm_serialize_find_all(&state, &state_ptr->data.bmfas);
+		*res_term = make_big(&state_ptr->bignum_hdr);
 		erts_free_aligned_binary_bytes(temp_alloc);
 		bm_clean_find_all(&state);
 		return DO_BIN_MATCH_RESTART;
@@ -1274,8 +1271,6 @@ static int do_binary_find(Process *p, Eterm subject, BinaryFindState *bfs, Binar
 	    ACTrie *act;
 	    int acr;
 	    ACFindAllState state;
-	    Eterm *hp;
-	    char *buff;
 	    Uint reds = get_reds(p, AC_LOOP_FACTOR);
 	    Uint save_reds = reds;
 
@@ -1286,7 +1281,7 @@ static int do_binary_find(Process *p, Eterm subject, BinaryFindState *bfs, Binar
 	    if (state_term == NIL) {
 		ac_init_find_all(&state, act, bfs->hsstart, bfs->hsend);
 	    } else {
-		ac_restore_find_all(&state, (char *)(&(state_ptr->data.acfas)));
+		ac_restore_find_all(&state, &(state_ptr->data.acfas));
 	    }
 	    acr = ac_find_all_non_overlapping(&state, bytes, &reds);
 	    if (acr == AC_NOT_FOUND) {
@@ -1298,14 +1293,11 @@ static int do_binary_find(Process *p, Eterm subject, BinaryFindState *bfs, Binar
 #ifdef HARDDEBUG
 		erts_printf("Trap ac!\n");
 #endif
-		hp = HAlloc(p, x+1);
-		hp[0] = make_pos_bignum_header(x);
-		buff = (char *)(hp);
-		buff += sizeof(Eterm);
-		memcpy((void *)(buff), bfs, sizeof(BinaryFindState));
-		buff += sizeof(BinaryFindState);
-		ac_serialize_find_all(&state, buff);
-		*res_term = make_big(hp);
+                state_ptr = (BinaryFindState_bignum*) HAlloc(p, x+1);
+		state_ptr->bignum_hdr = make_pos_bignum_header(x);
+		memcpy(&state_ptr->bfs, bfs, sizeof(BinaryFindState));
+		ac_serialize_find_all(&state, &state_ptr->data.acfas);
+		*res_term = make_big(&state_ptr->bignum_hdr);
 		erts_free_aligned_binary_bytes(temp_alloc);
 		ac_clean_find_all(&state);
 		return DO_BIN_MATCH_RESTART;
@@ -1321,8 +1313,6 @@ static int do_binary_find(Process *p, Eterm subject, BinaryFindState *bfs, Binar
 	if (bfs->type == am_bm) {
 	    BMData *bm;
 	    Sint pos;
-	    Eterm *hp;
-	    char *buff;
 	    BMFindFirstState state;
 	    Uint reds = get_reds(p, BM_LOOP_FACTOR);
 	    Uint save_reds = reds;
@@ -1334,8 +1324,7 @@ static int do_binary_find(Process *p, Eterm subject, BinaryFindState *bfs, Binar
 	    if (state_term == NIL) {
 		bm_init_find_first_match(&state, bfs->hsstart, bfs->hsend);
 	    } else {
-		memcpy((void *)(&state), (const void *)(&(state_ptr->data.bmffs)),
-		       sizeof(BMFindFirstState));
+		memcpy(&state, &state_ptr->data.bmffs, sizeof(BMFindFirstState));
 	    }
 
 #ifdef HARDDEBUG
@@ -1352,14 +1341,11 @@ static int do_binary_find(Process *p, Eterm subject, BinaryFindState *bfs, Binar
 #ifdef HARDDEBUG
 		erts_printf("Trap bm!\n");
 #endif
-		hp = HAlloc(p, x+1);
-		hp[0] = make_pos_bignum_header(x);
-		buff = (char *)(hp);
-		buff += sizeof(Eterm);
-		memcpy((void *)(buff), bfs, sizeof(BinaryFindState));
-		buff += sizeof(BinaryFindState);
-		memcpy((void *)(buff), (const void *)(&state), sizeof(BMFindFirstState));
-		*res_term = make_big(hp);
+                state_ptr = (BinaryFindState_bignum*) HAlloc(p, x+1);
+                state_ptr->bignum_hdr = make_pos_bignum_header(x);
+		memcpy(&state_ptr->bfs, bfs, sizeof(BinaryFindState));
+		memcpy(&state_ptr->data.acffs, &state, sizeof(BMFindFirstState));
+		*res_term = make_big(&state_ptr->bignum_hdr);
 		erts_free_aligned_binary_bytes(temp_alloc);
 		return DO_BIN_MATCH_RESTART;
 	    } else {
@@ -1373,8 +1359,6 @@ static int do_binary_find(Process *p, Eterm subject, BinaryFindState *bfs, Binar
 	    Uint pos, rlen;
 	    int acr;
 	    ACFindFirstState state;
-	    Eterm *hp;
-	    char *buff;
 	    Uint reds = get_reds(p, AC_LOOP_FACTOR);
 	    Uint save_reds = reds;
 
@@ -1385,8 +1369,7 @@ static int do_binary_find(Process *p, Eterm subject, BinaryFindState *bfs, Binar
 	    if (state_term == NIL) {
 		ac_init_find_first_match(&state, act, bfs->hsstart, bfs->hsend);
 	    } else {
-		memcpy((void *)(&state), (const void *)(&(state_ptr->data.acffs)),
-		       sizeof(ACFindFirstState));
+		memcpy(&state, &state_ptr->data.acffs, sizeof(ACFindFirstState));
 	    }
 	    acr = ac_find_first_match(&state, bytes, &pos, &rlen, &reds);
 	    if (acr == AC_NOT_FOUND) {
@@ -1398,14 +1381,11 @@ static int do_binary_find(Process *p, Eterm subject, BinaryFindState *bfs, Binar
 #ifdef HARDDEBUG
 		erts_printf("Trap ac!\n");
 #endif
-		hp = HAlloc(p, x+1);
-		hp[0] = make_pos_bignum_header(x);
-		buff = (char *)(hp);
-		buff += sizeof(Eterm);
-		memcpy((void *)(buff), bfs, sizeof(BinaryFindState));
-		buff += sizeof(BinaryFindState);
-		memcpy((void *)(buff), (const void *)(&state), sizeof(ACFindFirstState));
-		*res_term = make_big(hp);
+		state_ptr = (BinaryFindState_bignum*) HAlloc(p, x+1);
+		state_ptr->bignum_hdr = make_pos_bignum_header(x);
+		memcpy(&state_ptr->bfs, bfs, sizeof(BinaryFindState));
+		memcpy(&state_ptr->data.acffs, &state, sizeof(ACFindFirstState));
+		*res_term = make_big(&state_ptr->bignum_hdr);
 		erts_free_aligned_binary_bytes(temp_alloc);
 		return DO_BIN_MATCH_RESTART;
 	    } else {
