@@ -37,10 +37,11 @@
 #include <unistd.h>
 #endif
 
-#if defined(HAVE_SYS_UIO_H) || defined(__FreeBSD__) || defined(__DragonFly__)
+#if defined(HAVE_SYS_UIO_H)
 #include <sys/types.h>
 #include <sys/uio.h>
-#if defined(__FreeBSD__) || defined(__DragonFly__)
+#if defined(HAVE_SENDFILE) && (defined(__FreeBSD__) || defined(__DragonFly__))
+/* Need to define __BSD_VISIBLE in order to expose prototype of sendfile */
 #define __BSD_VISIBLE 1
 #include <sys/socket.h>
 #endif
@@ -176,7 +177,7 @@ efile_delete_file(Efile_error* errInfo,	/* Where to return error codes. */
  *	    If src is a directory, dst may be an empty directory.
  *	    If src is a file, dst may be a file.
  *	In any other situation where dst already exists, the rename will
- *	fail.  
+ *	fail.
  *
  * Results:
  *	If the directory was successfully created, returns 1.
@@ -188,9 +189,9 @@ efile_delete_file(Efile_error* errInfo,	/* Where to return error codes. */
  *	EINVAL:	    src is a root directory or dst is a subdirectory of src.
  *	EISDIR:	    dst is a directory, but src is not.
  *	ENOENT:	    src doesn't exist, or src or dst is "".
- *	ENOTDIR:    src is a directory, but dst is not.  
+ *	ENOTDIR:    src is a directory, but dst is not.
  *	EXDEV:	    src and dst are on different filesystems.
- *	
+ *
  * Side effects:
  *	The implementation of rename may allow cross-filesystem renames,
  *	but the caller should be prepared to emulate it with copy and
@@ -253,7 +254,7 @@ efile_rename(Efile_error* errInfo,	/* Where to return error codes. */
 	 * Alpha reports renaming / as EBUSY and Linux reports it as EACCES,
 	 * instead of EINVAL.
 	 */
-	 
+
 	errno = EINVAL;
     }
 
@@ -278,14 +279,14 @@ efile_chdir(Efile_error* errInfo,   /* Where to return error codes. */
 int
 efile_getdcwd(Efile_error* errInfo,	/* Where to return error codes. */
 	      int drive,		/* 0 - current, 1 - A, 2 - B etc. */
-	      char* buffer,		/* Where to return the current 
+	      char* buffer,		/* Where to return the current
 					   directory. */
 	      size_t size)		/* Size of buffer. */
 {
     if (drive == 0) {
 	if (getcwd(buffer, size) == NULL)
 	    return check_error(-1, errInfo);
-	
+
 #ifdef SIMSPARCSOLARIS
 	/* We get "host:" prepended to the dirname - remove!. */
 	{
@@ -297,7 +298,7 @@ efile_getdcwd(Efile_error* errInfo,	/* Where to return error codes. */
 	    while ((buffer[j++] = buffer[i++]) != '\0');
 	  }
 	}
-#endif	      
+#endif
 	return 1;
     }
 
@@ -312,10 +313,10 @@ efile_getdcwd(Efile_error* errInfo,	/* Where to return error codes. */
 int
 efile_readdir(Efile_error* errInfo,	/* Where to return error codes. */
 	      char* name,		/* Name of directory to open. */
-	      EFILE_DIR_HANDLE* p_dir_handle,	/* Pointer to directory 
+	      EFILE_DIR_HANDLE* p_dir_handle,	/* Pointer to directory
 						   handle of
 						   open directory.*/
-	      char* buffer,		/* Pointer to buffer for 
+	      char* buffer,		/* Pointer to buffer for
 					   one filename. */
 	      size_t *size)		/* in-out Size of buffer, length
 					   of name. */
@@ -358,9 +359,9 @@ int
 efile_openfile(Efile_error* errInfo,	/* Where to return error codes. */
 	       char* name,		/* Name of directory to open. */
 	       int flags,		/* Flags to user for opening. */
-	       int* pfd,		/* Where to store the file 
+	       int* pfd,		/* Where to store the file
 					   descriptor. */
-	       Sint64 *pSize)		/* Where to store the size of the 
+	       Sint64 *pSize)		/* Where to store the size of the
 					   file. */
 {
     struct stat statbuf;
@@ -383,7 +384,7 @@ efile_openfile(Efile_error* errInfo,	/* Where to return error codes. */
 
 	if (dev_null_ino == 0) {
 	    struct stat nullstatbuf;
-	    
+
 	    if (stat("/dev/null", &nullstatbuf) >= 0) {
 		dev_null_ino = nullstatbuf.st_ino;
 	    }
@@ -443,11 +444,11 @@ efile_openfile(Efile_error* errInfo,	/* Where to return error codes. */
     return 1;
 }
 
-int 
+int
 efile_may_openfile(Efile_error* errInfo, char *name) {
     struct stat statbuf;	/* Information about the file */
     int result;
-    
+
     result = stat(name, &statbuf);
     if (!check_error(result, errInfo))
 	return 0;
@@ -491,7 +492,7 @@ efile_fsync(Efile_error *errInfo, /* Where to return error codes. */
 }
 
 int
-efile_fileinfo(Efile_error* errInfo, Efile_info* pInfo, 
+efile_fileinfo(Efile_error* errInfo, Efile_info* pInfo,
 	       char* name, int info_for_link)
 {
     struct stat statbuf;	/* Information about the file */
@@ -501,7 +502,7 @@ efile_fileinfo(Efile_error* errInfo, Efile_info* pInfo,
 	result = lstat(name, &statbuf);
     } else {
 	result = stat(name, &statbuf);
-    }	
+    }
     if (!check_error(result, errInfo)) {
 	return 0;
     }
@@ -525,7 +526,7 @@ efile_fileinfo(Efile_error* errInfo, Efile_info* pInfo,
     if (access(name, W_OK) == 0)
 	pInfo->access |= FA_WRITE;
 
-#endif	
+#endif
 
     if (ISDEV(statbuf))
 	pInfo->type = FT_DEVICE;
@@ -560,7 +561,7 @@ efile_write_info(Efile_error *errInfo, Efile_info *pInfo, char *name)
 
     /*
      * On some systems chown will always fail for a non-root user unless
-     * POSIX_CHOWN_RESTRICTED is not set.  Others will succeed as long as 
+     * POSIX_CHOWN_RESTRICTED is not set.  Others will succeed as long as
      * you don't try to chown a file to someone besides youself.
      */
 
@@ -588,7 +589,7 @@ efile_write_info(Efile_error *errInfo, Efile_info *pInfo, char *name)
 
 int
 efile_write(Efile_error* errInfo,	/* Where to return error codes. */
-	    int flags,			/* Flags given when file was 
+	    int flags,			/* Flags given when file was
 					   opened. */
 	    int fd,			/* File descriptor to write to. */
 	    char* buf,			/* Buffer to write. */
@@ -623,7 +624,7 @@ efile_writev(Efile_error* errInfo,   /* Where to return error codes */
     int cnt = 0;                     /* Buffers so far written */
 
     ASSERT(iovcnt >= 0);
-    
+
     while (cnt < iovcnt) {
 	if ((! iov[cnt].iov_base) || (iov[cnt].iov_len <= 0)) {
 	    /* Empty buffer - skip */
@@ -676,7 +677,7 @@ efile_read(Efile_error* errInfo,     /* Where to return error codes. */
 	   int fd,		     /* File descriptor to read from. */
 	   char* buf,		     /* Buffer to read into. */
 	   size_t count,	     /* Number of bytes to read. */
-	   size_t *pBytesRead)	     /* Where to return number of 
+	   size_t *pBytesRead)	     /* Where to return number of
 					bytes read. */
 {
     ssize_t n;
@@ -709,7 +710,7 @@ efile_pread(Efile_error* errInfo,     /* Where to return error codes. */
 	    Sint64 offset,            /* Offset in bytes from BOF. */
 	    char* buf,		      /* Buffer to read into. */
 	    size_t count,	      /* Number of bytes to read. */
-	    size_t *pBytesRead)	      /* Where to return 
+	    size_t *pBytesRead)	      /* Where to return
 					 number of bytes read. */
 {
 #if defined(HAVE_PREAD) && defined(HAVE_PWRITE)
@@ -747,7 +748,7 @@ efile_pwrite(Efile_error* errInfo,  /* Where to return error codes. */
 	     char* buf,		    /* Buffer to write. */
 	     size_t count,	    /* Number of bytes to write. */
 	     Sint64 offset)	    /* where to write it */
-{ 
+{
 #if defined(HAVE_PREAD) && defined(HAVE_PWRITE)
     ssize_t written;		    /* Bytes written in last operation. */
     off_t off = (off_t) offset;
@@ -755,7 +756,7 @@ efile_pwrite(Efile_error* errInfo,  /* Where to return error codes. */
 	errno = EINVAL;
 	return check_error(-1, errInfo);
     }
-    
+
     while (count > 0) {
 	if ((written = pwrite(fd, buf, count, offset)) < 0) {
 	    if (errno != EINTR)
@@ -769,10 +770,10 @@ efile_pwrite(Efile_error* errInfo,  /* Where to return error codes. */
 	offset += written;
     }
     return 1;
-#else  /* For unix systems that don't support pread() and pwrite() */    
+#else  /* For unix systems that don't support pread() and pwrite() */
     {
 	int res = efile_seek(errInfo, fd, offset, EFILE_SEEK_SET, NULL);
-	
+
 	if (res) {
 	    return efile_write(errInfo, 0, fd, buf, count);
 	} else {
@@ -786,10 +787,10 @@ efile_pwrite(Efile_error* errInfo,  /* Where to return error codes. */
 int
 efile_seek(Efile_error* errInfo,      /* Where to return error codes. */
 	   int fd,                    /* File descriptor to do the seek on. */
-	   Sint64 offset,             /* Offset in bytes from the given 
-					 origin. */ 
+	   Sint64 offset,             /* Offset in bytes from the given
+					 origin. */
 	   int origin,                /* Origin of seek (SEEK_SET, SEEK_CUR,
-				         SEEK_END). */ 
+				         SEEK_END). */
 	   Sint64 *new_location)      /* Resulting new location in file. */
 {
     off_t off, result;
@@ -807,13 +808,13 @@ efile_seek(Efile_error* errInfo,      /* Where to return error codes. */
 	errno = EINVAL;
 	return check_error(-1, errInfo);
     }
-    
+
     errno = 0;
     result = lseek(fd, off, origin);
 
     /*
      * Note that the man page for lseek (on SunOs 5) says:
-     * 
+     *
      * "if fildes is a remote file  descriptor  and  offset  is
      * negative,  lseek()  returns  the  file pointer even if it is
      * negative."
@@ -957,7 +958,7 @@ efile_sendfile(Efile_error* errInfo, int in_fd, int out_fd,
 	fdrec.sfv_len = *nbytes;
       retval = sendfilev(out_fd, &fdrec, 1, &len);
 
-      /* Sometimes sendfilev can return -1 and still send data. 
+      /* Sometimes sendfilev can return -1 and still send data.
          When that happens we just pretend that no error happend. */
       if (retval != -1 || errno == EAGAIN || errno == EINTR ||
 	  len != 0) {
