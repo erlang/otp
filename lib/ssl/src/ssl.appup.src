@@ -1,7 +1,7 @@
 %% -*- erlang -*-
 {"%VSN%",
  [
-  {<<"7.0">>, [{load_module, ssl, soft_purge, soft_purge, []},
+  {<<"7\\.0">>, [{load_module, ssl, soft_purge, soft_purge, []},
 	       {load_module, ssl_connection, soft_purge, soft_purge, []},
 	       {load_module, tls_connection, soft_purge, soft_purge, []},
 	       {load_module, ssl_session, soft_purge, soft_purge, []},
@@ -13,7 +13,7 @@
   {<<"3\\..*">>, [{restart_application, ssl}]}
  ], 
  [
-  {<<"7.0">>, [{load_module, ssl, soft_purge, soft_purge, []},
+  {<<"7\\.0">>, [{load_module, ssl, soft_purge, soft_purge, []},
 	       {load_module, ssl_connection, soft_purge, soft_purge, []},
 	       {load_module, tls_connection, soft_purge, soft_purge, []},
 	       {load_module, ssl_session, soft_purge, soft_purge, []},
