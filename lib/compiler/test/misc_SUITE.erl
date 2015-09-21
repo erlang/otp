@@ -208,6 +208,10 @@ silly_coverage(Config) when is_list(Config) ->
 		     {label,2}|non_proper_list]}],99},
     ?line expect_error(fun() -> beam_block:module(BlockInput, []) end),
 
+    %% beam_bs
+    BsInput = BlockInput,
+    expect_error(fun() -> beam_bs:module(BsInput, []) end),
+
     %% beam_type
     TypeInput = {?MODULE,[{foo,0}],[],
 		   [{function,foo,0,2,
