@@ -43,67 +43,6 @@ first.</p>
 
 <!-- ===================================================================== -->
 
-<section><title>diameter 1.11</title>
-
-    <section><title>Fixed Bugs and Malfunctions</title>
-      <list>
-        <item>
-          <p>
-	    Don't report 5005 (DIAMETER_AVP_MISSING) errors
-	    unnecessarily.</p>
-          <p>
-	    An AVP whose decode failed was reported as missing,
-	    despite having been reported with another error as a
-	    consequence of the failure.</p>
-          <p>
-	    Own Id: OTP-12871</p>
-        </item>
-        <item>
-          <p>
-	    Fix relay encode of nested, Grouped AVPs.</p>
-          <p>
-	    A fault in OTP-12475 caused encode to fail if the first
-	    AVP in a Grouped AVP was itself Grouped.</p>
-          <p>
-	    Own Id: OTP-12879 Aux Id: OTP-12475 </p>
-        </item>
-        <item>
-          <p>
-	    Improve decode performance.</p>
-          <p>
-	    The time required to decode a message increased
-	    quadratically with the number of AVPs in the worst case,
-	    leading to extremely long execution times.</p>
-          <p>
-	    Own Id: OTP-12891</p>
-        </item>
-        <item>
-          <p>
-	    Match acceptable peer addresses case insensitively.</p>
-          <p>
-	    Regular expressions passed in an 'accept' tuple to
-	    diameter_tcp or diameter_sctp inappropriately matched
-	    case.</p>
-          <p>
-	    Own Id: OTP-12902</p>
-        </item>
-        <item>
-          <p>
-	    Improve watchdog and statistics performance.</p>
-          <p>
-	    Inefficient use of timers contributed to poor performance
-	    at high load, as did ordering of the table statistics are
-	    written to.</p>
-          <p>
-	    Own Id: OTP-12912</p>
-        </item>
-      </list>
-    </section>
-
-</section>
-
-<!-- ===================================================================== -->
-
 <section><title>diameter 1.10</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
