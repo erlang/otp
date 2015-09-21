@@ -30,6 +30,108 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Ssh 4.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Send an understandable disconnect message when the key
+	    exchange phase can't find a common algorithm. There are
+	    also some test cases added.</p>
+          <p>
+	    Own Id: OTP-11531</p>
+        </item>
+        <item>
+          <p>
+	    The third parameter in <c>ssh_sftp:write_file</c> is now
+	    accepting iolists again. Unicode handling adjusted.</p>
+          <p>
+	    Own Id: OTP-12853 Aux Id: seq12891 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    First part of ssh test suite re-organization and
+	    extension.</p>
+          <p>
+	    Own Id: OTP-12230</p>
+        </item>
+        <item>
+          <p>
+	    The key exchange algorithms 'ecdh-sha2-nistp256',
+	    'ecdh-sha2-nistp384' and 'ecdh-sha2-nistp521' are
+	    implemented. See RFC 5656.</p>
+          <p>
+	    This raises the security level considerably.</p>
+          <p>
+	    Own Id: OTP-12622 Aux Id: OTP-12671, OTP-12672 </p>
+        </item>
+        <item>
+          <p>
+	    The key exchange algorithm 'diffie-hellman-group14-sha1'
+	    is implemented. See RFC 4253.</p>
+          <p>
+	    This raises the security level.</p>
+          <p>
+	    Own Id: OTP-12671 Aux Id: OTP-12672, OTP-12622 </p>
+        </item>
+        <item>
+          <p>
+	    The key exchange algorithms
+	    'diffie-hellman-group-exchange-sha1' and
+	    'diffie-hellman-group-exchange-sha256' are implemented.
+	    See RFC 4419.</p>
+          <p>
+	    This raises the security level.</p>
+          <p>
+	    Own Id: OTP-12672 Aux Id: OTP-12671, OTP-12622 </p>
+        </item>
+        <item>
+          <p>
+	    Adding random length extra padding as recommended in RFC
+	    4253 section 6.</p>
+          <p>
+	    Own Id: OTP-12831</p>
+        </item>
+        <item>
+          <p>
+	    New test library for low-level protocol testing. There is
+	    also a test suite using it for some preliminary tests.
+	    The intention is to build on that for more testing of
+	    individual ssh messages. See
+	    <c>lib/ssh/test/ssh_trpt_test_lib.erl</c> and
+	    <c>ssh_protocol_SUITE.erl</c> in the same directory.</p>
+          <p>
+	    Own Id: OTP-12858</p>
+        </item>
+        <item>
+          <p>
+	    Increased default values for
+	    diffie-hellman-group-exchange-sha* to Min = 1024, N =
+	    6144, Max = 8192.</p>
+          <p>
+	    Added 6144 and 8192 bit default gex groups.</p>
+          <p>
+	    Own Id: OTP-12937</p>
+        </item>
+        <item>
+          <p>
+	    The mac algorithm 'hmac-sha2-512' is implemented. See RFC
+	    6668.</p>
+          <p>
+	    Own Id: OTP-12938</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Ssh 4.0</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

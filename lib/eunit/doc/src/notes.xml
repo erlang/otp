@@ -33,6 +33,21 @@
   </header>
   <p>This document describes the changes made to the EUnit application.</p>
 
+<section><title>Eunit 2.2.11</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Improve success message when 2 tests have passed</p>
+          <p>
+	    Own Id: OTP-12952</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Eunit 2.2.10</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

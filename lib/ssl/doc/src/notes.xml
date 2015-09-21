@@ -26,7 +26,63 @@
     <file>notes.xml</file>
   </header>
   <p>This document describes the changes made to the SSL application.</p>
-  <section><title>SSL 7.0</title>
+  <section><title>SSL 7.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Add DER encoded ECPrivateKey as valid input format for
+	    key option.</p>
+          <p>
+	    Own Id: OTP-12974</p>
+        </item>
+        <item>
+          <p>
+	    Correct return value of default session callback module</p>
+          <p>
+	    This error had the symptom that the client check for
+	    unique session would always fail, potentially making the
+	    client session table grow a lot and causing long setup
+	    times.</p>
+          <p>
+	    Own Id: OTP-12980</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Add possibility to downgrade an SSL/TLS connection to a
+	    tcp connection, and give back the socket control to a
+	    user process.</p>
+          <p>
+	    This also adds the possibility to specify a timeout to
+	    the ssl:close function.</p>
+          <p>
+	    Own Id: OTP-11397</p>
+        </item>
+        <item>
+          <p>
+	    Add application setting to be able to change fatal alert
+	    shutdown timeout, also shorten the default timeout. The
+	    fatal alert timeout is the number of milliseconds between
+	    sending of a fatal alert and closing the connection.
+	    Waiting a little while improves the peers chances to
+	    properly receiving the alert so it may shutdown
+	    gracefully.</p>
+          <p>
+	    Own Id: OTP-12832</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SSL 7.0</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>

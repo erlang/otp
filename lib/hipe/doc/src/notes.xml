@@ -31,6 +31,50 @@
   </header>
   <p>This document describes the changes made to HiPE.</p>
 
+<section><title>Hipe 3.13</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> Fix bugs concerning <c>erlang:abs/1</c>. </p>
+          <p>
+	    Own Id: OTP-12948</p>
+        </item>
+        <item>
+	    <p> Fix a bug concerning <c>lists:keydelete/3</c> with
+	    union and opaque types. </p>
+          <p>
+	    Own Id: OTP-12949</p>
+        </item>
+        <item>
+          <p>
+	    A beam file compiled by hipe for an incompatible runtime
+	    system was sometimes not rejected by the loader, which
+	    could lead to vm crash. This fix will also allow the same
+	    hipe compiler to be used by both normal and debug-built
+	    vm.</p>
+          <p>
+	    Own Id: OTP-12962</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    New function <c>hipe:erts_checksum/0</c> which returns a
+	    value identifying the target runtime system for the
+	    compiler. Used by dialyzer for its beam cache directory.</p>
+          <p>
+	    Own Id: OTP-12963 Aux Id: OTP-12962, OTP-12964 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Hipe 3.12</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

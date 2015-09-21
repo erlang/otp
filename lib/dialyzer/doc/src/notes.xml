@@ -32,6 +32,48 @@
   <p>This document describes the changes made to the Dialyzer
     application.</p>
 
+<section><title>Dialyzer 2.8.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Improve the translation of forms to types. </p>
+          <p>
+	    Own Id: OTP-12865</p>
+        </item>
+        <item>
+	    <p> Fix a bug concerning parameterized opaque types. </p>
+          <p>
+	    Own Id: OTP-12866</p>
+        </item>
+        <item>
+	    <p> Fix a bug concerning parameterized opaque types. </p>
+          <p>
+	    Own Id: OTP-12940</p>
+        </item>
+        <item>
+	    <p> Fix bugs concerning <c>erlang:abs/1</c>. </p>
+          <p>
+	    Own Id: OTP-12948</p>
+        </item>
+        <item>
+	    <p> Fix a bug concerning <c>lists:keydelete/3</c> with
+	    union and opaque types. </p>
+          <p>
+	    Own Id: OTP-12949</p>
+        </item>
+        <item>
+          <p>
+	    Use new function <c>hipe:erts_checksum</c> to get correct
+	    runtime checksum for cached beam files.</p>
+          <p>
+	    Own Id: OTP-12964 Aux Id: OTP-12963, OTP-12962 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Dialyzer 2.8</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

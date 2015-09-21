@@ -31,6 +31,71 @@
   </header>
   <p>This document describes the changes made to the STDLIB application.</p>
 
+<section><title>STDLIB 2.6</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> In OTP 18.0, <c>qlc</c> does not handle syntax errors
+	    well. This bug has been fixed. </p>
+          <p>
+	    Own Id: OTP-12946</p>
+        </item>
+        <item>
+          <p>
+	    Optimize zip:unzip/2 when uncompressing to memory.</p>
+          <p>
+	    Own Id: OTP-12950</p>
+        </item>
+        <item>
+          <p>
+	    The <c>stdlib</c> reference manual is updated to show
+	    correct information about the return value of
+	    <c>gen_fsm:reply/2</c>.</p>
+          <p>
+	    Own Id: OTP-12973</p>
+        </item>
+        <item>
+	    <p>re:split2,3 and re:replace/3,4 now correctly handles
+	    pre-compiled patterns that have been compiled using the
+	    '<c>unicode</c>' option.</p>
+          <p>
+	    Own Id: OTP-12977</p>
+        </item>
+        <item>
+          <p>
+	    Export <c>shell:catch_exception/1</c> as documented.</p>
+          <p>
+	    Own Id: OTP-12990</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>A mechanism for limiting the amount of text that the
+	    built-in error logger events will produce has been
+	    introduced. It is useful for limiting both the size of
+	    log files and the CPU time used to produce them.</p>
+	    <p>This mechanism is experimental in the sense that it
+	    may be changed if it turns out that it does not solve the
+	    problem it is supposed to solve. In that case, there may
+	    be backward incompatible improvements to this
+	    mechanism.</p>
+	    <p>See the documentation for the config parameter
+	    <c>error_logger_format_depth</c> in the Kernel
+	    application for information about how to turn on this
+	    feature.</p>
+          <p>
+	    Own Id: OTP-12864</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>STDLIB 2.5</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

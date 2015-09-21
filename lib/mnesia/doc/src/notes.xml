@@ -39,7 +39,23 @@
     thus constitutes one section in this document. The title of each
     section is the version number of Mnesia.</p>
 
-  <section><title>Mnesia 4.13</title>
+  <section><title>Mnesia 4.13.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Improved index updates to avoid a timing glitch in
+	    dirty_index_read.</p>
+          <p>
+	    Own Id: OTP-12972</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Mnesia 4.13</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>

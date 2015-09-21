@@ -32,6 +32,21 @@
   <p>This document describes the changes made to the wxErlang
     application.</p>
 
+<section><title>Wx 1.5</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Extend AUI functionality.</p>
+          <p>
+	    Own Id: OTP-12961</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Wx 1.4</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

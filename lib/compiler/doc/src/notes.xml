@@ -32,6 +32,26 @@
   <p>This document describes the changes made to the Compiler
     application.</p>
 
+<section><title>Compiler 6.0.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix <c>get_map_elements</c> register corruption</p>
+          <p>
+	    Instruction <c>get_map_elements</c> might destroy target
+	    registers when the fail-label is taken. Only seen for
+	    patterns with two, and only two, target registers.
+	    Specifically if we copy one register and then jump.</p>
+          <p>
+	    Own Id: OTP-12967</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Compiler 6.0</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
