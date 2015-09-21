@@ -143,8 +143,8 @@ client_unique_session(Config) when is_list(Config) ->
     Server =
 	ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
 				   {from, self()},
-				    {from, self()},
 				   {mfa, {ssl_test_lib, no_result, []}},
+				   {tcp_options, [{active, false}]},
 				   {options, ServerOpts}]),
     Port = ssl_test_lib:inet_port(Server),
     LastClient = clients_start(Server, 
