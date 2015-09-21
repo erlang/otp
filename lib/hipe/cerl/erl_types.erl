@@ -228,7 +228,7 @@
 -export([t_is_identifier/1]).
 -endif.
 
--export_type([erl_type/0, type_table/0, var_table/0]).
+-export_type([erl_type/0, opaques/0, type_table/0, var_table/0]).
 
 %%-define(DEBUG, true).
 
@@ -2450,8 +2450,7 @@ t_inf(T1, T2) ->
   t_inf(T1, T2, 'universe').
 
 %% 'match' should be used from t_find_unknown_opaque() only
--type t_inf_opaques() :: 'universe'
-                       | [erl_type()] | {'match', [erl_type() | 'universe']}.
+-type t_inf_opaques() :: opaques() | {'match', [erl_type() | 'universe']}.
 
 -spec t_inf(erl_type(), erl_type(), t_inf_opaques()) -> erl_type().
 
@@ -3635,7 +3634,7 @@ t_is_instance(ConcreteType, Type) ->
 t_unopaque(T) ->
   t_unopaque(T, 'universe').
 
--spec t_unopaque(erl_type(), 'universe' | [erl_type()]) -> erl_type().
+-spec t_unopaque(erl_type(), opaques()) -> erl_type().
 
 t_unopaque(?opaque(_) = T, Opaques) ->
   case Opaques =:= 'universe' orelse is_opaque_type(T, Opaques) of

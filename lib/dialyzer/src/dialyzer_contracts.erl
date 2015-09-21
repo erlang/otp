@@ -161,7 +161,7 @@ process_contract_remote_types(CodeServer) ->
   dialyzer_codeserver:finalize_contracts(NewContractDict, NewCallbackDict,
 					 CodeServer).
 
--type opaques() :: [erl_types:erl_type()] | 'universe'.
+-type opaques() :: erl_types:opaques().
 -type opaques_fun() :: fun((module()) -> opaques()).
 
 -type fun_types() :: dict:dict(label(), erl_types:type_table()).
