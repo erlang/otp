@@ -39,6 +39,11 @@
 #ifdef HAVE_SYS_UIO_H
 #include <sys/types.h>
 #include <sys/uio.h>
+#if defined(HAVE_SENDFILE) && (defined(__FreeBSD__) || defined(__DragonFly__))
+/* Need to define __BSD_VISIBLE in order to expose prototype of sendfile */
+#define __BSD_VISIBLE 1
+#include <sys/socket.h>
+#endif
 #endif
 #if defined(HAVE_SENDFILE) && (defined(__linux__) || (defined(__sun) && defined(__SVR4)))
 #include <sys/sendfile.h>
