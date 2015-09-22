@@ -272,14 +272,17 @@ backward([{jump,{f,To}}=J|[{bif,Op,_,Ops,Reg}|Is]=Is0], D, Acc) ->
     catch
 	throw:not_possible -> backward(Is0, D, [J|Acc])
     end;
-backward([{test,bs_start_match2,F,_,[R,_],Ctxt}=I|Is], D,
+backward([{test,bs_start_match2,F,Live,[R,_]=Args,Ctxt}|Is], D,
 	 [{test,bs_match_string,F,[Ctxt,Bs]},
 	  {test,bs_test_tail2,F,[Ctxt,0]}|Acc0]=Acc) ->
+    {f,To0} = F,
+    To = shortcut_bs_start_match(To0, R, D),
     case beam_utils:is_killed(Ctxt, Acc0, D) of
 	true ->
-	    Eq = {test,is_eq_exact,F,[R,{literal,Bs}]},
+	    Eq = {test,is_eq_exact,{f,To},[R,{literal,Bs}]},
 	    backward(Is, D, [Eq|Acc0]);
 	false ->
+	    I = {test,bs_start_match2,{f,To},Live,Args,Ctxt},
 	    backward(Is, D, [I|Acc])
     end;
 backward([{test,bs_start_match2,{f,To0},Live,[Src|_]=Info,Dst}|Is], D, Acc) ->
