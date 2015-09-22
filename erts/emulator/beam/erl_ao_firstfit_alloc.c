@@ -209,7 +209,9 @@ static Block_t*	aoff_get_free_block(Allctr_t *, Uint, Block_t *, Uint);
 static void aoff_link_free_block(Allctr_t *, Block_t*);
 static void aoff_unlink_free_block(Allctr_t *allctr, Block_t *del);
 static void aoff_creating_mbc(Allctr_t*, Carrier_t*);
+#ifdef DEBUG
 static void aoff_destroying_mbc(Allctr_t*, Carrier_t*);
+#endif
 static void aoff_add_mbc(Allctr_t*, Carrier_t*);
 static void aoff_remove_mbc(Allctr_t*, Carrier_t*);
 static UWord aoff_largest_fblk_in_mbc(Allctr_t*, Carrier_t*);
@@ -271,7 +273,11 @@ erts_aoffalc_start(AOFFAllctr_t *alc,
 
     allctr->get_next_mbc_size		= NULL;
     allctr->creating_mbc		= aoff_creating_mbc;
+#ifdef DEBUG
     allctr->destroying_mbc		= aoff_destroying_mbc;
+#else
+    allctr->destroying_mbc		= NULL;
+#endif
     allctr->add_mbc                     = aoff_add_mbc;
     allctr->remove_mbc                  = aoff_remove_mbc;
     allctr->largest_fblk_in_mbc         = aoff_largest_fblk_in_mbc;
@@ -885,17 +891,18 @@ static void aoff_creating_mbc(Allctr_t *allctr, Carrier_t *carrier)
     HARD_CHECK_TREE(NULL, 0, *root, 0);
 }
 
+#define IS_CRR_IN_TREE(CRR,ROOT) \
+    ((CRR)->rbt_node.parent || (ROOT) == &(CRR)->rbt_node)
+
+#ifdef DEBUG
 static void aoff_destroying_mbc(Allctr_t *allctr, Carrier_t *carrier)
 {
     AOFFAllctr_t *alc = (AOFFAllctr_t *) allctr;
     AOFF_Carrier_t *crr = (AOFF_Carrier_t*) carrier;
-    AOFF_RBTree_t *root = alc->mbc_root;
 
-    if (crr->rbt_node.parent || &crr->rbt_node == root) {
-	aoff_remove_mbc(allctr, carrier);
-    }
-    /*else already removed */
+    ASSERT(!IS_CRR_IN_TREE(crr, alc->mbc_root));
 }
+#endif
 
 static void aoff_add_mbc(Allctr_t *allctr, Carrier_t *carrier)
 {
@@ -903,6 +910,7 @@ static void aoff_add_mbc(Allctr_t *allctr, Carrier_t *carrier)
     AOFF_Carrier_t *crr = (AOFF_Carrier_t*) carrier;
     AOFF_RBTree_t **root = &alc->mbc_root;
 
+    ASSERT(!IS_CRR_IN_TREE(crr, *root));
     HARD_CHECK_TREE(NULL, 0, *root, 0);   
 
     /* Link carrier in address order tree
@@ -919,6 +927,10 @@ static void aoff_remove_mbc(Allctr_t *allctr, Carrier_t *carrier)
     AOFF_RBTree_t **root = &alc->mbc_root;
 
     ASSERT(allctr == ERTS_ALC_CARRIER_TO_ALLCTR(carrier));
+
+    if (!IS_CRR_IN_TREE(crr,*root))
+        return;
+
     HARD_CHECK_TREE(NULL, 0, *root, 0);
 
     rbt_delete(root, &crr->rbt_node);

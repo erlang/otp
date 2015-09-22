@@ -277,7 +277,7 @@ typedef struct ErtsDoubleLink_t_ {
 typedef struct {
     erts_atomic_t next;
     erts_atomic_t prev;
-    Allctr_t *orig_allctr;
+    Allctr_t *orig_allctr;      /* read-only while carrier is alive */
     ErtsThrPrgrVal thr_prgr;
     erts_atomic_t max_size;
     UWord abandon_limit;

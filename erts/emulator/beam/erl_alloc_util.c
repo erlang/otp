@@ -1437,6 +1437,16 @@ erts_alcu_fix_alloc_shrink(Allctr_t *allctr, erts_aint32_t flgs)
 
 static void dealloc_carrier(Allctr_t *allctr, Carrier_t *crr, int superaligned);
 
+static ERTS_INLINE void
+dealloc_mbc(Allctr_t *allctr, Carrier_t *crr)
+{
+    ASSERT(IS_MB_CARRIER(crr));
+    if (allctr->destroying_mbc)
+        allctr->destroying_mbc(allctr, crr);
+
+    dealloc_carrier(allctr, crr, 1);
+}
+
 #ifdef ERTS_SMP
 
 static ERTS_INLINE Allctr_t*
@@ -3242,7 +3252,7 @@ check_pending_dealloc_carrier(Allctr_t *allctr,
 
 	    dcrr = crr;
 	    crr = crr->next;
-	    dealloc_carrier(allctr, dcrr, 1);
+	    dealloc_mbc(allctr, dcrr);
 	    i++;
 	} while (crr && i < ERTS_ALC_MAX_DEALLOC_CARRIER);
 
@@ -3273,11 +3283,14 @@ static void
 schedule_dealloc_carrier(Allctr_t *allctr, Carrier_t *crr)
 {
     Allctr_t *orig_allctr;
+    Block_t *blk;
     int check_pending_dealloc;
     erts_aint_t max_size;
 
+    ASSERT(IS_MB_CARRIER(crr));
+
     if (!ERTS_ALC_IS_CPOOL_ENABLED(allctr)) {
-	dealloc_carrier(allctr, crr, 1);
+	dealloc_mbc(allctr, crr);
 	return;
     }
 
@@ -3320,7 +3333,7 @@ schedule_dealloc_carrier(Allctr_t *allctr, Carrier_t *crr)
 
     if (crr->cpool.thr_prgr == ERTS_THR_PRGR_INVALID
 	|| erts_thr_progress_has_reached(crr->cpool.thr_prgr)) {
-	dealloc_carrier(allctr, crr, 1);
+	dealloc_mbc(allctr, crr);
 	return;
     }
 
@@ -3901,9 +3914,6 @@ destroy_carrier(Allctr_t *allctr, Block_t *blk, Carrier_t **busy_pcrr_pp)
 	}
 #endif
 
-	if (allctr->destroying_mbc)
-	    (*allctr->destroying_mbc)(allctr, crr);
-
 #ifdef ERTS_SMP
 	if (busy_pcrr_pp && *busy_pcrr_pp) {
 	    ERTS_ALC_CPOOL_ASSERT(*busy_pcrr_pp == crr);
@@ -3927,12 +3937,15 @@ destroy_carrier(Allctr_t *allctr, Block_t *blk, Carrier_t **busy_pcrr_pp)
 	    else
 #endif
 		STAT_SYS_ALLOC_MBC_FREE(allctr, crr_sz);
+
+            if (allctr->remove_mbc)
+                allctr->remove_mbc(allctr, crr);
 	}
 
 #ifdef ERTS_SMP
 	schedule_dealloc_carrier(allctr, crr);
 #else
-	dealloc_carrier(allctr, crr, 1);
+	dealloc_mbc(allctr, crr);
 #endif
     }
 }
