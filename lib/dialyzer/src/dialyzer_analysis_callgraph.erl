@@ -93,11 +93,7 @@ loop(#server_state{parent = Parent} = State,
       send_log(Parent, LogMsg),
       loop(State, Analysis, ExtCalls);
     {AnalPid, warnings, Warnings} ->
-      case Warnings of
-	[] -> ok;
-	SendWarnings ->
-	  send_warnings(Parent, SendWarnings)
-      end,
+      send_warnings(Parent, Warnings),
       loop(State, Analysis, ExtCalls);
     {AnalPid, cserver, CServer, Plt} ->
       send_codeserver_plt(Parent, CServer, Plt),
@@ -105,11 +101,11 @@ loop(#server_state{parent = Parent} = State,
     {AnalPid, done, Plt, DocPlt} ->
       case ExtCalls =:= none of
 	true ->
-	  send_analysis_done(Parent, Plt, DocPlt);
+	  ok;
 	false ->
-	  send_ext_calls(Parent, ExtCalls),
-	  send_analysis_done(Parent, Plt, DocPlt)
-      end;
+	  send_ext_calls(Parent, ExtCalls)
+      end,
+      send_analysis_done(Parent, Plt, DocPlt);
     {AnalPid, ext_calls, NewExtCalls} ->
       loop(State, Analysis, NewExtCalls);
     {AnalPid, ext_types, ExtTypes} ->
