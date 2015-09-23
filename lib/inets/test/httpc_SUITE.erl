@@ -98,6 +98,7 @@ only_simulated() ->
      stream_once,
      stream_single_chunk,
      stream_no_length,
+     not_streamed_once,
      stream_large_not_200_or_206,
      no_content_204,
      tolerate_missing_CR,
@@ -414,7 +415,15 @@ stream_large_not_200_or_206() ->
       "other than 200 or 206" }].
 stream_large_not_200_or_206(Config) when is_list(Config) ->
     Request = {url(group_name(Config), "/large_404_response.html", Config), []},
-    {{_,404,_}, _, _} = non_streamed_async_test(Request, {stream, self}).
+    {404, _} = not_streamed_test(Request, {stream, self}).
+%%-------------------------------------------------------------------------
+not_streamed_once() ->
+    [{doc, "Test not streamed responses with once streaming"}].
+not_streamed_once(Config) when is_list(Config) ->
+    Request0 = {url(group_name(Config), "/404.html", Config), []},
+    {404, _} = not_streamed_test(Request0, {stream, {self, once}}),
+    Request1 = {url(group_name(Config), "/404_chunked.html", Config), []},
+    {404, _} = not_streamed_test(Request1, {stream, {self, once}}).
 
 
 %%-------------------------------------------------------------------------
@@ -1117,18 +1126,18 @@ stream_test(Request, To) ->
 
     Body = binary_to_list(StreamedBody).
 
-non_streamed_async_test(Request, To) ->
-    {ok, Response} =
+not_streamed_test(Request, To) ->
+    {ok, {{_,Code,_}, [_ | _], Body}} =
 	httpc:request(get, Request, [], [{body_format, binary}]),
     {ok, RequestId} =
-	httpc:request(get, Request, [], [{sync, false}, To]),
+	httpc:request(get, Request, [], [{body_format, binary}, {sync, false}, To]),
 
-	receive
-	    {http, {RequestId, Response}} ->
-        Response;
-	    {http, Msg} ->
-		ct:fail(Msg)
-	end.
+    receive
+	{http, {RequestId, {{_, Code, _}, _Headers, Body}}} ->
+	    {Code, binary_to_list(Body)};
+	{http, Msg} ->
+	    ct:fail(Msg)
+    end.
 
 url(http, End, Config) ->
     Port = ?config(port, Config),
@@ -1661,6 +1670,11 @@ handle_uri(_,"/307.html",Port,_,Socket,_) ->
 	"Content-Length:" ++ integer_to_list(length(Body))
 	++ "\r\n\r\n" ++ Body;
 
+handle_uri(_,"/404.html",_,_,_,_) ->
+    "HTTP/1.1 404 not found\r\n" ++
+	"Content-Length:14\r\n\r\n" ++
+	"Page not found";
+
 handle_uri(_,"/500.html",_,_,_,_) ->
     "HTTP/1.1 500 Internal Server Error\r\n" ++
 	"Content-Length:47\r\n\r\n" ++
@@ -1787,6 +1801,15 @@ handle_uri(_,"/once_chunked.html",_,_,Socket,_) ->
     send(Socket, http_chunk:encode("<HTML><BODY>fo")),
     send(Socket,
 	 http_chunk:encode("obar</BODY></HTML>")),
+    http_chunk:encode_last();
+
+handle_uri(_,"/404_chunked.html",_,_,Socket,_) ->
+    Head =  "HTTP/1.1 404 not found\r\n" ++
+	"Transfer-Encoding:Chunked\r\n\r\n",
+    send(Socket, Head),
+    send(Socket, http_chunk:encode("<HTML><BODY>Not ")),
+    send(Socket,
+	 http_chunk:encode("found</BODY></HTML>")),
     http_chunk:encode_last();
 
 handle_uri(_,"/single_chunk.html",_,_,Socket,_) ->
