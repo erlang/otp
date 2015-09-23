@@ -311,7 +311,7 @@ flt_need_heap_2({set,_,_,{get_tuple_element,_}}, H, Fl) ->
     {[],H,Fl};
 flt_need_heap_2({set,_,_,get_list}, H, Fl) ->
     {[],H,Fl};
-flt_need_heap_2({set,_,_,{'catch',_}}, H, Fl) ->
+flt_need_heap_2({set,_,_,{try_catch,_,_}}, H, Fl) ->
     {[],H,Fl};
 %% All other instructions should cause the insertion of an allocation
 %% instruction if needed.
