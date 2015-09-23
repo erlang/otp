@@ -226,6 +226,17 @@ run_client(Opts) ->
 		    ct:log("~p:~p~nClient faild several times: connection failed: ~p ~n", [?MODULE,?LINE, Reason]),
 		    Pid ! {self(), {error, Reason}}
 	    end;
+	{error, econnreset = Reason} ->
+	      case get(retries) of
+		N when N < 5 ->
+		    ct:log("~p:~p~neconnreset retries=~p sleep ~p",[?MODULE,?LINE, N,?SLEEP]),
+		    put(retries, N+1),
+		    ct:sleep(?SLEEP),
+		    run_client(Opts);
+	       _ ->
+		    ct:log("~p:~p~nClient faild several times: connection failed: ~p ~n", [?MODULE,?LINE, Reason]),
+		    Pid ! {self(), {error, Reason}}
+	    end;
 	{error, Reason} ->
 	    ct:log("~p:~p~nClient: connection failed: ~p ~n", [?MODULE,?LINE, Reason]),
 	    Pid ! {connect_failed, Reason};
