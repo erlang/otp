@@ -31,6 +31,129 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 7.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix bug in ETS that could cause stray objects marked for
+	    deletion to occasionally be missed by the cleanup done by
+	    <c>safe_fixtable(_,false)</c>.</p>
+          <p>
+	    Own Id: OTP-12870</p>
+        </item>
+        <item>
+          <p>
+	    Fixed VM crash that could occur if a trace port was
+	    linked to a process, and the trace port terminated
+	    abnormally while handling a trace message. This bug has
+	    always existed in the runtime system with SMP support.</p>
+          <p>
+	    Own Id: OTP-12901</p>
+        </item>
+        <item>
+          <p>
+	    Instead of aborting, the vm now creates a crash dump when
+	    a system process is terminated.</p>
+          <p>
+	    Own Id: OTP-12934</p>
+        </item>
+        <item>
+          <p>
+	    Fixed a rare emulator dead lock that occurred when
+	    erlang:process_flag(priority,...) was called by a process
+	    that was also scheduled for an internal system activity.</p>
+          <p>
+	    Own Id: OTP-12943</p>
+        </item>
+        <item>
+          <p>
+	    The runtime system on various posix platforms (except for
+	    Linux and Solaris) could crash when large amounts of
+	    file-descriptors were in use.</p>
+          <p>
+	    Own Id: OTP-12954</p>
+        </item>
+        <item>
+          <p>
+	    A beam file compiled by hipe for an incompatible runtime
+	    system was sometimes not rejected by the loader, which
+	    could lead to vm crash. This fix will also allow the same
+	    hipe compiler to be used by both normal and debug-built
+	    vm.</p>
+          <p>
+	    Own Id: OTP-12962</p>
+        </item>
+        <item>
+          <p>
+	    Fix bug in <c>maps:merge/2</c> when called by hipe
+	    compiled code that could cause vm crash. Bug exists since
+	    erts-7.0 (OTP 18.0).</p>
+          <p>
+	    Own Id: OTP-12965</p>
+        </item>
+        <item>
+          <p>
+	    When tracing with <c>process_dump</c> option, the VM
+	    could abort if there was an ongoing binary match
+	    somewhere in the call stack of the traced process.</p>
+          <p>
+	    Own Id: OTP-12968</p>
+        </item>
+        <item>
+          <p>
+	    Fixed possible output deadlock in tty driver when hitting
+	    "CTRL-C" in a non-smp emulator shell on unix.</p>
+          <p>
+	    Own Id: OTP-12987 Aux Id: Seq12947 </p>
+        </item>
+        <item>
+          <p>
+	    Fix <c>binary_to_integer</c> to throw badarg for "+" and
+	    "-" similar to <c>list_to_integer</c>.</p>
+          <p>
+	    Own Id: OTP-12988</p>
+        </item>
+        <item>
+          <p>
+	    Suppress warning of unused argument when using macro
+	    enif_make_pid.</p>
+          <p>
+	    Own Id: OTP-12989</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Changed default clock source used for OS system time on
+	    MacOS X to <c>gettimeofday()</c> in order to improve
+	    performance. The system can be configured during build to
+	    use the previously used higher resolution clock source by
+	    passing the switch <seealso
+	    marker="doc/installation_guide:INSTALL#Advanced-configuration-and-build-of-ErlangOTP_Configuring"><c>--with-clock-resolution=high</c></seealso>
+	    when configuring the build.</p>
+          <p>
+	    Own Id: OTP-12945 Aux Id: OTP-12892 </p>
+        </item>
+        <item>
+          <p>
+	    Added the <c>configure</c> option <seealso
+	    marker="doc/installation_guide:INSTALL#Advanced-configuration-and-build-of-ErlangOTP_Configuring"><c>--disable-saved-compile-time</c></seealso>
+	    which disables saving of compile date and time in the
+	    emulator binary.</p>
+          <p>
+	    Own Id: OTP-12971</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 7.0.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

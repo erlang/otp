@@ -33,7 +33,64 @@
     <file>notes.xml</file>
   </header>
   
-  <section><title>Inets 6.0</title>
+  <section><title>Inets 6.0.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix broken socket feature, that is on Linux systems a
+	    socket may be opened before starting Erlang and then
+	    passed to Erlang's httpd daemon. This is useful as the
+	    wrap program can open a privileged port and Erlang does
+	    not have to be run as root.</p>
+          <p>
+	    Own Id: OTP-12875 Aux Id: seq12878 </p>
+        </item>
+        <item>
+          <p>
+	    Fix broken socket feature, that is on Linux systems a
+	    socket may be opened before starting Erlang and then
+	    passed to Erlangs tftp daemon. This is useful as the wrap
+	    program can open a privileged port and Erlang does not
+	    have to be run as root.</p>
+          <p>
+	    Own Id: OTP-12898 Aux Id: seq12900 </p>
+        </item>
+        <item>
+          <p>
+	    httpc_handler should react properly to cancel requests
+	    even when the request to be canceled was already finished
+	    but httpc_manager did not get notified about that yet.</p>
+          <p>
+	    Own Id: OTP-12922</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Added format_status function to httpd process to avoid
+	    sensitive information to be printed in supervisor logs.</p>
+          <p>
+	    Own Id: OTP-12976</p>
+        </item>
+        <item>
+          <p>
+	    Return meaningful error reason disregarding whether a
+	    http proxy is used or not.</p>
+          <p>
+	    Own Id: OTP-12984</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Inets 6.0</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>

@@ -43,6 +43,94 @@ first.</p>
 
 <!-- ===================================================================== -->
 
+<section><title>diameter 1.11</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix relay encode of nested, Grouped AVPs.</p>
+          <p>
+	    A fault in OTP-12475 caused encode to fail if the first
+	    AVP in a Grouped AVP was itself Grouped.</p>
+          <p>
+	    Own Id: OTP-12879 Aux Id: OTP-12475 </p>
+        </item>
+        <item>
+          <p>
+	    Match acceptable peer addresses case insensitively.</p>
+          <p>
+	    Regular expressions passed in an 'accept' tuple to
+	    diameter_tcp or diameter_sctp inappropriately matched
+	    case.</p>
+          <p>
+	    Own Id: OTP-12902</p>
+        </item>
+        <item>
+          <p>
+	    Fix diameter_watchdog function clause.</p>
+          <p>
+	    OTP-12912 introduced an error with accepting transports
+	    setting <c>{restrict_connections, false}</c>, causing
+	    processes to fail when peer connections were terminated.</p>
+          <p>
+	    Own Id: OTP-12969</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Don't report 5005 (DIAMETER_AVP_MISSING) errors
+	    unnecessarily.</p>
+          <p>
+	    An AVP whose decode failed was reported as missing,
+	    despite having been reported with another error as a
+	    consequence of the failure.</p>
+          <p>
+	    Own Id: OTP-12871</p>
+        </item>
+        <item>
+          <p>
+	    Improve decode performance.</p>
+          <p>
+	    The time required to decode a message increased
+	    quadratically with the number of AVPs in the worst case,
+	    leading to extremely long execution times.</p>
+          <p>
+	    Own Id: OTP-12891</p>
+        </item>
+        <item>
+          <p>
+	    Improve watchdog and statistics performance.</p>
+          <p>
+	    Inefficient use of timers contributed to poor performance
+	    at high load, as did ordering of the table statistics are
+	    written to.</p>
+          <p>
+	    Own Id: OTP-12912</p>
+        </item>
+        <item>
+          <p>
+	    Add service_opt() strict_mbit.</p>
+          <p>
+	    There are differing opinions on whether or not reception
+	    of an arbitrary AVP setting the M-bit is an error. The
+	    default interpretation is strict: if a command grammar
+	    doesn't explicitly allow an AVP setting the M-bit then
+	    reception of such an AVP is regarded as an error. Setting
+	    <c>{strict_mbit, false}</c> disables this check.</p>
+          <p>
+	    Own Id: OTP-12947</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>diameter 1.10</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

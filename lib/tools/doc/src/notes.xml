@@ -31,6 +31,25 @@
   </header>
   <p>This document describes the changes made to the Tools application.</p>
 
+<section><title>Tools 2.8.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    If a module includes eunit.hrl, a parse transform adds
+	    the function test/0 on line 0 in the module. A bug in
+	    OTP-18.0 caused cover:analyse_to_file/1 to fail to insert
+	    cover data in the output file when line 0 existed in the
+	    cover data table. This is now corrected.</p>
+          <p>
+	    Own Id: OTP-12981</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Tools 2.8</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
