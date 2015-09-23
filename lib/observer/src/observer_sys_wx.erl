@@ -83,11 +83,11 @@ update_syspage(#sys_wx_state{node = Node, fields=Fields, sizer=Sizer}) ->
 info_fields() ->
     Info = [{"System and Architecture",
 	     [{"System Version", otp_release},
-	      {"Erts Version", version},
+	      {"ERTS Version", version},
 	      {"Compiled for", system_architecture},
 	      {"Emulator Wordsize", wordsize_external},
 	      {"Process Wordsize", wordsize_internal},
-	      {"Smp Support",  smp_support},
+	      {"SMP Support",  smp_support},
 	      {"Thread Support",  threads},
 	      {"Async thread pool size",  thread_pool_size}
 	     ]},
@@ -106,7 +106,7 @@ info_fields() ->
 	      {"Atoms", {bytes, atom}},
 	      {"Binaries", {bytes, binary}},
 	      {"Code", {bytes, code}},
-	      {"Ets", {bytes, ets}}
+	      {"ETS", {bytes, ets}}
 	     ]},
 	    {"Statistics", right,
 	     [{"Up time", {time_ms, uptime}},
