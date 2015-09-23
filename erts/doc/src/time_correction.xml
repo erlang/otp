@@ -584,7 +584,7 @@
 
     <p>To be backwards compatible, <c>erlang:now/0</c>
     remains as is, but <em>you are strongly discouraged from using
-    it</em>. Much use of <c>erlang:now/0</c>
+    it</em>. Many use cases of <c>erlang:now/0</c>
     prevents you from using the new
     <seealso marker="#Multi_Time_Warp_Mode">multi-time warp
     mode</seealso>, which is an important part of this
@@ -630,14 +630,14 @@
       <title>New Erlang Monotonic Time</title>
       <p>Erlang monotonic time as such is new as of <c>ERTS</c> 7.0.
       It is introduced to detach time measurements, such as elapsed
-      time from calendar time. Many programmers want to measure elapsed
-      time or specify a time relative to another point in time without
-      knowing the involved times in UTC or any other globally defined
-      time scale. By introducing a time scale
-      with a local definition of where it starts, time that do
-      not concern calendar time on that time scale can be managed.
-      Erlang monotonic time uses
-      such a time scale with a locally defined start.</p>
+      time from calendar time. In many use cases there is a need to
+      measure elapsed time or specify a time relative to another point
+      in time without the need to know the involved times in UTC or
+      any other globally defined time scale. By introducing a time
+      scale with a local definition of where it starts, time that do
+      not concern calendar time can be managed on that time
+      scale. Erlang monotonic time uses such a time scale with a
+      locally defined start.</p>
 
       <p>The introduction of Erlang monotonic time allows
       us to adjust the two Erlang times (Erlang
