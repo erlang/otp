@@ -95,6 +95,11 @@ simplify_basic_1([{set,[D],[TupleReg],{get_tuple_element,0}}=I|Is0], Ts0, Acc) -
     end;
 simplify_basic_1([{set,_,_,{try_catch,_,_}}=I|Is], _Ts, Acc) ->
     simplify_basic_1(Is, tdb_new(), [I|Acc]);
+simplify_basic_1([{test,is_atom,_,[R]}=I|Is], Ts, Acc) ->
+    case tdb_find(R, Ts) of
+	boolean -> simplify_basic_1(Is, Ts, Acc);
+	_ -> simplify_basic_1(Is, Ts, [I|Acc])
+    end;
 simplify_basic_1([{test,is_integer,_,[R]}=I|Is], Ts, Acc) ->
     case tdb_find(R, Ts) of
 	integer -> simplify_basic_1(Is, Ts, Acc);
@@ -148,6 +153,8 @@ simplify_basic_1([{select,select_val,Reg,_,_}=I0|Is], Ts, Acc) ->
     I = case tdb_find(Reg, Ts) of
 	    {integer,Range} ->
 		simplify_select_val_int(I0, Range);
+	    boolean ->
+		simplify_select_val_bool(I0);
 	    _ ->
 		I0
 	end,
@@ -164,6 +171,15 @@ simplify_select_val_int({select,select_val,R,_,L0}=I, {Min,Max}) ->
     case eq_ranges(Vs, Min, Max) of
 	false -> I;
 	true -> simplify_select_val_1(L0, {integer,Max}, R, [])
+    end.
+
+simplify_select_val_bool({select,select_val,R,_,L}=I) ->
+    Vs = sort([V || {atom,V} <- L]),
+    case Vs of
+	[false,true] ->
+	    simplify_select_val_1(L, {atom,false}, R, []);
+	_ ->
+	    I
     end.
 
 simplify_select_val_1([Val,F|T], Val, R, Acc) ->
@@ -414,6 +430,17 @@ update({set,[D],[{integer,I},Reg],{bif,element,_}}, Ts0) ->
     tdb_update([{Reg,{tuple,I,[]}},{D,kill}], Ts0);
 update({set,[D],[_Index,Reg],{bif,element,_}}, Ts0) ->
     tdb_update([{Reg,{tuple,0,[]}},{D,kill}], Ts0);
+update({set,[D],Args,{bif,N,_}}, Ts0) ->
+    Ar = length(Args),
+    BoolOp = erl_internal:new_type_test(N, Ar) orelse
+	erl_internal:comp_op(N, Ar) orelse
+	erl_internal:bool_op(N, Ar),
+    case BoolOp of
+	true ->
+	    tdb_update([{D,boolean}], Ts0);
+	false ->
+	    tdb_update([{D,kill}], Ts0)
+    end;
 update({set,[D],[S],{get_tuple_element,0}}, Ts) ->
     tdb_update([{D,{tuple_element,S,0}}], Ts);
 update({set,[D],[S],{alloc,_,{gc_bif,float,{f,0}}}}, Ts0) ->
@@ -828,6 +855,7 @@ merge_type_info(NewType, _) ->
     verify_type(NewType),
     NewType.
 
+verify_type(boolean) -> ok;
 verify_type(integer) -> ok;
 verify_type({integer,{Min,Max}})
   when is_integer(Min), is_integer(Max) -> ok;

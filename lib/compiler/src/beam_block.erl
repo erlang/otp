@@ -58,33 +58,6 @@ blockify(Is) ->
 blockify([{loop_rec,{f,Fail},{x,0}},{loop_rec_end,_Lbl},{label,Fail}|Is], Acc) ->
     %% Useless instruction sequence.
     blockify(Is, Acc);
-blockify([{test,is_atom,{f,Fail},[Reg]}=I|
-	  [{select,select_val,Reg,{f,Fail},
-	    [{atom,false},{f,_}=BrFalse,
-	     {atom,true}=AtomTrue,{f,_}=BrTrue]}|Is]=Is0],
-	 [{block,Bl}|_]=Acc) ->
-    case is_last_bool(Bl, Reg) of
-	false ->
-	    blockify(Is0, [I|Acc]);
-	true ->
-	    %% The last instruction is a boolean operator/guard BIF that can't fail.
-	    %% We can convert the three-way branch to a two-way branch (eliminating
-	    %% the reference to the failure label).
-	    blockify(Is, [{jump,BrTrue},
-			  {test,is_eq_exact,BrFalse,[Reg,AtomTrue]}|Acc])
-    end;
-blockify([{test,is_atom,{f,Fail},[Reg]}=I|
-	  [{select,select_val,Reg,{f,Fail},
-	    [{atom,true}=AtomTrue,{f,_}=BrTrue,
-	     {atom,false},{f,_}=BrFalse]}|Is]=Is0],
-	 [{block,Bl}|_]=Acc) ->
-    case is_last_bool(Bl, Reg) of
-	false ->
-	    blockify(Is0, [I|Acc]);
-	true ->
-	    blockify(Is, [{jump,BrTrue},
-			  {test,is_eq_exact,BrFalse,[Reg,AtomTrue]}|Acc])
-    end;
 blockify([I|Is0]=IsAll, Acc) ->
     case collect(I) of
 	error -> blockify(Is0, [I|Acc]);
@@ -93,13 +66,6 @@ blockify([I|Is0]=IsAll, Acc) ->
 	    blockify(Is, [{block,Block}|Acc])
     end;
 blockify([], Acc) -> reverse(Acc).
-
-is_last_bool([{set,[Reg],As,{bif,N,_}}], Reg) ->
-    Ar = length(As),
-    erl_internal:new_type_test(N, Ar) orelse erl_internal:comp_op(N, Ar)
-	orelse erl_internal:bool_op(N, Ar);
-is_last_bool([_|Is], Reg) -> is_last_bool(Is, Reg);
-is_last_bool([], _) -> false.
 
 collect_block(Is) ->
     collect_block(Is, []).

@@ -21,7 +21,7 @@
 
 -export([all/0,suite/0,groups/0,init_per_suite/1,end_per_suite/1,
 	 init_per_group/2,end_per_group/2,
-	 integers/1,coverage/1]).
+	 integers/1,coverage/1,booleans/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
@@ -32,7 +32,8 @@ all() ->
 groups() ->
     [{p,[parallel],
       [integers,
-       coverage
+       coverage,
+       booleans
       ]}].
 
 init_per_suite(Config) ->
@@ -82,6 +83,16 @@ coverage(_Config) ->
     id(-1 band id(13)),
 
     ok.
+
+booleans(_Config) ->
+    {'EXIT',{{case_clause,_},_}} = (catch do_booleans(42)),
+    ok.
+
+do_booleans(B) ->
+    case is_integer(B) of
+	yes -> yes;
+	no -> no
+    end.
 
 id(I) ->
     I.
