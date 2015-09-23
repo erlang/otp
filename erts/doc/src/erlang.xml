@@ -251,10 +251,7 @@
         <p>Example:</p>
         <pre>
 > <input>apply(lists, reverse, [[a, b, c]]).</input>
-[c,b,a]</pre>
-        <p><c>apply</c> evaluates BIFs by using
-          the module name <c>erlang</c>.</p>
-        <pre>
+[c,b,a]
 > <input>apply(erlang, atom_to_list, ['Erlang']).</input>
 "Erlang"</pre>
         <p>If the number of arguments are known at compile time,
@@ -282,16 +279,16 @@
           in the text representation. If <c><anno>Encoding</anno></c> is
           <c>utf8</c> or
           <c>unicode</c>, the characters are encoded using UTF-8
-          (that is, characters from 16#80 through 0xFF are
+          (that is, characters from 128 through 255 are
           encoded in two bytes).</p>
 	<note><p><c>atom_to_binary(<anno>Atom</anno>, latin1)</c> never
         fails because the text representation of an atom can only
-        contain characters from 0 through 16#FF. In a future release,
+        contain characters from 0 through 255. In a future release,
         the text representation
         of atoms can be allowed to contain any Unicode character and
         <c>atom_to_binary(<anno>Atom</anno>, latin1)</c> will then fail if the
         text representation for <c><anno>Atom</anno></c> contains a Unicode
-        character greater than 16#FF.</p></note>
+        character greater than 255.</p></note>
         <p>Example:</p>
         <pre>
 > <input>atom_to_binary('Erlang', latin1).</input>
@@ -358,9 +355,9 @@
         If <c><anno>Encoding</anno></c>
         is <c>utf8</c> or <c>unicode</c>, the binary must contain
         valid UTF-8 sequences. Only Unicode characters up
-        to 0xFF are allowed.</p>
+        to 255 are allowed.</p>
         <note><p><c>binary_to_atom(<anno>Binary</anno>, utf8)</c> fails if
-        the binary contains Unicode characters greater than 16#FF.
+        the binary contains Unicode characters greater than 255.
         In a future release, such Unicode characters can be allowed
         and <c>binary_to_atom(<anno>Binary</anno>, utf8)</c> does then not fail.
         For more information on Unicode support in atoms, see the
@@ -450,11 +447,11 @@
           position <c><anno>Stop</anno></c> in <c><anno>Binary</anno></c>.
 	  The positions in the
           binary are numbered starting from 1.</p>
-          <note><p>The indexing style of using one-based indices for
-          binaries is deprecated for this function. New code is to
-          use the functions in module <c>binary</c> in <c>STDLIB</c>
-          instead. They therefore
-          use the same (zero-based) style of indexing.</p></note>
+          <note><p>The one-based indexing for binaries used by
+	  this function is deprecated. New code is to use
+          <seealso marker="stdlib:binary#bin_to_list/3">binary:bin_to_list/3</seealso>
+	  in <c>STDLIB</c> instead. All functions in module
+	  <c>binary</c> consistently use zero-based indexing.</p></note>
       </desc>
     </func>
 
@@ -698,7 +695,7 @@
       <desc>
         <p>Checks if the node local process identified by <c><anno>Pid</anno></c>
         executes old code for <c><anno>Module</anno></c>.</p>
-        <p>The available <c><anno>Options</anno></c> are as follows:</p>
+        <p>The available <c><anno>Option</anno></c>s are as follows:</p>
         <taglist>
           <tag><c>{allow_gc, boolean()}</c></tag>
           <item>
@@ -770,7 +767,7 @@
 
     <func>
       <name name="convert_time_unit" arity="3"/>
-      <fsummary>Convert time unit of a time value</fsummary>
+      <fsummary>Converts time unit of a time value.</fsummary>
       <desc>
 	<p>Converts the <c><anno>Time</anno></c> value of time unit
 	<c><anno>FromUnit</anno></c> to the corresponding
@@ -878,7 +875,7 @@
           </item>
           <tag><c>line</c></tag>
           <item>
-            <p>A packet is a line-terminated with newline. The
+            <p>A packet is a line terminated with newline. The
               newline character is included in the returned packet
               unless the line was truncated according to option
               <c>line_length</c>.</p> 
@@ -1809,7 +1806,7 @@ os_prompt% </pre>
       <fsummary>Hash function (deprecated).</fsummary>
       <desc>
         <p>Returns a hash value for <c><anno>Term</anno></c> within the range
-          <c>1..<anno>Range</anno></c>. The range is 1..2^27-1.</p>
+          <c>1..<anno>Range</anno></c>. The maximum range is 1..2^27-1.</p>
         <warning>
           <p>This BIF is deprecated, as the hash value can differ on
             different architectures. The hash values for integer
@@ -2034,7 +2031,7 @@ os_prompt% </pre>
         <p>This BIF is useful for builders of cross-reference tools.</p>
         <p>Returns <c>true</c> if
           <c><anno>Module</anno>:<anno>Function</anno>/<anno>Arity</anno></c>
-          ia a BIF implemented in C, otherwise <c>false</c>.</p>
+          is a BIF implemented in C, otherwise  <c>false</c>.</p>
       </desc>
     </func>
 
@@ -2366,8 +2363,8 @@ os_prompt% </pre>
         <p>Failure: <c>badarg</c> if <c><anno>String</anno></c> contains a bad
           representation of a process identifier.</p>
         <warning>
-          <p>This BIF is intended for debugging and for use in the
-            Erlang OS. It is not to be used in application programs.</p>
+          <p>This BIF is intended for debugging and is not to be used
+	  in application programs.</p>
         </warning>
       </desc>
     </func>
@@ -3161,9 +3158,9 @@ os_prompt% </pre>
 
     <func>
       <name name="node" arity="1"/>
-      <fsummary>At which node a pid, port, or reference is located.</fsummary>
+      <fsummary>At which node a pid, port, or reference originates.</fsummary>
       <desc>
-        <p>Returns the node where <c><anno>Arg</anno></c> is located.
+        <p>Returns the node where <c><anno>Arg</anno></c> originates.
           <c><anno>Arg</anno></c> can
           be a process identifier, a reference, or a port.
           If the local node is not
@@ -3208,17 +3205,19 @@ os_prompt% </pre>
           </item>
           <tag><c>known</c></tag>
           <item>
-            <p>Nodes that are known to this node, for example, connected
-              and previously connected.</p>
+            <p>Nodes that are known to this node. That is, connected
+	    nodes and nodes referred to by process identifiers, port
+	    identifiers and references located on this node.
+	    The set of known nodes is garbage collected. Notice that
+	    this garbage collection can be delayed. For more
+	    information, see
+	    <seealso marker="erlang#system_info_delayed_node_table_gc">delayed_node_table_gc</seealso>.
+	    </p>
           </item>
         </taglist>
         <p>Some equalities: <c>[node()] = nodes(this)</c>,
           <c>nodes(connected) = nodes([visible, hidden])</c>, and
           <c>nodes() = nodes(visible)</c>.</p>
-        <p>If the local node is not alive,
-          <c>nodes(this) == nodes(known) == [nonode@nohost]</c>. For
-          any other <c><anno>Arg</anno></c> the empty list
-          <c>[]</c> is returned.</p>
       </desc>
     </func>
 
@@ -3260,7 +3259,7 @@ os_prompt% </pre>
 	given in <c>cd</c>, <c>env</c>, <c>args</c>, and <c>arg0</c> are
         subject to Unicode filename translation if the system is running
 	in Unicode filename mode. To avoid
-	translation or force, that is, UTF-8, supply the executable
+	translation or to force, for example UTF-8, supply the executable
 	and/or arguments as a binary in the correct
 	encoding. For details, see the module
         <seealso marker="kernel:file">file</seealso>, the function
@@ -3585,9 +3584,10 @@ os_prompt% </pre>
         <p>Portable hash function that gives the same hash for
           the same Erlang term regardless of machine architecture and
           <c>ERTS</c> version (the BIF was introduced in <c>ERTS</c> 4.9.1.1).
-          Range is 1..2^32. The function returns a hash value for
+          The function returns a hash value for
           <c><anno>Term</anno></c> within the range
-          <c>1..<anno>Range</anno></c>.</p>
+          <c>1..<anno>Range</anno></c>. The maximum value for
+	  <c><anno>Range</anno></c> is 2^32.</p>
         <p>This BIF can be used instead of the old deprecated BIF
           <c>erlang:hash/2</c>, as it calculates better hashes for
           all data types, but consider using <c>phash2/1,2</c> instead.</p>
@@ -3604,9 +3604,10 @@ os_prompt% </pre>
         <p>Portable hash function that gives the same hash for
           the same Erlang term regardless of machine architecture and
           <c>ERTS</c> version (the BIF was introduced in <c>ERTS</c> 5.2).
-          Range is 1..2^32. The function returns a hash value for
-          <c><anno>Term</anno></c> within the range
-          <c>0..<anno>Range</anno>-1</c>. When without argument
+          The function returns a hash value for
+	  <c><anno>Term</anno></c> within the range
+	  <c>0..<anno>Range</anno>-1</c>. The maximum value for
+	  <c><anno>Range</anno></c> is 2^32. When without argument
           <c><anno>Range</anno></c>, a value in the range
           0..2^27-1 is returned.</p>
         <p>This BIF is always to be used for hashing terms. It
@@ -3625,8 +3626,8 @@ os_prompt% </pre>
         <p>Returns a string corresponding to the text
           representation of <c><anno>Pid</anno></c>.</p>
         <warning>
-          <p>This BIF is intended for debugging and for use in the
-            Erlang OS. It is not to be used in application programs.</p>
+          <p>This BIF is intended for debugging and is not to be used
+	  in application programs.</p>
         </warning>
       </desc>
     </func>
@@ -3641,19 +3642,18 @@ os_prompt% </pre>
 	  <em>not</em> reply with <c>{Port, closed}</c>. Any process can
 	  close a port with <c>port_close/1</c>, not only the port owner
 	  (the connected process). If the calling process is linked to
-          a port identified by <c><anno>Port</anno></c>, an exit signal is sent
-          because that link will be received before the return from
-          <c>port_close/1</c></p>
-        <p>For comparison: <c><anno>Port</anno> ! {self(), close}</c> fails with
-          <c>badarg</c> if <c><anno>Port</anno></c> cannot be sent to (that is,
-          <c><anno>Port</anno></c> refers not to a port and not to a process). If
-          <c><anno>Port</anno></c> is a closed port, nothing happens.
-          If <c><anno>Port</anno></c>
+          the port identified by <c><anno>Port</anno></c>, the exit
+	  signal from the port is guaranteed to be delivered before
+	  <c>port_close/1</c> returns.</p> 
+        <p>For comparison: <c><anno>Port</anno> ! {self(), close}</c>
+	  only fails with <c>badarg</c> if <c><anno>Port</anno></c> does
+	  not refer to a port or a process. If <c><anno>Port</anno></c>
+	  is a closed port, nothing happens. If <c><anno>Port</anno></c>
           is an open port and the calling process is the port owner,
-          the port replies with <c>{Port, closed}</c> when all buffers
-          have been flushed and the port really closes. If
-          the calling process is not the port owner, the
-          <em>port owner</em> fails with <c>badsig</c>.</p>
+	  the port replies with <c>{Port, closed}</c> when all buffers
+	  have been flushed and the port really closes. If the calling
+	  process is not the port owner, the <em>port owner</em> fails
+	  with <c>badsig</c>.</p> 
         <p>Notice that any process can close a port using
           <c><anno>Port</anno> ! {PortOwner, close}</c> as if it itself was
           the port owner, but the reply always goes to the port owner.</p>
@@ -3665,10 +3665,10 @@ os_prompt% </pre>
 	   behavior.</p>
         <p>Failure: <c>badarg</c> if <c><anno>Port</anno></c> is not an identifier
            of an open port, or the registered name of an open port.
-           If the calling process was linked to the port, the exit 
-           identified by <c><anno>Port</anno></c>, the exit signal is sent because
-           this link was delivered to the calling process before this
-           exception occurs.</p>
+	   If the calling process was previously linked to the closed
+	   port, identified by <c><anno>Port</anno></c>, the exit
+	   signal from the port is guaranteed to be delivered before
+	   this <c>badarg</c> exception occurs.</p>
       </desc>
     </func>
 
@@ -3683,10 +3683,10 @@ os_prompt% </pre>
 	  can send data to a port with <c>port_command/2</c>, not only the
 	  port owner (the connected process).</p>
         <p>For comparison: <c><anno>Port</anno> ! {PortOwner, {command, Data}}</c>
-          fails with <c>badarg</c> if <c><anno>Port</anno></c>
-          cannot be sent to (that
-          is, <c><anno>Port</anno></c> refers not to a port and not to a process).
-          If <c><anno>Port</anno></c> is a closed port, the data message disappears
+          only fails with <c>badarg</c> if <c><anno>Port</anno></c>
+	  does not refer to a port or a process. If
+	  <c><anno>Port</anno></c> is a closed port, the data message
+	  disappears 
           without a sound. If <c><anno>Port</anno></c> is open and the calling
           process is not the port owner, the <em>port owner</em> fails
           with <c>badsig</c>. The port owner fails with <c>badsig</c>
@@ -3707,10 +3707,11 @@ os_prompt% </pre>
           <tag><c>badarg</c></tag>
           <item>
 	     If <c><anno>Port</anno></c> is not an identifier of an open
-	     port, or the registered name of an open port. If the calling
-	     process was linked to the port, the exit signal is sent
-             because this link was delivered to the calling process
-             before this exception occurs.
+	     port, or the registered name of an open port. If the
+	     calling process was previously linked to the closed port,
+	     identified by <c><anno>Port</anno></c>, the exit signal
+	     from the port is guaranteed to be delivered before this
+	     <c>badarg</c> exception occurs.
 	  </item>
           <tag><c>badarg</c></tag>
           <item>
@@ -3754,10 +3755,11 @@ os_prompt% </pre>
           <tag><c>badarg</c></tag>
           <item>
 	     If <c><anno>Port</anno></c> is not an identifier of an open
-	     port, or the registered name of an open port. If the calling
-	     process was linked to the port, the exit signal is sent
-             because this link was delivered to the calling process
-             before this exception occurs.
+	     port, or the registered name of an open port. If the
+	     calling process was previously linked to the closed port,
+	     identified by <c><anno>Port</anno></c>, the exit signal
+	     from the port is guaranteed to be delivered before this
+	     <c>badarg</c> exception occurs.
 	  </item>
           <tag><c>badarg</c></tag>
           <item>
@@ -3805,9 +3807,9 @@ os_prompt% </pre>
           set the port owner to be any process with
           <c>port_connect/2</c>.</p>
         <p>For comparison:
-          <c><anno>Port</anno> ! {self(), {connect, <anno>Pid</anno>}}</c> fails
-          with <c>badarg</c> if <c>Port</c> cannot be sent to (that is,
-          <c><anno>Port</anno></c> refers not to a port and not to a process). If
+          <c><anno>Port</anno> ! {self(), {connect, <anno>Pid</anno>}}</c>
+	  only fails with <c>badarg</c> if <c><anno>Port</anno></c>
+          does not refer to a port or a process. If
           <c><anno>Port</anno></c> is a closed port, nothing happens.
           If <c><anno>Port</anno></c>
           is an open port and the calling process is the port owner,
@@ -3835,9 +3837,10 @@ os_prompt% </pre>
           <item>
 	     If <c><anno>Port</anno></c> is not an identifier of an open port, or
 	     the registered name of an open port. If the calling
-	     process was linked to the port, the exit signal is sent
-             because this link was delivered to the calling process
-             before this exception occurs.
+	     process was previously linked to the closed port,
+	     identified by <c><anno>Port</anno></c>, the exit signal
+	     from the port is guaranteed to be delivered before this
+	     <c>badarg</c> exception occurs.
 	  </item>
           <tag><c>badarg</c></tag>
 	  <item>If process identified by <c>Pid</c> is not an existing
@@ -3906,9 +3909,10 @@ os_prompt% </pre>
           <item>
 	     If <c><anno>Port</anno></c> is not an identifier of an open port,
 	     or the registered name of an open port. If the calling
-	     process was linked to the port, the exit signal is sent
-             because this link was delivered to the calling process
-             before this exception occurs.
+	     process was previously linked to the closed port,
+	     identified by <c><anno>Port</anno></c>, the exit signal
+	     from the port is guaranteed to be delivered before this
+	     <c>badarg</c> exception occurs.
 	  </item>
           <tag><c>badarg</c></tag>
 	  <item>
@@ -3937,11 +3941,10 @@ os_prompt% </pre>
           <c><anno>Port</anno></c>, or <c>undefined</c> if the port is not open.
           The order of the tuples is undefined, and all the
           tuples are not mandatory.
-	  If <c>undefined</c> is returned and the calling process
-	  was linked to a previously open port identified by
-	  <c><anno>Port</anno></c>, an exit signal is sent because this link
-	  was received by the process before the return from
-	  <c>port_info/1</c>.</p>
+	  If the port is closed and the calling process
+	  was previously linked to the port, the exit signal from the
+	  port is guaranteed to be delivered before <c>port_info/1</c>
+	  returns <c>undefined</c>.</p>
 	<p>The result contains information about the following
           <c>Item</c>s:</p>
         <list type="bulleted">
@@ -3968,11 +3971,10 @@ os_prompt% </pre>
 	<p><c><anno>Pid</anno></c> is the process identifier of the process
 	connected to the port.</p>
 	<p>If the port identified by <c><anno>Port</anno></c> is not open,
-	<c>undefined</c> is returned. If <c>undefined</c> is returned and
-	the calling process was linked to a previously open port identified
-	by <c><anno>Port</anno></c>, an exit signal is sent because this link
-	was received by the process before the return from
-	<c>port_info/2</c>.</p>
+	<c>undefined</c> is returned. If the port is closed and the
+	calling process was previously linked to the port, the exit
+	signal from the port is guaranteed to be delivered before
+	<c>port_info/2</c> returns <c>undefined</c>.</p>
         <p>Failure: <c>badarg</c> if <c><anno>Port</anno></c> is not a local
 	port identifier, or an atom.</p>
       </desc>
@@ -3985,11 +3987,10 @@ os_prompt% </pre>
 	<p><c><anno>Index</anno></c> is the internal index of the port. This
 	index can be used to separate ports.</p>
 	<p>If the port identified by <c><anno>Port</anno></c> is not open,
-	<c>undefined</c> is returned. If <c>undefined</c> is returned and
-	the calling process was linked to a previously open port identified
-	by <c><anno>Port</anno></c>, an exit signal is sent because this link
-	was received by the process before the return from
-	<c>port_info/2</c>.</p>
+	<c>undefined</c> is returned. If the port is closed and the
+	calling process was previously linked to the port, the exit
+	signal from the port is guaranteed to be delivered before
+	<c>port_info/2</c> returns <c>undefined</c>.</p>
         <p>Failure: <c>badarg</c> if <c><anno>Port</anno></c> is not a local
 	port identifier, or an atom.</p>
       </desc>
@@ -4002,11 +4003,10 @@ os_prompt% </pre>
 	<p><c><anno>Bytes</anno></c> is the total number of bytes
 	read from the port.</p>
 	<p>If the port identified by <c><anno>Port</anno></c> is not open,
-	<c>undefined</c> is returned. If <c>undefined</c> is returned and
-	the calling process was linked to a previously open port identified
-	by <c><anno>Port</anno></c>, an exit signal is sent because this link
-	was received by the process before the return from
-	<c>port_info/2</c>.</p>
+	<c>undefined</c> is returned. If the port is closed and the
+	calling process was previously linked to the port, the exit
+	signal from the port is guaranteed to be delivered before
+	<c>port_info/2</c> returns <c>undefined</c>.</p>
         <p>Failure: <c>badarg</c> if <c><anno>Port</anno></c> is not a local
 	port identifier, or an atom.</p>
       </desc>
@@ -4019,11 +4019,10 @@ os_prompt% </pre>
 	<p><c><anno>Pids</anno></c> is a list of the process identifiers
 	of the processes that the port is linked to.</p>
 	<p>If the port identified by <c><anno>Port</anno></c> is not open,
-	<c>undefined</c> is returned. If <c>undefined</c> is returned and
-	the calling process was linked to a previously open port identified
-	by <c><anno>Port</anno></c>, an exit signal is sent because this link
-	was received by the process before the return from
-	<c>port_info/2</c>.</p>
+	<c>undefined</c> is returned. If the port is closed and the
+	calling process was previously linked to the port, the exit
+	signal from the port is guaranteed to be delivered before
+	<c>port_info/2</c> returns <c>undefined</c>.</p>
         <p>Failure: <c>badarg</c> if <c><anno>Port</anno></c> is not a local
 	port identifier, or an atom.</p>
       </desc>
@@ -4042,11 +4041,10 @@ os_prompt% </pre>
         <p>Notice that these results are highly implementation-specific
           and can change in a future release.</p>
 	<p>If the port identified by <c><anno>Port</anno></c> is not open,
-	<c>undefined</c> is returned. If <c>undefined</c> is returned and
-	the calling process was linked to a previously open port identified
-	by <c><anno>Port</anno></c>, an exit signal is sent because this link
-	was received by the process before the return from
-	<c>port_info/2</c>.</p>
+	<c>undefined</c> is returned. If the port is closed and the
+	calling process was previously linked to the port, the exit
+	signal from the port is guaranteed to be delivered before
+	<c>port_info/2</c> returns <c>undefined</c>.</p>
         <p>Failure: <c>badarg</c> if <c><anno>Port</anno></c> is not a local
 	port identifier, or an atom.</p>
       </desc>
@@ -4061,11 +4059,10 @@ os_prompt% </pre>
 	port itself can have allocated memory that is not
 	included in <c><anno>Bytes</anno></c>.</p>
 	<p>If the port identified by <c><anno>Port</anno></c> is not open,
-	<c>undefined</c> is returned. If <c>undefined</c> is returned and
-	the calling process was linked to a previously open port identified
-	by <c><anno>Port</anno></c>, an exit signal is sent because this link
-	was received by the process before the return from
-	<c>port_info/2</c>.</p>
+	<c>undefined</c> is returned. If the port is closed and the
+	calling process was previously linked to the port, the exit
+	signal from the port is guaranteed to be delivered before
+	<c>port_info/2</c> returns <c>undefined</c>.</p>
         <p>Failure: <c>badarg</c> if <c><anno>Port</anno></c> is not a local
 	port identifier, or an atom.</p>
       </desc>
@@ -4078,11 +4075,10 @@ os_prompt% </pre>
 	<p><c><anno>Monitors</anno></c> represent processes that this port
 	monitors.</p>
 	<p>If the port identified by <c><anno>Port</anno></c> is not open,
-	<c>undefined</c> is returned. If <c>undefined</c> is returned and
-	the calling process was linked to a previously open port identified
-	by <c><anno>Port</anno></c>, an exit signal is sent because this link
-	was received by the process before the return from
-	<c>port_info/2</c>.</p>
+	<c>undefined</c> is returned. If the port is closed and the
+	calling process was previously linked to the port, the exit
+	signal from the port is guaranteed to be delivered before
+	<c>port_info/2</c> returns <c>undefined</c>.</p>
         <p>Failure: <c>badarg</c> if <c><anno>Port</anno></c> is not a local
 	port identifier, or an atom.</p>
       </desc>
@@ -4095,11 +4091,10 @@ os_prompt% </pre>
 	<p><c><anno>Name</anno></c> is the command name set by
 	<seealso marker="#open_port/2">open_port/2</seealso>.</p>
 	<p>If the port identified by <c><anno>Port</anno></c> is not open,
-	<c>undefined</c> is returned. If <c>undefined</c> is returned and
-	the calling process was linked to a previously open port identified
-	by <c><anno>Port</anno></c>, an exit signal is sent because this link
-	was received by the process before the return from
-	<c>port_info/2</c>.</p>
+	<c>undefined</c> is returned. If the port is closed and the
+	calling process was previously linked to the port, the exit
+	signal from the port is guaranteed to be delivered before
+	<c>port_info/2</c> returns <c>undefined</c>.</p>
         <p>Failure: <c>badarg</c> if <c><anno>Port</anno></c> is not a local
 	port identifier, or an atom.</p>
       </desc>
@@ -4115,11 +4110,10 @@ os_prompt% </pre>
 	Command}, Options)</seealso>. If the port is not the result of spawning
 	an OS process, the value is <c>undefined</c>.</p>
 	<p>If the port identified by <c><anno>Port</anno></c> is not open,
-	<c>undefined</c> is returned. If <c>undefined</c> is returned and
-	the calling process was linked to a previously open port identified
-	by <c><anno>Port</anno></c>, an exit signal is sent because this link
-	was received by the process before the return from
-	<c>port_info/2</c>.</p>
+	<c>undefined</c> is returned. If the port is closed and the
+	calling process was previously linked to the port, the exit
+	signal from the port is guaranteed to be delivered before
+	<c>port_info/2</c> returns <c>undefined</c>.</p>
         <p>Failure: <c>badarg</c> if <c><anno>Port</anno></c> is not a local
 	port identifier, or an atom.</p>
       </desc>
@@ -4135,11 +4129,10 @@ os_prompt% </pre>
 	<seealso marker="#port_command/3">port_command/3</seealso>,
 	or <c><anno>Port</anno> ! {Owner, {command, Data}</c>.</p>
 	<p>If the port identified by <c><anno>Port</anno></c> is not open,
-	<c>undefined</c> is returned. If <c>undefined</c> is returned and
-	the calling process was linked to a previously open port identified
-	by <c><anno>Port</anno></c>, an exit signal is sent before this link
-	was received by the process before the return from
-	<c>port_info/2</c>.</p>
+	<c>undefined</c> is returned. If the port is closed and the
+	calling process was previously linked to the port, the exit
+	signal from the port is guaranteed to be delivered before
+	<c>port_info/2</c> returns <c>undefined</c>.</p>
         <p>Failure: <c>badarg</c> if <c><anno>Port</anno></c> is not a local
 	port identifier, or an atom.</p>
       </desc>
@@ -4164,11 +4157,10 @@ os_prompt% </pre>
 	of bytes queued by the port using the <c>ERTS</c> driver queue
 	implementation.</p>
 	<p>If the port identified by <c><anno>Port</anno></c> is not open,
-	<c>undefined</c> is returned. If <c>undefined</c> is returned and
-	the calling process was linked to a previously open port identified
-	by <c><anno>Port</anno></c>, an exit signal is sent because this link
-	was received by the process before the return from
-	<c>port_info/2</c>.</p>
+	<c>undefined</c> is returned. If the port is closed and the
+	calling process was previously linked to the port, the exit
+	signal from the port is guaranteed to be delivered before
+	<c>port_info/2</c> returns <c>undefined</c>.</p>
         <p>Failure: <c>badarg</c> if <c><anno>Port</anno></c> is not a local
 	port identifier, or an atom.</p>
       </desc>
@@ -4181,11 +4173,10 @@ os_prompt% </pre>
 	<p><c><anno>RegisteredName</anno></c> is the registered name of
 	the port. If the port has no registered name, <c>[]</c> is returned.</p>
 	<p>If the port identified by <c><anno>Port</anno></c> is not open,
-	<c>undefined</c> is returned. If <c>undefined</c> is returned and
-	the calling process was linked to a previously open port identified
-	by <c><anno>Port</anno></c>, an exit signal is sent because this link
-	was received by the process before the return from
-	<c>port_info/2</c>.</p>
+	<c>undefined</c> is returned. If the port is closed and the
+	calling process was previously linked to the port, the exit
+	signal from the port is guaranteed to be delivered before
+	<c>port_info/2</c> returns <c>undefined</c>.</p>
         <p>Failure: <c>badarg</c> if <c><anno>Port</anno></c> is not a local
 	port identifier, or an atom.</p>
       </desc>
@@ -4198,15 +4189,15 @@ os_prompt% </pre>
         <p>Returns a string corresponding to the text
           representation of the port identifier <c><anno>Port</anno></c>.</p>
         <warning>
-          <p>This BIF is intended for debugging and for use in the
-            Erlang OS. It is not to be used in application programs.</p>
+          <p>This BIF is intended for debugging. It is not to be used
+	  in application programs.</p>
         </warning>
       </desc>
     </func>
 
     <func>
       <name name="ports" arity="0"/>
-      <fsummary>Lists all open ports.</fsummary>
+      <fsummary>Lists all existing ports.</fsummary>
       <desc>
 	<p>Returns a list of port identifiers corresponding to all the
 	ports existing on the local node.</p>
@@ -4502,8 +4493,8 @@ os_prompt% </pre>
       <desc>
         <p>Returns information about the process identified by
            <c><anno>Pid</anno></c>, as specified by
-           <c><anno>Item</anno></c> or <c><anno>ItemList</anno></c>,
-           or <c>undefined</c> if the process is not alive.</p>
+           <c><anno>Item</anno></c> or <c><anno>ItemList</anno></c>.
+           Returns <c>undefined</c> if the process is not alive.</p>
 	<p>If the process is alive and a single <c><anno>Item</anno></c>
            is given, the returned value is the corresponding
 	   <c><anno>InfoTuple</anno></c>, unless <c>Item =:= registered_name</c>
@@ -4774,8 +4765,7 @@ os_prompt% </pre>
           <tag><c>badarg</c></tag>
             <item>If <c><anno>Pid</anno></c> is not a local process.</item>
           <tag><c>badarg</c></tag>
-            <item>If <c><anno>Item</anno></c> is an invalid
-            <c><anno>Item</anno></c>.</item>
+            <item>If <c><anno>Item</anno></c> is an invalid item.</item>
         </taglist>
       </desc>
     </func>
@@ -4847,8 +4837,7 @@ os_prompt% </pre>
           exception of given class, reason, and call stack backtrace
           (<em>stacktrace</em>).</p>
         <warning>
-          <p>This BIF is intended for debugging and for use in
-            the Erlang OS. Avoid to use it in applications,
+          <p>This BIF is intended for debugging. Avoid to use it in applications,
             unless you really know what you are doing.</p>
         </warning>
         <p><c><anno>Class</anno></c> is <c>error</c>, <c>exit</c>, or
@@ -4963,8 +4952,8 @@ os_prompt% </pre>
         <p>Returns a string corresponding to the text
           representation of <c><anno>Ref</anno></c>.</p>
         <warning>
-          <p>This BIF is intended for debugging and for use in the
-            Erlang OS. It is not to be used in application programs.</p>
+          <p>This BIF is intended for debugging and is not to be used
+	  in application programs.</p>
         </warning>
       </desc>
     </func>
@@ -5208,7 +5197,7 @@ true</pre>
           <anno>Msg</anno>, [nosuspend | <anno>Options</anno>])</seealso>,
           but with a Boolean return value.</p>
         <p>This function behaves like
-          <seealso marker="#send_nosuspend/2">erlang:send_nosuspend/2)</seealso>,
+          <seealso marker="#send_nosuspend/2">erlang:send_nosuspend/2</seealso>,
           but takes a third parameter, a list of options.
           The only option is <c>noconnect</c>, which
           makes the function return <c>false</c> if
@@ -5267,13 +5256,23 @@ true</pre>
       <name name="size" arity="1"/>
       <fsummary>Size of a tuple or binary.</fsummary>
       <desc>
-        <p>Returns an integer that is the size of argument
-          <c><anno>Item</anno></c>, which must be a tuple or a binary,
-          for example:</p>
+        <p>Returns the number of elements in a tuple or the number of
+	bytes in a binary or bitstring, for example:</p>
         <pre>
 > <input>size({morni, mulle, bwange}).</input>
-3</pre>
+3
+> <input>size(&lt;&lt;11, 22, 33&gt;&gt;).</input>
+3
+</pre>
+        <p>For bitstrings the number of whole bytes is returned. That is, if the number of bits
+          in the bitstring is not divisible by 8, the resulting
+          number of bytes is rounded <em>down</em>.</p>
         <p>Allowed in guard tests.</p>
+        <p>See also
+          <seealso marker="#tuple_size/1"><c>tuple_size/1</c></seealso>,
+          <seealso marker="#byte_size/1"><c>byte_size/1</c></seealso>
+	  and
+          <seealso marker="#bit_size/1"><c>bit_size/1</c></seealso>.</p>
       </desc>
     </func>
 
@@ -5307,9 +5306,7 @@ true</pre>
       <desc>
         <p>Returns the process identifier of a new process started by
           the application of <c><anno>Module</anno>:<anno>Function</anno></c>
-          to <c><anno>Args</anno></c>.
-          The new created process is placed in the system scheduler
-          queue and will be run some time later.</p>
+          to <c><anno>Args</anno></c>.</p>
         <p><c>error_handler:undefined_function(<anno>Module</anno>,
           <anno>Function</anno>, <anno>Args</anno>)</c>
           is evaluated by the new process if
@@ -5319,8 +5316,8 @@ true</pre>
           can be redefined (see
           <seealso marker="#process_flag/2">process_flag/2</seealso>).
           If <c>error_handler</c> is undefined, or the user has
-          redefined the default <c>error_handler</c>, its replacement is
-          undefined, and a failure with reason <c>undef</c> occurs.</p>
+          redefined the default <c>error_handler</c> and its replacement is
+          undefined, a failure with reason <c>undef</c> occurs.</p>
         <p>Example:</p>
         <pre>
 > <input>spawn(speed, regulator, [high_speed, thin_cut]).</input>
@@ -5364,10 +5361,9 @@ true</pre>
           list <c>[]</c> on <c><anno>Node</anno></c>. A link is
           created between the calling process and the new process,
           atomically. If <c><anno>Node</anno></c> does not exist,
-          a useless pid is
-          returned (and, because of the link, an exit signal with exit
-          reason <c>noconnection</c> is received). Otherwise works
-          like <seealso marker="#spawn/3">spawn/3</seealso>.</p>
+          a useless pid is returned and an exit signal with
+          reason <c>noconnection</c> is sent to the calling
+	  process. Otherwise works like <seealso marker="#spawn/3">spawn/3</seealso>.</p>
       </desc>
     </func>
 
@@ -5376,7 +5372,7 @@ true</pre>
       <fsummary>Creates and links to a new process with a function as entry point.</fsummary>
       <desc>
         <p>Returns the process identifier of a new process started by
-          the applicatio of <c><anno>Module</anno>:<anno>Function</anno></c>
+          the application of <c><anno>Module</anno>:<anno>Function</anno></c>
           to <c><anno>Args</anno></c>. A link is created
           between the calling process and the new process, atomically.
           Otherwise works like
@@ -5394,10 +5390,9 @@ true</pre>
           to <c><anno>Args</anno></c> on <c><anno>Node</anno></c>. A
           link is created between the calling process and the new
           process, atomically. If <c><anno>Node</anno></c> does
-          not exist, a useless pid
-          is returned (and, because of the link, an exit signal with exit
-          reason <c>noconnection</c> is received). Otherwise works
-          like <seealso marker="#spawn/3">spawn/3</seealso>.</p>
+          not exist, a useless pid is returned and an exit signal with
+          reason <c>noconnection</c> is sent to the calling
+	  process. Otherwise works like <seealso marker="#spawn/3">spawn/3</seealso>.</p>
       </desc>
     </func>
 
@@ -5761,7 +5756,7 @@ true</pre>
       <fsummary>Information about runtime.</fsummary>
       <desc>
         <p>Returns information about runtime, in milliseconds.</p>
-        <p>The runtime is the sum of the runtime for all threads
+        <p>This is the sum of the runtime for all threads
         in the Erlang runtime system and can therefore be greater
         than the wall clock time.</p>
         <p>Example:</p>
@@ -5787,7 +5782,7 @@ true</pre>
           activation. The time unit is undefined and can be subject
           to change between releases, OSs, and system restarts.
           <c>scheduler_wall_time</c> is only to be used to
-          calculate relative values for scheduler-use.
+          calculate relative values for scheduler-utilization.
           <c><anno>ActiveTime</anno></c> can never exceed
           <c><anno>TotalTime</anno></c>.</p>
         <p>The definition of a busy scheduler is when it is not idle
@@ -5808,14 +5803,14 @@ true</pre>
           is turned off.</p>
         <p>The list of scheduler information is unsorted and can
           appear in different order between calls.</p>
-        <p>Using <c>scheduler_wall_time</c> to calculate scheduler-use:</p>
+        <p>Using <c>scheduler_wall_time</c> to calculate scheduler-utilization:</p>
 <pre>
 > <input>erlang:system_flag(scheduler_wall_time, true).</input>
 false
 > <input>Ts0 = lists:sort(erlang:statistics(scheduler_wall_time)), ok.</input>
 ok</pre>
         <p>Some time later the user takes another snapshot and calculates
-          scheduler-use per scheduler, for example:</p>
+          scheduler-utilization per scheduler, for example:</p>
 <pre>
 > <input>Ts1 = lists:sort(erlang:statistics(scheduler_wall_time)), ok.</input>
 ok
@@ -5829,7 +5824,7 @@ ok
  {6,0.9739235846420741},
  {7,0.973237033077876},
  {8,0.9741297293248656}]</pre>
-		<p>Using the same snapshots to calculate a total scheduler-use:</p>
+		<p>Using the same snapshots to calculate a total scheduler-utilization:</p>
 <pre>
 > <input>{A, T} = lists:foldl(fun({{_, A0, T0}, {_, A1, T1}}, {Ai,Ti}) ->
 	{Ai + (A1 - A0), Ti + (T1 - T0)} end, {0, 0}, lists:zip(Ts0,Ts1)), A/T.</input>
@@ -5961,9 +5956,7 @@ ok
         <p>Suspends the process identified by
         <c><anno>Suspendee</anno></c>. The same as calling
 	<seealso marker="#suspend_process/2">erlang:suspend_process(<anno>Suspendee</anno>,
-        [])</seealso>.
-        For more information, see
-        <seealso marker="#suspend_process/2">erlang:suspend_process/2</seealso>.</p>
+        [])</seealso>.</p>
         <warning>
           <p>This BIF is intended for debugging only.</p>
         </warning>
@@ -6163,7 +6156,7 @@ ok
         </warning>
         <p>Controls if and how schedulers are bound to logical
            processors.</p>
-        <p>When <c>erlang:system_flag(scheduler_bind_type, <anno>How</anno></c>
+        <p>When <c>erlang:system_flag(scheduler_bind_type, <anno>How</anno>)</c>
            is called, an asynchronous signal is sent to all schedulers
            online, causing them to try to bind or unbind as requested.</p>
         <note><p>If a scheduler fails to bind, this is often silently
@@ -6283,9 +6276,9 @@ ok
         Sets the number of schedulers online. Range is
         <![CDATA[1 <= SchedulersOnline <= erlang:system_info(schedulers)]]>.</p>
         <p>Returns the old value of the flag.</p>
-        <p>The emulator was built with support for
-        <seealso marker="#system_flag_dirty_cpu_schedulers_online">dirty schedulers</seealso>.
-        Changing the number of schedulers online can also change the
+        <p>If the emulator was built with support for
+        <seealso marker="#system_flag_dirty_cpu_schedulers_online">dirty schedulers</seealso>,
+        changing the number of schedulers online can also change the
         number of dirty CPU schedulers online. For example, if 12
         schedulers and 6 dirty CPU schedulers are online, and
         <c>system_flag/2</c> is used to set the number of schedulers
@@ -6563,7 +6556,7 @@ ok
           <item>
           <marker id="system_info_cpu_topology_detected"></marker>
             <p>Returns the automatically detected
-               <c><anno>CpuTopolog</anno>y</c>. The
+               <c><anno>CpuTopology</anno>y</c>. The
 	       emulator detects the CPU topology on some newer
 	       Linux, Solaris, FreeBSD, and Windows systems.
                On Windows system with more than 32 logical processors,
@@ -7030,10 +7023,10 @@ ok
           <marker id="system_info_multi_scheduling_blockers"></marker>
             <p>Returns a list of <c><anno>Pid</anno></c>s when
               multi-scheduling is blocked, otherwise the empty list is
-              returned. The <c><anno>Pid</anno></c>s in the list are
-              <c><anno>Pid</anno></c>s of the processes currently
-              blocking multi-scheduling. A <c><anno>Pid</anno></c> is
-              present only once in the list, even if the corresponding
+              returned. The <c><anno>Pid</anno></c>s in the list
+	      represent all the processes currently
+              blocking multi-scheduling. A <c><anno>Pid</anno></c> occurs
+              only once in the list, even if the corresponding
               process has blocked multiple times.</p>
             <p>See also
               <seealso marker="#system_flag_multi_scheduling">erlang:system_flag(multi_scheduling, BlockState)</seealso>,
@@ -7177,7 +7170,7 @@ ok
 	      <seealso marker="#type_time_unit">time unit</seealso>.</p></item>
 	    </taglist>
           </item>
-	  <tag><c>port_parallelism</c></marker></tag>
+	  <tag><c>port_parallelism</c></tag>
 	  <item>
 	  <marker id="system_info_port_parallelism"></marker>
 	  <p>Returns the default port parallelism scheduling hint used.
@@ -7569,7 +7562,7 @@ ok
               fairly "normal". However, longer schedule times can
               indicate swapping or a misbehaving NIF/driver.
               Misbehaving NIFs and drivers can cause bad resource
-              use and bad overall system performance.</p>
+              utilization and bad overall system performance.</p>
           </item>
           <tag><c>{large_heap, Size}</c></tag>
           <item>
@@ -7756,15 +7749,15 @@ ok
         <list type="bulleted">
           <item><c>0</c> - No compression is done (it is the same as
             giving no <c>compressed</c> option).</item>
-          <item><c>1</c> - Takes least time but cannot compress,
+          <item><c>1</c> - Takes least time but may not compress
             as well as the higher levels.</item>
-          <item><c>9</c> - Takes most time and can produce a smaller
-            result. Notice "can" in the preceding sentence; depending
+          <item><c>6</c> - Default level when option <c>compressed</c>
+	    is provided.</item>
+          <item><c>9</c> - Takes most time and tries to produce a smaller
+            result. Notice "tries" in the preceding sentence; depending
             on the input term, level 9 compression either does or does
             not produce a smaller result than level 1 compression.</item>
         </list>
-        <p><c>compressed</c> and <c>{compressed, 6}</c> give the same
-          result.</p>
         <p>Option <c>{minor_version, <anno>Version</anno>}</c>
           can be used to control
           some encoding details. This option was introduced in OTP R11B-4.
@@ -7938,8 +7931,8 @@ timestamp() ->
           </item>
         </taglist>
         <p><c><anno>FlagList</anno></c> can contain any number of the
-          following flags (the "message tags" refers to the list of the
-          following messages):</p>
+          following flags (the "message tags" refers to the list of
+	  <seealso marker="#trace_3_trace_messages">trace messages</seealso>):</p>
         <taglist>
           <tag><c>all</c></tag>
           <item>
@@ -7985,7 +7978,7 @@ timestamp() ->
               <c>{silent, false}</c>.</p>
             <p>The <c>silent</c> trace flag facilitates setting up
               a trace on many or even all processes in the system.
-              The trace is activated and deactivated using the match
+              The trace can then be activated and deactivated using the match
               specification function <c>{silent,Bool}</c>, giving
               a high degree of control of which functions with which 
               arguments that trigger the trace.</p>
@@ -8088,15 +8081,14 @@ timestamp() ->
           <c>set_on_link</c> is the same as having
           <c>set_on_first_link</c> alone. Likewise for
           <c>set_on_spawn</c> and <c>set_on_first_spawn</c>.</p>
-        <p>If flag <c>timestamp</c> is not given, the tracing
-          process receives the trace messages described in the
-          following. <c>Pid</c> is the process identifier of the
-          traced process in which
-          the traced event has occurred. The third tuple element
-          is the message tag.</p>
+        <p>The tracing process receives the <em>trace messages</em> described
+	in the following list. <c>Pid</c> is the process identifier of the
+	traced process in which the traced event has occurred. The
+	third tuple element is the message tag.</p>
         <p>If flag <c>timestamp</c> is given, the first tuple
           element is <c>trace_ts</c> instead, and the time-stamp
-          is added last in the tuple.</p>
+          is added last in the message tuple.</p>
+        <marker id="trace_3_trace_messages"></marker>
         <taglist>
           <tag><c>{trace, Pid, 'receive', Msg}</c></tag>
           <item>
@@ -8301,13 +8293,12 @@ timestamp() ->
           denotes all processes
           that currently are traced in the node.</p>
         <p>Example: Process <c>A</c> is <c><anno>Tracee</anno></c>,
-          port <c>B</c> is
-          tracer, and process <c>C</c> is the port owner of <c>B</c>.
-          <c>C</c> wants to close <c>B</c> when <c>A</c> exits. <c>C</c>
-          can ensure that the trace is not truncated by calling
-          <c>erlang:trace_delivered(A)</c> when <c>A</c> exits and waits
-          for message <c>{trace_delivered, A, <anno>Ref</anno>}</c>
-          before closing <c>B</c>.</p>
+	  port <c>B</c> is tracer, and process <c>C</c> is the port
+	  owner of <c>B</c>. <c>C</c> wants to close <c>B</c> when
+	  <c>A</c> exits. To ensure that the trace is not truncated,
+	  <c>C</c> can call <c>erlang:trace_delivered(A)</c>, when
+	  <c>A</c> exits, and wait for message <c>{trace_delivered, A,
+	  <anno>Ref</anno>}</c> before closing <c>B</c>.</p>
         <p>Failure: <c>badarg</c> if <c><anno>Tracee</anno></c>
           does not refer to a
           process (dead or alive) on the same node as the caller of
@@ -8317,7 +8308,7 @@ timestamp() ->
 
     <func>
       <name name="trace_info" arity="2"/>
-     <fsummary>Traces information about a process or function.</fsummary>
+     <fsummary>Trace information about a process or function.</fsummary>
       <type name="trace_info_return"/>
       <type name="trace_info_item_result"/>
       <type name="trace_info_flag"/>
@@ -8444,23 +8435,21 @@ timestamp() ->
       <type name="trace_pattern_flag"/>
       <desc>
         <p>Enables or disables call tracing for
-          exported functions. Must be combined with
+          one or more functions. Must be combined with
           <seealso marker="#trace/3">erlang:trace/3</seealso>
           to set the <c>call</c> trace flag for one or more processes.</p>
         <p>Conceptually, call tracing works as follows. Inside
           the Erlang Virtual Machine, a set of processes and
-          a set of functions are to be traced. Tracing is
-          enabled on the intersection of the set. That is, if a process
-          included in the traced process set calls a function included
-          in the traced function set, the trace action is taken.
+          a set of functions are to be traced. If a traced process
+          calls a traced function, the trace action is taken.
           Otherwise, nothing happens.</p>
         <p>To add or remove one or more processes to the set of traced
           processes, use
           <seealso marker="#trace/3">erlang:trace/3</seealso>.</p>
-        <p>To add or remove exported functions to the set of traced
-          functions, use <c>erlang:trace_pattern/2</c>.</p>
+        <p>To add or remove functions to the set of traced
+          functions, use <c>erlang:trace_pattern/3</c>.</p>
         <p>The BIF <c>erlang:trace_pattern/3</c> can also add match
-          specifications to an exported function. A match specification
+          specifications to a function. A match specification
           comprises a pattern that the function arguments must
           match, a guard expression that must evaluate to <c>true</c>,
           and an action to be performed. The default action is to send a
@@ -8469,22 +8458,22 @@ timestamp() ->
         <p>Argument <c><anno>MFA</anno></c> is to be a tuple, such as
           <c>{Module, Function, Arity}</c>, or the atom <c>on_load</c>
           (described in the following). It can be the module, function,
-          and arity for an exported function (or a BIF in any module).
-          The atom <c>'_'</c> can be used to mean any of that kinds.
-          Wildcards can be used in any of the following ways:</p>
+          and arity for a function (or a BIF in any module).
+          The atom <c>'_'</c> can be used as a wildcard in any of the
+	  following ways:</p>
         <taglist>
           <tag><c>{Module,Function,'_'}</c></tag>
           <item>
-            <p>All exported functions of any arity named <c>Function</c>
+            <p>All functions of any arity named <c>Function</c>
               in module <c>Module</c>.</p>
           </item>
           <tag><c>{Module,'_','_'}</c></tag>
           <item>
-            <p>All exported functions in module <c>Module</c>.</p>
+            <p>All functions in module <c>Module</c>.</p>
           </item>
           <tag><c>{'_','_','_'}</c></tag>
           <item>
-            <p>All exported functions in all loaded modules.</p>
+            <p>All functions in all loaded modules.</p>
           </item>
         </taglist>
         <p>Other combinations, such as <c>{Module,'_',Arity}</c>, are
@@ -8498,12 +8487,12 @@ timestamp() ->
         <taglist>
           <tag><c>false</c></tag>
           <item>
-            <p>Disables tracing for the matching function or functions.
+            <p>Disables tracing for the matching functions.
               Any match specification is removed.</p>
           </item>
           <tag><c>true</c></tag>
           <item>
-            <p>Enables tracing for the matching function or functions.</p>
+            <p>Enables tracing for the matching functions.</p>
           </item>
           <tag><c><anno>MatchSpecList</anno></c></tag>
           <item>
@@ -8534,7 +8523,7 @@ timestamp() ->
             <p>Turns on or off call tracing for global function calls
               (that is, calls specifying the module explicitly). Only
               exported functions match and only global calls
-              generate trace messages. This is the default.</p>
+              generate trace messages. <em>This is the default</em>.</p>
           </item>
           <tag><c>local</c></tag>
           <item>
@@ -8615,7 +8604,7 @@ timestamp() ->
           use the BIF
           <seealso marker="#trace_info/2">erlang:trace_info/2</seealso>
           to retrieve the existing match specification.</p>
-        <p>Returns the number of exported functions matching
+        <p>Returns the number of functions matching
           argument <c><anno>MFA</anno></c>. This is zero if none matched.</p>
       </desc>
     </func>
@@ -8791,7 +8780,7 @@ timestamp() ->
     </func>
     <func>
       <name name="unlink" arity="1"/>
-      <fsummary>Removes a link, if there is one, to another process or port.</fsummary>
+      <fsummary>Removes a link to another process or port.</fsummary>
       <desc>
         <p>Removes the link, if there is one, between the calling
           process and the process or port referred to by
@@ -8805,9 +8794,9 @@ timestamp() ->
           <c><anno>Id</anno></c> has no effect on the caller
           in the future (unless
           the link is setup again). If the caller is trapping exits, an
-          <c>{'EXIT', <anno>Id</anno>, _}</c>
-          message is received, as the link can have
-          been placed in the caller's message queue before the call.</p>
+          <c>{'EXIT', <anno>Id</anno>, _}</c> message from the link
+	  can have been placed in the caller's message queue before
+	  the call.</p>
         <p>Notice that the <c>{'EXIT', <anno>Id</anno>, _}</c>
           message can be the
           result of the link, but can also be the result of <c>Id</c>
