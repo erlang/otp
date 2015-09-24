@@ -58,16 +58,22 @@ launch(Mode, Job, InitData, Coordinator) ->
 		 job         = Job,
 		 init_data   = InitData,
 		 coordinator = Coordinator},
-  InitState =
-    case Mode of
-      X when X =:= 'typesig'; X =:= 'dataflow' -> initializing;
-      X when X =:= 'compile'; X =:= 'warnings' -> running
-    end,
-  spawn_link(fun() -> loop(InitState, State) end).
+  spawn_link(fun() -> init(State) end).
 
 %%--------------------------------------------------------------------
 
-loop(updating, State) ->
+init(#state{mode = Mode} = State) when
+    Mode =:= 'typesig'; Mode =:= 'dataflow' ->
+  SCC = State#state.job,
+  DependsOn = dialyzer_succ_typings:find_depends_on(SCC, State#state.init_data),
+  ?debug("Deps ~p: ~p\n",[SCC, DependsOn]),
+  loop(updating, State#state{depends_on = DependsOn});
+init(#state{mode = Mode} = State) when
+    Mode =:= 'compile'; Mode =:= 'warnings' ->
+  loop(running, State).
+
+loop(updating, #state{mode = Mode} = State) when
+    Mode =:= 'typesig'; Mode =:= 'dataflow' ->
   ?debug("Update: ~p\n",[State#state.job]),
   NextStatus =
     case State#state.depends_on =/= [] of
@@ -75,11 +81,8 @@ loop(updating, State) ->
       false -> running
     end,
   loop(NextStatus, State);
-loop(initializing, #state{job = SCC, init_data = InitData} = State) ->
-  DependsOn = dialyzer_succ_typings:find_depends_on(SCC, InitData),
-  ?debug("Deps ~p: ~p\n",[State#state.job, DependsOn]),
-  loop(updating, State#state{depends_on = DependsOn});
-loop(waiting, State) ->
+loop(waiting, #state{mode = Mode} = State) when
+    Mode =:= 'typesig'; Mode =:= 'dataflow' ->
   ?debug("Wait: ~p\n",[State#state.job]),
   NewState = wait_for_success_typings(State),
   loop(updating, NewState);
