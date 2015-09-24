@@ -1272,6 +1272,14 @@ set_request_timer(T) ->
     {ok,TRef} = timer:send_after(T,{Ref,timeout}),
     {Ref,TRef}.
 
+%%%-----------------------------------------------------------------
+cancel_request_timer(undefined,undefined) ->
+    ok;
+cancel_request_timer(Ref,TRef) ->
+    _ = timer:cancel(TRef),
+    receive {Ref,timeout} -> ok
+    after 0 -> ok
+    end.
 
 %%%-----------------------------------------------------------------
 client_hello(Options) when is_list(Options) ->
@@ -1404,9 +1412,9 @@ handle_error(Reason, State) ->
 		   Pending ->
 		       %% Assuming the first request gets the
 		       %% first answer
-		       P=#pending{tref=TRef,caller=Caller} =
+		       P=#pending{tref=TRef,ref=Ref,caller=Caller} =
 			   lists:last(Pending),
-		       _ = timer:cancel(TRef),
+		       cancel_request_timer(Ref,TRef),
 		       Reason1 = {failed_to_parse_received_data,Reason},
 		       ct_gen_conn:return(Caller,{error,Reason1}),
 		       lists:delete(P,Pending)
@@ -1492,8 +1500,8 @@ decode({Tag,Attrs,_}=E, #state{connection=Connection,pending=Pending}=State) ->
 			{error,Reason} ->
 			    {noreply,State#state{hello_status = {error,Reason}}}
 		    end;
-		#pending{tref=TRef,caller=Caller} ->
-		    _ = timer:cancel(TRef),
+		#pending{tref=TRef,ref=Ref,caller=Caller} ->
+		    cancel_request_timer(Ref,TRef),
 		    case decode_hello(E) of
 			{ok,SessionId,Capabilities} ->
 			    ct_gen_conn:return(Caller,ok),
@@ -1519,9 +1527,8 @@ decode({Tag,Attrs,_}=E, #state{connection=Connection,pending=Pending}=State) ->
 	    %% there is just one pending that matches (i.e. has
 	    %% undefined msg_id and op)
 	    case [P || P = #pending{msg_id=undefined,op=undefined} <- Pending] of
-		[#pending{tref=TRef,
-			  caller=Caller}] ->
-		    _ = timer:cancel(TRef),
+		[#pending{tref=TRef,ref=Ref,caller=Caller}] ->
+		    cancel_request_timer(Ref,TRef),
 		    ct_gen_conn:return(Caller,E),
 		    {noreply,State#state{pending=[]}};
 		_ ->
@@ -1542,8 +1549,8 @@ get_msg_id(Attrs) ->
 
 decode_rpc_reply(MsgId,{_,Attrs,Content0}=E,#state{pending=Pending} = State) ->
     case lists:keytake(MsgId,#pending.msg_id,Pending) of
-	{value, #pending{tref=TRef,op=Op,caller=Caller}, Pending1} ->
-	    _ = timer:cancel(TRef),
+	{value, #pending{tref=TRef,ref=Ref,op=Op,caller=Caller}, Pending1} ->
+	    cancel_request_timer(Ref,TRef),
 	    Content = forward_xmlns_attr(Attrs,Content0),
 	    {CallerReply,{ServerReply,State2}} =
 		do_decode_rpc_reply(Op,Content,State#state{pending=Pending1}),
@@ -1555,10 +1562,11 @@ decode_rpc_reply(MsgId,{_,Attrs,Content0}=E,#state{pending=Pending} = State) ->
 	    %% pending that matches (i.e. has undefined msg_id and op)
 	    case [P || P = #pending{msg_id=undefined,op=undefined} <- Pending] of
 		[#pending{tref=TRef,
+			  ref=Ref,
 			  msg_id=undefined,
 			  op=undefined,
 			  caller=Caller}] ->
-		    _ = timer:cancel(TRef),
+		    cancel_request_timer(Ref,TRef),
 		    ct_gen_conn:return(Caller,E),
 		    {noreply,State#state{pending=[]}};
 		_ ->
