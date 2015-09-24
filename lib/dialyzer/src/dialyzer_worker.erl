@@ -21,7 +21,7 @@
 
 -module(dialyzer_worker).
 
--export([launch/4, sequential/4]).
+-export([launch/4]).
 
 -export_type([worker/0]).
 
@@ -30,7 +30,6 @@
 -type mode()        :: dialyzer_coordinator:mode().
 -type coordinator() :: dialyzer_coordinator:coordinator().
 -type init_data()   :: dialyzer_coordinator:init_data().
--type result()      :: dialyzer_coordinator:result().
 
 -record(state, {
 	  mode             :: mode(),
@@ -168,23 +167,4 @@ continue_compilation(Label, Data) ->
   dialyzer_analysis_callgraph:continue_compilation(Label, Data).
 
 collect_warnings(#state{job = Job, init_data = InitData}) ->
-  dialyzer_succ_typings:collect_warnings(Job, InitData).
-
-%%------------------------------------------------------------------------------
-
--type extra() :: label() | 'unused'.
-
--spec sequential(mode(), [mfa_or_funlbl()], init_data(), extra()) -> result().
-
-sequential('compile', Job, InitData, Extra) ->
-  case dialyzer_analysis_callgraph:start_compilation(Job, InitData) of
-    {ok, EstimatedSize, Data} ->
-      {EstimatedSize, continue_compilation(Extra, Data)};
-    {error, _Reason} = Error -> {0, Error}
-  end;
-sequential('typesig', Job, InitData, _Extra) ->
-  dialyzer_succ_typings:find_succ_types_for_scc(Job, InitData);
-sequential('dataflow', Job, InitData, _Extra) ->
-  dialyzer_succ_typings:refine_one_module(Job, InitData);
-sequential('warnings', Job, InitData, _Extra) ->
   dialyzer_succ_typings:collect_warnings(Job, InitData).
