@@ -25,7 +25,7 @@
 
 -export_type([worker/0]).
 
--type worker() :: pid(). %%opaque
+-opaque worker() :: pid().
 
 -type mode()        :: dialyzer_coordinator:mode().
 -type coordinator() :: dialyzer_coordinator:coordinator().
@@ -87,7 +87,7 @@ loop(waiting, #state{mode = Mode} = State) when
   NewState = wait_for_success_typings(State),
   loop(updating, NewState);
 loop(running, #state{mode = 'compile'} = State) ->
-  dialyzer_coordinator:wait_activation(),
+  dialyzer_coordinator:request_activation(State#state.coordinator),
   ?debug("Compile: ~s\n",[State#state.job]),
   Result =
     case dialyzer_analysis_callgraph:start_compilation(State#state.job,
@@ -101,7 +101,7 @@ loop(running, #state{mode = 'compile'} = State) ->
     end,
   report_to_coordinator(Result, State);
 loop(running, #state{mode = 'warnings'} = State) ->
-  dialyzer_coordinator:wait_activation(),
+  dialyzer_coordinator:request_activation(State#state.coordinator),
   ?debug("Warning: ~s\n",[State#state.job]),
   Result = dialyzer_succ_typings:collect_warnings(State#state.job,
                                                   State#state.init_data),
