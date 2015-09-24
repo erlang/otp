@@ -117,7 +117,8 @@
         <v>Options = [Option]</v> 
         <v>Option = {ipv6_host_with_brackets, boolean()} | 
                     {scheme_defaults, scheme_defaults()} |
-                    {fragment, boolean()}]</v>
+                    {fragment, boolean()} |
+                    {schema_validation_fun, fun()}]</v>
         <v>Result = {Scheme, UserInfo, Host, Port, Path, Query} |
                     {Scheme, UserInfo, Host, Port, Path, Query, Fragment}</v>
 	<v>UserInfo = user_info()</v>
@@ -140,6 +141,16 @@
 
         <p>If the fragment option is <c>true</c>, the URI fragment is returned as
           part of the parsing result, otherwise it is ignored.</p>
+
+        <p>Scheme validation fun is to be defined as follows:
+
+	    <code>
+fun(SchemeStr :: string()) ->
+	valid |	{error, Reason :: term()}.
+	    </code>
+
+        It is called before scheme string gets converted into scheme atom and
+        thus possible atom leak could be prevented</p>
 
         <marker id="encode"></marker>
       </desc>

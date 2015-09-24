@@ -49,7 +49,8 @@ all() ->
      queries,
      fragments,
      escaped,
-     hexed_query
+     hexed_query,
+     scheme_validation
     ].
 
 %%--------------------------------------------------------------------
@@ -174,6 +175,26 @@ hexed_query(Config) when is_list(Config) ->
     verify_uri(URI1, Verify1),
     verify_uri(URI2, Verify2),
     verify_uri(URI3, Verify3).
+
+scheme_validation(Config) when is_list(Config) ->
+    {ok, {http,[],"localhost",80,"/",""}} =
+	http_uri:parse("http://localhost#fragment"),
+
+    ValidationFun =
+	fun("http") -> valid;
+	   (_) -> {error, bad_scheme}
+	end,
+
+    {ok, {http,[],"localhost",80,"/",""}} =
+	http_uri:parse("http://localhost#fragment",
+		       [{scheme_validation_fun, ValidationFun}]),
+    {error, bad_scheme} =
+	http_uri:parse("https://localhost#fragment",
+		       [{scheme_validation_fun, ValidationFun}]),
+    %% non-fun scheme_validation_fun works as no option passed
+    {ok, {https,[],"localhost",443,"/",""}} =
+	http_uri:parse("https://localhost#fragment",
+		       [{scheme_validation_fun, none}]).
 
 
 %%--------------------------------------------------------------------
