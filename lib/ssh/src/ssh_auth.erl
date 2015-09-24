@@ -299,8 +299,7 @@ handle_userauth_request(#ssh_msg_userauth_request{user = User,
 							>>
 						},
 	    {not_authorized, {User, undefined}, 
-	     ssh_transport:ssh_packet(Msg, Ssh#ssh{user = User,
-						   kb_data = Msg
+	     ssh_transport:ssh_packet(Msg, Ssh#ssh{user = User
 						  })}
     end;
 
@@ -333,7 +332,6 @@ handle_userauth_info_response(#ssh_msg_userauth_info_response{num_responses = 1,
 							      data = <<?UINT32(Sz), Password:Sz/binary>>},
 			      #ssh{opts = Opts,
 				   kb_tries_left = KbTriesLeft,
-				   kb_data = InfoMsg,
 				   user = User,
 				   userauth_supported_methods = Methods} = Ssh) ->
     case check_password(User, unicode:characters_to_list(Password), Opts) of
@@ -345,8 +343,7 @@ handle_userauth_info_response(#ssh_msg_userauth_info_response{num_responses = 1,
 	     ssh_transport:ssh_packet(#ssh_msg_userauth_failure{
 					 authentications = Methods,
 					 partial_success = false}, 
-				      Ssh#ssh{kb_data = undefined,
-					      kb_tries_left = max(KbTriesLeft-1, 0)}
+				      Ssh#ssh{kb_tries_left = max(KbTriesLeft-1, 0)}
 				     )}
     end;
 
