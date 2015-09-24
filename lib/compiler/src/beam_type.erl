@@ -618,7 +618,6 @@ checkerror(Is) ->
     checkerror_1(Is, Is).
 
 checkerror_1([{set,[],[],fcheckerror}|_], OrigIs) -> OrigIs;
-checkerror_1([{set,[],[],fclearerror}|_], OrigIs) -> OrigIs;
 checkerror_1([{set,_,_,{bif,fadd,_}}|_], OrigIs) -> checkerror_2(OrigIs);
 checkerror_1([{set,_,_,{bif,fsub,_}}|_], OrigIs) -> checkerror_2(OrigIs);
 checkerror_1([{set,_,_,{bif,fmul,_}}|_], OrigIs) -> checkerror_2(OrigIs);
