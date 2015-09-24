@@ -960,7 +960,7 @@
           <c>demonitor(<anno>MonitorRef</anno>)</c> if this cleanup is wanted.</p>
         <note>
           <p>Prior to OTP release R11B (erts version 5.5) <c>demonitor/1</c>
-            behaved completely asynchronous, i.e., the monitor was active
+            behaved completely asynchronously, i.e., the monitor was active
             until the "demonitor signal" reached the monitored entity. This
             had one undesirable effect, though. You could never know when
             you were guaranteed <em>not</em> to receive a <c>DOWN</c> message
@@ -7420,7 +7420,7 @@ timestamp() ->
     Secs = ErlangSystemTime div 1000000 - MegaSecs*1000000,
     MicroSecs = ErlangSystemTime rem 1000000,
     {MegaSecs, Secs, MicroSecs}.</code>
-        <p>It however use a native implementation which does
+        <p>It, however, uses a native implementation which does
 	not build garbage on the heap and with slightly better
 	performance.</p>
 
@@ -8321,7 +8321,7 @@ timestamp() ->
     end</code>
         <note>
           <p>Prior to OTP release R11B (erts version 5.5) <c>unlink/1</c>
-            behaved completely asynchronous, i.e., the link was active
+            behaved completely asynchronously, i.e., the link was active
             until the "unlink signal" reached the linked entity. This
             had one undesirable effect, though. You could never know when
             you were guaranteed <em>not</em> to be effected by the link.</p>

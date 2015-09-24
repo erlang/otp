@@ -1193,8 +1193,8 @@
           and <c>read_line/1</c> are the only ways to read from a file
           opened in raw mode (although they work for normally opened
           files, too).</p>
-	  <p>For files where <c>encoding</c> is set to something else than <c>latin1</c>, one character might be represented by more than one byte on the file. The parameter <c>Number</c> always denotes the number of <em>characters</em> read from the file, why the position in the file might be moved a lot more than this number when reading a Unicode file.</p>
-	  <p>Also if <c>encoding</c> is set to something else than <c>latin1</c>, the <c>read/3</c> call will fail if the data contains characters larger than 255, why the <seealso marker="stdlib:io">io(3)</seealso> module is to be preferred when reading such a file.</p> 
+	  <p>For files where <c>encoding</c> is set to something else than <c>latin1</c>, one character might be represented by more than one byte on the file. The parameter <c>Number</c> always denotes the number of <em>characters</em> read from the file, while the position in the file might be moved much more than this number when reading a Unicode file.</p>
+	  <p>Also, if <c>encoding</c> is set to something else than <c>latin1</c>, the <c>read/3</c> call will fail if the data contains characters larger than 255, which is why the <seealso marker="stdlib:io">io(3)</seealso> module is to be preferred when reading such a file.</p> 
 	  <p>The function returns:</p>
         <taglist>
           <tag><c>{ok, <anno>Data</anno>}</c></tag>
