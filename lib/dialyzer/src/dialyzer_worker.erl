@@ -70,8 +70,8 @@ launch(Mode, Job, InitData, Coordinator) ->
 loop(updating, State) ->
   ?debug("Update: ~p\n",[State#state.job]),
   NextStatus =
-    case waits_more_success_typings(State) of
-      true -> waiting;
+    case State#state.depends_on =/= [] of
+      true -> waiting; %% Waiting on more success typings.
       false -> running
     end,
   loop(NextStatus, State);
@@ -87,10 +87,12 @@ loop(running, #state{mode = 'compile'} = State) ->
   dialyzer_coordinator:wait_activation(),
   ?debug("Compile: ~s\n",[State#state.job]),
   Result =
-    case start_compilation(State) of
+    case dialyzer_analysis_callgraph:start_compilation(State#state.job,
+                                                       State#state.init_data) of
       {ok, EstimatedSize, Data} ->
-	Label = ask_coordinator_for_label(EstimatedSize, State),
-	continue_compilation(Label, Data);
+	Label = dialyzer_coordinator:get_next_label(EstimatedSize,
+                                                    State#state.coordinator),
+	dialyzer_analysis_callgraph:continue_compilation(Label, Data);
       {error, _Reason} = Error ->
 	Error
     end,
@@ -98,18 +100,24 @@ loop(running, #state{mode = 'compile'} = State) ->
 loop(running, #state{mode = 'warnings'} = State) ->
   dialyzer_coordinator:wait_activation(),
   ?debug("Warning: ~s\n",[State#state.job]),
-  Result = collect_warnings(State),
+  Result = dialyzer_succ_typings:collect_warnings(State#state.job,
+                                                  State#state.init_data),
   report_to_coordinator(Result, State);
 loop(running, #state{mode = Mode} = State) when
     Mode =:= 'typesig'; Mode =:= 'dataflow' ->
-  request_activation(State),
+  dialyzer_coordinator:request_activation(State#state.coordinator),
   ?debug("Run: ~p\n",[State#state.job]),
-  NotFixpoint = do_work(State),
+  NotFixpoint =
+    case Mode of
+      typesig ->
+        dialyzer_succ_typings:find_succ_types_for_scc(State#state.job,
+                                                      State#state.init_data);
+      dataflow ->
+        dialyzer_succ_typings:refine_one_module(State#state.job,
+                                                State#state.init_data)
+    end,
   ok = broadcast_done(State),
   report_to_coordinator(NotFixpoint, State).
-
-waits_more_success_typings(#state{depends_on = Depends}) ->
-  Depends =/= [].
 
 broadcast_done(#state{job = SCC, init_data = InitData,
 		      coordinator = Coordinator}) ->
@@ -144,27 +152,6 @@ wait_for_success_typings(#state{depends_on = DependsOn} = State) ->
       State
   end.
 
-request_activation(#state{coordinator = Coordinator}) ->
-  dialyzer_coordinator:request_activation(Coordinator).
-
-do_work(#state{mode = Mode, job = Job, init_data = InitData}) ->
-  case Mode of
-    typesig -> dialyzer_succ_typings:find_succ_types_for_scc(Job, InitData);
-    dataflow -> dialyzer_succ_typings:refine_one_module(Job, InitData)
-  end.
-
 report_to_coordinator(Result, #state{job = Job, coordinator = Coordinator}) ->
   ?debug("Done: ~p\n",[Job]),
   dialyzer_coordinator:job_done(Job, Result, Coordinator).
-
-start_compilation(#state{job = Job, init_data = InitData}) ->
-  dialyzer_analysis_callgraph:start_compilation(Job, InitData).
-
-ask_coordinator_for_label(EstimatedSize, #state{coordinator = Coordinator}) ->
-  dialyzer_coordinator:get_next_label(EstimatedSize, Coordinator).
-
-continue_compilation(Label, Data) ->
-  dialyzer_analysis_callgraph:continue_compilation(Label, Data).
-
-collect_warnings(#state{job = Job, init_data = InitData}) ->
-  dialyzer_succ_typings:collect_warnings(Job, InitData).
